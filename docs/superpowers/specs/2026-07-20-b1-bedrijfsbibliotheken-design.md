@@ -7,7 +7,7 @@ Aanleiding: conceptplan lagen & federatie (spoor B1) + [issue #19](https://githu
 
 Eén centrale plek per **bedrijf** waar kalenders en resources leven, buiten de projecten om. Projecten van dat bedrijf putten eruit; wat een project gebruikt wordt een **bewerkbare kopie mét herkomststempel** in het project zelf. Een gedeeld projectbestand is daardoor altijd compleet en zelfstandig ("gebeiteld": zelfstandig, níet read-only).
 
-Niet in deze spec (bewust): het bezettings-/dubbelbezettingsoverzicht over open projecten (vervolg "B1b", bouwt op de herkomststempels uit deze spec); gedeelde opslag/sync tussen machines (zie §8).
+Niet in deze spec (bewust): het bezettings-/dubbelbezettingsoverzicht over open projecten (vervolg "B1b", bouwt op de herkomststempels uit deze spec — en blijft strikt binnen één bedrijf/pool: bedrijfsoverstijgende histogrammen/overzichten komen er niet, besluit user 2026-07-20); gedeelde opslag/sync tussen machines (zie §8).
 
 ## 2. Kernconcepten
 
