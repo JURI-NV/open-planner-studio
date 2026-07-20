@@ -46,11 +46,12 @@ Alle teksten via `t(...)`, 14 locales. **Documentatie-eis (user, 2026-07-20):** 
 
 ## 8. Gedocumenteerde beperkingen (bewust niet opgelost in B1)
 
-Alle drie herleidbaar tot dezelfde wortel — geen gedeelde opslag tussen machines (local-first, geen server) — en op te lossen in één benoemd vervolgproject **"gedeelde opslag/sync"**:
+Beide herleidbaar tot dezelfde wortel — geen gedeelde opslag tussen machines (local-first, geen server) — en op te lossen in één benoemd vervolgproject **"gedeelde opslag/sync"**:
 
 1. **Twee planners, zelfde bedrijf**: pools kunnen uiteenlopen; import-demping (§4) waarschuwt maar kan divergentie niet voorkomen.
-2. **Resource in meerdere bedrijfspools** (onderaannemer voor bedrijf A én B): twee losse identiteiten, dubbelbezetting over bedrijven heen onzichtbaar. Verzachting: poolgranulariteit is een user-keuze (holding ⇒ één gezamenlijke pool), zie §7.
-3. **Bezettingsoverzicht ziet alleen deze machine** (volle ambitie issue #19): boekingen op andermans machine bestaan lokaal niet.
+2. **Bezettingsoverzicht ziet alleen deze machine** (volle ambitie issue #19): boekingen op andermans machine bestaan lokaal niet.
+
+*Notitie (besluit user, 2026-07-20): dubbelbezetting van een resource tussen lósse organisaties (bijv. een onderaannemer die voor twee aannemers werkt) is bewust géén probleem van ons systeem — dat is het planningsprobleem van die resource zelf. Het speelt alleen binnen één gebruiker die meerdere bedrijven beheert, en dáár is de oplossing organisatorisch: kies één gezamenlijke pool (§7).*
 
 ## 9. Testen
 
