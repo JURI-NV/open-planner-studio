@@ -56,14 +56,32 @@ Basisplanning + schakelbare overlay: "winterkalender", "alternatieve bezetting",
 - Eerlijke waarschuwing: dit raakt snapshot-undo, `runCPM`, de renderer en de IFC-round-trip tegelijk. Baselines (read-only fotomomenten) bestaan al; scenario's zijn *bewerkbare* varianten — een wezenlijk zwaarder concept.
 - Voorstel: B2 pas ontwerpen ná B1, en starten met **alleen kalender-overrides** (kleinste zinvolle laag: zelfde taken, andere kalenders ⇒ andere data) vóór generieke plan-overrides.
 
-## 5. Spoor C — `.ifcx`-experiment (bewust geparkeerd)
+## 5. Spoor C — `.ifcx`-experiment (geparkeerd voor het planningsdomein, maar de familie shipt de serialisatielaag al)
 
-Geen bouwwerk nu: schema is alpha, geen enkele consument, geen procesdomein, buildingSMART vraagt om geen derivaten. Wel goedkoop voorsorteren:
+Voor óns domein blijft de conclusie: geen bouwwerk nu — er is geen procesdomein in IFC5 en niets dat onze planningslaag kan lezen. Maar de zusterprojecten-scan (§6) nuanceert het beeld: **open-calc-studio en Open-Calculations-Studio schrijven en lezen IFCX al productief** (naast IFC 4.3 STEP). De serialisatielaag is in de familie dus geen speculatie meer; alleen het planningsdomein erin ontbreekt.
 
+- Consequentie: als OPS ooit `.ifcx` oppakt, is dat geen greenfield — hergebruik de familie-conventies (namespaced keys als `ifcx::ocs::…`; wij zouden `ifcx::ops::…` voeren) en de bestaande generator/importer-patronen uit open-calc-studio als referentie. Geen eigen namespacing verzinnen die daarmee botst.
 - Sporen A en B leveren exact de datastructuur (planning als laag met verwijzingen naar extern model + benoemde overlay-sets) die 1-op-1 op een toekomstig `.ifcx`-lagenmodel past. Dat is de echte voorbereiding.
 - Monitorsignalen (halfjaarlijkse check): proces-/taakklassen in de IFC5-voorbeelden of -schema's, een `process`-module op ifcx.dev, issues/labels over het tijddomein, uitslag van de Standards Committee-stemming (gesloten 8-8-2025, uitkomst onbekend).
 
-## 6. Fasering & volgorde
+## 6. Aansluiting bij de OpenAEC-zusterprojecten (scan 2026-07-20)
+
+Alle 50 org-repo's geïnventariseerd; 10 relevante publieke repo's gecloned en doorzocht (bewijs met bestandspaden in de scanresultaten; private repo's als `Open-Infra`, `openaec-geonl`, `open-energy-studio` konden niet worden ingezien — mogelijk relevant, onbevestigd).
+
+**Wat er al bestaat en wat wij hergebruiken:**
+
+| Conventie | Waar in de familie | Betekenis voor dit plan |
+|---|---|---|
+| **Federatie via IFC GlobalId** | open-calc-studio `src/services/ifc/ifcxFolder.ts` (mapfederatie: siblings gekoppeld op gedeelde `ifcGuid`); OpenAEC-BIM-validator `viewer/src/types/project.ts` (multi-model project, elementen gekeyd op `globalId` + `modelId`, per-model zichtbaarheid) | Spoor A sluit naadloos aan; `analyzeIfcxFolder` en het validator-datamodel zijn concrete startpunten voor A1/A2. GlobalId is de familie-conventie — bewust kiezen boven monty's Revit-`Mark`-sleutel. |
+| **Bibliotheken = app-niveau opslag, níet in de project-round-trip** | open-calc-studio `codeLibrarySlice.ts` (codebibliotheek in localStorage, app-breed) | Bevestigt B1a-voorstel: de bibliotheek zelf leeft op app-niveau; alleen de gebruikte kopie (met herkomststempel) gaat mee in het project-IFC. Zo blijft "IFC = native format, geen sidecar" intact. |
+| **Distributie via `catalog.json` op GitHub raw (30-min cache)** | open-calc-studio én OPS delen al een identieke `CatalogEntry`-shape | Wil je bibliotheken (bedrijfskalenders/resourcepools) ooit publiek delen, dan via ditzelfde mechanisme — geen nieuw distributiekanaal. |
+| **IFCX naast IFC 4.3 STEP** | Open-Calculations-Studio exporteert beide vanuit dezelfde bron (`packages/core/src/ifc-generator.ts`) | Bewijs dat dual-format haalbaar is; relevant zodra spoor C ontwaakt (zie §5). |
+| **4D/model-koppeling bestaat één keer in de familie** | monty-ifc-viewer (`src/addons/bouwvolgorde/`): fases↔elementen via Speckle + Revit-`Mark` | Referentiepunt, geen voorbeeld: Speckle-afhankelijk en `Mark`-gebaseerd — wij blijven IFC-4.3-native met GlobalId. Wel het bestaande "planning ↔ 3D"-ijkpunt om tegen te toetsen. |
+| **Scenario's/overlays: geen precedent** | niemand (open-3d-studio heeft alleen per-model-zichtbaarheid; fasering staat daar op de roadmap) | Spoor B2 is greenfield binnen de familie — geen conventie om te volgen, dus ontwerpen we zelf, en mogelijk wordt óns ontwerp de familie-conventie. |
+
+**Praktisch hergebruik bij nieuwe onderdelen:** design tokens uit `@openaec/ui` en de org-brede conventie-CI (`check-conventions.yml` via repo-cleaner) meenemen waar van toepassing.
+
+## 7. Fasering & volgorde
 
 ```
 A1 → A2 → A3          (interop-spoor; A2 is de kern, A3 kan wachten)
@@ -73,7 +91,7 @@ C: monitoren (geen bouw)
 
 A en B zijn onafhankelijk; B1 is het kleinste zelfstandig waardevolle stuk en het directe antwoord op de kalender/resources-vraag. Voorgestelde eerste stap na akkoord: **B1 + A1 samen ontwerpen** (beide zijn "extern bestand koppelen" — één UI-taal, één herkomst-model), dan per stuk een echt implementatieplan met testplan.
 
-## 7. Impact per gebied (grof)
+## 8. Impact per gebied (grof)
 
 | Gebied | A1/A2 | B1 | B2 |
 |---|---|---|---|
@@ -85,9 +103,9 @@ A en B zijn onafhankelijk; B1 is het kleinste zelfstandig waardevolle stuk en he
 
 Risico's: GUID-stabiliteit bij externe modellen (A3 is daarom geen luxe), bibliotheek-drift (gedempt door kopie-met-stempel), en B2-scope-creep (gedempt door kalender-only start).
 
-## 8. Beslispunten voor akkoord
+## 9. Beslispunten voor akkoord
 
-1. Volgorde akkoord? (B1 + A1 eerst, B2 later, C nooit-nu)
-2. B1a: kopie-met-herkomststempel als bibliotheekmodel?
-3. A: elementboom-koppeling zónder 3D-weergave als bewuste scopegrens?
-4. Bibliotheekopslag: `appDataDir` (app-beheerd) of user-gekozen map (deelbaar via netwerk/git)?
+1. Volgorde akkoord? (B1 + A1 eerst, B2 later, C blijft monitoren — maar met de familie-namespace-conventie als vastgelegd uitgangspunt)
+2. B1a: kopie-met-herkomststempel als bibliotheekmodel? (gesterkt door het familie-precedent: bibliotheek op app-niveau, alleen de kopie in de project-round-trip)
+3. A: elementboom-koppeling zónder 3D-weergave als bewuste scopegrens? (monty's Speckle-route is het alternatief; voorstel: niet volgen)
+4. Bibliotheekopslag: app-beheerd (`appDataDir`/localStorage, familie-conventie) of user-gekozen map (deelbaar via netwerk/git)? Voorstel: app-beheerd starten, export/import als deelmechanisme, `catalog.json`-distributie pas als daar vraag naar is.
