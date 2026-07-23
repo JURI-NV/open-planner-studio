@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Building2, Plus, Trash2, Star, Download, Upload, ArrowUpFromLine } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
@@ -26,6 +26,16 @@ export function LibrarySection() {
   const [selectedId, setSelectedId] = useState(defaultCompanyId);
   const selected = companies.find(c => c.id === selectedId) ?? companies[0];
   const pool = pools[selected.id];
+
+  // Bedrijfsnaam als lokale draft (critreview taak 11): commit pas op blur/Enter i.p.v. een
+  // store-write (en dus een undo-stap + persist) per toetsaanslag. Wisselt de gebruiker van
+  // bedrijf, dan volgt de draft de nieuw geselecteerde naam.
+  const [nameDraft, setNameDraft] = useState(selected.name);
+  useEffect(() => setNameDraft(selected.name), [selected.id, selected.name]);
+  const commitName = () => {
+    if (nameDraft.trim() !== '' && nameDraft !== selected.name) renameCompany(selected.id, nameDraft);
+    else setNameDraft(selected.name);
+  };
 
   const onExport = async () => {
     const content = exportPoolIFC(selected.id);
@@ -61,8 +71,10 @@ export function LibrarySection() {
           <div className="library-detail-head">
             <input
               className="library-name-input"
-              value={selected.name}
-              onChange={e => renameCompany(selected.id, e.target.value)}
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               aria-label={t('companyLibrary.companyName')}
             />
             <div className="library-detail-actions">

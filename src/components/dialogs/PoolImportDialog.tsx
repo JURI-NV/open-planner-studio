@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, X } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
@@ -24,6 +24,16 @@ export function PoolImportDialog() {
   const [companyId, setCompanyId] = useState(defaultCompanyId);
   const [imported, setImported] = useState<CompanyPool | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Clamp bij openen naar het actuele standaardbedrijf (of het eerste geldige bedrijf) — voorkomt
+  // een stille no-op-import als de voorselectie inmiddels een verwijderd bedrijf betrof
+  // (critreview taak 11).
+  useEffect(() => {
+    if (!open) return;
+    const valid = companies.some(c => c.id === defaultCompanyId) ? defaultCompanyId : companies[0]?.id;
+    if (valid) setCompanyId(valid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
   const close = () => { setImported(null); setError(null); setUI({ showPoolImportDialog: false }); };
@@ -64,16 +74,20 @@ export function PoolImportDialog() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 text-xs">
-        <label className="flex flex-col gap-1">
-          <span className="text-text-secondary">{t('companyLibrary.importInto')}</span>
-          <select
-            value={companyId}
-            onChange={e => setCompanyId(e.target.value)}
-            className="input !text-xs !px-2.5 !py-1.5"
-          >
-            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </label>
+        {/* Bedrijfsselector alleen bij ≥2 bedrijven (spec §2) — eenpitters zien het bedrijvenconcept
+            niet; met 1 bedrijf importeert de dialoog stilzwijgend in dat ene bedrijf. */}
+        {companies.length >= 2 && (
+          <label className="flex flex-col gap-1">
+            <span className="text-text-secondary">{t('companyLibrary.importInto')}</span>
+            <select
+              value={companyId}
+              onChange={e => setCompanyId(e.target.value)}
+              className="input !text-xs !px-2.5 !py-1.5"
+            >
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        )}
 
         <button onClick={pick} className="btn btn--sm btn--secondary self-start">
           {t('companyLibrary.chooseFile')}
