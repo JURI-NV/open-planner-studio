@@ -325,8 +325,12 @@ function ExamplesSection() {
 
 function ExportSection() {
   const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const exportAs = useAppStore(s => s.exportAs);
+  const exportProjectWithPool = useAppStore(s => s.exportProjectWithPool);
   const setUI = useAppStore(s => s.setUI);
+  const companyId = useAppStore(s => s.project.companyId);
+  const [alsoPool, setAlsoPool] = useState(false);
 
   const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = [
     { format: 'csv',   label: tMenu('export.csvLabel'),   desc: tMenu('export.csvDesc'),   icon: 'CSV' },
@@ -336,7 +340,13 @@ function ExportSection() {
   ];
 
   const handleExport = (format: ExportFormat) => {
-    void exportAs(format);
+    // Pool-ernaast geldt alleen voor de IFC-kaart (spec §4: het is een IFC-tweede-bestand, geen
+    // embed in CSV/MSPDI/P6). Bij een ander formaat blijft het bestaande pad ongemoeid.
+    if (format === 'ifc' && alsoPool) {
+      void exportProjectWithPool();
+    } else {
+      void exportAs(format);
+    }
     setUI({ activeRibbonTab: 'start' });
   };
 
@@ -355,6 +365,12 @@ function ExportSection() {
           </button>
         ))}
       </div>
+      {companyId && (
+        <label className="flex items-center gap-2 mt-1 text-xs">
+          <input type="checkbox" checked={alsoPool} onChange={e => setAlsoPool(e.target.checked)} className="accent-accent" />
+          <span>{tCommon('companyLibrary.exportWithPool')}</span>
+        </label>
+      )}
     </>
   );
 }

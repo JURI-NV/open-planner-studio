@@ -70,6 +70,9 @@ export interface FileSlice {
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
   exportAs: (format: ExportFormat) => Promise<void>;
+  /** Exporteer het project + (spec §4) schrijf de gebonden bedrijfs-pool als tweede, LOS bestand
+   *  ernaast. Géén embed. No-op op de pool-kant als het project niet aan een bedrijf gebonden is. */
+  exportProjectWithPool: () => Promise<void>;
   /** App-globale MRU-lijst van recente bestanden (spec §6). Async gehydrateerd bij opstart. */
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
@@ -274,6 +277,21 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       const outcome = await saveFileDialog(`${state.project.name || 'project'}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
+    },
+
+    exportProjectWithPool: async () => {
+      const state = get();
+      // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
+      const projectContent = writeIFC(buildWriteIFCInput(state));
+      const base = state.project.name || 'project';
+      const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC', extensions: ['ifc'] }]);
+      if (!outcome) return;
+      // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
+      const companyId = state.project.companyId;
+      if (!companyId) return;
+      const poolContent = state.exportPoolIFC(companyId);
+      if (!poolContent) return;
+      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC', extensions: ['ifc'] }]);
     },
 
     recentFiles: [],
