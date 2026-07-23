@@ -1,8 +1,8 @@
-# Spec — B1.1: het bedrijfscentrische model (v2, na drievoudige critreview)
+# Spec — B1.1: het bedrijfscentrische model (v3, na critreviews + edge-case-jacht)
 
-Datum: 2026-07-23 · Status: ontwerp v2, ter review user · Vervangt de gebruikerservaring van B1; bouwt op het B1-fundament.
-v2 verwerkt de bevindingen van drie onafhankelijke reviews (2× modelgetrouwheid, 1× uitvoerbaarheid);
-de genomen besluiten zijn gemarkeerd met **(besluit)**.
+Datum: 2026-07-23 · Status: ontwerp v3, ter akkoord user · Vervangt de gebruikerservaring van B1; bouwt op het B1-fundament.
+v2 verwerkte drie critreviews (2× modelgetrouwheid, 1× uitvoerbaarheid); v3 verwerkt twee
+edge-case-jachten (gebruikersflows + techniek/data). Besluiten gemarkeerd met **(besluit)**.
 
 ## 1. Kernprincipe (de omkering)
 
@@ -14,162 +14,180 @@ gebruiker niet meer — die choreografie zakt onder de motorkap.
 
 ## 2. Concepten
 
-- **Koppeling project ↔ bedrijf**: zichtbaar en expliciet, ALTIJD — óók bij één bedrijf **(besluit,
-  lost de eenpitter-botsing op die beide getrouwheidsreviews vonden)**: de wizard en Projectinfo
-  tonen steeds "Bedrijf: Mijn bedrijf ▾ / geen (los project)". Eén regel, geen concept-uitleg; de
-  B1-regel "verberg bedrijfs-UI bij ≤1 bedrijf" vervalt voor déze ene plek en blijft gelden voor
-  alle overige selectors (import, herkenningsstap). Nooit meer een koppeling die stiekem ontstaat.
-- **De koppeling pint op de bedrijfsentiteit** (`companyId`) **(besluit)**. Het bestaande
-  vrije-tekstveld "company" in Projectinfo is een ánder ding (IFC-opdrachtgever/organisatie-
-  metadata); dat blijft bestaan maar krijgt een ondubbelzinnig label ("Opdrachtgever/organisatie")
-  zodat de twee nooit verward worden.
-- **Los project** (geen bedrijf): heeft géén bibliotheek; alles leeft in het projectbestand. Dit is
-  exact de toestand van een geëxporteerd/ontvangen bestand — één "los"-toestand, geen apart
-  mechanisme. Los mag, gekoppeld is de norm.
-- **Identiteitsstempels blijven onder de motorkap** (herkomst {companyId, libraryItemId,
-  poolVersion}) — voor opslaan, delen, verversen en herkennen. De gebruiker ziet ze nooit.
+- **Koppeling project ↔ bedrijf**: zichtbaar en expliciet, ALTIJD — óók bij één bedrijf **(besluit)**:
+  wizard en Projectinfo tonen steeds "Bedrijf: Mijn bedrijf ▾ / geen (los project)". **Default =
+  het standaardbedrijf voorgeselecteerd (besluit, edge-jacht):** gekoppeld is de norm; de eenpitter
+  merkt daar niets van (een lege/kleine pool triggert nooit vragen of verversingen — alle §3/§5-
+  mechaniek is inhoudsgedreven). De B1-regel "verberg bedrijfs-UI bij ≤1 bedrijf" vervalt alleen
+  voor deze ene regel en blijft gelden voor alle overige selectors.
+- **De koppeling pint op `companyId` (besluit)**; het bestaande vrije-tekstveld "company" is
+  IFC-opdrachtgever-metadata en krijgt het label "Opdrachtgever/organisatie".
+- **Los project**: geen bibliotheek; alles leeft in het bestand — exact de toestand van een
+  geëxporteerd/ontvangen bestand. Eén "los"-toestand, geen apart mechanisme.
+- **Stempels onder de motorkap**: herkomst {companyId, libraryItemId, poolVersion, **syncedHash**}.
+  `syncedHash` **(besluit, edge-jacht)** is een hash van de gevolgde velden op het moment van
+  materialisatie/laatste verversing — hiermee is "het bestand is extern bewerkt" te onderscheiden
+  van "het bestand loopt gewoon achter op de pool" (§3). Stempels zonder hash (B1-bestanden):
+  veilige kant — behandelen als mogelijk extern bewerkt.
+- **Stempel-scope (besluit, edge-jacht):** alle verversings-, markerings- en afwijkingsmechaniek
+  geldt uitsluitend voor items waarvan `stamp.companyId === project.companyId`. Items met een
+  vreemd stempel (geplakt uit een ander document, ontvangen bestand) doen nérgens aan mee en tonen
+  géén "niet meer in het bedrijf"-label — ze zijn gewoon projectinhoud.
 
-## 3. Waarheid: het verversingsmodel **(besluit — de kernkeuze uit de uitvoerbaarheidsreview)**
+## 3. Waarheid: het verversingsmodel
 
-"Pool = waarheid" wordt NIET gerealiseerd door overal live uit de pool te lezen (dat zou zes-plus
-leesplekken, de extensie-API en het store-model breken), en NIET door de hele pool in `s.resources`
-te spiegelen (dat zou de golden rule bedreigen). Het wordt **kopie-met-verversing op grenzen**:
+Kopie-met-verversing op grenzen; consumenten blijven `s.resources` lezen; `s.resources` bevat
+nooit de hele pool (alleen gematerialiseerde items) — golden rule en writer/reader onaangeroerd.
 
-- Projectresources blijven zoals nu kopieën in de per-document-store; álle bestaande consumenten
-  (histogram, leveling, tabel, renderer, extensies, writer) blijven ongewijzigd daaruit lezen.
-- Gestempelde kopieën worden **ververst vanuit de pool** op drie momenten: (1) bij het openen van
-  een gekoppeld bestand, (2) bij het activeren van een geopend document (documentwissel), en
-  (3) direct, voor het actieve document én alle geopende documenten, wanneer een poolitem wordt
-  bewerkt of verwijderd. Effect voor de gebruiker: "wijzig het tarief in het bedrijf en het geldt
-  overal" — zonder live-koppelingsarchitectuur.
-- Verversing is een **dirty-zonder-undo**-mutatie (bestaande patroon): het document wordt vuil
-  (zijn inhoud is echt veranderd), er komt geen undo-stap bij. Ctrl+Z na een verversing kan de
-  oude waarden tijdelijk terugbrengen; de eerstvolgende grens ververst opnieuw (zelfhelend,
-  gedocumenteerd gedrag).
-- `s.resources` bevat **nooit** de hele pool — alleen gematerialiseerde items (§4). De golden rule
-  en de writer/reader blijven daardoor onaangeroerd; er is geen pre-save-filter nodig.
-- Poolitem verwijderd ⇒ de projectkopie blijft functioneren op zijn laatste waarden (geen
-  dataverlies), in de projectweergave discreet gemarkeerd "niet meer in het bedrijf".
-- **Afwijkingen bij openen: vragen, niet stil verversen (besluit user, 2026-07-23).** Wijken bij
-  het openen van een bestand de waarden van gestempelde items af van de pool (een collega wijzigde
-  bijv. een tarief in het rondgestuurde bestand — zoiets doet iemand niet zonder reden), dan toont
-  de app éénmalig een afwijkingenoverzicht met per item (of in bulk) twee keuzes: **bedrijfswaarden
-  gebruiken** (ververs het bestand) of **bestandswaarden overnemen in het bedrijf** (de pool wordt
-  bijgewerkt en de nieuwe waarde geldt overal — één waarheid blijft in beide richtingen intact).
-  Geen afwijkingen ⇒ geen vraag, gewoon openen. De verversingen op de andere twee grenzen
-  (documentwissel, pool-edit) blijven stil — daar kán geen externe wijziging in zitten. Het
-  overzicht deelt zijn vormtaal met de herkenningsstap (§5): afwijking tonen, gebruiker beslist.
+**De grenzen** (alle verversingen idempotent via de bestaande 'changed'-guard):
+1. **Openen van een gekoppeld bestand** — mét afwijkingsonderscheid, zie hieronder.
+2. **Documentwissel** (activeren van een geopend document) — stil.
+3. **Pool-edit** (bewerken/verwijderen van een poolitem) — stil, direct voor het actieve document
+   én alle geopende documenten (ook slapende, via hun payloads).
+4. **Crash-herstel (recovery-restore) telt als grens 1 (besluit, edge-jacht):** na herstel draait
+   voor elk bedrijfsgebonden document dezelfde check als bij openen — herstel omzeilt de vraag niet.
+
+**Afwijkingsonderscheid bij grens 1/4 (besluit, edge-jacht):**
+- Bestandswaarden-hash == `syncedHash`, maar pool wijkt af ⇒ het bestand loopt gewoon achter
+  (bijv. je wijzigde zelf de pool en heropent een ouder project) ⇒ **stil verversen**, geen vraag.
+- Bestandswaarden-hash ≠ `syncedHash` ⇒ het bestand is ná de laatste synchronisatie bewerkt
+  (een collega deed dat niet zonder reden) ⇒ **afwijkingenoverzicht** met per item (of bulk):
+  **bedrijfswaarden gebruiken** óf **bestandswaarden overnemen in het bedrijf** (pool wordt
+  bijgewerkt; waarschuwing "dit geldt voor al je projecten" **(besluit, edge-jacht)**).
+- **Derde uitkomst (besluit, edge-jacht):** annuleren/"later beslissen" mag — het document opent op
+  bestandswaarden, afwijkende items blijven zichtbaar gemarkeerd, het overzicht is handmatig
+  oproepbaar vanuit die markering en komt bij een volgende opening terug. Gedeeltelijk beslissen
+  mag; onbesliste items blijven gemarkeerd. Niemand wordt klemgezet.
+
+**Verversing en de document-status (besluit, edge-jacht — herzien t.o.v. v2):** een verversing zet
+GÉÉN `isDirty` en triggert géén opslaan-prompts of auto-save-golven — één pool-edit mag niet N open
+documenten "onopgeslagen" maken. Het bestand op schijf mag achterlopen; elke volgende grens
+ververst opnieuw (zelfhelend, goedkoop door de 'changed'-guard). Slaat de gebruiker op na eigen
+werk, dan gaan de actuele waarden vanzelf mee. Verversing is niet-undoable; hij **wist wél de
+redo-stapel (besluit, edge-jacht)** — anders kan "opnieuw" stilletjes oude poolwaarden terugzetten.
+Elke verversing die iets wijzigde toont een discreet signaal ("N items bijgewerkt vanuit het
+bedrijf") **(besluit, edge-jacht)** — dit is ook het zichtbare antwoord op de Ctrl+Z-eigenaardigheid
+(oude waarden kunnen tijdelijk terugkeren tot de volgende grens).
+
+**Pool-import is een externe wijziging (besluit, edge-jacht):** na een pool-import (hele
+vervanging, evt. ouder bestand — de demping waarschuwt vooraf) draait voor elk open
+bedrijfsgebonden document de afwijkingscheck van grens 1, niet de stille grens 3. De gebruiker
+houdt dus regie wanneer een import zijn open projecten zou herschrijven.
+
+**Poolitem verwijderd** ⇒ projectkopie blijft functioneren op zijn laatste waarden, discreet
+gemarkeerd "niet meer in het bedrijf" (alleen bij eigen-bedrijf-stempels, zie §2-scope).
 
 ## 4. Het Resources-tabblad = de werkplek
 
-Voor een **gekoppeld** project toont het tabblad de **bedrijfspool**. Twee weergaven, schakelbaar:
+Voor een **gekoppeld** project toont het tabblad de **bedrijfspool**. Twee weergaven, schakelbaar
+(de schakelaar bestaat ook bij één bedrijf — het is een inhoudsfilter, geen bedrijvenconcept):
 
-- **Bedrijfsweergave** (default): alle resources van het bedrijf (gelezen uit de pool). CRUD hier =
-  CRUD op het bedrijf: nieuw ⇒ direct in het bedrijf, voor alle projecten; bewerken/verwijderen ⇒
-  geldt overal (via §3-verversing), met een licht visueel signaal "geldt voor alle projecten".
-  Bedrijfs-edits vallen buiten de document-undo **(besluit)**: Ctrl+Z raakt alleen projectacties;
-  het signaal maakt dat begrijpelijk. (Eigen undo-kanaal voor bedrijfs-edits = later, bekend punt.)
-- **Projectweergave**: wat dít project **bevat** — aan taken toegewezen items plus items die uit het
-  bestand meekwamen. ("Gebruikt" reserveren we voor toegewezen; vandaar "bevat" **(besluit,
-  terminologie)**.)
+- **Bedrijfsweergave** (default): alle resources van het bedrijf (uit de pool). CRUD hier = CRUD op
+  het bedrijf (raakt uitsluitend `s.pools`, nooit direct `s.resources` — invariant): nieuw ⇒ direct
+  in het bedrijf; bewerken/verwijderen ⇒ geldt overal via §3, met een zichtbaar signaal "geldt voor
+  alle projecten — valt buiten ongedaan maken" **(besluit, aangescherpt na edge-jacht)**.
+- **Projectweergave**: wat dít project **bevat** — toegewezen items, items uit het bestand, én
+  wees-materialisaties (toegewezen geweest, nu nergens meer aan gekoppeld). Die laatste worden
+  níet stil opgeruimd **(besluit, edge-jacht)**: ze blijven zichtbaar met een "verwijder uit
+  project"-actie. Hier staan ook de markeringen ("niet meer in het bedrijf", "wijkt af — beslis").
 
-**Toewijzen = materialiseren.** De toewijzings-pickers (taakeigenschappen, ribbon) tonen naast de
-projectitems ook de poolitems; kies je een poolitem, dan wordt het onder de motorkap
-gematerialiseerd (kopie + stempel, mét meereizende kalender — ALTIJD, ook in fase 1, zie §9)
-via de bestaande, geteste kopieerlogica. Voor een **los** project toont het tabblad zoals vanouds
-alleen de projectresources.
+**Toewijzen = materialiseren.** Pickers tonen project- én poolitems; een poolitem kiezen
+materialiseert (kopie + stempel + `syncedHash`, mét meereizende kalender — altijd, ook fase 1)
+via de bestaande kopieerlogica. Los project: alleen projectresources, zoals vanouds.
 
-**Projectgebonden items in een gekoppeld project** (niet-gematchte restanten uit §5) zijn een
-**tijdelijke, zichtbaar gemarkeerde resttoestand** — geen tweede bibliotheekje **(besluit)**; de
-projectweergave biedt per item "alsnog het bedrijf in tillen / koppelen".
+## 5. Koppelen & herkennen
 
-## 5. Koppelen & herkennen (vervangt alle kopieer-dialogen)
+Bij koppelen (wizard, of achteraf via Projectinfo) start automatisch de herkenningsstap zodra het
+project al inhoud heeft:
 
-Bij het koppelen van een project aan een bedrijf — in de wizard, of achteraf via Projectinfo —
-start automatisch de **herkenningsstap** zodra het project al eigen resources/kalenders heeft:
+1. **Matcher (besluit):** exacte naam-match na normalisatie — trim, hoofdletterongevoelig,
+   Unicode-NFC en samengevouwen witruimte **(aangescherpt, edge-jacht)**. Geen fuzzy in v1. Bij
+   géén of meerdere kandidaten: geen voorstel, handmatige keuze per item. Tarief/type alleen context.
+2. Bevestigen per stuk of bulk ⇒ linken (stempelen + syncedHash) en direct verversen (zichtbaar
+   vóór bevestiging).
+3. Niet-gematcht: het bedrijf in tillen, of projectgebonden laten (§4, transient gemarkeerd).
 
-1. **Matcher (besluit):** voorstellen op exacte, genormaliseerde naam (trim + hoofdletterongevoelig).
-   Geen fuzzy matching in v1. Bij géén of meerdere kandidaten: geen voorstel — de gebruiker kan per
-   item handmatig een poolitem kiezen of het item het bedrijf in tillen. Tarief/type worden als
-   context getoond, beslissen nooit automatisch.
-2. De gebruiker bevestigt per stuk of in bulk → gematchte items worden gelinkt (gestempeld) en
-   volgen voortaan het bedrijf (incl. directe verversing naar de poolwaarden, zichtbaar in het
-   overzicht vóór bevestiging).
-3. Niet-gematchte items: per stuk of in bulk het bedrijf in tillen, of projectgebonden laten (§4).
+**Stempels bij ontkoppelen/omkoppelen (besluit, edge-jacht):** ontkoppelen stript de stempels —
+een los project heeft géén herkomst en ververst nooit ergens vandaan. Omkoppelen naar een ander
+bedrijf doorloopt de herkenningsstap opnieuw; bestaande (vreemde) stempels worden bij een match
+vervangen en anders gestript. De herkenningsstap is atomisch (alles-of-niets bij crash; plan-eis).
 
-Eén scherm, met per item: projectwaarde, voorgestelde match (of keuzelijst), gevolg. Dit is het
-enige nieuwe UX-oppervlak van B1.1 en wordt in het implementatieplan volledig uitgetekend — het
-mag onder geen beding een verkapte "toevoegen uit bibliotheek"-dialoog worden: het draait om
-koppelen/optillen bij een koppelmoment, nooit om items één voor één een project in kopiëren.
-Omkoppelen naar een ander bedrijf doorloopt dezelfde stap; ontkoppelen maakt het project los
-(inhoud blijft, als projectgebonden kopieën).
+**Bedrijf verwijderen (besluit, edge-jacht):** de bevestigingsdialoog meldt hoeveel geopende
+projecten eraan gekoppeld zijn; verwijderen ontkoppelt die open projecten expliciet (stempels
+strippen, melding). Opgeslagen bestanden van dat bedrijf gedragen zich bij later openen als
+ontvangen bestanden (los; §2-scope voorkomt valse labels).
 
-## 6. Wat verdwijnt, wat blijft (onder de motorkap) **(besluit, expliciet per onderdeel)**
+**Extensie-/importer-geladen documenten (besluit, edge-jacht):** een import die het document
+volledig vervangt (`loadState`-pad) levert een **los** document op — koppelen kan daarna gewoon
+via deze stap. Geen stille koppeling, geen stille herkenning.
 
-Verdwijnt (UI + ui-flags + hun i18n-strings, niets verweesd achterlaten):
-- `AddFromLibraryDialog` + ResourcePanel-knop "Toevoegen uit bibliotheek".
-- `UpdateFromLibraryDialog` + ResourcePanel-knop "Bijwerken uit bibliotheek".
-- De **resource**-promoveerknop "+ Uit project" in de Bibliotheek-sectie. De **kalender**-variant
-  blijft in fase 1 staan als interim (enige pad om kalenders in de pool te krijgen) en verhuist in
-  fase 2 naar de kalender-UI **(besluit, lost de §5↔§8-botsing uit review A op)**.
-- De wizard-checkbox "na aanmaken toevoegen uit bibliotheek" — vervangen door de bedrijfskeuze.
+Eén scherm, gedeelde vormtaal met het afwijkingenoverzicht (§3). Het mag onder geen beding een
+verkapte "toevoegen uit bibliotheek"-dialoog worden: het draait om koppelen/optillen bij een
+koppelmoment, nooit om items één voor één een project in kopiëren.
 
-Blijft, onder de motorkap, hergebruikt (de zwaar geteste slice-laag):
-- `addLibraryResourceToProject`/`addLibraryCalendarToProject` → materialisatie bij toewijzen.
-- `copy*/diff*/apply*`-kernfuncties → verversing (§3) en herkenningsscherm (§5).
-- `promote*ToPool` → "het bedrijf in tillen" (§5) en nieuw-aanmaken in de bedrijfsweergave (§4).
-- `updateProject*FromLibrary` → het verversingsprimitief.
-- `bindProjectToCompany` → krijgt eindelijk zijn UI (wizard/Projectinfo).
-De bijbehorende slice-tests blijven; het plan benoemt per actie "blijft (hergebruikt door X)".
+## 6. Wat verdwijnt, wat blijft (onder de motorkap)
+
+Verdwijnt (UI + ui-flags + i18n, niets verweesd): `AddFromLibraryDialog` + paneelknop,
+`UpdateFromLibraryDialog` + paneelknop, de **resource**-promoveerknop (de **kalender**-variant
+blijft in fase 1 als interim en verhuist in fase 2), de wizard-checkbox.
+
+Blijft, hergebruikt: `addLibrary*ToProject` → materialisatie; de pure `copy*/diff*/apply*`-kern →
+verversing + herkenning — **let op (plan-eis, edge-jacht): het verversingsprimitief is de pure kern
+in een niet-undoable wrapper mét behoud van de 'changed'-guard; NIET de bestaande undoable
+`updateProject*FromLibrary`-acties 1-op-1**; `promote*ToPool` → optillen + bedrijfsweergave-CRUD;
+`bindProjectToCompany` → krijgt zijn UI. Slice-tests blijven; het plan benoemt per actie het lot.
 
 ## 7. Backstage → Bibliotheek krimpt tot bedrijvenbeheer
 
-Bedrijven aanmaken/hernoemen/verwijderen, standaardbedrijf, pool-export (tevens backup) en
-pool-import met de bestaande dempingswaarschuwing + sync-uitleg. Plus (fase 1, interim) de
-kalender-promoveerknop. De resource-werkplek is het Resources-tabblad (§4).
+Bedrijven aanmaken/hernoemen/verwijderen (met de §5-verwijderdialoog), standaardbedrijf,
+pool-export (backup) en pool-import (demping + §3-afwijkingsgedrag). Plus fase-1-interim: de
+kalender-promoveerknop.
 
 ## 8. Opslaan, laden en delen
 
-- **Opslaan ("gebeiteld" onverkort):** het bestand bevat wat het project bevat (§4-projectweergave)
-  — gematerialiseerde items met hun actuele waarden, stempels en de bedrijfsbinding. Nooit de hele
-  pool. Golden rule (los project zonder bedrijfsgebruik ⇒ byte-identiek aan pre-B1) blijft gelden
-  en blijft door de bestaande suites bewaakt.
-- **Openen met bekend bedrijf:** §3-verversing draait; het project valt direct in het model.
-- **Openen zonder dat bedrijf (ontvanger):** gedraagt zich als los, volledig werkend op de
-  meegereisde kopieën; koppelen aan een eigen bedrijf kan via §5.
-- Writer/reader en het opslagformaat veranderen niet.
+Ongewijzigd t.o.v. v2: "gebeiteld" onverkort (bestand bevat wat het project bevat, nooit de pool),
+golden rule blijft en blijft bewaakt, writer/reader en formaat veranderen niet — met als enige
+schema-toevoeging het `syncedHash`-veld in het stempel (round-trip via het bestaande pset-JSON;
+oude bestanden zonder hash blijven geldig, zie §2). Ontvanger zonder het bedrijf: los-gedrag,
+zonder valse labels (§2-scope), koppelen via §5.
 
-## 9. Kalenders: zelfde principe, gefaseerd zonder tussenvorm-gaten
+## 9. Kalenders: zelfde principe, gefaseerd zonder gat
 
-Resources gaan voorop. Harde voorwaarden voor fase 1 **(besluit, uit de uitvoerbaarheidsreview)**:
-materialisatie neemt de meereizende kalender áltijd mee (zodat `resource.calendarId` nooit naar een
-niet-bestaande projectkalender wijst), en het kalender-promoveerpad blijft bestaan (§6). Fase 2
-brengt de kalender-UI naar hetzelfde model (bedrijfsverzameling zichtbaar waar kalenders beheerd
-worden; projectdefault kiesbaar uit de bedrijfsset).
+Als v2: materialisatie neemt de meereizende kalender altijd mee; het kalender-promoveerpad blijft
+in fase 1 bestaan; fase 2 brengt de kalender-UI naar dit model.
 
 ## 10. Histogram over projecten heen = B1b
 
-Bezetting is een bedrijfsvraag: het histogram **zal** (als B1b-vervolg, niet in B1.1 zelf) de
-belasting van bedrijfsresources over alle projecten van het bedrijf op deze machine tonen. B1.1
-legt er het fundament voor; de machine-grens blijft gedocumenteerd (sync-vervolgproject).
+Als v2: B1.1 legt het fundament; het bedrijfsbrede histogram is het B1b-vervolg (machine-grens
+gedocumenteerd).
 
-## 11. Wat onverkort blijft van B1 (het fundament)
+## 11. Wat onverkort blijft van B1
 
-Opslagformaat en round-trip, golden rule, pool-opslag (IndexedDB/appDataDir), export/import met
-demping, quote-bewuste parser, alle bestaande checks (190+395), i18n-infrastructuur en de
-gedocumenteerde sync-beperkingen. Nieuw t.o.v. B1 in de fundamentlaag is uitsluitend het
-verversingsmechanisme van §3 — dat is een toevoeging bovenop de bestaande primitieve functies,
-geen wijziging eraan.
+Opslagformaat/round-trip, golden rule, pool-opslag, export/import + demping, parser, alle checks,
+i18n, sync-beperkingen. Nieuw in de fundamentlaag: het §3-verversingsmechanisme + `syncedHash` —
+toevoegingen bovenop de bestaande primitieve functies.
 
-## 12. Migratie & compatibiliteit
+## 12. Migratie, compatibiliteit & documentatie
 
-- Bestanden mét stempels: vallen bij openen met bekend bedrijf direct in het model (§3/§8).
-- Bestanden zónder stempels: openen als los; §5 is hun instap.
-- Bestaande pools/bedrijven: ongewijzigd bruikbaar.
-- Verwijderde dialogen laten geen dode ui-state of i18n-wezen achter; `docs/library.md` wordt
-  herschreven naar dit model, incl. de beperkingen en het §3-scherpe-randje.
+Als v2, plus: B1-bestanden zonder `syncedHash` vallen bij afwijking aan de veilige kant (vraag).
+`docs/library.md` wordt herschreven en documenteert expliciet: de Ctrl+Z/verversing-eigenaardigheid
+en het signaal; dat identiteit op id rust (een verwijderd poolitem naamgelijk hercreëren herlinkt
+niet — de handmatige koppel-uitweg bestaat); dat de matcher alleen op koppelmomenten draait; en
+het gedrag van ontvangen bestanden.
 
-## 13. Buiten scope
+## 13. Expliciete plan-eisen (uit reviews en edge-jachten — het implementatieplan MOET deze dragen)
 
-Echte sync (vervolgproject), B1b-histogram-implementatie, eigen undo-kanaal voor bedrijfs-edits,
-fuzzy naam-matching, bedrijfsoverstijgende resources, IFCX.
+1. Dormant-payload-verversing: grens 3/4 muteert ook `documents[].payload.resources` van
+   niet-actieve documenten (binnen één set()); herrekening pas bij activering.
+2. Verversingsprimitief: pure kern, niet-undoable, 'changed'-guard behouden, wist redoStack.
+3. Invariant + testhaak: Bedrijfsweergave-CRUD raakt uitsluitend `s.pools`.
+4. Sequencing bij "overnemen in bedrijf" tijdens openen: eerst het nieuwe document volledig
+   hydrateren, dán pool-update en sibling-verversing; het net-geopende document niet dubbel verversen.
+5. Herkenningsstap atomisch (crash mag geen half-gestempelde toestand achterlaten die auto-save vastlegt).
+6. Recovery-restore draait de grens-1-check (§3.4).
+7. Het afwijkingen-/herkenningsscherm wordt in het plan volledig uitgetekend (anti-dialoog-clausule §5).
+
+## 14. Buiten scope
+
+Echte sync (vervolgproject), B1b-histogram, eigen undo-kanaal voor bedrijfs-edits, fuzzy matching,
+bedrijfsoverstijgende resources, IFCX.
