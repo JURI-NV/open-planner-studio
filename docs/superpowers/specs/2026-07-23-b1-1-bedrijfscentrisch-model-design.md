@@ -50,10 +50,15 @@ te spiegelen (dat zou de golden rule bedreigen). Het wordt **kopie-met-verversin
   en de writer/reader blijven daardoor onaangeroerd; er is geen pre-save-filter nodig.
 - Poolitem verwijderd ⇒ de projectkopie blijft functioneren op zijn laatste waarden (geen
   dataverlies), in de projectweergave discreet gemarkeerd "niet meer in het bedrijf".
-- **Scherp randje, bewust aanvaard (besluit):** stuurt een collega een bestand terug waarin hij
-  waarden van gestempelde items wijzigde, dan worden die bij openen op een machine mét het bedrijf
-  door de poolwaarden ververst. Wie zulke wijzigingen wil behouden, tilt ze via de herkenningsstap
-  het bedrijf in of ontkoppelt. Dit wordt in de documentatie expliciet benoemd.
+- **Afwijkingen bij openen: vragen, niet stil verversen (besluit user, 2026-07-23).** Wijken bij
+  het openen van een bestand de waarden van gestempelde items af van de pool (een collega wijzigde
+  bijv. een tarief in het rondgestuurde bestand — zoiets doet iemand niet zonder reden), dan toont
+  de app éénmalig een afwijkingenoverzicht met per item (of in bulk) twee keuzes: **bedrijfswaarden
+  gebruiken** (ververs het bestand) of **bestandswaarden overnemen in het bedrijf** (de pool wordt
+  bijgewerkt en de nieuwe waarde geldt overal — één waarheid blijft in beide richtingen intact).
+  Geen afwijkingen ⇒ geen vraag, gewoon openen. De verversingen op de andere twee grenzen
+  (documentwissel, pool-edit) blijven stil — daar kán geen externe wijziging in zitten. Het
+  overzicht deelt zijn vormtaal met de herkenningsstap (§5): afwijking tonen, gebruiker beslist.
 
 ## 4. Het Resources-tabblad = de werkplek
 
