@@ -49,15 +49,22 @@ const store = useAppStore.getState();
   const calId = s.promoteCalendarToPool(cid, {
     id: 'proj-cal', name: 'Ploeg A', description: '', workDays: [1, 2, 3, 4, 5],
     workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
-  });
+  })!;
   let pool = useAppStore.getState().pools[cid];
   assert(pool.calendars.some(c => c.id === calId), 'promoteCalendarToPool voegt kalender toe');
   assert(pool.calendars.find(c => c.id === calId)?.libraryOrigin === undefined, 'gepromoveerde kalender heeft geen herkomst (is zelf origineel)');
   assert(pool.poolVersion === v0 + 1, 'promoteCalendarToPool bumpt de pool');
 
+  // Return-eerlijkheid (review taak 7): promoveren naar een niet-bestaand bedrijf ⇒ `null`.
+  assert(s.promoteCalendarToPool('ghost-company', {
+    id: 'x', name: 'x', description: '', workDays: [1], workStartHour: 8, workEndHour: 16,
+    hoursPerDay: 8, holidays: [],
+  }) === null, 'promoteCalendarToPool: null bij onbestaand bedrijf');
+  assert(s.promoteResourceToPool('ghost-company', { id: 'x', name: 'x', type: 'LABOR', description: '', maxUnits: 1 }) === null, 'promoteResourceToPool: null bij onbestaand bedrijf');
+
   const resId = s.promoteResourceToPool(cid, {
     id: 'proj-res', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 3, calendarId: 'proj-cal',
-  });
+  })!;
   pool = useAppStore.getState().pools[cid];
   assert(pool.resources.find(r => r.id === resId)?.calendarId === undefined, 'gepromoveerde resource verliest project-lokale calendarId');
   assert(pool.poolVersion === v0 + 2, 'promoteResourceToPool bumpt opnieuw');
@@ -74,6 +81,31 @@ const store = useAppStore.getState();
   assert(pool.poolVersion === v0 + 5, 'removePool* bumpt tweemaal');
 }
 
+// --- Terug-stempel bij promotie (review taak 7): het BRON-projectitem krijgt herkomst ---
+{
+  const cid = useAppStore.getState().defaultCompanyId;
+  // Echte projectitems (in s.calendars/s.resources), zodat de terug-stempel iets kan raken.
+  const pcId = useAppStore.getState().addCalendar({
+    name: 'Bron-kalender', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  });
+  const pcCal = useAppStore.getState().calendars.find(c => c.id === pcId)!;
+  const newCalItemId = useAppStore.getState().promoteCalendarToPool(cid, pcCal)!;
+  const poolVer = useAppStore.getState().pools[cid].poolVersion;
+  const stampedCal = useAppStore.getState().calendars.find(c => c.id === pcId)!;
+  assert(!!stampedCal.libraryOrigin, 'promoteCalendarToPool: bron-projectkalender krijgt herkomststempel');
+  assert(stampedCal.libraryOrigin?.companyId === cid && stampedCal.libraryOrigin?.libraryItemId === newCalItemId, 'promoteCalendarToPool: stempel wijst naar de nieuwe pool-item-id');
+  assert(stampedCal.libraryOrigin?.poolVersion === poolVer, 'promoteCalendarToPool: stempel draagt de gebumpte poolVersion (geen off-by-one)');
+
+  const prId = useAppStore.getState().addResource({ name: 'Bron-resource', type: 'LABOR', description: '', maxUnits: 2 });
+  const prRes = useAppStore.getState().resources.find(r => r.id === prId)!;
+  const newResItemId = useAppStore.getState().promoteResourceToPool(cid, prRes)!;
+  const poolVer2 = useAppStore.getState().pools[cid].poolVersion;
+  const stampedRes = useAppStore.getState().resources.find(r => r.id === prId)!;
+  assert(!!stampedRes.libraryOrigin, 'promoteResourceToPool: bron-projectresource krijgt herkomststempel');
+  assert(stampedRes.libraryOrigin?.libraryItemId === newResItemId && stampedRes.libraryOrigin?.poolVersion === poolVer2, 'promoteResourceToPool: stempel draagt de nieuwe id + gebumpte poolVersion');
+}
+
 // --- initLibrary-normalisatie (hardening ná review taak 6) ---
 {
   // Vorm-invalide opgeslagen bibliotheek: companies zonder pools, een wees-pool, en een
@@ -83,6 +115,9 @@ const store = useAppStore.getState();
     defaultCompanyId: 'ghost-company',
     pools: {
       'orphan-company': { companyId: 'orphan-company', companyName: 'Weg', poolVersion: 0, modifiedAt: '2020-01-01T00:00:00.000Z', calendars: [], resources: [] },
+      // Structureel kapotte maar bedrijf-gebonden pool (review taak 7): calendars/resources ontbreken,
+      // poolVersion/modifiedAt zijn geen geldige waarden. Mag nooit later een TypeError op `.push` geven.
+      'c1': { companyId: 'c1' },
     },
   } as unknown as Parameters<typeof normalizeLoadedLibrary>[0];
 
@@ -93,6 +128,12 @@ const store = useAppStore.getState();
   assert(!!normalized && normalized.companies.length === 2, 'normalizeLoadedLibrary behoudt geldige companies');
   assert(!!normalized && normalized.companies.some(c => c.id === normalized!.defaultCompanyId), 'normalizeLoadedLibrary: ongeldige defaultCompanyId valt terug op een bestaand bedrijf');
   assert(!!normalized && !('orphan-company' in normalized.pools), 'normalizeLoadedLibrary ruimt wees-pools op');
+
+  // Pool-internals van een behouden maar kapotte pool zijn genormaliseerd tot bruikbare vormen.
+  const p = normalized!.pools['c1'];
+  assert(!!p && Array.isArray(p.calendars) && Array.isArray(p.resources), 'normalizeLoadedLibrary: kapotte pool krijgt array-calendars/resources');
+  assert(!!p && typeof p.poolVersion === 'number' && p.poolVersion === 1, 'normalizeLoadedLibrary: ontbrekende poolVersion valt terug op 1');
+  assert(!!p && typeof p.modifiedAt === 'string' && p.modifiedAt.length > 0, 'normalizeLoadedLibrary: ontbrekende modifiedAt valt terug op nu');
 
   // Volledig lege/undefined input ⇒ seed met standaardbedrijf (zoals de verse-tak).
   const empty = {} as unknown as Parameters<typeof normalizeLoadedLibrary>[0];
