@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { saveRightPanelWidth, RIGHT_PANEL_MIN_WIDTH } from '@/utils/settingsStore';
 import { setNoneLabelValue } from '@/utils/noneLabel';
+import { appLog } from '@/services/debug/appLog';
 import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
 import '@/components/layout/TitleBar/TitleBar.css';
 import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
@@ -106,6 +107,16 @@ function AppContent() {
   // Settings-bootstrap: hydrateert ~20 instellingen + extensies bij mount, en toont de
   // welkomstdialoog zodra de recovery-flow is afgehandeld.
   useSettingsBootstrap(recoveryResolved, recovery);
+
+  // Bedrijfsbibliotheek laden bij opstarten (B1): zet de opgeslagen bibliotheek in de store en
+  // hijst `libraryLoaded`, zodat latere mutaties persisteren (vóór dit punt is persist een no-op).
+  // Fire-and-forget, maar mét .catch: een rejectende load (bv. IndexedDB stuk) mag nooit een
+  // unhandled rejection worden — de fout gaat naar de log-bus.
+  useEffect(() => {
+    useAppStore.getState().initLibrary().catch((err) => {
+      appLog.emit('error', 'library', 'initLibrary faalde', err);
+    });
+  }, []);
 
   // Automatisch berekenen: runCPM zodra de planning verouderd raakt (als de instelling aanstaat).
   useAutoCalcCPM();
