@@ -122,6 +122,54 @@ const store = useAppStore.getState();
   assert(cache.libraryOrigin?.libraryItemId === newDefItemId && cache.libraryOrigin?.poolVersion === poolVerDef, 'promoteCalendarToPool: s.calendar-stempel draagt nieuwe id + gebumpte poolVersion');
 }
 
+// --- Fix B4: promote-stempel is undo-BESCHERMD (bewezen B7, stress-undo-redo.ts scenario A1/A2) ---
+// De promote-stempel-mutatie op het BRON-projectitem stond vroeger op GEEN enkele undo-snapshot —
+// alleen de POOL-mutatie zelf blijft bewust buiten undo (app-globale data). Twee scenario's:
+{
+  // Scenario 1 (spec-orde: "promote → undo ⇒ stempel weg, poolkopie blijft"): een undo van de
+  // promote-actie ZELF (de meest recente actie op de stack) draait de stempel terug — de pool-kopie
+  // blijft staan (bewust, zie docs/library.md "Bekende kleine punten").
+  useAppStore.getState().newProject();
+  const cid = useAppStore.getState().defaultCompanyId;
+  const cId = useAppStore.getState().addCalendar({
+    name: 'B4-C', description: '', workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  const cCal = useAppStore.getState().calendars.find(c => c.id === cId)!;
+  const poolItemId = useAppStore.getState().promoteCalendarToPool(cid, cCal)!;
+  assert(!!useAppStore.getState().calendars.find(c => c.id === cId)?.libraryOrigin, 'B4 scenario 1 setup: stempel aanwezig vóór undo');
+  assert(useAppStore.getState().pools[cid].calendars.some(c => c.id === poolItemId), 'B4 scenario 1 setup: poolkopie aanwezig vóór undo');
+
+  useAppStore.getState().undo();
+  const s1 = useAppStore.getState();
+  assert(!s1.calendars.find(c => c.id === cId)?.libraryOrigin, 'B4 scenario 1: undo van de promote-actie zelf verwijdert de stempel');
+  assert(s1.pools[cid].calendars.some(c => c.id === poolItemId), 'B4 scenario 1: de poolkopie blijft staan (pool is app-globaal, niet undo-beschermd)');
+
+  // Scenario 2 ("de B7-jacht dichtzetten"): een LATERE, ONGERELATEERDE undo mag een EERDER
+  // aangebrachte stempel niet meer wegvegen. Volgorde: promoveer C1 EERST (stempel + eigen
+  // undo-snapshot), voeg dán een ongerelateerde C2 toe (nieuwe undo-snapshot), en undo() —
+  // dat undo't uitsluitend de meest recente actie (addCalendar C2); de C1-stempel, die zijn EIGEN
+  // undo-grens al had (fix B4), wordt niet meer meegesleurd (vóór de fix — B7 A1/A2 — gebeurde dat
+  // wél, ongeacht de volgorde, want de stempel-mutatie had toen HELEMAAL geen eigen undo-grens).
+  useAppStore.getState().newProject();
+  const cid2 = useAppStore.getState().defaultCompanyId;
+  const c1Id = useAppStore.getState().addCalendar({
+    name: 'B4-C1', description: '', workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  const c1Cal = useAppStore.getState().calendars.find(c => c.id === c1Id)!;
+  useAppStore.getState().promoteCalendarToPool(cid2, c1Cal);
+  assert(!!useAppStore.getState().calendars.find(c => c.id === c1Id)?.libraryOrigin, 'B4 scenario 2 setup: C1 heeft de stempel ná promote');
+
+  const c2Id = useAppStore.getState().addCalendar({
+    name: 'B4-C2', description: '', workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  });
+  assert(useAppStore.getState().calendars.some(c => c.id === c2Id), 'B4 scenario 2 setup: C2 toegevoegd (ná de promote)');
+
+  useAppStore.getState().undo(); // undo't uitsluitend addCalendar(C2) — de meest recente actie
+  const s2 = useAppStore.getState();
+  assert(!s2.calendars.some(c => c.id === c2Id), 'B4 scenario 2: undo verwijdert de ONGERELATEERDE latere C2 (zoals verwacht)');
+  assert(!!s2.calendars.find(c => c.id === c1Id)?.libraryOrigin, 'B4 scenario 2 [FIX]: de EERDERE C1-stempel overleeft de latere, ongerelateerde undo (vóór fix B4: verloren, zie B7 A1/A2)');
+}
+
 // --- initLibrary-normalisatie (hardening ná review taak 6) ---
 {
   // Vorm-invalide opgeslagen bibliotheek: companies zonder pools, een wees-pool, en een

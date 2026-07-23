@@ -211,16 +211,25 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const bumped = bumpPool(pool);
       s.pools[companyId] = bumped;
       // Terug-stempel op het BRON-projectitem (indien aanwezig): eerst bumpen, dan stempelen met de
-      // NIEUWE versie (off-by-one-val). Flag-only projectmutatie: isDirty zonder undo-snapshot.
+      // NIEUWE versie (off-by-one-val).
       const src = s.calendars.find((c) => c.id === calendar.id);
       if (src) {
+        // Fix B4: de PROJECTSTEMPEL-mutatie is undo-BESCHERMD (de pool-mutatie hierboven blijft
+        // bewust app-globaal/niet-undoable — pools zijn geen projectdata). Zonder dit veegt een
+        // latere, volledig ongerelateerde undo de stempel stilzwijgend weg, want de stempel-mutatie
+        // stond op geen enkele undo-snapshot (bewezen B7 stress-undo-redo, scenario A1/A2): undo van
+        // C2 verwijderde óók de eerder aangebrachte stempel op C1. `beginUndoable` legt de staat
+        // VÓÓR de stempel vast, zodat een undo van DEZE actie de stempel weer verwijdert (poolkopie
+        // blijft staan — bewust, zie docs/library.md "Bekende kleine punten"), maar een LATERE
+        // ongerelateerde undo 'm niet meer kan meesleuren.
+        beginUndoable(s);
         src.libraryOrigin = makeOrigin(bumped, id);
-        s.isDirty = true;
         // De gedenormaliseerde projectkalender-cache (`s.calendar`) moet de zojuist gestempelde
         // bibliotheek-entry weerspiegelen (§9.1); anders schrijft de writer (leest uit `s.calendar`)
         // de herkomst NIET weg als de PROJECTDEFAULT-kalender werd gepromoveerd → functieverlies bij
         // herladen (geen bijwerken, dedup stuk). Onvoorwaardelijk & goedkoop (spiegel updateCalendar).
         syncProjectCalendar(s);
+        finishMutation(s);
       }
       newId = id;
     });
@@ -242,8 +251,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // Terug-stempel op het BRON-projectitem (indien aanwezig) met de zojuist gebumpte versie.
       const src = s.resources.find((r) => r.id === resource.id);
       if (src) {
+        // Fix B4: undo-beschermde projectstempel-mutatie — zie de uitgebreide toelichting bij
+        // promoteCalendarToPool hierboven (identiek patroon, resource-variant).
+        beginUndoable(s);
         src.libraryOrigin = makeOrigin(bumped, id);
-        s.isDirty = true;
+        finishMutation(s);
       }
       newId = id;
     });
