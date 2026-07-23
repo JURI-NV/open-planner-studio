@@ -67,6 +67,7 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   const list: Resource[] = [{ ...res('x', 'x'), libraryOrigin: o }];
   assert(findCopyByOrigin(list, 'c1', 'pr1')?.id === 'x', 'findCopyByOrigin vindt bestaande kopie');
   assert(findCopyByOrigin(list, 'c1', 'pr2') === undefined, 'findCopyByOrigin: geen match');
+  assert(findCopyByOrigin(list, 'c2', 'pr1') === undefined, 'findCopyByOrigin: cross-bedrijf-dedupgrens (companyId c2 vindt geen kopie gestempeld met c1)');
 }
 
 // 4. copyCalendarToProject — nieuw + dedup
