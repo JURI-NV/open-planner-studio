@@ -276,6 +276,7 @@
     "helpLoading": "加载中…",
     "helpLoadError": "无法加载文档。",
     "helpArticleNotFound": "未找到文章。",
+    "library": "资料库",
     "helpLayer": {
       "quickstart": "快速入门",
       "gidsen": "主题指南",

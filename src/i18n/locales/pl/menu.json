@@ -276,6 +276,7 @@
     "helpLoading": "Ładowanie…",
     "helpLoadError": "Nie udało się załadować dokumentacji.",
     "helpArticleNotFound": "Nie znaleziono artykułu.",
+    "library": "Biblioteka",
     "helpLayer": {
       "quickstart": "Szybki start",
       "gidsen": "Przewodniki tematyczne",

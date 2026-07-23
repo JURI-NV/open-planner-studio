@@ -276,6 +276,7 @@
     "helpLoading": "Caricamento…",
     "helpLoadError": "Impossibile caricare la documentazione.",
     "helpArticleNotFound": "Articolo non trovato.",
+    "library": "Libreria",
     "helpLayer": {
       "quickstart": "Avvio rapido",
       "gidsen": "Guide per argomento",

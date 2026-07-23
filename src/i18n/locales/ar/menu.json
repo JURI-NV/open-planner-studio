@@ -276,6 +276,7 @@
     "helpLoading": "جارٍ التحميل…",
     "helpLoadError": "تعذر تحميل التوثيق.",
     "helpArticleNotFound": "لم يتم العثور على المقالة.",
+    "library": "المكتبة",
     "helpLayer": {
       "quickstart": "البدء السريع",
       "gidsen": "أدلة حسب الموضوع",

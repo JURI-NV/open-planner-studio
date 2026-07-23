@@ -276,6 +276,7 @@
     "helpLoading": "Carregando…",
     "helpLoadError": "Não foi possível carregar a documentação.",
     "helpArticleNotFound": "Artigo não encontrado.",
+    "library": "Biblioteca",
     "helpLayer": {
       "quickstart": "Início rápido",
       "gidsen": "Guias por tema",

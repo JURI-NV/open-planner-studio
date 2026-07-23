@@ -276,6 +276,7 @@
     "helpLoading": "Chargement…",
     "helpLoadError": "Impossible de charger la documentation.",
     "helpArticleNotFound": "Article introuvable.",
+    "library": "Bibliothèque",
     "helpLayer": {
       "quickstart": "Démarrage rapide",
       "gidsen": "Guides par thème",
