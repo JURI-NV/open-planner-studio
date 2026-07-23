@@ -3,6 +3,7 @@ import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
 import { loadLibrary, saveLibrary } from '@/services/library';
+import { appLog } from '@/services/debug/appLog';
 
 /**
  * App-globale bedrijfsbibliotheek (spec B1). NIET per-document (niet in DOCUMENT_FIELDS) — pools zijn
@@ -23,11 +24,35 @@ export interface LibrarySlice {
   setDefaultCompany: (id: string) => void;
 }
 
-/** Serialiseer de huidige bibliotheek-state en persisteer 'm (fire-and-forget). */
-function persist(get: () => { companies: Company[]; defaultCompanyId: string; pools: Record<string, CompanyPool> }): void {
+/**
+ * Normaliseer een geladen bibliotheek vóór gebruik (defensief tegen vorm-invalide opgeslagen data —
+ * bijv. een handmatig bewerkt of ouder bestand). Nooit een TypeError: ontbrekende `companies`/`pools`
+ * worden aangevuld (leeg ⇒ geseed met het standaardbedrijf), een `defaultCompanyId` die niet naar een
+ * bestaand bedrijf wijst valt terug op het eerste bedrijf, en pools zonder bijbehorend bedrijf
+ * (wezen) worden verwijderd. Puur — geen state, geschikt voor losse unit-tests.
+ */
+export function normalizeLoadedLibrary(lib: Partial<CompanyLibrary> | null | undefined): CompanyLibrary {
+  const companies = lib?.companies && lib.companies.length > 0 ? lib.companies : createDefaultLibrary().companies;
+  const companyIds = new Set(companies.map((c) => c.id));
+  const rawPools = lib?.pools ?? {};
+  // Wezen-pools opruimen: pools waarvan companyId niet (meer) bij een bedrijf hoort.
+  const pools = Object.fromEntries(Object.entries(rawPools).filter(([cid]) => companyIds.has(cid)));
+  const defaultCompanyId = lib?.defaultCompanyId && companyIds.has(lib.defaultCompanyId)
+    ? lib.defaultCompanyId
+    : companies[0].id;
+  return { companies, defaultCompanyId, pools };
+}
+
+/** Serialiseer de huidige bibliotheek-state en persisteer 'm (fire-and-forget, fouten gaan naar appLog). */
+function persist(get: () => { companies: Company[]; defaultCompanyId: string; pools: Record<string, CompanyPool>; libraryLoaded: boolean }): void {
+  // Vóór initLibrary() is de state nog de verse seed; wegschrijven zou die door de async load heen
+  // laten overschrijven (of, erger, de echte opgeslagen bibliotheek voortijdig overschrijven).
+  if (!get().libraryLoaded) return;
   const s = get();
   const lib: CompanyLibrary = { companies: s.companies, defaultCompanyId: s.defaultCompanyId, pools: s.pools };
-  void saveLibrary(lib);
+  saveLibrary(lib).catch((err) => {
+    appLog.emit('error', 'library', 'saveLibrary faalde', err);
+  });
 }
 
 export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
@@ -37,12 +62,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
   libraryLoaded: false,
 
   initLibrary: async () => {
-    const lib = await loadLibrary();
+    const raw = await loadLibrary();
+    const lib = normalizeLoadedLibrary(raw);
     set((s) => {
-      s.companies = lib.companies.length > 0 ? lib.companies : createDefaultLibrary().companies;
-      s.defaultCompanyId = lib.companies.some(c => c.id === lib.defaultCompanyId)
-        ? lib.defaultCompanyId
-        : s.companies[0].id;
+      s.companies = lib.companies;
+      s.defaultCompanyId = lib.defaultCompanyId;
       s.pools = lib.pools;
       // Elk bedrijf moet een pool hebben (verse bedrijven / gemigreerde data).
       for (const c of s.companies) {
