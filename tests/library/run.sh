@@ -29,5 +29,6 @@ run_check() {
 run_check check-library-ops
 run_check check-library-slice
 run_check check-pool-ifc
+run_check check-ifc-hostile
 
 exit "$STATUS"

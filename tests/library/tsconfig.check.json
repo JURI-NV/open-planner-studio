@@ -10,6 +10,7 @@
     "check-library-ops.ts",
     "check-library-slice.ts",
     "check-pool-ifc.ts",
+    "check-ifc-hostile.ts",
     "../../src/types/file-system-access.d.ts"
   ]
 }
