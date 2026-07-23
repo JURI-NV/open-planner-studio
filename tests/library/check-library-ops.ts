@@ -59,6 +59,36 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   );
 }
 
+// 2b. isPoolNewer — spec-"óf" (critreview taak 10, fix 2): versie EN tijd tellen onafhankelijk mee,
+// geen precedentie-ladder. Ook: robuuste tijdvergelijking via Date.parse i.p.v. string-lexicografie
+// (dekt offset-notaties die lexicografisch verkeerd sorteren).
+{
+  // Lokaal lagere versie (3 < 5) maar latere modifiedAt ⇒ toch "nieuwer" (OR, niet AND/precedentie).
+  const local = { ...pool(), poolVersion: 3, modifiedAt: '2026-07-20T15:00:00.000Z' };
+  const imported = { ...pool(), poolVersion: 5, modifiedAt: '2026-07-20T09:00:00.000Z' };
+  assert(isPoolNewer(local, imported) === true, 'isPoolNewer: lokaal lagere versie maar latere tijd ⇒ toch nieuwer (spec-óf)');
+
+  // Gelijke versie + gelijke tijd ⇒ niet nieuwer.
+  const same = pool();
+  assert(isPoolNewer(same, { ...same }) === false, 'isPoolNewer: gelijke versie/tijd ⇒ niet nieuwer');
+
+  // Offset-notatie die lexicografisch verkeerd sorteert: 20e 23:00-05:00 = 21e 04:00 UTC, dus ÉCHT
+  // later dan 21e 00:30Z — maar als string is '...T20...' < '...T21...' (lexicografisch "ouder").
+  // Gelijke poolVersion, dus alleen de tijdvergelijking beslist.
+  const localOffset = { ...pool(), poolVersion: 7, modifiedAt: '2026-07-20T23:00:00-05:00' };
+  const importedLaterString = { ...pool(), poolVersion: 7, modifiedAt: '2026-07-21T00:30:00.000Z' };
+  assert(
+    isPoolNewer(localOffset, importedLaterString) === true,
+    'isPoolNewer: offset-notatie vergelijkt op echte tijd (Date.parse), niet op string-lexicografie',
+  );
+
+  // Onparseerbare modifiedAt valt terug op epoch 0 (parseTime-fallback) — geen NaN-vergelijking,
+  // geen crash; twee onparseerbare tijden zijn "gelijk" (0 === 0, dus niet nieuwer bij gelijke versie).
+  const localBad = { ...pool(), poolVersion: 9, modifiedAt: 'niet-een-datum' };
+  const importedBad = { ...pool(), poolVersion: 9, modifiedAt: 'ook-geen-datum' };
+  assert(isPoolNewer(localBad, importedBad) === false, 'isPoolNewer: onparseerbare tijden aan beide kanten ⇒ gelijk (fallback 0), niet nieuwer');
+}
+
 // 3. makeOrigin + dedup
 {
   const p = pool();

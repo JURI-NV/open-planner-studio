@@ -69,6 +69,28 @@ export interface LibrarySlice {
 }
 
 /**
+ * Normaliseer één pool defensief tegen vorm-invalide data (bijv. een handmatig bewerkt of door een
+ * derde tool geproduceerd `OPS_Library`-bestand zonder `resources`/`calendars`). Nooit een TypeError
+ * later op `.push`/`.find`: `calendars`/`resources` gegarandeerd array, `poolVersion` numeriek (anders
+ * 1), `modifiedAt` string (anders nu), `companyName` een string (anders het bedrijf uit `companies`,
+ * of anders `cid`). Puur — geschikt voor losse unit-tests, en herbruikt door zowel het laden van de
+ * opgeslagen bibliotheek (`normalizeLoadedLibrary`) als het importeren van één pool (`replacePool`).
+ */
+export function normalizePool(cid: string, raw: Partial<CompanyPool> | null | undefined, companies: Company[]): CompanyPool {
+  const p = raw ?? {};
+  return {
+    companyId: cid,
+    companyName: typeof p.companyName === 'string'
+      ? p.companyName
+      : (companies.find((c) => c.id === cid)?.name ?? cid),
+    poolVersion: typeof p.poolVersion === 'number' ? p.poolVersion : 1,
+    modifiedAt: typeof p.modifiedAt === 'string' ? p.modifiedAt : new Date().toISOString(),
+    calendars: p.calendars ?? [],
+    resources: p.resources ?? [],
+  };
+}
+
+/**
  * Normaliseer een geladen bibliotheek vóór gebruik (defensief tegen vorm-invalide opgeslagen data —
  * bijv. een handmatig bewerkt of ouder bestand). Nooit een TypeError: ontbrekende `companies`/`pools`
  * worden aangevuld (leeg ⇒ geseed met het standaardbedrijf), een `defaultCompanyId` die niet naar een
@@ -80,25 +102,11 @@ export function normalizeLoadedLibrary(lib: Partial<CompanyLibrary> | null | und
   const companyIds = new Set(companies.map((c) => c.id));
   const rawPools = lib?.pools ?? {};
   // Wezen-pools opruimen: pools waarvan companyId niet (meer) bij een bedrijf hoort. Behouden pools
-  // óók structureel normaliseren: een vorm-invalide (bijv. handmatig bewerkte) maar bedrijf-gebonden
-  // pool mag nooit later een TypeError geven op `.push` — `calendars`/`resources` gegarandeerd array,
-  // `poolVersion` numeriek (anders 1), `modifiedAt` string (anders nu).
+  // óók structureel normaliseren via `normalizePool` (zie daar).
   const pools = Object.fromEntries(
     Object.entries(rawPools)
       .filter(([cid]) => companyIds.has(cid))
-      .map(([cid, p]): [string, CompanyPool] => {
-        const raw = (p ?? {}) as Partial<CompanyPool>;
-        return [cid, {
-          companyId: cid,
-          companyName: typeof raw.companyName === 'string'
-            ? raw.companyName
-            : (companies.find((c) => c.id === cid)?.name ?? cid),
-          poolVersion: typeof raw.poolVersion === 'number' ? raw.poolVersion : 1,
-          modifiedAt: typeof raw.modifiedAt === 'string' ? raw.modifiedAt : new Date().toISOString(),
-          calendars: raw.calendars ?? [],
-          resources: raw.resources ?? [],
-        }];
-      }),
+      .map(([cid, p]): [string, CompanyPool] => [cid, normalizePool(cid, p, companies)]),
   );
   const defaultCompanyId = lib?.defaultCompanyId && companyIds.has(lib.defaultCompanyId)
     ? lib.defaultCompanyId
@@ -422,8 +430,12 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     set((s) => {
       if (!s.companies.some(c => c.id === companyId)) return;
       // De geïmporteerde pool krijgt het DOEL-companyId (import in een gekozen bedrijf, spec §4).
+      // Eerst normaliseren (fix critreview taak 10): een vorm-invalide pool — bijv. een hand-gemaakt
+      // of door een derde tool geproduceerd OPS_Library-bestand zonder resources/calendars — mag na
+      // import nooit een TypeError geven op een latere `.push`/`.find` (promote, addLibrary*ToProject).
       const company = s.companies.find(c => c.id === companyId)!;
-      s.pools[companyId] = { ...pool, companyId, companyName: company.name };
+      const normalized = normalizePool(companyId, pool, s.companies);
+      s.pools[companyId] = { ...normalized, companyName: company.name };
     });
     persist(get);
   },

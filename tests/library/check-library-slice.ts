@@ -343,5 +343,40 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().isLocalPoolNewer(cid, older) === true, 'na replace: nieuwe pool nog steeds nieuwer dan oude import');
 }
 
+// --- Import-normalisatie via replacePool (critreview taak 10, fix 1) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  // Vorm-invalide pool zoals een hand-gemaakt/derde-tool OPS_Library-bestand zonder
+  // resources/calendars/poolVersion/modifiedAt. Mag nooit een TypeError geven, noch nu, noch later
+  // op find/push in promote/add-acties.
+  const broken = { companyId: cid, companyName: 'Kapot' } as unknown as import('@/types/library').CompanyPool;
+  let replaceThrew = false;
+  try { useAppStore.getState().replacePool(cid, broken); } catch { replaceThrew = true; }
+  assert(!replaceThrew, 'replacePool: gooit niet op een pool zonder resources/calendars');
+
+  const importedPool = useAppStore.getState().pools[cid];
+  assert(Array.isArray(importedPool?.calendars), 'replacePool: genormaliseerde pool heeft array-calendars');
+  assert(Array.isArray(importedPool?.resources), 'replacePool: genormaliseerde pool heeft array-resources');
+  assert(typeof importedPool?.poolVersion === 'number', 'replacePool: poolVersion numeriek na normalisatie');
+  assert(typeof importedPool?.modifiedAt === 'string' && importedPool.modifiedAt.length > 0, 'replacePool: modifiedAt string na normalisatie');
+
+  let promoteThrew = false;
+  let poolResId: string | null = null;
+  try {
+    poolResId = useAppStore.getState().promoteResourceToPool(cid, { id: 'post-import-res', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
+  } catch { promoteThrew = true; }
+  assert(!promoteThrew, 'na kapotte import: promoteResourceToPool gooit geen TypeError op .push');
+  assert(!!poolResId, 'na kapotte import: promoteResourceToPool retourneert een id');
+
+  let addThrew = false;
+  let added: { added: boolean; resourceId: string | null } = { added: false, resourceId: null };
+  try {
+    if (poolResId) added = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  } catch { addThrew = true; }
+  assert(!addThrew, 'na kapotte import: addLibraryResourceToProject gooit geen TypeError op .find');
+  assert(added.added === true, 'na kapotte import: addLibraryResourceToProject voegt toe');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

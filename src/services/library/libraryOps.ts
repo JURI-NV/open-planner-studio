@@ -7,15 +7,24 @@ export function bumpPool(pool: CompanyPool): CompanyPool {
   return { ...pool, poolVersion: pool.poolVersion + 1, modifiedAt: new Date().toISOString() };
 }
 
+/** Parseer een ISO-tijdstempel naar epoch-ms voor vergelijking. Onparseerbaar/ontbrekend ⇒ 0
+ *  (nooit NaN — NaN-vergelijkingen zijn altijd `false`, wat een stille misdetectie zou zijn). */
+function parseTime(iso: string): number {
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? 0 : t;
+}
+
 /**
- * Demping-check (spec §4): is de LOKALE pool nieuwer dan de te importeren pool? Nieuwer =
- * hogere poolVersion, of bij gelijke versie een recentere modifiedAt. `undefined` lokaal (nog geen
- * pool) ⇒ nooit nieuwer.
+ * Demping-check (spec §4, bindend user-besluit): is de LOKALE pool nieuwer dan de te importeren
+ * pool? Nieuwer ⇔ een hogere `poolVersion` ÓF een recentere `modifiedAt` — de twee signalen tellen
+ * onafhankelijk mee (geen precedentie-ladder waarbij versie de tijd overstemt bij een verschil).
+ * Tijd wordt vergeleken op echte epoch-tijd (`Date.parse`, fallback 0 bij onparseerbaar), niet als
+ * string-lexicografie — dat sorteert offset-notaties (`-05:00` versus `Z`) soms verkeerd.
+ * `undefined` lokaal (nog geen pool) ⇒ nooit nieuwer.
  */
 export function isPoolNewer(local: CompanyPool | undefined, imported: CompanyPool): boolean {
   if (!local) return false;
-  if (local.poolVersion !== imported.poolVersion) return local.poolVersion > imported.poolVersion;
-  return local.modifiedAt > imported.modifiedAt;
+  return local.poolVersion > imported.poolVersion || parseTime(local.modifiedAt) > parseTime(imported.modifiedAt);
 }
 
 /** Bouw een herkomststempel voor een item uit een pool. */
