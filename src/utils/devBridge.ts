@@ -216,6 +216,16 @@ export interface OpsDevBridge {
     disable: typeof disableExtension;
     remove: typeof removeExtension;
   };
+  /** Dev-only bedrijfsbibliotheek-haken voor zelftests (B1). */
+  library: {
+    state: () => {
+      companies: number;
+      defaultCompanyId: string;
+      pools: Record<string, { version: number; cals: number; res: number }>;
+    };
+    addCompany: (name: string) => string;
+    addResource: (companyId: string, poolResourceId: string) => { added: boolean; resourceId: string | null };
+  };
 }
 
 declare global {
@@ -237,6 +247,18 @@ export function installDevBridge(): void {
       enable: enableExtension,
       disable: disableExtension,
       remove: removeExtension,
+    },
+    library: {
+      state: () => {
+        const s = useAppStore.getState();
+        return {
+          companies: s.companies.length,
+          defaultCompanyId: s.defaultCompanyId,
+          pools: Object.fromEntries(Object.entries(s.pools).map(([k, v]) => [k, { version: v.poolVersion, cals: v.calendars.length, res: v.resources.length }])),
+        };
+      },
+      addCompany: (name: string) => useAppStore.getState().addCompany(name),
+      addResource: (companyId: string, poolResourceId: string) => useAppStore.getState().addLibraryResourceToProject(companyId, poolResourceId),
     },
   };
   appLog.emit('event', 'devBridge', 'window.__OPS__ klaar (dev-only self-test haak)');

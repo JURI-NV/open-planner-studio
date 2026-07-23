@@ -78,6 +78,9 @@ export function createDefaultUI(): UIState {
     hourDataNotice: false,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
+    showPoolImportDialog: false,
+    showAddFromLibraryDialog: false,
+    showUpdateFromLibraryDialog: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
     // showWelcomeDialog o.b.v. de persistente `welcomeSeen`-vlag (settingsStore.ts).
     showWelcomeDialog: false,

@@ -242,6 +242,34 @@
   "progress": {
     "actualsAfterStatusDate": "Actuals cannot be after the status date"
   },
+  "companyLibrary": {
+    "title": "Company library",
+    "intro": "Manage calendars and resources centrally per company. Projects of this company draw from it; what a project uses becomes an editable copy with provenance inside the project itself.",
+    "companies": "Companies",
+    "addCompany": "Add company",
+    "newCompany": "New company",
+    "companyName": "Company name",
+    "removeCompany": "Remove company",
+    "cannotRemoveLast": "The last company cannot be removed.",
+    "setDefault": "Set as default",
+    "export": "Export",
+    "import": "Import",
+    "backupHint": "Exporting is also your backup: keep the file somewhere safe.",
+    "calendars": "Calendars",
+    "resources": "Resources",
+    "noCalendars": "No calendars in the pool yet.",
+    "noResources": "No resources in the pool yet.",
+    "promoteHint": "Promote a project calendar or resource to the library from within the project.",
+    "importTitle": "Import library",
+    "importInto": "Import into company",
+    "chooseFile": "Choose file…",
+    "importNotAPool": "This IFC file does not contain a company library.",
+    "importPreview": "{{calendars}} calendars, {{resources}} resources (version {{version}}).",
+    "importReplaces": "Importing replaces the ENTIRE pool of the selected company.",
+    "importConfirm": "Replace",
+    "dempingWarning": "Your local library is newer — importing may overwrite your changes.",
+    "syncNote": "Note: libraries are not synchronized between machines. If two planners work with the same company, the libraries may diverge. If your organization shares crews across operating companies, deliberately choose one shared pool."
+  },
   "resource": {
     "type": {
       "labor": "Labor",

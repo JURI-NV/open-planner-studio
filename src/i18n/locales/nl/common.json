@@ -242,6 +242,34 @@
   "progress": {
     "actualsAfterStatusDate": "Actuals kunnen niet ná de statusdatum liggen"
   },
+  "companyLibrary": {
+    "title": "Bedrijfsbibliotheek",
+    "intro": "Beheer kalenders en resources centraal per bedrijf. Projecten van dit bedrijf putten hieruit; wat een project gebruikt wordt een bewerkbare kopie mét herkomst in het project zelf.",
+    "companies": "Bedrijven",
+    "addCompany": "Bedrijf toevoegen",
+    "newCompany": "Nieuw bedrijf",
+    "companyName": "Bedrijfsnaam",
+    "removeCompany": "Bedrijf verwijderen",
+    "cannotRemoveLast": "Het laatste bedrijf kan niet worden verwijderd.",
+    "setDefault": "Als standaard",
+    "export": "Exporteren",
+    "import": "Importeren",
+    "backupHint": "Exporteren is tevens je back-up: bewaar het bestand op een veilige plek.",
+    "calendars": "Kalenders",
+    "resources": "Resources",
+    "noCalendars": "Nog geen kalenders in de pool.",
+    "noResources": "Nog geen resources in de pool.",
+    "promoteHint": "Promoveer een projectkalender of -resource naar de bibliotheek vanuit het project.",
+    "importTitle": "Bibliotheek importeren",
+    "importInto": "Importeren in bedrijf",
+    "chooseFile": "Bestand kiezen…",
+    "importNotAPool": "Dit IFC-bestand bevat geen bedrijfsbibliotheek.",
+    "importPreview": "{{calendars}} kalenders, {{resources}} resources (versie {{version}}).",
+    "importReplaces": "Importeren vervangt de HELE pool van het gekozen bedrijf.",
+    "importConfirm": "Vervangen",
+    "dempingWarning": "Jouw lokale bibliotheek is nieuwer — importeren kan wijzigingen van jou overschrijven.",
+    "syncNote": "Let op: bibliotheken worden niet gesynchroniseerd tussen machines. Werken twee planners met hetzelfde bedrijf, dan kunnen de bibliotheken uiteenlopen. Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust één gezamenlijke pool."
+  },
   "resource": {
     "type": {
       "labor": "Arbeid",

@@ -88,6 +88,8 @@ export type BackstageSection =
   | 'project-info'
   | 'settings'
   | 'extensions'
+  // B1 (bedrijfsbibliotheken): bedrijvenbeheer, poolbeheer, export/import.
+  | 'library'
   // Fase 2.10, onderdeel 5 (golf 1): in-app help/documentatie-viewer.
   | 'help';
 
@@ -171,6 +173,13 @@ export interface UIState {
   /** session — ingebouwde benchmark-tool (pakket S) open. Draait geïsoleerd op gegenereerde
    *  data; raakt het open project/de store niet aan. */
   showBenchmarkDialog: boolean;
+  // --- B1 (bedrijfsbibliotheken): Backstage-sectie Bibliotheek-dialogen ---
+  /** session — pool-importdialoog open (met demping-waarschuwing). */
+  showPoolImportDialog: boolean;
+  /** session — "toevoegen uit bibliotheek"-kiezer open (spec §3). */
+  showAddFromLibraryDialog: boolean;
+  /** session — "bijwerken vanuit bibliotheek"-diffdialoog open (spec §3). */
+  showUpdateFromLibraryDialog: boolean;
   // --- Fase 2.10 onderdeel 3: first-startup (welkomstdialoog + rondleiding) ---
   /** session — welkomstdialoog (2 stappen: voorkeuren + rondleiding-aanbod) open. Ephemeral:
    *  het bootstrap-effect in App.tsx zet 'm op true bij een verse `!loadWelcomeSeen()`, of de

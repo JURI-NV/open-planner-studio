@@ -29,6 +29,7 @@ import { FilterDialog } from '@/components/dialogs/FilterDialog';
 import { LayoutsDialog } from '@/components/dialogs/LayoutsDialog';
 import { ShortcutsDialog } from '@/components/dialogs/ShortcutsDialog';
 import { BenchmarkDialog } from '@/components/dialogs/BenchmarkDialog';
+import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
 import { PresentationHint } from '@/components/layout/PresentationHint';
 import { RecoveryDialog } from '@/components/dialogs/RecoveryDialog';
 import { WelcomeDialog } from '@/components/dialogs/WelcomeDialog';
@@ -332,6 +333,7 @@ function AppContent() {
       {showWelcomeDialog && <WelcomeDialog />}
       {showTourOverlay && <TourOverlay />}
       <UpdateDialog />
+      <PoolImportDialog />
       {recovery && (
         <RecoveryDialog
           entries={recovery.entries}

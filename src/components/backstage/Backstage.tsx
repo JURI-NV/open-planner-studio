@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, FileText, FolderOpen, Clock, Save, SaveAll, Download,
-  Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy,
+  Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy, Building2,
 } from 'lucide-react';
 import { useAppStore, ExportFormat } from '@/state/appStore';
 import { BackstageSection } from '@/state/slices/types';
@@ -10,6 +10,7 @@ import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
+import { LibrarySection } from './LibrarySection';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
@@ -64,6 +65,7 @@ export function Backstage() {
         <NavItem icon={<Info size={14} />} label={tMenu('ribbon.projectInfo')} active={section === 'project-info'} onClick={() => goTo('project-info')} />
         <NavItem icon={<Settings size={14} />} label={tMenu('backstage.settings')} active={section === 'settings'} onClick={() => goTo('settings')} />
         <NavItem icon={<Puzzle size={14} />} label={tMenu('extensions.title')} active={section === 'extensions'} onClick={() => goTo('extensions')} />
+        <NavItem icon={<Building2 size={14} />} label={tMenu('backstage.library')} active={section === 'library'} onClick={() => goTo('library')} />
 
         <div className="backstage-nav-divider" />
 
@@ -97,6 +99,7 @@ export function Backstage() {
         {section === 'project-info' && <ProjectInfoSection onApply={closeBackstage} />}
         {section === 'settings' && <SettingsSection />}
         {section === 'extensions' && <ExtensionsSection />}
+        {section === 'library' && <LibrarySection />}
         {section === 'help' && <HelpSection />}
       </main>
     </div>
