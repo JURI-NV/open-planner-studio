@@ -79,7 +79,9 @@ async function saveTauri(lib: CompanyLibrary): Promise<void> {
 
 /** Laad de opgeslagen bibliotheek; nog niets opgeslagen ⇒ een verse default-bibliotheek. */
 export async function loadLibrary(): Promise<CompanyLibrary> {
-  const loaded = isTauri() ? await loadTauri() : await loadWeb();
+  // Web-tak in try/catch (pariteit met loadTauri's graceful degradation): een IndexedDB-open-fout
+  // (bijv. private mode) mag niet crashen ⇒ val terug op een verse bibliotheek.
+  const loaded = isTauri() ? await loadTauri() : await loadWeb().catch(() => null);
   return loaded ?? createDefaultLibrary();
 }
 
