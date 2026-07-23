@@ -70,7 +70,7 @@ export function AddFromLibraryDialog() {
         {companies.length >= 2 && (
           <select
             value={companyId}
-            onChange={e => setCompanyId(e.target.value)}
+            onChange={e => { setCompanyId(e.target.value); setNotice(null); }}
             className="input !text-xs !px-2.5 !py-1.5"
             aria-label={t('companyLibrary.importInto')}
           >

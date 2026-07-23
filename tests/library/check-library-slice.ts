@@ -237,6 +237,21 @@ const store = useAppStore.getState();
   assert(su.project.companyId === cid, 'undo: binding blijft sticky (project snapshot:none)');
 }
 
+// --- Kalender-only add bindt óók het project (critreview taak 12, spiegelt addLibraryResourceToProject) ---
+{
+  useAppStore.getState().newProject(); // verse, ONGEBONDEN payload
+  const cid = useAppStore.getState().defaultCompanyId;
+  const poolCalId = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'bind-cal', name: 'Bindploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  })!;
+
+  assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const c = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  assert(c.added === true, 'kalender-only-add: kalender toegevoegd');
+  assert(useAppStore.getState().project.companyId === cid, 'kalender-only-add: bindt het (ongebonden) project (spiegelt resource-variant)');
+}
+
 // --- Bijwerken vanuit bibliotheek (diff + toepassen + "bestaat niet meer") ---
 {
   const s = useAppStore.getState();

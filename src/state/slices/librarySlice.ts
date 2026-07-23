@@ -316,6 +316,13 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.isDirty = true;
       result = { added: true, calendarId: copy.calendar.id };
       finishMutation(s);
+      // Project binden aan dit bedrijf als het nog ongebonden was. Bewust NA finishMutation en buiten
+      // de undo-semantiek (project snapshot:'none'): de binding blijft na undo staan (sticky), zie
+      // critreview taak 8 / spiegelt addLibraryResourceToProject hieronder.
+      if (!s.project.companyId) {
+        const company = s.companies.find(c => c.id === companyId);
+        if (company) { s.project.companyId = company.id; s.project.companyName = company.name; }
+      }
     });
     // Pure kalender-mutatie → histogram verversen (spiegel resourceSlice.addCalendar:224-225).
     get().recomputeResourceLoad();

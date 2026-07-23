@@ -279,7 +279,27 @@
     "removedFromLibrary": "No longer exists in the library",
     "updateThis": "Update",
     "noStampedItems": "This project does not yet contain any items from the library.",
-    "addAfterCreate": "Add from the library right after creating"
+    "addAfterCreate": "Add from the library right after creating",
+    "exportWithPool": "Save library file alongside",
+    "diffArrayCount": "{{count}} {{noun}}",
+    "diffObjectCount": "{{count}} settings",
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "workDays": "Work days",
+      "workStartHour": "Start hour",
+      "workEndHour": "End hour",
+      "hoursPerDay": "Hours per day",
+      "holidays": "Holidays",
+      "generation": "Generation settings",
+      "workTime": "Work time bands",
+      "shift": "Shift",
+      "type": "Type",
+      "costPerHour": "Cost per hour",
+      "maxUnits": "Max units",
+      "unitOfMeasure": "Unit of measure",
+      "availabilitySteps": "Availability steps"
+    }
   },
   "resource": {
     "type": {

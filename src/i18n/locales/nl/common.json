@@ -279,7 +279,27 @@
     "removedFromLibrary": "Bestaat niet meer in bibliotheek",
     "updateThis": "Bijwerken",
     "noStampedItems": "Dit project bevat nog geen items uit de bibliotheek.",
-    "addAfterCreate": "Na aanmaken direct uit de bibliotheek toevoegen"
+    "addAfterCreate": "Na aanmaken direct uit de bibliotheek toevoegen",
+    "exportWithPool": "Bibliotheekbestand ernaast opslaan",
+    "diffArrayCount": "{{count}} {{noun}}",
+    "diffObjectCount": "{{count}} instellingen",
+    "field": {
+      "name": "Naam",
+      "description": "Omschrijving",
+      "workDays": "Werkdagen",
+      "workStartHour": "Startuur",
+      "workEndHour": "Einduur",
+      "hoursPerDay": "Uren per dag",
+      "holidays": "Feestdagen",
+      "generation": "Generatie-instellingen",
+      "workTime": "Werktijdbanden",
+      "shift": "Ploeg",
+      "type": "Type",
+      "costPerHour": "Kostprijs per uur",
+      "maxUnits": "Max. eenheden",
+      "unitOfMeasure": "Eenheid",
+      "availabilitySteps": "Beschikbaarheidsstappen"
+    }
   },
   "resource": {
     "type": {

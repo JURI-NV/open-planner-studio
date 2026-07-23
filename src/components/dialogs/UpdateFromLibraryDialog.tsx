@@ -26,25 +26,45 @@ export function UpdateFromLibraryDialog() {
   const stampedResources = resources.filter(r => r.libraryOrigin);
   const stampedCalendars = calendars.filter(c => c.libraryOrigin);
 
+  // Veldnaam humaniseren via de field-map (nl+en nu, rest taak 14); onvertaalde talen vallen terug
+  // op de rauwe veldnaam i.p.v. een kapotte i18n-sleutel.
+  const fieldLabel = (field: string) => t(`companyLibrary.field.${field}`, { defaultValue: field });
+
+  // Waarde humaniseren i.p.v. rauwe JSON.stringify: getallen/strings direct, arrays/objecten als
+  // aantal items (bijv. "8 feestdagen" — de noun komt van het veld zelf, verlaagd).
+  const formatDiffValue = (value: unknown, field: string): string => {
+    if (value === null || value === undefined) return '—';
+    if (Array.isArray(value)) {
+      return t('companyLibrary.diffArrayCount', { count: value.length, noun: fieldLabel(field).toLowerCase() });
+    }
+    if (typeof value === 'object') {
+      return t('companyLibrary.diffObjectCount', { count: Object.keys(value as object).length });
+    }
+    return String(value);
+  };
+
+  // Een gestempeld item waarvan het bedrijf/de pool zelf niet meer bestaat levert `diff === null`
+  // (i.p.v. `{status:'removed'}`, dat is voor een verwijderd POOL-ITEM binnen een nog bestaande pool).
+  // Mag niet stil verdwijnen — zelfde behandeling als status 'removed' (critreview taak 12).
   const renderDiff = (key: string, name: string, diff: ItemDiff | null, onUpdate: () => void) => {
-    if (!diff) return null;
+    const status = diff?.status ?? 'removed';
     return (
       <li key={key} className="flex flex-col gap-1.5 px-2 py-2 rounded-[8px] border border-border">
         <div className="flex items-center justify-between gap-2">
           <span className="font-medium">{name}</span>
-          {diff.status === 'up-to-date' && <span className="badge badge--green">{t('companyLibrary.upToDate')}</span>}
-          {diff.status === 'removed' && (
+          {status === 'up-to-date' && <span className="badge badge--green">{t('companyLibrary.upToDate')}</span>}
+          {status === 'removed' && (
             <span className="badge badge--red flex items-center gap-1">
               <AlertCircle size={11} /> {t('companyLibrary.removedFromLibrary')}
             </span>
           )}
         </div>
-        {diff.status === 'changed' && (
+        {diff?.status === 'changed' && (
           <>
             <ul className="flex flex-col gap-0.5 text-text-secondary">
               {diff.fields.map(f => (
                 <li key={f.field}>
-                  <b className="text-text-primary">{f.field}</b>: {JSON.stringify(f.project)} → {JSON.stringify(f.library)}
+                  <b className="text-text-primary">{fieldLabel(f.field)}</b>: {formatDiffValue(f.project, f.field)} → {formatDiffValue(f.library, f.field)}
                 </li>
               ))}
             </ul>
