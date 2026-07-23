@@ -142,5 +142,54 @@ const store = useAppStore.getState();
   assert(seeded.defaultCompanyId === seeded.companies[0].id, 'normalizeLoadedLibrary: lege input krijgt geldige default');
 }
 
+// --- Toevoegen uit bibliotheek (meereizende kalender + dedup + binding) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  // Seed de pool met een kalender + resource-die-ernaar-verwijst.
+  const poolCalId = s.promoteCalendarToPool(cid, {
+    id: 'seed-cal', name: 'Nachtploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 22, workEndHour: 6, hoursPerDay: 8, holidays: [],
+  })!;
+  // Resource met eigen kalender: zet zijn calendarId op de POOL-kalender-id (promote strip het niet
+  // want we bouwen de pool-resource direct).
+  const poolResId = s.promoteResourceToPool(cid, { id: 'seed-res', name: 'Wachter', type: 'LABOR', description: '', maxUnits: 1 })!;
+  useAppStore.getState().updatePoolResource(cid, poolResId, { calendarId: poolCalId });
+
+  const beforeCals = useAppStore.getState().calendars.length;
+  const undoBefore = useAppStore.getState().undoStack.length;
+  const r1 = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  assert(r1.added === true, 'addLibraryResource: resource toegevoegd');
+  let st = useAppStore.getState();
+  assert(st.resources.some(r => r.id === r1.resourceId), 'addLibraryResource: resource in project');
+  assert(st.calendars.length === beforeCals + 1, 'addLibraryResource: kalender reisde mee');
+  assert(st.undoStack.length === undoBefore + 1, 'addLibraryResource: undo-snapshot gepusht (E-3)');
+  const added = st.resources.find(r => r.id === r1.resourceId)!;
+  assert(!!st.calendars.find(c => c.id === added.calendarId)?.libraryOrigin, 'addLibraryResource: meegereisde kalender heeft herkomst');
+  assert(st.project.companyId === cid, 'addLibraryResource: project gebonden aan bedrijf');
+
+  // Nogmaals toevoegen ⇒ dedup, geen duplicaat, GEEN loze undo-stap (E-3).
+  const undoAfterAdd = useAppStore.getState().undoStack.length;
+  const r2 = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  assert(r2.added === false && r2.resourceId === r1.resourceId, 'addLibraryResource: dedup ("al in project")');
+  assert(useAppStore.getState().resources.filter(r => r.libraryOrigin?.libraryItemId === poolResId).length === 1, 'addLibraryResource: geen duplicaat');
+  assert(useAppStore.getState().calendars.length === beforeCals + 1, 'addLibraryResource: kalender niet gedupliceerd bij tweede keer');
+  assert(useAppStore.getState().undoStack.length === undoAfterAdd, 'addLibraryResource: dedup pusht geen undo-snapshot (E-3)');
+
+  // Losse bibliotheek-kalender toevoegen is óók undoable (E-3).
+  const poolCalId2 = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'seed-cal2', name: 'Weekendploeg', description: '', workDays: [6, 7],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  })!;
+  const undoBeforeCal = useAppStore.getState().undoStack.length;
+  const c1 = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId2);
+  assert(c1.added === true, 'addLibraryCalendar: kalender toegevoegd');
+  assert(useAppStore.getState().undoStack.length === undoBeforeCal + 1, 'addLibraryCalendar: undo-snapshot gepusht (E-3)');
+  const undoAfterCal = useAppStore.getState().undoStack.length;
+  const c2 = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId2);
+  assert(c2.added === false, 'addLibraryCalendar: dedup ("al in project")');
+  assert(useAppStore.getState().undoStack.length === undoAfterCal, 'addLibraryCalendar: dedup pusht geen undo-snapshot (E-3)');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

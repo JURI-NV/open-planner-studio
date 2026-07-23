@@ -1,8 +1,10 @@
+import { current } from 'immer';
 import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject } from '@/services/library';
+import { beginUndoable, finishMutation } from '../transaction';
 import { appLog } from '@/services/debug/appLog';
 
 /**
@@ -34,6 +36,20 @@ export interface LibrarySlice {
   updatePoolResource: (companyId: string, resourceId: string, updates: Partial<import('@/types/resource').Resource>) => void;
   removePoolCalendar: (companyId: string, calendarId: string) => void;
   removePoolResource: (companyId: string, resourceId: string) => void;
+
+  /** Bind het ACTIEVE project aan een bedrijf (spec §6). Zet project.companyId + companyName. */
+  bindProjectToCompany: (companyId: string) => void;
+  /**
+   * Voeg een bibliotheek-kalender toe aan het ACTIEVE project (spec §3): kopieer met stempel, dedup
+   * op herkomst. Retourneert `{ added, calendarId }` — `added: false` ⇒ item was er al ("al in project").
+   */
+  addLibraryCalendarToProject: (companyId: string, poolCalendarId: string) => { added: boolean; calendarId: string | null };
+  /**
+   * Voeg een bibliotheek-resource toe aan het ACTIEVE project (spec §3): kopieer met stempel, laat
+   * de eigen kalender meereizen (met dedup), dedup op herkomst. Bindt het project aan het bedrijf als
+   * het nog ongebonden was.
+   */
+  addLibraryResourceToProject: (companyId: string, poolResourceId: string) => { added: boolean; resourceId: string | null };
 }
 
 /**
@@ -238,5 +254,78 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
+  },
+
+  bindProjectToCompany: (companyId) => {
+    set((s) => {
+      const company = s.companies.find(c => c.id === companyId);
+      if (!company) return;
+      s.project.companyId = company.id;
+      s.project.companyName = company.name;
+      s.project.modifiedAt = new Date().toISOString();
+      s.isDirty = true;
+    });
+  },
+
+  addLibraryCalendarToProject: (companyId, poolCalendarId) => {
+    let result: { added: boolean; calendarId: string | null } = { added: false, calendarId: null };
+    set((s) => {
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      // De copy-helper doet `structuredClone` op de bron-pool-items; een Immer-draft-proxy is niet
+      // kloonbaar (DataCloneError). `current()` levert een gewone snapshot van de (ongemuteerde) pool.
+      const pool = current(draftPool);
+      const copy = copyCalendarToProject(pool, poolCalendarId, s.calendars, generateId);
+      if (!copy) return;
+      if (copy.reused) {
+        // Hergebruik = geen mutatie ⇒ vóór beginUndoable terugkeren, geen loze undo-stap.
+        result = { added: false, calendarId: copy.calendar.id };
+        return;
+      }
+      beginUndoable(s);
+      s.calendars = [...s.calendars, copy.calendar];
+      s.isDirty = true;
+      result = { added: true, calendarId: copy.calendar.id };
+      finishMutation(s);
+    });
+    // Pure kalender-mutatie → histogram verversen (spiegel resourceSlice.addCalendar:224-225).
+    get().recomputeResourceLoad();
+    return result;
+  },
+
+  addLibraryResourceToProject: (companyId, poolResourceId) => {
+    let result: { added: boolean; resourceId: string | null } = { added: false, resourceId: null };
+    set((s) => {
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      // Zie addLibraryCalendarToProject: snapshot de draft-pool voordat de copy-helper 'm kloont.
+      const pool = current(draftPool);
+      const copy = copyResourceToProject(pool, poolResourceId, s.resources, s.calendars, generateId);
+      if (!copy) return;
+      if (copy.reused) {
+        // Hergebruik = geen mutatie ⇒ vóór beginUndoable terugkeren, geen loze undo-stap.
+        // (Bij reused levert copyResourceToProject nooit een travelingCalendar, dus niets te doen.)
+        result = { added: false, resourceId: copy.resource.id };
+        return;
+      }
+      beginUndoable(s);
+      // Meereizende kalender toevoegen als hij vers is (dedup gaf `reused: true` ⇒ al aanwezig).
+      if (copy.travelingCalendar && !copy.travelingCalendar.reused) {
+        s.calendars = [...s.calendars, copy.travelingCalendar.calendar];
+      }
+      s.resources = [...s.resources, copy.resource];
+      // Project binden aan dit bedrijf als het nog ongebonden was.
+      if (!s.project.companyId) {
+        const company = s.companies.find(c => c.id === companyId);
+        if (company) { s.project.companyId = company.id; s.project.companyName = company.name; }
+      }
+      s.isDirty = true;
+      result = { added: true, resourceId: copy.resource.id };
+      finishMutation(s);
+    });
+    // Pure resource-mutatie → histogram + rijen verversen (spiegel resourceSlice.addResource:61-64).
+    get().recomputeResourceLoad();
+    get().recomputeViewRows();
+    return result;
   },
 });
