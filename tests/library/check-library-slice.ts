@@ -260,6 +260,14 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().undoStack.length === undoBeforeUpd + 1, 'updateProjectResourceFromLibrary: undo-snapshot gepusht (E-3)');
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'na bijwerken weer up-to-date');
 
+  // Micro-stap (critreview taak 9): update-aanroep op een up-to-date item is óók een no-op — geen
+  // loze undo-stap, isDirty blijft ongewijzigd (guard verruimd van 'removed' naar '!== changed').
+  const undoBeforeUpToDate = useAppStore.getState().undoStack.length;
+  const isDirtyBeforeUpToDate = useAppStore.getState().isDirty;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpToDate, 'update op up-to-date resource: geen loze undo-snapshot');
+  assert(useAppStore.getState().isDirty === isDirtyBeforeUpToDate, 'update op up-to-date resource: isDirty ongewijzigd');
+
   // Verwijder het origineel uit de pool ⇒ diff "removed", bijwerken is no-op (én geen undo-stap, E-3).
   useAppStore.getState().removePoolResource(cid, poolResId);
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'removed', 'diffProjectResource: origineel weg ⇒ removed');
@@ -295,6 +303,13 @@ const store = useAppStore.getState();
   assert(su.calendar.id === defId && su.calendar.workEndHour === 18 && su.calendar.hoursPerDay === 9, 'projectdefault: denorm-cache s.calendar in sync (E-2, §9.1)');
   assert(su.undoStack.length === undoBefore + 1, 'projectdefault: undo-snapshot gepusht (E-3)');
   assert(su.diffProjectCalendar(defId)?.status === 'up-to-date', 'projectdefault: na bijwerken weer up-to-date');
+
+  // Micro-stap (critreview taak 9): update op een up-to-date kalender is óók een no-op.
+  const undoBeforeUpToDate = useAppStore.getState().undoStack.length;
+  const isDirtyBeforeUpToDate = useAppStore.getState().isDirty;
+  useAppStore.getState().updateProjectCalendarFromLibrary(defId);
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpToDate, 'update op up-to-date kalender: geen loze undo-snapshot');
+  assert(useAppStore.getState().isDirty === isDirtyBeforeUpToDate, 'update op up-to-date kalender: isDirty ongewijzigd');
 
   // Verwijder het origineel ⇒ removed + bijwerken no-op zonder undo-stap.
   useAppStore.getState().removePoolCalendar(cid, poolCalId);

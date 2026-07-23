@@ -372,9 +372,10 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // is niet kloonbaar (DataCloneError, zie de add-acties sinds 4a60a5f) → `current()`.
       const pool = current(draftPool);
       const snapCal = current(cal);
-      // Alleen bijwerken als het origineel nog bestaat (diff !== removed) — vóór beginUndoable, geen
-      // loze undo-stap bij een no-op (E-3).
-      if (diffCalendarVsPool(snapCal, pool).status === 'removed') return;
+      // Alleen écht bijwerken als er iets te bijwerken VALT ('changed') — vóór beginUndoable, geen
+      // loze undo-stap bij een no-op: dat geldt niet alleen voor 'removed' (origineel weg) maar ook
+      // voor 'up-to-date' (project is al gelijk aan de pool; critreview taak 9).
+      if (diffCalendarVsPool(snapCal, pool).status !== 'changed') return;
       beginUndoable(s);
       s.calendars[idx] = applyCalendarUpdate(snapCal, pool);
       syncProjectCalendar(s); // gedenormaliseerde projectkalender-cache in sync (E-2, §9.1).
@@ -393,8 +394,9 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // Zie updateProjectCalendarFromLibrary: snapshot de draft vóór applyResourceUpdate 'm kloont.
       const pool = current(draftPool);
       const snapRes = current(res);
-      // No-op vóór beginUndoable (E-3): verwijderd origineel ⇒ geen undo-stap.
-      if (diffResourceVsPool(snapRes, pool).status === 'removed') return;
+      // No-op vóór beginUndoable (E-3): alleen 'changed' rechtvaardigt een mutatie — 'removed'
+      // (origineel weg) én 'up-to-date' (al gelijk) leveren beide geen undo-stap op (critreview taak 9).
+      if (diffResourceVsPool(snapRes, pool).status !== 'changed') return;
       beginUndoable(s);
       s.resources[idx] = applyResourceUpdate(snapRes, pool);
       finishMutation(s);
