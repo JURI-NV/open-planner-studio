@@ -114,6 +114,18 @@ export function ResourcePanel() {
       <div className="flex items-center justify-between h-9 px-3 border-b border-border flex-shrink-0">
         <span className="ui-card-header !text-xs">{t('resource.panel.title')}</span>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUI({ showAddFromLibraryDialog: true })}
+            className="btn btn--sm flex items-center gap-1"
+          >
+            {t('companyLibrary.addFromLibrary')}
+          </button>
+          <button
+            onClick={() => setUI({ showUpdateFromLibraryDialog: true })}
+            className="btn btn--sm flex items-center gap-1"
+          >
+            {t('companyLibrary.updateFromLibrary')}
+          </button>
           <button onClick={addRow} className="btn btn--sm btn--primary flex items-center gap-1">
             <Plus size={13} /> {t('resource.panel.addRow')}
           </button>

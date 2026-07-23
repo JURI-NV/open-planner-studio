@@ -268,7 +268,18 @@
     "importReplaces": "Importing replaces the ENTIRE pool of the selected company.",
     "importConfirm": "Replace",
     "dempingWarning": "Your local library is newer — importing may overwrite your changes.",
-    "syncNote": "Note: libraries are not synchronized between machines. If two planners work with the same company, the libraries may diverge. If your organization shares crews across operating companies, deliberately choose one shared pool."
+    "syncNote": "Note: libraries are not synchronized between machines. If two planners work with the same company, the libraries may diverge. If your organization shares crews across operating companies, deliberately choose one shared pool.",
+    "addFromLibrary": "Add from library",
+    "updateFromLibrary": "Update from library",
+    "addTitle": "Add from library",
+    "updateTitle": "Update from library",
+    "added": "Added.",
+    "alreadyInProject": "Already in the project.",
+    "upToDate": "Up to date",
+    "removedFromLibrary": "No longer exists in the library",
+    "updateThis": "Update",
+    "noStampedItems": "This project does not yet contain any items from the library.",
+    "addAfterCreate": "Add from the library right after creating"
   },
   "resource": {
     "type": {

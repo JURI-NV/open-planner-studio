@@ -268,7 +268,18 @@
     "importReplaces": "Importeren vervangt de HELE pool van het gekozen bedrijf.",
     "importConfirm": "Vervangen",
     "dempingWarning": "Jouw lokale bibliotheek is nieuwer — importeren kan wijzigingen van jou overschrijven.",
-    "syncNote": "Let op: bibliotheken worden niet gesynchroniseerd tussen machines. Werken twee planners met hetzelfde bedrijf, dan kunnen de bibliotheken uiteenlopen. Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust één gezamenlijke pool."
+    "syncNote": "Let op: bibliotheken worden niet gesynchroniseerd tussen machines. Werken twee planners met hetzelfde bedrijf, dan kunnen de bibliotheken uiteenlopen. Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust één gezamenlijke pool.",
+    "addFromLibrary": "Toevoegen uit bibliotheek",
+    "updateFromLibrary": "Bijwerken vanuit bibliotheek",
+    "addTitle": "Toevoegen uit bibliotheek",
+    "updateTitle": "Bijwerken vanuit bibliotheek",
+    "added": "Toegevoegd.",
+    "alreadyInProject": "Zit al in het project.",
+    "upToDate": "Actueel",
+    "removedFromLibrary": "Bestaat niet meer in bibliotheek",
+    "updateThis": "Bijwerken",
+    "noStampedItems": "Dit project bevat nog geen items uit de bibliotheek.",
+    "addAfterCreate": "Na aanmaken direct uit de bibliotheek toevoegen"
   },
   "resource": {
     "type": {

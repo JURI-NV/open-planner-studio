@@ -30,6 +30,8 @@ import { LayoutsDialog } from '@/components/dialogs/LayoutsDialog';
 import { ShortcutsDialog } from '@/components/dialogs/ShortcutsDialog';
 import { BenchmarkDialog } from '@/components/dialogs/BenchmarkDialog';
 import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
+import { AddFromLibraryDialog } from '@/components/dialogs/AddFromLibraryDialog';
+import { UpdateFromLibraryDialog } from '@/components/dialogs/UpdateFromLibraryDialog';
 import { PresentationHint } from '@/components/layout/PresentationHint';
 import { RecoveryDialog } from '@/components/dialogs/RecoveryDialog';
 import { WelcomeDialog } from '@/components/dialogs/WelcomeDialog';
@@ -334,6 +336,8 @@ function AppContent() {
       {showTourOverlay && <TourOverlay />}
       <UpdateDialog />
       <PoolImportDialog />
+      <AddFromLibraryDialog />
+      <UpdateFromLibraryDialog />
       {recovery && (
         <RecoveryDialog
           entries={recovery.entries}
