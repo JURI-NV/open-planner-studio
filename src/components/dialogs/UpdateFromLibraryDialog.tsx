@@ -15,6 +15,13 @@ export function UpdateFromLibraryDialog() {
   const setUI = useAppStore(s => s.setUI);
   const resources = useAppStore(s => s.resources);
   const calendars = useAppStore(s => s.calendars);
+  // Fix B3: abonneren op `pools`/`companies` zelf (niet gebruikt, maar puur om te rerenderen) — anders
+  // blijft een open dialoog "Actueel" tonen als het onderliggende poolitem/bedrijf verdwijnt, want
+  // `diffProjectResource`/`diffProjectCalendar` lezen intern uit `get().pools` (geen subscriptie) en
+  // niets anders in dit component triggert een rerender wanneer de pool wijzigt (patroon:
+  // AddFromLibraryDialog abonneert hier al wel op).
+  useAppStore(s => s.pools);
+  useAppStore(s => s.companies);
   const diffResource = useAppStore(s => s.diffProjectResource);
   const diffCalendar = useAppStore(s => s.diffProjectCalendar);
   const updateResource = useAppStore(s => s.updateProjectResourceFromLibrary);
