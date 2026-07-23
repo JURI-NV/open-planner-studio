@@ -64,7 +64,10 @@
 - `tests/library/check-ifc-hostile.ts` of `check-pool-ifc.ts` — `syncedHash`-round-trip (Taak 1).
 
 **Docs**
-- `docs/library.md`, `docs/CHANGELOG.md`, `docs/TODO.md` (Taak 20).
+- `docs/library.md`, `docs/CHANGELOG.md`, `docs/TODO.md` (Taak 21).
+
+**loadState ⇒ los**
+- `src/state/slices/fileSlice.ts` (`linkedOpen`-opt + strip), `src/components/panels/IFCPanel.tsx`, `src/components/layout/MenuBar/MenuBar.tsx` — een volledig-vervangende load levert een los document (Taak 20).
 
 ## Traceerbaarheid — spec §13 plan-eis → taak
 
@@ -79,6 +82,17 @@
 | **7** Afwijkingen-/herkenningsscherm volledig uitgetekend (anti-dialoog §5) | **Taak 14** (`LibraryLinkDialog`, volledige component) |
 | **8** `syncedHash` spiegelt de diff-normalisatie exact (zelfde veldlijsten, multiset-sortering, NFC/witruimte als `diffKey`) | **Taak 1** (`computeCalendarHash`/`computeResourceHash` bovenop `diffKey` + `*_DIFF_FIELDS`) |
 | **9** Sticky-autobind in `addLibrary*ToProject` (`if (!project.companyId)`) strippen/assert-guarden | **Taak 4** |
+
+**Verwerkte GO-NA-FIXES (hyperkritische planreview):**
+
+| # | Reviewpunt | Waar verwerkt |
+| --- | --- | --- |
+| 1 | Taak 4 verzoenen met bestaande sticky-autobind-tests (top-guard + herschreven testblokken) | **Taak 4** (Step 3 top-guard, Step 4 test-herschrijving) |
+| 2 | Grens 3 wordt óók behind-only (geen stille clobber van 'deviated') | **Taak 6** (`refreshAllDocumentsFromPool` behind-only) + **Taak 14** (`resolveDeviation('file')`-sibling-refresh erft dit) |
+| 3 | loadState ⇒ los document (`linkedOpen`) | **Taak 20** (nieuw) |
+| 4 | `scheduleStale` bij kalender-rakende verversing (geen `runCPM`; dormant via payload-veld) | **Taak 5** (`refreshBehindItems`), **Taak 6** (`refreshAllDocumentsFromPool` + payload.scheduleStale), **Taak 14** (`resolveDeviation`) |
+| 5 | Grens 1 óók op `openRecentFile` | **Taak 10** (Step 5) |
+| 6 | Test-setState-patroon: muterende Immer-draft i.p.v. partieel-object-return | **Taak 5/10/12/14** (alle testopzetten omgeschreven) |
 
 ---
 
@@ -458,9 +472,23 @@ Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=1` (`copy.libraryOrig
 
 > Opmerking voor de uitvoerder: na Taak 1 slaagt de `syncedHash`-assert al. Deze taak verwijdert daarnaast dode code; de "falende test" hier is vooral de assert die het NIEUWE contract vastlegt. Als beide asserts al groen zijn na stap 1, ga direct naar stap 3 (de sticky-autobind-strip) en verifieer dat de suite groen blijft.
 
-- [ ] **Step 3: Sticky-autobind strippen**
+- [ ] **Step 3: Sticky-autobind strippen — top-guard, geen stille koppeling meer (plan-eis 9)**
 
-In `src/state/slices/librarySlice.ts`, in `addLibraryCalendarToProject`, verwijder het autobind-blok:
+In `src/state/slices/librarySlice.ts`, geef `addLibraryResourceToProject` en `addLibraryCalendarToProject` een **early-return-guard** bovenaan (materialiseren gebeurt alleen op een project dat al aan DIT bedrijf gekoppeld is — geen stille koppeling), en **verwijder** het bestaande sticky-autobind-blok aan het eind van beide acties.
+
+In `addLibraryResourceToProject`, direct als eerste regel van de actie (vóór `let result = …`):
+
+```ts
+    // Plan-eis 9: materialiseren gebeurt UITSLUITEND op een project dat al aan dit bedrijf gekoppeld
+    // is. Het oude sticky-autobind ("bind een ongebonden project stil") bestaat niet meer — de UI
+    // (Bedrijfsweergave) toont materialiseren alleen voor een gekoppeld project. Anders: no-op + warn.
+    if (get().project.companyId !== companyId) {
+      appLog.emit('warn', 'library', `materialisatie genegeerd: actief project niet aan bedrijf ${companyId} gekoppeld (project=${get().project.companyId ?? 'geen'})`);
+      return { added: false, resourceId: null };
+    }
+```
+
+En verwijder aan het EIND van dezelfde actie het autobind-blok:
 
 ```ts
       // Project binden aan dit bedrijf als het nog ongebonden was. Bewust NA finishMutation ...
@@ -470,34 +498,94 @@ In `src/state/slices/librarySlice.ts`, in `addLibraryCalendarToProject`, verwijd
       }
 ```
 
-Vervang het door een assert-guard (plan-eis 9 — stille koppeling bestaat niet meer):
+Doe hetzelfde in `addLibraryCalendarToProject` — top-guard met `return { added: false, calendarId: null };` (let op het andere returntype) en verwijder daar het identieke autobind-blok. `appLog` is al geïmporteerd bovenaan het bestand.
+
+- [ ] **Step 4: Bestaande sticky-autobind-tests herschrijven (verzoening)**
+
+De huidige `tests/library/check-library-slice.ts` legt op ~regels 269–286 (undo-scenario) en ~288–301 (kalender-only) vast dat een add een ONGEBONDEN project bindt. Dat contract vervalt. **Vervang beide blokken** door de onderstaande. Nieuw contract: materialiseren op een ongebonden project is een no-op (warn-guard), en een normaal scenario bindt expliciet vooraf.
+
+Vervang het undo-scenario-blok (~269–286) door:
 
 ```ts
-      // Plan-eis 9: materialiseren gebeurt uitsluitend bij een reeds gekoppeld project. Het oude
-      // sticky-autobind-pad is onbereikbaar; guard het expliciet i.p.v. stil te koppelen.
-      if (s.project.companyId !== companyId) {
-        appLog.emit('warn', 'library', `materialisatie voor niet-gekoppeld/ander bedrijf genegeerd voor binding (project=${s.project.companyId ?? 'geen'}, item-bedrijf=${companyId})`);
-      }
+{
+  useAppStore.getState().newProject(); // verse, ONGEBONDEN payload; undoStack leeg, pools blijven
+  const cid = useAppStore.getState().defaultCompanyId;
+  const pCal = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'undo-cal', name: 'Undo-ploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  })!;
+  const pRes = useAppStore.getState().promoteResourceToPool(cid, { id: 'undo-res', name: 'Undo-res', type: 'LABOR', description: '', maxUnits: 1 })!;
+  useAppStore.getState().updatePoolResource(cid, pRes, { calendarId: pCal });
+
+  // NIEUW CONTRACT (plan-eis 9): materialiseren op een ONGEBONDEN project is een no-op + warn.
+  assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const guarded = useAppStore.getState().addLibraryResourceToProject(cid, pRes);
+  assert(guarded.added === false && guarded.resourceId === null, 'materialiseren op ongebonden project: no-op (geen stille koppeling)');
+  assert(!useAppStore.getState().project.companyId, 'materialiseren bindt een ongebonden project NIET (plan-eis 9)');
+
+  // Normaal pad: bind eerst expliciet, dan materialiseren.
+  useAppStore.getState().bindProjectToCompany(cid);
+  const calsBefore = useAppStore.getState().calendars.length;
+  const resBefore = useAppStore.getState().resources.length;
+  const add = useAppStore.getState().addLibraryResourceToProject(cid, pRes);
+  assert(add.added === true, 'undo-scenario: resource toegevoegd op gebonden project');
+  assert(useAppStore.getState().project.companyId === cid, 'undo-scenario: project blijft gebonden');
+  assert(useAppStore.getState().resources.length === resBefore + 1, 'undo-scenario: resource erbij');
+  assert(useAppStore.getState().calendars.length === calsBefore + 1, 'undo-scenario: meegereisde kalender erbij');
+
+  // Undo draait de materialisatie ÉCHT terug; de binding (project snapshot:'none') blijft sticky.
+  useAppStore.getState().undo();
+  const su = useAppStore.getState();
+  assert(su.resources.length === resBefore && !su.resources.some(r => r.id === add.resourceId), 'undo: resource daadwerkelijk teruggedraaid (weg)');
+  assert(su.calendars.length === calsBefore, 'undo: meegereisde kalender daadwerkelijk teruggedraaid (weg)');
+  assert(su.project.companyId === cid, 'undo: binding blijft sticky (project snapshot:none)');
+}
 ```
 
-Doe hetzelfde in `addLibraryResourceToProject` (verwijder daar het identieke autobind-blok, vervang door dezelfde assert-guard). `appLog` is al geïmporteerd bovenaan het bestand.
+Vervang het kalender-only-blok (~288–301) door:
 
-- [ ] **Step 4: Draai — verwacht PASS**
+```ts
+{
+  useAppStore.getState().newProject(); // verse, ONGEBONDEN payload
+  const cid = useAppStore.getState().defaultCompanyId;
+  const poolCalId = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'bind-cal', name: 'Bindploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  })!;
 
-Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0`, geen `^   XX`.
+  // Ongebonden project: kalender-materialisatie is een no-op (plan-eis 9).
+  assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const guarded = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  assert(guarded.added === false && guarded.calendarId === null, 'kalender-materialiseren op ongebonden project: no-op');
+  assert(!useAppStore.getState().project.companyId, 'kalender-materialiseren bindt het project NIET (plan-eis 9)');
 
-- [ ] **Step 5: Build-poort**
+  // Na expliciet binden werkt materialiseren wél.
+  useAppStore.getState().bindProjectToCompany(cid);
+  const c = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  assert(c.added === true, 'kalender-only-add op gebonden project: kalender toegevoegd');
+  assert(useAppStore.getState().project.companyId === cid, 'kalender-only-add: project blijft gebonden');
+}
+```
 
-Run: `npm run build` → exit 0 (let op: geen ongebruikte `company`-variabele laten staan).
+Loop daarna de resterende diff-/update-blokken na (Elektricien-resource ~305, PROJECTDEFAULT-kalender ~340): het **Elektricien-blok** materialiseert via `addLibraryResourceToProject` — voeg dáár vóór de eerste `addLibraryResourceToProject` een `useAppStore.getState().bindProjectToCompany(cid);` toe (anders is de add nu een no-op). Het PROJECTDEFAULT-blok gebruikt `promote*`/`updateProjectCalendarFromLibrary` (geen materialisatie) en behoeft geen binding — laat het ongemoeid.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Draai — verwacht PASS**
+
+Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0`, geen `^   XX`. De 190 bestaande checks + de nieuwe blijven groen.
+
+- [ ] **Step 6: Build-poort**
+
+Run: `npm run build` → exit 0 (let op: geen ongebruikte variabelen na het verwijderen van de autobind-blokken).
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/state/slices/librarySlice.ts tests/library/check-library-slice.ts
 git commit -m "refactor(library): strip sticky-autobind uit materialisatie (plan-eis 9)
 
-Materialiseren gebeurt alleen bij een gekoppeld project; stille koppeling bestaat
-niet meer. Assert-guard i.p.v. het onbereikbare if (!project.companyId)-pad.
+Materialiseren gebeurt alleen op een reeds gekoppeld project (top-guard + warn);
+stille koppeling bestaat niet meer. Bestaande autobind-tests herschreven naar het
+nieuwe contract (bind vooraf; ongebonden = no-op).
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -528,10 +616,13 @@ Voeg `computeResourceHash` toe aan de imports van `check-library-slice.ts` (uit 
   // Bouw een EXPLICIETE 'behind'-toestand (robuust tegen grens-3-timing): projectkopie op 1 MET de
   // syncedHash van maxUnits=1 ⇒ file==syncedHash ⇒ behind; pool staat op 5.
   const behindHash = computeResourceHash({ id: 'x', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
-  useAppStore.setState((st) => ({
-    isDirty: false, redoStack: [{} as never],
-    resources: st.resources.map(r => r.id === add.resourceId ? { ...r, maxUnits: 1, libraryOrigin: { ...r.libraryOrigin!, syncedHash: behindHash } } : r),
-  }));
+  // Muterende setState-vorm (gevestigd patroon, tests/planning/check-document-contract.ts:127) — geen
+  // partieel-object-return; muteer de Immer-draft.
+  useAppStore.setState((st) => {
+    st.isDirty = false; st.redoStack = [{} as never];
+    const r = st.resources.find(r => r.id === add.resourceId);
+    if (r) { r.maxUnits = 1; r.libraryOrigin!.syncedHash = behindHash; }
+  });
   const changed = useAppStore.getState().refreshBehindItems(cid);
   const after = useAppStore.getState();
   assert(changed >= 1, 'refreshBehindItems telt gewijzigde items');
@@ -540,9 +631,10 @@ Voeg `computeResourceHash` toe aan de imports van `check-library-slice.ts` (uit 
   assert(after.isDirty === false, 'verversing zet GEEN isDirty (spec §3)');
 
   // Een DEVIATED item (file != syncedHash) blijft ONgemoeid: file=4, syncedHash=hash(1), pool=5.
-  useAppStore.setState((st) => ({
-    resources: st.resources.map(r => r.id === add.resourceId ? { ...r, maxUnits: 4, libraryOrigin: { ...r.libraryOrigin!, syncedHash: behindHash } } : r),
-  }));
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === add.resourceId);
+    if (r) { r.maxUnits = 4; r.libraryOrigin!.syncedHash = behindHash; }
+  });
   useAppStore.getState().refreshBehindItems(cid);
   assert(useAppStore.getState().resources.find(r => r.id === add.resourceId)?.maxUnits === 4, 'refreshBehindItems laat een deviated item ONgemoeid');
 }
@@ -560,7 +652,8 @@ Voeg aan de `LibrarySlice`-interface (`src/state/slices/librarySlice.ts`) toe:
   /** Verversingsprimitief (spec §3, plan-eis 2): werk UITSLUITEND 'behind'-items van het ACTIEVE
    *  document bij naar de poolwaarden van het gegeven bedrijf (scope §2). 'behind' = file == syncedHash
    *  én pool wijkt af; een 'deviated' (lokaal bewerkt) item blijft ongemoeid (spec §3). Niet-undoable:
-   *  geen undo-snapshot, geen isDirty, maar WIST de redoStack. Retourneert het aantal gewijzigde items. */
+   *  geen undo-snapshot, geen isDirty, WIST de redoStack; raakte het een kalender, dan zet het
+   *  `scheduleStale` (geen runCPM). Retourneert het aantal gewijzigde items. */
   refreshBehindItems: (companyId: string) => number;
 ```
 
@@ -576,10 +669,11 @@ Voeg de implementatie toe (in het `createLibrarySlice`-object). Breid de bestaan
       if (!draftPool) return;
       const pool = current(draftPool);
 
+      let calTouched = false;
       s.calendars = s.calendars.map((cal) => {
         if (cal.libraryOrigin?.companyId !== companyId) return cal;
         if (classifyCalendarOnOpen(current(cal), pool) !== 'behind') return cal; // deviated/removed/in-sync ⇒ ongemoeid
-        changed++;
+        changed++; calTouched = true;
         return applyCalendarUpdate(current(cal), pool);
       });
       s.resources = s.resources.map((res) => {
@@ -594,6 +688,8 @@ Voeg de implementatie toe (in het `createLibrarySlice`-object). Breid de bestaan
         // "opnieuw" niet stilletjes oude poolwaarden terugzet (spec §3, Ctrl+Z-eigenaardigheid).
         s.redoStack = [];
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        // Review-fix (spec §3): kalenderverversing raakt datums ⇒ scheduleStale (geen isDirty, geen runCPM).
+        if (calTouched) s.scheduleStale = true;
       }
     });
     if (changed > 0) {
@@ -624,6 +720,10 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Taak 6: Dormant-payload-verversing over alle open documenten (plan-eis 1)
 
 Een pool-edit (grens 3) en crash-herstel (grens 4) moeten óók de `resources`/`calendars` van niet-actieve documenten bijwerken — binnen **één `set()`** op hun `documents[].payload` — met herrekening pas bij activering (plan-eis 1). We voegen `refreshAllDocumentsFromPool(companyId)` toe: actief top-level + elke slapende payload.
+
+**Behind-only (review-fix, spec §3):** ook grens 3 ververst **uitsluitend 'behind'-items** (syncedHash matcht de pool niet meer terwijl het bestand lokaal ongewijzigd is). Een onbesliste **'deviated'**-item (lokaal bewerkt) blijft staan en komt bij de volgende grens-1/heropening terug ("onbesliste items blijven gemarkeerd"). Een pool-edit overschrijft dus nooit stil een lokale afwijking.
+
+**Staleness (review-fix, plan-eis 4-buur, spec §3):** raakte de verversing minstens één kalender, zet dan `scheduleStale = true` (ZONDER `isDirty` — zelfde patroon als `updateProjectCalendarFromLibrary`, librarySlice ~427). GEEN automatische `runCPM`: scheduling blijft handmatig, de stale-indicator is het gevestigde signaal. Voor slapende documenten landt de staleness op `payload.scheduleStale` (dat veld bestaat in het documentcontract) zodat het bij `switchDocument`/activering zichtbaar wordt.
 
 **Files:**
 - Modify: `src/state/slices/librarySlice.ts`
@@ -660,14 +760,15 @@ Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=1` (pool-edit raakt d
 Voeg aan de `LibrarySlice`-interface toe:
 
 ```ts
-  /** Grens 3/4 (spec §3, plan-eis 1): ververs élk gestempeld item van het gegeven bedrijf, in het
-   *  ACTIEVE document én in elke SLAPENDE document-payload, binnen één set(). Slapende documenten
-   *  herrekenen pas bij activering (geen recompute hier). Niet-undoable (wist redoStacks, geen
-   *  isDirty). Retourneert het totaal aantal gewijzigde items over alle documenten. */
+  /** Grens 3/4 (spec §3, plan-eis 1): ververs uitsluitend 'behind'-items van het gegeven bedrijf, in
+   *  het ACTIEVE document én in elke SLAPENDE document-payload, binnen één set(). 'deviated'-items
+   *  blijven ongemoeid (spec §3). Slapende documenten herrekenen pas bij activering (geen recompute
+   *  hier); raakte de verversing een kalender, dan zet het `scheduleStale` (per document/payload),
+   *  ZONDER isDirty. Niet-undoable (wist redoStacks). Retourneert het totaal aantal gewijzigde items. */
   refreshAllDocumentsFromPool: (companyId: string) => number;
 ```
 
-Implementatie (hergebruikt de pure kern; introduceer een module-lokale helper die een array van items ververst tegen een pool):
+Implementatie (behind-only via `classify*OnOpen`; module-lokale helpers per array; retourneert per array of er een kalender wijzigde zodat `scheduleStale` gericht landt):
 
 ```ts
   refreshAllDocumentsFromPool: (companyId) => {
@@ -678,36 +779,43 @@ Implementatie (hergebruikt de pure kern; introduceer een module-lokale helper di
       if (!draftPool) return;
       const pool = current(draftPool);
 
+      // Behind-only (review-fix): alleen items waarvan het BESTAND ongewijzigd is (file == syncedHash)
+      // maar de pool wijkt af. 'deviated' blijft staan. `calTouched` seint kalender-staleness.
+      let calTouched = false;
       const refreshCalendars = (cals: import('@/types/calendar').WorkCalendar[]): import('@/types/calendar').WorkCalendar[] =>
         cals.map((cal) => {
           if (cal.libraryOrigin?.companyId !== companyId) return cal;
-          if (diffCalendarVsPool(cal, pool).status !== 'changed') return cal;
-          changed++;
+          if (classifyCalendarOnOpen(cal, pool) !== 'behind') return cal;
+          changed++; calTouched = true;
           return applyCalendarUpdate(cal, pool);
         });
       const refreshResources = (ress: import('@/types/resource').Resource[]): import('@/types/resource').Resource[] =>
         ress.map((res) => {
           if (res.libraryOrigin?.companyId !== companyId) return res;
-          if (diffResourceVsPool(res, pool).status !== 'changed') return res;
+          if (classifyResourceOnOpen(res, pool) !== 'behind') return res;
           changed++;
           return applyResourceUpdate(res, pool);
         });
 
       // Actief document (top-level) — alleen als het aan dit bedrijf gekoppeld is.
       if (s.project.companyId === companyId) {
+        calTouched = false;
         s.calendars = refreshCalendars(s.calendars.map((c) => current(c)));
         s.resources = refreshResources(s.resources.map((r) => current(r)));
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
-        s.redoStack = [];
+        if (changed > 0) s.redoStack = [];
+        if (calTouched) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
       }
 
       // Slapende payloads (plan-eis 1): muteer binnen dezelfde set(); herrekening pas bij activering.
       for (const doc of s.documents) {
         if (!doc.payload) continue; // actief document heeft payload===null.
         if (doc.payload.project.companyId !== companyId) continue;
+        calTouched = false;
         doc.payload.calendars = refreshCalendars(doc.payload.calendars.map((c) => current(c)));
         doc.payload.resources = refreshResources(doc.payload.resources.map((r) => current(r)));
         doc.payload.redoStack = [];
+        if (calTouched) doc.payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
       }
     });
     if (changed > 0) {
@@ -1130,11 +1238,10 @@ Importeer `computeResourceHash` in `check-library-slice.ts` (indien nog niet ged
   // "Net geopend" behind-toestand EXPLICIET bouwen (robuust tegen grens-3-timing): kopie op 2 MET de
   // syncedHash van maxUnits=2 ⇒ file==syncedHash ⇒ behind; pool staat op 9.
   const behindHash = computeResourceHash({ id: 'x', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 });
-  useAppStore.setState((st) => ({
-    resources: st.resources.map(r => r.id === added.resourceId
-      ? { ...r, maxUnits: 2, libraryOrigin: { ...r.libraryOrigin!, syncedHash: behindHash } }
-      : r),
-  }));
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) { r.maxUnits = 2; r.libraryOrigin!.syncedHash = behindHash; }
+  });
   const result = useAppStore.getState().runOpenBoundary();
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
   assert(copy?.maxUnits === 9, 'grens 1 ververst een behind-item stil naar de poolwaarde');
@@ -1211,7 +1318,7 @@ Voeg ook de `libraryRefreshNotice`-vlag toe — zie Taak 18 (voeg 'm hier al toe
 In `types.ts` (B1-blok): `libraryRefreshNotice: number | null;`
 In `uiSlice.ts` (`createDefaultUI`): `libraryRefreshNotice: null,`
 
-- [ ] **Step 5: Wire in `fileSlice.openFile` (sequencing, plan-eis 4)**
+- [ ] **Step 5: Wire in álle open-paden — `openFile` én `openRecentFile` (sequencing, plan-eis 4; review-punt 5)**
 
 In `src/state/slices/fileSlice.ts`, in `openFile`, ná `get().applyLoadedProject(...)` en vóór `await pushRecent(...)`:
 
@@ -1221,7 +1328,14 @@ In `src/state/slices/fileSlice.ts`, in `openFile`, ná `get().applyLoadedProject
         get().runOpenBoundary();
 ```
 
-(De `loadState`/CSV/XML-paden zijn geen gekoppelde IFC-bestanden met pool-context; `runOpenBoundary` is een no-op zodra er geen lokaal-bekend `companyId` is, dus het is veilig ook daar aan te roepen als je consistent wilt zijn — maar verplicht is alleen het IFC-open-pad.)
+**Óók in `openRecentFile`** (fileSlice ~regel 386, ná zijn `get().applyLoadedProject(...)`): dezelfde aanroep. `openRecentFile` is een volwaardig open-pad (`linkedOpen: true` — zie Taak 20) en moet dus dezelfde grens-1-check draaien:
+
+```ts
+        // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
+        get().runOpenBoundary();
+```
+
+(De `loadState`/CSV/XML-paden krijgen dit NIET — die worden in Taak 20 juist als *los* geladen (`linkedOpen: false`, stempels gestript), dus `runOpenBoundary` zou er sowieso een no-op zijn.)
 
 - [ ] **Step 6: Draai — verwacht PASS**
 
@@ -1327,11 +1441,12 @@ Activeren van een geopend document (spec §3.2) ververst stil. `switchDocument`/
   const docA = useAppStore.getState().activeDocumentId;
   const docB = s.newDocument();
   // Forceer de slapende A-payload naar een achterlopende waarde (simuleert pre-grens-3 drift).
-  useAppStore.setState((st) => ({
-    documents: st.documents.map(d => d.id === docA && d.payload
-      ? { ...d, payload: { ...d.payload, resources: d.payload.resources.map(r => r.id === added.resourceId ? { ...r, maxUnits: 1 } : r) } }
-      : d),
-  }));
+  // Muterende setState-vorm (gevestigd patroon), NIET een partieel-object-return.
+  useAppStore.setState((st) => {
+    const d = st.documents.find(d => d.id === docA);
+    const r = d?.payload?.resources.find(r => r.id === added.resourceId);
+    if (r) r.maxUnits = 1;
+  });
   s.updatePoolResource(cid, resId, { maxUnits: 6 }); // pool schuift op; grens 3 raakt A's payload
   s.switchDocument(docA); // activeren ⇒ grens 2 ververst stil
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
@@ -1448,6 +1563,8 @@ Eén scherm, gedeelde vormtaal (spec §5/§3, plan-eis 7). Het toont twee sectie
 
 - [ ] **Step 1: Falende test voor `resolveDeviation`**
 
+Grens 3 is nu **behind-only** (Taak 6, review-fix), dus een lokaal-bewerkte (deviated) kopie wordt door `updatePoolResource` NIET stil overschreven — de test is daardoor eenvoudig en robuust. Muterende setState-vorm.
+
 ```ts
 // --- resolveDeviation: bedrijfswaarden vs bestandswaarden-overnemen (spec §3) ---
 {
@@ -1455,32 +1572,26 @@ Eén scherm, gedeelde vormtaal (spec §5/§3, plan-eis 7). Het toont twee sectie
   const cid = s.addCompany('Dev BV');
   s.bindProjectToCompany(cid);
   const resId = s.promoteResourceToPool(cid, { id: 'dv', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 4 })!;
-  const added = s.addLibraryResourceToProject(cid, resId);
-  // Maak een deviated-kopie: bewerk de projectkopie lokaal (file != syncedHash) én laat de pool schuiven.
-  useAppStore.setState((st) => ({ resources: st.resources.map(r => r.id === added.resourceId ? { ...r, maxUnits: 6 } : r) }));
-  s.updatePoolResource(cid, resId, { maxUnits: 10 }); // grens 3 zou een behind-item verversen; deze is deviated → blijft 6? 
-  // Kies 'company' ⇒ neem poolwaarde over.
-  s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'company');
+  const added = s.addLibraryResourceToProject(cid, resId); // kopie=4, syncedHash=hash(4)
+  s.updatePoolResource(cid, resId, { maxUnits: 10 });      // pool schuift
+  // Lokaal bewerken ⇒ file=hash(6) != syncedHash=hash(4) ⇒ deviated (grens 3 laat 'm staan).
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) r.maxUnits = 6;
+  });
+  s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'company'); // neem poolwaarde
   assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.maxUnits === 10, "resolveDeviation('company') neemt de poolwaarde");
 
   // Nieuw deviated geval, kies 'file' ⇒ pool neemt de bestandswaarde over (geldt voor alle projecten).
   const res2 = s.promoteResourceToPool(cid, { id: 'dv2', name: 'Ijzerman', type: 'LABOR', description: '', maxUnits: 1 })!;
-  const add2 = s.addLibraryResourceToProject(cid, res2);
-  useAppStore.setState((st) => ({ resources: st.resources.map(r => r.id === add2.resourceId ? { ...r, maxUnits: 3 } : r) }));
+  const add2 = s.addLibraryResourceToProject(cid, res2);   // kopie=1, syncedHash=hash(1)
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === add2.resourceId);
+    if (r) r.maxUnits = 3;                                 // deviated: file=hash(3) != syncedHash=hash(1)
+  });
   s.resolveDeviation({ kind: 'resource', projectId: add2.resourceId! }, 'file');
   assert(useAppStore.getState().pools[cid].resources.find(r => r.id === res2)?.maxUnits === 3, "resolveDeviation('file') schrijft de bestandswaarde naar de pool");
 }
-```
-
-> Let op de subtiliteit in het eerste geval: `updatePoolResource` triggert grens 3 (`refreshAllDocumentsFromPool`), die alléén 'changed'-items ververst — een lokaal bewerkte (deviated) kopie is óók 'changed' en zou door grens 3 stil overschreven worden. Dat is bewust conform spec §4 ("CRUD hier geldt overal via §3"). Voor deze test isoleren we `resolveDeviation` door de projectwaarde ná de pool-edit opnieuw te zetten; pas de test aan als de grens-3-semantiek dat vereist. Kies bij twijfel de spec-getrouwe volgorde: zet de deviated-projectwaarde ná `updatePoolResource`.
-
-Corrigeer daarom het eerste geval door de lokale bewerking ná de pool-edit te zetten:
-
-```ts
-  // (vervang de volgorde in het eerste geval:)
-  s.updatePoolResource(cid, resId, { maxUnits: 10 });
-  useAppStore.setState((st) => ({ resources: st.resources.map(r => r.id === added.resourceId ? { ...r, maxUnits: 6 } : r) }));
-  s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'company');
 ```
 
 - [ ] **Step 2: Draai — verwacht FAIL**
@@ -1521,6 +1632,8 @@ Implementatie (importeer `computeCalendarHash`/`computeResourceHash` uit `@/serv
           if (idx < 0 || diffCalendarVsPool(current(s.calendars[idx]), pool).status !== 'changed') return;
           s.calendars[idx] = applyCalendarUpdate(current(s.calendars[idx]), pool);
           s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+          // Review-fix (spec §3): kalenderwaarden gewijzigd ⇒ scheduleStale (geen isDirty, geen runCPM).
+          s.scheduleStale = true;
         }
         s.redoStack = [];
       });
@@ -2314,7 +2427,113 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## Taak 20: Documentatie — `docs/library.md` herschrijven + CHANGELOG + TODO (spec §12)
+## Taak 20: loadState-paden leveren een *los* document (`linkedOpen`) (spec §5, review-punt 3)
+
+`readIFC → loadState` (IFCPanel `src/components/panels/IFCPanel.tsx:49`, MenuBar `src/components/layout/MenuBar/MenuBar.tsx:36`, en extensie-imports die het document volledig vervangen) laadt een geparsede IFC die `companyId` + `libraryOrigin`-stempels kan dragen — dat zou het document **gekoppeld** laden zónder de grens-1-check. Spec §5 eist dat zo'n volledig-vervangende import een **los** document oplevert (koppelen kan daarna via de herkenningsstap). Besluit: `applyLoadedProject` krijgt een `linkedOpen: boolean`; de echte open-paden geven `true`, de loadState-paden `false` → bij binnenkomst worden `companyId`/`companyName` + alle `libraryOrigin`-stempels gestript.
+
+**Files:**
+- Modify: `src/state/slices/fileSlice.ts` (`ApplyLoadedProjectOpts` + `applyLoadedProject` + de open-paden)
+- Modify: `src/components/panels/IFCPanel.tsx`, `src/components/layout/MenuBar/MenuBar.tsx` (loadState → los)
+- Test: `tests/library/check-library-slice.ts`
+
+- [ ] **Step 1: Falende test**
+
+```ts
+// --- loadState van een gestempeld IFC-document levert een LOS document (spec §5, review-punt 3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Load BV');
+  const poolResId = s.promoteResourceToPool(cid, { id: 'ld', name: 'Betontimmerman', type: 'LABOR', description: '', maxUnits: 2 })!;
+  // Bouw een ImportResult-achtige payload met een gekoppeld project + gestempelde resource, zoals
+  // readIFC die zou opleveren, en voer 'm door loadState (het volledig-vervangende pad).
+  const stampedProject = { ...useAppStore.getState().project, id: 'p-load', companyId: cid, companyName: 'Load BV' };
+  const stampedRes = { id: 'lr', name: 'Betontimmerman', type: 'LABOR' as const, description: '', maxUnits: 2,
+    libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash: 'x' } };
+  useAppStore.getState().loadState({
+    project: stampedProject, calendar: useAppStore.getState().calendar,
+    tasks: [], sequences: [], resources: [stampedRes], assignments: [], resourceCalendars: [],
+  } as never);
+  const after = useAppStore.getState();
+  assert(after.project.companyId === undefined, 'loadState: gestempeld project wordt LOS geladen (companyId gestript)');
+  assert(after.resources.every(r => r.libraryOrigin === undefined), 'loadState: alle libraryOrigin-stempels gestript');
+}
+```
+
+- [ ] **Step 2: Draai — verwacht FAIL**
+
+Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=1` (loadState laadt nu nog gekoppeld met stempels).
+
+- [ ] **Step 3: `linkedOpen` op `ApplyLoadedProjectOpts` + strip in `applyLoadedProject`**
+
+In `src/state/slices/fileSlice.ts`, breid `ApplyLoadedProjectOpts` uit:
+
+```ts
+  /** True = een echt open-pad (openFile/openRecentFile): behoud bedrijfsbinding + stempels en draai
+   *  de grens-1-check. False (default) = een volledig-vervangende load (loadState: IFCPanel/MenuBar/
+   *  extensie-import): laad LOS — strip companyId/companyName + alle libraryOrigin-stempels (spec §5).
+   *  (Crash-herstel loopt NIET door applyLoadedProject maar via `restoreDocuments`, dat de opgeslagen —
+   *  dus gekoppelde — staat exact herstelt en de grens-1-check apart draait, Taak 11.) */
+  linkedOpen?: boolean;
+```
+
+In `applyLoadedProject`, binnen de `set((s) => { … })` ná `hydratePayload(s, payload);`, voeg toe:
+
+```ts
+        // Spec §5 (review-punt 3): een volledig-vervangende load zonder open-pad-semantiek levert een
+        // LOS document — geen stille koppeling, geen stille herkenning. Strip bedrijfsbinding + stempels.
+        if (!opts.linkedOpen) {
+          s.project = { ...s.project, companyId: undefined, companyName: undefined };
+          s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
+          s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        }
+```
+
+- [ ] **Step 4: Open-paden geven `linkedOpen: true`**
+
+Zet in `openFile` en `openRecentFile` (en, indien `applyLoadedProject` daar loopt, elk ander echt open-pad) `linkedOpen: true` in het opts-object bij `get().applyLoadedProject(parsed, { … })`. Voorbeeld (openFile-opts, náást de bestaande vlaggen):
+
+```ts
+          recompute: true,
+          fit: true,
+          hourDataNotice: true,
+          linkedOpen: true,
+```
+
+De `loadState`-actie (die intern `applyLoadedProject` aanroept) laat `linkedOpen` weg (default `false`) — verifieer in `fileSlice.loadState` dat het opts-object geen `linkedOpen: true` zet.
+
+- [ ] **Step 5: IFCPanel/MenuBar blijven loadState gebruiken (geen wijziging nodig, verifiëren)**
+
+`IFCPanel.tsx:49` en `MenuBar.tsx:36` roepen `store.loadState(data)` aan; die loopt door `applyLoadedProject` met `linkedOpen` afwezig ⇒ los. Verifieer dat er geen ándere loadState/`applyLoadedProject`-aanroep bestaat die per ongeluk `linkedOpen: true` zet:
+
+```bash
+grep -rn "applyLoadedProject\|loadState" src/ | grep -v "\.test\."
+```
+
+Verwacht: alleen de open-paden (openFile/openRecentFile) zetten `linkedOpen: true`; loadState-paden niet. (Recovery gebruikt `restoreDocuments`, geen `applyLoadedProject` — dus geen `linkedOpen` nodig.)
+
+- [ ] **Step 6: Draai + build**
+
+Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0`.
+Run: `bash tests/planning/run.sh; echo "EXIT=$?"` → `EXIT=0`.
+Run: `npm run build` → exit 0.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/state/slices/fileSlice.ts src/components/panels/IFCPanel.tsx src/components/layout/MenuBar/MenuBar.tsx tests/library/check-library-slice.ts
+git commit -m "feat(library): loadState-paden laden een los document (linkedOpen) (spec §5)
+
+Een volledig-vervangende IFC-load (IFCPanel/MenuBar/extensie-import) strip bedrijfsbinding
+en stempels; alleen echte open-paden (openFile/openRecentFile/recovery) laden gekoppeld en
+draaien de grens-1-check.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Taak 21: Documentatie — `docs/library.md` herschrijven + CHANGELOG + TODO (spec §12)
 
 `docs/library.md` wordt herschreven naar het bedrijfscentrische model en documenteert expliciet de geëiste eigenaardigheden (spec §12). CHANGELOG en TODO bijwerken.
 
@@ -2353,7 +2572,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## Slotverificatie (na Taak 20)
+## Slotverificatie (na Taak 21)
 
 - [ ] `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0` en `bash tests/library/run.sh 2>&1 | grep '^   XX'` → geen output.
 - [ ] `bash tests/planning/run.sh; echo "EXIT=$?"` → `EXIT=0` en geen `^XX`-regels.
