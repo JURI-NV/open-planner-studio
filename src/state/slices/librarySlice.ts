@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -51,6 +51,13 @@ export interface LibrarySlice {
    * het nog ongebonden was.
    */
   addLibraryResourceToProject: (companyId: string, poolResourceId: string) => { added: boolean; resourceId: string | null };
+
+  /** Bereken de diff van een projectkalender t.o.v. zijn bibliotheekorigineel (spec §3). */
+  diffProjectCalendar: (calendarId: string) => import('@/services/library').ItemDiff | null;
+  diffProjectResource: (resourceId: string) => import('@/services/library').ItemDiff | null;
+  /** Werk één projectkalender bij naar de bibliotheekwaarden (spec §3). No-op als geen herkomst/pool. */
+  updateProjectCalendarFromLibrary: (calendarId: string) => void;
+  updateProjectResourceFromLibrary: (resourceId: string) => void;
 }
 
 /**
@@ -334,5 +341,65 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     get().recomputeResourceLoad();
     get().recomputeViewRows();
     return result;
+  },
+
+  diffProjectCalendar: (calendarId) => {
+    const s = get();
+    const cal = s.calendars.find(c => c.id === calendarId);
+    const companyId = cal?.libraryOrigin?.companyId;
+    const pool = companyId ? s.pools[companyId] : undefined;
+    if (!cal || !cal.libraryOrigin || !pool) return null;
+    return diffCalendarVsPool(cal, pool);
+  },
+
+  diffProjectResource: (resourceId) => {
+    const s = get();
+    const res = s.resources.find(r => r.id === resourceId);
+    const companyId = res?.libraryOrigin?.companyId;
+    const pool = companyId ? s.pools[companyId] : undefined;
+    if (!res || !res.libraryOrigin || !pool) return null;
+    return diffResourceVsPool(res, pool);
+  },
+
+  updateProjectCalendarFromLibrary: (calendarId) => {
+    set((s) => {
+      const idx = s.calendars.findIndex(c => c.id === calendarId);
+      const cal = idx >= 0 ? s.calendars[idx] : undefined;
+      const companyId = cal?.libraryOrigin?.companyId;
+      const draftPool = companyId ? s.pools[companyId] : undefined;
+      if (!cal || !cal.libraryOrigin || !draftPool) return;
+      // Draft-snapshots: applyCalendarUpdate doet structuredClone op de pool-bron; een Immer-draft-proxy
+      // is niet kloonbaar (DataCloneError, zie de add-acties sinds 4a60a5f) → `current()`.
+      const pool = current(draftPool);
+      const snapCal = current(cal);
+      // Alleen bijwerken als het origineel nog bestaat (diff !== removed) — vóór beginUndoable, geen
+      // loze undo-stap bij een no-op (E-3).
+      if (diffCalendarVsPool(snapCal, pool).status === 'removed') return;
+      beginUndoable(s);
+      s.calendars[idx] = applyCalendarUpdate(snapCal, pool);
+      syncProjectCalendar(s); // gedenormaliseerde projectkalender-cache in sync (E-2, §9.1).
+      finishMutation(s, { stale: true }); // kalenderwijziging raakt datums.
+    });
+    get().recomputeResourceLoad();
+  },
+
+  updateProjectResourceFromLibrary: (resourceId) => {
+    set((s) => {
+      const idx = s.resources.findIndex(r => r.id === resourceId);
+      const res = idx >= 0 ? s.resources[idx] : undefined;
+      const companyId = res?.libraryOrigin?.companyId;
+      const draftPool = companyId ? s.pools[companyId] : undefined;
+      if (!res || !res.libraryOrigin || !draftPool) return;
+      // Zie updateProjectCalendarFromLibrary: snapshot de draft vóór applyResourceUpdate 'm kloont.
+      const pool = current(draftPool);
+      const snapRes = current(res);
+      // No-op vóór beginUndoable (E-3): verwijderd origineel ⇒ geen undo-stap.
+      if (diffResourceVsPool(snapRes, pool).status === 'removed') return;
+      beginUndoable(s);
+      s.resources[idx] = applyResourceUpdate(snapRes, pool);
+      finishMutation(s);
+    });
+    get().recomputeResourceLoad();
+    get().recomputeViewRows(); // resource-naam/toewijzing raakt kolom/groep/filter (E-2, §4.3).
   },
 });

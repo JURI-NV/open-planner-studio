@@ -237,5 +237,74 @@ const store = useAppStore.getState();
   assert(su.project.companyId === cid, 'undo: binding blijft sticky (project snapshot:none)');
 }
 
+// --- Bijwerken vanuit bibliotheek (diff + toepassen + "bestaat niet meer") ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  const poolResId = s.promoteResourceToPool(cid, { id: 'upd-res', name: 'Elektricien', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  const projResId = added.resourceId!;
+
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'diffProjectResource: vers = up-to-date');
+
+  // Wijzig de pool ⇒ diff wordt "changed".
+  useAppStore.getState().updatePoolResource(cid, poolResId, { maxUnits: 4 });
+  const d = useAppStore.getState().diffProjectResource(projResId);
+  assert(d?.status === 'changed', 'diffProjectResource: pool gewijzigd ⇒ changed');
+
+  const undoBeforeUpd = useAppStore.getState().undoStack.length;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  const updated = useAppStore.getState().resources.find(r => r.id === projResId)!;
+  assert(updated.maxUnits === 4, 'updateProjectResourceFromLibrary: waarde overgenomen');
+  assert(updated.id === projResId, 'updateProjectResourceFromLibrary: project-id behouden');
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpd + 1, 'updateProjectResourceFromLibrary: undo-snapshot gepusht (E-3)');
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'na bijwerken weer up-to-date');
+
+  // Verwijder het origineel uit de pool ⇒ diff "removed", bijwerken is no-op (én geen undo-stap, E-3).
+  useAppStore.getState().removePoolResource(cid, poolResId);
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'removed', 'diffProjectResource: origineel weg ⇒ removed');
+  const beforeName = useAppStore.getState().resources.find(r => r.id === projResId)!.name;
+  const undoBeforeNoop = useAppStore.getState().undoStack.length;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)!.name === beforeName, 'update op verwijderd origineel = no-op');
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop, 'update op verwijderd origineel: geen loze undo-snapshot (E-3)');
+}
+
+// --- PROJECTDEFAULT-kalender bijwerken: denorm-cache s.calendar moet meelopen (E-2, §9.1) ---
+{
+  useAppStore.getState().newProject();
+  const cid = useAppStore.getState().defaultCompanyId;
+  // Migreer de inline projectdefault naar s.calendars zodat promote 'm als bron vindt én stempelt.
+  useAppStore.getState().ensureProjectCalendarInLibrary();
+  const defId = useAppStore.getState().project.calendarId;
+  const defCal = useAppStore.getState().calendars.find(c => c.id === defId)!;
+  // Promoveer de PROJECTDEFAULT-kalender → stempelt libraryOrigin op de default + synct s.calendar.
+  const poolCalId = useAppStore.getState().promoteCalendarToPool(cid, defCal)!;
+  assert(useAppStore.getState().calendar.libraryOrigin?.libraryItemId === poolCalId, 'projectdefault: promote stempelt de denorm-cache s.calendar');
+  assert(useAppStore.getState().diffProjectCalendar(defId)?.status === 'up-to-date', 'projectdefault: vers = up-to-date');
+
+  // Wijzig de pool-kalender ⇒ diff "changed".
+  useAppStore.getState().updatePoolCalendar(cid, poolCalId, { workEndHour: 18, hoursPerDay: 9 });
+  assert(useAppStore.getState().diffProjectCalendar(defId)?.status === 'changed', 'projectdefault: pool gewijzigd ⇒ changed');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  useAppStore.getState().updateProjectCalendarFromLibrary(defId);
+  const su = useAppStore.getState();
+  assert(su.calendars.find(c => c.id === defId)!.workEndHour === 18, 'projectdefault: waarde overgenomen in s.calendars');
+  // De kern van E-2: de gedenormaliseerde cache s.calendar (bron voor de writer) is meegelopen.
+  assert(su.calendar.id === defId && su.calendar.workEndHour === 18 && su.calendar.hoursPerDay === 9, 'projectdefault: denorm-cache s.calendar in sync (E-2, §9.1)');
+  assert(su.undoStack.length === undoBefore + 1, 'projectdefault: undo-snapshot gepusht (E-3)');
+  assert(su.diffProjectCalendar(defId)?.status === 'up-to-date', 'projectdefault: na bijwerken weer up-to-date');
+
+  // Verwijder het origineel ⇒ removed + bijwerken no-op zonder undo-stap.
+  useAppStore.getState().removePoolCalendar(cid, poolCalId);
+  assert(useAppStore.getState().diffProjectCalendar(defId)?.status === 'removed', 'projectdefault: origineel weg ⇒ removed');
+  const undoNoop = useAppStore.getState().undoStack.length;
+  const endHourBefore = useAppStore.getState().calendar.workEndHour;
+  useAppStore.getState().updateProjectCalendarFromLibrary(defId);
+  assert(useAppStore.getState().calendar.workEndHour === endHourBefore, 'projectdefault: update op verwijderd origineel = no-op');
+  assert(useAppStore.getState().undoStack.length === undoNoop, 'projectdefault: no-op geen loze undo-snapshot (E-3)');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
