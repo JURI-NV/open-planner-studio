@@ -92,7 +92,6 @@ Gewijzigde bestanden:
 - `src/state/slices/types.ts` — `BackstageSection` uitgebreid met `'library'`; nieuwe UI-vlaggen.
 - `src/state/slices/uiSlice.ts` — defaults voor de nieuwe UI-vlaggen.
 - `src/components/backstage/Backstage.tsx` — NavItem + render voor `'library'`.
-- `src/state/slices/projectSlice.ts` — `createNewProject` accepteert optionele bibliotheek-items uit de wizard.
 - `src/state/slices/fileSlice.ts` — `exportProjectWithPool` (vinkje §4).
 - `src/App.tsx` — `initLibrary()` bij opstarten; mount van de nieuwe dialogen.
 - `src/utils/devBridge.ts` — `window.__OPS__.library.*`-haken voor self-test.
@@ -735,6 +734,7 @@ function openLibraryDb(): Promise<IDBDatabase> {
 }
 
 async function loadWeb(): Promise<CompanyLibrary | null> {
+  if (typeof indexedDB === 'undefined') return null; // headless Node (testbatterij) = no-op.
   const db = await openLibraryDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('library', 'readonly');
@@ -745,6 +745,7 @@ async function loadWeb(): Promise<CompanyLibrary | null> {
 }
 
 async function saveWeb(lib: CompanyLibrary): Promise<void> {
+  if (typeof indexedDB === 'undefined') return; // headless Node (testbatterij) = no-op; geen unhandled rejection.
   const db = await openLibraryDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('library', 'readwrite');
@@ -1168,7 +1169,7 @@ In `src/services/ifc/ifcReader.ts`, binnen het `PSET.ProjectSettings`-blok (rege
 
 - [ ] **Step 5: Lees libraryOrigin terug op resources**
 
-Zoek in `src/services/ifc/ifcReader.ts` de functie die het `OPS_Resource`-pset terugleest (rond regel 745, "OPS_Resource-pset teruglezen"). Voeg in de per-property-lus een tak toe die `LibraryOrigin` parseert:
+Zoek in `src/services/ifc/ifcReader.ts` de functie die het `OPS_Resource`-pset terugleest (de per-property-lus over `props` op de resource `res`, ifcReader.ts:770-797). Voeg in die lus een tak toe die `LibraryOrigin` parseert:
 
 ```ts
         } else if (name === 'LibraryOrigin' && typeof value === 'string' && value) {
@@ -1176,31 +1177,66 @@ Zoek in `src/services/ifc/ifcReader.ts` de functie die het `OPS_Resource`-pset t
             const parsed = JSON.parse(value);
             if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
                 && typeof parsed.poolVersion === 'number') {
-              resource.libraryOrigin = parsed;
+              res.libraryOrigin = parsed;
             }
           } catch { /* corrupte JSON: negeren */ }
         }
 ```
 
-(Pas de exacte variabelenaam `resource`/`value` aan de bestaande lus aan; de tak hangt bij de andere `name === '...'`-vergelijkingen.)
+(De lus-variabele heet `res` (ifcReader.ts:770-797), `value` komt al uit `parseTypedValue(prop.args[2] || '')`; de tak hangt bij de andere `name === '...'`-vergelijkingen.)
 
 - [ ] **Step 6: Lees libraryOrigin terug op kalenders**
 
-Zoek in `src/services/ifc/ifcReader.ts` de functie die `OPS_Calendar` → `generation` terugleest (rond regel 839/897). Voeg naast het parsen van RuleSetId/Region/etc. een tak toe voor `LibraryOrigin` die op de betreffende kalender wordt gezet:
+De bestaande `generation`-reader (`extractCalendarGeneration`, ifcReader.ts:845) deugt hier NIET voor: die functie heeft geen kalenderobject in scope en `continue`t bij een onvolledige generation (regel 877), waardoor een gepromoveerde kalender met alléén een `LibraryOrigin` (geen generation) verloren zou gaan. Schrijf daarom een eigen, LOSSTAANDE helper die dezelfde `OPS_Calendar`-pset opzoekt (zelfde rel-lus-patroon als `extractCalendarGeneration`) maar uitsluitend de `LibraryOrigin`-property parseert — volledig los van de generation-volledigheidsguard. Voeg 'm toe naast `extractCalendarGeneration`:
 
 ```ts
-        if (propName === 'LibraryOrigin' && typeof propVal === 'string' && propVal) {
-          try {
-            const parsed = JSON.parse(propVal);
-            if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
-                && typeof parsed.poolVersion === 'number') {
-              targetCalendar.libraryOrigin = parsed;
-            }
-          } catch { /* corrupte JSON: negeren */ }
+/**
+ * Fase B1 (§6) — `LibraryOrigin`-herkomststempel teruglezen uit het `OPS_Calendar`-pset (spiegel van
+ * de writer, die 'm naast de generation-props schrijft). BEWUST losstaand van
+ * `extractCalendarGeneration`: die `continue`t bij een onvolledige generation, waardoor een kalender
+ * met ALLEEN een LibraryOrigin (gepromoveerd, niet gegenereerd) er verloren zou gaan. Geen/corrupte
+ * property ⇒ `undefined`.
+ */
+function extractCalendarLibraryOrigin(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): LibraryOrigin | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'LibraryOrigin') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value !== 'string' || !value) continue;
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+            && typeof parsed.poolVersion === 'number') {
+          return parsed as LibraryOrigin;
         }
+      } catch { /* corrupte JSON: negeren */ }
+    }
+  }
+  return undefined;
+}
 ```
 
-(Pas `propName`/`propVal`/`targetCalendar` aan de bestaande lus-variabelen aan. Zorg dat het teruggezet wordt óók als `generation` afwezig is — de bestaande code die alleen `generation` opbouwt mag de kalender niet overslaan wanneer alleen `LibraryOrigin` aanwezig is.)
+Roep 'm aan in `buildCalendarFromEntity` direct naast regel 983 (waar `calendar.generation = extractCalendarGeneration(cal.id, entities, entityMap);` staat) — de variabele heet `calendar`, NIET `targetCalendar`:
+
+```ts
+  calendar.libraryOrigin = extractCalendarLibraryOrigin(cal.id, entities, entityMap);
+```
+
+(Zorg dat `LibraryOrigin` bovenaan `ifcReader.ts` geïmporteerd is: `import type { LibraryOrigin } from '@/types/library';`. Doordat de helper losstaat van de generation-guard wordt de herkomst óók teruggezet wanneer `generation` afwezig is.)
 
 - [ ] **Step 7: Breid de round-trip-fixture uit (compile-afdwinging dwingt dit sowieso)**
 
@@ -1670,13 +1706,14 @@ In `interface LibrarySlice`, voeg toe:
 
 - [ ] **Step 2: Implementeer de acties**
 
-Importeer bovenaan de copy-helpers:
+Importeer bovenaan de copy-helpers plus de undo-transactiehelpers (E-3 maakt de acties undoable, spiegel `resourceSlice`):
 
 ```ts
 import { copyCalendarToProject, copyResourceToProject } from '@/services/library';
+import { beginUndoable, finishMutation } from '../transaction';
 ```
 
-Voeg de implementaties toe:
+Voeg de implementaties toe (E-3: `beginUndoable(s)` als eerste mutatie-statement, `finishMutation(s)` als laatste; hergebruik/no-op-paden keren terug vóór `beginUndoable`, zodat er geen loze undo-stap ontstaat — spiegel `resourceSlice.removeCalendar`):
 
 ```ts
   bindProjectToCompany: (companyId) => {
@@ -1698,13 +1735,18 @@ Voeg de implementaties toe:
       const copy = copyCalendarToProject(pool, poolCalendarId, s.calendars, generateId);
       if (!copy) return;
       if (copy.reused) {
+        // Hergebruik = geen mutatie ⇒ vóór beginUndoable terugkeren, geen loze undo-stap.
         result = { added: false, calendarId: copy.calendar.id };
         return;
       }
+      beginUndoable(s);
       s.calendars = [...s.calendars, copy.calendar];
       s.isDirty = true;
       result = { added: true, calendarId: copy.calendar.id };
+      finishMutation(s);
     });
+    // Pure kalender-mutatie → histogram verversen (spiegel resourceSlice.addCalendar:224-225).
+    get().recomputeResourceLoad();
     return result;
   },
 
@@ -1715,13 +1757,16 @@ Voeg de implementaties toe:
       if (!pool) return;
       const copy = copyResourceToProject(pool, poolResourceId, s.resources, s.calendars, generateId);
       if (!copy) return;
+      if (copy.reused) {
+        // Hergebruik = geen mutatie ⇒ vóór beginUndoable terugkeren, geen loze undo-stap.
+        // (Bij reused levert copyResourceToProject nooit een travelingCalendar, dus niets te doen.)
+        result = { added: false, resourceId: copy.resource.id };
+        return;
+      }
+      beginUndoable(s);
       // Meereizende kalender toevoegen als hij vers is (dedup gaf `reused: true` ⇒ al aanwezig).
       if (copy.travelingCalendar && !copy.travelingCalendar.reused) {
         s.calendars = [...s.calendars, copy.travelingCalendar.calendar];
-      }
-      if (copy.reused) {
-        result = { added: false, resourceId: copy.resource.id };
-        return;
       }
       s.resources = [...s.resources, copy.resource];
       // Project binden aan dit bedrijf als het nog ongebonden was.
@@ -1731,7 +1776,11 @@ Voeg de implementaties toe:
       }
       s.isDirty = true;
       result = { added: true, resourceId: copy.resource.id };
+      finishMutation(s);
     });
+    // Pure resource-mutatie → histogram + rijen verversen (spiegel resourceSlice.addResource:61-64).
+    get().recomputeResourceLoad();
+    get().recomputeViewRows();
     return result;
   },
 ```
@@ -1756,20 +1805,38 @@ Voeg vóór de slot-`console.log` toe:
   useAppStore.getState().updatePoolResource(cid, poolResId, { calendarId: poolCalId });
 
   const beforeCals = useAppStore.getState().calendars.length;
+  const undoBefore = useAppStore.getState().undoStack.length;
   const r1 = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
   assert(r1.added === true, 'addLibraryResource: resource toegevoegd');
   let st = useAppStore.getState();
   assert(st.resources.some(r => r.id === r1.resourceId), 'addLibraryResource: resource in project');
   assert(st.calendars.length === beforeCals + 1, 'addLibraryResource: kalender reisde mee');
+  assert(st.undoStack.length === undoBefore + 1, 'addLibraryResource: undo-snapshot gepusht (E-3)');
   const added = st.resources.find(r => r.id === r1.resourceId)!;
   assert(!!st.calendars.find(c => c.id === added.calendarId)?.libraryOrigin, 'addLibraryResource: meegereisde kalender heeft herkomst');
   assert(st.project.companyId === cid, 'addLibraryResource: project gebonden aan bedrijf');
 
-  // Nogmaals toevoegen ⇒ dedup, geen duplicaat.
+  // Nogmaals toevoegen ⇒ dedup, geen duplicaat, GEEN loze undo-stap (E-3).
+  const undoAfterAdd = useAppStore.getState().undoStack.length;
   const r2 = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
   assert(r2.added === false && r2.resourceId === r1.resourceId, 'addLibraryResource: dedup ("al in project")');
   assert(useAppStore.getState().resources.filter(r => r.libraryOrigin?.libraryItemId === poolResId).length === 1, 'addLibraryResource: geen duplicaat');
   assert(useAppStore.getState().calendars.length === beforeCals + 1, 'addLibraryResource: kalender niet gedupliceerd bij tweede keer');
+  assert(useAppStore.getState().undoStack.length === undoAfterAdd, 'addLibraryResource: dedup pusht geen undo-snapshot (E-3)');
+
+  // Losse bibliotheek-kalender toevoegen is óók undoable (E-3).
+  const poolCalId2 = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'seed-cal2', name: 'Weekendploeg', description: '', workDays: [6, 7],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  });
+  const undoBeforeCal = useAppStore.getState().undoStack.length;
+  const c1 = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId2);
+  assert(c1.added === true, 'addLibraryCalendar: kalender toegevoegd');
+  assert(useAppStore.getState().undoStack.length === undoBeforeCal + 1, 'addLibraryCalendar: undo-snapshot gepusht (E-3)');
+  const undoAfterCal = useAppStore.getState().undoStack.length;
+  const c2 = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId2);
+  assert(c2.added === false, 'addLibraryCalendar: dedup ("al in project")');
+  assert(useAppStore.getState().undoStack.length === undoAfterCal, 'addLibraryCalendar: dedup pusht geen undo-snapshot (E-3)');
 }
 ```
 
@@ -1818,10 +1885,11 @@ In `interface LibrarySlice`:
 
 - [ ] **Step 2: Implementeer**
 
-Importeer bovenaan:
+Importeer bovenaan (de undo-transactiehelpers zijn al in Taak 8 geïmporteerd; hier komt `syncProjectCalendar` erbij voor de kalender-cache, spiegel `resourceSlice.updateCalendar:234`):
 
 ```ts
 import { diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate } from '@/services/library';
+import { syncProjectCalendar } from '../syncProjectCalendar';
 ```
 
 ```ts
@@ -1850,12 +1918,15 @@ import { diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResou
       const companyId = cal?.libraryOrigin?.companyId;
       const pool = companyId ? s.pools[companyId] : undefined;
       if (!cal || !cal.libraryOrigin || !pool) return;
-      // Alleen bijwerken als het origineel nog bestaat (diff !== removed).
+      // Alleen bijwerken als het origineel nog bestaat (diff !== removed) — vóór beginUndoable, geen
+      // loze undo-stap bij een no-op (E-3).
       if (diffCalendarVsPool(cal, pool).status === 'removed') return;
+      beginUndoable(s);
       s.calendars[idx] = applyCalendarUpdate(cal, pool);
-      s.isDirty = true;
-      s.scheduleStale = true; // kalenderwijziging raakt datums
+      syncProjectCalendar(s); // gedenormaliseerde projectkalender-cache in sync (E-2, §9.1).
+      finishMutation(s, { stale: true }); // kalenderwijziging raakt datums.
     });
+    get().recomputeResourceLoad();
   },
 
   updateProjectResourceFromLibrary: (resourceId) => {
@@ -1865,11 +1936,14 @@ import { diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResou
       const companyId = res?.libraryOrigin?.companyId;
       const pool = companyId ? s.pools[companyId] : undefined;
       if (!res || !res.libraryOrigin || !pool) return;
+      // No-op vóór beginUndoable (E-3): verwijderd origineel ⇒ geen undo-stap.
       if (diffResourceVsPool(res, pool).status === 'removed') return;
+      beginUndoable(s);
       s.resources[idx] = applyResourceUpdate(res, pool);
-      s.isDirty = true;
+      finishMutation(s);
     });
     get().recomputeResourceLoad();
+    get().recomputeViewRows(); // resource-naam/toewijzing raakt kolom/groep/filter (E-2, §4.3).
   },
 ```
 
@@ -1893,18 +1967,22 @@ Voeg vóór de slot-`console.log` toe:
   const d = useAppStore.getState().diffProjectResource(projResId);
   assert(d?.status === 'changed', 'diffProjectResource: pool gewijzigd ⇒ changed');
 
+  const undoBeforeUpd = useAppStore.getState().undoStack.length;
   useAppStore.getState().updateProjectResourceFromLibrary(projResId);
   const updated = useAppStore.getState().resources.find(r => r.id === projResId)!;
   assert(updated.maxUnits === 4, 'updateProjectResourceFromLibrary: waarde overgenomen');
   assert(updated.id === projResId, 'updateProjectResourceFromLibrary: project-id behouden');
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpd + 1, 'updateProjectResourceFromLibrary: undo-snapshot gepusht (E-3)');
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'na bijwerken weer up-to-date');
 
-  // Verwijder het origineel uit de pool ⇒ diff "removed", bijwerken is no-op.
+  // Verwijder het origineel uit de pool ⇒ diff "removed", bijwerken is no-op (én geen undo-stap, E-3).
   useAppStore.getState().removePoolResource(cid, poolResId);
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'removed', 'diffProjectResource: origineel weg ⇒ removed');
   const beforeName = useAppStore.getState().resources.find(r => r.id === projResId)!.name;
+  const undoBeforeNoop = useAppStore.getState().undoStack.length;
   useAppStore.getState().updateProjectResourceFromLibrary(projResId);
   assert(useAppStore.getState().resources.find(r => r.id === projResId)!.name === beforeName, 'update op verwijderd origineel = no-op');
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop, 'update op verwijderd origineel: geen loze undo-snapshot (E-3)');
 }
 ```
 
@@ -2043,7 +2121,7 @@ EOF
 
 - [ ] **Step 1: Voeg 'library' toe aan BackstageSection**
 
-In `src/state/slices/types.ts`, breid het `BackstageSection`-union uit — voeg ná `'extensions'` toe:
+In `src/state/slices/types.ts`, breid het `BackstageSection`-union uit — de union (slices/types.ts:82-92) eindigt op `'help'`; voeg `'library'` toe tussen `'extensions'` en `'help'`:
 
 ```ts
   | 'library'
@@ -2589,14 +2667,24 @@ import { UpdateFromLibraryDialog } from '@/components/dialogs/UpdateFromLibraryD
 
 - [ ] **Step 4: Voeg de openings-knoppen toe in het resource-paneel**
 
-Zoek het resource-beheerpaneel: `grep -rln "showResourcePanel\|addResource\|ResourcePanel" src/components`. Voeg in de kop van dat paneel twee knoppen toe die de dialoog-vlaggen zetten:
+Het resource-beheerpaneel is `src/components/panels/ResourcePanel.tsx`. De kop is de flex-balk op regel 114 (`<div className="flex items-center justify-between h-9 px-3 border-b border-border flex-shrink-0">`) met de titel-`<span>` (regel 115) en rechts een knoppengroep `<div className="flex items-center gap-2">` (regel 116) die nu de "rij toevoegen"-knop (regel 117-119) en de sluit-knop bevat. Voeg de twee bibliotheek-knoppen ín die knoppengroep toe, vóór de bestaande `addRow`-knop op regel 117:
 
 ```tsx
-<button onClick={() => setUI({ showAddFromLibraryDialog: true })}>{t('companyLibrary.addFromLibrary')}</button>
-<button onClick={() => setUI({ showUpdateFromLibraryDialog: true })}>{t('companyLibrary.updateFromLibrary')}</button>
+          <button
+            onClick={() => setUI({ showAddFromLibraryDialog: true })}
+            className="btn btn--sm flex items-center gap-1"
+          >
+            {t('companyLibrary.addFromLibrary')}
+          </button>
+          <button
+            onClick={() => setUI({ showUpdateFromLibraryDialog: true })}
+            className="btn btn--sm flex items-center gap-1"
+          >
+            {t('companyLibrary.updateFromLibrary')}
+          </button>
 ```
 
-(waar `setUI = useAppStore(s => s.setUI)` en `t` uit `useTranslation()`.)
+(`setUI` en `t` zijn al in `ResourcePanel.tsx` in scope: `const setUI = useAppStore(s => s.setUI)` bestaat er al — het paneel gebruikt 'm o.a. voor de sluit-knop op regel 121 — en `t` komt uit de bestaande `useTranslation()`.)
 
 - [ ] **Step 5: Wizard-integratie — "toevoegen uit bibliotheek" naast presets**
 
