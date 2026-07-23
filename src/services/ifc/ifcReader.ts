@@ -998,7 +998,11 @@ function buildCalendarFromEntity(
 ): WorkCalendar {
   const calendar = createDefaultCalendar();
   calendar.name = stripQuotes(cal.args[2] || '') || calendar.name;
-  calendar.description = stripQuotes(cal.args[3] || '') || calendar.description;
+  // Fix B7: `ifcSlotText` i.p.v. kale `stripQuotes` — een lege omschrijving schrijft de writer als
+  // STEP-null (`$`), en `stripQuotes('$')` geeft het letterlijke tweetekentje `'$'` terug (het start/
+  // eindigt niet met een quote, dus de functie laat de string ongewijzigd) i.p.v. '' — dezelfde
+  // `$`-conventie die elders al via `ifcSlotText` wordt toegepast (bv. project-omschrijving).
+  calendar.description = ifcSlotText(cal.args[3]) || calendar.description;
 
   // Werkweek + uren (§8.1). WorkingTimes (args[5]) is een lijst met precies één ref (zo schrijft
   // de writer 'm) naar het "hoofd"-IFCWORKTIME; de holiday-IFCWORKTIME's zitten in ExceptionTimes

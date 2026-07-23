@@ -215,5 +215,24 @@ function samplePool(overrides: Partial<CompanyPool> = {}): CompanyPool {
   }
 }
 
+// ── A7 (fix B7): lege kalender-omschrijving komt NIET terug als het letterlijke STEP-null-token `$` ──
+// `buildCalendarFromEntity` gebruikte kale `stripQuotes` i.p.v. `ifcSlotText` op de omschrijving:
+// `stripQuotes('$')` laat een niet-gequote string ongewijzigd, dus een lege omschrijving (die de
+// writer als `$` serialiseert, de STEP-null-conventie) kwam letterlijk als de tekst "$" terug.
+{
+  const cal = baseCalendar({ description: '' });
+  const fixture = minimalFixture({ calendar: cal });
+  const back = readIFC(writeIFC(fixture));
+  assert(back.calendar.description !== '$', 'A7: lege kalender-omschrijving komt niet terug als letterlijke "$"');
+
+  // Zelfde voor een bibliotheek-/resourcekalender (tweede leespad, `readCalendarLibrary`, gebruikt
+  // dezelfde `buildCalendarFromEntity`).
+  const libCal = baseCalendar({ id: 'lib-desc-cal', name: 'Bib-kalender zonder omschrijving', description: '' });
+  const fixture2 = minimalFixture({ resourceCalendars: [libCal] });
+  const back2 = readIFC(writeIFC(fixture2));
+  const backLibCal = back2.resourceCalendars?.find(c => c.name === 'Bib-kalender zonder omschrijving');
+  assert(!!backLibCal && backLibCal.description !== '$', 'A7: lege omschrijving van een bibliotheekkalender komt niet terug als letterlijke "$"');
+}
+
 console.log(`ifc-hostile: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
