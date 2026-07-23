@@ -106,16 +106,39 @@ function parseSTEP(content: string): StepEntity[] {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\r\n/g, '\n');
 
-  // Match all entity definitions: #123=IFCTYPE(...); or #300T=IFCTASKTIME(...);
-  const entityRegex = /#(\w+)\s*=\s*(\w+)\s*\(([\s\S]*?)\)\s*;/g;
-  let match;
-  while ((match = entityRegex.exec(clean)) !== null) {
-    entities.push({
-      id: match[1],
-      type: match[2].toUpperCase(),
-      args: splitArgs(match[3]),
-      raw: match[0],
-    });
+  // Entiteitsgrenzen quote-bewust vinden. Een STEP-instructie eindigt op de eerste `;` die NIET
+  // binnen een single-quote-string staat — een naïeve `);`-regex knipt af op de eerste `);` óók
+  // midden in een naam/JSON-blob (bv. "ACME (Rotterdam); Zuid" of pool-JSON met "();"), wat het hele
+  // bestand stil corrumpeert. `''` is een escaped quote BINNEN een string (zelfde principe als
+  // splitArgs); daarna splitst splitArgs de argumenten opnieuw quote-bewust op.
+  const stmtRegex = /^#(\w+)\s*=\s*(\w+)\s*\(([\s\S]*)\)\s*$/;
+  let start = 0;
+  let inString = false;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (ch === "'") {
+      if (inString) {
+        if (i + 1 < clean.length && clean[i + 1] === "'") {
+          i++; // escaped quote ('') — blijf in de string
+        } else {
+          inString = false;
+        }
+      } else {
+        inString = true;
+      }
+    } else if (ch === ';' && !inString) {
+      const stmt = clean.slice(start, i).trim();
+      start = i + 1;
+      const m = stmtRegex.exec(stmt);
+      if (m) {
+        entities.push({
+          id: m[1],
+          type: m[2].toUpperCase(),
+          args: splitArgs(m[3]),
+          raw: stmt + ';',
+        });
+      }
+    }
   }
 
   return entities;
@@ -815,7 +838,11 @@ function extractResourceMeta(
         } else if (name === 'ParentGuid' && typeof value === 'string' && !res.parentId) {
           const parentId = resourceGuidMap.get(value);
           if (parentId) res.parentId = parentId;
-        } else if (name === 'LibraryOrigin' && typeof value === 'string' && value) {
+        } else if (name === 'LibraryOrigin' && typeof value === 'string' && value && !res.libraryOrigin) {
+          // A6-fix: EERSTE geldige LibraryOrigin wint (gezet-is-gezet-guard), gelijk aan het
+          // kalenderpad (extractCalendarLibraryOrigin returnt op de eerste treffer). Zonder de
+          // `!res.libraryOrigin`-guard koos dit pad de LAATSTE bij dubbele props in één pset —
+          // een stille inconsistentie tussen de twee paden.
           try {
             const parsed = JSON.parse(value);
             if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
@@ -1112,6 +1139,23 @@ function extractCalendarLibrary(
         if (task) task.calendarId = cal.id;
       }
     }
+  }
+
+  // A2-fix: bibliotheekkalenders ZONDER gebruiker. De lus hierboven vindt kalenders uitsluitend via
+  // IFCRELASSIGNSTOCONTROL (wie 'm gebruikt). Een gepromote/toegevoegde kalender die nog geen
+  // resource-/taak-toewijzing heeft — het normale "voeg toe vóór toewijzing"-patroon — werd wel door
+  // writeIFC geschreven maar hier nooit teruggevonden: stil verlies incl. libraryOrigin-stempel. Vang
+  // daarom álle overige IFCWORKCALENDAR-entiteiten (behalve de projectkalender) op, gededupliceerd
+  // tegen wat de rel-route al vond (calByStepId), met behoud van bestandsvolgorde (rel-gevonden eerst,
+  // ongebruikte daarna) zodat bestaande round-trip-gedragingen onveranderd blijven.
+  for (const ce of entities) {
+    if (ce.type !== 'IFCWORKCALENDAR') continue;
+    if (projectCalendarEntity && ce.id === projectCalendarEntity.id) continue;
+    if (calByStepId.has(ce.id)) continue;
+    const cal = buildCalendarFromEntity(ce, entityMap, entities);
+    cal.id = generateId('rescal');
+    calByStepId.set(ce.id, cal);
+    calendars.push(cal);
   }
 
   return calendars;
