@@ -2,7 +2,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool } from '@/services/library';
 import { appLog } from '@/services/debug/appLog';
 
 /**
@@ -22,6 +22,16 @@ export interface LibrarySlice {
   renameCompany: (id: string, name: string) => void;
   removeCompany: (id: string) => void;
   setDefaultCompany: (id: string) => void;
+  /** Promoveer een projectkalender naar de pool van een bedrijf (spiegel van de bestaande
+   *  calendar-`promote`; spec §3). Voegt een POOL-kopie toe met een verse pool-id en bumpt de pool.
+   *  Retourneert de nieuwe pool-item-id. */
+  promoteCalendarToPool: (companyId: string, calendar: import('@/types/calendar').WorkCalendar) => string;
+  promoteResourceToPool: (companyId: string, resource: import('@/types/resource').Resource) => string;
+  /** Bewerk pool-inhoud rechtstreeks (Backstage). Elke wijziging bumpt de pool. */
+  updatePoolCalendar: (companyId: string, calendarId: string, updates: Partial<import('@/types/calendar').WorkCalendar>) => void;
+  updatePoolResource: (companyId: string, resourceId: string, updates: Partial<import('@/types/resource').Resource>) => void;
+  removePoolCalendar: (companyId: string, calendarId: string) => void;
+  removePoolResource: (companyId: string, resourceId: string) => void;
 }
 
 /**
@@ -112,6 +122,76 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
   setDefaultCompany: (id) => {
     set((s) => {
       if (s.companies.some(c => c.id === id)) s.defaultCompanyId = id;
+    });
+    persist(get);
+  },
+
+  promoteCalendarToPool: (companyId, calendar) => {
+    const id = generateId('cal');
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      // Verse pool-identiteit; strip een eventuele bestaande herkomst (dit wordt zelf een origineel).
+      const { libraryOrigin: _drop, ...rest } = calendar;
+      pool.calendars.push({ ...structuredClone(rest), id });
+      s.pools[companyId] = bumpPool(pool);
+    });
+    persist(get);
+    return id;
+  },
+
+  promoteResourceToPool: (companyId, resource) => {
+    const id = generateId('res');
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      const { libraryOrigin: _drop, parentId: _p, ...rest } = resource;
+      // Een gepromoveerde resource verwijst niet naar een project-lokale kalender-id.
+      pool.resources.push({ ...structuredClone(rest), id, calendarId: undefined });
+      s.pools[companyId] = bumpPool(pool);
+    });
+    persist(get);
+    return id;
+  },
+
+  updatePoolCalendar: (companyId, calendarId, updates) => {
+    set((s) => {
+      const pool = s.pools[companyId];
+      const idx = pool?.calendars.findIndex(c => c.id === calendarId) ?? -1;
+      if (!pool || idx < 0) return;
+      Object.assign(pool.calendars[idx], updates);
+      s.pools[companyId] = bumpPool(pool);
+    });
+    persist(get);
+  },
+
+  updatePoolResource: (companyId, resourceId, updates) => {
+    set((s) => {
+      const pool = s.pools[companyId];
+      const idx = pool?.resources.findIndex(r => r.id === resourceId) ?? -1;
+      if (!pool || idx < 0) return;
+      Object.assign(pool.resources[idx], updates);
+      s.pools[companyId] = bumpPool(pool);
+    });
+    persist(get);
+  },
+
+  removePoolCalendar: (companyId, calendarId) => {
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      pool.calendars = pool.calendars.filter(c => c.id !== calendarId);
+      s.pools[companyId] = bumpPool(pool);
+    });
+    persist(get);
+  },
+
+  removePoolResource: (companyId, resourceId) => {
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      pool.resources = pool.resources.filter(r => r.id !== resourceId);
+      s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
   },

@@ -40,6 +40,40 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().companies.length === 1, 'removeCompany: laatste bedrijf blijft');
 }
 
+// --- Promoveren + pool-inhoud bewerken ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  const v0 = s.pools[cid].poolVersion;
+
+  const calId = s.promoteCalendarToPool(cid, {
+    id: 'proj-cal', name: 'Ploeg A', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  let pool = useAppStore.getState().pools[cid];
+  assert(pool.calendars.some(c => c.id === calId), 'promoteCalendarToPool voegt kalender toe');
+  assert(pool.calendars.find(c => c.id === calId)?.libraryOrigin === undefined, 'gepromoveerde kalender heeft geen herkomst (is zelf origineel)');
+  assert(pool.poolVersion === v0 + 1, 'promoteCalendarToPool bumpt de pool');
+
+  const resId = s.promoteResourceToPool(cid, {
+    id: 'proj-res', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 3, calendarId: 'proj-cal',
+  });
+  pool = useAppStore.getState().pools[cid];
+  assert(pool.resources.find(r => r.id === resId)?.calendarId === undefined, 'gepromoveerde resource verliest project-lokale calendarId');
+  assert(pool.poolVersion === v0 + 2, 'promoteResourceToPool bumpt opnieuw');
+
+  s.updatePoolResource(cid, resId, { maxUnits: 5 });
+  pool = useAppStore.getState().pools[cid];
+  assert(pool.resources.find(r => r.id === resId)?.maxUnits === 5, 'updatePoolResource');
+  assert(pool.poolVersion === v0 + 3, 'updatePoolResource bumpt');
+
+  s.removePoolResource(cid, resId);
+  s.removePoolCalendar(cid, calId);
+  pool = useAppStore.getState().pools[cid];
+  assert(!pool.resources.some(r => r.id === resId) && !pool.calendars.some(c => c.id === calId), 'removePool* verwijdert items');
+  assert(pool.poolVersion === v0 + 5, 'removePool* bumpt tweemaal');
+}
+
 // --- initLibrary-normalisatie (hardening ná review taak 6) ---
 {
   // Vorm-invalide opgeslagen bibliotheek: companies zonder pools, een wees-pool, en een
