@@ -100,6 +100,7 @@ export function writeIFC(input: WriteIFCInput): string {
     resourceCalendars = [],
     baselines = [],
     activeBaselineId = null,
+    libraryPool = undefined,
   } = input;
   const ctx: WriteContext = { lines: [], nextId: 1, idMap: new Map() };
   const now = new Date().toISOString().split('.')[0];
@@ -222,6 +223,8 @@ export function writeIFC(input: WriteIFCInput): string {
 
   // Structuurdefinities (activity codes / custom fields) + waarden per taak + projectsettings
   writeStructure(ctx, project, tasks, activityCodeTypes, customFieldDefs, ownerHistId);
+  // Bedrijfsbibliotheek-pool (spec B1, §4): alleen een pool-BESTAND draagt dit; anders undefined ⇒ niets.
+  writeLibraryPool(ctx, ownerHistId, libraryPool);
 
   // De acht per-taak-psets (Constraints/ExternalLink/Hammock/Milestone/Leveling/TaskNotes/
   // TaskAppearance/Analysis) via de gedeelde registry (ifcPsets.PER_TASK_PSETS). De volgorde in de
@@ -396,6 +399,29 @@ function writeStructure(
       relDefines(`_rel_ac_${task.id}`, ref(ctx, `task_${task.id}`), setId);
     }
   }
+}
+
+/**
+ * Spec B1, §4 — de VOLLEDIGE pool als één autoritatief JSON-blob in het `OPS_Library`-pset op het
+ * IfcProject (patroon `OPS_StructureMeta`: één IFCTEXT-property, verliesloos, incl. ids en versie).
+ * Alleen een pool-BESTAND draagt dit; een gewoon projectbestand roept dit met `undefined` aan ⇒
+ * niets geschreven (golden rule, byte-identiek). De IFCWORKCALENDAR/resource-entiteiten in het
+ * bestand blijven voor derden leesbaar, maar deze JSON is voor ONZE reader de bron van waarheid.
+ */
+function writeLibraryPool(
+  ctx: WriteContext,
+  ownerHistId: number,
+  pool: import('@/types/library').CompanyPool | undefined,
+): void {
+  if (!pool) return;
+  const projRef = ref(ctx, '_project');
+  const json = JSON.stringify(pool);
+  const propId = addLine(ctx, '_ps_library',
+    `IFCPROPERTYSINGLEVALUE('pool',$,IFCTEXT(${ifcStr(json)}),$)`);
+  const setId = addLine(ctx, '_pset_library',
+    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_library'))},#${ownerHistId},${ifcStr(PSET.Library)},$,(#${propId}))`);
+  addLine(ctx, '_rel_library',
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_library'))},#${ownerHistId},$,$,(${projRef}),#${setId})`);
 }
 
 /**

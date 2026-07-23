@@ -49,6 +49,8 @@ export const PSET = {
   SchedulingOptions: 'OPS_SchedulingOptions',
   // Per kalender (afwijkende vorm — alleen naam gedeeld).
   Calendar: 'OPS_Calendar',
+  // Bedrijfsbibliotheek-pool als autoritatief JSON-blob op het IfcProject (spec B1, §4).
+  Library: 'OPS_Library',
 } as const;
 
 /**

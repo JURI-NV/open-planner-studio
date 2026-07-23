@@ -69,8 +69,9 @@ export function readIFC(content: string): ImportResult {
   // projecteert ze terug op elke taak. Deterministische, gede-dupliceerde volgorde (eerste-zien in
   // de assignments-volgorde, die op zijn beurt uit de STEP-volgorde komt).
   reconstructResourceIds(tasks, assignments);
+  const libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined } = { value: undefined };
   const { activityCodeTypes, customFieldDefs } = extractStructure(
-    entities, entityMap, project, tasks, taskStepIdMap,
+    entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
   );
   // Fase 3 (P11): OPS_Leveling wordt nu binnen extractStructure via de per-taak-registry gedispatcht
   // (samen met de andere zeven per-taak-psets) — geen losse extractLevelingMeta-aanroep meer.
@@ -90,6 +91,7 @@ export function readIFC(content: string): ImportResult {
     project, calendar, tasks, sequences, resources, assignments,
     activityCodeTypes, customFieldDefs, resourceCalendars,
     baselines, activeBaselineId,
+    libraryPool: libraryPoolOut.value,
   };
 }
 
@@ -547,6 +549,7 @@ function extractStructure(
   project: Project,
   tasks: Task[],
   taskStepIdMap: Map<string, string>,
+  libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined },
 ): { activityCodeTypes: ActivityCodeType[]; customFieldDefs: CustomFieldDef[] } {
   let activityCodeTypes: ActivityCodeType[] = [];
   let customFieldDefs: CustomFieldDef[] = [];
@@ -621,6 +624,20 @@ function extractStructure(
         const taskId = taskStepIdMap.get(objRef);
         const task = taskId ? taskById.get(taskId) : undefined;
         if (task) perTask.apply(task, singleValueProps);
+      }
+      continue;
+    }
+
+    if (psetName === PSET.Library) {
+      for (const prop of props) {
+        if (prop.type !== 'IFCPROPERTYSINGLEVALUE') continue;
+        if (stripQuotes(prop.args[0] || '') !== 'pool') continue;
+        const v = parseTypedValue(prop.args[2] || '');
+        if (typeof v === 'string' && v) {
+          try {
+            libraryPoolOut.value = JSON.parse(v) as import('@/types/library').CompanyPool;
+          } catch { /* corrupte pool-JSON: negeren, geen pool-resultaat */ }
+        }
       }
       continue;
     }
