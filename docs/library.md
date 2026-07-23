@@ -52,6 +52,26 @@ geen server) — en worden opgelost in een apart vervolgproject "gedeelde opslag
    lokaal niet, dus een bezettingsoverzicht (vervolg B1b) is beperkt tot wat op deze machine bekend
    is.
 
+3. **Twee tabbladen, zelfde machine.** De bibliotheek leeft app-breed in-memory en wordt bij elke
+   wijziging weggeschreven; twee open tabbladen (of twee vensters) op dezelfde machine overschrijven
+   elkaars laatste schrijfactie stilzwijgend — zelfde wortel als punt 1 hierboven (geen gedeelde,
+   gesynchroniseerde opslag), alleen dan zonder de expliciete import-stap en dus zonder demping-
+   waarschuwing. Valt onder hetzelfde vervolgproject.
+
+## Bekende kleine punten
+
+- **CRLF wordt genormaliseerd.** Tekstvelden (namen, omschrijvingen) met Windows-regeleinden (CRLF)
+  komen na een schrijf/lees-cyclus terug met LF.
+- **Onbekende extra velden gaan verloren.** Een geïmporteerd poolbestand met velden die dit systeem
+  niet kent, verliest die velden bij normalisatie (de opgeslagen pool bevat alleen de bekende vorm:
+  `companyId`/`companyName`/`poolVersion`/`modifiedAt`/`calendars`/`resources`).
+- **Pool-exports zijn niet byte-identiek tussen exports.** Twee exports van dezelfde pool verschillen
+  op tijdstempel-regels in het IFC-bestand; de inhoud (kalenders/resources/versienummer) is gelijk.
+- **Undo van een promote laat de poolkopie staan.** Ongedaan maken van "promoveer naar bibliotheek"
+  verwijdert de herkomststempel op het bron-projectitem, maar de zojuist toegevoegde kopie in de pool
+  blijft staan (pools zijn app-globaal en niet undo-beschermd). Het item opnieuw promoveren voegt dus
+  een nieuwe pool-kopie toe; de dedup bij "toevoegen uit bibliotheek" herstelt de oude koppeling niet.
+
 **Bekend punt.** Bedrijf wisselen op een bestaand project heeft (nog) geen eigen knop: de koppeling
 (`project.companyId`) volgt gewoon de eerste "toevoegen uit bibliotheek" of "promoveren" in dat
 project. Wil je een project alsnog aan een ander bedrijf koppelen, dan gebeurt dat impliciet zodra je
