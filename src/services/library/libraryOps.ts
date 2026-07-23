@@ -36,6 +36,10 @@ export function makeOrigin(pool: CompanyPool, libraryItemId: string): LibraryOri
 export function findCopyByOrigin<T extends { libraryOrigin?: LibraryOrigin }>(
   items: T[], companyId: string, libraryItemId: string,
 ): T | undefined {
+  // A5-fix: guard tegen falsy sleutels. Zonder deze guard matcht een lege/ontbrekende `companyId`
+  // of `libraryItemId` (uit een corrupt poolbestand) tegen een item zonder libraryOrigin via
+  // `undefined === undefined` — een vals dedup-match dat een ander item stil zou "hergebruiken".
+  if (!companyId || !libraryItemId) return undefined;
   return items.find(
     (i) => i.libraryOrigin?.companyId === companyId && i.libraryOrigin?.libraryItemId === libraryItemId,
   );
@@ -142,12 +146,27 @@ const RESOURCE_DIFF_FIELDS: (keyof Resource)[] = [
   'name', 'type', 'description', 'costPerHour', 'maxUnits', 'unitOfMeasure', 'availabilitySteps',
 ];
 
+/** Stabiele vergelijkingssleutel voor een veldwaarde. A4-besluit: voor deze diff-velden is de
+ *  array-VOLGORDE bewust NIET betekenisvol (bv. dezelfde feestdagen in een andere volgorde is
+ *  géén wijziging) — vergelijk array-velden daarom als multiset door een KOPIE van de elementen
+ *  te sorteren op `JSON.stringify(element)`. Muteert de invoer niet; niet-arrays gaan ongewijzigd
+ *  door `JSON.stringify` heen. */
+function diffKey(value: unknown): string {
+  if (Array.isArray(value)) {
+    const sorted = value
+      .map((el) => JSON.stringify(el))
+      .sort();
+    return JSON.stringify(sorted);
+  }
+  return JSON.stringify(value);
+}
+
 function diffFields<T>(project: T, library: T, fields: (keyof T)[]): DiffField[] {
   const out: DiffField[] = [];
   for (const f of fields) {
     const a = project[f];
     const b = library[f];
-    if (JSON.stringify(a) !== JSON.stringify(b)) {
+    if (diffKey(a) !== diffKey(b)) {
       out.push({ field: String(f), project: a, library: b });
     }
   }
@@ -173,15 +192,26 @@ export function diffResourceVsPool(projectRes: Resource, pool: CompanyPool): Ite
 /** Pas de pool-waarden toe op een projectkalender bij "bijwerken" (spec §3): overschrijf de
  *  vergeleken velden, behoud id + herkomst (met verse poolVersion). Puur (nieuw object). */
 export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool): WorkCalendar {
-  const id = projectCal.libraryOrigin!.libraryItemId;
-  const source = pool.calendars.find((c) => c.id === id)!;
-  const patched: WorkCalendar = { ...structuredClone(source), id: projectCal.id, libraryOrigin: makeOrigin(pool, id) };
+  const id = projectCal.libraryOrigin?.libraryItemId;
+  const source = id ? pool.calendars.find((c) => c.id === id) : undefined;
+  // A3-fix: vangnet tegen stille corruptie. Ontbreekt het pool-origineel (of de herkomststempel),
+  // dan zou `structuredClone(undefined)` een leeg object opleveren (`{...undefined}`) en de kalender
+  // op alleen id+herkomst terugbrengen — alle inhoud weg. Gooi in plaats daarvan expliciet. De enige
+  // caller guardt al op status==='changed' (bron bestaat), dus dit pad hoort onbereikbaar te zijn.
+  if (!source) {
+    throw new Error(`applyCalendarUpdate: pool-origineel niet gevonden voor kalender "${projectCal.name}" (id=${projectCal.id}, libraryItemId=${id ?? 'ontbreekt'})`);
+  }
+  const patched: WorkCalendar = { ...structuredClone(source), id: projectCal.id, libraryOrigin: makeOrigin(pool, id!) };
   return patched;
 }
 
 export function applyResourceUpdate(projectRes: Resource, pool: CompanyPool): Resource {
-  const id = projectRes.libraryOrigin!.libraryItemId;
-  const source = pool.resources.find((r) => r.id === id)!;
+  const id = projectRes.libraryOrigin?.libraryItemId;
+  const source = id ? pool.resources.find((r) => r.id === id) : undefined;
+  // A3-fix: zelfde vangnet als applyCalendarUpdate — geen stille reductie tot id+herkomst.
+  if (!source) {
+    throw new Error(`applyResourceUpdate: pool-origineel niet gevonden voor resource "${projectRes.name}" (id=${projectRes.id}, libraryItemId=${id ?? 'ontbreekt'})`);
+  }
   // Behoud id + de PROJECT-lokale calendarId (die verwijst naar de meegereisde projectkalender,
   // niet naar de pool-id) + herkomst met verse versie; overschrijf de inhoudelijke velden.
   const patched: Resource = {
@@ -189,7 +219,7 @@ export function applyResourceUpdate(projectRes: Resource, pool: CompanyPool): Re
     id: projectRes.id,
     calendarId: projectRes.calendarId,
     parentId: projectRes.parentId,
-    libraryOrigin: makeOrigin(pool, id),
+    libraryOrigin: makeOrigin(pool, id!),
   };
   return patched;
 }
