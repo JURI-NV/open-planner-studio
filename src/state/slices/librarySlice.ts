@@ -83,10 +83,20 @@ export function normalizePool(cid: string, raw: Partial<CompanyPool> | null | un
     companyName: typeof p.companyName === 'string'
       ? p.companyName
       : (companies.find((c) => c.id === cid)?.name ?? cid),
-    poolVersion: typeof p.poolVersion === 'number' ? p.poolVersion : 1,
+    // Fix B5: een geheel getal ≥1, anders 1 — vangt zowel niet-numerieke waarden (string/ontbrekend)
+    // als een numerieke maar ongeldige waarde (float, 0, negatief) op. Vóór de fix accepteerde
+    // `typeof p.poolVersion === 'number'` ELKE numerieke waarde inclusief NaN-achtige randgevallen,
+    // floats en negatieve versies (bumpPool/isPoolNewer verwachten een oplopend geheel getal ≥1).
+    poolVersion: (typeof p.poolVersion === 'number' && Number.isInteger(p.poolVersion))
+      ? Math.max(1, p.poolVersion)
+      : 1,
     modifiedAt: typeof p.modifiedAt === 'string' ? p.modifiedAt : new Date().toISOString(),
-    calendars: p.calendars ?? [],
-    resources: p.resources ?? [],
+    // Fix B5: `Array.isArray` i.p.v. `??` — een object i.p.v. array (bijv. een hand-gemaakt of
+    // door een derde tool geproduceerd OPS_Library-bestand met `calendars: {...}`) is niet-nullish,
+    // dus `?? []` liet het ongewijzigd door; een latere `.push`/`.filter`/`.find` op zo'n object
+    // crasht dan alsnog (bewezen fuzz-pool b6, jachtlijn 1 "calendars/resources zijn geen array").
+    calendars: Array.isArray(p.calendars) ? p.calendars : [],
+    resources: Array.isArray(p.resources) ? p.resources : [],
   };
 }
 

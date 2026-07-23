@@ -393,5 +393,49 @@ const store = useAppStore.getState();
   assert(added.added === true, 'na kapotte import: addLibraryResourceToProject voegt toe');
 }
 
+// --- Fix B5: normalizePool — calendars/resources OBJECT i.p.v. array, en poolVersion-clamping ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+
+  // `?? []` liet een object (niet-nullish) ongewijzigd door; `Array.isArray` vangt dat af. Zonder de
+  // fix crasht een latere `.push`/`.find` op zo'n object alsnog (bewezen fuzz-pool b6, jachtlijn 1).
+  const objectFields = {
+    companyId: cid, companyName: 'Objectvelden', poolVersion: 2, modifiedAt: '2026-01-01T00:00:00.000Z',
+    calendars: { oops: true }, resources: { oops: true },
+  } as unknown as import('@/types/library').CompanyPool;
+  let threwObj = false;
+  try { useAppStore.getState().replacePool(cid, objectFields); } catch { threwObj = true; }
+  assert(!threwObj, 'replacePool: gooit niet als calendars/resources een object zijn i.p.v. array');
+  const poolObj = useAppStore.getState().pools[cid];
+  assert(Array.isArray(poolObj?.calendars) && poolObj.calendars.length === 0, 'normalizePool: object-calendars wordt een lege array (niet het object)');
+  assert(Array.isArray(poolObj?.resources) && poolObj.resources.length === 0, 'normalizePool: object-resources wordt een lege array (niet het object)');
+  // Ná de fix moeten add/promote gewoon weer werken (geen TypeError op .push/.find van een object).
+  let opsThrewObj = false;
+  try {
+    const cId = useAppStore.getState().promoteCalendarToPool(cid, {
+      id: 'post-objfields-cal', name: 'Na-objectvelden', description: '', workDays: [1, 2, 3, 4, 5],
+      workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+    });
+    if (cId) useAppStore.getState().addLibraryCalendarToProject(cid, cId);
+  } catch { opsThrewObj = true; }
+  assert(!opsThrewObj, 'na object-calendars/resources: promote/add werken zonder TypeError');
+
+  // poolVersion: geheel getal ≥1, anders 1 (Number.isInteger + clamp).
+  const versionCases: { label: string; poolVersion: unknown; expected: number }[] = [
+    { label: 'string "7"', poolVersion: '7', expected: 1 },
+    { label: 'negatief -3', poolVersion: -3, expected: 1 },
+    { label: 'float 2.7', poolVersion: 2.7, expected: 1 },
+    { label: 'ontbrekend', poolVersion: undefined, expected: 1 },
+    { label: 'geldig 5', poolVersion: 5, expected: 5 },
+  ];
+  for (const { label, poolVersion, expected } of versionCases) {
+    const raw = { companyId: cid, companyName: 'VerTest', modifiedAt: '2026-01-01T00:00:00.000Z', calendars: [], resources: [], poolVersion } as unknown as import('@/types/library').CompanyPool;
+    useAppStore.getState().replacePool(cid, raw);
+    const got = useAppStore.getState().pools[cid].poolVersion;
+    assert(Number.isInteger(got) && got === expected, `normalizePool: poolVersion ${label} ⇒ ${expected} (was ${got})`);
+  }
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
