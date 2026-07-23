@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -58,6 +58,14 @@ export interface LibrarySlice {
   /** Werk één projectkalender bij naar de bibliotheekwaarden (spec §3). No-op als geen herkomst/pool. */
   updateProjectCalendarFromLibrary: (calendarId: string) => void;
   updateProjectResourceFromLibrary: (resourceId: string) => void;
+
+  /** Serialiseer de pool van een bedrijf naar een IFC-string (voor export/backup, spec §4). */
+  exportPoolIFC: (companyId: string) => string | null;
+  /** Vervang de HELE pool van een bedrijf door een geïmporteerde pool ná bevestiging (spec §4).
+   *  De demping-waarschuwing zit in de UI (via `isPoolNewer`); deze actie vervangt onvoorwaardelijk. */
+  replacePool: (companyId: string, pool: import('@/types/library').CompanyPool) => void;
+  /** True als de lokale pool nieuwer is dan een te importeren pool (demping, spec §4). */
+  isLocalPoolNewer: (companyId: string, imported: import('@/types/library').CompanyPool) => boolean;
 }
 
 /**
@@ -403,5 +411,24 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     });
     get().recomputeResourceLoad();
     get().recomputeViewRows(); // resource-naam/toewijzing raakt kolom/groep/filter (E-2, §4.3).
+  },
+
+  exportPoolIFC: (companyId) => {
+    const pool = get().pools[companyId];
+    return pool ? writePoolIFC(pool) : null;
+  },
+
+  replacePool: (companyId, pool) => {
+    set((s) => {
+      if (!s.companies.some(c => c.id === companyId)) return;
+      // De geïmporteerde pool krijgt het DOEL-companyId (import in een gekozen bedrijf, spec §4).
+      const company = s.companies.find(c => c.id === companyId)!;
+      s.pools[companyId] = { ...pool, companyId, companyName: company.name };
+    });
+    persist(get);
+  },
+
+  isLocalPoolNewer: (companyId, imported) => {
+    return isPoolNewer(get().pools[companyId], imported);
   },
 });

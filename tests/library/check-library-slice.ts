@@ -321,5 +321,27 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().undoStack.length === undoNoop, 'projectdefault: no-op geen loze undo-snapshot (E-3)');
 }
 
+// --- Export/import pool + demping ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  s.promoteResourceToPool(cid, { id: 'exp-res', name: 'Loodgieter', type: 'LABOR', description: '', maxUnits: 1 });
+  const ifc = useAppStore.getState().exportPoolIFC(cid);
+  assert(!!ifc && ifc.includes('OPS_Library'), 'exportPoolIFC produceert een pool-bestand');
+
+  const localVersion = useAppStore.getState().pools[cid].poolVersion;
+  // Een OUDERE geïmporteerde pool ⇒ demping meldt "lokaal nieuwer".
+  const older = { companyId: cid, companyName: 'x', poolVersion: 0, modifiedAt: '2000-01-01T00:00:00.000Z', calendars: [], resources: [] };
+  assert(useAppStore.getState().isLocalPoolNewer(cid, older) === true, 'isLocalPoolNewer: oudere import ⇒ true');
+
+  // replacePool vervangt de hele pool.
+  const fresh = { companyId: 'x', companyName: 'x', poolVersion: localVersion + 10, modifiedAt: '2030-01-01T00:00:00.000Z', calendars: [], resources: [{ id: 'new-only', name: 'X', type: 'LABOR' as const, description: '', maxUnits: 1 }] };
+  useAppStore.getState().replacePool(cid, fresh);
+  const pool = useAppStore.getState().pools[cid];
+  assert(pool.resources.length === 1 && pool.resources[0].id === 'new-only', 'replacePool vervangt de hele pool');
+  assert(pool.companyId === cid, 'replacePool herschrijft companyId naar het doelbedrijf');
+  assert(useAppStore.getState().isLocalPoolNewer(cid, older) === true, 'na replace: nieuwe pool nog steeds nieuwer dan oude import');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
