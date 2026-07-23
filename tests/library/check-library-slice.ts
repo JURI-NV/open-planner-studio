@@ -104,6 +104,22 @@ const store = useAppStore.getState();
   const stampedRes = useAppStore.getState().resources.find(r => r.id === prId)!;
   assert(!!stampedRes.libraryOrigin, 'promoteResourceToPool: bron-projectresource krijgt herkomststempel');
   assert(stampedRes.libraryOrigin?.libraryItemId === newResItemId && stampedRes.libraryOrigin?.poolVersion === poolVer2, 'promoteResourceToPool: stempel draagt de nieuwe id + gebumpte poolVersion');
+
+  // FIX 1 (critreview taak 8): promoveer de PROJECTDEFAULT-kalender. De gedenormaliseerde cache
+  // `s.calendar` (waar de IFC-writer uit leest) moet de stempel óók dragen — de niet-default-check
+  // hierboven raakt dit pad niet. Zonder de syncProjectCalendar-fix blijft s.calendar ongestempeld.
+  const dcId = useAppStore.getState().addCalendar({
+    name: 'Default-kalender', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  useAppStore.getState().setProjectCalendar(dcId);
+  assert(useAppStore.getState().calendar.id === dcId, 'setup: s.calendar is de projectdefault');
+  const dcCal = useAppStore.getState().calendars.find(c => c.id === dcId)!;
+  const newDefItemId = useAppStore.getState().promoteCalendarToPool(cid, dcCal)!;
+  const poolVerDef = useAppStore.getState().pools[cid].poolVersion;
+  const cache = useAppStore.getState().calendar;
+  assert(!!cache.libraryOrigin, 'promoteCalendarToPool: gedenormaliseerde s.calendar-cache krijgt de stempel (projectdefault-pad)');
+  assert(cache.libraryOrigin?.libraryItemId === newDefItemId && cache.libraryOrigin?.poolVersion === poolVerDef, 'promoteCalendarToPool: s.calendar-stempel draagt nieuwe id + gebumpte poolVersion');
 }
 
 // --- initLibrary-normalisatie (hardening ná review taak 6) ---
@@ -189,6 +205,36 @@ const store = useAppStore.getState();
   const c2 = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId2);
   assert(c2.added === false, 'addLibraryCalendar: dedup ("al in project")');
   assert(useAppStore.getState().undoStack.length === undoAfterCal, 'addLibraryCalendar: dedup pusht geen undo-snapshot (E-3)');
+}
+
+// --- Undo van een add-resource: echte rollback + sticky binding (critreview taak 8) ---
+{
+  useAppStore.getState().newProject(); // verse, ONGEBONDEN payload; undoStack leeg, pools blijven
+  const cid = useAppStore.getState().defaultCompanyId;
+  // Seed een pool-resource-met-eigen-kalender, los van de vorige blokken.
+  const pCal = useAppStore.getState().promoteCalendarToPool(cid, {
+    id: 'undo-cal', name: 'Undo-ploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  })!;
+  const pRes = useAppStore.getState().promoteResourceToPool(cid, { id: 'undo-res', name: 'Undo-res', type: 'LABOR', description: '', maxUnits: 1 })!;
+  useAppStore.getState().updatePoolResource(cid, pRes, { calendarId: pCal });
+
+  assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const calsBefore = useAppStore.getState().calendars.length;
+  const resBefore = useAppStore.getState().resources.length;
+  const add = useAppStore.getState().addLibraryResourceToProject(cid, pRes);
+  assert(add.added === true, 'undo-scenario: resource toegevoegd');
+  assert(useAppStore.getState().project.companyId === cid, 'undo-scenario: add bindt het (ongebonden) project');
+  assert(useAppStore.getState().resources.length === resBefore + 1, 'undo-scenario: resource erbij');
+  assert(useAppStore.getState().calendars.length === calsBefore + 1, 'undo-scenario: meegereisde kalender erbij');
+
+  // FIX 3: undo moet de state ÉCHT terugdraaien (niet alleen undoStack laten krimpen).
+  useAppStore.getState().undo();
+  const su = useAppStore.getState();
+  assert(su.resources.length === resBefore && !su.resources.some(r => r.id === add.resourceId), 'undo: resource daadwerkelijk teruggedraaid (weg)');
+  assert(su.calendars.length === calsBefore, 'undo: meegereisde kalender daadwerkelijk teruggedraaid (weg)');
+  // FIX 2: binding is sticky — undo draait project.companyId NIET terug (project snapshot:'none').
+  assert(su.project.companyId === cid, 'undo: binding blijft sticky (project snapshot:none)');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);

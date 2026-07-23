@@ -5,6 +5,7 @@ import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/typ
 import { generateId } from '@/utils/id';
 import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
+import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
 
 /**
@@ -177,11 +178,16 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const bumped = bumpPool(pool);
       s.pools[companyId] = bumped;
       // Terug-stempel op het BRON-projectitem (indien aanwezig): eerst bumpen, dan stempelen met de
-      // NIEUWE versie (off-by-one-val). Projectstate-idioom: dirty-zonder-undo (spiegel setCalendar).
+      // NIEUWE versie (off-by-one-val). Flag-only projectmutatie: isDirty zonder undo-snapshot.
       const src = s.calendars.find((c) => c.id === calendar.id);
       if (src) {
         src.libraryOrigin = makeOrigin(bumped, id);
         s.isDirty = true;
+        // De gedenormaliseerde projectkalender-cache (`s.calendar`) moet de zojuist gestempelde
+        // bibliotheek-entry weerspiegelen (§9.1); anders schrijft de writer (leest uit `s.calendar`)
+        // de herkomst NIET weg als de PROJECTDEFAULT-kalender werd gepromoveerd → functieverlies bij
+        // herladen (geen bijwerken, dedup stuk). Onvoorwaardelijk & goedkoop (spiegel updateCalendar).
+        syncProjectCalendar(s);
       }
       newId = id;
     });
@@ -314,14 +320,15 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         s.calendars = [...s.calendars, copy.travelingCalendar.calendar];
       }
       s.resources = [...s.resources, copy.resource];
-      // Project binden aan dit bedrijf als het nog ongebonden was.
+      result = { added: true, resourceId: copy.resource.id };
+      finishMutation(s);
+      // Project binden aan dit bedrijf als het nog ongebonden was. Bewust NA finishMutation en buiten
+      // de undo-semantiek (project snapshot:'none'): de binding blijft na undo staan (sticky), zie
+      // critreview taak 8. Flag-only projectmutatie (isDirty is al door finishMutation gezet).
       if (!s.project.companyId) {
         const company = s.companies.find(c => c.id === companyId);
         if (company) { s.project.companyId = company.id; s.project.companyName = company.name; }
       }
-      s.isDirty = true;
-      result = { added: true, resourceId: copy.resource.id };
-      finishMutation(s);
     });
     // Pure resource-mutatie → histogram + rijen verversen (spiegel resourceSlice.addResource:61-64).
     get().recomputeResourceLoad();
