@@ -25,7 +25,7 @@ dupliceren als je het later opnieuw "toevoegt").
 Via de projectwizard en in een lopend project ("Toevoegen uit bibliotheek"). Toevoegen kopieert het
 item met een herkomststempel. Afhankelijkheden reizen mee: een resource met een eigen kalender brengt
 die kalender mee. Bestaat er al een kopie met dezelfde herkomst, dan wordt die hergebruikt — nooit
-gedupliceerd. Een al aanwezig item nogmaals toevoegen meldt "al in project".
+gedupliceerd. Een al aanwezig item nogmaals toevoegen meldt "zit al in het project".
 
 ## Bijwerken vanuit bibliotheek
 
