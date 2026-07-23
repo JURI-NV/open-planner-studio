@@ -23,19 +23,29 @@ export function AddFromLibraryDialog() {
   const [companyId, setCompanyId] = useState(project.companyId ?? defaultCompanyId);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const close = () => { setNotice(null); setUI({ showAddFromLibraryDialog: false }); };
+
   // Clamp bij openen naar een nog geldig bedrijf (zelfde reden als PoolImportDialog, critreview
   // taak 11): voorkomt een stille no-op als het voorgeselecteerde bedrijf inmiddels weg is.
+  // Fix B2 (dialoog-deadlock): reageert ook op `companies`/`pools` zelf — niet alleen op `open` —
+  // want een bedrijf/pool kan verdwijnen TERWIJL de dialoog al open staat (bijv. removeCompany in
+  // een ander paneel). Blijft er dan geen geldig bedrijf MET pool meer over, dan sluit het effect de
+  // dialoog zelf (via `close()`, niet tijdens render) i.p.v. de oude `if (!pool) return null` die de
+  // open-vlag liet hangen en de gebruiker muisloos vastzette (bewezen V2+V3).
   useEffect(() => {
     if (!open) return;
     setNotice(null);
     const preferred = project.companyId ?? defaultCompanyId;
-    const valid = companies.some(c => c.id === preferred) ? preferred : companies[0]?.id;
-    if (valid) setCompanyId(valid);
+    const valid = companies.find(c => c.id === preferred) ? preferred : companies[0]?.id;
+    if (valid && pools[valid]) {
+      setCompanyId(valid);
+    } else {
+      close();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, companies, pools]);
 
   if (!open) return null;
-  const close = () => { setNotice(null); setUI({ showAddFromLibraryDialog: false }); };
   const pool = pools[companyId];
   if (!pool) return null;
 
