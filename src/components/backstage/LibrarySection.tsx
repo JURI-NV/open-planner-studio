@@ -142,7 +142,10 @@ export function LibrarySection() {
                 <Star size={13} /> {t('companyLibrary.setDefault')}
               </button>
               <button onClick={onExport}><Download size={13} /> {t('companyLibrary.export')}</button>
-              <button onClick={() => setUI({ showPoolImportDialog: true })}><Upload size={13} /> {t('companyLibrary.import')}</button>
+              {/* Fix B1: importdoel = het GEOPENDE bedrijf (`selected.id`), niet stilzwijgend het
+                  standaardbedrijf — anders overschrijft "Bibliotheek → Importeren" vanuit een ander
+                  bedrijf dan het standaardbedrijf per ongeluk de verkeerde pool. */}
+              <button onClick={() => setUI({ showPoolImportDialog: true, poolImportCompanyId: selected.id })}><Upload size={13} /> {t('companyLibrary.import')}</button>
               <button
                 className="danger"
                 onClick={() => removeCompany(selected.id)}

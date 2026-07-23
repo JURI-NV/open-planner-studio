@@ -18,6 +18,7 @@ export function PoolImportDialog() {
   const setUI = useAppStore(s => s.setUI);
   const companies = useAppStore(s => s.companies);
   const defaultCompanyId = useAppStore(s => s.defaultCompanyId);
+  const poolImportCompanyId = useAppStore(s => s.ui.poolImportCompanyId);
   const isLocalPoolNewer = useAppStore(s => s.isLocalPoolNewer);
   const replacePool = useAppStore(s => s.replacePool);
 
@@ -25,18 +26,27 @@ export function PoolImportDialog() {
   const [imported, setImported] = useState<CompanyPool | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Clamp bij openen naar het actuele standaardbedrijf (of het eerste geldige bedrijf) — voorkomt
-  // een stille no-op-import als de voorselectie inmiddels een verwijderd bedrijf betrof
-  // (critreview taak 11).
+  // Clamp bij openen naar het GEOPENDE bedrijf (fix B1: `poolImportCompanyId`, gezet door de opener
+  // in Backstage) — anders het standaardbedrijf, anders het eerste geldige bedrijf. Voorkomt zowel
+  // een stille no-op-import als de voorselectie een verwijderd bedrijf betrof (critreview taak 11)
+  // ALS het stil overschrijven van het verkeerde bedrijf wanneer je vanuit een ander bedrijf dan het
+  // standaardbedrijf importeert (bewezen V1).
   useEffect(() => {
     if (!open) return;
-    const valid = companies.some(c => c.id === defaultCompanyId) ? defaultCompanyId : companies[0]?.id;
+    const preferred = (poolImportCompanyId && companies.some(c => c.id === poolImportCompanyId))
+      ? poolImportCompanyId
+      : defaultCompanyId;
+    const valid = companies.some(c => c.id === preferred) ? preferred : companies[0]?.id;
     if (valid) setCompanyId(valid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
-  const close = () => { setImported(null); setError(null); setUI({ showPoolImportDialog: false }); };
+  const close = () => {
+    setImported(null);
+    setError(null);
+    setUI({ showPoolImportDialog: false, poolImportCompanyId: null });
+  };
 
   const pick = async () => {
     setError(null);

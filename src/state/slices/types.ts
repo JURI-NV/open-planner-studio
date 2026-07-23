@@ -176,6 +176,10 @@ export interface UIState {
   // --- B1 (bedrijfsbibliotheken): Backstage-sectie Bibliotheek-dialogen ---
   /** session — pool-importdialoog open (met demping-waarschuwing). */
   showPoolImportDialog: boolean;
+  /** session — het bedrijf waarvoor de pool-importdialoog geopend is (fix B1: het GEOPENDE bedrijf
+   *  in Backstage, niet altijd `defaultCompanyId`). `null` als er geen expliciete opener was; de
+   *  dialoog clamp't zelf naar `defaultCompanyId`/eerste bedrijf. Reset naar `null` bij sluiten. */
+  poolImportCompanyId: string | null;
   /** session — "toevoegen uit bibliotheek"-kiezer open (spec §3). */
   showAddFromLibraryDialog: boolean;
   /** session — "bijwerken vanuit bibliotheek"-diffdialoog open (spec §3). */

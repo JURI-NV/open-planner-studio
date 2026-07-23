@@ -79,6 +79,7 @@ export function createDefaultUI(): UIState {
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
     showPoolImportDialog: false,
+    poolImportCompanyId: null,
     showAddFromLibraryDialog: false,
     showUpdateFromLibraryDialog: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
