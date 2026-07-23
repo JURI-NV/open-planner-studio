@@ -50,5 +50,57 @@
 .library-pool li:hover { background: var(--theme-hover); }
 .library-pool .empty { color: var(--theme-text-muted); font-style: italic; margin: 4px 8px; }
 
-.danger-icon { color: var(--error); background: transparent; border: none; cursor: pointer; padding: 2px; border-radius: var(--radius-sm); }
+.danger-icon, .edit-icon, .confirm-icon, .cancel-icon {
+  background: transparent; border: none; cursor: pointer; padding: 2px; border-radius: var(--radius-sm);
+}
+.danger-icon { color: var(--error); }
 .danger-icon:hover { background: var(--theme-hover); }
+.edit-icon { color: var(--theme-text-dim); }
+.edit-icon:hover { background: var(--theme-hover); color: var(--theme-text); }
+.confirm-icon { color: var(--success); }
+.confirm-icon:hover { background: var(--theme-hover); }
+.cancel-icon { color: var(--theme-text-dim); }
+.cancel-icon:hover { background: var(--theme-hover); color: var(--error); }
+
+.library-pool-item-actions, .library-pool-item-edit-actions { display: flex; gap: 2px; flex-shrink: 0; }
+
+.library-pool-item-edit {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: var(--radius-sm);
+  background: var(--theme-surface);
+}
+.library-item-name-input {
+  flex: 1; min-width: 0; background: var(--theme-bg); border: 1px solid var(--theme-control-border);
+  border-radius: var(--radius-sm); color: var(--theme-text); padding: 3px 6px; font-size: 0.85em;
+}
+.library-item-name-input:focus { outline: none; border-color: var(--theme-accent); }
+.library-item-number-input {
+  width: 72px; flex-shrink: 0; background: var(--theme-bg); border: 1px solid var(--theme-control-border);
+  border-radius: var(--radius-sm); color: var(--theme-text); padding: 3px 6px; font-size: 0.85em;
+}
+.library-item-number-input:focus { outline: none; border-color: var(--theme-accent); }
+
+/* "+ Uit project" (promoveren, eindreview-fix): kleine toggle-knop naast elke pool-kop + het
+   uitklapbare keuzelijstje met de kalenders/resources van het actieve project. */
+.library-promote-toggle {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 8px;
+  background: var(--theme-surface); border: 1px solid var(--theme-control-border);
+  border-radius: var(--radius-md); color: var(--theme-text); font-size: 0.78em; font-weight: 400;
+  font-family: var(--font-body); cursor: pointer;
+}
+.library-promote-toggle:hover { background: var(--theme-hover); border-color: var(--theme-accent); }
+
+.library-promote-panel {
+  border: 1px solid var(--theme-control-border); border-radius: var(--radius-md);
+  background: var(--theme-surface); padding: 4px; margin: 0 0 8px;
+}
+.library-promote-panel ul { list-style: none; padding: 0; margin: 0; }
+.library-promote-panel li {
+  display: flex; justify-content: space-between; align-items: center; padding: 4px 8px;
+  border-radius: var(--radius-sm); color: var(--theme-text); font-size: 0.85em;
+}
+.library-promote-panel li:hover { background: var(--theme-hover); }
+.library-promote-linked { color: var(--theme-text-muted); font-style: italic; font-size: 0.85em; }
+.library-promote-item { color: var(--theme-accent); background: transparent; border: none; cursor: pointer; padding: 2px; border-radius: var(--radius-sm); }
+.library-promote-item:hover { background: var(--theme-hover); }
+
+.library-notice { font-size: 0.85em; color: var(--success); display: flex; align-items: center; gap: 6px; margin: 6px 0; }

@@ -52,6 +52,11 @@ geen server) — en worden opgelost in een apart vervolgproject "gedeelde opslag
    lokaal niet, dus een bezettingsoverzicht (vervolg B1b) is beperkt tot wat op deze machine bekend
    is.
 
+**Bekend punt.** Bedrijf wisselen op een bestaand project heeft (nog) geen eigen knop: de koppeling
+(`project.companyId`) volgt gewoon de eerste "toevoegen uit bibliotheek" of "promoveren" in dat
+project. Wil je een project alsnog aan een ander bedrijf koppelen, dan gebeurt dat impliciet zodra je
+voor het eerst een item uit dat andere bedrijf toevoegt of promoveert.
+
 **Aanbeveling.** Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust
 **één gezamenlijke pool** in plaats van per werkmaatschappij een eigen bedrijf. Dubbelbezetting van
 een resource tussen losse organisaties (bijvoorbeeld een onderaannemer die voor twee aannemers werkt)

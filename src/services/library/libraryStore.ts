@@ -85,6 +85,18 @@ export async function loadLibrary(): Promise<CompanyLibrary> {
   return loaded ?? createDefaultLibrary();
 }
 
-export async function saveLibrary(lib: CompanyLibrary): Promise<void> {
-  return isTauri() ? saveTauri(lib) : saveWeb(lib);
+// Serialiseer schrijfacties (eindreview-fix): meerdere snelle mutaties (bijv. promote gevolgd door
+// een pool-bewerking) roepen `saveLibrary` elk fire-and-forget aan; zonder serialisatie kan een
+// tragere eerdere save na een snellere latere save landen en zo de nieuwste stand overschrijven met
+// een oudere. `lastSave` is de interne kettingpromise — die MOET altijd resolven (nooit rejecten),
+// anders slaat een mislukte save alle latere saves in de keten over. De promise die aan de caller
+// wordt teruggegeven weerspiegelt wél het echte resultaat van déze save, zodat `persist()` in
+// librarySlice zijn `.catch()` op een echte fout blijft vangen.
+let lastSave: Promise<void> = Promise.resolve();
+
+export function saveLibrary(lib: CompanyLibrary): Promise<void> {
+  const run = () => (isTauri() ? saveTauri(lib) : saveWeb(lib));
+  const result = lastSave.then(run, run);
+  lastSave = result.catch(() => {});
+  return result;
 }
