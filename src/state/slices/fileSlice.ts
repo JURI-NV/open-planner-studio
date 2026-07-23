@@ -284,8 +284,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
       const projectContent = writeIFC(buildWriteIFCInput(state));
       const base = state.project.name || 'project';
-      const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC', extensions: ['ifc'] }]);
+      const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
       if (!outcome) return;
+      await pushRecent(outcome.ref, outcome.name);
       // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
       const companyId = state.project.companyId;
       if (!companyId) return;

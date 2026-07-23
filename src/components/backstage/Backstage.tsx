@@ -332,6 +332,13 @@ function ExportSection() {
   const companyId = useAppStore(s => s.project.companyId);
   const [alsoPool, setAlsoPool] = useState(false);
 
+  // Geen stale true laten hangen als het project z'n bedrijfskoppeling verliest (bijv. door te
+  // wisselen naar een ongekoppeld document) — anders blijft het vinkje aan staan voor een checkbox
+  // die niet eens meer zichtbaar is.
+  useEffect(() => {
+    if (!companyId) setAlsoPool(false);
+  }, [companyId]);
+
   const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = [
     { format: 'csv',   label: tMenu('export.csvLabel'),   desc: tMenu('export.csvDesc'),   icon: 'CSV' },
     { format: 'mspdi', label: tMenu('export.mspdiLabel'), desc: tMenu('export.mspdiDesc'), icon: 'XML' },

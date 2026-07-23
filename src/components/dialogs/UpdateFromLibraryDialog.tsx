@@ -19,15 +19,18 @@ export function UpdateFromLibraryDialog() {
   const diffCalendar = useAppStore(s => s.diffProjectCalendar);
   const updateResource = useAppStore(s => s.updateProjectResourceFromLibrary);
   const updateCalendar = useAppStore(s => s.updateProjectCalendarFromLibrary);
+  const libraryLoaded = useAppStore(s => s.libraryLoaded);
 
   if (!open) return null;
   const close = () => setUI({ showUpdateFromLibraryDialog: false });
 
-  const stampedResources = resources.filter(r => r.libraryOrigin);
-  const stampedCalendars = calendars.filter(c => c.libraryOrigin);
+  // Zolang de bibliotheek nog laadt géén valse "bestaat niet meer"-badges tonen: renderDiff
+  // valt zonder pool terug op status 'removed', wat tijdens het laden onterecht is.
+  const stampedResources = libraryLoaded ? resources.filter(r => r.libraryOrigin) : [];
+  const stampedCalendars = libraryLoaded ? calendars.filter(c => c.libraryOrigin) : [];
 
-  // Veldnaam humaniseren via de field-map (nl+en nu, rest taak 14); onvertaalde talen vallen terug
-  // op de rauwe veldnaam i.p.v. een kapotte i18n-sleutel.
+  // Veldnaam humaniseren via de field-map (alle 14 locales sinds taak 14); `defaultValue` vangt
+  // alleen op als de sleutel ook in de fallback-taal (en, via fallbackLng) ontbreekt.
   const fieldLabel = (field: string) => t(`companyLibrary.field.${field}`, { defaultValue: field });
 
   // Waarde humaniseren i.p.v. rauwe JSON.stringify: getallen/strings direct, arrays/objecten als
