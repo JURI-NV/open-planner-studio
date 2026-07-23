@@ -1,6 +1,8 @@
 # Spec — B1: bedrijfsbibliotheken voor kalenders & resources
 
-Datum: 2026-07-20 · Status: ontwerp, ter review bij user
+> **GEARCHIVEERD (2026-07-23).** Het UX-model in deze spec (add/update-dialogen, Backstage-poolbeheer, promote-flow) is **vervangen** door de bedrijfscentrische omkering in `docs/superpowers/specs/2026-07-23-b1-1-bedrijfscentrisch-model-design.md` — dát is de geldende bron. Alleen het fundament (§2 concepten, §5 opslag, §6 IFC-round-trip) blijft van kracht. Bouw of plan NIETS op basis van dit document.
+
+Datum: 2026-07-20 · Status: gearchiveerd — UX-model vervangen door B1.1
 Aanleiding: conceptplan lagen & federatie (spoor B1) + [issue #19](https://github.com/OpenAEC-Foundation/open-planner-studio/issues/19) (resources over meerdere projecten).
 
 ## 1. Doel

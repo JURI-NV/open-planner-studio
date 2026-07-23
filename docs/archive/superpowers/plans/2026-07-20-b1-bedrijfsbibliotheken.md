@@ -1,6 +1,6 @@
 # B1 Bedrijfsbibliotheken Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **GEARCHIVEERD (2026-07-23) — VOLLEDIG UITGEVOERD, NIET MEER VOLGEN.** Dit plan is afgerond (16 taken, vloot-geverifieerd). Het UX-model erin is daarna **vervangen** door B1.1 (bedrijfscentrisch): spec `docs/superpowers/specs/2026-07-23-b1-1-bedrijfscentrisch-model-design.md`. Agents die aan B1.1 werken mogen dit document hooguit raadplegen als historische context over hoe de bestaande code tot stand kwam — nooit als opdracht.
 
 **Goal:** Eén centrale, per-bedrijf pool van bibliotheekkalenders en -resources buiten de projecten om; projecten kopiëren eruit met een herkomststempel, kunnen per item bijwerken, en een gedeeld projectbestand blijft altijd zelfstandig compleet.
 
@@ -12,7 +12,7 @@
 
 ## Achtergrond & bindende besluiten (uit de spec)
 
-Lees eerst `docs/superpowers/specs/2026-07-20-b1-bedrijfsbibliotheken-design.md`. De bindende user-besluiten van 2026-07-20 die dit plan verwerkt:
+Lees eerst `docs/archive/superpowers/specs/2026-07-20-b1-bedrijfsbibliotheken-design.md` (mee-gearchiveerd). De bindende user-besluiten van 2026-07-20 die dit plan verwerkt:
 
 1. **Import-demping** — pool-import vervangt de héle pool ná bevestiging; als de lokale pool nieuwer is (hogere `poolVersion` óf recentere `modifiedAt`) toont de dialoog een niet te missen waarschuwing. Stil overschrijven bestaat niet.
 2. **Geen pool-embed** — projectexport bevat altijd al alle gebruikte items; de pool wordt NOOIT in het projectbestand ingebed.
