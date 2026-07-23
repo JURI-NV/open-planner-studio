@@ -321,6 +321,15 @@ function writeStructure(
     projSettingProps.push(addLine(ctx, '_ps_modifiedat',
       `IFCPROPERTYSINGLEVALUE('ModifiedAt',$,IFCTEXT(${ifcStr(project.modifiedAt)}),$)`));
   }
+  // Projectbinding aan een bedrijfsbibliotheek (spec B1, §6). Golden rule: alleen wanneer gebonden.
+  if (project.companyId) {
+    projSettingProps.push(addLine(ctx, '_ps_companyid',
+      `IFCPROPERTYSINGLEVALUE('CompanyId',$,IFCTEXT(${ifcStr(project.companyId)}),$)`));
+  }
+  if (project.companyName) {
+    projSettingProps.push(addLine(ctx, '_ps_companyname',
+      `IFCPROPERTYSINGLEVALUE('CompanyName',$,IFCTEXT(${ifcStr(project.companyName)}),$)`));
+  }
   if (projSettingProps.length > 0) {
     const setId = addLine(ctx, '_pset_projset',
       `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_projset'))},#${ownerHistId},${ifcStr(PSET.ProjectSettings)},$,(${projSettingProps.map(i => `#${i}`).join(',')}))`);
@@ -569,22 +578,28 @@ function writeCalendarGenerationMeta(
   ownerHistId: number,
 ): void {
   const gen = cal.generation;
-  if (!gen) return;
+  if (!gen && !cal.libraryOrigin) return;
   const props: number[] = [];
-  props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('RuleSetId',$,IFCLABEL(${ifcStr(gen.ruleSetId)}),$)`));
-  if (gen.region) {
-    props.push(addLine(ctx, `_opscal_region_${cal.id}`,
-      `IFCPROPERTYSINGLEVALUE('Region',$,IFCLABEL(${ifcStr(gen.region)}),$)`));
+  if (gen) {
+    props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('RuleSetId',$,IFCLABEL(${ifcStr(gen.ruleSetId)}),$)`));
+    if (gen.region) {
+      props.push(addLine(ctx, `_opscal_region_${cal.id}`,
+        `IFCPROPERTYSINGLEVALUE('Region',$,IFCLABEL(${ifcStr(gen.region)}),$)`));
+    }
+    if (gen.breakChoice) {
+      props.push(addLine(ctx, `_opscal_break_${cal.id}`,
+        `IFCPROPERTYSINGLEVALUE('BreakChoice',$,IFCLABEL(${ifcStr(gen.breakChoice)}),$)`));
+    }
+    props.push(addLine(ctx, `_opscal_from_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('GeneratedFromYear',$,IFCINTEGER(${gen.generatedFromYear}),$)`));
+    props.push(addLine(ctx, `_opscal_to_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('GeneratedToYear',$,IFCINTEGER(${gen.generatedToYear}),$)`));
   }
-  if (gen.breakChoice) {
-    props.push(addLine(ctx, `_opscal_break_${cal.id}`,
-      `IFCPROPERTYSINGLEVALUE('BreakChoice',$,IFCLABEL(${ifcStr(gen.breakChoice)}),$)`));
+  if (cal.libraryOrigin) {
+    props.push(addLine(ctx, `_opscal_lo_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(cal.libraryOrigin))}),$)`));
   }
-  props.push(addLine(ctx, `_opscal_from_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('GeneratedFromYear',$,IFCINTEGER(${gen.generatedFromYear}),$)`));
-  props.push(addLine(ctx, `_opscal_to_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('GeneratedToYear',$,IFCINTEGER(${gen.generatedToYear}),$)`));
   const setId = addLine(ctx, `_pset_opscal_${cal.id}`,
     `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
   addLine(ctx, `_rel_opscal_${cal.id}`,
@@ -775,6 +790,11 @@ function writeResourceMeta(ctx: WriteContext, resources: Resource[], ownerHistId
       // afhankelijk te zijn van relatie-richting-interpretatie door andere IFC-tools.
       const id = addLine(ctx, `_respg_${res.id}`,
         `IFCPROPERTYSINGLEVALUE('ParentGuid',$,IFCTEXT(${ifcStr(ifcGuid(res.parentId))}),$)`);
+      props.push(`#${id}`);
+    }
+    if (res.libraryOrigin) {
+      const id = addLine(ctx, `_reslo_${res.id}`,
+        `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(res.libraryOrigin))}),$)`);
       props.push(`#${id}`);
     }
     if (props.length === 0) continue;

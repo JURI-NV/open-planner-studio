@@ -93,12 +93,14 @@ const projCal = {
     { name: 'Nieuwjaar', startDate: '2027-01-01', endDate: '2027-01-01' },
   ],
   generation: PROJ_GEN, shift: 'SECOND',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-projcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 const libCal = {
   id: 'libcal', name: 'Sublokatie kalender', description: 'Ma-za 07-15',
   workDays: [1, 2, 3, 4, 5, 6], workStartHour: 7, workEndHour: 15, hoursPerDay: 8,
   holidays: [{ name: 'Bouwvakdag', startDate: '2026-07-27', endDate: '2026-07-31' }],
   generation: LIB_GEN, shift: 'THIRD',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-libcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 
 // Type-only VOLLEDIGHEIDSGETUIGE voor WorkCalendar: `workTime` aanwezig ⇒ UUR-kalender, wat de
@@ -110,6 +112,7 @@ const _CALENDAR_FIELD_WITNESS = {
   id: 'w', name: 'w', description: 'w', workDays: [1, 2, 3, 4, 5],
   workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
   generation: PROJ_GEN, shift: 'FIRST',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-witness', poolVersion: 1 },
   workTime: { byWeekday: { 1: [{ start: 480, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
 } satisfies Required<WorkCalendar>;
 
@@ -229,6 +232,7 @@ const RMember = {
   maxUnits: 3, calendarId: 'libcal',
   availabilitySteps: [{ from: '2026-07-06', maxUnits: 3 }, { from: '2026-07-20', maxUnits: 2 }],
   unitOfMeasure: 'uur', parentId: 'r-crew',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-res1', poolVersion: 4 },
 } satisfies Required<Resource>;
 const REquip: Resource = { id: 'r-eq', name: 'Torenkraan', type: 'EQUIPMENT', description: 'Liebherr 200', maxUnits: 2 };
 const RMat: Resource = { id: 'r-mat', name: 'Beton C30', type: 'MATERIAL', description: 'Stortbeton', maxUnits: 1, unitOfMeasure: 'm3' };
@@ -258,6 +262,7 @@ const project = {
   createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-06-01T00:00:00.000Z', // (a) gaps
   author: 'Ir. Testz', company: 'Bouw BV',                                       // (a) gaps
   wbsAutoNumber: true, statusDate: '2026-07-25', progressMode: 'PROGRESS_OVERRIDE',
+  companyId: 'c-fixture', companyName: 'Fixture Bouw BV',
   schedulingOptions: SCHED_OPTS,
 } satisfies Required<Project> & { schedulingOptions: Required<SchedulingOptions> };
 
@@ -306,6 +311,7 @@ function canon(r: ImportResult): Any {
     holidays: [...c.holidays].sort((a, b) => a.name.localeCompare(b.name))
       .map(h => ({ name: h.name, startDate: h.startDate, endDate: h.endDate })),
     generation: c.generation, shift: c.shift,
+    libraryOrigin: c.libraryOrigin,
   });
 
   const canonTime = (t: TaskTime): Any => ({
@@ -354,6 +360,7 @@ function canon(r: ImportResult): Any {
     costPerHour: res.costPerHour, maxUnits: res.maxUnits, unitOfMeasure: res.unitOfMeasure,
     availabilitySteps: res.availabilitySteps, calendar: calKey(res.calendarId),
     parent: res.parentId ? resNameById.get(res.parentId) ?? res.parentId : undefined,
+    libraryOrigin: res.libraryOrigin,
   });
 
   const canonAsg = (a: ResourceAssignment): Any => ({
@@ -377,6 +384,7 @@ function canon(r: ImportResult): Any {
       createdAt: r.project.createdAt, modifiedAt: r.project.modifiedAt,
       calendar: calKey(r.project.calendarId), wbsAutoNumber: r.project.wbsAutoNumber,
       statusDate: r.project.statusDate, progressMode: r.project.progressMode,
+      companyId: r.project.companyId, companyName: r.project.companyName,
       schedulingOptions: r.project.schedulingOptions,
     },
     calendar: canonCal(r.calendar),
@@ -456,6 +464,24 @@ const rt2 = readIFC(writeIFC(rt1));
   assert(tmOut.time.remainingMinutes === undefined && def(TM.time.remainingMinutes), '(b) time.remainingMinutes n.v.t. in dag-modus');
   assert(rMem.availability === undefined && def(RMember.availability), '(b) resource.availability (deprecated) niet geschreven');
   void txOut;
+}
+
+// (4) B1 (§6) — projectbinding + herkomststempels expliciet: round-trippen door het project-IFC.
+{
+  assert(rt1.project.companyId === 'c-fixture', 'project.companyId round-trip');
+  assert(rt1.project.companyName === 'Fixture Bouw BV', 'project.companyName round-trip');
+  const rMem = rt1.resources.find(r => r.name === 'Timmerman Jan')!;
+  assert(rMem.libraryOrigin?.companyId === 'c-fixture'
+    && rMem.libraryOrigin?.libraryItemId === 'lib-res1'
+    && rMem.libraryOrigin?.poolVersion === 4, 'resource.libraryOrigin round-trip');
+  const rtProjCal = rt1.calendar;
+  assert(rtProjCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtProjCal.libraryOrigin?.libraryItemId === 'lib-projcal'
+    && rtProjCal.libraryOrigin?.poolVersion === 4, 'projectkalender.libraryOrigin round-trip');
+  const rtLibCal = (rt1.resourceCalendars ?? []).find(c => c.name === 'Sublokatie kalender')!;
+  assert(rtLibCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtLibCal.libraryOrigin?.libraryItemId === 'lib-libcal'
+    && rtLibCal.libraryOrigin?.poolVersion === 4, 'bibliotheekkalender.libraryOrigin round-trip');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

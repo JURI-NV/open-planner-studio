@@ -6,6 +6,7 @@ import { Project, SchedulingOptions } from '@/types/project';
 import { WorkCalendar, Holiday, CalendarGeneration } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { HolidayCountry } from '@/engine/calendar/holidays';
+import type { LibraryOrigin } from '@/types/library';
 import { ActivityCodeType, CustomFieldDef, CustomFieldValue } from '@/types/structure';
 import { Baseline, BaselineTask } from '@/types/baseline';
 import { generateId } from '@/utils/id';
@@ -660,6 +661,10 @@ function extractStructure(
           if (typeof v === 'string' && v) project.createdAt = v;
         } else if (name === 'ModifiedAt') {
           if (typeof v === 'string' && v) project.modifiedAt = v;
+        } else if (name === 'CompanyId') {
+          if (typeof v === 'string' && v) project.companyId = v;
+        } else if (name === 'CompanyName') {
+          if (typeof v === 'string' && v) project.companyName = v;
         }
       }
       continue;
@@ -810,6 +815,14 @@ function extractResourceMeta(
         } else if (name === 'ParentGuid' && typeof value === 'string' && !res.parentId) {
           const parentId = resourceGuidMap.get(value);
           if (parentId) res.parentId = parentId;
+        } else if (name === 'LibraryOrigin' && typeof value === 'string' && value) {
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+                && typeof parsed.poolVersion === 'number') {
+              res.libraryOrigin = parsed;
+            }
+          } catch { /* corrupte JSON: negeren */ }
         }
       }
     }
@@ -900,6 +913,45 @@ function extractCalendarGeneration(
       generatedFromYear,
       generatedToYear,
     };
+  }
+  return undefined;
+}
+
+/**
+ * Fase B1 (§6) — `LibraryOrigin`-herkomststempel teruglezen uit het `OPS_Calendar`-pset (spiegel van
+ * de writer, die 'm naast de generation-props schrijft). BEWUST losstaand van
+ * `extractCalendarGeneration`: die `continue`t bij een onvolledige generation, waardoor een kalender
+ * met ALLEEN een LibraryOrigin (gepromoveerd, niet gegenereerd) er verloren zou gaan. Geen/corrupte
+ * property ⇒ `undefined`.
+ */
+function extractCalendarLibraryOrigin(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): LibraryOrigin | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'LibraryOrigin') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value !== 'string' || !value) continue;
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+            && typeof parsed.poolVersion === 'number') {
+          return parsed as LibraryOrigin;
+        }
+      } catch { /* corrupte JSON: negeren */ }
+    }
   }
   return undefined;
 }
@@ -998,6 +1050,7 @@ function buildCalendarFromEntity(
   // pset het expliciet zegt. Eerst wissen, dan (evt.) invullen uit de pset.
   delete calendar.generation;
   calendar.generation = extractCalendarGeneration(cal.id, entities, entityMap);
+  calendar.libraryOrigin = extractCalendarLibraryOrigin(cal.id, entities, entityMap);
 
   return calendar;
 }
