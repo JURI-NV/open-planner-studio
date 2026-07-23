@@ -29,10 +29,13 @@ gebruiker niet meer — die choreografie zakt onder de motorkap.
   materialisatie/laatste verversing — hiermee is "het bestand is extern bewerkt" te onderscheiden
   van "het bestand loopt gewoon achter op de pool" (§3). Stempels zonder hash (B1-bestanden):
   veilige kant — behandelen als mogelijk extern bewerkt.
-- **Stempel-scope (besluit, edge-jacht):** alle verversings-, markerings- en afwijkingsmechaniek
-  geldt uitsluitend voor items waarvan `stamp.companyId === project.companyId`. Items met een
-  vreemd stempel (geplakt uit een ander document, ontvangen bestand) doen nérgens aan mee en tonen
-  géén "niet meer in het bedrijf"-label — ze zijn gewoon projectinhoud.
+- **Stempel-scope (besluit, edge-jacht; aangescherpt in her-toets):** alle verversings-,
+  markerings- en afwijkingsmechaniek geldt uitsluitend voor items waarvan
+  `stamp.companyId === project.companyId` **én dat bedrijf lokaal bestaat**. Is het
+  `companyId` van het project lokaal onbekend (ontvangen bestand, verwijderd bedrijf), dan
+  gedraagt het document zich als **los** — geen mechaniek, geen valse "niet meer in het
+  bedrijf"-labels. Items met een vreemd stempel (geplakt uit een ander document) doen
+  eveneens nergens aan mee: gewoon projectinhoud.
 
 ## 3. Waarheid: het verversingsmodel
 
@@ -82,7 +85,9 @@ gemarkeerd "niet meer in het bedrijf" (alleen bij eigen-bedrijf-stempels, zie §
 Voor een **gekoppeld** project toont het tabblad de **bedrijfspool**. Twee weergaven, schakelbaar
 (de schakelaar bestaat ook bij één bedrijf — het is een inhoudsfilter, geen bedrijvenconcept):
 
-- **Bedrijfsweergave** (default): alle resources van het bedrijf (uit de pool). CRUD hier = CRUD op
+- **Bedrijfsweergave** (default zodra de pool inhoud heeft; bij een lége pool opent het tabblad in
+  de Projectweergave, zodat een eenpitter niet tegen een lege lijst aankijkt — **besluit,
+  her-toets**): alle resources van het bedrijf (uit de pool). CRUD hier = CRUD op
   het bedrijf (raakt uitsluitend `s.pools`, nooit direct `s.resources` — invariant): nieuw ⇒ direct
   in het bedrijf; bewerken/verwijderen ⇒ geldt overal via §3, met een zichtbaar signaal "geldt voor
   alle projecten — valt buiten ongedaan maken" **(besluit, aangescherpt na edge-jacht)**.
@@ -173,7 +178,10 @@ Als v2, plus: B1-bestanden zonder `syncedHash` vallen bij afwijking aan de veili
 `docs/library.md` wordt herschreven en documenteert expliciet: de Ctrl+Z/verversing-eigenaardigheid
 en het signaal; dat identiteit op id rust (een verwijderd poolitem naamgelijk hercreëren herlinkt
 niet — de handmatige koppel-uitweg bestaat); dat de matcher alleen op koppelmomenten draait; en
-het gedrag van ontvangen bestanden.
+het gedrag van ontvangen bestanden; dat een geïmporteerde óudere pool in-sync openstaande
+documenten stil terugzet (de vraag guardt alleen extern-bewerkte bestanden — de demping vooraf is
+de bewuste poort); en dat omkoppelen de per ongeluk in het oude bedrijf gepromoveerde items niet
+opruimt (handmatig via de Bedrijfsweergave).
 
 ## 13. Expliciete plan-eisen (uit reviews en edge-jachten — het implementatieplan MOET deze dragen)
 
@@ -186,6 +194,11 @@ het gedrag van ontvangen bestanden.
 5. Herkenningsstap atomisch (crash mag geen half-gestempelde toestand achterlaten die auto-save vastlegt).
 6. Recovery-restore draait de grens-1-check (§3.4).
 7. Het afwijkingen-/herkenningsscherm wordt in het plan volledig uitgetekend (anti-dialoog-clausule §5).
+8. `syncedHash` spiegelt de diff-normalisatie exact (zelfde veldlijsten, zelfde
+   array-multiset-sortering, zelfde NFC/witruimte-behandeling als `diffKey`) — anders vallen
+   "hash gelijk" en "diff up-to-date" uit elkaar en vuren spurieuze of gemiste afwijkingsvragen.
+9. Het sticky-autobind-pad in `addLibrary*ToProject` (`if (!project.companyId)`) is in dit model
+   onbereikbaar en wordt gestript of assert-geguard — stille koppeling bestaat niet meer.
 
 ## 14. Buiten scope
 
