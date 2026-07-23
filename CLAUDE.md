@@ -74,6 +74,13 @@ Versies zijn CalVer (`YYYY.M.patch`), gelijkgehouden tussen `package.json` en `s
 
 Naar het model van Open Calc Studio (`OpenAEC-Foundation/open-calc-studio`): een extensie is een ZIP (of los `.js`) met `manifest.json` + `main.js` (CommonJS, exporteert `onLoad(api)`/`onUnload()`). Volledig frontend — geen Rust. Code in `src/extensions/` (types, api, loader, service), state in `extensionSlice`. Opslag: IndexedDB `ops-extensions`; uitvoering: `new Function(...)`-sandbox waarvan `require()` alleen `'open-planner-studio'` teruggeeft; permissies (`ribbon`, `events`, …) worden per API-call afgedwongen. UI: Backstage → Extensies (beheer/installeren/catalogus) en Backstage → Importeren (extensie-importers); extensie-ribbon-knoppen renderen via `ExtensionRibbonGroups`. Catalogus: `open-planner-studio-extensions/catalog.json` op GitHub raw (30 min cache). Extensies zijn app-niveau data (geen projectdata) — geen IFC-round-trip-impact; importer-resultaten (`ImportResult`) zijn gewone store-data. Zelftest-haken: `window.__OPS__.extensions.*` (dev-only). Auteurshandleiding: `docs/extensions.md`.
 
+### Bedrijfsbibliotheken
+
+De bibliotheek (`librarySlice`) is app-globaal, net als extensies — niet per-document geswapt.
+Persistentie via een `isTauri()`-gesplitste `libraryStore`: IndexedDB `ops-library` in de browser,
+`ops-library.json` in `appDataDir` op desktop. Herkomststempels en bedrijfsbinding round-trippen
+door het project-IFC via het bestaande `OPS_`-pset-patroon. Zie `docs/library.md`.
+
 ## Docs
 
 - [PLAN.md](PLAN.md) — large project plan, source of truth for roadmap.
@@ -84,4 +91,5 @@ Naar het model van Open Calc Studio (`OpenAEC-Foundation/open-calc-studio`): een
 - [docs/planning-test-bevindingen.md](docs/planning-test-bevindingen.md) — bevindingen van het CPM-correctheidsonderzoek dat de `tests/planning/`-suite opleverde.
 - [docs/archive/superpowers/](docs/archive/superpowers/) — historical design docs and implementation plans for shipped features (zoom, debug terminal, stylebook). Archived; useful for context on *why* something was built, not *what* exists now — verify against current code.
 - [docs/extensions.md](docs/extensions.md) — handleiding voor extensie-auteurs (manifest, API, installeren).
+- [docs/library.md](docs/library.md) — bedrijfsbibliotheken (B1): pools per bedrijf, herkomststempels, pool-IFC-export/-import, bekende beperkingen (geen sync tussen machines).
 - [tests/planning/README.md](tests/planning/README.md) — hoe de CPM/kalender-regressiesuite werkt en hoe je cases toevoegt.

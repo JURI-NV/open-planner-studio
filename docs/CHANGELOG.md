@@ -7,6 +7,11 @@ per type (`Toegevoegd`, `Gewijzigd`, `Opgelost`, `Documentatie`).
 ## Ongepubliceerd
 
 ### Toegevoegd
+- **Bedrijfsbibliotheken (B1).** Centrale pool van kalenders en resources per bedrijf, buiten de
+  projecten om. Projecten kopiëren eruit met een herkomststempel, kunnen per item bijwerken (met
+  diff-weergave), en een gedeeld projectbestand blijft zelfstandig compleet. Beheer via
+  Bestand → Bibliotheek; pool-export/-import als IFC 4.3 met import-demping; optie
+  "bibliotheekbestand ernaast opslaan" bij projectexport. Zie `docs/library.md`.
 - **Geavanceerde CPM (fase 2.9)** — de kritieke-pad-motor is compleet gemaakt ten opzichte van
   Primavera P6 en MS Project, in zowel dag- als uurplanning (ontwerp:
   `docs/superpowers/specs/2026-07-06-geavanceerde-cpm-design.md`):

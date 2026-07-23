@@ -292,7 +292,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       if (!companyId) return;
       const poolContent = state.exportPoolIFC(companyId);
       if (!poolContent) return;
-      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC', extensions: ['ifc'] }]);
+      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
     },
 
     recentFiles: [],

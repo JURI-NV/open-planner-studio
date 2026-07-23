@@ -11,6 +11,11 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
+### Bedrijfsbibliotheken (B1) — vervolgen (2026-07-20)
+- [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
+  herkomststempels uit B1). Zie docs/library.md "Bekende beperkingen".
+- [ ] **Gedeelde opslag/sync** tussen machines (wortel van beide B1-beperkingen).
+
 ### Solver/presentatie (klein, uit de 2.10-showcase-triage, 2026-07-08)
 - [ ] **Dag/uur-asymmetrie backward-FS bij start-mijlpaal-voorganger normaliseren** (vondst pakket O,
       2026-07-17). De backward-uur-FS-tak past `prevWorkInstant` onvoorwaardelijk toe, óók bij
