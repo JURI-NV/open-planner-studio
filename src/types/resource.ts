@@ -1,3 +1,5 @@
+import type { LibraryOrigin } from '@/types/library';
+
 export type ResourceType = 'LABOR' | 'EQUIPMENT' | 'MATERIAL' | 'SUBCONTRACTOR' | 'CREW';
 
 export interface AvailabilityStep {
@@ -29,6 +31,9 @@ export interface Resource {
   /** Ploeg-lidmaatschap: verwijst naar een CREW-resource. Puur groepering/weergave — GEEN
    *  automatische rollup van capaciteit/belasting (P6-gedrag). */
   parentId?: string;
+  /** OPTIONEEL — herkomststempel wanneer deze resource een kopie uit een bedrijfsbibliotheek is
+   *  (spec B1, §2). Afwezig ⇒ handmatig aangemaakte resource. */
+  libraryOrigin?: LibraryOrigin;
 }
 
 export type ResourceCurve = 'UNIFORM' | 'FRONT_LOADED' | 'BACK_LOADED' | 'BELL' | 'EARLY_PEAK' | 'LATE_PEAK';

@@ -5,6 +5,7 @@ import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { Baseline } from '@/types/baseline';
+import type { CompanyPool } from '@/types/library';
 
 /**
  * Eén gedeelde payload-vorm voor een ingelezen project (audit P1). De vier readers (`readIFC`,
@@ -33,4 +34,7 @@ export interface ImportResult {
   customFieldDefs?: CustomFieldDef[];
   baselines?: Baseline[];
   activeBaselineId?: string | null;
+  /** OPTIONEEL — een pool-bestand (spec B1, §4) draagt zijn autoritatieve pool-JSON in het
+   *  OPS_Library-pset; een gewoon projectbestand niet. Afwezig ⇒ geen pool-bestand. */
+  libraryPool?: CompanyPool;
 }
