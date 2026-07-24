@@ -851,6 +851,9 @@ const store = useAppStore.getState();
 // --- Grens 1: openen ververst 'behind' stil, markeert 'deviated' (spec §3) ---
 {
   const s = useAppStore.getState();
+  // Bekende ui-uitgangstoestand vóór de asserts (niet-vacuüm: geen toevallige waarde van een
+  // eerder testblok).
+  useAppStore.setState((st) => { st.ui.libraryRefreshNotice = null; st.ui.showLibraryLinkDialog = false; });
   const cid = s.addCompany('Open BV');
   s.bindProjectToCompany(cid);
   const resId = s.promoteResourceToPool(cid, { id: 'o', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 })!;
@@ -867,6 +870,57 @@ const store = useAppStore.getState();
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
   assert(copy?.maxUnits === 9, 'grens 1 ververst een behind-item stil naar de poolwaarde');
   assert(result.deviated === 0, 'geen deviated-items in dit scenario');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === 1, 'grens 1: discreet signaal bij behind-refresh');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 1: dialoog blijft dicht bij alleen-behind');
+}
+
+// --- Grens 1: 'deviated' wordt GEMARKEERD, niet ververst — dialoog opent (spec §3) ---
+{
+  const s = useAppStore.getState();
+  useAppStore.setState((st) => { st.ui.libraryRefreshNotice = null; st.ui.showLibraryLinkDialog = false; });
+  const cid = s.addCompany('Devi BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'd', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 3 })!;
+  const added = s.addLibraryResourceToProject(cid, resId); // materialiseert: project == pool, syncedHash = hash(pool op dit moment)
+  // Lokale bewerking van het PROJECTitem (niet via de pool-CRUD) zodat file-hash ≠ syncedHash —
+  // NB-taak-6-patroon: directe store-draft-mutatie, geen updateResource-actie (die zou de
+  // syncedHash niet raken, maar dit blijft dichter bij een "extern bewerkt bestand"-scenario).
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) r.maxUnits = 5; // lokaal afgeweken van de pool (was 3, gematcht met syncedHash)
+  });
+  // Pool zelf óók direct (buiten de CRUD om) muteren, zodat de pool intussen ook bewogen is —
+  // het scenario blijft 'changed' t.o.v. de pool, en fileHash (op basis van de lokale 5) wijkt
+  // van de bevroren syncedHash (op basis van de oorspronkelijke 3) ⇒ 'deviated', geen 'behind'.
+  useAppStore.setState((st) => {
+    const poolRes = st.pools[cid].resources.find(r => r.id === resId);
+    if (poolRes) poolRes.maxUnits = 9;
+  });
+  const result = useAppStore.getState().runOpenBoundary();
+  const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
+  assert(result.deviated === 1, 'grens 1: het lokaal bewerkte item classificeert als deviated');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === true, 'grens 1: ≥1 deviated ⇒ afwijkingenscherm gaat open');
+  assert(copy?.maxUnits === 5, 'grens 1: een deviated-item wordt NIET ververst — lokale waarde blijft staan');
+}
+
+// --- Grens 1: 'removed' wordt alleen geteld, verandert de dialoogtrigger niet zonder deviated ---
+{
+  const s = useAppStore.getState();
+  useAppStore.setState((st) => { st.ui.libraryRefreshNotice = null; st.ui.showLibraryLinkDialog = false; });
+  const cid = s.addCompany('Weg BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'w', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.addLibraryResourceToProject(cid, resId);
+  // Poolitem direct uit de pool-array verwijderen (buiten removePoolResource om — dat zou zelf ook
+  // prima werken, maar dit blijft dichter bij het NB-taak-6-patroon van directe draft-mutatie).
+  useAppStore.setState((st) => {
+    const pool = st.pools[cid];
+    pool.resources = pool.resources.filter(r => r.id !== resId);
+  });
+  const result = useAppStore.getState().runOpenBoundary();
+  assert(result.removed === 1, 'grens 1: een verdwenen poolitem wordt geteld als removed');
+  assert(result.deviated === 0, 'grens 1: removed is geen deviated');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 1: removed-only opent het afwijkingenscherm niet');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
