@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -223,7 +223,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         // blijft staan — bewust, zie docs/library.md "Bekende kleine punten"), maar een LATERE
         // ongerelateerde undo 'm niet meer kan meesleuren.
         beginUndoable(s);
-        src.libraryOrigin = makeOrigin(bumped, id);
+        // GO-NA-FIX 3 (critreview 9f9f0aa): een net-gepromoveerd item is byte-identiek aan zijn
+        // poolitem — de back-stamp krijgt daarom meteen de hash VAN DAT POOLITEM mee, anders
+        // classificeert het projectitem in latere taken als 'deviated' (spurieuze afwijkingsvraag).
+        const poolCal = bumped.calendars.find((c) => c.id === id)!;
+        src.libraryOrigin = makeOrigin(bumped, id, computeCalendarHash(poolCal));
         // De gedenormaliseerde projectkalender-cache (`s.calendar`) moet de zojuist gestempelde
         // bibliotheek-entry weerspiegelen (§9.1); anders schrijft de writer (leest uit `s.calendar`)
         // de herkomst NIET weg als de PROJECTDEFAULT-kalender werd gepromoveerd → functieverlies bij
@@ -254,7 +258,9 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         // Fix B4: undo-beschermde projectstempel-mutatie — zie de uitgebreide toelichting bij
         // promoteCalendarToPool hierboven (identiek patroon, resource-variant).
         beginUndoable(s);
-        src.libraryOrigin = makeOrigin(bumped, id);
+        // GO-NA-FIX 3 (critreview 9f9f0aa): zelfde toelichting als promoteCalendarToPool hierboven.
+        const poolRes = bumped.resources.find((r) => r.id === id)!;
+        src.libraryOrigin = makeOrigin(bumped, id, computeResourceHash(poolRes));
         finishMutation(s);
       }
       newId = id;

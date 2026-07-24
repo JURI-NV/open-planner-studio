@@ -163,24 +163,48 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
 // --- syncedHash spiegelt de diff-normalisatie exact (plan-eis 8) ---
 {
   const p = pool();
-  const c = p.calendars[0];
+  // GO-NA-FIX 1 (critreview 9f9f0aa): de fixture-kalender/-resource hebben lege/afwezige
+  // multiset-velden (`holidays: []`, geen `availabilitySteps`) — daarmee zou een reversed-equal
+  // check triviaal waar blijven, ook zonder de `.sort()` in `diffKey`. Bouw daarom hier lokaal een
+  // kalender met ≥2 verschillende holidays en een resource met ≥2 verschillende availabilitySteps,
+  // zodat de reversed-equal-assert écht multiset-gedrag bewijst (en niet leeg-array-gedrag).
+  const c: WorkCalendar = {
+    ...p.calendars[0],
+    holidays: [
+      { name: 'Kerst', startDate: '2026-12-25', endDate: '2026-12-26' },
+      { name: 'Nieuwjaar', startDate: '2026-01-01', endDate: '2026-01-01' },
+    ],
+  };
   // Materialisatie-hash == hash van de pool-bron.
   const h1 = computeCalendarHash(c);
   // Array-VOLGORDE mag de hash NIET veranderen (multiset, zoals diffKey): feestdagen omdraaien.
-  const c2: WorkCalendar = { ...c, holidays: [...(c.holidays ?? [])].reverse() };
+  const c2: WorkCalendar = { ...c, holidays: [...c.holidays].reverse() };
   assert(computeCalendarHash(c2) === h1, 'computeCalendarHash: array-volgorde telt niet mee (multiset)');
-  // Een echte inhoudswijziging verandert de hash WEL.
+  // Een echte inhoudswijziging vervangt niet, maar wijzigt één element inhoudelijk (zelfde lengte,
+  // andere data) — dit MOET de hash veranderen ondanks de multiset-normalisatie.
+  const c4: WorkCalendar = { ...c, holidays: [c.holidays[0], { ...c.holidays[1], endDate: '2026-01-02' }] };
+  assert(computeCalendarHash(c4) !== h1, 'computeCalendarHash: inhoudswijziging in een array-element verandert de hash');
+  // Een echte inhoudswijziging op een scalair veld verandert de hash WEL.
   const c3: WorkCalendar = { ...c, workEndHour: 17 };
   assert(computeCalendarHash(c3) !== h1, 'computeCalendarHash: inhoudswijziging verandert de hash');
   // Consistentie met de diff: gelijk aan pool ⇒ hash-gelijk; diff up-to-date.
-  const projCal: WorkCalendar = { ...c, id: 'proj-x', libraryOrigin: makeOrigin(p, c.id, computeCalendarHash(c)) };
-  assert(diffCalendarVsPool(projCal, p).status === 'up-to-date', 'materialisatie ⇒ diff up-to-date');
+  const pWithHolidays: CompanyPool = { ...p, calendars: [c] };
+  const projCal: WorkCalendar = { ...c, id: 'proj-x', libraryOrigin: makeOrigin(pWithHolidays, c.id, computeCalendarHash(c)) };
+  assert(diffCalendarVsPool(projCal, pWithHolidays).status === 'up-to-date', 'materialisatie ⇒ diff up-to-date');
   assert(projCal.libraryOrigin!.syncedHash === computeCalendarHash(c), 'makeOrigin schrijft de syncedHash');
 
-  const r = p.resources[0];
+  const r: Resource = {
+    ...p.resources[0],
+    availabilitySteps: [
+      { from: '2026-01-01', maxUnits: 1 },
+      { from: '2026-06-01', maxUnits: 2 },
+    ],
+  };
   const hr = computeResourceHash(r);
-  const r2: Resource = { ...r, availabilitySteps: r.availabilitySteps ? [...r.availabilitySteps].reverse() : undefined };
+  const r2: Resource = { ...r, availabilitySteps: [...r.availabilitySteps!].reverse() };
   assert(computeResourceHash(r2) === hr, 'computeResourceHash: array-volgorde telt niet mee');
+  const r4: Resource = { ...r, availabilitySteps: [r.availabilitySteps![0], { ...r.availabilitySteps![1], maxUnits: 3 }] };
+  assert(computeResourceHash(r4) !== hr, 'computeResourceHash: inhoudswijziging in een array-element verandert de hash');
   assert(computeResourceHash({ ...r, maxUnits: 99 }) !== hr, 'computeResourceHash: inhoudswijziging verandert de hash');
 }
 

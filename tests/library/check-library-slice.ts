@@ -3,6 +3,7 @@
 // stil terug (geen IndexedDB/Tauri) — we asserten alleen de in-memory state. Exitcode = poort.
 import { useAppStore } from '@/state/appStore';
 import { normalizeLoadedLibrary } from '@/state/slices/librarySlice';
+import { computeCalendarHash, computeResourceHash } from '@/services/library/libraryOps';
 
 declare const process: { exit(code: number): never };
 
@@ -96,6 +97,11 @@ const store = useAppStore.getState();
   assert(!!stampedCal.libraryOrigin, 'promoteCalendarToPool: bron-projectkalender krijgt herkomststempel');
   assert(stampedCal.libraryOrigin?.companyId === cid && stampedCal.libraryOrigin?.libraryItemId === newCalItemId, 'promoteCalendarToPool: stempel wijst naar de nieuwe pool-item-id');
   assert(stampedCal.libraryOrigin?.poolVersion === poolVer, 'promoteCalendarToPool: stempel draagt de gebumpte poolVersion (geen off-by-one)');
+  // GO-NA-FIX 3 (critreview 9f9f0aa): een net-gepromoveerd item is byte-identiek aan zijn poolitem —
+  // de back-stamp moet daarom meteen de hash VAN DAT POOLITEM dragen (anders classificeert het
+  // projectitem straks als 'deviated', een spurieuze afwijkingsvraag).
+  const poolCalAfterPromote = useAppStore.getState().pools[cid].calendars.find(c => c.id === newCalItemId)!;
+  assert(stampedCal.libraryOrigin?.syncedHash === computeCalendarHash(poolCalAfterPromote), 'promoteCalendarToPool: back-stamp syncedHash == hash van het poolitem');
 
   const prId = useAppStore.getState().addResource({ name: 'Bron-resource', type: 'LABOR', description: '', maxUnits: 2 });
   const prRes = useAppStore.getState().resources.find(r => r.id === prId)!;
@@ -104,6 +110,8 @@ const store = useAppStore.getState();
   const stampedRes = useAppStore.getState().resources.find(r => r.id === prId)!;
   assert(!!stampedRes.libraryOrigin, 'promoteResourceToPool: bron-projectresource krijgt herkomststempel');
   assert(stampedRes.libraryOrigin?.libraryItemId === newResItemId && stampedRes.libraryOrigin?.poolVersion === poolVer2, 'promoteResourceToPool: stempel draagt de nieuwe id + gebumpte poolVersion');
+  const poolResAfterPromote = useAppStore.getState().pools[cid].resources.find(r => r.id === newResItemId)!;
+  assert(stampedRes.libraryOrigin?.syncedHash === computeResourceHash(poolResAfterPromote), 'promoteResourceToPool: back-stamp syncedHash == hash van het poolitem');
 
   // FIX 1 (critreview taak 8): promoveer de PROJECTDEFAULT-kalender. De gedenormaliseerde cache
   // `s.calendar` (waar de IFC-writer uit leest) moet de stempel óók dragen — de niet-default-check

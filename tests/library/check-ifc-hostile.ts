@@ -249,6 +249,17 @@ function samplePool(overrides: Partial<CompanyPool> = {}): CompanyPool {
   const resOut = back.resources.find(r => r.name === 'Metselaar');
   assert(resOut?.libraryOrigin?.syncedHash === 'abc123', 'syncedHash overleeft de IFC-round-trip');
 }
+// GO-NA-FIX 2 (critreview 9f9f0aa): kalender-variant — de resource-variant hierboven dekt alleen het
+// resource-leespad; de kalender loopt via een apart leespad (`extractCalendarLibraryOrigin`, dat het
+// hele libraryOrigin-object teruggeeft), dus die verdient een eigen bewijs.
+{
+  const calOrigin = { companyId: 'c1', libraryItemId: 'pc1', poolVersion: 5, syncedHash: 'cal-hash-xyz' };
+  const calIn: WorkCalendar = { ...baseCalendar({ id: 'lib-cal-hash', name: 'Ploegkalender' }), libraryOrigin: calOrigin };
+  const fixture = minimalFixture({ resourceCalendars: [calIn] });
+  const back = readIFC(writeIFC(fixture));
+  const calOut = back.resourceCalendars?.find(c => c.name === 'Ploegkalender');
+  assert(calOut?.libraryOrigin?.syncedHash === 'cal-hash-xyz', 'kalender: syncedHash overleeft de IFC-round-trip');
+}
 
 console.log(`ifc-hostile: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
