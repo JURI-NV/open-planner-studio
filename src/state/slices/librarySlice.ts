@@ -3,10 +3,24 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
+
+export interface RecognitionCandidate {
+  kind: 'resource' | 'calendar';
+  projectId: string;
+  projectName: string;
+  /** De unieke naam-match uit de pool, of null (geen/meerdere kandidaten ⇒ handmatige keuze). */
+  suggestedPoolId: string | null;
+  suggestedPoolName: string | null;
+}
+export interface RecognitionLink {
+  kind: 'resource' | 'calendar';
+  projectId: string;
+  poolId: string;
+}
 
 /**
  * App-globale bedrijfsbibliotheek (spec B1). NIET per-document (niet in DOCUMENT_FIELDS) — pools zijn
@@ -38,8 +52,19 @@ export interface LibrarySlice {
   removePoolCalendar: (companyId: string, calendarId: string) => void;
   removePoolResource: (companyId: string, resourceId: string) => void;
 
-  /** Bind het ACTIEVE project aan een bedrijf (spec §6). Zet project.companyId + companyName. */
+  /** Bind het ACTIEVE project aan een bedrijf (spec §6). Zet project.companyId + companyName; bij
+   *  OMkoppelen (ander bedrijf) worden vreemde stempels van het VORIGE bedrijf gestript (spec §5),
+   *  zodat de herkenningsstap schoon herbegint. */
   bindProjectToCompany: (companyId: string) => void;
+  /** Kandidaten voor de herkenningsstap (spec §5): elk NIET-gestempeld projectitem (resource/
+   *  kalender) met de unieke naam-match uit de eigen-bedrijf-pool (of null als er geen/meerdere zijn). */
+  computeRecognition: () => RecognitionCandidate[];
+  /** Atomisch linken (plan-eis 5): stempel de gekozen projectitems, zet syncedHash, en ververs ze
+   *  naar de poolwaarden — alles in één set(). */
+  linkRecognizedItems: (links: RecognitionLink[]) => void;
+  /** Ontkoppel het actieve project (spec §5): wis companyId/companyName en STRIP alle stempels —
+   *  een los project heeft geen herkomst en ververst nergens vandaan. */
+  unbindProject: () => void;
   /**
    * Voeg een bibliotheek-kalender toe aan het ACTIEVE project (spec §3): kopieer met stempel, dedup
    * op herkomst. Retourneert `{ added, calendarId }` — `added: false` ⇒ item was er al ("al in project").
@@ -341,9 +366,17 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     set((s) => {
       const company = s.companies.find(c => c.id === companyId);
       if (!company) return;
+      const previous = s.project.companyId;
       s.project.companyId = company.id;
       s.project.companyName = company.name;
       s.project.modifiedAt = new Date().toISOString();
+      // Omkoppelen (spec §5): stempels van het VORIGE bedrijf zijn nu vreemd — strip ze zodat de
+      // herkenningsstap schoon herbegint. Matches worden daarna opnieuw voorgesteld/gelinkt.
+      if (previous && previous !== companyId) {
+        s.resources = s.resources.map((r) => r.libraryOrigin?.companyId === previous ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
+        s.calendars = s.calendars.map((c) => c.libraryOrigin?.companyId === previous ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
+        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+      }
       s.isDirty = true;
     });
   },
@@ -652,5 +685,66 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     if (!cal || !companyId || companyId !== s.project.companyId || !s.companies.some((c) => c.id === companyId)) return null;
     const pool = s.pools[companyId];
     return pool ? classifyCalendarOnOpen(cal, pool) : null;
+  },
+
+  computeRecognition: () => {
+    const s = get();
+    const companyId = s.project.companyId;
+    if (!companyId || !s.companies.some((c) => c.id === companyId)) return [];
+    const pool = s.pools[companyId];
+    if (!pool) return [];
+    const out: RecognitionCandidate[] = [];
+    for (const r of s.resources) {
+      if (r.libraryOrigin?.companyId === companyId) continue; // al gestempeld voor dit bedrijf
+      const m = matchByName(r.name, pool.resources);
+      out.push({ kind: 'resource', projectId: r.id, projectName: r.name, suggestedPoolId: m?.id ?? null, suggestedPoolName: m?.name ?? null });
+    }
+    for (const c of s.calendars) {
+      if (c.libraryOrigin?.companyId === companyId) continue;
+      const m = matchByName(c.name, pool.calendars);
+      out.push({ kind: 'calendar', projectId: c.id, projectName: c.name, suggestedPoolId: m?.id ?? null, suggestedPoolName: m?.name ?? null });
+    }
+    return out;
+  },
+
+  linkRecognizedItems: (links) => {
+    set((s) => {
+      const companyId = s.project.companyId;
+      if (!companyId) return;
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      const pool = current(draftPool);
+      // Plan-eis 5: alles in één set() — atomisch, geen half-gestempelde tussentoestand.
+      for (const link of links) {
+        if (link.kind === 'resource') {
+          const idx = s.resources.findIndex((r) => r.id === link.projectId);
+          if (idx < 0) continue;
+          const stamped = { ...current(s.resources[idx]), libraryOrigin: makeOrigin(pool, link.poolId) };
+          s.resources[idx] = applyResourceUpdate(stamped, pool); // stempelt + ververst + zet syncedHash
+        } else {
+          const idx = s.calendars.findIndex((c) => c.id === link.projectId);
+          if (idx < 0) continue;
+          const stamped = { ...current(s.calendars[idx]), libraryOrigin: makeOrigin(pool, link.poolId) };
+          s.calendars[idx] = applyCalendarUpdate(stamped, pool);
+        }
+      }
+      s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+      s.isDirty = true;
+    });
+    get().recomputeResourceLoad();
+    get().recomputeViewRows();
+  },
+
+  unbindProject: () => {
+    set((s) => {
+      s.project.companyId = undefined;
+      s.project.companyName = undefined;
+      s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
+      s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
+      s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? { ...s.calendar };
+      s.isDirty = true;
+    });
+    get().recomputeResourceLoad();
+    get().recomputeViewRows();
   },
 });

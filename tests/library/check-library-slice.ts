@@ -680,5 +680,30 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().onOpenStatusForResource(added.resourceId!) === 'removed', 'kopie is gemarkeerd removed');
 }
 
+// --- Herkenning + binding + ontkoppelen (spec §5, plan-eis 5) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Herk BV');
+  // Pool met een resource "Metselaar".
+  const poolResId = s.promoteResourceToPool(cid, { id: 'p', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 3 })!;
+  // Project met een naam-gelijk projectitem (niet gestempeld) via de resource-slice.
+  const projResId = s.addResource({ name: 'metselaar', type: 'LABOR', description: '', maxUnits: 1 });
+  s.bindProjectToCompany(cid);
+  const cands = useAppStore.getState().computeRecognition();
+  const match = cands.find(c => c.kind === 'resource' && c.projectId === projResId);
+  assert(match?.suggestedPoolId === poolResId, 'herkenning stelt de naam-gelijke poolresource voor');
+  // Bevestig de match ⇒ atomisch stempelen + verversen.
+  useAppStore.getState().linkRecognizedItems([{ kind: 'resource', projectId: projResId, poolId: poolResId }]);
+  const linked = useAppStore.getState().resources.find(r => r.id === projResId);
+  assert(linked?.libraryOrigin?.libraryItemId === poolResId, 'linkRecognizedItems stempelt het projectitem');
+  assert(!!linked?.libraryOrigin?.syncedHash, 'linkRecognizedItems zet een syncedHash');
+  assert(linked?.maxUnits === 3, 'linkRecognizedItems ververst direct naar de poolwaarde');
+  // Ontkoppelen stript de stempels.
+  useAppStore.getState().unbindProject();
+  const after = useAppStore.getState();
+  assert(after.project.companyId === undefined, 'ontkoppelen wist de bedrijfsbinding');
+  assert(after.resources.find(r => r.id === projResId)?.libraryOrigin === undefined, 'ontkoppelen stript de stempels');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
