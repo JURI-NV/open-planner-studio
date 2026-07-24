@@ -7,6 +7,7 @@ import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
 import '@/components/layout/TitleBar/TitleBar.css';
 import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
 import { StatusBar } from '@/components/layout/StatusBar/StatusBar';
+import { TooltipHost } from '@/components/common/Tooltip';
 import { GanttCanvas } from '@/components/canvas/GanttCanvas';
 import { TaskPropertiesPanel } from '@/components/panels/TaskPropertiesPanel';
 import { TableEditor } from '@/components/panels/TableEditor';
@@ -452,6 +453,7 @@ function AppContent() {
           Suspense-dialogenblok, als laatste kind van de buitenste div), zodat een opslaafout óók
           zichtbaar is wanneer de File-tab (Backstage) de body overneemt. */}
       <NotificationHost />
+      <TooltipHost />
     </div>
   );
 }

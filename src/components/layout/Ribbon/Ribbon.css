@@ -249,6 +249,19 @@
    over de buurgroep heen spilt (QA-bevinding fase 2.10). Terug naar natuurlijke breedte. */
 .ribbon-container.compact .ribbon-display-grid .ribbon-btn.small { width: auto; min-width: 0; }
 
+/* Alleen-iconen-variant (Display-groep op de Beeld-tab — gebruikerskeuze): labels verbergen en
+   de knoppen tot icoongrootte laten krimpen; de 2×2-vorm blijft. De betekenis draagt via de
+   tooltip (title-attribuut op elke knop). Specifieker dan de grid-basisregel hierboven, dus die
+   width:100%/min-width:70px wordt hier bewust overschreven. */
+.ribbon-display-grid.icons .ribbon-btn-label { display: none; }
+.ribbon-display-grid.icons .ribbon-btn.small {
+  width: auto;
+  min-width: 0;
+  padding: 2px 6px;
+  gap: 0;
+  justify-content: center;
+}
+
 /* Compacte-modus-toggle (Word-web-stijl): klein pijltje rechtsonder in het lint.
    ↑ klapt in naar één rij van 40px, ↓ klapt weer uit.
    position:absolute (i.p.v. een flex-child met margin-left:auto) zodat de pijl een

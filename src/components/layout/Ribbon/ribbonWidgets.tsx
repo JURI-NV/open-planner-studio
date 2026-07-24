@@ -568,6 +568,8 @@ export function GroupPopoverButton() {
       trigger={
         <button
           className={`ribbon-btn small${group.length > 0 ? ' active' : ''}`}
+          title={tMenu('ribbon.group')}
+          aria-label={tMenu('ribbon.group')}
           onClick={() => setOpen(o => !o)}
         >
           <span className="ribbon-btn-icon"><Layers size={14} /></span>
@@ -648,6 +650,8 @@ export function SortPopoverButton() {
       trigger={
         <button
           className={`ribbon-btn small${sort.length > 0 ? ' active' : ''}`}
+          title={tMenu('ribbon.sort')}
+          aria-label={tMenu('ribbon.sort')}
           onClick={() => setOpen(o => !o)}
         >
           <span className="ribbon-btn-icon"><ArrowUpDown size={14} /></span>
@@ -815,26 +819,29 @@ export function PresentationGroupContent() {
   };
 
   return (
-    <>
-      <RibbonButton
-        icon={presentationMode ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+    <RibbonButtonStack>
+      <RibbonSmallButton
+        icon={presentationMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         label={tMenu('ribbon.presentationMode')}
+        title={tMenu('ribbon.presentationMode')}
         onClick={() => setPresentationMode(!presentationMode)}
         active={presentationMode}
       />
-      <RibbonButton
-        icon={<SplitSquareHorizontal size={20} />}
+      <RibbonSmallButton
+        icon={<SplitSquareHorizontal size={14} />}
         label={tMenu('ribbon.splitView')}
+        title={tMenu('ribbon.splitView')}
         onClick={toggleSplitView}
         active={!!splitView}
       />
-      <RibbonButton
-        icon={<MapIcon size={20} />}
+      <RibbonSmallButton
+        icon={<MapIcon size={14} />}
         label={tMenu('ribbon.miniMap')}
+        title={tMenu('ribbon.miniMap')}
         onClick={toggleMiniMap}
         active={showMiniMap}
       />
-    </>
+    </RibbonButtonStack>
   );
 }
 
@@ -888,9 +895,9 @@ export function DisplayGroupContent() {
   const filter = useAppStore(s => s.view.filter);
 
   return (
-    <div className="ribbon-display-grid">
-      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} onClick={() => setUI({ showColumnsDialog: true })} />
-      <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
+    <div className="ribbon-display-grid icons">
+      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} title={tMenu('ribbon.columns')} onClick={() => setUI({ showColumnsDialog: true })} />
+      <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} title={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
       <GroupPopoverButton />
       <SortPopoverButton />
     </div>

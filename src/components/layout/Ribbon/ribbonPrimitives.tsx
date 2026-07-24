@@ -121,7 +121,12 @@ export function RibbonSmallButton({ icon, label, onClick, active, disabled, dang
   if (disabled) cls.push('disabled');
   if (danger) cls.push('danger');
   return (
-    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={title}>
+    <button
+      className={cls.join(' ')}
+      onClick={disabled ? undefined : onClick}
+      title={title}
+      aria-label={title}
+    >
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>
     </button>

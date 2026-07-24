@@ -9,7 +9,7 @@ import {
   IndentIncrease, IndentDecrease,
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
-  Keyboard, Pin, PinOff, Compass,
+  Keyboard, Pin, PinOff,
   CalendarClock, ChevronsDownUp, ChevronsUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
@@ -605,20 +605,6 @@ const beeldTab: RibbonTabConfig = [
   { id: 'timeScale', labelKey: 'menu:ribbon.timeScale', items: [{ kind: 'component', id: 'timeScale', Component: TimeScaleGroupContent }] },
   { id: 'display', labelKey: 'menu:ribbon.display', items: [{ kind: 'component', id: 'display', Component: DisplayGroupContent }] },
   outlineGroup,
-  {
-    id: 'shortcuts', labelKey: 'common:shortcuts.title',
-    items: [{
-      kind: 'small', id: 'shortcuts', icon: <Keyboard size={14} />, labelKey: 'common:shortcuts.title',
-      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showShortcutsDialog: true }) }; },
-    }],
-  },
-  {
-    id: 'tour', labelKey: 'common:tour.restartButton',
-    items: [{
-      kind: 'small', id: 'tourRestart', icon: <Compass size={14} />, labelKey: 'common:tour.restartButton',
-      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showTourOverlay: true, tourStepIndex: 0 }) }; },
-    }],
-  },
   { id: 'layout', labelKey: 'menu:ribbon.layout', items: [{ kind: 'component', id: 'layout', Component: LayoutGroupContent }] },
   { id: 'presentation', labelKey: 'menu:ribbon.presentationMode', items: [{ kind: 'component', id: 'presentation', Component: PresentationGroupContent }] },
   {
@@ -640,32 +626,35 @@ const beeldTab: RibbonTabConfig = [
     id: 'overlays', labelKey: 'menu:ribbon.baselines',
     items: [
       {
-        kind: 'button', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={20} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
-        use: () => {
-          const showBaselineOverlay = useAppStore(s => s.ui.showBaselineOverlay);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showBaselineOverlay, onClick: () => { const next = !showBaselineOverlay; setUI({ showBaselineOverlay: next }); void saveShowBaselineOverlay(next); } };
-        },
-      },
-      {
-        kind: 'button', id: 'toggleProgressLine', icon: <TrendingUp size={20} />, labelKey: 'menu:ribbon.toggleProgressLine',
-        use: () => {
-          const showProgressLine = useAppStore(s => s.ui.showProgressLine);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showProgressLine, onClick: () => { const next = !showProgressLine; setUI({ showProgressLine: next }); void saveShowProgressLine(next); } };
-        },
-      },
-      {
-        kind: 'button', id: 'toggleStatusDateLine', icon: <CalendarDays size={20} />, labelKey: 'menu:ribbon.toggleStatusDateLine',
-        use: () => {
-          const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
-        },
+        kind: 'stack', id: 'overlaysStack', items: [
+          {
+            kind: 'small', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={14} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
+            use: () => {
+              const showBaselineOverlay = useAppStore(s => s.ui.showBaselineOverlay);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showBaselineOverlay, onClick: () => { const next = !showBaselineOverlay; setUI({ showBaselineOverlay: next }); void saveShowBaselineOverlay(next); } };
+            },
+          },
+          {
+            kind: 'small', id: 'toggleProgressLine', icon: <TrendingUp size={14} />, labelKey: 'menu:ribbon.toggleProgressLine',
+            use: () => {
+              const showProgressLine = useAppStore(s => s.ui.showProgressLine);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showProgressLine, onClick: () => { const next = !showProgressLine; setUI({ showProgressLine: next }); void saveShowProgressLine(next); } };
+            },
+          },
+          {
+            kind: 'small', id: 'toggleStatusDateLine', icon: <CalendarDays size={14} />, labelKey: 'menu:ribbon.toggleStatusDateLine',
+            use: () => {
+              const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
+            },
+          },
+        ],
       },
     ],
   },
-  { id: 'printing', labelKey: 'menu:ribbon.printing', items: [printPreviewButton] },
 ];
 
 const instellingenTab: RibbonTabConfig = [
@@ -683,6 +672,13 @@ const instellingenTab: RibbonTabConfig = [
     ],
   },
   { id: 'calendar', labelKey: 'menu:ribbon.calendar', items: [calendarButton] },
+  {
+    id: 'shortcuts', labelKey: 'common:shortcuts.title',
+    items: [{
+      kind: 'small', id: 'shortcuts', icon: <Keyboard size={14} />, labelKey: 'common:shortcuts.title',
+      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showShortcutsDialog: true }) }; },
+    }],
+  },
 ];
 
 const tableTab: RibbonTabConfig = [
