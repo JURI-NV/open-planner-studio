@@ -311,6 +311,7 @@
     "assignFromCompany": "Toewijzen aan project",
     "removeFromProject": "Verwijder uit project",
     "addToCompany": "Nieuw in het bedrijf",
+    "confirmRemoveResource": "'{{name}}' verwijderen uit het bedrijf? Dit geldt voor alle projecten en is niet ongedaan te maken.",
     "field": {
       "name": "Naam",
       "description": "Omschrijving",

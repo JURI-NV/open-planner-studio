@@ -311,6 +311,7 @@
     "assignFromCompany": "Projeye ata",
     "removeFromProject": "Projeden kaldır",
     "addToCompany": "Şirkette yeni",
+    "confirmRemoveResource": "'{{name}}' şirketten kaldırılsın mı? Bu, tüm projeler için geçerlidir ve geri alınamaz.",
     "field": {
       "name": "Ad",
       "description": "Açıklama",

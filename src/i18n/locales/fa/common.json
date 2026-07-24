@@ -311,6 +311,7 @@
     "assignFromCompany": "تخصیص به پروژه",
     "removeFromProject": "حذف از پروژه",
     "addToCompany": "جدید در شرکت",
+    "confirmRemoveResource": "'{{name}}' از شرکت حذف شود؟ این کار برای همه پروژه‌ها اعمال می‌شود و قابل واگرد نیست.",
     "field": {
       "name": "نام",
       "description": "توضیحات",

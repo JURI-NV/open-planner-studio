@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
@@ -59,6 +59,23 @@ export function ResourcePanel() {
   const [expandedSteps, setExpandedSteps] = useState<string | null>(null);
   // Resource die op verwijder-bevestiging wacht (bevinding 6, cascade-waarschuwing).
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // Poolresource die op verwijder-bevestiging wacht (critreview 51ad2ec, fix 1): bedrijfsbrede
+  // delete buiten undo krijgt dezelfde bevestigingsrem als de projectgrid-delete hierboven.
+  const [confirmPoolDelete, setConfirmPoolDelete] = useState<string | null>(null);
+  // Feedback op "Toewijzen aan project" (critreview 51ad2ec, fix 2): hergebruikt het
+  // added/alreadyInProject-notice-patroon van de oude AddFromLibraryDialog.
+  const [poolNotice, setPoolNotice] = useState<string | null>(null);
+
+  // Bevestiging + notice horen bij de Bedrijfsweergave; reset zodra je 'm verlaat, zodat er geen
+  // stale confirm-stap of melding terugkomt bij een latere terugkeer naar deze weergave.
+  useEffect(() => {
+    if (resourcesView !== 'company') { setConfirmPoolDelete(null); setPoolNotice(null); }
+  }, [resourcesView]);
+
+  const onAssignFromCompany = (resourceId: string) => {
+    const result = addLibraryResourceToProject(project.companyId!, resourceId);
+    setPoolNotice(result.added ? t('companyLibrary.added') : t('companyLibrary.alreadyInProject'));
+  };
 
   // Default-weergave (spec §4): Bedrijfsweergave zodra de pool inhoud heeft; lege pool of los
   // project ⇒ Projectweergave. Draait bij koppeling-wissel, niet bij elke render/edit.
@@ -163,6 +180,11 @@ export function ResourcePanel() {
           <p className="flex items-center gap-1.5 text-text-secondary italic" data-ops-company-view-hint>
             {t('companyLibrary.companyViewHint')}
           </p>
+          {poolNotice && (
+            <p className="flex items-center gap-1.5" style={{ color: 'var(--success)' }} data-ops-pool-assign-notice>
+              <Check size={13} /> {poolNotice}
+            </p>
+          )}
           <button
             onClick={() => addPoolResource(project.companyId!, { name: t('resource.panel.addRow'), type: 'LABOR', description: '', maxUnits: 1 })}
             className="btn btn--sm btn--secondary self-start flex items-center gap-1"
@@ -171,14 +193,37 @@ export function ResourcePanel() {
           </button>
           <ul className="flex flex-col gap-1">
             {pool.resources.map(r => (
-              <li key={r.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded-[8px] border border-border">
-                <span>{r.name}</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => addLibraryResourceToProject(project.companyId!, r.id)} className="btn btn--sm btn--secondary">{t('companyLibrary.assignFromCompany')}</button>
-                  <button onClick={() => updatePoolResource(project.companyId!, r.id, { name: prompt(t('companyLibrary.field.name'), r.name) || r.name })} className="p-1 hover:bg-surface-hover rounded" title={t('companyLibrary.editItem')}><Pencil size={12} /></button>
-                  <button onClick={() => removePoolResource(project.companyId!, r.id)} className="p-1 hover:bg-surface-hover rounded"><Trash2 size={12} /></button>
-                </div>
-              </li>
+              <Fragment key={r.id}>
+                <li className="flex items-center justify-between gap-2 px-2 py-1 rounded-[8px] border border-border">
+                  <span>{r.name}</span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => onAssignFromCompany(r.id)} className="btn btn--sm btn--secondary">{t('companyLibrary.assignFromCompany')}</button>
+                    <button onClick={() => updatePoolResource(project.companyId!, r.id, { name: prompt(t('companyLibrary.field.name'), r.name) || r.name })} className="p-1 hover:bg-surface-hover rounded" title={t('companyLibrary.editItem')}><Pencil size={12} /></button>
+                    {confirmPoolDelete === r.id ? (
+                      <>
+                        <button
+                          onClick={() => { removePoolResource(project.companyId!, r.id); setConfirmPoolDelete(null); }}
+                          title={t('resource.panel.confirmDeleteYes')}
+                          className="p-1 rounded hover:bg-surface-hover"
+                          style={{ color: 'var(--error)' }}
+                        ><Check size={12} /></button>
+                        <button
+                          onClick={() => setConfirmPoolDelete(null)}
+                          title={t('resource.panel.confirmDeleteNo')}
+                          className="p-1 rounded hover:bg-surface-hover text-text-secondary"
+                        ><X size={12} /></button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmPoolDelete(r.id)} className="p-1 hover:bg-surface-hover rounded"><Trash2 size={12} /></button>
+                    )}
+                  </div>
+                </li>
+                {confirmPoolDelete === r.id && (
+                  <li className="px-3 py-1.5 text-[11px]" style={{ color: 'var(--error)' }} data-ops-pool-delete-confirm>
+                    {t('companyLibrary.confirmRemoveResource', { name: r.name || r.id })}
+                  </li>
+                )}
+              </Fragment>
             ))}
             {pool.resources.length === 0 && <li className="text-text-secondary italic px-2">{t('companyLibrary.noResources')}</li>}
           </ul>

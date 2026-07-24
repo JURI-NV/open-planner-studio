@@ -311,6 +311,7 @@
     "assignFromCompany": "Dem Projekt zuweisen",
     "removeFromProject": "Aus Projekt entfernen",
     "addToCompany": "Neu im Unternehmen",
+    "confirmRemoveResource": "'{{name}}' aus dem Unternehmen entfernen? Dies gilt für alle Projekte und kann nicht rückgängig gemacht werden.",
     "field": {
       "name": "Name",
       "description": "Beschreibung",

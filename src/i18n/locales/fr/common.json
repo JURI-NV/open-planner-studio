@@ -311,6 +311,7 @@
     "assignFromCompany": "Affecter au projet",
     "removeFromProject": "Retirer du projet",
     "addToCompany": "Nouveau dans l'entreprise",
+    "confirmRemoveResource": "Supprimer « {{name}} » de l'entreprise ? Cela s'applique à tous les projets et est irréversible.",
     "field": {
       "name": "Nom",
       "description": "Description",

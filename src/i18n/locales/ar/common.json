@@ -311,6 +311,7 @@
     "assignFromCompany": "تعيين للمشروع",
     "removeFromProject": "إزالة من المشروع",
     "addToCompany": "جديد في الشركة",
+    "confirmRemoveResource": "هل تريد إزالة '{{name}}' من الشركة؟ ينطبق هذا على جميع المشاريع ولا يمكن التراجع عنه.",
     "field": {
       "name": "الاسم",
       "description": "الوصف",

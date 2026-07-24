@@ -311,6 +311,7 @@
     "assignFromCompany": "Asignar al proyecto",
     "removeFromProject": "Quitar del proyecto",
     "addToCompany": "Nuevo en la empresa",
+    "confirmRemoveResource": "¿Eliminar «{{name}}» de la empresa? Esto se aplica a todos los proyectos y no se puede deshacer.",
     "field": {
       "name": "Nombre",
       "description": "Descripción",

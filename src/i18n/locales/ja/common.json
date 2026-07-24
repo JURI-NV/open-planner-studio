@@ -311,6 +311,7 @@
     "assignFromCompany": "プロジェクトに割り当て",
     "removeFromProject": "プロジェクトから削除",
     "addToCompany": "会社に新規追加",
+    "confirmRemoveResource": "会社から「{{name}}」を削除しますか？これはすべてのプロジェクトに適用され、元に戻せません。",
     "field": {
       "name": "名前",
       "description": "説明",

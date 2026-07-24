@@ -311,6 +311,7 @@
     "assignFromCompany": "프로젝트에 할당",
     "removeFromProject": "프로젝트에서 제거",
     "addToCompany": "회사에 새로 추가",
+    "confirmRemoveResource": "회사에서 '{{name}}'을(를) 삭제하시겠습니까? 이는 모든 프로젝트에 적용되며 실행 취소할 수 없습니다.",
     "field": {
       "name": "이름",
       "description": "설명",

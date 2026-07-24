@@ -311,6 +311,7 @@
     "assignFromCompany": "Przypisz do projektu",
     "removeFromProject": "Usuń z projektu",
     "addToCompany": "Nowy w firmie",
+    "confirmRemoveResource": "Usunąć „{{name}}” z firmy? Dotyczy to wszystkich projektów i nie można tego cofnąć.",
     "field": {
       "name": "Nazwa",
       "description": "Opis",

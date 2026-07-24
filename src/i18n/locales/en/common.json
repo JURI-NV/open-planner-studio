@@ -311,6 +311,7 @@
     "assignFromCompany": "Assign to project",
     "removeFromProject": "Remove from project",
     "addToCompany": "New in company",
+    "confirmRemoveResource": "Remove '{{name}}' from the company? This applies to all projects and cannot be undone.",
     "field": {
       "name": "Name",
       "description": "Description",
