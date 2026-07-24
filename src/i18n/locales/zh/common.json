@@ -305,6 +305,12 @@
     "linkedCompany": "公司",
     "noCompanyLinked": "无(独立项目)",
     "clientOrg": "委托方/组织",
+    "companyView": "公司",
+    "projectView": "项目",
+    "companyViewHint": "此操作会编辑公司数据，适用于所有项目——不在撤销范围内。",
+    "assignFromCompany": "分配到项目",
+    "removeFromProject": "从项目中移除",
+    "addToCompany": "在公司中新建",
     "field": {
       "name": "名称",
       "description": "描述",

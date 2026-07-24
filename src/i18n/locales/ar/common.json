@@ -305,6 +305,12 @@
     "linkedCompany": "الشركة",
     "noCompanyLinked": "بدون (مشروع مستقل)",
     "clientOrg": "الجهة المالكة/المؤسسة",
+    "companyView": "الشركة",
+    "projectView": "المشروع",
+    "companyViewHint": "هذا يعدّل الشركة وينطبق على جميع المشاريع — خارج نطاق التراجع.",
+    "assignFromCompany": "تعيين للمشروع",
+    "removeFromProject": "إزالة من المشروع",
+    "addToCompany": "جديد في الشركة",
     "field": {
       "name": "الاسم",
       "description": "الوصف",

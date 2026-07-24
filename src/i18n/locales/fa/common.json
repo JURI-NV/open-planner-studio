@@ -305,6 +305,12 @@
     "linkedCompany": "شرکت",
     "noCompanyLinked": "هیچ‌کدام (پروژه مستقل)",
     "clientOrg": "کارفرما/سازمان",
+    "companyView": "شرکت",
+    "projectView": "پروژه",
+    "companyViewHint": "این کار شرکت را ویرایش می‌کند و برای همه پروژه‌ها اعمال می‌شود — خارج از واگرد.",
+    "assignFromCompany": "تخصیص به پروژه",
+    "removeFromProject": "حذف از پروژه",
+    "addToCompany": "جدید در شرکت",
     "field": {
       "name": "نام",
       "description": "توضیحات",

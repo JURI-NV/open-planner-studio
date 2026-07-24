@@ -305,6 +305,12 @@
     "linkedCompany": "Entreprise",
     "noCompanyLinked": "aucune (projet autonome)",
     "clientOrg": "Client/organisation",
+    "companyView": "Entreprise",
+    "projectView": "Projet",
+    "companyViewHint": "Ceci modifie l'entreprise et s'applique à tous les projets — hors annulation.",
+    "assignFromCompany": "Affecter au projet",
+    "removeFromProject": "Retirer du projet",
+    "addToCompany": "Nouveau dans l'entreprise",
     "field": {
       "name": "Nom",
       "description": "Description",

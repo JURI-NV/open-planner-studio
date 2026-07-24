@@ -305,6 +305,12 @@
     "linkedCompany": "会社",
     "noCompanyLinked": "なし(単独プロジェクト)",
     "clientOrg": "発注者/組織",
+    "companyView": "会社",
+    "projectView": "プロジェクト",
+    "companyViewHint": "これは会社データを編集し、すべてのプロジェクトに適用されます — 元に戻す操作の対象外です。",
+    "assignFromCompany": "プロジェクトに割り当て",
+    "removeFromProject": "プロジェクトから削除",
+    "addToCompany": "会社に新規追加",
     "field": {
       "name": "名前",
       "description": "説明",

@@ -305,6 +305,12 @@
     "linkedCompany": "회사",
     "noCompanyLinked": "없음(독립 프로젝트)",
     "clientOrg": "발주처/조직",
+    "companyView": "회사",
+    "projectView": "프로젝트",
+    "companyViewHint": "이 작업은 회사 데이터를 편집하며 모든 프로젝트에 적용됩니다 — 실행 취소 대상이 아닙니다.",
+    "assignFromCompany": "프로젝트에 할당",
+    "removeFromProject": "프로젝트에서 제거",
+    "addToCompany": "회사에 새로 추가",
     "field": {
       "name": "이름",
       "description": "설명",

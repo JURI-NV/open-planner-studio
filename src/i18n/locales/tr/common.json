@@ -305,6 +305,12 @@
     "linkedCompany": "Şirket",
     "noCompanyLinked": "yok (bağımsız proje)",
     "clientOrg": "Müşteri/kurum",
+    "companyView": "Şirket",
+    "projectView": "Proje",
+    "companyViewHint": "Bu, şirketi düzenler ve tüm projeler için geçerlidir — geri almanın dışında.",
+    "assignFromCompany": "Projeye ata",
+    "removeFromProject": "Projeden kaldır",
+    "addToCompany": "Şirkette yeni",
     "field": {
       "name": "Ad",
       "description": "Açıklama",

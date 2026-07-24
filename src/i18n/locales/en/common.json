@@ -305,6 +305,12 @@
     "linkedCompany": "Company",
     "noCompanyLinked": "none (standalone project)",
     "clientOrg": "Client/organization",
+    "companyView": "Company",
+    "projectView": "Project",
+    "companyViewHint": "This edits the company and applies to all projects — outside undo.",
+    "assignFromCompany": "Assign to project",
+    "removeFromProject": "Remove from project",
+    "addToCompany": "New in company",
     "field": {
       "name": "Name",
       "description": "Description",

@@ -191,6 +191,9 @@ export interface UIState {
   /** session — aantal items dat de meest recente stille verversing (grens 1/2/3/4) heeft bijgewerkt,
    *  of `null` zonder openstaand signaal (Taak 18: het verversingssignaal in de UI). */
   libraryRefreshNotice: number | null;
+  /** session — Resources-tabweergave: 'company' (bedrijfspool) of 'project' (wat dit project bevat).
+   *  Default afgeleid: bij inhoud in de pool 'company', anders 'project' (spec §4). */
+  resourcesView: 'company' | 'project';
   // --- Fase 2.10 onderdeel 3: first-startup (welkomstdialoog + rondleiding) ---
   /** session — welkomstdialoog (2 stappen: voorkeuren + rondleiding-aanbod) open. Ephemeral:
    *  het bootstrap-effect in App.tsx zet 'm op true bij een verse `!loadWelcomeSeen()`, of de

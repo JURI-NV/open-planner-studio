@@ -305,6 +305,12 @@
     "linkedCompany": "Unternehmen",
     "noCompanyLinked": "keins (eigenständiges Projekt)",
     "clientOrg": "Auftraggeber/Organisation",
+    "companyView": "Unternehmen",
+    "projectView": "Projekt",
+    "companyViewHint": "Dies bearbeitet das Unternehmen und gilt für alle Projekte — außerhalb von Rückgängig.",
+    "assignFromCompany": "Dem Projekt zuweisen",
+    "removeFromProject": "Aus Projekt entfernen",
+    "addToCompany": "Neu im Unternehmen",
     "field": {
       "name": "Name",
       "description": "Beschreibung",

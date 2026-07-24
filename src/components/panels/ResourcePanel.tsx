@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
@@ -42,6 +42,16 @@ export function ResourcePanel() {
   const removeResource = useAppStore(s => s.removeResource);
   const addCalendar = useAppStore(s => s.addCalendar);
   const setUI = useAppStore(s => s.setUI);
+  const project = useAppStore(s => s.project);
+  const companies = useAppStore(s => s.companies);
+  const pools = useAppStore(s => s.pools);
+  const resourcesView = useAppStore(s => s.ui.resourcesView);
+  const addPoolResource = useAppStore(s => s.addPoolResource);
+  const removePoolResource = useAppStore(s => s.removePoolResource);
+  const updatePoolResource = useAppStore(s => s.updatePoolResource);
+  const addLibraryResourceToProject = useAppStore(s => s.addLibraryResourceToProject);
+  const linked = !!project.companyId && companies.some(c => c.id === project.companyId);
+  const pool = project.companyId ? pools[project.companyId] : undefined;
 
   // Kalender-editor: null = dicht, string = bewerk die id.
   const [calDialog, setCalDialog] = useState<string | null>(null);
@@ -49,6 +59,15 @@ export function ResourcePanel() {
   const [expandedSteps, setExpandedSteps] = useState<string | null>(null);
   // Resource die op verwijder-bevestiging wacht (bevinding 6, cascade-waarschuwing).
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Default-weergave (spec §4): Bedrijfsweergave zodra de pool inhoud heeft; lege pool of los
+  // project ⇒ Projectweergave. Draait bij koppeling-wissel, niet bij elke render/edit.
+  useEffect(() => {
+    if (!linked) { if (resourcesView !== 'project') setUI({ resourcesView: 'project' }); return; }
+    const hasContent = (pool?.resources.length ?? 0) > 0;
+    setUI({ resourcesView: hasContent ? 'company' : 'project' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.companyId, linked]);
 
   const crews = resources.filter(r => r.type === 'CREW');
 
@@ -114,18 +133,18 @@ export function ResourcePanel() {
       <div className="flex items-center justify-between h-9 px-3 border-b border-border flex-shrink-0">
         <span className="ui-card-header !text-xs">{t('resource.panel.title')}</span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setUI({ showAddFromLibraryDialog: true })}
-            className="btn btn--sm flex items-center gap-1"
-          >
-            {t('companyLibrary.addFromLibrary')}
-          </button>
-          <button
-            onClick={() => setUI({ showUpdateFromLibraryDialog: true })}
-            className="btn btn--sm flex items-center gap-1"
-          >
-            {t('companyLibrary.updateFromLibrary')}
-          </button>
+          {linked && (
+            <div className="flex items-center rounded-[8px] border border-border overflow-hidden" data-ops-resources-view-toggle>
+              <button
+                className={`px-2 py-1 ${resourcesView === 'company' ? 'bg-surface-hover font-semibold' : ''}`}
+                onClick={() => setUI({ resourcesView: 'company' })}
+              >{t('companyLibrary.companyView')}</button>
+              <button
+                className={`px-2 py-1 ${resourcesView === 'project' ? 'bg-surface-hover font-semibold' : ''}`}
+                onClick={() => setUI({ resourcesView: 'project' })}
+              >{t('companyLibrary.projectView')}</button>
+            </div>
+          )}
           <button onClick={addRow} className="btn btn--sm btn--primary flex items-center gap-1">
             <Plus size={13} /> {t('resource.panel.addRow')}
           </button>
@@ -139,6 +158,32 @@ export function ResourcePanel() {
         </div>
       </div>
 
+      {linked && resourcesView === 'company' && pool ? (
+        <div className="flex flex-col flex-1 overflow-auto p-2 gap-2 text-xs">
+          <p className="flex items-center gap-1.5 text-text-secondary italic" data-ops-company-view-hint>
+            {t('companyLibrary.companyViewHint')}
+          </p>
+          <button
+            onClick={() => addPoolResource(project.companyId!, { name: t('resource.panel.addRow'), type: 'LABOR', description: '', maxUnits: 1 })}
+            className="btn btn--sm btn--secondary self-start flex items-center gap-1"
+          >
+            <Plus size={12} /> {t('companyLibrary.addToCompany')}
+          </button>
+          <ul className="flex flex-col gap-1">
+            {pool.resources.map(r => (
+              <li key={r.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded-[8px] border border-border">
+                <span>{r.name}</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => addLibraryResourceToProject(project.companyId!, r.id)} className="btn btn--sm btn--secondary">{t('companyLibrary.assignFromCompany')}</button>
+                  <button onClick={() => updatePoolResource(project.companyId!, r.id, { name: prompt(t('companyLibrary.field.name'), r.name) || r.name })} className="p-1 hover:bg-surface-hover rounded" title={t('companyLibrary.editItem')}><Pencil size={12} /></button>
+                  <button onClick={() => removePoolResource(project.companyId!, r.id)} className="p-1 hover:bg-surface-hover rounded"><Trash2 size={12} /></button>
+                </div>
+              </li>
+            ))}
+            {pool.resources.length === 0 && <li className="text-text-secondary italic px-2">{t('companyLibrary.noResources')}</li>}
+          </ul>
+        </div>
+      ) : (
       <div className="flex-1 overflow-auto">
         {resources.length === 0 ? (
           <div className="p-4 text-text-secondary">{t('resource.panel.empty')}</div>
@@ -197,6 +242,7 @@ export function ResourcePanel() {
           </table>
         )}
       </div>
+      )}
 
       {calDialog !== null && (
         <ResourceCalendarDialog calendarId={calDialog} onClose={() => setCalDialog(null)} />

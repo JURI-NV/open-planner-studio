@@ -305,6 +305,12 @@
     "linkedCompany": "Firma",
     "noCompanyLinked": "brak (projekt niezależny)",
     "clientOrg": "Zleceniodawca/organizacja",
+    "companyView": "Firma",
+    "projectView": "Projekt",
+    "companyViewHint": "To edytuje firmę i dotyczy wszystkich projektów — poza cofaniem.",
+    "assignFromCompany": "Przypisz do projektu",
+    "removeFromProject": "Usuń z projektu",
+    "addToCompany": "Nowy w firmie",
     "field": {
       "name": "Nazwa",
       "description": "Opis",

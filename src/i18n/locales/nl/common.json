@@ -305,6 +305,12 @@
     "linkedCompany": "Bedrijf",
     "noCompanyLinked": "geen (los project)",
     "clientOrg": "Opdrachtgever/organisatie",
+    "companyView": "Bedrijf",
+    "projectView": "Project",
+    "companyViewHint": "Dit bewerkt het bedrijf en geldt voor alle projecten — valt buiten ongedaan maken.",
+    "assignFromCompany": "Toewijzen aan project",
+    "removeFromProject": "Verwijder uit project",
+    "addToCompany": "Nieuw in het bedrijf",
     "field": {
       "name": "Naam",
       "description": "Omschrijving",

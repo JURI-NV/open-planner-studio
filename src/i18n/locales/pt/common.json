@@ -305,6 +305,12 @@
     "linkedCompany": "Empresa",
     "noCompanyLinked": "nenhuma (projeto autónomo)",
     "clientOrg": "Cliente/organização",
+    "companyView": "Empresa",
+    "projectView": "Projeto",
+    "companyViewHint": "Isto edita a empresa e aplica-se a todos os projetos — fora do desfazer.",
+    "assignFromCompany": "Atribuir ao projeto",
+    "removeFromProject": "Remover do projeto",
+    "addToCompany": "Novo na empresa",
     "field": {
       "name": "Nome",
       "description": "Descrição",
