@@ -4,7 +4,7 @@
 
 **Doel:** Open Planner Studio wordt zelf een MCP-server (streamable HTTP op 127.0.0.1, Tauri-only) met 33 tools + batch, opt-in + token, AI-ribbontab met activiteitenpaneel/pauze/alleen-lezen/backup — volledig conform spec v2.3.
 
-**Spec (bron van waarheid):** `docs/superpowers/specs/2026-07-24-mcp-bridge-design.md` (v2.3). Elke taak verwijst naar spec-secties; bij twijfel wint de spec.
+**Spec (bron van waarheid):** `docs/superpowers/specs/2026-07-24-mcp-bridge-design.md` (**v2.4**). Elke taak verwijst naar spec-secties; bij twijfel wint de spec. *(Plan herzien na critreview: testinfra naar fase 0, contract-fixes, pauze/RO-UI toegewezen, taskSlice-ontdubbeling — zie taakteksten.)*
 
 **Architectuur:** Rust = dom doorgeefluik (HTTP → Tauri-event → webview); TS-dispatcher + tool-laag op een nieuw transactieprimitief (`runInMcpTransaction`) met draft-primitieven; alles behalve de Rust-schil headless testbaar op Node (esbuild, patroon `tests/planning/`).
 
@@ -15,16 +15,16 @@
 ## Parallelliseringsoverzicht (banen en synchronisatiepunten)
 
 ```
-Fase 0 (serieel, kort):   T0 contracten-bestand ─┐
+Fase 0 (serieel, kort):   T0 contracten → T0b testinfra + taskSlice-prep ─┐
                                                   ▼
 Fase 1 (4 banen parallel):
-  BAAN A (store-kern):    T1 → T2 → T3 → T4        (transactieprimitief → draft-primitieven → bulk-acties → validaties)
+  BAAN A (store-kern):    T1 → T2 → T3 → T4 → T12  (transactieprimitief → draft-primitieven → bulk → validaties → moveTask-positie)
   BAAN B (engine):        T5 ∥ T6 ∥ T7             (capped-signaal ∥ histogram-attributie ∥ leveler-guard)
   BAAN C (transport):     T8 → T9 → T10            (Rust-bridge → dispatcher/protocol → server-levenscyclus+token)
-  BAAN D (store-los):     T11 ∥ T12 ∥ T13          (duplicateDocument ∥ moveTask-positie+exports ∥ generator-pad)
+  BAAN D (store-los):     T11 ∥ T13                (duplicateDocument ∥ generator-pad)
                                                   ▼  SYNC-1: A t/m D af, tsc groen, planning-suite groen
 Fase 2 (3 banen parallel):
-  BAAN E (UI):            T14 → T15 → T16          (AI-modus+tab → activiteitenpaneel → backup-service+UI)
+  BAAN E (UI):            T14 → T15 → T16          (AI-modus+tab → activiteitenpaneel → backup+pauze/RO-UI)
   BAAN F1 (leestools):    T17 → T18                (envelop+guards+registry → 10 leestools)
   BAAN F2 (mutatietools): T19 → T20 → T21          (taak/relatie-tools → kalender/resource/project-tools → document- en bestandstools)
                                                   ▼  SYNC-2: alle tools af, headless batterij groen
@@ -44,7 +44,7 @@ Regels voor parallel draaien: elke baan in een **eigen worktree** vanaf dezelfde
 - `src/components/panels/AIActivityPanel.tsx`; ribbon-tabconfig-uitbreiding
 - `tests/mcp/` — `run.sh`, `harness.ts`, `cases-*.ts` (patroon van `tests/planning/`)
 
-**Gewijzigd (kern):** `src/state/transaction.ts` (suppressie-vlag + `resetUndoCoalescing`-export), `src/state/slices/taskSlice.ts` (export `applyProgressInvariants`, `moveTask`-positie), `documentSlice.ts` (`duplicateDocument`), `src/engine/scheduler/CalendarEngine.ts` (`addWorkDays` capped), `src/engine/scheduler/ResourceLoad.ts` (attributie + vensterkapaciteit), `src/utils/shortcutRegistry.ts` (export `hasBlockingDialogOpen`), `src/components/settings/SettingsPanelContent.tsx`, `src/components/layout/Ribbon/…` (AI-tab), `src/state/slices/types.ts` + `uiSlice` (AI-state), `src-tauri/src/main.rs` + `Cargo.toml` + capabilities, `src/i18n/locales/*/…` (14 talen).
+**Gewijzigd (kern):** `src/state/transaction.ts` (suppressie-vlag + `resetUndoCoalescing`-export), `src/state/slices/taskSlice.ts` (export `applyProgressInvariants`, `moveTask`-positie), `documentSlice.ts` (`duplicateDocument`), `src/engine/scheduler/CalendarEngine.ts` (`addWorkDays` capped), `src/engine/scheduler/ResourceLoad.ts` (attributie + vensterkapaciteit), `src/hooks/keyboard/shortcutRegistry.ts` (export `hasBlockingDialogOpen`), `src/components/canvas/hooks/useBarDrag.ts` (addWorkDays-ripple), `src/components/settings/SettingsPanelContent.tsx`, `src/components/layout/Ribbon/…` (AI-tab), `src/state/slices/types.ts` + `uiSlice` (AI-state), `src-tauri/src/main.rs` + `Cargo.toml` + capabilities, `src/i18n/locales/*/…` (14 talen).
 
 **Testgate bij elke taak:** `npx tsc --noEmit` groen + `bash tests/mcp/run.sh` (vanaf T17) + `bash tests/planning/run.sh` **ongemoeid groen** wanneer de diff engine/store raakt (exitcode is de poort, nooit de tail). Elke taak eindigt met een commit.
 
@@ -81,12 +81,19 @@ export interface McpToolDef {
   inputSchema: object;                   // JSON-schema, eenheden expliciet (completion 0-100)
   annotations: { readOnlyHint: boolean; destructiveHint: boolean;
     idempotentHint: boolean; openWorldHint: boolean };  // MCP-annotaties, mee in tools/list
-  handler: (args: unknown, ctx: McpContext) => McpToolResult; // synchroon!
+  // Async toegestaan: bestandstools (export/import) doen echte I/O. De dispatcher awaits.
+  // Batch-STAPPEN blijven synchroon (WP0-invariant b geldt binnen runInMcpTransaction).
+  handler: (args: unknown, ctx: McpContext) => McpToolResult | Promise<McpToolResult>;
 }
 export interface McpContext {
   expectedDocId: string | null;          // drift-anker
   tempIdMap: Map<string, string>;        // batch-executor bezit deze
+  paused: boolean; readOnly: boolean;    // vlaggen uit uiSlice, door de runtime ingevuld
+  ensureBackup: EnsureBackupFn;          // hook, implementatie komt in T16 — hier alleen het type
 }
+// Backup-hook (T0-gepind zodat F-banen tegen een stub kunnen bouwen; E levert de implementatie):
+// draait op de dispatch-grens, vóór runInMcpTransaction; resolve = pad of null (geen backup nodig).
+export type EnsureBackupFn = (docId: string, kind: McpToolDef['kind']) => Promise<string | null>;
 export interface ActivityEntry { ts: number; tool: string; summary: string;
   durationMs: number; ok: boolean; error?: string; substeps?: ActivityEntry[];
   argsJson: string; resultJson: string }
@@ -96,13 +103,22 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 
 - [ ] Gate: `npx tsc --noEmit` groen. Commit: `feat(mcp): contractenbestand T0 (envelop, tooldef, activity, status)`.
 
+### Taak T0b — Testinfrastructuur + taskSlice-prep (fase 0, vóór het splitsen van de banen)
+**Afhankelijk van:** T0. **Blokkeert:** alle banen (elke baan draait hierop zijn gates).
+**Files:** Create `tests/mcp/run.sh`, `tests/mcp/harness.ts`; Modify `src/state/slices/taskSlice.ts` (alleen de export-regel).
+
+- [ ] Bouw `tests/mcp/run.sh` naar het esbuild-patroon van `tests/planning/run.sh`, maar met één cruciaal verschil: het script **globt `cases-*.ts` en bouwt/draait ze in een loop** — taken voegen later alléén een eigen case-bestand toe en raken `run.sh` nooit meer aan (vier parallelle worktrees op één handgeschreven bash-bestand is anders een conflictfabriek). Zelfde flags als de planning-suite (platform=node, alias `@=$ROOT/src`, DEV=false-defines) + de document-shim uit de benchmark-headless-run in `harness.ts`. Exitcode is de poort.
+- [ ] Voeg een triviale `cases-smoke.ts` toe (importeert de store, assert dat `createSnapshot` bestaat) zodat de loop aantoonbaar werkt.
+- [ ] Exporteer `applyProgressInvariants` uit `taskSlice.ts` (mechanische één-regel-wijziging; T2 en T4 gebruiken hem — zo blijft `taskSlice.ts` verder exclusief baan-A-terrein).
+- [ ] Gate: `bash tests/mcp/run.sh` exit 0; `bash tests/planning/run.sh` exit 0; tsc groen. Commit.
+
 ## Fase 1 — vier banen parallel
 
 ### BAAN A — store-kern (serieel binnen de baan)
 
 ### Taak T1 — `runInMcpTransaction` + suppressie in `transaction.ts`
-**Afhankelijk van:** T0. **Parallel met:** B, C, D.
-**Files:** Modify `src/state/transaction.ts`; Create `src/state/mcpTransaction.ts`; Test `tests/mcp/cases-transaction.ts` (+ eerste opzet `tests/mcp/run.sh`+`harness.ts`, gekopieerd van het `tests/planning/`-esbuild-patroon incl. de document-shim uit de benchmark-headless-run).
+**Afhankelijk van:** T0b. **Parallel met:** B, C, D.
+**Files:** Modify `src/state/transaction.ts`; Create `src/state/mcpTransaction.ts`; Test `tests/mcp/cases-transaction.ts` (testinfra bestaat al uit T0b — alleen een case-bestand toevoegen).
 
 - [ ] Schrijf failing tests: (1) twee draft-mutaties binnen één `runInMcpTransaction` ⇒ `undoStack.length` +1 precies; (2) exception in de callback ⇒ store byte-gelijk aan voor (via `createSnapshot`-vergelijking) én `undoStack` ongewijzigd; (3) na geslaagde transactie is de coalesce-marker gereset (een volgende keyed `updateTask` pusht een éigen snapshot); (4) `runCPM` binnen het venster pusht geen snapshot (invariant a).
 - [ ] Implementeer: module-vlag `mcpTransactionActive` in `transaction.ts` die `beginUndoable` vroeg laat returnen; exporteer `resetUndoCoalescing`. `runInMcpTransaction(fn)`: `createSnapshot` vooraf → push op `undoStack` → vlag aan → `fn()` → vlag uit → één `runCPM()` + `recomputeViewRows()` + `recomputeResourceLoad()` → bij throw of `cpmResult.error`: `restoreSnapshot` + pop + `resetUndoCoalescing()`; ook bij succes `resetUndoCoalescing()`. (Spec WP0, letterlijk.)
@@ -110,7 +126,7 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 
 ### Taak T2 — Draft-primitieven (taken/relaties/kalenders/assignments/leveling/project)
 **Afhankelijk van:** T1.
-**Files:** Create-uitbreiding `src/state/mcpTransaction.ts` (façade `draft.*`); Modify `taskSlice.ts` (export `applyProgressInvariants`); Test `tests/mcp/cases-draft.ts`.
+**Files:** Create-uitbreiding `src/state/mcpTransaction.ts` (façade `draft.*`; de `applyProgressInvariants`-export bestaat al uit T0b); Test `tests/mcp/cases-draft.ts`.
 
 - [ ] Failing tests per primitief: `draft.addTask` (geen snapshot, geen recompute; `parent.childIds` correct bij bestaande ouder), `draft.addSequence` (dedup zoals store), `draft.updateCalendar`/`draft.addCalendar` (mét `syncProjectCalendar`-aanroep — spec WP5-noot), `draft.assign/updateAssignment/unassign/moveAssignment`, `draft.applyLeveling`, `draft.setProject`. Elk getest bínnen `runInMcpTransaction` op snapshot-telling én effect.
 - [ ] Implementeer als dunne functies die de bestáánde slice-logica hergebruiken waar mogelijk (zelfde veld-afleiding als `addTask` incl. mijlpaal-duur-0 en `s.project.startDate`-anker) maar zonder `beginUndoable`/`finishMutation`/recompute — de suppressie-vlag dekt slices die je wél direct aanroept.
@@ -135,19 +151,19 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 ### BAAN B — engine (onderling parallel)
 
 ### Taak T5 — `addWorkDays` capped-signaal
-**Afhankelijk van:** T0. **Files:** Modify `src/engine/scheduler/CalendarEngine.ts` (+ álle aanroepers, o.a. `CPMSolver.ts`); Test `tests/mcp/cases-engine-capped.ts`.
+**Afhankelijk van:** T0b. **Files:** Modify `src/engine/scheduler/CalendarEngine.ts` (+ álle aanroepers: `CPMSolver.ts` :275/:644 én `src/components/canvas/hooks/useBarDrag.ts` :175 — de ripple reikt tot in een canvas-hook; kies het retour-mechanisme met de kleinste aanroeper-diff); Test `tests/mcp/cases-engine-capped.ts`.
 - [ ] Failing test: kalender met werkdagen maar 366+ dagen aaneengesloten holiday-venster ⇒ resultaat draagt `capped: true`; normaal pad `capped: false` en **byte-identieke datums** t.o.v. huidig gedrag (regressiebewijs: planning-suite).
 - [ ] Implementeer: retour `{ date: Date; capped: boolean }` (of tweede out-kanaal — kies wat de mínste aanroeper-diff geeft; documenteer keuze in commit), CPMSolver verzamelt gecapte taak-ids in `cpmResult` als niet-blokkerende waarschuwingslijst (spec WP7-beleid: zachte waarschuwing, geen error).
 - [ ] Gate: planning-suite 100% ongemoeid groen (exitcode!). Commit.
 
 ### Taak T6 — Histogram-attributie + venster-capaciteit
-**Afhankelijk van:** T0. **Files:** Modify `src/engine/scheduler/ResourceLoad.ts` (nieuwe functie, bestaande onaangeroerd); Test `tests/mcp/cases-histogram.ts`.
+**Afhankelijk van:** T0b. **Files:** Modify `src/engine/scheduler/ResourceLoad.ts` (nieuwe functie, bestaande onaangeroerd); Test `tests/mcp/cases-histogram.ts`.
 - [ ] Failing tests: (1) twee assignments veroorzaken samen een overbelaste dag ⇒ attributie noemt precies die twee met hun bijdrage; (2) niet-overbelaste buckets krijgen géén attributie; (3) week-bucket levert som én piekdag; (4) week-capaciteit telt álle werkdagen van het venster (ook onbelaste — de onderschattingsbug uit review S5).
 - [ ] Implementeer `computeHistogramReport({resourceIds, from, to, bucket})` conform spec-leestabel: hergebruik `computeResourceLoad`-mechaniek + aparte capaciteits-enumeratie + attributie-walk alleen voor overbelaste buckets.
 - [ ] Gate + commit.
 
 ### Taak T7 — Leveler/`save_baseline`-staleness-guards (storehulpen)
-**Afhankelijk van:** T0. **Files:** Create `src/services/mcp/staleGuard.ts`; Test in `tests/mcp/cases-guards.ts` (apart blok).
+**Afhankelijk van:** T0b. **Files:** Create `src/services/mcp/staleGuard.ts`; Test in `tests/mcp/cases-guards.ts` (apart blok).
 - [ ] Failing tests: helper `ensureFreshSchedule(store)` ⇒ draait `runCPM` alléén bij `scheduleStale`, retourneert of dat gebeurde; geen undo-snapshot-bijwerking (invariant a).
 - [ ] Implementeer + gate + commit. (Wordt door T18/T20 gebruikt voor `save_baseline`, losse `level_resources` en het histogram-vers-gedrag.)
 
@@ -160,9 +176,9 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 - [ ] Gate: `cargo build` groen (CI-pariteit), tsc onaangeroerd. Commit.
 
 ### Taak T9 — Dispatcher + MCP-protocol (headless)
-**Afhankelijk van:** T0. **Files:** Create `src/services/mcp/dispatcher.ts`, `toolRegistry.ts`; Test `tests/mcp/cases-protocol.ts`.
+**Afhankelijk van:** T0b. **Files:** Create `src/services/mcp/dispatcher.ts`, `toolRegistry.ts`; Test `tests/mcp/cases-protocol.ts`.
 - [ ] Failing tests met rauwe JSON-RPC-strings: `initialize` (protocolversie-echo), `notifications/initialized`, `tools/list` (schema's **én annotaties** uit registry; alle namen dragen het `planner_`-prefix), `tools/call` routeert naar een stub-tool en verpakt `McpToolResult` als MCP-content (+`structuredContent`), `ping`, onbekende methode ⇒ JSON-RPC-fout; parse-fout ⇒ -32700.
-- [ ] Implementeer minimale streamable-HTTP-afhandeling (tools-only; geen SDK), registry-gedreven.
+- [ ] Implementeer minimale streamable-HTTP-afhandeling (tools-only; geen SDK), registry-gedreven. **Registry-structuur vastgepind:** elke `tools/*.ts` exporteert zijn eigen `McpToolDef[]`; `toolRegistry.ts` importeert die arrays en slaat ze plat — F1 en F2 raken in fase 2 dus elk alleen hun eigen module, en de registry-importlijst is een eenmalige, triviale merge.
 - [ ] Gate + commit.
 
 ### Taak T10 — Server-levenscyclus, token, instellingen-state
@@ -173,17 +189,17 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 ### BAAN D — losse store-uitbreidingen (onderling parallel)
 
 ### Taak T11 — `duplicateDocument`
-**Afhankelijk van:** T0. **Files:** Modify `src/state/slices/documentSlice.ts`; Test `tests/mcp/cases-documents.ts`.
+**Afhankelijk van:** T0b. **Files:** Modify `src/state/slices/documentSlice.ts`; Test `tests/mcp/cases-documents.ts`.
 - [ ] Failing tests (spec WP4, letterlijk): kopie is actief; `filePath`/`fileHandle` null; `isDirty` true; álle muteerbare payload-velden diep gekloond (mutatie in kopie raakt bron niet — test met directe array-push buiten Immer om het aliasing-risico te dekken); lege selectie; verse lege undo/redo; naam `"X (variant 2)"`-nummering + optionele eigen naam; baselines+`activeBaselineId` mee.
 - [ ] Implementeer + gate (planning-suite groen) + commit.
 
-### Taak T12 — `moveTask`-positie + exports
-**Afhankelijk van:** T0. **Files:** Modify `taskSlice.ts` (`moveTask(id, newParentId, position?)`), `src/utils/shortcutRegistry.ts` (export `hasBlockingDialogOpen`); Test `tests/mcp/cases-movetask.ts`.
+### Taak T12 — `moveTask`-positie + dialoog-guard-export *(verhuisd naar BAAN A — raakt `taskSlice.ts`, net als T2/T4)*
+**Afhankelijk van:** T4 (baan A, laatste taak van de baan). **Files:** Modify `taskSlice.ts` (`moveTask(id, newParentId, position?)`), `src/hooks/keyboard/shortcutRegistry.ts` (export `hasBlockingDialogOpen` — let op: dit bestand staat in `src/hooks/keyboard/`, NIET in `src/utils/`); Test `tests/mcp/cases-movetask.ts`.
 - [ ] Failing tests: positie-index binnen nieuwe ouder; default = append (bestaand gedrag byte-gelijk); bestaande UI-aanroepen ongewijzigd (geen extra arg = append).
 - [ ] Implementeer + gate + commit.
 
 ### Taak T13 — Generator-pad kalenders
-**Afhankelijk van:** T0. **Files:** Create `src/services/mcp/calendarGenerate.ts` (wrapper om `materializeHolidays`/`computeGenerateSpan`); Test `tests/mcp/cases-calgen.ts`.
+**Afhankelijk van:** T0b. **Files:** Create `src/services/mcp/calendarGenerate.ts` (wrapper om `materializeHolidays`/`computeGenerateSpan`); Test `tests/mcp/cases-calgen.ts`.
 - [ ] Failing tests: `{generate:{country,region,bouwvak}}` ⇒ holidays gelijk aan `materializeHolidays`-uitvoer over de projectspan; meng (generate + rauwe dagen) ⇒ samengevoegd, `generation` gewist, respons-vlag "kalender is voortaan letterlijk"; contract weigert een niet-bestaand `feestdagen`-veld (schema).
 - [ ] Implementeer + gate + commit.
 
@@ -203,21 +219,21 @@ export interface McpServerStatus { state: 'off'|'live'|'port-busy'|'error';
 - [ ] Failing tests: entry per tool-call met duur/ok/samenvatting; batch ⇒ één entry met `substeps`; buffer capt op 500.
 - [ ] Implementeer + paneel (klik ⇒ args/result uitklappen). Gate + commit.
 
-### Taak T16 — Backup-service + UI-knoppen
-**Afhankelijk van:** T14. **Files:** Create `src/services/mcp/backup.ts`; UI-knoppen in de tab-groep Veiligheid (toggle standaard aan, "Nu backup maken", "Backup-map openen" via shell-open); Test `tests/mcp/cases-backup.ts` (fs gemockt op Node).
+### Taak T16 — Backup-service + Veiligheid-groep (backup-, pauze- én alleen-lezen-bediening)
+**Afhankelijk van:** T14. **Files:** Create `src/services/mcp/backup.ts` (implementeert `EnsureBackupFn` uit T0); UI in de tab-groep Veiligheid: backup-toggle (standaard aan) + "Nu backup maken" + "Backup-map openen" (shell-open), én de **pauzeknop** en **alleen-lezen-schakelaar** (togglen de uiSlice-vlaggen uit T10; status zichtbaar op de knop én in de envelop — dit zijn de veiligheidskleppen uit spec §UI groep 3); Test `tests/mcp/cases-backup.ts` (fs gemockt op Node) + store-flag-cases.
 - [ ] Failing tests, exact spec-triggerregels: eerste Muteren/batch-call per doc ⇒ backup; tweede niet; handmatige backup reset teller; duplicate-born doc ⇒ géén auto-backup; import-doc ⇒ wél (op eerste echte mutatie); pad `ai-backups/<docId>/<projectnaam>-<ts>.ifc`; opruimen laatste 10 per docId; mislukte write ⇒ `BACKUP_FAILED` vóór mutatie.
 - [ ] Implementeer (`ifcWriter` + `plugin-fs`, async, aangeroepen vanaf de dispatch-grens — de aanroepvolgorde zelf wordt in T22 afgedwongen en getest). Gate + commit.
 
 ### BAAN F — tool-laag (F1 en F2 parallel na SYNC-1)
 
 ### Taak T17 — Tool-runtime: envelop, guards, drift-anker
-**Afhankelijk van:** SYNC-1. **Files:** Create `src/services/mcp/tools/runtime.ts` (bouwt `McpToolResult`, drift-check, dialoog-guard via geëxporteerde `hasBlockingDialogOpen`, pauze/alleen-lezen, backup-hook-aanroeppunt); Test `tests/mcp/cases-runtime.ts`.
+**Afhankelijk van:** SYNC-1. **Files:** Create `src/services/mcp/tools/runtime.ts` (bouwt `McpToolResult`, drift-check, dialoog-guard via geëxporteerde `hasBlockingDialogOpen`, pauze/alleen-lezen uit `ctx`, backup-hook-aanroeppunt **tegen het `EnsureBackupFn`-type uit T0 met een stub** — de echte implementatie komt uit T16 en wordt pas bij T22/T24 aangesloten); Test `tests/mcp/cases-runtime.ts`.
 - [ ] Failing tests: envelop op elke respons; drift (user-switch gesimuleerd) ⇒ `DOC_DRIFT` alleen voor mutate-tools; anker verzet bij switch/new/duplicate/import; dialoog open ⇒ `DIALOG_OPEN` mét dialoognaam; paused ⇒ `PAUSED` alleen mutaties; readOnly ⇒ `READ_ONLY`.
 - [ ] Implementeer + gate + commit.
 
 ### Taak T18 — De 10 leestools
 **Afhankelijk van:** T17 (+T6/T7). **Files:** Create `tools/readTools.ts`; Test `tests/mcp/cases-read.ts`.
-- [ ] Failing tests per tool tegen een gevuld testproject (hergebruik de benchmark-generator `generateBenchmarkProject` voor realistische data): `get_project_info`, `get_project_overview` (volledige relatiegraaf-garantie!), `list_tasks` (filters incl. `zonder_relaties`; paginering `limit`/`offset`/`has_more` conform spec §Naamgeving), `get_task` (assignments+units), `get_critical_path` (gefilterde driving-paren; `criticalPaths`-conditie FREE_FLOAT gemeld), `list_resources`, `get_resource_histogram` (T6; vers + stale-waarschuwing), `get_calendars` (unie + volledige definitie), `compare_baseline` (alleen afwijkers + meetlat-disclosure), `analyze_delay` (projectEndDelta; ontbrekend ⇒ expliciete melding; geen baseline ⇒ nette fout). Plus één payload-groottemeting op het 2500-taken-project (rapporteren, niet gaten).
+- [ ] Failing tests per tool tegen een gevuld testproject (hergebruik de benchmark-generator `generateBenchmarkProject` voor realistische data): `get_project_info`, `get_project_overview` (volledige relatiegraaf-garantie!), `list_tasks` (filters incl. `zonder_relaties`; paginering `limit`/`offset`/`has_more` conform spec §Naamgeving), `get_task` (assignments+units), `get_critical_path` (gefilterde driving-paren; `criticalPaths`-conditie FREE_FLOAT gemeld), `list_resources` (óók met paginering, spec §Naamgeving), `get_resource_histogram` (T6; vers + stale-waarschuwing), `get_calendars` (unie + volledige definitie), `compare_baseline` (alleen afwijkers + meetlat-disclosure), `analyze_delay` (projectEndDelta; ontbrekend ⇒ expliciete melding; geen baseline ⇒ nette fout). Plus één payload-groottemeting op het 2500-taken-project (rapporteren, niet gaten).
 - [ ] Implementeer + gate + commit.
 
 ### Taak T19 — Mutatietools taken/relaties
