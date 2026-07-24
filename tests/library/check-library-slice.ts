@@ -1173,5 +1173,44 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().countDocumentsLinkedTo(cid) === 0, 'na removeCompany telt geen enkel document nog mee als gekoppeld aan het verwijderde bedrijf');
 }
 
+// --- loadState van een gestempeld IFC-document levert een LOS document (spec §5, review-punt 3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Load BV');
+  const poolResId = s.promoteResourceToPool(cid, { id: 'ld', name: 'Betontimmerman', type: 'LABOR', description: '', maxUnits: 2 })!;
+  // Bouw een ImportResult-achtige payload met een gekoppeld project + gestempelde resource, zoals
+  // readIFC die zou opleveren, en voer 'm door loadState (het volledig-vervangende pad).
+  const stampedProject = { ...useAppStore.getState().project, id: 'p-load', companyId: cid, companyName: 'Load BV' };
+  const stampedRes = { id: 'lr', name: 'Betontimmerman', type: 'LABOR' as const, description: '', maxUnits: 2,
+    libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash: 'x' } };
+  useAppStore.getState().loadState({
+    project: stampedProject, calendar: useAppStore.getState().calendar,
+    tasks: [], sequences: [], resources: [stampedRes], assignments: [], resourceCalendars: [],
+  } as never);
+  const after = useAppStore.getState();
+  assert(after.project.companyId === undefined, 'loadState: gestempeld project wordt LOS geladen (companyId gestript)');
+  assert(after.resources.every(r => r.libraryOrigin === undefined), 'loadState: alle libraryOrigin-stempels gestript');
+}
+
+// --- applyLoadedProject met linkedOpen: true (openFile/openRecentFile-semantiek) blijft GEKOPPELD
+// (spec §5, review-punt 3) — het spiegelbeeld van de vorige test: dezelfde gestempelde payload, maar
+// nu via het echte-open-pad-vlagje, en de stempels moeten juist BLIJVEN staan. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Open BV');
+  const poolResId = s.promoteResourceToPool(cid, { id: 'op', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 3 })!;
+  const stampedProject = { ...useAppStore.getState().project, id: 'p-open', companyId: cid, companyName: 'Open BV' };
+  const stampedRes = { id: 'or', name: 'Metselaar', type: 'LABOR' as const, description: '', maxUnits: 3,
+    libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash: 'y' } };
+  useAppStore.getState().applyLoadedProject({
+    project: stampedProject, calendar: useAppStore.getState().calendar,
+    tasks: [], sequences: [], resources: [stampedRes], assignments: [],
+  } as never, { linkedOpen: true });
+  const after = useAppStore.getState();
+  assert(after.project.companyId === cid, 'applyLoadedProject(linkedOpen: true): companyId BLIJFT staan (openFile/openRecentFile-route)');
+  assert(after.project.companyName === 'Open BV', 'applyLoadedProject(linkedOpen: true): companyName BLIJFT staan');
+  assert(after.resources.find(r => r.id === 'or')?.libraryOrigin?.companyId === cid, 'applyLoadedProject(linkedOpen: true): libraryOrigin-stempel BLIJFT intact');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

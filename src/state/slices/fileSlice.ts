@@ -63,6 +63,12 @@ export interface ApplyLoadedProjectOpts {
   fit?: boolean;
   /** Uur-data-melding (§6.8) berekenen en zetten. Open-paden: true; loadState: false. */
   hourDataNotice?: boolean;
+  /** True = een echt open-pad (openFile/openRecentFile): behoud bedrijfsbinding + stempels en draai
+   *  de grens-1-check. False (default) = een volledig-vervangende load (loadState: IFCPanel/MenuBar/
+   *  extensie-import): laad LOS — strip companyId/companyName + alle libraryOrigin-stempels (spec §5).
+   *  (Crash-herstel loopt NIET door applyLoadedProject maar via `restoreDocuments`, dat de opgeslagen —
+   *  dus gekoppelde — staat exact herstelt en de grens-1-check apart draait, Taak 11.) */
+  linkedOpen?: boolean;
 }
 
 export interface FileSlice {
@@ -125,6 +131,14 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // Web-opslaan-doel: undefined = ongemoeid laten (loadState-semantiek), anders expliciet zetten.
         payload.fileHandle = opts.fileHandle !== undefined ? opts.fileHandle : s.fileHandle;
         hydratePayload(s, payload);
+        // Spec §5 (review-punt 3): een volledig-vervangende load zonder open-pad-semantiek levert een
+        // LOS document — geen stille koppeling, geen stille herkenning. Strip bedrijfsbinding + stempels.
+        if (!opts.linkedOpen) {
+          s.project = { ...s.project, companyId: undefined, companyName: undefined };
+          s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
+          s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        }
         // Uur-data-melding (§6.8): bevat het bestand urenplanning terwijl de hoofdschakelaar uit
         // staat, toon de niet-blokkerende melding — nooit stil wegronden (de engine rekent sowieso).
         if (opts.hourDataNotice) {
@@ -175,6 +189,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
 
         // Grens 1 (spec §3, plan-eis 4): ná VOLLEDIGE hydratatie — behind stil verversen, deviated
@@ -393,6 +408,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
 
         // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
