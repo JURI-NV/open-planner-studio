@@ -325,6 +325,13 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
   },
 
   addLibraryCalendarToProject: (companyId, poolCalendarId) => {
+    // Plan-eis 9: materialiseren gebeurt UITSLUITEND op een project dat al aan dit bedrijf gekoppeld
+    // is. Het oude sticky-autobind ("bind een ongebonden project stil") bestaat niet meer — de UI
+    // (Bedrijfsweergave) toont materialiseren alleen voor een gekoppeld project. Anders: no-op + warn.
+    if (get().project.companyId !== companyId) {
+      appLog.emit('warn', 'library', `materialisatie genegeerd: actief project niet aan bedrijf ${companyId} gekoppeld (project=${get().project.companyId ?? 'geen'})`);
+      return { added: false, calendarId: null };
+    }
     let result: { added: boolean; calendarId: string | null } = { added: false, calendarId: null };
     set((s) => {
       const draftPool = s.pools[companyId];
@@ -344,13 +351,6 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.isDirty = true;
       result = { added: true, calendarId: copy.calendar.id };
       finishMutation(s);
-      // Project binden aan dit bedrijf als het nog ongebonden was. Bewust NA finishMutation en buiten
-      // de undo-semantiek (project snapshot:'none'): de binding blijft na undo staan (sticky), zie
-      // critreview taak 8 / spiegelt addLibraryResourceToProject hieronder.
-      if (!s.project.companyId) {
-        const company = s.companies.find(c => c.id === companyId);
-        if (company) { s.project.companyId = company.id; s.project.companyName = company.name; }
-      }
     });
     // Pure kalender-mutatie → histogram verversen (spiegel resourceSlice.addCalendar:224-225).
     get().recomputeResourceLoad();
@@ -358,6 +358,13 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
   },
 
   addLibraryResourceToProject: (companyId, poolResourceId) => {
+    // Plan-eis 9: materialiseren gebeurt UITSLUITEND op een project dat al aan dit bedrijf gekoppeld
+    // is. Het oude sticky-autobind ("bind een ongebonden project stil") bestaat niet meer — de UI
+    // (Bedrijfsweergave) toont materialiseren alleen voor een gekoppeld project. Anders: no-op + warn.
+    if (get().project.companyId !== companyId) {
+      appLog.emit('warn', 'library', `materialisatie genegeerd: actief project niet aan bedrijf ${companyId} gekoppeld (project=${get().project.companyId ?? 'geen'})`);
+      return { added: false, resourceId: null };
+    }
     let result: { added: boolean; resourceId: string | null } = { added: false, resourceId: null };
     set((s) => {
       const draftPool = s.pools[companyId];
@@ -380,13 +387,6 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.resources = [...s.resources, copy.resource];
       result = { added: true, resourceId: copy.resource.id };
       finishMutation(s);
-      // Project binden aan dit bedrijf als het nog ongebonden was. Bewust NA finishMutation en buiten
-      // de undo-semantiek (project snapshot:'none'): de binding blijft na undo staan (sticky), zie
-      // critreview taak 8. Flag-only projectmutatie (isDirty is al door finishMutation gezet).
-      if (!s.project.companyId) {
-        const company = s.companies.find(c => c.id === companyId);
-        if (company) { s.project.companyId = company.id; s.project.companyName = company.name; }
-      }
     });
     // Pure resource-mutatie → histogram + rijen verversen (spiegel resourceSlice.addResource:61-64).
     get().recomputeResourceLoad();

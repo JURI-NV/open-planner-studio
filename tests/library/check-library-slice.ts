@@ -228,6 +228,11 @@ const store = useAppStore.getState();
   const poolResId = s.promoteResourceToPool(cid, { id: 'seed-res', name: 'Wachter', type: 'LABOR', description: '', maxUnits: 1 })!;
   useAppStore.getState().updatePoolResource(cid, poolResId, { calendarId: poolCalId });
 
+  // Plan-eis 9: materialiseren gebeurt alleen op een al-gekoppeld project — bind vooraf expliciet
+  // (dit blok test dedup/meereizende-kalender/undo-snapshots, niet de binding zelf; die heeft z'n
+  // eigen blokken hierboven/hieronder).
+  useAppStore.getState().bindProjectToCompany(cid);
+
   const beforeCals = useAppStore.getState().calendars.length;
   const undoBefore = useAppStore.getState().undoStack.length;
   const r1 = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
@@ -238,7 +243,7 @@ const store = useAppStore.getState();
   assert(st.undoStack.length === undoBefore + 1, 'addLibraryResource: undo-snapshot gepusht (E-3)');
   const added = st.resources.find(r => r.id === r1.resourceId)!;
   assert(!!st.calendars.find(c => c.id === added.calendarId)?.libraryOrigin, 'addLibraryResource: meegereisde kalender heeft herkomst');
-  assert(st.project.companyId === cid, 'addLibraryResource: project gebonden aan bedrijf');
+  assert(st.project.companyId === cid, 'addLibraryResource: binding blijft intact na add (plan-eis 9 — add bindt niet meer zelf)');
 
   // Nogmaals toevoegen ⇒ dedup, geen duplicaat, GEEN loze undo-stap (E-3).
   const undoAfterAdd = useAppStore.getState().undoStack.length;
@@ -263,7 +268,7 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().undoStack.length === undoAfterCal, 'addLibraryCalendar: dedup pusht geen undo-snapshot (E-3)');
 }
 
-// --- Undo van een add-resource: echte rollback + sticky binding (critreview taak 8) ---
+// --- Undo van een add-resource: echte rollback; materialiseren op ongebonden project = no-op (plan-eis 9) ---
 {
   useAppStore.getState().newProject(); // verse, ONGEBONDEN payload; undoStack leeg, pools blijven
   const cid = useAppStore.getState().defaultCompanyId;
@@ -275,25 +280,31 @@ const store = useAppStore.getState();
   const pRes = useAppStore.getState().promoteResourceToPool(cid, { id: 'undo-res', name: 'Undo-res', type: 'LABOR', description: '', maxUnits: 1 })!;
   useAppStore.getState().updatePoolResource(cid, pRes, { calendarId: pCal });
 
+  // NIEUW CONTRACT (plan-eis 9): materialiseren op een ONGEBONDEN project is een no-op + warn.
   assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const guarded = useAppStore.getState().addLibraryResourceToProject(cid, pRes);
+  assert(guarded.added === false && guarded.resourceId === null, 'materialiseren op ongebonden project: no-op (geen stille koppeling)');
+  assert(!useAppStore.getState().project.companyId, 'materialiseren bindt een ongebonden project NIET (plan-eis 9)');
+
+  // Normaal pad: bind eerst expliciet, dan materialiseren.
+  useAppStore.getState().bindProjectToCompany(cid);
   const calsBefore = useAppStore.getState().calendars.length;
   const resBefore = useAppStore.getState().resources.length;
   const add = useAppStore.getState().addLibraryResourceToProject(cid, pRes);
-  assert(add.added === true, 'undo-scenario: resource toegevoegd');
-  assert(useAppStore.getState().project.companyId === cid, 'undo-scenario: add bindt het (ongebonden) project');
+  assert(add.added === true, 'undo-scenario: resource toegevoegd op gebonden project');
+  assert(useAppStore.getState().project.companyId === cid, 'undo-scenario: project blijft gebonden');
   assert(useAppStore.getState().resources.length === resBefore + 1, 'undo-scenario: resource erbij');
   assert(useAppStore.getState().calendars.length === calsBefore + 1, 'undo-scenario: meegereisde kalender erbij');
 
-  // FIX 3: undo moet de state ÉCHT terugdraaien (niet alleen undoStack laten krimpen).
+  // Undo draait de materialisatie ÉCHT terug; de binding (project snapshot:'none') blijft sticky.
   useAppStore.getState().undo();
   const su = useAppStore.getState();
   assert(su.resources.length === resBefore && !su.resources.some(r => r.id === add.resourceId), 'undo: resource daadwerkelijk teruggedraaid (weg)');
   assert(su.calendars.length === calsBefore, 'undo: meegereisde kalender daadwerkelijk teruggedraaid (weg)');
-  // FIX 2: binding is sticky — undo draait project.companyId NIET terug (project snapshot:'none').
   assert(su.project.companyId === cid, 'undo: binding blijft sticky (project snapshot:none)');
 }
 
-// --- Kalender-only add bindt óók het project (critreview taak 12, spiegelt addLibraryResourceToProject) ---
+// --- Kalender-only add: no-op op ongebonden project, werkt na expliciet binden (plan-eis 9) ---
 {
   useAppStore.getState().newProject(); // verse, ONGEBONDEN payload
   const cid = useAppStore.getState().defaultCompanyId;
@@ -302,10 +313,17 @@ const store = useAppStore.getState();
     workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
   })!;
 
+  // Ongebonden project: kalender-materialisatie is een no-op (plan-eis 9).
   assert(!useAppStore.getState().project.companyId, 'setup: verse project is ongebonden');
+  const guarded = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  assert(guarded.added === false && guarded.calendarId === null, 'kalender-materialiseren op ongebonden project: no-op');
+  assert(!useAppStore.getState().project.companyId, 'kalender-materialiseren bindt het project NIET (plan-eis 9)');
+
+  // Na expliciet binden werkt materialiseren wél.
+  useAppStore.getState().bindProjectToCompany(cid);
   const c = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
-  assert(c.added === true, 'kalender-only-add: kalender toegevoegd');
-  assert(useAppStore.getState().project.companyId === cid, 'kalender-only-add: bindt het (ongebonden) project (spiegelt resource-variant)');
+  assert(c.added === true, 'kalender-only-add op gebonden project: kalender toegevoegd');
+  assert(useAppStore.getState().project.companyId === cid, 'kalender-only-add: project blijft gebonden');
 }
 
 // --- Bijwerken vanuit bibliotheek (diff + toepassen + "bestaat niet meer") ---
@@ -313,6 +331,7 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.defaultCompanyId;
   const poolResId = s.promoteResourceToPool(cid, { id: 'upd-res', name: 'Elektricien', type: 'LABOR', description: '', maxUnits: 1 })!;
+  useAppStore.getState().bindProjectToCompany(cid);
   const added = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
   const projResId = added.resourceId!;
 
@@ -440,6 +459,10 @@ const store = useAppStore.getState();
   assert(!promoteThrew, 'na kapotte import: promoteResourceToPool gooit geen TypeError op .push');
   assert(!!poolResId, 'na kapotte import: promoteResourceToPool retourneert een id');
 
+  // Plan-eis 9: materialiseren gebeurt alleen op een al-gekoppeld project — bind vooraf expliciet
+  // (dit blok test de import-normalisatie, niet de binding zelf).
+  useAppStore.getState().bindProjectToCompany(cid);
+
   let addThrew = false;
   let added: { added: boolean; resourceId: string | null } = { added: false, resourceId: null };
   try {
@@ -491,6 +514,18 @@ const store = useAppStore.getState();
     const got = useAppStore.getState().pools[cid].poolVersion;
     assert(Number.isInteger(got) && got === expected, `normalizePool: poolVersion ${label} ⇒ ${expected} (was ${got})`);
   }
+}
+
+// --- Materialisatie stempelt syncedHash; geen sticky-autobind (plan-eis 9) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Mat BV');
+  s.bindProjectToCompany(cid); // project is nu gekoppeld — het normale pad
+  const resId = s.promoteResourceToPool(cid, { id: 'src', name: 'Kraanmachinist', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const r = s.addLibraryResourceToProject(cid, resId);
+  const copy = useAppStore.getState().resources.find(x => x.id === r.resourceId);
+  assert(!!copy?.libraryOrigin?.syncedHash, 'materialisatie zet een syncedHash op de projectkopie');
+  assert(copy?.libraryOrigin?.companyId === cid, 'materialisatie stempelt het juiste bedrijf');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
