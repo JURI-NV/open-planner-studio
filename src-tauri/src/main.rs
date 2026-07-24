@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod mcp_bridge;
 
 fn main() {
     tauri::Builder::default()
@@ -12,6 +13,8 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        // MCP-bridge-state (fase 1, Tauri-only): één actieve bridge of geen.
+        .manage(mcp_bridge::BridgeState::default())
         // Bewuste native IPC-escape-hatch — `read_file`/`write_file` zijn vandaag
         // ongebruikt door de frontend (die gebruikt de JS-fs/dialog-plugins). Zie
         // commands/mod.rs voordat je ze verwijdert. `install_kind` is wél in
@@ -21,6 +24,8 @@ fn main() {
             commands::read_file,
             commands::write_file,
             commands::install_kind,
+            mcp_bridge::mcp_bridge_start,
+            mcp_bridge::mcp_bridge_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Open Planner Studio");

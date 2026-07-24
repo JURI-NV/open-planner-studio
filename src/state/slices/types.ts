@@ -24,6 +24,11 @@ export type {
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 };
 
+// MCP-bridge (fase 1): status-shape voor de AI-serverindicator in de ui-state. Type-only import →
+// geen runtime-cyclus (contracts.ts is dependency-vrij).
+import type { McpServerStatus } from '@/services/mcp/contracts';
+export type { McpServerStatus };
+
 export type WeekStartDay = 'monday' | 'sunday';
 
 // Fase 2.10 (golf 1, sneltoetsen-fundament §"Nieuwe store-acties"): richting voor
@@ -189,6 +194,16 @@ export interface UIState {
    *  wanneer er geen tour loopt; overleeft een presentatiemodus-unmount/remount van
    *  `TourOverlay` (dit staat in de store, niet in component-state) — zie TourOverlay.tsx. */
   tourSnapshot: TourUiSnapshot | null;
+  // --- MCP-bridge / AI-modus (fase 1 MCP, spec §UI). App-globaal (niet per document): de bridge
+  //     bedient de héle app, niet één tabblad. Gevoed door `src/services/mcp/server.ts`. ---
+  /** session — status van de MCP-bridge-server, gevoed door de `mcp://status`-events + de
+   *  poort-bezet-fout van `mcp_bridge_start`. Default off op de default-poort. */
+  aiServerStatus: McpServerStatus;
+  /** session — pauzeknop: bridge blijft live, maar muterende tools krijgen een nette
+   *  "gepauzeerd"-weigering (leestools mogen door). Vlag stroomt via de ctx naar de tool-laag. */
+  aiPaused: boolean;
+  /** session — alleen-lezen-schakelaar: muterende tools geweigerd zolang actief. */
+  aiReadOnly: boolean;
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk

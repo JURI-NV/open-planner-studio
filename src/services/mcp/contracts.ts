@@ -61,6 +61,11 @@ export interface McpToolAnnotations {
 export interface McpToolDef {
   /** Altijd met service-prefix: 'planner_add_tasks' (spec §Naamgeving). */
   name: string;
+  /**
+   * Additieve aanvulling op het bevroren contract, besloten bij T9: tools/list vereist
+   * beschrijvingen; toegevoegd vóór enige tool-module bestaat. De AI kiest tools op beschrijving.
+   */
+  description: string;
   /** Stuurt guards + backup-trigger. */
   kind: 'read' | 'mutate' | 'document' | 'other' | 'batch';
   /** Spec §Compositie: mag deze tool als batch-stap draaien? */

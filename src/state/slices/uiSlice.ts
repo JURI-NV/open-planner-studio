@@ -1,8 +1,17 @@
 import type { UIState, AppSlice } from './types';
+import type { McpServerStatus } from '@/services/mcp/contracts';
+import { MCP_DEFAULT_PORT } from '@/utils/settingsStore';
 
 export interface UiSlice {
   ui: UIState;
   setUI: (updates: Partial<UIState>) => void;
+  /** MCP-bridge (fase 1): schrijf de serverstatus (uit/live/poort-bezet/fout) — gevoed door
+   *  `server.ts` uit de `mcp://status`-events + de start-fout. */
+  setAiServerStatus: (status: McpServerStatus) => void;
+  /** MCP-bridge: zet de pauze-vlag (muterende tools tijdelijk geweigerd, leestools door). */
+  setAiPaused: (paused: boolean) => void;
+  /** MCP-bridge: zet de alleen-lezen-vlag (muterende tools geweigerd zolang actief). */
+  setAiReadOnly: (readOnly: boolean) => void;
   toggleCollapse: (taskId: string) => void;
   /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLE summary-taken (childIds.length>0)
    *  expliciet uit (collapsed=false, niet togglen). Geen undo — `collapsedTaskIds` is
@@ -86,6 +95,10 @@ export function createDefaultUI(): UIState {
     showTourOverlay: false,
     tourStepIndex: 0,
     tourSnapshot: null,
+    // MCP-bridge / AI-modus (fase 1): server staat default uit op de default-poort; geen pauze/lezen.
+    aiServerStatus: { state: 'off', port: MCP_DEFAULT_PORT },
+    aiPaused: false,
+    aiReadOnly: false,
   };
 }
 
@@ -115,6 +128,10 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       document.exitFullscreen?.().catch(() => { /* niet fataal */ });
     }
   },
+
+  setAiServerStatus: (status) => set((s) => { s.ui.aiServerStatus = status; }),
+  setAiPaused: (paused) => set((s) => { s.ui.aiPaused = paused; }),
+  setAiReadOnly: (readOnly) => set((s) => { s.ui.aiReadOnly = readOnly; }),
 
   toggleCollapse: (taskId) => {
     set((s) => {

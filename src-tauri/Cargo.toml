@@ -19,6 +19,12 @@ tauri-plugin-updater = "2"
 zip = { version = "4", default-features = false, features = ["deflate-flate2"] }
 tauri-plugin-process = "2"
 tauri-plugin-clipboard-manager = "2"
+# MCP-bridge (fase 1, Tauri-only): een piepklein HTTP-doorgeefluik op 127.0.0.1.
+# Rust blijft bewust dom — geen MCP/JSON-RPC-kennis, alleen token-check,
+# localhost-bind, Origin-weigering (DNS-rebinding) en request↔response-serialisatie
+# naar de webview. tiny_http = pure-Rust, geen system-openssl (default-features
+# uit staat, ssl is toch al opt-in).
+tiny_http = "0.12"
 # Behouden voor de native command-escape-hatch (src/commands/mod.rs): payload-
 # (de)serialisatie zodra die commands gestructureerde data gaan dragen.
 serde = { version = "1", features = ["derive"] }
