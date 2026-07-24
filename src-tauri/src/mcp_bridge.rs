@@ -23,6 +23,7 @@
 //! start/stop/fout zodat de frontend-store hem kan tonen.
 
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -41,6 +42,11 @@ const TIMEOUT_BODY: &str =
 const INTERNAL_BODY: &str =
     r#"{"jsonrpc":"2.0","error":{"code":-32603,"message":"internal error"},"id":null}"#;
 
+/// Maximale request-body-omvang (50 MiB). Een grotere body wordt niet in het
+/// geheugen ingelezen maar met `413` geweigerd — beschermt tegen een lokaal
+/// proces dat de bridge probeert plat te leggen met een enorme upload.
+const MAX_BODY_BYTES: u64 = 50 * 1024 * 1024;
+
 // ---------------------------------------------------------------------------
 // Pure, headless-testbare bouwstenen (geen webview, geen sockets).
 // ---------------------------------------------------------------------------
@@ -51,14 +57,33 @@ fn bind_addr(port: u16) -> String {
     format!("127.0.0.1:{port}")
 }
 
+/// Constante-tijd-vergelijking van twee bytereeksen. Voorkomt dat een aanvaller
+/// het token byte-voor-byte kan raden via responstijden: de looptijd hangt af van
+/// de lengte van de langste reeks, niet van de positie van het eerste verschil.
+/// Een lengteverschil telt altijd als ongelijk (in `usize` gevouwen zodat er geen
+/// truncatie optreedt); ontbrekende bytes worden als 0 mee-gefold.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    let len = a.len().max(b.len());
+    let mut diff: usize = a.len() ^ b.len();
+    for i in 0..len {
+        let x = a.get(i).copied().unwrap_or(0) as usize;
+        let y = b.get(i).copied().unwrap_or(0) as usize;
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 /// Klopt het `Authorization`-headerwaarde met het verwachte token? Ontbrekend of
 /// verkeerd ⇒ `false` (de aanroeper vertaalt dat naar 401). Het scheme
 /// (`Bearer`) is HTTP-conform hoofdletterongevoelig; de tokenwaarde zelf moet
-/// exact gelijk zijn.
+/// exact gelijk zijn — vergeleken in constante tijd (geen timing-lek).
 fn is_authorized(auth_header: Option<&str>, expected_token: &str) -> bool {
     match auth_header {
         Some(h) => match h.split_once(' ') {
-            Some((scheme, value)) => scheme.eq_ignore_ascii_case("Bearer") && value == expected_token,
+            Some((scheme, value)) => {
+                scheme.eq_ignore_ascii_case("Bearer")
+                    && constant_time_eq(value.as_bytes(), expected_token.as_bytes())
+            }
             None => false,
         },
         None => false,
@@ -91,7 +116,7 @@ impl Pending {
     fn register(&self) -> (u64, Receiver<String>) {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = channel();
-        self.map.lock().unwrap().insert(id, tx);
+        self.map.lock().unwrap_or_else(|e| e.into_inner()).insert(id, tx);
         (id, rx)
     }
 
@@ -106,7 +131,7 @@ impl Pending {
 
     /// Ruim een openstaand slot op (na timeout / emit-fout).
     fn cancel(&self, id: u64) {
-        self.map.lock().unwrap().remove(&id);
+        self.map.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
     }
 
     /// Wacht op het antwoord voor `id`. `Some(body)` bij afgifte; `None` bij
@@ -223,6 +248,14 @@ fn respond_empty(request: tiny_http::Request, status: u16) {
     let _ = request.respond(tiny_http::Response::empty(status));
 }
 
+/// `405 Method Not Allowed` met een `Allow: POST`-header (HTTP-conform: een 405
+/// hóórt te vermelden welke methodes wél mogen).
+fn respond_method_not_allowed(request: tiny_http::Request) {
+    let allow = tiny_http::Header::from_bytes(&b"Allow"[..], &b"POST"[..]).unwrap();
+    let response = tiny_http::Response::empty(405).with_header(allow);
+    let _ = request.respond(response);
+}
+
 /// Verwerkt precies één request. Volgorde van de poorten:
 ///   Origin (403) → methode (405) → pad (404) → token (401) → forward.
 /// Origin gaat bewust vóór alles: een browser-afkomstig request (incl.
@@ -242,7 +275,7 @@ fn handle_request(
     }
     // Alleen POST /mcp is een geldig endpoint.
     if request.method() != &tiny_http::Method::Post {
-        respond_empty(request, 405);
+        respond_method_not_allowed(request);
         return;
     }
     let path = request.url().split('?').next().unwrap_or("");
@@ -266,14 +299,25 @@ fn forward_to_webview(
     app: &tauri::AppHandle,
     shutdown: &AtomicBool,
 ) {
+    // Lees via een begrensde reader: hoogstens MAX_BODY_BYTES + 1 bytes, zodat een
+    // te grote body nooit volledig in het geheugen belandt. Lezen we méér dan de
+    // cap, dan weigeren we met 413.
     let mut body = String::new();
-    if request.as_reader().read_to_string(&mut body).is_err() {
+    let read_result = {
+        let mut limited = request.as_reader().take(MAX_BODY_BYTES + 1);
+        limited.read_to_string(&mut body)
+    };
+    if read_result.is_err() {
         respond_json(request, 400, INTERNAL_BODY);
+        return;
+    }
+    if body.len() as u64 > MAX_BODY_BYTES {
+        respond_empty(request, 413);
         return;
     }
 
     // (3) Strikt één request tegelijk in-flight naar de webview.
-    let _slot = inflight.lock().unwrap();
+    let _slot = inflight.lock().unwrap_or_else(|e| e.into_inner());
 
     let (id, rx) = pending.register();
     if app.emit("mcp://request", McpRequestPayload { id, body }).is_err() {
@@ -327,7 +371,7 @@ pub fn mcp_bridge_start(
     port: u16,
     token: String,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().unwrap();
+    let mut guard = state.0.lock().unwrap_or_else(|e| e.into_inner());
     if guard.is_some() {
         return Err("mcp-bridge draait al".to_string());
     }
@@ -378,7 +422,7 @@ pub fn mcp_bridge_stop(
     app: tauri::AppHandle,
     state: tauri::State<'_, BridgeState>,
 ) -> Result<(), String> {
-    let running = state.0.lock().unwrap().take();
+    let running = state.0.lock().unwrap_or_else(|e| e.into_inner()).take();
     if let Some(mut bridge) = running {
         bridge.shutdown.store(true, Ordering::SeqCst);
         bridge.server.unblock();
@@ -433,6 +477,43 @@ mod tests {
         assert!(is_authorized(Some("BEARER abc"), "abc"));
         // waarde is hoofdlettergevoelig
         assert!(!is_authorized(Some("Bearer ABC"), "abc"));
+    }
+
+    #[test]
+    fn constant_time_eq_matches_identical() {
+        assert!(constant_time_eq(b"s3cret-token", b"s3cret-token"));
+        assert!(constant_time_eq(b"", b""));
+        assert!(constant_time_eq(&[0u8, 1, 2, 255], &[0u8, 1, 2, 255]));
+    }
+
+    #[test]
+    fn constant_time_eq_rejects_content_difference() {
+        assert!(!constant_time_eq(b"s3cret-token", b"s3cret-tokeX"));
+        assert!(!constant_time_eq(b"abc", b"abd"));
+    }
+
+    #[test]
+    fn constant_time_eq_rejects_length_mismatch() {
+        // Ook wanneer de kortere reeks een prefix is (padding met 0 mag niet
+        // toevallig gelijk zijn) én bij trailing-null-verschillen.
+        assert!(!constant_time_eq(b"abc", b"abcd"));
+        assert!(!constant_time_eq(b"abcd", b"abc"));
+        assert!(!constant_time_eq(b"abc", b"abc\0"));
+        assert!(!constant_time_eq(b"a", b""));
+        assert!(!constant_time_eq(b"", b"a"));
+    }
+
+    #[test]
+    fn constant_time_eq_backs_the_token_check() {
+        assert!(is_authorized(Some("Bearer abc123"), "abc123"));
+        assert!(!is_authorized(Some("Bearer abc123"), "abc12"));
+        assert!(!is_authorized(Some("Bearer abc12"), "abc123"));
+    }
+
+    #[test]
+    fn max_body_bytes_is_50_mib() {
+        assert_eq!(MAX_BODY_BYTES, 50 * 1024 * 1024);
+        assert!(MAX_BODY_BYTES > 0);
     }
 
     #[test]
