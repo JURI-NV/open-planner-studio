@@ -49,9 +49,33 @@ const failTool: McpToolDef = {
   handler: (): McpToolResult => ({ ok: false, envelope: stubEnvelope, error: 'stub-fout', code: 'VALIDATION' }),
 };
 
+/** Handler die SYNCHROON gooit — bewijst de crash-barrière (-32603, geen info-lek). */
+const throwTool: McpToolDef = {
+  name: 'planner_throw',
+  description: 'Gooit synchroon (teststub).',
+  kind: 'mutate',
+  batchable: false,
+  inputSchema: { type: 'object', properties: {} },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: (): McpToolResult => {
+    throw new Error('GEHEIM-INTERN-detail met stack die NOOIT naar de client mag');
+  },
+};
+
+/** Handler die een rejected promise teruggeeft — bewijst dat de barrière ook async rejections vangt. */
+const rejectTool: McpToolDef = {
+  name: 'planner_reject',
+  description: 'Rejectet asynchroon (teststub).',
+  kind: 'mutate',
+  batchable: false,
+  inputSchema: { type: 'object', properties: {} },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  handler: (): Promise<McpToolResult> => Promise.reject(new Error('GEHEIM-ASYNC-detail dat NOOIT lekt')),
+};
+
 // Registreer de goede stubs bij module-load. Latere bad-registration-tests gooien vóór ze de
 // interne staat vervangen, dus deze blijven gedurende de hele run geregistreerd.
-registerToolModules([[echoTool], [failTool]]);
+registerToolModules([[echoTool], [failTool], [throwTool], [rejectTool]]);
 
 const ctx: McpContext = {
   expectedDocId: null,
@@ -179,6 +203,38 @@ test('een batch-array geeft -32600', async () => {
   const raw = await handleMcpMessage('[{"jsonrpc":"2.0","id":1,"method":"ping"}]', ctx);
   const msg = JSON.parse(raw);
   assertEq(msg.error.code, -32600, 'array ⇒ -32600');
+});
+
+test('id 0 wordt exact geëchood (falsy-valkuil-guard)', async () => {
+  const raw = await send({ jsonrpc: '2.0', id: 0, method: 'ping' });
+  const msg = JSON.parse(raw);
+  assert('id' in msg, 'respons mist het id-veld');
+  assertEq(msg.id, 0, 'id 0 moet exact terugkomen, niet naar null vallen');
+  assertEq(msg.result, {}, 'ping-result');
+});
+
+test('ping zonder id (notification) geeft een lege string', async () => {
+  const raw = await send({ jsonrpc: '2.0', method: 'ping' });
+  assertEq(raw, '', 'notification ⇒ geen respons');
+});
+
+test('een synchroon gooiende handler geeft -32603 zonder info-lek', async () => {
+  const raw = await send({ jsonrpc: '2.0', id: 42, method: 'tools/call', params: { name: 'planner_throw', arguments: {} } });
+  const msg = JSON.parse(raw);
+  assertEq(msg.error.code, -32603, 'throw ⇒ -32603');
+  assertEq(msg.id, 42, 'id blijft behouden bij een crash');
+  assert(msg.result === undefined, 'geen result-veld bij een crash');
+  assert(!msg.error.message.includes('GEHEIM'), `foutmelding lekt intern detail: ${msg.error.message}`);
+  assert(!msg.error.message.toLowerCase().includes('stack'), 'foutmelding mag geen stack noemen');
+  assert(msg.error.message.includes('planner_throw'), 'melding benoemt wél de tool-naam');
+});
+
+test('een rejectende (async) handler geeft -32603 zonder info-lek', async () => {
+  const raw = await send({ jsonrpc: '2.0', id: 43, method: 'tools/call', params: { name: 'planner_reject', arguments: {} } });
+  const msg = JSON.parse(raw);
+  assertEq(msg.error.code, -32603, 'reject ⇒ -32603');
+  assertEq(msg.id, 43, 'id blijft behouden bij een rejection');
+  assert(!msg.error.message.includes('GEHEIM'), `foutmelding lekt intern detail: ${msg.error.message}`);
 });
 
 test('dubbele toolnaam bij registratie gooit hard', () => {

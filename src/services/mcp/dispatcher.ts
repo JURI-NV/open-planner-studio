@@ -114,7 +114,15 @@ export async function handleMcpMessage(rawBody: string, ctx: McpContext): Promis
       if (!def) {
         return errorMsg(id, -32602, `Onbekende tool: ${String(name)}`);
       }
-      const result = await def.handler(msg.params?.arguments, ctx);
+      // Crash-barrière: een gooiende/rejectende handler mag de dispatcher niet laten omvallen én
+      // mag geen interne details (message/stack) naar de client lekken — statische -32603-melding.
+      let result: McpToolResult;
+      try {
+        result = await def.handler(msg.params?.arguments, ctx);
+      } catch (e) {
+        if (import.meta.env.DEV) console.error(`[mcp] handler '${def.name}' gooide:`, e);
+        return errorMsg(id, -32603, `Interne fout bij uitvoeren van tool ${def.name}`);
+      }
       return resultMsg(id, wrapToolResult(result));
     }
 
