@@ -495,27 +495,40 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       if (!draftPool) return;
       const pool = current(draftPool);
 
-      let calTouched = false;
-      s.calendars = s.calendars.map((cal) => {
+      // Review-fix (cleanup 2): map naar lokale variabelen + eigen tellers per array, en pas
+      // TOEWIJZEN als er in die array daadwerkelijk iets ververst is. Een onvoorwaardelijke
+      // `s.x = s.x.map(...)` (ook bij 0 treffers) geeft referentie-selectors anders een spurieuze
+      // wijziging, zelfs wanneer er niets te verversen viel.
+      let calChanged = 0;
+      const newCalendars = s.calendars.map((cal) => {
         if (cal.libraryOrigin?.companyId !== companyId) return cal;
         if (classifyCalendarOnOpen(current(cal), pool) !== 'behind') return cal; // deviated/removed/in-sync ⇒ ongemoeid
-        changed++; calTouched = true;
+        calChanged++;
         return applyCalendarUpdate(current(cal), pool);
       });
-      s.resources = s.resources.map((res) => {
+      if (calChanged > 0) s.calendars = newCalendars;
+
+      let resChanged = 0;
+      const newResources = s.resources.map((res) => {
         if (res.libraryOrigin?.companyId !== companyId) return res;
         if (classifyResourceOnOpen(current(res), pool) !== 'behind') return res;
-        changed++;
+        resChanged++;
         return applyResourceUpdate(current(res), pool);
       });
+      if (resChanged > 0) s.resources = newResources;
 
+      changed = calChanged + resChanged;
       if (changed > 0) {
         // Plan-eis 2: niet-undoable — GEEN beginUndoable, GEEN isDirty. Wél de redoStack wissen zodat
         // "opnieuw" niet stilletjes oude poolwaarden terugzet (spec §3, Ctrl+Z-eigenaardigheid).
         s.redoStack = [];
+        // Review-fix (cleanup 3): bewust GEEN syncProjectCalendar(s) hier — die helper valt bij een
+        // ontbrekende s.project.calendarId-match terug op de eerste kalender (orphan-fallback, §9.1);
+        // in deze niet-undoable context willen we dat gedrag niet riskeren, dus herpunten we de
+        // denorm-cache handmatig en laten 'm ongewijzigd als de projectkalender hier niet bij zat.
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
         // Review-fix (spec §3): kalenderverversing raakt datums ⇒ scheduleStale (geen isDirty, geen runCPM).
-        if (calTouched) s.scheduleStale = true;
+        if (calChanged > 0) s.scheduleStale = true;
       }
     });
     if (changed > 0) {

@@ -565,6 +565,46 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().resources.find(r => r.id === add.resourceId)?.maxUnits === 4, 'refreshBehindItems laat een deviated item ONgemoeid');
 }
 
+// --- Verversingsprimitief: kalendertak-dekking (critreview d80beb4, verplichte fix 1) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Kal Verv BV');
+  s.bindProjectToCompany(cid);
+  const poolCalId = s.promoteCalendarToPool(cid, {
+    id: 'kv-cal', name: 'Kalverploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  })!;
+  const addedCal = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  const projCalId = addedCal.calendarId!;
+  // Zet als projectdefault zodat de denorm-cache s.calendar in scope komt.
+  useAppStore.getState().setProjectCalendar(projCalId);
+  assert(useAppStore.getState().calendar.id === projCalId, 'setup: projectkalender is de default (s.calendar)');
+
+  // Bewerk het POOLitem zodat het project achterloopt (materialisatie stempelde al de pool-hash,
+  // dus deze wijziging maakt het bestand automatisch 'behind' — file==syncedHash, pool wijkt af).
+  useAppStore.getState().updatePoolCalendar(cid, poolCalId, { workEndHour: 18, hoursPerDay: 9 });
+  assert(useAppStore.getState().diffProjectCalendar(projCalId)?.status === 'changed', 'setup: kalender is behind (pool gewijzigd)');
+
+  useAppStore.setState((st) => { st.scheduleStale = false; });
+  const changed = useAppStore.getState().refreshBehindItems(cid);
+  const after = useAppStore.getState();
+  assert(changed >= 1, 'refreshBehindItems (kalendertak): telt de gewijzigde kalender');
+  const refreshedCal = after.calendars.find(c => c.id === projCalId)!;
+  assert(refreshedCal.workEndHour === 18 && refreshedCal.hoursPerDay === 9, 'refreshBehindItems (kalendertak): kalenderwaarden bijgewerkt');
+  assert(after.scheduleStale === true, 'refreshBehindItems (kalendertak): scheduleStale === true');
+  assert(after.calendar.id === projCalId && after.calendar.workEndHour === 18 && after.calendar.hoursPerDay === 9, 'refreshBehindItems (kalendertak): denorm-cache s.calendar wijst naar de nieuwe waarden');
+
+  // Negatief: reset scheduleStale, doe daarna een RESOURCE-ONLY-verversing ⇒ scheduleStale blijft false
+  // (de guard moet echt aan `calChanged`/kalendertak hangen, niet aan `changed` in het algemeen).
+  useAppStore.setState((st) => { st.scheduleStale = false; });
+  const resId = useAppStore.getState().promoteResourceToPool(cid, { id: 'kv-res', name: 'Kalvermetselaar', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const addedRes = useAppStore.getState().addLibraryResourceToProject(cid, resId);
+  useAppStore.getState().updatePoolResource(cid, resId, { maxUnits: 3 });
+  assert(useAppStore.getState().diffProjectResource(addedRes.resourceId!)?.status === 'changed', 'setup (negatief): resource is behind');
+  useAppStore.getState().refreshBehindItems(cid);
+  assert(useAppStore.getState().scheduleStale === false, 'refreshBehindItems: resource-only-verversing laat scheduleStale false');
+}
+
 // --- Bonus (taak-4-review): binding no-op bij afwijkend bedrijf (herhaalt geen bestaande assert) ---
 {
   const s = useAppStore.getState();
