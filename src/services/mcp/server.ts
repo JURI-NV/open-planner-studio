@@ -153,65 +153,145 @@ export async function attemptBridgeStart(deps: AttemptStartDeps): Promise<boolea
   }
 }
 
-// --- Levenscyclus (Tauri-only wiring; niet headless getest — dat is E2E/poort 2) -----------------
+// --- Levenscyclus-controller (injecteerbaar → listener-boekhouding headless testbaar) ------------
 
-/** Actieve unlisten-callbacks van de huidige bridge-sessie; leeg wanneer er niets draait. */
-let activeUnlisteners: Array<() => void> = [];
+/**
+ * De Tauri-randen die de bridge-controller nodig heeft, als injecteerbare functies. De echte
+ * wiring (achter `isTauri()`, met dynamische `@tauri-apps/*`-imports) zit in `buildLiveController`;
+ * de headless tests injecteren fakes (`tests/mcp/cases-server.ts`) en tellen zo de listener-
+ * boekhouding + de dubbel-start-guard zonder Tauri.
+ */
+export interface BridgeDeps {
+  /** Koppel een event-handler; resolve met de unlisten-callback (echt: Tauri `listen`). */
+  listen: <T>(event: string, handler: (payload: T) => void) => Promise<() => void>;
+  invoke: (cmd: string, args: Record<string, unknown>) => Promise<unknown>;
+  emit: (event: string, payload: unknown) => void | Promise<void>;
+  setStatus: (status: McpServerStatus) => void;
+  buildContext: () => McpContext;
+  handleMessage: (body: string, ctx: McpContext) => Promise<string>;
+  getPort: () => number;
+  getToken: () => string;
+}
 
-function cleanupListeners(): void {
-  for (const un of activeUnlisteners) {
-    try { un(); } catch { /* al afgemeld — niet fataal */ }
+export interface BridgeController {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  /** Aantal op dit moment gekoppelde listeners (test-inspectie). */
+  activeListenerCount: () => number;
+}
+
+/**
+ * Bouw een bridge-controller die zijn eigen listener-boekhouding + dubbel-start-guard omsluit.
+ * Invarianten:
+ *   - **Nooit verweesde `mcp://request`-listeners:** `start()` ruimt eerst een eventuele vorige set
+ *     op (`cleanup()`) vóór het registreren. Twee gekoppelde request-listeners zouden elk request
+ *     dubbel door de dispatcher laten lopen → dubbele mutaties.
+ *   - **Geen re-entry:** een `starting`-vlag laat een tweede *gelijktijdige* `start()` vroeg
+ *     returnen (geen spuriëuze `port-busy` terwijl de bridge gewoon opstart).
+ */
+export function createBridgeController(deps: BridgeDeps): BridgeController {
+  let unlisteners: Array<() => void> = [];
+  let starting = false;
+
+  function cleanup(): void {
+    for (const un of unlisteners) {
+      try { un(); } catch { /* al afgemeld — niet fataal */ }
+    }
+    unlisteners = [];
   }
-  activeUnlisteners = [];
+
+  async function start(): Promise<void> {
+    // In-flight-lock: een tweede gelijktijdige start vroeg afwijzen (de eerste is nog bezig).
+    if (starting) return;
+    starting = true;
+    try {
+      // Defensief: verweesde listeners van een vorige (half-)start eerst opruimen — nooit een
+      // dubbele mcp://request-listener overhouden (elk request zou dan dubbel gedispatcht worden).
+      cleanup();
+
+      const port = deps.getPort();
+      const token = deps.getToken();
+
+      const onRequest = createRequestHandler({
+        emit: deps.emit,
+        buildContext: deps.buildContext,
+        handleMessage: deps.handleMessage,
+      });
+      const onStatus = createStatusHandler({ setStatus: deps.setStatus });
+
+      const unReq = await deps.listen<{ id: number; body: string }>('mcp://request', (p) => { void onRequest(p); });
+      const unStatus = await deps.listen<{ state: string; port: number; message?: string }>('mcp://status', (p) => { onStatus(p); });
+      unlisteners = [unReq, unStatus];
+
+      const started = await attemptBridgeStart({ invoke: deps.invoke, setStatus: deps.setStatus, port, token });
+      if (!started) {
+        // Bind mislukt: `attemptBridgeStart` heeft net (synchroon, in de invoke-reject-catch)
+        // `setStatus(port-busy)` gezet; hier ruimen we — óók synchroon, zonder tussenliggende
+        // event-loop-turn (geen macrotask-yield tussen setStatus en deze cleanup) — de listeners op.
+        // Daardoor is de `mcp://status`-listener al afgemeld voordat het aparte Rust "error"-event
+        // (dat `mcp_bridge_start` vóór zijn Err emit) als nieuwe taak kan binnenkomen: dat event zou
+        // anders via `mapRustState` de status naar 'error' zetten en onze 'port-busy' overschrijven.
+        cleanup();
+      }
+    } finally {
+      starting = false;
+    }
+  }
+
+  async function stop(): Promise<void> {
+    // Eerst afmelden: de stop-invoke emit weliswaar een "stopped"-event, maar we willen dat niet
+    // meer verwerken — de status zetten we hieronder expliciet op off.
+    cleanup();
+    try { await deps.invoke('mcp_bridge_stop', {}); } catch { /* al gestopt / geen bridge — niet fataal */ }
+    deps.setStatus({ state: 'off', port: deps.getPort() });
+  }
+
+  return { start, stop, activeListenerCount: () => unlisteners.length };
+}
+
+// --- Live wiring (Tauri-only; achter isTauri(), niet headless getest — dat is E2E/poort 2) --------
+
+/** Gecachte controller-belofte: gedeeld over alle start/stop-aanroepen zodat er nooit twee losse
+ *  controllers (elk met een eigen listener-set) ontstaan bij een gelijktijdige start. */
+let liveControllerPromise: Promise<BridgeController> | null = null;
+
+async function buildLiveController(): Promise<BridgeController> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  const { emit, listen } = await import('@tauri-apps/api/event');
+  return createBridgeController({
+    listen: <T>(event: string, handler: (payload: T) => void) =>
+      listen<T>(event, (ev) => handler(ev.payload)),
+    invoke: (cmd, args) => invoke(cmd, args),
+    emit: (event, payload) => emit(event, payload),
+    setStatus: useAppStore.getState().setAiServerStatus,
+    buildContext: buildMcpContext,
+    handleMessage: handleMcpMessage,
+    getPort: loadMcpPort,
+    getToken: ensureMcpToken,
+  });
+}
+
+function getLiveController(): Promise<BridgeController> {
+  if (!liveControllerPromise) liveControllerPromise = buildLiveController();
+  return liveControllerPromise;
 }
 
 /**
  * Start de bridge: token verzekeren, de twee events koppelen, dan `mcp_bridge_start` invoken. Web-
- * build / niet-Tauri = no-op. Mislukt de start (poort bezet), dan meldt `attemptBridgeStart` dat
- * via `port-busy` en ruimen we de zojuist gekoppelde listeners weer op.
+ * build / niet-Tauri = no-op. Dubbel-start-veilig via de gedeelde controller + zijn in-flight-lock.
  */
 export async function startMcpServer(): Promise<void> {
   if (!isTauri()) return;
-  const setStatus = useAppStore.getState().setAiServerStatus;
-  const port = loadMcpPort();
-  const token = ensureMcpToken();
-
-  const { invoke } = await import('@tauri-apps/api/core');
-  const { emit, listen } = await import('@tauri-apps/api/event');
-
-  const onRequest = createRequestHandler({
-    emit: (event, payload) => emit(event, payload),
-    buildContext: buildMcpContext,
-    handleMessage: handleMcpMessage,
-  });
-  const onStatus = createStatusHandler({ setStatus });
-
-  const unReq = await listen<{ id: number; body: string }>('mcp://request', (ev) => {
-    void onRequest(ev.payload);
-  });
-  const unStatus = await listen<{ state: string; port: number; message?: string }>('mcp://status', (ev) => {
-    onStatus(ev.payload);
-  });
-  activeUnlisteners = [unReq, unStatus];
-
-  const started = await attemptBridgeStart({ invoke, setStatus, port, token });
-  if (!started) {
-    // Bind mislukt: de bridge draait niet, dus de zojuist gekoppelde listeners moeten weer weg.
-    cleanupListeners();
-  }
+  const controller = await getLiveController();
+  await controller.start();
 }
 
 /**
- * Stop de bridge netjes: listeners afmelden, `mcp_bridge_stop` invoken, en de ui-status op off
- * zetten (de stop-invoke emit weliswaar een "stopped"-event, maar we hebben de listener net
- * afgemeld — dus zetten we de status hier expliciet). Web-build / niet-Tauri = no-op.
+ * Stop de bridge netjes: listeners afmelden, `mcp_bridge_stop` invoken, ui-status op off. Web-build
+ * / niet-Tauri = no-op.
  */
 export async function stopMcpServer(): Promise<void> {
   if (!isTauri()) return;
-  cleanupListeners();
-  const { invoke } = await import('@tauri-apps/api/core');
-  try {
-    await invoke('mcp_bridge_stop');
-  } catch { /* al gestopt / geen bridge — niet fataal */ }
-  useAppStore.getState().setAiServerStatus({ state: 'off', port: loadMcpPort() });
+  const controller = await getLiveController();
+  await controller.stop();
 }
