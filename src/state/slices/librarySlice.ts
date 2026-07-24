@@ -333,6 +333,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       newId = id;
     });
     persist(get);
+    // F4 (vloot-fixpakket, issue #19): promote valt onder hetzelfde pool-bump-regime als
+    // updatePoolCalendar/removePoolCalendar — voor bestaande kopieën is dit een no-op behalve de
+    // onvoorwaardelijke redoStack-wis (er is nooit een 'behind'-item van het NET-gepromoveerde item,
+    // dat is per definitie in-sync met de pool die het zelf net gevoed heeft).
+    get().refreshAllDocumentsFromPool(companyId);
     return newId;
   },
 
@@ -363,6 +368,8 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     persist(get);
     // Naamloze metadata-wijziging (herkomststempel) raakt geen histogram, wél eventueel de tabel.
     get().recomputeViewRows();
+    // F4 (vloot-fixpakket, issue #19): zelfde pool-bump-regime als promoteCalendarToPool hierboven.
+    get().refreshAllDocumentsFromPool(companyId);
     return newId;
   },
 
@@ -723,11 +730,18 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         const cals = refreshCalendars(s.calendars.map((c) => current(c)));
         const ress = refreshResources(s.resources.map((r) => current(r)));
         const docChanged = cals.calChanged + ress.resChanged;
+        // F4 (vloot-fixpakket, issue #19): de redoStack-wis is ONVOORWAARDELIJK voor elk document dat
+        // aan DIT bedrijf gebonden is, losgekoppeld van `docChanged` — een pool-bump (elke mutatie die
+        // hier binnenkomt via updatePool*/removePool*/promote*) mag een "opnieuw" op dit document nooit
+        // meer laten terugzetten naar een toestand van vóór de bump, ook als er toevallig nul 'behind'-
+        // items waren (bv. alle kopieën waren al 'deviated', of raakten alleen niet-gevolgde velden).
+        // De array-toewijzingen/scheduleStale/recomputes blijven wél achter hun tellers (geen
+        // identiteitschurn bij nul treffers).
+        s.redoStack = [];
         if (docChanged > 0) {
           if (cals.calChanged > 0) s.calendars = cals.items;
           if (ress.resChanged > 0) s.resources = ress.items;
           s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
-          s.redoStack = [];
           if (cals.calChanged > 0) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
           changed += docChanged;
         }
@@ -743,6 +757,9 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         const cals = refreshCalendars(payload.calendars.map((c) => current(c)));
         const ress = refreshResources(payload.resources.map((r) => current(r)));
         const docChanged = cals.calChanged + ress.resChanged;
+        // F4: zelfde onvoorwaardelijke redo-wis-garantie voor elke SLAPENDE payload die aan dit
+        // bedrijf gebonden is (zie toelichting bij de actieve-documenttak hierboven).
+        payload.redoStack = [];
         if (docChanged > 0) {
           if (cals.calChanged > 0) {
             payload.calendars = cals.items;
@@ -754,7 +771,6 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
             payload.calendar = payload.calendars.find((c) => c.id === payload.project.calendarId) ?? payload.calendar;
           }
           if (ress.resChanged > 0) payload.resources = ress.items;
-          payload.redoStack = [];
           if (cals.calChanged > 0) payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
           changed += docChanged;
         }
@@ -826,12 +842,16 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     if (!pool) return [];
     const out: RecognitionCandidate[] = [];
     for (const r of s.resources) {
-      if (r.libraryOrigin?.companyId === companyId) continue; // al gestempeld voor dit bedrijf
+      // F3 (vloot-fixpakket, issue #19): herkenning is UITSLUITEND voor stempel-loze items — een item
+      // met een stempel van een ANDER bedrijf (bijv. ná omkoppelen-zonder-undo, of een undo die de
+      // strip-tak ongedaan maakte terwijl het project inmiddels aan B gekoppeld is) hoort hier niet
+      // als kandidaat te verschijnen. Voorheen skipte dit alleen EIGEN-bedrijfsstempels.
+      if (r.libraryOrigin) continue;
       const m = matchByName(r.name, pool.resources);
       out.push({ kind: 'resource', projectId: r.id, projectName: r.name, suggestedPoolId: m?.id ?? null, suggestedPoolName: m?.name ?? null });
     }
     for (const c of s.calendars) {
-      if (c.libraryOrigin?.companyId === companyId) continue;
+      if (c.libraryOrigin) continue;
       const m = matchByName(c.name, pool.calendars);
       out.push({ kind: 'calendar', projectId: c.id, projectName: c.name, suggestedPoolId: m?.id ?? null, suggestedPoolName: m?.name ?? null });
     }

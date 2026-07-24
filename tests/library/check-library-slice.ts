@@ -718,6 +718,51 @@ const store = useAppStore.getState();
   assert(docAEntry.payload!.calendar.id === activeCalId, 'F1: payload.calendar blijft naar de juiste project-kalender-id wijzen ná removeCompany');
 }
 
+// --- F4 (vloot-fixpakket, issue #19): redo-wis-garantie ONVOORWAARDELIJK bij een pool-bump — via
+// updatePool* — losgekoppeld van de 'behind'-teller. Scenario: materialiseer, undo (dat zet een ECHTE
+// redo-entry klaar die de materialisatie zou terugzetten), dan een pool-bump op een bedrijf waaraan het
+// document GEBONDEN is maar waar de bump toevallig NUL 'behind'-items raakt (de gematerialiseerde kopie
+// bestaat na de undo niet meer) — vóór de fix bleef de redoStack dan ongemoeid (docChanged===0 guardde
+// de wis mee), zodat "opnieuw" de net-verwijderde materialisatie stilletjes terug kon zetten. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F4 Redo BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'f4-res', name: 'Stellingbouwer', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  assert(added.added === true, 'F4-fixture: materialisatie is gelukt');
+  useAppStore.getState().undo(); // undo't de materialisatie ⇒ zet een ECHTE redo-entry klaar
+  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId) === undefined, 'F4-fixture: undo verwijdert de gematerialiseerde kopie weer');
+  assert(useAppStore.getState().redoStack.length === 1, 'F4-fixture: er staat nu precies één redo-entry klaar (zou de materialisatie terugzetten)');
+
+  // Pool-bump op ditzelfde bedrijf. De gematerialiseerde kopie bestaat niet meer (net ge-undo'd), dus
+  // refreshAllDocumentsFromPool raakt hier NUL 'behind'-items — precies de guard-ontwijkende situatie.
+  useAppStore.getState().updatePoolResource(cid, resId, { maxUnits: 9 });
+  assert(useAppStore.getState().redoStack.length === 0, 'F4: updatePoolResource wist de redoStack ONVOORWAARDELIJK, ook bij nul "behind"-treffers');
+  useAppStore.getState().redo();
+  assert(useAppStore.getState().resources.find(r => r.name === 'Stellingbouwer') === undefined, 'F4: redo() doet niets (lege redoStack) — de net-verwijderde materialisatie komt niet stilletjes terug');
+}
+
+// --- F4 (vervolg): dezelfde garantie via de promote-route — promoteResourceToPool/promoteCalendarToPool
+// vallen nu onder hetzelfde pool-bump-regime (roepen zelf refreshAllDocumentsFromPool aan). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F4 Promote BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'f4b-res', name: 'Isolatiemonteur', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  useAppStore.getState().undo(); // undo't de materialisatie ⇒ redo-entry klaar
+  assert(useAppStore.getState().redoStack.length === 1, 'F4-promote-fixture: er staat een redo-entry klaar');
+
+  // Een NIEUWE promotie (ander poolitem) bumpt de pool en moet via refreshAllDocumentsFromPool ook DIT
+  // gebonden document zijn redoStack laten wissen, ook al raakt de promotie geen 'behind'-item van dit
+  // document (het net-gepromoveerde item is nieuw, niemand in het project verwijst er nog naar).
+  useAppStore.getState().promoteResourceToPool(cid, { id: 'f4b-extra', name: 'Grondwerker', type: 'LABOR', description: '', maxUnits: 1 });
+  assert(useAppStore.getState().redoStack.length === 0, 'F4: promoteResourceToPool wist de redoStack van een gebonden document (promote-route)');
+  useAppStore.getState().redo();
+  assert(useAppStore.getState().resources.find(r => r.name === 'Isolatiemonteur') === undefined, 'F4 (promote-route): redo() doet niets — de net-verwijderde materialisatie komt niet terug');
+}
+
 // --- Verwijderd poolitem: projectkopie blijft functioneren, gemarkeerd removed (spec §3) ---
 {
   const s = useAppStore.getState();
@@ -769,6 +814,37 @@ const store = useAppStore.getState();
   const match = cands.find(c => c.kind === 'resource' && c.projectId === projResId);
   assert(match !== undefined, 'ambigu: het projectitem wordt wél als kandidaat getoond');
   assert(match?.suggestedPoolId === null && match?.suggestedPoolName === null, 'ambigu: twee gelijknamige poolitems ⇒ geen voorstel (matchByName is uniek-of-null)');
+}
+
+// --- F3 (vloot-fixpakket, issue #19): herkenning skipt ELK gestempeld item, ook een stempel van een
+// ANDER bedrijf dan het gekoppelde bedrijf — vóór de fix skipte computeRecognition alleen items met
+// een EIGEN-bedrijfsstempel, waardoor een item met een VREEMD stempel (bv. ná een rebind zonder
+// volledige strip, of een undo die de strip-tak ongedaan maakte) tóch als herkenningskandidaat
+// verscheen. Herkenning hoort uitsluitend voor stempel-loze items te zijn. ---
+{
+  const s = useAppStore.getState();
+  const companyA = s.addCompany('F3 Bedrijf A');
+  const companyB = s.addCompany('F3 Bedrijf B');
+  // Poolresource in bedrijf B met dezelfde naam als het projectitem — als het item WEL als kandidaat
+  // zou verschijnen, zou dit een unieke naam-match opleveren. Het bewijs moet dus zijn dat het item
+  // HELEMAAL niet in de kandidatenlijst voorkomt, niet dat de match toevallig null is.
+  s.promoteResourceToPool(companyB, { id: 'f3-res', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
+  const projResId = s.addResource({ name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
+  // Injecteer een stempel van bedrijf A rechtstreeks (modelleert een vreemd stempel dat een rebind of
+  // undo overleefde — niet iets wat via de normale UI-flow ontstaat, maar wél een bewezen mogelijke
+  // tussentoestand, zie ook computeRecognition's eigen documentatie-commentaar).
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === projResId);
+    if (r) r.libraryOrigin = { companyId: companyA, libraryItemId: 'iets-in-a', poolVersion: 1 };
+  });
+  s.bindProjectToCompany(companyB); // project gekoppeld aan B; het item draagt nog het A-stempel.
+  const cands = useAppStore.getState().computeRecognition();
+  assert(cands.find(c => c.kind === 'resource' && c.projectId === projResId) === undefined, 'F3: een item met een stempel van een ANDER bedrijf dan het gekoppelde wordt NIET aangeboden als herkenningskandidaat');
+  // Negatieve controle: eenzelfde item ZONDER stempel wordt wél aangeboden (bewijst dat de skip
+  // specifiek op "heeft al een libraryOrigin" draait, niet op iets anders zoals de naam).
+  const unstampedId = s.addResource({ name: 'Onbekende Vakman', type: 'LABOR', description: '', maxUnits: 1 });
+  const cands2 = useAppStore.getState().computeRecognition();
+  assert(cands2.find(c => c.kind === 'resource' && c.projectId === unstampedId) !== undefined, 'F3 negatieve controle: een stempel-loos item wordt WEL aangeboden als kandidaat');
 }
 
 // --- Herkenning: kalender-link ⇒ waarden overgenomen + syncedHash + scheduleStale (GO-NA-fix 2) ---
