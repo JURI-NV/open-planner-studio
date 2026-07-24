@@ -37,7 +37,15 @@ export interface LibrarySlice {
   initLibrary: () => Promise<void>;
   addCompany: (name: string) => string;
   renameCompany: (id: string, name: string) => void;
+  /** Verwijder een bedrijf (spec §5). Er blijft altijd ≥1 bedrijf (spec §2, no-op op het laatste).
+   *  Ontkoppelt expliciet elk GEOPEND document (actief én slapend) dat aan dit bedrijf gekoppeld
+   *  was: companyId/companyName gewist, alle herkomststempels van dit bedrijf gestript. Opgeslagen
+   *  (niet-geopende) bestanden zijn hier niet bij betrokken — die gedragen zich bij later openen als
+   *  ontvangen bestanden (los; §2-scope). Zie `countDocumentsLinkedTo` voor de verwijder-bevestiging. */
   removeCompany: (id: string) => void;
+  /** Aantal GEOPENDE documenten (actief + slapend) gekoppeld aan dit bedrijf — voor de
+   *  verwijder-bevestiging (spec §5). */
+  countDocumentsLinkedTo: (companyId: string) => number;
   setDefaultCompany: (id: string) => void;
   /** Promoveer een projectkalender naar de pool van een bedrijf (spiegel van de bestaande
    *  calendar-`promote`; spec §3). Voegt een POOL-kopie toe met een verse pool-id en bumpt de pool.
@@ -252,8 +260,30 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.companies = s.companies.filter(c => c.id !== id);
       delete s.pools[id];
       if (s.defaultCompanyId === id) s.defaultCompanyId = s.companies[0].id;
+      // Spec §5: ontkoppel gekoppelde OPEN documenten expliciet (stempels strippen). Opgeslagen
+      // bestanden gedragen zich bij later openen als ontvangen bestanden (los; §2-scope).
+      if (s.project.companyId === id) {
+        s.project.companyId = undefined;
+        s.project.companyName = undefined;
+        s.resources = s.resources.map((r) => r.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
+        s.calendars = s.calendars.map((c) => c.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
+        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+      }
+      for (const d of s.documents) {
+        if (!d.payload || d.payload.project.companyId !== id) continue;
+        d.payload.project = { ...d.payload.project, companyId: undefined, companyName: undefined };
+        d.payload.resources = d.payload.resources.map((r) => r.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
+        d.payload.calendars = d.payload.calendars.map((c) => c.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
+      }
     });
     persist(get);
+  },
+
+  countDocumentsLinkedTo: (companyId) => {
+    const s = get();
+    let n = s.project.companyId === companyId ? 1 : 0;
+    for (const d of s.documents) if (d.payload && d.payload.project.companyId === companyId) n++;
+    return n;
   },
 
   setDefaultCompany: (id) => {

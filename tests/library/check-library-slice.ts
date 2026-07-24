@@ -1133,5 +1133,45 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'closeDocument() laatste-sluit-naar-leeg-tak reset libraryRefreshNotice');
 }
 
+// --- Bedrijf verwijderen ontkoppelt gekoppelde open documenten (spec §5) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Weg BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'w', name: 'Sloopman', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  const affected = s.countDocumentsLinkedTo(cid);
+  assert(affected >= 1, 'countDocumentsLinkedTo telt het actieve document');
+  s.removeCompany(cid);
+  const after = useAppStore.getState();
+  assert(after.project.companyId === undefined, 'removeCompany ontkoppelt het actieve document');
+  assert(after.project.companyName === undefined, 'removeCompany wist ook companyName van het actieve document');
+  assert(after.resources.find(r => r.id === added.resourceId)?.libraryOrigin === undefined, 'removeCompany stript de stempels van open documenten');
+  assert(after.companies.every(c => c.id !== cid), 'removeCompany verwijdert het bedrijf zelf');
+}
+
+// --- Bedrijf verwijderen ontkoppelt óók SLAPENDE documenten (spec §5, plan-eis 1-stijl scope) ---
+// Losse test t.o.v. het actieve-document-geval hierboven: een assert die specifiek rood wordt als de
+// `for (const d of s.documents)`-tak in removeCompany verdwijnt terwijl de actieve-document-tak blijft
+// staan (de twee paden zijn onafhankelijk implementeerbaar, dus verdienen onafhankelijk bewijs).
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Weg Dormant BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'wd', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  const dormantId = useAppStore.getState().activeDocumentId;
+  s.newDocument(); // het gekoppelde document wordt nu SLAPEND; het nieuwe actieve document is los.
+  assert(useAppStore.getState().project.companyId === undefined, 'invariant-setup: het nieuwe actieve document is ongebonden');
+  assert(useAppStore.getState().countDocumentsLinkedTo(cid) === 1, 'countDocumentsLinkedTo telt een SLAPEND gekoppeld document (los van het actieve)');
+
+  useAppStore.getState().removeCompany(cid);
+  const dormant = useAppStore.getState().documents.find(d => d.id === dormantId);
+  assert(dormant?.payload?.project.companyId === undefined, 'removeCompany ontkoppelt een SLAPEND document (companyId)');
+  assert(dormant?.payload?.project.companyName === undefined, 'removeCompany ontkoppelt een SLAPEND document (companyName)');
+  assert(dormant?.payload?.resources.find(r => r.id === added.resourceId)?.libraryOrigin === undefined, 'removeCompany stript stempels in een SLAPENDE document-payload');
+  assert(useAppStore.getState().countDocumentsLinkedTo(cid) === 0, 'na removeCompany telt geen enkel document nog mee als gekoppeld aan het verwijderde bedrijf');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

@@ -79,11 +79,6 @@
   border-radius: var(--radius-sm); color: var(--theme-text); padding: 3px 6px; font-size: 0.85em;
 }
 .library-item-name-input:focus { outline: none; border-color: var(--theme-accent); }
-.library-item-number-input {
-  width: 72px; flex-shrink: 0; background: var(--theme-bg); border: 1px solid var(--theme-control-border);
-  border-radius: var(--radius-sm); color: var(--theme-text); padding: 3px 6px; font-size: 0.85em;
-}
-.library-item-number-input:focus { outline: none; border-color: var(--theme-accent); }
 
 /* "+ Uit project" (promoveren, eindreview-fix): kleine toggle-knop naast elke pool-kop + het
    uitklapbare keuzelijstje met de kalenders/resources van het actieve project. */
