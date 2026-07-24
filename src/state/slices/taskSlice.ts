@@ -91,7 +91,7 @@ export interface TaskSlice {
  * statusdatum of vandaag); actualStart zonder finish ⇒ STARTED; niets ⇒ NOT_STARTED;
  * remainingTime = round(scheduleDuration × (1 − completion)).
  */
-function applyProgressInvariants(task: Task, statusDate: string | undefined): void {
+export function applyProgressInvariants(task: Task, statusDate: string | undefined): void {
   const time = task.time;
   if (time.actualFinish) {
     time.completion = 1;
