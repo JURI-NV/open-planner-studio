@@ -705,5 +705,132 @@ const store = useAppStore.getState();
   assert(after.resources.find(r => r.id === projResId)?.libraryOrigin === undefined, 'ontkoppelen stript de stempels');
 }
 
+// --- Herkenning: ambigue naam-match ⇒ geen voorstel (uniek-of-null, spec §5.1) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Ambigu BV');
+  // Twee poolresources met dezelfde GENORMALISEERDE naam (hoofdletter-varianten).
+  s.promoteResourceToPool(cid, { id: 'amb1', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 1 });
+  s.promoteResourceToPool(cid, { id: 'amb2', name: 'timmerman', type: 'LABOR', description: '', maxUnits: 1 });
+  const projResId = s.addResource({ name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 1 });
+  s.bindProjectToCompany(cid);
+  const cands = useAppStore.getState().computeRecognition();
+  const match = cands.find(c => c.kind === 'resource' && c.projectId === projResId);
+  assert(match !== undefined, 'ambigu: het projectitem wordt wél als kandidaat getoond');
+  assert(match?.suggestedPoolId === null && match?.suggestedPoolName === null, 'ambigu: twee gelijknamige poolitems ⇒ geen voorstel (matchByName is uniek-of-null)');
+}
+
+// --- Herkenning: kalender-link ⇒ waarden overgenomen + syncedHash + scheduleStale (GO-NA-fix 2) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Kal Herk BV');
+  const poolCalId = s.promoteCalendarToPool(cid, {
+    id: 'kh-cal', name: 'Ochtendploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 6, workEndHour: 14, hoursPerDay: 8, holidays: [],
+  })!;
+  const projCalId = s.addCalendar({
+    name: 'ochtendploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  });
+  s.bindProjectToCompany(cid);
+  const cands = useAppStore.getState().computeRecognition();
+  const match = cands.find(c => c.kind === 'calendar' && c.projectId === projCalId);
+  assert(match?.suggestedPoolId === poolCalId, 'kalender-herkenning stelt de naam-gelijke poolkalender voor');
+
+  useAppStore.setState((st) => { st.scheduleStale = false; });
+  useAppStore.getState().linkRecognizedItems([{ kind: 'calendar', projectId: projCalId, poolId: poolCalId }]);
+  const linkedCal = useAppStore.getState().calendars.find(c => c.id === projCalId);
+  const poolCal = useAppStore.getState().pools[cid].calendars.find(c => c.id === poolCalId)!;
+  assert(linkedCal?.workStartHour === 6 && linkedCal?.workEndHour === 14, 'kalender-link: waarden overgenomen van de pool');
+  assert(linkedCal?.libraryOrigin?.syncedHash === computeCalendarHash(poolCal), 'kalender-link: syncedHash == hash(poolbron)');
+  assert(useAppStore.getState().scheduleStale === true, 'kalender-link: scheduleStale (GO-NA-fix 2)');
+}
+
+// --- unbindProject is undoable; undo zet de stempels + denorm-cache terug (GO-NA-fix 1) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Onb Undo BV');
+  const poolResId = s.promoteResourceToPool(cid, { id: 'ou-res', name: 'Lasser', type: 'LABOR', description: '', maxUnits: 2 })!;
+  const poolCalId = s.promoteCalendarToPool(cid, {
+    id: 'ou-cal', name: 'Lasploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  })!;
+  s.bindProjectToCompany(cid);
+  const addedRes = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  const addedCal = useAppStore.getState().addLibraryCalendarToProject(cid, poolCalId);
+  useAppStore.getState().setProjectCalendar(addedCal.calendarId!);
+  const projResId = addedRes.resourceId!;
+  const projCalId = addedCal.calendarId!;
+  assert(useAppStore.getState().calendar.id === projCalId, 'setup: projectkalender is de default (s.calendar)');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unbindProject();
+  assert(useAppStore.getState().undoStack.length === undoBefore + 1, 'unbindProject: undo-snapshot gepusht (GO-NA-fix 1)');
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)?.libraryOrigin === undefined, 'unbindProject: resource-stempel gestript');
+  assert(useAppStore.getState().calendars.find(c => c.id === projCalId)?.libraryOrigin === undefined, 'unbindProject: kalender-stempel gestript');
+
+  // No-op-guard: nogmaals ontkoppelen (al los) pusht GEEN loze undo-snapshot.
+  const undoBeforeNoop = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unbindProject();
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop, 'unbindProject op een al-los project: geen loze undo-snapshot');
+
+  useAppStore.getState().undo(); // draait de EERSTE (echte) unbind terug
+  const after = useAppStore.getState();
+  assert(after.resources.find(r => r.id === projResId)?.libraryOrigin?.libraryItemId === poolResId, 'undo na unbindProject: resource-stempel terug');
+  assert(after.calendars.find(c => c.id === projCalId)?.libraryOrigin?.libraryItemId === poolCalId, 'undo na unbindProject: kalender-stempel terug');
+  assert(after.calendar.id === projCalId && !!after.calendar.libraryOrigin, 'undo na unbindProject: denorm-cache (s.calendar) klopt weer met de herstelde kalender');
+}
+
+// --- Omkoppel-strip: bind naar ander bedrijf strip vreemde stempels, undoable (GO-NA-fix 1) ---
+{
+  const s = useAppStore.getState();
+  const cidA = s.addCompany('Omkop A BV');
+  const cidB = s.addCompany('Omkop B BV');
+  const poolResIdA = s.promoteResourceToPool(cidA, { id: 'oka-res', name: 'Schilder', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.bindProjectToCompany(cidA);
+  const addA = useAppStore.getState().addLibraryResourceToProject(cidA, poolResIdA);
+  const projResId = addA.resourceId!;
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)?.libraryOrigin?.companyId === cidA, 'setup: resource gestempeld voor bedrijf A');
+
+  // Zuivere herbind naar HETZELFDE bedrijf (A) pusht geen undo-snapshot (guard-check, GO-NA-fix 1).
+  const undoBeforeSame = useAppStore.getState().undoStack.length;
+  useAppStore.getState().bindProjectToCompany(cidA);
+  assert(useAppStore.getState().undoStack.length === undoBeforeSame, 'herbind naar hetzelfde bedrijf: geen loze undo-snapshot');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  useAppStore.getState().bindProjectToCompany(cidB);
+  assert(useAppStore.getState().undoStack.length === undoBefore + 1, 'omkoppelen A→B: undo-snapshot gepusht (GO-NA-fix 1)');
+  assert(useAppStore.getState().project.companyId === cidB, 'omkoppelen A→B: project nu gebonden aan B');
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)?.libraryOrigin === undefined, 'omkoppel-strip: A-stempel weg ná bind naar B');
+
+  useAppStore.getState().undo();
+  const after = useAppStore.getState();
+  assert(after.resources.find(r => r.id === projResId)?.libraryOrigin?.companyId === cidA, 'undo van de omkoppel-strip: A-stempel terug');
+}
+
+// --- linkRecognizedItems: verdwenen kandidaat stil overgeslagen, geldige link gaat gewoon door (GO-NA-fix 3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Verdwenen BV');
+  const poolResId1 = s.promoteResourceToPool(cid, { id: 'vd1', name: 'Grondwerker', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const poolResId2 = s.promoteResourceToPool(cid, { id: 'vd2', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const projRes1 = s.addResource({ name: 'grondwerker', type: 'LABOR', description: '', maxUnits: 1 });
+  const projRes2 = s.addResource({ name: 'sloper', type: 'LABOR', description: '', maxUnits: 1 });
+  s.bindProjectToCompany(cid);
+  // Poolitem 1 verdwijnt vóórdat de gebruiker de herkenning bevestigt (race met removePoolResource).
+  useAppStore.getState().removePoolResource(cid, poolResId1);
+
+  let threw = false;
+  try {
+    useAppStore.getState().linkRecognizedItems([
+      { kind: 'resource', projectId: projRes1, poolId: poolResId1 }, // verdwenen kandidaat
+      { kind: 'resource', projectId: projRes2, poolId: poolResId2 }, // geldig
+    ]);
+  } catch { threw = true; }
+  assert(!threw, 'linkRecognizedItems: verdwenen kandidaat gooit geen throw (GO-NA-fix 3)');
+  assert(useAppStore.getState().resources.find(r => r.id === projRes1)?.libraryOrigin === undefined, 'verdwenen kandidaat: link stil overgeslagen, geen stempel');
+  assert(useAppStore.getState().resources.find(r => r.id === projRes2)?.libraryOrigin?.libraryItemId === poolResId2, 'geldige link gaat gewoon door naast de verdwenen kandidaat');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

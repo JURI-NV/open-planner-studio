@@ -54,16 +54,21 @@ export interface LibrarySlice {
 
   /** Bind het ACTIEVE project aan een bedrijf (spec §6). Zet project.companyId + companyName; bij
    *  OMkoppelen (ander bedrijf) worden vreemde stempels van het VORIGE bedrijf gestript (spec §5),
-   *  zodat de herkenningsstap schoon herbegint. */
+   *  zodat de herkenningsstap schoon herbegint. De strip-tak is undoable (GO-NA-fix 1, critreview
+   *  5b81aea); een eerste bind of een herbind naar hetzelfde bedrijf strip niets en pusht geen
+   *  undo-snapshot. */
   bindProjectToCompany: (companyId: string) => void;
   /** Kandidaten voor de herkenningsstap (spec §5): elk NIET-gestempeld projectitem (resource/
    *  kalender) met de unieke naam-match uit de eigen-bedrijf-pool (of null als er geen/meerdere zijn). */
   computeRecognition: () => RecognitionCandidate[];
   /** Atomisch linken (plan-eis 5): stempel de gekozen projectitems, zet syncedHash, en ververs ze
-   *  naar de poolwaarden — alles in één set(). */
+   *  naar de poolwaarden — alles in één set(). Undoable (GO-NA-fix 1, critreview 5b81aea): een
+   *  verdwenen kandidaat (poolId niet meer in de pool) wordt stil overgeslagen (GO-NA-fix 3), de rest
+   *  gaat door; zonder toepasbare link geen undo-snapshot. */
   linkRecognizedItems: (links: RecognitionLink[]) => void;
   /** Ontkoppel het actieve project (spec §5): wis companyId/companyName en STRIP alle stempels —
-   *  een los project heeft geen herkomst en ververst nergens vandaan. */
+   *  een los project heeft geen herkomst en ververst nergens vandaan. Undoable (GO-NA-fix 1); no-op
+   *  (geen undo-snapshot) op een al-los project. */
   unbindProject: () => void;
   /**
    * Voeg een bibliotheek-kalender toe aan het ACTIEVE project (spec §3): kopieer met stempel, dedup
@@ -367,17 +372,25 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const company = s.companies.find(c => c.id === companyId);
       if (!company) return;
       const previous = s.project.companyId;
+      // Omkoppelen (spec §5, GO-NA-fix 1): alleen de strip-tak is een gebruikersgebaar dat undo-bare
+      // dataverlies veroorzaakt (stempels verdwijnen) — die krijgt een undo-snapshot. Een pure
+      // (her)bind naar hetzelfde bedrijf (of de EERSTE bind vanuit ongebonden) strip niets en mag dus
+      // GEEN loze undo-stap opleveren.
+      const isRebind = !!previous && previous !== companyId;
+      if (isRebind) beginUndoable(s);
       s.project.companyId = company.id;
       s.project.companyName = company.name;
       s.project.modifiedAt = new Date().toISOString();
       // Omkoppelen (spec §5): stempels van het VORIGE bedrijf zijn nu vreemd — strip ze zodat de
       // herkenningsstap schoon herbegint. Matches worden daarna opnieuw voorgesteld/gelinkt.
-      if (previous && previous !== companyId) {
+      if (isRebind) {
         s.resources = s.resources.map((r) => r.libraryOrigin?.companyId === previous ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
         s.calendars = s.calendars.map((c) => c.libraryOrigin?.companyId === previous ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
       }
-      s.isDirty = true;
+      // isDirty blijft onvoorwaardelijk (élke bind is een wijziging); scheduleStale blijft ongemoeid
+      // (strippen van een stempel raakt geen kalenderWAARDEN, dus geen datumimpact).
+      finishMutation(s);
     });
   },
 
@@ -714,22 +727,38 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const draftPool = s.pools[companyId];
       if (!draftPool) return;
       const pool = current(draftPool);
+      // GO-NA-fix 3: een verdwenen kandidaat (poolId niet meer in de pool — bv. een race met
+      // removePoolResource/removePoolCalendar) mag niet knallen; stille pre-scan zodat we (a) een
+      // link zonder geldig poolitem straks stil overslaan én (b) GEEN undo-snapshot pushen als er
+      // over de hele linkset niets toepasbaars overblijft (geen loze undo-stap, GO-NA-fix 1).
+      const anyApplicable = links.some((link) => link.kind === 'resource'
+        ? pool.resources.some((r) => r.id === link.poolId)
+        : pool.calendars.some((c) => c.id === link.poolId));
+      if (!anyApplicable) return;
+      // GO-NA-fix 1: dit is een expliciet gebruikersgebaar — undoable, met de gebruikelijke
+      // slice-conventie (beginUndoable vóór, finishMutation ná de mutatie).
+      beginUndoable(s);
+      let calendarLinked = false;
       // Plan-eis 5: alles in één set() — atomisch, geen half-gestempelde tussentoestand.
       for (const link of links) {
         if (link.kind === 'resource') {
+          if (!pool.resources.some((r) => r.id === link.poolId)) continue; // GO-NA-fix 3: verdwenen kandidaat ⇒ stille skip
           const idx = s.resources.findIndex((r) => r.id === link.projectId);
           if (idx < 0) continue;
           const stamped = { ...current(s.resources[idx]), libraryOrigin: makeOrigin(pool, link.poolId) };
           s.resources[idx] = applyResourceUpdate(stamped, pool); // stempelt + ververst + zet syncedHash
         } else {
+          if (!pool.calendars.some((c) => c.id === link.poolId)) continue; // GO-NA-fix 3: verdwenen kandidaat ⇒ stille skip
           const idx = s.calendars.findIndex((c) => c.id === link.projectId);
           if (idx < 0) continue;
           const stamped = { ...current(s.calendars[idx]), libraryOrigin: makeOrigin(pool, link.poolId) };
           s.calendars[idx] = applyCalendarUpdate(stamped, pool);
+          calendarLinked = true;
         }
       }
       s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
-      s.isDirty = true;
+      // GO-NA-fix 2: een gelinkte kalender raakt datums ⇒ scheduleStale (patroon updateProjectCalendarFromLibrary).
+      finishMutation(s, { stale: calendarLinked });
     });
     get().recomputeResourceLoad();
     get().recomputeViewRows();
@@ -737,12 +766,16 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
 
   unbindProject: () => {
     set((s) => {
+      // GO-NA-fix 1: een al-los project (geen binding, dus per invariant ook geen stempels) is een
+      // no-op — geen loze undo-stap.
+      if (!s.project.companyId) return;
+      beginUndoable(s);
       s.project.companyId = undefined;
       s.project.companyName = undefined;
       s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
       s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
       s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? { ...s.calendar };
-      s.isDirty = true;
+      finishMutation(s);
     });
     get().recomputeResourceLoad();
     get().recomputeViewRows();
