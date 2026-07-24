@@ -234,16 +234,32 @@ export function computeResourceHash(res: Resource): string {
   return hashFields(res, RESOURCE_DIFF_FIELDS);
 }
 
-/** Normaliseer een naam voor de herkennings-matcher (spec §5.1): Unicode-NFC, trim, samengevouwen
- *  witruimte (elke witruimte-run → één spatie), hoofdletterongevoelig (`toLocaleLowerCase`). Puur. */
+/** Onzichtbare formatting-tekens die de matcher (F6, vloot-fixpakket issue #19) vóór de
+ *  witruimte-collapse strip: zero-width space/non-joiner/joiner (U+200B–U+200D), BOM (U+FEFF) en
+ *  soft-hyphen (U+00AD). Deze tekens zijn onzichtbaar in de UI maar tellen anders mee in de
+ *  string-vergelijking — een naam die via copy-paste zo'n teken meekreeg (bv. "Kraan​1") matchte
+ *  daardoor niet met de zichtbaar identieke "Kraan1". */
+const INVISIBLE_FORMATTING_CHARS = /[\u200B-\u200D\uFEFF\u00AD]/g;
+
+/** Normaliseer een naam voor de herkennings-matcher (spec §5.1): Unicode-NFC, onzichtbare
+ *  formatting-tekens strippen, trim, samengevouwen witruimte (elke witruimte-run → één spatie),
+ *  hoofdletterongevoelig. F6 (vloot-fixpakket, issue #19): `toLowerCase()` i.p.v. `toLocaleLowerCase()`
+ *  — deterministisch onafhankelijk van de machine-locale (de Turkse dotless-İ-nuance van
+ *  `toLocaleLowerCase` wordt bewust NIET toegepast, zie docs/library.md). `normalizeName` wordt NIET
+ *  voor hashing gebruikt (dat loopt via `hashFields`/`diffKey` op de ruwe velden), alleen voor
+ *  matching. Puur. */
 export function normalizeName(name: string): string {
-  return name.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return name.normalize('NFC').replace(INVISIBLE_FORMATTING_CHARS, '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 /** Zoek de UNIEKE kandidaat met dezelfde genormaliseerde naam (spec §5.1). Geen kandidaat óf
- *  meerdere kandidaten ⇒ `null` (geen voorstel — handmatige keuze). Geen fuzzy (spec §14). */
+ *  meerdere kandidaten ⇒ `null` (geen voorstel — handmatige keuze). Geen fuzzy (spec §14). F6
+ *  (vloot-fixpakket, issue #19): een LEGE genormaliseerde target (lege/pure-witruimte naam) matcht
+ *  nooit — anders zouden twee items die allebei een lege naam normaliseren elkaar ten onrechte als
+ *  unieke kandidaat aanwijzen. */
 export function matchByName<T extends { name: string }>(name: string, candidates: T[]): T | null {
   const target = normalizeName(name);
+  if (!target) return null;
   const hits = candidates.filter((c) => normalizeName(c.name) === target);
   return hits.length === 1 ? hits[0] : null;
 }

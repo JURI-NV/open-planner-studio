@@ -223,6 +223,40 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(matchByName('PLOEG', dup) === null, 'matchByName: meerdere kandidaten ⇒ null (geen voorstel)');
 }
 
+// --- F6 (vloot-fixpakket, issue #19): matcher-hardening — onzichtbare formatting-tekens, lege
+// genormaliseerde target, locale-onafhankelijk (toLowerCase i.p.v. toLocaleLowerCase) ---
+{
+  // Onzichtbare tekens (ZWSP/ZWNJ/ZWJ/BOM/soft-hyphen) strippen: "Kraan​1" matcht "Kraan1".
+  const ZWSP = '​'; const ZWNJ = '‌'; const ZWJ = '‍'; const BOM = '﻿'; const SHY = '­';
+  assert(normalizeName(`Kraan${ZWSP}1`) === normalizeName('Kraan1'), 'F6: ZWSP wordt gestript vóór matching');
+  assert(normalizeName(`Kraan${ZWNJ}1`) === normalizeName('Kraan1'), 'F6: ZWNJ wordt gestript vóór matching');
+  assert(normalizeName(`Kraan${ZWJ}1`) === normalizeName('Kraan1'), 'F6: ZWJ wordt gestript vóór matching');
+  // BOM MIDDEN in de string (niet aan het begin/eind — `.trim()` strippt een RAND-BOM toch al via de
+  // ECMAScript WhiteSpace-productie, dus een rand-positie zou de fix niet echt bewijzen).
+  assert(normalizeName(`Kraan${BOM}1`) === normalizeName('Kraan1'), 'F6: BOM (midden in de string) wordt gestript vóór matching');
+  assert(normalizeName(`Kraan${SHY}1`) === normalizeName('Kraan1'), 'F6: soft-hyphen wordt gestript vóór matching');
+  const cranes = [{ id: 'k1', name: 'Kraan1' }];
+  assert(matchByName(`Kraan${ZWSP}1`, cranes)?.id === 'k1', 'F6: matchByName matcht een naam met onzichtbaar ZWSP-teken tegen de zichtbaar identieke pool-naam');
+  // Negatieve controle: een ander zichtbaar teken (geen invisible) blijft WEL een echt verschil.
+  assert(matchByName('Kraan 2', cranes) === null, 'F6: negatieve controle — een écht ander zichtbaar teken matcht niet');
+
+  // Lege/pure-witruimte namen matchen NOOIT (ook niet onderling met een andere lege naam).
+  assert(matchByName('', [{ id: 'e1', name: '' }, { id: 'e2', name: '   ' }]) === null, 'F6: lege target ⇒ null, ook al is er een unieke "lege" kandidaat');
+  assert(matchByName('   ', [{ id: 'e1', name: 'Iets' }]) === null, 'F6: pure-witruimte target ⇒ null');
+
+  // NFC/NFD-paar (samengesteld vs. ontleed diakritisch teken) blijft matchen (bestaand NFC-gedrag,
+  // niet geraakt door de F6-wijziging — regressiebewijs).
+  const nfc = 'café'; // é als één codepoint (U+00E9)
+  const nfd = 'café'; // e + combining acute accent (U+0301)
+  assert(normalizeName(nfc) === normalizeName(nfd), 'F6: NFC/NFD-paar blijft matchen (Unicode-normalisatie ongemoeid)');
+  assert(matchByName(nfd, [{ id: 'c1', name: nfc }])?.id === 'c1', 'F6: matchByName matcht een NFD-naam tegen een NFC-pool-naam');
+
+  // Locale-onafhankelijk: toLowerCase i.p.v. toLocaleLowerCase — de Turkse dotless-İ-nuance
+  // ("İ".toLocaleLowerCase('tr') === "i" met puntloze variant-subtiliteiten) wordt NIET toegepast;
+  // een simpele ASCII "I" → "i" blijft de machine-onafhankelijke uitkomst.
+  assert(normalizeName('I') === 'i', 'F6: normalizeName gebruikt toLowerCase (machine-onafhankelijk), geen locale-specifieke casing');
+}
+
 // --- Afwijkingsclassificatie bij openen (spec §3) ---
 {
   const p = pool();

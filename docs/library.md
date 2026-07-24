@@ -65,9 +65,12 @@ Eén gedeeld scherm — geen aparte add/update-dialogen meer — met twee sectie
 
 1. **Herkennen** — niet-gestempelde projectitems met hun unieke naam-match uit de pool (per stuk of
    "alle voorstellen koppelen"). De matcher draait **alleen op koppelmomenten** (niet doorlopend):
-   exacte match na Unicode-NFC, trim, samengevouwen witruimte en hoofdletterongevoeligheid — expliciet
-   geen fuzzy matching. Geen of meerdere kandidaten met dezelfde naam ⇒ geen voorstel, handmatige
-   keuze.
+   exacte match na Unicode-NFC, onzichtbare formatting-tekens (zero-width spaties/joiners, BOM,
+   soft-hyphen) strippen, trim, samengevouwen witruimte en hoofdletterongevoeligheid — expliciet geen
+   fuzzy matching. Geen of meerdere kandidaten met dezelfde naam ⇒ geen voorstel, handmatige keuze.
+   De naam-matching is bewust locale-onafhankelijk (`toLowerCase`, niet `toLocaleLowerCase`): de
+   Turkse dotless-İ-nuance wordt niet toegepast, zodat de matcher hetzelfde resultaat geeft ongeacht
+   de machine-locale.
 2. **Afwijkingen** — gestempelde items die van hun bedrijfsorigineel zijn afgeweken (`deviated`) of
    waarvan het origineel uit de pool is verwijderd (`removed`/"niet meer in het bedrijf"). Per
    `deviated`-item zijn er **drie uitkomsten**: **bedrijfswaarden gebruiken** (ververs het projectitem
