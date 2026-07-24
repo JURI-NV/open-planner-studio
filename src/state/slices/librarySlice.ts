@@ -724,7 +724,12 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     const s0 = get();
     const companyId = s0.project.companyId;
     // §2-scope: onbekend/ontbrekend bedrijf ⇒ los-gedrag, geen mechaniek, geen valse labels.
+    // Voorstap taak 14 (critreview taak 12): OOK hier de VOLLEDIGE vlagtoestand vestigen — een
+    // eerder document kan het afwijkingenscherm/signaal hebben laten AANstaan; zonder deze reset
+    // lekt die stale toestand naar een nieuw-geopend, (nog) ongebonden document (openFile-in-nieuw-
+    // document, spec-lek uit de NB).
     if (!companyId || !s0.companies.some((c) => c.id === companyId) || !s0.pools[companyId]) {
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: null });
       return { refreshed: 0, deviated: 0, removed: 0 };
     }
     let deviated = 0; let removed = 0;
@@ -741,8 +746,10 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     // 'behind' stil verversen via de primitief uit Taak 5 (behind-only: 'deviated'-items blijven
     // ongemoeid, wachtend op een gebruikerskeuze). Niet-undoable, wist redoStack, geen isDirty.
     const refreshed = get().refreshBehindItems(companyId);
-    if (refreshed > 0) get().setUI({ libraryRefreshNotice: refreshed });
-    if (deviated > 0) get().setUI({ showLibraryLinkDialog: true });
+    // Voorstap taak 14 (critreview taak 12): de VOLLEDIGE vlagtoestand in één keer vestigen — ook het
+    // WISSEN als er niets deviated/behind is (was voorheen alleen-AAN-zetten; een stale true/getal van
+    // een vorige boundary-run bleef dan onterecht staan).
+    get().setUI({ showLibraryLinkDialog: deviated > 0, libraryRefreshNotice: refreshed > 0 ? refreshed : null });
     return { refreshed, deviated, removed };
   },
 

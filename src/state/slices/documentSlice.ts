@@ -85,6 +85,12 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.documents.push({ id: newId, payload: null });
       s.activeDocumentId = newId;
       hydratePayload(s, freshPayload());
+      // Voorstap taak 14 (critreview taak 12): een vers leeg document draait GEEN runOpenBoundary
+      // (er is niets aan gekoppeld), dus zonder expliciete reset hier zou een stale
+      // showLibraryLinkDialog/libraryRefreshNotice van het vorige document blijven hangen
+      // ("File→Nieuw" lekt dan een afwijkingenscherm dat niet bij dit document hoort).
+      s.ui.showLibraryLinkDialog = false;
+      s.ui.libraryRefreshNotice = null;
     });
     get().recomputeViewRows();
     emitExtensionEvent(HOST_EVENTS.projectNew);
@@ -143,6 +149,10 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
         s.documents = [{ id: newId, payload: null }];
         s.activeDocumentId = newId;
         hydratePayload(s, freshPayload());
+        // Voorstap taak 14 (critreview taak 12): zie newDocument() hierboven — de laatste-sluit-naar-
+        // leeg-tak levert net zo'n vers, ongekoppeld document op en moet dezelfde reset dragen.
+        s.ui.showLibraryLinkDialog = false;
+        s.ui.libraryRefreshNotice = null;
       });
       get().recomputeViewRows();
       emitExtensionEvent(HOST_EVENTS.projectNew);

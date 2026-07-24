@@ -1026,5 +1026,57 @@ const store = useAppStore.getState();
   assert(replaceIdx >= 0 && boundaryIdx >= 0 && boundaryIdx > replaceIdx, 'confirm-handler roept runOpenBoundary() aan ná replacePool (grens 1, spec §3)');
 }
 
+// --- Voorstap taak 14 (critreview taak 12, verplicht): de vlag-invariant is UNIVERSEEL —
+// runOpenBoundary/newDocument()/closeDocument() vestigen de VOLLEDIGE showLibraryLinkDialog/
+// libraryRefreshNotice-toestand, óók het WISSEN wanneer er niets deviated/behind is. Zonder deze
+// reset-regels blijft een stale dialoog/signaal van een vorige boundary-run of een vorig document
+// onterecht staan (File→Nieuw, openFile-in-nieuw-document). ---
+
+// runOpenBoundary: bedrijf gebonden, maar niets deviated/behind ⇒ stale true/getal wordt gewist.
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Invariant BV');
+  s.bindProjectToCompany(cid);
+  // Verse pool, geen gestempelde items voor dit bedrijf ⇒ 0 deviated, 0 behind.
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 42; });
+  const result = useAppStore.getState().runOpenBoundary();
+  assert(result.deviated === 0 && result.refreshed === 0, 'invariant-setup: scenario heeft niets deviated/behind');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'runOpenBoundary wist showLibraryLinkDialog ook zónder deviated-items (universele vlagtoestand)');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'runOpenBoundary wist libraryRefreshNotice ook zónder behind-items (universele vlagtoestand)');
+}
+
+// runOpenBoundary: ongebonden project (early-return-tak, §2-scope) wist óók stale vlaggen.
+{
+  useAppStore.getState().unbindProject(); // actief project raakt ongebonden (companyId = undefined)
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 7; });
+  const result = useAppStore.getState().runOpenBoundary();
+  assert(result.deviated === 0 && result.refreshed === 0, 'invariant-setup: ongebonden project ⇒ geen mechaniek');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'runOpenBoundary (early-return, geen bedrijf) wist showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'runOpenBoundary (early-return, geen bedrijf) wist libraryRefreshNotice');
+}
+
+// newDocument(): een vers document draait geen runOpenBoundary — de reset moet dus IN newDocument()
+// zelf zitten, anders blijft een stale dialoog/signaal van het vorige document staan.
+{
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 5; });
+  useAppStore.getState().newDocument();
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'newDocument() reset showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'newDocument() reset libraryRefreshNotice');
+}
+
+// closeDocument(): de laatste-sluit-naar-leeg-tak (state.documents.length === 1) reset óók de vlaggen.
+{
+  // Sluit alle andere openstaande documenten (inactieve tak) tot er nog maar één over is.
+  const active = useAppStore.getState().activeDocumentId;
+  for (const id of useAppStore.getState().documents.map((d) => d.id)) {
+    if (id !== active) useAppStore.getState().closeDocument(id);
+  }
+  assert(useAppStore.getState().documents.length === 1, 'invariant-setup: nog maar één document open');
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 9; });
+  useAppStore.getState().closeDocument(useAppStore.getState().activeDocumentId); // laatste-sluit-naar-leeg-tak
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'closeDocument() laatste-sluit-naar-leeg-tak reset showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'closeDocument() laatste-sluit-naar-leeg-tak reset libraryRefreshNotice');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
