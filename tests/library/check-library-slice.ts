@@ -668,6 +668,56 @@ const store = useAppStore.getState();
   assert(!!activeLoad && !('__stale__' in activeLoad.capacity), 'switchDocument herberekent resourceLoadResult bij activering i.p.v. de slapende/verouderde waarde te laten staan (fix 1)');
 }
 
+// --- F1 (vloot-fixpakket, issue #19): dormant payload.calendar-denormcache blijft in sync bij een
+// pool-bump — vóór de fix bleef de gedenormaliseerde `doc.payload.calendar`-cache van een SLAPEND
+// document de OUDE waarden dragen, terwijl `doc.payload.calendars` wél ververst werd. De auto-save
+// serialiseert slapende payloads rechtstreeks (geen hydrate) en de writer gebruikt uitsluitend
+// `calendar` voor de projectkalender ⇒ een stale cache betekende verkeerde uren in de recovery-IFC. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F1 Kalender BV');
+  s.bindProjectToCompany(cid);
+  const activeCalId = useAppStore.getState().project.calendarId;
+  // Promoveer de HUIDIGE projectdefault-kalender (het project-item met id `activeCalId`) naar de pool
+  // — promoteCalendarToPool mint een NIEUWE pool-id (`calId`, ≠ `activeCalId`) maar stempelt het BRON-
+  // projectitem direct terug (geen aparte kopie nodig), dus de actieve `s.calendar`-cache draagt meteen
+  // de herkomst (spiegelt updateCalendar; zie de toelichting in de actie zelf).
+  const calId = s.promoteCalendarToPool(cid, { ...useAppStore.getState().calendar, id: activeCalId })!;
+  assert(calId !== activeCalId, 'F1-fixture: promoteCalendarToPool mint een VERSE pool-id (niet gelijk aan het project-item-id)');
+  assert(useAppStore.getState().calendar.libraryOrigin?.companyId === cid, 'F1-fixture: de actieve projectkalender-cache draagt meteen het herkomststempel');
+  assert(useAppStore.getState().calendar.libraryOrigin?.libraryItemId === calId, 'F1-fixture: het stempel verwijst naar de nieuwe pool-id');
+
+  const docA = useAppStore.getState().activeDocumentId;
+  s.newDocument(); // doc A wordt SLAPEND, met de zojuist gestempelde default-kalender in de payload.
+  s.updatePoolCalendar(cid, calId, { workStartHour: 6, workEndHour: 20, hoursPerDay: 14, name: 'Verse tijden' });
+
+  const docAEntry = useAppStore.getState().documents.find(d => d.id === docA)!;
+  const freshCal = docAEntry.payload!.calendars.find(c => c.id === activeCalId);
+  assert(freshCal?.workStartHour === 6, 'F1: pool-bump ververst de kalender in de SLAPENDE payload.calendars-lijst');
+  assert(docAEntry.payload!.calendar.workStartHour === 6, 'F1: de gedenormaliseerde payload.calendar-cache volgt payload.calendars mee (was stale vóór de fix)');
+  assert(docAEntry.payload!.calendar.id === activeCalId, 'F1: payload.calendar blijft naar de juiste project-kalender-id wijzen');
+}
+
+// --- F1 (vervolg): removeCompany strript ook de dormant payload.calendar-denormcache, niet alleen
+// payload.calendars — anders draagt de cache nog het stempel van het net-verwijderde bedrijf. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F1 Remove BV');
+  s.bindProjectToCompany(cid);
+  const activeCalId = useAppStore.getState().project.calendarId;
+  s.promoteCalendarToPool(cid, { ...useAppStore.getState().calendar, id: activeCalId });
+  assert(useAppStore.getState().calendar.libraryOrigin?.companyId === cid, 'F1-fixture (removeCompany): de actieve projectkalender-cache draagt het stempel vóór het slapend worden');
+
+  const docA = useAppStore.getState().activeDocumentId;
+  s.newDocument(); // doc A wordt SLAPEND, met de gestempelde default-kalender in de payload.
+  s.removeCompany(cid);
+
+  const docAEntry = useAppStore.getState().documents.find(d => d.id === docA)!;
+  assert(docAEntry.payload!.calendars.find(c => c.id === activeCalId)?.libraryOrigin === undefined, 'F1-fixture: payload.calendars is gestript (bestaand gedrag, sanity-check)');
+  assert(docAEntry.payload!.calendar.libraryOrigin === undefined, 'F1: removeCompany strript ook de payload.calendar-denormcache (droeg anders nog het stempel van het verwijderde bedrijf)');
+  assert(docAEntry.payload!.calendar.id === activeCalId, 'F1: payload.calendar blijft naar de juiste project-kalender-id wijzen ná removeCompany');
+}
+
 // --- Verwijderd poolitem: projectkopie blijft functioneren, gemarkeerd removed (spec §3) ---
 {
   const s = useAppStore.getState();

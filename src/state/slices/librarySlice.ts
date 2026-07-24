@@ -276,10 +276,19 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
       }
       for (const d of s.documents) {
-        if (!d.payload || d.payload.project.companyId !== id) continue;
-        d.payload.project = { ...d.payload.project, companyId: undefined, companyName: undefined };
-        d.payload.resources = d.payload.resources.map((r) => r.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
-        d.payload.calendars = d.payload.calendars.map((c) => c.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
+        if (!d.payload) continue;
+        // Lokale const ná de null-guard: zie de identieke toelichting bij refreshAllDocumentsFromPool
+        // (TS narrowt `d.payload` niet door de `.find()`-callback hieronder heen).
+        const payload = d.payload;
+        if (payload.project.companyId !== id) continue;
+        payload.project = { ...payload.project, companyId: undefined, companyName: undefined };
+        payload.resources = payload.resources.map((r) => r.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = r; return rest; })() : r);
+        payload.calendars = payload.calendars.map((c) => c.libraryOrigin?.companyId === id ? (() => { const { libraryOrigin: _d, ...rest } = c; return rest; })() : c);
+        // F1 (vloot-fixpakket, issue #19): de gedenormaliseerde projectkalender-cache van een SLAPENDE
+        // payload moet de zojuist gestripte `calendars`-lijst meelopen — anders draagt de cache
+        // (waar de auto-save/writer uitsluitend uit leest, zonder hydrate) nog het herkomststempel
+        // van het net-verwijderde bedrijf. Spiegelt de actieve-document-tak hierboven.
+        payload.calendar = payload.calendars.find((c) => c.id === payload.project.calendarId) ?? payload.calendar;
       }
     });
     persist(get);
@@ -746,15 +755,26 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // Slapende payloads (plan-eis 1): muteer binnen dezelfde set(); herrekening pas bij activering.
       for (const doc of s.documents) {
         if (!doc.payload) continue; // actief document heeft payload===null.
-        if (doc.payload.project.companyId !== companyId) continue;
-        const cals = refreshCalendars(doc.payload.calendars.map((c) => current(c)));
-        const ress = refreshResources(doc.payload.resources.map((r) => current(r)));
+        // Lokale const ná de null-guard: TS narrowt `doc.payload` niet door de `.find()`-callback
+        // hieronder heen (property-narrowing overleeft geen geneste closure), een losse const wel.
+        const payload = doc.payload;
+        if (payload.project.companyId !== companyId) continue;
+        const cals = refreshCalendars(payload.calendars.map((c) => current(c)));
+        const ress = refreshResources(payload.resources.map((r) => current(r)));
         const docChanged = cals.calChanged + ress.resChanged;
         if (docChanged > 0) {
-          if (cals.calChanged > 0) doc.payload.calendars = cals.items;
-          if (ress.resChanged > 0) doc.payload.resources = ress.items;
-          doc.payload.redoStack = [];
-          if (cals.calChanged > 0) doc.payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
+          if (cals.calChanged > 0) {
+            payload.calendars = cals.items;
+            // F1 (vloot-fixpakket, issue #19): de gedenormaliseerde projectkalender-cache van deze
+            // SLAPENDE payload meesyncen met de zojuist ververste `calendars` — zonder dit blijft
+            // `payload.calendar` de OUDE (mogelijk stale) waarde dragen terwijl de auto-save die
+            // cache rechtstreeks serialiseert (geen hydrate), wat verkeerde uren in de recovery-IFC
+            // oplevert. Alleen binnen deze tak (calendars daadwerkelijk gewijzigd).
+            payload.calendar = payload.calendars.find((c) => c.id === payload.project.calendarId) ?? payload.calendar;
+          }
+          if (ress.resChanged > 0) payload.resources = ress.items;
+          payload.redoStack = [];
+          if (cals.calChanged > 0) payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
           changed += docChanged;
         }
       }
