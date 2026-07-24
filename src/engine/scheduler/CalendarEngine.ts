@@ -118,16 +118,31 @@ export class CalendarEngine {
    * Add working days to a start date.
    * Returns the end date (the last working day).
    * For duration=0 (milestone), returns the start date itself.
+   *
+   * Byte-identieke `Date`-retour: delegeert naar `addWorkDaysChecked` en pakt `.date` — zo houden alle
+   * bestaande aanroepers (o.a. `useBarDrag`, de niet-taakdatum-CPM-plekken) exact dezelfde signatuur.
    */
   addWorkDays(startDate: Date, workDays: number): Date {
-    if (workDays <= 0) return new Date(startDate.getTime());
+    return this.addWorkDaysChecked(startDate, workDays).date;
+  }
+
+  /**
+   * `addWorkDays` mét expliciet CAP-signaal (WP7 "Onwerkbaar-venster-detectie"). `capped: true` zodra
+   * een van de twee veiligheidsgrenzen wordt geraakt — de MAX_SCAN-werkdag-zoek (een kalender die het
+   * venster onwerkbaar maakt, bv. een aaneengesloten holiday-blok) óf de MAX_DAYS-tellimiet — waarna de
+   * teruggegeven `Date` een gecapte (niet-betekenisvolle) datum is i.p.v. de echte laatste werkdag. De
+   * datum-uitkomst is per pad IDENTIEK aan de oude `addWorkDays` (dezelfde `current` op elke return/break);
+   * alleen het `capped`-veld is nieuw. De solver aggregeert dit tot een zachte `cappedTaskIds`-waarschuwing.
+   */
+  addWorkDaysChecked(startDate: Date, workDays: number): { date: Date; capped: boolean } {
+    if (workDays <= 0) return { date: new Date(startDate.getTime()), capped: false };
 
     let current = new Date(startDate.getTime());
     // Ensure we start on a work day
     let scan = 0;
     while (!this.isWorkDay(current)) {
       current = addCalendarDays(current, 1);
-      if (++scan > CalendarEngine.MAX_SCAN) return current; // geen werkdag — niet vastlopen
+      if (++scan > CalendarEngine.MAX_SCAN) return { date: current, capped: true }; // geen werkdag — niet vastlopen
     }
 
     let remaining = workDays - 1; // first work day counts as day 1
@@ -137,9 +152,9 @@ export class CalendarEngine {
       if (this.isWorkDay(current)) {
         remaining--;
       }
-      if (++steps > CalendarEngine.MAX_DAYS) break;
+      if (++steps > CalendarEngine.MAX_DAYS) return { date: current, capped: true };
     }
-    return current;
+    return { date: current, capped: false };
   }
 
   /**

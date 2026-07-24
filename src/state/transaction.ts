@@ -53,6 +53,21 @@ export function resetUndoCoalescing(): void {
 }
 
 /**
+ * Suppressie-vlag voor MCP-bulk/batch-transacties (WP0). Zolang deze aanstaat geeft `beginUndoable`
+ * een early-return: de per-mutator-snapshots worden onderdrukt zodat de transactie zelf ÉÉN snapshot
+ * vooraf kan nemen ("één bulk = één undo-stap"). Bewust MODULE-state, net als de coalesce-marker —
+ * een puur uitvoerings-"venster"-hint die niet in het documentcontract/de snapshot thuishoort.
+ * Alleen `runInMcpTransaction` (mcpTransaction.ts) zet 'm, strikt synchroon aan/uit rond de callback.
+ */
+let mcpTransactionActive = false;
+
+/** Zet de MCP-transactie-suppressie aan/uit. Uitsluitend aangeroepen door `runInMcpTransaction`,
+ *  die de vlag synchroon rond de mutatie-callback beheert (aan vóór, uit ná — óók bij een throw). */
+export function setMcpTransactionActive(active: boolean): void {
+  mcpTransactionActive = active;
+}
+
+/**
  * Open een ongedaan-maakbare mutatie: leg de huidige staat op de undo-stack en wis de redo-stack.
  * ROEP DIT AAN NÁ eventuele guard-returns en VÓÓR de mutatie — zo vervuilt een no-op de undo-stack
  * niet (bewust patroon door de hele state-laag: acties pushen de snapshot pas als er echt iets
@@ -68,6 +83,9 @@ export function resetUndoCoalescing(): void {
  * dezelfde bewerking vallen samen.
  */
 export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): void {
+  // WP0-suppressie: binnen een MCP-transactie neemt `runInMcpTransaction` zelf één snapshot vooraf;
+  // de individuele mutators mogen er dan géén pushen. Early-return vóór álle snapshot-/coalesce-logica.
+  if (mcpTransactionActive) return;
   const key = opts?.coalesceKey;
   if (key && coalesce && coalesce.key === key && coalesce.len === s.undoStack.length && coalesce.docId === s.activeDocumentId) {
     // Voortzetting van dezelfde bewerking: de bestaande snapshot dekt de begintoestand al.

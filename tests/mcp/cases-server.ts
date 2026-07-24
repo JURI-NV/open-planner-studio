@@ -25,6 +25,8 @@ import {
   createStatusHandler,
   attemptBridgeStart,
   buildMcpContext,
+  createBridgeController,
+  type BridgeDeps,
 } from '@/services/mcp/server';
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -171,6 +173,109 @@ test('buildMcpContext leest paused/readOnly LIVE uit de ui-state en levert de pl
 
   // Opruimen zodat andere case-bestanden een schone default-store zien.
   useAppStore.getState().setAiReadOnly(false);
+});
+
+// --- (5) listener-levenscyclus (dubbel-start-guard + stop→start-cyclus) --------------------------
+
+/**
+ * Fake-Tauri met een ACTIEVE-handler-registry per event: `listen` voegt een handler toe en geeft
+ * een unlisten die 'm er weer uit haalt; `fire` roept alleen de nog-gekoppelde handlers aan. Zo
+ * meet de test rechtstreeks of `cleanup()` verweesde listeners echt afmeldt (geen dubbele dispatch).
+ */
+function makeFakeTauri(opts?: { failStart?: boolean }) {
+  const handlers = new Map<string, Set<(p: any) => void>>();
+  const emitted: Array<{ event: string; payload: any }> = [];
+  const invokeCalls: Array<{ cmd: string; args: any }> = [];
+  let dispatchCount = 0;
+
+  const deps: BridgeDeps = {
+    listen: <T>(event: string, handler: (payload: T) => void) => {
+      let set = handlers.get(event);
+      if (!set) { set = new Set(); handlers.set(event, set); }
+      set.add(handler as (p: any) => void);
+      return Promise.resolve(() => { handlers.get(event)?.delete(handler as (p: any) => void); });
+    },
+    invoke: async (cmd, args) => {
+      invokeCalls.push({ cmd, args });
+      if (opts?.failStart && cmd === 'mcp_bridge_start') throw new Error('kon niet binden op 127.0.0.1');
+      return undefined;
+    },
+    emit: (event, payload) => { emitted.push({ event, payload }); },
+    setStatus: () => { /* niet relevant voor deze cases */ },
+    buildContext: buildMcpContext,
+    // Tel elke echte dispatch; body maakt niet uit voor de listener-telling.
+    handleMessage: async () => { dispatchCount += 1; return '{"ok":true}'; },
+    getPort: () => 3877,
+    getToken: () => 'tok',
+  };
+
+  return {
+    deps,
+    handlerCount: (event: string) => handlers.get(event)?.size ?? 0,
+    fire: (event: string, payload: any) => { for (const h of [...(handlers.get(event) ?? [])]) h(payload); },
+    invokeCalls,
+    emitted,
+    dispatchCount: () => dispatchCount,
+  };
+}
+
+const REQ_BODY = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' });
+
+test('één start koppelt exact één listener-set (één request- + één status-listener)', async () => {
+  const fake = makeFakeTauri();
+  const controller = createBridgeController(fake.deps);
+  await controller.start();
+  assertEq(fake.handlerCount('mcp://request'), 1, 'precies één request-listener');
+  assertEq(fake.handlerCount('mcp://status'), 1, 'precies één status-listener');
+  assertEq(controller.activeListenerCount(), 2, 'controller telt 2 actieve listeners');
+});
+
+test('een tweede seriële start houdt exact één listener-set over (geen verweesde listeners)', async () => {
+  const fake = makeFakeTauri();
+  const controller = createBridgeController(fake.deps);
+  await controller.start();
+  await controller.start(); // tweede start: cleanup() moet de oude set afmelden vóór de nieuwe
+  assertEq(fake.handlerCount('mcp://request'), 1, 'na dubbele start nog steeds één request-listener');
+  assertEq(fake.handlerCount('mcp://status'), 1, 'na dubbele start nog steeds één status-listener');
+
+  // Bewijs "geen dubbele afhandeling": één binnenkomend request → precies één dispatch.
+  fake.fire('mcp://request', { id: 99, body: REQ_BODY });
+  await Promise.resolve();
+  assertEq(fake.dispatchCount(), 1, 'één request-event mag maar één keer door de dispatcher lopen');
+});
+
+test('twee gelijktijdige starts → in-flight-lock laat de tweede vroeg returnen (één set)', async () => {
+  const fake = makeFakeTauri();
+  const controller = createBridgeController(fake.deps);
+  await Promise.all([controller.start(), controller.start()]);
+  assertEq(fake.handlerCount('mcp://request'), 1, 'gelijktijdige start levert geen dubbele request-listener');
+  assertEq(fake.handlerCount('mcp://status'), 1, 'gelijktijdige start levert geen dubbele status-listener');
+  // Slechts één daadwerkelijke bridge-start-invoke (de tweede start viel op het slot vroeg af).
+  assertEq(fake.invokeCalls.filter((c) => c.cmd === 'mcp_bridge_start').length, 1, 'maar één mcp_bridge_start-invoke');
+});
+
+test('stop→start-cyclus: stop meldt alles af, de herstart koppelt precies één verse set', async () => {
+  const fake = makeFakeTauri();
+  const controller = createBridgeController(fake.deps);
+  await controller.start();
+  await controller.stop();
+  assertEq(fake.handlerCount('mcp://request'), 0, 'na stop geen request-listener meer');
+  assertEq(fake.handlerCount('mcp://status'), 0, 'na stop geen status-listener meer');
+  assertEq(controller.activeListenerCount(), 0, 'controller telt 0 na stop');
+  assert(fake.invokeCalls.some((c) => c.cmd === 'mcp_bridge_stop'), 'mcp_bridge_stop is geïnvoket');
+
+  await controller.start();
+  assertEq(fake.handlerCount('mcp://request'), 1, 'herstart koppelt precies één request-listener');
+  assertEq(controller.activeListenerCount(), 2, 'controller telt 2 na herstart');
+});
+
+test('een mislukte start (port-busy) ruimt zijn eigen listeners synchroon op', async () => {
+  const fake = makeFakeTauri({ failStart: true });
+  const controller = createBridgeController(fake.deps);
+  await controller.start();
+  assertEq(fake.handlerCount('mcp://request'), 0, 'bind-fout ⇒ geen achterblijvende request-listener');
+  assertEq(fake.handlerCount('mcp://status'), 0, 'bind-fout ⇒ geen achterblijvende status-listener');
+  assertEq(controller.activeListenerCount(), 0, 'controller telt 0 na een mislukte start');
 });
 
 await run();
