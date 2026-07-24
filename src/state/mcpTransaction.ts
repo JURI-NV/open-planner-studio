@@ -143,6 +143,20 @@ function isValidUnits(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n) && n > 0;
 }
 
+/**
+ * Eén item van een `draft.addTasks`-bulk (spec §Werkpakket 2). Alle velden die `draft.addTask`
+ * accepteert (via `Partial<Task>` — `name`, `time`, `taskType`, …), plus drie bulk-only velden:
+ *  - `tempId`  — door de client gekozen, UNIEK binnen de call; wordt de sleutel in de terugmap.
+ *  - `parentId` — een ECHT bestaand taak-id ÓF een `tempId` uit dezelfde call (voor geneste aanmaak).
+ *  - `position` — insert-index binnen de ouder (`parent.childIds`, of de wortelvolgorde bij `null`);
+ *    afwezig ⇒ achteraan.
+ */
+export type BulkTaskItem = Partial<Task> & {
+  name: string;
+  tempId: string;
+  position?: number;
+};
+
 export const draft = {
   /**
    * Snapshot/recompute-vrije variant van de store-`addTask`: zelfde veld-afleiding (TaskTime-defaults,
@@ -203,6 +217,146 @@ export const draft = {
       s.isDirty = true;
     });
     return id;
+  },
+
+  /**
+   * Geneste WBS in ÉÉN aanroep (spec §Werkpakket 2). Maakt een reeks taken aan die naar elkaar mogen
+   * verwijzen via client-gekozen `tempId`'s, en retourneert de VOLLEDIGE `tempId`→`realId`-map van
+   * álle aangemaakte taken (ook diep genest). Bedoeld om BINNEN `runInMcpTransaction` te draaien (net
+   * als de andere draft-primitieven: geen eigen snapshot/recompute).
+   *
+   * PRE-VALIDATIE (VÓÓR de eerste `draft.addTask`-aanroep — een falende batch laat NUL taken achter;
+   * de transactie rolt sowieso terug, maar de pre-check maakt de fout goedkoop en de message precies):
+   *   - dubbele `tempId` binnen de call ⇒ throw;
+   *   - `parentId` die geen bestaand taak-id én geen `tempId` uit de call is ⇒ throw (noemt de boosdoener);
+   *   - mijlpaal met een expliciete `time` van duur > 0 ⇒ throw (WP7-regel, hier als aanmaak-validatie);
+   *   - cykel in `tempId`-parents (a onder b, b onder a) ⇒ throw.
+   *
+   * AANMAAK is TOP-DOWN: de items worden topologisch gesorteerd zodat een ouder altijd vóór zijn
+   * kinderen wordt aangemaakt (tempId-parents mogen in willekeurige — ook omgekeerde — inputvolgorde
+   * staan). Elk item loopt via `draft.addTask` (append), met de `tempId`-parent vertaald naar het echte
+   * id uit de tot dan toe opgebouwde map.
+   *
+   * POSITIE: `position` is de insert-index binnen `parent.childIds` (of de wortelvolgorde bij een
+   * `null`-ouder). Om `childIds`-volgorde (zichtbaar, visibleRows.ts) én rauwe-array-volgorde (WBS-
+   * nummering, wbs.ts/flattenOrder) consistent te houden — precies zoals de store-`addTask` met een
+   * anker doet — worden BEIDE bijgewerkt. Items met een positie worden in INPUTvolgorde toegepast
+   * (meerdere posities in dezelfde ouder stapelen dus voorspelbaar).
+   */
+  addTasks(items: BulkTaskItem[]): Map<string, string> {
+    // ---- Pre-validatie (VÓÓR enige mutatie) ----------------------------------------------------
+    // 1) Dubbele tempId's binnen de call.
+    const tempIds = new Set<string>();
+    for (const item of items) {
+      if (tempIds.has(item.tempId)) {
+        throw new Error(`draft.addTasks: dubbele tempId '${item.tempId}' binnen de call`);
+      }
+      tempIds.add(item.tempId);
+    }
+
+    // 2) Elke parentId moet een bestaand taak-id ÓF een tempId uit de call zijn.
+    const existingIds = new Set(useAppStore.getState().tasks.map((t) => t.id));
+    for (const item of items) {
+      const p = item.parentId ?? null;
+      if (p !== null && !existingIds.has(p) && !tempIds.has(p)) {
+        throw new Error(
+          `draft.addTasks: onbekende parentId '${p}' (geen bestaand taak-id en geen tempId uit de call)`,
+        );
+      }
+    }
+
+    // 3) Mijlpaal met expliciete duur > 0 (WP7: een mijlpaal is per definitie duur 0).
+    for (const item of items) {
+      if (item.isMilestone && item.time && item.time.scheduleDuration > 0) {
+        throw new Error(
+          `draft.addTasks: mijlpaal '${item.tempId}' mag geen duur > 0 hebben (scheduleDuration=${item.time.scheduleDuration})`,
+        );
+      }
+    }
+
+    // 4) Topologische sort (ouders vóór kinderen) met cykeldetectie op tempId-parents.
+    const byTempId = new Map(items.map((it) => [it.tempId, it]));
+    const visitState = new Map<string, 1 | 2>(); // 1 = in behandeling, 2 = klaar
+    const sorted: BulkTaskItem[] = [];
+    const visit = (item: BulkTaskItem) => {
+      const st = visitState.get(item.tempId);
+      if (st === 2) return;
+      if (st === 1) throw new Error(`draft.addTasks: cykel in tempId-parents rond '${item.tempId}'`);
+      visitState.set(item.tempId, 1);
+      const p = item.parentId ?? null;
+      if (p !== null && tempIds.has(p)) visit(byTempId.get(p)!);
+      visitState.set(item.tempId, 2);
+      sorted.push(item);
+    };
+    for (const item of items) visit(item);
+
+    // ---- Aanmaak (top-down, via draft.addTask) -------------------------------------------------
+    const idMap = new Map<string, string>();
+    for (const item of sorted) {
+      // tempId/position zijn bulk-only; de rest is een gewoon draft.addTask-payload.
+      const { tempId, position: _position, parentId, ...taskFields } = item;
+      const rawParent = parentId ?? null;
+      // Een tempId-parent vertalen naar zijn echte id; een bestaand id blijft zichzelf.
+      const resolvedParent =
+        rawParent !== null && idMap.has(rawParent) ? idMap.get(rawParent)! : rawParent;
+      const realId = draft.addTask({ ...taskFields, parentId: resolvedParent });
+      idMap.set(tempId, realId);
+    }
+
+    // ---- Positie (in INPUTvolgorde) ------------------------------------------------------------
+    const positioned = items.filter((it) => it.position !== undefined);
+    if (positioned.length > 0) {
+      useAppStore.setState((s) => {
+        for (const item of positioned) {
+          const id = idMap.get(item.tempId)!;
+          const task = s.tasks.find((t) => t.id === id);
+          if (!task) continue;
+          const pos = item.position!;
+
+          if (task.parentId) {
+            const parent = s.tasks.find((t) => t.id === task.parentId);
+            if (!parent) continue;
+            // childIds: uit de huidige slot halen en op de geklemde index herinvoegen.
+            const curChild = parent.childIds.indexOf(id);
+            if (curChild >= 0) parent.childIds.splice(curChild, 1);
+            const clamped = Math.max(0, Math.min(pos, parent.childIds.length));
+            parent.childIds.splice(clamped, 0, id);
+            // Rauwe array: sibling-array-volgorde gelijktrekken met childIds (flattenOrder/WBS leest
+            // array-volgorde onder de ouder). De taak vóór de opvolgende sibling inschuiven (of ná de
+            // voorgaande sibling / direct ná de ouder als enig kind).
+            const curArr = s.tasks.findIndex((t) => t.id === id);
+            const [obj] = s.tasks.splice(curArr, 1);
+            const nextId = parent.childIds[clamped + 1];
+            let insertAt: number;
+            if (nextId !== undefined) {
+              insertAt = s.tasks.findIndex((t) => t.id === nextId);
+            } else {
+              const prevId = parent.childIds[clamped - 1];
+              insertAt =
+                prevId !== undefined
+                  ? s.tasks.findIndex((t) => t.id === prevId) + 1
+                  : s.tasks.findIndex((t) => t.id === task.parentId) + 1;
+            }
+            s.tasks.splice(insertAt, 0, obj);
+          } else {
+            // Wortel: de zichtbare/WBS-wortelvolgorde IS de array-volgorde onder de wortels.
+            const curArr = s.tasks.findIndex((t) => t.id === id);
+            const [obj] = s.tasks.splice(curArr, 1);
+            const rootIds = s.tasks.filter((t) => !t.parentId).map((t) => t.id);
+            const clamped = Math.max(0, Math.min(pos, rootIds.length));
+            const nextRootId = rootIds[clamped];
+            const insertAt =
+              nextRootId !== undefined ? s.tasks.findIndex((t) => t.id === nextRootId) : s.tasks.length;
+            s.tasks.splice(insertAt, 0, obj);
+          }
+        }
+        // WBS-auto-nummering herafleiden nu de volgorde definitief is (spiegelt draft.addTask).
+        if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
+        s.isDirty = true;
+      });
+    }
+
+    return idMap;
   },
 
   /**
