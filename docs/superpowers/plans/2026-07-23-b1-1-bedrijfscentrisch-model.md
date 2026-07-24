@@ -728,6 +728,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Taak 6: Dormant-payload-verversing over alle open documenten (plan-eis 1)
 
+> **NB (bouw taak 6, al gefixt in code):** het kalendertak-testblok dat de taak-5-review afdwong (jonger dan dit plan) dreef `refreshBehindItems` handmatig via `updatePool*`-setup; sinds de grens-3-bedrading van deze taak vuurt die setup zelf al een verversing. Verzoend door de behind-toestand in dat blok buiten de pool-CRUD om op te bouwen (directe store-mutatie), zodat het blok het primitief in isolatie blijft bewijzen. Patroon voor later: tests die het primitief geïsoleerd willen raken, mogen de pool nooit via de CRUD-acties muteren.
+
 Een pool-edit (grens 3) en crash-herstel (grens 4) moeten óók de `resources`/`calendars` van niet-actieve documenten bijwerken — binnen **één `set()`** op hun `documents[].payload` — met herrekening pas bij activering (plan-eis 1). We voegen `refreshAllDocumentsFromPool(companyId)` toe: actief top-level + elke slapende payload.
 
 **Behind-only (review-fix, spec §3):** ook grens 3 ververst **uitsluitend 'behind'-items** (syncedHash matcht de pool niet meer terwijl het bestand lokaal ongewijzigd is). Een onbesliste **'deviated'**-item (lokaal bewerkt) blijft staan en komt bij de volgende grens-1/heropening terug ("onbesliste items blijven gemarkeerd"). Een pool-edit overschrijft dus nooit stil een lokale afwijking.
