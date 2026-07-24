@@ -832,5 +832,21 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().resources.find(r => r.id === projRes2)?.libraryOrigin?.libraryItemId === poolResId2, 'geldige link gaat gewoon door naast de verdwenen kandidaat');
 }
 
+// --- Bedrijfsweergave-CRUD raakt uitsluitend s.pools (plan-eis 3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Inv BV');
+  s.bindProjectToCompany(cid);
+  const resSnapshotBefore = JSON.stringify(useAppStore.getState().resources);
+  const poolVBefore = useAppStore.getState().pools[cid].poolVersion;
+  const newId = s.addPoolResource(cid, { name: 'Grondwerker', type: 'LABOR', description: '', maxUnits: 4 });
+  const after = useAppStore.getState();
+  assert(!!newId && after.pools[cid].resources.some(r => r.id === newId), 'addPoolResource voegt toe aan de pool');
+  assert(after.pools[cid].poolVersion === poolVBefore + 1, 'addPoolResource bumpt de pool');
+  assert(JSON.stringify(after.resources) === resSnapshotBefore, 'addPoolResource raakt s.resources NIET (invariant, plan-eis 3)');
+  const calId = s.addPoolCalendar(cid, { name: 'Weekendploeg', description: '', workDays: [6, 0], workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [] });
+  assert(!!calId && useAppStore.getState().pools[cid].calendars.some(c => c.id === calId), 'addPoolCalendar voegt toe aan de pool');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

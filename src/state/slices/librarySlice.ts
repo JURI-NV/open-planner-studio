@@ -51,6 +51,10 @@ export interface LibrarySlice {
   updatePoolResource: (companyId: string, resourceId: string, updates: Partial<import('@/types/resource').Resource>) => void;
   removePoolCalendar: (companyId: string, calendarId: string) => void;
   removePoolResource: (companyId: string, resourceId: string) => void;
+  /** Bedrijfsweergave-CRUD: maak een NIEUW poolitem direct in het bedrijf (spec §4). Raakt
+   *  UITSLUITEND s.pools (invariant, plan-eis 3); bumpt de pool. Retourneert de nieuwe pool-id. */
+  addPoolResource: (companyId: string, resource: Omit<import('@/types/resource').Resource, 'id'>) => string | null;
+  addPoolCalendar: (companyId: string, calendar: Omit<import('@/types/calendar').WorkCalendar, 'id'>) => string | null;
 
   /** Bind het ACTIEVE project aan een bedrijf (spec §6). Zet project.companyId + companyName; bij
    *  OMkoppelen (ander bedrijf) worden vreemde stempels van het VORIGE bedrijf gestript (spec §5),
@@ -365,6 +369,35 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     });
     persist(get);
     get().refreshAllDocumentsFromPool(companyId);
+  },
+
+  addPoolResource: (companyId, resource) => {
+    let newId: string | null = null;
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      const id = generateId('res');
+      const { libraryOrigin: _o, parentId: _p, calendarId: _c, ...rest } = resource as import('@/types/resource').Resource;
+      pool.resources.push({ ...structuredClone(rest), id });
+      s.pools[companyId] = bumpPool(pool);
+      newId = id;
+    });
+    persist(get);
+    return newId;
+  },
+  addPoolCalendar: (companyId, calendar) => {
+    let newId: string | null = null;
+    set((s) => {
+      const pool = s.pools[companyId];
+      if (!pool) return;
+      const id = generateId('cal');
+      const { libraryOrigin: _o, ...rest } = calendar as import('@/types/calendar').WorkCalendar;
+      pool.calendars.push({ ...structuredClone(rest), id });
+      s.pools[companyId] = bumpPool(pool);
+      newId = id;
+    });
+    persist(get);
+    return newId;
   },
 
   bindProjectToCompany: (companyId) => {
