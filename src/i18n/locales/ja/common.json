@@ -302,6 +302,9 @@
     "notInCompany": "会社にはもう存在しません",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} 件の設定",
+    "linkedCompany": "会社",
+    "noCompanyLinked": "なし(単独プロジェクト)",
+    "clientOrg": "発注者/組織",
     "field": {
       "name": "名前",
       "description": "説明",

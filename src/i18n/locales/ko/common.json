@@ -302,6 +302,9 @@
     "notInCompany": "더 이상 회사에 없음",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}}개 설정",
+    "linkedCompany": "회사",
+    "noCompanyLinked": "없음(독립 프로젝트)",
+    "clientOrg": "발주처/조직",
     "field": {
       "name": "이름",
       "description": "설명",

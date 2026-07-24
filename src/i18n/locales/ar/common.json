@@ -302,6 +302,9 @@
     "notInCompany": "لم يعد موجودًا في الشركة",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} إعداد",
+    "linkedCompany": "الشركة",
+    "noCompanyLinked": "بدون (مشروع مستقل)",
+    "clientOrg": "الجهة المالكة/المؤسسة",
     "field": {
       "name": "الاسم",
       "description": "الوصف",

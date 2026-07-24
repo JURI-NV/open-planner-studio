@@ -302,6 +302,9 @@
     "notInCompany": "artık şirkette değil",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} ayar",
+    "linkedCompany": "Şirket",
+    "noCompanyLinked": "yok (bağımsız proje)",
+    "clientOrg": "Müşteri/kurum",
     "field": {
       "name": "Ad",
       "description": "Açıklama",

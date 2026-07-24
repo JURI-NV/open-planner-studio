@@ -302,6 +302,9 @@
     "notInCompany": "دیگر در شرکت وجود ندارد",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} تنظیم",
+    "linkedCompany": "شرکت",
+    "noCompanyLinked": "هیچ‌کدام (پروژه مستقل)",
+    "clientOrg": "کارفرما/سازمان",
     "field": {
       "name": "نام",
       "description": "توضیحات",

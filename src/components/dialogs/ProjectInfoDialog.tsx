@@ -69,6 +69,11 @@ export function ProjectInfoDialog() {
   const pools = useAppStore(s => s.pools);
   const hasLibraryContent = companies.some(c => (pools[c.id]?.resources.length ?? 0) + (pools[c.id]?.calendars.length ?? 0) > 0);
   const [offerLibraryAdd, setOfferLibraryAdd] = useState(false);
+  const defaultCompanyId = useAppStore(s => s.defaultCompanyId);
+  const bindProjectToCompany = useAppStore(s => s.bindProjectToCompany);
+  const unbindProject = useAppStore(s => s.unbindProject);
+  // Voorselectie: het gekoppelde bedrijf, anders het standaardbedrijf (spec §2 — gekoppeld is de norm).
+  const [linkedCompanyId, setLinkedCompanyId] = useState<string>(isNew ? defaultCompanyId : (project.companyId ?? ''));
   // Ploeg-preset (§6.7): default 'day' = dag-kalender (byte-identiek). Alleen zichtbaar met
   // Urenplanning aan; een niet-default preset materialiseert workTime + shift op de nieuwe kalender.
   const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
@@ -101,6 +106,14 @@ export function ProjectInfoDialog() {
         calendar,
         phaseNames: templatePhases(template),
       });
+      // Spec §2/§5: koppel aan het gekozen bedrijf (default = standaardbedrijf). Herkenning start
+      // pas als het project al inhoud heeft — bij een vers, leeg project is dat een no-op.
+      if (linkedCompanyId) {
+        bindProjectToCompany(linkedCompanyId);
+        if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
+          useAppStore.getState().setUI({ showLibraryLinkDialog: true });
+        }
+      }
       // Spec §3: na het aanmaken kan de gebruiker direct uit de bibliotheek toevoegen.
       if (offerLibraryAdd) {
         useAppStore.getState().setUI({ showAddFromLibraryDialog: true });
@@ -125,6 +138,17 @@ export function ProjectInfoDialog() {
           ? { schedulingOptions: Object.keys(normalized).length > 0 ? normalized : undefined }
           : {}),
       });
+      const prevCompany = project.companyId ?? '';
+      if (linkedCompanyId !== prevCompany) {
+        if (linkedCompanyId) {
+          bindProjectToCompany(linkedCompanyId);
+          if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
+            useAppStore.getState().setUI({ showLibraryLinkDialog: true });
+          }
+        } else {
+          unbindProject();
+        }
+      }
       if (soChanged) runCPM();
       setUI({ showProjectInfoDialog: false });
     }
@@ -180,9 +204,22 @@ export function ProjectInfoDialog() {
               <input value={author} onChange={e => setAuthor(e.target.value)} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-text-secondary font-medium">{tMenu('projectInfo.company')}</label>
-              <input value={company} onChange={e => setCompany(e.target.value)} className={inputCls} />
+              <label className="text-text-secondary font-medium">{tCommon('companyLibrary.linkedCompany')}</label>
+              <select
+                value={linkedCompanyId}
+                onChange={e => setLinkedCompanyId(e.target.value)}
+                className={inputCls}
+                data-ops-project-company-select
+              >
+                <option value="">{tCommon('companyLibrary.noCompanyLinked')}</option>
+                {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-text-secondary font-medium">{tCommon('companyLibrary.clientOrg')}</label>
+            <input value={company} onChange={e => setCompany(e.target.value)} className={inputCls} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -302,6 +302,9 @@
     "notInCompany": "niet meer in het bedrijf",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} instellingen",
+    "linkedCompany": "Bedrijf",
+    "noCompanyLinked": "geen (los project)",
+    "clientOrg": "Opdrachtgever/organisatie",
     "field": {
       "name": "Naam",
       "description": "Omschrijving",

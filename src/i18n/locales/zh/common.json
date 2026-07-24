@@ -302,6 +302,9 @@
     "notInCompany": "公司中已不存在",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} 项设置",
+    "linkedCompany": "公司",
+    "noCompanyLinked": "无(独立项目)",
+    "clientOrg": "委托方/组织",
     "field": {
       "name": "名称",
       "description": "描述",

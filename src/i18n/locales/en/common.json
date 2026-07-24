@@ -302,6 +302,9 @@
     "notInCompany": "no longer in the company",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} settings",
+    "linkedCompany": "Company",
+    "noCompanyLinked": "none (standalone project)",
+    "clientOrg": "Client/organization",
     "field": {
       "name": "Name",
       "description": "Description",

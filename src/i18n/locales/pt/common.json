@@ -302,6 +302,9 @@
     "notInCompany": "não está mais na empresa",
     "diffArrayCount": "{{count}} {{noun}}",
     "diffObjectCount": "{{count}} definições",
+    "linkedCompany": "Empresa",
+    "noCompanyLinked": "nenhuma (projeto autónomo)",
+    "clientOrg": "Cliente/organização",
     "field": {
       "name": "Nome",
       "description": "Descrição",
