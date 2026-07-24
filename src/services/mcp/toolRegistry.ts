@@ -8,7 +8,8 @@
 // `registerToolModules` VERVANGT de interne staat volledig (idempotent) zodat de headless tests
 // met stub-modules kunnen werken. Validaties bij registratie zijn ONTWIKKELFOUTEN → harde throw:
 //   - elke toolnaam moet de service-prefix `planner_` dragen (spec §Naamgeving);
-//   - dubbele namen mogen niet.
+//   - dubbele namen mogen niet;
+//   - elke tool moet een niet-lege `description` hebben (dragend voor tools/list — de AI kiest erop).
 import type { McpToolDef } from './contracts';
 
 /** Service-prefix; alle toolnamen dragen hem (spec §Naamgeving — voorkomt botsingen met andere MCP-servers). */
@@ -24,7 +25,7 @@ let toolsByName = new Map<string, McpToolDef>();
 
 /**
  * (Her)registreer de complete toolset uit een lijst van module-arrays. Vervangt de vorige staat.
- * Gooit bij een ontbrekende prefix of een dubbele naam (ontwikkelfout, faalt vroeg).
+ * Gooit bij een ontbrekende prefix, een dubbele naam of een lege description (ontwikkelfout, faalt vroeg).
  */
 export function registerToolModules(defs: McpToolDef[][]): void {
   const flat: McpToolDef[] = [];
@@ -36,6 +37,9 @@ export function registerToolModules(defs: McpToolDef[][]): void {
       }
       if (byName.has(def.name)) {
         throw new Error(`Dubbele MCP-toolnaam bij registratie: '${def.name}'`);
+      }
+      if (def.description.trim() === '') {
+        throw new Error(`MCP-tool '${def.name}' mist een (niet-lege) description`);
       }
       byName.set(def.name, def);
       flat.push(def);

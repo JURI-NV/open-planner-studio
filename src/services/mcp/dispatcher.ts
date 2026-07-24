@@ -12,6 +12,7 @@ import { getTools, getTool } from './toolRegistry';
 /** serverInfo.name in de initialize-respons. */
 export const MCP_SERVER_NAME = 'open-planner-studio';
 /** serverInfo.version in de initialize-respons (informatief; los van de app-CalVer / Cargo 0.1.0). */
+// TODO(T24): koppel aan de app-CalVer (package.json-versie) i.p.v. deze losse placeholder-const.
 export const MCP_SERVER_VERSION = '0.1.0';
 /** Onze default MCP-protocolversie wanneer de client er geen bekende meestuurt. */
 export const DEFAULT_PROTOCOL_VERSION = '2025-06-18';
@@ -33,16 +34,11 @@ function errorMsg(id: JsonRpcId, code: number, message: string): string {
 
 // --- Verpakkers ----------------------------------------------------------------------------------
 
-/**
- * Eén list-item voor tools/list. De bevroren `McpToolDef` heeft geen los `description`-veld; de
- * MCP-toolbeschrijving komt daarom uit de standaard JSON-Schema-`description` op het inputSchema.
- */
+/** Eén list-item voor tools/list: naam, beschrijving, inputSchema en annotaties. */
 function toolListEntry(def: McpToolDef): object {
-  const schema = def.inputSchema as { description?: unknown };
-  const description = typeof schema?.description === 'string' ? schema.description : '';
   return {
     name: def.name,
-    description,
+    description: def.description,
     inputSchema: def.inputSchema,
     annotations: def.annotations,
   };

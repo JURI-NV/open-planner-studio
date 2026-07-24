@@ -26,11 +26,12 @@ const stubEnvelope = {
 /** Leestool die zijn args echoot — bewijst arg-routering + ok-verpakking. */
 const echoTool: McpToolDef = {
   name: 'planner_echo',
+  description: 'Echoot de meegegeven waarde terug (teststub).',
   kind: 'read',
   batchable: true,
   inputSchema: {
     type: 'object',
-    description: 'Echoot de meegegeven waarde terug (teststub).',
+    description: 'schema-omschrijving (mag NIET in tools/list belanden)',
     properties: { value: { type: 'string' } },
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -40,9 +41,10 @@ const echoTool: McpToolDef = {
 /** Muteertool die altijd faalt — bewijst error-verpakking + isError-vlag. */
 const failTool: McpToolDef = {
   name: 'planner_fail',
+  description: 'Faalt altijd (teststub).',
   kind: 'mutate',
   batchable: false,
-  inputSchema: { type: 'object', description: 'Faalt altijd (teststub).', properties: {} },
+  inputSchema: { type: 'object', properties: {} },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   handler: (): McpToolResult => ({ ok: false, envelope: stubEnvelope, error: 'stub-fout', code: 'VALIDATION' }),
 };
@@ -113,7 +115,8 @@ test('tools/list bevat de stubs met schema + annotations en alle namen dragen pl
     assert(typeof t.description === 'string', `description ontbreekt op ${t.name}`);
   }
   const echo = tools.find((t) => t.name === 'planner_echo');
-  assertEq(echo.description, 'Echoot de meegegeven waarde terug (teststub).', 'echo-description uit inputSchema');
+  // description komt uit het eersteklas def-veld — NIET uit inputSchema.description.
+  assertEq(echo.description, 'Echoot de meegegeven waarde terug (teststub).', 'echo-description uit het def-veld');
   assertEq(echo.annotations.readOnlyHint, true, 'echo readOnlyHint');
 });
 
@@ -192,6 +195,15 @@ test('een toolnaam zonder planner_-prefix gooit bij registratie', () => {
     () => registerToolModules([[badTool]]),
     'prefix',
     'ontbrekende prefix',
+  );
+});
+
+test('een lege description gooit bij registratie', () => {
+  const badTool: McpToolDef = { ...echoTool, name: 'planner_leeg', description: '   ' };
+  assertThrows(
+    () => registerToolModules([[badTool]]),
+    'description',
+    'lege description',
   );
 });
 
