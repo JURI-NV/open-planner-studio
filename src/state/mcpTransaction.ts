@@ -149,7 +149,8 @@ function isValidUnits(n: unknown): n is number {
  *  - `tempId`  — door de client gekozen, UNIEK binnen de call; wordt de sleutel in de terugmap.
  *  - `parentId` — een ECHT bestaand taak-id ÓF een `tempId` uit dezelfde call (voor geneste aanmaak).
  *  - `position` — insert-index binnen de ouder (`parent.childIds`, of de wortelvolgorde bij `null`);
- *    afwezig ⇒ achteraan.
+ *    afwezig ⇒ achteraan. Een out-of-range index klemt STIL naar `[0, lengte]` (negatief ⇒ 0,
+ *    te groot ⇒ achteraan) — geen fout; de tool-schema-beschrijving (T19) leunt op deze regel.
  */
 export type BulkTaskItem = Partial<Task> & {
   name: string;
@@ -240,8 +241,10 @@ export const draft = {
    * POSITIE: `position` is de insert-index binnen `parent.childIds` (of de wortelvolgorde bij een
    * `null`-ouder). Om `childIds`-volgorde (zichtbaar, visibleRows.ts) én rauwe-array-volgorde (WBS-
    * nummering, wbs.ts/flattenOrder) consistent te houden — precies zoals de store-`addTask` met een
-   * anker doet — worden BEIDE bijgewerkt. Items met een positie worden in INPUTvolgorde toegepast
-   * (meerdere posities in dezelfde ouder stapelen dus voorspelbaar).
+   * anker doet — worden BEIDE bijgewerkt. Een out-of-range `position` klemt STIL naar `[0, lengte]`
+   * (negatieve index ⇒ 0, index > aantal siblings ⇒ achteraan) — dit is bewust geen fout. Items met
+   * een positie worden in INPUTvolgorde toegepast (meerdere posities in dezelfde ouder stapelen dus
+   * voorspelbaar).
    */
   addTasks(items: BulkTaskItem[]): Map<string, string> {
     // ---- Pre-validatie (VÓÓR enige mutatie) ----------------------------------------------------

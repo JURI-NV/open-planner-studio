@@ -6,6 +6,7 @@
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import { runInMcpTransaction, draft } from '@/state/mcpTransaction';
 import { createSnapshot } from '@/state/snapshot';
+import { deriveWbsCodes, flattenOrder } from '@/utils/wbs';
 
 const store = useAppStore;
 
@@ -129,6 +130,49 @@ test('draft.addTasks meerdere posities in dezelfde ouder ⇒ toegepast in inputv
   const parent = store.getState().tasks.find((t) => t.id === parentId)!;
   // x op 0 ⇒ [x, sibA]; y op 0 ⇒ [y, x, sibA]
   assertEq(parent.childIds, [idY, idX, sibA], 'posities horen in inputvolgorde toegepast te worden');
+});
+
+// --- 4b) Positie op de RAUWE-ARRAY-as: midden-insert ⇒ WBS-codes kloppen (T3-review-nit) -----------
+// De childIds-as is hierboven gedekt; deze test dekt de rauwe-array-as die de WBS-nummering aandrijft.
+// Na een MIDDEN-insert (tussen twee siblings) horen de afgeleide WBS-codes (flattenOrder ⇒
+// deriveWbsCodes, dezelfde helper die applyWbsNumbering gebruikt) de nieuwe volgorde te weerspiegelen —
+// niet alleen childIds. Voorwaarde: wbsAutoNumber staat aan (default).
+test('draft.addTasks midden-positie ⇒ rauwe-array-WBS-codes weerspiegelen de insert (via de nummerings-helper)', () => {
+  assert(store.getState().project.wbsAutoNumber, 'voorwaarde: WBS-auto-nummering staat aan');
+  const parentId = store.getState().addTask({ name: 'wbs-parent' });
+  const sibA = store.getState().addTask({ name: 'wbs-a', parentId });
+  const sibB = store.getState().addTask({ name: 'wbs-b', parentId });
+  const sibC = store.getState().addTask({ name: 'wbs-c', parentId });
+  assertEq(store.getState().tasks.find((t) => t.id === parentId)!.childIds, [sibA, sibB, sibC], 'voorwaarde: drie siblings');
+
+  // Insert x TUSSEN sibA en sibB (position 1).
+  let map = new Map<string, string>();
+  const res = runInMcpTransaction(() => {
+    map = draft.addTasks([{ tempId: 'x', name: 'wbs-x', parentId, position: 1 }]);
+  });
+  assert(res.ok, 'transactie hoort te slagen');
+  const idX = map.get('x')!;
+
+  // childIds-as (ter controle) + rauwe-array-as via flattenOrder.
+  const parent = store.getState().tasks.find((t) => t.id === parentId)!;
+  assertEq(parent.childIds, [sibA, idX, sibB, sibC], 'childIds hoort x tussen a en b te zetten');
+  const flatIds = flattenOrder(store.getState().tasks).map((t) => t.id);
+  const parentPos = flatIds.indexOf(parentId);
+  assertEq(flatIds.slice(parentPos, parentPos + 5), [parentId, sibA, idX, sibB, sibC],
+    'de rauwe-array-flatten hoort exact [parent, a, x, b, c] te zijn (raw array = WBS-bron)');
+
+  // WBS-codes: elke stored wbsCode hoort exact de deriveWbsCodes-uitkomst van de rauwe array te zijn,
+  // en x hoort de tweede kind-positie (parentcode + ".2") te dragen — hard bewijs dat de raw-array-as
+  // (niet alleen childIds) de midden-insert kreeg.
+  const derived = deriveWbsCodes(store.getState().tasks);
+  for (const t of store.getState().tasks) {
+    assertEq(t.wbsCode, derived.get(t.id), `stored wbsCode van '${t.name}' hoort gelijk aan de deriveWbsCodes-uitkomst`);
+  }
+  const parentCode = derived.get(parentId)!;
+  assertEq(derived.get(sibA), `${parentCode}.1`, 'sibA hoort de eerste kind-code te dragen');
+  assertEq(derived.get(idX), `${parentCode}.2`, 'x (midden-insert op index 1) hoort de TWEEDE kind-code te dragen');
+  assertEq(derived.get(sibB), `${parentCode}.3`, 'sibB hoort door de insert naar de derde kind-code te schuiven');
+  assertEq(derived.get(sibC), `${parentCode}.4`, 'sibC hoort naar de vierde kind-code te schuiven');
 });
 
 // --- 5) Mijlpaal-duur-validatie --------------------------------------------------------------------
