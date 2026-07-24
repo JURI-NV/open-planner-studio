@@ -233,7 +233,8 @@ export type OnOpenStatus =
   | 'in-sync'   // project == pool
   | 'behind'    // pool bewoog, bestand is NIET lokaal bewerkt (file == syncedHash) ⇒ stil verversen
   | 'deviated'  // bestand is ná de sync bewerkt (file != syncedHash) ⇒ vraag
-  | 'removed';  // pool-origineel bestaat niet meer
+  | 'removed'   // pool-origineel bestaat niet meer
+  | 'unbound';  // geen libraryOrigin — puur project-eigen item, hoort niet bij een bedrijfspool
 
 function classifyOnOpen(diffStatus: ItemDiff['status'], fileHash: string, syncedHash: string | undefined): OnOpenStatus {
   if (diffStatus === 'removed') return 'removed';
@@ -244,12 +245,22 @@ function classifyOnOpen(diffStatus: ItemDiff['status'], fileHash: string, synced
   return fileHash === syncedHash ? 'behind' : 'deviated';
 }
 
+/** companyId-scope (stempel van een ánder bedrijf dan het geopende) is de verantwoordelijkheid van
+ *  de aanroeper — deze functie vergelijkt alleen tegen de meegegeven `pool`. `'unbound'` dekt alleen
+ *  stempel-loos (geen `libraryOrigin`); het is geen synoniem voor 'removed' en mag daar niet mee
+ *  samenvallen (een puur project-eigen item is niet "uit het bedrijf verwijderd"). */
 export function classifyCalendarOnOpen(projectCal: WorkCalendar, pool: CompanyPool): OnOpenStatus {
-  return classifyOnOpen(diffCalendarVsPool(projectCal, pool).status, computeCalendarHash(projectCal), projectCal.libraryOrigin?.syncedHash);
+  if (!projectCal.libraryOrigin) return 'unbound';
+  return classifyOnOpen(diffCalendarVsPool(projectCal, pool).status, computeCalendarHash(projectCal), projectCal.libraryOrigin.syncedHash);
 }
 
+/** companyId-scope (stempel van een ánder bedrijf dan het geopende) is de verantwoordelijkheid van
+ *  de aanroeper — deze functie vergelijkt alleen tegen de meegegeven `pool`. `'unbound'` dekt alleen
+ *  stempel-loos (geen `libraryOrigin`); het is geen synoniem voor 'removed' en mag daar niet mee
+ *  samenvallen (een puur project-eigen item is niet "uit het bedrijf verwijderd"). */
 export function classifyResourceOnOpen(projectRes: Resource, pool: CompanyPool): OnOpenStatus {
-  return classifyOnOpen(diffResourceVsPool(projectRes, pool).status, computeResourceHash(projectRes), projectRes.libraryOrigin?.syncedHash);
+  if (!projectRes.libraryOrigin) return 'unbound';
+  return classifyOnOpen(diffResourceVsPool(projectRes, pool).status, computeResourceHash(projectRes), projectRes.libraryOrigin.syncedHash);
 }
 
 /** Pas de pool-waarden toe op een projectkalender bij "bijwerken" (spec §3): overschrijf de

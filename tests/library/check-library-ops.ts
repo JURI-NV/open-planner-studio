@@ -246,23 +246,89 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(classifyCalendarOnOpen(legacy, bumped) === 'deviated', 'classify: hash-loos + afwijkend ⇒ deviated (veilig)');
 }
 
-// --- Afwijkingsclassificatie: net-gepromoveerd item ⇒ in-sync (NB critreview taak 1) ---
-// promoteCalendarToPool/promoteResourceToPool stempelen de back-stamp met de POOL-hash (niet de
-// project-hash) via makeOrigin(bumped, id, computeCalendarHash(poolCal)) — dus een net-gepromoveerd
-// item moet direct als in-sync classificeren, niet spuriaal als deviated.
+// --- Afwijkingsclassificatie bij openen — resource-wrapper-spiegel (spec §3, GO-NA-FIX 3) ---
+// Zelfde vier uitkomsten als hierboven, nu via classifyResourceOnOpen (computeResourceHash +
+// diffResourceVsPool), zodat de resource-bedrading net zo goed geraakt wordt als de kalender-bedrading.
+{
+  const p = pool();
+  const srcRes = p.resources[1]; // 'Kraan' — geen calendarId, houdt de fixture eenvoudig
+  const inSyncHash = computeResourceHash(srcRes);
+  const inSync: Resource = { ...srcRes, id: 'x', libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
+  assert(classifyResourceOnOpen(inSync, p) === 'in-sync', 'classify(resource): gelijk aan pool ⇒ in-sync');
+  const bumped = bumpPool({ ...p, resources: [p.resources[0], { ...srcRes, maxUnits: 9 }] });
+  const behind: Resource = { ...srcRes, id: 'x', libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
+  assert(classifyResourceOnOpen(behind, bumped) === 'behind', 'classify(resource): file==hash, pool wijkt af ⇒ behind');
+  const deviated: Resource = { ...srcRes, id: 'x', maxUnits: 3, libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
+  assert(classifyResourceOnOpen(deviated, bumped) === 'deviated', 'classify(resource): file bewerkt na sync ⇒ deviated');
+  const removed: Resource = { ...srcRes, id: 'x', libraryOrigin: { companyId: p.companyId, libraryItemId: 'ghost', poolVersion: 1 } };
+  assert(classifyResourceOnOpen(removed, p) === 'removed', 'classify(resource): poolitem weg ⇒ removed');
+  const legacy: Resource = { ...srcRes, id: 'x', libraryOrigin: { companyId: p.companyId, libraryItemId: srcRes.id, poolVersion: 1 } };
+  assert(classifyResourceOnOpen(legacy, bumped) === 'deviated', 'classify(resource): hash-loos + afwijkend ⇒ deviated (veilig)');
+}
+
+// --- Afwijkingsclassificatie: net-gepromoveerd item ⇒ in-sync (NB critreview taak 1, herbouwd na
+// GO-NA-FIX 1: de eerdere versie was vacuüm — het promoted-item was veld-identiek aan het poolitem,
+// dus diffStatus === 'up-to-date' kortsloot naar 'in-sync' vóórdat syncedHash gelezen werd; de assert
+// slaagde met ELKE stempel, ook garbage. Deze versie bewijst de hash-keuze écht: na promote wijzigt
+// de pool (zoals een latere pool-edit dat doet) — met de POOL-hash als back-stamp is dat een stille
+// verversing ('behind'); met een foute of ontbrekende stempel wordt hetzelfde scenario 'deviated'. ---
 {
   const p = pool();
   const srcRes = p.resources[0];
   // Simuleer de promote-back-stamp: de pool bevat nu het item, en het project-object is herstempeld
   // met de HASH VAN HET POOL-ITEM (zoals promoteResourceToPool doet), niet van het project-object zelf.
-  const bumped = bumpPool({ ...p, resources: [srcRes, res('new-r', 'Nieuwe kraan')] });
-  const poolItem = bumped.resources.find((r) => r.id === 'new-r')!;
-  const promoted: Resource = {
-    ...poolItem,
+  const afterPromote = bumpPool({ ...p, resources: [srcRes, res('new-r', 'Nieuwe kraan')] });
+  const poolItemAtPromote = afterPromote.resources.find((r) => r.id === 'new-r')!;
+  const backStampHash = computeResourceHash(poolItemAtPromote);
+  // Vervolgens beweegt de pool (een latere pool-edit — bv. een bijgewerkte maxUnits), zonder dat het
+  // project-object zelf wijzigt.
+  const afterPoolEdit = bumpPool({
+    ...afterPromote,
+    resources: afterPromote.resources.map((r) => (r.id === 'new-r' ? { ...r, maxUnits: 42 } : r)),
+  });
+  const promotedThenPoolMoved: Resource = {
+    ...poolItemAtPromote,
     id: 'local-new-r',
-    libraryOrigin: makeOrigin(bumped, 'new-r', computeResourceHash(poolItem)),
+    libraryOrigin: makeOrigin(afterPromote, 'new-r', backStampHash),
   };
-  assert(classifyResourceOnOpen(promoted, bumped) === 'in-sync', 'classify: net-gepromoveerd item ⇒ in-sync (back-stamp = pool-hash)');
+  assert(
+    classifyResourceOnOpen(promotedThenPoolMoved, afterPoolEdit) === 'behind',
+    'classify: net-gepromoveerd item + latere pool-edit ⇒ behind (back-stamp = pool-hash bewijst de stille verversing)',
+  );
+  // Contrast: zelfde scenario, maar met een FOUTE stempel (garbage) ⇒ deviated, niet behind — bewijst
+  // dat de vorige assert écht op de hash-waarde steunt en niet toevallig altijd 'behind' oplevert.
+  const promotedWithGarbageStamp: Resource = {
+    ...poolItemAtPromote,
+    id: 'local-new-r',
+    libraryOrigin: { ...makeOrigin(afterPromote, 'new-r'), syncedHash: 'garbage-niet-de-pool-hash' },
+  };
+  assert(
+    classifyResourceOnOpen(promotedWithGarbageStamp, afterPoolEdit) === 'deviated',
+    'classify: zelfde scenario met foute stempel ⇒ deviated (contrast — bewijst dat de hash-waarde het verschil maakt)',
+  );
+  // Contrast: zelfde scenario met een ONTBREKENDE stempel (geen syncedHash) ⇒ ook deviated (veilige kant).
+  const promotedNoStamp: Resource = {
+    ...poolItemAtPromote,
+    id: 'local-new-r',
+    libraryOrigin: makeOrigin(afterPromote, 'new-r'),
+  };
+  assert(
+    classifyResourceOnOpen(promotedNoStamp, afterPoolEdit) === 'deviated',
+    'classify: zelfde scenario zonder stempel ⇒ deviated (contrast — veilige kant zonder syncedHash)',
+  );
+}
+
+// --- 'unbound': item zonder libraryOrigin mag niet samenvallen met 'removed' (GO-NA-FIX 2) ---
+// Een puur project-eigen resource (nooit uit een pool gekopieerd) heeft geen libraryOrigin. Die mag
+// classifyResourceOnOpen niet als 'removed' labelen (dat zou een leugen zijn: "niet meer in het
+// bedrijf" impliceert dat het item er ooit wél was) — vandaar de aparte 'unbound'-uitkomst.
+{
+  const p = pool();
+  const own: Resource = res('own-r', 'Projecteigen resource'); // geen libraryOrigin
+  assert(classifyResourceOnOpen(own, p) === 'unbound', 'classify(resource): geen libraryOrigin ⇒ unbound, niet removed');
+  assert(classifyResourceOnOpen(own, p) !== 'removed', 'classify(resource): unbound valt niet samen met removed');
+  const ownCal: WorkCalendar = cal('own-c', 'Projecteigen kalender'); // geen libraryOrigin
+  assert(classifyCalendarOnOpen(ownCal, p) === 'unbound', 'classify(calendar): geen libraryOrigin ⇒ unbound, niet removed');
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);
