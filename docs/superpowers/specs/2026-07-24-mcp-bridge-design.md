@@ -1,6 +1,6 @@
-# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2.3
+# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2.4
 
-*Status: v2.3 — 2026-07-24. Historie: v1 → 7 scenario-critreviews (7× no-go) → v2 (must-fixes) → v2.1 (`batch`-tool) → 7 herreviews (7× no-go, convergerend op het batch-transactiefundament) → v2.2 (herreview-must-fixes + UI-hoofdstuk incl. AI-backup) → verificatieronde 3 (2× go, 2× voorwaardelijk go, 3× no-go op tekst-/contractpunten) → v2.3 verwerkt alle ronde-3-pins. Ter review door de user.*
+*Status: v2.4 — 2026-07-24 (v2.3 + mcp-builder-best-practices: `planner_`-prefix, tool-annotaties, paginering op de list-tools, Origin-header-weigering tegen DNS-rebinding). Historie: v1 → 7 scenario-critreviews (7× no-go) → v2 (must-fixes) → v2.1 (`batch`-tool) → 7 herreviews (7× no-go, convergerend op het batch-transactiefundament) → v2.2 (herreview-must-fixes + UI-hoofdstuk incl. AI-backup) → verificatieronde 3 (2× go, 2× voorwaardelijk go, 3× no-go op tekst-/contractpunten) → v2.3 verwerkt alle ronde-3-pins. Ter review door de user.*
 
 ## Doel & fasering
 
@@ -61,6 +61,8 @@ Elke bestaande store-mutator roept zelf `beginUndoable` aan en veel roepen zelf 
 8. **`save_baseline`-staleness-guard** — bij `scheduleStale` eerst herberekenen (of weigeren); geen auto-herrekenende mutator (bewuste uitzondering). **Uitgesloten van `batch`** (zie batch-sectie).
 
 ## Tool-set (33)
+
+**Naamgeving & annotaties (MCP-best-practices):** alle toolnamen krijgen in de implementatie het service-prefix **`planner_`** (`planner_add_tasks`, `planner_get_project_overview`, …) — deze server draait naast andere MCP-servers en generieke namen als `undo` botsen anders; de spec gebruikt hieronder de korte namen voor leesbaarheid. Elke tool draagt de standaard MCP-annotaties: `readOnlyHint: true` op de leestools, `destructiveHint: true` alleen op `delete_tasks`/`remove_dependencies`/`import_schedule`/`update_calendar`, `idempotentHint: true` op o.a. `run_cpm`/`switch_document`, en `openWorldHint: false` overal (de server raakt niets buiten de app behalve de expliciete bestands-tools). `list_tasks` en `list_resources` ondersteunen paginering (`limit` default 50, `offset`, retour `total`/`has_more`/`next_offset`); `get_project_overview` blijft bewust ongelimiteerd (dat ís zijn functie).
 
 ### Lezen (10)
 
@@ -133,7 +135,7 @@ Eén call met een draaiboek: `steps: [{ tool, args }, …]` (max 100 stappen), s
 
 ## Beveiliging & levenscyclus
 
-Standaard **uit**; opt-in via Instellingen (AI-modus) + start op het AI-tabblad. Token crypto-random via `settingsStore`. Poort instelbaar (default 3877); bezet → duidelijke fout. Alleen 127.0.0.1. Fout token → 401 zonder details. Bridge stopt netjes bij uitzetten en afsluiten. Web-build en dev-bridge onaangeraakt.
+Standaard **uit**; opt-in via Instellingen (AI-modus) + start op het AI-tabblad. Token crypto-random via `settingsStore`. Poort instelbaar (default 3877); bezet → duidelijke fout. Alleen 127.0.0.1. Fout token → 401 zonder details. **DNS-rebinding-bescherming:** requests mét een `Origin`-header (= afkomstig uit een browser) worden geweigerd — legitieme MCP-clients sturen die niet, en een kwaadaardige webpagina in de browser van de user mag nooit naar de lokale bridge kunnen posten; de Rust-laag beantwoordt ook geen CORS-preflights. Bridge stopt netjes bij uitzetten en afsluiten. Web-build en dev-bridge onaangeraakt.
 
 ## Prestatie
 
