@@ -330,18 +330,25 @@ const store = useAppStore.getState();
 {
   const s = useAppStore.getState();
   const cid = s.defaultCompanyId;
+  useAppStore.getState().bindProjectToCompany(cid); // materialiseren vereist een gebonden project (Taak 4)
   const poolResId = s.promoteResourceToPool(cid, { id: 'upd-res', name: 'Elektricien', type: 'LABOR', description: '', maxUnits: 1 })!;
-  useAppStore.getState().bindProjectToCompany(cid);
   const added = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
   const projResId = added.resourceId!;
 
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'diffProjectResource: vers = up-to-date');
 
-  // Wijzig de pool ⇒ diff wordt "changed".
+  // Verzoening met behind-only grens 3 (Taak 6): bewerk de kopie LOKAAL (deviated: file != syncedHash)
+  // vóór de pool-edit. Zo laat de grens-3-verversing bij updatePoolResource hem staan en blijft de diff
+  // observeerbaar 'changed' (zonder deze stap ververst grens 3 hem stil naar 'up-to-date' en faalt de assert).
+  useAppStore.getState().updateResource(projResId, { description: 'lokaal bewerkt' });
+
+  // Wijzig de pool ⇒ diff blijft 'changed' (deviated kopie wordt door grens 3 niet aangeraakt).
   useAppStore.getState().updatePoolResource(cid, poolResId, { maxUnits: 4 });
   const d = useAppStore.getState().diffProjectResource(projResId);
-  assert(d?.status === 'changed', 'diffProjectResource: pool gewijzigd ⇒ changed');
+  assert(d?.status === 'changed', 'diffProjectResource: pool gewijzigd ⇒ changed (deviated kopie blijft staan)');
 
+  // undoBeforeUpd wordt hier gemeten — ná de lokale updateResource — dus de +1-assert telt alleen de
+  // updateProjectResourceFromLibrary-snapshot (de extra updateResource zit al in de baseline).
   const undoBeforeUpd = useAppStore.getState().undoStack.length;
   useAppStore.getState().updateProjectResourceFromLibrary(projResId);
   const updated = useAppStore.getState().resources.find(r => r.id === projResId)!;
@@ -580,9 +587,15 @@ const store = useAppStore.getState();
   useAppStore.getState().setProjectCalendar(projCalId);
   assert(useAppStore.getState().calendar.id === projCalId, 'setup: projectkalender is de default (s.calendar)');
 
-  // Bewerk het POOLitem zodat het project achterloopt (materialisatie stempelde al de pool-hash,
-  // dus deze wijziging maakt het bestand automatisch 'behind' — file==syncedHash, pool wijkt af).
-  useAppStore.getState().updatePoolCalendar(cid, poolCalId, { workEndHour: 18, hoursPerDay: 9 });
+  // Bewerk het POOLitem RECHTSTREEKS — bewust buiten de pool-CRUD om: sinds taak 6 ververst grens 3
+  // automatisch bij updatePool*; dit blok test het primitief in isolatie. Materialisatie stempelde
+  // al de pool-hash, dus deze wijziging maakt het bestand automatisch 'behind' (file==syncedHash,
+  // pool wijkt af). Muterende Immer-draft-vorm, geen persist/bumpPool nodig — de diff kijkt naar
+  // veldinhoud, niet naar poolVersion.
+  useAppStore.setState((st) => {
+    const pc = st.pools[cid].calendars.find(c => c.id === poolCalId)!;
+    pc.workEndHour = 18; pc.hoursPerDay = 9;
+  });
   assert(useAppStore.getState().diffProjectCalendar(projCalId)?.status === 'changed', 'setup: kalender is behind (pool gewijzigd)');
 
   useAppStore.setState((st) => { st.scheduleStale = false; });
@@ -599,7 +612,12 @@ const store = useAppStore.getState();
   useAppStore.setState((st) => { st.scheduleStale = false; });
   const resId = useAppStore.getState().promoteResourceToPool(cid, { id: 'kv-res', name: 'Kalvermetselaar', type: 'LABOR', description: '', maxUnits: 1 })!;
   const addedRes = useAppStore.getState().addLibraryResourceToProject(cid, resId);
-  useAppStore.getState().updatePoolResource(cid, resId, { maxUnits: 3 });
+  // Bewust buiten de pool-CRUD om — zelfde reden als hierboven (grens-3-bedrading zou dit anders al
+  // stil verversen vóórdat het primitief handmatig getest wordt).
+  useAppStore.setState((st) => {
+    const pr = st.pools[cid].resources.find(r => r.id === resId)!;
+    pr.maxUnits = 3;
+  });
   assert(useAppStore.getState().diffProjectResource(addedRes.resourceId!)?.status === 'changed', 'setup (negatief): resource is behind');
   useAppStore.getState().refreshBehindItems(cid);
   assert(useAppStore.getState().scheduleStale === false, 'refreshBehindItems: resource-only-verversing laat scheduleStale false');
@@ -615,6 +633,24 @@ const store = useAppStore.getState();
   const result = useAppStore.getState().addLibraryResourceToProject(cidB, resIdB);
   assert(result.added === false, 'addLibraryResourceToProject(B) op een aan A gebonden project: no-op (added=false)');
   assert(useAppStore.getState().project.companyId === cidA, 'addLibraryResourceToProject(B) op een aan A gebonden project: binding blijft op A');
+}
+
+// --- Dormant-payload-verversing (plan-eis 1): pool-edit raakt óók slapende documenten ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Multi BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'm', name: 'Voeger', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.addLibraryResourceToProject(cid, resId);
+  // Open een TWEEDE, leeg document; het eerste (met de materialisatie) wordt slapend.
+  const firstDoc = useAppStore.getState().activeDocumentId;
+  const secondDoc = s.newDocument();
+  // Pool-edit terwijl het gematerialiseerde document slaapt.
+  s.updatePoolResource(cid, resId, { maxUnits: 8 });
+  const dormant = useAppStore.getState().documents.find(d => d.id === firstDoc);
+  const dormantRes = dormant?.payload?.resources.find(r => r.libraryOrigin?.libraryItemId === resId);
+  assert(dormantRes?.maxUnits === 8, 'pool-edit ververst de slapende payload (plan-eis 1)');
+  assert(secondDoc !== firstDoc, 'tweede document is een ander id');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);

@@ -73,6 +73,13 @@ export interface LibrarySlice {
    *  geen undo-snapshot, geen isDirty, WIST de redoStack; raakte het een kalender, dan zet het
    *  `scheduleStale` (geen runCPM). Retourneert het aantal gewijzigde items. */
   refreshBehindItems: (companyId: string) => number;
+
+  /** Grens 3/4 (spec §3, plan-eis 1): ververs uitsluitend 'behind'-items van het gegeven bedrijf, in
+   *  het ACTIEVE document én in elke SLAPENDE document-payload, binnen één set(). 'deviated'-items
+   *  blijven ongemoeid (spec §3). Slapende documenten herrekenen pas bij activering (geen recompute
+   *  hier); raakte de verversing een kalender, dan zet het `scheduleStale` (per document/payload),
+   *  ZONDER isDirty. Niet-undoable (wist redoStacks). Retourneert het totaal aantal gewijzigde items. */
+  refreshAllDocumentsFromPool: (companyId: string) => number;
 }
 
 /**
@@ -287,6 +294,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
+    get().refreshAllDocumentsFromPool(companyId);
   },
 
   updatePoolResource: (companyId, resourceId, updates) => {
@@ -298,6 +306,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
+    get().refreshAllDocumentsFromPool(companyId);
   },
 
   removePoolCalendar: (companyId, calendarId) => {
@@ -308,6 +317,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
+    get().refreshAllDocumentsFromPool(companyId);
   },
 
   removePoolResource: (companyId, resourceId) => {
@@ -318,6 +328,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
+    get().refreshAllDocumentsFromPool(companyId);
   },
 
   bindProjectToCompany: (companyId) => {
@@ -522,13 +533,68 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         // Plan-eis 2: niet-undoable — GEEN beginUndoable, GEEN isDirty. Wél de redoStack wissen zodat
         // "opnieuw" niet stilletjes oude poolwaarden terugzet (spec §3, Ctrl+Z-eigenaardigheid).
         s.redoStack = [];
-        // Review-fix (cleanup 3): bewust GEEN syncProjectCalendar(s) hier — die helper valt bij een
-        // ontbrekende s.project.calendarId-match terug op de eerste kalender (orphan-fallback, §9.1);
-        // in deze niet-undoable context willen we dat gedrag niet riskeren, dus herpunten we de
-        // denorm-cache handmatig en laten 'm ongewijzigd als de projectkalender hier niet bij zat.
+        // Review-fix (cleanup 3): bewust GEEN syncProjectCalendar(s) hier — die helper promoveert bij een
+        // ontbrekende s.project.calendarId-match de huidige s.calendar-cache tot een NIEUWE
+        // bibliotheek-entry (orphan-fallback, §9.1); in deze niet-undoable context willen we die
+        // side-effect niet riskeren, dus herpunten we de denorm-cache handmatig en laten 'm ongewijzigd
+        // als de projectkalender hier niet bij zat.
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
         // Review-fix (spec §3): kalenderverversing raakt datums ⇒ scheduleStale (geen isDirty, geen runCPM).
         if (calChanged > 0) s.scheduleStale = true;
+      }
+    });
+    if (changed > 0) {
+      get().recomputeResourceLoad();
+      get().recomputeViewRows();
+    }
+    return changed;
+  },
+
+  refreshAllDocumentsFromPool: (companyId) => {
+    let changed = 0;
+    set((s) => {
+      if (!s.companies.some((c) => c.id === companyId)) return;
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      const pool = current(draftPool);
+
+      // Behind-only (review-fix): alleen items waarvan het BESTAND ongewijzigd is (file == syncedHash)
+      // maar de pool wijkt af. 'deviated' blijft staan. `calTouched` seint kalender-staleness.
+      let calTouched = false;
+      const refreshCalendars = (cals: import('@/types/calendar').WorkCalendar[]): import('@/types/calendar').WorkCalendar[] =>
+        cals.map((cal) => {
+          if (cal.libraryOrigin?.companyId !== companyId) return cal;
+          if (classifyCalendarOnOpen(cal, pool) !== 'behind') return cal;
+          changed++; calTouched = true;
+          return applyCalendarUpdate(cal, pool);
+        });
+      const refreshResources = (ress: import('@/types/resource').Resource[]): import('@/types/resource').Resource[] =>
+        ress.map((res) => {
+          if (res.libraryOrigin?.companyId !== companyId) return res;
+          if (classifyResourceOnOpen(res, pool) !== 'behind') return res;
+          changed++;
+          return applyResourceUpdate(res, pool);
+        });
+
+      // Actief document (top-level) — alleen als het aan dit bedrijf gekoppeld is.
+      if (s.project.companyId === companyId) {
+        calTouched = false;
+        s.calendars = refreshCalendars(s.calendars.map((c) => current(c)));
+        s.resources = refreshResources(s.resources.map((r) => current(r)));
+        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        if (changed > 0) s.redoStack = [];
+        if (calTouched) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
+      }
+
+      // Slapende payloads (plan-eis 1): muteer binnen dezelfde set(); herrekening pas bij activering.
+      for (const doc of s.documents) {
+        if (!doc.payload) continue; // actief document heeft payload===null.
+        if (doc.payload.project.companyId !== companyId) continue;
+        calTouched = false;
+        doc.payload.calendars = refreshCalendars(doc.payload.calendars.map((c) => current(c)));
+        doc.payload.resources = refreshResources(doc.payload.resources.map((r) => current(r)));
+        doc.payload.redoStack = [];
+        if (calTouched) doc.payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
       }
     });
     if (changed > 0) {
