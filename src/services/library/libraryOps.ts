@@ -27,9 +27,16 @@ export function isPoolNewer(local: CompanyPool | undefined, imported: CompanyPoo
   return local.poolVersion > imported.poolVersion || parseTime(local.modifiedAt) > parseTime(imported.modifiedAt);
 }
 
-/** Bouw een herkomststempel voor een item uit een pool. */
-export function makeOrigin(pool: CompanyPool, libraryItemId: string): LibraryOrigin {
-  return { companyId: pool.companyId, libraryItemId, poolVersion: pool.poolVersion };
+/** Bouw een herkomststempel voor een projectkopie van een poolitem. `syncedHash` (spec §2) wordt
+ *  meegeschreven bij materialisatie/verversing van een PROJECTkopie; pool-items zelf dragen geen
+ *  stempel, dus daar blijft hij afwezig. */
+export function makeOrigin(pool: CompanyPool, libraryItemId: string, syncedHash?: string): LibraryOrigin {
+  return {
+    companyId: pool.companyId,
+    libraryItemId,
+    poolVersion: pool.poolVersion,
+    ...(syncedHash !== undefined ? { syncedHash } : {}),
+  };
 }
 
 /** Zoek een bestaande projectkopie met dezelfde herkomst (dedup, spec §3). */
@@ -71,7 +78,7 @@ export function copyCalendarToProject(
   const calendar: WorkCalendar = {
     ...structuredClone(source),
     id: genId('cal'),
-    libraryOrigin: makeOrigin(pool, poolCalendarId),
+    libraryOrigin: makeOrigin(pool, poolCalendarId, computeCalendarHash(source)),
   };
   return { calendar, reused: false };
 }
@@ -116,7 +123,7 @@ export function copyResourceToProject(
     ...structuredClone(source),
     id: genId('res'),
     calendarId,
-    libraryOrigin: makeOrigin(pool, poolResourceId),
+    libraryOrigin: makeOrigin(pool, poolResourceId, computeResourceHash(source)),
     // parentId (ploeg-lidmaatschap) is een pool-lokale verwijzing; bij een losse kopie laten we hem
     // vallen (het project heeft de ploeg niet noodzakelijk). Zo ontstaat nooit een dode verwijzing.
     parentId: undefined,
@@ -137,12 +144,12 @@ export interface DiffField {
 }
 
 /** Velden die we vergelijken bij een kalender-diff (herkomst/id/naam-identiteit tellen niet mee). */
-const CALENDAR_DIFF_FIELDS: (keyof WorkCalendar)[] = [
+export const CALENDAR_DIFF_FIELDS: (keyof WorkCalendar)[] = [
   'name', 'description', 'workDays', 'workStartHour', 'workEndHour', 'hoursPerDay',
   'holidays', 'generation', 'workTime', 'shift',
 ];
 
-const RESOURCE_DIFF_FIELDS: (keyof Resource)[] = [
+export const RESOURCE_DIFF_FIELDS: (keyof Resource)[] = [
   'name', 'type', 'description', 'costPerHour', 'maxUnits', 'unitOfMeasure', 'availabilitySteps',
 ];
 
@@ -151,7 +158,7 @@ const RESOURCE_DIFF_FIELDS: (keyof Resource)[] = [
  *  géén wijziging) — vergelijk array-velden daarom als multiset door een KOPIE van de elementen
  *  te sorteren op `JSON.stringify(element)`. Muteert de invoer niet; niet-arrays gaan ongewijzigd
  *  door `JSON.stringify` heen. */
-function diffKey(value: unknown): string {
+export function diffKey(value: unknown): string {
   if (Array.isArray(value)) {
     const sorted = value
       .map((el) => JSON.stringify(el))
@@ -171,6 +178,24 @@ function diffFields<T>(project: T, library: T, fields: (keyof T)[]): DiffField[]
     }
   }
   return out;
+}
+
+/** Hash van de gevolgde velden van een item, met EXACT dezelfde normalisatie als de diff
+ *  (`diffKey` per veld → arrays als gesorteerde multiset). Twee items met dezelfde gevolgde
+ *  velden — ongeacht array-volgorde — geven dezelfde hash; een verschil op één gevolgd veld
+ *  verandert de hash. Deterministisch (JSON van de per-veld-diffKeys), geen externe crypto. */
+function hashFields<T>(item: T, fields: (keyof T)[]): string {
+  return JSON.stringify(fields.map((f) => diffKey(item[f])));
+}
+
+/** syncedHash van een pool-/projectkalender (spec §2, plan-eis 8). */
+export function computeCalendarHash(cal: WorkCalendar): string {
+  return hashFields(cal, CALENDAR_DIFF_FIELDS);
+}
+
+/** syncedHash van een pool-/projectresource (spec §2, plan-eis 8). */
+export function computeResourceHash(res: Resource): string {
+  return hashFields(res, RESOURCE_DIFF_FIELDS);
 }
 
 export function diffCalendarVsPool(projectCal: WorkCalendar, pool: CompanyPool): ItemDiff {
@@ -201,7 +226,7 @@ export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool)
   if (!source) {
     throw new Error(`applyCalendarUpdate: pool-origineel niet gevonden voor kalender "${projectCal.name}" (id=${projectCal.id}, libraryItemId=${id ?? 'ontbreekt'})`);
   }
-  const patched: WorkCalendar = { ...structuredClone(source), id: projectCal.id, libraryOrigin: makeOrigin(pool, id!) };
+  const patched: WorkCalendar = { ...structuredClone(source), id: projectCal.id, libraryOrigin: makeOrigin(pool, id!, computeCalendarHash(source)) };
   return patched;
 }
 
@@ -219,7 +244,7 @@ export function applyResourceUpdate(projectRes: Resource, pool: CompanyPool): Re
     id: projectRes.id,
     calendarId: projectRes.calendarId,
     parentId: projectRes.parentId,
-    libraryOrigin: makeOrigin(pool, id!),
+    libraryOrigin: makeOrigin(pool, id!, computeResourceHash(source)),
   };
   return patched;
 }

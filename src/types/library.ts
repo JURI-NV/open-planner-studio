@@ -10,6 +10,12 @@ export interface LibraryOrigin {
   companyId: string;
   libraryItemId: string;
   poolVersion: number;
+  /** B1.1 (spec §2): hash van de gevolgde velden op het moment van materialisatie/laatste
+   *  verversing. Spiegelt EXACT de diff-normalisatie (`diffKey` + de `*_DIFF_FIELDS`-lijsten) zodat
+   *  "hash gelijk" en "diff up-to-date" niet uiteenlopen (plan-eis 8). Onderscheidt "bestand extern
+   *  bewerkt" (hash ≠ file) van "bestand loopt achter op de pool" (hash == file, pool wijkt af).
+   *  Afwezig (B1-bestanden zonder hash) ⇒ veilige kant: behandelen als mogelijk extern bewerkt. */
+  syncedHash?: string;
 }
 
 /** Een door de user benoemde groepering met een eigen pool (spec §2). */

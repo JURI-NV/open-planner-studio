@@ -4,6 +4,7 @@ import {
   bumpPool, isPoolNewer, makeOrigin, findCopyByOrigin,
   copyCalendarToProject, copyResourceToProject,
   diffCalendarVsPool, diffResourceVsPool, applyResourceUpdate,
+  computeCalendarHash, computeResourceHash,
 } from '@/services/library/libraryOps';
 import type { CompanyPool } from '@/types/library';
 import type { WorkCalendar } from '@/types/calendar';
@@ -157,6 +158,30 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(updated.name === 'Nieuwe naam', 'applyUpdate: neemt pool-naam over');
   assert(updated.calendarId === 'local-cal', 'applyUpdate: behoudt project-lokale calendarId');
   assert(updated.libraryOrigin?.poolVersion === 4, 'applyUpdate: verse poolVersion in stempel');
+}
+
+// --- syncedHash spiegelt de diff-normalisatie exact (plan-eis 8) ---
+{
+  const p = pool();
+  const c = p.calendars[0];
+  // Materialisatie-hash == hash van de pool-bron.
+  const h1 = computeCalendarHash(c);
+  // Array-VOLGORDE mag de hash NIET veranderen (multiset, zoals diffKey): feestdagen omdraaien.
+  const c2: WorkCalendar = { ...c, holidays: [...(c.holidays ?? [])].reverse() };
+  assert(computeCalendarHash(c2) === h1, 'computeCalendarHash: array-volgorde telt niet mee (multiset)');
+  // Een echte inhoudswijziging verandert de hash WEL.
+  const c3: WorkCalendar = { ...c, workEndHour: 17 };
+  assert(computeCalendarHash(c3) !== h1, 'computeCalendarHash: inhoudswijziging verandert de hash');
+  // Consistentie met de diff: gelijk aan pool ⇒ hash-gelijk; diff up-to-date.
+  const projCal: WorkCalendar = { ...c, id: 'proj-x', libraryOrigin: makeOrigin(p, c.id, computeCalendarHash(c)) };
+  assert(diffCalendarVsPool(projCal, p).status === 'up-to-date', 'materialisatie ⇒ diff up-to-date');
+  assert(projCal.libraryOrigin!.syncedHash === computeCalendarHash(c), 'makeOrigin schrijft de syncedHash');
+
+  const r = p.resources[0];
+  const hr = computeResourceHash(r);
+  const r2: Resource = { ...r, availabilitySteps: r.availabilitySteps ? [...r.availabilitySteps].reverse() : undefined };
+  assert(computeResourceHash(r2) === hr, 'computeResourceHash: array-volgorde telt niet mee');
+  assert(computeResourceHash({ ...r, maxUnits: 99 }) !== hr, 'computeResourceHash: inhoudswijziging verandert de hash');
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);

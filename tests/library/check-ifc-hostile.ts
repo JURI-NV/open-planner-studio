@@ -13,6 +13,8 @@ import {
   findCopyByOrigin, applyCalendarUpdate, applyResourceUpdate,
   diffCalendarVsPool, makeOrigin,
 } from '@/services/library/libraryOps';
+import { createDefaultProject } from '@/state/slices/projectSlice';
+import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { ImportResult } from '@/services/importTypes';
 import type { Project } from '@/types/project';
 import type { WorkCalendar } from '@/types/calendar';
@@ -232,6 +234,20 @@ function samplePool(overrides: Partial<CompanyPool> = {}): CompanyPool {
   const back2 = readIFC(writeIFC(fixture2));
   const backLibCal = back2.resourceCalendars?.find(c => c.name === 'Bib-kalender zonder omschrijving');
   assert(!!backLibCal && backLibCal.description !== '$', 'A7: lege omschrijving van een bibliotheekkalender komt niet terug als letterlijke "$"');
+}
+
+// --- B1.1: syncedHash round-trippt door IFC (plan-eis 8 / spec §8) ---
+{
+  const origin = { companyId: 'c1', libraryItemId: 'pr1', poolVersion: 3, syncedHash: 'abc123' };
+  const resIn: Resource = { id: 'r1', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 2, libraryOrigin: origin };
+  const ifc = writeIFC({
+    project: { ...createDefaultProject(), companyId: 'c1', companyName: 'B' },
+    calendar: createDefaultCalendar(), tasks: [], sequences: [],
+    resources: [resIn], assignments: [], resourceCalendars: [],
+  });
+  const back = readIFC(ifc);
+  const resOut = back.resources.find(r => r.name === 'Metselaar');
+  assert(resOut?.libraryOrigin?.syncedHash === 'abc123', 'syncedHash overleeft de IFC-round-trip');
 }
 
 console.log(`ifc-hostile: ${checks - fails}/${checks} groen`);
