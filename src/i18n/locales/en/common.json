@@ -116,7 +116,29 @@
     "documentChromeRail": "Vertical tabs",
     "documentChromeSwitcher": "Pill",
     "dateNotation": "Date format",
-    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected."
+    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected.",
+    "aiModeSection": "AI mode",
+    "aiMode": "Enable AI mode",
+    "aiModeHint": "Shows the AI tab with the MCP bridge, so AI assistants can work with your schedule over the Model Context Protocol. Turning it off stops the bridge."
+  },
+  "ai": {
+    "start": "Start bridge",
+    "stop": "Stop bridge",
+    "statusOff": "Off",
+    "statusLive": "Live on port {{port}}",
+    "statusPortBusy": "Port {{port}} in use",
+    "statusError": "Error",
+    "desktopOnly": "The bridge only works in the desktop app.",
+    "port": "Port",
+    "portLockedHint": "Only editable while the server is stopped.",
+    "token": "Token",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "copy": "Copy",
+    "regenerate": "New token",
+    "regenerateConfirm": "Generating a new token breaks all existing connections. Continue?",
+    "connectHint": "Run this in Claude Code to connect the bridge (the token is passed as an Authorization header):",
+    "statusDot": "AI bridge: {{status}}"
   },
   "confirm": {
     "newProject": "Create new project? Unsaved changes will be lost.",

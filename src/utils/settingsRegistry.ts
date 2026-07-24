@@ -120,6 +120,9 @@ export const SETTINGS: SettingDescriptor[] = [
   // Debug-terminal
   setting({ key: 'debugTerminalEnabled', field: 'debugTerminalEnabled', parse: parseBoolean }),
 
+  // AI-modus (MCP-bridge, T14) — persistente spiegel die de conditionele AI-ribbontab voedt.
+  setting({ key: 'aiMode', field: 'aiMode', parse: parseBoolean }),
+
   // Document-chrome-stijl
   setting({ key: 'documentChromeStyle', field: 'documentChromeStyle', parse: parseEnum(DOCUMENT_CHROME_STYLES) }),
 

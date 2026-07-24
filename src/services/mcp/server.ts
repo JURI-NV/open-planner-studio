@@ -17,7 +17,7 @@
 // `contracts.ts` (`McpContext`).
 
 import { useAppStore } from '@/state/appStore';
-import { loadMcpPort, loadMcpToken, saveMcpToken } from '@/utils/settingsStore';
+import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
 import type { McpContext, McpServerStatus } from './contracts';
 
@@ -46,6 +46,59 @@ export function ensureMcpToken(): string {
   const token = generateToken();
   saveMcpToken(token);
   return token;
+}
+
+/**
+ * Regenereer het bridge-token: genereer een vers token en overschrijf de gepersisteerde waarde.
+ * Verbreekt bewust alle bestaande koppelingen (die dragen het oude token) — de UI vraagt daarom
+ * eerst om bevestiging. Geeft het nieuwe token terug.
+ */
+export function regenerateMcpToken(): string {
+  const token = generateToken();
+  saveMcpToken(token);
+  return token;
+}
+
+// --- AI-modus-toggle (injecteerbaar → headless testbaar) -----------------------------------------
+
+export interface ApplyAiModeDeps {
+  /** Schrijf de ui-spiegel (echt: `setUI({ aiMode })`). */
+  setAiMode: (value: boolean) => void;
+  /** Persisteer de setting (echt: `saveAiMode`). */
+  persist: (value: boolean) => void | Promise<void>;
+  /** Stop de bridge (echt: `stopMcpServer`); alleen aangeroepen bij uitzetten. */
+  stopServer: () => void | Promise<void>;
+  /** Zet de serverstatus (echt: `setAiServerStatus`); geforceerd off bij uitzetten. */
+  setStatus: (status: McpServerStatus) => void;
+  /** Poort voor het off-statusobject (echt: `loadMcpPort()`). */
+  port: number;
+}
+
+/**
+ * Pas de AI-modus toe (T14, spec §UI): schrijf de ui-spiegel + persisteer. Bij UITZETTEN wordt de
+ * bridge geforceerd gestopt en de serverstatus expliciet op `off` gezet (op de web-build is
+ * `stopMcpServer` een no-op, dus de status-reset moet hier gebeuren, niet uit een stop-event).
+ * De reducer (`setUI`) valt zelf al terug naar de start-tab als het AI-tabblad actief was.
+ */
+export async function applyAiMode(value: boolean, deps: ApplyAiModeDeps): Promise<void> {
+  deps.setAiMode(value);
+  await deps.persist(value);
+  if (!value) {
+    await deps.stopServer();
+    deps.setStatus({ state: 'off', port: deps.port });
+  }
+}
+
+/** Productie-wiring van `applyAiMode` op de echte store + settings + bridge-lifecycle. */
+export function applyAiModeLive(value: boolean): Promise<void> {
+  const state = useAppStore.getState();
+  return applyAiMode(value, {
+    setAiMode: (v) => state.setUI({ aiMode: v }),
+    persist: saveAiMode,
+    stopServer: stopMcpServer,
+    setStatus: state.setAiServerStatus,
+    port: loadMcpPort(),
+  });
 }
 
 // --- Per-request context -------------------------------------------------------------------------

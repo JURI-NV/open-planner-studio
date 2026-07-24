@@ -95,7 +95,9 @@ export function createDefaultUI(): UIState {
     showTourOverlay: false,
     tourStepIndex: 0,
     tourSnapshot: null,
-    // MCP-bridge / AI-modus (fase 1): server staat default uit op de default-poort; geen pauze/lezen.
+    // MCP-bridge / AI-modus (fase 1): AI-modus default uit (geen AI-tabblad); server staat default
+    // uit op de default-poort; geen pauze/lezen.
+    aiMode: false,
     aiServerStatus: { state: 'off', port: MCP_DEFAULT_PORT },
     aiPaused: false,
     aiReadOnly: false,
@@ -110,6 +112,13 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       // Als debugTerminalEnabled uitgezet wordt, forceer de terminal dicht.
       if (updates.debugTerminalEnabled === false) {
         (updates as Partial<UIState>).debugTerminalOpen = false;
+      }
+      // T14: als AI-modus uitgezet wordt terwijl het AI-tabblad actief is, val terug naar 'start'
+      // (het tabblad verdwijnt uit de ribbon; de content mag niet als wees-tab blijven staan). Het
+      // geforceerd stoppen van de bridge is een async neveneffect en gebeurt op de aanroepplek
+      // (`applyAiMode`), niet in deze synchrone reducer.
+      if (updates.aiMode === false && (updates.activeRibbonTab ?? s.ui.activeRibbonTab) === 'ai') {
+        (updates as Partial<UIState>).activeRibbonTab = 'start';
       }
       Object.assign(s.ui, updates);
       const max = s.ui.enableQuarterHourZoom ? 1000 : 400;
