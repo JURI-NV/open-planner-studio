@@ -2422,6 +2422,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Taak 19: Sloop zonder wezen — Add/Update-dialogen, resource-promote-UI, wizard-checkbox, ui-flags, CSS, i18n
 
+> **NB (critreview taak 4 — bekende tussentoestand die deze taak oplost):** sinds de autobind-strip (commit `ab0c43c`) geeft `AddFromLibraryDialog` op een ongebonden (of anders-gebonden) project een no-op mét de misleidende melding "al in project". De sloop van die dialoog lost dit op; verifieer bij deze taak expliciet dat de vervángende flows (Resources-tab taak 16, LibraryLinkDialog taak 14) nergens dezelfde no-op-zonder-eerlijke-feedback introduceren.
+
 Verwijder de vervangen UX volledig (spec §6): `AddFromLibraryDialog`, `UpdateFromLibraryDialog` (+ de `ResourcePanel`-knoppen, al vervangen in Taak 16), de wizard-checkbox, de bijbehorende `ui`-flags, verweesde CSS en i18n-keys — niets verweesd, en de build (`noUnusedLocals`) blijft groen.
 
 **Files:**
