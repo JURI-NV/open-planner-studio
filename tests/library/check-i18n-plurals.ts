@@ -51,22 +51,22 @@ async function main() {
 
   // --- nl: count=1 ⇒ enkelvoud (bewijst dat _one bestaat en wordt gekozen boven _other) ---
   await i18next.changeLanguage('nl');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === '1 onderdeel bijgewerkt vanuit het bedrijf', 'nl: refreshNotice count=1 geeft de enkelvoudsvorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === '1 onderdeel bijgewerkt vanuit de bibliotheek', 'nl: refreshNotice count=1 geeft de enkelvoudsvorm');
   // Negatieve controle: count=3 blijft de meervoudsvorm (bewijst dat _other niet per ongeluk ALTIJD wint).
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 3 }) === '3 onderdelen bijgewerkt vanuit het bedrijf', 'nl: refreshNotice count=3 geeft de meervoudsvorm (negatieve controle)');
-  assert(i18next.t('companyLibrary.removeCompanyConfirmLinked', { count: 1 }) === 'Dit bedrijf is aan 1 geopend project gekoppeld. Verwijderen ontkoppelt dat project. Doorgaan?', 'nl: removeCompanyConfirmLinked count=1 geeft de enkelvoudsvorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 3 }) === '3 onderdelen bijgewerkt vanuit de bibliotheek', 'nl: refreshNotice count=3 geeft de meervoudsvorm (negatieve controle)');
+  assert(i18next.t('companyLibrary.removeCompanyConfirmLinked', { count: 1 }) === 'Deze resourcebibliotheek is aan 1 geopend project gekoppeld. Verwijderen ontkoppelt dat project. Doorgaan?', 'nl: removeCompanyConfirmLinked count=1 geeft de enkelvoudsvorm');
 
   // --- en ---
   await i18next.changeLanguage('en');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === '1 item updated from the company', 'en: refreshNotice count=1 geeft de enkelvoudsvorm');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 5 }) === '5 items updated from the company', 'en: refreshNotice count=5 geeft de meervoudsvorm (negatieve controle)');
-  assert(i18next.t('companyLibrary.removeCompanyConfirmLinked', { count: 1 }) === 'This company is linked to 1 open project. Removing it will unlink that project. Continue?', 'en: removeCompanyConfirmLinked count=1 geeft de enkelvoudsvorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === '1 item updated from the library', 'en: refreshNotice count=1 geeft de enkelvoudsvorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 5 }) === '5 items updated from the library', 'en: refreshNotice count=5 geeft de meervoudsvorm (negatieve controle)');
+  assert(i18next.t('companyLibrary.removeCompanyConfirmLinked', { count: 1 }) === 'This resource library is linked to 1 open project. Removing it will unlink that project. Continue?', 'en: removeCompanyConfirmLinked count=1 geeft de enkelvoudsvorm');
 
   // --- pl: volledige CLDR-set (one/few/many/other) — count=1 (one) én count=2 (few) moeten UITEENLOPEN ---
   await i18next.changeLanguage('pl');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === 'Zaktualizowano 1 element z firmy', 'pl: refreshNotice count=1 geeft de "one"-vorm ("element")');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 2 }) === 'Zaktualizowano 2 elementy z firmy', 'pl: refreshNotice count=2 geeft de "few"-vorm ("elementy")');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 5 }) === 'Zaktualizowano 5 elementów z firmy', 'pl: refreshNotice count=5 geeft de "many"-vorm ("elementów")');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === 'Zaktualizowano 1 element z biblioteki', 'pl: refreshNotice count=1 geeft de "one"-vorm ("element")');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 2 }) === 'Zaktualizowano 2 elementy z biblioteki', 'pl: refreshNotice count=2 geeft de "few"-vorm ("elementy")');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 5 }) === 'Zaktualizowano 5 elementów z biblioteki', 'pl: refreshNotice count=5 geeft de "many"-vorm ("elementów")');
   // Negatieve controle: de drie vormen zijn onderling verschillend (geen stille collaps naar één string).
   const plOne = i18next.t('companyLibrary.refreshNotice', { count: 1 });
   const plFew = i18next.t('companyLibrary.refreshNotice', { count: 2 });
@@ -75,9 +75,9 @@ async function main() {
 
   // --- ar: volledige CLDR-set (zero/one/two/few/many/other) ---
   await i18next.changeLanguage('ar');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === 'تم تحديث عنصر واحد من الشركة', 'ar: refreshNotice count=1 geeft de "one"-vorm');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 2 }) === 'تم تحديث عنصرين من الشركة', 'ar: refreshNotice count=2 geeft de "two"-vorm');
-  assert(i18next.t('companyLibrary.refreshNotice', { count: 0 }) === 'لم يتم تحديث أي عنصر من الشركة', 'ar: refreshNotice count=0 geeft de "zero"-vorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 1 }) === 'تم تحديث عنصر واحد من المكتبة', 'ar: refreshNotice count=1 geeft de "one"-vorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 2 }) === 'تم تحديث عنصرين من المكتبة', 'ar: refreshNotice count=2 geeft de "two"-vorm');
+  assert(i18next.t('companyLibrary.refreshNotice', { count: 0 }) === 'لم يتم تحديث أي عنصر من المكتبة', 'ar: refreshNotice count=0 geeft de "zero"-vorm');
 
   // --- Regressie-anker: GEEN kale (niet-gesuffixte) key meer in ÉÉN van de 14 locales — deze assert
   // wordt rood zodra iemand de _one/_other-opsplitsing voor één taal terugdraait naar een platte string

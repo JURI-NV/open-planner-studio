@@ -299,6 +299,10 @@ per type (`Toegevoegd`, `Gewijzigd`, `Opgelost`, `Documentatie`).
     bestaande cases ongewijzigd groen.
 
 ### Gewijzigd
+- **Bedrijfsbibliotheken heten nu resourcebibliotheken.** De gebruikersterm "bedrijf" voor het
+  bibliotheekconcept (toevoegen/koppelen/afwijkingen, alle 14 talen) is hernoemd naar
+  "resourcebibliotheek" (kortweg "bibliotheek"); het veld "Opdrachtgever/organisatie" en
+  code-identifiers als `companyId` blijven ongewijzigd (issue #19).
 - **Herstel-dialoog in de app zelf** — bij het opstarten na een onverwachte
   afsluiting verschijnt de herstelvraag nu als een eigen, gestylede React-dialog
   (`RecoveryDialog`) in plaats van een native OS-dialog. De dialoog toont per te

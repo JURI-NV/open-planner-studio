@@ -98,7 +98,7 @@ function samplePool(overrides: Partial<CompanyPool> = {}): CompanyPool {
   assert(back.project.companyName === hostile, 'A1: project.companyName met ");" overleeft');
 }
 // A1 pool-export→import: pool-JSON met "();" in een resourcenaam mag readPoolIFC niet laten falen
-// met "bevat geen bedrijfsbibliotheek" (de blob eindigt vroegtijdig zonder quote-bewuste parsing).
+// met "bevat geen resourcebibliotheek" (de blob eindigt vroegtijdig zonder quote-bewuste parsing).
 {
   const pool = samplePool({ poolVersion: 1, resources: [res('r1', 'Kraan (); DROP TABLE')] });
   let back: CompanyPool | undefined;
