@@ -33,6 +33,7 @@ import { BenchmarkDialog } from '@/components/dialogs/BenchmarkDialog';
 import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
 import { AddFromLibraryDialog } from '@/components/dialogs/AddFromLibraryDialog';
 import { UpdateFromLibraryDialog } from '@/components/dialogs/UpdateFromLibraryDialog';
+import { LibraryLinkDialog } from '@/components/dialogs/LibraryLinkDialog';
 import { PresentationHint } from '@/components/layout/PresentationHint';
 import { RecoveryDialog } from '@/components/dialogs/RecoveryDialog';
 import { WelcomeDialog } from '@/components/dialogs/WelcomeDialog';
@@ -349,6 +350,7 @@ function AppContent() {
       <PoolImportDialog />
       <AddFromLibraryDialog />
       <UpdateFromLibraryDialog />
+      <LibraryLinkDialog />
       {recovery && (
         <RecoveryDialog
           entries={recovery.entries}

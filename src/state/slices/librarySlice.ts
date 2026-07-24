@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -125,6 +125,13 @@ export interface LibrarySlice {
    *  eigen-bedrijf-stempel of bedrijf lokaal onbekend ⇒ null (geen markering; los-gedrag). */
   onOpenStatusForResource: (resourceId: string) => import('@/services/library').OnOpenStatus | null;
   onOpenStatusForCalendar: (calendarId: string) => import('@/services/library').OnOpenStatus | null;
+
+  /** Los één afwijking op (spec §3, koppel-/afwijkingenscherm). 'company' = neem de poolwaarde over
+   *  (ververs het item, niet-undoable, wist redoStack, geen isDirty). 'file' = neem de BESTANDSwaarde
+   *  over in het bedrijf: werk het poolitem bij (bumpt de pool — "geldt voor al je projecten") en
+   *  ververs de siblings; het net-geopende item krijgt de verse syncedHash zonder dubbele verversing
+   *  (plan-eis 4). */
+  resolveDeviation: (ref: { kind: 'resource' | 'calendar'; projectId: string }, choice: 'company' | 'file') => void;
 }
 
 /**
@@ -850,5 +857,78 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     });
     get().recomputeResourceLoad();
     get().recomputeViewRows();
+  },
+
+  resolveDeviation: (ref, choice) => {
+    const companyId = get().project.companyId;
+    if (!companyId) return;
+    if (choice === 'company') {
+      // Neem poolwaarde over: gerichte niet-undoable verversing van dit ene item.
+      set((s) => {
+        const draftPool = s.pools[companyId];
+        if (!draftPool) return;
+        const pool = current(draftPool);
+        if (ref.kind === 'resource') {
+          const idx = s.resources.findIndex((r) => r.id === ref.projectId);
+          if (idx < 0 || diffResourceVsPool(current(s.resources[idx]), pool).status !== 'changed') return;
+          s.resources[idx] = applyResourceUpdate(current(s.resources[idx]), pool);
+        } else {
+          const idx = s.calendars.findIndex((c) => c.id === ref.projectId);
+          if (idx < 0 || diffCalendarVsPool(current(s.calendars[idx]), pool).status !== 'changed') return;
+          s.calendars[idx] = applyCalendarUpdate(current(s.calendars[idx]), pool);
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+          // Review-fix (spec §3): kalenderwaarden gewijzigd ⇒ scheduleStale (geen isDirty, geen runCPM).
+          s.scheduleStale = true;
+        }
+        s.redoStack = [];
+      });
+      get().recomputeResourceLoad();
+      get().recomputeViewRows();
+      return;
+    }
+    // choice === 'file': schrijf de BESTANDSwaarde naar het poolitem (bump), zet de verse syncedHash op
+    // het net-geopende item, en ververs de siblings (plan-eis 4: geen dubbele verversing van dit item).
+    set((s) => {
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      if (ref.kind === 'resource') {
+        // findIndex + current(s.resources[idx]) (bewezen patroon elders in dit bestand, zie
+        // resolveDeviation('company')/linkRecognizedItems) — current() op het RESULTAAT van
+        // .find() zelf faalt onder Immer ("expects a draft"), dus altijd via de index.
+        const rIdx = s.resources.findIndex((r) => r.id === ref.projectId);
+        if (rIdx < 0) return;
+        const item = current(s.resources[rIdx]);
+        const libId = item.libraryOrigin?.libraryItemId;
+        const pIdx = libId ? draftPool.resources.findIndex((r) => r.id === libId) : -1;
+        if (pIdx < 0) return;
+        // Overschrijf de gevolgde velden van het poolitem met de bestandswaarden.
+        for (const f of RESOURCE_DIFF_FIELDS_LOCAL) (draftPool.resources[pIdx] as Record<string, unknown>)[f] = (item as Record<string, unknown>)[f];
+        // Bewezen patroon (zie promoteResourceToPool hierboven): werk verder met de PLAIN
+        // `bumped`-return-waarde, niet met een current()-herlezing van s.pools[companyId] — die
+        // combinatie (plain top-level object met nog-proxied nested arrays) laat Immers current()
+        // stikken ("expects a draft, got: [object Object]").
+        const bumped = bumpPool(draftPool);
+        s.pools[companyId] = bumped;
+        const newHash = computeResourceHash(bumped.resources[pIdx]);
+        s.resources[rIdx] = { ...item, libraryOrigin: makeOrigin(bumped, libId!, newHash) };
+      } else {
+        const cIdx = s.calendars.findIndex((c) => c.id === ref.projectId);
+        if (cIdx < 0) return;
+        const item = current(s.calendars[cIdx]);
+        const libId = item.libraryOrigin?.libraryItemId;
+        const pIdx = libId ? draftPool.calendars.findIndex((c) => c.id === libId) : -1;
+        if (pIdx < 0) return;
+        for (const f of CALENDAR_DIFF_FIELDS_LOCAL) (draftPool.calendars[pIdx] as Record<string, unknown>)[f] = (item as Record<string, unknown>)[f];
+        const bumped = bumpPool(draftPool);
+        s.pools[companyId] = bumped;
+        const newHash = computeCalendarHash(bumped.calendars[pIdx]);
+        s.calendars[cIdx] = { ...item, libraryOrigin: makeOrigin(bumped, libId!, newHash) };
+        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+      }
+    });
+    persist(get);
+    // Siblings in alle open/slapende documenten volgen de nieuwe pool (plan-eis 4). Het net-opgeloste
+    // item is nu gelijk aan de pool (diff up-to-date) ⇒ refreshAllDocumentsFromPool raakt het niet.
+    get().refreshAllDocumentsFromPool(companyId);
   },
 });

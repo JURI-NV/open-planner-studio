@@ -1026,6 +1026,39 @@ const store = useAppStore.getState();
   assert(replaceIdx >= 0 && boundaryIdx >= 0 && boundaryIdx > replaceIdx, 'confirm-handler roept runOpenBoundary() aan ná replacePool (grens 1, spec §3)');
 }
 
+// --- Taak 14, stap 1: resolveDeviation — bedrijfswaarden vs bestandswaarden-overnemen (spec §3).
+// Grens 3 is behind-only (Taak 6, review-fix): een lokaal-bewerkte (deviated) kopie wordt door
+// updatePoolResource NIET stil overschreven — het scenario blijft dus eenvoudig en robuust. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Dev BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'dv', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 4 })!;
+  const added = s.addLibraryResourceToProject(cid, resId); // kopie=4, syncedHash=hash(4)
+  s.updatePoolResource(cid, resId, { maxUnits: 10 });      // pool schuift
+  // Lokaal bewerken ⇒ file=hash(6) != syncedHash=hash(4) ⇒ deviated (grens 3 laat 'm staan).
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) r.maxUnits = 6;
+  });
+  s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'company'); // neem poolwaarde
+  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.maxUnits === 10, "resolveDeviation('company') neemt de poolwaarde");
+
+  // Nieuw deviated geval, kies 'file' ⇒ pool neemt de bestandswaarde over (geldt voor alle projecten).
+  const res2 = s.promoteResourceToPool(cid, { id: 'dv2', name: 'Ijzerman', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const add2 = s.addLibraryResourceToProject(cid, res2);   // kopie=1, syncedHash=hash(1)
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === add2.resourceId);
+    if (r) r.maxUnits = 3;                                 // deviated: file=hash(3) != syncedHash=hash(1)
+  });
+  s.resolveDeviation({ kind: 'resource', projectId: add2.resourceId! }, 'file');
+  assert(useAppStore.getState().pools[cid].resources.find(r => r.id === res2)?.maxUnits === 3, "resolveDeviation('file') schrijft de bestandswaarde naar de pool");
+  // Plan-eis 4: het net-opgeloste item zelf krijgt de verse syncedHash (geen dubbele verversing) —
+  // de sibling-verversing via refreshAllDocumentsFromPool mag dit item niet als 'behind' aanmerken.
+  const resolved = useAppStore.getState().resources.find(r => r.id === add2.resourceId);
+  assert(resolved?.libraryOrigin?.syncedHash === computeResourceHash(resolved!), "resolveDeviation('file') zet de verse syncedHash op het net-opgeloste item");
+}
+
 // --- Voorstap taak 14 (critreview taak 12, verplicht): de vlag-invariant is UNIVERSEEL —
 // runOpenBoundary/newDocument()/closeDocument() vestigen de VOLLEDIGE showLibraryLinkDialog/
 // libraryRefreshNotice-toestand, óók het WISSEN wanneer er niets deviated/behind is. Zonder deze
