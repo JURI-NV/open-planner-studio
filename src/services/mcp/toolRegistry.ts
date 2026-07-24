@@ -11,14 +11,14 @@
 //   - dubbele namen mogen niet;
 //   - elke tool moet een niet-lege `description` hebben (dragend voor tools/list — de AI kiest erop).
 import type { McpToolDef } from './contracts';
+import { readTools } from './tools/readTools';
 
 /** Service-prefix; alle toolnamen dragen hem (spec §Naamgeving — voorkomt botsingen met andere MCP-servers). */
 export const TOOL_PREFIX = 'planner_';
 
 // Latere banen breiden dit uit, bijv.:
-//   import { readTools } from './tools/read';
 //   const MODULES: McpToolDef[][] = [readTools, mutateTools, documentTools, batchTools];
-const MODULES: McpToolDef[][] = [];
+const MODULES: McpToolDef[][] = [readTools];
 
 let flatTools: McpToolDef[] = [];
 let toolsByName = new Map<string, McpToolDef>();

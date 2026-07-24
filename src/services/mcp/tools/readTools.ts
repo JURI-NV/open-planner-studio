@@ -1,0 +1,859 @@
+// MCP-bridge — de tien LEESTOOLS (taak T18, spec §Tool-set Lezen, regels 67-80 + §Naamgeving 65).
+//
+// Elke tool draagt de `planner_`-prefix, een verplichte description (de AI kiest tools op
+// beschrijving) en de leestool-annotaties (`readOnlyHint:true`, `openWorldHint:false`). De data is
+// bewust COMPACT (velden die false/0/leeg zijn worden weggelaten) — deze payloads gaan als JSON over
+// de bridge en de overview/list-tools kunnen op een groot project fors worden.
+//
+// Alle tools lopen door de lokale `readTool`-wikkel: die spiegelt `runReadTool` (dialoog-guard +
+// live envelop, GEEN drift/pauze-blokkade — spec regel 116) maar laat een tool een NETTE
+// `ToolError`-code teruggeven (VALIDATION bij een onbekend id / ontbrekende baseline) i.p.v. de
+// generieke INTERNAL die een kale throw zou opleveren.
+//
+// `get_resource_histogram` roept `ensureFreshSchedule` aan (herrekent ALLEEN als stale; pusht nooit
+// een undo-snapshot — staleGuard-invariant) en meldt in de data of het (her)berekend is; dat is de
+// enige leestool die de store-cache raakt, en dat is een versheids-refresh, geen mutatie — de
+// annotatie blijft `readOnlyHint:true` (spec: readOnlyHint op ALLE leestools).
+
+import { useAppStore } from '@/state/appStore';
+import type { AppState } from '@/state/appStore';
+import { hasBlockingDialogOpen } from '@/hooks/keyboard/shortcutRegistry';
+import { ensureFreshSchedule } from '../staleGuard';
+import { buildEnvelope } from './runtime';
+import type { McpContext, McpToolDef, McpToolResult, McpErrorCode, McpToolAnnotations } from '../contracts';
+import type { Task } from '@/types/task';
+import type { Sequence, SequenceType } from '@/types/sequence';
+import type { WorkCalendar } from '@/types/calendar';
+import type { Baseline } from '@/types/baseline';
+import { computeHistogramReport } from '@/engine/scheduler/ResourceLoad';
+import { computeVariance, type VarianceRow } from '@/engine/variance';
+import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
+import { resolveCalendar } from '@/engine/scheduler/resolveCalendar';
+
+// ── Lokale leestool-wikkel + nette fout ──────────────────────────────────────────────────────────
+
+/** Nette, aan een code gekoppelde tool-fout die de `readTool`-wikkel op een `McpToolErr` mapt
+ *  (i.p.v. de INTERNAL die een kale throw zou geven). Voor onbekende id's / ontbrekende baselines. */
+class ToolError extends Error {
+  constructor(public code: McpErrorCode, message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Draai een leestool-kern. Guards spiegelen `runReadTool` (spec regel 116): ALLEEN de dialoog-guard
+ * (een open modaal ⇒ de user zit in een handmatige actie, óók een lezing kan een half-bewerkte staat
+ * zien); GEEN drift-fail en GEEN pauze-/alleen-lezen-blokkade (die raken alleen mutaties). Een
+ * `ToolError` uit `fn` wordt zijn eigen nette code; elke andere throw wordt `INTERNAL`.
+ */
+function readTool(ctx: McpContext, fn: (s: AppState) => unknown): McpToolResult {
+  void ctx; // leestools gebruiken de ctx-guards niet; parameter blijft voor een uniform tool-oppervlak
+  if (hasBlockingDialogOpen()) {
+    return {
+      ok: false,
+      code: 'DIALOG_OPEN',
+      error: 'Er staat een dialoog open; sluit die eerst voordat de AI de planning leest.',
+      envelope: buildEnvelope(),
+    };
+  }
+  try {
+    const data = fn(useAppStore.getState());
+    return { ok: true, envelope: buildEnvelope(), data };
+  } catch (e) {
+    if (e instanceof ToolError) {
+      return { ok: false, code: e.code, error: e.message, envelope: buildEnvelope() };
+    }
+    return { ok: false, code: 'INTERNAL', error: e instanceof Error ? e.message : String(e), envelope: buildEnvelope() };
+  }
+}
+
+/** Leestool-annotaties (spec §Naamgeving): readOnly, niet-destructief, geen open wereld. `idempotentHint`
+ *  is per MCP-conventie alleen zinvol op niet-readOnly tools ⇒ false. */
+const READ_ANNOTATIONS: McpToolAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+};
+
+// ── Compacte helpers ─────────────────────────────────────────────────────────────────────────────
+
+/** FS/SS/FF/SF-afkorting voor de compacte relatienotatie. */
+function seqAbbrev(type: SequenceType): string {
+  switch (type) {
+    case 'FINISH_START': return 'FS';
+    case 'START_START': return 'SS';
+    case 'FINISH_FINISH': return 'FF';
+    case 'START_FINISH': return 'SF';
+  }
+}
+
+/** Compacte lag-suffix: "+2d" / "-1d" / "+50%" / "" (geen lag). Percentage sluit dagen uit (schema). */
+function lagLabel(seq: Sequence): string {
+  if (typeof seq.lagPercent === 'number' && Number.isFinite(seq.lagPercent) && seq.lagPercent !== 0) {
+    return `${seq.lagPercent > 0 ? '+' : ''}${seq.lagPercent}%`;
+  }
+  const d = Number.isFinite(seq.lagDays) ? seq.lagDays : 0;
+  if (d === 0) return '';
+  return `${d > 0 ? '+' : ''}${d}d`;
+}
+
+/** Voortgang 0-1 → geheel percent 0-100 (spec-conventie completion 0-100). */
+function pct(completion: number): number {
+  return Math.round((completion ?? 0) * 100);
+}
+
+/** WBS van een taak-id, of het id zelf als terugval (mocht een relatie naar een onbekende taak wijzen). */
+function wbsOf(taskById: Map<string, Task>, id: string): string {
+  return taskById.get(id)?.wbsCode ?? id;
+}
+
+/** Verkorte uitgaande relatie vanuit een voorganger: "→2.3 FS+2d" (spec-rij get_project_overview). */
+function relShort(taskById: Map<string, Task>, seq: Sequence): string {
+  return `→${wbsOf(taskById, seq.successorId)} ${seqAbbrev(seq.type)}${lagLabel(seq)}`;
+}
+
+interface PageArgs {
+  limit?: unknown;
+  offset?: unknown;
+}
+
+interface Paged<T> {
+  items: T[];
+  total: number;
+  has_more: boolean;
+  next_offset: number | null;
+}
+
+/** Uniforme paginering (spec §Naamgeving): limit default 50, offset default 0, retour total/has_more/
+ *  next_offset. `next_offset` is null zodra er niets meer volgt (heldere "einde"-markering). */
+function paginate<T>(items: T[], args: PageArgs): Paged<T> {
+  const rawLimit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.floor(args.limit) : 50;
+  const limit = Math.max(1, Math.min(rawLimit, 1000)); // harde bovengrens tegen een reuze-pagina
+  const rawOffset = typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.floor(args.offset) : 0;
+  const offset = Math.max(0, rawOffset);
+  const page = items.slice(offset, offset + limit);
+  const nextOffset = offset + page.length;
+  const has_more = nextOffset < items.length;
+  return { items: page, total: items.length, has_more, next_offset: has_more ? nextOffset : null };
+}
+
+/** Alle taak-id's die in minstens één relatie voorkomen (als voorganger óf opvolger) — basis voor
+ *  de wees-detectie (`zonder_relaties`). */
+function idsInAnySequence(sequences: Sequence[]): Set<string> {
+  const s = new Set<string>();
+  for (const seq of sequences) {
+    s.add(seq.predecessorId);
+    s.add(seq.successorId);
+  }
+  return s;
+}
+
+/** De actieve baseline of null. */
+function activeBaseline(s: AppState): Baseline | null {
+  if (!s.activeBaselineId) return null;
+  return s.baselines.find((b) => b.id === s.activeBaselineId) ?? null;
+}
+
+/** Compacte kalender-samenvatting (voor project_info). */
+function calendarSummary(cal: WorkCalendar) {
+  return {
+    id: cal.id,
+    name: cal.name,
+    workDays: cal.workDays,
+    hoursPerDay: cal.hoursPerDay,
+    holidayRanges: cal.holidays.length,
+    isHourCalendar: !!cal.workTime,
+  };
+}
+
+// ── 1. planner_get_project_info ──────────────────────────────────────────────────────────────────
+
+function getProjectInfo(s: AppState) {
+  const tasks = s.tasks;
+  const leaves = tasks.filter((t) => t.childIds.length === 0);
+  const summaries = tasks.filter((t) => t.childIds.length > 0);
+  const milestones = tasks.filter((t) => t.isMilestone);
+  const criticalCount = tasks.filter((t) => t.time.isCritical).length;
+  const p = s.project;
+  return {
+    project: {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      author: p.author,
+      company: p.company,
+      ...(p.statusDate ? { statusDate: p.statusDate } : {}),
+      ...(p.progressMode ? { progressMode: p.progressMode } : {}),
+    },
+    statistics: {
+      totalTasks: tasks.length,
+      leafTasks: leaves.length,
+      summaryTasks: summaries.length,
+      milestones: milestones.length,
+      relations: s.sequences.length,
+      resources: s.resources.length,
+      assignments: s.assignments.length,
+      criticalTasks: criticalCount,
+    },
+    schedule: {
+      scheduleStale: s.scheduleStale,
+      projectEnd: s.cpmResult?.projectEnd ?? null,
+      projectDuration: s.cpmResult?.projectDuration ?? null,
+      hasResult: !!s.cpmResult && !s.cpmResult.error,
+      ...(s.cpmResult?.error ? { error: s.cpmResult.error } : {}),
+    },
+    calendar: calendarSummary(s.calendar),
+    calendarLibraryCount: s.calendars.length,
+  };
+}
+
+// ── 2. planner_get_project_overview ──────────────────────────────────────────────────────────────
+
+function getProjectOverview(s: AppState) {
+  const tasks = s.tasks;
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  // Uitgaande relaties per voorganger — zo verschijnt ELKE relatie precies één keer en is de
+  // volledige relatiegraaf gegarandeerd in deze ene respons aanwezig (spec: één call volstaat).
+  const outByPred = new Map<string, Sequence[]>();
+  for (const seq of s.sequences) {
+    const arr = outByPred.get(seq.predecessorId);
+    if (arr) arr.push(seq);
+    else outByPred.set(seq.predecessorId, [seq]);
+  }
+  const rows = tasks.map((t) => {
+    const rels = (outByPred.get(t.id) ?? []).map((seq) => relShort(taskById, seq));
+    const row: Record<string, unknown> = {
+      wbs: t.wbsCode,
+      name: t.name,
+      dur: t.time.scheduleDuration,
+      start: t.time.earlyStart,
+      end: t.time.earlyFinish,
+    };
+    if (t.parentId) row.parent = taskById.get(t.parentId)?.wbsCode ?? t.parentId;
+    const p = pct(t.time.completion);
+    if (p > 0) row.prog = p;
+    if (t.time.isCritical) row.crit = true;
+    if (t.isMilestone) row.ms = true;
+    if (rels.length > 0) row.rels = rels;
+    return row;
+  });
+  return {
+    projectName: s.project.name,
+    taskCount: tasks.length,
+    relationCount: s.sequences.length,
+    scheduleStale: s.scheduleStale,
+    tasks: rows,
+  };
+}
+
+// ── 3. planner_list_tasks ────────────────────────────────────────────────────────────────────────
+
+interface ListTasksArgs extends PageArgs {
+  kritiek?: unknown;
+  status?: unknown;
+  van?: unknown;
+  tot?: unknown;
+  zonder_relaties?: unknown;
+}
+
+function listTasks(s: AppState, args: ListTasksArgs) {
+  const inSeq = idsInAnySequence(s.sequences);
+  let filtered = s.tasks;
+
+  if (args.kritiek === true) filtered = filtered.filter((t) => t.time.isCritical);
+  if (args.kritiek === false) filtered = filtered.filter((t) => !t.time.isCritical);
+  if (typeof args.status === 'string') {
+    const st = args.status;
+    filtered = filtered.filter((t) => t.status === st);
+  }
+  // Datumvenster: overlap van [earlyStart, earlyFinish] met [van, tot] (ISO-string-vergelijking).
+  if (typeof args.van === 'string') {
+    const van = args.van;
+    filtered = filtered.filter((t) => (t.time.earlyFinish || t.time.scheduleFinish) >= van);
+  }
+  if (typeof args.tot === 'string') {
+    const tot = args.tot;
+    filtered = filtered.filter((t) => (t.time.earlyStart || t.time.scheduleStart) <= tot);
+  }
+  // Wees-detectie: alléén LEAF-taken die in geen enkele relatie voorkomen. Verzameltaken hebben per
+  // definitie geen relaties en zijn dus geen "wezen" — die worden hier bewust uitgesloten.
+  if (args.zonder_relaties === true) {
+    filtered = filtered.filter((t) => t.childIds.length === 0 && !inSeq.has(t.id));
+  }
+
+  const paged = paginate(filtered, args);
+  const rows = paged.items.map((t) => {
+    const row: Record<string, unknown> = {
+      id: t.id,
+      wbs: t.wbsCode,
+      name: t.name,
+      dur: t.time.scheduleDuration,
+      start: t.time.earlyStart,
+      end: t.time.earlyFinish,
+      status: t.status,
+    };
+    const p = pct(t.time.completion);
+    if (p > 0) row.prog = p;
+    if (t.time.isCritical) row.crit = true;
+    if (t.isMilestone) row.ms = true;
+    if (t.childIds.length > 0) row.summary = true;
+    return row;
+  });
+  return {
+    tasks: rows,
+    total: paged.total,
+    has_more: paged.has_more,
+    next_offset: paged.next_offset,
+  };
+}
+
+// ── 4. planner_get_task ──────────────────────────────────────────────────────────────────────────
+
+interface GetTaskArgs {
+  taskId?: unknown;
+}
+
+function getTask(s: AppState, args: GetTaskArgs) {
+  if (typeof args.taskId !== 'string' || args.taskId === '') {
+    throw new ToolError('VALIDATION', 'get_task vereist een `taskId` (string).');
+  }
+  const task = s.tasks.find((t) => t.id === args.taskId);
+  if (!task) {
+    throw new ToolError('NOT_FOUND', `Onbekende taak-id: ${args.taskId}`);
+  }
+  const taskById = new Map(s.tasks.map((t) => [t.id, t]));
+  const resById = new Map(s.resources.map((r) => [r.id, r]));
+
+  const assignments = s.assignments
+    .filter((a) => a.taskId === task.id)
+    .map((a) => ({
+      assignmentId: a.id,
+      resourceId: a.resourceId,
+      resourceName: resById.get(a.resourceId)?.name ?? null,
+      unitsPerDay: a.unitsPerDay,
+      curve: a.curve ?? 'UNIFORM',
+    }));
+
+  const predecessors = s.sequences
+    .filter((seq) => seq.successorId === task.id)
+    .map((seq) => ({
+      seqId: seq.id,
+      taskId: seq.predecessorId,
+      wbs: wbsOf(taskById, seq.predecessorId),
+      type: seqAbbrev(seq.type),
+      lag: lagLabel(seq),
+    }));
+  const successors = s.sequences
+    .filter((seq) => seq.predecessorId === task.id)
+    .map((seq) => ({
+      seqId: seq.id,
+      taskId: seq.successorId,
+      wbs: wbsOf(taskById, seq.successorId),
+      type: seqAbbrev(seq.type),
+      lag: lagLabel(seq),
+    }));
+
+  // Effectieve kalender (§5): taak-kalender uit de bibliotheek, anders de projectkalender.
+  const effCal = resolveCalendar(task.calendarId, s.calendars, s.calendar);
+
+  const tt = task.time;
+  return {
+    id: task.id,
+    wbs: task.wbsCode,
+    name: task.name,
+    description: task.description,
+    taskType: task.taskType,
+    status: task.status,
+    isMilestone: task.isMilestone,
+    ...(task.milestoneKind ? { milestoneKind: task.milestoneKind } : {}),
+    ...(task.isHammock ? { isHammock: true } : {}),
+    ...(task.mandatory ? { mandatory: true } : {}),
+    parentId: task.parentId,
+    childIds: task.childIds,
+    duration: tt.scheduleDuration,
+    durationType: tt.durationType,
+    schedule: {
+      earlyStart: tt.earlyStart,
+      earlyFinish: tt.earlyFinish,
+      lateStart: tt.lateStart,
+      lateFinish: tt.lateFinish,
+      totalFloat: tt.totalFloat,
+      freeFloat: tt.freeFloat,
+      isCritical: tt.isCritical,
+    },
+    progress: {
+      completion: pct(tt.completion),
+      ...(tt.actualStart ? { actualStart: tt.actualStart } : {}),
+      ...(tt.actualFinish ? { actualFinish: tt.actualFinish } : {}),
+    },
+    ...(task.constraint ? { constraint: task.constraint } : {}),
+    ...(task.constraint2 ? { constraint2: task.constraint2 } : {}),
+    ...(task.deadline ? { deadline: task.deadline } : {}),
+    calendar: {
+      effectiveId: effCal.id,
+      effectiveName: effCal.name,
+      isProjectDefault: !task.calendarId || task.calendarId === s.calendar.id,
+    },
+    assignments,
+    predecessors,
+    successors,
+  };
+}
+
+// ── 5. planner_get_critical_path ─────────────────────────────────────────────────────────────────
+
+function getCriticalPath(s: AppState) {
+  const cpm = s.cpmResult;
+  if (!cpm || cpm.error) {
+    return {
+      scheduleStale: s.scheduleStale,
+      hasResult: false,
+      ...(cpm?.error ? { error: cpm.error } : {}),
+      note: 'Geen (geldig) planningsresultaat — draai planner_run_cpm.',
+      criticalTasks: [],
+      drivingRelations: [],
+    };
+  }
+  const taskById = new Map(s.tasks.map((t) => [t.id, t]));
+  const critSet = new Set(cpm.criticalPath);
+
+  // Kritieke taken in TOPO-volgorde (cpm.criticalPath is opgebouwd in de solver-order).
+  const criticalTasks = cpm.criticalPath.map((id) => {
+    const t = taskById.get(id);
+    const r = cpm.tasks.get(id);
+    return {
+      id,
+      wbs: t?.wbsCode ?? id,
+      name: t?.name ?? '',
+      start: r?.earlyStart ?? '',
+      end: r?.earlyFinish ?? '',
+      totalFloat: r?.totalFloat ?? 0,
+    };
+  });
+
+  // Driving-relaties GEFILTERD op paren waarvan BEIDE eindpunten kritiek zijn (spec-rij).
+  const seqById = new Map(s.sequences.map((seq) => [seq.id, seq]));
+  const drivingRelations = cpm.drivingSequenceIds
+    .map((id) => seqById.get(id))
+    .filter((seq): seq is Sequence => !!seq && critSet.has(seq.predecessorId) && critSet.has(seq.successorId))
+    .map((seq) => ({
+      seqId: seq.id,
+      predId: seq.predecessorId,
+      predWbs: wbsOf(taskById, seq.predecessorId),
+      succId: seq.successorId,
+      succWbs: wbsOf(taskById, seq.successorId),
+      type: seqAbbrev(seq.type),
+      lag: lagLabel(seq),
+    }));
+
+  // Gescheiden parallelle ketens (`criticalPaths`) bestaan ALLEEN bij floatPaths.enabled mét
+  // FREE_FLOAT; in elk ander geval is criticalPaths === [criticalPath] (één samengevoegd array).
+  // De respons meldt welke situatie geldt; reconstructie van de keten is client-werk.
+  const fp = s.project.schedulingOptions?.floatPaths;
+  const parallelAvailable = fp?.enabled === true && fp.method === 'FREE_FLOAT';
+  const base = {
+    scheduleStale: s.scheduleStale,
+    hasResult: true,
+    projectEnd: cpm.projectEnd,
+    criticalTasks,
+    drivingRelations,
+    pathsMode: parallelAvailable ? ('parallel' as const) : ('merged' as const),
+  };
+  if (parallelAvailable) {
+    // Naar WBS mappen zodat de client de ketens leesbaar heeft (id's blijven in criticalTasks).
+    return {
+      ...base,
+      criticalPaths: cpm.criticalPaths.map((chain) => chain.map((id) => wbsOf(taskById, id))),
+      criticalPathIds: cpm.criticalPaths,
+    };
+  }
+  return base;
+}
+
+// ── 6. planner_list_resources ────────────────────────────────────────────────────────────────────
+
+function listResources(s: AppState, args: PageArgs) {
+  // Toewijzings-samenvatting per resource (aantal toewijzingen, aantal betrokken taken, som units/dag).
+  const byRes = new Map<string, { assignments: number; tasks: Set<string>; totalUnits: number }>();
+  for (const a of s.assignments) {
+    let e = byRes.get(a.resourceId);
+    if (!e) { e = { assignments: 0, tasks: new Set(), totalUnits: 0 }; byRes.set(a.resourceId, e); }
+    e.assignments += 1;
+    e.tasks.add(a.taskId);
+    e.totalUnits += a.unitsPerDay;
+  }
+  const paged = paginate(s.resources, args);
+  const rows = paged.items.map((r) => {
+    const e = byRes.get(r.id);
+    const row: Record<string, unknown> = {
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      maxUnits: r.maxUnits,
+      assignmentCount: e ? e.assignments : 0,
+      assignedTaskCount: e ? e.tasks.size : 0,
+      totalUnitsPerDay: e ? Math.round(e.totalUnits * 100) / 100 : 0,
+    };
+    if (typeof r.costPerHour === 'number') row.costPerHour = r.costPerHour;
+    if (r.unitOfMeasure) row.unitOfMeasure = r.unitOfMeasure;
+    if (r.calendarId) row.calendarId = r.calendarId;
+    return row;
+  });
+  return {
+    resources: rows,
+    total: paged.total,
+    has_more: paged.has_more,
+    next_offset: paged.next_offset,
+  };
+}
+
+// ── 7. planner_get_resource_histogram ────────────────────────────────────────────────────────────
+
+interface HistogramArgs {
+  resourceIds?: unknown;
+  van?: unknown;
+  tot?: unknown;
+  bucket?: unknown;
+}
+
+function getResourceHistogram(args: HistogramArgs) {
+  // Vers herrekenen wanneer stale — pusht nooit een undo-snapshot (staleGuard-invariant). Dit is de
+  // enige leestool die de cache raakt; het is een versheids-refresh, geen mutatie.
+  const fresh = ensureFreshSchedule();
+  const s = useAppStore.getState(); // verse state ná een eventuele recompute
+
+  const bucket: 'dag' | 'week' = args.bucket === 'dag' ? 'dag' : 'week';
+  const resourceIds = Array.isArray(args.resourceIds)
+    ? (args.resourceIds.filter((x) => typeof x === 'string') as string[])
+    : undefined;
+  const from = typeof args.van === 'string' ? args.van : undefined;
+  const to = typeof args.tot === 'string' ? args.tot : undefined;
+
+  const report = computeHistogramReport({
+    tasks: s.tasks,
+    sequences: s.sequences,
+    assignments: s.assignments,
+    resources: s.resources,
+    calendar: s.calendar,
+    calendars: s.calendars,
+    cpmResult: s.cpmResult,
+    resourceIds,
+    from,
+    to,
+    bucket,
+  });
+
+  const resNameById = new Map(s.resources.map((r) => [r.id, r.name]));
+  const resources = report.resources.map((r) => ({
+    resourceId: r.resourceId,
+    resourceName: resNameById.get(r.resourceId) ?? null,
+    buckets: r.buckets,
+  }));
+
+  return {
+    bucket,
+    // Versheids-melding: was de planning stale, dan is die vers herrekend (recomputed:true). De
+    // envelop toont scheduleStale ná de recompute (false); dít veld meldt dat het NODIG was.
+    recomputed: fresh.recomputed,
+    ...(fresh.error ? { scheduleError: fresh.error } : {}),
+    ...(fresh.recomputed
+      ? { warning: 'De planning was verouderd; het histogram is vers herrekend vóór dit rapport.' }
+      : {}),
+    resources,
+  };
+}
+
+// ── 8. planner_get_calendars ─────────────────────────────────────────────────────────────────────
+
+function getCalendars(s: AppState) {
+  // Unie cache (projectkalender) + bibliotheek, gededupt op id; projectkalender eerst.
+  const byId = new Map<string, WorkCalendar>();
+  byId.set(s.calendar.id, s.calendar);
+  for (const c of s.calendars) if (!byId.has(c.id)) byId.set(c.id, c);
+
+  // Gebruikt-door tellingen. Voor de projectdefault tellen ook taken/resources ZONDER expliciete
+  // calendarId mee (die vallen terug op de projectkalender).
+  const projectDefaultId = s.calendar.id;
+  const list = [...byId.values()].map((cal) => {
+    const isDefault = cal.id === projectDefaultId;
+    const usedByTasks = s.tasks.filter((t) =>
+      isDefault ? (!t.calendarId || t.calendarId === cal.id) : t.calendarId === cal.id,
+    ).length;
+    const usedByResources = s.resources.filter((r) =>
+      isDefault ? (!r.calendarId || r.calendarId === cal.id) : r.calendarId === cal.id,
+    ).length;
+    // Volledige WorkCalendar-definitie (spec-eis: cross-document-herbouw) + de afgeleide velden.
+    return {
+      ...cal,
+      isProjectDefault: isDefault,
+      usedByTasks,
+      usedByResources,
+    };
+  });
+  return { calendars: list, count: list.length, projectDefaultId };
+}
+
+// ── 9. planner_compare_baseline ──────────────────────────────────────────────────────────────────
+
+function compareBaseline(s: AppState) {
+  const baseline = activeBaseline(s);
+  if (!baseline) {
+    throw new ToolError('VALIDATION', 'Geen actieve baseline. Sla eerst een baseline op (planner_save_baseline) of activeer er een.');
+  }
+  const cal = new CalendarEngine(s.calendar);
+  const currentEnd = s.cpmResult?.projectEnd || undefined;
+  const variance = computeVariance(s.tasks, baseline, cal, currentEnd);
+  const deviations = variance.rows.filter((r) => r.status !== 'onSchedule');
+  return {
+    baselineId: baseline.id,
+    baselineName: baseline.name,
+    baselineCreatedAt: baseline.createdAt,
+    scheduleStale: s.scheduleStale,
+    projectEndDelta: variance.projectEndDelta ?? null,
+    deviationCount: deviations.length,
+    deviations: deviations.map(compactVarianceRow),
+  };
+}
+
+/** Compacte variance-rij: laat undefined-velden weg. */
+function compactVarianceRow(r: VarianceRow) {
+  const row: Record<string, unknown> = {
+    taskId: r.taskId,
+    wbs: r.wbs,
+    name: r.name,
+    status: r.status,
+  };
+  if (r.baselineStart !== undefined) row.baselineStart = r.baselineStart;
+  if (r.baselineFinish !== undefined) row.baselineFinish = r.baselineFinish;
+  if (r.currentStart !== undefined) row.currentStart = r.currentStart;
+  if (r.currentFinish !== undefined) row.currentFinish = r.currentFinish;
+  if (r.deltaStart !== undefined) row.deltaStart = r.deltaStart;
+  if (r.deltaFinish !== undefined) row.deltaFinish = r.deltaFinish;
+  return row;
+}
+
+// ── 10. planner_analyze_delay ────────────────────────────────────────────────────────────────────
+
+function analyzeDelay(s: AppState) {
+  const baseline = activeBaseline(s);
+  if (!baseline) {
+    throw new ToolError('VALIDATION', 'Geen actieve baseline. planner_analyze_delay vereist een baseline van vóór de vertraging.');
+  }
+  const cpm = s.cpmResult;
+  const cal = new CalendarEngine(s.calendar);
+  const currentEnd = cpm?.projectEnd || undefined;
+  const variance = computeVariance(s.tasks, baseline, cal, currentEnd);
+
+  // Kritieke schuivers = variance-afwijkers die OP het huidige kritieke pad liggen — lokalisatie/
+  // verklaring, met individuele delta's. De opleverings-impact is NOOIT hun som (cascade-dubbeltelling).
+  const critSet = new Set(cpm?.criticalPath ?? []);
+  const shifters = variance.rows
+    .filter((r) => r.status !== 'onSchedule' && critSet.has(r.taskId))
+    .map((r) => ({
+      taskId: r.taskId,
+      wbs: r.wbs,
+      name: r.name,
+      status: r.status,
+      deltaFinish: r.deltaFinish ?? null,
+      deltaStart: r.deltaStart ?? null,
+      baselineFinish: r.baselineFinish ?? null,
+      currentFinish: r.currentFinish ?? null,
+    }));
+
+  const hasDelta = variance.projectEndDelta !== undefined;
+  return {
+    baselineId: baseline.id,
+    baselineName: baseline.name,
+    scheduleStale: s.scheduleStale,
+    // DE opleverings-impact: projectEndDelta (werkdagen, signed). Nooit een som van taakdelta's.
+    projectEndDeltaAvailable: hasDelta,
+    projectEndDelta: hasDelta ? variance.projectEndDelta : null,
+    ...(hasDelta
+      ? {}
+      : { note: 'De baseline heeft geen doorgerekend projecteinde — de opleverings-impact is onbekend (niet 0). Sla een baseline op ná een run_cpm om dit te meten.' }),
+    criticalShifterCount: shifters.length,
+    criticalShifters: shifters,
+  };
+}
+
+// ── Tool-definities ──────────────────────────────────────────────────────────────────────────────
+
+const NO_ARGS_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
+
+export const readTools: McpToolDef[] = [
+  {
+    name: 'planner_get_project_info',
+    description:
+      'Projectmetadata + statistieken: taak-/relatie-/resource-/toewijzingsaantallen, mijlpalen, ' +
+      'kritieke-taak-aantal, statusdatum, projecteinde/-duur, `scheduleStale` (planning verouderd?), ' +
+      'en een kalender-samenvatting. Goede eerste call om een project te leren kennen.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => getProjectInfo(s)),
+  },
+  {
+    name: 'planner_get_project_overview',
+    description:
+      'Complete WBS-boom, compact: per taak wbs, naam, dur(werkdagen), start/end (vroege datums), ' +
+      'prog(0-100), crit, ms(mijlpaal), parent(wbs) en uitgaande relaties in verkorte notatie ' +
+      '"→2.3 FS+2d". BEWUST ONGELIMITEERD: de volledige relatiegraaf zit gegarandeerd in deze ENE ' +
+      'respons (elke relatie staat één keer, bij zijn voorganger), dus één call volstaat voor ' +
+      'structuur-/netwerkanalyse. Voor grote projecten fors; gebruik list_tasks als je paginering wilt.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => getProjectOverview(s)),
+  },
+  {
+    name: 'planner_list_tasks',
+    description:
+      'Gepagineerde taaklijst met filters. Filters (alle optioneel, gecombineerd via EN): ' +
+      '`kritiek` (bool), `status` (NOT_STARTED|STARTED|COMPLETED), `van`/`tot` (ISO-datumvenster: ' +
+      'taken die met [van,tot] overlappen), `zonder_relaties` (bool — wees-detectie: alléén ' +
+      'LEAF-taken die in geen enkele relatie voorkomen; verzameltaken worden uitgesloten). ' +
+      'Paginering: `limit` (default 50), `offset`; retourneert `total`, `has_more`, `next_offset`.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kritiek: { type: 'boolean' },
+        status: { type: 'string', enum: ['NOT_STARTED', 'STARTED', 'COMPLETED'] },
+        van: { type: 'string', description: 'ISO-datum ondergrens van het venster' },
+        tot: { type: 'string', description: 'ISO-datum bovengrens van het venster' },
+        zonder_relaties: { type: 'boolean', description: 'Alleen leaf-taken zonder enige relatie (wezen)' },
+        limit: { type: 'number', description: 'Aantal per pagina (default 50)' },
+        offset: { type: 'number', description: 'Startindex (default 0)' },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ANNOTATIONS,
+    handler: (args, ctx) => readTool(ctx, (s) => listTasks(s, (args ?? {}) as ListTasksArgs)),
+  },
+  {
+    name: 'planner_get_task',
+    description:
+      'Detail van één taak (`taskId` verplicht): metadata, duur/durationType, vroege/late datums, ' +
+      'total/free float, kritiek-vlag, voortgang (+actuals), constraints (primair/secundair) en ' +
+      'deadline, de effectieve kalender, ouder/kinderen, alle toewijzingen (resource, units/dag, ' +
+      'curve) en voorgangers/opvolgers (met type + lag). Onbekend id ⇒ nette NOT_FOUND.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: {
+      type: 'object',
+      properties: { taskId: { type: 'string', description: 'Stabiele Task.id' } },
+      required: ['taskId'],
+      additionalProperties: false,
+    },
+    annotations: READ_ANNOTATIONS,
+    handler: (args, ctx) => readTool(ctx, (s) => getTask(s, (args ?? {}) as GetTaskArgs)),
+  },
+  {
+    name: 'planner_get_critical_path',
+    description:
+      'Afgeplatte kritieke-taak-set (topo-volgorde) met per taak total float, plus de driving-relaties ' +
+      'GEFILTERD op paren waarvan BEIDE eindpunten kritiek zijn. Reconstructie van de keten uit deze ' +
+      'taken+relaties is client-werk. `pathsMode` meldt de situatie: "merged" (één samengevoegd ' +
+      'kritiek pad — het normale geval) of "parallel". Gescheiden parallelle ketens (`criticalPaths`) ' +
+      'worden ALLEEN meegegeven als floatPaths mét methode FREE_FLOAT actief is; anders is er per ' +
+      'definitie één samengevoegd pad en ontbreekt `criticalPaths`.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => getCriticalPath(s)),
+  },
+  {
+    name: 'planner_list_resources',
+    description:
+      'Gepagineerde resourcelijst met capaciteit (maxUnits, kostenuurtarief, meeteenheid) en een ' +
+      'toewijzings-samenvatting per resource (aantal toewijzingen, aantal betrokken taken, som ' +
+      'units/dag). Paginering identiek aan list_tasks: `limit` (default 50), `offset`; retour ' +
+      '`total`, `has_more`, `next_offset`.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Aantal per pagina (default 50)' },
+        offset: { type: 'number', description: 'Startindex (default 0)' },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ANNOTATIONS,
+    handler: (args, ctx) => readTool(ctx, (s) => listResources(s, (args ?? {}) as PageArgs)),
+  },
+  {
+    name: 'planner_get_resource_histogram',
+    description:
+      'Belasting/capaciteit-histogram per resource. Params: `resourceIds` (leeg = alle), `van`/`tot` ' +
+      '(ISO-venster), `bucket` ("dag" of "week", default "week"). HERREKENT de planning vers wanneer ' +
+      'die verouderd is (en meldt dat via `recomputed`/`warning` in de data). Per bucket: `load` ' +
+      '(weekbucket = som over de week), `peakDayLoad`, `capacity`, dag-granulaire `overallocatedDays` ' +
+      'en per overbelaste bucket de veroorzakende toewijzingen (`causes`). LET OP — WEEKMODUS-OVERHANG: ' +
+      'weekvensters snappen naar hele ISO-weken (ma..zo), dus een venster kan aan de randen dagen ' +
+      'buiten [van,tot] meenemen; de capaciteit telt álle werkdagen van het (gesnapte) weekvenster.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        resourceIds: { type: 'array', items: { type: 'string' } },
+        van: { type: 'string', description: 'ISO-datum vensterstart' },
+        tot: { type: 'string', description: 'ISO-datum venstereinde' },
+        bucket: { type: 'string', enum: ['dag', 'week'], description: 'Bucketbreedte (default week)' },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ANNOTATIONS,
+    handler: (args, ctx) => readTool(ctx, () => getResourceHistogram((args ?? {}) as HistogramArgs)),
+  },
+  {
+    name: 'planner_get_calendars',
+    description:
+      'Alle kalenders: de UNIE van de projectkalender-cache en de bibliotheek (gededupt op id), elk ' +
+      'met `isProjectDefault`, gebruikt-door-tellingen (taken/resources) én de VOLLEDIGE ' +
+      'WorkCalendar-definitie (werkdagen, werkuren/-banden, holidays, generation) — genoeg om een ' +
+      'kalender in een ANDER document te herbouwen (kalender-id\'s zijn per-document).',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => getCalendars(s)),
+  },
+  {
+    name: 'planner_compare_baseline',
+    description:
+      'Vergelijk het huidige plan met de ACTIEVE baseline; levert alléén de afwijkers (status ≠ ' +
+      'onSchedule: late/early/new/dropped) plus `projectEndDelta`. Geen actieve baseline ⇒ nette ' +
+      'VALIDATION-fout. MEETLAT-DISCLOSURE: delta\'s zijn werkdagen op de HUIDIGE projectkalender — ' +
+      'na een kalenderwijziging is de meetlat zelf veranderd (magnitudes met een korrel zout; ' +
+      'richting en selectie blijven betrouwbaar).',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => compareBaseline(s)),
+  },
+  {
+    name: 'planner_analyze_delay',
+    description:
+      'Vertragingsanalyse tegen de actieve baseline (vereist er één, anders nette VALIDATION-fout). De ' +
+      'OPLEVERINGS-IMPACT is `projectEndDelta` (werkdagen, signed) — NOOIT een som van per-taak-delta\'s ' +
+      '(dat zou een cascade dubbeltellen). De kritieke schuivers (variance ∩ kritiek pad) met hun ' +
+      'individuele delta\'s dienen als lokalisatie/verklaring, niet om op te tellen. Heeft de baseline ' +
+      'geen doorgerekend projecteinde, dan meldt de tool dat expliciet (`projectEndDeltaAvailable:false`) ' +
+      'i.p.v. 0 te suggereren.',
+    kind: 'read',
+    batchable: true,
+    inputSchema: NO_ARGS_SCHEMA,
+    annotations: READ_ANNOTATIONS,
+    handler: (_args, ctx) => readTool(ctx, (s) => analyzeDelay(s)),
+  },
+];

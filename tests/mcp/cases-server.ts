@@ -15,6 +15,7 @@ const backing = new Map<string, string>();
 };
 
 import { useAppStore, test, assert, assertEq, run } from './harness';
+import './uiShim'; // toolRegistry importeert nu echte tools (readTools) → shortcutRegistry/i18n-init zet document.documentElement.dir
 import type { McpToolDef, McpToolResult, McpEnvelope } from '@/services/mcp/contracts';
 import { registerToolModules } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
