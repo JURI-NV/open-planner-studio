@@ -62,7 +62,7 @@ export interface ShortcutDef {
  *  net zo goed modale overlays (welkomstdialoog: los dialoogvenster; rondleiding: sinds de
  *  fix voor doorklik-corruptie een écht modale overlay, zie TourOverlay.tsx) en ontbraken hier
  *  per abuis, waardoor bv. F2/Insert/Ctrl+A tijdens de rondleiding gewoon doorvuurden. */
-function hasBlockingDialogOpen(): boolean {
+export function hasBlockingDialogOpen(): boolean {
   const ui = useAppStore.getState().ui;
   return (
     ui.showTaskDialog || ui.showProjectSettings || ui.showProjectInfoDialog ||

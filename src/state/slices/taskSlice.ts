@@ -36,7 +36,12 @@ export interface TaskSlice {
   }) => string;
   updateTask: (id: string, updates: Partial<Task>, opts?: { coalesceKey?: string }) => void;
   deleteTask: (id: string) => void;
-  moveTask: (id: string, newParentId: string | null) => void;
+  /** Verplaats `id` onder een nieuwe ouder (null = root). `position` afwezig ⇒ byte-identiek aan het
+   *  oude gedrag (achteraan childIds, rauwe array ongemoeid). `position` aanwezig ⇒ insert op die
+   *  index — consistent in childIds (zichtbare volgorde niet-root, visibleRows.ts) ÉN in de rauwe
+   *  s.tasks-array (root-volgorde + WBS via flattenOrder, dat childIds negeert); dubbele-volgorde-
+   *  principe als store-`addTask` met anker. Out-of-range positie klemt naar [0, aantal siblings]. */
+  moveTask: (id: string, newParentId: string | null, position?: number) => void;
   selectTask: (id: string, multi?: boolean, range?: boolean) => void;
   selectTaskRange: (fromId: string, toId: string) => void;
   deselectAll: () => void;
@@ -297,7 +302,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     get().recomputeViewRows();
   },
 
-  moveTask: (id, newParentId) => {
+  moveTask: (id, newParentId, position) => {
     set((s) => {
       const task = s.tasks.find(t => t.id === id);
       if (!task) return;
@@ -307,6 +312,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // flattenOrder/viewRows). Geweigerd ⇒ GEEN snapshot, GEEN mutatie: geen halftoegepaste
       // state. Dit is de enige plek die parentId/childIds mag muteren (zie TaskDialog.handleSave —
       // die haalt parentId daarom uit de kale `updateTask`-patch en roept in plaats daarvan dit aan).
+      // `position` verandert deze guards NIET: een geweigerde move blijft ook mét positie geweigerd.
       if (newParentId != null) {
         let cur: Task | undefined = newParentId === id ? task : s.tasks.find(t => t.id === newParentId);
         while (cur) {
@@ -327,9 +333,50 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
 
       // Add to new parent
       task.parentId = newParentId;
-      if (newParentId) {
-        const newParent = s.tasks.find(t => t.id === newParentId);
-        if (newParent) newParent.childIds.push(id);
+
+      if (position === undefined) {
+        // Zonder positie: BYTE-IDENTIEK aan het oude gedrag — achteraan childIds, de rauwe
+        // s.tasks-array blijft ongemoeid (de WBS-volgorde onder de nieuwe ouder volgt dan de
+        // bestaande array-positie van de taak, precies zoals voorheen).
+        if (newParentId) {
+          const newParent = s.tasks.find(t => t.id === newParentId);
+          if (newParent) newParent.childIds.push(id);
+        }
+      } else {
+        // Mét positie (T12): insert op `position` volgens het dubbele-volgorde-principe van de
+        // store-`addTask` met anker. WBS-nummering (flattenOrder) leest de RAUWE array-volgorde en
+        // negeert childIds; de zichtbare volgorde van niet-root taken leest juist childIds
+        // (visibleRows.ts). Daarom moet de invoegplek op BEIDE plekken kloppen.
+        //
+        // (1) childIds van de nieuwe ouder — zichtbare volgorde voor niet-root taken.
+        if (newParentId) {
+          const newParent = s.tasks.find(t => t.id === newParentId);
+          if (newParent) {
+            const at = Math.max(0, Math.min(position, newParent.childIds.length));
+            newParent.childIds.splice(at, 0, id);
+          }
+        }
+        // (2) rauwe s.tasks-array — root-volgorde + WBS. Haal de taak eruit en zet 'm terug zó dat
+        // hij — gerekend over alléén zijn siblings (taken met dezelfde parentId, in array-volgorde)
+        // — op index `position` staat. Nakomelingen blijven staan waar ze staan; flattenOrder
+        // herbouwt de boom uit parentId, dus alleen de sibling-volgorde van deze taak telt.
+        const fromIdx = s.tasks.findIndex(t => t.id === id);
+        const [moved] = s.tasks.splice(fromIdx, 1);
+        const sibIdx: number[] = [];
+        s.tasks.forEach((t, i) => { if (t.parentId === newParentId) sibIdx.push(i); });
+        const at = Math.max(0, Math.min(position, sibIdx.length)); // klem naar [0, aantal siblings]
+        let insertAt: number;
+        if (at < sibIdx.length) {
+          insertAt = sibIdx[at];                       // vóór de huidige `at`-de sibling
+        } else if (sibIdx.length > 0) {
+          insertAt = sibIdx[sibIdx.length - 1] + 1;    // achter de laatste sibling
+        } else if (newParentId) {
+          const p = s.tasks.findIndex(t => t.id === newParentId);
+          insertAt = p >= 0 ? p + 1 : s.tasks.length;  // enig kind: vlak achter de ouder
+        } else {
+          insertAt = s.tasks.length;                   // enige root: achteraan
+        }
+        s.tasks.splice(insertAt, 0, moved);
       }
 
       if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
