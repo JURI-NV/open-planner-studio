@@ -11,10 +11,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
-### Bedrijfsbibliotheken (B1) — vervolgen (2026-07-20)
+### Bedrijfsbibliotheken (B1.1) — vervolgen (2026-07-24)
 - [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
-  herkomststempels uit B1). Zie docs/library.md "Bekende beperkingen".
-- [ ] **Gedeelde opslag/sync** tussen machines (wortel van beide B1-beperkingen).
+  herkomststempels + Resources-tab Bedrijfsweergave uit B1.1). Zie docs/library.md
+  "Bekende beperkingen".
+- [ ] **Gedeelde opslag/sync** tussen machines (wortel van alle drie de B1.1-beperkingen: pool-
+  divergentie tussen planners, bezettingsoverzicht dat alleen de eigen machine ziet, en
+  stilzwijgend overschrijven tussen twee tabbladen/vensters op dezelfde machine).
+- [ ] **Kalenderpromotie naar de Resources-tab** verhuizen — momenteel een bewuste fase-1-interim
+  in Backstage → Bibliotheek (resourcepromotie/-CRUD is al verhuisd). Zie docs/library.md
+  "Resources-tab: Bedrijfsweergave en Projectweergave".
 
 ### Solver/presentatie (klein, uit de 2.10-showcase-triage, 2026-07-08)
 - [ ] **Dag/uur-asymmetrie backward-FS bij start-mijlpaal-voorganger normaliseren** (vondst pakket O,

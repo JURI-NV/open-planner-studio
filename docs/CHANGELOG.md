@@ -7,11 +7,19 @@ per type (`Toegevoegd`, `Gewijzigd`, `Opgelost`, `Documentatie`).
 ## Ongepubliceerd
 
 ### Toegevoegd
-- **Bedrijfsbibliotheken (B1).** Centrale pool van kalenders en resources per bedrijf, buiten de
-  projecten om. Projecten kopiëren eruit met een herkomststempel, kunnen per item bijwerken (met
-  diff-weergave), en een gedeeld projectbestand blijft zelfstandig compleet. Beheer via
-  Bestand → Bibliotheek; pool-export/-import als IFC 4.3 met import-demping; optie
-  "bibliotheekbestand ernaast opslaan" bij projectexport. Zie `docs/library.md`.
+- **Bedrijfsbibliotheken (B1.1, bedrijfscentrisch model).** Een bedrijf ís een resourcebibliotheek;
+  toewijzen aan een project = materialiseren (kopiëren/toevoegen-uit/bijwerken-uit/promoveren
+  bestaan niet meer als losse handelingen). De koppeling tussen project en bedrijf is nu altijd
+  zichtbaar en bewerkbaar (projectwizard + Projectinfo), in plaats van impliciet te ontstaan bij de
+  eerste bibliotheekactie. Nieuw: een **Resources-tab met Bedrijfs-/Projectweergave** (toewijzen,
+  bedrijfsbrede CRUD, afwijkingsmarkeringen per rij); een **gedeeld koppel-/afwijkingenscherm**
+  (herkennen + afwijkingen oplossen — vervangt de losse add/update-dialogen) met drie uitkomsten per
+  afwijking (bedrijfswaarden gebruiken / overnemen in het bedrijf / later beslissen); een
+  **verversingsmodel op vier grenzen** (openen, documentwissel, pool-bewerking, crash-herstel) dat via
+  een `syncedHash` onderscheid maakt tussen stil verversen (`behind`) en een vraag stellen
+  (`deviated` — lokaal bewerkt sinds de laatste sync); en een discreet, zelf-opruimend
+  verversingssignaal. Bedrijf verwijderen ontkoppelt expliciet elk geopend document. Kalenderpromotie
+  blijft, als bewuste fase-1-interim, nog in Backstage staan. Zie `docs/library.md`.
 - **Geavanceerde CPM (fase 2.9)** — de kritieke-pad-motor is compleet gemaakt ten opzichte van
   Primavera P6 en MS Project, in zowel dag- als uurplanning (ontwerp:
   `docs/superpowers/specs/2026-07-06-geavanceerde-cpm-design.md`):
