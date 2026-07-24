@@ -836,17 +836,78 @@ Laat de pool-edit-acties na hun `persist(get)` de verversing triggeren. Voeg in 
 
 (`promoteCalendarToPool`/`promoteResourceToPool` voegen een NIEUW poolitem toe zonder bestaande kopieën — die hoeven geen sibling-verversing; laat ze ongemoeid.)
 
-- [ ] **Step 5: Draai — verwacht PASS**
+- [ ] **Step 5: Verzoen het bestaande Elektricien-diffblok met behind-only grens 3 (cumulatieve-breuk-fix)**
 
-Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0`.
+Zodra grens 3 in Step 4 aan `updatePoolResource` hangt, breekt een bestaand testblok in `tests/library/check-library-slice.ts` (~regels 303–337, "Bijwerken vanuit bibliotheek"): dat blok materialiseert een `Elektricien`-resource en verwacht ná een pool-edit `diff === 'changed'`. Maar de kopie is dan **'behind'** (file == syncedHash, pool wijkt af), dus de behind-only `refreshAllDocumentsFromPool` ververst hem STIL bij `updatePoolResource` → `diffProjectResource` wordt `'up-to-date'` → de assert `status === 'changed'` (~316) faalt én het undoable `updateProjectResourceFromLibrary`-pad (~319/323) wordt een no-op. (Die undoable update-actie + `diffProjectResource` blijven bestaan — ze zijn niet gesloopt — dus dit blok blijft in de suite.)
+
+**Fix:** maak de kopie **deviated** (lokaal bewerkt) vóór de pool-edit, zodat de behind-only grens-3-verversing hem laat staan en de diff observeerbaar `'changed'` blijft. Vervang het bestaande Elektricien-diffblok (~303–337) door:
+
+```ts
+// --- Bijwerken vanuit bibliotheek (diff + toepassen + "bestaat niet meer") ---
+{
+  const s = useAppStore.getState();
+  const cid = s.defaultCompanyId;
+  useAppStore.getState().bindProjectToCompany(cid); // materialiseren vereist een gebonden project (Taak 4)
+  const poolResId = s.promoteResourceToPool(cid, { id: 'upd-res', name: 'Elektricien', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = useAppStore.getState().addLibraryResourceToProject(cid, poolResId);
+  const projResId = added.resourceId!;
+
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'diffProjectResource: vers = up-to-date');
+
+  // Verzoening met behind-only grens 3 (Taak 6): bewerk de kopie LOKAAL (deviated: file != syncedHash)
+  // vóór de pool-edit. Zo laat de grens-3-verversing bij updatePoolResource hem staan en blijft de diff
+  // observeerbaar 'changed' (zonder deze stap ververst grens 3 hem stil naar 'up-to-date' en faalt de assert).
+  useAppStore.getState().updateResource(projResId, { description: 'lokaal bewerkt' });
+
+  // Wijzig de pool ⇒ diff blijft 'changed' (deviated kopie wordt door grens 3 niet aangeraakt).
+  useAppStore.getState().updatePoolResource(cid, poolResId, { maxUnits: 4 });
+  const d = useAppStore.getState().diffProjectResource(projResId);
+  assert(d?.status === 'changed', 'diffProjectResource: pool gewijzigd ⇒ changed (deviated kopie blijft staan)');
+
+  // undoBeforeUpd wordt hier gemeten — ná de lokale updateResource — dus de +1-assert telt alleen de
+  // updateProjectResourceFromLibrary-snapshot (de extra updateResource zit al in de baseline).
+  const undoBeforeUpd = useAppStore.getState().undoStack.length;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  const updated = useAppStore.getState().resources.find(r => r.id === projResId)!;
+  assert(updated.maxUnits === 4, 'updateProjectResourceFromLibrary: waarde overgenomen');
+  assert(updated.id === projResId, 'updateProjectResourceFromLibrary: project-id behouden');
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpd + 1, 'updateProjectResourceFromLibrary: undo-snapshot gepusht (E-3)');
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'na bijwerken weer up-to-date');
+
+  // Micro-stap (critreview taak 9): update-aanroep op een up-to-date item is óók een no-op — geen
+  // loze undo-stap, isDirty blijft ongewijzigd (guard verruimd van 'removed' naar '!== changed').
+  const undoBeforeUpToDate = useAppStore.getState().undoStack.length;
+  const isDirtyBeforeUpToDate = useAppStore.getState().isDirty;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  assert(useAppStore.getState().undoStack.length === undoBeforeUpToDate, 'update op up-to-date resource: geen loze undo-snapshot');
+  assert(useAppStore.getState().isDirty === isDirtyBeforeUpToDate, 'update op up-to-date resource: isDirty ongewijzigd');
+
+  // Verwijder het origineel uit de pool ⇒ diff "removed", bijwerken is no-op (én geen undo-stap, E-3).
+  useAppStore.getState().removePoolResource(cid, poolResId);
+  assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'removed', 'diffProjectResource: origineel weg ⇒ removed');
+  const beforeName = useAppStore.getState().resources.find(r => r.id === projResId)!.name;
+  const undoBeforeNoop = useAppStore.getState().undoStack.length;
+  useAppStore.getState().updateProjectResourceFromLibrary(projResId);
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)!.name === beforeName, 'update op verwijderd origineel = no-op');
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop, 'update op verwijderd origineel: geen loze undo-snapshot (E-3)');
+}
+```
+
+Waarom de asserts nu kloppen (zelf nagelopen): (a) `updateResource` maakt file-hash ≠ syncedHash ⇒ classify `'deviated'` ⇒ grens 3 laat de kopie staan; (b) `updatePoolResource(maxUnits:4)` triggert grens 3 die de deviated kopie overslaat ⇒ diff (desc én maxUnits verschillen) blijft `'changed'`; (c) `undoBeforeUpd` wordt ná de lokale `updateResource` gemeten, dus `+1` telt uitsluitend de `updateProjectResourceFromLibrary`-snapshot; (d) na `updateProjectResourceFromLibrary` neemt de kopie álle poolvelden over ⇒ `'up-to-date'`. Het PROJECTDEFAULT-kalenderblok (~344) blijft ongemoeid — dat gebruikt geen `updatePoolResource` en is al veilig.
+
+- [ ] **Step 6: Draai — verwacht PASS**
+
+Run: `bash tests/library/run.sh; echo "EXIT=$?"` → `EXIT=0` (de 190 bestaande + nieuwe checks). Verifieer expliciet geen afwijkingen: `bash tests/library/run.sh 2>&1 | grep '^   XX'` → geen output.
 Run: `bash tests/planning/run.sh; echo "EXIT=$?"` → `EXIT=0`.
 
-- [ ] **Step 6: Build + commit**
+- [ ] **Step 7: Build + commit**
 
 ```bash
 npm run build
 git add src/state/slices/librarySlice.ts tests/library/check-library-slice.ts
-git commit -m "feat(library): pool-edit ververst alle open + slapende documenten (grens 3, plan-eis 1)
+git commit -m "feat(library): pool-edit ververst alle open + slapende documenten (grens 3 behind-only, plan-eis 1)
+
+Elektricien-diffblok verzoend met behind-only grens 3 (kopie deviated vóór pool-edit).
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -2510,7 +2571,7 @@ De `loadState`-actie (die intern `applyLoadedProject` aanroept) laat `linkedOpen
 grep -rn "applyLoadedProject\|loadState" src/ | grep -v "\.test\."
 ```
 
-Verwacht: alleen de open-paden (openFile/openRecentFile) zetten `linkedOpen: true`; loadState-paden niet. (Recovery gebruikt `restoreDocuments`, geen `applyLoadedProject` — dus geen `linkedOpen` nodig.)
+Verwacht: alleen de open-paden (openFile/openRecentFile) zetten `linkedOpen: true`; loadState-paden niet. (Recovery gebruikt `restoreDocuments`, geen `applyLoadedProject` — dus geen `linkedOpen` nodig.) `openExampleFromString` laat `linkedOpen` bewust weg: voorbeeldprojecten laden als los document.
 
 - [ ] **Step 6: Draai + build**
 
