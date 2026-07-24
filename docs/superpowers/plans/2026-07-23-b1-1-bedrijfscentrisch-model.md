@@ -418,6 +418,8 @@ function classifyOnOpen(diffStatus: ItemDiff['status'], fileHash: string, synced
 ```
 
 > **NB (critreview taak 1, al gefixt in code):** de promote-back-stamps in `librarySlice.ts` (`promoteCalendarToPool`/`promoteResourceToPool`) geven sinds de taak-1-fixronde de pool-hash mee aan `makeOrigin` — een net-gepromoveerd item classificeert dus als `in-sync`, niet spuria als `deviated`. Verifieer bij deze taak dat dat gedrag intact blijft.
+>
+> **NB (critreview taak 3, al gefixt in code):** `OnOpenStatus` kent naast de vier geplande waarden ook `'unbound'` — beide wrappers geven dat terug voor een item zónder `libraryOrigin`, zodat stempel-loos nooit samenvalt met `'removed'`. Voor taken 5/6/10-14: filters op 'behind'/'deviated'/'removed' blijven correct ('unbound' is daar inert), maar schrijf GEEN exhaustieve switch zonder 'unbound'-tak, en de companyId-scope-guard (stempel van een ánder bedrijf) blijft de verantwoordelijkheid van de aanroeper.
 
 ```typescript
 
