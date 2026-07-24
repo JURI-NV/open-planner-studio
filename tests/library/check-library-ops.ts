@@ -6,6 +6,7 @@ import {
   diffCalendarVsPool, diffResourceVsPool, applyResourceUpdate,
   computeCalendarHash, computeResourceHash,
   normalizeName, matchByName,
+  classifyCalendarOnOpen, classifyResourceOnOpen,
 } from '@/services/library/libraryOps';
 import type { CompanyPool } from '@/types/library';
 import type { WorkCalendar } from '@/types/calendar';
@@ -220,6 +221,48 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(matchByName('Loodgieter', cands) === null, 'matchByName: geen kandidaat ⇒ null');
   const dup = [{ id: 'a', name: 'Ploeg' }, { id: 'b', name: 'ploeg' }];
   assert(matchByName('PLOEG', dup) === null, 'matchByName: meerdere kandidaten ⇒ null (geen voorstel)');
+}
+
+// --- Afwijkingsclassificatie bij openen (spec §3) ---
+{
+  const p = pool();
+  const src = p.calendars[0];
+  const inSyncHash = computeCalendarHash(src);
+  // in-sync: file == pool, hash == file.
+  const inSync: WorkCalendar = { ...src, id: 'x', libraryOrigin: makeOrigin(p, src.id, inSyncHash) };
+  assert(classifyCalendarOnOpen(inSync, p) === 'in-sync', 'classify: gelijk aan pool ⇒ in-sync');
+  // behind: pool bewoog (file oud), maar file == syncedHash (niet extern bewerkt).
+  const bumped = bumpPool({ ...p, calendars: [{ ...src, workEndHour: 17 }] });
+  const behind: WorkCalendar = { ...src, id: 'x', libraryOrigin: makeOrigin(p, src.id, inSyncHash) };
+  assert(classifyCalendarOnOpen(behind, bumped) === 'behind', 'classify: file==hash, pool wijkt af ⇒ behind');
+  // deviated: file lokaal bewerkt (file != syncedHash) en pool wijkt af.
+  const deviated: WorkCalendar = { ...src, id: 'x', workStartHour: 6, libraryOrigin: makeOrigin(p, src.id, inSyncHash) };
+  assert(classifyCalendarOnOpen(deviated, bumped) === 'deviated', 'classify: file bewerkt na sync ⇒ deviated');
+  // removed: poolitem weg.
+  const removed: WorkCalendar = { ...src, id: 'x', libraryOrigin: { companyId: p.companyId, libraryItemId: 'ghost', poolVersion: 1 } };
+  assert(classifyCalendarOnOpen(removed, p) === 'removed', 'classify: poolitem weg ⇒ removed');
+  // hash-loos (B1-bestand) met afwijkende pool ⇒ veilige kant (deviated).
+  const legacy: WorkCalendar = { ...src, id: 'x', libraryOrigin: { companyId: p.companyId, libraryItemId: src.id, poolVersion: 1 } };
+  assert(classifyCalendarOnOpen(legacy, bumped) === 'deviated', 'classify: hash-loos + afwijkend ⇒ deviated (veilig)');
+}
+
+// --- Afwijkingsclassificatie: net-gepromoveerd item ⇒ in-sync (NB critreview taak 1) ---
+// promoteCalendarToPool/promoteResourceToPool stempelen de back-stamp met de POOL-hash (niet de
+// project-hash) via makeOrigin(bumped, id, computeCalendarHash(poolCal)) — dus een net-gepromoveerd
+// item moet direct als in-sync classificeren, niet spuriaal als deviated.
+{
+  const p = pool();
+  const srcRes = p.resources[0];
+  // Simuleer de promote-back-stamp: de pool bevat nu het item, en het project-object is herstempeld
+  // met de HASH VAN HET POOL-ITEM (zoals promoteResourceToPool doet), niet van het project-object zelf.
+  const bumped = bumpPool({ ...p, resources: [srcRes, res('new-r', 'Nieuwe kraan')] });
+  const poolItem = bumped.resources.find((r) => r.id === 'new-r')!;
+  const promoted: Resource = {
+    ...poolItem,
+    id: 'local-new-r',
+    libraryOrigin: makeOrigin(bumped, 'new-r', computeResourceHash(poolItem)),
+  };
+  assert(classifyResourceOnOpen(promoted, bumped) === 'in-sync', 'classify: net-gepromoveerd item ⇒ in-sync (back-stamp = pool-hash)');
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);

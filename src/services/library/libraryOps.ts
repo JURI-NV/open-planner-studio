@@ -228,6 +228,30 @@ export function diffResourceVsPool(projectRes: Resource, pool: CompanyPool): Ite
   return fields.length === 0 ? { status: 'up-to-date' } : { status: 'changed', fields };
 }
 
+/** Uitkomst van de openings-classificatie (spec §3, grens 1/4). */
+export type OnOpenStatus =
+  | 'in-sync'   // project == pool
+  | 'behind'    // pool bewoog, bestand is NIET lokaal bewerkt (file == syncedHash) ⇒ stil verversen
+  | 'deviated'  // bestand is ná de sync bewerkt (file != syncedHash) ⇒ vraag
+  | 'removed';  // pool-origineel bestaat niet meer
+
+function classifyOnOpen(diffStatus: ItemDiff['status'], fileHash: string, syncedHash: string | undefined): OnOpenStatus {
+  if (diffStatus === 'removed') return 'removed';
+  if (diffStatus === 'up-to-date') return 'in-sync';
+  // diffStatus === 'changed'. Ontbrekende syncedHash (B1-bestand) ⇒ veilige kant: behandel als
+  // extern bewerkt (spec §2/§12). Anders: file == syncedHash ⇒ niet-bewerkt ⇒ behind; ongelijk ⇒ deviated.
+  if (syncedHash === undefined) return 'deviated';
+  return fileHash === syncedHash ? 'behind' : 'deviated';
+}
+
+export function classifyCalendarOnOpen(projectCal: WorkCalendar, pool: CompanyPool): OnOpenStatus {
+  return classifyOnOpen(diffCalendarVsPool(projectCal, pool).status, computeCalendarHash(projectCal), projectCal.libraryOrigin?.syncedHash);
+}
+
+export function classifyResourceOnOpen(projectRes: Resource, pool: CompanyPool): OnOpenStatus {
+  return classifyOnOpen(diffResourceVsPool(projectRes, pool).status, computeResourceHash(projectRes), projectRes.libraryOrigin?.syncedHash);
+}
+
 /** Pas de pool-waarden toe op een projectkalender bij "bijwerken" (spec §3): overschrijf de
  *  vergeleken velden, behoud id + herkomst (met verse poolVersion). Puur (nieuw object). */
 export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool): WorkCalendar {
