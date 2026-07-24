@@ -107,6 +107,19 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = id;
     });
     get().recomputeViewRows();
+    // Grens 2 (spec §3.2): activeren ververst STIL — behind-only (deviated blijft gemarkeerd, spec §3),
+    // zelfhelend als de pool schoof terwijl het document sliep. Geen dialoog bij documentwissel
+    // (alleen bij openen/herstel). Gebruikt de primitief uit Taak 5.
+    // NB (critreview taak 10, verplicht): showLibraryLinkDialog/libraryRefreshNotice zijn app-globaal
+    // en worden door runOpenBoundary alleen AANgezet — zonder expliciete reset hier zou taak 14's
+    // dialoog stale data van het VORIGE document tonen. Het net-geactiveerde document bepaalt de
+    // nieuwe toestand: dialoog blijft altijd dicht (grens 2 is stil, geen vraag), en het signaal
+    // reflecteert alleen déze verversing (of null als er niets ververst is) — nooit een oud getal.
+    {
+      const cid = get().project.companyId;
+      const refreshed = cid ? get().refreshBehindItems(cid) : 0;
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: refreshed > 0 ? refreshed : null });
+    }
     // Grens 3/4 (plan-eis 1) kan resources/kalenders van een SLAPENDE payload hebben ververst
     // terwijl het `resourceLoadResult` van dat document nog de oude waarden droeg (er was toen geen
     // actief document om te herberekenen). Bij activering hier onvoorwaardelijk herberekenen dicht
@@ -156,6 +169,14 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = neighbor.id;
     });
     get().recomputeViewRows();
+    // Grens 2 (spec §3.2) + NB (critreview taak 10): zie switchDocument hierboven — zelfde stille
+    // behind-only-verversing én dezelfde deterministische reset van showLibraryLinkDialog/
+    // libraryRefreshNotice, want ook hier wordt een ander document actief.
+    {
+      const cid = get().project.companyId;
+      const refreshed = cid ? get().refreshBehindItems(cid) : 0;
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: refreshed > 0 ? refreshed : null });
+    }
     // Zie switchDocument hierboven: het net-geactiveerde buurdocument kan een verouderd
     // `resourceLoadResult` dragen (grens 3/4 ververste zijn payload terwijl het sliep).
     get().recomputeResourceLoad();

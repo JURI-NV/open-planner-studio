@@ -944,5 +944,55 @@ const store = useAppStore.getState();
   assert(res.refreshed === 1, 'grens 4 telt de verversing');
 }
 
+// --- Grens 2: documentwissel ververst het inkomende document stil (spec §3.2) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Switch BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'sw', name: 'Schilder', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  const docA = useAppStore.getState().activeDocumentId;
+  const docB = s.newDocument();
+  s.updatePoolResource(cid, resId, { maxUnits: 6 }); // pool schuift op; grens 3 (taak 6) synct A's slapende payload meteen mee (in-sync op v6)
+  // Forceer de slapende A-payload NA de grens-3-sync terug naar een achterlopende waarde, mét een
+  // syncedHash die bij die oude waarde hoort (fileHash === syncedHash ⇒ classificeert als 'behind',
+  // niet 'deviated' — zie classifyOnOpen). Simuleert het geval dat grens 3 de payload NIET dekte
+  // (pre-grens-3-drift, of een toekomstig pool-mutatiepad buiten de CRUD om) — precies het defensieve/
+  // zelfhelende scenario dat grens 2 moet vangen. Muterende setState-vorm (gevestigd patroon), NIET
+  // een partieel-object-return.
+  useAppStore.setState((st) => {
+    const d = st.documents.find(d => d.id === docA);
+    const r = d?.payload?.resources.find(r => r.id === added.resourceId);
+    if (r) {
+      r.maxUnits = 1;
+      if (r.libraryOrigin) r.libraryOrigin.syncedHash = computeResourceHash(r);
+    }
+  });
+  // NB (critreview taak 10, verplicht): stempel STALE ui-vlaggen van vóórdat we wisselen — alsof
+  // een eerdere grens-1-opening (op een ander document) het afwijkingenscherm openliet staan met een
+  // oud getal. switchDocument moet dit deterministisch resetten naar de toestand van het NIEUW
+  // actieve document (docA), niet die stale waarden laten staan.
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 42; });
+  s.switchDocument(docA); // activeren ⇒ grens 2 ververst stil
+  const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
+  assert(copy?.maxUnits === 6, 'grens 2 ververst het geactiveerde document naar de poolwaarde (zelfhelend na pre-grens-3-drift)');
+  assert(docB !== docA, 'twee documenten');
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 2: documentwissel reset showLibraryLinkDialog — geen dialoog-trigger, geen stale true');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === 1, 'grens 2: libraryRefreshNotice reflecteert DEZE verversing (1), niet de stale 42');
+}
+
+// --- Grens 2 (vervolg): geen behind-items ⇒ het signaal reset naar null, niet naar de oude waarde ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Switch Stil BV');
+  s.bindProjectToCompany(cid);
+  const docA = useAppStore.getState().activeDocumentId;
+  s.newDocument();
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 7; });
+  s.switchDocument(docA); // niets is behind ⇒ refreshBehindItems telt 0
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 2 zonder behind-items: dialoog blijft/gaat dicht');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'grens 2 zonder behind-items: signaal reset naar null, geen stale getal');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
