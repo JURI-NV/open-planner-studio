@@ -247,4 +247,59 @@ test('runMutateTool: user-switch ⇒ DOC_DRIFT met was-X-nu-Y', async () => {
   }
 });
 
+// =================================================================================================
+// 14) Tabwissel TIJDENS de backup-await ⇒ DOC_DRIFT; brondocument byte-identiek (spec-volgorde:
+//     backup-await → drift-check). De fake-backup wisselt midden in zijn await van tabblad — precies
+//     het venster waarin een user-klik `switchDocument`/`newDocument` synchroon kan afvuren.
+// =================================================================================================
+test('runMutateTool: tabwissel tijdens backup-await ⇒ DOC_DRIFT, brondoc onaangeroerd', async () => {
+  resetFlags();
+  const srcDoc = store.getState().activeDocumentId;
+  store.getState().addTask({ name: 'bron-taak' });
+  const srcTasksBefore = JSON.stringify(store.getState().tasks);
+
+  const ctx = makeCtx({
+    expectedDocId: srcDoc,
+    // Backup-hook die MIDDEN in zijn await van tabblad wisselt (synchrone store-actie op een klik).
+    ensureBackup: async () => { store.getState().newDocument(); return null; },
+  });
+  const res = await runMutateTool(ctx, 'mutate', addTaskOutcome);
+
+  assert(!res.ok, 'een tabwissel tijdens de backup-await hoort op drift te falen');
+  if (!res.ok) {
+    assertEq(res.code, 'DOC_DRIFT', 'code hoort DOC_DRIFT te zijn (drift-check draait ná de backup-await)');
+    assert(res.error.includes(srcDoc), 'de fout hoort het bron-doc-id te noemen');
+  }
+  // Het brondocument staat nu geparkeerd in de registry en mag geen mutatie hebben gekregen.
+  const srcPayload = store.getState().documents.find((d) => d.id === srcDoc)?.payload;
+  assert(srcPayload != null, 'het brondocument hoort geparkeerd in de registry te staan');
+  assertEq(JSON.stringify(srcPayload!.tasks), srcTasksBefore, 'de taken van het brondocument horen byte-identiek te zijn (geen mutatie)');
+});
+
+// =================================================================================================
+// 15) Envelop-versheid: de succes-envelop toont de POST-mutatie-waarden. De transactie draait aan het
+//     eind runCPM (⇒ scheduleStale false) en de mutatie hernoemt het project (⇒ nieuwe titel); beide
+//     moeten in de envelop de ná-waarde tonen, niet de vóór-waarde.
+// =================================================================================================
+test('runMutateTool: succes-envelop toont post-mutatie scheduleStale én documenttitel', async () => {
+  resetFlags();
+  store.setState((s) => { s.scheduleStale = true; s.filePath = null; });
+  const staleBefore = store.getState().scheduleStale;
+  const titleBefore = store.getState().getOpenDocuments().find((d) => d.isActive)!.title;
+  assert(staleBefore === true, 'voorwaarde: scheduleStale start op true');
+
+  const res = await runMutateTool(makeCtx(), 'mutate', () => {
+    draft.setProject({ name: 'Post-mutatie Titel' });
+    return { data: null };
+  });
+
+  assert(res.ok, 'de mutatie hoort te slagen');
+  if (res.ok) {
+    assertEq(res.envelope.scheduleStale, false, 'de eind-runCPM maakt de planning vers ⇒ envelop toont false (post), niet de pre-waarde true');
+    assert(res.envelope.scheduleStale !== staleBefore, 'scheduleStale vóór ≠ ná');
+    assertEq(res.envelope.documentTitle, 'Post-mutatie Titel', 'de envelop toont de post-mutatie projecttitel');
+    assert(res.envelope.documentTitle !== titleBefore, 'documenttitel vóór ≠ ná');
+  }
+});
+
 await run();
