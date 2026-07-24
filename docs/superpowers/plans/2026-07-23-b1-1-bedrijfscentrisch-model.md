@@ -2618,6 +2618,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Taak 21: Documentatie — `docs/library.md` herschrijven + CHANGELOG + TODO (spec §12)
 
 > **NB (critreview taak 8 — verplichte extra docs-eigenaardigheid):** naast de §12-eigenaardigheden ook documenteren: "undo van omkoppelen (bedrijf A → B) herstelt de stempels maar niet de binding; de herstelde A-stempels gedragen zich als los tot je terugkoppelt naar A." Dit is bewust gedrag (project.companyId valt buiten de undo-snapshot-scope).
+>
+> **NB (critreview taak 14 — tweede verplichte docs-eigenaardigheid):** ook documenteren: "beslissingen in het afwijkingenscherm (bedrijfswaarden gebruiken / overnemen in het bedrijf) zijn niet met Ctrl+Z terug te draaien — de overnemen-keuze wijzigt de bedrijfsbibliotheek zelf, die buiten de projecthistorie valt. Koppelen/ontkoppelen kán wel ongedaan worden gemaakt." Plus: een als 'niet meer in het bedrijf' gemarkeerd item los je niet in het scherm op; het blijft gewoon bruikbaar in het project (opruimen kan via de Projectweergave).
 
 `docs/library.md` wordt herschreven naar het bedrijfscentrische model en documenteert expliciet de geëiste eigenaardigheden (spec §12). CHANGELOG en TODO bijwerken.
 
