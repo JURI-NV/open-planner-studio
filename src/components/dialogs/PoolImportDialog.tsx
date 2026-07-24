@@ -65,6 +65,9 @@ export function PoolImportDialog() {
   const confirm = () => {
     if (imported) replacePool(companyId, imported);
     close();
+    // Pool-import is een EXTERNE wijziging (spec §3): draai grens 1 voor het actieve document i.p.v.
+    // de stille grens 3 — de gebruiker houdt regie wanneer een import open projecten herschrijft.
+    useAppStore.getState().runOpenBoundary();
   };
 
   return (

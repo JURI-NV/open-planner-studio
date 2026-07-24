@@ -4,6 +4,7 @@
 import { useAppStore } from '@/state/appStore';
 import { normalizeLoadedLibrary } from '@/state/slices/librarySlice';
 import { computeCalendarHash, computeResourceHash } from '@/services/library/libraryOps';
+import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
 
 declare const process: { exit(code: number): never };
 
@@ -992,6 +993,37 @@ const store = useAppStore.getState();
   s.switchDocument(docA); // niets is behind ⇒ refreshBehindItems telt 0
   assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 2 zonder behind-items: dialoog blijft/gaat dicht');
   assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'grens 2 zonder behind-items: signaal reset naar null, geen stale getal');
+}
+
+// --- Pool-import = externe wijziging: draait grens 1, niet stille grens 3 (spec §3, Taak 13) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Imp BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'im', name: 'Betonvlechter', type: 'LABOR', description: '', maxUnits: 2 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  // Geïmporteerde pool = zelfde item-id, andere waarde. replacePool + grens 1.
+  const imported = { ...useAppStore.getState().pools[cid], poolVersion: 99, modifiedAt: new Date().toISOString(),
+    resources: [{ id: resId, name: 'Betonvlechter', type: 'LABOR' as const, description: '', maxUnits: 12 }] };
+  s.replacePool(cid, imported);
+  const res = useAppStore.getState().runOpenBoundary();
+  const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
+  assert(copy?.maxUnits === 12, 'na import + grens 1 volgt de behind-kopie de nieuwe pool');
+  assert(res.refreshed >= 1, 'import telt als grens 1 (behind stil ververst)');
+}
+
+// --- Pool-import-dialoog draadt runOpenBoundary() ná replacePool in de confirm-handler (Taak 13,
+// stap 3). Geen headless dialoog-render beschikbaar in deze suite (store-only, geen React-mount) —
+// deze bron-invariant (via Function.prototype.toString() op de geïmporteerde component, geen fs-
+// toegang nodig) borgt dat de wire-regel zelf blijft staan: verwijder 'm en dit blok kleurt rood. ---
+{
+  // Let op: esbuild hernoemt de lokale `confirm`-variabele bij het bundelen (scope-botsing met het
+  // globale `confirm()`), dus zoeken op de variabelenaam is fragiel — we zoeken op de aanroepen zelf,
+  // die alleen in deze ene handler voorkomen.
+  const componentSrc = PoolImportDialog.toString();
+  const replaceIdx = componentSrc.indexOf('replacePool(');
+  const boundaryIdx = componentSrc.indexOf('runOpenBoundary()');
+  assert(replaceIdx >= 0 && boundaryIdx >= 0 && boundaryIdx > replaceIdx, 'confirm-handler roept runOpenBoundary() aan ná replacePool (grens 1, spec §3)');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
