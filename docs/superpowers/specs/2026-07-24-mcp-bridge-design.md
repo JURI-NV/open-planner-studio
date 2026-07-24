@@ -1,6 +1,6 @@
-# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2
+# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2.1
 
-*Status: v2 na 7 scenario-critreviews (alle zeven no-go op v1; alle must-fixes hieronder verwerkt) — 2026-07-24. Ter review door de user.*
+*Status: v2 na 7 scenario-critreviews (alle zeven no-go op v1; alle must-fixes verwerkt); v2.1 voegt de `batch`-tool toe (user-wens: één call voor een reeks stappen) — 2026-07-24. Ter herreview.*
 
 ## Doel & fasering
 
@@ -58,7 +58,7 @@ Koppelen = één regel: `claude mcp add --transport http ops http://localhost:<p
    - na een kalenderwijziging: na-check (`hasWorkingDays` + detectie van gecapte/sentinel-datums uit `addWorkDays`' 366-dagen-scan) → waarschuwing "taak X is niet meer inplanbaar" in de response.
 8. **`save_baseline`-staleness-guard** — staat de planning stale, dan eerst herberekenen (of weigeren met fout); nooit stale datums als nulmeting vastleggen. `save_baseline` is **geen** auto-herrekenende mutator (bewuste uitzondering, expliciet hier vastgelegd).
 
-## Tool-set v2 (32)
+## Tool-set v2.1 (33)
 
 ### Lezen (10)
 
@@ -82,6 +82,18 @@ Koppelen = één regel: `claude mcp add --transport http ops http://localhost:<p
 ### Documenten (4)
 
 `list_documents` (verrijkt: per document titel, `isDirty`, actief, projectstart/-einde, taakaantal — varianten vergelijken zonder boom-dumps), `new_document` (**= store-`newDocument()`, leeg, géén projectwizard** — de wizard zou via de dialoog-guard alle vervolg-tools blokkeren), `duplicate_document` (variant van het actieve plan), `switch_document`. De AI sluit geen documenten en beslist niet over opslaan — dat blijft bij de user.
+
+### Compositie (1): `batch`
+
+Eén call met een draaiboek: `steps: [{ tool, args }, …]` (max 100 stappen), in volgorde uitgevoerd binnen het actieve document. Semantiek:
+
+- **Eén undo-snapshot** voor de hele batch; **herberekening éénmaal** aan het eind — plus tussentijds vlak vóór een leesstap die op mutatiestappen volgt, zodat die leesstap verse datums ziet.
+- **Gedeelde temp-id-namespace** over de hele batch: `tempId`'s uit een `add_tasks`-stap zijn bruikbaar in latere stappen (relaties, assignments, updates).
+- **Atomair:** de eerste falende stap → volledige rollback van de batch + per-stap-rapport (uitgevoerd/gefaald/niet-bereikt, met reden). Geen halve draaiboeken achterlaten.
+- **Toegestaan:** alle lees- en muteer-tools uit de secties hierboven. **Uitgesloten:** `batch` zelf, `undo`/`redo`, de document-tools en `export_ifc`/`import_schedule` (side-effects buiten de store of buiten het actieve document horen als losse, zichtbare calls).
+- De respons is compact: per stap een korte uitkomst, plus de gewone envelop; de volledige einddata haalt de AI zo nodig met één leesstap als slot van het draaiboek.
+
+**Bewust géén scripttaal** (JS/expressies/loops): arbitraire code = een tweede, zwakkere extensie-sandbox met onbeheersbare undo- en beveiligingssemantiek. Het draaiboek is declaratief en auditbaar; wie echt wil programmeren heeft het extensiesysteem.
 
 ### Overig (5)
 
@@ -126,7 +138,7 @@ Benchmark 2026-07-24 (ingebouwde tool, headless): cpm-mediaan 1000 taken = 11 ms
 
 ## Bijlage: 7 use-cases (herschreven na review; leidraad voor tool-beschrijvingen en demo's)
 
-1. **Planning opzetten vanuit bestek/tenderstuk** — `update_project` (naam + **start éérst**) → `update_calendar` (generator: bouwvak) → `add_tasks` (geneste WBS, temp-id's, één call) → `add_dependencies` (bulk, gevalideerd) → resultaat live in de Gantt.
+1. **Planning opzetten vanuit bestek/tenderstuk** — één `batch`-draaiboek: `update_project` (naam + **start éérst**) → `update_calendar` (generator: bouwvak) → `add_tasks` (geneste WBS, temp-id's) → `add_dependencies` (temp-id's) → afsluitende `get_project_overview`-leesstap. Eén tool-call, één undo-stap, resultaat live in de Gantt.
 2. **Voortgang verwerken op vrijdagmiddag** — `update_project` (statusdatum = vandaag) → matching via `get_project_overview` (WBS-code + naam, bevestiging bij ambiguïteit) → `update_tasks` (voortgang via invariant-setters; leaf-taken only) → weekrapport uit `list_tasks`-filters + `compare_baseline` (mits baseline; "achterlopend" = baseline-variance — een statusdatum-gebaseerde earned-schedule-afleiding is bewust géén fase 1).
 3. **Vertraging doorrekenen + claim-onderbouwing** — hypothese in een kopie: `duplicate_document` → `update_tasks` (duur/SNET, níet actuals) → `compare_baseline`/`get_critical_path` (keten + driving-relaties)/`analyze_delay` (variance ∩ kritiek pad) → rapport; user beslist over de kopie.
 4. **Onderaannemersplanning opschonen** — `import_schedule` opent een **nieuw document**; AI schoont dát document op: wezen via `list_tasks(zonder_relaties)`, structuur via `move_task` (met positie), kalender herbouwen via `get_calendars` (uit eigen doc) + `update_calendar` (in importdoc). Geen merge-belofte.
