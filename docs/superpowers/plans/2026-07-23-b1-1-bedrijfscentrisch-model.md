@@ -415,6 +415,11 @@ function classifyOnOpen(diffStatus: ItemDiff['status'], fileHash: string, synced
   if (syncedHash === undefined) return 'deviated';
   return fileHash === syncedHash ? 'behind' : 'deviated';
 }
+```
+
+> **NB (critreview taak 1, al gefixt in code):** de promote-back-stamps in `librarySlice.ts` (`promoteCalendarToPool`/`promoteResourceToPool`) geven sinds de taak-1-fixronde de pool-hash mee aan `makeOrigin` — een net-gepromoveerd item classificeert dus als `in-sync`, niet spuria als `deviated`. Verifieer bij deze taak dat dat gedrag intact blijft.
+
+```typescript
 
 export function classifyCalendarOnOpen(projectCal: WorkCalendar, pool: CompanyPool): OnOpenStatus {
   return classifyOnOpen(diffCalendarVsPool(projectCal, pool).status, computeCalendarHash(projectCal), projectCal.libraryOrigin?.syncedHash);
