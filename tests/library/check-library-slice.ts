@@ -1059,6 +1059,28 @@ const store = useAppStore.getState();
   assert(resolved?.libraryOrigin?.syncedHash === computeResourceHash(resolved!), "resolveDeviation('file') zet de verse syncedHash op het net-opgeloste item");
 }
 
+// --- GO-NA-fix (critreview op 3870ef9): resolveDeviation('file') is niet-undoable en moet de
+// redoStack ALTIJD wissen — ook wanneer er verder geen enkele sibling ververst wordt (dan blijft
+// refreshAllDocumentsFromPool op 0 wijzigingen steken en wist die de redoStack niet). Zonder de
+// eigen `s.redoStack = []` in de 'file'-tak overleeft een bestaande redo-entry het oplossen van
+// precies deze ene afwijking. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('RedoStack BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'rs', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 2 })!;
+  const added = s.addLibraryResourceToProject(cid, resId); // kopie=2, syncedHash=hash(2)
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) r.maxUnits = 5; // deviated: file=hash(5) != syncedHash=hash(2)
+  });
+  // Kunstmatige redo-entry (patroon regel 556 hierboven) — alsof er ooit een undo is geweest.
+  useAppStore.setState((st) => { st.redoStack = [{} as never]; });
+  assert(useAppStore.getState().redoStack.length === 1, 'setup: redoStack heeft één (kunstmatige) entry');
+  s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'file');
+  assert(useAppStore.getState().redoStack.length === 0, "resolveDeviation('file') wist de redoStack (niet-undoable, GO-NA-fix)");
+}
+
 // --- Voorstap taak 14 (critreview taak 12, verplicht): de vlag-invariant is UNIVERSEEL —
 // runOpenBoundary/newDocument()/closeDocument() vestigen de VOLLEDIGE showLibraryLinkDialog/
 // libraryRefreshNotice-toestand, óók het WISSEN wanneer er niets deviated/behind is. Zonder deze

@@ -925,6 +925,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         s.calendars[cIdx] = { ...item, libraryOrigin: makeOrigin(bumped, libId!, newHash) };
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
       }
+      // Niet-undoable (spiegel de 'company'-tak hierboven): wis de redoStack expliciet. Zonder dit
+      // overleeft een bestaande redo-entry het oplossen van precies één afwijking (de sibling-
+      // verversing hieronder wist 'm alleen bij docChanged>0) — "opnieuw" zou dan oude stempels
+      // over de zojuist gebumpte pool kunnen terugzetten (GO-NA-fix, critreview 3870ef9).
+      s.redoStack = [];
     });
     persist(get);
     // Siblings in alle open/slapende documenten volgen de nieuwe pool (plan-eis 4). Het net-opgeloste
