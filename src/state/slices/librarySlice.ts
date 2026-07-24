@@ -80,6 +80,12 @@ export interface LibrarySlice {
    *  hier); raakte de verversing een kalender, dan zet het `scheduleStale` (per document/payload),
    *  ZONDER isDirty. Niet-undoable (wist redoStacks). Retourneert het totaal aantal gewijzigde items. */
   refreshAllDocumentsFromPool: (companyId: string) => number;
+
+  /** Openings-status van één projectitem t.o.v. zijn eigen-bedrijf-pool (spec §2-scope): drijft de
+   *  markeringen in de Projectweergave ("wijkt af — beslis" / "niet meer in het bedrijf"). Geen
+   *  eigen-bedrijf-stempel of bedrijf lokaal onbekend ⇒ null (geen markering; los-gedrag). */
+  onOpenStatusForResource: (resourceId: string) => import('@/services/library').OnOpenStatus | null;
+  onOpenStatusForCalendar: (calendarId: string) => import('@/services/library').OnOpenStatus | null;
 }
 
 /**
@@ -628,5 +634,23 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       get().recomputeViewRows();
     }
     return changed;
+  },
+
+  onOpenStatusForResource: (resourceId) => {
+    const s = get();
+    const res = s.resources.find((r) => r.id === resourceId);
+    const companyId = res?.libraryOrigin?.companyId;
+    // §2-scope: alleen eigen-bedrijf-stempels van een lokaal bestaand bedrijf.
+    if (!res || !companyId || companyId !== s.project.companyId || !s.companies.some((c) => c.id === companyId)) return null;
+    const pool = s.pools[companyId];
+    return pool ? classifyResourceOnOpen(res, pool) : null;
+  },
+  onOpenStatusForCalendar: (calendarId) => {
+    const s = get();
+    const cal = s.calendars.find((c) => c.id === calendarId);
+    const companyId = cal?.libraryOrigin?.companyId;
+    if (!cal || !companyId || companyId !== s.project.companyId || !s.companies.some((c) => c.id === companyId)) return null;
+    const pool = s.pools[companyId];
+    return pool ? classifyCalendarOnOpen(cal, pool) : null;
   },
 });

@@ -667,5 +667,18 @@ const store = useAppStore.getState();
   assert(!!activeLoad && !('__stale__' in activeLoad.capacity), 'switchDocument herberekent resourceLoadResult bij activering i.p.v. de slapende/verouderde waarde te laten staan (fix 1)');
 }
 
+// --- Verwijderd poolitem: projectkopie blijft functioneren, gemarkeerd removed (spec §3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Del BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'd', name: 'Dakdekker', type: 'LABOR', description: '', maxUnits: 2 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  s.removePoolResource(cid, resId);
+  const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
+  assert(copy?.maxUnits === 2, 'projectkopie behoudt zijn laatste waarden na pool-verwijdering');
+  assert(useAppStore.getState().onOpenStatusForResource(added.resourceId!) === 'removed', 'kopie is gemarkeerd removed');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
