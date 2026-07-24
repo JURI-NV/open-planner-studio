@@ -60,6 +60,27 @@ function enrichOk(res: McpToolResult, build: () => unknown): McpToolResult {
   return res;
 }
 
+/**
+ * Directe Ok-respons ZONDER transactie (lege-batch-snelpad, reviewfix Issue 2). Wordt gebruikt wanneer
+ * een muterende bulk-call statisch nul uitvoerbare items heeft (bv. delete_tasks met enkel onbekende
+ * id's): dan mag er géén `runInMcpTransaction` draaien — dat zou een spurious undo-snapshot pushen én
+ * de redo-stack van de user wissen door een AI-no-op. Envelop + context-vlaggen via `okEnvelope`; de
+ * effect-data is leeg en `projectEnd` weerspiegelt de (ongewijzigde) huidige planning.
+ */
+function okDirect(
+  ctx: McpContext,
+  data: unknown,
+  rejections: { id: string; reason: string }[],
+): McpToolResult {
+  const ok: McpToolOk = {
+    ok: true,
+    envelope: okEnvelope(ctx),
+    data,
+    ...(rejections.length > 0 ? { itemRejections: rejections } : {}),
+  };
+  return ok;
+}
+
 // =================================================================================================
 // planner_add_tasks
 // =================================================================================================
@@ -102,10 +123,16 @@ const addTasks: McpToolDef = {
     if (!Array.isArray(a.tasks) || a.tasks.length === 0) {
       return toolError(ctx, 'VALIDATION', 'add_tasks vereist een niet-lege `tasks`-array');
     }
+    const seenTemp = new Set<string>();
     for (const it of a.tasks) {
       if (!it || typeof (it as any).tempId !== 'string' || typeof (it as any).name !== 'string') {
         return toolError(ctx, 'VALIDATION', 'elk taak-item vereist een string-`tempId` en -`name`');
       }
+      // Statische toolniveau-fout: dubbele tempId ⇒ VALIDATION VÓÓR enige transactie/backup (geen
+      // spurious snapshot; draft.addTasks zou dit anders pas ín de transactie als throw vangen).
+      const tid = (it as any).tempId as string;
+      if (seenTemp.has(tid)) return toolError(ctx, 'VALIDATION', `dubbele tempId '${tid}' binnen de call`);
+      seenTemp.add(tid);
     }
     const tasks = a.tasks as BulkTaskItem[];
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
@@ -139,6 +166,22 @@ const FORBIDDEN_PROGRESS_IN_FIELDS = (fields: any): string | null => {
   return null;
 };
 
+/** Statische pre-classificatie van één update-item (existentie + fields-verbod), gedeeld door het
+ *  lege-batch-snelpad en (impliciet) de transactie-fn. `progress`-geldigheid is DYNAMISCH en valt
+ *  bewust buiten deze statische check (zie de restgeval-noot bij de handler). */
+function classifyUpdate(
+  state: ReturnType<typeof useAppStore.getState>,
+  u: { id: string; fields?: any; progress?: any },
+): { executable: true } | { executable: false; rejection: { id: string; reason: string } } {
+  const missing = validate.taskExists(state, u.id);
+  if (missing) return { executable: false, rejection: missing };
+  const hasFields = u.fields !== undefined;
+  const forbidden = hasFields ? FORBIDDEN_PROGRESS_IN_FIELDS(u.fields) : null;
+  const hasProgress = u.progress !== undefined;
+  if ((hasFields && !forbidden) || hasProgress) return { executable: true };
+  return { executable: false, rejection: { id: u.id, reason: forbidden ?? 'geen `fields` of `progress` opgegeven' } };
+}
+
 const updateTasks: McpToolDef = {
   name: 'planner_update_tasks',
   description:
@@ -147,7 +190,8 @@ const updateTasks: McpToolDef = {
     '`actualStart`/`actualFinish` als ISO-datum). Voortgang > 0 leidt de actualStart af; actuals ná de ' +
     'projectstatusdatum of buiten 0–100 worden per item zacht geweigerd — geldige items blijven staan. ' +
     'Hefboom-tip: hypothetische uitloop = duur of SNET-constraint (via `fields`); geregistreerde voortgang ' +
-    '= actuals mét statusdatum (via `progress`).',
+    '= actuals mét statusdatum (via `progress`). Merk op: één taak-id kan tegelijk in `updated` én in de ' +
+    'weigeringen verschijnen (bijv. `fields` geweigerd maar `progress` toegepast) — bewuste granulariteit.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },
@@ -183,6 +227,27 @@ const updateTasks: McpToolDef = {
       return toolError(ctx, 'VALIDATION', 'update_tasks vereist een niet-lege `updates`-array');
     }
     const updates = a.updates as { id: string; fields?: any; progress?: any }[];
+    // Lege-batch-snelpad (reviewfix Issue 2): zijn er statisch nul uitvoerbare items (alle id's
+    // onbekend / alleen verboden fields / niets opgegeven), return dan direct Ok mét de weigeringen —
+    // zónder transactie/backup/snapshot/redo-wipe. RESTGEVAL: een item dat pas DYNAMISCH wordt
+    // geweigerd (bv. progress buiten 0–100 op een bestaande taak) telt hier wél als uitvoerbaar en
+    // betreedt de transactie; is er verder nul effect, dan kan die ene transactie nog een snapshot
+    // pushen. Bewuste rest — de meest voorkomende klasse (existentie/statische fouten) valt hier vooraf af.
+    {
+      const st = useAppStore.getState();
+      const staticRej: { id: string; reason: string }[] = [];
+      let anyExecutable = false;
+      for (const u of updates) {
+        const c = classifyUpdate(st, u);
+        if (c.executable) anyExecutable = true;
+        else staticRej.push(c.rejection);
+      }
+      if (!anyExecutable) {
+        const g = guardNonTransactional(ctx);
+        if (g) return g;
+        return okDirect(ctx, { updated: [], tasks: [], projectEnd: projectEndInfo().projectEnd }, staticRej);
+      }
+    }
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
       const statusDate = useAppStore.getState().project.statusDate;
       const rejections: { id: string; reason: string }[] = [];
@@ -192,18 +257,20 @@ const updateTasks: McpToolDef = {
         const exists = validate.taskExists(useAppStore.getState(), id);
         if (exists) { rejections.push(exists); continue; }
         let touched = false;
+        let rejectedHere = false;
         if (u.fields !== undefined) {
           const forbidden = FORBIDDEN_PROGRESS_IN_FIELDS(u.fields);
-          if (forbidden) { rejections.push({ id, reason: forbidden }); }
+          if (forbidden) { rejections.push({ id, reason: forbidden }); rejectedHere = true; }
           else { draft.updateTaskFields(id, u.fields); touched = true; }
         }
         if (u.progress !== undefined) {
           let pr: { applied: true } | { applied: false; reason: string } = { applied: false, reason: 'niet-uitgevoerd' };
           useAppStore.setState((s) => { pr = progress.applyProgressUpdate(s, id, u.progress, statusDate); });
           if (pr.applied) touched = true;
-          else rejections.push({ id, reason: pr.reason });
+          else { rejections.push({ id, reason: pr.reason }); rejectedHere = true; }
         }
         if (touched) applied.push(id);
+        else if (!rejectedHere) rejections.push({ id, reason: 'geen `fields` of `progress` opgegeven' });
       }
       return { data: { updated: applied }, itemRejections: rejections };
     });
@@ -236,6 +303,17 @@ const deleteTasks: McpToolDef = {
       return toolError(ctx, 'VALIDATION', 'delete_tasks vereist een niet-lege `ids`-array');
     }
     const ids = a.ids as string[];
+    // Lege-batch-snelpad (reviewfix Issue 2): bestaat geen enkel id, return dan direct Ok mét de
+    // weigeringen — zónder transactie/backup/snapshot/redo-wipe.
+    {
+      const st = useAppStore.getState();
+      const staticRej = validate.tasksExist(st, ids);
+      if (staticRej.length === ids.length) {
+        const g = guardNonTransactional(ctx);
+        if (g) return g;
+        return okDirect(ctx, { deleted: [], projectEnd: projectEndInfo().projectEnd }, staticRej);
+      }
+    }
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
       const rejections: { id: string; reason: string }[] = [];
       const deleted: string[] = [];
@@ -310,6 +388,33 @@ const moveTask: McpToolDef = {
   },
 };
 
+/** Statische classificatie van een relatie-batch (type-geldigheid + endpoint-bestaan + dedup
+ *  incrementeel tegen de bestaande relaties én de groeiende kandidatenset). Gedeeld door het
+ *  lege-batch-snelpad en de transactie-fn; de kring-check is GEEN onderdeel (die draait alleen op de
+ *  kandidaten, ín de transactie, als harde stap-fout). */
+function classifyDeps(
+  st: ReturnType<typeof useAppStore.getState>,
+  deps: { predecessorId: string; successorId: string; type: string; lag?: number }[],
+): {
+  candidates: { predecessorId: string; successorId: string; type: SequenceType; lag?: number }[];
+  rejections: { id: string; reason: string }[];
+} {
+  const rejections: { id: string; reason: string }[] = [];
+  const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag?: number }[] = [];
+  const seen = new Set(st.sequences.map((s) => `${s.predecessorId}|${s.successorId}|${s.type}`));
+  for (const d of deps) {
+    const label = `${d.predecessorId}->${d.successorId}`;
+    if (!isSeqType(d.type)) { rejections.push({ id: label, reason: `onbekend relatietype '${d.type}'` }); continue; }
+    if (!st.tasks.some((t) => t.id === d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
+    if (!st.tasks.some((t) => t.id === d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
+    const key = `${d.predecessorId}|${d.successorId}|${d.type}`;
+    if (seen.has(key)) { rejections.push({ id: label, reason: 'relatie bestond al' }); continue; }
+    seen.add(key);
+    candidates.push({ predecessorId: d.predecessorId, successorId: d.successorId, type: d.type, lag: d.lag });
+  }
+  return { candidates, rejections };
+}
+
 // =================================================================================================
 // planner_add_dependencies — pre-validatie (bestaan + dedup incrementeel + kring over de UNIE);
 // kring ⇒ harde CYCLE + volledige rollback; duplicaat ⇒ zachte weigering.
@@ -351,22 +456,20 @@ const addDependencies: McpToolDef = {
       return toolError(ctx, 'VALIDATION', 'add_dependencies vereist een niet-lege `dependencies`-array');
     }
     const deps = a.dependencies as { predecessorId: string; successorId: string; type: string; lag?: number }[];
+    // Lege-batch-snelpad (reviewfix Issue 2): levert de statische classificatie nul kandidaten (alle
+    // items onbekend/dubbel/verkeerd type), return dan direct Ok mét de weigeringen — zónder
+    // transactie/backup/snapshot/redo-wipe.
+    {
+      const pre = classifyDeps(useAppStore.getState(), deps);
+      if (pre.candidates.length === 0) {
+        const g = guardNonTransactional(ctx);
+        if (g) return g;
+        return okDirect(ctx, { added: [], projectEnd: projectEndInfo().projectEnd }, pre.rejections);
+      }
+    }
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
       const st = useAppStore.getState();
-      const rejections: { id: string; reason: string }[] = [];
-      const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag?: number }[] = [];
-      // Dedup incrementeel tegen de bestaande relaties + de groeiende set kandidaten.
-      const seen = new Set(st.sequences.map((s) => `${s.predecessorId}|${s.successorId}|${s.type}`));
-      for (const d of deps) {
-        const label = `${d.predecessorId}->${d.successorId}`;
-        if (!isSeqType(d.type)) { rejections.push({ id: label, reason: `onbekend relatietype '${d.type}'` }); continue; }
-        if (!st.tasks.some((t) => t.id === d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
-        if (!st.tasks.some((t) => t.id === d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
-        const key = `${d.predecessorId}|${d.successorId}|${d.type}`;
-        if (seen.has(key)) { rejections.push({ id: label, reason: 'relatie bestond al' }); continue; }
-        seen.add(key);
-        candidates.push({ predecessorId: d.predecessorId, successorId: d.successorId, type: d.type, lag: d.lag });
-      }
+      const { candidates, rejections } = classifyDeps(st, deps);
       // Kring over de UNIE (bestaande + alle kandidaten) ⇒ harde stap-fout.
       const cyc = validate.noCycle(st, candidates.map((c) => ({ predecessorId: c.predecessorId, successorId: c.successorId })));
       if (cyc) throw new McpStepError('CYCLE', `kringverwijzing gedetecteerd: ${cyc.join(' → ')}`);
@@ -414,6 +517,18 @@ const removeDependencies: McpToolDef = {
       return toolError(ctx, 'VALIDATION', 'remove_dependencies vereist een niet-lege `ids`-array');
     }
     const ids = a.ids as string[];
+    // Lege-batch-snelpad (reviewfix Issue 2): bestaat geen enkele opgegeven relatie, return dan direct
+    // Ok mét de weigeringen — zónder transactie/backup/snapshot/redo-wipe.
+    {
+      const st = useAppStore.getState();
+      const existing = new Set(st.sequences.map((s) => s.id));
+      if (!ids.some((id) => existing.has(id))) {
+        const g = guardNonTransactional(ctx);
+        if (g) return g;
+        const rej = ids.map((id) => ({ id, reason: `relatie '${id}' bestaat niet` }));
+        return okDirect(ctx, { removed: [], projectEnd: projectEndInfo().projectEnd }, rej);
+      }
+    }
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
       const st = useAppStore.getState();
       const rejections: { id: string; reason: string }[] = [];

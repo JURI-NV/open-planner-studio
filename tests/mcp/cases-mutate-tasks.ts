@@ -384,4 +384,54 @@ test('registratie: registerToolModules([taskTools]) ⇒ tools/list draagt prefix
   assertEq(rc.annotations.idempotentHint, true, 'run_cpm is idempotent');
 });
 
+// =================================================================================================
+// 14) Reviewfix Issue 2 — lege batch betreedt géén transactie (geen snapshot, geen redo-wipe)
+// =================================================================================================
+test('delete_tasks all-unknown ⇒ Ok + weigeringen, GEEN snapshot en redo-stack ONGEMOEID', async () => {
+  reset();
+  // Seed de redo-stack: een mutatie + undo laat een redo-entry achter (die een AI-no-op niet mag wissen).
+  store.getState().addTask({ name: 'seed' });
+  store.getState().undo();
+  const undoLen = store.getState().undoStack.length;
+  const redoLen = store.getState().redoStack.length;
+  assert(redoLen >= 1, 'de redo-stack is geseed (>=1 entry)');
+
+  const ctx = makeCtx();
+  const res = await call('planner_delete_tasks', { ids: ['weg-1', 'weg-2'] }, ctx);
+  assert(res.ok, 'all-unknown delete slaagt als no-op met weigeringen');
+  assertEq((res as McpToolOk).itemRejections!.length, 2, 'beide onbekende id\'s geweigerd');
+  assertEq(((res as McpToolOk).data as any).deleted, [], 'niets verwijderd');
+  assertEq(store.getState().undoStack.length, undoLen, 'GEEN nieuwe undo-snapshot gepusht');
+  assertEq(store.getState().redoStack.length, redoLen, 'redo-stack ONGEMOEID (geen AI-no-op-wipe)');
+});
+
+test('add_dependencies: kring via TWEE nieuwe relaties in één call ⇒ CYCLE + volledige rollback', async () => {
+  reset();
+  const a = store.getState().addTask({ name: 'tc-a' });
+  const b = store.getState().addTask({ name: 'tc-b' });
+  const before = JSON.stringify(createSnapshot(store.getState()));
+  const ctx = makeCtx();
+  const res = await call('planner_add_dependencies', { dependencies: [
+    { predecessorId: a, successorId: b, type: 'FINISH_START' },
+    { predecessorId: b, successorId: a, type: 'FINISH_START' },
+  ] }, ctx);
+  assert(!res.ok && res.code === 'CYCLE', 'twee nieuwe relaties die samen een kring vormen ⇒ CYCLE');
+  assertEq(JSON.stringify(createSnapshot(store.getState())), before, 'volledige rollback, byte-identiek');
+});
+
+test('add_tasks: dubbele tempId ⇒ harde VALIDATION op toolniveau, store byte-identiek (geen transactie)', async () => {
+  reset();
+  store.getState().addTask({ name: 'bestaand' });
+  const before = JSON.stringify(createSnapshot(store.getState()));
+  const undoLen = store.getState().undoStack.length;
+  const ctx = makeCtx();
+  const res = await call('planner_add_tasks', { tasks: [
+    { tempId: 'DUP', name: 'x' },
+    { tempId: 'DUP', name: 'y' },
+  ] }, ctx);
+  assert(!res.ok && res.code === 'VALIDATION', 'dubbele tempId ⇒ VALIDATION');
+  assertEq(JSON.stringify(createSnapshot(store.getState())), before, 'store byte-identiek');
+  assertEq(store.getState().undoStack.length, undoLen, 'geen undo-snapshot (pre-transactie afgevangen)');
+});
+
 await run();
