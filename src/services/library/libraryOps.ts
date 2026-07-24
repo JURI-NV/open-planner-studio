@@ -198,6 +198,20 @@ export function computeResourceHash(res: Resource): string {
   return hashFields(res, RESOURCE_DIFF_FIELDS);
 }
 
+/** Normaliseer een naam voor de herkennings-matcher (spec §5.1): Unicode-NFC, trim, samengevouwen
+ *  witruimte (elke witruimte-run → één spatie), hoofdletterongevoelig (`toLocaleLowerCase`). Puur. */
+export function normalizeName(name: string): string {
+  return name.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+/** Zoek de UNIEKE kandidaat met dezelfde genormaliseerde naam (spec §5.1). Geen kandidaat óf
+ *  meerdere kandidaten ⇒ `null` (geen voorstel — handmatige keuze). Geen fuzzy (spec §14). */
+export function matchByName<T extends { name: string }>(name: string, candidates: T[]): T | null {
+  const target = normalizeName(name);
+  const hits = candidates.filter((c) => normalizeName(c.name) === target);
+  return hits.length === 1 ? hits[0] : null;
+}
+
 export function diffCalendarVsPool(projectCal: WorkCalendar, pool: CompanyPool): ItemDiff {
   const id = projectCal.libraryOrigin?.libraryItemId;
   const source = id ? pool.calendars.find((c) => c.id === id) : undefined;

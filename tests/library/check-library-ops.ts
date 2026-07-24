@@ -5,6 +5,7 @@ import {
   copyCalendarToProject, copyResourceToProject,
   diffCalendarVsPool, diffResourceVsPool, applyResourceUpdate,
   computeCalendarHash, computeResourceHash,
+  normalizeName, matchByName,
 } from '@/services/library/libraryOps';
 import type { CompanyPool } from '@/types/library';
 import type { WorkCalendar } from '@/types/calendar';
@@ -206,6 +207,19 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   const r4: Resource = { ...r, availabilitySteps: [r.availabilitySteps![0], { ...r.availabilitySteps![1], maxUnits: 3 }] };
   assert(computeResourceHash(r4) !== hr, 'computeResourceHash: inhoudswijziging in een array-element verandert de hash');
   assert(computeResourceHash({ ...r, maxUnits: 99 }) !== hr, 'computeResourceHash: inhoudswijziging verandert de hash');
+}
+
+// --- Naam-matcher (spec §5.1): exact na normalisatie, uniek anders geen voorstel ---
+{
+  assert(normalizeName('  Ploeg  A ') === normalizeName('ploeg a'), 'normalizeName: trim+case+witruimte');
+  const cands = [
+    { id: 'a', name: 'Metselaar' },
+    { id: 'b', name: 'Timmerman' },
+  ];
+  assert(matchByName('  metselaar ', cands)?.id === 'a', 'matchByName: exact na normalisatie');
+  assert(matchByName('Loodgieter', cands) === null, 'matchByName: geen kandidaat ⇒ null');
+  const dup = [{ id: 'a', name: 'Ploeg' }, { id: 'b', name: 'ploeg' }];
+  assert(matchByName('PLOEG', dup) === null, 'matchByName: meerdere kandidaten ⇒ null (geen voorstel)');
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);
