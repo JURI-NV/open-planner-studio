@@ -177,6 +177,10 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           hourDataNotice: true,
         });
 
+        // Grens 1 (spec §3, plan-eis 4): ná VOLLEDIGE hydratatie — behind stil verversen, deviated
+        // markeren/vragen. Nooit tijdens de hydratatie zelf.
+        get().runOpenBoundary();
+
         // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle).
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
@@ -390,6 +394,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           fit: true,
           hourDataNotice: true,
         });
+
+        // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
+        get().runOpenBoundary();
 
         // MRU verversen: het net-geopende bestand naar boven.
         await pushRecent(entry.ref, entry.name);

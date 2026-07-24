@@ -848,5 +848,26 @@ const store = useAppStore.getState();
   assert(!!calId && useAppStore.getState().pools[cid].calendars.some(c => c.id === calId), 'addPoolCalendar voegt toe aan de pool');
 }
 
+// --- Grens 1: openen ververst 'behind' stil, markeert 'deviated' (spec §3) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Open BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'o', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  s.updatePoolResource(cid, resId, { maxUnits: 9 });
+  // "Net geopend" behind-toestand EXPLICIET bouwen (robuust tegen grens-3-timing): kopie op 2 MET de
+  // syncedHash van maxUnits=2 ⇒ file==syncedHash ⇒ behind; pool staat op 9.
+  const behindHash = computeResourceHash({ id: 'x', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 });
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === added.resourceId);
+    if (r) { r.maxUnits = 2; r.libraryOrigin!.syncedHash = behindHash; }
+  });
+  const result = useAppStore.getState().runOpenBoundary();
+  const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
+  assert(copy?.maxUnits === 9, 'grens 1 ververst een behind-item stil naar de poolwaarde');
+  assert(result.deviated === 0, 'geen deviated-items in dit scenario');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

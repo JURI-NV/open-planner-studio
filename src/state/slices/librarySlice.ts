@@ -115,6 +115,11 @@ export interface LibrarySlice {
    *  ZONDER isDirty. Niet-undoable (wist redoStacks). Retourneert het totaal aantal gewijzigde items. */
   refreshAllDocumentsFromPool: (companyId: string) => number;
 
+  /** Grens 1/4 (spec §3): ná volledige hydratatie van het actieve document — ververs 'behind'-items
+   *  stil, en open bij ≥1 'deviated'-item het koppel-/afwijkingenscherm. Retourneert de tellingen
+   *  (voor het discrete signaal + tests). Plan-eis 4: roep dit ná de hydratatie aan, nooit ertijdens. */
+  runOpenBoundary: () => { refreshed: number; deviated: number; removed: number };
+
   /** Openings-status van één projectitem t.o.v. zijn eigen-bedrijf-pool (spec §2-scope): drijft de
    *  markeringen in de Projectweergave ("wijkt af — beslis" / "niet meer in het bedrijf"). Geen
    *  eigen-bedrijf-stempel of bedrijf lokaal onbekend ⇒ null (geen markering; los-gedrag). */
@@ -713,6 +718,32 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       get().recomputeViewRows();
     }
     return changed;
+  },
+
+  runOpenBoundary: () => {
+    const s0 = get();
+    const companyId = s0.project.companyId;
+    // §2-scope: onbekend/ontbrekend bedrijf ⇒ los-gedrag, geen mechaniek, geen valse labels.
+    if (!companyId || !s0.companies.some((c) => c.id === companyId) || !s0.pools[companyId]) {
+      return { refreshed: 0, deviated: 0, removed: 0 };
+    }
+    let deviated = 0; let removed = 0;
+    for (const r of s0.resources) {
+      if (r.libraryOrigin?.companyId !== companyId) continue;
+      const st = classifyResourceOnOpen(r, s0.pools[companyId]);
+      if (st === 'deviated') deviated++; else if (st === 'removed') removed++;
+    }
+    for (const c of s0.calendars) {
+      if (c.libraryOrigin?.companyId !== companyId) continue;
+      const st = classifyCalendarOnOpen(c, s0.pools[companyId]);
+      if (st === 'deviated') deviated++; else if (st === 'removed') removed++;
+    }
+    // 'behind' stil verversen via de primitief uit Taak 5 (behind-only: 'deviated'-items blijven
+    // ongemoeid, wachtend op een gebruikerskeuze). Niet-undoable, wist redoStack, geen isDirty.
+    const refreshed = get().refreshBehindItems(companyId);
+    if (refreshed > 0) get().setUI({ libraryRefreshNotice: refreshed });
+    if (deviated > 0) get().setUI({ showLibraryLinkDialog: true });
+    return { refreshed, deviated, removed };
   },
 
   onOpenStatusForResource: (resourceId) => {

@@ -82,6 +82,8 @@ export function createDefaultUI(): UIState {
     poolImportCompanyId: null,
     showAddFromLibraryDialog: false,
     showUpdateFromLibraryDialog: false,
+    showLibraryLinkDialog: false,
+    libraryRefreshNotice: null,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
     // showWelcomeDialog o.b.v. de persistente `welcomeSeen`-vlag (settingsStore.ts).
     showWelcomeDialog: false,

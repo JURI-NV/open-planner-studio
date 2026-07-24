@@ -184,6 +184,13 @@ export interface UIState {
   showAddFromLibraryDialog: boolean;
   /** session — "bijwerken vanuit bibliotheek"-diffdialoog open (spec §3). */
   showUpdateFromLibraryDialog: boolean;
+  /** session — het gedeelde koppel-/afwijkingenscherm open (spec §5/§3, plan-eis 7). Vervangt de
+   *  verwijderde Add/Update-dialogen. Data wordt live uit de store afgeleid (computeRecognition +
+   *  classify*), dus er is geen transient payload nodig. */
+  showLibraryLinkDialog: boolean;
+  /** session — aantal items dat de meest recente stille verversing (grens 1/2/3/4) heeft bijgewerkt,
+   *  of `null` zonder openstaand signaal (Taak 18: het verversingssignaal in de UI). */
+  libraryRefreshNotice: number | null;
   // --- Fase 2.10 onderdeel 3: first-startup (welkomstdialoog + rondleiding) ---
   /** session — welkomstdialoog (2 stappen: voorkeuren + rondleiding-aanbod) open. Ephemeral:
    *  het bootstrap-effect in App.tsx zet 'm op true bij een verse `!loadWelcomeSeen()`, of de
