@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -144,34 +144,15 @@ export interface LibrarySlice {
 
 /**
  * Normaliseer één pool defensief tegen vorm-invalide data (bijv. een handmatig bewerkt of door een
- * derde tool geproduceerd `OPS_Library`-bestand zonder `resources`/`calendars`). Nooit een TypeError
- * later op `.push`/`.find`: `calendars`/`resources` gegarandeerd array, `poolVersion` numeriek (anders
- * 1), `modifiedAt` string (anders nu), `companyName` een string (anders het bedrijf uit `companies`,
- * of anders `cid`). Puur — geschikt voor losse unit-tests, en herbruikt door zowel het laden van de
- * opgeslagen bibliotheek (`normalizeLoadedLibrary`) als het importeren van één pool (`replacePool`).
+ * derde tool geproduceerd `OPS_Library`-bestand zonder `resources`/`calendars`). Dunne her-export van
+ * de pure `normalizePoolShape` (F2 vloot-fixpakket, issue #19: verplaatst naar
+ * `services/library/libraryOps.ts` zodat `readPoolIFC` 'm ook kan hergebruiken, vóór deze slice
+ * bestond dat alleen hier). Puur — geschikt voor losse unit-tests, en herbruikt door zowel het laden
+ * van de opgeslagen bibliotheek (`normalizeLoadedLibrary`) als het importeren van één pool
+ * (`replacePool`).
  */
 export function normalizePool(cid: string, raw: Partial<CompanyPool> | null | undefined, companies: Company[]): CompanyPool {
-  const p = raw ?? {};
-  return {
-    companyId: cid,
-    companyName: typeof p.companyName === 'string'
-      ? p.companyName
-      : (companies.find((c) => c.id === cid)?.name ?? cid),
-    // Fix B5: een geheel getal ≥1, anders 1 — vangt zowel niet-numerieke waarden (string/ontbrekend)
-    // als een numerieke maar ongeldige waarde (float, 0, negatief) op. Vóór de fix accepteerde
-    // `typeof p.poolVersion === 'number'` ELKE numerieke waarde inclusief NaN-achtige randgevallen,
-    // floats en negatieve versies (bumpPool/isPoolNewer verwachten een oplopend geheel getal ≥1).
-    poolVersion: (typeof p.poolVersion === 'number' && Number.isInteger(p.poolVersion))
-      ? Math.max(1, p.poolVersion)
-      : 1,
-    modifiedAt: typeof p.modifiedAt === 'string' ? p.modifiedAt : new Date().toISOString(),
-    // Fix B5: `Array.isArray` i.p.v. `??` — een object i.p.v. array (bijv. een hand-gemaakt of
-    // door een derde tool geproduceerd OPS_Library-bestand met `calendars: {...}`) is niet-nullish,
-    // dus `?? []` liet het ongewijzigd door; een latere `.push`/`.filter`/`.find` op zo'n object
-    // crasht dan alsnog (bewezen fuzz-pool b6, jachtlijn 1 "calendars/resources zijn geen array").
-    calendars: Array.isArray(p.calendars) ? p.calendars : [],
-    resources: Array.isArray(p.resources) ? p.resources : [],
-  };
+  return normalizePoolShape(cid, raw, companies);
 }
 
 /**

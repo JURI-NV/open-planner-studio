@@ -847,6 +847,13 @@ function extractResourceMeta(
             const parsed = JSON.parse(value);
             if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
                 && typeof parsed.poolVersion === 'number') {
+              // F2 (vloot-fixpakket, issue #19): `syncedHash` is optioneel, maar als het veld AANWEZIG
+              // is moet het een string zijn — een corrupte/vervalste waarde (bv. een getal) mag niet
+              // als "syncedHash" doorschieten naar de classificatielogica (`classifyOnOpen` doet
+              // `fileHash === syncedHash`, een non-string zou daar altijd `false` geven, wat toevallig
+              // ongevaarlijk is, maar type-onveilig blijft). Veilige kant: veld weglaten, rest van de
+              // stempel (companyId/libraryItemId/poolVersion) behouden.
+              if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
               res.libraryOrigin = parsed;
             }
           } catch { /* corrupte JSON: negeren */ }
@@ -975,6 +982,10 @@ function extractCalendarLibraryOrigin(
         const parsed = JSON.parse(value);
         if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
             && typeof parsed.poolVersion === 'number') {
+          // F2 (vloot-fixpakket, issue #19): zie de identieke toelichting bij het resourcepad
+          // hierboven — aanwezig-maar-niet-string `syncedHash` wordt weggelaten, rest van de stempel
+          // blijft staan (veilige/deviated-kant).
+          if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
           return parsed as LibraryOrigin;
         }
       } catch { /* corrupte JSON: negeren */ }

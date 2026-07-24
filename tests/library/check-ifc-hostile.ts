@@ -261,5 +261,48 @@ function samplePool(overrides: Partial<CompanyPool> = {}): CompanyPool {
   assert(calOut?.libraryOrigin?.syncedHash === 'cal-hash-xyz', 'kalender: syncedHash overleeft de IFC-round-trip');
 }
 
+// --- F2 (vloot-fixpakket, issue #19): syncedHash-typecheck in de LibraryOrigin-reader-paden — een
+// corrupte/vervalste `syncedHash` die geen string is (bv. een getal, door een handmatig bewerkt of
+// door een derde tool geëxporteerd bestand) mag het veld NIET als "syncedHash" doorlaten; de rest van
+// de stempel (companyId/libraryItemId/poolVersion) blijft intact ("veilige"/deviated-kant: ontbrekende
+// syncedHash ⇒ classifyOnOpen behandelt het item als mogelijk extern bewerkt, nooit als crash-bron). ---
+{
+  const validOrigin = { companyId: 'c1', libraryItemId: 'pr1', poolVersion: 3, syncedHash: 'abc123' };
+  const resIn: Resource = { id: 'r1', name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 2, libraryOrigin: validOrigin };
+  const ifc = writeIFC({
+    project: { ...createDefaultProject(), companyId: 'c1', companyName: 'B' },
+    calendar: createDefaultCalendar(), tasks: [], sequences: [],
+    resources: [resIn], assignments: [], resourceCalendars: [],
+  });
+  const hostileIfc = ifc.replace('"syncedHash":"abc123"', '"syncedHash":12345');
+  assert(hostileIfc !== ifc, 'F2 test-fixture: de syncedHash-substring is daadwerkelijk vervangen (anders test dit niets)');
+  let didThrow = false;
+  let resOut: Resource | undefined;
+  try {
+    const back = readIFC(hostileIfc);
+    resOut = back.resources.find(r => r.name === 'Metselaar');
+  } catch { didThrow = true; }
+  assert(!didThrow, 'F2: readIFC gooit niet op een numerieke syncedHash in het resource-libraryOrigin-pset');
+  assert(resOut?.libraryOrigin?.syncedHash === undefined, 'F2: numerieke syncedHash wordt weggelaten (niet als "12345"-string doorgelaten)');
+  assert(resOut?.libraryOrigin?.companyId === 'c1' && resOut?.libraryOrigin?.libraryItemId === 'pr1' && resOut?.libraryOrigin?.poolVersion === 3, 'F2: de rest van de stempel (companyId/libraryItemId/poolVersion) blijft intact naast de weggelaten syncedHash');
+}
+{
+  const calOrigin = { companyId: 'c1', libraryItemId: 'pc1', poolVersion: 5, syncedHash: 'cal-hash-xyz' };
+  const calIn: WorkCalendar = { ...baseCalendar({ id: 'lib-cal-hash2', name: 'Ploegkalender met numeriek-hash-aanval' }), libraryOrigin: calOrigin };
+  const fixture = minimalFixture({ resourceCalendars: [calIn] });
+  const ifc = writeIFC(fixture);
+  const hostileIfc = ifc.replace('"syncedHash":"cal-hash-xyz"', '"syncedHash":12345');
+  assert(hostileIfc !== ifc, 'F2 test-fixture (kalender): de syncedHash-substring is daadwerkelijk vervangen');
+  let didThrow = false;
+  let calOut: WorkCalendar | undefined;
+  try {
+    const back = readIFC(hostileIfc);
+    calOut = back.resourceCalendars?.find(c => c.name === 'Ploegkalender met numeriek-hash-aanval');
+  } catch { didThrow = true; }
+  assert(!didThrow, 'F2: readIFC gooit niet op een numerieke syncedHash in het kalender-libraryOrigin-pset');
+  assert(calOut?.libraryOrigin?.syncedHash === undefined, 'F2 (kalender): numerieke syncedHash wordt weggelaten');
+  assert(calOut?.libraryOrigin?.companyId === 'c1' && calOut?.libraryOrigin?.libraryItemId === 'pc1' && calOut?.libraryOrigin?.poolVersion === 5, 'F2 (kalender): de rest van de stempel blijft intact naast de weggelaten syncedHash');
+}
+
 console.log(`ifc-hostile: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

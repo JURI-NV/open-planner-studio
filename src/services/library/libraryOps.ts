@@ -1,10 +1,46 @@
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource } from '@/types/resource';
-import type { CompanyPool, LibraryOrigin } from '@/types/library';
+import type { Company, CompanyPool, LibraryOrigin } from '@/types/library';
 
 /** Nieuwe pool-versie na een wijziging: poolVersion+1 + verse modifiedAt. Puur (nieuw object). */
 export function bumpPool(pool: CompanyPool): CompanyPool {
   return { ...pool, poolVersion: pool.poolVersion + 1, modifiedAt: new Date().toISOString() };
+}
+
+/**
+ * Normaliseer één pool defensief tegen vorm-invalide data (spec §4/§9, F2 vloot-fixpakket issue #19):
+ * een handmatig bewerkt of door een derde tool geproduceerd `OPS_Library`-bestand zonder
+ * `resources`/`calendars` (of met die velden als object i.p.v. array) mag nooit een TypeError geven
+ * op een latere `.push`/`.find`. `calendars`/`resources` gegarandeerd array, `poolVersion` numeriek
+ * (anders 1), `modifiedAt` string (anders nu), `companyName` een string (anders het bedrijf uit
+ * `companies`, of anders `cid`). Puur — geschikt voor losse unit-tests, en gedeeld door zowel het
+ * laden van de opgeslagen bibliotheek (`normalizeLoadedLibrary`) als het importeren van één pool
+ * (`replacePool`) als het LEZEN van een pool-IFC (`readPoolIFC` — de importcrash-fix: vóór deze fix
+ * kreeg de pool-import-preview elke truthy JSON blind doorgeschoven, ook `{}` of een object zonder
+ * `calendars`, en crashte op `imported.calendars.length` vóór de gebruiker ook maar kon bevestigen).
+ */
+export function normalizePoolShape(cid: string, raw: Partial<CompanyPool> | null | undefined, companies: Company[]): CompanyPool {
+  const p = raw ?? {};
+  return {
+    companyId: cid,
+    companyName: typeof p.companyName === 'string'
+      ? p.companyName
+      : (companies.find((c) => c.id === cid)?.name ?? cid),
+    // Fix B5: een geheel getal ≥1, anders 1 — vangt zowel niet-numerieke waarden (string/ontbrekend)
+    // als een numerieke maar ongeldige waarde (float, 0, negatief) op. Vóór de fix accepteerde
+    // `typeof p.poolVersion === 'number'` ELKE numerieke waarde inclusief NaN-achtige randgevallen,
+    // floats en negatieve versies (bumpPool/isPoolNewer verwachten een oplopend geheel getal ≥1).
+    poolVersion: (typeof p.poolVersion === 'number' && Number.isInteger(p.poolVersion))
+      ? Math.max(1, p.poolVersion)
+      : 1,
+    modifiedAt: typeof p.modifiedAt === 'string' ? p.modifiedAt : new Date().toISOString(),
+    // Fix B5: `Array.isArray` i.p.v. `??` — een object i.p.v. array (bijv. een hand-gemaakt of
+    // door een derde tool geproduceerd OPS_Library-bestand met `calendars: {...}`) is niet-nullish,
+    // dus `?? []` liet het ongewijzigd door; een latere `.push`/`.filter`/`.find` op zo'n object
+    // crasht dan alsnog (bewezen fuzz-pool b6, jachtlijn 1 "calendars/resources zijn geen array").
+    calendars: Array.isArray(p.calendars) ? p.calendars : [],
+    resources: Array.isArray(p.resources) ? p.resources : [],
+  };
 }
 
 /** Parseer een ISO-tijdstempel naar epoch-ms voor vergelijking. Onparseerbaar/ontbrekend ⇒ 0
