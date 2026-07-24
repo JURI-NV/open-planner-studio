@@ -21,6 +21,26 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 - [ ] **Kalenderpromotie naar de Resources-tab** verhuizen — momenteel een bewuste fase-1-interim
   in Backstage → Bibliotheek (resourcepromotie/-CRUD is al verhuisd). Zie docs/library.md
   "Resources-tab: Bedrijfsweergave en Projectweergave".
+- [ ] **Cross-document-plakken verliest resource-toewijzingen stil** (bestaand gedrag van vóór
+  B1.1, herbevestigd in de B1.1-vlootverificatie). Toewijzingen wijzen naar resource-id's van het
+  brondocument; plak je taken in een ánder document, dan blijven die id's onopgelost en verdwijnen
+  de toewijzingen zonder melding. Minstens een melding is de korte-termijn-fix; via de
+  herkomststempels (§spec) zou het ook automatisch kunnen herkoppelen aan dezelfde gedeelde
+  bedrijfspool-resource, mits beide documenten aan hetzelfde bedrijf gebonden zijn.
+- [ ] **Twee gelijknamige bedrijven zijn in selectors niet te onderscheiden.** De
+  bedrijfsselectors (projectinfo, koppeldialoog) tonen alleen de bedrijfsnaam; bij twee bedrijven
+  met dezelfde naam (bv. na hernoemen of dubbele import) valt met het blote oog niet te zien welke
+  van de twee je selecteert. Kandidaat-fix: secundair kenmerk tonen (aanmaakdatum, id-fragment) bij
+  naamcollisie.
+- [ ] **Projectinfo-selector toont visueel "geen bedrijf" bij een binding aan een niet-meer-
+  bestaand bedrijf.** `project.companyId` behoudt de dode id wanneer het gekoppelde bedrijf
+  inmiddels verwijderd is; de selector valt dan terug op "geen bedrijf" i.p.v. de binding zichtbaar
+  als kapot te markeren. Verder onschadelijk (los-gedrag, geen dataverlies) — presentatie-polish.
+- [ ] **Herkenning-performance-schaalgrens bij grote pools (1000+ items).** `computeRecognition()`
+  (LibraryLinkDialog) herberekent bij elke render zonder memoization; bij bedrijfspools met 1000+
+  resources/kalenders kan dat merkbaar worden. Niet gemeten binnen B1.1-scope (pools in de
+  vlootverificatie waren klein); kandidaat-fix: memoiseren op pool-/documentversie zoals elders in
+  de store.
 
 ### Solver/presentatie (klein, uit de 2.10-showcase-triage, 2026-07-08)
 - [ ] **Dag/uur-asymmetrie backward-FS bij start-mijlpaal-voorganger normaliseren** (vondst pakket O,
