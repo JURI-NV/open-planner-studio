@@ -10,7 +10,10 @@
 //   - transactie-fout ⇒ nette code (CYCLE bij kring, VALIDATION anders).
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import './uiShim'; // ná de harness-shim: vult document.documentElement voor de i18n-init (zie uiShim.ts)
-import { buildEnvelope, runReadTool, runMutateTool, bindExpectedDoc } from '@/services/mcp/tools/runtime';
+import {
+  buildEnvelope, runReadTool, runMutateTool, bindExpectedDoc,
+  guardNonTransactional, toolError, McpStepError,
+} from '@/services/mcp/tools/runtime';
 import type { MutationOutcome } from '@/services/mcp/tools/runtime';
 import type { McpContext } from '@/services/mcp/contracts';
 import { draft } from '@/state/mcpTransaction';
@@ -300,6 +303,59 @@ test('runMutateTool: succes-envelop toont post-mutatie scheduleStale én documen
     assertEq(res.envelope.documentTitle, 'Post-mutatie Titel', 'de envelop toont de post-mutatie projecttitel');
     assert(res.envelope.documentTitle !== titleBefore, 'documenttitel vóór ≠ ná');
   }
+});
+
+// =================================================================================================
+// 16) McpStepError uit de handler ⇒ díe code overleeft de transactie-rollback (i.p.v. de
+//     string-heuristiek); de store rolt schoon terug.
+// =================================================================================================
+test('runMutateTool: McpStepError in de handler ⇒ die exacte code, store teruggerold', async () => {
+  resetFlags();
+  const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
+  const res = await runMutateTool(makeCtx(), 'mutate', () => {
+    draft.addTask({ name: 'wordt-teruggerold' }); // muteert binnen de transactie
+    throw new McpStepError('NOT_FOUND', 'de doeltaak bestaat niet');
+  });
+  assert(!res.ok, 'de mutatie hoort te falen op de McpStepError');
+  if (!res.ok) {
+    assertEq(res.code, 'NOT_FOUND', 'de expliciete McpStepError-code hoort te winnen van de heuristiek');
+    assert(res.error.includes('de doeltaak bestaat niet'), 'de boodschap van de McpStepError hoort mee te komen');
+  }
+  assertEq(JSON.stringify(createSnapshot(store.getState())), beforeSnap, 'de store hoort schoon teruggerold te zijn (geen achtergebleven taak)');
+});
+
+// =================================================================================================
+// 17) guardNonTransactional (undo/redo/run_cpm): zelfde guards, ZONDER backup/transactie.
+// =================================================================================================
+test('guardNonTransactional: paused ⇒ PAUSED; schoon ⇒ null + anker gebonden; drift ⇒ DOC_DRIFT', async () => {
+  resetFlags();
+  // paused blokkeert.
+  const pausedErr = guardNonTransactional(makeCtx({ paused: true }));
+  assert(pausedErr !== null && pausedErr.code === 'PAUSED', 'gepauzeerd hoort een PAUSED-fout te geven');
+
+  // Schoon ⇒ null, en het losse anker wordt gebonden.
+  const ctx = makeCtx();
+  const ok = guardNonTransactional(ctx);
+  assertEq(ok, null, 'zonder blokkade hoort guardNonTransactional null te geven');
+  assertEq(ctx.expectedDocId, store.getState().activeDocumentId, 'het anker hoort gebonden te zijn aan het actieve doc');
+
+  // Gebonden anker + user-switch ⇒ DOC_DRIFT (geen backup/transactie in het spel).
+  store.getState().newDocument();
+  const driftErr = guardNonTransactional(ctx);
+  assert(driftErr !== null && driftErr.code === 'DOC_DRIFT', 'na een user-switch hoort guardNonTransactional DOC_DRIFT te geven');
+});
+
+// =================================================================================================
+// 18) toolError: paused/readOnly in de fout-envelop komen uit ctx.
+// =================================================================================================
+test('toolError: envelop-paused/readOnly worden uit ctx overschreven', () => {
+  resetFlags(); // ui-vlaggen staan nu op false
+  const err = toolError(makeCtx({ paused: true, readOnly: true }), 'SCOPE', 'buiten bereik');
+  assert(!err.ok, 'toolError hoort een McpToolErr te zijn');
+  assertEq(err.code, 'SCOPE', 'de code hoort te kloppen');
+  assert(err.envelope != null, 'de fout hoort een envelop te dragen');
+  assertEq(err.envelope!.paused, true, 'envelop-paused hoort de ctx-waarde (true) te tonen, niet de live ui-waarde (false)');
+  assertEq(err.envelope!.readOnly, true, 'envelop-readOnly hoort de ctx-waarde (true) te tonen');
 });
 
 await run();
