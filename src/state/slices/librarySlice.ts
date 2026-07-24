@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -66,6 +66,13 @@ export interface LibrarySlice {
   replacePool: (companyId: string, pool: import('@/types/library').CompanyPool) => void;
   /** True als de lokale pool nieuwer is dan een te importeren pool (demping, spec §4). */
   isLocalPoolNewer: (companyId: string, imported: import('@/types/library').CompanyPool) => boolean;
+
+  /** Verversingsprimitief (spec §3, plan-eis 2): werk UITSLUITEND 'behind'-items van het ACTIEVE
+   *  document bij naar de poolwaarden van het gegeven bedrijf (scope §2). 'behind' = file == syncedHash
+   *  én pool wijkt af; een 'deviated' (lokaal bewerkt) item blijft ongemoeid (spec §3). Niet-undoable:
+   *  geen undo-snapshot, geen isDirty, WIST de redoStack; raakte het een kalender, dan zet het
+   *  `scheduleStale` (geen runCPM). Retourneert het aantal gewijzigde items. */
+  refreshBehindItems: (companyId: string) => number;
 }
 
 /**
@@ -477,5 +484,44 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
 
   isLocalPoolNewer: (companyId, imported) => {
     return isPoolNewer(get().pools[companyId], imported);
+  },
+
+  refreshBehindItems: (companyId) => {
+    let changed = 0;
+    set((s) => {
+      // §2-scope: alleen het eigen-bedrijf van het actieve document, en alleen als het lokaal bestaat.
+      if (s.project.companyId !== companyId || !s.companies.some((c) => c.id === companyId)) return;
+      const draftPool = s.pools[companyId];
+      if (!draftPool) return;
+      const pool = current(draftPool);
+
+      let calTouched = false;
+      s.calendars = s.calendars.map((cal) => {
+        if (cal.libraryOrigin?.companyId !== companyId) return cal;
+        if (classifyCalendarOnOpen(current(cal), pool) !== 'behind') return cal; // deviated/removed/in-sync ⇒ ongemoeid
+        changed++; calTouched = true;
+        return applyCalendarUpdate(current(cal), pool);
+      });
+      s.resources = s.resources.map((res) => {
+        if (res.libraryOrigin?.companyId !== companyId) return res;
+        if (classifyResourceOnOpen(current(res), pool) !== 'behind') return res;
+        changed++;
+        return applyResourceUpdate(current(res), pool);
+      });
+
+      if (changed > 0) {
+        // Plan-eis 2: niet-undoable — GEEN beginUndoable, GEEN isDirty. Wél de redoStack wissen zodat
+        // "opnieuw" niet stilletjes oude poolwaarden terugzet (spec §3, Ctrl+Z-eigenaardigheid).
+        s.redoStack = [];
+        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        // Review-fix (spec §3): kalenderverversing raakt datums ⇒ scheduleStale (geen isDirty, geen runCPM).
+        if (calTouched) s.scheduleStale = true;
+      }
+    });
+    if (changed > 0) {
+      get().recomputeResourceLoad();
+      get().recomputeViewRows();
+    }
+    return changed;
   },
 });

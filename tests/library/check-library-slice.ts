@@ -524,8 +524,57 @@ const store = useAppStore.getState();
   const resId = s.promoteResourceToPool(cid, { id: 'src', name: 'Kraanmachinist', type: 'LABOR', description: '', maxUnits: 1 })!;
   const r = s.addLibraryResourceToProject(cid, resId);
   const copy = useAppStore.getState().resources.find(x => x.id === r.resourceId);
-  assert(!!copy?.libraryOrigin?.syncedHash, 'materialisatie zet een syncedHash op de projectkopie');
+  // Verscherpt (taak-4-review, bonus b): niet slechts truthy — exact gelijk aan de hash van het
+  // POOLBRON-item op het moment van materialiseren (geen drift/toeval).
+  const poolSrc = useAppStore.getState().pools[cid].resources.find(x => x.id === resId)!;
+  assert(copy?.libraryOrigin?.syncedHash === computeResourceHash(poolSrc), 'materialisatie: syncedHash op de projectkopie == computeResourceHash(poolbron)');
   assert(copy?.libraryOrigin?.companyId === cid, 'materialisatie stempelt het juiste bedrijf');
+}
+
+// --- Verversingsprimitief: behind-only, niet-undoable, wist redoStack, geen isDirty (plan-eis 2) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Verv BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'v', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const add = s.addLibraryResourceToProject(cid, resId);
+  s.updatePoolResource(cid, resId, { maxUnits: 5 });
+  // Bouw een EXPLICIETE 'behind'-toestand (robuust tegen grens-3-timing): projectkopie op 1 MET de
+  // syncedHash van maxUnits=1 ⇒ file==syncedHash ⇒ behind; pool staat op 5.
+  const behindHash = computeResourceHash({ id: 'x', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
+  // Muterende setState-vorm (gevestigd patroon, tests/planning/check-document-contract.ts:127) — geen
+  // partieel-object-return; muteer de Immer-draft.
+  useAppStore.setState((st) => {
+    st.isDirty = false; st.redoStack = [{} as never];
+    const r = st.resources.find(r => r.id === add.resourceId);
+    if (r) { r.maxUnits = 1; r.libraryOrigin!.syncedHash = behindHash; }
+  });
+  const changed = useAppStore.getState().refreshBehindItems(cid);
+  const after = useAppStore.getState();
+  assert(changed >= 1, 'refreshBehindItems telt gewijzigde items');
+  assert(after.resources.find(r => r.id === add.resourceId)?.maxUnits === 5, 'verversing neemt poolwaarde over');
+  assert(after.redoStack.length === 0, 'verversing WIST de redoStack (plan-eis 2)');
+  assert(after.isDirty === false, 'verversing zet GEEN isDirty (spec §3)');
+
+  // Een DEVIATED item (file != syncedHash) blijft ONgemoeid: file=4, syncedHash=hash(1), pool=5.
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === add.resourceId);
+    if (r) { r.maxUnits = 4; r.libraryOrigin!.syncedHash = behindHash; }
+  });
+  useAppStore.getState().refreshBehindItems(cid);
+  assert(useAppStore.getState().resources.find(r => r.id === add.resourceId)?.maxUnits === 4, 'refreshBehindItems laat een deviated item ONgemoeid');
+}
+
+// --- Bonus (taak-4-review): binding no-op bij afwijkend bedrijf (herhaalt geen bestaande assert) ---
+{
+  const s = useAppStore.getState();
+  const cidA = s.addCompany('Grens A BV');
+  const cidB = s.addCompany('Grens B BV');
+  s.bindProjectToCompany(cidA);
+  const resIdB = s.promoteResourceToPool(cidB, { id: 'grens-b', name: 'Tegelzetter', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const result = useAppStore.getState().addLibraryResourceToProject(cidB, resIdB);
+  assert(result.added === false, 'addLibraryResourceToProject(B) op een aan A gebonden project: no-op (added=false)');
+  assert(useAppStore.getState().project.companyId === cidA, 'addLibraryResourceToProject(B) op een aan A gebonden project: binding blijft op A');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
