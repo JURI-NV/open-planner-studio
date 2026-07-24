@@ -1150,6 +1150,21 @@ const store = useAppStore.getState();
   assert(after.companies.every(c => c.id !== cid), 'removeCompany verwijdert het bedrijf zelf');
 }
 
+// --- Bedrijf verwijderen reset het afwijkingenscherm van het actieve project (eindreview bevinding 4) ---
+// Standaardeis: assert wordt rood als je precies déze reset weglaat — vlag vooraf op true zetten,
+// removeCompany aanroepen, assert false.
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Reset BV');
+  s.bindProjectToCompany(cid);
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 3; });
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === true, 'invariant-setup: showLibraryLinkDialog staat aan vóór removeCompany');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === 3, 'invariant-setup: libraryRefreshNotice staat aan vóór removeCompany');
+  useAppStore.getState().removeCompany(cid);
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'removeCompany (actief bedrijf) reset showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'removeCompany (actief bedrijf) reset libraryRefreshNotice');
+}
+
 // --- Bedrijf verwijderen ontkoppelt óók SLAPENDE documenten (spec §5, plan-eis 1-stijl scope) ---
 // Losse test t.o.v. het actieve-document-geval hierboven: een assert die specifiek rood wordt als de
 // `for (const d of s.documents)`-tak in removeCompany verdwijnt terwijl de actieve-document-tak blijft

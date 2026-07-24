@@ -254,6 +254,12 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
   },
 
   removeCompany: (id) => {
+    // Bevinding 4 (eindreview): als het verwijderde bedrijf het bedrijf van het ACTIEVE project was,
+    // hoort bij de ontkoppeling ook het afwijkingenscherm/-signaal te resetten (patroon
+    // runOpenBoundary/newDocument/closeDocument hierboven) — anders blijft een stale dialoog/melding
+    // van het net-verwijderde bedrijf staan. Vastleggen vóór de mutatie: de "laatste bedrijf blijft"
+    // no-op-tak hieronder mag deze reset niet triggeren als er niets daadwerkelijk verwijderd is.
+    const wasActiveCompany = get().companies.length > 1 && get().project.companyId === id;
     set((s) => {
       // Er moet altijd minstens één bedrijf blijven (spec §2). Laatste verwijderen ⇒ no-op.
       if (s.companies.length <= 1) return;
@@ -277,6 +283,9 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       }
     });
     persist(get);
+    if (wasActiveCompany) {
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: null });
+    }
   },
 
   countDocumentsLinkedTo: (companyId) => {

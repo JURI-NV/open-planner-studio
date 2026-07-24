@@ -258,7 +258,6 @@
     "import": "Importa",
     "backupHint": "Esportare funge anche da backup: conserva il file in un luogo sicuro.",
     "calendars": "Calendari",
-    "resources": "Risorse",
     "noCalendars": "Ancora nessun calendario nel pool.",
     "noResources": "Ancora nessuna risorsa nel pool.",
     "promoteHint": "Promuovi un calendario o una risorsa di progetto alla libreria con il pulsante «+ Dal progetto» qui sopra.",

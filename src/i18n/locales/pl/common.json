@@ -258,7 +258,6 @@
     "import": "Importuj",
     "backupHint": "Eksport jest jednocześnie kopią zapasową: przechowuj plik w bezpiecznym miejscu.",
     "calendars": "Kalendarze",
-    "resources": "Zasoby",
     "noCalendars": "W puli nie ma jeszcze żadnych kalendarzy.",
     "noResources": "W puli nie ma jeszcze żadnych zasobów.",
     "promoteHint": "Awansuj kalendarz lub zasób projektu do biblioteki za pomocą przycisku „+ Z projektu” powyżej.",

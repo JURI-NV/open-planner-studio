@@ -258,7 +258,6 @@
     "import": "导入",
     "backupHint": "导出同时也是备份：请将文件妥善保存。",
     "calendars": "日历",
-    "resources": "资源",
     "noCalendars": "资源池中尚无日历。",
     "noResources": "资源池中尚无资源。",
     "promoteHint": "使用上方的“+ 从项目”按钮，将项目日历或资源提升至资料库。",

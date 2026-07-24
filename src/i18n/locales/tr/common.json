@@ -258,7 +258,6 @@
     "import": "İçe aktar",
     "backupHint": "Dışa aktarma aynı zamanda yedeğinizdir: dosyayı güvenli bir yerde saklayın.",
     "calendars": "Takvimler",
-    "resources": "Kaynaklar",
     "noCalendars": "Havuzda henüz takvim yok.",
     "noResources": "Havuzda henüz kaynak yok.",
     "promoteHint": "Yukarıdaki “+ Projeden” düğmesiyle bir proje takvimini veya kaynağını kitaplığa yükseltin.",

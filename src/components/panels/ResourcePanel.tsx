@@ -350,9 +350,24 @@ function ResourceRow({
               </button>
             )}
             {openStatus === 'removed' && (
-              <span className="badge badge--red shrink-0" title={t('companyLibrary.notInCompany')} data-ops-resource-removed>
-                {t('companyLibrary.notInCompany')}
-              </span>
+              <>
+                <span className="badge badge--red shrink-0" title={t('companyLibrary.notInCompany')} data-ops-resource-removed>
+                  {t('companyLibrary.notInCompany')}
+                </span>
+                {/* Wees-actie bedraden (spec §4, eindreview-bevinding 1): expliciete, gelabelde
+                    verwijderknop voor een 'removed'-materialisatie — hergebruikt hetzelfde
+                    verwijderpad (onRequestRemove/cascade-confirm) als de rij-Trash2, geen nieuw
+                    verwijdermechanisme. */}
+                <button
+                  type="button"
+                  onClick={onRequestRemove}
+                  className="btn btn--sm btn--secondary shrink-0 !py-0.5 !px-1.5 !text-[10px]"
+                  title={t('companyLibrary.removeFromProject')}
+                  data-ops-resource-remove-orphan
+                >
+                  {t('companyLibrary.removeFromProject')}
+                </button>
+              </>
             )}
           </div>
         </td>

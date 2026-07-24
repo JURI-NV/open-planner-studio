@@ -10,16 +10,20 @@ zelfstandig ("gebeiteld": zelfstandig, niet read-only).
 
 ## Bedrijven en koppeling
 
-Er is altijd één standaardbedrijf ("Mijn bedrijf"). Eenpitters zien het bedrijvenconcept nooit: de
-bedrijfsselector verschijnt pas zodra er ≥2 bedrijven zijn. Beheer bedrijven via
-**Bestand → Bibliotheek** (aanmaken, hernoemen, verwijderen — het laatste bedrijf blijft altijd
-bestaan — en één als standaard aanwijzen).
+Er is altijd één standaardbedrijf ("Mijn bedrijf"). Beheer bedrijven via **Bestand → Bibliotheek**
+(aanmaken, hernoemen, verwijderen — het laatste bedrijf blijft altijd bestaan — en één als standaard
+aanwijzen).
 
 De koppeling tussen een project en zijn bedrijf (`project.companyId`) is **altijd zichtbaar en
-bewerkbaar**, niet iets dat impliciet ontstaat bij de eerste bibliotheekactie:
+bewerkbaar**, ook met maar één bedrijf — niet iets dat impliciet ontstaat bij de eerste
+bibliotheekactie:
 
 - **Projectwizard** ("Nieuw project"): een bedrijfsselector, voorgeselecteerd op het standaardbedrijf.
 - **Projectinfo** (bestaand project): dezelfde selector; wijzigen bindt/herbindt/ontkoppelt direct.
+
+De ≥2-bedrijven-regel geldt uitsluitend voor **secundaire** selectors elders — bijvoorbeeld het
+importdoel in de pool-importdialoog (Backstage → Bibliotheek → Importeren): met precies één bedrijf
+importeert die dialoog stilzwijgend in dat ene bedrijf en toont geen keuze.
 
 Wisselen naar een ander bedrijf (**omkoppelen**) strip de herkomststempels van het vórige bedrijf op
 alle projectitems (ze worden "vreemd" — de herkenningsstap moet ze opnieuw koppelen aan het nieuwe
@@ -170,6 +174,13 @@ lokaal bewerkt is, wordt dus **stil teruggezet** naar de oudere, zojuist geïmpo
 vraag in het afwijkingenscherm guardt alleen bestanden die zelf extern/lokaal bewerkt zijn, niet het
 feit dat de pool zojuist ouder is geworden. De demping-waarschuwing vooraf is dus de bewuste, enige
 poort tegen dit scenario.
+
+De afwijkingsvraag bij pool-import geldt uitsluitend het **actieve** document (`replacePool` draait
+bewust geen grens-3-verversing over slapende documenten). Slapende gekoppelde documenten tonen hun
+afwijkingen als markering (de `deviated`/`removed`-badges in de Projectweergave) zodra je ernaartoe
+wisselt — dat is live classificatie tegen de nu-geïmporteerde pool, geen aparte verversingsstap — maar
+de vraag zelf (het afwijkingenscherm) verschijnt pas weer bij hun eerstvolgende **opening** (grens 1),
+niet bij het wisselen zelf (grens 2 is en blijft stil, zie hierboven).
 
 ## Bedrijf verwijderen ontkoppelt open documenten, opgeslagen bestanden niet
 

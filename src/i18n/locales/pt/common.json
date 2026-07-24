@@ -258,7 +258,6 @@
     "import": "Importar",
     "backupHint": "Exportar também serve de cópia de segurança: guarde o ficheiro num local seguro.",
     "calendars": "Calendários",
-    "resources": "Recursos",
     "noCalendars": "Ainda não há calendários no pool.",
     "noResources": "Ainda não há recursos no pool.",
     "promoteHint": "Promova um calendário ou recurso do projeto para a biblioteca com o botão “+ Do projeto” acima.",

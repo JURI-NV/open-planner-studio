@@ -258,7 +258,6 @@
     "import": "Importieren",
     "backupHint": "Der Export dient zugleich als Sicherung: Bewahren Sie die Datei an einem sicheren Ort auf.",
     "calendars": "Kalender",
-    "resources": "Ressourcen",
     "noCalendars": "Noch keine Kalender im Pool.",
     "noResources": "Noch keine Ressourcen im Pool.",
     "promoteHint": "Befördern Sie einen Projektkalender oder eine Projektressource mit der Schaltfläche „+ Aus Projekt“ oben in die Bibliothek.",
