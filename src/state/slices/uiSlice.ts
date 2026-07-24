@@ -101,6 +101,7 @@ export function createDefaultUI(): UIState {
     aiServerStatus: { state: 'off', port: MCP_DEFAULT_PORT },
     aiPaused: false,
     aiReadOnly: false,
+    aiActivityOpen: false,
   };
 }
 
@@ -119,6 +120,10 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       // (`applyAiMode`), niet in deze synchrone reducer.
       if (updates.aiMode === false && (updates.activeRibbonTab ?? s.ui.activeRibbonTab) === 'ai') {
         (updates as Partial<UIState>).activeRibbonTab = 'start';
+      }
+      // T15: AI-modus uit ⇒ het activiteitenpaneel mag niet als wees blijven staan.
+      if (updates.aiMode === false) {
+        (updates as Partial<UIState>).aiActivityOpen = false;
       }
       Object.assign(s.ui, updates);
       const max = s.ui.enableQuarterHourZoom ? 1000 : 400;

@@ -140,6 +140,14 @@
     "connectHint": "Voer dit uit in Claude Code om de bridge te koppelen (het token gaat mee als Authorization-header):",
     "statusDot": "AI-bridge: {{status}}"
   },
+  "aiActivity": {
+    "title": "AI-activiteit",
+    "panelButton": "Activiteitenpaneel",
+    "clear": "Wissen",
+    "empty": "Nog geen AI-activiteit. Aanroepen van de bridge verschijnen hier.",
+    "args": "Argumenten",
+    "result": "Antwoord"
+  },
   "confirm": {
     "newProject": "Nieuw project aanmaken? Niet-opgeslagen wijzigingen gaan verloren.",
     "deleteTask": "Weet u zeker dat u deze taak wilt verwijderen?",

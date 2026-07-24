@@ -140,6 +140,14 @@
     "connectHint": "Run this in Claude Code to connect the bridge (the token is passed as an Authorization header):",
     "statusDot": "AI bridge: {{status}}"
   },
+  "aiActivity": {
+    "title": "AI activity",
+    "panelButton": "Activity panel",
+    "clear": "Clear",
+    "empty": "No AI activity yet. Bridge calls will appear here.",
+    "args": "Arguments",
+    "result": "Response"
+  },
   "confirm": {
     "newProject": "Create new project? Unsaved changes will be lost.",
     "deleteTask": "Are you sure you want to delete this task?",

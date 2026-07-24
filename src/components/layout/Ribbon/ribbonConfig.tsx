@@ -27,6 +27,7 @@ import {
 } from './ribbonWidgets';
 import { AiServerGroup } from '@/components/ribbon/ai/AiServerGroup';
 import { AiConnectionGroup } from '@/components/ribbon/ai/AiConnectionGroup';
+import { AiActivityGroup } from '@/components/ribbon/ai/AiActivityGroup';
 
 /**
  * Declaratieve ribbon-config-registry (audit P18). Naar het model van ExtensionRibbonGroups:
@@ -641,12 +642,13 @@ const reportTab: RibbonTabConfig = [
   { id: 'reporting', labelKey: 'menu:ribbon.reporting', items: [printPreviewButton] },
 ];
 
-/** AI-tab (T14) — conditioneel zichtbaar (alleen bij `ui.aiMode`; zie Ribbon.tsx). Twee groepen,
- *  beide component-escape-hatches (eigen state, inputs, popover/confirm). De veiligheid/activiteit-
- *  groep is T16. */
+/** AI-tab (T14/T15) — conditioneel zichtbaar (alleen bij `ui.aiMode`; zie Ribbon.tsx). Drie groepen,
+ *  alle component-escape-hatches (eigen state, inputs, popover/confirm). De veiligheidsgroep (pauze/
+ *  alleen-lezen/backup) is T16; de activiteit-groep (T15) toggelt het activiteitenpaneel. */
 const aiTab: RibbonTabConfig = [
   { id: 'aiServer', labelKey: 'menu:ribbon.aiServer', items: [{ kind: 'component', id: 'aiServer', Component: AiServerGroup }] },
   { id: 'aiConnection', labelKey: 'menu:ribbon.aiConnection', items: [{ kind: 'component', id: 'aiConnection', Component: AiConnectionGroup }] },
+  { id: 'aiActivity', labelKey: 'menu:ribbon.aiActivity', items: [{ kind: 'component', id: 'aiActivity', Component: AiActivityGroup }] },
 ];
 
 /** De registry: actieve-tab → groepen. 'file' heeft geen ribbon-inhoud (Backstage neemt over). */

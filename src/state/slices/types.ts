@@ -208,6 +208,9 @@ export interface UIState {
   aiPaused: boolean;
   /** session — alleen-lezen-schakelaar: muterende tools geweigerd zolang actief. */
   aiReadOnly: boolean;
+  /** session — AI-activiteitenpaneel (T15) zichtbaar in de rechter-rail (patroon debugTerminalOpen).
+   *  Wordt geforceerd dicht gezet als AI-modus uitgaat. */
+  aiActivityOpen: boolean;
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk
