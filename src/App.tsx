@@ -119,6 +119,16 @@ function AppContent() {
     });
   }, []);
 
+  // Verversingssignaal (spec §3, taak 18): discreet, zelf-opruimend na 4s. `libraryRefreshNotice`
+  // wordt gezet door de grens-acties (taken 5/6/10/12) en NUL geeft géén melding — de guard hierboven
+  // in de effect-body (early return) voorkomt dat elke render een nieuwe timer opzet.
+  const libraryRefreshNotice = useAppStore(s => s.ui.libraryRefreshNotice);
+  useEffect(() => {
+    if (libraryRefreshNotice == null) return;
+    const id = setTimeout(() => useAppStore.getState().setUI({ libraryRefreshNotice: null }), 4000);
+    return () => clearTimeout(id);
+  }, [libraryRefreshNotice]);
+
   // Automatisch berekenen: runCPM zodra de planning verouderd raakt (als de instelling aanstaat).
   useAutoCalcCPM();
 
@@ -351,6 +361,17 @@ function AppContent() {
       <AddFromLibraryDialog />
       <UpdateFromLibraryDialog />
       <LibraryLinkDialog />
+
+      {/* Verversingssignaal (spec §3, taak 18): discreet, verdwijnt na 4s (zie effect hierboven). */}
+      {libraryRefreshNotice != null && libraryRefreshNotice > 0 && (
+        <div
+          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-[10px] bg-surface border border-border shadow-[var(--shadow-pop)] text-xs"
+          data-ops-library-refresh-notice
+        >
+          {t('companyLibrary.refreshNotice', { count: libraryRefreshNotice })}
+        </div>
+      )}
+
       {recovery && (
         <RecoveryDialog
           entries={recovery.entries}

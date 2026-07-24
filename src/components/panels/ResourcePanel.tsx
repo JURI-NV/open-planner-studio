@@ -320,17 +320,41 @@ function ResourceRow({
 }) {
   const { t } = useTranslation('common');
   const isMaterial = resource.type === 'MATERIAL';
+  // Projectweergave-markeringen (spec §3/§4, taak 18): 'deviated'/'removed' komen uit de
+  // grens-1/4-classificatie (onOpenStatusForResource, taak 7) — null/'in-sync'/'behind'/'unbound'
+  // tonen bewust niets ('behind' is na een grens al stil ververst; zie taakbrief).
+  const onOpenStatusForResource = useAppStore(s => s.onOpenStatusForResource);
+  const setUI = useAppStore(s => s.setUI);
+  const openStatus = onOpenStatusForResource(resource.id);
 
   return (
     <>
       <tr className="border-b border-border-light hover:bg-surface-hover">
         <td className="px-2 py-1">
-          <input
-            value={resource.name}
-            onChange={e => onPatch({ name: e.target.value })}
-            className={cellInput}
-            placeholder={t('resource.name')}
-          />
+          <div className="flex items-center gap-1">
+            <input
+              value={resource.name}
+              onChange={e => onPatch({ name: e.target.value })}
+              className={cellInput}
+              placeholder={t('resource.name')}
+            />
+            {openStatus === 'deviated' && (
+              <button
+                type="button"
+                className="badge badge--red shrink-0"
+                onClick={() => setUI({ showLibraryLinkDialog: true })}
+                title={t('companyLibrary.deviates')}
+                data-ops-resource-deviates
+              >
+                {t('companyLibrary.deviates')}
+              </button>
+            )}
+            {openStatus === 'removed' && (
+              <span className="badge badge--red shrink-0" title={t('companyLibrary.notInCompany')} data-ops-resource-removed>
+                {t('companyLibrary.notInCompany')}
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-2 py-1">
           <select
