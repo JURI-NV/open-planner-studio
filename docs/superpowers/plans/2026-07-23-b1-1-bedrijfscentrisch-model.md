@@ -449,6 +449,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Taak 4: Materialisatie stempelt syncedHash + sticky-autobind strippen (plan-eis 9)
 
+> **NB (bouw taak 4, al gefixt in code):** Step 4 hieronder miste twee bestaande testblokken die óók op de sticky-autobind leunden: "Toevoegen uit bibliotheek (meereizende kalender + dedup + binding)" (~217-264) en "Import-normalisatie via replacePool" (~417-450). Beide zijn in de taak-4-commit gefixt met `bindProjectToCompany(cid)` vooraf (zelfde patroon als het Elektricien-blok); de binding-assert in het eerste blok claimt nu "binding blijft intact", niet het oude sticky-gedrag.
+
 `addLibrary*ToProject` blijft de materialisatie-primitief (spec §6) — via de nu-hash-schrijvende `copy*`-kern uit Taak 1 zetten kopieën automatisch een `syncedHash`. Daarnaast: het sticky-autobind-pad (`if (!s.project.companyId)`) is in dit model onbereikbaar — materialiseren gebeurt alleen bij een gekoppeld project — en wordt gestript/assert-geguard (plan-eis 9).
 
 **Files:**
