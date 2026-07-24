@@ -124,4 +124,77 @@ test('cpmResult.error na de eind-runCPM ⇒ volledige rollback incl. cpmResult',
   assertEq(store.getState().cpmResult?.error ?? null, null, 'cpmResult hoort terug op de geldige pre-transactie-waarde te staan (geen error-banner)');
 });
 
+// 6) Geneste aanroep is verboden: de geneste `runInMcpTransaction` gooit, en die throw laat de
+//    buitenste transactie schoon terugrollen — store én stacks onaangeroerd.
+test('geneste runInMcpTransaction gooit en laat store/stacks onaangeroerd', () => {
+  const id = store.getState().addTask({ name: 'reentr' });
+  const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
+  const beforeLen = store.getState().undoStack.length;
+
+  const res = runInMcpTransaction(() => {
+    store.getState().updateTask(id, { name: 'buiten' });
+    // Geneste transactie: weigert (throw). Die throw propageert naar de buitenste `try`.
+    runInMcpTransaction(() => {
+      store.getState().updateTask(id, { name: 'genest' });
+    });
+  });
+
+  if (res.ok) {
+    assert(false, 'buitenste transactie hoort te falen op de geneste weigering');
+    return;
+  }
+  assert(res.error.includes('herintreedbaar'), 'foutmelding hoort de reentrancy-weigering te noemen');
+  assertEq(
+    JSON.stringify(createSnapshot(store.getState())),
+    beforeSnap,
+    'store-inhoud onaangeroerd na de geneste weigering + rollback',
+  );
+  assertEq(store.getState().undoStack.length, beforeLen, 'undoStack onaangeroerd na rollback');
+});
+
+// 7) `prevRedo`-herstel: seed een redoStack (mutatie + undo), draai dan een transactie die faalt op
+//    een cpm-error, en bewijs dat de redoStack ná rollback identiek is aan vóór.
+test('rollback herstelt de redo-stack exact (prevRedo)', () => {
+  const a = store.getState().addTask({ name: 'redo-A' });
+  const b = store.getState().addTask({ name: 'redo-B' });
+  // Seed: een mutatie + undo laat precies één redo-entry achter.
+  store.getState().updateTask(a, { name: 'redo-A2' });
+  store.getState().undo();
+  assert(store.getState().redoStack.length > 0, 'voorwaarde: redoStack mag niet leeg zijn');
+  const redoBefore = JSON.stringify(store.getState().redoStack);
+  const undoLenBefore = store.getState().undoStack.length;
+
+  const res = runInMcpTransaction(() => {
+    // Kring A→B→A ⇒ de eind-runCPM levert cpmResult.error ⇒ rollback-pad.
+    store.setState((s) => {
+      s.sequences.push(
+        { id: 'redo-cyc-1', predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 },
+        { id: 'redo-cyc-2', predecessorId: b, successorId: a, type: 'FINISH_START', lagDays: 0 },
+      );
+    });
+  });
+
+  assert(!res.ok, 'transactie hoort te falen op de kringverwijzing');
+  assertEq(JSON.stringify(store.getState().redoStack), redoBefore, 'redoStack hoort identiek te zijn aan vóór de transactie');
+  assertEq(store.getState().undoStack.length, undoLenBefore, 'undoStack ongewijzigd na rollback');
+});
+
+// 8) `resetUndoCoalescing` op het ROLLBACK-pad: ná een gefaalde (teruggerolde) transactie pusht een
+//    keyed mutatie een eigen snapshot (bewijst tevens dat de suppressie-vlag via finally uit staat).
+test('na een rollback pusht een keyed mutatie een eigen snapshot', () => {
+  const id = store.getState().addTask({ name: 'roll-coalesce' });
+  const res = runInMcpTransaction(() => {
+    throw new Error('faal met opzet');
+  });
+  assert(!res.ok, 'transactie hoort te falen');
+
+  const afterRollback = store.getState().undoStack.length;
+  store.getState().updateTask(id, { name: 'na-rollback' }, { coalesceKey: 'y' });
+  assertEq(
+    store.getState().undoStack.length,
+    afterRollback + 1,
+    'keyed mutatie ná rollback hoort een eigen snapshot te pushen (coalesce gereset, suppressie uit)',
+  );
+});
+
 await run();
