@@ -1006,6 +1006,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Taak 8: Binding, ontkoppelen, omkoppelen + atomische herkenning (plan-eis 5)
 
+> **NB (critreview taak 8, al gefixt in code — afwijking van de letterlijke plancode hieronder):** `linkRecognizedItems`, `unbindProject` en de omkoppel-tak van `bindProjectToCompany` zijn UNDOABLE gemaakt (beginUndoable/finishMutation; wist tevens de redoStack) — het zijn gebruikersgebaren, geen verversing. `linkRecognizedItems` zet `scheduleStale` bij een kalender-link en slaat verdwenen pool-kandidaten stil over. Voor taken 10-14: reken op dit gedrag, niet op de oorspronkelijke niet-undoable plancode.
+
 Koppelen start de herkenningsstap (spec §5). Het daadwerkelijke linken is **atomisch** (alles in één `set()` — een crash mag geen half-gestempelde toestand achterlaten, plan-eis 5). Ontkoppelen stript de stempels; omkoppelen doorloopt de herkenning opnieuw en vervangt/stript vreemde stempels.
 
 **Files:**
