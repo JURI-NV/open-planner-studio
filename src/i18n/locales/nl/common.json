@@ -252,7 +252,8 @@
     "removeCompany": "Bedrijf verwijderen",
     "cannotRemoveLast": "Het laatste bedrijf kan niet worden verwijderd.",
     "removeCompanyConfirm": "Dit bedrijf verwijderen?",
-    "removeCompanyConfirmLinked": "Dit bedrijf is aan {{count}} geopende projecten gekoppeld. Verwijderen ontkoppelt die projecten. Doorgaan?",
+    "removeCompanyConfirmLinked_one": "Dit bedrijf is aan 1 geopend project gekoppeld. Verwijderen ontkoppelt dat project. Doorgaan?",
+    "removeCompanyConfirmLinked_other": "Dit bedrijf is aan {{count}} geopende projecten gekoppeld. Verwijderen ontkoppelt die projecten. Doorgaan?",
     "setDefault": "Als standaard",
     "export": "Exporteren",
     "import": "Importeren",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Bestandswaarden overnemen in het bedrijf",
     "adoptWarning": "Let op: dit past het bedrijf aan en geldt voor al je projecten.",
     "decideLater": "Later beslissen",
-    "refreshNotice": "{{count}} onderdelen bijgewerkt vanuit het bedrijf",
+    "refreshNotice_one": "1 onderdeel bijgewerkt vanuit het bedrijf",
+    "refreshNotice_other": "{{count}} onderdelen bijgewerkt vanuit het bedrijf",
     "deviates": "wijkt af — beslis",
     "notInCompany": "niet meer in het bedrijf",
     "linkedCompany": "Bedrijf",
@@ -304,21 +306,7 @@
     "addToCompany": "Nieuw in het bedrijf",
     "confirmRemoveResource": "'{{name}}' verwijderen uit het bedrijf? Dit geldt voor alle projecten en is niet ongedaan te maken.",
     "field": {
-      "name": "Naam",
-      "description": "Omschrijving",
-      "workDays": "Werkdagen",
-      "workStartHour": "Startuur",
-      "workEndHour": "Einduur",
-      "hoursPerDay": "Uren per dag",
-      "holidays": "Feestdagen",
-      "generation": "Generatie-instellingen",
-      "workTime": "Werktijdbanden",
-      "shift": "Ploeg",
-      "type": "Type",
-      "costPerHour": "Kostprijs per uur",
-      "maxUnits": "Max. eenheden",
-      "unitOfMeasure": "Eenheid",
-      "availabilitySteps": "Beschikbaarheidsstappen"
+      "name": "Naam"
     }
   },
   "resource": {

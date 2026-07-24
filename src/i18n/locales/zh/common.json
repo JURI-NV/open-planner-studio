@@ -252,7 +252,7 @@
     "removeCompany": "删除公司",
     "cannotRemoveLast": "无法删除最后一个公司。",
     "removeCompanyConfirm": "删除此公司？",
-    "removeCompanyConfirmLinked": "此公司已与 {{count}} 个已打开的项目关联。删除将取消这些项目的关联。是否继续？",
+    "removeCompanyConfirmLinked_other": "此公司已与 {{count}} 个已打开的项目关联。删除将取消这些项目的关联。是否继续？",
     "setDefault": "设为默认",
     "export": "导出",
     "import": "导入",
@@ -290,7 +290,7 @@
     "adoptFileValues": "将文件值采纳到公司",
     "adoptWarning": "注意：这会更改公司数据，并适用于你的所有项目。",
     "decideLater": "稍后决定",
-    "refreshNotice": "已从公司更新 {{count}} 项",
+    "refreshNotice_other": "已从公司更新 {{count}} 项",
     "deviates": "存在差异 — 待决定",
     "notInCompany": "公司中已不存在",
     "linkedCompany": "公司",
@@ -304,21 +304,7 @@
     "addToCompany": "在公司中新建",
     "confirmRemoveResource": "要从公司中移除“{{name}}”吗？此操作适用于所有项目，且无法撤销。",
     "field": {
-      "name": "名称",
-      "description": "描述",
-      "workDays": "工作日",
-      "workStartHour": "开始（时）",
-      "workEndHour": "结束（时）",
-      "hoursPerDay": "每日工时",
-      "holidays": "假日",
-      "generation": "生成设置",
-      "workTime": "工作时段",
-      "shift": "班次",
-      "type": "类型",
-      "costPerHour": "费率/小时",
-      "maxUnits": "最大单位数",
-      "unitOfMeasure": "单位",
-      "availabilitySteps": "可用性阶段"
+      "name": "名称"
     }
   },
   "resource": {

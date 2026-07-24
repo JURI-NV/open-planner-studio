@@ -252,7 +252,8 @@
     "removeCompany": "Şirketi kaldır",
     "cannotRemoveLast": "Son şirket kaldırılamaz.",
     "removeCompanyConfirm": "Bu şirket kaldırılsın mı?",
-    "removeCompanyConfirmLinked": "Bu şirket {{count}} açık projeyle ilişkilendirilmiş. Kaldırmak bu projelerin bağlantısını kesecek. Devam edilsin mi?",
+    "removeCompanyConfirmLinked_one": "Bu şirket 1 açık projeyle ilişkilendirilmiş. Kaldırmak bu projenin bağlantısını kesecek. Devam edilsin mi?",
+    "removeCompanyConfirmLinked_other": "Bu şirket {{count}} açık projeyle ilişkilendirilmiş. Kaldırmak bu projelerin bağlantısını kesecek. Devam edilsin mi?",
     "setDefault": "Varsayılan olarak ayarla",
     "export": "Dışa aktar",
     "import": "İçe aktar",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Dosya değerlerini şirkete aktar",
     "adoptWarning": "Dikkat: bu, şirketi değiştirir ve tüm projeleriniz için geçerlidir.",
     "decideLater": "Daha sonra karar ver",
-    "refreshNotice": "{{count}} öğe şirketten güncellendi",
+    "refreshNotice_one": "1 öğe şirketten güncellendi",
+    "refreshNotice_other": "{{count}} öğe şirketten güncellendi",
     "deviates": "farklı — karar ver",
     "notInCompany": "artık şirkette değil",
     "linkedCompany": "Şirket",
@@ -304,21 +306,7 @@
     "addToCompany": "Şirkette yeni",
     "confirmRemoveResource": "'{{name}}' şirketten kaldırılsın mı? Bu, tüm projeler için geçerlidir ve geri alınamaz.",
     "field": {
-      "name": "Ad",
-      "description": "Açıklama",
-      "workDays": "Çalışma günleri",
-      "workStartHour": "Başlangıç (saat)",
-      "workEndHour": "Bitiş (saat)",
-      "hoursPerDay": "Günlük saat",
-      "holidays": "Tatiller",
-      "generation": "Oluşturma ayarları",
-      "workTime": "Çalışma saati bantları",
-      "shift": "Vardiya",
-      "type": "Tür",
-      "costPerHour": "Ücret/saat",
-      "maxUnits": "Maks. birim",
-      "unitOfMeasure": "Birim",
-      "availabilitySteps": "Kullanılabilirlik adımları"
+      "name": "Ad"
     }
   },
   "resource": {

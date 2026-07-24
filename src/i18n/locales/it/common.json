@@ -252,7 +252,8 @@
     "removeCompany": "Rimuovi azienda",
     "cannotRemoveLast": "Non è possibile rimuovere l'ultima azienda.",
     "removeCompanyConfirm": "Rimuovere questa azienda?",
-    "removeCompanyConfirmLinked": "Questa azienda è collegata a {{count}} progetti aperti. La rimozione scollegherà questi progetti. Continuare?",
+    "removeCompanyConfirmLinked_one": "Questa azienda è collegata a 1 progetto aperto. La rimozione scollegherà questo progetto. Continuare?",
+    "removeCompanyConfirmLinked_other": "Questa azienda è collegata a {{count}} progetti aperti. La rimozione scollegherà questi progetti. Continuare?",
     "setDefault": "Imposta come predefinita",
     "export": "Esporta",
     "import": "Importa",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Adotta i valori del file nell'azienda",
     "adoptWarning": "Attenzione: questo modifica l'azienda e vale per tutti i tuoi progetti.",
     "decideLater": "Decidi più tardi",
-    "refreshNotice": "{{count}} elementi aggiornati dall'azienda",
+    "refreshNotice_one": "1 elemento aggiornato dall'azienda",
+    "refreshNotice_other": "{{count}} elementi aggiornati dall'azienda",
     "deviates": "differisce — decidi",
     "notInCompany": "non più nell'azienda",
     "linkedCompany": "Azienda",
@@ -304,21 +306,7 @@
     "addToCompany": "Nuovo nell'azienda",
     "confirmRemoveResource": "Rimuovere «{{name}}» dall'azienda? Questo vale per tutti i progetti e non può essere annullato.",
     "field": {
-      "name": "Nome",
-      "description": "Descrizione",
-      "workDays": "Giorni lavorativi",
-      "workStartHour": "Ora di inizio",
-      "workEndHour": "Ora di fine",
-      "hoursPerDay": "Ore al giorno",
-      "holidays": "Festività",
-      "generation": "Impostazioni di generazione",
-      "workTime": "Fasce orarie di lavoro",
-      "shift": "Turno",
-      "type": "Tipo",
-      "costPerHour": "Tariffa/ora",
-      "maxUnits": "Unità max.",
-      "unitOfMeasure": "Unità",
-      "availabilitySteps": "Fasi di disponibilità"
+      "name": "Nome"
     }
   },
   "resource": {

@@ -252,7 +252,8 @@
     "removeCompany": "Eliminar empresa",
     "cannotRemoveLast": "No se puede eliminar la última empresa.",
     "removeCompanyConfirm": "¿Eliminar esta empresa?",
-    "removeCompanyConfirmLinked": "Esta empresa está vinculada a {{count}} proyectos abiertos. Eliminarla desvinculará esos proyectos. ¿Continuar?",
+    "removeCompanyConfirmLinked_one": "Esta empresa está vinculada a 1 proyecto abierto. Eliminarla desvinculará ese proyecto. ¿Continuar?",
+    "removeCompanyConfirmLinked_other": "Esta empresa está vinculada a {{count}} proyectos abiertos. Eliminarla desvinculará esos proyectos. ¿Continuar?",
     "setDefault": "Establecer como predeterminada",
     "export": "Exportar",
     "import": "Importar",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Adoptar los valores del archivo en la empresa",
     "adoptWarning": "Atención: esto modifica la empresa y se aplica a todos tus proyectos.",
     "decideLater": "Decidir más tarde",
-    "refreshNotice": "{{count}} elementos actualizados desde la empresa",
+    "refreshNotice_one": "1 elemento actualizado desde la empresa",
+    "refreshNotice_other": "{{count}} elementos actualizados desde la empresa",
     "deviates": "difiere — decidir",
     "notInCompany": "ya no está en la empresa",
     "linkedCompany": "Empresa",
@@ -304,21 +306,7 @@
     "addToCompany": "Nuevo en la empresa",
     "confirmRemoveResource": "¿Eliminar «{{name}}» de la empresa? Esto se aplica a todos los proyectos y no se puede deshacer.",
     "field": {
-      "name": "Nombre",
-      "description": "Descripción",
-      "workDays": "Días laborables",
-      "workStartHour": "Hora de inicio",
-      "workEndHour": "Hora de fin",
-      "hoursPerDay": "Horas por día",
-      "holidays": "Festivos",
-      "generation": "Ajustes de generación",
-      "workTime": "Franjas horarias de trabajo",
-      "shift": "Turno",
-      "type": "Tipo",
-      "costPerHour": "Tarifa/hora",
-      "maxUnits": "Unidades máx.",
-      "unitOfMeasure": "Unidad",
-      "availabilitySteps": "Pasos de disponibilidad"
+      "name": "Nombre"
     }
   },
   "resource": {

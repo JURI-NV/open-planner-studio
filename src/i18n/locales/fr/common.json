@@ -252,7 +252,8 @@
     "removeCompany": "Supprimer l'entreprise",
     "cannotRemoveLast": "La dernière entreprise ne peut pas être supprimée.",
     "removeCompanyConfirm": "Supprimer cette entreprise ?",
-    "removeCompanyConfirmLinked": "Cette entreprise est liée à {{count}} projets ouverts. La supprimer déliera ces projets. Continuer ?",
+    "removeCompanyConfirmLinked_one": "Cette entreprise est liée à 1 projet ouvert. La supprimer déliera ce projet. Continuer ?",
+    "removeCompanyConfirmLinked_other": "Cette entreprise est liée à {{count}} projets ouverts. La supprimer déliera ces projets. Continuer ?",
     "setDefault": "Définir par défaut",
     "export": "Exporter",
     "import": "Importer",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Reprendre les valeurs du fichier dans l'entreprise",
     "adoptWarning": "Attention : ceci modifie l'entreprise et s'applique à tous vos projets.",
     "decideLater": "Décider plus tard",
-    "refreshNotice": "{{count}} éléments mis à jour depuis l'entreprise",
+    "refreshNotice_one": "1 élément mis à jour depuis l'entreprise",
+    "refreshNotice_other": "{{count}} éléments mis à jour depuis l'entreprise",
     "deviates": "diffère — à décider",
     "notInCompany": "n'est plus dans l'entreprise",
     "linkedCompany": "Entreprise",
@@ -304,21 +306,7 @@
     "addToCompany": "Nouveau dans l'entreprise",
     "confirmRemoveResource": "Supprimer « {{name}} » de l'entreprise ? Cela s'applique à tous les projets et est irréversible.",
     "field": {
-      "name": "Nom",
-      "description": "Description",
-      "workDays": "Jours ouvrés",
-      "workStartHour": "Heure de début",
-      "workEndHour": "Heure de fin",
-      "hoursPerDay": "Heures par jour",
-      "holidays": "Jours fériés",
-      "generation": "Paramètres de génération",
-      "workTime": "Plages horaires de travail",
-      "shift": "Équipe",
-      "type": "Type",
-      "costPerHour": "Tarif/heure",
-      "maxUnits": "Unités max.",
-      "unitOfMeasure": "Unité",
-      "availabilitySteps": "Étapes de disponibilité"
+      "name": "Nom"
     }
   },
   "resource": {

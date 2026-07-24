@@ -252,7 +252,7 @@
     "removeCompany": "会社を削除",
     "cannotRemoveLast": "最後の会社は削除できません。",
     "removeCompanyConfirm": "この会社を削除しますか？",
-    "removeCompanyConfirmLinked": "この会社は{{count}}件の開いているプロジェクトに紐づいています。削除するとそれらのプロジェクトとの紐づけが解除されます。続行しますか？",
+    "removeCompanyConfirmLinked_other": "この会社は{{count}}件の開いているプロジェクトに紐づいています。削除するとそれらのプロジェクトとの紐づけが解除されます。続行しますか？",
     "setDefault": "既定に設定",
     "export": "エクスポート",
     "import": "インポート",
@@ -290,7 +290,7 @@
     "adoptFileValues": "ファイルの値を会社に反映",
     "adoptWarning": "注意: これは会社データを変更し、すべてのプロジェクトに適用されます。",
     "decideLater": "後で決める",
-    "refreshNotice": "{{count}} 件の項目を会社から更新しました",
+    "refreshNotice_other": "{{count}} 件の項目を会社から更新しました",
     "deviates": "相違あり — 決定が必要",
     "notInCompany": "会社にはもう存在しません",
     "linkedCompany": "会社",
@@ -304,21 +304,7 @@
     "addToCompany": "会社に新規追加",
     "confirmRemoveResource": "会社から「{{name}}」を削除しますか？これはすべてのプロジェクトに適用され、元に戻せません。",
     "field": {
-      "name": "名前",
-      "description": "説明",
-      "workDays": "稼働日",
-      "workStartHour": "開始（時）",
-      "workEndHour": "終了（時）",
-      "hoursPerDay": "1日の時間数",
-      "holidays": "祝日",
-      "generation": "生成設定",
-      "workTime": "稼働時間帯",
-      "shift": "シフト",
-      "type": "種類",
-      "costPerHour": "単価/時間",
-      "maxUnits": "最大単位数",
-      "unitOfMeasure": "単位",
-      "availabilitySteps": "利用可能ステップ"
+      "name": "名前"
     }
   },
   "resource": {

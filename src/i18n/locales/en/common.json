@@ -252,7 +252,8 @@
     "removeCompany": "Remove company",
     "cannotRemoveLast": "The last company cannot be removed.",
     "removeCompanyConfirm": "Remove this company?",
-    "removeCompanyConfirmLinked": "This company is linked to {{count}} open projects. Removing it will unlink those projects. Continue?",
+    "removeCompanyConfirmLinked_one": "This company is linked to 1 open project. Removing it will unlink that project. Continue?",
+    "removeCompanyConfirmLinked_other": "This company is linked to {{count}} open projects. Removing it will unlink those projects. Continue?",
     "setDefault": "Set as default",
     "export": "Export",
     "import": "Import",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Adopt file values into the company",
     "adoptWarning": "Note: this changes the company and applies to all your projects.",
     "decideLater": "Decide later",
-    "refreshNotice": "{{count}} items updated from the company",
+    "refreshNotice_one": "1 item updated from the company",
+    "refreshNotice_other": "{{count}} items updated from the company",
     "deviates": "differs — decide",
     "notInCompany": "no longer in the company",
     "linkedCompany": "Company",
@@ -304,21 +306,7 @@
     "addToCompany": "New in company",
     "confirmRemoveResource": "Remove '{{name}}' from the company? This applies to all projects and cannot be undone.",
     "field": {
-      "name": "Name",
-      "description": "Description",
-      "workDays": "Work days",
-      "workStartHour": "Start hour",
-      "workEndHour": "End hour",
-      "hoursPerDay": "Hours per day",
-      "holidays": "Holidays",
-      "generation": "Generation settings",
-      "workTime": "Work time bands",
-      "shift": "Shift",
-      "type": "Type",
-      "costPerHour": "Cost per hour",
-      "maxUnits": "Max units",
-      "unitOfMeasure": "Unit of measure",
-      "availabilitySteps": "Availability steps"
+      "name": "Name"
     }
   },
   "resource": {

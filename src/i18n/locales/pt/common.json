@@ -252,7 +252,8 @@
     "removeCompany": "Remover empresa",
     "cannotRemoveLast": "A última empresa não pode ser removida.",
     "removeCompanyConfirm": "Remover esta empresa?",
-    "removeCompanyConfirmLinked": "Esta empresa está associada a {{count}} projetos abertos. Removê-la irá desassociar esses projetos. Continuar?",
+    "removeCompanyConfirmLinked_one": "Esta empresa está associada a 1 projeto aberto. Removê-la irá desassociar esse projeto. Continuar?",
+    "removeCompanyConfirmLinked_other": "Esta empresa está associada a {{count}} projetos abertos. Removê-la irá desassociar esses projetos. Continuar?",
     "setDefault": "Definir como predefinida",
     "export": "Exportar",
     "import": "Importar",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Adotar os valores do arquivo na empresa",
     "adoptWarning": "Atenção: isto altera a empresa e vale para todos os seus projetos.",
     "decideLater": "Decidir depois",
-    "refreshNotice": "{{count}} itens atualizados a partir da empresa",
+    "refreshNotice_one": "1 item atualizado a partir da empresa",
+    "refreshNotice_other": "{{count}} itens atualizados a partir da empresa",
     "deviates": "difere — decidir",
     "notInCompany": "não está mais na empresa",
     "linkedCompany": "Empresa",
@@ -304,21 +306,7 @@
     "addToCompany": "Novo na empresa",
     "confirmRemoveResource": "Remover «{{name}}» da empresa? Isto aplica-se a todos os projetos e não pode ser desfeito.",
     "field": {
-      "name": "Nome",
-      "description": "Descrição",
-      "workDays": "Dias de trabalho",
-      "workStartHour": "Hora de início",
-      "workEndHour": "Hora de fim",
-      "hoursPerDay": "Horas por dia",
-      "holidays": "Feriados",
-      "generation": "Definições de geração",
-      "workTime": "Faixas de horário de trabalho",
-      "shift": "Turno",
-      "type": "Tipo",
-      "costPerHour": "Tarifa/hora",
-      "maxUnits": "Unidades máx.",
-      "unitOfMeasure": "Unidade",
-      "availabilitySteps": "Etapas de disponibilidade"
+      "name": "Nome"
     }
   },
   "resource": {

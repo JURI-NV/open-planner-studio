@@ -252,7 +252,8 @@
     "removeCompany": "Unternehmen entfernen",
     "cannotRemoveLast": "Das letzte Unternehmen kann nicht entfernt werden.",
     "removeCompanyConfirm": "Dieses Unternehmen entfernen?",
-    "removeCompanyConfirmLinked": "Dieses Unternehmen ist mit {{count}} geöffneten Projekten verknüpft. Beim Entfernen werden diese Projekte entkoppelt. Fortfahren?",
+    "removeCompanyConfirmLinked_one": "Dieses Unternehmen ist mit 1 geöffnetem Projekt verknüpft. Beim Entfernen wird dieses Projekt entkoppelt. Fortfahren?",
+    "removeCompanyConfirmLinked_other": "Dieses Unternehmen ist mit {{count}} geöffneten Projekten verknüpft. Beim Entfernen werden diese Projekte entkoppelt. Fortfahren?",
     "setDefault": "Als Standard festlegen",
     "export": "Exportieren",
     "import": "Importieren",
@@ -290,7 +291,8 @@
     "adoptFileValues": "Dateiwerte ins Unternehmen übernehmen",
     "adoptWarning": "Achtung: Dies ändert das Unternehmen und gilt für alle Ihre Projekte.",
     "decideLater": "Später entscheiden",
-    "refreshNotice": "{{count}} Elemente aus dem Unternehmen aktualisiert",
+    "refreshNotice_one": "1 Element aus dem Unternehmen aktualisiert",
+    "refreshNotice_other": "{{count}} Elemente aus dem Unternehmen aktualisiert",
     "deviates": "weicht ab — entscheiden",
     "notInCompany": "nicht mehr im Unternehmen",
     "linkedCompany": "Unternehmen",
@@ -304,21 +306,7 @@
     "addToCompany": "Neu im Unternehmen",
     "confirmRemoveResource": "'{{name}}' aus dem Unternehmen entfernen? Dies gilt für alle Projekte und kann nicht rückgängig gemacht werden.",
     "field": {
-      "name": "Name",
-      "description": "Beschreibung",
-      "workDays": "Arbeitstage",
-      "workStartHour": "Beginn (Stunde)",
-      "workEndHour": "Ende (Stunde)",
-      "hoursPerDay": "Stunden pro Tag",
-      "holidays": "Feiertage",
-      "generation": "Generierungseinstellungen",
-      "workTime": "Arbeitszeitbänder",
-      "shift": "Schicht",
-      "type": "Typ",
-      "costPerHour": "Tarif/Stunde",
-      "maxUnits": "Max. Einheiten",
-      "unitOfMeasure": "Einheit",
-      "availabilitySteps": "Verfügbarkeitsschritte"
+      "name": "Name"
     }
   },
   "resource": {

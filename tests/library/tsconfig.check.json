@@ -11,6 +11,8 @@
     "check-library-slice.ts",
     "check-pool-ifc.ts",
     "check-ifc-hostile.ts",
+    "check-i18n-plurals.ts",
+    "node-builtins.d.ts",
     "../../src/types/file-system-access.d.ts"
   ]
 }

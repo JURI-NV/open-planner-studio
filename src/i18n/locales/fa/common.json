@@ -252,7 +252,8 @@
     "removeCompany": "حذف شرکت",
     "cannotRemoveLast": "آخرین شرکت را نمی‌توان حذف کرد.",
     "removeCompanyConfirm": "این شرکت حذف شود؟",
-    "removeCompanyConfirmLinked": "این شرکت به {{count}} پروژهٔ باز متصل است. حذف آن این پروژه‌ها را جدا می‌کند. ادامه می‌دهید؟",
+    "removeCompanyConfirmLinked_one": "این شرکت به 1 پروژهٔ باز متصل است. حذف آن این پروژه را جدا می‌کند. ادامه می‌دهید؟",
+    "removeCompanyConfirmLinked_other": "این شرکت به {{count}} پروژهٔ باز متصل است. حذف آن این پروژه‌ها را جدا می‌کند. ادامه می‌دهید؟",
     "setDefault": "تنظیم به‌عنوان پیش‌فرض",
     "export": "خروجی",
     "import": "درون‌ریزی",
@@ -290,7 +291,8 @@
     "adoptFileValues": "اعمال مقادیر فایل در شرکت",
     "adoptWarning": "توجه: این کار شرکت را تغییر می‌دهد و برای همه پروژه‌های شما اعمال می‌شود.",
     "decideLater": "بعداً تصمیم بگیرید",
-    "refreshNotice": "{{count}} مورد از شرکت به‌روزرسانی شد",
+    "refreshNotice_one": "1 مورد از شرکت به‌روزرسانی شد",
+    "refreshNotice_other": "{{count}} مورد از شرکت به‌روزرسانی شد",
     "deviates": "متفاوت است — نیاز به تصمیم",
     "notInCompany": "دیگر در شرکت وجود ندارد",
     "linkedCompany": "شرکت",
@@ -304,21 +306,7 @@
     "addToCompany": "جدید در شرکت",
     "confirmRemoveResource": "'{{name}}' از شرکت حذف شود؟ این کار برای همه پروژه‌ها اعمال می‌شود و قابل واگرد نیست.",
     "field": {
-      "name": "نام",
-      "description": "توضیحات",
-      "workDays": "روزهای کاری",
-      "workStartHour": "شروع (ساعت)",
-      "workEndHour": "پایان (ساعت)",
-      "hoursPerDay": "ساعت در روز",
-      "holidays": "تعطیلات",
-      "generation": "تنظیمات ایجاد",
-      "workTime": "بازه‌های ساعات کاری",
-      "shift": "شیفت",
-      "type": "نوع",
-      "costPerHour": "نرخ/ساعت",
-      "maxUnits": "حداکثر واحد",
-      "unitOfMeasure": "واحد",
-      "availabilitySteps": "مراحل دسترس‌پذیری"
+      "name": "نام"
     }
   },
   "resource": {
