@@ -923,5 +923,26 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 1: removed-only opent het afwijkingenscherm niet');
 }
 
+// --- Grens 4: na recovery draait de grens-1-check voor het actieve document (plan-eis 6) ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Rec BV');
+  const poolResId = s.promoteResourceToPool(cid, { id: 'rc', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 7 })!;
+  // Herstel een document dat aan dit bedrijf gekoppeld is met een ACHTERLOPENDE (behind) kopie.
+  const syncedHash = computeResourceHash({ id: 'x', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3 });
+  s.restoreDocuments([{
+    id: 'doc-rec',
+    project: { ...useAppStore.getState().project, id: 'p-rec', companyId: cid, companyName: 'Rec BV' },
+    calendar: useAppStore.getState().calendar,
+    tasks: [], sequences: [],
+    resources: [{ id: 'rr', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3, libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash } }],
+    assignments: [], filePath: null, isDirty: false,
+  }], 'doc-rec');
+  const res = useAppStore.getState().runOpenBoundary();
+  const copy = useAppStore.getState().resources.find(r => r.id === 'rr');
+  assert(copy?.maxUnits === 7, 'grens 4 ververst een behind-kopie stil na herstel');
+  assert(res.refreshed === 1, 'grens 4 telt de verversing');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

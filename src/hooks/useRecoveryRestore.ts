@@ -88,6 +88,10 @@ export function useRecoveryRestore(): RecoveryRestore {
           onRestore: () => {
             if (restored.length > 0) {
               useAppStore.getState().restoreDocuments(restored, loaded.activeDocumentId);
+              // Grens 4 (spec §3.4, plan-eis 6): crash-herstel telt als grens 1 — draai voor het
+              // actieve, herstelde document dezelfde openings-check (behind stil verversen, deviated
+              // markeren/vragen). Slapende herstelde documenten krijgen hun check bij activering (grens 2).
+              useAppStore.getState().runOpenBoundary();
             }
             void clearRecovery();
             setRecovery(null);
