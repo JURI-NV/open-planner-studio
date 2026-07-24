@@ -1629,6 +1629,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ## Taak 14: Het gedeelde koppel-/afwijkingenscherm `LibraryLinkDialog` (plan-eis 7)
 
 > **NB (critreview taak 10 — verplicht bij deze taak):** het sluiten van de dialoog (elke uitgang: klaar, annuleren, Escape) moet `showLibraryLinkDialog` op false zetten; verifieer ook dat een `openFile` naar een ander document terwijl de dialoog openstaat geen stale dialoog-inhoud achterlaat (grens 2-reset uit taak 12 + live uit de store afleiden).
+>
+> **NB (critreview taak 12 — verplichte VOORSTAP van deze taak, vóór het bedraden van een consument):** maak de vlag-invariant universeel: (1) `runOpenBoundary` vestigt voortaan de VOLLEDIGE vlagtoestand — óók wissen (`showLibraryLinkDialog: false`, `libraryRefreshNotice: null`) als er níéts deviated/behind is; (2) `newDocument()` en de laatste-sluit-naar-leeg-tak van `closeDocument` resetten beide vlaggen. Anders lekt stale dialoogstatus via File→Nieuw en openFile-in-nieuw-document. Mét tests (set-only-regressie moet rood worden).
 
 Eén scherm, gedeelde vormtaal (spec §5/§3, plan-eis 7). Het toont twee secties: **Herkennen** (niet-gestempelde projectitems met hun unieke naam-match, per stuk of bulk bevestigen ⇒ `linkRecognizedItems`) en **Afwijkingen** (gestempelde items die 'deviated'/'removed' zijn: per item **bedrijfswaarden gebruiken** óf **bestandswaarden overnemen in het bedrijf** — met de waarschuwing "dit geldt voor al je projecten"). Annuleren/"later beslissen" mag (derde uitkomst, spec §3): het scherm sluit, markeringen blijven, en het is handmatig heropbaar. Nooit een verkapte "toevoegen uit bibliotheek"-dialoog (anti-dialoog-clausule §5): geen knop die poolitems één voor één een project in kopieert.
 
