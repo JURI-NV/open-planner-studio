@@ -80,8 +80,6 @@ export function createDefaultUI(): UIState {
     showBenchmarkDialog: false,
     showPoolImportDialog: false,
     poolImportCompanyId: null,
-    showAddFromLibraryDialog: false,
-    showUpdateFromLibraryDialog: false,
     showLibraryLinkDialog: false,
     libraryRefreshNotice: null,
     resourcesView: 'project',

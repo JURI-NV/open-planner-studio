@@ -180,10 +180,6 @@ export interface UIState {
    *  in Backstage, niet altijd `defaultCompanyId`). `null` als er geen expliciete opener was; de
    *  dialoog clamp't zelf naar `defaultCompanyId`/eerste bedrijf. Reset naar `null` bij sluiten. */
   poolImportCompanyId: string | null;
-  /** session — "toevoegen uit bibliotheek"-kiezer open (spec §3). */
-  showAddFromLibraryDialog: boolean;
-  /** session — "bijwerken vanuit bibliotheek"-diffdialoog open (spec §3). */
-  showUpdateFromLibraryDialog: boolean;
   /** session — het gedeelde koppel-/afwijkingenscherm open (spec §5/§3, plan-eis 7). Vervangt de
    *  verwijderde Add/Update-dialogen. Data wordt live uit de store afgeleid (computeRecognition +
    *  classify*), dus er is geen transient payload nodig. */

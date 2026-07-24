@@ -63,12 +63,7 @@ export function ProjectInfoDialog() {
       : { country: 'none', region: undefined, bouwvak: 'geen' },
   );
   const [template, setTemplate] = useState<TemplateKey>('empty');
-  // Bibliotheek-toevoegen na aanmaken (spec §3): alleen aangeboden als er bedrijven met pool-inhoud
-  // zijn — anders is de checkbox zinloos (lege bibliotheek levert toch niets op).
   const companies = useAppStore(s => s.companies);
-  const pools = useAppStore(s => s.pools);
-  const hasLibraryContent = companies.some(c => (pools[c.id]?.resources.length ?? 0) + (pools[c.id]?.calendars.length ?? 0) > 0);
-  const [offerLibraryAdd, setOfferLibraryAdd] = useState(false);
   const defaultCompanyId = useAppStore(s => s.defaultCompanyId);
   const bindProjectToCompany = useAppStore(s => s.bindProjectToCompany);
   const unbindProject = useAppStore(s => s.unbindProject);
@@ -113,10 +108,6 @@ export function ProjectInfoDialog() {
         if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
           useAppStore.getState().setUI({ showLibraryLinkDialog: true });
         }
-      }
-      // Spec §3: na het aanmaken kan de gebruiker direct uit de bibliotheek toevoegen.
-      if (offerLibraryAdd) {
-        useAppStore.getState().setUI({ showAddFromLibraryDialog: true });
       }
       // Verlaat de Backstage zodat het nieuwe project meteen zichtbaar is; "Aangepast…" opent
       // meteen de kalenderdialoog zodat de gebruiker de kalender handmatig kan samenstellen (§7.2).
@@ -265,21 +256,6 @@ export function ProjectInfoDialog() {
                 noneLabel={tMenu('wizard.calendar.none')}
                 extraCountryOptions={[{ value: 'custom', label: tMenu('wizard.calendar.custom') }]}
               />
-
-              {/* Bibliotheek-toevoegen na aanmaken (spec §3) — alleen zichtbaar als er daadwerkelijk
-                  pool-inhoud is; anders is de keuze zinloos. */}
-              {hasLibraryContent && (
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={offerLibraryAdd}
-                    onChange={e => setOfferLibraryAdd(e.target.checked)}
-                    className="accent-accent"
-                    data-ops-offer-library-add
-                  />
-                  {tCommon('companyLibrary.addAfterCreate')}
-                </label>
-              )}
             </>
           )}
 
