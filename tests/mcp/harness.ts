@@ -8,8 +8,13 @@
 // truc als de headless benchmark-run).
 
 // --- DOM-shim (vóór elke @/-import) ---------------------------------------------------------------
+// `documentElement` moet erbij: zodra een testbestand (indirect) de i18n-config meesleept — bv. via
+// `hasBlockingDialogOpen`/`shortcutRegistry` in de MCP-tool-runtime, of via de tool-registry die de
+// tool-modules importeert — zet `initLocale`→`updateDirection` bij module-eval `document.documentElement.dir`.
+// Zonder deze stub is `documentElement` undefined en klapt die import in Node.
 (globalThis as any).document = {
   createElement: () => ({ width: 0, height: 0, getContext: () => null }),
+  documentElement: {},
 };
 
 // Pas ná de shim de store importeren en re-exporteren.

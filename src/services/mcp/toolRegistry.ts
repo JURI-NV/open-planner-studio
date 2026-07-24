@@ -18,7 +18,8 @@ export const TOOL_PREFIX = 'planner_';
 // Latere banen breiden dit uit, bijv.:
 //   import { readTools } from './tools/read';
 //   const MODULES: McpToolDef[][] = [readTools, mutateTools, documentTools, batchTools];
-const MODULES: McpToolDef[][] = [];
+import { taskTools } from './tools/taskTools';
+const MODULES: McpToolDef[][] = [taskTools];
 
 let flatTools: McpToolDef[] = [];
 let toolsByName = new Map<string, McpToolDef>();
