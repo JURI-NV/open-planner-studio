@@ -140,6 +140,21 @@
     "connectHint": "Run this in Claude Code to connect the bridge (the token is passed as an Authorization header):",
     "statusDot": "AI bridge: {{status}}"
   },
+  "aiSafety": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "pauseHint": "Mutations are temporarily refused; reads still work. The bridge stays live.",
+    "readOnly": "Read-only",
+    "readOnlyHint": "All mutating tools are refused while this is on.",
+    "autoBackupOn": "Auto-backup: on",
+    "autoBackupOff": "Auto-backup: off",
+    "autoBackupHint": "Automatically writes an IFC backup before the first AI change per document.",
+    "backupNow": "Back up now",
+    "openFolder": "Open backup folder",
+    "backupOk": "Backup created: {{name}}",
+    "backupErr": "Backup failed: {{error}}",
+    "openErr": "Could not open folder: {{error}}"
+  },
   "aiActivity": {
     "title": "AI activity",
     "panelButton": "Activity panel",

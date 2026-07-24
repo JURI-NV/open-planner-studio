@@ -27,6 +27,7 @@ import {
 } from './ribbonWidgets';
 import { AiServerGroup } from '@/components/ribbon/ai/AiServerGroup';
 import { AiConnectionGroup } from '@/components/ribbon/ai/AiConnectionGroup';
+import { AiSafetyGroup } from '@/components/ribbon/ai/AiSafetyGroup';
 import { AiActivityGroup } from '@/components/ribbon/ai/AiActivityGroup';
 
 /**
@@ -642,12 +643,13 @@ const reportTab: RibbonTabConfig = [
   { id: 'reporting', labelKey: 'menu:ribbon.reporting', items: [printPreviewButton] },
 ];
 
-/** AI-tab (T14/T15) — conditioneel zichtbaar (alleen bij `ui.aiMode`; zie Ribbon.tsx). Drie groepen,
- *  alle component-escape-hatches (eigen state, inputs, popover/confirm). De veiligheidsgroep (pauze/
- *  alleen-lezen/backup) is T16; de activiteit-groep (T15) toggelt het activiteitenpaneel. */
+/** AI-tab (T14/T15/T16) — conditioneel zichtbaar (alleen bij `ui.aiMode`; zie Ribbon.tsx). Vier
+ *  groepen, alle component-escape-hatches (eigen state, inputs, popover/confirm). De veiligheidsgroep
+ *  (pauze/alleen-lezen/backup) is T16; de activiteit-groep (T15) toggelt het activiteitenpaneel. */
 const aiTab: RibbonTabConfig = [
   { id: 'aiServer', labelKey: 'menu:ribbon.aiServer', items: [{ kind: 'component', id: 'aiServer', Component: AiServerGroup }] },
   { id: 'aiConnection', labelKey: 'menu:ribbon.aiConnection', items: [{ kind: 'component', id: 'aiConnection', Component: AiConnectionGroup }] },
+  { id: 'aiSafety', labelKey: 'menu:ribbon.aiSafety', items: [{ kind: 'component', id: 'aiSafety', Component: AiSafetyGroup }] },
   { id: 'aiActivity', labelKey: 'menu:ribbon.aiActivity', items: [{ kind: 'component', id: 'aiActivity', Component: AiActivityGroup }] },
 ];
 

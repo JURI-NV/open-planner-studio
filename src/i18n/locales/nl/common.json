@@ -140,6 +140,21 @@
     "connectHint": "Voer dit uit in Claude Code om de bridge te koppelen (het token gaat mee als Authorization-header):",
     "statusDot": "AI-bridge: {{status}}"
   },
+  "aiSafety": {
+    "pause": "Pauzeren",
+    "resume": "Hervatten",
+    "pauseHint": "Mutaties worden tijdelijk geweigerd; lezen blijft toegestaan. De bridge blijft actief.",
+    "readOnly": "Alleen lezen",
+    "readOnlyHint": "Alle muterende tools worden geweigerd zolang dit aanstaat.",
+    "autoBackupOn": "Auto-backup: aan",
+    "autoBackupOff": "Auto-backup: uit",
+    "autoBackupHint": "Maakt vóór de eerste AI-wijziging per document automatisch een IFC-backup.",
+    "backupNow": "Nu backup maken",
+    "openFolder": "Backup-map openen",
+    "backupOk": "Backup gemaakt: {{name}}",
+    "backupErr": "Backup mislukt: {{error}}",
+    "openErr": "Map openen mislukt: {{error}}"
+  },
   "aiActivity": {
     "title": "AI-activiteit",
     "panelButton": "Activiteitenpaneel",

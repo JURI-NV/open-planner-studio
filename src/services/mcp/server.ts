@@ -20,6 +20,7 @@ import { useAppStore } from '@/state/appStore';
 import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
 import { record as recordActivity, capField } from './activityLog';
+import { ensureBackup, resetBackupSession } from './backup';
 import type { McpContext, McpServerStatus, ActivityEntry } from './contracts';
 
 /** Draaien we in de Tauri-shell? (zelfde runtime-poort als de rest van de app-code). */
@@ -108,7 +109,8 @@ export function applyAiModeLive(value: boolean): Promise<void> {
  * Bouw de `McpContext` voor één request. `paused`/`readOnly` worden LIVE uit de ui-state gelezen
  * (de user kan ze tussen requests door omzetten). De overige velden zijn placeholders tot de
  * runtime-/guardlaag (T17) ze invult: `expectedDocId` (drift-anker) = null, `tempIdMap` = lege Map
- * (de batch-executor bezit 'm), `ensureBackup` = no-op-stub (de AI-backup-hook).
+ * (de batch-executor bezit 'm). `ensureBackup` is de ECHTE AI-backup-service (T16) — zijn eigen
+ * `isTauri()`-gate + web-terugval zitten in `backup.ts`.
  */
 export function buildMcpContext(): McpContext {
   const ui = useAppStore.getState().ui;
@@ -117,7 +119,7 @@ export function buildMcpContext(): McpContext {
     tempIdMap: new Map<string, string>(),
     paused: ui.aiPaused,
     readOnly: ui.aiReadOnly,
-    ensureBackup: async () => null,
+    ensureBackup,
   };
 }
 
@@ -438,6 +440,7 @@ function getLiveController(): Promise<BridgeController> {
  */
 export async function startMcpServer(): Promise<void> {
   if (!isTauri()) return;
+  resetBackupSession(); // verse server-sessie ⇒ per-document auto-backup-tellers leeg (spec §Triggerregels)
   const controller = await getLiveController();
   await controller.start();
 }
