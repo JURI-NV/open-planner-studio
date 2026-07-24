@@ -16,6 +16,12 @@ import { Dialog } from '@/components/common/Dialog';
  * door dezelfde `close()` die `showLibraryLinkDialog` op false zet. Data komt live uit de store (geen
  * transient payload) — een openFile naar een ander document terwijl dit scherm openstaat laat dus geen
  * stale inhoud achter (grens 2/1 resetten de vlag zelf, zie librarySlice/documentSlice).
+ *
+ * Stapel-gedrag (S2-fix, B1.1-vlootbevinding V1): "Escape sluit dit scherm" klopt nu ook écht wanneer
+ * dit scherm gestapeld openstaat boven (of onder) een andere dialoog, bv. WelcomeDialog — `useDialogKeys`
+ * houdt sinds die fix een module-globale dialoog-stapel bij en levert Escape/Enter alleen aan de
+ * BOVENSTE dialoog. Vóór de fix kon een onderliggende WelcomeDialog de Escape onderscheppen terwijl dit
+ * scherm zichtbaar bleef staan.
  */
 export function LibraryLinkDialog() {
   const { t } = useTranslation('common');

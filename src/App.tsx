@@ -361,7 +361,9 @@ function AppContent() {
       {/* Verversingssignaal (spec §3, taak 18): discreet, verdwijnt na 4s (zie effect hierboven). */}
       {libraryRefreshNotice != null && libraryRefreshNotice > 0 && (
         <div
-          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-[10px] bg-surface border border-border shadow-[var(--shadow-pop)] text-xs"
+          // S1 (V2-vondst): pure melding, geen interactieve inhoud — zonder pointer-events-none
+          // onderschept deze 4 seconden lang klikken op de UI eronder (elementFromPoint bewees dit).
+          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-[10px] bg-surface border border-border shadow-[var(--shadow-pop)] text-xs pointer-events-none"
           data-ops-library-refresh-notice
         >
           {t('companyLibrary.refreshNotice', { count: libraryRefreshNotice })}

@@ -25,6 +25,7 @@
 
 import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
+import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { formatDate } from '@/utils/dateUtils';
@@ -142,6 +143,12 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: 'n', mod: true },
     category: 'file',
     labelKey: 'menu:menuBar.newProject',
+    // S2 (V1/V3-vondst, dialoog-stapeling): zonder guard opende Ctrl+N de projectwizard óver een
+    // reeds openstaande dialoog heen — twee overlays gestapeld, de wizard onbereikbaar, en één
+    // Escape sloot dan meteen beide. `isAnyDialogOpen()` is de generieke stapel-check uit
+    // `useDialogKeys` (zie daar); dit is dezelfde guard als de productie-voorpoort hieronder in
+    // `useKeyboardShortcuts.ts`.
+    when: () => !isAnyDialogOpen(),
     run: (store) => store.setUI({ showNewProjectDialog: true }),
   },
 

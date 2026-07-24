@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
+import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
 import { SHORTCUTS, matchesCombo } from './shortcutRegistry';
 
 const isProduction = import.meta.env.PROD;
@@ -51,7 +52,10 @@ export function useKeyboardShortcuts() {
         else if (ctrlB && e.shiftKey && e.key.toLowerCase() === 's') saveFileAs();
         else if (ctrlB && e.key.toLowerCase() === 's') saveFile();
         else if (ctrlB && e.key.toLowerCase() === 'o') openFile();
-        else if (ctrlB && e.key.toLowerCase() === 'n') setUI({ showNewProjectDialog: true });
+        // S2 (V1/V3-vondst): dezelfde "geen dialoog open"-guard als de `file.newProject`-entry in
+        // shortcutRegistry.ts — zonder guard opende Ctrl+N de projectwizard óver een al openstaande
+        // dialoog heen (twee overlays, wizard onbereikbaar).
+        else if (ctrlB && e.key.toLowerCase() === 'n' && !isAnyDialogOpen()) setUI({ showNewProjectDialog: true });
         return;
       }
 
