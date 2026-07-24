@@ -491,6 +491,8 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       s.pools[companyId] = { ...normalized, companyName: company.name };
     });
     persist(get);
+    // Bewust GEEN refreshAllDocumentsFromPool hier — pool-import volgt het grens-1-gedrag mét
+    // afwijkingsvraag (taak 13).
   },
 
   isLocalPoolNewer: (companyId, imported) => {
@@ -559,42 +561,66 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const pool = current(draftPool);
 
       // Behind-only (review-fix): alleen items waarvan het BESTAND ongewijzigd is (file == syncedHash)
-      // maar de pool wijkt af. 'deviated' blijft staan. `calTouched` seint kalender-staleness.
-      let calTouched = false;
-      const refreshCalendars = (cals: import('@/types/calendar').WorkCalendar[]): import('@/types/calendar').WorkCalendar[] =>
-        cals.map((cal) => {
+      // maar de pool wijkt af. 'deviated' blijft staan. Review-fix (critreview 71762fd, GO-NA 2/3):
+      // per-BESTEMMING tellers (niet gedeeld tussen het actieve document en elke slapende payload) —
+      // zo wijzen we `s.calendars`/`s.resources`/`doc.payload.*` alleen opnieuw toe, wissen we de
+      // redoStack en zetten we scheduleStale alleen als er in DIE ENE bestemming ook echt iets
+      // ververst is. Geen identiteitschurn bij nul treffers, geen te-brede redo-wis over slapende
+      // documenten die deze pool-edit niet raakten.
+      const refreshCalendars = (
+        cals: import('@/types/calendar').WorkCalendar[],
+      ): { items: import('@/types/calendar').WorkCalendar[]; calChanged: number } => {
+        let calChanged = 0;
+        const items = cals.map((cal) => {
           if (cal.libraryOrigin?.companyId !== companyId) return cal;
           if (classifyCalendarOnOpen(cal, pool) !== 'behind') return cal;
-          changed++; calTouched = true;
+          calChanged++;
           return applyCalendarUpdate(cal, pool);
         });
-      const refreshResources = (ress: import('@/types/resource').Resource[]): import('@/types/resource').Resource[] =>
-        ress.map((res) => {
+        return { items, calChanged };
+      };
+      const refreshResources = (
+        ress: import('@/types/resource').Resource[],
+      ): { items: import('@/types/resource').Resource[]; resChanged: number } => {
+        let resChanged = 0;
+        const items = ress.map((res) => {
           if (res.libraryOrigin?.companyId !== companyId) return res;
           if (classifyResourceOnOpen(res, pool) !== 'behind') return res;
-          changed++;
+          resChanged++;
           return applyResourceUpdate(res, pool);
         });
+        return { items, resChanged };
+      };
 
       // Actief document (top-level) — alleen als het aan dit bedrijf gekoppeld is.
       if (s.project.companyId === companyId) {
-        calTouched = false;
-        s.calendars = refreshCalendars(s.calendars.map((c) => current(c)));
-        s.resources = refreshResources(s.resources.map((r) => current(r)));
-        s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
-        if (changed > 0) s.redoStack = [];
-        if (calTouched) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
+        const cals = refreshCalendars(s.calendars.map((c) => current(c)));
+        const ress = refreshResources(s.resources.map((r) => current(r)));
+        const docChanged = cals.calChanged + ress.resChanged;
+        if (docChanged > 0) {
+          if (cals.calChanged > 0) s.calendars = cals.items;
+          if (ress.resChanged > 0) s.resources = ress.items;
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+          s.redoStack = [];
+          if (cals.calChanged > 0) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
+          changed += docChanged;
+        }
       }
 
       // Slapende payloads (plan-eis 1): muteer binnen dezelfde set(); herrekening pas bij activering.
       for (const doc of s.documents) {
         if (!doc.payload) continue; // actief document heeft payload===null.
         if (doc.payload.project.companyId !== companyId) continue;
-        calTouched = false;
-        doc.payload.calendars = refreshCalendars(doc.payload.calendars.map((c) => current(c)));
-        doc.payload.resources = refreshResources(doc.payload.resources.map((r) => current(r)));
-        doc.payload.redoStack = [];
-        if (calTouched) doc.payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
+        const cals = refreshCalendars(doc.payload.calendars.map((c) => current(c)));
+        const ress = refreshResources(doc.payload.resources.map((r) => current(r)));
+        const docChanged = cals.calChanged + ress.resChanged;
+        if (docChanged > 0) {
+          if (cals.calChanged > 0) doc.payload.calendars = cals.items;
+          if (ress.resChanged > 0) doc.payload.resources = ress.items;
+          doc.payload.redoStack = [];
+          if (cals.calChanged > 0) doc.payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
+          changed += docChanged;
+        }
       }
     });
     if (changed > 0) {

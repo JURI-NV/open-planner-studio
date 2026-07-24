@@ -107,6 +107,11 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = id;
     });
     get().recomputeViewRows();
+    // Grens 3/4 (plan-eis 1) kan resources/kalenders van een SLAPENDE payload hebben ververst
+    // terwijl het `resourceLoadResult` van dat document nog de oude waarden droeg (er was toen geen
+    // actief document om te herberekenen). Bij activering hier onvoorwaardelijk herberekenen dicht
+    // die hele klasse — niet alleen het pool-edit-geval, elke toekomstige dormant-mutatie ook.
+    get().recomputeResourceLoad();
     emitExtensionEvent(HOST_EVENTS.projectLoaded, {
       tasks: incoming.tasks.length,
       sequences: incoming.sequences.length,
@@ -151,6 +156,9 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = neighbor.id;
     });
     get().recomputeViewRows();
+    // Zie switchDocument hierboven: het net-geactiveerde buurdocument kan een verouderd
+    // `resourceLoadResult` dragen (grens 3/4 ververste zijn payload terwijl het sliep).
+    get().recomputeResourceLoad();
     emitExtensionEvent(HOST_EVENTS.projectLoaded, {
       tasks: incoming.tasks.length,
       sequences: incoming.sequences.length,

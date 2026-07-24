@@ -651,6 +651,20 @@ const store = useAppStore.getState();
   const dormantRes = dormant?.payload?.resources.find(r => r.libraryOrigin?.libraryItemId === resId);
   assert(dormantRes?.maxUnits === 8, 'pool-edit ververst de slapende payload (plan-eis 1)');
   assert(secondDoc !== firstDoc, 'tweede document is een ander id');
+
+  // Fix 1 (critreview 71762fd): refreshAllDocumentsFromPool ververst de slapende resources, maar
+  // schrijft bewust GEEN resourceLoadResult (dat blijft "manual, not reactive" tot activering — spec).
+  // switchDocument moet die herberekening bij activering alsnog doen. Stempel een HERKENBAAR vervalste
+  // waarde op de slapende payload (een '__stale__'-resourceId die geen enkele échte
+  // computeResourceLoad-run ooit produceert) en verifieer dat die bij het wisselen vervangen wordt —
+  // de sterkste assert die haalbaar is zonder taken/toewijzingen op te tuigen in dit library-blok.
+  useAppStore.setState((st) => {
+    const doc = st.documents.find(d => d.id === firstDoc);
+    if (doc?.payload) doc.payload.resourceLoadResult = { load: {}, capacity: { __stale__: {} }, overallocatedDays: {} };
+  });
+  useAppStore.getState().switchDocument(firstDoc);
+  const activeLoad = useAppStore.getState().resourceLoadResult;
+  assert(!!activeLoad && !('__stale__' in activeLoad.capacity), 'switchDocument herberekent resourceLoadResult bij activering i.p.v. de slapende/verouderde waarde te laten staan (fix 1)');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
