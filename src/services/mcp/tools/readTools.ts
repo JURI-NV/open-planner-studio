@@ -532,6 +532,76 @@ function getResourceHistogram(args: HistogramArgs) {
   const from = typeof args.van === 'string' ? args.van : undefined;
   const to = typeof args.tot === 'string' ? args.tot : undefined;
 
+  const resNameById = new Map(s.resources.map((r) => [r.id, r.name]));
+  // Versheids-melding, gedeeld door beide paden: was de planning stale, dan is die vers herrekend.
+  const freshMeta = {
+    recomputed: fresh.recomputed,
+    ...(fresh.error ? { scheduleError: fresh.error } : {}),
+    ...(fresh.recomputed
+      ? { warning: 'De planning was verouderd; het histogram is vers herrekend vóór dit rapport.' }
+      : {}),
+  };
+
+  const scoped = (resourceIds && resourceIds.length > 0) || from !== undefined || to !== undefined;
+
+  // ── Ongescopt (geen venster ÉN geen resourceIds) ⇒ AGGREGAAT-default ───────────────────────────
+  // Een naïeve eerste call over een groot project zou anders per resource honderden bucket-rijen
+  // opleveren (fors payload/token-verbruik). We geven dan per resource een compacte samenvatting die
+  // de PIEKEN NOOIT verbergt (peakLoad + datum, aantal overbelaste dagen, spanne, capaciteits-/
+  // belastingssom), met `detailAvailable: true` + hint zodat de client gericht kan inzoomen. Intern
+  // rekenen we in DAG-granulariteit zodat de piekdatum exact is; er gaan géén bucket-arrays over.
+  if (!scoped) {
+    const dayReport = computeHistogramReport({
+      tasks: s.tasks,
+      sequences: s.sequences,
+      assignments: s.assignments,
+      resources: s.resources,
+      calendar: s.calendar,
+      calendars: s.calendars,
+      cpmResult: s.cpmResult,
+      bucket: 'dag',
+    });
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+    const resources = dayReport.resources.map((r) => {
+      let peakLoad = 0;
+      let peakDate: string | null = null;
+      let loadSum = 0;
+      let capacitySum = 0;
+      let overallocatedDayCount = 0;
+      let spanStart: string | null = null;
+      let spanEnd: string | null = null;
+      for (const b of r.buckets) {
+        if (b.peakDayLoad > peakLoad) { peakLoad = b.peakDayLoad; peakDate = b.start; }
+        loadSum += b.load;
+        capacitySum += b.capacity;
+        overallocatedDayCount += b.overallocatedDays.length;
+        if (b.load > 0) {
+          if (spanStart === null) spanStart = b.start;
+          spanEnd = b.end;
+        }
+      }
+      return {
+        resourceId: r.resourceId,
+        resourceName: resNameById.get(r.resourceId) ?? null,
+        peakLoad: round2(peakLoad),
+        peakDate,
+        overallocatedDayCount,
+        loadSum: round2(loadSum),
+        capacitySum: round2(capacitySum),
+        spanStart,
+        spanEnd,
+      };
+    });
+    return {
+      mode: 'aggregate' as const,
+      detailAvailable: true,
+      hint: 'Aggregaat per resource (pieken zichtbaar via peakLoad/overallocatedDayCount). Geef `resourceIds` en/of een venster (`van`/`tot`) voor volledig bucket-detail.',
+      ...freshMeta,
+      resources,
+    };
+  }
+
+  // ── Gescopt (venster en/of resourceIds) ⇒ VOLLEDIG bucket-detail (bestaand gedrag) ─────────────
   const report = computeHistogramReport({
     tasks: s.tasks,
     sequences: s.sequences,
@@ -545,23 +615,15 @@ function getResourceHistogram(args: HistogramArgs) {
     to,
     bucket,
   });
-
-  const resNameById = new Map(s.resources.map((r) => [r.id, r.name]));
   const resources = report.resources.map((r) => ({
     resourceId: r.resourceId,
     resourceName: resNameById.get(r.resourceId) ?? null,
     buckets: r.buckets,
   }));
-
   return {
+    mode: 'detail' as const,
     bucket,
-    // Versheids-melding: was de planning stale, dan is die vers herrekend (recomputed:true). De
-    // envelop toont scheduleStale ná de recompute (false); dít veld meldt dat het NODIG was.
-    recomputed: fresh.recomputed,
-    ...(fresh.error ? { scheduleError: fresh.error } : {}),
-    ...(fresh.recomputed
-      ? { warning: 'De planning was verouderd; het histogram is vers herrekend vóór dit rapport.' }
-      : {}),
+    ...freshMeta,
     resources,
   };
 }
@@ -794,11 +856,16 @@ export const readTools: McpToolDef[] = [
     description:
       'Belasting/capaciteit-histogram per resource. Params: `resourceIds` (leeg = alle), `van`/`tot` ' +
       '(ISO-venster), `bucket` ("dag" of "week", default "week"). HERREKENT de planning vers wanneer ' +
-      'die verouderd is (en meldt dat via `recomputed`/`warning` in de data). Per bucket: `load` ' +
-      '(weekbucket = som over de week), `peakDayLoad`, `capacity`, dag-granulaire `overallocatedDays` ' +
-      'en per overbelaste bucket de veroorzakende toewijzingen (`causes`). LET OP — WEEKMODUS-OVERHANG: ' +
-      'weekvensters snappen naar hele ISO-weken (ma..zo), dus een venster kan aan de randen dagen ' +
-      'buiten [van,tot] meenemen; de capaciteit telt álle werkdagen van het (gesnapte) weekvenster.',
+      'die verouderd is (en meldt dat via `recomputed`/`warning`). DETAIL-OP-AANVRAAG: zónder venster ' +
+      'ÉN zónder resourceIds (de naïeve eerste call) levert de tool `mode:"aggregate"` — per resource ' +
+      'een samenvatting (peakLoad + peakDate, overallocatedDayCount, spanStart/spanEnd, loadSum, ' +
+      'capacitySum) mét `detailAvailable:true`; pieken blijven zo zichtbaar maar de respons is klein. ' +
+      'Geef `resourceIds` en/of `van`/`tot` voor `mode:"detail"` met de volledige bucket-arrays: per ' +
+      'bucket `load` (weekbucket = som over de week), `peakDayLoad`, `capacity`, dag-granulaire ' +
+      '`overallocatedDays` en per overbelaste bucket de veroorzakende toewijzingen (`causes`). ' +
+      'LET OP — WEEKMODUS-OVERHANG: weekvensters snappen naar hele ISO-weken (ma..zo), dus een venster ' +
+      'kan aan de randen dagen buiten [van,tot] meenemen; de capaciteit telt álle werkdagen van het ' +
+      '(gesnapte) weekvenster.',
     kind: 'read',
     batchable: true,
     inputSchema: {

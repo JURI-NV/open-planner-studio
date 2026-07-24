@@ -267,7 +267,9 @@ test('get_resource_histogram: stale ⇒ herrekent vers en meldt (recomputed:true
   S().updateTask(t1, { time: { ...cur.time, scheduleDuration: 5 } });
   assertEq(S().scheduleStale, true, 'na updateTask stale');
 
-  const data = callOk('planner_get_resource_histogram', { bucket: 'week' });
+  // Gescopt op resourceIds ⇒ volledig bucket-detail (mode:"detail"), óók bij een verouderde planning.
+  const data = callOk('planner_get_resource_histogram', { bucket: 'week', resourceIds: [rId] });
+  assertEq(data.mode, 'detail', 'gescopte call ⇒ detail-modus');
   assertEq(data.recomputed, true, 'tool herrekende de verouderde planning');
   assert(typeof data.warning === 'string', 'tool meldt de herrekening in de data');
   assertEq(S().scheduleStale, false, 'na de tool is de planning vers');
@@ -285,6 +287,39 @@ test('get_resource_histogram: niet-stale ⇒ recomputed:false, geen warning', ()
   const data = callOk('planner_get_resource_histogram', { bucket: 'week' });
   assertEq(data.recomputed, false, 'verse planning ⇒ recomputed false');
   assert(!('warning' in data), 'geen warning bij verse planning');
+});
+
+// ── T18b: detail-op-aanvraag ─────────────────────────────────────────────────────────────────────
+test('get_resource_histogram: ongescopt (geen venster/resourceIds) ⇒ aggregaat, klein, pieken zichtbaar', () => {
+  loadBenchmark(2500);
+  const data = callOk('planner_get_resource_histogram');
+  assertEq(data.mode, 'aggregate', 'ongescopte call ⇒ aggregaat-modus');
+  assertEq(data.detailAvailable, true, 'detailAvailable:true');
+  assert(typeof data.hint === 'string' && data.hint.length > 0, 'hint aanwezig');
+  assertEq(data.resources.length, S().resources.length, 'aggregaat per resource');
+  for (const r of data.resources) {
+    assert(!('buckets' in r), 'aggregaat bevat GEEN bucket-arrays');
+    assert(typeof r.peakLoad === 'number', 'peakLoad aanwezig');
+    assert('peakDate' in r, 'peakDate aanwezig');
+    assert(typeof r.overallocatedDayCount === 'number', 'overallocatedDayCount aanwezig');
+    assert(typeof r.capacitySum === 'number', 'capacitySum aanwezig');
+    assert('spanStart' in r && 'spanEnd' in r, 'spanne aanwezig');
+  }
+  // Pieken worden nooit verborgen: minstens één resource heeft een positieve peakLoad op dit project.
+  assert(data.resources.some((r: any) => r.peakLoad > 0), 'minstens één piek zichtbaar in het aggregaat');
+  const bytes = JSON.stringify(data).length;
+  console.log(`  [PAYLOAD] histogram aggregaat (ongescopt, 2500 taken) = ${(bytes / 1024).toFixed(1)} KB`);
+  assert(bytes < 20 * 1024, `aggregaat-payload ruim < 20 KB (kreeg ${(bytes / 1024).toFixed(1)} KB)`);
+});
+
+test('get_resource_histogram: gescopt op resourceIds ⇒ volledig detail met bucket-arrays', () => {
+  loadBenchmark(500);
+  const rId = S().resources[0].id;
+  const data = callOk('planner_get_resource_histogram', { bucket: 'week', resourceIds: [rId] });
+  assertEq(data.mode, 'detail', 'gescopt ⇒ detail-modus');
+  assertEq(data.resources.length, 1, 'alleen de gevraagde resource');
+  assertEq(data.resources[0].resourceId, rId, 'juiste resource');
+  assert(Array.isArray(data.resources[0].buckets) && data.resources[0].buckets.length > 0, 'bucket-arrays aanwezig');
 });
 
 // =================================================================================================
@@ -395,16 +430,18 @@ test('analyze_delay: baseline zonder projecteinde ⇒ expliciete melding i.p.v. 
 // =================================================================================================
 // PAYLOAD-METING (geen poort) — JSON-groottes op het 2500-taken-benchmarkproject
 // =================================================================================================
-test('payload-meting: overview / list_tasks(p1) / histogram(week) op 2500 taken (rapport, geen assert)', () => {
+test('payload-meting: overview / list_tasks(p1) / histogram op 2500 taken (rapport, geen assert)', () => {
   loadBenchmark(2500);
   const overview = callOk('planner_get_project_overview');
   const listP1 = callOk('planner_list_tasks', { limit: 50, offset: 0 });
-  const hist = callOk('planner_get_resource_histogram', { bucket: 'week' });
+  const histAgg = callOk('planner_get_resource_histogram'); // ongescopt ⇒ aggregaat (nieuwe default)
+  const histDetail = callOk('planner_get_resource_histogram', { bucket: 'week', resourceIds: [S().resources[0].id] });
   const kb = (o: unknown) => (JSON.stringify(o).length / 1024).toFixed(1);
   console.log(`  [PAYLOAD] 2500-taken-project:`);
-  console.log(`  [PAYLOAD]   get_project_overview   = ${kb(overview)} KB  (${overview.tasks.length} taken, ${overview.relationCount} relaties)`);
-  console.log(`  [PAYLOAD]   list_tasks (p1, 50)     = ${kb(listP1)} KB  (${listP1.tasks.length}/${listP1.total} taken)`);
-  console.log(`  [PAYLOAD]   get_resource_histogram  = ${kb(hist)} KB  (week, ${hist.resources.length} resources)`);
+  console.log(`  [PAYLOAD]   get_project_overview       = ${kb(overview)} KB  (${overview.tasks.length} taken, ${overview.relationCount} relaties)`);
+  console.log(`  [PAYLOAD]   list_tasks (p1, 50)         = ${kb(listP1)} KB  (${listP1.tasks.length}/${listP1.total} taken)`);
+  console.log(`  [PAYLOAD]   histogram AGGREGAAT (default) = ${kb(histAgg)} KB  (${histAgg.resources.length} resources)`);
+  console.log(`  [PAYLOAD]   histogram DETAIL (1 resource, week) = ${kb(histDetail)} KB`);
   assert(overview.tasks.length > 2000, 'overview bevat de volledige boom (ongelimiteerd)');
 });
 
