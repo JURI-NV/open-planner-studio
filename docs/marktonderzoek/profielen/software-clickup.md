@@ -78,7 +78,9 @@ Wat dit betekent:
 | Start-to-Finish (SF) | Beta / early access sinds juni 2026 |
 | **Lead/lag time (bijv. FS+5d, SS-2d)** | **Bestaat niet.** Op de roadmap als "onder overweging" ná "dependency enforcement" |
 
-De officiële formulering op datzelfde verzoek: *"Advanced dependency types are now in beta, dependency enforcement is coming next, and we're actively deciding what to build after that — including lead/lag time."*
+De officiële formulering op datzelfde verzoek — **bij verificatie gedateerd op 15 juli 2026, Vasil Enchev (ClickUp Product)**, de meest recente statusupdate: *"Advanced dependency types are now in beta, dependency enforcement is coming next, and we're actively deciding what to build after that — including lead/lag time."* De status van het verzoek staat op **"building now"**; het stemmenaantal van **792** is bevestigd.
+
+Kanttekening bij verificatie: de officiële staf-updates bevestigen *"advanced dependency types"* in beta zónder de vier typen bij naam te noemen; de expliciete opsomming FS/SS/FF/SF komt uit gebruikerscommentaar op dezelfde pagina. De richting is dus zeker, de precieze scope van de beta is dat net niet. **[deels ONGEVERIFIEERD]** Het ontbreken van lead/lag time is wél letterlijk door ClickUp zelf bevestigd en is de dragende bevinding.
 
 **Dit is diskwalificerend voor bouwplanning.** Een bouwschema zonder lags is niet te modelleren: "wapening vlechten kan starten 2 dagen nadat bekisting begonnen is" (SS+2), "uitharden beton 21 dagen" als lag in plaats van fantoomtaak, "oplevering uiterlijk 5 dagen na laatste keuring" (FF+5) — geen daarvan kan in ClickUp zonder kunstmatige hulptaken. Wie het toch probeert, bouwt een schema vol dummy-taken die de netwerkintegriteit en elke latere vertragingsanalyse onbruikbaar maken.
 
@@ -118,7 +120,7 @@ De engine is dus een **datumpropagatiemechanisme** ("als A schuift, duw B door")
 
 ### 2.4 Baselines
 
-Hier is ClickUp in 2026 verbeterd. **Gantt-baselines** zijn uitgerold (juli 2026 releasenotes, releasebot.io/updates/clickup; zenpilot.com/clickup-weekly/clickup-weekly-013/):
+Hier is ClickUp in 2026 verbeterd. **Gantt-baselines** zijn uitgerold — **gecorrigeerd: release 6 mei 2026 (ClickUp v4.04)**, niet juli 2026; de juli-releasenotes waren een latere vermelding, niet de introductie (changelog v4.04: *"This week's ClickUpdates brings Gantt Baselines to track how your project plans shift over time"*; releasebot.io/updates/clickup; zenpilot.com/clickup-weekly/clickup-weekly-013/):
 
 > *"Use baselines to create visual snapshots of your task dates in Gantt views. Baselines capture the start and end dates of the tasks in a List, Folder, or Space, at a point in time."*
 
@@ -143,7 +145,7 @@ Beperking: dit is een **datum-baseline**, geen **kosten- of urenbaseline**. Er i
 
 **Architectuur:** SaaS, multi-tenant op AWS. Web-app, desktopwrappers (Electron-achtig), iOS/Android. Publieke REST-API v2 en v3. Geen on-premise optie.
 
-**Harde limiet:** **maximaal 5.000 taken laden tegelijk in een List-view**; ClickUps eigen documentatie adviseert filters te gebruiken. Dit is expliciet gemotiveerd "to improve platform performance".
+**Harde limiet:** **maximaal 5.000 taken laden tegelijk in een view** — bevestigd in ClickUps eigen documentatie (*"Up to 5,000 tasks can load at a time in one view"*), met het advies *"Use filters to refine the tasks displayed in List view."* **Gecorrigeerd:** de eerder geciteerde motivatie "to improve platform performance" is bij verificatie **niet als letterlijke leverancierstekst terug te vinden**; de documentatie noemt de limiet zonder expliciete reden. De prestatie-interpretatie blijft plausibel maar is een afleiding. **[SCHATTING]**
 
 **Praktische schaal — dit is het pijnpunt.** Het aantal taken dat je *kunt aanmaken* is onbeperkt; het aantal dat *werkbaar* is, ligt veel lager. Bevindingen:
 
@@ -185,23 +187,23 @@ Alle bedragen in **USD**, per gebruiker per maand, tenzij anders vermeld. **Prim
 | Plan | Jaarlijkse facturering | Maandelijkse facturering | Per gebruiker per jaar (jaarlijks gefactureerd) |
 |---|---|---|---|
 | **Free Forever** | $0 | $0 | $0 |
-| **Unlimited** | **$7** (leverancier bevestigd) | ~$10 **[CONFLICT — zie hieronder]** | $84 |
-| **Business** | **$12** (leverancier bevestigd) | ~$19 **[CONFLICT — zie hieronder]** | $144 |
+| **Unlimited** | **$7** (leverancier bevestigd) | **$10** (onafhankelijk bevestigd) | $84 |
+| **Business** | **$12** (leverancier bevestigd) | **$19** (onafhankelijk bevestigd) | $144 |
 | **Enterprise** | Op aanvraag (custom) | Op aanvraag | zie 3.4 |
 
-Bron jaarprijzen: clickup.com/pricing, 25 juli 2026 — letterlijk *"$7 Per user/month, billed yearly"* en *"$12 Per user/month, billed yearly"*. De pagina meldt *"Save up to 30% with yearly"*.
+Bron jaarprijzen: clickup.com/pricing, 25 juli 2026 — letterlijk *"$7 Per user/month, billed yearly"* en *"$12 Per user/month, billed yearly"*. De pagina meldt *"Save up to 30% with yearly"*. Bij hernieuwde fetch (verificatieronde 25 juli 2026) toont de pagina de plannen als *"$7+"* en *"$12+"* — het plusteken duidt op het hogere maandtarief.
 
-**[CONFLICT] over de maandprijs.** Bij een eerste fetch van clickup.com/pricing gaf de pagina $9 (Unlimited) en $15 (Business) als maandtarief; bij een tweede fetch stonden de maandtarieven niet apart vermeld (prijsschakelaar rendert client-side). Onafhankelijke reviews van 2026 noemen consistent **$10 en $19** maandelijks: thebusinessdive.com/clickup-review (*"Unlimited: $7/month (yearly) or $10/month (monthly); Business: $12/month (yearly) or $19/month (monthly)"*) en hackceleration.com/labs/review/clickup (idem). Ik houd **$10 / $19** aan als meest waarschijnlijke maandtarieven, maar markeer dit als niet-definitief.
+**[CONFLICT OPGELOST] over de maandprijs.** Bij een eerste fetch van clickup.com/pricing gaf de pagina $9 (Unlimited) en $15 (Business) als maandtarief. Dat is bij verificatie **niet reproduceerbaar** en wordt door geen enkele onafhankelijke bron ondersteund; vermoedelijk een verouderde of verkeerd gerenderde prijsschakelaar. Twee onafhankelijke bronnen bevestigen **$10 en $19**: thebusinessdive.com/clickup-review (*"$7 monthly if choosing the yearly billing. However, if you choose the monthly billing, it is $10 per user per month"* en *"$12 per user if you opt for the yearly plan… monthly billing, it is $19 per user"*) en comparedge (*"ClickUp runs free to $19 per user monthly, dropping to $7 and $12 billed yearly as of July 8, 2026"*). **$10 / $19 wordt hierbij als vastgesteld beschouwd; de $9/$15-lezing is verworpen.**
 
 **[CONFLICT] over een prijsverhoging in feb. 2026.** De aggregator getpricepulse.com/companies/clickup-pricing.html claimt dat ClickUp in februari 2026 Unlimited van $7 naar $10 en Business van $12 naar $19 *jaarlijks* verhoogde (+43% resp. +58%). **Dit wordt tegengesproken door de live leverancierspagina van 25 juli 2026, die $7 en $12 jaarlijks toont.** De aggregator verwart vrijwel zeker jaar- met maandtarieven. Ik verwerp deze claim, maar noteer hem omdat hij in AI-samenvattingen circuleert.
 
 ### 3.2 Gratis tier — wat er echt in zit
 
 - Onbeperkt taken en onbeperkt leden
-- **60 MB** opslag (sommige bronnen noemen 100 MB — **[CONFLICT]**, leverancierspagina zegt 60 MB)
+- **60 MB** opslag (sommige bronnen noemen 100 MB — **[CONFLICT]**, leverancierspagina zegt 60 MB; bij verificatiefetch op 25 juli 2026 opnieuw **60 MB** — bevestigd)
 - **100 automatiseringen/maand** (was onbeperkt tot Q3 2025)
 - **1 dashboard** per workspace
-- **Gantt beperkt tot ca. 60 keer gebruiken** (usecarly.com; costbench.com)
+- **Gantt beperkt tot 60 keer gebruiken *per maand*** — gecorrigeerd: het is een maandelijks quotum, geen eenmalig totaal (Forbes Advisor: *"limits the Gantt chart to 60 uses per month"*; usecarly.com; costbench.com)
 - Collaborative docs, kanban, basis custom fields, 1 formulier, 24/7 support
 
 De gratis tier is genereus qua zitplaatsen maar bewust nutteloos gemaakt voor planning: 60 Gantt-uses is een demo, geen werkinstrument.
@@ -239,10 +241,10 @@ Enterprise voegt toe: SAML SSO, onbeperkte automatiseringen (250K/maand), custom
 Dit is waar de meeste klachten zitten, en het is materieel voor TCO-berekeningen.
 
 1. **Upgrades zijn workspace-breed.** ClickUps eigen pricingpagina: *"Workspace-wide upgrades required (no individual user upgrades)."* Je kunt niet drie planners op Business zetten en de rest op Free. Elke gebruiker in de workspace betaalt hetzelfde tarief. Voor een bouwbedrijf van 200 man dat 6 planners heeft, betekent dit 200 × $12 = $28.800/jaar in plaats van 6 × $12 = $864.
-2. **Minimum zitplaatsen.** Niet officieel gepubliceerd. Gebruikers melden dat je op betaalde plannen geen enkele zitplaats kunt kopen; een minimum van 2 wordt genoemd. **[ONGEVERIFIEERD — uit gebruikersklachten, niet uit leveranciersdocumentatie]**
-3. **Jaarcontracten vergrendelen het zitplaatsaantal.** Gebruikers rapporteren dat je gedurende de termijn geen zitplaatsen kunt verwijderen; verlengingsfacturen nemen het zitplaatsaantal van de vorige cyclus over. Een non-profit van 40 mensen betaalde voor 46 zitplaatsen bij 39 actieve leden (r/clickup, "ClickUp's pricing is a masterclass in hostage-taking", 21 apr. 2026).
+2. **Minimum zitplaatsen — CLAIM INGETROKKEN.** Het eerdere vermoeden van een minimum van 2 zitplaatsen is bij verificatie **weerlegd**: meerdere onafhankelijke bronnen stellen expliciet dat ClickUp **geen minimum zitplaatsaantal** kent (*"ClickUp has no minimum seat count for its Unlimited plan"*, resources.oreateai.com; *"ClickUp Unlimited is $7/user with no seat minimum"*, verdictscout.com), in tegenstelling tot bijv. Monday.com met een 3-zitplaatsenminimum. Eén betaalde zitplaats is mogelijk. Dit is dus juist een **voordeel** ten opzichte van concurrenten, niet een addertje.
+3. **Jaarcontracten: zitplaatsverlaging werkt pas bij verlenging (genuanceerd).** De oorspronkelijke formulering "je kunt gedurende de termijn geen zitplaatsen verwijderen" is te sterk. Correcter: je kúnt leden mid-cyclus verwijderen, maar dat levert **geen tussentijdse restitutie of factuurverlaging** op — de vrijgekomen zitplaats telt pas mee bij de volgende verlenging (*"Removing a member mid-cycle on annual plans typically does not generate an immediate refund; the seat credit applies at renewal"*). Het economische effect is dus vergelijkbaar met vergrendeling, maar het mechanisme is een restitutiebeleid, geen harde lock. Gebruikers melden bovendien dat verlengingsfacturen alsnog oude zitplaatsaantallen overnemen ondanks toezeggingen van support: een non-profit van 40 mensen betaalde voor 46 zitplaatsen bij 39 actieve leden (r/clickup, "ClickUp's pricing is a masterclass in hostage-taking", 21 apr. 2026).
 4. **Gratis promotiezitplaatsen worden betaald bij verlenging** — door meerdere gebruikers beschreven als *"extremely unethical"*.
-5. **Business Plus is afgeschaft.** De vijfde tier ($19/zitplaats) is verwijderd; het aanbod ging van 5 naar 4 tiers. ClickUp-support meldt: *"Business Plus is not included on our pricing page, but you can see plan details when following the upgrade instructions in your Workspace"* — bestaande klanten behouden hem dus, nieuwe niet. Datering onzeker (Q4 2024 volgens getpricepulse) **[ONGEVERIFIEERD]**. Relevant omdat de API-rate-limit-tabel nog steeds een Business Plus-niveau kent.
+5. **Business Plus is verborgen, niet afgeschaft — GECORRIGEERD.** De eerdere formulering "afgeschaft / verwijderd" is te sterk. De tier ($19/gebruiker/maand jaarlijks) staat **niet meer op de publieke pricingpagina**, maar bestaat nog en is bereikbaar via de upgradeflow in de workspace. ClickUp-support: *"Business Plus is not included on our pricing page, but you can see plan details when following the upgrade instructions in your Workspace"*; derden bevestigen *"Business Plus ($19/user/mo annual, hidden from public page)"* (Agiled) en *"not always prominently displayed on ClickUp's pricing page but exists in their documentation"* (QuackBack). Het aanbod is dus publiekelijk 4 tiers, feitelijk 5. Business Plus omvat custom role permissions, subtasks in multiple lists, 50.000 automatiseringen/maand en priority support. Datering van het verbergen onzeker (Q4 2024 volgens getpricepulse) **[ONGEVERIFIEERD]**. Consistent met het feit dat de API-rate-limit-tabel nog steeds een Business Plus-niveau kent.
 6. **100% money-back guarantee** wordt geadverteerd op de pricingpagina.
 
 ---
@@ -265,7 +267,7 @@ Dit is waar de meeste klachten zitten, en het is materieel voor TCO-berekeningen
 
 8. **Enterprise-compliance en dataresidentie.** SOC 2 Type II, ISO 27001, GDPR, HIPAA-optie, AES-256, 99,9% uptime-SLA, en EU-hosting (Ierland) zonder meerkosten voor Enterprise sinds juli 2023 — plus AU en SG. Voor Europese organisaties met datalokaliteitseisen is dat een echte afvinker. Bron: businesswire.com, 17 juli 2023; clickup.com/security.
 
-9. **Hoge gebruikerswaardering en marktvalidatie.** G2 4,7/5 over 9.000-13.000+ reviews; Capterra 4,6/5 over ~4.600 reviews; top-3 in 500+ G2-categorieën en aanwezig in 1.500+ G2 Winter 2026-rapporten. Dat weerspiegelt tevredenheid over *werkbeheer* — niet over planning — maar het is een echte markt-signaal. **[ONGEVERIFIEERD — via zoeksnippets; G2 en Capterra blokkeerden directe fetch]**
+9. **Hoge gebruikerswaardering en marktvalidatie.** G2 **4,6-4,7/5 over ~13.300 reviews** (gecorrigeerd: het eerder genoemde bereik "9.000-13.000+" is te ruim; actuele tellingen liggen op 13.314-13.331 reviews, en de score wordt zowel als 4,6 als 4,7 gerapporteerd); Capterra 4,6/5 over ~4.608 reviews; top-3 in 500+ G2-categorieën en aanwezig in 1.500+ G2 Winter 2026-rapporten. Dat weerspiegelt tevredenheid over *werkbeheer* — niet over planning — maar het is een echte markt-signaal. **[ONGEVERIFIEERD — via zoeksnippets; G2 en Capterra blokkeerden directe fetch]**
 
 10. **Financiële soliditeit op korte termijn.** >$300 mln ARR, ~100.000 betalende klanten, 20 mln+ gebruikers, $4 mrd waardering, $537,5 mln opgehaald. Geen startupgokje.
 
@@ -285,7 +287,7 @@ Dit is waar de meeste klachten zitten, en het is materieel voor TCO-berekeningen
 
 6. **Steile leercurve en configuratiemoeheid.** Hackceleration scoort ease-of-use **3,0/5** en noemt *"steep learning curve before full productivity kicks in"* met 2-3 weken tot volledige productiviteit, plus een *"overwhelming number of configuration options"*. Reddit-samenvattingen noemen *"overwhelming setup, too many layers, bad UX, random friction"* (r/clickup, "Do you still trust ClickUp as your team's source of truth?", 21 mei 2026). Voor een bouwploeg die af en toe iets moet afvinken is dit te veel machinerie.
 
-7. **Vijandig aanvoelend licentie- en zitplaatsbeleid.** Workspace-brede upgrades verplicht (iedereen betaalt hetzelfde tarief, ook wie alleen leest), jaarcontracten vergrendelen het zitplaatsaantal zonder tussentijdse verlaging, verlengingsfacturen nemen oude zitplaatsaantallen over, en gratis promotiezitplaatsen worden bij verlenging betaald. Illustratief: een non-profit van 40 mensen betaalde voor 46 zitplaatsen bij 39 actieve leden. Bron: r/clickup, *"ClickUp's pricing is a masterclass in hostage-taking"*, 21 apr. 2026; diverse refundklachten.
+7. **Vijandig aanvoelend licentie- en zitplaatsbeleid.** Workspace-brede upgrades verplicht (iedereen betaalt hetzelfde tarief, ook wie alleen leest) — bij verificatie letterlijk bevestigd op clickup.com/pricing: *"To upgrade ClickUp, you'll need to upgrade your entire Workspace, which means all members in your Workspace."* Verder: zitplaatsverlaging op jaarcontracten werkt pas bij verlenging en levert geen tussentijdse restitutie op, verlengingsfacturen nemen oude zitplaatsaantallen over, en gratis promotiezitplaatsen worden bij verlenging betaald. (Wél gecorrigeerd: er is géén minimum zitplaatsaantal — zie §3.5.) Illustratief: een non-profit van 40 mensen betaalde voor 46 zitplaatsen bij 39 actieve leden. Bron: r/clickup, *"ClickUp's pricing is a masterclass in hostage-taking"*, 21 apr. 2026; diverse refundklachten.
 
 8. **AI-add-ons verdrievoudigen de effectieve prijs.** Business $12 + Everything AI $28 = $40 per gebruiker per maand jaarlijks. De "Super Fair Billing policy" geeft ClickUp bovendien expliciet ruimte de AI-prijs aan te passen aan eigen kostenschommelingen. De geadverteerde instapprijs van $7 is niet de prijs die ClickUp je uiteindelijk wil verkopen.
 
@@ -381,8 +383,8 @@ Illustratief: G2 noemt als leidende ClickUp-alternatieven Wrike, Hive en monday.
 | Betalende klanten | ~100.000 | 2026 |
 | Waardering | $4 mrd | juli 2026 |
 | Medewerkers | ~1.010 | mei 2026 |
-| G2 | 4,7/5, 9.000-13.000+ reviews | 2026 **[ONGEVERIFIEERD]** |
-| Capterra | 4,6/5, ~4.608 reviews | 2026 **[ONGEVERIFIEERD]** |
+| G2 | 4,6-4,7/5, ~13.314 reviews | 2026 (gecorrigeerd bij verificatie) |
+| Capterra | 4,6/5, ~4.608 reviews | 2026 (bevestigd bij verificatie) |
 
 Geen bewijs gevonden van een Gartner Magic Quadrant-leiderspositie in enige planningsmarkt; ClickUp verschijnt bij Gartner Peer Insights vooral in de categorie *generative-AI knowledge management / general productivity apps* — wat op zichzelf tekenend is voor hoe analisten het product classificeren.
 
@@ -482,3 +484,47 @@ Drie observaties:
 - **Hoog:** clickup.com/pricing, feedback.clickup.com, developer.clickup.com, businesswire.com — primaire leveranciersbronnen, direct opgehaald.
 - **Middel:** getlatka.com, zenpilot.com, mlq.ai, thebusinessdive.com, hackceleration.com — direct opgehaald, redactioneel, maar niet geauditeerd.
 - **Laag:** zoeksnippets van geblokkeerde sites (G2, Capterra, TrustRadius, Reddit, help.clickup.com), AI-gegenereerde prijsaggregators (getpricepulse), en marketingcontent van concurrenten (de LinkedIn-post over "54% ontevreden"). Alle claims uit deze klasse zijn in de tekst gemarkeerd.
+
+---
+
+## Verificatie
+
+**Adversariële fact-check, 25 juli 2026.** Opzet: elke bewering actief proberen te *weerleggen* met onafhankelijke bronnen, niet bevestigen. Methode: directe WebFetch op de leverancierspagina en het feedbackportaal, plus DuckDuckGo-HTML/Lite als zoekvervanger (de WebSearch-quota van deze sessie was uitgeput). 17 beweringen getoetst: **9 bevestigd, 7 gecorrigeerd, 1 onzeker.**
+
+### Bevestigd
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Jaartarieven Unlimited $7 en Business $12 per gebruiker/maand, jaarlijks gefactureerd ($84 resp. $144 per jaar) | **Bevestigd** — leverancierspagina toont bij herfetch $7/$12, met "+"-notatie die op een hoger maandtarief duidt | https://clickup.com/pricing |
+| 2 | Free Forever: $0, 60 MB opslag, onbeperkt taken én gebruikers | **Bevestigd** — leverancierspagina noemt expliciet 60 MB; de 100 MB-lezing van derden is onjuist | https://clickup.com/pricing |
+| 3 | AI-add-ons: Brain AI $9 en Everything AI $28 per gebruiker/maand jaarlijks; Super Credits $0,001–$10 per 10.000; "Super Fair Billing policy" | **Bevestigd** — alle bedragen letterlijk op de leverancierspagina | https://clickup.com/pricing |
+| 4 | Licentiemodel: upgrades zijn workspace-breed, geen individuele gebruikersupgrades | **Bevestigd** — letterlijk: *"To upgrade ClickUp, you'll need to upgrade your entire Workspace, which means all members in your Workspace."* Rekensom Business + Everything AI = $40/gebruiker/maand = $480/jaar klopt | https://clickup.com/pricing |
+| 5 | getpricepulse-claim dat jaartarieven in feb. 2026 naar $10/$19 stegen, terecht verworpen | **Bevestigd** — de live leverancierspagina toont $7/$12 jaarlijks; de aggregator verwarde jaar- met maandtarieven. Verwerping was juist | https://clickup.com/pricing + https://www.getpricepulse.com/companies/clickup-pricing.html |
+| 6 | Geen lead/lag time; SS/FF/SF pas sinds juni 2026 in beta; 792 stemmen | **Bevestigd** — status "building now", 792 stemmen, staf-updates 29 apr. / 6 mei / 9 juni / **15 juli 2026**; lead/lag expliciet nog "actively deciding what to build after that" | https://feedback.clickup.com/feature-requests/p/advanced-dependency-options |
+| 7 | Kritiek pad/slack vereist Unlimited, daar beperkt tot 100 keer; onbeperkt vanaf Business | **Bevestigd** — *"100 uses of these Gantt tools are included on Unlimited Plans"* | https://help.clickup.com/hc/en-us/articles/6310440099479-Critical-Path-and-Slack-Time (via snippet) |
+| 8 | Harde limiet van 5.000 taken per view | **Bevestigd** — *"Up to 5,000 tasks can load at a time in one view"* (zie ook #15 voor de gecorrigeerde motivatie) | ClickUp Help, via snippet |
+| 9 | Bedrijfscijfers: >$300 mln ARR, $4 mrd waardering, $537,5 mln funding over 5 rondes, ~100.000 betalende klanten, ~1.010 medewerkers, 20 mln+ gebruikers; mei 2026 22% ontslagen (~290 van 1.300) met ~3.000 AI-agents | **Bevestigd** — alle cijfers reproduceerbaar; 20 mln gebruikers onafhankelijk gecorroboreerd door persbericht (9 sept. 2025) en Wedbush (4 feb. 2026). *Nuance:* ARR was **vlak** van 2025 naar 2026 (beide $300 mln) — relevant voor de groeiclaim | https://getlatka.com/companies/clickup + https://mlq.ai/news/clickup-lays-off-22-of-staff-deploys-3000-ai-agents-in-radical-restructuring/ |
+
+### Gecorrigeerd
+
+| # | Oorspronkelijke bewering | Correctie | Bron |
+|---|---|---|---|
+| 10 | Maandtarieven "ca. $10/$19" met **[CONFLICT]**; leverancierspagina toonde eenmaal $9/$15 | **Conflict opgelost: $10 en $19 zijn correct.** De $9/$15-lezing is niet reproduceerbaar en door geen enkele bron ondersteund — verworpen. Twee onafhankelijke bevestigingen | https://thebusinessdive.com/clickup-review + comparedge (via DuckDuckGo, 8 juli 2026) |
+| 11 | "Minimum zitplaatsen niet officieel gepubliceerd; gebruikers melden een minimum van 2 **[ONGEVERIFIEERD]**" | **WEERLEGD — claim ingetrokken.** ClickUp kent **geen** minimum zitplaatsaantal; één betaalde zitplaats kan. Dit is juist een pluspunt t.o.v. Monday.com (3-zitplaatsenminimum). Meest impactvolle correctie van deze ronde | resources.oreateai.com; verdictscout.com (via DuckDuckGo) |
+| 12 | "Jaarcontracten vergrendelen het zitplaatsaantal zonder tussentijdse verlaging" | **Te sterk geformuleerd.** Leden kunnen mid-cyclus wél verwijderd worden; wat ontbreekt is tussentijdse **restitutie** — het zitplaatscredit geldt pas bij verlenging. Economisch effect vergelijkbaar, mechanisme anders | DuckDuckGo-snippets ClickUp-billingdocumentatie + r/clickup |
+| 13 | "Business Plus ($19/zitplaats) is afgeschaft; aanbod ging van 5 naar 4 tiers" | **Verborgen, niet afgeschaft.** De tier bestaat nog op $19/gebruiker/maand jaarlijks en is bereikbaar via de upgradeflow; alleen van de publieke pricingpagina gehaald. Publiek 4 tiers, feitelijk 5 | ClickUp Help (upgrade-artikel, via snippet); Agiled; QuackBack |
+| 14 | Free-plan Gantt "beperkt tot ca. 60 keer gebruiken" | **Het is 60 uses *per maand***, een terugkerend quotum, niet een eenmalig totaal | Forbes Advisor (via snippet): *"limits the Gantt chart to 60 uses per month"* |
+| 15 | 5.000-takenlimiet "expliciet gemotiveerd 'to improve platform performance'" | **Motivatie niet verifieerbaar** als letterlijke leverancierstekst; documentatie noemt de limiet zonder reden. Gedegradeerd tot **[SCHATTING]**. (De limiet zelf staat wel vast — zie #8) | ClickUp Help, via snippet |
+| 16 | G2 "4,7/5 over 9.000-13.000+ reviews" | **Aangescherpt naar 4,6-4,7/5 over ~13.314 reviews.** Het reviewbereik was onnodig ruim; de score wordt zowel als 4,6 als 4,7 gerapporteerd. Capterra 4,6/5 over 4.608 reviews bevestigd | DuckDuckGo-snippets G2/Capterra (directe fetch geblokkeerd) |
+
+### Onzeker
+
+| # | Bewering | Status | Toelichting |
+|---|---|---|---|
+| 17 | Enterprise: derde-partijschattingen $25–$44 lijst, $21–$34 effectief bij 500+ zitplaatsen | **Onzeker — blijft [SCHATTING]** | Niet te weerleggen én niet te bevestigen: ClickUp publiceert geen Enterprise-lijstprijs en verkoopt uitsluitend via demo. De genoemde bereiken komen van vendor-benchmarkaggregators zonder controleerbare methodologie. Behandel als indicatie, niet als prijs |
+
+### Niet weerlegd bij poging tot weerlegging
+
+De **dragende conclusie van het profiel — ClickUp is geen CPM-netwerkplanner** — is bij deze ronde actief aangevallen en houdt stand. Het beste tegenbewijs dat te vinden was, zijn marketingpagina's die "Finish-to-Start, Start-to-Start, and more" claimen; die worden tegengesproken door ClickUps eigen feedbackportaal, dat de geavanceerde types op 15 juli 2026 nog steeds als **beta** en lead/lag time als **nog niet gebouwd** aanmerkt. Ook de interoperabiliteitsclaims (geen MPP-, XER- of P6 XML-import; CSV/Excel/XML als enige route) zijn niet weerlegd: leveranciersdocumentatie noemt uitsluitend *"Excel, CSV, JSON, TSV, or TXT"*, en MPP-import staat als openstaand feature-verzoek op het feedbackportaal.
+
+**Eén nuance bij de dependency-bevinding:** de officiële staf-updates spreken over *"advanced dependency types"* zonder FS/SS/FF/SF bij naam te noemen — die opsomming komt uit gebruikerscommentaar op dezelfde pagina. De richting staat vast, de precieze scope van de beta net niet. Dat is in §2.1 gemarkeerd.

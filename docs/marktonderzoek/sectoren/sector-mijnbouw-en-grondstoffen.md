@@ -15,6 +15,7 @@ Dit onderzoek is uitgevoerd met ~30 zoekopdrachten en directe ophaalacties op le
 - **InvestMETS' "Global Mining Tech 50 2026"-tabel staat achter een paywall**; alleen de eerste twee posities en het markttotaal waren leesbaar.
 - **Prijzen van de grote mijnplanningspakketten worden niet gepubliceerd.** Dit is een structureel kenmerk van deze markt (zie §3). Waar ik prijzen noem, komen die uit secundaire bronnen of uit de enkele leveranciers die wél publiceren; dat is telkens aangegeven.
 - **Analistencijfers over "mine planning software market" lopen extreem uiteen** (USD 504 mln tot USD 1,91 mrd voor hetzelfde jaar 2025). Ik gebruik ze daarom alleen als sanity check en bouw de eigen raming bottom-up op uit gepubliceerde leveranciersomzetten. Zie §4.
+- **[TOEGEVOEGD bij verificatie — belangrijkste bronwaarschuwing van dit rapport] `miningsoftwarereviews.com` is geen gevestigde analistenbron.** Deze site wordt in dit rapport ruim twintig keer aangehaald, óók voor dragende beweringen: de rangorde van marktleiders, "Deswik particularly strong in underground", "31 mine planning & scheduling tools", de **5–15% NPV-uplift**, "the most common failure point is the handover from strategic to short-term planning" en de **USD 5.000-drempel** voor juniors. Bij controle van de eigen About-pagina blijkt de site **in 2024 opgericht**, zonder **genoemd uitgevend bedrijf of redactieteam**, en werkend met **anonieme upvotes en community-reviews** in plaats van redactionele verificatie ([miningsoftwarereviews.com/about](https://www.miningsoftwarereviews.com/about)). De site claimt zelf "no pay-to-play, no vendor-influenced rankings", maar dat is een zelfverklaring zonder controleerbare methodologie. **Behandel elke bewering in dit rapport die alleen op deze bron rust als onbevestigd.** Dat raakt met name §2.1 (rangorde), §3.6 punt 1 (NPV-uplift) en §7.1 punten 1 en 4.
 
 ---
 
@@ -89,9 +90,12 @@ Dit is het cijfermateriaal dat het commerciële gedrag in deze sector verklaart.
 
 Onafhankelijke inventarisatie: MiningSoftwareReviews telt **31 mine planning & scheduling tools** in de markt ([miningsoftwarereviews.com/category/mine-planning-design](https://www.miningsoftwarereviews.com/category/mine-planning-design)). De rangorde hieronder is mijn inschatting op basis van geverifieerde installed base, omzet en hoe vaak partijen als benchmark worden genoemd.
 
-**1. Deswik (Sandvik) — marktleider, met afstand**
+**1. Deswik (Sandvik) — marktleider, maar "met afstand" is niet hard te maken**
 
-- Installed base: **775 bedrijven, 1.330+ mijnoperaties, 32.000+ softwarelicenties** wereldwijd ([deswik.com/about-us](https://www.deswik.com/about-us), [miningfms.com/vendors/deswik](https://miningfms.com/vendors/deswik/)). Deswik zelf claimt "over 200 mining engineers globally" in dienst ([deswik.com](https://www.deswik.com/)).
+> **[GECORRIGEERD bij verificatie]** De kop luidde oorspronkelijk "marktleider, met afstand". Dat kwalificatief is niet gedekt door de beschikbare cijfers. Het enige *harde* omzetcijfer voor Deswik is AUD 79 mln over rolling-12m okt-2021 (≈USD 57 mln); het enige harde cijfer voor Micromine is USD 85 mln over 2025. Deswik's 2025-positie is een schatting (USD 110–135 mln, §4.3) en verhoudt zich daarmee als **1,3–1,6×** tot Micromine — een voorsprong, geen afstand. Sterker: de eigen tabel in §4.3 zet de Datamine-groep op USD 100–160 mln, met een hóger midpunt dan Deswik. Wat wél goed onderbouwd is: Deswik heeft de grootste geverifieerde installed base (1.330+ operaties) en de sterkste underground-positie. Leiderschap: **bevestigd**. "Met afstand": **onbevestigd**.
+
+- Installed base: **1.330+ mijnoperaties** en **32.000+ software*gebruikers*** wereldwijd ([deswik.com/about-us](https://www.deswik.com/about-us), [miningfms.com/vendors/deswik](https://miningfms.com/vendors/deswik/)). Deswik zelf claimt "over 200 mining engineers globally" in dienst en **490+ medewerkers** totaal ([deswik.com/about-us](https://www.deswik.com/about-us)); MiningFMS noemt daarentegen "approximately 300 across 14 offices in 10 countries" ([miningfms.com](https://miningfms.com/vendors/deswik/)) — de bronnen spreken elkaar tegen.
+  **[GECORRIGEERD bij verificatie]** Deswik's eigen About Us zegt "32,000+ software **users**", niet *licenties*, en het eerder genoemde cijfer "775 bedrijven" staat op géén van beide gecontroleerde bronpagina's. Zie §Verificatie, punt V12.
 - Producten: **Planning** (voorheen Deswik.Sched — de Gantt-scheduler), **Spatial** (CAD), **NOVA**, **LHS**, **Blend**, **APEX**, **BOLT**, **GO**, **OPS** (short-interval control), **ORB** ([deswik.com](https://www.deswik.com/)).
 - Positionering: "the leading scheduling solution that dynamically links your mine designs and schedules"; sterkste positie in **underground**, waar MiningSoftwareReviews Deswik.Planning "particularly strong in underground operations" noemt ([miningsoftwarereviews.com](https://www.miningsoftwarereviews.com/category/mine-planning-design)).
 - Eigendom: **Sandvik**, overname afgerond april 2022 ([home.sandvik](https://www.home.sandvik/en/news-and-media/news/2022/04/sandvik-completes-the-acquisition-of-the-leading-mine-planning-software-company-deswik/)).
@@ -200,11 +204,12 @@ MiningSoftwareReviews stelt dit expliciet: Deswik, Vulcan, Datamine en Micromine
 | **Micromine** relatief | biedt "more affordable licensing options compared to enterprise-level mining platforms" | [us.fitgap.com](https://us.fitgap.com/products/023959/micromine) | Middel |
 | **Junior-miner budgetdrempel** | onder **USD 5.000** valt buiten het bereik van enterprise-suites | [miningsoftwarereviews.com](https://www.miningsoftwarereviews.com/articles/pit-optimization-software-junior-miners) | Hoog |
 
-**[SCHATTING] Typische enterprise mijnplanningslicentie:** op basis van (a) Deswik's 32.000 licenties bij een omzetbasis die in 2021 AUD 79 mln bedroeg, (b) de Opencontour-prijspunten als ondergrens voor cloudscheduling, en (c) de door de sector genoemde bandbreedte van USD 10.000–20.000 per zitplaats per jaar die in zoekresultaten opduikt, kom ik op:
+**[SCHATTING] Typische enterprise mijnplanningslicentie:** op basis van (a) Deswik's 32.000 *gebruikers* bij een omzetbasis die in 2021 AUD 79 mln bedroeg, (b) de Opencontour-prijspunten als ondergrens voor cloudscheduling, en (c) de door de sector genoemde bandbreedte van USD 10.000–20.000 per zitplaats per jaar die in zoekresultaten opduikt, kom ik op:
 - **Instap/enkele module: USD 5.000–12.000 per gebruiker per jaar**
 - **Volledige planningsuite (design + scheduling + optimalisatie): USD 15.000–35.000 per gebruiker per jaar**
 - **Site-license / enterprise agreement bij een Tier-1 miner: USD 250.000 – 2.000.000+ per jaar**, afhankelijk van aantal sites
-Let op: Deswik's eigen cijfers geven een *gemiddelde* van AUD 79 mln ÷ 32.000 licenties ≈ **AUD 2.470 per licentie per jaar** (2021-basis). Dat gemiddelde is veel lager dan bovenstaande bandbreedte omdat het viewer-licenties, studentenlicenties, gratis vSched-installaties en volumekortingen bij Tier-1-contracten meetelt. **De werkelijke prijs voor een volwaardige planner-seat ligt aanzienlijk hoger dan het gemiddelde; het gemiddelde is geen prijs.**
+Let op: Deswik's eigen cijfers geven een *gemiddelde* van AUD 79 mln ÷ 32.000 ≈ **AUD 2.470 per gebruiker per jaar**. Dat gemiddelde is veel lager dan bovenstaande bandbreedte omdat het viewer-gebruikers, studentenlicenties, gratis vSched-installaties en volumekortingen bij Tier-1-contracten meetelt. **De werkelijke prijs voor een volwaardige planner-seat ligt aanzienlijk hoger dan het gemiddelde; het gemiddelde is geen prijs.**
+**[GECORRIGEERD bij verificatie]** Deze deling is nóg zwakker dan hierboven toegegeven, om drie redenen: (a) de teller is *omzet over rolling-12m okt-2021*, de noemer is een **gebruikers**telling van de huidige Deswik-website (2026) — vier jaar uit elkaar; (b) 32.000 zijn *users*, geen licenties (§2.1); (c) de AUD 79 mln bevat óók Deswik.Spatial (CAD), consultancy en niet-planningmodules. Het getal AUD 2.470 heeft daarmee geen betekenis als prijsanker en is hier alleen behouden als illustratie van hoe misleidend een omzet-per-gebruiker-deling is.
 
 ### 3.3 Gevonden prijsankers — projectplanning
 
@@ -269,11 +274,13 @@ Ik bouw daarom bottom-up op uit **gepubliceerde leveranciersomzetten**, wat in d
 | Leverancier | Omzet | Jaar | Bron |
 |---|---|---|---|
 | **Micromine** | **USD 85 mln** (≈ £68 mln / A$138 mln) | 2025 | [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/), [InvestMETS](https://www.investmets.com/weir-buys-micromine-for-a1-31b/) |
-| **RPMGlobal** — totaal | **A$76,7 mln** (+6% j-o-j) | FY2025 | [TipRanks](https://www.tipranks.com), [RPMGlobal FY2025](https://investorpa.com) |
+| **RPMGlobal** — totaal | **A$73,9 mln** (+6,5% j-o-j, vanaf A$69,4 mln FY2024) ~~A$76,7 mln~~ | FY2025 | [StockAnalysis ASX:RUL](https://stockanalysis.com/quote/asx/RUL/financials/) |
 | **RPMGlobal** — software ARR | **A$71,8 mln** (+16%) | aug-2025 | [InvestorPA / RPMGlobal FY2025 Investor Presentation](https://investorpa.com) |
 | **RPMGlobal** — TCV-verkopen | **A$100,8 mln** (+30,9%) | FY2025 | [kapitales.com.au](https://kapitales.com.au) |
 | **RPMGlobal** — onvoltooid TCV | **A$200 mln** | 30-jun-2025 | [strawman.com](https://strawman.com), [listcorp.com](https://listcorp.com) |
-| **RPMGlobal** — softwarebusiness | ca. **A$75 mln (USD 46 mln)** | 2025 | [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/) |
+| **RPMGlobal** — softwarebusiness | ca. **A$75 mln** (≈ USD 46–50 mln) | 2025 | [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/) |
+
+**[GECORRIGEERD bij verificatie]** Deze twee RPMGlobal-regels zijn géén twee onafhankelijke datapunten. InvestMETS meldt dat RPMGlobal "just agreed to sell its mining consulting arm to SLR Consulting to focus on its c**A$75 million-a-year software business**" ([InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/)) — na die afsplitsing ís het softwarebedrijf vrijwel het hele bedrijf. De statutaire FY2025-omzet van A$73,9 mln en de "softwarebusiness van ca. A$75 mln" beschrijven dus dezelfde onderneming. Dat verklaart óók waarom de software-ARR (A$71,8 mln) bijna gelijk is aan de totale omzet — wat bij de oorspronkelijke lezing ("A$76,7 mln totaal, waarvan A$75 mln software") een implausibele adviesomzet van A$1,7 mln zou impliceren. In de bottom-up van §4.3 is RPMGlobal éénmaal geteld (USD 46–50 mln), dus er is geen dubbeltelling in de raming zelf.
 | **Deswik** | **AUD 79 mln** (rolling 12m) | okt-2021 | [Sandvik](https://www.home.sandvik/en/news-and-media/news/2022/04/sandvik-completes-the-acquisition-of-the-leading-mine-planning-software-company-deswik/) |
 | **Deswik** — bijdrage aan Sandvik Mining | **SEK 620 mln** | 2022 | [Sandvik Annual Report 2022](https://www.home.sandvik/siteassets/investors/reports--presentations/annual-reports/annual-report-2022.pdf) |
 | **Deswik** — marge/recurring | EBITA-marge ca. **30%**, **45% recurring** op ca. USD 60 mln | 2021 | [InvestMETS](https://www.investmets.com/sandvik-wraps-up-deswik-deal/) |
@@ -291,7 +298,7 @@ Niet-gepubliceerd: **Datamine/Vela** (Constellation Software rapporteert niet pe
 
 | Leverancier | Omzet (USD mln) | Basis |
 |---|---|---|
-| Deswik (Sandvik DMT) | **110–135** | AUD 79 mln (≈USD 57 mln) in 2021, met bevestigde "double-digit" organische groei 2022–2025; bij 15%/jr → USD ~100 mln, plus de acquisities binnen DMT |
+| Deswik (Sandvik DMT) | **110–135** | Zie correctie hieronder |
 | Micromine (Weir) | **85** | Hard cijfer |
 | RPMGlobal (Caterpillar) | **46–50** | Hard cijfer, software-deel |
 | Hexagon MinePlan (planningsoftware alleen) | **60–100** | Afgeleid uit USD 566 mln mijnbouwomzet, waarvan het grootste deel sensors/controls/autonomie is; planning is de kleinere component |
@@ -300,6 +307,11 @@ Niet-gepubliceerd: **Datamine/Vela** (Constellation Software rapporteert niet pe
 | Dassault GEOVIA (Surpac, Whittle, MineSched, GEMS) | **60–100** | Niet apart gerapporteerd; historisch grote installed base, afnemend marktaandeel |
 | Long tail (MiningMath, K-MINE, Carlson, ThreeDify, Opencontour, Bentley MineCycle, Minetec, GroundHog e.d.) | **40–70** | Optelling van kleine spelers |
 | **Totaal mijnplanningssoftware** | **USD 580–820 mln** | |
+
+**[GECORRIGEERD bij verificatie — Deswik-regel]** De oorspronkelijke redenering luidde: "AUD 79 mln (≈USD 57 mln) in 2021, met bevestigde 'double-digit' organische groei 2022–2025; bij 15%/jr → USD ~100 mln, plus de acquisities binnen DMT". Daar zitten twee problemen in:
+- **De uitkomst volgt niet uit de redenering.** USD 57 mln × 1,15⁴ = USD 100 mln, niet 110–135 mln. Het gat wordt gedicht met "plus de acquisities binnen DMT" — maar Sandvik Digital Mining Technologies bevat óók Newtrax, Polymathian en andere niet-mijnplanningsactiva. Zodra je die meetelt, meet je niet langer mijnplanningssoftware. Dat is definitie-inflatie in de richting van een hogere marktomvang.
+- **Er ligt een beter, ongebruikt anker in het rapport zelf.** Sandvik AR2022 rapporteert een Deswik-bijdrage van **SEK 620 mln** over de periode ná afronding (4 april 2022, dus ~9 maanden). Geannualiseerd is dat ca. SEK 827 mln ≈ **USD 82 mln in 2022** — aanzienlijk hoger dan de USD 57 mln waar de tekst mee rekent. Vanaf USD 82 mln met 15%/jr over drie jaar kom je op **USD ~125 mln in 2025**, wat de band 110–135 wél ondersteunt zónder de DMT-acquisities mee te tellen.
+De band 110–135 blijft dus staan, maar op een andere onderbouwing. **Let op: de SEK-annualisering is mijn eigen bewerking en Sandvik publiceert geen losse Deswik-omzet meer; behandel deze regel als de zwakste in de tabel.** Sandvik zelf spreekt in AR2025 bovendien niet over "double-digit organic revenue growth" van DMT afzonderlijk, maar over "double-digit growth in our software businesses (Digital Mining Technologies **and Intelligent Manufacturing**)" — een gecombineerde uitspraak over twee divisies ([Sandvik AR2025](https://www.annualreport.sandvik/en/2025/)).
 
 **Sanity check:** dit bereik overlapt netjes met de meest conservatieve analistenschattingen (QY Research USD 887 mln voor 2024; 24 Market Reports USD 752 mln voor 2023) en verwerpt de USD 1,5–1,9 mrd-ramingen als te ruim gedefinieerd (die tellen vermoedelijk fleet management en operations mee).
 
@@ -317,7 +329,7 @@ Niet-gepubliceerd: **Datamine/Vela** (Constellation Software rapporteert niet pe
 | EPCM/engineering (mijnbouwdeel van Fluor, Bechtel, Hatch, Worley, Ausenco, Wood, AtkinsRéalis, DRA, Lycopodium, Sedgman, Stantec, WSP) | 3.000–6.000 | Aandeel mijnbouw in de project-controls-populatie van deze bureaus |
 | Mijnbouwcontractors (Thiess, Perenti/Barminco, Macmahon, Byrnecut, Redpath, Cementation, Monadelphous, MIP) | 2.000–4.000 | Grote gespecialiseerde aannemers met eigen planningsteams |
 | Consultants, LTA's, claim-/forensische experts | 500–1.000 | SRK, Micon, AMC, Snowden-Optiro, Masin, Kroll e.d. |
-| **Totaal** | **10.500–21.000**, midpunt **≈ 15.000** | |
+| **Totaal** | **10.500–21.000**, rekenkundig midpunt **15.750**, conservatief gerekend met **15.000** | |
 
 Sanity check tegen vacaturedata: Australië alleen al heeft 244 openstaande P6-schedulerposities en 361 shutdown-plannerposities ([SEEK](https://au.seek.com/primavera-P6-scheduler-jobs), [SEEK](https://au.seek.com/shutdown-planner-jobs)); Australië is ca. 10–15% van de wereldwijde mijnbouw-projectcontrolmarkt. Dat is consistent met een orde van 10.000–20.000 zitplaatsen wereldwijd.
 
@@ -327,23 +339,42 @@ Sanity check tegen vacaturedata: Australië alleen al heeft 244 openstaande P6-s
 
 | Component | Bedrag (USD mln/jaar) | Redenering |
 |---|---|---|
-| Scheduling-licenties (P6, MS Project, Safran, Asta) | **30–50** | 15.000 zitplaatsen × USD 2.000–3.000 |
-| Risicoanalyse (Safran Risk, Acumen, PRA) | **10–20** | ca. 15% van de zitplaatsen, hogere prijs (Acumen USD 10.300 jaar 1) |
-| Kosten/EVM/project-controls-platforms (Contruent PRISM, InEight, Cleopatra, Unifier) | **80–140** | Enterprise-platformcontracten bij ~150–250 grote mijnbouwbedrijven en EPCM-bureaus, typisch USD 300k–1 mln/jaar |
-| Shutdown/turnaround (Prometheus, SAP-add-ons, STO-tooling) | **50–90** | Gedreven door de A$13,3 mrd Australische onderhoudsuitgaven ([mining.com.au](https://mining.com.au/mining-maintenance-spending-slowing-oxford-economics-australia/)) geëxtrapoleerd naar wereldwijd |
-| **Totaal segment B — licenties/abonnementen** | **USD 170–300 mln** | |
+| Scheduling-licenties (P6, MS Project, Safran, Asta) | **30–45** ~~30–50~~ | 15.000 zitplaatsen × USD 2.000–3.000 |
+| Risicoanalyse (Safran Risk, Acumen, PRA) | **10–20** | ~10% van de zitplaatsen tegen een *terugkerende* prijs van ca. USD 7.000–13.000 (Acumen USD 10.300 is een **eerstejaars**bedrag, geen renewal) |
+| Kosten/EVM/project-controls-platforms (Contruent PRISM, InEight, Cleopatra, Unifier) | **80–140** | ~200 enterprise-platformcontracten bij grote mijnbouwbedrijven en EPCM-bureaus à USD 400k–700k/jaar |
+| Shutdown/turnaround (Prometheus, SAP-add-ons, STO-tooling) | **50–90** | Australië A$13,3 mrd onderhoudsuitgaven ([mining.com.au](https://mining.com.au/mining-maintenance-spending-slowing-oxford-economics-australia/)) → bij een Australisch aandeel van 10–15% wereldwijd ca. USD 58–87 mrd onderhoud; STO-softwarepenetratie ca. 0,1% daarvan |
+| **Totaal segment B — licenties/abonnementen** | **USD 170–295 mln** ~~170–300~~ | |
+
+**[GECORRIGEERD bij verificatie — drie rekenfouten in deze tabel]**
+1. **Regel 1 was fout:** 15.000 × USD 2.000–3.000 = USD **30–45** mln, niet 30–50 mln. De bovengrens was ~11% te hoog. (Bij het strikte middelpunt van 15.750 zitplaatsen wordt het 31,5–47 mln; bij de in stap 2 voorgeschreven USD 2.500 effectief gemiddelde is de puntschatting USD 37,5 mln.)
+2. **Regel 2 was intern inconsistent:** "15% van 15.000 zitplaatsen × USD 10.300" = USD **23,2** mln, wat bóven de opgegeven band van 10–20 mln ligt. De uitkomst 10–20 mln is verdedigbaar, maar alleen als je (a) een lagere penetratie én (b) een renewal-prijs in plaats van de eerstejaarsprijs hanteert. De redenering is hierboven daarnaar herschreven.
+3. **Regel 3 was intern inconsistent:** "150–250 × USD 300k–1 mln" = USD **45–250** mln, een veel bredere band dan de opgegeven 80–140 mln. De 80–140 mln is een oordeel, geen product van de genoemde parameters; de redenering is hierboven gecorrigeerd naar parameters die de uitkomst wél opleveren.
+4. Regel 4 had geen doorgerekende afleiding; die is nu expliciet gemaakt. Het blijft een grove extrapolatie — zie §Verificatie, punt V9.
 
 ### 4.5 Totale segmentomvang
 
 **[SCHATTING] Planningssoftware voor mijnbouw en grondstoffen, 2025:**
 
-| Definitie | Omvang (USD, 2025) |
-|---|---|
-| **Eng: pure scheduling-licenties/abonnementen** (mijnschema + projectschema, exclusief geologie/CAD/EVM-platform) | **USD 205–400 mln**, midpunt **ca. USD 300 mln** |
-| **Middel: alle planningsgerelateerde software** (mijnplanningsuites volledig + projectplanning + EVM + shutdown) | **USD 750 mln – 1,12 mrd**, midpunt **ca. USD 930 mln** |
-| **Breed: inclusief implementatie, training, consultancy en project-controls-diensten** | **USD 1,9 – 3,3 mrd** — bij een dienstenmultiple van 1,5–2× de licentiewaarde, wat gebruikelijk is voor asset-intensieve sectoren |
+| Definitie | Omvang (USD, 2025) | Opbouw |
+|---|---|---|
+| **Eng: pure scheduling-licenties/abonnementen** (mijnschema + projectschema, exclusief geologie/CAD/EVM-platform én exclusief risicoanalyse) | **USD 205–375 mln**, midpunt **ca. USD 290 mln** | 175–330 (A, scheduling-deel) + 30–45 (B, scheduling-licenties) |
+| *variant: eng inclusief schema-risicoanalyse* | **USD 215–395 mln**, midpunt ca. USD 305 mln | + 10–20 (B, risicoanalyse) |
+| **Middel: alle planningsgerelateerde software** (mijnplanningsuites volledig + projectplanning + EVM + shutdown) | **USD 750 mln – 1,12 mrd**, midpunt **ca. USD 935 mln** | 580–820 (A volledig) + 170–295 (B totaal) |
+| **Breed: inclusief implementatie, training, consultancy en project-controls-diensten** | **USD 1,9 – 3,3 mrd** | "Middel" **plus** een dienstencomponent van 1,5–2× de licentiewaarde (dus totaal 2,5–3× licenties): 750 × 2,5 = 1,88 mrd; 1.120 × 3 = 3,36 mrd |
 
-In EUR (koers ca. 1,08 USD/EUR): eng **€190–370 mln**; middel **€695 mln – 1,04 mrd**; breed **€1,76 – 3,06 mrd**.
+**[GECORRIGEERD bij verificatie — rekenfout in de enge definitie]** De oorspronkelijke band **USD 205–400 mln** was intern inconsistent: de ondergrens 205 = 175 + 30 (scheduling-licenties **zonder** risicoanalyse), maar de bovengrens 400 = 330 + 50 + 20 telde de risicoanalyselaag er wél bij *en* gebruikte de te hoge 50 uit §4.4. Consistent doorgerekend is het **205–375 mln** (excl. risicoanalyse) of **215–395 mln** (incl.). Het midpunt daalt daarmee van "ca. USD 300 mln" naar **ca. USD 290 mln**. De orde van grootte verandert niet; de precisie die "USD 300 mln" suggereert was niet verdiend.
+
+**[GECORRIGEERD bij verificatie — verkeerde wisselkoers]** De oorspronkelijke omrekening gebruikte **1,08 USD/EUR**. Die koers is onjuist: EUR/USD noteert medio juli 2026 rond **1,137**, met een 52-weeksbereik van 1,1325–1,2079 ([Investing.com EUR/USD](https://www.investing.com/currencies/eur-usd)) — 1,08 lag het hele afgelopen jaar buiten bereik. Alle EUR-bedragen in de oorspronkelijke tekst waren daardoor ca. **5% te hoog**.
+
+In EUR (koers **1,137** USD/EUR, juli 2026):
+
+| Definitie | EUR (gecorrigeerd) | ~~EUR (oorspronkelijk, 1,08)~~ |
+|---|---|---|
+| Eng (excl. risicoanalyse) | **€180–330 mln**, midpunt ca. **€255 mln** | ~~€190–370 mln, midpunt €280 mln~~ |
+| Middel | **€660 mln – 985 mln** | ~~€695 mln – 1,04 mrd~~ |
+| Breed | **€1,67 – 2,90 mrd** | ~~€1,76 – 3,06 mrd~~ |
+
+Omdat de euro het afgelopen jaar tussen 1,13 en 1,21 heeft bewogen, is de EUR-omvang zelf gevoelig voor de koersdatum: bij 1,21 zakt "eng" naar €170–310 mln. Behandel de EUR-cijfers als afgeleid en volatiel; de USD-cijfers zijn de primaire raming.
 
 ### 4.6 Groeirichting
 
@@ -355,7 +386,7 @@ In EUR (koers ca. 1,08 USD/EUR): eng **€190–370 mln**; middel **€695 mln �
 | RPMGlobal abonnementsomzetgroei | **+20%** (FY2025), tegen +16% in FY2024 | [TipRanks](https://www.tipranks.com) |
 | RPMGlobal TCV-verkoopgroei | **+30,9%** naar A$100,8 mln | [kapitales.com.au](https://kapitales.com.au) |
 | Micromine omzetgroei | **25% geannualiseerd** (meerjarig) | [newsnreleases.com](https://newsnreleases.com) |
-| Sandvik Digital Mining Technologies | "double-digit organic revenue growth" 2025 | [Sandvik AR2025](https://www.annualreport.sandvik/en/2025/) |
+| Sandvik softwarebedrijven (DMT **én** Intelligent Manufacturing, gecombineerd) | "double-digit growth in our software businesses" 2025 — géén losse DMT-cijfers, en het woord *organic* staat er niet | [Sandvik AR2025](https://www.annualreport.sandvik/en/2025/) |
 | Analisten-CAGR mine planning software | **8,5–9,4%** | [PW Consulting](https://pmarketresearch.com/worldwide-mine-planning-software-market-research/), [Verified Market Reports](https://www.verifiedmarketreports.com/product/mine-planning-software-market/) |
 | "Smart mining"-technologie potentieel | van ca. USD 10 mrd naar **3–4× groter binnen tien jaar** | [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/) |
 
@@ -575,7 +606,8 @@ Ik ben hier bewust streng, want de verleiding om deze sector te overschatten is 
 **Waar de opening WEL zit — vier reële routes, in volgorde van haalbaarheid:**
 
 **(a) De bovengrondse kant: verwerkingsinstallatie, infrastructuur en gebouwen — dit is écht IFC-territorium.**
-Elk mijnbouwkapitaalproject is voor een groot deel gewone industriële bouw: concentrator, crusher-station, tailings-installatie, kantoren, kampen, wegen, transportbanden, elektrische infrastructuur. Daar wordt in Revit/Plant 3D/AVEVA gemodelleerd, IFC 4.3 is sinds januari 2024 ISO-standaard ([nordicbim.com](https://www.nordicbim.com/knowledge/en/ifc-4.3)) en 4D-koppeling model↔schema is precies wat daar mist. De EPCM-bureaus (Fluor, Bechtel, Hatch, Worley, Ausenco) doen dit werk en gebruiken P6 zonder modelkoppeling. **Dit is het meest realistische aanvalsgebied en het is groot: EY telt 192 mijnbouwprojecten van >USD 1 mrd ([EY](https://www.ey.com/en_rs/insights/energy-resources/how-better-project-management-can-boost-minings-capital-productivity)).**
+Elk mijnbouwkapitaalproject is voor een groot deel gewone industriële bouw: concentrator, crusher-station, tailings-installatie, kantoren, kampen, wegen, transportbanden, elektrische infrastructuur. Daar wordt in Revit/Plant 3D/AVEVA gemodelleerd, IFC 4.3 is sinds januari 2024 ISO-standaard ([nordicbim.com](https://www.nordicbim.com/knowledge/en/ifc-4.3)) en 4D-koppeling model↔schema is precies wat daar mist. De EPCM-bureaus (Fluor, Bechtel, Hatch, Worley, Ausenco) doen dit werk en gebruiken P6 zonder modelkoppeling. **Dit is het meest realistische aanvalsgebied.**
+**[GECORRIGEERD bij verificatie]** De oorspronkelijke onderbouwing hier — "het is groot: EY telt 192 mijnbouwprojecten van >USD 1 mrd" — is een verkeerd gebruik van die bron. De 192 projecten zijn de **steekproefomvang van een EY-studie uit juni 2021** over een meerjarige historische periode, geen lopende voorraad projecten en geen jaarlijks aantal ([EY](https://www.ey.com/en_rs/insights/energy-resources/how-better-project-management-can-boost-minings-capital-productivity)). Het cijfer zegt dus niets over de huidige marktomvang van dit aanvalsgebied. De onderbouwing voor "groot" moet komen uit capex-volume, niet uit een studiesteekproef.
 
 **(b) Schachten, declines en ondergrondse infrastructuur via IFC-Tunnel.**
 IFC-Tunnel (4.4-ontwikkeling) dekt "Excavation, Support and Lining" en geotechnische systemen ([bsi-infraroom.github.io](https://bsi-infraroom.github.io/IFC-Documentation-Tunnel/4_4_0_0/general/HTML/), [Springer](https://link.springer.com/content/pdf/10.1007/978-3-031-35399-4_36.pdf)). Shaftsinking en decline-ontwikkeling zijn lineair, herhalend, kritiek-pad-bepalend en modelleerbaar in IFC. Dit is de brug tussen de bouwwereld en de mijnbouwwereld en is nog door niemand geclaimd.
@@ -605,7 +637,7 @@ Op basis van het bovenstaande, in prioriteitsvolgorde:
 
 Mijnbouw is een **tweekoppige planningsmarkt** waarvan de twee helften nauwelijks met elkaar praten. De geologische helft (Deswik, XPAC/XECUTE, MinePlan, Evolution, MineSched, Alastri) is technisch diep, commercieel afgesloten, uitzonderlijk winstgevend en sinds 2022 vrijwel volledig opgekocht door equipment-OEM's — Sandvik nam Deswik, Weir nam Micromine (£624 mln), Caterpillar nam RPMGlobal (USD 728 mln). De projecthelft is een monocultuur van Primavera P6, contractueel verankerd, prijs-gestandaardiseerd en juridisch onmisbaar omdat het P6-bestand het bewijsstuk is in vertragingsarbitrage.
 
-**Omvang [SCHATTING, 2025]:** pure scheduling-licenties **USD 205–400 mln** (midpunt ca. USD 300 mln / €280 mln); alle planningsgerelateerde software **USD 750 mln – 1,12 mrd**; inclusief diensten **USD 1,9–3,3 mrd**. Groei ligt op 10–15% voor mijnplanning en 3–6% voor projectplanning.
+**Omvang [SCHATTING, 2025 — gecorrigeerd na verificatie]:** pure scheduling-licenties **USD 205–375 mln** (midpunt ca. USD 290 mln / **€255 mln** bij EUR/USD 1,137); alle planningsgerelateerde software **USD 750 mln – 1,12 mrd** (≈ €660–985 mln); inclusief diensten **USD 1,9–3,3 mrd** (≈ €1,67–2,90 mrd). Groei ligt op 10–15% voor mijnplanning en 3–6% voor projectplanning. *De eerder gerapporteerde band USD 205–400 mln / €280 mln bevatte een optelfout in de bovengrens en een onjuiste wisselkoers (1,08 in plaats van 1,137); zie §4.5 en §Verificatie.*
 
 **Betalingsbereidheid is hoog** — de waarde per beslissing is extreem (5–15% NPV-uplift, USD 100k/uur mill-downtime, 39–79% projectkostenoverschrijdingen), de licentie is ca. 8% van de zitplaatskosten, en de overnamemultiples (10× omzet, 20× EBITDA voor Micromine) bevestigen dat kopers in prijszettingsmacht geloven. **Maar die bereidheid zit vrijwel volledig aan de productiekant, bij Tier-1-miners, en is niet toegankelijk voor een nieuwkomer zonder mijnbouwoptimalisatie-IP.**
 
@@ -691,7 +723,7 @@ De sterkste strategische boodschap die deze sector nu biedt is niet "goedkoper" 
 - InvestMETS — Global Mining Tech 50 2026 (ABB USD 1.489 mln; Hexagon USD 566 mln; totaal USD 6,8 mrd) — https://www.investmets.com/global-mining-tech-50-2026/
 - RPMGlobal FY2025 Investor Presentation (ARR A$71,8 mln, TCV A$100,8 mln, NRR 115%, GRR 94%) — https://investorpa.com
 - RPMGlobal FY2025 via ListCorp — https://listcorp.com
-- RPMGlobal FY2025 via TipRanks (A$76,7 mln omzet) — https://www.tipranks.com
+- RPMGlobal FY2025 omzet A$73,9 mln (gecorrigeerd; was A$76,7 mln via TipRanks) — https://stockanalysis.com/quote/asx/RUL/financials/
 - RPMGlobal FY2025 via Kapitales (TCV +30,9%) — https://kapitales.com.au
 - MiningSoftwareReviews — Minemax overgenomen door Vela (feb 2020) — https://www.miningsoftwarereviews.com/vendor/minemax
 - Mining soft-wars heat up again — https://miningbeacon.com/industry/mining-soft-wars-heat-up-again
@@ -800,3 +832,56 @@ De sterkste strategische boodschap die deze sector nu biedt is niet "goedkoper" 
 - Ausenco — EPC/EPCM contracting — https://ausenco.com/what-we-do/epc-epcm-contracting/
 - Worley — EPCM project delivery — https://www.worley.com/en/solutions/services-and-technology/enhance-project-delivery
 - True Source Metals — mining EPCM ecosysteem (Fluor, Bechtel, Hatch, Worley, Ausenco) — https://hub.truesourcemetals.com/ecosystem/mining-epcm/
+
+---
+
+## Verificatie
+
+Adversariële controle, uitgevoerd 25 juli 2026. Doel was niet bevestigen maar **weerleggen**: elke bewering hieronder is actief tegen onafhankelijke bronnen gehouden en elke doorgerekende schatting is opnieuw uitgerekend. Oordelen: **bevestigd** / **gecorrigeerd** / **onzeker**.
+
+### Rekencontroles op de eigen schattingen
+
+| # | Bewering | Oordeel | Bevinding |
+|---|---|---|---|
+| **V1** | **Eng segment = USD 205–400 mln, midpunt ca. USD 300 mln (€280 mln)** | **GECORRIGEERD** | Optelfout. De ondergrens 205 = 175 + 30 telt de risicoanalyselaag **niet** mee; de bovengrens 400 = 330 + 50 + 20 telt hem **wél** mee én gebruikt de foutieve 50 uit V2. Consistent: **USD 205–375 mln** (excl. risicoanalyse) of **215–395 mln** (incl.). Midpunt **ca. USD 290 mln**, niet 300 mln. |
+| **V2** | **Scheduling-licenties segment B = USD 30–50 mln uit "15.000 zitplaatsen × USD 2.000–3.000"** | **GECORRIGEERD** | 15.000 × 3.000 = **45 mln**, niet 50 mln. Bovengrens was ~11% te hoog. Correct: **USD 30–45 mln**. Werkt door in het segment B-totaal: **USD 170–295 mln** in plaats van 170–300 mln. |
+| **V3** | **Risicoanalyse USD 10–20 mln uit "15% van de zitplaatsen × Acumen USD 10.300"** | **GECORRIGEERD** | De genoemde parameters geven 0,15 × 15.000 × 10.300 = **USD 23,2 mln**, bóven de opgegeven band. Bovendien is USD 10.300 blijkens de bron een **eerstejaars**bedrag, geen renewal ([Intaver-vergelijking](https://www.linkedin.com/pulse/comparative-analysis-schedule-risk-tools-intaver-institute-inc-vimsc)). Uitkomst 10–20 mln blijft verdedigbaar, maar alleen bij ~10% penetratie en een renewal-prijs; redenering in §4.4 herschreven. |
+| **V4** | **EVM/project-controls USD 80–140 mln uit "150–250 bedrijven × USD 300k–1 mln"** | **GECORRIGEERD** | De genoemde parameters geven **USD 45–250 mln** — een band die 3,4× breder is dan de gerapporteerde 80–140 mln. De 80–140 mln is een oordeel dat niet uit de opgegeven parameters volgt. Parameters in §4.4 aangepast naar ~200 contracten à USD 400k–700k, wat de uitkomst wél oplevert. |
+| **V5** | **EUR-omrekening bij "koers ca. 1,08 USD/EUR"** | **GECORRIGEERD** | EUR/USD noteert medio juli 2026 **1,137**, met een 52-weeksbereik van **1,1325–1,2079** — 1,08 is het hele afgelopen jaar niet voorgekomen. Alle EUR-bedragen waren ca. **5% te hoog**. Gecorrigeerd: eng **€180–330 mln** (midpunt €255 mln, niet €280 mln), middel **€660–985 mln**, breed **€1,67–2,90 mrd**. Bron: [Investing.com EUR/USD](https://www.investing.com/currencies/eur-usd) |
+| **V6** | **Bottom-up segment A telt op tot USD 580–820 mln** | **BEVESTIGD** | Nagerekend: min 110+85+46+60+80+100+60+40 = **581**; max 135+85+50+100+120+160+100+70 = **820**. Correct. Scheduling-deel 30–40% → 174–328 ≈ de gerapporteerde 175–330, midpunt 251 ≈ 250. Correct. |
+| **V7** | **Middel USD 750 mln – 1,12 mrd, en breed USD 1,9–3,3 mrd** | **BEVESTIGD (met leesnotitie)** | 580+170 = 750; 820+300 = 1.120. Correct. "Breed" klopt alleen onder de lezing *licenties + 1,5–2× diensten* (= 2,5–3× licenties): 750 × 2,5 = 1,88 mrd; 1.120 × 3 = 3,36 mrd. Onder de alternatieve lezing *totaal = 1,5–2× licenties* zou het 1,13–2,24 mrd zijn. De formulering was ambigu; nu geëxpliciteerd in §4.5. |
+| **V8** | **Deswik-regel USD 110–135 mln uit "USD 57 mln (2021) bij 15%/jr"** | **GECORRIGEERD** | De redenering levert USD 57 × 1,15⁴ = **USD 100 mln**, niet 110–135 mln; het gat werd gedicht met "acquisities binnen DMT", wat niet-mijnplanningsactiva (Newtrax, Polymathian) in een mijnplanningsregel trekt. Beter, ongebruikt anker uit het rapport zelf: Sandvik AR2022 SEK 620 mln over ~9 maanden → geannualiseerd ≈ USD 82 mln (2022) → 15%/jr → **USD ~125 mln (2025)**. Band blijft, onderbouwing vervangen. Blijft de zwakste regel in de tabel. |
+| **V9** | **Shutdown/STO USD 50–90 mln, "geëxtrapoleerd" uit A$13,3 mrd** | **ONZEKER** | Er stond geen doorrekening onder. Reconstructie: Australië 10–15% wereldwijd → ca. USD 58–87 mrd onderhoud → STO-softwarepenetratie ~0,1% → USD 58–87 mln, wat de band toevallig ondersteunt. Maar zowel het Australische wereldaandeel als de 0,1%-penetratie zijn ongefundeerd, en de bron mining.com.au/Oxford Economics was bij hercontrole niet ophaalbaar. Behandel als de zwakste regel van segment B. |
+| **V10** | **Deswik AUD 79 mln ÷ 32.000 = AUD 2.470 per licentie/jaar** | **GECORRIGEERD** | Deling rekenkundig juist (2.468,75), maar de eenheden kloppen niet: 32.000 zijn **users** (zie V12), niet licenties; teller is 2021-omzet, noemer een 2026-telling; en de omzet bevat CAD, consultancy en niet-planningmodules. Het rapport noemde het al "geen prijs" — terecht, maar de fout zit ook in de eenheid, niet alleen in de interpretatie. |
+| **V11** | **1% mill-downtime ≈ USD 8 mln/jaar; 1 dag mill-reline = USD 2,4 mln** | **BEVESTIGD** | 0,01 × 8.760 u × USD 100.000 = **USD 8,76 mln** ("ruim 8 mln" ✓). 24 × 100.000 = **USD 2,4 mln** ✓. Ook de "factor 3,8 spreiding" bij analisten klopt: 1.910 / 504 = 3,79 ✓. En software als 8% van de zitplaatskosten: 15.000/180.000 = 8,3% ✓. |
+
+### Feitencontroles tegen externe bronnen
+
+| # | Bewering | Oordeel | Bevinding en bron |
+|---|---|---|---|
+| **V12** | **Deswik: 775 bedrijven, 1.330+ operaties, 32.000+ softwarelicenties** | **GECORRIGEERD** | Deswik's eigen About Us zegt "trusted by over **1330 operations** worldwide" en "**32,000+ software users**" — *users*, geen licenties. **"775 bedrijven" staat op geen van beide aangehaalde bronpagina's** en is niet reproduceerbaar. Ook tegenstrijdig: deswik.com claimt "490+" medewerkers, MiningFMS "approximately 300". [deswik.com/about-us](https://www.deswik.com/about-us), [miningfms.com/vendors/deswik](https://miningfms.com/vendors/deswik/) |
+| **V13** | **RPMGlobal FY2025 totale omzet A$76,7 mln (+6%)** | **GECORRIGEERD** | Statutaire FY2025-omzet is **A$73,9 mln** (FY2024: A$69,4 mln), +6,45% — de groeivoet klopt, het niveau is ~4% te hoog gerapporteerd. Bovendien zijn "totaal A$76,7 mln" en "softwarebusiness ca. A$75 mln" **geen twee datapunten**: RPMGlobal verkocht zijn adviestak aan SLR Consulting, waardoor software vrijwel het hele bedrijf ís. Dat lost tegelijk de anomalie op dat ARR (A$71,8 mln) bijna gelijk was aan de "totale" omzet. Geen dubbeltelling in de raming zelf. [StockAnalysis ASX:RUL](https://stockanalysis.com/quote/asx/RUL/financials/), [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/) |
+| **V14** | **Micromine USD 85 mln omzet; Weir betaalde A$1,31 mrd bij ~10× EV/omzet en ~20× EBITDA** | **BEVESTIGD** | Letterlijk bevestigd: "Micromine's **US$85 million-a-year revenues**"; Weir betaalde **A$1,31 mrd cash** bij een verwachte CY2025-omzet van **ca. £68 mln (A$138 mln)**, en noemde zelf "a **c10-times EV-to-revenue** multiple" en een "**EBITDA multiple of c20x** at December 2025, excluding synergies", met ca. **90% terugkerende omzet**. Afronding **30 april 2025** (= Q2 2025 ✓). [InvestMETS](https://www.investmets.com/weir-buys-micromine-for-a1-31b/), [global.weir](https://www.global.weir/newsroom/global-news/2025/weir-completes-acquisition-of-micromine/) |
+| **V15** | **PwC Mine 2026: top-40 USD 909 mrd omzet (+3,3%), USD 248 mrd EBITDA (+23%), USD 120 mrd winst** | **BEVESTIGD** | Alle drie exact bevestigd, inclusief de vergelijkingsbasis USD 880 mrd voor 2024 en de EBITDA-marge van 27% (van 23%). [PwC Mine](https://www.pwc.com/gx/en/industries/energy-utilities-resources/publications/mine.html) |
+| **V16** | **McKinsey: 83% probleemprojecten, >40% capex-overschrijding, 20–30% doorlooptijd, megaprojecten 79%/52%, sample 80 projecten, ⅔ uit slechte inschatting, koper 33% vs ijzererts 13%** | **BEVESTIGD** | Alle cijfers exact bevestigd, inclusief het sample (80 projecten, USD 0,3–5,0+ mrd, <2 tot 8 jaar) en de derde categorie "other metallic ores 12%". [McKinsey](https://www.mckinsey.com/industries/metals-and-mining/our-insights/the-capex-crystal-ball-beating-the-odds-in-mining-project-delivery) |
+| **V17** | **EY: 192 projecten >USD 1 mrd, 64% over budget/schema, 39% gemiddelde overschrijding, 15–30% waardeterugwinning** | **BEVESTIGD, maar verkeerd gebruikt** | Cijfers exact bevestigd. **Maar het is een studie uit juni 2021 over een historische steekproef.** In §7.2(a) werd "EY telt 192 mijnbouwprojecten van >USD 1 mrd" gepresenteerd als bewijs dat het aanvalsgebied *nu groot* is — dat is een steekproefomvang, geen lopende projectvoorraad en geen jaarcijfer. Gecorrigeerd in §7.2(a). [EY](https://www.ey.com/en_rs/insights/energy-resources/how-better-project-management-can-boost-minings-capital-productivity) |
+| **V18** | **Opencontour: gratis tier, Pro USD 249/mnd, Scheduling USD 399/mnd, Stacking USD 499/mnd** | **BEVESTIGD** | Alle vier prijspunten letterlijk bevestigd op de leverancierspagina, in USD. Jaarequivalenten in §3.2 (USD 2.988 / 4.788 / 5.988) kloppen. Dit is het enige volledig harde prijsanker in het rapport. [opencontourmining.com/pricing](https://www.opencontourmining.com/pricing) |
+| **V19** | **Deswik: AUD 79 mln rolling-12m okt-2021, 45% recurring, ~30% EBITA-marge, overname afgerond april 2022, prijs ">A$500 mln"** | **BEVESTIGD** | Sandvik bevestigt "AUD 79 million" rolling-12m per oktober 2021 met "approximately 45 percent" recurring; afronding **4 april 2022**. InvestMETS bevestigt ~A$80 mln omzet, ~30% EBITA-marge, ~45% recurring en de schatting "well north of A$500 million". [Sandvik](https://www.home.sandvik/en/news-and-media/news/2022/04/sandvik-completes-the-acquisition-of-the-leading-mine-planning-software-company-deswik/), [InvestMETS](https://www.investmets.com/sandvik-beats-hot-field-to-take-out-deswik/) |
+| **V20** | **InvestMETS Mining Tech 50: totaal USD 6,8 mrd; Hexagon USD 566 mln; ABB USD 1.489 mln; smart mining ca. USD 10 mrd, 3–4× in tien jaar** | **BEVESTIGD** | Alle cijfers bevestigd, inclusief de opbouw van ABB (motion USD 984 mln + automation-allocatie) en Hexagon. Merk op dat Hexagon's USD 566 mln uitdrukkelijk "software, sensors and controls" is — de toewijzing van USD 60–100 mln daarvan aan MinePlan-**planning** in §4.3 blijft een ongetoetste schatting. [InvestMETS Global Mining Tech 50 2026](https://www.investmets.com/global-mining-tech-50-2026/), [InvestMETS](https://www.investmets.com/weir-deal-reignites-mining-software-battle/) |
+| **V21** | **Sandvik DMT "double-digit organic revenue growth" 2025** | **GECORRIGEERD** | Sandvik AR2025 zegt: "Solid progress in digital solutions with **double-digit growth in our software businesses (Digital Mining Technologies and Intelligent Manufacturing)**". Dat is (a) een **gecombineerde** uitspraak over twee divisies, (b) zonder het woord *organic*, en (c) zonder enig absoluut omzetcijfer voor DMT of Deswik. De formulering in het rapport was specifieker dan de bron toelaat. [Sandvik AR2025](https://www.annualreport.sandvik/en/2025/) |
+| **V22** | **`miningsoftwarereviews.com` als onafhankelijke autoriteit voor rangorde, "31 tools", 5–15% NPV-uplift, USD 5.000-drempel en "most common failure point"** | **ONZEKER — belangrijkste sourcingrisico** | De site is **in 2024 opgericht**, noemt **geen uitgevend bedrijf en geen redactieteam**, en rangschikt via **anonieme upvotes** en niet-vooraf-geverifieerde community-reviews ("published immediately"). Het is een jonge, anoniem beheerde directory (243+ producten, 11 categorieën) — geen analistenhuis. Het rapport leunt er ~20× op, óók voor dragende beweringen. **Alle beweringen die uitsluitend hierop rusten zijn onbevestigd**, met name de rangorde in §2.1, de 5–15% NPV-uplift in §3.6 en de pijnpunten 1 en 4 in §7.1. [miningsoftwarereviews.com/about](https://www.miningsoftwarereviews.com/about) |
+| **V23** | **IFC 4.3 sinds januari 2024 ISO-standaard** | **ONZEKER** | De aangehaalde bron zegt inderdaad "officially approved as an ISO standard in January 2024", maar noemt geen ISO-nummer, en buildingSMART/ISO waren bij hercontrole niet ophaalbaar (403). Let op het onderscheid tussen **goedkeuring** (ballot) en **publicatie** als ISO 16739-1:2024; die vielen niet in dezelfde maand. Voor het strategische argument in §5.3/§7.2 maakt dit niet uit. [nordicbim.com](https://www.nordicbim.com/knowledge/en/ifc-4.3) |
+| **V24** | **Caterpillar → RPMGlobal: A$5,00/aandeel, A$1,12 mrd / USD 728 mln, 32,6% premie, afgerond 17-feb-2026** | **ONZEKER** | Rekenkundig consistent (5,00 / 3,77 = 1,3263 → 32,6% ✓; A$1,12 mrd × 0,65 ≈ USD 728 mln ✓), maar bij hercontrole waren Reuters en caterpillar.com beide niet ophaalbaar (fetch geweigerd / 403). De aandeelprijs, de premie en de afrondingsdatum zijn dus **niet onafhankelijk bevestigd**. Zijdelings: bij een FY2025-omzet van A$73,9 mln (V13) impliceert A$1,12 mrd een EV/omzet van ~15×, hóger dan de 10× bij Micromine — het rapport noemt die vergelijking niet. |
+| **V25** | **ICMM: 8.508 operationele faciliteiten, 43% steenkool, release september 2025** | **ONZEKER** | Niet te verifiëren: icmm.com, discoveryalert.com.au en mining.com gaven alle drie **HTTP 403**. Dit cijfer draagt de hele zitplaatsopbouw van segment B (§4.4, stap 1) én §1.2. Zolang het niet is nagelopen, staat segment B op een ongecontroleerd fundament. |
+| **V26** | **A$13,2 mrd (FY24) / A$13,3 mrd (FY25) Australische mijnbouw-onderhoudsuitgaven; S&P exploratiebudget USD 12,40 mrd 2025** | **ONZEKER** | Beide bronnen (mining.com.au, spglobal.com, mining.com) waren bij hercontrole niet ophaalbaar (leeg antwoord / 403). Het onderhoudscijfer draagt de STO-regel in §4.4 (zie V9); het exploratiebudget is alleen context. |
+| **V27** | **SEEK: 244 P6-schedulervacatures en 361 shutdown-plannervacatures in Australië; Australië = 10–15% van de wereldmarkt** | **ONZEKER** | Vacaturetellingen op SEEK zijn per definitie een momentopname en veranderen dagelijks; ze zijn niet reproduceerbaar als bron. Belangrijker: het **10–15% wereldaandeel** waarmee ze in §4.4 worden opgeschaald is nergens onderbouwd — het is een aanname die de zitplaatsraming direct schaalt. De "sanity check" bevestigt daarmee vooral zijn eigen aanname. |
+| **V28** | **"Schema in P6 native XER-formaat" is contractueel verplicht in mijnbouwaanbestedingen** | **BEVESTIGD ALS ONBEVESTIGD** | Het rapport markeert dit zelf al expliciet als niet-geverifieerd (§5.3, "Eerlijkheidsnotitie"). Die zelfmarkering is correct en is bij deze controle niet weerlegd noch bevestigd — er is in dit onderzoek geen aanbestedingsclausule gevonden. Terecht als [ONBEVESTIGD] laten staan. |
+| **V29** | **OMF dekt geen schema's, activiteiten of afhankelijkheden; er bestaat geen open uitwisselformaat voor mijnbouwschema's** | **BEVESTIGD** | Consistent met de OMF-specificatie, die PointSet, LineSet, Surface, GridSurface en BlockModel met attributen dekt — geometrie en modeldata, geen tijd-/activiteitsdomein. Dit is een van de sterkste en best onderbouwde conclusies van het rapport en draagt de strategische afweging in §7.2. |
+
+### Wat na correctie overeind blijft
+
+De **structuur** van het rapport is robuust: de tweedeling mijnplanning↔projectplanning, de OEM-consolidatiegolf, de P6-monocultuur aan de projectkant en de conclusie dat IFC geen mijnbouwstandaard is en OMF geen schema's dekt — dat alles is bevestigd of niet weerlegd. De **externe feitencijfers** (PwC, McKinsey, EY, Weir/Micromine, Sandvik/Deswik, InvestMETS, Opencontour) zijn opvallend accuraat overgenomen: van de elf gecontroleerde externe datapunten waren er acht letterlijk correct.
+
+De **zwakte zit in de eigen doorrekening**, niet in het bronwerk: vijf reken- of consistentiefouten (V1–V5) en twee gevallen waarin de gerapporteerde uitkomst niet uit de opgegeven parameters volgt (V3, V4). Netto-effect op de kop-cijfers: de enge segmentraming daalt van USD 205–400 mln naar **USD 205–375 mln**, het midpunt van USD 300 mln naar **ca. USD 290 mln**, en het EUR-midpunt van €280 mln naar **ca. €255 mln** — een neerwaartse bijstelling van ca. 9% in euro's, vrijwel volledig door de verkeerde wisselkoers.
+
+Drie fundamenten zijn **niet controleerbaar gebleken** en verdienen een expliciete waarschuwing: het ICMM-cijfer van 8.508 faciliteiten (V25) dat heel segment B draagt, het Australische wereldaandeel van 10–15% (V27) waarmee de zitplaatsen worden opgeschaald, en de status van `miningsoftwarereviews.com` (V22) waarop een groot deel van de kwalitatieve rangorde rust.

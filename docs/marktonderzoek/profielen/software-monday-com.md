@@ -5,6 +5,8 @@
 **Analist-oordeel in één zin:** monday.com is een uitstekend werkbeheerplatform met een Gantt-*weergave*, maar **geen netwerkplanner** — het mist de fundamenten (duur, kalender, float, lag, constraints) die een CPM-engine definiëren.
 
 > **Methodologische kanttekening.** Deze sessie had het WebSearch-budget uitgeput; het onderzoek is daarom uitgevoerd met gerichte WebFetch-opdrachten op primaire bronnen (monday.com prijspagina, `developer.monday.com` API-referentie, monday.com blog/featurepagina's, `ir.monday.com`, Wikipedia, stockanalysis.com) en op reviewaggregators (Software Advice, GetApp, PeerSpot, SourceForge) plus Hacker News. `support.monday.com`, G2, Capterra, TrustRadius, Gartner Peer Insights, Trustpilot en Reddit gaven **HTTP 403 / blokkade** en konden niet worden geraadpleegd. Waar een claim daardoor niet primair is te verifiëren, staat dat expliciet vermeld als *[SCHATTING]* of *[BEOORDELING]*.
+>
+> **Nagecontroleerd.** Dit profiel is op 25-07-2026 onderworpen aan een onafhankelijke, adversariële fact-check die elke kernbewering probeerde te weerleggen. Uitkomst en correcties staan in **[§ Verificatie](#verificatie)** onderaan; correcties in de lopende tekst zijn gemarkeerd met *[GECORRIGEERD]*, *[INGETROKKEN]* of *[ONZEKER]*.
 
 ---
 
@@ -62,9 +64,11 @@ Bron: [monday.com/blog/project-management/critical-path-method/](https://monday.
 
 ### 2.2 Wat het datamodel feitelijk biedt — de officiële kolomtypelijst
 
-De API-referentie somt **alle** kolomtypen op: 31 schrijfbare, 6 read-only, 1 berekende.
+De API-referentie somt **alle** kolomtypen op: 27 schrijfbare, 6 read-only, 1 berekende (34 totaal).
 
-**Schrijfbaar:** Button, Checkbox, Color picker, Connect boards, Country, Date, **Dependency**, Dropdown, Email, Files, **Hour**, Link, Location, Long text, monday doc, Numbers, People, Phone, Rating, Status, Subitems, Tags, Text, **Timeline**, **Time tracking**, Vote, **Week**, World clock, Name, Board relation.
+**Schrijfbaar (27):** Button, Checkbox, Color picker, Connect boards, Country, Date, **Dependency**, Dropdown, Email, Files, **Hour**, Link, Location, Long text, monday doc, Numbers, People, Phone, Rating, Status, Subitems, Tags, Text, **Timeline**, **Time tracking**, Vote, **Week**, World clock.
+
+> *[GECORRIGEERD 25-07-2026]* Een eerdere versie van dit profiel noemde "31 schrijfbare" en telde daarbij `Name` en `Board relation` mee; die staan niet in de officiële lijst schrijfbare kolomtypen (en de opsomming zelf kwam op 30, niet 31). Hertelling op de bron geeft **27 / 6 / 1**. De inhoudelijke conclusie verandert niet.
 **Read-only:** Creation log, Formula, Item ID, Last updated, Mirror, Progress tracking.
 **Berekend:** Auto number.
 
@@ -215,19 +219,23 @@ Aanvullend: 5.000 requests per 10 seconden per IP-adres.
 | Plan | Prijs/zetel/mnd (**jaarbetaling**) | Prijs/zetel/mnd (maandbetaling) | Kernbeperkingen |
 |---|---|---|---|
 | **Free** | $0 | $0 | **Max. 2 zetels**, 3 boards, 3 docs, 8 kolomtypen, 200+ templates, iOS/Android |
-| **Basic** | **$9** | ~$11 *[SCHATTING]* | Onbeperkte items, onbeperkte viewers, 1.000 AI-credits/mnd. **Geen Gantt.** |
-| **Standard** | **$12** | ~$15 *[SCHATTING]* | **Timeline & Gantt-view**, kalenderweergave, 250 automatiserings-/integratie-acties/mnd, gastentoegang, 1.000 API-calls/dag, 2.000 AI-credits |
-| **Pro** | **$19** | ~$23 *[SCHATTING]* | 25.000 acties/mnd, privéboards, tijdregistratie, geavanceerde kolommen, 10.000 API-calls/dag, 3.000 AI-credits |
+| **Basic** | **$9** | **onbekend** *[ONZEKER]* | Onbeperkte items, onbeperkte viewers, 1.000 AI-credits/mnd. **Geen Gantt.** |
+| **Standard** | **$12** | **onbekend** *[ONZEKER]* | **Timeline & Gantt-view**, kalenderweergave, 250 automatiserings-/integratie-acties/mnd, gastentoegang, 1.000 API-calls/dag, 2.000 AI-credits |
+| **Pro** | **$19** | **onbekend** *[ONZEKER]* | 25.000 acties/mnd, privéboards, tijdregistratie, geavanceerde kolommen, 10.000 API-calls/dag, 3.000 AI-credits |
 | **Enterprise** | **op aanvraag** | — | 250.000 acties/mnd, **portfoliomanagement**, **resource management**, multi-level permissions, 25.000 API-calls/dag, 24/7 support |
 
-**Toelichting op maandprijzen:** de prijspagina toont standaard de jaarprijs en vermeldt *"Yearly SAVE 18%"* / *"By choosing a yearly plan, you will receive an 18% discount."* De maandprijzen konden niet direct uit de gerenderde pagina worden gelezen (de fetch gaf voor beide toggles dezelfde jaarbedragen terug). De bovenstaande maandbedragen zijn daarom **afgeleid** uit de 18%-korting en zijn expliciet een **[SCHATTING]**. *[SCHATTING]* Historisch hanteerde monday.com voor maandbetaling $12 / $14 / $24 bij jaarprijzen van $9 / $12 / $19 — een grotere spreiding dan 18%. Verifieer altijd in een live checkout.
+De jaarprijzen $0 / $9 / $12 / $19 zijn bij herverificatie op 25-07-2026 opnieuw rechtstreeks van `monday.com/pricing` gelezen en **bevestigd**; ook GetApp en Software Advice noemen $9 als instapprijs.
+
+**Toelichting op maandprijzen — [GECORRIGEERD 25-07-2026].** De prijspagina toont standaard de jaarprijs en vermeldt *"Yearly SAVE 18%"*; de FAQ voegt toe: *"The monthly plan is not discounted so if you are looking to save, we recommend the yearly plan."* De maandprijzen voor **work management** zijn ook bij herhaalde fetches (met en zonder `?billing=monthly`) **niet uit de gerenderde pagina te lezen** — de client-side toggle rendert niet.
+
+De eerdere schatting **~$11 / $15 / $23, afgeleid uit de 18%-korting, is ingetrokken: de afleidingsmethode is weerlegd door monday.com's eigen prijspagina's.** De CRM-lijn, die op dezelfde site *wél* beide bedragen toont, hanteert $12→$18, $17→$25 en $28→$41 — een verhouding van ongeveer **1,5×**, oftewel ~33% besparing bij jaarbetaling, niet 18%. Het gepubliceerde "18%" is dus geen bruikbare rekenfactor. Zou dezelfde 1,5×-verhouding voor work management gelden, dan komt maandbetaling eerder rond **$13–14 / $18 / $28** uit — maar dat is een **extrapolatie uit een andere productlijn en niet geverifieerd**. De eerder genoemde "historische" maandprijzen $12 / $14 / $24 konden bij deze controle **niet aan enige bron worden gekoppeld** en zijn verwijderd. **Verifieer maandprijzen in een live checkout.**
 
 ### 3.2 Zetelminima en zetelblokken
 
 - **Gratis plan: maximaal 2 zetels.**
-- **Betaalde plannen: minimaal 3 zetels.** Bevestigd op de prijspagina.
-- De zetelkiezer op de prijspagina staat standaard op **10 zetels** en loopt tot **40**; boven de 40 gebruikers verwijst de pagina naar sales voor een offerte.
-- **[SCHATTING]** monday.com verkoopt zetels in **blokken** (3, 5, 10, 15, 20, 25, 30, 40, 50…) in plaats van per stuk. De prijspagina bevestigt alleen het minimum van 3 en de default van 10; de exacte blokreeks kon niet primair worden geverifieerd. Het kosteneffect is reëel: een team van 11 personen betaalt vaak voor 15 zetels — een verborgen opslag van ~36%.
+- **Betaalde plannen: minimaal 3 zetels.** Bevestigd op de prijspagina, letterlijk: *"Plans start from 3 users."* Dit minimum geldt aantoonbaar voor **alle vier de productlijnen** (work management, CRM, dev, service).
+- De zetelkiezer op de prijspagina staat standaard op **10 zetels**; boven de 40 gebruikers verwijst de pagina naar sales: *"If you want to sign up more than 40 users, you can request a quote from our sales team to get an exact price."*
+- **[ONZEKER — afgezwakt 25-07-2026]** Eerder stond hier dat monday.com zetels in vaste **blokken** verkoopt (3, 5, 10, 15, 20, 25, 30, 40, 50…), met als gevolg dat een team van 11 er 15 betaalt (~36% opslag). **Die claim is bij herverificatie niet te onderbouwen.** De prijspagina en FAQ bevestigen alleen het minimum van 3, de default van 10 in de kiezer en de sales-drempel bij 40; er is **geen brontekst gevonden die zegt dat tussenliggende aantallen niet gekocht kunnen worden**. De zelfbedieningskiezer toont weliswaar sprongen, maar dat is een UI-keuze en geen aangetoonde factureringsregel. **Behandel de blokopslag niet als feit**; het enige harde kosteneffect voor kleine teams is het minimum van 3 zetels.
 - **Onbeperkte viewers** (alleen-lezen) zijn inbegrepen vanaf Basic. Dit is een belangrijk positief punt: stakeholders en opdrachtgevers kosten niets.
 
 ### 3.3 Enterprise
@@ -257,8 +265,10 @@ Bron: [monday.com/pricing](https://monday.com/pricing), 25-07-2026. CRM kent eve
 | Scenario | Berekening | Jaarkosten |
 |---|---|---|
 | 10 planners, Pro, jaarbetaling | 10 × $19 × 12 | **$2.280** — maar zónder resource management |
-| 15 zetels (team van 11), Pro | 15 × $19 × 12 | **$3.420** (blokafronding) |
-| 25 zetels, Enterprise *[schatting $32]* | 25 × $32 × 12 | **~$9.600** |
+| 11 zetels (team van 11), Pro | 11 × $19 × 12 | **$2.508** — de eerdere regel rekende met 15 zetels wegens "blokafronding"; die aanname is ingetrokken *(zie §3.2)* |
+| 25 zetels, Enterprise *[schatting $32]* | 25 × $32 × 12 | **~$9.600** *[ONZEKER — Enterprise-tarief is nergens gepubliceerd]* |
+
+De regel "10 planners op Pro = $2.280/jaar" is narekenbaar en klopt bij de bevestigde jaarprijs van $19 (10 × $19 × 12 = $2.280).
 
 Ter vergelijking: één Primavera P6 Professional-licentie ligt in dezelfde orde als het hele Pro-team, maar levert wél een volwaardige CPM-engine.
 
@@ -290,7 +300,7 @@ Ter vergelijking: één Primavera P6 Professional-licentie ligt in dezelfde orde
 
 ## 5. NADELEN
 
-1. **Geen echte CPM-engine — het fundament ontbreekt.** Geen duur-veld, geen float-veld, geen constraints, geen lags, geen kalenders. De volledige officiële kolomtypelijst (31 schrijfbaar + 6 read-only + 1 berekend) bevat **geen duration, work, effort, cost, rate of baseline**. Het geclaimde "kritieke pad" is *[BEOORDELING]* een visuele ketenmarkering, geen berekend resultaat van een backward pass — er is immers nergens float om te bewaren. Voor contractueel houdbare planning, EOT-claims of forensic delay analysis is de tool onbruikbaar. De kloof tussen de blogclaim *"monday.com automatically calculates the critical path"* en het datamodel is de scherpste bevinding van dit onderzoek.
+1. **Geen echte CPM-engine — het fundament ontbreekt.** Geen duur-veld, geen float-veld, geen constraints, geen lags, geen kalenders. De volledige officiële kolomtypelijst (27 schrijfbaar + 6 read-only + 1 berekend) bevat **geen duration, work, effort, cost, rate of baseline**. Het geclaimde "kritieke pad" is *[BEOORDELING]* een visuele ketenmarkering, geen berekend resultaat van een backward pass — er is immers nergens float om te bewaren. Voor contractueel houdbare planning, EOT-claims of forensic delay analysis is de tool onbruikbaar. De kloof tussen de blogclaim *"monday.com automatically calculates the critical path"* en het datamodel is de scherpste bevinding van dit onderzoek.
 
 2. **Geen kalendermodel.** De enige kalenderfunctie in de documentatie is `show_weekends` op de Timeline-kolom — een **weergave**-instelling. Geen feestdagen, geen ploegendiensten, geen taak- of resourcekalenders, geen bouwvak of vorstverlet. Een taak die "10 dagen" duurt heeft in monday.com geen kalendergebonden betekenis, en een verschuiving houdt geen rekening met werkbare dagen.
 
@@ -304,7 +314,7 @@ Ter vergelijking: één Primavera P6 Professional-licentie ligt in dezelfde orde
 
 7. **Agressieve plan-fragmentatie duwt de rekening omhoog.** Gantt/Timeline pas vanaf **Standard**; tijdregistratie pas vanaf **Pro**; resource- én portfoliomanagement pas op **Enterprise**. Automatiseringsacties zijn op Standard gecapt op 250/maand — belachelijk laag — wat een upgrade naar Pro (+58% prijs) afdwingt. GetApp-reviewers: *"advanced features locked behind higher-tier plans"*; PeerSpot: kosten worden *"high as advanced features are tied to higher plans"* en het platform is *"less cost-efficient as team sizes grow"*.
 
-8. **Minimum 3 zetels en zetelblokken maken kleine teams duur.** Het gratis plan is met 2 zetels en 3 boards nauwelijks meer dan een demo. Reviewers noemen dat de prijs *"expensive for small teams or solo users"* wordt. *[SCHATTING]* zetelblokken zorgen ervoor dat een team van 11 er 15 betaalt.
+8. **Minimum 3 zetels maakt kleine teams duur.** Het gratis plan is met 2 zetels, 3 boards, 3 docs en 8 kolomtypen nauwelijks meer dan een demo — bevestigd op de prijspagina. Elk betaald plan begint bij 3 zetels (*"Plans start from 3 users"*), dus een soloplanner betaalt minimaal 3× de zetelprijs. Reviewers noemen de prijs *"expensive for small teams or solo users"*. **[ONZEKER]** De eerder genoemde "zetelblokken" (team van 11 betaalt er 15) kon niet worden onderbouwd en is afgezwakt — zie §3.2.
 
 9. **API-limieten op de lagere plannen blokkeren integratie.** 1.000 calls/dag op Free/Basic/**Standard** — het plan waar de Gantt in zit — is voor elke bidirectionele synchronisatie te weinig, zeker gezien de paginatiegrens van 100 items per query. Een board van 5.000 regels kost al 50 calls per volledige uitlezing.
 
@@ -312,7 +322,7 @@ Ter vergelijking: één Primavera P6 Professional-licentie ligt in dezelfde orde
 
 11. **Notificatieruis, bugs en een zwakkere mobiele app.** PeerSpot: notificaties zijn *"not trustworthy"* en *"very overwhelming"*. GetApp: *"limited mobile app functionality"* en *"frequent bugs and glitches"*. Software Advice: mobiele app blijft achter op desktop; navigatie is complex voor nieuwe gebruikers; ook *"overt integration of AI features is disappointing"*.
 
-12. **Leveranciersrisico op productrichting (actueel, juli 2026).** Op 22 juli 2026 kondigde monday.com in een SEC-filing een **reductie van 20% van het personeelsbestand** aan als onderdeel van een herstructurering rond een *"AI-driven growth strategy"* (TechCrunch, Business Insider, Fast Company, Jefferies-analyse). Het aandeel staat **-51% YTD** en de marktkapitalisatie is ~$3,3 mrd, een daling van ~77,5%. Planningsdiepte was nooit de strategische prioriteit en wordt dat met deze herpositionering vrijwel zeker ook niet. Bron: [stockanalysis.com/stocks/mndy](https://stockanalysis.com/stocks/mndy), opgehaald 25-07-2026.
+12. **Leveranciersrisico op productrichting (actueel, juli 2026).** Op 22 juli 2026 kondigde monday.com in een SEC-filing een **reductie van 20% van het personeelsbestand** aan als onderdeel van een herstructurering rond een *"AI-driven growth strategy"* (TechCrunch, Business Insider, Fast Company, Jefferies-analyse). Het aandeel staat op **-50% YTD** (koers $77,43 op 24-07-2026) en de marktkapitalisatie is **$3,32 mrd**. *[ONZEKER]* De eerder genoemde daling van "~77,5%" is niet herleidbaar tot een gepubliceerd cijfer — stockanalysis.com toont −50% YTD en −44% over zes maanden; een −77,5% verwijst vermoedelijk naar de afstand tot de piekkoers, maar dat referentiepunt is niet vastgesteld. Planningsdiepte was nooit de strategische prioriteit en wordt dat met deze herpositionering vrijwel zeker ook niet. Bron: [stockanalysis.com/stocks/mndy](https://stockanalysis.com/stocks/mndy), opgehaald 25-07-2026.
 
 ---
 
@@ -405,7 +415,7 @@ De trendlijn is **duidelijk gekanteld**:
 - Omzetgroei vertraagt (van >60% in 2021–22 naar 26,8% in 2025).
 - Het aandeel daalde in februari 2026 met 21% op zorgen over **AI-disruptie** van de horizontale SaaS-categorie.
 - Juli 2026: **20% personeelsreductie**, aangekondigd in een SEC-filing, expliciet gemotiveerd als *"AI-driven growth strategy"* (TechCrunch, Business Insider, Fast Company, 22 juli 2026). Jefferies merkt op dat de reductie het personeelsbestand terugbrengt naar FY24-niveau en de winstgevendheid versterkt.
-- Aandeel **-51% year-to-date**, -44% over zes maanden; marktkapitalisatie ~$3,3 mrd (−77,5%).
+- Aandeel **−50% year-to-date**, −44% over zes maanden; marktkapitalisatie **$3,32 mrd**, koers $77,43 (24-07-2026). Analistenconsensus blijft niettemin "Buy" met een gemiddeld koersdoel van $108,33 (25 analisten).
 - Het bedrijf bevestigt niettemin dat FY26 *"in-line with or above its guidance"* uitkomt.
 - Juni 2026: lancering **Monday Ventures**, een $200 mln durfkapitaalfonds voor Israëlische startups.
 
@@ -498,11 +508,43 @@ Waar deze bronnen normaal gesproken bewijs hadden geleverd (met name het monday.
 
 | # | Claim | Status |
 |---|---|---|
-| 1 | Maandbetalingsprijzen (~$11/$15/$23; historisch $12/$14/$24) | **[SCHATTING]** — afgeleid uit de gepubliceerde 18%-jaarkorting; niet direct af te lezen |
-| 2 | Zetelblokken (3, 5, 10, 15, 20, 25, 30, 40…) | **[SCHATTING]** — alleen het minimum van 3 en de default van 10 zijn primair bevestigd |
+| 1 | Maandbetalingsprijzen work management | **[INGETROKKEN 25-07-2026]** — de afleiding uit de 18%-korting is weerlegd door monday.com's eigen CRM-prijzen (verhouding ~1,5×). Maandprijs work management is **onbekend**; extrapolatie ~$13–14/$18/$28, niet geverifieerd |
+| 2 | Zetelblokken (3, 5, 10, 15, 20, 25, 30, 40…) | **[ONZEKER — afgezwakt 25-07-2026]** — geen brontekst gevonden die vaste blokken bevestigt; alleen minimum 3, default 10 en sales-drempel bij 40 zijn primair bevestigd |
 | 3 | Enterprise ~$28–$40/zetel/maand | **[SCHATTING]** — marktinschatting; monday.com publiceert geen Enterprise-prijs |
 | 4 | Realistisch max. ~1.000–2.000 regels per board | **[SCHATTING]** — afgeleid uit reviewsignalen en API-paginatie; geen gepubliceerde limiet |
 | 5 | "Kritiek pad" is een visuele ketenmarkering, geen berekende backward pass | **[BEOORDELING]** — gefundeerde afleiding uit het ontbreken van float-opslag; monday.com publiceert geen algoritme |
 | 6 | MPP-import alleen via marketplace-apps van derden | **[SCHATTING]** — marketplace kon niet volledig worden uitgelezen; geen officiële route gevonden |
 | 7 | Kans op een echte CPM-engine in de toekomst is zeer klein | **[BEOORDELING]** — gebaseerd op doelgroep, datamodelarchitectuur en de AI-herpositionering van juli 2026 |
-| 8 | TCO-rekenvoorbeelden | **[SCHATTING]** — rekensommen op basis van lijstprijzen, exclusief onderhandelde korting |
+| 8 | TCO-rekenvoorbeelden | **[SCHATTING]** — rekensommen op basis van lijstprijzen, exclusief onderhandelde korting. De Pro-sommen zijn narekenbaar bij de bevestigde $19; de Enterprise-som staat of valt met een niet-gepubliceerd tarief |
+| 9 | Marktkapitalisatiedaling "−77,5%" | **[ONZEKER]** — niet herleidbaar; bevestigd zijn −50% YTD, −44% over 6 maanden en $3,32 mrd marktkap |
+
+---
+
+## Verificatie
+
+**Adversariële fact-check uitgevoerd op 25-07-2026** — opzet: elke kernbewering actief proberen te *weerleggen* met onafhankelijke of primaire bronnen, niet bevestigen. Het WebSearch-budget van de sessie was uitgeput; de controle is daarom volledig met gerichte WebFetch op primaire bronnen (monday.com prijspagina's per productlijn, `developer.monday.com`, Wikipedia, stockanalysis.com) plus twee reviewaggregators gedaan. `support.monday.com`, `zapier.com`, `tech.co` en `efficient.app` gaven 403/404/429 en konden niet worden gebruikt.
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | **Jaarprijzen work management:** Free $0 / Basic $9 / Standard $12 / Pro $19 per zetel/mnd; Enterprise op aanvraag | **Bevestigd** — direct herlezen op de prijspagina; secundair bevestigd door GetApp en Software Advice ($9 instapprijs) | [monday.com/pricing](https://monday.com/pricing) · [getapp.com](https://www.getapp.com/project-management-planning-software/a/monday-com/pricing/) · [softwareadvice.com](https://www.softwareadvice.com/project-management/monday-profile/) |
+| 2 | **Maandprijzen ~$11 / $15 / $23**, afgeleid uit de 18%-jaarkorting; "historisch $12/$14/$24" | **Gecorrigeerd (weerlegd)** — de 18% is géén bruikbare rekenfactor: monday.com's eigen CRM-pagina toont $12→$18, $17→$25, $28→$41, dus ~1,5× (≈33% besparing). Werkelijke maandprijs work management blijft **onleesbaar** in beide fetches; schatting ingetrokken, extrapolatie ~$13–14/$18/$28 expliciet als onbevestigd gemarkeerd. Voor "$12/$14/$24 historisch" is geen enkele bron gevonden — verwijderd | [monday.com/crm/pricing](https://monday.com/crm/pricing) · [monday.com/pricing](https://monday.com/pricing) |
+| 3 | **Minimum 3 zetels** op alle betaalde plannen; zetelkiezer default 10, sales boven 40 | **Bevestigd** — letterlijk *"Plans start from 3 users"* en *"If you want to sign up more than 40 users, you can request a quote from our sales team"*; het 3-zetelminimum staat óók op de CRM-, dev- en service-prijspagina's | [monday.com/pricing](https://monday.com/pricing) · [monday.com/crm/pricing](https://monday.com/crm/pricing) · [monday.com/dev/pricing](https://monday.com/dev/pricing) · [monday.com/service/pricing](https://monday.com/service/pricing) |
+| 4 | **Zetels worden in blokken verkocht** (3, 5, 10, 15, 20, 25, 30, 40…), team van 11 betaalt er 15 (+36%) | **Onzeker (afgezwakt)** — poging tot weerlegging geslaagd voor zover mogelijk: de FAQ noemt uitsluitend het minimum van 3 en de drempel van 40 en zegt niets over verplichte blokken; er is geen brontekst die tussenliggende aantallen uitsluit. Claim gedegradeerd van [SCHATTING] naar [ONZEKER]; de TCO-regel is herrekend naar 11 zetels | [monday.com/pricing](https://monday.com/pricing) (FAQ) |
+| 5 | **Featuregating:** Gantt/Timeline pas vanaf Standard, tijdregistratie pas vanaf Pro, resource- én portfoliomanagement uitsluitend Enterprise; automatiseringsacties 250 / 25.000 / 250.000; AI-credits 1.000 / 2.000 / 3.000 | **Bevestigd** — alle zes de gates staan zo op de prijspagina; *"Portfolio management"* en *"Resource management"* komen uitsluitend in de Enterprise-kolom voor. Dit onderbouwt de conclusie dat Enterprise feitelijk verplicht is voor planningswerk | [monday.com/pricing](https://monday.com/pricing) |
+| 6 | **Overige productlijnen:** CRM $12/$17/$28, dev $9/$12/$20, service $31/$45 (jaar, min. 3 zetels) | **Bevestigd** — alle drie de prijspagina's afzonderlijk opgehaald; CRM toont bovendien maandprijzen $18/$25/$41 en een Ultimate-tier op aanvraag | [monday.com/crm/pricing](https://monday.com/crm/pricing) · [monday.com/dev/pricing](https://monday.com/dev/pricing) · [monday.com/service/pricing](https://monday.com/service/pricing) |
+| 7 | **Onbeperkte gratis viewers vanaf Basic**; Free = 2 zetels / 3 boards / 3 docs / 8 kolomtypen | **Bevestigd** — FAQ: *"Unlimited free viewers… read-only access to your account data, with no editing rights"*, inbegrepen vanaf Basic; Free-plan-specificatie letterlijk *"Up to 2 seats"*, *"Up to 3 boards"*, *"Up to 3 Docs"*, *"8 column types"* | [monday.com/pricing](https://monday.com/pricing) |
+| 8 | **Enterprise ~$28–$40/zetel/mnd** | **Onzeker** — blijft onverifieerbaar; monday.com publiceert geen Enterprise-tarief en er is geen onafhankelijke bron gevonden die een bedrag noemt. Uitsluitend bruikbaar als marktinschatting, niet als cijfer | — |
+| 9 | **Geen CPM-fundament:** geen duration/work/effort/cost/rate/baseline-kolomtype; relatietypen FS/SS/FF/SF niet via API; geen lag/lead; alleen `show_weekends` als "kalender" | **Bevestigd** (kern) / **gecorrigeerd** (telling) — geen van de zes ontbrekende kolomtypen bestaat. Dependency-doc letterlijk: relatietype *"is not currently exposed by the API"*; lag/lead komt er nergens in voor; `dependency_mode` = flexible/strict/no_action. Timeline-kolom: `from`/`to` ISO 8601, géén duration-veld, geen werkdagen/feestdagen. **Correctie:** het aantal kolomtypen is 27 schrijfbaar / 6 read-only / 1 berekend (34), niet 31/6/1 — de oude opsomming telde `Name` en `Board relation` ten onrechte mee en kwam zelf op 30 | [column-types-reference](https://developer.monday.com/api-reference/reference/column-types-reference) · [dependency](https://developer.monday.com/api-reference/reference/dependency) · [timeline](https://developer.monday.com/api-reference/reference/timeline) |
+| 10 | **Marketingclaim:** *"monday.com automatically calculates the critical path"* en *"the automation engine instantly propagates changes through all dependent activities"* | **Bevestigd** — beide zinnen staan verbatim op de blogpagina. De featurepagina noemt letterlijk *"Critical paths"*, *"Baselines"*, *"Task dependencies"*, *"Milestones"* en noemt duration, float, lag/lead of werkkalenders nergens. De spanning tussen claim en datamodel is daarmee hard onderbouwd; het oordeel dát het een visuele ketenmarkering is blijft terecht **[BEOORDELING]** | [blog/critical-path-method](https://monday.com/blog/project-management/critical-path-method/) · [features/gantt](https://monday.com/features/gantt) |
+| 11 | **API-limieten:** 1.000 / 10.000 / 25.000 calls per dag; 40/100/250 gelijktijdig; paginatie default 25, max 100; subitems max 5 niveaus | **Bevestigd** — alle waarden exact; aanvullend 5.000 requests per 10 s per IP en reset om middernacht UTC. Paginatie *"The default is 25, and the maximum is 100"* en de 5-niveaugrens staan in de items-referentie | [rate-limits](https://developer.monday.com/api-reference/reference/rate-limits) · [items](https://developer.monday.com/api-reference/reference/items) |
+| 12 | **Bedrijfscijfers:** omzet 2025 $1.232 mrd (+26,8%), nettowinst $118,7 mln, 3.155 medewerkers, 245.000+/250.000+ klanten, IPO 10-06-2021 Nasdaq MNDY, opgericht 2012 als dapulse | **Bevestigd** — omzetreeks 2021–2025 en resultaten exact gelijk; TTM t/m maart 2026 $1.301 mrd (+25,4%). Klantenaantal *"Join over 250,000 customers"* staat letterlijk op de bouwpagina; Wikipedia bevestigt 245.000+, 3.155 medewerkers, oprichters Mann/Zinman, $1,5 mln seed (aug. 2012), Wix-spin-off, hernoeming 2017, Monday Ventures ($200 mln, juni 2026) | [stockanalysis.com/mndy/financials](https://stockanalysis.com/stocks/mndy/financials/) · [en.wikipedia.org/wiki/Monday.com](https://en.wikipedia.org/wiki/Monday.com) · [monday.com/construction](https://monday.com/construction) |
+| 13 | **Marktpositie juli 2026:** 20% personeelsreductie, aandeel −51% YTD, marktkap ~$3,3 mrd, daling ~77,5% | **Deels bevestigd / gecorrigeerd** — de 20%-reductie met AI-motivering en de marktkap van **$3,32 mrd** zijn bevestigd; YTD is **−50%** (niet −51%) en 6-maands −44%. De **"−77,5%"-daling is niet herleidbaar** tot enig gepubliceerd cijfer en is als [ONZEKER] gemarkeerd. Nuance toegevoegd die het pessimisme relativeert: analistenconsensus staat op "Buy" met koersdoel $108,33 | [stockanalysis.com/stocks/mndy](https://stockanalysis.com/stocks/mndy/) |
+| 14 | **Reviewscores:** Software Advice 4,6/5 uit 6.074 reviews | **Bevestigd** — score, aantal reviews en de genoemde zwaktes (hoge prijs, mobiele app, budgettering/forecasting) kloppen; aanvullend blijkt 73% van de reviewers uit organisaties met 1–200 medewerkers te komen, wat de SMB-positionering onderbouwt | [softwareadvice.com](https://www.softwareadvice.com/project-management/monday-profile/) |
+
+### Wat deze controle níet heeft kunnen weerleggen
+
+De **CPM-kernconclusie van het profiel staat overeind en is versterkt.** Alle vier de blokkerende bevindingen — geen duur-veld, geen float, geen lags, geen kalendermodel — zijn opnieuw en rechtstreeks in monday.com's eigen API-referentie bevestigd, en de tegenoverliggende marketingclaims zijn verbatim geverifieerd. Er is bij deze controle geen enkele aanwijzing gevonden voor een verborgen duur-, float- of kalendermodel.
+
+### Wat wel is gesneuveld
+
+De zwakke plek van het profiel zat uitsluitend in **prijsafgeleiden, niet in de functionele analyse**: de maandprijzen (afleidingsmethode weerlegd), de zetelblokken (onbewijsbaar) en de marktkapitalisatiedaling (niet herleidbaar). Alle drie waren afgeleide of onthouden cijfers zonder directe brontekst — precies de categorie die bij een adversariële controle als eerste bezwijkt.

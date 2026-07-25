@@ -103,7 +103,7 @@ Dit is voor een planningsmarktonderzoek het belangrijkste deel:
 
 - **Geen eigen CPM-authoring/onderhoudsomgeving.** Je plant niet in nPlan; je uploadt. (Schedule Studio genereert wel een eerste versie, maar exporteert die naar P6 om verder te werken.) nPlans eigen FAQ "known limitations": *"We do not yet offer solutions to build schedules"* — inmiddels deels achterhaald door Schedule Studio, maar het onderhoudsproces blijft in P6/Asta.
 - **Geen resourcemodel, geen kostenmodel.** Letterlijk: *"We do not make predictions concerning resources or costs as this information is not consistently available in our dataset."* Geen resource levelling, geen resource-kritiek pad, geen cash-flow, geen EVM-berekening (nPlan publiceert zelfs "EVM vs nPlan" als positionering, niet als functie).
-- **Geen 4D/BIM, geen IFC, geen modelkoppeling.** Nergens in site, sitemap (220+ URL's), helpcentrum (87 artikelen) of contractdocumenten komt IFC, IfcWorkSchedule, IfcTask, BIM of 4D voor.
+- **Geen 4D/BIM, geen IFC, geen modelkoppeling.** Nergens in site, sitemap (**170 URL's**, hertelling 25-07-2026 — een eerdere lezing van "220+" was te hoog), helpcentrum (87 artikelen, geteld via de Help Center API) of contractdocumenten komt IFC, IfcWorkSchedule, IfcTask, BIM of 4D voor. Onafhankelijk nageteld: 0 treffers op `ifc`/`bim`/`4d` in zowel de 170 sitemap-URL's als de volledige tekst van alle 87 helpcentrum-artikelen.
 - **Geen baselinebeheer in de klassieke zin.** Wel revisietracking: geplande vs. voorspelde duur per revisie, end-milestone slippage t.o.v. de vorige maand, milestone tracking over tijd.
 - **Geen desktopclient.** Alles browser-gebaseerd.
 
@@ -134,23 +134,23 @@ nPlan is verrassend expliciet over de modelleringsaannames — nuttig materiaal 
 
 ### 3.1 Wat openbaar is
 
-**nPlan publiceert geen enkele lijstprijs.** Er bestaat geen `/pricing`-pagina (HTTP 404 op 25-07-2026), geen prijstabel op de productpagina's, en nPlan staat **niet** op het Britse G-Cloud 14-raamwerk (0 resultaten op Digital Marketplace, 25-07-2026) waar prijskaarten verplicht openbaar zijn. De AutoReport-koopvraagpagina zegt letterlijk: *"Fill out the form on the right and we'll get in touch with pricing information."*
+**nPlan publiceert geen enkele lijstprijs.** Er bestaat geen `/pricing`-pagina (**HTTP 404 bevestigd op 25-07-2026**), geen prijstabel op de productpagina's, en de sitemap bevat **nul** URL's met `pricing` of `price` erin. nPlan staat **niet** op het Britse G-Cloud-raamwerk (**0 resultaten bevestigd** op Digital Marketplace, 25-07-2026) waar prijskaarten verplicht openbaar zijn. De AutoReport-koopvraagpagina zegt letterlijk: *"Fill out the form on the right and we'll get in touch with pricing information."*
 
 **Wel openbaar en gratis:**
 
 | Item | Voorwaarde | Bron / datum |
 |---|---|---|
-| **Schedule Integrity Checker** | **Volledig gratis**, geen creditcard, **geen usage caps**, "we plan to keep it that way for the foreseeable future" | nplan.io/products/schedule-integrity-checker + Zendesk, geraadpleegd 25-07-2026 |
+| **Schedule Integrity Checker** | **Volledig gratis**, geen creditcard, **geen usage caps**. Letterlijk geverifieerd: *"completely free-to-use and we plan to keep it that way for the foreseeable future"* (Zendesk), *"No credit card needed now or later"* en *"Analyse as many schedules as you like, as many times as you like. We don't like irritating usage caps either"* (productpagina) | nplan.io/products/schedule-integrity-checker + Zendesk-artikel 11385168127773, beide direct opgehaald 25-07-2026 |
 | **Schedule Studio** | Gratis uit te proberen, "no obligation or credit card required" | nplan.io/page/schedule-studio-signup, 25-07-2026 |
 | **Insights Pro proefperiode** | **14 dagen** gratis | nPlan Insights Pro Free Trial T&Cs, versie 240717 (PDF) |
-| **AutoReport proefperiode** | Gratis proef (duur niet gespecificeerd in de gevonden versie) | AutoReport Free Trial Ts&Cs 240611 (PDF) |
+| **AutoReport proefperiode** | **14 dagen** gratis — *gecorrigeerd 25-07-2026*: de PDF specificeert de duur wél, letterlijk *"The free trial period will be for fourteen (14) days from the date that the free trial is activated"* (identieke clausule als bij Insights Pro) | AutoReport Free Trial Ts&Cs 240611 (PDF), tekst geëxtraheerd |
 
 ### 3.2 Licentiemodel (uit de contractdocumenten)
 
 Uit de **Master Services Terms & Conditions v251210** (PDF, gepubliceerd op nplan.io/terms-of-service):
 
-- **SaaS-abonnement**, geen perpetual licentie, geen on-premises optie.
-- Prijs, scope, **Service Term** en betalingscondities staan in een **Ordering Document** per klant — dat is dus volledig onderhandeld maatwerk.
+- **SaaS-abonnement.** *Nuancering 25-07-2026:* de woorden "perpetual" en "on-premise(s)" komen in de MSTC **niet voor**; dat er geen eeuwigdurende of on-premisesvariant is, is een **afleiding** uit het feit dat het contract uitsluitend een "Cloud Service" met een Service Term regelt — geen letterlijke contractbepaling.
+- Prijs, scope, **Service Term** en betalingscondities staan in een **Ordering Document** per klant — dat is dus volledig onderhandeld maatwerk. Letterlijk gedefinieerd als: *"a document executed by both the Company and the Customer … [that] specifies the Services to be provided, including the scope, Service Term, Fees, payment terms"*.
 - Facturatie per factuur, **betaling binnen 30 dagen**; 1,5% rente per maand bij te late betaling; opschorting mogelijk.
 - Termijn zoals in het Ordering Document; opzegging bij materiële wanprestatie met 30 dagen opzegtermijn.
 - Er is een aparte **Master Services Agreement Australië** en aparte T&Cs voor **Schedule Studio** — regionale/productspecifieke contractvarianten.
@@ -163,7 +163,9 @@ Er is dus **geen** gepubliceerde staffel per gebruiker, per project of per portf
 |---|---|---|---|---|
 | **£60.756,17** | "Schedule Assurance Services" — **single tender action** | Restoration & Renewal Delivery Authority Ltd (Houses of Parliament, Londen) | Gegund **28-11-2022**, looptijd 28-11-2022 t/m 06-01-2023 | UK Contracts Finder API, notice `tender_339745/1160324`, opgehaald 25-07-2026 |
 
-Dit is de **enige** nPlan-gunning in de volledige Contracts Finder-database (1 hit op zoekterm "nplan"). Het betreft een korte, ~6 weken durende assurance-opdracht op één programma — niet een meerjarige platformlicentie. Het is niettemin de best beschikbare harde ankerwaarde.
+Dit is de **enige** nPlan-gunning in de volledige Contracts Finder-database (hertest 25-07-2026 via de API, zónder statusfilter: `hitCount: 1`). Het betreft een korte, ~6 weken durende assurance-opdracht op één programma — niet een meerjarige platformlicentie. Het is niettemin de best beschikbare harde ankerwaarde.
+
+> **Reikwijdtekanttekening (toegevoegd 25-07-2026).** "Enig openbaar bedrag" geldt **aantoonbaar alleen voor UK Contracts Finder**. De opvolger **Find a Tender Service (FTS)** kon niet worden uitgeput: de zoekfunctie daar werkt niet via een URL-parameter (een `?keywords=`-query levert dezelfde generieke resultatenset op voor "nPlan", "Primavera" én een onzin-term), dus een nulresultaat kon niet worden vastgesteld. Buitenlandse registers (AusTender, Canada, VS) zijn niet doorzocht. Behandel "het enige openbare bedrag" dus als *het enige gevonden* bedrag, niet als bewezen uniek.
 
 ### 3.4 Geschatte prijsstelling — **NADRUKKELIJK EEN SCHATTING**
 
@@ -177,7 +179,7 @@ Dit is de **enige** nPlan-gunning in de volledige Contracts Finder-database (1 h
 
 ### 3.5 Prijsanker van concurrenten (ter vergelijking — derde-partijschattingen, lage betrouwbaarheid)
 
-Uit ITQlick-afgeleide vergelijkingen (via zoekresultaat, 25-07-2026; ITQlick-cijfers zijn zelf schattingen):
+Uit ITQlick-afgeleide vergelijkingen (via zoekresultaat, 25-07-2026; ITQlick-cijfers zijn zelf schattingen). **Verificatiestatus 25-07-2026: ONBEVESTIGD.** Directe raadpleging van itqlick.com liep bij alle vier de productpagina's op **HTTP 403** (bot-blokkade), zowel via WebFetch als via curl met browser-user-agent. De onderstaande bedragen komen dus uit een zoeksnippet en zijn **niet aan de bron geverifieerd**; gebruik ze uitsluitend als ordegrootte-indicatie:
 
 - **Deltek Acumen Risk:** ca. **$10.300** eerste jaar.
 - **Safran Risk:** ca. **$14.000** over 3 jaar incl. onderhoud.
@@ -214,7 +216,7 @@ Conclusie: klassieke QSRA-desktoptools zijn **één tot twee ordes van grootte g
 
 ## 5. NADELEN
 
-1. **Volstrekt gesloten prijsstelling — geen enkel publiek prijspunt.** Geen prijspagina, geen G-Cloud-rate card, "contact sales" voor elk betaald product. Voor een publieke opdrachtgever betekent dat: elke aanschaf is maatwerkonderhandeling zonder benchmark. Het enige openbare bedrag ter wereld (voor zover vindbaar) is £60.756 voor zes weken assurance bij Houses of Parliament R&R — en dat was een **single tender action**, dus zonder concurrentie gegund. Vergelijken is praktisch onmogelijk.
+1. **Volstrekt gesloten prijsstelling — geen enkel publiek prijspunt.** Geen prijspagina, geen G-Cloud-rate card, "contact sales" voor elk betaald product. Voor een publieke opdrachtgever betekent dat: elke aanschaf is maatwerkonderhandeling zonder benchmark. Het enige gevonden openbare bedrag (aantoonbaar: enige treffer in UK Contracts Finder; Find a Tender kon niet worden uitgeput, zie §3.3) is £60.756 voor zes weken assurance bij Houses of Parliament R&R — en dat was een **single tender action**, dus zonder concurrentie gegund. Vergelijken is praktisch onmogelijk.
 
 2. **Geen resources, geen kosten — dus geen volledige projectbeheersing.** nPlan voorspelt uitsluitend **duren**. Geen resource levelling, geen resource-kritiek pad, geen kostenprognose, geen cash-flow, geen EVM. De motivering ("resource data is not consistently available in our dataset") is eerlijk maar verandert niets aan de consequentie: je hebt er altijd nog een volwaardig planningspakket én meestal een kostentool náást nodig. Voor wie tijd én geld in één model wil, is dit geen oplossing. (Vergelijk het Planning Planet-commentaar dat een systeem als Spider Project "real integration" van tijd, kosten, resources en risico's biedt, "not gathering different standalone components in a dashboard".)
 
@@ -254,7 +256,7 @@ Dit is voor een open-source, IFC-gebaseerde planner het meest relevante hoofdstu
 | **`.mpp`** | MS Project (binair) | **Niet genoemd, vrijwel zeker niet ondersteund** — de route is MS Project → XML | Afwezig in alle documentatie |
 | **CSV / XLSX / XLS** | Risicoregisters | Ondersteund, **alleen in AutoReport** | AutoReport-pagina |
 | **PDF / Word / PowerPoint / spreadsheets** | Contextdocumenten | Ondersteund in AutoReport en Schedule Studio (scope, charter, bill of quantities) | AutoReport- en Schedule-Studio-FAQ |
-| **IFC 4.3 (`IfcWorkSchedule`, `IfcTask`, `IfcWorkCalendar`, `IfcRelSequence`)** | openBIM | **NIET ONDERSTEUND — nergens genoemd** | Volledige sitemap (220+ URL's), 87 helpcentrum-artikelen, alle contract-PDF's: nul treffers op IFC/BIM/4D |
+| **IFC 4.3 (`IfcWorkSchedule`, `IfcTask`, `IfcWorkCalendar`, `IfcRelSequence`)** | openBIM | **NIET ONDERSTEUND — nergens genoemd** | Volledige sitemap (**170** URL's), 87 helpcentrum-artikelen, alle contract-PDF's: nul treffers op IFC/BIM/4D (onafhankelijk nageteld 25-07-2026) |
 
 Voor niet-ondersteunde formaten is het antwoord handmatig: *"If you use a different software that does not support .XER or .XML formats, send us a message and we will figure out a solution."*
 
@@ -365,7 +367,7 @@ Alle URL's geraadpleegd op **25 juli 2026**.
 17. Careers — https://www.nplan.io/careers
 18. Knowledge Base — https://www.nplan.io/knowledge-base
 19. Terms of Service (index van contractdocumenten) — https://www.nplan.io/terms-of-service
-20. Sitemap (220+ URL's; geverifieerd nul treffers op IFC/BIM/4D) — https://www.nplan.io/sitemap.xml
+20. Sitemap (**170** URL's, nageteld 25-07-2026; geverifieerd nul treffers op IFC/BIM/4D én nul treffers op `pricing`/`price`) — https://www.nplan.io/sitemap.xml
 
 ### Contractdocumenten (PDF, primair — belangrijk voor licentiemodel en datarechten)
 21. **Master Services Terms & Conditions 251210** — https://cdn.prod.website-files.com/65b3e9229ea906a76be3ac7f/6939d34634ef38e395733516_Master%20Services%20Terms%20%26%20Conditions%20251210.pdf (art. 3.5/3.6 datalicentie voor AI-training; art. 4 fees/Ordering Document; art. 5 termijn; art. 6 warranty disclaimer; art. 9 uptime 99,5% + service credits; art. 10 support-SLA)
@@ -430,3 +432,51 @@ Alle URL's geraadpleegd op **25 juli 2026**.
 68. TrustRadius — https://www.trustradius.com/products/nplan/reviews — HTTP 403
 69. SoftwareAdvice, SourceForge, Slashdot, F6S, Glassdoor — HTTP 403 of botdetectie
 70. Capterra / Gartner Peer Insights — geen nPlan-productpagina gevonden
+
+---
+
+## Verificatie
+
+Adversariële fact-check uitgevoerd op **25 juli 2026**. Methode: elke bewering is *actief geprobeerd te weerleggen* door de primaire bron opnieuw en zo mogelijk machinaal op te halen (Contracts Finder-API met POST, Zendesk Help Center-API, sitemap-XML, PDF-tekstextractie met pypdf, Companies House). Waar de oorspronkelijke bron een samenvatting of zoeksnippet was, is geprobeerd de onderliggende bron zelf te lezen.
+
+| # | Bewering | Oordeel | Bewijs / bron |
+|---|---|---|---|
+| 1 | Geen `/pricing`-pagina; geen publieke lijstprijs; alles "contact sales" | **Bevestigd** | `https://www.nplan.io/pricing` → **HTTP 404**. Sitemap: 0 URL's met `pricing`/`price`. `https://www.nplan.io/get-autoreport` zegt letterlijk *"we'll get in touch with pricing information"*, geen bedrag. |
+| 2 | nPlan staat **niet** op G-Cloud (geen verplichte rate card) | **Bevestigd** | Digital Marketplace: *"0 results found"* voor "nPlan" — https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/search?q=nPlan |
+| 3 | £60.756,17, Schedule Assurance Services, R&R Delivery Authority, single tender, gegund 28-11-2022, looptijd t/m 06-01-2023 | **Bevestigd (exact)** | Contracts Finder-API POST `search_notices/json`: `awardedValue: 60756.17`, `awardedSupplier: "nPlan Limited"`, `awardedDate: 2022-11-28`, `end: 2023-01-06`, `noticeIdentifier: tender_339745/1160324`, omschrijving bevat *"Single tender Action"*. |
+| 4 | Dit is de **enige** nPlan-gunning in Contracts Finder | **Bevestigd voor Contracts Finder / onzeker als algemene claim** | Herhaald **zonder** statusfilter: `hitCount: 1`. Maar Find a Tender (FTS) kon **niet** worden uitgeput — `?keywords=` wordt daar genegeerd (identieke resultatenset voor "nPlan", "Primavera" en een onzin-term), dus "enige ter wereld" is niet bewezen. Tekst in §3.3 en §5.1 hierop aangepast. — https://www.find-tender.service.gov.uk/Search/Results |
+| 5 | Schedule Integrity Checker: gratis, geen creditcard, **geen usage caps**, "we plan to keep it that way" | **Bevestigd (exacte citaten)** | Zendesk-artikel 11385168127773: *"completely free-to-use and we plan to keep it that way for the foreseeable future"*. Productpagina: *"No credit card needed now or later"* en *"Analyse as many schedules as you like, as many times as you like. We don't like irritating usage caps either"*. — https://www.nplan.io/products/schedule-integrity-checker |
+| 6 | Schedule Studio gratis te proberen zonder creditcard | **Bevestigd** | *"No obligation or credit card required to give it a test run!"* — https://www.nplan.io/page/schedule-studio-signup |
+| 7 | Insights Pro proefperiode **14 dagen** | **Bevestigd (contracttekst)** | PDF-tekstextractie: *"The free trial period will be for fourteen (14) days from the date that the free trial is activated."* — Insights Pro Free Trial T&Cs 240717 |
+| 8 | AutoReport-proef: "duur niet gespecificeerd" | **GECORRIGEERD → 14 dagen** | De AutoReport-PDF bevat **dezelfde** clausule: *"The free trial period will be for fourteen (14) days…"*. De oorspronkelijke bewering berustte op een niet-uitgelezen PDF (FlateDecode); na echte tekstextractie is de duur wél gespecificeerd. — AutoReport Free Trial Ts&Cs 240611 |
+| 9 | Licentiemodel: prijs/scope/Service Term/betaling in een per-klant onderhandeld **Ordering Document** | **Bevestigd (exacte definitie)** | MSTC v251210: *"Ordering Document means a document executed by both the Company and the Customer … [that] specifies the Services to be provided, including the scope, Service Term, Fees, payment terms…"* en *"In the event of any conflict between the Ordering Document and these Terms and Conditions, the Ordering Document sets out the order of precedence."* |
+| 10 | Facturatie 30 dagen; **1,5% rente per maand** bij te late betaling | **Bevestigd (exact)** | MSTC v251210: *"full payment for invoices … must be received by the Company thirty (30) days of invoice receipt"*; *"Unpaid amounts accrue interest at 1.5% per month or the maximum rate permitted by law, whichever is lower, plus collection costs."* |
+| 11 | "Geen perpetual licentie, geen on-premises optie" | **Onzeker — geherformuleerd als afleiding** | De woorden "perpetual" en "on-premise(s)" komen in de MSTC v251210 **niet voor**. Het contract regelt uitsluitend een "Cloud Service" met Service Term; de conclusie is dus een redelijke *inferentie*, geen contractbepaling. §3.2 hierop aangepast. |
+| 12 | Aparte contractvarianten voor Australië en Schedule Studio | **Bevestigd** | Beide PDF's bestaan en zijn apart gepubliceerd op nplan.io/terms-of-service (MSA AUS; `nPlan_SST_MSTCs.pdf`). |
+| 13 | Geen gepubliceerde staffel per gebruiker/project/portfolio | **Bevestigd** | Geen prijs-URL in de sitemap, geen prijstabel op enige productpagina, MSTC verwijst voor alle Fees door naar het Ordering Document. |
+| 14 | Schatting £15k–£40k / £50k–£150k / £150k–£500k+ per jaar | **Onzeker — expliciet als eigen afleiding gemarkeerd** | Geen enkele onafhankelijke bron gevonden die deze bandbreedtes bevestigt of weerlegt. De bestaande "NADRUKKELIJK EEN SCHATTING"-markering in §3.4 is correct en blijft staan. |
+| 15 | Concurrentprijzen via ITQlick (Acumen $10,3k; Safran $14k; PRA $10,8k; RiskyProject $13,3k) | **Onzeker — bron niet toegankelijk** | itqlick.com gaf **HTTP 403** op alle vier de productpagina's, zowel via WebFetch als via curl met browser-user-agent. Cijfers stammen uit een zoeksnippet en zijn niet aan de bron te verifiëren. Waarschuwing toegevoegd in §3.5. — https://www.itqlick.com/acumen/pricing |
+| 16 | **Geen IFC/BIM/4D-ondersteuning** — nul treffers in site, helpcentrum en contracten | **Bevestigd (machinaal nageteld)** | Alle 87 helpcentrum-artikelen opgehaald via de Zendesk Help Center-API en volledig doorzocht: **0** treffers op `ifc`, `IfcWork`, `BIM`, `4D`, `openBIM` in titel of body. Sitemap: 0 URL's met `ifc`/`bim`/`4d`. |
+| 17 | Aantal helpcentrum-artikelen = 87 | **Bevestigd** | Zendesk Help Center-API, gepagineerd: `TOTAL ARTICLES: 87`. |
+| 18 | Sitemap bevat "220+ URL's" | **GECORRIGEERD → 170** | `https://www.nplan.io/sitemap.xml` bevat **170** `<loc>`-entries (nageteld 25-07-2026). Aangepast in §2.3, §6.1 en bronvermelding 20. Het inhoudelijke punt (nul IFC/BIM/4D-treffers) blijft ongewijzigd geldig. |
+| 19 | Formaten: `.xer`, `.xml`, `.pp`/`.programme` ondersteund; **`.mpp` niet** | **Bevestigd** | Zendesk 18013236754205 (Schedule Integrity): *"\*.xer (P6), \*.pp (Asta Powerproject), \*.xml (MS Project)"*. Zendesk 360018903937: *"We support .XER (supported by P6, MS Project) and .XML (supported by P6)"*. Geen enkel artikel noemt `.mpp` (de enige `mpp`-substring-treffer was het woord "lamppost"). |
+| 20 | "Schedules in excess of 30,000 activities" | **Bevestigd (letterlijk)** | Zendesk 360019023378: *"We can easily work on projects with schedules in excess of 30,000 activities."* |
+| 21 | Schedule Studio exporteert rechtstreeks naar Primavera P6 met behoud van logica/duren/structuur | **Bevestigd** | *"Export your AI-generated schedule to P6 - instantly"*; *"Your logic, durations, and structure are preserved"* — https://www.nplan.io/page/schedule-studio-signup |
+| 22 | Datalicentie MSTC 3.5/3.6: gebruik van klantdata voor AI-modeltraining, **"during and after the term"** | **Bevestigd (exact)** | MSTC v251210: *"free (during and after the term) to (i) use Customer Data in aggregate or de-identified form for improving and enhancing the Services, developing artificial intelligence (AI) models…"* en 3.6: *"non-exclusive, royalty-free, worldwide licence … 3.6.2. enhancing or developing the Company's machine learning or AI models; and 3.6.3. generating insights and benchmarking analysis."* |
+| 23 | Uptimedoel 99,5%; service credits 5% / 10%; support-SLA Sev1 ≤1, Sev2 ≤2, Sev3 ≤5, Sev4 ≤15 werkdagen; "targets, not guarantees" | **Bevestigd (exact, alle vier de Sev-niveaus)** | MSTC v251210: *"Company targets a Cloud Service uptime … of 99.5%"*; *"5% when … less than 99.5% but equal to or greater than 99.0%"*, *"10% when … less than 99.0%"*; tabel: Sev1 *"≤ 1 business day / Within 3 business days"*, Sev2 *"≤ 2 business days / Within 10 business days"*, Sev3 *"≤ 5 business days"*, Sev4 *"≤ 15 business days"*; *"Resolution times are targets, not guarantees."* |
+| 24 | Exit: klantdata 30 dagen beschikbaar "in a form the Company deems appropriate" | **Bevestigd (exact)** | MSTC v251210: *"Upon any termination, the Company will make Customer Data available to the Customer in a form the Company deems appropriate for a period of thirty (30) days."* |
+| 25 | Eigendom/levenscyclus: NPLAN LIMITED, nr. 11043916, opgericht 02-11-2017, actief, laatste jaarrekening "total exemption full accounts" t/m 31-12-2024 | **Bevestigd** | Companies House: naam, nummer, oprichtingsdatum 2 nov 2017, status **Active**, accounts gedeponeerd 21-05-2025 voor periode eindigend 31-12-2024, type *"Total exemption full accounts"*; laatste confirmation statement 01-11-2025 (gedeponeerd 13-11-2025). Geen overname, geen liquidatie, geen beursnotering. — https://find-and-update.company-information.service.gov.uk/company/11043916 |
+| 26 | Series A **$18,5 mln** geleid door GV (2021) | **Bevestigd (leverancier)** | nplan.io/our-story: *"we raised Series A funding of $18.5m with a round led by GV"*. |
+| 27 | Series B **$16 mln**, okt 2025, lead CapHorn, met Chevron Technology Ventures, Suffolk Technologies, GV, Pentech, LocalGlobe | **Bevestigd via onafhankelijke bron** | Digital Construction Plus bevestigt $16 mln, lead **CapHorn**, deelnemers Chevron Technology Ventures, Suffolk Technologies, Google Ventures, Pentech Ventures, LocalGlobe. *Kleine datumnuance:* DCP dateert het bericht op 22 okt 2025, het persbericht/UK Tech News op 17 okt 2025 — publicatiedatums, geen tegenspraak. — https://digitalconstructionplus.com/nplan-secures-16m-to-scale-ai-project-de-risking-tech/ |
+| 28 | Dataset >750.000 planningen; "$2,5 trillion" capital spend | **Bevestigd als leveranciersclaim, incl. de gesignaleerde inconsistentie** | Onafhankelijk herhaald door Digital Construction Plus: *"over $2.5 trillion of capital spend"* en "750,000+ projects". nplan.io/our-story noemt "over 750,000 programmes". Dat de dataset elders als "$2 trillion"/"€2,5 trillion" en ">500,000" wordt beschreven (nadeel 10) blijft een terechte observatie — het is en blijft een **niet-onafhankelijk-verifieerbare** leveranciersopgave. |
+| 29 | TRU wil nPlan inzetten **in plaats van** QSRA over het hele programma | **Bevestigd (letterlijk)** | Persbericht 1 nov 2022: *"TRU intends to use nPlan rather than quantitative schedule risk analysis (QSRA) across its entire programme of works."* Let op: dit is een **intentie** van de klant in een leveranciers-persbericht, geen onafhankelijk bevestigde uitvoering. |
+| 30 | ISO 27001 en SOC 2 Type II | **Bevestigd als leveranciersclaim (niet onafhankelijk)** | Zendesk 11385200375837: *"We maintain the two highest levels of standards certification - for ISO27001 and SOC2 (Type II)"*. Geen certificaatnummer of certificerende instantie gepubliceerd; niet tegen een register te controleren. |
+| 31 | Geen verifieerbare onafhankelijke reviewbasis; G2 4,3/5 niet te verifiëren | **Bevestigd** | G2-productpagina gaf opnieuw **HTTP 403**. De rating blijft onverifieerbaar; de kanttekening vooraan het profiel is terecht. — https://www.g2.com/products/nplan/reviews |
+
+### Samenvattend oordeel van de fact-check
+
+- **Twee aantoonbare fouten gecorrigeerd:** de AutoReport-proefduur (is wél gespecificeerd: 14 dagen) en de sitemapomvang (170 in plaats van "220+").
+- **Drie beweringen afgezwakt naar onzeker:** "geen perpetual/on-premises" (inferentie, geen contracttekst), "enige openbare bedrag ter wereld" (alleen aantoonbaar voor Contracts Finder), en de ITQlick-concurrentprijzen (bron geeft 403).
+- **De prijskern houdt stand.** Het meest controversiële deel van het profiel — dat er nul publieke lijstprijzen bestaan, dat alles via een onderhandeld Ordering Document loopt, en dat £60.756,17 het enige harde openbare bedrag is — is bij hertoetsing op de primaire bronnen **volledig bevestigd**, inclusief de exacte contractclausules over fees, rente, datalicentie en SLA.
+- **De technische kernclaims houden stand.** De afwezigheid van IFC/BIM/4D is machinaal nageteld over alle 87 helpcentrum-artikelen en de volledige sitemap; de formaatlijst en de 30.000-activiteitengrens zijn letterlijk terug te vinden.
+- **Blijvende beperking:** vrijwel al het bewijs over accuratesse, besparingen en dataset-omvang is en blijft door nPlan zelf gepubliceerd. Geen enkele onafhankelijke bron valideert de prestatieclaims. De bestaande waarschuwing daarover in het profiel is niet te sterk geformuleerd — eerder te zwak.

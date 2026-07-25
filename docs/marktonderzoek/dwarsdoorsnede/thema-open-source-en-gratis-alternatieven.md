@@ -13,7 +13,9 @@ Het open-source landschap voor planningssoftware is **breed maar ondiep, en sche
 1. **Commercieel gefinancierde open-core platforms** (OpenProject, Odoo, Tuleap, Plane, Taiga) — gezond, actief, goed onderhouden, maar het zijn *werk- en taakmanagementsystemen*, geen planningsengines. Hun "Gantt" is een tijdlijnvisualisatie, geen CPM-solver met kalenders, constraints, float en resource-nivellering.
 2. **Klassieke desktop-planners met echte scheduling-diepte** (ProjectLibre, GanttProject, LibrePlan, Plan/KDE) — functioneel het dichtst bij MS Project/Primavera, maar structureel **onderfinancierd, traag en fragiel**. Dit is precies het segment waar open source het al twintig jaar niet redt.
 
-De harde cijfers maken het contrast pijnlijk zichtbaar. In de afgelopen 52 weken registreerde OpenProject **15.576 commits**; GanttProject **237**; LibrePlan **158** (waarvan slechts **6** in het laatste kwartaal). Bron: GitHub `/stats/participation`, opgehaald 25-7-2026.
+De harde cijfers maken het contrast pijnlijk zichtbaar. In de afgelopen 52 weken registreerde OpenProject **15.205 commits**; GanttProject **237**; LibrePlan **159** (waarvan **41** in het laatste kwartaal — en **0 in de laatste zes weken**). Bron: GitHub `/stats/participation`, opgehaald 25-7-2026.
+
+> **Correctie na verificatie (25-7-2026):** een eerdere versie van dit rapport meldde "6 commits in het laatste kwartaal" voor LibrePlan. Dat was een leesfout: de **6** is de waarde van één enkele week in het weekprofiel, niet het kwartaaltotaal. Het werkelijke totaal over de laatste 13 weken is **41**. De conclusie ("fragiel, bus-factor 1") blijft staan en wordt door het juiste cijfer eerder versterkt dan verzwakt — de activiteit is namelijk *volledig* naar nul gezakt in de laatste zes weken. Zie §Verificatie, punt V1.
 
 Vier bevindingen springen eruit:
 
@@ -92,18 +94,20 @@ Dit is de meest objectieve maatstaf die publiek beschikbaar is. Alle cijfers uit
 
 | Project | Commits laatste 52 wk | Waarvan laatste 13 wk | Sterren | Forks | Laatste push |
 |---:|---:|---:|---:|---:|---|
-| OpenProject | **15.576** | 4.925 | 15.663 | 3.379 | 2026-07-25 |
+| OpenProject | **15.205** | 4.771 | 15.666 | 3.381 | 2026-07-25 |
 | IfcOpenShell | **2.863** | 715 | 2.667 | 942 | 2026-07-25 |
-| Plane | **1.043** | ~87 | 55.026 | 5.103 | 2026-07-24 |
+| Plane | **1.043** | ~87 | 55.040 | 5.102 | 2026-07-25 |
 | Redmine (mirror) | **621** | 164 | 5.992 | 2.454 | 2026-07-25 |
-| MPXJ | **251** | 52 | 338 | 116 | 2026-07-24 |
+| MPXJ | **247** | 73 | 338 | 116 | 2026-07-24 |
 | GanttProject | **237** | 44 | 1.082 | 339 | 2026-07-18 |
-| LibrePlan | **158** | **6** | 347 | 181 | 2026-07-11 |
-| Odoo (monorepo) | n.b. | n.b. | 53.265 | 33.233 | 2026-07-25 |
-| Leantime | n.b. | n.b. | 11.063 | 1.079 | 2026-07-25 |
-| Kanboard | n.b. | n.b. | 9.742 | 1.980 | 2026-07-24 |
+| LibrePlan | **159** | **41** (0 in laatste 6 wk) | 347 | 181 | 2026-07-11 |
+| Odoo (monorepo) | n.b. | n.b. | 53.274 | 33.233 | 2026-07-25 |
+| Leantime | n.b. | n.b. | 11.071 | 1.079 | 2026-07-25 |
+| Kanboard | n.b. | n.b. | 9.741 | 1.980 | 2026-07-24 |
 | Taiga (kaleidos-ventures/taiga) | 0 | 0 | 564 | 83 | **2023-12-13** |
-| Open Planner Studio | n.b. | n.b. | **5** | 0 | actief |
+| Open Planner Studio | n.b. | n.b. | **5** | 0 | 2026-07-25 |
+
+> **Herhaalbaarheidsnoot (toegevoegd na verificatie).** Alle cijfers hierboven zijn bij hercontrole op 25-7-2026 opnieuw opgehaald en gecorrigeerd naar de op dat moment gemeten waarden. Twee dingen om te weten voordat je deze tabel als vast gegeven behandelt: (a) sterren en forks lopen dagelijks op, dus kleine verschillen met een eerdere meting zijn drift, geen fout; (b) `/stats/participation` is een **schuivend** venster van 52 weken — als er een week af valt en een week bij komt, verandert het totaal zonder dat er iets aan het project veranderd is. De 13-weken-kolom is daardoor het minst reproduceerbaar (MPXJ mat bij hercontrole 73 in plaats van 52). Gebruik deze tabel voor **orden van grootte**, niet voor exacte vergelijkingen tussen meetmomenten.
 
 ### Interpretatie — en drie waarschuwingen
 
@@ -111,7 +115,7 @@ Dit is de meest objectieve maatstaf die publiek beschikbaar is. Alle cijfers uit
 
 **Waarschuwing 2: het Taiga-cijfer is misleidend zonder context.** De repository `kaleidos-ventures/taiga` staat sinds 13-12-2023 stil en heeft **nul releases** ([releases.atom](https://github.com/kaleidos-ventures/taiga/releases.atom), leeg, 25-7-2026). Maar de klassieke backend `taigaio/taiga-back` is wél actief, met commits t/m **22 juli 2026** ([commits/main.atom](https://github.com/taigaio/taiga-back/commits/main.atom)). Taiga heeft dus een *architecturale herstart laten doodbloeden* en is teruggevallen op de oude codebase. Dat is een ander verhaal dan "verlaten", en een belangrijk waarschuwingssignaal over grote rewrites in vrijwilligersprojecten.
 
-**Waarschuwing 3: monorepo-commits zijn niet vergelijkbaar.** Odoo's cijfers en OpenProject's 15.576 commits bevatten vertalingen, CI-configuratie en dependency-bumps. Ik heb ze niet gefilterd. De **orde van grootte** is betekenisvol (15.576 vs. 158 is geen meetfout), de precieze verhouding niet.
+**Waarschuwing 3: monorepo-commits zijn niet vergelijkbaar.** Odoo's cijfers en OpenProject's 15.205 commits bevatten vertalingen, CI-configuratie en dependency-bumps. Ik heb ze niet gefilterd. De **orde van grootte** is betekenisvol (15.205 vs. 159 is geen meetfout), de precieze verhouding niet.
 
 ### De activiteitsklassen
 
@@ -119,7 +123,7 @@ Ik onderscheid drie regimes, met een expliciete drempelredenering:
 
 - **Industrieel (>1.000 commits/jaar):** OpenProject, IfcOpenShell, Plane. Betaalde ontwikkelaars. Voorspelbare releases. Veilig om op te bouwen.
 - **Onderhouden (100–1.000):** Redmine, MPXJ, GanttProject. Werkt, maar tempo is gebonden aan één tot enkele personen.
-- **Fragiel (<100 effectief):** LibrePlan (6 commits in het laatste kwartaal). Technisch levend, praktisch afhankelijk van één individu.
+- **Fragiel (sterk pulserend, met stilstand):** LibrePlan — 159 commits over het jaar, waarvan 41 in het laatste kwartaal, maar **nul in de laatste zes weken**. Technisch levend, praktisch afhankelijk van één individu. *(Merk op dat de drempel hier niet "<100 commits" is: LibrePlan haalt 159. Wat het project fragiel maakt is niet het jaartotaal maar het **patroon** — bursts afgewisseld met volledige stilstand, zonder onderliggende basiscadans. Zie §5.7 en §Verificatie V1.)*
 
 ---
 
@@ -154,7 +158,7 @@ Redenering — 779.618 downloads over 13 maanden. Desktopsoftware zonder auto-up
 
 **Verdienmodel:** desktop gratis en open source; inkomsten uit **ProjectLibre Cloud AI**, een proprietary SaaS. Prijzen worden **niet publiek gemaakt** — zowel `/pricing/` als de productpagina tonen geen bedragen, alleen "request a trial" met verplicht zakelijk e-mailadres ([projectlibre.com/product/projectlibre-cloud](https://www.projectlibre.com/product/projectlibre-cloud/), 25-7-2026). Dat is een klassiek enterprise-sales-signaal en tegelijk een transparantieprobleem.
 
-**Beoordeling:** ProjectLibre bewijst dat er **massale latente vraag** is naar een gratis MS Project-vervanger — 780.000 downloads per jaar is geen niche. Maar het bewijst óók dat downloadvolume zich niet vanzelf vertaalt in een duurzame organisatie: de desktopcode is in ruim een jaar niet vernieuwd (laatste bestandsupdate 30-4-2025) terwijl de aandacht naar de cloud-SaaS is verschoven.
+**Beoordeling:** ProjectLibre bewijst dat er **massale latente vraag** is naar een gratis MS Project-vervanger — ruim **730.000 downloads per jaar** is geen niche. *(Gecorrigeerd: de 779.618 downloads beslaan 1-7-2025 t/m 25-7-2026, dus 12,8 maanden, niet twaalf. Op jaarbasis is dat 779.618 ÷ 12,8 × 12 ≈ **731.000**, niet "780.000 per jaar" zoals een eerdere versie stelde — een overschatting van circa 7%. De orde van grootte, en dus het argument, verandert niet.)* Maar het bewijst óók dat downloadvolume zich niet vanzelf vertaalt in een duurzame organisatie: de desktopcode is in ruim een jaar niet vernieuwd (laatste bestandsupdate 30-4-2025) terwijl de aandacht naar de cloud-SaaS is verschoven.
 
 ### 5.2 GanttProject — het gedisciplineerde kleine project
 
@@ -174,11 +178,11 @@ Releasehistorie ([releases.atom](https://github.com/bardsoftware/ganttproject/re
 
 **Adoptie:** de SourceForge-distributie telt **231 downloads per week** ([sourceforge.net/projects/ganttproject](https://sourceforge.net/projects/ganttproject/), 25-7-2026) — ruwweg **1,2% van ProjectLibre's 19.762**. Let op: GanttProject distribueert primair via de eigen site, dus dit onderschat het werkelijke volume aanzienlijk. Het is een *ondergrens*, geen totaal.
 
-**Beoordeling:** met 237 commits/jaar en een release-interval van 8–18 maanden is dit een **beheerst, duurzaam eenmansbedrijfsproject**. Geen groeiverhaal, maar ook geen sterfgeval: al twintig jaar levend. Functioneel dekt het WBS, afhankelijkheden, basiskalenders en resource-toewijzing — maar niet de diepte van MS Project (geen volwaardige constraint-typen, beperkte nivellering, geen baseline-vergelijking op het niveau van commerciële tools).
+**Beoordeling:** met 237 commits/jaar en een release-interval dat volgens de eigen releasefeed varieert van **circa 4 tot 22 maanden** is dit een **beheerst, duurzaam eenmansbedrijfsproject**. *(Gecorrigeerd: een eerdere versie sprak van "8–18 maanden". Dat is met de bovenstaande tabel niet te rijmen: 3.2.3200 → 3.3.3300 duurde 22 maanden, 3.3.3300 → 3.3.3309 slechts 4,5 maanden. De spreiding is dus groter en onregelmatiger dan gesuggereerd.)* Let ook op een inconsistentie aan de bronkant: `ganttproject.biz` noemt als "Latest update: 30 Jan, 2025", terwijl de GitHub-releasefeed een nieuwere build toont (3.3.3316, 7-12-2025). Dat is een verouderde leverancierspagina, geen tegenstrijdige meting. Geen groeiverhaal, maar ook geen sterfgeval: al twintig jaar levend. Functioneel dekt het WBS, afhankelijkheden, basiskalenders en resource-toewijzing — maar niet de diepte van MS Project (geen volwaardige constraint-typen, beperkte nivellering, geen baseline-vergelijking op het niveau van commerciële tools).
 
 ### 5.3 OpenProject — het gezondste open-core platform, maar geen planner
 
-Met **15.576 commits in 52 weken** is OpenProject veruit het actiefste project in dit onderzoek. GPL-3.0, Duits (OpenProject GmbH). Releasecadans is strak maandelijks: v17.6.0 (8-7-2026), v17.5.1 (15-6-2026), v17.5.0 (10-6-2026).
+Met **15.205 commits in 52 weken** is OpenProject veruit het actiefste project in dit onderzoek. GPL-3.0, Duits (OpenProject GmbH). Releasecadans is strak maandelijks: v17.6.0 (8-7-2026), v17.5.1 (15-6-2026), v17.5.0 (10-6-2026).
 
 **Prijsstructuur** ([openproject.org/pricing](https://www.openproject.org/pricing/), 25-7-2026) — HARD:
 
@@ -199,7 +203,7 @@ Meerjarige contracten geven korting ("5 months free for 2-year, 11 months free f
 - **Baselines: half in Community.** Letterlijk: *"Set a project baseline and compare changes with yesterday. The full baseline feature, which allows comparisons with any date (range), is part of the Enterprise version."* Je krijgt de functie, maar met een kunstmatig venster van één dag.
 - **SSO: Enterprise-only.** Klassiek — de functie die alleen grote organisaties nodig hebben.
 - **2FA, custom fields, boards, tijdregistratie, kosten: Community.**
-- **BIM (IFC-viewer, BCF-beheer, Revit-integratie): betaalde add-on.**
+- **BIM (IFC-viewer, BCF-beheer): betaalde add-on.** *(Nuance na verificatie: de Revit-integratie wordt op de BIM-pagina aangekondigd als "to come soon" en is dus nog niet beschikbaar; een eerdere versie noemde haar als bestaande functie.)*
 
 Dit is een goed uitgevoerd open-core-model: de individuele gebruiker krijgt een compleet product, de organisatie betaalt voor governance, integratie en schaal. De "baseline-met-één-dag"-truc is de meest expliciete illustratie die ik in dit hele onderzoek ben tegengekomen van hoe open core *precies* de grens legt waar de betalingsbereidheid begint.
 
@@ -217,12 +221,14 @@ GPLv2, sinds 2006, oorspronkelijk van Jean-Philippe Lang. Het officiële reposit
 
 | Versie | Datum | Status |
 |---|---|---|
-| **7.0.0** | **2026-06-30** | Laatste stabiele |
-| 6.1.3 | 2026-06-15 | Onderhouden |
-| 6.0.10 | 2026-06-15 | Onderhouden |
-| 5.1.13 | 2026-06-15 | Onderhouden |
+| **7.0.0** | **2026-06-30** | Laatste stabiele (nieuwe features, bugfixes, security) |
+| 6.1.3 | 2026-06-15 | Alleen bugfixes + security |
+| 6.0.10 | 2026-06-15 | Alleen kritieke security-updates |
+| 5.1.13 | 2026-06-15 | **Unsupported** (niet meer onderhouden) |
 
-Vier parallel onderhouden versielijnen, met een major release in juni 2026 — dat is disciplinair beter dan de meeste commerciële producten. 621 commits/jaar via de mirror.
+*(Gecorrigeerd: een eerdere versie merkte alle drie de oudere lijnen aan als "Onderhouden". De downloadpagina onderscheidt ze expliciet, en 5.1.x staat er als **unsupported**. Er zijn dus drie ondersteunde lijnen, niet vier.)*
+
+Drie ondersteunde versielijnen (7.0.x, 6.1.x, 6.0.x) plus één uitgefaseerde, met een major release in juni 2026 — dat is disciplinair beter dan de meeste commerciële producten. 621 commits/jaar via de mirror.
 
 **Plugin-ecosysteem** — het echte verhaal. De officiële plugindirectory telt **1.306 plugins** verdeeld over 131 pagina's ([redmine.org/plugins](https://www.redmine.org/plugins?page=20), 25-7-2026). Dit is de grootste extensie-economie in het open-source planningslandschap, en het draagt Redmine's tekortkomingen: Gantt-verbeteringen, agile boards, en CRM zitten allemaal in plugins.
 
@@ -288,7 +294,9 @@ LibrePlan is AGPL-3.0, een Java-webapplicatie, oorspronkelijk gefinancierd door 
 | libreplan-1.4.0 | 2013-04-29 | |
 | libreplan-1.3.3 | 2012-12-21 | |
 
-Elf jaar stilte, dan twee releases in dertig dagen. Het commitpatroon bevestigt het beeld: 158 commits in 52 weken, maar het weekprofiel `[...,0,0,0,37,3,3,0,9,11,12,7,16,20,11,2,2,0,0,6,0,0,0,0,0,0]` toont een **burst in het midden van het jaar en daarna stilte** — slechts **6 commits in het laatste kwartaal**.
+Elf jaar stilte, dan twee releases in dertig dagen. Het commitpatroon bevestigt het beeld: 159 commits in 52 weken, met het weekprofiel `[...,1,3,0,37,3,3,0,9,11,12,7,16,20,11,2,2,0,0,6,0,0,0,0,0,0]`. Dat toont een **burst rond de 1.6.0/1.6.1-releases en daarna stilte**: 41 commits in het laatste kwartaal, en **nul in de laatste zes weken**.
+
+*(Correctie: een eerdere versie las hier "slechts 6 commits in het laatste kwartaal". De 6 in het weekprofiel is de waarde van één week, niet het kwartaaltotaal; 13 weken sommeren tot 41. Het narratief verandert niet — de zes aaneengesloten nulweken aan het eind zijn zelfs een scherper signaal dan het oorspronkelijke, foute getal.)*
 
 **Verdienmodel:** uitsluitend donaties. De site zegt letterlijk: *"funded only by donations from people like you"* en *"Without you, LibrePlan can't exist"* ([libreplan.dev](https://www.libreplan.dev/), 25-7-2026).
 
@@ -302,7 +310,9 @@ Onderdeel van de KDE Calligra-suite, GPL, C++. Het huidige repository op `invent
 
 Plan is functioneel serieus — het heeft taakafhankelijkheden, resource-toewijzing, kritiek pad en kostenberekening. Maar het lijdt aan een dubbele marginalisatie: het is (a) desktop-only in een SaaS-tijdperk en (b) gebonden aan de Calligra-suite, die zelf ver achterloopt op LibreOffice. Het is geen actief gepromoot product.
 
-*Bronbeperking:* ik kon geen recente release- of commitdatums vaststellen — `apps.kde.org/plan/` gaf HTTP 404 (25-7-2026) en de GitLab-instantie toonde de timestamps niet in de opgehaalde inhoud. **Ik kan de huidige onderhoudsstatus van Plan dus niet hard vaststellen.** Op basis van de 404 op de officiële appspagina vermoed ik dat het product niet langer als zelfstandige applicatie wordt gepromoot, maar dat is een **SCHATTING** die ik niet kon bevestigen.
+> **Gecorrigeerd na verificatie — Plan is wél actief in onderhoud.** Een eerdere versie van deze paragraaf stelde dat de onderhoudsstatus niet vast te stellen was, en vermoedde op grond van een HTTP 404 op `apps.kde.org/plan/` dat het product was afgestoten. Dat vermoeden is **onjuist gebleken**. Via de GitLab-API van KDE (`invent.kde.org/api/v4/projects/office%2Fcalligraplan/repository/commits`) zijn recente commits opgehaald: **22-7-2026** ("GIT_SILENT Sync po/docbooks with svn"), **14-7-2026** ("reactivate tjscheduler plugin on Windows" en "fix unit test 2: 'TaskJugglerTester'"), **13-7-2026** ("CI - Flatpak - Update Runtime to 6.11") en 7-7-2026. Dat is geen vertaal- of botverkeer alleen: er wordt in juli 2026 aan de **TaskJuggler-scheduler-plugin** en aan de bijbehorende unittests gewerkt — precies het planningsdeel van de applicatie. Een 404 op een marketingpagina is dus geen bewijs van een dood project; het is bewijs van een verhuisde marketingpagina. Zie §Verificatie V3.
+
+*Resterende bronbeperking:* er zijn nog steeds geen recente **releases** vastgesteld (alleen commits). Actief onderhoud aan de codebase en een actieve releasecadans zijn niet hetzelfde; de conclusie "institutioneel maar marginaal" blijft daarom overeind, maar de onderbouwing verschuift van "waarschijnlijk verlaten" naar "levend maar zonder zichtbare productdistributie".
 
 ### 5.9 MPXJ — het onbetwiste open-source succes
 
@@ -314,11 +324,13 @@ Dit is het project dat als enige in dit landschap onbetwistbaar geslaagd is, en 
 
 | Versie | Datum | | Versie | Datum |
 |---|---|---|---|---|
-| v16.5.0 | 2026-07-03 | | v16.0.0 | 2026-03-11 |
-| v16.4.1 | 2026-06-22 | | v15.3.1 | 2026-02-06 |
-| v16.4.0 | 2026-06-10 | | v15.3.0 | 2026-02-02 |
-| v16.3.0 | 2026-06-01 | | v15.2.0 | 2026-01-13 |
-| v16.2.0 | 2026-05-12 | | | |
+| v16.5.0 | 2026-07-03 | | v16.1.0 | 2026-04-04 |
+| v16.4.1 | 2026-06-22 | | v16.0.0 | 2026-03-11 |
+| v16.4.0 | 2026-06-10 | | v15.3.1 | 2026-02-06 |
+| v16.3.0 | 2026-06-01 | | v15.3.0 | 2026-02-02 |
+| v16.2.0 | 2026-05-12 | | v15.2.0 | 2026-01-13 |
+
+*(Aangevuld na verificatie: **v16.1.0 (4-4-2026)** ontbrak in de oorspronkelijke tabel, waardoor die negen releases toonde terwijl de tekst — terecht — tien releases claimde. Met v16.1.0 erbij kloppen tekst en tabel weer.)*
 
 Bron: [releases.atom](https://github.com/joniles/mpxj/releases.atom), 25-7-2026. Maven Central bevestigt 16.5.0 als actuele publicatie ([central.sonatype.com](https://central.sonatype.com/artifact/net.sf.mpxj/mpxj), 25-7-2026).
 
@@ -326,7 +338,7 @@ Bron: [releases.atom](https://github.com/joniles/mpxj/releases.atom), 25-7-2026.
 
 Het **schrijft**: MPX, MSPDI, PMXML, XER, Planner, SDEF.
 
-Beschikbaar voor **Java, .NET (via IKVM), Python en Ruby**.
+Beschikbaar voor **Java, .NET (via IKVM), Python, Ruby (Gem) en PHP (via de PHP/Java Bridge)**. *(Aangevuld: PHP ontbrak in de oorspronkelijke opsomming; mpxj.org noemt het expliciet.)*
 
 **Waarom dit werkt terwijl applicaties falen — mijn analyse:**
 
@@ -364,7 +376,7 @@ Bronnen: GitHub API en projectpagina's, 25-7-2026. [Plane pricing](https://plane
 
 | Model | Voorbeelden | Werkt het? | Bewijs |
 |---|---|---|---|
-| **Open core (feature-gating)** | OpenProject, Odoo, Plane, Leantime | **Ja, bewezen** | Odoo €282 mln omzet (2023); OpenProject 15.576 commits/jr |
+| **Open core (feature-gating)** | OpenProject, Odoo, Plane, Leantime | **Ja, bewezen** | Odoo €282 mln omzet (2023); OpenProject 15.205 commits/jr |
 | **Betaalde SaaS naast gratis desktop** | ProjectLibre, GanttProject | Deels — desktop stagneert | ProjectLibre-desktop niet geüpdatet sinds 30-4-2025 |
 | **Enterprise support/quote-based** | Tuleap | Onbekend (geen data) | Geen publieke prijzen |
 | **Pure donaties** | LibrePlan, IfcOpenShell/Bonsai | **Nee, structureel ontoereikend** | LibrePlan: 11 jaar geen release. IfcOpenShell: ~$25,6k/jaar |
@@ -388,7 +400,9 @@ Dit verdient een aparte behandeling, omdat het voor een nieuw open-source projec
 
 **Deze cijfers verdienen het om te blijven hangen.** IfcOpenShell is de fundamentele open-source IFC-bibliotheek — gebruikt door Bonsai/BlenderBIM, door onderzoekers wereldwijd, door commerciële producten. Het levert 2.863 commits per jaar. En het jaarbudget is **$25.620** — minder dan één junior ontwikkelaar in West-Europa kost.
 
-Ter vergelijking: één OpenProject Enterprise Premium-contract voor 100 gebruikers levert €15,95 × 100 × 12 = **€19.140 per jaar** op. Eén contract. Het hele open BIM-ecosysteem draait op ongeveer het equivalent van anderhalve zulke deal.
+Ter vergelijking: één OpenProject Enterprise Premium-contract voor 100 gebruikers levert €15,95 × 100 × 12 = **€19.140 per jaar** op. Eén contract. Het hele open BIM-ecosysteem draait op ongeveer het equivalent van **1,2 zulke deals**.
+
+*(Gecorrigeerd: een eerdere versie zei "anderhalve zulke deal" en vergeleek daarbij dollars rechtstreeks met euro's. $25.620,18 is bij een koers van ~1,09 ongeveer **€23.500**; €23.500 ÷ €19.140 = **1,23**. Zelfs zonder valuta-omrekening kom je op 1,34 — in geen van beide gevallen op anderhalf. Het punt wordt er niet zwakker op: het gaat nog steeds om **één enkel middelgroot softwarecontract** tegenover de financiering van de complete open-source-IFC-infrastructuur.)*
 
 **Conclusie:** donaties financieren *betrokkenheid*, geen *ontwikkeling*. Ze zijn geschikt als aanvulling of als signaal van goodwill, nooit als primaire financieringsbron voor een product dat met commerciële software moet concurreren. Elk plan dat op donaties rekent, moet uitgaan van orde-grootte $10k–50k per jaar — niet meer.
 
@@ -460,7 +474,9 @@ Het bewijs zit in MPXJ's bestaan: er was zoveel behoefte aan formaatvertaling da
 
 Een CPM-solver die correct omgaat met kalenders, negatieve lags, constraint-conflicten, gesplitste taken en resource-nivellering is **honderden mensmaanden werk zonder enige visuele beloning**. Het is precies het soort werk dat vrijwilligers níet doen: er is geen screenshot die indruk maakt, geen Hacker News-post, geen ster.
 
-De data bevestigen het: de projecten mét CPM (ProjectLibre, LibrePlan, Plan) zijn allemaal ooit **institutioneel gefinancierd** (respectievelijk via Projity's commerciële voorganger, de Galicische innovatiestichting, en KDE). Geen enkele is spontaan uit een community ontstaan. En alle drie stagneerden toen de financiering wegviel.
+De data bevestigen het: de projecten mét CPM (ProjectLibre, LibrePlan, Plan) zijn allemaal ooit **institutioneel gefinancierd** (respectievelijk via Projity's commerciële voorganger, de Galicische innovatiestichting, en KDE). Geen enkele is spontaan uit een community ontstaan.
+
+*(Gecorrigeerd na verificatie: een eerdere versie voegde hieraan toe "en alle drie stagneerden toen de financiering wegviel". Dat geldt aantoonbaar voor ProjectLibre (desktop sinds 30-4-2025 niet vernieuwd) en LibrePlan (elf jaar geen release), maar **niet** voor Plan/KDE, dat in juli 2026 actieve commits kent, inclusief werk aan de schedulerplugin — zie §5.8 en §Verificatie V3. Het patroon "institutionele financiering, daarna stilstand" is dus twee van de drie, niet drie van de drie. Dat verzwakt de generalisatie, en het is bovendien opvallend dat juist het project dat níet van een aflopende projectsubsidie afhing maar van een **permanente vrijwilligersgemeenschap** het langste doorloopt — een aanwijzing die het rapport in §12.2 Risico 1 eigenlijk zou moeten meewegen.)*
 
 Omgekeerd: alles wat wél spontaan uit communities ontstaat — Kanban-borden, issue trackers, tijdlijnen — heeft **geen planningsengine**. Plane (55.026 sterren), Leantime, Vikunja, Worklenz: nul CPM.
 
@@ -488,7 +504,7 @@ Planners worden opgeleid in P6 en MS Project; vacatures vragen erom; certificeri
 
 ### 9.7 Fragmentatie en het ontbreken van een schelpunt *(deels onderbouwd)*
 
-Er zijn tientallen open-source planningsprojecten, geen enkele met kritieke massa. De activiteitstabel in §4 laat een lange staart zien waarin geen enkele desktop-planner boven 250 commits/jaar komt. Vergelijk met de webwereld, waar één project (OpenProject) 15.576 commits haalt.
+Er zijn tientallen open-source planningsprojecten, geen enkele met kritieke massa. De activiteitstabel in §4 laat een lange staart zien waarin geen enkele desktop-planner boven 250 commits/jaar komt. Vergelijk met de webwereld, waar één project (OpenProject) 15.205 commits haalt.
 
 Verzwarend: Tuleap ontbreekt volledig op GitHub (§5.5) en Taiga heeft zijn eigen rewrite laten stranden (§4). De ontdekbaarheid en het vertrouwen die uit een geconcentreerd ecosysteem voortkomen, ontbreken hier.
 
@@ -500,16 +516,36 @@ Dit is het segment dat er voor de opdrachtgever werkelijk toe doet, en het verdi
 
 ### 10.1 De normatieve basis is nu open
 
-**IFC is een officiële internationale norm: ISO 16739-1:2024** ([Wikipedia/IFC](https://en.wikipedia.org/wiki/Industry_Foundation_Classes), 25-7-2026 — ik kon iso.org zelf niet ophalen, HTTP 403, en buildingsmart.org gaf eveneens 403; het ISO-nummer is dus via een secundaire bron bevestigd). De meest recente specificatie is **IFC4.3 Add2 (2024)**.
+**IFC is een officiële internationale norm: ISO 16739-1:2024.** Dit is bij verificatie **primair bevestigd** via een onafhankelijke normendistributeur (EVS, het Estse normalisatie-instituut): designatie `ISO 16739-1:2024`, titel *"Industry Foundation Classes (IFC) for data sharing in the construction and facility management industries — Part 1: Data schema"*, **publicatiedatum 22-3-2024** ([evs.ee](https://www.evs.ee/en/iso-16739-1-2024), 25-7-2026). De scope noemt expliciet de toevoeging van *"information required for infrastructure facilities including bridges, roads, railways, waterways and port facilities"* — dat is precies wat IFC 4.3 kenmerkt. De meest recente formele specificatie is **IFC4.3 Add2 (2024)**.
+
+> **Belangrijke correctie op de normhistorie.** Een eerdere versie van dit rapport suggereerde dat de ISO-status van IFC nieuw is en dat dáármee de barrière uit §9.1 wegvalt. Dat klopt niet. De normreeks loopt aantoonbaar veel verder terug:
+>
+> | Norm | Gepubliceerd | Status |
+> |---|---|---|
+> | **ISO 16739:2013** | 21-3-2013 | Ingetrokken 11-1-2019 ([evs.ee](https://www.evs.ee/en/iso-16739-2013)) |
+> | **ISO 16739-1:2018** | 23-11-2018 | Ingetrokken 22-3-2024 ([evs.ee](https://www.evs.ee/en/iso-16739-1-2018)) |
+> | **ISO 16739-1:2024** | 22-3-2024 | Geldig ([evs.ee](https://www.evs.ee/en/iso-16739-1-2024)) |
+>
+> IFC is dus al **sinds maart 2013** een volwaardige ISO-norm, niet sinds 2024. Wat 2024 toevoegt is infrastructuurdekking, niet de openheid zelf.
 
 Belangrijker: IFC 4.3 bevat een **volwaardig planningsdatamodel**. De officiële documentatie definieert:
 
 > *"An IfcWorkSchedule represents a task schedule of a work plan, which in turn can contain a set of schedules for different purposes."*
 > — [ifc43-docs.standards.buildingsmart.org/IfcWorkSchedule](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkSchedule.htm), 25-7-2026
 
-Het model omvat `IfcWorkSchedule` (met `CreationDate`, `Creators`, `Purpose`, `Duration`, `StartTime`, `FinishTime`, `PredefinedType`), gekoppeld aan taken via `IfcRelAssignsToControl`, met nesting via `IfcRelAggregates`/`IfcRelNests`. Een detail dat implementeerders vaak missen en dat de documentatie expliciet maakt: *"a work calendar shall be assigned to the summary task and not the work schedule"* — de kalender hangt aan de summary task, niet aan het schema.
+Het model omvat `IfcWorkSchedule` (met `CreationDate`, `Creators`, `Purpose`, `Duration`, `TotalFloat`, `StartTime`, `FinishTime`, `PredefinedType`), gekoppeld aan taken via `IfcRelAssignsToControl`, met nesting via `IfcRelAggregates`/`IfcRelNests`. Beide citaten in deze paragraaf zijn woordelijk geverifieerd tegen de officiële documentatie. Een detail dat implementeerders vaak missen en dat de documentatie expliciet maakt: *"Please note that a work calendar shall be assigned to the summary task and not the work schedule"* — de kalender hangt aan de summary task, niet aan het schema.
 
-**Dit is de structurele breuk met §9.1.** Voor het eerst in de geschiedenis van dit marktsegment is het uitwisselformaat voor planning **een open ISO-norm** in plaats van een gereverse-engineerd binair formaat. De belangrijkste historische reden waarom open source hier faalde, is daarmee weggevallen.
+> **Correctie: het planningsdatamodel is níet nieuw in IFC 4.3.** De entiteitspagina's van buildingSMART geven de introductieversie letterlijk:
+> - `IfcWorkSchedule` — *"HISTORY New entity in IFC2.0."* (met `PredefinedType` toegevoegd in IFC4)
+> - `IfcWorkCalendar` — *"HISTORY New entity in IFC4."*
+>
+> Het scheduling-datamodel bestaat dus al sinds IFC2.0 (schema) respectievelijk IFC4 (kalenders), en is **sinds ISO 16739:2013 genormaliseerd**. IFC 4.3 verfijnt het, maar introduceert het niet.
+
+**Wat dit betekent voor de these van §9.1 — herzien.** De oorspronkelijke formulering ("voor het eerst in de geschiedenis van dit marktsegment is het uitwisselformaat voor planning een open ISO-norm") is **feitelijk onjuist** en is hier vervangen. Een open, ISO-genormaliseerd planningsdatamodel bestaat al ruim tien jaar. Dat dwingt tot een eerlijker en preciezer argument:
+
+- Het is **niet** zo dat de barrière uit §9.1 in 2024 wegviel. Als de enkele beschikbaarheid van een open norm voldoende was geweest, was het gat tussen 2013 en 2026 gevuld — en dat is niet gebeurd.
+- Wat er *wél* veranderd is, is niet de norm maar het **ecosysteem eromheen**: een volwassen open implementatie (IfcOpenShell, 2.863 commits/jaar), infrastructuurdekking in 4.3, en breed groeiende IFC-eisen bij opdrachtgevers.
+- Voor de opdrachtgever is dat een **zwakker maar betrouwbaarder** fundament dan het oorspronkelijke rapport suggereerde: IFC-native persistentie is verdedigbaar op grond van toolketen en opdrachtgeverseisen, **niet** op grond van "de norm is eindelijk open". Dat laatste argument valt niet te verdedigen tegenover een goed geïnformeerde criticus, en het is beter het nu te laten vallen dan het in een investeringsgesprek te verliezen.
 
 ### 10.2 Wat er al bestaat — en wat niet
 
@@ -542,8 +578,8 @@ Ik som ze op zodat de lezer weet waar dit rapport dun is.
 
 1. **Geen analistenbronnen.** Gartner, Forrester en IDC-materiaal ontbreekt volledig (zoekbudget uitgeput, §2.2). Elke uitspraak over marktaandeel in dit rapport is afgeleid, niet gemeten.
 2. **Geen aanbestedingsdocumenten.** De hypothese dat contracten P6/MSP voorschrijven (§9.5) is onbevestigd. Dit is potentieel de belangrijkste barrière voor Open Planner Studio en verdient gericht vervolgonderzoek.
-3. **ISO 16739-1:2024 via secundaire bron.** iso.org gaf HTTP 403. Nummer en jaartal zijn via Wikipedia bevestigd; ik acht ze betrouwbaar maar niet primair geverifieerd.
-4. **Status van Plan (KDE) onvaststelbaar.** `apps.kde.org/plan/` geeft 404; ik kon geen recente release- of commitdatum vinden (§5.8).
+3. ~~**ISO 16739-1:2024 via secundaire bron.**~~ **OPGELOST.** iso.org blijft 403, maar de norm is bevestigd via de onafhankelijke normendistributeur EVS: ISO 16739-1:2024, gepubliceerd 22-3-2024, inclusief de voorgangers ISO 16739:2013 en ISO 16739-1:2018. Dit bracht tegelijk een **inhoudelijke fout** aan het licht (§10.1): IFC is al sinds 2013 ISO-genormaliseerd, niet sinds 2024.
+4. ~~**Status van Plan (KDE) onvaststelbaar.**~~ **OPGELOST — en het vermoeden was fout.** Via de KDE GitLab-API zijn commits van 7, 13, 14 en 22 juli 2026 vastgesteld, inclusief werk aan de TaskJuggler-schedulerplugin. Plan wordt actief onderhouden (§5.8).
 5. **Tuleap grotendeels ondoorzichtig.** Geen publieke prijzen, geen GitHub-bronrepo, geen releasecadans vastgesteld. Alle vier de release-notes-URL's die ik probeerde gaven 404. De Tuleap-analyse in §5.5 is daardoor de zwakst onderbouwde in dit rapport.
 6. **Odoo-medewerkersaantal inconsistent.** 2.200 (2023, Wikipedia) versus "8.000+" (2026, eigen site). Definitieverschil waarschijnlijk; niet opgelost.
 7. **Commit-tellingen zijn ongefilterd.** Inclusief merges, vertalingen, dependency-bumps. Bruikbaar als orde van grootte, niet als productiviteitsmaat.
@@ -560,7 +596,9 @@ Open Planner Studio positioneert zich exact op het snijvlak dat dit onderzoek al
 
 **1. De positie is werkelijk onbezet.** Geen enkel project in dit landschap combineert CPM met IFC-native opslag. OpenProject BIM heeft IFC zonder planning; ProjectLibre en LibrePlan hebben planning zonder IFC; IfcOpenShell `ifc4d` heeft conversie zonder applicatie; Bonsai heeft ambitie met onvoltooide documentatie. Dat is een zeldzaam schoon wit vlak.
 
-**2. IFC-als-bestandsformaat is de strategisch juiste gok.** §9.1 identificeerde het gesloten uitwisselformaat als de historische hoofdoorzaak van het falen van open source in dit segment. IFC 4.3 als ISO 16739-1:2024, met `IfcWorkSchedule`/`IfcTask`/`IfcRelSequence`/`IfcWorkCalendar`, verwijdert die barrière. **Open Planner Studio's keuze om IFC als native persistentie te gebruiken — geen JSON-projectformaat ernaast — is niet alleen elegant maar structureel het enige verdedigbare antwoord op de reden waarom vorige pogingen faalden.**
+**2. IFC-als-bestandsformaat is een verdedigbare gok — maar niet om de reden die hier eerst stond.** *(Herzien na verificatie; zie §10.1 en §Verificatie V2.)* De oorspronkelijke redenering luidde: §9.1 wees het gesloten uitwisselformaat aan als hoofdoorzaak van het falen, en ISO 16739-1:2024 "verwijdert die barrière". Die redenering houdt geen stand. IFC is al ISO-norm sinds **ISO 16739:2013**, en `IfcWorkSchedule` bestaat sinds **IFC2.0**, `IfcWorkCalendar` sinds **IFC4**. De open norm was er dus ruimschoots vóór 2024, en er is in die dertien jaar géén open-source IFC-native planner ontstaan.
+
+Dat is een **ongemakkelijk maar belangrijk signaal**: de beschikbaarheid van een open norm is aantoonbaar *niet voldoende* om dit gat te vullen. Wie de positie wil claimen, moet uitleggen wat er nú anders is. De eerlijke antwoorden zijn: (a) een volwassen open IFC-implementatie die er in 2013 nog niet was (IfcOpenShell, 2.863 commits/jaar), (b) infrastructuurdekking in 4.3 die de norm pas bruikbaar maakt voor GWW-planning, en (c) IFC-eisen die inmiddels door opdrachtgevers worden gesteld in plaats van door leveranciers aangeboden. Die drie zijn te onderbouwen; "de norm is eindelijk open" niet. **De architectuurkeuze zelf — IFC als native persistentie, geen JSON-formaat ernaast — blijft verdedigbaar; alleen de rechtvaardiging ervoor moet anders geformuleerd.**
 
 **3. De vraag is aantoonbaar aanwezig.** ProjectLibre's 779.618 downloads in dertien maanden bewijzen dat er honderdduizenden mensen per jaar actief zoeken naar een gratis MS Project-vervanger. Dat is geen speculatieve markt.
 
@@ -650,6 +688,10 @@ Alle bronnen opgehaald op **25 juli 2026**.
 
 **Normen en IFC**
 - https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkSchedule.htm
+- https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkCalendar.htm *(toegevoegd bij verificatie — HISTORY-notitie)*
+- https://www.evs.ee/en/iso-16739-1-2024 *(toegevoegd bij verificatie — vervangt iso.org, dat 403 geeft)*
+- https://www.evs.ee/en/iso-16739-1-2018 *(toegevoegd bij verificatie)*
+- https://www.evs.ee/en/iso-16739-2013 *(toegevoegd bij verificatie)*
 - https://en.wikipedia.org/wiki/Industry_Foundation_Classes
 - https://github.com/IfcOpenShell/IfcOpenShell/tree/v0.8.0/src/ifc4d
 - https://docs.bonsaibim.org/ · https://docs.bonsaibim.org/guides/costing_and_scheduling/index.html
@@ -672,5 +714,53 @@ Alle bronnen opgehaald op **25 juli 2026**.
 - https://github.com/Enalean/tuleap — HTTP 404 (bestaat niet)
 - https://ganttproject.cloud/pricing — HTTP 404
 - https://www.projectlibre.com/pricing/ — HTTP 404
-- https://apps.kde.org/plan/ — HTTP 404
+- https://apps.kde.org/plan/ — HTTP 404 *(let op: dit is géén bewijs dat het project dood is — zie §Verificatie V3, waar via de KDE GitLab-API actieve ontwikkeling in juli 2026 is vastgesteld)*
 - Tuleap release notes (4 URL-varianten geprobeerd) — alle HTTP 404
+
+---
+
+## Verificatie
+
+**Adversariële fact-check, uitgevoerd 25-7-2026.** Opzet: van de 12 belangrijkste falsifieerbare beweringen is actief geprobeerd ze te **weerleggen** met onafhankelijke bronnen — normteksten in plaats van samenvattingen, prijspagina's in plaats van tabellen, en eigen herberekening van elke doorgerekende schatting. Waar de bewering standhield staat *bevestigd*; waar ze sneuvelde is de tekst hierboven **direct aangepast** en staat hier *gecorrigeerd*.
+
+Beperking van deze controle: het WebSearch-budget van de sessie was ook nu uitgeput (200/200), dus verificatie verliep via gerichte fetches op bekende URL's. Zoekmachine-afhankelijke claims (§9.5 aanbestedingen, §9.6 arbeidsmarkt, analistencijfers) blijven daardoor **ongetoetst** — precies zoals het rapport zelf al aangaf.
+
+### Gecorrigeerd (5)
+
+| # | Bewering (oorspronkelijk) | Oordeel | Bevinding | Bron |
+|---|---|---|---|---|
+| **V1** | LibrePlan had "slechts **6** commits in het laatste kwartaal" (§1, §4 ×2, §5.7) | **Gecorrigeerd** | Leesfout. De 6 is één weekwaarde. De laatste 13 weken van `all` zijn `[20,11,2,2,0,0,6,0,0,0,0,0,0]` = **41**. Jaartotaal is 159, niet 158. Het rapport weersprak zichzelf: het juiste getal was af te leiden uit het weekprofiel dat het zelf citeerde. Narratief blijft overeind — de laatste **zes weken staan op nul**, wat een scherper fragiliteitssignaal is dan de foute 6. | [api.github.com/repos/LibrePlan/libreplan/stats/participation](https://api.github.com/repos/LibrePlan/libreplan/stats/participation) |
+| **V2** | "**Voor het eerst** in de geschiedenis van dit marktsegment is het uitwisselformaat voor planning een open ISO-norm" (§10.1), en daarop gebouwd: "IFC 4.3 verwijdert die barrière" (§12.1 punt 2) | **Gecorrigeerd — meest ingrijpend** | Feitelijk onjuist, en het draagt de strategische kern van het rapport. IFC is ISO sinds **ISO 16739:2013** (21-3-2013), daarna 16739-1:2018 (23-11-2018), daarna 16739-1:2024 (22-3-2024). Het planningsmodel is nóg ouder: `IfcWorkSchedule` is *"HISTORY New entity in **IFC2.0**"*, `IfcWorkCalendar` *"New entity in **IFC4**"*. Er was dus ruim tien jaar een open, ISO-genormaliseerd planningsdatamodel — en er ontstond in die periode géén open-source IFC-native planner. Dat weerlegt de causale claim: openheid van de norm was aantoonbaar niet de bindende beperking. §10.1 en §12.1 zijn herschreven naar een zwakker maar houdbaar argument (toolketen + opdrachtgeverseisen, niet normstatus). | [evs.ee/iso-16739-2013](https://www.evs.ee/en/iso-16739-2013) · [evs.ee/iso-16739-1-2018](https://www.evs.ee/en/iso-16739-1-2018) · [IfcWorkSchedule](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkSchedule.htm) · [IfcWorkCalendar](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkCalendar.htm) |
+| **V3** | Plan (KDE) is vermoedelijk niet meer als zelfstandige applicatie gepromoot / status onvaststelbaar (§5.8, §11 punt 4) | **Gecorrigeerd** | Weerlegd. De KDE GitLab-API toont commits op **22-7-2026**, **14-7-2026** (twee, waaronder *"reactivate tjscheduler plugin on Windows"* en een fix aan `TaskJugglerTester`), **13-7-2026** en 7-7-2026. Er wordt actief aan het **schedulergedeelte** gewerkt. De HTTP 404 op `apps.kde.org/plan/` was een verhuisde pagina, geen doodverklaring — een goede illustratie van waarom een 404 nooit als negatief bewijs mag gelden. | [invent.kde.org API — commits](https://invent.kde.org/api/v4/projects/office%2Fcalligraplan/repository/commits?per_page=5) |
+| **V4** | "$25.620 jaarbudget ≈ **anderhalve** OpenProject-deal van €19.140" (§6.1) | **Gecorrigeerd (rekenfout + valutamix)** | €15,95 × 100 × 12 = €19.140 klopt. De verhouding niet: het rapport deelde **dollars door euro's** zonder omrekening. $25.620,18 ≈ **€23.500** (koers ~1,09); €23.500 ÷ €19.140 = **1,23**. Zelfs ongecorrigeerd is het 1,34 — nooit 1,5. Retorisch punt blijft geldig, getal is aangepast naar 1,2. | [opencollective.com/opensourcebim](https://opencollective.com/opensourcebim) · [openproject.org/pricing](https://www.openproject.org/pricing/) |
+| **V5** | Diverse kleinere onnauwkeurigheden | **Gecorrigeerd** | (a) "**780.000 downloads per jaar**" — de 779.618 beslaan 12,8 maanden, dus ~**731.000**/jaar (7% te hoog). (b) GanttProject "release-interval **8–18 maanden**" — de eigen tabel geeft **4,5 tot 22** maanden. (c) MPXJ-releasetabel toonde 9 releases terwijl de tekst er tien claimde; **v16.1.0 (4-4-2026)** ontbrak — tekst had gelijk. (d) Redmine 5.1.13 staat als **unsupported**, niet "onderhouden" (drie ondersteunde lijnen, niet vier). (e) MPXJ ondersteunt ook **PHP**. (f) OpenProject's Revit-integratie is *"to come soon"*, nog niet geleverd. | [mpxj releases.atom](https://github.com/joniles/mpxj/releases.atom) · [redmine.org Download](https://www.redmine.org/projects/redmine/wiki/Download) · [mpxj.org](https://www.mpxj.org/) · [openproject.org/bim-project-management](https://www.openproject.org/bim-project-management/) |
+
+### Bevestigd (7)
+
+| # | Bewering | Oordeel | Verificatie | Bron |
+|---|---|---|---|---|
+| **V6** | LibrePlan's elfjarige gat: 1.4.1 op 15-4-2015 → 1.6.0 op 12-5-2026 → 1.6.1 op 11-6-2026 | **Bevestigd** | Exact. Alle drie de datums en de tussenliggende releases (1.4.0 29-4-2013, 1.3.3 21-12-2012) komen letterlijk overeen. Dit is de best onderbouwde bewering in het rapport. | [releases.atom](https://github.com/LibrePlan/libreplan/releases.atom) |
+| **V7** | OpenProject-prijzen €5,95 / €10,95 / €15,95, minima 25/25/100, Corporate 250, BIM +€1,00, per naam in stappen van 5; BIM-editie €6,95 p/member/m, jaarlijks, min. 5; **geen 4D** | **Bevestigd** | Elk bedrag en elk minimum exact. De BIM-pagina noemt inderdaad nergens 4D-scheduling of koppeling IFC↔taak; genoemde functies zijn 3D-viewer, BCF, taken, Gantt, kosten. Ook de baseline-quote is **woordelijk** juist: *"Set a project baseline and compare changes with yesterday. The full baseline feature… is part of the Enterprise version."* | [pricing](https://www.openproject.org/pricing/) · [pricing/#features](https://www.openproject.org/pricing/#features) · [bim-project-management](https://www.openproject.org/bim-project-management/) |
+| **V8** | Odoo-prijzen $0 / $24,90 ($31,10) / $49,00 ($61,00); MS Project Standard 2024 **$679,99**, Professional 2024 **$1.129,99**; Plane free ≤12 / $6 / $13; Vikunja €4–5 | **Bevestigd** | Alle prijspunten exact zoals gepubliceerd. Ik heb hier specifiek geprobeerd te weerleggen (Odoo's "Custom"-tier wordt elders vaak als $37,40 genoemd) — de actuele pagina bevestigt $49,00/$61,00. | [odoo.com/pricing](https://www.odoo.com/pricing) · [microsoft.com](https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software) · [plane.so/pricing](https://plane.so/pricing) · [vikunja.io/pricing](https://vikunja.io/pricing) |
+| **V9** | IfcOpenShell/Bonsai: $92.887,21 opgehaald, $69.711,97 uitbetaald, $23.175,24 saldo, **$25.620,18** jaarbudget, 305 contributors | **Bevestigd** | Alle vijf bedragen exact. Interne consistentie nagerekend: 92.887,21 − 69.711,97 = **23.175,24** ✓. Dit is publieke boekhouding en verdient de HARD-classificatie die het rapport geeft. | [opencollective.com/opensourcebim](https://opencollective.com/opensourcebim) |
+| **V10** | Redmine 7.0.0 op 30-6-2026; **1.306 plugins** over 131 pagina's | **Bevestigd** | Beide exact. De paginering toont letterlijk `(1301-1306/1306)` op pagina 131 — het rapport citeerde pagina 20 en kwam toch op het juiste totaal. | [redmine.org Download](https://www.redmine.org/projects/redmine/wiki/Download) · [redmine.org/plugins?page=131](https://www.redmine.org/plugins?page=131) |
+| **V11** | `Enalean/tuleap` bestaat niet op GitHub; Taiga-splitsing (rewrite bevroren 13-12-2023, `taiga-back` actief) | **Bevestigd** | Gerichte org-brede zoekopdracht op `user:Enalean` levert 30 randrepo's (docker, documentatie, VS Code-extensie) en **geen bronrepo**. `kaleidos-ventures/taiga`: laatste push 13-12-2023, 564 sterren. `taigaio/taiga-back`: commits t/m **22-7-2026**. De interpretatie "gestrande rewrite, teruggevallen op oude codebase" houdt stand. | GitHub-zoekopdracht `user:Enalean` · [taiga-back commits](https://github.com/taigaio/taiga-back/commits/main.atom) |
+| **V12** | ProjectLibre: CPAL-1.0, 19.762 downloads/week, "7,8M+ in 193 countries", "250K+ community", laatste update 30-4-2025; en de tegenstrijdige claim **"10M Active Users"** naast "8,2M+ downloads" | **Bevestigd** | Alles exact, inclusief de tegenstrijdigheid — die is géén verkeerde weergave. `projectlibre.com` toont woordelijk *"Downloaded Over 8,200,000"*, *"Trusted by 8.2 M+ users"*, *"10M Active Users"*, *"193 COUNTRIES"* én *"200+ Countries"* op dezelfde pagina. De MARKETING-classificatie is terecht. De SourceForge-teller stond bij hercontrole op **780.201** voor hetzelfde bereik (779.618 in het rapport) — normale aangroei binnen dezelfde dag. | [sourceforge.net/projects/projectlibre](https://sourceforge.net/projects/projectlibre/) · [projectlibre.com](https://www.projectlibre.com/) |
+
+### Onzeker (3)
+
+| # | Bewering | Oordeel | Waarom |
+|---|---|---|---|
+| **V13** | ProjectLibre heeft **100.000–250.000** actieve gebruikers (§5.1, SCHATTING) | **Onzeker — niet toetsbaar** | De rekensom is intern consistent, maar rust volledig op twee **ongefundeerde parameters**: "1–2 downloads per actieve gebruiker per jaar" en "15–30% conversie naar terugkerend gebruik". Beide zijn nergens onderbouwd en de uitkomst is er hoog gevoelig voor — bij 5% conversie kom je op ~35.000, bij 50% op ~400.000. Dat is meer dan een orde van grootte spreiding. Het rapport markeert dit terecht als schatting met hoge onzekerheid; ik kan het noch bevestigen noch weerleggen en adviseer het **niet** als getal te gebruiken. |
+| **V14** | Odoo "**28 miljoen** gebruikers" en "**8.000+**" medewerkers | **Onzeker** | Zelfrapportage zonder verificatiemogelijkheid; niet onafhankelijk getoetst. De Wikipedia-cijfers die het rapport wél citeert (€282 mln omzet 2023 +33%, $5,26 mrd waardering nov 2024, $500 mln secondary met CapitalG/Sequoia/BlackRock, $90 mln in 2019, 2.200+ medewerkers 2023) zijn **correct weergegeven** — maar Wikipedia blijft een secundaire bron, dus dit is bevestigde *citatie*, geen bevestigd *feit*. Het rapport signaleert de sprong 2.200 → 8.000+ zelf en behandelt haar terecht als HARD-ish. |
+| **V15** | §9.5 (aansprakelijkheid/aanbestedingen) en §9.6 (opleiding/arbeidsmarkt) | **Onzeker — ongetoetst** | Het rapport markeert beide zelf als onbevestigde hypotheses; die eerlijkheid is correct en wordt hier bevestigd, niet opgelost. Met uitgeput zoekbudget kon ik geen aanbestedingsteksten of arbeidsmarktdata ophalen. **Aanbeveling:** dit is de grootste resterende blinde vlek. Omdat §9.5 in §12.2 tot "Risico 3" wordt gepromoveerd, hangt een concrete productaanbeveling aan een niet-geverifieerde aanname. Toets dit gericht voordat er beslissingen op worden gebouwd. |
+
+### Wat deze controle betekent voor het vertrouwen in het rapport
+
+**Vertrouwen: middel-hoog, met één belangrijke uitzondering.**
+
+Het meetbare deel is opvallend degelijk. Alle prijzen, alle licenties, alle releasedatums, de complete Open Collective-boekhouding, de plugintelling en de normteksten kwamen woordelijk overeen — inclusief details waar een slordig rapport zou struikelen (de baseline-quote, de "unsupported"-status, `(1301-1306/1306)`). De §2.2-beperkingen zijn eerlijk en niet cosmetisch opgeschreven. Twee van de negen zelfgemelde onzekerheden bleken bij nacontrole **oplosbaar**, en in één geval (Plan/KDE) was het zelfgemelde vermoeden bovendien onjuist in het nadeel van het rapport zelf.
+
+De uitzondering is **V2**, en die is niet klein. De bewering dat IFC 4.3 "voor het eerst" een open uitwisselnorm voor planning oplevert, is de scharnierclaim: §9.1 stelt de diagnose, §10.1 verklaart haar opgelost, §12.1 leidt er de strategische aanbeveling uit af. Die keten is gebroken — niet omdat IFC geen goede keuze is, maar omdat de *reden* die het rapport geeft niet klopt en bij het eerste kritische tegenvragen zou bezwijken. Dat het gat tussen 2013 en 2026 bestond terwijl de norm al open was, is bovendien op zichzelf een bevinding die het rapport had moeten verontrusten: het suggereert dat er nog een niet-geïdentificeerde barrière is. Gecombineerd met de ongetoetste §9.5 is dat de belangrijkste openstaande onderzoeksvraag.
+
+De correcties V1, V4 en V5 zijn nauwkeurigheidsfouten die geen enkele conclusie omkeren.

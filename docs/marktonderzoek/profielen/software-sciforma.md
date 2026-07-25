@@ -15,7 +15,17 @@ curl -o /dev/null -w "%{http_code} -> %{redirect_url}" https://www.sciforma.com/
 301 -> https://www.planview.com/acquisitions/about-sciforma/
 ```
 
-Het merk is dus in ~17 maanden na de overname operationeel opgeheven. Wie vandaag "Sciforma" evalueert, evalueert in werkelijkheid een productlijn binnen de Planview-portfolio, met alle rationalisatierisico's die daarbij horen (zie §5 en §8). Deze rapportage gebruikt "Sciforma" voor het historische product en "ProjectAdvantage" waar het over de huidige situatie gaat.
+**Correctie na hercontrole (25 juli 2026):** de redirect gaat níét overal naar dezelfde bestemming. Hertest per pad:
+
+| Pad op `www.sciforma.com` | Status | Bestemming |
+|---|---|---|
+| `/` , `/pricing/` , `/fr/` , `/de/` | 301 | `planview.com/acquisitions/about-sciforma/` |
+| `/faqs/` | 301 | `planview.com/` (**root**, niet de about-pagina) |
+| `/solutions/project-planning/` | 301 | `planview.com/products-solutions/products/planview-vantage/` |
+
+De oorspronkelijke formulering "alle diepe links → about-sciforma" was dus te grof. Het merk is in ~17 maanden na de overname operationeel opgeheven. Wie vandaag "Sciforma" evalueert, evalueert in werkelijkheid een productlijn binnen de Planview-portfolio, met alle rationalisatierisico's die daarbij horen (zie §5 en §8). Deze rapportage gebruikt "Sciforma" voor het historische product en "ProjectAdvantage" waar het over de huidige situatie gaat.
+
+**Tegenwicht bij "merk dood ≠ product dood":** het Customer Success Center (`success.sciforma.com`, nu publiek bereikbaar, titel *Planview ProjectAdvantage Customer Success Center*) toont op 25 juli 2026 een **doorlopende maandelijkse releasecadans**: releases 2025.10, 2025.11, 2025.12, 2026.01 t/m **2026.06** (gepubliceerd 02-07-2026). Het product zit dus aantoonbaar níét in onderhoudsmodus; het rationalisatierisico in §5.1 blijft een vooruitblik, geen waargenomen feit.
 
 **Tweede kernbevinding:** Sciforma is — anders dan de meeste moderne "work management"-tools — **wél een echte netwerkplanner met een CPM-motor**, geen balkenschema-tekenaar. Zie §2. Maar het is een *IT/NPD-portfolio*-planner, geen *bouw*-planner: geen XER, geen P6 XML, geen IFC, geen AEC-verticaal.
 
@@ -56,7 +66,7 @@ Sciforma is een **PMO-tool**, geen planner-tool. De rolverdeling die de leveranc
 - **Teamleden** — timesheets, taakupdates, Kanban
 - **Work Package Managers** — gedelegeerd beheer van een deel van het project (contract, KPI's, leverspecificaties)
 
-Typische organisatiegrootte: **middelgroot tot zeer groot**. In de 6sense-klantendatabase (465 getrackte organisaties, stand 2026) zit het zwaartepunt bij **10.000+ medewerkers (130 organisaties)** en **1.000–4.999 medewerkers (104)**.
+Typische organisatiegrootte: **middelgroot tot zeer groot**. In de 6sense-klantendatabase (457 getrackte organisaties, stand 25 juli 2026) zit het zwaartepunt bij **10.000+ medewerkers (130 organisaties)** en **1.000–4.999 medewerkers (104)**.
 
 ### 1.3 Sectoren
 
@@ -68,15 +78,19 @@ Genoemde referentieklanten: Boeing, Netgear, Zodiac Aerospace, Société de Tran
 
 ### 1.4 Regio's
 
-Vendorclaims (sciforma.com, gearchiveerd 7 dec 2025): **40 jaar ervaring · 275 medewerkers wereldwijd · 300.000+ gebruikers · 100+ landen**. Planview noemt bij de overname **22 landen** met actieve organisaties.
+Vendorclaims — **woordelijk bevestigd** in de Wayback-snapshot van 7 dec 2025 (paginavoet: *"40 years of experience · 275 employees around the world · +300,000 users worldwide · +100 countries covered"*).
 
-Werkelijke geografische verdeling volgens 6sense (465 getrackte klanten, 2026):
+**Belangrijke tegenspraak [GECORRIGEERD].** Planviews eigen overnamepagina spreekt niet van 22 landen mét 300.000 gebruikers, maar van *"thousands of users in organizations across **22 countries**"*. De koper zegt dus **duizenden** gebruikers waar de verkoper **300.000+** claimde. Dat is een verschil van twee ordegroottes. De meest waarschijnlijke verklaring is dat "300.000+ users" een cumulatieve, historische installed-base-marketingclaim is en "thousands" de actieve betaalde basis — maar dat is **[SCHATTING]**. Het cijfer 300.000 is als eerstehands *claim* bevestigd, als *feit* niet, en de eerdere kwalificatie "plausibel" in §7.3 is daarmee te welwillend.
+
+Werkelijke geografische verdeling volgens 6sense (**457** getrackte klanten, stand 25 juli 2026 — **[GECORRIGEERD]**, de eerder genoemde 465 is niet meer reproduceerbaar; het cijfer drift met elke crawl):
 
 | Land | Klanten | Aandeel |
 |---|---|---|
-| **Frankrijk** | 182 | **45,2 %** |
-| Verenigde Staten | 90 | 22,3 % |
-| Verenigd Koninkrijk | 44 | 10,9 % |
+| **Frankrijk** | 182 | **45,16 %** |
+| Verenigde Staten | 90 | 22,33 % |
+| Verenigd Koninkrijk | 44 | 10,92 % |
+
+**Let op:** die percentages rekenen tegen een noemer van ~403 klanten (182 / 0,4516), niet tegen 457. 6sense mixt hier twee populaties; behandel zowel het totaal als de aandelen als grove indicatie.
 
 Uit het KeyedIn-fusiebericht (22 maart 2023), letterlijk: *"KeyedIn has a strong presence in the UK and Nordic countries, while Sciforma has a historically strong customer base in **France, Benelux, and Germany**."* Voor een Nederlandse opdrachtgever is dat relevant: Sciforma is in de Benelux een van de weinige PPM-pakketten met een echt geïnstalleerde basis en lokale dienstverlening.
 
@@ -107,6 +121,15 @@ De opdracht vraagt hier streng te zijn omdat veel werkbeheertools alleen balken 
 | **Kostenmodel** | Ja: budgetten, planned vs. actual cost, financiële transacties op taakniveau, cost items naast labor, benefits-tracking | planview.com productpagina; sciforma.com project-planning |
 | **WBS** | Ja, plus **projecthiërarchie** (portfolio → programma → project → fase → taak → work item) | Docs-navigatie ("Projects Hierarchy") |
 | **Methodologieën** | Waterfall, Agile (sprints, story points, budget points, baseline points, taakkaarten), Phase-Gate, CCPM, en hybride binnen één project | sciforma.com |
+
+> **⚠ Bewijswaarschuwing na hercontrole (25 juli 2026).** De hele bovenstaande tabel steunt op deep links naar `success.sciforma.com/topics/user/…`. Bij hertest zijn **al die URL's dood (HTTP 404)**; het portaal is verhuisd naar een `/en/…`-structuur en de oude paden bestaan niet meer, ook niet met `/en`-prefix. Er is dus op dit moment **geen naslag mogelijk** van de citaten. Wat wél onafhankelijk te bevestigen is:
+>
+> - **Bevestigd:** critical path scheduling, dependencies, **multiple baselines** — letterlijk op de Planview-productpagina: *"Manage complex project plans with advanced Gantt views, critical path scheduling, dependencies, and multiple baselines for change control."*
+> - **Bevestigd:** CCPM als ondersteunde methodologie (Wikipedia, *Sciforma*-lemma, methodologiesectie).
+> - **Bevestigd:** kritiek pad in de Gantt en MS Project XML-import/export (project-management.com review: *"users can manage project critical path…"*, *"Sciforma integration with Microsoft Project is possible through XML import/export"*).
+> - **Onbevestigd/onzeker:** ASAP-vs-ALAP, Must Start On, **negatieve float**, de vierlaagse kalenderhiërarchie, de leveling-heuristiek, Baseline 10 en earned value/BCWP. Opvallend: de Planview-productpagina noemt **géén** critical chain, **géén** resource leveling en **géén** earned value bij de scheduling-features. Dat weerlegt de claims niet, maar het bewijs staat nu op één been.
+>
+> Behandel §2.1 daarom als *plausibel maar niet-verifieerbaar*, niet als vastgesteld feit.
 
 **Conclusie op de strenge vraag:** Sciforma hoort thuis in de categorie *echte netwerkplanners* — samen met MS Project, Primavera P6, Asta Powerproject, Safran, Spider — en niet in de categorie balkenschema-tekenaars (Asana, monday.com, ClickUp, Wrike, Smartsheet, Trello). Het heeft forward/backward pass, float, constraints, kalenderhiërarchie, leveling én CCPM. Dat laatste is zelfs zeldzaam: buiten Sciforma, Realization en Exepron bieden weinig mainstreampakketten volwaardige Critical Chain.
 
@@ -146,7 +169,13 @@ De leverancier publiceert **geen** harde limieten (geen max. aantal activiteiten
 |---|---|---|---|
 | **US$ 15 – 90 per gebruiker per maand** | Per user/month; hoogte hangt af van **aantal gebruikers** én **toegewezen rol** in het platform | Sciforma FAQ, sciforma.com/faqs/ (letterlijk: *"Sciforma's pricing is structured on a per-user, per-month basis, with costs ranging from $15 to $90"*) — pagina nu offline, geraadpleegd via Wayback-snapshot | snapshot **7 dec 2025** |
 
-Omgerekend: **US$ 180 – 1.080 per gebruiker per jaar**. **[SCHATTING]** bij ~1,10 USD/EUR is dat ruwweg **€ 14 – 82 per gebruiker per maand** / **€ 165 – 980 per gebruiker per jaar**.
+Het citaat is **woordelijk geverifieerd** in de Wayback-snapshot `web.archive.org/web/20251207124735/https://www.sciforma.com/faqs/`, onder de vraag *"How does Sciforma's pricing work?"*:
+
+> *"Sciforma's pricing is structured on a per-user, per-month basis, with costs ranging from $15 to $90. The specific price depends on factors such as the number of users and their assigned roles within the platform. For detailed information tailored to your organization's requirements, contact us directly."*
+
+Omgerekend: **US$ 180 – 1.080 per gebruiker per jaar**.
+
+**[GECORRIGEERD]** De eerdere omrekening gebruikte een verouderde koers (~1,10 USD/EUR). Werkelijke ECB-referentiekoers op **24 juli 2026: 1 USD = € 0,879** (1 EUR = US$ 1,138). Correct omgerekend is US$ 15–90 dus **€ 13 – 79 per gebruiker per maand** / **€ 158 – 950 per gebruiker per jaar**. De instapprijs van US$ 760/gebruiker/jaar (§3.2) is **≈ € 668 per gebruiker per jaar**.
 
 De spreiding 15↔90 is een **rolgebaseerde staffel**: een timesheet-invoerende teammedewerker zit onderaan, een projectmanager/PMO-gebruiker met volledige planningsrechten bovenaan. Dat is het gangbare model in enterprise-PPM (vergelijk Planview Portfolios, Clarity, Planisware).
 
@@ -155,15 +184,19 @@ De spreiding 15↔90 is een **rolgebaseerde staffel**: een timesheet-invoerende 
 | Bedrag | Model | Bron-URL | Geraadpleegd |
 |---|---|---|---|
 | **US$ 760 per gebruiker per jaar** ("Basic") | Jaarlijks, per gebruiker. **Geen gratis proefversie, geen gratis versie** | capterra.com/p/18756/Sciforma/pricing/ → nu *Planview ProjectAdvantage* | 25 juli 2026 |
-| **US$ 760 per gebruiker per jaar** | Jaarlijks abonnement; deze bron meldt wél een proefversie (tegenstrijdig met Capterra — beide zijn Gartner Digital Markets) | getapp.com/project-management-planning-software/a/sciforma/pricing/ | 25 juli 2026 |
-| **Vanaf US$ 20 per gebruiker per maand** | Per user/month; proefversie "op aanvraag"; prijsklasse "$$–$$$$" | selecthub.com/p/ppm-software/sciforma/ | 25 juli 2026 |
+| **US$ 760 per gebruiker per jaar** | Jaarlijks abonnement; deze bron meldt **wél een proefversie én een gratis versie** (dubbel tegenstrijdig met Capterra — beide zijn Gartner Digital Markets) | getapp.com/project-management-planning-software/a/sciforma/pricing/ | 25 juli 2026 |
+| **Vanaf US$ 20 per gebruiker per maand** | Per user/month; proefversie "Yes – Request for Free" | selecthub.com/p/ppm-software/sciforma/ | 25 juli 2026 |
 
-US$ 760/jaar ≈ **US$ 63 per gebruiker per maand** — dat valt netjes in de bovenste helft van de leveranciersrange van $15–90 en is vermoedelijk het **PM/PMO-seat**. De $20/maand van SelectHub komt overeen met het **lichte teamlid-seat**.
+**[GECORRIGEERD]** Twee details in de vorige versie klopten niet:
+- GetApp meldt niet alleen een trial maar óók een "free version"; de tegenstrijdigheid met Capterra ("no free version, no free trial") is dus groter dan eerder beschreven. Gegeven dat de leverancier zelf nergens een gratis tier noemt en de FAQ uitsluitend naar *"Request a Demo"* verwijst, is **Capterra hier vrijwel zeker de juiste** en zijn de GetApp-badges vervuiling.
+- De prijsklasse-notatie van SelectHub is bij hercontrole niet als "$$–$$$$" te reproduceren (de pagina toont een 5-symbolenschaal zonder eenduidige uitlezing). Die claim is **verwijderd**.
+
+US$ 760/jaar ≈ **US$ 63 per gebruiker per maand** — dat valt netjes in de bovenste helft van de leveranciersrange van $15–90 en is vermoedelijk het **PM/PMO-seat** **[SCHATTING — geen enkele bron benoemt welk seat dit is; ook de planbenaming "Basic" is bij hercontrole op Capterra níét bevestigd]**. De $20/maand van SelectHub komt overeen met het **lichte teamlid-seat** **[SCHATTING]**.
 
 ### 3.3 Minimale zetelaantallen, gratis tier, add-ons
 
 - **Gratis tier: nee.** Geen freemium, geen permanent gratis plan. Proefversie alleen na salescontact (bronnen spreken elkaar tegen over of er überhaupt een trial is).
-- **Minimum aantal seats:** niet officieel gepubliceerd. Diverse aggregators noemen **10 of 20 gebruikers minimum** — **[LAGE BETROUWBAARHEID, niet-primaire bron]**. **[SCHATTING]** Realistisch minimum voor een enterprise-PPM-deal van deze klasse: **25–50 seats**, met een praktische bodem van **US$ 25.000–40.000 per jaar** voordat een leverancier van dit type een deal interessant vindt.
+- **Minimum aantal seats:** niet officieel gepubliceerd — **bevestigd** door integrale hercontrole van de volledige gearchiveerde FAQ-tekst (7 dec 2025): het woord "minimum" komt in de hele prijs- en licentiecontext niet voor, en de enige genoemde prijsdrijvers zijn *"the number of users and their assigned roles"*. Diverse aggregators noemen **10 of 20 gebruikers minimum** — **[LAGE BETROUWBAARHEID, niet-primaire bron, niet reproduceerbaar bij hercontrole]**. **[SCHATTING]** Realistisch minimum voor een enterprise-PPM-deal van deze klasse: **25–50 seats**, met een praktische bodem van **US$ 25.000–40.000 per jaar** voordat een leverancier van dit type een deal interessant vindt.
 - **Enterprise-staffels:** de leverancier bevestigt volumeafhankelijkheid ("depends on … the number of users"). Aggregators claimen ~$15/gebruiker/maand bij 100 gebruikers en volledig maatwerk boven 1.000 — **[LAGE BETROUWBAARHEID]**.
 - **Betaalde add-ons die je in de praktijk nodig hebt:**
   - **Sciforma University / eLearning** — expliciet een **jaarlijks abonnement** bovenop de licentie, met "standaard" en "bespoke" aanpassingspakketten.
@@ -175,9 +208,19 @@ US$ 760/jaar ≈ **US$ 63 per gebruiker per maand** — dat valt netjes in de bo
 
 ### 3.4 Prijspositionering versus concurrenten
 
-Ter kalibratie (allemaal marktplaatscijfers, 2025–2026, **[indicatief]**): Clarity/Broadcom vanaf ~$60/gebruiker/maand · Planisware vanaf ~$45/maand · Sciforma vanaf ~$20/maand · Asana $10,99 · Smartsheet $12 · monday.com $9.
+Ter kalibratie, **elk cijfer hieronder is op 25 juli 2026 opnieuw bij de bron gecontroleerd**:
 
-Sciforma zit dus in het **midden tot bovensegment van enterprise-PPM**, en een factor 2–6 boven de lichte werkbeheertools. Ter vergelijking met klassieke CPM-tools: MS Project Plan 3 ≈ $30/gebruiker/maand, Primavera P6 EPPM/Cloud ligt in dezelfde orde als Sciforma's bovenste seats.
+| Product | Prijs | Status | Bron |
+|---|---|---|---|
+| Clarity (Broadcom) | **$60 / gebruiker / maand** | bevestigd | selecthub.com/ppm-software/clarity-ppm-vs-sciforma/ |
+| Planisware | **$45 / maand** | bevestigd, **maar** SelectHub noteert dit als *flat monthly rate*, niet per gebruiker — de vergelijking met per-seat-prijzen is dus niet zuiver | selecthub.com/ppm-software/planisware-vs-sciforma/ |
+| Sciforma / ProjectAdvantage | $20 / gebruiker / maand | bevestigd | selecthub.com |
+| Asana Starter | **$10,99 / gebruiker / maand** (jaarlijks; $13,49 maandelijks) | bevestigd bij de leverancier | asana.com/pricing |
+| monday.com Basic | **$9 / seat / maand** (jaarlijks) | bevestigd bij de leverancier | monday.com/pricing |
+| Smartsheet | **Business $19 (jaarlijks) / $24 (maandelijks) per member/maand** | **[GECORRIGEERD]** — het eerder genoemde "$12" is op smartsheet.com/pricing niet te reproduceren; het Pro-tarief liet zich niet eenduidig uitlezen | smartsheet.com/pricing |
+| MS Project Plan 3 | ~$30 / gebruiker / maand | **[ONBEVESTIGD]** — Microsofts vergelijkingspagina rendert prijzen client-side; alleen de eeuwigdurende licenties waren uitleesbaar (Project Professional 2024 $1.129,99, Project Standard 2024 $679,99) | microsoft.com |
+
+Sciforma zit dus in het **midden tot bovensegment van enterprise-PPM**, en een factor 2–6 boven de lichte werkbeheertools. Voor Primavera P6 EPPM/Cloud is geen publiek lijstprijscijfer gevonden; de bewering dat het "in dezelfde orde ligt als Sciforma's bovenste seats" is **[SCHATTING, onbevestigd]**.
 
 ---
 
@@ -189,7 +232,7 @@ Sciforma zit dus in het **midden tot bovensegment van enterprise-PPM**, en een f
 
 3. **Resourcemodel dat de werkelijkheid van een PMO aankan.** Onderscheid tussen **hard** (persoon benoemd), **soft** (gekwalificeerd op organisatie/functieklasse/skill) en **generic** (herbruikbare generieke resources) toewijzingen; capaciteitsplanning met vraag-versus-aanbod, heatmaps voor onder-/overbezetting, bulk-fulfillment, en het vervangen van een resource over meerdere taken tegelijk terwijl actual vs. remaining effort automatisch behouden blijft. Dit is aantoonbaar dieper dan wat MS Project standalone biedt.
 
-4. **Sterke, langdurige klanttevredenheid op de zachte kant.** SoftwareReviews (Info-Tech, 84 reviews): composietscore **8,1/10**, CX-score 8,5, **Net Emotional Footprint +94**, **Plan to Renew 98 %**, cost-to-value-tevredenheid 81 %. Capterra/Software Advice: **4,4/5 over 67 reviews**, met **nul 1- of 2-sterrenreviews**. Gartner Peer Insights: **3,9/5 over ~189 reviews**. Een verlengingspercentage van 98 % is uitzonderlijk hoog en duidt op reële operationele waarde, niet alleen op vendor lock-in.
+4. **Sterke, langdurige klanttevredenheid op de zachte kant.** SoftwareReviews (Info-Tech, 84 reviews): composietscore **8,1/10**, CX-score 8,5, **Net Emotional Footprint +94**, **Plan to Renew 98 %** — alle vier op 25 juli 2026 exact bij de bron bevestigd; de cost-to-value-tevredenheid van 81 % kon niet worden teruggevonden **[ONBEVESTIGD]**. Capterra: **4,4/5 over 67 reviews**, ease of use 4,1, klantenservice 4,4 — bevestigd; de sub-scores value 4,2 en functionaliteit 4,3 en de claim **"nul 1- of 2-sterrenreviews"** zijn **níét** te reproduceren (Capterra toont de sterrenverdeling niet meer) — **[ONBEVESTIGD; niet meer als bewijs gebruiken]**. Gartner Peer Insights: **3,9/5 over ~189 reviews** — **[ONBEVESTIGD]**, gartner.com geeft bij hertest HTTP 403. Een verlengingspercentage van 98 % is uitzonderlijk hoog en duidt op reële operationele waarde, niet alleen op vendor lock-in.
 
 5. **Echte hybride ondersteuning binnen één project.** Agile (sprints, story points, budget points, baseline points, taakkaarten), Waterfall, Phase-Gate met gate-approval-meetings en deliverable/risk-templates, en CCPM — combineerbaar binnen hetzelfde project. Veel concurrenten bieden dit alleen als aparte, niet-communicerende modules.
 
@@ -283,10 +326,10 @@ De relatieve marktpositie is bescheiden. In de bredere "project collaboration"-m
 
 | Metriek | Waarde | Bron / betrouwbaarheid |
 |---|---|---|
-| Gebruikers wereldwijd | **300.000+** ("more than a quarter million") | Leverancier, consistent herhaald 2023–2025 — **plausibel** |
-| Medewerkers | **275** wereldwijd | Leverancier, sciforma.com (snapshot dec 2025) — **plausibel** |
-| Landen | 100+ gedekt; 22 landen met organisaties (Planview) | Leverancier |
-| Organisaties (getrackt) | 465 | 6sense, 2026 — ondergrens, alleen webdetecteerbaar |
+| Gebruikers wereldwijd | **300.000+** | Leverancier, snapshot dec 2025 — **claim bevestigd, feit niet.** Planview zelf zegt *"thousands of users … across 22 countries"* (zie §1.4). **Behandel 300.000 als marketingcijfer** |
+| Medewerkers | **275** wereldwijd | Leverancier, sciforma.com (snapshot dec 2025) — **woordelijk bevestigd als claim**; geen onafhankelijke bevestiging. GetLatka noemt 127 FTE (§bron 36) — factor 2 verschil, onopgelost |
+| Landen | 100+ gedekt (leverancier); **22 landen met organisaties (Planview, bevestigd)** | Leverancier / Planview |
+| Organisaties (getrackt) | **457** (was 465) | 6sense, 25 juli 2026 — ondergrens, alleen webdetecteerbaar |
 | ARR | **US$ 10,7 mln (2021)** | getlatka — **lage betrouwbaarheid**; dit is pre-One2Team en pre-KeyedIn en past slecht bij 275 FTE |
 | Waardering | US$ 32 mln (2025, "M&A offer") | getlatka — **lage betrouwbaarheid**, vrijwel zeker te laag |
 
@@ -392,7 +435,7 @@ Alle URL's geraadpleegd op **25 juli 2026**, tenzij anders vermeld. Waar `www.sc
 31. Project-Management.com — *Sciforma Software Review* (features, doelgroep midsize/enterprise, integraties MS Project XML/Salesforce/Jira/Google Calendar/Yammer) — https://project-management.com/sciforma-software-review/
 
 ### Markt en integraties
-32. 6sense — *Sciforma Market Share* (**465 klanten; Frankrijk 182 = 45,2 %, VS 90 = 22,3 %, VK 44 = 10,9 %; bedrijfsgrootteverdeling; #70/321 in project collaboration**) — https://6sense.com/tech/project-collaboration/sciforma-market-share
+32. 6sense — *Sciforma Market Share* (**457 klanten (hercontrole 25 juli 2026; was 465); Frankrijk 182 = 45,16 %, VS 90 = 22,33 %, VK 44 = 10,92 %; marktaandeel 0,01 %, rang #70 — het aantal van 321 getrackte tools is niet bevestigd**) — https://6sense.com/tech/project-collaboration/sciforma-market-share
 33. GetApp — *Sciforma Integrations* (volledige connectorlijst; **geen enkele BIM/CAD/IFC-integratie**) — https://www.getapp.com/project-management-planning-software/a/sciforma/integrations/
 34. Rego Consulting — *Rego's Sciforma to Jira Integration* (bidirectionele sync Jira Projects/Sprints/Epics/Issues ↔ Sciforma Tasks/Assignments) — https://regoconsulting.com/regos-sciforma-to-jira-integration/
 35. Tray.ai — *Sciforma Integrations* (geen native connector; HTTP Client / Connector Builder nodig) — https://tray.ai/connectors/sciforma-integrations
@@ -402,11 +445,82 @@ Alle URL's geraadpleegd op **25 juli 2026**, tenzij anders vermeld. Waar `www.sc
 
 ### Eigen verificatie
 39. HTTP-redirectcontrole `www.sciforma.com` → `planview.com/acquisitions/about-sciforma/` (301, ook voor `/pricing/` en `/fr/`), uitgevoerd 25 juli 2026.
-40. Toegangscontrole `success.sciforma.com` — HTTP 403 "Access denied — You are not authorized to access this page" op detailpagina's; navigatiestructuur wél zichtbaar (thema's o.a. *Critical Path Methodology*, *Critical Chain Project Management*, *Projects Interdependencies*, *Timesheets & Calendars*, *Anvi*), uitgevoerd 25 juli 2026.
+40. ~~Toegangscontrole `success.sciforma.com` — HTTP 403 "Access denied"~~ — **[GECORRIGEERD 25 juli 2026]**. Hertest geeft een ander beeld: `https://success.sciforma.com/` → **301 naar `/en`** → **HTTP 200**, publiek leesbaar, titel *"Planview ProjectAdvantage Customer Success Center"*, met een nieuwsoverzicht van maandelijkse releases t/m **2026.06 (02-07-2026)**. De in bron 10 geciteerde deep links (`/topics/user/dependencies`, `/topics/user/tasks-scheduling/schedule-type-0`, `/topics/user/resources-leveling/define-critical-chain-0`, …) geven echter **HTTP 404**, ook met `/en`-prefix; er is geen `sitemap.xml`. De documentatiecitaten in §2.1 zijn dus **niet meer naslaanbaar** — zie de bewijswaarschuwing daar.
+41. Redirectmatrix `www.sciforma.com` per pad (`/`, `/pricing/`, `/fr/`, `/de/` → `about-sciforma`; `/faqs/` → `planview.com` root; `/solutions/project-planning/` → `planview-vantage`), uitgevoerd 25 juli 2026 — zie §0.
+42. Woordelijke hercontrole van de volledige gearchiveerde FAQ-tekst (snapshot `20251207124735`) op de prijsalinea, het ontbreken van een minimum-seatcount, de eLearning-**jaarabonnement**-formulering (*"available through an annual subscription"*), *"Administration as a Service"*, en de bedrijfscijfers (275 / 300.000 / 100+ / 40 jaar), uitgevoerd 25 juli 2026.
+43. Valutacontrole USD→EUR (ECB-referentiekoers via frankfurter.dev, datum **24 juli 2026**): 1 USD = € 0,87897. Vervangt de eerder gebruikte ~1,10-koers.
 
 ### Niet gebruikt (kwaliteitsafwijzing)
 De volgende bronnen kwamen bovendrijven maar zijn **bewust niet als bewijs gebruikt** wegens aantoonbaar AI-gegenereerde, onderling tegenstrijdige of ongeattribueerde prijs- en featurebeweringen: subscribed.fyi, softwarefinder.com, checkthat.ai, discovercloud.com, intuitionlabs.ai, research.com, saashub.com, productowl.io.
 
 ---
 
-*Einde profiel. Opgesteld op basis van 40 geraadpleegde bronnen, waarvan 10 eerstehands leveranciersbronnen (deels via webarchief) en 2 eigen technische verificaties.*
+*Einde profiel. Opgesteld op basis van 43 geraadpleegde bronnen, waarvan 10 eerstehands leveranciersbronnen (deels via webarchief) en 5 eigen technische verificaties.*
+
+---
+
+## Verificatie
+
+**Adversariële fact-check uitgevoerd op 25 juli 2026.** Methode: elke bewering is actief geprobeerd te *weerleggen* door de primaire bron opnieuw op te halen (leverancier, marktplaats, of de leverancier van het vergelijkingsproduct zelf), niet door bevestiging te zoeken. Waar de oorspronkelijke bron onbereikbaar bleek, is de bewering afgewaardeerd in plaats van behouden.
+
+### Prijs- en licentiemodel
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Leverancier-FAQ: *"pricing is structured on a per-user, per-month basis, with costs ranging from $15 to $90"*, afhankelijk van aantal gebruikers én rol | **Bevestigd** — citaat woordelijk teruggevonden, inclusief de vervolgzin over prijsdrijvers | `web.archive.org/web/20251207124735/https://www.sciforma.com/faqs/` |
+| 2 | US$ 15–90 ≈ € 14–82 p/gebruiker/maand en € 165–980 p/jaar bij ~1,10 USD/EUR | **Gecorrigeerd** → **€ 13–79 /mnd** en **€ 158–950 /jr**. Koers op 24 juli 2026 is 1 USD = € 0,879 (1 EUR = $1,138), niet 1,10. US$ 760/jr = **≈ € 668** | https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR |
+| 3 | Capterra: US$ 760 per gebruiker per jaar, géén gratis versie, géén proefversie | **Bevestigd** (letterlijk "$760" per user/per year, free trial "not available") | https://www.capterra.com/p/18756/Sciforma/pricing/ |
+| 3b | Het Capterra-plan heet "Basic" | **Onzeker** — planbenaming niet reproduceerbaar op de pagina; alleen de startprijs staat er | idem |
+| 4 | GetApp noemt hetzelfde bedrag maar meldt tegenstrijdig wél een trial | **Gecorrigeerd/aangescherpt** — GetApp toont bij hercontrole **zowel een trial als een "free version"**; de tegenstrijdigheid met Capterra is groter dan beschreven. Leverancier-FAQ noemt zelf alleen *"Request a Demo"*, dus Capterra is vermoedelijk correct | https://www.getapp.com/project-management-planning-software/a/sciforma/pricing/ |
+| 5 | SelectHub: vanaf US$ 20 p/gebruiker/maand, proef op aanvraag, prijsklasse "$$–$$$$" | **Deels bevestigd** — $20/User/Monthly en "Free Trial: Yes – Request for Free" bevestigd; de klasse-notatie **"$$–$$$$" is niet reproduceerbaar en is geschrapt** | https://www.selecthub.com/p/ppm-software/sciforma/ |
+| 6 | Geen gratis tier, geen freemium, geen self-service trial | **Bevestigd** — de volledige FAQ-tekst bevat geen enkele trial-/freemium-toezegging, alleen demo-aanvraag; Capterra bevestigt "no free trial / no free version" | archived FAQ + Capterra |
+| 7 | Minimum aantal seats niet officieel gepubliceerd; aggregators noemen 10–20 | **Bevestigd voor het eerste deel** (integrale FAQ-scan: geen minimum, enige prijsdrijvers zijn aantal gebruikers + rol). **Onzeker/onbevestigd** voor de 10–20 van aggregators — niet reproduceerbaar | archived FAQ |
+| 8 | Betaalde add-ons: Sciforma University/eLearning als **jaarabonnement**, Personalized + Public Classroom Training, "Administration as a Service", drie professional-services-lijnen | **Bevestigd, alle vijf** — woordelijk: *"…available through an annual subscription"*; *"we offer 'Administration as a Service' to handle user enrollment, progress tracking, and reporting"*; *"Personalized Training"* en *"Public Classroom Training"*; navigatie: *eLearning and Training Services / Managed Service Offerings / Strategic Advisory Consulting* | archived FAQ |
+| 9 | Implementatie 0,5×–1,5× de jaarlicentie in jaar 1 | **Onzeker** — blijft een expliciet gemarkeerde [SCHATTING]; geen enkele publieke bron bevestigt of weerlegt een ratio. Wel blijft de onderliggende reviewklacht over lange setup overeind | — |
+| 10 | Minimum-deal US$ 25.000–40.000/jaar bij 25–50 seats | **Onzeker** — [SCHATTING], geen bron; aritmetisch consistent (25–50 × $760 = $19k–38k), maar niet extern gedekt | — |
+
+### Prijspositionering versus concurrenten
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 11 | Clarity ~$60/gebruiker/maand | **Bevestigd** ("$60/User, Monthly") | https://www.selecthub.com/ppm-software/clarity-ppm-vs-sciforma/ |
+| 12 | Planisware ~$45/maand | **Bevestigd, met kanttekening** — SelectHub noteert "$45 Monthly" als **flat rate**, niet per gebruiker; de per-seat-vergelijking is dus niet zuiver | https://www.selecthub.com/ppm-software/planisware-vs-sciforma/ |
+| 13 | Asana $10,99 | **Bevestigd bij de leverancier** (Starter, jaarlijkse facturering; $13,49 maandelijks) | https://asana.com/pricing |
+| 14 | monday.com $9 | **Bevestigd bij de leverancier** (Basic, jaarlijkse facturering) | https://monday.com/pricing |
+| 15 | Smartsheet $12 | **Gecorrigeerd** — niet reproduceerbaar. Smartsheet toont Business **$19 (jaarlijks) / $24 (maandelijks)** per member/maand; het Pro-tarief liet zich niet eenduidig uitlezen | https://www.smartsheet.com/pricing |
+| 16 | MS Project Plan 3 ≈ $30/gebruiker/maand; P6 EPPM in dezelfde orde als Sciforma's topseats | **Onzeker** — Microsofts vergelijkingspagina rendert abonnementsprijzen client-side; alleen eeuwigdurende licenties uitleesbaar (Project Professional 2024 $1.129,99, Standard 2024 $679,99). Voor P6 geen publieke lijstprijs gevonden | https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software |
+
+### CPM- en planningsfunctionaliteit
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 17 | Sciforma heeft een echte CPM-motor (kritiek pad, afhankelijkheden, meerdere baselines) | **Bevestigd** — Planview-productpagina letterlijk: *"advanced Gantt views, critical path scheduling, dependencies, and multiple baselines for change control"*; review bevestigt *"users can manage project critical path"* | https://www.planview.com/products-solutions/products/planview-projectadvantage/ · https://project-management.com/sciforma-software-review/ |
+| 18 | Volwaardige Critical Chain (CCPM) met buffers, fever charts, Baseline 10 | **Deels bevestigd / grotendeels onzeker** — CCPM als methodologie bevestigd door Wikipedia; **buffers, fever charts en Baseline 10 zijn niet te verifiëren**. De Planview-productpagina noemt critical chain in het geheel niet bij de scheduling-features | https://en.wikipedia.org/wiki/Sciforma |
+| 19 | ASAP/ALAP, Must Start On, negatieve float, kalenderhiërarchie base→project→task→resource, resource leveling met kritiek-pad-heuristiek, earned value/BCWP | **Onzeker — bewijsbasis weggevallen.** Alle citaten verwijzen naar `success.sciforma.com/topics/user/…`; die URL's geven nu **HTTP 404** (portaal verhuisd naar `/en/…`, oude paden bestaan niet meer, geen sitemap). Geen enkele onafhankelijke bron bevestigt deze specifieke kenmerken | eigen hertest 25 juli 2026 |
+| 20 | MS Project-uitwisseling via XML (MSPDI), géén herrekenbare round-trip | **Bevestigd voor het XML-kanaal** (*"integration with Microsoft Project is possible through XML import/export"*). De leverancierswaarschuwing *"not possible to schedule a Sciforma project in Microsoft Project or vice versa"* is **onzeker** — komt uit de nu-404-documentatie | https://project-management.com/sciforma-software-review/ |
+| 21 | Geen IFC / XER / P6 XML / 4D-BIM | **Bevestigd bij benadering** — geen enkele geraadpleegde bron (leverancier, Planview, marktplaatsen, integratielijsten) noemt een bouw-/BIM-formaat of AEC-verticaal. Dit blijft een *negatieve* bewering en dus principieel niet hard te bewijzen | meerdere |
+
+### Gebruikersaantallen, bedrijfscijfers en marktpositie
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 22 | Leverancierclaims 40 jaar · 275 medewerkers · 300.000+ gebruikers · 100+ landen | **Bevestigd als citaat** — woordelijk in de paginavoet van de gearchiveerde site | archived sciforma.com, 7 dec 2025 |
+| 23 | Die 300.000 gebruikers zijn "plausibel" | **Gecorrigeerd** — Planviews eigen overnamepagina zegt *"thousands of users in organizations across 22 countries"*. Koper en verkoper zitten twee ordegroottes uit elkaar; 300.000 is afgewaardeerd tot marketingcijfer | https://www.planview.com/acquisitions/about-sciforma/ |
+| 24 | Planview noemt 22 landen | **Bevestigd** (letterlijk *"22 countries"*) | idem |
+| 25 | Overname door Planview op 18 februari 2025 | **Bevestigd** — persbericht gedateerd *"AUSTIN, Texas – February 18, 2025"*. Kanttekening: het persbericht bevat **geen** klant-, gebruikers-, medewerkers- of omzetcijfers | https://newsroom.planview.com/planview-acquires-sciforma-expanding-global-leadership-in-portfolio-management-solutions/ |
+| 26 | Product hernoemd Sciforma Vantage → Planview ProjectAdvantage | **Bevestigd** — letterlijk *"Sciforma Vantage (now Planview® ProjectAdvantage)"*; ook het documentatieportaal draagt de nieuwe naam | https://www.planview.com/acquisitions/about-sciforma/ |
+| 27 | sciforma.com geeft overal 301 naar `planview.com/acquisitions/about-sciforma/` | **Gecorrigeerd** — klopt voor `/`, `/pricing/`, `/fr/`, `/de/`, maar `/faqs/` gaat naar `planview.com` root en `/solutions/project-planning/` naar `…/products/planview-vantage/`. Zie de redirectmatrix in §0 | eigen hertest 25 juli 2026 |
+| 28 | Merk operationeel opgeheven / rationalisatierisico | **Onzeker — tegenwicht toegevoegd.** Het merk is inderdaad uitgezet, maar het product krijgt aantoonbaar nog **maandelijkse releases** (2025.10 t/m 2026.06, laatste gepubliceerd 02-07-2026). Het risico in §5.1 is een vooruitblik, geen waargenomen onderhoudsmodus | https://success.sciforma.com/en |
+| 29 | 6sense: 465 getrackte klanten; FR 45,2 % / VS 22,3 % / VK 10,9 % | **Gecorrigeerd** — nu **457** klanten; percentages bevestigd (45,16 / 22,33 / 10,92) maar rekenen tegen een noemer van ~403, niet 457. Marktaandeel 0,01 % en rang #70 bevestigd; "van 321 tools" niet | https://6sense.com/tech/project-collaboration/sciforma-market-share |
+| 30 | SoftwareReviews: 8,1/10 · CX 8,5 · NEF +94 · Plan to Renew 98 % · 84 reviews | **Bevestigd, alle vijf exact.** De aanvullende "cost-to-value 81 %" is **onbevestigd** | https://www.softwarereviews.com/products/sciforma-ppm |
+| 31 | Capterra 4,4/5 over 67 reviews, nul 1–2-sterrenreviews | **Deels bevestigd** — 4,4/5 · 67 reviews · ease of use 4,1 · support 4,4 bevestigd. **"Nul 1- of 2-sterrenreviews" is onbevestigd** (verdeling wordt niet meer getoond) en mag niet als bewijs worden gebruikt | https://www.capterra.com/p/18756/Planview-ProjectAdvantage/reviews/ |
+| 32 | Gartner Peer Insights 3,9/5 over ~189 reviews; Gartner MQ APMR 2024 "Leader" | **Onzeker** — gartner.com geeft HTTP 403 bij hertest; beide blijven onverifieerbaar. Het profiel markeerde dit al correct | — |
+| 33 | 7 producttalen (EN, FR, DE, ES, JA, HE, PL), geen Nederlands | **Bevestigd** | https://en.wikipedia.org/wiki/Sciforma |
+| 34 | GetLatka ARR $10,7 mln (2021), waardering $32 mln — lage betrouwbaarheid | **Onzeker, blijft afgewezen.** Aanvullend probleem: GetLatka noemt **127 FTE** tegenover de leverancierclaim van 275 — een factor 2. De afgeleide "€ 35–60 mln ARR" in §7.3 steunt op die 275 en is dus dubbel onzeker | — |
+
+### Netto-oordeel over het profiel
+
+- **Het prijshoofdstuk is het sterkste deel**: de eerstehandsclaim van $15–90 is woordelijk hard, de $760 van Capterra is hard, en de add-onlijst is volledig bij de leverancier bevestigd. De enige echte rekenfout was de **valutakoers** (correctie ~4 %, richting goedkoper in euro's).
+- **Het functionaliteitshoofdstuk is het zwakste deel**: §2.1 leest als vastgesteld feit, maar de volledige bewijsbasis (de Sciforma-documentatie) is inmiddels onbereikbaar en slechts een klein deel is elders terug te vinden. Kritiek pad, dependencies en meerdere baselines staan; CCPM-diepgang, negatieve float, kalenderhiërarchie en leveling-heuristiek staan **niet**.
+- **De grootste inhoudelijke correctie** is de spanning tussen "300.000+ gebruikers" (verkoper) en "thousands of users" (koper). Dat raakt direct de marktpositie-inschatting.
+- **De op één na grootste** is dat "merk dood" ten onrechte suggereert dat het product stilstaat: er is een actieve maandelijkse releasecadans t/m juli 2026.

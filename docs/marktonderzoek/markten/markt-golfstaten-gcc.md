@@ -35,9 +35,9 @@ Ik heb bewust de trainingsaanbieder-claims (bijv. "80% van GCC-overheidsprojecte
 
 2. **De onderliggende bouwmarkt is enorm maar krimpt op korte termijn.** GCC-contractgunningen: **$273,2 mrd in 2024** (+9,6% t.o.v. $249,4 mrd in 2023), waarvan Saoedi-Arabië **$146,8 mrd** (53,8%). ([Kamco Invest via AGBI](https://www.agbi.com/construction/2025/01/contracts-in-saudi-arabia-rise-25-in-value-in-2024/)) *(Gecorrigeerd: MEED's eerder geciteerde $264,4 mrd / $142,4 mrd zijn voorlopige cijfers; de definitieve jaartelling ligt hoger — zie §2.1 en §9.)* In 2025 sloeg dit om: Saoedische gunningen daalden in H1-2025 met **56%** j-o-j. ([MEED Projects](https://www.meedprojects.com/digital-library/meed-report-gcc-projects-market-performance-h1-2025/)) De pre-executie-pijplijn blijft wel **~$1,78 biljoen**. ([Khaleej Mag / MEED-data](https://khaleejmag.com/business/saudi-arabia-dominates-gcc-projects-market-in-q3-2025-with-28-1-billion-in-awards/))
 
-3. **De softwaremarkt zelf is klein in verhouding tot de bouwmarkt.** Mijn bottom-up schatting voor *pure planning-/schedulinglicenties* in de GCC: **~USD 43 mln per jaar (2025), bandbreedte $30–80 mln** [SCHATTING, zie §2.3 — naar beneden bijgesteld van ~$55 mln na correctie van de cloudprijs, §3.2]. De veel geciteerde "$1,2 mrd GCC construction project management software"-cijfers ([Ken Research](https://www.kenresearch.com/gcc-construction-project-management-software-market)) betreffen een veel bredere scope (PMIS, documentbeheer, ERP, veldapps) — en een tweede bureau komt op **$53 mln** voor dezelfde regio ([Market Research Future](https://www.marketresearchfuture.com/reports/gcc-construction-software-market-45912)). Die factor-23-discrepantie is een rode vlag voor beide.
+3. **De softwaremarkt zelf is klein in verhouding tot de bouwmarkt.** Mijn bottom-up schatting voor *pure planning-/schedulinglicenties* in de GCC: **~USD 45 mln per jaar (2025), bandbreedte $30–85 mln** [SCHATTING, zie §2.3]. *(Herzien in twee ronden: oorspronkelijk ~$55 mln, in ronde 1 verlaagd naar ~$43 mln op basis van een te lage cloudprijs, in ronde 2 gecorrigeerd naar ~$45 mln nadat Oracle's eigen actuele prijslijst boven water kwam — zie §3.2 en §10.)* De veel geciteerde "$1,2 mrd GCC construction project management software"-cijfers ([Ken Research](https://www.kenresearch.com/gcc-construction-project-management-software-market)) betreffen een veel bredere scope (PMIS, documentbeheer, ERP, veldapps) — en een tweede bureau komt op **$53 mln** voor dezelfde regio ([Market Research Future](https://www.marketresearchfuture.com/reports/gcc-construction-software-market-45912)). Die factor-23-discrepantie is een rode vlag voor beide.
 
-4. **De dienstenlaag is ~8–9× groter dan de licentielaag.** Training + planning-/claimsconsultancy schat ik op **~$370 mln/jaar** tegenover ~$43 mln licenties [SCHATTING, §2.4]. Wie hier geld verdient, verdient het met mensen, niet met software.
+4. **De dienstenlaag is ~8× groter dan de licentielaag.** Training + planning-/claimsconsultancy schat ik op **~$370 mln/jaar** tegenover ~$45 mln licenties [SCHATTING, §2.4]. Wie hier geld verdient, verdient het met mensen, niet met software.
 
 5. **"Hoogste betalingsbereidheid per planner ter wereld" is maar half waar.** Op *organisatieniveau* klopt het: giga-projectopdrachtgevers kopen enterprise-Oracle-stacks zonder prijsgevoeligheid (Red Sea Global: **23.000+ gebruikers** op Aconex + P6, [Oracle](https://www.oracle.com/middleeast/news/announcement/oracle-to-help-improve-construction-visibility-and-results-for-red-sea-global-2026-01-27/)). Op *planner-salarisniveau* klopt het niet: senior planners in Dubai verdienen AED 15.000–28.000/mnd (~$49k–92k/jaar, belastingvrij) — goed, maar niet wereldtop. En eronder ligt een enorme onderkant van kleine aannemers die Excel of gekraakte P6 draaien.
 
@@ -62,7 +62,7 @@ Ik heb bewust de trainingsaanbieder-claims (bijv. "80% van GCC-overheidsprojecte
 | Vision 2030-bouw-/vastgoedcommitment | **~$1 biljoen** | doorlopend | [MEED](https://www.meed.com/gcc-construction-industry-evolves) |
 | KSA-bouwmarkt (jaarlijkse output) | **$101,4 mrd** → $140,4 mrd in 2034 (CAGR 3,6%) | 2025 | [IMARC](https://www.imarcgroup.com/saudi-arabia-construction-market) |
 | KSA-bouwmarkt (afwijkende schatting) | **$133,8 mrd** (2025) → $142,3 mrd (2026), CAGR 5,52% | 2025 | [Mordor via MarketResearch.com](https://www.marketresearch.com/Mordor-Intelligence-LLP-v4018/Saudi-Arabia-Construction-Share-Trends-45181694/) |
-| VAE-bouwmarkt | **$45,8 mrd** → $69 mrd in 2034 (CAGR 4,66%) | 2025 | IMARC, geciteerd via [timetraining.ae](https://www.timetraining.ae/learninghub-detail/should-document-controllers-learn-Primavera) |
+| VAE-bouwmarkt **[BRON OPGEWAARDEERD]** | **$45,826 mrd** → $69,023 mrd in 2034 (CAGR 4,66% over 2026–2034) | 2025 | [IMARC — primaire bronpagina](https://www.imarcgroup.com/uae-construction-market) *(stond eerder alleen als citaat via timetraining.ae; ronde 2 heeft de cijfers letterlijk op IMARC's eigen pagina teruggevonden)* |
 
 > **[VERIFICATIE — gecorrigeerd]** De oorspronkelijk geciteerde MEED-cijfers ($264,4 mrd / KSA $142,4 mrd) worden door geen enkele andere bron gereproduceerd. Vier onafhankelijke publicaties (Kamco Invest' jaarrapport, AGBI, Muscat Daily, Enterprise AM) komen consistent uit op **$273,2 mrd** GCC-totaal en **$146,8 mrd** voor KSA. Beide reeksen delen exact dezelfde 2023-basis van $249,4 mrd en zijn intern consistent (249,4 × 1,06 = 264,4; 249,4 × 1,096 = 273,4), wat erop wijst dat MEED een **voorlopige** telling publiceerde en Kamco de definitieve. Gebruik $273,2 mrd / $146,8 mrd. Het verschil van ~3% verandert geen enkele conclusie in dit rapport.
 
@@ -77,7 +77,7 @@ Ik heb bewust de trainingsaanbieder-claims (bijv. "80% van GCC-overheidsprojecte
 
 **Aantal marktpartijen (KSA):**
 - **~117.000** aannemers geregistreerd bij de Saudi Contractors Authority. ([Arab News](https://www.arabnews.com/node/2650710/business-economy))
-- **365.120** bouwvestigingen in 2025 (+29,6% t.o.v. 281.820 in 2024), met **4,4 mln** werknemers. ([Argaam](https://www.argaam.com/en/article/articledetail/id/1921206))
+- **365.120** bouwvestigingen in 2025 (+29,6% t.o.v. 281.820 in 2024), met **4,41 mln** werknemers — cijfers van de Saudi Contractors Authority. ([Argaam](https://www.argaam.com/en/article/articledetail/id/1921206)) *(In ronde 1 als "onzeker" gemarkeerd; in ronde 2 is de bronpagina zelf opgehaald en staan alle drie de getallen er letterlijk — **bevestigd**.)*
 
 Die 117.000 vs. 365.120 laten meteen de tweedeling zien: een handvol tier-1-partijen op giga-projecten (die enterprise-P6 draaien) en tienduizenden micro-aannemers (die niets van dit alles kopen).
 
@@ -91,7 +91,7 @@ Die 117.000 vs. 365.120 laten meteen de tweedeling zien: een handvol tier-1-part
 
 **Factor 23 verschil.** Mijn lezing:
 
-> **[VERIFICATIE — gecorrigeerd]** Het Ken Research-drietal "$1,2 mrd (2024) → $2,5 mrd (2031) bij CAGR 16,75%" is **wiskundig onmogelijk**. Nagerekend: $1,2 mrd bij 16,75% over 7 jaar geeft **$3,64 mrd**, niet $2,5 mrd; omgekeerd impliceert $1,2 → $2,5 mrd over 7 jaar een CAGR van **11,1%**. De 16,75% klopt alleen bij een looptijd van ~4,7 jaar. Controle van de bronpagina zelf levert bovendien op: basisjaar 2024, forecastperiode **2025–2030**, en **geen gepubliceerde CAGR**. De 16,75% en het jaartal 2031 zijn dus niet uit deze bron afkomstig en zijn hier verwijderd. Dit versterkt het oordeel over de bron: niet alleen de scope is te breed, de cijferreeks is ook intern inconsistent.
+> **[VERIFICATIE — gecorrigeerd; rekenfout in ronde 1 hersteld in ronde 2]** Het Ken Research-drietal "$1,2 mrd (2024) → $2,5 mrd (2031) bij CAGR 16,75%" is **wiskundig onmogelijk**. Nagerekend: $1,2 mrd bij 16,75% over 7 jaar geeft **$3,55 mrd** (1,2 × 1,1675⁷ = 3,548) — ronde 1 noteerde hier abusievelijk $3,64 mrd — en dus niet $2,5 mrd; omgekeerd impliceert $1,2 → $2,5 mrd over 7 jaar een CAGR van **11,1%**. De 16,75% klopt alleen bij een looptijd van ~4,7 jaar. Controle van de bronpagina zelf levert bovendien op: basisjaar 2024, forecastperiode **2025–2030**, en **geen gepubliceerde CAGR**. De 16,75% en het jaartal 2031 zijn dus niet uit deze bron afkomstig en zijn hier verwijderd. Dit versterkt het oordeel over de bron: niet alleen de scope is te breed, de cijferreeks is ook intern inconsistent.
 
 - Ken Research's $1,2 mrd is te ruim genomen: hun vendorlijst (Oracle, Autodesk, SAP, Procore, Trimble, PlanGrid, Aconex, Viewpoint, e-Builder, CMiC, CoConstruct, Buildertrend, Bluebeam, Deltek, RIB) omvat ERP, documentbeheer, takeoff, veldapps en BIM-samenwerking. Dat is de héle bouw-IT-stack, niet planning.
 - MRFR's $53 mln is te krap voor "alle bouwsoftware" maar ligt verrassend dicht bij mijn eigen bottom-up schatting van de *planning*-deelmarkt.
@@ -160,34 +160,42 @@ Lijstprijzen (§4) versus wat er in de Golf werkelijk betaald wordt. Oracle geef
 - P6 Cloud: $305/mnd = $3.660/jaar lijst → na korting ~$1.800–2.700
 - Gewogen gemiddelde: ~$1.700/jaar
 
-> **[VERIFICATIE — gecorrigeerd]** De cloudprijs is aantoonbaar te hoog ingezet (zie §3.2). Herberekening met de gepubliceerde resellerprijzen:
+> **[VERIFICATIE RONDE 1 — gecorrigeerd]** De cloudprijs is aantoonbaar te hoog ingezet (zie §3.2). Herberekening met de gepubliceerde resellerprijzen:
 > - **Perpetual P6 Professional**: lijst $3.520–3.880, neem $3.700 → /5 jaar = $740 + 22% support ($814) = **$1.554/jaar lijst** → na 25–50% korting ≈ **$780–1.165**
 > - **Oracle Primavera Cloud – Schedule**: $130/mnd = **$1.560/jaar lijst** → na 25–50% korting ≈ **$780–1.170**
 >
 > Beide routes convergeren nu op ongeveer hetzelfde punt, wat de schatting juist robuuster maakt. Gewogen gemiddelde: **~$975/jaar, afgerond ~$1.000** — niet $1.700. De oorspronkelijke aanname was **~70% te hoog**.
 
-**Stap 5 — de rekensom [HERZIEN]**
+> **[VERIFICATIE RONDE 2 — deels teruggedraaid]** Ronde 1 vergeleek de verkeerde producten. Oracle's **eigen actuele prijslijst** (Construction & Engineering GBU, G-Cloud 14, mei 2025) laat zien dat "Oracle Primavera Cloud – Schedule" (£96/gebruiker/maand, min. 5) en "Primavera P6 EPPM Cloud Service" (**£220/gebruiker/maand, min. 25**) twee verschillende producten met twee verschillende prijzen zijn. De GCC draait contractueel op **P6**, niet op OPC — dus de dure van de twee is voor deze markt de relevante. Herberekening met Oracle's eigen cijfers (£1 ≈ $1,25–1,35):
+> - **Perpetual P6 Professional** (resellerlijst $3.520–3.880): **~$1.554/jaar lijst** → na korting **$780–1.165**
+> - **Oracle Primavera Cloud – Schedule** (£96/mnd): **~$1.440–1.555/jaar lijst** → na korting **$720–1.165**
+> - **Primavera P6 EPPM Cloud Service** (£220/mnd): **~$3.300–3.560/jaar lijst** → na korting **$1.650–2.670**
+> - *Ondergrens-anker:* Oracle's laatste gepubliceerde perpetual-lijst (nov-2016) noteert P6 Professional op **$2.500 + $550 support** en biedt 1-jaars termijnlicenties tegen **20% van de perpetual-lijstprijs** → **~$1.050/jaar**.
+>
+> Realistische mix (overwegend perpetual P6 Professional, groeiend aandeel cloud, waarvan een deel P6 EPPM Cloud): lijstprijs ~$1.600–1.900/jaar, na 25–50% GCC-volumekorting → **~$1.150/jaar (band $800–1.700)**. Niet $1.700 (oorspronkelijk, te hoog) en niet $1.000 (ronde 1, te laag).
+
+**Stap 5 — de rekensom [HERZIEN IN RONDE 2]**
 
 | Component | Berekening | Jaarlijks |
 |---|---|---|
-| Toegewijde plannerseats | 15.000 × **~$1.000** *(was: × $1.700 = $25,5 mln)* | **~$15 mln** |
+| Toegewijde plannerseats | 15.000 × **~$1.150** *(oorspronkelijk × $1.700 = $25,5 mln; ronde 1 × $1.000 = $15 mln)* | **~$17 mln** |
 | Secundaire/viewer/Team Member-seats | 60.000 × ~$130 | **~$8 mln** |
 | Enterprise-platformlaag (P6 EPPM-servers, Analytics, integratie, hosting) bij ~200 grote opdrachtgevers/PMC's/tier-1-aannemers, alleen het planningsdeel | 200 × ~$100k | **~$20 mln** |
-| **Totaal pure planning-/schedulingsoftware GCC** | | **~$43 mln/jaar** |
+| **Totaal pure planning-/schedulingsoftware GCC** | | **~$45 mln/jaar** |
 
-**Uitkomst [GECORRIGEERD]: ~USD 43 mln per jaar (2025), bandbreedte $30–80 mln.** [SCHATTING] De eerder genoemde ~$55 mln blijft binnen de bandbreedte, maar ligt aan de bovenkant en berustte op een te hoge cloudprijs.
+**Uitkomst [GECORRIGEERD, ronde 2]: ~USD 45 mln per jaar (2025), bandbreedte $30–85 mln.** [SCHATTING] De oorspronkelijke ~$55 mln en de ronde-1-correctie naar ~$43 mln vallen beide binnen de bandbreedte; ~$45 mln is het best onderbouwde middelpunt. **Let op de gevoeligheid:** de hele uitkomst hangt aan één ongemeten aanname (15.000 planners) en één prijsaanname; de bandbreedte is eerlijker dan het puntgetal.
 
 **Twee onafhankelijke plausibiliteitscontroles op de overige twee regels:**
 
-- *Viewer-seats (~$130/jaar):* bevestigd door de OPC Progress-tier van $14/maand = $168/jaar lijst, wat na korting ~$85–125 wordt. Met een deel gratis viewers is $130 gemengd eerder iets aan de hoge kant. ([CMC Project Solutions](https://www.cmcprojectsolutions.com/primavera/shop/))
-- *Enterprise-laag (~$100k per organisatie):* onafhankelijk bevestigd door een primair document. Ashghal (Qatars Public Works Authority — een van de grootste overheidsopdrachtgevers in de GCC) kocht in zijn eigen aanbesteding **85 Primavera P6 EPPM-licenties + 85 PCM-licenties**. Alleen al de jaarlijkse support daarop bedraagt ~85 × $933 ≈ **$79.000/jaar**. Dat ligt opvallend dicht bij de aangenomen ~$100k. ([Ashghal STC-051](https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/Project%20Brief-%20STC-%20051.pdf), tekstextractie) Tegelijk relativeert het de schaal: zelfs een top-tier staatsopdrachtgever draait op **85 seats**, niet duizenden.
+- *Viewer-seats (~$130/jaar):* bevestigd door Oracle zelf. **Primavera Progress Cloud Service £10/gebruiker/maand** (= ~$150–162/jaar lijst) en **P6 Progress Reporter Cloud Service £24/maand** (= ~$360–390/jaar lijst). ([Oracle G-Cloud 14 prijslijst, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf)) Na korting en met een deel gratis viewers is $130 gemengd een redelijk midden.
+- *Enterprise-laag (~$100k per organisatie):* Ashghal (Qatars Public Works Authority) kocht in zijn eigen aanbesteding **85 Primavera P6 EPPM-licenties + 85 PCM-licenties**. De jaarlijkse support daarop is **$51.000–79.000** afhankelijk van welke supportprijs je hanteert — $605/seat volgens Oracle's eigen gepubliceerde lijst, $933/seat volgens de resellernotering. ([Ashghal STC-051](https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/Project%20Brief-%20STC-%20051.pdf), tekstextractie; [Oracle Global Price List nov-2016](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf)) *(Ronde 1 noemde alleen de $79k-variant en concludeerde "opvallend dicht bij $100k"; met Oracle's eigen supportprijs is het eerder de helft. De ordegrootte klopt, de precisie niet.)* Wat het wél scherp laat zien: zelfs een top-tier staatsopdrachtgever draait op **85 seats**, niet duizenden.
 
 Per land, ruwweg naar rato van bouwoutput [SCHATTING, herschaald naar het gecorrigeerde totaal]:
-- Saoedi-Arabië ~$23 mln (55%)
-- VAE ~$9,5 mln (22%)
-- Qatar ~$4,5 mln (11%)
+- Saoedi-Arabië ~$24 mln (55%)
+- VAE ~$10 mln (22%)
+- Qatar ~$5 mln (11%)
 - Koeweit ~$3 mln (7%)
-- Oman ~$1,7 mln (4%)
+- Oman ~$1,8 mln (4%)
 - Bahrein ~$0,9 mln (2%)
 
 *(Let op: deze percentages tellen op tot 101% door afronding; het zijn ordegrootte-indicaties, geen gemeten aandelen.)*
@@ -214,10 +222,10 @@ De aanwezigheid van een dichte laag gespecialiseerde GCC-claimsbureaus bevestigt
 
 | Laag | Omvang/jaar | Zekerheid |
 |---|---|---|
-| Planning-/schedulinglicenties **[GECORRIGEERD]** | **~$43 mln** *(was ~$55 mln)* | schatting, ±70% |
+| Planning-/schedulinglicenties **[GECORRIGEERD, ronde 2]** | **~$45 mln** *(oorspronkelijk ~$55 mln; ronde 1 ~$43 mln)* | schatting, ±80% |
 | Training | **~$20 mln** | schatting, ±80% |
 | Planning-/claimsconsultancy | **~$350 mln** | ruwe schatting, ±100% |
-| **Totaal** | **~$413 mln** *(was ~$425 mln)* | |
+| **Totaal** | **~$415 mln** *(was ~$425 mln)* | |
 | *Ter vergelijking: brede "construction PM software"-markt* | *$1,2 mrd (Ken Research) t/m $53 mln (MRFR)* | *onbetrouwbaar* |
 
 **Kernconclusie over de marktomvang:** de licentiemarkt voor planningssoftware in de GCC is, in absolute zin, **klein** — vergelijkbaar met een middelgrote Europese landenmarkt — maar de *marge per seat* en de *diensten eromheen* zijn uitzonderlijk. Wie hier wil verdienen, verkoopt geen tool maar compliance.
@@ -286,13 +294,13 @@ Ik heb geen van deze vier percentages in de oorspronkelijke bron kunnen terugvin
 | P6 Professional (alternatieve notering) | **$3.520** | — | [ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models) |
 | P6 EPPM basislicentie (alternatief) | **$2.750** per application user | $605 | idem |
 | Reseller-instapprijs | vanaf **$3.100–3.500** | — | idem / [PrimaveraScheduling](https://primaverascheduling.com/home/buy-primavera-software/) |
-| P6 Cloud *(claim prmyazilim — zie correctie hieronder)* | $305 / gebruiker / maand, minimaal 25 gebruikers | inbegrepen | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
+| **P6 EPPM Cloud Service** *(prmyazilim noemt dit "Primavera P6 Cloud")* | **$305 / gebruiker / maand, minimaal 25 gebruikers** — **in ronde 2 bevestigd door Oracle zelf**: £220/mnd, min. 25 | inbegrepen | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing), [Oracle G-Cloud 14, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf) |
 | Oracle Primavera (samengesteld) | **$175 / gebruiker / maand** | — | [ContractorsAndBuilders](https://contractorsandbuilders.com/pricing/oracle-primavera/) |
 | Bandbreedte over alle modellen | **$3.000–25.000 per gebruiker/jaar** | — | [VendorBenchmark](https://vendorbenchmark.com/vendors/oracle-primavera-p6-pricing) |
 
 **Onderhoud: 22% per jaar** over de licentiewaarde — de standaard Oracle-formule. ([prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing))
 
-> **[VERIFICATIE — gecorrigeerd, belangrijkste prijscorrectie van dit onderzoek]** De notering "$305/gebruiker/maand met minimaal 25 gebruikers" is **niet houdbaar**. Oracle publiceert geen prijslijst (bevestigd: de [officiële Primavera P6-productpagina](https://www.oracle.com/industries/construction-engineering/primavera-p6/) noemt geen enkel bedrag), maar een geautoriseerde Noord-Amerikaanse Primavera-reseller publiceert wél een uitgesplitste actuele prijslijst — en die ziet er wezenlijk anders uit ([CMC Project Solutions](https://www.cmcprojectsolutions.com/primavera/shop/)):
+> **[VERIFICATIE RONDE 1 — "gecorrigeerd"; ⚠️ in ronde 2 grotendeels TERUGGEDRAAID, zie het blok hieronder]** De notering "$305/gebruiker/maand met minimaal 25 gebruikers" is **niet houdbaar**. Oracle publiceert geen prijslijst (bevestigd: de [officiële Primavera P6-productpagina](https://www.oracle.com/industries/construction-engineering/primavera-p6/) noemt geen enkel bedrag), maar een geautoriseerde Noord-Amerikaanse Primavera-reseller publiceert wél een uitgesplitste actuele prijslijst — en die ziet er wezenlijk anders uit ([CMC Project Solutions](https://www.cmcprojectsolutions.com/primavera/shop/)):
 >
 > | Product | Prijs | Minimum |
 > |---|---|---|
@@ -309,13 +317,38 @@ Ik heb geen van deze vier percentages in de oorspronkelijke bron kunnen terugvin
 > 2. De losse notering "Progress Cloud Service $144/gebruiker/jaar" (FindPM) blijkt te corresponderen met de **OPC Progress-tier van $14/maand = $168/jaar** — ordegrootte bevestigd, dus die regel is als aparte bron overbodig geworden en hier samengevoegd.
 > 3. De lijstprijs van P6 Professional is **niet hard**: prmyazilim noteert $3.880, deze reseller $3.520, en P6 EPPM $3.850 tegenover prmyazilims $4.240. Behandel $3.500–4.250 als de reële bandbreedte, niet $3.880 als een precies getal.
 
-**Kritieke observatie voor de GCC [HERZIEN]:** de eerdere redenering — dat de cloud-instapdrempel MKB-aannemers uitsluit — **houdt geen stand**. Bij $130/gebruiker/maand vanaf 5 gebruikers is Oracle Primavera Cloud voor een middelgrote aannemer in Sharjah of Dammam gewoon betaalbaar (~$7.800/jaar). De tweedeling in §5.6 (Excel/gekraakte software) wordt dus **niet** door een prijsdrempel verklaard, maar door de andere factoren die dit rapport identificeert: ontbrekende contractuele noodzaak onderaan de markt, ontbrekend lokaal verkoopkanaal richting MKB, taal, en de beschikbaarheid van gratis P6. Dat is een inhoudelijk andere — en voor een nieuwe toetreder ongunstiger — diagnose: het probleem is geen prijsgat om in te springen, maar een vraaggat.
+> **[VERIFICATIE RONDE 2 — de ronde-1-correctie was zelf fout; dit is de zwaarstwegende bevinding van deze ronde]**
+> Ronde 1 concludeerde dat Oracle geen prijslijst publiceert en verklaarde "$305/mnd, min. 25 gebruikers" op die grond onhoudbaar. **Beide onderdelen van die redenering zijn onjuist.** Oracle's Construction & Engineering Global Business Unit publiceert wel degelijk prijzen — via het Britse overheidsraamwerk G-Cloud 14, document BD.G14.OCS.002 v1.1, **mei 2025**:
+>
+> | Oracle-product (officiële prijslijst) | £/gebruiker/maand | Min. gebruikers |
+> |---|---|---|
+> | **Primavera P6 EPPM Cloud Service** | **£220** | **25** |
+> | Primavera P6 Progress Reporter Cloud Service | £24 | geen |
+> | P6 EPPM Web Services Cloud Service | £36 | geen |
+> | **Oracle Primavera Schedule Cloud Service** (= OPC Schedule) | **£96** | **5** |
+> | Oracle Primavera Task Management Cloud Service | £44 | 5 |
+> | Oracle Primavera Progress Cloud Service | £10 | 5 |
+> | Oracle Primavera Portfolio & Capital Planning Cloud Service | £176 | 5 |
+> | Primavera Unifier Project Controls Cloud Service | £132 | 25 |
+> | Oracle Aconex Enterprise Cloud Service | £46 | 5 |
+> | Oracle Aconex Connected Cost Enterprise Cloud Service | £280 | 5 |
+> | *Volumekorting (officieel):* 10% bij 101–200 gebruikers, 15% bij 201–500, 20% bij 501–1.000, **25% bij 1.001+** | | |
+>
+> ([Oracle Primavera Pricing – G-Cloud 14, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf))
+>
+> **Wat dit betekent:**
+> 1. **De $305-notering is in essentie correct.** Bij £1 ≈ $1,25–1,35 is £220 gelijk aan **$275–297 per gebruiker per maand** — binnen ~10% van de $305 van prmyazilim. Het **minimum van 25 gebruikers is letterlijk Oracle's eigen voorwaarde.** Ronde 1 heeft hier een juiste bron ten onrechte weerlegd.
+> 2. **De CMC-prijslijst is óók correct** — hij beschrijft alleen een *ander product*. £96 ≈ $120–130 (OPC Schedule), £10 ≈ $13 (Progress), £44 ≈ $57 (Task), £176 ≈ $229 (Portfolio): stuk voor stuk binnen enkele procenten van CMC's $130 / $14 / $60 / $235. De twee bronnen spraken elkaar nooit tegen; ronde 1 vergeleek appels met peren.
+> 3. **De instapdrempel is dus productafhankelijk.** P6 EPPM Cloud: 25 × £220 × 12 = £66.000 ≈ **$82.000–89.000/jaar** — de oorspronkelijk genoemde ~$91.500 klopt op ~5–10% na. OPC Schedule: 5 × £96 × 12 = £5.760 ≈ **$7.200–7.800/jaar**. De factor 11 tussen beide is echt, maar het is geen fout in de bron — het is een productkeuze.
+> 4. **Oracle's laatst gepubliceerde perpetual-lijst** (Construction & Engineering Global Price List, **10 november 2016**) noteert **P6 Professional $2.500 + $550 support** en **P6 EPPM $2.750 + $605** per Application User, plus Progress Reporter $950 + $209 — en bevestigt de 22%-supportformule én termijnlicenties tegen 20% (1 jaar) tot 70% (5 jaar) van de perpetual-lijstprijs. ([Oracle](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf)) De in §3.2 als "alternatieve notering" afgedane **$2.750 + $605 is dus Oracle's officiële lijstprijs**, geen afwijkende resellerclaim. De actuele resellernoteringen van $3.520–4.240 liggen 28–54% daarboven; dat is óf tien jaar lijstprijsinflatie, óf marge. **Conclusie: $2.500–4.250 als bandbreedte, met Oracle's eigen $2.500/$2.750 als harde ondergrens.**
+
+**Kritieke observatie voor de GCC [HERZIEN IN RONDE 2]:** de oorspronkelijke redenering — dat de cloud-instapdrempel MKB-aannemers uitsluit — is **half juist**, niet onjuist zoals ronde 1 concludeerde. Voor het product waar de GCC contractueel op draait (**P6 EPPM Cloud, min. 25 seats ≈ $82.000–89.000/jaar**) is de drempel reëel en prohibitief voor een middelgrote aannemer. Voor Oracle's nieuwere **OPC Schedule (min. 5 seats ≈ $7.200–7.800/jaar)** bestaat die drempel niet. Maar OPC is niet wat opdrachtgevers vragen: de contractuele eis luidt "P6", en OPC is een ander product met een ander bestandsformaat. De juiste diagnose is dus **beide**: er is een prijsdrempel op het gevraagde product, én een vraaggat onderaan de markt (ontbrekende contractuele noodzaak, ontbrekend MKB-kanaal, taal, gratis P6). Voor een nieuwe toetreder is dat per saldo gunstiger dan ronde 1 suggereerde — er ís een prijsgat — maar alleen als je het XER-formaatprobleem oplost.
 
 ### 3.3 De rest van de Oracle-stack
 
 Oracle verkoopt in de Golf zelden P6 alleen; het gaat als suite mee.
 
-- **Oracle Aconex** — CDE/documentbeheer. Red Sea Global neemt "de volledige suite aan Aconex-modules, inclusief Connected Cost en Model Coordination". ([Oracle](https://www.oracle.com/middleeast/news/announcement/oracle-to-help-improve-construction-visibility-and-results-for-red-sea-global-2026-01-27/)) Ook op NEOM in gebruik ([LinkedIn-praktijkbron](https://www.linkedin.com/posts/faiz-aman-mustafa_aconex-neom-documentcontrol-activity-7349161901550940166--N9s)). Prijzen worden niet gepubliceerd; Aconex kent een "Unlimited"-model met onbeperkte gebruikers, opslag, training en support ([ZoftwareHub](https://zoftwarehub.com/products/oracle-aconex/pricing)) — projectprijs op maat, meestal een percentage van de projectwaarde.
+- **Oracle Aconex** — CDE/documentbeheer. Red Sea Global neemt "de volledige suite aan Aconex-modules, inclusief Connected Cost en Model Coordination". ([Oracle](https://www.oracle.com/middleeast/news/announcement/oracle-to-help-improve-construction-visibility-and-results-for-red-sea-global-2026-01-27/)) Ook op NEOM in gebruik ([LinkedIn-praktijkbron](https://www.linkedin.com/posts/faiz-aman-mustafa_aconex-neom-documentcontrol-activity-7349161901550940166--N9s)). **[GECORRIGEERD, ronde 2]** De bewering "prijzen worden niet gepubliceerd" is onjuist: Oracle publiceert **Aconex Enterprise Cloud Service op £46/gebruiker/maand met een minimum van 5 gebruikers**, plus losse modules (Connected Cost £280/mnd, Model Coordination £9/mnd, Handover £8/mnd, Field single-project £52/mnd). Oracle vermeldt daarbij expliciet dat Aconex *daarnaast* op een "Project Value or Enterprise metric" verkrijgbaar is, "priced per requirement" — dát is het "Unlimited"-model waar [ZoftwareHub](https://zoftwarehub.com/products/oracle-aconex/pricing) op doelt. Beide modellen bestaan dus naast elkaar. ([Oracle G-Cloud 14, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf))
 - **Oracle Primavera Unifier** — Ashghal (Qatar) draait er zijn nationale infrastructuurprogramma op. ([Oracle case](https://www.oracle.com/construction-engineering/oracle-primavera-ashghal/))
 - **Primavera Risk Analysis (PRA)** en **Primavera Analytics** — standaard in het portfolio van regionale resellers. ([ImageGrafix](https://image-grafix.com/oracle-primavera-partner-reseller-in-united-arab-emirates/))
 - **Strategische verankering:** Oracle kondigde een **$14 mrd+ uitbreiding in KSA** aan, inclusief een derde Oracle Cloud-regio in NEOM City. ([LinkedIn/Oracle-woordvoerder](https://www.linkedin.com/posts/sherief-elabd_digitaltwin-saudiarabia-neom-activity-7391018392767361024-rF1r)) Dat maakt Oracle in Saoedi-Arabië ook een *soevereine-cloud*-partij — een concurrentievoordeel dat geen enkele planningsleverancier kan evenaren.
@@ -336,7 +369,7 @@ Oracle verkoopt in de Golf zelden P6 alleen; het gaat als suite mee.
 
 Aanvullende bron: [The Digital Project Manager](https://thedigitalprojectmanager.com/tools/microsoft-project-pricing/). In de VAE wordt Plan 3 lokaal doorverkocht via o.a. **e& (Etisalat)** ([eand.ae](https://www.eand.ae)) en resellers als softwareline.ae — een indicatie dat de telco-bundelroute hier gebruikelijk is.
 
-**Prijsverhouding tot P6 [HERZIEN]:** Plan 3 kost per jaar $360 tegenover ~$1.554 (perpetual, geamortiseerd + support) tot ~$1.560 (Primavera Cloud – Schedule) voor een P6-seat. **P6 is ~4,3× duurder** — niet de eerder genoemde 4,5–10×, want die bovengrens berustte op de weerlegde $3.660-cloudprijs. Het punt blijft staan (P6 is fors duurder en wordt toch gekocht), maar het is een factor 4, geen factor 10.
+**Prijsverhouding tot P6 [HERZIEN IN RONDE 2 — oorspronkelijke claim hersteld]:** Plan 3 kost per jaar $360. Een P6-seat kost per jaar ~$1.554 (perpetual, geamortiseerd + support) via de goedkoopste route en ~$3.300–3.560 via **P6 EPPM Cloud Service** (Oracle's eigen £220/mnd). **P6 is dus 4,3× tot 9,9× duurder.** Ronde 1 versmalde dit tot "~4,3×" op grond van de weerlegde cloudprijs; nu Oracle's eigen prijslijst die cloudprijs bevestigt, staat de **oorspronkelijke bandbreedte van 4,5–10× overeind** en was de ronde-1-correctie onterecht. Het punt zelf wordt daarmee sterker, niet zwakker: opdrachtgevers kopen een tot tienmaal duurdere tool omdat het contract dat afdwingt.
 
 ### 3.5 Excel — de onzichtbare nummer twee
 
@@ -420,17 +453,22 @@ Deze groeien hard in de Golf, maar **buiten** de contractuele planningsketen —
 
 | Product | Model | Lijstprijs | Bron |
 |---|---|---|---|
-| P6 Professional | perpetual, named user | **$3.520–3.880** (+22%/jr support) | [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) / [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
-| P6 EPPM | perpetual, named user | **$3.850–4.240** (+22%/jr support) | idem |
-| P6 EPPM (alt.) | perpetual, application user | $2.750 (+$605) | [ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models) |
-| Primavera Progress Reporter | perpetual | $924 | [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) |
-| **Oracle Primavera Cloud – Schedule** | abonnement | **$130/gebruiker/mnd, min. 5 gebruikers** | [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) |
-| Oracle Primavera Cloud – Portfolio & Capital Planning | abonnement | $235/gebruiker/mnd, min. 5 | idem |
-| Oracle Primavera Cloud – Task Management | abonnement | $60/gebruiker/mnd, min. 5 | idem |
-| Oracle Primavera Cloud – Progress (viewer) | abonnement | $14/gebruiker/mnd (= $168/jr), min. 5 | idem |
-| ~~P6 Cloud $305/mnd, min. 25 gebruikers~~ | — | **weerlegd, zie §3.2** | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
+| **P6 Professional — Oracle's eigen lijst (nov-2016)** | perpetual, application user | **$2.500** (+$550 support = 22%) | [Oracle Global Price List](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf) |
+| **P6 EPPM — Oracle's eigen lijst (nov-2016)** | perpetual, application user | **$2.750** (+$605 support = 22%) | idem |
+| P6 Professional — actuele resellernoteringen | perpetual, named user | $3.520–3.880 (+22%/jr support) | [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) / [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
+| P6 EPPM — actuele resellernoteringen | perpetual, named user | $3.850–4.240 (+22%/jr support) | idem |
+| Primavera Progress Reporter | perpetual | $950 (Oracle) / $924 (reseller) | [Oracle](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf) / [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) |
+| Termijnlicentie (elk Oracle-product) | 1 jr = 20% van perpetual-lijst; 3 jr = 50%; 5 jr = 70% (support blijft 22% van perpetual) | — | [Oracle](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf) |
+| **Primavera P6 EPPM Cloud Service** | abonnement | **£220/gebruiker/mnd (≈ $275–297), min. 25 gebruikers** | [Oracle G-Cloud 14, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf) |
+| P6 Progress Reporter Cloud Service | abonnement | £24/gebruiker/mnd (≈ $30–32), geen minimum | idem |
+| **Oracle Primavera Schedule Cloud Service (OPC)** | abonnement | **£96/gebruiker/mnd (≈ $120–130), min. 5 gebruikers** — reseller noteert $130 | Oracle G-Cloud 14 / [CMC](https://www.cmcprojectsolutions.com/primavera/shop/) |
+| Oracle Primavera Portfolio & Capital Planning | abonnement | £176/mnd (≈ $220–238); reseller $235, min. 5 | idem |
+| Oracle Primavera Task Management | abonnement | £44/mnd (≈ $55–59); reseller $60, min. 5 | idem |
+| Oracle Primavera Progress (viewer) | abonnement | £10/mnd (≈ $13); reseller $14, min. 5 | idem |
+| Primavera Unifier Project Controls Cloud | abonnement | £132/gebruiker/mnd, min. 25 | Oracle G-Cloud 14 |
+| Officiële Oracle-volumekorting (cloud) | — | 10% (101–200 users) / 15% (201–500) / 20% (501–1.000) / **25% (1.001+)** | idem |
 | Primavera (samengesteld) | abonnement | $175/gebruiker/mnd | [ContractorsAndBuilders](https://contractorsandbuilders.com/pricing/oracle-primavera/) |
-| Oracle Aconex | projectgebaseerd / "Unlimited" | niet gepubliceerd | [ZoftwareHub](https://zoftwarehub.com/products/oracle-aconex/pricing), [ITQlick](https://www.itqlick.com/oracle-aconex/pricing) |
+| **Oracle Aconex [GECORRIGEERD, ronde 2]** | abonnement per gebruiker *(daarnaast ook op projectwaarde/enterprise-metriek)* | **Aconex Enterprise Cloud Service £46/gebruiker/mnd (≈ $58–62), min. 5**; Connected Cost £280/mnd; Model Coordination £9/mnd; Field (single project) £52/mnd; Contract Management (single project) £176/mnd | [Oracle G-Cloud 14, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf) |
 | Planner Plan 1 / Planner and Project Plan 3 / Plan 5 | abonnement | $10 / $30 / $55 per gebruiker/mnd | [Microsoft](https://www.microsoft.com/en/microsoft-365/planner/microsoft-planner-plans-and-pricing) |
 
 ### 4.2 Valuta-effecten: er zijn er nauwelijks
@@ -466,11 +504,12 @@ Gevolg: **geen valutarisico-opslag, geen prijsherziening bij wisselkoersschommel
 
 ### 4.4 Kortingen
 
-Oracle publiceert geen prijslijst meer; alles gaat via offerte en reseller. Waarneembare patronen:
+**[GECORRIGEERD, ronde 2]** De aanname "Oracle publiceert geen prijslijst meer" klopt niet. Oracle publiceert nog steeds prijzen — alleen niet op zijn marketingpagina's, maar in **overheidsraamwerkdocumenten**: de Britse G-Cloud 14-prijslijst van mei 2025 (alle Primavera-, Unifier- en Aconex-cloudprijzen, zie §4.1) en de Amerikaanse Texas-DIR-prijslijst van 2016 (alle perpetual-prijzen). Wie in de GCC onderhandelt, heeft daarmee een harde referentie in handen. Waarneembare patronen:
 
+- **Oracle's eigen gepubliceerde volumekortingstrap voor cloud** is bescheiden: 10% vanaf 101 gebruikers, 15% vanaf 201, 20% vanaf 501, **maximaal 25% vanaf 1.001 gebruikers**. ([Oracle G-Cloud 14](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf)) Dat is een belangrijk tegenwicht tegen de in dit rapport gehanteerde aanname van 25–50% korting: **boven de gepubliceerde 25% moet alles onderhandeld worden.** De 35–55% die dit rapport voor giga-projecten aanneemt, is dus een aanname over onderhandelingsuitkomsten, niet een beschikbaar tarief.
 - Wereldwijde bandbreedte van feitelijk betaalde prijzen: **$3.000–25.000 per gebruiker/jaar** ([VendorBenchmark](https://vendorbenchmark.com/vendors/oracle-primavera-p6-pricing)) — een factor 8, wat op zichzelf al aangeeft hoe groot de onderhandelingsruimte is.
-- Regionale resellers adverteren instapprijzen vanaf **$3.100** ([ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models)) tegenover $3.880–4.240 lijst — ~20–25% korting op enkelvoudige aankopen.
-- **[SCHATTING]** Op giga-projectdeals met 500–5.000 seats liggen kortingen van **35–55%** in de rede, plus meerjarige prijsbevriezing en gratis training als dealsweetener. Voor Red Sea Global (23.000 gebruikers) zal de effectieve prijs per seat een fractie van de lijstprijs zijn — maar het totaalcontract loopt vermoedelijk in de tientallen miljoenen USD over de looptijd.
+- Regionale resellers adverteren instapprijzen vanaf **$3.100** ([ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models)) tegenover $3.880–4.240 resellerlijst — ~20–25% korting op enkelvoudige aankopen. *(Ten opzichte van Oracle's eigen lijstprijs van $2.500/$2.750 is $3.100 echter geen korting maar een opslag — het "kortingspercentage" hangt volledig af van welke lijst je als referentie neemt.)*
+- **[SCHATTING]** Op giga-projectdeals met 500–5.000 seats liggen kortingen van **35–55%** in de rede, plus meerjarige prijsbevriezing en gratis training als dealsweetener. *(Onbevestigd; Oracle's gepubliceerde trap stopt bij 25%.)* Voor Red Sea Global (23.000 gebruikers) zal de effectieve prijs per seat een fractie van de lijstprijs zijn — maar het totaalcontract loopt vermoedelijk in de tientallen miljoenen USD over de looptijd.
 - Aannemers omzeilen kosten via **"named-user-licenties gepoold over projectteams"** ([Gulf Certifications](https://www.gulfcertifications.com/blog/primavera-p6-gcc-construction)) — een licentiepraktijk die formeel op gespannen voet staat met Oracle's named-user-definitie.
 
 ### 4.5 Trainingsprijzen (zeer gedetailleerd beschikbaar)
@@ -555,6 +594,8 @@ Dit is de bepalende eigenschap van de GCC-markt en het antwoord op de vraag waar
 > Wat het document wél bewijst — en dat is niet niks — is dat P6 + PCM "**the backbone of the current Project Management Information Systems of Ashghal**" zijn (letterlijk citaat). Dat is echte, primaire onderbouwing voor P6-verankering bij een GCC-overheidsopdrachtgever. Maar het is onderbouwing voor **institutioneel gebruik**, niet voor een **contractuele oplegging**.
 >
 > **Gevolg voor de kernstelling van dit rapport (§1, punt 1):** de bewering dat P6 in tenderdocumenten bij naam wordt voorgeschreven en dat een MS Project-bestand een bod kan diskwalificeren, rust na deze correctie **uitsluitend op trainingsaanbieder-blogs** (gulfcertifications.com, timetraining.ae, edoxi.com) — precies de bronklasse die §0 zelf als "Laag" classificeert wegens commercieel belang. Gericht zoeken naar onafhankelijke of primaire onderbouwing (tenderspecificaties van ADNOC/Aramco, XER-inleververplichtingen) leverde **niets** op: alleen uitleg-artikelen van planningsconsultancies over wat een XER-bestand ís. **Markeer deze stelling als plausibel maar onbevestigd.** Ze is in de sector algemeen aanvaard en past bij alle omringende signalen (85 EPPM-seats bij Ashghal, 23.000 gebruikers bij Red Sea Global, het resellerlandschap, de vacature-eisen), maar er ligt in dit onderzoek geen enkel primair document onder.
+
+> **[VERIFICATIE RONDE 2 — oordeel "onbevestigd" versterkt]** In ronde 2 zijn nog twee **echte Ashghal-bouwaanbestedingsdocumenten** opgehaald en integraal doorzocht (Section C Employer's Requirements en ITC-043 Technical Submission). Beide bevatten **nul** vermeldingen van "Primavera", "P6" of "XER". ITC-043 stelt wel een programma-eis, maar toolneutraal: *"The Contractor shall prepare a programme of works to the approval of the Engineer."* Dit zijn onderhouds-/ITS-contracten en geen giga-projecten, dus het is geen weerlegging — maar de teller staat nu op **drie doorzochte primaire GCC-aanbestedingsdocumenten met nul Primavera-eisen aan aannemers**. Zie §10, bevinding R2-16.
 
 Het tweede primaire spoor blijft wel overeind, zij het via een secundair platform:
 - NEOM Shushah Island Stage 3A "Minimum Schedule Requirements", die **"het gebruik van Primavera P6-software specificeert"**. ([document](https://www.scribd.com/document/1060968894/Minimum-Schedule-Requirements)) — niet onafhankelijk geverifieerd in deze ronde.
@@ -717,7 +758,7 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 
 ## 7. Conclusies en implicaties
 
-1. **De markt is klein in licenties (~$43 mln/jaar [SCHATTING, gecorrigeerd]) en groot in diensten (~$370 mln/jaar [SCHATTING]).** Wie hier binnenkomt met alleen een tool, komt binnen op het kleinste deel van de taart — en dat deel is na correctie van de prijsaannames nóg kleiner dan eerst gedacht.
+1. **De markt is klein in licenties (~$45 mln/jaar [SCHATTING, gecorrigeerd in ronde 2]) en groot in diensten (~$370 mln/jaar [SCHATTING]).** Wie hier binnenkomt met alleen een tool, komt binnen op het kleinste deel van de taart — ordegrootte een factor 8 kleiner dan de dienstenlaag eromheen.
 
 2. **Er is één poortwachter en die heet XER.** Elke tool die in de GCC serieus genomen wil worden, moet **P6-XER kunnen lezen én schrijven**, DCMA-14-point-conforme schema's produceren, Level 3/4-WBS-structuren aankunnen en baseline-/update-vergelijkingen ondersteunen. Zonder dat is het gesprek voorbij.
 
@@ -744,6 +785,8 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 - Modern Construction 360 — GCC construction market slows ($67 mrd vs $110 mrd) — https://modernconstruction360middleeast.com/gcc-construction-market-slows/
 - Kamco Invest — GCC Projects Market Update Q2-2025 — https://www.kamcoinvest.com/sites/default/files/research/pdf/GCC%20Projects%20Market%20Update%20-%20Q2-2025_Eng.pdf
 - IMARC — Saudi Arabia construction market ($101,4 mrd 2025 → $140,4 mrd 2034) — https://www.imarcgroup.com/saudi-arabia-construction-market
+- **[PRIMAIR, ronde 2] IMARC — UAE construction market** ($45.826,19 mln 2025 → $69.022,54 mln 2034, CAGR 4,66%) — https://www.imarcgroup.com/uae-construction-market
+- **[ronde 2] Zawya — GCC contract awards hit new high of $273bln in 2024** (onafhankelijke reproductie van het Kamco-cijfer) — https://www.zawya.com/en/projects/construction/gcc-contract-awards-hit-new-high-of-273bln-in-2024-on5jah2o
 - Mordor via MarketResearch.com — Saudi construction ($133,79 mrd 2025) — https://www.marketresearch.com/Mordor-Intelligence-LLP-v4018/Saudi-Arabia-Construction-Share-Trends-45181694/
 - Arab News — Saudi Arabia has up to 117k contractors — https://www.arabnews.com/node/2650710/business-economy
 - Argaam — Saudi construction firms top 365,000 in 2025, employ 4.4M workers — https://www.argaam.com/en/article/articledetail/id/1921206
@@ -764,6 +807,8 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 - Oracle — Qatar relies on Oracle Primavera Unifier (Ashghal) — https://www.oracle.com/construction-engineering/oracle-primavera-ashghal/
 - Ashghal — Section C Employer's Requirements STC-051 (P6 + Contract Management) — https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/Project%20Brief-%20STC-%20051.pdf
 - Ashghal — APMS training (Ashghal Portfolio Management System) — https://www.ashghal.gov.qa/en/pages/apmstraining.aspx
+- **[TEGENBEWIJS, ronde 2] Ashghal — Section C Employer's Requirements/Specification** (0× Primavera / P6 / XER) — https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/(06)%20C%20-%20Employers%20Requirement.pdf
+- **[TEGENBEWIJS, ronde 2] Ashghal — Technical Submission Section C Part 2, ITC-043** (toolneutrale programma-eis; 0× Primavera / P6 / XER) — https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/Project%20Brief-%20ITC-%20043.pdf
 - NEOM Shushah Island Stage 3A — Minimum Schedule Requirements (P6 gespecificeerd) — https://www.scribd.com/document/1060968894/Minimum-Schedule-Requirements
 - Saudi Aramco SAEP-331 — Project Schedule Requirements (7 schemaniveaus) — https://www.scribd.com/document/698960445/SAEP-331
 - SAEP-331 video-uitleg — https://www.youtube.com/watch?v=aH4EWP8ehoY
@@ -800,6 +845,8 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 - Gulf Today — PlanRadar in Midden-Oostense bouw — https://www.gulftoday.ae/business/2026/06/23/how-planradar-is-helping-construction-teams-build-a-clearer-record-of-work
 
 ### Prijzen
+- **[PRIMAIR] Oracle — Primavera Pricing, G-Cloud 14 (BD.G14.OCS.002 v1.1, mei 2025)** — alle actuele cloudprijzen: P6 EPPM £220/mnd min. 25; OPC Schedule £96/mnd min. 5; Progress £10/mnd; Task £44/mnd; Portfolio £176/mnd; Unifier UPC £132/mnd min. 25; Aconex Enterprise £46/mnd min. 5; officiële volumekorting 10/15/20/25% — https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf
+- **[PRIMAIR] Oracle — Construction & Engineering Global Price List (10 november 2016)** — perpetual: P6 Professional $2.500 + $550; P6 EPPM $2.750 + $605; Progress Reporter $950 + $209; 22%-supportformule; termijnlicenties 20/35/50/60/70% van perpetual-lijst — https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf
 - prmyazilim — Primavera P6 Pricing (P6 Pro $3.880 / EPPM $4.240 / support 22% / Cloud $305 p.m. min. 25 users) — https://prmyazilim.com/en/primavera-p6-pricing
 - ProjectManagerTemplate — Primavera P6 Cost: License vs Subscription ($3.520 / $2.750 + $605 / vanaf $3.100) — https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models
 - VendorBenchmark — Oracle Primavera P6 pricing ($3K–25K per gebruiker/jaar) — https://vendorbenchmark.com/vendors/oracle-primavera-p6-pricing
@@ -895,7 +942,11 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 - LinkedIn (AR) — الصراع المهني: بريمافيرا P6 أم مايكروسوفت بروجكت — https://ae.linkedin.com/pulse/الصراع-المهني-بريمافيرا-p6-أم-مايكروسوفت-بروجكت-ms-project-q-mohsen-tvm0f
 
 ### Fiscaal en regelgeving
-- Saoedische RHQ-eis voor overheidsopdrachten per 1-1-2024 (synthese van juridische bronnen; MISA/Royal Commission for Riyadh City) — https://search.yahoo.com/search?p=Saudi+Arabia+regional+headquarters+RHQ+programme+government+contracts+requirement+2024+foreign+companies
+- **[BRON VERVANGEN, ronde 2 — hier stond een Yahoo-zoekopdracht-URL]** Saoedische RHQ-eis per 1-1-2024, drempel SAR 1 mln (≈ US$266.576), uitzonderingskader 2026 met de ≥25%-prijsclausule:
+  - Pro Partner Group (april 2026) — https://www.propartnergroup.com/uncategorized/2026/04/saudi-arabia-to-formalise-exemptions-to-regional-headquarters-requirement-for-government-contracts/
+  - Middle East Briefing — Saudi Arabia refines RHQ procurement rule — https://www.middleeastbriefing.com/news/saudi-arabia-refines-rhq-procurement-rule/
+  - DLA Piper — Saudi Regional Headquarters Program: tax and non-tax incentives — https://www.dlapiper.com/en/insights/publications/gulf-tax-insights/2024/gulf-tax-insights-february-2024/saudi-regional-headquarters-program-an-overview-of-tax-and-non-tax-incentives
+  - Tamra — RHQ government tender access — https://tamramobility.com/resources/rhq-government-tender-access
 - KSA bronbelasting: 15% op royalty's, 5% op technische/adviesdiensten (DLA Piper) — https://www.dlapiper.com
 
 ### Schemakwaliteit en methodiek
@@ -916,6 +967,8 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 
 ## 9. Verificatie
 
+> ⚠️ **Lees dit hoofdstuk samen met §10 (Verificatie — ronde 2).** Een tweede, onafhankelijke adversariële ronde heeft drie oordelen uit dit hoofdstuk teruggedraaid of aangescherpt — met name bevinding **4** (de "belangrijkste prijscorrectie") bleek zelf onjuist. De tekst hieronder is bewust ongewijzigd gelaten als audittrail; de actuele oordelen staan in de tabel hierboven en in §10.
+
 **Adversariële fact-check, juli 2026.** Twaalf falsifieerbare kernbeweringen zijn geselecteerd en actief geprobeerd te **weerleggen** met bronnen buiten de oorspronkelijk geciteerde, aangevuld met tekstextractie van primaire documenten en het narekenen van elke rekenstap. Vier beweringen zijn gecorrigeerd, één is teruggezet naar "onbevestigd", en de rekenkundige kern van het marktomvangmodel is herzien.
 
 ### Overzicht
@@ -925,9 +978,9 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 | 1 | GCC-contractgunningen 2024 = $264,4 mrd; KSA $142,4 mrd (MEED) | **Gecorrigeerd** | Vier onafhankelijke bronnen geven $273,2 mrd / $146,8 mrd |
 | 2 | Ken Research: $1,2 mrd → $2,5 mrd in 2031, CAGR 16,75% | **Gecorrigeerd** | Wiskundig onmogelijk; bronpagina noemt geen CAGR |
 | 3 | MRFR: $50,0 mln (2024) → $97,5 mln (2035), CAGR 6,26% | **Bevestigd** | Exact zo op de bronpagina; intern consistent |
-| 4 | P6 Cloud $305/gebruiker/mnd, min. 25 gebruikers = $91.500 instapdrempel | **Gecorrigeerd** | Werkelijk $130/mnd vanaf 5 gebruikers = ~$7.800/jaar |
-| 5 | P6 Professional lijstprijs $3.880 | **Onzeker** | Concurrerende resellernotering $3.520; Oracle publiceert niets |
-| 6 | Bottom-up schatting ~$55 mln/jaar licentiemarkt | **Gecorrigeerd** | Herrekend naar ~$43 mln na correctie van de seatprijs |
+| 4 | P6 Cloud $305/gebruiker/mnd, min. 25 gebruikers = $91.500 instapdrempel | ~~Gecorrigeerd~~ → **in ronde 2 grotendeels BEVESTIGD** | Oracle's eigen prijslijst: P6 EPPM Cloud £220/mnd, min. **25** ≈ $82–89k/jaar. Ronde 1 verwarde dit met OPC Schedule (£96/mnd, min. 5) |
+| 5 | P6 Professional lijstprijs $3.880 | **Gecorrigeerd (ronde 2)** | Oracle's eigen lijst noteert **$2.500** (Professional) / $2.750 (EPPM); resellers $3.520–4.240 |
+| 6 | Bottom-up schatting ~$55 mln/jaar licentiemarkt | **Gecorrigeerd (2×)** | Ronde 1 → ~$43 mln; ronde 2 → **~$45 mln** na herstel van de cloudprijs |
 | 7 | P6 contractueel voorgeschreven; MS Project diskwalificeert een bod | **Onbevestigd** | Enig primair document blijkt een IT-tender uit 2017 |
 | 8 | Ashghal-tender STC-051 bewijst de P6-verplichting | **Gecorrigeerd** | Licentieverlenging voor Ashghal zélf; 0× "schedule"/"XER" |
 | 9 | Saoedische RHQ-eis sluit buitenlandse leveranciers uit | **Gecorrigeerd** | Drempel SAR 1 mln; uitzonderingskader sinds april 2026 |
@@ -936,6 +989,10 @@ Gebaseerd op reviews, documentatie en fora. Waar reviewvolume ontbrak, heb ik da
 | 12 | MS Project Plan 1/3/5 = $10/$30/$55 per gebruiker/maand | **Bevestigd** | Bedragen kloppen; plannamen verouderd |
 | 13 | IMARC: KSA-bouwmarkt $101,4 mrd (2025) → $140,4 mrd (2034) | **Bevestigd** | Exact zo op de bronpagina |
 | 14 | ~117.000 aannemers geregistreerd bij de Saudi Contractors Authority | **Bevestigd** | Meerdere onafhankelijke bronnen |
+| 15 | 365.120 Saoedische bouwvestigingen, 4,4 mln werknemers (2025) | ~~Onzeker~~ → **bevestigd (ronde 2)** | Argaam-bronpagina opgehaald; alle drie de getallen staan er letterlijk |
+| 16 | VAE-bouwmarkt $45,8 mrd (2025) → $69 mrd (2034) | **Bevestigd (ronde 2)** | Rechtstreeks op IMARC's eigen pagina, niet alleen via timetraining.ae |
+| 17 | Oracle Aconex publiceert geen prijzen | **Gecorrigeerd (ronde 2)** | £46/gebruiker/mnd, min. 5 — in Oracle's eigen G-Cloud-lijst |
+| 18 | Ken Research: $1,2 mrd bij 16,75% over 7 jaar = $3,64 mrd | **Gecorrigeerd (ronde 2)** | Rekenfout in ronde 1; correcte uitkomst is $3,55 mrd |
 
 ### Toelichting per bevinding
 
@@ -951,7 +1008,7 @@ Narekenen: $1,2 mrd bij 16,75% CAGR over 7 jaar (2024→2031) = **$3,64 mrd**, n
 $50 mln (2024) → $53,13 mln (2025) → $97,5 mln (2035), CAGR 6,26%. Nagerekend: 50 × 1,0626 = 53,13 ✓ en (97,5/53,13)^(1/10) − 1 = 6,26% ✓. De reeks is intern volledig consistent — wat overigens ook past bij een gemodelleerd in plaats van gemeten cijfer.
 → https://www.marketresearchfuture.com/reports/gcc-construction-software-market-45912
 
-**4 — P6 Cloud-prijs en instapdrempel · GECORRIGEERD (zwaarstwegende correctie)**
+**4 — P6 Cloud-prijs en instapdrempel · ~~GECORRIGEERD~~ → ZELF WEERLEGD IN RONDE 2, zie §10.1**
 De notering "$305/gebruiker/maand, minimaal 25 gebruikers" komt van één Turkse resellerpagina. Een geautoriseerde Noord-Amerikaanse Primavera-reseller publiceert een uitgesplitste prijslijst waarin de eigenlijke CPM-module, **Oracle Primavera Cloud – Schedule, $130/gebruiker/maand kost met een minimum van 5 gebruikers**. De instapdrempel is daarmee ~$7.800/jaar in plaats van $91.500 — een factor 12. Ook bevestigd: OPC Progress (viewer) $14/mnd, Task Management $60/mnd, Portfolio & Capital Planning $235/mnd. Hiermee vervalt de redenering in §3.2 dat de cloudprijs MKB-aannemers uitsluit.
 → https://www.cmcprojectsolutions.com/primavera/shop/ · tegen https://prmyazilim.com/en/primavera-p6-pricing
 
@@ -992,9 +1049,101 @@ $10/$30/$55 per gebruiker per maand kloppen. De **plannamen zijn verouderd**: na
 **14 — 117.000 Saoedische aannemers · BEVESTIGD**
 Meerdere onafhankelijke publicaties citeren dezelfde uitspraak van Al-Ajlan over ~117.000 bij de Saudi Contractors Authority geregistreerde aannemers. Het afzonderlijke Argaam-cijfer van 365.120 bouwvestigingen is in deze ronde **niet** onafhankelijk bevestigd — behandel als onzeker.
 
-### Wat dit betekent voor de conclusies van het rapport
+### Wat dit betekent voor de conclusies van het rapport *(ronde 1 — deels achterhaald, zie §10)*
 
 - **De richting van elke conclusie blijft overeind.** Geen enkele correctie draait een aanbeveling om.
-- **De licentiemarkt is kleiner dan gedacht** (~$43 mln i.p.v. ~$55 mln), waardoor de kernboodschap — "klein in licenties, groot in diensten" — juist sterker wordt: de verhouding gaat van ~7× naar ~9×.
-- **Twee argumenten zijn wezenlijk verzwakt.** (a) De prijsdrempel-verklaring voor de tweedeling in de markt is onjuist: Oracle Primavera Cloud is met ~$7.800/jaar vanaf 5 seats gewoon bereikbaar voor MKB-aannemers. Het gat onderaan de markt is dus een **vraaggat**, geen prijsgat — voor een toetreder een ongunstiger uitgangspunt. (b) De RHQ-barrière kent een drempel en sinds april 2026 een uitzonderingskader dat expliciet ruimte laat voor significant goedkopere aanbieders.
+- ~~**De licentiemarkt is kleiner dan gedacht** (~$43 mln i.p.v. ~$55 mln)~~ → in ronde 2 bijgesteld naar **~$45 mln**; de verhouding diensten:licenties is ~8×.
+- ~~**Twee argumenten zijn wezenlijk verzwakt.** (a) De prijsdrempel-verklaring voor de tweedeling in de markt is onjuist~~ → **(a) is in ronde 2 teruggedraaid**: de prijsdrempel is reëel voor het product dat de markt daadwerkelijk vraagt (P6 EPPM Cloud, min. 25 seats, ~$82–89k/jaar). (b) blijft staan: de RHQ-barrière kent een drempel van SAR 1 mln en sinds april 2026 een uitzonderingskader dat expliciet ruimte laat voor significant goedkopere aanbieders.
 - **De grootste resterende onzekerheid is de kernstelling zelf.** Dat P6 contractueel verplicht is, is sectorconsensus met sterk indirect bewijs, maar in dit onderzoek is er geen enkel primair document voor gevonden. Wie hierop een productstrategie bouwt, zou eerst één echte Employer's Requirements-sectie van een lopend GCC-project moeten inzien.
+
+---
+
+## 10. Verificatie — ronde 2 (onafhankelijke hercontrole)
+
+**Tweede adversariële fact-check, juli 2026.** Deze ronde is uitgevoerd zonder de bevindingen van §9 als gegeven aan te nemen: zowel de oorspronkelijke beweringen *als* de correcties van ronde 1 zijn actief geprobeerd te weerleggen, met bronnen buiten de eerder geciteerde. Alle rekenstappen zijn opnieuw uitgevoerd. **Resultaat: drie oordelen uit ronde 1 zijn onjuist gebleken, vijf beweringen zijn opgewaardeerd van "onzeker"/"via secundaire bron" naar "bevestigd met primaire bron", en twee nieuwe fouten zijn gevonden.**
+
+De doorbraak van deze ronde is dat **Oracle wél officiële prijzen publiceert** — niet op oracle.com/products, maar in overheidsraamwerkdocumenten. Twee primaire Oracle-documenten zijn opgehaald en de tekst is geëxtraheerd:
+
+- [**Oracle Primavera Pricing — G-Cloud 14**, doc. BD.G14.OCS.002 v1.1, mei 2025](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf) — alle actuele cloudprijzen voor P6 EPPM, Oracle Primavera Cloud, Unifier en Aconex, inclusief minimum-gebruikersaantallen en de officiële volumekortingstrap.
+- [**Oracle Construction & Engineering Global Price List**, 10 november 2016](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf) — alle perpetual-lijstprijzen, de 22%-supportformule en de termijnlicentiepercentages.
+
+### Overzicht ronde 2
+
+| # | Bewering (of ronde-1-correctie) | Oordeel ronde 2 | Kern van de bevinding |
+|---|---|---|---|
+| R2-1 | *Ronde 1:* "P6 Cloud $305/mnd, min. 25 gebruikers is niet houdbaar" | **Weerlegd — oorspronkelijke claim hersteld** | Oracle noteert P6 EPPM Cloud Service op **£220/gebruiker/mnd, minimum 25** — ≈$275–297. Ronde 1 vergeleek met een ander product (OPC Schedule) |
+| R2-2 | Instapdrempel P6-cloud = $91.500/jaar | **Bevestigd (±10%)** | 25 × £220 × 12 = £66.000 ≈ **$82.000–89.000/jaar** |
+| R2-3 | P6 Professional lijstprijs $3.880 | **Gecorrigeerd** | Oracle's eigen lijst: **$2.500** (Professional), $2.750 (EPPM). Resellers vragen 28–54% meer |
+| R2-4 | Effectieve seatprijs $1.700 (orig.) / $1.000 (ronde 1) | **Beide gecorrigeerd → ~$1.150** | Ronde 1 rekende met alleen de goedkoopste cloudmodule; markt draait op de duurste |
+| R2-5 | Licentiemarkt ~$43 mln (ronde 1) | **Gecorrigeerd → ~$45 mln** | Band $30–85 mln; puntgetal blijft gevoelig voor de 15.000-planneraanname |
+| R2-6 | P6 is 4,3× duurder dan MS Project Plan 3 (ronde 1) | **Weerlegd — oorspronkelijke 4,5–10× hersteld** | $360/jaar tegenover $1.554 (perpetual) tot ~$3.430 (P6 EPPM Cloud) = **4,3–9,9×** |
+| R2-7 | Oracle Aconex publiceert geen prijzen | **Gecorrigeerd** | £46/gebruiker/mnd, min. 5, plus modulaire add-ons — in Oracle's eigen lijst |
+| R2-8 | "Oracle publiceert geen prijslijst meer" (§4.4) | **Gecorrigeerd** | Twee actuele/primaire Oracle-prijslijsten gevonden; officiële volumekorting stopt bij **25%**, niet 35–55% |
+| R2-9 | GCC-gunningen 2024 = $273,2 mrd / KSA $146,8 mrd (ronde-1-correctie) | **Bevestigd** | Onafhankelijk gereproduceerd door Zawya en SUSTG vanuit het Kamco-rapport |
+| R2-10 | Ken Research: geen CAGR, basisjaar 2024, forecast 2025–2030 | **Bevestigd** | Bronpagina rechtstreeks opgehaald; ronde 1 rekende $3,64 mrd waar $3,55 mrd correct is |
+| R2-11 | Saoedische RHQ-eis: drempel SAR 1 mln + uitzonderingskader 2026 | **Bevestigd** | Meerdere onafhankelijke juridische bronnen; SAR 1 mln ≈ US$266.576; ≥25%-prijsclausule bevestigd |
+| R2-12 | MS Project $10/$30/$55, nieuwe plannamen | **Bevestigd** | Meerdere onafhankelijke bronnen, juli 2026 |
+| R2-13 | VAE-bouwmarkt $45,8 mrd (2025) → $69 mrd (2034) | **Bevestigd, bron opgewaardeerd** | Nu rechtstreeks bij IMARC ($45.826,19 mln → $69.022,54 mln, CAGR 4,66%) |
+| R2-14 | 365.120 bouwvestigingen / 4,41 mln werknemers (KSA, 2025) | **Bevestigd** (was "onzeker") | Argaam-bronpagina opgehaald; bron is de Saudi Contractors Authority |
+| R2-15 | Ashghal-cross-check "85 seats × $933 ≈ $79k, dicht bij $100k" | **Onzeker / overschat** | Met Oracle's eigen supportprijs ($605) is het **$51.425** — de ordegrootte klopt, de precisie niet |
+| R2-16 | P6 contractueel verplicht in GCC-tenders | **Blijft onbevestigd** | Twee extra Ashghal *Employer's Requirements*-documenten opgehaald: **0× "Primavera", 0× "XER", 0× "P6"** |
+
+### Toelichting op de belangrijkste bevindingen
+
+**R2-1 · De "belangrijkste prijscorrectie" van ronde 1 was zelf de grootste fout**
+
+Ronde 1 stelde dat Oracle geen prijzen publiceert en verklaarde de notering "$305/gebruiker/maand, minimum 25 gebruikers" daarom onhoudbaar, op gezag van één Noord-Amerikaanse reseller die $130/maand vanaf 5 gebruikers noteert. Oracle's eigen G-Cloud-prijslijst van mei 2025 laat zien dat **beide bronnen kloppen en over verschillende producten gaan**:
+
+| Oracle-product | Officiële prijs | Min. users | Resellernotering | Afwijking |
+|---|---|---|---|---|
+| Primavera **P6 EPPM** Cloud Service | £220/mnd ≈ $275–297 | **25** | $305 (prmyazilim) | +3 tot +11% |
+| Oracle Primavera **Schedule** Cloud Service (OPC) | £96/mnd ≈ $120–130 | **5** | $130 (CMC) | 0 tot +8% |
+| Oracle Primavera Progress Cloud Service | £10/mnd ≈ $13 | 5 | $14 (CMC) | +8% |
+| Oracle Primavera Task Management | £44/mnd ≈ $55–59 | 5 | $60 (CMC) | +2 tot +9% |
+| Oracle Primavera Portfolio & Capital Planning | £176/mnd ≈ $220–238 | 5 | $235 (CMC) | −1 tot +7% |
+
+Elke resellernotering ligt binnen ~10% van Oracle's eigen prijs. Er was nooit een tegenspraak; ronde 1 heeft een correcte bron ten onrechte als "weerlegd" bestempeld en daar vervolgens de hele marktomvangschatting op verlaagd. *(Omrekening tegen £1 = $1,25–1,35; Oracle's UK-prijslijst is in GBP en hoeft niet exact gelijk te zijn aan de USD-lijst, wat de resterende paar procent afwijking ruimschoots verklaart.)*
+→ https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf
+
+**R2-3 · Oracle's eigen perpetual-lijstprijzen liggen fors ónder alle resellernoteringen**
+
+De laatste door Oracle zelf gepubliceerde perpetual-prijslijst (Construction & Engineering Global Price List, 10 november 2016) noteert per Application User: **P6 Professional $2.500 + $550 support**, **P6 EPPM $2.750 + $605**, **P6 Progress Reporter $950 + $209**. Twee gevolgen:
+1. De in §3.2 als "alternatieve notering" weggezette **$2.750 + $605 is Oracle's officiële lijstprijs**, niet een afwijkende resellerclaim. De bron ProjectManagerTemplate citeerde dus correct.
+2. Het document bevestigt de **22%-supportformule** letterlijk en voegt een tot nu toe ontbrekend feit toe: **termijnlicenties tegen 20% (1 jaar), 35% (2 jaar), 50% (3 jaar), 60% (4 jaar) en 70% (5 jaar) van de perpetual-lijstprijs**, met support altijd 22% van de volle perpetual-prijs. Een 1-jarige P6 Professional-termijnlicentie kost daarmee ~$1.050/jaar tegen Oracle's eigen lijst — een goedkopere ingang dan het rapport ergens noemt.
+
+Behandel **$2.500–4.250** als de reële bandbreedte voor P6 Professional, met Oracle's $2.500 als harde ondergrens en de resellerprijzen als bovengrens.
+→ https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf
+
+**R2-8 · Oracle's officiële volumekorting stopt bij 25% — het rapport rekent met 35–55%**
+
+Oracle publiceert een expliciete kortingstrap voor alle Primavera-cloudproducten: **10% bij 101–200 gebruikers, 15% bij 201–500, 20% bij 501–1.000, 25% bij 1.001+**. Het rapport neemt in §2.3 een korting van 25–50% aan en in §4.4 zelfs 35–55% op giga-projectdeals. Dat is niet weerlegd — enterprise-onderhandelingen gaan routinematig onder de gepubliceerde trap — maar het is nu wel zichtbaar een **aanname over onderhandelingsuitkomsten en niet een beschikbaar tarief**. Wie de licentiemarkt aan de bovenkant van de bandbreedte wil schatten, mag Oracle's gepubliceerde 25% als plafond gebruiken; dat tilt de effectieve seatprijs (en daarmee het markttotaal) met ~20–30% omhoog.
+
+**R2-4 en R2-5 · Herrekening van de marktomvang**
+
+Alle rekenstappen van §2.3 zijn opnieuw uitgevoerd en waren op één punt na correct: $205 mrd / $20 mln = 10.250 planners ✓; ×1,35 = 13.838 ≈ 14.000 ✓; vacature-kruiscontrole 12.000–20.000 ✓; 15.000 × $1.000 + 60.000 × $130 + 200 × $100k = $42,8 mln ✓. De **invoerprijs** was echter opnieuw fout, nu naar beneden. Met de juiste productmix (perpetual P6 Professional als hoofdmoot, OPC Schedule en P6 EPPM Cloud als groeiende cloudroutes) komt de effectieve seatprijs op **~$1.150/jaar (band $800–1.700)**, en het totaal op **~$45 mln/jaar (band $30–85 mln)**.
+
+Belangrijker dan het puntgetal: de uitkomst is in twee ronden van $55 → $43 → $45 mln gegaan puur door één prijsaanname te wijzigen. **De echte onzekerheid zit niet in de prijs maar in het aantal planners (15.000, ongemeten) en in de enterprise-laag (200 × $100k, volledig aangenomen).** Die laatste regel is goed voor 44% van het totaal en rust op één datapunt (Ashghal, 85 seats). Behandel de bandbreedte als het antwoord, niet het middelpunt.
+
+**R2-15 · De Ashghal-plausibiliteitscontrole is zwakker dan ronde 1 stelde**
+
+Ronde 1 rekende 85 EPPM-seats × $933 support ≈ $79.000/jaar en noemde dat "opvallend dicht bij" de aangenomen $100k per grote organisatie. Met Oracle's **eigen** gepubliceerde supportprijs van $605 per EPPM-seat is het **$51.425/jaar** — bijna de helft van de aanname. De cross-check bevestigt de ordegrootte, maar niet de precisie; ronde 1 koos (onbedoeld) de bron die het best uitkwam.
+
+**R2-16 · De kernstelling blijft onbevestigd — en is in deze ronde nogmaals getoetst**
+
+Om de belangrijkste stelling van het rapport ("P6 is contractueel voorgeschreven; een MS Project-bestand kan een bod diskwalificeren") alsnog primair te onderbouwen, zijn in deze ronde twee **echte Ashghal-aanbestedingsdocumenten voor bouwwerk** opgehaald en volledig doorzocht — dus geen IT-licentietender zoals STC-051:
+
+| Document | Omvang | "Primavera" | "P6" | "XER" | "programme" |
+|---|---|---|---|---|---|
+| [Section C — Employer's Requirements/Specification](https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/(06)%20C%20-%20Employers%20Requirement.pdf) | 16.864 tekens | **0** | **0** | **0** | 0 |
+| [Technical Submission Section C Part 2 — ITC-043](https://www.ashghal.gov.qa/en/Tenders/TenderBriefDocuments/Project%20Brief-%20ITC-%20043.pdf) | 44.406 tekens | **0** | **0** | **0** | 5 |
+
+In ITC-043 staat wel een programma-eis, maar volstrekt toolneutraal geformuleerd: *"The Contractor shall prepare a programme of works to the approval of the Engineer... and shall revise and update the programme from time to time."* Geen softwarenaam, geen bestandsformaat.
+
+Dat is **geen weerlegging** — dit zijn twee onderhouds-/ITS-contracten, geen giga-projecten met Level 3/4-rapportageverplichtingen, en de softwarekeuze kan in een apart Project Management Plan of in de Particular Conditions staan. Maar het aantal doorzochte primaire GCC-aanbestedingsdocumenten staat nu op **drie, met nul vermeldingen van Primavera als contractuele eis aan een aannemer**. Het oordeel **onbevestigd** wordt daarmee steviger, niet zwakker. Wie hierop een productstrategie bouwt, moet één echte Employer's Requirements-sectie van een lopend tier-1-project inzien voordat hij investeert.
+
+### Netto-effect van ronde 2 op het rapport
+
+- **Geen enkele strategische conclusie kantelt.** De markt blijft klein in licenties, groot in diensten, en Oracle blijft de poortwachter.
+- **Het prijsbeeld is nu voor het eerst primair onderbouwd** in plaats van reseller-afgeleid — dit is de grootste kwaliteitswinst van deze ronde.
+- **Eén ronde-1-conclusie is inhoudelijk omgekeerd:** er ís een prijsdrempel op het product dat de markt vraagt (P6 EPPM Cloud, ~$82–89k/jaar vanaf 25 seats). Voor een goedkopere toetreder is dat een gunstiger uitgangspunt dan ronde 1 concludeerde — mits het XER-formaatprobleem wordt opgelost.
+- **Methodologische les:** ronde 1 heeft één reseller boven een andere verkozen zonder te controleren of ze hetzelfde product beschreven, en heeft die keuze vervolgens door het hele model laten doorwerken. Bij prijsvergelijkingen tussen SaaS-modules is productidentiteit belangrijker dan bronkwaliteit.

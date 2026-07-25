@@ -27,19 +27,32 @@ opvolgingsafstanden op een lineair werk in één oogopslag zichtbaar.
 
 | Jaar | Gebeurtenis |
 |---|---|
-| 1998 | **Linear Project GmbH** opgericht in Karlsruhe (Duitsland) **door twee bouwbedrijven**; TILOS ontstaat als praktijkgereedschap, niet als generiek PM-pakket. Eigenaar: Hubert Geier. |
+| 1998 | **Linear Project GmbH** opgericht in Karlsruhe (Duitsland); TILOS ontstaat als praktijkgereedschap, niet als generiek PM-pakket. Eigenaar: Hubert Geier. *(De toevoeging "opgericht door twee bouwbedrijven" is bij verificatie **niet** teruggevonden — het persbericht van 2015 noemt alleen 1998, Karlsruhe en Geier als eigenaar. Als **onbevestigd** te behandelen.)* |
 | 2014 | Trimble en Linear Project werken samen aan interoperabiliteit tussen TILOS en Trimble Business Center. |
 | **5 maart 2015** | **Trimble neemt Linear Project GmbH over.** Bedrag niet bekendgemaakt. Alan Sharp (business area director Trimble Heavy Civil Construction): *"TILOS software is a significant addition to our corridor solutions portfolio."* |
 | 2015–2022 | Doorontwikkeling onder Trimble: Trimble Connect-koppeling (v10.3+), Named-User-licenties, Quadri Task Connector API (v11, feb 2022). |
 | **13 jan 2023** | **Tilos 11.1 MR4** — de laatste functionele release. |
 | 18 nov 2025 | Release notes van MR4 opnieuw gepubliceerd in de Trimble Community (aanloop naar de EOM-communicatie). |
 | **27 feb 2026** | Aankondiging via distributiekanaal: **Tilos gaat per 1 maart 2026 End of Maintenance in.** MR4 is definitief de laatste update. |
-| **april 2026** | **TILOS 360** gelanceerd door **Projet Linéaire** (La Roche-sur-Yon, Frankrijk) — de voormalige Franse TILOS-distributeur — als "next generation of linear scheduling technology". |
+| **april 2026** | **TILOS 360** aangekondigd als lancering door **Projet Linéaire** (La Roche-sur-Yon, Frankrijk) — de voormalige Franse TILOS-distributeur — als "next generation of linear scheduling technology". *(Datum staat als **toekomstige** lancering in het BuildingPoint-artikel van 27-2-2026: "launching in April 2026". tilos360.com bestaat en toont het product, maar noemt zelf **geen lanceerdatum** en **geen relatie tot Trimble/TILOS**; projetlineaire.com/actualites is niet meer bijgewerkt sinds maart 2023. De lancering als voltooid feit is dus **niet onafhankelijk bevestigd**.)* |
 
 Bronnen: [PR Newswire, 5-3-2015](https://www.prnewswire.com/news-releases/trimble-acquires-linear-project-to-expand-its-heavy-civil-construction-project-management-capabilities-300045810.html);
 [BuildingPoint Australia helpartikel "Tilos Entering End of Maintenance on 1 March 2026"](https://help.buildingpoint.com.au/hc/en-au/articles/55527556493849)
 (aangemaakt 27-2-2026, bijgewerkt 3-6-2026); [tiloshelp.trimble.com/Downloads](https://tiloshelp.trimble.com/Downloads);
 [Tilos 11.1 MR4 Release Notes (PDF, jan 2023)](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf).
+
+**Verificatienuance bij de EOM-datum (25-7-2026).** De EOM-aankondiging is bij herverificatie
+rechtstreeks uit het Zendesk-artikel opgehaald (via de help-center-API; de HTML-pagina geeft 403) en
+luidt letterlijk dat Trimble heeft verklaard dat *"Tilos will officially move into its End of
+Maintenance phase starting 1 March 2026"*, met 11.1 MR4 als laatste release, ongewijzigde prijzen,
+doorlopende verkoop/support via licentieverstrekkers en TILOS 360 als aanbevolen opvolger
+("launching in April 2026 through Projet Linéaire"). Artikel aangemaakt 27-2-2026, bijgewerkt 3-6-2026.
+**Maar:** Trimble zelf publiceert dit nergens openbaar. De officiële productpagina
+(construction.trimble.com/en/products/tilos) verkocht TILOS op 25-7-2026 nog gewoon actief, zónder enige
+vermelding van end-of-maintenance, opvolger of einddatum; hetzelfde geldt voor de resellerpagina's van
+**SITECH** en **Tilos Americas**. De EOM is dus **uitsluitend via het distributiekanaal gedocumenteerd**
+— goed onderbouwd, maar niet door een publieke Trimble-mededeling bevestigd. Wie hierop een
+investeringsbesluit baseert, moet het schriftelijk bij Trimble/de distributeur laten bevestigen.
 
 **Belangrijk nuanceverschil:** Trimble heeft TILOS niet formeel *verkocht*. Trimble stopt met onderhoud
 en het kanaal wijst klanten door naar een product van een derde partij dat de merknaam hergebruikt.
@@ -60,9 +73,13 @@ BuildingPoint en Delta Solutions)*.
   [tilosamericas.com](https://tilosamericas.com/linear-scheduling-software/))
 - **Regio's:** het zwaartepunt ligt in **Europa** (Duitsland — R&D en support in Karlsruhe; Frankrijk;
   UK; Zwitserland; Nordics), plus **Australië/Nieuw-Zeeland**, **Noord-Amerika** (vooral pipelines) en
-  het **Midden-Oosten**. De UI is er in 10 talen (Chinees, Duits, Engels, Frans, Italiaans, Koreaans,
-  Pools, Russisch, Spaans, Turks); de **help alleen in Engels en Duits**.
-  ([Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf))
+  het **Midden-Oosten**. De UI is er in 10 talen (Chinees (Mandarijn, vereenvoudigd), Engels (US),
+  Frans, Duits, Italiaans, Koreaans, Pools, Russisch, Spaans, Turks); de **help alleen in Engels (US)
+  en Duits**. Bevestigd uit de PDF-tekst van de release notes zelf. *(Kleine inconsistentie bij Trimble:
+  de Downloads-pagina spreekt van "eight languages" en somt er negen op — Russisch ontbreekt daar. De
+  release notes zijn de nauwkeurigere bron.)*
+  ([Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf),
+  [tiloshelp.trimble.com/Downloads](https://tiloshelp.trimble.com/Downloads))
 - **Referentieklanten** (via distributeurs, niet door Trimble bevestigd): Vinci, Eiffage, SNCF, RATP,
   Alstom (Projet Linéaire); Enbridge, Granite, Parsons, Mexico City Metro en diverse Amerikaanse state
   DOT's (Petroglyph). Projectvoorbeelden: Fehmarnbelt-tunnel, Toronto RER, tram Montpellier,
@@ -191,9 +208,20 @@ de "planning aan de wand" die op infraprojecten daadwerkelijk gebruikt wordt.
 | Aanbevolen | quad-core (Core i5), **4 GB RAM**, Full HD |
 | Ondersteunde koppelversies | MS Project 2016; Primavera P6 v7–v8; Asta Powerproject v14–v15 |
 
-Bron: [Delta Solutions — TILOS 11 System Requirements](https://www.deltasolutions.com.au/tilos).
+Bron: [Delta Solutions — TILOS 11 System Requirements](https://www.deltasolutions.com.au/tilos)
+(letterlijk geherverifieerd 25-7-2026: Windows 8/10 Professional 32-bit/64-bit; min. dual-core /
+1 GB RAM / 2 GB schijf / 1280×960; aanbevolen quad-core i5 / 4 GB RAM / Full HD; fileserver
+Windows Server 2012/2016/2019 64-bit; MS Project **2016** Standard/Professional; Oracle Primavera P6
+**versies 7 en 8** via Primavera-XML-Exchange; Asta Powerproject **14 en 15**).
 Deze eisen zijn in 2026 zichtbaar verouderd: een 32-bit build en een advies van 4 GB RAM horen bij
 een codebase uit het vorige decennium.
+
+> **Nuance bij "P6 v7–v8":** dat is het *officieel gedocumenteerde interfaceniveau*, niet een harde
+> bovengrens. De MR4-release notes beschrijven zelf een bugfix voor het importeren uit **Primavera P6
+> v18.8** ("Sub-project IDs were ignored when importing from Primavera P6 … in this case from v18.8"),
+> dus nieuwere P6-XML wordt in de praktijk aantoonbaar verwerkt. Lees "v7–v8" als het XML-schemaniveau
+> dat Trimble ondersteunt, niet als "P6 2019+ werkt niet".
+> ([Release Notes 11.1 MR4, TIL-1507](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf))
 
 **Schaalbaarheid — realistisch aantal activiteiten:** Trimble documenteert **geen harde limiet**.
 Wat wél gedocumenteerd is: bij "large, complex layouts" ontstaan bekende problemen met PDF/SVG-export
@@ -230,11 +258,32 @@ met bron en datum.
 | Prijs niet getoond ("/ Jahr") | **Einzelplatzlizenz = single user, jaarabonnement**, automatische verlenging tenzij ≥90 dagen vooraf opgezegd | [BuildingPoint Schweiz](https://buildingpoint.ch/produkt/tilos-einzelplatzlizenz/) | 25-7-2026 |
 | "op aanvraag" | — | [Techjockey (India)](https://www.techjockey.com/detail/tilos), [SoftwareSuggest](https://www.softwaresuggest.com/tilos), [Delta Solutions](https://www.deltasolutions.com.au/tilos), [BauComp (DE)](https://www.baucomp.com/produkte/tilos.html) | 25-7-2026 |
 
-**Interpretatie van de twee hoofdgetallen:** het zijn geen tegenstrijdige cijfers maar de twee
-licentiesporen naast elkaar — ± **US$ 4.290 eenmalig** voor een *perpetual* (Classic) seat, en
+**Interpretatie van de twee hoofdgetallen:** het zijn geen tegenstrijdige cijfers maar vermoedelijk de
+twee licentiesporen naast elkaar — ± **US$ 4.290 eenmalig** voor een *perpetual* (Classic) seat, en
 ± **US$ 2.095 per seat per jaar** voor een *Named User*-abonnement. Dat de abonnementsprijs ongeveer
 de helft van de perpetual-prijs is, is voor deze markt hoog en past bij een niche-tool met weinig
 concurrentiedruk.
+
+> ⚠️ **Correctie na verificatie (bronafhankelijkheid).** De vier "onafhankelijke" bevestigingen van
+> US$ 4.290 zijn dat **niet**: **Capterra, GetApp en Software Advice zijn één bedrijfsfamilie** — tot
+> februari 2026 alle drie eigendom van Gartner (Gartner Digital Markets), sinds **5 februari 2026**
+> alle drie overgenomen door **G2** voor ca. US$ 110 mln. Ze putten uit dezelfde, door de leverancier
+> aangeleverde catalogusdatabase; de identieke waarden (US$ 4.290, "flat rate one-time", 3 reviews,
+> 4,7/5) bevestigen dat. Software Finder toont hetzelfde bedrag **zonder bronvermelding** (wel een
+> afwijkende reviewbasis: 10 reviews, 4,1/5). Effectief is er dus **één datalijn**, niet vier.
+> Bovendien is US$ 4.290 **nooit door Trimble of een distributeur bevestigd**: de Trimble-productpagina,
+> SITECH en Tilos Americas noemen geen prijs, en gerichte zoekacties naar een lijstprijs in euro's of
+> dollars leverden buiten de aggregators niets op. Behandel het bedrag als *één onbevestigde
+> catalogusopgave*, niet als marktprijs.
+> (bronnen: [Wikipedia — Capterra, overname door G2 5-2-2026](https://en.wikipedia.org/wiki/Capterra);
+> [GetApp](https://www.getapp.com/project-management-planning-software/a/tilos/);
+> [Software Finder](https://softwarefinder.com/project-management-software/tilos);
+> [construction.trimble.com/en/products/tilos](https://construction.trimble.com/en/products/tilos))
+>
+> Het abonnementsbedrag **US$ 2.095 per gebruiker per jaar** is bij herverificatie op 25-7-2026 letterlijk
+> zo teruggevonden op SoftwareConnect ("$2,095 /user/year", per user annual subscription, on-premises,
+> Windows, gratis trial, geen gratis versie) — maar ook dat is een aggregator zonder primaire
+> bevestiging. ([SoftwareConnect](https://softwareconnect.com/reviews/trimble-tilos/))
 
 ### 3.2 Licentiemodellen (officiële documentatie)
 
@@ -248,6 +297,22 @@ en de [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Rele
    tussen online verificaties; **één gelijktijdige sessie per TID**.
 3. **Classic** — licentiebestand + serienummer; **perpetual**; lokaal of via netwerkinstallatie
    (floating); werkt zonder internet.
+
+Alle drie zijn op 25-7-2026 letterlijk geherverifieerd op de officiële helppagina: demo *"you cannot
+save a file with more than 10 objects"*; Named User met TID-login, **één gelijktijdige TID-sessie**
+(de oudere sessie wordt uitgelogd), **7 dagen offline** mits minstens eens per week online, en
+**7 dagen wachttijd** voordat een verwijderde gebruiker opnieuw toegevoegd kan worden; Classic met
+licentiebestand + serienummer en perpetual looptijd.
+
+> **Nieuw gevonden risico bij Named User (relevant ná EOM).** Named-User-licenties zijn afhankelijk van
+> een Trimble-online-dienst, en die dienst is al een keer verhuisd: de MR4-release notes melden dat de
+> licentie-URL is gewijzigd en dat *"the old URL will stop working on May 31, 2023, which will cause
+> previous versions (up to Tilos 11.1 MR3) using Named User license mode to stop working; you will need
+> to upgrade to the latest Tilos version"* [TIL-1744]. Omdat 11.1 MR4 nu de **laatste** versie is, is er
+> geen upgradepad meer als Trimble die endpoint ooit opnieuw verplaatst of uitzet. De **Classic
+> (perpetual, offline) licentie draagt dat risico niet** — een concreet argument om bij aanschaf of
+> verlenging ná 1 maart 2026 uitdrukkelijk Classic te eisen in plaats van Named User.
+> ([Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf))
 
 Historisch werden daarnaast **USB-donglelicenties** en **floating network / named user company
 licenses** aangeboden, met perpetual + jaarlijks onderhoud óf een jaarabonnement als keuze
@@ -494,8 +559,17 @@ De gaten zijn opvallend goed te dekken met wat **IFC 4.3** standaard al biedt:
   proprietary in zijn bestandsformaat opsluit. Gecombineerd met `IfcWorkSchedule`, `IfcTask`,
   `IfcTaskTime`, `IfcRelSequence` (inclusief lag) en `IfcWorkCalendar` is een tijd-wegdiagram in een
   **open, gestandaardiseerd model** uit te drukken — wat vandaag nergens gebeurt.
-- **Er is geen concurrent die IFC-native tijd-wegplanning doet.** TILOS niet, Turbo-Chart niet, Asta
-  Time Chainage niet. Dit is een reëel open gat, geen inhaalslag.
+- **Waarschijnlijk geen concurrent die IFC-native tijd-wegplanning doet** — maar dit is een
+  *negatieve* claim en bij verificatie **niet uitputtend te bewijzen**. Voor TILOS is het hard: IFC komt
+  nergens voor in de import/export-documentatie of in de MR4-release notes (0 treffers op "IFC" in de
+  volledige PDF). Voor de concurrentie is het zwakker: **Asta Powerproject** heeft én een
+  Time-Chainage-weergave én een apart **Powerproject 4D/BIM**-product voor koppeling met 3D-modellen;
+  of dat 4D-product IFC leest kon in deze verificatieronde **niet worden vastgesteld** (Elecosoft/Eleco
+  noemt op de publieke feature- en 4D-pagina's geen formaten). Formuleer dit punt dus als
+  *"geen aantoonbaar product dat IFC 4.3-alignment + IfcTask combineert tot een bewerkbaar
+  tijd-wegdiagram"* — dat is verdedigbaar; "geen enkele concurrent doet iets met IFC" is dat niet.
+  ([eleco.com — Powerproject features](https://eleco.com/products/asta/asta-powerproject/features/),
+  [Powerproject 4D](https://eleco.com/products/asta/asta-powerproject-4d/))
 - **XER-ondersteuning is een goedkoop concurrentievoordeel.** TILOS ondersteunt het niet; een open
   planner die XER *en* P6 XML *en* MSPDI *en* IFC leest, is direct interoperabeler dan het commerciële
   product dat hij vervangt.
@@ -510,9 +584,12 @@ De gaten zijn opvallend goed te dekken met wat **IFC 4.3** standaard al biedt:
 
 ### 7.1 Waar sterk, en waarom
 
-TILOS is sinds circa 2000 de **de-facto standaard voor time-chainage planning in zware infrastructuur**.
-De reden is simpel: het was jarenlang het enige pakket met een échte lineaire rekenkern in plaats van
-een tekenlaag. Sterkste posities:
+TILOS geldt sinds circa 2000 breed als de **de-facto standaard voor time-chainage planning in zware
+infrastructuur**. De reden is simpel: het was jarenlang het enige pakket met een échte lineaire
+rekenkern in plaats van een tekenlaag. *(Let op: "de-facto standaard" is een **kwalitatief oordeel**,
+geen gemeten feit — er bestaat geen publiek marktaandeelcijfer voor deze niche, en gerichte zoekacties
+naar onafhankelijke marktdata leverden niets op. Behandel het als onderbouwde inschatting.)*
+Sterkste posities:
 
 - **Spoor en tram** (Duitsland, Frankrijk, UK, Australië) — inclusief geluidsrapportage per activiteit,
   wissels, kruisingen en buitendienststellingen.
@@ -522,9 +599,13 @@ een tekenlaag. Sterkste posities:
 - **Claims en forensic delay analysis** op lineaire werken: een tijd-wegdiagram maakt verstoringen
   ruimtelijk aantoonbaar op een manier die een Gantt niet kan.
 
-Reseller Tilos Americas claimt dat *"4 out of 5 global leaders in linear infrastructure construction
-prefer TILOS"*. Dat is **marketing zonder verifieerbare onderbouwing** — geen onafhankelijke bron
-bevestigt marktaandeelcijfers. *(Bron van de claim: [tilosamericas.com](https://tilosamericas.com/); beoordeling: onbevestigd.)*
+Reseller Tilos Americas claimt — letterlijk geherverifieerd op 25-7-2026 — dat *"4 out of 5 Global
+Leaders In Linear Infrastructure Construction **Trust** TILOS Linear Scheduling Software"* (het profiel
+citeerde eerder "prefer"; de site zegt "Trust"). Dat is **marketing zonder verifieerbare onderbouwing**:
+er staat geen bron, methodologie of peildatum bij, en geen onafhankelijke bron bevestigt
+marktaandeelcijfers. Dezelfde pagina noemt case studies (Alberta Clipper Pipeline, Riyadh Metro,
+California High Speed Rail) en rept met geen woord over end-of-maintenance of TILOS 360.
+*(Bron van de claim: [tilosamericas.com](https://tilosamericas.com/); beoordeling: onbevestigd.)*
 
 ### 7.2 Belangrijkste concurrenten
 
@@ -699,3 +780,48 @@ Maintenance-datum — is bevestigd via twee onafhankelijke routes: het Zendesk-a
 Australia en de versiehistorie op Trimble's eigen helpsite (die de stilstand sinds jan 2023 laat zien).
 Alle als **SCHATTING** gemarkeerde bedragen en aantallen zijn afleidingen van de auteur, geen
 leveranciersinformatie.
+
+---
+
+## Verificatie
+
+*Adversariële fact-check uitgevoerd 25 juli 2026. Werkwijze: per bewering geprobeerd deze te
+**weerleggen** met andere bronnen dan de oorspronkelijk geciteerde — directe fetches van primaire
+documentatie, de Zendesk-API van BuildingPoint, tekstextractie uit de originele release-notes-PDF, en
+zoekmachineproxy's (Bing, DuckDuckGo, Mojeek). De generieke WebSearch-tool was ook in deze ronde niet
+beschikbaar (budget uitgeput); Mojeek en de DuckDuckGo-HTML-endpoint gaven 403/CAPTCHA. Dat beperkt de
+breedte van de zoekacties — negatieve bevindingen ("niets gevonden") zijn daardoor zwakker dan
+positieve.*
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | **US$ 4.290 eenmalig per seat, "consistent gerapporteerd door vier onafhankelijke sites"** | **Gecorrigeerd** — bedrag zelf klopt op de sites, maar de *onafhankelijkheid* niet: Capterra, GetApp en Software Advice zijn één bedrijfsfamilie (Gartner Digital Markets; per 5-2-2026 alle drie door **G2** overgenomen voor ca. US$ 110 mln) met één gedeelde, leverancier-aangeleverde catalogus. Software Finder toont hetzelfde bedrag zonder bronvermelding. Geen enkele primaire bron (Trimble, SITECH, Tilos Americas, distributeurs) bevestigt het bedrag. §3.1 aangepast. | [en.wikipedia.org/wiki/Capterra](https://en.wikipedia.org/wiki/Capterra) · [getapp.com](https://www.getapp.com/project-management-planning-software/a/tilos/) · [softwarefinder.com](https://softwarefinder.com/project-management-software/tilos) · [construction.trimble.com](https://construction.trimble.com/en/products/tilos) |
+| 2 | **US$ 2.095 per gebruiker per jaar (Named-User-abonnement, on-premises Windows)** | **Bevestigd** als citaat — letterlijk "$2,095 /user/year", per-user jaarabonnement, on-premises, Windows, gratis trial, geen gratis versie. Blijft wel een aggregator zonder primaire bevestiging; het onderscheid "perpetual vs. abonnement" tussen bedrag 1 en 2 is een **interpretatie** van de auteur, niet door een bron uitgesproken. | [softwareconnect.com/reviews/trimble-tilos](https://softwareconnect.com/reviews/trimble-tilos/) |
+| 3 | **Officiële licentietypes: Demo (max. 10 objecten), Named User (TID, 1 sessie, max. 7 dagen offline, 7 dagen wachttijd bij herverdeling), Classic (perpetual, offline)** | **Bevestigd**, letterlijk in de officiële help. Aanvullend **nieuw risico gevonden**: Named User hangt aan een Trimble-online-endpoint dat in 2023 al verhuisde en oudere versies onbruikbaar maakte (TIL-1744) — zonder toekomstige releases is er geen upgradepad meer. Toegevoegd aan §3.2. | [tiloshelp.trimble.com/Installation-and-Licensing/License-Tilos](https://tiloshelp.trimble.com/Installation-and-Licensing/License-Tilos) · [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) |
+| 4 | **End of Maintenance per 1 maart 2026; 11.1 MR4 laatste release; licenties/support blijven, prijzen ongewijzigd** | **Bevestigd** via de Zendesk-API (de HTML-pagina geeft 403), inclusief de letterlijke Trimble-verklaring en de artikeldata 27-2-2026 / 3-6-2026. **Nuance toegevoegd (§1.2):** Trimble publiceert dit nergens zelf — de eigen productpagina, SITECH en Tilos Americas verkopen TILOS op 25-7-2026 nog actief zonder EOM-vermelding. De EOM is uitsluitend kanaal-gedocumenteerd. | [help.buildingpoint.com.au (API-JSON)](https://help.buildingpoint.com.au/api/v2/help_center/en-au/articles/55527556493849.json) · [construction.trimble.com](https://construction.trimble.com/en/products/tilos) · [sitechcs.com/tilos](https://sitechcs.com/tilos/) · [tilosamericas.com](https://tilosamericas.com/) |
+| 5 | **Laatste functionele release 11.1 MR4, 13 januari 2023** | **Bevestigd** langs twee routes: de Downloads-versiehistorie (MR4 = 2023-01-13, daarna niets) én de datumcode `20230113` in de release-notes-PDF zelf. | [tiloshelp.trimble.com/Downloads](https://tiloshelp.trimble.com/Downloads) · [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) |
+| 6 | **TILOS 360 in april 2026 gelanceerd door Projet Linéaire als opvolger** | **Onzeker / gecorrigeerd naar "aangekondigd"** — de enige bron is een *vooruitkijkende* kanaalmededeling van 27-2-2026 ("launching in April 2026 through Projet Linéaire"). tilos360.com bestaat, noemt Projet Linéaire (La Roche-sur-Yon, softwaredochter sinds 2012/2014) en klanten als VINCI/SNCF/RATP/Alstom/Eiffage, maar géén lanceerdatum en **géén enkele relatie tot Trimble of TILOS**. projetlineaire.com/actualites staat stil sinds maart 2023. Gerichte zoekacties leverden geen onafhankelijke berichtgeving op. | [tilos360.com/en/home](https://www.tilos360.com/en/home/) · [tilos360.com/en/who-are-we](https://www.tilos360.com/en/who-are-we/) · [projetlineaire.com/actualites](https://www.projetlineaire.com/actualites-projet-lineaire/) |
+| 7 | **Trimble nam Linear Project GmbH over op 5 maart 2015, Karlsruhe, bedrag niet bekendgemaakt** | **Bevestigd** — datum, plaats, "financial terms not disclosed", eigenaar **Hubert Geier**, quote Alan Sharp, en 1998 als startjaar van TILOS. | [PR Newswire, 5-3-2015](https://www.prnewswire.com/news-releases/trimble-acquires-linear-project-to-expand-its-heavy-civil-construction-project-management-capabilities-300045810.html) |
+| 8 | **"Linear Project GmbH opgericht door twee bouwbedrijven"** | **Gecorrigeerd → onbevestigd** — het persbericht noemt uitsluitend 1998, Karlsruhe en Geier als eigenaar. Geen bron voor de twee bouwbedrijven gevonden; claim in §1.2 als onbevestigd gemarkeerd. | [PR Newswire, 5-3-2015](https://www.prnewswire.com/news-releases/trimble-acquires-linear-project-to-expand-its-heavy-civil-construction-project-management-capabilities-300045810.html) |
+| 9 | **TILOS leest/schrijft geen IFC; geen IfcTask/IfcWorkSchedule-uitwisseling** | **Bevestigd** — "IFC" komt **0 keer** voor in de volledige tekst van de MR4-release notes (15 pagina's, geëxtraheerd uit de PDF) en wordt nergens genoemd in het import/export-overzicht van de help. De gedocumenteerde uitwisselingslijst bevat alleen MS Project, Asta Powerproject, Primavera, WorksOS, Tekla Civil, TBC, Trimble Connect, Novapoint, Quadri, Quantm, clipboard en Excel. | [tiloshelp.trimble.com/Import-Export-and-Data-Exchange](https://tiloshelp.trimble.com/Import-Export-and-Data-Exchange) · [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) |
+| 10 | **Geen XER-ondersteuning; alleen P6 XML; alleen link-type + tijd-lag; afstandslinks gaan niet mee** | **Bevestigd**, letterlijk: *"The native XML format from P6 is used"*, *"Only basic links attributes will be exchanged such as link type and time lag. The Tilos advanced attributes (distance links) are not exchanged"*, resources alleen als totale effort/quantity + kosten, split-activities niet vanuit P6 bij te werken. XER komt nergens voor. | [tiloshelp.trimble.com — Exchange Data with Primavera](https://tiloshelp.trimble.com/Import-Export-and-Data-Exchange/Exchange-Data-with-Primavera) |
+| 11 | **Systeemeisen: Windows-only, 32-bit, min. 1 GB RAM, MS Project 2016, P6 v7–v8, Powerproject 14–15** | **Bevestigd** (letterlijk geherverifieerd), **met correctie op de interpretatie**: de MR4-release notes beschrijven zelf een import-bugfix voor **P6 v18.8**, dus "v7–v8" is het gedocumenteerde XML-interfaceniveau, geen harde bovengrens. Ook bevestigd: Powerproject >14 niet ondersteund zonder aparte fix; RIB iTwo *"unsupported for years"* en verwijderd. | [deltasolutions.com.au/tilos](https://www.deltasolutions.com.au/tilos) · [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) |
+| 12 | **UI in 10 talen, help alleen EN + DE; supporthotline ma–do 08:30–17:30, vr 08:30–13:00 (GMT+1)** | **Bevestigd** uit de PDF-tekst zelf (inclusief Russisch). Kleine tegenstrijdigheid bij Trimble genoteerd: de Downloads-pagina zegt "eight languages" en somt er negen op. Hotline: +49 721-4647-2829, Karlsruhe. | [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) · [tiloshelp.trimble.com/Downloads](https://tiloshelp.trimble.com/Downloads) |
+| 13 | **Proprietary binair formaat `.hspzip` / `.hsb` / `.hsbzip`** | **Bevestigd** in de release-notes-tekst: *"The compressed files have the extension .hspzip"*, backup `.hsb` ↔ `.hsbzip`. De afgeleide `.hsp` blijft **onbevestigd** (was al zo gemarkeerd). | [Release Notes 11.1 MR4](https://www.sitechcs.com/docs/Tilos_11.1_MR4_Release_Notes.pdf) |
+| 14 | **"4 out of 5 global leaders … prefer TILOS" (Tilos Americas)** | **Gecorrigeerd (citaat) + onbevestigd (inhoud)** — de site zegt letterlijk *"Trust"*, niet *"prefer"*. Geen bron, methodologie of peildatum; geen onafhankelijke marktaandeeldata gevonden. | [tilosamericas.com](https://tilosamericas.com/) |
+| 15 | **"De-facto standaard voor time-chainage sinds ~2000"** | **Onzeker** — plausibel en breed herhaald, maar het is een kwalitatief oordeel: er bestaat geen publiek marktaandeelcijfer voor deze niche. Als zodanig gemarkeerd in §7.1. | — (geen bron gevonden) |
+| 16 | **"Er is geen concurrent die IFC-native tijd-wegplanning doet"** | **Onzeker → afgezwakt** — voor TILOS hard bewezen (zie #9), maar als *negatieve* claim over de hele markt niet te bewijzen. Asta Powerproject combineert een Time-Chainage-weergave met een apart 4D/BIM-product; of dat IFC leest kon niet worden vastgesteld (Eleco noemt geen formaten op de publieke pagina's). §6.3 herschreven naar een preciezere, verdedigbare formulering. | [eleco.com — Powerproject features](https://eleco.com/products/asta/asta-powerproject/features/) · [Powerproject 4D](https://eleco.com/products/asta/asta-powerproject-4d/) |
+| 17 | **pricingnow.com (US$ 42.900 / US$ 429.000 "annually") is onbruikbaar** | **Bevestigd als oordeel** — de rekenkundige inconsistentie is intern aantoonbaar (lineaire extrapolatie van US$ 4.290 × gebruikers, eenmalig verward met jaarlijks, TCO die niet optelt). Geen enkele andere bron reproduceert deze getallen. De waarschuwing in §3.4 blijft terecht staan. | [pricingnow.com/question/tilos-pricing](https://pricingnow.com/question/tilos-pricing/) |
+
+**Netto-effect op het profiel:** de **feitelijke, uit primaire documentatie afkomstige kern staat
+overeind** — EOM-datum, laatste release, licentietypes en -limieten, systeemeisen, uitwisselings-
+beperkingen, ontbreken van IFC en XER. Wat **zwakker blijkt dan het profiel suggereerde**, is de
+*bronbasis onder de prijzen* (één datalijn in plaats van vier onafhankelijke bevestigingen, en geen
+enkele primaire bevestiging), de *status van TILOS 360* (aangekondigd, niet aantoonbaar gelanceerd) en
+de *zichtbaarheid van de EOM* (kanaal-only; Trimble verkoopt publiek gewoon door). Nieuw gevonden en
+toegevoegd: het **online-afhankelijkheidsrisico van de Named-User-licentie** na EOM — praktisch het
+belangrijkste inkoopadvies dat uit deze ronde volgt.
+
+*Niet toegankelijk in deze verificatieronde:* G2, TrustRadius, Gartner Peer Insights (403),
+Capterra-HTML (403), BuildingPoint-HTML (403, wel via API), Mojeek (403), DuckDuckGo-HTML (CAPTCHA),
+Eleco-documentatieportaal (geen doorzoekbare index), WebSearch (budget uitgeput).

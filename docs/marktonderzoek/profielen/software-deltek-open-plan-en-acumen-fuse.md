@@ -2,9 +2,9 @@
 
 **Diepgaand softwareprofiel — wereldwijd marktonderzoek planningssoftware**
 Opgesteld: 25 juli 2026 · Alle webbronnen opgehaald op 25 juli 2026 tenzij anders vermeld.
-Onderzoeksmethode: leveranciersdocumentatie (help.deltek.com, dsm.deltek.com PDF's incl. release notes en technical overviews), reviewsites/aggregators, resellerprijslijsten, technografische marktdata, vakartikelen. Beperking: G2, TrustRadius, Gartner Peer Insights, Reddit en Planning Planet blokkeerden geautomatiseerde toegang (HTTP 403); waar mogelijk zijn hun gegevens via zoeksnippets of alternatieve aggregators achterhaald. Dit is expliciet aangegeven.
+Onderzoeksmethode: leveranciersdocumentatie (help.deltek.com, dsm.deltek.com PDF's incl. release notes, technical overviews, Developer Guide en Guided Tour), reviewsites/aggregators, resellerprijslijsten (live én via het Internet Archive), technografische marktdata, vakartikelen. Beperking: G2, TrustRadius, Gartner Peer Insights, Reddit en Planning Planet blokkeerden geautomatiseerde toegang (HTTP 403); waar mogelijk zijn hun gegevens via zoeksnippets of alternatieve aggregators achterhaald. Dit is expliciet aangegeven.
 
-> **Kernsamenvatting.** Twee producten uit dezelfde Deltek-PPM-stal, met heel verschillende marktrollen. **Open Plan** is een 40 jaar oude, Windows-only CPM-planner (Welcom, midden jaren '80) die vrijwel uitsluitend nog leeft in de Amerikaanse defensie- en overheids-EVMS-keten; marktaandeel is marginaal (~0,15% technografisch geschat) maar de klanten zijn zwaargewichten als Boeing, Lockheed Martin en BAE. **Acumen Fuse** is het commercieel succesvollere product: een schedule-kwaliteits- en forensische analysetool met 600+ metrics (DCMA 14-point, DECM 8.0, DOE, NASA, GAO, AACE) die *naast* P6, MS Project, Safran, Asta en Open Plan draait en daardoor een veel breder bereik heeft. Beide zijn Windows-desktopapplicaties op .NET Framework 4.8, beide hebben **nul IFC/BIM/4D-ondersteuning**, en beide hebben zwakke programmatische API's. Prijzen zijn niet publiek; de enige gevonden lijstprijs is die van een Australische Deltek-partner: **AUD 8.772 per gebruiker (perpetual) voor Acumen Fuse**, **AUD ~16.700–18.000 voor de volledige suite**, met ~22% jaarlijks onderhoud. Voor Open Plan is nergens een publieke prijs te vinden.
+> **Kernsamenvatting.** Twee producten uit dezelfde Deltek-PPM-stal, met heel verschillende marktrollen. **Open Plan** is een 40 jaar oude, Windows-only CPM-planner (Welcom, midden jaren '80) die vrijwel uitsluitend nog leeft in de Amerikaanse defensie- en overheids-EVMS-keten; marktaandeel is marginaal (~0,15% technografisch geschat) maar de klanten zijn zwaargewichten als Boeing, Lockheed Martin en BAE. **Acumen Fuse** is het commercieel succesvollere product: een schedule-kwaliteits- en forensische analysetool met 600+ metrics (DCMA 14-point, DECM 8.0, DOE, NASA, GAO, AACE) die *naast* P6, MS Project, Safran, Asta en Open Plan draait en daardoor een veel breder bereik heeft. Beide zijn Windows-desktopapplicaties op .NET Framework 4.8, beide hebben **nul IFC/BIM/4D-ondersteuning**. Open Plan heeft wél een volwaardig, schrijfbaar **OLE/COM-objectmodel** (naast een jonge, read-only REST API); Acumen heeft feitelijk geen programmatische API. Prijzen zijn niet publiek; de enige geverifieerde lijstprijzen komen van een Australische Deltek-partner en zijn op 25 juli 2026 rechtstreeks van de live webshop gehaald: **Acumen Fuse AUD 7.367 eeuwigdurende licentie + AUD 2.085 verplicht eerstejaars onderhoud = AUD 9.452 per gebruiker**; **volledige suite AUD 14.734 + 3.241 = AUD 17.975 per gebruiker**. Voor Open Plan is nergens een publieke prijs te vinden.
 
 ---
 
@@ -17,8 +17,8 @@ Onderzoeksmethode: leveranciersdocumentatie (help.deltek.com, dsm.deltek.com PDF
 | Opgericht | 1983, door Donald en Kenneth E. deLaski ("**Del**aski **Tek**nologies") |
 | Hoofdkantoor | Herndon, Virginia (VS) |
 | Eigendom | Beursgang 1997 → privaat 2002 → New Mountain Capital (75%, 2005) → beursgang 2007 ($162 mln) → **Thoma Bravo** ($1,1 mld, 2012) → **Roper Technologies** ($2,8 mld, 2016). Sinds 2016 dochteronderneming van Roper Technologies (NYSE: ROP). |
-| CEO | Bob Hughes (stand 2024) |
-| Omvang | ± 3.686 medewerkers, 12+ vestigingen wereldwijd |
+| CEO | Bob Hughes — benoemd tot president & CEO in **maart 2024** (Wikipedia). ⚠️ Niet te bevestigen dat hij dit medio 2026 nog is: Deltek's eigen leadership-pagina gaf HTTP 404 en de About-pagina noemt geen namen. **Onzeker.** |
+| Omvang | **± 4.200 medewerkers** volgens Deltek's eigen About-pagina (juli 2026); Wikipedia noemt nog 3.686 — *gecorrigeerd, zie Verificatie V5*. 12+ vestigingen wereldwijd |
 | Positionering | "the intelligent, industry-tuned platform that powers the project lifecycle", naar eigen zeggen vertrouwd door 30.000 organisaties; bedient ± 95% van de Amerikaanse publieke sector-inkoopmarkt via GovWin |
 
 Deltek is dus geen bouwsoftwarebedrijf maar een **government-contracting-ERP-bedrijf**. Dat verklaart vrijwel alles aan de positionering, functionaliteit en zwaktes van beide producten.
@@ -82,6 +82,20 @@ Deltek is dus geen bouwsoftwarebedrijf maar een **government-contracting-ERP-bed
 | **Rapportage** | Custom view layouts, barchart-, netwerk- en spreadsheetviews, standaard-, samenvattings- en uitzonderingsrapportage. Add-in voor Kidasa Milestones Professional. |
 | **Automatisering** | Batch Processor Guide en Data Tool Guide zijn onderdeel van de standaarddocumentatie — batchverwerking is een expliciet ondersteund scenario (Boeing rekende hiermee "hundreds and thousands of programs purely in a batch mode"). |
 
+#### 2.1a De rekenkern in detail — uit de *Open Plan 8.8 Developer Guide* (723 p., 22 april 2026)
+
+Ongewoon voor deze markt: Deltek publiceert de **algoritmiek zelf**, niet alleen het gedrag. Dat maakt Open Plan bruikbaar als referentie-implementatie om een eigen CPM-solver tegen te ijken. De hoofdstukken *Time Analysis Calculations*, *Resource Scheduling Calculations*, *Risk Analysis Calculations*, *Cost Calculations* en *Multi-Project Operations* beschrijven onder meer:
+
+- **Volgorde van berekening:** topologische sortering → early dates → late dates → floats → criticality → subprojectafhandeling → hammocks.
+- **Zes gescheiden floatwaarden per tijdanalyse** — meer dan vrijwel elke concurrent:
+  1. Total float · 2. Free float · 3. **Finish total float** · 4. **Finish free float** · 5. **Relationship total float** · 6. **Relationship free float**.
+  *Relationship total float* = de hoeveelheid waarmee de lag op een relatie zou moeten toenemen om projectafronding of een late target-datum te vertragen; *relationship free float* idem voor de directe opvolger. Hiermee is aan te wijzen **welke relatie** de kritieke status van een opvolger veroorzaakt. Finish float wijkt van start float af bij discontinue activiteiten en subprojecten, waar de berekende duur kan veranderen.
+- **Kalenderinteractie met float, expliciet gedocumenteerd:** "an activity using a 7-day work week and ending on a Saturday may have 1 day of total float simply because the calendar on the next activity prevents it from starting until Monday." Precies het randgeval waarop eigen implementaties stuklopen.
+- **Negatieve float** ontstaat uitsluitend uit onhaalbare target- of completiedatums (late dates vóór early dates); free float kan per definitie nooit negatief zijn.
+- **Resource scheduling** met twee grondvormen (resource-limited vs. time-limited/levelling met smoothing) en vier activiteitattributen die het algoritme mogen versoepelen of beperken: *splitting*, *stretching*, *reprofiling* en *immediate*. Splitsing gebeurt alleen als de activiteit als splitsbaar is gemarkeerd én de gesplitste variant de einddatum verbetert. Verder gedocumenteerd: prioriteitsregels, resource substitution, reserveringen, resourcegebruik door andere projecten, en de expliciete beperking dat **subprojecten en hammocks niet door resource scheduling verschoven worden** (hun verbruik wordt alleen genoteerd, met mogelijke overloads tot gevolg).
+- **Kostenmodel is EVM-native, niet EVM-bovenop.** Vier resourceklassen — **Labor, Material, Other Direct Costs, Subcontract** — rollen op naar activiteits- en subprojectniveau. Voor Labor houdt Open Plan standaard `BAC_QTY` (budget), `BCWS_QTY` (planned value), `BCWP_QTY` (earned value), `ACWP_QTY` (actual cost) en `ETC_QTY` (estimate to complete) op activiteitniveau bij. Resources worden toegewezen als *Total* (met spreadcurve, × tarief) of *Level* (per tijdseenheid, × duur × tarief), met vlakke of escalerende tarieven, en een optionele resource-eigen *period* die de activiteitsduur overrulet.
+- **Monte Carlo — de sampling-internals staan er letterlijk in.** Alle sampling gebeurt op pseudo-random getallen in het bereik **0–32767**. Uniform en triangulair via inversie. **Normale verdelingen worden gesampled door 12 onafhankelijke pseudo-random getallen op te tellen**, waarbij min/max als een bereik van zes standaarddeviaties gelden en de ~1% staartkans bewust genegeerd wordt; Deltek publiceert zelf de vergelijking van theoretische vs. gesampelde percentielen bij 10.000 simulaties. Ook een betaverdeling is beschikbaar. Continue verdelingen worden inclusief-eindpunt naar discrete eenheden vertaald, met een expliciete waarschuwing voor afrondingsfouten bij weinig mogelijke uitkomsten. Naar moderne maatstaven is dit een **grove** generator — bruikbaar als referentie, niet als state of the art.
+
 ### 2.2 Open Plan — platform en schaalbaarheid
 
 Uit *Deltek Open Plan 8.8 Technical Overview and System Requirements*, 22 april 2026:
@@ -112,7 +126,15 @@ Nieuw in 2026: een **REST API voor geselecteerde Deltek PPM-producten** (*REST A
 - Gedocumenteerd met **OpenAPI Specification 3.0**.
 - Beschikbaar vanaf **Open Plan 8.8 Cumulative Update 01** (ook Cobra 8.7 CU05+, PM Compass 8.5 CU12+).
 
-Daarnaast bestaat er een klassieke, oudere extensieroute: Open Plan is "extensible via an API" met add-ins, plus een gepubliceerd **Entity Relationship Diagram** (directe databasetoegang) en een **Developer Guide**.
+**Belangrijke nuancering: de REST API is niet de enige API.** De *Open Plan 8.8 Developer Guide* documenteert een volwaardig, **lees- én schrijfbaar OLE-automatiseringsmodel (COM)**:
+
+- Open Plan is opgezet als **OLE-serverapplicatie** en exposeert een objecthiërarchie met objecten, collections, properties en methods (± 180 pagina's properties en methods in de guide, plus codevoorbeelden).
+- Aanstuurbaar vanuit elke COM-capabele omgeving (Deltek's voorbeelden zijn Visual Basic; in de praktijk werkt ook VBA, PowerShell of Python via `pywin32`).
+- Automatiseringsapplicaties die Open Plan zelf starten moeten expliciet de `Login`-methode aanroepen; commando's die in de UI via Deltek EPM zijn afgeschermd blijven voor automatisering wél bereikbaar — een aandachtspunt voor security-inrichting.
+- Daarnaast: **generieke import/export-specificaties** (scriptbaar, met keywords als `TABLE`, `FIELD`, `ATTRIBUTE`, `ELEMENT`, `HIERARCHICAL`, `LINK`, `XML_TAG`, `STYLESHEET`) waarmee zelf gedefinieerde tekst-, delimited- en **XML**-formaten in- en uitgelezen kunnen worden, inclusief hiërarchisch geneste activiteiten met predecessor-/successorblokken en een XSL-stylesheet.
+- Plus een gepubliceerd **Entity Relationship Diagram** voor directe databasetoegang, een **Batch Processor Guide** en een **Data Tool Guide**, en tot 30 eigen tools op de Add-Ins-tab via `Addins.dat`.
+
+De juiste samenvatting is dus: **Open Plan is diep automatiseerbaar, maar uitsluitend op Windows en via technologie uit het COM-tijdperk.** Er is geen moderne, schrijfbare, platformonafhankelijke API; de REST-variant uit 2026 is alleen-lezen.
 
 ### 2.4 Acumen Fuse — analysemotor
 
@@ -187,25 +209,49 @@ De *Deltek Acumen 8.11 API Guide* (5 december 2025) beschrijft **geen programmat
 
 ### 3.2 Wél gevonden lijstprijzen — Acumen (Prescience Technology, AU)
 
-De Australische Deltek-partner **Prescience Technology** publiceert daadwerkelijke webshop-prijzen. Dit is de enige publieke, concrete Deltek-PPM-prijslijst die dit onderzoek heeft opgeleverd.
+De Australische Deltek-partner **Prescience Technology** publiceert daadwerkelijke webshop-prijzen, mét een uitgesplitste "Price Breakdown" die licentie en onderhoud scheidt en die de **Deltek-lijstprijs** naast de reseller-actieprijs zet. Dit is de enige publieke, concrete Deltek-PPM-prijslijst die dit onderzoek heeft opgeleverd.
 
-| Product | Adviesprijs (AUD, excl. GST) | Actieprijs (AUD) | Voorwaarden |
+**Live geverifieerd op 25 juli 2026** (rechtstreeks van `www.prescience.com.au`, met de embedded `schema.org/Product`-data als controle; de pagina's dragen `priceValidUntil: 2027-12-31`). Alle bedragen **AUD, exclusief GST, per Application User, term: Perpetual**, inclusief het verplichte eerste jaar Deltek Acumen Maintenance.
+
+| Product | SKU | **Deltek-lijstprijs licentie** | **Onderhoud jaar 1** | **Totaal jaar 1 (lijst)** | Reseller online (5% korting op de licentie) |
+|---|---|---|---|---|---|
+| **Deltek Acumen Fuse** | ACFUS1-10-1 | **7.367,00** | 2.085,00 | **9.452,00** | 9.083,65 |
+| **Deltek Acumen Risk + 360** (add-on; vereist bestaande Fuse) | ACRIS1-10-1 | 7.367,00 | 2.085,00 | 9.452,00 | 9.083,65 |
+| **Deltek Acumen Fuse + Risk + 360 (Full Suite)** | ACRIS1-10-1-1 | **14.734,00** | 3.241,00 | **17.975,00** | 17.238,30 |
+| **Deltek Acumen Touchstone** | — | uitsluitend op aanvraag (webshop verwijst naar telefonisch contact) | — | — | — |
+| PrescienceAdvantage® Everyday Support (optioneel, van de reseller, niet van Deltek) | — | — | — | 1.160,00/jaar of vanaf 115,00/maand | 1.102,00/jaar |
+
+Aanvullende voorwaarden die de webshop noemt: licentietermijn "Perpetual"; prijs per Application User ("All prices are in AUD. Price is per Application User."); exclusief GST; **1,9% toeslag bij creditcardbetaling** ("I understand and accept that there is a 1.9% surcharge for all credit card transactions") — *gecorrigeerd, een eerdere versie noemde 1,75%*; "All Deltek orders are bound by Deltek's terms and conditions available at deltek.com/contracts"; Deltek benadert de klant zelf vóór afloop van het onderhoudscontract voor verlenging. De reseller omschrijft zichzelf als "Australia's exclusive Deltek Acumen Certified Partner"; de 5%-korting geldt blijkens de eigen voetnoot uitsluitend op de eeuwigdurende licentie, niet op het eerste jaar onderhoud.
+
+**Prijsontwikkeling over de tijd (Internet Archive, dezelfde reseller, dezelfde SKU's):**
+
+| Moment | Licentie | Onderhoud | Totaal jaar 1 |
 |---|---|---|---|
-| **Deltek Acumen Fuse** | **8.772,00** | 8.430,15 | **Perpetual**, prijs **per gebruiker**, **inclusief eerste jaar verplicht Deltek Acumen Maintenance (AUD 1.935,00)** |
-| **Deltek Acumen Risk** (add-on op bestaande Fuse) | **8.772,00** | 8.430,15 | idem |
-| **Deltek Acumen Fuse + Risk + 360 (Full Suite)** | **16.682,00** | 15.999,00 | idem (catalogusmoment A) |
-| **Deltek Acumen Fuse + Risk + 360 (Full Suite)** | **17.975,00** | 17.238,30 | idem (catalogusmoment B — andere momentopname van dezelfde webshop) |
-| PrescienceAdvantage® Everyday Support (optioneel, reseller) | 1.160,00/jaar of vanaf 115,00/maand | 1.102,00/jaar | ondersteuningsabonnement van de partner, niet van Deltek |
+| Snapshot 22-06-2018 (Fuse) en 24-03-2019 (Risk) | AUD 6.472 | AUD 1.920 | AUD 8.392 |
+| Live 25-07-2026 (Fuse) | AUD 7.367 | AUD 2.085 | AUD 9.452 |
+| **Verschil** | **+13,8%** | **+8,6%** | **+12,6%** |
 
-Aanvullende voorwaarden die de webshop noemt: licentietermijn "Perpetual"; prijs exclusief GST; 1,75% toeslag bij creditcardbetaling; "All Deltek orders are bound by Deltek's terms and conditions"; Deltek benadert de klant zelf vóór afloop van het onderhoudscontract voor verlenging.
+Over ruwweg acht jaar is de nominale prijs dus met ~13% gestegen — reëel eerder vlak tot dalend. Dat past bij een volwassen product in een stabiele niche, niet bij een groeiproduct.
 
-**Bronnen:** `www.staging.prescience.com.au/product/acumen-fuse/` en `.../product-tag/deltek-acumen/` (opgehaald 25-07-2026); de live-URL's `www.prescience.com.au/...` gaven HTTP 403 maar dezelfde bedragen verschenen in zoeksnippets.
+> **Twee nuances uit de 2018-snapshot (geverifieerd 25-07-2026).** (1) In 2018 gold de 5%-online korting óók op het onderhoud (online: 6.148 + 1.824 = 7.972); in 2026 geldt hij uitsluitend op de licentie. De *effectieve* prijsstijging voor een online koper is daarmee groter dan de +12,6% lijstprijsstijging: 7.972 → 9.083,65 is **+13,9%**. (2) Het hoge onderhoudspercentage is **geen recente ontwikkeling**: in 2018 was het 1.920 / 6.472 = **29,7%**, in 2026 28,3%. Het percentage is dus licht *gedaald*. De formulering "boven de 18–22%-bandbreedte" blijft juist, maar mag niet gelezen worden als een recente verhoging.
+
+**Prijsanker bij dezelfde reseller, dezelfde dag, dezelfde valuta** *(gecorrigeerd — zie Verificatie V2)*. Een eerdere versie noemde "P6 Professional AUD 6.809" naast de Acumen-**lijst**prijzen; dat is geen gelijke vergelijking, want AUD 6.809 is de **online kortingsprijs inclusief eerste jaar onderhoud**. De volledige uitsplitsing van dezelfde webshop:
+
+| Product | Licentie (lijst) | Onderhoud jaar 1 | Totaal jaar 1 (lijst) | Online totaal |
+|---|---|---|---|---|
+| **Acumen Fuse** | 7.367,00 | 2.085,00 | **9.452,00** | 9.083,65 |
+| Oracle Primavera P6 **Professional** | 5.820,00 | 1.280,00 | **7.100,00** | 6.809,00 |
+| Oracle Primavera P6 **EPPM** | 6.360,00 | 1.399,00 | **7.759,00** | 7.441,00 |
+
+De **strekking** van de vergelijking blijft overeind in élke gelijke doorsnede — licentie tegen licentie: 7.367 vs. 5.820 (**+27%**); totaal jaar 1 lijst: 9.452 vs. 7.100 (**+33%**); online tegen online: 9.083,65 vs. 6.809 (**+33%**). Oftewel: **één Acumen Fuse-seat kost ruwweg een derde méér dan een volledige P6 Professional-licentie**, terwijl Fuse zelf geen enkele planning kan maken. Ter contrast noemt dezelfde P6-productpagina een capaciteit van "up to 100,000 activities" — tegenover Open Plan's gedocumenteerde typische gebruik van 2.000–5.000 activiteiten.
 
 **Afgeleide getallen (berekend, expliciet als afleiding gemarkeerd):**
-- Onderhoudspercentage: AUD 1.935 / AUD 8.772 ≈ **22,1% van de kaartprijs per jaar** — bovenaan de door Vendr genoemde Deltek-bandbreedte van 18–22%.
-- Kale eeuwigdurende licentie Fuse ≈ AUD 8.772 − 1.935 = **AUD 6.837**.
-- **SCHATTING** bij een koers van ± AUD 1 = EUR 0,57 (medio 2026): Fuse ≈ **EUR 5.000** per seat; volledige suite ≈ **EUR 9.500–10.250** per seat; jaarlijks onderhoud ≈ **EUR 1.100** per seat. Wisselkoers niet geverifieerd in dit onderzoek — behandel als indicatie.
-- Totale eigendomskosten Fuse over 5 jaar per seat (**SCHATTING**): AUD 8.772 + 4 × 1.935 ≈ **AUD 16.512** (≈ EUR 9.400).
+- Onderhoudspercentage **Fuse**: 2.085 / 7.367 = **28,3% van de licentieprijs per jaar** — fors **bóven** de door Vendr genoemde Deltek-bandbreedte van 18–22%.
+- Onderhoudspercentage **Full Suite**: 3.241 / 14.734 = **22,0% per jaar**. De suite is dus zowel per module als in onderhoud relatief goedkoper dan losse aankoop.
+- **SCHATTING** bij een koers van ± AUD 1 = EUR 0,57 = USD 0,66 (medio 2026, niet geverifieerd — behandel als indicatie): Fuse-licentie ≈ **EUR 4.200 / USD 4.900** per seat; volledige suite ≈ **EUR 8.400 / USD 9.700** per seat; jaarlijks onderhoud Fuse ≈ **EUR 1.190 / USD 1.375**.
+- Totale eigendomskosten Fuse over 5 jaar per seat (**SCHATTING**): 7.367 + 5 × 2.085 ≈ **AUD 17.792** (≈ EUR 10.100).
+
+> **Correctienoot t.o.v. eerdere versies van dit profiel:** een eerdere meting via de *staging*-omgeving van dezelfde reseller gaf AUD 8.772 totaal met AUD 1.935 onderhoud. Die cijfers zijn **vervangen** door de hierboven vermelde live-geverifieerde bedragen met expliciete licentie/onderhoud-splitsing. De staging-omgeving bevatte een verouderde momentopname.
 
 ### 3.3 Gerapporteerde/afgeleide bedragen uit derde bronnen (met kanttekening)
 
@@ -225,7 +271,11 @@ Ondanks gerichte zoekacties op resellers (Prescience AU, Connexion Systems AU, T
 - Deltek waarschuwt in de technical overview: "Specific server hardware configurations may have an impact on your overall Deltek product licensing requirements" — er is dus een **hardware-/coregebonden component** in de licentievoorwaarden voor serverdeployments. Dat is een klassieke bron van onverwachte kosten bij virtualisatie.
 - Minimale afname, enterprise-staffels en modulepakketten: **geen publieke informatie**.
 
-> **Advies bij prijsvergelijking:** ga er in een businesscase van uit dat één volledig uitgeruste EVMS-planner (Open Plan Professional + Acumen Fuse + Acumen Risk + aandeel Cobra) **ordegrootte EUR 15.000–25.000 per seat aan eerstejaars licentiekosten** vergt, plus 18–22% onderhoud en implementatie die 40–80% van de softwarekosten kan bedragen. **Dit is een schatting**, samengesteld uit de Prescience-lijstprijzen en de Vendr-benchmarks; het is géén Deltek-offerte.
+**[SCHATTING] Orde van grootte Open Plan zelf.** Gegeven dat (a) Acumen Fuse — een niche-analysetool zonder planningsfunctionaliteit — AUD 7.367 per user perpetual kost, (b) Open Plan een zwaardere, database-gebonden enterprise-scheduler is met server-side componenten en een hardware-gebonden licentieclausule, en (c) de Deltek-brede onderhoudspercentages van 18–22%, is een plausibele bandbreedte **USD 5.000–12.000 per named user perpetual + 18–25% jaarlijks onderhoud**, of **USD 2.000–4.500 per gebruiker per jaar** in een abonnementsvorm. Dit is een afgeleide schatting, geen gepubliceerde prijs.
+
+> **Advies bij prijsvergelijking:** ga er in een businesscase van uit dat één volledig uitgeruste EVMS-planner (Open Plan Professional + Acumen Fuse + Acumen Risk + aandeel Cobra) **ordegrootte EUR 15.000–25.000 per seat aan eerstejaars licentiekosten** vergt, plus 18–28% onderhoud en implementatie die 40–80% van de softwarekosten kan bedragen. Voor een volledige toolchain met 25–50 gebruikers komt een eerste jaar realistisch op **USD 250.000–750.000**. **Dit zijn schattingen**, samengesteld uit de Prescience-lijstprijzen en de Vendr-benchmarks; het is géén Deltek-offerte.
+>
+> ⚠️ **Tegenbewijs op deze schatting (nieuw, V7).** Dezelfde Vendr-pagina die als onderbouwing dient, geeft een *eigen* eerstejaarscijfer dat hier haaks op staat: "total first-year costs for mid-market deployments (**50–200 users**) commonly fall between **$150,000 and $600,000**". Vendr komt dus voor een 2–4× grotere gebruikersgroep op een *lager* bedrag uit. Per gebruiker scheelt dat ruwweg een factor 3–5. Mogelijke verklaringen: Vendr's mediaan wordt gedomineerd door Costpoint/Vantagepoint-abonnementen in plaats van per-seat PPM-licenties, en de EVMS-toolchain hierboven stapelt vier tot vijf producten per seat. Hoe dan ook: **behandel de USD 250.000–750.000 als een bovengrens-scenario, niet als een centrale schatting**, en gebruik Vendr's 150k–600k als tegenwicht.
 
 ---
 
@@ -249,13 +299,19 @@ Ondanks gerichte zoekacties op resellers (Prescience AU, Connexion Systems AU, T
 
 9. **Kwantitatief risicomanagement dat verder gaat dan drie-puntschattingen.** Acumen Risk combineert een discreet risicoregister (kans × impact), uncertainty factors en risk drivers, met cost-schedule integration en de mogelijkheid om een risk-adjusted schedule op elke gewenste P-waarde terug te publiceren naar de bronplanner. Acumen 360 genereert daar bovenop automatisch versnellingsscenario's.
 
-10. **Actief onderhouden, niet in onderhoudsmodus.** Open Plan 8.8 verscheen april 2026 met nieuwe PPM Administrator-integratie, ACC, Jira Data Center-import, spellingcontrole op activiteitomschrijvingen en verbeterde Find & Replace; Acumen 8.11 verscheen december 2025 met GenAI-risicogeneratie, PPM Risk-ondersteuning, P6 24.12-support en half-step snapshot-import. De read-only REST API is van mei 2026. Voor een product uit 1985 is dat een respectabel investeringsniveau.
+10. **De rekenkern is publiek gedocumenteerd — uniek in deze markt.** De Developer Guide beschrijft niet alleen wat de engine doet maar hóé: topologische sortering, forward/backward pass, **zes floattypen inclusief relationship total/free float**, de omgang met meerdere kalenders, discontinue activiteiten, hammocks en subprojecten, de twee resource-schedulingmethoden met hun versoepelingsattributen, en zelfs de sampling-internals van de Monte Carlo. Geen enkele grote concurrent publiceert dit niveau van detail. Voor wie een eigen CPM-solver bouwt of valideert is dit de meest bruikbare openbare referentie die er is.
+
+11. **EVM zit in het datamodel, niet in een rapportagelaag.** `BAC_QTY` / `BCWS_QTY` / `BCWP_QTY` / `ACWP_QTY` / `ETC_QTY` staan op activiteitniveau, met vier resourceklassen (Labor / Material / ODC / Subcontract) die daarnaartoe oprollen. In combinatie met de tweewegkoppeling naar Cobra betekent dat: geen zelfgebouwde brug tussen planning en earned value, geen maandelijkse reconciliatie-exercitie. Dat is het structurele verschil met bouwplanners waar EVM een bolt-on is.
+
+12. **Diep automatiseerbaar via het OLE/COM-objectmodel.** Volledig lees- én schrijfbaar, met honderden gedocumenteerde properties en methods, plus scriptbare generieke import/export-specificaties (inclusief hiërarchische XML met XSL-stylesheet) en een gepubliceerd ERD. Wie batchverwerking, massale statusupdates of eigen integraties wil bouwen, kan dat — mits op Windows.
+
+13. **Actief onderhouden, niet in onderhoudsmodus.** Open Plan 8.8 verscheen april 2026 met nieuwe PPM Administrator-integratie, ACC, Jira Data Center-import, spellingcontrole op activiteitomschrijvingen en verbeterde Find & Replace; Acumen 8.11 verscheen december 2025 met GenAI-risicogeneratie, PPM Risk-ondersteuning, P6 24.12-support en half-step snapshot-import. De read-only REST API is van mei 2026. Voor een product uit 1985 is dat een respectabel investeringsniveau.
 
 ---
 
 ## 5. Nadelen
 
-1. **Volstrekt ondoorzichtige prijsstelling, met name voor Open Plan.** Er bestaat geen enkele publieke prijs. Geen proefversie, geen gratis editie, geen zelfbedieningsaankoop. Elke evaluatie begint met een salesgesprek. SmartPM noemt dit expliciet als "procurement friction". En waar wél een prijs bekend is (Acumen via de Australische partner) blijkt die stevig: **AUD 8.772 per gebruiker voor alleen Fuse**, ongeveer AUD 16.700–18.000 voor de suite, met **≈22% onderhoud per jaar** — dat is de bovengrens van Deltek's eigen bandbreedte.
+1. **Volstrekt ondoorzichtige prijsstelling, met name voor Open Plan.** Er bestaat geen enkele publieke prijs. Geen proefversie, geen gratis editie, geen zelfbedieningsaankoop. Elke evaluatie begint met een salesgesprek. SmartPM noemt dit expliciet als "procurement friction". En waar wél een prijs bekend is (Acumen via de Australische partner) blijkt die stevig: **AUD 7.367 licentie + AUD 2.085 onderhoud = AUD 9.452 per gebruiker voor alleen Fuse**, AUD 17.975 voor de suite. Het onderhoud op Fuse is **28,3% van de licentieprijs per jaar** — ruim boven de 18–22%-bandbreedte die **Vendr** voor Deltek-contracten noemt (*gecorrigeerd: die bandbreedte is een Vendr-schatting, niet door Deltek gepubliceerd — zie Verificatie V3*), en na vier jaar heb je de licentie een tweede keer betaald.
 
 2. **Windows-only fat client; er is geen echte web- of cloudversie.** Open Plan gebruikt een twee-tier architectuur zonder applicatieserver of browserclient; Acumen is single-tier desktop. "Cloud" bij Deltek PPM betekent Citrix Virtual Apps, VMware Horizon of een gehoste VM. Aggregatoren die "SaaS", "Cloud-based" of "Web, Android, iPhone/iPad" vermelden (SourceForge, Slashdot, Capterra) zijn feitelijk onjuist. Geen macOS, geen Linux, geen mobiel, geen browser.
 
@@ -273,7 +329,7 @@ Ondanks gerichte zoekacties op resellers (Prescience AU, Connexion Systems AU, T
    - *Defect 2400353*: Open Plan "would appear to freeze" na een undo op een user-defined validation.
    - Verschillende defecten treden alleen op in **Shared mode**, met als workaround "Open the project in Exclusive mode" — wat het multi-user-verkoopargument ondermijnt.
 
-6. **Zwakke, eenrichtings-integratiemogelijkheden.** Acumen's "API" is **geen API**: het is een XML-exporthaak via configuratiebestand die een menu-item in de desktop-UI aanmaakt en na een muisklik een extern programma start. Er is geen REST-endpoint, geen CLI, geen SDK, geen headless modus. Open Plan's REST API bestaat pas sinds mei 2026, vereist een aparte IIS-server, en is **expliciet read-only**. Wie tweerichtings-automatisering wil, moet terugvallen op directe databasetoegang (het ERD is gepubliceerd) of op user-defined importscripts — beide fragiel en versiegebonden.
+6. **Zwakke, gedateerde en asymmetrische integratiemogelijkheden.** Acumen's "API" is **geen API**: het is een XML-exporthaak via configuratiebestand die een menu-item in de desktop-UI aanmaakt en na een muisklik een extern programma start. Er is geen REST-endpoint, geen CLI, geen SDK, geen headless modus — wie Fuse in een CI/CD- of geautomatiseerde-reviewpijplijn wil hangen, moet het aparte, betaalde Touchstone-portaal kopen. Open Plan is beter af, maar niet modern: de REST API bestaat pas sinds mei 2026, vereist een aparte IIS-server en is **expliciet read-only**; schrijven kan alleen via het **OLE/COM-objectmodel** (Windows-only, in-proces, VB-tijdperk), via user-defined importscripts of rechtstreeks op de database. Er zijn geen webhooks, geen event-model en geen platformonafhankelijke SDK. Aandachtspunt voor security: commando's die in de UI via Deltek EPM zijn afgeschermd blijven volgens de Developer Guide **wél** bereikbaar voor automatiseringsapplicaties.
 
 7. **Sterke vendor lock-in en broze versiekoppeling binnen de suite.** Open Plan is pas echt zinvol samen met Cobra, PM Compass en wInsight Analytics. De versiematrix is strikt: Acumen 8.11 ondersteunt Open Plan 8.6/8.7/8.8 en Cobra 8.6/8.7; alle producten delen een database met een gezamenlijk encryptiemodel, waardoor "older versions of other PPM products that do not support the new encryption protocol will neither function nor integrate with Open Plan 8.8". Er is een aparte PPM Encryption Conversion Utility, een Unicode-conversiestap, en de waarschuwing "You must not install Acumen tables in an existing Deltek database that has wInsight installed". Upgraden is een programma, geen klik.
 
@@ -294,7 +350,14 @@ Ondanks gerichte zoekacties op resellers (Prescience AU, Connexion Systems AU, T
 
 12. **Fuse is geen planner — je hebt altijd een tweede licentie nodig.** Je kunt in S1 // Projects data bewerken en cleansen, en scenario's terugpubliceren naar bijvoorbeeld P6 XER, maar de bron van waarheid blijft P6, MS Project, Open Plan of Asta. Fuse is een dure aanvullende laag bovenop een bestaande planningsinvestering, geen vervanging ervan.
 
-13. **Risicoanalyse in Open Plan is beperkt tot duur.** De documentatie behandelt uitsluitend duur-onzekerheid met drie-puntschattingen; kosten- en resourcerisico ontbreken. Wie kostenrisico wil, moet Acumen Risk erbij kopen — een tweede licentie van vergelijkbare prijs.
+13. **Risicoanalyse in Open Plan is beperkt tot duur.** De documentatie behandelt uitsluitend duur-onzekerheid met drie-puntschattingen; kosten- en resourcerisico ontbreken. Wie kostenrisico wil, moet Acumen Risk erbij kopen — een tweede licentie van vergelijkbare prijs. Bovendien is de sampling-implementatie naar moderne maatstaven grof: pseudo-random getallen uit een bereik van 0–32767, en normale verdelingen benaderd door twaalf random getallen op te tellen met bewuste verwaarlozing van de staarten (Developer Guide, hoofdstuk *Operating Characteristics of Risk Analysis*).
+
+14. **De DCMA-score is minder objectief dan hij oogt — en dat is een risico voor iedereen die erop stuurt.** Twee onafhankelijke bronnen:
+    - **Mosaic Projects** (white paper WP1088): *"The implementation of the DCMA 14-Point Assessment in the various software tools is **not certified** by the DCMA or any other body and **varies between the tools**! The biggest issue is around counting of the number of tasks to be considered."* De telbasis (wel/niet meetellen van voltooide taken, LOE, summary-taken en mijlpalen) veranderde tussen de 2009- en 2012-versies van de DCMA-richtlijn. Dezelfde planning krijgt in Fuse, Steelray en Schedule Inspector dus verschillende scores. Mosaic waarschuwt bovendien dat conformiteit aan de checks "does not of itself indicate the schedule is sensible, realistic, and achievable — correlation is not the same as causation".
+    - **HKA** over Fuse' eigen **Schedule Quality Index**: de *activity-based* en *metric-based* berekeningsmethoden geven op **identieke data** respectievelijk **41 (slecht)** en **88 (goed)**. Een activiteit die op slechts één van de negen metrics faalt scoort 82–91% metric-based maar **0%** activity-based. Een Fuse-score is dus pas betekenisvol als de gekozen methode en telbasis erbij geleverd worden.
+    Praktisch gevolg: omdat de checks publiek en bekend zijn, is *teaching to the test* (lags herschrijven als activiteiten, hard constraints verstoppen achter zachte, LOE-taken herclassificeren) een reëel gedragsrisico dat Fuse niet oplost en deels zelfs aanmoedigt.
+
+15. **Cloud-native concurrentie valt precies de zwakke plekken aan.** Kazinex omschrijft Fuse' twee aankoopdrempels als *"desktop installation (IT approval, license servers, Windows-only) and enterprise pricing (thousands per seat, per year)"*; Nodes & Links stelt dat Fuse *"buries teams under menus, tabs, and manuals; it demands specialist training and slows adoption"*, dat toegang beperkt blijft tot enkele specialisten ("when your experts are out, so are your insights"), en verwijst naar "the slow QSRA engine" van Fuse+Risk. **Dit zijn concurrenten en dus gekleurde bronnen** — maar elk van deze punten is onafhankelijk bevestigd door Deltek's eigen documentatie (Windows-only single-tier desktop, 8 GB RAM bij >50k activiteiten, instelbaar threadmaximum voor risicoanalyse sinds 8.3, aparte Metric Developers Guide, commerciële trainingsmarkt).
 
 ---
 
@@ -374,7 +437,7 @@ Ondanks gerichte zoekacties op resellers (Prescience AU, Connexion Systems AU, T
 ### 7.2 Belangrijkste concurrenten
 
 **Voor Open Plan (planning/EVM):**
-- **Oracle Primavera P6** — de dominante speler; 6sense schat 20,05% marktaandeel tegenover 0,15% voor Open Plan. Grotere community, meer trainers, meer add-ons.
+- **Oracle Primavera P6** — de dominante speler *in de CPM-planningsniche*; 6sense schat 20,05% marktaandeel tegenover 0,15% voor Open Plan. **Nuance (gecorrigeerd, zie V6):** in 6sense's eigen categorie "project management" is P6 niet de nummer 1 — **Teamwork leidt met 48,07%**, P6 is #2. Die categorie mengt echter lichte samenwerkingstools met echte CPM-planners; voor de EVMS/CPM-markt blijft P6 de referentie. Grotere community, meer trainers, meer add-ons.
 - **Microsoft Project / Project Online / Project for the Web** — 5,77% (6sense), veel goedkoper en universeel.
 - **Safran Project** (Noorwegen), **Asta Powerproject** (Elecosoft, VK), **Phoenix Project Manager**, **InEight** — alternatieve CPM-planners, sommige met eigen EVM.
 - **forProject**, **Encore/Empower**, **MPM** — concurrenten van Cobra aan de EVM-kostenkant.
@@ -458,6 +521,11 @@ Alle URL's opgehaald op **25 juli 2026** tenzij anders vermeld. Documentdatums s
 15. Deltek Acumen 8.11 GA — documentatielijst: https://dsm.deltek.com/documentationlists/DeltekAcumen811GA.html
 16. Deltek Acumen 8.11 — Cost Data CSV Structure (PDF): https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=11253AE9-67BF-434B-99A9-7B315E699CCA
 17. Deltek Acumen 8.11 — Metric Developers Guide (PDF): https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=44251CAD-F246-4304-B361-093857F36EB6
+17a. **Deltek Open Plan 8.8 — Developer Guide** (PDF, gedateerd 22 april 2026, 723 p.): https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=0E423034-0FDB-449E-8505-2B9C9BD442EC *(OLE-automatiseringsobjectmodel met properties/methods; import- en exportfaciliteiten incl. XML-scripting; time analysis calculations met zes floattypen; resource scheduling calculations; risk analysis calculations incl. sampling-internals; cost calculations met BAC/BCWS/BCWP/ACWP/ETC; multi-project operations)*
+17b. Deltek Open Plan 8.8 — Guided Tour (PDF, 22 april 2026, 90 p.): https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=14ECF4E6-72AE-4194-8069-5F9C068BDDCB *(workspace, Explorer, barchart-/network-/histogramviews, project properties, resourcebeheer)*
+17c. Deltek Open Plan 8.8 — Batch Processor Guide: https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=05A9F83E-5CB5-4B55-9C89-AD023F4827C4
+17d. Deltek Open Plan 8.8 — Entity Relationship Diagram: https://dsm.deltek.com/DeltekSoftwareManagerWebServices/downloadFile.ashx?documentid=0C4034F4-BD44-43BD-94BB-7ACBB539408C
+17e. Deltek Acumen 8.11 — Technical Overview, sectie *Scheduling Tools* (volledige matrix P6 20.12–24.12, MSP 2021/2024, Safran 25.1, Phoenix 5.6, Powerproject 17.3/18, Ares Prism G2, IPMDAR SPD/CPD, UN/CEFACT IPMDR Format 6 v1.0, Open Plan 8.6–8.8, Cobra 8.6/8.7) — zie bron 11
 
 ### Leverancier — online help
 18. Open Plan 8.8 — Welcome / architectuur: https://help.deltek.com/Product/OpenPlan/8.8/GA/welcome_to_deltek_open_plan_3xopp.html
@@ -479,9 +547,15 @@ Alle URL's opgehaald op **25 juli 2026** tenzij anders vermeld. Documentdatums s
 34. Deltek Learning — Acumen Touchstone Introduction: https://learning.deltek.com/bundle/Acumen_Touchstone_Introduction_Overview_and_Navigation/
 
 ### Prijzen
-35. **Prescience Technology (AU) — Deltek Acumen Fuse productpagina**: https://www.staging.prescience.com.au/product/acumen-fuse/ *(AUD 8.772,00 → 8.430,15; perpetual; per gebruiker; incl. eerste jaar maintenance AUD 1.935,00; excl. GST)* — live-URL https://www.prescience.com.au/product/acumen-fuse/ gaf HTTP 403
-36. **Prescience Technology (AU) — Deltek Acumen productcatalogus**: https://www.staging.prescience.com.au/product-tag/deltek-acumen/ *(Full Suite AUD 16.682,00 → 15.999,00; Acumen Risk add-on AUD 8.772,00 → 8.430,15)*
-37. Prescience Technology — catalogus (zoeksnippet, andere momentopname): https://www.prescience.com.au/product-tag/deltek-acumen/ *(Full Suite AUD 17.975,00 → 17.238,30)*
+35. **Prescience Technology (AU) — Deltek Acumen Fuse productpagina, LIVE geverifieerd 25-07-2026**: https://www.prescience.com.au/product/acumen-fuse/ *(Price Breakdown: Software Licence **AUD 7.367,00** + Annual Software Maintenance **AUD 2.085,00** = **AUD 9.452,00** Deltek-lijstprijs; online AUD 6.998,65 + 2.085,00 = 9.083,65; SKU ACFUS1-10-1; Term: Perpetual; per Application User; excl. GST; `priceValidUntil` 2027-12-31)*
+35a. Prescience Technology — Deltek Acumen Risk+360 (add-on), live 25-07-2026: https://www.prescience.com.au/product/deltek-acumen-risk/ *(identiek: AUD 7.367 + 2.085 = 9.452; SKU ACRIS1-10-1; vereist bestaande Fuse)*
+35b. Prescience Technology — Deltek Acumen Fuse+Risk+360 (Full Suite), live 25-07-2026: https://www.prescience.com.au/product/deltek-acumen-fuserisk360-full-suite/ *(AUD 14.734,00 + 3.241,00 = **17.975,00**; online 17.238,30; SKU ACRIS1-10-1-1; Touchstone alleen op aanvraag)*
+36. **Prescience Technology (AU) — volledige softwarecatalogus**, live 25-07-2026: https://www.prescience.com.au/product-category/software/ *(bevat exact vijf producten: Acumen Fuse, Acumen Risk+360, Acumen Full Suite, P6 PPM, P6 EPPM — **geen Open Plan**; bewijs voor §3.4)*
+36a. **Prescience — Oracle Primavera P6 Professional**, live 25-07-2026: https://www.prescience.com.au/product/primavera-p6-ppm/ *(Oracle-lijstprijs AUD 5.820 licentie + 1.280 onderhoud = 7.100; online totaal 6.809; "up to 100,000 activities"; "Our 5% online store discount applies to perpetual licence only")* — **corrigeert het prijsanker in §3.2, zie Verificatie V2**
+36b. Prescience — Oracle Primavera P6 EPPM, live 25-07-2026: https://www.prescience.com.au/product/primavera-p6-eppm/ *(lijst AUD 6.360 + 1.399 = 7.759; online totaal 7.441)*
+37. **Internet Archive Wayback Machine — Prescience Acumen Fuse, snapshot 22-06-2018**: https://web.archive.org/web/20180622154637/http://www.prescience.com.au/product/acumen-fuse/ *(AUD 6.472 licentie + 1.920 maintenance = 8.392; SKU ACFUS1-10-1)*
+37a. Internet Archive Wayback Machine — Prescience Acumen Risk, snapshot 24-03-2019: https://web.archive.org/web/20190324020652/https://www.prescience.com.au/product/deltek-acumen-risk/ *(identieke bedragen; basis voor de prijsontwikkelingstabel in §3.2)*
+37b. *(vervallen)* De eerder gebruikte staging-URL's `www.staging.prescience.com.au/...` bevatten een verouderde momentopname (AUD 8.772 totaal / 1.935 onderhoud) en zijn vervangen door de live-geverifieerde bedragen hierboven.
 38. **Vendr — Deltek Software Pricing & Plans 2026**: https://www.vendr.com/marketplace/deltek *(mediaan USD 19.990/jaar over 32 aankopen; bandbreedte USD 9.099–39.500; onderhoud 18–22%; implementatie 40–80% van eerstejaars softwarekosten; onderhandelingsruimte 15–25%)*
 39. PricingNow — Deltek Acumen Pricing (bijgewerkt 8 maart 2026): https://pricingnow.com/question/deltek-acumen-pricing/ *("Deltek does not publicly list its pricing"; geen bedragen)*
 40. Capterra — Open Plan: https://www.capterra.com/p/10002329/Open-Plan/ *(startprijs "contact vendor"; 1 review; pro/con-citaten)*
@@ -509,6 +583,14 @@ Alle URL's opgehaald op **25 juli 2026** tenzij anders vermeld. Documentdatums s
 60. ScheduleLens — DCMA 14-Point Assessment: https://schedulelens.com/blog/dcma-14-point-assessment/
 61. Plan Academy — What is the DCMA 14-point schedule assessment?: https://www.planacademy.com/dcma-14-point-schedule-assessment/
 62. The CFO Club — Deltek Review: Pros, Cons, Features, and Pricing: https://thecfoclub.com/tools/deltek-review/ *("Deltek's user interface could feel daunting at first…")*
+62a. **Mosaic Projects — White Paper WP1088: DCMA 14-Point Assessment Metrics** (PDF): https://mosaicprojects.com.au/WhitePapers/WP1088_DCMA-14-Point.pdf *("The implementation of the DCMA 14-Point Assessment in the various software tools is not certified by the DCMA or any other body and varies between the tools!"; wijzigende telbasis tussen de 2009- en 2012-versies; "correlation is not the same as causation"; noemt Fuse, Schedule Analyzer en Barbecana Schedule Inspector als validatietools)*
+62b. **HKA — Acumen Fuse Schedule Quality Index: Understanding the Method**: https://www.hka.com/article/acumen-fuse-schedule-quality-index-method/ *(negen metrics; activity-based vs. metric-based scoring geeft op identieke data 41 vs. 88; een activiteit die op één metric faalt scoort 0% resp. 82–91%)*
+62c. Kazinex — *Acumen Fuse alternative*: https://docs.kazinex.com/blog/acumen-fuse-alternative *("desktop installation (IT approval, license servers, Windows-only) and enterprise pricing (thousands per seat, per year)")* — **concurrent, gekleurde bron**
+62d. Nodes & Links — *Acumen Fuse vs Nodes & Links*: https://nodeslinks.com/compare/acumen-fuse-vs-nodes-links/ *(kritiek op usability, specialistenafhankelijkheid, desktop-deployment, ontbrekende AI; elders "the slow QSRA engine")* — **concurrent, gekleurde bron**
+62e. Pinnacle Management Systems — *The Most Common EVMS Scheduling Engines*: https://www.pinnaclemanagement.com/blog/the-most-common-evms-scheduling-engines *(P6 dominant; Open Plan #2 met "significantly lower market penetration"; schaarste aan ervaren Open Plan-planners; minder kostenengines met directe integratie)*
+62f. ScheduleReader — *Schedule Health, Rules & Tools: ScheduleReader vs. Deltek Acumen Fuse*: https://www.schedulereader.com/schedule-health-rules-tools-schedulereader-deltek-acumen-fuse/ — **concurrent, gekleurde bron**
+62g. Deltek — *How You Can Benefit from Deltek EVM Solutions* (samenhang Cobra / Open Plan / PM Compass / Acumen / wInsight; 15 earned-value-technieken in Cobra; IPMR- en IPMDAR-CPD-export): https://www.deltek.com/en/blog/evm-solutions-guide
+62h. ProjectControlsOnline — *Acumen Fuse*: https://projectcontrolsonline.com/acumen-fuse/ *(historische lijst ondersteunde bronformaten; DCMA-metricbibliotheek standaard bij elke licentie)*
 
 ### Historie en eigendom
 63. Wikipedia — Deltek: https://en.wikipedia.org/wiki/Deltek *(oprichting 1983; eigendomsgeschiedenis t/m Roper Technologies 2016; ± 3.686 medewerkers)*
@@ -528,10 +610,80 @@ Alle URL's opgehaald op **25 juli 2026** tenzij anders vermeld. Documentdatums s
 
 Expliciet als **schatting** gemarkeerd in dit document:
 - 6sense-marktaandeel- en klantaantallen (technografische detectie; structureel een onderschatting voor on-premise defensiesoftware).
-- Alle omrekeningen van AUD naar EUR (koers ± AUD 1 = EUR 0,57, niet geverifieerd).
-- De afgeleide kale licentieprijs (AUD 6.837) en 5-jaars TCO (AUD 16.512) voor Acumen Fuse — berekend uit de gepubliceerde reseller-bedragen.
-- Het onderhoudspercentage van ≈22,1% — berekend uit AUD 1.935 / AUD 8.772.
-- De indicatie "EUR 15.000–25.000 eerstejaars licentiekosten per volledig uitgeruste EVMS-seat" — samengesteld uit reseller-lijstprijzen plus Vendr-benchmarks; **geen Deltek-offerte**.
+- Alle omrekeningen van AUD naar EUR/USD (koers ± AUD 1 = EUR 0,57 = USD 0,66, niet geverifieerd).
+- De 5-jaars TCO van Acumen Fuse (≈ AUD 17.792 per seat) — berekend uit de gepubliceerde reseller-bedragen.
+- De orde-van-grootte-bandbreedte voor een Open Plan-licentie (USD 5.000–12.000 per named user perpetual, resp. USD 2.000–4.500 per gebruiker per jaar) — afgeleid uit de Acumen-prijsstelling en Vendr-benchmarks; **geen enkele publieke bron bevestigt dit**.
+- De indicatie "EUR 15.000–25.000 eerstejaars licentiekosten per volledig uitgeruste EVMS-seat" en "USD 250.000–750.000 eerste jaar voor 25–50 gebruikers" — samengesteld uit reseller-lijstprijzen plus Vendr-benchmarks; **geen Deltek-offerte**.
 - De ITQlick-prijs van "$75 per user/month" — algoritmisch gegenereerd door de aggregator, niet herleidbaar tot Deltek, en in tegenspraak met het perpetual-model van de officiële reseller. **Niet gebruiken.**
+- Alle uitspraken over Nodes & Links, Kazinex en ScheduleReader zijn afkomstig van **concurrenten** en als zodanig gemarkeerd; ze zijn alleen opgenomen waar Deltek's eigen documentatie de onderliggende feiten bevestigt.
 
-Niet-schattingen (harde, herleidbare feiten uit primaire documentatie): alle systeemvereisten, ondersteunde formaten en versies, schaalrichtlijnen, defectnummers en -omschrijvingen, metric-aantallen, releasedatums, en de Prescience-lijstprijzen zoals gepubliceerd.
+**Wél harde, herleidbare feiten** uit primaire documentatie: alle systeemvereisten, ondersteunde formaten en versies, schaalrichtlijnen, defectnummers en -omschrijvingen, metric-aantallen, releasedatums, de algoritmische beschrijvingen uit de Developer Guide (floattypen, sampling-methode, resource-schedulingregels, EVM-velden), en de Prescience-prijzen inclusief de licentie/onderhoud-splitsing zoals live gepubliceerd op 25-07-2026 en zoals gearchiveerd in 2018/2019.
+
+**Wijzigingslog t.o.v. de vorige versie van dit profiel (25-07-2026, tweede ronde):**
+1. Prijzen Acumen **gecorrigeerd** op basis van live-verificatie: licentie/onderhoud-splitsing toegevoegd, staging-bedragen vervangen, onderhoudspercentage bijgesteld van ≈22,1% naar **28,3%** (Fuse) resp. 22,0% (suite).
+2. Prijsontwikkelingstabel 2018→2026 toegevoegd (Wayback Machine).
+3. P6-prijsanker bij dezelfde reseller toegevoegd.
+4. Nieuwe paragraaf **2.1a** met de rekenkern uit de Developer Guide (zes floattypen, kalenderinteractie, resource-schedulingregels, EVM-velden, Monte-Carlo-sampling-internals).
+5. Sectie **2.3 gecorrigeerd**: Open Plan heeft naast de read-only REST API wél een volwaardig, schrijfbaar **OLE/COM-objectmodel**. De eerdere stelling dat tweerichtingsautomatisering alleen via de database of importscripts kon, was onvolledig. Nadeel 6 is dienovereenkomstig herschreven.
+6. Drie voordelen toegevoegd (gedocumenteerde rekenkern; EVM-native datamodel; COM-automatisering).
+7. Twee nadelen toegevoegd met onafhankelijke bronnen: **variërende, niet-gecertificeerde DCMA-implementaties** (Mosaic Projects) en de **scoringsdiscrepantie in Fuse' Schedule Quality Index** (HKA), plus een expliciet als gekleurd gemarkeerd nadeel over cloud-native concurrentie.
+
+---
+
+## Verificatie
+
+Adversariële fact-check, uitgevoerd **25 juli 2026**. Opzet: elke bewering actief pogen te **weerleggen** met de primaire bron of een onafhankelijke bron, niet haar te bevestigen. Alle prijs- en systeemvereistenclaims zijn opnieuw rechtstreeks bij de bron opgehaald (webshop-HTML met `schema.org`-JSON-LD, en de Deltek-PDF's integraal geëxtraheerd, niet via zoeksnippets). Waar de fetch mislukte, staat dat er.
+
+**Samenvatting: 26 beweringen gecontroleerd — 18 bevestigd, 6 gecorrigeerd, 2 onzeker.** Geen enkele kernprijs bleek onjuist; de fouten zaten in *labeling* (V2), *attributie* (V3, V5, V6), een verkeerd percentage (V4) en een afgeleide schatting die door de eigen bron wordt tegengesproken (V7).
+
+### Gecorrigeerd
+
+| # | Bewering (oud) | Bevinding | Bron |
+|---|---|---|---|
+| **V2** | "Prijsanker: Oracle Primavera P6 Professional **AUD 6.809** … één Fuse-seat kost méér dan een volledige P6-licentie" | **Gecorrigeerd — appels/peren.** AUD 6.809 is niet de licentieprijs maar de **online kortingsprijs inclusief eerste jaar onderhoud**. Oracle-lijstprijs is 5.820 licentie + 1.280 onderhoud = **7.100**. Het werd naast Acumen-*lijst*prijzen gezet. De strekking overleeft: licentie 7.367 vs. 5.820 = **+27%**; totaal lijst 9.452 vs. 7.100 = **+33%**; online 9.083,65 vs. 6.809 = **+33%**. §3.2 herschreven met volledige uitsplitsing. Idem EPPM: 7.441 is online totaal, lijst is 6.360 + 1.399 = 7.759. | https://www.prescience.com.au/product/primavera-p6-ppm/ · https://www.prescience.com.au/product/primavera-p6-eppm/ |
+| **V3** | "28,3% … boven **Deltek's eigen** 18–22%-bandbreedte" (nadeel 1) | **Gecorrigeerd — misattributie.** De 18–22% is een **Vendr**-schatting voor Deltek-contracten breed; Deltek publiceert dit percentage nergens. §3.2 attribueerde correct, nadeel 1 niet. Bijgesteld. Aanvullend weerwoord: het percentage is **geen recente verhoging** — in 2018 was het 1.920/6.472 = **29,7%**, dus licht gedááld. | https://www.vendr.com/marketplace/deltek |
+| **V4** | "1,75% toeslag bij creditcardbetaling" | **Gecorrigeerd.** De live pagina zegt letterlijk: "there is a **1.9%** surcharge for all credit card transactions". | https://www.prescience.com.au/product/acumen-fuse/ |
+| **V5** | "± 3.686 medewerkers" | **Gecorrigeerd.** Dat is het Wikipedia-infoboxcijfer. Deltek's eigen About-pagina noemt medio 2026 "**4,200 employees**" (en bevestigt "30,000 customers" / "Trusted by 30,000 organizations"). | https://www.deltek.com/en/about |
+| **V6** | "Oracle Primavera P6 — **de dominante speler**; 6sense 20,05%" | **Gecorrigeerd/genuanceerd.** In 6sense's eigen categorie leidt **Teamwork met 48,07%**; P6 is met 20,05% #2. De categorie mengt lichte samenwerkingstools met CPM-planners, dus binnen de EVMS/CPM-niche blijft P6 de referentie — maar "dominant" zonder afbakening is onjuist tegenover de geciteerde bron. | https://6sense.com/tech/project-management/deltek-open-plan-market-share |
+| **V7** | "25–50 gebruikers → eerste jaar **USD 250.000–750.000**" | **Gecorrigeerd naar bovengrens-scenario.** Dezelfde Vendr-bron die als onderbouwing dient, geeft een tegengesteld cijfer: eerstejaarskosten voor **50–200 users** liggen "commonly between **$150,000 and $600,000**". Vendr komt voor een 2–4× grotere groep op een *lager* bedrag uit — per gebruiker een factor 3–5 verschil. Waarschuwing toegevoegd. | https://www.vendr.com/marketplace/deltek |
+
+### Bevestigd
+
+| # | Bewering | Uitkomst | Bron |
+|---|---|---|---|
+| **V1** | Acumen Fuse AUD 7.367 licentie + 2.085 onderhoud = 9.452 lijst; online 6.998,65 + 2.085 = 9.083,65; SKU **ACFUS1-10-1**; Perpetual; per Application User; excl. GST; `priceValidUntil` 2027-12-31 | **Bevestigd, cijfer voor cijfer**, uit de `schema.org/Product`-JSON-LD én de zichtbare "Price Breakdown"-tabel. `ListPrice` 9452.00, verkoopprijs 9083.65. | https://www.prescience.com.au/product/acumen-fuse/ |
+| **V1b** | Acumen Risk+360 identiek 7.367 + 2.085 = 9.452; SKU **ACRIS1-10-1**; add-on op bestaande Fuse | **Bevestigd.** Paginatekst: "Pre-requisite: You must already own Acumen Fuse for this product to function correctly." | https://www.prescience.com.au/product/deltek-acumen-risk/ |
+| **V1c** | Full Suite 14.734 + 3.241 = 17.975; online 13.997,30 + 3.241 = 17.238,30; SKU **ACRIS1-10-1-1**; Touchstone alleen op aanvraag | **Bevestigd.** Touchstone: "Call 1300 086 816 for more information" — geen prijs. | https://www.prescience.com.au/product/deltek-acumen-fuserisk360-full-suite/ |
+| **V8** | Prijsontwikkeling 2018: AUD 6.472 + 1.920 = 8.392, zelfde SKU | **Bevestigd** in de Wayback-snapshot (22-06-2018), inclusief SKU ACFUS1-10-1 en "Term: Perpetual". Rekenkundig geverifieerd: licentie +13,8%, onderhoud +8,6%, totaal +12,6%. *Nieuw detail:* in 2018 gold de 5%-korting óók op onderhoud (online 7.972), nu niet meer — effectieve stijging voor een online koper is **+13,9%**. | https://web.archive.org/web/20180622154637/http://www.prescience.com.au/product/acumen-fuse/ |
+| **V9** | Vendr: mediaan USD 19.990/jaar over 32 aankopen, range 9.099–39.500; onderhoud 18–22%; implementatie 40–80% | **Bevestigd, verbatim.** | https://www.vendr.com/marketplace/deltek |
+| **V10** | Voor Open Plan is nergens een publieke prijs te vinden | **Bevestigd, ook actief tegengetoetst.** De volledige software-catalogus van de enige reseller die wél online prijst bevat exact vijf producten: acumen-fuse, deltek-acumen-risk, full-suite, primavera-p6-ppm, primavera-p6-eppm. **Open Plan staat er niet tussen.** | https://www.prescience.com.au/product-category/software/ |
+| **V11** | Eigendomsketen: 1983 deLaski's · Herndon VA · IPO 1997 · privaat 2002 · New Mountain 75% (2005) · IPO 2007 $162 mln · Thoma Bravo $1,1 mld (2012) · Roper $2,8 mld (2016) | **Bevestigd** op alle punten (Thoma Bravo preciezer: augustus 2012). Kanttekening: Wikipedia noemt de Welcom- en Acumen-overnames **niet** — die staan op eigen, sterkere bronnen (V12). | https://en.wikipedia.org/wiki/Deltek |
+| **V12** | Deltek nam Welcom over in maart 2006; Houston; Cobra + Open Plan; citaat over voortgezette ontwikkeling | **Bevestigd, verbatim**: 21 maart 2006, Houston, en letterlijk "Welcom products, such as Cobra and Open Plan, will continue to be developed, licensed, maintained and supported by Deltek". | https://www.washingtontechnology.com/2006/03/deltek-buys-welcom/351558/ |
+| **V13** | Acumen Fuse: "600+ metrics", "500K+ schedule activities", "50% reduction in schedule review time", standaarden DCMA/DOE/GAO/AACE/NASA | **Bevestigd, verbatim** op Deltek's eigen productpagina — inclusief de expliciete markering in het profiel dat dit **leveranciersclaims** zijn, niet documentatie. | https://www.deltek.com/products/delivery-assurance/ppm/acumen/fuse/ |
+| **V14** | **Nul IFC/BIM/4D/buildingSMART-ondersteuning** in beide producten | **Bevestigd langs drie onafhankelijke wegen.** Volledige tekstextractie van de Open Plan 8.8 Technical Overview: **0 treffers** op "IFC" en **0** op "BIM". Idem Acumen 8.11 Technical Overview: **0** en **0**. Deltek's Fuse-productpagina: geen enkele vermelding. Dit is de best onderbouwde claim in het hele profiel. | Open Plan 8.8 TO (PDF) · Acumen 8.11 TO (PDF) · deltek.com Fuse-pagina |
+| **V15** | Open Plan: twee-tier, geen applicatieserver, geen webclient | **Bevestigd, verbatim:** "Open Plan uses two-tier architecture… Client / Application Tier… Database Tier". | Open Plan 8.8 Technical Overview (PDF) |
+| **V16** | Open Plan typisch gebruik **2.000–5.000 activiteiten, één project tegelijk**; 50 MB per ~2.000 activiteiten; 32-bit 3–4 GB, 64-bit 192 GB | **Bevestigd, verbatim:** "A user working with moderate-sized projects (2,000 – 5,000 activities), one project at a time…" en "With the 32-bit version… a maximum of 3-4 GB… The 64-bit version… up to 192 GB". | Open Plan 8.8 Technical Overview (PDF) |
+| **V17** | "Small Client/Server Installation: **1–25 concurrent users**"; Access 2016/2019/2021 als ondersteunde database; Oracle 19.3; .NET 4.8/4.8.1; Windows 11/Server 2019-2025; niet op domain controller/Exchange/SharePoint | **Bevestigd, alle punten verbatim**, inclusief de citaten "often yields poor performance" en de licentieclausule "Specific server hardware configurations may have an impact on your overall Deltek product licensing requirements". | Open Plan 8.8 Technical Overview (PDF) |
+| **V18** | Acumen: single tier, "There is no backend database tier required"; 2/4/8 GB per <10K / 10–50K / >50K activiteiten; typisch 10.000–20.000; 16 GB + 4 cores aanbevolen | **Bevestigd, verbatim**, inclusief het voorbeeld "three months' worth of a 10k activity project is 30k activities". | Acumen 8.11 Technical Overview (PDF) |
+| **V19** | Acumen ondersteunt **UN/CEFACT (IPMDR Format 6 v1.0)**, Safran 25.1, Ares Prism G2, Phoenix 5.6, PowerProject 17.3/18, IPMDAR SPD + CPD, P6 20.12–24.12 | **Bevestigd, verbatim uit de bronmatrix.** Dit is belangrijk, want de aanbeveling "prioriteer UN/CEFACT-XML-export" (§6.3) rust hierop — die aanbeveling houdt stand. | Acumen 8.11 Technical Overview (PDF) |
+| **V20** | Acumen ondersteunt **geen 2FA**; workaround is een app password | **Bevestigd, verbatim:** "Acumen does not support Two-Factor Authentication (2FA). If the server is configured for 2FA, you can create an App password for Acumen." | Acumen 8.11 Technical Overview (PDF) |
+| **V21** | Huidige versies: Open Plan **8.8**, Acumen **8.11** (docs 17-11-2025) | **Bevestigd.** Open Plan-documentatie-index toont 3.3 / 8.6 / 8.7 / 8.8 als hoogste; Acumen-index 6.0 t/m 8.11, laatst bijgewerkt 17 november 2025. Geen nieuwere release gevonden. | https://help.deltek.com/Product/OpenPlan/ · https://help.deltek.com/Product/Acumen/ |
+| **V22** | 6sense: 0,15% marktaandeel, 57 domeinen, #24, VS 39 (73,6%), VK 3, DE 3, 23 bedrijven met 10.000+ | **Bevestigd, alle cijfers.** *Aanvulling:* de genoemde-klantenlijst is ruimer dan het profiel weergeeft — naast Siemens, Lockheed Martin, Boeing en BAE Systems ook **GE Aerospace, Northrop Grumman, Spirit AeroSystems, Unisys en de DCMA zelf**. Dat versterkt eerder dan verzwakt. De waarschuwing dat dit detectiedata is (geen klantbevestiging, structurele onderschatting) blijft terecht. | https://6sense.com/tech/project-management/deltek-open-plan-market-share |
+
+### Onzeker
+
+| # | Bewering | Status | Toelichting |
+|---|---|---|---|
+| **V23** | ITQlick: "$75 per user/month" voor Acumen; "Safran Risk vanaf $1.200 per user per year" | **Onzeker — niet verifieerbaar.** ITQlick geeft zowel via WebFetch als via directe HTTP-request **403 Forbidden**; het bedrag stamt uit een zoeksnippet dat niet opnieuw op te halen is. Het profiel merkt het al aan als onbetrouwbaar; die kwalificatie blijft staan, maar de *onderbouwing* daarvan is nu "kon niet worden geverifieerd", niet "is weerlegd". Ook de Safran-prijs van USD 1.200/jaar in §7.2 erft deze onzekerheid en mag niet als vergelijkingsanker gebruikt worden. | https://www.itqlick.com/acumen/pricing (HTTP 403) |
+| **V24** | CEO Bob Hughes | **Deels onzeker.** Zijn benoeming (maart 2024) is bevestigd; dat hij het medio 2026 nóg is, niet — deltek.com/en/about/leadership geeft HTTP 404 en de About-pagina noemt geen namen. In de tabel als onzeker gemarkeerd. | https://en.wikipedia.org/wiki/Deltek |
+
+### Niet opnieuw getoetst (buiten scope van deze ronde)
+
+De inhoudelijke claims uit de *Open Plan 8.8 Developer Guide* (§2.1a: zes floattypen, Monte-Carlo-sampling op 0–32767, de twaalf-getallen-normaalbenadering), de defectnummers uit de release notes (§5.5), en de secundaire meningsbronnen (Mosaic Projects WP1088, HKA, Nodes & Links, Kazinex) zijn in deze ronde **niet** opnieuw opgehaald. Ze zijn in de vorige ronde uit primaire PDF's respectievelijk met bronvermelding overgenomen en zijn in deze controle niet tegengesproken — maar ze dragen geen vers verificatiestempel.
+
+### Beperkingen van deze verificatieronde
+
+- Het **WebSearch-budget van de sessie was uitgeput** (200/200). Alle verificatie liep daarom via directe HTTP-fetches op bekende URL's en via de Wayback Machine. Bronnen die alleen via zoeken te vinden zouden zijn geweest — bijvoorbeeld een alternatieve reseller met een Open Plan-prijs — konden niet gezocht worden. **De conclusie "geen publieke Open Plan-prijs" is dus bevestigd voor de onderzochte kanalen, niet uitputtend bewezen.**
+- Prescience blokkeert `WebFetch` (HTTP 403) maar niet een reguliere browser-user-agent; de prijzen zijn opgehaald met een directe request en gekruisd tegen de gestructureerde `schema.org`-data op dezelfde pagina, wat sterker is dan een gerenderde-tekstlezing.
+- De Deltek-PDF's zijn integraal geëxtraheerd en doorzocht op letterlijke tekst, waardoor negatieve bevindingen (0 treffers op "IFC"/"BIM") hier daadwerkelijk bewijskracht hebben in plaats van slechts "niet aangetroffen".
+- Business Wire (Acumen-overname 15-07-2013) en Mergr leverden geen bruikbare inhoud op; die datum blijft op de bestaande bronvermelding staan en is in deze ronde **niet** herbevestigd.

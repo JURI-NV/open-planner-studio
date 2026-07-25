@@ -2,12 +2,13 @@
 
 *Marktonderzoek planningssoftware — profiel opgesteld 25 juli 2026*
 *Alle prijzen en versienummers zijn geverifieerd op de hieronder genoemde datum. Schattingen en onzekere punten zijn expliciet gemarkeerd met **[SCHATTING]** of **[ONZEKER]**.*
+*Adversariële hercontrole uitgevoerd 25-07-2026 — zie de sectie **[Verificatie](#verificatie)** onderaan. Bijgestelde passages zijn in de tekst gemarkeerd met **[GECORRIGEERD]**.*
 
 ---
 
 ## 0. Samenvatting in één alinea
 
-SYNCHRO is Bentley Systems' 4D-bouwplanningsportfolio: een zware Windows-desktopapplicatie (SYNCHRO 4D, voorheen SYNCHRO Pro) met een échte CPM-engine, plus een cloud-/mobielfamilie (Control, Field, Perform, Cost) op Bentley's iTwin-platform. Het onderscheidt zich van Autodesk Navisworks TimeLiner doordat het geen visualisatielaag is maar een volwaardig planningsinstrument: taakduren, logica, kalenders, baselines, resources en kosten zitten er echt in. De prijs (USD 4.980 per gebruiker per jaar lijstprijs), de leercurve, de hardware-eisen (32 GB RAM, 16 GB GPU aanbevolen) en de Windows-only desktop maken het een tool voor gespecialiseerde 4D-planners bij grote aannemers en megaprojecten — niet voor het MKB of de incidentele gebruiker. Voor een IFC-first open-source planner is de belangrijkste bevinding dat SYNCHRO's IFC-ondersteuning **asymmetrisch** is: IFC gaat er als geometrie in, maar planningsdata reist in de praktijk via XER/P6 XML/MSPDI — niet via IfcWorkSchedule/IfcTask.
+SYNCHRO is Bentley Systems' 4D-bouwplanningsportfolio: een zware Windows-desktopapplicatie (SYNCHRO 4D, voorheen SYNCHRO Pro) met een échte CPM-engine, plus een cloud-/mobielfamilie op Bentley's iTwin-platform (historisch Control, Field, Perform en Cost — **[GECORRIGEERD]** Bentley's productpagina noemt per 25-07-2026 alleen nog SYNCHRO 4D en SYNCHRO Perform; zie sectie 2). Het onderscheidt zich van Autodesk Navisworks TimeLiner doordat het geen visualisatielaag is maar een volwaardig planningsinstrument: taakduren, logica, kalenders, baselines, resources en kosten zitten er echt in. De prijs (USD 4.980 per gebruiker per jaar lijstprijs), de leercurve, de hardware-eisen (32 GB RAM, 16 GB GPU aanbevolen) en de Windows-only desktop maken het een tool voor gespecialiseerde 4D-planners bij grote aannemers en megaprojecten — niet voor het MKB of de incidentele gebruiker. Voor een IFC-first open-source planner is de belangrijkste bevinding dat SYNCHRO's IFC-ondersteuning **asymmetrisch** is: IFC gaat er als geometrie in, maar planningsdata reist in de praktijk via XER/P6 XML/MSPDI — niet via IfcWorkSchedule/IfcTask.
 
 ---
 
@@ -19,15 +20,16 @@ SYNCHRO is Bentley Systems' 4D-bouwplanningsportfolio: een zware Windows-desktop
 
 | Kerncijfer (boekjaar 2025) | Waarde |
 |---|---|
-| Omzet | USD 1,502 miljard (+11% j-o-j) |
-| ARR-groei | +11,5% j-o-j |
-| Vrije kasstroom | ± USD 520 miljoen |
+| Omzet | USD 1.501,8 miljoen (+11,0%; +10,1% op constante valuta) |
+| ARR (31-12-2025) | USD 1.462,1 miljoen (2024: USD 1.283,3 miljoen) |
+| ARR-groei | +11,5% op constante valuta |
+| Vrije kasstroom | USD 520,2 miljoen |
 | Medewerkers | ± 5.800 |
 | Aanwezigheid | 45 landen, 189 markten |
-| Omzetverwachting 2026 | USD 1,69–1,72 miljard; ARR-groei 10,5–12,5% |
+| Omzetverwachting 2026 | USD 1.685–1.715 miljoen (+11–13% cc); ARR-groei 10,5–12,5%; FCF USD 500–570 miljoen |
 | CEO | Nicholas Cumins (sinds juli 2024, eerste niet-familie-CEO) |
 
-Bron: [Wikipedia — Bentley Systems](https://en.wikipedia.org/wiki/Bentley_Systems) en Bentley Q4/FY2025-resultaten via zoekresultaten, opgehaald 25-07-2026.
+Bron: [Bentley Systems — Q4 en FY2025-resultaten (investors.bentley.com)](https://investors.bentley.com/news-releases/news-release-details/bentley-systems-announces-fourth-quarter-and-full-year-2025), primair geverifieerd 25-07-2026; bedrijfsprofiel via [Wikipedia — Bentley Systems](https://en.wikipedia.org/wiki/Bentley_Systems) (S&P 400-component, opgericht 1984, Synchro-overname 2018 zonder bekendgemaakte prijs).
 
 Bentley's bredere portfolio: MicroStation, de OpenX-familie (OpenRoads, OpenRail, OpenBridge, OpenBuildings), ProjectWise, iTwin, en de recentere acquisities Seequent (geowetenschappen) en Cesium (3D-geospatial).
 
@@ -60,7 +62,7 @@ Bentley's bredere portfolio: MicroStation, de OpenX-familie (OpenRoads, OpenRail
 | Project | Details |
 |---|---|
 | **Crossrail / Elizabeth Line** (Londen) | Malcolm Taylor (head of technical information): de 4D-modellen konden *"show the progress of design and installation at any particular point in time"* en hielpen conflicten opsporen *"that were not normally apparent from regular Gantt charts."* (AEC Magazine, 2018) |
-| **Tideway** (grootste waterinfraproject VK) | Costain/VINCI/Bachy JV met SYNCHRO 4D + ProjectWise + OpenBuildings: gerapporteerd **90 dagen programmareductie en £1 miljoen besparing** ([casestudies.com](https://www.casestudies.com/company/bentley/case-study/costain-vinci-bachy-jv-industrializes-delivery-of-uks-largest-water-infrastructure-project)) |
+| **Tideway** (grootste waterinfraproject VK) | Costain/VINCI/Bachy JV met SYNCHRO 4D + ProjectWise + OpenBuildings. **[GEPRECISEERD]** De casestudy meldt *"cut the program by over 90 days across two years"* (dus 90+ dagen over **twee jaar**, niet in één klap), ± **£300.000 directe** en **> £1 miljoen indirecte** besparing, sommige fasen 50% gecomprimeerd, risicorapportagetijd −20%. Let op: dit is een **door Bentley zelf gepubliceerde** casestudy ([casestudies.com](https://www.casestudies.com/company/bentley/case-study/costain-vinci-bachy-jv-industrializes-delivery-of-uks-largest-water-infrastructure-project)) — geen onafhankelijke verificatie |
 | **Chase Center** (San Francisco) | Mortenson \| Clark organiseerde **151.000+ modelcomponenten**; winnaar *Year in Infrastructure 2019* in de categorie 4D-bouwmodellering |
 | **Espai Barça / Camp Nou** (FC Barcelona) | 4D + mixed reality voor de fasering van de stadionrenovatie tussen wedstrijden door ([AEC Magazine](https://aecmag.com/news/news-4d-construction-modelling-helping-transform-fc-barcelona-stadium/)) |
 | **Tantek 4D** | "Tallest Modular-Built High-Rise in the World" |
@@ -79,7 +81,9 @@ Bentley's bredere portfolio: MicroStation, de OpenX-familie (OpenRoads, OpenRail
 | **SYNCHRO Perform** | Web + mobiel | Dagelijkse productiviteit, EVA-KPI's, dagboeken, timesheets, tickets, veldkosten, dag-/weekrapporten |
 | **SYNCHRO Cost** | Web | Multicontractbeheer, betalingsaanvragen, change orders, budgetbewaking |
 | **SYNCHRO Notes / Crew** (legacy) | Mobiel | Audio-/foto-notities met transcriptie, uren- en materieelregistratie |
-| **SYNCHRO+** | Desktop **én** web, op Bentley Infrastructure Cloud + iModel | Aangekondigde opvolger met AI-copilot; GA 2026 |
+| **SYNCHRO+** | Desktop **én** web, op Bentley Infrastructure Cloud + iModel | Aangekondigde opvolger met AI-copilot; Early Access dec. 2025, GA 2026 |
+
+> **[GECORRIGEERD — productlijn is smaller geworden]** Bentley's eigen productpagina [bentley.com/software/synchro](https://www.bentley.com/software/synchro/) noemt op 25-07-2026 nog maar **twee** producten bij naam: **SYNCHRO 4D** (desktop) en **SYNCHRO Perform** (web/mobiel). De URL `bentley.com/software/synchro-control/` geeft **HTTP 404**, en een site-beperkte zoekopdracht op bentley.com levert geen actuele pagina voor SYNCHRO Control of SYNCHRO Cost op. SYNCHRO Field wordt nog wel door Bentley-partner [Aufiero](https://bentley.aufieroinformatica.com/en/synchro-eng/) beschreven. Conclusie: de bovenstaande vijfdelige moduletabel weerspiegelt de situatie van ± 2022–2024; **Control en Cost zijn als afzonderlijk gemarkeerde producten niet meer te verifiëren** en zijn vermoedelijk opgegaan in Perform / Bentley Infrastructure Cloud. Alle uitspraken elders in dit profiel die op Control of Cost leunen (waaronder de IFC-exportroute en de "complete office-to-field-portfolio"-claim) zijn daarmee **[ONZEKER]**.
 
 ### CPM-engine
 
@@ -133,13 +137,13 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 - **Enterprise spec**: 100.000+ activiteiten en honderdduizenden modelelementen zijn haalbaar, maar de praktische begrenzing is bijna altijd de **3D-geometrie**, niet het aantal taken — Bentley voegde in v6.5.6 een "Triangulate Shells"-optie toe juist omdat *"3D View might seem slower during camera interactions"*.
 - Harde, door de leverancier gepubliceerde plafonds zijn **niet openbaar**; bovenstaande bandbreedtes zijn een schatting op basis van indirecte bronnen.
 
-**Huidige versie**: SYNCHRO 4D Pro **2025 (v6.5.6)**. Versiehistorie: 2021 = v6.4, 2022 = v6.5, 2023 = v6.5.3, 2024/2025 = v6.5.x. (Bentley ServiceNow-kennisbank KB0045870, opgehaald 25-07-2026.)
+**Laatst geverifieerde versie**: SYNCHRO 4D Pro **2025 (v6.5.6)** — bevestigd als titel van Bentley-kennisbankartikel KB0045870, opgehaald 25-07-2026. Versiehistorie: 2021 = v6.4, 2022 = v6.5, 2023 = v6.5.3, 2024/2025 = v6.5.x. **[ONZEKER]** Dat dit in juli 2026 nog de *actuele* release is, kon **niet** worden aangetoond: er is geen Bentley-pagina gevonden die een 2026-release of v6.6 bevestigt, maar evenmin een pagina die v6.5.6 als huidig markeert. Gezien de SYNCHRO+-Early-Access in december 2025 is een nieuwere release aannemelijk; behandel het versienummer als "laatst bevestigd", niet als "huidig".
 
 ---
 
 ## 3. Prijzen
 
-> **Belangrijke context:** Bentley verkoopt SYNCHRO grotendeels via directe verkoop en Enterprise License Subscriptions (ELS); alleen SYNCHRO 4D staat met een echte lijstprijs in Bentley's eigen webshop **Virtuosity**. Alle overige modules zijn "op aanvraag". Bentley biedt sinds jaren **geen perpetual licenties** meer voor SYNCHRO — het model is volledig abonnement.
+> **Belangrijke context:** Bentley verkoopt SYNCHRO grotendeels via directe verkoop en Enterprise License Subscriptions (ELS); alleen SYNCHRO 4D staat met een echte lijstprijs in Bentley's eigen webshop **Virtuosity**. Alle overige modules zijn "op aanvraag". Via de Virtuosity-eStore is het model **volledig termijn-abonnement** (12 maanden, geen perpetual optie) — dat is direct geverifieerd. **[ONZEKER]** De sterkere formulering "Bentley biedt sinds jaren *überhaupt* geen perpetual licenties meer voor SYNCHRO" is **niet** te staven: er is geen Bentley-verklaring gevonden die perpetual voor ELS/directe verkoop uitsluit. Bentley's eigen productpagina noemt geen enkel licentiemodel expliciet.
 
 ### Geverifieerde lijstprijs
 
@@ -152,11 +156,11 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 
 | Product | Gerapporteerd bedrag | Bron | Kanttekening |
 |---|---|---|---|
-| SYNCHRO 4D | USD **4.280,00** /jaar ("special price on Virtuosity") | [zoftwarehub.com](https://www.zoftwarehub.com/products/synchro/pricing) | Waarschijnlijk een **oudere of regionale** notering; wijkt af van de live eStore-prijs |
-| SYNCHRO 4D | **€ 4.375** per practitioner-licentie per jaar | [pricingnow.com](https://pricingnow.com/question/synchro-pricing/) | **[ONZEKER]** — aggregatorsite met vermoedelijk geautomatiseerd gegenereerde inhoud, geen primaire bron. Ligt wel in dezelfde orde van grootte als de USD-prijs |
+| SYNCHRO 4D | USD **4.280,00** /jaar ("special price on Virtuosity") | [zoftwarehub.com](https://www.zoftwarehub.com/products/synchro/pricing) | **Bevestigd als verouderd**: de pagina vermeldt zelf "last updated 18 november 2025" en voegt toe "prices vary by region". Het is dezelfde Virtuosity-actieprijs, maar van vóór de huidige notering — niet een regionale variant |
+| SYNCHRO 4D | **€ 4.375** per practitioner-licentie per jaar | [pricingnow.com](https://pricingnow.com/question/synchro-pricing/) | **[ONZEKER]** — pagina "updated 8 maart 2026", maar noemt **geen enkele bron, leverancier of methode**. Aggregatorsite met vermoedelijk geautomatiseerd gegenereerde inhoud. Ligt wel in dezelfde orde van grootte als de USD-prijs |
 | SYNCHRO **Control** | **€ 1.313** per licentie per jaar | pricingnow.com | **[ONZEKER]** — zelfde kanttekening; Bentley publiceert zelf geen prijs ("Contact Us") |
 | SYNCHRO **Field** | **€ 394** per licentie per jaar | pricingnow.com | **[ONZEKER]** — zelfde kanttekening |
-| SYNCHRO (onbenoemde instap) | vanaf **USD 695 per maand** | [SelectHub](https://www.selecthub.com/p/construction-scheduling-software/synchro/) | Komt **niet** overeen met de eStore-prijs ($4.980/jr ≈ $415/mnd). Vermoedelijk een bundel of meergebruikerstier; behandelen als indicatief |
+| SYNCHRO (onbenoemde instap) | vanaf **USD 695 per maand** | [SelectHub](https://www.selecthub.com/p/construction-scheduling-software/synchro/) én [zoftwarehub.com](https://www.zoftwarehub.com/products/synchro/pricing) | **[GECORRIGEERD — geen SelectHub-exclusief cijfer]** Hetzelfde bedrag staat óók als "starting price" op Zoftware, náást de $4.280-notering. Twee aggregators die hetzelfde getal dragen zijn geen twee onafhankelijke bronnen; dit is vermoedelijk één circulerend datapunt. Komt niet overeen met de eStore-prijs ($4.980/jr ≈ $415/mnd). Behandelen als **niet-betrouwbaar**, niet als "indicatief" |
 | SYNCHRO **Notes / Crew** (legacy mobiel) | **USD 29,99** per gebruiker per maand | [SourceForge productpagina](https://sourceforge.net/software/product/SYNCHRO/) | Losstaande veld-apps, niet de 4D-desktop |
 | *Historisch* — Synchro **Project Constructor** (pre-Bentley, ± 2010) | USD **990** (825 licentie + 165 jaaronderhoud) | [projectcontrolsonline.com](https://projectcontrolsonline.com/syncro/) | Illustreert het **verlaten perpetual + onderhoud-model**; niet meer verkrijgbaar |
 
@@ -195,11 +199,11 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 
 7. **Directe visuele planningsvalidatie.** De ÉTS-onderzoekers noemen dit *"a very interesting feature"*: de rode tijdlijn slepen om onmiddellijk het effect van planningsbeslissingen op de voortgang te zien — snelle what-if zonder exportcyclus.
 
-8. **Compleet office-to-field-portfolio op één cloud.** 4D (desktop) → Control (CDE) → Field (mobiel) → Perform (productiviteit/EVA) → Cost (contracten en betalingen), allemaal op Bentley Infrastructure Cloud/iTwin. Voor organisaties die één leverancier voor de hele uitvoeringsketen willen, is dat een reëel voordeel; concurrenten dekken zelden dit hele bereik.
+8. **Compleet office-to-field-portfolio op één cloud.** 4D (desktop) → Control (CDE) → Field (mobiel) → Perform (productiviteit/EVA) → Cost (contracten en betalingen), allemaal op Bentley Infrastructure Cloud/iTwin. **[ONZEKER — bijgesteld]** Deze vijfdelige keten is per 25-07-2026 **niet meer te verifiëren** op bentley.com: de productpagina noemt alleen SYNCHRO 4D en SYNCHRO Perform, en `/software/synchro-control/` geeft 404. De datasheet (© 2025) bevestigt wél generiek dat *"web and mobile applications extend the value of the 4D construction model"* en dat het model doorloopt *"into field workflows for status checks, work planning, review, and inspections within the SYNCHRO portfolio."* Het *bereik* klopt dus; de *productnamen* zijn mogelijk verouderd.
 
-9. **Bewezen op megaprojecten, met harde cijfers.** Crossrail, Tideway (90 dagen programmareductie, £1 miljoen besparing), Chase Center (151.000+ componenten, Year-in-Infrastructure-winnaar 2019), Camp Nou. Dit is geen tool met alleen marketingclaims — er zijn geverifieerde referenties op de zwaarste projecten ter wereld.
+9. **Bewezen op megaprojecten.** Crossrail, Tideway (90+ dagen programmareductie over twee jaar, ± £300k direct + > £1 mln indirecte besparing), Chase Center (151.000+ componenten; Year in Infrastructure 2019, categorie *"Going Digital for Advancements in 4D Construction Modeling"* — geverifieerd via Cadalyst), Camp Nou. **Kanttekening bij herverificatie:** de *kwantitatieve* cijfers (Tideway, Chase Center) komen uit **door Bentley uitgegeven of Bentley-gesponsorde** casestudy- en awardmateriaal. Dat de projecten SYNCHRO gebruikten staat vast; de toegeschreven besparingen zijn **niet onafhankelijk geverifieerd** en moeten niet als harde ROI-bewijzen worden gepresenteerd.
 
-10. **Consistent hoge gebruikerswaardering, met name voor support.** Capterra/GetApp/Software Advice: **4,7/5** over 32 reviews (22× vijf sterren, 0× één of twee sterren); Zoftware **4,6/5** over 97 reviews; SelectHub **94% zou aanbevelen** over 36 reviews. Customer support scoort **4,5/5** — voor een enterprise-tool met deze complexiteit een belangrijk signaal.
+10. **Consistent hoge gebruikerswaardering, met name voor support.** Software Advice (herverifieerd 25-07-2026): **4,7/5** over **32 reviews** — 22× vijf sterren, 9× vier, 1× drie, **0× één of twee**; subscores gebruiksgemak 4,3 / support **4,5** / value for money **4,1** / functionaliteit 4,3. Zoftware **4,6/5** over 97 reviews; SelectHub **94% zou aanbevelen** over 36 reviews. **Kanttekening:** Capterra, GetApp en Software Advice zijn alle drie eigendom van Gartner en **delen dezelfde reviewpool** — dat is één bron, geen drie. Met 32 reviews is de steekproef bovendien klein.
 
 ---
 
@@ -221,7 +225,7 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 
 8. **Windows-only desktop.** Geen macOS, geen Linux, geen volwaardige browserversie voor het authoring-werk (Windows 10/11 64-bit of Windows Server 2016). SYNCHRO+ belooft webtoegang, maar dat is 2026-materiaal.
 
-9. **Vendor lock-in op meerdere niveaus.** Eigen projectformaat `.sp` / `.spx`; **IFC-export vereist SYNCHRO Control** (dus de cloudlaag, niet alleen de desktop); de iTwin Schedules API is **read-only** — Bentley's eigen documentatie stelt dat *"POST and PATCH endpoints will be available in the future."* Je kunt planningsdata er programmatisch uithalen, maar er niets in terugschrijven.
+9. **Vendor lock-in op meerdere niveaus.** Eigen projectformaat `.sp` / `.spx`; de iTwin Schedules API is **read-only** — Bentley's eigen documentatie stelt letterlijk dat *"POST and PATCH endpoints will be available in the future"* (herverifieerd 25-07-2026, geldt voor projecten op v6.5+). Je kunt planningsdata er programmatisch uithalen, maar er niets in terugschrijven. **[GECORRIGEERD]** De eerdere deelclaim "IFC-export vereist SYNCHRO Control" is bij herverificatie **niet bevestigd** en verwijderd uit dit nadeel: de onafhankelijke ÉTS-studie beschrijft IFC-export rechtstreeks vanuit de desktop. Het lock-in-argument rust dus op het eigen projectformaat en de read-only API, niet op een cloudpoort voor IFC.
 
 10. **Terugweg naar P6 is problematisch.** Gebruikers melden dat directe export van SYNCHRO 4D naar P6 moeizaam is en dat de indirecte route via MS Project betrouwbaarder blijkt. Bovendien: *"refreshing from Synchro to the external source is not possible if the source file is a Ms Project file"* (ÉTS 2024) — de bidirectionele synchronisatie werkt met Primavera, maar niet met MS Project als bron.
 
@@ -257,7 +261,7 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 
 ### 3D-/modelformaten
 
-- **± 40 tot 58 bestandstypen**, afhankelijk van de bron ("40+ Bentley and 3rd party file types" volgens Bentley; ~58 volgens reseller-documentatie).
+- **± 40 tot 50+ bestandstypen/applicaties**, afhankelijk van de bron ("40+ Bentley and 3rd party file types" volgens Bentley). **[GECORRIGEERD]** De eerder genoemde "~58 volgens reseller-documentatie" is bij herverificatie **niet teruggevonden**: de reseller-pagina ([Aufiero](https://bentley.aufieroinformatica.com/en/synchro-eng/), opgehaald 25-07-2026) spreekt van *"interoperable with over 50 CAD applications"* — applicaties, niet bestandstypen. Het getal 58 is verwijderd.
 - Genoemd: **IFC**, DGN, DWG, DWF, RVT (via Revit-plugin), SKP, FBX, 3D PDF, 3DS, CATIA V5, SolidWorks, HSF.
 - Meerdere bestandstypen tegelijk importeerbaar in één federatief project.
 - **Revit-families worden niet ondersteund** (ÉTS 2024).
@@ -267,9 +271,19 @@ Bentley's eigen formulering bij de minimumspecificatie: *"The Minimum Specificat
 
 **Import:** IFC-geometrie wordt ondersteund als 3D-bronformaat. De ÉTS-studie noemt IFC-compatibiliteit expliciet als een van de punten waarop SYNCHRO en Fuzor zich onderscheiden.
 
-**Export:** IFC-export loopt via de iModel-/iTwin-laag en **vereist SYNCHRO Control**. Volgens het Bentley SYNCHRO-forum: *"Bentley iModel supports export to IFC 4.3 RC1, IFC 2X3 and IFC 2X3 CV 2.0. This requires using SYNCHRO Control."* De bredere iTwin Platform Export API ondersteunt **IFC 4.3, IFC 2x3, IFC2x3 CV 2.0, IFC4 RV 1.2 en IFC4.3 ABV** ([developer.bentley.com](https://developer.bentley.com/api-groups/synchronization/)).
+**Export:** hier spreken de bronnen elkaar tegen en is het profiel bij herverificatie bijgesteld.
 
-> **Kritische kanttekening:** "IFC 4.3 **RC1**" is een *release candidate*, niet de definitieve IFC 4.3 zoals vastgelegd in **ISO 16739-1:2024**. Wie een IFC 4.3-conforme round-trip verwacht, moet daarop toetsen. Bentley SYNCHRO staat bovendien **niet** als afzonderlijk gecertificeerd product op de buildingSMART-lijst van gecertificeerde software (buildingsmart.org was tijdens dit onderzoek niet direct bereikbaar; **[ONZEKER]** — verifieer bij aanbesteding).
+| Bron | Wat er staat | Status |
+|---|---|---|
+| Bentley SYNCHRO-forum (indirect geciteerd) | *"Bentley iModel supports export to IFC 4.3 RC1, IFC 2X3 and IFC 2X3 CV 2.0. This requires using SYNCHRO Control."* | **[ONZEKER]** — bij herverificatie op 25-07-2026 kon de oorspronkelijke forumpost niet worden teruggevonden; enkelvoudige, niet-primaire bron |
+| [Bentley iTwin Synchronization/Export API](https://developer.bentley.com/api-groups/synchronization/) (primair, herverifieerd 25-07-2026) | Ondersteunde export: *"IFC 4.3, IFC 2x3, IFC2x3 CV 2.0, IFC4 RV 1.2 and IFC4.3 ABV"* — **zonder** de aanduiding "RC1" | **Geverifieerd** |
+| Sanon & Boton, ÉTS 2024 (onafhankelijk, getest op SYNCHRO 4D Pro v2021) | *"it is possible to export the schedule in several formats such as Ms Project XML, Primavera P6 and P3, IFC, and Microsoft Excel"* — vanuit de **desktop**, zonder vermelding van Control | **Geverifieerd (PDF-tekst)** |
+
+> **[GECORRIGEERD] Twee bijstellingen t.o.v. de eerste versie van dit profiel:**
+> 1. **"IFC 4.3 RC1" is niet houdbaar als vaste bewering.** Bentley's *eigen, actuele* developer-documentatie noemt gewoon **IFC 4.3** (plus IFC4.3 ABV). De "RC1"-formulering komt uit één forumcitaat dat niet opnieuw te vinden was en waarschijnlijk verouderd is. De eerdere conclusie "IFC-versie-actualiteit: matig" was daarmee **te hard geformuleerd**. Wat wél blijft staan: Bentley publiceert geen conformiteitsverklaring tegen **ISO 16739-1:2024**, dus toets bij aanbesteding zelf.
+> 2. **"IFC-export vereist SYNCHRO Control" is intern tegenstrijdig en niet bevestigd.** De onafhankelijke ÉTS-studie beschrijft IFC-export rechtstreeks vanuit SYNCHRO 4D Pro desktop. Bovendien is SYNCHRO Control als los product op bentley.com niet meer aantoonbaar (zie de correctie bij de moduletabel). De claim is verlaagd naar **[ONZEKER]** en mag niet als vaststaand nadeel worden gebruikt.
+>
+> Bentley SYNCHRO staat **niet** als afzonderlijk gecertificeerd product op de buildingSMART-lijst van gecertificeerde software (buildingsmart.org was tijdens dit onderzoek niet direct bereikbaar; **[ONZEKER]** — verifieer bij aanbesteding).
 
 **IfcWorkSchedule / IfcTask — het cruciale punt:**
 
@@ -298,10 +312,10 @@ Dit is relevant, want IFC 4.3 ondersteunt planningsdata wél volwaardig: *"basic
 |---|---|
 | Planning importeren (P6/MSP/Asta/Excel) | **Sterk** |
 | Planning exporteren | **Redelijk** (MSP XML/P6/P3/IFC/Excel), maar P6-export in de praktijk moeizaam |
-| 3D-modelimport | **Zeer sterk** (40–58 formaten) |
+| 3D-modelimport | **Zeer sterk** (40+ formaten; reseller: 50+ CAD-applicaties) |
 | IFC-geometrie in | **Goed** |
 | IFC-planning (IfcWorkSchedule/IfcTask) | **Niet aangetoond** — waarschijnlijk afwezig |
-| IFC-versie-actualiteit | **Matig** — 4.3 **RC1**, geen aangetoonde bSI-certificering |
+| IFC-versie-actualiteit | **Redelijk** — Bentley's actuele API-documentatie noemt IFC **4.3** (en 4.3 ABV); de eerdere "RC1"-lezing is niet houdbaar. Wel: **geen aangetoonde bSI-certificering** |
 | API schrijven | **Afwezig** (read-only) |
 | Open formaten als primaire opslag | **Nee** — eigen `.sp`/`.spx` |
 
@@ -360,7 +374,7 @@ SYNCHRO is het sterkst waar **planningsdiepte en modelcomplexiteit samenkomen**:
 - **MKB en kleinere aannemers.** USD 4.980 per gebruiker per jaar plus een werkstation van €3.000+ plus training — de reviewers zeggen zelf dat het kostenmodel voor kleinere firma's moeilijk te rechtvaardigen is.
 - **Incidentele gebruikers.** *"Very difficult to become completely familiar with for the occasional user"* is geen kleine kanttekening maar de kern: zonder iemand die er wekelijks in werkt, verdampt de investering.
 - **Teams zonder zware Windows-workstations**, of die op macOS/Linux werken.
-- **Wie een open, IFC-first uitwisseling wil.** Eigen `.sp`/`.spx`-formaat, IFC-export alleen via de betaalde cloudlaag, IFC 4.3 nog op RC1, geen aangetoonde IfcWorkSchedule/IfcTask-ondersteuning, en een **read-only** API. Dit is een gesloten systeem met open-formaat-koppelvlakken aan de randen.
+- **Wie een open, IFC-first uitwisseling wil.** Eigen `.sp`/`.spx`-formaat, geen aangetoonde IfcWorkSchedule/IfcTask-ondersteuning, en een **read-only** API. Dit is een gesloten systeem met open-formaat-koppelvlakken aan de randen. *(Bijgesteld: "IFC-export alleen via de betaalde cloudlaag" en "IFC 4.3 nog op RC1" zijn bij herverificatie niet bevestigd — zie sectie 6.)*
 - **Wie Monte-Carlo-risicoanalyse in dezelfde tool verwacht** — dat zit er niet in.
 - **Wie primair mooie animaties wil.** Dan is Fuzor of Navisworks goedkoper en sneller; SYNCHRO's meerwaarde zit in de planning, en het product loopt zelfs het risico *"misconstrued as an animation or viz tool"* te worden (AEC Magazine).
 
@@ -421,7 +435,8 @@ Alle bronnen opgehaald op **25 juli 2026**, tenzij anders vermeld.
 32. [Case Studies — Costain/VINCI/Bachy JV, Tideway](https://www.casestudies.com/company/bentley/case-study/costain-vinci-bachy-jv-industrializes-delivery-of-uks-largest-water-infrastructure-project)
 33. [Cadalyst blog — Chase Center, 151.000+ componenten](https://blog.cadalyst.com/architecture-infrastructure-construction-solutions/synchronize-your-construction-documents-and-components)
 34. [Wikipedia — Bentley Systems](https://en.wikipedia.org/wiki/Bentley_Systems) — historie, financiën, acquisities
-35. Bentley Systems FY2025-resultaten (via zoekresultaten): omzet USD 1,502 mld, ARR +11,5%, guidance 2026
+35. [Bentley Systems — Q4 en volledig boekjaar 2025, persbericht (investors.bentley.com)](https://investors.bentley.com/news-releases/news-release-details/bentley-systems-announces-fourth-quarter-and-full-year-2025) — **primaire bron, toegevoegd bij de hercontrole van 25-07-2026** (verving de eerdere "via zoekresultaten"-notering): omzet USD 1.501,8 mln, ARR USD 1.462,1 mln, FCF USD 520,2 mln, guidance 2026
+35b. [Bentley — SYNCHRO 4D gratis proefversie (landingspagina)](https://www.bentley.com/lp/synchro-4d-trial-free-download/) — twee weken, op aanvraag
 
 ### Standaarden
 36. [buildingSMART — IFC 4.3 specificatie, IfcTask](https://standards.buildingsmart.org/IFC/RELEASE/IFC4_3/HTML/lexical/IfcTask.htm) — TaskTime-attribuut
@@ -436,3 +451,60 @@ Alle bronnen opgehaald op **25 juli 2026**, tenzij anders vermeld.
 - **Niet bereikbaar tijdens dit onderzoek**: G2, TrustRadius, Gartner Peer Insights, Reddit (r/projectmanagement, r/construction, r/civilengineering), Planning Planet (allen HTTP 403 of blokkade). De gebruikersstemmen in dit profiel komen daardoor uit Capterra, Software Advice, GetApp, SelectHub en Zoftware, plus onafhankelijk academisch onderzoek — vijf onafhankelijke reviewbronnen die onderling **consistent** zijn (leercurve, prijs, synchronisatie, hardware), wat het vertrouwen in de bevindingen ondersteunt.
 - Waar bronnen elkaar tegenspreken (met name prijzen) zijn **alle** waarden vermeld, met de betrouwbaarste bron eerst.
 - Alle eigen gevolgtrekkingen zijn gemarkeerd als **[SCHATTING]**; alles wat niet kon worden geverifieerd als **[ONZEKER]**.
+
+---
+
+## Verificatie
+
+*Adversariële hercontrole uitgevoerd op **25 juli 2026**. Opzet: van elke bewering is actief geprobeerd haar te **weerleggen** met een andere bron dan die in het oorspronkelijke profiel stond, of met de primaire bron zelf in plaats van een citaat daarvan. De ÉTS-studie is ditmaal niet via samenvattingen maar via **volledige tekstextractie uit de PDF** gecontroleerd. Beperking: het WebSearch-budget van de sessie was uitgeput, dus verificatie liep via directe fetches en zoekmachine-endpoints; DuckDuckGo gaf CAPTCHA's, Bing leverde bruikbare maar magere resultaten.*
+
+### Prijs en licentiemodel
+
+| # | Bewering | Oordeel | Toelichting en bron |
+|---|---|---|---|
+| 1 | **SYNCHRO 4D kost USD 4.980,00 excl. btw voor een 12-maands practitioner-licentie incl. 2 Keys** | **Bevestigd** | Live opgehaald bij de primaire bron: prijs USD 4.980,00, termijn 12 maanden, "2 Keys … credits that can be redeemed for expert services and tailored training", met de expliciete disclaimer *"Keys do not represent number of licenses"*. Onafhankelijk bevestigd door een derde partij: *"USD 4,980 before tax for a 12-month practitioner license"*. → [en.virtuosity.com/synchro-4d](https://en.virtuosity.com/synchro-4d) · [thetoolstrunk.com](https://thetoolstrunk.com/how-much-is-synchro-4d/) (datePublished 2026-04-08) |
+| 2 | **Alternatieve notering USD 4.280/jaar is een oudere prijs** | **Bevestigd (en aangescherpt)** | De pagina dateert zichzelf op **18-11-2025** en beschrijft het als dezelfde Virtuosity-"special price". Het profiel opperde ook "regionaal"; dat is nu geschrapt — het is aantoonbaar gewoon ouder. → [zoftwarehub.com/products/synchro/pricing](https://www.zoftwarehub.com/products/synchro/pricing) |
+| 3 | **pricingnow: € 4.375 / € 1.313 / € 394 per licentie per jaar** | **Onzeker (bevestigd als citaat, niet als feit)** | De bedragen staan er letterlijk, met "12-month subscription with access to customized training and services", pagina bijgewerkt 08-03-2026. Maar de pagina noemt **geen bron, geen leverancier en geen methode**. Blijft [ONZEKER]. → [pricingnow.com/question/synchro-pricing](https://pricingnow.com/question/synchro-pricing/) |
+| 4 | **SelectHub noemt "vanaf USD 695 per maand"** | **Gecorrigeerd** | Het bedrag staat er ("Starting price $695, Monthly"), maar het is **geen SelectHub-exclusief datapunt**: exact hetzelfde getal staat als "starting price" op Zoftware. Twee aggregators met één getal ≠ twee onafhankelijke bronnen. Status verlaagd van "indicatief" naar "niet-betrouwbaar". → [selecthub.com](https://www.selecthub.com/p/construction-scheduling-software/synchro/) · [zoftwarehub.com](https://www.zoftwarehub.com/products/synchro/pricing) |
+| 5 | **SYNCHRO Notes/Crew USD 29,99 per gebruiker per maand** | **Bevestigd** | "$29.99/month/user", listing beschrijft inderdaad de legacy mobiele apps Notes en Crew, met free trial. → [sourceforge.net/software/product/SYNCHRO](https://sourceforge.net/software/product/SYNCHRO/) |
+| 6 | **Model is volledig abonnement; geen perpetual meer** | **Gedeeltelijk gecorrigeerd** | Bevestigd vóór de eStore: Virtuosity verkoopt uitsluitend **12-maands term-licenties**, geen perpetual optie. **Niet** bevestigd als algemene uitspraak: er is geen Bentley-verklaring gevonden die perpetual voor ELS/directe verkoop uitsluit. De absolute formulering is afgezwakt. → [en.virtuosity.com](https://en.virtuosity.com/) |
+| 7 | **Proefversie: 2 weken op aanvraag** | **Bevestigd** | *"Dive into the full suite of SYNCHRO 4D features for two full weeks"*; expliciet **niet** instant download — *"A Bentley representative will contact you to review your needs, confirm eligibility, and determine next steps"*. → [bentley.com/lp/synchro-4d-trial-free-download](https://www.bentley.com/lp/synchro-4d-trial-free-download/) |
+| 8 | **ELS-staffels niet openbaar; [SCHATTING] 15–35% korting vanaf ± 10 seats; TCO jaar 1 USD 60.000–100.000** | **Onzeker (ongewijzigd)** | Geprobeerd te weerleggen: geen enkele publieke Bentley-bron met ELS-bedragen of volumestaffels gevonden. De kortingsrange en de TCO-berekening blijven **niet-onderbouwde schattingen** en zijn als zodanig gemarkeerd. Ze mogen niet als marktdata worden geciteerd. |
+
+### Technische en interoperabiliteitsclaims
+
+| # | Bewering | Oordeel | Toelichting en bron |
+|---|---|---|---|
+| 9 | **iTwin Schedules API is read-only (alleen GET)** | **Bevestigd** | Documentatie stelt letterlijk *"POST and PATCH endpoints will be available in the future"*; geen PUT/DELETE. Vereist project op **v6.5 of later**. → [developer.bentley.com/apis/schedules](https://developer.bentley.com/apis/schedules/) |
+| 10 | **IFC-export vereist SYNCHRO Control** | **Gecorrigeerd → onzeker** | Actief weerlegd: de onafhankelijke ÉTS-studie beschrijft schedule-export naar IFC **rechtstreeks vanuit SYNCHRO 4D Pro desktop** (*"export the schedule in several formats such as Ms Project XML, Primavera P6 and P3, IFC, and Microsoft Excel"*). Het oorspronkelijke forumcitaat was niet terug te vinden. Claim verwijderd uit nadeel 9 en uit het eindoordeel. → [ÉTS-PDF](https://espace2.etsmtl.ca/id/eprint/29768/1/Boton-C-2024-29768.pdf) |
+| 11 | **IFC-ondersteuning zit op 4.3 "RC1"** | **Gecorrigeerd** | Bentley's eigen actuele API-documentatie noemt *"IFC 4.3, IFC 2x3, IFC2x3 CV 2.0, IFC4 RV 1.2 and IFC4.3 ABV"* — **zonder** "RC1". De scorecard-regel "IFC-versie-actualiteit: matig" is bijgesteld naar "redelijk". Wat blijft: geen aangetoonde bSI-certificering. → [developer.bentley.com/api-groups/synchronization](https://developer.bentley.com/api-groups/synchronization/) |
+| 12 | **Geen aangetoonde IfcWorkSchedule/IfcTask-ondersteuning** | **Onzeker (ongewijzigd, kernbevinding)** | Opnieuw geprobeerd te weerleggen via Bentley's export-API-documentatie: die noemt uitsluitend IFC-**schema's**, nergens planningsentiteiten. Ook de ÉTS-PDF noemt IFC alleen in een rij exportformaten, zonder enige uitspraak over taakdata. Blijft "niet aangetoond" — géén positief bewijs van afwezigheid, maar wel consistent afwezig in alle geraadpleegde documentatie. |
+| 13 | **ÉTS-scores: totaal 41 / 41 / 54; automatisch koppelen SYNCHRO 0 (Navisworks 3, Fuzor 3); bidirectionele schemakoppeling SYNCHRO 2 (Navisworks 0); persistente schemakoppeling SYNCHRO 3 (Navisworks 2); getest op v2021** | **Bevestigd (alle zes)** | Letterlijk uit de tekstextractie van de PDF: *"Total 41 41 54"*; *"Automatic linking capability (3D+planning) … 3 0 3"*; *"Bidirectional Link between Two Schedules … 0 2 3"*; *"Persistent Link with the Source Schedule … 2 3 3"*; *"As for Synchro 4D Pro, the version used was 2021, following some difficulties encountered with a newer version, notably the inability to integrate the Microsoft Project schedule."* → [ÉTS-PDF](https://espace2.etsmtl.ca/id/eprint/29768/1/Boton-C-2024-29768.pdf), DOI [10.3311/CCC2024-157](https://doi.org/10.3311/CCC2024-157) |
+| 14 | **Refresh naar de bron werkt niet met MS Project-bronbestanden; bidirectionele 3D-koppeling niet operationeel; Revit-families niet ondersteund; individueel element niet selecteerbaar in 3D-venster** | **Bevestigd (alle vier)** | Letterlijk: *"refreshing from Synchro to the external source is not possible if the source file is a Ms Project file"*; *"it integrates a bidirectional linking option in the program, although this functionality is not operational"*; *"although Revit families are not supported"*; *"it was impossible to select an individual element directly from the 3D model. At each attempt, the entire model was selected"*. Let op: alles geldt voor **v2021**. → ÉTS-PDF |
+| 15 | **Aanbevolen hardware: 4 GHz octa-core, 32 GB+ RAM, 16 GB GPU, dual monitor 2560×1600** | **Bevestigd** | Reseller-pagina noemt exact deze vier waarden. Bentley's eigen datasheet bevestigt de laag eronder: *"MINIMUM: Windows 10 64-bit, Windows 11 64-bit, or Windows Server 16, 2.8 GHz Octa Core / RECOMMENDED: 4 GHz Octa Core or 5 GHz Octa Core enterprise specification"*. → [Aufiero](https://bentley.aufieroinformatica.com/en/synchro-eng/) · [PDS-SYNCHRO-4D (© 2025)](https://www.bentley.com/wp-content/uploads/PDS-SYNCHRO-4D-LTR-EN-LR.pdf) |
+| 16 | **"± 40 tot 58 bestandstypen"** | **Gecorrigeerd** | Het getal **58** is niet terug te vinden. De reseller schrijft *"interoperable with over 50 CAD applications"* — applicaties, geen bestandstypen. Bijgesteld naar "40+ formaten; 50+ CAD-applicaties". → [Aufiero](https://bentley.aufieroinformatica.com/en/synchro-eng/) |
+| 17 | **Power BI-connector met EVA- en Gantt-tab; "spatial challenges of linear projects"** | **Bevestigd** | Beide letterlijk in de officiële datasheet: bijschriften *"SYNCHRO 4D Power BI Connector Project EVA Tab"* en *"… Project Gantt Tab"*, en de key feature *"Tackle the spatial challenges of linear projects"*. **Kanttekening:** de datasheet bevat **géén** import/exportformatenlijst en **géén** "several thousand tasks"-passage — die claims steunen op de kennisbank, niet op de datasheet. → [PDS-SYNCHRO-4D](https://www.bentley.com/wp-content/uploads/PDS-SYNCHRO-4D-LTR-EN-LR.pdf) |
+| 18 | **[SCHATTING] Schaalbaarheid 20.000–50.000 activiteiten op aanbevolen spec, 100.000+ op enterprise** | **Onzeker (ongewijzigd)** | Geprobeerd te weerleggen: Bentley publiceert nergens activiteitenplafonds; de datasheet zwijgt erover. De bandbreedtes zijn een **eigen extrapolatie** uit één kennisbankzin en blijven volledig speculatief. Niet citeren als vendorinformatie. |
+| 19 | **Geen ingebouwde Monte-Carlo/probabilistische risicoanalyse** | **Onzeker (ongewijzigd)** | Opnieuw gezocht in de volledige datasheettekst: geen enkele vermelding van Monte Carlo, probabilistiek of kwantitatieve risicoanalyse — alleen generieke "reduce project risks". Consistent met de oorspronkelijke bevinding, maar blijft een bewijs-van-afwezigheid. |
+
+### Product, eigendom en marktclaims
+
+| # | Bewering | Oordeel | Toelichting en bron |
+|---|---|---|---|
+| 20 | **Productfamilie 4D / Control / Field / Perform / Cost** | **Gecorrigeerd** | Sterkste weerlegging van deze ronde. Bentley's productpagina noemt op 25-07-2026 nog maar **twee** producten: SYNCHRO 4D en SYNCHRO Perform. `bentley.com/software/synchro-control/` geeft **HTTP 404**; site-beperkt zoeken levert geen actuele Control- of Cost-pagina op. SYNCHRO Field bestaat nog blijkens de reseller. De vijfdelige moduletabel is verouderd; afhankelijke claims (voordeel 8, IFC-exportroute) zijn afgezwakt. → [bentley.com/software/synchro](https://www.bentley.com/software/synchro/) |
+| 21 | **Huidige versie is SYNCHRO 4D Pro 2025 (v6.5.6)** | **Gecorrigeerd naar "laatst bevestigde versie"** | Het kennisbankartikel met die titel bestaat (KB0045870), maar **niets bewijst dat het in juli 2026 nog de actuele release is** — en er is evenmin bewijs voor v6.6 of een 2026-release gevonden. Bij een product met Early Access in dec. 2025 is "huidig" een te sterke claim. → [KB0045870](https://bentleysystems.service-now.com/community?id=kb_article_view&sysparm_article=KB0045870) |
+| 22 | **Bentley FY2025: omzet USD 1,502 mld (+11%), ARR-groei 11,5%, FCF ± USD 520 mln, guidance 2026 USD 1,69–1,72 mld** | **Bevestigd en gepreciseerd** | Primaire bron in plaats van "via zoekresultaten": omzet **USD 1.501,8 mln** (+11,0%; +10,1% cc), ARR **USD 1.462,1 mln** (v.j. 1.283,3), ARR-groei **11,5% cc**, FCF **USD 520,2 mln**. Guidance 2026: **USD 1.685–1.715 mln** (het profiel rondde af naar 1,69–1,72 mld; nu exact) plus FCF USD 500–570 mln. → [investors.bentley.com — Q4/FY2025](https://investors.bentley.com/news-releases/news-release-details/bentley-systems-announces-fourth-quarter-and-full-year-2025) |
+| 23 | **Bentley opgericht 1984 door Keith A. en Barry J. Bentley; Nasdaq BSY; S&P 400-component; Synchro overgenomen 2018, prijs niet bekendgemaakt; CEO Nicholas Cumins sinds juli 2024** | **Bevestigd** | Alle vijf onderdelen bevestigd: *"Keith A. Bentley and Barry J. Bentley founded Bentley Systems in 1984"*, "S&P 400"-component, Nasdaq: BSY, *"Also in 2018, the company acquired Synchro"* zonder prijs, Cumins als eerste niet-familielid aan het roer (juli 2024). *(Kleine nuance: de infobox noemt ook Raymond B. Bentley als medeoprichter; de lopende tekst noemt er twee.)* → [Wikipedia — Bentley Systems](https://en.wikipedia.org/wiki/Bentley_Systems) |
+| 24 | **SYNCHRO+: onthuld op YII 2025, Early Access dec. 2025, GA 2026, desktop én web op Infrastructure Cloud + iModel, "niet slechts een upgrade"** | **Bevestigd** | Alle onderdelen bevestigd, inclusief het citaat *"It's not just an upgrade. It will reimagine how construction teams plan and deliver work."* → [blog.bentley.com](https://blog.bentley.com/software/bentley-unveils-synchro-at-yii-2025-ushering-in-a-new-era-of-ai-powered-4d-construction-planning/) |
+| 25 | **Reviewscores: 4,7/5 over 32 reviews, value for money 4,1 als laagste subscore** | **Bevestigd, met bronkritiek** | Exact bevestigd: 4,7/5, 32 reviews (22×5, 9×4, 1×3, 0×1–2), subscores gebruiksgemak 4,3 / support 4,5 / **value for money 4,1** / functionaliteit 4,3. **Maar:** Capterra, GetApp en Software Advice delen als Gartner-eigendommen dezelfde reviewpool — het profiel presenteerde dit als drie bronnen. Toegevoegd als kanttekening. → [softwareadvice.com](https://www.softwareadvice.com/product/6302-Synchro/reviews/) |
+| 26 | **Referentiecijfers Tideway (90 dagen, £1 mln) en Chase Center (151.000+ componenten, YII 2019)** | **Gedeeltelijk gecorrigeerd** | Chase Center exact bevestigd, inclusief awardcategorie *"Going Digital for Advancements in 4D Construction Modeling"*. Tideway gepreciseerd: *"cut the program by over 90 days **across two years**"*, ± £300k **direct** + > £1 mln **indirect** (het profiel voegde die twee samen tot "£1 miljoen besparing"). Beide cijfers komen uit **Bentley-eigen** casestudy-/awardmateriaal — als voordeel 9 herschreven van "harde cijfers" naar "niet onafhankelijk geverifieerd". → [casestudies.com](https://www.casestudies.com/company/bentley/case-study/costain-vinci-bachy-jv-industrializes-delivery-of-uks-largest-water-infrastructure-project) · [Cadalyst](https://blog.cadalyst.com/architecture-infrastructure-construction-solutions/synchronize-your-construction-documents-and-components) |
+| 27 | **[SCHATTING] Marktleider in "4D als serieus planningsinstrument"; Navisworks het meest verspreid** | **Onzeker (ongewijzigd)** | Geen marktaandeelcijfers per 4D-tool gevonden. Bentley's eigen datasheet claimt *"The industry leader in visual planning and 4D modeling"* — dat is leveranciersmarketing, geen bewijs. De positioneringsuitspraak blijft terecht als [SCHATTING] gemarkeerd; ook de bewering dat **geen enkel mandaat SYNCHRO bij naam voorschrijft** kon niet worden weerlegd en blijft [ONZEKER]. |
+
+### Samenvatting van de hercontrole
+
+- **27 beweringen getoetst.** Uitkomst: **14 bevestigd**, **8 gecorrigeerd of gepreciseerd**, **5 blijven onzeker**.
+- **De zwaarste correctie is de productlijn** (#20): Control en Cost zijn als afzonderlijke, actueel gemarkete producten niet meer aantoonbaar op bentley.com. Dat ondermijnt twee afgeleide claims — de IFC-exportroute via Control en het "vijfdelige office-to-field-portfolio".
+- **De prijskern houdt stand.** USD 4.980 is dubbel geverifieerd, waarvan één keer live bij de primaire bron. De omliggende aggregatorprijzen zijn allemaal zwakker gebleken dan het profiel suggereerde: $4.280 is aantoonbaar ouder, $695 is één circulerend getal in plaats van een SelectHub-bevinding, en pricingnow noemt nog steeds geen bron.
+- **De ÉTS-studie is de sterkste bron in dit profiel** en overleefde volledige verificatie tegen de originele PDF-tekst — alle tien de eruit overgenomen datapunten kloppen letterlijk. Wel geldt overal de versiekanttekening **v2021**.
+- **Twee claims werden in het profiel te hard gesteld** en zijn afgezwakt: "IFC 4.3 RC1" (weersproken door Bentley's actuele documentatie) en "geen perpetual meer" (alleen voor de eStore te verifiëren).
+- **Wat structureel niet te verifiëren is:** ELS-prijzen, volumekortingen, activiteitenplafonds en marktaandeel. Alle vier zijn eigen schattingen. Ze staan gemarkeerd, maar mogen in een besluitvormingsdocument niet als marktdata worden overgenomen.

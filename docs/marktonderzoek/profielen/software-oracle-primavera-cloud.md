@@ -29,7 +29,7 @@ De stamboom is lang en verklaart veel van het huidige productgedrag:
 2. **2008** — Oracle neemt Primavera Systems over. Het product wordt Oracle Primavera **P6**; het portfolio groeit met Pertmaster (→ Primavera Risk Analysis), Skire (→ Unifier), Instantis en later Textura en **Aconex** (2018).
 3. **2016** — Oracle lanceert een compleet nieuw, cloud-native platform onder de naam **Oracle Prime** (Prime Projects / Prime Portfolios / Prime Progress). Dit is géén herbouw van P6 maar een nieuw product met een andere datamodel-filosofie.
 4. **1 juni 2019** — Oracle Prime Projects wordt hernoemd naar **Oracle Primavera Cloud**. De naamswijziging is bewust: Oracle wil de merkwaarde van "Primavera" meenemen naar het cloudproduct en signaleren dat OPC de strategische opvolger van P6 is.
-5. **2019–2026** — Oracle voert een **dual-track-strategie**: OPC wordt maandelijks doorontwikkeld richting P6-functiepariteit, terwijl P6 EPPM/Professional gewoon nieuwe releases blijft krijgen (P6 26.4 bestaat, kwartaalcadans). Oracle heeft **geen** end-of-life-datum voor P6 aangekondigd.
+5. **2019–2026** — Oracle voert een **dual-track-strategie**: OPC wordt maandelijks doorontwikkeld richting P6-functiepariteit, terwijl P6 EPPM/Professional gewoon nieuwe releases blijft krijgen (kwartaalcadans). Oracle heeft **geen** end-of-life-datum voor P6 aangekondigd — en dat is hard te onderbouwen: de *Oracle Lifetime Support Policy: Oracle Applications* (versie van kracht **2 juli 2026**) voert **P6 EPPM 25.x** en **P6 Professional 25.x** met GA-datum december 2025, **Premier Support tot december 2030** en **Sustaining Support "Indefinite"**. Dat is het tegenovergestelde van een uitfasering.
 
 > Belangrijk voor de beoordeling: OPC is dus **geen "P6 in de browser"**. Het is een apart product met een eigen datamodel, dat via een importbrug P6-data kan overnemen. Dat verklaart zowel de nieuwe mogelijkheden als de gaten (zie §5).
 
@@ -114,13 +114,13 @@ Sterk uitgewerkt en op onderdelen beter dan P6:
 
 **Resources en rollen** worden op workspace- en/of projectniveau aangemaakt (P6: globaal). Ondersteund: resource- en rolteams zijn **niet** aanwezig; wél rollen, resource-toewijzing per rol, resource/rol-usage, curve profiles (resourcecurves), high-level resource planning, availability-rijen.
 
-Bekende beperkingen t.o.v. P6:
-- **Geen Hourly Assignment Spreads** (uurlijkse spreiding van toewijzingen).
-- **Geen Resource Analysis-scherm** (de P6-resourceanalyse met portfolio-brede histogrammen).
-- **Geen Assignment Gantt.**
-- **Geen Resource/Role Teams**, geen Resource Notes.
-- **Resource Shifts** staan in de importgids als niet-ondersteund; Oracle's vergelijkingstabel is hier tegenstrijdig (noemt het wel ondersteund). *Reken op afwezig of op zijn best rudimentair.* **[onzekerheid — Oracle's eigen documentatie spreekt zichzelf tegen]**
-- **Future Period Bucket Planning** wordt in de recente vergelijkingstabel als ondersteund genoemd; oudere partnerbronnen zeggen van niet. Waarschijnlijk in de tussentijd toegevoegd. **[schatting]**
+Bekende beperkingen t.o.v. P6 (geverifieerd in Oracle's vergelijkingstabel *P6 vs. Primavera Cloud – Resources and Roles*, kolom "Primavera Cloud"):
+- **Geen Hourly Assignment Spreads** (uurlijkse spreiding van toewijzingen) — leeg in Oracle's tabel.
+- **Geen Assignment Gantt** — alleen P6 EPPM Web heeft dit.
+- **Geen Resource/Role Teams** (alleen P6 EPPM Web), geen Resource Notes.
+- **Geen Resource Shifts** — "Define Resource Shifts" staat leeg voor Primavera Cloud, consistent met de importgids. *(Eerdere lezing dat Oracle's vergelijkingstabel dit wél ondersteund noemde, is bij hercontrole van de brontabel onjuist gebleken — er is geen tegenstrijdigheid.)*
+- **Resource Analysis is wél aanwezig.** Oracle's tabel zet "Resource Analysis" op **Y** voor Primavera Cloud (en alleen voor P6 EPPM Web aan P6-zijde). *(Gecorrigeerd: eerdere versie van dit profiel noemde dit ten onrechte ontbrekend.)*
+- **Future Period Bucket Planning is ondersteund** — Oracle's tabel: **Y**, met de noot "Future Period Planning in Primavera Cloud". Oudere partnerbronnen die het als ontbrekend noemen zijn achterhaald. *(Gecorrigeerd: niet langer een schatting.)*
 
 **Kosten.** Ondersteund: totaalbudget, budgetwijzigingen, budgetregels, werkelijke kosten (ook current period), planned cashflow/spending plan, **Store Period Performance** met configureerbare reporting cycles, earned value en ETC-regels per WBS.
 
@@ -139,9 +139,16 @@ OPC is hier op punten *beter* dan P6:
 | **Baseline in het verleden aanmaken** | nee | **ja** |
 | **Ontbrekende activiteiten automatisch aan baseline toevoegen** | nee | **ja** |
 | **Baselinewijzigingen terugdraaien** | nee | **ja** |
-| Tertiaire baseline instellen/tonen | ja | **nee** |
-| Scenario's (bewerken, als schema instellen, uit baseline maken) | ja | grotendeels **nee** |
-| Reflections | ja | **nee** |
+| Tertiaire baseline instellen/tonen | ja | **ja** |
+| Scenario's (bewerken, als schema instellen, uit/naar baseline) | **nee** | **ja** |
+| Reflections | ja | **gedeeltelijk** (Merge Mode in Schedule Comparison) |
+
+> **Correctie na hercontrole van de brontabel** (Oracle, *P6 vs. Primavera Cloud – Projects*, kolommen: P6 EPPM Web / P6 EPPM Client / P6 Professional / **Primavera Cloud**). Drie regels stonden in een eerdere versie van dit profiel verkeerd om:
+> - *Set and Display Tertiary Baseline in Activities View* = **Y** voor Primavera Cloud → tertiaire baselines zijn wél ondersteund.
+> - **Scenario's zijn juist een OPC-exclusieve functie, geen gat.** *Define Scenario as Schedule*, *Create a Scenario from a Baseline*, *Create a Baseline from a Scenario* en *Set Scenario or Baseline to Current Schedule* staan alle vier op **Y** uitsluitend bij Primavera Cloud en zijn leeg bij alle drie de P6-varianten.
+> - *Reflection Projects* = **"Partially supported"**, niet afwezig: in OPC wordt de reflectie-workflow afgedekt door Merge Mode binnen Schedule Comparison.
+>
+> De drie OPC-voordelen (baseline in het verleden, ontbrekende activiteiten automatisch toevoegen, baselinewijzigingen terugdraaien) zijn wél bevestigd: alle drie **Y** uitsluitend bij Primavera Cloud.
 
 Bij export naar P6 geldt een harde limiet: **maximaal 20 baselines en scenario's per project**. In XER-formaat worden baselines geëxporteerd als *losse projecten* (XER kent geen baselinebegrip).
 
@@ -183,8 +190,9 @@ Beperking: risicocategorieën (Risk Categories) en risicocodes uit P6 komen niet
 
 ### 2.9 Schaalbaarheid — hoeveel activiteiten realistisch?
 
-Oracle publiceert **geen harde limiet**. Wat wel vaststaat:
+Oracle publiceert **geen harde limiet op het totaal aantal activiteiten**, maar wél twee concrete drempels. Wat vaststaat:
 
+- **Gecorrigeerd/aangevuld:** Oracle's eigen vergelijkingstabel noemt tweemaal een expliciete grens van **6.000 activiteiten** voor Primavera Cloud: *"Primavera Cloud only supports the Activity Network for schedules with fewer than 6000 activities"* en *"Primavera Cloud supports Trace Logic for schedules with fewer than 6000 activities"*. Dat is geen rekenlimiet, maar het is wel het enige door Oracle gepubliceerde activiteitengetal — en het legt boven 6.000 activiteiten twee standaard-analysehulpmiddelen stil. Voor een planner die logica moet natrekken in een groot schema is dat een reële beperking.
 - De importgrens is **1 GB per P6 XML/XER-bestand** (gecomprimeerd toegestaan; meerdere bestanden in één zip is níet toegestaan).
 - Meerdere onafhankelijke bronnen (Oracle-partners, waaronder Project Partners en Emerald Associates) waarschuwen consequent dat OPC's cloud-architectuur **niet geoptimaliseerd is voor mega-projecten**. Het meest geciteerde beeld: *"P6 is een powerlifter, OPC een turner."*
 - P6 EPPM draait op een relationele Oracle-database die praktisch gezien miljoenen activiteiten over een portfolio aankan; OPC wordt gepositioneerd voor **kleine tot middelgrote schema's**.
@@ -209,7 +217,7 @@ Reviewers noemen consequent **trage laadtijden bij het openen** als klacht, wat 
 - **Uitsluitend abonnement** (SaaS). Er is **geen perpetual licentie** voor OPC. Perpetual bestaat alleen nog voor de klassieke P6-producten.
 - Metriek: **Hosted Named User** — *"an individual authorized by you to access the hosted service, regardless of whether the individual is actively accessing the hosted service at any given time."* Dus benoemde gebruiker, geen concurrent user. Wie 200 mensen toegang wil geven, betaalt 200 seats, ook als er dagelijks 20 inloggen.
 - Aparte, goedkopere metrieken bestaan voor read-only viewers en integratiegebruikers.
-- **Minimum afname: 5 gebruikers** voor de OPC Schedule-basismodule (tegenover **25** voor P6 EPPM Cloud). Dit is een van de weinige plaatsen waar OPC laagdrempeliger is.
+- **Minimum afname: 5 gebruikers** voor de OPC Schedule-basismodule. Het vaak genoemde contrast "5 vs. 25 voor P6 EPPM Cloud" klopt volgens Oracle's eigen prijslijst 2016 (P6 EPPM Cloud min. 25 Hosted Named Users) en volgens Project Partners (april 2025), **maar niet volgens de hardste recente bron**: het G-Cloud-14-prijsblad van 30-4-2024 zet voor *P6 EPPM (including Progress Reporter and Data Access)* een **minimum licence quantity van 1**. Het minimum voor P6 EPPM Cloud is dus per reseller/contract verschillend; alleen het OPC-minimum van 5 is in beide bronnen consistent. **[gecorrigeerde nuance]**
 - Modules worden **per module per gebruiker** bijgeprijsd.
 - Facturatie jaarlijks vooruit gebruikelijk; maandelijkse betaling mogelijk bij sommige resellers.
 
@@ -239,7 +247,7 @@ Ter vergelijking uit hetzelfde document — **Primavera P6 EPPM Cloud Service** 
 | Primavera Unifier Facilities & Asset Mgmt (incl. EVM) | 25 | 1.311 |
 | Unifier Portal User | 100 | 16 |
 
-> **Kanttekening 1:** de kolomuitlijning van de P6 EPPM-tabel in het PDF is bij tekstextractie niet 100 % eenduidig; de OPC-tabel is dat wél. Behandel de OPC-regels als hard, de P6 EPPM-regels als indicatief. **[onzekerheid]**
+> **Kanttekening 1 (herbevestigd bij onafhankelijke her-extractie van het PDF):** de **OPC-tabel is volledig eenduidig** — 6 productnamen, 6 minima, 6 prijzen, één-op-één uit te lijnen. De P6 EPPM- en Unifier-tabellen bevatten bij tekstextractie **één numerieke waarde méér dan productnamen**, waardoor de middelste regels kunnen verschuiven. Hard: P6 EPPM £358 (min. 1), Primavera Analytics £2.185 (min. 25), Virtual Desktop £9.932, Additional Non-Production Environment £39.332, Unifier Facilities & Asset Mgmt £1.311 (min. 25). Indicatief/mogelijk verschoven: Unifier Portal User £16 (min. 100) — kan in het origineel bij "Team for External Collaborators" horen. **[onzekerheid, beperkt tot de P6 EPPM-/Unifier-middenregels]**
 > **Kanttekening 2:** £7.549 per gebruiker per jaar voor een add-on is opvallend hoog. Het document stelt expliciet dat álle vermelde kosten per Hosted Named User zijn. In de praktijk worden deze modules zelden aan het hele planningsteam toegekend, maar aan een handvol cost controllers/portfoliomanagers. De effectieve kosten hangen dus sterk af van hoeveel mensen je per module licentieert. **[interpretatie]**
 
 Omgerekend naar euro (koers ≈ £1 = €1,17, gemiddeld 2024–2026) **[eigen omrekening, schatting]**:
@@ -327,7 +335,7 @@ Deze cijfers zijn **schattingen** op basis van de openbare lijstprijzen; Oracle-
 
 7. **Configureerbare dashboards en scope-koppeling.** Eigen grafieken op workspace-, portfolio-, programma- en projectniveau over alle datatypen, tegenover P6's vaste dashboardsjablonen. Plus de mogelijkheid om voortgang uit *hoeveelheden* (scope) af te leiden in plaats van uit uren of handmatige percentages.
 
-8. **Lage instapdrempel qua seats en geen infrastructuur.** Minimum 5 gebruikers (P6 EPPM Cloud: 25), geen servers, geen databasebeheer, geen upgradeprojecten. Voor een middelgroot aannemers- of ingenieursbureau is dat het verschil tussen wel en niet aan enterprise project controls kunnen doen.
+8. **Lage instapdrempel qua seats en geen infrastructuur.** Minimum 5 gebruikers (P6 EPPM Cloud: 25 volgens Oracle's prijslijst 2016 en Project Partners, maar 1 volgens het G-Cloud-14-prijsblad 2024 — zie §3.1), geen servers, geen databasebeheer, geen upgradeprojecten. Voor een middelgroot aannemers- of ingenieursbureau is dat het verschil tussen wel en niet aan enterprise project controls kunnen doen.
 
 9. **Hoog releasetempo met zichtbare inhaalslag.** Maandelijkse releases (v26.1 t/m v26.6 in H1 2026). Functies die partners in 2021–2023 nog als ontbrekend noemden — Global Change, Store Period Performance, future period bucket planning, ordinal dates in de Gantt — zijn inmiddels aanwezig. De richting is onmiskenbaar.
 
@@ -341,7 +349,7 @@ Deze cijfers zijn **schattingen** op basis van de openbare lijstprijzen; Oracle-
 
 2. **Het Expenses-gat is een breekpunt voor kostgeladen schema's.** OPC kent geen `Expenses` — de standaard-P6-manier om materiaal-, onderaannemers- en overige kosten aan een activiteit te hangen zonder resource. Wie in P6 kostgeladen plant (in de infra en olie & gas de norm), moet het hele kostenmodel omzetten naar OPC's CBS. Dat is niet alleen migratiewerk maar ook hertraining en herziening van rapportagesjablonen.
 
-3. **Geen resource leveling tijdens het schedulen.** Oracle's eigen vergelijkingstabel zet *Level Resources During Scheduling* op **Not Supported** voor OPC. Levelen is een losse actie geworden. Ook ontbreken **hourly assignment spreads**, het **Resource Analysis-scherm** en de **Assignment Gantt**. Voor resourcegedreven planning (fabrieksstops, turnarounds, ploegendienst) is OPC daarmee zwakker dan P6.
+3. **Geen resource leveling tijdens het schedulen.** Oracle's eigen vergelijkingstabel laat de kolom "Primavera Cloud" leeg bij *Level Resources During Scheduling* (Y bij alle drie de P6-varianten) — geverifieerd in de ruwe brontabel. Levelen is een losse actie geworden. Ook ontbreken **hourly assignment spreads**, de **Assignment Gantt**, **resource/role teams** en **resource shifts**. *(Resource Analysis is hier geschrapt: dat is bij hercontrole wél ondersteund in OPC.)* Voor resourcegedreven planning (fabrieksstops, turnarounds, ploegendienst) is OPC daarmee zwakker dan P6.
 
 4. **Niet geschikt voor mega-projecten.** Meerdere onafhankelijke Oracle-partners waarschuwen consistent dat OPC's SaaS-architectuur niet geoptimaliseerd is voor zeer grote CPM-schema's; P6 EPPM op een relationele Oracle-database blijft daar de aanbevolen route. Oracle publiceert geen limiet, wat het risico juist vergroot: je ontdekt de grens pas in productie. Reviewers noemen **trage laadtijden** als terugkerende klacht.
 
@@ -456,7 +464,7 @@ Argumenten voor "traag":
 - Zeven jaar na de rebranding tracked AppsRunTheWorld slechts **35 genoemde OPC-klanten**; SoftwareReviews heeft **47** OPC-specifieke reviews. Dat is dun voor een product dat de opvolger van een marktstandaard moet zijn.
 - Oracle-partners verwoorden het openlijk: OPC *"did not have its big breakthrough yet to replace Primavera P6, because end-users still miss some features."*
 - Oracle heeft zijn eigen strategie moeten bijstellen — van "OPC is iets nieuws en beters" naar "OPC moet eerst P6-pariteit halen". Dat kost jaren en is nog niet af.
-- Er is **geen end-of-life voor P6 aangekondigd**, dus geen dwang. Zolang P6 blijft leven, blijft de rationele keuze voor veel organisaties: blijven zitten.
+- Er is **geen end-of-life voor P6 aangekondigd**, dus geen dwang — Oracle's Lifetime Support Policy (2-7-2026) geeft P6 EPPM/Professional 25.x Premier Support tot **december 2030** en Sustaining Support **"Indefinite"**. Zolang P6 blijft leven, blijft de rationele keuze voor veel organisaties: blijven zitten.
 
 ### 7.5 Verplichtstellingen en contractuele verankering
 
@@ -525,7 +533,9 @@ Tegelijk is het **geen soepele opvolger van P6, maar een ander product met een m
 18. Oracle — *Primavera Cloud: bouwplatform* (productpagina; modules, Last Planner, Monte-Carlo, klant Richard Group). https://www.oracle.com/construction-engineering/primavera-cloud-project-management/
 19. Oracle — *Primavera Cloud Roundup March 2026* (releases nov 2025 – feb 2026, maandelijkse cadans). https://www.oracle.com/customer-hub/construction-engineering/primavera-cloud/roundups/march-2026/
 20. Oracle MOSC Community — *Oracle Prime Projects renamed Oracle Primavera Cloud as of June 1, 2019*. https://community.oracle.com/mosc/discussion/4273154/oracle-prime-projects-renamed-oracle-primavera-cloud-as-of-june-1-2019
-21. Oracle — *P6 EPPM 26.4 What's New* (bewijs dat P6 actief doorontwikkeld wordt). https://docs.oracle.com/en/industries/construction-engineering/primavera-p6-project/26/p6-wn26/index.html
+21. Oracle — *P6 EPPM 2026 What's New* (bewijs dat P6 actief doorontwikkeld wordt). https://docs.oracle.com/en/industries/construction-engineering/primavera-p6-project/26/p6-wn26/index.html
+21a. **Oracle — *Lifetime Support Policy: Oracle Applications*, van kracht 2 juli 2026 (PDF).** Hard bewijs dat P6 niet wordt uitgefaseerd: P6 EPPM/Professional 25.x, GA dec 2025, Premier Support t/m dec 2030, Sustaining Support "Indefinite". https://www.oracle.com/us/support/library/lifetime-support-applications-069216.pdf
+21b. Europese Centrale Bank — *Euro reference exchange rate: Pound sterling (GBP)* (koers 24-7-2026: EUR/GBP 0,85388 → £1 = €1,171; grondslag voor alle euro-omrekeningen in §3.2). https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-gbp.en.html
 
 ### Prijsbronnen
 
@@ -583,3 +593,70 @@ Tegelijk is het **geen soepele opvolger van P6, maar een ander product met een m
 - G2 en Emerald Associates gaven HTTP 403 bij directe fetch; hun inhoud is via zoekresultaten en secundaire vermeldingen verwerkt en als zodanig gemarkeerd.
 - Gerichte Reddit-zoekopdrachten (r/projectmanagement, r/construction, r/civilengineering) leverden **geen relevante OPC-specifieke discussies** op — op zichzelf een signaal over de beperkte adoptiebreedte. De praktijkkritiek in dit profiel komt daarom uit Planning Planet, reviewsites en — het meest waardevol — uit **Oracle's eigen migratie- en vergelijkingsdocumentatie**, die opvallend eerlijk is over wat OPC niet kan.
 - Alle **[schatting]**-markeringen betreffen eigen afleidingen (valuta-omrekeningen, TCO-berekeningen, activiteitengrenzen) en geen bronvermelde feiten.
+
+---
+
+## Verificatie
+
+**Adversariële fact-check, uitgevoerd 25 juli 2026.** Doel was niet bevestigen maar *weerleggen*: elke bewering is getoetst aan de primaire bron zelf (PDF's lokaal geëxtraheerd met `pdfminer.six`, HTML-tabellen ruw geparseerd i.p.v. via samenvatting) en waar mogelijk aan een tweede, onafhankelijke bron. Vier beweringen zijn aantoonbaar onjuist gebleken en gecorrigeerd; drie zijn genuanceerd; één nieuwe, door Oracle gepubliceerde limiet is toegevoegd.
+
+### Prijzen en licentiemodel
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | G-Cloud 14 (th3rdcurve, effectief 30-4-2024): **OPC Schedule £950/licentie/jaar, min. 5**; Capital Planning, Cost Controls, Facility Management, Project Delivery Management, Real Estate Management elk **£7.549/licentie/jaar, min. 1**; **10 % extra korting bij ≥100 licenties per product**; alle bedragen **per Hosted Named User** met de geciteerde definitie | **bevestigd** — verbatim uit het PDF; de OPC-tabel lijnt exact uit (6 namen / 6 minima / 6 prijzen). Ook bevestigd: "60 days upon termination" voor data-uittreding | https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/710699/219564152717676-pricing-document-2024-05-03-1330.pdf |
+| 2 | P6 EPPM £358 (min. 1), Analytics £2.185 (min. 25), Virtual Desktop £9.932, Additional Non-Production Environment £39.332, Unifier Facilities £1.311 (min. 25), Unifier Portal User £16 (min. 100) | **grotendeels bevestigd, deels onzeker** — de eerste vijf zijn hard; "Portal User £16/min. 100" kan door de extra numerieke waarde in de extractie bij *Team for External Collaborators* horen. Kanttekening 1 in §3.2 aangescherpt | idem |
+| 3 | CDP Inc.: **$7.800/jaar voor 5 gebruikers = $130/gebruiker/maand = $1.560/gebruiker/jaar**, extra gebruiker $1.560/jaar | **bevestigd**, en onafhankelijk gecorroboreerd door een tweede Amerikaanse reseller (Global PM: $7.800/jaar voor 5 gebruikers, met $305 korting → $7.495) | https://cdp-inc.com/products/software/purchase-oracle-primavera-cloud-5-users · https://globalpm.com/oracle-primavera-cloud-pricing/ |
+| 4 | Oracle Global Price List 10-11-2016: **Oracle Prime Projects Cloud $150/HNU/maand, min. 25**; Prime Portfolios $125 (min. 25); Prime Progress $12; P6 EPPM Cloud $125 (min. 25); P6 Progress Reporter $12; P6 EPPM Web Services $20; Unifier Project Controls $150 (min. 25); Analytics $90 (min. 25); Virtual Desktop $1.000/hosted environment | **bevestigd** — alle negen regels één-op-één uit de ruwe PDF-extractie | https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf |
+| 5 | Perpetual 2016: P6 EPPM **$2.750 + $605**; P6 Professional **$2.500 + $550**; P6 Progress Reporter **$950 + $209**; Gateway **$20.000 + $4.400** (min. 5); Data Warehouse **$25.000 + $5.500** (Processor). Support = **22 %**; term 1/2/3/4/5 jaar = **20/35/50/60/70 %** | **bevestigd** — verbatim: *"1 year - 20% of list; 2 year - 35% of list, 3 year - 50% of list, 4 year 60% of list and 5 year 70% of list"* en *"The list support price for term licenses is 22% of the list perpetual license fee"* | idem |
+| 6 | Uitsluitend SaaS-abonnement, **geen perpetual licentie voor OPC**, metriek Hosted Named User (geen concurrent user) | **bevestigd** — OPC/Prime staat in de 2016-lijst uitsluitend onder "Cloud Service" met metriek Hosted Named User en komt in de perpetual-tabel niet voor; G-Cloud 14 kent alleen jaarabonnementen | beide bovenstaande prijsbronnen |
+| 7 | Minimum afname **5 gebruikers (OPC) vs. 25 (P6 EPPM Cloud)** | **gecorrigeerd/genuanceerd** — 5 vs. 25 klopt volgens de Oracle-lijst 2016 en Project Partners (17-4-2025: *"Minimum Users: 5"* vs. *"Minimum Users: 25"*), **maar het G-Cloud-14-blad 2024 zet P6 EPPM op minimum 1**. Het P6-minimum is contract-/resellerafhankelijk; alleen het OPC-minimum van 5 is consistent. §3.1 en §4.8 aangepast | https://www.projectp.com/ppblog/2025/04/17/cloud-or-classic-opc-vs-p6-eppm-which-one-is-right-for-me/ |
+| 8 | Omrekenkoers **£1 ≈ €1,17** → OPC Schedule ≈ €1.110/jaar, add-on ≈ €8.830/jaar | **bevestigd** — ECB-referentiekoers 24-7-2026: EUR/GBP **0,85388**, dus £1 = **€1,171**. Herberekening: £950 → €1.112/jaar (€93/maand); £7.549 → €8.841/jaar (€737/maand). De cijfers in §3.2 vallen binnen afrondingsmarge | https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/eurofxref-graph-gbp.en.html |
+| 9 | Taradigm: *"< $1.600/gebruiker/jaar, ≈ ⅓ van een P6-licentie"* | **onzeker** — de Taradigm-pagina gaf bij hercontrole lege content terug; het cijfer is niet opnieuw bij de bron te verifiëren. Het sluit wél aan bij twee onafhankelijk bevestigde resellerprijzen van $1.560/gebruiker/jaar, dus plausibel maar niet hard. Behandel als secundair | https://www.taradigm.com/how-much-does-primavera-cloud-cost/ (niet ophaalbaar op 25-7-2026) |
+| 10 | Oracle publiceert sinds ±2017 **geen openbare prijslijst** meer voor Primavera-cloud | **onzeker (niet weerlegd)** — Oracle's publieke prijslijstindex was in deze sessie niet ophaalbaar (HTTP 404). Er is in de gehele controle geen Oracle-prijslijst van na 2016 gevonden; de bewering blijft dus overeind maar rust op het ontbreken van tegenbewijs, niet op een positieve bron | — |
+| 11 | Indicatieve TCO ≈ €48.500/jaar (20 × Schedule + 3 × Cost Controls), €30k–€100k implementatie, €1.000–€2.500 training p.p. | **bevestigd als rekensom, blijft schatting** — 20 × €1.112 + 3 × €8.841 = **€48.763**, consistent met de genoemde ≈ €48.500. De implementatie- en trainingsbedragen zijn niet met een bron onderbouwd en blijven expliciet **[schatting]**. Het G-Cloud-blad bevestigt wel dát th3rdcurve implementatie apart factureert ("please refer to our rate card") | zie #1 |
+
+### Techniek en functionaliteit
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 12 | *Level Resources During Scheduling* is **Not Supported** in OPC | **bevestigd** — ruwe HTML-parse van Oracle's tabel (kolomvolgorde: Feature / P6 EPPM Web / P6 EPPM Client / P6 Professional / **Primavera Cloud** / Notes) geeft `Y \| Y \| Y \| (leeg)`. Idem `Schedule a Project Automatically` = leeg voor OPC. *Let op: een samenvattende lezing van deze pagina leest de kolommen makkelijk verkeerd — de waarden zijn hier per kolomindex geverifieerd* | https://docs.oracle.com/cd/E80480_01/English/admin/p6_eppm_migration_guide/246421.htm |
+| 13 | **Tertiaire baseline niet ondersteund** in OPC | **GECORRIGEERD — onjuist.** *Set and Display Tertiary Baseline in Activities View* = **Y** voor Primavera Cloud. §2.5 aangepast | idem |
+| 14 | **Scenario's grotendeels niet ondersteund** in OPC (P6 wel) | **GECORRIGEERD — omgekeerd onjuist.** *Define Scenario as Schedule*, *Create a Scenario from a Baseline*, *Create a Baseline from a Scenario* en *Set Scenario or Baseline to Current Schedule* staan alle vier op **Y uitsluitend bij Primavera Cloud** en leeg bij alle drie de P6-kolommen. Scenario's zijn een OPC-voordeel, geen gat. §2.5 aangepast | idem |
+| 15 | **Reflections niet aanwezig** in OPC | **GECORRIGEERD — te absoluut.** *Reflection Projects* = **"Partially supported"** met noot *"In Primavera Cloud, Reflection Projects are represented by Merge Mode which is available in Schedule Comparison"*. §2.5 aangepast. (In de *import*gids blijft Reflections wél op de niet-importeerbare lijst — dat is een andere bewering en blijft staan) | idem |
+| 16 | **Geen Resource Analysis-scherm** in OPC | **GECORRIGEERD — onjuist.** Oracle's resources-tabel geeft *Resource Analysis* = **Y** voor Primavera Cloud (en Y alleen bij P6 EPPM Web aan P6-zijde). §2.4 en §5.3 aangepast | https://docs.oracle.com/cd/E80480_01/English/admin/p6_eppm_migration_guide/246423.htm |
+| 17 | **Resource Shifts**: Oracle's documentatie spreekt zichzelf tegen | **GECORRIGEERD — er is geen tegenstrijdigheid.** *Define Resource Shifts* is **leeg** voor Primavera Cloud (Y bij EPPM Client en P6 Professional), volledig consistent met de importgids. De onzekerheidsmarkering is verwijderd | idem |
+| 18 | **Future Period Bucket Planning** waarschijnlijk toegevoegd **[schatting]** | **bevestigd, schattingsmarkering vervalt** — *Future Period Bucket Planning* = **Y** voor Primavera Cloud, met noot *"Future Period Planning in Primavera Cloud"* | idem |
+| 19 | Geen Hourly Assignment Spreads, geen Assignment Gantt, geen Resource/Role Teams; geen Expenses | **bevestigd** — alle vier leeg in de kolom Primavera Cloud (*Hourly Assignment Spreads*, *Assignment Gantt*, *Resource Teams*, *Role Teams*, *Expense Assignments*) | beide tabellen hierboven |
+| 20 | **Global Change** is aanwezig in OPC | **bevestigd** — *Global Update* = Y in alle vier de kolommen | zie #12 |
+| 21 | Oracle publiceert **geen harde activiteitenlimiet** | **AANGEVULD.** Oracle publiceert wél een getal, tweemaal: *"Primavera Cloud only supports the Activity Network for schedules with fewer than 6000 activities"* en *"Primavera Cloud supports Trace Logic for schedules with fewer than 6000 activities"*. Geen rekenlimiet, maar wel het enige door Oracle genoemde activiteitenaantal — toegevoegd aan §2.9. De vuistregeltabel (5k/20k/50k) blijft een **[schatting]** | zie #12 |
+| 22 | Importlimiet **1 GB**, geen meerdere bestanden in één zip; export max. **20 baselines/scenario's**; downloadlink **30 dagen**; XER-versiekeuze 15.2+ / 20.4+; baselines worden als losse projecten geëxporteerd | **bevestigd** — alle vijf verbatim in Oracle's help | https://primavera.oraclecloud.com/help/en/user/95912.htm · https://primavera.oraclecloud.com/help/en/user/144609.htm |
+| 23 | **Maandelijkse releasecadans** (v26.1 t/m v26.6 in H1 2026) | **bevestigd voor het patroon** — Oracle's roundup noemt 25.11 (nov 2025), 25.12 (dec 2025), 26.1 (jan 2026), 26.2 (feb 2026): één release per maand. v26.3–26.6 zijn in die roundup nog niet gedekt (de maart-2026-editie loopt t/m februari) | https://www.oracle.com/customer-hub/construction-engineering/primavera-cloud/roundups/march-2026/ |
+
+### IFC, openBIM en eigendom/levenscyclus
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 24 | OPC heeft **geen IFC-import/-export, geen `IfcWorkSchedule`/`IfcTask`-mapping, geen native 3D-viewer, geen 4D-simulatie** | **bevestigd voor zover een negatieve claim te bevestigen is** — drie onafhankelijke Oracle-bronnen bevatten **nul** vermeldingen van IFC, BIM, 3D of 4D: de import/export-helppagina, de OPC-productpagina (modules: Contract Schedule, Field Schedule, Resource Management, Risk Management, Task Management, Portfolio & Capital Planning, Mobile) en de release-roundup. Ook Oracle's volledige P6↔OPC-vergelijkingstabellen noemen geen enkel modelformaat | https://www.oracle.com/construction-engineering/primavera-cloud-project-management/ · zie #22, #23 |
+| 25 | **Geen buildingSMART-certificering** voor OPC | **onzeker — niet verifieerbaar in deze sessie.** Zowel `buildingsmart.org/compliance/certified-software/` als `technical.buildingsmart.org/.../ifc-certification-participants/` gaven HTTP 403 (Cloudflare), ook met browser-user-agent. De bewering is plausibel (IFC-certificering geldt voor modelauteurs/-viewers, en Oracle noemt IFC nergens) maar is **niet** tegen het officiële register gecontroleerd. Behandel als onbevestigd | — |
+| 26 | Oracle Prime Projects is **per 1 juni 2019** hernoemd naar Oracle Primavera Cloud; Prime Projects (2016) is dus hetzelfde product als het latere OPC | **bevestigd** — Oracle MOSC-aankondiging noemt expliciet 1 juni 2019 en stelt dat "the same capabilities you are using today" onder de nieuwe naam doorlopen. Dit legitimeert het gebruik van de 2016-regel "Oracle Prime Projects Cloud Service $150" als historisch ijkpunt voor OPC | https://community.oracle.com/mosc/discussion/4273154/oracle-prime-projects-renamed-oracle-primavera-cloud-as-of-june-1-2019 |
+| 27 | Oracle heeft **geen end-of-life voor P6** aangekondigd | **bevestigd en versterkt met een hardere bron** — *Oracle Lifetime Support Policy: Oracle Applications*, versie van kracht **2 juli 2026**: P6 EPPM 25.x en P6 Professional 25.x, GA dec 2025, **Premier Support t/m dec 2030**, Extended Support "Not Available", **Sustaining Support "Indefinite"**. §1.2 en §7.4 aangevuld | https://www.oracle.com/us/support/library/lifetime-support-applications-069216.pdf |
+| 28 | Primavera Systems opgericht **1983**, overgenomen door Oracle **2008**; Aconex **2018** | **bevestigd, met datumnuance bij Aconex** — Oracle kondigde de overname van Aconex aan op **17 december 2017** (A$7,80/aandeel ≈ US$1,19 mrd); afronding volgde in maart 2018 (aandeelhoudersstemming 14-3-2018, gerechtelijke goedkeuring 15-3-2018). "2018" als voltooiingsjaar klopt | https://en.wikipedia.org/wiki/Aconex |
+
+### Markt- en reviewcijfers
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 29 | AppsRunTheWorld: **35 getrackte OPC-klanten**; bedrijfsgrootte 2,9 % / 25,7 % / 62,9 % / 8,6 % | **bevestigd** — 35 entries; 2,86 % / 25,71 % / 62,86 % / 8,57 %. Regio: **VS en VK bevestigd**; de toevoeging "Verenigde Arabische Emiraten" is niet als aparte concentratie in de bron terug te vinden (wel als land van de genoemde klant Arabtec) → **die ene regio is onzeker** | https://www.appsruntheworld.com/customers-database/products/view/oracle-primavera-cloud |
+| 30 | SoftwareReviews/Info-Tech: **47 OPC-reviews**, composite 7,5/10, likeliness to recommend 87, **plan to renew 99**, cost-vs-value 83, usability 77, ease of implementation 78, NEF **+88** | **bevestigd** — alle zeven waarden exact | https://www.infotech.com/software-reviews/products/oracle-primavera-cloud?c_id=368 |
+| 31 | Capterra: **4,4/5 over 182 reviews**, ease of use **3,7**, customer service **4,0**; listing vermengt P6 en OPC | **bevestigd voor de cijfers; de vermengingsclaim blijft analyse** — 4,4/5 over 182 reviews, ease of use 3,7, customer service 4,0 exact bevestigd. De listing draagt de titel "Oracle Primavera Cloud" maar staat op de URL-slug `/Oracle-Primavera/`, wat de vermengingsclaim ondersteunt zonder hem te bewijzen. Blijft terecht gemarkeerd als **[analyse]** | https://www.capterra.com/p/145503/Oracle-Primavera/reviews/ |
+| 32 | Proove: *"OPC did not have its big breakthrough yet to replace Primavera P6, because end-users still miss some features"* | **bevestigd** — citaat letterlijk teruggevonden, inclusief de vaststelling dat Oracle "currently doing their very best to close the gap between both tools" | https://www.proove.eu/knowledge/is-oracle-primavera-cloud-a-good-replacement-for-primavera-p6 |
+| 33 | Project Partners: OPC ongeschikt voor mega-projecten; ontbrekende export naar UN/CEFACT Format 6, IPMDAR en CPP | **bevestigd** — *"not yet optimized for extremely large critical path method (CPM) schedules"*; OPC ontbeert *"Export to UN/CEFACT Format 6, IPMDAR, or CPP Formats"*; releasecadans OPC "Monthly (Automatic)" vs. P6 EPPM "Quarterly (Scheduled)" | https://www.projectp.com/ppblog/2025/04/17/cloud-or-classic-opc-vs-p6-eppm-which-one-is-right-for-me/ |
+
+### Methode van deze controle
+
+- Beide prijs-PDF's zijn **lokaal gedownload en met `pdfminer.six` geëxtraheerd** in plaats van via een samenvattende fetch; de prijstabellen zijn kolom-voor-kolom uitgelijnd, waarbij het aantal productnamen tegen het aantal minima en prijzen is geteld (zo kwam de resterende onzekerheid in de Unifier-tabel aan het licht).
+- Oracle's twee vergelijkingstabellen zijn **als ruwe HTML opgehaald en per `<tr>`/`<td>` geparseerd**, waarna de kolomkoppen zijn vastgesteld (`Feature | P6 EPPM Web | P6 EPPM Client | P6 Professional | Primavera Cloud | Notes`) en elke waarde op index is gelezen. Dit leverde de vier feitelijke correcties op (#13, #14, #16, #17) die bij een samenvattende lezing van dezelfde pagina's níet zichtbaar waren — en het bevestigde tegelijk dat de belangrijkste negatieve bevinding (#12, leveling) wél klopt.
+- Voor elke prijsclaim is een **tweede, onafhankelijke bron** gezocht: de Amerikaanse resellerprijs is bevestigd door twee resellers (CDP en Global PM), de valutaomrekening door de ECB-referentiekoers, en de P6-levenscyclus door Oracle's Lifetime Support Policy in plaats van door het ontbreken van een EOL-aankondiging.
+- **Niet gelukt:** het buildingSMART-certificeringsregister (HTTP 403, tweemaal, ook met browser-user-agent), de Taradigm-prijspagina (lege respons) en Oracle's publieke prijslijstindex (HTTP 404). Die drie punten zijn hierboven expliciet als **onzeker** gemarkeerd in plaats van stilzwijgend te blijven staan.
+- De WebSearch-quota van de sessie was uitgeput; alle verificatie is uitgevoerd met gerichte fetches op bekende URL's plus `curl`, niet met nieuwe zoekopdrachten. Beweringen die alleen via een brede zoektocht te weerleggen zouden zijn (bijvoorbeeld het bestaan van een nieuwere Oracle-prijslijst) konden daardoor niet uitputtend worden getoetst.

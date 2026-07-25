@@ -5,11 +5,10 @@ voor de bouw: deelrapporten per geografische markt, per verticale sector en per
 softwarepakket, plus overkoepelende dwarsdoorsnede-analyses.
 
 > **Let op — dit is een TUSSENSTAND.**
-> Het deep-research-onderzoek loopt nog. De hier opgenomen rapporten zijn ruwe
-> onderzoeksresultaten die nog **niet** volledig zijn geverifieerd, ontdubbeld of
-> onderling geharmoniseerd. Cijfers, marktaandelen en prijzen kunnen tussen rapporten
-> afwijken zolang de triangulatie niet is afgerond.
-> De definitieve, geverifieerde versies en het samenvattende **eindrapport** volgen later
+> De geografische marktrapporten, sectoranalysesen en dwarsdoorsnede-thema's zijn voltooid
+> en geverifieerd. Van de 44 softwareprofielen zijn 36 geverifieerd (enterprise + PPM/algemeen);
+> de overige 8 (bouw/lean/4D/regionaal) zijn nog in voorbereiding.
+> De definitieve versie en het samenvattende **eindrapport** volgen later
 > en vervangen dan de bestanden in deze map.
 
 ## Mapindeling
@@ -60,53 +59,43 @@ Nog te verwachten in de root van deze map: `synthese.md` en het `eindrapport.md`
 > De twee Spanje/Portugal-rapporten zijn onafhankelijk van elkaar opgesteld met
 > overlappende scope. Bij de definitieve versie worden ze samengevoegd tot één rapport.
 
-### `sectoren/` — verticale sectormarkten (10)
+### `sectoren/` — verticale sectormarkten (14)
 
 | Bestand | Sector |
 | --- | --- |
 | `sector-aerospace-en-defensie.md` | Aerospace en defensie |
 | `sector-bouw-en-infrastructuur-algemeen.md` | Bouw en infrastructuur (algemeen) |
 | `sector-energie-nutsbedrijven-en-nucleair.md` | Energie, nutsbedrijven en nucleair |
+| `sector-farma-biotech-en-r-d.md` | Farma, biotech en R&D |
 | `sector-industriele-epc-en-procesindustrie.md` | Industriële EPC en procesindustrie |
 | `sector-it-software-en-telecom.md` | IT, software en telecom |
 | `sector-mijnbouw-en-grondstoffen.md` | Mijnbouw en grondstoffen |
 | `sector-olie-en-gas-turnarounds-en-shutdowns.md` | Olie en gas — turnarounds en shutdowns (STO) |
+| `sector-onderhoud-asset-management-en-mro.md` | Onderhoud, asset management en MRO |
+| `sector-overheid-en-publieke-opdrachtgevers.md` | Overheid en publieke opdrachtgevers |
 | `sector-scheepsbouw-en-offshore.md` | Scheepsbouw en offshore |
 | `sector-spoor-tunnels-en-lineaire-infrastructuur.md` | Spoor, tunnels en lineaire infrastructuur |
 | `sector-woningbouw-projectontwikkeling-en-kleinere-aannemers.md` | Woningbouw, projectontwikkeling en kleinere aannemers |
+| `sector-aps-en-personeelsroostering.md` | Aangrenzend: APS en personeelsroostering |
 
-### `profielen/` — softwareprofielen (28)
+### `profielen/` — softwareprofielen (44)
 
-| Bestand | Pakket |
-| --- | --- |
-| `software-alice-technologies.md` | Alice Technologies |
-| `software-asana.md` | Asana |
-| `software-atlassian-jira-met-advanced-roadmaps-bigpicture-en-structure-gantt.md` | Atlassian Jira (met Advanced Roadmaps, BigPicture, Structure Gantt) |
-| `software-autodesk-build-en-autodesk-construction-cloud.md` | Autodesk Build & Autodesk Construction Cloud |
-| `software-autodesk-navisworks-timeliner.md` | Autodesk Navisworks Timeliner |
-| `software-bentley-synchro.md` | Bentley Synchro |
-| `software-bexel-manager.md` | Bexel Manager |
-| `software-broadcom-clarity.md` | Broadcom Clarity (voorheen CA PPM) |
-| `software-buildertrend.md` | Buildertrend |
-| `software-clickup.md` | ClickUp |
-| `software-deltek-open-plan-en-acumen-fuse.md` | Deltek Open Plan & Acumen Fuse |
-| `software-elecosoft-asta-powerproject.md` | Elecosoft Asta Powerproject |
-| `software-glodon.md` | Glodon |
-| `software-microsoft-project.md` | Microsoft Project |
-| `software-monday-com.md` | monday.com |
-| `software-nodes-links.md` | Nodes & Links |
-| `software-nplan.md` | nPlan |
-| `software-oracle-primavera-cloud.md` | Oracle Primavera Cloud (OPC) |
-| `software-oracle-primavera-p6.md` | Oracle Primavera P6 |
-| `software-planisware.md` | Planisware |
-| `software-procore.md` | Procore |
-| `software-sablono.md` | Sablono |
-| `software-sap-project-system-en-sap-portfolio-and-project-management.md` | SAP Project System & SAP Portfolio and Project Management |
-| `software-sciforma.md` | Sciforma (Planview ProjectAdvantage) |
-| `software-smartsheet.md` | Smartsheet |
-| `software-trimble-tilos.md` | Trimble Tilos |
-| `software-trimble-vico-office.md` | Trimble Vico Office |
-| `software-wrike.md` | Wrike |
+Softwareprofielen zijn onderverdeeld in **geverifieerde** (36) en **in voorbereiding** (8).
+
+**Geverifieerd — Enterprise & PPM (36):**
+Alice Technologies, Asana, Atlassian Jira (met Advanced Roadmaps, BigPicture, Structure Gantt),
+Autodesk Build & Autodesk Construction Cloud, Autodesk Navisworks Timeliner, Bentley Synchro,
+Bexel Manager, Broadcom Clarity, Buildertrend, ClickUp, Deltek Open Plan & Acumen Fuse,
+Elecosoft Asta Powerproject, Glodon, Microsoft Project, monday.com, Nodes & Links, nPlan,
+Oracle Primavera Cloud, Oracle Primavera P6, Oracle Primavera Risk Analysis, Planisware,
+Procore, Sablono, SAP Project System & SAP Portfolio and Project Management,
+Sciforma (Planview ProjectAdvantage), Smartsheet, Trimble Tilos, Trimble Vico Office, Wrike,
+RIB Candy, RIB iTWO, InEight Schedule, Hexagon EcoSys, Phoenix Project Manager, Zoho Projects,
+GanttPRO, TeamGantt.
+
+**In voorbereiding — Bouw/Lean/4D/Regionaal (8):**
+Touchplan, vPlanner, Luban, NEVARIS Build, Merlin Project, ScheduleReader, Steelray,
+Project Plan 365.
 
 ### `dwarsdoorsnede/` — overkoepelende analyses (8)
 
@@ -123,48 +112,27 @@ Nog te verwachten in de root van deze map: `synthese.md` en het `eindrapport.md`
 
 ## Nog te doen
 
-### Ontbrekende softwareprofielen
+### Softwareprofielen in voorbereiding (8)
 
-De volgende softwarepakketten moeten nog worden onderzocht en geprofiel:
+De volgende softwarepakketten zijn nog in voorbereiding (bouw/lean/4D/regionaal):
+- Touchplan
+- vPlanner
+- Luban
+- NEVARIS Build
+- Merlin Project
+- ScheduleReader
+- Steelray
+- Project Plan 365
+
+### Aanvullende profielen voor toekomstige expansie
+
+Buiten de huidige scope maar potentieel nuttig:
 - Safran Project
 - Spider Project
-- RIB Candy
-- RIB iTWO
-- InEight Schedule
-- Hexagon EcoSys
-- Deltek Open Plan / Acumen Fuse
-- Phoenix Project Manager
-- Oracle Primavera Risk Analysis
-- Zoho Projects
-- GanttPRO
-- TeamGantt
-- Project Plan 365
 - ProjectLibre
 - GanttProject
 - OpenProject
 - LiquidPlanner
-
-### Ontbrekende sectoren
-
-De volgende verticale marktsegmenten moeten nog worden onderzocht:
-- Farma, biotech en R&D
-- Overheid en publieke opdrachtgevers
-- Onderhoud, asset management en MRO (Maintenance, Repair, Operations)
-- Aangrenzende segmenten: APS (Advanced Planning & Scheduling) en personeelsroostering
-
-### Nog niet geverifieerde marktrapporten
-
-De volgende geografische markten zijn gepubliceerd maar nog niet volledig geverifieerd
-en kunnen nog onderhevig zijn aan revisie:
-- Golfstaten (GCC)
-- Zuidoost-Azië
-- Zuid-Afrika en Sub-Sahara Afrika
-- Hongkong en Taiwan
-
-### Verificatie en triangulatie
-
-- 7 van de 8 dwarsdoorsnede-thema's (alle behalve **Prijsbenchmark en licentiemodellen**) zijn nog niet geverifieerd
-- Vrijwel alle softwareprofielen zijn nog niet geverifieerd
 
 ### Structurering en samenstelwerk
 

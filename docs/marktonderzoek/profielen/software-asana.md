@@ -45,7 +45,7 @@
 
 ### Doelgroep, typische gebruikers, sectoren, regio's
 
-- **Doelgroep:** kenniswerkteams — marketing, operations, productmanagement, IT, HR, creatieve bureaus, professional services. Van 5-persoonsteams tot enterprise-brede uitrol (FedRAMP Moderate voor Asana Gov sinds 24 juni 2026 opent de Amerikaanse publieke sector).
+- **Doelgroep:** kenniswerkteams — marketing, operations, productmanagement, IT, HR, creatieve bureaus, professional services. Van 5-persoonsteams tot enterprise-brede uitrol (FedRAMP Moderate voor Asana Gov sinds 24 juni 2026 [ONGEVERIFIEERD, zie §Verificatie] opent de Amerikaanse publieke sector).
 - **Typische gebruiker:** een teamlead of programmamanager die overzicht wil over veel parallelle, kortcyclische werkstromen — niet een planner die een contractueel schema met mijlpaalboetes moet verdedigen.
 - **Sectoren:** technologie, media/marketing, retail, financiële dienstverlening, onderwijs, non-profit, overheid (VS). **Bouw en infrastructuur zijn géén doelmarkt**: in de Asana app-directory staat géén enkele bouw-/BIM-/engineering-integratie (geen Procore, Autodesk Construction Cloud, Revit, Navisworks, Bentley, Primavera). Zoekopdrachten in het Asana-forum op "construction / contractor / BIM / IFC / 4D" leveren **nul resultaten** op.
 - **Regio's:** zwaartepunt Noord-Amerika; substantiële EMEA-aanwezigheid (Dublin, Londen, München, Parijs, Warschau, Stockholm) en APAC (Tokio, Sydney, Singapore).
@@ -65,7 +65,7 @@ Dit is het kernpunt van dit profiel en het verdient een harde formulering.
 **Bewijs dat het aantoonbaar fout is** (forumthread 479444, "Improve critical path", 39 posts, tag `considered`):
 
 - Gebruiker `@ka_nishiyama` (13 sept 2023) documenteert dat Asana het pad `1(1)-2(2)-4(3)-2(4)-1(5)` oplicht terwijl het correcte kritieke pad `1(1)-2(2)-5(31)-2(4)-1(5)` is.
-- Gebruiker `@Jan-Rienk` (31 juli 2024): in een triviaal A→B→D versus A→C→D-scenario kiest Asana A-C-D terwijl A-B-D langer duurt; hij noemt de functie **"plainly wrong and misleading"**.
+- Gebruiker `@Jan-Rienk` bekritiseert de implementatie inhoudelijk: *"the critical path isn't wrong according to the documentation. That's not the whole story though, as the purpose of critical path in project management is to be aware of the path that can't afford any delays"* en *"Using the critical path in this instance would work to delay the project rather than ensure it is completed on time."* (Correctie: de eerder geciteerde formulering "plainly wrong and misleading" en de datum 31 juli 2024 zijn bij herlezing van de thread **niet** teruggevonden; bovenstaande citaten zijn wel geverifieerd.)
 - Forumleider `@Phil_Seeman` legt de correcte definitie uit ("the path of dependent tasks that has the least amount of flexibility"). Asana's implementatie **negeert float/slack volledig**.
 - Officiële reactie van Asana (Emily Roman, 30 april 2024): *"I'll create a task to our product team to investigate further and consider updates to critical path in future updates."* De thread staat per september 2025 nog altijd op `considered` — dus **niet opgelost**.
 
@@ -91,7 +91,9 @@ Migranten vanuit MS Project benoemen dit letterlijk. Thread 1127584 (Kristin Har
 
 **Afhankelijkheidstypen — sinds 2024 wel compleet, maar ondiep.**
 
-Tot juni 2024 kende Asana uitsluitend Finish-to-Start. Op **28 juni 2024** kondigde Asana (Emily Roman, thread 99691) aan: *"Today, I'm thrilled to announce we launched new dependency types! Previously, dependencies were limited to 'Finish to start', Asana now offers: Start-to-start, Finish-to-finish, Start-to-finish."* Alle vier types (FS/SS/FF/SF) bestaan dus nominaal.
+Tot medio 2024 kende Asana uitsluitend Finish-to-Start. Alle vier types (FS/SS/FF/SF) bestaan inmiddels nominaal: het Help Center-artikel "How to use task dependencies" benoemt expliciet *"Finish-to-Start, Finish-to-Finish, Start-to-Start, and Start-to-Finish"*, en de introductiethread 885797 ("Mastering Advanced Task Dependencies", Christine Bolton, **12 augustus 2024**) behandelt ze als nieuw.
+
+> **Correctie bij verificatie (25-07-2026):** een eerdere versie dateerde de lancering op **28 juni 2024** met een citaat van Emily Roman in thread 99691. Thread 99691 bevat die aankondiging niet — het is een feature request uit november 2020 die t/m eind 2022 nog om SS/FF/SF vráágt. Het citaat is niet te verifiëren en de precieze lanceerdatum staat daarmee niet vast; alleen "uiterlijk augustus 2024" is hard. Dat de vier types bestaan, is wél bevestigd via het Help Center.
 
 **Maar de uitvoering rammelt** (thread 885797, "Mastering Advanced Task Dependencies", aug 2024):
 
@@ -143,7 +145,7 @@ Voor bouwplanning — waar feestdagen, vorstverlet, ploegenroosters en 6-daagse 
 **Kostenmodel: bestaat niet in de kernproducten.** Er is een betaalde add-on **Timesheets & Budgets** (aangekondigd 20 november 2025, thread 1107760; sinds 2026 self-service met 14 dagen proef, thread 1137286):
 
 - Levert: urenstaten met goedkeuring, uurtarieven per persoon per project, budget versus werkelijk, prognose van declarabele omzet, export van tijd- en kostendata.
-- **Alleen op Advanced, Enterprise en Enterprise+ met jaarcontract.**
+- **Beschikbaar op Starter, Advanced, Enterprise en Enterprise+** (prijs "billed annually"). *(Gecorrigeerd: bij de lancering in november 2025 was de add-on beperkt tot Advanced en hoger; sinds de self-service-uitrol van 20 april 2026 — forum 1137286 — noemen zowel de prijspagina als de aankondiging expliciet ook Starter.)*
 - Gasten kunnen geen urenstaten invullen (alleen betaalde members).
 - **Geen earned value management** — geen BCWS/BCWP/ACWP, geen CPI/SPI, geen S-curves, geen kostenresources of materiaalkosten, geen cashflowprognose op basis van het schema.
 
@@ -268,7 +270,7 @@ Praktisch betekent dit dat je bij 31 gebruikers voor 35 seats betaalt en bij 101
 
 | Add-on | Prijs | Voorwaarde | Bron |
 |---|---|---|---|
-| **Timesheets & Budgets** | **$5,99** p/gebruiker/maand, jaarlijks gefactureerd (**$71,88/jaar** [berekend]) | alleen Advanced / Enterprise / Enterprise+ met **jaarcontract** | asana.com/pricing, 25-07-2026; forum 1107760 |
+| **Timesheets & Budgets** | **$5,99** p/gebruiker/maand, jaarlijks gefactureerd (**$71,88/jaar** [berekend]) | Starter / Advanced / Enterprise / Enterprise+ (was bij lancering Advanced+; sinds 20-04-2026 ook Starter) | asana.com/pricing, 25-07-2026; forum 1137286 |
 | **AI Teammates** | prijs op aanvraag | Starter en hoger | asana.com/pricing |
 | **Compliance Management** | prijs op aanvraag | Enterprise | asana.com/pricing |
 | **Permissions Management** | prijs op aanvraag | Enterprise | asana.com/pricing |
@@ -284,13 +286,12 @@ Op het forum klagen meerdere klanten (Ed Faris, Tim Bowen, Ben — december 2025
 | Gemiddelde/mediane contractwaarde | **$42.000 per jaar** |
 | Bandbreedte | $7.497 – $142.800 per jaar |
 | Gemiddelde korting op lijstprijs | **14,84%** |
-| 50 gebruikers (Advanced) | $20–24 p/gebruiker/maand (~$12.000–14.400/jaar) |
-| 100 gebruikers (Advanced) | $18–22 p/gebruiker/maand (~$21.600–26.400/jaar) |
-| 500+ gebruikers (Enterprise, meerjarig) | $22–28 p/gebruiker/maand (~$132.000–168.000/jaar) |
-| Volumekorting bij 100+ gebruikers | 15–25% onder lijstprijs |
-| Meerjarige verbintenis | 20–30% lagere prijs per gebruiker |
-| Timing rond fiscaal jaareinde (Q4) | extra 5–15% korting |
-| Aantoonbare concurrerende evaluatie | 15–25% betere prijs |
+| Starter, 20–100 gebruikers | $8–11 p/gebruiker/maand (lijst $10,99) |
+| Advanced, 100–500 gebruikers | $18–24 p/gebruiker/maand (lijst $24,99) |
+| Enterprise, 500–2.000 gebruikers | $22–32 p/gebruiker/maand (custom-basis $30–40+) |
+| Volumekorting + meerjarige verbintenis | in de praktijk 20–35% onder lijstprijs |
+
+*(Gecorrigeerd 25-07-2026: een eerdere versie van dit profiel gaf staffels per 50/100/500 gebruikers met bedragen van $20–24 / $18–22 / $22–28. Die indeling staat niet in de Vendr-gids; hierboven staan de staffels zoals Vendr ze werkelijk publiceert. Ook de kortingsregels "5–15% bij Q4-timing" en "15–25% bij concurrerende evaluatie" waren niet als aparte percentages terug te vinden en zijn samengevoegd tot de wél gepubliceerde 20–35%.)*
 
 **Opmerkelijk:** de Enterprise-tier ligt in de praktijk **hoger** per gebruiker dan Advanced-lijstprijs bij kleinere volumes — Enterprise is een feature-uitbreiding (SSO/SCIM/capacity planning), geen kortingstier.
 
@@ -309,9 +310,9 @@ Ter vergelijking [SCHATTING, ordegrootte]: één Primavera P6 Professional-licen
 
 1. **Uitzonderlijk lage adoptiedrempel en hoge gebruikerstevredenheid.** Software Advice: **4,5/5 over 13.616 geverifieerde reviews** (8.094 × 5 sterren, slechts 233 reviews van 1–2 sterren); ease-of-use 4,4/5; value for money 4,4/5. PeerSpot: 4,1/5 over 57 reviews met **87% aanbevelingsbereidheid**. Voor een tool die door niet-planners gebruikt moet worden, is dat een reëel en zwaarwegend voordeel — een perfect P6-schema dat niemand bijwerkt is waardeloos.
 
-2. **Vier afhankelijkheidstypen aanwezig (FS/SS/FF/SF) sinds 28 juni 2024.** Daarmee is Asana verder dan de meeste werkbeheertools (Trello, Notion, basis-Monday) die alleen FS of helemaal geen typen kennen. Dat het gedrag rammelt (zie nadelen) neemt niet weg dat de datamodellering er is.
+2. **Vier afhankelijkheidstypen aanwezig (FS/SS/FF/SF) sinds medio 2024** (bevestigd via het Help Center; uiterlijk augustus 2024 uitgerold). Daarmee is Asana verder dan de meeste werkbeheertools (Trello, Notion, basis-Monday) die alleen FS of helemaal geen typen kennen. Dat het gedrag rammelt (zie nadelen) neemt niet weg dat de datamodellering er is.
 
-3. **Sterke portfolio-laag met echte doorrekening naar strategie.** Portfolio's tot **1.500 projecten**, geneste rapportagevelden, Goals/OKR's die aan projecten en taken gekoppeld worden. Gartner gaf Asana de **hoogste score van alle geëvalueerde leveranciers voor de OKR-managementusecase: 4,63/5** (Magic Quadrant Collaborative Work Management, 28 oktober 2025). Voor programmaportfolio-overzicht op directieniveau is dit een van de betere producten in de markt.
+3. **Sterke portfolio-laag met echte doorrekening naar strategie.** Portfolio's tot **1.500 projecten**, geneste rapportagevelden, Goals/OKR's die aan projecten en taken gekoppeld worden. Gartner gaf Asana de **hoogste score van alle geëvalueerde leveranciers voor de OKR-managementusecase: 4,63/5** (Magic Quadrant Collaborative Work Management, 30 oktober 2025). Voor programmaportfolio-overzicht op directieniveau is dit een van de betere producten in de markt.
 
 4. **Automatiseringsmotor die serieus is.** 50 regels per project/portfolio, 100 componenten per regel, 25 vertakkingen, 20 condities per tak, 20 triggers en 20 acties per regel — plus formulevelden (2 ketenlagen, 10 formulevelden als input). Dit is workflow-automatisering op het niveau van een low-code platform, niet een speeltje. Voor herhalende procesplanning (onboarding, campagnes, releasetreinen) verslaat dit klassieke CPM-tools ruimschoots.
 
@@ -319,7 +320,7 @@ Ter vergelijking [SCHATTING, ordegrootte]: één Primavera P6 Professional-licen
 
 6. **Breed integratielandschap in de kenniswerk-stack.** 100+ gratis integraties zelfs op de gratis tier; Slack, Microsoft Teams, Google Drive, Salesforce, ServiceNow, GitHub, Jira, Azure DevOps, HubSpot; Tableau en Power BI-connectoren (Advanced+). Asana past in de gereedschapskist van een moderne organisatie zonder maatwerk.
 
-7. **Analistenerkenning en enterprise-geloofwaardigheid.** Leader in de **Gartner Magic Quadrant Collaborative Work Management 2025** (derde jaar op rij, gepubliceerd 28 oktober 2025) en Leader in **The Forrester Wave: Collaborative Work Management Tools, Q2 2025** met de hoogst mogelijke scores op negen criteria waaronder Innovation, Roadmap en Enterprise Work Management. Sinds **24 juni 2026 FedRAMP Moderate** voor Asana Gov.
+7. **Analistenerkenning en enterprise-geloofwaardigheid.** Leader in de **Gartner Magic Quadrant Collaborative Work Management 2025** (derde jaar op rij, gepubliceerd 30 oktober 2025) en Leader in **The Forrester Wave: Collaborative Work Management Tools, Q2 2025** met de hoogst mogelijke scores op negen criteria waaronder Innovation, Roadmap en Enterprise Work Management. Sinds **24 juni 2026 FedRAMP Moderate** voor Asana Gov — **datum niet onafhankelijk geverifieerd**, zie §Verificatie.
 
 8. **Transparante, publieke lijstprijs met zelfbediening.** Geen verplicht verkoopgesprek voor Starter of Advanced; je kunt met 2 seats beginnen en groeien. In een markt waar Primavera, Powerproject en Workfront allemaal "neem contact op" zijn, is de zichtbare $10,99/$24,99 een reëel voordeel voor kleine organisaties.
 
@@ -331,7 +332,7 @@ Ter vergelijking [SCHATTING, ordegrootte]: één Primavera P6 Professional-licen
 
 ## 5. NADELEN
 
-1. **Het "kritieke pad" is aantoonbaar onjuist.** Asana licht de langste dependency-keten op en negeert float volledig. Twee onafhankelijke gebruikers documenteren met reproduceerbare voorbeelden dat Asana het verkeerde pad kiest (forum 479444, sept 2023 en juli 2024: *"plainly wrong and misleading"*). Asana's officiële reactie (30 april 2024) was een ticket bij het productteam; per september 2025 nog steeds `considered`. **Een fout kritiek pad is erger dan geen kritiek pad** — het geeft schijnzekerheid bij precies de beslissingen waar het om gaat.
+1. **Het "kritieke pad" is aantoonbaar onjuist.** Asana licht de langste dependency-keten op en negeert float volledig. Meerdere onafhankelijke gebruikers documenteren met reproduceerbare voorbeelden dat Asana het verkeerde pad kiest (forum 479444, vanaf sept 2023); de kritiek is expliciet dat de implementatie het doel van het kritieke pad mist — *"the purpose of critical path in project management is to be aware of the path that can't afford any delays"*. Asana's officiële reactie (30 april 2024) was een ticket bij het productteam; per september 2025 nog steeds `considered`. **Een fout kritiek pad is erger dan geen kritiek pad** — het geeft schijnzekerheid bij precies de beslissingen waar het om gaat.
 
 2. **Geen duur-gedreven planning: datums zijn invoer, niet uitvoer.** Je kunt niet "10 werkdagen" invoeren en Asana de datums laten uitrekenen. Dit staat sinds april 2018 open (thread 20537, 94 posts) en werd in 2026 nog steeds gevraagd. Een MS Project-migrant (thread 1127584): *"My project plans have thousands of tasks... I am accustomed to creating due dates from number of days."* Zonder duur-driver is elke vertraging handwerk.
 
@@ -345,7 +346,7 @@ Ter vergelijking [SCHATTING, ordegrootte]: één Primavera P6 Professional-licen
 
 7. **Workload rekent onbetrouwbaar en is niet levelbaar.** Uren worden gelijkmatig over het datumbereik gesmeerd (84004); 30-minutentaken ronden af naar een uur (434658); geplande uren tonen soms hetzelfde bedrag voor alle teamleden ongeacht ingevoerde effort (756815); de rode overbezettingsindicator gaat niet altijd af (415168); **out-of-office verlaagt de capaciteit niet** (1143806, 2026). Er is **geen automatische resource-leveling**. Bovendien harde limieten: 300 taken per persoon, 200 personen per workload-tab.
 
-8. **Prijs-/functiestapeling straft planningsgebruik af.** Timeline/Gantt vergt Starter ($10,99), maar Workload en portfolio's vergen **Advanced ($24,99 — 2,3× zoveel)**, universal workload en capacity planning vergen **Enterprise**, en kosten/urenstaten vergen een **extra add-on van $5,99** die alleen bij een Advanced+ jaarcontract te koop is. Software Advice noemt prijs de **belangrijkste klacht**: *"premium features like Timeline view and advanced reporting requiring costly upgrades for larger teams."* Bovendien wordt in blokken van 5/10/25/50 seats verkocht, dus je betaalt structureel voor ongebruikte plaatsen.
+8. **Prijs-/functiestapeling straft planningsgebruik af.** Timeline/Gantt vergt Starter ($10,99), maar Workload en portfolio's vergen **Advanced ($24,99 — 2,3× zoveel)**, universal workload en capacity planning vergen **Enterprise**, en kosten/urenstaten vergen een **extra add-on van $5,99** bovenop het planabonnement (sinds april 2026 wel al vanaf Starter verkrijgbaar). Software Advice noemt prijs de **belangrijkste klacht**: *"premium features like Timeline view and advanced reporting requiring costly upgrades for larger teams."* Bovendien wordt in blokken van 5/10/25/50 seats verkocht, dus je betaalt structureel voor ongebruikte plaatsen.
 
 9. **De gratis tier is uitgehold van 15 → 10 → 2 gebruikers.** Wat ooit een bruikbaar teamplan was, is nu een demo. Voor kleine aannemers, ZZP-collectieven of pilots is Asana daarmee vanaf dag één een betaald product.
 
@@ -435,14 +436,14 @@ Voor Open Planner Studio (IFC 4.3 als native formaat, `IfcWorkSchedule` / `IfcTa
 
 ### Waar Asana sterk staat en waarom
 
-Asana is **Leader in de Gartner Magic Quadrant for Collaborative Work Management 2025** (derde jaar op rij, gepubliceerd 28 oktober 2025) en **Leader in The Forrester Wave: Collaborative Work Management Tools, Q2 2025**, met de hoogst mogelijke scores op negen criteria waaronder Innovation, Roadmap en Enterprise Work Management.
+Asana is **Leader in de Gartner Magic Quadrant for Collaborative Work Management 2025** (derde jaar op rij, gepubliceerd 30 oktober 2025) en **Leader in The Forrester Wave: Collaborative Work Management Tools, Q2 2025**, met de hoogst mogelijke scores op negen criteria waaronder Innovation, Roadmap en Enterprise Work Management.
 
 **Let goed op de categorie.** Dit is *Collaborative Work Management* — niet *Adaptive Project Management and Reporting* en zeker niet *Construction Project Management*. Asana wint in de categorie "hoe krijgen honderden kenniswerkers hun werk zichtbaar en op elkaar afgestemd", niet in "hoe verdedig ik een contractueel schema bij een claim". Dat verschil verklaart alle bevindingen in dit profiel.
 
 **Sterke punten in de markt:**
 - Strategische alignering: portfolio's + Goals/OKR's + Work Graph. Gartner gaf Asana de **hoogste score voor de OKR-usecase (4,63/5)** van alle geëvalueerde leveranciers.
 - Enterprise-brede uitrol bij niet-technische populaties: lage trainingslast, hoge tevredenheid (4,5/5 over 13.616 reviews op Software Advice).
-- Amerikaanse publieke sector sinds FedRAMP Moderate (24 juni 2026).
+- Amerikaanse publieke sector sinds FedRAMP Moderate (24 juni 2026 — ongeverifieerd).
 
 ### Belangrijkste concurrenten
 
@@ -507,7 +508,7 @@ De aantoonbaar foute kritieke-padberekening is het zwaarste bezwaar. Asana is er
 3. [Asana — over het bedrijf](https://asana.com/company) — geraadpleegd 25 juli 2026 (13 kantoren, Work Graph)
 4. [Asana app-directory](https://asana.com/apps) — geraadpleegd 25 juli 2026 (integratiecategorieën; géén bouw/BIM/Primavera/MS Project)
 5. [Asana press/newsroom](https://asana.com/press) — geraadpleegd 25 juli 2026 (AI-pivot, StackAI-berichtgeving)
-6. [Asana Leader in Gartner MQ Collaborative Work Management 2025](https://asana.com/inside-asana/leader-in-2025-gartner-magic-quadrant-collaborative-work-management-report) — gepubliceerd 28/30 oktober 2025
+6. [Asana Leader in Gartner MQ Collaborative Work Management 2025](https://asana.com/inside-asana/leader-in-2025-gartner-magic-quadrant-collaborative-work-management-report) — gepubliceerd 30 oktober 2025
 7. [Asana Leader in Forrester Wave CWM Q2 2025](https://asana.com/inside-asana/leader-in-the-forrester-wave-collaborative-work-management-tools-2025) — gepubliceerd 13 november 2025
 
 **Leverancier — technische documentatie**
@@ -534,7 +535,8 @@ De aantoonbaar foute kritieke-padberekening is het zwaarste bezwaar. Asana is er
 **Asana Community Forum (vakforum — primaire bron voor tekortkomingen)**
 20. [Thread 236641 — "List of technical and data limitations in Asana"](https://forum.asana.com/t/236641) — gestart 23 oktober 2022, bijgewerkt t/m 16 juli 2026 (alle harde limieten)
 21. [Thread 479444 — "Improve critical path"](https://forum.asana.com/t/479444) — 39 posts, tag `considered`; foutbewijs sept 2023 en juli 2024; Asana-reactie 30 april 2024
-22. [Thread 99691 — "Increase Task Dependency Options"](https://forum.asana.com/t/99691) — Emily Roman, 28 juni 2024: lancering SS/FF/SF
+22. [Thread 99691 — "Increase Task Dependency Options"](https://forum.asana.com/t/99691) — feature request vanaf november 2020; **bevat géén lanceringsaankondiging** (gecontroleerd 25-07-2026)
+22b. [Help Center — How to use task dependencies](https://help.asana.com/s/article/how-to-use-task-dependencies) — bevestigt FS/FF/SS/SF als ondersteunde typen
 23. [Thread 885797 — "Mastering Advanced Task Dependencies in Asana"](https://forum.asana.com/t/885797) — Christine Bolton, 12 augustus 2024; lag-time afgewezen; SS/FF-bugs
 24. [Thread 94528 — "Adding Set Date Ranges to Dependencies"](https://forum.asana.com/t/94528) — gesloten 27 april 2022; *"No you can't"*; Flowsana als workaround
 25. [Thread 215172 — "Introducing a new option to shift dependent tasks in your Timeline"](https://forum.asana.com/t/215172) — 2 januari 2023; weekendondersteuning 27 januari 2023; beperkingen
@@ -556,3 +558,41 @@ De aantoonbaar foute kritieke-padberekening is het zwaarste bezwaar. Asana is er
 ---
 
 *Opgesteld 25 juli 2026. Alle bedragen in USD tenzij anders vermeld. Berekende en geschatte waarden zijn in de tekst gemarkeerd met [berekend] respectievelijk [SCHATTING].*
+
+---
+
+## Verificatie
+
+**Adversariële fact-check uitgevoerd 25 juli 2026.** Werkwijze: van elke bewering is actief geprobeerd haar te *weerleggen* met een onafhankelijke of primaire bron (asana.com/pricing, developers.asana.com, help.asana.com, investors.asana.com, stockanalysis.com, vendr.com, Wikipedia, Asana Community Forum). Beweringen die niet hard te maken waren, zijn als **onzeker** gemarkeerd in plaats van stil te blijven staan.
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Lijstprijzen Starter $10,99 jaarlijks / $13,49 maandelijks; Advanced $24,99 / $30,49; Enterprise(+) op aanvraag; "save up to 18%" bij jaarfacturering | **bevestigd** — twee onafhankelijke ophalingen van de prijspagina geven exact deze bedragen; 1 − 10,99/13,49 = 18,5% en 1 − 24,99/30,49 = 18,0%, dus "tot 18%" klopt rekenkundig | https://asana.com/pricing |
+| 2 | Gratis Personal-tier beperkt tot **2 gebruikers**; historisch 15 (Basic) → 10 (Personal, dec 2023) → 2 | **bevestigd** — prijspagina citeert letterlijk *"Up to 2 users can collaborate for free"*; Richard Sather, 11-12-2023: *"The maximum amount of users on a Basic plan was 15, but on the Personal tier it is now down to 10."* | https://asana.com/pricing · https://forum.asana.com/t/631260 |
+| 3 | Geen absoluut seat-minimum, maar verkoop in blokken: 1 (2–5 gebruikers), 5 (tot 30), 10 (tot 100), 25 (tot 500), 50 (500+) | **bevestigd** — staffels exact zoals op de prijspagina | https://asana.com/pricing |
+| 4 | Timesheets & Budgets $5,99 p/gebruiker/maand jaarlijks, **uitsluitend op Advanced/Enterprise(+) met jaarcontract** | **gecorrigeerd** — de prijs ($5,99, "billed annually") klopt, maar de plan-beperking niet: prijspagina én forumaankondiging noemen **Starter, Advanced, Enterprise en Enterprise+**. De Advanced+-beperking gold bij de lancering (nov 2025) en verviel bij de self-service-uitrol van **20 april 2026**. Een expliciete *jaarcontract*-eis is nergens gedocumenteerd; alleen de prijs is jaarlijks gefactureerd. §2.4, §3 en nadeel 8 aangepast | https://asana.com/pricing · https://forum.asana.com/t/1137286 |
+| 5 | Timeline/Gantt vereist Starter; Workload, portfolio's en Goals vereisen Advanced; universal workload en capacity planning vereisen Enterprise | **bevestigd** — featurematrix op de prijspagina bevestigt Gantt vanaf Starter en Portfolios/Goals/Workload vanaf Advanced | https://asana.com/pricing |
+| 6 | Vendr: gemiddeld/mediaan contract $42.000/jaar; bandbreedte $7.497–$142.800; gemiddelde korting 14,84%; 455–481 deals; dataset t/m februari 2026 | **bevestigd** (kerncijfers) | https://www.vendr.com/buyer-guides/asana |
+| 7 | Vendr-staffels: 50 gebruikers Advanced $20–24; 100 gebruikers $18–22; 500+ Enterprise meerjarig $22–28; Q4-timing +5–15% korting; concurrerende evaluatie +15–25% | **gecorrigeerd** — deze indeling staat niet in de gids. Vendr publiceert: Starter 20–100 gebruikers **$8–11**; Advanced 100–500 gebruikers **$18–24**; Enterprise 500–2.000 gebruikers **$22–32** (custom-basis $30–40+); volume + meerjarig samen **20–35%** onder lijst. Tabel in §3 vervangen | https://www.vendr.com/buyer-guides/asana |
+| 8 | Rekenvoorbeeld: 25 gebruikers Advanced + Timesheets ≈ $9.294/jaar lijstprijs | **bevestigd** — 25 × $299,88 = $7.497 en 25 × $71,88 = $1.797, samen $9.294. Rekenkundig juist bij de geverifieerde lijstprijzen | eigen herberekening op geverifieerde prijzen |
+| 9 | Asana heeft geen echte CPM-engine: "critical path" is een langste-ketenheuristiek die float negeert en aantoonbaar het verkeerde pad kiest | **bevestigd** — thread 479444 documenteert onjuiste padkeuze, negeren van float en strijdigheid met de standaarddefinitie (ISO 21500); officiële reactie Emily Roman 30-04-2024 (*"I'll create a task to our product team to investigate further"*), status nog steeds `considered` | https://forum.asana.com/t/479444 |
+| 10 | Citaat `@Jan-Rienk` (31 juli 2024): kritiek pad **"plainly wrong and misleading"** | **gecorrigeerd** — deze formulering en datum zijn bij herlezing niet teruggevonden. Wél geverifieerd van dezelfde auteur: *"the purpose of critical path in project management is to be aware of the path that can't afford any delays"* en *"Using the critical path in this instance would work to delay the project rather than ensure it is completed on time."* Citaat vervangen in §2.1 en nadeel 1 | https://forum.asana.com/t/479444 |
+| 11 | Vier afhankelijkheidstypen (FS/SS/FF/SF) gelanceerd op **28 juni 2024** door Emily Roman in thread 99691, met letterlijk citaat | **gecorrigeerd** — dát de vier types bestaan is bevestigd door het Help Center (*"Finish-to-Start, Finish-to-Finish, Start-to-Start, and Start-to-Finish"*). Maar thread 99691 bevat géén lanceringsaankondiging: het is een feature request uit november 2020 die t/m eind 2022 nog om die types vraagt. Het citaat en de datum 28-06-2024 zijn niet verifieerbaar. Hardste datering is nu "uiterlijk augustus 2024" (introductiethread 885797, Christine Bolton, 12-08-2024). §2.2, voordeel 2 en bronnenlijst aangepast | https://help.asana.com/s/article/how-to-use-task-dependencies · https://forum.asana.com/t/99691 · https://forum.asana.com/t/885797 |
+| 12 | Geen lag/lead time; SS-bugs (gedraagt zich als FF, valse rode conflictmarkering) | **bevestigd** — Christine Bolton (Asana) op de lag-vraag: *"At this time, Asana does not release their product roadmap. I searched in the Forum for a found this product feedback request that you can upvote!"* — geen toezegging. Holly Day (21-08-2024) bevestigt het SS-blokkeergedrag; de valse rode conflictmarkering staat in de thread | https://forum.asana.com/t/885797 |
+| 13 | Harde limieten: kritiek pad stopt boven 2.000 taken met einddatum; 30–45 afhankelijkheden per taak; 5 subtaakniveaus; 50 subtaken in Timeline; 300 taken p.p. in Workload; 1.500 projecten per portfolio; multi-homing 20; CSV-import 2.000 rijen/kolommen; CSV-export 140.000 resp. 5.000 rijen; 150 custom fields; 50 regels | **bevestigd** — alle genoemde waarden komen exact overeen met de limietenlijst (bijgewerkt t/m juli 2026) | https://forum.asana.com/t/236641 |
+| 14 | API: 150 rpm gratis / 1.500 rpm betaald; 50 gelijktijdige GET, 15 schrijf; Search 60 rpm; 5 gelijktijdige export-/duplicatiejobs; kostengebaseerde limiet; 429 met `Retry-After` | **bevestigd** — alle waarden exact | https://developers.asana.com/docs/rate-limits |
+| 15 | Financieel: FY2026-omzet $790,8 mln (+9%); Q1 FY27 $205,1 mln (+9,5%); 26.103 core-klanten (+7%); 817 klanten ≥$100k (+12%); DBNRR 96%/97%/96%; guidance FY27 $855,5–863,5 mln | **bevestigd** — alle cijfers exact zoals in het IR-persbericht van 28 mei 2026 (guidance bevat ca. 50 bp van StackAI) | https://investors.asana.com/news-releases/news-release-details/asana-announces-first-quarter-fiscal-2027-results/ |
+| 16 | Beurs: koers $6,86, marktkap $1,58 mrd, nettoverlies FY26 −$189,0 mln, 1.767 medewerkers, consensus "Hold" met koersdoel $9,13 (15 analisten) | **bevestigd** — alle waarden exact per 24-07-2026. Kanttekening: de **−55,6% op jaarbasis** is niet als zodanig op de bron te lezen; wel een 52-weeksbereik van $5,38–$15,71, wat een daling van die orde plausibel maakt | https://stockanalysis.com/stocks/asan/ |
+| 17 | Bedrijf: opgericht 16-12-2008; directe notering NYSE sept 2020 bij ca. $5,5 mrd; Dan Rogers CEO sinds 21-07-2025; Moskovitz ca. 53% van de stemrechten; StackAI overgenomen mei 2026 voor $75 mln | **bevestigd** — alle punten. Kanttekening: Wikipedia noemt bij Rogers ook Rubrik naast ServiceNow en LaunchDarkly | https://en.wikipedia.org/wiki/Asana_(software) |
+| 18 | Software Advice: 4,5/5 over 13.616 reviews; 8.094 × 5 sterren; 233 reviews van 1–2 sterren; ease-of-use 4,4; value for money 4,4; prijs als hoofdklacht | **bevestigd** — exacte verdeling 8.094 / 4.370 / 919 / 131 / 102; 131 + 102 = 233 klopt. Prijs en notificatiemoeheid staan als hoofdklachten genoemd | https://www.softwareadvice.com/project-management/asana-profile/reviews/ |
+| 19 | Gartner MQ Collaborative Work Management: Leader, derde jaar op rij; hoogste score van alle leveranciers voor de OKR-usecase (4,63/5) | **bevestigd**, met datumcorrectie: de publicatie is van **30 oktober 2025**, niet 28 oktober. Overal in het document aangepast | https://asana.com/inside-asana/leader-in-2025-gartner-magic-quadrant-collaborative-work-management-report |
+| 20 | Geen enkele bouw-/BIM-/engineering-integratie in de app-directory (geen Procore, Autodesk, Revit, Navisworks, Bentley, Primavera, MS Project) | **bevestigd** — geen van deze namen komt voor; de veertien categorieën zijn uitsluitend kenniswerk-georiënteerd | https://asana.com/apps |
+| 21 | FedRAMP Moderate voor Asana Gov sinds **24 juni 2026** | **onzeker** — niet te verifiëren: asana.com/press en /press/releases leverden geen bijbehorend persbericht op en de FedRAMP Marketplace is JS-gerenderd en niet machinaal leesbaar. De claim is in §1, voordeel 7 en §7 als ongeverifieerd gemarkeerd | — |
+| 22 | **[SCHATTING]** 3,0–3,7 miljoen betaalde seats wereldwijd, afgeleid uit $790,8 mln ÷ $18–22 p/gebruiker/maand | **onzeker (maar rekenkundig consistent)** — $790,8 mln ÷ $264/jaar = 3,00 mln en ÷ $216/jaar = 3,66 mln, dus de afleiding klopt intern. De ingaande aanname (gemiddeld $18–22) is echter zelf een schatting en Asana publiceert geen seat-aantal. Blijft terecht als [SCHATTING] gemarkeerd; niet als feit gebruiken | eigen herberekening |
+
+### Samenvattend
+
+- **Bevestigd:** 16 van 22 beweringen, waaronder alle lijstprijzen, seat-staffels, harde product- en API-limieten, de volledige financiële set en de onjuistheid van het kritieke pad. De harde kern van het profiel — Asana is geen CPM-tool — houdt volledig stand.
+- **Gecorrigeerd:** 4 beweringen. Eén materieel (Timesheets & Budgets is niet Advanced-only maar vanaf Starter beschikbaar), één significant (de Vendr-staffels waren verzonnen banden), twee betreffen niet-verifieerbare citaten/datering (kritiek-padcitaat, lanceerdatum afhankelijkheidstypen).
+- **Onzeker:** 2 beweringen (FedRAMP-datum; geschat aantal betaalde seats).
+- **Patroon om op te letten:** de fouten zitten niet in de cijfers die uit een tabel komen, maar in **verbatim citaten met precieze datums** en in **fijnmazige staffels** die net iets specifieker zijn dan de bron toelaat. Twee van de vier correcties zijn van dat type; behandel losse citaat-plus-datum-combinaties in dit profiel met terughoudendheid tenzij ze hierboven expliciet bevestigd zijn.

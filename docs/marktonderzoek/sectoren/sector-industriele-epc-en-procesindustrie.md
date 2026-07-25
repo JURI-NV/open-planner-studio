@@ -29,7 +29,7 @@ De jaarlijkse investeringsstroom die deze planningsvraag voedt:
 
 - Wereldwijde energie-investeringen 2025: **USD 3,3 biljoen** ([IEA via S&P Global](https://www.spglobal.com/energy/en/news-research/latest-news/energy-transition/060525-energy-investment-to-hit-record-33-trillion-in-2025-as-oil-capex-falls-iea)).
 - Upstream olie & gas 2025: **net onder USD 570 miljard**, circa 4% lager dan 2024 ([IEA, *World Energy Investment 2025*, executive summary](https://www.iea.org/reports/world-energy-investment-2025/executive-summary)).
-- Investering in olieproductie 2025: **USD 535 miljard**, tegen USD 599 miljard in 2024 (–6%) ([Energy Voice](https://www.energyvoice.com/oilandgas/573822/iea-predicts-6-drop-in-upstream-oil-investment-in-2025/)).
+- Investering in olieproductie 2025: **USD 535 miljard**, tegen USD 599 miljard in 2024 (–6%) ([Energy Voice](https://www.energyvoice.com/oilandgas/573822/iea-predicts-6-drop-in-upstream-oil-investment-in-2025/)). **[VERIFICATIE — REKENFOUT/INCONSISTENT]** USD 599 mrd → USD 535 mrd is **–10,7%**, niet –6%. Óf de percentages óf de bedragen horen bij verschillende scopes (IEA rapporteert "–6%" voor *olieproductie-investering*, terwijl USD 599 mrd een bredere olie-aggregatie kan zijn). Zowel iea.org als energyvoice.com gaven bij hercontrole HTTP 403; het cijfertrio is niet te reconstrueren. Behandel als **onzeker**.
 - Fossiele brandstoffen totaal (olie, gas, kolen) 2025: **USD 1,1 biljoen** ([Energy Voice](https://www.energyvoice.com/oilandgas/573822/iea-predicts-6-drop-in-upstream-oil-investment-in-2025/)).
 - Gecombineerde internationale omzet van de ENR Top 250 International Contractors: **USD 499,7 miljard**, het hoogste niveau sinds 2015 ([ENR Global Review, december 2024, PDF](https://www.ayesa.com/wp-content/uploads/2025/01/ENR12232024_Global_R1_compressed.pdf)).
 
@@ -69,7 +69,7 @@ Wat deze sector onderscheidt van gebouwbouw:
 
 Planning is in deze sector een **contractueel deliverable**, geen intern hulpmiddel. Dat is het scherpste verschil met vrijwel elke andere sector.
 
-- Opdrachtgevers schrijven het schemaniveau, de codering, de updatefrequentie en het bestandsformaat voor. Saudi Aramco doet dat via **SAEP-331**, dat zeven schemaniveaus definieert van Business Plan Project Schedules tot gedetailleerde Level IV Project Control Schedules, met Primavera P6 als platform ([samenvatting via Kazinex](https://docs.kazinex.com/blog/aramco-saep-schedule-quality-check); [SAEP-331 documentkopie](https://www.scribd.com/document/698960445/SAEP-331)).
+- Opdrachtgevers schrijven het schemaniveau, de codering, de updatefrequentie en het bestandsformaat voor. Saudi Aramco doet dat via **SAEP-331**, dat zeven schemaniveaus definieert van Business Plan Project Schedules tot gedetailleerde Level IV Project Control Schedules, met Primavera P6 als platform ([samenvatting via Kazinex](https://docs.kazinex.com/blog/aramco-saep-schedule-quality-check); [SAEP-331 documentkopie](https://www.scribd.com/document/698960445/SAEP-331)). **[VERIFICATIE — ONZEKER]** De Kazinex-pagina bevat bij hercontrole géén beschrijving van zeven schemaniveaus en géén uitspraak dat SAEP-331 Primavera P6 voorschrijft; ze zegt alleen dat "Aramco's SAEP-series and equivalents at other owners specify how programmes are structured, coded, and progressed". De Scribd-kopie is niet machinaal verifieerbaar. Het *bestaan* van owner-schemaspecificaties is solide; de specifieke inhoud van SAEP-331 (zeven niveaus, P6 verplicht) is **niet met een toegankelijke bron gestaafd** en draagt elders in dit rapport wel gewicht (§7.2, §7.4).
 - Voortgangsbetaling is aan het schema gekoppeld: progress measurement via rules-of-credit per activiteit, geverifieerd door de opdrachtgever, bepaalt de maandelijkse factuur.
 - Extension-of-Time-claims (EOT) worden uitsluitend erkend als ze met CPM-analyse op het geaccepteerde schema zijn onderbouwd (zie §5).
 
@@ -80,7 +80,7 @@ Dit is de reden waarom de betalingsbereidheid in deze sector zo hoog is.
 - **Liquidated damages:** typische boeteclausules in EPC-contracten liggen tussen **USD 50.000 en USD 500.000 per dag** ([Giga Energy, *How to avoid liquidated damages: Key insights for EPCs*](https://www.gigaenergy.com/blog/avoid-liquidated-damages)). Bij een LNG-trein van USD 10 miljard is een LD-cap van 10% van de contractwaarde niet ongebruikelijk — dat is USD 1 miljard aan risico dat op het schema hangt.
 - **Gederfde omzet:** een LNG-trein van 5 MTPA die drie maanden later opstart, produceert drie maanden niet. Bij USD 10/MMBtu is dat orde USD 300+ miljoen aan cashflow-uitstel.
 - **Waardevernietiging op assetniveau:** volgens onderzoek aangehaald door EY zagen projecten die de geplande productieniveaus niet binnen budget en schema haalden hun netto-assetwaarde (NAV) **met 12% tot 65% dalen**, afhankelijk van rendementseisen, projectlevensduur, kapitaalintensiteit en fiscaal regime ([EY](https://aegex.com/images/uploads/white_papers/EY-spotlight-on-oil-and-gas-megaprojects.pdf), verwijzend naar UBS 2013).
-- **Disputen:** de gemiddelde waarde van een bouwgeschil wereldwijd was **USD 42 miljoen** in de Arcadis Global Construction Disputes Report 2025; in Noord-Amerika **USD 60,1 miljoen** met een gemiddelde duur van **12,5 maanden** ([Arcadis 2025 via CMAA](https://www.cmaanet.org/sites/default/files/resource/State%20of%20Construction_0.pdf); [regionale cijfers via LinkedIn-samenvatting Arcadis](https://www.linkedin.com/posts/joe-seibold-602862b_the-2025-construction-disputes-report-has-activity-7348359836314517506-POxD)). Juridische en expertkosten alleen consumeren routinematig 10–15% van de betwiste contractwaarde ([idem](https://www.linkedin.com/posts/joe-seibold-602862b_the-2025-construction-disputes-report-has-activity-7348359836314517506-POxD)).
+- **Disputen:** de gemiddelde waarde van een bouwgeschil wereldwijd was **USD 42 miljoen** in de Arcadis Global Construction Disputes Report 2025; in Noord-Amerika **USD 60,1 miljoen** met een gemiddelde duur van **12,5 maanden** ([Arcadis 2025 via CMAA](https://www.cmaanet.org/sites/default/files/resource/State%20of%20Construction_0.pdf); [regionale cijfers via LinkedIn-samenvatting Arcadis](https://www.linkedin.com/posts/joe-seibold-602862b_the-2025-construction-disputes-report-has-activity-7348359836314517506-POxD)). **[VERIFICATIE — ONZEKER, BRON DEKT DE CIJFERS NIET]** De CMAA-PDF is lokaal volledig uitgelezen: het is een kwalitatief opinieartikel over de Arcadis 2025-editie en bevat **geen enkel bedrag** — niet USD 42 mln, niet USD 60,1 mln, niet 12,5 maanden. De Arcadis-hoofdpagina toont bij hercontrole nog de 2022-editie zonder deze cijfers; de LinkedIn-post is niet machinaal toegankelijk. De geschilbedragen zijn dus **niet geverifieerd** en worden verderop (§3.6.4, §7.2) als onderbouwing gebruikt. Juridische en expertkosten alleen consumeren routinematig 10–15% van de betwiste contractwaarde ([idem](https://www.linkedin.com/posts/joe-seibold-602862b_the-2025-construction-disputes-report-has-activity-7348359836314517506-POxD)).
 - Vertragingsschade is de **centrale claim in meer dan 70% van de beoordeelde EPC-arbitrages**, vaak met een waarde in de tientallen miljoenen ([Aegis PMC](https://www.aegispmc.com/delay-damages-in-construction-projects-a-practical-guide)).
 
 ### 1.6 De prestatiecijfers die dit alles rechtvaardigen
@@ -147,7 +147,7 @@ Deze laag bestaat *omdat* P6 er zelf niet in voorziet.
 - QSRA (Quantitative Schedule Risk Analysis) met P50/P80/P95-uitkomsten is standaardpraktijk vóór FID; de genoemde tools zijn Safran, P6 PRA en Acumen ([SOMA Project Controls glossarium](https://www.somaprojectcontrols.com/resources/glossary/qsra-quantitative-schedule-risk-analysis/)).
 - **ScheduleReader** — read-only XER/XML-viewer, expliciet gepositioneerd voor DCMA-14-analyse zonder P6-licentie ([ScheduleReader](https://schedulereader.com/dcma-14-point-assessment-project-schedule-quality-analysis/)).
 - **PlanXER** — nieuwe SaaS-XER-analyzer, letterlijk gepositioneerd tegen de kostenpijn van P6 (zie §7).
-- **nPlan** — ML-gebaseerde vertragingsvoorspelling, getraind op "more than 750,000 projects representing over USD 2,5 trillion of capital spend", USD 16 miljoen opgehaald ([Digital Construction Plus via zoekresultaat](https://digitalconstructionplus.com/); [nPlan](https://www.nplan.io)).
+- **nPlan** — ML-gebaseerde vertragingsvoorspelling, getraind op "more than 750,000 projects representing over USD 2,5 trillion of capital spend", USD 16 miljoen opgehaald ([Digital Construction Plus via zoekresultaat](https://digitalconstructionplus.com/); [nPlan](https://www.nplan.io)). **[VERIFICATIE — GECORRIGEERD]** De eigen site zegt bij hercontrole: *"a dataset of 750,000 historical schedules representing over **$2Tn** of construction spend"* plus *"$500bn of projects under active management"*. Dus **USD 2 biljoen, niet 2,5 biljoen**, en het gaat om *schedules*, niet *projects*. Het opgehaalde bedrag van USD 16 miljoen staat **nergens op de site** en is met de beschikbare bronnen niet te verifiëren — behandel als **onzeker** (nPlan haalde publiek gerapporteerd meer op dan USD 16 mln, dus het cijfer is vermoedelijk verouderd of onvolledig).
 
 #### Rang 4 — Aangrenzend, maar sectorspecifiek
 - **Cleopatra Enterprise** (Nederlands, Cost Engineering Consultancy) — total cost management voor procesindustrie: kostenramen, kostenbeheersing, turnaround management, expliciet voor "oil and gas, chemicals, energy, and industrial process construction" ([SaaSRat](https://saasrat.com/products/cleopatra-enterprise); [Cleopatra](https://cleopatraenterprise.com/cost-estimating-software/)).
@@ -317,7 +317,9 @@ Ik bouw de raming in vier stappen, met alle aannames expliciet.
 6sense telt **7.474 organisaties** die de Oracle Primavera Suite gebruiken ([6sense](https://6sense.com/tech/project-management/oracle-primavera-suite-market-share)). Bij een aangenomen gemiddelde van 25–40 named users per organisatie (kleine ingenieursbureaus met 3 seats tot EPC-reuzen met 2.000+) kom ik op **190.000–300.000 P6-seats wereldwijd, alle sectoren**. *Aanname met de meeste onzekerheid; 6sense telt domeinen, geen seats.*
 
 **Stap 2 — Aandeel industriële EPC/procesindustrie.**
-P6 is het sterkst in olie & gas, petrochemie, energie, mijnbouw en nucleair; zwakker in commerciële gebouwbouw (waar Procore/MS Project domineren) en IT. Ik neem **35–45%** van de P6-seats toe aan industriële EPC en procesindustrie → **70.000–135.000 seats**.
+P6 is het sterkst in olie & gas, petrochemie, energie, mijnbouw en nucleair; zwakker in commerciële gebouwbouw (waar Procore/MS Project domineren) en IT. Ik neem **35–45%** van de P6-seats toe aan industriële EPC en procesindustrie → **70.000–135.000 seats**. **[VERIFICATIE — KLEINE REKENFOUT]** 35% van 190.000 = **66.500**, niet 70.000; de correcte band is **66.500–135.000**. Effect op de uitkomst ≈ 5% aan de onderkant, dus niet materieel — maar het is een afronding omhóóg, niet neutraal.
+
+**[VERIFICATIE — FUNDAMENTELE BRONSPANNING, ONOPGELOST]** Stap 1 hangt volledig aan de 6sense-domeintelling van 7.474 organisaties (bevestigd: [6sense](https://6sense.com/tech/project-management/oracle-primavera-suite-market-share)). Maar §A2.1 van dit eigen rapport citeert Sumble, dat **66.785 organisaties** met Primavera P6 telt (bevestigd: [Sumble](https://sumble.com/tech/primavera-p6)) — een factor **8,9** verschil. Met dezelfde aanname van 25–40 named users per organisatie zou Sumble op **1,7–2,7 miljoen seats** uitkomen en zou de hele segmentraming een orde van grootte hoger liggen. Het rapport gebruikt de lage telling voor de omvang en de hoge telling voor de dominantieclaim, zonder de twee te verzoenen. Zolang dat niet gebeurt, is de seat-route **niet één van "drie convergerende routes" maar de zwakste schakel met een onopgeloste factor-9-onzekerheid**.
 
 **Stap 3 — Gerealiseerde prijs per seat per jaar.**
 Lijstprijs USD 1.320 (OPC Scheduling) tot USD 3.400 (P6 EPPM Cloud à £220/maand). Met gepubliceerde volumekortingen tot 25% ([G-Cloud 14](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2024-05-03-0915.pdf)) plus onderhandelde enterprisekorting, en met een aanzienlijk deel nog op geamortiseerde perpetual-licenties (USD 2.750 licentie + USD 605 support ≈ USD 1.155/jaar bij 5-jaars afschrijving) kom ik op een **gerealiseerd gemiddelde van USD 1.000–1.700 per seat per jaar**.
@@ -334,6 +336,8 @@ Lijstprijs USD 1.320 (OPC Scheduling) tot USD 3.400 (P6 EPPM Cloud à £220/maan
 | **Subtotaal licenties en abonnementen** | | **≈ USD 0,35–1,6 miljard** |
 | Implementatie-, integratie-, trainings- en managed-services rond deze software | 1,5–2,5× licentiewaarde | 0,5–4,0 miljard |
 | **Totaal segmentuitgaven** | | **≈ USD 1–5 miljard per jaar** |
+
+**[VERIFICATIE — REKENFOUT IN DE OPTELLING]** De regelsgewijze aritmetiek klopt (70+70+110+25+50 = 325 mln onderkant; 230+345+690+190+200 = 1.655 mln bovenkant), maar de twee eindregels zijn daarna *naar buiten toe afgerond in beide richtingen tegelijk*. Correct: subtotaal **USD 0,325–1,655 mrd** (afgerond 0,33–1,66, niet "0,35–1,6"), dienstenlaag 1,5 × 0,325 = 0,49 tot 2,5 × 1,655 = **4,14 mrd**, en totaal **USD 0,81–5,79 mrd** — niet "≈ USD 1–5 miljard". De gepubliceerde band is aan de onderkant ~23% te hoog en aan de bovenkant ~14% te laag. Lees: **USD 0,8–5,8 miljard**.
 
 **Centrale schatting: circa USD 2 tot 2,5 miljard per jaar (2025/2026) aan software plus directe diensten voor planning en project controls in industriële EPC en procesindustrie, waarvan circa USD 0,7 tot 1,0 miljard pure licentie-/abonnementsomzet.** De bandbreedte is breed en dat is eerlijk: geen enkele leverancier publiceert segmentomzet, Oracle rapporteert Construction & Engineering niet apart ([Oracle investor relations bevat geen segmentuitsplitsing hiervoor](https://investor.oracle.com/financials/default.aspx)), en InEight en Cleopatra zijn privaat.
 
@@ -538,7 +542,7 @@ DCMA-14 zit niet in de planningstool. De planner exporteert naar XER, laadt in A
 "I've been using Primavera P6 for years. And I'm done with it," aldus een Planning and Analytics Executive bij een contractor van USD 600 miljoen ([Bricks & Bytes](https://bricks-bytes.com/newsletter/the-death-of-p6-why-a-600m-contractor-is-ditching-traditional-scheduling-software/)). Er is een levendige markt voor alternatievenvergelijkingen ([SelectHub](https://www.selecthub.com/ppm-software/primavera-p6/alternatives/), [Planera](https://www.planera.io/post/primavera-p6-alternatives)) — een indicator van zoekgedrag, niet van massale overstap, maar wel van ontevredenheid.
 
 **F. AI-gedreven nieuwkomers vinden een gat, maar naast P6, niet in plaats van.**
-nPlan traint op meer dan 750.000 projecten met meer dan USD 2,5 biljoen aan kapitaaluitgaven en haalde USD 16 miljoen op ([nPlan](https://www.nplan.io), [Digital Construction Plus](https://digitalconstructionplus.com/)). Het bedrijfsmodel is: neem het bestaande P6-schema, voorspel er vertraging op. Dat bevestigt dat het XER-schema het onvermijdelijke integratiepunt is — en dat er waarde bovenop te bouwen valt.
+nPlan traint op meer dan 750.000 ~~projecten~~ *schema's* met meer dan USD ~~2,5~~ **2** biljoen aan bouwuitgaven ([nPlan](https://www.nplan.io) — gecorrigeerd bij verificatie; het bedrag van USD 16 mln opgehaald kapitaal is onbevestigd). Het bedrijfsmodel is: neem het bestaande P6-schema, voorspel er vertraging op. Dat bevestigt dat het XER-schema het onvermijdelijke integratiepunt is — en dat er waarde bovenop te bouwen valt.
 
 ### 7.2 Waar een open-source planner kán landen — en waar niet
 
@@ -713,3 +717,472 @@ De IFC-hoek werkt hier echter niet. Dat moet Open Planner Studio expliciet accep
 - **Marktrapporten van commerciële uitgevers** (EPC-marktomvang, "project controls software market") lopen 15–20% uiteen voor hetzelfde jaar en zijn als orde-van-grootte gebruikt, niet als precisiecijfer.
 
 **Onderzoeksbeperking:** het WebSearch-budget van deze sessie was uitgeput; al het onderzoek is uitgevoerd met directe WebFetch-aanroepen op leveranciers-, norm- en aanbestedingsdocumenten, aangevuld met een DuckDuckGo-lite-endpoint als zoekvervanger. PDF's zijn lokaal met pypdf uitgelezen waar de fetch-laag ze niet kon parsen (Oracle-prijslijst, G-Cloud-document, EY-rapport). Enkele bronnen (Find a Tender, ITQlick-detailpagina's, Mojeek) blokkeerden geautomatiseerde toegang; dat is per geval aangegeven.
+
+---
+---
+
+# ADDENDUM — tweede onderzoeksronde (25 juli 2026)
+
+> Dit addendum is een **tweede, onafhankelijke onderzoeksronde** op hetzelfde sectorafbakening. Het bevestigt de hoofdlijnen van het bovenstaande rapport en voegt materiaal toe dat in de eerste ronde ontbrak: gedetailleerde EY-uitsplitsingen, projectniveau-LNG-overschrijdingen uit 2026, firmografische adoptiedata per EPC-bedrijf, een Nordic case study, enterprise-prijsbenchmarks voor de kostenlaag, en een aantal correcties/nuances. Waar het addendum afwijkt van het hoofdrapport, staat dat expliciet vermeld. Nieuwe bronnen staan in de aanvullende bronnenlijst onderaan.
+
+## A1. Aanvullende cijfers bij §1 (wat de sector bijzonder maakt)
+
+### A1.1 EY-uitsplitsing per segment en regio
+
+Het hoofdrapport gebruikt de EY-kerncijfers (64% kostenoverschrijding, 73% vertraging). De volledige uitsplitsing uit hetzelfde document ([EY, *Spotlight on oil and gas megaprojects*](https://aegex.com/images/uploads/white_papers/EY-spotlight-on-oil-and-gas-megaprojects.pdf)):
+
+| Segment | % met kostenoverschrijding | % met vertraging |
+|---|---|---|
+| LNG | 67% | 79% (hoogste) |
+| Pijpleiding | 62% | 78% |
+| Raffinage | 65% | 70% |
+| Upstream | 68% | 69% |
+
+**[VERIFICATIE — GECORRIGEERD]** Ik heb de EY-PDF lokaal opnieuw uitgelezen en de subset-fontcodering van figuur 5 ontcijferd (geverifieerd tegen de bekende ankers: 365 projecten, 205 met kostendata, 242 met tijddata, IPA 78%/50%, 20 post-FID-projecten met 65%/23%). De gecodeerde reeks voor **kostenoverschrijding per segment is {62, 64, 65, 67}** — **68% komt in die rij niet voor**, en 64% ontbreekt in bovenstaande tabel. Dat strookt met §1.6 van het hoofdrapport, dat "62–67%" noemt; deze tabel spreekt het hoofdrapport dus tegen. De vertragingsrij extraheert als {50, 68, 78, 79} en de rij "gemiddelde budgetoverschrijding" als {41, 53, 69, 70} — de waarden **70% en 69%** in de kolom "% met vertraging" hierboven horen vrijwel zeker bij die laatste rij (LNG 70% gemiddelde budgetoverschrijding wordt onafhankelijk bevestigd door Public Citizen, die EY citeert). **De toewijzing per segment in deze tabel is niet betrouwbaar; alleen de bandbreedtes zijn dat.**
+
+| Regio | % kostenoverschrijding | % vertraging | Gem. budgetoverschrijding |
+|---|---|---|---|
+| Noord-Amerika | 58% | 55% | 51% |
+| Latijns-Amerika | 57% | 71% | **102%** |
+| Europa | 53% | 74% | 57% |
+| Afrika | 67% | 82% | 51% |
+| **Midden-Oosten** | **89%** | **87%** | 68% |
+| Azië-Pacific | 68% | 80% | 57% |
+
+Aanvullend uit hetzelfde document:
+- Voltooiingskosten liggen gemiddeld **59% boven de initiële raming**; cumulatief steeg de kostprijs van de 205 geanalyseerde projecten van **USD 1,2 biljoen naar USD 1,7 biljoen — USD 500 miljard extra**.
+- Verdeling van de post-FID-overschrijdingen (20 grootste projecten): 3 projecten 75–100% over, 1 project 50–75%, 4 projecten 25–50%, 5 projecten <25%, 7 op budget.
+- **IPA (2011):** 78% van de upstream-megaprojecten had kostenoverschrijding óf vertraging — een verslechtering ten opzichte van 2003, toen dat 50% was (EY, p.5, citerend Jefferies/IPA).
+- **Credit Suisse (OTC 2013), oorzaakverdeling:** **65%** van de projectmislukkingen door "softere" aspecten (mensen, organisatie, governance), **21%** door managementprocessen en contracting/procurementstrategie, **14%** door externe factoren (overheidsingrijpen, milieu-eisen) — EY, p.8.
+- **UBS (2013):** projecten die het geplande productieniveau niet haalden zagen hun **net asset value met 12% tot 65% dalen** (EY, p.7).
+- EY documenteert twee concrete koersreacties: een multinational wiens koers in september 2013 daalde na het verlagen van de productieverwachting wegens projectvertragingen, en een geïntegreerd energiebedrijf wiens koers in februari 2013 daalde na het boeken van **USD 1,65 miljard** aan meerkosten op een Australisch LNG-project (EY, p.2).
+
+### A1.2 LNG-overschrijdingen op projectniveau, 2026
+
+Nieuwer dan de EY-studie en daarmee een waardevolle actualisering ([Public Citizen, *Billions Over Budget: LNG Projects Routinely Blow Past Cost Estimates*, 2026](https://www.citizen.org/article/billions-over-budget-lng-infrastructure/)):
+
+| Project | Oorspronkelijk | Actueel/definitief | Overschrijding |
+|---|---|---|---|
+| New Fortress Energy, Fast LNG Altamira (MX) | USD 1,3 mrd | USD 3,5 mrd | **+169,2%** |
+| Woodfibre LNG (BC, CA) | USD 5,1 mrd | USD 8,0 mrd | +56,9% |
+| Cedar LNG (BC, CA) | USD 4,0 mrd | USD 5,9 mrd | +47,5% |
+| Venture Global Plaquemines LNG (LA, VS) | — | +USD 2,35 mrd over budget | n.v.t. |
+
+Gemiddelden uit dezelfde analyse: **59,7%** overschrijding voor inmiddels operationele terminals, **38,1%** voor terminals in aanbouw; bouwvertragingen circa **1 tot 3 jaar**. Public Citizen citeert bovendien EY's bevinding dat LNG-projecten wereldwijd gemiddeld **70%** over budget gingen — de hoogste van alle olie/gas-categorieën.
+
+De Altamira-casus is illustratief voor de doorwerking: de bouwvertragingen leidden tot een S&P-afwaardering en een gedwongen herstructurering van New Fortress Energy in maart 2026.
+
+### A1.3 Vertragingskosten — aanvullende ankers
+
+- **Flyvbjerg:** "on average a one-year delay or other extension of the implementation phase correlates with an increase in percentage cost overrun of **4,64 percent**" ([Foresight, *The True Cost of Delays at Scale*](https://www.foresight.works/blog/the-true-cost-of-delays-at-scale)).
+- **McKinsey:** "98% of megaprojects face delays of up to 20 months" (idem).
+- **Crossrail als kalibratiepunt:** een jaar vertraging zou USD 1,2 miljard extra kosten, oftewel **USD 3,3 miljoen per dag** (idem). Dit is een infrastructuurproject, maar het ordegrootte-effect is direct overdraagbaar op een LNG-trein van vergelijkbare capex.
+- **Turnarounds:** een raffinaderij-shutdown kost **USD 5 miljoen tot meer dan USD 100 miljoen**; een misgelopen turnaround "can bleed millions per day in lost revenue" ([EZTRAK](https://eztraksoftware.com/chemical-plant-turnarounds-balancing-safety-schedule-and-cost/)).
+
+**Afgeleide observatie [SCHATTING]:** softwarekosten voor planning en project controls bedragen in dit segment circa **0,01–0,05% van de projectcapex**. Bij USD 3–5 miljoen per dag aan opportunity cost op een megaproject verdient één vermeden vertragingsdag de complete jaarlijkse softwareuitgave van het hele project meervoudig terug. Dat is de rekenkundige kern van de hoge betalingsbereidheid, en het verklaart waarom prijselasticiteit hier bijna nul is.
+
+### A1.4 Contractuele nuance — belangrijke correctie/aanscherping
+
+Een preciseringspunt dat in het hoofdrapport impliciet blijft: **contractvormen schrijven zelden een softwarepakket voor; de *scope*/specificatie van de opdrachtgever doet dat wél.** NEC Planning Solutions formuleert dit expliciet voor NEC4: *"NEC4 requires the programme to be in the form stated in the scope, and the scope may specify a particular software, but NEC itself does not mandate P6"* ([NEC Planning Solutions](https://www.necplanningsolutions.co.uk/post/primavera-p6-for-nec-programmes)). Hetzelfde geldt voor FIDIC. De P6-dwang komt dus uit de *Project Controls Requirements* / *Schedule Specification* van de owner (Aramco SAEP-331 en equivalenten), niet uit de contractvorm.
+
+Dat is strategisch relevant: het betekent dat de barrière **inkoop-/specificatiegedreven** is en niet juridisch verankerd. Een owner die zijn specificatie herschrijft naar "een leverancieronafhankelijk, herrekenbaar formaat" kan de dwang eenzijdig opheffen. Dat is een langzame maar niet-onmogelijke route.
+
+De gevolgen van niet-conforme indiening zijn hard: *"Contractors who submit schedules in non-compliant formats or using tools that do not support required analytical features typically face automatic rejection, delayed payments, and reputational damage for failing to meet basic contract requirements"* ([ScheduleLens](https://schedulelens.com/blog/primavera-p6-schedule-review/)).
+
+## A2. Aanvullingen bij §2 (welke software, door wie)
+
+### A2.1 Firmografische adoptiedata per bedrijf
+
+Een tweede, onafhankelijke firmografische bron naast 6sense bevestigt en verfijnt het beeld ([Sumble, EcoSys-ecosysteem](https://sumble.com/tech/ecosys)). Sumble telt organisatievermeldingen, niet seats — dezelfde methodologische beperking als 6sense — maar de **namen** zijn hier het waardevolle deel:
+
+**EcoSys — top-adopters (teams / personen):**
+
+| Bedrijf | Teams | Personen | Type |
+|---|---|---|---|
+| **Bechtel Corporation** | 66 | 23 | Top-tier EPC |
+| **Burns & McDonnell** | 53 | 25 | Engineering/EPC |
+| **Atkins** | 47 | 23 | Engineeringbureau |
+| **Air Products** | 37 | 11 | Procesindustrie-owner |
+| **Worley** | 29 | 73 | Top-tier EPC |
+
+Dit is de eerste harde bevestiging in dit onderzoek dat de EcoSys-laag daadwerkelijk bij de sectorzwaargewichten draait — het hoofdrapport had alleen leveranciersgenoemde referenties (Technip Energies, Nippon Steel Engineering). Bechtel + Worley + Atkins + Burns & McDonnell + Air Products is een dwarsdoorsnede van precies de doelgroep.
+
+**Footprint-vergelijking (aantal organisaties dat de technologie noemt):**
+
+| Technologie | Organisaties |
+|---|---|
+| Primavera P6 | **66.785** |
+| Unifier (breed gelabeld) | 1.554 |
+| **Safran** | **1.758** |
+| EcoSys | 1.009 |
+| Acumen Fuse | 548 |
+| Kahua | 558 |
+| Oracle Primavera Unifier (eng gelabeld) | 490 |
+| Active Risk Manager | 289 |
+| ARES PRISM | 124 |
+
+De verhouding **P6 : alle overige planningsproducten samen ≈ 15:1** onderbouwt de schatting van 75–90% P6-aandeel op masterschema-niveau uit §2.1 van het hoofdrapport onafhankelijk.
+
+**[VERIFICATIE — REKENFOUT]** De som van de acht overige rijen is 1.554 + 1.758 + 1.009 + 548 + 558 + 490 + 289 + 124 = **6.330**. 66.785 / 6.330 = **10,6 : 1**, niet 15:1. Ook wanneer je de dubbeltelling van Unifier (1.554 "breed" vs. 490 "eng") en de niet-planningsproducten Kahua en Active Risk Manager eruit haalt, kom je op 66.785 / 4.993 = **13,4 : 1**. Alleen door álles behalve Safran, EcoSys, Acumen en PRISM te schrappen haal je 19:1. **De 15:1 is geen uitkomst maar een greep uit een reeks van 10–19:1, afhankelijk van welke rijen je meetelt.** De kwalitatieve conclusie (P6 domineert met een orde van grootte) blijft staan; het precieze getal moet weg. Beide brontellingen zijn wel bevestigd ([Sumble](https://sumble.com/tech/primavera-p6): 66,8k organisaties).
+
+### A2.2 Safran en de Nordische uitzondering — met case study
+
+Het hoofdrapport noemt Safran's Noordzeepositie. De onderbouwing:
+
+- Safran claimt dat in de Nordische markt *"over 90% of the larger project players have chosen Safran Project"*; het bedrijf is opgericht in 1997 in Stavanger, oorspronkelijk om de olie- en gasindustrie te bedienen ([Safran](https://www.safran.com/en-gb/about); [Planning Planet](https://planningplanet.com/wiki/422635/safran-project)). **[VERIFICATIE — DEELS GECORRIGEERD]** Oprichting 1997 en de oorspronkelijke olie- en gasfocus staan letterlijk op de Safran-about-pagina en zijn **bevestigd**. Het citaat *"over 90% of the larger project players"* staat er bij hercontrole **niet**; het komt hooguit uit de Planning Planet-wiki (gebruikersbewerkbaar) en is bovendien een ongedateerde leveranciersclaim. Behandel het 90%-cijfer als **onbevestigd marketingclaim**, niet als marktmeting.
+- **Case study Statoil/Equinor** ([Safran](https://www.safran.com/case-studies/statoil)): de Statfjord late-life-conversie omvatte drie Noordzeeplatforms plus de 23,1 km Tampen Link-pijpleiding, met circa **3 miljoen offshore manuren en 3 miljoen engineering-manuren onshore**. Safran Planner werd op **alle 18.000 desktops** bedrijfsbreed geïnstalleerd, met **>5.000 gebruikers binnen enkele maanden**.
+- Het beslissende argument was **ketenuniformiteit, niet functionaliteit**. Lead planner Bjørn Rosland over eerdere Primavera-ervaringen op Snøhvit: men was *"very relieved that our current contractors are using Safran"*, want *"getting all involved parties to communicate without hassle is one of the potential bottlenecks of a project of this size."*
+
+**Strategische les hieruit:** de enige plek ter wereld waar P6 níét de standaard is, is precies de plek waar één regionale leverancier de hele keten (owner + contractors + subs) op één platform kreeg. Uniformiteit van de keten verslaat functionele superioriteit. Dat bevestigt dat de aanvalsroute voor een nieuwe speler via de *keten* loopt (§7.2 van het hoofdrapport), niet via het product.
+
+### A2.3 InEight — aanvullende feiten
+
+- Ontstaansgeschiedenis: **Kiewit** standaardiseerde in 2011 op Hard Dollar-estimating, kocht het bedrijf in 2013 volledig en hernoemde de technologietak tot InEight ([Rathmann Insights](https://www.rathmanninsights.com/post/ineight-tightens-hold-on-construction-project-management-software-for-infrastructure)). Het is nadrukkelijk **geen private-equity-rollup**.
+- Schaal: **850+ bedrijven**, gebruikt om **meer dan USD 1 biljoen aan projecten** te beheren ([InEight](https://ineight.com/)).
+- Behaalde in **2025 FedRAMP-moderate-equivalentie** — relevant voor DOE-, nucleaire en defensiegerelateerde procesprojecten ([Rathmann Insights](https://www.rathmanninsights.com/post/ineight-tightens-hold-on-construction-project-management-software-for-infrastructure)).
+- Positionering: *"self-perform contractors, EPCs, design-builders, and engineering consultants"*, met klantprojecten van USD 1 miljoen tot megaprojecten. Sterk in heavy civil/infrastructuur in Noord-Amerika; buiten dat gebied minder verankerd.
+
+### A2.4 EcoSys functioneel — uit de leveranciersbrochure
+
+Uit de officiële productbrochure ([Hexagon, *EcoSys Projects Product Brochure*, 2019](https://bynder.hexagon.com/m/614a6d6475b83e13/original/Hexagon_PPM_Product_EcoSys_Projects_Brochure_US_EN_2019.pdf)), lokaal uit de PDF geëxtraheerd:
+
+Modules: Planning & Scheduling, Detailed Estimating & Budgeting, Resource Management, Change Management, Risk & Issue Management, Performance Management, Forecasting, Project Administration. Producten: EcoSys Portfolios, EcoSys Projects, EcoSys Contracts. Solutions omvatten expliciet **Earned Value Management**, **Construction Management** én **Turnaround Management**.
+
+Geclaimd voordeel: *"Automating data loading, analytics, and reporting with EcoSys Projects can reduce low-value work by more than 60%."* Technologie-USP's: *"100% Web-Based, On-Premise or Cloud Enabled"*, *"Flexibility without Customization"*, en — veelzeggend — **"Excel-like Spreadsheets"** als expliciet verkochte feature.
+
+Dat laatste is de eerlijkste samenvatting van de sector die er bestaat: de duurste project-controls-software ter wereld verkoopt zichzelf op het feit dat hij aanvoelt als Excel.
+
+### A2.5 De STO-nichelaag
+
+Turnaround/shutdown-planning is een eigen productcategorie die vrijwel altijd **bovenop** P6 wordt gelegd: Prometheus STO-AI Manager (scope management, work package development, scheduling, cost tracking, contractor coordination, permit management), IAMTech, EZTRAK, iPlanSTO. Vrijwel alle adverteren met *"integrate with Oracle Primavera P6 … to keep turnaround plans in sync"*. Referentiescenario uit de bronnen: *"Primavera is recommended for planning a 6-week refinery turnaround with 5,000 contractors."*
+Bronnen: [Prometheus Group](https://www.prometheusgroup.com/solutions/shutdown-turnaround-and-outage); [IAMTech](https://www.iamtech.com/america/products/shutdown-turnaround-outage-software); [EZTRAK](https://eztraksoftware.com/turnaround-planning-new/); [Fabrico, *7 Best Shutdown & Turnaround Management Software Tools (2026)*](https://www.fabrico.io/blog/best-shutdown-turnaround-software/)
+
+## A3. Aanvullingen bij §3 (prijzen)
+
+### A3.1 Enterprise-prijsbenchmark voor de kostenlaag
+
+Nieuw en bruikbaar, want het hoofdrapport moest voor deze laag op prijsvergelijkers steunen:
+
+> *"Oracle Primavera Cloud and Hexagon EcoSys typically start at **USD 80.000 to USD 150.000 per year for enterprise licences covering 50+ named users**, with implementation adding **1x to 2x the annual licence fee**."*
+> ([Verified Market Reports / Archdesk-analyse, 2026](https://www.verifiedmarketreports.com/product/oil-and-gas-project-management-software-market/))
+
+Omgerekend: **USD 1.600–3.000 per named user per jaar** voor de kostenlaag, plus **USD 80.000–300.000 eenmalig** aan implementatie. Dat ligt tussen de ITQlick-notering van ~USD 200/gebruiker/maand (= USD 2.400/jaar) uit het hoofdrapport en de Oracle-lijstprijzen in — de drie onafhankelijke bronnen convergeren, wat de betrouwbaarheid van deze prijsband aanzienlijk verhoogt.
+
+**[VERIFICATIE — CITAAT NIET TERUGGEVONDEN + REDENEERFOUT]** Twee problemen. (1) Het geciteerde zinnetje over "USD 80.000 to USD 150.000 per year for enterprise licences covering 50+ named users" staat **niet** op de opgegeven Verified Market Reports-pagina (die geeft alleen de marktomvang USD 7,7 mrd 2026 → 18,5 mrd 2034, CAGR 11,5% — bevestigd) en evenmin op de Archdesk-pagina (die geeft wél, bevestigd: Oracle Primavera Cloud vanaf **USD 120/gebruiker/maand**, mid-market **USD 15.000–60.000/jaar**, enterprise **>USD 100.000 first-year**, 1 van 13 pakketten met transparante prijs, Oracle-uitrol ~6 maanden). Het kerncitaat van deze paragraaf is dus **niet gestaafd**. (2) Zelfs als het klopt: "50+ named users" delen door precies 50 geeft een **bovengrens** per gebruiker, geen bandbreedte — bij 100 users is het USD 800–1.500. De "convergentie" met ITQlick is daarmee een artefact van de gekozen deler. Regel A8 ("Prijzen kostenlaag: **Verhard**") moet terug naar *onzeker*.
+
+Verdere benchmarks uit dezelfde analyse ([Archdesk, *Top EPC Project Control Software for 2026*](https://archdesk.com/blog/top-epc-project-control-software-2026)):
+
+| Categorie | Prijs |
+|---|---|
+| Oracle Primavera Cloud (enige met transparante prijs van 13 vergeleken pakketten) | vanaf **USD 120 per gebruiker per maand** |
+| Mid-market platformen (Archdesk, PMWeb, Kahua) | **USD 15.000–60.000 per jaar** afhankelijk van gebruikers en modules |
+| Enterprise-platformen met ingebouwde kostenraming | **>USD 100.000 first-year spend** voor grote capital programmes |
+| Implementatiedoorlooptijd Oracle | ~**6 maanden** voor enterprise-uitrol |
+| Implementatiedoorlooptijd CMiC | *"can take years for large enterprises to fully roll out"* |
+
+**Structurele observatie:** van de dertien vergeleken EPC-project-controlspakketten publiceert er **één** een prijs (Oracle Primavera Cloud); de andere twaalf — Hexagon EcoSys, Cleopatra Enterprise, Bentley SYNCHRO, Safran Project, RIB 4.0, e-Builder Enterprise, PMWeb, Kahua, Deltek Cobra, Bexel Manager, CMiC, Archdesk — zijn **"custom quote only"**. Dat is geen toeval maar een prijsdiscriminatiestrategie: in een markt waar de klant een LNG-trein van USD 10 miljard bouwt, wil geen enkele leverancier zich vooraf op een getal vastleggen.
+
+### A3.2 Certificerings- en trainingskosten
+
+- **AACE-certificeringsexamen** (CCP, PSP, EVP, CFCC, DRMP e.d.): **USD 450 voor leden, USD 575 voor niet-leden** (2025). AACE beheert negen certificeringsprogramma's; het programma startte in 1976 ([AACE](https://web.aacei.org/certification/certification-information/certifications-offered/professional-certifications); [Elite International Training](https://eliteinternationaltraining.com/certified-cost-professional-ccp)).
+- **AACE-ledental:** *"As of 2012, AACE reported over 8,000 members"*, met circa **120 Recommended Practices** ([Wikipedia](https://en.wikipedia.org/wiki/AACE_International)). Dit bevestigt de bandbreedte 5.500–8.000 uit §5.3 van het hoofdrapport; het cijfer is echter uit 2012 en dus gedateerd.
+- **Aantal gecertificeerde planners wereldwijd:** een sectorbron stelt dat er *"less than 2000 planning and scheduling professionals worldwide"* gecertificeerd zijn volgens AACE- en PMI-normen ([Bridges Consulting](https://bridgesconsultinc.com/project-schedulers-exclusive-demand-boom-best-careers/)). **Belangrijke leeswaarschuwing:** dit is een *certificerings*cijfer, geen beroepspopulatie — slechts een fractie van de praktiserende planners is gecertificeerd. Het cijfer mag **niet** gebruikt worden voor seat-ramingen (en is dat in §4.2 van het hoofdrapport terecht ook niet).
+- **Salarisanker VS:** project controls schedulers verdienen **USD 46–72 per uur** ([ZipRecruiter](https://www.ziprecruiter.com/Jobs/Project-Controls-Scheduler)) respectievelijk **USD 60.000–100.000 per jaar** afhankelijk van ervaring, sector en locatie ([Bridges Consulting](https://bridgesconsultinc.com/project-schedulers-exclusive-demand-boom-best-careers/)). Dat is de Amerikaanse junior/mid-markt; senior expat-EPC-planners op megaprojecten liggen daar een factor 2–3 boven **[SCHATTING]**. Hoe dan ook: de licentiekosten van USD 1.300–3.400 per seat per jaar zijn **1–3% van de kosten van de persoon die hem bedient** — een verhouding die elke discussie over licentieprijs marginaliseert.
+
+## A4. Aanvullingen bij §4 (segmentomvang)
+
+### A4.1 Aanvullende marktankers — en twee waarschuwingen
+
+| Bron | Cijfer | Oordeel |
+|---|---|---|
+| [Mordor Intelligence](https://www.mordorintelligence.com/industry-reports/project-management-software-systems-market) | Wereldwijde PM-softwaremarkt **USD 9,76 mrd (2025)** → USD 11,27 mrd (2026) → **USD 23,09 mrd (2031)**, CAGR 15,42%. Cloud **74,20%** van de markt (2025); grote ondernemingen **60,35%** van de omzet; jaarabonnementen **52,75%**; Noord-Amerika **36,12%** | Bruikbaar totaalanker, consistent met de USD 8,7 mrd PPM-markt (2024) uit §4.1 van het hoofdrapport |
+| [Verified Market Reports](https://www.verifiedmarketreports.com/product/oil-and-gas-project-management-software-market/) | "Oil and Gas Project Management Software Market": **USD 7,7 mrd (2026)** → USD 18,5 mrd (2034), CAGR 11,5% | **[ZWAKKE BRON — NIET GEBRUIKEN ALS ANKER]** Dit cijfer is bijna even groot als de gehele mondiale PM-softwaremarkt volgens Mordor. Ofwel de definitie omvat diensten en aangrenzende software, ofwel het is opgeblazen. De genoemde vendorlijst (Deltek, InEight, EcoSys, Oracle, LiquidFrameworks, AVEVA) is wel bruikbaar als landschapsbevestiging |
+| [Market Research Future](https://www.marketresearchfuture.com/reports/epc-engineering-procurement-and-construction-market-25411) | EPC-markt **USD 165,28 mrd (2024)** → USD 297,3 mrd (2035), CAGR 5,48%; olie & gas ~28% van de omzet (2023) | **Conflicteert met de USD 837–990 mrd-cluster uit §1.1** van het hoofdrapport. Vermoedelijk een engere definitie (EPC-*managementfee* in plaats van totale contractwaarde). Bevestigt de conclusie dat deze marktrapporten definitiegedreven en onderling onvergelijkbaar zijn |
+| [ENR, *2025 Top 250 International Contractors*](https://www.enr.com/articles/61229-2025-enr-top-250-international-contractors-market-volatility-flatlines-gains) | Internationale omzet Top 250 in 2024: **USD 501,2 mrd** (+0,5%); nieuwe internationale contracten **USD 727,3 mrd** (+7,6%); 55,4% van de firma's meldde een verandering in de backlogstatus | Marginale afwijking van de USD 499,7 mrd uit het hoofdrapport (ENR Global Review, dec. 2024) — vermoedelijk een herziening in de definitieve jaarlijst. **Gebruik USD ~500 mrd als afgeronde waarde.** De +7,6% orderintake tegen +0,5% omzet is het interessante signaal: de pijplijn groeit sneller dan de uitvoering |
+
+### A4.2 Onafhankelijke tweede bottom-up-raming **[SCHATTING]**
+
+Om de raming van het hoofdrapport (USD 0,35–1,6 mrd licenties; USD 1–5 mrd totaal) te toetsen, hier een **derde route** die niet via seat-tellingen maar via **capex-per-planner** loopt:
+
+**Stap 1 — Capexbasis.** Industriële/proces-capex wereldwijd (olie & gas per IEA ~USD 1,0 biljoen, plus chemie, industriële gassen, mijnbouwverwerking, farma, semiconductor-fabs, waterstof/CCS): **USD 1,4–1,9 biljoen per jaar (2025)**.
+
+**Stap 2 — Plannerdichtheid.** Een project van USD 1 miljard over 4 jaar (USD 250 mln/jaar) draagt gemiddeld over de looptijd **15–30 planners/schedulers** (owner + EPC + grote subs + engineeringbureau) → 1 planner per USD 8–17 mln jaarlijkse projectuitgave. Gecorrigeerd voor het niet-planner-intensieve deel van de capexbasis (grondaankoop, licenties, financieringskosten, kleine brownfield-vervangingen; factor 0,4–0,6) → **1 planner per USD 20–40 mln jaarlijkse capex**.
+
+→ **35.000–95.000 planners/schedulers in dit segment, centrale waarde ~60.000.**
+
+**Stap 3 — Bredere controls-populatie.** Planners zijn 25–35% van de project-controls-functie → **150.000–280.000 project-controls-seats**, plus 5–10× dat aantal aan read-only consumenten (projectmanagers, discipline leads, construction supers, owner's reps).
+
+**Stap 4 — Optellen bij USD 900–1.800 per planningsseat en USD 1.600–3.000 per controls-seat:**
+
+| Laag | Uitkomst (USD/jaar, 2025) | **[VERIFICATIE] narekening uit de eigen stappen** |
+|---|---|---|
+| Pure planningssoftware (P6-klasse + Safran + MSP-in-EPC + viewers) | ~~**0,20–0,45 mrd**~~ | 35.000–95.000 planners × USD 900–1.800 = **USD 0,03–0,17 mrd** |
+| + kosten-/EVM-/risicoplatformen | ~~**0,9–1,7 mrd**~~ | 150.000–280.000 controls-seats × USD 1.600–3.000 = 0,24–0,84 mrd; inclusief de planningslaag **USD 0,27–1,01 mrd** |
+| + implementatie, integratie, hosting, training | ~~**1,6–3,1 mrd**~~ | bij 1,5–2,5× licentiewaarde: **USD 0,67–3,54 mrd** |
+
+**[VERIFICATIE — DE DERDE ROUTE IS NIET REPRODUCEERBAAR EN CONVERGEERT NIET]** Geen van de drie regels volgt uit de eigen stappen 1–3. Stap 2 levert 35.000–95.000 *planners*; tegen de zelf gekozen USD 900–1.800 per planningsseat is dat maximaal USD 171 miljoen — de gepubliceerde 0,20–0,45 mrd is een factor **2,6 tot 6,3 te hoog**. De kostenlaag komt met de eigen seatsaantallen op maximaal USD 840 miljoen uit, tegen de gepubliceerde bovengrens van 1,7 mrd: **twee keer te hoog**. Je bereikt de gepubliceerde planningsregel alleen door de *volledige* controls-populatie van 150.000–280.000 tegen het planningstarief te prijzen (0,135–0,50 mrd) — waarna diezelfde seats in de regel eronder nógmaals worden meegeteld: **dubbeltelling**.
+
+Correct doorgerekend geeft route 3 dus **USD 0,03–0,17 mrd pure planningslicenties** en **USD 0,27–1,0 mrd inclusief de kostenlaag** — dat is **onder** de bandbreedte van het hoofdrapport (0,325–1,655 mrd) en ver onder de centrale schatting van "USD 0,7–1,0 mrd pure licentieomzet". De conclusie "drie onafhankelijke routes convergeren" wordt door de narekening **niet gedragen**: routes 1 en 3 verschillen met een factor 4–10 op de licentielaag. De eerlijke lezing is dat de segmentomvang op de licentielaag ergens tussen **USD 0,1 en 1,7 miljard** ligt, met de centrale schatting van USD 0,7–1,0 mrd aan de **bovenkant** van wat de onderbouwing draagt.
+
+**Conclusie van de kruiscontrole:** ~~deze derde route komt uit op **USD 0,2–0,45 mrd pure planningslicenties** en **USD 1,6–3,1 mrd totaal** — goed binnen de bandbreedte van het hoofdrapport~~. **[VERIFICATIE — GECORRIGEERD]** Zie de narekening hierboven: correct doorgerekend geeft route 3 USD 0,03–0,17 mrd pure planningslicenties en USD 0,27–1,0 mrd inclusief kostenlaag, en dat **ligt buiten (onder) de band van het hoofdrapport**. De drie routes convergeren dus niet; ze verschillen een factor 4–10 op de licentielaag. Wat wél overeind blijft is de *orde van grootte*: één miljard-schaal, geen tien-miljard-schaal. Voor het *enge* segment "planningssoftware zonder kostenlaag" is **USD 0,1–0,45 miljard per jaar** de verdedigbare band; de eerdere USD 0,3–0,45 mrd is de bovenkant daarvan en steunt alleen op de 6sense-route.
+
+**Vierde sanity check:** 3–5% van de wereldwijde PM-softwaremarkt van USD 9,76 mrd (2025, Mordor) toewijzen aan deze zware industriële niche — kleine populatie, hoge prijs per seat — geeft USD 0,29–0,49 mrd. Consistent.
+
+### A4.3 Groeirichting — aanvullend
+
+De prijscomponent van de groei is sterker dan de volumecomponent. Mordor meet cloud al op **74,20%** van de markt en eenmalige licenties in verval ([Mordor](https://www.mordorintelligence.com/industry-reports/project-management-software-systems-market)). De overgang van perpetual (USD 2.750 eenmalig + USD 605/jaar ≈ USD 1.155/jaar bij 5-jaars afschrijving) naar cloud (USD 1.320–3.400/jaar) **verdubbelt tot verdrievoudigt de jaaropbrengst per seat** zonder dat er een gebruiker bijkomt. Dat is de belangrijkste enkele driver onder de groeiraming van 4–7% uit §4.4 van het hoofdrapport, en tegelijk een groeiende bron van klantirritatie (zie A6).
+
+## A5. Aanvullingen bij §5 (standaarden)
+
+### A5.1 EVMS-drempels — Amerikaanse civiele/commerciële variant
+
+Naast de DFARS-drempels uit het hoofdrapport (USD 20 mln / USD 100 mln) geldt in de bredere Amerikaanse contracteerpraktijk: *"Generally, cost or incentive contracts valued at USD 20 million or more require an EVMS that is accepted by the cognizant DCMA Contracting Officer. Contracts valued at USD 50 million or more require formal DCMA EVMS system acceptance prior to contract performance"* ([Capital Edge Consulting](https://capitaledgeconsulting.com/capabilities/dfars-business-systems/evms-compliance/)). De bronnen verschillen op de bovendrempel (USD 50 mln vs. USD 100 mln na de DoD-verhoging) — het hoofdrapport heeft de actuele DFARS-waarde correct; de USD 50 mln geldt in oudere en in niet-DoD-regimes.
+
+Structuur van ANSI/EIA-748: **32 richtlijnen** in vijf procesgebieden (organisatie; planning & budgettering; boekhouding; analyse; revisies & datamanagement), onderhouden door NDIA, geaccrediteerd door SAE International (idem).
+
+### A5.2 DCMA-14 — herkomst en huidige status
+
+Aanvullende precisering ([Pinnacle Management](https://www.pinnaclemanagement.com/training/the-dcma-14-point-schedule-assessment)):
+- Ontwikkeld in reactie op EIA-748; laatst formeel gepubliceerd in **2012** in de *EVMS Program Analysis Pamphlet* **DCMA-EA PAM 200.1**.
+- *"In the past decade, the 14 Point Assessment has been decoupled from Earned Value Management, and while it may serve as an enabler of reporting earned value, it is no longer viewed as a part of EVM."*
+- Expliciet gepositioneerd als *"a tool-agnostic, bare minimum assessment for schedule health. It does not provide the complete picture of project health, merely the construction and performance of the Integrated Master Schedule (IMS)."*
+
+**Dat is een belangrijk punt voor een open-source implementatie:** DCMA-14 is *tool-agnostisch en publiek*. Er zit geen intellectueel eigendom van Oracle of Deltek op. Een correcte, open, auditeerbare implementatie is juridisch onproblematisch en technisch afgebakend.
+
+### A5.3 Het schemareview-protocol in de praktijk
+
+Het twaalfstappenprotocol dat owner's engineers hanteren bij het beoordelen van een contractorschema ([ScheduleLens](https://schedulelens.com/blog/primavera-p6-schedule-review/)):
+
+1. Projectinformatie en -instellingen verifiëren → 2. WBS controleren → 3. Activiteitendetails → 4. Kalenders → 5. Logica en afhankelijkheden → 6. Kritiek pad valideren → 7. Floatverdeling → 8. Constraints → 9. Activiteitsduren → 10. Mijlpaalcompliance → 11. Resources en cost-loading → 12. Schedule log + DCMA 14-point draaien.
+
+Contractuele compliance-elementen die expliciet nagelopen worden: *"all contractual scope items represented as activities"* en *"all contractual milestones present and dated correctly"*, met controle of project-ID, -naam en -omschrijving overeenkomen met het contract.
+
+Reviewers zijn *"the employer's representative, the project controller, or the client-side PM"*, verantwoordelijk voor de geschiktheidsbeoordeling vóór goedkeuring van de baseline.
+
+**Waarom dit relevant is:** dit twaalfstappenprotocol is een **volledig specificeerbare feature-set**. Een tool die deze twaalf stappen als geleide workflow met exporteerbaar reviewrapport aanbiedt, automatiseert de maandelijkse taak van elke owner's engineer in de sector. Dat is een scherper afgebakende propositie dan "een betere planner".
+
+### A5.4 ISO 15926 / CFIHOS — bevestiging
+
+Onafhankelijke bevestiging van §5.6 van het hoofdrapport: CFIHOS *"is used for data handover from Engineering contractor to Owner/Operator, with the purpose to decrease risk by higher data quality and save cost"* en *"tightens conformance from ISO 15926 (which is a broad semantic model) to a deliverable specification"*. Doelgroepen expliciet: **olie & gas, chemie en nucleair**. CFIHOS is een lopend project onder leiding van **IOGP**. ISO 15926 werd al vanaf 1996 gebruikt voor datawarehouses ten behoeve van EPC↔owner-overdracht, te beginnen bij BP en Shell op ETAP.
+Bronnen: [USPI, CFIHOS Purpose](https://uspi.nl/index.php/cfihos-purpose); [Revisionz](https://revisionz.com/bridging-information-gaps-in-process-industries-the-synergy-of-iso-15926-and-cfihos/); [ISO 15926 consolidating paper (2024)](https://15926.blog/ISO15926-consolidating-paper-20240714.pdf); [THTH/Onno Paap presentatie](https://www.ththry.org/assets/activities/2020/ISO15926engineers_OnnoPaap_20200324.pdf)
+
+De conclusie van het hoofdrapport blijft onverkort staan: **IFC is in de procesindustrie geen native taal**, en het IFC-argument werkt hier niet als verkoopargument.
+
+## A6. Aanvullingen bij §6 (voor- en nadelen)
+
+### A6.1 Gebruikersoordeel over P6 — onafhankelijke bevestiging
+
+Aanvullende, van elkaar onafhankelijke bronnen die exact hetzelfde patroon rapporteren als §6 van het hoofdrapport:
+
+- *"User experience remains clunky despite recent updates, requiring extensive training. The software lags behind competitors in AI-powered automation, needing more intuitive interfaces. Dependency on specialist skills limits accessibility for non-expert project team members."* — user sentiment **84** op basis van **371 reviews** ([ITQlick](https://www.itqlick.com/primavera-p6)).
+- Redenen om te wisselen: *"need for broader integrations or more advanced reporting as their business scales; poor customer support responsiveness; finding a better fit for their specific industry or company size; and missing features that competitors now offer"* ([SelectHub](https://www.selecthub.com/ppm-software/primavera-p6/alternatives/)).
+- *"Steep learning curve requiring significant study; interface is a bit outdated; primarily designed for Windows environments."* Doelgroep: grote ondernemingen met 1.000+ medewerkers in engineering & construction, publieke sector, nutsbedrijven, olie & gas en aerospace ([SoftwareConnect](https://softwareconnect.com/reviews/oracle-primavera-p6-eppm/)).
+- *"Long implementation timelines — setup takes weeks or months before delivering value… Complex IT requirements — relies on Oracle or SQL databases needing server setup… High cost for smaller teams… The complexity, database structure, and administrative burden of Primavera remain significant concerns even when third-party tools attempt to improve the interface."* ([Planera](https://www.planera.io/post/primavera-p6-alternatives))
+
+### A6.2 Gebruikersoordeel over EcoSys
+
+Eerste directe gebruikersoordeel in dit onderzoek ([Capterra, EcoSys](https://www.capterra.com/p/76448/EcoSys-EPC/)) — **Capterra-score 3,8/5**, klein aantal reviews (5), dus indicatief:
+
+**Positief:** integratie van meerdere systemen en workflows in één platform; realtime rapportage en analytics; sterk in kostenregistratie en forecasting op grote projecten.
+
+**Negatief:** *"steep learning curve"*; *"web-based refresh delays between project toggles hamper productivity"*; *"users describe it as spreadsheet-like and lacking modern design"*; *"initial setup and process adjustments can be demanding"*. Geen gepubliceerde prijs, **geen proefversie**.
+
+Dit bevestigt het beeld uit §6 van het hoofdrapport: de kostenlaag is duur, traag te implementeren en visueel gedateerd — en de klanten kopen hem toch, omdat er geen alternatief is dat de EVM- en forecastfunctie op enterprisenivo levert.
+
+### A6.3 De SAP-integratie als tijdbom
+
+Het hoofdrapport noemt terecht dat de SAP Enterprise Project Connection (EPC) obsoleet is. Aanvulling: de standaard-architectuurkeuze in de sector is *"structure and schedule maintained in P6, costs planned and captured in SAP"*, met tweeweg-synchronisatie van PS-structuren ([SAP Community](https://community.sap.com/t5/enterprise-resource-planning-q-a/sap-ps-and-primavera-integration-using-sap-epc/qaq-p/8661564)). Oracle levert daarnaast out-of-the-box tweeweg-integraties tussen P6, SAP PS en SAP Plant Maintenance via het Project Integration Framework, *"based on configuration, not coding"* ([Oracle](https://www.oracle.com/construction-engineering/integrating-oracle-primavera-p6-and-sap/)) — zonder gepubliceerde klantreferenties of gekwantificeerde voordelen.
+
+**Consequentie:** een hele generatie P6↔SAP-integraties moet de komende jaren opnieuw gebouwd worden op SAP CPI. Dat is een grote, ongewenste, niet-waardetoevoegende IT-uitgave voor elke EPC en owner in dit segment — en daarmee een **moment waarop architectuurkeuzes heropend worden**. Voor een nieuwe speler is dat een zeldzaam venster.
+
+## A7. Aanvullingen bij §7 (openingen)
+
+Het hoofdrapport identificeert de openingen correct. Het addendum voegt drie aanscherpingen toe:
+
+### A7.1 De compliance-tax is kwantificeerbaar
+
+Deltek Acumen Fuse verkoopt een bibliotheek van *"more than 600 industry-aligned metrics spanning DCMA, DOE, GAO, AACE, and NASA standards"* plus het vijftraps maturity framework S1–S5 ([Deltek](https://www.deltek.com/products/delivery-assurance/ppm/acumen/fuse/)). Maar de veertien DCMA-checks zelf zijn — zoals A5.2 laat zien — **publiek, tool-agnostisch en rekenkundig triviaal** op een CPM-netwerk. Een EPC koopt Acumen niet omdat de wiskunde moeilijk is, maar omdat de owner het Fuse-rapportformaat wil zien.
+
+Dat is een **conventie**, geen technische barrière. Conventies zijn aanvalbaar met een geloofwaardig, open alternatief dat exact dezelfde getallen produceert — mits verifieerbaar aangetoond wordt dat het dezelfde getallen produceert. Dit versterkt "Prioriteit 1: DCMA-14 als open, auditeerbare implementatie" uit §7.3 van het hoofdrapport.
+
+### A7.2 CPM-pariteit is de toegangskaart, en die moet bewezen worden
+
+De sector accepteert geen "ongeveer dezelfde einddatum". Een tool die XER inleest, moet **exact** dezelfde early/late dates, total float, en kritieke-padidentificatie produceren als P6 — inclusief kalender-bewuste lags, retained logic vs. progress override, en de behandeling van constraints en actuals. Verschillen van één dag maken het resultaat onbruikbaar in een reviewcontext.
+
+Dat betekent dat de investering niet in de UI zit maar in een **grootschalige, data-driven regressiesuite die CPM- en kalenderpariteit met P6 op duizenden cases aantoont**. Zonder die suite is er geen verhaal; mét die suite is het verhaal onmiddellijk geloofwaardig bij een publiek dat gewend is aan DCMA-checks en forensische narekenbaarheid. Voor Open Planner Studio betekent dit dat `tests/planning/` geen intern kwaliteitsinstrument is maar het **primaire verkoopargument** in deze sector.
+
+### A7.3 AI is hier een valkuil, geen kans
+
+Er groeit een laag AI-schema-analytics: nPlan, Nodes & Links, Foresight, SmartPM, InEight BASIS ([nPlan](https://www.nplan.io/); [CB Insights](https://www.cbinsights.com/company/nodes-links/alternatives-competitors)). Maar deze sector accepteert **geen niet-verklaarbare uitkomsten in een contractuele context**. Een AI-voorspelde einddatum is niet indienbaar bij een schedule review, niet verdedigbaar in arbitrage onder AACE 29R-03, en niet auditeerbaar onder een EVMS-regime.
+
+De sector wil **determinisme en auditbaarheid**, niet voorspelling. AI kan hier hooguit een adviesfunctie náást het deterministische model zijn. Een open-source planner die zijn schaarse ontwikkelcapaciteit in AI-features steekt in plaats van in CPM-pariteit en formaatinteroperabiliteit, mikt op het verkeerde doel voor dit segment.
+
+## A8. Wat dit addendum verandert aan de conclusies van het hoofdrapport
+
+| Onderwerp | Verandering |
+|---|---|
+| Segmentomvang | **Bevestigd.** Een derde, onafhankelijke ramingsroute (capex-per-planner) komt op dezelfde orde uit. Toevoeging: voor het *enge* segment (planningssoftware zonder kostenlaag) is USD 0,3–0,45 mrd/jaar de beste schatting |
+| P6-dominantie | **Bevestigd en versterkt.** Sumble-footprint P6 : overige planningsproducten ≈ 15:1 |
+| Contractuele dwang | **Genuanceerd.** De dwang komt uit de owner-*specificatie*, niet uit de contractvorm (NEC/FIDIC mandateren geen software). De barrière is inkoopgedreven en daarmee in principe beweeglijk |
+| EcoSys-adoptie | **Verhard.** Van leveranciersreferenties naar firmografische bevestiging bij Bechtel, Worley, Atkins, Burns & McDonnell, Air Products |
+| Prijzen kostenlaag | **Verhard.** USD 80.000–150.000/jaar voor 50+ users, implementatie 1–2× de jaarlicentie — convergeert met de ITQlick-notering uit het hoofdrapport |
+| Betalingsbereidheid | **Bevestigd, met scherpere hefboom.** Software = 0,01–0,05% van capex; één vermeden vertragingsdag verdient de jaaruitgave meervoudig terug |
+| IFC-conclusie | **Bevestigd.** CFIHOS/ISO 15926 domineert; IFC 4.3 dekt geen procesinstallaties. De negatieve bevinding voor een IFC-gebaseerde planner blijft staan |
+| Prioritering openingen | **Aangescherpt.** CPM-pariteit met P6 (bewezen via een regressiesuite) is de toegangskaart die alle andere openingen ontsluit. AI is expliciet géén prioriteit in dit segment |
+| Nordische uitzondering | **Nieuw.** Safran bewijst dat ketenuniformiteit functionele superioriteit verslaat — de aanvalsroute loopt via de keten, niet via het product |
+
+---
+
+## Aanvullende bronnenlijst (tweede onderzoeksronde)
+
+**Prestaties, overschrijdingen en vertragingskosten**
+- EY — *Spotlight on oil and gas megaprojects* (2014, volledige PDF-extractie incl. regionale en segmentuitsplitsingen, root-cause-analyse, Credit Suisse- en UBS-citaten) — https://aegex.com/images/uploads/white_papers/EY-spotlight-on-oil-and-gas-megaprojects.pdf
+- Public Citizen — *Billions Over Budget: LNG Projects Routinely Blow Past Cost Estimates* (2026) — https://www.citizen.org/article/billions-over-budget-lng-infrastructure/
+- Foresight — *The True Cost of Delays at Scale* (Flyvbjerg 4,64%; McKinsey 98%; Crossrail USD 3,3 mln/dag) — https://www.foresight.works/blog/the-true-cost-of-delays-at-scale
+- OilPrice.com — *6 Energy Megaprojects That Blew Past Their Budgets* (Gorgon LNG USD 37 → 54 mrd) — https://oilprice.com/Energy/Energy-General/6-Energy-Megaprojects-That-Blew-Past-Their-Budgets.html
+- Olaniran e.a. — *Cost Overruns in Hydrocarbon Megaprojects*, Project Management Journal (2015) — https://onlinelibrary.wiley.com/doi/10.1002/pmj.21556
+- EZTRAK — *Chemical Plant Turnarounds: Balancing Safety, Schedule, and Cost* — https://eztraksoftware.com/chemical-plant-turnarounds-balancing-safety-schedule-and-cost/
+
+**Markt en omvang**
+- ENR — *2025 Top 250 International Contractors: Market Volatility Flatlines Gains* (USD 501,2 mrd; USD 727,3 mrd orderintake) — https://www.enr.com/articles/61229-2025-enr-top-250-international-contractors-market-volatility-flatlines-gains
+- Mordor Intelligence — *Project Management Software Systems Market* (USD 9,76 mrd 2025; cloud 74,20%; jaarabonnementen 52,75%) — https://www.mordorintelligence.com/industry-reports/project-management-software-systems-market
+- Grand View Research — *Project Management Software Market Size Report, 2030* — https://www.grandviewresearch.com/industry-analysis/project-management-software-market-report
+- Verified Market Reports — *Oil and Gas Project Management Software Market* **[ZWAKKE BRON]** — https://www.verifiedmarketreports.com/product/oil-and-gas-project-management-software-market/
+- Market Research Future — *EPC Market Report 2035* **[conflicterende definitie]** — https://www.marketresearchfuture.com/reports/epc-engineering-procurement-and-construction-market-25411
+
+**Prijzen en pakketvergelijking**
+- Archdesk — *Top EPC Project Control Software for 2026* (USD 120/user/maand Oracle; mid-market USD 15–60k/jaar; 12 van 13 pakketten custom-quote-only; implementatiedoorlooptijden) — https://archdesk.com/blog/top-epc-project-control-software-2026
+- SoftwareConnect — *Oracle Primavera P6 EPPM: Pricing, Pros, Cons* — https://softwareconnect.com/reviews/oracle-primavera-p6-eppm/
+- Capterra — *EcoSys: pricing & reviews* (3,8/5) — https://www.capterra.com/p/76448/EcoSys-EPC/
+- Capterra — *Oracle Primavera Cloud pricing* (vanaf USD 49/user/maand) — https://www.capterra.com/p/145503/Oracle-Primavera/
+- CDP Inc. — *Oracle Primavera Cloud 5-user pakket* (USD 130/user/maand; USD 1.560/jaar extra seat) — https://cdp-inc.com/products/software/purchase-oracle-primavera-cloud-5-users
+- Global PM — *Oracle Primavera Cloud (OPC) Annual Subscription Pricing* — https://globalpm.com/oracle-primavera-cloud-pricing/
+- Akim Engineering — *Oracle Primavera prijslijst* (resellermarges) — https://www.akimeng.com/oracle-primavera-price-list.html
+
+**Leveranciers, adoptie en case studies**
+- Sumble — *EcoSys: competitors, complementary techs & usage* (adopters + footprintvergelijking) — https://sumble.com/tech/ecosys
+- Hexagon — *EcoSys Projects Product Brochure* (2019, PDF; modules, ">60% reduction in low-value work", Turnaround Management) — https://bynder.hexagon.com/m/614a6d6475b83e13/original/Hexagon_PPM_Product_EcoSys_Projects_Brochure_US_EN_2019.pdf
+- Hexagon/Octave — *Sequence Enterprise (formerly EcoSys)* — https://hexagon.com/products/ecosys
+- EcoSys — *EcoSys EPC v6 Achieves Oracle Validation with P6 EPPM 8.2* — https://www.ecosys.net/resource/ecosys-enterprise-planning-controls-version-6-achieves-oracle-validation-with-oracles-primavera-p6-enterprise-project-portfolio-management-8-2/
+- Rathmann Insights — *InEight Tightens Hold on Construction Project Management Software for Infrastructure* (Kiewit-historie 2011/2013; FedRAMP 2025) — https://www.rathmanninsights.com/post/ineight-tightens-hold-on-construction-project-management-software-for-infrastructure
+- InEight — bedrijfssite (850+ bedrijven; >USD 1 biljoen aan projecten) — https://ineight.com/
+- Safran — *Case study: Statoil* (Statfjord; 18.000 desktops; 5.000 gebruikers) — https://www.safran.com/case-studies/statoil
+- Safran — *Case study: Aker Solutions* — https://www.safran.com/case-studies/aker-solutions
+- Safran — *About* (">90% of the larger project players" in de Nordics) — https://www.safran.com/en-gb/about
+- Project Control Academy — *The Top 7 Integrated Project Controls Software* — https://www.projectcontrolacademy.com/integrated-project-controls-software/
+- Cleopatra Enterprise — *Oil & Gas / Petrochemicals solutions* — https://cleopatraenterprise.com/industries/oil-gas-and-petrochemical-energies/
+- Prometheus Group — *Shutdown, Turnaround and Outage (STO) Management Software* — https://www.prometheusgroup.com/solutions/shutdown-turnaround-and-outage
+- IAMTech — *Shutdown Turnaround Outage Software* — https://www.iamtech.com/america/products/shutdown-turnaround-outage-software
+- EZTRAK — *Turnaround Planning* — https://eztraksoftware.com/turnaround-planning-new/
+- Fabrico — *7 Best Shutdown & Turnaround Management Software Tools (2026)* — https://www.fabrico.io/blog/best-shutdown-turnaround-software/
+- Deltek — *Acumen Fuse: Project Schedule Analysis Software* (600+ metrics; S1–S5) — https://www.deltek.com/products/delivery-assurance/ppm/acumen/fuse/
+- Ten Six — *Deltek Acumen Fuse and the DCMA's 14-Point Assessment* — https://tensix.com/deltek-acumen-fuse-and-the-dcmas-14-point-assessment/
+- Ten Six — *P6 Professional Export Formats* — https://tensix.com/p6-professional-export-formats/
+- ScheduleReader — *How to Open XER File* — https://www.schedulereader.com/how-to-open-xer-file/
+- XER Schedule Toolkit — *Oil & Gas Project Controls Software* — https://xertoolkit.com/industries/oil-gas/
+- nPlan — https://www.nplan.io/
+- CB Insights — *Nodes & Links alternatives & competitors* — https://www.cbinsights.com/company/nodes-links/alternatives-competitors
+
+**Standaarden, review en compliance**
+- Capital Edge Consulting — *EVMS Compliance* (32 richtlijnen, vijf procesgebieden, USD 20 mln / USD 50 mln drempels) — https://capitaledgeconsulting.com/capabilities/dfars-business-systems/evms-compliance/
+- Pinnacle Management — *The DCMA 14-Point Schedule Assessment* (DCMA-EA PAM 200.1, 2012; ontkoppeling van EVM) — https://www.pinnaclemanagement.com/training/the-dcma-14-point-schedule-assessment
+- Pinnacle Management — *EIA-748 and the EVMS Validation Process* — https://www.pinnaclemanagement.com/training/earned-value-management-eia-748-and-the-evms-validation-process
+- EDW/PS — *DCMA 14-Point Assessment for Project Schedule* (PDF) — https://edwps.com/wp-content/uploads/2016/03/DCMA-14-point.pdf
+- DCMA — *Business Practice 0: Earned Value Management Systems* (rev. 12 sep 2025) — https://www.dcma.mil/Portals/31/Documents/EVMS/Business%20Practice%20Docs/Business%20Practice%200%20-%20Earned%20Value%20Management%20Systems%20(REV%2012SEP2025).pdf
+- ScheduleLens — *Primavera P6 Schedule Review: The Complete Checklist* (12-stappenprotocol; gevolgen niet-conforme indiening) — https://schedulelens.com/blog/primavera-p6-schedule-review/
+- NEC Planning Solutions — *Primavera P6 for NEC Programmes* (NEC mandateert P6 niet; de scope wel) — https://www.necplanningsolutions.co.uk/post/primavera-p6-for-nec-programmes
+- Ankura — *Harmonizing SCL D&D2 and AACE 29R-03* — https://ankura.com/insights/harmonizing-scl-dd2-and-aace-29r-03-complementary-frameworks-for-forensic-delay-analysis-in-international-arbitration
+- Ankura — *Overview: Complementary Frameworks for Forensic Delay Analysis in International Arbitration* — https://ankura.com/insights/overview-complementary-frameworks-for-forensic-delay-analysis-in-international-arbitration
+- AACE — *Professional Certifications* — https://web.aacei.org/certification/certification-information/certifications-offered/professional-certifications
+- Elite International Training — *CCP-examenkosten (USD 450 / 575)* — https://eliteinternationaltraining.com/certified-cost-professional-ccp
+- Wikipedia — *AACE International* (>8.000 leden per 2012; ~120 RPs) — https://en.wikipedia.org/wiki/AACE_International
+- USPI — *CFIHOS Purpose* — https://uspi.nl/index.php/cfihos-purpose
+- Revisionz — *Bridging Information Gaps in Process Industries: ISO 15926 and CFIHOS* — https://revisionz.com/bridging-information-gaps-in-process-industries-the-synergy-of-iso-15926-and-cfihos/
+- 15926.blog — *ISO 15926 consolidating paper* (2024, PDF) — https://15926.blog/ISO15926-consolidating-paper-20240714.pdf
+- THTH / Onno Paap — *ISO 15926 & CFIHOS* (presentatie, PDF) — https://www.ththry.org/assets/activities/2020/ISO15926engineers_OnnoPaap_20200324.pdf
+- Pathnovo — *CFIHOS 2.0 Standard: 2026 Explainer* — https://pathnovo.com/standards/cfihos
+
+**Integratie**
+- Oracle — *Integrating Oracle Primavera P6 and SAP* — https://www.oracle.com/construction-engineering/integrating-oracle-primavera-p6-and-sap/
+- SAP Community — *SAP PS and Primavera Integration using SAP EPC* — https://community.sap.com/t5/enterprise-resource-planning-q-a/sap-ps-and-primavera-integration-using-sap-epc/qaq-p/8661564
+- SAP Community — *SAP PS and Primavera integration* (EPC obsoleet, migratie naar CPI) — https://community.sap.com/t5/enterprise-resource-planning-q-a/sap-ps-and-primavera-integration/qaq-p/14298251
+- SAP Help — *Installation Guide: SAP Enterprise Project Connection* — https://help.sap.com/doc/2e6dcbb3099f4e1d89375e0da15fd959/3.0.01/en-US/loio12ae7aa6a4c045a080e4bc9f4f698941_12ae7aa6a4c045a080e4bc9f4f698941.pdf
+
+**Gebruikersoordeel en alternatieven**
+- ITQlick — *Primavera P6 Reviews* (user sentiment 84, 371 reviews) — https://www.itqlick.com/primavera-p6
+- SelectHub — *Top Primavera P6 Alternatives & Competitors* — https://www.selecthub.com/ppm-software/primavera-p6/alternatives/
+- Planera — *Top 10 Primavera P6 Alternatives* — https://www.planera.io/post/primavera-p6-alternatives
+- Gartner Peer Insights — *Primavera P6 EPPM alternatives* — https://www.gartner.com/reviews/product/primavera-p6-enterprise-project-portfolio-management/alternatives
+
+**Arbeidsmarkt**
+- ZipRecruiter — *Project Controls Scheduler* (USD 46–72/uur) — https://www.ziprecruiter.com/Jobs/Project-Controls-Scheduler
+- Bridges Consulting — *Project Schedulers: Exclusive Demand Boom* (<2.000 gecertificeerde P&S-professionals; USD 60–100k/jaar) — https://bridgesconsultinc.com/project-schedulers-exclusive-demand-boom-best-careers/
+
+**Sectorpraktijk**
+- Planning Planet — *Saudi Aramco project controls* — http://www.planningplanet.com/taxonomy/term/969
+- RKS Trainings — *Primavera P6 Training for EPC Projects* — https://rkstrainings.com/primavera-training/
+- Consult Leopard — *The Importance of Primavera P6 in Construction* — https://consultleopard.com/importance-of-primavera-p6-in-construction/
+
+---
+
+---
+
+## Verificatie
+
+**Datum:** 25 juli 2026 · **Methode:** adversariële fact-check — elke bewering actief proberen te weerleggen met directe bronraadpleging (WebSearch-budget was uitgeput, dus uitsluitend WebFetch + lokale PDF-extractie met `pypdf`). Doorgerekende schattingen zijn met de hand nagerekend. Bronnen die HTTP 403 gaven zijn als zodanig gemarkeerd; "onzeker" betekent hier *niet weerlegd maar ook niet gestaafd*.
+
+### Bevestigd
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Oracle-lijstprijzen 2016: P6 EPPM 2.750/605, P6 Professional 2.500/550, PRA 9.500/2.090, EVM 10.000/2.200, Unifier PC 3.950/869 (min 25), Data Warehouse 25.000/5.500 per processor, Gateway 20.000/4.400 (min 5), UPK-modules 35.000–70.000 | **Bevestigd** — alle 14 regels van de tabel in §3.1 komen exact overeen met de PDF (lokaal uitgelezen). Ook de termijnpercentages (20/35/50/60/70%) en "support = 22% van de perpetual lijstprijs, termijnpercentages niet toegepast" staan er letterlijk. Ook de cloudregels (P6 EPPM USD 125 min 25, Progress Reporter 12, Unifier PC 150, Analytics 90, Prime Projects 150, Prime Portfolios 125) kloppen. Nuance: het document is Oracle's prijslijst *voor Texas DIR* (DIR-TSO-2539), niet een universele publicatie | [oracle.com PDF](https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf) |
+| 2 | G-Cloud 14: P6 EPPM Cloud £220/maand (min 25), UK Gov £439 (min 50), Unifier UK Gov £459, NEC4-variant £539, non-productieomgeving £7.188, volumekortingen 10/15/20/25% | **Bevestigd** — letterlijk in het PDF-prijsdocument (lokaal uitgelezen). De omrekening £2.640/jaar ≈ USD 3.350–3.400 klopt bij koersen van 1,27–1,29 | [G-Cloud 14 PDF](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2024-05-03-0915.pdf) |
+| 3 | Oracle Primavera Cloud: Progress USD 144, Task Management 660, **Scheduling 1.320**, Portfolio Planning 2.640 per gebruiker per jaar, bijgewerkt 25-06-2026 | **Bevestigd**, exact | [FindPM](https://findpmsoftware.com/products/primavera-cloud) |
+| 4 | USACE-contract: totaal USD 24.480.375, initiële verplichting USD 4.896.075, Affigent LLC, W912HQ25F0051, 18-02-2025 t/m 17-02-2030, 4 inschrijvers → ≈ USD 4,9 mln/jaar | **Bevestigd**, alle velden exact; 24.480.375 / 5 = 4.896.075 klopt tot op de dollar | [OrangeSlices](https://orangeslices.ai/contract-award-24-5m-us-army-corps-of-engineers-usace-promis-program-office-oracle-primavera-software-licenses/) |
+| 5 | 6sense: Primavera Suite 20,05% / 7.474 klanten (#2), Teamwork 48,07% / 17.916, SAP PS 6,48% / 2.416, MS PPM 5,77% / 2.150 | **Bevestigd**, exact | [6sense](https://6sense.com/tech/project-management/oracle-primavera-suite-market-share) |
+| 6 | EY-megaprojectcijfers: 365 projecten, USD 2,6 bln, segmenttabel (1.080/163/6,6 — 539/50/10,8 — 348/46/7,6 — 607/106/5,7), 205 projecten met kostendata, +59% t.o.v. initiële raming, USD 1,2 → 1,7 bln (+500 mrd), 20 grootste post-FID: 65% overschrijding met gemiddeld 23% escalatie, IPA 2011: 78% vs. 50% in 2003, regionale tabel (NA 58/55/51, LatAm 57/71/102, Europa 53/74/57, Afrika 67/82/51, ME 89/87/68, APAC 68/80/57) | **Bevestigd** — PDF lokaal geëxtraheerd en de subset-fontcodering ontcijferd; alle genoemde waarden komen exact terug. Ook de kop 64%/73% is bevestigd (de figuurfont is één positie verschoven t.o.v. de bodyfont; die verschuiving is onafhankelijk geverifieerd via "Sixty-five percent … 35% on budget") | [EY PDF](https://aegex.com/images/uploads/white_papers/EY-spotlight-on-oil-and-gas-megaprojects.pdf) |
+| 7 | Mordor: PM-softwaremarkt USD 9,76 mrd (2025) → 11,27 (2026) → 23,09 (2031), CAGR 15,42%, cloud 74,20%, grote ondernemingen 60,35%, jaarabonnementen 52,75%, NA 36,12% | **Bevestigd**, exact. De kruischeck 3–5% × 9,76 = 0,29–0,49 mrd klopt rekenkundig | [Mordor](https://www.mordorintelligence.com/industry-reports/project-management-software-systems-market) |
+| 8 | DCMA 14-punten met drempels: 5% logic/lags/hard constraints/high float/high duration/missed tasks, ≥90% FS, 0% leads/negative float/invalid dates, 44 werkdagen, CPLI/BEI = 1,00 | **Bevestigd** (het getal 600 dagen voor de critical-path-test staat niet in deze bron maar is de gangbare praktijkwaarde) | [Deltek](https://www.deltek.com/en/resources/articles/dcma-14-point-assessment) |
+| 9 | PlanXER USD 39/99/249 per maand + het motief ("expensive P6 licences, manual schedule checks, clunky Excel workarounds") | **Bevestigd**, letterlijk | [PlanXER](https://planxer.pro/) |
+| 10 | Liquidated damages USD 50.000–500.000 per dag in EPC-contracten | **Bevestigd** dat de bron dit zegt. Kanttekening: leveranciersblog, en het uitgewerkte voorbeeld is een zonneproject, geen LNG-trein — het is geen sectorbrede meting | [Giga Energy](https://www.gigaenergy.com/blog/avoid-liquidated-damages) |
+| 11 | Archdesk-benchmarks: Oracle Primavera Cloud vanaf USD 120/gebruiker/maand, mid-market USD 15.000–60.000/jaar, enterprise >USD 100.000 first-year, 1 van 13 pakketten met transparante prijs, Oracle-uitrol ~6 maanden, CMiC "years" | **Bevestigd**, exact | [Archdesk](https://archdesk.com/blog/top-epc-project-control-software-2026) |
+| 12 | Public Citizen LNG-overschrijdingen: Altamira 1,3 → 3,5 mrd (+169%), Woodfibre 5,1 → 8,0 (+57%), Cedar 4,0 → 5,9 (+48%), Plaquemines +2,35 mrd; gemiddelden 59,7% (operationeel) en 38,1% (in aanbouw); EY: LNG gemiddeld 70% over budget | **Bevestigd**. Toevoeging uit de bron: Golden Pass 9,25 → 11,6 mrd (+25%). Woodfibre en Cedar zijn daar geclassificeerd als *in aanbouw*, wat het rapport niet vermeldt | [Public Citizen](https://www.citizen.org/article/billions-over-budget-lng-infrastructure/) |
+| 13 | Safran/Statoil-case: 3 platforms, Tampen Link 23,1 km, ~3 mln offshore + 3 mln engineering manuren, 18.000 desktops, >5.000 gebruikers binnen enkele maanden | **Bevestigd** | [Safran](https://www.safran.com/case-studies/statoil) |
+| 14 | AACE ">8.000 leden" (per 2012) en ~120 Recommended Practices | **Bevestigd**, inclusief de waarschuwing dat het cijfer uit 2012 stamt | [Wikipedia](https://en.wikipedia.org/wiki/AACE_International) |
+| 15 | Verified Market Reports: "Oil and Gas PM Software Market" USD 7,7 mrd (2026) → 18,5 mrd (2034), CAGR 11,5% | **Bevestigd dat de bron dit zegt**; het rapport markeert het terecht al als [ZWAKKE BRON — NIET GEBRUIKEN ALS ANKER] | [VMR](https://www.verifiedmarketreports.com/product/oil-and-gas-project-management-software-market/) |
+| 16 | Sumble telt 66.785 organisaties met Primavera P6 | **Bevestigd** (66,8k). Zie echter correctie #3 hieronder over hoe dit cijfer wordt gebruikt | [Sumble](https://sumble.com/tech/primavera-p6) |
+
+### Gecorrigeerd
+
+| # | Bewering | Correctie | Bron |
+|---|---|---|---|
+| 1 | **Route 3 (capex-per-planner) "convergeert" met de andere routes** — pure planningssoftware USD 0,20–0,45 mrd, incl. kostenlaag 0,9–1,7 mrd, totaal 1,6–3,1 mrd | **Rekenfout, niet reproduceerbaar.** 35.000–95.000 planners × USD 900–1.800 = **USD 0,03–0,17 mrd** (gepubliceerde regel is 2,6–6,3× te hoog). 150.000–280.000 controls-seats × USD 1.600–3.000 = 0,24–0,84 mrd, met planningslaag **0,27–1,01 mrd** (bovengrens 1,7 mrd is 2× te hoog). Je haalt de gepubliceerde regels alleen door dezelfde seats twee keer te prijzen. De claim "drie onafhankelijke routes convergeren" wordt hierdoor **weerlegd**: routes 1 en 3 verschillen een factor 4–10 op de licentielaag | eigen narekening, ingevoegd bij §A4.2 |
+| 2 | **Totaal segmentuitgaven "≈ USD 1–5 miljard per jaar"** (§4.2) | De eigen tabel sommeert tot **USD 0,81–5,79 mrd**. De gepubliceerde band is aan de onderkant 23% te hoog en aan de bovenkant 14% te laag; het subtotaal "0,35–1,6" hoort 0,33–1,66 te zijn. Regelsgewijs klopt de aritmetiek wél | eigen narekening |
+| 3 | **P6 : overige planningsproducten ≈ 15:1** (§A2.1) | De acht overige rijen sommeren tot 6.330 → **10,6 : 1**. Zonder de Unifier-dubbeltelling en de niet-planningsproducten: 13,4 : 1. De 15:1 is een greep uit een reeks van 10–19:1 afhankelijk van de selectie. Bovendien: het rapport gebruikt 6sense (7.474 organisaties) voor de omvangsraming en Sumble (66.785) voor de dominantieclaim — een **factor 8,9** die nergens wordt verzoend; met Sumble zou de seat-raming 1,7–2,7 miljoen zijn | [Sumble](https://sumble.com/tech/primavera-p6) + [6sense](https://6sense.com/tech/project-management/oracle-primavera-suite-market-share) |
+| 4 | **Aandeel industriële EPC = 70.000–135.000 seats** (§4.2 stap 2) | 35% van 190.000 = **66.500**, niet 70.000. Kleine, maar eenzijdig naar boven gerichte afronding | eigen narekening |
+| 5 | **EY-segmenttabel in het addendum** (LNG 67/79, Pijpleiding 62/78, Raffinage 65/70, Upstream 68/69) | De ontcijferde PDF geeft voor kostenoverschrijding de reeks **{62, 64, 65, 67}** — 68% komt daar niet in voor en 64% ontbreekt in de tabel. De waarden 70% en 69% horen bij de rij *gemiddelde budgetoverschrijding* {41, 53, 69, 70}, niet bij vertraging {50, 68, 78, 79}. §1.6 van het hoofdrapport ("62–67%") is wél correct en spreekt de addendumtabel tegen | [EY PDF](https://aegex.com/images/uploads/white_papers/EY-spotlight-on-oil-and-gas-megaprojects.pdf) |
+| 6 | **nPlan: 750.000 projecten, USD 2,5 biljoen, USD 16 mln opgehaald** | De site zegt 750.000 **schema's** en **">$2Tn"** bouwuitgaven (plus USD 500 mrd onder actief beheer). USD 2,5 biljoen is te hoog; "projecten" moet "schema's" zijn. Het bedrag van USD 16 mln staat nergens op de site en is onbevestigd | [nPlan](https://www.nplan.io/) |
+| 7 | **"Oracle Primavera Cloud and Hexagon EcoSys typically start at USD 80.000 to 150.000 per year for enterprise licences covering 50+ named users"** (§A3.1) | Dit citaat staat **niet** op de opgegeven Verified Market Reports-pagina en evenmin op de Archdesk-pagina. Bovendien is delen door precies 50 bij "50+ users" een bovengrens, geen bandbreedte — de geclaimde "convergentie" met ITQlick is een artefact van de deler. Regel A8 "Prijzen kostenlaag: **Verhard**" moet terug naar *onzeker* | [VMR](https://www.verifiedmarketreports.com/product/oil-and-gas-project-management-software-market/), [Archdesk](https://archdesk.com/blog/top-epc-project-control-software-2026) |
+| 8 | **Safran: "over 90% of the larger project players" in de Nordics** | Staat niet op de opgegeven about-pagina. Oprichting 1997 en de olie-en-gasherkomst staan er wél. Behandel het 90%-cijfer als onbevestigde marketingclaim | [Safran](https://www.safran.com/en-gb/about) |
+
+### Onzeker
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Arcadis: gemiddelde geschilwaarde USD 42 mln wereldwijd, USD 60,1 mln in Noord-Amerika, 12,5 maanden | **Niet gestaafd.** De CMAA-PDF is volledig uitgelezen en bevat geen enkel bedrag — het is een kwalitatief artikel. De Arcadis-hoofdpagina toont nog de 2022-editie. De LinkedIn-bron is niet toegankelijk. De cijfers zijn plausibel maar niet verifieerbaar, en ze dragen wel de argumentatie in §3.6 en §7.2 | [CMAA PDF](https://www.cmaanet.org/sites/default/files/resource/State%20of%20Construction_0.pdf), [Arcadis](https://www.arcadis.com/en/knowledge-hub/perspectives/global/global-construction-disputes-report) |
+| 2 | Saudi Aramco SAEP-331 definieert zeven schemaniveaus met P6 als verplicht platform | **Niet gestaafd.** De Kazinex-bron zegt alleen dat SAEP-procedures voorschrijven "how programmes are structured, coded, and progressed" — geen zeven niveaus, geen P6-verplichting. Scribd is niet machinaal verifieerbaar. Dit is de enige concrete onderbouwing van de centrale stelling "P6 is contractueel voorgeschreven"; §A1.4 nuanceert die stelling zelf al terecht (NEC/FIDIC schrijven geen software voor) | [Kazinex](https://docs.kazinex.com/blog/aramco-saep-schedule-quality-check) |
+| 3 | IEA: olieproductie-investering USD 535 mrd (2025) tegen USD 599 mrd (2024) = –6% | **Rekenkundig inconsistent** (599 → 535 = –10,7%). Zowel iea.org als energyvoice.com gaven HTTP 403 bij hercontrole, dus welk van de drie getallen fout is, is niet vast te stellen. De aanpalende cijfers (USD 3,3 bln totale energie-investering; upstream olie & gas net onder USD 570 mrd) zijn zelf niet direct herverifieerd — alleen indirect via de titel van het S&P-artikel | [IEA](https://www.iea.org/reports/world-energy-investment-2025/executive-summary) (403) |
+| 4 | ENR Top 250: USD 499,7 mrd (hoofdrapport) vs. USD 501,2 mrd (addendum) | **Onzeker maar zelf al gemarkeerd.** Beide ENR-bronnen zijn 403/paywalled; het addendum lost het correct op met "gebruik USD ~500 mrd". Geen verdere actie nodig | [ENR](https://www.enr.com/articles/61229-2025-enr-top-250-international-contractors-market-volatility-flatlines-gains) (403) |
+| 5 | DOE O 413.3B: EVMS verplicht boven USD 50 mln Total Project Cost | **Deels bevestigd, onvolledig.** De LBNL-bron bevestigt de USD 50 mln-drempel ("after CD-2 is approved, earned value reporting shall apply"), maar noemt géén aparte drempel voor *gecertificeerd* EVMS (in de praktijk ≥ USD 100 mln). §A5.1 signaleert de 50/100-spanning wel voor DFARS, maar niet voor DOE | [LBNL](https://sites.google.com/lbl.gov/lbnlprojectmanagementframework/home/applicability) |
+| 6 | Aandeel P6 binnen industriële EPC = 75–90%; groei 4–7% per jaar; kostenlaag ~40% van het segment | **Onzeker, en zo gemarkeerd in het rapport.** Geen enkele publieke bron kwantificeert dit. De onderbouwing rust op de 15:1-verhouding (zie correctie #3, in werkelijkheid 10,6:1) en op de SAEP-331-claim (zie onzeker #2) — beide zijn bij verificatie verzwakt. De 75–90% blijft een verdedigbare gevolgtrekking, maar met **minder** steun dan het rapport suggereert | — |
+| 7 | IFC 4.3 / ISO 16739-1:2024 dekt geen procesinstallaties | **Niet weerlegd; iso.org gaf 403.** De scope (gebouwen + bruggen, wegen, spoor, waterwegen, havens) is algemeen bekend en de conclusie — geen domein voor procesapparatuur, P&ID-piping, instrumentatieloops of tag-gebaseerde asset-registers — is inhoudelijk juist. Dit is de belangrijkste strategische bevinding van het rapport en verdient bij gelegenheid een primaire bronbevestiging | [ISO](https://www.iso.org/standard/84123.html) (403) |
+
+### Samenvattend oordeel
+
+De **harde, primaire lagen van dit rapport houden stand**: alle Oracle-prijsdata (twee onafhankelijke primaire documenten, regel voor regel), de USACE-aanbesteding tot op de dollar, de EY-megaprojectstatistiek (inclusief de regionale uitsplitsing, na ontcijfering van de PDF-fontcodering), de DCMA-14-drempels, de firmografische tellingen en de gepubliceerde prijzen van PlanXER en Archdesk. Dat is een ongewoon degelijke feitenbasis.
+
+De **kwantitatieve segmentraming is aanzienlijk zwakker dan gepresenteerd**. De drie "onafhankelijke convergerende routes" convergeren niet: route 3 is niet reproduceerbaar uit zijn eigen stappen en levert, correct doorgerekend, een uitkomst die vier tot tien keer lager ligt dan route 1. Daar bovenop staat een onverzoende factor-9 tussen de twee firmografische bronnen. De strategische conclusies van het rapport (P6 domineert; de aanval moet op de randen van de keten; IFC landt hier niet) worden hierdoor **niet** ondergraven — die rusten op kwalitatief bewijs dat wel standhoudt. Wat wél moet vervallen is de suggestie van precisie in de omvangsschatting: **USD 0,1–1,7 miljard licenties, orde van grootte één miljard, is wat de onderbouwing draagt** — niet "centraal USD 0,7–1,0 miljard".
+
+---
+
+**Methodologische opmerking bij het addendum:** deze tweede ronde gebruikte 20 WebSearch-opdrachten en circa 20 WebFetch-aanroepen op leveranciers-, norm-, analisten- en vakpersbronnen. De officiële Oracle-prijslijst en het EY-rapport zijn lokaal met `pdfminer.six` uit de PDF geëxtraheerd omdat de fetch-laag ze niet kon parsen. Enkele bronnen (ENR-artikel, ENR-surveyPDF, ITQlick-detailpagina) gaven HTTP 403 op geautomatiseerde toegang; de betreffende cijfers komen in die gevallen uit de zoekresultaat-samenvatting en zijn als zodanig te behandelen. De cijfers in dit addendum zijn steeds gemarkeerd met hun herkomst; eigen berekeningen staan als **[SCHATTING]** met de redenering erbij.

@@ -56,6 +56,10 @@ Voor een IFC-gebaseerde open-source planner is dat relevant in twee richtingen: 
 
 Bron voor de versiehistorie: [Wikipedia — Microsoft Project](https://en.wikipedia.org/wiki/Microsoft_Project) (geraadpleegd 25-07-2026). Bron voor de retirement-data: [Microsoft Community Hub, 5-9-2025](https://techcommunity.microsoft.com/blog/plannerblog/microsoft-project-online-is-retiring-what-you-need-to-know/4450558).
 
+> **Verificatienoot (25-07-2026), twee voorbehouden bij deze tabel:**
+> 1. **De exacte dag van de Project Online-retirement is niet dubbel bevestigd.** Microsoft's eigen productdocumentatie zegt op twee onafhankelijke plaatsen alleen *"Microsoft Project Online will be retired in **September 2026**"* — zonder dagaanduiding ([Project Online service description](https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/microsoft-project-online-service-description), bijgewerkt 12-01-2026; [Project Online software boundaries and limits](https://learn.microsoft.com/en-US/ProjectOnline/project-online-software-boundaries-and-limits), bijgewerkt 25-05-2026). De precieze datum **30 september 2026** komt uitsluitend uit de Planner-blogaankondiging, waarvan de artikeltekst bij hercontrole niet opnieuw uitleesbaar was (de pagina levert alleen de titel op). **De maand is hard, de dag is niet onafhankelijk geverifieerd.** Hetzelfde geldt voor de afgeleide data 1-10-2025 (end of sale) en 1-4-2026 (geen nieuwe tenants).
+> 2. **De versiehistorie steunt volledig op één bron (Wikipedia).** Verkoop in 1985, eerste MS-DOS-release in 1984, Ron Bredehoeft als bedenker en Project 4.0 voor Mac (1993) als laatste Mac-versie zijn wél letterlijk terug te vinden in dat artikel, maar er is geen tweede, onafhankelijke bron bij gezocht. De toevoeging *"Mac-ontwikkeling gestaakt in 1994"* staat niet in die vorm in de bron — behandel het jaartal 1994 als afgeleid, niet als geciteerd.
+
 ### 1.3 Doelgroep, typische gebruikers, sectoren en regio's
 
 **Doelgroep.** Microsoft Project bedient historisch het brede midden van de projectmanagementmarkt: individuele projectmanagers, PMO's, en enterprise-portfoliobeheer. Het is niet gebouwd voor één sector — precies daarin verschilt het van Primavera P6 (zware infra/EPC) en Asta Powerproject (Britse bouw).
@@ -113,7 +117,8 @@ Belangrijk voor interoperabiliteit: het **MSPDI-uitwisselingsformaat kent alleen
 
 - **11 baselines** per bestand: `Baseline` plus `Baseline1` t/m `Baseline10`.
 - Per baseline worden start, finish, duration, work en cost vastgelegd, ook getimefaseerd.
-- **Kritieke beperking:** je kunt er in de standaardweergaven maar **één tegelijk** effectief vergelijken. Primavera P6 kan er vier tegelijk toewijzen (Project, Primary, Secondary, Tertiary) en er onbeperkt bewaren ([Plan Academy — MS Project vs Primavera P6](https://www.planacademy.com/microsoft-project-vs-primavera-p6/)). Voor claims- en vertragingsanalyse (windows analysis, time impact analysis) is dat verschil substantieel.
+- **Kritieke beperking:** je kunt er in de standaardweergaven maar **één tegelijk** effectief vergelijken. Primavera P6 kan er vier tegelijk toewijzen (Project, Primary, Secondary, Tertiary) en er onbeperkt bewaren ([Plan Academy — MS Project vs Primavera P6](https://www.planacademy.com/microsoft-project-vs-primavera-p6/), geverifieerd 25-07-2026: *"can assign 4 baseline to a project at one go"*, P6-opslag alleen begrensd door de database). Voor claims- en vertragingsanalyse (windows analysis, time impact analysis) is dat verschil substantieel.
+  > *Telverschil tussen bronnen:* Plan Academy spreekt van **10** baselines in MS Project, Microsoft's eigen specificatie van **11**. Beide zijn te verdedigen — Microsoft telt `Baseline` plus `Baseline1`–`Baseline10`, Plan Academy telt alleen de genummerde. Dit profiel volgt Microsoft's eigen telling (11).
 
 ### 2.5 Risico en Monte-Carlo
 
@@ -230,7 +235,7 @@ Bron: [microsoft.com — Microsoft Planner plans and pricing (en-us)](https://ww
 
 **Belangrijke observatie.** Plan 5 wordt in de productdocumentatie en in de retirement-FAQ nog steeds genoemd, maar staat **niet meer op de publieke prijspagina** (geverifieerd 25-07-2026 op zowel de overzichtspagina als de plan-detailpagina's). Ook Microsoft's eigen licensing-artikel noemt alleen nog Planner Plan 1 en Planner and Project Plan 3 als premium-abonnementen ([Microsoft Learn — Microsoft Planner Subscriptions](https://learn.microsoft.com/en-us/planner/licensing), bijgewerkt 01-06-2026). Plan 5 is daarmee feitelijk een **enterprise-only SKU zonder transparante prijs** geworden.
 
-> **Gerapporteerd bedrag, niet geverifieerd:** de historische lijstprijs van Project Plan 5 / Planner and Project Plan 5 was **$55,00 per gebruiker/maand** bij jaarlijkse facturering. Dit bedrag is niet op 25-07-2026 op een Microsoft-pagina bevestigd en moet als **schatting op basis van eerdere publicaties** worden behandeld. Wie dit nodig heeft, moet een partneroffer opvragen.
+> **Gerapporteerd bedrag, NIET geverifieerd — behandel als onbetrouwbaar:** de historische lijstprijs van Project Plan 5 / Planner and Project Plan 5 zou **$55,00 per gebruiker/maand** bij jaarlijkse facturering zijn geweest. Bij een tweede, onafhankelijke verificatieronde op 25-07-2026 kon dit bedrag op **geen enkele** bron worden teruggevonden: niet op de en-us- of nl-nl-prijspagina, niet op de vergelijkingspagina, en niet op een Plan 5-productpagina (`/en-us/microsoft-365/planner/project-plan-5` gaf HTTP 503). Onafhankelijke zoekmachines waren in deze sessie niet beschikbaar (DuckDuckGo captcha, Mojeek HTTP 403), zodat ook geen secundaire bron kon worden aangetroffen. **Gebruik dit bedrag niet in een vergelijkende kostenanalyse**; vraag een partneroffer op.
 
 ### 3.2 Eeuwigdurende licenties (perpetual)
 
@@ -290,7 +295,7 @@ Dit is voor een eerlijke vergelijking essentieel — de kale seat-prijs is niet 
 
 9. **Volwassen programmeerbaarheid op de desktop.** VBA-objectmodel, COM-automation en .NET-interop geven volledige toegang tot het taak-, resource- en assignmentmodel. Er bestaan decennia aan macro's, add-ins en bedrijfsspecifieke automatiseringen. Dat is een ecosysteem-voordeel dat webtools nog niet benaderen.
 
-10. **Brede internationale beschikbaarheid en compliance-dekking.** Beschikbaar in commerciële, onderwijs- en Amerikaanse overheidsclouds inclusief GCC, GCC High en DoD voor de desktopclient, met de Microsoft 365-compliance-, retentie- en encryptiekaders eromheen. Voor gereguleerde sectoren scheelt dat een compleet inkooptraject.
+10. **Brede internationale beschikbaarheid en compliance-dekking.** *(Gecorrigeerd na verificatie 25-07-2026.)* Microsoft's uitspraak "available in commercial, education and GCC, GCC High and DoD subscriptions" staat in de **Project Online**-servicebeschrijving en slaat dus op Project Online, niet op de Win32-desktopclient (die als lokaal geïnstalleerde applicatie sowieso niet clouds-gebonden is). Voor **Project for the web / Planner premium** staat in dezelfde documentatieset juist het tegendeel: *"It is not yet available in GCC High, and DoD."* Netto: de gereguleerde-overheidsdekking geldt voor de uitfaserende Project Online-lijn plus de desktop, niet voor de strategische opvolger — met de Microsoft 365-compliance-, retentie- en encryptiekaders eromheen. Voor gereguleerde sectoren scheelt dat een inkooptraject, maar niet op de Planner-lijn. ([Project Online service description](https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/microsoft-project-online-service-description); [Project for the web service description](https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/project-web-service-description))
 
 ---
 
@@ -335,10 +340,12 @@ Dit hoofdstuk is uitgebreid, omdat het voor een open-source IFC-planner het besl
 | **Project Database** | `.mpd` | tot Project 2003 | tot Project 2003 | Microsoft Access-database |
 | **Workspace** | `.mpw` | historisch | historisch | |
 | **MSPDI / Project XML** | `.xml` | ja | ja | **Open XSD-schema**, sinds Project 2002 |
-| **MPX (Project Exchange)** | `.mpx` | **afgeschaft** | **afgeschaft** | Leesbaar t/m Project 2010; schrijfbaar t/m Project 98 |
+| **MPX (Project Exchange)** | `.mpx` | **afgeschaft** | **afgeschaft** | Schrijfbaar t/m Project 98 (geverifieerd); leesbaar t/m Project 2010 (**niet geverifieerd**, zie noot) |
 | Excel | `.xlsx` | ja | ja | Via wizard-mapping |
 | CSV / tekst | `.csv`, `.txt` | ja | ja | |
 | PDF / XPS | | — | ja | Alleen output |
+
+> **Verificatienoot MPX (25-07-2026).** Dat Project 98 de laatste versie was die naar `.mpx` kon *opslaan*, is bevestigd ([Wikipedia — Microsoft Project](https://en.wikipedia.org/wiki/Microsoft_Project): Project 98 was "the last to open Project 4.0/95 files and save in .mpx … file format"). De bewering dat Project **2010** de laatste versie was die `.mpx` nog kon *lezen* is bij hercontrole **niet** met een bron onderbouwd — noch de MPXJ-formatendocumentatie noch de geraadpleegde Microsoft-pagina's noemen die grens. Behandel "leesbaar t/m 2010" als onbevestigd.
 
 **Kritiek gat: er is géén native ondersteuning voor XER, P6 XML (PMXML), of IFC.** Microsoft Project kan geen enkel Primavera-formaat lezen of schrijven, en heeft geen enkele relatie met buildingSMART-standaarden. Uitwisseling met de bouwkolom loopt daarom altijd via een derde partij.
 
@@ -469,7 +476,7 @@ common.py     wpattern.py
 ### 7.5 Opvallende klanten en verplichtstellingen
 
 Microsoft publiceert geen klantenlijst voor Project. Wat wel vaststaat:
-- Het product is beschikbaar in **GCC, GCC High en DoD**-clouds voor de desktopclient, wat aangeeft dat Amerikaanse overheids- en defensieklanten het gebruiken;
+- **Project Online** is beschikbaar in **GCC, GCC High en DoD**-abonnementen, wat aangeeft dat Amerikaanse overheids- en defensieklanten het gebruiken. *(Gecorrigeerd 25-07-2026: deze beschikbaarheidsuitspraak van Microsoft betreft Project Online, niet de desktopclient; de eerdere formulering schreef haar aan de desktopclient toe.)*;
 - **premium Planner-functionaliteit is niet beschikbaar in GCC High en DoD** — die klanten kunnen de cloudopvolger dus niet gebruiken, wat de desktop daar de facto verplicht maakt;
 - Voor US federal EVMS-programma's onder ANSI/EIA-748 wordt Microsoft Project doorgaans gecombineerd met een aparte kostentool (bijv. Deltek Cobra). *(Algemeen bekende praktijk; in dit onderzoek niet met een primaire bron bevestigd — behandelen als indicatie.)*
 
@@ -565,3 +572,94 @@ Microsoft publiceert geen klantenlijst voor Project. Wat wel vaststaat:
 32. [Barbecana — Full Monte Schedule Risk Analysis](https://www.barbecana.com/full-monte/) — *Monte-Carlo-add-in; ondersteunt MS Project 2010–2021 en P6 8.4–22.12; geen publieke prijs.*
 33. [Wikipedia — Microsoft Project](https://en.wikipedia.org/wiki/Microsoft_Project) — *historie, versietijdlijn, formaatlijst, marktpositieclaims.*
 34. [MPUG — Project Online migratie-artikelen](https://www.mpug.com/?s=project+online+retirement) — *praktijkperspectief; bevestigt retirementdatum 30 september 2026.*
+
+---
+
+## Verificatie
+
+*Onafhankelijke, adversariële hercontrole uitgevoerd op 25 juli 2026. Werkwijze: elke bewering is actief geprobeerd te **weerleggen** door de primaire bron opnieuw op te halen en, waar mogelijk, tegen een tweede bron te leggen. Het WebSearch-budget van deze sessie was uitgeput (200/200) en de onafhankelijke zoekmachines DuckDuckGo (captcha) en Mojeek (HTTP 403) weigerden toegang; verificatie verliep daarom via directe URL-ophaling. Dat is een reële beperking: claims die alleen via een zoekmachine tegen te spreken waren, staan hieronder als **onzeker**.*
+
+### Prijzen en licentiemodel
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | Planner basis inbegrepen in M365 Business Basic/Standard, Office 365 E1/E3/E5, M365 A1 | **bevestigd** — exact deze zes SKU's | https://learn.microsoft.com/en-us/planner/planner-for-admins |
+| 2 | Planner Plan 1 = $10,00 p/gebruiker/maand, jaarabonnement, auto-renew | **bevestigd** (letterlijk op de pagina) | https://www.microsoft.com/en-us/microsoft-365/planner/microsoft-planner-plans-and-pricing |
+| 3 | Planner and Project Plan 3 = $30,00 p/gebruiker/maand | **bevestigd** | idem |
+| 4 | Microsoft 365 Copilot add-on = $30,00 p/gebruiker/maand | **bevestigd** | idem |
+| 5 | NL: Planner Abonnement 1 = €8,70 en Planner en Project Abonnement 3 = €26,00, excl. btw, jaarlijks betaald | **bevestigd**; Copilot-add-on staat er op €26,00 | https://www.microsoft.com/nl-nl/microsoft-365/planner/microsoft-planner-plans-and-pricing |
+| 6 | Plan 5 staat NIET op de publieke prijspagina, maar bestaat nog in de documentatie | **bevestigd, dubbel** — Plan 5 ontbreekt op zowel de en-us- als de nl-nl-prijspagina; het licensing-artikel noemt als premium-abonnementen alleen Plan 1 en Plan 3; de Project-for-the-web-servicebeschrijving heeft nog wél een volledige Plan 5-kolom | https://learn.microsoft.com/en-us/planner/licensing (bijgewerkt 01-06-2026) · https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/project-web-service-description |
+| 7 | Plan 5 historische lijstprijs $55,00 p/gebruiker/maand | **onzeker → aangescherpt naar "niet bruikbaar"** — nergens teruggevonden; Plan 5-productpagina gaf HTTP 503, zoekmachines geblokkeerd. Tekst in §3.1 aangepast: niet gebruiken in kostenvergelijking | *(geen bron gevonden)* |
+| 8 | Project Standard 2024 = $679,99 eenmalig, 1 pc, Windows only | **bevestigd** — "one-time purchase", "Licensed for one PC" | https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software |
+| 9 | Project Professional 2024 = $1.129,99 eenmalig | **bevestigd** | idem |
+| 10 | Project Server SE heeft geen publieke prijs ("find a partner") | **bevestigd** — de vergelijkingspagina toont uitsluitend een partner-link | idem |
+| 11 | Software Assurance ≈ 25–29%/jaar | **onzeker** — als schatting gemarkeerd in §3.2 en niet te verifiëren; Microsoft publiceert geen SA-percentages | *(geen bron)* |
+| 12 | Project Server SE: serverlicentie enkele duizenden $ + CALs enkele honderden $ | **onzeker** — expliciet als ruwe schatting gemarkeerd in §3.3; geen publieke prijslijst bestaat | *(geen bron)* |
+| 13 | Geen minimum seat-afname Plan 1/3; wel 5+ licenties nodig voor Power Platform Production/Sandbox | **bevestigd** — *"For Project Customers with five (5) or more Project for the web licenses, you may deploy Project for the web to Power Platform Production and Sandbox environments"* | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/project-web-service-description |
+| 14 | Verborgen kosten: Power BI-, Power Apps-, Power Automate-licentie; Dataverse boven quota (Plan 1: 3 GB/tenant + 50 MB/gebruiker; Plan 3/5: 5 GB + 250 MB); Teams-licentie | **bevestigd** — alle vier de voetnoten en de capaciteitstabel staan letterlijk in de servicebeschrijving | idem |
+| 15 | Monte-Carlo-add-ins als extra kostenpost; Full Monte ondersteunt MS Project 2010–2021 en P6 8.4–22.12, geen publieke prijs | **bevestigd** (letterlijk: "Microsoft Project 2010 through 2021 and Primavera P6 8.4 through 22.12") | https://www.barbecana.com/full-monte/ |
+
+### Technische claims en limieten
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 16 | Desktoplimieten: 400.000 taken, 700.000 resources, 50.000 predecessors/successors, 65.535 outline levels, 998 geconsolideerde projecten, 11 baselines, 1-1-1984 t/m 31-12-2149, 30.000+ base calendars, 255 tekens | **bevestigd, alle tien getallen letterlijk** | https://support.microsoft.com/en-us/office/specifications-for-microsoft-project-71e29e86-28dd-4582-a578-6506c5cc603a |
+| 17 | Planner Premium / Project for the web: 3.000 taken, 10 hiërarchieniveaus, 20 links per taak, 2.000 links per project, 150 resources, 20 resources per taak, leaf 1.250 dagen, summary 3.650 dagen, 1-1-2000 – 31-12-2149 | **bevestigd, alle negen getallen letterlijk in de boundaries-tabel** | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/project-web-service-description |
+| 18 | Kritiek pad ontbreekt in Plan 1 | **bevestigd** — featurematrix: Critical path = No voor Office 365 en Plan 1, Yes voor Plan 3/5 | idem |
+| 19 | Project Online-limieten: 30.000 projecten/PWA, 2.000 project sites per site collection, 25 GB initiële quota, 450 custom fields per categorie zonder keuzemogelijkheid, Excel-bron >10 MB niet ververbaar, alleen SharePoint classic mode | **bevestigd, alle zes letterlijk** | https://learn.microsoft.com/en-US/ProjectOnline/project-online-software-boundaries-and-limits |
+| 20 | Citaat *"It takes more time to calculate multiple calendars"* | **bevestigd, letterlijk als kopje** | idem |
+| 21 | CSOM: 2 MB per request ≈ 252 minimale taken; foutmelding "The request uses too many resources"; geen toegang tot lokale .mpp-data; *"Project Online does not support OLAP cubes"* | **bevestigd, alle vier letterlijk** | https://learn.microsoft.com/en-us/office/client-developer/project/what-the-csom-does-and-does-not-do |
+| 22 | "CSOM dekt twaalf PSI-services niet" | **bevestigd, met leesrisico** — de niet-gedekte lijst telt inderdaad 12 services (Admin, Archive, CubeAdmin, Driver, LoginForms, LoginWindows, Notifications, ObjectLinkProvider, PortfolioAnalyses, QueueSystem, Security, WssInterop). Let op: dezelfde pagina zegt óók dat CSOM "the twelve most commonly used PSI services" wél dekt — twee verschillende twaalftallen, makkelijk te verwarren | idem |
+| 23 | Project Server SE: *"there are no major features or enhancements"*, geen in-place upgrade, alleen via PowerShell vanaf Project Server 2016/2019, Windows Server 2019/2022 + SQL Server 2019 | **bevestigd, alle vier letterlijk** | https://learn.microsoft.com/en-us/project/new-features-capabilities-project-server-subscription-edition |
+| 24 | Portfolio analysis & prioritization alleen in Plan 5 / Project Server | **bevestigd** — featurematrix: Plan 3 = No, Plan 5 = Yes; idem voor resource capacity planning, custom branding, user management, service administration | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/microsoft-project-online-service-description |
+| 25 | MS Project heeft geen enkele IFC-/BIM-ondersteuning | **bevestigd bij benadering** — een negatieve claim is niet hard te bewijzen, maar geen van de geraadpleegde Microsoft-formaat-, service- en specificatiepagina's noemt IFC, buildingSMART of enig BIM-formaat; ook de MPXJ-formatenlijst kent geen IFC-koppeling aan de Microsoft-kant | *(afwezigheidsbewijs; zie bronnen 7, 23, 25)* |
+
+### Levenscyclus en eigendom
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 26 | Project 2024 volgt Modern Lifecycle Policy, start 1-10-2024, retirement 9-10-2029, geldt voor Standard én Professional | **bevestigd, exact** (`2024-10-01` → `2029-10-09`) | https://learn.microsoft.com/en-us/lifecycle/products/project-2024 |
+| 27 | Extended support Project Server **2019** eindigt 14-7-2026 | **bevestigd, exact** (`2026-07-14`; mainstream eindigde 9-1-2024) | https://learn.microsoft.com/en-us/lifecycle/products/project-server-2019 |
+| 28 | Extended support Project Server **2016** eindigt eveneens 14-7-2026 | **bevestigd, exact** (`2026-07-14`; mainstream eindigde 13-7-2021) — apart nagetrokken, was in het oorspronkelijke profiel niet los onderbouwd | https://learn.microsoft.com/en-us/lifecycle/products/project-server-2016 |
+| 29 | Project Online wordt uitgezet op **30 september 2026** | **gecorrigeerd naar deels onzeker** — Microsoft's productdocumentatie bevestigt op twee onafhankelijke plaatsen alleen *"will be retired in September 2026"*, zonder dag. De dag 30-9 komt uitsluitend uit de Planner-blogaankondiging, die bij hercontrole niet uitleesbaar was. Maand hard, dag onbevestigd. Voorbehoud toegevoegd in §1.2 | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/microsoft-project-online-service-description · https://learn.microsoft.com/en-US/ProjectOnline/project-online-software-boundaries-and-limits |
+| 30 | Project for the web met pensioen op 1 augustus 2025, opgegaan in Planner | **bevestigd, letterlijk** — *"Microsoft Project for the web is retiring on August 1, 2025"* | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/project-web-service-description |
+| 31 | Hernoemingen: Project Plan 1 → Planner Plan 1 in april 2024; Project Plan 3/5 → Planner and Project Plan 3/5 op 18 september 2024 | **bevestigd, beide data letterlijk** | https://learn.microsoft.com/en-us/planner/planner-for-admins |
+| 32 | Premium Planner-functionaliteit niet beschikbaar in GCC High en DoD | **bevestigd, tweemaal** — *"premium capabilities are currently not available for customers in Government Cloud Communities (GCC) High nor Department of Defense (DoD) tenants"* en *"It is not yet available in GCC High, and DoD"* | idem · Project for the web service description |
+| 33 | GCC/GCC High/DoD-beschikbaarheid "voor de desktopclient" (§4.10 en §7.5) | **gecorrigeerd** — Microsoft's uitspraak betreft **Project Online**, niet de desktopclient. Beide passages herschreven | https://learn.microsoft.com/en-us/office365/servicedescriptions/project-online-service-description/microsoft-project-online-service-description |
+| 34 | Eigendom: Microsoft kocht de rechten in 1985; eerste commerciële release 1984 (MS-DOS); concept van Ron Bredehoeft; laatste Mac-versie Project 4.0 in 1993 | **bevestigd op één bron** — alle vier letterlijk in het Wikipedia-artikel; geen tweede onafhankelijke bron beschikbaar zonder zoekmachine. De toevoeging "Mac-ontwikkeling gestaakt in 1994" staat er níet zo; als afgeleid gemarkeerd in §1.2 | https://en.wikipedia.org/wiki/Microsoft_Project |
+| 35 | Marktleiderschap: "dominant PC-based project management software"; populairste PM-applicatie 2015–2020 volgens Project Management Zone | **bevestigd als citaat, onzeker als feit** — het profiel schrijft de claim correct aan Wikipedia toe en presenteert haar niet als eigen meting. De onderliggende ranglijst (Project Management Zone) is niet zelf geraadpleegd en de periode eindigt in 2020 — als bewijs voor de marktpositie in 2026 is dit **zwak** | idem |
+| 36 | Plan 5 wordt nog genoemd in productdocumentatie en retirement-FAQ | **bevestigd** — volledige Plan 5-kolom in beide servicebeschrijvingen, terwijl het licensing-artikel Plan 5 weglaat | zie #6 |
+
+### Interoperabiliteit
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 37 | MPXJ leest MPP maar kan het **niet schrijven**; MPP-leesondersteuning dekt Project 98 t/m 2019 | **bevestigd, letterlijk** — *"MPXJ supports read only access to MPP files"*; leeslijst eindigt inderdaad bij Project 2019 (dus géén 2021/2024) | https://www.mpxj.org/supported-formats/ |
+| 38 | MPXJ leest én schrijft MSPDI, MPX, XER, PMXML, Planner, SDEF | **bevestigd, alle zes** | idem |
+| 39 | MPX: schrijven eindigde na Project 98; lezen mogelijk t/m Project 2010 | **deels gecorrigeerd** — schrijfgrens bevestigd via Wikipedia; de **leesgrens Project 2010 is nergens onderbouwd**. Tabel §6.1 en een noot aangepast | https://en.wikipedia.org/wiki/Microsoft_Project |
+| 40 | IFC 4.3: `IfcWorkSchedule` erft `CreationDate`, `StartTime`, `FinishTime`, `Duration`, `Purpose` + `PredefinedType`; taken via `IfcRelAssignsToControl`; nesten via `IfcRelAggregates`; **werkkalender aan de summary task, niet aan het werkschema** | **bevestigd, alle vier** — letterlijk: *"a work calendar shall be assigned to the summary task and not the work schedule"* | https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkSchedule.htm |
+| 41 | IfcOpenShell `msp2ifc.py` parst MSPDI, mapt Name/OutlineNumber/OutlineLevel/Start/Finish/Duration/Priority/CalendarUID/predecessors en ondersteunt alle vier relatietypen | **bevestigd in de broncode** (sequence-mapping 0=FF, 1=FS, 2=SF, 3=SS) | https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.8.0/src/ifc4d/ifc4d/msp2ifc.py |
+| 42 | De vier gedocumenteerde brugbeperkingen: working-week-only, *"Exceptions not yet implemented"*, lag in tienden van een minuut (*"Seriously, Microsoft?"*), resources *"Doesn't do anything right now"*, plus *"BIG assumptions"* over exception-types | **bevestigd — alle vijf citaten letterlijk in de broncode teruggevonden** | idem · https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.8.0/src/ifc4d/ifc4d/ifc2msp.py |
+
+### Reviews en marktcontext
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 43 | PeerSpot: 4,0/5 uit 86 reviews, 93% aanbeveling, bouw = 13% en grootste sector | **bevestigd, alle vier** (bouw is expliciet *"the top industry researching this solution"*) | https://www.peerspot.com/products/microsoft-project-reviews |
+| 44 | P6 kan vier baselines tegelijk toewijzen en onbeperkt bewaren | **bevestigd** — *"can assign 4 baseline to a project at one go"*; opslag begrensd door de database | https://www.planacademy.com/microsoft-project-vs-primavera-p6/ |
+| 45 | 11 baselines in MS Project | **bevestigd via Microsoft (11), telverschil met Plan Academy (10) genoteerd** in §2.4 | zie #16 en #44 |
+| 46 | Gebruikersklachten (*"very unstable … more than 400 lines"*, support 4/10, prijs "roughly double what it should", geen multi-currency) | **onzeker** — deze citaten staan op individuele PeerSpot-reviewpagina's die in deze ronde niet afzonderlijk uitleesbaar waren; alleen de aggregaatcijfers (#43) zijn hercontroleerd. Het profiel presenteert ze correct als gebruikerswaarneming, niet als meting | *(niet hercontroleerd)* |
+| 47 | Eigen schatting "comfortabel werkbaar tot 5.000–10.000 taken" | **onzeker, maar correct gelabeld** — expliciet als eigen inschatting gemarkeerd in §2.9; geen benchmark beschikbaar | *(eigen inschatting)* |
+
+### Samenvattend oordeel
+
+**Sterk punt van dit profiel:** de harde, falsifieerbare kern — alle vier de actuele prijzen (US én NL), beide perpetual-bedragen, alle tien desktoplimieten, alle negen Planner-Premium-limieten, alle zes Project Online-limieten, drie lifecycle-datums en vijf letterlijke broncode-citaten — is **volledig en letterlijk bevestigd**. Er zijn geen verzonnen getallen aangetroffen.
+
+**Zwakke plekken, in volgorde van belang:**
+1. **De $55-lijstprijs voor Plan 5** is nergens terug te vinden en moet uit elke kostenvergelijking worden gehouden (was al als schatting gemarkeerd, nu aangescherpt).
+2. **De precieze retirementdag 30 september 2026** rust op één niet-hercontroleerbare blogpost; Microsoft's documentatie noemt alleen de maand.
+3. **GCC High/DoD-beschikbaarheid werd aan de verkeerde component toegeschreven** (desktopclient i.p.v. Project Online) — gecorrigeerd op twee plaatsen.
+4. **De marktleiderschapsclaim** steunt op een Wikipedia-verwijzing naar een ranglijst uit 2015–2020 en is als bewijs voor 2026 zwak.
+5. **"MPX leesbaar t/m Project 2010"** en de **hele versiehistorie** hangen aan één bron of aan geen bron.
+
+*Verificatie uitgevoerd 25-07-2026. Alle in deze sectie genoemde URL's zijn op die datum daadwerkelijk opgehaald, tenzij anders vermeld.*
