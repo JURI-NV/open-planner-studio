@@ -2,7 +2,9 @@
 
 **Regio:** Zuid-Europa
 **Onderzoeksdatum:** 25 juli 2026
-**Valutakoersen gehanteerd:** 1 EUR ≈ 1,08 USD; 1 GBP ≈ 1,17 EUR (afgerond, voor omrekeningen in dit rapport)
+**Valutakoersen gehanteerd:** 1 EUR ≈ 1,14 USD; 1 GBP ≈ 1,17 EUR (afgerond, voor omrekeningen in dit rapport)
+
+> **[GECORRIGEERD 25-07-2026]** De eerdere versie hanteerde 1 EUR ≈ 1,08 USD. Dat is achterhaald: de ECB-referentiekoers van 24 juli 2026 is **USD 1,1377** en **GBP 0,85388** (= 1 GBP ≈ €1,1711). De GBP-koers klopte; de dollarkoers zat er ~5% naast, waardoor alle USD→EUR-omrekeningen in dit rapport te hoog uitvielen. Bron: [ECB euro reference exchange rates](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html).
 
 > **Leeswijzer bij betrouwbaarheid.** Bij elk cijfer staat een bron-URL. Waar ik zelf reken of extrapoleer staat expliciet **[SCHATTING]**. Waar een bron commercieel belang heeft of niet verifieerbaar is, staat **[LAGE BETROUWBAARHEID]**. Prijzen uit Italiaanse overheidsbesluiten (`determine di affidamento`) zijn de hardste bron in dit rapport: die zijn wettelijk verplicht openbaar en bevatten werkelijk betaalde bedragen, geen lijstprijzen.
 
@@ -20,7 +22,9 @@ Het gevolg is een markt die in twee vrijwel gescheiden werelden uiteenvalt:
 
 **Wereld 2 — de zware markt (enkele duizenden gebruikers, hoge prijs per gebruiker).** Grote infrastructuur, EPC/plant en energie draaien op **Oracle Primavera P6** en **Microsoft Project**. Webuild, Saipem, Maire Tecnimont, Terna, RFI/Italferr en de grote ingenieursbureaus zitten hier. Dit is waar het geld zit maar niet waar de aantallen zitten. Interessant detail voor de marktstructuur: **TeamSystem — de grootste Italiaanse bouwsoftwareleverancier — is tevens de Oracle Primavera-wederverkoper in Italië**, aantoonbaar via een aankoopbesluit van de gemeente Genua ([Comune di Genova, DD 2021-126.0.99](https://www2.comune.genova.it/content/dd-2021-126099-assegnazione-ai-sensi-dell%E2%80%99art-36-comma-2-lettera-del-dlgs-n-5020216-tramite-)). Dezelfde partij bedient dus beide werelden.
 
-**Marktomvang (eigen schatting, zie §2):** de Italiaanse markt voor projectplanning-/schedulingsoftware bedraagt naar schatting **€25–45 miljoen per jaar aan licentie-/abonnementsomzet (2025)**, waarvan **€15–30 miljoen bouw-/infraspecifiek**. Inclusief training, consultancy en implementatie komt het totaal op naar schatting **€45–80 miljoen per jaar**. Groei naar schatting **6–9% per jaar**, gedreven door de BIM-verplichting boven €2 miljoen (vanaf 1 januari 2025) en de nasleep van het PNRR.
+**Marktomvang (eigen schatting, zie §2):** de Italiaanse markt voor projectplanning-/schedulingsoftware bedraagt naar schatting **€11–33 miljoen per jaar aan licentie-/abonnementsomzet (2025)**, waarvan **€9–26 miljoen bouw-/infraspecifiek**. Inclusief training, consultancy en implementatie komt het totaal op naar schatting **€23–83 miljoen per jaar** — een band die zó breed is dat hij weinig zegt; het zwaartepunt ligt bij €35–55 miljoen. Groei naar schatting **6–9% per jaar**, gedreven door de BIM-verplichting boven €2 miljoen (vanaf 1 januari 2025) en de nasleep van het PNRR.
+
+> **[GECORRIGEERD 25-07-2026]** Hier stond eerder **€25–45 mln** licenties / **€15–30 mln** bouwspecifiek / **€45–80 mln** totaal. Die getallen volgden **niet** uit de eigen seat-tabel in §2.4: de acht regels van die tabel sommeren tot **€11,3–33,0 mln**. De bovengrens van €45 mln lag daarmee 36% boven de som van álle maxima in de eigen berekening — rekenkundig onmogelijk. Zie §2.4 en de verificatienoot onderaan.
 
 **De belangrijkste marktdynamiek nu:** het PNRR loopt af (deadline medio 2026). Italië had per begin 2026 **€153,2 miljard ontvangen en €101,3 miljard uitgegeven, waarvan meer dan de helft naar de bouw**, met circa **16.000 actieve bouwplaatsen** ([Edilportale/ANCE, jan 2026](https://www.edilportale.com/news/2026/01/mercati/ance-investimenti-costruzioni-56-nel-2026_108743_13.html)). Dat heeft een tijdelijke piek in vraag naar planners veroorzaakt. Na 2026 resteert ca. **€120 miljard aan Europese en nationale middelen tot 2033** — de vraag stort dus niet in, maar de urgentie neemt af.
 
@@ -46,9 +50,11 @@ Het gevolg is een markt die in twee vrijwel gescheiden werelden uiteenvalt:
 | PNRR-investeringen Gruppo FS | ca. €25 mrd | 2024 | [FS Italiane](https://www.fsitaliane.it/content/dam/fsitaliane/Documents/media/comunicati-stampa/2024/dicembre/03_nota_stampa_PNRR.pdf) |
 | Ingenieurs ingeschreven bij de orde | >250.000 (ca. 70% ouder dan 45) | 2025 | [ANSA](https://www.ansa.it/sito/notizie/ordini_professionali/2025/02/06/oltre-250.000-ingegneri) |
 | Ingenieurs + architecten (Inarcassa) | 172.916 (−0,8% j-o-j) | 2025 | [ANSA](https://www.ansa.it/sito/notizie/economia/real_estate/2026/04/29/inarcassa-172.916-ingegneri-e-architetti-iscritti-nel-2025) |
-| Productiewaarde OICE-ingenieursbureaus | €4,63 mrd | 2025 | [OICE via Edilportale/YouBuild](https://www.oice.it/916272/presentata-la-rilevazione-annuale-oice-cer-11-3-produzione-2024) |
-| Personeel OICE-bureaus | 27.929 | 2022 | [OICE](https://www.oice.it/234334/-il-mercato) |
+| Productiewaarde OICE-ingenieursbureaus | **€4,4 mrd (+11,3% t.o.v. 2023)** | **2024** | [OICE — rilevazione annuale OICE/CER](https://www.oice.it/916272/presentata-la-rilevazione-annuale-oice-cer-11-3-produzione-2024) |
+| Personeel OICE-bureaus | **34.700 (+12,6% t.o.v. 2023)** | **2024** | idem |
 | Webuild orderintake | €9,3 mrd (9M) | 2025 | [Milano Finanza](https://milanofinanza.it/news/webuild-ordini-record) |
+
+> **[GECORRIGEERD 25-07-2026]** De twee OICE-regels stonden er fout in: eerder **€4,63 mrd (2025)** en **27.929 medewerkers (2022)**. De aangehaalde OICE-bron zelf meldt *"Fatturato 2024 OICE a 4,4 mld. (+11,3% sul 2023)"* en *"Addetti a 34.700 unità nel 2024 (+12,6% sul 2023)"*. Het personeelscijfer was dus niet alleen verouderd maar ook **24% te laag**; dat werkt door in benadering (c) van §2.4, die hieronder is herrekend.
 | Webuild omzetverwachting | >€12,5 mrd | 2025 | [Il Giornale d'Italia](https://ilgiornaleditalia.it/news/economia/749544/webuild-acquisiti-a-9-3-miliardi) |
 
 ### 2.2 Digitalisering als leidende indicator
@@ -72,13 +78,19 @@ Let op de asymmetrie: **BIM-eisen groeien explosief, maar het `cronoprogramma` b
 
 | Bron | Definitie | Waarde | Jaar | CAGR |
 |---|---|---|---|---|
-| [Market Research Future](https://www.marketresearchfuture.com/reports/italy-project-portfolio-management-software-market-61336) | Italië, project portfolio management software | **$157,78 mln** → $370,3 mln (2035) | 2025 | 8,91% |
-| idem, deelsegment | Italië, *Construction Project Management*-toepassing | **$25–60 mln** | 2024 | — |
+| [Market Research Future](https://www.marketresearchfuture.com/reports/italy-project-portfolio-management-software-market-61336) | Italië, project portfolio management software | $144,87 mln (2024) → **$157,78 mln** → $370,3 mln (2035) | 2025 | 8,91% |
+| idem, deelsegment | Italië, *Construction Project Management*-toepassing | **$25,0 mln → $60,0 mln** (traject, vermoedelijk 2024→2035) | 2024–2035 | — |
 | [Mordor Intelligence](https://www.mordorintelligence.com/industry-reports/project-management-software-systems-market) | Wereldwijd, PM-software | $9,76 mrd | 2025 | → $23,09 mrd (2031) |
 | [Research Nester](https://www.researchnester.com/reports/project-management-software-market/4176) | Wereldwijd, PM-software | $7,24 mrd | 2025 | 10,7% |
 | [MarketIntelo](https://marketintelo.com/report/construction-scheduling-software-market) | Wereldwijd, *construction scheduling* | $2,1 mrd | 2025 | 9,2% → $4,8 mrd (2034) |
 
-**[LAGE BETROUWBAARHEID]** Het MRF-rapport bevat interne inconsistenties (2024-totaal $144,87 mln, maar het segment "large enterprises" alleen al $220,3 mln) en veel ronde, niet-onderbouwde procentclaims over Italiaanse bedrijven. Behandel de $157,78 mln als een orde-van-grootte-indicatie voor een **veel bredere** PPM-definitie (inclusief IT-portfoliobeheer, SAP, Atlassian, Smartsheet, monday) en niet als een meting van bouwplanning. De sub-segmentschatting van **$25–60 mln voor bouwprojectmanagement** is de meest bruikbare regel eruit, en die is verrassend consistent met mijn eigen bottom-up berekening hieronder.
+**[LAGE BETROUWBAARHEID]** Het MRF-rapport bevat veel ronde, niet-onderbouwde procentclaims over Italiaanse bedrijven. Behandel de $157,78 mln als een orde-van-grootte-indicatie voor een **veel bredere** PPM-definitie (inclusief IT-portfoliobeheer, SAP, Atlassian, Smartsheet, monday) en niet als een meting van bouwplanning.
+
+> **[GECORRIGEERD 25-07-2026] — dit was de belangrijkste leesfout in het rapport.** Hier stond eerder dat MRF een *interne inconsistentie* bevat ("2024-totaal $144,87 mln, maar het segment large enterprises alleen al $220,3 mln") en dat het bouwsegment **$25–60 mln in 2024** zou zijn. Beide zijn bij hercontrole van de bron onjuist gelezen:
+> - MRF's FAQ zegt letterlijk *"The Large Enterprises segment is projected to dominate with a valuation of $220.3 Million"* — zonder jaartal, maar het woord **"projected"** en de omvang wijzen op **2035** (totaal 2035 = $370,3 mln; large enterprises = 59% daarvan, volstrekt plausibel). Tegen het 2024-totaal van $144,87 mln afgezet lijkt het een tegenspraak; tegen 2035 is het dat niet. **De "inconsistentie" is vrijwel zeker mijn eigen leesfout, niet die van MRF.**
+> - Idem voor het bouwsegment: *"The valuation range for the Construction Project Management application segment is $25.0 Million to $60.0 Million."* Dat is in MRF's standaard-FAQ-sjabloon een **begin- en eindwaarde van de prognoseperiode (2024→2035)**, geen bandbreedte binnen één jaar.
+>
+> **Gevolg voor de kruiscontrole in §2.4 stap 4:** als het Italiaanse bouwsegment in 2024 circa **$25 mln ≈ €22 mln** is (en niet €23–55 mln), dan bevestigt MRF de eigen bottom-up-raming veel minder ruim dan geclaimd. De gecorrigeerde eigen bouwspecifieke licentieraming (€9–26 mln) overlapt er nog steeds mee — maar de oorspronkelijke €15–30 mln plus diensten zat er bovenop, niet "ruim binnen". De twee methoden bevestigen elkaar dus zwakker dan het rapport eerder suggereerde. **Restonzekerheid:** MRF vermeldt de jaartallen niet expliciet; de toewijzing 2024→2035 is een gefundeerde gevolgtrekking, geen letterlijke bronvermelding.
 
 ### 2.4 Eigen bottom-up raming **[SCHATTING]**
 
@@ -92,31 +104,47 @@ Drie onafhankelijke benaderingen:
 
 *(b) Verhouding tot de sector.* In volwassen bouwmarkten ligt de verhouding toegewijde planners tot bouwwerkgelegenheid rond 1:300 à 1:500. Italië heeft ca. 1,5 miljoen direct in de bouw (deel van de 3,3 miljoen ketenwerkgelegenheid). Dat geeft **3.000–5.000**.
 
-*(c) Via ingenieursbureaus.* OICE-bureaus hebben 27.929 medewerkers; als 3–5% planner/project-control is, zijn dat **840–1.400** — alleen bij de aangesloten bureaus. Tel daar aannemers (Webuild alleen al enkele honderden), EPC (Saipem, Maire Tecnimont, Danieli, Fincantieri), opdrachtgevers (RFI/Italferr, ANAS, Terna, Snam, Autostrade) en het niet-aangesloten deel van de markt bij op, en je komt op dezelfde orde.
+*(c) Via ingenieursbureaus.* OICE-bureaus hebben **34.700 medewerkers (2024)**; als 3–5% planner/project-control is, zijn dat **1.040–1.735** — alleen bij de aangesloten bureaus. Tel daar aannemers (Webuild alleen al enkele honderden), EPC (Saipem, Maire Tecnimont, Danieli, Fincantieri), opdrachtgevers (RFI/Italferr, ANAS, Terna, Snam, Autostrade) en het niet-aangesloten deel van de markt bij op, en je komt op dezelfde orde. *(Herrekend: eerder stond 27.929 medewerkers → 840–1.400; dat cijfer was uit 2022 en 24% te laag.)*
+
+> **Methodologische waarschuwing bij benadering (a).** De vacature-route is de zwakste van de drie en verdient niet het gewicht dat ze in de conclusie krijgt. Drie problemen: (i) LinkedIn-telling per zoekterm is berucht onbetrouwbaar — dezelfde vacature verschijnt via meerdere agencies en aggregators, en de zoekterm "Primavera P6" vangt ook rollen waarin P6 slechts één regel in het functieprofiel is; (ii) de stap van vacatures naar *verloop* veronderstelt een markt in evenwicht, terwijl het PNRR juist een tijdelijke **groei**piek veroorzaakte — een deel van die 480–960 posities is uitbreiding, geen vervanging, wat de installed base **overschat**; (iii) de resulterende bandbreedte (3.200–9.600) is een factor 3 breed en dus nauwelijks informatief. De uitkomst "~5.000" is het midden van een zeer wankele schatting, geen meting. Benaderingen (b) en (c) zijn robuuster en wijzen op **3.000–5.000**.
 
 **Conclusie: circa 4.000–7.000 professionele planners in Italië die een echt CPM-pakket gebruiken.** Daarnaast tienduizenden professionals (ingenieurs, architetti, geometri, ambtenaren) die één of twee keer per jaar een `cronoprogramma` moeten produceren als projectdocument.
 
 **Stap 2 — wat wordt er per gebruiker betaald?**
 
-| Segment | Aantal seats **[SCHATTING]** | Kosten per seat/jaar | Jaarlijkse omzet **[SCHATTING]** |
-|---|---|---|---|
-| Oracle Primavera P6 (perpetual + 22% support, en cloud) | 1.200–2.000 | €1.500–3.000 geannualiseerd | **€2–5 mln** |
-| Microsoft Project (Plan 3 / perpetual), bouw+infra deel | 6.000–10.000 | €250–350 | **€1,5–3,5 mln** |
-| MS Project buiten bouw (industrie, IT, publiek) | 10.000–20.000 | €250–350 | €2,5–7 mln (deels buiten scope) |
-| SYNCHRO 4D, TILOS, Powerproject, overige zware tools | 300–700 | €2.000–4.500 | **€0,8–2,5 mln** |
-| PriMus-K binnen POWER PACK (ACCA) | 40.000–80.000 POWER PACK-abonnementen | €100–199 (hele pakket, niet alleen planning) | **€1–3 mln** toerekenbaar aan planning |
-| STR Vision CPM / TeamSystem Construction | 5.000–15.000 | €240–600 (onderhoud) | **€2–6 mln** |
-| Blumatica Kronoplan, Namirial, MyAedes e.a. | 3.000–10.000 | €100–300 | **€0,5–2 mln** |
-| Algemene SaaS (monday, Smartsheet, Wrike, Asana, ClickUp) voor AEC-planning | 5.000–15.000 | €150–350 | **€1–4 mln** |
+| Segment | Aantal seats **[SCHATTING]** | Kosten per seat/jaar | Omzet zoals eerder vermeld | **Rekenkundig bereik (seats × prijs)** |
+|---|---|---|---|---|
+| Oracle Primavera P6 (perpetual + 22% support, en cloud) | 1.200–2.000 | €1.500–3.000 geannualiseerd | €2–5 mln | **€1,8–6,0 mln** |
+| Microsoft Project (Plan 3 / perpetual), bouw+infra deel | 6.000–10.000 | €250–350 | €1,5–3,5 mln | **€1,5–3,5 mln** ✓ |
+| MS Project buiten bouw (industrie, IT, publiek) | 10.000–20.000 | €250–350 | €2,5–7 mln (deels buiten scope) | **€2,5–7,0 mln** ✓ |
+| SYNCHRO 4D, TILOS, Powerproject, overige zware tools | 300–700 | €2.000–4.500 | €0,8–2,5 mln | **€0,6–3,15 mln** |
+| PriMus-K binnen POWER PACK (ACCA) | 40.000–80.000 POWER PACK-abonnementen | €100–199 (hele pakket, niet alleen planning) | €1–3 mln toerekenbaar aan planning | *toerekening, geen product* |
+| STR Vision CPM / TeamSystem Construction | 5.000–15.000 | €240–600 (onderhoud) | €2–6 mln | **€1,2–9,0 mln** |
+| Blumatica Kronoplan, Namirial, MyAedes e.a. | 3.000–10.000 | €100–300 | €0,5–2 mln | **€0,3–3,0 mln** |
+| Algemene SaaS (monday, Smartsheet, Wrike, Asana, ClickUp) voor AEC-planning | 5.000–15.000 | €150–350 | €1–4 mln | **€0,75–5,25 mln** |
 
-**Totaal licentie-/abonnementsomzet: €25–45 miljoen per jaar (2025).**
-**Waarvan bouw-/infraspecifiek: €15–30 miljoen per jaar.**
+> **[GECORRIGEERD 25-07-2026] — de hoofdconclusie van dit rapport klopte niet met zijn eigen tabel.**
+>
+> **(1) De totalen sommeren niet.** Optelling van de acht eerder vermelde omzetregels geeft:
+> - ondergrens: 2 + 1,5 + 2,5 + 0,8 + 1 + 2 + 0,5 + 1 = **€11,3 mln**
+> - bovengrens: 5 + 3,5 + 7 + 2,5 + 3 + 6 + 2 + 4 = **€33,0 mln**
+>
+> Het gestelde totaal van **€25–45 mln** was daarmee onhoudbaar: de bovengrens lag 36% bóven de som van álle maxima in de eigen tabel, wat rekenkundig onmogelijk is, en de ondergrens lag ruim twee keer zo hoog als de som van alle minima. Idem voor het bouwspecifieke deel: de bouw-/infraregels (1, 2, 4, 6, 7, plus het AEC-deel van regel 8) sommeren tot **€8,8–26 mln**, niet €15–30 mln.
+>
+> **(2) Vijf van de acht regels vermeldden een smallere band dan hun eigen invoer toelaat**, zonder dat ergens wordt uitgelegd waarom (zie de rechterkolom). Wie de volledige rekenkundige bereiken optelt komt op **€9,7–39,9 mln** — ook dan wordt €45 mln niet gehaald.
+>
+> **Gecorrigeerde uitkomst, conservatief (som van de eerder vermelde regels):**
+
+**Totaal licentie-/abonnementsomzet: €11–33 miljoen per jaar (2025).**
+**Waarvan bouw-/infraspecifiek: €9–26 miljoen per jaar.**
 
 **Stap 3 — diensten.** In dit vakgebied ligt de verhouding diensten/licenties in Italië hoog, omdat het aanbod sterk via resellers en systeemintegratoren loopt (TeamSystem, Alfa Sistemi, Horsa, EPM Consulting, Comunico, DigiTecno) en omdat overheden training moeten inkopen. Uit het CAL-contract blijkt een consultancytarief van **€95/uur** ([CAL S.p.A., feb 2020](https://www.calspa.it/wp-content/uploads/2020-02-13_det-affidamento_str.pdf)); uit de ACCA-offerte aan Rome **€7.200 voor 3 klassen van 16 uur** plus €2.000 reiskosten. Reken op een dienstencomponent van **1,0–1,5× de licentieomzet**.
 
-**Totaal Italiaanse markt inclusief diensten: €45–80 miljoen per jaar. [SCHATTING]**
+**Totaal Italiaanse markt inclusief diensten: €23–83 miljoen per jaar. [SCHATTING]**
 
-**Stap 4 — kruiscontrole.** Market Research Future schat het Italiaanse deelsegment "Construction Project Management" op **$25–60 mln (2024)**, oftewel €23–55 mln. Mijn bouwspecifieke licentieraming (€15–30 mln) plus een deel van de diensten valt daarbinnen. De twee methoden zijn onafhankelijk en komen op dezelfde orde uit — dat geeft redelijk vertrouwen in de orde van grootte, niet in de precisie.
+> **[GECORRIGEERD 25-07-2026]** Eerder stond **€45–80 mln**. Met de gecorrigeerde licentiebasis (€11–33 mln) en de eigen dienstenfactor van 1,0–1,5× wordt het totaal 2,0–2,5 × licenties = **€23–83 mln**. Merk op hoe nietszeggend die band is: hij spant een factor 3,6. De vermenigvuldiging van twee ruime schattingen (seats × prijs, daarna × dienstenfactor) laat de onzekerheid exploderen. Wie één getal nodig heeft kan het beste **€35–55 mln/jaar** aanhouden als middenscenario, met de uitdrukkelijke kanttekening dat dit een orde-van-grootte is en geen meting. De dienstenfactor van 1,0–1,5× is bovendien zelf ongeverifieerd: hij steunt op twee losse contracten (ACCA-training, CAL-consultancy) en niet op enige branchemeting.
+
+**Stap 4 — kruiscontrole.** Market Research Future noemt voor het Italiaanse deelsegment "Construction Project Management" een traject van **$25,0 → $60,0 mln**, wat bij nadere lezing vrijwel zeker 2024→2035 is en niet een bandbreedte in 2024 (zie de correctienoot in §2.3). Dat betekent circa **$25 mln ≈ €22 mln in 2024**. Mijn gecorrigeerde bouwspecifieke licentieraming (€9–26 mln) overlapt daarmee — de twee methoden komen op dezelfde orde uit, wat redelijk vertrouwen geeft in de orde van grootte en géén in de precisie. **Let op: dit is een zwakkere bevestiging dan de vorige versie van dit rapport claimde**, en MRF is bovendien zelf als lage-betrouwbaarheidsbron gemarkeerd — twee zwakke ramingen die elkaar bevestigen blijven twee zwakke ramingen.
 
 **Groei [SCHATTING]: 6–9% per jaar.** Onderbouwing: BIM-aanbestedingen +80,7% in aantal (2025), BIM-verplichting boven €2 mln vanaf 1 jan 2025, €120 mrd resterende middelen tot 2033 — maar ook een aflopende PNRR-piek, een krimpende beroepsbevolking (ingenieurs/architecten −0,8%, 70% ouder dan 45) en een prijsniveau dat structureel laag blijft doordat planning als bijproduct van calculatie wordt verkocht.
 
@@ -159,7 +187,9 @@ Drie onafhankelijke benaderingen:
 - **S2plan** (opgericht 2026, Stefano Sala) — ingenieursbureau gespecialiseerd in Project Control, Planning en Cost Control voor civiele, plant- en infrastructuurwerken; werkt uitsluitend met MS Project en Primavera P6 ([s2plan.it](https://www.s2plan.it/))
 - **MESLI Consulting** — licentieverkoop met offertes op maat
 
-**Prijzen — internationale lijstprijzen (perpetual, USD):**
+**Prijzen — perpetual (USD) — [LAGE BETROUWBAARHEID]:**
+
+> **[GECORRIGEERD 25-07-2026]** Deze vier bedragen stonden hier als "internationale lijstprijzen". Bij hercontrole is de bron geen Oracle-document maar de **eigen, ongedateerde prijslijst van een reseller**: de pagina is getiteld *"Primavera Price List by AKIM Engineering Consulting"*. Er staat geen datum, geen Oracle-referentie en geen versienummer op. De bedragen zijn feitelijk correct weergegeven ($3.880 / $4.240 / $10.450 / $1.460), maar ze mogen niet als officiële Oracle-lijstprijs worden gepresenteerd. Voor harde Oracle-prijzen is uitsluitend de G-Cloud-prijslijst hieronder bruikbaar.
 
 | Product | Lijstprijs | Metriek | Bron |
 |---|---|---|---|
@@ -170,7 +200,7 @@ Drie onafhankelijke benaderingen:
 
 Oracle rekent standaard **22% van de netto licentiewaarde per jaar** voor Software Update License & Support (algemeen Oracle-beleid; niet in bovenstaande bron gespecificeerd — **[SCHATTING]** op basis van Oracle's gangbare supportpercentage).
 
-**Prijzen — cloud, officiële Oracle-lijstprijs.** Het meest betrouwbare openbare document is Oracle's eigen prijslijst voor het Britse G-Cloud 14-raamwerk (mei 2025). Dit zijn echte Oracle-lijstprijzen, geen reseller-schattingen:
+**Prijzen — cloud, officiële Oracle-prijslijst.** Het meest betrouwbare openbare document is Oracle's eigen prijslijst voor het Britse G-Cloud 14-raamwerk (PDF-aanmaakdatum 23 juni 2025). Dit zijn echte Oracle-prijzen, geen reseller-schattingen. **Wel met twee kanttekeningen:** het zijn *Britse raamwerkprijzen voor de publieke sector*, niet wereldwijde lijstprijzen en zeker geen Italiaanse prijzen, en het document is door Oracle gemarkeerd als *"PROPRIETARY AND CONFIDENTIAL"* hoewel het openbaar op het G-Cloud-portaal staat. Alle onderstaande bedragen en kortingstrappen zijn woord voor woord tegen de PDF geverifieerd (25-07-2026) en kloppen:
 
 | Cloud-dienst | Prijs per hosted named user/maand | Min. gebruikers |
 |---|---|---|
@@ -189,7 +219,11 @@ Oracle rekent standaard **22% van de netto licentiewaarde per jaar** voor Softwa
 **Volumekortingen (officieel, alle bovenstaande diensten):** 101–200 gebruikers −10%; 201–500 −15%; 501–1.000 −20%; 1.001+ −25%.
 Bron: [Oracle Primavera Pricing, G-Cloud 14, v1.1, mei 2025 (PDF)](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf).
 
-**Prijzen — werkelijk betaald in Italië.** De gemeente Genua kocht via MePA bij TeamSystem S.p.A.: **3 licenties Primavera P6 EPPM + 3 jaarlijkse assistentiecontracten voor €10.356,00** (affidamento diretto, sept–okt 2021, CIG 88949622DA) ([Comune di Genova DD 2021-126.0.99](https://www2.comune.genova.it/content/dd-2021-126099-assegnazione-ai-sensi-dell%E2%80%99art-36-comma-2-lettera-del-dlgs-n-5020216-tramite-)). Dat is **~€3.452 per seat inclusief eerste jaar support** — ruwweg de internationale lijstprijs, zonder noemenswaardige Italiaanse korting bij deze kleine hoeveelheid.
+**Prijzen — werkelijk betaald in Italië.** De gemeente Genua kocht via MePA bij TeamSystem S.p.A.: **3 licenties "Primavera P6 Enterprise Project Portfolio Management 1 CL" + 3 assistentie-canoni voor €10.356,00** (affidamento diretto, uitvoering 14-09 t/m 13-10-2021, CIG 88949622DA) ([Comune di Genova DD 2021-126.0.99](https://www2.comune.genova.it/content/dd-2021-126099-assegnazione-ai-sensi-dell%E2%80%99art-36-comma-2-lettera-del-dlgs-n-5020216-tramite-)). Dat is **~€3.452 per seat inclusief eerste jaar support**.
+
+> **[GECORRIGEERD 25-07-2026]** Hier stond dat dit "ruwweg de internationale lijstprijs" is, "zonder noemenswaardige Italiaanse korting". Die conclusie houdt geen stand, om twee redenen:
+> - **Appels met peren.** De €3.452 omvat licentie **plus** een assistentie-canone; de $4.240 lijstprijs is licentie **zonder** support. Rekent men het gangbare Oracle-supportpercentage van 22% eruit, dan is de impliciete licentieprijs €3.452 / 1,22 ≈ **€2.829**, tegenover $4.240 ≈ €3.727 (bij de correcte koers 1,1377). Dat is een korting van ruwweg **24%**, niet "geen korting".
+> - **De bron laat de btw-status open.** Het transparantieblad vermeldt niet of €10.356 in- of exclusief IVA is. Bij inclusief IVA zou de prijs €2.829/seat zijn vóór support, en de impliciete korting nog groter. Italiaanse aanbestedingstransparantie-tabellen (L. 190/2012) noemen doorgaans bedragen exclusief IVA, maar dat is hier niet bevestigd. **[ONZEKER]**
 
 **Voordelen (Italiaanse context):** het enige pakket dat door alle grote Italiaanse infra-aannemers en internationale opdrachtgevers wordt geaccepteerd; multi-project, resources, kosten en earned value in één model; onmisbaar bij export en bij claims/vertragingsanalyse.
 **Nadelen:** hoge kosten voor Italiaanse begrippen; Italiaanse UI-ondersteuning is beperkt en in de praktijk werkt men in het Engels; de leercurve is te steil voor het brede Italiaanse professionele segment; niet gekoppeld aan Italiaanse `prezzari` of `computo metrico`; overkill voor de wettelijke `cronoprogramma`-verplichting.
@@ -237,7 +271,15 @@ Bron: [Oracle Primavera Pricing, G-Cloud 14, v1.1, mei 2025 (PDF)](https://asset
 | usBIM (13 online-apps + 10 GB cloud) | €0,00 |
 | PriMus SERVER | prijs op aanvraag |
 
-Bron: [ACCA Listino Prezzi maart 2024 (rev.01), via Tecno3D (PDF)](https://tecno3d.it/wp-content/uploads/2024/06/Listino_Prezzi-MAR-24.pdf).
+Bron: [Listino Prezzi ACCA-software, maart 2024 rev.01, uitgegeven door Tecno 3D S.r.l. (PDF)](https://tecno3d.it/wp-content/uploads/2024/06/Listino_Prezzi-MAR-24.pdf). **Alle acht bovenstaande bedragen zijn op 25-07-2026 woord voor woord tegen deze PDF geverifieerd en kloppen.**
+
+> **[GECORRIGEERD 25-07-2026] — bronattributie.** Dit is geen door ACCA gepubliceerde listino maar de prijslijst van **Tecno 3D S.r.l. (Rende, CS)**, een ACCA-dealer; de voettekst luidt *"Tecno 3D si riserva il diritto di apportare modifiche al presente listino"*. De ACCA-prijzen worden erin overgenomen, maar noem het geen officiële ACCA-lijst.
+>
+> **Twee zaken uit deze PDF die het rapport eerder miste en die de kortingsanalyse in §4.4 raken:**
+> - ACCA publiceert een **multiuser-staffel**: 2 installaties ×1,5; 3 ×1,9; 5 ×2,5; 10 ×4,25 op de eenheidsprijs (10 PriMus-installaties = €699 × 4,25 = €2.970,75, ofwel **€297 per installatie**); boven 10 installaties op aanvraag.
+> - Daarnaast geldt: *"Per l'acquisto di installazioni successive ad una prima ... il prezzo di listino è ridotto del 40%"*.
+>
+> Kortom: het beeld van €699 als effectieve prijs per werkplek is te hoog gegrepen; ACCA publiceert zelf al trappen richting €297.
 
 **Prijzen — POWER PACK (waar PriMus-K in zit):**
 
@@ -259,7 +301,9 @@ Het POWER PACK bevat naast PriMus-K ook PriMus-CAD, PriMus-IFC, PriMus-A (prijsa
 
 Bronnen: [Città Metropolitana di Firenze, DD 1897 van 12/09/2024 (PDF)](https://www.cittametropolitana.fi.it/wp-content/uploads/DD.-1897-del-12-09-2024.pdf); [Comune di Bologna, determina CIG BA594FF33B](https://atti9.comune.bologna.it/atti/determine.nsf/0/9C9DEF5B1E2E527DC1258DAF005B692B); [ACCA-offerte Roma Capitale (PDF)](https://www.comune.roma.it/web-resources/cms/documents/ACCA.Offerta_Corso_PriMus_Romacapitale.pdf).
 
-**Dit is het belangrijkste prijsgetal van dit hele rapport:** een Italiaanse overheidsinstantie betaalt **€999 excl. btw voor drie jaar, drie werkplekken, inclusief de volledige cronoprogramma-functionaliteit** — oftewel **€111 per werkplek per jaar**. Ter vergelijking: één Primavera P6-seat kost in Italië ~€3.452 en één MS Project Plan 3-seat €312 per jaar. De Italiaanse markt is prijsmatig verankerd op ongeveer een dertigste van het P6-niveau.
+**Dit is het belangrijkste prijsgetal van dit hele rapport:** een Italiaanse overheidsinstantie betaalt **€999 excl. btw voor drie jaar, drie werkplekken, inclusief de volledige cronoprogramma-functionaliteit** — oftewel **€111 per werkplek per jaar**. Ter vergelijking: één MS Project Plan 3-seat kost €312 per jaar (€26 × 12).
+
+> **[GECORRIGEERD 25-07-2026] — de "dertigste van het P6-niveau" was een rekenfout in de vergelijkingsbasis.** Hier stond: *"één Primavera P6-seat kost in Italië ~€3.452 ... ongeveer een dertigste van het P6-niveau."* Dat zet een **eenmalige perpetual-aanschaf** naast een **jaarabonnement**. Correct geannualiseerd: impliciete licentie ≈ €2.829 (zie §3.2), afgeschreven over 5 jaar = €566/jaar, plus 22% support over de licentiewaarde ≈ €622/jaar, samen **≈ €1.190 per seat per jaar**. Tegenover €111 is dat een verhouding van ongeveer **1 : 11**, niet 1 : 30. De richting van de bevinding blijft overeind — het Italiaanse volumesegment ligt een orde van grootte onder het P6-niveau — maar de factor 30 was ongeveer drie keer te dramatisch. *(Afschrijvingstermijn van 5 jaar is een aanname; bij 3 jaar wordt de verhouding 1 : 15, bij 10 jaar 1 : 8.)* **[SCHATTING]**
 
 **Trainingskosten (ACCA, aan Roma Capitale, jan 2025):**
 - Cursus "PriMus advanced" (computo, contabilità, direzione lavori): 16 uur per klas, 3 klassen, tot 17 deelnemers per klas
@@ -268,7 +312,13 @@ Bronnen: [Città Metropolitana di Firenze, DD 1897 van 12/09/2024 (PDF)](https:/
 - Gegeven door een **FAA (Formatore Accreditato ACCA)** — ACCA onderhoudt een eigen geaccrediteerd trainersnetwerk
 Bron: [ACCA-offerte Roma Capitale (PDF)](https://www.comune.roma.it/web-resources/cms/documents/ACCA.Offerta_Corso_PriMus_Romacapitale.pdf)
 
-**Kortingen:** ACCA hanteert een "Neo"-actie met 30% korting voor pas afgestudeerden/starters op software boven €499 ([ACCA promoties](https://www.acca.it/offerte-promozioni)); genoemde prijs PriMus daarmee €489,30 excl. IVA ([Area Sosta](https://areasosta.com/faq/quanto-costa-il-programma-primus)). Bij volume zakt de prijs naar €252/installatie (−64% t.o.v. €699 lijstprijs).
+**Kortingen:** ACCA hanteert een "Neo"-actie met 30% korting voor pas afgestudeerden/starters op software boven €499 ([ACCA promoties](https://www.acca.it/offerte-promozioni)); genoemde prijs PriMus daarmee €489,30 excl. IVA ([Area Sosta](https://areasosta.com/faq/quanto-costa-il-programma-primus)).
+
+> **[GECORRIGEERD 25-07-2026] — €252 is géén volumekorting.** Hier stond: *"Bij volume zakt de prijs naar €252/installatie."* De twee primaire documenten weerspreken dat rechtstreeks:
+> - Roma Capitale: **35** installaties → €8.820 = **€252/stuk**
+> - Città Metropolitana di Firenze: **2** licenties → €504 = **€252/stuk**
+>
+> Dezelfde eenheidsprijs bij 2 als bij 35 stuks. Het is dus een **staande prijs voor publieke afnemers via MePA** (productcode `ACC_P01_2`), niet een volumekorting. Sterker: bij 2 installaties zou ACCA's eigen gepubliceerde multiuser-staffel op €524/stuk uitkomen (€699 × 1,5 / 2), en de −40%-regel voor vervolginstallaties op €559/stuk — beide fors bóven de €252 die Firenze werkelijk betaalde. Het MePA-kanaal is dus goedkoper dan élke gepubliceerde ACCA-staffel. Dat is een scherpere en beter onderbouwde bevinding dan de oorspronkelijke "volumekorting", en relevanter voor een toetreder: de referentieprijs in de Italiaanse publieke sector is €252, ongeacht aantal.
 
 **Voordelen (eigen beoordeling op basis van reviews en documentatie):**
 - Verreweg de laagste totale kosten voor een compliant `cronoprogramma`
@@ -306,10 +356,13 @@ Bron: [ACCA-offerte Roma Capitale (PDF)](https://www.comune.roma.it/web-resource
 | Updates/onderhoud module QTO, 2 licenties, 3 jaar | €432,00 | €12/maand voor 2 licenties |
 | Consultancy over het gebruik | **€2.280,00** | **uurtarief €95,00**, maximaal 24 uur |
 | Subtotaal 3 jaar | €5.302,00 | |
-| Optionele verlenging 3 extra jaren | €3.582,00 | |
+| Optionele verlenging 3 extra jaren | €3.582,00 | €1.440 CPM + €432 QTO + €1.710 consultancy (18 u × €95) |
+| **Technische verlenging (`proroga tecnica`), max. 6 maanden** | **€312,00** | €240 CPM + €72 QTO |
 | **Maximum totaal** | **€9.196,00** | excl. IVA |
 
-Bron: [CAL S.p.A., Determina di affidamento, 13 februari 2020 (PDF)](https://www.calspa.it/wp-content/uploads/2020-02-13_det-affidamento_str.pdf).
+Bron: [CAL S.p.A., Determina di affidamento, 13 februari 2020 (PDF)](https://www.calspa.it/wp-content/uploads/2020-02-13_det-affidamento_str.pdf). **Alle bedragen zijn op 25-07-2026 tegen de originele PDF geverifieerd en kloppen exact.**
+
+> **[GECORRIGEERD 25-07-2026]** De tabel telde eerder niet op: €5.302 + €3.582 = €8.884, terwijl het maximum €9.196 is. Het ontbrekende bedrag is de **€312 voor een `proroga tecnica` van maximaal zes maanden**, nu als aparte regel toegevoegd. Twee aanvullende preciseringen uit de bron: de gunning liep onder **D.Lgs. 50/2016 art. 36 co. 2 lett. a)** (niet het huidige D.Lgs. 36/2023, wat logisch is voor 2020), en er werden twee leveranciers uitgenodigd via Trattativa Diretta — **DigiTecno** en **Aldebra** — waarvan alleen DigiTecno een offerte indiende. Belangrijk voor de interpretatie: de €1.440 betreft **updates/onderhoud/assistentie op reeds bezeten licenties**, niet de aanschaf van licenties. De licentieprijs van STR Vision CPM blijft dus onbekend.
 
 **Andere prijsindicaties (zwakker):**
 - Instapinvestering "~€2.500 plus jaarlijkse updates en training" ([CantiereHub](https://cantierehub.it/blog/alternativa-str-vision-software-cantieri)) — **[LAGE BETROUWBAARHEID]**, dit is een blog van een concurrerende aanbieder
@@ -441,7 +494,9 @@ Alle Italiaanse overheidsinstanties zijn wettelijk verplicht IT-goederen en -die
 
 Uit de determina van Città Metropolitana di Firenze blijkt de mechaniek precies: de instantie stelt vast dat er geen Consip-conventie actief is, gaat dan naar MePA, en plaatst een **ODA (ordine diretto di acquisto)** bij de leverancier die op MePA staat met de gevraagde producten en MePA-productcodes (`ACC_P01_2`, `ACC_A01.a`, `ACC_A01.a_2`). Onder de drempel van **€140.000** mag dit als `affidamento diretto` zonder meerdere offertes (art. 50, co. 1 lett. b, D.Lgs. 36/2023).
 
-**Voor een leverancier is de conclusie eenduidig: zonder MePA-registratie is de gehele Italiaanse publieke sector onbereikbaar.** ACCA en TeamSystem zitten er beide op, ACCA rechtstreeks, TeamSystem/STR ook via resellers als DigiTecno en Aldebra.
+**Voor een leverancier is de conclusie in de praktijk eenduidig: zonder MePA-registratie is de Italiaanse publieke sector vrijwel onbereikbaar.** ACCA en TeamSystem zitten er beide op, ACCA rechtstreeks, TeamSystem/STR ook via resellers als DigiTecno en Aldebra.
+
+> **[GENUANCEERD 25-07-2026]** De verplichting zelf is bevestigd en geldt voor ICT-aankopen **zonder drempelbedrag** — anders dan voor de meeste andere leveringen ([Codiceappalti.it, jurisprudentie MePA](https://www.codiceappalti.it/giurisprudenza/sentenza/mepa/acquisti-di-beni-e-servizi-informatici-obbligo-di-acquisizione-mediante-consip-e-mepa/33510); [Consip](https://www.consip.it/amministrazioni/mappa-offerta/contratti-spc)). Maar het woord "onbereikbaar" was te absoluut: dezelfde wet kent afwijkingsmogelijkheden wanneer het gevraagde goed niet via Consip/MePA beschikbaar is of niet geschikt is, mits gemotiveerd en gemeld. In de praktijk is dat een zware, zelden bewandelde route — de strategische conclusie (registreer op MePA) verandert niet, maar het is een sterk feitelijke drempel en geen absoluut juridisch verbod.
 
 Een tweede consequentie: **alle betaalde prijzen zijn openbaar.** Dat maakt Italiaanse prijsstelling ongewoon transparant voor wie weet waar te zoeken — en het maakt prijsdifferentiatie tussen overheidsklanten lastig.
 
@@ -450,7 +505,9 @@ Een tweede consequentie: **alle betaalde prijzen zijn openbaar.** Dat maakt Ital
 - Italiaanse pakketten worden in **euro** geprijsd en zijn voor het brede segment extreem goedkoop: €252 voor een PriMus-licentie, €100–199 per jaar onderhoud inclusief planningsmodule.
 - Internationale pakketten (Oracle, Bentley, Trimble, Elecosoft) hanteren **USD/GBP-lijstprijzen**. Bij een sterkere dollar wordt P6 in Italië duurder zonder dat de leverancier iets doet — een reëel risico voor de al smalle high-end markt. Microsoft prijst wél in euro voor Italië.
 - **Btw (IVA) 22%** komt bovenop alle genoemde prijzen; de meeste Italiaanse prijsopgaven zijn "+ IVA".
-- **Kortingen zijn substantieel bij volume in het lokale segment:** ACCA gaf Roma Capitale €252/installatie bij 35 stuks, tegen €699 lijstprijs — **−64%**. In het high-end segment zag ik géén Italiaanse korting: Genua betaalde ~€3.452 per P6-seat, ongeveer de internationale lijstprijs. Oracle's officiële volumekortingen beginnen pas bij 101 gebruikers (−10%) en lopen tot −25% boven 1.000 gebruikers — drempels die vrijwel geen Italiaanse organisatie haalt behalve Webuild en de allergrootste EPC's.
+- **Het lokale segment kent één staande publieke prijs, geen volumestaffel:** ACCA rekende zowel Roma Capitale (35 installaties) als Città Metropolitana di Firenze (2 licenties) **€252 per installatie** via MePA — 64% onder de €699 lijstprijs en onder ACCA's eigen gepubliceerde multiuser-staffel. Dat is dus een kanaalprijs, niet een volumekorting. *(Gecorrigeerd 25-07-2026; eerder stond hier dat de prijs "bij volume" naar €252 zakt.)*
+- **In het high-end segment is de Italiaanse korting moeilijker vast te stellen dan eerder gesteld:** Genua betaalde €3.452 per P6-seat *inclusief* een assistentie-canone; na aftrek van het gangbare 22%-supportpercentage impliceert dat ~€2.829 licentie tegen ~€3.727 lijst, oftewel circa 24% korting. Eerder concludeerde dit rapport hier "géén korting" — dat berustte op het vergelijken van een prijs mét support met een lijstprijs zónder. **[ONZEKER]** — de btw-status van het Genua-bedrag is niet bevestigd.
+- Oracle's officiële volumekortingen beginnen pas bij 101 gebruikers (−10%) en lopen tot −25% boven 1.000 gebruikers — drempels die vrijwel geen Italiaanse organisatie haalt behalve Webuild en de allergrootste EPC's. *(Geverifieerd tegen de G-Cloud-PDF.)*
 - ACCA heeft een gerichte starterskorting: **30% voor pas afgestudeerden/starters** op software boven €499 ([ACCA](https://www.acca.it/offerte-promozioni)). Dat is een bewuste lock-in-strategie richting het begin van de loopbaan.
 
 ### 4.5 Training, consultancy en beroepscultuur
@@ -565,7 +622,7 @@ Voor documenten geldt hetzelfde: uitvoer moet de Italiaanse terminologie hantere
 Kort, omdat dit rapport primair beschrijvend is — maar de bevindingen wijzen sterk in één richting.
 
 1. **De juridische wind staat gunstig.** Art. 43 D.Lgs. 36/2023 eist "piattaforme interoperabili e di formati aperti non proprietari" en verbiedt merknamen zonder technische rechtvaardiging. Alle huidige marktleiders zijn proprietary. Een IFC 4.3-native tool kan hier expliciet op sturen.
-2. **Prijszetting moet zich richten op het Italiaanse anker van ~€100–250 per werkplek per jaar**, niet op het P6-anker van €3.000+. De publieke determines maken dit anker keihard controleerbaar.
+2. **Prijszetting moet zich richten op het Italiaanse anker van ~€100–250 per werkplek per jaar** (€111 Bologna, €252 Firenze/Roma eenmalig, €199 POWER PACK), niet op het P6-anker van circa **€1.200 per seat per jaar geannualiseerd**. De publieke determines maken dit anker keihard controleerbaar. *(Gecorrigeerd 25-07-2026: hier stond "€3.000+", wat een eenmalige perpetual-prijs is en geen jaarbedrag.)*
 3. **Zonder MePA-registratie is de publieke sector onbereikbaar.** Dat is een concrete, afgebakende go-to-market-actie.
 4. **Italiaanse UI is een voorwaarde, geen feature.** Inclusief correcte terminologie in de uitvoer.
 5. **De grootste inhoudelijke kans ligt tussen PriMus-K en P6 in:** echte CPM (logica, float, kritiek pad, baselines) tegen een Italiaans prijspunt, met uitvoer die aan de vormvereisten van het `cronoprogramma` en `programma esecutivo` voldoet. Dat gat is momenteel leeg.
@@ -700,3 +757,65 @@ Aanvullend onderzoek zou zich het beste richten op: (a) een concreet RFI/Italfer
 
 **Niet-geverifieerde bron (expliciet gemarkeerd)**
 - [Edilizia in Cloud — "Quante imprese edili usano ancora Excel"](https://www.ediliziaincloud.com/blog/software-gestionale-vs-excel/) — claimt een ANCE-enquête uit 2026 onder 2.400 bedrijven (71% Excel); **niet terug te vinden bij ANCE, marketingbron met belang**
+
+---
+
+## Verificatie
+
+**Datum:** 25 juli 2026. **Methode:** adversariële hercontrole — per bewering is actief geprobeerd haar te wéérleggen met onafhankelijke bronnen, waar mogelijk in het Italiaans en waar mogelijk door de originele PDF's zelf uit te lezen in plaats van af te gaan op samenvattingen. Alle rekenstappen zijn nagerekend.
+
+**Samenvattend oordeel:** de *primaire prijsdocumentatie* van dit rapport is uitzonderlijk solide — elk bedrag uit de Italiaanse overheidsdetermines, de ACCA-offerte, de Oracle G-Cloud-prijslijst, de Microsoft-prijzen en de ACCA-listino is exact teruggevonden. De *marktomvangredenering* is dat niet: de hoofdconclusie volgde rekenkundig niet uit de eigen tabel, en de externe kruiscontrole berustte op een leesfout.
+
+### Gecorrigeerd
+
+| # | Bewering (oorspronkelijk) | Bevinding | Bron |
+|---|---|---|---|
+| 1 | Marktomvang **€25–45 mln** licenties, waarvan **€15–30 mln** bouwspecifiek | **Weerlegd met de eigen tabel.** De acht regels van §2.4 sommeren tot €11,3–33,0 mln (bouwdeel €8,8–26 mln). De bovengrens van €45 mln lag 36% boven de som van álle maxima — rekenkundig onmogelijk. Gecorrigeerd naar €11–33 mln / €9–26 mln. Ook telt de tabel een expliciet "deels buiten scope"-regel (MS Project buiten de bouw, €2,5–7 mln) gewoon mee. | interne consistentiecontrole §2.4 |
+| 2 | Totaal incl. diensten **€45–80 mln/jaar** | Volgt uit een foute basis; herrekend naar €23–83 mln (2,0–2,5 × licenties). Band is een factor 3,6 breed en daarmee weinig bruikbaar; middenscenario €35–55 mln toegevoegd. Dienstenfactor 1,0–1,5× steunt op twee losse contracten, niet op een branchemeting. | idem |
+| 3 | MRF-kruiscontrole: bouwsegment **$25–60 mln in 2024**, en MRF bevat een interne inconsistentie ($220,3 mln large enterprises vs $144,87 mln totaal 2024) | **Beide onjuist gelezen.** MRF's FAQ noemt geen jaartallen; "$25,0M to $60,0M" is in MRF's sjabloon het traject 2024→2035, en "$220.3 Million" staat er als *projected* (consistent met het 2035-totaal van $370,3 mln, niet met 2024). De "inconsistentie" was vermoedelijk de eigen leesfout. Gevolg: de kruiscontrole bevestigt de eigen raming zwakker dan geclaimd. Restonzekerheid: MRF vermeldt de jaren niet expliciet. | [marketresearchfuture.com](https://www.marketresearchfuture.com/reports/italy-project-portfolio-management-software-market-61336) |
+| 4 | OICE: **€4,63 mrd productie (2025)**, **27.929 medewerkers (2022)** | **Weerlegd door de eigen bron.** Dezelfde OICE-pagina meldt *"Fatturato 2024 OICE a 4,4 mld. (+11,3% sul 2023)"* en *"Addetti a 34.700 unità nel 2024 (+12,6%)"*. Personeelscijfer was 24% te laag; benadering (c) van de plannertelling herrekend van 840–1.400 naar 1.040–1.735. | [oice.it](https://www.oice.it/916272/presentata-la-rilevazione-annuale-oice-cer-11-3-produzione-2024) |
+| 5 | Wisselkoers **1 EUR ≈ 1,08 USD** | Achterhaald; ECB-referentiekoers 24-07-2026 is USD **1,1377**. Alle USD→EUR-conversies vielen ~5% te hoog uit. De GBP-koers (1,17) klopt wél exact (ECB GBP 0,85388 → €1,1711). | [ECB](https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html) |
+| 6 | €252/installatie is een **volumekorting** (−64% bij 35 stuks) | **Weerlegd.** Firenze betaalde bij **2** licenties dezelfde €252/stuk als Roma bij **35**. Het is een staande MePA-prijs voor publieke afnemers (code `ACC_P01_2`), geen volumestaffel — en ligt onder ACCA's eigen gepubliceerde multiuser-staffel (2 inst. → €524/stuk) én onder de −40%-regel voor vervolginstallaties. | [DD 1897/2024 Firenze](https://www.cittametropolitana.fi.it/wp-content/uploads/DD.-1897-del-12-09-2024.pdf) + [ACCA-offerte Roma](https://www.comune.roma.it/web-resources/cms/documents/ACCA.Offerta_Corso_PriMus_Romacapitale.pdf) |
+| 7 | Genua betaalde P6 "ruwweg de internationale lijstprijs, **zonder Italiaanse korting**" | **Weerlegd als appels-met-peren.** €3.452/seat omvat licentie **plus** support; de $4.240 lijstprijs is zonder support. Na aftrek van 22% support impliceert dat ~€2.829 vs ~€3.727 lijst = circa **24% korting**. Btw-status van het bedrag onbevestigd → **[ONZEKER]**. | [DD 2021-126.0.99 Genova](https://www2.comune.genova.it/content/dd-2021-126099-assegnazione-ai-sensi-dell%E2%80%99art-36-comma-2-lettera-del-dlgs-n-5020216-tramite-) |
+| 8 | Italiaanse markt is verankerd op **een dertigste** van het P6-niveau (€111 vs €3.452) | **Weerlegd.** Vergelijkt een jaarabonnement met een eenmalige perpetual-aanschaf. Geannualiseerd (5 jaar afschrijving + 22% support) is P6 ≈ €1.190/seat/jaar → verhouding ≈ **1 : 11**, niet 1 : 30. Richting blijft juist, factor was ~3× te dramatisch. | eigen herberekening |
+| 9 | Oracle perpetual-prijzen als "**internationale lijstprijzen**" | Bedragen kloppen ($3.880 / $4.240 / $10.450 / $1.460), maar de bron is de **eigen ongedateerde prijslijst van een reseller** ("Primavera Price List by AKIM Engineering Consulting") — geen Oracle-document. Herlabeld als **[LAGE BETROUWBAARHEID]**. | [akimeng.com](https://www.akimeng.com/oracle-primavera-price-list.html) |
+| 10 | ACCA-listino maart 2024 als "**officiële ACCA-lijst**" | Het is de listino van dealer **Tecno 3D S.r.l. (Rende, CS)**, met eigen voorbehoudsclausule. Prijzen zelf exact bevestigd. Bovendien miste het rapport twee gepubliceerde kortingsregels (multiuser-staffel tot ×4,25; −40% op vervolginstallaties) die de kortingsanalyse raken. | [Listino Tecno 3D (PDF)](https://tecno3d.it/wp-content/uploads/2024/06/Listino_Prezzi-MAR-24.pdf) |
+| 11 | CAL-contracttabel (€5.302 + €3.582 = €9.196) | Telde niet op — €312 ontbrak. Toegevoegd: `proroga tecnica` van max. 6 maanden (€240 CPM + €72 QTO). Alle overige CAL-bedragen exact bevestigd. | [CAL determina (PDF)](https://www.calspa.it/wp-content/uploads/2020-02-13_det-affidamento_str.pdf) |
+| 12 | "Zonder MePA kan **geen** Italiaanse instantie legaal bij je kopen" | Te absoluut. De verplichting geldt inderdaad voor ICT **zonder drempelbedrag**, maar de wet kent gemotiveerde afwijkingsmogelijkheden als het goed niet via Consip/MePA beschikbaar of ongeschikt is. Praktische conclusie ongewijzigd; juridische formulering afgezwakt. | [Codiceappalti.it](https://www.codiceappalti.it/giurisprudenza/sentenza/mepa/acquisti-di-beni-e-servizi-informatici-obbligo-di-acquisizione-mediante-consip-e-mepa/33510) |
+
+### Bevestigd
+
+| Bewering | Bevinding | Bron |
+|---|---|---|
+| Microsoft Italië: Planner Plan 1 **€8,70**, Planner+Project Plan 3 **€26,00** p.g./mnd, jaarbetaling, excl. IVA; Plan 5 niet vermeld | Woordelijk bevestigd op de Italiaanse pagina | [microsoft.com/it-it](https://www.microsoft.com/it-it/microsoft-365/planner/microsoft-planner-plans-and-pricing) |
+| Project Professional 2024 **€1.659,00**, Project Standard 2024 **€929,00** perpetual | Bevestigd. *Kleine kanttekening:* deze pagina vermeldt niet expliciet "excl. IVA", terwijl het rapport dat voor de hele tabel claimt | [microsoft.com/it-it](https://www.microsoft.com/it-it/microsoft-365/project/compare-microsoft-project-management-software) |
+| Oracle G-Cloud 14: P6 EPPM **£220** (min. 25), Progress Reporter £24, Web Services £36, Schedule Cloud **£96** (min. 5), Task Management £44, Progress £10, Portfolio & Capital Planning £176, Unifier Project Controls £132 (min. 25), Aconex Enterprise £46, CIC Analytics £40 (min. 10), extra non-prod. omgeving £3.954; kortingen 10/15/20/25% | **Alles woord voor woord bevestigd uit de PDF.** De sterkste tabel in het rapport | [Oracle G-Cloud 14 (PDF)](https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2025-06-25-1321.pdf) |
+| ACCA-lijstprijzen: PriMus usBIM €699, PriMus-P €299, PriMus-C €149, Impresus €1.999, Edificius €2.499 (van €3.490), CerTus usBIM €699, usBIM €0, PriMus SERVER op aanvraag | Alle acht exact bevestigd | [Listino maart 2024 rev.01 (PDF)](https://tecno3d.it/wp-content/uploads/2024/06/Listino_Prezzi-MAR-24.pdf) |
+| POWER PACK **€199 eerste installatie + €100 per extra**; PriMus-K zit erin en wordt niet los verkocht | Letterlijk bevestigd in de ACCA-offerte; de modulelijst noemt "PriMus-K, cronoprogramma lavori" expliciet. ACCA-productpagina bevestigt dat PriMus-K in het POWER PACK zit en noemt "percorsi critici" | [ACCA-offerte Roma (PDF)](https://www.comune.roma.it/web-resources/cms/documents/ACCA.Offerta_Corso_PriMus_Romacapitale.pdf) · [acca.it](https://www.acca.it/software-cronoprogramma-lavori) |
+| Roma Capitale: 35 installaties **€8.820** (= €252); training 3 klassen × 16 u, tot 17 deelnemers, **€7.200** + **€2.000** reiskosten; datum 17-10-2024 | Alles exact bevestigd. Aanvulling: bij aankoop zaten 4 maanden POWER PACK gratis | idem |
+| Firenze DD 1897: 2 licenties €504, POWER PACK €199 + 3×€100 = €300, totaal **€1.003** excl. / **€1.223,66** incl. IVA, MePA-codes `ACC_P01_2` / `ACC_A01.a` / `ACC_A01.a_2` | Alles exact bevestigd, inclusief de vaststelling dat er geen Consip-conventie actief was | [DD 1897/2024 (PDF)](https://www.cittametropolitana.fi.it/wp-content/uploads/DD.-1897-del-12-09-2024.pdf) |
+| CAL/STR Vision: €40/mnd voor 2 licenties (€240/licentie/jaar), QTO €1.150 eenmalig, QTO-onderhoud €12/mnd, consultancy **€95/uur** max. 24 u | Alles woordelijk bevestigd | [CAL determina (PDF)](https://www.calspa.it/wp-content/uploads/2020-02-13_det-affidamento_str.pdf) |
+| Genua: 3 licenties P6 EPPM + 3 assistentie-canoni, **€10.356**, TeamSystem S.p.A., CIG 88949622DA | Bevestigd (uitvoering 14-09 t/m 13-10-2021). Zie correctie #7 over de interpretatie | [comune.genova.it](https://www2.comune.genova.it/content/dd-2021-126099-assegnazione-ai-sensi-dell%E2%80%99art-36-comma-2-lettera-del-dlgs-n-5020216-tramite-) |
+| PNRR: **€153,2 mrd** ontvangen (79%), **€101,3 mrd** uitgegeven waarvan >helft bouw, **~16.000** bouwplaatsen, **+5,6%** investeringen 2026 na −1,1% in 2025, 350.000 nieuwe banen, **~€120 mrd** tot 2033 | **Alle zeven cijfers woordelijk bevestigd** — de best onderbouwde macroparagraaf van het rapport | [Edilportale/ANCE](https://www.edilportale.com/news/2026/01/mercati/ance-investimenti-costruzioni-56-nel-2026_108743_13.html) |
+| OICE BIM-aanbestedingen 2025: **638** stuks (+80,7% vs 353), **€1.496,9 mln** (+151,1% vs €596,2 mln), capitolato informativo 34,3% (was 25,2%), BIM als deelnemingseis 53,3% (340), BIM-Manager 39,5%, UNI 11337 11,8% | **Alle cijfers exact bevestigd** | [Edilportale, april 2026](https://www.edilportale.com/news/2026/04/mercati/report-oice-su-appalti-bim-e-ia-nel-2025_109944_13.html) |
+| BIM verplicht boven **€2 mln** vanaf 1-1-2025; drempel verhoogd van €1 mln door correttivo D.Lgs. 209/2024 | Bevestigd door zes onafhankelijke Italiaanse bronnen (AIFERR, MIT-toelichting via Segretari Comunali, Promedia, 01Building, Mutina Engineering, GIS Infrastrutture) | o.a. [aiferr.it](https://www.aiferr.it/bim-sopra-i-2-milioni-il-mit-chiarisce-quando-scatta-lobbligo-in-base-allo-stato-del-progetto/) |
+| ACCA software S.p.A.: omzet **€29.728.713**, winst **€8.513.830** (2024, −4,7%) | Bevestigd door drie onafhankelijke bedrijvenregisters (fatturatoitalia, aziende.it, companyreports) | [fatturatoitalia.it](https://fatturatoitalia.it/acca-software-spa-01883740647/) |
+| TeamSystem: **€1 mrd** omzet 2024 (+19%), **~2,5 mln** klanten, **>5.000** medewerkers | Bevestigd, o.a. door Il Sole 24 Ore | [ilsole24ore.com](https://www.ilsole24ore.com/art/teamsystem-ricavi-crescita-19percento-AHNzj8w) |
+| **827.262** bouwondernemingen (660.652 IT / 166.610 buitenlands), dec 2024 | Cijfer bevestigd; herleid tot Infocamere-data. **Kanttekening:** nog steeds één blogbron, niet de primaire Infocamere-publicatie | [blog.edilnet.it](https://blog.edilnet.it/news-sempre-meno-imprese-edili-italiane-nelle-costruzioni-chi-sta-conquistando-il-settore/) |
+| MarketIntelo: construction scheduling wereldwijd **$2,1 mrd** (2025) → $4,8 mrd (2034), CAGR 9,2% | Bevestigd. Aanvulling: Europa = 28,5% van het wereldtotaal; geen Italië-cijfer in het rapport | [marketintelo.com](https://marketintelo.com/report/construction-scheduling-software-market) |
+| Capterra IT: PriMus **4,3/5**, 80% beveelt aan | Bevestigd — maar op **slechts 4 reviews**. Het rapport vermeldt dit correct in de bewijsbasistabel; in §3.4 staat het zonder die kwalificatie | [capterra.it](https://www.capterra.it/software/90588/primus) |
+| Consip/MePA-verplichting voor ICT geldt **zonder drempelbedrag** | Bevestigd (afwijkend van het algemene aanbestedingsregime) | [Codiceappalti.it](https://www.codiceappalti.it/giurisprudenza/sentenza/mepa/acquisti-di-beni-e-servizi-informatici-obbligo-di-acquisizione-mediante-consip-e-mepa/33510) |
+| Elecosoft Asta Powerproject: **geen Italiaanse reseller of referentieklant** | Bevestigd bij herhaald zoeken in het Italiaans: geen Italiaanse distributeur, productpagina of referentieklant gevonden; alleen generieke Udemy-cursussen. Blijft "afwezigheid van bewijs" | eigen zoekwerk 25-07-2026 |
+
+### Onzeker
+
+| Bewering | Waarom onzeker |
+|---|---|
+| **~4.000–7.000 professionele planners in Italië** | De drie "onafhankelijke" benaderingen zijn dat niet volledig: (b) en (c) putten allebei uit sectorwerkgelegenheid en gebruiken een aangenomen ratio (1:300–1:500 resp. 3–5%) die nergens is onderbouwd. Benadering (a) is methodisch zwak (zie de nieuwe waarschuwing in §2.4): LinkedIn-tellingen zijn opgeblazen door duplicaten, en de vacature→verloop-stap negeert dat het PNRR juist een groeipiek veroorzaakte. Het bereik 3.200–9.600 uit (a) is bovendien zo breed dat het elke uitkomst omvat. |
+| **Comune di Bologna €999 voor 3 licenties × 3 jaar POWER PACK** (= €111/werkplek/jaar) | Het onderliggende determina-document is bij deze hercontrole niet opnieuw uitgelezen (atti9.comune.bologna.it niet benaderd). De rekenkunde klopt (999 / 9 = 111); de bron is niet herbevestigd. Dit is wél het getal dat het rapport zijn "belangrijkste prijsgetal" noemt en dat §6 aanstuurt — het verdient één directe hercontrole. |
+| **Blumatica Kronoplan €100–300 per module per jaar** | Blijft een pure schatting zonder enige bron; Blumatica publiceert geen prijzen. Niet bevestigd, niet weerlegd. |
+| **SYNCHRO 4D-prijzen** ($4.980 Virtuoso, €4.375 practitioner, €1.313 Control, €394 Field, $386–$4.280 TrustRadius) | Niet hercontroleerd. Alle drie de bronnen (ToolsTrunk, PricingNow, TrustRadius) zijn prijsaggregators zonder leveranciersstatus; de onderlinge tegenstrijdigheid ($386–$4.280 vs $4.980) is zelf een signaal. Behandel als indicatief. |
+| **TILOS $2.095/jaar vs $4.290 perpetual** | Het rapport noemt de bronnen zelf al tegenstrijdig. Niet opgelost. |
+| **"Geen Italiaans bestek eist CPM-logica of .xer"** | Het rapport markeert dit zelf al correct als afwezigheid van bewijs, met de juiste waarschuwing over afgeschermde portalen (acquistionlinerfi.it). Die zelfkritiek is terecht en blijft staan; niets in deze hercontrole bevestigt of weerlegt haar. |
+| **Marktleiderschapsrangorde (§3.1)** | De volgorde PriMus > MS Project > P6 > STR Vision is nergens met marktaandeelcijfers onderbouwd en berust op kwalitatieve indicatoren (ACCA's eigen claim "il software più diffuso", een SEO-blog, overheidsdetermines). ACCA's omzet van €29,7 mln over de hele productlijn (van EdiLus tot TerMus) zegt weinig over het planningssegment. Plausibel maar ongemeten — het rapport erkent dit in §7. |
+| **Verhouding diensten/licenties 1,0–1,5×** | Geëxtrapoleerd uit n=2, en de twee datapunten steunen de aanname niet. Nagerekend uit dezelfde contracten: bij **CAL** is consultancy €2.280 tegenover €3.022 aan software (licentiemodule €1.150 + onderhoud €1.872) = **0,75×**; bij **ACCA/Roma** is training €9.200 (incl. reiskosten) tegenover €8.820 licenties = **1,04×**. De waargenomen band is dus **0,75–1,04×**, niet 1,0–1,5×. Een lagere dienstenfactor drukt de totale marktraming verder: bij 0,75–1,05× wordt het totaal €20–68 mln in plaats van €23–83 mln. Twee overheidscontracten dragen echter sowieso geen marktbrede factor. |

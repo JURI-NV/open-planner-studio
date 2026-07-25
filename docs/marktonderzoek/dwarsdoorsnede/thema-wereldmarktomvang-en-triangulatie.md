@@ -23,7 +23,7 @@ Kernconclusie van de triangulatie — twee onafhankelijke methoden (bottom-up se
 Drie bevindingen die haaks staan op de vakpers:
 
 1. **De smalle planningsmarkt is klein en groeit traag.** De veelgeciteerde "$20 mrd in 2030, CAGR 15,7 %" beschrijft work management, niet planning. De echte CPM-markt is ~$3 mrd en groeit ongeveer mee met de bouwconjunctuur.
-2. **De hele wereldwijde bouwplanningsmarkt is kleiner dan de jaaromzet van Procore alleen** ($1,32 mrd, FY2025). Dat is een harde, controleerbare vergelijking (§5.1) en het belangrijkste kalibratiepunt van dit rapport.
+2. **De hele wereldwijde bouwplanningsmarkt is van dezelfde orde als de jaaromzet van Procore alleen** ($1,323 mrd, FY2025 — geverifieerd). *[Gecorrigeerd na verificatie: de oorspronkelijke formulering was "kleiner dan". Dat is niet houdbaar — de eigen bandbreedte (b) is $0,9–1,7 mrd en omvat Procore's omzet dus; alleen het afgeronde middenpunt ($1,3 mrd) ligt er net onder. De vergelijking blijft als kalibratiepunt geldig, maar niet als strikte ongelijkheid.]*
 3. **Gartner en IDC publiceren géén openbaar marktomvangcijfer voor PPM of scheduling.** Verwijzingen naar "Gartner: de PPM-markt is $X mrd" in secundaire pers zijn vrijwel altijd misattributie (§3.5).
 
 ---
@@ -66,7 +66,9 @@ Ik hanteer drie bronklassen en label elk cijfer.
 
 Bronnen: [MarketsandMarkets PPM-rapport](https://www.marketsandmarkets.com/Market-Reports/project-portfolio-management-software-market-225932595.html) (rapportcode TC 2938, publicatiedatum juli 2026, geraadpleegd 25-07-2026) · [MarketsandMarkets persbericht](https://www.marketsandmarkets.com/PressReleases/project-portfolio-management-software.asp) (geraadpleegd 25-07-2026) · [Mordor PPM](https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market) (geraadpleegd 25-07-2026) · [ResearchAndMarkets/Mordor 2025–2030](https://www.researchandmarkets.com/reports/5578888/project-portfolio-management-market-share) (geraadpleegd 25-07-2026) · [Fortune Business Insights](https://www.fortunebusinessinsights.com/project-portfolio-management-ppm-market-104257) (rapport-ID FBI104257, bijgewerkt 6 juli 2026, geraadpleegd 25-07-2026) · [Verified Market Research](https://www.verifiedmarketresearch.com/product/project-portfolio-management-ppm-market/) (bijgewerkt januari 2026, geraadpleegd 25-07-2026).
 
-**Spreiding voor identiek gelabelde markt, jaar 2025: $0,82 mrd – $12,2 mrd (factor 14,9).**
+**Spreiding voor identiek gelabelde markt, jaar 2025: $0,82 mrd – $12,2 mrd (factor 14,9).** *[Verificatie: het lage eind is indirect bevestigd — Business Research Insights noteert $0,9 mrd voor 2026 bij 10,3 % CAGR, wat terugrekent op $0,82 mrd voor 2025. Het hoge eind ($12,2 mrd, Technavio) kon **niet** worden gereproduceerd. Op **wel** geverifieerde bronnen alleen bedraagt de spreiding $0,82 – $9,91 mrd, factor **12,1**. Dat is lager dan 14,9 maar verandert niets aan het argument.]*
+
+*Aanvullende observatie uit de verificatie:* Mordor's **PPM**-rapport — dat zichzelf nadrukkelijk afgrenst van "standalone task management tools" — noemt als kernleveranciers onder meer **monday.com, Smartsheet en Atlassian**. De work-managementbesmetting zit dus niet alleen in Mordor's PM-Software-rapport (§3.2) maar ook in het PPM-rapport zelf, ondanks de tegengestelde definitietekst.
 
 ### 3.2 Projectmanagementsoftware (breder)
 
@@ -92,7 +94,9 @@ Mordor's leverancierslijst voor dit rapport is doorslaggevend voor de interpreta
 
 Bron: [Fortune Business Insights construction software](https://www.fortunebusinessinsights.com/construction-software-market-110155) (geraadpleegd 25-07-2026). Leverancierslijst: Oracle, Hexagon AB, Deltek, Procore, Sage, Trimble, Autodesk, Bentley Systems.
 
-Let op de interne inconsistentie in de laatste drie rijen: drie "construction scheduling software"-rapporten geven voor 2030 respectievelijk ~$3,3 mrd (2,1 → 4,8 pad), ~$3,0 mrd en **$2,29 mrd**. Dezelfde markttitel, ~45 % spreiding op vijf jaar vooruit.
+Let op de interne inconsistentie in de laatste drie rijen: drie "construction scheduling software"-rapporten geven voor 2030 respectievelijk ~$3,3 mrd (2,1 → 4,8 pad), **~$3,3 mrd** en **$2,29 mrd**. Dezelfde markttitel, ~45 % spreiding op vijf jaar vooruit. *[Rekencorrectie: de middelste waarde stond eerst op ~$3,0 mrd. $2,45 mrd × 1,063⁵ = $3,33 mrd. De conclusie verandert niet — $3,33/$2,29 = 1,45, dus de "~45 % spreiding" klopt juist beter.]*
+
+Bovendien: de brondekking van deze drie rijen is het zwakst van het hele rapport (uitsluitend zoeksnippets, geen bronpagina bereikt). Zie §Verificatie.
 
 ### 3.4 Vijf harde aanwijzingen dat klasse C onbetrouwbaar is
 
@@ -104,7 +108,7 @@ Let op de interne inconsistentie in de laatste drie rijen: drie "construction sc
 
 ### 3.5 Over Gartner en IDC — een negatieve bevinding
 
-De opdracht vroeg expliciet om Gartner- en IDC-cijfers. **Die zijn er niet in openbare vorm.** Gartner publiceert Magic Quadrants en Market Share-databases achter een abonnement; de openbaar citeerbare Gartner-uitspraken over PPM zijn *survey*-bevindingen, niet marktomvangen. Het enige Gartner-cijfer dat in dit onderzoek boven water kwam is een gedragscijfer, doorgeplaatst door een klasse-C-bureau: *"According to Gartner surveys, 60 % of PPM buyers prefer cloud-delivered SaaS modules over on-premise deployments for new purchases"* (aangehaald op de [Fortune Business Insights PPM-pagina](https://www.fortunebusinessinsights.com/project-portfolio-management-ppm-market-104257), geraadpleegd 25-07-2026).
+De opdracht vroeg expliciet om Gartner- en IDC-cijfers. **Die zijn er niet in openbare vorm.** Gartner publiceert Magic Quadrants en Market Share-databases achter een abonnement; de openbaar citeerbare Gartner-uitspraken over PPM zijn *survey*-bevindingen, niet marktomvangen. Het enige Gartner-cijfer dat in dit onderzoek boven water kwam is een gedragscijfer, doorgeplaatst door een klasse-C-bureau: *"According to Gartner surveys, 60 % of PPM buyers prefer cloud-delivered SaaS modules over on-premise deployments for new purchases"* (aangehaald op de [Fortune Business Insights PPM-pagina](https://www.fortunebusinessinsights.com/project-portfolio-management-ppm-market-104257), geraadpleegd 25-07-2026). **⚠ Bij hercontrole op 25-07-2026 was dit citaat niet terug te vinden op die pagina.** Behandel het als onbevestigd; het draagt de conclusie van deze paragraaf niet (die rust op de afwezigheid van openbare Gartner-/IDC-marktomvangen, niet op dit citaat).
 
 **Praktische consequentie:** elke bewering in de vakpers van de vorm "Gartner schat de PPM-markt op $X mrd" moet als onbevestigd worden behandeld tot de primaire Gartner-publicatie is aangewezen. Hetzelfde geldt voor IDC, dat zijn Software Tracker eveneens uitsluitend commercieel levert. Dit rapport gebruikt daarom **geen** Gartner-/IDC-marktomvang, en compenseert dat met de harde leveranciers- en prijsgegevens in §4 en §5.
 
@@ -170,7 +174,7 @@ Alle bedragen per seat per maand bij jaarfacturering.
 
 | Leverancier | Boekjaar | Omzet | Groei | Relevante toelichting | Bron |
 |---|---|---|---|---|---|
-| **Autodesk** | FY2026 (t/m 31-01-2026) | **$7,21 mrd** totaal; **AEC $3,58 mrd** (53,1 %) | +18 % totaal; AECO Q4 +22 % | AEC omvat Revit/AutoCAD (ontwerp), niet primair planning | [10-K FY2026](https://www.sec.gov/Archives/edgar/data/769397/000076939726000015/adsk-20260131.htm); [persbericht Q4 FY2026](https://investors.autodesk.com/news-releases/news-release-details/autodesk-inc-announces-fiscal-2026-fourth-quarter-results) |
+| **Autodesk** | FY2026 (t/m 31-01-2026) | **$7.206 mln** totaal; **AECO $3.583 mln** (**49,7 %**) | +18 % totaal; AECO FY +22 %, Q4 $975 mln +22 % | AECO omvat Revit/BIM 360/Construction Cloud, **niet** AutoCAD — dat is een apart gerapporteerd segment. Ontwerp/oplevering, niet primair planning | [10-K FY2026](https://www.sec.gov/Archives/edgar/data/769397/000076939726000015/adsk-20260131.htm); [persbericht Q4 FY2026](https://investors.autodesk.com/news-releases/news-release-details/autodesk-inc-announces-fiscal-2026-fourth-quarter-results) |
 | **Bentley Systems** | FY2025 | **$1.501,8 mln**; ARR **$1.462,1 mln** | +11,0 %; ARR +11,5 % cc | SYNCHRO (4D/planning) is één product in een infrastructuur-ontwerpportfolio | [Q4/FY2025-resultaten](https://investors.bentley.com/news-releases/news-release-details/bentley-systems-announces-fourth-quarter-and-full-year-2025) |
 | **Procore** | FY2025 | **$1.323 mln** | +15 % | 17.850 klanten; GRR 95 %, NRR 106 %; 78 % van ARR uit klanten met 4+ producten | [Procore FY2025-resultaten](https://www.procore.com/press/procore-announces-fourth-quarter-and-full-year-2025-financial-results); [10-K](https://www.sec.gov/Archives/edgar/data/1611052/000162828026011055/pcor-20251231.htm) |
 | **monday.com** | FY2025 | **$1,232 mrd** | +27 % | NDR ~110 %; work management, geen CPM | [Q4/FY2025](https://ir.monday.com/news-and-events/news-releases/news-details/2026/monday-com-Announces-Fourth-Quarter-and-Fiscal-Year-2025-Results/default.aspx) |
@@ -188,7 +192,7 @@ Belangrijk: **geen enkele leverancier rapporteert scheduling als apart segment.*
 | Projectie bouwproductie | ~$14,8 bln | 2030 | B | idem |
 | Werkgelegenheid bouw wereldwijd | ~273 mln banen; ~7 % van de beroepsbevolking | 2014 | B | idem |
 | Procore-klanten (organisaties) | 17.850 | 31-12-2025 | A | Procore FY2025 |
-| ProjectLibre-downloads (open source) | **7,8 mln+** in 193 landen; **19.762/week** | teller 25-07-2026 | A | [SourceForge ProjectLibre](https://sourceforge.net/projects/projectlibre/) |
+| ProjectLibre-downloads (open source) | **7,8 mln+** in 193 landen (**B** — eigen projectbeschrijving); **19.762 "This Week"** (**A** — SourceForge-teller) | teller 25-07-2026 | A/B | [SourceForge ProjectLibre](https://sourceforge.net/projects/projectlibre/) |
 
 De PMI-talent-gap-publicatie zelf was niet bereikbaar (HTTP 403/404 op drie URL-varianten, 25-07-2026). Het PMP-cijfer uit 2020 is daarom het enige gecontroleerde beroepsbevolkingsanker; §5.2 gebruikt het uitsluitend als **plausibiliteitscontrole**, niet als basis.
 
@@ -248,7 +252,9 @@ Niet-bouw (defensie/lucht- en ruimtevaart met EVM-verplichting, olie & gas turna
 | Diensten (implementatie, training, hosting, integratie) | ~35 % van licentie | **$0,39 mrd** |
 | Premiummodules apart geprijsd (risicoanalyse, EVM, analytics, 4D) | Primavera Risk Analysis alleen al $9.500/seat perpetual | **$0,40 – 0,60 mrd** |
 | **Totaal (centraal scenario)** | | **~$2,0 mrd** |
-| **Totaal (ruim scenario)** | 1,0 mln planners × $1.200; 8 mln viewers × $200; diensten 45 % | **~$4,0 mrd** |
+| **Totaal (ruim scenario)** | 1,0 mln planners × $1.200; 8 mln viewers × $200; diensten 45 % | **~$4,1 mrd** |
+
+*[Rekencontrole: 1,0 mln × $1.200 = $1,2 mrd; 8 mln × $200 = $1,6 mrd; diensten 45 % van $2,8 mrd = $1,26 mrd → **$4,06 mrd**, en dat is **zónder** de premiummodule-post die in het centrale scenario wél meetelt. Wordt die consistent meegenomen (~$0,6 mrd), dan komt het ruime scenario op ~$4,6 mrd. Het "ruime scenario" is dus eerder een ondergrens van ruim dan een bovengrens; de gerapporteerde bandbreedte is aan de conservatieve kant.]*
 
 **Bottom-up bandbreedte: $2,0 – 4,0 mrd, centraal ~$2,8 mrd.**
 
@@ -321,7 +327,7 @@ Deze sectie vertaalt het bovenstaande naar consequenties voor Open Planner Studi
 
 ### 7.1 Het commerciële speelveld is klein — en dat is goed nieuws
 
-De hele wereldwijde markt voor bouwplanningssoftware is **~$1,3 mrd** (§5.4) — **kleiner dan de jaaromzet van Procore alleen** ($1,323 mrd, FY2025). Twee consequenties:
+De hele wereldwijde markt voor bouwplanningssoftware is **~$1,3 mrd** (§5.4) — **ongeveer gelijk aan de jaaromzet van Procore alleen** ($1,323 mrd, FY2025; geverifieerd). *[Gecorrigeerd: "kleiner dan" is niet houdbaar, zie §1 en §Verificatie.]* Twee consequenties:
 
 - **Niemand gaat dit met durfkapitaal veroveren.** Een markt van $1,3 mrd die met 5–8 % groeit is te klein voor het soort gefinancierde aanval dat open source normaal wegdrukt. De incumbents (Oracle, Microsoft, Eleco) innoveren aantoonbaar traag: de P6-prijs staat al tien jaar stil (§4.1).
 - **Maar het betekent ook: er is hier geen groot commercieel model te bouwen.** Zelfs 1 % van de smalle bouwmarkt is $13 mln. Een open-source planner moet zijn bestaansrecht ontlenen aan *strategische* waarde (interoperabiliteit, publieke aanbesteding, onderwijs, ecosysteem), niet aan een verwachte omzetafroming.
@@ -332,31 +338,42 @@ De harde prijzen uit §4.1 zijn het sterkste argument voor het bestaan van dit p
 
 | Gereedschap | Kosten per planner per jaar |
 |---|---|
-| Oracle Primavera P6 Cloud | ~$1.560 (min. 25 seats = **$39.000/jaar** instap) |
-| Primavera Risk Analysis (add-on) | $9.500 eenmalig + $2.090/jaar |
+| Oracle Primavera Cloud (wederverkoper, 2026) | ~$1.560; **kleinste pakket 5 seats = $7.800/jaar** instap |
+| Primavera P6 EPPM Cloud Service (Oracle-prijslijst 2016) | $1.500; **min. 25 hosted named users = $37.500/jaar** |
+| Primavera Risk Analysis (add-on, perpetual) | $9.500 eenmalig + $2.090/jaar |
 | Microsoft Project Plan 5 | $660 |
 | Microsoft Project Plan 3 | $360 |
 | **Open Planner Studio** | **$0** |
 
-Het **minimum van 25 seats** op Primavera P6 Cloud is hier het meest onderschatte gegeven. Het sluit structureel elke aannemer, ingenieursbureau of onderaannemer uit die minder dan 25 planners heeft — dat is de overgrote meerderheid van de bedrijven in de sector. Dat is precies de doelgroep waar ProjectLibre's **7,8 miljoen downloads en ~19.762 per week** ([SourceForge](https://sourceforge.net/projects/projectlibre/), 25-07-2026) vandaan komen: er is een grote, aantoonbare, betalende-noch-bediende vraag onder de commerciële prijsdrempel.
+> **Correctie na verificatie.** De oorspronkelijke tekst stelde dat "het minimum van 25 seats op Primavera P6 Cloud structureel elke aannemer uitsluit die minder dan 25 planners heeft" en rekende $39.000/jaar als instap. Dat is **weerlegd door de eigen klasse-B-bron van dit rapport**: CDP Inc. verkoopt Oracle Primavera Cloud als **"Base Pack (5 Licenses)" voor $7.800,00 per jaar ($130/gebruiker/maand)** ([CDP Inc.](https://cdp-inc.com/products/software/purchase-oracle-primavera-cloud-5-users), geverifieerd 25-07-2026). Het minimum van 25 geldt voor de regel *Primavera P6 EPPM Cloud Service* op de Oracle-prijslijst van 2016, niet voor Oracle Primavera Cloud (OPC), het opvolgproduct waarop het $130-tarief betrekking heeft. Het instapbedrag is dus ~$7.800/jaar, niet $39.000.
 
-### 7.3 De IFC-positionering is een leeg speelveld
+De prijsdrempel blijft niettemin de scherpste hefboom, alleen ligt hij lager en is hij een *bedrag*, geen *seat-minimum*: **$7.800/jaar voor vijf mensen** is nog steeds prohibitief voor een aannemer met een handvol projecten, en het verschil met $0 is de hele propositie. Dat is precies de doelgroep waar ProjectLibre's **7,8 miljoen downloads (eigen opgave) en ~19.762 per week (SourceForge-teller)** ([SourceForge](https://sourceforge.net/projects/projectlibre/), 25-07-2026) vandaan komen: er is een grote, aantoonbare, betalende-noch-bediende vraag onder de commerciële prijsdrempel.
 
-Dit is de meest opvallende bevinding van het GitHub-onderzoek. Een gerichte zoekopdracht naar repositories die IFC combineren met 4D/scheduling levert **9 resultaten op, alle met 0 tot 3 sterren** (GitHub code search, 25-07-2026) — de grootste is [`brunopostle/ifc4d-gantt`](https://github.com/brunopostle/ifc4d-gantt) met 3 sterren. Ter vergelijking: [IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell) heeft 2.667 sterren en [OpenProject](https://github.com/opf/openproject) 15.663.
+### 7.3 De IFC-positionering is dunbevolkt — maar niet leeg
 
-De open-source planningswereld en de open-BIM-wereld raken elkaar dus nauwelijks:
+> **Zwaarste correctie van dit rapport.** De oorspronkelijke bewering luidde: *"Een gerichte zoekopdracht naar repositories die IFC combineren met 4D/scheduling levert 9 resultaten op, alle met 0 tot 3 sterren"* en *"de combinatie echte CPM-solver én IFC als natief opslagformaat wordt door geen enkel noemenswaardig open-source project bezet."* Beide zijn bij hercontrole **weerlegd**. Ze berustten kennelijk op één zeer nauwe code-search-query; een gewone repository-zoekopdracht levert een ander beeld.
 
-| Project | Sterren | Planning | IFC-native |
+Wat de hercontrole (GitHub API/search, 25-07-2026) oplevert:
+
+- **[IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell) (2.667★) heeft zelf een CPM-solver die naar IFC schrijft.** Het bestand `src/ifcopenshell-python/ifcopenshell/api/sequence/recalculate_schedule.py` bevat `def recalculate_schedule(...)` met de docstring *"Calculate the critical path and floats for a work schedule"*, en schrijft `"FreeFloat"`, `"TotalFloat"` en `"IsCritical": data["total_float"].days == 0` terug in `IfcTaskTime`. Dat is precies "CPM-solver + IFC als natief opslagformaat" — inclusief de Bonsai/BlenderBIM-UI daarbovenop. Geverifieerd via GitHub code search, 25-07-2026.
+- **[ibuilder/massing](https://github.com/ibuilder/massing) (114★)** beschrijft zichzelf als *"Open, self-hosted, IFC-native AEC platform … a ~100-module GC portal (RFIs, pay apps, **CPM**, construction accounting …)"* — en gebruikt eveneens Tauri.
+- **[datadrivenconstruction/OpenConstructionERP](https://github.com/datadrivenconstruction/OpenConstructionERP) (553★)** draagt zowel het topic `ifc` als `4d`.
+- **[HassanEmam/4D-Gantt](https://github.com/HassanEmam/4D-Gantt) (18★)** — IFC/4D-Gantt, ver boven de gestelde bovengrens van 3 sterren.
+
+| Project | Sterren (25-07-2026) | Planning | IFC-native |
 |---|---|---|---|
-| OpenProject | 15.663 | Gantt, geen echte CPM | topic `ifc` aanwezig, maar niet als projectformaat |
-| GanttProject | 1.082 | Ja (CPM) | Nee |
+| OpenProject | **15.664** | Gantt + relatie-gedreven herplanning; geen float/kritiek pad | topic `ifc` aanwezig, maar niet als projectformaat |
+| **IfcOpenShell / Bonsai** | 2.667 | **Ja** — `sequence.recalculate_schedule`: kritiek pad + free/total float | **Ja** (leest én schrijft `IfcTaskTime`) |
+| GanttProject | 1.082 | Ja (CPM, kritiek pad) | Nee |
 | TaskJuggler | 809 | Ja (solver) | Nee |
-| IfcOpenShell | 2.667 | Nee | Ja (bibliotheek) |
-| **Open Planner Studio** | — | **Ja (CPM + kalenders)** | **Ja (natief formaat)** |
+| OpenConstructionERP | 553 | ERP/5D; scheduling niet als CPM-solver aangetoond | topics `ifc` + `4d` |
+| ibuilder/massing | 114 | Claimt CPM-module | Claimt IFC-native |
+| brunopostle/ifc4d-gantt | 3 | Alleen visualisatie | Ja (leest IFC) |
+| **Open Planner Studio** | **5** | **Ja (CPM + kalenders)** | **Ja (natief formaat)** |
 
-*(Sterrenaantallen: GitHub, 25-07-2026.)*
+*(Sterrenaantallen: GitHub API, 25-07-2026. OpenProject stond op 15.663 in de oorspronkelijke tekst — nu 15.664; dat is normale drift, geen fout.)*
 
-De combinatie "echte CPM-solver **en** IFC als natief opslagformaat" wordt door geen enkel noemenswaardig open-source project bezet. Dat is een verdedigbare, onderscheidende positie — geen incrementele verbetering van een bestaand alternatief.
+**Herziene conclusie.** Het speelveld is *dun*, niet *leeg*. De combinatie CPM + IFC-native bestaat al, en wel in het grootste open-BIM-project dat er is. De verdedigbare positionering van Open Planner Studio is daarom niet "wij zijn de enige", maar **"wij zijn de enige die het als zelfstandige desktop-/webplannerstoepassing met eigen UI aanbiedt"** — IfcOpenShell levert het als Python-API en Blender-add-on voor BIM-specialisten, niet als planningsapplicatie voor planners. Dat is een smaller maar wél houdbaar onderscheid. Het strategische argument in §7.5 blijft overeind; de retoriek van "een leeg speelveld" niet.
 
 ### 7.4 De norm ondersteunt de architectuurkeuze volledig
 
@@ -368,11 +385,13 @@ De keuze om IFC 4.3 als natief formaat te gebruiken (in plaats van een eigen JSO
 
 Bron: [IFC 4.3.2, IfcTaskTime](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcTaskTime.htm), buildingSMART, geraadpleegd 25-07-2026. Aanvullend: [IfcTask](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcTask.htm), [IfcWorkSchedule](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcWorkSchedule.htm), [IfcRelSequence](https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcRelSequence.htm) — die laatste levert `SequenceType` (START_START, START_FINISH, FINISH_START, FINISH_FINISH) en `TimeLag`, oftewel exact de vier relatietypen met lead/lag die een CPM-planner nodig heeft.
 
+*Verificatiestatus: alle drie de citaten zijn woordelijk teruggevonden in de normtekst zelf (niet in een secundaire samenvatting), `IsCritical` is inderdaad attribuut #14 van `IfcTaskTime` (niet van `IfcTask`), en `IfcRelSequence` heeft inderdaad `TimeLag` (type `IfcLagTime`, "the time lag between the predecessor and the successor as specified by the SequenceType") plus `SequenceType` met START_START / START_FINISH / FINISH_START / FINISH_FINISH. Deze paragraaf is de best onderbouwde van het rapport.*
+
 Met andere woorden: **IFC 4.3 is een volwaardig planningsformaat, geen uitwisselingscompromis.** De norm dekt taken, hiërarchie, kalenders, relaties met vertraging, vroege/late data, beide floats en de kritieke-padvlag. De codebase van Open Planner Studio adresseert deze entiteiten al (17 verwijzingen naar `IfcTaskTime`/`IfcRelSequence`/`IfcWorkSchedule`/`IfcWorkCalendar`/`TotalFloat`/`IsCritical` in `src/services/ifc/`). Dat is architectonisch de juiste weddenschap: het scheelt niet alleen een formaat, het maakt vendor lock-in — de belangrijkste klacht over P6 — structureel onmogelijk.
 
 ### 7.5 Vier strategische consequenties
 
-1. **Richt op de uitgesloten onderkant, niet op de P6-vervanging.** De 25-seat-drempel van Primavera definieert een scherpe, aantoonbare marktgrens. Bedrijven onder die drempel gebruiken nu Excel of ProjectLibre. Dat is de natuurlijke instroom — niet het overtuigen van een tier-1-aannemer om P6 te verlaten.
+1. **Richt op de uitgesloten onderkant, niet op de P6-vervanging.** De drempel is geen seat-minimum maar een bedrag: **~$7.800/jaar voor het kleinste Primavera-Cloudpakket** (5 seats; geverifieerd, zie §7.2). Bedrijven onder die drempel gebruiken nu Excel of ProjectLibre. Dat is de natuurlijke instroom — niet het overtuigen van een tier-1-aannemer om P6 te verlaten.
 2. **Interoperabiliteit is het product, niet een feature.** In een markt waar de duurste aanbieder tien jaar lang zijn prijs niet heeft hoeven verlagen, is de pijn geen functionaliteit maar afhankelijkheid. Betrouwbare IFC-round-trip plus MS Project/P6-import is waardevoller dan de honderdste Gantt-verbetering.
 3. **Publieke aanbesteding is de meest kansrijke ingang.** Dat de best gedocumenteerde prijslijst in dit hele onderzoek een *aanbestedingsdocument* was (Texas DIR), is veelzeggend: overheden moeten prijzen en formaten openbaar maken, en zijn daarmee het segment dat het meest ontvankelijk is voor open standaarden en open source. Een IFC-native planner is daar per definitie beter gepositioneerd dan een propriëtair formaat.
 4. **Wees sceptisch over "de markt groeit 15 %".** Als dit project ooit wordt afgewogen tegen een businesscase, hoort de realistische groeivoet 4–7 % te zijn, met een adresseerbare bouwmarkt van ~$1,3 mrd — niet de $20 mrd die de vakpers rondstuurt. Beslissingen op basis van het laatste getal zullen systematisch teleurstellen.
@@ -422,3 +441,54 @@ Met andere woorden: **IFC 4.3 is een volwaardig planningsformaat, geen uitwissel
 - Verified Market Research PPM — https://www.verifiedmarketresearch.com/product/project-portfolio-management-ppm-market/ (25-07-2026)
 - Grand View Research PM Software (via zoeksnippet; bron gaf HTTP 403) — https://www.grandviewresearch.com/industry-analysis/project-management-software-market-report (25-07-2026)
 - Statista Enterprise Software Outlook (PM software niet als zelfstandig segment; data achter paywall) — https://www.statista.com/outlook/tmo/software/enterprise-software/project-management-software/worldwide (25-07-2026)
+
+---
+
+## Verificatie
+
+Adversariële hercontrole, 25 juli 2026. Werkwijze: van elke bewering is geprobeerd hem te **weerleggen** met een onafhankelijke, primaire bron — normteksten in plaats van samenvattingen, SEC-/IR-publicaties in plaats van vakpers, de Oracle-prijs-PDF zelf in plaats van citaten eruit, de GitHub-API in plaats van herinnerde zoekresultaten. Alle doorgerekende schattingen zijn opnieuw uitgerekend.
+
+**Score: 22 beweringen getoetst — 15 bevestigd, 5 gecorrigeerd, 2 onzeker.**
+
+### Bevestigd
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 1 | **Oracle Primavera-prijslijst** (elfregelige perpetual-tabel én vijfregelige cloud-tabel in §4.1, inclusief de minima 25/50/5) | **Bevestigd — regel voor regel.** De PDF is gedownload en met `pypdf` uitgelezen; alle bedragen komen exact overeen: P6 EPPM $2.750/$605, P6 Prof $2.500/$550, Progress Reporter $950/$209, Contractor $1.295/$285, Risk Analysis $9.500/$2.090, EVM $10.000/$2.200, Portfolio Mgmt $2.900/$638 (min 50), Unifier PC $3.950/$869 (min 25), Analytics $2.000/$440 (min 25), Gateway $20.000/$4.400 (min 5), Data Warehouse $25.000/processor. Cloud: P6 EPPM $125 (min 25), Unifier PC $150 (min 25), Analytics $90 (min 25), Progress Reporter $12, Unifier Portal $2. Dit is het best onderbouwde onderdeel van het rapport. | https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf |
+| 2 | **IFC 4.3 `IfcTaskTime`** bevat EarlyStart ("It is a calculated value."), TotalFloat en IsCritical, met de geciteerde definities | **Bevestigd — woordelijk, uit de normtekst zelf.** `IsCritical` is attribuut #14 van `IfcTaskTime` (niet van `IfcTask`). Alle drie de citaten kloppen letterlijk. | https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcTaskTime.htm |
+| 3 | **`IfcRelSequence`** levert `SequenceType` (4 typen) + `TimeLag` | **Bevestigd.** Attributen: RelatingProcess, RelatedProcess, TimeLag (OPTIONAL `IfcLagTime`, *"the time lag between the predecessor and the successor as specified by the SequenceType"*), SequenceType (OPTIONAL `IfcSequenceEnum`), UserDefinedSequenceType. START_START / START_FINISH / FINISH_START / FINISH_FINISH aanwezig. | https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/IfcRelSequence.htm |
+| 4 | **Bentley FY2025**: $1.501,8 mln, +11,0 %; ARR $1.462,1 mln, +11,5 % cc | **Bevestigd — woordelijk** (*"$1,501.8 million, up 11.0% or 10.1% on a constant currency basis"*). | https://investors.bentley.com/news-releases/news-release-details/bentley-systems-announces-fourth-quarter-and-full-year-2025 |
+| 5 | **Procore FY2025**: $1.323 mln, +15 %; 17.850 klanten; GRR 95 %; NRR 106 %; 78 % ARR uit 4+-productklanten | **Bevestigd — alle vijf de cijfers woordelijk.** | https://www.procore.com/press/procore-announces-fourth-quarter-and-full-year-2025-financial-results |
+| 6 | **Asana FY2026**: $790,8 mln, +9,25 %; 25.928 kernklanten (+8 %) | **Bevestigd.** Persbericht zegt "+9 %"; 790,8/723,9 = +9,24 %, dus de berekende +9,25 % is correct afgerond. | https://investors.asana.com/news-releases/news-release-details/asana-announces-fourth-quarter-and-fiscal-year-2026-results |
+| 7 | **monday.com FY2025**: $1.232,0 mln, +27 %; NDR 110 % | **Bevestigd — woordelijk.** | https://ir.monday.com/news-and-events/news-releases/news-details/2026/monday-com-Announces-Fourth-Quarter-and-Fiscal-Year-2025-Results/default.aspx |
+| 8 | **Atlassian FY2025**: >$5,2 mrd; Q4 +22 % | **Bevestigd** (*"Total revenue was $5.2 billion for fiscal year 2025, up 20%"*; Q4 $1.384,3 mln, +22 %). | https://www.businesswire.com/news/home/20250807057757/en/Atlassian-Announces-Fourth-Quarter-and-Fiscal-Year-2025-Results |
+| 9 | **MarketsandMarkets**: $8,83 mrd (2025), $9,91 mrd (2026), 11,3 %, $16,87 mrd (2031), code TC 2938, juli 2026 | **Bevestigd — alle zes.** | https://www.marketsandmarkets.com/Market-Reports/project-portfolio-management-software-market-225932595.html |
+| 10 | **"MarketsandMarkets tegen zichzelf"** (§3.4-4): 2022-persbericht beloofde $6,5 mrd tegen 2027 | **Bevestigd.** Basis $4,7 mrd (2022), CAGR 6,7 %, doel $6,5 mrd (2027). De eigen 2026-basis van $9,91 mrd overschrijdt die 2027-prognose met 52 %, één jaar te vroeg — het rapport zei "~50 %", dat klopt. | https://www.globenewswire.com/fr/news-release/2022/09/07/2511772/0/en/Project-Portfolio-Management-Market-worth-6-5-billion-by-2027-Report-by-MarketsandMarkets.html |
+| 11 | **Mordor PPM**: $6,90 mrd (2025), 11,43 %, $13,21 mrd (2031) | **Bevestigd.** Extra vondst: het leverancierslijstje bevat monday.com, Smartsheet en Atlassian — verwerkt in §3.1. | https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market |
+| 12 | **Fortune BI construction software**: $10,76 mrd (2025), NA 42,50 %, deelsegment "Project Management and Scheduling" $3,43 mrd (2024), 9,70 % → $24,72 mrd (2034) | **Bevestigd — alle vier woordelijk.** Kleine nuance: de 9,70 % geldt volgens de bron voor 2026–2034 vanaf een basis van $11,78 mrd (2026), niet vanaf 2025; het rapport suggereert een 2025-basis. Rekenkundig valt dat samen ($10,76 × 1,097⁹ = 24,76 versus $11,78 × 1,097⁸ = 24,70), dus zonder gevolgen. | https://www.fortunebusinessinsights.com/construction-software-market-110155 |
+| 13 | **Fortune BI PPM**: $5,39 mrd (2025), 7,50 %, $10,35 mrd (2034), software 70,68 % | **Bevestigd.** Nuance: de 70,68 % is door de bron gedateerd op 2026, niet op het basisjaar. | https://www.fortunebusinessinsights.com/project-portfolio-management-ppm-market-104257 |
+| 14 | **Statista heeft geen PM-softwaresegment** (§3.4-5) | **Bevestigd — woordelijk.** De pagina zet PM-software expliciet onder "Other Enterprise Software" (*"…such as Project Management Software, Product Life Cycle Management Software…"*) en toont uitsluitend `US$******bn` achter een Professional Account. | https://www.statista.com/outlook/tmo/software/enterprise-software/project-management-software/worldwide |
+| 15 | **Prijspagina's, downloadteller, vraagzijde-ankers, codebasis** — Microsoft Project Professional 2024 $1.129,99 / Standard 2024 $679,99; Asana $10,99/$24,99; monday.com $9/$12/$19; ProjectLibre "7.8M+ downloads in 193 countries" en "19,762 This Week"; PMP 1.036.368 in 214 landen (31-07-2020); bouwproductie $11 bln (2022, ~13 % bbp) → $14,8 bln (2030); 273 mln banen (2014, ~7 %); Eleco "over 50,000 companies"; 17 IFC-entiteitverwijzingen in `src/services/ifc/` | **Alle bevestigd.** De 17 verwijzingen zijn nagerekend met `grep -roE` op de echte codebase (3 in `ifcPsets.ts`, 5 in `ifcReader.ts`, 9 in `ifcWriter.ts`). | microsoft.com/…/compare-microsoft-project-management-software · asana.com/pricing · monday.com/pricing · sourceforge.net/projects/projectlibre/ · en.wikipedia.org/wiki/Project_Management_Professional · en.wikipedia.org/wiki/Construction · eleco.com |
+
+### Gecorrigeerd
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 16 | *"De combinatie echte CPM-solver **en** IFC als natief opslagformaat wordt door geen enkel noemenswaardig open-source project bezet"*; *"9 resultaten, alle met 0 tot 3 sterren"* (§7.3) | **Gecorrigeerd — weerlegd.** IfcOpenShell (2.667★) bevat `ifcopenshell/api/sequence/recalculate_schedule.py`, docstring *"Calculate the critical path and floats for a work schedule"*, dat `FreeFloat`, `TotalFloat` en `IsCritical` naar `IfcTaskTime` schrijft. Dat is exact de combinatie die het rapport onbezet noemde. Verder: `ibuilder/massing` (114★, "IFC-native AEC platform … CPM"), `datadrivenconstruction/OpenConstructionERP` (553★, topics `ifc`+`4d`), `HassanEmam/4D-Gantt` (18★) — allemaal boven de gestelde bovengrens van 3 sterren. §7.3 is herschreven; de positionering is aangescherpt tot "enige zelfstandige plannerstoepassing", wat wél houdbaar is. | https://github.com/IfcOpenShell/IfcOpenShell/blob/main/src/ifcopenshell-python/ifcopenshell/api/sequence/recalculate_schedule.py · https://github.com/ibuilder/massing · https://github.com/datadrivenconstruction/OpenConstructionERP |
+| 17 | *"Het minimum van 25 seats op Primavera P6 Cloud … sluit structureel elke aannemer uit die minder dan 25 planners heeft"*; instap $39.000/jaar (§7.2, §7.5-1) | **Gecorrigeerd — weerlegd door de eigen bron van het rapport.** CDP Inc. verkoopt Oracle Primavera Cloud als *"Base Pack (5 Licenses)"* voor **$7.800,00/jaar ($130/gebruiker/maand)**. Het 25-minimum hoort bij de regel *P6 EPPM Cloud Service* op de prijslijst van 2016, niet bij het opvolgproduct waarop het $130-tarief slaat. De prijsdrempel bestaat, maar is een bedrag (~$7.800), geen seat-minimum, en ligt vijf keer lager dan gesteld. | https://cdp-inc.com/products/software/purchase-oracle-primavera-cloud-5-users |
+| 18 | **Autodesk FY2026**: AEC $3,58 mrd = **53,1 %** van $7,21 mrd; *"AEC omvat Revit/AutoCAD"* | **Gecorrigeerd — twee fouten.** (a) Rekenfout: $3.583 mln / $7.206 mln = **49,7 %**, niet 53,1 %. (b) Segmentfout: Autodesk rapporteert **AECO** en **AutoCAD & AutoCAD LT** als *aparte* segmenten; AutoCAD zit dus niet in de $3.583 mln. De bedragen zelf ($7.206 mln totaal, +18 %; AECO $3.583 mln, +22 %; Q4 AECO $975 mln) zijn correct. | https://investors.autodesk.com/news-releases/news-release-details/autodesk-inc-announces-fiscal-2026-fourth-quarter-results |
+| 19 | *"De hele wereldwijde bouwplanningsmarkt is **kleiner dan** de jaaromzet van Procore alleen"* (§1-bevinding 2, §7.1) | **Gecorrigeerd — overtrokken.** De eigen bandbreedte (b) is $0,9–1,7 mrd en omsluit Procore's $1,323 mrd; het centrale punt ($1,3 mrd) ligt er 2 % onder, ruim binnen de eigen ±40 %-onzekerheid. "Van dezelfde orde als" is verdedigbaar, "kleiner dan" niet. Het rapport presenteerde dit als *"een harde, controleerbare vergelijking"* — dat is het niet. | https://www.procore.com/press/procore-announces-fourth-quarter-and-full-year-2025-financial-results |
+| 20 | Twee rekenfouten in afgeleide waarden (§3.3, §5.2) | **Gecorrigeerd.** (a) §3.3: het pad $2,45 mrd @ 6,3 % geeft in 2030 **$3,33 mrd**, niet ~$3,0 mrd (de "~45 % spreiding"-conclusie wordt er iets sterker van). (b) §5.2 "ruim scenario": $1,2 + $1,6 + $1,26 = **$4,06 mrd** en dat is exclusief de premiummodulepost die in het centrale scenario wél meetelt; consistent doorgerekend is het ~$4,6 mrd. Alle overige doorrekeningen (negen CAGR-ketens, gewogen ASP $901, viewerratio 5,7:1, factor 14,9, P6-prijsgroei 0,39 %/jr, bouwproductie 3,78 %/jr, 1 % van $1,3 mrd = $13 mln) zijn nagerekend en **correct**. | eigen herberekening (Python) |
+
+### Onzeker
+
+| # | Bewering | Oordeel | Bron |
+|---|---|---|---|
+| 21 | **Technavio $12,2 mrd (PPM, ~2025)** — het hoge eind van de "factor 15"-kopbevinding | **Onzeker — niet reproduceerbaar.** Geen bronpagina bereikt; het cijfer stond alleen in een zoeksnippet en de zoekbudgetten van deze sessie waren uitgeput. Het lage eind is wél indirect bevestigd: Business Research Insights noteert $0,9 mrd voor 2026 bij 10,3 % CAGR → $0,82 mrd voor 2025. Zonder Technavio bedraagt de geverifieerde spreiding $0,82–$9,91 mrd (**factor 12,1** in plaats van 14,9). De kernconclusie — een definitieverschil, geen meetruis — blijft staan; het getal "factor 15" moet als indicatief worden gelezen. | https://www.businessresearchinsights.com/market-reports/project-portfolio-management-ppm-market-118199 |
+| 22 | Vier secundaire klasse-C/klasse-B-cijfers | **Onzeker — bron niet bereikbaar.** (a) Grand View Research $7,38 mrd (2023) / 15,7 % / $20,47 mrd (2030): HTTP 403, ook bij hercontrole. (b) De drie "construction scheduling software"-rijen ($2,1 mrd / $2,45 mrd / $2,29 mrd): uitsluitend snippets, geen bronpagina, geen identificeerbare uitgever — dit is de zwakste tabel van het rapport. (c) Het Gartner-citaat "60 % of PPM buyers" was bij hercontrole **niet** terug te vinden op de Fortune BI-pagina waaraan het is toegeschreven. (d) ITQlick ~$130/gebruiker/maand: HTTP 403 — maar het bedrag is onafhankelijk bevestigd door CDP Inc., dus materieel niet in het geding. Daarnaast blijven de MarketsandMarkets-tussenprognose "$13,7 mrd by 2029" en Mordor's oudere jaargang ($6,02 mrd / 3,9 %) ongeverifieerd. | https://www.grandviewresearch.com/industry-analysis/project-management-software-market-report (403) · https://www.itqlick.com/oracle-primavera-p6/pricing (403) |
+
+### Wat níet is getoetst
+
+De toerekeningen in §5.1 (Oracle $0,7–1,0 mrd, Microsoft $1,0–1,5 mrd, enz.), de plannerdichtheid 1:200–1:400, het formeel/informeel-onderscheid en de prijsmix in §5.2 zijn **per constructie niet falsifieerbaar** — het rapport labelt ze zelf als schatting en §6 somt ze op als de dominante onzekerheden. Dat is correct gedaan; ze zijn hier alleen op interne consistentie en rekenkundige juistheid gecontroleerd, niet op waarheid. Hetzelfde geldt voor de negatieve bewering *"geen enkele leverancier rapporteert scheduling als apart segment"*: plausibel en consistent met de doorgenomen jaarcijfers, maar niet positief te bewijzen.
+
+**Netto-effect op de conclusies.** De kwantitatieve kern van het rapport — de triangulatie op ~$3,0 mrd (a1) en ~$1,3 mrd (b), de 4–7 %-groeivoet, de klasse-C-kritiek en de IFC-normanalyse — overleeft de hercontrole intact. De correcties treffen vooral de **retoriek van §7**: het speelveld is dun in plaats van leeg, de prijsdrempel is lager dan gesteld, en de Procore-vergelijking is een illustratie in plaats van een bewijs.

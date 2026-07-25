@@ -20,7 +20,9 @@
 
 6. **De structuur van de markt is extreem versplinterd aan de onderkant.** Spanje telde op 1 januari 2025 **389.146 bouwbedrijven**, waarvan **207.743 zonder personeel** en slechts **1.749 met 50+ werknemers** ([Observatorio de la Construcción / INE DIRCE](https://www.observatoriodelaconstruccion.com/barometro/directorio-central-empresas)). Het Spaanse Plan BIM citeert DIRCE 2022: micro-ondernemingen waren **95,48%** van de sector ([Plan BIM PDF, mitma.gob.es](https://cdn.mitma.gob.es/portal-web-drupal/cbim/v_26_bis_web_plan_bim_contratacion_publica.pdf)). Portugal telde in 2024 **114.400 bouwbedrijven** ([INE via RTP](https://www.rtp.pt/noticias/economia/setor-da-construcao-reforca-peso-no-tecido-empresarial-em-2024_n1704367)). Die staart betaalt geen €300/maand voor planningssoftware — daar regeert Excel, en waar wél software gekocht wordt, is het een goedkope maandhuur van een lokale suite.
 
-7. **Marktomvang (zie §2 voor de redenering): [SCHATTING]** de licentiemarkt voor planning-/schedulingsoftware met Gantt/CPM in Spanje + Portugal ligt in de orde van **€30–55 miljoen per jaar (2025/2026)**, met daarbovenop naar schatting **€15–30 miljoen** aan training, implementatie en consultancy. Groei **[SCHATTING] 8–13% per jaar**, in lijn met de gepubliceerde CAGR's voor de Spaanse PPM-markt (12,1%) en de wereldwijde construction-scheduling-markt (11,2–13,5%).
+7. **Marktomvang (zie §2 voor de redenering): [SCHATTING]** de licentiemarkt voor planning-/schedulingsoftware met Gantt/CPM in Spanje + Portugal ligt in de orde van **€20–50 miljoen per jaar (2025/2026)**, met daarbovenop naar schatting **€10–30 miljoen** aan training, implementatie en consultancy. Groei **[SCHATTING] 8–13% per jaar**, in lijn met de gepubliceerde CAGR's voor de Spaanse PPM-markt (12,1%) en de wereldwijde construction-scheduling-markt (11,2–13,5%).
+
+   > ⚠️ **Correctie na verificatie (zie §Verificatie).** De oorspronkelijke versie van dit rapport noemde hier €30–55 mln licenties / €15–30 mln diensten. Bij natelling bleken segment A en segment C in §2.3 **niet te volgen uit hun eigen aannames**: bij segment A werd de zelf gepostuleerde enterprise-korting niet toegepast, en bij segment C werd de "kwart tot een derde × minderheid van de klanten"-redenering niet doorgerekend. Na correctie komt de bandbreedte uit op €15–51 mln, centrale schatting **€20–50 mln**. De ordegrootte ("tientallen miljoenen, geen honderden") verandert niet; de bovenkant wel.
 
 ---
 
@@ -83,8 +85,10 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 - Populatie: 168 Spaanse bouwbedrijven met ≥250 werknemers (DIRCE, zie boven), plus de grote ingenieursbureaus (Ineco, Idom, Sener, Typsa, Ayesa, Eptisa, Acciona Ingeniería), plus energie/industrie (Iberdrola, Endesa, Repsol, Naturgy, Enagás, Petronor) en olie-/EPC-toeleveranciers (Técnicas Reunidas, Duro Felguera). In Portugal: Mota-Engil, Teixeira Duarte, Casais, Somague/Sacyr Somague, Conduril, Alberto Couto Alves, plus EDP/REN/Galp en de HSR-programma's.
 - Aanname: gemiddeld ~20 named P6-gebruikers per groot bouwbedrijf (top-6 groepen elk 100–300; de rest 3–25), plus ~1.500 gebruikers bij ingenieurs-/energie-/industriële partijen.
 - **Uitkomst: 4.000–7.000 named P6-gebruikers in Spanje; 700–1.500 in Portugal.**
-- Kosten per gebruiker per jaar: perpetual P6 Professional US$ 3.880 afgeschreven over 5 jaar (~US$ 776) + 22% onderhoud (US$ 854) ≈ **US$ 1.630/jr**; cloud US$ 305/maand = US$ 3.660/jr. Blended (met enterprise-korting van 30–50%) **[SCHATTING] ≈ €1.400–2.000/jr**.
-- **Segment A licentie-omzet: €7–17 mln/jaar in Iberia.**
+- Kosten per gebruiker per jaar: perpetual P6 Professional US$ 3.880 afgeschreven over 5 jaar (~US$ 776) + 22% onderhoud (US$ 854) ≈ **US$ 1.630/jr**; cloud US$ 305/maand = US$ 3.660/jr. ~~Blended (met enterprise-korting van 30–50%) [SCHATTING] ≈ €1.400–2.000/jr.~~
+
+  > ⚠️ **Gecorrigeerd.** Twee fouten. (1) De korting werd wél genoemd maar **niet toegepast**: US$ 1.630/jr = €1.433/jr bij EUR/USD 1,1377 ([Frankfurter/ECB, 24-07-2026](https://api.frankfurter.dev/v1/latest?from=EUR&to=USD)) — dat ís al vrijwel de bovenkant van "€1.400–2.000", vóór enige korting. Een blend van ~70% perpetual / ~30% cloud geeft €1.950/jr lijstprijs; na de gepostuleerde 30–50% korting resteert **€1.000–1.400/jr**. (2) Het rapport noemde in §2.3 een korting van 30–50% en in §3.2 van 35–60% — die zijn hier gelijkgetrokken op **[SCHATTING] 30–50% (top-10: tot 60%)**. Gecorrigeerde blended kosten: **[SCHATTING] €900–1.700/gebruiker/jaar**.
+- **Segment A licentie-omzet: ~~€7–17 mln/jaar~~ → gecorrigeerd €4–14 mln/jaar in Iberia** (4.700–8.500 gebruikers × €900–1.700).
 
 **Segment B — Microsoft Project (middelgrote aannemers, promotores, ingenieurs, overheid, PMO's).**
 
@@ -98,8 +102,11 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 
 - Populatie: dit is het volumesegment. Spanje heeft naast de 389k bouwbedrijven een groot corps *arquitectos técnicos / aparejadores* en architecten die begrotingen en *programas de trabajo* maken.
 - Aanname: **25.000–45.000 betaalde actieve seats** in Spanje + Portugal over alle lokale suites samen, gemiddeld €400–800/jr (huur of afgeschreven perpetual + onderhoud) = €10–36 mln/jr totaal.
-- Maar slechts een deel van dat bedrag is *planning*: de Presto-prijslijst laat zien dat de module Planificación €61/maand kost tegenover €33/maand voor het basispakket Presupuestos — de planningsmodule is dus grofweg **een kwart tot een derde** van de suite-waarde bij klanten die hem afnemen, en een minderheid van de klanten neemt hem af.
-- **Segment C planning-toerekenbare omzet: €4–10 mln/jaar.**
+- Maar slechts een deel van dat bedrag is *planning*. ~~De Presto-prijslijst laat zien dat de module Planificación €61/maand kost tegenover €33/maand voor het basispakket Presupuestos.~~
+
+  > ⚠️ **Gecorrigeerd — leesfout in de bron.** Het EXA4-tarief van **€61/maand is géén losse planningsmodule**: het is de bundel die *"los módulos PRESUPUESTOS Y MEDICIONES y PLANIFICACIÓN económica, temporal y financiera"* bevat, terwijl €33/maand *"el módulo base de PRESTO PRESUPUESTOS Y MEDICIONES"* is ([exa4.es](https://www.exa4.es/productos/licencias-presto/)). De **meerprijs** van planning is dus €61 − €33 = **€28/maand ≈ €336/jaar**, wat netjes aansluit op de losse jaarhuur van €384 + btw bij SEYS. Planning is daarmee ~46% van een Presupuestos+Planificación-bundel en ~25% van het volledige Control Económico+-pakket (€135/maand) — de "kwart tot een derde" klopt alleen ten opzichte van de *volledige* suite, niet ten opzichte van het basispakket.
+- Doorrekening: €10–36 mln suite-omzet × 25–33% planningsaandeel × **[SCHATTING]** 20–40% van de klanten die de module daadwerkelijk afneemt = **€0,5–4,8 mln/jaar**.
+- **Segment C planning-toerekenbare omzet: ~~€4–10 mln/jaar~~ → gecorrigeerd €1–5 mln/jaar.** De oorspronkelijke €4–10 mln volgde niet uit de eigen aannames: dat bedrag ontstaat alleen als je een derde van *alle* suite-omzet aan planning toerekent bij 100% modulepenetratie, wat in dezelfde alinea expliciet werd tegengesproken.
 
 **Segment D — Generieke SaaS (Smartsheet, monday.com, Wrike, Asana, Jira-plug-ins, Zoho, OpenProject) voor zover als planningstool ingezet, plus nichetools (Asta Powerproject, TILOS, SYNCHRO, ALICE, nPlan, Deltek, Safran, InEight, EcoSys, Spider, Sciforma).**
 
@@ -109,17 +116,19 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 
 **Totaal (licenties/abonnementen):**
 
-| Segment | Iberia, €/jaar **[SCHATTING]** |
-|---|---|
-| A. Oracle Primavera P6 / Cloud | 7–17 mln |
-| B. Microsoft Project | 6–20 mln |
-| C. Lokale suites (planningsdeel) | 4–10 mln |
-| D. SaaS + niche | 5–12 mln |
-| **Totaal licenties** | **€22–59 mln — centrale schatting €30–55 mln** |
-| Training, implementatie, consultancy (+50–65% op licenties) | **€15–30 mln** |
-| **Totale bestedingen** | **€45–85 mln/jaar** |
+| Segment | Oorspronkelijk **[SCHATTING]** | **Na verificatie/natelling** |
+|---|---|---|
+| A. Oracle Primavera P6 / Cloud | 7–17 mln | **4–14 mln** |
+| B. Microsoft Project | 6–20 mln | 5–20 mln (ongewijzigd; 30.000–72.000 × €180–280 = €5,4–20,2 mln ✔) |
+| C. Lokale suites (planningsdeel) | 4–10 mln | **1–5 mln** |
+| D. SaaS + niche | 5–12 mln | 5–12 mln (ongewijzigd, maar de toerekening blijft arbitrair) |
+| **Totaal licenties** | ~~€22–59 mln — centrale schatting €30–55 mln~~ | **€15–51 mln — centrale schatting €20–50 mln** |
+| Training, implementatie, consultancy (+50–65% op licenties) | €15–30 mln | **€10–30 mln** |
+| **Totale bestedingen** | ~~€45–85 mln/jaar~~ | **€25–80 mln/jaar** |
 
-**Kruiscontrole.** De Spaanse PPM-markt wordt op US$ 204 mln (2024) gezet, en de bredere Spaanse PM-softwaremarkt op ~US$ 310 mln (2025, teruggerekend uit US$ 589 mln in 2030 bij 13,7% CAGR). Bouw + infra + engineering is doorgaans 20–30% van PM-software-uitgaven → **US$ 60–95 mln (≈ €55–88 mln)** voor Spanje alleen, maar dán inclusief samenwerkings-/portfoliosoftware zonder Gantt/CPM-kern. Onze engere Gantt/CPM-definitie van €30–55 mln voor Spanje *plus* Portugal is daarmee consistent en aan de conservatieve kant.
+**Kruiscontrole.** De Spaanse PPM-markt wordt op US$ 204 mln (2024) gezet — [geverifieerd op de MarketsandMarkets-landenpagina](https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/spain): US$ 204 mln (2024) → US$ 360,9 mln (2029), CAGR 12,1%; natelling 204 × 1,121⁵ = 361,1 ✔. De bredere Spaanse PM-softwaremarkt komt op ~US$ 310 mln (2025), teruggerekend uit US$ 589 mln in 2030 bij 13,7% CAGR; natelling 589 / 1,137⁵ = 310,0 ✔ (**let op:** de Grand View-pagina zelf gaf bij verificatie HTTP 403 en kon niet onafhankelijk worden herbevestigd — het brongetal blijft daarmee **[ONZEKER]**). Bouw + infra + engineering is doorgaans 20–30% van PM-software-uitgaven → **US$ 60–95 mln (≈ €53–84 mln bij EUR/USD 1,1377)** voor Spanje alleen, maar dán inclusief samenwerkings-/portfoliosoftware zonder Gantt/CPM-kern. Onze engere, gecorrigeerde Gantt/CPM-definitie van €20–50 mln voor Spanje *plus* Portugal blijft daarmee consistent en aan de conservatieve kant.
+
+> ⚠️ **De inconsistentie in de MarketsandMarkets-cijfers is bij verificatie bevestigd, niet weerlegd.** De Europa-pagina geeft letterlijk US$ 67,6 mln (2024) → US$ 115,7 mln (2029), CAGR **11,3%** ([M&M Europa](https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/europe)), terwijl dezelfde uitgever Spanje alleen al op US$ 204 mln zet. Europa < Spanje is onmogelijk bij gelijke scope. Gebruik deze reeks uitsluitend als ordegrootte.
 
 **Ordegrootte gebruikers (Iberia, [SCHATTING]):** ~5.000–8.500 P6-named users; ~30.000–72.000 MS Project-seats in bouwgerelateerd gebruik; ~25.000–45.000 seats lokale kosten-/tijdsuites; enkele duizenden seats generieke SaaS. Het aantal mensen met "planner/scheduler" als *hoofdtaak* in Spanje is **[SCHATTING] 3.000–6.000**; in Portugal **[SCHATTING] 600–1.200**.
 
@@ -150,13 +159,15 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 
 ### 3.2 Oracle Primavera P6 / Primavera Cloud
 
-**Positie.** De onbetwiste standaard voor grote infra en EPC. Oracle positioneert P6 EPPM zelf als "The Standard for Planning and Scheduling" ([oracle.com](https://www.oracle.com/construction-engineering/primavera-p6/)) en duwt de installed base richting **Oracle Primavera Cloud**; op de productpagina staat expliciet een migratietraject van P6 naar Primavera Cloud beschreven. Voor Iberia betekent dat de komende jaren een gedwongen heronderhandeling van elk groot contract — een window of opportunity voor concurrenten.
+**Positie.** De onbetwiste standaard voor grote infra en EPC. Oracle positioneert P6 EPPM zelf als "The Standard for Planning and Scheduling" ([oracle.com](https://www.oracle.com/construction-engineering/primavera-p6/)) en duwt de installed base richting **Oracle Primavera Cloud**; op de productpagina staat expliciet een migratietraject van P6 naar Primavera Cloud beschreven. ⚠️ **Genuanceerd na verificatie:** het gaat om een **vrijwillig, door Oracle begeleid** migratietraject in vijf fasen, **niet** om een aangekondigd einde van P6-ondersteuning ([oracle.com](https://www.oracle.com/construction-engineering/primavera-p6/)). Voor Iberia betekent dat de komende jaren waarschijnlijk een heronderhandeling van veel grote contracten — een window of opportunity voor concurrenten — maar "gedwongen" is niet onderbouwd.
 
 **Wie gebruikt het.**
 - **Spanje:** ACCIONA werft actief "Planificador/a de Proyectos – Primavera P6" voor bouwprojecten ([LinkedIn](https://www.linkedin.com/jobs/view/planificador-a-de-proyectos-%E2%80%93-primavera-p6-at-acciona-4423671154)); ook via toeleverancier Eosol Group ("Planificador com experiência em Primavera P6", La Coruña, [Jooble](https://es.jooble.org/jdp/8860331564294313710)) en Corporación ACCIONA Eólica (Valladolid, [Jooble](https://es.jooble.org/jdp/8986559135363680564)). Dit patroon — P6-vacatures per *obra*, niet per hoofdkantoor — bevestigt dat P6 projectgebonden wordt ingezet.
 - **Portugal:** VINCI Energies Portugal, planner-vacature Ponta Delgada: "Criar o cronograma (Primavera P6 ou MS Project)" ([net-empregos](https://www.net-empregos.com/15061336/planner-planeamento-m-f-ponta-delgada/)). Dat "of" is veelzeggend: in Portugal is P6 vaak *een* optie, niet *de* eis.
 
 **Prijzen (lijstprijzen, USD).**
+
+> ⚠️ **[ONZEKER] — geen enkele van deze prijzen is een Oracle-bron.** Bij verificatie is de geciteerde pagina bevestigd (prmyazilim noemt inderdaad US$ 3.880 / US$ 4.240 en 22% onderhoud, laatst bijgewerkt juni 2025), maar dat is een **Turkse reseller**, geen Oracle-prijslijst. Pogingen om een officiële "Oracle Construction and Engineering Global Price List" te vinden liepen op niets uit. Het concurrerende cijfer in dezelfde tabel — **US$ 2.750 basislicentie + US$ 605 support** — is intern consistent (605/2.750 = exact 22%) en komt overeen met de historisch breed geciteerde Oracle-lijstprijs voor P6 EPPM per *application user*. Het verschil tussen US$ 2.750 en US$ 4.240 is **54%**, wat direct doorwerkt in segment A. Behandel het prijsniveau in deze tabel als een bandbreedte, niet als een meting.
 
 | Product | Lijstprijs | Onderhoud | Bron |
 |---|---|---|---|
@@ -167,9 +178,11 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 | "Primavera P6 software starts at" | US$ 3.500 perpetual | — | [primaverascheduling.com](https://primaverascheduling.com/home/buy-primavera-software/) |
 | **Primavera P6 Cloud** | **US$ 305/gebruiker/maand, minimaal 25 gebruikers** | support inbegrepen | [prmyazilim.com](https://prmyazilim.com/en/primavera-p6-pricing) |
 | Primavera P6 (reseller-quote) | "starts at US$ 175/maand per gebruiker" | — | [contractorsandbuilders.com](https://contractorsandbuilders.com/pricing/oracle-primavera/) |
-| Primavera Cloud — modulair | jaarlijks abonnement per named user, **minimaal 5 gebruikers per module**; bv. Progress Cloud Service **US$ 144/gebruiker/jaar** | — | [findpmsoftware.com](https://findpmsoftware.com/products/primavera-cloud) |
+| Primavera Cloud — modulair (**gecorrigeerd**) | jaarabonnement per named user: **Progress US$ 144**, Task Management US$ 660, **Scheduling US$ 1.320**, Portfolio Planning US$ 2.640 — per gebruiker per jaar | — | [findpmsoftware.com](https://findpmsoftware.com/products/primavera-cloud) (bijgewerkt 25-06-2026) |
 
-**Licentiemodel en valuta-effect.** Oracle prijst in USD; Iberische klanten kopen in EUR via lokale Oracle-entiteiten of resellers. Bij een EUR/USD rond pariteit-tot-1,10 heeft de dollarprijs de afgelopen jaren merkbaar door de verzwakkende euro heen getikt; grote Spaanse groepen dekken dit af in meerjarige raamcontracten. **[SCHATTING]** Realistische enterprise-korting op lijstprijs bij de top-10 aannemers: **35–60%** — Oracle discount in Iberia stevig omdat de referentiewaarde van ACS/Ferrovial/Acciona groot is.
+> ⚠️ **Gecorrigeerd — misleidende "vanaf"-prijs.** De oorspronkelijke tekst noemde Primavera Cloud "modulair vanaf US$ 144/gebruiker/jaar". Dat is de **Progress Cloud Service** — de voortgangsrapportagemodule, niet de planningsmodule. De module die daadwerkelijk CPM-planning doet is **Scheduling Cloud Service à US$ 1.320/gebruiker/jaar**, ruim negen keer zoveel. Voor een prijsvergelijking met een Gantt/CPM-tool is US$ 1.320 het juiste anker (≈ €1.160/jr bij EUR/USD 1,1377). De claim "**minimaal 5 gebruikers per module**" staat **niet** op de geciteerde bron en is bij hercontrole niet terug te vinden — **[ONZEKER, bron niet bevestigd]**.
+
+**Licentiemodel en valuta-effect.** Oracle prijst in USD; Iberische klanten kopen in EUR via lokale Oracle-entiteiten of resellers. ~~Bij een EUR/USD rond pariteit-tot-1,10 heeft de dollarprijs de afgelopen jaren merkbaar door de verzwakkende euro heen getikt.~~ **[GECORRIGEERD]** De referentiekoers klopt niet: op **24 juli 2026 stond EUR/USD op 1,1377** ([ECB via Frankfurter](https://api.frankfurter.dev/v1/latest?from=EUR&to=USD)) — de euro staat dus juist *sterk*, niet nabij pariteit, en het valuta-effect werkt op dit moment in het **voordeel** van Iberische kopers van USD-geprijsde software. Grote Spaanse groepen dekken de koers af in meerjarige raamcontracten. **[SCHATTING]** Realistische enterprise-korting op lijstprijs bij de top-10 aannemers: **30–50%, bij de allergrootste tot 60%** (gelijkgetrokken met §2.3, waar eerder abusievelijk een andere bandbreedte stond).
 
 **Kanaal in Spanje.** [SYSTEC Construction](https://www.systec-construction.com/) (kantoor Zaragoza, Calle Eduardo Ibarra 6; ook Mexico) voert P6 EPPM, P6 PPM, Primavera Cloud, Primavera Risk Analysis, Oracle Aconex, Oracle Unifier, Crystal Ball en ScheduleReader; zij claimen 37 jaar ervaring, 150+ implementaties in 15+ landen, **6.000+ getrainde cursisten** en **500+ consultancy-trajecten**. Verder [Primaned](https://www.primaned.com/es/producten-diensten/project-controls-software/oracle-primavera-p6-eppm) (Nederlands, met Spaanstalige propositie) en [Seys](https://seystic.com/).
 
@@ -191,7 +204,17 @@ Afgeleid: bedrijven met ≥20 werknemers = **8.889**; met ≥50 = **1.749**; met
 | Planner and Project Plan 5 | **niet vermeld op de Spaanse pagina**; internationaal genoemd als US$ 55/gebruiker/maand | [thedigitalprojectmanager.com](https://thedigitalprojectmanager.com/es/tools/precios-microsoft-project/) |
 | Project Server Subscription Edition | "Buscar un partner" (geen publieke prijs) | [Microsoft ES](https://www.microsoft.com/es-es/microsoft-365/project/microsoft-project-enterprise-plans-and-pricing) |
 
-**Valuta-/prijsniveau-effect.** €26/maand voor Plan 3 tegenover de internationaal geciteerde US$ 30 betekent dat Spaanse klanten in euro's structureel **iets duurder** uit zijn dan de dollarprijs suggereert. De perpetual-varianten (€929/€1.659) blijven daarom populair bij Iberische mkb-bedrijven die investeringsuitgaven verkiezen boven abonnementen — een cultureel patroon dat ook bij Presto zichtbaar is.
+**Valuta-/prijsniveau-effect. [GECORRIGEERD — de oorspronkelijke conclusie was omgekeerd.]**
+
+~~€26/maand voor Plan 3 tegenover de internationaal geciteerde US$ 30 betekent dat Spaanse klanten in euro's structureel iets duurder uit zijn.~~ Natelling met de koers van 24 juli 2026 (EUR/USD **1,1377**, [ECB via Frankfurter](https://api.frankfurter.dev/v1/latest?from=EUR&to=USD)):
+
+| Product | Prijs ES | Prijs VS | ES omgerekend | Verschil |
+|---|---|---|---|---|
+| Planner and Project Plan 3 | €26,00/gebr./mnd (excl. btw) | US$ 30,00/gebr./mnd ([Microsoft US](https://www.microsoft.com/en-us/microsoft-365/planner/project-plan-3)) | **US$ 29,58** | **−1,4% (ES iets goedkoper)** |
+| Project Standard 2024 | €929,00 eenmalig | US$ 679,99 ([Microsoft US](https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software)) | US$ 1.057 | **+55%** (bij btw-inclusieve ES-prijs: +28%) |
+| Project Professional 2024 | €1.659,00 eenmalig | US$ 1.129,99 | US$ 1.887 | **+67%** (bij btw-inclusieve ES-prijs: +38%) |
+
+De Spaanse abonnementsprijs is dus **niet** duurder — hij is bij de huidige koers marginaal goedkoper dan de Amerikaanse. Waar de euro-opslag wél zit, is bij de **eenmalige** licenties: die zijn in Spanje 28–67% duurder dan in de VS. Dat draait het oorspronkelijke argument om: het prijsverschil pleit economisch juist **tegen** de perpetual-varianten. Dat het Iberische mkb ze desondanks blijft kopen, is dan ook geen prijsargument maar een **kapitaalisatie- en gewoonteargument** (capex boven opex, geen abonnementsverplichting, geen internetafhankelijkheid) — hetzelfde patroon dat bij Presto zichtbaar is. **[Let op:** microsoft.com/es-es vermeldt bij de abonnementen expliciet "sin IVA"; bij de eenmalige aankopen is niet vermeld of de btw is inbegrepen. Beide varianten staan daarom in de tabel.**]**
 
 ---
 
@@ -244,20 +267,23 @@ Bronnen: [EXA4Soft-webshop](https://exa4soft.es/shop/category/licencias-indiv-de
 
 **Wat het is.** "Arquímedes es una herramienta de gestión de obra que permite realizar todo tipo de presupuestos de un proyecto, sus mediciones, certificaciones..." ([CYPE](https://info.cype.com/es/software/arquimedes/)). Voor planning: **"Desde Arquímedes es posible crear el plan de obra (programa de trabajos) y el plan de pagos (inversiones mensuales previstas) de un proyecto"** ([CYPE — Planificación de obra: diagrama de Gantt](https://info.cype.com/es/tema/arquimedes-planificacion-de-obra-diagrama-de-gantt/)). Het Gantt-diagram kan worden geëxporteerd als PDF/DOCX/RTF/HTML en zelfs **in DXF/DWG op tekeningen worden getekend** — een typisch Iberische eis, omdat het *programa de trabajo* als projectdocument bij de tekeningenset hoort.
 
-**Prijzen (lijstprijzen webshop, identiek in ES en PT):**
+**Prijzen (lijstprijzen webshop) — [GECORRIGEERD: ES en PT zijn níét identiek]:**
 
-| Editie | Prijs |
-|---|---|
-| Arquímedes STARTER | **€475,00** |
-| Arquímedes BASIC | **€740,00** |
-| Arquímedes ADVANCED | **€960,00** |
-| Arquímedes EXPERT | **€1.300,00** |
-| Arquímedes EXPERT y Documentación (alleen ES-shop) | **€2.300,00** |
-| CYPE EXPERT (volledige BIM-suite) | **€22.300,00** |
+| Editie | Prijs ES-shop | Prijs PT-shop |
+|---|---|---|
+| Arquímedes STARTER | **€475,00** | **€475,00** |
+| Arquímedes BASIC | **€740,00** | **€740,00** |
+| Arquímedes ADVANCED | **€960,00** | **€960,00** |
+| Arquímedes EXPERT | **€1.300,00** | **€1.300,00** |
+| Arquímedes EXPERT y Documentación | €2.300,00 | niet gevoerd |
+| CYPE Gestión/Gestão y Documentación EXPERT | **€3.350,00** | **€2.100,00** (−37%) |
+| CYPE EXPERT (volledige BIM-suite) | **€24.200,00** | **€22.300,00** (−7,9%) |
 
 Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [shop.cype.com/pt](https://shop.cype.com/pt/software/arquimedes/). De LATAM-prijslijst 2023 noteerde het pakket "LT30 — Arquímedes + Generador de precios" op 2.400 ([CYPE prijslijst PDF](https://www.cypesoftware.com/wp-content/uploads/2022/09/CYPE_precios_oct2022_v2023_latam.pdf)).
 
-> **Opvallend valutafeit:** CYPE hanteert **exact dezelfde eurobedragen in Spanje en Portugal**. Er is dus geen Portugese prijsdifferentiatie, terwijl het Portugese bbp per hoofd substantieel lager is (€306 mrd bbp op ~10,6 mln inwoners vs. €1.687 mrd op ~49 mln). Effectief is CYPE in Portugal dus **duurder in koopkracht** — een structurele opening voor goedkopere lokale of open-source alternatieven daar.
+> ⚠️ **Gecorrigeerd — twee fouten.** (1) De volledige suite **CYPE EXPERT kost €24.200 in de Spaanse shop**, niet €22.300; het bedrag van €22.300 dat het rapport aan de ES-shop toeschreef is in werkelijkheid de **Portugese** prijs. (2) De stelling dat CYPE "exact dezelfde eurobedragen in Spanje en Portugal" hanteert, geldt **alleen voor de vier losse Arquímedes-edities**. Bij de bundels is er wél Portugese prijsdifferentiatie, en juist in de richting die het oorspronkelijke argument tegenspreekt: CYPE Gestão e Documentação EXPERT is in Portugal **37% goedkoper** en de volledige suite **7,9% goedkoper**. De conclusie "CYPE is in Portugal duurder in koopkracht" houdt dus alleen stand voor de instapproducten, niet voor de suites — en daarmee is de afgeleide claim van "een structurele opening voor goedkopere lokale alternatieven" aanzienlijk zwakker dan gepresenteerd. (De bbp-context zelf klopt: Portugal €306 mrd bbp / ~10,6 mln inwoners, [FIEC PT](https://fiec-statistical-report.eu/portugal).)
+
+> ⚠️ **Ontbrekend in de oorspronkelijke versie: CYPE verkoopt inmiddels ook per abonnement.** De ES-shop voert **CYPE one** met vier profielen; het instapabonnement **"Proyectista 360º GO" kost €22/gebruiker/maand (jaarlijks)** en **bevat Arquímedes STARTER**, de MAX-variant €89/gebruiker/maand met Arquímedes BASIC; de specialistenprofielen lopen van €64 tot €125/gebruiker/maand ([shop.cype.com/es/cype-one](https://shop.cype.com/es/cype-one/)). Dat is materieel voor §7: het prijsanker in het Spaanse mkb is niet alleen €26/maand (MS Project Plan 3) maar **ook €22/maand voor een pakket dat de begrotings- én documentketen meelevert**. Een losstaande planningstool moet daar onder of duidelijk naast gepositioneerd worden.
 
 **Voordelen.** Zit al in de gereedschapskist van vrijwel elke Spaanse/Portugese architect en arquitecto técnico; koppelt aan de **Generador de precios** (regionale prijsdatabank, [geradordeprecos.info](https://www.geradordeprecos.info/) voor PT); levert direct het juridisch bruikbare *programa de trabajos* + *plan de pagos*; eenmalige aanschafprijs vanaf €475 is laag; sterke Open BIM-integratie.
 
@@ -313,7 +339,7 @@ Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [sho
 
 **Bevinding: dit segment is opvallend leeg.** Gerichte zoekopdrachten in het Spaans en Portugees naar lokale distributeurs, cases of gebruikersgemeenschappen leverden vrijwel niets op:
 
-- **Elecosoft Asta Powerproject** — geen Spaanse of Portugese distributeur of casus gevonden; alle resultaten zijn vendorpagina's (eleco.com, elecosoft.com) of Angelsaksische reviewsites (Capterra, G2, SoftwareAdvice). Asta is sterk in het VK en Scandinavië, niet in Iberia.
+- **Elecosoft Asta Powerproject** — geen formele Spaanse of Portugese distributeur gevonden; de meeste resultaten zijn vendorpagina's (eleco.com, elecosoft.com) of Angelsaksische reviewsites (Capterra, G2, SoftwareAdvice). Asta is sterk in het VK en Scandinavië, niet in Iberia. ⚠️ **Bij hercontrole gedeeltelijk genuanceerd:** er is wél Spaanstalige commerciële promotie van Powerproject door het adviesbureau **L&L Asesores** (LinkedIn, mei 2025: *"Una herramienta especializada en planificación y control de proyectos que ya es utilizada en más de 90 países para gestionar megaproyectos"*). Dat bewijst geen distributeurschap, maar de absolute formulering "vrijwel afwezig" is daarmee **[ONZEKER]** in plaats van vastgesteld — negatieve bevindingen ("niets gevonden") zijn hier het zwakste bewijstype in het hele rapport.
 - **Trimble TILOS** — alleen internationale vermeldingen (o.a. een LinkedIn-post over het synchroniseren van "Primavera of TILOS" met 4D-tools). Geen Iberisch kanaal aangetroffen. Dat is opmerkelijk gezien de omvang van de Spaanse lijninfrastructuur (AVE-netwerk, autopistas) waar tijd-wegdiagrammen thuishoren — een reëel wit gat in de markt.
 - **Bentley SYNCHRO** — wordt genoemd als 4D-simulatiedoel naast Navisworks, maar er is geen zelfstandige Iberische SYNCHRO-markt gevonden.
 - **ALICE Technologies, nPlan** — geen bevestigde Spaanse of Portugese casus gevonden in dit onderzoek. **[NIET GEVERIFIEERD]** Er wordt in de sector wel gesproken over experimenten bij grote Spaanse aannemers; dit onderzoek heeft daar geen publieke bron voor kunnen vinden.
@@ -327,7 +353,7 @@ Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [sho
 ### 3.10 Generieke SaaS-tools
 
 - **Smartsheet en monday.com** worden actief als bouwoplossing verkocht door de Spaanse Oracle-partner [SYSTEC](https://www.systec-construction.com/) — dus naast, niet in plaats van, P6. Positionering: portfolio-overzicht en samenwerking; het CPM-werk blijft in P6.
-- **monday.com** prijsindicatie: "vanaf US$ 24/maand voor drie gebruikers" ([monday.com/pricing](https://monday.com/pricing)). Geen aparte Spaanse europrijs gepubliceerd — Iberische klanten betalen doorgaans de standaard EUR-omrekening zonder lokale korting.
+- **monday.com** prijsindicatie **[GECORRIGEERD]**: het rapport noemde "vanaf US$ 24/maand voor drie gebruikers"; de actuele prijspagina geeft **Work Management Basic US$ 9/seat/maand, Standard US$ 12, Pro US$ 19** (jaarlijkse betaling, 18% korting; gratis tot 2 seats) — voor drie seats dus **US$ 27/maand**, niet US$ 24 ([monday.com/pricing](https://monday.com/pricing)). Geen aparte Spaanse europrijs gepubliceerd — Iberische klanten betalen doorgaans de standaard EUR-omrekening zonder lokale korting.
 - **Wrike, Asana, Jira-plug-ins (BigPicture, Structure.Gantt), Zoho Projects, OpenProject** — geen Iberia-specifieke marktdata gevonden. Ze concurreren in Spanje/Portugal vooral in IT, marketing en vastgoedontwikkeling, niet in de uitvoerende bouw waar de *certificación*-koppeling ontbreekt.
 - **[SCHATTING]** Deze categorie groeit het snelst in procenten maar blijft op de bouwplaats marginaal, precies omdat geen van deze tools de wettelijk vereiste *programa de trabajo* / *plano de trabalhos* met maandelijkse waardering produceert.
 
@@ -348,7 +374,7 @@ Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [sho
 | Oracle P6 Professional | perpetual named user | 3.880 + 22%/jr onderhoud | USD | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
 | Oracle P6 Enterprise (EPPM) | perpetual named user | 4.240 + 22%/jr onderhoud | USD | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
 | Oracle Primavera P6 Cloud | abonnement | 305/gebruiker/maand, min. 25 gebruikers | USD | [prmyazilim](https://prmyazilim.com/en/primavera-p6-pricing) |
-| Oracle Primavera Cloud (modules) | jaarabonnement | vanaf 144/gebruiker/jaar (Progress), min. 5 gebruikers/module | USD | [findpmsoftware](https://findpmsoftware.com/products/primavera-cloud) |
+| Oracle Primavera Cloud (modules) **[gecorrigeerd]** | jaarabonnement | Progress 144 · Task Mgmt 660 · **Scheduling 1.320** · Portfolio Planning 2.640 per gebruiker/jaar (minimum-aantal gebruikers **niet bevestigd**) | USD | [findpmsoftware](https://findpmsoftware.com/products/primavera-cloud) |
 | MS Project Standard 2024 | perpetual | **929,00** | EUR (ES) | [Microsoft ES](https://www.microsoft.com/es-es/microsoft-365/project/compare-microsoft-project-management-software) |
 | MS Project Professional 2024 | perpetual | **1.659,00** | EUR (ES) | [Microsoft ES](https://www.microsoft.com/es-es/microsoft-365/project/compare-microsoft-project-management-software) |
 | Planner Plan 1 | abonnement | **8,70**/gebruiker/maand (jaarlijks) | EUR (ES) | [Microsoft ES](https://www.microsoft.com/es-es/microsoft-365/planner/project-plan-5) |
@@ -359,11 +385,12 @@ Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [sho
 | Presto Presupuestos y Certificaciones | **perpetual** (incl. 1e jaaronderhoud) | **1.821,00** | EUR | [EXA4Soft](https://exa4soft.es/shop/category/licencias-indiv-de-presto-certificaciones-47) |
 | Arquímedes STARTER / BASIC / ADVANCED / EXPERT | licentie | 475 / 740 / 960 / 1.300 | EUR (ES én PT) | [shop.cype.com ES](https://shop.cype.com/es/software/arquimedes/), [PT](https://shop.cype.com/pt/software/arquimedes/) |
 | Arquímedes EXPERT y Documentación | licentie | 2.300 | EUR (ES) | [shop.cype.com](https://shop.cype.com/es/software/arquimedes/) |
-| CYPE EXPERT (volledige suite) | licentie | 22.300 | EUR | [shop.cype.com](https://shop.cype.com/es/software/arquimedes/) |
+| CYPE EXPERT (volledige suite) **[gecorrigeerd]** | licentie | **24.200 (ES) / 22.300 (PT)** | EUR | [shop.cype.com ES](https://shop.cype.com/es/software/arquimedes/), [PT](https://shop.cype.com/pt/software/arquimedes/) |
+| CYPE one — Proyectista 360º GO (incl. Arquímedes STARTER) **[nieuw]** | abonnement | **22,00**/gebruiker/maand (jaarlijks); MAX 89; specialistenprofielen 64–125 | EUR (ES) | [shop.cype.com/es/cype-one](https://shop.cype.com/es/cype-one/) |
 | ITeC TCQ | offerte op maat | niet gepubliceerd | EUR | [ComparaSoftware](https://www.comparasoftware.es/tcq) |
 | Menfis 10 | jaarabonnement | niet gepubliceerd | EUR | [menfis.es](https://menfis.es/) |
 | VisualOrc | niet gepubliceerd (20 dagen proef) | — | EUR | [visualorc.com](https://www.visualorc.com/) |
-| monday.com | abonnement | vanaf 24/maand voor 3 gebruikers | USD | [monday.com](https://monday.com/pricing) |
+| monday.com **[gecorrigeerd]** | abonnement | Basic **9**/seat/maand (jaarlijks) → 27/maand voor 3 seats; Standard 12; Pro 19 | USD | [monday.com](https://monday.com/pricing) |
 | ProjectLibre / GanttProject / Planner | open source | **gratis** | — | [SourceForge](https://sourceforge.net/projects/projectlibre) |
 
 ### Kosten van training en consultancy
@@ -386,7 +413,7 @@ Bronnen: [shop.cype.com/es](https://shop.cype.com/es/software/arquimedes/), [sho
 
 ### 5.1 Spanje — het *programa de trabajo* is wettelijk voorgeschreven
 
-**Reglamento General de la Ley de Contratos de las Administraciones Públicas (RD 1098/2001), artikel 144:** *"el contratista estará obligado a presentar un programa de trabajo en el plazo máximo de **treinta días**"* (wanneer het bestek dit eist en meerjarige uitvoering is voorzien). De verplichte inhoud:
+**Reglamento General de la Ley de Contratos de las Administraciones Públicas (RD 1098/2001), artikel 144:** *"el contratista estará obligado a presentar un programa de trabajo en el plazo máximo de **treinta días**"*, en wel **gerekend vanaf de formalisering van het contract** (*"contados desde la formalización del contrato"*) — wanneer het bestek dit eist en meerjarige uitvoering is voorzien. Het artikel is bij hercontrole **vigente** (in werking) ([Iberley, art. 144 RGLCAP](https://www.iberley.es/legislacion/articulo-144-reglamento-general-ley-contratos-aapp)). De verplichte inhoud:
 
 1. *"Ordenación en partes o clases de obra de las unidades que integran el proyecto"* — WBS gekoppeld aan de begrotingsstructuur
 2. *"Determinación de los medios necesarios, tales como personal, instalaciones, equipo y materiales"* — resources
@@ -404,7 +431,9 @@ Bron: [Junta de Andalucía — Art. 144 RGLCAP](https://www.juntadeandalucia.es/
 
 Het **Plan BIM en la contratación pública** is goedgekeurd door de Ministerraad op **27 juni 2023** en gepubliceerd als [BOE-A-2023-16784](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2023-16784). Het instrueert aanbestedende diensten van de Administración General del Estado om BIM te gebruiken in bepaalde overheidsopdrachten **vanaf 1 april 2024 tot 2030**, volgens een progressief tijdpad *"en función del valor estimado del contrato"* ([Comisión Interministerial BIM](https://cibim.transportes.gob.es/); [BIMCommunity](https://www.bimcommunity.com/es/aprobado-el-plan-bim-en-la-contratacion-publica-para-impulsar-la-digitalizacion-en-el-sector-de-la-construccion/)).
 
-Rechtsgrondslag: **Ley 9/2017 (LCSP), disposición adicional decimoquinta, apartado 6**: *"Para contratos públicos de obras... los órganos de contratación **podrán exigir** el uso de herramientas electrónicas específicas, tales como herramientas de modelado digital de la información de la construcción (BIM)"* — dus een *kan*-bepaling, die het Plan BIM operationaliseert. Voor contracten boven de drempel van art. 324.1.a) LCSP (**€12.000.000**) geldt een verscherpt regime met verantwoording van uitzonderingen ([Plan BIM PDF](https://cdn.mitma.gob.es/portal-web-drupal/cbim/v_26_bis_web_plan_bim_contratacion_publica.pdf)).
+Rechtsgrondslag: **Ley 9/2017 (LCSP), disposición adicional decimoquinta, apartado 6**: *"Para contratos públicos de obras... los órganos de contratación **podrán exigir** el uso de herramientas electrónicas específicas, tales como herramientas de modelado digital de la información de la construcción (BIM)"* — dus een *kan*-bepaling, die het Plan BIM operationaliseert.
+
+> ⚠️ **Aangevuld — de belangrijkste drempel ontbrak.** Het rapport noemde alleen de **€12.000.000** van art. 324.1.a) LCSP. Die klopt, maar is niet de toegangsdrempel: hij bepaalt uitsluitend dat het *motiveringsrapport bij een uitzondering* naar de Comisión Interministerial BIM (CIBIM) moet worden gestuurd (*"Cuando el valor estimado del contrato es igual o superior al umbral establecido en el apartado 1.a) del art. 324. de la LCSP, 12.000.000€ euros, se deberá enviar dicho informe de motivación a la Comisión Interministerial BIM"*). De **operative drempels** in de tabel voor gefaseerde toepassing zijn **≥ €5.382.000** (gekoppeld aan art. 20 LCSP) en de tweede schijf **€2.000.000 tot €5.382.000** (gekoppeld aan art. 159.1.a) LCSP), met bij lotenverdeling de waarde *per lot*. De verplichting start op **1 april 2024** voor de hoogste schijf en loopt via **1 oktober 2025**, **1 oktober 2027** naar **1 april 2030** ([Plan BIM PDF, §4.4/4.5](https://cdn.mitma.gob.es/portal-web-drupal/cbim/v_26_bis_web_plan_bim_contratacion_publica.pdf); fasering per [BOE-A-2023-16784 / Orden PCM/818/2023](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2023-16784)). Dat verlaagt de instapdrempel voor de doelgroep van dit rapport aanzienlijk: niet €12 mln maar €2 mln.
 
 Uit hetzelfde Plan BIM-document (harde, citeerbare cijfers):
 - Tussen 2021 en 2022 steeg het aantal openbare aanbestedingen dat BIM vraagt van **109 naar 190**, en het aanbestede volume van **€455 mln naar €1.209 mln**.
@@ -412,7 +441,7 @@ Uit hetzelfde Plan BIM-document (harde, citeerbare cijfers):
 - Slechts **3,7%** van de ambtenaren met BIM-aanbestedingservaring beschikt over een handleiding voor het opstellen van bestekken; **85,75%** zegt dat meer BIM-standaardisatie het werk zou vergemakkelijken.
 - DIRCE 2022: micro-ondernemingen (<10 werknemers, ≤€2 mln omzet) waren **95,48%** van de bouwsector, kleine bedrijven **4,15%**. Het Plan noemt de bouw-mkb *"la menos digitalizada en el conjunto de la PYME española"*.
 
-**Dit onderzoek vond géén bevestiging dat 4D (tijdsplanning gekoppeld aan het model) een verplicht BIM-gebruik is** onder het Plan. Behandel claims daarover als **[NIET GEVERIFIEERD]**. De praktijk beweegt er wel naartoe: TCQ koppelt taken al aan IFC-objecten, en Arquímedes/Presto exporteren naar IFC.
+**Dit onderzoek vond géén bevestiging dat 4D (tijdsplanning gekoppeld aan het model) een verplicht BIM-gebruik is** onder het Plan. ✅ **Bij verificatie versterkt tot een positieve bevinding:** in de volledige tekst van het Plan BIM-document komt de term **"4D" geen enkele keer voor** (tekstextractie over alle 81.775 tekens van [het PDF](https://cdn.mitma.gob.es/portal-web-drupal/cbim/v_26_bis_web_plan_bim_contratacion_publica.pdf)). Elke claim dat het Spaanse Plan BIM 4D-planning voorschrijft, is dus aantoonbaar onjuist. De praktijk beweegt er wel naartoe: TCQ koppelt taken al aan IFC-objecten, en Arquímedes/Presto exporteren naar IFC.
 
 ### 5.3 Portugal — *plano de trabalhos* is onderdeel van de inschrijving
 
@@ -459,7 +488,9 @@ Het **Código dos Contratos Públicos (DL 18/2008, gewijzigd o.a. door DL 278/20
 
 **Belangrijk cultureel punt:** verkoop via de **Colegios Profesionales** (COGITI voor technisch ingenieurs, de Colegios de Aparejadores/Arquitectos Técnicos, ASEMAS voor architecten — [asemas.es](https://www.asemas.es/lanzate/arquimedes.asp) biedt Arquímedes aan) is in Spanje een reëel distributiekanaal met ledenkortingen. Wie de Iberische markt wil bedienen, verkoopt niet direct maar via dit kanaal.
 
-**Portugal** heeft een veel dunner gespecialiseerd kanaal: [Top Informática](https://www.topinformatica.pt/) voor CYPE, de Cegid PRIMAVERA-partnerketen voor ERP, en verder rechtstreekse verkoop door de kleine lokale leveranciers (VisualOrc, ObraSys, Magnisoft, CentralGest). Er is **geen zichtbare gespecialiseerde Oracle Primavera-partner in Portugal** aangetroffen — grote Portugese aannemers kopen doorgaans rechtstreeks bij Oracle of via Spaanse/Britse partners.
+**Portugal** heeft een veel dunner gespecialiseerd kanaal: [Top Informática](https://www.topinformatica.pt/) voor CYPE, de Cegid PRIMAVERA-partnerketen voor ERP, en verder rechtstreekse verkoop door de kleine lokale leveranciers (VisualOrc, ObraSys, Magnisoft, CentralGest).
+
+> ⚠️ **Gecorrigeerd — deze claim is weerlegd door een bron uit dit rapport zelf.** De oorspronkelijke tekst stelde: *"Er is **geen zichtbare gespecialiseerde Oracle Primavera-partner in Portugal** aangetroffen."* Dat is onjuist. **[Proove](https://www.proove.eu/pt)** — dat elders in dit rapport al in de bronnenlijst stond — heeft een **kantoor in Lissabon** (Av. D. João II nr. 50, 4e verdieping, 1990-095 Lisboa, tel. +351 927 420 677), verzorgt Portugeestalige Primavera-opleidingen (*"Primavera P6: Básico"*, 3 dagen, online of klassikaal) en voert Oracle Primavera Cloud-implementaties uit (referentiecase: implementatie van Oracle Primavera Cloud bij **ITER**). De juiste formulering is: *het gespecialiseerde Primavera-kanaal in Portugal is dun en wordt bediend door in Portugal gevestigde vestigingen van buitenlandse (Belgische/Nederlandse) project-controlsbureaus, niet door een Portugese vendor-partner.* Grote Portugese aannemers kopen daarnaast rechtstreeks bij Oracle of via Spaanse/Britse partners.
 
 ### 5.7 De internationale dimensie
 
@@ -491,20 +522,20 @@ De Iberische aannemers zijn onder de meest geïnternationaliseerde ter wereld. V
 
 ## 7. Conclusies en implicaties
 
-1. **De markt is €30–55 mln aan licenties per jaar [SCHATTING]**, plus €15–30 mln aan diensten. Klein in absolute zin, maar met een duidelijke structurele scheur waar geen enkele aanbieder in zit.
+1. **De markt is €20–50 mln aan licenties per jaar [SCHATTING, gecorrigeerd]**, plus €10–30 mln aan diensten. Klein in absolute zin, maar met een duidelijke structurele scheur waar geen enkele aanbieder in zit. (Oorspronkelijk stond hier €30–55 mln / €15–30 mln; zie de correcties op segment A en C in §2.3.)
 
-2. **De grootste opening: het middensegment.** Tussen P6 (€1.400–2.000/gebruiker/jaar, zware implementatie, USD-prijzen) en Presto/Arquímedes (€400–800/jaar maar zonder echte CPM) zit **niets**. In het VK vult Asta Powerproject dat gat; in Iberia is dat gat leeg. Doelgroep: de **8.889 Spaanse bouwbedrijven met ≥20 werknemers** plus de bovenlaag van de 114.400 Portugese bedrijven.
+2. **De grootste opening: het middensegment.** Tussen P6 (**€900–1.700/gebruiker/jaar effectief na korting**, zware implementatie, USD-prijzen; Primavera Cloud *Scheduling* alleen al US$ 1.320/jaar lijst) en Presto/Arquímedes (€400–800/jaar maar zonder echte CPM) zit **niets**. In het VK vult Asta Powerproject dat gat; in Iberia is dat gat leeg — al is "leeg" gebaseerd op een negatieve bevinding en dus het zwakste onderdeel van de bewijsvoering (zie §3.9). Doelgroep: de **8.889 Spaanse bouwbedrijven met ≥20 werknemers** plus de bovenlaag van de 114.400 Portugese bedrijven.
 
 3. **Drie functionele eisen zijn niet-onderhandelbaar voor die markt:**
    - **Maandelijkse en cumulatieve waardering van het geprogrammeerde werk** (RGLCAP art. 144.4 / CCP *cronograma financeiro*) — een Gantt zonder geld-over-tijd is juridisch onbruikbaar.
    - **FIEBDC-3 (.bc3)-import** voor de Spaanse begrotingsketen. Zonder dit is er geen brug naar Presto/Arquímedes/Menfis/BEDEC.
    - **P6 XER/XML-interoperabiliteit** om überhaupt bij de grote aannemers binnen te komen.
 
-4. **Prijsanker:** €26/gebruiker/maand (MS Project Plan 3, Spaanse europrijs) is het referentiepunt in het mkb; €384/jaar (Presto Planificación) is het anker voor een *planningsmodule*. Boven €25–30/gebruiker/maand concurreer je in Iberia tegen zowel Microsoft als gratis.
+4. **Prijsanker [aangescherpt na verificatie]:** €26/gebruiker/maand excl. btw (MS Project Plan 3, Spaanse europrijs) is het referentiepunt in het mkb — en dat is bij EUR/USD 1,1377 **US$ 29,58**, dus feitelijk gelijk aan de Amerikaanse US$ 30, niet duurder. Daarnaast zit er sinds de CYPE one-abonnementen een tweede anker op **€22/gebruiker/maand** voor een pakket dat Arquímedes STARTER meelevert. €384/jaar (≈ €32/maand, Presto Planificación) is het anker voor een losse *planningsmodule*; de meerprijs van planning binnen de Presto-bundel is €28/maand. Boven ongeveer **€25–30/gebruiker/maand** concurreer je in Iberia tegelijk tegen Microsoft, tegen CYPE one én tegen gratis.
 
 5. **Ga via het kanaal, niet direct.** Spanje: distributeurs plus de Colegios Profesionales. Portugal: de Cegid PRIMAVERA-partnerketen en Top Informática — en adresseer expliciet de PRIMAVERA-naamsverwarring.
 
-6. **Timing:** Oracle's gedwongen migratie van P6 naar Primavera Cloud opent elk groot contract in Iberia opnieuw. Het Spaanse Plan BIM (1 april 2024 → 2030) dwingt tegelijk publieke opdrachtgevers naar modelgebaseerde processen, waarbij 4D de logische volgende stap is maar (nog) niet verplicht. Beide bewegingen vallen samen in 2026–2028.
+6. **Timing [genuanceerd]:** Oracle biedt een **vrijwillig migratietraject** van P6 naar Primavera Cloud aan (vijf fasen: readiness, preparation, selection, migration, go-live) en positioneert Primavera Cloud als *"the industry's only solution that combines CPM contract scheduling and task management in a single cloud environment"*. Er is op de Oracle-productpagina echter **geen aangekondigde einddatum voor P6-ondersteuning en geen gedwongen migratie** ([oracle.com](https://www.oracle.com/construction-engineering/primavera-p6/)); P6 Professional wordt nog steeds in nieuwe releases uitgebracht. De formulering "gedwongen migratie" elders in dit rapport is daarom te sterk — lees: *een actief door Oracle gepusht migratietraject, dat contractmomenten opent maar ze niet afdwingt*. Het Spaanse Plan BIM (1 april 2024 → 1 april 2030, drempels €5,382 mln en €2 mln) dwingt tegelijk publieke opdrachtgevers naar modelgebaseerde processen, waarbij 4D de logische volgende stap is maar **aantoonbaar niet verplicht** (de term komt niet in het Plan voor). Beide bewegingen vallen samen in 2026–2028.
 
 ---
 
@@ -648,3 +679,78 @@ De Iberische aannemers zijn onder de meest geïnternationaliseerde ter wereld. V
 - De ingebouwde WebSearch-quota van deze sessie was uitgeput; het onderzoek is uitgevoerd met **WebFetch** tegen zoekmachines (DuckDuckGo lite/html, Yahoo, Bing) en directe bronpagina's. Enkele zoekopdrachten liepen op CAPTCHA's of HTTP 403/429 stuk; die zijn met andere engines of directe URL's herhaald.
 - Niet kunnen verifiëren: landspecifieke BSA-piraterijcijfers voor ES/PT (403); de exacte Spaanse prijs van Project Plan 5; het aantal Presto-, Arquímedes- en TCQ-gebruikers (geen leverancier publiceert dit); concrete Spaanse of Portugese aanbestedingsdocumenten die P6/XER voorschrijven; Iberische cases van ALICE Technologies of nPlan.
 - Alle marktomvangcijfers uit syndicated-rapporten (Grand View, MarketsandMarkets, GlobalData, Mordor, Fortune, VMR) zijn **vendor-schattingen**, geen metingen, en spreken elkaar op onderdelen tegen. De bottom-up-berekening in §2.3 is daarom als hoofdschatting gepresenteerd, met de redenering volledig uitgeschreven zodat elke aanname toetsbaar en aanpasbaar is.
+
+---
+
+## Verificatie
+
+*Adversariële fact-check, uitgevoerd 25 juli 2026 door een tweede onderzoeker met als opdracht de beweringen actief te **weerleggen**, met onafhankelijke bronnen (waar mogelijk andere dan de oorspronkelijk geciteerde) en met natelling van elke schatting. Alle correcties hierboven zijn direct in de tekst verwerkt en gemarkeerd met ⚠️.*
+
+**Samenvattend oordeel: het feitelijke fundament van dit rapport (wetgeving, macrocijfers, lokale lijstprijzen) is opvallend solide en overleefde vrijwel elke poging tot weerlegging. Het redeneerwerk daarbovenop is dat niet: twee van de vier marktomvangsegmenten volgden niet uit hun eigen aannames, en drie van de vier "inzichten" over valuta en prijsdifferentiatie bleken bij natelling omgekeerd te liggen.**
+
+### A. Marktomvang en de redenering erachter
+
+| # | Bewering | Oordeel | Onderbouwing / bron |
+|---|---|---|---|
+| A1 | Licentiemarkt Gantt/CPM-planning ES+PT = **€30–55 mln/jaar**; totale bestedingen €45–85 mln | **GECORRIGEERD → €20–50 mln licenties, €25–80 mln totaal** | Volgt niet uit de eigen segmentopbouw; zie A2 en A3. Gecorrigeerde optelling: €15–51 mln. Ordegrootte blijft "tientallen miljoenen". |
+| A2 | Segment A (P6) = **€7–17 mln**, bij €1.400–2.000/gebruiker/jaar "met enterprise-korting van 30–50%" | **GECORRIGEERD → €4–14 mln** | De korting is genoemd maar niet toegepast. Lijstprijs perpetual = US$ 1.630/jr = **€1.433/jr** bij EUR/USD 1,1377 ([ECB via Frankfurter, 24-07-2026](https://api.frankfurter.dev/v1/latest?from=EUR&to=USD)) — dat is al de bovenkant van de "post-korting"-range. Bovendien noemde §2.3 30–50% korting en §3.2 35–60%: interne tegenspraak, nu gelijkgetrokken. |
+| A3 | Segment C (lokale suites) = **€4–10 mln** planning-toerekenbaar | **GECORRIGEERD → €1–5 mln** | Eigen premissen doorgerekend: €10–36 mln × 25–33% planningsaandeel × minderheidspenetratie (20–40%) = **€0,5–4,8 mln**. De gepubliceerde €4–10 mln ontstaat alleen bij ~100% modulepenetratie, wat dezelfde alinea expliciet ontkent. |
+| A4 | Segment B (MS Project) = €6–20 mln, 30.000–72.000 seats × €180–280 | **BEVESTIGD (rekenkundig)** | 30.000 × €180 = €5,4 mln; 72.000 × €280 = €20,2 mln. Klopt. De *seat-aanname* zelf blijft onbewezen [SCHATTING]. |
+| A5 | Kruiscontrole: Spanje PPM **US$ 204 mln (2024)** → US$ 360,9 mln (2029), CAGR 12,1% | **BEVESTIGD** | [MarketsandMarkets Spanje](https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/spain) — letterlijk deze cijfers. Natelling: 204 × 1,121⁵ = 361,1 ✔ |
+| A6 | Kruiscontrole: Spaanse PM-softwaremarkt **~US$ 310 mln (2025)**, teruggerekend uit US$ 589 mln (2030) bij 13,7% | **ONZEKER** | Natelling klopt exact (589 / 1,137⁵ = 310,0 ✔), maar de bron [Grand View Research](https://www.grandviewresearch.com/horizon/outlook/project-management-software-market/spain) gaf bij hercontrole **HTTP 403**; het brongetal kon niet onafhankelijk worden herbevestigd. |
+| A7 | De syndicated-cijfers zijn onderling inconsistent (Europa PPM US$ 67,6 mln < Spanje US$ 204 mln) | **BEVESTIGD — de poging tot weerlegging faalde** | [MarketsandMarkets Europa](https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/europe): letterlijk US$ 67,6 mln (2024) → US$ 115,7 mln (2029), CAGR 11,3%. Europa < Spanje bij dezelfde uitgever. De waarschuwing in §2.2 is terecht. |
+| A8 | Macro Spanje: **€181 mrd** bouwinvestering, **1,47 mln** werkenden (+3,1%), 5,4% BTW-aandeel bbp, 10,8% GFCF, 139.016 vergunningen (+16,7%) | **BEVESTIGD, alle vijf letterlijk** | [FIEC Statistical Report – Spain](https://fiec-statistical-report.eu/spain) |
+| A9 | Macro Portugal: **€35 mrd** (2025), ~€39,2 mrd (2026), 373.000 werkenden, bbp €306 mrd, +1,9%, 41.591 vergunningen | **BEVESTIGD, alle zes letterlijk** | [FIEC Statistical Report – Portugal](https://fiec-statistical-report.eu/portugal) |
+| A10 | DIRCE: **389.146** bouwbedrijven (1-1-2025), volledige grootteverdeling, afgeleid 8.889 (≥20) / 1.749 (≥50) / 168 (≥250) | **BEVESTIGD — som en alle drie de afleidingen exact nageteld** | [Observatorio de la Construcción / INE DIRCE](https://www.observatoriodelaconstruccion.com/barometro/directorio-central-empresas). Kolomsom = 389.146 ✔; 7.140+1.103+422+56+136+28+4 = 8.889 ✔; ≥50 = 1.749 ✔; ≥250 = 168 ✔ |
+| A11 | Portugal: **114.400** bouwbedrijven (+6,1%), **€39,1 mrd** omzet (+10,2%), **460.400** werkers (+7,0%) | **BEVESTIGD, letterlijk** | [INE via RTP](https://www.rtp.pt/noticias/economia/setor-da-construcao-reforca-peso-no-tecido-empresarial-em-2024_n1704367) — inclusief VAB €13,0 mrd (+12,8%) en 7,3% van de niet-financiële bedrijven |
+
+### B. Prijzen
+
+| # | Bewering | Oordeel | Onderbouwing / bron |
+|---|---|---|---|
+| B1 | Oracle P6 Professional **US$ 3.880** + 22% (US$ 854); EPPM **US$ 4.240** + 22% (US$ 933); P6 Cloud US$ 305/mnd bij min. 25 gebruikers | **ONZEKER** | De geciteerde pagina zegt dit inderdaad ([prmyazilim, bijgewerkt juni 2025](https://prmyazilim.com/en/primavera-p6-pricing)), maar het is een **Turkse reseller**, geen Oracle-bron. Een officiële Oracle-prijslijst was niet vindbaar. Het concurrerende cijfer US$ 2.750 + US$ 605 (ook 22%) is intern even consistent; het verschil is **54%** en werkt door in segment A. |
+| B2 | Primavera Cloud "modulair **vanaf US$ 144**/gebruiker/jaar (Progress), min. 5 gebruikers per module" | **GECORRIGEERD** | [findpmsoftware](https://findpmsoftware.com/products/primavera-cloud) (bijgewerkt 25-06-2026) geeft vier modules: Progress **144**, Task Management **660**, **Scheduling 1.320**, Portfolio Planning **2.640** per gebruiker/jaar. US$ 144 is de *voortgangsrapportage*module, niet planning — als "instapprijs voor Primavera Cloud-planning" is dat 9× te laag. Het **minimum van 5 gebruikers per module staat niet op de bron** en is niet bevestigd. |
+| B3 | MS Project ES: Standard 2024 **€929,00**; Professional 2024 **€1.659,00**; Planner Plan 1 **€8,70**; Plan 3 **€26,00**; Plan 5 niet vermeld; Project Server via partner | **BEVESTIGD, alle zes** | [Microsoft ES compare](https://www.microsoft.com/es-es/microsoft-365/project/compare-microsoft-project-management-software), [Microsoft ES Plan 3](https://www.microsoft.com/es-es/microsoft-365/planner/project-plan-3), [Microsoft ES Planner-plannen](https://www.microsoft.com/es-es/microsoft-365/planner/project-plan-5). Aanvulling: de abonnementsprijzen staan expliciet **excl. btw**. |
+| B4 | "€26 tegenover de internationaal geciteerde US$ 30 betekent dat Spaanse klanten structureel **iets duurder** uit zijn — vandaar de populariteit van perpetual in het mkb" | **WEERLEGD** | €26,00 × 1,1377 = **US$ 29,58** tegen US$ 30,00 in de VS ([Microsoft US Plan 3](https://www.microsoft.com/en-us/microsoft-365/planner/project-plan-3)) — Spanje is 1,4% *goedkoper*. Omgekeerd is de **perpetual** in Spanje 28–67% duurder dan in de VS (US$ 679,99 / US$ 1.129,99, [Microsoft US](https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software)). Het prijsverschil pleit dus juist *tegen* perpetual; de populariteit ervan is een capex-/gewoontepatroon, geen prijsargument. |
+| B5 | "Bij een EUR/USD rond **pariteit-tot-1,10**" heeft de dollarprijs door de zwakke euro heen getikt | **WEERLEGD** | EUR/USD stond op **1,1377** op 24 juli 2026 ([ECB-referentiekoers via Frankfurter](https://api.frankfurter.dev/v1/latest?from=EUR&to=USD)). De euro is sterk, niet zwak; het valuta-effect werkt momenteel in het voordeel van Iberische kopers. |
+| B6 | Presto: module **Planificación €61/maand** tegenover **€33/maand** voor het basispakket → planning is "een kwart tot een derde van de suite-waarde" | **WEERLEGD (leesfout in de bron)** | [exa4.es](https://www.exa4.es/productos/licencias-presto/) zegt letterlijk dat €61/mes *"los módulos PRESUPUESTOS Y MEDICIONES **y** PLANIFICACIÓN"* bevat, en €33/mes *"el módulo base de PRESTO PRESUPUESTOS Y MEDICIONES"*. De **meerprijs** van planning is €28/maand (≈ €336/jaar), consistent met de losse jaarhuur van €384. De conclusie is dus met de verkeerde grootheid onderbouwd. |
+| B7 | Presto huurprijzen: 174/480/1.188 (Presupuestos y Mediciones); 300/816/2.016; 327/888/2.196; 453/1.224/3.024; 579/1.560/3.852; 606/1.632/4.032; 30%+ korting bij lange huur | **BEVESTIGD, alle zes reeksen exact** | [EXA4Soft-webshop](https://exa4soft.es/shop/category/licencias-indiv-de-presto-45) |
+| B8 | Presto **Planificación €384,00 + IVA**, jaarhuur individuele licentie | **BEVESTIGD, letterlijk ("384,00€ +IVA", "Alquiler anual", "licencia individual")** | [tienda.seystic.com](https://tienda.seystic.com/producto/presto-planificacion/) |
+| B9 | CYPE Arquímedes STARTER/BASIC/ADVANCED/EXPERT = €475 / €740 / €960 / €1.300, **identiek in ES en PT** | **BEVESTIGD voor deze vier edities** | [shop.cype.com ES](https://shop.cype.com/es/software/arquimedes/) en [PT](https://shop.cype.com/pt/software/arquimedes/) geven dezelfde vier bedragen |
+| B10 | **CYPE EXPERT (volledige suite) = €22.300**, en "CYPE hanteert exact dezelfde eurobedragen in Spanje en Portugal" | **WEERLEGD op beide punten** | De ES-shop noteert **CYPE EXPERT op €24.200,00**; €22.300 is de **PT**-prijs. Verder: CYPE Gestión y Documentación EXPERT €3.350 (ES) tegen €2.100 (PT), −37%. Er ís dus Portugese prijsdifferentiatie, en die is **gunstiger** voor Portugal — het omgekeerde van het "duurder in koopkracht"-argument. |
+| B11 | CYPE verkoopt alleen eenmalige licenties vanaf €475 | **GECORRIGEERD / ONVOLLEDIG** | De ES-shop voert inmiddels **CYPE one**-abonnementen: Proyectista 360º **GO €22/gebruiker/maand incl. Arquímedes STARTER**, MAX €89 incl. Arquímedes BASIC, specialistenprofielen €64–125 ([shop.cype.com/es/cype-one](https://shop.cype.com/es/cype-one/)). Dit ontbrak volledig en verandert het prijsanker in §7. |
+| B12 | monday.com "vanaf **US$ 24**/maand voor drie gebruikers" | **GECORRIGEERD** | [monday.com/pricing](https://monday.com/pricing): Work Management Basic **US$ 9/seat/maand** (jaarlijks, 18% korting), Standard 12, Pro 19; drie seats = **US$ 27/maand**. Het cijfer was verouderd. |
+| B13 | ITeC TCQ en Menfis hebben **geen publieke lijstprijs** | **BEVESTIGD** | Onafhankelijke pogingen tot prijsvinding leverden opnieuw niets op; ComparaSoftware's "cotización personalizada" blijft de enige uitspraak. |
+| B14 | Spaanse P6-cursussen kosten €59–250 | **BEVESTIGD (steekproef)** | [wolfproject.es](https://wolfproject.es/curso/planificar-proyectos-primavera-planner-p6-online-directo/) noteert letterlijk *"150,00 € – 250,00 € No incluye IVA"* (prijs varieert per tarief: algemeen, werkloos, alumni, groepen). De FUNDAE-verklaring blijft **[SCHATTING]** — de cursuspagina zelf noemt FUNDAE niet. |
+| B15 | ProjectLibre: **7,8 mln downloads in 193 landen** | **BEVESTIGD, met nuance** | [SourceForge](https://sourceforge.net/projects/projectlibre/) zegt letterlijk "7.8M+ downloads in 193 countries", maar dezelfde pagina noemt elders "6,000,000 desktop downloads" — de twee cijfers meten niet hetzelfde. |
+
+### C. Marktleiderschap en positionering
+
+| # | Bewering | Oordeel | Onderbouwing / bron |
+|---|---|---|---|
+| C1 | Presto is "el programa integrado de gestión de costes, tiempos y calidad de **mayor difusión en España**" | **BEVESTIGD als citaat, ONZEKER als feit** | [exa4.es](https://www.exa4.es/) voert deze zin letterlijk. Maar EXA4 is Presto-**distributeur**; het is marketing, geen meting. Er is bij hercontrole **geen onafhankelijk gebruikers- of marktaandeelcijfer** voor Presto, CYPE of Menfis in Spanje gevonden — het rapport zegt dit zelf ook. De rangorde in §3.1 blijft daarmee een [SCHATTING] zonder harde onderbouwing. |
+| C2 | MS Project heeft de grootste installed base naar seats; P6 de grootste omzet | **ONZEKER** | Geen enkele publieke bron kwantificeert dit voor Iberia. Plausibel gezien de Cegid PRIMAVERA-bevinding (C3), maar niet gemeten. |
+| C3 | Cegid PRIMAVERA Construction heeft **geen eigen planningsengine** en verwijst naar MS Project | **BEVESTIGD** | Het opleidingsdocument noemt bij Pré-requisitos "MS Project" en beschrijft de module Planeamento als *"Planificação dos trabalhos do orçamento utilizando o Ms Project"* ([primaverabss.com PDF](https://www.primaverabss.com/pt/UserFiles/Downloads/1_SPG001_Using_PRIMAVERA_Construction.pdf)). Dit is de sterkste originele bevinding van het rapport. |
+| C4 | "Er is **geen zichtbare gespecialiseerde Oracle Primavera-partner in Portugal**" | **WEERLEGD — door een bron uit het rapport zelf** | [Proove](https://www.proove.eu/pt) heeft een kantoor in **Lissabon** (Av. D. João II nr. 50, 4e verd., 1990-095), geeft *"Primavera P6: Básico"* (3 dagen, PT) en voert Primavera Cloud-implementaties uit (case: **ITER**). Proove stond al in de bronnenlijst van §8. |
+| C5 | Asta Powerproject, TILOS, SYNCHRO, ALICE, nPlan zijn "praktisch afwezig als markt" in Iberia | **ONZEKER (was: vastgesteld)** | Geen formele distributeur gevonden, maar er is wél Spaanstalige commerciële promotie van Powerproject (L&L Asesores, LinkedIn mei 2025). Een negatieve bevinding ("niets gevonden") is geen bewijs van afwezigheid; de stelligheid in §3.9 en §7 is teruggebracht. |
+| C6 | Oracle dwingt een migratie van P6 naar Primavera Cloud af | **GECORRIGEERD** | [oracle.com](https://www.oracle.com/construction-engineering/primavera-p6/) beschrijft een **vrijwillig, begeleid** migratietraject in vijf fasen en positioneert Primavera Cloud als *"the industry's only solution that combines CPM contract scheduling and task management in a single cloud environment"*. **Geen einde-support-datum, geen dwang.** P6 Professional wordt nog steeds in nieuwe releases uitgebracht. |
+| C7 | Salaris "Project Planner" Spanje €39.550; "Construction Scheduler" €66.000 | **ONZEKER — niet verifieerbaar** | Beide Glassdoor-pagina's gaven bij hercontrole **HTTP 403**. Het rapport waarschuwt zelf al voor de kleine steekproef bij het tweede cijfer; behandel beide als indicatief. |
+
+### D. Aanbestedings- en wettelijke eisen
+
+| # | Bewering | Oordeel | Onderbouwing / bron |
+|---|---|---|---|
+| D1 | RGLCAP art. 144 eist een *programa de trabajo* met o.a. **"valoración mensual y acumulada de la obra programada"** en een **"diagrama de las diversas actividades"**, binnen **30 dagen** | **BEVESTIGD, en het artikel is vigente** | [Iberley, art. 144 RGLCAP](https://www.iberley.es/legislacion/articulo-144-reglamento-general-ley-contratos-aapp): status "Vigente"; termijn *"treinta días, contados desde la formalización del contrato"*; alle vijf onderdelen a) t/m e) bevestigd, inclusief d) maandelijkse en cumulatieve waardering tegen eenheidsprijzen en e) het activiteitendiagram. **Dit is de kernstelling van het rapport en die houdt volledig stand.** |
+| D2 | CCP art. 57 eist een *plano de trabalhos* (art. 361), een *cronograma financeiro* en een *lista dos preços unitários* als **onderdeel van de inschrijving** | **BEVESTIGD, alle drie letterlijk** | [PGDLisboa, art. 57 CCP](https://www.pgdlisboa.pt/leis/lei_mostra_articulado.php?artigo_id=2063A0057&nid=2063&tabela=leis) — telkens met de voorwaarde *"quando o caderno de encargos seja integrado por um projeto de execução"* |
+| D3 | CCP art. 361: goedkeuring binnen **vijf dagen**, **stilzwijgen = aanvaarding**, **geen gedeeltelijke** aanvaarding | **BEVESTIGD, letterlijk** | [PGDLisboa, art. 361 CCP](https://www.pgdlisboa.pt/leis/lei_mostra_articulado.php?artigo_id=2063A0361&nid=2063&tabela=leis): n.º 5 *"no prazo de cinco dias... equivalendo o silêncio a aceitação"*; n.º 7 *"O dono da obra não pode proceder à aceitação parcial do plano de trabalhos."* |
+| D4 | Plan BIM goedgekeurd **27 juni 2023**, gepubliceerd als BOE-A-2023-16784, verplicht **vanaf 1 april 2024 tot 2030**; verscherpt regime boven **€12.000.000** (art. 324.1.a LCSP) | **BEVESTIGD maar ONVOLLEDIG → aangevuld** | [BOE-A-2023-16784 / Orden PCM/818/2023 van 18 juli 2023](https://www.boe.es/diario_boe/txt.php?id=BOE-A-2023-16784), gepubliceerd 20-07-2023. De €12 mln klopt maar betreft alleen het **doorsturen van het uitzonderingsmotivering** aan de CIBIM. De **operatieve drempels** ontbraken: **≥ €5.382.000** (art. 20 LCSP) en de tweede schijf **€2.000.000–€5.382.000** (art. 159.1.a LCSP), per lot bij lotenverdeling, met fases 1-4-2024 → 1-10-2025 → 1-10-2027 → 1-4-2030. Relevant: de instapdrempel voor de doelgroep is €2 mln, niet €12 mln. |
+| D5 | Plan BIM-statistieken: 109→190 BIM-aanbestedingen, €455 mln→€1.209 mln, 5% eigen handboek, 72% verwacht kader, 3,7% met pliego-handleiding, 85,75% wil standaardisatie, DIRCE 2022 micro 95,48% / klein 4,15% | **BEVESTIGD, alle zeven letterlijk in de brontekst** | Tekstextractie uit het [Plan BIM PDF](https://cdn.mitma.gob.es/portal-web-drupal/cbim/v_26_bis_web_plan_bim_contratacion_publica.pdf) (81.775 tekens) |
+| D6 | 4D-planning is **niet** verplicht onder het Plan BIM (gemarkeerd als [NIET GEVERIFIEERD]) | **BEVESTIGD — versterkt tot positief bewijs** | De term **"4D" komt in het volledige Plan BIM-document geen enkele keer voor**. Elke claim dat het Plan 4D voorschrijft, is aantoonbaar onjuist. |
+| D7 | Er is **geen wettelijk voorgeschreven bestandsformaat**; P6/XER-eisen zijn contractueel-per-project | **ONZEKER (niet te weerleggen, niet te bevestigen)** | Ook de hercontrole vond geen Spaans pliego dat P6/XER voorschrijft — maar zoekmachines gaven hier herhaaldelijk CAPTCHA's en irrelevante resultaten. De afwezigheid van bewijs is hier geen bewijs van afwezigheid; de claim blijft plausibel maar onbewezen. Wie hierop wil bouwen, moet direct in de Plataforma de Contratación del Sector Público zoeken. |
+
+### E. Methodische opmerking bij deze verificatie
+
+- De WebSearch-quota van deze sessie was al uitgeput bij aanvang; de verificatie is uitgevoerd met **directe WebFetch-aanvragen tegen primaire bronnen** (BOE, PGDLisboa, FIEC, INE/Observatorio, Microsoft ES én US, CYPE-shop ES én PT, EXA4/SEYS, Oracle, MarketsandMarkets, ECB-koersen) plus lokale tekstextractie uit het Plan BIM-PDF. Dat is methodisch **sterker** dan zoekmachine-snippets, maar het beperkte de mogelijkheid om *nieuwe* tegenbewijzen te vinden voor de negatieve claims (D7, C5).
+- Niet verifieerbaar gebleken: Grand View Research (403), Glassdoor ES (403), een officiële Oracle-prijslijst (niet publiek vindbaar), en de twee digitaliseringspercentages in §5.5 die het rapport zelf al als **[NIET VOLLEDIG GEVERIFIEERD]** markeerde — die markering blijft terecht staan.
+- **Wat overeind bleef:** alle wetgeving (art. 144 RGLCAP, art. 57 en 361 CCP, Plan BIM), alle macrocijfers (FIEC ES/PT, DIRCE, INE PT), alle lokaal geverifieerde lijstprijzen (Microsoft ES, Presto, Arquímedes-edities), en de centrale these dat de Iberische markt planning administratief aan de begroting koppelt.
+- **Wat sneuvelde:** de precieze marktomvang (te hoog), de Primavera Cloud-instapprijs (verkeerde module), het valuta-argument bij Microsoft (omgekeerd), de CYPE-prijsgelijkheid ES/PT (onjuist), de CYPE EXPERT-prijs (€24.200, niet €22.300), de Presto-modulevergelijking (leesfout), het ontbreken van een Portugese Primavera-partner (weerlegd), en "gedwongen migratie" bij Oracle (niet onderbouwd).

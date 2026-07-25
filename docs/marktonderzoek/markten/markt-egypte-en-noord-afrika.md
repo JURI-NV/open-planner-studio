@@ -4,6 +4,17 @@
 **Peildatum onderzoek:** 25 juli 2026
 **Wisselkoersen gebruikt:** USD/EGP 51,34 ([Xe, 25-07-2026, 13:25 UTC](https://www.xe.com/currencyconverter/convert/?Amount=1&From=USD&To=EGP)) — bevestigd door [Wise](https://wise.com/gb/currency-converter/usd-to-egp-rate) op 51,35. MAD/USD ≈ 9,79 (afgeleid uit [BusinessWire](https://www.businesswire.com/news/home/20250922298977/en/): "MAD6.1 billion ($623 million)"). TND/USD ≈ 2,95 `[SCHATTING — niet apart geverifieerd]`.
 
+> **⚠ CORRECTIE NA VERIFICATIE (zie hoofdstuk 11).** Onafhankelijke koersen per 25-07-2026 00:02 UTC ([open.er-api.com](https://open.er-api.com/v6/latest/USD)):
+> | Valuta | Gebruikt in dit rapport | Werkelijke koers 25-07-2026 | Afwijking |
+> |---|---|---|---|
+> | USD/EGP | 51,34 | **51,3257** | −0,03% ✔ verwaarloosbaar |
+> | USD/TND | 2,95 (schatting) | **2,9553** | +0,2% ✔ de schatting was raak |
+> | USD/AED | 3,6725 (peg) | **3,6725** | 0% ✔ |
+> | USD/MAD | 9,79 | **9,3699** (bevestigd door [Wise](https://wise.com/gb/currency-converter/usd-to-mad-rate): 9,364) | **✘ 4,5% te hoog** |
+> | GBP/USD | ~1,27 (impliciet) | **1,3324** | **✘ 4,7% te laag** |
+>
+> **Gevolg:** de 9,79 is geen wisselkoers maar de *impliciete* koers uit een persbericht van mei/september 2025; die is als actuele koers hergebruikt. **Alle MAD→USD-bedragen in dit rapport zijn ~4,5% te laag** en zijn hieronder gecorrigeerd. Het rapport gebruikt bovendien drie verschillende impliciete MAD-koersen door elkaar (9,27 bij MAD 380 mrd = $41 mrd; 9,79 bij de Odoo-prijzen; 9,81 bij MAD 15,7 mrd = $1,6 mrd) en twee TND-koersen (2,95 bij de cursusprijzen; 3,37 bij TND 1,3 mrd = $386,3 mln), zonder dat te vermelden.
+
 ---
 
 ## 0. Methodologische verantwoording en betrouwbaarheid
@@ -27,9 +38,17 @@
 
 1. **Oracle Primavera P6 is onbetwist marktleider** in de zware bouw- en infrastructuursegmenten van Egypte en, in mindere mate, de rest van Noord-Afrika. De reden is niet technische superioriteit maar **contractuele dwang uit de Golfstaten**: P6 wordt "named directly in most GCC public-sector and EPC tender documents" en het aanleveren van MS Project-bestanden bij opdrachtgevers als ADNOC of Saudi Aramco kan een inschrijving diskwalificeren ([Gulf Certifications](https://www.gulfcertifications.com/blog/primavera-p6-gcc-construction)). Egyptische aannemers en planners werken structureel voor of naast Golf-opdrachtgevers en nemen die standaard mee terug.
 
+   > **⚠ NIET BEVESTIGD — de kernclaim rust op één belanghebbende bron.** De uitspraken "named directly in most GCC public-sector and EPC tender documents", "diskwalificatie bij ADNOC/Saudi Aramco" en "No P6, no payment certificate" komen alle uit één blog van een **P6-opleidingsverkoper** met direct commercieel belang bij die boodschap. Gerichte zoekpogingen in het Engels én het Arabisch ("بريمافيرا" + شرط المناقصات + الجدول الزمني) leverden **geen enkel tenderdocument, contractvoorwaarde, engineering standard of opdrachtgeverspecificatie** op die dit staaft — alleen opnieuw cursusaanbod. Het onderliggende *gedrag* (P6-dominantie in het EPC-circuit) is via meerdere onafhankelijke proxies aannemelijk (vacaturevolume, resellers, opleidingsaanbod, omvang informeel kanaal); de specifieke *contractuele* claims zijn dat niet. Citeer de dominantie, niet de diskwalificatie-anekdote.
+
 2. **Excel is in volume de feitelijke nummer één.** Voor de meerderheid van de middelgrote en kleine aannemers in alle vijf landen is het planningsinstrument een spreadsheet. Zelfs Arabischtalige planningopleidingen adverteren expliciet met "Primavera **and Excel**" als het gereedschapspaar ([Planning Engineer, Arabische basiscursus](https://planningengineer.net/courses/planning-basics-course-arabic/)).
 
 3. **De prijs-inkomensverhouding is extreem, en dat verklaart het gedrag van de markt.** Een perpetual Primavera P6 Professional-licentie staat bij een regionale Oracle-wederverkoper op **$3.880** ([AKIM Engineering prijslijst](https://www.akimeng.com/oracle-primavera-price-list.html)) — omgerekend **~EGP 199.200**. Het gemiddelde jaarsalaris van een Egyptische planning engineer is **EGP 151.191** ([PayScale, 2026](https://www.payscale.com/research/EG/Job=Planning_Engineer/Salary)). **Eén licentie kost dus ongeveer 1,3 keer het jaarsalaris van de ingenieur die hem gebruikt.** `[AFGELEID]` In West-Europa is die verhouding ongeveer 1:15 tot 1:20. Dit is de kernverklaring voor de omvang van informele en gekraakte licenties.
+
+> **⚠ CORRECTIE — cherry-picking.** De rekensom klopt (3.880 × 51,33 = EGP 199.144; ÷ 151.191 = 1,32×), maar hij combineert de **duurste** gevonden licentieprijs met het **laagste** gevonden salaris, terwijl het rapport zelf (§4.7) erkent dat de salarisbronnen een factor 5 uiteenlopen. De volledige bandbreedte van de eigen bronnen:
+> - hoogste prijs ($3.880, AKIM) ÷ laagste salaris (EGP 151.191, PayScale) = **1,32×**
+> - laagste prijs ($2.750 P6 EPPM basis, [ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models)) ÷ hoogste entry-salaris (EGP 293.806, SalaryExpert) = **0,48×**
+>
+> De eerlijke formulering is: **een P6-licentie kost een half tot anderhalf jaarsalaris**, afhankelijk van bron. "1,3×" is de bovenrand, niet het midden. De vergelijking is bovendien structureel scheef: een *eeuwigdurende* licentie wordt afgezet tegen één *jaar*salaris; over een gebruiksduur van 5–10 jaar is de jaarlast 0,05–0,26 jaarsalaris. Ook de West-Europese referentie "1:15 tot 1:20" is ongesourcet `[SCHATTING]`.
 
 4. **Informele licenties zijn geen randverschijnsel maar infrastructuur.** Een Arabischtalige zoekopdracht naar Primavera P6-downloads levert vrijwel uitsluitend ongeautoriseerde distributiekanalen op: YouTube-installatiehandleidingen, LinkedIn-posts met directe downloadlinks, Facebook-groepen, Telegram-kanalen (@sixthdimeng), het Arab Engineering Forum en downloadportalen — voor versies R17.7, V23.1, 24.12 en V25.12. BSA schatte het Egyptische piraterijpercentage op **59%** (2017-cijfer, laatste publicatie) ([EgyptToday](https://www.egypttoday.com/Article/3/57869/BSA-Egypt-sees-software-piracy-drop-by-2)); voor Marokko op **64%** ([U.S. Chamber IP Index 2025](https://www.uschamber.com/assets/documents/maps/Ipindex_25/Morocco_IPIndex-2025.pdf)).
 
@@ -37,7 +56,11 @@
 
 6. **Marktomvang planning-/schedulingsoftware Noord-Afrika (licenties/abonnementen): ~$11–16 miljoen per jaar, centrale schatting ~$13 miljoen (2026).** Inclusief training, implementatie en consultancy: **~$25–40 miljoen per jaar.** `[SCHATTING — redenering in hoofdstuk 5]` Egypte is daarvan ongeveer de helft.
 
+   > **⚠ CORRECTIE — de bandbreedte is te smal weergegeven.** Zie §5.2: de gepresenteerde marge $11–16 mln combineert de *centrale* Egyptische schatting met de *volledige* bandbreedtes van de vier andere landen. Consequent doorgerekend met de eigen Egyptische bandbreedte ($2,1–14,0 mln) is de regiobandbreedte **$6,9–22,8 mln**, ruim twee keer zo breed. De centrale schatting van ~$13 mln is verdedigbaar als middenwaarde, maar "$11–16 mln" suggereert een precisie die de onderliggende redenering niet draagt. Presenteer dit als **"orde van grootte $10 mln, met een reële onzekerheid van ongeveer een factor 3"**.
+
 7. **Aantal planners in de regio: 19.000–31.000** `[SCHATTING]`, waarvan 12.000–20.000 in Egypte. Daarbovenop werken naar schatting **20.000–40.000 Egyptische en Noord-Afrikaanse planners in de Golfstaten** `[SCHATTING]` — die groep is voor softwareleveranciers commercieel interessanter dan de thuismarkt, want daar wordt in AED/SAR betaald.
+
+   > **⚠ ONZEKER — het diaspora-getal is intern tegenstrijdig.** 20.000–40.000 planners in de Golf is *meer* dan het geschatte totaal voor de hele thuisregio (19.000–31.000). Dat impliceert dat 55–70% van alle Noord-Afrikaanse planners buiten de regio werkt. Dat kán, maar er is geen enkele bron voor, en §5.1 zelf stelt tegelijk dat 12–14 mln Egyptische expats "grotendeels in de GCC" zitten terwijl de geciteerde GCC-populatie 3,3 mln is (= 24–28%, dus juist *niet* grotendeels). Behandel dit getal als **onbetrouwbaar**, niet als schatting.
 
 8. **Lokale pakketten zijn nauwelijks planningsoftware.** Wat lokaal bestaat is ofwel bouw-ERP met een planningsmodule (Egypte: BabelERP, Hunt ERP, Bright ERP, Nodhom, Pioneers, Salis, Buildo, Microsystems, SkySoft), ofwel lichte werfplanning-SaaS (Marokko: MarocBTP, GestionBTP.ma, Odoo-BTP-pakketten). De enige serieuze regionale uitdager van P6 is **Opteam** (Dubai, opgericht 2020, AI-gedreven, pre-seed/seed-gefinancierd) — geen Noord-Afrikaans product, maar wel Arabischtalig en expliciet gepositioneerd als "بديل بريمافيرا" (Primavera-alternatief).
 
@@ -51,7 +74,7 @@ Softwarevraag volgt bouwvolume. Hieronder de macrocijfers, met de spreiding tuss
 
 | Cijfer | Waarde | Jaar | Bron |
 |---|---|---|---|
-| Bouwsector, toegevoegde waarde | **EGP 1,8 biljoen** (~$35,1 mrd `[AFGELEID]`) | FY2024/25 | [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment) |
+| Bouwsector, toegevoegde waarde | **EGP 1,8 biljoen** (~$35,1 mrd `[AFGELEID]` — `[VOORBEHOUD]` dit is een *stroomgrootheid over FY2024/25* omgerekend tegen de *spotkoers van juli 2026*; tegen de gemiddelde koers van dat boekjaar (~48–49,5) is het **$36,4–37,5 mrd**) | FY2024/25 | [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment) |
 | Aandeel in BBP | **10,3%** | FY2024/25 | [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment) |
 | Sectorgroei | 4,1% (FY24/25); doel 4,3%; prognose 5,6% (FY26/27) en 6,6% (FY27/28) | | [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment) |
 | Aandeel in totale werkgelegenheid | **10,65%** (mannen 13,3%, vrouwen 0,42%) | 2025 | [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment) |
@@ -89,7 +112,7 @@ Softwarevraag volgt bouwvolume. Hieronder de macrocijfers, met de spreiding tuss
 
 | Cijfer | Waarde | Jaar | Bron |
 |---|---|---|---|
-| Bouwmarkt | **MAD 97,39 mrd** (~$9,95 mrd `[AFGELEID]`) | 2025 | [BusinessWire/ResearchAndMarkets](https://www.businesswire.com/news/home/20250512137600/en/Morocco-Construction-Industry-Report-2025-A-MAD-112.33-Billion-Market-by-2029-with-2.8-CAGR-Forecast-During-2025-2029---ResearchAndMarkets.com) |
+| Bouwmarkt | **MAD 97,39 mrd** (~~$9,95 mrd~~ → **$10,39 mrd** `[GECORRIGEERD @9,3699]`) | 2025 | [BusinessWire/ResearchAndMarkets](https://www.businesswire.com/news/home/20250512137600/en/Morocco-Construction-Industry-Report-2025-A-MAD-112.33-Billion-Market-by-2029-with-2.8-CAGR-Forecast-During-2025-2029---ResearchAndMarkets.com) |
 | Prognose | MAD 112,33 mrd (2029), CAGR 2,8% | | idem |
 | Historische groei | CAGR 6,5% (2020-2024) | | idem |
 | Reële outputgroei | **4,5%** (2025); 3,9% gemiddeld 2026-2029 | | [BusinessWire](https://www.businesswire.com/news/home/20250922298977/en/) |
@@ -97,7 +120,9 @@ Softwarevraag volgt bouwvolume. Hieronder de macrocijfers, met de spreiding tuss
 | Aandeel bouw in BBP | **6,5%** | 2025 | [Oasis Technocloud](https://oasistechnocloud.com/blog/logiciel-gestion-chantier-btp-maroc/) `[ZWAK — vendor-blog]` |
 
 **WK 2030 / AFCON 2025-investeringsprogramma:**
-- Totaal goedgekeurd: **MAD 380 mrd (~$41 mrd)** voor luchthavens en overige infrastructuur ([AGBI, okt 2025](https://www.agbi.com/infrastructure/2025/10/))
+- ~~Totaal goedgekeurd: **MAD 380 mrd (~$41 mrd)** voor luchthavens en overige infrastructuur ([AGBI, okt 2025](https://www.agbi.com/infrastructure/2025/10/))~~
+
+  > **⚠ WEERLEGD — dit is geen WK-programma.** Franstalige primaire bronnen laten zien dat MAD 380 mrd het **totale Marokkaanse publieke investeringsbudget voor het begrotingsjaar 2026** is, niet een WK2030-infrastructuurprogramma: *"Le Maroc prévoit d'allouer 380 milliards de dirhams (MMDH) à ses investissements publics en 2026"* — tegenover MAD 340 mrd in 2025, verdeeld over gezondheidszorg, onderwijs, water en transport ([Industries.ma](https://industries.ma/investissements-publics-2026-380-milliards-de-dirhams-pour-un-developpement-equitable-et-durable/), [Portail Sud Maroc](https://portailsudmaroc.com/actualite/28933/budget-maroc-2026-investissement-record-de-380-mmdh)). De AGBI-kop "Morocco approves $41bn in World Cup infrastructure spending" heeft het nationale investeringsbudget geherlabeld als WK-uitgaven, en dit rapport heeft dat overgenomen. Schattingen voor het *werkelijke* WK2030-programma lopen uiteen van **$4,4 mrd** ([AGBI 2024](https://www.agbi.com/analysis/business-of-sport/2024/08/morocco-makes-world-cup-a-focus-for-investment/)) tot **~$23 mrd** ([Rio Times](https://www.riotimesonline.com/morocco-2030-world-cup-economy-2026/)). **Gebruik $41 mrd niet als WK-cijfer.** (Terzijde: MAD 380 mrd ÷ de werkelijke koers 9,37 = $40,6 mrd — het rapport rekende hier impliciet met 9,27 en elders met 9,79.)
 - Stadions: 9 stuks, tot 115.000 zitplaatsen, **MAD 20 mrd** tot 2028 ([7news.ma](https://en.7news.ma/moroccos-construction-boom-mega-projects-reshaping-the-industry/))
 - Spoor: **$9,6 mrd** modernisering tot 2030 — HSL Kenitra-Marrakech $5,3 mrd, treinaankoop $2,9 mrd, stations $1,4 mrd ([ITA/trade.gov](https://www.trade.gov/country-commercial-guides/morocco-infrastructure)); ONCF-investering ~MAD 87 mrd ([7news.ma](https://en.7news.ma/moroccos-construction-boom-mega-projects-reshaping-the-industry/))
 - Havens: **$7,5 mrd** voor 27 havens; Nador West Med $1,5 mrd; Dakhla Atlantique $1,7 mrd ([ITA](https://www.trade.gov/country-commercial-guides/morocco-infrastructure))
@@ -119,7 +144,7 @@ Softwarevraag volgt bouwvolume. Hieronder de macrocijfers, met de spreiding tuss
 
 - Groeiprognose 2025: bronnen spreken elkaar tegen — **1,2%** ([Yahoo Finance/ResearchAndMarkets](https://uk.finance.yahoo.com/news/tunisia-construction-industry-report-2025-104700577.html)) versus **4,6%** ([Yahoo Finance, ander rapport](https://finance.yahoo.com/news/tunisia-construction-industry-report-2025-152400145.html)); 3,1-3,2% voor 2026
 - Buitenlandse investeringen 2024: **TND 2,9 mrd** ([Yahoo Finance](https://uk.finance.yahoo.com/news/tunisia-construction-industry-report-2025-104700577.html))
-- Zonneparkprojecten: TND 1,3 mrd (**$386,3 mln**), operationeel verwacht 2027 ([Chronicle Journal/markets](https://markets.chroniclejournal.com/))
+- Zonneparkprojecten: TND 1,3 mrd (**$386,3 mln**), operationeel verwacht 2027 ([Chronicle Journal/markets](https://markets.chroniclejournal.com/)) — `[INCONSISTENT]` dit bedrag impliceert TND/USD **3,365**, terwijl het rapport elders 2,95 gebruikt (onafhankelijk bevestigd: **2,9553**). Bij de actuele koers is TND 1,3 mrd = **$440 mln**. Het bronbedrag stamt vermoedelijk uit een ouder jaar met een andere koers; niet mengen met de cursusprijsomrekeningen in §4.5.
 - **Absolute marktomvang niet gevonden.** `[LEEMTE]`
 
 ### 2.5 Libië
@@ -188,7 +213,7 @@ De volgende rangorde is opgesteld op basis van: het aantal trainingsaanbieders p
 
 **Producten en aanwezigheid:**
 - **monday.com** — Arabische interface beschikbaar, actieve MENA-marketing; prijs $9-19/seat/maand ([monday.com/pricing](https://monday.com/pricing))
-- **Smartsheet** — aanwezig, vooral bij multinationals; Pro-plan $129 en Business $241 per gebruiker (jaarbedrag zoals getoond op de prijspagina) ([smartsheet.com/pricing](https://www.smartsheet.com/pricing)) `[LET OP — de weergegeven bedragen zijn vermoedelijk jaarprijzen per gebruiker; de pagina toonde geen expliciete periode]`
+- **Smartsheet** — aanwezig, vooral bij multinationals; Pro-plan $129 en Business $241 per gebruiker ([smartsheet.com/pricing](https://www.smartsheet.com/pricing)) `[LET OP — de weergegeven bedragen zijn vermoedelijk jaarprijzen per gebruiker; de pagina toonde geen expliciete periode]` — **✔ voorbehoud terecht, en nu onderbouwd:** de bedragen staan inderdaad op de pagina, maar als *maandprijs* gelezen zou Smartsheet Pro 14× duurder zijn dan monday.com Pro ($19/seat/maand, geverifieerd) en 2× duurder dan Primavera Cloud Scheduling. Dat is niet plausibel. Als **jaarprijs per gebruiker** komt het uit op $10,75 resp. $20,08 per maand, precies in lijn met Smartsheets bekende prijspunten. **Behandel $129/$241 als jaarbedragen.**
 - **ClickUp** — heeft een volledige **Arabische blog en Arabische templates** ([clickup.com/ar](https://clickup.com/ar/blog/76302/project-timeline-software)); dit is het enige westerse algemene pakket met serieuze Arabische contentmarketing
 - **Zoho, Wrike** — aanwezig via reseller/online, geen specifiek bewijs van bouwadoptie gevonden in dit onderzoek `[LEEMTE]`
 - **Odoo (BTP-pakketten)** — in Marokko actief gecommercialiseerd door lokale integrators (zie hoofdstuk 4)
@@ -249,6 +274,12 @@ De volgende rangorde is opgesteld op basis van: het aantal trainingsaanbieders p
 
 Bron: [akimeng.com/oracle-primavera-price-list.html](https://www.akimeng.com/oracle-primavera-price-list.html). Alle prijzen zijn "application user licenses with perpetual rights"; **support is niet inbegrepen** en updates moeten apart worden gekocht.
 
+> **⚠ CITAAT KLOPT, ANKER IS ZWAK.** De vier bedragen zijn op de AKIM-pagina teruggevonden en exact zoals geciteerd ($3.880 / $4.240 / $10.450 / $1.460, perpetual, exclusief support). **Maar:** de pagina draagt **geen datum en geen geldigheidsvermelding**, het is een *wederverkoperspagina*, geen Oracle-prijslijst, en Oracle's eigen prijslijsten waren in dit onderzoek niet te bereiken (oracle.com-prijslijst-URL's geven 404). De onafhankelijke bronnen liggen structureel **lager**:
+> - ITQlick: **$2.500–3.500** per gebruiker perpetual + $500–800 support/jaar ([itqlick.com](https://www.itqlick.com/primavera-p6/pricing))
+> - ProjectManagerTemplate: P6 Professional **$3.520**; P6 EPPM basislicentie **$2.750** per application user + ~$605 support/jaar ([projectmanagertemplate.com](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models)) — merk op dat dit voor "Enterprise" **lager** is dan AKIM's $4.240, niet hoger
+>
+> **Gevolg:** $3.880 is de bovenkant van een bandbreedte van ruwweg **$2.750–4.240**, niet een vastgestelde marktprijs. Elke afgeleide conclusie ("1,3× jaarsalaris", "EGP 199.200") erft die onzekerheid. `[ONZEKER]`
+
 **Bevestigende bronnen voor de orde van grootte:**
 - ITQlick: "one-time perpetual license cost of approximately **$2,500 to $3,500 per user**, with an optional annual support fee of **$500 to $800**" ([itqlick.com](https://www.itqlick.com/primavera-p6/pricing)) `[ZWAK — aggregator]`
 - ProjectManagerTemplate: "Primavera P6 Professional license has been quoted at about **US$3,520 per user** for a perpetual license" ([projectmanagertemplate.com](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models)) `[ZWAK — blog]`
@@ -267,7 +298,7 @@ Bron: [akimeng.com/oracle-primavera-price-list.html](https://www.akimeng.com/ora
 **Minimumafname:** doorgaans **5 gebruikers per module** ([FindPM](https://findpmsoftware.com/products/primavera-cloud), [Taradigm](https://www.taradigm.com/how-much-does-primavera-cloud-cost/)).
 
 **Wat dit betekent in Egypte:**
-- P6 EPPM Cloud tegen £220/gebruiker/maand met een minimum van 25 gebruikers = **£66.000/jaar ≈ $84.000 ≈ EGP 4,3 miljoen per jaar**. Dat is meer dan het bruto jaarsalaris van **28 planning engineers** in Egypte `[AFGELEID op basis van PayScale EGP 151.191]`. Dit product is in de Egyptische markt effectief niet verkoopbaar buiten olie & gas en internationaal gefinancierde projecten.
+- P6 EPPM Cloud tegen £220/gebruiker/maand met een minimum van 25 gebruikers = **£66.000/jaar** ≈ ~~$84.000 ≈ EGP 4,3 mln~~ → **$87.900 ≈ EGP 4,51 mln per jaar** `[GECORRIGEERD: het rapport rekende impliciet met GBP/USD 1,27; de werkelijke koers op 25-07-2026 is 1,3324]`. Dat is meer dan het bruto jaarsalaris van ~~28~~ **30** planning engineers in Egypte `[AFGELEID op basis van PayScale EGP 151.191]`. Dit product is in de Egyptische markt effectief niet verkoopbaar buiten olie & gas en internationaal gefinancierde projecten.
 - Primavera Cloud Scheduling à $1.320/gebruiker/jaar = **EGP 67.800/jaar**, ongeveer **45% van een jaarsalaris** van de gebruiker. Ook dat is voor de meeste Egyptische aannemers onhaalbaar.
 - Perpetual P6 Professional à $3.880 = **EGP 199.200**, ofwel **1,3× het gemiddelde jaarsalaris** van de planner. Bedrijven kopen daarom een handvol licenties en laten er tien mensen op werken, of kopen niets.
 
@@ -299,13 +330,13 @@ Bron: [akimeng.com/oracle-primavera-price-list.html](https://www.akimeng.com/ora
 
 **Odoo BTP-pakketten (lokale installatie, eenmalige implementatieprijs)** ([Oasis Technocloud](https://oasistechnocloud.com/blog/logiciel-gestion-chantier-btp-maroc/)):
 
-| Pakket | Prijs (MAD) | In USD `[AFGELEID @9,79]` | Inhoud |
+| Pakket | Prijs (MAD) | ~~In USD @9,79~~ → **gecorrigeerd @9,3699** | Inhoud |
 |---|---|---|---|
-| "Chantier Simple" | **12.900 MAD** | ~$1.318 | projecten + voorraad + facturen, 3 gebruikers |
-| "BTP Complet" | **18.900 MAD** | ~$1.931 | + onderaannemers + wagenpark + voortgangsrapporten, 5 gebruikers |
-| "Multi-Chantiers" | **24.900 MAD** | ~$2.543 | meerdere gelijktijdige projecten + geconsolideerde rapportage, 10 gebruikers |
+| "Chantier Simple" | **12.900 MAD** | ~~$1.318~~ → **$1.377** | projecten + voorraad + facturen, 3 gebruikers |
+| "BTP Complet" | **18.900 MAD** | ~~$1.931~~ → **$2.017** | + onderaannemers + wagenpark + voortgangsrapporten, 5 gebruikers |
+| "Multi-Chantiers" | **24.900 MAD** | ~~$2.543~~ → **$2.657** | meerdere gelijktijdige projecten + geconsolideerde rapportage, 10 gebruikers |
 
-**Cloud-BTP-software in Marokko:** **1.000–3.000 MAD/maand** (~$102–306/maand) voor multi-site beheer met materiaaltracking ([Oasis Technocloud](https://oasistechnocloud.com/blog/logiciel-gestion-chantier-btp-maroc/)).
+**Cloud-BTP-software in Marokko:** **1.000–3.000 MAD/maand** (~~$102–306~~ → **$107–320**/maand `[GECORRIGEERD @9,3699]`) voor multi-site beheer met materiaaltracking ([Oasis Technocloud](https://oasistechnocloud.com/blog/logiciel-gestion-chantier-btp-maroc/)).
 
 **Referentiepunt:** de bron stelt dat Marokkaanse bouwbedrijven **5% tot 15% van hun marge** verliezen door onvoldoende kostenbewaking — het standaard verkoopargument in deze markt `[ZWAK — vendor-blog]`.
 
@@ -384,7 +415,14 @@ De data zijn rommelig en spreken elkaar tegen. Dit is zelf een bevinding: **er i
 - Senior planner / planning manager: **AED 25.000–45.000/maand** (~$6.807–12.252)
 - P6-vaardigheden zouden mid-career salarissen met 30-50% verhogen binnen twee contractcycli
 
-**Dit salarisverschil van een factor 10 is de motor onder de hele opleidingsmarkt in Egypte.** Een Egyptische ingenieur die EGP 3.000 (~$58) uitgeeft aan een P6-cursus en daarmee een Golf-baan bemachtigt, verdient dat binnen één dag terug. Geen enkele softwareleverancier concurreert daar op prijs mee.
+> **⚠ CORRECTIE — de factoren zijn inconsistent gerekend.** De AED-omrekeningen kloppen exact (peg 3,6725 onafhankelijk bevestigd). Maar het rapport noemt op drie plaatsen drie verschillende factoren voor dezelfde vergelijking: "**9 tot 16 keer**" (§4.7), "**factor 5 tot 16**" (§6.2) en "**factor 10**" (hieronder). Uit de eigen getallen — Egypte $234–779/maand, VAE junior $2.178–3.812/maand — volgt:
+> - laagste VAE ÷ hoogste Egypte = 2.178 ÷ 779 = **2,8×**
+> - hoogste VAE ÷ laagste Egypte = 3.812 ÷ 234 = **16,3×**
+> - midden ÷ midden = 2.995 ÷ 506 = **5,9×**
+>
+> De verdedigbare formulering is **"grofweg 3× tot 16×, mediaan ongeveer 6×"**. "Factor 10" en de ondergrens "5" zijn niet uit de eigen data af te leiden.
+
+**~~Dit salarisverschil van een factor 10~~ Dit salarisverschil (mediaan ~6×, uiterste 3–16×) is de motor onder de hele opleidingsmarkt in Egypte.** Een Egyptische ingenieur die EGP 3.000 (~$58) uitgeeft aan een P6-cursus en daarmee een Golf-baan bemachtigt, verdient dat binnen één dag terug. Geen enkele softwareleverancier concurreert daar op prijs mee.
 
 ---
 
@@ -398,7 +436,7 @@ De data zijn rommelig en spreken elkaar tegen. Dit is zelf een bevinding: **er i
 
 | Stap | Redenering | Uitkomst |
 |---|---|---|
-| Geregistreerde ingenieurs | Egyptisch Ingenieurssyndicaat: **>900.000 leden**, 70+ afdelingen ([UIPE](https://uipe.co.ug/)); een digitaal platform bedient "more than one million engineers" ([Cloud4Rain](https://cloud4rain.com/)) | 900.000+ |
+| Geregistreerde ingenieurs | Egyptisch Ingenieurssyndicaat: **>900.000 leden**, 70+ afdelingen (~~[UIPE](https://uipe.co.ug/)~~ **✘ verkeerde bron: uipe.co.ug is de *Uganda* Institution of Professional Engineers en noemt geen Egyptisch cijfer**) — **cijfer wél bevestigd via een Arabische primaire bron: 897.926 leden landelijk, augustus 2024** ([Youm7](https://www.youm7.com/story/2024/8/19/), Arabisch: "عدد أعضاء نقابة المهندسين على مستوى الجمهورية قد بلغ نحو 897 ألفا و926 مهندسا"; groei vanaf ~830.000 in 2021, [Masrawy](https://www.masrawy.com/news/news_egypt/details/2021/6/10/)) | 900.000+ ✔ |
 | Aandeel civiel/bouwkundig | `[SCHATTING]` ~30% van de ingenieursberoepen in Egypte is civiel/bouwkundig/architectuur | ~270.000 |
 | Actief en in Egypte werkzaam | `[SCHATTING]` ~60% (rest geëmigreerd, inactief, ander vak) | ~160.000 |
 | Aandeel in een planning-/scheduling-/projectcontrolrol | `[SCHATTING]` 6–10% — planning is een specialisme binnen de bouwingenieurspopulatie | **10.000–16.000** |
@@ -439,7 +477,11 @@ De data zijn rommelig en spreken elkaar tegen. Dit is zelf een bevinding: **er i
 | Planningmodules binnen lokale bouw-ERP (toegerekend deel) | — | — | **$0,5–1,5 mln** |
 | **Subtotaal software Egypte** | | | **$2,1–14,0 mln; centrale schatting ~$6–7 mln** |
 
+> **⚠ REKENKUNDIGE CONTROLE.** De optelling van de bandbreedtes klopt exact (ondergrens 0,9+0,24+0,1+0,36+0,5 = $2,10 mln; bovengrens 4,9+2,4+1,2+4,0+1,5 = $14,0 mln), evenals de seats (6.600–19.900). **Maar de "centrale schatting ~$6–7 mln" volgt niet uit de eigen tabel:** het rekenkundige midden van de vijf regels (seats-midden × ARPU-midden) is 2,90+1,32+0,65+2,18+1,00 = **$8,05 mln**. $6–7 mln komt ongeveer overeen met het *geometrische* gemiddelde van $2,1 en $14,0 ($5,4 mln), wat verdedigbaar is bij een log-uniforme verdeling — maar die keuze wordt nergens gemaakt of gemotiveerd. Vermeld óf $8 mln (rekenkundig), óf $5,4 mln (geometrisch), met de gekozen aanname erbij. `[ONZEKER]`
+
 **Penetratiegraad die hieruit volgt:** ongeveer **6.600–19.900 betaalde seats** tegenover **12.000–20.000 planners**. Maar veel planners gebruiken twee tools (P6 + Excel, of MSP + Excel), en veel seats staan bij niet-planners. Netto komt de schatting neer op **20–40% van de planners werkt op een betaalde licentie**; **60–80% werkt op Excel, een gedeelde licentie of een informele kopie**. `[SCHATTING — dit is het onzekerste getal in dit rapport, maar het is consistent met het BSA-piraterijpercentage van 59% en met de vindbaarheid van het informele kanaal]`
+
+> **⚠ NIET AFLEIDBAAR.** De eigen getallen geven 6.600–19.900 seats tegen 12.000–20.000 planners, dus een seat/planner-verhouding van **33% tot 166%**. De sprong naar "20–40%" vergt twee ongekwantificeerde correcties (dubbel gebruik van tools; seats bij niet-planners) die nergens met een percentage worden ingevuld. Het getal is dus geen afleiding maar een aanname die *achteraf* op het BSA-piraterijcijfer van 59% is gelegd. Dat BSA-cijfer is bovendien een **landelijk gemiddelde over alle software uit 2017**, geen maat voor bouwplanningsoftware in 2026. Behandel "20–40%" als illustratie, niet als resultaat.
 
 **Diensten Egypte:**
 
@@ -453,7 +495,22 @@ De data zijn rommelig en spreken elkaar tegen. Dit is zelf een bevinding: **er i
 - Egypte's IT-markt: **$3,5 mrd in 2025**, groeiend naar $9,2 mrd in 2031 ([EgyptToday](https://www.egypttoday.com/Article/3/141934/Egypt's-IT-Market-to-grow-from-3-5B-in-2025)); IT-diensten alleen **$1,63 mrd in 2025** ([Statista](https://www.statista.com/outlook/tmo/it-services/egypt?currency=USD)); bredere ICT-markt **$28,8 mrd in 2025** ([IMARC](https://www.imarcgroup.com/egypt-ict-market), [DataInsights](https://www.datainsightsmarket.com/reports/egypt-ict-market-11206))
 - Als software ~20–25% van de $3,5 mrd IT-markt is → **$700–875 mln**
 - Project-/portfoliosoftware is wereldwijd in de orde van **~1% van enterprise-softwarebestedingen** `[SCHATTING]` → **$7–9 mln**
-- **De top-down uitkomst ($7–9 mln) valt binnen de bottom-up bandbreedte ($2,1–14 mln) en dicht bij de centrale schatting ($6–7 mln).** Dat is een bevestiging, geen bewijs, maar het maakt de orde van grootte geloofwaardig.
+- ~~**De top-down uitkomst ($7–9 mln) valt binnen de bottom-up bandbreedte ($2,1–14 mln) en dicht bij de centrale schatting ($6–7 mln).** Dat is een bevestiging, geen bewijs, maar het maakt de orde van grootte geloofwaardig.~~
+
+> **⚠ WEERLEGD — de "1%" is ongeveer een factor 2 te hoog, en daarmee valt de kruiscontrole weg.**
+>
+> De aanname "project-/portfoliosoftware ≈ 1% van enterprise-softwarebestedingen" is nu wél te toetsen:
+> - Wereldwijde PPM-softwaremarkt 2025: **$6,90 mrd** ([Mordor Intelligence](https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market); 2026: $7,69 mrd)
+> - Wereldwijde software-uitgaven 2026: **$1,44 biljoen** (Gartner, via [Campus Technology](https://campustechnology.com/articles/2026/05/20/gartner-estimates-worldwide-it-spending-at-6-31t-for-2026.aspx) en [MarketAnalysis](https://marketanalysis.com/gartner-global-it-spending-to-hit-6-31-trillion-in-2026-driven-by-ai-infrastructure/)); bij de gerapporteerde softwaregroei van 15,1% is 2025 ≈ **$1,25 biljoen**
+> - **PPM-aandeel = 6,90 / 1.251 = 0,55%**, niet ~1%
+>
+> Doorgerekend: $700–875 mln × 0,55% = **$3,9–4,8 mln**. De top-down uitkomst ligt daarmee **onder** de bottom-up centrale schatting van $6–7 mln in plaats van erboven. De kruiscontrole *bevestigt* de bottom-up dus niet; ze trekt hem naar beneden.
+>
+> Twee nuances, in beide richtingen:
+> - **Pleit vóór het rapport:** de bottom-up telt ook algemene SaaS (monday, ClickUp, Smartsheet) en ERP-planningsmodules mee, die buiten de PPM-definitie vallen. Tel je "collaborative work management" mee (~$10 mrd wereldwijd), dan komt het gecombineerde aandeel op ~1,3% en klopt de 1% wél ruwweg. Het rapport maakt die definitiekeuze echter nergens expliciet.
+> - **Pleit tégen het rapport:** de aanname "software = 20–25% van de IT-markt" klopt *globaal* ($1,44 bln ÷ $6,31 bln = 22,8%), maar opkomende markten zijn hardware-zwaar; het Egyptische softwareaandeel ligt vermoedelijk lager, wat de top-down verder verlaagt.
+>
+> **Conclusie:** de top-down is een *zwakke* plausibiliteitstoets die tussen ~$3 mln en ~$9 mln uitkomt afhankelijk van twee ongesourcete aannames. Presenteer hem niet als "bevestiging".
 
 **Regio totaal `[SCHATTING]`:**
 
@@ -467,7 +524,25 @@ De data zijn rommelig en spreken elkaar tegen. Dit is zelf een bevinding: **er i
 | **Totaal Noord-Afrika, software** | **$10,8–15,8 mln; centrale schatting ~$13 mln (2026)** | |
 | **Totaal incl. training, implementatie en consultancy** | **~$25–40 mln/jaar** | |
 
-**Zet dit in perspectief:** de bouwsector in deze vijf landen vertegenwoordigt makkelijk **$70–100 miljard** aan jaarlijkse activiteit. De planningsoftware daarvoor kost **~$13 miljoen** — ongeveer **0,015%** van het bouwvolume. `[AFGELEID]` In West-Europa ligt die verhouding een factor 5 tot 15 hoger. **Dat gat is precies het informele kanaal plus Excel.**
+> **⚠ REKENKUNDIGE CONTROLE — de bandbreedte is niet consistent opgebouwd.**
+> - De optelling zelf klopt: 6,0+2,5+1,5+0,5+0,3 = **$10,8 mln**; 7,0+4,0+3,0+1,0+0,8 = **$15,8 mln**. Centrale waarde 13,3 → "~$13 mln" ✔
+> - **Maar Egypte gaat met zijn *centrale* schatting ($6–7 mln) de som in, terwijl de vier andere landen met hun *volledige* bandbreedte meedoen.** Consequent doorgerekend met de eigen Egyptische bandbreedte ($2,1–14,0 mln) wordt het regiototaal **$6,9–22,8 mln**. De gepresenteerde marge $10,8–15,8 mln is dus ruim twee keer te smal.
+> - **De dienstenopslag is intern inconsistent.** Egypte: software ~$6,5 mln → ecosysteem ~$14 mln = factor **2,15×**. Voor de regio zou dat 13 × 2,15 = **~$28 mln** geven. De genoemde bovengrens van $40 mln impliceert factor **3,1×** — hoger dan het rapport voor Egypte zelf hanteert, zonder motivering.
+> - **Ook de Egyptische ecosysteemwaarde van ~$14 mln is te hoog voor de eigen componenten:** software $6,5 + training $1,15 + implementatie $3,5 = **$11,15 mln** centraal. $14 mln zit daar ~25% boven.
+>
+> **Herrekende, intern consistente cijfers:** software Noord-Afrika **$7–23 mln, centrale waarde ~$12 mln**; inclusief diensten **~$26 mln (bandbreedte $15–50 mln)**. Dat verandert de *orde van grootte* niet — dat is het robuuste deel van deze analyse — maar wel de gesuggereerde precisie.
+
+**Zet dit in perspectief:** de bouwsector in deze vijf landen vertegenwoordigt makkelijk **$70–100 miljard** aan jaarlijkse activiteit. De planningsoftware daarvoor kost **~$13 miljoen** — ongeveer **0,015%** van het bouwvolume. `[AFGELEID]` ~~In West-Europa ligt die verhouding een factor 5 tot 15 hoger.~~ **Dat gat is precies het informele kanaal plus Excel.**
+
+> **⚠ WEERLEGD — "een factor 5 tot 15 hoger in West-Europa" is rekenkundig onmogelijk.**
+>
+> De claim impliceert dat West-Europa **0,075%–0,225%** van zijn bouwvolume aan planningsoftware besteedt. Bij een West-Europees bouwvolume van ruwweg $2,0–2,3 biljoen zou dat neerkomen op **$1,5–5,2 miljard per jaar aan bouwplanningsoftware in West-Europa alleen**.
+>
+> De **volledige wereldwijde PPM-softwaremarkt — alle sectoren, alle regio's — is $6,90 miljard** ([Mordor Intelligence, 2025](https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market)). West-Europese *bouw* alleen kan daar onmogelijk 22–75% van zijn. Zelfs als élke PPM-dollar ter wereld aan bouw werd besteed, is dat $6,9 mrd tegen een wereldwijd bouwvolume van ~$13–15 biljoen = **0,05%**, en de realistische bouwspecifieke fractie ligt daar ver onder.
+>
+> Reëel: West-Europese bouwplanningsoftware ligt in de orde van **0,01–0,03%** van het bouwvolume — dat is **dezelfde orde van grootte als de 0,015% die dit rapport voor Noord-Afrika berekent**, niet 5–15× hoger. De conclusie "dat gat is het informele kanaal plus Excel" wordt door dit cijfer dus **niet** gedragen. Het informele kanaal en Excel bestaan aantoonbaar (BSA 59%, hoofdstuk 6.5), maar dit specifieke ratio-argument is geen bewijs daarvoor en moet worden geschrapt.
+>
+> **Bijkomend probleem — eenhedenmengeling:** de $70–100 mrd noemer telt Egyptische *toegevoegde waarde* (EGP 1,8 bln) op bij Marokkaanse *marktomvang* uit een commercieel rapport (MAD 97,39 mrd) plus niet-gevonden cijfers voor Algerije, Tunesië en Libië. Toegevoegde waarde is doorgaans 30–45% van bouwoutput; deze grootheden mogen niet worden opgeteld. De teller (~$13 mln) is bovendien zelf een schatting met een onzekerheid van een factor 3. Een breuk waarvan teller én noemer beide factor-2-tot-3 onzeker zijn, draagt geen conclusie op drie significante cijfers.
 
 ---
 
@@ -820,3 +895,118 @@ Eerlijk opgesomd, zodat de lezer weet wat níet is vastgesteld:
 ---
 
 *Rapport opgesteld 25 juli 2026. Alle `[SCHATTING]`-gemarkeerde cijfers zijn eigen redeneringen zonder bron en mogen niet als feit worden geciteerd.*
+
+---
+
+## Verificatie
+
+**Uitgevoerd:** 25 juli 2026, als *adversariële* controle — opzet was om elke bewering te **weerleggen**, niet te bevestigen. Onafhankelijke bronnen, waar mogelijk Arabisch of Frans. Alle valuta-omrekeningen en optellingen zijn opnieuw uitgerekend. Het WebSearch-budget was ook in deze sessie uitgeput; er is uitsluitend met directe fetches en zoekproxy's (lite.duckduckgo, html.duckduckgo, Bing) gewerkt.
+
+**Uitkomst in één regel:** de *orde van grootte* van de marktschatting overleeft; de *precisie* niet. Drie beweringen zijn weerlegd, drie zijn rekenkundig inconsistent, vier zijn bevestigd, en de belangrijkste kwalitatieve claim (P6-dwang in Golf-tenders) blijft ononderbouwd.
+
+### Samenvattend oordeel
+
+| # | Bewering | Oordeel |
+|---|---|---|
+| 1 | Marktomvang software ~$11–16 mln, centraal ~$13 mln | **Deels — orde van grootte ok, bandbreedte te smal** |
+| 2 | Top-down kruiscontrole bevestigt bottom-up ($7–9 mln) | **Weerlegd** |
+| 3 | Planningsoftware = 0,015% bouwvolume; West-Europa 5–15× hoger | **Weerlegd** |
+| 4 | MAD/USD 9,79 en alle MAD-omrekeningen | **Weerlegd** (werkelijk 9,37) |
+| 5 | MAD 380 mrd ($41 mrd) = WK2030-infrastructuurprogramma | **Weerlegd** (= nationaal investeringsbudget 2026) |
+| 6 | USD/EGP 51,34, TND/USD 2,95, AED-peg | **Bevestigd** |
+| 7 | P6 Professional $3.880 → 1,3× jaarsalaris | **Onzeker — cherry-picking aan beide zijden** |
+| 8 | MS Project $679,99 / $1.129,99; monday.com $9/$12/$19 | **Bevestigd** |
+| 9 | Smartsheet $129 / $241 | **Onzeker — vrijwel zeker jaarprijzen** |
+| 10 | P6 is marktleider door contractuele dwang in GCC-tenders | **Niet bevestigd — één belanghebbende bron** |
+| 11 | Egypte Wet 182/2018 schrijft geen planningsoftware voor | **Aannemelijk, niet bewezen** |
+| 12 | >900.000 leden Egyptisch Ingenieurssyndicaat | **Cijfer bevestigd, bron fout** |
+| 13 | Bouwsector EGP 1,8 bln = 10,3% BBP, FY2024/25 | **Bevestigd** |
+| 14 | Egyptische IT-markt $3,5 mrd (2025) | **Bevestigd** |
+| 15 | Piraterij Egypte 59%, Marokko 64% | **Bevestigd (met datering)** |
+| 16 | 20.000–40.000 Noord-Afrikaanse planners in de Golf | **Onbetrouwbaar — intern tegenstrijdig** |
+| 17 | 20–40% van de planners op een betaalde licentie | **Niet afleidbaar uit de eigen cijfers** |
+| 18 | Salarisverschil Egypte↔Golf "factor 10" / "5–16" / "9–16" | **Inconsistent — reëel ~3–16×, mediaan ~6×** |
+
+### Toelichting per bewering
+
+**1. Marktomvang $11–16 mln / centraal $13 mln — DEELS.**
+Optellingen nagerekend en correct (Egypte-subtotaal $2,1–14,0 mln; regiototaal $10,8–15,8 mln; seats 6.600–19.900). Twee methodische fouten: (a) de regiobandbreedte mengt Egyptes *centrale* waarde met de *volledige* bandbreedtes van vier andere landen — consequent doorgerekend is het **$6,9–22,8 mln**; (b) de "centrale schatting $6–7 mln" voor Egypte is noch het rekenkundige midden ($8,05 mln) noch expliciet als geometrisch gemiddelde ($5,4 mln) gemotiveerd. Ook de dienstenopslag is inconsistent: Egypte gebruikt 2,15×, het regiototaal impliceert aan de bovenkant 3,1×. **Herrekend: software ~$12 mln (bandbreedte $7–23 mln); inclusief diensten ~$26 mln ($15–50 mln).** De orde van grootte "ongeveer tien miljoen dollar" is robuust; "$11–16 mln" suggereert een precisie die er niet is.
+Bron voor de correctie: eigen herberekening van §5.2.
+
+**2. Top-down kruiscontrole → WEERLEGD.**
+De ketting was: IT-markt $3,5 mrd → software 20–25% → PPM ~1% → $7–9 mln. De schakel "PPM ≈ 1% van enterprise-software" is nu toetsbaar en fout: wereldwijde PPM-markt **$6,90 mrd (2025)** tegen wereldwijde software-uitgaven van **~$1,25 biljoen (2025; $1,44 bln in 2026)** = **0,55%**. Doorgerekend geeft dat **$3,9–4,8 mln** — *onder* de bottom-up centrale schatting, niet erboven. De kruiscontrole bevestigt dus niets. (Nuance ten gunste: met een bredere definitie inclusief collaborative work management komt het aandeel op ~1,3%. Nuance ten nadele: het softwareaandeel van de IT-markt is in hardware-zware opkomende markten lager dan de wereldwijde 22,8%.)
+Bronnen: [Mordor Intelligence — PPM market $6,90 mrd (2025)](https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market) · [Gartner via Campus Technology — IT $6,31 bln, software $1,44 bln (2026)](https://campustechnology.com/articles/2026/05/20/gartner-estimates-worldwide-it-spending-at-6-31t-for-2026.aspx) · [MarketAnalysis — "Software … reaching $1.44 trillion"](https://marketanalysis.com/gartner-global-it-spending-to-hit-6-31-trillion-in-2026-driven-by-ai-infrastructure/)
+
+**3. "0,015% van het bouwvolume; West-Europa factor 5–15 hoger" → WEERLEGD.**
+Factor 5–15 impliceert 0,075–0,225% van een West-Europees bouwvolume van ~$2,0–2,3 bln = **$1,5–5,2 mrd per jaar aan bouwplanningsoftware in West-Europa alleen**. De volledige wereldwijde PPM-markt over *alle* sectoren en regio's is **$6,90 mrd**. Onmogelijk. Zelfs 100% van de wereldwijde PPM-markt tegen het wereldwijde bouwvolume (~$13–15 bln) is 0,05%. De West-Europese verhouding ligt realistisch op **0,01–0,03%** — dezelfde orde als de 0,015% die het rapport voor Noord-Afrika berekent. De conclusie "dat gat is het informele kanaal plus Excel" wordt door dit ratio-argument niet gedragen (het informele kanaal zelf is wél onderbouwd, zie #15). Bijkomend: de noemer $70–100 mrd telt Egyptische *toegevoegde waarde* op bij Marokkaanse *marktomvang* — twee onverenigbare grootheden.
+Bron: [Mordor Intelligence — PPM market](https://www.mordorintelligence.com/industry-reports/project-portfolio-management-market)
+
+**4. MAD/USD 9,79 → WEERLEGD.**
+Werkelijke koers op 25-07-2026: **9,3699** (aggregator) en **9,364** (Wise). De 9,79 is de *impliciete* koers uit een BusinessWire-persbericht van 2025, niet een actuele koers. **Alle MAD→USD-bedragen waren ~4,5% te laag** en zijn in §2.2 en §4.4 gecorrigeerd (bouwmarkt $9,95 → **$10,39 mrd**; Odoo-pakketten $1.318/$1.931/$2.543 → **$1.377/$2.017/$2.657**; cloud-BTP $102–306 → **$107–320**/maand). Het rapport gebruikt bovendien drie verschillende impliciete MAD-koersen door elkaar (9,27 / 9,79 / 9,81).
+Bronnen: [open.er-api.com/v6/latest/USD](https://open.er-api.com/v6/latest/USD) (MAD 9,369921, timestamp 25 juli 2026) · [Wise USD→MAD](https://wise.com/gb/currency-converter/usd-to-mad-rate) (9,364)
+
+**5. MAD 380 mrd ($41 mrd) voor WK2030-infrastructuur → WEERLEGD.**
+Franstalige primaire bronnen: *"Le Maroc prévoit d'allouer 380 milliards de dirhams (MMDH) à ses investissements publics en **2026**"* — het **totale nationale publieke investeringsbudget**, tegenover MAD 340 mrd in 2025, verdeeld over gezondheidszorg, onderwijs, water en transport. Geen WK-programma. De AGBI-kop heeft dit budget geherlabeld als "World Cup infrastructure spending"; dit rapport nam dat over. Schattingen voor het werkelijke WK2030-programma lopen van **$4,4 mrd** tot **~$23 mrd**.
+Bronnen: [Industries.ma — Investissements publics 2026: 380 MMDH](https://industries.ma/investissements-publics-2026-380-milliards-de-dirhams-pour-un-developpement-equitable-et-durable/) · [Portail Sud Maroc — "380 milliards de dirhams contre 340 milliards en 2025"](https://portailsudmaroc.com/actualite/28933/budget-maroc-2026-investissement-record-de-380-mmdh) · tegenover [AGBI — "$41bn in World Cup infrastructure spending"](https://www.agbi.com/infrastructure/2025/10/morocco-approves-41bn-in-world-cup-infrastructure-spending/) en [AGBI 2024 — MAD 42 mrd ($4,4 mrd)](https://www.agbi.com/analysis/business-of-sport/2024/08/morocco-makes-world-cup-a-focus-for-investment/) · [Rio Times — "$23 billion"](https://www.riotimesonline.com/morocco-2030-world-cup-economy-2026/)
+
+**6. USD/EGP 51,34, TND/USD 2,95, AED 3,6725 → BEVESTIGD.**
+Onafhankelijk gemeten op 25-07-2026: EGP **51,3257** (afwijking −0,03%), TND **2,9553** (afwijking +0,2% — de als `[SCHATTING]` gemarkeerde koers was raak), AED **3,6725** (peg, exact). Alle EGP- en AED-omrekeningen in het rapport zijn steekproefsgewijs nagerekend en kloppen: $3.880 → EGP 199.144 (rapport 199.200); EGP 151.191 → $2.945; EGP 267 → $5,20; $1.320 → EGP 67.750; $1.129,99 → EGP 58.000; AED 8.000–14.000 → $2.178–3.812; AED 25.000–45.000 → $6.807–12.253. **Uitzondering:** de GBP-omrekening (£66.000 → "$84.000") gebruikt een impliciete koers van 1,27 terwijl GBP/USD op de peildatum **1,3324** is → correct is **$87.900 ≈ EGP 4,51 mln ≈ 30 jaarsalarissen** (rapport: 28). Ook de omrekening van EGP 1,8 bln (een *stroom over FY2024/25*) tegen de *spotkoers van juli 2026* is methodisch onjuist; tegen de boekjaargemiddelde koers is het $36,4–37,5 mrd i.p.v. $35,1 mrd.
+Bron: [open.er-api.com/v6/latest/USD](https://open.er-api.com/v6/latest/USD)
+
+**7. P6 Professional $3.880 → "1,3× jaarsalaris" → ONZEKER.**
+De AKIM-prijslijst is teruggevonden en **exact zoals geciteerd** ($3.880 / $4.240 / $10.450 / $1.460, perpetual, excl. support) — maar zonder datum of geldigheidsvermelding, en het is een wederverkoper, geen Oracle-prijslijst (Oracle's eigen prijslijst-URL's gaven 404). Onafhankelijke bronnen liggen lager: $2.500–3.500 (ITQlick) en $3.520 P6 Professional / $2.750 P6 EPPM (ProjectManagerTemplate — voor "Enterprise" dus *lager* dan AKIM's $4.240). De ratio-claim combineert vervolgens de **duurste prijs** met het **laagste salaris**, terwijl het rapport zelf erkent dat de salarisbronnen een factor 5 uiteenlopen. Volledige bandbreedte: **0,48× tot 1,32×**. Eerlijke formulering: "een half tot anderhalf jaarsalaris". De vergelijking eeuwigdurende licentie ↔ één jaarsalaris is bovendien structureel scheef (over 5–10 jaar: 0,05–0,26 jaarsalaris/jaar).
+Bronnen: [AKIM Engineering prijslijst](https://www.akimeng.com/oracle-primavera-price-list.html) · [ITQlick](https://www.itqlick.com/primavera-p6/pricing) · [ProjectManagerTemplate](https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models) · [PayScale](https://www.payscale.com/research/EG/Job=Planning_Engineer/Salary) vs [SalaryExpert](https://www.salaryexpert.com/salary/job/planning-engineer/egypt)
+
+**8. Microsoft- en monday.com-prijzen → BEVESTIGD.**
+Rechtstreeks op de leverancierspagina's teruggevonden: Project Standard 2024 **$679,99** en Project Professional 2024 **$1.129,99**, beide eenmalig; monday.com Work Management Basic **$9**, Standard **$12**, Pro **$19** per seat per maand bij jaarlijkse facturering. Exact zoals gerapporteerd.
+Bronnen: [Microsoft — Compare Project](https://www.microsoft.com/en-us/microsoft-365/project/compare-microsoft-project-management-software) · [monday.com/pricing](https://monday.com/pricing)
+
+**9. Smartsheet $129 / $241 → ONZEKER, maar het voorbehoud in het rapport was terecht.**
+De bedragen staan op de prijspagina. Als *maandprijs* zou Smartsheet Pro 14× duurder zijn dan monday.com Pro en 2× duurder dan Primavera Cloud Scheduling — niet plausibel. Als **jaarprijs per gebruiker** komt het neer op $10,75 resp. $20,08 per maand, in lijn met Smartsheets bekende prijspunten. Behandelen als jaarbedragen.
+Bron: [smartsheet.com/pricing](https://www.smartsheet.com/pricing)
+
+**10. P6-dominantie door contractuele dwang in GCC-tenders → NIET BEVESTIGD.**
+De drie kernuitspraken ("named directly in most GCC public-sector and EPC tender documents", diskwalificatie bij ADNOC/Saudi Aramco, "No P6, no payment certificate") komen alle uit **één blog van een P6-opleidingsverkoper** met direct commercieel belang. Gerichte zoekpogingen in het Engels en het Arabisch ("بريمافيرا" + شرط المناقصات + الجدول الزمني) en naar Aramco-engineering standards leverden **geen enkel tenderdocument, contractvoorwaarde of opdrachtgeverspecificatie** op — alleen opnieuw cursusaanbod. De onderliggende *dominantie* blijft aannemelijk via onafhankelijke proxies (vacaturevolume, resellers, opleidingsdichtheid, informeel kanaal); de *contractuele* claims zijn niet verifieerbaar en moeten als vendor-marketing worden behandeld.
+Bron van de oorspronkelijke claim: [Gulf Certifications](https://www.gulfcertifications.com/blog/primavera-p6-gcc-construction) — geen onafhankelijke bevestiging gevonden.
+
+**11. Wet 182/2018 schrijft geen planningsoftware voor → AANNEMELIJK, NIET BEWEZEN.**
+Het rapport markeert dit zelf al als `[LEEMTE]` (wetstekst niet integraal gelezen). Die eerlijkheid is terecht en het oordeel is niet weerlegd — een aanbestedingswet die procedures, gunningsmethoden en drempels regelt, schrijft normaliter geen softwarepakket voor. Maar de vaststelling blijft berusten op samenvattingen. Het zwaardere punt is dat het rapport de *afwezigheid* van een wettelijke eis correct scheidt van de *aanwezigheid* van een contractuele norm — die scheiding is analytisch juist, alleen is de contractuele kant zelf onbewezen (zie #10).
+Bronnen zoals in het rapport: [Andersen Egypt](https://eg.andersen.com/translation-of-law-182-of-2018/) · [Africa Construction Law](https://africaconstructionlaw.org/egypt-key-features-of-recent-law-regulating-contracts-concluded-by-public-authorities/)
+
+**12. >900.000 leden Egyptisch Ingenieurssyndicaat → CIJFER BEVESTIGD, BRON FOUT.**
+De geciteerde bron **uipe.co.ug is de Uganda Institution of Professional Engineers** — een Oegandese beroepsvereniging die niets over Egypte zegt en zelf "100+ members" vermeldt. Dat is een volledig misplaatste citatie onder de belangrijkste bouwsteen van de plannerschatting. Het *getal* blijkt niettemin te kloppen: een Arabische primaire bron geeft **897.926 leden landelijk (augustus 2024)**, gegroeid vanaf ~830.000 in 2021. De vervolgstappen in de keten (30% civiel, 60% actief, 6–10% planningrol) blijven ongesourcete aannames; de uitkomst 10.000–16.000 volgt daar wél correct uit.
+Bronnen: [Youm7 (Arabisch) — "بلغ نحو 897 ألفا و926 مهندسا"](https://www.youm7.com/story/2024/8/19/) · [Masrawy (Arabisch) — ~830.000 in 2021](https://www.masrawy.com/news/news_egypt/details/2021/6/10/) · weerlegde bron: [uipe.co.ug](https://uipe.co.ug/)
+
+**13. Egyptische bouwsector EGP 1,8 bln = 10,3% BBP → BEVESTIGD.**
+Letterlijk teruggevonden, met de juiste primaire bronvermelding: *"The construction and building sector's GDP reached EGP 1.8 trillion in FY2024/2025, accounting for 10.3% of the country's GDP"* (Ministerie van Planning), 4,1% groei, **10,65%** van de werkgelegenheid (CAPMAS), gemiddeld dagloon **EGP 267** eind 2025 (CAPMAS), publieke investeringen **EGP 38,8 mrd** (+82%), FDI **$979 mln** (Centrale Bank). Alle zes cijfers kloppen. Interne consistentie: 1,8 bln ÷ 10,3% ⇒ BBP ~EGP 17,5 bln, plausibel; 10,65% × ~29 mln werkenden ⇒ ~3,1 mln bouwwerkers, consistent met de kruiscontrole in §5.1.
+Bron: [Arab Finance](https://arabfinance.com/en/news/newdetails/egypt-construction-sector-key-driver-of-growth-and-investment)
+
+**14. Egyptische IT-markt $3,5 mrd (2025) → BEVESTIGD.**
+Meervoudig bevestigd en herleid tot de oorspronkelijke onderzoeker: **Fitch Solutions**, $3,5 mrd in 2025 groeiend naar $9,2 mrd in 2031. Vijf onafhankelijke uitgevers rapporteren identiek. (Dat de *afgeleide* redenering op dit cijfer niet standhoudt, staat los van de juistheid van het cijfer zelf — zie #2.)
+Bronnen: [Egypt Today](https://www.egypttoday.com/Article/3/141934/Egypt's-IT-Market-to-grow-from-3-5B-in-2025) · [Business Today Egypt](https://www.businesstodayegypt.com/Article/1/6666/Fitch-Solutions-forecasts-Egypt-s-IT-Market-to-reach-9) · [The Startup Scene](https://thestartupscene.me/MenaEcosystems/Fitch-Solutions-Egypt-s-IT-Market-to-Reach-9-2-Billion-by-2031)
+
+**15. Piraterij Egypte 59% / Marokko 64% → BEVESTIGD, met de datering die het rapport zelf al geeft.**
+Egypte: 59% (BSA, 2017-data), commerciële waarde ongelicentieerde software **$64 mln in 2017**, gedaald vanaf $157 mln in 2015 — letterlijk bevestigd. Marokko: in de brontekst van de IP Index 2025 staat woordelijk *"BSA estimates a software piracy rate of 64%"*. Het voorbehoud in §6.5 (BSA publiceert sinds 2018 geen landenrapporten; cijfers zijn 8+ jaar oud) is terecht en moet bij elk gebruik meegeciteerd worden.
+Bronnen: [Egypt Independent](https://www.egyptindependent.com/egypt-witnesses-software-piracy-drop-according-to-recent-study/) · [U.S. Chamber IP Index 2025 — Morocco (PDF, tekst geëxtraheerd)](https://www.uschamber.com/assets/documents/maps/Ipindex_25/Morocco_IPIndex-2025.pdf)
+
+**16. 20.000–40.000 Noord-Afrikaanse planners in de Golf → ONBETROUWBAAR.**
+Het getal is groter dan de geschatte totale plannerpopulatie van de hele thuisregio (19.000–31.000), wat impliceert dat 55–70% van alle Noord-Afrikaanse planners geëmigreerd is. Er is geen bron voor. Het rapport is bovendien intern tegenstrijdig: het stelt dat Egypte "12–14 miljoen expats [heeft], grotendeels in de GCC" én dat er 3,3 mln Egyptenaren in de GCC werken — dat is 24–28%, dus juist *niet* grotendeels. De onderliggende diasporabron voor de 3,3 mln is een reisblog (theexpatstory.com); alleen het Saudische deelcijfer (1,47 mln, 11% van alle buitenlandse inwoners) is naar een census herleidbaar.
+Bron voor het Saudische deelcijfer: [Ahram English](https://english.ahram.org.eg/NewsContent/1/1234/503272/Egypt/Foreign-Affairs/-million-Egyptians-living-and-working-in-Saudi-Ara.aspx)
+
+**17. 20–40% van de planners werkt op een betaalde licentie → NIET AFLEIDBAAR.**
+De eigen cijfers geven 6.600–19.900 seats tegen 12.000–20.000 planners = **33–166%**. De sprong naar 20–40% vergt twee correcties (dubbel toolgebruik, seats bij niet-planners) die nergens gekwantificeerd worden. Het getal is achteraf op het BSA-piraterijcijfer van 59% gelegd — een landelijk gemiddelde over *alle* software uit 2017, geen maat voor bouwplanningsoftware in 2026. Illustratie, geen resultaat.
+Bron voor de correctie: eigen herberekening van §5.2.
+
+**18. Salarisverschil Egypte ↔ Golf → INCONSISTENT.**
+Drie verschillende factoren voor dezelfde vergelijking: "9 tot 16 keer" (§4.7), "factor 5 tot 16" (§6.2), "factor 10" (§4.7 slot). Uit de eigen getallen (Egypte $234–779/maand; VAE junior $2.178–3.812/maand — AED-omrekeningen kloppen exact) volgt: laagste verhouding **2,8×**, hoogste **16,3×**, midden-op-midden **5,9×**. "Factor 10" en de ondergrens "5" zijn niet afleidbaar. Verdedigbaar: **~3× tot 16×, mediaan ~6×**. Losstaand blijft het *kwalitatieve* punt (een groot loonverschil drijft de opleidingsmarkt) overeind — de Golf-salarisbron is echter opnieuw dezelfde belanghebbende opleiderblog als bij #10.
+Bron van de Golf-salarissen: [Gulf Certifications](https://www.gulfcertifications.com/blog/primavera-p6-gcc-construction) `[ZWAK]`
+
+### Wat deze verificatie níet heeft kunnen doen
+
+- **Oracle's eigen prijslijst** is niet bereikt (oracle.com-prijslijst-URL's geven 404). De P6-prijzen blijven op wederverkopers en aggregators gebaseerd.
+- **Geen enkel GCC- of Egyptisch tenderdocument** is ingezien. De aanbestedingsclaims in hoofdstuk 6 blijven daarmee op hetzelfde niveau als in het oorspronkelijke rapport: aannemelijk, onbewezen.
+- **Wet 182/2018** is opnieuw niet integraal gelezen.
+- **Algerije, Tunesië en Libië** zijn niet verder onderbouwd; de landenschattingen in §5.2 ($1,5–3 mln / $0,5–1 mln / $0,3–0,8 mln) berusten op niets anders dan het oordeel van de opsteller en zijn niet toetsbaar.
+- **Wisselkoersen zijn spotkoersen van één dag.** Voor een markt die in twee jaar 227% in lokale valuta dook, is elke USD-omrekening van een lokaal bedrag gevoelig voor de gekozen peildatum; dat blijft een structurele zwakte van het hele rapport.
+
+*Verificatie uitgevoerd 25 juli 2026. Doorgestreepte tekst in het rapport hierboven is weerlegd of gecorrigeerd; blokken met ⚠ bevatten de onderbouwing.*

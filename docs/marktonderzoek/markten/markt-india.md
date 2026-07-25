@@ -4,6 +4,8 @@
 **Wisselkoers gehanteerd:** 1 USD = ₹93 (gemiddelde 2026 volgens ValutaFX; piek 23 juli 2026 was ₹96,88). Alle USD-omrekeningen in dit rapport zijn op ₹93 gebaseerd en zijn afgerond.
 **Bron wisselkoers:** ValutaFX / Exchange-rates.org, via <https://search.yahoo.com/search?p=USD+to+INR+exchange+rate+July+2026+rupee+dollar>
 
+> 🟥 **[VERIFICATIE 25-07-2026 — gecorrigeerd]** ₹93 is het *year-to-date-gemiddelde over heel 2026*, niet de koers op de peildatum. X-Rates geeft als maandgemiddelden 2026: jan 90,73 · feb 90,77 · mrt 92,90 · apr 93,40 · mei 95,44 · jun 95,00 · **jul 95,37**; spot 24-07-2026 was **96,52**. Door ₹93 te gebruiken zijn **alle USD-bedragen in dit rapport 2,5% (vs. juli-gemiddelde) tot 3,8% (vs. spot) te hoog**. Voorbeeld: ₹2.84.000 = $3.054 @₹93, maar $2.978 @₹95,37 en $2.942 @₹96,52. Vermenigvuldig USD-bedragen met ~0,96 voor de koers van de peildatum. Bron: <https://www.x-rates.com/average/?from=USD&to=INR&amount=1&year=2026>
+
 **Legenda bij cijfers:**
 - 🟩 = direct uit een genoemde bron overgenomen
 - 🟨 = **[SCHATTING]** — eigen berekening/afleiding, redenering staat erbij
@@ -21,7 +23,7 @@ India is qua *aantal planners* waarschijnlijk een van de grootste markten ter we
 
 2. **De echte nummer één in aantallen is Excel — en WhatsApp.** Meerdere Indiase bronnen beschrijven de sector als "runs on WhatsApp and Excel": voortgang in een WhatsApp-groep, budget in Excel, aanwezigheid in een papieren register, inkooporders per telefoon. Dit is geen anekdote maar de expliciete positionering waartegen vrijwel elke Indiase softwareleverancier verkoopt. Bron: <https://medium.com/@sumeetsomraj/indias-construction-industry-runs-on-whatsapp-and-excel-7e8d26728fdd>, <https://onsiteteams.com/why-excel-whatsapp-are-not-enough-for-construction-project-tracking/>
 
-3. **Er bestaat een expliciete Indiase norm voor CPM-planning die westerse bronnen nooit noemen: IS 15883 (Part 2) : 2013 "Construction Project Management — Guidelines, Part 2 Time Management"** (BIS, herbevestigd 2023). Die schrijft letterlijk de precedence-diagram-methode / activity-on-node voor, en eist als deliverables: early start/finish, late start/finish, total float én free float per activiteit, kritieke activiteiten en het kritieke pad, en de berekende projectduur. Dat is exact de outputset van een CPM-solver. Bron: <https://archive.org/details/gov.in.is.15883.2.2013>, tekst geverifieerd uit <https://www.cracindia.in/admin/uploads/IS-15883---2.pdf>
+3. **Er bestaat een expliciete Indiase norm voor CPM-planning die westerse bronnen nooit noemen: IS 15883 (Part 2) : 2013 "Construction Project Management — Guidelines, Part 2 Time Management"** (BIS, herbevestigd 2023). Die schrijft letterlijk de precedence-diagram-methode / activity-on-node voor, en eist als deliverables: early start/finish, late start/finish, total float én free float per activiteit, kritieke activiteiten en het kritieke pad, en de berekende projectduur. Dat is exact de outputset van een CPM-solver. Bron: <https://archive.org/details/gov.in.is.15883.2.2013>, tekst geverifieerd uit <https://www.cracindia.in/admin/uploads/IS-15883---2.pdf> — ✅ **onafhankelijk herbevestigd, zie §5.1**
 
 4. **De prijsniveaus lopen extreem uiteen — factor 100 tussen top en bodem.** Een Primavera P6 EPPM-licentie wordt door Indiase resellers op IndiaMART aangeboden voor ₹2,49.570–₹2,84.000 (~$2.680–$3.054) per unit, terwijl Zoho Projects Premium ₹350/gebruiker/maand kost (~$3,76) en de lokale app Onsite ₹12.000/gebruiker/jaar (~$129). Een freelance P6-planner wordt op Freelancer.com voor ₹100–400/uur (~$1,08–$4,30) gezocht.
 
@@ -33,7 +35,7 @@ India is qua *aantal planners* waarschijnlijk een van de grootste markten ter we
 
 8. **Er is een expliciet Indiaas overheidsbeleid dat open source de voorkeur geeft**: de "Policy on Adoption of Open Source Software for Government of India" (MeitY, 2015) stelt dat OSS "as a preferred option in comparison to Closed Source Software" moet worden gebruikt in alle e-governance-systemen. Dat is een reëel commercieel aanknopingspunt voor een LGPL-tool. Bron: <https://www.meity.gov.in/static/uploads/2024/03/Policy-Document.pdf>, <https://india.gov.in/policy-adoption-open-source-software-government-india>
 
-9. **Informele licenties zijn structureel, niet marginaal.** India is volgens Revenera's Monetization Monitor 2025 de **derde meest getroffen markt ter wereld** voor onrechtmatig softwaregebruik, na China en Rusland. De laatste harde BSA-meting (2015) zette India op 58% niet-gelicentieerde installaties. Handhaving loopt via civiele zaken bij de Delhi High Court (Autodesk, Microsoft, Adobe, Dassault).
+9. **Informele licenties zijn structureel, niet marginaal.** India behoort volgens Revenera's Monetization Monitor 2025 tot de **drie zwaarst getroffen markten ter wereld** voor onrechtmatig softwaregebruik, samen met China en Rusland ⚠️ *(gecorrigeerd: de bron geeft een groepering, geen rangorde — India is niet aantoonbaar "derde")*. De laatst gevónden harde BSA-meting (2015) zette India op 58% niet-gelicentieerde installaties ⚠️ *(BSA publiceerde daarna nog een meting in 2018; zie §5.8)*. Handhaving loopt via civiele zaken bij de Delhi High Court (Autodesk, Microsoft, Adobe, Dassault).
 
 10. **De offshore-planningsindustrie is een aparte markt met een eigen economie.** Indiase planners werken massaal voor westerse klanten in P6 — maar vaak op *seats van de klant*. De licentie-omzet wordt dan buiten India geboekt, terwijl het gebruik in India plaatsvindt. Dit vertekent elke marktomvangschatting die op seats-in-India is gebaseerd, en verklaart waarom India's planner-populatie veel groter is dan zijn softwaremarkt.
 
@@ -47,18 +49,28 @@ India is qua *aantal planners* waarschijnlijk een van de grootste markten ter we
 
 | Cijfer | Waarde | Jaar | Bron |
 |---|---|---|---|
-| 🟩 Indiase bouwmarkt | $1,21 biljoen — derde grootste ter wereld | 2025 | Via <https://html.duckduckgo.com/html/?q=India+construction+industry+size+GDP+2025> (GlobalData/Construction Week-aggregatie) |
-| 🟩 Idem, projectie | $2,13 biljoen | 2030 | idem, 12,1% CAGR |
-| 🟩 Idem in INR | ₹25,31 biljoen, +11,2% j-o-j | 2025 | idem |
-| 🟩 Werkgelegenheid bouw | ~71 miljoen (7,1 crore); 81% ongeschoold | ~2024 | <https://economictimes.indiatimes.com/industry/indl-goods/svs/construction/> |
+| 🟥 Indiase bouwmarkt | $1,21 biljoen — derde grootste ter wereld | 2025 | Via <https://html.duckduckgo.com/html/?q=India+construction+industry+size+GDP+2025> (GlobalData/Construction Week-aggregatie) — **zie waarschuwing hieronder** |
+| 🟥 Idem, projectie | $2,13 biljoen | 2030 | idem, 12,1% CAGR |
+| 🟥 Idem in INR | ₹25,31 biljoen, +11,2% j-o-j | 2025 | idem — **NIET "idem": zie waarschuwing** |
+| 🟩 Werkgelegenheid bouw | ~71 miljoen (7,1 crore); 81% ongeschoold | **2023** (Knight Frank India/RICS-schatting, niet 2024) | <https://economictimes.indiatimes.com/industry/indl-goods/svs/construction/> |
 | 🟩 Positie als werkgever | Tweede grootste na landbouw; 12,6% van totale werkgelegenheid | — | <https://worldmetrics.org/india-construction-industry-statistics/>, <https://constructionplacements.com/construction-jobs-outlook-india-2025-2030/> |
-| 🟩 Lopende centrale infraprojecten (≥₹150 crore) | 1.987 projecten; herziene kosten ₹42,50 lakh crore vs. oorspronkelijk ₹37,09 lakh crore | juni 2026 | <https://economictimes.indiatimes.com/news/economy/infrastructure/infra-projects-see-rs-5-4-lakh-crore-cost-overrun-mospi/articleshow/131994331.cms> |
-| 🟩 Kostenoverschrijding centrale infraprojecten | ₹5,4 lakh crore (~$58 mld) | juni 2026 | idem (MoSPI Flash Report) |
+| 🟨 Lopende centrale infraprojecten (≥₹150 crore) | 1.987 projecten; herziene kosten ₹42,50 lakh crore vs. oorspronkelijk ₹37,09 lakh crore | juni 2026 | <https://economictimes.indiatimes.com/news/economy/infrastructure/infra-projects-see-rs-5-4-lakh-crore-cost-overrun-mospi/articleshow/131994331.cms> — **datering onzeker, zie noot** |
+| 🟨 Kostenoverschrijding centrale infraprojecten | ₹5,4 lakh crore (~$58 mld) | juni 2026 | idem (MoSPI Flash Report) — **recentere MoSPI-rapporten geven ₹5,65–5,66 lakh crore** |
 | 🟩 Aandeel projecten achter op schema | ~43% | 2025 | <https://www.thehindubusinessline.com/economy/indias-infrastructure-delays-cost-5-lakh-crore-finds-report/article69411380.ece> |
 | 🟩 India GCC-sector (offshore delivery centres) | $64,6 mld omzet, 1,9 mln medewerkers, 1.700+ centra | FY2024 | <https://nasscom.in/knowledge-center/publications/india-gcc-landscape-report-5-year-journey> |
 | 🟩 India engineering services outsourcing | $62,8 mld | 2025 | Via <https://search.yahoo.com/search?p=India+engineering+services+outsourcing+ER%26D+market+size> |
 
+> 🟥 **[VERIFICATIE 25-07-2026 — twee harde fouten in deze tabel]**
+>
+> **(1) "$1,21 biljoen" en "₹25,31 biljoen" zijn niet hetzelfde cijfer.** ₹25,31 biljoen (= ₹25,31 lakh crore) is bij ₹93 gelijk aan **$272 miljard**, niet $1,21 biljoen. De twee rijen verschillen een **factor 4,4** terwijl ze als "idem" zijn gelabeld. Het INR-cijfer komt van Research and Markets ("INR 25.31 trillion by 2025, +11,2%"); het USD-cijfer komt uit een andere, niet-geïdentificeerde aggregatie.
+>
+> **(2) "$1,21 biljoen" is een uitschieter, geen consensus.** Onafhankelijke metingen voor dezelfde markt/hetzelfde jaar: **Mordor Intelligence $0,74 biljoen (2025)**, **IMARC $685 mld (2025)** en **$687,4 mld (2024)**, en de Research-and-Markets-INR-reeks (~$272 mld, vermoedelijk een engere scope). Plausibiliteitstoets: India's nominale bbp FY2024-25 was **₹330,68 lakh crore** (PIB) ≈ $3,6–3,9 biljoen; $1,21 biljoen bouwmarkt zou **~31–34% van het bbp** zijn — onhoudbaar. ₹25,31 lakh crore = **7,7% van het bbp**, wat wél klopt voor bouwoutput. Gebruik de orde **$0,69–0,74 biljoen (2025)**, niet $1,21 biljoen; de projectie "$2,13 biljoen in 2030" schaalt mee omlaag naar ~$1,3 biljoen. Bronnen: <https://lite.duckduckgo.com/lite/?q=India+construction+market+size+2025+Mordor+GlobalData+billion+trillion+difference>, <https://lite.duckduckgo.com/lite/?q=India+nominal+GDP+2025+trillion+construction+sector+share+GVA+percent>
+>
+> **Effect op de rest van het rapport:** beperkt. Geen enkele schatting in §2.3 is van de bouwmarktomvang afgeleid — het cijfer wordt alleen retorisch gebruikt ("de markt is groot"). Die conclusie overleeft ook op $0,7 biljoen (nog steeds top-3 mondiaal).
+
 **Interpretatie:** 43% van de centrale infraprojecten loopt achter en er ligt ₹5,4 lakh crore aan kostenoverschrijding. Dat is de business case voor planningssoftware in één cijfer — en tegelijk het bewijs dat de bestaande planningsdiscipline niet werkt. Beide argumenten worden in Indiase verkooppitches gebruikt.
+
+> 🟨 **[VERIFICATIE — MoSPI-cijfers deels bijgesteld]** De **43%** is bevestigd: MoSPI-flashrapport via The Hindu BusinessLine, "43 per cent of projects running behind schedule, leading to cost overruns exceeding ₹5 lakh crore". Het **projectaantal en de overschrijding** zijn echter niet de meest recente: MoSPI-flashrapporten van **februari 2026 geven 1.948 projecten / ₹5,66 lakh crore** en **april 2026 1.981 projecten / ₹5,65 lakh crore**. De hier geciteerde "1.987 / ₹5,4 lakh crore (juni 2026)" past niet in die reeks — ₹5,4 lakh crore lijkt een ouder cijfer (2025). Het ET-artikel zelf was in deze verificatieronde niet ophaalbaar. Gebruik **~₹5,6–5,7 lakh crore over ~1.950–1.990 projecten** en behandel de precieze maand als onzeker. Bron: <https://lite.duckduckgo.com/lite/?q=MoSPI+flash+report+2026+central+sector+projects+150+crore+cost+overrun+delayed+percentage>
 
 ### 2.2 Softwaremarkt: de gepubliceerde cijfers (en waarom ze niet overeenkomen)
 
@@ -69,7 +81,7 @@ Er is **geen** analistenrapport dat specifiek "bouwplanning-/schedulingsoftware 
 | 🟩 India **Project Portfolio Management** software (alle sectoren) | $326,3 mln | 2024 | $764,5 mln (2029) | 18,6% | <https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/india> |
 | 🟩 India **PPM** software (afwijkende meting) | $434,61 mln | 2024 | $1.155,0 mln (2035) | 9,2% | <https://www.marketresearchfuture.com/reports/india-project-portfolio-management-software-market-61338> |
 | 🟩 India **Project Management** software | — | — | $1.166,5 mln (2030) | 22,1% | <https://www.grandviewresearch.com/horizon/outlook/project-management-software-market/india> |
-| 🟩 India **Construction Management** software | $125,32 mln | 2024 | $213,97 mln (2032) | 8,44% | <https://www.databridgemarketresearch.com/nucleus/india-construction-management-software-market> |
+| 🟥 India **Construction Management** software | $125,32 mln | 2024 | $213,97 mln (2032) | 8,44% ⚠️ **intern inconsistent** | <https://www.databridgemarketresearch.com/nucleus/india-construction-management-software-market> |
 | 🟩 India **Construction & Design** software (incl. CAD/BIM) | — | — | $1.259,9 mln (2030) | 14,3% | <https://www.grandviewresearch.com/horizon/outlook/construction-and-design-software-market/india> |
 | 🟥 India **Construction Software** (breedste scope) | $2,85 mld | 2025 | $6,72 mld (2031) | 15,3% | <https://mobilityforesights.com/product/india-construction-software-market> |
 
@@ -79,6 +91,16 @@ Er is **geen** analistenrapport dat specifiek "bouwplanning-/schedulingsoftware 
 - De twee PPM-metingen ($326,3 mln vs. $434,61 mln voor hetzelfde jaar 2024) verschillen 33%. Dat is de normale spreiding in dit segment.
 - 🟨 **[SCHATTING — eigen berekening]** Uit Grand View's $1.166,5 mln in 2030 bij 22,1% CAGR vanaf 2024 volgt een basisjaar 2024 van 1.166,5 / 1,221⁶ ≈ **$352 mln**. Dat ligt tussen de twee PPM-cijfers in en maakt de orde van grootte "India project management software ≈ $330–435 mln in 2024" redelijk robuust.
 - Data Bridge noemt als leveranciers voor construction management software in India uitsluitend: Oracle, Intuit, Trimble, Sage, Procore. 🟥 Dat is een westerse lens: geen enkele van de tientallen Indiase bouw-ERP's staat erin, terwijl die in de praktijk het MKB bedienen. Behandel de $125,32 mln daarom als een ondergrens die de lokale laag mist.
+
+> ✅ **[VERIFICATIE 25-07-2026 — brondata nagerekend]**
+>
+> **Bevestigd bij de bron:** MarketsandMarkets ($326,3 mln 2024 → $764,5 mln 2029, 18,6%; impliciete CAGR 18,56% — klopt), Grand View ($1.166,5 mln in 2030, "CAGR of 22.1% from 2024 to 2030" — de terugrekening naar $352 mln is dus correct), Data Bridge (de drie getallen staan letterlijk op de pagina, evenals de vijf-leverancierslijst Oracle/Intuit/Trimble/Sage/Procore), Mobility Foresights ($2,85 mld 2025 → $6,72 mld 2031, 15,3%; impliciete CAGR 15,37% — klopt). Market Research Future: $434,61 → $1.155 mln over 2024-2035 impliceert 9,29%, verenigbaar met de opgegeven 9,2%.
+>
+> 🟥 **Nieuw gevonden fout — Data Bridge is intern inconsistent.** $125,32 mln (2024) → $213,97 mln (2032) impliceert een CAGR van **6,92%** (over 8 jaar) of **7,94%** (over 7 jaar, dus 2025-2032) — **nooit 8,44%**. Omgekeerd: bij 8,44% over 2025-2032 zou 2032 op **$239,6 mln** uitkomen, niet $213,97 mln. Eén van de drie getallen bij Data Bridge is fout en de bron zegt niet welke. Dit cijfer draagt in §2.3 het hele ERP-modulesegment ("20–30% van een ~$125 mln markt"); dat segment erft dus een bron die zijn eigen rekensom niet rond krijgt. Rij hierboven verlaagd van 🟩 naar 🟥.
+>
+> ✅ **Mobility-Foresights-scope bevestigd, en het rapport had gelijk.** De vermoede scope-oorzaak is nu hard: de bron segmenteert zelf **By Component: Software *and Services*** en **By Application: Project Management, Cost Estimation, Field Productivity, Safety & Compliance, Document Management, BIM & Design, Asset Management**. Dat verklaart de factor 21–23 exact. De 🟥-markering is terecht en de reden is niet langer speculatie. (Precisienoot: de vergelijking is 23× t.o.v. Data-Bridge-**2024**; jaar-op-jaar vergeleken is het 21×.)
+>
+> 🟨 **Kanttekening bij "de orde van grootte is robuust":** MarketsandMarkets, Grand View en MRF meten alle drie *project(portfolio)management software over alle sectoren*. Dat drie rapporten in dezelfde bandbreedte uitkomen is zwakker bewijs dan het lijkt — dit segment kent veel onderlinge broncitatie. Het is convergentie, geen onafhankelijke bevestiging.
 
 ### 2.3 Eigen schatting: hoe groot is de CPM/Gantt-niche werkelijk?
 
@@ -98,6 +120,16 @@ Afleiding naar populatie: bij een sectorverloop van ~15–20% per jaar en een ge
 Bij conservatievere aannames (verloop 25%, openstand 2 maanden) → `2.000 / (0,25 × 0,167) ≈ 48.000`.
 
 → 🟨 **Schatting: 40.000–90.000 mensen in India met een planning/scheduling-rol in bouw, infra, EPC en olie & gas.** Middenwaarde ~60.000. Kruiscontrole: bij 71 mln bouwwerkers waarvan 19% geschoold (~13,5 mln) en een georganiseerde sector die daar een fractie van is, komt 1 planner per 30–60 stafmedewerkers bij de grote aannemers plausibel uit op deze orde.
+
+> 🟥 **[VERIFICATIE — rekenwerk nagelopen, drie problemen]**
+>
+> **(a) De rekensom klopt, de bandbreedte niet.** 2.000 / (0,18 × 0,125) = 88.889 ✓ en 2.000 / (0,25 × 0,167) = 48.000 ✓. Maar beide sommen gebruiken **alleen het middelpunt** van de eigen vacaturebandbreedte. Propageer je de opgegeven onzekerheid (1.500–2.500 vacatures) door bíede aannamesets, dan is de uitkomst **36.000–111.000**, niet 40.000–90.000: 1.500 vac → 36.000 (laag) / 66.667 (hoog); 2.500 vac → 60.000 (laag) / 111.111 (hoog). De gepresenteerde band is ~35% smaller dan de eigen aannames toelaten.
+>
+> **(b) De formule veronderstelt nulgroei.** `vacatures ≈ populatie × verloop × openstand` telt alleen **vervangingsvraag**. In een sector die volgens dit rapport zelf met 11–12% per jaar groeit, is een fors deel van de openstaande vacatures **uitbreidingsvraag**. Dat betekent dat de formule de populatie **overschat** — bij bijvoorbeeld 1/3 groeivacatures zakt de middenwaarde van ~60.000 naar ~40.000.
+>
+> **(c) "1.500–2.500 unieke vacatures" is zelf een aanname op een zwakke basis.** De inputgetallen (Naukri 573, LinkedIn 817, Glassdoor 222–391) zijn tellingen van *listings*, niet van *posities*: uitzendbureaus posten dezelfde functie meermaals, listings worden ververst, en Naukri/LinkedIn tonen ook aangrenzende rollen. Die telling drukt de schatting eveneens omhoog. In deze verificatieronde waren de Naukri-tellingen niet reproduceerbaar (de pagina rendert de aantallen via JavaScript en levert bij ophalen geen cijfers) — de vacaturebasis onder de héle §2.3-schatting is dus **niet onafhankelijk verifieerbaar**.
+>
+> **Netto:** de schatting is als *orde van grootte* ("tienduizenden, geen honderdduizenden of duizenden") verdedigbaar, maar de band moet ruimer én lager: **~30.000–90.000**, met de waarschijnlijke massa in de onderste helft. Behandel "middenwaarde ~60.000" als een bovengrensachtige waarde, niet als een centrale schatting.
 
 **Stap 2 — hoeveel daarvan zijn betaalde seats?**
 
@@ -120,6 +152,16 @@ Mix van: P6 Professional perpetual geamortiseerd over 5 jaar plus 22% support (~
 | 🟨 Planning-/voortgangsmodules binnen Indiase bouw-ERP's | ~20–30% van een ~$125 mln construction-management-softwaremarkt | **$25–40 mln/jaar** |
 | 🟨 **Totaal "planningsfunctionaliteit" in de Indiase bouw** | som, met overlapcorrectie | **≈ $45–110 mln/jaar** |
 | 🟨 waarvan **echte CPM-engine-licenties** | de smalste definitie | **≈ $8–30 mln/jaar** |
+
+> 🟥 **[VERIFICATIE — sommen nagerekend, de totaalregel klopt niet]**
+>
+> De drie segmentregels rekenen correct door: 15.000×$450 tot 35.000×$800 = **$6,8–28,0 mln** ✓; 150.000×$50 tot 400.000×$150 = **$7,5–60,0 mln** ✓; 20–30% van $125,32 mln = **$25,1–37,6 mln** ✓ (de tabel rondt de bovengrens naar $40 mln, dat is $2,4 mln royaler dan de eigen redenering).
+>
+> **De optelling niet.** De som van de segmenten is **$39,4–125,6 mln**, terwijl de totaalregel **$45–110 mln** claimt "met overlapcorrectie". Een overlapcorrectie kan een totaal alleen **verlagen**. Het verlagen van de bovengrens (126 → 110) is dus verdedigbaar; het **verhogen van de ondergrens (39 → 45) is dat niet** en wordt nergens onderbouwd. Correcte weergave: **≈ $40–110 mln/jaar**.
+>
+> Ook inconsistent: de regel "waarvan echte CPM-engine-licenties ≈ $8–30 mln" komt niet overeen met de eigen segmentregel voor zuivere bouw-CPM-tools ($7–28 mln), zonder dat wordt uitgelegd waar de extra $1–2 mln vandaan komt.
+>
+> **Doorwerking van §2.3(a-c):** omdat de seatschatting (15.000–35.000) op de te smalle en te hoge plannerpopulatie rust, is óók dit hele bouwwerk waarschijnlijk aan de hoge kant. De verdedigbare uitspraak is: **"de in India geboekte omzet voor planningsfunctionaliteit ligt in de orde van enkele tientallen miljoenen dollars per jaar, met de smalle CPM-licentiepool onder de $30 mln"** — niet de suggestie van precisie die twee decimalen en scherpe grenzen wekken.
 
 **Belangrijkste caveat:** deze getallen meten *in India geboekte omzet*. De hoeveelheid P6-werk dat fysiek in India wordt gedaan is een veelvoud daarvan, omdat de seats van westerse en Golf-klanten zijn. Wie de markt op *gebruik* meet in plaats van op *omzet*, komt makkelijk 3–5× hoger uit.
 
@@ -176,6 +218,8 @@ Bron: <https://www.shine.com/job-search/primavera-p6-tata-projects-jobs>, <https
 - defensie (Delhi, Karnataka)
 Gekochte items: P6 EPPM-licenties, P6 Team Member-licenties (perpetual én subscription), AMC/support, en Oracle-Primavera-training. Waargenomen opdrachtwaarden: **₹24,47 lakh – ₹1,99 crore** (~$26.300–$214.000).
 Bron: <https://www.tenderdetail.com/Indian-tender/oracle-primavera-tenders>
+
+> ✅🟨 **[VERIFICATIE 25-07-2026 — aantal bevestigd, bandbreedte gecorrigeerd]** De telling **65 Oracle-Primavera-tenders (2026)** staat er inderdaad, plus **370 gegunde tenderrecords**. De opgegeven ondergrens klopt echter niet: de pagina toont tenders vanaf **₹6,00 lakh** (Chandigarh, #7953449 en #7969849), niet ₹24,47 lakh. De bovengrens **₹1,99 crore** (Tamil Nadu, #33416952) is bevestigd. Correcte bandbreedte: **₹6 lakh – ₹1,99 crore** (~$6.200–$206.000 @₹96,5). Voorbehoud: tenderdetail.com is een commerciële aggregator, geen primaire aanbestedingsbron, en "65" is een momentopname die per dag verschuift.
 Voorbeeld: Ministry of Power, gepubliceerd 18 juni 2026, "Primavera P6 Enterprise Project Portfolio Management Application User Per…", sluiting 1 juli 2026 — <https://tenderimpulse.com/government-tenders/india/custom-bid-for-services-primavera-p6-enterprise-project-portfolio-management-app-13403276>
 Ook waterprojecten: RWGCL (Eastern Rajasthan Canal Project), referentie `RWGCL/09/2026-27_Primavera`, sluiting 7 juli 2026 — <https://gittigo.com/tender/detail/6a432d636b984235a13dfd31>
 
@@ -185,18 +229,43 @@ Ook waterprojecten: RWGCL (Eastern Rajasthan Canal Project), referentie `RWGCL/0
 |---|---|---|---|
 | 🟩 P6 EPPM, Indiase reseller-listing (Cynortex, New Delhi) | ₹2.84.000 /unit | ~$3.054 | <https://www.indiamart.com/proddetail/oracle-primavera-p6-eppm-22373801433.html> |
 | 🟩 P6, idem, andere listing | ₹2.49.570 /stuk | ~$2.684 | <https://www.indiamart.com/proddetail/oracle-primavera-p6-21872336330.html> |
-| 🟩 P6 EPPM basislicentie (internationaal) | ~US$2.750 per application user | ₹2,56 lakh | <https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models> |
-| 🟩 P6 Professional perpetual (internationaal, geciteerd) | ~US$3.520 per user | ₹3,27 lakh | <https://oraclelicensingexperts.com/blog/oracle-primavera-p6-licensing/> |
-| 🟩 P6 single-user, jaarlijks (schatting derde partij) | ~$2.500/jaar | ₹2,33 lakh | <https://www.itqlick.com/oracle-primavera-p6/pricing> |
+| 🟩 P6 EPPM basislicentie (internationaal) | ~US$2.750 per application user | ₹2,56 lakh | <https://www.projectmanagertemplate.com/post/primavera-p6-cost-understanding-license-vs-subscription-models> — ✅ **bevestigd bij Oracle zelf**, zie kader |
+| 🟥 P6 Professional perpetual (internationaal, geciteerd) | ~~~US$3.520 per user~~ → **US$2.500** | ~~₹3,27 lakh~~ → ₹2,33 lakh | <https://oraclelicensingexperts.com/blog/oracle-primavera-p6-licensing/> — ❌ **weerlegd door Oracle's eigen prijslijst**, zie kader |
+| 🟥 P6 single-user, jaarlijks (schatting derde partij) | ~$2.500/jaar | ₹2,33 lakh | <https://www.itqlick.com/oracle-primavera-p6/pricing> — ⚠️ **$2.500 is Oracle's *perpetual* listprijs voor P6 Professional, geen jaarbedrag**; vermoedelijk verhaspeld |
 | 🟩 Oracle Primavera Cloud (OPC) **Schedule**, min. 5 licenties | £950 /licentie/jaar | ~$1.270 / ₹1,18 lakh | Oracle-reseller-prijsdocument (th3rdcurve, UK G-Cloud 14, ingangsdatum 30 apr 2024) — <https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/710699/219564152717676-pricing-document-2024-05-03-1330.pdf> |
 | 🟩 P6 EPPM Cloud Service | £358 (min. 1) tot £2.185 (min. 25) /licentie/jaar 🟥 tabel is dubbelzinnig over welke SKU welke prijs heeft | ~$479–$2.928 | idem |
 | 🟩 OPC add-ons (Cost Controls, Capital Planning, Project Delivery Mgmt, Real Estate Mgmt, Facility Mgmt) | £7.549 /jaar per add-on | ~$10.100 | idem |
 | 🟩 Primavera Unifier Facilities & Asset Mgmt (min. 25) | £1.311 /licentie/jaar | ~$1.755 | idem |
-| 🟩 P6 cloud, marktnotering | ~$175/gebruiker/maand | ₹16.275/maand | via <https://contractorsandbuilders.com/pricing/oracle-primavera/> |
-| 🟩 Oracle support/maintenance | ~22% van de licentiewaarde per jaar | — | via zoekresultaat Oracle Technology Global Price List |
+| 🟥 P6 cloud, marktnotering | ~$175/gebruiker/maand | ₹16.275/maand | via <https://contractorsandbuilders.com/pricing/oracle-primavera/> — ⚠️ **40% boven Oracle's eigen listprijs van $125/hosted named user/maand**, zie kader |
+| 🟩 Oracle support/maintenance | ~22% van de licentiewaarde per jaar | — | ✅ **exact bevestigd** bij Oracle: $605/$2.750 = 22,00%; $550/$2.500 = 22,00% |
 | 🟩 GST bovenop softwarelicenties in India | 18% (SAC 998434) | — | <https://gstbillmaker.in/sac-code/998434-software-downloads/>, <https://www.indiafilings.com/learn/sac-code-gst-rate-it-services> |
 
 **Belangrijke observatie over de prijsstelling:** Oracle publiceert **geen India-specifieke prijslijst**. De officiële Oracle-India-pagina bevat geen enkel prijscijfer en verwijst naar "contact sales". Bron: <https://www.oracle.com/in/construction-engineering/primavera-p6/>. Alle India-prijzen die je vindt zijn resellernoteringen. Dat betekent dat korting volledig onderhandeld is en dat een grote Indiase EPC bijna zeker fors onder de listing zit — hoe fors is niet publiek.
+
+> ✅🟥 **[VERIFICATIE 25-07-2026 — Oracle's EIGEN prijslijst gevonden; drie correcties]**
+>
+> Het rapport noemt het UK-G-Cloud-resellerdocument "de hardste publieke prijslijst die ik vond" (§7). Dat klopt niet: **Oracle publiceert zelf een `Oracle Construction & Engineering Global Price List`** (Software Investment Guide, versie Texas DIR-TSO-2539, gedateerd **10 november 2016**, in USD): <https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf>. Daaruit, letterlijk (licentieprijs / jaarlijkse support / metric):
+>
+> | Product | Licentie | Support/jaar | Metric |
+> |---|---|---|---|
+> | Primavera P6 Enterprise Project Portfolio Management | **$2.750** | $605,00 | Application User |
+> | Primavera P6 Progress Reporter | $950 | $209,00 | Application User |
+> | Primavera P6 Professional Project Management | **$2.500** | $550,00 | Application User |
+> | Primavera P6 EPPM **Cloud Service** | **$125/maand** | — | Hosted Named User (min. 25) |
+>
+> **(1) $2.750 voor P6 EPPM: bevestigd** — en nu bij de fabrikant zelf in plaats van via een blog. Upgrade van "geciteerd" naar "primair".
+>
+> **(2) "$3.520 per user" voor P6 Professional: weerlegd.** Oracle's listprijs is **$2.500**. Het cijfer van oraclelicensingexperts.com is 41% te hoog en heeft geen fabrikantsdekking. Dat maakt ook de rapportzin "een P6-licentie kost ongeveer een half jaarsalaris van een junior planner" iets minder scherp, maar niet onwaar (₹2,4–2,6 lakh vs. ₹5,5 lakh blijft ~45%).
+>
+> **(3) 22% support: exact bevestigd** — $605/$2.750 en $550/$2.500 zijn beide precies 22,00%. Dit was in het rapport een "via zoekresultaat"-claim; die is nu hard.
+>
+> **(4) "~$175/user/maand" cloud: waarschijnlijk te hoog.** Oracle's eigen listprijs voor P6 EPPM Cloud Service is **$125 per hosted named user per maand** (min. 25). Het G-Cloud-resellercijfer (£950/jaar ≈ $106/maand voor OPC Schedule) ligt in dezelfde orde; de $175 van contractorsandbuilders.com is de uitschieter en heeft geen primaire dekking.
+>
+> ⚠️ **Ouderdomsvoorbehoud:** deze prijslijst is uit 2016. Oracle's *actuele* listprijzen kunnen hoger liggen, en de cloud-SKU's zijn sindsdien hernoemd (Oracle Primavera Cloud). Als anker voor de orde van grootte en voor het 22%-supportpercentage is hij desondanks veruit de sterkste bron in dit rapport.
+>
+> ✅ **Zijeffect: de IndiaMART-noteringen worden hierdoor plausibeler.** ₹2,84,000 = $2.978 (@₹95,37) tegen Oracle's $2.750 listprijs voor P6 EPPM = +8% marge; ₹2,49,570 = $2.617 tegen $2.500 voor P6 Professional = +5%. Beide Indiase resellernoteringen vallen dus vrijwel exact op Oracle's listprijs plus een kleine marge — sterke indirecte bevestiging. (De IndiaMART-pagina's zelf gaven in deze ronde herhaaldelijk HTTP 429 en konden niet worden herbevestigd; zie §Verificatie.)
+>
+> De kernclaim van deze alinea — **geen India-specifieke prijslijst, alles onderhandeld** — blijft overeind.
 
 **Indiase Oracle-Primavera-resellers/partners (niet-uitputtend):**
 - ImageGrafix Engineering Services Pvt Ltd — New Delhi & Chennai — <https://imagegrafix.in/oracle-primavera-partner-reseller-in-new-delhi-india/>
@@ -288,6 +357,14 @@ Dat prijsverschil van ~15–50× is precies waarom de offshore-planningsindustri
 **Cruciaal detail bij Zoho Projects:** Gantt zit in álle plannen, maar **kritiek pad, baseline en resource-utilisatie zitten pas vanaf Enterprise** (₹700/user/maand). Bron: <https://www.zoho.com/projects/zohoprojects-pricing.html> (featurematrix geverifieerd 25-07-2026).
 Dat betekent: het goedkoopste betaalde plan met échte CPM in India kost ₹700/user/maand = ₹8.400/jaar (~$90/jaar). Dat is de prijsvloer waar een commerciële CPM-tool in India tegenaan botst.
 
+> ✅🟥 **[VERIFICATIE 25-07-2026 — feature-claim bevestigd, prijsclaim verzwakt]**
+>
+> **Bevestigd:** in Zoho's eigen featurematrix is **Enterprise het eerste plan met zowel Critical Path als Baseline**. De strategisch belangrijkste bevinding van deze paragraaf houdt dus stand.
+>
+> **Gecorrigeerd:** "**resource-utilisatie**" staat niet als zodanig in die matrix. Enterprise bevat "Resources (Add-on)" — *"Add and track equipments that are used in performing project activities"* — dat is materieelregistratie, niet resource-utilisatie/-histogrammen. Schrap dat derde element of herformuleer het.
+>
+> 🟥 **Prijsbron verzwakt van 🟩 naar 🟥:** op **zowel de internationale als de India-prijspagina van Zoho staat géén enkel bedrag** (`zoho.com/in/projects/zohoprojects-pricing.html` geeft 404; de internationale pagina verwijst naar sales@zohocorp.com). De bedragen ₹350 en ₹700 rusten uitsluitend op **partner-/marktplaatspagina's** (itforsme.in, creatofly.com), met Techjockey op een derde, afwijkend cijfer ("vanaf ₹280/user/maand"). Er is dus **geen primaire Zoho-bron** voor ₹350/₹700. Plausibiliteitstoets: Zoho's internationale listprijzen zijn $5 en $10/user/maand ≈ ₹477/₹954 @₹95,37 — de Indiase bedragen zijn ~27% lager, wat consistent is met Zoho's bekende India-korting, maar niet bewijst dat déze bedragen actueel zijn. **Behandel de "prijsvloer van ₹8.400/jaar" als indicatief, niet als vastgesteld.**
+
 **Zoho als bedrijf.** 🟩 FY25-omzet ₹12.313 crore (~$1,32 mld), +17,7% j-o-j vanaf ₹10.456 crore in FY24; nettowinst ₹3.191 crore. Eerste bootstrapped Indiase bedrijf boven ₹12.000 crore.
 Bronnen: <https://entrackr.com/fintrackr/zoho-reports-rs-12313-cr-revenue-and-rs-3191-cr-profit-in-fy25-11701761>, <https://cio.economictimes.indiatimes.com/news/investments/saas-firm-zohos-revenue-up-by-17-7-yoy-profits-slow-down/130134589>
 
@@ -303,8 +380,10 @@ Bron: <https://www.constructionplacements.com/top-construction-erp-software-indi
 #### 3.6.1 Powerplay (Bengaluru)
 
 - **Wat:** "India's 1st all-in-one construction management software"; mobile-first; 85.000+ projecten beheerd volgens de leverancier. <https://www.getpowerplay.in>
+  > 🟨 **[VERIFICATIE]** "**85.000+**" staat inderdaad in de statistiekensectie van getpowerplay.in ✓ (leveranciersclaim, niet onafhankelijk gemeten). De aangehaalde slogan "**India's 1st all-in-one construction management software**" **komt niet voor op de homepage** in de opgehaalde versie van 25-07-2026 — het citaat is niet reproduceerbaar en moet als niet-geverifieerd worden behandeld of van een andere vindplaats worden voorzien.
 - **Prijs:** 🟩 Pro (Manpower Management) ₹71.999/jaar (~$774); Pro+ ₹1.19.999/jaar (~$1.290). Bron: <https://www.techjockey.com/detail/powerplay>
   🟥 Een concurrerende vergelijkingsblog noteert "₹2.000+/maand" (~₹24.000/jaar) — dat is onverenigbaar met de Techjockey-notering en betreft vermoedelijk een instapplan of verouderde prijs. Bron: <https://sitesetu.in/blog/top-10-construction-management-software-india-2026>
+  > ✅🟨 **[VERIFICATIE]** Techjockey-bedragen bevestigd: "Pro-Manpower Management — **Starting at ₹71999**", "Pro+ — **₹119999**", beide met facturatiefrequentie **Yearly**; de pagina toont daarnaast "₹1.19.999 excl. GST / ₹1.41.599 incl. GST". **Correctie op de aanduiding "per jaar (bedrijf)":** Techjockey noemt expliciet "**Licenses**" als prijsvariabele en de woorden "Starting at". Het is dus vermoedelijk een **bundelprijs die met het aantal licenties meeschaalt**, geen vaste bedrijfsprijs. De aanduiding "(bedrijf)" in §4.1 is niet gedekt. Daarmee wordt de tegenstrijdigheid met "₹2.000+/maand" ook begrijpelijker: dat kan een per-gebruiker-instaptarief zijn naast een bundelminimum. De 🟥-markering blijft terecht.
 - **Planning:** "Track Schedule, milestones upto 7 levels", taken met fotoupdates, planned-vs-actual kosten. Geen CPM-solver, geen float, geen kritiek pad.
 - **Reviews:** 🟩 Capterra India 4,5/5 (8 reviews); ease of use 4,6; support 4,9; value for money 4,6; 90% zou aanbevelen. Techjockey 4,1/5 (6 ratings).
 - **Voordelen (uit reviews):** materiaalinkoop/GRN/indent-formulieren "really useful and easy compare to excel"; arbeidsaanwezigheid; DPR's; foto- en communicatie-uitwisseling; sterke mobiele adoptie op de bouwplaats; uitstekende support.
@@ -315,6 +394,7 @@ Bron: <https://www.constructionplacements.com/top-construction-erp-software-indi
 
 - **Wat:** field-to-office-integratie, geautomatiseerde DPR's, onderaannemersfacturatie; 10.000+ teams volgens de leverancier.
 - **Prijs:** 🟩 "vanaf ₹12.000/gebruiker/jaar" (~$129/jaar) — <https://onsiteteams.com/onsite-pricing/>. 🟥 Een vergelijkingsblog noemt "₹1.500+/maand" (~₹18.000/jaar) — zelfde orde van grootte.
+  > ✅ **[VERIFICATIE 25-07-2026 — bevestigd én aangevuld; de "tegenstrijdigheid" bestaat niet]** De prijspagina toont **drie** tiers, niet één: **Business ₹12.000 + GST/gebruiker/jaar** (minimumafname 3 gebruikers → **vloer ₹36.000/jaar**), **Business+ ₹15.000 + GST/gebruiker/jaar** (min. ₹45.000/jaar), en **Enterprise "Custom Pricing Starting from ₹12L+/Year + GST"** met onbeperkt gebruikers. De pagina meldt dat jaarfacturatie ~23% goedkoper is dan maandfacturatie. Daarmee lost de gemarkeerde tegenstrijdigheid op: ₹15.000/jaar jaarlijks gefactureerd ≈ **₹1.538/maand** bij maandfacturatie — precies de "₹1.500+/maand" uit de vergelijkingsblog. **Geen conflict; het zijn dezelfde prijzen in een ander facturatieritme.** Wél te corrigeren in het rapport: (a) de minimumafname van 3 gebruikers ontbreekt, waardoor "vanaf ₹12.000" de feitelijke instapdrempel met factor 3 onderschat, en (b) het Enterprise-tier van ₹12 lakh+ ontbreekt volledig, wat het beeld "goedkoopst in zijn klasse" eenzijdig maakt.
 - **Reviews:** 🟩 G2 4,9/5 (8 reviews); Trustpilot 4,4/5 (11 reviews). Lage reviewaantallen: behandel met voorzichtigheid.
 - **Voordelen:** goedkoopst in zijn klasse; snelle onboarding voor kleine teams; mobiele meldingen die kostenoverschrijdingen vroeg signaleren; sterk op infra/EPC-veldwerk.
 - **Nadelen:** beperkt multi-site-dashboard; geen GST-facturatie; geen CPM.
@@ -403,9 +483,11 @@ Gemeenschappelijke kenmerken:
 | Desktop CPM | MS Project Professional 2024 | eenmalig | ₹1.00.599 | ~$1.082 |
 | Generalist | Zoho Projects Premium (Gantt, géén CPM) | per user/maand, jaarlijks | ₹350 | ~$3,76 |
 | Generalist | Zoho Projects Enterprise (**wel** kritiek pad/baseline) | per user/maand | ₹700 | ~$7,53 |
-| Lokaal ERP | Powerplay Pro | per jaar (bedrijf) | ₹71.999 | ~$774 |
-| Lokaal ERP | Powerplay Pro+ | per jaar (bedrijf) | ₹1.19.999 | ~$1.290 |
-| Lokaal ERP | Onsite | per user/jaar | ₹12.000 | ~$129 |
+| Lokaal ERP | Powerplay Pro | per jaar, "starting at", schaalt met licenties 🟨 (**niet** aantoonbaar per bedrijf) | ₹71.999 | ~$774 |
+| Lokaal ERP | Powerplay Pro+ | idem (₹1.41.599 incl. GST) | ₹1.19.999 | ~$1.290 |
+| Lokaal ERP | Onsite **Business** | per user/jaar + GST, **min. 3 users (₹36.000/jaar)** | ₹12.000 | ~$129 |
+| Lokaal ERP | Onsite **Business+** ✳️ *ontbrak* | per user/jaar + GST, min. 3 users | ₹15.000 | ~$161 |
+| Lokaal ERP | Onsite **Enterprise** ✳️ *ontbrak* | per jaar, onbeperkt users | vanaf ₹12 lakh | ~$12.900 |
 | Lokaal ERP | StrategicERP | eenmalig | ₹4.16.700 | ~$4.481 |
 | Lokaal ERP | Bhoomi | per user/maand | ₹975 | ~$10,5 |
 | Lokaal ERP | Buildrun | per maand | ₹3.000+ | ~$32+ |
@@ -464,6 +546,16 @@ Directe verifieerbare inhoud (letterlijk uit de norm, door mij uit de PDF geëxt
 - **Baselinebeheer:** "Before revising the baseline, the original schedule baseline shall be saved to store historical scheduling data."
 - **Delay analysis** op activiteitsniveau met toewijzing van verantwoordelijkheid en kostengevolg; variantie- en trendanalyse via S-curve (Annex C) en earned value management (Annex B).
 - **Softwareverwachting:** "Users of this standard are encouraged to employ suitable construction management software as an aid to implement provisions of this standard."
+
+> ✅ **[VERIFICATIE 25-07-2026 — volledig bevestigd uit een tweede, onafhankelijke bron]** Ik heb de norm opnieuw opgehaald uit de BIS-tekst op **law.resource.org** (`https://law.resource.org/pub/in/bis/S03/is.15883.2.2013.pdf`, 38 pagina's, BIS © 2013, februari 2013, comité CED 29) — dus niet uit de cracindia.in-kopie die het rapport gebruikte — en de tekst lokaal geëxtraheerd. **Alle citaten hierboven kloppen woordelijk**, inclusief:
+> - clausule 6.1.8.2: *"Precedence diagram method or activity on node method given in 7 of IS 14580 (Part 2) shall be used for time scheduling"*, gevolgd door *"Forward pass and backward pass calculations for the network diagram"*;
+> - de deliverable-lijst a) t/m f) letterlijk zoals geciteerd, inclusief *"Total float and free float of each activity and project milestones"* en *"Critical activities and project critical path"*;
+> - *"Line of balance (LOB) technique shall be used for scheduling repetitive projects, like similar buildings, very high rise buildings, etc; linear type segmented works like roads, airfields, tunnels, pipelines"*;
+> - *"Before revising the baseline, the original schedule baseline shall be saved to store historical scheduling data"*;
+> - *"Programme evaluation and review technique (PERT) and monte carlo simulation technique commonly used, may be utilized to perform schedule risk analysis"*;
+> - tweemaal de softwareverwachting, o.a. *"For automation of time scheduling process and other processes given in subsequent clauses, suitable construction management software may be employed."*
+>
+> **Dit is de best onderbouwde bevinding van het hele rapport** — de enige waarbij een primaire, officiële tekst woord voor woord reproduceerbaar was. Eén niet-geverifieerd detail: de status "**herbevestigd 2023**" staat niet in de PDF uit 2013 zelf (de BIS-catalogus- en scope-endpoints gaven 403/onleesbare respons); die status blijft dus onbevestigd, al doet het er voor de strekking niet toe.
 
 **Bijbehorende normen:**
 - IS 14580 (Part 1) : 1998 — Use of network analysis for project management: Management, planning, review, reporting and termination procedures
@@ -544,10 +636,16 @@ Bronnen: <https://taxguru.in/corporate-law/quarterly-updates-rera-mandatory-comp
 
 | Bevinding | Waarde | Jaar | Bron |
 |---|---|---|---|
-| 🟩 India als markt voor onrechtmatig softwaregebruik | **Derde meest getroffen ter wereld**, na China en Rusland (Revenera Monetization Monitor 2025) | 2025 | <https://www.mondaq.com/india/copyright/1726870/unauthorised-software-usage-in-india-legal-remedies-and-enforcement-trends> |
-| 🟩 Niet-gelicentieerde installaties India (laatste harde BSA-meting) | **58%** (was 60% in 2013) | 2015 | <https://www.bsa.org/news-events/news/use-of-unlicensed-software-at-58-percent-in-india-new-bsa-survey-finds> |
+| 🟨 India als markt voor onrechtmatig softwaregebruik | ~~Derde meest getroffen ter wereld, ná China en Rusland~~ → **behoort tot de drie zwaarst getroffen markten, samen met China en Rusland** | 2025 | <https://www.mondaq.com/india/copyright/1726870/unauthorised-software-usage-in-india-legal-remedies-and-enforcement-trends> |
+| 🟨 Niet-gelicentieerde installaties India (~~laatste~~ **laatst gevonden** harde BSA-meting) | **58%** (was 60% in 2013) | 2015 | <https://www.bsa.org/news-events/news/use-of-unlicensed-software-at-58-percent-in-india-new-bsa-survey-finds> |
 | 🟩 Eerder genoemd percentage | 65% | eerder | <https://www.ifsecglobal.com/india-region/reducing-pc-software-piracy-crucial-for-india-study/> |
 | 🟩 Wereldwijd gemiddelde ter vergelijking | ~37–42% | 2024/2025 | via <https://blog.tebani.com/post/software-piracy-statistics> |
+
+> 🟨 **[VERIFICATIE 25-07-2026 — twee overpreciese formuleringen bijgesteld]**
+>
+> **(1) "Derde meest getroffen ter wereld" is een te sterke lezing.** De onderliggende Revenera-formulering luidt "*unlicensed usage peaking in China, Russia, and India*" — dat is een **groepering van drie landen, geen rangorde**. Nergens staat dat India specifiek nummer 3 is, of dat China nummer 1 en Rusland nummer 2 is. Kernbevinding 9 in §1 moet dienovereenkomstig worden afgezwakt.
+>
+> **(2) "Laatste harde BSA-meting (2015)" is waarschijnlijk onjuist.** BSA publiceerde ná die editie nog een **Global Software Survey in 2018** (meetjaar 2017, "more than 110 national and regional economies", wereldwijd 37% / $46,3 mld). India valt binnen die dekking en is dus vrijwel zeker in 2018 opnieuw gemeten. Het India-specifieke percentage uit de 2018-editie was in deze verificatieronde niet te achterhalen (BSA-rapportpagina niet ophaalbaar). **Onzeker:** het 58%-cijfer is dan niet de laatste meting maar de laatst *gevonden* meting, en is inmiddels ~9 jaar oud. Herformuleer, of haal het India-cijfer uit de BSA-2018-editie op. Bron: <https://lite.duckduckgo.com/lite/?q=BSA+global+software+survey+India+unlicensed+software+rate+2018+percent>
 
 **Juridisch kader en handhaving:**
 - Software valt onder "literary work" in de Copyright Act 1957. Voor aansprakelijkheid moet "conscious and commercial deployment" worden aangetoond.
@@ -625,7 +723,8 @@ Bronnen: <https://taxguru.in/corporate-law/quarterly-updates-rera-mandatory-comp
 ### Primavera / Oracle
 - Oracle India — Primavera P6 (geen prijzen): <https://www.oracle.com/in/construction-engineering/primavera-p6/>
 - Oracle Construction & Engineering — service descriptions: <https://www.oracle.com/a/ocom/docs/industries/construction-engineering/cegbu-service-descriptions.pdf>
-- Oracle-reseller prijsdocument (UK G-Cloud 14, th3rdcurve, 30 apr 2024) — **de hardste publieke prijslijst die ik vond**: <https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/710699/219564152717676-pricing-document-2024-05-03-1330.pdf>
+- ⭐ **Oracle Construction & Engineering Global Price List** (Oracle zelf; Software Investment Guide, Texas DIR-TSO-2539, 10-11-2016) — **de werkelijk hardste publieke prijslijst; gevonden tijdens de verificatieronde**. Bevat P6 EPPM $2.750 + $605 support, P6 Professional $2.500 + $550, P6 EPPM Cloud Service $125/hosted named user/maand: <https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf>
+- Oracle-reseller prijsdocument (UK G-Cloud 14, th3rdcurve, 30 apr 2024) — ~~de hardste publieke prijslijst die ik vond~~ (achterhaald door de Oracle-prijslijst hierboven): <https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/710699/219564152717676-pricing-document-2024-05-03-1330.pdf>
 - Oracle Primavera G-Cloud 14 service definition: <https://assets.applytosupply.digitalmarketplace.service.gov.uk/g-cloud-14/documents/717959/423103118187025-pricing-document-2024-05-03-0915.pdf>
 - IndiaMART — Primavera P6 EPPM ₹2.84.000: <https://www.indiamart.com/proddetail/oracle-primavera-p6-eppm-22373801433.html>
 - IndiaMART — Primavera P6 ₹2.49.570: <https://www.indiamart.com/proddetail/oracle-primavera-p6-21872336330.html>
@@ -687,6 +786,7 @@ Bronnen: <https://taxguru.in/corporate-law/quarterly-updates-rera-mandatory-comp
 ### Indiase normen
 - IS 15883 (Part 2) : 2013 — Construction Project Management, Time Management (volledige tekst): <https://archive.org/details/gov.in.is.15883.2.2013>
 - IS 15883 Part 2 — PDF (gebruikt voor tekstextractie): <https://www.cracindia.in/admin/uploads/IS-15883---2.pdf>
+- ⭐ IS 15883 Part 2 — **onafhankelijke tweede kopie van de BIS-tekst**, gebruikt bij de verificatie (alle citaten woordelijk herbevestigd): <https://law.resource.org/pub/in/bis/S03/is.15883.2.2013.pdf>
 - BIS catalogus IS 15883 Part 2 (status actief, herbevestigd 2023): <https://standardsbis.bsbedge.com/BIS_SearchStandard.aspx?Standard_Number=IS%2015883%20Part%202&id=193>
 - BIS scope IS 15883 Part 2: <https://www.services.bis.gov.in/php/BIS_2.0/bisconnect/Group_wise_standards_list/show_scope?row=MTkz>
 - InfraLens — IS-codebibliotheek (2.374 IS-codes, 136 IRC-standaarden): <https://infralens.in/code/IS-15883-Part-2-2013>
@@ -788,3 +888,49 @@ Eerlijkheidshalve, zodat je weet wat je wel en niet aan dit rapport hebt:
 7. **De BSA-piraterijmeting is uit 2015.** Er is geen recentere landelijke meting gevonden; de Revenera-2025-ranking is kwalitatief (positie, geen percentage).
 8. **Ik heb geen primaire Indiase contractclausules ingezien** die Primavera bij naam eisen — die conclusie is afgeleid uit aanbestedingsgedrag en vacaturedata.
 9. **Hindi-zoekwerk leverde weinig substantie op** — dat is zelf een bevinding (§5.6), maar het betekent ook dat er mogelijk lokale kennis in besloten fora, WhatsApp-groepen of Telegram-kanalen zit die via het open web niet vindbaar is.
+
+---
+
+## Verificatie
+
+**Adversariële fact-check, uitgevoerd 25 juli 2026.** Opzet: 15 falsifieerbare kernbeweringen geselecteerd (marktomvang en afleidingen, prijzen, marktleiderschap, normen/mandaten, claims over lokale pakketten) en **actief geprobeerd te weerleggen** — bij voorkeur uit andere bronnen dan het rapport gebruikte, en met alle rekensommen zelf nagerekend.
+
+**Methodische beperking van déze verificatieronde:** het WebSearch-budget van de sessie was uitgeput (200/200); alle controles zijn gedaan via directe paginabezoeken en via DuckDuckGo-lite/html als fetch-doel. IndiaMART (HTTP 429), Grand View Research (403), exchange-rates.org (403), Economic Times (geblokkeerd), BIS-catalogus (403) en Naukri (JS-rendering) waren niet ophaalbaar. Waar dat de uitkomst bepaalt, staat het hieronder.
+
+| # | Bewering | Oordeel | Toelichting | Bron |
+|---|---|---|---|---|
+| 1 | **IS 15883 (Part 2) : 2013 schrijft PDM/AON voor en eist ES/EF, LS/LF, TF én FF, kritieke activiteiten en berekende duur** | ✅ **bevestigd** | Volledige normtekst opgehaald uit een **tweede, onafhankelijke bron** (law.resource.org i.p.v. cracindia.in), 38 pagina's, lokaal geëxtraheerd. Alle geciteerde clausules kloppen **woordelijk**, inclusief LOB-verplichting, PERT/Monte Carlo, baseline-bewaarplicht en de softwareverwachting. Sterkste bevinding van het rapport. Alleen "herbevestigd 2023" bleef onbevestigd (BIS-endpoints 403). | <https://law.resource.org/pub/in/bis/S03/is.15883.2.2013.pdf> |
+| 2 | **Marktomvang: "geen rapport meet bouwplanningsoftware in India; de gepubliceerde cijfers meten vier scopes"** | ✅ **bevestigd** | Alle vijf de geciteerde cijfers staan letterlijk bij de bron; de scopes verschillen inderdaad. MarketsandMarkets ($326,3→$764,5 mln, 18,6%): impliciete CAGR 18,56% ✓. Grand View ($1.166,5 mln 2030, "22,1% from 2024 to 2030"): terugrekening naar $352 mln in 2024 ✓. MRF ($434,61→$1.155 mln, 2024-2035): impliceert 9,29% ✓. | <https://www.marketsandmarkets.com/Market-Reports/geography/project-portfolio-management-software-market/india>, <https://lite.duckduckgo.com/lite/?q=Grand+View+Research+India+project+management+software+market+2030+1166.5+million+22.1> |
+| 3 | **Data Bridge: India construction management software $125,32 mln (2024) → $213,97 mln (2032), 8,44% CAGR** | ❌ **gecorrigeerd** | Getallen staan er letterlijk (incl. forecastperiode 2025-2032 en de vijf-leverancierslijst) — maar zijn **intern onmogelijk**. $125,32 → $213,97 impliceert **6,92%** (8 jr) of **7,94%** (7 jr), nooit 8,44%. Bij 8,44% zou 2032 op **$239,6 mln** uitkomen. Rij verlaagd van 🟩 naar 🟥. Draagt in §2.3 het hele ERP-modulesegment. | <https://www.databridgemarketresearch.com/nucleus/india-construction-management-software-market> |
+| 4 | **Mobility Foresights $2,85 mld (2025) → $6,72 mld (2031), 15,3% — markeren als onbetrouwbaar, 23× Data Bridge** | ✅ **bevestigd, en versterkt** | CAGR intern consistent (15,37%). De 23× klopt t.o.v. Data-Bridge-2024 (22,7×); jaar-op-jaar is het 21×. Het vermoede scope-probleem is nu **hard bewezen uit de bron zelf**: segmentatie "By Component: Software **and Services**" en "By Application: … Document Management, **BIM & Design**, Asset Management". De 🟥-markering is terecht en niet langer speculatie. | <https://mobilityforesights.com/product/india-construction-software-market> |
+| 5 | **Macro: Indiase bouwmarkt $1,21 biljoen (2025), derde ter wereld; "idem in INR ₹25,31 biljoen"** | ❌ **gecorrigeerd — zwaarste fout in het rapport** | (a) De twee rijen zijn **niet hetzelfde cijfer**: ₹25,31 biljoen = **$272 mld** @₹93, een **factor 4,4** verschil, terwijl ze als "idem" gelabeld staan. (b) $1,21 biljoen is een **uitschieter**: Mordor $0,74 bln, IMARC $685 mld (2025) / $687 mld (2024). (c) Plausibiliteitstoets: nominaal bbp FY25 ₹330,68 lakh crore ≈ $3,6–3,9 bln; $1,21 bln zou **31–34% van het bbp** zijn (onhoudbaar), ₹25,31 lakh crore is 7,7% (klopt). Gebruik **$0,69–0,74 bln (2025)**. Doorwerking beperkt: het cijfer draagt geen enkele schatting, alleen de retoriek. | <https://lite.duckduckgo.com/lite/?q=India+construction+market+size+2025+Mordor+GlobalData+billion+trillion+difference>, <https://lite.duckduckgo.com/lite/?q=India+nominal+GDP+2025+trillion+construction+sector+share+GVA+percent> |
+| 6 | **Macro: MoSPI 1.987 projecten, ₹5,4 lakh crore overschrijding (juni 2026), ~43% achter op schema** | ⚠️ **deels gecorrigeerd** | **43% bevestigd** (MoSPI via The Hindu BusinessLine: "43 per cent of projects running behind schedule, leading to cost overruns exceeding ₹5 lakh crore"). Projectaantal/overschrijding **niet actueel**: MoSPI feb-2026 = 1.948 / ₹5,66 lakh crore; apr-2026 = 1.981 / ₹5,65 lakh crore. "₹5,4 lakh crore in juni 2026" past niet in die reeks. Gebruik **~₹5,6–5,7 lakh crore over ~1.950–1.990 projecten**. ET-artikel zelf niet ophaalbaar. | <https://lite.duckduckgo.com/lite/?q=MoSPI+flash+report+2026+central+sector+projects+150+crore+cost+overrun+delayed+percentage> |
+| 7 | **Macro: ~71 mln bouwwerkers, 81% ongeschoold, tweede werkgever na landbouw** | ✅ **bevestigd** (datering gecorrigeerd) | Cijfers kloppen, maar het zijn **Knight Frank India/RICS-schattingen uit 2023**, niet "~2024". Bijstelling in de tabel doorgevoerd. Idem bevestigd: Zoho FY25 ₹12.313 crore / ₹3.191 crore winst (8 onafhankelijke publicaties) en SoftTech FY24/25/26 = ₹79/95/133 crore, winst FY26 ₹5 crore, mcap ₹580 crore (screener.in). | <https://lite.duckduckgo.com/lite/?q=India+construction+workers+71+million+unskilled+81+percent+second+largest+employer>, <https://www.screener.in/company/SOFTTECH/consolidated/> |
+| 8 | **Eigen schatting: 40.000–90.000 planners, 15.000–35.000 betaalde seats, $450–800/seat, totaal $45–110 mln** | ❌ **gecorrigeerd (drie rekenfouten)** | (a) Populatieformule rekent correct (88.889 / 48.000 ✓), maar gebruikt alleen het **middelpunt** van de eigen vacaturebandbreedte; propagatie van 1.500–2.500 geeft **36.000–111.000**, niet 40.000–90.000. (b) De formule telt alleen **vervangingsvraag** — in een sector die 11–12%/jaar groeit is een deel uitbreidingsvraag, wat de populatie **overschat**. (c) De segmentsom is **$39,4–125,6 mln**, niet $45–110 mln; een "overlapcorrectie" kan een totaal alleen **verlagen**, dus het optrekken van de ondergrens van 39 naar 45 is onverdedigbaar. Ook: "waarvan CPM-licenties $8–30 mln" ≠ de eigen segmentregel ($7–28 mln). Verdedigbaar blijft: **orde van enkele tientallen miljoenen dollars, smalle CPM-pool onder $30 mln**. | eigen herberekening; vacaturebasis niet reproduceerbaar (Naukri rendert tellingen via JS) |
+| 9 | **Primavera P6-prijzen (P6 EPPM ~$2.750; P6 Professional ~$3.520; ~$175/user/maand cloud; 22% support; "Oracle publiceert geen prijslijst")** | ❌ **gecorrigeerd — belangrijkste prijsvondst** | **Oracle publiceert wél een eigen prijslijst**: `Oracle Construction & Engineering Global Price List` (Texas DIR-TSO-2539, 10-11-2016, USD). Daaruit: **P6 EPPM $2.750 + $605 support/jaar** (bevestigt het rapport, nu primair); **P6 Professional $2.500 + $550** — het geciteerde **$3.520 is 41% te hoog en weerlegd**; **P6 EPPM Cloud Service $125/hosted named user/maand (min. 25)** — de "$175/user/maand" is 40% boven Oracle-list; **22% support exact bevestigd** ($605/$2.750 = 22,00%). Zijeffect: de IndiaMART-noteringen (₹2,84 lakh = $2.978; ₹2,49 lakh = $2.617) vallen op Oracle-list +5–8% en worden dus indirect plausibel — al gaf IndiaMART zelf herhaaldelijk HTTP 429. Voorbehoud: prijslijst is uit 2016. De claim "**geen India-specifieke** prijslijst" blijft staan. | <https://www.oracle.com/us/corporate/pricing/primavera-pricelist-tx-3673322.pdf> |
+| 10 | **Microsoft Project India: Standard 2024 ₹51.399, Professional 2024 ₹1.00.599, Plan 1/3/5 niet in INR vermeld** | ✅ **bevestigd** | Woordelijk bevestigd op de officiële Microsoft-India-pagina: "₹ 51,399.00" en "₹ 1,00,599.00", beide eenmalig; Project Server Subscription Edition zonder prijs met "Find a partner"; Plan 1/3/5 inderdaad **niet** op deze pagina geprijsd. Een van de weinige claims met een echte fabrikantsbron. | <https://www.microsoft.com/en-in/microsoft-365/project/compare-microsoft-project-management-software> |
+| 11 | **Zoho Projects: kritiek pad/baseline/resource-utilisatie pas vanaf Enterprise; ₹350 resp. ₹700/user/maand** | ⚠️ **deels bevestigd, prijsbron verzwakt** | **Feature-claim bevestigd**: Enterprise is in Zoho's eigen featurematrix het eerste plan met **Critical Path én Baseline** — de strategisch belangrijkste bevinding houdt stand. **Gecorrigeerd**: "resource-utilisatie" staat er niet; Enterprise heeft "Resources (Add-on)" voor **materieel**, niet resource-utilisatie. **Prijs 🟩→🟥**: Zoho toont op géén van beide prijspagina's een bedrag (de India-URL geeft 404); ₹350/₹700 rust uitsluitend op partnerpagina's, met Techjockey op een derde cijfer (₹280). Plausibel (internationaal $5/$10 ≈ ₹477/₹954, min India-korting) maar **geen primaire bron**. | <https://www.zoho.com/projects/zohoprojects-pricing.html>, <https://lite.duckduckgo.com/lite/?q=Zoho+Projects+price+India+rupees+per+user+per+month+Premium+Enterprise+plan> |
+| 12 | **Powerplay: Pro ₹71.999/jaar, Pro+ ₹1.19.999/jaar "per bedrijf"; "India's 1st all-in-one"; 85.000+ projecten** | ⚠️ **deels gecorrigeerd** | Bedragen bevestigd op Techjockey ("Starting at ₹71999", "₹119999", billing **Yearly**, plus "₹1.41.599 incl. GST"). **Gecorrigeerd:** Techjockey noemt "**Licenses**" als prijsvariabele en "Starting at" — het is vermoedelijk een **met licenties meeschalende bundel**, niet een vaste bedrijfsprijs; de aanduiding "(bedrijf)" in §4.1 is niet gedekt. Dat verklaart ook de "₹2.000+/maand"-tegenstrijdigheid. "85.000+ projecten" staat op de site ✓ (leveranciersclaim). De slogan "**India's 1st all-in-one construction management software**" is **niet aangetroffen** op getpowerplay.in — niet-reproduceerbaar citaat. | <https://www.techjockey.com/detail/powerplay>, <https://www.getpowerplay.in/> |
+| 13 | **Onsite Teams: "vanaf ₹12.000/gebruiker/jaar"; blogcijfer "₹1.500+/maand" onverenigbaar** | ⚠️ **bevestigd maar onvolledig; de "tegenstrijdigheid" bestaat niet** | Prijspagina toont **drie** tiers: Business **₹12.000+GST**/user/jaar (**min. 3 users → vloer ₹36.000/jaar**), Business+ **₹15.000+GST**, Enterprise **vanaf ₹12 lakh+/jaar**. Jaarfacturatie is ~23% goedkoper dan maandelijks → ₹15.000/jaar ≈ **₹1.538/maand** maandelijks gefactureerd, exact het "₹1.500+/maand" uit de blog. **Geen conflict.** Wél ontbraken in het rapport de minimumafname (onderschat de instapdrempel 3×) en het Enterprise-tier. | <https://onsiteteams.com/onsite-pricing/> |
+| 14 | **Overheid: 65 lopende Oracle-Primavera-tenders, opdrachtwaarden ₹24,47 lakh – ₹1,99 crore** | ⚠️ **aantal bevestigd, bandbreedte gecorrigeerd** | "65 Oracle Primavera tenders" bevestigd, plus 370 gegunde records. **Ondergrens fout**: de pagina toont tenders vanaf **₹6,00 lakh** (Chandigarh #7953449/#7969849), niet ₹24,47 lakh. Bovengrens ₹1,99 crore (TN #33416952) ✓. Correcte band: **₹6 lakh – ₹1,99 crore**. Voorbehoud: commerciële aggregator, geen primaire aanbestedingsbron; "65" is een dagmomentopname. | <https://www.tenderdetail.com/Indian-tender/oracle-primavera-tenders> |
+| 15 | **Piraterij: India "derde meest getroffen ter wereld" (Revenera 2025); "laatste harde BSA-meting (2015)" = 58%** | ⚠️ **onzeker — beide overpreciës** | Revenera's formulering is "*unlicensed usage peaking in China, Russia, and India*" — een **groepering, geen rangorde**; "derde" is niet gedekt. En BSA publiceerde **ná 2015 nog een Global Software Survey in 2018** (meetjaar 2017, 110+ economieën, wereldwijd 37%), waarin India vrijwel zeker is meegemeten — "laatste harde meting" is dus waarschijnlijk onjuist. Het India-percentage uit de 2018-editie was in deze ronde niet te achterhalen; daarom **onzeker** i.p.v. weerlegd. | <https://lite.duckduckgo.com/lite/?q=BSA+global+software+survey+India+unlicensed+software+rate+2018+percent>, <https://lite.duckduckgo.com/lite/?q=Revenera+monetization+monitor+2025+software+piracy+India+third+China+Russia> |
+| 16 | **Wisselkoers 1 USD = ₹93** | ❌ **gecorrigeerd** | ₹93 is het **YTD-gemiddelde over 2026**, niet de koers op de peildatum. X-Rates maandgemiddelden 2026: jan 90,73 · feb 90,77 · mrt 92,90 · apr 93,40 · mei 95,44 · jun 95,00 · **jul 95,37**; spot 24-07-2026 **96,52**. **Alle USD-bedragen in het rapport zijn daardoor 2,5–3,8% te hoog.** Het rapport wist dit (het noemt zelf de piek van ₹96,88 op 23 juli) maar koos toch het jaargemiddelde. | <https://www.x-rates.com/average/?from=USD&to=INR&amount=1&year=2026> |
+
+### Wat het onderzoek *niet* heeft kunnen weerleggen
+
+Deze claims zijn actief aangevallen en bleven overeind: **IS 15883-2 als CPM-voorschrijvende norm** (het sterkste punt in het rapport, woordelijk herbevestigd uit een tweede bron); **Microsoft Project's India-prijzen**; **Zoho's kritieke-pad-achter-Enterprise-drempel**; **22% Oracle-support**; **$2.750 voor P6 EPPM** (zelfs versterkt: nu met fabrikantsbron); **65 Primavera-tenders**; **Zoho's en SoftTech's financiën**; **Powerplay- en Onsite-prijsniveaus**; en de **structurele stelling dat Indiase bouw-ERP's geen CPM-engine hebben** — geen van de gecontroleerde leverancierspagina's weerspreekt dat.
+
+### Niet-verifieerbaar gebleven in deze ronde
+
+- **Naukri/LinkedIn/Glassdoor-vacaturetellingen** (573 / 817 / 222–391) — pagina's renderen de aantallen via JavaScript. Dit is de basis onder de **hele** §2.3-schatting en is dus onafhankelijk onbevestigd.
+- **IndiaMART-noteringen ₹2,84 lakh / ₹2,49 lakh** — HTTP 429 bij drie pogingen. Indirect plausibel gemaakt via Oracle's listprijzen (zie #9), maar niet herbevestigd.
+- **Marktaandeel-rangorde in §3.0** — er bestaat inderdaad geen gepubliceerde meting; blijft een onderbouwd oordeel, geen feit. Zo ook de claim dat P6 "de onbetwiste standaard" is: aannemelijk uit vacature- en aanbestedingsdata, maar niet gemeten.
+- **6Wresearch** als onafhankelijke controle op Data Bridge — publiceert geen cijfers buiten de betaalde rapportversie.
+
+### Aanbevolen vervolgacties
+
+1. **Herstel de macro-tabel** (#5): vervang $1,21 biljoen door ~$0,70–0,74 biljoen en haal het "idem"-label van de INR-rij; die twee cijfers meten niet hetzelfde.
+2. **Herreken §2.3 met een bredere band** (#8) en verwijder de suggestie van precisie; noteer expliciet dat de vacaturebasis onbevestigd is.
+3. **Vervang de P6-prijsblogs door Oracle's eigen prijslijst** (#9) en schrap de $3.520- en $175-cijfers.
+4. **Herijk alle USD-bedragen op ~₹95,4** (#16) of vermeld de koers per bedrag.
+5. **Zoek het India-percentage in de BSA-editie 2018** (#15) en herformuleer de Revenera-claim als groepering.
