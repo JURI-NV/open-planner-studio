@@ -1,12 +1,12 @@
-# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2.4.1
+# Ontwerp: MCP-bridge voor Open Planner Studio (fase 1) — v2.4.2
 
-*Status: v2.4.1 — 2026-07-27 (v2.4: v2.3 + mcp-builder-best-practices: `planner_`-prefix, tool-annotaties, paginering op de list-tools, Origin-header-weigering tegen DNS-rebinding). Historie: v1 → 7 scenario-critreviews (7× no-go) → v2 (must-fixes) → v2.1 (`batch`-tool) → 7 herreviews (7× no-go, convergerend op het batch-transactiefundament) → v2.2 (herreview-must-fixes + UI-hoofdstuk incl. AI-backup) → verificatieronde 3 (2× go, 2× voorwaardelijk go, 3× no-go op tekst-/contractpunten) → v2.3 verwerkt alle ronde-3-pins. **v2.4.1 (2026-07-27, eindintegratie): één amendement in WP5 — een onbekend kalender-id is een ZACHTE per-item-weigering, geen toolfout; de spec liep hier uit de pas met de gebouwde implementatie én met haar eigen batch-regel.** Ter review door de user.*
+*Status: v2.4.2 — 2026-07-27 (v2.4: v2.3 + mcp-builder-best-practices: `planner_`-prefix, tool-annotaties, paginering op de list-tools, Origin-header-weigering tegen DNS-rebinding). Historie: v1 → 7 scenario-critreviews (7× no-go) → v2 (must-fixes) → v2.1 (`batch`-tool) → 7 herreviews (7× no-go, convergerend op het batch-transactiefundament) → v2.2 (herreview-must-fixes + UI-hoofdstuk incl. AI-backup) → verificatieronde 3 (2× go, 2× voorwaardelijk go, 3× no-go op tekst-/contractpunten) → v2.3 verwerkt alle ronde-3-pins. **v2.4.1 (2026-07-27, eindintegratie): één amendement in WP5 — een onbekend kalender-id is een ZACHTE per-item-weigering, geen toolfout; de spec liep hier uit de pas met de gebouwde implementatie én met haar eigen batch-regel.** **v2.4.2 (2026-07-27, UI-correctie na user-feedback): de koppelinstructie is provider-neutraal geworden — geen CLI-commando van één client meer, maar endpoint + `Authorization`-header + een JSON-configuratiefragment, en die gegevens verhuizen van de (te ondiepe) ribbongroep naar een eigen dialoog.** Ter review door de user.*
 
 ## Doel & fasering
 
 Open Planner Studio krijgt AI-integratie via het Model Context Protocol (PLAN.md Fase 5, §5.1/§5.2). Besloten fasering:
 
-- **Fase 1 (dit ontwerp): AI ↔ draaiende desktop-app.** Claude (Code/Desktop) koppelt aan een geopend app-venster, leest en bewerkt het live plan; de user ziet alles direct in de UI, met undo.
+- **Fase 1 (dit ontwerp): AI ↔ draaiende desktop-app.** Een willekeurige MCP-client koppelt aan een geopend app-venster, leest en bewerkt het live plan; de user ziet alles direct in de UI, met undo.
 - **Fase 2 (later): headless.** Dunne Node-stdio-wrapper om dezelfde dispatcher + tool-laag, werkt op IFC-bestanden zonder draaiende app.
 - **Fase 3 (later): REST-API.** Zelfde Rust-server krijgt REST-routes op dezelfde tool-laag.
 
@@ -17,7 +17,7 @@ Fase 1 is Tauri-only (de web-build krijgt dit niet, net als de updater).
 ## Architectuur
 
 ```
-Claude Code / Claude Desktop
+MCP-client (willekeurig)
         │  streamable HTTP (JSON-RPC) + Bearer-token
         ▼
 127.0.0.1:3877/mcp  ← klein Rust-servertje in de Tauri-shell (dom doorgeefluik)
@@ -30,7 +30,11 @@ Tool-laag (TypeScript) → transactieprimitief + store-acties + engine (runCPM, 
 Live UI — wijzigingen direct zichtbaar, mét undo/redo
 ```
 
-Scheiding: **Rust weet niets van MCP** (forwardt HTTP-bodies, bewaakt token + localhost-bind); **TS weet niets van HTTP**. Rust blijft dun; de protocol- en tool-laag is headless testbaar op Node. Koppelen = één regel: `claude mcp add --transport http ops http://localhost:3877/mcp` met het token als `Authorization: Bearer`-header.
+Scheiding: **Rust weet niets van MCP** (forwardt HTTP-bodies, bewaakt token + localhost-bind); **TS weet niets van HTTP**. Rust blijft dun; de protocol- en tool-laag is headless testbaar op Node. Koppelen is provider-neutraal: endpoint `http://localhost:3877/mcp` (transport streamable HTTP) plus de header `Authorization: Bearer <token>` — in de de-facto standaardvorm die MCP-clients accepteren:
+
+```json
+{ "mcpServers": { "open-planner-studio": { "type": "http", "url": "http://localhost:3877/mcp", "headers": { "Authorization": "Bearer <token>" } } } }
+```
 
 ### Componenten
 
@@ -124,7 +128,7 @@ Eén call met een draaiboek: `steps: [{ tool, args }, …]` (max 100 stappen), s
 - **Instelling** (gedeeld blok in `SettingsPanelContent` → automatisch op alle drie de plekken: ⚙, ribbon-Instellingen, Backstage): toggle **AI-modus** (`ops-aiMode`, persistent). Aan = AI-tabblad zichtbaar; uit = tabblad weg én bridge geforceerd gestopt. Bewust de enige instelling daar — de bediening leeft op het tabblad.
 - **AI-ribbontab** (conditioneel, zoals andere tabs), drie groepen:
   1. **Server** — start/stop + statusindicator (uit / live op poort / poort-bezet-fout), gevoed door `server.ts`-status in `ui`-state; klein status-indicatortje ook in de statusbalk.
-  2. **Verbinding** — poortveld, token (verborgen; kopieer + regenereer met waarschuwing dat bestaande koppelingen breken), kant-en-klare `claude mcp add …`-regel met kopieerknop.
+  2. **Verbinding** — poortveld, token (verborgen; kopieer + regenereer met waarschuwing dat bestaande koppelingen breken) en een knop **Verbindingsgegevens…**. Die opent een dialoog met alles wat een client nodig heeft, elk met eigen kopieerknop: **endpoint** (`http://localhost:<poort>/mcp`, transport streamable HTTP), **auth-header** (`Authorization: Bearer <token>`), een **JSON-configuratiefragment** (`mcpServers`-vorm) en een **kant-en-klare koppelprompt** die de user in zijn AI-agent kan plakken zodat die zichzelf koppelt. Token in beeld gemaskeerd (toon/verberg), kopieerknoppen leveren altijd de echte waarde; plus één waarschuwingsregel dat het token toegang geeft tot het geopende plan. Bewust een dialoog en géén ribbon-inhoud: een ribbongroep is 66 px hoog, waardoor een volledige URL/header-regel werd afgekapt. **Provider-neutraal — geen productnamen, geen client-specifiek CLI-commando.**
   3. **Veiligheid & activiteit** — **pauzeknop** (bridge blijft live; mutaties krijgen tijdelijk een nette "gepauzeerd door gebruiker"-fout; leestools mogen door) en **alleen-lezen-schakelaar** (mutaties geweigerd zolang actief) — twee vlaggen in de tool-laag, status zichtbaar in de envelop; **automatische backup vóór AI-wijzigingen** (toggle, standaard aan) met knoppen "Nu backup maken" en "Backup-map openen"; plus de knop naar het **AI-activiteitenpaneel**.
 - **AI-backup:** staat de toggle aan, dan schrijft de tool-laag bij de **eerste muterende tool-aanroep per document** (per server-sessie; teller reset na een handmatige backup) eerst een IFC-snapshot naar `<appDataDir>/ai-backups/<docId>/<projectnaam>-<timestamp>.ifc` — zelfde `ifcWriter`-route als opslaan/recovery, en **gekeyd op document-id** (per-document-submap, conform de recovery-conventie): keying op projectnaam zou gelijknamige varianten in één emmer gooien en elkaars backups laten verdringen. Opruimbeleid: laatste 10 per document-id.
   - **Triggerregels:** alleen tools uit de sectie *Muteren* (dus óók `save_baseline` — in use-case 6 vuurt de backup op die eerste stap, wat één restore-punt vóór al het AI-werk oplevert) en `batch` (dat als **één** muterende aanroep telt — nooit een backup ín de stappenloop). Document-tools en `import_schedule` triggeren zelf géén backup; de per-document-teller start op het resulterende document, zodat de eerste echte mutatie precies de post-import-staat vastlegt. Documenten die in deze sessie via `duplicate_document` zijn ontstaan slaan de automatische backup over — hun geboortestaat ís de nog openstaande bron; "Nu backup maken" werkt daar uiteraard wel.

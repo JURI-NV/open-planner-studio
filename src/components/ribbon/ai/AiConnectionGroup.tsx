@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Copy, Check, RefreshCw, Eye, EyeOff, Link2 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { loadMcpPort, saveMcpPort } from '@/utils/settingsStore';
 import { ensureMcpToken, regenerateMcpToken } from '@/services/mcp/server';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
+import { AiConnectionDetailsDialog } from '@/components/dialogs/AiConnectionDetailsDialog';
+import { RibbonSmallButton } from '@/components/layout/Ribbon/ribbonPrimitives';
 
 /**
  * AI-ribbontab — groep **Verbinding** (T14, spec §UI):
  *  - poortveld (`loadMcpPort`/`saveMcpPort`), alleen wijzigbaar wanneer de server gestopt is;
  *  - tokenveld (verborgen; toon/verberg, kopieerknop, regenereerknop mét bevestigingswaarschuwing
  *    dat bestaande koppelingen breken);
- *  - de kant-en-klare `claude mcp add --transport http ops http://localhost:<poort>/mcp`-regel,
- *    inclusief de `Authorization: Bearer <token>`-header, met kopieerknop.
+ *  - een knop die de {@link AiConnectionDetailsDialog} opent (endpoint, auth-header,
+ *    configuratiefragment).
+ *
+ * De koppelgegevens staan bewust in een dialoog en niet in de ribbon zelf: een ribbongroep is maar
+ * 66 px hoog (`.ribbon-group-content`), dus een volledige URL/header-regel werd afgekapt. De groep
+ * blijft daarom op twéé veldrijen naast één kleine knop — dat past ruim binnen de ribbonhoogte.
  *
  * Poort/token leven in localStorage (settingsStore), niet in de store — vandaar lokale React-state
  * die op mount uit de persistente laag wordt geïnitialiseerd. `ensureMcpToken` garandeert dat er een
@@ -49,13 +55,11 @@ export function AiConnectionGroup() {
   const [token, setToken] = useState<string>(() => ensureMcpToken());
   const [showToken, setShowToken] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   // Poort mag alleen wijzigen zolang de bridge niet draait (de draaiende server bindt de poort).
   const portLocked = serverState !== 'off';
-
-  const connectCmd =
-    `claude mcp add --transport http ops http://localhost:${port}/mcp --header "Authorization: Bearer ${token}"`;
 
   const copy = (text: string, key: string) => {
     void navigator.clipboard?.writeText(text);
@@ -80,85 +84,70 @@ export function AiConnectionGroup() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, minWidth: 300 }}>
-      {/* Poort */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ minWidth: 44 }}>{t('ai.port')}</span>
-        <input
-          type="number"
-          value={port}
-          disabled={portLocked}
-          title={portLocked ? t('ai.portLockedHint') : undefined}
-          onChange={e => onPortChange(e.target.value)}
-          style={{ ...fieldStyle, width: 80, opacity: portLocked ? 0.6 : 1 }}
-        />
-      </label>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
+        {/* Poort */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ minWidth: 44 }}>{t('ai.port')}</span>
+          <input
+            type="number"
+            value={port}
+            disabled={portLocked}
+            title={portLocked ? t('ai.portLockedHint') : undefined}
+            onChange={e => onPortChange(e.target.value)}
+            style={{ ...fieldStyle, width: 80, opacity: portLocked ? 0.6 : 1 }}
+          />
+        </label>
 
-      {/* Token */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ minWidth: 44 }}>{t('ai.token')}</span>
-        <input
-          type={showToken ? 'text' : 'password'}
-          value={token}
-          readOnly
-          style={{ ...fieldStyle, flex: 1, minWidth: 120, fontFamily: 'monospace' }}
-        />
-        <button
-          type="button"
-          style={iconBtnStyle}
-          title={showToken ? t('ai.hideToken') : t('ai.showToken')}
-          aria-label={showToken ? t('ai.hideToken') : t('ai.showToken')}
-          onClick={() => setShowToken(v => !v)}
-        >
-          {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
-        </button>
-        <button
-          type="button"
-          style={iconBtnStyle}
-          title={t('ai.copy')}
-          aria-label={t('ai.copy')}
-          onClick={() => copy(token, 'token')}
-        >
-          {copied === 'token' ? <Check size={13} /> : <Copy size={13} />}
-        </button>
-        <button
-          type="button"
-          style={iconBtnStyle}
-          title={t('ai.regenerate')}
-          aria-label={t('ai.regenerate')}
-          onClick={() => setConfirming(true)}
-        >
-          <RefreshCw size={13} />
-        </button>
-      </label>
-
-      {/* Kant-en-klare verbindingsopdracht */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span className="ribbon-info">{t('ai.connectHint')}</span>
-        <div style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
-          <code
-            style={{
-              ...fieldStyle,
-              flex: 1,
-              fontFamily: 'monospace',
-              whiteSpace: 'nowrap',
-              overflowX: 'auto',
-              userSelect: 'all',
-            }}
+        {/* Token */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ minWidth: 44 }}>{t('ai.token')}</span>
+          <input
+            type={showToken ? 'text' : 'password'}
+            value={token}
+            readOnly
+            style={{ ...fieldStyle, flex: 1, minWidth: 120, fontFamily: 'monospace' }}
+          />
+          <button
+            type="button"
+            style={iconBtnStyle}
+            title={showToken ? t('ai.hideToken') : t('ai.showToken')}
+            aria-label={showToken ? t('ai.hideToken') : t('ai.showToken')}
+            onClick={() => setShowToken(v => !v)}
           >
-            {connectCmd}
-          </code>
+            {showToken ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
           <button
             type="button"
             style={iconBtnStyle}
             title={t('ai.copy')}
             aria-label={t('ai.copy')}
-            onClick={() => copy(connectCmd, 'cmd')}
+            onClick={() => copy(token, 'token')}
           >
-            {copied === 'cmd' ? <Check size={13} /> : <Copy size={13} />}
+            {copied === 'token' ? <Check size={13} /> : <Copy size={13} />}
           </button>
-        </div>
+          <button
+            type="button"
+            style={iconBtnStyle}
+            title={t('ai.regenerate')}
+            aria-label={t('ai.regenerate')}
+            onClick={() => setConfirming(true)}
+          >
+            <RefreshCw size={13} />
+          </button>
+        </label>
       </div>
+
+      {/* Endpoint/header/configuratiefragment staan in een dialoog — zie de toelichting boven. */}
+      <RibbonSmallButton
+        icon={<Link2 size={16} />}
+        label={t('ai.connectionDetails')}
+        onClick={() => setShowDetails(true)}
+      />
+
+      {showDetails && (
+        <AiConnectionDetailsDialog port={port} token={token} onClose={() => setShowDetails(false)} />
+      )}
 
       {confirming && (
         <ConfirmDialog
