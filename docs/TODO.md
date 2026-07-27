@@ -149,6 +149,29 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       nieuwer venster zat te kijken. Richting: bij "poort bezet" onderzoeken of het onze eigen app is
       en dat benoemen in de statusmelding.
 
+### IFC-lezer — resterende punten uit de release-review v2026.7.13 (2026-07-27)
+
+> Gevonden bij de hyperkritische review op de releasekandidaat, nadat die twee keer op de
+> `DATA;`-sectiegrens was misgegaan. De blokkerende gevallen zijn gerepareerd en vastgepind in
+> `tests/planning/check-step-strings.ts` (batterij 9); dit zijn de resten die de release niet
+> tegenhielden.
+
+- [ ] **Een rauwe apostrof in een taaknaam in de DATA-sectie verliest nog steeds stil data.** Een
+      handgeschreven of door een derde tool geschreven `#2=IFCTASK('g2',$,'Van 't Hof',…)` levert
+      nul taken op zonder fout: de sectiegrens wórdt gevonden, dus `no-data-section` vuurt niet, en
+      de quote-bewuste entiteitsscan loopt daarna uit de pas. v2026.7.12 gaf hier 2 taken met een
+      verminkte naam. Onze eigen writer produceert dit niet (taaknamen gaan altijd door `ifcStr`),
+      dus eigen bestanden zijn veilig — maar een geïmporteerd bestand kan er zo uitzien. Richting:
+      per entiteit detecteren dat de scan een niet-afgesloten string tegenkomt en dan óf de regel
+      overslaan met een melding, óf de hele lezing als getypeerde fout afkeuren. Niet stil nul.
+- [ ] **De leesfouten zijn hardgecodeerd Nederlands.** `not-step`, `truncated` en `no-data-section`
+      gooien een Nederlandse `message` die via `notify({ detail })` letterlijk in de UI belandt —
+      ook in een Engelse, Japanse of Arabische interface. Richting: de `reason` is al getypeerd, dus
+      een `messageKey` per reason en de vertaling bij de aanroeper.
+- [ ] **De sectiegrens is hoofdlettergevoelig.** `assertIfcIntegrity` uppercase't de kop vóór het
+      vergelijken, maar `indexOfDataSection` niet: een bestand met `data;` valt door de mand. Dat
+      was ook zo vóór deze release; hier alleen genoteerd omdat het in dezelfde functie zit.
+
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
 > Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn

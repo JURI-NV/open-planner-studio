@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Resourcebibliotheek",
     "intro": "Beheer je resourcebibliotheken en hun gedeelde pool. Toewijzen gebeurt in het Resources-tabblad; wat je toewijst wordt automatisch een kopie mét herkomst in het project.",
-    "resourceManagementHint": "Resources beheer je in het Resources-tabblad (Bibliotheekweergave); hier beheer je bedrijven, kalenders en import/export.",
+    "resourceManagementHint": "Resources beheer je in het Resources-tabblad (Bibliotheekweergave); hier beheer je resourcebibliotheken, kalenders en import/export.",
     "companies": "Resourcebibliotheken",
     "addCompany": "Resourcebibliotheek toevoegen",
     "newCompany": "Nieuwe resourcebibliotheek",

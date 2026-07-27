@@ -366,7 +366,7 @@ function classifyResources(
       if (typeof fields === 'string') { rejections.push({ id: label, reason: fields }); return; }
       // Een placeholder-id dat NIETS kan matchen wanneer er geen tempId is (geen collisiegevaar met
       // echte id's, en geen enkele latere actie kan er per ongeluk naar verwijzen).
-      const simId = typeof item.tempId === 'string' ? item.tempId : ` new-${index}`;
+      const simId = typeof item.tempId === 'string' ? item.tempId : `\u0000new-${index}`;
       const effectiveType = (fields.type as ResourceType) ?? 'LABOR';
       const refBad = referenceReason(fields, simId, effectiveType);
       if (refBad) { rejections.push({ id: label, reason: refBad }); return; }
@@ -424,7 +424,7 @@ function classifyResources(
       rejections.push({ id: item.id, reason: `resource '${item.id}' bestaat niet (of is in deze call al verwijderd)` });
       return;
     }
-    if (target.id.startsWith(' ') || TEMP_ID_PATTERN.test(target.id)) {
+    if (target.id.startsWith('\u0000') || TEMP_ID_PATTERN.test(target.id)) {
       rejections.push({ id: item.id, reason: 'een resource die in dezelfde call is aangemaakt kan niet in diezelfde call worden verwijderd' });
       return;
     }

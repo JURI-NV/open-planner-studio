@@ -290,11 +290,46 @@ function readEntity(text: string, at: number, out: StepEntity[]): number {
   return i;
 }
 
+/**
+ * Begin van de datasectie: de offset van het `DATA;`-token dat de sectiegrens vormt, of −1.
+ *
+ * TWEE POGINGEN, in deze volgorde — de volgorde ís de bevinding.
+ *
+ *  1. **Quote- en commentaar-bewust** (`indexOfCode`). Dit is de juiste scan voor élk syntactisch
+ *     geldig STEP-bestand: hij slaat `DATA;` binnen een header-string of binnen een `/* … *\/`
+ *     over, en hij is ongevoelig voor opmaak — een bestand zónder één regeleinde (volkomen legaal;
+ *     regeleindes zijn witruimte, geen syntaxis), `ENDSEC;DATA;` op één regel, of witruimte als
+ *     form feed / vertical tab / NBSP vóór het token.
+ *  2. **Regel-verankerd**, alleen als (1) niets vond. Dat gebeurt bij LEGACY-bestanden: onze writer
+ *     schreef t/m v2026.7.12 naam/auteur/bedrijf rauw in `FILE_NAME(...)`, dus een project
+ *     "Van 't Hof Toren" levert daar een ONGEBALANCEERDE apostrof op. De quote-bewuste scan loopt
+ *     daarop de rest van het bestand uit de pas en vindt niets ⇒ zonder deze terugval stil een
+ *     leeg project op een bestand dat deze app zélf geschreven heeft.
+ *
+ * Niet andersom: regelverankering als PRIMAIRE scan weigert de geldige bestanden uit (1) en pikt
+ * bovendien een `DATA;` op dat aan het begin van een regel binnen een commentaar of binnen een
+ * header-string met een echt regeleinde staat — dat laatste levert nul entiteiten zónder fout, en
+ * verzonnen entiteiten uit commentaar. Beide gevallen zijn getest in `check-step-strings` (9f–9k).
+ */
+function indexOfDataSection(content: string): number {
+  const strict = indexOfCode(content, 'DATA;', 0);
+  if (strict >= 0) return strict;
+  const anchored = /^[ \t]*DATA;/m.exec(content);
+  return anchored ? anchored.index + anchored[0].indexOf('DATA;') : -1;
+}
+
 function parseSTEP(content: string): StepEntity[] {
   const entities: StepEntity[] = [];
   // 1. Begin van de datasectie — een `DATA;` binnen de FILE_NAME-string van de header telt niet mee.
-  const dataAt = indexOfCode(content, 'DATA;', 0);
-  if (dataAt < 0) return entities;
+  const dataAt = indexOfDataSection(content);
+  // Geen sectiegrens ⇒ getypeerde fout, GEEN leeg resultaat. `openFile`/`useRecoveryRestore` tonen
+  // dan de leesfout in plaats van een leeg document te openen bovenop het pad van de gebruiker.
+  if (dataAt < 0) {
+    throw new IfcParseError(
+      'no-data-section',
+      "Onleesbaar IFC-bestand: de verplichte 'DATA;'-sectiegrens ontbreekt.",
+    );
+  }
 
   // 2. Commentaar strippen (buiten strings) + regeleindes normaliseren — zelfde volgorde als voorheen.
   const clean = stripStepComments(content.slice(dataAt + 'DATA;'.length)).replace(/\r\n/g, '\n');

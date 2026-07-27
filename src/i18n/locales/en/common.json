@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Resource library",
     "intro": "Manage your resource libraries and their shared pool. Assigning happens in the Resources tab; what you assign automatically becomes a copy with provenance in the project.",
-    "resourceManagementHint": "You manage resources in the Resources tab (Library view); here you manage companies, calendars, and import/export.",
+    "resourceManagementHint": "You manage resources in the Resources tab (Library view); here you manage resource libraries, calendars, and import/export.",
     "companies": "Resource libraries",
     "addCompany": "Add resource library",
     "newCompany": "New resource library",

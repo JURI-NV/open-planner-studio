@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Libreria di risorse",
     "intro": "Gestisci le tue librerie di risorse e il loro pool condiviso. L'assegnazione avviene nella scheda Risorse; ciò che assegni diventa automaticamente una copia con provenienza all'interno del progetto.",
-    "resourceManagementHint": "Le risorse si gestiscono nella scheda Risorse (vista Libreria); qui gestisci aziende, calendari e importazione/esportazione.",
+    "resourceManagementHint": "Le risorse si gestiscono nella scheda Risorse (vista Libreria); qui gestisci librerie di risorse, calendari e importazione/esportazione.",
     "companies": "Librerie di risorse",
     "addCompany": "Aggiungi libreria di risorse",
     "newCompany": "Nuova libreria di risorse",

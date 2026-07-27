@@ -31,13 +31,22 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
 - **Orientation**: landscape or portrait.
 - **Auto-fit to paper** (on = the schedule scales automatically to the chosen size) or a manual
   **zoom** slider if you turn auto-fit off.
+- **Font size** — 90, 100, 110 or 125%; scales the report text, row height and header/footer,
+  independently of the zoom level above.
+- **Repeat header on each page** — on by default; keeps the report header visible on every printed
+  page instead of only the first.
+- **Timeline over** — spreads the Gantt timeline across 1 to 8 pages side by side; only available
+  with auto-fit on.
 - Toggles for **task names on bars**, **show completion**, **critical path**, **show float**,
   **dependencies**, **weekends** and **legend**.
 - A **company** field (auto-fills from the project setting, but is separately editable here) and the
   **author** (read-only, from the project info).
 
 The summary block above it shows the live count of tasks, leaf tasks, critical tasks and relations
-in the project.
+in the project. The settings panel remembers your choices between sessions — reopen the Report tab
+later and paper size, toggles, font size and the rest come back exactly as you left them. Only the
+company field resets: it always starts from the project's own setting, so a report never carries
+over another project's company name.
 
 ### Milestone overview
 

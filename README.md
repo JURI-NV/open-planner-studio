@@ -14,16 +14,17 @@ Open-source bouwplanningapplicatie voor de bouwsector. Native IFC-bestandsformaa
 
 ## Kenmerken
 
-- **Gantt-diagrammen** met interactieve Canvas-rendering, drag & drop, en zoom
+- **Gantt-diagrammen** met interactieve Canvas-rendering, drag & drop (ook verticaal, om taken te herschikken of te herparenten), en zoom
 - **Critical Path Method (CPM)** — automatische berekening kritiek pad en float
 - **Work Breakdown Structure (WBS)** — hierarchische taakstructuur met inklapbare hoofdstukken
 - **IFC-native** — opslaan en openen in IFC 4.3 (buildingSMART standaard)
 - **Ribbon toolbar** — Microsoft Office-achtige ribbon met tabbladen
 - **Meertalig** — 14 talen: Nederlands, English, Français, Deutsch, Español, 中文, Italiano, Português, Polski, Türkçe, العربية, 日本語, 한국어, فارسی (incl. RTL voor Arabisch en Perzisch)
-- **Tabelweergave** — Excel-achtige editor met dubbelklik-bewerking
+- **Tabelweergave** — spreadsheet-achtige editor: één klik op een cel bewerkt hem direct
+- **Resourcebibliotheken** — resources en kalenders in een gedeelde, bedrijfsbrede bibliotheek waar meerdere projecten uit putten, met herkomststempels per item
+- **AI-assistent (MCP)** — de app kan zichzelf openstellen als MCP-server, zodat een AI-assistent live met de open planning meewerkt, met veiligheidsvlaggen (pauze/alleen-lezen/auto-backup) en een activiteitenlog
 - **Rapportage** — live afdrukvoorbeeld in de ribbon met instelbare opties
 - **Context menu** — rechtermuisknop voor snelle acties op taken
-- **Resource management** — arbeid, materieel, onderaannemers
 - **Bouwsector-specifiek** — feestdagen, bouwvak, inspectiemomenten, fasering
 - **4D BIM-ready** — koppeling planning aan IFC-gebouwmodel
 
@@ -66,7 +67,8 @@ src/
     common/          # Herbruikbare UI-componenten (Select)
     dialogs/         # TaskDialog, ProjectInfoDialog, SettingsDialog
     layout/          # Ribbon, MenuBar, StatusBar, TitleBar
-    panels/          # TableEditor, IFCPanel, ReportPanel, TaskPropertiesPanel, DebugTerminal
+    panels/          # TableEditor, IFCPanel, ReportPanel, TaskPropertiesPanel, AIActivityPanel, DebugTerminal
+    ribbon/ai/       # AI-ribbongroepen (Server, Verbinding, Veiligheid, Activiteit)
     settings/        # Instellingen-paneelinhoud
   engine/
     renderer/        # GanttRenderer (Canvas 2D)
@@ -78,7 +80,10 @@ src/
     csv/             # CSV import/export
     msproject/       # MS Project (.xml) import/export
     p6/              # Primavera P6 (.xml) import/export
+    mcp/             # MCP-server + tools (AI-assistent-koppeling)
+    library/         # Resourcebibliotheken (pool, import/export)
     print/           # Afdrukvoorbeeld
+    pdf/             # Vector-PDF-export
     debug/           # Logbus (debug terminal)
   state/             # Zustand store (+ slices/types.ts)
   styles/            # Globale CSS + Tailwind
@@ -92,12 +97,15 @@ examples/            # Voorbeeld IFC-planningen
 | Tab | Functie |
 |-----|---------|
 | **Start** | Bestand, Bewerken, Taken toevoegen, CPM berekenen, Zoom |
-| **Planning** | CPM, Relaties beheren, Kalender, Vrije dagen |
-| **Beeld** | Zoom, Tijdschaal, Panelen, Afdrukken |
+| **Planning** | CPM, Relaties beheren, Kalender, Structuur (codes/velden, in-/uitspringen), Baselines |
+| **Resources** | Resources toewijzen, histogram, nivellering |
+| **Relaties** | Snel een FS-relatie leggen tussen twee geselecteerde taken |
+| **Beeld** | Zoom, Tijdschaal, Panelen, Groeperen/filteren |
 | **Instellingen** | Project info, Kalender, Taalinstelling |
-| **Tabel** | Excel-achtige tabelweergave met inline bewerking |
+| **Tabel** | Spreadsheet-achtige tabelweergave, één klik bewerkt een cel |
 | **IFC** | IFC 4.3 code-editor met genereren/toepassen |
 | **Rapport** | Live afdrukvoorbeeld met instelbare opties |
+| **AI** *(standaard uit, aan te zetten in Instellingen)* | MCP-bridge starten/verbinden, veiligheidsvlaggen, activiteitenlog |
 
 ## Architectuur
 

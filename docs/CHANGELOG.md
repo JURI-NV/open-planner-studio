@@ -6,6 +6,268 @@ version has its own section (no gaps); the newest is at the top. It is deliberat
 running archive of every individual commit: within a version there is a curated description,
 grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentation`).
 
+## v2026.7.13 — 2026-07-27
+
+### Added
+- **An AI assistant can now operate the app directly, through a built-in MCP (Model Context
+  Protocol) server.** The new `src/services/mcp/` layer (about two dozen files) exposes roughly
+  38 `planner_`-prefixed tools — ten read tools (project overview, tasks, critical path,
+  resources, histogram, calendars, baselines) and mutation tools for tasks, dependencies,
+  resources, calendars, baselines, documents and files — plus a `planner_batch` executor that
+  runs up to 100 scripted steps as one atomic transaction with temporary-id resolution across
+  steps. A new AI ribbon tab turns the bridge on/off and opens a *Connection details* dialog
+  (endpoint, Authorization header, a ready-to-paste JSON config fragment and connect prompt,
+  with the tool count read live from the registry) instead of a client-specific, truncated CLI
+  line. Safety is explicit: pause, read-only and an auto-backup (capped at 10 snapshots per
+  document) sit next to a ring-buffer activity panel that lists every tool call the assistant
+  made. A new `ops-aiAutostart` setting (default off) can start the bridge together with the
+  app. New in-app guide "Connecting an AI assistant (MCP)" (NL+EN) documents what the assistant
+  can and cannot do — including the resource-library fields it is not allowed to touch (see
+  below).
+- **Resource libraries (issue #19, partly): a resource pool that lives above individual projects,
+  with company binding, provenance and a real editor.** Issue #19 also asked for a cross-project
+  overview of where each resource is already booked, to spot double-bookings; that part is not in
+  this release and the issue stays open for it. The Resources tab now has two views — a
+  Library view that is the source of truth (with its own inline table editor, replacing an old
+  `window.prompt()`-based one) and a Project view showing what a project actually assigns from
+  it. Identity fields (name, type, description, rate, unit) follow the library and become
+  read-only in the project once a resource is linked; assignment fields (max units,
+  availability, which calendar to use) stay per-project and editable, governed by a shared
+  `RESOURCE_DIFF_FIELDS` diff so the UI and the MCP bridge can never disagree about what is
+  locked. A shared `LibraryLinkDialog` handles linking, resolving deviations and reviewing what
+  changed since the last sync; libraries round-trip through project IFC files as an
+  `OPS_Library` pset with origin stamps, and can be imported either as a new library or to
+  replace an existing one. The bundled showcase projects now share one demo resource library.
+  The user-facing term "company" was renamed to "resource library" throughout the app.
+- **Dragging rows vertically now moves the whole selection, in both the Gantt table and the WBS
+  table (issue #21 pt. 1, issue #26).** Dragging one row of a multi-row selection used to move
+  only that row and leave the rest behind; a new `moveTasksTo` store action, built on shared
+  placement helpers, now moves the entire selection together, in view order, as one undo step,
+  and does nothing at all — rather than partially moving the group — if the drop target sits
+  inside the dragged selection itself. The underlying single-row drag (`moveTaskTo` +
+  `resolveDropTarget`) is shared between the canvas and the table so both behave identically.
+- **Gantt/histogram timeline improvements (issue #21 pt. 2/3/5).** A new `compressNonWorkdays`
+  setting collapses non-working days out of the timeline axis (a headless `WorkdayAxis`, shared
+  by the Gantt and the histogram), so a project with long weekends or holiday blocks no longer
+  wastes horizontal space on days nothing happens; horizontal dragging under compression now
+  moves tasks in working days rather than calendar days. The day header shows week numbers in
+  day view and, from zoom level 40 onward, the day-of-week name next to the day number.
+  Ctrl/⌘+click now multi-selects task bars on the canvas (a mousedown hit-test used to reset the
+  selection before the modifier key was read). The task properties panel now warns when a task
+  spans a long non-working stretch (a holiday or shutdown longer than 7 calendar days), naming
+  the dominant holiday.
+- **The WBS/task table can now be edited like a spreadsheet (issue #26, requested by Manu
+  Varkey).** One click on a cell edits it immediately with the existing value pre-selected; F2
+  re-edits without replacing; arrow keys move the cursor without entering edit mode; Enter on
+  the last row appends a new sibling task and moves the cursor into its name field; Tab/Shift+Tab
+  indent and outdent the selection at row level while staying cell-navigation inside a cell
+  (matching MS Project); rows can be dragged vertically using the same placement logic as the
+  Gantt. Structural edits are blocked while the table is filtered, sorted or grouped —
+  previously silently, now with a banner and a one-click reset. Fixed along the way: the
+  progress cell now goes through `setTaskProgress` instead of writing the raw field directly, so
+  it respects the status-date invariants and automatic actual-start behavior.
+- **Reports gained page-layout controls (issue #25): adjustable font size, a repeatable header,
+  and a timeline spread over multiple pages.** `reportFontScale` (90/100/110/125%) scales fonts,
+  row height, header/footer and table width relative to the fixed timeline zoom, so text prints
+  larger without changing how many rows fit; "repeat header on every page" (on by default) and
+  "timeline over 1–8 pages" let a wide schedule print legibly instead of being squeezed onto one
+  sheet. All fifteen settings on the Report tab are now persisted — previously none of them
+  were, so the panel reset on every reload. A shared `tileLayout.ts` replaced pagination math
+  that used to be duplicated between the raster preview and the vector PDF backend.
+- **Interface font family and text size are now configurable (issue #25.4).** A
+  default/system/serif/mono font choice and a 90–125% text-scale setting apply through shared
+  CSS variables — including the Gantt and histogram canvas renderers, which previously
+  hardcoded their font stack in up to 17 places, and 60 inline pixel font-size declarations
+  across ten chrome stylesheets that didn't scale with the rest of the UI. Row height and bar
+  geometry on the canvas stay fixed on purpose, so the scale setting affects text only, not
+  layout, there.
+- **A "you were just updated" dialog appears once after an in-app update completes.** It
+  compares the previous and new version via the GitHub Releases API — install size difference,
+  days since the previous release, the release description, and an OS-aware asset choice — and
+  is gated to never show alongside the welcome or recovery dialogs at startup.
+- **The in-app help viewer got its own language picker, independent of the UI language**, with a
+  per-article English fallback and a warning banner on any language other than Dutch/English
+  (those are translated less frequently). `verify:docs` grew from checking 2 to 14 languages,
+  including heading/link-parity and drift checks against the English source, so a translation
+  that silently drops a section or a link now fails the build.
+- **Developer tooling: the browser dev server now gets the same per-worktree isolation the
+  desktop dev build already had, plus a double-start guard.** `npm run dev` used to hand Vite a
+  bare port and fail (or, worse, silently serve a second worktree's code into an already-open
+  window) when two checkouts were active. It now runs through `scripts/dev-server.mjs`, which
+  allocates a port anchored to the worktree root, claims a guard slot so a second start in the
+  same worktree is refused outright instead of drifting to another port, and stamps
+  `.claude/launch.json` so tooling opens the right worktree. Port allocation and the lock
+  protocol (atomic rename-claim + verify + link, stress-tested with 8 concurrent stealers) are
+  shared with `scripts/tauri-dev.mjs`, which was refactored onto the same helpers and passes
+  `OPS_DEV_GUARDED` down so a nested `dev` start doesn't allocate twice. Only relevant when
+  developing the app — no user-visible change.
+
+### Changed
+- **Startup and bundle size.** Twenty dialogs, Backstage, the tour overlay and the rarely-open
+  panels (IFC, Report, AI activity, Debug Terminal) now load via `React.lazy` instead of eagerly,
+  cutting the app's eager
+  first-load JS by about 17% (288,723 → 239,644 bytes gzip). Translations for all but English
+  now load per-language on demand instead of all 14 locales upfront, cutting eager JS by
+  roughly 41% in that change alone (488,982 → 287,864 bytes gzip) with no flash of untranslated
+  text, since the active locale loads before first paint. Auto-save now re-serializes only
+  documents that actually changed instead of every open document on every tick (measured: 318 ms
+  → 64 ms with one dirty document out of five open), and the Gantt's long-free-period scan is
+  memoized instead of re-running on every store mutation.
+- **Continued modularity cleanup, with byte- and pixel-identical output verified before and
+  after.** The IFC writer/reader's hardcoded `IFCTASK`/`IFCTASKTIME` field layouts became shared
+  slot descriptors (one source of truth instead of three); the Gantt, histogram, minimap and
+  print renderers now read colors from one shared `themePalette` and share a `timeAxis` module
+  instead of duplicating date-to-pixel math; and `TaskTime` was split into four typed,
+  compile-time-checked roles (input/computed/analysis/tracking) so it's clear which fields a
+  caller may write versus which `runCPM` overwrites. Verified with SHA-256 diffs of IFC output
+  and a 10,686-call canvas draw-log comparison across 22 fixtures — zero differences.
+- **Zoom-and-drag ("drag") is now the default Gantt navigation mode** (issue #22), and the
+  horizontal scrollbar now spans only the chart area instead of running the full window width
+  under the frozen task-name column, which was confusing since only the timeline actually
+  scrolls. Anyone who had already picked a mode keeps their choice.
+
+### Fixed
+- **Dates near a month boundary could shift by a day depending on the machine's timezone.**
+  `parseDate` built a UTC-midnight instant and then read it back with local getters, so under
+  any negative UTC offset a date one day early was possible — invisible on a machine in Europe,
+  but the regression suite dropped to 311/431 under `TZ=America/New_York`. The calendar part is
+  now read textually from the ISO string instead. `tests/planning/run.sh` now re-runs the built
+  suite under five timezones (UTC, New York, Midway, Auckland, Azores) on every full run so this
+  class of bug can't hide again.
+- **Task names or notes containing `);`, `/* */`, `ENDSEC;`, `DATA;` or an apostrophe could
+  silently corrupt a saved project.** The IFC parser split on those substrings without tracking
+  whether they were inside a quoted string, so ordinary Dutch text like "Fase 1 (ruwbouw); fase
+  2" could truncate the parsed section or drop the wrong number of arguments — worst case, a
+  duration of 7 came back as 5 on reopen, with no error. The writer had the matching bug: an
+  apostrophe in a project name, author or company produced syntactically invalid STEP output.
+  All three parsing sites now share one quote-aware scanner; the header writer quotes those
+  three fields properly. Files written by earlier versions keep opening, which took one more step:
+  their header can carry exactly that unbalanced apostrophe, and a quote-aware scan desynchronises
+  on it and finds no data section at all. The `DATA;` section boundary is therefore looked up
+  quote-aware first — correct for any well-formed file, including one written entirely on a single
+  line or with `DATA;` inside a comment — and only falls back to a line-anchored lookup when that
+  finds nothing, which is precisely the broken-legacy-header case. If neither finds a boundary the
+  read now fails with a typed error rather than quietly opening as an empty project on top of the
+  original file's path, and crash recovery no longer deletes snapshots that failed to parse. The
+  writer also stops emitting raw line breaks in those three header fields (reachable through an
+  imported file or the MCP `update_project` tool): a STEP string literal may not span lines, and a
+  line break there put arbitrary text at the start of a line where it could pose as a section
+  boundary.
+- **Three compounding bugs in crash recovery could silently lose an entire relationship
+  network, or let one instance overwrite another's recovered work.** Auto-save wrote recovery
+  snapshots non-atomically and the reader had no truncation check, so an interrupted write
+  (crash mid-save) could leave a complete-looking project with all its tasks but none of its
+  dependencies — no error, and the broken snapshot was then deleted after "recovering" it;
+  snapshots are now written to a temp file and atomically renamed, and a truncated or non-STEP
+  file is now rejected with a typed error. Baselines were separately dropped during recovery
+  because the recovery input builder enumerated fields by hand and missed two of them. And two
+  app windows (or two duplicated browser tabs) sharing the same recovery storage would overwrite
+  and delete each other's snapshots; recovery bookkeeping is now scoped per installation/session,
+  with a single-instance guard for the desktop build (skipped for concurrent dev instances) and
+  a per-tab Web Lock in the browser.
+- **Exporting to CSV/MS Project/Primavera P6 could silently ship dates from a stale,
+  un-recalculated schedule.** Automatic recalculation is off by default and mutations only
+  flagged the schedule as stale via a small status-bar note; every exporter wrote
+  `task.time.earlyStart` regardless. Export now recomputes a stale schedule first and refuses to
+  export if that recompute hits a dependency cycle, on both the ribbon export path and the
+  Report tab's PDF export (which has no Gantt canvas mounted, so the existing cycle warning
+  never reached it there).
+- **Save and recovery failures used to fail completely silently, and the unsaved-changes
+  indicator could lie.** The only user-facing feedback channel was a local toast inside the
+  Gantt canvas, invisible from Backstage, the table or the report panel — exactly where an
+  export or save is triggered. A new store-driven notification channel (errors stick, info fades
+  after 5s, repeats within a channel collapse into one with a counter) now surfaces all eight
+  previously-silent failure points, including `saveFile`, which had no try/catch at all.
+  Separately, `isDirty` was being cleared based on when a save *started*, not what was actually
+  on disk when a slow native save dialog finally returned — anything typed in between was marked
+  as saved while sitting in no file at all; it's now compared against the actual serialized
+  content.
+- **A release could ship, get signed, and auto-update everyone's installation even with a
+  failing test suite.** `ci.yml`'s four gates (typecheck, planning suite, `verify:examples`,
+  `verify:docs`) only ran on pushes/PRs to `main` — a release tag matched neither, and
+  `live.yml`'s production deploy had no gate at all. Both workflows now run the same blocking
+  gate before creating a release or deploying; `release.yml` additionally checks the tag against
+  `package.json`/`tauri.conf.json` so a forgotten `npm run bump` can't ship a version the
+  auto-updater silently treats as unchanged; and `snap.yml` now triggers on `workflow_run` after
+  the release workflow instead of on tag push (which GitHub-token-created tags never fire),
+  fixing v2026.7.12 shipping without a Snap asset. Separately, `scripts/` and `tests/` (about 19k
+  lines) were never typechecked — they run through esbuild, which strips types without checking
+  them — so a case file with nonsense keys or an `expect: {}` could pass silently; a new
+  `tsconfig.tests.json` closes that gate and is now part of both CI and the release checks.
+- **Two independent hardening fixes.** An extension's SVG icon was rendered as raw HTML in
+  three places, including the extensions list — which runs before a user ever enables an
+  extension, so a disabled extension's icon alone could execute script; icons are now parsed and
+  rebuilt through a strict allowlist that strips event handlers, `href`, inline `style` and
+  script-capable elements. And the Rust shell's unused `read_file`/`write_file` commands, which
+  did no path validation and bypassed the `plugin-fs` scope, were removed entirely — unused by
+  the frontend, but reachable from extension code via `window.__TAURI_INTERNALS__.invoke(...)`.
+  Separately, `postcss` was bumped 8.5.15 → 8.5.18 for GHSA-r28c-9q8g-f849 (not reachable here,
+  since postcss only ever processes the app's own build-time CSS, but the patch was free).
+- **Three UI clipping/overflow bugs reported by users.** The Save As/Update/Manage ribbon button
+  row could cut text off mid-letter in a longer language (#29); the report panel's Company Name
+  field could overflow past the panel edge because a `!w-auto` utility class overrode its
+  intended `width: 100%` (#28); and the Gantt minimap's viewport indicator and canvas could
+  exceed the strip's bounds when zoomed out past the project period or when the canvas hadn't
+  yet stretched to fill its container (#30).
+- **Four pre-existing task-structure bugs, all found while testing this release's drag and
+  table work.** Outdenting a task placed it at the end of its new parent's children instead of
+  directly after its former parent, contradicting a years-old interface comment; reordering a
+  non-root sibling updated the tree's `childIds` but not the raw task array that WBS numbering
+  and row order are actually derived from, so the WBS column could disagree with what was on
+  screen; a downward drag-and-drop reorder within the same parent landed one position too far
+  because the drop-target resolver and the actual move used different reference lists; and a
+  corrupted `parentId` cycle from a hand-edited IFC file could hang the app in an infinite
+  ancestor walk. All four now share the same placement helpers and cycle guards as the new
+  multi-selection drag.
+- **A stray `$` (IFC's "no value" marker) could appear as literal text in the properties
+  panel.** Four optional text slots (task description, WBS code, resource/calendar description)
+  used a plain quote-stripper instead of the shared null-aware helper, so an unset field
+  round-tripped as the character "$" instead of nothing — visible across every task in a bundled
+  showcase. Files already re-saved with the literal "$" need a one-time manual cleanup; it can't
+  be told apart from an intentional "$" automatically. Also fixed: the constraint dropdown's
+  "(ASAP)" suffix used to slide under the panel's collapse arrow because the two constraint
+  fields were laid out side-by-side instead of stacked.
+- **Undo history had no upper bound**, and each edit deep-clones the changed fields (~4.95 MB
+  per snapshot at 5,000 tasks) with per-document undo/redo stacks kept for every open — even
+  inactive — document, so memory scaled with edits × project size × open documents. It's now
+  capped at 100 steps. Separately, a document restored from crash recovery showed no staleness
+  warning even though it hadn't been recalculated (`switchDocument` never calls `runCPM`), so it
+  could look like a valid, up-to-date schedule with no critical path or float actually computed;
+  it's now marked stale on restore. And typing into an "actual start"/"actual finish" date field
+  used to push one undo step per keystroke, since those fields go through dedicated setters that
+  lacked the coalescing key the rest of the undo overhaul already had — completing that earlier
+  work, they now coalesce into one step per edit.
+- **Keyboard focus could escape an open dialog.** Tab/Shift+Tab had no boundary, so keyboard
+  navigation could tab out into the app behind a modal. A shared `useFocusTrap` hook now keeps
+  focus inside the panel, focuses the first focusable element on open, and restores focus to the
+  trigger on close — applied to all 18 dialogs built on the shared `Dialog` component plus the
+  two dialogs with their own overlay (Feedback, Settings).
+
+### Documentation
+- **The repository claimed LGPL-3.0 in five places (README, PLAN.md, CLAUDE.md, the wiki) but
+  shipped no license file at all**, which legally defaults to all-rights-reserved and left the
+  README's license badge showing "unknown". `LICENSE` (LGPL-3.0, which incorporates GPL-3.0 by
+  reference) and `LICENSE.GPL` were added verbatim from gnu.org, and `package.json` now declares
+  `LGPL-3.0-or-later`.
+- **The GitHub wiki is now generated from the same sources as the in-app manual** instead of
+  maintained separately: `scripts/publish-wiki.mjs` builds it from the English manual, the
+  wiki-specific pages (Home, Features, Installation, Contributing, Extensions-Authoring) and
+  this changelog, rewriting cross-links to wiki pages and stamping a "generated — don't edit"
+  banner. Dry-run by default; `--push` publishes at release time.
+- **The in-app manual is now available in all 14 supported languages**, not just Dutch and
+  English — 25 articles translated into the remaining 12 (300 files), with domain terms (float,
+  summary task, resource leveling, …) matched to each language's existing UI terminology rather
+  than translated freestanding. Two new articles were added in Dutch and English: "Resource
+  libraries" and "Connecting an AI assistant (MCP)".
+- **README screenshots refreshed** to the current app (main Gantt view with critical path,
+  progress and milestones; the Report tab's live A3 print preview; the task context menu),
+  replacing outdated captures.
+- **A repository-wide maintainability audit was carried out and recorded**
+  (`docs/onderhoudbaarheid/`) — ten area reports plus independent critical reviews of each,
+  correcting several of its own early claims (a timezone bug reproduced under
+  `TZ=America/New_York` that cut the suite to 311/431, three XSS sites, a missing undo cap, a
+  missing staleness guard on export) before turning into the fixes listed above.
+
 ## v2026.7.12 — 2026-07-23
 
 ### Added
