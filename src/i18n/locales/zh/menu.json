@@ -156,7 +156,8 @@
     "manageLayouts": "管理…",
     "presentationMode": "演示",
     "splitView": "拆分视图",
-    "miniMap": "小地图"
+    "miniMap": "小地图",
+    "moveProject": "移动项目…"
   },
   "ifc": {
     "title": "IFC 编辑器",
@@ -271,6 +272,9 @@
     "helpLoadError": "无法加载文档。",
     "helpArticleNotFound": "未找到文章。",
     "library": "资料库",
+    "helpDocsLang": "文档语言",
+    "helpDocsLangAuto": "跟随应用语言",
+    "helpStale": "此语言的文档仅偶尔更新。如需查看最新文档，请切换到英语或荷兰语。",
     "helpLayer": {
       "quickstart": "快速入门",
       "gidsen": "主题指南",

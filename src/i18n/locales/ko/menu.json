@@ -156,7 +156,8 @@
     "manageLayouts": "관리…",
     "presentationMode": "프레젠테이션",
     "splitView": "분할 보기",
-    "miniMap": "미니맵"
+    "miniMap": "미니맵",
+    "moveProject": "프로젝트 이동…"
   },
   "ifc": {
     "title": "IFC 편집기",
@@ -271,6 +272,9 @@
     "helpLoadError": "문서를 불러올 수 없습니다.",
     "helpArticleNotFound": "문서를 찾을 수 없습니다.",
     "library": "라이브러리",
+    "helpDocsLang": "문서 언어",
+    "helpDocsLangAuto": "앱 언어 따르기",
+    "helpStale": "이 언어는 가끔씩만 업데이트됩니다. 최신 문서를 보려면 영어 또는 네덜란드어로 전환하세요.",
     "helpLayer": {
       "quickstart": "빠른 시작",
       "gidsen": "주제별 가이드",

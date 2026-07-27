@@ -54,6 +54,17 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --outfile="$DTCHECK" >/dev/null 2>&1
   node "$DTCHECK" || STATUS=1
 
+  # "Je bent net geüpdatet"-vergelijklogica (releaseInfo.ts — pure functies, los van de CPM-cases).
+  JUCHECK="$DIR/.just-updated-check.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-just-updated.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$JUCHECK" >/dev/null 2>&1
+  node "$JUCHECK" || STATUS=1
+
   # CalendarEngine uur-modus-checks (fase 2.8b golf 1, §4/§9 — engine-primitieven, los van de CPM-cases).
   CHCHECK="$DIR/.calendar-hours-check.mjs"
   "$ROOT/node_modules/.bin/esbuild" "$DIR/check-calendar-hours.ts" \
@@ -99,6 +110,19 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --outfile="$MACHECK" >/dev/null 2>&1
   node "$MACHECK" || STATUS=1
 
+  # "Project verplaatsen"-checks (pakket D1 — veld-voor-veld shift-verdicten, R7-feestdagendekking,
+  # preview-zuiverheid en de R8/R9-guards; headless tegen de echte store + pure engine-helpers,
+  # los van de CPM-cases in cases-move-project.json).
+  MPCHECK="$DIR/.move-project-check.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-move-project.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$MPCHECK" >/dev/null 2>&1
+  node "$MPCHECK" || STATUS=1
+
   # moveTask-cykelguard + addTask.notes-checks (fase 2.10 onderdeel 2, QA-fixes P1/4 — headless
   # tegen de echte store, los van de CPM-cases).
   MTCHECK="$DIR/.move-task-check.mjs"
@@ -136,6 +160,66 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$GFCHECK" >/dev/null 2>&1
   node "$GFCHECK" || STATUS=1
+
+  # Tijd-as-consolidatie (issue #21 punt 5, fase 0): geconsolideerde `timeAxis.dateToX`/`xToDate`/
+  # `xToDayOffset` vs. letterlijk-gekopieerde OUDE formules (printPreview/GanttCanvas/GanttRenderer/
+  # useBarDrag), plus een live-render-vergelijking van de grid-`startOffset`. Bewijst dat de
+  # consolidatie geen pixel verandert (docs/superpowers/werkdagen-as-ontwerp.md §3.2).
+  AXCHECK="$DIR/.axis-consolidation.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-axis-consolidation.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$AXCHECK" >/dev/null 2>&1
+  node "$AXCHECK" || STATUS=1
+
+  # WorkdayAxis (issue #21 punt 5, fase 1): de nieuwe gecomprimeerde-werkdagen-as, headless en
+  # nog niet aangesloten op de renderer/UI. Round-trip datum→index→datum, kleef-rechts-naadlanding
+  # voor za/zo/feestdag, 5-werkdagen-span over weekend+feestdag = 5 kolommen, consistentie met
+  # CalendarEngine.workDaysBetween/addWorkDays, sub-dag-fracties, lazy-groei + groei-plafond
+  # (docs/superpowers/werkdagen-as-ontwerp.md §2, §8 fase 1).
+  WDCHECK="$DIR/.workday-axis.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-workday-axis.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$WDCHECK" >/dev/null 2>&1
+  node "$WDCHECK" || STATUS=1
+
+  # Header-datumregel onder compressie (issue #21 punt 5, vervolg): `drawTimelineHeader` gebruikte
+  # nog een kalenderdag-aanname (`scrollX/zoom`) voor zijn zichtbare-bereik, die bij compressie +
+  # voldoende scroll steeds verder achterliep op het werkelijk zichtbare venster — bij genoeg
+  # scroll viel de tick-loop stil vóórdat hij het canvas bereikte (LEGE/zwarte datumregel). Bewijst
+  # nu, over een zoom×scrollX-raster: geen stapelende labels binnen één header-rij, volle
+  # canvas-dekking van de onderste rij onder compressie, en algebraïsche byte-identiek-heid van de
+  # nieuwe as-index-bereiksberekening t.o.v. de oude formule zodra compressie UIT staat.
+  HCCHECK="$DIR/.header-compress.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-header-compress.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$HCCHECK" >/dev/null 2>&1
+  node "$HCCHECK" || STATUS=1
+
+  # i18n-pluralisatie-contract voor de telsleutels van "Project verplaatsen…". Een ontbrekende
+  # plural-categorie valt bij i18next NIET terug op de _other van dezelfde taal maar op fallbackLng,
+  # en zet er dus Engels neer (in het Pools al zichtbaar bij twee items). Deze check eist per taal
+  # exact de categorieën die Intl.PluralRules opgeeft, en vuurt ze daarna nog echt af.
+  I18NCHECK="$DIR/.i18n-plurals.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-i18n-plurals.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$I18NCHECK" >/dev/null 2>&1
+  node "$I18NCHECK" || STATUS=1
 
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een

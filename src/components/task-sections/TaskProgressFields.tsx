@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Task } from '@/types/task';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { Field } from './shared';
+
+// Uniek per slider-gebaar: coalesceKey per pointer-sleep ⇒ één undo-stap i.p.v. één per stap.
+let progressSeq = 0;
 
 /**
  * Voortgang/completion + werkelijke start/finish + resterend (fase 2.6, §11.3) — sectie 7 uit
@@ -21,13 +24,14 @@ import { Field } from './shared';
  */
 export function TaskProgressFields({ task, onSetProgress, onSetActualStart, onSetActualFinish }: {
   task: Task;
-  onSetProgress: (completion: number) => void;
-  onSetActualStart: (date: string | undefined) => boolean;
-  onSetActualFinish: (date: string | undefined) => boolean;
+  onSetProgress: (completion: number, opts?: { coalesceKey?: string }) => void;
+  onSetActualStart: (date: string | undefined, opts?: { coalesceKey?: string }) => boolean;
+  onSetActualFinish: (date: string | undefined, opts?: { coalesceKey?: string }) => boolean;
 }) {
   const { t } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
   const [actualError, setActualError] = useState(false);
+  const dragKey = useRef<string | undefined>(undefined);
 
   return (
     <>
@@ -38,7 +42,9 @@ export function TaskProgressFields({ task, onSetProgress, onSetActualStart, onSe
             min={0}
             max={100}
             value={Math.round(task.time.completion * 100)}
-            onChange={e => onSetProgress(parseInt(e.target.value) / 100)}
+            onPointerDown={() => { dragKey.current = `progress:${task.id}:${++progressSeq}`; }}
+            onPointerUp={() => { dragKey.current = undefined; }}
+            onChange={e => onSetProgress(parseInt(e.target.value) / 100, dragKey.current ? { coalesceKey: dragKey.current } : undefined)}
             data-ops-progress-slider
             className="flex-1 accent-accent"
           />
@@ -54,7 +60,7 @@ export function TaskProgressFields({ task, onSetProgress, onSetActualStart, onSe
             className="input !text-xs !px-2.5 !py-1.5"
             ariaLabel={t('properties.progress.actualDate')}
             value={task.time.actualFinish ?? ''}
-            onCommit={v => { setActualError(!onSetActualFinish(v || undefined)); }}
+            onCommit={v => { setActualError(!onSetActualFinish(v || undefined, { coalesceKey: `actualFinish:${task.id}` })); }}
           />
         </Field>
       ) : (
@@ -65,7 +71,7 @@ export function TaskProgressFields({ task, onSetProgress, onSetActualStart, onSe
                 className="input !text-xs !px-2.5 !py-1.5"
                 ariaLabel={t('properties.progress.actualStart')}
                 value={task.time.actualStart ?? ''}
-                onCommit={v => { setActualError(!onSetActualStart(v || undefined)); }}
+                onCommit={v => { setActualError(!onSetActualStart(v || undefined, { coalesceKey: `actualStart:${task.id}` })); }}
               />
             </Field>
             <Field label={t('properties.progress.actualFinish')}>
@@ -73,7 +79,7 @@ export function TaskProgressFields({ task, onSetProgress, onSetActualStart, onSe
                 className="input !text-xs !px-2.5 !py-1.5"
                 ariaLabel={t('properties.progress.actualFinish')}
                 value={task.time.actualFinish ?? ''}
-                onCommit={v => { setActualError(!onSetActualFinish(v || undefined)); }}
+                onCommit={v => { setActualError(!onSetActualFinish(v || undefined, { coalesceKey: `actualFinish:${task.id}` })); }}
               />
             </Field>
           </div>

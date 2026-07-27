@@ -11,9 +11,12 @@ import {
 } from '@/services/subdayIo';
 import type { ImportResult } from '@/services/importTypes';
 import {
-  DEFAULT_PRIORITY, IFC_TIME_ANCHOR, FIELD_MEASURE, RESOURCE_TYPE_TO_IFC,
+  IFC_TIME_ANCHOR, FIELD_MEASURE, RESOURCE_TYPE_TO_IFC,
 } from './ifcConstants';
-import { PSET, PER_TASK_PSETS, ifcStr, ifcBool } from './ifcPsets';
+import { PSET, PER_TASK_PSETS, ifcStr } from './ifcPsets';
+import {
+  IFC_TASK_SLOTS, IFC_TASKTIME_SLOTS, type TaskTimeWriteCtx, type TaskWriteCtx,
+} from './ifcTaskSlots';
 
 /** Generate a 22-character IFC GlobalId (simplified). Geëxporteerd zodat de reader (fase 2.6,
  *  `extractBaselines`) baseline-taskId's — die als interne id in de OPS_Baselines-JSON staan —
@@ -226,10 +229,11 @@ export function writeIFC(input: WriteIFCInput): string {
   // Bedrijfsbibliotheek-pool (spec B1, §4): alleen een pool-BESTAND draagt dit; anders undefined ⇒ niets.
   writeLibraryPool(ctx, ownerHistId, libraryPool);
 
-  // De acht per-taak-psets (Constraints/ExternalLink/Hammock/Milestone/Leveling/TaskNotes/
-  // TaskAppearance/Analysis) via de gedeelde registry (ifcPsets.PER_TASK_PSETS). De volgorde in de
+  // De per-taak-psets (Constraints/ExternalLink/Hammock/Milestone/Leveling/TaskNotes/
+  // TaskAppearance) via de gedeelde registry (ifcPsets.PER_TASK_PSETS). De volgorde in de
   // registry spiegelt de vroegere aanroepvolgorde ⇒ byte-identieke STEP-uitvoer. Reader-kant zit in
-  // dezelfde descriptors (apply), gedispatcht in extractStructure.
+  // dezelfde descriptors (apply), gedispatcht in extractStructure. OPS_Analysis wordt bewust NIET
+  // meer geschreven (afgeleide runCPM-uitvoer) — zie WRITTEN_PER_TASK_PSETS hieronder.
   emitPerTaskPsets(ctx, tasks, ownerHistId);
   // Baselines (fase 2.6): OPS_Baselines-pset (JSON autoritair) op de IfcWorkSchedule
   writeBaselineMeta(ctx, workSchedId, baselines, activeBaselineId, ownerHistId);
@@ -313,6 +317,25 @@ function writeStructure(
   // gehele-seconden en zou de millisecondeprecisie van de ISO-string afkappen; (3) createdAt/
   // modifiedAt zijn project-metadata en horen bij de andere project-settings. Golden rule: alleen
   // wanneer gezet — een leeg veld schrijft niets (oude bestanden byte-identiek).
+  // ProjectStartDate/ProjectEndDate — de CONTRACTUELE projectdatums. Bewust hier en niet in de
+  // IFCWORKPLAN.StartTime/FinishTime-slots: die dragen de AFGELEIDE plan-omvang (min/max van de
+  // taak-span), wat semantisch juist is en door andere IFC-tools zo gelezen wordt. Vóór dit pset
+  // was dat ene slot de enige opslag voor beide betekenissen, waardoor opslaan+herladen een
+  // ingevulde contractuele einddatum verving door de afgeleide planningsdatum.
+  //
+  // AFWIJKING van de golden rule hierboven ("alleen schrijven wat gezet is"): deze twee worden
+  // ALTIJD geschreven, ook leeg. Een leeg veld weglaten zou de lezer terug laten vallen op het
+  // WORKPLAN-slot, en dan vult de afgeleide datum alsnog een bewust léég gelaten einddatum —
+  // dezelfde bug, alleen verplaatst naar het lege geval. Codering: waarde gezet ⇒ IFCDATE(...),
+  // leeg ⇒ NominalValue `$` ("aanwezig, maar geen waarde"). Zo kan de lezer "veld aanwezig maar
+  // leeg" onderscheiden van "veld afwezig" (= bestand van vóór deze versie of van een ander tool,
+  // dat terugvalt op het WORKPLAN-slot en zich dus exact gedraagt als voorheen).
+  const contractDateProp = (key: string, name: string, value: string): number =>
+    addLine(ctx, key,
+      `IFCPROPERTYSINGLEVALUE(${ifcStr(name)},$,${value ? `IFCDATE(${ifcStr(value)})` : '$'},$)`);
+  projSettingProps.push(contractDateProp('_ps_projstart', 'ProjectStartDate', project.startDate));
+  projSettingProps.push(contractDateProp('_ps_projend', 'ProjectEndDate', project.endDate));
+
   if (project.createdAt) {
     projSettingProps.push(addLine(ctx, '_ps_createdat',
       `IFCPROPERTYSINGLEVALUE('CreatedAt',$,IFCTEXT(${ifcStr(project.createdAt)}),$)`));
@@ -434,16 +457,29 @@ function writeLibraryPool(
 }
 
 /**
- * Fase 3 (P11) — schrijf de acht per-taak-psets via de gedeelde registry (ifcPsets.PER_TASK_PSETS).
+ * `OPS_Analysis` (interferingFloat / isNearCritical / floatPath) wordt BEWUST NIET MEER GESCHREVEN.
+ * Die drie velden zijn pure uitvoer van `runCPM` (scheduleAnalysis) — geen gebruikersinvoer — en
+ * werden bit-exact gereproduceerd door elk laadpad (alle laadpaden gaan via `applyLoadedProject`
+ * met `recompute: true` ⇒ `runCPM()`; recovery-herstel rekent zelf door). Ze kostten ~157 kB over
+ * de publieke voorbeeldset en ~21% van elke auto-save-schrijfactie (elke 800 ms per document).
+ * De LEESkant blijft intact: bestaande bestanden mét `OPS_Analysis` laden gewoon (de descriptor
+ * staat nog in `PER_TASK_PSET_BY_NAME`, waar ifcReader op dispatcht) — `runCPM` overschrijft de
+ * gelezen waarden daarna toch.
+ */
+const WRITTEN_PER_TASK_PSETS = PER_TASK_PSETS.filter(d => d.name !== PSET.Analysis);
+
+/**
+ * Fase 3 (P11) — schrijf de per-taak-psets via de gedeelde registry (ifcPsets.PER_TASK_PSETS),
+ * minus de afgeleide `OPS_Analysis` (zie hierboven).
  * Elk descriptor levert de property-lijst (`write`); een lege/`null`-lijst = golden rule ⇒ niets
  * geschreven (bit-gelijk met bestaande bestanden). De buitenlus over de registry-VOLGORDE en de
  * binnenlus over `tasks` reproduceren exact de vroegere aanroepvolgorde van writeConstraints/
  * writeExternalLinks/writeHammockMeta/writeMilestoneMeta/writeLevelingMeta/writeTaskNotes/
- * writeTaskAppearance/writeAnalysisMeta ⇒ byte-identieke STEP-uitvoer. De read-kant leeft in
+ * writeTaskAppearance ⇒ byte-identieke STEP-uitvoer. De read-kant leeft in
  * dezelfde descriptors (`apply`), gedispatcht in ifcReader.extractStructure.
  */
 function emitPerTaskPsets(ctx: WriteContext, tasks: Task[], ownerHistId: number): void {
-  for (const desc of PER_TASK_PSETS) {
+  for (const desc of WRITTEN_PER_TASK_PSETS) {
     for (const task of tasks) {
       const specs = desc.write(task);
       if (!specs || specs.length === 0) continue;
@@ -674,24 +710,25 @@ function writeTask(
   const remainingArg = isHour && t.remainingMinutes != null
     ? ifcDurationHour(t.remainingMinutes)
     : t.remainingTime != null ? ifcDuration(t.remainingTime) : '$';
-  const taskTimeId = addLine(ctx, `tasktime_${task.id}`,
-    `IFCTASKTIME(${ifcStr(task.name + ' Time')},.PREDICTED.,$,.${t.durationType}.,${schedDurArg},${dt(t.scheduleStart)},${dt(t.scheduleFinish)},${dt(t.earlyStart)},${dt(t.earlyFinish)},${dt(t.lateStart)},${dt(t.lateFinish)},${ifcDuration(t.freeFloat)},${ifcDuration(t.totalFloat)},${ifcBool(t.isCritical)},${statusTimeArg},${actualDurationArg},${actualStartArg},${actualFinishArg},${remainingArg},${t.completion.toFixed(1)})`);
 
-  const ifcTaskType = `.${task.taskType}.`;
-  // Spec-conforme 13-args-IFCTASK (L1-fix). IFC 4.3-attribuutvolgorde (0-based STEP-index,
-  // geverifieerd tegen ifc43-docs.standards.buildingsmart.org, IfcTask-attribuuttabel):
-  //   0 GlobalId, 1 OwnerHistory, 2 Name, 3 Description, 4 ObjectType, 5 Identification,
-  //   6 LongDescription, 7 Status, 8 WorkMethod, 9 IsMilestone, 10 Priority, 11 TaskTime,
-  //   12 PredefinedType.
-  // Oudere OPS-versies schreven 12 args (WorkMethod op index 8 ontbrak, waardoor
-  // IsMilestone/Priority/TaskTime/PredefinedType één positie te vroeg zaten) — de reader
-  // (extractTasks) detecteert de arg-count en leest beide varianten. Deze schrijver blijft
-  // een pragmatische subset: ObjectType/LongDescription/Status/WorkMethod blijven `$`;
-  // Priority (IFCINTEGER, native attribuut) alleen bij afwijking van de default 500
-  // (golden rule §7.7, anders `$`).
-  const priorityArg = task.priority !== DEFAULT_PRIORITY ? String(Math.round(task.priority)) : '$';
+  // IFCTASKTIME + IFCTASK worden via de gedeelde slot-registry (./ifcTaskSlots) geëmitteerd: de writer
+  // ITEREERT de geordende descriptor-lijst en `.join(',')`t de per-slot geformatteerde waarden ⇒
+  // byte-identiek aan de vroegere template-literals (zelfde volgorde, zelfde `$`-conventies). De
+  // reader (parseTaskTime/applyHourModeIFC/extractTasks) leest via dezelfde lijst-indices, zodat
+  // writer-positie en reader-index niet meer kunnen divergeren (bevinding A2). `dt`/`ifcDuration`/
+  // `guidArg` worden meegegeven omdat ze in ifcWriter wonen (injectie vermijdt een import-cyclus).
+  const ttCtx: TaskTimeWriteCtx = {
+    task, dt, ifcDuration, schedDurArg, statusTimeArg,
+    actualDurationArg, actualStartArg, actualFinishArg, remainingArg,
+  };
+  const taskTimeId = addLine(ctx, `tasktime_${task.id}`,
+    `IFCTASKTIME(${IFC_TASKTIME_SLOTS.map(s => s.write(ttCtx)).join(',')})`);
+
+  const taskCtx: TaskWriteCtx = {
+    task, ownerHistId, guidArg: ifcStr(ifcGuid(task.id)), taskTimeId,
+  };
   addLine(ctx, `task_${task.id}`,
-    `IFCTASK(${ifcStr(ifcGuid(task.id))},#${ownerHistId},${ifcStr(task.name)},${ifcStr(task.description)},$,${ifcStr(task.wbsCode)},$,$,$,${ifcBool(task.isMilestone)},${priorityArg},#${taskTimeId},${ifcTaskType})`);
+    `IFCTASK(${IFC_TASK_SLOTS.map(s => s.write(taskCtx)).join(',')})`);
 }
 
 function writeWBSNesting(ctx: WriteContext, tasks: Task[], ownerHistId: number): void {

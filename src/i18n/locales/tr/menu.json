@@ -156,7 +156,8 @@
     "manageLayouts": "Yönet…",
     "presentationMode": "Sunum",
     "splitView": "Bölünmüş görünüm",
-    "miniMap": "Mini harita"
+    "miniMap": "Mini harita",
+    "moveProject": "Projeyi taşı…"
   },
   "ifc": {
     "title": "IFC Düzenleyici",
@@ -271,6 +272,9 @@
     "helpLoadError": "Belgeler yüklenemedi.",
     "helpArticleNotFound": "Makale bulunamadı.",
     "library": "Kitaplık",
+    "helpDocsLang": "Belge dili",
+    "helpDocsLangAuto": "Uygulama dilini takip et",
+    "helpStale": "Bu dil yalnızca ara sıra güncellenir. En güncel belgeler için İngilizce veya Hollandaca'ya geçin.",
     "helpLayer": {
       "quickstart": "Hızlı başlangıç",
       "gidsen": "Konuya göre kılavuzlar",

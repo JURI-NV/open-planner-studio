@@ -156,7 +156,8 @@
     "manageLayouts": "Gérer…",
     "presentationMode": "Présentation",
     "splitView": "Vue partagée",
-    "miniMap": "Mini-carte"
+    "miniMap": "Mini-carte",
+    "moveProject": "Déplacer le projet…"
   },
   "ifc": {
     "title": "Éditeur IFC",
@@ -271,6 +272,9 @@
     "helpLoadError": "Impossible de charger la documentation.",
     "helpArticleNotFound": "Article introuvable.",
     "library": "Bibliothèque",
+    "helpDocsLang": "Langue de la documentation",
+    "helpDocsLangAuto": "Suivre la langue de l'application",
+    "helpStale": "Cette langue n'est mise à jour qu'occasionnellement. Pour la documentation la plus à jour, passez à l'anglais ou au néerlandais.",
     "helpLayer": {
       "quickstart": "Démarrage rapide",
       "gidsen": "Guides par thème",

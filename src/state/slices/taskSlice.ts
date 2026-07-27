@@ -34,9 +34,20 @@ export interface TaskSlice {
      *  `anchorId` valt stil terug op het default-gedrag (stille tolerantie, zoals elders). */
     position?: { anchorId: string; where: 'above' | 'below' };
   }) => string;
-  updateTask: (id: string, updates: Partial<Task>) => void;
+  updateTask: (id: string, updates: Partial<Task>, opts?: { coalesceKey?: string }) => void;
   deleteTask: (id: string) => void;
   moveTask: (id: string, newParentId: string | null) => void;
+  /** Issue #21 punt 1 (fase 1): verticaal taak-verslepen — verplaatst `id` naar een exacte positie
+   *  (i.p.v. `moveTask`'s "altijd achteraan"). `target.parentId` = nieuwe ouder (`null` = root);
+   *  `target.childIndex` = gewenste 0-based positie in diens kindlijst, geklemd op `[0..length]`.
+   *  Houdt (net als `addTask`-position) ALLE drie waarheidsbronnen synchroon: `parentId`,
+   *  `childIds` van oude+nieuwe ouder, én de rauwe `s.tasks`-array (enkel-node-splice, geen
+   *  block-move — `flattenOrder` groepeert toch op `parentId`). Guards (in volgorde): onbekende
+   *  taak/ouder, cykel (nieuwe ouder = zichzelf of een afstammeling), en no-op (zelfde ouder +
+   *  zelfde effectieve index) ⇒ stil niets doen, geen undo-entry. Raakt `task.time` nergens aan.
+   *  `scheduleStale` alleen bij reparent (andere ouder) — pure herordening binnen dezelfde ouder
+   *  raakt geen summary-rollups, net als `reorderSibling`. */
+  moveTaskTo: (id: string, target: { parentId: string | null; childIndex: number }) => void;
   selectTask: (id: string, multi?: boolean, range?: boolean) => void;
   selectTaskRange: (fromId: string, toId: string) => void;
   deselectAll: () => void;
@@ -66,13 +77,15 @@ export interface TaskSlice {
   insertWbsTemplate: (template: WbsTemplate, parentId: string | null) => string | null;
   /** Voortgang (fase 2.6): zet completion (0..1), dwingt de §3.2-invarianten af (auto-actualStart bij
    *  completion>0, remainingTime afgeleid, status). scheduleStale alleen als er een statusdatum is. */
-  setTaskProgress: (taskId: string, completion: number) => void;
+  setTaskProgress: (taskId: string, completion: number, opts?: { coalesceKey?: string }) => void;
   /** Werkelijke start (fase 2.6). undefined = wissen. Retourneert false als de datum ná de
-   *  statusdatum ligt (geweigerd, geen mutatie — de UI toont een toast). */
-  setActualStart: (taskId: string, date: string | undefined) => boolean;
+   *  statusdatum ligt (geweigerd, geen mutatie — de UI toont een toast). `opts.coalesceKey` voegt
+   *  de per-toetsaanslag-commits van het LIVE-committerende datumveld tot één undo-stap samen. */
+  setActualStart: (taskId: string, date: string | undefined, opts?: { coalesceKey?: string }) => boolean;
   /** Werkelijke einde (fase 2.6): zet completion=1 + status COMPLETED. undefined = wissen.
-   *  Retourneert false als de datum ná de statusdatum ligt (geweigerd). */
-  setActualFinish: (taskId: string, date: string | undefined) => boolean;
+   *  Retourneert false als de datum ná de statusdatum ligt (geweigerd). `opts.coalesceKey` als bij
+   *  setActualStart. */
+  setActualFinish: (taskId: string, date: string | undefined, opts?: { coalesceKey?: string }) => boolean;
   /** Taak-kalender (fase 2.8a, §7.3): wijs een bibliotheek-kalender toe (undefined = projectkalender).
    *  Dwingt niets af — zet alleen `calendarId` + undo-snapshot + scheduleStale (datum-beïnvloedend). */
   setTaskCalendar: (taskId: string, calendarId: string | undefined) => void;
@@ -209,11 +222,11 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     return id;
   },
 
-  updateTask: (id, updates) => {
+  updateTask: (id, updates, opts) => {
     set((s) => {
       const idx = s.tasks.findIndex(t => t.id === id);
       if (idx < 0) return; // onbekend id: geen snapshot, geen loze undo-stap (R3).
-      beginUndoable(s); // snapshot pas ná de guard, vóór de mutatie (zie transaction.ts).
+      beginUndoable(s, opts); // snapshot pas ná de guard, vóór de mutatie; `opts` = coalesceKey (bv. balk-sleep = 1 stap).
       Object.assign(s.tasks[idx], updates);
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });
@@ -262,11 +275,12 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
 
   deleteTask: (id) => {
     set((s) => {
+      const task = s.tasks.find(t => t.id === id);
+      if (!task) return; // onbekend id: geen snapshot, geen loze undo-stap.
       beginUndoable(s);
 
       // Remove from parent
-      const task = s.tasks.find(t => t.id === id);
-      if (task?.parentId) {
+      if (task.parentId) {
         const parent = s.tasks.find(t => t.id === task.parentId);
         if (parent) {
           parent.childIds = parent.childIds.filter(cid => cid !== id);
@@ -305,9 +319,15 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // state. Dit is de enige plek die parentId/childIds mag muteren (zie TaskDialog.handleSave —
       // die haalt parentId daarom uit de kale `updateTask`-patch en roept in plaats daarvan dit aan).
       if (newParentId != null) {
+        // Review issue #21 pt. 1: visited-set voorkomt een oneindige lus (app-bevriezing) op
+        // corrupte parentId-cycli die id zelf niet bevatten (bereikbaar via een corrupt IFC —
+        // extractNesting zet parentId zonder cykelcheck). flattenOrder overleeft zo'n cyclus
+        // al met een seen-set; deze walk nu ook.
+        const bezocht = new Set<string>();
         let cur: Task | undefined = newParentId === id ? task : s.tasks.find(t => t.id === newParentId);
-        while (cur) {
+        while (cur && !bezocht.has(cur.id)) {
           if (cur.id === id) return; // newParentId is id zelf, of een afstammeling van id
+          bezocht.add(cur.id);
           cur = cur.parentId ? s.tasks.find(t => t.id === cur!.parentId) : undefined;
         }
       }
@@ -331,6 +351,93 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
 
       if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
       finishMutation(s, { stale: true }); // datum-rakende mutatie (A6): planning verouderd tot F5.
+    });
+    get().recomputeViewRows();
+  },
+
+  moveTaskTo: (id, target) => {
+    set((s) => {
+      // Guard 1: taak bestaat.
+      const task = s.tasks.find(t => t.id === id);
+      if (!task) return;
+
+      // Guard 2: doel-ouder bestaat (of is root = null).
+      const newParentId = target.parentId;
+      if (newParentId !== null && !s.tasks.some(t => t.id === newParentId)) return;
+
+      // Guard 3: cykel — newParentId mag niet id zelf zijn, en niet een afstammeling van id
+      // (spiegelbeeld van moveTask's cykel-check hierboven :310-316: loop van newParentId omhoog
+      // door de ouderketen; komt hij bij id uit ⇒ weigeren, GEEN snapshot/mutatie).
+      if (newParentId !== null) {
+        // Zelfde visited-set-bescherming als in moveTask hierboven (corrupte parentId-cycli).
+        const bezocht = new Set<string>();
+        let cur: Task | undefined = newParentId === id ? task : s.tasks.find(t => t.id === newParentId);
+        while (cur && !bezocht.has(cur.id)) {
+          if (cur.id === id) return;
+          bezocht.add(cur.id);
+          cur = cur.parentId ? s.tasks.find(t => t.id === cur!.parentId) : undefined;
+        }
+      }
+
+      const oldParentId = task.parentId;
+      const oldParent = oldParentId ? s.tasks.find(t => t.id === oldParentId) : undefined;
+      const newParent = newParentId ? s.tasks.find(t => t.id === newParentId) : undefined;
+
+      // Kindlijst van de NIEUWE ouder ná (hypothetische) verwijdering van `id` — de basis waartegen
+      // `childIndex` geklemd wordt (spiegelt de volgorde van de mutatie hieronder: eerst
+      // verwijderen, dan invoegen op de geklemde index). Root heeft geen childIds-array; de
+      // root-siblinglijst is de rauwe-array-volgorde (zelfde bron als reorderSibling's root-tak).
+      const newSiblingIdsAfterRemoval = newParent
+        ? newParent.childIds.filter(cid => cid !== id)
+        : s.tasks.filter(t => !t.parentId && t.id !== id).map(t => t.id);
+      const clampedIndex = Math.max(0, Math.min(target.childIndex, newSiblingIdsAfterRemoval.length));
+
+      // Guard 4: no-op — zelfde ouder én zelfde effectieve index ⇒ helemaal niets doen (geen
+      // undo-entry, geen dirty). `curIdx` (index van `id` in de lijst MÉT zichzelf) en
+      // `clampedIndex` (index in de lijst ZONDER zichzelf) zijn rechtstreeks vergelijkbaar: alles
+      // vóór `curIdx` blijft ongewijzigd na verwijdering, dus terugplaatsen op `curIdx` in de
+      // gereduceerde lijst levert exact de oorspronkelijke volgorde op.
+      if (newParentId === oldParentId) {
+        const curIdx = oldParent
+          ? oldParent.childIds.indexOf(id)
+          : s.tasks.filter(t => !t.parentId).map(t => t.id).indexOf(id);
+        if (clampedIndex === curIdx) return;
+      }
+
+      beginUndoable(s); // één undo-stap, géén coalesceKey (één aanroep per geslaagde move).
+
+      // childIds (display-bron, zie visibleRows.ts): verwijderen uit oude ouder, invoegen in nieuwe.
+      if (oldParent) oldParent.childIds = oldParent.childIds.filter(cid => cid !== id);
+      task.parentId = newParentId;
+      if (newParent) newParent.childIds.splice(clampedIndex, 0, id);
+
+      // Rauwe s.tasks-array (WBS/flatten + root-volgorde, zie utils/wbs.ts flattenOrder) —
+      // ENKEL-NODE-splice: alleen de gesleepte taak zelf verhuist in de rauwe array, NIET zijn hele
+      // subtree (die blijft via parentId gewoon aan hem hangen — flattenOrder groepeert toch op
+      // parentId, een verspreide subtree is functioneel prima, exact zoals reorderSibling's
+      // root-swap de array al niet-aaneengesloten maakt zonder dat dit display/WBS breekt).
+      const rawIdx = s.tasks.findIndex(t => t.id === id);
+      const [node] = s.tasks.splice(rawIdx, 1);
+      if (clampedIndex >= newSiblingIdsAfterRemoval.length) {
+        // Achteraan: vlak ná het laatste element van de kindgroep in de rauwe array (of, als er
+        // geen enkele sibling is, gewoon achteraan de hele array).
+        const lastSiblingId = newSiblingIdsAfterRemoval[newSiblingIdsAfterRemoval.length - 1];
+        const lastSiblingRawIdx = lastSiblingId ? s.tasks.findIndex(t => t.id === lastSiblingId) : -1;
+        if (lastSiblingRawIdx >= 0) s.tasks.splice(lastSiblingRawIdx + 1, 0, node);
+        else s.tasks.push(node);
+      } else {
+        // Vóór het element dat nu (ná verwijdering van `id`) op `clampedIndex` staat.
+        const anchorId = newSiblingIdsAfterRemoval[clampedIndex];
+        const anchorRawIdx = s.tasks.findIndex(t => t.id === anchorId);
+        if (anchorRawIdx >= 0) s.tasks.splice(anchorRawIdx, 0, node);
+        else s.tasks.push(node);
+      }
+
+      if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
+      // Pure herordening (zelfde ouder) ⇒ géén stale (identiek aan reorderSibling: raakt geen
+      // tijden/CPM). Reparent (andere ouder) ⇒ stale:true — summary-rollups (vroege start/einde)
+      // verschuiven, dat herberekent alleen F5/runCPM. De taak zelf (`task.time`) blijft ongemoeid.
+      finishMutation(s, { stale: newParentId !== oldParentId });
     });
     get().recomputeViewRows();
   },
@@ -491,11 +598,26 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         if (idx < 0) return;
         const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (swapIdx < 0 || swapIdx >= parent.childIds.length) return; // rand: no-op
+        const otherId = parent.childIds[swapIdx];
 
         beginUndoable(s);
         const tmp = parent.childIds[idx];
         parent.childIds[idx] = parent.childIds[swapIdx];
         parent.childIds[swapIdx] = tmp;
+
+        // Rauwe s.tasks-array meeschuiven (WBS/flattenOrder-bron, zie utils/wbs.ts) —
+        // ENKEL-NODE-splice, exact zoals moveTaskTo hierboven (:414-434): alleen `taskId`
+        // zelf verhuist relatief t.o.v. `otherId`, subtrees blijven via parentId gewoon
+        // hangen. Zonder deze stap loopt de WBS-nummering (raw-array-volgorde) uit de pas
+        // met de weergave (childIds-volgorde, zie visibleRows.ts:242).
+        const rawIdx = s.tasks.findIndex(t => t.id === taskId);
+        const [node] = s.tasks.splice(rawIdx, 1);
+        const otherRawIdx = s.tasks.findIndex(t => t.id === otherId);
+        if (direction === 'up') {
+          s.tasks.splice(otherRawIdx, 0, node); // vóór otherId
+        } else {
+          s.tasks.splice(otherRawIdx + 1, 0, node); // ná otherId
+        }
       } else {
         // Root-niveau: er is geen aparte root-childIds-array — de sibling-volgorde is de
         // relatieve positie binnen de rauwe `s.tasks`-array (zie flattenOrder in utils/wbs.ts en
@@ -708,11 +830,11 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     return newRootId;
   },
 
-  setTaskProgress: (taskId, raw) => {
+  setTaskProgress: (taskId, raw, opts) => {
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
-      beginUndoable(s);
+      beginUndoable(s, opts); // `opts` = coalesceKey (bv. slider-sleep = 1 stap).
       const completion = Math.max(0, Math.min(1, raw));
       task.time.completion = completion;
       // §3.2: completion>0 zonder actualStart ⇒ auto actualStart (MSP-conventie: % ⇒ gestart).
@@ -728,14 +850,15 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     get().recomputeViewRows();
   },
 
-  setActualStart: (taskId, date) => {
+  setActualStart: (taskId, date, opts) => {
     let accepted = true;
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
       // Actuals liggen nooit ná de statusdatum: weigeren i.p.v. stil klemmen (§3.2, BESLIST).
+      // Weigering pusht GÉÉN snapshot (return vóór beginUndoable) — ongewijzigd gedrag.
       if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
-      beginUndoable(s);
+      beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualStart = date || undefined;
       applyProgressInvariants(task, s.project.statusDate);
       finishMutation(s, { stale: !!s.project.statusDate });
@@ -744,13 +867,13 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     return accepted;
   },
 
-  setActualFinish: (taskId, date) => {
+  setActualFinish: (taskId, date, opts) => {
     let accepted = true;
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
       if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
-      beginUndoable(s);
+      beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualFinish = date || undefined;
       // Finish wissen terwijl de taak op 100% stond ⇒ terug naar in-uitvoering (anders re-default
       // de invariant meteen een nieuw actualFinish en is wissen onmogelijk).

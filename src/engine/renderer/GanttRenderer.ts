@@ -8,7 +8,10 @@ import { effHoursPerDay, taskDurationMinutes } from '@/utils/taskDuration';
 import { formatDuration, type DurationSuffixes } from '@/utils/durationFormat';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
-import { TimelineTier, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
+import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
+import { readGanttPalette, type GanttPalette } from './themePalette';
+import { xToDayOffset, type GanttAxis } from './timeAxis';
+import { resolveGanttAxis, isCompressedEffective } from './workdayAxis';
 
 export interface GanttRenderOptions {
   /** DE gedeelde zichtbare-rijenlijst (fase 2.7, §4): de renderer flattent NIET meer zelf —
@@ -50,6 +53,10 @@ export interface GanttRenderOptions {
   rowHeight: number;
   headerHeight: number;
   localizedMonths?: string[];
+  /** issue #21 punt 2 (vervolg: dagnamen): 7 weekdag-afkortingen, geïndexeerd op
+   *  d.getUTCDay() (0=zondag … 6=zaterdag). Alleen gebruikt in de 'day'-tier bij zoom≥40;
+   *  afwezig ⇒ de dag-tier toont alleen het dagnummer (backwards-compat). */
+  localizedWeekdays?: string[];
   columnHeaders?: { wbs: string; taskName: string; duration: string };
   weekStartDay?: 'monday' | 'sunday';        // default 'monday'
   enableQuarterHourZoom?: boolean;            // default false
@@ -72,6 +79,19 @@ export interface GanttRenderOptions {
    *  onvoldoende, dus near-critical-balken krijgen een geblokt/gearceerd vulpatroon (kritiek=massief,
    *  near-critical=geblokt, normaal=omlijnd). Afwezig/false ⇒ licht/donker (amber-kleur als signaal). */
   highContrast?: boolean;
+  /** Geïnjecteerd themapalet (audit C5/P17). Afwezig ⇒ de renderer leest het zelf via
+   *  `readGanttPalette()` (identiek lees-moment/-resultaat als vroeger). Meegeven maakt de renderer
+   *  puur/headless-testbaar (geen DOM-afhankelijkheid). */
+  palette?: GanttPalette;
+  /** Issue #21 punt 5 (fase 2): «alleen werkbare dagen tonen». Afwezig/false ⇒ de bestaande
+   *  kalender-as (byte-identiek). Zie `axis` hieronder voor de gedeelde-instantie-variant. */
+  compressNonWorkdays?: boolean;
+  /** Issue #21 punt 5 (fase 2, ontwerp §10.1): een VAN BUITEN meegegeven `GanttAxis` — gebruikt
+   *  door `GanttCanvas` om de PRIMAIRE Gantt-pane en de `HistogramRenderer` LETTERLIJK dezelfde
+   *  as-instantie te geven (anders schuiven de resource-staafjes onder de verkeerde kolommen).
+   *  Afwezig ⇒ de renderer bouwt zelf een as uit `calendar`+`compressNonWorkdays`+`view`
+   *  (bv. de secundaire split-view-pane, of headless tests die geen axis meegeven). */
+  axis?: GanttAxis;
 }
 
 // Near-critical "geblokt"-vulpatroon voor het high-contrast-thema (fase 2.9 §5.4, BINDEND besluit).
@@ -95,55 +115,10 @@ function getNearCriticalHatch(ctx: CanvasRenderingContext2D): CanvasPattern | nu
   return nearCriticalHatch;
 }
 
-// Read theme colors from CSS variables on the document element
-function getThemeColors() {
-  const s = getComputedStyle(document.documentElement);
-  const v = (name: string, fallback: string) => s.getPropertyValue(name).trim() || fallback;
-  return {
-    // The Gantt now lives inside a white floating card, so the canvas background
-    // must read the card surface (white in light), NOT the workspace tint (--theme-bg).
-    bg: v('--theme-surface', '#ffffff'),
-    surface: v('--theme-surface-alt', '#F6F8FB'),
-    grid: v('--theme-border-light', '#EDF0F5'),
-    gridWeekend: v('--theme-grid-weekend', '#EFF2F7'),
-    border: v('--theme-border', '#E2E7EE'),
-    text: v('--theme-text', '#333845'),
-    textSecondary: v('--theme-text-dim', '#5B6472'),
-    critical: '#DC2626',       // kritiek (rood)
-    criticalLight: '#991B1B',  // voortgangsvulling kritiek
-    nearCritical: '#F59E0B',   // bijna-kritiek (amber, tussen kritiek-rood en float-groen, fase 2.9 §5.4)
-    hammock: '#0E7490',        // hammock/LOE-balk (teal, fase 2.9 §5.3)
-    normal: '#2563EB',         // normale taak (blauw)
-    normalLight: '#1D4ED8',    // voortgangsvulling / voltooid (blauw)
-    milestone: '#7C3AED',      // mijlpaal (paars, ruit)
-    float: v('--theme-bar-float', '#059669'),
-    baseline: '#6B7280',
-    complete: '#1D4ED8',
-    selected: v('--theme-accent', '#B45309'),
-    dependency: '#6B7280',
-    today: v('--theme-accent', '#B45309'),
-    statusDate: v('--theme-accent', '#B45309'),  // statusdatum-/voortgangslijn (accent-oranje, zoals oorspronkelijk fase 2.6 — zelfde bron als `today`/`selected`)
-    headerBg: v('--theme-surface-alt', '#F6F8FB'),
-    summary: '#475569',        // samenvattingsbalk (slate)
-    ghost: '#94A3B8',          // externe (cross-project) ghost-balk (grijs, fase 2.9 §5.5)
-    // Constraints & deadlines (fase 2.3; constraint-kleur uit PLAN §8.2)
-    constraintEarly: '#3B82F6',   // vroege-zijde (SNET/FNET): blauw
-    constraintLate: '#8B5CF6',    // late-zijde/pinnend (SNLT/FNLT/MSO/MFO): violet
-    deadlineOk: '#10B981',        // deadline-marker (groen; rood bij overschrijding)
-    // Path tracing (MSP Task Path-conventie: voorgangers goud, opvolgers paars; driving sterker)
-    tracePred: '#F59E0B',
-    tracePredDriving: '#D97706',
-    traceSucc: '#A78BFA',
-    traceSuccDriving: '#7C3AED',
-  };
-}
-
-type ThemeColors = ReturnType<typeof getThemeColors>;
-
 export class GanttRenderer {
   private ctx: CanvasRenderingContext2D;
   private opts: GanttRenderOptions;
-  private colors: ThemeColors;
+  private colors: GanttPalette;
 
   // Computed
   private viewStart: Date;
@@ -159,6 +134,13 @@ export class GanttRenderer {
   private violatedSet: Set<string>;
   private missedDeadlineSet: Set<string>;
   private highContrast: boolean;
+  /** Issue #21 punt 5 (fase 2): de gekozen tijd-as (kalender- of werkdagen-, §2.1). Fresh per
+   *  render — zie `workdayAxis.ts` §2.2/§2.5 (geen cross-render cache). */
+  private axis: GanttAxis;
+  /** Is de as DAADWERKELIJK gecomprimeerd (vlag AAN én de kalender heeft werkdagen, §9.4-guard)?
+   *  Stuurt de grid-/arceringkeuze in `drawGridBackground` (§4.2: geen niet-werkdagen ⇒ geen
+   *  arcering, geen dubbele rasterlijnen op de samengevallen naad-x). */
+  private compressed: boolean;
 
   /** Alpha voor gedimde rijen (filter-ouderketen, §4.2). */
   private static readonly DIM_ALPHA = 0.45;
@@ -171,7 +153,7 @@ export class GanttRenderer {
   constructor(ctx: CanvasRenderingContext2D, opts: GanttRenderOptions) {
     this.ctx = ctx;
     this.opts = opts;
-    this.colors = getThemeColors();
+    this.colors = opts.palette ?? readGanttPalette();
 
     this.viewStart = parseDate(opts.view.viewStartDate);
     this.rows = opts.rows;
@@ -185,6 +167,20 @@ export class GanttRenderer {
     this.violatedSet = new Set(opts.violatedConstraintTaskIds ?? []);
     this.missedDeadlineSet = new Set(opts.missedDeadlineTaskIds ?? []);
     this.highContrast = !!opts.highContrast;
+    // Issue #21 punt 5 (fase 2): `opts.axis` (indien meegegeven door GanttCanvas — de gedeelde
+    // instantie met HistogramRenderer, §10.1) wint; anders bouwt de renderer zelf een as uit de
+    // eigen opts (secundaire split-view-pane, headless tests zonder axis-prop). Toggle
+    // UIT/afwezig ⇒ `resolveGanttAxis` levert `buildCalendarAxis(...)` = byte-identiek aan vóór
+    // fase 2 (het bestaande `dateToX`-pad hieronder).
+    this.axis = opts.axis ?? resolveGanttAxis({
+      calendar: this.projectEngine,
+      compressNonWorkdays: !!opts.compressNonWorkdays,
+      origin: this.viewStart,
+      taskTableWidth: opts.taskTableWidth,
+      zoom: opts.view.zoom,
+      scrollX: opts.view.scrollX,
+    });
+    this.compressed = isCompressedEffective(this.projectEngine, !!opts.compressNonWorkdays);
   }
 
   /** Basis-balkkleur (fase 2.9 §5.4): kritiek-rood ≻ near-critical-amber ≻ float-path-tint ≻
@@ -197,17 +193,11 @@ export class GanttRenderer {
     if (task.time.isNearCritical) return this.colors.nearCritical;
     const fp = task.time.floatPath;
     if (fp !== undefined && fp > 1) {
-      return GanttRenderer.FLOAT_PATH_TINTS[(fp - 2) % GanttRenderer.FLOAT_PATH_TINTS.length];
+      const tints = this.colors.floatPathTints;
+      return tints[(fp - 2) % tints.length];
     }
     return task.color || this.colors.normal;
   }
-
-  /** Optionele tint per float-pad (fase 2.9 §5.4): pad 1 = kritiek (rood, hierboven), paden ≥2
-   *  krijgen elk een eigen tint. Alleen actief wanneer de floatPaths-optie draait (anders is
-   *  `floatPath` ongezet). */
-  private static readonly FLOAT_PATH_TINTS = [
-    '#2563EB', '#7C3AED', '#0891B2', '#DB2777', '#65A30D', '#EA580C', '#0D9488', '#9333EA',
-  ];
 
   /**
    * Duurkolom-tekst (§6.5). Urenplanning UIT ⇒ byte-identiek het huidige `${scheduleDuration}d`.
@@ -220,11 +210,14 @@ export class GanttRenderer {
     return formatDuration(taskDurationMinutes(task, cal), effHoursPerDay(cal), this.opts.durationDisplay ?? 'auto', this.opts.durationSuffixes);
   }
 
-  /** Convert a date (with optional sub-day precision) to X position on canvas */
+  /** Convert a date (with optional sub-day precision) to X position on canvas.
+   *  Issue #21 punt 5 (fase 2): het ENE as-chokepoint (ontwerp §2.1/§10) — nu `this.axis.dateToX`
+   *  i.p.v. rechtstreeks `timeAxis.dateToX`. Toggle uit ⇒ `this.axis` ís de kalender-as (dunne
+   *  wrapper om exact dezelfde `axisDateToX`-aanroep, zie `buildCalendarAxis`) ⇒ byte-identiek.
+   *  Alle 30+ bestaande call-sites (grid, balken, pijlen, mijlpalen, header, …) werken ongewijzigd
+   *  door dit ene punt. */
   dateToX(date: Date): number {
-    const msPerDay = 86400000;
-    const daysFromStart = (date.getTime() - this.viewStart.getTime()) / msPerDay;
-    return this.opts.taskTableWidth + daysFromStart * this.opts.view.zoom - this.opts.view.scrollX;
+    return this.axis.dateToX(date);
   }
 
   /** Convert task row index to Y position */
@@ -299,28 +292,63 @@ export class GanttRenderer {
 
     // Calculate visible date range
     const visibleDays = Math.ceil(canvasWidth / view.zoom) + 2;
-    const startOffset = Math.floor(view.scrollX / view.zoom);
+    // startOffset = eerste zichtbare dag-index t.o.v. `viewStart`. Gelijk aan de inverse van
+    // `this.dateToX` op x=`taskTableWidth` (het linker chart-randje): `xToDayOffset(taskTableWidth,
+    // taskTableWidth, zoom, scrollX)` = `(taskTableWidth-taskTableWidth+scrollX)/zoom` =
+    // `scrollX/zoom` — algebraïsch en drijvende-komma-identiek aan de vorige inline `scrollX/zoom`
+    // (issue #21 punt 5, fase 0-consolidatie; geen Date-round-trip, dus geen ms-afronding erbij).
+    const startOffset = Math.floor(xToDayOffset(this.opts.taskTableWidth, this.opts.taskTableWidth, view.zoom, view.scrollX));
 
-    for (let i = -1; i < visibleDays; i++) {
-      const date = addCalendarDays(this.viewStart, startOffset + i);
-      const x = this.dateToX(date);
-      const dayOfWeek = isoDayOfWeek(date);
+    // Issue #21 punt 5 (fase 2, ontwerp §4.2/§10): bij een DAADWERKELIJK gecomprimeerde as bestaan
+    // niet-werkdagen niet meer op het raster — itereren per kalenderdag zou meerdere niet-werkdagen
+    // (za+zo+feestdag) op DEZELFDE naad-x laten samenvallen (kleef-rechts, §2.4), met dubbele
+    // rasterlijnen en een arcering die per ongeluk over de eerstvolgende werkdag-kolom zou vallen.
+    // Daarom hieronder een apart, index-gebaseerd pad dat uitsluitend over de as-eigen `dateAtIndex`
+    // loopt (elke stap = één ECHTE werkdag); de niet-gecomprimeerde tak hieronder blijft ONGEWIJZIGD
+    // (byte-identiek aan vóór fase 2 — geen enkele regel in die tak is aangeraakt).
+    if (this.compressed) {
+      // `axisStartIndex` = de as-index op x=taskTableWidth: `axis.dayIndexOf(viewStart)` (het
+      // as-eigen nulpunt, kan >0 zijn — de as telt vanaf de epoch, zie workdayAxis.ts) plus
+      // `scrollX/zoom` (dezelfde herleiding als `startOffset` hierboven, maar dan in as-eenheden
+      // i.p.v. kalenderdagen-vanaf-viewStart).
+      const axisStartIndex = Math.floor(this.axis.dayIndexOf(this.viewStart) + view.scrollX / view.zoom);
+      for (let i = -1; i < visibleDays; i++) {
+        const date = this.axis.dateAtIndex(axisStartIndex + i);
+        const x = this.axis.dateToX(date);
+        const dayOfWeek = isoDayOfWeek(date);
 
-      // Niet-werkdag-arcering (B2): de PROJECTKALENDER is de enige waarheid — weekpatroon +
-      // feestdagen via `CalendarEngine.isWorkDay`, geen hardcoded za/zo. Bij een afwijkende
-      // werkweek (bv. za werkdag) volgt de arcering nu de kalender; ma–vr blijft visueel identiek.
-      if (!this.projectEngine.isWorkDay(date)) {
-        ctx.fillStyle = this.colors.gridWeekend;
-        ctx.fillRect(x, headerHeight, view.zoom, canvasHeight - headerHeight);
+        // Geen arcering: `dateAtIndex` op de werkdagen-as geeft ALTIJD een echte werkdag terug
+        // (§2.2: de prefix-som is per definitie een rij werkdag-indices) — er is niets om te
+        // arceren (§4.2: "de arcering vervalt volledig").
+        ctx.strokeStyle = this.colors.grid;
+        ctx.lineWidth = dayOfWeek === (this.opts.weekStartDay === 'sunday' ? 7 : 1) ? 1 : 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, headerHeight);
+        ctx.lineTo(x, canvasHeight);
+        ctx.stroke();
       }
+    } else {
+      for (let i = -1; i < visibleDays; i++) {
+        const date = addCalendarDays(this.viewStart, startOffset + i);
+        const x = this.dateToX(date);
+        const dayOfWeek = isoDayOfWeek(date);
 
-      // Vertical grid line
-      ctx.strokeStyle = this.colors.grid;
-      ctx.lineWidth = dayOfWeek === (this.opts.weekStartDay === 'sunday' ? 7 : 1) ? 1 : 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x, headerHeight);
-      ctx.lineTo(x, canvasHeight);
-      ctx.stroke();
+        // Niet-werkdag-arcering (B2): de PROJECTKALENDER is de enige waarheid — weekpatroon +
+        // feestdagen via `CalendarEngine.isWorkDay`, geen hardcoded za/zo. Bij een afwijkende
+        // werkweek (bv. za werkdag) volgt de arcering nu de kalender; ma–vr blijft visueel identiek.
+        if (!this.projectEngine.isWorkDay(date)) {
+          ctx.fillStyle = this.colors.gridWeekend;
+          ctx.fillRect(x, headerHeight, view.zoom, canvasHeight - headerHeight);
+        }
+
+        // Vertical grid line
+        ctx.strokeStyle = this.colors.grid;
+        ctx.lineWidth = dayOfWeek === (this.opts.weekStartDay === 'sunday' ? 7 : 1) ? 1 : 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, headerHeight);
+        ctx.lineTo(x, canvasHeight);
+        ctx.stroke();
+      }
     }
 
     // Horizontal grid lines (per row)
@@ -345,6 +373,14 @@ export class GanttRenderer {
    * bij voldoende breedte, anders verticaal (90°) langs de linkerrand van het blok.
    */
   private drawHolidayLabels(): void {
+    // Issue #21 punt 5 (header-bugfix, vervolg fase 3 van werkdagen-as-ontwerp.md §4.3): onder
+    // compressie bestaan feestdagen niet meer op de as (0 kolommen) — `widthPx = days*zoom`
+    // gebruikt hieronder nog de OUDE, ongecomprimeerde dagbreedte, wat op de gecomprimeerde
+    // `dateToX(start)`-positie een breed blok zou overtekenen dat niet bij de echte (0-brede)
+    // naad past. §4.3 wijst dit zelf aan als toekomstige "naad-marker"-vervanging (latere fase,
+    // hier niet gebouwd) — tot dan: simpelweg niets tekenen i.p.v. het 0-breedte-artefact.
+    if (this.compressed) return;
+
     const { canvasWidth, canvasHeight, headerHeight, taskTableWidth, view } = this.opts;
     const zoom = view.zoom;
     const minWidthPx = zoom * 3;
@@ -374,19 +410,44 @@ export class GanttRenderer {
 
       if (widthPx >= 70) {
         // Breed genoeg: horizontaal, gecentreerd in het zichtbare deel van het blok, bovenaan.
+        // Issue #21 (holiday-labels-clip-fix): ware grootte tekenen en CLIPPEN op het zichtbare
+        // gebied i.p.v. samenknijpen via een fillText-maxWidth — een lang woord valt dan gewoon
+        // gedeeltelijk buiten beeld i.p.v. onleesbaar verdrukt te worden.
         ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(h.name, (clipX1 + clipX2) / 2, headerHeight + 6, visibleWidth - 8);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipX1, headerHeight, visibleWidth, Math.max(0, canvasHeight - headerHeight));
+        ctx.clip();
+        // User-feedback issue #21: centreren + clippen sneed een te lange naam aan TWEE kanten af
+        // ("stverlet funder" — het begin ontbrak, leest als wartaal). Past de naam in het zichtbare
+        // deel: gecentreerd zoals voorheen. Past hij niet: links uitlijnen op de échte blokstart
+        // (x1), zodat altijd het BEGIN van het woord zichtbaar is en alleen het einde wegvalt.
+        if (ctx.measureText(h.name).width <= visibleWidth - 8) {
+          ctx.textAlign = 'center';
+          ctx.fillText(h.name, (clipX1 + clipX2) / 2, headerHeight + 6);
+        } else {
+          ctx.textAlign = 'left';
+          ctx.fillText(h.name, x1 + 4, headerHeight + 6);
+        }
+        ctx.restore();
       } else {
-        // Smal blok: verticale tekst langs de linkerrand.
+        // Smal blok: verticale tekst langs de linkerrand. Zelfde clip-in-plaats-van-knijpen-aanpak,
+        // maar dan in wereldcoördinaten VÓÓR de translate/rotate (clip-pad wordt vastgelegd in de
+        // transform die op dat moment geldt), zodat de geroteerde tekst ook gewoon aan de onderkant
+        // afgesneden wordt i.p.v. samengeperst.
         ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipX1, headerHeight, visibleWidth, Math.max(0, canvasHeight - headerHeight));
+        ctx.clip();
         ctx.save();
         ctx.translate(clipX1 + zoom / 2, headerHeight + 8);
         ctx.rotate(Math.PI / 2);
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(h.name, 0, 0, Math.max(0, canvasHeight - headerHeight - 16));
+        ctx.fillText(h.name, 0, 0);
+        ctx.restore();
         ctx.restore();
       }
     }
@@ -542,11 +603,51 @@ export class GanttRenderer {
     ctx.stroke();
 
     const enableQH = enableQuarterHourZoom ?? false;
-    const { major, minor } = pickTiers(view.zoom, enableQH);
+    // issue #21 punt 2 (vervolg, user-besluit): de HEADER toont áltijd de dagplanning-opbouw
+    // (maand/week/dag), ook met urenplanning aan — de oude dag/uur-band gaf een fontsprong en
+    // een lege uurrij. De uur-tiers leven alleen nog in de sleep-snapping (useBarDrag geeft
+    // de urenplanning-vlag wél door aan pickTiers).
+    const { major, mid, minor } = pickTiers(view.zoom, enableQH, false);
 
-    // Visible date range
-    const startDate = addCalendarDays(this.viewStart, Math.floor(view.scrollX / view.zoom) - 1);
-    const endDate = addCalendarDays(this.viewStart, Math.ceil((view.scrollX + canvasWidth) / view.zoom) + 1);
+    // Visible date range. Issue #21 punt 5 (header-bugfix, vervolg fase 3 van
+    // werkdagen-as-ontwerp.md §4.1/§10): via de as-index (`this.axis.dayIndexOf`/`dateAtIndex`)
+    // i.p.v. de kalenderdag-aanname `scrollX/zoom` — die laatste gaat er impliciet van uit dat
+    // 1 kalenderdag = 1 zoom-kolom, wat alleen klopt op de ongecomprimeerde as. Onder compressie
+    // "kost" elke overgeslagen niet-werkdag 0 px maar telde in de oude formule als 1 kalenderdag
+    // mee, dus het berekende bereik liep steeds verder ACHTER op het werkelijk zichtbare venster
+    // naarmate scrollX groeide — bij genoeg scroll viel de tick-loop (`drawTierLabels`) stil
+    // vóórdat hij het canvas had bereikt: een (deels of geheel) LEGE datumregel, precies het
+    // gerapporteerde "zwarte" headergedeelte (bevestigd headless: bij scrollX=3000, zoom=26 gaf
+    // de oude formule 0 dag-labels i.p.v. de volle breedte — zie `tests/planning/
+    // check-header-compress.ts` voor de blijvende regressiebewaking).
+    // Byte-identiek op de niet-gecomprimeerde as: `CalendarAxis.dayIndexOf(viewStart)`===0, dus
+    // dit reduceert algebraïsch tot exact de oude `addCalendarDays(...)`-formule.
+    const axisViewStartIdx = this.axis.dayIndexOf(this.viewStart);
+    const startDate = this.axis.dateAtIndex(axisViewStartIdx + Math.floor(view.scrollX / view.zoom) - 1);
+    const endDate = this.axis.dateAtIndex(axisViewStartIdx + Math.ceil((view.scrollX + canvasWidth) / view.zoom) + 1);
+
+    // issue #21 punt 2: bij een `mid`-tier (dagweergave, 25≤zoom<80) komt er een weeknummer-rij
+    // bij en worden de drie rijen gelijkmatig verdeeld (h/6, h/2, 5h/6). Zonder `mid` valt dit
+    // blok weg en blijft de oorspronkelijke 2-rijen-layout hieronder byte-identiek staan.
+    if (mid) {
+      // --- Bovenste rij: major tier (maand) ---
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = this.colors.text;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      this.drawTierLabels(major, startDate, endDate, headerHeight / 6);
+
+      // --- Middenrij: mid tier (weeknummers), zelfde stijl als de minor-rij ---
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = this.colors.textSecondary;
+      this.drawTierLabels(mid, startDate, endDate, headerHeight / 2);
+
+      // --- Onderste rij: minor tier (dag) ---
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = this.colors.textSecondary;
+      this.drawTierLabels(minor, startDate, endDate, headerHeight * 5 / 6);
+      return;
+    }
 
     // --- Top row: major tier ---
     ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -567,10 +668,23 @@ export class GanttRenderer {
     endDate: Date,
     yCenter: number,
   ): void {
-    const { canvasWidth, taskTableWidth, weekStartDay, localizedMonths } = this.opts;
+    const { canvasWidth, taskTableWidth, weekStartDay, localizedMonths, localizedWeekdays } = this.opts;
     const wsd = weekStartDay ?? 'monday';
     const ctx = this.ctx;
     const cfg = TIER_CONFIG[tier];
+
+    // Issue #21 punt 5 (header-bugfix, vervolg fase 3 van werkdagen-as-ontwerp.md §4.1): onder
+    // compressie stapt de DAG-tier over werkdag-AS-INDICES i.p.v. kalenderdagen. Reden: met
+    // `nextTickBoundary('day')` (+1 kalenderdag) vallen aaneengesloten niet-werkdagen (weekend,
+    // feestdagblok) allemaal op dezelfde kleef-rechts-naad-x (`workdayAxis.ts`) — elke zo'n tick
+    // krijgt toevallig `slotWidth===0` en wordt door de defensieve skip hieronder overgeslagen,
+    // dus zichtbare dubbele labels ontstaan hier NIET. Week-/maand-tiers werken wél al
+    // automatisch mee via `dateToX` (§4.1: "vrijwel automatisch") — alleen de dag-tier verandert
+    // van stapmethode.
+    if (tier === 'day' && this.compressed) {
+      this.drawWorkdayTierLabels(startDate, endDate, yCenter, cfg, wsd, localizedWeekdays);
+      return;
+    }
 
     // Snap to the tick boundary at-or-before startDate
     let cursor = snapToTickStart(startDate, tier, wsd);
@@ -580,7 +694,7 @@ export class GanttRenderer {
       const next = nextTickBoundary(cursor, tier);
       const x1 = this.dateToX(cursor);
       const x2 = this.dateToX(next);
-      const labelText = this.formatTierLabel(tier, cursor, wsd, localizedMonths);
+      const labelText = this.formatTierLabel(tier, cursor, wsd, localizedMonths, localizedWeekdays);
 
       // Skip tick entirely if it doesn't reach the visible task area
       if (x2 <= taskTableWidth) {
@@ -593,14 +707,74 @@ export class GanttRenderer {
       const labelX = Math.max(x1 + 4, taskTableWidth + 4);
       const slotWidth = x2 - Math.max(x1, taskTableWidth);
 
-      // Defensive skip: if slot is too narrow OR we'd overlap the previous label
+      // Defensive skip: if slot is too narrow OR we'd overlap the previous label. Issue #21
+      // (tier-labels-overlap-fix): daarnaast pas TEKENEN als de GEMETEN tekstbreedte ook echt
+      // vóór het einde van deze tick past (x2-2) — anders overslaan (nooit knijpen/afkappen via
+      // een fillText-maxWidth), zodat twee labels (bv. maandnamen) nooit door elkaar heen lopen.
+      // De lastDrawnRight-guard hierboven blijft als extra vangnet.
       if (slotWidth >= cfg.minLabelWidth && labelX > lastDrawnRight + 4) {
-        ctx.fillText(labelText, labelX, yCenter);
         const measured = ctx.measureText(labelText).width;
-        lastDrawnRight = labelX + measured;
+        if (labelX + measured <= x2 - 2) {
+          ctx.fillText(labelText, labelX, yCenter);
+          lastDrawnRight = labelX + measured;
+        }
       }
 
       cursor = next;
+    }
+  }
+
+  /**
+   * Issue #21 punt 5 (header-bugfix): dag-tier onder compressie, itererend over
+   * WERKDAG-as-indices (`this.axis.dayIndexOf`/`dateAtIndex`) i.p.v. kalenderdagen. Elke
+   * opeenvolgende index is per constructie een ANDERE echte werkdag (§2.2 prefix-som) — er
+   * bestaat dus geen niet-werkdag-tick om over te slaan, en twee ticks kunnen nooit op dezelfde
+   * x landen. Bijkomend voordeel t.o.v. "per kalenderdag + 0-breedte-skip": het aantal
+   * iteraties is O(zichtbare kolommen), niet O(zichtbare kalenderdagen incl. gecomprimeerde
+   * weekenden/feestdagen) — bij een ver-gescrolde weergave met veel vrije dagen scheelt dat.
+   */
+  private drawWorkdayTierLabels(
+    startDate: Date,
+    endDate: Date,
+    yCenter: number,
+    cfg: TierConfig,
+    wsd: 'monday' | 'sunday',
+    localizedWeekdays?: string[],
+  ): void {
+    const { canvasWidth, taskTableWidth } = this.opts;
+    const ctx = this.ctx;
+
+    let idx = Math.floor(this.axis.dayIndexOf(startDate));
+    const endIdx = Math.ceil(this.axis.dayIndexOf(endDate));
+    let lastDrawnRight = -Infinity;
+
+    while (idx <= endIdx) {
+      const cursor = this.axis.dateAtIndex(idx);
+      const next = this.axis.dateAtIndex(idx + 1);
+      const x1 = this.axis.dateToX(cursor);
+      const x2 = this.axis.dateToX(next);
+      const labelText = this.formatTierLabel('day', cursor, wsd, undefined, localizedWeekdays);
+
+      if (x2 <= taskTableWidth) {
+        idx++;
+        continue;
+      }
+      if (x1 >= canvasWidth) break;
+
+      const labelX = Math.max(x1 + 4, taskTableWidth + 4);
+      const slotWidth = x2 - Math.max(x1, taskTableWidth);
+
+      // Zelfde meten-vóór-tekenen-guard als drawTierLabels hierboven (issue #21,
+      // tier-labels-overlap-fix): niet knijpen/afkappen, gewoon overslaan als het niet past.
+      if (slotWidth >= cfg.minLabelWidth && labelX > lastDrawnRight + 4) {
+        const measured = ctx.measureText(labelText).width;
+        if (labelX + measured <= x2 - 2) {
+          ctx.fillText(labelText, labelX, yCenter);
+          lastDrawnRight = labelX + measured;
+        }
+      }
+
+      idx++;
     }
   }
 
@@ -608,7 +782,8 @@ export class GanttRenderer {
     tier: TimelineTier,
     d: Date,
     weekStartDay: 'monday' | 'sunday',
-    localizedMonths?: string[]
+    localizedMonths?: string[],
+    localizedWeekdays?: string[]
   ): string {
     const months = localizedMonths || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -617,7 +792,16 @@ export class GanttRenderer {
       case 'quarter':     return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
       case 'month':       return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
       case 'week':        return `W${getWeekNumberFor(d, weekStartDay)}`;
-      case 'day':         return `${d.getUTCDate()}`;
+      // issue #21 punt 2 (vervolg: dagnamen): bij voldoende inzoomen (zoom≥40 px/dag) de
+      // weekdag-afkorting vóór het dagnummer tonen ('wo 23'); anders alleen het dagnummer.
+      // Zonder localizedWeekdays valt het terug op alleen het dagnummer (backwards-compat).
+      case 'day': {
+        const dayNum = d.getUTCDate();
+        if (localizedWeekdays && this.opts.view.zoom >= 40) {
+          return `${localizedWeekdays[d.getUTCDay()]} ${dayNum}`;
+        }
+        return `${dayNum}`;
+      }
       case 'hour':        return `${pad(d.getUTCHours())}:00`;
       case 'quarterHour': return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
     }
@@ -795,7 +979,7 @@ export class GanttRenderer {
 
     // Task name on bar (if wide enough)
     if (width > 40) {
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = this.colors.barText;
       ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textBaseline = 'middle';
       ctx.save();
@@ -1144,6 +1328,13 @@ export class GanttRenderer {
       const predY = this.rowToY(predIdx) + rowH / 2;
       const succY = this.rowToY(succIdx) + rowH / 2;
 
+      // Verticale offscreen-cull (prestatie): valt de hele pijl — beide endpoints, de elleboog
+      // ertussen én de pijlkop (succY ± ~3) — ruim boven of onder het canvas, dan tekent hij
+      // niets zichtbaars. Marge 8px dekt pijlkop + lijnbreedte ruim, zodat een net-zichtbare pijl
+      // NOOIT wordt overgeslagen. Bespaart de dure parseDate/dateToX hieronder voor die pijlen.
+      const canvasH = this.opts.canvasHeight;
+      if (Math.max(predY, succY) < -8 || Math.min(predY, succY) > canvasH + 8) continue;
+
       let fromX: number, toX: number;
 
       switch (seq.type) {
@@ -1346,7 +1537,7 @@ export class GanttRenderer {
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnSize, btnSize, 2);
         ctx.fill();
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = this.colors.barText;
         ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('+', btnX + btnSize / 2, textY);
@@ -1386,6 +1577,20 @@ export class GanttRenderer {
   /** Hit test: get the row index for a Y position */
   getRowIndex(canvasY: number): number {
     return Math.floor((canvasY - this.opts.headerHeight + this.opts.view.scrollY) / this.opts.rowHeight);
+  }
+
+  /** Hit test (issue #21 punt 1, fase 2): verticale drieband bínnen de rij op `canvasY` — bovenste
+   *  kwart = 'before' (invoegen boven deze rij), onderste kwart = 'after' (invoegen onder deze
+   *  rij), middenband = 'nest' (kind worden van deze rij). Hergebruikt exact dezelfde
+   *  rowTop-formule als `getRowIndex`/de rij-tekencode hierboven, zodat de zone altijd op de
+   *  pixel klopt met waar de rij getekend is. */
+  getRowZone(canvasY: number): 'before' | 'after' | 'nest' {
+    const idx = this.getRowIndex(canvasY);
+    const rowTop = this.opts.headerHeight + idx * this.opts.rowHeight - this.opts.view.scrollY;
+    const frac = (canvasY - rowTop) / this.opts.rowHeight;
+    if (frac < 0.25) return 'before';
+    if (frac > 0.75) return 'after';
+    return 'nest';
   }
 
   /** Hit test: is this position in the task table area? */

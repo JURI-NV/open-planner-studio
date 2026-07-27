@@ -156,7 +156,8 @@
     "manageLayouts": "Manage…",
     "presentationMode": "Presentation",
     "splitView": "Split view",
-    "miniMap": "Mini-map"
+    "miniMap": "Mini-map",
+    "moveProject": "Move project…"
   },
   "ifc": {
     "title": "IFC Editor",
@@ -271,6 +272,9 @@
     "helpLoadError": "Documentation could not be loaded.",
     "helpArticleNotFound": "Article not found.",
     "library": "Library",
+    "helpDocsLang": "Documentation language",
+    "helpDocsLangAuto": "Follow app language",
+    "helpStale": "This language is updated only occasionally. For the most up-to-date documentation, switch to English or Dutch.",
     "helpLayer": {
       "quickstart": "Quick start",
       "gidsen": "Guides by topic",

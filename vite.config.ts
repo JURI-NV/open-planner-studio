@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import pkg from './package.json';
+// @ts-expect-error — dev-port.mjs is plain JS zonder types
+import { worktreeRoot, readRecordedPort } from './scripts/dev-port.mjs';
 
 export default defineConfig({
   plugins: [react()],
@@ -20,7 +22,10 @@ export default defineConfig({
     // Port comes from scripts/tauri-dev.mjs (OPS_DEV_PORT) so the desktop
     // window's devUrl always matches. strictPort makes a clash fail loudly
     // instead of silently drifting to another port — see scripts/tauri-dev.mjs.
-    port: Number(process.env.OPS_DEV_PORT) || 3007,
+    // Poort: launcher zet OPS_DEV_PORT; anders de vastgelegde opsDevPort van dit
+    // worktree; anders 3007. readRecordedPort/worktreeRoot gooien nooit (CI: vite
+    // build in een .claude-loze checkout). strictPort maakt een clash luid.
+    port: Number(process.env.OPS_DEV_PORT) || readRecordedPort(worktreeRoot()) || 3007,
     strictPort: true,
     watch: {
       // Sibling git worktrees under .claude/worktrees/ each carry a full src
@@ -54,10 +59,13 @@ export default defineConfig({
         // a smaller main chunk and better browser caching: a vendor bump (or an
         // app-code edit) only invalidates the chunk it touches, not everything.
         manualChunks(id) {
-          // Translation JSON (~350 kB of source, eagerly imported in
-          // src/i18n/config.ts). Stays eager — only relocated to its own file.
+          // Translation JSON: één chunk per taal. Alleen 'en' is statisch
+          // geïmporteerd (blijft dus eager); de overige 13 talen worden enkel
+          // dynamisch via loadLocale() geïmporteerd en worden daardoor async
+          // chunks die pas bij een taalwissel/-detectie geladen worden.
           if (id.includes('/src/i18n/locales/')) {
-            return 'locales';
+            const m = id.match(/\/locales\/([^/]+)\//);
+            return m ? `locale-${m[1]}` : 'locales';
           }
           if (id.includes('/node_modules/')) {
             // React runtime (react, react-dom, its scheduler dep).

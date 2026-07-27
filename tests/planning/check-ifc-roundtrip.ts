@@ -42,9 +42,14 @@
 //                             tests/planning/check-adapters-hours.ts.
 //   (b) resourceCalendars: de projectkalender-entry wordt bewust NIET in de bibliotheek gedupliceerd
 //                             (writer filtert 'm eruit; reader geeft de bibliotheek zonder projectkalender).
+//   project.startDate/endDate was hier ook zo'n (b)-normalisatie (→taak-span). Dat is GEDICHT: de
+//   contractuele datums hebben nu eigen opslag in het OPS_ProjectSettings-pset en lopen door de
+//   echte round-trip-vergelijking; de fixture kiest ze bewust LOS van de taak-span, zodat de
+//   vergelijking het verschil ook echt kan zien. IFCWORKPLAN.StartTime/FinishTime blijft de
+//   AFGELEIDE plan-omvang dragen. Zie blok (4) onderaan voor leeg-geval en legacy-terugval.
 //   Overige bewuste (b)-normalisaties die de fixture al in genormaliseerde vorm kiest (dus GEEN
 //   afwijking geven): ids regenereren (→ natuurlijke sleutels), project.calendarId→'cal-default',
-//   project.startDate/endDate→taak-span, ASAP-constraint niet geschreven, shift FIRST→undefined,
+//   ASAP-constraint niet geschreven, shift FIRST→undefined,
 //   lagUnit WORKTIME→undefined, curve UNIFORM→undefined, progressMode RETAINED_LOGIC→undefined,
 //   completion→1 decimaal, dag-duren integer, hoursPerDay=eind−startuur, priority 500 niet geschreven.
 
@@ -258,7 +263,10 @@ const SCHED_OPTS = {
 } satisfies Required<SchedulingOptions>;
 const project = {
   id: 'proj-1', name: 'Nieuwbouw Testtoren', description: 'Beschrijving X', // description: (a) gap
-  startDate: '2026-07-06', endDate: '2026-07-24', calendarId: 'projcal',
+  // CONTRACTUELE project-datums, bewust LOS van de taak-span (die loopt 2026-07-06 … 2026-07-24).
+  // Vielen ze samen — zoals vóór deze fixture-fix — dan bewees de vergelijking hieronder NIETS:
+  // de afgeleide planningsdatum uit IFCWORKPLAN was per constructie gelijk aan de contractuele.
+  startDate: '2026-06-15', endDate: '2026-09-30', calendarId: 'projcal',
   createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-06-01T00:00:00.000Z', // (a) gaps
   author: 'Ir. Testz', company: 'Bouw BV',                                       // (a) gaps
   wbsAutoNumber: true, statusDate: '2026-07-25', progressMode: 'PROGRESS_OVERRIDE',
@@ -316,12 +324,14 @@ function canon(r: ImportResult): Any {
 
   const canonTime = (t: TaskTime): Any => ({
     // Gestripte (b)-gaps: durationMinutes/remainingMinutes (uur-modus, n.v.t. in dag-modus).
-    // interferingFloat/isNearCritical/floatPath round-trippen sinds H2 (OPS_Analysis) mee.
+    // interferingFloat/isNearCritical/floatPath round-trippen sinds pakket K BEWUST NIET meer mee:
+    // de writer schrijft `OPS_Analysis` niet langer omdat het pure runCPM-uitvoer is die élk
+    // laadpad herberekent (zie ifcWriter.WRITTEN_PER_TASK_PSETS). Ze staan daarom weer als
+    // (a)-gap in KNOWN_GAPS hieronder — de LEESkant blijft bestaande bestanden gewoon accepteren.
     durationType: t.durationType, scheduleDuration: t.scheduleDuration,
     scheduleStart: t.scheduleStart, scheduleFinish: t.scheduleFinish,
     earlyStart: t.earlyStart, earlyFinish: t.earlyFinish, lateStart: t.lateStart, lateFinish: t.lateFinish,
     freeFloat: t.freeFloat, totalFloat: t.totalFloat, isCritical: t.isCritical,
-    interferingFloat: t.interferingFloat, isNearCritical: t.isNearCritical, floatPath: t.floatPath,
     actualStart: t.actualStart, actualFinish: t.actualFinish, actualDuration: t.actualDuration,
     remainingTime: t.remainingTime, completion: t.completion,
   });
@@ -457,9 +467,19 @@ const rt2 = readIFC(writeIFC(rt1));
   const tmOut = tByWbs(rt1, '1.1'); // Oplevering (kitchen-sink)
   const txOut = tByWbs(rt1, '1.2'); // Ruwbouw
 
-  // De gaps author/company/description/createdAt/modifiedAt/color/resourceIds/interferingFloat/
-  // isNearCritical/floatPath zijn in H2 gedicht — ze lopen nu door de echte round-trip-vergelijking
-  // hierboven en zijn uit KNOWN_GAPS gehaald. Hier resteren alleen de bewuste (b)-normalisaties.
+  // De gaps author/company/description/createdAt/modifiedAt/color/resourceIds zijn in H2 gedicht —
+  // die lopen nu door de echte round-trip-vergelijking hierboven.
+  //
+  // (a) HEROPEND in pakket K: interferingFloat/isNearCritical/floatPath. De writer schrijft de
+  // `OPS_Analysis`-pset bewust niet meer — het is pure runCPM-uitvoer zonder gebruikersinvoer, die
+  // élk laadpad direct herberekent (gemeten: 589/589 taken bit-exact identiek na runCPM), en hij
+  // kostte ~157 kB over de publieke voorbeeldset plus ~21% van elke auto-save-schrijfactie.
+  // Deze drie asserties bewijzen dat het verlies er is én bedoeld is: gaat er één falen, dan
+  // schrijft iemand de pset weer en moet dit besluit opnieuw gewogen worden (niet de assert
+  // aanpassen). De LEESkant is ongemoeid: bestaande bestanden mét de pset laden gewoon.
+  assert(tmOut.time.interferingFloat === undefined && def(TM.time.interferingFloat), '(a) time.interferingFloat — afgeleid, OPS_Analysis niet meer geschreven');
+  assert(tmOut.time.isNearCritical === undefined && def(TM.time.isNearCritical), '(a) time.isNearCritical — afgeleid, OPS_Analysis niet meer geschreven');
+  assert(tmOut.time.floatPath === undefined && def(TM.time.floatPath), '(a) time.floatPath — afgeleid, OPS_Analysis niet meer geschreven');
   assert(tmOut.time.durationMinutes === undefined && def(TM.time.durationMinutes), '(b) time.durationMinutes n.v.t. in dag-modus');
   assert(tmOut.time.remainingMinutes === undefined && def(TM.time.remainingMinutes), '(b) time.remainingMinutes n.v.t. in dag-modus');
   assert(rMem.availability === undefined && def(RMember.availability), '(b) resource.availability (deprecated) niet geschreven');
@@ -482,6 +502,39 @@ const rt2 = readIFC(writeIFC(rt1));
   assert(rtLibCal.libraryOrigin?.companyId === 'c-fixture'
     && rtLibCal.libraryOrigin?.libraryItemId === 'lib-libcal'
     && rtLibCal.libraryOrigin?.poolVersion === 4, 'bibliotheekkalender.libraryOrigin round-trip');
+}
+
+// (5) Contractuele projectdatums — de drie gevallen van de OPS_ProjectSettings-opslag. Het GEVULDE
+//     geval loopt al door de vergelijking in (1) (fixture: 2026-06-15 … 2026-09-30, bewust los van
+//     de taak-span 2026-07-06 … 2026-07-24). Hier de twee andere:
+{
+  // (4a) Een bewust LEEG gelaten einddatum moet leeg terugkomen. Zou de writer 'm — volgens de
+  //      golden rule "alleen schrijven wat gezet is" — weglaten, dan viel de lezer terug op
+  //      IFCWORKPLAN.FinishTime en stond de AFGELEIDE datum 2026-07-24 er alsnog in: dezelfde bug,
+  //      alleen verplaatst naar het lege geval.
+  const emptyEnd: ImportResult = { ...fixture, project: { ...fixture.project, endDate: '' } };
+  const rtEmpty = readIFC(writeIFC(emptyEnd));
+  assert(rtEmpty.project.endDate === '', `lege endDate moet leeg terugkomen — kreeg ${JSON.stringify(rtEmpty.project.endDate)}`);
+  assert(rtEmpty.project.startDate === '2026-06-15', `gevulde startDate naast een lege endDate — kreeg ${JSON.stringify(rtEmpty.project.startDate)}`);
+
+  // (4b) Terugval voor bestanden ZONDER de nieuwe pset-velden (vóór deze versie, of van een ander
+  //      tool): die moeten zich exact gedragen als voorheen — de afgeleide plan-omvang uit
+  //      IFCWORKPLAN. Gesimuleerd door precies die twee property-regels uit het bestand te knippen;
+  //      de pset houdt dan losse verwijzingen over, die de lezer al negeert.
+  const legacy = writeIFC(fixture).split('\n')
+    .filter(l => !/IFCPROPERTYSINGLEVALUE\('Project(Start|End)Date'/.test(l)).join('\n');
+  const rtLegacy = readIFC(legacy);
+  assert(rtLegacy.project.startDate === '2026-07-06', `zonder pset-veld terugvallen op IFCWORKPLAN.StartTime — kreeg ${JSON.stringify(rtLegacy.project.startDate)}`);
+  assert(rtLegacy.project.endDate === '2026-07-24', `zonder pset-veld terugvallen op IFCWORKPLAN.FinishTime — kreeg ${JSON.stringify(rtLegacy.project.endDate)}`);
+
+  // (4c) De IFCWORKPLAN-slots zelf blijven ONGEWIJZIGD de afgeleide plan-omvang dragen (semantisch
+  //      juist; andere IFC-tools lezen die slots). Dat is precies waarom de contractuele datums een
+  //      eigen plek nodig hadden in plaats van dit slot over te nemen.
+  const wpLine = writeIFC(fixture).split('\n').find(l => l.includes('IFCWORKPLAN('))!;
+  assert(wpLine.includes("'2026-07-06") && wpLine.includes("'2026-07-24"),
+    `IFCWORKPLAN moet de AFGELEIDE taak-span houden (2026-07-06 … 2026-07-24) — kreeg: ${wpLine}`);
+  assert(!wpLine.includes('2026-06-15') && !wpLine.includes('2026-09-30'),
+    `IFCWORKPLAN mag de CONTRACTUELE datums niet dragen — kreeg: ${wpLine}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

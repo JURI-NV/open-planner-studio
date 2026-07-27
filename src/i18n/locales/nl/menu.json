@@ -156,7 +156,8 @@
     "manageLayouts": "Beheren…",
     "presentationMode": "Presentatie",
     "splitView": "Split view",
-    "miniMap": "Mini-map"
+    "miniMap": "Mini-map",
+    "moveProject": "Project verplaatsen…"
   },
   "ifc": {
     "title": "IFC-editor",
@@ -271,6 +272,9 @@
     "helpLoadError": "Documentatie kon niet worden geladen.",
     "helpArticleNotFound": "Artikel niet gevonden.",
     "library": "Bibliotheek",
+    "helpDocsLang": "Documentatietaal",
+    "helpDocsLangAuto": "Volg de app-taal",
+    "helpStale": "Deze taal wordt maar af en toe bijgewerkt. Voor de meest actuele documentatie kun je beter overschakelen naar het Engels of Nederlands.",
     "helpLayer": {
       "quickstart": "Snel starten",
       "gidsen": "Gidsen per onderwerp",

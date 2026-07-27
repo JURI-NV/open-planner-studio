@@ -42,38 +42,137 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   vlootverificatie waren klein); kandidaat-fix: memoiseren op pool-/documentversie zoals elders in
   de store.
 
-### Solver/presentatie (klein, uit de 2.10-showcase-triage, 2026-07-08)
-- [ ] **Dag/uur-asymmetrie backward-FS bij start-mijlpaal-voorganger normaliseren** (vondst pakket O,
-      2026-07-17). De backward-uur-FS-tak past `prevWorkInstant` onvoorwaardelijk toe, óók bij
-      `predEndsBeginOfDay`; de dag-tak behoudt dan juist het doeldatum-label. Work-equivalent
-      (tf blijft 0, geen scheduling-fout), maar de mijlpaal toont in uur-modus een late finish op de
-      vórige werkdag. Pre-existing; bewust byte-identiek gepind in `tests/planning/`
-      `cases-hours-relations.json` case `rr-fs-pred-startms` (met note) — bij normaliseren gaat die
-      case bewust rood en moet de verwachting mee. Code: `src/engine/scheduler/relationMath.ts`
-      (backward-uur-FS vs. backward-dag-FS).
-- [ ] **Hard-pin-restsignaal `TF=-4` op de GROOT-startmijlpaal.** Pre-existing interactie
-      (hard pin trekt de backward pass licht negatief door een voltooide keten); valse
-      "violated"-melding is al gefixt (74eb7b2), dit is alleen nog het float-getal.
-      Triage-repro's staan in de sessie-artefacten; opnieuw af te leiden uit
-      `showcase-groot.ts` + `check-advanced-cpm.ts` #182-186.
-- [ ] **Plan-datum vs. CPM-forecast zichtbaar verschillend.** De Gantt-balk toont
-      `scheduleStart` terwijl de CPM-diagnose de (data-date-gevloerde) forecast toont —
-      correct (P6-conform) maar verwarrend naast elkaar. Presentatie-verduidelijking
-      overwegen (bv. forecast-markering of tooltip-uitleg).
+### Solver/presentatie — resterende punten (2026-07-20)
+
+> De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
+> changelog. Twee ervan bleken een andere oorzaak te hebben dan het item beschreef: de `TF=-4` was
+> geen hard-pin-interactie maar een off-by-one plus feestdag-blinde dag-index in de
+> showcase-generator, en het "plan vs. forecast"-punt was geen presentatiekwestie maar een echte
+> bug in het eigenschappenpaneel. Onderstaande punten zijn er tijdens dat werk bij gevonden.
+
+> **Onderzocht op 2026-07-20 (headless probes tegen de echte solver).** Het vermoeden bestond uit
+> twee armen; er bleek er één echt te zijn.
+>
+> **VERWORPEN — de uur-pred/dag-succ-arm.** Daar ontbreken de grensvlaggen terecht: `predDoneAt` is
+> in uurmodus letterlijk de identiteit (`CalendarEngine.ts:495-498`), dus beide takken van de
+> forward-uitdrukking leveren dezelfde instant en er valt niets te spiegelen. Empirisch bevestigd:
+> alle varianten met vlaggen geven niet-negatieve float. **Niet opnieuw onderzoeken.**
+
+- [ ] **~~Dag-pred/uur-succ~~ — BEVESTIGD en in behandeling (2026-07-20).** In die arm is
+      `predDoneAt(ef)` gelijk aan `(ef + 1 dag)@00:00`; `forwardHour` onderdrukt die dagrand bij een
+      grensvlag, de backward-scanlus niet. Gemeten: dag-mijlpaal → uur-taak met FS 0 geeft
+      `tf = −1` waar het 0 moet zijn, en dezelfde netten puur dag→dag of puur uur→uur geven wél 0.
+      Ook bij lag 1 en 2. Geen enkele bestaande case pinde dit.
+- [ ] **Lag in minuten zonder dagen verdwijnt stil — BEVESTIGD en ERNSTIGER dan eerst genoteerd**
+      (2026-07-20). `resolveEffectiveLagDays` kent `seq.lagMinutes` niet, dus een lag met
+      `lagMinutes` gezet en `lagDays = 0` telt volledig als 0 (gemeten: `lagMinutes 240` geeft
+      exact dezelfde datums als lag 0). Dit is géén benigne eenheidskwestie: het is via import
+      bereikbaar, want `p6xmlReader.ts:520-528` en `mspdiReader.ts:388-405` keyen `lagMinutes` op de
+      **opvolger** terwijl de solver de lag in de **voorganger**-kalender oplost ⇒ P6-/MSPDI-import
+      met dag-voorganger en uur-opvolger verliest de lag zonder melding. IFC ontsnapt toevallig
+      (rondt `PT4H` op één dag af). Fix hoort in `resolveLag`/`shiftLagPred`. De lezer-kant is
+      **codelezing, geen import-fixture** — verifieer dat vóór je erop bouwt.
+- [ ] **Anker versus berekend: `scheduleStart` als datamodel-vraag.** Het paneelveld is op
+      2026-07-20 gelijkgetrokken met de vier andere oppervlakken (toont `earlyStart || scheduleStart`,
+      schrijft bij wijziging naar het anker), maar de onderliggende modellering blijft verwarrend: in
+      de tabel typ je een datum die naar `scheduleStart` gaat terwijl de cel daarna de berekende
+      datum toont — je invoer *lijkt* genegeerd. Nette oplossing = het anker alleen bewaren bij taken
+      zonder voorgangers, óf het als apart "Plan"-veld benoemen en overal consistent labelen
+      ("Anker" vs "Berekend"). Raakt store, IFC-round-trip, `TableEditor`, `TaskDialog`, paneel,
+      `check-ifc-roundtrip.ts` en i18n — eigen golf. Let op het regressierisico dat in
+      `src/state/slices/scheduleSlice.ts:96-100` beschreven staat (taak blijft op zijn gedrifte
+      datum hangen na het verwijderen van een relatie).
 
 ### Klein
-- [ ] **Existentie-guard vóór snapshot in de `remove*`-acties** (reviewer-aanbeveling pakket R,
-      2026-07-17). `removeSequence`/`deleteTask`/`removeResource`/`removeCalendar`/`deleteBaseline`
-      pushen een undo-snapshot vóór hun filter; bij een onbekend id blijft een loze undo-stap achter
-      (zelfde klasse als de in pakket R gefixte `updateTask`/`addSequence`). Impact laag (UI roept ze
-      met een bestaand id aan); fix = dezelfde goedkope guard, plus check-blok (g) in
-      `tests/planning/check-document-contract.ts` uitbreiden.
+- [ ] **Undo-stack heeft geen limiet.** Gemeten 2026-07-20: 64 MB na 500 taakbewerkingen bij een
+      project van 500 taken (elke snapshot is een volledige deep clone). Er staat nergens een
+      `.slice`/`.shift` op `undoStack`. Sinds project-mutaties ook snapshots pushen (2026-07-20) is
+      het aantal pushes toegenomen, dus dit wordt relevanter. Fix = een bovengrens met afkappen aan
+      de onderkant; let op dat `redoStack` symmetrisch mee moet.
+- [ ] **Taakdatumvelden pushen 3 undo-stappen per ingetypte datum.** `DateTextInput` commit live bij
+      elke toetsaanslag en `parseFlexibleDate` accepteert een jaar al bij 2 cijfers, dus "01062030"
+      levert commits op voor 2020-06-01, 0203-06-01 en 2030-06-01 — elk met een volledige snapshot.
+      Gemeten en bevestigd op 2026-07-20; pre-existing, geen regressie. De infrastructuur om dit te
+      verhelpen staat er inmiddels: `beginUndoable(s, { coalesceKey })` in `src/state/transaction.ts`
+      (gebruikt door `setStatusDate`). Voor `updateTask` kan de key niet generiek zijn — die zou ook
+      niet-datumbewerkingen en opeenvolgende Gantt-sleepacties samenvoegen — dus per veld kiezen.
+      **Onderzocht 2026-07-20:** 13 gebruiksplekken geïnventariseerd, 10 problematisch en 3 lokaal
+      (veilig). Correctie op de eerdere formulering: de start/finish-cellen in `TableEditor` zijn
+      géén `DateTextInput` en committeren al één keer. **Advies uit dat onderzoek: los het bij de
+      bron op** met een `commitMode`-prop (commit-op-blur) in plaats van per-actie coalesce-keys —
+      de gedeelde `task-sections`-componenten voeden zowel het eigenschappenpaneel als de
+      taakdialoog, dus een fix in het veld zelf dekt beide in één keer.
+- [ ] **Recovery-robuustheid bij een corrupt herstelbestand.** Sinds 2026-07-20 rekent
+      `restoreDocuments` het herstelde document door (`runCPM`), net als elk ander laadpad. Een
+      corrupte of afgekapte recovery-snapshot na een crash laat het opstarten daardoor klappen in
+      plaats van doormodderen. Overweeg een defensieve afhandeling rond die ene aanroep, met een
+      zichtbare melding in plaats van een stille catch.
+- [ ] **Een leeg project levert `projectEnd: "1970-01-01"` in plaats van een lege waarde.** De
+      accumulator in `src/engine/scheduler/` start op `new Date(0)`; alleen het fóutpad geeft `''`.
+      Gevonden 2026-07-20 bij het bouwen van Move Project (het ontwerpdoc nam `''` aan). Het gedrag
+      is vastgelegd in case `move-07` en de epoch wordt in `previewMoveProject` afgevangen zodat hij
+      nooit als echte einddatum op het scherm komt — maar de bron hoort gerepareerd: een project
+      zonder taken heeft geen einddatum, geen datum uit 1970.
+- [x] **`project.endDate` overleeft opslaan + herladen niet.** *(gefixt 2026-07-20)* `ifcWriter` schrijft
+      `planEnd = max(scheduleFinish)` en gebruikt `project.endDate` alleen als fallback bij nul
+      taken; de reader leest dat terug ín `project.endDate`. Elke ingevulde contractuele einddatum
+      gaat dus verloren bij een round-trip — los van Move Project, dat het veld correct meeschuift.
+      Het huidige gedrag is met toelichting vastgelegd in `check-move-project.ts` (check 151), zodat
+      een fix die check rood maakt.
+      **Aanpak (besloten 2026-07-20):** contractuele datums krijgen eigen persistentie in het
+      `OPS_ProjectSettings`-pset (precedent: `wbsAutoNumber` en de statusdatum zitten daar al, met een
+      gedocumenteerde reden in `ifcWriter.ts` ~regel 308). `IFCWORKPLAN.StartTime/FinishTime` blijven
+      ongewijzigd de *afgeleide* plan-omvang dragen — dat is semantisch juist en andere IFC-tools
+      lezen die slots. Lezer: pset wint, anders terugvallen op het WORKPLAN-slot, zodat bestaande
+      bestanden zich exact als vandaag gedragen.
+      **Twee valkuilen die de fix moet afdekken:**
+      (1) Een lege `endDate` moet léég terugkomen. De golden rule van dat pset (alleen schrijven wat
+      gezet is) zou bij `''` niets wegschrijven, waarna de lezer terugvalt op het WORKPLAN-slot en de
+      afgeleide datum alsnog invult — dezelfde bug, verplaatst naar het lege geval. De lezer moet
+      "veld aanwezig maar leeg" van "veld afwezig" kunnen onderscheiden.
+      (2) **`check-ifc-roundtrip.ts` geeft hier valse zekerheid.** Regel ~377 vergelijkt
+      `project.startDate`/`endDate` wél, maar de fixture heeft `endDate: '2026-07-24'` (regel ~257)
+      terwijl de laatste taak op diezelfde datum eindigt (regel ~184) — afgeleid en contractueel
+      vallen samen, dus het verlies is per constructie onzichtbaar en de check passeert zonder iets
+      te bewijzen. De fixture moet contractuele datums krijgen die expliciet afwijken van de
+      taak-span, anders bewijst ook de fix niets.
+      **Uitgevoerd 2026-07-20** volgens bovenstaande aanpak. Beide valkuilen afgedekt: de lege
+      einddatum wordt als NominalValue `$` geschreven ("aanwezig maar leeg") zodat de lezer hem van
+      een afwezig veld kan onderscheiden, en de round-trip-fixture heeft nu contractuele datums los
+      van de taak-span. De gap is uit KNOWN_GAPS naar de echte vergelijking verhuisd en check 151
+      legt het juiste gedrag vast. Rood/groen bewezen; live in de devbuild bevestigd.
+      Restpunt: `public/examples/*.ifc` zijn niet geregenereerd en bevatten de nieuwe
+      pset-properties dus nog niet — onschadelijk (ze lezen via de WORKPLAN-terugval), maar bij een
+      volgende `gen:examples`-run komen ze er vanzelf bij.
+- [ ] **`<html lang>` volgt de taalkeuze niet** (gevonden tijdens de visuele verificatie van
+      2026-07-20). `src/i18n/config.ts:135` zet wél `document.documentElement.dir` op basis van
+      `RTL_LOCALES`, maar `lang` blijft op de hardcoded `lang="nl"` uit `index.html` staan — bij alle
+      dertien niet-Nederlandse talen kondigen schermlezers de inhoud dus als Nederlands aan, en
+      browser-hyphenation/spellcheck gebruiken de verkeerde regels. Aangetoond in de draaiende app:
+      met locale `ar` staat `dir="rtl"` correct en `lang="nl"` fout. Fix = één regel naast de
+      bestaande `dir`-toewijzing.
+- [ ] **Generator-scripts staan niet in CI.** `npm run gen:examples` en `npm run verify:examples`
+      waren op de branch van 2026-07-20 volledig stuk (een verplaatste import en een gewijzigde
+      `writeIFC`-signatuur, beide zonder `scripts/` mee te nemen) en dat viel pas op toen iemand ze
+      wilde draaien. `tsc` dekt ze niet af omdat `scripts/` buiten het build-pad valt. Een goedkope
+      CI-stap zou dit vangen.
 - [ ] **"Project verplaatsen…"-functie (Move Project, user-verzoek 2026-07-10).** Hele planning
       N maanden/dagen verschuiven in één handeling: nieuwe projectstartdatum kiezen, alle expliciete
       datums schuiven mee (constraint-datums, deadlines, werkelijke start/einde, statusdatum,
       externe-koppeling-ankers), met keuze of baselines meegaan. Let op: kalender schuift NIET mee
       (feestdagen/bouwvak liggen vast), dus einddatums kunnen verspringen — dat is correct en moet
       in de preview zichtbaar zijn. Scope: store-actie + klein dialoog + tests (één golf).
+      **Bindend implementatieplan ligt klaar:**
+      [ontwerp](superpowers/specs/2026-07-20-move-project-design.md) — uitputtende veld-inventarisatie
+      met per veld een schuift-mee/niet-mee/afgeleid-verdict, uur-modus-gedrag, elf randgevallen,
+      store-/UI-/preview-ontwerp, i18n-sleutels en vijftien testcases. Twee correcties op de
+      aanname hierboven: `project.startDate` is **niet** het CPM-anker (de solver leidt de
+      projectstart af uit `scheduleStart` van taken zonder voorganger, `CPMSolver.ts:482-488`), dus
+      élk taakanker moet mee; en er is een randgeval bij dat er niet in stond — de gegenereerde
+      feestdagen dekken maar een eindige jarenspanne (`startjaar−1 … startjaar+3`), dus een grote
+      verschuiving vooruit rekent stil zonder feestdagen en moet een preview-waarschuwing krijgen.
+      §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
+      plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
 
 ### Distributie & Release
 
@@ -122,6 +221,21 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
   incrementele her-solve of PF-caching per iteratie. De banden-memoization uit 2.8b §5.6 is
   gemeten en werkt (0 nieuwe cache-fills bij een tweede solve op dezelfde kalenders).
   Benchmark-scripts: `/tmp/ops-perf/` (bench.ts + run.sh, herbruikbaar).
+
+- [ ] **D2 — opslaan naar een Web Worker verhuizen (prestatie-audit, geparkeerd 2026-07-23).**
+  Uit de prestatie-audit ([`superpowers/prestatie-modulariteit-audit.md`](superpowers/prestatie-modulariteit-audit.md)):
+  de IFC-serialisatie bij auto-save draait op de hoofd-thread en kan bij grote projecten een
+  korte hik geven. De pijn is al fors verzacht door de throttle (eens/10 s) en de dirty-cache
+  (alleen gewijzigde documenten her-serialiseren, `src/hooks/useAutoSave.ts`), dus dit is een
+  *nice-to-have*, geen blokker. *Aanpak:* `ifcWriter` in een Web Worker draaien zodat het
+  serialiseren de UI nooit blokkeert. **Let op:** dit zou de eerste Web Worker in de app zijn —
+  nieuwe infrastructuur (berichtenverkeer, foutafhandeling), dus met een frisse aanloop bouwen,
+  niet er even tussendoor. Verificatie-eis: de worker moet **byte-identieke** IFC produceren
+  t.o.v. de huidige synchrone `writeIFC` (git-archive-vergelijking, zoals bij A1/A2).
+- [ ] **C3 — canvas-heralloc / renderer-hergebruik (prestatie-audit, geparkeerd 2026-07-23).**
+  Marginale winst nadat de pijl-culling (C1) al binnen is; in de browser-preview bovendien
+  lastig hard te bewijzen (het canvas composit niet in een verborgen tab). Alleen oppakken als
+  een concrete meting laat zien dat het nog ergens knelt. Zie de audit voor de context.
 
 - [ ] **Driedubbele eindverificatie van fase 2 (uitgesteld op 2026-07-04).** Na afronding van
   fase 2.5 was een uiterst grondige verificatie gepland maar die is doorgeschoven; uitvoeren
@@ -250,8 +364,8 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 > lag-kalender-optie (P6's "Calendar for scheduling Relationship Lag") is fase 2.9; sub-dag
 > resource-nivellering (per-uur/per-shift capaciteits-emmers) blijft dag-emmer-gebaseerd;
 > tijdzone/DST-bewuste scheduling; per-rij Gantt-arcering op afwijkende taak-kalenders.
-> **Status: bouw af (golven 0-6), visuele QA en fix-golf lopen nog; niets naar main tot af en
-> getest.**
+> **Status: gemerged op main (golven 0-6, sinds 2026-07-06); visuele QA en fix-golf lopen nog.
+> CHANGELOG-note staat onder `Ongepubliceerd` in afwachting van het versionslag.**
 
 #### 2.9 Geavanceerde CPM
 
@@ -278,7 +392,8 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 > solve (vergt store-singleton-refactor); Expected-Finish-constraint; independent float; de
 > spec-conforme `IfcRelAssociatesConstraint`-graf; sub-shift-nivellering van hammocks; native
 > P6/MSPDI LOE/external round-trip waar de veldcodes UNVERIFIED zijn.
-> **Status: bouw af (golven 0-8), QA loopt; niets naar main tot af en getest.**
+> **Status: gemerged op main (fase-2.9-branch, merge f79ae82 — 9 golven + QA + fix-golven);
+> CHANGELOG-note staat onder `Ongepubliceerd` in afwachting van het versionslag.**
 
 #### 2.10 Gebruikersdocumentatie & showcase-voorbeelden (afsluiter van fase 2)
 

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
+import { isTauri } from '@/utils/platform';
 import { SHORTCUTS, matchesCombo } from './shortcutRegistry';
 
 const isProduction = import.meta.env.PROD;
@@ -84,9 +85,12 @@ export function useKeyboardShortcuts() {
       }
     };
 
-    // Disable right-click context menu in production
+    // Onderdruk het native webview-contextmenu (rechtsklik → Inspecteren/Herladen) in de
+    // Tauri-desktopschil (dev én prod) en in de web-productiebuild. In de web-dev-build
+    // (`npm run dev` in een browser) blijft het menu bestaan zodat devtools/zelftest bereikbaar
+    // blijven; in een Tauri-dev-run opent F12 nog steeds devtools (die keydown-blokkade is prod-only).
     const contextHandler = (e: MouseEvent) => {
-      if (isProduction) e.preventDefault();
+      if (isProduction || isTauri()) e.preventDefault();
     };
 
     window.addEventListener('keydown', handler);

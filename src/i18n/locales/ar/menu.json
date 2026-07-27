@@ -156,7 +156,8 @@
     "manageLayouts": "إدارة…",
     "presentationMode": "العرض التقديمي",
     "splitView": "عرض مقسم",
-    "miniMap": "خريطة مصغرة"
+    "miniMap": "خريطة مصغرة",
+    "moveProject": "نقل المشروع…"
   },
   "ifc": {
     "title": "محرر IFC",
@@ -271,6 +272,9 @@
     "helpLoadError": "تعذر تحميل التوثيق.",
     "helpArticleNotFound": "لم يتم العثور على المقالة.",
     "library": "المكتبة",
+    "helpDocsLang": "لغة التوثيق",
+    "helpDocsLangAuto": "اتباع لغة التطبيق",
+    "helpStale": "يُحدَّث هذا التوثيق بهذه اللغة من حين لآخر فقط. للحصول على أحدث توثيق، بدّل إلى الإنجليزية أو الهولندية.",
     "helpLayer": {
       "quickstart": "البدء السريع",
       "gidsen": "أدلة حسب الموضوع",

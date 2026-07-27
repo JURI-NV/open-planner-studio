@@ -66,9 +66,15 @@ variance-rapport printen de tabel zoals weergegeven.
 
 Alleen bij het Gantt-rapport staat er ook een knop **Exporteer PDF**. Die bewaart het huidige
 voorbeeld als een echt PDF-bestand (bestandsnaam eindigend op `-planning.pdf`) — één pagina op de
-fysieke maat van het gekozen papierformaat en de oriëntatie, met het rapport paginavullend als
-afbeelding ingebed. Handig voor e-mail of archief zonder de systeem-printdialoog erbij te hoeven
-halen. Wil je liever direct printen (of via de systeemdialoog naar PDF, bijvoorbeeld om een ander
+fysieke maat van het gekozen papierformaat en de oriëntatie. Het PDF-bestand is **vectorgrafisch**:
+balken, lijnen en tekst worden als PDF-tekenopdrachten opgeslagen in plaats van als één ingebedde
+afbeelding, dus het blijft haarscherp op elk zoomniveau en de tekst is selecteerbaar en doorzoekbaar
+in elke PDF-viewer. Dit geldt voor Latijnse, Cyrillische, Griekse, Arabische en Perzische tekst — Arabisch en Perzisch
+worden eveneens als vector geshapet en ingebed. Chinese, Japanse en Koreaanse tekst is opt-in:
+installeer je een font-extensie die die glyphs levert, dan wordt ook die tekst als vector ingebed
+(selecteerbaar en doorzoekbaar); zonder zo'n extensie wordt die tekst als raster-afbeelding
+geëxporteerd — nog steeds correct leesbaar, maar niet selecteerbaar of doorzoekbaar. Handig voor e-mail of archief zonder de systeem-printdialoog erbij te hoeven halen.
+Wil je liever direct printen (of via de systeemdialoog naar PDF, bijvoorbeeld om een ander
 papierformaat te kiezen dan hierboven ingesteld), gebruik dan **Afdrukken...**.
 
 ## Rapporten in de praktijk

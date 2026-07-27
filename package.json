@@ -1,10 +1,10 @@
 {
   "name": "open-planner-studio",
   "private": true,
-  "version": "2026.7.11",
+  "version": "2026.7.12",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-server.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -13,12 +13,14 @@
     "bump": "node scripts/bump-version.js",
     "gen:examples": "node scripts/run-ts.mjs scripts/generate-examples.ts",
     "verify:examples": "node scripts/run-ts.mjs scripts/verify-examples.ts",
-    "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts"
+    "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts",
+    "publish:wiki": "node scripts/publish-wiki.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "^2.7.0",
@@ -28,10 +30,12 @@
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-updater": "^2.9.0",
+    "bidi-js": "^1.0.3",
     "i18next": "^25.8.13",
     "immer": "^11.1.4",
     "lucide-react": "^0.575.0",
     "modern-screenshot": "^4.7.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-i18next": "^16.5.4",

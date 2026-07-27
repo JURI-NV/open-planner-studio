@@ -66,8 +66,11 @@ export function relationBoundaryFlags(predTask: Task, succTask: Task): RelationB
  *  gedefinieerd (ze delen daar de dag↔uur-reductie met de rest van de solver) en worden hier
  *  geïnjecteerd, zodat de relatie-wiskunde puur en op één plek staat zonder de helpers te dupliceren. */
 export interface RelationDeps {
-  resolveLag(seq: Sequence, predTask: Task): { days: number; unit: LagUnit };
-  resolveEffectiveLagDays(seq: Sequence, predTask: Task): number;
+  /** `predEng` is nodig voor de dag↔minuut-factor (`hoursPerDay`) waarmee een `lagMinutes`-lag
+   *  zónder `lagDays` in een DAG-voorganger wordt opgelost (§5.2; zonder die factor viel zo'n lag
+   *  stil weg — P6-XML/MSPDI schrijven precies die combinatie voor een uur-opvolger). */
+  resolveLag(seq: Sequence, predTask: Task, predEng: CalendarEngine): { days: number; unit: LagUnit };
+  resolveEffectiveLagDays(seq: Sequence, predTask: Task, predEng: CalendarEngine): number;
   resolveElapsedMinutes(seq: Sequence, predTask: Task): number;
   shiftLagPred(predEng: CalendarEngine, base: Date, seq: Sequence, predTask: Task, sign: 1 | -1): Date;
   startFromFinish(eng: CalendarEngine, finish: Date, task: Task): Date;
@@ -138,7 +141,7 @@ function forwardDay(
   // Lag in dagen; positief = uitloop, negatief = lead (overlap), 0 = direct aansluitend.
   // Werkdag-lag (WORKTIME, default) stapt over werkdagen; kalenderdag-lag (ELAPSEDTIME)
   // telt 24/7 en snapt daarna vooruit naar een werkdag (ondergrens: "niet eerder dan…").
-  const { days: lag, unit } = deps.resolveLag(seq, predTask);
+  const { days: lag, unit } = deps.resolveLag(seq, predTask, predEng);
   const elapsed = unit === 'ELAPSEDTIME';
   // De relatie-lag telt in de kalender van de VOORGANGER (P6-default, §5.2). De succBack-aftrek en
   // successor-mijlpaal-snaps tellen in de successor-kalender; de FS-finishgrens-snap in de voorganger.
@@ -215,7 +218,7 @@ function backwardDay(
   // Spiegel van forwardDay: geef de laatst toegestane FINISH van de voorganger.
   // Kalenderdag-lag snapt hier áchteruit (bovengrens: "niet later dan…") — exact symmetrisch
   // met de vooruit-snap in de forward-pass, zodat een lead geen fantoomfloat oplevert.
-  const { days: lag, unit } = deps.resolveLag(seq, predTask);
+  const { days: lag, unit } = deps.resolveLag(seq, predTask, predEng);
   const elapsed = unit === 'ELAPSEDTIME';
   // Spiegel van forwardDay (§5.2): de lag telt terug in de VOORGANGER-kalender; de
   // FS-gap-spiegel (prevWorkDayBefore) eveneens; de successor-zijde-datums in de successor-kalender.
@@ -378,23 +381,60 @@ function backwardHour(
       const succDayStart = () => deps.startOfDay(succResult.ls);
       if (pe.isHourMode && se.isHourMode) {
         // hour-hour: pred.LF = prevWorkInstant( succ.LS ⊖ lag ) (scenario 1-6 backward).
-        const target = (predEndsBeginOfDay || succIsFinishMs)
+        // De grensvlaggen onderdrukken UITSLUITEND de finish-/band-gap-normalisatie, NOOIT de lag —
+        // exact zoals de dag-tak, die `addWorkingDaysSigned(succ.LS, −lag)` onvoorwaardelijk toepast
+        // en de vlaggen alleen over `prevWorkDayBefore` laat beslissen. (Vóór 2026-07-20 viel de lag
+        // in deze arm wég zodra een vlag stond, terwijl `forwardHour` hem wél toepaste ⇒ forward/
+        // backward-asymmetrie en een echt float-/kritiek-pad-verschil met dag-modus.)
+        // Uitzondering: bij lag = 0 reduceert `shiftLagPred` tot de kale `nextWorkInstant`-
+        // normalisatie (zie `addWorkingMinutesSigned`, m===0). Dat geval houdt bewust het
+        // ONgenormaliseerde `succ.LS`-anker aan — het dagbegin-mijlpaal-gedrag dat hieronder
+        // beschreven staat en dat de zusjes-cases rr-fs-pred-startms(-dagpariteit) vastleggen.
+        const lagged = deps.shiftLagPred(pe, succResult.ls, seq, predTask, -1);
+        const lagIsZero = lagged.getTime() === pe.nextWorkInstant(succResult.ls).getTime();
+        const target = (predEndsBeginOfDay || succIsFinishMs) && lagIsZero
           ? succResult.ls
-          : deps.shiftLagPred(pe, succResult.ls, seq, predTask, -1);
+          : lagged;
+        // Dag/uur-pariteit: een dagbegin-mijlpaal-voorganger (start-/auto-mijlpaal, oftewel
+        // `predEndsBeginOfDay`) heeft geen echte finish-instant — zijn "finish" is een dagbegin-
+        // anker. `prevWorkInstant` is de FINISH-normalisatie (rand `(start,end]`) en zou dat anker
+        // naar het vorige band-eind terugtrekken, terwijl de dag-tak hier juist GEEN
+        // `prevWorkDayBefore` doet en het doeldatum-label behoudt. Work-equivalent (nul werk
+        // ertussen ⇒ zelfde float), maar representatief divergent ⇒ hier overslaan.
+        // Bij `succIsFinishMs` is de voorganger wél een echte taak met een echte finish; daar
+        // blijft de normalisatie staan (de vlag onderdrukt alleen de band-gap, net als in dag-modus).
+        if (predEndsBeginOfDay) return target;
         return pe.prevWorkInstant(target);
       }
       if (pe.isHourMode && !se.isHourMode) {
         // (a) uur-voorganger, dag-opvolger: klaar vóór de middernacht van de succ-startdag.
+        // GEEN grensvlaggen — en dat is bewust, geen omissie (onderzocht 2026-07-20). De vlaggen
+        // onderdrukken in `forwardHour` uitsluitend de dagrand van `pe.predDoneAt(ef)`, maar `pe` is
+        // in deze arm per definitie UUR-modus en daar is `predDoneAt` de identiteit
+        // (`CalendarEngine.predDoneAt`, mode 'hour' ⇒ `new Date(ef)`). Beide takken van die ternaire
+        // leveren dus dezelfde instant; er is forward niets te onderdrukken en backward niets te
+        // spiegelen. Vlaggen hier alsnog toevoegen zou werkend gedrag breken.
         const target = deps.shiftLagPred(pe, succDayStart(), seq, predTask, -1);
         return pe.prevWorkInstant(target);
       }
       // (b) dag-voorganger, uur-opvolger: de grootste werkdag d waarvoor de forward-afleiding
-      // se.nextWorkInstant( (d+1)@00:00 ⊕ lag ) ≤ succ.LS blijft (scenario 7 backward).
-      const lagDays = deps.resolveEffectiveLagDays(seq, predTask);
+      // se.nextWorkInstant( predDone(d) ⊕ lag ) ≤ succ.LS blijft (scenario 7 backward).
+      // De grensvlaggen tellen hier WÉL — in tegenstelling tot arm (a) is `pe` dag-modus en levert
+      // `predDoneAt(ef)` de dagrand `(ef+1 dag)@00:00`, die `forwardHour` bij een vlag onderdrukt
+      // (`predDone = (succIsFinishMs || predEndsBeginOfDay) ? ef : pe.predDoneAt(ef)`). Vóór
+      // 2026-07-20 deed deze scanlus dat onvoorwaardelijk NIET ⇒ de backward-pass accepteerde pas
+      // een werkdag eerder, met late datums één werkdag te vroeg en totale speling −1 op een taak
+      // zónder constraint of deadline (dag→dag én uur→uur geven daar 0 — een echte dag/uur-
+      // pariteitsbreuk). Mét speling wordt de fout niet geabsorbeerd maar eet hij er precies één
+      // werkdag van op (zie de case rr-fs-crossmode-daypred-hourms-slack: tf 1 stond op 0).
+      const noDayBoundary = succIsFinishMs || predEndsBeginOfDay;
+      const lagDays = deps.resolveEffectiveLagDays(seq, predTask, pe);
       let d = succDayStart();
       for (let scan = 0; scan <= HOUR_SCAN; scan++) {
         if (pe.isWorkDay(d)) {
-          const predDone = new Date(d.getTime() + MS_PER_DAY);       // (d+1)@00:00
+          const predDone = noDayBoundary
+            ? new Date(d.getTime())                                  // mijlpaal-grens: dagbegin-anker
+            : new Date(d.getTime() + MS_PER_DAY);                    // (d+1)@00:00
           const shifted = pe.addWorkingDaysSigned(predDone, lagDays);          // lag in dag-pred
           if (se.nextWorkInstant(shifted).getTime() <= succResult.ls.getTime()) return d;
         }

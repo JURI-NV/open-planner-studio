@@ -231,6 +231,12 @@ export async function saveBarSplitMode(value: BarSplitMode): Promise<void> {
   await setSetting('barSplitMode', value);
 }
 
+// Issue #21 punt 5 (fase 2): «alleen werkbare dagen tonen» — globale weergavevoorkeur, zelfde
+// 1-op-1-patroon als barSplitMode hierboven.
+export async function saveCompressNonWorkdays(value: boolean): Promise<void> {
+  await setSetting('compressNonWorkdays', value);
+}
+
 // Eigen werktijd-presets (§6.6b): app-niveau localStorage, NIET in het projectbestand — ze reizen
 // niet mee met een project maar zijn op elke machine van de gebruiker beschikbaar. Parse-guard:
 // corrupte JSON of een item zonder de juiste shape ⇒ weggelaten (nooit een crash op een handmatig
@@ -280,4 +286,17 @@ export async function loadWelcomeSeen(): Promise<boolean | undefined> {
 
 export async function saveWelcomeSeen(value: boolean): Promise<void> {
   await setSetting('welcomeSeen', value);
+}
+
+// "Je bent net geüpdatet"-detectie (fase "kleine dingen"): de laatst gestarte appversie. Bij de
+// volgende start vergelijken we deze met `getVersion()`; verschillen ze, dan is er net geüpdatet.
+// Ontbreekt de sleutel (verse installatie), dan tonen we NIETS en schrijven we 'm alleen weg.
+// Zelfde ops-* localStorage-pad als alle andere instellingen.
+export async function loadLastVersion(): Promise<string | undefined> {
+  const v = await getSetting<string>('lastVersion');
+  return typeof v === 'string' && v ? v : undefined;
+}
+
+export async function saveLastVersion(value: string): Promise<void> {
+  await setSetting('lastVersion', value);
 }

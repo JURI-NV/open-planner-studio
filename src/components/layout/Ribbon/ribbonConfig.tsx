@@ -10,6 +10,7 @@ import {
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
   Keyboard, Pin, PinOff, Compass,
+  CalendarClock,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { formatDate } from '@/utils/dateUtils';
@@ -124,7 +125,27 @@ const relationButton: RibbonButtonSpec = {
   use: () => {
     const setUI = useAppStore(s => s.setUI);
     const active = useAppStore(s => s.ui.showDependencyMode);
-    return { active, onClick: () => setUI({ showDependencyMode: !active, dependencySourceId: null }) };
+    const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+    const addSequence = useAppStore(s => s.addSequence);
+    return {
+      active,
+      onClick: () => {
+        // issue #21 punt 4: bij precies 2 geselecteerde taken direct een Finish-Start-relatie
+        // aanleggen (voorganger = eerst aangeklikt), via hetzelfde pad als
+        // RelationsPanel.addFromSelection — zelfde actie, defaults (FS, lag 0) en duplicaat-guard.
+        // In alle andere gevallen (0/1/>2 geselecteerd) de afhankelijkheids-modus togglen, zoals voorheen.
+        if (selectedTaskIds.length === 2) {
+          addSequence({
+            predecessorId: selectedTaskIds[0],
+            successorId: selectedTaskIds[1],
+            type: 'FINISH_START',
+            lagDays: 0,
+          });
+          return;
+        }
+        setUI({ showDependencyMode: !active, dependencySourceId: null });
+      },
+    };
   },
 };
 
@@ -287,8 +308,20 @@ const startTab: RibbonTabConfig = [
   },
 ];
 
+/** "Project verplaatsen…" (pakket D1) — schema-BREDE operatie, dus in de `schedule`-groep naast
+ *  Bereken; geen structuur-, kalender- of baseline-actie. Uitgeschakeld zonder projectstartdatum
+ *  (die is het referentiepunt van de verschuiving, R9). */
+const moveProjectButton: RibbonButtonSpec = {
+  kind: 'button', id: 'moveProject', icon: <CalendarClock size={20} />, labelKey: 'menu:ribbon.moveProject',
+  use: () => {
+    const setUI = useAppStore(s => s.setUI);
+    const hasStart = useAppStore(s => !!s.project.startDate);
+    return { onClick: () => setUI({ showMoveProjectDialog: true }), disabled: !hasStart };
+  },
+};
+
 const planningTab: RibbonTabConfig = [
-  { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
+  { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton, moveProjectButton] },
   {
     id: 'relations', labelKey: 'menu:ribbon.relations',
     items: [

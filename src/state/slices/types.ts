@@ -122,6 +122,10 @@ export interface UIState {
   showSettingsDialog: boolean;
   showCalendarDialog: boolean;
   showUpdateDialog: boolean;
+  /** Fase "kleine dingen": als de app zojuist naar een nieuwe versie is geüpdatet, bevat dit de
+   *  versiesprong (van → naar) en toont `JustUpdatedDialog` zich. `null` = geen sprong (normale
+   *  start of verse installatie). Desktop-only; in de web-build altijd `null`. */
+  justUpdated: { from: string; to: string } | null;
   uiTheme: UITheme;
   enableQuarterHourZoom: boolean;
   weekStartDay: WeekStartDay;
@@ -147,6 +151,7 @@ export interface UIState {
   histogramHeight: number;                  // persisted — hoogte van de histogramstrook in px (fase 2.5)
   showLevelingDialog: boolean;              // session — nivelleer-dialoog open (fase 2.5)
   showBaselineDialog: boolean;              // session — baseline-dialoog open (fase 2.6)
+  showMoveProjectDialog: boolean;           // session — "Project verplaatsen…"-dialoog open (pakket D1)
   showBaselineOverlay: boolean;             // persisted — baseline-onderbalk in de Gantt (fase 2.6)
   showProgressLine: boolean;                // persisted — voortgangslijn in de Gantt (fase 2.6)
   showStatusDateLine: boolean;              // persisted — statusdatumlijn in de Gantt (fase 2.6)
@@ -165,6 +170,9 @@ export interface UIState {
   allowMixedDayHour: boolean;                // persisted — Gemengde dag/uur-planning toestaan (default AAN); UI-poort
   durationDisplay: DurationDisplay;          // persisted — Duurweergave (default 'auto')
   barSplitMode: BarSplitMode;                // persisted — Taakbalken bij onderbrekingen (default 'selection')
+  // Issue #21 punt 5 (fase 2): «alleen werkbare dagen tonen» — comprimeert de Gantt/Histogram-
+  // tijd-as (weekenden+feestdagen weggelaten). Globaal (geen ViewState), zie werkdagen-as-ontwerp §7.3.
+  compressNonWorkdays: boolean;               // persisted — default UIT (§0 user-besluit)
   hourDataNotice: boolean;                   // session — geladen bestand bevat uur-data terwijl Urenplanning uit staat (§6.8)
   // --- Fase 2.10 golf 1: sneltoetsen-fundament ---
   /** session — sneltoetsen-overzichtsdialoog (Ctrl/Cmd+/) open. De dialoog zelf komt in golf 3;

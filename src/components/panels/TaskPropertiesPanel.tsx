@@ -6,6 +6,7 @@ import { TaskBasicFields } from '@/components/task-sections/TaskBasicFields';
 import { TaskNotesFields } from '@/components/task-sections/TaskNotesFields';
 import { TaskMilestoneFields } from '@/components/task-sections/TaskMilestoneFields';
 import { TaskTimeFields } from '@/components/task-sections/TaskTimeFields';
+import { TaskFreePeriodWarning } from '@/components/task-sections/TaskFreePeriodWarning';
 import { TaskHammockFields } from '@/components/task-sections/TaskHammockFields';
 import { TaskConstraintFields } from '@/components/task-sections/TaskConstraintFields';
 import { TaskDeadlineField } from '@/components/task-sections/TaskDeadlineField';
@@ -61,7 +62,23 @@ export function TaskPropertiesPanel() {
   if (!task) return null;
 
   const update = (updates: Partial<Task>) => {
-    updateTask(task.id, updates);
+    // Coalesceer opeenvolgende bewerkingen van HETZELFDE veld tot één undo-stap: de instant-apply-
+    // velden (naam/omschrijving/duur/datum/…) committeren per toetsaanslag, wat anders per aanslag
+    // een undo-stap zou opleveren. De key onderscheidt de afzonderlijke `time`-subvelden (start vs
+    // duur vs finish blijven dus aparte undo-stappen), en een bewerking van een ánder veld breekt de
+    // reeks vanzelf af (andere key). Zelfde coalesce-mechanisme als de balk-sleep/voortgangs-schuif.
+    const parts: string[] = [];
+    for (const k of Object.keys(updates) as (keyof Task)[]) {
+      if (k === 'time' && updates.time) {
+        const nt = updates.time as unknown as Record<string, unknown>;
+        const ct = task.time as unknown as Record<string, unknown>;
+        for (const tk of Object.keys(nt)) if (nt[tk] !== ct[tk]) parts.push(`time.${tk}`);
+      } else {
+        parts.push(k);
+      }
+    }
+    const coalesceKey = parts.length ? `taskfield:${task.id}:${parts.sort().join(',')}` : undefined;
+    updateTask(task.id, updates, coalesceKey ? { coalesceKey } : undefined);
   };
 
   return (
@@ -90,6 +107,8 @@ export function TaskPropertiesPanel() {
 
       <TaskTimeFields task={task} onChange={update} />
 
+      <TaskFreePeriodWarning taskId={task.id} />
+
       <TaskHammockFields task={task} onChange={update} />
 
       <TaskConstraintFields task={task} onChange={update} />
@@ -98,9 +117,9 @@ export function TaskPropertiesPanel() {
 
       <TaskProgressFields
         task={task}
-        onSetProgress={v => setTaskProgress(task.id, v)}
-        onSetActualStart={d => setActualStart(task.id, d)}
-        onSetActualFinish={d => setActualFinish(task.id, d)}
+        onSetProgress={(v, opts) => setTaskProgress(task.id, v, opts)}
+        onSetActualStart={(d, opts) => setActualStart(task.id, d, opts)}
+        onSetActualFinish={(d, opts) => setActualFinish(task.id, d, opts)}
       />
 
       <TaskCpmResultSection taskId={task.id} />
