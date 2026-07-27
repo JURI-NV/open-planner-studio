@@ -23,6 +23,8 @@ import {
   toolError,
   type MutationOutcome,
 } from './runtime';
+// Alleen als TYPE (SYNC-2): wordt weggestreept bij compileren, dus géén runtime-import naar batchTool.
+import type { BatchStepTool } from './batchTool';
 import { enrichOk, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { draft } from '@/state/mcpTransaction';
@@ -145,7 +147,78 @@ function calendarFieldPatch(item: CalendarItem): Partial<WorkCalendar> {
   return patch;
 }
 
-const updateCalendar: McpToolDef = {
+/** Vormvalidatie van `update_calendar`; string = foutboodschap. */
+function parseUpdateCalendar(args: unknown): CalendarItem[] | string {
+  const a = (args ?? {}) as { calendars?: unknown };
+  if (!Array.isArray(a.calendars) || a.calendars.length === 0) {
+    return 'update_calendar vereist een niet-lege `calendars`-array';
+  }
+  return a.calendars as CalendarItem[];
+}
+
+/** Synchrone, transactie-vrije kern van `update_calendar` (zie de batchStep-noot in taskTools.ts). */
+function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
+    const { plans, rejections } = classifyCalendars(useAppStore.getState(), items);
+    const rows: Record<string, unknown>[] = [];
+    for (const plan of plans) {
+      const item = plan.item;
+      const wantsHolidays = item.generate !== undefined || item.rawHolidays !== undefined;
+
+      if (plan.mode === 'create') {
+        // Basis = de app-default (ma-vr 07-16); de opgegeven velden overschrijven hem. Het id van
+        // de default wordt weggegooid: draft.addCalendar genereert een vers, document-lokaal id.
+        const { id: _ignored, ...base } = createDefaultCalendar();
+        const cal: Omit<WorkCalendar, 'id'> = { ...base, name: item.name ?? 'Nieuwe kalender', ...calendarFieldPatch(item) };
+        let becameLiteral = false;
+        if (wantsHolidays) {
+          const r = resolveCalendarHolidays(
+            { generate: item.generate, rawHolidays: item.rawHolidays },
+            calendarSpan(useAppStore.getState(), true),
+            { holidays: base.holidays, generation: base.generation },
+          );
+          cal.holidays = r.holidays;
+          cal.generation = r.generation;
+          becameLiteral = r.becameLiteral;
+        }
+        const newId = draft.addCalendar(cal);
+        rows.push({ id: newId, requestedId: item.id, created: true, promoted: false, becameLiteral });
+        continue;
+      }
+
+      // WP5b: doel is de projectkalender die nog niet in de bibliotheek staat ⇒ eerst promoveren.
+      // `ensureProjectCalendarInLibrary` is puur additief (geen undo-snapshot, geen recompute) en
+      // dus transactie-veilig.
+      let promoted = false;
+      if (plan.needsPromotion) {
+        useAppStore.getState().ensureProjectCalendarInLibrary();
+        promoted = true;
+      }
+      const existing = useAppStore.getState().calendars.find((c) => c.id === plan.targetId);
+      if (!existing) {
+        // Kan alleen bij een defect in de promotie — harde stap-fout i.p.v. stil doorgaan.
+        throw new McpStepError('NOT_FOUND', `kalender '${plan.targetId}' bestaat niet (na promotie)`);
+      }
+      const updates = calendarFieldPatch(item) as Partial<WorkCalendar>;
+      let becameLiteral = false;
+      if (wantsHolidays) {
+        const r = resolveCalendarHolidays(
+          { generate: item.generate, rawHolidays: item.rawHolidays },
+          calendarSpan(useAppStore.getState(), false),
+          { holidays: existing.holidays, generation: existing.generation },
+        );
+        updates.holidays = r.holidays;
+        // BEWUST altijd zetten: bij `becameLiteral` is `r.generation` undefined en MOET de
+        // bestaande herkomst gewist worden (anders zou een regenerate de rauwe dagen wegvagen).
+        updates.generation = r.generation;
+        becameLiteral = r.becameLiteral;
+      }
+      draft.updateCalendar(plan.targetId, updates);
+      rows.push({ id: plan.targetId, created: false, promoted, becameLiteral });
+    }
+    return { data: { calendars: rows }, itemRejections: rejections };
+}
+
+const updateCalendar: BatchStepTool = {
   name: 'planner_update_calendar',
   description:
     'Wijzig of maak werkkalenders (bulk — één call = één ongedaan-maak-stap). Per item: een BESTAAND ' +
@@ -214,12 +287,15 @@ const updateCalendar: McpToolDef = {
     },
     required: ['calendars'],
   },
+  batchStep(args) {
+    const parsed = parseUpdateCalendar(args);
+    if (typeof parsed === 'string') throw new McpStepError('VALIDATION', parsed);
+    return updateCalendarCore(parsed);
+  },
   async handler(args, ctx) {
-    const a = args as { calendars?: unknown };
-    if (!Array.isArray(a.calendars) || a.calendars.length === 0) {
-      return toolError(ctx, 'VALIDATION', 'update_calendar vereist een niet-lege `calendars`-array');
-    }
-    const items = a.calendars as CalendarItem[];
+    const parsed = parseUpdateCalendar(args);
+    if (typeof parsed === 'string') return toolError(ctx, 'VALIDATION', parsed);
+    const items = parsed;
 
     // Lege-batch-snelpad: statisch nul uitvoerbare items ⇒ direct Ok mét de weigeringen, zónder
     // transactie/backup/snapshot/redo-wipe.
@@ -232,66 +308,7 @@ const updateCalendar: McpToolDef = {
       }
     }
 
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      const { plans, rejections } = classifyCalendars(useAppStore.getState(), items);
-      const rows: Record<string, unknown>[] = [];
-      for (const plan of plans) {
-        const item = plan.item;
-        const wantsHolidays = item.generate !== undefined || item.rawHolidays !== undefined;
-
-        if (plan.mode === 'create') {
-          // Basis = de app-default (ma-vr 07-16); de opgegeven velden overschrijven hem. Het id van
-          // de default wordt weggegooid: draft.addCalendar genereert een vers, document-lokaal id.
-          const { id: _ignored, ...base } = createDefaultCalendar();
-          const cal: Omit<WorkCalendar, 'id'> = { ...base, name: item.name ?? 'Nieuwe kalender', ...calendarFieldPatch(item) };
-          let becameLiteral = false;
-          if (wantsHolidays) {
-            const r = resolveCalendarHolidays(
-              { generate: item.generate, rawHolidays: item.rawHolidays },
-              calendarSpan(useAppStore.getState(), true),
-              { holidays: base.holidays, generation: base.generation },
-            );
-            cal.holidays = r.holidays;
-            cal.generation = r.generation;
-            becameLiteral = r.becameLiteral;
-          }
-          const newId = draft.addCalendar(cal);
-          rows.push({ id: newId, requestedId: item.id, created: true, promoted: false, becameLiteral });
-          continue;
-        }
-
-        // WP5b: doel is de projectkalender die nog niet in de bibliotheek staat ⇒ eerst promoveren.
-        // `ensureProjectCalendarInLibrary` is puur additief (geen undo-snapshot, geen recompute) en
-        // dus transactie-veilig.
-        let promoted = false;
-        if (plan.needsPromotion) {
-          useAppStore.getState().ensureProjectCalendarInLibrary();
-          promoted = true;
-        }
-        const existing = useAppStore.getState().calendars.find((c) => c.id === plan.targetId);
-        if (!existing) {
-          // Kan alleen bij een defect in de promotie — harde stap-fout i.p.v. stil doorgaan.
-          throw new McpStepError('NOT_FOUND', `kalender '${plan.targetId}' bestaat niet (na promotie)`);
-        }
-        const updates = calendarFieldPatch(item) as Partial<WorkCalendar>;
-        let becameLiteral = false;
-        if (wantsHolidays) {
-          const r = resolveCalendarHolidays(
-            { generate: item.generate, rawHolidays: item.rawHolidays },
-            calendarSpan(useAppStore.getState(), false),
-            { holidays: existing.holidays, generation: existing.generation },
-          );
-          updates.holidays = r.holidays;
-          // BEWUST altijd zetten: bij `becameLiteral` is `r.generation` undefined en MOET de
-          // bestaande herkomst gewist worden (anders zou een regenerate de rauwe dagen wegvagen).
-          updates.generation = r.generation;
-          becameLiteral = r.becameLiteral;
-        }
-        draft.updateCalendar(plan.targetId, updates);
-        rows.push({ id: plan.targetId, created: false, promoted, becameLiteral });
-      }
-      return { data: { calendars: rows }, itemRejections: rejections };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => updateCalendarCore(items));
 
     return enrichOk(res, () => {
       const rows = ((res as McpToolOk).data as { calendars: Record<string, unknown>[] }).calendars;
@@ -426,7 +443,59 @@ function classifyAssignments(
   return { plans, rejections };
 }
 
-const manageAssignments: McpToolDef = {
+/** Vormvalidatie van `manage_assignments`; string = foutboodschap. */
+function parseAssignments(args: unknown): AssignmentAction[] | string {
+  const a = (args ?? {}) as { actions?: unknown };
+  if (!Array.isArray(a.actions) || a.actions.length === 0) {
+    return 'manage_assignments vereist een niet-lege `actions`-array';
+  }
+  return a.actions as AssignmentAction[];
+}
+
+/** Synchrone, transactie-vrije kern van `manage_assignments`. */
+function manageAssignmentsCore(actions: AssignmentAction[]): MutationOutcome {
+    const { plans, rejections } = classifyAssignments(useAppStore.getState(), actions);
+    const added: Record<string, unknown>[] = [];
+    const updated: string[] = [];
+    const moved: { assignmentId: string; taskId: string }[] = [];
+    const removed: string[] = [];
+    for (const { action } of plans) {
+      switch (action.action) {
+        case 'add': {
+          const id = draft.assignResource(action.taskId, action.resourceId, action.unitsPerDay, action.curve);
+          added.push({
+            assignmentId: id,
+            taskId: action.taskId,
+            resourceId: action.resourceId,
+            unitsPerDay: action.unitsPerDay,
+            ...(action.curve ? { curve: action.curve } : {}),
+          });
+          break;
+        }
+        case 'update': {
+          const patch: { unitsPerDay?: number; curve?: ResourceCurve } = {};
+          if (action.unitsPerDay !== undefined) patch.unitsPerDay = action.unitsPerDay;
+          if (action.curve !== undefined) patch.curve = action.curve;
+          draft.updateAssignment(action.assignmentId, patch);
+          updated.push(action.assignmentId);
+          break;
+        }
+        case 'move': {
+          draft.moveAssignment(action.assignmentId, action.taskId);
+          moved.push({ assignmentId: action.assignmentId, taskId: action.taskId });
+          break;
+        }
+        case 'remove': {
+          draft.unassignResource(action.assignmentId);
+          removed.push(action.assignmentId);
+          break;
+        }
+      }
+    }
+    return { data: { added, updated, moved, removed }, itemRejections: rejections };
+}
+
+const manageAssignments: BatchStepTool = {
   name: 'planner_manage_assignments',
   description:
     'Beheer resource-toewijzingen in bulk (één call = één ongedaan-maak-stap). Per item één `action`: ' +
@@ -468,12 +537,17 @@ const manageAssignments: McpToolDef = {
     },
     required: ['actions'],
   },
+  // Zie de batchStep-noot in taskTools.ts: het lege-batch-snelpad is puur transactie-vermijding en
+  // dus overbodig binnen een batch (die bezit de transactie al).
+  batchStep(args) {
+    const parsed = parseAssignments(args);
+    if (typeof parsed === 'string') throw new McpStepError('VALIDATION', parsed);
+    return manageAssignmentsCore(parsed);
+  },
   async handler(args, ctx) {
-    const a = args as { actions?: unknown };
-    if (!Array.isArray(a.actions) || a.actions.length === 0) {
-      return toolError(ctx, 'VALIDATION', 'manage_assignments vereist een niet-lege `actions`-array');
-    }
-    const actions = a.actions as AssignmentAction[];
+    const parsedActions = parseAssignments(args);
+    if (typeof parsedActions === 'string') return toolError(ctx, 'VALIDATION', parsedActions);
+    const actions = parsedActions;
 
     // Lege-batch-snelpad (zie T19-reviewfix Issue 2).
     {
@@ -489,47 +563,7 @@ const manageAssignments: McpToolDef = {
       }
     }
 
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      const { plans, rejections } = classifyAssignments(useAppStore.getState(), actions);
-      const added: Record<string, unknown>[] = [];
-      const updated: string[] = [];
-      const moved: { assignmentId: string; taskId: string }[] = [];
-      const removed: string[] = [];
-      for (const { action } of plans) {
-        switch (action.action) {
-          case 'add': {
-            const id = draft.assignResource(action.taskId, action.resourceId, action.unitsPerDay, action.curve);
-            added.push({
-              assignmentId: id,
-              taskId: action.taskId,
-              resourceId: action.resourceId,
-              unitsPerDay: action.unitsPerDay,
-              ...(action.curve ? { curve: action.curve } : {}),
-            });
-            break;
-          }
-          case 'update': {
-            const patch: { unitsPerDay?: number; curve?: ResourceCurve } = {};
-            if (action.unitsPerDay !== undefined) patch.unitsPerDay = action.unitsPerDay;
-            if (action.curve !== undefined) patch.curve = action.curve;
-            draft.updateAssignment(action.assignmentId, patch);
-            updated.push(action.assignmentId);
-            break;
-          }
-          case 'move': {
-            draft.moveAssignment(action.assignmentId, action.taskId);
-            moved.push({ assignmentId: action.assignmentId, taskId: action.taskId });
-            break;
-          }
-          case 'remove': {
-            draft.unassignResource(action.assignmentId);
-            removed.push(action.assignmentId);
-            break;
-          }
-        }
-      }
-      return { data: { added, updated, moved, removed }, itemRejections: rejections };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => manageAssignmentsCore(actions));
 
     return enrichOk(res, () => ({
       ...((res as McpToolOk).data as object),
@@ -580,7 +614,44 @@ function levelingData(r: LevelingResult, dryRun: boolean, recomputed: boolean, c
   };
 }
 
-const levelResources: McpToolDef = {
+/** Args-vorm van `level_resources`; string = foutboodschap. */
+function parseLeveling(args: unknown): { options: LevelingOptions; constrainToFloat: boolean; dryRun: boolean } | string {
+  const a = (args ?? {}) as { constrainToFloat?: unknown; resourceIds?: unknown; dryRun?: unknown };
+  if (a.constrainToFloat !== undefined && typeof a.constrainToFloat !== 'boolean') {
+    return '`constrainToFloat` moet een boolean zijn';
+  }
+  if (a.resourceIds !== undefined && !Array.isArray(a.resourceIds)) {
+    return "`resourceIds` moet een array van resource-id's zijn";
+  }
+  const constrainToFloat = a.constrainToFloat !== false; // default true (de hoofdroute)
+  return {
+    options: {
+      constrainToFloat,
+      ...(Array.isArray(a.resourceIds) ? { resourceIds: a.resourceIds as string[] } : {}),
+    },
+    constrainToFloat,
+    dryRun: a.dryRun === true,
+  };
+}
+
+/**
+ * Synchrone, transactie-vrije kern van `level_resources`. Draait ZELF `ensureFreshSchedule` (nodig
+ * voor kloppende before/after-delta\'s; `runCPM` pusht geen undo-snapshot). Dat overlapt met de
+ * `recomputeMidBatch` die `planner_batch` vóór een levelingstap doet — bewust: de kern moet ook
+ * kloppen als de leveling de EERSTE stap van de batch is en de store al stale de batch in ging.
+ */
+function levelResourcesCore(p: { options: LevelingOptions; dryRun: boolean }): MutationOutcome {
+  const fresh = ensureFreshSchedule();
+  if (fresh.error) {
+    throw new McpStepError('VALIDATION', `planning kon niet worden herrekend vóór het nivelleren: ${fresh.error}`);
+  }
+  const preview = useAppStore.getState().levelResources(p.options);
+  // `dryRun` muteert per contract niets — binnen een batch dus een pure preview-stap.
+  if (!p.dryRun) draft.applyLeveling(preview);
+  return { data: preview };
+}
+
+const levelResources: BatchStepTool = {
   name: 'planner_level_resources',
   description:
     'Nivelleer resource-pieken door taken binnen hun speling (of daarbuiten) te verschuiven. ' +
@@ -611,20 +682,15 @@ const levelResources: McpToolDef = {
       dryRun: { type: 'boolean', description: 'true = alleen preview; er wordt NIETS gewijzigd en er ontstaat geen ongedaan-maak-stap.' },
     },
   },
+  batchStep(args) {
+    const parsed = parseLeveling(args);
+    if (typeof parsed === 'string') throw new McpStepError('VALIDATION', parsed);
+    return levelResourcesCore(parsed);
+  },
   async handler(args, ctx) {
-    const a = (args ?? {}) as { constrainToFloat?: unknown; resourceIds?: unknown; dryRun?: unknown };
-    if (a.constrainToFloat !== undefined && typeof a.constrainToFloat !== 'boolean') {
-      return toolError(ctx, 'VALIDATION', '`constrainToFloat` moet een boolean zijn');
-    }
-    if (a.resourceIds !== undefined && !Array.isArray(a.resourceIds)) {
-      return toolError(ctx, 'VALIDATION', '`resourceIds` moet een array van resource-id\'s zijn');
-    }
-    const constrainToFloat = a.constrainToFloat !== false; // default true (de hoofdroute)
-    const dryRun = a.dryRun === true;
-    const options: LevelingOptions = {
-      constrainToFloat,
-      ...(Array.isArray(a.resourceIds) ? { resourceIds: a.resourceIds as string[] } : {}),
-    };
+    const parsed = parseLeveling(args);
+    if (typeof parsed === 'string') return toolError(ctx, 'VALIDATION', parsed);
+    const { options, constrainToFloat, dryRun } = parsed;
 
     // Guards vóór de (potentieel dure) herberekening; `runMutateTool` draait ze zo dadelijk nogmaals
     // plus de backup — dat is bewust: een gepauzeerde bridge mag ook geen recompute uitlokken.
@@ -641,11 +707,8 @@ const levelResources: McpToolDef = {
       return okDirect(ctx, levelingData(preview, true, fresh.recomputed, constrainToFloat), []);
     }
 
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      const preview = useAppStore.getState().levelResources(options);
-      draft.applyLeveling(preview);
-      return { data: preview };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome =>
+      levelResourcesCore({ options, dryRun: false }));
     return enrichOk(res, () =>
       levelingData((res as McpToolOk).data as LevelingResult, false, fresh.recomputed, constrainToFloat),
     );
@@ -655,7 +718,15 @@ const levelResources: McpToolDef = {
 // =================================================================================================
 // planner_clear_leveling
 // =================================================================================================
-const clearLeveling: McpToolDef = {
+/** Synchrone, transactie-vrije kern van `clear_leveling`; niets te wissen ⇒ geen mutatie. */
+function clearLevelingCore(): MutationOutcome {
+  const count = useAppStore.getState().tasks.filter((t) => t.levelingDelay !== undefined).length;
+  if (count === 0) return { data: { cleared: 0 } };
+  draft.clearLeveling();
+  return { data: { cleared: count } };
+}
+
+const clearLeveling: BatchStepTool = {
   name: 'planner_clear_leveling',
   description:
     'Wis alle nivellerings-vertragingen, zodat elke taak weer op zijn ongenivelleerde datum staat. ' +
@@ -666,6 +737,9 @@ const clearLeveling: McpToolDef = {
   batchable: true,
   annotations: { ...STD_ANNOT, destructiveHint: true, idempotentHint: true },
   inputSchema: { type: 'object', properties: {} },
+  batchStep() {
+    return clearLevelingCore();
+  },
   async handler(_args, ctx) {
     const count = useAppStore.getState().tasks.filter((t) => t.levelingDelay !== undefined).length;
     // No-op-snelpad (spiegelt de store-`clearLeveling`-guard): niets te wissen ⇒ geen transactie,
@@ -675,10 +749,7 @@ const clearLeveling: McpToolDef = {
       if (g) return g;
       return okDirect(ctx, { cleared: 0, projectEnd: projectEndInfo().projectEnd }, []);
     }
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      draft.clearLeveling();
-      return { data: { cleared: count } };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => clearLevelingCore());
     return enrichOk(res, () => ({ cleared: count, projectEnd: projectEndInfo().projectEnd }));
   },
 };
@@ -688,7 +759,59 @@ const clearLeveling: McpToolDef = {
 // =================================================================================================
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 
-const updateProject: McpToolDef = {
+/** Vormvalidatie van `update_project`; string = foutboodschap. Levert de veld-merge, de
+ *  wis-vlag voor `statusDate` en de lijst geraakte velden. */
+function parseUpdateProject(
+  args: unknown,
+): { updates: Partial<Project>; clearStatusDate: boolean; touched: string[] } | string {
+  const a = (args ?? {}) as Record<string, unknown>;
+  const updates: Partial<Project> = {};
+  for (const key of ['name', 'description', 'author', 'company'] as const) {
+    if (a[key] !== undefined) {
+      if (typeof a[key] !== 'string') return `\`${key}\` moet een string zijn`;
+      updates[key] = a[key] as string;
+    }
+  }
+  if (a.startDate !== undefined) {
+    if (typeof a.startDate !== 'string' || !ISO_DATE.test(a.startDate)) {
+      return '`startDate` moet een ISO-datum zijn (JJJJ-MM-DD)';
+    }
+    updates.startDate = a.startDate;
+  }
+  // Wissen loopt NIET via de veld-merge: `Object.assign({ statusDate: undefined })` laat de sleutel
+  // met waarde `undefined` achter, terwijl de store-actie `setStatusDate` hem echt `delete`t. Die
+  // vorm houden we aan (IFC-serialisatie en de statusdatum-guards lezen op sleutel-aanwezigheid).
+  let clearStatusDate = false;
+  if (a.statusDate !== undefined) {
+    if (a.statusDate === null || a.statusDate === '') {
+      clearStatusDate = true;
+    } else if (typeof a.statusDate !== 'string' || !ISO_DATE.test(a.statusDate)) {
+      return '`statusDate` moet een ISO-datum zijn (JJJJ-MM-DD) of null';
+    } else {
+      updates.statusDate = a.statusDate;
+    }
+  }
+  const touched = [...Object.keys(updates), ...(clearStatusDate ? ['statusDate'] : [])];
+  if (touched.length === 0) {
+    return 'update_project vereist minstens één veld (name/description/author/company/startDate/statusDate)';
+  }
+  return { updates, clearStatusDate, touched };
+}
+
+/** Synchrone, transactie-vrije kern van `update_project`. */
+function updateProjectCore(p: { updates: Partial<Project>; clearStatusDate: boolean; touched: string[] }): MutationOutcome {
+  draft.setProject(p.updates);
+  if (p.clearStatusDate) {
+    useAppStore.setState((s) => {
+      delete s.project.statusDate;
+      s.project.modifiedAt = new Date().toISOString();
+      s.isDirty = true;
+    });
+  }
+  return { data: { updated: p.touched } };
+}
+
+const updateProject: BatchStepTool = {
   name: 'planner_update_project',
   description:
     'Wijzig projectgegevens: `name`, `description`, `author`, `company`, `statusDate` (de peildatum ' +
@@ -711,50 +834,17 @@ const updateProject: McpToolDef = {
       statusDate: { type: ['string', 'null'], description: 'ISO-datum (JJJJ-MM-DD) of null om te wissen.' },
     },
   },
+  batchStep(args) {
+    const parsed = parseUpdateProject(args);
+    if (typeof parsed === 'string') throw new McpStepError('VALIDATION', parsed);
+    return updateProjectCore(parsed);
+  },
   async handler(args, ctx) {
-    const a = (args ?? {}) as Record<string, unknown>;
-    const updates: Partial<Project> = {};
-    for (const key of ['name', 'description', 'author', 'company'] as const) {
-      if (a[key] !== undefined) {
-        if (typeof a[key] !== 'string') return toolError(ctx, 'VALIDATION', `\`${key}\` moet een string zijn`);
-        updates[key] = a[key] as string;
-      }
-    }
-    if (a.startDate !== undefined) {
-      if (typeof a.startDate !== 'string' || !ISO_DATE.test(a.startDate)) {
-        return toolError(ctx, 'VALIDATION', '`startDate` moet een ISO-datum zijn (JJJJ-MM-DD)');
-      }
-      updates.startDate = a.startDate;
-    }
-    // Wissen loopt NIET via de veld-merge: `Object.assign({ statusDate: undefined })` laat de sleutel
-    // met waarde `undefined` achter, terwijl de store-actie `setStatusDate` hem echt `delete`t. Die
-    // vorm houden we aan (IFC-serialisatie en de statusdatum-guards lezen op sleutel-aanwezigheid).
-    let clearStatusDate = false;
-    if (a.statusDate !== undefined) {
-      if (a.statusDate === null || a.statusDate === '') {
-        clearStatusDate = true;
-      } else if (typeof a.statusDate !== 'string' || !ISO_DATE.test(a.statusDate)) {
-        return toolError(ctx, 'VALIDATION', '`statusDate` moet een ISO-datum zijn (JJJJ-MM-DD) of null');
-      } else {
-        updates.statusDate = a.statusDate;
-      }
-    }
-    const touched = [...Object.keys(updates), ...(clearStatusDate ? ['statusDate'] : [])];
-    if (touched.length === 0) {
-      return toolError(ctx, 'VALIDATION', 'update_project vereist minstens één veld (name/description/author/company/startDate/statusDate)');
-    }
+    const parsed = parseUpdateProject(args);
+    if (typeof parsed === 'string') return toolError(ctx, 'VALIDATION', parsed);
+    const touched = parsed.touched;
 
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      draft.setProject(updates);
-      if (clearStatusDate) {
-        useAppStore.setState((s) => {
-          delete s.project.statusDate;
-          s.project.modifiedAt = new Date().toISOString();
-          s.isDirty = true;
-        });
-      }
-      return { data: { updated: touched } };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => updateProjectCore(parsed));
     return enrichOk(res, () => {
       const p = useAppStore.getState().project;
       return {
@@ -783,7 +873,35 @@ const updateProject: McpToolDef = {
 // `moveProject` stil uit de pas gaan lopen. `runCPM` is idempotent en pusht geen undo-snapshot
 // (invariant a), dus de dubbele run is puur rekenwerk, geen semantisch verschil.
 // =================================================================================================
-const moveProject: McpToolDef = {
+/** Vormvalidatie van `move_project`; string = foutboodschap. */
+function parseMoveProject(args: unknown): { newStartDate: string; shiftBaselines: boolean } | string {
+  const a = (args ?? {}) as { newStartDate?: unknown; shiftBaselines?: unknown };
+  if (typeof a.newStartDate !== 'string' || !ISO_DATE.test(a.newStartDate)) {
+    return '`newStartDate` moet een ISO-datum zijn (JJJJ-MM-DD)';
+  }
+  return { newStartDate: a.newStartDate, shiftBaselines: a.shiftBaselines === true };
+}
+
+/**
+ * Synchrone, transactie-vrije kern van `move_project`. Draagt het Δ-snelpad ZELF (anders zou een
+ * verschuiving naar de datum waar het project al staat een hele batch laten terugrollen op een
+ * no-op): Δ=0 ⇒ `moved: false` zonder enige mutatie, precies zoals de losse call.
+ */
+function moveProjectCore(p: { newStartDate: string; shiftBaselines: boolean }): MutationOutcome {
+  const s0 = useAppStore.getState();
+  const delta = computeMoveDelta(s0.project.startDate, p.newStartDate);
+  if (!Number.isFinite(delta)) {
+    throw new McpStepError('VALIDATION', `kan de verschuiving niet bepalen vanaf projectstart '${s0.project.startDate}'`);
+  }
+  if (delta === 0) {
+    return { data: { moved: false, deltaDays: 0, taskCount: s0.tasks.length, reason: 'de projectstart is al deze datum' } };
+  }
+  const out = useAppStore.getState().moveProject(p.newStartDate, { shiftBaselines: p.shiftBaselines });
+  if (!out.moved) throw new McpStepError('VALIDATION', `verschuiven naar '${p.newStartDate}' leverde geen wijziging op`);
+  return { data: out };
+}
+
+const moveProject: BatchStepTool = {
   name: 'planner_move_project',
   description:
     'Verschuif de HELE bestaande planning zodat het project op `newStartDate` begint: alle taken en ' +
@@ -803,13 +921,15 @@ const moveProject: McpToolDef = {
     },
     required: ['newStartDate'],
   },
+  batchStep(args) {
+    const parsed = parseMoveProject(args);
+    if (typeof parsed === 'string') throw new McpStepError('VALIDATION', parsed);
+    return moveProjectCore(parsed);
+  },
   async handler(args, ctx) {
-    const a = (args ?? {}) as { newStartDate?: unknown; shiftBaselines?: unknown };
-    if (typeof a.newStartDate !== 'string' || !ISO_DATE.test(a.newStartDate)) {
-      return toolError(ctx, 'VALIDATION', '`newStartDate` moet een ISO-datum zijn (JJJJ-MM-DD)');
-    }
-    const newStartDate = a.newStartDate;
-    const shiftBaselines = a.shiftBaselines === true;
+    const parsed = parseMoveProject(args);
+    if (typeof parsed === 'string') return toolError(ctx, 'VALIDATION', parsed);
+    const { newStartDate, shiftBaselines } = parsed;
 
     const s0 = useAppStore.getState();
     const delta = computeMoveDelta(s0.project.startDate, newStartDate);
@@ -828,11 +948,7 @@ const moveProject: McpToolDef = {
     }
     const projectEndBefore = s0.cpmResult?.projectEnd ?? '';
 
-    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => {
-      const out = useAppStore.getState().moveProject(newStartDate, { shiftBaselines });
-      if (!out.moved) throw new McpStepError('VALIDATION', `verschuiven naar '${newStartDate}' leverde geen wijziging op`);
-      return { data: out };
-    });
+    const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => moveProjectCore(parsed));
 
     return enrichOk(res, () => {
       const out = (res as McpToolOk).data as { moved: boolean; deltaDays: number; taskCount: number };

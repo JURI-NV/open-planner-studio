@@ -31,5 +31,19 @@ const MODULES: McpToolDef[][] = [
   batchTools,
 ];
 
+/**
+ * (Her)registreer de COMPLETE productie-toolset. Idempotent: `registerToolModules` bouwt de staat
+ * elke keer vers op, dus twee aanroepen leveren exact dezelfde registratie.
+ *
+ * Waarom naast de zelf-registratie hieronder (SYNC-2): die zelf-registratie is een side-effect van het
+ * IMPORTEREN van dit bestand. Dat werkt (de dispatcher importeert hem), maar het is een stille,
+ * onopzettelijke afhankelijkheid — en een test die zijn eigen deelverzameling registreert laat de
+ * globale staat afgeknot achter. `initMcpRuntime()` in `server.ts` roept deze functie expliciet aan bij
+ * het opstarten van de bridge, zodat `tools/list` in de echte app gegarandeerd de volledige set toont.
+ */
+export function registerAllTools(): void {
+  registerToolModules(MODULES);
+}
+
 // Zelf-registratie bij module-load.
-registerToolModules(MODULES);
+registerAllTools();

@@ -20,11 +20,40 @@ import { useAppStore } from '@/state/appStore';
 import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
 import { record as recordActivity, capField } from './activityLog';
-import { ensureBackup, resetBackupSession } from './backup';
+import { ensureBackup, resetBackupSession, markDuplicateBorn } from './backup';
+import { registerAllTools } from './toolRegistry';
+import { documentToolDeps } from './tools/documentTools';
 import type { McpContext, McpServerStatus, ActivityEntry } from './contracts';
 
 /** Draaien we in de Tauri-shell? (zelfde runtime-poort als de rest van de app-code). */
 const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+// --- Runtime-init (SYNC-2: de integratiedraden tussen de tool-banen) ------------------------------
+
+/**
+ * Knoop de losse tool-banen aan elkaar. Idempotent en zonder Tauri-afhankelijkheid, dus veilig om
+ * meermaals én in de web-build aan te roepen. Twee draden:
+ *
+ *  1. **De T16-backup-naad.** `tools/documentTools.ts` draagt een injecteerbare `markDuplicateBorn`
+ *     met een no-op default (de document-baan kende de backup-service nog niet). Hier hangen we de
+ *     ECHTE implementatie uit `backup.ts` erin. Zonder deze regel krijgt een net via
+ *     `duplicate_document` ontstaan document alsnog een overbodige auto-backup bij zijn eerste
+ *     mutatie — zijn geboortestaat ÍS immers het nog openstaande bronbestand (spec regel 130).
+ *
+ *  2. **De toolregistratie.** `toolRegistry.ts` registreert zichzelf al bij module-load, maar dat is
+ *     een side-effect van het importeren. Deze expliciete aanroep garandeert dat `tools/list` in de
+ *     echte app de VOLLEDIGE set toont, ook als een eerdere (test-)aanroep de registratie tot een
+ *     deelverzameling had afgeknot.
+ */
+export function initMcpRuntime(): void {
+  documentToolDeps.markDuplicateBorn = markDuplicateBorn;
+  registerAllTools();
+}
+
+// Bij module-load uitvoeren: `duplicate_document` kan de bridge binnenkomen zodra de server draait, en
+// de naad hoort dan al te staan. `startMcpServer` roept hem nogmaals aan (idempotent) zodat de koppeling
+// ook klopt wanneer een test de defaults tussendoor heeft vervangen.
+initMcpRuntime();
 
 // --- Token ---------------------------------------------------------------------------------------
 
@@ -439,6 +468,7 @@ function getLiveController(): Promise<BridgeController> {
  * build / niet-Tauri = no-op. Dubbel-start-veilig via de gedeelde controller + zijn in-flight-lock.
  */
 export async function startMcpServer(): Promise<void> {
+  initMcpRuntime(); // backup-naad + volledige toolregistratie (idempotent; zie initMcpRuntime)
   if (!isTauri()) return;
   resetBackupSession(); // verse server-sessie ⇒ per-document auto-backup-tellers leeg (spec §Triggerregels)
   const controller = await getLiveController();
