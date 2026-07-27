@@ -288,6 +288,7 @@
     "added": "Eklendi.",
     "alreadyInProject": "Zaten projede mevcut.",
     "linkedToExisting": "Kitaplıkta zaten vardı — şimdi bağlandı.",
+    "linkedToExistingDiffers": "Kitaplıktaki mevcut öğeyle bağlandı — değerler farklı, işarete bakın.",
     "upToDate": "Güncel",
     "exportWithPool": "Kitaplık dosyasını da kaydet",
     "linkTitle": "Kaynak kitaplığını bağla",

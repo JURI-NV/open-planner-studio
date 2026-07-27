@@ -185,8 +185,15 @@ export const CALENDAR_DIFF_FIELDS: (keyof WorkCalendar)[] = [
   'holidays', 'generation', 'workTime', 'shift',
 ];
 
+// F1 (critreview op 352bb94, issue #19): `maxUnits`/`availabilitySteps` zijn PROJECTINZET (hoeveel dit
+// project van de resource opeist, en op welk ritme), geen bibliotheekafspraak — ze zaten er eerder
+// wél in, waardoor het enige veld dat de Projectweergave uitnodigde te wijzigen (max.eenheden)
+// onmiddellijk 'deviated' opleverde en door `resolveDeviation('company')` teruggezet kon worden. De
+// bibliotheek vergelijkt nu uitsluitend de IDENTITEITSVELDEN: wat de resource IS (naam/type/
+// omschrijving) en de bibliotheekafspraken erover (tarief/uur, eenheid). `calendarId` stond hier nooit
+// in (project-lokale verwijzing, zie applyResourceUpdate) en blijft dat — zie F2.
 export const RESOURCE_DIFF_FIELDS: (keyof Resource)[] = [
-  'name', 'type', 'description', 'costPerHour', 'maxUnits', 'unitOfMeasure', 'availabilitySteps',
+  'name', 'type', 'description', 'costPerHour', 'unitOfMeasure',
 ];
 
 /** Stabiele vergelijkingssleutel voor een veldwaarde. A4-besluit: voor deze diff-velden is de

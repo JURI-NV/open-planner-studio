@@ -288,6 +288,7 @@
     "added": "Toegevoegd.",
     "alreadyInProject": "Zit al in het project.",
     "linkedToExisting": "Bestond al in de bibliotheek — nu gekoppeld.",
+    "linkedToExistingDiffers": "Gekoppeld aan het bestaande bibliotheekitem — de waarden verschillen, zie de markering.",
     "upToDate": "Actueel",
     "exportWithPool": "Bibliotheekbestand ernaast opslaan",
     "linkTitle": "Resourcebibliotheek koppelen",

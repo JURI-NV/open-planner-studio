@@ -8,7 +8,7 @@ import { formatDate } from '@/utils/dateUtils';
 import { ResourceCalendarDialog } from '@/components/dialogs/ResourceCalendarDialog';
 import { UnitsInput } from '@/components/common/UnitsInput';
 import { DateTextInput } from '@/components/common/DateTextInput';
-import { isResourceFieldLocked, matchByName } from '@/services/library/libraryOps';
+import { isResourceFieldLocked, matchByName, computeResourceHash, normalizeName } from '@/services/library/libraryOps';
 
 const RESOURCE_TYPES: ResourceType[] = ['LABOR', 'EQUIPMENT', 'MATERIAL', 'SUBCONTRACTOR', 'CREW'];
 
@@ -41,13 +41,15 @@ const cellStatic = 'block !text-[11px] !px-1.5 !py-1 w-full truncate text-text-s
  * - **Projectweergave** (`resourcesView === 'project'`): wat dit project gebruikt, over
  *   `s.resources`. Een resource met een GELDIGE bibliotheekherkomst (stempel van het gekoppelde
  *   bedrijf, status ≠ 'removed' — zie `onOpenStatusForResource`/`isResourceFieldLocked`) toont
- *   naam/type/tarief/eenheid ÉN kalender READ-ONLY (bibliotheekafspraken: de bibliotheek bepaalt WAT
- *   een resource is en WANNEER hij werkt) — alleen max.eenheden blijft bewerkbaar (projectinzet:
- *   hoeveel dit ene project ervan opeist; zie de uitgebreide toelichting bij `ResourceRow`). Zo'n
- *   geërfde rij draagt een subtiel bibliotheek-icoontje; projecteigen rijen (los project, of een
- *   nieuwe resource via de "+ Nieuwe resource"-knop terwijl het project wél gekoppeld is) krijgen
- *   geen markering en blijven volledig bewerkbaar. "Losmaken van de bibliotheek" strip de stempel
- *   van precies dat ene item, waarna alle velden weer bewerkbaar zijn.
+ *   naam/type/tarief/eenheid READ-ONLY (identiteitsvelden/bibliotheekafspraken: de bibliotheek
+ *   bepaalt WAT de resource IS — zie `RESOURCE_DIFF_FIELDS`) — max.eenheden, de tijd-gefaseerde
+ *   `availabilitySteps` ÉN de kalenderKEUZE blijven bewerkbaar (F2-correctie: dat is projectinzet/
+ *   -keuze, geen bibliotheekafspraak; zie de uitgebreide toelichting bij `ResourceRow`). Zo'n geërfde
+ *   rij draagt een subtiel bibliotheek-icoontje; projecteigen rijen (los project, of een nieuwe
+ *   resource via de "+ Nieuwe resource"-knop terwijl het project wél gekoppeld is) krijgen geen
+ *   markering en blijven volledig bewerkbaar. "Losmaken van de bibliotheek" strip de stempel van
+ *   precies dat ene item (én, F4, de meegereisde kalenderstempel als geen andere resource 'm nog
+ *   volgt), waarna alle velden weer vrijstaan van de bibliotheek.
  *
  * De kalender-dropdown verwijst naar `s.calendars` (project) resp. `pools[cid].calendars` (bibliotheek);
  * "Bewerken…" en "+ nieuwe kalender" openen dezelfde `ResourceCalendarDialog`, die met een optionele
@@ -99,22 +101,33 @@ export function ResourcePanel() {
   // Bibliotheekweergave (zie de eerste useEffect hieronder) en deze notice juist in de
   // Projectweergave hoort te verschijnen.
   const [projectNotice, setProjectNotice] = useState<string | null>(null);
-  // Net aangemaakte rij (issue #19, punt 3): het naamveld van deze rij krijgt autoFocus, in beide
-  // weergaven. Native HTML-autofocus volstaat — de rij (en dus het input-element) bestaat pas sinds
-  // de laatste render, dus React's reconciliatie hoeft 'm niet handmatig te herfocussen.
-  const [newRowId, setNewRowId] = useState<string | null>(null);
+  // F10 (critreview op 352bb94): "+ Nieuwe resource" persisteert NIET meteen een lege rij (dat gaf een
+  // ongewenste undo-stap + een blijvend leeg poolitem/projectresource als je niets typte en wegklikte).
+  // In plaats daarvan een lokale PENDING-draft (geen store-mutatie, geen id) die pas bij een
+  // niet-lege naam (op blur/Enter) écht wordt aangemaakt (`addResource`/`addPoolResource`); leeg
+  // wegklikken laat helemaal geen spoor na. Vervangt de eerdere `newRowId`-autofocus-aanpak (punt 3) —
+  // de pending-rij bestaat sowieso maar heel even en mag altijd focus krijgen.
+  const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; name: string } | null>(null);
+  const commitPendingNew = () => {
+    if (!pendingNew) return;
+    const trimmed = pendingNew.name.trim();
+    if (trimmed === '') { setPendingNew(null); return; } // niets getypt: geen spoor.
+    if (pendingNew.variant === 'pool' && project.companyId) {
+      addPoolResource(project.companyId, { name: trimmed, type: 'LABOR', description: '', maxUnits: 1 });
+    } else if (pendingNew.variant === 'project') {
+      addResource({ name: trimmed, type: 'LABOR', description: '', maxUnits: 1 });
+    }
+    setPendingNew(null);
+  };
 
   // Bevestiging + notice horen bij de Bibliotheekweergave; reset zodra je 'm verlaat, zodat er geen
   // stale confirm-stap of melding terugkomt bij een latere terugkeer naar deze weergave. Spiegel voor
-  // `projectNotice` (Projectweergave — punt D5). `newRowId` (punt 3) reset bij ELKE weergavewissel: de
-  // tabellen zijn wederzijds exclusief in de JSX (mount/unmount bij het wisselen), dus zonder deze
-  // reset zou een eerder-aangemaakte rij bij terugkeer naar diezelfde weergave opnieuw autoFocus
-  // krijgen (remount ⇒ het HTML-autofocus-attribuut vuurt opnieuw) — een ongewenste focus-steal die
-  // niets met "zojuist aangemaakt" te maken heeft.
+  // `projectNotice` (Projectweergave — punt D5). Een pending-draft die nog niet gecommit is vervalt
+  // ook bij het wisselen van weergave (bewust: hij hoorde bij de weergave die je verlaat).
   useEffect(() => {
     if (resourcesView !== 'company') { setConfirmPoolDelete(null); setPoolNotice(null); }
     if (resourcesView !== 'project') { setConfirmDelete(null); setProjectNotice(null); }
-    setNewRowId(null);
+    setPendingNew(null);
   }, [resourcesView]);
 
   const onAssignFromCompany = (resourceId: string) => {
@@ -124,14 +137,23 @@ export function ResourcePanel() {
 
   // "Naar de bibliotheek" (issue #19, punt D5): tegenhanger van onAssignFromCompany. Dedup op naam
   // gebeurt in de store (`promoteResourceToPool` → `matchByName`) — hier wordt vooraf dezelfde matcher
-  // geraadpleegd om de juiste melding te kiezen (nieuw poolitem vs. gekoppeld aan een bestaand item),
-  // zonder de bestaande `string | null`-return van `promoteResourceToPool` te hoeven verbouwen (die
-  // wordt elders/in tests al als kale pool-id gebruikt).
+  // geraadpleegd om de juiste melding te kiezen, zonder de bestaande `string | null`-return van
+  // `promoteResourceToPool` te hoeven verbouwen (die wordt elders/in tests al als kale pool-id gebruikt).
+  // F8 (critreview op 352bb94): "bestond al — gekoppeld" mag alleen een succesmelding zijn als het
+  // bestaande poolitem INHOUDELIJK gelijk is (zelfde `computeResourceHash`, dus dezelfde
+  // RESOURCE_DIFF_FIELDS-waarden) — anders koppelt het item wél, maar wijkt het meteen af (rode
+  // "wijkt af"-badge op een bevroren rij), en moet de melding dat eerlijk zeggen i.p.v. te suggereren
+  // dat alles nu klopt.
   const onPromoteResource = (resource: Resource) => {
     if (!project.companyId) return;
     const existingMatch = matchByName(resource.name, pool?.resources ?? []);
+    const identical = existingMatch ? computeResourceHash(resource) === computeResourceHash(existingMatch) : false;
     promoteResourceToPool(project.companyId, resource, { dedupByName: true });
-    setProjectNotice(existingMatch ? t('companyLibrary.linkedToExisting') : t('companyLibrary.added'));
+    setProjectNotice(
+      !existingMatch ? t('companyLibrary.added')
+        : identical ? t('companyLibrary.linkedToExisting')
+          : t('companyLibrary.linkedToExistingDiffers'),
+    );
   };
 
   // Default-weergave (spec §4): Bibliotheekweergave zodra de pool inhoud heeft; lege pool of los
@@ -144,11 +166,14 @@ export function ResourcePanel() {
   }, [project.companyId, linked]);
 
   const crews = resources.filter(r => r.type === 'CREW');
-  // Ploeg-kolom in de pool alleen tonen als de pool zelf CREW-resources kent (issue #19, punt 1) —
-  // parentId is een geldig pool-lokaal veld (zie copyResourceToProject: het wordt bewust NIET
-  // meegekopieerd naar het project, precies omdát het een pool-lokale verwijzing is).
+  // Ploeg-kolom in de pool (issue #19, punt 1) — parentId is een geldig pool-lokaal veld (zie
+  // copyResourceToProject: het wordt bewust NIET meegekopieerd naar het project, precies omdát het
+  // een pool-lokale verwijzing is). F7 (critreview op 352bb94): de KOLOM zelf tonen zodra de pool niet
+  // leeg is (niet pas als er al een CREW bestaat) — anders verdwijnt de kolom zodra de laatste ploeg
+  // wordt verwijderd, waardoor je 'm niet meer kunt herstellen, en springt de tabel bij elke
+  // eerste/laatste-CREW-mutatie. De SELECT-opties (`poolCrews`) blijven wél op echte CREW-resources.
   const poolCrews = pool ? pool.resources.filter(r => r.type === 'CREW') : [];
-  const poolHasCrews = poolCrews.length > 0;
+  const poolShowParentColumn = (pool?.resources.length ?? 0) > 0;
 
   const numberFmt = useMemo(
     () => new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -186,21 +211,11 @@ export function ResourcePanel() {
     }
   };
 
-  const addRow = () => {
-    const id = addResource({ name: '', type: 'LABOR', description: '', maxUnits: 1 });
-    setNewRowId(id);
-  };
-
-  const addPoolRow = () => {
-    if (!project.companyId) return;
-    const id = addPoolResource(project.companyId, { name: '', type: 'LABOR', description: '', maxUnits: 1 });
-    if (id) setNewRowId(id);
-  };
-
-  // Contextgevoelige "+ Nieuwe resource" (issue #19, punt 2): maakt een POOL-resource in de
-  // Bibliotheekweergave, een PROJECT-resource in de Projectweergave — vervangt de oude aparte
+  // Contextgevoelige "+ Nieuwe resource" (issue #19, punt 2): opent een POOL-pending-draft in de
+  // Bibliotheekweergave, een PROJECT-pending-draft in de Projectweergave (F10: geen store-mutatie
+  // vóór een niet-lege naam, zie `pendingNew`/`commitPendingNew` hierboven) — vervangt de oude aparte
   // "Nieuw in de bibliotheek"-knop (dubbelop geworden).
-  const onAddClick = () => { if (inPoolView) addPoolRow(); else addRow(); };
+  const onAddClick = () => { setPendingNew({ variant: inPoolView ? 'pool' : 'project', name: '' }); };
 
   const patch = (id: string, updates: Partial<Resource>) => updateResource(id, updates);
   const poolPatch = (id: string, updates: Partial<Resource>) => {
@@ -283,7 +298,7 @@ export function ResourcePanel() {
               <Check size={13} /> {poolNotice}
             </p>
           )}
-          {pool.resources.length === 0 ? (
+          {pool.resources.length === 0 && pendingNew?.variant !== 'pool' ? (
             <div className="p-4 text-text-secondary">{t('companyLibrary.noResources')}</div>
           ) : (
             <table className="w-full border-collapse">
@@ -295,13 +310,23 @@ export function ResourcePanel() {
                   <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 160 }}>{t('resource.calendarId')}</th>
                   <th className="text-right px-2 py-1.5 font-semibold border-b border-border" style={{ width: 90 }}>{t('resource.costPerHour')}</th>
                   <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 90 }}>{t('resource.unitOfMeasure')}</th>
-                  {poolHasCrews && (
+                  {poolShowParentColumn && (
                     <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 120 }}>{t('resource.parent')}</th>
                   )}
                   <th className="border-b border-border" style={{ width: 190 }} />
                 </tr>
               </thead>
               <tbody>
+                {pendingNew?.variant === 'pool' && (
+                  <PendingNewRow
+                    showTotalColumn={false}
+                    showParentColumn={poolShowParentColumn}
+                    value={pendingNew.name}
+                    onChange={v => setPendingNew({ variant: 'pool', name: v })}
+                    onCommit={commitPendingNew}
+                    onCancel={() => setPendingNew(null)}
+                  />
+                )}
                 {pool.resources.map(r => {
                   const stepsOpen = expandedSteps === r.id;
                   const stepCount = r.availabilitySteps?.length ?? 0;
@@ -310,13 +335,12 @@ export function ResourcePanel() {
                       key={r.id}
                       resource={r}
                       variant="pool"
-                      colCount={poolHasCrews ? 8 : 7}
+                      colCount={poolShowParentColumn ? 8 : 7}
                       crews={poolCrews}
                       calendarOptions={pool.calendars}
                       stepsOpen={stepsOpen}
                       stepCount={stepCount}
-                      isNew={newRowId === r.id}
-                      showParentColumn={poolHasCrews}
+                      showParentColumn={poolShowParentColumn}
                       confirmingDelete={confirmPoolDelete === r.id}
                       confirmMessage={t('companyLibrary.confirmRemoveResource', { name: r.name || r.id })}
                       onToggleSteps={() => setExpandedSteps(stepsOpen ? null : r.id)}
@@ -341,7 +365,7 @@ export function ResourcePanel() {
             <Check size={13} /> {projectNotice}
           </p>
         )}
-        {resources.length === 0 ? (
+        {resources.length === 0 && pendingNew?.variant !== 'project' ? (
           linked ? (
             // D4 (issue #19, user-feedback): een leeg Projectweergave — precies de instap-showcase-
             // situatie (project WEL gekoppeld, nog niets gematerialiseerd) — legt de tweedeling meteen
@@ -365,10 +389,22 @@ export function ResourcePanel() {
                 <th className="text-right px-2 py-1.5 font-semibold border-b border-border" style={{ width: 100 }} title={t('resource.totalHint')}>{t('resource.total')}</th>
                 <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 90 }}>{t('resource.unitOfMeasure')}</th>
                 <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 120 }}>{t('resource.parent')}</th>
-                <th className="border-b border-border" style={{ width: 34 }} />
+                {/* F10 (critreview op 352bb94): zelfde breedte als de pooltabel — er kan nu een
+                    "Naar de bibliotheek"-tekstknop in staan, niet alleen het losmaak-/verwijder-icoon. */}
+                <th className="border-b border-border" style={{ width: 190 }} />
               </tr>
             </thead>
             <tbody>
+              {pendingNew?.variant === 'project' && (
+                <PendingNewRow
+                  showTotalColumn
+                  showParentColumn
+                  value={pendingNew.name}
+                  onChange={v => setPendingNew({ variant: 'project', name: v })}
+                  onCommit={commitPendingNew}
+                  onCancel={() => setPendingNew(null)}
+                />
+              )}
               {resources.map(r => {
                 const stepsOpen = expandedSteps === r.id;
                 const stepCount = r.availabilitySteps?.length ?? 0;
@@ -383,7 +419,6 @@ export function ResourcePanel() {
                     calendarOptions={resourceCalendars}
                     stepsOpen={stepsOpen}
                     stepCount={stepCount}
-                    isNew={newRowId === r.id}
                     showParentColumn
                     costLabel={cost === undefined ? '—' : numberFmt.format(cost)}
                     confirmingDelete={confirmDelete === r.id}
@@ -430,8 +465,8 @@ export function ResourcePanel() {
  * beide weergaven precies deze rij; alleen kolomkeuze, bestemming van de mutaties en de
  * read-only-gating verschillen per variant.
  */
-export function ResourceRow({
-  resource, variant, colCount, crews, calendarOptions, stepsOpen, stepCount, costLabel, isNew,
+function ResourceRow({
+  resource, variant, colCount, crews, calendarOptions, stepsOpen, stepCount, costLabel,
   showParentColumn = true,
   confirmingDelete, confirmMessage,
   onToggleSteps, onPatch, onRequestRemove, onConfirmRemove, onCancelRemove,
@@ -448,7 +483,6 @@ export function ResourceRow({
   /** Alleen aanwezig in de Projectweergave — de pool kent geen "Totaal"-kolom (dat is een
    *  projectberekening, zie de toelichting bovenaan dit bestand). */
   costLabel?: string;
-  isNew: boolean;
   showParentColumn?: boolean;
   confirmingDelete: boolean;
   confirmMessage: string;
@@ -468,7 +502,14 @@ export function ResourceRow({
    *  gekoppeld is; de rij zelf toont 'm alleen als `!resource.libraryOrigin`. */
   onPromoteToLibrary?: () => void;
 }) {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // F10 (critreview op 352bb94): geërfd tarief door dezelfde Intl-opmaak als de Totaal-kolom
+  // (`numberFmt` in `ResourcePanel`) — anders toont dit veld de rauwe `number`-waarde terwijl de rest
+  // van de tabel gelokaliseerd (2 decimalen) opmaakt.
+  const numberFmt = useMemo(
+    () => new Intl.NumberFormat(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    [i18n.language],
+  );
   const isMaterial = resource.type === 'MATERIAL';
   const isPool = variant === 'pool';
   // Projectweergave-markeringen (spec §3/§4, taak 18): 'deviated'/'removed' komen uit de
@@ -479,29 +520,64 @@ export function ResourceRow({
   const setUI = useAppStore(s => s.setUI);
   const openStatus = isPool ? null : onOpenStatusForResource(resource.id);
 
-  // Geërfd-gating (issue #19, punt 4 — bijgesteld op user-feedback: de kalender hoort óók bij de
-  // bibliotheek, niet bij de projectinzet). Rationale voor de user: DE BIBLIOTHEEK BEPAALT WAT EEN
-  // RESOURCE IS EN WANNEER HIJ WERKT (naam, type, tarief/uur, eenheid, kalender — vastgelegd door het
-  // bedrijf, geldt voor elk project dat deze resource gebruikt, hoort dus alleen in de
-  // Bibliotheekweergave gewijzigd te worden); HET PROJECT BEPAALT ALLEEN HOEVEEL JE ERVAN INZET
-  // (max.eenheden — de allocatiegrootheid waar een later bezettingsoverzicht, schaarste over
-  // projecten heen, op leunt). Max.eenheden blijft dus het ENIGE bewerkbare veld op een geërfde rij.
-  // `isResourceFieldLocked` (services/library/libraryOps.ts) is de gedeelde, headless-testbare
-  // pure functie achter dit besluit. 'removed' (het poolorigineel bestaat niet meer) telt bewust NIET
-  // als "geldige herkomst": de stempel wijst dan nergens meer naar, dus zo'n rij is feitelijk een wees
-  // en blijft volledig bewerkbaar (met de bestaande expliciete "Verwijder uit project"-actie hieronder)
-  // in plaats van muurvast te zitten op een dode referentie.
+  // Geërfd-gating (issue #19, punt 4 — F2-correctie ná critreview op 352bb94: kalender is GEEN
+  // bibliotheekafspraak, dat was een ontwerpfout in de vorige ronde). Rationale voor de user: DE
+  // BIBLIOTHEEK BEPAALT WAT EEN RESOURCE IS (naam, type, tarief/uur, eenheid — identiteitsvelden,
+  // vastgelegd door het bedrijf, gelden voor elk project dat deze resource gebruikt, horen dus alleen
+  // in de Bibliotheekweergave gewijzigd te worden — zie `RESOURCE_DIFF_FIELDS`); HET PROJECT BEPAALT
+  // HOEVEEL en WANNEER: max.eenheden + de tijd-gefaseerde `availabilitySteps` (de allocatiegrootheden
+  // waar een later bezettingsoverzicht op leunt) ÉN welke kalender aan deze resource hangt (F2: dat is
+  // een projectkeuze — wat er IN die kalender staat komt uit de bibliotheek via de meegereisde,
+  // gestempelde kalenderkopie, niet via dit veld). `isResourceFieldLocked` (services/library/
+  // libraryOps.ts) is de gedeelde, headless-testbare pure functie achter dit besluit — ze leunt op
+  // dezelfde `RESOURCE_DIFF_FIELDS` als de diff/sync-machinerie, dus "locked" en "wat de bibliotheek
+  // daadwerkelijk terugzet bij bijwerken" kunnen nooit uiteenlopen. 'removed' (het poolorigineel
+  // bestaat niet meer) telt bewust NIET als "geldige herkomst": de stempel wijst dan nergens meer naar,
+  // dus zo'n rij is feitelijk een wees en blijft volledig bewerkbaar (met de bestaande expliciete
+  // "Verwijder uit project"-actie hieronder) in plaats van muurvast te zitten op een dode referentie.
   // D1 (user-feedback): een geërfd/locked veld rendert als PLATTE TEKST (`cellStatic`), niet als een
   // uitgegrijsd invoerveld — "waarom reageert dit niet op een klik" is zichtbaar vóórdat de gebruiker
   // het probeert. Elke gegate cel hieronder vertakt zelf op `locked` (static <span> vs. echt invoerveld).
   const locked = !isPool && isResourceFieldLocked(openStatus);
+
+  // F6 (critreview op 352bb94): in de POOL-variant committeert `onPatch` naar `updatePoolResource`,
+  // die per aanroep bumpPool + persist + refreshAllDocumentsFromPool doet (dat laatste wist de
+  // redoStack van elk gekoppeld document) — per-toetsaanslag-onChange zou tien poolversies + tien
+  // volledige bibliotheekschrijfacties opleveren voor het typen van tien letters. Tekstvelden
+  // (naam/eenheid) committeren daarom op blur/Enter, net als de bedrijfsnaam-draft in
+  // `LibrarySection.tsx` (zelfde patroon: lokale draft, resync op externe wijziging, commit alleen bij
+  // een echt verschil). Numerieke/select-velden (max.eenheden via `UnitsInput`, type, kalender) blijven
+  // bewust WEL direct: het zijn korte, atomaire wijzigingen (een paar cijfers, of één discrete keuze),
+  // geen aanhoudende vrije tekst-compositie — de marginale pool-bump-kost daarvan is verwaarloosbaar
+  // vergeleken met een meerdere-woorden-lange naam, en `UnitsInput` doet dit al overal (ook in de
+  // Projectweergave) zo. Alleen relevant voor `isPool`; de Projectweergave-tak van elke cel hieronder
+  // (locked ? static : direct invoerveld) is ongewijzigd.
+  const [nameDraft, setNameDraft] = useState(resource.name);
+  useEffect(() => { setNameDraft(resource.name); }, [resource.id, resource.name]);
+  const commitNameDraft = () => { if (nameDraft !== resource.name) onPatch({ name: nameDraft }); };
+
+  const [unitDraft, setUnitDraft] = useState(resource.unitOfMeasure ?? '');
+  useEffect(() => { setUnitDraft(resource.unitOfMeasure ?? ''); }, [resource.id, resource.unitOfMeasure]);
+  const commitUnitDraft = () => {
+    const v = unitDraft || undefined;
+    if (v !== resource.unitOfMeasure) onPatch({ unitOfMeasure: v });
+  };
 
   return (
     <>
       <tr className="border-b border-border-light hover:bg-surface-hover" data-ops-pool-resource-row={isPool ? true : undefined}>
         <td className="px-2 py-1">
           <div className="flex items-center gap-1 min-w-0">
-            {locked ? (
+            {isPool ? (
+              <input
+                value={nameDraft}
+                onChange={e => setNameDraft(e.target.value)}
+                onBlur={commitNameDraft}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                className={cellInput}
+                placeholder={t('resource.name')}
+              />
+            ) : locked ? (
               <span className={cellStatic} title={t('resource.inheritedFieldHint')}>
                 {resource.name || '—'}
               </span>
@@ -511,7 +587,6 @@ export function ResourceRow({
                 onChange={e => onPatch({ name: e.target.value })}
                 className={cellInput}
                 placeholder={t('resource.name')}
-                autoFocus={isNew}
               />
             )}
             {locked && (
@@ -578,8 +653,9 @@ export function ResourceRow({
           )}
         </td>
         <td className="px-2 py-1">
-          {/* Max.eenheden: het ENIGE veld dat op een geërfde rij bewerkbaar blijft (projectinzet) —
-              ALTIJD een echt invoerveld, nooit `cellStatic`, ook niet op een geërfde/locked resource. */}
+          {/* F2 (critreview op 352bb94): max.eenheden (+ de tijd-gefaseerde stappen hieronder) en de
+              kalenderkeuze (verderop) zijn projectinzet, GEEN bibliotheekafspraak — dus ALTIJD een
+              echt invoerveld, nooit `cellStatic`, ook niet op een geërfde/locked resource. */}
           <div className="flex items-center gap-1 justify-end">
             <UnitsInput
               value={resource.maxUnits}
@@ -599,30 +675,29 @@ export function ResourceRow({
         </td>
         <td className="px-2 py-1">
           <div className="flex items-center gap-1 min-w-0">
-            {/* Kalender is (bijgesteld user-feedback) een BIBLIOTHEEKAFSPRAAK — "wanneer de resource
-                werkt" — dus locked net als naam/type/tarief/eenheid op een geërfde rij: platte tekst
-                i.p.v. een uitgegrijsde dropdown. Het "Bewerken…"-potlood blijft werken: dat bewerkt de
-                KALENDER-ENTITEIT zelf (gedeeld, evt. door meer taken/resources gebruikt), niet de
-                toewijzing van DEZE rij — dat is een bewust ander besluit dan de rij-lock. */}
-            {locked ? (
-              <span className={cellStatic} title={t('resource.inheritedFieldHint')}>
-                {resource.calendarId
-                  ? (calendarOptions.find(c => c.id === resource.calendarId)?.name || resource.calendarId)
-                  : t('resource.projectCalendar')}
-              </span>
-            ) : (
-              <select
-                value={resource.calendarId ?? ''}
-                onChange={e => onCalendarChange(e.target.value)}
-                className={cellInput}
-              >
-                <option value="">{isPool ? t('resource.noCalendar') : t('resource.projectCalendar')}</option>
-                {calendarOptions.map(c => (
-                  <option key={c.id} value={c.id}>{c.name || c.id}</option>
-                ))}
-                <option value={NEW_CAL}>+ {t('resource.calendarDialog.title')}</option>
-              </select>
-            )}
+            {/* F2 (critreview op 352bb94, issue #19): kalenderKEUZE is PROJECTINZET, geen
+                bibliotheekafspraak — welke kalender aan deze resource hangt is een keuze van dit ene
+                project (net als max.eenheden); WAT in die kalender staat (werkdagen/-uren) komt uit de
+                bibliotheek via de meegereisde, gestempelde kalenderkopie (zie `addLibraryResourceToProject`
+                → traveling calendar). `calendarId` staat daarom bewust NIET in `RESOURCE_DIFF_FIELDS` —
+                vergrendelen zou het hier NERGENS meer wijzigbaar maken (er is geen "bijwerken vanuit
+                bibliotheek"-pad voor dit veld). Altijd een echte dropdown, ook op een geërfde rij. */}
+            <select
+              value={resource.calendarId ?? ''}
+              onChange={e => onCalendarChange(e.target.value)}
+              className={cellInput}
+            >
+              <option value="">{isPool ? t('resource.noCalendar') : t('resource.projectCalendar')}</option>
+              {calendarOptions.map(c => (
+                <option key={c.id} value={c.id}>{c.name || c.id}</option>
+              ))}
+              <option value={NEW_CAL}>+ {t('resource.calendarDialog.title')}</option>
+            </select>
+            {/* F3 (critreview op 352bb94): dit potlood bewerkt de MEEGEREISDE PROJECTKOPIE van de
+                kalender (`s.calendars`/`updateCalendar`, project-only hier — pool-variant heeft z'n
+                eigen `poolCompanyId`-pad). Dat kan de kopie 'deviated' maken t.o.v. de bibliotheek — dat
+                is correct en bedoeld gedrag (de bestaande badge/afwijkingenscherm pakt het op); de
+                tooltip mag dus NOOIT suggereren dat dit de bibliotheek zelf bewerkt. */}
             <button
               onClick={onEditCalendar}
               disabled={!resource.calendarId}
@@ -636,7 +711,7 @@ export function ResourceRow({
         <td className="px-2 py-1">
           {locked ? (
             <span className={cellStatic + ' text-right'} title={t('resource.inheritedFieldHint')}>
-              {resource.costPerHour != null ? resource.costPerHour : '—'}
+              {resource.costPerHour != null ? numberFmt.format(resource.costPerHour) : '—'}
             </span>
           ) : (
             <input
@@ -660,7 +735,16 @@ export function ResourceRow({
           </td>
         )}
         <td className="px-2 py-1">
-          {locked ? (
+          {isPool ? (
+            <input
+              value={unitDraft}
+              disabled={!isMaterial}
+              onChange={e => setUnitDraft(e.target.value)}
+              onBlur={commitUnitDraft}
+              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              className={cellInput + ' disabled:opacity-30'}
+            />
+          ) : locked ? (
             <span className={cellStatic} title={t('resource.inheritedFieldHint')}>
               {isMaterial ? (resource.unitOfMeasure || '—') : '—'}
             </span>
@@ -699,8 +783,11 @@ export function ResourceRow({
             )}
             {/* Tegenhanger van "Toewijzen aan project" (issue #19, punt D5): alleen op een
                 ONGESTEMPELDE Projectweergave-rij, en alleen als de aanroeper 'm meegeeft (project aan
-                een bedrijf gekoppeld — zie ResourcePanel). */}
-            {!isPool && !resource.libraryOrigin && onPromoteToLibrary && !confirmingDelete && (
+                een bedrijf gekoppeld — zie ResourcePanel). F10 (critreview op 352bb94): ook gate'n op
+                een niet-lege GENORMALISEERDE naam — een naamloze resource naar de bibliotheek tillen
+                levert een zinloos poolitem op (`matchByName` negeert een lege genormaliseerde naam
+                sowieso al, zie libraryOps.ts, maar zonder deze gate zou de knop wél zichtbaar zijn). */}
+            {!isPool && !resource.libraryOrigin && normalizeName(resource.name) !== '' && onPromoteToLibrary && !confirmingDelete && (
               <button
                 onClick={onPromoteToLibrary}
                 title={t('resource.promoteToLibrary')}
@@ -710,7 +797,12 @@ export function ResourceRow({
                 {t('resource.promoteToLibrary')}
               </button>
             )}
-            {locked && onUnlink && !confirmingDelete && (
+            {/* F5 (critreview op 352bb94): gate op `!!resource.libraryOrigin`, NIET op `locked` — een
+                'removed'-wees (dode stempel, altijd `!locked`) en een stempel van een ANDER bedrijf
+                (rij bewerkbaar dus ook `!locked`, stempel onzichtbaar) waren met `locked` doodlopende
+                straten: geen enkele knop kon dat stempel meer wegnemen. Met deze gate kan elk item met
+                ÍÉTS in `libraryOrigin` losgemaakt worden, ongeacht welk bedrijf/status. */}
+            {!isPool && !!resource.libraryOrigin && onUnlink && !confirmingDelete && (
               <button
                 onClick={onUnlink}
                 title={t('resource.unlinkFromLibrary')}
@@ -769,6 +861,52 @@ export function ResourceRow({
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * F10 (critreview op 352bb94): de "nieuwe rij"-draft VÓÓR de eerste niet-lege naam — puur lokale
+ * component-state in `ResourcePanel`, GEEN store-mutatie. Alleen het naamveld is bewerkbaar; de
+ * overige cellen tonen de defaults waarmee de rij zal worden aangemaakt (LABOR, max.eenheden 1,
+ * projectkalender) als platte, niet-interactieve tekst — pas ná commit (blur/Enter met een niet-lege
+ * naam) wordt dit een echte, volledig bewerkbare resource. Escape gooit de draft weg zonder spoor.
+ */
+function PendingNewRow({
+  value, showTotalColumn, showParentColumn, onChange, onCommit, onCancel,
+}: {
+  value: string;
+  showTotalColumn: boolean;
+  showParentColumn: boolean;
+  onChange: (value: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation('common');
+  return (
+    <tr className="border-b border-border-light" style={{ background: 'var(--theme-surface-alt)' }} data-ops-pending-new-row>
+      <td className="px-2 py-1">
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onBlur={onCommit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            else if (e.key === 'Escape') onCancel();
+          }}
+          className={cellInput}
+          placeholder={t('resource.name')}
+          autoFocus
+        />
+      </td>
+      <td className="px-2 py-1"><span className={cellStatic}>{t(TYPE_KEY.LABOR)}</span></td>
+      <td className="px-2 py-1"><span className={cellStatic + ' text-right'}>1</span></td>
+      <td className="px-2 py-1"><span className={cellStatic}>{t('resource.projectCalendar')}</span></td>
+      <td className="px-2 py-1"><span className={cellStatic + ' text-right'}>—</span></td>
+      {showTotalColumn && <td className="px-2 py-1 text-right tabular-nums">—</td>}
+      <td className="px-2 py-1"><span className={cellStatic}>—</span></td>
+      {showParentColumn && <td className="px-2 py-1"><span className={cellStatic}>—</span></td>}
+      <td className="px-1 py-1" />
+    </tr>
   );
 }
 

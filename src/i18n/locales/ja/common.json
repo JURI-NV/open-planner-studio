@@ -287,6 +287,7 @@
     "added": "追加しました。",
     "alreadyInProject": "すでにプロジェクトに含まれています。",
     "linkedToExisting": "ライブラリに既に存在していました — 関連付けました。",
+    "linkedToExistingDiffers": "既存のライブラリ項目に関連付けました — 値が異なります。マーカーを確認してください。",
     "upToDate": "最新",
     "exportWithPool": "ライブラリファイルも一緒に保存",
     "linkTitle": "リソースライブラリにリンク",

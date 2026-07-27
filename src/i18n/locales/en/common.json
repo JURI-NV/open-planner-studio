@@ -288,6 +288,7 @@
     "added": "Added.",
     "alreadyInProject": "Already in the project.",
     "linkedToExisting": "Already existed in the library — now linked.",
+    "linkedToExistingDiffers": "Linked to the existing library item — the values differ, see the marker.",
     "upToDate": "Up to date",
     "exportWithPool": "Save library file alongside",
     "linkTitle": "Link resource library",

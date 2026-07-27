@@ -394,7 +394,9 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     const existingPool = opts?.dedupByName ? get().pools[companyId] : undefined;
     const existingMatch = existingPool ? matchByName(resource.name, existingPool.resources) : null;
     if (existingMatch) {
-      let src: import('@/types/resource').Resource | undefined;
+      // F10 (critreview op 352bb94): boolean-vlag i.p.v. een Immer-draft-referentie vasthouden buiten
+      // de producer (`s.resources[idx]` is na `set()` een gerevoked proxy — nooit bewaren/uitlezen).
+      let linked = false;
       set((s) => {
         const idx = s.resources.findIndex((r) => r.id === resource.id);
         if (idx < 0 || s.resources[idx].libraryOrigin) return; // onbekend, of al gestempeld: no-op.
@@ -402,10 +404,13 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         const pool = s.pools[companyId];
         s.resources[idx].libraryOrigin = makeOrigin(pool, existingMatch.id, computeResourceHash(existingMatch));
         finishMutation(s);
-        src = s.resources[idx];
+        linked = true;
       });
-      if (src) get().recomputeViewRows();
-      return existingMatch.id;
+      if (linked) get().recomputeViewRows();
+      // F8 (critreview op 352bb94): de no-op-tak (onbekend bronitem, of al gestempeld) mag NIET
+      // `existingMatch.id` teruggeven alsof er iets gebeurde — dat zou de aanroeper (de "bestond
+      // al"-notice) laten liegen over een koppeling die niet plaatsvond.
+      return linked ? existingMatch.id : null;
     }
     set((s) => {
       const pool = s.pools[companyId];
@@ -477,6 +482,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const pool = s.pools[companyId];
       if (!pool) return;
       pool.resources = pool.resources.filter(r => r.id !== resourceId);
+      // F7 (critreview op 352bb94): spiegelt resourceSlice.removeResource — leden van een verwijderde
+      // ploeg (CREW) vallen terug op geen ouder, anders houdt de pool een dangling parentId over.
+      for (const r of pool.resources) {
+        if (r.parentId === resourceId) r.parentId = undefined;
+      }
       s.pools[companyId] = bumpPool(pool);
     });
     persist(get);
@@ -1066,12 +1076,33 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       const idx = s.resources.findIndex((r) => r.id === resourceId);
       if (idx < 0 || !s.resources[idx].libraryOrigin) return; // onbekend id of al stempel-loos: no-op.
       beginUndoable(s);
+      const calendarId = s.resources[idx].calendarId;
       const { libraryOrigin: _drop, ...rest } = s.resources[idx];
       s.resources[idx] = rest;
+      // F4 (critreview op 352bb94): "losmaken" moet ook de MEEGEREISDE kalenderkopie loskoppelen —
+      // anders blijft die de pool volgen (bijwerken vanuit bibliotheek, afwijkingsvragen) terwijl de
+      // resource zelf al los is, precies wat losmaken hoort te voorkomen. Alleen strippen als geen
+      // ENKELE ANDERE, nog gestempelde resource dezelfde kalender gebruikt (anders trek je 'm onder
+      // een collega vandaan die 'm nog wél via de bibliotheek wil laten volgen). Zelfde undo-snapshot.
+      if (calendarId) {
+        const calIdx = s.calendars.findIndex((c) => c.id === calendarId);
+        const cal = calIdx >= 0 ? s.calendars[calIdx] : undefined;
+        if (cal?.libraryOrigin) {
+          const stillFollowed = s.resources.some(
+            (r) => r.id !== resourceId && r.calendarId === calendarId && !!r.libraryOrigin,
+          );
+          if (!stillFollowed) {
+            const { libraryOrigin: _calDrop, ...calRest } = cal;
+            s.calendars[calIdx] = calRest;
+            // Gedenormaliseerde projectkalender-cache meesyncen (§9.1-patroon) als dit de projectdefault was.
+            s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+          }
+        }
+      }
       finishMutation(s);
     });
-    // Puur een stempel weg: geen enkel bewaard VELD verandert (naam/type/tarief/eenheid/maxUnits/
-    // kalender blijven exact wat ze waren), dus geen datumimpact en geen belasting-/rijenherberekening
+    // Puur stempels weg: geen enkel bewaard VELD verandert (naam/type/tarief/eenheid/maxUnits/kalender-
+    // INHOUD blijven exact wat ze waren), dus geen datumimpact en geen belasting-/rijenherberekening
     // nodig — anders dan updateResource/removeResource hierboven raakt dit geen CPM- of tabelinvoer.
   },
 });

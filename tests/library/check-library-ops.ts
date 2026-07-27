@@ -142,9 +142,15 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   const p = pool();
   const copy = copyResourceToProject(p, 'pr2', [], [], genId)!.resource;
   assert(diffResourceVsPool(copy, p).status === 'up-to-date', 'diff: verse kopie is up-to-date');
-  const changed = { ...copy, maxUnits: 5 };
+  // F1 (critreview op 352bb94, issue #19): costPerHour is een bibliotheekafspraak, blijft dus gevolgd.
+  const changed = { ...copy, costPerHour: 999 };
   const d = diffResourceVsPool(changed, p);
-  assert(d.status === 'changed' && d.fields.some(f => f.field === 'maxUnits'), 'diff: gewijzigd veld gedetecteerd');
+  assert(d.status === 'changed' && d.fields.some(f => f.field === 'costPerHour'), 'diff: gewijzigd veld gedetecteerd');
+  // F1 (verplichte assert): maxUnits/availabilitySteps zijn projectinzet — een wijziging daarop mag
+  // GEEN afwijking meer opleveren. Draai de negatieve controle door ze terug in
+  // RESOURCE_DIFF_FIELDS te zetten: dit blok kleurt dan rood.
+  const maxUnitsChanged = { ...copy, maxUnits: copy.maxUnits + 5, availabilitySteps: [{ from: '2030-01-01', maxUnits: 99 }] };
+  assert(diffResourceVsPool(maxUnitsChanged, p).status === 'up-to-date', 'F1: maxUnits/availabilitySteps-wijziging levert GEEN afwijking meer op (projectinzet, geen bibliotheekafspraak)');
   const removedPool: CompanyPool = { ...p, resources: [] };
   assert(diffResourceVsPool(copy, removedPool).status === 'removed', 'diff: verwijderd origineel ⇒ removed');
   const c = copyCalendarToProject(p, 'pc1', [], genId)!.calendar;
@@ -197,17 +203,27 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
 
   const r: Resource = {
     ...p.resources[0],
+    maxUnits: 4,
     availabilitySteps: [
       { from: '2026-01-01', maxUnits: 1 },
       { from: '2026-06-01', maxUnits: 2 },
     ],
   };
   const hr = computeResourceHash(r);
-  const r2: Resource = { ...r, availabilitySteps: [...r.availabilitySteps!].reverse() };
-  assert(computeResourceHash(r2) === hr, 'computeResourceHash: array-volgorde telt niet mee');
-  const r4: Resource = { ...r, availabilitySteps: [r.availabilitySteps![0], { ...r.availabilitySteps![1], maxUnits: 3 }] };
-  assert(computeResourceHash(r4) !== hr, 'computeResourceHash: inhoudswijziging in een array-element verandert de hash');
-  assert(computeResourceHash({ ...r, maxUnits: 99 }) !== hr, 'computeResourceHash: inhoudswijziging verandert de hash');
+  // F1 (critreview op 352bb94, issue #19): maxUnits/availabilitySteps zijn UIT RESOURCE_DIFF_FIELDS
+  // gehaald — ze zijn projectinzet (hoeveel/wanneer dit ene project inzet), geen bibliotheekafspraak,
+  // en mogen de hash dus NIET meer raken, in geen enkele vorm (scalair, array-volgorde, array-inhoud,
+  // of volledige afwezigheid). Dit is de kern-assert achter het hele fix-rond: zet de velden terug in
+  // RESOURCE_DIFF_FIELDS en dit blok kleurt rood (negatieve controle).
+  assert(computeResourceHash({ ...r, maxUnits: 999 }) === hr, 'F1: computeResourceHash negeert maxUnits volledig');
+  assert(computeResourceHash({ ...r, availabilitySteps: [...r.availabilitySteps!].reverse() }) === hr, 'F1: computeResourceHash negeert availabilitySteps-volgorde');
+  assert(computeResourceHash({ ...r, availabilitySteps: [{ from: '2027-01-01', maxUnits: 50 }] }) === hr, 'F1: computeResourceHash negeert availabilitySteps-inhoud');
+  assert(computeResourceHash({ ...r, availabilitySteps: undefined }) === hr, 'F1: computeResourceHash negeert het ONTBREKEN van availabilitySteps');
+  // Overige gevolgde velden (identiteit/bibliotheekafspraken) blijven wél gehasht — anders zou de
+  // hele diff-/syncedHash-machinerie zinloos worden.
+  assert(computeResourceHash({ ...r, name: 'Andere naam' }) !== hr, 'computeResourceHash: naam blijft gehasht');
+  assert(computeResourceHash({ ...r, costPerHour: 999 }) !== hr, 'computeResourceHash: tarief/uur blijft gehasht');
+  assert(computeResourceHash({ ...r, unitOfMeasure: 'stuks' }) !== hr, 'computeResourceHash: eenheid blijft gehasht');
 }
 
 // --- Naam-matcher (spec §5.1): exact na normalisatie, uniek anders geen voorstel ---
@@ -289,10 +305,12 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   const inSyncHash = computeResourceHash(srcRes);
   const inSync: Resource = { ...srcRes, id: 'x', libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
   assert(classifyResourceOnOpen(inSync, p) === 'in-sync', 'classify(resource): gelijk aan pool ⇒ in-sync');
-  const bumped = bumpPool({ ...p, resources: [p.resources[0], { ...srcRes, maxUnits: 9 }] });
+  // F1 (critreview op 352bb94, issue #19): maxUnits is uit RESOURCE_DIFF_FIELDS — de "pool bewoog"/
+  // "lokaal bewerkt"-simulaties hieronder gebruiken daarom costPerHour (nog wél gevolgd) i.p.v. maxUnits.
+  const bumped = bumpPool({ ...p, resources: [p.resources[0], { ...srcRes, costPerHour: 9 }] });
   const behind: Resource = { ...srcRes, id: 'x', libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
   assert(classifyResourceOnOpen(behind, bumped) === 'behind', 'classify(resource): file==hash, pool wijkt af ⇒ behind');
-  const deviated: Resource = { ...srcRes, id: 'x', maxUnits: 3, libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
+  const deviated: Resource = { ...srcRes, id: 'x', costPerHour: 3, libraryOrigin: makeOrigin(p, srcRes.id, inSyncHash) };
   assert(classifyResourceOnOpen(deviated, bumped) === 'deviated', 'classify(resource): file bewerkt na sync ⇒ deviated');
   const removed: Resource = { ...srcRes, id: 'x', libraryOrigin: { companyId: p.companyId, libraryItemId: 'ghost', poolVersion: 1 } };
   assert(classifyResourceOnOpen(removed, p) === 'removed', 'classify(resource): poolitem weg ⇒ removed');
@@ -314,11 +332,12 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   const afterPromote = bumpPool({ ...p, resources: [srcRes, res('new-r', 'Nieuwe kraan')] });
   const poolItemAtPromote = afterPromote.resources.find((r) => r.id === 'new-r')!;
   const backStampHash = computeResourceHash(poolItemAtPromote);
-  // Vervolgens beweegt de pool (een latere pool-edit — bv. een bijgewerkte maxUnits), zonder dat het
-  // project-object zelf wijzigt.
+  // Vervolgens beweegt de pool (een latere pool-edit — bv. een bijgewerkt tarief/uur; F1: maxUnits is
+  // uit RESOURCE_DIFF_FIELDS, dus costPerHour i.p.v. maxUnits om ditzelfde scenario te simuleren),
+  // zonder dat het project-object zelf wijzigt.
   const afterPoolEdit = bumpPool({
     ...afterPromote,
-    resources: afterPromote.resources.map((r) => (r.id === 'new-r' ? { ...r, maxUnits: 42 } : r)),
+    resources: afterPromote.resources.map((r) => (r.id === 'new-r' ? { ...r, costPerHour: 42 } : r)),
   });
   const promotedThenPoolMoved: Resource = {
     ...poolItemAtPromote,

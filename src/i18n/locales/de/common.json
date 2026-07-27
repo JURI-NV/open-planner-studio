@@ -288,6 +288,7 @@
     "added": "Hinzugefügt.",
     "alreadyInProject": "Bereits im Projekt vorhanden.",
     "linkedToExisting": "War bereits in der Bibliothek vorhanden — jetzt verknüpft.",
+    "linkedToExistingDiffers": "Mit dem vorhandenen Bibliothekselement verknüpft — die Werte weichen ab, siehe die Markierung.",
     "upToDate": "Aktuell",
     "exportWithPool": "Bibliotheksdatei zusätzlich speichern",
     "linkTitle": "Ressourcenbibliothek verknüpfen",

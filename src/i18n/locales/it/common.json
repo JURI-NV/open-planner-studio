@@ -288,6 +288,7 @@
     "added": "Aggiunto.",
     "alreadyInProject": "Già presente nel progetto.",
     "linkedToExisting": "Esisteva già nella libreria — ora collegato.",
+    "linkedToExistingDiffers": "Collegato all'elemento esistente della libreria — i valori differiscono, vedi il contrassegno.",
     "upToDate": "Aggiornato",
     "exportWithPool": "Salva anche il file di libreria",
     "linkTitle": "Collega libreria di risorse",

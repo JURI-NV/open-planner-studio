@@ -5,7 +5,6 @@ import { useAppStore } from '@/state/appStore';
 import { normalizeLoadedLibrary } from '@/state/slices/librarySlice';
 import { computeCalendarHash, computeResourceHash, isResourceFieldLocked } from '@/services/library/libraryOps';
 import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
-import { ResourceRow } from '@/components/panels/ResourcePanel';
 
 declare const process: { exit(code: number): never };
 
@@ -541,37 +540,39 @@ const store = useAppStore.getState();
 }
 
 // --- Verversingsprimitief: behind-only, niet-undoable, wist redoStack, geen isDirty (plan-eis 2) ---
+// F1 (critreview op 352bb94, issue #19): maxUnits is uit RESOURCE_DIFF_FIELDS — deze
+// behind/deviated-simulaties gebruiken daarom costPerHour (nog wél gevolgd) i.p.v. maxUnits.
 {
   const s = useAppStore.getState();
   const cid = s.addCompany('Verv BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'v', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const resId = s.promoteResourceToPool(cid, { id: 'v', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 })!;
   const add = s.addLibraryResourceToProject(cid, resId);
-  s.updatePoolResource(cid, resId, { maxUnits: 5 });
-  // Bouw een EXPLICIETE 'behind'-toestand (robuust tegen grens-3-timing): projectkopie op 1 MET de
-  // syncedHash van maxUnits=1 ⇒ file==syncedHash ⇒ behind; pool staat op 5.
-  const behindHash = computeResourceHash({ id: 'x', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1 });
+  s.updatePoolResource(cid, resId, { costPerHour: 5 });
+  // Bouw een EXPLICIETE 'behind'-toestand (robuust tegen grens-3-timing): projectkopie op
+  // costPerHour=1 MET de syncedHash van costPerHour=1 ⇒ file==syncedHash ⇒ behind; pool staat op 5.
+  const behindHash = computeResourceHash({ id: 'x', name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 });
   // Muterende setState-vorm (gevestigd patroon, tests/planning/check-document-contract.ts:127) — geen
   // partieel-object-return; muteer de Immer-draft.
   useAppStore.setState((st) => {
     st.isDirty = false; st.redoStack = [{} as never];
     const r = st.resources.find(r => r.id === add.resourceId);
-    if (r) { r.maxUnits = 1; r.libraryOrigin!.syncedHash = behindHash; }
+    if (r) { r.costPerHour = 1; r.libraryOrigin!.syncedHash = behindHash; }
   });
   const changed = useAppStore.getState().refreshBehindItems(cid);
   const after = useAppStore.getState();
   assert(changed >= 1, 'refreshBehindItems telt gewijzigde items');
-  assert(after.resources.find(r => r.id === add.resourceId)?.maxUnits === 5, 'verversing neemt poolwaarde over');
+  assert(after.resources.find(r => r.id === add.resourceId)?.costPerHour === 5, 'verversing neemt poolwaarde over');
   assert(after.redoStack.length === 0, 'verversing WIST de redoStack (plan-eis 2)');
   assert(after.isDirty === false, 'verversing zet GEEN isDirty (spec §3)');
 
   // Een DEVIATED item (file != syncedHash) blijft ONgemoeid: file=4, syncedHash=hash(1), pool=5.
   useAppStore.setState((st) => {
     const r = st.resources.find(r => r.id === add.resourceId);
-    if (r) { r.maxUnits = 4; r.libraryOrigin!.syncedHash = behindHash; }
+    if (r) { r.costPerHour = 4; r.libraryOrigin!.syncedHash = behindHash; }
   });
   useAppStore.getState().refreshBehindItems(cid);
-  assert(useAppStore.getState().resources.find(r => r.id === add.resourceId)?.maxUnits === 4, 'refreshBehindItems laat een deviated item ONgemoeid');
+  assert(useAppStore.getState().resources.find(r => r.id === add.resourceId)?.costPerHour === 4, 'refreshBehindItems laat een deviated item ONgemoeid');
 }
 
 // --- Verversingsprimitief: kalendertak-dekking (critreview d80beb4, verplichte fix 1) ---
@@ -612,13 +613,14 @@ const store = useAppStore.getState();
   // Negatief: reset scheduleStale, doe daarna een RESOURCE-ONLY-verversing ⇒ scheduleStale blijft false
   // (de guard moet echt aan `calChanged`/kalendertak hangen, niet aan `changed` in het algemeen).
   useAppStore.setState((st) => { st.scheduleStale = false; });
-  const resId = useAppStore.getState().promoteResourceToPool(cid, { id: 'kv-res', name: 'Kalvermetselaar', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const resId = useAppStore.getState().promoteResourceToPool(cid, { id: 'kv-res', name: 'Kalvermetselaar', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 })!;
   const addedRes = useAppStore.getState().addLibraryResourceToProject(cid, resId);
   // Bewust buiten de pool-CRUD om — zelfde reden als hierboven (grens-3-bedrading zou dit anders al
-  // stil verversen vóórdat het primitief handmatig getest wordt).
+  // stil verversen vóórdat het primitief handmatig getest wordt). F1: costPerHour i.p.v. maxUnits (die
+  // laatste is uit RESOURCE_DIFF_FIELDS, zou hier geen 'changed' meer opleveren).
   useAppStore.setState((st) => {
     const pr = st.pools[cid].resources.find(r => r.id === resId)!;
-    pr.maxUnits = 3;
+    pr.costPerHour = 3;
   });
   assert(useAppStore.getState().diffProjectResource(addedRes.resourceId!)?.status === 'changed', 'setup (negatief): resource is behind');
   useAppStore.getState().refreshBehindItems(cid);
@@ -642,16 +644,16 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.addCompany('Multi BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'm', name: 'Voeger', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const resId = s.promoteResourceToPool(cid, { id: 'm', name: 'Voeger', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 })!;
   s.addLibraryResourceToProject(cid, resId);
   // Open een TWEEDE, leeg document; het eerste (met de materialisatie) wordt slapend.
   const firstDoc = useAppStore.getState().activeDocumentId;
   const secondDoc = s.newDocument();
-  // Pool-edit terwijl het gematerialiseerde document slaapt.
-  s.updatePoolResource(cid, resId, { maxUnits: 8 });
+  // Pool-edit terwijl het gematerialiseerde document slaapt. F1: costPerHour i.p.v. maxUnits.
+  s.updatePoolResource(cid, resId, { costPerHour: 8 });
   const dormant = useAppStore.getState().documents.find(d => d.id === firstDoc);
   const dormantRes = dormant?.payload?.resources.find(r => r.libraryOrigin?.libraryItemId === resId);
-  assert(dormantRes?.maxUnits === 8, 'pool-edit ververst de slapende payload (plan-eis 1)');
+  assert(dormantRes?.costPerHour === 8, 'pool-edit ververst de slapende payload (plan-eis 1)');
   assert(secondDoc !== firstDoc, 'tweede document is een ander id');
 
   // Fix 1 (critreview 71762fd): refreshAllDocumentsFromPool ververst de slapende resources, maar
@@ -1005,6 +1007,27 @@ const store = useAppStore.getState();
   assert(afterRemove.resources.some(r => r.id === projResId), 'removePoolResource: de gelijknamige PROJECTresource blijft gewoon in het project staan');
 }
 
+// --- F7 (critreview op 352bb94, issue #19): removePoolResource ruimt dangling parentId op — leden
+// van een verwijderde ploeg (CREW) vallen terug op geen ouder, net als resourceSlice.removeResource
+// dat al deed voor het project. Negatieve controle: zonder de cleanup-lus zou member.parentId naar
+// een niet-meer-bestaand poolitem blijven wijzen. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F7 BV');
+  const crewId = s.addPoolResource(cid, { name: 'Ploeg Noord', type: 'CREW', description: '', maxUnits: 1 })!;
+  const memberId = s.addPoolResource(cid, { name: 'Lid', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const otherMemberId = s.addPoolResource(cid, { name: 'Ander lid (andere ploeg)', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.updatePoolResource(cid, memberId, { parentId: crewId });
+  s.updatePoolResource(cid, otherMemberId, { parentId: undefined }); // geen ouder — moet ongemoeid blijven
+  assert(useAppStore.getState().pools[cid].resources.find(r => r.id === memberId)?.parentId === crewId, 'setup: lid volgt de ploeg');
+
+  s.removePoolResource(cid, crewId);
+  const after = useAppStore.getState();
+  assert(!after.pools[cid].resources.some(r => r.id === crewId), 'F7: de ploeg zelf is weg');
+  assert(after.pools[cid].resources.find(r => r.id === memberId)?.parentId === undefined, 'F7: het lid valt terug op GEEN ouder (dangling parentId opgeruimd)');
+  assert(after.pools[cid].resources.find(r => r.id === otherMemberId)?.parentId === undefined, 'F7: een lid zonder ouder blijft ongemoeid (negatieve controle op over-brede opruiming)');
+}
+
 // --- Grens 1: openen ververst 'behind' stil, markeert 'deviated' (spec §3) ---
 {
   const s = useAppStore.getState();
@@ -1013,19 +1036,21 @@ const store = useAppStore.getState();
   useAppStore.setState((st) => { st.ui.libraryRefreshNotice = null; st.ui.showLibraryLinkDialog = false; });
   const cid = s.addCompany('Open BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'o', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits om behind/deviated te simuleren
+  // (maxUnits is uit RESOURCE_DIFF_FIELDS).
+  const resId = s.promoteResourceToPool(cid, { id: 'o', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2, costPerHour: 2 })!;
   const added = s.addLibraryResourceToProject(cid, resId);
-  s.updatePoolResource(cid, resId, { maxUnits: 9 });
-  // "Net geopend" behind-toestand EXPLICIET bouwen (robuust tegen grens-3-timing): kopie op 2 MET de
-  // syncedHash van maxUnits=2 ⇒ file==syncedHash ⇒ behind; pool staat op 9.
-  const behindHash = computeResourceHash({ id: 'x', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2 });
+  s.updatePoolResource(cid, resId, { costPerHour: 9 });
+  // "Net geopend" behind-toestand EXPLICIET bouwen (robuust tegen grens-3-timing): kopie op
+  // costPerHour=2 MET de syncedHash van costPerHour=2 ⇒ file==syncedHash ⇒ behind; pool staat op 9.
+  const behindHash = computeResourceHash({ id: 'x', name: 'Ijzervlechter', type: 'LABOR', description: '', maxUnits: 2, costPerHour: 2 });
   useAppStore.setState((st) => {
     const r = st.resources.find(r => r.id === added.resourceId);
-    if (r) { r.maxUnits = 2; r.libraryOrigin!.syncedHash = behindHash; }
+    if (r) { r.costPerHour = 2; r.libraryOrigin!.syncedHash = behindHash; }
   });
   const result = useAppStore.getState().runOpenBoundary();
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
-  assert(copy?.maxUnits === 9, 'grens 1 ververst een behind-item stil naar de poolwaarde');
+  assert(copy?.costPerHour === 9, 'grens 1 ververst een behind-item stil naar de poolwaarde');
   assert(result.deviated === 0, 'geen deviated-items in dit scenario');
   assert(useAppStore.getState().ui.libraryRefreshNotice === 1, 'grens 1: discreet signaal bij behind-refresh');
   assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 1: dialoog blijft dicht bij alleen-behind');
@@ -1037,27 +1062,29 @@ const store = useAppStore.getState();
   useAppStore.setState((st) => { st.ui.libraryRefreshNotice = null; st.ui.showLibraryLinkDialog = false; });
   const cid = s.addCompany('Devi BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'd', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 3 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits (die laatste is uit
+  // RESOURCE_DIFF_FIELDS, zou hier geen 'changed'/'deviated' meer opleveren).
+  const resId = s.promoteResourceToPool(cid, { id: 'd', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 3, costPerHour: 3 })!;
   const added = s.addLibraryResourceToProject(cid, resId); // materialiseert: project == pool, syncedHash = hash(pool op dit moment)
   // Lokale bewerking van het PROJECTitem (niet via de pool-CRUD) zodat file-hash ≠ syncedHash —
   // NB-taak-6-patroon: directe store-draft-mutatie, geen updateResource-actie (die zou de
   // syncedHash niet raken, maar dit blijft dichter bij een "extern bewerkt bestand"-scenario).
   useAppStore.setState((st) => {
     const r = st.resources.find(r => r.id === added.resourceId);
-    if (r) r.maxUnits = 5; // lokaal afgeweken van de pool (was 3, gematcht met syncedHash)
+    if (r) r.costPerHour = 5; // lokaal afgeweken van de pool (was 3, gematcht met syncedHash)
   });
   // Pool zelf óók direct (buiten de CRUD om) muteren, zodat de pool intussen ook bewogen is —
   // het scenario blijft 'changed' t.o.v. de pool, en fileHash (op basis van de lokale 5) wijkt
   // van de bevroren syncedHash (op basis van de oorspronkelijke 3) ⇒ 'deviated', geen 'behind'.
   useAppStore.setState((st) => {
     const poolRes = st.pools[cid].resources.find(r => r.id === resId);
-    if (poolRes) poolRes.maxUnits = 9;
+    if (poolRes) poolRes.costPerHour = 9;
   });
   const result = useAppStore.getState().runOpenBoundary();
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
   assert(result.deviated === 1, 'grens 1: het lokaal bewerkte item classificeert als deviated');
   assert(useAppStore.getState().ui.showLibraryLinkDialog === true, 'grens 1: ≥1 deviated ⇒ afwijkingenscherm gaat open');
-  assert(copy?.maxUnits === 5, 'grens 1: een deviated-item wordt NIET ververst — lokale waarde blijft staan');
+  assert(copy?.costPerHour === 5, 'grens 1: een deviated-item wordt NIET ververst — lokale waarde blijft staan');
 }
 
 // --- Grens 1: 'removed' wordt alleen geteld, verandert de dialoogtrigger niet zonder deviated ---
@@ -1084,20 +1111,21 @@ const store = useAppStore.getState();
 {
   const s = useAppStore.getState();
   const cid = s.addCompany('Rec BV');
-  const poolResId = s.promoteResourceToPool(cid, { id: 'rc', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 7 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits om behind te simuleren.
+  const poolResId = s.promoteResourceToPool(cid, { id: 'rc', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 7, costPerHour: 5 })!;
   // Herstel een document dat aan dit bedrijf gekoppeld is met een ACHTERLOPENDE (behind) kopie.
-  const syncedHash = computeResourceHash({ id: 'x', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3 });
+  const syncedHash = computeResourceHash({ id: 'x', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3, costPerHour: 3 });
   s.restoreDocuments([{
     id: 'doc-rec',
     project: { ...useAppStore.getState().project, id: 'p-rec', companyId: cid, companyName: 'Rec BV' },
     calendar: useAppStore.getState().calendar,
     tasks: [], sequences: [],
-    resources: [{ id: 'rr', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3, libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash } }],
+    resources: [{ id: 'rr', name: 'Sloper', type: 'LABOR', description: '', maxUnits: 3, costPerHour: 3, libraryOrigin: { companyId: cid, libraryItemId: poolResId, poolVersion: 1, syncedHash } }],
     assignments: [], filePath: null, isDirty: false,
   }], 'doc-rec');
   const res = useAppStore.getState().runOpenBoundary();
   const copy = useAppStore.getState().resources.find(r => r.id === 'rr');
-  assert(copy?.maxUnits === 7, 'grens 4 ververst een behind-kopie stil na herstel');
+  assert(copy?.costPerHour === 5, 'grens 4 ververst een behind-kopie stil na herstel');
   assert(res.refreshed === 1, 'grens 4 telt de verversing');
 }
 
@@ -1106,11 +1134,13 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.addCompany('Switch BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'sw', name: 'Schilder', type: 'LABOR', description: '', maxUnits: 1 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits (die laatste is uit
+  // RESOURCE_DIFF_FIELDS, zou hier geen drift meer opleveren).
+  const resId = s.promoteResourceToPool(cid, { id: 'sw', name: 'Schilder', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 })!;
   const added = s.addLibraryResourceToProject(cid, resId);
   const docA = useAppStore.getState().activeDocumentId;
   const docB = s.newDocument();
-  s.updatePoolResource(cid, resId, { maxUnits: 6 }); // pool schuift op; grens 3 (taak 6) synct A's slapende payload meteen mee (in-sync op v6)
+  s.updatePoolResource(cid, resId, { costPerHour: 6 }); // pool schuift op; grens 3 (taak 6) synct A's slapende payload meteen mee (in-sync op v6)
   // Forceer de slapende A-payload NA de grens-3-sync terug naar een achterlopende waarde, mét een
   // syncedHash die bij die oude waarde hoort (fileHash === syncedHash ⇒ classificeert als 'behind',
   // niet 'deviated' — zie classifyOnOpen). Simuleert het geval dat grens 3 de payload NIET dekte
@@ -1121,7 +1151,7 @@ const store = useAppStore.getState();
     const d = st.documents.find(d => d.id === docA);
     const r = d?.payload?.resources.find(r => r.id === added.resourceId);
     if (r) {
-      r.maxUnits = 1;
+      r.costPerHour = 1;
       if (r.libraryOrigin) r.libraryOrigin.syncedHash = computeResourceHash(r);
     }
   });
@@ -1132,7 +1162,7 @@ const store = useAppStore.getState();
   useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 42; });
   s.switchDocument(docA); // activeren ⇒ grens 2 ververst stil
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
-  assert(copy?.maxUnits === 6, 'grens 2 ververst het geactiveerde document naar de poolwaarde (zelfhelend na pre-grens-3-drift)');
+  assert(copy?.costPerHour === 6, 'grens 2 ververst het geactiveerde document naar de poolwaarde (zelfhelend na pre-grens-3-drift)');
   assert(docB !== docA, 'twee documenten');
   assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'grens 2: documentwissel reset showLibraryLinkDialog — geen dialoog-trigger, geen stale true');
   assert(useAppStore.getState().ui.libraryRefreshNotice === 1, 'grens 2: libraryRefreshNotice reflecteert DEZE verversing (1), niet de stale 42');
@@ -1156,15 +1186,17 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.addCompany('Imp BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'im', name: 'Betonvlechter', type: 'LABOR', description: '', maxUnits: 2 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits ("andere waarde" moet een
+  // gevolgd veld zijn, anders levert de import geen 'behind'-kopie meer op).
+  const resId = s.promoteResourceToPool(cid, { id: 'im', name: 'Betonvlechter', type: 'LABOR', description: '', maxUnits: 2, costPerHour: 2 })!;
   const added = s.addLibraryResourceToProject(cid, resId);
   // Geïmporteerde pool = zelfde item-id, andere waarde. replacePool + grens 1.
   const imported = { ...useAppStore.getState().pools[cid], poolVersion: 99, modifiedAt: new Date().toISOString(),
-    resources: [{ id: resId, name: 'Betonvlechter', type: 'LABOR' as const, description: '', maxUnits: 12 }] };
+    resources: [{ id: resId, name: 'Betonvlechter', type: 'LABOR' as const, description: '', maxUnits: 2, costPerHour: 12 }] };
   s.replacePool(cid, imported);
   const res = useAppStore.getState().runOpenBoundary();
   const copy = useAppStore.getState().resources.find(r => r.id === added.resourceId);
-  assert(copy?.maxUnits === 12, 'na import + grens 1 volgt de behind-kopie de nieuwe pool');
+  assert(copy?.costPerHour === 12, 'na import + grens 1 volgt de behind-kopie de nieuwe pool');
   assert(res.refreshed >= 1, 'import telt als grens 1 (behind stil ververst)');
 }
 
@@ -1189,26 +1221,28 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.addCompany('Dev BV');
   s.bindProjectToCompany(cid);
-  const resId = s.promoteResourceToPool(cid, { id: 'dv', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 4 })!;
+  // F1 (critreview op 352bb94, issue #19): costPerHour i.p.v. maxUnits (die laatste is uit
+  // RESOURCE_DIFF_FIELDS, zou hier geen 'deviated' meer opleveren).
+  const resId = s.promoteResourceToPool(cid, { id: 'dv', name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 4, costPerHour: 4 })!;
   const added = s.addLibraryResourceToProject(cid, resId); // kopie=4, syncedHash=hash(4)
-  s.updatePoolResource(cid, resId, { maxUnits: 10 });      // pool schuift
+  s.updatePoolResource(cid, resId, { costPerHour: 10 });   // pool schuift
   // Lokaal bewerken ⇒ file=hash(6) != syncedHash=hash(4) ⇒ deviated (grens 3 laat 'm staan).
   useAppStore.setState((st) => {
     const r = st.resources.find(r => r.id === added.resourceId);
-    if (r) r.maxUnits = 6;
+    if (r) r.costPerHour = 6;
   });
   s.resolveDeviation({ kind: 'resource', projectId: added.resourceId! }, 'company'); // neem poolwaarde
-  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.maxUnits === 10, "resolveDeviation('company') neemt de poolwaarde");
+  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.costPerHour === 10, "resolveDeviation('company') neemt de poolwaarde");
 
   // Nieuw deviated geval, kies 'file' ⇒ pool neemt de bestandswaarde over (geldt voor alle projecten).
-  const res2 = s.promoteResourceToPool(cid, { id: 'dv2', name: 'Ijzerman', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const res2 = s.promoteResourceToPool(cid, { id: 'dv2', name: 'Ijzerman', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 1 })!;
   const add2 = s.addLibraryResourceToProject(cid, res2);   // kopie=1, syncedHash=hash(1)
   useAppStore.setState((st) => {
     const r = st.resources.find(r => r.id === add2.resourceId);
-    if (r) r.maxUnits = 3;                                 // deviated: file=hash(3) != syncedHash=hash(1)
+    if (r) r.costPerHour = 3;                              // deviated: file=hash(3) != syncedHash=hash(1)
   });
   s.resolveDeviation({ kind: 'resource', projectId: add2.resourceId! }, 'file');
-  assert(useAppStore.getState().pools[cid].resources.find(r => r.id === res2)?.maxUnits === 3, "resolveDeviation('file') schrijft de bestandswaarde naar de pool");
+  assert(useAppStore.getState().pools[cid].resources.find(r => r.id === res2)?.costPerHour === 3, "resolveDeviation('file') schrijft de bestandswaarde naar de pool");
   // Plan-eis 4: het net-opgeloste item zelf krijgt de verse syncedHash (geen dubbele verversing) —
   // de sibling-verversing via refreshAllDocumentsFromPool mag dit item niet als 'behind' aanmerken.
   const resolved = useAppStore.getState().resources.find(r => r.id === add2.resourceId);
@@ -1421,8 +1455,126 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().undoStack.length === undoBeforeNoop2, 'unlinkResourceFromLibrary: resource zonder stempel is een no-op (geen loze undo-stap)');
 }
 
-// --- isResourceFieldLocked (issue #19, punt 4 — bijgesteld op user-feedback: de kalender is óók
-// bibliotheekafspraak, niet projectinzet). De gedeelde, headless-testbare pure functie achter de
+// --- F4 (critreview op 352bb94, issue #19): "losmaken" strip ook de MEEGEREISDE kalenderkopie —
+// MITS geen ANDERE, nog gestempelde resource dezelfde kalender gebruikt. Solo-tak: precies één
+// resource volgt de kalender ⇒ ook die stempel gaat mee. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F4 BV');
+  s.bindProjectToCompany(cid);
+  const calId = s.promoteCalendarToPool(cid, {
+    id: 'f4-cal', name: 'Dagploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  })!;
+  const resId = s.promoteResourceToPool(cid, { id: 'f4-res', name: 'Stellingbouwer', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.updatePoolResource(cid, resId, { calendarId: calId });
+
+  const added = useAppStore.getState().addLibraryResourceToProject(cid, resId);
+  const travelingCalId = useAppStore.getState().resources.find(r => r.id === added.resourceId)!.calendarId!;
+  assert(!!useAppStore.getState().calendars.find(c => c.id === travelingCalId)?.libraryOrigin, 'setup: de meegereisde kalender is gestempeld');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unlinkResourceFromLibrary(added.resourceId!);
+  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.libraryOrigin === undefined, 'F4: resource-stempel weg');
+  assert(useAppStore.getState().calendars.find(c => c.id === travelingCalId)?.libraryOrigin === undefined, "F4 (solo): meegereisde kalender-stempel OOK weg — geen andere resource volgt 'm meer");
+  assert(useAppStore.getState().undoStack.length === undoBefore + 1, 'F4: nog steeds ÉÉN undo-snapshot (zelfde transactie, geen extra stap)');
+  useAppStore.getState().undo();
+  assert(!!useAppStore.getState().calendars.find(c => c.id === travelingCalId)?.libraryOrigin, 'F4: undo zet OOK de kalenderstempel terug (zelfde transactie)');
+}
+
+// --- F4 (vervolg): twee resources delen dezelfde meegereisde kalender — losmaken van ÉÉN laat de
+// kalenderstempel staan zolang een ANDERE gestempelde resource 'm nog volgt; pas als de LAATSTE
+// gestempelde volger losmaakt, gaat de kalenderstempel ook mee. Negatieve controle op de
+// "stillFollowed"-guard: zonder die guard zou de eerste unlink de kalender al stripen. ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F4b BV');
+  s.bindProjectToCompany(cid);
+  const calId = s.promoteCalendarToPool(cid, {
+    id: 'f4b-cal', name: 'Nachtploeg', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 22, workEndHour: 6, hoursPerDay: 8, holidays: [],
+  })!;
+  const resId1 = s.promoteResourceToPool(cid, { id: 'f4b-res', name: 'Isolatiemonteur', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.updatePoolResource(cid, resId1, { calendarId: calId });
+  const resId2 = s.promoteResourceToPool(cid, { id: 'f4b-res2', name: 'Buddy', type: 'LABOR', description: '', maxUnits: 1 })!;
+  s.updatePoolResource(cid, resId2, { calendarId: calId });
+
+  const added1 = useAppStore.getState().addLibraryResourceToProject(cid, resId1);
+  const added2 = useAppStore.getState().addLibraryResourceToProject(cid, resId2);
+  const proj1 = useAppStore.getState().resources.find(r => r.id === added1.resourceId)!;
+  const proj2 = useAppStore.getState().resources.find(r => r.id === added2.resourceId)!;
+  assert(proj1.calendarId === proj2.calendarId && !!proj1.calendarId, 'setup: beide resources delen dezelfde meegereisde kalendercopy (dedup op herkomst)');
+  const sharedCalId = proj1.calendarId!;
+
+  useAppStore.getState().unlinkResourceFromLibrary(added1.resourceId!);
+  assert(useAppStore.getState().resources.find(r => r.id === added1.resourceId)?.libraryOrigin === undefined, 'F4 (gedeeld): resource 1 losgemaakt');
+  assert(!!useAppStore.getState().calendars.find(c => c.id === sharedCalId)?.libraryOrigin, "F4 (gedeeld): kalenderstempel BLIJFT staan — resource 2 volgt 'm nog (negatieve controle op de stillFollowed-guard)");
+
+  useAppStore.getState().unlinkResourceFromLibrary(added2.resourceId!);
+  assert(useAppStore.getState().calendars.find(c => c.id === sharedCalId)?.libraryOrigin === undefined, 'F4 (gedeeld, vervolg): nu ook resource 2 losgemaakt ⇒ kalenderstempel gaat alsnog mee');
+}
+
+// --- F5 (critreview op 352bb94): unlinkResourceFromLibrary werkt op ELK item met ÍÉTS in
+// libraryOrigin, ongeacht openStatus — de reden om de knop op `!!resource.libraryOrigin` te gate'n,
+// niet op `locked` (dat liet een 'removed'-wees en een stempel-van-een-ander-bedrijf als doodlopende
+// straten staan: rij bewerkbaar/onopvallend, maar de dode stempel bleef voor altijd hangen). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F5 BV');
+  s.bindProjectToCompany(cid);
+  const resId = s.promoteResourceToPool(cid, { id: 'f5-res', name: 'Wees', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const added = s.addLibraryResourceToProject(cid, resId);
+  s.removePoolResource(cid, resId); // poolorigineel weg ⇒ status wordt 'removed'
+  assert(useAppStore.getState().onOpenStatusForResource(added.resourceId!) === 'removed', "setup: status is 'removed' (wees) ⇒ locked zou hier al false zijn");
+  assert(!!useAppStore.getState().resources.find(r => r.id === added.resourceId)?.libraryOrigin, 'setup: de wees draagt nog altijd een (dode) stempel');
+  useAppStore.getState().unlinkResourceFromLibrary(added.resourceId!);
+  assert(useAppStore.getState().resources.find(r => r.id === added.resourceId)?.libraryOrigin === undefined, "F5: unlink werkt OOK op een 'removed'-wees");
+}
+
+// --- F5 (vervolg): stempel van een ANDER bedrijf dan het gekoppelde (§2-scope ⇒ onOpenStatusForResource
+// is null, dus locked zou hier ook al false zijn) — edge case (bv. stale data), rechtstreeks
+// geconstrueerd omdat bindProjectToCompany dit bij een normale rebind zelf al zou opschonen. ---
+{
+  const s = useAppStore.getState();
+  const cidA = s.addCompany('F5f A');
+  const cidB = s.addCompany('F5f B');
+  s.bindProjectToCompany(cidB);
+  const foreignResId = s.addResource({ name: 'Vreemdeling', type: 'LABOR', description: '', maxUnits: 1 });
+  useAppStore.setState((st) => {
+    const r = st.resources.find(r => r.id === foreignResId);
+    if (r) r.libraryOrigin = { companyId: cidA, libraryItemId: 'ghost', poolVersion: 1 };
+  });
+  assert(useAppStore.getState().onOpenStatusForResource(foreignResId) === null, 'setup: §2-scope ⇒ null voor een stempel van een ander bedrijf dan het gekoppelde');
+  assert(!!useAppStore.getState().resources.find(r => r.id === foreignResId)?.libraryOrigin, 'setup: de resource draagt wél een (onzichtbare) stempel');
+  useAppStore.getState().unlinkResourceFromLibrary(foreignResId);
+  assert(useAppStore.getState().resources.find(r => r.id === foreignResId)?.libraryOrigin === undefined, 'F5: unlink werkt OOK op een stempel van een ander bedrijf dan het gekoppelde');
+}
+
+// --- F8 (critreview op 352bb94): dedup-koppeling aan een INHOUDELIJK AFWIJKEND poolitem laat de
+// resource meteen als 'deviated' classificeren (rode badge, bevroren rij) — de reden waarom de
+// UI-notice dat eerlijk moet melden i.p.v. een kale succesmelding. Contrast met een inhoudelijk GELIJK
+// poolitem (blijft 'in-sync'). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('F8 BV');
+  s.bindProjectToCompany(cid);
+  const poolResId = s.promoteResourceToPool(cid, { id: 'f8-pool', name: 'Overlap', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 20 })!;
+
+  // (a) Content GELIJK (op de gevolgde velden — maxUnits mag verschillen, dat is projectinzet).
+  const sameProjResId = s.addResource({ name: 'Overlap', type: 'LABOR', description: '', maxUnits: 9, costPerHour: 20 });
+  const sameProjRes = useAppStore.getState().resources.find(r => r.id === sameProjResId)!;
+  useAppStore.getState().promoteResourceToPool(cid, sameProjRes, { dedupByName: true });
+  assert(useAppStore.getState().onOpenStatusForResource(sameProjResId) === 'in-sync', 'F8: dedup-koppeling aan een inhoudelijk GELIJK poolitem ⇒ in-sync');
+
+  // (b) Content WIJKT AF (ander tarief/uur): dedup-koppeling levert meteen 'deviated' op.
+  const diffProjResId = s.addResource({ name: 'Overlap', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 99 });
+  const diffProjRes = useAppStore.getState().resources.find(r => r.id === diffProjResId)!;
+  useAppStore.getState().promoteResourceToPool(cid, diffProjRes, { dedupByName: true });
+  assert(useAppStore.getState().onOpenStatusForResource(diffProjResId) === 'deviated', 'F8: dedup-koppeling aan een inhoudelijk AFWIJKEND poolitem ⇒ meteen deviated — de UI-notice moet dit eerlijk melden, geen kale succesmelding');
+}
+
+// --- isResourceFieldLocked (issue #19, punt 4 — F2-correctie: kalender is GEEN bibliotheekafspraak,
+// dat was een ontwerpfout in de vorige ronde). De gedeelde, headless-testbare pure functie achter de
 // read-only-gating in de Projectweergave (`ResourceRow`). ---
 {
   assert(isResourceFieldLocked(null) === false, 'isResourceFieldLocked(null): geen eigen-bedrijf-stempel ⇒ bewerkbaar');
@@ -1433,27 +1585,11 @@ const store = useAppStore.getState();
   assert(isResourceFieldLocked('deviated') === true, "isResourceFieldLocked('deviated'): geldige herkomst ⇒ locked");
 }
 
-// --- ResourceRow-broncontrole (patroon PoolImportDialog.toString() hierboven): React-render valt
-// buiten deze headless suite, dus we bewijzen de UI-WIRE-regels op de brontekst zelf — verwijder de
-// gecontroleerde regel en het bijbehorende blok kleurt rood. ---
-{
-  const rowSrc = ResourceRow.toString();
-
-  // D1 (user-feedback): naam/type/kalender/tarief/eenheid renderen als platte tekst (`cellStatic`) op
-  // een geërfde rij — precies 5 velden, max.eenheden NOOIT.
-  const cellStaticHits = (rowSrc.match(/cellStatic/g) || []).length;
-  assert(cellStaticHits === 5, `ResourceRow: precies 5 velden gebruiken cellStatic (naam/type/kalender/tarief/eenheid) — telde ${cellStaticHits}`);
-
-  const maxUnitsAnchor = rowSrc.indexOf('value: resource.maxUnits,');
-  const maxUnitsBlockEnd = rowSrc.indexOf('),', maxUnitsAnchor);
-  assert(maxUnitsAnchor >= 0 && maxUnitsBlockEnd > maxUnitsAnchor, 'setup: max.eenheden-cel (UnitsInput) gevonden in de broncode');
-  const maxUnitsSrc = rowSrc.slice(maxUnitsAnchor, maxUnitsBlockEnd);
-  assert(!maxUnitsSrc.includes('cellStatic'), 'ResourceRow: max.eenheden blijft het ENIGE bewerkbare veld — GEEN cellStatic in die cel (negatieve controle op D1)');
-
-  // D5: de "naar de bibliotheek"-knop is gated op `!resource.libraryOrigin` (alleen ongestempelde
-  // Projectweergave-rijen) — verwijder die guard en dit blok kleurt rood.
-  assert(rowSrc.includes('!resource.libraryOrigin && onPromoteToLibrary'), 'ResourceRow: "naar de bibliotheek"-knop is gated op !resource.libraryOrigin (D5)');
-}
+// F9 (critreview op 352bb94): de eerdere ResourceRow.toString()-broncontrole hier is geschrapt — de
+// maxUnits-assert was vacuüm (de terminator '),' raakte al de sluitparen van de t()-aanroep vóórdat de
+// UnitsInput-props-body eindigde) en de cellStatic-teller kleurt bij elke legitieme wijziging rood
+// zonder gedrag te bewaken (en brak sowieso op F2, dat één van de vijf cellStatic-cellen weghaalde).
+// De read-only-gating zelf is al gedekt door de pure tests op `isResourceFieldLocked` hierboven.
 
 // --- promoteResourceToPool: dedup op naam (issue #19, punt D5 — "naar de bibliotheek tillen" vanuit
 // een projecteigen Resources-tab-rij). Hergebruikt de bestaande promote-actie (geen tweede route). ---
@@ -1497,7 +1633,9 @@ const store = useAppStore.getState();
   // (spiegelt het los-project-gedrag — geen pool ⇒ niets te doen).
   const undoBeforeAlready = useAppStore.getState().undoStack.length;
   const againId = useAppStore.getState().promoteResourceToPool(cid, useAppStore.getState().resources.find(r => r.id === dupProjResId)!, { dedupByName: true });
-  assert(againId === poolId, 'promoteResourceToPool op een AL gestempeld item: retourneert nog steeds de gekoppelde pool-id');
+  // F8 (critreview op 352bb94): de no-op-tak mag NIET meer net doen alsof er iets gebeurde — `null`,
+  // niet de bestaande pool-id (anders zou een aanroeper hierop "succes" kunnen concluderen).
+  assert(againId === null, 'promoteResourceToPool op een AL gestempeld item: retourneert null (F8, geen suggestie van een geslaagde koppeling)');
   assert(useAppStore.getState().undoStack.length === undoBeforeAlready, 'promoteResourceToPool op een AL gestempeld item: no-op (geen loze undo-stap, geen doublestamp)');
   assert(useAppStore.getState().pools[cid].resources.length === poolCountBeforeDup, 'promoteResourceToPool op een AL gestempeld item: geen extra poolitem');
 

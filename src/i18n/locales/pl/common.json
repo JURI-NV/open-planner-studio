@@ -290,6 +290,7 @@
     "added": "Dodano.",
     "alreadyInProject": "Już jest w projekcie.",
     "linkedToExisting": "Już istniał w bibliotece — teraz połączony.",
+    "linkedToExistingDiffers": "Połączono z istniejącym elementem biblioteki — wartości się różnią, zobacz oznaczenie.",
     "upToDate": "Aktualne",
     "exportWithPool": "Zapisz również plik biblioteki",
     "linkTitle": "Połącz bibliotekę zasobów",
