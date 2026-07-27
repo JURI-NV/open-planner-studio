@@ -50,20 +50,36 @@ The connection is complete once the assistant can list its tools. It should see 
 
 The token grants access to the plan you currently have open. Treat it like a password: not in a shared document, not in a chat with other people.
 
-## What an assistant can do
+## What an assistant may do
 
 The tools cover roughly everything you do yourself in the app:
 
 - **Reading** — project overview, task list, a single task in detail, the critical path, resources and their histogram, calendars, baselines, and the comparison against a baseline.
 - **Scheduling** — creating tasks (an entire WBS with phases and subtasks in one go), editing, moving and deleting them; adding, changing and removing relationships; recording progress.
 - **Setting up** — creating and assigning resources, managing calendars and non-working days, saving and activating baselines, levelling.
-- **Managing** — opening, duplicating and switching documents, exporting to IFC, and importing.
+- **Managing** — creating, duplicating and switching documents, importing schedule files, and exporting to IFC.
 
 Two things matter more than the list itself.
 
 **An assistant can work in a single script.** Instead of calling one tool after another, it can submit a sequence of steps as one whole. That isn't just faster: the entire script becomes one step in your history. If it builds a forty-task schedule with all its relationships in one go, a single Ctrl+Z removes it again. If something structural fails halfway, the whole script is rolled back instead of leaving you with a half-finished schedule.
 
 **The schedule is recalculated after every change.** The assistant doesn't have to ask for it separately and so cannot accidentally keep working on stale dates.
+
+## What an assistant may not do
+
+The bridge is deliberately narrower than the app. A few things an assistant simply cannot do, even if you ask — it gets a refusal that explains the route that does work. This isn't a child lock: each case is something that reaches beyond the project you happen to be looking at.
+
+**The resource library itself.** An assistant cannot create, change or delete a library resource or calendar. A library is app-wide data shared by all your projects, and edits to it fall outside the ordinary undo history. A single rate change would therefore ripple into projects that aren't even open, with no way to take it back. You do that yourself, under File → Library.
+
+**The fixed fields of an inherited resource.** If a resource comes from a library, that library decides what the resource *is*: name, type, description, hourly rate and unit. Those fields appear as plain text in the Resources tab for a reason — you cannot edit them there either — and the assistant can't reach them any more than you can. What the *project* decides stays available to it: max units, time-phased availability, the calendar and crew membership. Ask for a different hourly rate anyway, and the refusal names the two real routes: change it in the library (which then applies to every project), or first detach the resource from the library — after that it is project-owned and fully editable, and the detaching itself is undone with Ctrl+Z.
+
+**Which calendar is the project calendar.** It may edit the contents of that calendar, but swapping which one the project uses is something you do yourself in the calendar library. The same goes for scheduling options such as the multiple-critical-paths setting.
+
+**The app itself.** There is no tool for settings, theme, language, extensions or the updater. An assistant changes nothing about how your program is set up.
+
+**Files — yes, but within limits.** Importing means it may read a schedule file from your disk, and exporting means it may write an IFC. Writing is confined to your personal folder, and an existing file is never overwritten unless that was asked for explicitly. An export is also not a "save": your document stays marked unsaved in the app, so it cannot replace your project file behind your back.
+
+When it asks for the resource list, an assistant immediately sees which resources come from a library, which company they belong to, and which fields are fixed. It doesn't have to run into the wall first to find out.
 
 ## The safety controls
 

@@ -65,15 +65,20 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
   bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
   niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
-- [ ] **Niemand heeft gemeten of de MCP-tools de bibliotheekstempels bijwerken.** Mains nieuwe
-  `planner_*`-tools kunnen resources en kalenders muteren (`planner_manage_resources`,
-  `planner_update_calendar`), maar of ze daarbij `libraryOrigin`/`syncedHash` correct meebewegen is
-  nooit vastgesteld. Muteert een tool een gestempeld item zonder de hash bij te werken, dan wijkt het
-  bestand af van `syncedHash` en geldt het bij de eerstvolgende verversgrens onterecht als
-  `deviated` — de gebruiker krijgt dan een afwijkingsvraag over een wijziging die hij zelf niet
-  gemaakt heeft. Dit is een ongemeten interactie tussen twee features die onafhankelijk van elkaar
-  zijn gebouwd (MCP-bridge en B1.1-herkomststempels), niet een bekend defect. Vervolgstap: een
-  batterij die een MCP-resourcemutatie op een gestempeld item door de vier verversgrenzen haalt.
+- [ ] **"Losmaken van de bibliotheek" als MCP-actie.** `planner_manage_resources` weigert sinds de
+  gating-ronde een wijziging op de velden die de bibliotheek bepaalt en verwijst de aanroeper naar
+  twee routes: in de bibliotheek wijzigen (bewust géén bridge-route — app-globale data, buiten de
+  ongedaan-maak-geschiedenis) of de resource losmaken. Die tweede route is projectlokaal, ongedaan te
+  maken en bestaat al als store-actie (`unlinkResourceFromLibrary`), maar is via de bridge alleen te
+  bénoemen, niet te doen — de assistent moet de gebruiker nu vragen het handmatig te doen. Als actie
+  toevoegen maakt het geadviseerde pad ook echt begaanbaar. Overwegen: dezelfde actie voor kalenders,
+  en of het een eigen tool wordt of een `action` op `manage_resources`.
+- [ ] **`newProject()` wist de afwijkingsdialoog-vlag niet.** Gemeten: `newDocument()` zet
+  `ui.showLibraryLinkDialog` netjes terug op `false` (de expliciete reset uit "voorstap taak 14"),
+  `newProject()` niet. Blijft de vlag staan, dan rendert `LibraryLinkDialog` — die kent geen
+  leeg-guard, alleen `if (!open) return null` — een leeg koppel-/afwijkingsscherm op een vers
+  project. Zelfde bug-klasse als de stale-vlag die voor `newDocument` al gerepareerd is; geen
+  dataverlies. Er is geen gebruikersroute nagelopen die het daadwerkelijk uitlokt.
 - [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
   resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
   Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
@@ -119,19 +124,15 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
-> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
-> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil — maar de
-> eerste schuurt echt met wat een gebruiker verwacht.
+> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Beide zijn
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil.
+>
+> Het derde punt — "een kalender zonder taak of resource verdwijnt bij opslaan+herladen" — is
+> VERVALLEN: B1.1 heeft dat opgelost met de A2-fix in `ifcReader.extractCalendarLibrary`, die nu ook
+> `IFCWORKCALENDAR`-entiteiten zonder `IFCRELASSIGNSTOCONTROL`-relatie oppikt (de bedrijfspools hadden
+> er zelf last van: een gepromote kalender verloor zijn `libraryOrigin`). `cases-uurkalender.ts` pinde
+> nog de oude beperking en is omgedraaid naar het nieuwe gedrag.
 
-- [ ] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.**
-      `ifcReader.extractCalendarLibrary` bouwt de bibliotheek uitsluitend uit
-      `IFCRELASSIGNSTOCONTROL`-relaties, dus een kalender waar niets aan hangt heeft geen enkel
-      spoor in het bestand en is na een round-trip weg. Dat raakt precies het overzet-scenario:
-      kalender overzetten naar een leeg document → opslaan → weg. **Voorafbestaand gedrag, geen
-      regressie** van het MCP-werk. Niet gerepareerd omdat het een ingreep in de IFC-leeslaag is
-      met gedragsrisico voor vreemde bestanden; een eigen `OPS_Calendars`-pset (naar het model van
-      `OPS_Baselines`) is de voor de hand liggende route, mét terugval op de bestaande
-      relatie-afleiding voor bestanden van derden.
 - [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
       werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
       een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook

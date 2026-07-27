@@ -29,6 +29,8 @@ import { computeHistogramReport } from '@/engine/scheduler/ResourceLoad';
 import { computeVariance, type VarianceRow } from '@/engine/variance';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { resolveCalendar } from '@/engine/scheduler/resolveCalendar';
+// Zelfde twee bronnen als het slot in `ResourcePanel` en de weigering in `resourceTools` — één lijst.
+import { RESOURCE_DIFF_FIELDS, isResourceFieldLocked } from '@/services/library/libraryOps';
 
 // ── Lokale leestool-wikkel + nette fout ──────────────────────────────────────────────────────────
 
@@ -622,6 +624,19 @@ function listResources(s: AppState, args: PageArgs) {
     if (r.description) row.description = r.description;
     if (r.parentId) row.parentId = r.parentId;
     if (r.availabilitySteps && r.availabilitySteps.length > 0) row.availabilitySteps = r.availabilitySteps;
+    // HERKOMST UIT EEN BEDRIJFSBIBLIOTHEEK (B1.1, issue #19). `planner_manage_resources` weigert een
+    // wijziging op de velden die de bibliotheek bepaalt — dan moet de aanroeper dát hier kunnen ZIEN
+    // in plaats van het pas bij de weigering te ontdekken (leeskant ↔ schrijfkant). `status: null`
+    // betekent een stempel van een ander/onbekend bedrijf: dan geldt er géén slot en is de rij, net
+    // als in het resourcepaneel, gewoon bewerkbaar. `lockedFields` is dan leeg.
+    if (r.libraryOrigin) {
+      const st = s.onOpenStatusForResource(r.id);
+      row.library = {
+        company: s.companies.find((c) => c.id === r.libraryOrigin!.companyId)?.name ?? null,
+        status: st,
+        lockedFields: isResourceFieldLocked(st) ? [...RESOURCE_DIFF_FIELDS] : [],
+      };
+    }
     return row;
   });
   return {
@@ -1020,8 +1035,12 @@ export const readTools: McpToolDef[] = [
       'ploeg, tijd-gefaseerde beschikbaarheid) en een toewijzings-samenvatting per resource (aantal ' +
       'toewijzingen, aantal betrokken taken, som units/dag). De veldnamen zijn exact die van ' +
       'planner_manage_resources, dus je kunt gelezen waarden rechtstreeks terugschrijven; velden ' +
-      'zonder waarde ontbreken in de rij. Paginering identiek aan list_tasks: `limit` (default 50), ' +
-      '`offset`; retour `total`, `has_more`, `next_offset`.',
+      'zonder waarde ontbreken in de rij. Komt een resource uit een bedrijfsbibliotheek, dan draagt ' +
+      'de rij een `library`-blok: `company` (bedrijfsnaam), `status` (`in-sync` | `behind` | ' +
+      '`deviated` | `removed`, of `null` bij een stempel van een ander bedrijf) en `lockedFields` — ' +
+      'de velden die de bibliotheek bepaalt en die planner_manage_resources op deze rij dus weigert. ' +
+      'Is `lockedFields` leeg, dan is de rij volledig bewerkbaar. Paginering identiek aan list_tasks: ' +
+      '`limit` (default 50), `offset`; retour `total`, `has_more`, `next_offset`.',
     kind: 'read',
     batchable: true,
     inputSchema: {

@@ -50,20 +50,36 @@ De koppeling is klaar zodra de assistent zijn toollijst kan opvragen. Hij hoort 
 
 Het token geeft toegang tot het plan dat je op dat moment open hebt staan. Behandel het als een wachtwoord: niet in een gedeeld document, niet in een chat met anderen.
 
-## Wat een assistent kan doen
+## Wat een assistent mag
 
 De tools dekken ongeveer alles wat je zelf in de app doet:
 
 - **Lezen** — projectoverzicht, takenlijst, één taak in detail, het kritieke pad, resources en hun histogram, kalenders, baselines, en de vergelijking met een baseline.
 - **Plannen** — taken aanmaken (een hele WBS met fasen en subtaken in één keer), wijzigen, verplaatsen en verwijderen; relaties leggen, aanpassen en weghalen; voortgang registreren.
 - **Inrichten** — resources aanmaken en toewijzen, kalenders en vrije dagen beheren, baselines opslaan en activeren, nivelleren.
-- **Beheren** — documenten openen, dupliceren en wisselen, exporteren naar IFC, en importeren.
+- **Beheren** — documenten aanmaken, dupliceren en wisselen, planningsbestanden importeren, en exporteren naar IFC.
 
 Twee dingen zijn daarbij belangrijker dan de lijst zelf.
 
-**Een assistent kan in één draaiboek werken.** In plaats van tool na tool aan te roepen kan hij een reeks stappen als één geheel indienen. Dat is niet alleen sneller: het hele draaiboek wordt één stap in je geschiedenis. Bouwt hij in één keer een planning van veertig taken met alle onderlinge relaties, dan haal je die met één keer Ctrl+Z weer weg. Gaat er halverwege iets structureel mis, dan wordt het hele draaiebook teruggedraaid in plaats van dat je met een half afgemaakte planning blijft zitten.
+**Een assistent kan in één draaiboek werken.** In plaats van tool na tool aan te roepen kan hij een reeks stappen als één geheel indienen. Dat is niet alleen sneller: het hele draaiboek wordt één stap in je geschiedenis. Bouwt hij in één keer een planning van veertig taken met alle onderlinge relaties, dan haal je die met één keer Ctrl+Z weer weg. Gaat er halverwege iets structureel mis, dan wordt het hele draaiboek teruggedraaid in plaats van dat je met een half afgemaakte planning blijft zitten.
 
 **Na elke wijziging wordt de planning herberekend.** De assistent hoeft dat niet apart te vragen en kan dus niet per ongeluk op verouderde datums verder werken.
+
+## Wat een assistent níet mag
+
+De bridge is bewust smaller dan de app. Een paar dingen kan een assistent niet, ook niet als je het hem vraagt — hij krijgt dan een weigering die uitlegt wat de route wél is. Dat is geen kinderslot: het gaat telkens om iets dat verder reikt dan het project waar je op dat moment naar kijkt.
+
+**De resourcebibliotheek zelf.** Een assistent kan geen bibliotheekresource of -kalender aanmaken, wijzigen of verwijderen. Een bibliotheek is app-brede data die door al je projecten gedeeld wordt, en bewerkingen daarin vallen buiten de gewone ongedaan-maak-geschiedenis. Eén tariefwijziging zou dus doorwerken in projecten die niet eens openstaan, zonder dat je het terug kunt draaien. Dat doe je zelf, in Backstage → Bibliotheek.
+
+**De vastgelegde velden van een geërfde resource.** Komt een resource uit een bibliotheek, dan bepaalt die bibliotheek wát die resource is: naam, soort, omschrijving, uurtarief en eenheid. Die velden staan in de Resources-tab niet voor niets als platte tekst — je kunt ze daar zelf ook niet wijzigen — en de assistent kan er net zomin bij. Wat het *project* bepaalt blijft wel gewoon van hem: max. eenheden, de tijd-gefaseerde beschikbaarheid, de kalender en het ploeg-lidmaatschap. Vraag je toch om een ander uurtarief, dan noemt de weigering de twee echte routes: wijzig het in de bibliotheek (geldt dan voor élk project), of maak de resource eerst los van de bibliotheek — daarna is hij projecteigen en volledig bewerkbaar, en dat losmaken draai je met Ctrl+Z terug.
+
+**Wélke kalender de projectkalender is.** De inhoud van die kalender mag hij wijzigen, maar het omwisselen van de projectkalender doe je zelf in de kalenderbibliotheek. Hetzelfde geldt voor planningsopties zoals de meervoudige-kritieke-paden-stand.
+
+**De app zelf.** Er is geen tool voor instellingen, thema, taal, extensies of de updater. Een assistent verandert niets aan hoe je programma is ingericht.
+
+**Bestanden — wel, maar met grenzen.** Importeren betekent dat hij een planningsbestand van je schijf mag lezen, en exporteren dat hij een IFC mag wegschrijven. Dat wegschrijven kan alleen binnen je persoonlijke map, en een bestaand bestand wordt nooit overschreven tenzij dat expliciet gevraagd is. Een export is bovendien geen "opslaan": je document blijft in de app als niet-opgeslagen staan, dus hij kan je projectbestand niet onder je vandaan vervangen.
+
+Bij het opvragen van de resourcelijst ziet een assistent meteen welke resources uit een bibliotheek komen, bij welk bedrijf ze horen en welke velden vastliggen. Hij hoeft er dus niet eerst tegenaan te lopen om het te weten.
 
 ## De veiligheidsknoppen
 
