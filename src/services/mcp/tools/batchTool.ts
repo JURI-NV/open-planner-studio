@@ -28,10 +28,30 @@
 // handler IS synchroon (de `readTool`-wikkel) en wordt direct aangeroepen.
 // Een tool die batchable heet maar geen synchrone kern aanbiedt, wordt vóór enige mutatie geweigerd
 // met een expliciete melding — nooit stil overgeslagen.
+//
+// SCHEMAPOORT PER STAP — waarom hier en niet in `checkExclusions`.
+// Omdat de stappen NIET via `dispatcher.ts` lopen, zou de schemapoort die daar vóór `def.handler`
+// hangt (audit-fix S) elke batch-stap missen: een agent kon élk `type`/`enum`/`required`/`minItems`/
+// `additionalProperties` van alle 33 tools omzeilen door zijn call in een batch te wikkelen. Daarom
+// draait `validateToolArgs` hier óók, met EXACT dezelfde diepte-instelling als de dispatcher
+// (`deepArrayItems: ATOMIC_ITEM_TOOLS.has(def.name)`), zodat een stap zich precies gedraagt als
+// dezelfde call los — één waarheid, geen tweede validator.
+// De plek is bewust IN DE STAPPENLOOP, niet in de pre-transactionele `checkExclusions`:
+//   1. De spec noemt "schema-ongeldige args" letterlijk een STRUCTURELE STAPFOUT (zie punt 3 boven),
+//      met volledige rollback én een rapport per stap (uitgevoerd/gefaald/niet bereikt). Datzelfde
+//      argument staat al bij `checkExclusions`: de onbekende tool wordt daar bewust NIET afgevangen,
+//      juist zodat de loop hem tegenkomt en het rapport betekenis heeft. Een schemafout hoort in
+//      precies dezelfde categorie thuis.
+//   2. TEMP-ID'S. Vooraf keuren zou args keuren waarin de `tmp-…`-verwijzingen nog NIET vervangen
+//      zijn. Dat levert valse afwijzingen zodra een schema meer eist dan "string" op een id-plek —
+//      `planner_add_tasks.tasks[].tempId` draagt bijvoorbeeld `pattern: ^tmp[-_]`, en een hergebruikte
+//      tempId wordt door `resolveTempIds` juist wél naar een echt id herschreven. Door ná
+//      `resolveTempIds` te valideren keuren we exact de args die de stap daadwerkelijk uitvoert.
 import { useAppStore } from '@/state/appStore';
 // Bewust de leaf-module `toolIndex` en NIET `toolRegistry`: die laatste importeert alle tool-modules
 // (incl. deze) en zou een import-cyclus opleveren — zie de kop van toolIndex.ts.
 import { getTool } from '../toolIndex';
+import { ATOMIC_ITEM_TOOLS, validateToolArgs } from '../schemaValidate';
 import { runMutateTool, toolError, McpStepError, type MutationOutcome } from './runtime';
 import type {
   ActivityEntry, McpContext, McpToolDef, McpToolResult, McpErrorCode,
@@ -308,6 +328,21 @@ export function executeSteps(
     const args = resolveTempIds(step.args, ctx.tempIdMap);
 
     try {
+      // SCHEMAPOORT — dezelfde die `dispatcher.ts` vóór `def.handler` hangt, met dezelfde
+      // diepte-instelling (zie de kop van dit bestand). Ná `resolveTempIds`, zodat we exact de args
+      // keuren die de stap uitvoert. Vóór de tussentijdse herberekening: een stap die tóch niet mag
+      // draaien, hoeft geen verse planning. De boodschap noemt het STAPNUMMER (welke regel van het
+      // draaiboek) én het PAD binnen de args (welk veld daarin) — de agent moet beide weten.
+      const schemaError = validateToolArgs(def.inputSchema, args, {
+        deepArrayItems: ATOMIC_ITEM_TOOLS.has(def.name),
+      });
+      if (schemaError) {
+        throw new McpStepError(
+          'VALIDATION',
+          `stap ${i + 1}: ongeldige argumenten voor ${def.name} — ${schemaError}`,
+        );
+      }
+
       // Verse planning vóór een lezing of een levelingstap die op mutaties volgt (spec §Compositie).
       if (mutatedSinceRecompute && (def.kind === 'read' || def.name === LEVEL_TOOL)) {
         recomputeMidBatch();
