@@ -41,6 +41,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   resources/kalenders kan dat merkbaar worden. Niet gemeten binnen B1.1-scope (pools in de
   vlootverificatie waren klein); kandidaat-fix: memoiseren op pool-/documentversie zoals elders in
   de store.
+- [ ] **Undo na ontkoppelen laat een inconsistente tussenstaat achter.** `unbindProject`/
+  `bindProjectToCompany` doen `beginUndoable()`, maar `project.companyId` valt (op `wbsAutoNumber`
+  na) bewust buiten de undo-snapshot (B3-uitzondering in `src/state/snapshot.ts`). Een Ctrl+Z na
+  ontkoppelen zet dus de `libraryOrigin`-stempels terug op een project dat ontkoppeld blíjft. Geen
+  dataverlies (los-gedrag, stempels zijn inert en zelfherstellend bij terugkoppelen), maar wel
+  verwarrend. Gevonden bij de critreview op de ProjectInfo-unificatie (2026-07-25).
+- [ ] **`tests/planning/` typecheckt maar één van de tien check-bestanden.** Er is alleen
+  `tsconfig.roundtrip.json` met `check-ifc-roundtrip.ts` in `include`; de overige negen
+  (`check-advanced-cpm`, `check-calendar-hours`, `check-move-task`, `check-document-contract`, …)
+  worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
+  2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
+  grotere suite.
 
 ### Solver/presentatie — resterende punten (2026-07-20)
 
