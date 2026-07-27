@@ -143,6 +143,37 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
       plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
 
+### Lokalisatie & i18n
+
+- [ ] **Slavische talen en Russisch toevoegen aan de locales.** Uit het marktonderzoek
+      ([eindrapport](marktonderzoek/eindrapport.md), plus
+      [Polen & Centraal-Europa](marktonderzoek/markten/markt-polen-en-centraal-europa.md) en
+      [Rusland & de GOS-landen](marktonderzoek/markten/markt-rusland-en-de-gos-landen.md)) blijkt dat
+      de huidige veertien locales scheef staan ten opzichte van de kansen: Centraal- en Oost-Europa
+      wordt alléén door Pools gedekt, terwijl daar naar schatting **50–70% van alle bouwplanningen
+      primair in Excel** wordt gemaakt (>85% bij bedrijven onder ~50 medewerkers) en de effectieve
+      prijs/koopkrachtverhouding **2,5–4× ongunstiger** ligt dan in West-Europa — precies de
+      onbediende onderkant waar een gratis tool het verschil maakt. Toe te voegen:
+      - **Russisch (`ru`)** — Rusland plus Kazachstan, Wit-Rusland en Oezbekistan; orde van grootte
+        **~25.000–54.000 planners** in de regio (het rapport noemt 26.000–54.000; de eigen
+        verificatie corrigeert de ondergrens naar 25.000 en markeert de betrouwbaarheid als laag,
+        factor 2 onzekerheid beide kanten op). Let op: westerse software is er sinds 2022 door
+        sancties slecht tot niet verkrijgbaar, wat een gratis open-source tool juist relevant maakt.
+      - **Oekraïens (`uk`)** — grote wederopbouwmarkt. Expliciet: Oekraïense gebruikers accepteren een
+        Russische interface in de regel niet, dus `uk` is géén afgeleide van `ru` maar een
+        zelfstandige eis.
+      - **Tsjechisch (`cs`) en Slowaaks (`sk`)** — de CEE-5-markt naast Polen.
+      - **Servisch (`sr`) en Kroatisch (`hr`)** — Balkan; ook relevant omdat Bexel Manager (Belgrado,
+        Servië) daar vandaan komt.
+      - **Bulgaars (`bg`)** — lagere prioriteit.
+
+      Aandachtspunt: **Hongaars (`hu`) en Roemeens (`ro`) zijn geen Slavische talen**, maar horen wel
+      tot hetzelfde CEE-gat en zouden dus in dezelfde slag meegenomen moeten worden.
+      *Technisch:* locales staan in `src/i18n/config.ts` (`Locale`-union, `LANGUAGE_LABELS`,
+      `supportedLanguages`, `loadLocale()`) met vier namespaces (`common`, `task`, `report`, `menu`),
+      dus per taal komen er vier vertaalbestanden bij onder `src/i18n/locales/<taal>/`. Geen van deze
+      talen is RTL — `RTL_LOCALES` (nu `['ar', 'fa']`) hoeft niet aangepast te worden.
+
 ### Distributie & Release
 
 #### Snap-packaging — follow-ups
