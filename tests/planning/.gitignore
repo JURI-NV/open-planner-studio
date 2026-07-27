@@ -32,3 +32,4 @@
 .holidays-check.mjs
 .renderer-dateless.mjs
 .web-save-fallback.mjs
+.mspdi-baseline-export.mjs

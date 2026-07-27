@@ -145,6 +145,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ADCHECK="$DIR/.adapters-hours-check.mjs"
   if bundle_check "$DIR/check-adapters-hours.ts" "$ADCHECK"; then node "$ADCHECK" || STATUS=1; fi
 
+  # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
+  # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
+  # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).
+  # Draait de ECHTE store-exportactie (niet writeMSPDI direct) en leest het resultaat terug.
+  MBCHECK="$DIR/.mspdi-baseline-export.mjs"
+  if bundle_check "$DIR/check-mspdi-baseline-export.ts" "$MBCHECK"; then node "$MBCHECK" || STATUS=1; fi
+
   # Geavanceerde-CPM golf-0-checks (fase 2.9 — datamodel + plumbing default-inert, los van de CPM-cases).
   ACPMCHECK="$DIR/.advanced-cpm-check.mjs"
   if bundle_check "$DIR/check-advanced-cpm.ts" "$ACPMCHECK"; then node "$ACPMCHECK" || STATUS=1; fi
