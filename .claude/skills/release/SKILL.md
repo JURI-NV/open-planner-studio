@@ -14,7 +14,7 @@ triggert CI-builds, publicatie op GitHub én auto-update naar álle gebruikers. 
 is het startsein voor de vóórbereiding, maar de **tag-push is de enige harde akkoord-poort**:
 dáár vraag je één keer expliciet bevestiging (versie + de bullets) vóór je pusht. Alles
 daarvóór is omkeerbaar — bereid het compleet voor. **Vlak vóór die akkoord-poort draait verplicht
-een critreview tier 2** (stap 10).
+een critreview tier 2** (stap 11).
 
 De zes eisen van de user zitten hieronder verweven: (1) volledige commit-historie sinds de
 vorige release bekijken · (2) release notes = een paar bullets, geen ellenlange tekst ·
@@ -22,7 +22,7 @@ vorige release bekijken · (2) release notes = een paar bullets, geen ellenlange
 per uitgebrachte versie (élke versie, geen gaten; géén `Ongepubliceerd`-kop, geen los-vast archief) ·
 (4) wiki bijwerken waar nodig —
 **allebei**: in-app gidsen (`public/docs`) én de GitHub-wiki · (5) oude worktrees opruimen ·
-(6) zelf aanvullen (de volledige technische procedure hieronder).
+(6) zelf aanvullen (de volledige technische procedure hieronder, incl. `CLAUDE.md` bijwerken — stap 6).
 
 ## Vaste feiten
 - **Versie = CalVer** `YYYY.M.patch` (bv. `2026.7.13`); tags krijgen een `v`-prefix (`v2026.7.13`).
@@ -85,9 +85,20 @@ Ze dekt beide bronnen:
 
 Hier in **Fase A alleen voorbereiden + verifiëren** (bronnen bijwerken, `npm run publish:wiki` dry-run,
 dode-link-check — alles groen). De daadwerkelijke `-- --push` = publiceren en gebeurt in **Fase B
-(stap 17)**, gedekt door de akkoord-poort.
+(stap 18)**, gedekt door de akkoord-poort.
 
-### 6. Kwaliteitspoorten (eind-poort — zelf draaien, alles groen)
+### 6. `CLAUDE.md` bijwerken
+`CLAUDE.md` is de architectuur-/commando-referentie voor Claude Code zelf (niet gedekt door
+`verify:docs`, dus rot stil weg als niemand 'm checkt). Loop de historie uit stap 1 langs op
+wijzigingen die iets claimen dat er nu in staat: nieuwe/gewijzigde npm-scripts, nieuwe of
+hernoemde `src/services/`- of `state/slices/`-modules, nieuwe Tauri-plugins/commands, gewijzigde
+architectuurpatronen (bv. file-I/O-pad, IFC-roundtrip, ribbon/backstage-structuur), nieuwe i18n-
+namespaces/locales, of een gewijzigde release-/CI-procedure. Werk `CLAUDE.md` bij waar het
+achterloopt; laat het onaangeroerd als er niets architecturaal relevants is veranderd sinds de
+vorige release. Kan gecombineerd worden met de doc-subagent uit stap 5 (zelfde soort werk,
+zelfde soort dubbelcheck-tegen-de-commits), of los.
+
+### 7. Kwaliteitspoorten (eind-poort — zelf draaien, alles groen)
 ```bash
 npx tsc --noEmit
 bash tests/planning/run.sh | tee /tmp/suite.log; echo "exit=${PIPESTATUS[0]}"
@@ -99,7 +110,7 @@ npm run verify:docs
 De suite print "alles groen" **óók bij exit 1** — vertrouw op **exitcode + `grep ^XX`**, nooit
 alleen de tail. Bij een rode poort: niet verder.
 
-### 7. Oude worktrees opruimen (eis 5)
+### 8. Oude worktrees opruimen (eis 5)
 ```bash
 git worktree list
 git branch --merged main          # welke branches zijn al binnen
@@ -115,50 +126,50 @@ Twijfel? Laten staan en de user erop wijzen. **Nooit** een worktree met ongemerg
 
 ## Fase B — Uitgeven (onomkeerbaar — hier de akkoord-poort)
 
-### 8. Merge naar main
+### 9. Merge naar main
 Merge de release-branch → `main` (indien nog niet) en push.
 
-### 9. Bump + commit
+### 10. Bump + commit
 ```bash
 npm run bump X.Y.Z
 git commit -am "chore(release): vX.Y.Z"
 ```
 
-### 10. Critreview tier 2 — vóór je om release-akkoord vraagt
+### 11. Critreview tier 2 — vóór je om release-akkoord vraagt
 Draai vóór de akkoord-poort een **hyperkritische review, tier 2 (Opus, volle scope)** op de
 release-kandidaat: de changelog-diff (de nieuwe sectie), de release notes en de volledige scope
 sinds de vorige tag. Dispatch één review-subagent die de `hyperkritische-review`-skill aanroept
 (zie de `critreview`-skill voor het opzetten). **Geen go?** Eerst fixen, dan pas verder. Verplicht —
 de user wil de review-uitkomst zien vóór de akkoord-vraag.
 
-### 11. ⛔ AKKOORD-POORT
+### 12. ⛔ AKKOORD-POORT
 Toon de user: de **versie**, de **paar bullets**, en dat CI nu gaat bouwen + publiceren +
 auto-updaten naar alle gebruikers. Wacht op een expliciet "ja". Dit is de enige harde vraag —
 de user bewaakt releases streng. (Bij een eenmalig verleend mandaat: nog steeds versie + notes
 tonen, maar door.)
 
-### 12. Tag + push → CI vuurt
+### 13. Tag + push → CI vuurt
 ```bash
 git tag -a vX.Y.Z -m "Open Planner Studio vX.Y.Z"
 git push origin main
 git push origin vX.Y.Z
 ```
 
-### 13. Workflows monitoren
+### 14. Workflows monitoren
 ```bash
 gh run list --limit 5
 gh run watch <run-id>       # of een achtergrond-lus op gh run list
 ```
 `release.yml` (installers + `latest.json`) en `snap.yml` moeten beide groen worden.
 
-### 14. Release notes zetten — de paar bullets (eis 2)
+### 15. Release notes zetten — de paar bullets (eis 2)
 `release.yml` publiceert met generieke auto-notes. Vervang/prepend jouw bullets:
 ```bash
 gh release edit vX.Y.Z --notes-file notes.txt
 ```
 Houd de Downloads-sectie erin (Win `.exe` · mac `.dmg` universal · Linux `.deb`/`.AppImage`).
 
-### 15. `latest.json`-notes → platte tekst
+### 16. `latest.json`-notes → platte tekst
 De updater-dialoog toont het `notes`-veld uit `latest.json`. Zet daar dezelfde platte bullets in:
 ```bash
 gh release download vX.Y.Z -p latest.json -D /tmp/rel
@@ -166,7 +177,7 @@ gh release download vX.Y.Z -p latest.json -D /tmp/rel
 gh release upload vX.Y.Z /tmp/rel/latest.json --clobber
 ```
 
-### 16. Slotverificatie
+### 17. Slotverificatie
 ```bash
 gh release view vX.Y.Z --json assets --jq '.assets | length'
 ```
@@ -174,8 +185,8 @@ Check: de **volledige set assets** aanwezig (~14: per-platform installers + hun 
 `latest.json`), versie in `latest.json` = X.Y.Z, en alle platform-download-URL's geven 200
 (`curl -sI`). Updater-endpoint wijst naar deze versie.
 
-### 17. Wiki publiceren
-Na akkoord (stap 11) is de wiki-push gewoon een release-stap — geen aparte vraag. De wiki-subagent
+### 18. Wiki publiceren
+Na akkoord (stap 12) is de wiki-push gewoon een release-stap — geen aparte vraag. De wiki-subagent
 uit stap 5 (of jij) draait via de `wiki`-skill:
 ```bash
 npm run publish:wiki -- --push
@@ -191,9 +202,10 @@ Daarna live-checken: fetch de Home + een gewijzigde pagina en bevestig dat de wi
 | Cargo.toml | Blijft `0.1.0` — `bump` raakt 'm bewust niet. |
 | Versie-sync worktrees | Na een release lopen open worktrees achter op de versie; sync main→worktree waar relevant. |
 | latest.json markdown | De updater rendert geen markdown netjes → notes in `latest.json` = platte tekst. |
+| CLAUDE.md | Geen `verify:docs`-poort, dus rot stil weg — stap 6 is de enige check. |
 
 ## Rode vlaggen — stop
-- Tag pushen vóór de akkoord-poort (stap 11).
+- Tag pushen vóór de akkoord-poort (stap 12).
 - Een poort (tsc/suite/build/verify) rood en tóch doorgaan.
 - De suite-tail als bewijs nemen i.p.v. exitcode + `grep ^XX`.
 - Een worktree verwijderen met ongecommit werk of een draaiende dev-server.
