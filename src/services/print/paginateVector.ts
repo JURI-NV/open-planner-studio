@@ -26,7 +26,7 @@ import { subsetFont } from '@/services/pdf/hbSubset';
 import { appLog } from '@/services/debug/appLog';
 import type { Draw2D } from '@/services/pdf/draw2d';
 import type { RenderReportResult } from '@/services/print/printPreview';
-import { PAPER_PT, FOOTER_PT, type PaperSize, type Orientation, type PaginateMode } from './paginate';
+import { computeTileLayout, type PaperSize, type Orientation, type PaginateMode } from './tileLayout';
 
 /** Optie-subset voor de vector-pagineerder; de logische dims + bevroren-kolombreedte komen uit de render. */
 export interface VectorPaginateOptions {
@@ -35,6 +35,20 @@ export interface VectorPaginateOptions {
   mode: PaginateMode;
   /** Paginamarge in punten (rondom). Default 24 (zelfde als de raster-pagineerder). */
   marginPt?: number;
+  /**
+   * Herhaal de kopstrook (project-kop + tijdschaal) bovenaan ELKE pagina (issue #25 punt 1).
+   * Default false = oud gedrag (kop alleen op de eerste rij pagina's).
+   *
+   * Bewust een boolean en niet — zoals bij de raster-pagineerder — een expliciete px-hoogte: hier
+   * draait de render pas ÍN deze functie, dus de aanroeper kent `headerHeight` nog niet. We nemen
+   * hem daarom uit het render-resultaat ({@link RenderReportResult.headerHeight}).
+   */
+  repeatHeader?: boolean;
+  /**
+   * Aantal paginabreedtes waarover de tijdlijn uitgesmeerd wordt (issue #25 punt 5). Alleen in
+   * `'fit-width'`; default 1 = alles op één paginabreedte persen (oud gedrag).
+   */
+  timelineColumns?: number;
   /**
    * Basisrichting van de export-taal (`RTL_LOCALES` ⇒ `'rtl'`). Stuurt de bidi-basisrichting in het
    * complexe (RTL/gemengde) tekst-pad. Default `'ltr'` — zo blijven de 12 LTR-locales onveranderd.
@@ -252,55 +266,49 @@ export async function paginateVectorToPdfBytes(
   const xobjRef = doc.context.register(xobj);
   const texts = d2d.texts;
 
-  // ---- Tegel-/schaalwiskunde: 1:1 uit paginateCanvasToTiles (paginate.ts) ----
-  const marginPt = opts.marginPt ?? 24;
-  const frozenPx = dims.tableWidth;
+  // ---- Tegel-/schaalwiskunde: gedeeld met de raster-pagineerder via `tileLayout.computeTileLayout` ----
+  // Stond hier vroeger als letterlijke kopie van `paginateCanvasToTiles`; nu één bron van waarheid,
+  // zodat preview (raster) en export (vector) niet uit elkaar kunnen lopen.
+  const layout = computeTileLayout({
+    paperSize: opts.paperSize,
+    orientation: opts.orientation,
+    mode: opts.mode,
+    logicalWidth: dims.width,
+    logicalHeight: dims.height,
+    frozenColumnWidthPx: dims.tableWidth,
+    // De kopstrookhoogte komt uit de render zelf (zie `VectorPaginateOptions.repeatHeader`).
+    repeatHeaderHeightPx: opts.repeatHeader ? dims.headerHeight : 0,
+    timelineColumns: opts.timelineColumns,
+    marginPt: opts.marginPt,
+  });
+  const { pageWidthPt: pageW, pageHeightPt: pageH, marginPt, scale, rows, cols, repeatHeaderPx, bodyTopPt } = layout;
 
-  const base = PAPER_PT[opts.paperSize];
-  const pageW = opts.orientation === 'landscape' ? base.height : base.width;
-  const pageH = opts.orientation === 'landscape' ? base.width : base.height;
-
-  const printW = pageW - 2 * marginPt;
-  const printH = pageH - 2 * marginPt - FOOTER_PT;
-
-  const cw = dims.width;
   const ch = dims.height;
-
-  const scale = opts.mode === 'fit-width' ? printW / cw : 1.0;
-
-  const rowHpx = printH / scale;
-  const rows = Math.max(1, Math.ceil(ch / rowHpx));
-
-  const frozenPtW = opts.mode === 'actual' ? frozenPx * scale : 0;
-  const bodyColPtW = printW - frozenPtW;
-  const col0Bodypx = printW / scale;
-  const laterColBodypx = bodyColPtW / scale;
-  let cols = 1;
-  if (opts.mode === 'actual' && cw > col0Bodypx && laterColBodypx > 0) {
-    cols = 1 + Math.ceil((cw - col0Bodypx) / laterColBodypx);
-  }
-  cols = Math.max(1, cols);
-
   const totalPages = rows * cols;
-
-  // Top van het printgebied in PDF-punten (y-omhoog). Content groeit omlaag vanaf hier.
-  const printTopYUp = pageH - marginPt;
 
   /**
    * Eén tegel-blok: `q  re W n  cm  /X0 Do  Q`. Clip = het getekende venster op de pagina (punten,
    * y-omhoog); `cm` = px→pt-schaal + tegel-offset (géén y-flip; die zit al in het XObject).
+   *
+   * `destTopYUp` is de BOVENrand van de tegel op de pagina in punten, y-omhoog. Vroeger was dat
+   * impliciet altijd de bovenkant van het printgebied (`pageH - marginPt`); sinds de kopstrook per
+   * pagina herhaald wordt, begint de body-tegel lager en moet de aanroeper het meegeven. De
+   * afleiding: een bronpunt (sx, sy) zit in het XObject op (sx, ch - sy) (de y-flip zit al in de
+   * tekening) en belandt na `cm(scale,0,0,scale,e,f)` op (scale·sx + e, scale·(ch - sy) + f). Wil je
+   * dat de bovenrand `sy = srcY` op `destTopYUp` uitkomt, dan volgt f = destTopYUp - (ch - srcY)·scale.
+   * Met destTopYUp = pageH - marginPt is dat letterlijk de oude formule.
    */
   const drawTile = (
     pageOps: PDFOperator[],
     srcX: number, srcY: number, srcW: number, srcH: number,
-    pageX: number,
+    pageX: number, destTopYUp: number,
   ) => {
     if (srcW <= 0 || srcH <= 0) return;
     const drawnW = srcW * scale;
     const drawnH = srcH * scale;
-    const clipBottomYUp = printTopYUp - drawnH;
+    const clipBottomYUp = destTopYUp - drawnH;
     const e = pageX - srcX * scale;
-    const f = pageH - marginPt - (ch - srcY) * scale;
+    const f = destTopYUp - (ch - srcY) * scale;
     pageOps.push(
       pushGraphicsState(),
       rectangle(pageX, clipBottomYUp, drawnW, drawnH), clip(), endPath(),
@@ -313,6 +321,11 @@ export async function paginateVectorToPdfBytes(
     // + deze `cm` reproduceren exact de fase-2-plaatsing. Bevroren-kolomtekst (bron-x < frozenPx) valt
     // vanzelf binnen zowel de kolom-0-tegel als de herhaalde frozen-strip-tegel (pageX=marginPt,
     // srcX=0) → één keer per horizontale kolom; body-tekst raakt alleen z'n eigen body-venster.
+    //
+    // Met de herhaalde kopstrook (issue #25 punt 1) geldt hetzelfde voor de KOPTEKST: die valt in het
+    // bronvenster van elke kop-tegel en wordt dus BEWUST N× geëmit — precies zoals de bevroren
+    // naam-kolom dat al deed (G2). Dat is de prijs voor "elke pagina zelfstandig leesbaar": bij
+    // tekst-extractie verschijnt de projectnaam/tijdschaal per pagina één keer.
     const srcXEnd = srcX + srcW;
     const srcYEnd = srcY + srcH;
     for (const t of texts) {
@@ -323,12 +336,13 @@ export async function paginateVectorToPdfBytes(
     pageOps.push(popGraphicsState());
   };
 
-  let pageIndex = 0;
-  for (let r = 0; r < rows; r++) {
-    const srcY = r * rowHpx;
-    const srcH = Math.min(rowHpx, ch - srcY);
+  // Top van het printgebied in PDF-punten (y-omhoog); de kopstrook begint hier, de body eronder.
+  const printTopYUp = pageH - marginPt;
+  const bodyTopYUp = pageH - bodyTopPt;
 
-    for (let c = 0; c < cols; c++) {
+  let pageIndex = 0;
+  for (const row of layout.bodyRows) {
+    for (const column of layout.columns) {
       pageIndex++;
       const page = doc.addPage([pageW, pageH]);
       const leaf = page.node;
@@ -346,19 +360,15 @@ export async function paginateVectorToPdfBytes(
 
       const pageOps: PDFOperator[] = [];
 
-      if (c === 0) {
-        const srcW = Math.min(col0Bodypx, cw);
-        drawTile(pageOps, 0, srcY, srcW, srcH, marginPt);
-      } else {
-        // Bevroren naam-strip herhalen (G2: zelfstandige tekst per pagina).
-        if (frozenPx > 0 && frozenPtW > 0) {
-          drawTile(pageOps, 0, srcY, frozenPx, srcH, marginPt);
+      // Per horizontaal venster van deze kolom (kolom 0 = één venster; verder: de herhaalde
+      // bevroren naam-strip + het aansluitende body-venster — G2: zelfstandige tekst per pagina).
+      for (const win of column.xWindows) {
+        // Kopstrook bovenaan de pagina, met EXACT hetzelfde x-venster als de body eronder — anders
+        // zou de tijdschaal niet boven de juiste dagen staan.
+        if (repeatHeaderPx > 0) {
+          drawTile(pageOps, win.srcX, 0, win.srcW, repeatHeaderPx, win.pageX, printTopYUp);
         }
-        const bodySrcX = col0Bodypx + (c - 1) * laterColBodypx;
-        const bodySrcW = Math.min(laterColBodypx, cw - bodySrcX);
-        if (bodySrcW > 0) {
-          drawTile(pageOps, bodySrcX, srcY, bodySrcW, srcH, marginPt + frozenPtW);
-        }
+        drawTile(pageOps, win.srcX, row.srcY, win.srcW, row.srcH, win.pageX, bodyTopYUp);
       }
 
       // Paginanummer rechtsonder in de marge (grijs ~8pt), als vector-tekst — buiten het XObject.

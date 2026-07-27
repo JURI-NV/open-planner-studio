@@ -101,6 +101,13 @@ export interface PrintOptions {
   projectAuthor?: string;
   /** Datumnotatie (taak #53) voor de header- en tabel-datums; ontbreekt ⇒ dd-mm-jjjj. */
   dateNotation?: DateNotation;
+  /**
+   * Aantal paginabreedtes waarover de tijdlijn in de export uitgesmeerd wordt (issue #25 punt 5).
+   * Beïnvloedt alleen de auto-fit-zoom hieronder (bij een handmatige zoom bepaalt de gebruiker de
+   * breedte al zelf); de feitelijke tegeling gebeurt in de pagineerder, die hetzelfde getal als
+   * `timelineColumns` moet krijgen. Default 1 = oud gedrag (alles op één paginabreedte).
+   */
+  timelineColumns?: number;
 }
 
 interface PrintTask extends Task {
@@ -219,6 +226,13 @@ export interface RenderReportResult {
    * stelsel als de rest van het return-object; de raster-schaal komt daar apart bij.
    */
   tableWidth: number;
+  /**
+   * Hoogte (LOGISCHE/CSS-px, gemeten vanaf y = 0) van de kopstrook bovenaan de render: project-kop
+   * + tijdschaal-kop. De pagineerders herhalen precies deze strook op elke pagina wanneer daarom
+   * gevraagd wordt (issue #25 punt 1). Staat hier zodat de aanroeper de interne constanten van deze
+   * module niet hoeft te kennen. 0 = geen herhaalbare kop (bv. de lege-project-render).
+   */
+  headerHeight: number;
 }
 
 /**
@@ -270,7 +284,8 @@ export function renderReport(
     d2d.font = `14px ${FONT_FAMILY}`;
     d2d.textAlign = 'center';
     d2d.fillText(options.labels?.noTasks ?? 'No tasks to display', 300, 100);
-    return { width: 600, height: 200, tableWidth: TABLE_WIDTH };
+    // Geen kop-/tijdschaalstrook in de lege-staat (alleen een centrale melding) ⇒ niets te herhalen.
+    return { width: 600, height: 200, tableWidth: TABLE_WIDTH, headerHeight: 0 };
   }
 
   // Compute date range
@@ -299,7 +314,19 @@ export function renderReport(
   const paperKey = `${options.paperSize}-${options.orientation}`;
   const paper = PAPER_SIZES[paperKey] || PAPER_SIZES['A3-landscape'];
   const margins = 20; // left + right margins in px
-  const availableChartWidth = paper.w - TABLE_WIDTH - margins;
+  // Aantal paginabreedtes waarover de tijdlijn uitgesmeerd mag worden (issue #25 punt 5).
+  const timelineColumns = Math.max(1, Math.floor(options.timelineColumns ?? 1));
+  // Beschikbare chart-breedte over N papierbreedtes.
+  //
+  // AFLEIDING — de pagineerder tekent bij N fit-width-kolommen in totaal `canvasWidth +
+  // (N-1)·TABLE_WIDTH` bron-px (de naam-kolom wordt op elke volgende pagina herhaald) op N
+  // paginabreedtes. Wil je dat die "virtuele" breedte precies N pagina's vult op ~1:1-schaal, dan:
+  //     TABLE_WIDTH + chartWidth + (N-1)·TABLE_WIDTH = N·(paper.w - margins)
+  //  ⇒  chartWidth = N·(paper.w - margins) - N·TABLE_WIDTH = N·(paper.w - TABLE_WIDTH - margins)
+  // De N herhalingen van de naam-kolom zijn dus AL verrekend doordat we `TABLE_WIDTH` binnen de
+  // factor N aftrekken; er nog eens `TABLE_WIDTH·(N-1)` bij optellen zou ze dubbel tellen en de
+  // tijdlijn juist te breed (en dus na schaling te klein) maken. Bij N = 1 is dit exact de oude waarde.
+  const availableChartWidth = (paper.w - TABLE_WIDTH - margins) * timelineColumns;
 
   let zoom: number;
   if (options.autoFit && totalDays > 0) {
@@ -544,7 +571,7 @@ export function renderReport(
   // ---- FOOTER ----
   drawFooter(d2d, canvasWidth, canvasHeight, projectName, options);
 
-  return { width: canvasWidth, height: canvasHeight, tableWidth: TABLE_WIDTH };
+  return { width: canvasWidth, height: canvasHeight, tableWidth: TABLE_WIDTH, headerHeight: TOTAL_HEADER_HEIGHT };
 }
 
 

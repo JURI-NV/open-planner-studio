@@ -178,6 +178,8 @@ export function makeTableRenderReport<Row>(
     d2d.textAlign = 'left';
     d2d.textBaseline = 'alphabetic';
 
-    return { width: tableWidth, height, tableWidth: 0 };
+    // `headerHeight: 0` — een tabel-render heeft géén herhaalbare kopstrook: titel + kolomkoppen
+    // staan bewust alleen bovenaan het eerste vel (de pagineerder herhaalt niets als dit 0 is).
+    return { width: tableWidth, height, tableWidth: 0, headerHeight: 0 };
   };
 }
