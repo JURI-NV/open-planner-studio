@@ -113,6 +113,9 @@ export function TableEditor() {
   const notifyStructureLocked = useAppStore(s => s.notifyStructureLocked);
   // issue #26 punt 6: rijen verticaal slepen in de tabel (zelfde doelberekening als het canvas).
   const moveTaskTo = useAppStore(s => s.moveTaskTo);
+  // issue #26 (vervolgmelding): sleep je een rij uit een meervoudige selectie, dan gaat de hele
+  // groep mee — in één undo-stap, met behoud van hun onderlinge volgorde.
+  const moveTasksTo = useAppStore(s => s.moveTasksTo);
   const collapsedTaskIds = useAppStore(s => s.ui.collapsedTaskIds);
   const toggleCollapse = useAppStore(s => s.toggleCollapse);
   const activityCodeTypes = useAppStore(s => s.activityCodeTypes);
@@ -255,6 +258,8 @@ export function TableEditor() {
     rows: viewRows,
     tasksById,
     moveTaskTo,
+    selectedTaskIds,
+    moveTasksTo,
     enabled: isTreeMode(view),
     onBlocked: notifyStructureLocked,
     justDraggedRef,

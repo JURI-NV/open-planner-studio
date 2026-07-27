@@ -40,6 +40,12 @@ export interface UseTableRowDragOptions {
   rows: ViewRow[];
   tasksById: Map<string, Task>;
   moveTaskTo: (id: string, target: DropTarget) => void;
+  /** Issue #26 (vervolgmelding): de huidige selectie. Sleep je een rij die daar deel van uitmaakt
+   *  én telt de selectie meer dan één taak, dan verhuist de HELE groep (`moveTasksTo`). Sleep je
+   *  een niet-geselecteerde rij, dan verhuist alleen die rij en blijft de selectie elders met rust
+   *  — het gedrag dat men uit MS Project en de bestandsverkenner kent. */
+  selectedTaskIds: string[];
+  moveTasksTo: (ids: string[], target: DropTarget) => void;
   /** = `isTreeMode(view)`. Net als op het canvas wordt dit door de AANROEPER bepaald. */
   enabled: boolean;
   /** Aangeroepen wanneer er écht gesleept wordt (drempel gehaald) terwijl `enabled` false is —
@@ -49,7 +55,7 @@ export interface UseTableRowDragOptions {
   justDraggedRef: RefObject<boolean>;
 }
 
-export function useTableRowDrag({ rows, tasksById, moveTaskTo, enabled, onBlocked, justDraggedRef }: UseTableRowDragOptions) {
+export function useTableRowDrag({ rows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo, enabled, onBlocked, justDraggedRef }: UseTableRowDragOptions) {
   const [candidate, setCandidate] = useState<TableRowDragCandidate | null>(null);
   const [dragState, setDragState] = useState<TableRowDragState | null>(null);
   // Buiten de effecten gehouden (zie `armJustDraggedClear`) zodat de opruimer óók bij UNMOUNT
@@ -175,7 +181,11 @@ export function useTableRowDrag({ rows, tasksById, moveTaskTo, enabled, onBlocke
 
     const handleMouseUp = () => {
       if (dragState.dropTarget) {
-        moveTaskTo(dragState.taskId, dragState.dropTarget);
+        // Onderdeel van een meervoudige selectie ⇒ de hele groep mee (issue #26-vervolgmelding);
+        // anders exact het oude pad. `moveTasksTo` doet de groep in één undo-stap.
+        const groepssleep = selectedTaskIds.length > 1 && selectedTaskIds.includes(dragState.taskId);
+        if (groepssleep) moveTasksTo(selectedTaskIds, dragState.dropTarget);
+        else moveTaskTo(dragState.taskId, dragState.dropTarget);
       }
       // Geen geldig doel ⇒ stille no-op; de store-actie guardt cykels zelf ook nog eens.
       justDraggedRef.current = true;
@@ -202,7 +212,7 @@ export function useTableRowDrag({ rows, tasksById, moveTaskTo, enabled, onBlocke
       window.removeEventListener('keydown', handleKeyDown, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragState, moveTaskTo, justDraggedRef, armJustDraggedClear]);
+  }, [dragState, moveTaskTo, moveTasksTo, selectedTaskIds, justDraggedRef, armJustDraggedClear]);
 
   return {
     startRowDrag: setCandidate,

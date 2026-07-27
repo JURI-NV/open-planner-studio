@@ -100,6 +100,9 @@ export function GanttCanvas() {
   // Issue #21 punt 1 (fase 2): store-actie uit fase 1 — verplaatst één taak naar een exacte
   // positie (reorder of reparent), gebruikt door useRowDrag bij mouseup.
   const moveTaskTo = useAppStore(s => s.moveTaskTo);
+  // Issue #26 (vervolgmelding): dezelfde sleep, maar met de hele selectie — op het canvas is een
+  // meervoudige selectie extra gewoon door de box-select.
+  const moveTasksTo = useAppStore(s => s.moveTasksTo);
   const setScroll = useAppStore(s => s.setScroll);
   const setUI = useAppStore(s => s.setUI);
   // Fase 2.10 golf 2 (contextmenu's): golf-1-helpers + bestaande taak-acties die het contextmenu
@@ -223,8 +226,8 @@ export function GanttCanvas() {
   // Gememoized zodat de hook geen nieuwe Map per mousemove hoeft te bouwen.
   const tasksById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   const rowDrag = useRowDrag({
-    canvasRef, rendererRef, rows: viewRows, tasksById, moveTaskTo, justRowDraggedRef,
-    headerHeight: HEADER_HEIGHT,
+    canvasRef, rendererRef, rows: viewRows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo,
+    justRowDraggedRef, headerHeight: HEADER_HEIGHT,
   });
   const depDraw = useDependencyDraw({
     canvasRef,
