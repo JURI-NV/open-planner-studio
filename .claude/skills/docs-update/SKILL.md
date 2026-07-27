@@ -34,15 +34,16 @@ Generator-details (hoe `publish-wiki.mjs` werkt, slugs, `docs://`-omzetting) sta
 `wiki`-skill — daar lezen, niet hier dupliceren.
 
 ## Vaste feiten
-- **In-app help** = `public/docs/<lang>/<id>.md` + `public/docs/manifest.json` (26 artikelen,
-  14 talen). Gelezen door `src/components/backstage/HelpPanel.tsx` — Backstage → Help en **F1**.
-- **Brontalen zijn `nl` + `en`** — die werk je **allebei** bij, altijd. De overige 12 talen laat je
+- **In-app help** = `public/docs/<lang>/<id>.md` + `public/docs/manifest.json` (het manifest is de
+  index — aantallen tel je daar, niet uit je hoofd). Gelezen door
+  `src/components/backstage/HelpPanel.tsx` — Backstage → Help en **F1**.
+- **Brontalen zijn `nl` + `en`** — die werk je **allebei** bij, altijd. De overige locales laat je
   met rust: die lopen in een aparte maandelijkse vertaalronde. `verify:docs` eist alleen nl+en en
   accepteert ontbrekende vertalingen (bewezen: `gids-ai-mcp` bestaat alleen in nl+en, poort groen).
 - **`public/docs/en` voedt twee consumenten**: de in-app Help **én** de GitHub-wiki. Eén edit daar
   verandert allebei.
-- **Wiki-only pagina's** = `docs/wiki/{Home,Features,Installation,Contributing,Extensions-Authoring}.md`
-  (Engels).
+- **Wiki-only pagina's** = alles in `docs/wiki/*.md` (Engels; o.a. `Home`, `Features`,
+  `Installation`, `Contributing`, `Extensions-Authoring`).
 - **Poorten:** `npm run verify:docs` (exitcode is de poort) en — alleen als `public/docs/en` of
   `docs/wiki` geraakt is — `npm run publish:wiki` (dry-run) + de dode-link-check uit de `wiki`-skill.
 - **`docs/CHANGELOG.md` is verboden terrein.** Uitsluitend de releaseflow raakt dat bestand aan.
@@ -103,7 +104,7 @@ Wacht op akkoord. Geen bewerkingen vóór dit punt.
 
 1. Werk de goedgekeurde plekken bij, **nl én en gelijk** voor manual-artikelen. Nieuw artikel =
    `.md` in nl + en **plus** een manifest-entry (`id`, `title.nl`, `title.en`, `layer`, evt.
-   `cluster`); de 12 andere talen laat je aan de vertaalronde.
+   `cluster`); de overige talen laat je aan de vertaalronde.
 2. Houd je aan de miniMarkdown-subset die `verify:docs` afdwingt: `#`/`##`/`###`, paragrafen,
    één niveau lijsten, `**vet**`/`*cursief*`/`` `code` ``, ```-blokken, en **alleen**
    `docs://`- en `examples://`-links. Geen tabellen, blockquotes, h4+, geen rauwe HTML.
@@ -135,7 +136,7 @@ poorten en de review van wat de subagent schreef. Alleen op verzoek van de user 
 | `docs/CHANGELOG.md` aanraken | Uitsluitend de releaseflow. Ook niet "één regeltje". |
 | `-- --push` draaien | Publiceren = release. De dry-run is hier het eindpunt. |
 | Tabel of blockquote in een manual-artikel | miniMarkdown rendert het niet; `verify:docs` waarschuwt. |
-| Tellingen hardcoderen in docs ("25 pagina's") | Verouderen stil. Tel opnieuw of laat het weg. |
+| Een aantal noemen ("N pagina's", "N artikelen", "N talen") — in docs én in skills | Verandert constant en verrot stil. Verwijs naar de bron (manifest, dry-run, poort-output) of laat het weg. |
 | `verify:docs` in een worktree | Faalt met 127 zonder `node_modules`-symlink — dat is geen doc-fout. |
 
 ## Rode vlaggen — stop

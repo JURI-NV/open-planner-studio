@@ -29,10 +29,11 @@ tegen de commits van de nieuwe release en aanpassen waar de werkelijkheid afwijk
   **los van de code-repo** — geen PR, geen CI, geen gedeelde git-historie.
 - **Engels als enige brontaal** (internationaal bereik). GitHub-wiki heeft geen native i18n.
 - **Bronnen (single source of truth):**
-  - `public/docs/en/*.md` + `public/docs/manifest.json` → de **25 manual-pagina's**. Let op: deze
-    bestanden voeden **óók de in-app F1/Help** — een edit hier verandert de app én de wiki.
-  - `docs/wiki/*.md` → **wiki-only pagina's**: `Home`, `Features`, `Installation`, `Contributing`,
-    `Extensions-Authoring`.
+  - `public/docs/en/*.md` + `public/docs/manifest.json` → de **manual-pagina's** (één per
+    manifest-artikel — tel ze daar, hardcodeer geen aantal). Let op: deze bestanden voeden **óók de
+    in-app F1/Help** — een edit hier verandert de app én de wiki.
+  - `docs/wiki/*.md` → de **wiki-only pagina's** (o.a. `Home`, `Features`, `Installation`,
+    `Contributing`, `Extensions-Authoring`).
   - `docs/CHANGELOG.md` → de **Changelog**-pagina, as-is (**Engelstalig** sinds 2026-07-24).
   - repo-screenshots (`screenshot*.png`) → beeld voor de Home-pagina.
 - **Pagina-naam (slug)** uit `title.en`: `&`→`and`, `/`→spatie, parenthese `(...)` weg, rest niet-alfanum→`-`.
@@ -47,12 +48,13 @@ tegen de commits van de nieuwe release en aanpassen waar de werkelijkheid afwijk
 ## Hoe de wiki in elkaar zit
 ```
 public/docs/en/*  + manifest.json ─┐
-docs/wiki/*.md                     ├─►  publish-wiki.mjs  ─►  31 pagina's + _Sidebar + _Footer + screenshots
+docs/wiki/*.md                     ├─►  publish-wiki.mjs  ─►  alle pagina's + _Sidebar + _Footer + screenshots
 docs/CHANGELOG.md                  │        (dry-run)              │
 screenshot*.png                    ─┘                              ▼  .wiki-build/  ──(--push)──►  .wiki.git (live)
 ```
 De in-app Help leest dezelfde `public/docs/` — de wiki is een **tweede consument**, dus geen dubbel
-onderhoud. 31 pagina's = 25 manual (via manifest) + 5 wiki-only + Changelog.
+onderhoud. De wiki = de manual-pagina's (via het manifest) + de wiki-only pagina's + de Changelog;
+het exacte aantal rolt uit de dry-run — lees het daar af in plaats van het te onthouden.
 
 ## Hoe je de wiki aanpast
 - **Inhoud van een manual-pagina** → bewerk `public/docs/{nl,en}/<id>.md`. Houd **nl + en gelijk**
@@ -92,7 +94,7 @@ en niet tegen wat de doc nu toevallig zegt.
 rode vlag — fix 'm of meld 'm expliciet.
 
 ## Verifiëren & publiceren
-1. `npm run verify:docs` → manifest ↔ bestanden ↔ geen wezen; moet **groen** (25 × 2 talen).
+1. `npm run verify:docs` → manifest ↔ bestanden ↔ geen wezen; moet **groen** (exitcode 0).
 2. `npm run publish:wiki` → dry-run in `.wiki-build/`; check dat de **warnings-regel leeg** is (alle
    `docs://` opgelost) en bekijk de gewijzigde pagina's.
 3. **Dode-link-check** (alle interne wiki-links resolven naar een bestaande pagina):

@@ -76,10 +76,9 @@ uit stap 3 — disjuncte bestanden, mag parallel). Die skill is de volledige bri
 **elke doc-claim dubbelchecken tegen de commits van deze release** en bijwerken waar de doc achterloopt.
 Ze dekt beide bronnen:
 - **In-app gidsen** `public/docs/<lang>/<id>.md` — docs worden **in EN + NL** geschreven/bijgewerkt
-  (brontalen); de overige 12 talen volgen **maandelijks** in een aparte vertaalronde, niet per release.
-  Bestaande artikelen in EN+NL bijwerken blijft groen bij `verify:docs`. **Let op:** `verify:docs`
-  vereist dat elk artikel in **alle 14 talen bestaat** — een **nieuw** artikel heeft dus ook z'n 12
-  andere-taalbestanden nodig (stub of via de maandelijkse ronde) vóór de poort groen is.
+  (de brontalen); de overige locales volgen **maandelijks** in een aparte vertaalronde, niet per release.
+  `verify:docs` eist **alleen `nl` + `en`** en valideert de andere talen enkel wanneer ze er zijn —
+  een **nieuw** artikel in EN+NL houdt de poort dus groen, zónder stubs voor de overige talen.
 - **GitHub-wiki** — een build-artefact uit repo-bronnen (`public/docs/en`, `docs/wiki/*`, changelog)
   via `scripts/publish-wiki.mjs`. Nooit de wiki direct bewerken.
 
@@ -181,8 +180,9 @@ gh release upload vX.Y.Z /tmp/rel/latest.json --clobber
 ```bash
 gh release view vX.Y.Z --json assets --jq '.assets | length'
 ```
-Check: de **volledige set assets** aanwezig (~14: per-platform installers + hun `.sig`'s +
-`latest.json`), versie in `latest.json` = X.Y.Z, en alle platform-download-URL's geven 200
+Check: de **volledige set assets** aanwezig (per-platform installers + hun `.sig`'s +
+`latest.json` — vergelijk met de vorige release i.p.v. met een onthouden aantal), versie in
+`latest.json` = X.Y.Z, en alle platform-download-URL's geven 200
 (`curl -sI`). Updater-endpoint wijst naar deze versie.
 
 ### 18. Wiki publiceren
