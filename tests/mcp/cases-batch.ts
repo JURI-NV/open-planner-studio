@@ -106,6 +106,20 @@ const stubCycle = stubMutate('planner_stub_cycle', () => {
   throw new McpStepError('CYCLE', 'kringverwijzing tussen A en B');
 });
 
+/** Legt een ECHTE kring aan (twee relaties over en weer). De solver ziet die pas bij de eerstvolgende
+ *  herberekening — zo bewijzen we de `cpmResult.error`-worp uit `recomputeMidBatch`. */
+const stubCycleEdges = stubMutate('planner_stub_cycle_edges', (args) => {
+  const { a, b } = args as { a: string; b: string };
+  draft.addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+  draft.addSequence({ predecessorId: b, successorId: a, type: 'FINISH_START', lagDays: 0 });
+  return { data: { edges: 2 } };
+});
+
+/** Levert een `created`-map met een tempId die NIET aan de gereserveerde `tmp-`-syntax voldoet. */
+const stubBadTempId = stubMutate('planner_stub_bad_tempid', () => ({
+  data: { created: { Fundering: draft.addTask({ name: 'slechte-tempid' }) } },
+}));
+
 /** Verlengt een bestaande taak fors — zodat een volgende leesstap alleen mét tussentijdse
  *  herberekening een ANDER projecteinde ziet. */
 const stubExtend = stubMutate('planner_stub_extend', (args) => {
@@ -147,7 +161,7 @@ const stubAsyncOnly: McpToolDef = {
 };
 
 const stubs: McpToolDef[] = [
-  stubAddTasks, stubRecord, stubReject, stubCycle, stubExtend, stubLevel,
+  stubAddTasks, stubRecord, stubReject, stubCycle, stubCycleEdges, stubBadTempId, stubExtend, stubLevel,
   stubSaveBaseline, stubDocument, stubUndo, stubAsyncOnly,
 ];
 
@@ -183,7 +197,7 @@ test('batch: 3 heterogene stappen ⇒ precies één undo-snapshot, één undo ma
   const beforeUndo = store.getState().undoStack.length;
 
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'a1', name: 'batch-A' }, { tempId: 'a2', name: 'batch-B' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-a1', name: 'batch-A' }, { tempId: 'tmp-a2', name: 'batch-B' }] } },
     { tool: 'planner_stub_record', args: { note: 'tussenstap' } },
     { tool: 'planner_get_project_info' },
   ]);
@@ -236,7 +250,7 @@ test('batch: onbekende tool ⇒ volledige rollback + rapport uitgevoerd/gefaald/
   const beforeUndo = store.getState().undoStack.length;
 
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'x1', name: 'wordt-teruggerold' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-x1', name: 'wordt-teruggerold' }] } },
     { tool: 'planner_bestaat_niet', args: {} },
     { tool: 'planner_stub_record', args: {} },
   ]);
@@ -260,7 +274,7 @@ test('batch: McpStepError(CYCLE) in stap 2 ⇒ code CYCLE, volledige rollback', 
   const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
 
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'y1', name: 'rolt-terug' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-y1', name: 'rolt-terug' }] } },
     { tool: 'planner_stub_cycle', args: {} },
   ]);
 
@@ -279,7 +293,7 @@ test('batch: per-item-weigering in stap 2 ⇒ batch slaagt, weigering prominent 
   lastRecordArgs = null;
 
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'z1', name: 'zacht-1' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-z1', name: 'zacht-1' }] } },
     { tool: 'planner_stub_reject', args: {} },
     { tool: 'planner_stub_record', args: { na: 'de-weigering' } },
   ]);
@@ -331,7 +345,7 @@ test('batch: uitgesloten tools (batch, undo, document, save_baseline) worden gew
     const beforeTasks = taskCount();
     const beforeUndo = store.getState().undoStack.length;
     const res = await runBatch([
-      { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'q1', name: 'mag-niet-ontstaan' }] } },
+      { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-q1', name: 'mag-niet-ontstaan' }] } },
       { tool: c.tool, args: {} },
     ]);
     assert(!res.ok, `${c.waarom} hoort geweigerd te worden`);
@@ -407,7 +421,7 @@ test('batch: geen `await` in de stappenloop (statische assert) en geen async fun
 test('batch: respons draagt substeps met per stap tool, ok en duur', async () => {
   backupCalls = [];
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 's1', name: 'sub-1' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-s1', name: 'sub-1' }] } },
     { tool: 'planner_get_project_info' },
   ]);
 
@@ -431,7 +445,7 @@ test('batch: respons draagt substeps met per stap tool, ok en duur', async () =>
 test('batch: precies één backup-trigger voor de hele batch, met kind batch', async () => {
   backupCalls = [];
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'b1', name: 'backup-1' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-b1', name: 'backup-1' }] } },
     { tool: 'planner_stub_record', args: {} },
     { tool: 'planner_stub_reject', args: {} },
   ]);
@@ -469,7 +483,7 @@ test('batch: tool zonder synchrone batch-kern ⇒ geweigerd vóór enige mutatie
   backupCalls = [];
   const beforeTasks = taskCount();
   const res = await runBatch([
-    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'n1', name: 'mag-niet-ontstaan' }] } },
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-n1', name: 'mag-niet-ontstaan' }] } },
     { tool: 'planner_stub_async_only', args: {} },
   ]);
 
@@ -491,6 +505,138 @@ test('planner_batch: definitie is kind batch, niet zelf batchable, met slot-lees
   assertEq(batchDef.batchable, false, 'planner_batch mag nooit zelf als batch-stap draaien');
   assert(/slot/i.test(batchDef.description), 'de beschrijving hoort uit te leggen dat alleen een SLOT-leesstap zinvol is');
   assert(/100/.test(batchDef.description), 'de beschrijving hoort de limiet van 100 stappen te noemen');
+});
+
+// =================================================================================================
+// 16) REGRESSIE I1 — vrije tekst blijft vrije tekst (de probe uit de review)
+//     Een tempId die toevallig ook een taaknaam is, mocht die naam stil in een intern id veranderen.
+//     Nu: alleen id-velden worden herschreven, alles onder een vrije-tekst-sleutel blijft letterlijk.
+// =================================================================================================
+test('batch: tempId-herschrijving raakt nooit vrije tekst (name/description/notes)', async () => {
+  backupCalls = [];
+  lastRecordArgs = null;
+
+  const res = await runBatch([
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-fundering', name: 'Fundering' }] } },
+    {
+      tool: 'planner_stub_record',
+      args: {
+        taskId: 'tmp-fundering',                  // id-veld ⇒ MOET herschreven worden
+        name: 'tmp-fundering',                    // vrije tekst ⇒ moet letterlijk blijven
+        description: 'werk aan tmp-fundering',    // bevat de tempId niet exact ⇒ hoe dan ook letterlijk
+        notes: 'tmp-fundering',
+        fields: { name: 'tmp-fundering', parentId: 'tmp-fundering' },
+        tasks: [{ name: 'tmp-fundering' }],
+      },
+    },
+  ]);
+
+  assert(res.ok, `de batch hoort te slagen, kreeg: ${res.ok ? '' : res.error}`);
+  const created = (res as { data: BatchData }).data.steps[0].data as { created: Record<string, string> };
+  const realId = created.created['tmp-fundering'];
+  const seen = lastRecordArgs as {
+    taskId: string; name: string; description: string; notes: string;
+    fields: { name: string; parentId: string }; tasks: { name: string }[];
+  };
+
+  assertEq(seen.taskId, realId, 'een id-veld hoort wél herschreven te worden');
+  assertEq(seen.name, 'tmp-fundering', 'een `name` mag NOOIT herschreven worden (reviewprobe I1)');
+  assertEq(seen.notes, 'tmp-fundering', 'een `notes`-veld mag nooit herschreven worden');
+  assertEq(seen.description, 'werk aan tmp-fundering', 'een beschrijving blijft letterlijk');
+  assertEq(seen.fields.name, 'tmp-fundering', 'ook genest onder `fields` blijft een naam letterlijk');
+  assertEq(seen.fields.parentId, realId, 'een genest id-veld hoort wél herschreven te worden');
+  assertEq(seen.tasks[0].name, 'tmp-fundering', 'een naam binnen een array van items blijft letterlijk');
+});
+
+// =================================================================================================
+// 17) REGRESSIE I1c — de temp-id-map werkt niet door naar een VOLGENDE batch (zelfde ctx)
+// =================================================================================================
+test('batch: tempId uit een eerdere batch wordt in een volgende batch NIET herschreven', async () => {
+  backupCalls = [];
+  const ctx = makeCtx(); // ÉÉN ctx over twee batches — precies de sessie-situatie uit de review
+
+  const eerste = await batchDef.handler({
+    steps: [{ tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-cross', name: 'cross-1' }] } }],
+  }, ctx);
+  assert(eerste.ok, 'de eerste batch hoort te slagen');
+  assertEq(ctx.tempIdMap.size, 0, 'de temp-id-map hoort ná de batch leeg te zijn');
+
+  lastRecordArgs = null;
+  const tweede = await batchDef.handler({
+    steps: [{ tool: 'planner_stub_record', args: { taskId: 'tmp-cross' } }],
+  }, ctx);
+  assert(tweede.ok, 'de tweede batch hoort te slagen');
+  assertEq((lastRecordArgs as { taskId: string }).taskId, 'tmp-cross',
+    'een tempId uit een EERDERE batch mag in een volgende batch niet meer vervangen worden');
+});
+
+// =================================================================================================
+// 18) REGRESSIE I1b — een tempId buiten de gereserveerde syntax faalt LUID (geen stille acceptatie)
+// =================================================================================================
+test('batch: created-map met een niet-conforme tempId ⇒ VALIDATION + volledige rollback', async () => {
+  backupCalls = [];
+  store.getState().runCPM();
+  const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
+
+  const res = await runBatch([
+    { tool: 'planner_stub_bad_tempid', args: {} },
+    { tool: 'planner_stub_record', args: {} },
+  ]);
+
+  assert(!res.ok, 'een tempId zonder tmp-prefix hoort de batch te laten falen');
+  if (!res.ok) {
+    assertEq(res.code, 'VALIDATION', 'code hoort VALIDATION te zijn');
+    assert(res.error.includes("'Fundering'"), 'de fout hoort de overtredende tempId te noemen');
+    assert(res.error.includes('tmp-'), 'de fout hoort de gereserveerde syntax uit te leggen');
+  }
+  assertEq(JSON.stringify(createSnapshot(store.getState())), beforeSnap, 'de store hoort schoon teruggerold te zijn');
+});
+
+// =================================================================================================
+// 19) REGRESSIE I2 — een GEFAALDE batch levert rapport én substeps gestructureerd terug
+// =================================================================================================
+test('batch: faalpad draagt steps + substeps in het data-veld van de fout', async () => {
+  backupCalls = [];
+  const res = await runBatch([
+    { tool: 'planner_stub_add_tasks', args: { tasks: [{ tempId: 'tmp-fail', name: 'faal-1' }] } },
+    { tool: 'planner_stub_cycle', args: {} },
+    { tool: 'planner_stub_record', args: {} },
+  ]);
+
+  assert(!res.ok, 'de batch hoort te falen');
+  if (res.ok) return;
+  const data = res.data as { steps: BatchData['steps']; substeps: BatchData['substeps'] } | undefined;
+  assert(data != null, 'een gefaalde batch hoort gestructureerde context in `data` te dragen');
+  assertEq(data!.steps.map((s) => s.status), ['uitgevoerd', 'gefaald', 'niet bereikt'],
+    'het gestructureerde rapport hoort per stap de status te dragen');
+  assertEq(data!.substeps.length, 2, 'er horen substeps te zijn voor de uitgevoerde én de gefaalde stap');
+  assertEq(data!.substeps[1].ok, false, 'de substep van de gefaalde stap hoort ok:false te melden');
+  assert(res.error.includes('uitgevoerd (teruggedraaid)'), 'de leesbare samenvatting blijft in `error` staan');
+});
+
+// =================================================================================================
+// 20) De `cpmResult.error`-worp uit de TUSSENTIJDSE herberekening (kring in stap 1, lezing in stap 2)
+// =================================================================================================
+test('batch: kring in stap 1 + leesstap ⇒ CYCLE uit de tussentijdse herberekening, alles terug', async () => {
+  backupCalls = [];
+  const a = store.getState().addTask({ name: 'kring-A' });
+  const b = store.getState().addTask({ name: 'kring-B' });
+  store.getState().runCPM();
+  const beforeSnap = JSON.stringify(createSnapshot(store.getState()));
+
+  const res = await runBatch([
+    { tool: 'planner_stub_cycle_edges', args: { a, b } },
+    { tool: 'planner_get_project_info' },
+  ]);
+
+  assert(!res.ok, 'een kring vóór een leesstap hoort de batch te laten falen');
+  if (!res.ok) {
+    assertEq(res.code, 'CYCLE', 'code hoort CYCLE te zijn');
+    assert(res.error.includes('tussentijdse herberekening'), `de fout hoort de tussentijdse herberekening te noemen, kreeg: ${res.error}`);
+    const data = res.data as { steps: BatchData['steps'] } | undefined;
+    assertEq(data?.steps[1].status, 'gefaald', 'de leesstap hoort als gefaalde stap gerapporteerd te worden');
+  }
+  assertEq(JSON.stringify(createSnapshot(store.getState())), beforeSnap, 'de kring-relaties horen teruggerold te zijn');
 });
 
 await run();

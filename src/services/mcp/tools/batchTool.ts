@@ -48,6 +48,12 @@ const MAX_JSON_CHARS = 4000;
  * hier en niet in het bevroren `contracts.ts`: alleen de batch-executor kent dit veld, en de
  * mutatiemodules (andere banen) kunnen het bij SYNC-2 toevoegen zonder het gedeelde contract te raken.
  *
+ * WIE KRIJGT ER ÉÉN: uitsluitend de tools uit spec §Tool-set *Muteren* die op een draft-primitief
+ * draaien (taken, relaties, kalenders, assignments, leveling, project) — precies het oppervlak dat WP0
+ * transactie-veilig heeft gemaakt. Leestools hebben er geen nodig (hun handler is al synchroon), en
+ * alles wat géén draft-primitief heeft (document- en bestandstools, undo/redo, save_baseline) hoort
+ * per spec sowieso niet in een batch en krijgt er dus expliciet géén.
+ *
  * De kern draait BINNEN de batch-transactie en moet daarom:
  *   - synchroon zijn (geen asynchrone grens, geen I/O);
  *   - géén eigen `runInMcpTransaction`/`beginUndoable`/`runCPM` doen (de batch bezit die);
@@ -88,7 +94,11 @@ interface Rejection {
  * echt schade doet:
  *   - `planner_batch` zelf (geneste transactie, onbepaalde semantiek);
  *   - `undo`/`redo` (beheren hun eigen undo-stack; binnen één batch-snapshot betekenisloos);
- *   - de document-tools (een documentwissel mid-batch breekt de "één actief document"-aanname);
+ *   - de document-tools (een documentwissel mid-batch breekt de "één actief document"-aanname).
+ *     `list_documents` staat er óók bij hoewel het alleen leest: de spec rekent het bij de
+ *     document-tools, en zijn antwoord gaat over ANDERE documenten dan het document waarop de batch
+ *     werkt — het beschrijft bovendien planningen die de batch niet herrekent, dus de cijfers zouden
+ *     misleidend vers lijken. Als losse call is de tool volledig beschikbaar;
  *   - `export_ifc`/`import_schedule` (echte bestands-I/O ⇒ asynchroon, en niet terug te rollen);
  *   - `save_baseline` (een nulmeting hoort een losse, bewuste actie op een vers schema te zijn; bij
  *     een rollback zou de baseline mee-gewist worden).
@@ -137,38 +147,78 @@ function classify(message: string): McpErrorCode {
 }
 
 /**
- * Vervang recursief elke string-waarde die exact een bekende tempId is door het echte id — in
+ * GERESERVEERDE TEMP-ID-SYNTAX. Binnen een batch moet elke tempId met `tmp-` of `tmp_` beginnen.
+ * Alleen strings die aan dit patroon voldoen ÉN als tempId geregistreerd zijn, worden in de args van
+ * latere stappen vervangen. Zonder zo'n gereserveerd naamruimtetje is elke vrije tekst een potentieel
+ * doelwit: een `add_tasks` met `tempId:'Fundering'` maakte van een latere `name:'Fundering'` stil het
+ * interne taak-id (reviewbevinding I1, met probe bewezen). Een `created`-map met een tempId die niet
+ * aan het patroon voldoet, laat de batch LUID falen — nooit stil half toepassen.
+ */
+const TEMP_ID_PATTERN = /^tmp[-_]/;
+
+/**
+ * Sleutels waaronder NOOIT herschreven wordt: vrije tekst van de gebruiker. De uitsluiting geldt voor
+ * de hele subboom onder zo'n sleutel (`fields: { name: … }`, `tasks: [{ name: … }]`), want alles
+ * daaronder is óók vrije tekst. Id's staan nooit onder deze sleutels — die heten `taskId`, `parentId`,
+ * `predecessorId`, `resourceId`, … De deny-list is de tweede vangrail náást `TEMP_ID_PATTERN`: zelfs
+ * een correct gevormde `tmp-`-string blijft in een naam of notitie ongemoeid.
+ */
+const NO_REWRITE_KEYS = new Set<string>([
+  'name', 'names', 'description', 'descriptions', 'notes', 'note', 'title', 'label',
+  'code', 'wbsCode', 'summary', 'text', 'author', 'company', 'reason', 'comment',
+]);
+
+/**
+ * Vervang recursief elke string-waarde die (a) aan `TEMP_ID_PATTERN` voldoet, (b) als tempId
+ * geregistreerd staat en (c) niet onder een vrije-tekst-sleutel hangt, door het echte id — in
  * objecten, arrays en willekeurig diep geneste combinaties daarvan. Bewust op WAARDEN, niet op
  * sleutels: id's staan in waarden (`parentId`, `predecessorId`, `taskId`, …).
  *
- * HAZARD (staat in de toolbeschrijving): de vervanging is exact-match op string-waarden, dus een
- * tempId als `'t1'` zou ook een taaknaam `'t1'` in een latere stap raken. Kies onderscheidende
- * tempId's (`'tmp-fundering'`). De map leeft op `ctx` en dus per sessie: tempId's uit een eerdere
- * `add_tasks`-call blijven bruikbaar in een volgende batch.
+ * `deniedBranch` draagt de deny-list door naar de hele subboom: zodra we onder `name`/`notes`/… zitten,
+ * blijft alles daaronder letterlijk staan.
  */
-function resolveTempIds(value: unknown, map: Map<string, string>): unknown {
+function resolveTempIds(value: unknown, map: Map<string, string>, deniedBranch = false): unknown {
   if (map.size === 0) return value;
-  if (typeof value === 'string') return map.get(value) ?? value;
-  if (Array.isArray(value)) return value.map((v) => resolveTempIds(v, map));
+  if (typeof value === 'string') {
+    if (deniedBranch || !TEMP_ID_PATTERN.test(value)) return value;
+    return map.get(value) ?? value;
+  }
+  if (Array.isArray(value)) return value.map((v) => resolveTempIds(v, map, deniedBranch));
   if (isPlainObject(value)) {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = resolveTempIds(v, map);
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = resolveTempIds(v, map, deniedBranch || NO_REWRITE_KEYS.has(k));
+    }
     return out;
   }
   return value;
 }
 
-/** Neem de tempId→realId-map uit een stapresultaat over (`data.created`, het `add_tasks`-contract). */
-function collectCreated(data: unknown, map: Map<string, string>): void {
+/**
+ * Neem de tempId→realId-map uit een stapresultaat over (`data.created`, het `add_tasks`-contract).
+ * Een tempId die niet aan de gereserveerde syntax voldoet is een STRUCTURELE fout: hem stil negeren
+ * zou latere stappen met niet-opgeloste verwijzingen laten draaien, hem stil accepteren zou vrije
+ * tekst kunnen raken. Dus: luide `VALIDATION` ⇒ de hele batch rolt terug.
+ */
+function collectCreated(data: unknown, map: Map<string, string>, stepNr: number): void {
   const created = isPlainObject(data) ? data.created : undefined;
   if (!isPlainObject(created)) return;
   for (const [tempId, realId] of Object.entries(created)) {
-    if (typeof realId === 'string') map.set(tempId, realId);
+    if (typeof realId !== 'string') continue;
+    if (!TEMP_ID_PATTERN.test(tempId)) {
+      throw new McpStepError(
+        'VALIDATION',
+        `stap ${stepNr}: tempId '${tempId}' voldoet niet aan de gereserveerde batch-syntax — ` +
+        'binnen planner_batch moet elke tempId met `tmp-` of `tmp_` beginnen (bijv. `tmp-fundering`), ' +
+        'zodat de automatische vervanging nooit gewone tekst kan raken',
+      );
+    }
+    map.set(tempId, realId);
   }
 }
 
-/** Rapport als één regel tekst — de McpToolErr-vorm draagt geen `data`, dus het rapport reist mee in
- *  de foutboodschap (spec: "volledige rollback + rapport per stap"). */
+/** Rapport als één regel LEESBARE tekst voor in `error`; de gestructureerde vorm (steps + substeps)
+ *  reist op het faalpad mee in het additieve `data`-veld van de McpToolErr. */
 function formatReport(report: StepReport[]): string {
   const rows = report.map((r) => {
     if (r.status === 'uitgevoerd') return `${r.step}. ${r.tool} — uitgevoerd (teruggedraaid)`;
@@ -267,7 +317,7 @@ export function executeSteps(
       const outcome = invokeStep(def, args, ctx);
       if (def.kind !== 'read') mutatedSinceRecompute = true;
 
-      collectCreated(outcome.data, ctx.tempIdMap);
+      collectCreated(outcome.data, ctx.tempIdMap, i + 1);
       for (const r of outcome.itemRejections ?? []) {
         rejections.push({ id: r.id, reason: `stap ${i + 1} (${def.name}): ${r.reason}` });
       }
@@ -367,9 +417,12 @@ const batch: McpToolDef = {
     'open dialoog), dan wordt de HELE batch teruggedraaid en meldt de fout per stap wat is uitgevoerd, ' +
     'gefaald of niet bereikt. Per-item-weigeringen binnen een bulk-stap (bijv. één ongeldige ' +
     'voortgangsregel van twintig) zijn zacht: die stap slaagt en de weigeringen staan bovenaan in het ' +
-    'antwoord onder `rejections`. TEMP-ID\'s: een `add_tasks`-stap levert een tempId→id-map; elke ' +
-    'string-waarde in LATERE stappen die exact zo\'n tempId is, wordt automatisch vervangen door het ' +
-    'echte id (ook diep genest) — kies daarom onderscheidende tempId\'s zoals "tmp-fundering". ' +
+    'antwoord onder `rejections`. TEMP-ID\'s: binnen een batch MOET elke tempId met "tmp-" of "tmp_" ' +
+    'beginnen (bijv. "tmp-fundering") — een andere vorm laat de batch falen. Een `add_tasks`-stap ' +
+    'levert een tempId→id-map; elke string-waarde in LATERE stappen die exact zo\'n geregistreerde ' +
+    'tempId is, wordt automatisch vervangen door het echte id (ook diep genest). Vrije tekst blijft ' +
+    'altijd ongemoeid: onder `name`, `description`, `notes`, `title`, `code`, `wbsCode` en dergelijke ' +
+    'wordt nooit vervangen. De map geldt alleen BINNEN deze batch; een volgende batch begint leeg. ' +
     'LEESSTAPPEN: alleen een SLOT-leesstap is zinvol, want alle args liggen vast op het moment van ' +
     'inzenden; een vroege lezing kan latere stappen niet voeden. Zoek namen→ID\'s dus met losse ' +
     'lees-calls VÓÓR de batch. UITGESLOTEN: planner_batch zelf, undo/redo, de document- en ' +
@@ -417,14 +470,24 @@ const batch: McpToolDef = {
     const substeps: ActivityEntry[] = [];
     const rejections: Rejection[] = [];
 
+    // LEVENSDUUR VAN DE TEMP-ID-MAP: strikt per batch. `ctx` leeft per server-sessie, dus zonder deze
+    // schoonmaak zouden tempId's uit een eerdere batch de args van een látere batch herschrijven —
+    // actie-op-afstand die niemand kan zien (reviewbevinding I1c). Leegmaken vóór ÉN na de uitvoering:
+    // vooraf zodat we gegarandeerd leeg starten, achteraf zodat er niets blijft hangen voor de
+    // volgende call — ook niet na een rollback.
+    ctx.tempIdMap.clear();
+
     // Eén muterende aanroep: één backup-trigger, één drift-/dialoog-check, één transactie.
     const res = await runMutateTool(ctx, 'batch', () => executeSteps(parsed, ctx, report, substeps, rejections));
+    ctx.tempIdMap.clear();
 
     // Guard-weigeringen (pauze/alleen-lezen/dialoog/drift/backup) raken de loop niet — dan is er niets
-    // uit te leggen. Kwam de loop wél op gang, dan reist het per-stap-rapport mee in de foutboodschap
-    // (de McpToolErr-vorm draagt geen `data`).
+    // uit te leggen. Kwam de loop wél op gang, dan reist het rapport twee keer mee: leesbaar in
+    // `error` (voor de AI/gebruiker) en gestructureerd in het additieve `data`-veld van de McpToolErr —
+    // zonder dat laatste zou het activiteitenpaneel juist bij een MISLUKTE batch zijn sub-stappen
+    // kwijt zijn (reviewbevinding I2).
     if (!res.ok && report.some((r) => r.status !== 'niet bereikt')) {
-      return { ...res, error: `${res.error}\n${formatReport(report)}` };
+      return { ...res, error: `${res.error}\n${formatReport(report)}`, data: { steps: report, substeps } };
     }
     return res;
   },
