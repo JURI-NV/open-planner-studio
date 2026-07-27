@@ -592,4 +592,44 @@ test('IFC-round-trip: generation en shift overleven; workTime kent een gedocumen
   assertEq(cal.workTime!.byWeekday[6], [], 'een niet-werkdag blijft niet-werkend');
 });
 
+test('IFC: één gewone band per dag overleeft zolang de kalender IN GEBRUIK is; ongebruikt niet', async () => {
+  reset();
+  const projId = S().project.calendarId;
+  S().ensureProjectCalendarInLibrary();
+  await call('planner_update_calendar', { calendars: [{ id: projId, workTime: bands8to16() }] });
+  addTask('Hele dagen', 2); // zelfs ZONDER sub-dag-duur
+  assert(!!calById(projId)!.workTime, 'testvoorwaarde: in de store is het een uur-kalender');
+
+  // De IFC-reader promoveert naar uur-modus bij een echte afwijking van het enkelvoudige dagpatroon
+  // (>1 band of een wrap) óf bij een sub-dag-signaal elders in het bestand (`subdayIo`,
+  // discriminator a/b/c). Eén band 08:00-16:00 wijkt niet af — maar de taken van een uur-kalender
+  // worden mét tijd-van-de-dag weggeschreven, en dát is signaal (c). Dus: overleeft.
+  const terug = readIFC(writeIFC(buildWriteIFCInput(S())));
+  assert(!!terug.calendar.workTime, 'de uur-modus overleeft dankzij de uur-taken in hetzelfde bestand');
+  assertEq(terug.calendar.workTime!.byWeekday[1], [{ start: 480, end: 960 }], 'de band komt exact terug');
+
+  // BEKENDE, VOORAF BESTAANDE IFC-BEPERKING (ifcReader `extractCalendarLibrary`): de reader bouwt de
+  // bibliotheek UITSLUITEND uit IFCRELASSIGNSTOCONTROL-relaties. Een kalender waar géén taak en géén
+  // resource aan hangt, wordt dus wél geschreven maar niet teruggelezen — die is na opslaan+herladen
+  // wég. Dat raakt precies het overzet-scenario ("maak de kalender aan in het doeldocument"), dus het
+  // hoort in de beschrijving van update_calendar: hang er meteen taken aan.
+  reset();
+  const res = await call('planner_update_calendar', {
+    calendars: [{ id: 'los', create: true, name: 'Ongebruikte uurkalender', workTime: bands8to16(), holidays: [] }],
+  });
+  const losId = okData(res).calendars[0].id;
+  assert(!!calById(losId)!.workTime, 'testvoorwaarde: in de store is het een uur-kalender');
+  const zonderGebruikers = readIFC(writeIFC(buildWriteIFCInput(S())));
+  assertEq(zonderGebruikers.resourceCalendars?.length ?? 0, 0,
+    'een bibliotheek-kalender zonder taak/resource wordt niet teruggelezen uit IFC');
+
+  // MÉT een taak eraan overleeft hij volledig — inclusief de uurbanden.
+  const t = addTask('Werk op de ploegenkalender', 2);
+  S().updateTask(t, { calendarId: losId });
+  const metGebruiker = readIFC(writeIFC(buildWriteIFCInput(S())));
+  const los = metGebruiker.resourceCalendars?.find((c) => c.name === 'Ongebruikte uurkalender');
+  assert(!!los, 'met een taak eraan komt de bibliotheek-kalender wél terug');
+  assertEq(los!.workTime?.byWeekday[1], [{ start: 480, end: 960 }], 'inclusief de uurbanden');
+});
+
 await run();

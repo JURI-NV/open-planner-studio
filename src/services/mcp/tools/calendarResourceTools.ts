@@ -844,6 +844,10 @@ const updateCalendar: BatchStepTool = {
     '`modeChangedFrom` en `durationEffects` (per taak `beforeDays` → `afterDays`); meld die aan de gebruiker. ' +
     '`workDays` en `hoursPerDay` worden uit de banden AFGELEID zodra je `workTime` meegeeft (zoals de ' +
     'kalenderdialoog doet); geef je ze toch mee, dan mag `workDays` de banden niet tegenspreken. ' +
+    'BEWAREN IN HET BESTAND (IFC): een nieuw aangemaakte kalender waaraan GEEN taak en geen resource ' +
+    'hangt, overleeft opslaan+herladen NIET — hang er dus meteen taken aan met `update_tasks.calendarId`. ' +
+    'Uurbanden overleven IFC wél, maar per WEEKDAG VERSCHILLENDE banden niet: het formaat draagt één ' +
+    'werkweek-patroon, dus bij herladen krijgen alle werkdagen de banden van de eerste werkdag. ' +
     'Een kalender waarin taken niet meer passen (bijv. een lang feestdagblok) levert géén fout maar een ' +
     'prominente waarschuwing met `cappedTaskIds`. Blijft er daarentegen HELEMAAL geen werktijd over ' +
     '(lege `workDays`, of `workTime`-banden op geen enkele dag), dan faalt de herberekening en wordt de ' +
