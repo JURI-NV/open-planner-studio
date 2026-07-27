@@ -747,7 +747,11 @@ export function LayoutGroupContent() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', minWidth: 150 }}>
+    // minWidth 150 → 210 (issue #29): bij 150 kregen de drie knoppen elk maar ~46px — te weinig
+    // voor "Opslaan als…"/"Beheren…" (NL) en zeker voor langere talen (bv. FR "Enregistrer sous…"),
+    // wat de labels rauw liet afknippen i.p.v. netjes met "…" (zie de ellipsis-fix in Ribbon.css
+    // hierboven, die als vangnet blijft voor talen die ook bij 210px nog niet passen).
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', minWidth: 210 }}>
       <select
         value={selectedId}
         onChange={e => pick(e.target.value)}

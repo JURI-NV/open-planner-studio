@@ -222,6 +222,11 @@
   white-space: nowrap;
   display: block;
   -webkit-line-clamp: unset;
+  /* issue #29: zonder dit knipt een te smalle knop (bv. "Opslaan als…"/"Enregistrer sous…" in een
+     krappe rij van drie) de tekst rauw af op een letter i.p.v. netjes met "…" — overflow:hidden
+     stond al impliciet aan via de basisregel hierboven, text-overflow moet hier expliciet bij. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* [Weergave] 2×2 grid (fase 2.10 UX-fix): de 4 kleine knoppen (Kolommen/Filter/
