@@ -35,8 +35,11 @@ import { ensureFreshSchedule } from '../staleGuard';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { computeMoveDelta } from '@/engine/moveProject';
 import { diffDays } from '@/utils/dateUtils';
+import { deriveHoursPerDay, workDaysFromBands } from '@/services/subdayIo';
+import { durationDaysOf, type DurationCalendar } from '@/engine/scheduler/duration';
 import type { GeneratorCountry, HolidayGenParams } from '@/engine/calendar/generateCalendarHolidays';
-import type { Holiday, WorkCalendar } from '@/types/calendar';
+import type { CalendarGeneration, Holiday, WorkCalendar, WorkTimeBands } from '@/types/calendar';
+import type { Task } from '@/types/task';
 import type { ResourceCurve } from '@/types/resource';
 import type { Project } from '@/types/project';
 import type { LevelingOptions, LevelingResult } from '@/engine/scheduler/ResourceLeveler';
@@ -93,6 +96,15 @@ interface CalendarItem {
   workStartHour?: number;
   workEndHour?: number;
   hoursPerDay?: number;
+  /** UUR-kalender: werktijdbanden per ISO-weekdag in MINUTEN-vanaf-middernacht. `null` ⇒ terug naar
+   *  een DAG-kalender. Exact de leesvorm van `get_calendars`. */
+  workTime?: WorkTimeBands | null;
+  /** Ploeg-classificatie (IFC `PredefinedType`). `null` ⇒ wissen. Leesvorm van `get_calendars`. */
+  shift?: WorkCalendar['shift'] | null;
+  /** Herkomst-metadata IN DE LEESVORM (`ruleSetId`/`breakChoice`/jaren). `null` ⇒ wissen. */
+  generation?: CalendarGeneration | null;
+  /** De VOLLEDIGE feestdagenlijst in de leesvorm van `get_calendars`; vervangt de lijst exact. */
+  holidays?: Holiday[];
   generate?: HolidayGenParams;
   rawHolidays?: Holiday[];
   /** `merge` (default) = rauwe dagen TOEVOEGEN; `replace` = de lijst exact vervangen (verwijderen). */
@@ -102,8 +114,25 @@ interface CalendarItem {
 /** Velden die een item BETEKENISVOL maken; een update-item zonder één hiervan is een no-op-weigering.
  *  `holidaysMode` staat er BEWUST niet bij: een modus zonder `rawHolidays` verandert niets. */
 const CAL_FIELD_KEYS: (keyof CalendarItem)[] = [
-  'name', 'description', 'workDays', 'workStartHour', 'workEndHour', 'hoursPerDay', 'generate', 'rawHolidays',
+  'name', 'description', 'workDays', 'workStartHour', 'workEndHour', 'hoursPerDay',
+  'workTime', 'shift', 'generation', 'holidays', 'generate', 'rawHolidays',
 ];
+
+/**
+ * Elke sleutel die een kalender-item KENT (allowlist, patroon `PROJECT_KEYS`/K7). Een onbekende
+ * sleutel wordt zacht geweigerd MÉT de lijst erbij — nooit stil weggegooid.
+ */
+const CAL_ITEM_KEYS: string[] = ['id', 'create', ...(CAL_FIELD_KEYS as string[]), 'holidaysMode'];
+
+/**
+ * AFGELEIDE, ALLEEN-LEES velden uit `get_calendars`. Ze zijn geen kalenderdata maar een berekening
+ * over het BRONdocument (is het de projectdefault? hoeveel taken/resources hangen eraan?), dus ze
+ * betekenen niets in het doeldocument. Ze worden geaccepteerd — anders zou een lezing niet
+ * LETTERLIJK terug te schrijven zijn — maar expliciet gemeld als `ignoredFields` per rij, nooit stil
+ * geslikt. Wisselen van projectkalender doe je met de app; `update_project.calendarId` weigert dat
+ * met een verwijzing (zie PROJECT_REFUSED).
+ */
+const CAL_READONLY_KEYS: string[] = ['isProjectDefault', 'usedByTasks', 'usedByResources'];
 
 // ── Invoervalidatie (auditbevindingen K6 + H7) ───────────────────────────────────────────────────
 //
@@ -119,11 +148,196 @@ const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
+// ── H5 — DE KALENDER MOET ÉCHT OVERZETBAAR ZIJN ──────────────────────────────────────────────────
+//
+// `get_calendars` belooft "de VOLLEDIGE WorkCalendar-definitie … genoeg om een kalender in een ANDER
+// document te herbouwen" en levert dat ook (spread van `...cal`). De schrijfkant kende drie van die
+// velden niet: `workTime` (uurbanden), `shift` (ploeg) en `generation` — die laatste zelfs onder
+// ANDERE sleutelnamen (`generate: {country, region, bouwvak}` tegenover de leesvorm
+// `{ruleSetId, region, breakChoice, …}`). Een uurkalender bouwde in het doeldocument dus stil op als
+// DAG-kalender, en dat herdefinieert de duur van elke taak eraan (zie `duration.ts`: `durationMinutes`
+// telt UITSLUITEND op een uur-kalender). Sindsdien:
+//
+//   RICHTING VAN DE NAAMDRIFT — de SCHRIJFKANT accepteert de LEESVORM, de leeskant blijft zoals hij
+//   is. `generation` IS het opgeslagen modelveld (`WorkCalendar.generation`, round-trippend door
+//   IFC); de leeskant hernoemen zou liegen over het model. `generate` is geen veld maar een
+//   ACTIE-parameter: "draai de generator hier, over de spanne van DIT project". Ze betekenen ook
+//   iets anders — `generate` materialiseert nieuwe dagen over de doel-projectspanne, `generation`
+//   schrijft alleen de herkomst van de dagen die je meestuurt. Beide bestaan dus naast elkaar; ze
+//   samen opgeven is tegenstrijdig en wordt geweigerd.
+//
+// Zelfde redenering voor `holidays`: dat is de leesvorm van de GEMATERIALISEERDE lijst en betekent
+// hier "zet de lijst exact hierop" (mergen zou bij een `create` de app-default-feestdagen met de
+// bronlijst verenigen — stille corruptie).
+
+const WEEKDAY_KEYS = ['1', '2', '3', '4', '5', '6', '7'];
+const MIN_PER_DAY = 1440;
+const SHIFT_VALUES = ['FIRST', 'SECOND', 'THIRD', 'USERDEFINED'];
+/** `CalendarGeneration.ruleSetId` is een HolidayCountry — dus ZONDER de generator-waarde 'none'. */
+const GEN_RULESETS = GEN_COUNTRIES.filter((c) => c !== 'none');
+const BREAK_CHOICES = ['noord', 'midden', 'zuid'];
+
+/** `minuten-vanaf-middernacht` leesbaar maken in een foutmelding (1800 ⇒ '06:00 van de volgende dag'). */
+function clockLabel(min: number): string {
+  const wrapped = min >= MIN_PER_DAY;
+  const m = ((min % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY;
+  const hh = String(Math.floor(m / 60)).padStart(2, '0');
+  const mm = String(Math.round(m % 60)).padStart(2, '0');
+  return `${hh}:${mm}${wrapped ? ' (volgende dag)' : ''}`;
+}
+
+/** Vormvalidatie van een feestdagenlijst (gedeeld door `rawHolidays` en `holidays`). */
+function holidayListReason(list: unknown, field: string): string | null {
+  if (!Array.isArray(list)) return `\`${field}\` moet een array zijn`;
+  for (const h of list as unknown[]) {
+    if (!h || typeof h !== 'object' || Array.isArray(h)) return `elk item in \`${field}\` moet een object zijn`;
+    const hh = h as Record<string, unknown>;
+    if (typeof hh.name !== 'string' || hh.name === '') return `elke \`${field}\`-uitzondering vereist een niet-lege \`name\``;
+    for (const k of ['startDate', 'endDate'] as const) {
+      if (typeof hh[k] !== 'string' || !ISO_DATE_ONLY.test(hh[k] as string)) {
+        return `\`${field}.${k}\` moet een ISO-datum zijn (JJJJ-MM-DD), kreeg '${String(hh[k])}'`;
+      }
+    }
+    if ((hh.endDate as string) < (hh.startDate as string)) {
+      return `\`${field}\`: endDate '${String(hh.endDate)}' ligt vóór startDate '${String(hh.startDate)}'`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Vormvalidatie van `workTime` (uurbanden). STRENG met opzet: een half toegepaste uurkalender is
+ * erger dan een weigering, want elke duur van elke taak op deze kalender hangt eraan.
+ *
+ * Regels (spiegelen `WorkTimeBands` in `src/types/calendar.ts` en `canonicalizeBands`):
+ *   - `byWeekday` bevat ALLE dagen 1..7 — een gedeeltelijke opgave zou de ontbrekende dagen stil
+ *     niet-werkend maken (dit is de gevaarlijkste stille no-op die dit veld kan hebben);
+ *   - band = `[start, end)` in minuten-vanaf-middernacht van de STARTdag: `0 ≤ start < 1440`,
+ *     `start < end ≤ 2880`. Een dienst over middernacht telt DOOR (22:00→06:00 = 1320→1800); een
+ *     niet-oplopende band wordt NIET stil als wrap geïnterpreteerd maar geweigerd;
+ *   - banden per dag oplopend en niet-overlappend, en de staart van een wrap-band mag niet over de
+ *     eerste band van de volgende dag heen lopen.
+ */
+function workTimeReason(wt: unknown): string | null {
+  if (!wt || typeof wt !== 'object' || Array.isArray(wt)) {
+    return '`workTime` moet een object zijn met `byWeekday` (of `null` om terug te gaan naar een DAG-kalender)';
+  }
+  for (const k of Object.keys(wt)) {
+    if (k !== 'byWeekday') return `onbekend veld \`workTime.${k}\`; \`workTime\` kent alleen \`byWeekday\``;
+  }
+  const bw = (wt as { byWeekday?: unknown }).byWeekday;
+  if (!bw || typeof bw !== 'object' || Array.isArray(bw)) {
+    return '`workTime.byWeekday` moet een object zijn met de weekdagsleutels "1" t/m "7" (1 = maandag … 7 = zondag)';
+  }
+  const rec = bw as Record<string, unknown>;
+  for (const k of Object.keys(rec)) {
+    if (!WEEKDAY_KEYS.includes(k)) {
+      return `onbekende dagsleutel \`workTime.byWeekday.${k}\`; geldige sleutels zijn "1" t/m "7" (1 = maandag … 7 = zondag)`;
+    }
+  }
+  const missing = WEEKDAY_KEYS.filter((k) => rec[k] === undefined);
+  if (missing.length > 0) {
+    return `\`workTime.byWeekday\` moet ALLE weekdagen "1" t/m "7" bevatten (ontbreekt: ${missing.join(', ')}); ` +
+      'een dag met een lege lijst [] is niet-werkend. Een gedeeltelijke opgave zou de ontbrekende dagen ' +
+      'STIL niet-werkend maken — geef de volledige week (bijv. een lezing van planner_get_calendars).';
+  }
+  const firstBandOf = (key: string): { start: number; end: number } | undefined => {
+    const l = rec[key];
+    return Array.isArray(l) && l.length > 0 ? (l[0] as { start: number; end: number }) : undefined;
+  };
+  for (const key of WEEKDAY_KEYS) {
+    const list = rec[key];
+    if (!Array.isArray(list)) return `\`workTime.byWeekday.${key}\` moet een array van banden zijn ([] = niet-werkende dag)`;
+    let prevEnd = -1;
+    for (const raw of list as unknown[]) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return `elke band in \`workTime.byWeekday.${key}\` moet een object {start, end} zijn (minuten vanaf middernacht)`;
+      }
+      const b = raw as Record<string, unknown>;
+      for (const k of Object.keys(b)) {
+        if (k !== 'start' && k !== 'end') return `onbekend veld \`workTime.byWeekday.${key}[].${k}\`; een band kent alleen \`start\` en \`end\``;
+      }
+      if (!isFiniteNumber(b.start) || !isFiniteNumber(b.end)) {
+        return `\`workTime.byWeekday.${key}\`: \`start\` en \`end\` moeten getallen zijn in MINUTEN vanaf middernacht (07:00 = 420)`;
+      }
+      const start = b.start;
+      const end = b.end;
+      if (start < 0 || start >= MIN_PER_DAY) {
+        return `\`workTime.byWeekday.${key}\`: \`start\` ${start} valt buiten de dag; geldig is 0 t/m 1439 minuten vanaf middernacht (0:00–23:59)`;
+      }
+      if (end <= start) {
+        return `\`workTime.byWeekday.${key}\`: \`end\` ${end} (${clockLabel(end)}) ligt niet ná \`start\` ${start} (${clockLabel(start)}). ` +
+          'Een dienst over middernacht telt DOOR in minuten: 22:00→06:00 is start 1320, end 1800 — niet 1320→360.';
+      }
+      if (end > 2 * MIN_PER_DAY) {
+        return `\`workTime.byWeekday.${key}\`: \`end\` ${end} overschrijdt 2880 (een band mag hoogstens 24 uur na middernacht van de startdag eindigen)`;
+      }
+      if (start < prevEnd) {
+        return `\`workTime.byWeekday.${key}\`: de banden overlappen of staan niet op volgorde (band vanaf ${clockLabel(start)} begint vóór het einde ${clockLabel(prevEnd)} van de vorige); geef ze oplopend en niet-overlappend`;
+      }
+      prevEnd = end;
+    }
+    // Wrap-staart mag niet over de eerste band van de VOLGENDE dag heen lopen (7 wrapt naar 1).
+    if (prevEnd > MIN_PER_DAY) {
+      const nextKey = key === '7' ? '1' : String(Number(key) + 1);
+      const next = firstBandOf(nextKey);
+      if (next && isFiniteNumber(next.start) && next.start < prevEnd - MIN_PER_DAY) {
+        return `\`workTime.byWeekday.${key}\`: de band loopt door tot ${clockLabel(prevEnd)} en overlapt de eerste band van dag ${nextKey} (${clockLabel(next.start)})`;
+      }
+    }
+  }
+  return null;
+}
+
+/** Vormvalidatie van `generation` (de LEESVORM van de herkomst-metadata). */
+function generationReason(gen: unknown): string | null {
+  if (!gen || typeof gen !== 'object' || Array.isArray(gen)) {
+    return '`generation` moet een object zijn zoals get_calendars het teruggeeft ' +
+      '(`ruleSetId`, optioneel `region`/`breakChoice`, `generatedFromYear`, `generatedToYear`), of `null` om de herkomst te wissen';
+  }
+  const g = gen as Record<string, unknown>;
+  const allowed = ['ruleSetId', 'region', 'breakChoice', 'generatedFromYear', 'generatedToYear'];
+  for (const k of Object.keys(g)) {
+    if (!allowed.includes(k)) {
+      if (k === 'country' || k === 'bouwvak') {
+        return `\`generation.${k}\` bestaat niet; dat zijn de sleutels van \`generate\` (de GENERATOR). ` +
+          'In `generation` (de leesvorm) heten ze `ruleSetId` en `breakChoice`.';
+      }
+      return `onbekend veld \`generation.${k}\`; toegestaan: ${allowed.join(', ')}`;
+    }
+  }
+  if (!(GEN_RULESETS as string[]).includes(g.ruleSetId as string)) {
+    return `onbekende \`generation.ruleSetId\` '${String(g.ruleSetId)}'; geldige waarden zijn ${GEN_RULESETS.join(', ')} ` +
+      "(hoofdlettergevoelig; 'none' bestaat hier niet — laat `generation` weg of geef `null` voor een letterlijke kalender)";
+  }
+  if (g.region !== undefined && typeof g.region !== 'string') return '`generation.region` moet een string zijn';
+  if (g.breakChoice !== undefined && !BREAK_CHOICES.includes(g.breakChoice as string)) {
+    return `onbekende \`generation.breakChoice\` '${String(g.breakChoice)}'; geldige waarden zijn ${BREAK_CHOICES.join(', ')} ` +
+      '(géén bouwvak = het veld weglaten)';
+  }
+  for (const k of ['generatedFromYear', 'generatedToYear'] as const) {
+    if (!Number.isInteger(g[k]) || (g[k] as number) < 1000 || (g[k] as number) > 9999) {
+      return `\`generation.${k}\` moet een jaartal zijn (geheel getal, 1000–9999), kreeg '${String(g[k])}'`;
+    }
+  }
+  if ((g.generatedToYear as number) < (g.generatedFromYear as number)) {
+    return `\`generation.generatedToYear\` (${String(g.generatedToYear)}) ligt vóór \`generatedFromYear\` (${String(g.generatedFromYear)})`;
+  }
+  return null;
+}
+
 /**
  * Vormvalidatie van één kalender-item. Retourneert een leesbare weigeringsreden of `null`.
  * Elke weigering NOEMT de geldige verzameling, zodat de AI zich in één ronde kan corrigeren.
  */
 function calendarItemReason(item: CalendarItem): string | null {
+  // K7-patroon: onbekende sleutels ketsen af MÉT de toegestane lijst; de afgeleide leesvelden van
+  // get_calendars worden geaccepteerd (en verderop als `ignoredFields` gemeld).
+  for (const key of Object.keys(item)) {
+    if (CAL_ITEM_KEYS.includes(key) || CAL_READONLY_KEYS.includes(key)) continue;
+    return `onbekend veld \`${key}\`; een kalender-item kent alleen: ${CAL_ITEM_KEYS.join(', ')} ` +
+      `(de afgeleide leesvelden ${CAL_READONLY_KEYS.join(', ')} mogen mee maar worden genegeerd)`;
+  }
   if (item.name !== undefined && typeof item.name !== 'string') return '`name` moet een string zijn';
   if (item.description !== undefined && typeof item.description !== 'string') return '`description` moet een string zijn';
   if (item.workDays !== undefined) {
@@ -133,6 +347,42 @@ function calendarItemReason(item: CalendarItem): string | null {
   }
   for (const k of ['workStartHour', 'workEndHour', 'hoursPerDay'] as const) {
     if (item[k] !== undefined && !isFiniteNumber(item[k])) return `\`${k}\` moet een getal in UREN zijn`;
+  }
+
+  // ── Uur-kalender: banden + ploeg ──────────────────────────────────────────────────────────────
+  if (item.workTime !== undefined && item.workTime !== null) {
+    const bad = workTimeReason(item.workTime);
+    if (bad) return bad;
+  }
+  if (item.shift !== undefined && item.shift !== null && !SHIFT_VALUES.includes(item.shift)) {
+    return `onbekende \`shift\` '${String(item.shift)}'; geldige waarden zijn ${SHIFT_VALUES.join(', ')} ` +
+      '(hoofdlettergevoelig; `null` wist de ploeg-classificatie)';
+  }
+
+  // ── Herkomst + feestdagen: één bron tegelijk ──────────────────────────────────────────────────
+  if (item.generation !== undefined && item.generation !== null) {
+    const bad = generationReason(item.generation);
+    if (bad) return bad;
+  }
+  if (item.generation !== undefined && item.generate !== undefined) {
+    return 'geef `generate` OF `generation`, niet allebei: `generate` DRAAIT de generator over de ' +
+      'projectspanne van dit document (en zet de herkomst zelf), terwijl `generation` alleen de ' +
+      'herkomst-metadata schrijft bij feestdagen die je meestuurt';
+  }
+  if (item.holidays !== undefined) {
+    const bad = holidayListReason(item.holidays, 'holidays');
+    if (bad) return bad;
+    if (item.rawHolidays !== undefined) {
+      return 'geef `holidays` OF `rawHolidays`, niet allebei: `holidays` zet de VOLLEDIGE lijst exact ' +
+        '(de leesvorm van get_calendars), `rawHolidays` voegt losse uitzonderingen toe';
+    }
+    if (item.holidaysMode !== undefined) {
+      return '`holidaysMode` hoort bij `rawHolidays`; `holidays` vervangt de lijst per definitie exact';
+    }
+    if (item.generate !== undefined) {
+      return 'geef `holidays` OF `generate`, niet allebei: de generator zou de meegestuurde lijst ' +
+        'meteen overschrijven met dagen over de projectspanne van DIT document';
+    }
   }
 
   if (item.generate !== undefined) {
@@ -167,18 +417,20 @@ function calendarItemReason(item: CalendarItem): string | null {
       return 'een lege `rawHolidays` verandert niets in de standaard TOEVOEG-modus; gebruik ' +
         '`holidaysMode: "replace"` om de feestdagenlijst te vervangen of te wissen';
     }
-    for (const h of item.rawHolidays as unknown[]) {
-      if (!h || typeof h !== 'object' || Array.isArray(h)) return 'elk item in `rawHolidays` moet een object zijn';
-      const hh = h as Record<string, unknown>;
-      if (typeof hh.name !== 'string' || hh.name === '') return 'elke `rawHolidays`-uitzondering vereist een niet-lege `name`';
-      for (const k of ['startDate', 'endDate'] as const) {
-        if (typeof hh[k] !== 'string' || !ISO_DATE_ONLY.test(hh[k] as string)) {
-          return `\`rawHolidays.${k}\` moet een ISO-datum zijn (JJJJ-MM-DD), kreeg '${String(hh[k])}'`;
-        }
-      }
-      if ((hh.endDate as string) < (hh.startDate as string)) {
-        return `\`rawHolidays\`: endDate '${String(hh.endDate)}' ligt vóór startDate '${String(hh.startDate)}'`;
-      }
+    const bad = holidayListReason(item.rawHolidays, 'rawHolidays');
+    if (bad) return bad;
+  }
+
+  // ── Dag↔uur-consistentie: `workDays` volgt de banden (zoals de kalenderdialoog) ────────────────
+  // De banden-editor leidt `workDays` áltijd af uit de banden (`CalendarForm.applyBands`). Twee
+  // tegenstrijdige bronnen in één item zouden een kalender opleveren waarin de solver op dag k wél
+  // een werkdag ziet (`isWorkDay` leest `workDays`) maar geen enkele band kan materialiseren.
+  if (item.workTime !== undefined && item.workTime !== null && item.workDays !== undefined) {
+    const derived = workDaysFromBands(item.workTime).join(',');
+    const given = [...item.workDays].sort((a, b) => a - b).join(',');
+    if (derived !== given) {
+      return `\`workDays\` (${given || 'leeg'}) spreekt \`workTime\` tegen: de banden leveren werkdagen ${derived || 'leeg'}. ` +
+        'Laat `workDays` weg (hij wordt uit de banden afgeleid) of maak beide gelijk.';
     }
   }
   return null;
@@ -214,7 +466,10 @@ function classifyCalendars(s: StoreState, items: CalendarItem[]): { plans: Calen
     const hasFields = CAL_FIELD_KEYS.some((k) => item[k] !== undefined);
     if (inLibrary || isProjectCal) {
       if (!hasFields) {
-        rejections.push({ id: item.id, reason: 'geen wijzigingen opgegeven (naam/werkdagen/uren/generate/rawHolidays)' });
+        rejections.push({
+          id: item.id,
+          reason: `geen wijzigingen opgegeven; een item moet minstens één van deze velden dragen: ${CAL_FIELD_KEYS.join(', ')}`,
+        });
         continue;
       }
       plans.push({ mode: 'update', item, targetId: item.id, needsPromotion: !inLibrary });
@@ -242,16 +497,77 @@ function calendarSpan(s: StoreState, forCreate: boolean): { projectStart: string
   };
 }
 
-/** De scalaire (niet-holiday) velden van een item als `Partial<WorkCalendar>`. */
-function calendarFieldPatch(item: CalendarItem): Partial<WorkCalendar> {
+/** Diepe kopie van de banden (alle zeven dagsleutels; de validatie eist ze) — er belandt nooit een
+ *  door de aanroeper vastgehouden object in de store. */
+function cloneBands(wt: WorkTimeBands): WorkTimeBands {
+  const byWeekday = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } as WorkTimeBands['byWeekday'];
+  for (let wd = 1 as 1 | 2 | 3 | 4 | 5 | 6 | 7; wd <= 7; wd = (wd + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7) {
+    byWeekday[wd] = (wt.byWeekday[wd] ?? []).map((b) => ({ start: b.start, end: b.end }));
+  }
+  return { byWeekday };
+}
+
+/** De scalaire (niet-holiday) velden van een item als `Partial<WorkCalendar>`. `existing` levert de
+ *  fallback voor de afgeleide `hoursPerDay` (bij `create` de app-default-basis). */
+function calendarFieldPatch(item: CalendarItem, existing: Pick<WorkCalendar, 'hoursPerDay'>): Partial<WorkCalendar> {
   const patch: Partial<WorkCalendar> = {};
   if (item.name !== undefined) patch.name = item.name;
   if (item.description !== undefined) patch.description = item.description;
-  if (item.workDays !== undefined) patch.workDays = item.workDays;
+  if (item.workDays !== undefined) patch.workDays = [...item.workDays];
   if (item.workStartHour !== undefined) patch.workStartHour = item.workStartHour;
   if (item.workEndHour !== undefined) patch.workEndHour = item.workEndHour;
   if (item.hoursPerDay !== undefined) patch.hoursPerDay = item.hoursPerDay;
+  if (item.workTime !== undefined && item.workTime !== null) {
+    const bands = cloneBands(item.workTime);
+    patch.workTime = bands;
+    // Spiegelt `CalendarForm.applyBands` (de kalenderdialoog): werkdagen én netto uren volgen de
+    // banden. Zijn ze expliciet meegegeven (een letterlijke lezing stuurt ze mee), dan is die opgave
+    // leidend — `calendarItemReason` heeft dan al vastgesteld dat `workDays` de banden niet tegenspreekt.
+    if (item.workDays === undefined) patch.workDays = workDaysFromBands(bands);
+    if (item.hoursPerDay === undefined) patch.hoursPerDay = deriveHoursPerDay(bands, existing.hoursPerDay);
+  }
+  if (item.shift !== undefined && item.shift !== null) patch.shift = item.shift;
   return patch;
+}
+
+// ── Dag↔uur-omschakeling: de duur-gevolgen ZICHTBAAR maken ───────────────────────────────────────
+//
+// `durationMinutes` is bron van waarheid UITSLUITEND op een uur-kalender (`duration.ts`, invariant
+// Bevinding 2). Een kalender van dag- naar uur-modus brengen (of terug) HERDEFINIEERT dus de duur van
+// elke taak die eraan hangt — inclusief álle taken zonder eigen `calendarId` zodra het de
+// projectkalender betreft. De kalenderdialoog doet die omschakeling zonder één woord; hier mag dat
+// niet stil gebeuren: de respons draagt per taak de oude en de nieuwe effectieve duur.
+
+/** Het `DurationCalendar`-contract van een kalender-object: uur-modus zodra `workTime` bestaat, met
+ *  de MODALE band-som als `hoursPerDay` — exact wat `CalendarEngine` intern doet. */
+function durationCalOf(cal: Pick<WorkCalendar, 'workTime' | 'hoursPerDay'>): DurationCalendar {
+  return cal.workTime
+    ? { isHourMode: true, hoursPerDay: deriveHoursPerDay(cal.workTime, cal.hoursPerDay) }
+    : { isHourMode: false, hoursPerDay: cal.hoursPerDay };
+}
+
+/** De taken wier EFFECTIEVE kalender `calId` is; taken zónder eigen kalender vallen terug op de
+ *  projectkalender, dus die tellen mee zodra `calId` de projectkalender is. */
+function tasksOnCalendar(s: StoreState, calId: string): Task[] {
+  const isProjectCal = calId === s.calendar.id;
+  return s.tasks.filter((t) => (t.calendarId ? t.calendarId === calId : isProjectCal));
+}
+
+const round3 = (v: number): number => Math.round(v * 1000) / 1000;
+
+/** Taken wier effectieve duur (in eigen-kalender-werkdagen) door de wijziging verandert. */
+function durationEffects(
+  tasks: Task[],
+  before: DurationCalendar,
+  after: DurationCalendar,
+): { taskId: string; name: string; beforeDays: number; afterDays: number }[] {
+  const rows: { taskId: string; name: string; beforeDays: number; afterDays: number }[] = [];
+  for (const t of tasks) {
+    const b = round3(durationDaysOf(t, before));
+    const a = round3(durationDaysOf(t, after));
+    if (b !== a) rows.push({ taskId: t.id, name: t.name, beforeDays: b, afterDays: a });
+  }
+  return rows;
 }
 
 /**
@@ -274,6 +590,15 @@ function resolveHolidaysForItem(
   span: { projectStart: string; projectEnd: string },
   existing: Pick<WorkCalendar, 'holidays' | 'generation'>,
 ): { holidays: Holiday[]; generation?: WorkCalendar['generation']; becameLiteral: boolean } {
+  // (H5) LETTERLIJKE OVERDRACHT — `holidays` is de leesvorm van get_calendars en betekent "zet de
+  // lijst exact hierop". Bewust NIET mergend: bij een `create` zou de app-default-feestdagenset zich
+  // stil met de bronlijst verenigen. Komt er een `generation` mee, dan blijft de kalender
+  // gegenereerd (de herkomst reist mee); anders is de overgezette lijst per definitie letterlijk.
+  if (item.holidays !== undefined) {
+    const holidays = [...item.holidays].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (item.generation !== undefined) return { holidays, becameLiteral: false };
+    return { holidays, becameLiteral: existing.generation !== undefined };
+  }
   if (item.holidaysMode === 'replace' && item.generate === undefined) {
     const holidays = [...(item.rawHolidays ?? [])].sort((a, b) => a.startDate.localeCompare(b.startDate));
     return { holidays, becameLiteral: existing.generation !== undefined };
@@ -296,13 +621,24 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
     const rows: Record<string, unknown>[] = [];
     for (const plan of plans) {
       const item = plan.item;
-      const wantsHolidays = item.generate !== undefined || item.rawHolidays !== undefined;
+      const wantsHolidays =
+        item.generate !== undefined || item.rawHolidays !== undefined || item.holidays !== undefined;
+      // De afgeleide leesvelden van get_calendars mogen mee, maar worden gemeld i.p.v. stil geslikt.
+      const ignoredFields = CAL_READONLY_KEYS.filter((k) => k in (item as unknown as Record<string, unknown>));
 
       if (plan.mode === 'create') {
         // Basis = de app-default (ma-vr 07-16); de opgegeven velden overschrijven hem. Het id van
         // de default wordt weggegooid: draft.addCalendar genereert een vers, document-lokaal id.
         const { id: _ignored, ...base } = createDefaultCalendar();
-        const cal: Omit<WorkCalendar, 'id'> = { ...base, name: item.name ?? 'Nieuwe kalender', ...calendarFieldPatch(item) };
+        const cal: Omit<WorkCalendar, 'id'> = {
+          ...base,
+          name: item.name ?? 'Nieuwe kalender',
+          ...calendarFieldPatch(item, base),
+        };
+        // Een verse kalender erft de dag-vorm van de app-default; een expliciete `workTime: null`
+        // (of het ontbreken van banden in de lezing) hoort geen uur-kalender op te leveren.
+        if (item.workTime === null) delete cal.workTime;
+        if (item.shift === null) delete cal.shift;
         let becameLiteral = false;
         if (wantsHolidays) {
           const r = resolveHolidaysForItem(
@@ -318,6 +654,9 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
           else delete cal.generation;
           becameLiteral = r.becameLiteral;
         }
+        // Expliciete herkomst (de leesvorm) wint altijd — ook zonder feestdagen-opgave.
+        if (item.generation === null) delete cal.generation;
+        else if (item.generation !== undefined) cal.generation = { ...item.generation };
         const newId = draft.addCalendar(cal);
         // M7 — MAAK DE GEËRFDE FEESTDAGEN ZICHTBAAR. De basis is `createDefaultCalendar()`, en die
         // levert in bouwmodus (de default) een VOLLEDIGE NL-feestdagenset mét `generation`. Een
@@ -326,11 +665,19 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
         // handler zet er bovendien een waarschuwing bij.
         const holidaysFrom = item.generate !== undefined
           ? 'generate'
-          : item.rawHolidays !== undefined ? 'rawHolidays' : 'app-default';
+          : item.holidays !== undefined
+            ? 'holidays'
+            : item.rawHolidays !== undefined ? 'rawHolidays' : 'app-default';
+        const created = useAppStore.getState().calendars.find((c) => c.id === newId)!;
+        const createdDur = durationCalOf(created);
         rows.push({
           id: newId, requestedId: item.id, created: true, promoted: false, becameLiteral,
           holidayCount: cal.holidays.length,
           holidaysFrom,
+          mode: createdDur.isHourMode ? 'hour' : 'day',
+          hoursPerDayEffective: createdDur.hoursPerDay,
+          ...(created.shift ? { shift: created.shift } : {}),
+          ...(ignoredFields.length > 0 ? { ignoredFields } : {}),
         });
         continue;
       }
@@ -348,8 +695,13 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
         // Kan alleen bij een defect in de promotie — harde stap-fout i.p.v. stil doorgaan.
         throw new McpStepError('NOT_FOUND', `kalender '${plan.targetId}' bestaat niet (na promotie)`);
       }
-      const updates = calendarFieldPatch(item) as Partial<WorkCalendar>;
+      // Duur-ijkpunt VÓÓR de mutatie (primitieven, dus veilig over de Immer-producer heen).
+      const beforeDur = durationCalOf(existing);
+      const updates = calendarFieldPatch(item, existing) as Partial<WorkCalendar>;
       let becameLiteral = false;
+      // `draft.updateCalendar` doet een Object.assign en kan dus geen sleutel VERWIJDEREN; alles wat
+      // weg moet (herkomst, banden, ploeg) verzamelen we hier en wissen we in één gerichte producer.
+      const dropKeys: ('generation' | 'workTime' | 'shift')[] = [];
       let dropGeneration = false;
       if (wantsHolidays) {
         const r = resolveHolidaysForItem(
@@ -360,16 +712,30 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
         updates.holidays = r.holidays;
         if (r.generation !== undefined) updates.generation = r.generation;
         // Bij `becameLiteral` MOET de bestaande herkomst weg (anders zou een regenerate later de
-        // rauwe dagen wegvagen). `draft.updateCalendar` doet een Object.assign en kan dus geen
-        // sleutel verwijderen — vandaar de gerichte `delete` hieronder i.p.v. `= undefined`.
+        // rauwe dagen wegvagen).
         else dropGeneration = existing.generation !== undefined;
         becameLiteral = r.becameLiteral;
       }
+      // Expliciete herkomst (leesvorm) wint van wat de holiday-resolutie afleidde. LET OP de
+      // volgorde: dit moet de `dropGeneration` van hierboven kunnen HERROEPEN — anders wist de
+      // wis-producer verderop de zojuist meegestuurde herkomst weer (de letterlijke overdracht
+      // `holidays` + `generation` viel precies in dat gat).
+      if (item.generation === null) {
+        dropGeneration = existing.generation !== undefined;
+        delete updates.generation;
+      } else if (item.generation !== undefined) {
+        updates.generation = { ...item.generation };
+        dropGeneration = false;
+      }
+      if (dropGeneration) dropKeys.push('generation');
+      if (item.workTime === null && existing.workTime !== undefined) dropKeys.push('workTime');
+      if (item.shift === null && existing.shift !== undefined) dropKeys.push('shift');
+
       draft.updateCalendar(plan.targetId, updates);
-      if (dropGeneration) {
+      if (dropKeys.length > 0) {
         useAppStore.setState((s) => {
           const idx = s.calendars.findIndex((c) => c.id === plan.targetId);
-          if (idx >= 0) delete s.calendars[idx].generation;
+          if (idx >= 0) for (const k of dropKeys) delete s.calendars[idx][k];
           // De gedenormaliseerde projectkalender-cache moet de entry blijven volgen (§9.1);
           // `draft.updateCalendar` synct zelf, maar deze extra producer maakt een nieuw
           // entry-object en zou de cache anders op het oude object laten wijzen.
@@ -377,10 +743,71 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
           s.isDirty = true;
         });
       }
-      rows.push({ id: plan.targetId, created: false, promoted, becameLiteral });
+
+      // Duur-gevolgen ná de mutatie, tegen de VERSE kalender + de (onaangeroerde) taken.
+      const sAfter = useAppStore.getState();
+      const updated = sAfter.calendars.find((c) => c.id === plan.targetId)!;
+      const afterDur = durationCalOf(updated);
+      const effects = durationEffects(tasksOnCalendar(sAfter, plan.targetId), beforeDur, afterDur);
+      rows.push({
+        id: plan.targetId, created: false, promoted, becameLiteral,
+        mode: afterDur.isHourMode ? 'hour' : 'day',
+        ...(beforeDur.isHourMode !== afterDur.isHourMode
+          ? { modeChangedFrom: beforeDur.isHourMode ? 'hour' : 'day' }
+          : {}),
+        hoursPerDayEffective: afterDur.hoursPerDay,
+        ...(updated.shift ? { shift: updated.shift } : {}),
+        ...(effects.length > 0
+          ? { durationChangedTaskCount: effects.length, durationEffects: effects.slice(0, 50) }
+          : {}),
+        ...(ignoredFields.length > 0 ? { ignoredFields } : {}),
+      });
     }
     return { data: { calendars: rows }, itemRejections: rejections };
 }
+
+/** Eén weekdag in het `workTime.byWeekday`-schema (7× identiek; `[]` = niet-werkende dag). */
+const WORKTIME_DAY_SCHEMA = {
+  type: 'array',
+  description:
+    'Werktijdbanden van deze weekdag, oplopend en niet-overlappend. Lege lijst = niet-werkende dag.',
+  items: {
+    type: 'object',
+    required: ['start', 'end'],
+    properties: {
+      start: { type: 'number', minimum: 0, maximum: 1439, description: 'Begin in MINUTEN vanaf middernacht (07:00 = 420).' },
+      end: { type: 'number', minimum: 1, maximum: 2880, description: 'Einde in MINUTEN vanaf middernacht van de STARTdag; over middernacht telt door (22:00→06:00 = 1800). Moet groter zijn dan `start`.' },
+    },
+  },
+} as const;
+
+const WORKTIME_SCHEMA = {
+  type: ['object', 'null'],
+  description:
+    'UUR-kalender: werktijdbanden per ISO-weekdag in minuten vanaf middernacht. `null` = terug naar een ' +
+    'DAG-kalender. LET OP: dit herdefinieert de duur van elke taak op deze kalender (zie de beschrijving).',
+  properties: {
+    byWeekday: {
+      type: 'object',
+      description: 'Alle zeven weekdagen ("1" = maandag … "7" = zondag) — een gedeeltelijke opgave wordt geweigerd.',
+      properties: {
+        '1': WORKTIME_DAY_SCHEMA, '2': WORKTIME_DAY_SCHEMA, '3': WORKTIME_DAY_SCHEMA, '4': WORKTIME_DAY_SCHEMA,
+        '5': WORKTIME_DAY_SCHEMA, '6': WORKTIME_DAY_SCHEMA, '7': WORKTIME_DAY_SCHEMA,
+      },
+    },
+  },
+} as const;
+
+/** Feestdag-item; gedeeld door `rawHolidays` (toevoegen) en `holidays` (exact vervangen). */
+const HOLIDAY_ITEM_SCHEMA = {
+  type: 'object',
+  required: ['name', 'startDate', 'endDate'],
+  properties: {
+    name: { type: 'string' },
+    startDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD), inclusief.' },
+    endDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD), inclusief.' },
+  },
+} as const;
 
 const updateCalendar: BatchStepTool = {
   name: 'planner_update_calendar',
@@ -398,12 +825,33 @@ const updateCalendar: BatchStepTool = {
     'toevoeg-modus wordt zacht geweigerd, want die zou niets doen. Worden er rauwe dagen gezet, dan ' +
     'wordt de generator-herkomst gewist en is de kalender voortaan LETTERLIJK (`becameLiteral: true` ' +
     'per item) — hergenereren kan dan niet meer. ' +
-    'Bij `create: true` ZONDER `generate`/`rawHolidays` erft de nieuwe kalender de feestdagen van de ' +
-    'app-standaardkalender (in bouwmodus: de NL-set); de respons meldt dat per rij als ' +
+    'Bij `create: true` ZONDER `generate`/`rawHolidays`/`holidays` erft de nieuwe kalender de feestdagen ' +
+    'van de app-standaardkalender (in bouwmodus: de NL-set); de respons meldt dat per rij als ' +
     '`holidaysFrom: "app-default"` met `holidayCount`. Wil je gegarandeerd géén feestdagen, geef dan ' +
-    '`generate: { country: "none" }` mee. ' +
-    'Een kalender die geen enkele werkdag meer overlaat levert géén fout maar een prominente ' +
-    'waarschuwing met `cappedTaskIds`: die taken pasten niet meer in hun venster.',
+    '`generate: { country: "none" }` of `holidays: []` mee. ' +
+    'KALENDER OVERZETTEN NAAR EEN ANDER DOCUMENT: geef een kalenderobject uit `planner_get_calendars` ' +
+    'LETTERLIJK terug (met `create: true`). Alle leesvelden worden geaccepteerd — `workTime` (uurbanden), ' +
+    '`shift`, `generation` (herkomst in de LEESVORM: `ruleSetId`/`breakChoice`/jaren) en `holidays` (de ' +
+    'volledige lijst, die de bestaande lijst exact VERVANGT). De afgeleide leesvelden ' +
+    '`isProjectDefault`/`usedByTasks`/`usedByResources` mogen mee maar doen niets; de respons meldt ze als ' +
+    '`ignoredFields`. Gebruik `generate` (land/regio/bouwvak) óf `generation` (herkomst van meegestuurde ' +
+    'dagen), nooit allebei — `generate` DRAAIT de generator over de projectspanne van DIT document, ' +
+    '`generation` schrijft alleen de herkomst. ' +
+    'UUR- VS DAG-KALENDER — GEVAARLIJK: `workTime` maakt er een UUR-kalender van (`null` zet hem terug op ' +
+    'DAG). Alleen op een uur-kalender is de `durationMinutes` van een taak de bron van waarheid, dus zo\'n ' +
+    'omschakeling HERDEFINIEERT de duur van elke taak die eraan hangt — inclusief alle taken zónder eigen ' +
+    'kalender wanneer het de projectkalender betreft. De respons meldt dat per kalender als `mode`, ' +
+    '`modeChangedFrom` en `durationEffects` (per taak `beforeDays` → `afterDays`); meld die aan de gebruiker. ' +
+    '`workDays` en `hoursPerDay` worden uit de banden AFGELEID zodra je `workTime` meegeeft (zoals de ' +
+    'kalenderdialoog doet); geef je ze toch mee, dan mag `workDays` de banden niet tegenspreken. ' +
+    'BEWAREN IN HET BESTAND (IFC): een nieuw aangemaakte kalender waaraan GEEN taak en geen resource ' +
+    'hangt, overleeft opslaan+herladen NIET — hang er dus meteen taken aan met `update_tasks.calendarId`. ' +
+    'Uurbanden overleven IFC wél, maar per WEEKDAG VERSCHILLENDE banden niet: het formaat draagt één ' +
+    'werkweek-patroon, dus bij herladen krijgen alle werkdagen de banden van de eerste werkdag. ' +
+    'Een kalender waarin taken niet meer passen (bijv. een lang feestdagblok) levert géén fout maar een ' +
+    'prominente waarschuwing met `cappedTaskIds`. Blijft er daarentegen HELEMAAL geen werktijd over ' +
+    '(lege `workDays`, of `workTime`-banden op geen enkele dag), dan faalt de herberekening en wordt de ' +
+    'hele call teruggerold — er komt nooit een halve kalender in het document.',
   kind: 'mutate',
   batchable: true,
   // Een kalenderwijziging kan bestaande feestdagen/werkdagen (en daarmee de planning) overschrijven.
@@ -461,16 +909,41 @@ const updateCalendar: BatchStepTool = {
                 'Letterlijke uitzonderingen (vorstverlet, bedrijfssluiting). Standaard TOEVOEGEN (niets ' +
                 'verdwijnt); met `holidaysMode: "replace"` vervangt deze lijst de bestaande volledig. ' +
                 'Rauwe dagen wissen de generator-herkomst.',
-              items: {
-                type: 'object',
-                required: ['name', 'startDate', 'endDate'],
-                properties: {
-                  name: { type: 'string' },
-                  startDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD), inclusief.' },
-                  endDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD), inclusief.' },
-                },
+              items: HOLIDAY_ITEM_SCHEMA,
+            },
+            holidays: {
+              type: 'array',
+              description:
+                'De VOLLEDIGE feestdagenlijst — exact het leesveld van planner_get_calendars. Vervangt de ' +
+                'bestaande lijst precies (lege lijst = geen feestdagen). Voor het overzetten van een kalender ' +
+                'tussen documenten; combineer met `generation` om ook de herkomst mee te nemen. Niet samen met ' +
+                '`rawHolidays`/`holidaysMode`/`generate`.',
+              items: HOLIDAY_ITEM_SCHEMA,
+            },
+            workTime: WORKTIME_SCHEMA,
+            shift: {
+              type: ['string', 'null'],
+              enum: ['FIRST', 'SECOND', 'THIRD', 'USERDEFINED', null],
+              description: 'Ploeg-classificatie (IFC `PredefinedType`); `null` wist hem. Leesveld van get_calendars.',
+            },
+            generation: {
+              type: ['object', 'null'],
+              description:
+                'Herkomst-metadata in de LEESVORM van get_calendars — schrijft alleen vast WAAR de ' +
+                'meegestuurde feestdagen vandaan komen, en draait de generator NIET. `null` wist de herkomst ' +
+                '(de kalender wordt letterlijk). Niet samen met `generate`.',
+              required: ['ruleSetId', 'generatedFromYear', 'generatedToYear'],
+              properties: {
+                ruleSetId: { type: 'string', enum: ['NL', 'DE', 'BE', 'FR', 'UK', 'AT', 'CH'], description: 'Landenset die de datums voortbracht.' },
+                region: { type: 'string', description: 'Bundesland/landsdeel/kanton; weglaten = landelijk.' },
+                breakChoice: { type: 'string', enum: ['noord', 'midden', 'zuid'], description: 'NL-bouwvak; weglaten = geen.' },
+                generatedFromYear: { type: 'integer', description: 'Eerste gematerialiseerde jaar (incl.).' },
+                generatedToYear: { type: 'integer', description: 'Laatste gematerialiseerde jaar (incl.).' },
               },
             },
+            isProjectDefault: { type: 'boolean', description: 'AFGELEID leesveld van get_calendars — mag mee, wordt genegeerd (komt terug als `ignoredFields`).' },
+            usedByTasks: { type: 'integer', description: 'AFGELEID leesveld van get_calendars — mag mee, wordt genegeerd.' },
+            usedByResources: { type: 'integer', description: 'AFGELEID leesveld van get_calendars — mag mee, wordt genegeerd.' },
           },
         },
       },
@@ -520,6 +993,36 @@ const updateCalendar: BatchStepTool = {
           `${inherited.length} nieuw aangemaakte kalender(s) hebben de feestdagen van de app-standaardkalender ` +
           `OVERGENOMEN (${inherited.map((r) => `${r.id}: ${r.holidayCount}`).join(', ')}) omdat er geen \`generate\` of ` +
           '`rawHolidays` was opgegeven. Wil je een kalender zonder feestdagen, geef dan `generate: { country: "none" }`.',
+        );
+      }
+      // H5 — DAG↔UUR IS GEEN COSMETISCHE WIJZIGING. `durationMinutes` telt alleen op een uur-kalender,
+      // dus de omschakeling herdefinieert de duur van elke taak eraan. Nooit stil.
+      const switched = rows.filter((r) => r.modeChangedFrom !== undefined);
+      if (switched.length > 0) {
+        warnings.push(
+          `${switched.length} kalender(s) wisselden van modus: ` +
+          `${switched.map((r) => `${r.id}: ${r.modeChangedFrom} → ${r.mode}`).join(', ')}. ` +
+          'Op een UUR-kalender is `durationMinutes` van een taak de bron van waarheid; op een DAG-kalender ' +
+          'telt uitsluitend de duur in werkdagen. Let op: taken zónder eigen kalender hangen aan de ' +
+          'PROJECTkalender en schakelen dus mee.',
+        );
+      }
+      const affected = rows.filter((r) => (r.durationChangedTaskCount as number | undefined) !== undefined);
+      if (affected.length > 0) {
+        const total = affected.reduce((n, r) => n + (r.durationChangedTaskCount as number), 0);
+        warnings.push(
+          `EFFECTIEVE DUUR GEWIJZIGD: ${total} taak/taken hebben door deze kalenderwijziging een andere duur ` +
+          'gekregen (zie `durationEffects` per kalender: `beforeDays` → `afterDays` in werkdagen). ' +
+          'De planning is hierop herrekend — meld dit aan de gebruiker.',
+        );
+      }
+      // De schakelaar Urenplanning is puur UI (de solver rekent sowieso uur-native): meld het, want
+      // de gebruiker ziet zijn uurkalender anders nergens terug in de app.
+      if (rows.some((r) => r.mode === 'hour') && !useAppStore.getState().ui.enableHourPlanning) {
+        warnings.push(
+          'Er staat nu een UUR-kalender in dit document terwijl de app-instelling "Urenplanning" UIT staat. ' +
+          'De planning wordt wél uur-native gerekend, maar de app toont geen uur-invoer/-weergave totdat de ' +
+          'gebruiker die instelling aanzet (Instellingen → Urenplanning).',
         );
       }
       return { calendars: rows, warnings, projectEnd, ...(cappedTaskIds ? { cappedTaskIds } : {}) };
@@ -1026,8 +1529,11 @@ const PROJECT_REFUSED: Record<string, string> = {
     '`floatPaths` hoort in `project.schedulingOptions` en is NIET via de bridge instelbaar (zie de ' +
     'app onder Planning → opties). `planner_get_critical_path` meldt met `pathsMode` welke stand geldt.',
   calendarId:
-    'de projectkalender wissel je niet via update_project; gebruik `planner_update_calendar` (die ' +
-    'wijzigt/aanmaakt) — kalender-id\'s zijn per document.',
+    'WELKE kalender de projectdefault is, kan de bridge niet wisselen — dat doe je in de app ' +
+    '(kalenderbibliotheek → als projectkalender instellen). Wil je de INHOUD van de projectkalender ' +
+    'wijzigen (of hem gelijkmaken aan die van een ander document), schrijf dan met ' +
+    '`planner_update_calendar` op het id uit `planner_get_calendars.projectDefaultId`; een taak aan ' +
+    'een andere kalender hangen doe je met `update_tasks.calendarId`. Kalender-id\'s zijn per document.',
   wbsAutoNumber: 'automatisch WBS-nummeren is een documentinstelling in de app, niet via de bridge.',
   id: '`id` is de stabiele projectidentiteit en wordt nooit overschreven.',
   createdAt: 'tijdstempels worden door de app beheerd.',
