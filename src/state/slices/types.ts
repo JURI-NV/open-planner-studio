@@ -24,6 +24,11 @@ export type {
   GroupLevel, SortLevel, Layout, SplitViewState, ViewState,
 };
 
+// MCP-bridge (fase 1): status-shape voor de AI-serverindicator in de ui-state. Type-only import →
+// geen runtime-cyclus (contracts.ts is dependency-vrij).
+import type { McpServerStatus } from '@/services/mcp/contracts';
+export type { McpServerStatus };
+
 export type WeekStartDay = 'monday' | 'sunday';
 
 // Fase 2.10 (golf 1, sneltoetsen-fundament §"Nieuwe store-acties"): richting voor
@@ -68,6 +73,31 @@ export const UI_THEMES: { id: UITheme; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
+// Lettertype-familie voor de applicatie-interface (issue #25.4). Web-apps volgen — anders dan
+// native apps — niet automatisch de OS-lettertype-instelling, wat leesbaarheid/toegankelijkheid
+// kan beïnvloeden; deze instelling geeft de gebruiker de keuze. 'default' laat de stylesheet-
+// defaults (Space Grotesk / Inter, globals.css) staan; de andere waarden overschrijven via App.tsx
+// de CSS-variabelen --font-heading/--font-body. Labels komen uit i18n (geen `{label}` hier, net
+// als bij DATE_NOTATIONS) — de Select-options in SettingsPanelContent mappen id→vertaling.
+export type UIFontFamily = 'default' | 'system' | 'serif' | 'mono';
+
+export const UI_FONT_FAMILIES: UIFontFamily[] = ['default', 'system', 'serif', 'mono'];
+
+// Lettertype-grootte van de interface als schaalpercentage.
+//
+// Hoe het doorwerkt: `--ui-font-scale` (gezet in App.tsx) schaalt de rem-basis in globals.css, dus
+// Tailwind's `text-*`-klassen volgen vanzelf; de losse px-font-sizes in de chrome-css schalen
+// expliciet mee via `calc(<n>px * var(--ui-font-scale, 1))`, en de canvas-renderers volgen wél de
+// familie maar bewust NIET de grootte (vaste rijhoogte ⇒ clipping, zie GanttRenderer.font).
+//
+// BEWUST geen hogere waarden dan 125. Let op: de eerdere motivering hier ("paddings staan in px en
+// schalen niet mee") was FOUT — Tailwind's spacing-schaal is rem-gebaseerd en die rem-basis schalen
+// we juist wél, dus `p-*`/`gap-*`/`h-*` en de `--sp-*`-tokens groeien gewoon mee. De echte reden is
+// dat niet álle chrome meebeweegt: vaste px-hoogtes/-breedtes in losse componenten en de
+// canvas-geometrie blijven staan, en boven ~125% gaan knoplabels in het lint over meerdere regels
+// breken. 125 is de grens waarop dat nog acceptabel bleef in een echte browsercontrole.
+export const UI_FONT_SCALES: number[] = [90, 100, 110, 125];
+
 // Hoe de gebruiker tussen meerdere geopende documenten wisselt (multi-document).
 // 'tabs'     — horizontale tabstrip onder het lint (default, browser/Excel-stijl)
 // 'rail'     — verticale projectbalk links (VS Code activity-bar-stijl)
@@ -76,7 +106,7 @@ export type DocumentChromeStyle = 'tabs' | 'rail' | 'switcher';
 
 export const DOCUMENT_CHROME_STYLES: DocumentChromeStyle[] = ['tabs', 'rail', 'switcher'];
 
-export type RibbonTab = 'file' | 'start' | 'planning' | 'resources' | 'relations' | 'beeld' | 'instellingen' | 'table' | 'ifc' | 'report';
+export type RibbonTab = 'file' | 'start' | 'planning' | 'resources' | 'relations' | 'beeld' | 'instellingen' | 'table' | 'ifc' | 'report' | 'ai';
 
 // Backstage view (Office-style File tab full-screen) — sub-section selectie
 export type BackstageSection =
@@ -125,6 +155,8 @@ export interface UIState {
    *  start of verse installatie). Desktop-only; in de web-build altijd `null`. */
   justUpdated: { from: string; to: string } | null;
   uiTheme: UITheme;
+  uiFontFamily: UIFontFamily; // persisted — interface-lettertypefamilie (issue #25.4); 'default' = stylesheet-defaults
+  uiFontScale: number;        // persisted — interface-lettertypegrootte als schaalpercentage (90|100|110|125, issue #25.4)
   enableQuarterHourZoom: boolean;
   weekStartDay: WeekStartDay;
   scrollMode: ScrollMode;             // persisted — wheel behavior mode
@@ -172,6 +204,10 @@ export interface UIState {
   // tijd-as (weekenden+feestdagen weggelaten). Globaal (geen ViewState), zie werkdagen-as-ontwerp §7.3.
   compressNonWorkdays: boolean;               // persisted — default UIT (§0 user-besluit)
   hourDataNotice: boolean;                   // session — geladen bestand bevat uur-data terwijl Urenplanning uit staat (§6.8)
+  /** session — teller voor de "structuur vergrendeld"-melding (issue #26): elke geweigerde
+   *  structuurpoging hoogt hem op, zodat de melding ook opnieuw verschijnt als hij al zichtbaar
+   *  was. 0 = niets te tonen. */
+  structureLockedNotice: number;
   // --- Fase 2.10 golf 1: sneltoetsen-fundament ---
   /** session — sneltoetsen-overzichtsdialoog (Ctrl/Cmd+/) open. De dialoog zelf komt in golf 3;
    *  deze golf zet alleen de vlag zodat de toets al bedraad/testbaar is. */
@@ -192,6 +228,28 @@ export interface UIState {
    *  wanneer er geen tour loopt; overleeft een presentatiemodus-unmount/remount van
    *  `TourOverlay` (dit staat in de store, niet in component-state) — zie TourOverlay.tsx. */
   tourSnapshot: TourUiSnapshot | null;
+  // --- MCP-bridge / AI-modus (fase 1 MCP, spec §UI). App-globaal (niet per document): de bridge
+  //     bedient de héle app, niet één tabblad. Gevoed door `src/services/mcp/server.ts`. ---
+  /** persisted — AI-modus (T14): AAN ⇒ het AI-ribbontabblad verschijnt (conditioneel, net als de
+   *  debug-terminal-vlag een paneel toont); UIT ⇒ tabblad weg + bridge geforceerd gestopt. De
+   *  bron is de `ops-aiMode`-setting; dit is de opstart-gehydrateerde spiegel voor de reactieve UI. */
+  aiMode: boolean;
+  /** persisted — automatisch starten: bij het opstarten van de app de bridge meteen live zetten,
+   *  zodat een AI-client kan koppelen zonder dat de gebruiker eerst het AI-tabblad opent. Alleen
+   *  van kracht wanneer `aiMode` aanstaat én in de Tauri-schil (de bridge is desktop-only). Default
+   *  UIT: de bridge opent een luisterende poort, dus dat blijft een bewuste keuze. */
+  aiAutostart: boolean;
+  /** session — status van de MCP-bridge-server, gevoed door de `mcp://status`-events + de
+   *  poort-bezet-fout van `mcp_bridge_start`. Default off op de default-poort. */
+  aiServerStatus: McpServerStatus;
+  /** session — pauzeknop: bridge blijft live, maar muterende tools krijgen een nette
+   *  "gepauzeerd"-weigering (leestools mogen door). Vlag stroomt via de ctx naar de tool-laag. */
+  aiPaused: boolean;
+  /** session — alleen-lezen-schakelaar: muterende tools geweigerd zolang actief. */
+  aiReadOnly: boolean;
+  /** session — AI-activiteitenpaneel (T15) zichtbaar in de rechter-rail (patroon debugTerminalOpen).
+   *  Wordt geforceerd dicht gezet als AI-modus uitgaat. */
+  aiActivityOpen: boolean;
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk

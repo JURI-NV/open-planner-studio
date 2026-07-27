@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { renderPrintCanvas, renderReport, PrintOptions } from '@/services/print/printPreview';
+import { renderPrintCanvas, renderReport, REPORT_FONT_SCALES, PrintOptions } from '@/services/print/printPreview';
 import { getLocalizedMonths, getLocalizedMonthsShort } from '@/i18n/dateFormat';
 import { ensureExtension } from '@/utils/filePath';
 import { computeHighResScale } from '@/utils/miniPdf';
@@ -10,6 +10,7 @@ import { ensureInterLoaded, getInterFontBytes, getArabicFontBytes } from '@/serv
 import { RTL_LOCALES, type Locale } from '@/i18n/config';
 import { Select } from '@/components/common/Select';
 import { isTauri } from '@/utils/platform';
+import { DEFAULT_REPORT_SETTINGS, loadReportSettings, saveReportSettings } from '@/utils/reportSettings';
 import { useDisplayDate } from '@/hooks/displayDate';
 import { MilestoneReport, useMilestoneRows, STATUS_COLOR as MILESTONE_STATUS_COLOR, type MilestoneRow } from './MilestoneReport';
 import { VarianceReport, useVarianceResult, STATUS_COLOR as VARIANCE_STATUS_COLOR, fmtDelta } from './VarianceReport';
@@ -121,22 +122,124 @@ export function ReportPanel() {
   const projectName = project.name;
   const dateNotation = useAppStore(s => s.ui.dateNotation);
 
-  const [reportType, setReportType] = useState<'gantt' | 'milestones' | 'variance'>('gantt');
-  const [showCritical, setShowCritical] = useState(true);
-  const [showFloat, setShowFloat] = useState(true);
-  const [showDeps, setShowDeps] = useState(true);
-  const [showWeekends, setShowWeekends] = useState(true);
-  const [showLegend, setShowLegend] = useState(true);
-  const [showTaskNames, setShowTaskNames] = useState(true);
-  const [showCompletion, setShowCompletion] = useState(true);
-  const [autoFit, setAutoFit] = useState(true);
-  const [customZoom, setCustomZoom] = useState(22);
-  const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>('A3');
+  // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
+  // eerste render overschreven door de opgeslagen voorkeuren (zie het hydratatie-effect verderop).
+  const [reportType, setReportType] = useState<'gantt' | 'milestones' | 'variance'>(DEFAULT_REPORT_SETTINGS.reportType);
+  const [showCritical, setShowCritical] = useState(DEFAULT_REPORT_SETTINGS.showCritical);
+  const [showFloat, setShowFloat] = useState(DEFAULT_REPORT_SETTINGS.showFloat);
+  const [showDeps, setShowDeps] = useState(DEFAULT_REPORT_SETTINGS.showDeps);
+  const [showWeekends, setShowWeekends] = useState(DEFAULT_REPORT_SETTINGS.showWeekends);
+  const [showLegend, setShowLegend] = useState(DEFAULT_REPORT_SETTINGS.showLegend);
+  const [showTaskNames, setShowTaskNames] = useState(DEFAULT_REPORT_SETTINGS.showTaskNames);
+  const [showCompletion, setShowCompletion] = useState(DEFAULT_REPORT_SETTINGS.showCompletion);
+  const [autoFit, setAutoFit] = useState(DEFAULT_REPORT_SETTINGS.autoFit);
+  const [customZoom, setCustomZoom] = useState(DEFAULT_REPORT_SETTINGS.customZoom);
+  const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
   // K7: reden waarom de laatste export-poging is afgebroken (vandaag alleen een CPM-cyclus).
   // Tussenstand — bevinding K8 (prioriteitsitem 18) trekt dit samen tot één toast in uiSlice.
   const [exportError, setExportError] = useState<string | null>(null);
-  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(DEFAULT_REPORT_SETTINGS.orientation);
+  // Bewust NIET persistent: de bedrijfsnaam komt uit het PROJECT (`project.company`). Zie de
+  // toelichting bovenin `src/utils/reportSettings.ts` — globaal bewaren zou het bedrijf van het ene
+  // project in het rapport van het andere laten opduiken.
   const [companyName, setCompanyName] = useState(project.company || '');
+  // Issue #25 punt 1 — herhaal de datum-/projectkop bovenaan ELKE geëxporteerde pagina.
+  //
+  // Standaard AAN, en dat is een BEWUSTE GEDRAGSWIJZIGING, geen gemakzucht: wie vóór deze versie
+  // een meerpagina-rapport exporteerde kreeg de kop alleen op de eerste rij pagina's, en krijgt hem
+  // vanaf nu op élke pagina. Dat is precies de verbetering die issue #25 punt 1 vraagt (een losse
+  // pagina uit de map is anders niet te plaatsen), maar het betekent óók dat een her-export van een
+  // bestaand project er anders uitziet dan de oude PDF — en dat er per pagina wat body-hoogte
+  // afgaat, dus mogelijk één pagina extra. De knop staat ernaast, dus wie het oude beeld wil zet
+  // 'm uit. De ENGINE-defaults (`paginate.ts`/`tileLayout.ts`/`paginateVector.ts`) blijven bewust
+  // op "niet herhalen" staan; alleen deze UI kiest anders.
+  //
+  // Bewust géén veld in `PrintOptions`: de kopherhaling is puur een pagineerder-zaak (raster:
+  // hoogte in px; vector: boolean), niet iets dat de render-zoom raakt.
+  const [repeatHeader, setRepeatHeader] = useState(DEFAULT_REPORT_SETTINGS.repeatHeader);
+  // Issue #25 punt 5 — smeert de tijdlijn uit over N paginabreedtes (1 = oud gedrag, geen
+  // verrassing voor bestaande gebruikers). Alleen zinvol in fit-width-modus; daarom `disabled`
+  // wanneer `autoFit` uit staat (dan tegelt de export in 'actual'-modus toch al horizontaal).
+  const [timelineColumns, setTimelineColumns] = useState(DEFAULT_REPORT_SETTINGS.timelineColumns);
+  // Issue #25 punt 4 (rapport-helft) — lettergrootte van het GEGENEREERDE rapport, in procenten.
+  // 100 = ongewijzigd t.o.v. eerdere versies. Los van de interface-tekstgrootte in Instellingen:
+  // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
+  // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
+  const [reportFontScale, setReportFontScale] = useState(DEFAULT_REPORT_SETTINGS.reportFontScale);
+
+  // --- Persistentie van de rapportopties (localStorage, sleutel `ops-reportSettings`) -----------
+  //
+  // DE VALKUIL, en waarom deze vlag bestaat: hydrateren is asynchroon (`loadReportSettings()` geeft
+  // een Promise), maar het opslaan hangt aan een effect dat bij ELKE waardewijziging vuurt — inclusief
+  // de allereerste render. Zonder guard schrijft die eerste render de DEFAULTS over de opgeslagen
+  // voorkeuren heen vóórdat het laden klaar is. Dan lijkt persistentie te werken (binnen één sessie
+  // onthoudt hij alles), maar wist elke herstart stilletjes alles wat de gebruiker had ingesteld.
+  // Daarom slaat het save-effect álles over zolang `hydratedRef` false is; hij gaat pas op true
+  // nádat de opgeslagen waarden zijn toegepast.
+  //
+  // Een ref (geen state) volstaat: de vlag hoeft geen re-render te veroorzaken, en het save-effect
+  // wordt toch al opnieuw uitgevoerd door de state-updates van de hydratatie zelf.
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadReportSettings().then(s => {
+      // Unmount vóór het laden klaar was ⇒ niets toepassen (en `hydratedRef` blijft false, zodat een
+      // eventueel na-ijlend save-effect ook niets schrijft).
+      if (cancelled) return;
+      // Eén batch state-updates ⇒ de preview-useEffect hieronder rendert precies één keer opnieuw
+      // met de herstelde waarden (geen lus: de setters staan hier, niet in de preview-deps-keten).
+      setReportType(s.reportType);
+      setShowCritical(s.showCritical);
+      setShowFloat(s.showFloat);
+      setShowDeps(s.showDeps);
+      setShowWeekends(s.showWeekends);
+      setShowLegend(s.showLegend);
+      setShowTaskNames(s.showTaskNames);
+      setShowCompletion(s.showCompletion);
+      setAutoFit(s.autoFit);
+      setCustomZoom(s.customZoom);
+      setPaperSize(s.paperSize);
+      setOrientation(s.orientation);
+      setRepeatHeader(s.repeatHeader);
+      setTimelineColumns(s.timelineColumns);
+      setReportFontScale(s.reportFontScale);
+      hydratedRef.current = true;
+    }, () => {
+      // Lezen kan falen (localStorage geblokkeerd of gepartitioneerd, quota-gedoe). Zonder deze
+      // handler blijft `hydratedRef` dan voor ALTIJD false en slaat het save-effect de rest van de
+      // sessie alles over: de gebruiker verstelt vijftien opties en er wordt nooit iets bewaard,
+      // zonder enig signaal. We houden dan de defaults, maar zetten de vlag wél op true zodat
+      // opslaan blijft werken — een volgende poging kan best wél slagen.
+      //
+      // BEWUST de tweede parameter van `.then` en GEEN `.catch` erachter: een `.catch` zou óók een
+      // fout uit de hydratatie-body hierboven vangen. Dan zouden de eerste velden gehydrateerd zijn,
+      // de rest op default staan, en zou de vlag alsnog op true gaan — waarna de eerstvolgende
+      // wijziging die half gevulde mengeling als complete set terugschrijft over de opgeslagen
+      // voorkeuren. Precies het dataverlies dat deze guard moet voorkomen.
+      if (cancelled) return;
+      hydratedRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Opslaan bij elke wijziging. Geen debounce: `setSetting` is een enkele synchrone
+  // localStorage-schrijf van een klein object — goedkoper dan de preview-render die bij dezelfde
+  // wijziging toch al draait. De eerste keer dat dit effect ná de hydratatie loopt schrijft het de
+  // zojuist geladen waarden ongewijzigd terug; dat is bewust onschadelijk.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    // `.catch` omdat `setSetting` op een geblokkeerde/gepartitioneerde localStorage gooit:
+    // zonder vangnet levert elke verstelde optie een onafgevangen rejection op. Opslaan is
+    // best-effort — mislukt het, dan blijft de instelling gewoon binnen deze sessie werken.
+    void saveReportSettings({
+      reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
+      showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
+      repeatHeader, timelineColumns, reportFontScale,
+    }).catch(() => {});
+  }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
+      showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
+      reportFontScale]);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -185,6 +288,8 @@ export function ReportPanel() {
     projectEndDate: project.endDate,
     projectAuthor: project.author,
     dateNotation,
+    timelineColumns,
+    reportFontScale,
   };
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
@@ -199,8 +304,8 @@ export function ReportPanel() {
     const renderPreview = () => {
       if (cancelled) return;
       const offscreen = document.createElement('canvas');
-      // Eerste render (schaal 1) → logische maten + naam-kolombreedte; tweede render → preview-raster.
-      const { width: logicalWidth, height: logicalHeight, tableWidth } = renderPrintCanvas(
+      // Eerste render (schaal 1) → logische maten + naam-kolombreedte + kop-hoogte; tweede render → preview-raster.
+      const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = renderPrintCanvas(
         offscreen, tasks, sequences, calendar, projectName, options, 1,
       );
       renderPrintCanvas(offscreen, tasks, sequences, calendar, projectName, options, PREVIEW_RENDER_SCALE);
@@ -211,22 +316,35 @@ export function ReportPanel() {
         logicalWidth,
         logicalHeight,
         frozenColumnWidthPx: tableWidth,
+        // Kop herhalen per pagina (issue #25 punt 1): de hoogte komt uit de render zelf; 0 = niet
+        // herhalen (oud gedrag). De raster-tak wil px, de vector-tak een boolean.
+        repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
+        timelineColumns,
         supersample: 1, // preview: goedkoper; wordt toch verkleind weergegeven
+        // De limiet hoort HIER, niet pas bij het uitsnijden hieronder: de pagineerder maakt per
+        // pagina een volledig papier-canvas aan (A3 ≈ 4 MB RGBA), dus een rooster van 20×8 zou
+        // ~640 MB rasteren waarvan we er 30 tonen — bij elke optiewijziging opnieuw. Met `maxPages`
+        // worden de overige pagina's nooit getekend; `rows`/`cols` blijven het volledige rooster.
+        maxPages: PREVIEW_MAX_PAGES,
       });
+      // Goedkope dubbele bodem: mocht de pagineer-limiet ooit wegvallen, dan toont de preview nog
+      // steeds niet meer dan PREVIEW_MAX_PAGES vellen. Het echte werk zit in `maxPages` hierboven.
       const shown = tiles.pages.slice(0, PREVIEW_MAX_PAGES);
       setPreviewPages(shown.map(page => ({
         dataUrl: page.toDataURL('image/png'),
         wPt: tiles.pageWidthPt,
         hPt: tiles.pageHeightPt,
       })));
-      setPreviewTotalPages(tiles.pages.length);
+      // Het VOLLEDIGE paginatotaal (dus niet `tiles.pages.length` — dat is met `maxPages` bewust
+      // afgekapt): de gebruiker moet "5 van 160" kunnen zien, ook al rasteren we er maar 30.
+      setPreviewTotalPages(tiles.rows * tiles.cols);
     };
     // Wacht op het gevendorde Inter-font (family 'InterPDF') vóór de eerste render, zodat
     // measureText/afkapping deterministisch is (§5.2). ensureInterLoaded is idempotent; de
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -256,18 +374,17 @@ export function ReportPanel() {
 
   const handleExportPDF = useCallback(async () => {
     // K7: de PDF-export schrijft CPM-datums naar derden — net als fileSlice.exportAs eerst een
-    // stale schema doorrekenen (runCPM via getState, niet via een selector: de guard moet de
-    // actuele store lezen op het moment van klikken, niet herabonneren), en bij een cyclus
-    // (cpmResult.error) afbreken zónder te exporteren. De cpmResult.error-check is apart nodig
-    // omdat runCPM scheduleStale vóór de solve op false zet (zie fileSlice.exportAs).
+    // stale schema doorrekenen (via getState, niet via een selector: de guard moet de actuele
+    // store lezen op het klikmoment), en bij een cyclus afbreken zónder te exporteren. De
+    // cpmResult.error-check is apart nodig omdat runCPM `scheduleStale` vóór de solve al op false
+    // zet; een guard op alleen die vlag zou stil met oude task.time-waarden exporteren.
     if (useAppStore.getState().scheduleStale) useAppStore.getState().runCPM();
     const cpmError = useAppStore.getState().cpmResult?.error;
     if (cpmError) {
       // Zichtbaar maken is hier NIET optioneel: op het Rapport-tabblad is `GanttCanvas` niet
-      // gemonteerd (App.tsx: `isFullPanel` voor 'report'), dus de bestaande cyclus-toast vuurt
-      // hier niet. Zonder deze regel zou "Exporteer PDF" gewoon niets doen — precies het stille
-      // falen dat bevinding K8 aanklaagt. `cpmResult.error` is al een vertaalde string (dezelfde
-      // die de toast toont), dus dit vraagt geen nieuwe i18n-sleutels.
+      // gemonteerd, dus de bestaande cyclus-toast vuurt hier niet en de knop zou anders gewoon
+      // niets doen — precies het stille falen dat bevinding K8 aanklaagt. `cpmResult.error` is
+      // al een vertaalde string, dus dit vraagt geen nieuwe i18n-sleutels.
       setExportError(cpmError);
       return;
     }
@@ -292,7 +409,7 @@ export function ReportPanel() {
       // 1) levert de LOGISCHE maten + naam-kolombreedte; de tweede render het high-res raster.
       const exportRaster = (): Uint8Array => {
         const exportCanvas = document.createElement('canvas');
-        const { width: logicalWidth, height: logicalHeight, tableWidth } = renderPrintCanvas(
+        const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = renderPrintCanvas(
           exportCanvas, tasks, sequences, calendar, projectName, options, 1,
         );
         const exportScale = computeHighResScale(logicalWidth, logicalHeight);
@@ -300,6 +417,10 @@ export function ReportPanel() {
         return paginateCanvasToPdfBytes(exportCanvas, {
           paperSize: lowerPaper, orientation, mode,
           logicalWidth, logicalHeight, frozenColumnWidthPx: tableWidth,
+          // Zelfde kopherhaling (px) en tijdlijn-spreiding als de preview en de vector-tak, zodat de
+          // raster-terugval WYSIWYG gelijk is aan beide (issue #25 punt 1 + 5).
+          repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
+          timelineColumns,
         });
       };
 
@@ -317,7 +438,15 @@ export function ReportPanel() {
         ]);
         pdfBytes = await paginateVectorToPdfBytes(
           (make) => renderReport(make, tasks, sequences, calendar, projectName, options),
-          { paperSize: lowerPaper, orientation, mode, baseDir: exportBaseDir },
+          {
+            paperSize: lowerPaper,
+            orientation,
+            mode,
+            baseDir: exportBaseDir,
+            // Kop per pagina herhalen (issue #25 punt 1) + tijdlijn over N pagina's (punt 5).
+            repeatHeader,
+            timelineColumns,
+          },
           { regular, bold },
           { regular: arabicRegular, bold: arabicBold },
         );
@@ -535,6 +664,19 @@ export function ReportPanel() {
               />
             </div>
 
+            {/* Lettergrootte van het rapport (issue #25 punt 4). Relatief bedoeld: bij een grotere
+                letter groeien tekst, rijen en tabel op het vel en levert de tijdlijn breedte in. */}
+            <div className="flex items-center gap-2">
+              <label className="text-text-secondary w-20">{t('reportFontScaleLabel')}</label>
+              <Select
+                className="flex-1"
+                aria-label={t('reportFontScaleLabel')}
+                value={String(reportFontScale)}
+                onChange={v => setReportFontScale(Number(v))}
+                options={REPORT_FONT_SCALES.map(n => ({ value: String(n), label: `${n}%` }))}
+              />
+            </div>
+
             {/* Auto-fit checkbox */}
             <label className="flex items-center gap-2 mt-1">
               <input type="checkbox" checked={autoFit} onChange={e => setAutoFit(e.target.checked)} className="accent-accent" />
@@ -556,6 +698,33 @@ export function ReportPanel() {
                 <span className="w-8 text-right">{customZoom}</span>
               </div>
             )}
+
+            {/* Tijdlijn over N paginabreedtes (issue #25 punt 5). Alleen zinvol in fit-width-modus;
+                in 'actual'-modus (autoFit uit) tegelt de export sowieso al horizontaal, daarom
+                `disabled` — met een hint die dat uitlegt, zichtbaar zodra de keuze uitgeschakeld is. */}
+            <div className="flex items-center gap-2">
+              <label className="text-text-secondary w-20">{t('timelineColumnsLabel')}</label>
+              <Select
+                className="flex-1"
+                aria-label={t('timelineColumnsLabel')}
+                value={String(timelineColumns)}
+                onChange={v => setTimelineColumns(Number(v))}
+                disabled={!autoFit}
+                options={[1, 2, 3, 4, 5, 6, 7, 8].map(n => ({
+                  value: String(n),
+                  label: t('timelineColumns', { count: n }),
+                }))}
+              />
+            </div>
+            {!autoFit && (
+              <span className="text-text-secondary">{t('timelineColumnsHint')}</span>
+            )}
+
+            {/* Kop op elke pagina herhalen (issue #25 punt 1) */}
+            <label className="flex items-center gap-2 mt-1">
+              <input type="checkbox" checked={repeatHeader} onChange={e => setRepeatHeader(e.target.checked)} className="accent-accent" />
+              <span>{t('repeatHeader')}</span>
+            </label>
 
             <label className="flex items-center gap-2 mt-1">
               <input type="checkbox" checked={showTaskNames} onChange={e => setShowTaskNames(e.target.checked)} className="accent-accent" />
@@ -627,10 +796,10 @@ export function ReportPanel() {
             ))}
             {previewTotalPages > previewPages.length && (
               <div className="text-xs text-text-secondary text-center py-2">
-                {t('previewPageLimit', {
-                  defaultValue: '… en nog {{n}} pagina(\'s) — exporteer voor het volledige document',
-                  n: previewTotalPages - previewPages.length,
-                })}
+                {/* `count` (geen eigen `n`) zodat i18next echt pluraliseert: de sleutel bestaat nu
+                    in alle 14 locales met de juiste CLDR-categorieën, dus de hardgecodeerde
+                    Nederlandse `defaultValue` — die iedereen ongeacht taal te zien kreeg — is weg. */}
+                {t('previewPageLimit', { count: previewTotalPages - previewPages.length })}
               </div>
             )}
           </div>

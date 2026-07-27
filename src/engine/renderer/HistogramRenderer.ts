@@ -43,7 +43,16 @@ export interface HistogramRenderOptions {
    *  schuiven de resource-staafjes onder de verkeerde kolommen zodra de as gecomprimeerd is.
    *  Afwezig ⇒ terugvallen op de oude rechtstreekse `timeAxis.dateToX`-aanroep (byte-identiek). */
   axis?: GanttAxis;
+  /** Issue #25 punt 4: de CSS font-stack van de gekozen interface-lettertypefamilie
+   *  (`resolveUIFontStack(ui.uiFontFamily)`). Een canvas leest géén CSS-variabelen, dus de stack
+   *  moet als string mee — anders blijft de resourcestrook in het oude lettertype staan terwijl de
+   *  Gantt erboven en de chrome eromheen wél omschakelen. Afwezig ⇒ `FALLBACK_FONT_STACK`. */
+  fontFamily?: string;
 }
+
+/** De historische, hardgecodeerde stack van deze renderer; fallback wanneer een aanroeper
+ *  `fontFamily` niet meegeeft (byte-identiek aan vóór issue #25 punt 4). */
+const FALLBACK_FONT_STACK = 'system-ui, sans-serif';
 
 const ROW_H = 18;          // hoogte van een resourcekiezer-rij
 const TOP_PAD = 8;         // ruimte boven de hoogste staaf
@@ -61,6 +70,17 @@ export class HistogramRenderer {
     this.opts = opts;
     this.colors = opts.palette ?? readHistogramPalette();
     this.viewStart = parseDate(opts.view.viewStartDate);
+  }
+
+  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4).
+   *  Zelfde helper (en zelfde afweging) als in `GanttRenderer`.
+   *
+   *  BEWUST NIET: de GROOTTE meeschalen met `ui.uiFontScale`. De strookgeometrie ligt vast
+   *  (`ROW_H = 18` voor de resourcekiezer, vaste paddings, een canvashoogte die de gebruiker
+   *  instelt) — grotere tekst zou clippen in plaats van meegroeien. Alleen samen met een
+   *  schaalbare geometrie te wijzigen. */
+  private font(sizePx: number, bold = false): string {
+    return `${bold ? 'bold ' : ''}${sizePx}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
   }
 
   /** Gedeelde X-as met GanttRenderer (issue #21 punt 5, fase 2 — ontwerp §10.1): `opts.axis`
@@ -123,7 +143,7 @@ export class HistogramRenderer {
 
     if (this.opts.emptyHint) {
       ctx.fillStyle = c.textDim;
-      ctx.font = '11px system-ui, sans-serif';
+      ctx.font = this.font(11);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this.opts.emptyHint, (taskTableWidth + canvasWidth) / 2, canvasHeight / 2);
@@ -152,7 +172,7 @@ export class HistogramRenderer {
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.font = '11px system-ui, sans-serif';
+    ctx.font = this.font(11);
 
     this.opts.picker.forEach((item, i) => {
       const y = TOP_PAD + i * ROW_H;
@@ -258,7 +278,7 @@ export class HistogramRenderer {
 
     // Y-as-label (max) linksboven in de plotzone
     ctx.fillStyle = c.textDim;
-    ctx.font = '9px system-ui, sans-serif';
+    ctx.font = this.font(9);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText(`${this.formatUnits(yMaxData)} ${this.opts.labels.unitsSuffix}`, this.opts.taskTableWidth + 4, 2);

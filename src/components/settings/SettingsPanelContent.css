@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   color: var(--theme-text);
   cursor: pointer;
 }
@@ -52,7 +52,7 @@
 
 .settings-theme-card h4 {
   margin: 0 0 6px 0;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   font-weight: 600;
   color: var(--theme-text);
 }

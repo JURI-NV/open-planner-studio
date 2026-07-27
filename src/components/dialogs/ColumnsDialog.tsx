@@ -166,7 +166,7 @@ export function ColumnsDialog() {
                 className="input !text-xs !px-1.5 !py-0.5 text-right flex-shrink-0"
                 style={{ width: 64, flexShrink: 0 }}
               />
-              <span className="text-text-secondary flex-shrink-0" style={{ fontSize: 10 }}>px</span>
+              <span className="text-text-secondary flex-shrink-0" style={{ fontSize: 'calc(10px * var(--ui-font-scale, 1))' }}>px</span>
             </div>
           ))}
 

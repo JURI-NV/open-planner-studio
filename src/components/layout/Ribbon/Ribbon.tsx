@@ -20,10 +20,19 @@ export function Ribbon() {
   const setUI = useAppStore(s => s.setUI);
   const ribbonCompact = useAppStore(s => s.ui.ribbonCompact);
   const activeTab = useAppStore(s => s.ui.activeRibbonTab);
+  // T14: het AI-tabblad verschijnt alleen bij ingeschakelde AI-modus (conditioneel, net als de
+  // debug-terminal een paneel toont). Uitzetten verwijdert de tab; de reducer valt dan terug op
+  // 'start' als dit tabblad actief was.
+  const aiMode = useAppStore(s => s.ui.aiMode);
 
   const setActiveTab = useCallback((tab: RibbonTab) => {
     setUI({ activeRibbonTab: tab });
   }, [setUI]);
+
+  const tabs: RibbonTab[] = [
+    'start', 'planning', 'resources', 'relations', 'beeld', 'instellingen', 'table', 'ifc', 'report',
+    ...(aiMode ? (['ai'] as RibbonTab[]) : []),
+  ];
 
   return (
     <div className={`ribbon-container${ribbonCompact ? ' compact' : ''}`}>
@@ -38,7 +47,7 @@ export function Ribbon() {
         >
           {tMenu('ribbon.file')}
         </button>
-        {(['start', 'planning', 'resources', 'relations', 'beeld', 'instellingen', 'table', 'ifc', 'report'] as RibbonTab[]).map(tab => (
+        {tabs.map(tab => (
           <button
             key={tab}
             className={`ribbon-tab ${activeTab === tab ? 'active' : ''}`}

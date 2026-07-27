@@ -1,8 +1,17 @@
 import type { UIState, AppSlice } from './types';
+import type { McpServerStatus } from '@/services/mcp/contracts';
+import { MCP_DEFAULT_PORT } from '@/utils/settingsStore';
 
 export interface UiSlice {
   ui: UIState;
   setUI: (updates: Partial<UIState>) => void;
+  /** MCP-bridge (fase 1): schrijf de serverstatus (uit/live/poort-bezet/fout) — gevoed door
+   *  `server.ts` uit de `mcp://status`-events + de start-fout. */
+  setAiServerStatus: (status: McpServerStatus) => void;
+  /** MCP-bridge: zet de pauze-vlag (muterende tools tijdelijk geweigerd, leestools door). */
+  setAiPaused: (paused: boolean) => void;
+  /** MCP-bridge: zet de alleen-lezen-vlag (muterende tools geweigerd zolang actief). */
+  setAiReadOnly: (readOnly: boolean) => void;
   toggleCollapse: (taskId: string) => void;
   /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLE summary-taken (childIds.length>0)
    *  expliciet uit (collapsed=false, niet togglen). Geen undo — `collapsedTaskIds` is
@@ -13,6 +22,9 @@ export interface UiSlice {
   collapseAll: () => void;
   /** Presentatie-modus (§9): zet de flag + roept de echte Fullscreen-API aan. */
   setPresentationMode: (on: boolean) => void;
+  /** Meld dat een structuurmutatie geweigerd is omdat de weergave niet in pure boommodus staat
+   *  (issue #26): hoogt de teller op zodat `StructureLockedNotice` (opnieuw) verschijnt. */
+  notifyStructureLocked: () => void;
 }
 
 export function createDefaultUI(): UIState {
@@ -36,9 +48,17 @@ export function createDefaultUI(): UIState {
     showUpdateDialog: false,
     justUpdated: null,
     uiTheme: 'dark',
+    // Issue #25.4: interface-lettertype — default = huidige stylesheet-defaults + 100% schaal
+    // (bestaande gebruikers merken niets; App.tsx hydrateert bij opstart uit localStorage).
+    uiFontFamily: 'default',
+    uiFontScale: 100,
     enableQuarterHourZoom: false,
     weekStartDay: 'monday',
-    scrollMode: 'modifier',
+    // 'drag' (zoom + slepen, map-style) is sinds issue #22 de standaard: het is de meest
+    // intuïtieve navigatie en werkt zonder modifier-toetsen. Wie eerder al een voorkeur opsloeg
+    // houdt die — settingsRegistry patcht dit veld alleen bij een aanwezige localStorage-sleutel,
+    // en die wordt uitsluitend geschreven als de gebruiker de modus zelf omzet.
+    scrollMode: 'drag',
     positionDivision: 'left-right',
     modifierMap: { plain: 'vertical', ctrl: 'zoom', shift: 'horizontal' },
     debugTerminalEnabled: false,
@@ -80,6 +100,7 @@ export function createDefaultUI(): UIState {
     // Issue #21 punt 5 (fase 2): default UIT (§0/§7.1 user-besluit).
     compressNonWorkdays: false,
     hourDataNotice: false,
+    structureLockedNotice: 0,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
@@ -88,6 +109,14 @@ export function createDefaultUI(): UIState {
     showTourOverlay: false,
     tourStepIndex: 0,
     tourSnapshot: null,
+    // MCP-bridge / AI-modus (fase 1): AI-modus default uit (geen AI-tabblad); server staat default
+    // uit op de default-poort; geen pauze/lezen.
+    aiMode: false,
+    aiAutostart: false,
+    aiServerStatus: { state: 'off', port: MCP_DEFAULT_PORT },
+    aiPaused: false,
+    aiReadOnly: false,
+    aiActivityOpen: false,
   };
 }
 
@@ -99,6 +128,17 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       // Als debugTerminalEnabled uitgezet wordt, forceer de terminal dicht.
       if (updates.debugTerminalEnabled === false) {
         (updates as Partial<UIState>).debugTerminalOpen = false;
+      }
+      // T14: als AI-modus uitgezet wordt terwijl het AI-tabblad actief is, val terug naar 'start'
+      // (het tabblad verdwijnt uit de ribbon; de content mag niet als wees-tab blijven staan). Het
+      // geforceerd stoppen van de bridge is een async neveneffect en gebeurt op de aanroepplek
+      // (`applyAiMode`), niet in deze synchrone reducer.
+      if (updates.aiMode === false && (updates.activeRibbonTab ?? s.ui.activeRibbonTab) === 'ai') {
+        (updates as Partial<UIState>).activeRibbonTab = 'start';
+      }
+      // T15: AI-modus uit ⇒ het activiteitenpaneel mag niet als wees blijven staan.
+      if (updates.aiMode === false) {
+        (updates as Partial<UIState>).aiActivityOpen = false;
       }
       Object.assign(s.ui, updates);
       const max = s.ui.enableQuarterHourZoom ? 1000 : 400;
@@ -117,6 +157,14 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       document.exitFullscreen?.().catch(() => { /* niet fataal */ });
     }
   },
+
+  setAiServerStatus: (status) => set((s) => { s.ui.aiServerStatus = status; }),
+  setAiPaused: (paused) => set((s) => { s.ui.aiPaused = paused; }),
+  setAiReadOnly: (readOnly) => set((s) => { s.ui.aiReadOnly = readOnly; }),
+  // issue #26: sessie-UI-state, dus geen undo-snapshot en niet gepersisteerd — puur een signaal
+  // waar `StructureLockedNotice` op reageert.
+  notifyStructureLocked: () =>
+    set((s) => { s.ui.structureLockedNotice += 1; }),
 
   toggleCollapse: (taskId) => {
     set((s) => {

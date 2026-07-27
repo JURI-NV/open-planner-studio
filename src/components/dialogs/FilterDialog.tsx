@@ -223,7 +223,7 @@ function GroupEditor({
       </div>
 
       {node.children.length === 0 && (
-        <span className="text-text-secondary" style={{ fontSize: 11 }}>{t('view.filter.noRules')}</span>
+        <span className="text-text-secondary" style={{ fontSize: 'calc(11px * var(--ui-font-scale, 1))' }}>{t('view.filter.noRules')}</span>
       )}
 
       <div className="flex flex-col gap-2">

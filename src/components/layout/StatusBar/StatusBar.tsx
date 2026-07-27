@@ -1,8 +1,9 @@
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { Terminal } from 'lucide-react';
+import { Terminal, Circle } from 'lucide-react';
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
 import { useDisplayDate } from '@/hooks/displayDate';
+import { AI_STATUS_COLOR } from '@/components/ribbon/ai/AiServerGroup';
 
 export function StatusBar() {
   const { t } = useTranslation('menu');
@@ -15,6 +16,8 @@ export function StatusBar() {
   const isDirty = useAppStore(s => s.isDirty);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
   const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
+  const aiMode = useAppStore(s => s.ui.aiMode);
+  const aiServerStatus = useAppStore(s => s.ui.aiServerStatus);
   const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
   const setUI = useAppStore(s => s.setUI);
   const dd = useDisplayDate();
@@ -69,6 +72,16 @@ export function StatusBar() {
       <span style={{ color: 'var(--theme-text-muted)' }}>{t('status.scale')} {t(`ribbon.${scaleFromZoom(view.zoom, enableHourPlanning)}`)}</span>
       <span style={{ color: 'var(--theme-text-muted)' }}>{t('status.zoom', { level: Math.round(view.zoom) })}</span>
       {isDirty && <span style={{ color: 'var(--theme-warning-text)' }}>{t('status.unsaved')}</span>}
+      {aiMode && (
+        <button
+          onClick={() => setUI({ activeRibbonTab: 'ai' })}
+          title={tCommon('ai.statusDot', { status: tCommon(`ai.status${aiServerStatus.state === 'live' ? 'Live' : aiServerStatus.state === 'port-busy' ? 'PortBusy' : aiServerStatus.state === 'error' ? 'Error' : 'Off'}`, { port: aiServerStatus.port }) })}
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-surface-hover text-text-secondary"
+        >
+          <Circle size={10} fill={AI_STATUS_COLOR[aiServerStatus.state]} color={AI_STATUS_COLOR[aiServerStatus.state]} />
+          <span>AI</span>
+        </button>
+      )}
       {debugTerminalEnabled && (
         <button
           onClick={() => setUI({ debugTerminalOpen: !debugTerminalOpen })}
