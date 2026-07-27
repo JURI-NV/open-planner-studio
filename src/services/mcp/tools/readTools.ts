@@ -148,6 +148,39 @@ interface Paged<T> {
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}/;
 const TASK_STATUSES = ['NOT_STARTED', 'STARTED', 'COMPLETED'];
 
+/**
+ * Weiger elke sleutel die deze leestool niet kent (`additionalProperties: false`, maar dan als
+ * RUNTIME-poort in de tool zelf).
+ *
+ * WAAROM DIT HIER MOET STAAN EN NIET ALLEEN IN HET SCHEMA. De dispatcher valideert `inputSchema`,
+ * maar `planner_batch` roept leestools rechtstreeks via `def.handler(...)` aan (leestools hebben
+ * geen `batchStep`) en slaat die validatie dus over. Een verschreven filter — `{kritisch: true}`
+ * i.p.v. `kritiek` — werd LOS netjes geweigerd, maar als batch-stap stil genegeerd, waarna de
+ * volledige takenlijst terugkwam als "de kritieke taken". Dat is de gemeenste variant van een stille
+ * fout: bij een mutatie merk je later dat er niets veranderd is, maar hier krijgt de aanroeper een
+ * plausibel-maar-ONJUIST antwoord en bouwt hij zijn volgende stap daarop.
+ *
+ * Deze poort maakt de leestools zelfdragend: ze zijn correct ongeacht welk pad ze aanroept. Dat de
+ * dispatcher hetzelfde nog eens doet is onschadelijk.
+ */
+function requireOnlyKeys(args: unknown, allowed: readonly string[], toolName: string): void {
+  if (args === undefined || args === null) return;
+  if (typeof args !== 'object' || Array.isArray(args)) {
+    throw new ToolError('VALIDATION', `${toolName} verwacht een object met argumenten.`);
+  }
+  for (const key of Object.keys(args as Record<string, unknown>)) {
+    if (allowed.includes(key)) continue;
+    throw new ToolError('VALIDATION',
+      allowed.length === 0
+        ? `${toolName} neemt geen argumenten, maar kreeg \`${key}\`.`
+        : `onbekend argument \`${key}\` voor ${toolName}; toegestaan: ${allowed.join(', ')}.`);
+  }
+}
+
+const PAGE_KEYS = ['limit', 'offset'] as const;
+const LIST_TASKS_KEYS = ['kritiek', 'status', 'van', 'tot', 'zonder_relaties', ...PAGE_KEYS] as const;
+const HISTOGRAM_KEYS = ['resourceIds', 'van', 'tot', 'bucket'] as const;
+
 /** Gooit een `ToolError` wanneer `v` gezet maar geen boolean is. */
 function requireBool(v: unknown, name: string): void {
   if (v !== undefined && typeof v !== 'boolean') {
@@ -323,6 +356,7 @@ interface ListTasksArgs extends PageArgs {
 
 function listTasks(s: AppState, args: ListTasksArgs) {
   // H10 — elk filter eerst valideren; een fout filter mag NOOIT stil een andere verzameling geven.
+  requireOnlyKeys(args, LIST_TASKS_KEYS, 'list_tasks');
   requireBool(args.kritiek, 'kritiek');
   requireBool(args.zonder_relaties, 'zonder_relaties');
   if (args.status !== undefined && !TASK_STATUSES.includes(args.status as string)) {
@@ -390,6 +424,7 @@ interface GetTaskArgs {
 }
 
 function getTask(s: AppState, args: GetTaskArgs) {
+  requireOnlyKeys(args, ['taskId'], 'get_task');
   if (typeof args.taskId !== 'string' || args.taskId === '') {
     throw new ToolError('VALIDATION', 'get_task vereist een `taskId` (string).');
   }
@@ -549,6 +584,7 @@ function getCriticalPath(s: AppState) {
 // ── 6. planner_list_resources ────────────────────────────────────────────────────────────────────
 
 function listResources(s: AppState, args: PageArgs) {
+  requireOnlyKeys(args, PAGE_KEYS, 'list_resources');
   requirePageArgs(args);
   // Toewijzings-samenvatting per resource (aantal toewijzingen, aantal betrokken taken, som units/dag).
   const byRes = new Map<string, { assignments: number; tasks: Set<string>; totalUnits: number }>();
@@ -599,6 +635,7 @@ function getResourceHistogram(args: HistogramArgs) {
   //   - niet-string `resourceIds` werden weggefilterd; viel alles weg, dan werd `scoped` false en
   //     schakelde de tool stil naar de AGGREGAAT-modus — een heel andere respons dan gevraagd;
   //   - een onbekend resource-id gaf een lege reeks die leest als "geen belasting".
+  requireOnlyKeys(args, HISTOGRAM_KEYS, 'get_resource_histogram');
   if (args.bucket !== undefined && args.bucket !== 'dag' && args.bucket !== 'week') {
     throw new ToolError('VALIDATION',
       `\`bucket\` moet 'dag' of 'week' zijn (Nederlandse waarden), kreeg '${String(args.bucket)}'.`);
@@ -856,7 +893,7 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => getProjectInfo(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'get_project_info'); return getProjectInfo(s); }),
   },
   {
     name: 'planner_get_project_overview',
@@ -875,7 +912,7 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => getProjectOverview(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'get_project_overview'); return getProjectOverview(s); }),
   },
   {
     name: 'planner_list_tasks',
@@ -940,7 +977,7 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => getCriticalPath(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'get_critical_path'); return getCriticalPath(s); }),
   },
   {
     name: 'planner_list_resources',
@@ -1005,7 +1042,7 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => getCalendars(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'get_calendars'); return getCalendars(s); }),
   },
   {
     name: 'planner_compare_baseline',
@@ -1019,7 +1056,7 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => compareBaseline(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'compare_baseline'); return compareBaseline(s); }),
   },
   {
     name: 'planner_analyze_delay',
@@ -1034,6 +1071,6 @@ export const readTools: McpToolDef[] = [
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
     annotations: READ_ANNOTATIONS,
-    handler: (_args, ctx) => readTool(ctx, (s) => analyzeDelay(s)),
+    handler: (args, ctx) => readTool(ctx, (s) => { requireOnlyKeys(args, [], 'analyze_delay'); return analyzeDelay(s); }),
   },
 ];

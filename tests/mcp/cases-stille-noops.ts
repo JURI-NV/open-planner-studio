@@ -554,4 +554,35 @@ test('BATCH: een lege `rawHolidays` blijft ook binnen een batch een ZACHTE weige
   assertEq(S().calendar.holidays.length, 1, 'feestdagen onaangeroerd');
 });
 
+test('BATCH: een VERSCHREVEN leesfilter wordt ook als batch-stap geweigerd (leestools hebben geen batchStep)', async () => {
+  neverCalculatedProject();
+  S().runCPM();
+  const totaal = S().tasks.length;
+  assert(totaal > 1, 'precondition: meer dan één taak');
+
+  // `kritisch` i.p.v. `kritiek`. LOS wordt dat door de schemapoort in de dispatcher geweigerd, maar
+  // planner_batch roept leestools via `def.handler(...)` aan en slaat die poort dus over. Zonder een
+  // EIGEN sleutelpoort in de leestool kreeg de aanroeper hier `status:"uitgevoerd"` met ALLE taken —
+  // een plausibel-maar-onjuist antwoord waarop hij zijn volgende stap bouwt.
+  const res = await batch([{ tool: 'planner_list_tasks', args: { kritisch: true, limit: 1000 } }]);
+
+  assert(!res.ok, 'een verschreven filter hoort ook binnen een batch te worden geweigerd');
+  assert((res as any).error.includes('kritisch'), `de fout moet de sleutel noemen: ${(res as any).error}`);
+  assert((res as any).error.includes('kritiek'), 'de fout moet de toegestane sleutels opsommen');
+});
+
+test('leestools: een onbekende sleutel wordt LOS geweigerd, ook op de argumentloze tools', () => {
+  neverCalculatedProject();
+  S().runCPM();
+  expectValidation(read('planner_list_tasks', { kritisch: true }), 'kritisch', 'verschreven filter');
+  expectValidation(read('planner_get_task', { id: 'x' }), 'id', 'get_task met `id` i.p.v. `taskId`');
+  expectValidation(read('planner_list_resources', { type: 'LABOR' }), 'type', 'niet-bestaand list_resources-filter');
+  expectValidation(read('planner_get_resource_histogram', { van: '2026-06-01', granulariteit: 'dag' }),
+    'granulariteit', 'verzonnen histogram-parameter');
+  expectValidation(read('planner_get_project_overview', { limit: 10 }), 'limit', 'overview neemt geen argumenten');
+  // Geen argumenten meegeven blijft gewoon werken (batch geeft vaak `{}` door).
+  assert(readOk('planner_get_project_overview', {}).tasks.length > 0, 'lege args blijven geldig');
+  assert(readOk('planner_get_project_info').statistics.totalTasks > 0, 'geen args blijft geldig');
+});
+
 await run();
