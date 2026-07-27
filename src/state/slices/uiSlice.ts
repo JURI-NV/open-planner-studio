@@ -38,7 +38,11 @@ export function createDefaultUI(): UIState {
     uiTheme: 'dark',
     enableQuarterHourZoom: false,
     weekStartDay: 'monday',
-    scrollMode: 'modifier',
+    // 'drag' (zoom + slepen, map-style) is sinds issue #22 de standaard: het is de meest
+    // intuïtieve navigatie en werkt zonder modifier-toetsen. Wie eerder al een voorkeur opsloeg
+    // houdt die — settingsRegistry patcht dit veld alleen bij een aanwezige localStorage-sleutel,
+    // en die wordt uitsluitend geschreven als de gebruiker de modus zelf omzet.
+    scrollMode: 'drag',
     positionDivision: 'left-right',
     modifierMap: { plain: 'vertical', ctrl: 'zoom', shift: 'horizontal' },
     debugTerminalEnabled: false,
