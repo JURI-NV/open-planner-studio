@@ -531,15 +531,10 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
   `src/services/p6/p6xmlWriter.ts`) — constraint-codes, WBS-boom, relatietypen en kalender-
   koppeling zijn dezelfde P6-semantiek, alleen een andere syntaxis. Bouw XER als tweede
   serialisatielaag op die mapping, niet als losstaande adapter.
-- [ ] **Interop-bevindingen uit de code-inventarisatie (2026-07-27)** — twee concrete losse eindjes:
-  1. **BUG: baselines gaan bij MSPDI-export nooit mee.** `src/state/slices/fileSlice.ts:252` roept
-     `writeMSPDI` met zeven argumenten aan (t/m `state.calendars`), terwijl de baseline-parameters
-     de achtste en negende zijn (`baselines`, `activeBaselineId` — `src/services/msproject/mspdiWriter.ts:196-197`);
-     ze vallen dus stilzwijgend terug op hun defaults `[]`/`null`. De documentatie belooft het
-     tegenovergestelde: `public/docs/nl/gids-import-export.md:53` stelt dat kalenders én baselines
-     bij MSPDI wél meegaan. Kleine fix (twee argumenten doorgeven), maar tot die tijd maken we een
-     onjuiste belofte waar.
-  2. **P6-PMXML-elementnamen zijn niet tegen echte P6 geverifieerd.** Het commentaar in
+- [ ] **Interop-bevindingen uit de code-inventarisatie (2026-07-27)** — nog één los eindje
+  (de MSPDI-baseline-exportbug is opgelost en staat nu vast in
+  `tests/planning/check-mspdi-baseline-export.ts`):
+  1. **P6-PMXML-elementnamen zijn niet tegen echte P6 geverifieerd.** Het commentaar in
      `src/services/p6/p6xmlWriter.ts:78-80` zegt het zelf: de elementnamen volgen de MPXJ-PMXML-
      conventie; het domeinrapport verifieerde de XER-kolomnamen, niet de PMXML-elementnamen.
      Er zijn bovendien géén fixtures van echte P6- of MS Project-exports in `tests/planning/`.

@@ -87,6 +87,20 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --outfile="$ADCHECK" >/dev/null 2>&1
   node "$ADCHECK" || STATUS=1
 
+  # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
+  # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
+  # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).
+  # Draait de ECHTE store-exportactie (niet writeMSPDI direct) en leest het resultaat terug.
+  MBCHECK="$DIR/.mspdi-baseline-export.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-mspdi-baseline-export.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$MBCHECK" >/dev/null 2>&1
+  node "$MBCHECK" || STATUS=1
+
   # Geavanceerde-CPM golf-0-checks (fase 2.9 — datamodel + plumbing default-inert, los van de CPM-cases).
   ACPMCHECK="$DIR/.advanced-cpm-check.mjs"
   "$ROOT/node_modules/.bin/esbuild" "$DIR/check-advanced-cpm.ts" \
