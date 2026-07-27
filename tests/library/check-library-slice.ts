@@ -757,7 +757,7 @@ const store = useAppStore.getState();
   const cid = s.addCompany('F4 Promote BV');
   s.bindProjectToCompany(cid);
   const resId = s.promoteResourceToPool(cid, { id: 'f4b-res', name: 'Isolatiemonteur', type: 'LABOR', description: '', maxUnits: 1 })!;
-  const added = s.addLibraryResourceToProject(cid, resId);
+  s.addLibraryResourceToProject(cid, resId);
   useAppStore.getState().undo(); // undo't de materialisatie ⇒ redo-entry klaar
   assert(useAppStore.getState().redoStack.length === 1, 'F4-promote-fixture: er staat een redo-entry klaar');
 
@@ -1565,7 +1565,7 @@ const store = useAppStore.getState();
   const s = useAppStore.getState();
   const cid = s.addCompany('F8 BV');
   s.bindProjectToCompany(cid);
-  const poolResId = s.promoteResourceToPool(cid, { id: 'f8-pool', name: 'Overlap', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 20 })!;
+  s.promoteResourceToPool(cid, { id: 'f8-pool', name: 'Overlap', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 20 });
 
   // (a) Content GELIJK (op de gevolgde velden — maxUnits mag verschillen, dat is projectinzet).
   const sameProjResId = s.addResource({ name: 'Overlap', type: 'LABOR', description: '', maxUnits: 9, costPerHour: 20 });

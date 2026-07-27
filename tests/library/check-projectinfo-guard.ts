@@ -28,7 +28,6 @@ function assert(cond: boolean, msg: string): void {
   if (!cond) { fails++; console.log(`   XX ${msg}`); }
 }
 
-const store = useAppStore.getState();
 
 // --- 1. B3-uitzondering: undo/redo raken GEEN projectvelden (behalve wbsAutoNumber) ---
 // Dit is de kern van waarom het re-init-effect in ProjectInfoPanelContent op `activeDocumentId` zit
