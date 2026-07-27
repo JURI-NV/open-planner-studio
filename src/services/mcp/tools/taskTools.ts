@@ -24,7 +24,18 @@ import { enrichOk, freshDates, okDirect, okEnvelope, projectEndInfo } from './he
 import { useAppStore } from '@/state/appStore';
 import { draft, type BulkTaskItem } from '@/state/mcpTransaction';
 import { validate, progress } from '@/state/mcpValidation';
+import {
+  parseTaskFields,
+  TASK_FIELDS_DOC,
+  TASK_FIELD_NAMES,
+  TASK_FIELD_SCHEMA_PROPERTIES,
+  type TaskFieldContext,
+  type TaskFieldPatch,
+} from './taskFields';
 import type { SequenceType } from '@/types/sequence';
+import type { Task } from '@/types/task';
+import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import { formatDate } from '@/utils/dateUtils';
 
 const SEQ_TYPES: SequenceType[] = ['FINISH_START', 'FINISH_FINISH', 'START_START', 'START_FINISH'];
 const isSeqType = (v: unknown): v is SequenceType => typeof v === 'string' && (SEQ_TYPES as string[]).includes(v);
@@ -59,29 +70,100 @@ function stepValidationError(message: string): McpStepError {
 // =================================================================================================
 // planner_add_tasks
 // =================================================================================================
+/** Bouw de validatiecontext voor de veld-allowlist. `task` afwezig ⇒ een NIEUWE taak (add_tasks). */
+function fieldContext(
+  s: ReturnType<typeof useAppStore.getState>,
+  task?: Task,
+): TaskFieldContext {
+  return {
+    currentIsMilestone: task?.isMilestone ?? false,
+    hasChildren: (task?.childIds.length ?? 0) > 0,
+    hasAssignments: task ? s.assignments.some((a) => a.taskId === task.id) : false,
+    // De projectkalender-id telt mee: op een vers document staat die alleen als cache in `s.calendar`
+    // (`calendars` is dan leeg), maar hij is wel degelijk een geldige taak-kalender.
+    calendarExists: (id: string) => s.calendars.some((c) => c.id === id) || id === s.calendar.id,
+  };
+}
+
+/** Eén geparst `add_tasks`-item: de bulk-only sleutels apart, de rest als gevalideerde veld-patch. */
+interface ParsedAddItem {
+  tempId: string;
+  parentId?: string;
+  position?: number;
+  patch: TaskFieldPatch;
+}
+
 /** Vormvalidatie van `add_tasks`; string = foutboodschap. */
-function parseAddTasks(args: unknown): BulkTaskItem[] | string {
+function parseAddTasks(args: unknown): ParsedAddItem[] | string {
   const a = (args ?? {}) as { tasks?: unknown };
   if (!Array.isArray(a.tasks) || a.tasks.length === 0) {
     return 'add_tasks vereist een niet-lege `tasks`-array';
   }
+  const st = useAppStore.getState();
   const seenTemp = new Set<string>();
+  const parsed: ParsedAddItem[] = [];
   for (const it of a.tasks) {
-    if (!it || typeof (it as any).tempId !== 'string' || typeof (it as any).name !== 'string') {
+    if (!it || typeof it !== 'object' || Array.isArray(it)) return 'elk taak-item moet een object zijn';
+    const raw = it as Record<string, unknown>;
+    if (typeof raw.tempId !== 'string' || typeof raw.name !== 'string') {
       return 'elk taak-item vereist een string-`tempId` en -`name`';
     }
     // Statische toolniveau-fout: dubbele tempId ⇒ VALIDATION VÓÓR enige transactie/backup (geen
     // spurious snapshot; draft.addTasks zou dit anders pas ín de transactie als throw vangen).
-    const tid = (it as any).tempId as string;
+    const tid = raw.tempId;
     if (seenTemp.has(tid)) return `dubbele tempId '${tid}' binnen de call`;
     seenTemp.add(tid);
+    if (raw.parentId !== undefined && typeof raw.parentId !== 'string') {
+      return `taak '${tid}': \`parentId\` moet een string zijn (bestaand taak-id of tempId uit deze call)`;
+    }
+    if (raw.position !== undefined && (typeof raw.position !== 'number' || !Number.isInteger(raw.position))) {
+      return `taak '${tid}': \`position\` moet een geheel getal zijn`;
+    }
+    // De inhoudelijke velden lopen door DEZELFDE allowlist als `update_tasks.fields` — een onbekende
+    // sleutel (`duration_days`, `time`, …) is hier een HARDE VALIDATION-fout: add_tasks kent geen
+    // per-item-weigering (het contract is de volledige tempId→realId-map, alles of niets).
+    const { tempId: _t, parentId: _p, position: _pos, ...fields } = raw;
+    void _t; void _p; void _pos;
+    const res = parseTaskFields(fields, fieldContext(st));
+    if (!res.ok) return `taak '${tid}': ${res.reason}`;
+    parsed.push({
+      tempId: tid,
+      ...(typeof raw.parentId === 'string' ? { parentId: raw.parentId } : {}),
+      ...(typeof raw.position === 'number' ? { position: raw.position } : {}),
+      patch: res.patch,
+    });
   }
-  return a.tasks as BulkTaskItem[];
+  return parsed;
 }
 
-/** Synchrone, transactie-vrije kern van `add_tasks`. */
-function addTasksCore(tasks: BulkTaskItem[]): MutationOutcome {
-  const map = draft.addTasks(tasks);
+/**
+ * Synchrone, transactie-vrije kern van `add_tasks`. Vertaalt de duur-velden naar het `time`-object
+ * dat `draft.addTask` verwacht: ALTIJD via `createDefaultTaskTime` (die leidt ook een consistente
+ * `scheduleFinish` af) — nooit een met de hand gevuld half `TaskTime`.
+ */
+function addTasksCore(items: ParsedAddItem[]): MutationOutcome {
+  const st = useAppStore.getState();
+  const anchor = st.project.startDate || formatDate(new Date());
+  const bulk: BulkTaskItem[] = items.map((it) => {
+    const top = it.patch.top;
+    const tp = it.patch.time;
+    let time: Task['time'] | undefined;
+    if (tp) {
+      // Geen expliciete duur ⇒ dezelfde default als draft.addTask (mijlpaal 0, anders 5 werkdagen).
+      const days = tp.scheduleDuration ?? (top.isMilestone ? 0 : 5);
+      time = createDefaultTaskTime(anchor, days);
+      if (tp.durationType !== undefined) time.durationType = tp.durationType;
+    }
+    return {
+      ...top,
+      name: top.name as string,
+      tempId: it.tempId,
+      ...(it.parentId !== undefined ? { parentId: it.parentId } : {}),
+      ...(it.position !== undefined ? { position: it.position } : {}),
+      ...(time ? { time } : {}),
+    };
+  });
+  const map = draft.addTasks(bulk);
   return { data: { created: Object.fromEntries(map) } };
 }
 
@@ -93,9 +175,12 @@ const addTasks: BatchStepTool = {
     'Laat een tempId ALTIJD met `tmp-` of `tmp_` beginnen (bijv. `tmp-fundering`) — binnen ' +
     '`planner_batch` is dat de GERESERVEERDE syntax waarop latere stappen hun verwijzingen herkennen; ' +
     'een tempId zonder die prefix laat de hele batch falen. ' +
-    '`position` is de invoeg-index binnen de ouder en klemt stil naar [0, aantal siblings]. Een mijlpaal ' +
-    '(`isMilestone`) heeft per definitie duur 0. Retourneert de volledige tempId→realId-map, de herrekende ' +
-    'earlyStart/earlyFinish per aangemaakte taak en het projecteinde.',
+    '`position` is de invoeg-index binnen de ouder en klemt stil naar [0, aantal siblings]. ' +
+    'Geef de DUUR direct mee met `duration` (hele werkdagen; zonder dat veld krijgt een taak de ' +
+    'standaard 5 werkdagen). Een mijlpaal (`isMilestone`) heeft per definitie duur 0 — `duration` > 0 ' +
+    'is daar een fout. ' + TASK_FIELDS_DOC + ' Bij add_tasks is een onbekende sleutel een HARDE fout ' +
+    '(de hele call faalt), niet een per-item-weigering. Retourneert de volledige tempId→realId-map, de ' +
+    'herrekende earlyStart/earlyFinish per aangemaakte taak en het projecteinde.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },
@@ -119,12 +204,12 @@ const addTasks: BatchStepTool = {
                 'zo kan planner_batch verwijzingen in latere stappen veilig vervangen zonder ooit vrije ' +
                 'tekst te raken. Buiten een batch is de prefix niet verplicht, maar wél aangeraden.',
             },
-            name: { type: 'string' },
             parentId: { type: 'string', description: 'Bestaand taak-id of een tempId uit dezelfde call; weglaten = wortel.' },
             position: { type: 'integer', description: 'Invoeg-index binnen de ouder; klemt stil naar [0, aantal siblings].' },
-            isMilestone: { type: 'boolean', description: 'Mijlpaal (duur 0).' },
-            description: { type: 'string' },
+            // Exact dezelfde velden als `update_tasks.fields` — één allowlist voor aanmaken én wijzigen.
+            ...TASK_FIELD_SCHEMA_PROPERTIES,
           },
+          additionalProperties: false,
         },
       },
     },
@@ -166,7 +251,25 @@ const FORBIDDEN_PROGRESS_IN_FIELDS = (fields: any): string | null => {
   return null;
 };
 
-/** Statische pre-classificatie van één update-item (existentie + fields-verbod), gedeeld door het
+/**
+ * Valideer `fields` van één update-item tegen de allowlist (`taskFields.ts`), ná het
+ * voortgangs-verbod. Retourneert de te schrijven patch of een reden. ALLES-OF-NIETS per item: is er
+ * ook maar één onbekende/ongeldige sleutel, dan wordt het hele `fields`-blok geweigerd en blijft de
+ * taak ONGEWIJZIGD (een `progress` in hetzelfde item loopt wél gewoon door — bewuste granulariteit).
+ */
+function resolveFieldsPatch(
+  state: ReturnType<typeof useAppStore.getState>,
+  id: string,
+  fields: unknown,
+): { ok: true; patch: TaskFieldPatch } | { ok: false; reason: string } {
+  const forbidden = FORBIDDEN_PROGRESS_IN_FIELDS(fields);
+  if (forbidden) return { ok: false, reason: forbidden };
+  const task = state.tasks.find((t) => t.id === id);
+  const res = parseTaskFields(fields, fieldContext(state, task));
+  return res.ok ? { ok: true, patch: res.patch } : { ok: false, reason: res.reason };
+}
+
+/** Statische pre-classificatie van één update-item (existentie + fields-validatie), gedeeld door het
  *  lege-batch-snelpad en (impliciet) de transactie-fn. `progress`-geldigheid is DYNAMISCH en valt
  *  bewust buiten deze statische check (zie de restgeval-noot bij de handler). */
 function classifyUpdate(
@@ -176,10 +279,13 @@ function classifyUpdate(
   const missing = validate.taskExists(state, u.id);
   if (missing) return { executable: false, rejection: missing };
   const hasFields = u.fields !== undefined;
-  const forbidden = hasFields ? FORBIDDEN_PROGRESS_IN_FIELDS(u.fields) : null;
+  const fieldsRes = hasFields ? resolveFieldsPatch(state, u.id, u.fields) : null;
   const hasProgress = u.progress !== undefined;
-  if ((hasFields && !forbidden) || hasProgress) return { executable: true };
-  return { executable: false, rejection: { id: u.id, reason: forbidden ?? 'geen `fields` of `progress` opgegeven' } };
+  if ((fieldsRes && fieldsRes.ok) || hasProgress) return { executable: true };
+  return {
+    executable: false,
+    rejection: { id: u.id, reason: fieldsRes && !fieldsRes.ok ? fieldsRes.reason : 'geen `fields` of `progress` opgegeven' },
+  };
 }
 
 /** Vormvalidatie van `update_tasks`; string = foutboodschap. */
@@ -203,9 +309,9 @@ function updateTasksCore(updates: { id: string; fields?: any; progress?: any }[]
     let touched = false;
     let rejectedHere = false;
     if (u.fields !== undefined) {
-      const forbidden = FORBIDDEN_PROGRESS_IN_FIELDS(u.fields);
-      if (forbidden) { rejections.push({ id, reason: forbidden }); rejectedHere = true; }
-      else { draft.updateTaskFields(id, u.fields); touched = true; }
+      const res = resolveFieldsPatch(useAppStore.getState(), id, u.fields);
+      if (!res.ok) { rejections.push({ id, reason: res.reason }); rejectedHere = true; }
+      else { draft.patchTaskFields(id, res.patch.top, res.patch.time); touched = true; }
     }
     if (u.progress !== undefined) {
       let pr: { applied: true } | { applied: false; reason: string } = { applied: false, reason: 'niet-uitgevoerd' };
@@ -222,9 +328,11 @@ function updateTasksCore(updates: { id: string; fields?: any; progress?: any }[]
 const updateTasks: BatchStepTool = {
   name: 'planner_update_tasks',
   description:
-    'Wijzig bestaande taken. Per item: `fields` (kale veld-merge — naam, duur, constraints, kalender; ' +
-    'GEEN voortgangsvelden) en/of `progress` (voortgangspad: `completion` in PROCENTEN 0–100, optioneel ' +
-    '`actualStart`/`actualFinish` als ISO-datum). Voortgang > 0 leidt de actualStart af; actuals ná de ' +
+    'Wijzig bestaande taken. Per item: `fields` (naam, DUUR in werkdagen, constraints, deadline, ' +
+    'kalender, …; GEEN voortgangsvelden) en/of `progress` (voortgangspad: `completion` in PROCENTEN ' +
+    '0–100, optioneel `actualStart`/`actualFinish` als ISO-datum). ' + TASK_FIELDS_DOC + ' Een ' +
+    'geweigerd `fields`-blok laat de taak volledig ONGEWIJZIGD (nooit een halve merge). ' +
+    'Voortgang > 0 leidt de actualStart af; actuals ná de ' +
     'projectstatusdatum of buiten 0–100 worden per item zacht geweigerd — geldige items blijven staan. ' +
     'Hefboom-tip: hypothetische uitloop = duur of SNET-constraint (via `fields`); geregistreerde voortgang ' +
     '= actuals mét statusdatum (via `progress`). Merk op: één taak-id kan tegelijk in `updated` én in de ' +
@@ -243,7 +351,14 @@ const updateTasks: BatchStepTool = {
           required: ['id'],
           properties: {
             id: { type: 'string' },
-            fields: { type: 'object', description: 'Kale veld-merge (Partial<Task>) zonder voortgangsvelden.' },
+            fields: {
+              type: 'object',
+              description:
+                `Te wijzigen velden (expliciete allowlist: ${TASK_FIELD_NAMES.join(', ')}). Namen ` +
+                'spiegelen planner_get_task. Een onbekende sleutel wordt geweigerd — nooit stil genegeerd.',
+              properties: { ...TASK_FIELD_SCHEMA_PROPERTIES },
+              additionalProperties: false,
+            },
             progress: {
               type: 'object',
               properties: {

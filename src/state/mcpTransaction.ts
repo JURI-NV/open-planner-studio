@@ -6,7 +6,7 @@ import { formatDate } from '@/utils/dateUtils';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
-import type { Task } from '@/types/task';
+import type { DurationType, Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
 import type { ResourceAssignment, ResourceCurve } from '@/types/resource';
@@ -386,12 +386,51 @@ export const draft = {
    * Kale veld-merge op een taak (snapshot/recompute-vrij), ZONDER de voortgangsinvarianten — die
    * lopen in T4 via de dedicated invariant-setters. Onbekend id ⇒ stille no-op (zoals de store-
    * `updateTask`); geen throw, want een leeg-effect-merge is geen structurele fout.
+   *
+   * `time` wordt bewust SHALLOW GEMERGED in plaats van vervangen: een `Object.assign` van de hele
+   * `time`-tak wiste anders in één klap de CPM-datums, floats, actuals en completion van elke sleutel
+   * die de aanroeper niet toevallig meestuurde. De MCP-toollaag zet `time` sowieso niet meer
+   * rechtstreeks (zie `patchTaskFields` + `taskFields.ts`); deze merge is de vangrail voor elke
+   * andere aanroeper.
    */
   updateTaskFields(id: string, updates: Partial<Task>): void {
     useAppStore.setState((s) => {
       const idx = s.tasks.findIndex((t) => t.id === id);
       if (idx < 0) return;
-      Object.assign(s.tasks[idx], updates);
+      const { time, ...rest } = updates;
+      Object.assign(s.tasks[idx], rest);
+      if (time) Object.assign(s.tasks[idx].time, time);
+      s.isDirty = true;
+    });
+  },
+
+  /**
+   * VELD-VOOR-VELD-patch op een taak (snapshot/recompute-vrij): top-level velden plus expliciet
+   * benoemde `time`-SLEUTELS. Bedoeld voor de MCP-toollaag, die zijn invoer eerst door de allowlist
+   * van `services/mcp/tools/taskFields.ts` haalt.
+   *
+   * Verschil met `updateTaskFields`: hier kan een aanroeper per constructie geen hele geneste tak
+   * meegeven — `timePatch` kent alleen `scheduleDuration`, `durationType` en de expliciete
+   * `clearDurationMinutes`. Dat laatste is nodig omdat `durationMinutes` op een uur-kalender de BRON
+   * VAN WAARHEID is (`durationDaysOf`): een achtergebleven minutenwaarde zou een zojuist gezette
+   * dag-duur stil overrulen. `delete` (niet `= undefined`) houdt het Task-object schoon voor de
+   * IFC-round-trip. Onbekend id ⇒ stille no-op (zoals `updateTaskFields`).
+   */
+  patchTaskFields(
+    id: string,
+    top: Partial<Task>,
+    timePatch?: { scheduleDuration?: number; durationType?: DurationType; clearDurationMinutes?: boolean },
+  ): void {
+    useAppStore.setState((s) => {
+      const idx = s.tasks.findIndex((t) => t.id === id);
+      if (idx < 0) return;
+      const task = s.tasks[idx];
+      Object.assign(task, top);
+      if (timePatch) {
+        if (timePatch.scheduleDuration !== undefined) task.time.scheduleDuration = timePatch.scheduleDuration;
+        if (timePatch.durationType !== undefined) task.time.durationType = timePatch.durationType;
+        if (timePatch.clearDurationMinutes) delete task.time.durationMinutes;
+      }
       s.isDirty = true;
     });
   },
