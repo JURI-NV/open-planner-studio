@@ -12,6 +12,11 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
 OUT="$DIR/.harness.mjs"
 
+# Elke gebouwde bundel wordt hier bijgehouden voor de tijdzone-matrix onderaan. Expliciet
+# bijhouden i.p.v. een glob op "$DIR"/.*.mjs, want zo'n glob pakt ook verouderde artefacten
+# van inmiddels verwijderde checks op (die daarna eeuwig blijven meedraaien).
+BUNDLES=()
+
 "$ROOT/node_modules/.bin/esbuild" "$DIR/harness.ts" \
   --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
   --define:import.meta.env.DEV=false \
@@ -41,6 +46,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$CHECK" >/dev/null 2>&1
+  BUNDLES+=("$CHECK")
   node "$CHECK" || STATUS=1
 
   # Datetime-substraat + duur-parser-checks (fase 2.8b golf 0, §8 — los van de CPM-cases).
@@ -52,6 +58,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$DTCHECK" >/dev/null 2>&1
+  BUNDLES+=("$DTCHECK")
   node "$DTCHECK" || STATUS=1
 
   # "Je bent net geüpdatet"-vergelijklogica (releaseInfo.ts — pure functies, los van de CPM-cases).
@@ -63,6 +70,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$JUCHECK" >/dev/null 2>&1
+  BUNDLES+=("$JUCHECK")
   node "$JUCHECK" || STATUS=1
 
   # CalendarEngine uur-modus-checks (fase 2.8b golf 1, §4/§9 — engine-primitieven, los van de CPM-cases).
@@ -74,6 +82,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$CHCHECK" >/dev/null 2>&1
+  BUNDLES+=("$CHCHECK")
   node "$CHCHECK" || STATUS=1
 
   # Adapter-uur-precisie-checks (fase 2.8b golf 4, §7 — IFC/P6/MSPDI uur-round-trip + dag-discriminator).
@@ -85,6 +94,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$ADCHECK" >/dev/null 2>&1
+  BUNDLES+=("$ADCHECK")
   node "$ADCHECK" || STATUS=1
 
   # Geavanceerde-CPM golf-0-checks (fase 2.9 — datamodel + plumbing default-inert, los van de CPM-cases).
@@ -96,6 +106,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$ACPMCHECK" >/dev/null 2>&1
+  BUNDLES+=("$ACPMCHECK")
   node "$ACPMCHECK" || STATUS=1
 
   # moveAssignment-checks (fase 2.10, golf D, item 4 — headless tegen de echte store, guards +
@@ -108,6 +119,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$MACHECK" >/dev/null 2>&1
+  BUNDLES+=("$MACHECK")
   node "$MACHECK" || STATUS=1
 
   # "Project verplaatsen"-checks (pakket D1 — veld-voor-veld shift-verdicten, R7-feestdagendekking,
@@ -121,6 +133,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$MPCHECK" >/dev/null 2>&1
+  BUNDLES+=("$MPCHECK")
   node "$MPCHECK" || STATUS=1
 
   # moveTask-cykelguard + addTask.notes-checks (fase 2.10 onderdeel 2, QA-fixes P1/4 — headless
@@ -133,6 +146,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$MTCHECK" >/dev/null 2>&1
+  BUNDLES+=("$MTCHECK")
   node "$MTCHECK" || STATUS=1
 
   # Documentcontract-checks (audit P10, F1/F3 — key-gedreven capture/hydrate/reset, Snapshot-subset,
@@ -145,6 +159,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$DCCHECK" >/dev/null 2>&1
+  BUNDLES+=("$DCCHECK")
   node "$DCCHECK" || STATUS=1
 
   # Gantt-cull-regressie: de speling-band mag niet verdwijnen zolang hij zichtbaar is. De cull in
@@ -159,6 +174,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$GFCHECK" >/dev/null 2>&1
+  BUNDLES+=("$GFCHECK")
   node "$GFCHECK" || STATUS=1
 
   # Tijd-as-consolidatie (issue #21 punt 5, fase 0): geconsolideerde `timeAxis.dateToX`/`xToDate`/
@@ -173,6 +189,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$AXCHECK" >/dev/null 2>&1
+  BUNDLES+=("$AXCHECK")
   node "$AXCHECK" || STATUS=1
 
   # WorkdayAxis (issue #21 punt 5, fase 1): de nieuwe gecomprimeerde-werkdagen-as, headless en
@@ -188,6 +205,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$WDCHECK" >/dev/null 2>&1
+  BUNDLES+=("$WDCHECK")
   node "$WDCHECK" || STATUS=1
 
   # Header-datumregel onder compressie (issue #21 punt 5, vervolg): `drawTimelineHeader` gebruikte
@@ -205,6 +223,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$HCCHECK" >/dev/null 2>&1
+  BUNDLES+=("$HCCHECK")
   node "$HCCHECK" || STATUS=1
 
   # i18n-pluralisatie-contract voor de telsleutels van "Project verplaatsen…". Een ontbrekende
@@ -219,6 +238,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$I18NCHECK" >/dev/null 2>&1
+  BUNDLES+=("$I18NCHECK")
   node "$I18NCHECK" || STATUS=1
 
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
@@ -236,8 +256,51 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
     --define:import.meta.env.MODE='"production"' \
     --define:__OPS_DEV_INSTANCE__='"test"' \
     --outfile="$RTCHECK" >/dev/null 2>&1
+  BUNDLES+=("$RTCHECK")
   node "$RTCHECK" || STATUS=1
 fi
 
 node "$OUT" "${FILES[@]}" || STATUS=1
+
+# ── Tijdzone-matrix ────────────────────────────────────────────────────────────────────────
+# De hele suite draaide altijd onder de tijdzone van de machine, waardoor een tijdzone-
+# afhankelijke datumbug (K1: `parseDate` las een UTC-instant met lokale getters uit) onzichtbaar
+# bleef op een Europese laptop maar 120 cases roodmaakte in New York. Deze matrix herdraait de
+# AL GEBOUWDE bundels onder een andere TZ — bundelen is de dure stap en het artefact zelf is
+# tijdzone-onafhankelijk, dus dit kost alleen de looptijd van de checks. De tsc-typecheck van
+# het round-trip-contract hoort hier bewust niet bij (compile-stap, tijdzone-onafhankelijk).
+#
+# De set dekt de vier manieren waarop een datum kan verschuiven:
+#   UTC               referentie/nulpunt (offset 0, geen DST)
+#   America/New_York  negatieve offset MÉT DST — de klassieke "dag valt terug"-zone
+#   Pacific/Midway    extreem negatief (UTC−11), grootste terugval
+#   Pacific/Auckland  extreem positief (UTC+12/+13), grootste vooruitsprong
+#   Atlantic/Azores   DST-variant die over UTC+0/−1 kantelt; op het ankerpunt 2026-06-01 van de
+#                     suite staat hij op +0, dus alleen deze zone betrapt fouten die pas buiten
+#                     de zomer (wintertijd = −1) zichtbaar worden.
+# Alleen bij een volledige run — met een losse batterij als argument is dit onnodige looptijd.
+if [ "$RUN_HOLIDAYS" -eq 1 ]; then
+  echo ""
+  echo "── Tijdzone-matrix (herdraait de gebouwde bundels onder andere TZ) ──"
+  for TZONE in UTC America/New_York Pacific/Midway Pacific/Auckland Atlantic/Azores; do
+    TZ_STATUS=0
+    TZ_LOG=""
+    for BUNDLE in "${BUNDLES[@]}" "$OUT"; do
+      if [ "$BUNDLE" = "$OUT" ]; then
+        BUNDLE_OUT="$(TZ="$TZONE" node "$OUT" "${FILES[@]}" 2>&1)" || TZ_STATUS=1
+      else
+        BUNDLE_OUT="$(TZ="$TZONE" node "$BUNDLE" 2>&1)" || TZ_STATUS=1
+      fi
+      TZ_LOG+="--- $(basename "$BUNDLE") ---"$'\n'"$BUNDLE_OUT"$'\n'
+    done
+    if [ "$TZ_STATUS" -eq 0 ]; then
+      echo "TZ $TZONE: groen"
+    else
+      echo "TZ $TZONE: ROOD — volledige uitvoer volgt"
+      printf '%s\n' "$TZ_LOG"
+      STATUS=1
+    fi
+  done
+fi
+
 exit "$STATUS"
