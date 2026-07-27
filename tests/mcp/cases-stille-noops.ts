@@ -508,4 +508,50 @@ test('H6/L4: de beschrijvingen benoemen de naamdrift lezen↔schrijven', () => {
   assert(/wbsCode/.test(gt) || /wbsCode/.test(ov), '`wbs` ↔ `wbsCode` moet ergens expliciet zijn');
 });
 
+// =================================================================================================
+// BATCH-PAD — `planner_batch` dispatcht via `batchStep` en komt dus NIET langs de schemavalidatie
+// in de dispatcher. Voor deze toolmodule is dat geen gat: elke `batchStep` loopt door exact dezelfde
+// `parse*`-functies als de losse handler, dus alle validaties hierboven gelden ook binnen een batch.
+// Deze twee cases pinnen dat vast, zodat het niet stil kan wegrotten.
+// =================================================================================================
+
+/** Draai `planner_batch` met de echte, geregistreerde tools. */
+async function batch(steps: { tool: string; args: unknown }[]): Promise<McpToolResult> {
+  const def = getTool('planner_batch');
+  assert(!!def, 'planner_batch niet geregistreerd');
+  return (await def!.handler({ steps }, makeCtx())) as McpToolResult;
+}
+
+test('BATCH: een onbekende `update_project`-sleutel rolt de HELE batch terug (validatie geldt ook via batchStep)', async () => {
+  cleanProject([]);
+  const naamVoor = S().project.name;
+  const undoBefore = S().undoStack.length;
+
+  const res = await batch([
+    { tool: 'planner_update_project', args: { name: 'Mag niet blijven staan' } },
+    { tool: 'planner_update_project', args: { name: 'Tweede', bestaatNiet: 1 } },
+  ]);
+
+  assert(!res.ok, 'een structurele stapfout hoort de batch om te gooien');
+  assert((res as any).error.includes('bestaatNiet') || JSON.stringify((res as any).errorData ?? '').includes('bestaatNiet'),
+    `de fout moet de onbekende sleutel noemen: ${(res as any).error}`);
+  assertEq(S().project.name, naamVoor, 'volledige rollback: ook de eerste stap is terug');
+  assertEq(S().undoStack.length, undoBefore, 'geen achtergebleven undo-stap');
+});
+
+test('BATCH: een lege `rawHolidays` blijft ook binnen een batch een ZACHTE weigering', async () => {
+  cleanProject([VORST]);
+  const calId = S().calendar.id;
+
+  const res = await batch([
+    { tool: 'planner_update_calendar', args: { calendars: [{ id: calId, rawHolidays: [] }] } },
+  ]);
+
+  const data = okData(res);
+  const rej: { id: string; reason: string }[] = data.rejections ?? [];
+  assert(rej.some((r) => /leeg|replace/i.test(r.reason)),
+    `de zachte weigering moet in het batch-rapport staan: ${JSON.stringify(rej)}`);
+  assertEq(S().calendar.holidays.length, 1, 'feestdagen onaangeroerd');
+});
+
 await run();
