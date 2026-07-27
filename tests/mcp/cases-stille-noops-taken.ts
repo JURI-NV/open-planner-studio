@@ -151,15 +151,18 @@ test('H2: leeskant-lagvormen "+2d" / "-1d" / "2d" worden omgezet', async () => {
   }
 });
 
-test('H2: procent-lag "+50%" wordt EXPLICIET geweigerd, niet stil 0', async () => {
+// H2 (HERZIEN bij planner_update_dependencies): procent-lag was de énige leeskant-vorm die de
+// schrijfkant niet sprak, en werd daarom expliciet geweigerd — een gedocumenteerd gat, geen
+// eindstation. Nu de gedeelde relatie-veldlaag (`sequenceFields.ts`) hem kent, is de eerlijke uitkomst
+// niet "nette weigering" maar "hij landt echt".
+test('H2: procent-lag "+50%" wordt GEZET als lagPercent (leeskant-vorm is nu terugschrijfbaar)', async () => {
   const [a, b] = await twoTasks();
   const res = await call('planner_add_dependencies', {
     dependencies: [{ predecessorId: a, successorId: b, type: 'FS', lag: '+50%' }],
   });
-  assertEq(okData(res).added, [], 'geen relatie toegevoegd');
-  assertEq(store.getState().sequences.length, 0, 'de store blijft leeg');
-  const reason = rejections(res)[0].reason;
-  assert(/procent/i.test(reason), `de weigering benoemt procent-lag: ${reason}`);
+  assertEq(okData(res).added.length, 1, 'relatie toegevoegd');
+  assertEq(store.getState().sequences[0].lagPercent, 50, 'lagPercent is echt 50');
+  assertEq(store.getState().sequences[0].lagDays, 0, 'dag-lag blijft 0 (procent sluit dagen uit)');
 });
 
 test('K4: onzin-lag ("morgen", true, {}) ⇒ zachte weigering per item', async () => {

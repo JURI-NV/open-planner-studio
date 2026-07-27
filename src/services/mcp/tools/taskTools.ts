@@ -37,76 +37,21 @@ import {
 } from './taskFields';
 import type { SequenceType } from '@/types/sequence';
 import type { Task } from '@/types/task';
+// De relatie-NOTATIE (type-aliassen, lag-vormen, schema-fragmenten) woont in de gedeelde veldlaag
+// `sequenceFields.ts` — één implementatie voor `add_dependencies` hier, `update_dependencies` in
+// `dependencyTools.ts` en de leeskant in `readTools.ts`. Zie de kop van dat bestand.
+import {
+  LAG_DOC,
+  LAG_SCHEMA,
+  lagPatchOf,
+  parseLag,
+  normalizeSeqType,
+  SEQ_TYPE_SCHEMA,
+  unknownTypeReason,
+  type ParsedLag,
+} from './sequenceFields';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { formatDate } from '@/utils/dateUtils';
-
-const SEQ_TYPES: SequenceType[] = ['FINISH_START', 'FINISH_FINISH', 'START_START', 'START_FINISH'];
-
-/**
- * De SCHRIJFKANT MOET DE LEESKANT SPREKEN (audit-bevindingen H1/H2). `planner_get_task` en
- * `planner_get_project_overview` geven relatietypes terug als `FS`/`SS`/`FF`/`SF` en lag als STRING
- * (`"+2d"`, `"-1d"`, `"+50%"`), maar `add_dependencies` eiste de lange enum plus een `number`. Een
- * agent die de voorgangers van taak A leest en op taak B spiegelt, gaf dus letterlijk `type: 'FS',
- * lag: '+2d'` door — waarna het type zacht werd geweigerd en de lag STIL 0 werd. Daarom accepteert de
- * schrijfkant nu beide notaties en vertaalt ze; niets verdampt meer in stilte.
- */
-const SEQ_TYPE_ALIASES: Record<string, SequenceType> = {
-  FS: 'FINISH_START',
-  FF: 'FINISH_FINISH',
-  SS: 'START_START',
-  SF: 'START_FINISH',
-};
-/** Korte notaties zoals de leestools ze teruggeven — ook geldig als `type`-invoer. */
-const SEQ_TYPE_SHORT = Object.keys(SEQ_TYPE_ALIASES);
-
-/** Normaliseer een relatietype (lang of kort, hoofdletterongevoelig) ⇒ `SequenceType`, of null. */
-function normalizeSeqType(v: unknown): SequenceType | null {
-  if (typeof v !== 'string') return null;
-  const up = v.trim().toUpperCase();
-  if ((SEQ_TYPES as string[]).includes(up)) return up as SequenceType;
-  return SEQ_TYPE_ALIASES[up] ?? null;
-}
-
-/** Lag-vormen die de LEESKANT produceert: `"+2d"`, `"-1d"`, `"2d"`, `"2"`, `"+0.5d"`. */
-const LAG_STRING_RE = /^([+-]?\d+(?:[.,]\d+)?)\s*(?:d|dag|dagen|day|days|wd)?$/i;
-/** Procent-lag (`"+50%"`): bestaat wél in het model (`Sequence.lagPercent`) maar is via de bridge niet zetbaar. */
-const LAG_PERCENT_RE = /^[+-]?\d+(?:[.,]\d+)?\s*%$/;
-
-/**
- * Valideer/normaliseer `lag` ⇒ hele-werkdagen-getal. Afwezig ⇒ 0 (bestaande default).
- *
- * Was (audit-bevinding K4) `typeof c.lag === 'number' ? c.lag : 0` — een niet-numerieke lag werd
- * daarmee STIL 0 en de tool antwoordde gewoon `added: [...]`. LLM's sturen routinematig numerieke
- * strings; die vorm wordt nu geaccepteerd én omgezet, al het overige wordt bij naam geweigerd.
- */
-function parseLag(raw: unknown): { ok: true; value: number } | { ok: false; reason: string } {
-  if (raw === undefined || raw === null) return { ok: true, value: 0 };
-  if (typeof raw === 'number') {
-    if (!Number.isFinite(raw)) return { ok: false, reason: '`lag` moet een eindig getal zijn (hele werkdagen)' };
-    return { ok: true, value: raw };
-  }
-  if (typeof raw === 'string') {
-    const s = raw.trim();
-    if (LAG_PERCENT_RE.test(s)) {
-      return {
-        ok: false,
-        reason:
-          `procent-lag (\`${s}\`) is via de bridge NIET zetbaar — de leestools tonen hem wel, maar ` +
-          'add_dependencies kent alleen een vaste lag in hele werkdagen (bijv. 2 of "+2d")',
-      };
-    }
-    const m = LAG_STRING_RE.exec(s);
-    if (m) {
-      const n = Number(m[1].replace(',', '.'));
-      if (Number.isFinite(n)) return { ok: true, value: n };
-    }
-    return {
-      ok: false,
-      reason: `\`lag\` '${s}' is geen geldige lag; geef hele werkdagen als getal (2, -1) of als string ("+2d", "-1d")`,
-    };
-  }
-  return { ok: false, reason: `\`lag\` moet een getal in werkdagen zijn (of een string als "+2d"), kreeg ${typeof raw}` };
-}
 
 const STD_ANNOT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
@@ -719,21 +664,18 @@ function classifyDeps(
   st: ReturnType<typeof useAppStore.getState>,
   deps: { predecessorId: string; successorId: string; type: string; lag?: unknown }[],
 ): {
-  candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: number }[];
+  candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: ParsedLag }[];
   rejections: { id: string; reason: string }[];
 } {
   const rejections: { id: string; reason: string }[] = [];
-  const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: number }[] = [];
+  const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: ParsedLag }[] = [];
   const seen = new Set(st.sequences.map((s) => `${s.predecessorId}|${s.successorId}|${s.type}`));
   for (const d of deps) {
     const label = `${d.predecessorId}->${d.successorId}`;
-    // Type: lange én korte (leeskant-)notatie, hoofdletterongevoelig — zie SEQ_TYPE_ALIASES (H1).
+    // Type: lange én korte (leeskant-)notatie, hoofdletterongevoelig — zie `sequenceFields` (H1).
     const type = normalizeSeqType(d.type);
     if (!type) {
-      rejections.push({
-        id: label,
-        reason: `onbekend relatietype '${String(d.type)}'; toegestaan: ${SEQ_TYPES.join(' | ')} (of kort ${SEQ_TYPE_SHORT.join('/')})`,
-      });
+      rejections.push({ id: label, reason: unknownTypeReason(d.type) });
       continue;
     }
     // Lag: nooit meer stil naar 0 terugvallen (K4/H2).
@@ -773,13 +715,17 @@ function addDependenciesCore(
   if (cyc) throw new McpStepError('CYCLE', `kringverwijzing gedetecteerd: ${cyc.join(' → ')}`);
   const added: string[] = [];
   for (const c of candidates) {
+    // `c.lag` is hier al door `parseLag` gegaan (K4): een niet-numerieke lag heeft de relatie
+    // hierboven geweigerd en komt nooit als stille 0 binnen. `lagPatchOf` kiest de representatie
+    // (dagen óf procent) — één bron, gedeeld met `update_dependencies`. Op een NIEUWE relatie laten
+    // we de lege sleutels weg (er valt niets te wissen); de update-kant zet ze bewust wél expliciet.
+    const lp = lagPatchOf(c.lag);
     const newId = draft.addSequence({
       predecessorId: c.predecessorId,
       successorId: c.successorId,
       type: c.type,
-      // `c.lag` is hier al door `parseLag` gegaan (K4): een niet-numerieke lag heeft de relatie
-      // hierboven geweigerd en komt nooit als stille 0 binnen.
-      lagDays: c.lag,
+      lagDays: lp.lagDays,
+      ...(lp.lagPercent !== undefined ? { lagPercent: lp.lagPercent } : {}),
     });
     if (newId) added.push(newId);
     else rejections.push({ id: `${c.predecessorId}->${c.successorId}`, reason: 'relatie bestond al' });
@@ -790,14 +736,14 @@ function addDependenciesCore(
 const addDependencies: BatchStepTool = {
   name: 'planner_add_dependencies',
   description:
-    'Voeg relaties tussen taken toe. Per item: `predecessorId`, `successorId`, `type` ' +
+    'Voeg NIEUWE relaties tussen taken toe. Per item: `predecessorId`, `successorId`, `type` ' +
     '(FINISH_START | FINISH_FINISH | START_START | START_FINISH — de KORTE vorm FS/FF/SS/SF die de ' +
-    'leestools teruggeven mag ook) en optioneel `lag` in HELE WERKDAGEN (negatief = lead). `lag` mag ' +
-    'een getal (2, -1) of de leeskant-string ("+2d", "-1d", "2") zijn; elke andere vorm wordt per item ' +
-    'GEWEIGERD in plaats van stil op 0 gezet. PROCENT-LAG ("+50%") die de leestools kunnen tonen is via ' +
-    'de bridge niet zetbaar en wordt expliciet geweigerd. Onbekende taak-id\'s of een reeds bestaande ' +
-    'relatie worden per item zacht geweigerd; een kringverwijzing (over de bestaande én voorgestelde ' +
-    'relaties) is een harde fout die de hele call terugrolt.',
+    'leestools teruggeven mag ook) en optioneel `lag`. ' + LAG_DOC + ' Onbekende taak-id\'s of een reeds ' +
+    'bestaande relatie worden per item zacht geweigerd; een kringverwijzing (over de bestaande én ' +
+    'voorgestelde relaties) is een harde fout die de hele call terugrolt. ' +
+    'WIL JE EEN BESTAANDE RELATIE WIJZIGEN (ander type, andere lag, andere voorganger/opvolger)? ' +
+    'Gebruik planner_update_dependencies met het sequence-id — NIET verwijderen-en-opnieuw-toevoegen: ' +
+    'dat verliest het id en levert twee undo-stappen op.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },
@@ -813,18 +759,9 @@ const addDependencies: BatchStepTool = {
           properties: {
             predecessorId: { type: 'string' },
             successorId: { type: 'string' },
-            type: {
-              type: 'string',
-              enum: [...SEQ_TYPES, ...SEQ_TYPE_SHORT],
-              description: 'Lange vorm (FINISH_START, …) of de korte vorm die de leestools teruggeven (FS/FF/SS/SF).',
-            },
-            lag: {
-              type: ['number', 'string'],
-              description:
-                'Vaste lag in HELE WERKDAGEN (negatief = lead). Default 0. Als getal (2, -1) of als de ' +
-                'leeskant-string ("+2d", "-1d", "2"). Procent-lag ("+50%") is via de bridge niet zetbaar ' +
-                'en wordt geweigerd — nooit stil op 0 gezet.',
-            },
+            // Gedeelde schema-fragmenten (sequenceFields.ts): identiek aan update_dependencies.
+            type: SEQ_TYPE_SCHEMA,
+            lag: LAG_SCHEMA,
           },
           additionalProperties: false,
         },
@@ -888,8 +825,10 @@ function removeDependenciesCore(ids: string[]): MutationOutcome {
 const removeDependencies: BatchStepTool = {
   name: 'planner_remove_dependencies',
   description:
-    'Verwijder relaties op hun sequence-id (zoals get_project_overview / get_task die teruggeven). Een ' +
-    'onbekend id wordt per item zacht geweigerd. Retourneert de verwijderde id\'s en het nieuwe projecteinde.',
+    'Verwijder relaties DEFINITIEF op hun sequence-id (zoals get_project_overview / get_task die ' +
+    'teruggeven). Een onbekend id wordt per item zacht geweigerd. Retourneert de verwijderde id\'s en ' +
+    'het nieuwe projecteinde. Wil je een relatie alleen AANPASSEN (type, lag, voorganger/opvolger)? ' +
+    'Gebruik planner_update_dependencies — verwijderen en opnieuw toevoegen is daarvoor niet de route.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT, destructiveHint: true },

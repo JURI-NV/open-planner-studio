@@ -213,12 +213,12 @@ test('dispatcher: een GELDIGE call passeert de poort ongehinderd', async () => {
 });
 
 // =================================================================================================
-// 3) Schema-dekking over ALLE 38 tools
+// 3) Schema-dekking over ALLE 39 tools
 // =================================================================================================
-test('alle 38 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
+test('alle 39 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
   registerAllTools();
   const tools = getTools();
-  assert(tools.length === 38, `verwachtte 38 tools, kreeg ${tools.length}`);
+  assert(tools.length === 39, `verwachtte 39 tools, kreeg ${tools.length}`);
   const offenders: string[] = [];
   for (const t of tools) {
     const unknown = unsupportedKeywords(t.inputSchema);

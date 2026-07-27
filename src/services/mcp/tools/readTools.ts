@@ -19,9 +19,10 @@ import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { ensureFreshSchedule } from '../staleGuard';
 import { runReadTool, toolError } from './runtime';
+import { lagLabel, seqAbbrev } from './sequenceFields';
 import type { McpContext, McpToolDef, McpToolResult, McpErrorCode, McpToolAnnotations } from '../contracts';
 import type { Task } from '@/types/task';
-import type { Sequence, SequenceType } from '@/types/sequence';
+import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Baseline } from '@/types/baseline';
 import { computeHistogramReport } from '@/engine/scheduler/ResourceLoad';
@@ -81,25 +82,9 @@ const READ_ANNOTATIONS: McpToolAnnotations = {
 
 // ── Compacte helpers ─────────────────────────────────────────────────────────────────────────────
 
-/** FS/SS/FF/SF-afkorting voor de compacte relatienotatie. */
-function seqAbbrev(type: SequenceType): string {
-  switch (type) {
-    case 'FINISH_START': return 'FS';
-    case 'START_START': return 'SS';
-    case 'FINISH_FINISH': return 'FF';
-    case 'START_FINISH': return 'SF';
-  }
-}
-
-/** Compacte lag-suffix: "+2d" / "-1d" / "+50%" / "" (geen lag). Percentage sluit dagen uit (schema). */
-function lagLabel(seq: Sequence): string {
-  if (typeof seq.lagPercent === 'number' && Number.isFinite(seq.lagPercent) && seq.lagPercent !== 0) {
-    return `${seq.lagPercent > 0 ? '+' : ''}${seq.lagPercent}%`;
-  }
-  const d = Number.isFinite(seq.lagDays) ? seq.lagDays : 0;
-  if (d === 0) return '';
-  return `${d > 0 ? '+' : ''}${d}d`;
-}
+// `seqAbbrev` (FS/SS/FF/SF) en `lagLabel` ("+2d"/"+50%") staan sinds `planner_update_dependencies` in
+// de gedeelde veldlaag `sequenceFields.ts`: de SCHRIJFKANT moet exact deze notatie kunnen terugnemen,
+// en dat lukt alleen met één implementatie. Zie de kop van dat bestand.
 
 /** Voortgang 0-1 → geheel percent 0-100 (spec-conventie completion 0-100). */
 function pct(completion: number): number {
@@ -916,7 +901,9 @@ export const readTools: McpToolDef[] = [
       'nodig heeft), wbs, naam, dur(werkdagen), start/end (vroege datums), ' +
       'prog(0-100), crit, ms(mijlpaal), parent(wbs) en uitgaande relaties in verkorte notatie ' +
       '"→2.3 FS+2d #seq-7", waarbij het deel achter `#` het SEQUENCE-ID is (voer dat rechtstreeks aan ' +
-      'planner_remove_dependencies). BEWUST ONGELIMITEERD: de volledige relatiegraaf zit gegarandeerd ' +
+      'planner_update_dependencies om de relatie te WIJZIGEN, of aan planner_remove_dependencies om ' +
+      'hem te verwijderen). Type en lag staan hier in exact de notatie die die tools ACCEPTEREN ' +
+      '(FS/SS/FF/SF, "+2d", "+50%"). BEWUST ONGELIMITEERD: de volledige relatiegraaf zit gegarandeerd ' +
       'in deze ENE respons (elke relatie staat één keer, bij zijn voorganger), dus één call volstaat ' +
       'voor structuur- én netwerkWERK — je hebt er geen tweede call voor id\'s bij nodig. ' +
       'NAAMDRIFT LEZEN↔SCHRIJVEN: het veld heet hier `wbs`, bij het schrijven (add_tasks/update_tasks) ' +
