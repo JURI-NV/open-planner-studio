@@ -297,8 +297,13 @@ export const fileTools: McpToolDef[] = [
       'Gebruik altijd het `documentId` UIT DE RESPONS voor vervolgstappen — of het bestand in het ' +
       'bestaande tabblad of in een nieuw tabblad landde hangt af van de staat van de app. ' +
       'Kalender-id\'s zijn per document: herbouw een kalender in het importdocument met ' +
-      'update_calendar (generator-pad of een lezing uit het masterdocument) — hergebruik nooit een ' +
-      'id uit een ander document. BESTANDSSCOPE: alleen paden binnen de home-map. Het pad komt uit ' +
+      'update_calendar — geef een kalenderobject uit planner_get_calendars van het masterdocument ' +
+      'LETTERLIJK terug (inclusief `workTime`-uurbanden, `shift`, `holidays` en `generation`) met ' +
+      '`create: true`, of gebruik het generator-pad (`generate`). Hang de taken daarna aan het NIEUWE ' +
+      'id via `update_tasks.calendarId`; wil je de PROJECTkalender van het importdocument gelijkmaken, ' +
+      'schrijf de velden dan op het id uit zijn eigen `projectDefaultId` (WELKE kalender de ' +
+      'projectdefault is, kan de bridge niet wisselen). Hergebruik nooit een id uit een ander document. ' +
+      'BESTANDSSCOPE: alleen paden binnen de home-map. Het pad komt uit ' +
       'jouw argumenten, niet uit een bestandsdialoog van de gebruiker.',
     kind: 'other',
     batchable: false,
