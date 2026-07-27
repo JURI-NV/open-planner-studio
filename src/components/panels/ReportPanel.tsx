@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { renderPrintCanvas, renderReport, PrintOptions } from '@/services/print/printPreview';
+import { renderPrintCanvas, renderReport, REPORT_FONT_SCALES, PrintOptions } from '@/services/print/printPreview';
 import { getLocalizedMonths, getLocalizedMonthsShort } from '@/i18n/dateFormat';
 import { ensureExtension } from '@/utils/filePath';
 import { computeHighResScale } from '@/utils/miniPdf';
@@ -10,6 +10,7 @@ import { ensureInterLoaded, getInterFontBytes, getArabicFontBytes } from '@/serv
 import { RTL_LOCALES, type Locale } from '@/i18n/config';
 import { Select } from '@/components/common/Select';
 import { isTauri } from '@/utils/platform';
+import { DEFAULT_REPORT_SETTINGS, loadReportSettings, saveReportSettings } from '@/utils/reportSettings';
 import { useDisplayDate } from '@/hooks/displayDate';
 import { MilestoneReport, useMilestoneRows, STATUS_COLOR as MILESTONE_STATUS_COLOR, type MilestoneRow } from './MilestoneReport';
 import { VarianceReport, useVarianceResult, STATUS_COLOR as VARIANCE_STATUS_COLOR, fmtDelta } from './VarianceReport';
@@ -121,18 +122,23 @@ export function ReportPanel() {
   const projectName = project.name;
   const dateNotation = useAppStore(s => s.ui.dateNotation);
 
-  const [reportType, setReportType] = useState<'gantt' | 'milestones' | 'variance'>('gantt');
-  const [showCritical, setShowCritical] = useState(true);
-  const [showFloat, setShowFloat] = useState(true);
-  const [showDeps, setShowDeps] = useState(true);
-  const [showWeekends, setShowWeekends] = useState(true);
-  const [showLegend, setShowLegend] = useState(true);
-  const [showTaskNames, setShowTaskNames] = useState(true);
-  const [showCompletion, setShowCompletion] = useState(true);
-  const [autoFit, setAutoFit] = useState(true);
-  const [customZoom, setCustomZoom] = useState(22);
-  const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>('A3');
-  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
+  // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
+  // eerste render overschreven door de opgeslagen voorkeuren (zie het hydratatie-effect verderop).
+  const [reportType, setReportType] = useState<'gantt' | 'milestones' | 'variance'>(DEFAULT_REPORT_SETTINGS.reportType);
+  const [showCritical, setShowCritical] = useState(DEFAULT_REPORT_SETTINGS.showCritical);
+  const [showFloat, setShowFloat] = useState(DEFAULT_REPORT_SETTINGS.showFloat);
+  const [showDeps, setShowDeps] = useState(DEFAULT_REPORT_SETTINGS.showDeps);
+  const [showWeekends, setShowWeekends] = useState(DEFAULT_REPORT_SETTINGS.showWeekends);
+  const [showLegend, setShowLegend] = useState(DEFAULT_REPORT_SETTINGS.showLegend);
+  const [showTaskNames, setShowTaskNames] = useState(DEFAULT_REPORT_SETTINGS.showTaskNames);
+  const [showCompletion, setShowCompletion] = useState(DEFAULT_REPORT_SETTINGS.showCompletion);
+  const [autoFit, setAutoFit] = useState(DEFAULT_REPORT_SETTINGS.autoFit);
+  const [customZoom, setCustomZoom] = useState(DEFAULT_REPORT_SETTINGS.customZoom);
+  const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(DEFAULT_REPORT_SETTINGS.orientation);
+  // Bewust NIET persistent: de bedrijfsnaam komt uit het PROJECT (`project.company`). Zie de
+  // toelichting bovenin `src/utils/reportSettings.ts` — globaal bewaren zou het bedrijf van het ene
+  // project in het rapport van het andere laten opduiken.
   const [companyName, setCompanyName] = useState(project.company || '');
   // Issue #25 punt 1 — herhaal de datum-/projectkop bovenaan ELKE geëxporteerde pagina.
   //
@@ -147,16 +153,73 @@ export function ReportPanel() {
   //
   // Bewust géén veld in `PrintOptions`: de kopherhaling is puur een pagineerder-zaak (raster:
   // hoogte in px; vector: boolean), niet iets dat de render-zoom raakt.
-  const [repeatHeader, setRepeatHeader] = useState(true);
+  const [repeatHeader, setRepeatHeader] = useState(DEFAULT_REPORT_SETTINGS.repeatHeader);
   // Issue #25 punt 5 — smeert de tijdlijn uit over N paginabreedtes (1 = oud gedrag, geen
   // verrassing voor bestaande gebruikers). Alleen zinvol in fit-width-modus; daarom `disabled`
   // wanneer `autoFit` uit staat (dan tegelt de export in 'actual'-modus toch al horizontaal).
-  const [timelineColumns, setTimelineColumns] = useState(1);
+  const [timelineColumns, setTimelineColumns] = useState(DEFAULT_REPORT_SETTINGS.timelineColumns);
   // Issue #25 punt 4 (rapport-helft) — lettergrootte van het GEGENEREERDE rapport, in procenten.
   // 100 = ongewijzigd t.o.v. eerdere versies. Los van de interface-tekstgrootte in Instellingen:
   // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
   // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
-  const [reportFontScale, setReportFontScale] = useState(100);
+  const [reportFontScale, setReportFontScale] = useState(DEFAULT_REPORT_SETTINGS.reportFontScale);
+
+  // --- Persistentie van de rapportopties (localStorage, sleutel `ops-reportSettings`) -----------
+  //
+  // DE VALKUIL, en waarom deze vlag bestaat: hydrateren is asynchroon (`loadReportSettings()` geeft
+  // een Promise), maar het opslaan hangt aan een effect dat bij ELKE waardewijziging vuurt — inclusief
+  // de allereerste render. Zonder guard schrijft die eerste render de DEFAULTS over de opgeslagen
+  // voorkeuren heen vóórdat het laden klaar is. Dan lijkt persistentie te werken (binnen één sessie
+  // onthoudt hij alles), maar wist elke herstart stilletjes alles wat de gebruiker had ingesteld.
+  // Daarom slaat het save-effect álles over zolang `hydratedRef` false is; hij gaat pas op true
+  // nádat de opgeslagen waarden zijn toegepast.
+  //
+  // Een ref (geen state) volstaat: de vlag hoeft geen re-render te veroorzaken, en het save-effect
+  // wordt toch al opnieuw uitgevoerd door de state-updates van de hydratatie zelf.
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadReportSettings().then(s => {
+      // Unmount vóór het laden klaar was ⇒ niets toepassen (en `hydratedRef` blijft false, zodat een
+      // eventueel na-ijlend save-effect ook niets schrijft).
+      if (cancelled) return;
+      // Eén batch state-updates ⇒ de preview-useEffect hieronder rendert precies één keer opnieuw
+      // met de herstelde waarden (geen lus: de setters staan hier, niet in de preview-deps-keten).
+      setReportType(s.reportType);
+      setShowCritical(s.showCritical);
+      setShowFloat(s.showFloat);
+      setShowDeps(s.showDeps);
+      setShowWeekends(s.showWeekends);
+      setShowLegend(s.showLegend);
+      setShowTaskNames(s.showTaskNames);
+      setShowCompletion(s.showCompletion);
+      setAutoFit(s.autoFit);
+      setCustomZoom(s.customZoom);
+      setPaperSize(s.paperSize);
+      setOrientation(s.orientation);
+      setRepeatHeader(s.repeatHeader);
+      setTimelineColumns(s.timelineColumns);
+      setReportFontScale(s.reportFontScale);
+      hydratedRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Opslaan bij elke wijziging. Geen debounce: `setSetting` is een enkele synchrone
+  // localStorage-schrijf van een klein object — goedkoper dan de preview-render die bij dezelfde
+  // wijziging toch al draait. De eerste keer dat dit effect ná de hydratatie loopt schrijft het de
+  // zojuist geladen waarden ongewijzigd terug; dat is bewust onschadelijk.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    void saveReportSettings({
+      reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
+      showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
+      repeatHeader, timelineColumns, reportFontScale,
+    });
+  }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
+      showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
+      reportFontScale]);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -573,7 +636,7 @@ export function ReportPanel() {
                 aria-label={t('reportFontScaleLabel')}
                 value={String(reportFontScale)}
                 onChange={v => setReportFontScale(Number(v))}
-                options={[90, 100, 110, 125].map(n => ({ value: String(n), label: `${n}%` }))}
+                options={REPORT_FONT_SCALES.map(n => ({ value: String(n), label: `${n}%` }))}
               />
             </div>
 
