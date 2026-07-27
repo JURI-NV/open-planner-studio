@@ -86,4 +86,26 @@ test('dedup — raw met identiek datumbereik als een gegenereerde dag levert gee
   assertEq(res.becameLiteral, true, 'raw toevoegen maakt de kalender letterlijk, ook bij volledige dedup');
 });
 
+// --- (6) degeneraat: geen generate én geen raw ⇒ no-op (holidays + generation ONGEWIJZIGD) --------
+// Dit is de tak die `update_calendar` (T20) raakt zodra een item alleen scalaire velden (naam,
+// werkdagen, uren) wijzigt: de holiday-resolutie mag dan NIETS weggooien — ook geen bestaande
+// generator-herkomst. Zonder deze case was de vierde meng-tak van WP5d ongedekt.
+test('no-op — geen generate en geen raw: holidays + generation behouden, becameLiteral=false', () => {
+  const { from, to } = computeGenerateSpan(SPAN.projectStart, SPAN.projectEnd);
+  const base = materializeHolidays(NL, from, to);
+  const existing: Pick<WorkCalendar, 'holidays' | 'generation'> = {
+    holidays: base.holidays,
+    generation: base.generation,
+  };
+  const res = resolveCalendarHolidays({}, SPAN, existing);
+  assertEq(res.holidays, base.holidays, 'holidays moeten ONGEWIJZIGD terugkomen');
+  assertEq(res.generation, base.generation, 'generation moet behouden blijven (geen stil verval)');
+  assertEq(res.becameLiteral, false, 'er is niets letterlijk geworden');
+  // Ook zónder bestaande kalender is het een veilige no-op (lege lijst, geen generation).
+  const leeg = resolveCalendarHolidays({}, SPAN);
+  assertEq(leeg.holidays, [], 'zonder bestaande kalender: lege holiday-lijst');
+  assertEq(leeg.generation, undefined, 'zonder bestaande kalender: geen generation');
+  assertEq(leeg.becameLiteral, false, 'becameLiteral blijft false');
+});
+
 await run();
