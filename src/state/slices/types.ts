@@ -78,12 +78,19 @@ export type UIFontFamily = 'default' | 'system' | 'serif' | 'mono';
 
 export const UI_FONT_FAMILIES: UIFontFamily[] = ['default', 'system', 'serif', 'mono'];
 
-// Lettertype-grootte van de interface als schaalpercentage. BEWUST geen hogere waarden dan 125:
-// veel vaste hoogtes/paddings in de chrome staan in px en schalen NIET mee (alleen font-size
-// volgt via de calc-wrapper + rem-basis), dus daarboven loopt tekst uit zijn container. De grenzen
-// 90/125 zijn toevallig geldige keuzes, zodat load-klemming (parseClampedInt) altijd op een optie
-// landt. Tailwind-`text-*`-klassen volgen de rem-basis vanzelf; de losse px-font-sizes schalen
-// expliciet mee via `calc(<n>px * var(--ui-font-scale, 1))` (zie globals.css + de chrome-css).
+// Lettertype-grootte van de interface als schaalpercentage.
+//
+// Hoe het doorwerkt: `--ui-font-scale` (gezet in App.tsx) schaalt de rem-basis in globals.css, dus
+// Tailwind's `text-*`-klassen volgen vanzelf; de losse px-font-sizes in de chrome-css schalen
+// expliciet mee via `calc(<n>px * var(--ui-font-scale, 1))`, en de canvas-renderers volgen wél de
+// familie maar bewust NIET de grootte (vaste rijhoogte ⇒ clipping, zie GanttRenderer.font).
+//
+// BEWUST geen hogere waarden dan 125. Let op: de eerdere motivering hier ("paddings staan in px en
+// schalen niet mee") was FOUT — Tailwind's spacing-schaal is rem-gebaseerd en die rem-basis schalen
+// we juist wél, dus `p-*`/`gap-*`/`h-*` en de `--sp-*`-tokens groeien gewoon mee. De echte reden is
+// dat niet álle chrome meebeweegt: vaste px-hoogtes/-breedtes in losse componenten en de
+// canvas-geometrie blijven staan, en boven ~125% gaan knoplabels in het lint over meerdere regels
+// breken. 125 is de grens waarop dat nog acceptabel bleef in een echte browsercontrole.
 export const UI_FONT_SCALES: number[] = [90, 100, 110, 125];
 
 // Hoe de gebruiker tussen meerdere geopende documenten wisselt (multi-document).

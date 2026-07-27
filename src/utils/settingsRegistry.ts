@@ -22,6 +22,7 @@ import {
   DURATION_DISPLAYS,
   BAR_SPLIT_MODES,
   UI_FONT_FAMILIES,
+  UI_FONT_SCALES,
 } from '@/state/slices/types';
 import type {
   WeekStartDay,
@@ -62,6 +63,20 @@ function parseClampedInt(min: number, max: number) {
   return (raw: unknown): number | undefined => {
     if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
     return Math.min(max, Math.max(min, Math.round(raw)));
+  };
+}
+
+/** Numerieke keuze uit een vaste lijst: snapt naar de DICHTSTBIJZIJNDE toegestane waarde.
+ *
+ *  Bewust geen `parseClampedInt(min, max)` voor dit soort instellingen: klemmen op het BEREIK laat
+ *  een waarde binnen het bereik maar buiten de lijst ongemoeid (een handmatig gezette 108 bij de
+ *  keuzes 90/100/110/125 overleeft de klem), en dan toont de bijbehorende Select niets zinnigs
+ *  omdat er geen optie met die waarde bestaat. Snappen garandeert dat wat geladen wordt ook
+ *  daadwerkelijk aanwijsbaar is in de UI. */
+function parseNumberChoice(allowed: readonly number[]) {
+  return (raw: unknown): number | undefined => {
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
+    return allowed.reduce((best, v) => (Math.abs(v - raw) < Math.abs(best - raw) ? v : best), allowed[0]);
   };
 }
 
@@ -147,11 +162,11 @@ export const SETTINGS: SettingDescriptor[] = [
   // Datumnotatie
   setting({ key: 'dateNotation', field: 'dateNotation', parse: parseEnum(DATE_NOTATIONS) }),
 
-  // Lettertype interface (issue #25.4): familie (enum) + schaalpercentage (geklemde int). De
-  // schaal-klem [90,125] valt samen met de discrete UI_FONT_SCALES-keuzes, zodat een corrupte
-  // waarde altijd op een geldige optie landt; de Select biedt zelf de 4 discrete stappen.
+  // Lettertype interface (issue #25.4): familie (enum) + schaalpercentage. De schaal snapt naar de
+  // dichtstbijzijnde waarde uit UI_FONT_SCALES — dezelfde lijst waaruit de Select zijn opties bouwt
+  // — zodat een geladen waarde gegarandeerd overeenkomt met een aanwijsbare optie.
   setting({ key: 'uiFontFamily', field: 'uiFontFamily', parse: parseEnum(UI_FONT_FAMILIES) }),
-  setting({ key: 'uiFontScale', field: 'uiFontScale', parse: parseClampedInt(90, 125) }),
+  setting({ key: 'uiFontScale', field: 'uiFontScale', parse: parseNumberChoice(UI_FONT_SCALES) }),
 
   // Urenplanning (fase 2.8b, §6.8)
   setting({ key: 'enableHourPlanning', field: 'enableHourPlanning', parse: parseBoolean }),

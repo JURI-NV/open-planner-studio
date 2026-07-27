@@ -47,6 +47,11 @@ export const PAPER_PT: Record<PaperSize, { width: number; height: number }> = {
 /** Ruimte onderaan (punten) gereserveerd voor het paginanummer in de marge. */
 export const FOOTER_PT = 14;
 
+/** Bovengrens voor {@link TileLayoutInput.timelineColumns}. Zie de afdwinging in
+ *  {@link computeTileLayout}: het paginatotaal loopt kwadratisch in N, dus een ongebonden waarde
+ *  laat deze pure functie ontsporen. De UI biedt 1..8; dit is de harde vangrail eromheen. */
+export const MAX_TIMELINE_COLUMNS = 32;
+
 /** Invoer voor {@link computeTileLayout}; alle px-maten zijn LOGISCHE (CSS-)px van de bron-render. */
 export interface TileLayoutInput {
   paperSize: PaperSize;
@@ -159,13 +164,26 @@ export function computeTileLayout(input: TileLayoutInput): TileLayout {
   const printH = pageHeightPt - 2 * marginPt - FOOTER_PT;
 
   // Bron-afmetingen in LOGISCHE px — alle tegel-wiskunde gebeurt in deze eenheid.
-  const cw = input.logicalWidth;
-  const ch = input.logicalHeight;
+  //
+  // Contract-afdwinging: deze functie is de bron van waarheid voor BEIDE pagineer-backends, en elke
+  // afgeleide hieronder (rows, cols, de vensterlijsten) is een deling of een `ceil` op deze twee
+  // getallen. Een NaN/Infinity die hier binnenkomt plant zich daardoor stil voort: `rows` wordt NaN
+  // en de tegel-lus levert nul pagina's op — een lege PDF zonder ook maar één foutmelding. Vandaar
+  // een expliciete finite-check; niet-eindige of negatieve maten worden 0, wat verderop netjes door
+  // de bestaande degeneratie-vangnetten wordt afgevangen.
+  const cw = Number.isFinite(input.logicalWidth) ? Math.max(0, input.logicalWidth) : 0;
+  const ch = Number.isFinite(input.logicalHeight) ? Math.max(0, input.logicalHeight) : 0;
 
   // Gevraagd aantal tijdlijn-kolommen (alleen zinvol in fit-width). Defensief geklemd: een
-  // niet-eindig of < 1 getal zou de schaalformule hieronder laten ontsporen.
+  // niet-eindig of < 1 getal zou de schaalformule hieronder laten ontsporen. De BOVENgrens is er
+  // omdat `rows` meegroeit met de schaal en het paginatotaal dus kwadratisch in N loopt: een
+  // doorgegeven 1e6 bouwt een miljoen kolomobjecten en rapporteert honderden miljarden pagina's.
+  // De UI biedt 1..8; MAX_TIMELINE_COLUMNS laat ruim marge en houdt de functie eindig voor elke
+  // aanroeper.
   const requestedCols = input.timelineColumns ?? 1;
-  const timelineCols = Number.isFinite(requestedCols) ? Math.max(1, Math.floor(requestedCols)) : 1;
+  const timelineCols = Number.isFinite(requestedCols)
+    ? Math.min(MAX_TIMELINE_COLUMNS, Math.max(1, Math.floor(requestedCols)))
+    : 1;
 
   // ---- Horizontale schaal + kolom-aantal --------------------------------------------------------
   //

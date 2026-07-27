@@ -118,13 +118,26 @@ interface ReportMetrics {
 }
 
 /**
+ * De aangeboden rapport-lettergroottes (percentage). Dit is de ENIGE bron van waarheid: de Select in
+ * `ReportPanel` bouwt zijn opties hieruit en `makeMetrics` klemt op het bereik ervan. Stonden de
+ * lijst en de klem los van elkaar, dan zou een waarde binnen de klem maar buiten de lijst (bv. 108)
+ * wél geaccepteerd worden terwijl de Select 'm niet kan tonen — twee waarheden over hetzelfde.
+ */
+export const REPORT_FONT_SCALES = [90, 100, 110, 125] as const;
+
+const REPORT_FONT_SCALE_MIN = Math.min(...REPORT_FONT_SCALES);
+const REPORT_FONT_SCALE_MAX = Math.max(...REPORT_FONT_SCALES);
+
+/**
  * Bouw de {@link ReportMetrics} voor een render. `reportFontScale` is een PERCENTAGE; ontbreekt hij
- * (of is hij onzin) dan geldt 100 ⇒ factor exact 1 ⇒ identieke output als voorheen. De klem houdt
- * een handmatig doorgegeven waarde binnen iets wat nog op een vel past.
+ * (of is hij onzin) dan geldt 100 ⇒ factor exact 1 ⇒ identieke output als voorheen. De klem volgt
+ * {@link REPORT_FONT_SCALES}, zodat de engine precies accepteert wat de UI kan aanbieden.
  */
 function makeMetrics(reportFontScale: number | undefined): ReportMetrics {
   const raw = reportFontScale ?? 100;
-  const pct = Number.isFinite(raw) ? Math.max(50, Math.min(200, raw)) : 100;
+  const pct = Number.isFinite(raw)
+    ? Math.max(REPORT_FONT_SCALE_MIN, Math.min(REPORT_FONT_SCALE_MAX, raw))
+    : 100;
   const k = pct / 100;
   const projectHeaderHeight = PROJECT_HEADER_HEIGHT * k;
   const timelineHeaderHeight = TIMELINE_HEADER_HEIGHT * k;
