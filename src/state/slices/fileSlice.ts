@@ -71,6 +71,12 @@ export interface ApplyLoadedProjectOpts {
   fit?: boolean;
   /** Uur-data-melding (§6.8) berekenen en zetten. Open-paden: true; loadState: false. */
   hourDataNotice?: boolean;
+  /** True = een echt open-pad (openFile/openRecentFile): behoud bedrijfsbinding + stempels en draai
+   *  de grens-1-check. False (default) = een volledig-vervangende load (loadState: IFCPanel/MenuBar/
+   *  extensie-import): laad LOS — strip companyId/companyName + alle libraryOrigin-stempels (spec §5).
+   *  (Crash-herstel loopt NIET door applyLoadedProject maar via `restoreDocuments`, dat de opgeslagen —
+   *  dus gekoppelde — staat exact herstelt en de grens-1-check apart draait, Taak 11.) */
+  linkedOpen?: boolean;
 }
 
 export interface FileSlice {
@@ -78,6 +84,10 @@ export interface FileSlice {
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
   exportAs: (format: ExportFormat) => Promise<ExportResult>;
+  /** Exporteer het project + (spec §4) schrijf de gebonden bedrijfs-pool als tweede, LOS bestand
+   *  ernaast. Géén embed. No-op op de pool-kant als het project niet aan een bedrijf gebonden is.
+   *  Geeft hetzelfde `ExportResult` terug als `exportAs` — inclusief de K7-cyclusguard. */
+  exportProjectWithPool: () => Promise<ExportResult>;
   /** App-globale MRU-lijst van recente bestanden (spec §6). Async gehydrateerd bij opstart. */
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
@@ -130,6 +140,14 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // Web-opslaan-doel: undefined = ongemoeid laten (loadState-semantiek), anders expliciet zetten.
         payload.fileHandle = opts.fileHandle !== undefined ? opts.fileHandle : s.fileHandle;
         hydratePayload(s, payload);
+        // Spec §5 (review-punt 3): een volledig-vervangende load zonder open-pad-semantiek levert een
+        // LOS document — geen stille koppeling, geen stille herkenning. Strip bedrijfsbinding + stempels.
+        if (!opts.linkedOpen) {
+          s.project = { ...s.project, companyId: undefined, companyName: undefined };
+          s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
+          s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        }
         // Uur-data-melding (§6.8): bevat het bestand urenplanning terwijl de hoofdschakelaar uit
         // staat, toon de niet-blokkerende melding — nooit stil wegronden (de engine rekent sowieso).
         if (opts.hourDataNotice) {
@@ -180,7 +198,12 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
+
+        // Grens 1 (spec §3, plan-eis 4): ná VOLLEDIGE hydratatie — behind stil verversen, deviated
+        // markeren/vragen. Nooit tijdens de hydratatie zelf.
+        get().runOpenBoundary();
 
         // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle).
         await pushRecent(opened.ref, opened.name);
@@ -324,6 +347,29 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       return { ok: true };
     },
 
+    exportProjectWithPool: async (): Promise<ExportResult> => {
+      // Zelfde K7-guard als `exportAs`: dit pad schrijft óók de CPM-uitvoer weg, dus een stale of
+      // cyclische planning mag hier evenmin stil worden geëxporteerd.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
+      const state = get();
+      // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
+      const projectContent = writeIFC(buildWriteIFCInput(state));
+      const base = state.project.name || 'project';
+      const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      if (!outcome) return { ok: true }; // dialoog geannuleerd — geen fout
+      await pushRecent(outcome.ref, outcome.name);
+      // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
+      const companyId = state.project.companyId;
+      if (!companyId) return { ok: true };
+      const poolContent = state.exportPoolIFC(companyId);
+      if (!poolContent) return { ok: true };
+      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      return { ok: true };
+    },
+
     recentFiles: [],
 
     hydrateRecentFiles: async () => {
@@ -418,7 +464,11 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
+
+        // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
+        get().runOpenBoundary();
 
         // MRU verversen: het net-geopende bestand naar boven.
         await pushRecent(entry.ref, entry.name);

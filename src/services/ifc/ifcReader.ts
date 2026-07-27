@@ -6,6 +6,7 @@ import { Project, SchedulingOptions } from '@/types/project';
 import { WorkCalendar, Holiday, CalendarGeneration } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { HolidayCountry } from '@/engine/calendar/holidays';
+import type { LibraryOrigin } from '@/types/library';
 import { ActivityCodeType, CustomFieldDef, CustomFieldValue } from '@/types/structure';
 import { Baseline, BaselineTask } from '@/types/baseline';
 import { generateId } from '@/utils/id';
@@ -113,8 +114,9 @@ export function readIFC(content: string): ImportResult {
   // projecteert ze terug op elke taak. Deterministische, gede-dupliceerde volgorde (eerste-zien in
   // de assignments-volgorde, die op zijn beurt uit de STEP-volgorde komt).
   reconstructResourceIds(tasks, assignments);
+  const libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined } = { value: undefined };
   const { activityCodeTypes, customFieldDefs } = extractStructure(
-    entities, entityMap, project, tasks, taskStepIdMap,
+    entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
   );
   // Fase 3 (P11): OPS_Leveling wordt nu binnen extractStructure via de per-taak-registry gedispatcht
   // (samen met de andere zeven per-taak-psets) — geen losse extractLevelingMeta-aanroep meer.
@@ -134,6 +136,7 @@ export function readIFC(content: string): ImportResult {
     project, calendar, tasks, sequences, resources, assignments,
     activityCodeTypes, customFieldDefs, resourceCalendars,
     baselines, activeBaselineId,
+    libraryPool: libraryPoolOut.value,
   };
 }
 
@@ -757,6 +760,7 @@ function extractStructure(
   project: Project,
   tasks: Task[],
   taskStepIdMap: Map<string, string>,
+  libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined },
 ): { activityCodeTypes: ActivityCodeType[]; customFieldDefs: CustomFieldDef[] } {
   let activityCodeTypes: ActivityCodeType[] = [];
   let customFieldDefs: CustomFieldDef[] = [];
@@ -835,6 +839,20 @@ function extractStructure(
       continue;
     }
 
+    if (psetName === PSET.Library) {
+      for (const prop of props) {
+        if (prop.type !== 'IFCPROPERTYSINGLEVALUE') continue;
+        if (stripQuotes(prop.args[0] || '') !== 'pool') continue;
+        const v = parseTypedValue(prop.args[2] || '');
+        if (typeof v === 'string' && v) {
+          try {
+            libraryPoolOut.value = JSON.parse(v) as import('@/types/library').CompanyPool;
+          } catch { /* corrupte pool-JSON: negeren, geen pool-resultaat */ }
+        }
+      }
+      continue;
+    }
+
     if (psetName === PSET.ProjectSettings) {
       for (const prop of props) {
         if (prop.type !== 'IFCPROPERTYSINGLEVALUE') continue;
@@ -863,6 +881,10 @@ function extractStructure(
           if (typeof v === 'string' && v) project.createdAt = v;
         } else if (name === 'ModifiedAt') {
           if (typeof v === 'string' && v) project.modifiedAt = v;
+        } else if (name === 'CompanyId') {
+          if (typeof v === 'string' && v) project.companyId = v;
+        } else if (name === 'CompanyName') {
+          if (typeof v === 'string' && v) project.companyName = v;
         }
       }
       continue;
@@ -1014,6 +1036,25 @@ function extractResourceMeta(
         } else if (name === 'ParentGuid' && typeof value === 'string' && !res.parentId) {
           const parentId = resourceGuidMap.get(value);
           if (parentId) res.parentId = parentId;
+        } else if (name === 'LibraryOrigin' && typeof value === 'string' && value && !res.libraryOrigin) {
+          // A6-fix: EERSTE geldige LibraryOrigin wint (gezet-is-gezet-guard), gelijk aan het
+          // kalenderpad (extractCalendarLibraryOrigin returnt op de eerste treffer). Zonder de
+          // `!res.libraryOrigin`-guard koos dit pad de LAATSTE bij dubbele props in één pset —
+          // een stille inconsistentie tussen de twee paden.
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+                && typeof parsed.poolVersion === 'number') {
+              // F2 (vloot-fixpakket, issue #19): `syncedHash` is optioneel, maar als het veld AANWEZIG
+              // is moet het een string zijn — een corrupte/vervalste waarde (bv. een getal) mag niet
+              // als "syncedHash" doorschieten naar de classificatielogica (`classifyOnOpen` doet
+              // `fileHash === syncedHash`, een non-string zou daar altijd `false` geven, wat toevallig
+              // ongevaarlijk is, maar type-onveilig blijft). Veilige kant: veld weglaten, rest van de
+              // stempel (companyId/libraryItemId/poolVersion) behouden.
+              if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
+              res.libraryOrigin = parsed;
+            }
+          } catch { /* corrupte JSON: negeren */ }
         }
       }
     }
@@ -1108,6 +1149,49 @@ function extractCalendarGeneration(
   return undefined;
 }
 
+/**
+ * Fase B1 (§6) — `LibraryOrigin`-herkomststempel teruglezen uit het `OPS_Calendar`-pset (spiegel van
+ * de writer, die 'm naast de generation-props schrijft). BEWUST losstaand van
+ * `extractCalendarGeneration`: die `continue`t bij een onvolledige generation, waardoor een kalender
+ * met ALLEEN een LibraryOrigin (gepromoveerd, niet gegenereerd) er verloren zou gaan. Geen/corrupte
+ * property ⇒ `undefined`.
+ */
+function extractCalendarLibraryOrigin(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): LibraryOrigin | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'LibraryOrigin') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value !== 'string' || !value) continue;
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+            && typeof parsed.poolVersion === 'number') {
+          // F2 (vloot-fixpakket, issue #19): zie de identieke toelichting bij het resourcepad
+          // hierboven — aanwezig-maar-niet-string `syncedHash` wordt weggelaten, rest van de stempel
+          // blijft staan (veilige/deviated-kant).
+          if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
+          return parsed as LibraryOrigin;
+        }
+      } catch { /* corrupte JSON: negeren */ }
+    }
+  }
+  return undefined;
+}
+
 /** Bouwt een `WorkCalendar` uit een `IFCWORKCALENDAR`-entiteit: naam/omschrijving/feestdagen
  *  (bestaand), plus (fase 2.8a, §8.1) werkdagen/uren teruggelezen uit de
  *  `WorkingTimes`-keten (args[5] → IFCWORKTIME → RecurrencePattern-ref → IFCRECURRENCEPATTERN
@@ -1123,7 +1207,10 @@ function buildCalendarFromEntity(
 ): WorkCalendar {
   const calendar = createDefaultCalendar();
   calendar.name = stripQuotes(cal.args[2] || '') || calendar.name;
-  // `$`/leeg/afwezig ⇒ '' (zelfde bug/fix als IfcTask.Description hierboven), val terug op de default.
+  // Fix B7: `ifcSlotText` i.p.v. kale `stripQuotes` — een lege omschrijving schrijft de writer als
+  // STEP-null (`$`), en `stripQuotes('$')` geeft het letterlijke tweetekentje `'$'` terug (het start/
+  // eindigt niet met een quote, dus de functie laat de string ongewijzigd) i.p.v. '' — dezelfde
+  // `$`-conventie die elders al via `ifcSlotText` wordt toegepast (bv. project-omschrijving).
   calendar.description = ifcSlotText(cal.args[3]) || calendar.description;
 
   // Werkweek + uren (§8.1). WorkingTimes (args[5]) is een lijst met precies één ref (zo schrijft
@@ -1203,6 +1290,7 @@ function buildCalendarFromEntity(
   // pset het expliciet zegt. Eerst wissen, dan (evt.) invullen uit de pset.
   delete calendar.generation;
   calendar.generation = extractCalendarGeneration(cal.id, entities, entityMap);
+  calendar.libraryOrigin = extractCalendarLibraryOrigin(cal.id, entities, entityMap);
 
   return calendar;
 }
@@ -1264,6 +1352,23 @@ function extractCalendarLibrary(
         if (task) task.calendarId = cal.id;
       }
     }
+  }
+
+  // A2-fix: bibliotheekkalenders ZONDER gebruiker. De lus hierboven vindt kalenders uitsluitend via
+  // IFCRELASSIGNSTOCONTROL (wie 'm gebruikt). Een gepromote/toegevoegde kalender die nog geen
+  // resource-/taak-toewijzing heeft — het normale "voeg toe vóór toewijzing"-patroon — werd wel door
+  // writeIFC geschreven maar hier nooit teruggevonden: stil verlies incl. libraryOrigin-stempel. Vang
+  // daarom álle overige IFCWORKCALENDAR-entiteiten (behalve de projectkalender) op, gededupliceerd
+  // tegen wat de rel-route al vond (calByStepId), met behoud van bestandsvolgorde (rel-gevonden eerst,
+  // ongebruikte daarna) zodat bestaande round-trip-gedragingen onveranderd blijven.
+  for (const ce of entities) {
+    if (ce.type !== 'IFCWORKCALENDAR') continue;
+    if (projectCalendarEntity && ce.id === projectCalendarEntity.id) continue;
+    if (calByStepId.has(ce.id)) continue;
+    const cal = buildCalendarFromEntity(ce, entityMap, entities);
+    cal.id = generateId('rescal');
+    calByStepId.set(ce.id, cal);
+    calendars.push(cal);
   }
 
   return calendars;

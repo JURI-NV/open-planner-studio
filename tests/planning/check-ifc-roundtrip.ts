@@ -104,12 +104,14 @@ const projCal = {
     { name: 'Nieuwjaar', startDate: '2027-01-01', endDate: '2027-01-01' },
   ],
   generation: PROJ_GEN, shift: 'SECOND',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-projcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 const libCal = {
   id: 'libcal', name: 'Sublokatie kalender', description: 'Ma-za 07-15',
   workDays: [1, 2, 3, 4, 5, 6], workStartHour: 7, workEndHour: 15, hoursPerDay: 8,
   holidays: [{ name: 'Bouwvakdag', startDate: '2026-07-27', endDate: '2026-07-31' }],
   generation: LIB_GEN, shift: 'THIRD',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-libcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 
 // Type-only VOLLEDIGHEIDSGETUIGE voor WorkCalendar: `workTime` aanwezig ⇒ UUR-kalender, wat de
@@ -121,6 +123,7 @@ const _CALENDAR_FIELD_WITNESS = {
   id: 'w', name: 'w', description: 'w', workDays: [1, 2, 3, 4, 5],
   workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
   generation: PROJ_GEN, shift: 'FIRST',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-witness', poolVersion: 1 },
   workTime: { byWeekday: { 1: [{ start: 480, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
 } satisfies Required<WorkCalendar>;
 // `void`: de getuige bestaat puur op typeniveau, maar telt zo ook onder `noUnusedLocals` als
@@ -247,6 +250,7 @@ const RMember = {
   maxUnits: 3, calendarId: 'libcal',
   availabilitySteps: [{ from: '2026-07-06', maxUnits: 3 }, { from: '2026-07-20', maxUnits: 2 }],
   unitOfMeasure: 'uur', parentId: 'r-crew',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-res1', poolVersion: 4 },
 } satisfies Required<Resource>;
 const REquip: Resource = { id: 'r-eq', name: 'Torenkraan', type: 'EQUIPMENT', description: 'Liebherr 200', maxUnits: 2 };
 const RMat: Resource = { id: 'r-mat', name: 'Beton C30', type: 'MATERIAL', description: 'Stortbeton', maxUnits: 1, unitOfMeasure: 'm3' };
@@ -279,6 +283,7 @@ const project = {
   createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-06-01T00:00:00.000Z', // (a) gaps
   author: 'Ir. Testz', company: 'Bouw BV',                                       // (a) gaps
   wbsAutoNumber: true, statusDate: '2026-07-25', progressMode: 'PROGRESS_OVERRIDE',
+  companyId: 'c-fixture', companyName: 'Fixture Bouw BV',
   schedulingOptions: SCHED_OPTS,
 } satisfies Required<Project> & { schedulingOptions: Required<SchedulingOptions> };
 
@@ -385,6 +390,7 @@ const CALENDAR_CANON = {
   generation: KEEP,
   workTime: { skip: 'aanwezig ⇒ UUR-kalender; deze fixture is dag-modus. Uur-round-trip: check-adapters-hours.ts' },
   shift: KEEP,
+  libraryOrigin: KEEP,   // B1.1: herkomststempel round-trippt via OPS_LibraryOrigin
 } satisfies CanonSpec<WorkCalendar>;
 
 const TIME_CANON = {
@@ -446,6 +452,7 @@ const RESOURCE_CANON = {
   calendarId: { as: 'calendar', get: (r: Resource, k: Keys) => k.cal(r.calendarId) },
   availabilitySteps: KEEP, unitOfMeasure: KEEP,
   parentId: { as: 'parent', get: (r: Resource, k: Keys) => (r.parentId ? k.res(r.parentId) : undefined) },
+  libraryOrigin: KEEP,   // B1.1: herkomststempel round-trippt via OPS_LibraryOrigin
 } satisfies CanonSpec<Resource>;
 
 const ASSIGNMENT_CANON = {
@@ -463,6 +470,8 @@ const PROJECT_CANON = {
   calendarId: { as: 'calendar', get: (p: Project, k: Keys) => k.cal(p.calendarId) },
   createdAt: KEEP, modifiedAt: KEEP, author: KEEP, company: KEEP,
   wbsAutoNumber: KEEP, statusDate: KEEP, progressMode: KEEP, schedulingOptions: KEEP,
+  // B1.1: bedrijfsbinding round-trippt via OPS_CompanyBinding.
+  companyId: KEEP, companyName: KEEP,
 } satisfies CanonSpec<Project>;
 
 const BASELINE_TASK_CANON = {
@@ -618,7 +627,25 @@ const rt2 = readIFC(writeIFC(rt1));
   void txOut;
 }
 
-// (4) Contractuele projectdatums — de drie gevallen van de OPS_ProjectSettings-opslag. Het GEVULDE
+// (4) B1 (§6) — projectbinding + herkomststempels expliciet: round-trippen door het project-IFC.
+{
+  assert(rt1.project.companyId === 'c-fixture', 'project.companyId round-trip');
+  assert(rt1.project.companyName === 'Fixture Bouw BV', 'project.companyName round-trip');
+  const rMem = rt1.resources.find(r => r.name === 'Timmerman Jan')!;
+  assert(rMem.libraryOrigin?.companyId === 'c-fixture'
+    && rMem.libraryOrigin?.libraryItemId === 'lib-res1'
+    && rMem.libraryOrigin?.poolVersion === 4, 'resource.libraryOrigin round-trip');
+  const rtProjCal = rt1.calendar;
+  assert(rtProjCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtProjCal.libraryOrigin?.libraryItemId === 'lib-projcal'
+    && rtProjCal.libraryOrigin?.poolVersion === 4, 'projectkalender.libraryOrigin round-trip');
+  const rtLibCal = (rt1.resourceCalendars ?? []).find(c => c.name === 'Sublokatie kalender')!;
+  assert(rtLibCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtLibCal.libraryOrigin?.libraryItemId === 'lib-libcal'
+    && rtLibCal.libraryOrigin?.poolVersion === 4, 'bibliotheekkalender.libraryOrigin round-trip');
+}
+
+// (5) Contractuele projectdatums — de drie gevallen van de OPS_ProjectSettings-opslag. Het GEVULDE
 //     geval loopt al door de vergelijking in (1) (fixture: 2026-06-15 … 2026-09-30, bewust los van
 //     de taak-span 2026-07-06 … 2026-07-24). Hier de twee andere:
 {

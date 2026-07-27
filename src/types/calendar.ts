@@ -1,4 +1,5 @@
 import type { HolidayCountry } from '@/engine/calendar/holidays';
+import type { LibraryOrigin } from '@/types/library';
 
 export interface WorkCalendar {
   id: string;
@@ -19,6 +20,9 @@ export interface WorkCalendar {
   /** OPTIONEEL — ploeg-classificatie voor IFC-`PredefinedType` (fase 2.8b, §7.1). Afwezig ⇒
    *  `.FIRSTSHIFT.` (byte-identiek met bestaande bestanden). */
   shift?: 'FIRST' | 'SECOND' | 'THIRD' | 'USERDEFINED';
+  /** OPTIONEEL — herkomststempel wanneer deze kalender een kopie uit een bedrijfsbibliotheek is
+   *  (spec B1, §2). Afwezig ⇒ handmatige/gegenereerde kalender. */
+  libraryOrigin?: LibraryOrigin;
 }
 
 /**

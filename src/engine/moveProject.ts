@@ -114,6 +114,7 @@ const PROJECT_VERDICTS = {
   author: 'n/a', company: 'n/a', wbsAutoNumber: 'n/a',
   statusDate: 'shift',            // P6 data date (R5)
   progressMode: 'n/a', schedulingOptions: 'n/a',
+  companyId: 'n/a', companyName: 'n/a',  // B1: statische bibliotheekbinding, geen planningsdatum
 } satisfies Record<keyof Project, MoveVerdict>;
 
 const RESOURCE_VERDICTS = {
@@ -121,6 +122,7 @@ const RESOURCE_VERDICTS = {
   availability: 'n/a', maxUnits: 'n/a', calendarId: 'n/a',
   availabilitySteps: 'shift',     // .from schuift: effective-dated capaciteit is PROJECT-planning
   unitOfMeasure: 'n/a', parentId: 'n/a',
+  libraryOrigin: 'n/a',           // B1: herkomststempel-metadata, geen planningsdatum
 } satisfies Record<keyof Resource, MoveVerdict>;
 
 const AVAILABILITY_STEP_VERDICTS = {

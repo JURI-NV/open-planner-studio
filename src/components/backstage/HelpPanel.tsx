@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { LANGUAGE_LABELS } from '@/i18n/config';
 import { renderMiniMarkdown, extractHeadings } from '@/utils/miniMarkdown';
+import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import './HelpPanel.css';
 
 // De documentatietaal wordt persistent los van de UI-taal bewaard, zodat een gebruiker de docs in
@@ -177,6 +178,11 @@ export function HelpPanel() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
       openExampleFromString(content, file);
+      // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): zelfde
+      // volgorde als Backstage → Voorbeelden (`ExamplesSection.handleOpen`). Deze aanroeper kent
+      // alleen de bestandsnaam (geen manifest-`category`) — de showcase-bestanden dragen allemaal het
+      // `showcase-`-voorvoegsel (zie `public/examples/manifest.json`), de basisvoorbeelden niet.
+      if (file.startsWith('showcase-')) applyDemoLibraryToShowcaseProject();
       runCPM();
       setUI({ activeRibbonTab: 'start' });
     } catch (err) {

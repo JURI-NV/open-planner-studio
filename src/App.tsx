@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { saveRightPanelWidth, RIGHT_PANEL_MIN_WIDTH } from '@/utils/settingsStore';
 import { setNoneLabelValue } from '@/utils/noneLabel';
+import { appLog } from '@/services/debug/appLog';
 import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
 import '@/components/layout/TitleBar/TitleBar.css';
 import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
@@ -61,6 +62,8 @@ const FilterDialog = lazy(() => import('@/components/dialogs/FilterDialog').then
 const LayoutsDialog = lazy(() => import('@/components/dialogs/LayoutsDialog').then(m => ({ default: m.LayoutsDialog })));
 const ShortcutsDialog = lazy(() => import('@/components/dialogs/ShortcutsDialog').then(m => ({ default: m.ShortcutsDialog })));
 const BenchmarkDialog = lazy(() => import('@/components/dialogs/BenchmarkDialog').then(m => ({ default: m.BenchmarkDialog })));
+const PoolImportDialog = lazy(() => import('@/components/dialogs/PoolImportDialog').then(m => ({ default: m.PoolImportDialog })));
+const LibraryLinkDialog = lazy(() => import('@/components/dialogs/LibraryLinkDialog').then(m => ({ default: m.LibraryLinkDialog })));
 const RecoveryDialog = lazy(() => import('@/components/dialogs/RecoveryDialog').then(m => ({ default: m.RecoveryDialog })));
 const WelcomeDialog = lazy(() => import('@/components/dialogs/WelcomeDialog').then(m => ({ default: m.WelcomeDialog })));
 const TourOverlay = lazy(() => import('@/components/tour/TourOverlay').then(m => ({ default: m.TourOverlay })));
@@ -125,6 +128,26 @@ function AppContent() {
   // Settings-bootstrap: hydrateert ~20 instellingen + extensies bij mount, en toont de
   // welkomstdialoog zodra de recovery-flow is afgehandeld.
   useSettingsBootstrap(recoveryResolved, recovery);
+
+  // Bedrijfsbibliotheek laden bij opstarten (B1): zet de opgeslagen bibliotheek in de store en
+  // hijst `libraryLoaded`, zodat latere mutaties persisteren (vóór dit punt is persist een no-op).
+  // Fire-and-forget, maar mét .catch: een rejectende load (bv. IndexedDB stuk) mag nooit een
+  // unhandled rejection worden — de fout gaat naar de log-bus.
+  useEffect(() => {
+    useAppStore.getState().initLibrary().catch((err) => {
+      appLog.emit('error', 'library', 'initLibrary faalde', err);
+    });
+  }, []);
+
+  // Verversingssignaal (spec §3, taak 18): discreet, zelf-opruimend na 4s. `libraryRefreshNotice`
+  // wordt gezet door de grens-acties (taken 5/6/10/12) en NUL geeft géén melding — de guard hierboven
+  // in de effect-body (early return) voorkomt dat elke render een nieuwe timer opzet.
+  const libraryRefreshNotice = useAppStore(s => s.ui.libraryRefreshNotice);
+  useEffect(() => {
+    if (libraryRefreshNotice == null) return;
+    const id = setTimeout(() => useAppStore.getState().setUI({ libraryRefreshNotice: null }), 4000);
+    return () => clearTimeout(id);
+  }, [libraryRefreshNotice]);
 
   // Automatisch berekenen: runCPM zodra de planning verouderd raakt (als de instelling aanstaat).
   useAutoCalcCPM();
@@ -394,6 +417,8 @@ function AppContent() {
         {showWelcomeDialog && <WelcomeDialog />}
         {showTourOverlay && <TourOverlay />}
         <UpdateDialog />
+        <PoolImportDialog />
+        <LibraryLinkDialog />
         {recovery && (
           <RecoveryDialog
             entries={recovery.entries}
@@ -404,6 +429,18 @@ function AppContent() {
         )}
         {justUpdated && recoveryResolved && recovery === null && !showUpdateDialog && !showWelcomeDialog && <JustUpdatedDialog />}
       </Suspense>
+
+      {/* Verversingssignaal (spec §3, taak 18): discreet, verdwijnt na 4s (zie effect hierboven). */}
+      {libraryRefreshNotice != null && libraryRefreshNotice > 0 && (
+        <div
+          // S1 (V2-vondst): pure melding, geen interactieve inhoud — zonder pointer-events-none
+          // onderschept deze 4 seconden lang klikken op de UI eronder (elementFromPoint bewees dit).
+          className="fixed bottom-4 right-4 z-50 px-3 py-2 rounded-[10px] bg-surface border border-border shadow-[var(--shadow-pop)] text-xs pointer-events-none"
+          data-ops-library-refresh-notice
+        >
+          {t('companyLibrary.refreshNotice', { count: libraryRefreshNotice })}
+        </div>
+      )}
 
       {/* Gebruikersmeldingen (bevinding K8) — buiten de Backstage-vertakking gemount (ná het
           Suspense-dialogenblok, als laatste kind van de buitenste div), zodat een opslaafout óók

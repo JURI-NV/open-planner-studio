@@ -592,7 +592,7 @@ test('IFC-round-trip: generation en shift overleven; workTime kent een gedocumen
   assertEq(cal.workTime!.byWeekday[6], [], 'een niet-werkdag blijft niet-werkend');
 });
 
-test('IFC: één gewone band per dag overleeft zolang de kalender IN GEBRUIK is; ongebruikt niet', async () => {
+test('IFC: één gewone band per dag overleeft — ook op een kalender zonder gebruikers (A2-fix)', async () => {
   reset();
   const projId = S().project.calendarId;
   S().ensureProjectCalendarInLibrary();
@@ -608,11 +608,14 @@ test('IFC: één gewone band per dag overleeft zolang de kalender IN GEBRUIK is;
   assert(!!terug.calendar.workTime, 'de uur-modus overleeft dankzij de uur-taken in hetzelfde bestand');
   assertEq(terug.calendar.workTime!.byWeekday[1], [{ start: 480, end: 960 }], 'de band komt exact terug');
 
-  // BEKENDE, VOORAF BESTAANDE IFC-BEPERKING (ifcReader `extractCalendarLibrary`): de reader bouwt de
-  // bibliotheek UITSLUITEND uit IFCRELASSIGNSTOCONTROL-relaties. Een kalender waar géén taak en géén
-  // resource aan hangt, wordt dus wél geschreven maar niet teruggelezen — die is na opslaan+herladen
-  // wég. Dat raakt precies het overzet-scenario ("maak de kalender aan in het doeldocument"), dus het
-  // hoort in de beschrijving van update_calendar: hang er meteen taken aan.
+  // OPGEHEVEN BEPERKING (B1.1, issue #19 — de "A2-fix" in `ifcReader.extractCalendarLibrary`). Deze
+  // test pinde tot dan het OMGEKEERDE: de reader bouwde de bibliotheek uitsluitend uit
+  // IFCRELASSIGNSTOCONTROL-relaties, dus een kalender zonder taak én zonder resource werd wél
+  // geschreven maar niet teruggelezen — stil verlies, precies in het overzet-scenario ("maak de
+  // kalender aan in het doeldocument"). De bedrijfsbibliotheken hadden daar zelf last van (een
+  // gepromote kalender verloor zo zijn `libraryOrigin`-stempel), en de reader vangt sindsdien álle
+  // overige IFCWORKCALENDAR-entiteiten op. Een ongebruikte kalender overleeft dus nu wél — dát pinnen
+  // we hier vast, zodat de oude beperking niet ongemerkt terugkeert.
   reset();
   const res = await call('planner_update_calendar', {
     calendars: [{ id: 'los', create: true, name: 'Ongebruikte uurkalender', workTime: bands8to16(), holidays: [] }],
@@ -620,8 +623,8 @@ test('IFC: één gewone band per dag overleeft zolang de kalender IN GEBRUIK is;
   const losId = okData(res).calendars[0].id;
   assert(!!calById(losId)!.workTime, 'testvoorwaarde: in de store is het een uur-kalender');
   const zonderGebruikers = readIFC(writeIFC(buildWriteIFCInput(S())));
-  assertEq(zonderGebruikers.resourceCalendars?.length ?? 0, 0,
-    'een bibliotheek-kalender zonder taak/resource wordt niet teruggelezen uit IFC');
+  const ongebruikt = zonderGebruikers.resourceCalendars?.find((c) => c.name === 'Ongebruikte uurkalender');
+  assert(!!ongebruikt, 'een bibliotheek-kalender ZONDER taak/resource komt sinds de A2-fix terug uit IFC');
 
   // MÉT een taak eraan overleeft hij volledig — inclusief de uurbanden.
   const t = addTask('Werk op de ploegenkalender', 2);

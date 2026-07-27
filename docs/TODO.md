@@ -11,6 +11,86 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
+### Bedrijfsbibliotheken (B1.1) — vervolgen (2026-07-24)
+- [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
+  herkomststempels + Resources-tab Bedrijfsweergave uit B1.1). Zie docs/library.md
+  "Bekende beperkingen".
+- [ ] **Gedeelde opslag/sync** tussen machines (wortel van alle drie de B1.1-beperkingen: pool-
+  divergentie tussen planners, bezettingsoverzicht dat alleen de eigen machine ziet, en
+  stilzwijgend overschrijven tussen twee tabbladen/vensters op dezelfde machine).
+- [ ] **Kalenderpromotie naar de Resources-tab** verhuizen — momenteel een bewuste fase-1-interim
+  in Backstage → Bibliotheek (resourcepromotie/-CRUD is al verhuisd). Zie docs/library.md
+  "Resources-tab: Bedrijfsweergave en Projectweergave".
+- [ ] **Cross-document-plakken verliest resource-toewijzingen stil** (bestaand gedrag van vóór
+  B1.1, herbevestigd in de B1.1-vlootverificatie). Toewijzingen wijzen naar resource-id's van het
+  brondocument; plak je taken in een ánder document, dan blijven die id's onopgelost en verdwijnen
+  de toewijzingen zonder melding. Minstens een melding is de korte-termijn-fix; via de
+  herkomststempels (§spec) zou het ook automatisch kunnen herkoppelen aan dezelfde gedeelde
+  bedrijfspool-resource, mits beide documenten aan hetzelfde bedrijf gebonden zijn.
+- [ ] **Twee gelijknamige bedrijven zijn in selectors niet te onderscheiden.** De
+  bedrijfsselectors (projectinfo, koppeldialoog) tonen alleen de bedrijfsnaam; bij twee bedrijven
+  met dezelfde naam (bv. na hernoemen of dubbele import) valt met het blote oog niet te zien welke
+  van de twee je selecteert. Kandidaat-fix: secundair kenmerk tonen (aanmaakdatum, id-fragment) bij
+  naamcollisie.
+- [ ] **Projectinfo-selector toont visueel "geen bedrijf" bij een binding aan een niet-meer-
+  bestaand bedrijf.** `project.companyId` behoudt de dode id wanneer het gekoppelde bedrijf
+  inmiddels verwijderd is; de selector valt dan terug op "geen bedrijf" i.p.v. de binding zichtbaar
+  als kapot te markeren. Verder onschadelijk (los-gedrag, geen dataverlies) — presentatie-polish.
+- [ ] **Herkenning-performance-schaalgrens bij grote pools (1000+ items).** `computeRecognition()`
+  (LibraryLinkDialog) herberekent bij elke render zonder memoization; bij bedrijfspools met 1000+
+  resources/kalenders kan dat merkbaar worden. Niet gemeten binnen B1.1-scope (pools in de
+  vlootverificatie waren klein); kandidaat-fix: memoiseren op pool-/documentversie zoals elders in
+  de store.
+- [ ] **Undo na ontkoppelen laat een inconsistente tussenstaat achter.** `unbindProject`/
+  `bindProjectToCompany` doen `beginUndoable()`, maar `project.companyId` valt (op `wbsAutoNumber`
+  na) bewust buiten de undo-snapshot (B3-uitzondering in `src/state/snapshot.ts`). Een Ctrl+Z na
+  ontkoppelen zet dus de `libraryOrigin`-stempels terug op een project dat ontkoppeld blíjft. Geen
+  dataverlies (los-gedrag, stempels zijn inert en zelfherstellend bij terugkoppelen), maar wel
+  verwarrend. Gevonden bij de critreview op de ProjectInfo-unificatie (2026-07-25).
+- [ ] **`tests/planning/` typecheckt maar één van de tien check-bestanden.** Er is alleen
+  `tsconfig.roundtrip.json` met `check-ifc-roundtrip.ts` in `include`; de overige negen
+  (`check-advanced-cpm`, `check-calendar-hours`, `check-move-task`, `check-document-contract`, …)
+  worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
+  2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
+  grotere suite.
+- [ ] **Standaardbibliotheek zou een gegenereerd id moeten krijgen i.p.v. de vaste
+  `DEFAULT_COMPANY_ID`-constante** (critreview F1/F8 op pool-import, issue #19). Vrijwel elke
+  installatie heeft hooguit één resourcebibliotheek onder dat vaste id — waardoor `importPoolAsNewCompany`
+  het (terecht) als `isReservedCompanyId` behandelt en er nooit de identiteit uit een geïmporteerd
+  bestand voor behoudt. Praktisch gevolg: een meegestuurd project van een eenpitter-collega (de
+  meest voorkomende situatie) herkent zijn bibliotheek na "toevoegen als nieuwe resourcebibliotheek"
+  niet automatisch — de ontvanger moet de herkenningsstap zelf één keer doorlopen (zie
+  docs/library.md "Bekende beperkingen" en de gebruikersgids). Zou het standaardbedrijf bij de
+  EERSTE start een vers gegenereerd id krijgen (i.p.v. de gedeelde constante), dan werkt automatische
+  herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
+  bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
+  niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
+- [ ] **Niemand heeft gemeten of de MCP-tools de bibliotheekstempels bijwerken.** Mains nieuwe
+  `planner_*`-tools kunnen resources en kalenders muteren (`planner_manage_resources`,
+  `planner_update_calendar`), maar of ze daarbij `libraryOrigin`/`syncedHash` correct meebewegen is
+  nooit vastgesteld. Muteert een tool een gestempeld item zonder de hash bij te werken, dan wijkt het
+  bestand af van `syncedHash` en geldt het bij de eerstvolgende verversgrens onterecht als
+  `deviated` — de gebruiker krijgt dan een afwijkingsvraag over een wijziging die hij zelf niet
+  gemaakt heeft. Dit is een ongemeten interactie tussen twee features die onafhankelijk van elkaar
+  zijn gebouwd (MCP-bridge en B1.1-herkomststempels), niet een bekend defect. Vervolgstap: een
+  batterij die een MCP-resourcemutatie op een gestempeld item door de vier verversgrenzen haalt.
+- [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
+  resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
+  Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
+  toren terwijl de drie torens per ontwerp parallel lopen (en de niet-uniforme curves het tempo
+  bovendien op enkele dagen concentreren). Elke pool is nu op de gemeten worst case gezet —
+  3 × de piek van één toren, per toren afzonderlijk gemeten met de echte `computeResourceLoad`:
+  Betonvlechters 4→6, Timmerlieden 4→12, Gevelbouwer 2→6, Liftleverancier 1→3, Tegelzetters 3→15,
+  Keukenmonteurs 2→9, Installateurs 4→18, Schilders 3→15. Torenkraan (1, met capaciteitsstap naar
+  2) en Stukadoors (3) houden bewust hun krappe capaciteit: dat zijn de twee bedoelde knelpunten.
+  Resultaat: 261 → 80 overgealloceerde resource-dagen, 10 → 2 pools; beide resterende knelpunten
+  zijn met de echte nivelleerder volledig oplosbaar (80 → 0 dagen, 0 onopgeloste taken) — vóór de
+  fix bleven er 4 pools zélfs ná nivellering staan. `maxUnits` raakt de CPM-datums niet
+  (resources-design §3), empirisch bevestigd: alle 260 taken houden identieke ES/EF/LS/LF/TF/
+  kritiek-vlaggen en `criticalPaths` blijft 2. De ontbrekende bovengrens is ook gedicht:
+  `scripts/verify-examples.ts` assert nu naast `overalloc.length > 0` óók `<= 2` voor GROOT, met
+  de namen in de foutboodschap; die assert is aantoonbaar rood gezien tegen de oude data.
+
 ### MCP-bridge — robuustheid van de server zelf (2026-07-27)
 
 > Gemeten tijdens de eerste echte koppelpoging. Beide punten gaan niet over de tools maar over de
