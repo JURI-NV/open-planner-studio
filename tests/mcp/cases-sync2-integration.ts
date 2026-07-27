@@ -257,6 +257,84 @@ test('spec-usecase 1: bestek → planning in ÉÉN batch (tasks + relaties + kal
   assert(S().undoStack.length >= 1, 'de batch pushte een undo-snapshot');
 });
 
+test('de OVERIGE batchStep-kernen draaien echt als stap (niet alleen aanwezig)', async () => {
+  // De coverage-test hierboven bewijst dat de kernen BESTAAN; usecase 1 draait er vier. Deze test
+  // draait de overige acht, zodat een verkeerd uitgetilde kern niet stil blijft zitten.
+  S().newProject();
+  const ctx = makeCtx();
+
+  // Voorbereiding buiten de batch: twee taken, een relatie en een resource om mee te werken.
+  const prep = await handleMcpMessage(
+    JSON.stringify({
+      jsonrpc: '2.0', id: 20, method: 'tools/call',
+      params: {
+        name: 'planner_batch',
+        arguments: {
+          steps: [
+            { tool: 'planner_update_project', args: { startDate: '2026-03-02' } },
+            {
+              tool: 'planner_add_tasks',
+              args: {
+                tasks: [
+                  { tempId: 'tmp-a', name: 'Taak A', duration: 5 },
+                  { tempId: 'tmp-b', name: 'Taak B', duration: 5 },
+                  { tempId: 'tmp-ouder', name: 'Fase', duration: 1 },
+                ],
+              },
+            },
+            {
+              tool: 'planner_add_dependencies',
+              args: { dependencies: [{ predecessorId: 'tmp-a', successorId: 'tmp-b', type: 'FINISH_START' }] },
+            },
+          ],
+        },
+      },
+    }),
+    ctx,
+  );
+  assert(
+    (JSON.parse(JSON.parse(prep).result.content[0].text) as McpToolResult).ok === true,
+    'de voorbereidende batch slaagde',
+  );
+
+  const taskA = S().tasks.find((t) => t.name === 'Taak A')!;
+  const taskB = S().tasks.find((t) => t.name === 'Taak B')!;
+  const fase = S().tasks.find((t) => t.name === 'Fase')!;
+  const seqId = S().sequences[0].id;
+  const resourceId = S().resources[0]?.id;
+
+  const steps: { tool: string; args: unknown }[] = [
+    { tool: 'planner_update_tasks', args: { updates: [{ id: taskA.id, fields: { name: 'Taak A (herzien)' } }] } },
+    { tool: 'planner_move_task', args: { id: taskB.id, newParentId: fase.id } },
+    { tool: 'planner_remove_dependencies', args: { ids: [seqId] } },
+    { tool: 'planner_clear_leveling', args: {} },
+    { tool: 'planner_level_resources', args: { constrainToFloat: true } },
+    { tool: 'planner_move_project', args: { newStartDate: '2026-04-01' } },
+    { tool: 'planner_delete_tasks', args: { ids: [taskA.id] } },
+  ];
+  if (resourceId) {
+    steps.splice(3, 0, {
+      tool: 'planner_manage_assignments',
+      args: { actions: [{ action: 'add', taskId: taskB.id, resourceId, unitsPerDay: 1 }] },
+    });
+  }
+
+  const raw = await handleMcpMessage(
+    JSON.stringify({ jsonrpc: '2.0', id: 21, method: 'tools/call', params: { name: 'planner_batch', arguments: { steps } } }),
+    ctx,
+  );
+  const payload = JSON.parse(JSON.parse(raw).result.content[0].text) as McpToolResult;
+  assert(payload.ok === true, `de batch met de overige kernen faalde: ${raw.slice(0, 800)}`);
+  const data = (payload as McpToolOk).data as { steps: { tool: string; status: string; error?: string }[] };
+  const gefaald = data.steps.filter((s) => s.status !== 'uitgevoerd');
+  assertEq(gefaald, [], `alle stappen moeten uitgevoerd zijn; gefaald: ${JSON.stringify(gefaald)}`);
+
+  // Steekproef op het EFFECT van een paar kernen (niet alleen op de statusregel).
+  assertEq(S().sequences.length, 0, 'remove_dependencies-kern verwijderde de relatie');
+  assertEq(S().project.startDate, '2026-04-01', 'move_project-kern verschoof het project');
+  assert(!S().tasks.some((t) => t.id === taskA.id), 'delete_tasks-kern verwijderde Taak A');
+});
+
 test('een batch met een onbekende tool rolt ALLES terug (de vangrail werkt over de banen heen)', async () => {
   S().newProject();
   const before = S().tasks.length;
