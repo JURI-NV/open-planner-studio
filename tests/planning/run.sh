@@ -176,6 +176,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   EXPCHECK="$DIR/.export-guard.mjs"
   if bundle_check "$DIR/check-export-guard.ts" "$EXPCHECK"; then node "$EXPCHECK" || STATUS=1; fi
 
+  # STEP-string-veiligheid (bevinding K2). De parser was string-onveilig in drie lagen (sectie-split,
+  # commentaar-strip, entity-regex) en de writer interpoleerde naam/auteur/bedrijf RAUW in de header.
+  # `);`, `(…)` en `ENDSEC;` zijn normale plantekst; het ergste geval was een STILLE duurwijziging
+  # bij opslaan+heropenen. Draait de echte keten store→writeIFC→readIFC per faalvector, plus een
+  # onafhankelijke syntaxcontrole op de FILE_NAME-header.
+  SSCHECK="$DIR/.step-strings.mjs"
+  if bundle_check "$DIR/check-step-strings.ts" "$SSCHECK"; then node "$SSCHECK" || STATUS=1; fi
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een

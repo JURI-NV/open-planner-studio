@@ -107,12 +107,20 @@ export function writeIFC(input: WriteIFCInput): string {
   const ctx: WriteContext = { lines: [], nextId: 1, idMap: new Map() };
   const now = new Date().toISOString().split('.')[0];
 
-  // Header
+  // Header. Naam/auteur/bedrijf MOETEN door `ifcStr` (bevinding K2): ze werden rauw
+  // geïnterpoleerd, en dan levert een gewone apostrof al syntactisch ongeldig STEP op
+  // (`FILE_NAME('O'Hara Tower.ifc',…)`) terwijl `DATA;`/`ENDSEC;` in de projectnaam die tokens vóór
+  // de echte sectiegrens zet ⇒ nul entiteiten, alles weg. Onze eigen reader raakte de header nooit
+  // aan, dus dit viel nooit op — een bestand met `Van 't Hof BV` erin hoeft Synchro of BlenderBIM
+  // niet te accepteren. Let op de VORM: `ifcStr(x + '.ifc')`, NIET `'${ifcStr(x)}.ifc'` — die
+  // laatste zet quotes om de al-gequote waarde heen (`''O''Hara'.ifc'`) en is erger dan het
+  // origineel. `ifcStr` geeft `$` bij een lege string; alle drie de waarden hier zijn nooit leeg
+  // (`.ifc`-suffix resp. een niet-lege terugval), dus de header houdt altijd echte stringliterals.
   const header = [
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [SchedulingView]'),'2;1');",
-    `FILE_NAME('${project.name}.ifc','${now}',('${project.author || 'Open Planner Studio'}'),('${project.company || 'OpenAEC Foundation'}'),'Open Planner Studio 0.1','Open Planner Studio','');`,
+    `FILE_NAME(${ifcStr(project.name + '.ifc')},${ifcStr(now)},(${ifcStr(project.author || 'Open Planner Studio')}),(${ifcStr(project.company || 'OpenAEC Foundation')}),'Open Planner Studio 0.1','Open Planner Studio','');`,
     "FILE_SCHEMA(('IFC4X3'));",
     'ENDSEC;',
     'DATA;',
