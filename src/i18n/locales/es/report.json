@@ -34,6 +34,8 @@
   "printed": "Impreso:",
   "page": "Página",
   "of": "de",
+  "previewPageLimit_one": "… y {{count}} página más — exporta para ver el documento completo",
+  "previewPageLimit_other": "… y {{count}} páginas más — exporta para ver el documento completo",
   "legend": {
     "criticalPath": "Ruta crítica",
     "normal": "Normal",

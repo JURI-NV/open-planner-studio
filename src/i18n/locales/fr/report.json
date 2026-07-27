@@ -34,6 +34,8 @@
   "printed": "Imprimé :",
   "page": "Page",
   "of": "sur",
+  "previewPageLimit_one": "… et {{count}} page de plus — exportez pour le document complet",
+  "previewPageLimit_other": "… et {{count}} pages de plus — exportez pour le document complet",
   "legend": {
     "criticalPath": "Chemin critique",
     "normal": "Normal",

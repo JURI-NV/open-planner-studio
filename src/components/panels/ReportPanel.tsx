@@ -762,10 +762,10 @@ export function ReportPanel() {
             ))}
             {previewTotalPages > previewPages.length && (
               <div className="text-xs text-text-secondary text-center py-2">
-                {t('previewPageLimit', {
-                  defaultValue: '… en nog {{n}} pagina(\'s) — exporteer voor het volledige document',
-                  n: previewTotalPages - previewPages.length,
-                })}
+                {/* `count` (geen eigen `n`) zodat i18next echt pluraliseert: de sleutel bestaat nu
+                    in alle 14 locales met de juiste CLDR-categorieën, dus de hardgecodeerde
+                    Nederlandse `defaultValue` — die iedereen ongeacht taal te zien kreeg — is weg. */}
+                {t('previewPageLimit', { count: previewTotalPages - previewPages.length })}
               </div>
             )}
           </div>

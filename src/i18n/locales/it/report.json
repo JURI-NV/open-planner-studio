@@ -34,6 +34,8 @@
   "printed": "Stampato:",
   "page": "Pagina",
   "of": "di",
+  "previewPageLimit_one": "… e {{count}} pagina in più — esporta per il documento completo",
+  "previewPageLimit_other": "… e {{count}} pagine in più — esporta per il documento completo",
   "legend": {
     "criticalPath": "Percorso critico",
     "normal": "Normale",

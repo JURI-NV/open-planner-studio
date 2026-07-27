@@ -34,6 +34,8 @@
   "printed": "چاپ شده:",
   "page": "صفحه",
   "of": "از",
+  "previewPageLimit_one": "… و {{count}} صفحه دیگر — برای سند کامل خروجی بگیرید",
+  "previewPageLimit_other": "… و {{count}} صفحه دیگر — برای سند کامل خروجی بگیرید",
   "legend": {
     "criticalPath": "مسیر بحرانی",
     "normal": "عادی",

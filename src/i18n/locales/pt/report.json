@@ -34,6 +34,8 @@
   "printed": "Impresso:",
   "page": "Página",
   "of": "de",
+  "previewPageLimit_one": "… e mais {{count}} página — exporte para o documento completo",
+  "previewPageLimit_other": "… e mais {{count}} páginas — exporte para o documento completo",
   "legend": {
     "criticalPath": "Caminho crítico",
     "normal": "Normal",

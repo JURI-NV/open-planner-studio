@@ -34,6 +34,8 @@
   "printed": "Yazdırıldı:",
   "page": "Sayfa",
   "of": "/",
+  "previewPageLimit_one": "… ve {{count}} sayfa daha — tam belge için dışa aktarın",
+  "previewPageLimit_other": "… ve {{count}} sayfa daha — tam belge için dışa aktarın",
   "legend": {
     "criticalPath": "Kritik yol",
     "normal": "Normal",

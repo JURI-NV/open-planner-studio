@@ -38,6 +38,12 @@
   "printed": "طبع في:",
   "page": "صفحة",
   "of": "من",
+  "previewPageLimit_zero": "… و{{count}} صفحة أخرى — صدّر للحصول على المستند الكامل",
+  "previewPageLimit_one": "… وصفحة واحدة أخرى — صدّر للحصول على المستند الكامل",
+  "previewPageLimit_two": "… وصفحتان أخريان — صدّر للحصول على المستند الكامل",
+  "previewPageLimit_few": "… و{{count}} صفحات أخرى — صدّر للحصول على المستند الكامل",
+  "previewPageLimit_many": "… و{{count}} صفحة أخرى — صدّر للحصول على المستند الكامل",
+  "previewPageLimit_other": "… و{{count}} صفحة أخرى — صدّر للحصول على المستند الكامل",
   "legend": {
     "criticalPath": "المسار الحرج",
     "normal": "عادي",
