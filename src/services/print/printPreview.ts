@@ -21,6 +21,18 @@ const FOOTER_HEIGHT = 50;
 // FontFace nog niet geladen is (§5.1/K2 ontwerpdoc). De swap reflowt bewust bestaande exports.
 const FONT_FAMILY = 'InterPDF, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
+// Relatielijn-stub: de horizontale afstand die een relatielijn eerst rechtdoor loopt vóórdat hij
+// verticaal afknikt (en spiegelbeeldig links van de opvolger bij de "omheen"-route). Dit is de
+// x-positie van de VERTICALE knik, gerekend vanaf de rechterrand van de voorganger-balk.
+const DEP_STUB = 6;
+// Linkerpad van een taaklabel RECHTS van de balk. Bewust groter dan `DEP_STUB`: het label begint
+// pas voorbij de verticale relatie-knik, zodat lijn en tekst elkaar niet raken (issue #25 punt 2).
+// De koppeling is expliciet — verandert de stub, dan schuift het label mee.
+const BAR_LABEL_GAP = DEP_STUB + 8;
+// Kleine pad voor de LINKER fallback van een taaklabel; daar zit geen relatie-knik, dus daar is de
+// grote gap niet nodig.
+const BAR_LABEL_PAD_LEFT = 4;
+
 // Column definitions for the task table
 const COL = {
   rowNum:    { x: 0,   w: 30  },
@@ -165,14 +177,15 @@ function drawBarLabel(
   color: string,
   font: string,
 ) {
-  const pad = 4;
   const rightMargin = 10;
   d2d.font = font;
   d2d.fillStyle = color;
   d2d.textBaseline = 'alphabetic';
-  const rightStart = barRightX + pad;
+  // Rechts: voorbij de verticale relatie-knik beginnen (`BAR_LABEL_GAP` > `DEP_STUB`), links de
+  // kleine pad — daar loopt geen relatielijn (issue #25 punt 2).
+  const rightStart = barRightX + BAR_LABEL_GAP;
   const rightAvail = canvasWidth - rightMargin - rightStart;
-  const leftEnd = barLeftX - pad;
+  const leftEnd = barLeftX - BAR_LABEL_PAD_LEFT;
   const leftAvail = leftEnd - TABLE_WIDTH; // chart begint bij TABLE_WIDTH
   const textWidth = d2d.measureText(name).width;
 
@@ -413,11 +426,6 @@ export function renderReport(
     d2d.textAlign = 'left';
   }
 
-  // Dependency arrows
-  if (options.showDeps) {
-    drawDependencies(d2d, flatTasks, sequences, dateToX, rowToY, zoom);
-  }
-
   // Task bars
   const barHeight = ROW_HEIGHT * 0.55;
   const barOffset = (ROW_HEIGHT - barHeight) / 2;
@@ -517,6 +525,14 @@ export function renderReport(
         drawBarLabel(d2d, task.name, barRightX, x1, y + barHeight / 2 + 3, canvasWidth, PRINT_COLORS.text, `9px ${FONT_FAMILY}`);
       }
     }
+  }
+
+  // Relatiepijlen — bewust NÁ de balken-lus (issue #25 punt 3). Stonden ze ervóór, dan schilderde
+  // elke balk die een lijn kruist die lijn gewoon weg; nu liggen de lijnen bovenop en zijn ze altijd
+  // zichtbaar. Dat de taaklabels in diezelfde balken-lus getekend worden is geen probleem: die
+  // beginnen dankzij `BAR_LABEL_GAP` pas voorbij de verticale knik (punt 2).
+  if (options.showDeps) {
+    drawDependencies(d2d, flatTasks, sequences, dateToX, rowToY, zoom);
   }
 
   // ---- TIMELINE HEADER ----
@@ -948,15 +964,36 @@ function drawDependencies(
     const fromX = dateToX(predEnd) + zoom;
     const toX = dateToX(succStart);
 
-    // Route: right from pred end, then down/up, then right to succ start
-    const gapX = 6;
-    const midX = fromX + gapX;
-
+    // Twee routes (issue #25 punt 3):
+    //  - VOORWAARTS (`toX >= fromX + 2*DEP_STUB`): de opvolger begint ruim rechts van de voorganger,
+    //    dus de klassieke route volstaat — stukje rechtdoor, verticale knik, dan rechtdoor de
+    //    opvolger-balk in.
+    //  - TERUGWAARTS (`toX < fromX + 2*DEP_STUB`): de opvolger begint links van waar de lijn
+    //    uitkomt. Het horizontale segment zou dan op `succY` achteruit dwars DOOR de opvolger-balk
+    //    lopen. In plaats daarvan gaan we "omheen" via de rijgoot: de horizontale scheiding tussen
+    //    twee rijen (bovenrand van de opvolger-rij als die eronder ligt, onderrand als hij erboven
+    //    ligt), een paar px de rij in zodat de lijn nét naast de rasterlijn valt.
     d2d.beginPath();
-    d2d.moveTo(fromX, predY);
-    d2d.lineTo(midX, predY);
-    d2d.lineTo(midX, succY);
-    d2d.lineTo(toX, succY);
+    if (toX >= fromX + 2 * DEP_STUB) {
+      const midX = fromX + DEP_STUB;
+      d2d.moveTo(fromX, predY);
+      d2d.lineTo(midX, predY);
+      d2d.lineTo(midX, succY);
+      d2d.lineTo(toX, succY);
+    } else {
+      const gutterInset = 2;
+      const gutterY = succIdx > predIdx
+        ? rowToY(succIdx) + gutterInset            // opvolger eronder ⇒ goot = bovenrand opvolger-rij
+        : rowToY(succIdx) + ROW_HEIGHT - gutterInset; // opvolger erboven ⇒ goot = onderrand opvolger-rij
+      const outX = fromX + DEP_STUB;
+      const inX = toX - DEP_STUB;
+      d2d.moveTo(fromX, predY);
+      d2d.lineTo(outX, predY);
+      d2d.lineTo(outX, gutterY);
+      d2d.lineTo(inX, gutterY);
+      d2d.lineTo(inX, succY);
+      d2d.lineTo(toX, succY);
+    }
     d2d.stroke();
 
     // Arrowhead (filled triangle)
