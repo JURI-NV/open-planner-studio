@@ -1,15 +1,18 @@
 # Resourcebibliotheken
 
-Sinds B1.1 is het model **bibliotheekcentrisch**: een resourcebibliotheek bevat kalenders + resources
-(een gedeelde pool), en een project is altijd — impliciet of expliciet — aan precies één
-resourcebibliotheek gekoppeld. Een resourcebibliotheek vertegenwoordigt doorgaans één bedrijf of
-organisatie — vandaar dat de code en het IFC-formaat er nog steeds `companyId`/`companyName` voor
-gebruiken; de gebruikersterm is voortaan "resourcebibliotheek" (of kortweg "bibliotheek"). Toewijzen
-vanuit de bibliotheek aan een project **is** materialiseren: er bestaat geen los "toevoegen",
-"kopiëren", "bijwerken-uit" of "promoveren" meer als aparte gebruikershandeling — één gedeeld mechanisme
-dekt alles. Wat een project gebruikt, is een bewerkbare kopie **met herkomststempel** in het project
-zelf: een gedeeld projectbestand blijft daardoor altijd compleet en zelfstandig ("gebeiteld":
-zelfstandig, niet read-only).
+Het model kent **twee werelden**. De *resourcebibliotheek* is de gedeelde bron: hij hoort bij de
+organisatie, leeft buiten de projecten en wordt door meerdere projecten gebruikt. Het *project*
+bepaalt wat je hier daadwerkelijk inzet. Een project kan aan één resourcebibliotheek hangen, of los
+staan — dan werkt alles gewoon, alleen zonder gedeelde bron. Een resourcebibliotheek vertegenwoordigt
+doorgaans één bedrijf of organisatie — vandaar dat de code en het IFC-formaat er nog steeds
+`companyId`/`companyName` voor gebruiken; de gebruikersterm is "resourcebibliotheek" (of kortweg
+"bibliotheek"), "bedrijf" alleen waar het echt over de organisatie zelf gaat.
+
+Toewijzen vanuit de bibliotheek aan een project **is** materialiseren: er bestaat geen los
+"toevoegen", "kopiëren", "bijwerken-uit" of "promoveren" meer als losse gebruikershandeling naast
+elkaar — drie gerichte acties (zie verderop) dekken alles. Wat een project gebruikt, is een
+bewerkbare kopie **met herkomststempel** in het project zelf: een gedeeld projectbestand blijft
+daardoor altijd compleet en zelfstandig ("gebeiteld": zelfstandig, niet read-only).
 
 ## Resourcebibliotheken en koppeling
 
@@ -20,10 +23,12 @@ verwijderen — de laatste resourcebibliotheek blijft altijd bestaan — en éé
 
 De koppeling tussen een project en zijn resourcebibliotheek (`project.companyId`) is **altijd zichtbaar
 en bewerkbaar**, ook met maar één resourcebibliotheek — niet iets dat impliciet ontstaat bij de eerste
-bibliotheekactie:
+bibliotheekactie. Eén gedeeld paneel verzorgt de selector op alle drie de plekken waar projectinfo
+voorkomt:
 
 - **Projectwizard** ("Nieuw project"): een bibliotheekselector, voorgeselecteerd op de standaardbibliotheek.
-- **Projectinfo** (bestaand project): dezelfde selector; wijzigen bindt/herbindt/ontkoppelt direct.
+- **Projectinfo** (bestaand project, via dialoog of Backstage → Projectinfo): dezelfde selector;
+  wijzigen bindt/herbindt/ontkoppelt direct.
 
 De ≥2-bibliotheken-regel geldt uitsluitend voor **secundaire** selectors elders — bijvoorbeeld het
 importdoel in de pool-importdialoog (Backstage → Bibliotheek → Importeren): met precies één
@@ -41,27 +46,97 @@ oplopend versienummer (`poolVersion`) en een tijdstempel (`modifiedAt`). De `id`
 kalender/resource **in** de pool is diens stabiele identiteit — herkomststempels
 (`libraryOrigin.libraryItemId`) wijzen daarnaar.
 
-## Resources-tab: Bibliotheekweergave en Projectweergave
+## Resources-tab: twee weergaven, drie soorten rijen
 
-De Resources-tab heeft, zodra het project aan een resourcebibliotheek gekoppeld is, twee weergaven naast
-elkaar (een schuifknop rechtsboven in het paneel):
+De Resources-tab heeft, zodra het project aan een resourcebibliotheek gekoppeld is, twee weergaven
+naast elkaar (een schuifknop rechtsboven in het paneel, "Bibliotheek"/"Project"). Beide weergaven
+delen dezelfde volledige inline-tabel-editor; alleen de rolverdeling verschilt:
 
-- **Bibliotheekweergave** — toont de pool van de gekoppelde resourcebibliotheek. Hier voeg je direct
-  nieuwe resources aan de bibliotheek toe, bewerk of verwijder je poolitems, en **wijs je een
-  poolresource toe aan het project** ("Toewijzen aan project" — dit ís het materialisatiemoment:
-  kopieer met stempel, dedup op herkomst zodat een al aanwezige kopie hergebruikt wordt in plaats van
-  gedupliceerd). Default-weergave zodra de pool inhoud heeft; een lege pool of een los (ongekoppeld)
-  project toont in plaats daarvan de Projectweergave.
-- **Projectweergave** — de gewone projecttabel, met markeringen per rij voor items die niet meer
-  overeenkomen met de resourcebibliotheek (zie hieronder).
+- **Bibliotheekweergave** — de bron beheren. Toont de pool van de gekoppelde resourcebibliotheek als
+  een volledige editor: alles is hier bewerkbaar (naam, type, beschrijving, tarief/uur, eenheid,
+  bibliotheekkalenders), inclusief nieuwe poolitems aanmaken en poolitems verwijderen. Wijzigingen
+  gelden **meteen voor alle projecten** die uit deze bibliotheek putten, en vallen buiten ongedaan
+  maken (Ctrl+Z) — pools zijn app-globaal, geen projectdata. Vanuit hier gebeurt ook **"Toewijzen aan
+  project"** (zie hieronder). Default-weergave zodra de pool inhoud heeft; een lege pool of een los
+  (ongekoppeld) project toont in plaats daarvan de Projectweergave.
+- **Projectweergave** — wat dit project gebruikt, over de gewone projecttabel. Hier bestaan drie
+  soorten rijen:
 
-Materialiseren gebeurt uitsluitend op een project dat al aan díé resourcebibliotheek gekoppeld is — er
-is geen "stille eerste koppeling" meer via een toewijs-actie op een nog ongebonden project (die
-kortsluiting bestond in B1, is in B1.1 gestript).
+  1. **Uit de bibliotheek** (draagt een herkomststempel, herkenbaar aan een klein
+     bibliotheek-icoontje `resource.fromLibraryBadge`): naam, type, beschrijving, tarief/uur en
+     eenheid zijn geërfd en worden als **platte tekst** getoond (geen invoerveld) — die bewerk je in
+     de Bibliotheekweergave. Max. eenheden, de tijdgefaseerde beschikbaarheid en de kalenderkeuze
+     zijn wél altijd een echt invoerveld, ook op zo'n geërfde rij: dat is de inzet op dít project.
+  2. **Projecteigen** (geen stempel): volledig bewerkbaar, gewoon een input per veld. Ook een project
+     dat aan een resourcebibliotheek hangt kan zulke resources hebben — voor eenmalige zaken (een
+     gehuurde kraan, een onderaannemer voor dit ene werk) die je niet in de gedeelde pool wilt.
+     Vanuit zo'n rij kun je zelf de brug oversteken met **"Naar de bibliotheek"** (zie hieronder).
+  3. **Wees** (het bibliotheekorigineel is verdwenen, badge "niet meer in de bibliotheek"): de kopie
+     blijft gewoon bruikbaar en volledig bewerkbaar — een stempel die nergens meer naar wijst,
+     vergrendelt niets. Je kunt hem losmaken (het overbodige stempel opruimen) of met de expliciete
+     rijactie uit het project verwijderen.
 
-Kalenderpromotie (projectkalender → poolkalender) leeft, als **bewuste fase-1-interim**, nog in
-Backstage → Bibliotheek in plaats van in de Resources-tab; resourcepromotie/-CRUD is al volledig naar
-de Resources-tab verhuisd.
+Materialiseren (Toewijzen aan project) gebeurt uitsluitend op een project dat al aan díé
+resourcebibliotheek gekoppeld is — er is geen "stille eerste koppeling" meer via een toewijs-actie op
+een nog ongebonden project.
+
+Kalenderpromotie (projectkalender → poolkalender) leeft, als **bewuste fase-1-interim**, nog
+uitsluitend in Backstage → Bibliotheek in plaats van in de Resources-tab (er is geen "Naar de
+bibliotheek"-rijactie voor kalenders); resourcepromotie/-CRUD is al volledig naar de Resources-tab
+verhuisd.
+
+## Wat volgt de bibliotheek — en wat niet
+
+Dit is de kern, en de plek waar het model door meerdere reviewrondes is bijgesteld — dus expliciet:
+
+- **Volgt de bibliotheek** (wordt bij een verversing overgenomen): de **identiteitsvelden** van een
+  bibliotheekresource — naam, type, beschrijving, tarief/uur, eenheid. De bibliotheek bepaalt WAT de
+  resource IS; dat geldt voor elk project dat 'm gebruikt.
+- **Volgt de bibliotheek**: de **inhoud** van een meegereisde kalender (werkdagen, uren, vrije
+  dagen/feestdagen). Wijs je een bibliotheekresource toe, dan reist zijn kalender mee als gestempelde
+  kopie die de pool blijft volgen — precies als de resource zelf.
+- **Volgt de bibliotheek NIET**: max. eenheden en de tijdgefaseerde beschikbaarheid. Dat is
+  projectinzet — hoeveel dit project van de resource opeist, en op welk ritme — geen
+  bedrijfsafspraak. Je mag ze vrij aanpassen zonder dat het als afwijking geldt, ook op een geërfde
+  rij.
+- **Volgt de bibliotheek NIET**: de **keuze** wélke kalender aan een resource hangt. Dat is een
+  projectkeuze (dezelfde ploeg kan op een spoedklus een andere kalender draaien dan op een gewoon
+  project). De **inhoud** van die kalender komt wél uit de bibliotheek — zie hierboven. Dit
+  onderscheid is subtiel: de kalender-*keuze* (welk dropdown-item) is projectinzet en verandert nooit
+  vanuit de bibliotheek; de kalender-*inhoud* (wat er eenmaal gekozen is in die kalender staat) is wél
+  een bibliotheekafspraak en ververst/vraagt gewoon mee als elke andere gevolgde waarde.
+
+### Overzichtstabel: waar bewerk je het, en volgt het de bibliotheek?
+
+Geldt voor een resource **uit de bibliotheek** (rijtype 1 hierboven). Projecteigen resources en wezen
+zijn altijd volledig bewerkbaar in de Projectweergave — voor hen is de vraag "volgt de bibliotheek"
+niet van toepassing (er is geen actieve koppeling).
+
+| Veld | Waar bewerk je het | Volgt de bibliotheek? |
+| --- | --- | --- |
+| Naam | Bibliotheekweergave | Ja |
+| Type | Bibliotheekweergave | Ja |
+| Beschrijving | Bibliotheekweergave | Ja |
+| Tarief/uur | Bibliotheekweergave | Ja |
+| Eenheid | Bibliotheekweergave | Ja |
+| Max. eenheden | Projectweergave (dit project) | Nee — projectinzet |
+| Tijdgefaseerde beschikbaarheid | Projectweergave (dit project) | Nee — projectinzet |
+| Kalenderkeuze (welke kalender hangt eraan) | Projectweergave (dit project) | Nee — projectkeuze |
+| Kalenderinhoud (werkdagen/uren/vrije dagen van de gekozen, meegereisde kalender) | Bibliotheekweergave (de pool-kalender) | Ja |
+
+## Drie acties verbinden de werelden
+
+- **Toewijzen aan project** (Bibliotheekweergave, op een poolitem): maakt een bewerkbare kopie mét
+  herkomst in het project — dé gebruikshandeling. Dedup op herkomst: staat er al een kopie van dít
+  poolitem in het project, dan wordt die hergebruikt in plaats van gedupliceerd.
+- **Naar de bibliotheek** (Projectweergave, op een projecteigen rij): tilt het item naar de gedeelde
+  pool en koppelt het meteen. Bestaat er al een gelijknamig bibliotheekitem (unieke
+  genormaliseerde-naam-match), dan koppelt hij daaraan in plaats van te dupliceren ("bestond al —
+  gekoppeld"); anders komt er een nieuw poolitem bij.
+- **Losmaken van de bibliotheek** (Projectweergave, op een geërfde of wees-rij): verwijdert het
+  herkomststempel; daarna is alles weer bewerkbaar en volgt het item de bibliotheek niet meer. De
+  meegereisde kalender gaat mee los, tenzij een andere nog-gestempelde resource in dit project 'm nog
+  gebruikt (dan blijft die kalender de pool volgen voor die collega-resource).
 
 ## Het afwijkingenscherm (koppel-/synchronisatiescherm)
 
@@ -84,8 +159,7 @@ Eén gedeeld scherm — geen aparte add/update-dialogen meer — met twee sectie
    blijft staan, heropbaar via de Projectweergave-badge of een volgende koppelmoment).
 
 Een `removed`-item (niet meer in de bibliotheek) los je **niet** in dit scherm op — het item blijft
-gewoon bruikbaar in het project; opruimen (verwijderen/opnieuw koppelen) doe je zelf via de
-Projectweergave.
+gewoon bruikbaar in het project; opruimen (losmaken/verwijderen) doe je zelf via de Projectweergave.
 
 Elke uitgang (backdrop-klik, Escape, X-knop, "Later beslissen") loopt door hetzelfde sluitpad; het
 scherm leest live uit de store (geen momentopname), dus een documentwissel terwijl het openstaat laat
@@ -94,17 +168,19 @@ geen verouderde inhoud achter.
 ## Waarom `syncedHash` bestaat: behind vs. deviated
 
 Elke projectkopie draagt naast de gewone herkomststempel een `syncedHash`: een hash van de gevolgde
-velden op het moment van materialiseren/laatste verversing, met **exact dezelfde normalisatie** als de
-diff-vergelijking (dezelfde veldenlijst, dezelfde array-als-multiset-sortering, dezelfde NFC/witruimte-
-behandeling). Dat maakt het verschil tussen twee heel verschillende situaties:
+velden (zie de overzichtstabel hierboven — dit zijn precies de identiteitsvelden, niet max.
+eenheden/beschikbaarheid/kalenderkeuze) op het moment van materialiseren/laatste verversing, met
+**exact dezelfde normalisatie** als de diff-vergelijking (dezelfde veldenlijst, dezelfde
+array-als-multiset-sortering, dezelfde NFC/witruimte-behandeling). Dat maakt het verschil tussen twee
+heel verschillende situaties:
 
 - **`behind`** — het bestand is sinds de laatste synchronisatie **niet** lokaal bewerkt (huidige hash
   == `syncedHash`), maar de pool is intussen bijgewerkt. Dit wordt **stil** ververst — geen vraag.
 - **`deviated`** — het bestand ís lokaal bewerkt (huidige hash ≠ `syncedHash`) sinds de laatste sync.
   Dit wordt **gevraagd** in het afwijkingenscherm — nooit stilzwijgend overschreven.
 
-Een projectitem zonder `syncedHash` (een bestand van vóór B1.1, dus vóór dit veld bestond) valt aan de
-veilige kant: het telt altijd als mogelijk lokaal bewerkt, dus als `deviated` — nooit als `behind`.
+Een projectitem zonder `syncedHash` (een bestand van vóór dit veld bestond) valt aan de veilige kant:
+het telt altijd als mogelijk lokaal bewerkt, dus als `deviated` — nooit als `behind`.
 
 ## De vier verversingsgrenzen
 
@@ -138,8 +214,9 @@ Dit geldt ook voor de twee keuzes in het afwijkingenscherm zelf, maar met een be
 **"bibliotheekwaarden gebruiken" én "overnemen in de bibliotheek" zijn allebei niet met Ctrl+Z terug te
 draaien** — de eerste is een niet-undoable verversing van het projectitem, de tweede wijzigt de
 resourcebibliotheek zelf, die überhaupt buiten de projecthistorie valt (pools zijn app-globaal, niet
-projectdata). **Koppelen en ontkoppelen (de herkenningsstap, bind/rebind/unbind) kunnen wél** ongedaan
-gemaakt worden — dat zijn wél gewone undo-snapshotted projectacties.
+projectdata). **Koppelen, ontkoppelen en losmaken (herkenningsstap, bind/rebind/unbind, "Losmaken van
+de bibliotheek") kunnen wél** ongedaan gemaakt worden — dat zijn wél gewone undo-snapshotted
+projectacties.
 
 Een aanverwante eigenaardigheid: **undo van omkoppelen** (bibliotheek A → B) herstelt de
 herkomststempels van bibliotheek A wel, maar herstelt niet automatisch de binding als een "volwaardige"
@@ -153,8 +230,19 @@ Herkomst wordt uitsluitend gevolgd via het stabiele poolitem-`id`, nooit via de 
 poolitem en maak je vervolgens een nieuw poolitem met **exact dezelfde naam**, dan herlinkt een
 projectkopie die ooit naar het oude item wees **niet automatisch** naar het nieuwe — voor het systeem
 zijn het twee volledig ongerelateerde items (het oude item is domweg "niet meer in de bibliotheek",
-`removed`). De handmatige uitweg is de herkenningsstap: het item toont als niet-gestempeld (of als
-`removed`) en je koppelt het zelf opnieuw, expliciet, aan het nieuwe poolitem.
+`removed`, een wees). De handmatige uitweg is de herkenningsstap: het item toont als niet-gestempeld
+(of als `removed`) en je koppelt het zelf opnieuw, expliciet, aan het nieuwe poolitem.
+
+## Demo-resourcebibliotheek bij de showcase-voorbeelden
+
+De drie meegeleverde showcase-voorbeelden delen één vaste **"Demo-resourcebibliotheek"**: het idee is
+"dezelfde ploeg in twee projecten" zichtbaar maken zonder dat de gebruiker zelf iets hoeft op te
+zetten. Open je een showcase-voorbeeld, dan wordt deze bibliotheek **idempotent** aangemaakt (bestaat
+hij al, dan gebeurt er niets — ook de inhoud wordt niet overschreven, je mag 'm zelf bewerkt hebben) en
+gekoppeld aan het net-geopende voorbeeldproject; ondubbelzinnige naam-matches worden meteen gekoppeld,
+zonder het afwijkingenscherm te tonen (het is een demo, geen vraag). Bestaande, eigen
+resourcebibliotheken blijven volledig ongemoeid — de demo-bibliotheek is gewoon een extra bibliotheek
+naast de jouwe.
 
 ## Ontvangen bestanden (los)
 
@@ -191,12 +279,12 @@ niet bij het wisselen zelf (grens 2 is en blijft stil, zie hierboven).
 
 ## Resourcebibliotheek verwijderen ontkoppelt open documenten, opgeslagen bestanden niet
 
-Een resourcebibliotheek verwijderen (spec §5) ontkoppelt expliciet elk **geopend** document (actief én
-slapend) dat eraan gekoppeld was: `companyId`/`companyName` gewist, alle herkomststempels van die
-bibliotheek gestript. De verwijder-bevestiging meldt hoeveel geopende documenten dit raakt. Bestanden
-die op dat moment niet open staan, blijven ongewijzigd op schijf staan mét hun oude stempels — die
-gedragen zich bij een latere open-actie gewoon als een normaal gekoppeld bestand tegen een
-resourcebibliotheek die dan niet meer bestaat: de scope-check (`§2-scope`, een lokaal bestaande
+Een resourcebibliotheek verwijderen (Bestand → Bibliotheek) ontkoppelt expliciet elk **geopend**
+document (actief én slapend) dat eraan gekoppeld was: `companyId`/`companyName` gewist, alle
+herkomststempels van die bibliotheek gestript. De verwijder-bevestiging meldt hoeveel geopende
+documenten dit raakt. Bestanden die op dat moment niet open staan, blijven ongewijzigd op schijf staan
+mét hun oude stempels — die gedragen zich bij een latere open-actie gewoon als een normaal gekoppeld
+bestand tegen een resourcebibliotheek die dan niet meer bestaat: de scope-check (een lokaal bestaande
 resourcebibliotheek) valt terug op los-gedrag (geen markering, geen mechaniek) omdat de
 resourcebibliotheek lokaal onbekend is.
 
@@ -213,7 +301,7 @@ Een pool exporteer je als één IFC 4.3-bestand per resourcebibliotheek; dat is 
 projectexport kun je met "Bibliotheekbestand ernaast opslaan" de gekoppelde pool als tweede, los
 bestand naast het project schrijven (geen embed; no-op als het project niet gekoppeld is).
 
-## Bekende beperkingen (bewust niet opgelost in B1.1)
+## Bekende beperkingen (bewust niet opgelost)
 
 Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tussen machines**
 (local-first, geen server) — en worden opgelost in een apart vervolgproject "gedeelde opslag/sync"
@@ -225,8 +313,8 @@ Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tusse
    stille-terugzet-eigenaardigheid als je toch doorzet.
 
 2. **Bezettingsoverzicht ziet alleen deze machine.** Boekingen op de machine van een collega bestaan
-   lokaal niet, dus een bibliotheekbreed bezettingsoverzicht (vervolg B1b) is beperkt tot wat op deze
-   machine bekend is.
+   lokaal niet, dus een bibliotheekbreed bezettingsoverzicht is beperkt tot wat op deze machine bekend
+   is.
 
 3. **Twee tabbladen, zelfde machine.** De bibliotheek leeft app-breed in-memory en wordt bij elke
    wijziging weggeschreven; twee open tabbladen (of twee vensters) op dezelfde machine overschrijven
@@ -242,11 +330,11 @@ Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tusse
   `companyId`/`companyName`/`poolVersion`/`modifiedAt`/`calendars`/`resources`).
 - **Pool-exports zijn niet byte-identiek tussen exports.** Twee exports van dezelfde pool verschillen
   op tijdstempel-regels in het IFC-bestand; de inhoud (kalenders/resources/versienummer) is gelijk.
-- **Undo van een promote laat de poolkopie staan.** Ongedaan maken van "promoveer kalender naar
-  bibliotheek" (Backstage-interim) verwijdert de herkomststempel op het bron-projectitem, maar de
-  zojuist toegevoegde kopie in de pool blijft staan (pools zijn app-globaal en niet undo-beschermd).
-  Het item opnieuw promoveren voegt dus een nieuwe pool-kopie toe; de dedup bij materialiseren herstelt
-  de oude koppeling niet.
+- **Undo van een promote laat de poolkopie staan.** Ongedaan maken van "Naar de bibliotheek"
+  (resources) of "promoveer kalender naar bibliotheek" (Backstage-interim) verwijdert de
+  herkomststempel op het bron-projectitem, maar de zojuist toegevoegde kopie in de pool blijft staan
+  (pools zijn app-globaal en niet undo-beschermd). Het item opnieuw promoveren voegt dus een nieuwe
+  pool-kopie toe; de dedup bij materialiseren herstelt de oude koppeling niet.
 
 **Aanbeveling.** Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust
 **één gezamenlijke pool** in plaats van per werkmaatschappij een eigen resourcebibliotheek.

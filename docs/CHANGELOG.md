@@ -22,12 +22,31 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
   sync); and a discreet, self-clearing refresh notice. Removing a company explicitly unlinks
   every open document. Calendar promotion remains, as a deliberate phase-1 interim, in Backstage
   for now. See `docs/library.md`.
+- **Demo resource library for the showcase examples.** The three bundled showcase projects now
+  share one fixed "Demo resource library" ("dezelfde ploeg in twee projecten"), seeded
+  idempotently the first time any showcase is opened and left untouched afterwards — a user's own
+  existing libraries are never affected. Unambiguous name matches link automatically without
+  surfacing the deviation screen (it's a demo, not a question).
 
 ### Changed
 - **Company libraries are now called resource libraries.** The user-facing term "company" for
   the library concept (add/link/deviations, all 14 languages) has been renamed to "resource
   library" (short: "library"); the "Client/organization" field and code identifiers such as
   `companyId` are unchanged (issue #19).
+- **Shared project-info panel, with the library selector everywhere.** The project wizard, the
+  Project info dialog and Backstage → Project info now render the same
+  `ProjectInfoPanelContent`, instead of three near-duplicate forms drifting apart — the resource
+  library selector (bind/rebind/unlink) is one of the fields that now appears identically in all
+  three places.
+- **Resources tab: the roles were reversed.** The library view is now the full source-of-truth
+  editor (everything editable, changes apply to every project that draws on it and sit outside
+  undo); the project view shows what this project uses, with inherited identity fields (name,
+  type, description, rate/hour, unit) rendered as plain read-only text — while max units, the
+  time-phased availability and the calendar *choice* stay ordinary editable fields even on an
+  inherited row, since those are this project's own commitment, not a library fact. New per-row
+  actions close the loop: "Promote to library" on a project-only row, and "Unlink from library"
+  on an inherited or orphaned one (which also detaches a traveling calendar copy, unless another
+  still-linked resource in the project relies on it). See `docs/library.md`.
 
 ## v2026.7.12 — 2026-07-23
 
