@@ -141,11 +141,18 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
   duration of 7 came back as 5 on reopen, with no error. The writer had the matching bug: an
   apostrophe in a project name, author or company produced syntactically invalid STEP output.
   All three parsing sites now share one quote-aware scanner; the header writer quotes those
-  three fields properly. Files written by earlier versions keep opening: because their header can
-  contain that unbalanced apostrophe, the `DATA;` section boundary is located line-anchored rather
-  than by scanning quote-aware from the first byte — a quote-aware scan desynchronises on such a
-  header and would find no data section at all. A file with no `DATA;` boundary now raises a typed
-  read error instead of quietly opening as an empty project on top of the original file's path.
+  three fields properly. Files written by earlier versions keep opening, which took one more step:
+  their header can carry exactly that unbalanced apostrophe, and a quote-aware scan desynchronises
+  on it and finds no data section at all. The `DATA;` section boundary is therefore looked up
+  quote-aware first — correct for any well-formed file, including one written entirely on a single
+  line or with `DATA;` inside a comment — and only falls back to a line-anchored lookup when that
+  finds nothing, which is precisely the broken-legacy-header case. If neither finds a boundary the
+  read now fails with a typed error rather than quietly opening as an empty project on top of the
+  original file's path, and crash recovery no longer deletes snapshots that failed to parse. The
+  writer also stops emitting raw line breaks in those three header fields (reachable through an
+  imported file or the MCP `update_project` tool): a STEP string literal may not span lines, and a
+  line break there put arbitrary text at the start of a line where it could pose as a section
+  boundary.
 - **Three compounding bugs in crash recovery could silently lose an entire relationship
   network, or let one instance overwrite another's recovered work.** Auto-save wrote recovery
   snapshots non-atomically and the reader had no truncation check, so an interrupted write

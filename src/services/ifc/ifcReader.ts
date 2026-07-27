@@ -195,6 +195,21 @@ function skipQuotedOrComment(text: string, i: number): number {
   return -1;
 }
 
+/** Zoek `token` op CODE-niveau: voorkomens binnen een stringliteral of commentaar tellen niet mee. */
+function indexOfCode(text: string, token: string, from: number): number {
+  const first = token.charCodeAt(0);
+  for (let i = from; i < text.length;) {
+    const c = text.charCodeAt(i);
+    if (c === CH_QUOTE || c === CH_SLASH) {
+      const skip = skipQuotedOrComment(text, i);
+      if (skip >= 0) { i = skip; continue; }
+    }
+    if (c === first && text.startsWith(token, i)) return i;
+    i++;
+  }
+  return -1;
+}
+
 /** Verwijder `/* … *\/`-commentaar, maar uitsluitend BUITEN stringliterals. Geen commentaar in de
  *  tekst (het gangbare geval — onze eigen writer schrijft er geen) ⇒ de tekst gaat onaangeroerd
  *  terug, zonder kopie. */
@@ -278,21 +293,29 @@ function readEntity(text: string, at: number, out: StepEntity[]): number {
 /**
  * Begin van de datasectie: de offset van het `DATA;`-token dat de sectiegrens vormt, of −1.
  *
- * REGEL-VERANKERD, en bewust NIET quote-bewust vanaf byte 0. Dat laatste was de eerste opzet en
- * hij is stuk op onze eigen bestanden: de writer schreef t/m v2026.7.12 naam/auteur/bedrijf rauw in
- * `FILE_NAME(...)`, dus een project "Van 't Hof Toren" levert daar een ONGEBALANCEERDE apostrof op.
- * Een quote-bewuste scan loopt daarna de rest van het bestand uit de pas, ziet de échte `DATA;` als
- * "binnen een string", en gaf −1 ⇒ nul entiteiten ⇒ stil een leeg project, op een bestand dat deze
- * app zelf geschreven heeft en dat vóór de K2-fix gewoon opende.
+ * TWEE POGINGEN, in deze volgorde — de volgorde ís de bevinding.
  *
- * Regelverankering lost precies dat op zonder de K2-winst weg te gooien: die winst zit in de
- * DATA-sectie (`DATA;`/`ENDSEC;` middenin een taaknaam), en dáár blijft de scan quote-bewust — we
- * snijden hieronder vanaf deze grens. Een `DATA;` binnen een header-string staat nooit als eerste
- * niet-witruimte op een eigen regel; de echte sectiegrens per ISO 10303-21 wel.
+ *  1. **Quote- en commentaar-bewust** (`indexOfCode`). Dit is de juiste scan voor élk syntactisch
+ *     geldig STEP-bestand: hij slaat `DATA;` binnen een header-string of binnen een `/* … *\/`
+ *     over, en hij is ongevoelig voor opmaak — een bestand zónder één regeleinde (volkomen legaal;
+ *     regeleindes zijn witruimte, geen syntaxis), `ENDSEC;DATA;` op één regel, of witruimte als
+ *     form feed / vertical tab / NBSP vóór het token.
+ *  2. **Regel-verankerd**, alleen als (1) niets vond. Dat gebeurt bij LEGACY-bestanden: onze writer
+ *     schreef t/m v2026.7.12 naam/auteur/bedrijf rauw in `FILE_NAME(...)`, dus een project
+ *     "Van 't Hof Toren" levert daar een ONGEBALANCEERDE apostrof op. De quote-bewuste scan loopt
+ *     daarop de rest van het bestand uit de pas en vindt niets ⇒ zonder deze terugval stil een
+ *     leeg project op een bestand dat deze app zélf geschreven heeft.
+ *
+ * Niet andersom: regelverankering als PRIMAIRE scan weigert de geldige bestanden uit (1) en pikt
+ * bovendien een `DATA;` op dat aan het begin van een regel binnen een commentaar of binnen een
+ * header-string met een echt regeleinde staat — dat laatste levert nul entiteiten zónder fout, en
+ * verzonnen entiteiten uit commentaar. Beide gevallen zijn getest in `check-step-strings` (9f–9k).
  */
 function indexOfDataSection(content: string): number {
-  const m = /^[ \t]*DATA;/m.exec(content);
-  return m ? m.index + m[0].indexOf('DATA;') : -1;
+  const strict = indexOfCode(content, 'DATA;', 0);
+  if (strict >= 0) return strict;
+  const anchored = /^[ \t]*DATA;/m.exec(content);
+  return anchored ? anchored.index + anchored[0].indexOf('DATA;') : -1;
 }
 
 function parseSTEP(content: string): StepEntity[] {

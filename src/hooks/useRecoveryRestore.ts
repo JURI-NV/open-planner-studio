@@ -57,6 +57,8 @@ export function useRecoveryRestore(): RecoveryRestore {
         // hergebruik dat resultaat bij het daadwerkelijke herstellen.
         const restored: RecoveryDocInput[] = [];
         const entries: RecoveryEntry[] = [];
+        /** Hoeveel snapshots op het parsen stukliepen — bepaalt of we mogen opruimen (zie onder). */
+        let failed = 0;
         for (const d of loaded.docs) {
           try {
             const parsed = readIFC(d.ifc);
@@ -78,6 +80,7 @@ export function useRecoveryRestore(): RecoveryRestore {
             // Vuurt sinds K4 ook echt: `readIFC` gooit nu een `IfcParseError` bij een bestand
             // zonder STEP-kop of zonder sluitmarkering (= afgekapt). Zo'n snapshot wordt dus NIET
             // meer als volwaardig document aangeboden; de overige documenten lopen gewoon door.
+            failed++;
             console.error('Failed to read recovery document:', d.id, err);
             // dedupeKey: de lus hierboven itereert per document, dus bij vijf kapotte snapshots
             // willen we één regel met teller, geen vijf afzonderlijke meldingen.
@@ -90,8 +93,17 @@ export function useRecoveryRestore(): RecoveryRestore {
           }
         }
 
-        // Niets bruikbaars geparst → stil opruimen, geen dialoog.
-        if (entries.length === 0) { await clearRecovery(); finish(); return; }
+        // Niets bruikbaars geparst → geen dialoog. Wél of niet opruimen hangt af van de RÉDEN:
+        // stond er domweg niets, dan is wissen correct. Liepen de snapshots stuk op het parsen,
+        // dan is dit de enige kopie van werk dat de gebruiker nooit heeft kunnen opslaan — die
+        // weggooien zonder iets te vragen wist het bewijs mét de data. De melding uit de catch
+        // hierboven blijft staan; de bestanden blijven op schijf, zodat een volgende versie (of
+        // een handmatige reparatie) er alsnog bij kan.
+        if (entries.length === 0) {
+          if (failed === 0) await clearRecovery();
+          finish();
+          return;
+        }
 
         setRecovery({
           entries,

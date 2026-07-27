@@ -117,11 +117,21 @@ export function writeIFC(input: WriteIFCInput): string {
   // laatste zet quotes om de al-gequote waarde heen (`''O''Hara'.ifc'`) en is erger dan het
   // origineel. `ifcStr` geeft `$` bij een lege string; alle drie de waarden hier zijn nooit leeg
   // (`.ifc`-suffix resp. een niet-lege terugval), dus de header houdt altijd echte stringliterals.
+  //
+  // Quoten alléén is niet genoeg: een REGELEINDE in de projectnaam (haalbaar via een geïmporteerd
+  // IFC-bestand en via de MCP-tool `update_project`) belandde rauw in de stringliteral. Dat is
+  // ongeldig STEP — een stringliteral loopt per ISO 10303-21 niet over regels heen — en het zet
+  // bovendien de tekst ná dat regeleinde aan het begin van een regel, waar een `DATA;` de
+  // sectiegrens van elke regel-verankerde lezer verzet. Vandaar `headerText`: regeleindes en
+  // andere controltekens worden één spatie. Dit raakt UITSLUITEND de drie headervelden; taaknamen
+  // en omschrijvingen in de datasectie gaan ongemoeid door `ifcStr` (daar is de scan quote-bewust
+  // en zijn regeleindes onschadelijk).
+  const headerText = (s: string) => s.replace(/[\u0000-\u001F\u007F]+/g, ' ');
   const header = [
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [SchedulingView]'),'2;1');",
-    `FILE_NAME(${ifcStr(project.name + '.ifc')},${ifcStr(now)},(${ifcStr(project.author || 'Open Planner Studio')}),(${ifcStr(project.company || 'OpenAEC Foundation')}),'Open Planner Studio 0.1','Open Planner Studio','');`,
+    `FILE_NAME(${ifcStr(headerText(project.name) + '.ifc')},${ifcStr(now)},(${ifcStr(headerText(project.author || 'Open Planner Studio'))}),(${ifcStr(headerText(project.company || 'OpenAEC Foundation'))}),'Open Planner Studio 0.1','Open Planner Studio','');`,
     "FILE_SCHEMA(('IFC4X3'));",
     'ENDSEC;',
     'DATA;',
