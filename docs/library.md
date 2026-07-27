@@ -30,9 +30,11 @@ voorkomt:
 - **Projectinfo** (bestaand project, via dialoog of Backstage → Projectinfo): dezelfde selector;
   wijzigen bindt/herbindt/ontkoppelt direct.
 
-De ≥2-bibliotheken-regel geldt uitsluitend voor **secundaire** selectors elders — bijvoorbeeld het
-importdoel in de pool-importdialoog (Backstage → Bibliotheek → Importeren): met precies één
-resourcebibliotheek importeert die dialoog stilzwijgend in die ene bibliotheek en toont geen keuze.
+De ≥2-bibliotheken-regel geldt uitsluitend voor **secundaire** selectors elders — bijvoorbeeld de
+bedrijfsselector bij de "vervangen"-route in de pool-importdialoog (Backstage → Bibliotheek →
+Importeren, zie verderop): met precies één resourcebibliotheek vervangt die route stilzwijgend die ene
+bibliotheek en toont geen keuze. De "toevoegen als nieuwe resourcebibliotheek"-route heeft sowieso geen
+bedrijfsselector nodig — ze maakt altijd een nieuw bedrijf aan, ongeacht hoeveel er al bestaan.
 
 Wisselen naar een andere resourcebibliotheek (**omkoppelen**) strip de herkomststempels van de vórige
 bibliotheek op alle projectitems (ze worden "vreemd" — de herkenningsstap moet ze opnieuw koppelen aan
@@ -256,21 +258,46 @@ die er niets mee te maken heeft. **Openen** via de normale bestand-openen-actie 
 is dat niet — dat behoudt de koppeling en herkomststempels, en draait gewoon grens 1 (openen);
 crash-herstel behoudt ze net zo en draait dezelfde check.
 
-## Pool-import: oudere pool importeren zet in-sync documenten stil terug
+## Pool-import: twee expliciete routes (issue #19)
 
-Bij pool-import (Backstage → Bibliotheek → Importeren) vervangt de gekozen IFC-pool de **hele** pool
-van de doelbibliotheek, ná bevestiging. Is de lokale pool nieuwer dan de te importeren pool (hogere
-`poolVersion` óf recentere `modifiedAt`), dan waarschuwt de dialoog daarvoor vooraf — maar die
-waarschuwing is de **enige** poort. Ná bevestiging draait de import als een externe wijziging: grens 1
-(niet de stille grens 3) voor het actieve document. Die classificatie kent geen begrip "vooruit" versus
-"achteruit" — hij vergelijkt alleen of het bestand ongewijzigd is (`behind`) of lokaal bewerkt
-(`deviated`). Een projectitem dat in-sync stond met de (nu overschreven) nieuwere pool en zelf niet
-lokaal bewerkt is, wordt dus **stil teruggezet** naar de oudere, zojuist geïmporteerde waarden — de
-vraag in het afwijkingenscherm guardt alleen bestanden die zelf extern/lokaal bewerkt zijn, niet het
-feit dat de pool zojuist ouder is geworden. De demping-waarschuwing vooraf is dus de bewuste, enige
-poort tegen dit scenario.
+Bij pool-import (Backstage → Bibliotheek → Importeren) kies je, nadat je een IFC-bestand hebt gekozen,
+expliciet tussen twee acties — geen impliciete "openen" meer dat in werkelijkheid altijd overschreef:
 
-De afwijkingsvraag bij pool-import geldt uitsluitend het **actieve** document (`replacePool` draait
+1. **"Toevoegen als nieuwe resourcebibliotheek"** (`importPoolAsNewCompany`) — de bibliotheek uit het
+   bestand komt er als NIEUW bedrijf bij, met de naam uit het bestand (`resolveUniqueCompanyName` plakt
+   er bij een lokale naamsbotsing een oplopend " (2)", " (3)", … achter). De **identiteit**
+   (`companyId`) uit het bestand blijft behouden zolang die lokaal nog vrij is — dat is precies wat het
+   deel-scenario nodig heeft: een meegestuurd project van een collega, met herkomststempels die naar
+   het companyId uit het bestand wijzen, herkent zijn bibliotheek na deze import meteen als gekoppeld
+   (geen valse "niet meer in de bibliotheek"-markering, geen handmatige herkenningsstap). Bestaat het
+   id al lokaal (aantoonbaar dezelfde bibliotheek, al eerder geïmporteerd of gedeeld), dan krijgt de
+   nieuwe bibliotheek een vers gegenereerd id en komt ze als losse kopie náást de bestaande te staan.
+   Deze route bindt het actieve project NIET automatisch aan de nieuwe bibliotheek — dat blijft een
+   aparte, bewuste koppelactie via Projectinfo.
+2. **"Een bestaande resourcebibliotheek vervangen"** (`replacePool`) — het oude gedrag, ongewijzigd: de
+   HELE pool van de gekozen resourcebibliotheek wordt vervangen. Alleen bij déze route toont de dialoog
+   de bedrijfsselector (zie hierboven, ≥2-regel) en de demping-waarschuwing.
+
+**Voorselectie.** Bevat het bestand een `companyId` dat lokaal nog niet bestaat, dan staat "toevoegen"
+voorgeselecteerd (de standaardklik kan dan nooit onherstelbaar iets overschrijven). Herkent de app het
+id wél (aantoonbaar dezelfde bibliotheek, een andere versie), dan staat "vervangen" voorgeselecteerd
+met precies díe bibliotheek al gekozen in de selector.
+
+De rest van deze sectie geldt uitsluitend voor route 2 ("vervangen") — route 1 overschrijft per
+definitie niets en kent dus geen van onderstaande eigenaardigheden.
+
+Bij "vervangen" vervangt de gekozen IFC-pool de **hele** pool van de doelbibliotheek, ná bevestiging. Is
+de lokale pool nieuwer dan de te importeren pool (hogere `poolVersion` óf recentere `modifiedAt`), dan
+waarschuwt de dialoog daarvoor vooraf — maar die waarschuwing is de **enige** poort. Ná bevestiging
+draait de import als een externe wijziging: grens 1 (niet de stille grens 3) voor het actieve document.
+Die classificatie kent geen begrip "vooruit" versus "achteruit" — hij vergelijkt alleen of het bestand
+ongewijzigd is (`behind`) of lokaal bewerkt (`deviated`). Een projectitem dat in-sync stond met de (nu
+overschreven) nieuwere pool en zelf niet lokaal bewerkt is, wordt dus **stil teruggezet** naar de
+oudere, zojuist geïmporteerde waarden — de vraag in het afwijkingenscherm guardt alleen bestanden die
+zelf extern/lokaal bewerkt zijn, niet het feit dat de pool zojuist ouder is geworden. De
+demping-waarschuwing vooraf is dus de bewuste, enige poort tegen dit scenario.
+
+De afwijkingsvraag bij "vervangen" geldt uitsluitend het **actieve** document (`replacePool` draait
 bewust geen grens-3-verversing over slapende documenten). Slapende gekoppelde documenten tonen hun
 afwijkingen als markering (de `deviated`/`removed`-badges in de Projectweergave) zodra je ernaartoe
 wisselt — dat is live classificatie tegen de nu-geïmporteerde pool, geen aparte verversingsstap — maar
@@ -299,7 +326,11 @@ via de Bibliotheekweergave (of Backstage) van de oude bibliotheek.
 
 Een pool exporteer je als één IFC 4.3-bestand per resourcebibliotheek; dat is tevens je **back-up**. Bij
 projectexport kun je met "Bibliotheekbestand ernaast opslaan" de gekoppelde pool als tweede, los
-bestand naast het project schrijven (geen embed; no-op als het project niet gekoppeld is).
+bestand naast het project schrijven (geen embed; no-op als het project niet gekoppeld is). Bij import
+kies je expliciet tussen de bibliotheek er als nieuw bedrijf bij toevoegen of een bestaande bibliotheek
+volledig vervangen — zie de vorige sectie voor de twee routes, de voorselectie en waarom "toevoegen" de
+identiteit uit het bestand behoudt (het deel-scenario: een meegestuurd project moet zijn bibliotheek
+blijven herkennen).
 
 ## Bekende beperkingen (bewust niet opgelost)
 
@@ -308,9 +339,11 @@ Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tusse
 (zie ook `docs/TODO.md`).
 
 1. **Twee planners, zelfde resourcebibliotheek.** Pools kunnen op verschillende machines uiteenlopen.
-   De import-demping waarschuwt wanneer je een oudere pool over een nieuwere lokale pool importeert
-   ("jouw lokale bibliotheek is nieuwer"), maar kan divergentie niet vóórkomen — zie hierboven ook de
-   stille-terugzet-eigenaardigheid als je toch doorzet.
+   Kies je bij import de route "een bestaande resourcebibliotheek vervangen", dan waarschuwt de
+   import-demping wanneer je een oudere pool over een nieuwere lokale pool importeert ("jouw lokale
+   bibliotheek is nieuwer"), maar kan divergentie niet vóórkomen — zie hierboven ook de
+   stille-terugzet-eigenaardigheid als je toch doorzet. De route "toevoegen als nieuwe
+   resourcebibliotheek" kent dit risico niet — ze overschrijft nooit een bestaande pool.
 
 2. **Bezettingsoverzicht ziet alleen deze machine.** Boekingen op de machine van een collega bestaan
    lokaal niet, dus een bibliotheekbreed bezettingsoverzicht is beperkt tot wat op deze machine bekend

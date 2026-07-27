@@ -79,7 +79,16 @@ These choices can't be undone with Ctrl+Z — the second option changes the libr
 
 ## Sharing and backup
 
-A project file is always self-contained: hand it to someone without your library, and everything still works, just without a shared source. You export and import a library via **File → Library** — that's also your backup. Importing **replaces the entire contents** of the chosen library, and the app warns beforehand if your local version is newer than what you're about to import. Libraries don't synchronize between machines on their own: if two planners work with the same library on different computers, the libraries can drift apart.
+A project file is always self-contained: hand it to someone without your library, and everything still works, just without a shared source. You export and import a library via **File → Library** — that's also your backup.
+
+When you import, you choose between two options:
+
+- **Add as new resource library** — the library from the file is simply added, as an extra library alongside your existing ones. Handy when a colleague sends you a project together with its library: because the library keeps its identity from the file, that project immediately recognizes the crews and calendars it was already using as library items again, instead of showing them as "no longer in the library" — with nothing for you to sort out. If you already have that exact library, it's added as a separate copy alongside it instead.
+- **Replace an existing resource library** — the entire contents of the library you pick are overwritten with what's in the file. If your own version is newer than the one you're importing, the app warns you about that beforehand.
+
+Which option is preselected depends on the file: if the app doesn't recognize the library yet, "Add as new resource library" is selected; if it does recognize it (the same library, a different version), "Replace an existing resource library" is selected with that library already chosen.
+
+Libraries don't synchronize between machines on their own: if two planners work with the same library on different computers, the libraries can drift apart.
 
 ## Demo resource library in the examples
 

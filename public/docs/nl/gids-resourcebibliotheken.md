@@ -79,7 +79,16 @@ Deze keuzes zijn niet met Ctrl+Z terug te draaien — de tweede optie wijzigt na
 
 ## Delen en back-up
 
-Een projectbestand is altijd zelfstandig compleet: geef je het aan iemand zonder jouw bibliotheek, dan werkt alles gewoon, alleen zonder gedeelde bron. Een bibliotheek exporteer en importeer je via **Bestand → Bibliotheek** — dat is tevens je back-up. Importeren **vervangt de hele inhoud** van de gekozen bibliotheek, en de app waarschuwt vooraf als jouw lokale versie nieuwer is dan wat je gaat importeren. Bibliotheken synchroniseren niet vanzelf tussen machines: werken twee planners met dezelfde bibliotheek op verschillende computers, dan kunnen die uit elkaar gaan lopen.
+Een projectbestand is altijd zelfstandig compleet: geef je het aan iemand zonder jouw bibliotheek, dan werkt alles gewoon, alleen zonder gedeelde bron. Een bibliotheek exporteer en importeer je via **Bestand → Bibliotheek** — dat is tevens je back-up.
+
+Bij het importeren kies je zelf uit twee opties:
+
+- **Toevoegen als nieuwe resourcebibliotheek** — de bibliotheek uit het bestand komt er gewoon bij, als extra bibliotheek naast je bestaande. Handig als een collega je een project met bijbehorende bibliotheek stuurt: omdat de bibliotheek haar identiteit uit het bestand behoudt, herkent dat project de crews en kalenders die het al gebruikte meteen weer als bibliotheekitems in plaats van als "niet meer in de bibliotheek" — zonder dat jij iets hoeft na te lopen. Bestaat dezelfde bibliotheek al bij jou, dan komt er gewoon een aparte kopie naast te staan.
+- **Een bestaande resourcebibliotheek vervangen** — de volledige inhoud van de bibliotheek die je kiest wordt overschreven door wat er in het bestand staat. Is jouw eigen versie nieuwer dan wat je importeert, dan waarschuwt de app daarvoor vooraf.
+
+Welke optie al aangevinkt staat, hangt af van het bestand: herkent de app de bibliotheek nog niet, dan staat "toevoegen" aan; herkent de app 'm wel (dezelfde bibliotheek, een andere versie), dan staat "vervangen" aan met die bibliotheek al gekozen.
+
+Bibliotheken synchroniseren niet vanzelf tussen machines: werken twee planners met dezelfde bibliotheek op verschillende computers, dan kunnen die uit elkaar gaan lopen.
 
 ## Demo-resourcebibliotheek in de voorbeelden
 
