@@ -266,7 +266,7 @@ export function validateToolArgs(
 /**
  * Testhaak: loop een schema na op trefwoorden die deze validator NIET kent. Een niet-lege uitkomst
  * betekent dat een schema iets belooft dat runtime niet wordt afgedwongen — precies het gat dat dit
- * bestand dicht. `tests/mcp/cases-schema-validation.ts` draait dit over alle 33 tools.
+ * bestand dicht. `tests/mcp/cases-schemavalidatie.ts` draait dit over ALLE geregistreerde tools.
  */
 export function unsupportedKeywords(schema: unknown): string[] {
   const found = new Set<string>();

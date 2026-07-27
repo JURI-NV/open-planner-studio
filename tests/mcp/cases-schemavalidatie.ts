@@ -213,12 +213,12 @@ test('dispatcher: een GELDIGE call passeert de poort ongehinderd', async () => {
 });
 
 // =================================================================================================
-// 3) Schema-dekking over ALLE 33 tools
+// 3) Schema-dekking over ALLE 34 tools
 // =================================================================================================
-test('alle 33 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
+test('alle 34 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
   registerAllTools();
   const tools = getTools();
-  assert(tools.length === 33, `verwachtte 33 tools, kreeg ${tools.length}`);
+  assert(tools.length === 34, `verwachtte 34 tools, kreeg ${tools.length}`);
   const offenders: string[] = [];
   for (const t of tools) {
     const unknown = unsupportedKeywords(t.inputSchema);
@@ -242,7 +242,7 @@ test('elk schema is een object-schema met properties (zodat additionalProperties
 // `planner_batch` dispatcht zijn stappen NIET via `handleMcpMessage`, maar via `batchStep` (muterende
 // tools) of rechtstreeks via `def.handler` (leestools). De schemapoort in de dispatcher zag die
 // stappen dus nooit: een agent kon élk `type`/`enum`/`required`/`minItems`/`additionalProperties` van
-// alle 33 tools omzeilen door zijn call in een batch te wikkelen. Sinds de fix draait `validateToolArgs`
+// elke tool omzeilen door zijn call in een batch te wikkelen. Sinds de fix draait `validateToolArgs`
 // óók per batch-stap, met dezelfde diepte-instelling als de dispatcher.
 //
 // WAAROM DE ASSERTS OP DE FOUTVORM MATCHEN, niet alleen op "geweigerd": verschillende tools kijken hun

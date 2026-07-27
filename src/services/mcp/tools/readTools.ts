@@ -610,6 +610,13 @@ function listResources(s: AppState, args: PageArgs) {
     if (typeof r.costPerHour === 'number') row.costPerHour = r.costPerHour;
     if (r.unitOfMeasure) row.unitOfMeasure = r.unitOfMeasure;
     if (r.calendarId) row.calendarId = r.calendarId;
+    // LEESKANT ↔ SCHRIJFKANT (planner_manage_resources): elk veld dat schrijfbaar is, moet ook
+    // leesbaar zijn — anders kan een AI een resource niet lezen, aanpassen en terugschrijven zonder
+    // te raden. Deze drie ontbraken: ze zijn in het resourcepaneel gewoon zichtbaar/bewerkbaar en
+    // round-trippen door IFC (`OPS_Resource`-pset + IFCRELNESTS), maar kwamen hier nooit terug.
+    if (r.description) row.description = r.description;
+    if (r.parentId) row.parentId = r.parentId;
+    if (r.availabilitySteps && r.availabilitySteps.length > 0) row.availabilitySteps = r.availabilitySteps;
     return row;
   });
   return {
@@ -982,10 +989,12 @@ export const readTools: McpToolDef[] = [
   {
     name: 'planner_list_resources',
     description:
-      'Gepagineerde resourcelijst met capaciteit (maxUnits, kostenuurtarief, meeteenheid) en een ' +
-      'toewijzings-samenvatting per resource (aantal toewijzingen, aantal betrokken taken, som ' +
-      'units/dag). Paginering identiek aan list_tasks: `limit` (default 50), `offset`; retour ' +
-      '`total`, `has_more`, `next_offset`.',
+      'Gepagineerde resourcelijst met capaciteit (maxUnits, kostenuurtarief, meeteenheid, kalender, ' +
+      'ploeg, tijd-gefaseerde beschikbaarheid) en een toewijzings-samenvatting per resource (aantal ' +
+      'toewijzingen, aantal betrokken taken, som units/dag). De veldnamen zijn exact die van ' +
+      'planner_manage_resources, dus je kunt gelezen waarden rechtstreeks terugschrijven; velden ' +
+      'zonder waarde ontbreken in de rij. Paginering identiek aan list_tasks: `limit` (default 50), ' +
+      '`offset`; retour `total`, `has_more`, `next_offset`.',
     kind: 'read',
     batchable: true,
     inputSchema: {

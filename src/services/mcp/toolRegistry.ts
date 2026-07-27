@@ -14,6 +14,7 @@ import { registerToolModules } from './toolIndex';
 import { readTools } from './tools/readTools';
 import { taskTools } from './tools/taskTools';
 import { calendarResourceTools } from './tools/calendarResourceTools';
+import { resourceTools } from './tools/resourceTools';
 import { documentTools } from './tools/documentTools';
 import { fileTools } from './tools/fileTools';
 import { batchTools } from './tools/batchTool';
@@ -26,6 +27,7 @@ const MODULES: McpToolDef[][] = [
   readTools,
   taskTools,
   calendarResourceTools,
+  resourceTools,
   documentTools,
   fileTools,
   batchTools,

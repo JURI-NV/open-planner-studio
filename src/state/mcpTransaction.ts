@@ -9,7 +9,7 @@ import { syncProjectCalendar } from './syncProjectCalendar';
 import type { DurationType, Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
-import type { ResourceAssignment, ResourceCurve } from '@/types/resource';
+import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Project } from '@/types/project';
 import type { LevelingResult } from '@/engine/scheduler/ResourceLeveler';
 
@@ -497,6 +497,93 @@ export const draft = {
       syncProjectCalendar(s);
       s.isDirty = true;
     });
+  },
+
+  /**
+   * Snapshot/recompute-vrije variant van de store-`addResource`. Retourneert het nieuwe id. De
+   * eenheden-guard (§2.4) is hier — net als bij `assignResource` — een FOUT i.p.v. een stille
+   * terugval: een resource met 0/negatieve capaciteit is nooit bedoeld.
+   */
+  addResource(res: Omit<Resource, 'id'>): string {
+    const id = generateId('res');
+    useAppStore.setState((s) => {
+      if (!isValidUnits(res.maxUnits)) {
+        throw new Error(`draft.addResource: ongeldige maxUnits ${String(res.maxUnits)} (strikt positief vereist)`);
+      }
+      s.resources.push({ ...res, id });
+      s.isDirty = true;
+    });
+    return id;
+  },
+
+  /**
+   * Snapshot/recompute-vrije variant van de store-`updateResource`. Onbekend id ⇒ herkenbare fout
+   * (de store-actie valt stil terug; de tool-laag pre-valideert, dit is de vangrail).
+   *
+   * TWEE BEWUSTE AFWIJKINGEN van de store-actie:
+   *   1. GEEN "weigeren-met-behoud" op `maxUnits`. De UI filtert een ongeldige capaciteit stil uit de
+   *      patch (comfort bij tikken in een invoerveld); via de bridge zou dat precies het veld stil
+   *      laten verdampen dat de aanroeper wilde zetten — dus fout.
+   *   2. Een sleutel met waarde `undefined` VERWIJDERT het veld (`delete`) i.p.v. het op `undefined`
+   *      te zetten. Zo is een gewist optioneel veld (`costPerHour`, `calendarId`, …) niet te
+   *      onderscheiden van een veld dat er nooit was — dat houdt het object schoon voor de
+   *      IFC-round-trip (zelfde regel als `patchTaskFields`).
+   */
+  updateResource(id: string, updates: Partial<Resource>): void {
+    useAppStore.setState((s) => {
+      const idx = s.resources.findIndex((r) => r.id === id);
+      if (idx < 0) throw new Error(`draft.updateResource: onbekende resource-id '${id}'`);
+      if ('maxUnits' in updates && !isValidUnits(updates.maxUnits)) {
+        throw new Error(`draft.updateResource: ongeldige maxUnits ${String(updates.maxUnits)} (strikt positief vereist)`);
+      }
+      const target = s.resources[idx] as unknown as Record<string, unknown>;
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === undefined) delete target[key];
+        else target[key] = value;
+      }
+      s.isDirty = true;
+    });
+  },
+
+  /**
+   * Snapshot/recompute-vrije variant van de store-`removeResource`: verwijdert de resource, ÁL zijn
+   * toewijzingen, de verweesde `task.resourceIds`-verwijzingen en het ploeg-lidmaatschap van zijn
+   * leden (`parentId`). Onbekend id ⇒ herkenbare fout.
+   *
+   * Retourneert het VOLLEDIGE voor/na-verschil, zodat de tool-laag exact kan rapporteren wat er
+   * meeging in plaats van het te schatten (audit-bevinding M1 bij `delete_tasks`: een cascade die
+   * niet volledig gerapporteerd wordt, leest als "er is niets anders gebeurd").
+   */
+  removeResource(id: string): {
+    removedAssignmentIds: string[];
+    affectedTaskIds: string[];
+    orphanedCrewMemberIds: string[];
+  } {
+    const report = { removedAssignmentIds: [] as string[], affectedTaskIds: [] as string[], orphanedCrewMemberIds: [] as string[] };
+    useAppStore.setState((s) => {
+      if (!s.resources.some((r) => r.id === id)) {
+        throw new Error(`draft.removeResource: onbekende resource-id '${id}'`);
+      }
+      // Voor/na vastleggen VÓÓR de filters (strings uit de draft kopiëren, geen draft-referenties).
+      const doomed = s.assignments.filter((a) => a.resourceId === id);
+      report.removedAssignmentIds = doomed.map((a) => String(a.id));
+      report.affectedTaskIds = [...new Set(doomed.map((a) => String(a.taskId)))];
+      report.orphanedCrewMemberIds = s.resources.filter((r) => r.parentId === id).map((r) => String(r.id));
+
+      s.resources = s.resources.filter((r) => r.id !== id);
+      s.assignments = s.assignments.filter((a) => a.resourceId !== id);
+      for (const task of s.tasks) {
+        const idx = task.resourceIds.indexOf(id);
+        if (idx >= 0) task.resourceIds.splice(idx, 1);
+      }
+      // Ploeg-lidmaatschap opruimen: leden van een verwijderde CREW vallen terug op geen ouder.
+      // `delete` i.p.v. `= undefined` — zie de noot bij updateResource (IFC-round-trip).
+      for (const r of s.resources) {
+        if (r.parentId === id) delete r.parentId;
+      }
+      s.isDirty = true;
+    });
+    return report;
   },
 
   /**
