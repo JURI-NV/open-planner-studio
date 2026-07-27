@@ -51,14 +51,16 @@ function digest(p: Parsed): string {
   const asg = [...p.assignments].map(a => ({
     t: taskName.get(a.taskId), r: resName.get(a.resourceId), u: a.unitsPerDay, c: a.curve ?? 'UNIFORM',
   })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  const codes = [...p.activityCodeTypes].map(c => `${c.name}:${c.values.map(v => v.code).sort().join(',')}`).sort();
-  const fields = [...p.customFieldDefs].map(f => `${f.name}:${f.type}`).sort();
-  const baselines = [...p.baselines].map(b => ({
+  // De optionele `ImportResult`-velden (`?? []`): niet elk formaat levert ze, en het IFC-pad kan
+  // ze bij een leeg/onvolledig bestand ook overslaan. Afwezig ⇒ leeg in het digest.
+  const codes = [...(p.activityCodeTypes ?? [])].map(c => `${c.name}:${c.values.map(v => v.code).sort().join(',')}`).sort();
+  const fields = [...(p.customFieldDefs ?? [])].map(f => `${f.name}:${f.type}`).sort();
+  const baselines = [...(p.baselines ?? [])].map(b => ({
     name: b.name,
     tasks: [...b.tasks].map(bt => ({ t: taskName.get(bt.taskId), s: bt.start, f: bt.finish, d: bt.duration }))
       .sort((a, b2) => JSON.stringify(a).localeCompare(JSON.stringify(b2))),
   })).sort((a, b) => a.name.localeCompare(b.name));
-  const activeBaselineName = p.activeBaselineId ? (p.baselines.find(b => b.id === p.activeBaselineId)?.name ?? null) : null;
+  const activeBaselineName = p.activeBaselineId ? ((p.baselines ?? []).find(b => b.id === p.activeBaselineId)?.name ?? null) : null;
   return JSON.stringify({ tasks, seqs, res, asg, codes, fields, baselines, activeBaselineName });
 }
 
@@ -88,9 +90,14 @@ function verifySpec(spec: ProjectSpec): { pass: boolean; diffs: string[]; parsed
   expect(diffs, parsed.sequences.length === allLinks.length, `relaties: ${parsed.sequences.length} ≠ ${allLinks.length}`);
   expect(diffs, parsed.resources.length === (spec.resources?.length ?? 0), `resources: ${parsed.resources.length} ≠ ${spec.resources?.length ?? 0}`);
   expect(diffs, parsed.assignments.length === expAssign, `toewijzingen: ${parsed.assignments.length} ≠ ${expAssign}`);
-  expect(diffs, parsed.activityCodeTypes.length === (spec.codeTypes?.length ?? 0), `codetypes: ${parsed.activityCodeTypes.length} ≠ ${spec.codeTypes?.length ?? 0}`);
-  expect(diffs, parsed.customFieldDefs.length === (spec.fields?.length ?? 0), `customfields: ${parsed.customFieldDefs.length} ≠ ${spec.fields?.length ?? 0}`);
-  expect(diffs, parsed.baselines.length === (spec.baselines?.length ?? 0), `baselines: ${parsed.baselines.length} ≠ ${spec.baselines?.length ?? 0}`);
+  // De optionele `ImportResult`-velden zijn `T[] | undefined`; afwezig telt hier als 0, wat exact
+  // is wat de spec-vergelijking bedoelt (een bestand zónder codetypes hoort 0 codetypes te geven).
+  const gotCodeTypes = parsed.activityCodeTypes ?? [];
+  const gotFieldDefs = parsed.customFieldDefs ?? [];
+  const gotBaselines = parsed.baselines ?? [];
+  expect(diffs, gotCodeTypes.length === (spec.codeTypes?.length ?? 0), `codetypes: ${gotCodeTypes.length} ≠ ${spec.codeTypes?.length ?? 0}`);
+  expect(diffs, gotFieldDefs.length === (spec.fields?.length ?? 0), `customfields: ${gotFieldDefs.length} ≠ ${spec.fields?.length ?? 0}`);
+  expect(diffs, gotBaselines.length === (spec.baselines?.length ?? 0), `baselines: ${gotBaselines.length} ≠ ${spec.baselines?.length ?? 0}`);
 
   // 3. round-trip write→read→write stabiel (structureel data-fixpunt)
   // `writeIFC` neemt sinds pakket R één invoer-object (`WriteIFCInput`); een readIFC-resultaat
@@ -176,7 +183,7 @@ function verifyShowcase(spec: ProjectSpec, parsed: Parsed, diffs: string[]): Ret
   expect(diffs, T.some(t => t.isMilestone && t.milestoneKind === 'START'), `geen START-mijlpaal`);
   expect(diffs, T.some(t => t.isMilestone && t.milestoneKind === 'FINISH'), `geen FINISH-mijlpaal`);
   expect(diffs, T.some(t => t.mandatory), `geen verplichte mijlpaal`);
-  expect(diffs, parsed.baselines.length > 0, `geen baseline aanwezig`);
+  expect(diffs, (parsed.baselines ?? []).length > 0, `geen baseline aanwezig`);
 
   const hasResources = (spec.resources?.length ?? 0) > 0;
   if (hasResources) {
@@ -276,7 +283,7 @@ function main() {
         if (s.lagDays < 0) scLead = true;
       });
       parsed.assignments.forEach(a => scCurves.add(a.curve ?? 'UNIFORM'));
-      if (parsed.resourceCalendars.length > 0) scCal = true;
+      if ((parsed.resourceCalendars ?? []).length > 0) scCal = true;
       if (parsed.tasks.some(t => t.deadline)) scDeadline = true;
       if (parsed.tasks.some(t => t.priority === 1000)) scPin = true;
       if (facts.negFloat > 0) scNegFloat = true;
@@ -289,11 +296,11 @@ function main() {
       if (parsed.tasks.some(t => t.isHammock === true)) scHammock = true;
       if (facts.nearCritical) scNearCritical = true;
       if (facts.criticalPaths > 1) scFloatPaths = true;
-      if (parsed.resourceCalendars.some(c => !!c.workTime) || !!parsed.calendar.workTime) scHourCalendar = true;
+      if ((parsed.resourceCalendars ?? []).some(c => !!c.workTime) || !!parsed.calendar.workTime) scHourCalendar = true;
       if (parsed.resources.some(r => (r.availabilitySteps?.length ?? 0) > 0)) scAvailSteps = true;
-      if (parsed.baselines.length >= 2) scTwoBaselines = true;
+      if ((parsed.baselines ?? []).length >= 2) scTwoBaselines = true;
       if (parsed.activeBaselineId) {
-        const b = parsed.baselines.find(x => x.id === parsed.activeBaselineId);
+        const b = (parsed.baselines ?? []).find(x => x.id === parsed.activeBaselineId);
         if (b) scActiveBaselineName = b.name;
       }
     }

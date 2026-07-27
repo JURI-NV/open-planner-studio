@@ -4,10 +4,12 @@
 // (dag-granulaire belasting/capaciteit/overallocatie over alle resources+toewijzingen).
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Task } from '@/types/task';
+import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
+import type { CPMResult } from './CPMSolver';
 import { CalendarEngine } from './CalendarEngine';
 import { resolveCalendar } from './resolveCalendar';
-import { parseDate, formatDate, addCalendarDays } from '@/utils/dateUtils';
+import { parseDate, formatDate, addCalendarDays, getWeekStart } from '@/utils/dateUtils';
 
 /** Controlepunten per curve: (t ∈ [0,1] = positie in de duur, gewicht). Lineair geïnterpoleerd
  *  tussen punten; niet genormaliseerd (distributeUnits normaliseert zelf via Σraw). */
@@ -205,6 +207,204 @@ export function maxUnitsOn(resource: Resource, iso: string): number {
     if (step.from <= iso) applicable = step.maxUnits;
   }
   return applicable;
+}
+
+// ── Histogram-rapport (taak T6, MCP-tool `get_resource_histogram`) ───────────────────────────────
+//
+// Een aparte, gescopete engine-pass bovenop dezelfde bouwstenen als `computeResourceLoad`
+// (`distributeUnits` + werkdag-enumeratie), met drie dingen die de UI-load-pass NIET levert:
+//   1. Bucketing (dag/week) — weekbucket levert zowel de weeksom (`load`) als de piekdag
+//      (`peakDayLoad`), zodat een eendaagse piek niet in de weeksom verdwijnt.
+//   2. Venster-capaciteit — een EIGEN enumeratie over ÁLLE werkdagen van het bucketvenster (ook
+//      onbelaste). De load-pass levert capaciteit enkel op belaste dagen; dat zou een week-som
+//      onderschatten (review-bevinding). Kalender per resource: `resource.calendarId` → bibliotheek,
+//      anders de projectkalender — exact zoals `computeResourceLoad`.
+//   3. Veroorzaker-attributie (`causes`) — ALLÉÉN voor buckets met minstens één overbelaste dag
+//      (gescopet, O(assignments×duur + pieken)); bijdrage = de units die de assignment op de
+//      overbelaste dag(en) van die bucket levert.
+//
+// `overallocatedDays` is ALTIJD dag-granulair, ook in week-modus. De bestaande `computeResourceLoad`
+// blijft ongewijzigd (de UI leunt erop); deze functie is puur additief.
+
+export interface HistogramCause {
+  assignmentId: string;
+  taskId: string;
+  /** Units die deze assignment levert op de overbelaste dag(en) binnen dit bucketvenster. */
+  contribution: number;
+}
+
+export interface HistogramBucket {
+  /** ISO-grenzen van het bucketvenster (inclusief). Dagbucket: start == end. */
+  start: string;
+  end: string;
+  /** Weekbucket: som van de belasting over de week. Dagbucket: gelijk aan `peakDayLoad`. */
+  load: number;
+  /** Hoogste dag-belasting binnen het venster (dagbucket: gelijk aan `load`). */
+  peakDayLoad: number;
+  /** Som van de capaciteit over ÁLLE werkdagen van het bucketvenster (ook onbelaste). */
+  capacity: number;
+  /** Dag-granulaire overbelaste dagen binnen het venster (altijd, ook in week-modus). */
+  overallocatedDays: string[];
+  /** Alleen aanwezig als `overallocatedDays` niet leeg is: de veroorzakende assignments. */
+  causes?: HistogramCause[];
+}
+
+export interface HistogramReport {
+  resources: Array<{ resourceId: string; buckets: HistogramBucket[] }>;
+}
+
+export interface HistogramInput {
+  tasks: Task[];
+  sequences: Sequence[];
+  assignments: ResourceAssignment[];
+  resources: Resource[];
+  calendar: WorkCalendar;
+  calendars: WorkCalendar[];
+  cpmResult: CPMResult | null;
+  /** Alleen deze resources rapporteren (volgorde = `resources`-volgorde). Leeg/undefined = alle. */
+  resourceIds?: string[];
+  /** Vensterstart/-einde (ISO). Default = projectspanne uit de taakdatums (min earlyStart..max earlyFinish). */
+  from?: string;
+  to?: string;
+  bucket: 'dag' | 'week';
+}
+
+/**
+ * Bereken het histogram-rapport (zie blokcommentaar hierboven). Deelt de atomaire bouwsteen
+ * `distributeUnits` + werkdag-mapping met `computeResourceLoad`, zodat load én attributie exact
+ * consistent zijn; capaciteit is een aparte venster-enumeratie.
+ */
+export function computeHistogramReport(input: HistogramInput): HistogramReport {
+  const { tasks, assignments, resources, calendar, calendars, resourceIds, from, to, bucket } = input;
+
+  const taskById = new Map(tasks.map(t => [t.id, t]));
+  const projectEngine = new CalendarEngine(calendar);
+
+  // 1. Per-assignment dag-verdeling — dezelfde filter/mapping als computeResourceLoad (leaf, geen
+  //    milestone), zodat de veroorzaker-bijdragen exact optellen tot de per-resource-dagbelasting.
+  interface AssignDaily {
+    assignmentId: string;
+    taskId: string;
+    resourceId: string;
+    daily: Map<string, number>;
+  }
+  const perAssignment: AssignDaily[] = [];
+  for (const a of assignments) {
+    const task = taskById.get(a.taskId);
+    if (!task || task.isMilestone || task.childIds.length > 0) continue;
+    const dist = distributeUnits(a.unitsPerDay, task.time.scheduleDuration, a.curve ?? 'UNIFORM');
+    if (dist.length === 0) continue;
+    const workDayIsos = enumerateWorkDays(projectEngine, task.time.earlyStart, task.time.earlyFinish);
+    const daily = new Map<string, number>();
+    for (let i = 0; i < dist.length && i < workDayIsos.length; i++) {
+      const iso = workDayIsos[i];
+      daily.set(iso, (daily.get(iso) ?? 0) + dist[i]);
+    }
+    perAssignment.push({ assignmentId: a.id, taskId: a.taskId, resourceId: a.resourceId, daily });
+  }
+
+  // Per-resource dag-belasting = som over de assignments van die resource.
+  const loadByResource = new Map<string, Map<string, number>>();
+  for (const pa of perAssignment) {
+    let m = loadByResource.get(pa.resourceId);
+    if (!m) { m = new Map(); loadByResource.set(pa.resourceId, m); }
+    for (const [iso, u] of pa.daily) m.set(iso, (m.get(iso) ?? 0) + u);
+  }
+
+  // 2. Vensterspanne — default uit de taakdatums (min earlyStart .. max earlyFinish).
+  let fromIso = from;
+  let toIso = to;
+  if (!fromIso || !toIso) {
+    let minS: string | undefined;
+    let maxF: string | undefined;
+    for (const t of tasks) {
+      const es = t.time.earlyStart;
+      const ef = t.time.earlyFinish;
+      if (es && (!minS || es < minS)) minS = es;
+      if (ef && (!maxF || ef > maxF)) maxF = ef;
+    }
+    fromIso = fromIso ?? minS;
+    toIso = toIso ?? maxF;
+  }
+
+  // 3. Bucketvensters — dichte tegeling van [from,to]. Week = ISO-week (ma..zo); dag = één dag.
+  const windows: Array<{ start: string; end: string }> = [];
+  if (fromIso && toIso && fromIso <= toIso) {
+    const toDate = parseDate(toIso);
+    if (bucket === 'week') {
+      let ws = getWeekStart(parseDate(fromIso)); // maandag van de week rond `from`
+      let guard = 0;
+      while (ws <= toDate && guard++ < 100_000) {
+        const we = addCalendarDays(ws, 6);
+        windows.push({ start: formatDate(ws), end: formatDate(we) });
+        ws = addCalendarDays(ws, 7);
+      }
+    } else {
+      let d = parseDate(fromIso);
+      let guard = 0;
+      while (d <= toDate && guard++ < 1_000_000) {
+        const iso = formatDate(d);
+        windows.push({ start: iso, end: iso });
+        d = addCalendarDays(d, 1);
+      }
+    }
+  }
+
+  // 4. Rapport per (gescopete) resource.
+  const idSet = resourceIds && resourceIds.length > 0 ? new Set(resourceIds) : null;
+  const reported = idSet ? resources.filter(r => idSet.has(r.id)) : resources;
+
+  const report: HistogramReport = { resources: [] };
+  for (const resource of reported) {
+    const dailyLoad = loadByResource.get(resource.id) ?? new Map<string, number>();
+    const engine = new CalendarEngine(resolveCalendar(resource.calendarId, calendars, calendar));
+
+    // Dag-granulaire overbelaste dagen: load > capaciteit (resource-kalender), over de belaste dagen.
+    const overDays = new Set<string>();
+    for (const [iso, l] of dailyLoad) {
+      const cap = engine.isWorkDay(parseDate(iso)) ? maxUnitsOn(resource, iso) : 0;
+      if (l > cap) overDays.add(iso);
+    }
+    const resAssignments = perAssignment.filter(pa => pa.resourceId === resource.id);
+
+    const buckets: HistogramBucket[] = [];
+    for (const w of windows) {
+      let load = 0;
+      let peak = 0;
+      for (const [iso, l] of dailyLoad) {
+        if (iso >= w.start && iso <= w.end) {
+          load += l;
+          if (l > peak) peak = l;
+        }
+      }
+      // Venster-capaciteit: EIGEN enumeratie over álle werkdagen van het venster (ook onbelaste).
+      let capacity = 0;
+      for (const iso of enumerateWorkDays(engine, w.start, w.end)) capacity += maxUnitsOn(resource, iso);
+
+      const overInWin = [...overDays].filter(iso => iso >= w.start && iso <= w.end).sort();
+      const b: HistogramBucket = {
+        start: w.start,
+        end: w.end,
+        load,
+        peakDayLoad: peak,
+        capacity,
+        overallocatedDays: overInWin,
+      };
+      if (overInWin.length > 0) {
+        const causes: HistogramCause[] = [];
+        for (const pa of resAssignments) {
+          let contribution = 0;
+          for (const iso of overInWin) contribution += pa.daily.get(iso) ?? 0;
+          if (contribution > 0) causes.push({ assignmentId: pa.assignmentId, taskId: pa.taskId, contribution });
+        }
+        if (causes.length > 0) b.causes = causes;
+      }
+      buckets.push(b);
+    }
+    report.resources.push({ resourceId: resource.id, buckets });
+  }
+
+  return report;
 }
 
 /** Alle werkdagen (volgens `engine`) tussen `startIso` en `finishIso`, inclusief. Geëxporteerd

@@ -8,6 +8,11 @@
     "table": "Tabela",
     "ifc": "IFC",
     "report": "Relatório",
+    "ai": "IA",
+    "aiServer": "Servidor",
+    "aiConnection": "Ligação",
+    "aiSafety": "Segurança",
+    "aiActivity": "Atividade",
     "file": "Ficheiro",
     "new": "Novo",
     "save": "Guardar",
@@ -221,22 +226,6 @@
     "unsaved": "Não guardado",
     "scheduleStale": "Desatualizado — recalcule (F5)"
   },
-  "menuBar": {
-    "file": "Ficheiro",
-    "newProject": "Novo projeto",
-    "open": "Abrir...",
-    "saveAs": "Guardar como IFC...",
-    "printPreview": "Pré-visualização de impressão...",
-    "edit": "Editar",
-    "undo": "Desfazer",
-    "redo": "Refazer",
-    "view": "Visualização",
-    "zoomIn": "Aproximar",
-    "zoomOut": "Afastar",
-    "planning": "Planeamento",
-    "calculateCPM": "Calcular",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Voltar",
     "recent": "Recentes",
@@ -325,5 +314,12 @@
       "custom": "Personalizado…",
       "none": "Sem feriados"
     }
+  },
+  "commands": {
+    "newProject": "Novo projeto",
+    "undo": "Desfazer",
+    "redo": "Refazer",
+    "zoomIn": "Aproximar",
+    "zoomOut": "Afastar"
   }
 }

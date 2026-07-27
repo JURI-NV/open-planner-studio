@@ -81,6 +81,57 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   overallocatie" zijn voor die assert niet te onderscheiden. Kandidaat-fix: een bovengrens per
   showcase (bv. `overalloc.length <= 1` voor GROOT) zou deze regressie wél zichtbaar maken.
 
+### MCP-bridge — robuustheid van de server zelf (2026-07-27)
+
+> Gemeten tijdens de eerste echte koppelpoging. Beide punten gaan niet over de tools maar over de
+> schil eromheen: de bridge kan in een toestand raken waarin hij nog luistert maar niets meer
+> beantwoordt, zonder dat iemand dat merkt. Dat is dezelfde faalklasse als de stille no-ops die deze
+> ronde zijn opgeruimd — alleen een laag dieper.
+
+- [ ] **De bridge merkt niet dat het venster erachter weg is.** Gemeten: het venster dat poort 3877
+      bezat had een hot-reload gehad, waardoor de frontend-listeners uit `createBridgeController`
+      verdwenen waren. De Rust-kant bleef luisteren; élke aanvraag liep vast tot de 120s-timeout.
+      Ook een aanvraag **zonder token** — die hoort puur in Rust op een 401 te stranden en raakt de
+      webview helemaal niet — bleef hangen, dus één blokkerend verzoek zet via de serialisatie-mutex
+      ook al het verkeer erachter vast. Een client ziet dan geen fout maar twee minuten stilte.
+      Richtingen: de auth-/Origin-/methode-afwijzingen vóór de mutex afhandelen (die hebben de
+      webview niet nodig), een korte hartslag naar de frontend met een snelle "geen luisteraar"-fout
+      i.p.v. de volledige timeout, en de frontend zijn listeners laten herstellen na een reload.
+      Hot reload bestaat alleen in dev, maar een gecrashte of vastgelopen webview in een echte
+      installatie geeft exact hetzelfde beeld.
+- [ ] **Een tweede app-instantie is onzichtbaar voor de gebruiker.** De dubbele bewaker
+      (`scripts/tauri-dev.mjs`) verhindert twee dev-servers, maar niet twee app-vensters — terwijl de
+      bridge-poort een singleton is. Wie als tweede start krijgt "poort bezet", wat klopt maar niet
+      vertelt dát er al een ander venster luistert (laat staan welk). Waargenomen na een crash van de
+      ontwikkelomgeving: een verweesde instantie hield de poort vast terwijl de gebruiker in een
+      nieuwer venster zat te kijken. Richting: bij "poort bezet" onderzoeken of het onze eigen app is
+      en dat benoemen in de statusmelding.
+
+### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
+
+> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil — maar de
+> eerste schuurt echt met wat een gebruiker verwacht.
+
+- [ ] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.**
+      `ifcReader.extractCalendarLibrary` bouwt de bibliotheek uitsluitend uit
+      `IFCRELASSIGNSTOCONTROL`-relaties, dus een kalender waar niets aan hangt heeft geen enkel
+      spoor in het bestand en is na een round-trip weg. Dat raakt precies het overzet-scenario:
+      kalender overzetten naar een leeg document → opslaan → weg. **Voorafbestaand gedrag, geen
+      regressie** van het MCP-werk. Niet gerepareerd omdat het een ingreep in de IFC-leeslaag is
+      met gedragsrisico voor vreemde bestanden; een eigen `OPS_Calendars`-pset (naar het model van
+      `OPS_Baselines`) is de voor de hand liggende route, mét terugval op de bestaande
+      relatie-afleiding voor bestanden van derden.
+- [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
+      werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
+      een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook
+      oplossen.
+- [ ] **Wélke kalender de projectdefault is, kan de bridge niet wisselen** (de inhoud ervan wel, via
+      het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
+      of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
+
+### Solver/presentatie — resterende punten (2026-07-20)
+
 > De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
 > changelog. Twee ervan bleken een andere oorzaak te hebben dan het item beschreef: de `TF=-4` was
 > geen hard-pin-interactie maar een off-by-one plus feestdag-blinde dag-index in de
@@ -121,6 +172,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
+- [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
+      issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
+      maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
+      moet compleet zijn. Daar bestaan dus álle `rows * cols` pagina-canvassen tegelijk vóór de
+      omzetting naar JPEG, op `SUPERSAMPLE = 2`. Een A3-vel is daarmee ~2382×1684×4 ≈ 16 MB; het
+      gemeten scenario van 300 taken met `timelineColumns: 8` (20 rijen × 8 kolommen = 160 pagina's)
+      komt op ~2,5 GB. Let op wanneer dit toeslaat: raster is de `catch`-terugval van de vector-tak,
+      dus precies op het moment dat de vector-export net gefaald is. `MAX_TIMELINE_COLUMNS = 32`
+      begrenst het wel, maar staat nog steeds honderden pagina's toe. Pre-existing gedrag, geen
+      regressie van #25 — dat werk maakte het pad alleen makkelijker bereikbaar (één dropdown i.p.v.
+      een handmatige zoominstelling). Fix-richting: pagina's streamend omzetten naar JPEG en het
+      canvas per pagina vrijgeven i.p.v. ze allemaal vast te houden, of één pagina-canvas hergebruiken.
 - [ ] **Undo-stack heeft geen limiet.** Gemeten 2026-07-20: 64 MB na 500 taakbewerkingen bij een
       project van 500 taken (elke snapshot is een volledige deep clone). Er staat nergens een
       `.slice`/`.shift` op `undoStack`. Sinds project-mutaties ook snapshots pushen (2026-07-20) is

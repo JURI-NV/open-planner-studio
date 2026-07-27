@@ -23,7 +23,8 @@ const idA = S().addTask({ name: 'A' });
 const idB = S().addTask({ name: 'B' });
 const idM = S().addTask({ name: 'M', isMilestone: true });
 const idS = S().addTask({ name: 'S' });
-const idSc = S().addTask({ name: 'Sc', parentId: idS });
+// Het kind maakt S tot samenvattingstaak; de id zelf is verder niet nodig.
+S().addTask({ name: 'Sc', parentId: idS });
 const idC = S().addTask({ name: 'C' });
 
 const resId = S().addResource({ name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 1 });

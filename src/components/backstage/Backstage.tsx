@@ -11,6 +11,7 @@ import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/c
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
 import { LibrarySection } from './LibrarySection';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
@@ -350,14 +351,25 @@ function ExportSection() {
     { format: 'ifc',   label: tMenu('export.ifcLabel'),   desc: tMenu('export.ifcDesc'),   icon: 'IFC' },
   ];
 
-  const handleExport = (format: ExportFormat) => {
+  // K7: bij een cyclische planning geeft exportAs { ok: false } met cpmResult.error terug.
+  // Backstage vervangt de hele body, dus GanttCanvas is hier niet gemonteerd en de cyclus-toast
+  // (die in GanttCanvas leeft) vuurt niet — toon de fout daarom zelf in de bestaande
+  // backstage-stijl. Tussenstand: K8 trekt dit foutkanaal samen tot één toast in uiSlice.
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async (format: ExportFormat) => {
     // Pool-ernaast geldt alleen voor de IFC-kaart (spec §4: het is een IFC-tweede-bestand, geen
-    // embed in CSV/MSPDI/P6). Bij een ander formaat blijft het bestaande pad ongemoeid.
-    if (format === 'ifc' && alsoPool) {
-      void exportProjectWithPool();
-    } else {
-      void exportAs(format);
+    // embed in CSV/MSPDI/P6). Bij een ander formaat blijft het bestaande pad ongemoeid. Beide
+    // paden geven hetzelfde ExportResult terug, dus de K7-foutafhandeling geldt voor allebei.
+    const result = format === 'ifc' && alsoPool
+      ? await exportProjectWithPool()
+      : await exportAs(format);
+    if (!result.ok) {
+      // Blijf in Backstage zodat de fout zichtbaar is; ga niet terug naar het Start-tab.
+      setExportError(result.error);
+      return;
     }
+    setExportError(null);
     setUI({ activeRibbonTab: 'start' });
   };
 
@@ -365,9 +377,12 @@ function ExportSection() {
     <>
       <h2 className="backstage-title">{tMenu('backstage.exportTitle')}</h2>
       <p className="backstage-subtitle">{tMenu('backstage.exportSubtitle')}</p>
+      {exportError && (
+        <div className="backstage-empty">{exportError}</div>
+      )}
       <div className="backstage-export-grid">
         {formats.map(f => (
-          <button key={f.format} className="backstage-export-card" onClick={() => handleExport(f.format)}>
+          <button key={f.format} className="backstage-export-card" onClick={() => void handleExport(f.format)}>
             <span className="backstage-export-icon">{f.icon}</span>
             <span className="backstage-export-info">
               <h4>{f.label}</h4>
@@ -496,7 +511,9 @@ function ImportSection() {
         <div className="backstage-export-grid">
           {importers.map(imp => (
             <button key={`${imp.extensionId}:${imp.id}`} className="backstage-export-card" onClick={() => handleImport(imp)}>
-              <span className="backstage-export-icon">{imp.icon ? <span dangerouslySetInnerHTML={{ __html: imp.icon }} /> : <Upload size={20} />}</span>
+              {/* K6a: importer-iconen komen uit draaiende extensiecode — hygiëne, maar loopt
+                  langs dezelfde sanitizer als de manifest-iconen. */}
+              <span className="backstage-export-icon"><ExtensionIcon raw={imp.icon} fallback={<Upload size={20} />} /></span>
               <span className="backstage-export-info">
                 <h4>{imp.name}</h4>
                 <p>{imp.description} ({imp.fileExtensions.join(', ')})</p>

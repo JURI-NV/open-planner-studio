@@ -97,8 +97,12 @@ export class MiniMapRenderer {
       if (zoom > 0 && chartWidth > 0) {
         const leftDay = scrollX / zoom;
         const visibleDays = chartWidth / zoom;
-        const fx = this.dayToMiniX(leftDay);
-        const fw = Math.max(6, (visibleDays / this.span.span) * canvasWidth);
+        // Geklemd op de strip zelf (issue #30): buiten-project scrollen of verder uitzoomen dan
+        // de projectperiode zelf gaf hiervoor een kader dat buiten canvasWidth viel — onzichtbaar
+        // in de canvas (die clipt toch al aan zijn eigen randen), maar wél een kader dat nooit
+        // netjes tegen de rechterrand paste zodra visibleDays > span.span.
+        const fw = Math.min(canvasWidth, Math.max(6, (visibleDays / this.span.span) * canvasWidth));
+        const fx = Math.max(0, Math.min(this.dayToMiniX(leftDay), canvasWidth - fw));
         ctx.strokeStyle = colors.frame;
         ctx.lineWidth = 1.5;
         ctx.strokeRect(fx + 0.75, 0.75, fw - 1.5, canvasHeight - 1.5);
@@ -116,11 +120,12 @@ export class MiniMapRenderer {
     ctx.stroke();
   }
 
-  /** Grenzen van het viewport-kader op de strip (voor sleep-hit-testing). */
+  /** Grenzen van het viewport-kader op de strip (voor sleep-hit-testing) — zelfde klemming als render(). */
   frameBounds(): { x: number; w: number } | null {
     if (!this.span || this.opts.zoom <= 0 || this.opts.chartWidth <= 0) return null;
-    const fx = this.dayToMiniX(this.opts.scrollX / this.opts.zoom);
-    const fw = Math.max(6, (this.opts.chartWidth / this.opts.zoom / this.span.span) * this.opts.canvasWidth);
+    const { canvasWidth } = this.opts;
+    const fw = Math.min(canvasWidth, Math.max(6, (this.opts.chartWidth / this.opts.zoom / this.span.span) * canvasWidth));
+    const fx = Math.max(0, Math.min(this.dayToMiniX(this.opts.scrollX / this.opts.zoom), canvasWidth - fw));
     return { x: fx, w: fw };
   }
 }

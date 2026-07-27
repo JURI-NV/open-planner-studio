@@ -8,17 +8,18 @@
  *
  * Twee modi:
  *   - `fit-width`: schaal de bron zó dat de volledige breedte op één papierbreedte past; alleen
- *     verticaal tegelen (1 kolom). Geen bevroren-kolom-herhaling nodig.
+ *     verticaal tegelen (1 kolom). Met `timelineColumns: N` wordt de bron bewust over N
+ *     paginabreedtes uitgesmeerd; dán wordt de bevroren naam-strip óók hier herhaald.
  *   - `actual`: 1 pt = 1 px (honoreert de on-screen zoom 1:1); zowel horizontaal als verticaal
  *     tegelen. De linker naam-strip (`frozenColumnWidthPx`) wordt op elke volgende horizontale
  *     tegel herhaald zodat elke pagina zelfstandig leesbaar blijft.
+ *
+ * De tegel-/schaalwiskunde zelf staat NIET hier maar in `tileLayout.ts` — gedeeld met de
+ * vector-pagineerder, zodat preview en export gegarandeerd dezelfde indeling krijgen.
  */
 
 import { buildImagePdf, type PdfImagePage } from '@/utils/miniPdf';
-
-export type PaperSize = 'a4' | 'a3' | 'a1';
-export type Orientation = 'portrait' | 'landscape';
-export type PaginateMode = 'fit-width' | 'actual';
+import { computeTileLayout, type PaperSize, type Orientation, type PaginateMode } from './tileLayout';
 
 export interface PaginateOptions {
   paperSize: PaperSize;
@@ -32,8 +33,24 @@ export interface PaginateOptions {
   logicalWidth: number;
   /** Logische (CSS-px) hoogte van de broninhoud (= `renderPrintCanvas().height`). */
   logicalHeight: number;
-  /** Breedte (LOGISCHE px) van de linker bevroren naam-kolom die op elke horizontale tegel herhaald wordt (alleen 'actual'). */
+  /** Breedte (LOGISCHE px) van de linker bevroren naam-kolom die op elke volgende horizontale tegel herhaald wordt. */
   frozenColumnWidthPx?: number;
+  /**
+   * Hoogte (LOGISCHE px, vanaf de bovenkant van de bron) van de kopstrook — project-kop +
+   * tijdschaal — die op ELKE pagina bovenaan herhaald moet worden (issue #25 punt 1). Vul hier
+   * `renderPrintCanvas().headerHeight` in.
+   *
+   * De ENGINE-default is 0 = niet herhalen, exact het gedrag van vóór issue #25. Let op: dat is
+   * niet meer wat de gebruiker ziet — het rapportpaneel (`ReportPanel.tsx`) zet de knop
+   * "kop herhalen" bewust standaard AAN en geeft hier dus standaard een hoogte > 0 door. De
+   * default hier houdt alleen deze module gedragsneutraal voor andere/toekomstige aanroepers.
+   */
+  repeatHeaderHeightPx?: number;
+  /**
+   * Aantal paginabreedtes waarover de tijdlijn uitgesmeerd wordt (issue #25 punt 5). Alleen in
+   * `'fit-width'`; default 1 = alles op één paginabreedte persen (oud gedrag).
+   */
+  timelineColumns?: number;
   /** Paginamarge in punten (rondom). Default 24. */
   marginPt?: number;
   /** JPEG-kwaliteit voor elke pagina (0..1). Default 0.9. */
@@ -44,11 +61,38 @@ export interface PaginateOptions {
    * gebruikt de default.
    */
   supersample?: number;
+  /**
+   * Harde bovengrens op het aantal pagina-CANVASSEN dat {@link paginateCanvasToTiles} daadwerkelijk
+   * AANMAAKT. Ontbreekt hij, dan wordt elke pagina van het rooster getekend (oud gedrag).
+   *
+   * WAAROM: elk pagina-canvas is een volledig `HTMLCanvasElement` op papierresolutie (A3-landscape ≈
+   * 1191×842 px ≈ 4 MB RGBA). Een A3-rapport met kopherhaling, 300 taken en `timelineColumns: 8`
+   * levert 20 rijen × 8 kolommen = 160 van die canvassen ≈ 640 MB — synchroon op de UI-thread, en de
+   * preview hertekent bij ELKE optiewijziging. De preview toont er toch maar een handvol; met
+   * `maxPages` stopt de lus met TEKENEN zodra dat aantal bereikt is.
+   *
+   * LET OP — het resultaat is dan bewust ONVOLLEDIG: `pages.length` kan KLEINER zijn dan
+   * `rows * cols`. `rows`/`cols` blijven het VOLLEDIGE rooster rapporteren (die komen uit de pure
+   * {@link computeTileLayout}, daar hoeft niets voor getekend te worden), zodat een aanroeper nog
+   * steeds "pagina 5 van 160" kan tonen. Gebruik dus `rows * cols` — niet `pages.length` — als
+   * paginatotaal.
+   *
+   * Deze optie is UITSLUITEND voor de preview. {@link paginateCanvasToPdfBytes} mag hem NIET
+   * doorgeven: een export moet compleet zijn, anders ontbreken er pagina's in de PDF. Die functie
+   * wist hem daarom expliciet.
+   */
+  maxPages?: number;
 }
 
 /** Resultaat van {@link paginateCanvasToTiles}: één canvas per pagina + paginamaat/rooster. */
 export interface PaginatedTiles {
-  /** Eén canvas per pagina (rij-voor-rij van boven naar onder, binnen een rij van links naar rechts). */
+  /**
+   * Eén canvas per pagina (rij-voor-rij van boven naar onder, binnen een rij van links naar rechts).
+   *
+   * Normaal `rows * cols` lang. Met {@link PaginateOptions.maxPages} bevat hij BEWUST alleen de
+   * eerste N pagina's — de rest is nooit getekend. Wil je het paginatotaal weten, gebruik dan
+   * `rows * cols` en niet `pages.length`.
+   */
   pages: HTMLCanvasElement[];
   /** Papierbreedte in PDF-punten (honoreert oriëntatie). */
   pageWidthPt: number;
@@ -60,15 +104,6 @@ export interface PaginatedTiles {
   rows: number;
 }
 
-/** Paginamaten in PDF-punten (1/72 inch), portret; landscape = omgewisseld. */
-export const PAPER_PT: Record<PaperSize, { width: number; height: number }> = {
-  a4: { width: 595.28, height: 841.89 },
-  a3: { width: 841.89, height: 1190.55 },
-  a1: { width: 1683.78, height: 2383.94 },
-};
-
-/** Ruimte onderaan (punten) gereserveerd voor het paginanummer in de marge. */
-export const FOOTER_PT = 14;
 /** Supersample-factor: teken op punt-resolutie × deze factor voor scherpe tekst; MediaBox blijft de echte puntmaat. */
 const SUPERSAMPLE = 2;
 
@@ -78,46 +113,23 @@ const SUPERSAMPLE = 2;
  * Dit is de gedeelde pagineer-engine: zowel {@link paginateCanvasToPdfBytes} (voor de PDF-export)
  * als de rapport-preview gebruiken deze functie zodat de preview WYSIWYG-identiek is aan de export.
  *
+ * Met {@link PaginateOptions.maxPages} stopt hij met TEKENEN na N pagina's: `pages.length` is dan
+ * kleiner dan `rows * cols`, terwijl `rows`/`cols` het volledige rooster blijven rapporteren. Dat
+ * is alleen voor de preview bedoeld — een export moet compleet zijn (zie de optie-doc).
+ *
  * @returns {@link PaginatedTiles} — pagina-canvassen (rij-voor-rij van boven naar onder, binnen een
  *          rij van links naar rechts) + echte puntmaat + rooster.
  */
 export function paginateCanvasToTiles(canvas: HTMLCanvasElement, opts: PaginateOptions): PaginatedTiles {
-  const marginPt = opts.marginPt ?? 24;
-  const frozenPx = opts.frozenColumnWidthPx ?? 0;
-
-  const base = PAPER_PT[opts.paperSize];
-  const pageW = opts.orientation === 'landscape' ? base.height : base.width;
-  const pageH = opts.orientation === 'landscape' ? base.width : base.height;
-
-  const printW = pageW - 2 * marginPt;
-  const printH = pageH - 2 * marginPt - FOOTER_PT;
-
-  // Bron-afmetingen in LOGISCHE px (CSS-px) — alle tegel-wiskunde gebeurt in deze eenheid.
-  const cw = opts.logicalWidth;
-  const ch = opts.logicalHeight;
+  const layout = computeTileLayout(opts);
+  const {
+    pageWidthPt: pageW, pageHeightPt: pageH, marginPt, scale, rows, cols,
+    repeatHeaderPx, bodyTopPt, columns, bodyRows,
+  } = layout;
 
   // Device-px per logische px: converteert een logische bron-rechthoek naar het feitelijke
   // high-res canvas-raster in de `drawImage`-bron-argumenten. `canvas.width` is logisch×dpr.
-  const srcScale = cw > 0 ? canvas.width / cw : 1;
-
-  // Schaal (punt per LOGISCHE px).
-  const scale = opts.mode === 'fit-width' ? printW / cw : 1.0;
-
-  // Verticale tegels.
-  const rowHpx = printH / scale;
-  const rows = Math.max(1, Math.ceil(ch / rowHpx));
-
-  // Horizontale tegels.
-  const frozenPtW = opts.mode === 'actual' ? frozenPx * scale : 0;
-  // Body-px per kolom na kolom 0 (die de frozen-strip herhaalt).
-  const bodyColPtW = printW - frozenPtW;         // punten beschikbaar voor de body-strook op tegel k>0
-  const col0Bodypx = printW / scale;             // bron-px die kolom 0 in beeld brengt (incl. frozen-strip)
-  const laterColBodypx = bodyColPtW / scale;     // extra body-bron-px per volgende kolom
-  let cols = 1;
-  if (opts.mode === 'actual' && cw > col0Bodypx && laterColBodypx > 0) {
-    cols = 1 + Math.ceil((cw - col0Bodypx) / laterColBodypx);
-  }
-  cols = Math.max(1, cols);
+  const srcScale = opts.logicalWidth > 0 ? canvas.width / opts.logicalWidth : 1;
 
   const pxPt = opts.supersample ?? SUPERSAMPLE; // dest-pixels per punt op het page-canvas
   const pageCanvasW = Math.max(1, Math.round(pageW * pxPt));
@@ -126,13 +138,19 @@ export function paginateCanvasToTiles(canvas: HTMLCanvasElement, opts: PaginateO
   const totalPages = rows * cols;
   const pages: HTMLCanvasElement[] = [];
 
-  let pageIndex = 0;
-  for (let r = 0; r < rows; r++) {
-    // Verticaal bron-venster (bron-px).
-    const srcY = r * rowHpx;
-    const srcH = Math.min(rowHpx, ch - srcY);
+  // Bovengrens op het AANMAKEN van pagina-canvassen (zie {@link PaginateOptions.maxPages}). Zonder
+  // grens: Infinity, zodat de vergelijking hieronder nooit aanslaat en het gedrag exact het oude is.
+  // Defensief geklemd — een onzinnige (negatieve/niet-eindige) waarde mag geen halve lus opleveren.
+  const maxPages = opts.maxPages === undefined || !Number.isFinite(opts.maxPages)
+    ? Infinity
+    : Math.max(0, Math.floor(opts.maxPages));
 
-    for (let c = 0; c < cols; c++) {
+  let pageIndex = 0;
+  // Gelabelde lus: de grens moet BEIDE lussen verlaten, anders zou hij per rij opnieuw beginnen.
+  pageLoop:
+  for (const row of bodyRows) {
+    for (const column of columns) {
+      if (pages.length >= maxPages) break pageLoop;
       pageIndex++;
 
       // Per pagina een NIEUW canvas (zodat de aanroeper alle pagina's tegelijk kan gebruiken).
@@ -147,36 +165,26 @@ export function paginateCanvasToTiles(canvas: HTMLCanvasElement, opts: PaginateO
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, pageCanvasW, pageCanvasH);
 
-      // Dest y-offset (punt → dest-px), rekening houdend met de bovenmarge.
-      const destYpx = marginPt * pxPt;
-      const destHpx = srcH * scale * pxPt;
+      for (const win of column.xWindows) {
+        const destXpx = win.pageX * pxPt;
+        const destWpx = win.srcW * scale * pxPt;
 
-      if (c === 0) {
-        // Kolom 0: bron-px [0 .. col0Bodypx] op x=margin, breedte printW.
-        const srcX = 0;
-        const srcW = Math.min(col0Bodypx, cw);
-        drawTile(ctx, canvas, srcScale, srcX, srcY, srcW, srcH, marginPt * pxPt, destYpx, srcW * scale * pxPt, destHpx);
-      } else {
-        // Bevroren-strip herhalen op x=margin, breedte frozenPtW.
-        if (frozenPx > 0 && frozenPtW > 0) {
+        // Kopstrook (bron y ∈ [0, repeatHeaderPx)) bovenaan de pagina herhalen — met EXACT het
+        // x-venster van de body eronder, anders zou de tijdschaal niet boven de juiste dagen staan.
+        if (repeatHeaderPx > 0) {
           drawTile(
             ctx, canvas, srcScale,
-            0, srcY, frozenPx, srcH,
-            marginPt * pxPt, destYpx, frozenPtW * pxPt, destHpx,
+            win.srcX, 0, win.srcW, repeatHeaderPx,
+            destXpx, marginPt * pxPt, destWpx, repeatHeaderPx * scale * pxPt,
           );
         }
-        // Body-venster: kolom 0 dekt body-px [frozenPx .. col0Bodypx]; elke volgende kolom
-        // dekt laterColBodypx verder, aansluitend zonder overlap of gat.
-        const bodySrcX = col0Bodypx + (c - 1) * laterColBodypx;
-        const bodySrcW = Math.min(laterColBodypx, cw - bodySrcX);
-        if (bodySrcW > 0) {
-          const bodyDestX = (marginPt + frozenPtW) * pxPt;
-          drawTile(
-            ctx, canvas, srcScale,
-            bodySrcX, srcY, bodySrcW, srcH,
-            bodyDestX, destYpx, bodySrcW * scale * pxPt, destHpx,
-          );
-        }
+
+        // Body-tegel: begint onder de (eventueel) herhaalde kopstrook.
+        drawTile(
+          ctx, canvas, srcScale,
+          win.srcX, row.srcY, win.srcW, row.srcH,
+          destXpx, bodyTopPt * pxPt, destWpx, row.srcH * scale * pxPt,
+        );
       }
 
       // Paginanummer rechtsonder in de marge (grijs, ~8pt).
@@ -208,7 +216,10 @@ export function paginateCanvasToTiles(canvas: HTMLCanvasElement, opts: PaginateO
  */
 export function paginateCanvasToPdfBytes(canvas: HTMLCanvasElement, opts: PaginateOptions): Uint8Array {
   const quality = opts.quality ?? 0.9;
-  const { pages, pageWidthPt, pageHeightPt } = paginateCanvasToTiles(canvas, opts);
+  // `maxPages` is een PREVIEW-optie en wordt hier expliciet gewist: een export die pagina's weglaat
+  // is stille dataverlies. De aanroeper deelt z'n optie-object soms met de preview, dus vertrouwen
+  // op "die zet 'm hier toch niet" is niet genoeg — we wissen 'm actief.
+  const { pages, pageWidthPt, pageHeightPt } = paginateCanvasToTiles(canvas, { ...opts, maxPages: undefined });
 
   const pdfPages: PdfImagePage[] = pages.map(pageCanvas => {
     const dataUrl = pageCanvas.toDataURL('image/jpeg', quality);

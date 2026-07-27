@@ -63,7 +63,7 @@ export interface ShortcutDef {
  *  net zo goed modale overlays (welkomstdialoog: los dialoogvenster; rondleiding: sinds de
  *  fix voor doorklik-corruptie een écht modale overlay, zie TourOverlay.tsx) en ontbraken hier
  *  per abuis, waardoor bv. F2/Insert/Ctrl+A tijdens de rondleiding gewoon doorvuurden. */
-function hasBlockingDialogOpen(): boolean {
+export function hasBlockingDialogOpen(): boolean {
   const ui = useAppStore.getState().ui;
   return (
     ui.showTaskDialog || ui.showProjectSettings || ui.showProjectInfoDialog ||
@@ -142,7 +142,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'file.newProject',
     combo: { key: 'n', mod: true },
     category: 'file',
-    labelKey: 'menu:menuBar.newProject',
+    labelKey: 'menu:commands.newProject',
     // S2 (V1/V3-vondst, dialoog-stapeling): zonder guard opende Ctrl+N de projectwizard óver een
     // reeds openstaande dialoog heen — twee overlays gestapeld, de wizard onbereikbaar, en één
     // Escape sloot dan meteen beide. `isAnyDialogOpen()` is de generieke stapel-check uit
@@ -191,21 +191,21 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'edit.undo',
     combo: { key: 'z', mod: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.undo',
+    labelKey: 'menu:commands.undo',
     run: (store) => store.undo(),
   },
   {
     id: 'edit.redo',
     combo: { key: 'y', mod: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.redo',
+    labelKey: 'menu:commands.redo',
     run: (store) => store.redo(),
   },
   {
     id: 'edit.redoShiftZ',
     combo: { key: 'z', mod: true, shift: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.redo', // zelfde actie/label als edit.redo — alternatieve combinatie
+    labelKey: 'menu:commands.redo', // zelfde actie/label als edit.redo — alternatieve combinatie
     run: (store) => store.redo(),
   },
   {
@@ -373,14 +373,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomIn',
     combo: { key: '=', mod: true },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomIn',
+    labelKey: 'menu:commands.zoomIn',
     run: (store) => store.setZoom(store.view.zoom + 10),
   },
   {
     id: 'view.zoomOut',
     combo: { key: '-', mod: true },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomOut',
+    labelKey: 'menu:commands.zoomOut',
     run: (store) => store.setZoom(store.view.zoom - 10),
   },
   {
@@ -442,7 +442,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomInBare',
     combo: { key: '=' }, // toont "+/=" — useZoomShortcuts matcht zelf zowel '+' als '='
     category: 'view',
-    labelKey: 'menu:menuBar.zoomIn',
+    labelKey: 'menu:commands.zoomIn',
     displayOnly: true,
     run: () => { /* displayOnly: useZoomShortcuts.ts handelt dit af */ },
   },
@@ -450,7 +450,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomOutBare',
     combo: { key: '-' },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomOut',
+    labelKey: 'menu:commands.zoomOut',
     displayOnly: true,
     run: () => { /* displayOnly: useZoomShortcuts.ts handelt dit af */ },
   },

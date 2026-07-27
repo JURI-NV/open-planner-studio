@@ -92,7 +92,18 @@ export interface GanttRenderOptions {
    *  Afwezig ⇒ de renderer bouwt zelf een as uit `calendar`+`compressNonWorkdays`+`view`
    *  (bv. de secundaire split-view-pane, of headless tests die geen axis meegeven). */
   axis?: GanttAxis;
+  /** Issue #25 punt 4: de CSS font-stack van de gekozen interface-lettertypefamilie
+   *  (`resolveUIFontStack(ui.uiFontFamily)`). Een canvas leest géén CSS-variabelen, dus de stack
+   *  moet als string mee — zonder dit blijft de Gantt (taaknamen + tijdschaal, het grootste
+   *  leesoppervlak van de app) in het oude hardgecodeerde lettertype staan terwijl de hele chrome
+   *  eromheen wél omschakelt. Afwezig ⇒ `FALLBACK_FONT_STACK`, exact het oude gedrag. */
+  fontFamily?: string;
 }
+
+/** De historische, hardgecodeerde stack van deze renderer. Blijft de fallback zodra een aanroeper
+ *  `fontFamily` niet meegeeft (headless tests, print-/exportpaden), zodat die byte-identiek blijven
+ *  renderen als vóór issue #25 punt 4. */
+const FALLBACK_FONT_STACK = '-apple-system, BlinkMacSystemFont, sans-serif';
 
 // Near-critical "geblokt"-vulpatroon voor het high-contrast-thema (fase 2.9 §5.4, BINDEND besluit).
 // GEMEMOIZED op moduleniveau: de bitmap wordt één keer getekend en de `CanvasPattern` één keer
@@ -181,6 +192,20 @@ export class GanttRenderer {
       scrollX: opts.view.scrollX,
     });
     this.compressed = isCompressedEffective(this.projectEngine, !!opts.compressNonWorkdays);
+  }
+
+  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4).
+   *  Enige plek waar deze renderer een font-stack samenstelt — vroeger stonden er 17 letterlijke
+   *  `ctx.font`-strings verspreid door het bestand, die per definitie uit de pas liepen zodra de
+   *  familie instelbaar werd.
+   *
+   *  BEWUST NIET: de GROOTTE meeschalen met `ui.uiFontScale`. De canvas-geometrie ligt vast —
+   *  `ROW_HEIGHT = 28` (GanttCanvas), balkhoogtes, kolombreedtes en de headerbanden zijn constanten
+   *  in px. Grotere tekst zou dus niet "groter renderen" maar clippen en over rij-/balkranden heen
+   *  lopen. Meeschalen kan pas als de rijhoogte en balkgeometrie zelf van de schaal afgeleid worden;
+   *  dat is een aparte, veel grotere ingreep. Verander dit hier dus niet los. */
+  private font(sizePx: number, bold = false): string {
+    return `${bold ? 'bold ' : ''}${sizePx}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
   }
 
   /** Basis-balkkleur (fase 2.9 §5.4): kritiek-rood ≻ near-critical-amber ≻ float-path-tint ≻
@@ -413,7 +438,7 @@ export class GanttRenderer {
         // Issue #21 (holiday-labels-clip-fix): ware grootte tekenen en CLIPPEN op het zichtbare
         // gebied i.p.v. samenknijpen via een fillText-maxWidth — een lang woord valt dan gewoon
         // gedeeltelijk buiten beeld i.p.v. onleesbaar verdrukt te worden.
-        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = this.font(11, true);
         ctx.textBaseline = 'top';
         ctx.save();
         ctx.beginPath();
@@ -436,7 +461,7 @@ export class GanttRenderer {
         // maar dan in wereldcoördinaten VÓÓR de translate/rotate (clip-pad wordt vastgelegd in de
         // transform die op dat moment geldt), zodat de geroteerde tekst ook gewoon aan de onderkant
         // afgesneden wordt i.p.v. samengeperst.
-        ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = this.font(10);
         ctx.save();
         ctx.beginPath();
         ctx.rect(clipX1, headerHeight, visibleWidth, Math.max(0, canvasHeight - headerHeight));
@@ -631,33 +656,33 @@ export class GanttRenderer {
     // blok weg en blijft de oorspronkelijke 2-rijen-layout hieronder byte-identiek staan.
     if (mid) {
       // --- Bovenste rij: major tier (maand) ---
-      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(11, true);
       ctx.fillStyle = this.colors.text;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
       this.drawTierLabels(major, startDate, endDate, headerHeight / 6);
 
       // --- Middenrij: mid tier (weeknummers), zelfde stijl als de minor-rij ---
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.fillStyle = this.colors.textSecondary;
       this.drawTierLabels(mid, startDate, endDate, headerHeight / 2);
 
       // --- Onderste rij: minor tier (dag) ---
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.fillStyle = this.colors.textSecondary;
       this.drawTierLabels(minor, startDate, endDate, headerHeight * 5 / 6);
       return;
     }
 
     // --- Top row: major tier ---
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = this.font(11, true);
     ctx.fillStyle = this.colors.text;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     this.drawTierLabels(major, startDate, endDate, headerHeight / 4);
 
     // --- Bottom row: minor tier ---
-    ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = this.font(10);
     ctx.fillStyle = this.colors.textSecondary;
     this.drawTierLabels(minor, startDate, endDate, headerHeight * 3 / 4);
   }
@@ -980,7 +1005,7 @@ export class GanttRenderer {
     // Task name on bar (if wide enough)
     if (width > 40) {
       ctx.fillStyle = this.colors.barText;
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.textBaseline = 'middle';
       ctx.save();
       ctx.beginPath();
@@ -1033,7 +1058,7 @@ export class GanttRenderer {
 
     if (width > 40) {
       ctx.fillStyle = this.colors.text;
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.textBaseline = 'middle';
       ctx.save();
       ctx.beginPath();
@@ -1128,7 +1153,7 @@ export class GanttRenderer {
 
     // Label
     ctx.fillStyle = this.colors.text;
-    ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = this.font(10);
     ctx.textBaseline = 'middle';
     ctx.fillText(task.name, x + size + 6, cy);
   }
@@ -1178,7 +1203,7 @@ export class GanttRenderer {
       // "verouderd"-badge bij sourceMissing.
       if (link.sourceMissing) {
         const label = this.opts.externalStaleLabel ?? 'verouderd';
-        ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = this.font(9);
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const tw = ctx.measureText(label).width + 6;
@@ -1403,7 +1428,7 @@ export class GanttRenderer {
     // Header text
     const headers = this.opts.columnHeaders || { wbs: 'WBS', taskName: 'Taaknaam', duration: 'Duur' };
     ctx.fillStyle = this.colors.text;
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.font = this.font(11, true);
     ctx.textBaseline = 'middle';
     ctx.fillText(headers.wbs, 8, headerHeight / 2);
     ctx.fillText(headers.taskName, 60, headerHeight / 2);
@@ -1443,7 +1468,7 @@ export class GanttRenderer {
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = this.colors.text;
-        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = this.font(11, true);
         ctx.save();
         ctx.beginPath();
         ctx.rect(0, y, taskTableWidth - 4, rowHeight);
@@ -1493,7 +1518,7 @@ export class GanttRenderer {
 
       // WBS code
       ctx.fillStyle = this.colors.textSecondary;
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.fillText(task.wbsCode || '', 8, textY);
 
       // Collapse/expand triangle for summary tasks
@@ -1519,7 +1544,7 @@ export class GanttRenderer {
 
       // Task name
       ctx.fillStyle = isSummary ? this.colors.summary : this.colors.text;
-      ctx.font = isSummary ? 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif' : '11px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(11, isSummary);
 
       ctx.save();
       ctx.beginPath();
@@ -1538,7 +1563,7 @@ export class GanttRenderer {
         ctx.roundRect(btnX, btnY, btnSize, btnSize, 2);
         ctx.fill();
         ctx.fillStyle = this.colors.barText;
-        ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = this.font(10, true);
         ctx.textAlign = 'center';
         ctx.fillText('+', btnX + btnSize / 2, textY);
         ctx.textAlign = 'left';
@@ -1546,7 +1571,7 @@ export class GanttRenderer {
 
       // Duration
       ctx.fillStyle = this.colors.textSecondary;
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = this.font(10);
       ctx.textAlign = 'right';
       const durText = this.durationText(task);
       ctx.fillText(durText, taskTableWidth - 8, textY);

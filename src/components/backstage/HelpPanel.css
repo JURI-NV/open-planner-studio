@@ -38,7 +38,7 @@
   border: 1px solid var(--theme-control-border);
   border-radius: var(--radius-md);
   color: var(--theme-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-font-scale, 1));
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -192,13 +192,13 @@
   margin-bottom: var(--sp-2, 8px);
 }
 .help-docslang-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   color: var(--theme-text-dim);
 }
 .help-docslang {
   width: 100%;
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-font-scale, 1));
   color: var(--theme-text);
   background: var(--theme-input-bg);
   border: 1px solid var(--theme-control-border);
@@ -213,7 +213,7 @@
   gap: 8px 12px;
   margin-bottom: var(--sp-3, 12px);
   padding: 8px 12px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-font-scale, 1));
   line-height: 1.45;
   color: var(--theme-text);
   background: var(--theme-surface-alt);
@@ -229,7 +229,7 @@
 }
 .help-stale-btn {
   padding: 3px 10px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-font-scale, 1));
   cursor: pointer;
   color: var(--theme-accent-on);
   background: var(--theme-accent);

@@ -8,6 +8,11 @@
     "table": "Tabela",
     "ifc": "IFC",
     "report": "Raport",
+    "ai": "AI",
+    "aiServer": "Serwer",
+    "aiConnection": "Połączenie",
+    "aiSafety": "Bezpieczeństwo",
+    "aiActivity": "Aktywność",
     "file": "Plik",
     "new": "Nowy",
     "save": "Zapisz",
@@ -221,22 +226,6 @@
     "unsaved": "Niezapisane",
     "scheduleStale": "Nieaktualne — przelicz (F5)"
   },
-  "menuBar": {
-    "file": "Plik",
-    "newProject": "Nowy projekt",
-    "open": "Otwórz...",
-    "saveAs": "Zapisz jako IFC...",
-    "printPreview": "Podgląd wydruku...",
-    "edit": "Edycja",
-    "undo": "Cofnij",
-    "redo": "Ponów",
-    "view": "Widok",
-    "zoomIn": "Powiększ",
-    "zoomOut": "Pomniejsz",
-    "planning": "Planowanie",
-    "calculateCPM": "Oblicz",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Wstecz",
     "recent": "Ostatnie",
@@ -325,5 +314,12 @@
       "custom": "Niestandardowy…",
       "none": "Bez świąt"
     }
+  },
+  "commands": {
+    "newProject": "Nowy projekt",
+    "undo": "Cofnij",
+    "redo": "Ponów",
+    "zoomIn": "Powiększ",
+    "zoomOut": "Pomniejsz"
   }
 }

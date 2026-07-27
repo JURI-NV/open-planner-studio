@@ -1,32 +1,26 @@
-//! Native bestand-I/O-commands — een bewuste IPC-"escape hatch".
+//! Native commands van de Rust-schil — precies één, en dat is opzet.
 //!
-//! Deze worden NIET door de frontend gebruikt: alle bestand-I/O loopt via de
-//! JS-plugins `@tauri-apps/plugin-fs` + `@tauri-apps/plugin-dialog`, en er staat
-//! nergens `invoke()` in `src/`. Ze blijven bewust staan als kant-en-klare
-//! native fallback voor bewerkingen die de JS-plugins niet aankunnen (zeer grote
-//! bestanden streamen, eigen pad-afhandeling, OS-specifiek gedrag). Verwijder je
-//! ze, verwijder dan ook deze notitie en de `serde`/`serde_json`-deps.
-
-use std::fs;
-
-/// Lees een UTF-8-bestand van schijf. Escape-hatch-command (zie module-docs) —
-/// ongebruikt door de frontend, die bestanden leest via de JS-`plugin-fs`.
-#[tauri::command]
-pub fn read_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {}", path, e))
-}
-
-/// Schrijf een UTF-8-bestand naar schijf. Escape-hatch-command (zie module-docs)
-/// — ongebruikt door de frontend, die bestanden schrijft via de JS-`plugin-fs`.
-#[tauri::command]
-pub fn write_file(path: String, contents: String) -> Result<(), String> {
-    fs::write(&path, &contents).map_err(|e| format!("Failed to write {}: {}", path, e))
-}
+//! Alle bestand-I/O loopt via de JS-plugins `@tauri-apps/plugin-fs` +
+//! `@tauri-apps/plugin-dialog` (zie `src/services/fileAccess/`). Het enige
+//! `invoke()` in de hele frontend staat in
+//! `src/services/updater/updaterService.ts` en roept `install_kind` aan.
+//!
+//! Hier stonden ook `read_file`/`write_file`: ongebruikte "escape hatch"-commands
+//! voor native bestand-I/O. Ze zijn verwijderd bij onderhoudbaarheidsbevinding
+//! K6a, omdat ongebruikt hier niet onbereikbaar betekent. Alles wat in de
+//! `invoke_handler` staat is aan te roepen via
+//! `window.__TAURI_INTERNALS__.invoke(...)`, dus ook vanuit extensiecode, die in
+//! dezelfde realm draait. Ze namen een willekeurig pad aan, deden geen enkele
+//! padvalidatie en gingen volledig buiten de scope-configuratie van `plugin-fs`
+//! om — daarmee waren ze een lees-/schrijfprimitief op het hele bestandssysteem,
+//! zonder dat één regel productiecode ze nodig had. Heb je ooit native
+//! bestand-I/O nodig, breid dan `src/services/fileAccess/` uit (of voeg een
+//! command toe MÉT padvalidatie), niet deze module.
 
 /// Detecteer hoe de app op deze machine geïnstalleerd is, zodat de frontend kan
 /// beslissen óf en hoe de in-app updater mag werken.
 ///
-/// Gerechtvaardigde minimale uitzondering op "geen `invoke()` in de frontend":
+/// Gerechtvaardigde minimale uitzondering op "domeinlogica hoort in TypeScript":
 /// dit is pure platform-introspectie (env-read), géén domeinlogica. De frontend
 /// kan zelf geen process-env lezen, vandaar deze piepkleine command.
 ///

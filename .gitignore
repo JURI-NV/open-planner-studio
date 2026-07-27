@@ -9,6 +9,7 @@ dist/
 .claude/skills/*
 !.claude/skills/release/
 !.claude/skills/wiki/
+!.claude/skills/docs-update/
 temp/
 
 # Tauri

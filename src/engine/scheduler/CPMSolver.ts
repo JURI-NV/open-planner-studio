@@ -48,6 +48,11 @@ export interface CPMResult {
   /** Hammocks (§4.4) zónder finish-driver (geen FF/SF-voorganger): hun EF valt terug op de ES
    *  (nul-lengte). Waarschuwingssignaal — de span kan niet uit een finish-driver worden afgeleid. */
   hammockNoFinishDriverTaskIds: string[];
+  /** OPTIONEEL (WP7 "Onwerkbaar-venster-detectie"): taak-ids waarvan de earlyFinish-berekening tegen
+   *  de MAX_SCAN/MAX_DAYS-cap van `addWorkDays` liep — een kalender die het taakvenster onwerkbaar
+   *  maakt levert anders stil een onzin-datum. ZACHTE, niet-blokkerende waarschuwing: `error` blijft
+   *  leeg, de overige taken rekenen normaal door. Afwezig/leeg ⇒ byte-identiek default. */
+  cappedTaskIds?: string[];
   projectEnd: string;
   projectDuration: number; // work days
   error?: string; // Set if circular dependency detected
@@ -166,6 +171,11 @@ export class CPMSolver {
   // Hammocks (fase 2.9, §4.4) zónder finish-driver: EF valt terug op ES (nul-lengte). Verzameld in de
   // forward pass, gerapporteerd als waarschuwing in `hammockNoFinishDriverTaskIds`.
   private hammockNoFinishDriverIds: string[] = [];
+  // Taken waarvan de earlyFinish-berekening tegen de MAX_SCAN/MAX_DAYS-cap van `addWorkDays` liep
+  // (WP7 "Onwerkbaar-venster-detectie"): een onwerkbaar taakvenster (bv. een aaneengesloten holiday-
+  // blok). Verzameld in de forward pass, zacht gerapporteerd als `cappedTaskIds`. Geen error, geen
+  // rollback — de kalenderwijziging is legitiem; de waarschuwing wijst de te repareren taak aan.
+  private cappedTaskIds: string[] = [];
 
   private options: CPMOptions;
   // Werkdag-gesnapte statusdatum (fase 2.6), of null ⇒ geen statusdatum-gedrag. Gezet in solve().
@@ -269,10 +279,16 @@ export class CPMSolver {
    *  dag ⇒ `addWorkDays(durationDaysOf)` — LETTERLIJK de huidige regel (`durationDaysOf` levert op een
    *  dag-kalender altijd de integer `scheduleDuration`, nooit een fractionele dag, Bevinding 2). */
   private addDuration(eng: CalendarEngine, start: Date, task: Task): Date {
-    if (task.isMilestone) return new Date(start.getTime());
-    return eng.isHourMode
-      ? eng.addWorkMinutes(start, durationMinutesOf(task, eng))
-      : eng.addWorkDays(start, durationDaysOf(task, eng));
+    return this.addDurationChecked(eng, start, task).date;
+  }
+  /** `addDuration` mét CAP-signaal (WP7): identieke datum-uitkomst, plus `capped` uit de dag-modus-
+   *  `addWorkDaysChecked` — een onwerkbaar taakvenster (holiday-blok) dat de earlyFinish tegen de
+   *  MAX_SCAN/MAX_DAYS-grens duwt. Mijlpaal en uur-modus cappen hier nooit (`false`): een mijlpaal
+   *  heeft geen duur, en de minuut-lussen hebben hun eigen best-effort-terugval buiten dit signaal. */
+  private addDurationChecked(eng: CalendarEngine, start: Date, task: Task): { date: Date; capped: boolean } {
+    if (task.isMilestone) return { date: new Date(start.getTime()), capped: false };
+    if (eng.isHourMode) return { date: eng.addWorkMinutes(start, durationMinutesOf(task, eng)), capped: false };
+    return eng.addWorkDaysChecked(start, durationDaysOf(task, eng));
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
@@ -351,6 +367,7 @@ export class CPMSolver {
     this.truncatedLeadIds = [];
     this.hardPinViolatedIds = [];
     this.hammockNoFinishDriverIds = [];
+    this.cappedTaskIds = [];
     this.dataDate = null; // wordt hieronder herzet; zo blijft hij ook over guard-returns heen nooit stale
 
     // Check for circular dependencies before running CPM
@@ -387,7 +404,7 @@ export class CPMSolver {
     const outOfSequenceSequenceIds = this.detectOutOfSequence(earlyDates);
     // Resultaat-post-pass (geëxtraheerd naar `scheduleAnalysis.ts`): pure functie over de vaste
     // early/late-datums + de forward-pass-side-channels; de helpers zijn stateless en gebonden.
-    return computeScheduleResults({
+    const result = computeScheduleResults({
       order,
       earlyDates,
       lateDates,
@@ -409,6 +426,10 @@ export class CPMSolver {
       snapOnOrBefore: (eng, d) => this.snapOnOrBefore(eng, d),
       modeOf: (eng) => this.modeOf(eng),
     });
+    // Zachte WP7-waarschuwing: alleen bij een echt onwerkbaar venster het veld zetten, zodat een
+    // normale solve byte-identiek blijft (veld afwezig ⇒ geen wijziging aan bestaande consumenten).
+    if (this.cappedTaskIds.length > 0) result.cappedTaskIds = [...this.cappedTaskIds];
+    return result;
   }
 
   /** Detect cycles using DFS. Returns array of task IDs in the cycle, or null. */
@@ -615,12 +636,22 @@ export class CPMSolver {
         const t = task.time;
         if (t.actualFinish && t.completion >= 1) {
           // (1) VOLTOOID: volledig gepind op actuals — geen forward-drift voorbij actualFinish.
-          const es = this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
+          let es = this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
           let ef = task.isMilestone
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualFinish))
             : this.snapOnOrBefore(cal, this.parseIn(cal, t.actualFinish));
-          if (ef < es) ef = es;   // weekend-randgeval (rauwe imports)
+          // Inversie-randgeval: het HELE geregistreerde venster valt in onwerkbare tijd (weekend,
+          // bouwvak, feestdagenblok) — dan snapt de start vóóruit tot ná de finish, die achteruit
+          // snapte. Er bestaat dan geen werkdag binnen het feit, dus één van beide moet wijken.
+          // Dat MOET de start zijn: een taak die is afgemeld hoort per definitie in het VERLEDEN,
+          // nooit voorbij zijn eigen `actualFinish` (en al helemaal niet voorbij de statusdatum).
+          // Vroeger stond hier `ef = es` — dat tilde een op 2 augustus afgemelde taak naar de eerste
+          // werkdag ná de bouwvak (24 augustus, een week ná de statusdatum) en vertraagde daarmee óók
+          // zijn opvolger een dag. Met `es = ef` landt het paar op de laatste werkdag op-of-vóór de
+          // `actualFinish` en start de opvolger op de eerste werkdag daarna — precies waar het feit
+          // hem zet. Buiten dit randgeval (ef ≥ es) verandert er niets.
+          if (ef < es) es = ef;
           results.set(taskId, { es, ef });
           continue;
         }
@@ -639,9 +670,15 @@ export class CPMSolver {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
           }
-          const ef = cal.isHourMode
-            ? cal.addWorkMinutes(remStart, remaining)
-            : cal.addWorkDays(remStart, remaining);
+          let ef: Date;
+          if (cal.isHourMode) {
+            ef = cal.addWorkMinutes(remStart, remaining);
+          } else {
+            // WP7: ook het rest-werk-pad kan tegen de onwerkbaar-venster-cap lopen ⇒ checked-variant.
+            const r = cal.addWorkDaysChecked(remStart, remaining);
+            ef = r.date;
+            if (r.capped) this.cappedTaskIds.push(taskId);
+          }
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -651,7 +688,8 @@ export class CPMSolver {
         }
       }
 
-      const earlyFinish = this.addDuration(cal, earlyStart, task);
+      const { date: earlyFinish, capped } = this.addDurationChecked(cal, earlyStart, task);
+      if (capped) this.cappedTaskIds.push(taskId); // WP7: onwerkbaar venster ⇒ zachte waarschuwing
 
       results.set(taskId, { es: earlyStart, ef: earlyFinish });
     }

@@ -190,6 +190,27 @@
       "cluster": "import-export"
     },
     {
+      "id": "gids-ai-mcp",
+      "title": {
+        "nl": "AI-assistent koppelen (MCP)",
+        "en": "Connecting an AI assistant (MCP)",
+        "de": "KI-Assistenten verbinden (MCP)",
+        "fr": "Connecter un assistant IA (MCP)",
+        "es": "Conectar un asistente de IA (MCP)",
+        "zh": "连接 AI 助手（MCP）",
+        "it": "Collegare un assistente IA (MCP)",
+        "pt": "Ligar um assistente de IA (MCP)",
+        "pl": "Podłączanie asystenta AI (MCP)",
+        "tr": "Yapay zekâ asistanı bağlama (MCP)",
+        "ar": "ربط مساعد الذكاء الاصطناعي (MCP)",
+        "ja": "AI アシスタントの接続（MCP）",
+        "ko": "AI 어시스턴트 연결(MCP)",
+        "fa": "اتصال دستیار هوش مصنوعی (MCP)"
+      },
+      "layer": "gidsen",
+      "cluster": "ai-mcp"
+    },
+    {
       "id": "gids-rapporten-printen",
       "title": {
         "nl": "Rapporten & printen",

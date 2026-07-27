@@ -3,7 +3,7 @@ import { useAppStore } from '@/state/appStore';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { documentTitle } from '@/utils/documents';
 import type { RecoveryEntry } from '@/components/dialogs/RecoveryDialog';
-import type { RecoveryDocInput } from '@/state/slices/documentSlice';
+import { recoveryInputFromParsed, type RecoveryDocInput } from '@/state/documentContract';
 import { loadRecovery, clearRecovery } from '@/services/recovery/recoveryStore';
 
 // In-app herstel-dialoog (vervangt de native OS-`ask()`): de gedetecteerde
@@ -60,14 +60,13 @@ export function useRecoveryRestore(): RecoveryRestore {
         for (const d of loaded.docs) {
           try {
             const parsed = readIFC(d.ifc);
-            restored.push({
+            // Welke velden bij crashherstel meegaan bepaalt `recoveryInputFromParsed` (bevinding
+            // K3) — deze hook houdt bewust geen veldkennis.
+            restored.push(recoveryInputFromParsed(parsed, {
               id: d.id,
-              project: parsed.project, calendar: parsed.calendar, tasks: parsed.tasks,
-              sequences: parsed.sequences, resources: parsed.resources, assignments: parsed.assignments,
-              activityCodeTypes: parsed.activityCodeTypes, customFieldDefs: parsed.customFieldDefs,
-              resourceCalendars: parsed.resourceCalendars,
-              filePath: d.filePath, isDirty: d.isDirty,
-            });
+              filePath: d.filePath,
+              isDirty: d.isDirty,
+            }));
             entries.push({
               id: d.id,
               name: documentTitle(d.filePath, parsed.project.name),
@@ -76,6 +75,9 @@ export function useRecoveryRestore(): RecoveryRestore {
               mtime: d.mtime,
             });
           } catch (err) {
+            // Vuurt sinds K4 ook echt: `readIFC` gooit nu een `IfcParseError` bij een bestand
+            // zonder STEP-kop of zonder sluitmarkering (= afgekapt). Zo'n snapshot wordt dus NIET
+            // meer als volwaardig document aangeboden; de overige documenten lopen gewoon door.
             console.error('Failed to read recovery document:', d.id, err);
           }
         }
@@ -85,17 +87,37 @@ export function useRecoveryRestore(): RecoveryRestore {
 
         setRecovery({
           entries,
+          // Volgorde is hier de hele bevinding (K4): `clearRecovery()` liep vroeger NAAST het
+          // herstellen (fire-and-forget, `void`), dus de snapshots konden al gewist zijn terwijl
+          // het herstel nog moest slagen. Nu pas wissen NADAT de documenten aantoonbaar in de
+          // store staan; gooit het herstel, dan blijven de snapshots op schijf staan.
           onRestore: () => {
-            if (restored.length > 0) {
-              useAppStore.getState().restoreDocuments(restored, loaded.activeDocumentId);
-              // Grens 4 (spec §3.4, plan-eis 6): crash-herstel telt als grens 1 — draai voor het
-              // actieve, herstelde document dezelfde openings-check (behind stil verversen, deviated
-              // markeren/vragen). Slapende herstelde documenten krijgen hun check bij activering (grens 2).
-              useAppStore.getState().runOpenBoundary();
-            }
-            void clearRecovery();
-            setRecovery(null);
-            finish();
+            void (async () => {
+              try {
+                if (restored.length > 0) {
+                  useAppStore.getState().restoreDocuments(restored, loaded.activeDocumentId);
+                  // Grens 4 (spec §3.4, plan-eis 6): crash-herstel telt als grens 1 — draai voor het
+                  // actieve, herstelde document dezelfde openings-check (behind stil verversen,
+                  // deviated markeren/vragen). Slapende herstelde documenten krijgen hun check bij
+                  // activering (grens 2).
+                  useAppStore.getState().runOpenBoundary();
+                }
+                // Dialoog meteen weg zodra het herstel zelf klaar is — de opruimactie eronder is
+                // bestands-I/O en mag de gebruiker niet laten wachten.
+                setRecovery(null);
+                await clearRecovery();
+              } catch (err) {
+                // Snapshots blijven staan. `finish()` gaat bewust wél door: de auto-save-poort
+                // dichthouden zou betekenen dat vanaf nu NIETS meer wordt weggeschreven — een
+                // groter risico dan het verlies van deze ene snapshotgeneratie. De gebruiker
+                // ziet de fout in de debug-terminal (console wordt door appLog opgevangen);
+                // een echte melding hangt aan bevinding K8.
+                console.error('Recovery: herstellen mislukt — snapshots blijven staan:', err);
+              } finally {
+                setRecovery(null);
+                finish();
+              }
+            })();
           },
           onDiscard: () => { void clearRecovery(); setRecovery(null); finish(); },
           // Uitstellen: snapshots laten staan, niet herstellen (zie RecoveryDialog).

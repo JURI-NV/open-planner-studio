@@ -8,6 +8,11 @@
     "table": "テーブル",
     "ifc": "IFC",
     "report": "レポート",
+    "ai": "AI",
+    "aiServer": "サーバー",
+    "aiConnection": "接続",
+    "aiSafety": "安全性",
+    "aiActivity": "アクティビティ",
     "file": "ファイル",
     "new": "新規",
     "save": "保存",
@@ -221,22 +226,6 @@
     "unsaved": "未保存",
     "scheduleStale": "古くなっています — 再計算してください（F5）"
   },
-  "menuBar": {
-    "file": "ファイル",
-    "newProject": "新しいプロジェクト",
-    "open": "開く...",
-    "saveAs": "IFC として保存...",
-    "printPreview": "印刷プレビュー...",
-    "edit": "編集",
-    "undo": "元に戻す",
-    "redo": "やり直し",
-    "view": "表示",
-    "zoomIn": "拡大",
-    "zoomOut": "縮小",
-    "planning": "計画",
-    "calculateCPM": "計算",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "戻る",
     "recent": "最近",
@@ -325,5 +314,12 @@
       "custom": "カスタム…",
       "none": "祝日なし"
     }
+  },
+  "commands": {
+    "newProject": "新しいプロジェクト",
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
   }
 }

@@ -9,6 +9,7 @@ import type {
   DateNotation,
   DurationDisplay,
   BarSplitMode,
+  UIFontFamily,
 } from '@/state/slices/types';
 
 export async function getSetting<T>(key: string): Promise<T | undefined> {
@@ -211,6 +212,17 @@ export async function saveDateNotation(value: DateNotation): Promise<void> {
   await setSetting('dateNotation', value);
 }
 
+// Lettertype-instellingen interface (issue #25.4): app-instellingen onder de 3-plekken-regel
+// (tandwiel/ribbontab/backstage delen SettingsPanelContent). Ontbrekende/corrupte sleutel ⇒
+// undefined → de store houdt zijn default ('default' / 100), zonder reset van andere voorkeuren.
+export async function saveUIFontFamily(value: UIFontFamily): Promise<void> {
+  await setSetting('uiFontFamily', value);
+}
+
+export async function saveUIFontScale(value: number): Promise<void> {
+  await setSetting('uiFontScale', value);
+}
+
 // --- Fase 2.8b: urenplanning-instellingen (§6.8). App-instellingen, dus onder de 3-plekken-regel
 //     (tandwiel/ribbontab/backstage delen SettingsPanelContent). Ontbrekende/corrupte sleutel ⇒
 //     undefined → de store houdt zijn default (§6.8: hoofdschakelaar uit, gemengd aan, duurweergave
@@ -299,4 +311,67 @@ export async function loadLastVersion(): Promise<string | undefined> {
 
 export async function saveLastVersion(value: string): Promise<void> {
   await setSetting('lastVersion', value);
+}
+
+// --- MCP-bridge / AI-modus (fase 1 MCP, spec §UI + §Beveiliging). ---------------------------------
+// Alle vier via de vertrouwde ops-* localStorage-prefix (geen Tauri plugin-store). `aiMode` en
+// `aiAutoBackup` zijn app-instellingen (async, patroon van saveAutoCalcCPM). `mcpPort` en `mcpToken`
+// zijn SYNCHROON (zelfde afwijking als loadConstructionMode): de bridge-levenscyclus (`server.ts`)
+// moet ze direct kunnen uitlezen bij het starten, en de headless test draait zonder async-bootstrap.
+// De `typeof localStorage`-guard houdt de Node-test-/headless-omgeving op de default zonder crash.
+
+/**
+ * AI-modus persisteren. Default UIT. Het LADEN loopt via de settingsRegistry
+ * (`setting({ key: 'aiMode', … })` in `settingsRegistry.ts`) → `loadAllSettings`, dus een aparte
+ * `loadAiMode` is er niet: die zou dode code zijn.
+ */
+export async function saveAiMode(value: boolean): Promise<void> {
+  await setSetting('aiMode', value);
+}
+
+/**
+ * Automatisch starten van de bridge bij het opstarten van de app. Default UIT — een luisterende
+ * poort openen blijft een bewuste keuze. Laden loopt, net als `aiMode`, via de settingsRegistry.
+ */
+export async function saveAiAutostart(value: boolean): Promise<void> {
+  await setSetting('aiAutostart', value);
+}
+
+/** Automatische AI-backup vóór de eerste mutatie per document (spec §AI-backup). Default AAN. */
+export async function loadAiAutoBackup(): Promise<boolean> {
+  const v = await getSetting<boolean>('aiAutoBackup');
+  return typeof v === 'boolean' ? v : true;
+}
+
+export async function saveAiAutoBackup(value: boolean): Promise<void> {
+  await setSetting('aiAutoBackup', value);
+}
+
+/** Bridge-poort. Default 3877; een corrupte/ongeldige waarde (buiten 1..65535) valt terug op de default. */
+export const MCP_DEFAULT_PORT = 3877;
+
+export function loadMcpPort(): number {
+  if (typeof localStorage === 'undefined') return MCP_DEFAULT_PORT;
+  const raw = localStorage.getItem('ops-mcpPort');
+  if (raw === null) return MCP_DEFAULT_PORT;
+  let n: number;
+  try { n = Number(JSON.parse(raw)); } catch { return MCP_DEFAULT_PORT; }
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : MCP_DEFAULT_PORT;
+}
+
+export function saveMcpPort(value: number): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem('ops-mcpPort', JSON.stringify(Math.round(value)));
+}
+
+/** Bridge-Bearer-token. Default null (nog niet gegenereerd); `server.ensureMcpToken` vult 'm bij eerste start. */
+export function loadMcpToken(): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem('ops-mcpToken');
+  return typeof raw === 'string' && raw ? raw : null;
+}
+
+export function saveMcpToken(value: string): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem('ops-mcpToken', value);
 }

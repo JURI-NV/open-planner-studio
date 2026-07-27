@@ -21,8 +21,10 @@ import { fileHasHourData } from '@/services/subdayIo';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
- *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad). */
-function isActivePristine(s: AppState): boolean {
+ *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad).
+ *  Geëxporteerd omdat de MCP-tool `planner_import_schedule` exact hetzelfde laadpatroon
+ *  moet volgen (spec §Bestands-tools) — één definitie, geen tweede die kan afdrijven. */
+export function isActivePristine(s: AppState): boolean {
   return (
     s.tasks.length === 0 &&
     s.sequences.length === 0 &&
@@ -33,8 +35,9 @@ function isActivePristine(s: AppState): boolean {
 }
 
 /** Kies de juiste XML-reader op basis van inhoudsmarkers (P6 vóór MS Project).
- *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen. */
-function parseProjectXml(content: string) {
+ *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen.
+ *  Geëxporteerd voor `planner_import_schedule` (MCP), dat dezelfde formaatherkenning gebruikt. */
+export function parseProjectXml(content: string) {
   const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
   const isMsProject =
     content.includes('schemas.microsoft.com/project') || content.includes('<Project');
@@ -44,6 +47,11 @@ function parseProjectXml(content: string) {
 }
 
 export type ExportFormat = 'ifc' | 'csv' | 'mspdi' | 'p6';
+
+/** Resultaat van `exportAs` (K7): bij een cyclische planning wordt de export afgebroken vóór de
+ *  opslaan-dialoog en de CPM-cyclusfout (`cpmResult.error`) als boodschap meegegeven, zodat de
+ *  aanroeper die kan tonen i.p.v. stilletjes niets te doen. */
+export type ExportResult = { ok: true } | { ok: false; error: string };
 
 /** Opties voor `applyLoadedProject` — de één gedeelde "vul de actieve document-state met een
  *  geparsed project"-implementatie (audit P5/F6). Elke variant (de drie open-paden + `loadState`)
@@ -75,10 +83,11 @@ export interface FileSlice {
   openFile: () => Promise<void>;
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
-  exportAs: (format: ExportFormat) => Promise<void>;
+  exportAs: (format: ExportFormat) => Promise<ExportResult>;
   /** Exporteer het project + (spec §4) schrijf de gebonden bedrijfs-pool als tweede, LOS bestand
-   *  ernaast. Géén embed. No-op op de pool-kant als het project niet aan een bedrijf gebonden is. */
-  exportProjectWithPool: () => Promise<void>;
+   *  ernaast. Géén embed. No-op op de pool-kant als het project niet aan een bedrijf gebonden is.
+   *  Geeft hetzelfde `ExportResult` terug als `exportAs` — inclusief de K7-cyclusguard. */
+  exportProjectWithPool: () => Promise<ExportResult>;
   /** App-globale MRU-lijst van recente bestanden (spec §6). Async gehydrateerd bij opstart. */
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
@@ -254,7 +263,20 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       await pushRecent(outcome.ref, outcome.name);
     },
 
-    exportAs: async (format: ExportFormat) => {
+    exportAs: async (format: ExportFormat): Promise<ExportResult> => {
+      // K7 (docs/onderhoudbaarheid): alle vier exporters schrijven de CPM-uitvoer
+      // (task.time.earlyStart en afgeleiden) weg naar derden die die datums contractueel lezen.
+      // Een verouderde of cyclische planning mag dus niet stil worden uitgevoerd. Daarom: bij een
+      // stale schema eerst runCPM, en dán expliciet op cpmResult.error controleren vóór de
+      // opslaan-dialoog. Die tweede check is nodig omdat runCPM op zijn EERSTE regel al
+      // scheduleStale=false zet (vóór de solve); bij een cyclus breekt hij af mét cpmResult.error
+      // gezet én task.time nog op de oude waarden — een guard die alleen op scheduleStale kijkt
+      // zou de export in dat geval wél met verouderde datums doorlaten. De guard staat vóór de
+      // eerste await (saveFileDialog), zodat er niets half gebeurt.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
       const state = get();
 
       let content: string;
@@ -296,22 +318,30 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       const outcome = await saveFileDialog(`${state.project.name || 'project'}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
+      return { ok: true };
     },
 
-    exportProjectWithPool: async () => {
+    exportProjectWithPool: async (): Promise<ExportResult> => {
+      // Zelfde K7-guard als `exportAs`: dit pad schrijft óók de CPM-uitvoer weg, dus een stale of
+      // cyclische planning mag hier evenmin stil worden geëxporteerd.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
       const state = get();
       // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
       const projectContent = writeIFC(buildWriteIFCInput(state));
       const base = state.project.name || 'project';
       const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
-      if (!outcome) return;
+      if (!outcome) return { ok: true }; // dialoog geannuleerd — geen fout
       await pushRecent(outcome.ref, outcome.name);
       // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
       const companyId = state.project.companyId;
-      if (!companyId) return;
+      if (!companyId) return { ok: true };
       const poolContent = state.exportPoolIFC(companyId);
-      if (!poolContent) return;
+      if (!poolContent) return { ok: true };
       await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      return { ok: true };
     },
 
     recentFiles: [],

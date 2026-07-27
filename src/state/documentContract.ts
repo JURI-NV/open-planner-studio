@@ -72,22 +72,43 @@ export interface DocumentPayload {
 
 /** Per-document projectdata + metadata om bij crash-recovery te herstellen.
  *  Alleen de IFC-round-trip-velden + identiteit; view/undo/cpm worden vers
- *  opgebouwd (zijn niet kritiek na een crash). */
-export interface RecoveryDocInput {
+ *  opgebouwd (zijn niet kritiek na een crash).
+ *
+ *  AFGELEID van `ImportResult` (bevinding K3), niet meer met de hand opgesomd. De twee lijsten
+ *  waren uit elkaar gelopen: `baselines`/`activeBaselineId` stonden hier wél, maar de recovery-
+ *  leeskant vulde ze niet — en omdat ze optioneel zijn zweeg `tsc`, dus baselines verdwenen STIL
+ *  bij crashherstel terwijl de writer ze gewoon had weggeschreven. Door af te leiden GROEIT dit
+ *  type automatisch MEE met `ImportResult`: een nieuw round-trip-veld kan niet opnieuw stil
+ *  wegvallen. Het verschil met `ImportResult` is uitsluitend de document-identiteit
+ *  (`id`/`filePath`/`isDirty`) — dezelfde les als `buildWriteIFCInput` op de schrijfkant. */
+export type RecoveryDocInput = ImportResult & {
   id: string;
-  project: Project;
-  calendar: WorkCalendar;
-  tasks: Task[];
-  sequences: Sequence[];
-  resources: Resource[];
-  assignments: ResourceAssignment[];
-  resourceCalendars?: WorkCalendar[];
-  activityCodeTypes?: ActivityCodeType[];
-  customFieldDefs?: CustomFieldDef[];
-  baselines?: Baseline[];
-  activeBaselineId?: string | null;
   filePath: string | null;
   isDirty: boolean;
+};
+
+/** Document-identiteit rond een herstelde snapshot: alles wat NIET uit de IFC komt maar uit de
+ *  recovery-metadata (welk tabblad, welk bestand, was het ongewijzigd opgeslagen). */
+export interface RecoveryDocMeta {
+  id: string;
+  filePath: string | null;
+  isDirty: boolean;
+}
+
+/**
+ * Bouw de VOLLEDIGE recovery-invoer uit een geparste snapshot — de leeskant-spiegel van
+ * `buildWriteIFCInput` (`./ifcSaveInput.ts`). Eén plek bepaalt welke velden bij crashherstel
+ * meegaan, zodat de aanroeper (de recovery-hook) geen veldkennis meer heeft en niet opnieuw stil
+ * velden kan laten vallen (bug-klasse K3: de hook somde de velden met de hand op en sloeg
+ * `baselines`/`activeBaselineId` over — beide optioneel, dus `tsc` zweeg en de baselines
+ * verdwenen geruisloos bij crashherstel).
+ *
+ * De spread is hier de hele implementatie: `RecoveryDocInput` ÍS `ImportResult` + identiteit, dus
+ * élk round-trip-veld rijdt automatisch mee, ook velden die er later bij komen. `meta` staat NA
+ * de spread zodat de identiteitsvelden altijd winnen van een gelijknamig veld uit de parser.
+ */
+export function recoveryInputFromParsed(parsed: ImportResult, meta: RecoveryDocMeta): RecoveryDocInput {
+  return { ...parsed, ...meta };
 }
 
 /** Rol van een documentveld in de undo/redo-snapshot. */
@@ -226,25 +247,25 @@ export function freshPayload(): DocumentPayload {
   return out as unknown as DocumentPayload;
 }
 
-/** Verse payload uit herstelde recovery-projectdata (view/undo/cpm worden vers opgebouwd). */
+/** Verse payload uit herstelde recovery-projectdata (view/undo/cpm worden vers opgebouwd).
+ *
+ *  Delegeert naar `payloadFromImport` (bevinding K3): een `RecoveryDocInput` ÍS een `ImportResult`
+ *  + identiteit, dus de veldmapping is exact dezelfde — inclusief de `resourceCalendars`→
+ *  `calendars`-hernoeming en alle `?? []` / `?? null`-defaults. Eén veldlijst i.p.v. twee die uit
+ *  elkaar kunnen lopen. Twee echte verschillen met de import-kant:
+ *
+ *  1. Recovery herstelt een NIET-opgeslagen document, dus `isDirty` komt uit de snapshot-metadata
+ *     in plaats van hard op `false`.
+ *  2. `scheduleStale` gaat op `true`. `freshPayload()` zet hem op `false` met een verse
+ *     `cpmResult: null` — dat klopt voor het ACTIEVE document (dat wordt na herstel doorgerekend),
+ *     maar `documentSlice` gebruikt deze functie óók voor de INACTIEVE documenten bij
+ *     crash-recovery, en `switchDocument` roept nooit `runCPM` aan. Met `false` toont
+ *     `StatusBar` dan geen waarschuwing terwijl er geen kritiek pad en geen float berekend is:
+ *     een planning die er correct uitziet en het niet is. `true` vertelt de waarheid — het
+ *     schema ís nog niet berekend — en laat de gebruiker met F5 verder.
+ */
 export function payloadFromInput(d: RecoveryDocInput): DocumentPayload {
-  return {
-    ...freshPayload(),
-    project: d.project,
-    calendar: d.calendar,
-    tasks: d.tasks,
-    sequences: d.sequences,
-    resources: d.resources,
-    assignments: d.assignments,
-    // RecoveryDocInput draagt de pre-2.8a-naam `resourceCalendars` (recovery-contract).
-    calendars: d.resourceCalendars ?? [],
-    activityCodeTypes: d.activityCodeTypes ?? [],
-    customFieldDefs: d.customFieldDefs ?? [],
-    baselines: d.baselines ?? [],
-    activeBaselineId: d.activeBaselineId ?? null,
-    filePath: d.filePath,
-    isDirty: d.isDirty,
-  };
+  return { ...payloadFromImport(d, d.filePath), isDirty: d.isDirty, scheduleStale: true };
 }
 
 /** Verse payload uit een ingelezen project (IFC/CSV/MSPDI/P6). Alleen de IFC-round-trip-velden

@@ -14,3 +14,8 @@
 .axis-consolidation.mjs
 .header-compress.mjs
 .workday-axis.mjs
+.svg-sanitizer.mjs
+.undo-bound.mjs
+.export-guard.mjs
+.step-strings.mjs
+.recovery-integrity.mjs

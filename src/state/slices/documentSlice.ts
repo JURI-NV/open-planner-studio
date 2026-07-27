@@ -1,4 +1,5 @@
 import type { Project } from '@/types/project';
+import type { AppState } from '../appStore';
 import type { AppSlice } from './types';
 import { generateId } from '@/utils/id';
 import {
@@ -50,6 +51,12 @@ export interface DocumentSlice {
   activeDocumentId: string;
   /** Open een nieuw, leeg document in een eigen tab en maak het actief. Geeft het nieuwe id terug. */
   newDocument: () => string;
+  /** Dupliceer het actieve document naar een nieuwe, actieve kopie (wat-als/variant, MCP-WP4). De
+   *  kopie krijgt genulde `filePath`/`fileHandle` (zodat Ctrl+S het bronbestand niet overschrijft),
+   *  `isDirty = true`, verse lege undo/redo-stacks en lege selectie, en álle muteerbare payload-velden
+   *  worden diep gekloond (geen enkele array/object gedeeld met de bron). Naam: `name` indien
+   *  meegegeven, anders `"<projectnaam> (variant N)"`. Geeft het nieuwe document-id terug. */
+  duplicateDocument: (name?: string) => string;
   /** Wissel naar een ander geopend document. */
   switchDocument: (id: string) => void;
   /** Sluit een document; het laatste sluiten reset naar één leeg document. */
@@ -69,6 +76,39 @@ function documentTitle(filePath: string | null, project: Project): string {
     return base.replace(/\.[^.]+$/, '');
   }
   return project.name || 'Naamloos';
+}
+
+/** Diepe JSON-kloon — zelfde precedent als `snapshot.ts` (de projectdata is JSON-veilig). */
+function deepClone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v)) as T;
+}
+
+/** `"Basis (variant 3)"` → `"Basis"`; een naam zonder variant-suffix blijft ongewijzigd. Zo blijft de
+ *  basisnaam stabiel wanneer je een variant-document opnieuw dupliceert (varianten-van-varianten). */
+const VARIANT_RE = /^(.*) \(variant (\d+)\)$/;
+function variantBaseName(name: string): string {
+  const m = VARIANT_RE.exec(name);
+  return m ? m[1] : name;
+}
+
+/** `"<basis> (variant N)"` met N = laagste vrije nummer ≥ 2 over de open document-projectnamen met
+ *  dezelfde basisnaam. Zo krijgen achtereenvolgende duplicaten variant 2, 3, 4, … en kan
+ *  `list_documents` de varianten onderscheiden. */
+function nextVariantName(sourceName: string, openNames: string[]): string {
+  const base = variantBaseName(sourceName);
+  const used = new Set<number>();
+  for (const nm of openNames) {
+    const m = VARIANT_RE.exec(nm);
+    if (m && m[1] === base) used.add(parseInt(m[2], 10));
+  }
+  let n = 2;
+  while (used.has(n)) n++;
+  return `${base} (variant ${n})`;
+}
+
+/** Projectnamen van álle open documenten (actief live top-level, rest uit de registry). */
+function openProjectNames(s: AppState): string[] {
+  return s.documents.map((d) => (d.id === s.activeDocumentId ? s.project.name : d.payload!.project.name));
 }
 
 const INITIAL_DOC_ID = generateId('doc');
@@ -95,6 +135,61 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
     });
     get().recomputeViewRows();
     emitExtensionEvent(HOST_EVENTS.projectNew);
+    return newId;
+  },
+
+  duplicateDocument: (name) => {
+    // Een documentwissel breekt een lopende coalesce-reeks af (zie switchDocument): de kopie mag niet
+    // stilzwijgend verdergaan op de undo-stap van de bron.
+    resetUndoCoalescing();
+    const source = get();
+    // `outgoing` = de bron per referentie (wordt zo in de registry geparkeerd — identiek aan wat
+    // newDocument/switchDocument doen). `src` lezen we ook als de bron van de kloon.
+    const src = capturePayload(source);
+    const copyName = name ?? nextVariantName(src.project.name, openProjectNames(source));
+    const newId = generateId('doc');
+
+    // Bouw de kopie-payload EXPLICIET — geen stilzwijgende afhankelijkheid van Immer-copy-on-write.
+    // 'clone'-rolvelden + view/collapsedTaskIds worden diep gekloond; selectie/undo/redo starten vers;
+    // filePath/fileHandle genuld; cpmResult/resourceLoadResult ('ref') mogen per referentie mee.
+    const copy: DocumentPayload = {
+      project: { ...deepClone(src.project), name: copyName },
+      calendar: deepClone(src.calendar),
+      tasks: deepClone(src.tasks),
+      sequences: deepClone(src.sequences),
+      resources: deepClone(src.resources),
+      assignments: deepClone(src.assignments),
+      calendars: deepClone(src.calendars),
+      activityCodeTypes: deepClone(src.activityCodeTypes),
+      customFieldDefs: deepClone(src.customFieldDefs),
+      baselines: deepClone(src.baselines),
+      activeBaselineId: src.activeBaselineId,
+      cpmResult: src.cpmResult,
+      resourceLoadResult: src.resourceLoadResult,
+      scheduleStale: src.scheduleStale,
+      selectedTaskIds: [],
+      view: deepClone(src.view),
+      collapsedTaskIds: deepClone(src.collapsedTaskIds),
+      undoStack: [],
+      redoStack: [],
+      filePath: null,
+      fileHandle: null,
+      isDirty: true,
+    };
+
+    set((s) => {
+      const cur = s.documents.find((d) => d.id === s.activeDocumentId);
+      if (cur) cur.payload = src; // bron parkeren (per referentie, net als newDocument/switchDocument)
+      s.documents.push({ id: newId, payload: null });
+      s.activeDocumentId = newId;
+      hydratePayload(s, copy);
+    });
+    get().recomputeViewRows();
+    emitExtensionEvent(HOST_EVENTS.projectLoaded, {
+      tasks: copy.tasks.length,
+      sequences: copy.sequences.length,
+      resources: copy.resources.length,
+    });
     return newId;
   },
 

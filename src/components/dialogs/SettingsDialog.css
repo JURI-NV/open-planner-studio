@@ -46,7 +46,7 @@
 .settings-header span {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-font-scale, 1));
   font-weight: 600;
   color: var(--theme-text);
 }
@@ -54,7 +54,7 @@
 .settings-header .modal-close-btn {
   background: none;
   border: none;
-  font-size: 16px;
+  font-size: calc(16px * var(--ui-font-scale, 1));
   color: var(--theme-text-dim);
   cursor: pointer;
   padding: 0;
@@ -102,7 +102,7 @@
 
 .settings-tab {
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   background: transparent;
   border: none;
   color: var(--theme-text-dim);
@@ -141,7 +141,7 @@
 .settings-section h3 {
   margin: 0 0 8px 0;
   font-family: var(--font-heading);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-font-scale, 1));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -151,7 +151,7 @@
 }
 
 .settings-row {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   color: var(--theme-text);
   margin-bottom: 4px;
 }
@@ -160,7 +160,7 @@
   background: none;
   border: none;
   color: var(--theme-accent-hover);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   padding: 0;
   cursor: pointer;
   text-decoration: none;
@@ -185,7 +185,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   background: transparent;
   color: var(--theme-text);
   cursor: pointer;
@@ -231,7 +231,7 @@
   padding: 6px 20px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
@@ -294,13 +294,13 @@
 }
 
 .scrollzoom-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   color: var(--theme-text);
 }
 
 .scrollzoom-hint {
   margin: 4px 0 0 0;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-font-scale, 1));
   line-height: 1.4;
   color: var(--theme-text-muted);
 }
