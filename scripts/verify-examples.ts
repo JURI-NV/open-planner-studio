@@ -255,7 +255,8 @@ function main() {
       // Fase 2.10 (P1-datafix, golf 4) — showcase-specifieke nivellerings-/schendingsproeven.
       // MIDDEL: "nivellering lost het op" moet aantoonbaar kloppen (headless, echte leveler).
       // GROOT: de datafix moet 0 constraint-violations en 0 out-of-sequence-meldingen opleveren,
-      // mét overallocatie nog steeds zichtbaar (de bedoelde les — leveling lost NIET alles op).
+      // mét overallocatie nog steeds zichtbaar — maar dan wél PRECIES de twee bedoelde knelpunten
+      // (torenkraan + stukadoors), niet meer (zie de boven-/ondergrens hieronder).
       if (spec.slug === 'showcase-rijwoningen-de-akkers') {
         verifyLevelingFullyResolves(extra);
       }
@@ -267,7 +268,15 @@ function main() {
         // speling. Vangnet tegen terugval naar handgeschreven werkdag-indices, die door de
         // feestdag-blinde `offset()` systematisch schijn-uitloop (⇒ negatieve TF) opleveren.
         expect(extra, facts.negFloatAll === 0, `GROOT: ${facts.negFloatAll} taak/taken met negatieve totale speling (verwacht 0 — voltooide keten conform plan)`);
-        expect(extra, facts.overalloc.length > 0, `GROOT: geen overallocatie zichtbaar (verwacht de bedoelde les — nivellering lost niet alles op)`);
+        expect(extra, facts.overalloc.length > 0, `GROOT: geen overallocatie zichtbaar (verwacht de bedoelde knelpunten Torenkraan + Stukadoors)`);
+        // BOVENgrens (naast de ondergrens hierboven): de showcase belooft PRECIES TWEE knelpunten
+        // — de torenkraan (ontwerpdoc §fase 3) en de stukadoorsploeg. Alle overige pools zijn in
+        // showcase-groot.ts op drie parallelle torens gedimensioneerd en horen schoon te blijven.
+        // Zonder deze grens is "de bedoelde 2" niet te onderscheiden van "10 kapotte pools" —
+        // precies hoe de eerdere regressie (10 van de 12 resources overgealloceerd) door de poort
+        // glipte. Faalt zodra een maxUnits/unitsPerDay-wijziging een nieuwe pool laat overlopen.
+        expect(extra, facts.overalloc.length <= 2,
+          `GROOT: ${facts.overalloc.length} overgealloceerde resources (verwacht ≤2 — alleen Torenkraan + Stukadoors): ${facts.overalloc.join(', ')}`);
         // Meerdere kritieke paden zijn een BELOFTE in GROOTs publicDescription, dus hier expliciet
         // per showcase geasserteerd i.p.v. alleen suite-breed. De FREE_FLOAT-peel noemt een keten
         // pas kritiek als élke taak erin kritiek is; voltooide taken zijn dat nooit, dus dit valt

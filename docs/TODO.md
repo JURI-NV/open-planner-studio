@@ -65,21 +65,22 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
   bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
   niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
-- [ ] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
-  resources, terwijl het ontwerpdocument expliciet maar 1 belooft.**
-  `docs/superpowers/specs/2026-07-07-2.10-onderdeel4-showcases-design.md` (Fase 3, ~regel 307) zegt:
-  "een torenkraan die tussen de drie torens moet schuiven geeft de overallocatie, oplosbaar met
-  nivellering" — enkelvoud, alleen de torenkraan. Headless gemeten op het KALE gegenereerde bestand
-  (`examples/showcase-appartementencomplex.ifc`, dus NIET veroorzaakt door de resourcebibliotheken —
-  zie de F1/F2-fixes hierboven van issue #19): 10 van de 12 resources zijn overgealloceerd
-  (Betonvlechters, Timmerlieden, Torenkraan, Gevelbouwer, Liftleverancier, Stukadoors, Tegelzetters,
-  Keukenmonteurs, Installateurs, Schilders — alleen Metselaars/Metselploeg blijven schoon).
-  Vermoedelijk een datapunt in de showcase-generator (`scripts/gen-core.ts`/`showcases.ts`): een te
-  lage `maxUnits` t.o.v. de toegewezen `unitsPerDay` op de parallelle torentaken. `npm run
-  verify:examples` vangt dit niet — de poort checkt voor GROOT alleen `overalloc.length > 0` (zie
-  `scripts/verify-examples.ts`), dus "veel te veel overallocatie" en "precies de bedoelde ene
-  overallocatie" zijn voor die assert niet te onderscheiden. Kandidaat-fix: een bovengrens per
-  showcase (bv. `overalloc.length <= 1` voor GROOT) zou deze regressie wél zichtbaar maken.
+- [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
+  resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
+  Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
+  toren terwijl de drie torens per ontwerp parallel lopen (en de niet-uniforme curves het tempo
+  bovendien op enkele dagen concentreren). Elke pool is nu op de gemeten worst case gezet —
+  3 × de piek van één toren, per toren afzonderlijk gemeten met de echte `computeResourceLoad`:
+  Betonvlechters 4→6, Timmerlieden 4→12, Gevelbouwer 2→6, Liftleverancier 1→3, Tegelzetters 3→15,
+  Keukenmonteurs 2→9, Installateurs 4→18, Schilders 3→15. Torenkraan (1, met capaciteitsstap naar
+  2) en Stukadoors (3) houden bewust hun krappe capaciteit: dat zijn de twee bedoelde knelpunten.
+  Resultaat: 261 → 80 overgealloceerde resource-dagen, 10 → 2 pools; beide resterende knelpunten
+  zijn met de echte nivelleerder volledig oplosbaar (80 → 0 dagen, 0 onopgeloste taken) — vóór de
+  fix bleven er 4 pools zélfs ná nivellering staan. `maxUnits` raakt de CPM-datums niet
+  (resources-design §3), empirisch bevestigd: alle 260 taken houden identieke ES/EF/LS/LF/TF/
+  kritiek-vlaggen en `criticalPaths` blijft 2. De ontbrekende bovengrens is ook gedicht:
+  `scripts/verify-examples.ts` assert nu naast `overalloc.length > 0` óók `<= 2` voor GROOT, met
+  de namen in de foutboodschap; die assert is aantoonbaar rood gezien tegen de oude data.
 
 ### MCP-bridge — robuustheid van de server zelf (2026-07-27)
 
