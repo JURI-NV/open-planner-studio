@@ -116,7 +116,52 @@
     "documentChromeRail": "Separadores verticais",
     "documentChromeSwitcher": "Pílula",
     "dateNotation": "Formato de data",
-    "dateNotationHint": "Determina como as datas são exibidas em todo o aplicativo. Arquivos e cálculos não são afetados."
+    "dateNotationHint": "Determina como as datas são exibidas em todo o aplicativo. Arquivos e cálculos não são afetados.",
+    "aiModeSection": "Modo IA",
+    "aiMode": "Ativar modo IA",
+    "aiModeHint": "Mostra o separador de IA com a ponte MCP, para que assistentes de IA possam trabalhar no seu planeamento através do Model Context Protocol. Desativar interrompe a ponte."
+  },
+  "ai": {
+    "start": "Iniciar ponte",
+    "stop": "Parar ponte",
+    "statusOff": "Desligada",
+    "statusLive": "Ativa na porta {{port}}",
+    "statusPortBusy": "Porta {{port}} ocupada",
+    "statusError": "Erro",
+    "desktopOnly": "A ponte só funciona na aplicação desktop.",
+    "port": "Porta",
+    "portLockedHint": "Só é editável enquanto o servidor estiver parado.",
+    "token": "Token",
+    "showToken": "Mostrar token",
+    "hideToken": "Ocultar token",
+    "copy": "Copiar",
+    "regenerate": "Novo token",
+    "regenerateConfirm": "Gerar um novo token quebra todas as ligações existentes. Continuar?",
+    "connectHint": "Execute isto no Claude Code para ligar a ponte (o token é enviado como cabeçalho Authorization):",
+    "statusDot": "Ponte de IA: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "pauseHint": "As alterações são temporariamente recusadas; a leitura continua a funcionar. A ponte permanece ativa.",
+    "readOnly": "Só leitura",
+    "readOnlyHint": "Todas as ferramentas de alteração são recusadas enquanto isto estiver ativo.",
+    "autoBackupOn": "Cópia de segurança automática: ativada",
+    "autoBackupOff": "Cópia de segurança automática: desativada",
+    "autoBackupHint": "Cria automaticamente uma cópia de segurança IFC antes da primeira alteração da IA por documento.",
+    "backupNow": "Criar cópia de segurança agora",
+    "openFolder": "Abrir pasta de cópias de segurança",
+    "backupOk": "Cópia de segurança criada: {{name}}",
+    "backupErr": "Falha na cópia de segurança: {{error}}",
+    "openErr": "Não foi possível abrir a pasta: {{error}}"
+  },
+  "aiActivity": {
+    "title": "Atividade de IA",
+    "panelButton": "Painel de atividade",
+    "clear": "Limpar",
+    "empty": "Ainda sem atividade de IA. As chamadas da ponte aparecerão aqui.",
+    "args": "Argumentos",
+    "result": "Resposta"
   },
   "confirm": {
     "newProject": "Criar novo projeto? As alterações não guardadas serão perdidas.",

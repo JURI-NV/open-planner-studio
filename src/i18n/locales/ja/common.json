@@ -116,7 +116,52 @@
     "documentChromeRail": "縦タブ",
     "documentChromeSwitcher": "ピル",
     "dateNotation": "日付形式",
-    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。"
+    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。",
+    "aiModeSection": "AIモード",
+    "aiMode": "AIモードを有効にする",
+    "aiModeHint": "MCPブリッジを備えたAIタブを表示し、AIアシスタントがModel Context Protocol経由でスケジュールを操作できるようにします。無効にするとブリッジは停止します。"
+  },
+  "ai": {
+    "start": "ブリッジを開始",
+    "stop": "ブリッジを停止",
+    "statusOff": "オフ",
+    "statusLive": "ポート {{port}} で稼働中",
+    "statusPortBusy": "ポート {{port}} は使用中です",
+    "statusError": "エラー",
+    "desktopOnly": "ブリッジはデスクトップアプリでのみ動作します。",
+    "port": "ポート",
+    "portLockedHint": "サーバーが停止しているときのみ編集できます。",
+    "token": "トークン",
+    "showToken": "トークンを表示",
+    "hideToken": "トークンを隠す",
+    "copy": "コピー",
+    "regenerate": "新しいトークン",
+    "regenerateConfirm": "新しいトークンを生成すると、既存の接続がすべて切断されます。続行しますか？",
+    "connectHint": "ブリッジに接続するには、Claude Codeで次を実行してください（トークンはAuthorizationヘッダーとして送信されます）：",
+    "statusDot": "AIブリッジ: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "一時停止",
+    "resume": "再開",
+    "pauseHint": "変更は一時的に拒否されますが、読み取りは引き続き可能です。ブリッジは稼働したままです。",
+    "readOnly": "読み取り専用",
+    "readOnlyHint": "これが有効な間は、変更を行うツールはすべて拒否されます。",
+    "autoBackupOn": "自動バックアップ: オン",
+    "autoBackupOff": "自動バックアップ: オフ",
+    "autoBackupHint": "ドキュメントごとにAIによる最初の変更の前に、自動的にIFCバックアップを作成します。",
+    "backupNow": "今すぐバックアップ",
+    "openFolder": "バックアップフォルダーを開く",
+    "backupOk": "バックアップを作成しました: {{name}}",
+    "backupErr": "バックアップに失敗しました: {{error}}",
+    "openErr": "フォルダーを開けませんでした: {{error}}"
+  },
+  "aiActivity": {
+    "title": "AIアクティビティ",
+    "panelButton": "アクティビティパネル",
+    "clear": "クリア",
+    "empty": "まだAIアクティビティはありません。ブリッジの呼び出しがここに表示されます。",
+    "args": "引数",
+    "result": "応答"
   },
   "confirm": {
     "newProject": "新しいプロジェクトを作成しますか？保存されていない変更は失われます。",

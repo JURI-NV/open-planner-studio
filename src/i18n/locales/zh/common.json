@@ -116,7 +116,52 @@
     "documentChromeRail": "纵向标签页",
     "documentChromeSwitcher": "胶囊",
     "dateNotation": "日期格式",
-    "dateNotationHint": "决定日期在整个应用中的显示方式。文件和计算不受影响。"
+    "dateNotationHint": "决定日期在整个应用中的显示方式。文件和计算不受影响。",
+    "aiModeSection": "AI 模式",
+    "aiMode": "启用 AI 模式",
+    "aiModeHint": "显示带有 MCP 桥接的 AI 选项卡，让 AI 助手可以通过 Model Context Protocol 处理你的计划。关闭后将停止桥接服务。"
+  },
+  "ai": {
+    "start": "启动桥接",
+    "stop": "停止桥接",
+    "statusOff": "已关闭",
+    "statusLive": "已在端口 {{port}} 上运行",
+    "statusPortBusy": "端口 {{port}} 被占用",
+    "statusError": "错误",
+    "desktopOnly": "桥接功能仅在桌面应用中可用。",
+    "port": "端口",
+    "portLockedHint": "仅在服务器停止时可编辑。",
+    "token": "令牌",
+    "showToken": "显示令牌",
+    "hideToken": "隐藏令牌",
+    "copy": "复制",
+    "regenerate": "生成新令牌",
+    "regenerateConfirm": "生成新令牌会断开所有现有连接。是否继续？",
+    "connectHint": "在 Claude Code 中运行以下命令以连接桥接（令牌会作为 Authorization 请求头传递）：",
+    "statusDot": "AI 桥接：{{status}}"
+  },
+  "aiSafety": {
+    "pause": "暂停",
+    "resume": "恢复",
+    "pauseHint": "修改操作会被临时拒绝；读取仍然可用。桥接服务保持运行。",
+    "readOnly": "只读",
+    "readOnlyHint": "启用此选项时，所有修改类工具都会被拒绝。",
+    "autoBackupOn": "自动备份：开",
+    "autoBackupOff": "自动备份：关",
+    "autoBackupHint": "在每个文档首次被 AI 修改前自动创建 IFC 备份。",
+    "backupNow": "立即备份",
+    "openFolder": "打开备份文件夹",
+    "backupOk": "已创建备份：{{name}}",
+    "backupErr": "备份失败：{{error}}",
+    "openErr": "无法打开文件夹：{{error}}"
+  },
+  "aiActivity": {
+    "title": "AI 活动",
+    "panelButton": "活动面板",
+    "clear": "清除",
+    "empty": "暂无 AI 活动。桥接调用将显示在此处。",
+    "args": "参数",
+    "result": "响应"
   },
   "confirm": {
     "newProject": "创建新项目？未保存的更改将丢失。",
