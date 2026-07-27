@@ -99,7 +99,7 @@
     "scrollModePosition": "Posición",
     "scrollModeModifier": "Teclas",
     "scrollModeDrag": "Zoom + arrastrar",
-    "dragModeHint": "Rueda del ratón = zoom (anclado en el cursor) · Arrastre el fondo del diagrama para desplazar la vista. Arrastrar una barra de tarea sigue moviendo esa barra como de costumbre.",
+    "dragModeHint": "Rueda del ratón = zoom (anclado en el cursor) · Arrastre el fondo del diagrama para desplazar la vista. Arrastrar una barra de tarea sigue moviendo esa barra como de costumbre. · Mayús + rueda desplaza por las filas · Ctrl/⌘ + arrastrar dibuja un cuadro de selección.",
     "screenDivision": "División de pantalla",
     "screenDivisionLeftRight": "Izquierda/derecha",
     "screenDivisionTopBottom": "Arriba/abajo",

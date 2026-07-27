@@ -99,7 +99,7 @@
     "scrollModePosition": "Konum",
     "scrollModeModifier": "Tuşlar",
     "scrollModeDrag": "Yakınlaştır + sürükle",
-    "dragModeHint": "Kaydırma tekerleği = yakınlaştırma (imleç üzerinde sabitlenmiş) · Görünümü kaydırmak için plan arka planını sürükleyin. Görev çubuğunu sürüklemek her zamanki gibi o çubuğu taşır.",
+    "dragModeHint": "Kaydırma tekerleği = yakınlaştırma (imleç üzerinde sabitlenmiş) · Görünümü kaydırmak için plan arka planını sürükleyin. Görev çubuğunu sürüklemek her zamanki gibi o çubuğu taşır. · Shift + tekerlek satırlar arasında kaydırır · Ctrl/⌘ + sürükleme bir seçim çerçevesi çizer.",
     "screenDivision": "Ekran bölümü",
     "screenDivisionLeftRight": "Sol/sağ",
     "screenDivisionTopBottom": "Üst/alt",

@@ -99,7 +99,7 @@
     "scrollModePosition": "Position",
     "scrollModeModifier": "Touches",
     "scrollModeDrag": "Zoom + glisser",
-    "dragModeHint": "Molette = zoom (centré sur le curseur) · Glissez l'arrière-plan du diagramme pour déplacer la vue. Glisser une barre de tâche la déplace comme d'habitude.",
+    "dragModeHint": "Molette = zoom (centré sur le curseur) · Glissez l'arrière-plan du diagramme pour déplacer la vue. Glisser une barre de tâche la déplace comme d'habitude. · Maj + molette fait défiler les lignes · Ctrl/⌘ + glisser trace un cadre de sélection.",
     "screenDivision": "Division de l'écran",
     "screenDivisionLeftRight": "Gauche/droite",
     "screenDivisionTopBottom": "Haut/bas",

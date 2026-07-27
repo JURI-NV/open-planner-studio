@@ -99,7 +99,7 @@
     "scrollModePosition": "位置",
     "scrollModeModifier": "按键",
     "scrollModeDrag": "缩放 + 拖动",
-    "dragModeHint": "滚轮 = 缩放（以光标为中心）· 拖动图表背景以平移视图。拖动任务条仍可正常移动该任务条。",
+    "dragModeHint": "滚轮 = 缩放（以光标为中心）· 拖动图表背景以平移视图。拖动任务条仍可正常移动该任务条。· Shift + 滚轮可滚动行 · Ctrl/⌘ + 拖动可框选。",
     "screenDivision": "屏幕分割",
     "screenDivisionLeftRight": "左/右",
     "screenDivisionTopBottom": "上/下",

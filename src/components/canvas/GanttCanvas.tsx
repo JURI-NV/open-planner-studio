@@ -1341,8 +1341,12 @@ export function GanttCanvas() {
           blijft exact gelijk: zowel de contentbreedte als de zichtbare breedte krimpen met dezelfde
           `taskTableWidth`, dus maxScrollLeft == de `maxScrollX` uit de scroll-bounds in
           `drawPrimary`. De pane-breedte-expressie is bewust identiek aan die van de canvas-container
-          hierboven, zodat de balk exact onder het primaire pane uitlijnt. */}
-      <div className="flex" style={{ height: 14, flexShrink: 0 }}>
+          hierboven, zodat de balk exact onder het primaire pane uitlijnt.
+          `dir="ltr"` is nodig, niet cosmetisch: de renderer kent geen RTL (`isInTaskTable` is
+          simpelweg `canvasX < taskTableWidth`), dus de taaktabel staat in ar/fa óók links. Zonder
+          deze pin spiegelt de spacer naar rechts en ligt de balk juist wél onder de tabel. Het houdt
+          bovendien `scrollLeft` positief-oplopend, zoals `handleHScroll` en het sync-effect aannemen. */}
+      <div className="flex" dir="ltr" style={{ height: 14, flexShrink: 0 }}>
         <div
           className="flex"
           style={{ width: splitView ? `${splitView.ratio * 100}%` : '100%', flexShrink: 0 }}

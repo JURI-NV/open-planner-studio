@@ -71,9 +71,13 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
       // Decide which function this wheel event performs.
       let fn: WheelFunction;
       if (mode === 'drag') {
-        // Drag mode: the wheel always zooms (cursor-anchored), no modifier
-        // needed. Panning is done by dragging the canvas (see GanttCanvas).
-        fn = 'zoom';
+        // Drag mode: the wheel zooms (cursor-anchored), no modifier needed.
+        // Panning is done by dragging the canvas (see GanttCanvas).
+        // Shift+wiel scrolt wél de rijen: sinds issue #22 is dit de STANDAARDmodus, en zonder
+        // deze uitzondering is verticaal scrollen alleen bereikbaar door de chart-achtergrond te
+        // slepen — wat niet werkt vanuit de takentabel (die gaat naar rij-slepen/box-select) en
+        // er is geen verticale scrollbar of sneltoets als alternatief.
+        fn = e.shiftKey ? 'vertical' : 'zoom';
       } else if (mode === 'modifier') {
         if (e.ctrlKey || e.metaKey) fn = map.ctrl;
         else if (e.shiftKey) fn = map.shift;

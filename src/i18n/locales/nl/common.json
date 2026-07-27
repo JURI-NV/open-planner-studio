@@ -99,7 +99,7 @@
     "scrollModePosition": "Positie",
     "scrollModeModifier": "Toetsen",
     "scrollModeDrag": "Zoom + slepen",
-    "dragModeHint": "Scrollwiel = zoomen (gecentreerd op de cursor) · Sleep de achtergrond van de planning om de weergave te verschuiven. Slepen op een taakbalk verplaatst die balk zoals gewoonlijk.",
+    "dragModeHint": "Scrollwiel = zoomen (gecentreerd op de cursor) · Sleep de achtergrond van de planning om de weergave te verschuiven. Slepen op een taakbalk verplaatst die balk zoals gewoonlijk. · Shift + scrollwiel scrollt door de rijen · Ctrl/⌘ + slepen maakt een selectiekader.",
     "screenDivision": "Schermverdeling",
     "screenDivisionLeftRight": "Links/rechts",
     "screenDivisionTopBottom": "Boven/onder",
