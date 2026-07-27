@@ -135,6 +135,9 @@ export function ReportPanel() {
   const [autoFit, setAutoFit] = useState(DEFAULT_REPORT_SETTINGS.autoFit);
   const [customZoom, setCustomZoom] = useState(DEFAULT_REPORT_SETTINGS.customZoom);
   const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>(DEFAULT_REPORT_SETTINGS.paperSize);
+  // K7: reden waarom de laatste export-poging is afgebroken (vandaag alleen een CPM-cyclus).
+  // Tussenstand — bevinding K8 (prioriteitsitem 18) trekt dit samen tot één toast in uiSlice.
+  const [exportError, setExportError] = useState<string | null>(null);
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(DEFAULT_REPORT_SETTINGS.orientation);
   // Bewust NIET persistent: de bedrijfsnaam komt uit het PROJECT (`project.company`). Zie de
   // toelichting bovenin `src/utils/reportSettings.ts` — globaal bewaren zou het bedrijf van het ene
@@ -370,6 +373,23 @@ export function ReportPanel() {
   }, []);
 
   const handleExportPDF = useCallback(async () => {
+    // K7: de PDF-export schrijft CPM-datums naar derden — net als fileSlice.exportAs eerst een
+    // stale schema doorrekenen (via getState, niet via een selector: de guard moet de actuele
+    // store lezen op het klikmoment), en bij een cyclus afbreken zónder te exporteren. De
+    // cpmResult.error-check is apart nodig omdat runCPM `scheduleStale` vóór de solve al op false
+    // zet; een guard op alleen die vlag zou stil met oude task.time-waarden exporteren.
+    if (useAppStore.getState().scheduleStale) useAppStore.getState().runCPM();
+    const cpmError = useAppStore.getState().cpmResult?.error;
+    if (cpmError) {
+      // Zichtbaar maken is hier NIET optioneel: op het Rapport-tabblad is `GanttCanvas` niet
+      // gemonteerd, dus de bestaande cyclus-toast vuurt hier niet en de knop zou anders gewoon
+      // niets doen — precies het stille falen dat bevinding K8 aanklaagt. `cpmResult.error` is
+      // al een vertaalde string, dus dit vraagt geen nieuwe i18n-sleutels.
+      setExportError(cpmError);
+      return;
+    }
+    setExportError(null);
+
     const lowerPaper = paperSize.toLowerCase() as 'a4' | 'a3' | 'a1';
     // Basisrichting van de export-taal: stuurt de bidi in het complexe RTL-tekst-pad van de vector-export.
     const exportBaseDir: 'ltr' | 'rtl' =
@@ -747,6 +767,11 @@ export function ReportPanel() {
           >
             {t('exportPDF', { defaultValue: 'Exporteer PDF' })}
           </button>
+          {exportError && (
+            <div className="text-xs" style={{ color: 'var(--error)' }} role="alert">
+              {exportError}
+            </div>
+          )}
         </div>
       </div>
 

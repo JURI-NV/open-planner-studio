@@ -226,22 +226,6 @@
     "unsaved": "ذخیره‌نشده",
     "scheduleStale": "قدیمی — دوباره محاسبه کنید (F5)"
   },
-  "menuBar": {
-    "file": "فایل",
-    "newProject": "پروژه جدید",
-    "open": "باز کردن...",
-    "saveAs": "ذخیره به عنوان IFC...",
-    "printPreview": "پیش‌نمایش چاپ...",
-    "edit": "ویرایش",
-    "undo": "واگرد",
-    "redo": "باز‌گرد",
-    "view": "نما",
-    "zoomIn": "بزرگ‌نمایی",
-    "zoomOut": "کوچک‌نمایی",
-    "planning": "برنامه‌ریزی",
-    "calculateCPM": "محاسبه",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "بازگشت",
     "recent": "اخیر",
@@ -335,5 +319,12 @@
       "custom": "سفارشی…",
       "none": "بدون تعطیلات"
     }
+  },
+  "commands": {
+    "newProject": "پروژه جدید",
+    "undo": "واگرد",
+    "redo": "باز‌گرد",
+    "zoomIn": "بزرگ‌نمایی",
+    "zoomOut": "کوچک‌نمایی"
   }
 }

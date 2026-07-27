@@ -21,6 +21,14 @@ Een extensie is een ZIP-bestand met twee bestanden — of een los `.js`-bestand 
 
 Categorieën: `Import/Export`, `Planning`, `Reporting`, `Utility`, `Fonts`, `Other`.
 
+`icon` is een inline SVG-string of een emoji. Iconen worden gesaniteerd voordat ze getoond worden
+(`src/utils/sanitizeSvgIcon.ts`): toegestaan zijn de gebruikelijke vorm-, tekst- en verloop-elementen
+met hun geometrie-/stijlattributen. Er uit gaan altijd `script`, `foreignObject`, `use`, `image`,
+`animate`, `set` en `a`, plus elk `on…`-attribuut, `href`/`xlink:href`, `style` en verwijzingen naar
+buiten het document (`url(https://…)`). De SVG moet welgevormde XML zijn (één wortel, alles gesloten);
+lukt het parsen niet of blijft er niets zichtbaars over, dan toont de app het standaardicoon.
+Gebruik `currentColor` voor `fill`/`stroke` zodat het icoon met het thema meekleurt.
+
 ### Permissies
 
 | Permissie | Afdwinging | Betekenis |

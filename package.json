@@ -2,6 +2,7 @@
   "name": "open-planner-studio",
   "private": true,
   "version": "2026.7.12",
+  "license": "LGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",

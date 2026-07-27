@@ -226,22 +226,6 @@
     "unsaved": "غير محفوظ",
     "scheduleStale": "قديم — أعد الحساب (F5)"
   },
-  "menuBar": {
-    "file": "ملف",
-    "newProject": "مشروع جديد",
-    "open": "فتح...",
-    "saveAs": "حفظ كـ IFC...",
-    "printPreview": "معاينة الطباعة...",
-    "edit": "تعديل",
-    "undo": "تراجع",
-    "redo": "إعادة",
-    "view": "العرض",
-    "zoomIn": "تكبير",
-    "zoomOut": "تصغير",
-    "planning": "التخطيط",
-    "calculateCPM": "حساب",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "رجوع",
     "recent": "الأخيرة",
@@ -335,5 +319,12 @@
       "custom": "مخصص…",
       "none": "بدون عطل رسمية"
     }
+  },
+  "commands": {
+    "newProject": "مشروع جديد",
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير"
   }
 }

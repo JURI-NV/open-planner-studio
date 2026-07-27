@@ -226,22 +226,6 @@
     "unsaved": "Kaydedilmedi",
     "scheduleStale": "Güncel değil — yeniden hesaplayın (F5)"
   },
-  "menuBar": {
-    "file": "Dosya",
-    "newProject": "Yeni proje",
-    "open": "Aç...",
-    "saveAs": "IFC olarak kaydet...",
-    "printPreview": "Baskı önizleme...",
-    "edit": "Düzenle",
-    "undo": "Geri al",
-    "redo": "Yinele",
-    "view": "Görünüm",
-    "zoomIn": "Yakınlaştır",
-    "zoomOut": "Uzaklaştır",
-    "planning": "Planlama",
-    "calculateCPM": "Hesapla",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Geri",
     "recent": "Son açılanlar",
@@ -335,5 +319,12 @@
       "custom": "Özel…",
       "none": "Tatil yok"
     }
+  },
+  "commands": {
+    "newProject": "Yeni proje",
+    "undo": "Geri al",
+    "redo": "Yinele",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır"
   }
 }

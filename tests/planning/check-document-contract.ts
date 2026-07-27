@@ -7,7 +7,10 @@
 //      over `DOCUMENT_FIELDS`, dus een nieuw contract-veld wordt automatisch mee-getest.
 //  (b) UNDO/REDO-RESTORE over de snapshot-subset — óók key-gedreven over de 'clone'/'ref'-velden.
 //  (c) B3-REGRESSIE: setWbsAutoNumber(aan) → undo → vlag ÉN nummering terug.
-//  (d) RECOVERY-ROUND-TRIP via payloadFromInput/restoreDocuments (incl. resourceCalendars→calendars).
+//  (d) RECOVERY-ROUND-TRIP via payloadFromInput/restoreDocuments (incl. resourceCalendars→calendars),
+//      plus de K3-keten: baselines + activeBaselineId moeten de HELE crashherstel-keten overleven
+//      (echte store → buildWriteIFCInput/writeIFC → readIFC → recoveryInputFromParsed →
+//      restoreDocuments; alle schakels productiecode).
 //  (h) PROJECT-MUTATORS (pakket H): elke project-mutator pusht precies één undo-stap bij een echte
 //      wijziging en géén bij een no-op; undo/redo herstelt project + kalender-cache consistent, en
 //      een undo van een taakbewerking laat de statusdatum staan (de oude B3-reden, omgekeerd).
@@ -18,6 +21,7 @@ import {
   DOCUMENT_FIELDS,
   capturePayload,
   payloadFromInput,
+  recoveryInputFromParsed,
   type DocumentPayload,
   type RecoveryDocInput,
 } from '@/state/documentContract';
@@ -25,7 +29,11 @@ import { createSnapshot, type Snapshot } from '@/state/snapshot';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { parseFlexibleDate } from '@/components/common/DateTextInput';
+import { buildWriteIFCInput } from '@/state/ifcSaveInput';
+import { writeIFC } from '@/services/ifc/ifcWriter';
+import { readIFC } from '@/services/ifc/ifcReader';
 import type { Task } from '@/types/task';
+import type { Baseline } from '@/types/baseline';
 
 const S = () => useAppStore.getState();
 const diffs: string[] = [];
@@ -242,6 +250,65 @@ const p = payloadFromInput(inA);
 eq('d payloadFromInput: calendars uit resourceCalendars', p.calendars.map(c => c.id), ['cal-rec']);
 eq('d payloadFromInput: cpmResult vers null', p.cpmResult, null);
 eq('d payloadFromInput: undoStack vers leeg', p.undoStack.length, 0);
+
+// ── (d-K3) BASELINES OVERLEVEN DE HELE CRASHHERSTEL-KETEN ────────────────────────────────────
+// Bevinding K3: `useRecoveryRestore` bouwde de RecoveryDocInput met een HANDMATIGE veldopsomming
+// die `baselines`/`activeBaselineId` oversloeg. Beide zijn optioneel ⇒ `tsc` zweeg, de auto-save
+// schreef ze wél weg, en `payloadFromInput` zou ze wél doorzetten — ze werden dus op de LAATSTE
+// meter weggegooid. Verzwarend: na herstel staat isDirty op true, dus de eerstvolgende Ctrl+S
+// overschreef het origineel met het baseline-loze project.
+//
+// Deze check draait de VOLLEDIGE keten, niet alleen payloadFromInput: echte store → echte
+// buildWriteIFCInput/writeIFC (exact wat de auto-save doet) → echte readIFC → echte
+// recoveryInputFromParsed (exact wat de recovery-hook doet) → restoreDocuments. Elke schakel is
+// productiecode, geen replica — een veld dat érgens in die keten wegvalt, valt hier ook weg.
+S().newProject();
+S().setProject({ name: 'K3-project', startDate: '2031-03-03' });
+const kT1 = S().addTask({ name: 'K3 A' });
+const kT2 = S().addTask({ name: 'K3 B' });
+S().addSequence({ predecessorId: kT1, successorId: kT2, type: 'FINISH_START' });
+S().runCPM();
+S().saveBaseline('K3-nulmeting');
+// Momentopname vóór de round-trip; taak-id's worden bij het inlezen opnieuw gegenereerd (en de
+// baseline-taskId's meegeremapt), dus vergelijken we de INHOUD op naam/datums, niet op id.
+const kBlBefore = JSON.parse(JSON.stringify(S().baselines[0])) as Baseline;
+truthy('d K3 setup: baseline heeft taken', kBlBefore.tasks.length === 2);
+const kActiveBefore = S().activeBaselineId;
+
+const kIfc = writeIFC(buildWriteIFCInput(S()));
+const kParsed = readIFC(kIfc);
+// Exact het productiepad: de hook bouwt de recovery-invoer met deze functie, geen replica hier.
+const kInput: RecoveryDocInput = recoveryInputFromParsed(kParsed, { id: 'k3-doc', filePath: '/tmp/k3.ifc', isDirty: true });
+S().restoreDocuments([kInput], 'k3-doc');
+
+eq('d K3 keten: precies één baseline overleeft write→read→restore', S().baselines.length, 1);
+// Bewust defensief uitgelezen (`?.` / `?? []`): valt de baseline weg — precies de K3-bug — dan
+// moet deze sectie NETTE afwijkingen rapporteren, niet crashen op `undefined.name`.
+const kBlAfter: Baseline | undefined = S().baselines[0];
+const kTasksAfter = kBlAfter?.tasks ?? [];
+const kBarDates = (bts: Baseline['tasks']) =>
+  bts.map(({ start, finish, duration, isMilestone }) => ({ start, finish, duration, isMilestone }));
+eq('d K3 keten: baseline-naam overleeft', kBlAfter?.name, 'K3-nulmeting');
+eq('d K3 keten: baseline-id overleeft (JSON-pset is autoritair)', kBlAfter?.id, kBlBefore.id);
+eq('d K3 keten: activeBaselineId overleeft', S().activeBaselineId, kActiveBefore);
+truthy('d K3 keten: activeBaselineId wijst naar een BESTAANDE baseline',
+  S().activeBaselineId !== null && S().baselines.some(b => b.id === S().activeBaselineId));
+// INHOUD, niet alleen `length > 0`: een lege baseline-array zou anders vacuüm groen zijn.
+eq('d K3 keten: aantal baseline-taken', kTasksAfter.length, kBlBefore.tasks.length);
+eq('d K3 keten: baseline-taakdatums/-duren overleven', kBarDates(kTasksAfter), kBarDates(kBlBefore.tasks));
+truthy('d K3 keten: baseline-taakdatums zijn echt gevuld (geen lege strings)',
+  kTasksAfter.length > 0 &&
+  kTasksAfter.every(bt => /^\d{4}-\d{2}-\d{2}/.test(bt.start) && /^\d{4}-\d{2}-\d{2}/.test(bt.finish)));
+truthy('d K3 keten: baseline-taskId\'s zijn geremapt naar de HERSTELDE taken',
+  kTasksAfter.length > 0 && kTasksAfter.every(bt => S().tasks.some(t => t.id === bt.taskId)));
+eq('d K3 keten: projectDuration van de baseline overleeft', kBlAfter?.projectDuration, kBlBefore.projectDuration);
+
+// Contract-eenheidscheck op de tweede helft van de mapping: baselines uit de recovery-invoer
+// moeten ook in de document-payload landen (vangt een regressie IN `payloadFromInput`).
+const kPayload = payloadFromInput(kInput);
+eq('d K3 payloadFromInput: baselines doorgezet', kPayload.baselines.length, 1);
+eq('d K3 payloadFromInput: activeBaselineId doorgezet', kPayload.activeBaselineId, kActiveBefore);
+truthy('d K3 payloadFromInput: baseline-inhoud doorgezet', (kPayload.baselines[0]?.tasks.length ?? 0) === 2);
 
 // Snapshot-vorm sanity: undoStack draagt `Snapshot`-objecten met het VOLLEDIGE project (pakket H).
 S().newProject();

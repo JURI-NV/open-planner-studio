@@ -18,6 +18,7 @@ import { ExportFormat } from '@/state/appStore';
 import { supportsHandles } from '@/services/fileAccess';
 import { formatDate } from '@/utils/dateUtils';
 import { DateTextInput } from '@/components/common/DateTextInput';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type TimeScale } from '@/state/slices/types';
 import type { ResourceCurve } from '@/types/resource';
@@ -381,7 +382,14 @@ export function ExportDropdown() {
           }}
           onMouseOver={e => (e.currentTarget.style.background = 'var(--theme-hover)')}
           onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-          onClick={() => { exportAs(f.format); setOpen(false); }}
+          onClick={() => {
+            // K7: exportAs geeft sinds deze wijziging een resultaat terug. Op dit tabblad is
+            // GanttCanvas gemonteerd, dus bij een cyclus (ok===false) vuurt daar al de
+            // cyclus-toast — bewust géén tweede meldmechanisme hier. Tussenstand: K8 trekt het
+            // foutkanaal samen tot één toast in uiSlice. Popover direct dicht, vóór de dialoog.
+            void exportAs(f.format);
+            setOpen(false);
+          }}
         >
           {f.label}
         </button>
@@ -416,10 +424,14 @@ export function ExtensionRibbonGroups({ tab }: { tab: RibbonTab }) {
               <RibbonButton
                 key={`${b.extensionId}:${b.label}`}
                 label={b.label}
+                // K6a: ribbon-iconen komen uit draaiende extensiecode — hygiëne, maar loopt
+                // langs dezelfde sanitizer als de manifest-iconen.
                 icon={
-                  b.icon
-                    ? <span style={{ display: 'inline-flex', width: 20, height: 20 }} dangerouslySetInnerHTML={{ __html: b.icon }} />
-                    : <Puzzle size={20} />
+                  <ExtensionIcon
+                    raw={b.icon}
+                    fallback={<Puzzle size={20} />}
+                    style={{ display: 'inline-flex', width: 20, height: 20 }}
+                  />
                 }
                 onClick={b.onClick}
               />

@@ -35,16 +35,44 @@ import type { AppState } from './appStore';
 
 /**
  * Coalesce-marker (pakket H): welke keyed mutatie pushte als laatste een snapshot, bij welke
- * undo-stack-diepte en in welk document. Bewust MODULE-state en geen store-state: het is puur een
+ * push-volgnummer en in welk document. Bewust MODULE-state en geen store-state: het is puur een
  * bewerkings-"sessie"-hint en hoort niet in het documentcontract/de snapshot thuis.
  *
- * Bewaking = key + stackdiepte + document. Elke ándere mutatie pusht een snapshot (diepte wijzigt
- * ⇒ mismatch) én zet de marker op `null` (geen key). `undo`/`redo` en een documentwissel wissen hem
- * expliciet — nodig omdat een undo+redo de diepte weer op dezelfde waarde kan brengen.
- * (Referentievergelijking op de bovenste snapshot kan hier NIET: binnen een Immer-producer levert
- * `s.undoStack[n]` een draft-proxy op i.p.v. het oorspronkelijke object.)
+ * Bewaking = key + volgnummer + document. Elke ándere mutatie pusht een snapshot (volgnummer
+ * wijzigt ⇒ mismatch) én zet de marker op `null` (geen key). `undo`/`redo` en een documentwissel
+ * wissen hem expliciet.
+ *
+ * De bewaking was hiervoor de STACKDIEPTE (`undoStack.length`). Dat kan niet meer sinds de stack
+ * op `MAX_UNDO` begrensd is: zodra het plafond bereikt is blijft de diepte constant bij elke
+ * push, waardoor een volgende bewerking met dezelfde key ten onrechte als voortzetting zou gelden
+ * en twee losse bewerkingen tot één undo-stap zouden versmelten. Een monotone teller heeft dat
+ * probleem niet. (Referentievergelijking op de bovenste snapshot kan hier NIET: binnen een
+ * Immer-producer levert `s.undoStack[n]` een draft-proxy op i.p.v. het oorspronkelijke object.)
  */
-let coalesce: { key: string; len: number; docId: string } | null = null;
+let coalesce: { key: string; seq: number; docId: string } | null = null;
+
+/**
+ * Bovengrens op de undo-historie. `createSnapshot` deep-cloont de 'clone'-velden bij ELKE
+ * bewerking; de eigen prestatie-audit meet ~4,95 MB per snapshot bij 5.000 taken. Zwaarder weegt
+ * dat `undoStack`/`redoStack` ÍN het documentcontract zitten: élk inactief geopend document houdt
+ * zijn volledige historie vast, dus het geheugen schaalt als bewerkingen × projectgrootte × open
+ * documenten. Zonder grens groeit dat onbeperkt.
+ */
+export const MAX_UNDO = 100;
+
+/** Monotoon volgnummer over alle undo-pushes — de identiteit van de coalescing-reeks (zie boven). */
+let undoSeq = 0;
+
+/**
+ * Push een snapshot op de undo-stack en houd de historie begrensd: bij overschrijding valt de
+ * OUDSTE stap eruit. Enige plek waar op `undoStack` gepusht wordt, zodat de grens en het
+ * volgnummer niet per callsite opnieuw onderhouden hoeven te worden.
+ */
+export function pushUndoSnapshot(s: AppState, base: AppState = s): void {
+  s.undoStack.push(createSnapshot(base));
+  if (s.undoStack.length > MAX_UNDO) s.undoStack.shift();
+  undoSeq++;
+}
 
 /** Wis de coalesce-marker: de eerstvolgende `beginUndoable` pusht gegarandeerd een verse snapshot.
  *  Verplicht ná undo/redo en bij een documentwissel (zie de marker-docstring). */
@@ -87,7 +115,7 @@ export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): voi
   // de individuele mutators mogen er dan géén pushen. Early-return vóór álle snapshot-/coalesce-logica.
   if (mcpTransactionActive) return;
   const key = opts?.coalesceKey;
-  if (key && coalesce && coalesce.key === key && coalesce.len === s.undoStack.length && coalesce.docId === s.activeDocumentId) {
+  if (key && coalesce && coalesce.key === key && coalesce.seq === undoSeq && coalesce.docId === s.activeDocumentId) {
     // Voortzetting van dezelfde bewerking: de bestaande snapshot dekt de begintoestand al.
     if (s.redoStack.length) s.redoStack = [];
     return;
@@ -100,9 +128,9 @@ export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): voi
   // draft op dit punt — dezelfde kloon-inhoud, alleen plain i.p.v. proxied. `?? s` is een defensieve
   // terugval (zou `original` ooit undefined geven), die alleen de oude, tragere vorm herstelt.
   const base = (original(s) as AppState | undefined) ?? s;
-  s.undoStack.push(createSnapshot(base));
+  pushUndoSnapshot(s, base);
   s.redoStack = [];
-  coalesce = key ? { key, len: s.undoStack.length, docId: s.activeDocumentId } : null;
+  coalesce = key ? { key, seq: undoSeq, docId: s.activeDocumentId } : null;
 }
 
 /**

@@ -3,7 +3,7 @@ import { useAppStore } from '@/state/appStore';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { documentTitle } from '@/utils/documents';
 import type { RecoveryEntry } from '@/components/dialogs/RecoveryDialog';
-import type { RecoveryDocInput } from '@/state/slices/documentSlice';
+import { recoveryInputFromParsed, type RecoveryDocInput } from '@/state/documentContract';
 import { loadRecovery, clearRecovery } from '@/services/recovery/recoveryStore';
 
 // In-app herstel-dialoog (vervangt de native OS-`ask()`): de gedetecteerde
@@ -60,14 +60,13 @@ export function useRecoveryRestore(): RecoveryRestore {
         for (const d of loaded.docs) {
           try {
             const parsed = readIFC(d.ifc);
-            restored.push({
+            // Welke velden bij crashherstel meegaan bepaalt `recoveryInputFromParsed` (bevinding
+            // K3) — deze hook houdt bewust geen veldkennis.
+            restored.push(recoveryInputFromParsed(parsed, {
               id: d.id,
-              project: parsed.project, calendar: parsed.calendar, tasks: parsed.tasks,
-              sequences: parsed.sequences, resources: parsed.resources, assignments: parsed.assignments,
-              activityCodeTypes: parsed.activityCodeTypes, customFieldDefs: parsed.customFieldDefs,
-              resourceCalendars: parsed.resourceCalendars,
-              filePath: d.filePath, isDirty: d.isDirty,
-            });
+              filePath: d.filePath,
+              isDirty: d.isDirty,
+            }));
             entries.push({
               id: d.id,
               name: documentTitle(d.filePath, parsed.project.name),

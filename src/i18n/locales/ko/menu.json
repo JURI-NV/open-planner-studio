@@ -226,22 +226,6 @@
     "unsaved": "저장되지 않음",
     "scheduleStale": "오래됨 — 다시 계산하세요 (F5)"
   },
-  "menuBar": {
-    "file": "파일",
-    "newProject": "새 프로젝트",
-    "open": "열기...",
-    "saveAs": "IFC로 저장...",
-    "printPreview": "인쇄 미리보기...",
-    "edit": "편집",
-    "undo": "실행 취소",
-    "redo": "다시 실행",
-    "view": "보기",
-    "zoomIn": "확대",
-    "zoomOut": "축소",
-    "planning": "계획",
-    "calculateCPM": "계산",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "뒤로",
     "recent": "최근",
@@ -335,5 +319,12 @@
       "custom": "사용자 지정…",
       "none": "공휴일 없음"
     }
+  },
+  "commands": {
+    "newProject": "새 프로젝트",
+    "undo": "실행 취소",
+    "redo": "다시 실행",
+    "zoomIn": "확대",
+    "zoomOut": "축소"
   }
 }

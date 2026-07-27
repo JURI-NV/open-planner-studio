@@ -226,22 +226,6 @@
     "unsaved": "Niet opgeslagen",
     "scheduleStale": "Verouderd — herbereken (F5)"
   },
-  "menuBar": {
-    "file": "Bestand",
-    "newProject": "Nieuw project",
-    "open": "Openen...",
-    "saveAs": "Opslaan als IFC...",
-    "printPreview": "Afdrukvoorbeeld...",
-    "edit": "Bewerken",
-    "undo": "Ongedaan maken",
-    "redo": "Opnieuw",
-    "view": "Beeld",
-    "zoomIn": "Inzoomen",
-    "zoomOut": "Uitzoomen",
-    "planning": "Planning",
-    "calculateCPM": "Bereken",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Terug",
     "recent": "Recent",
@@ -335,5 +319,12 @@
       "custom": "Aangepast…",
       "none": "Geen feestdagen"
     }
+  },
+  "commands": {
+    "newProject": "Nieuw project",
+    "undo": "Ongedaan maken",
+    "redo": "Opnieuw",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen"
   }
 }
