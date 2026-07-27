@@ -1,14 +1,14 @@
 // Audit-bevinding S — RUNTIME-schemavalidatie in de dispatcher.
 //
 // Vóór deze laag riep `dispatcher.ts` de handler aan ZONDER de `inputSchema` ooit te raadplegen: elke
-// `type`, `enum`, `required`, `minimum`, `pattern` en `additionalProperties` in de 33 schema's ging
+// `type`, `enum`, `required`, `minimum`, `pattern` en `additionalProperties` in de schema's ging
 // wél mee in `tools/list` (waar de AI zich erop verlaat) maar werd nergens afgedwongen. Alles wat een
 // tool niet zélf hercontroleerde, gleed erdoor.
 //
 // Deze suite draait via `handleMcpMessage` — de ECHTE dispatch-weg, niet `def.handler(...)` — want de
 // poort zit daar. Getest wordt (a) de validator zelf op elk ondersteund trefwoord, (b) dat de poort in
 // de dispatcher zit en een VALIDATION-tool-fout oplevert vóór enige mutatie, en (c) dat geen enkel
-// van de 33 schema's een trefwoord gebruikt dat de validator niet kent (anders belooft `tools/list`
+// van de schema's een trefwoord gebruikt dat de validator niet kent (anders belooft `tools/list`
 // opnieuw iets dat runtime niet waargemaakt wordt).
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import { validateToolArgs, unsupportedKeywords } from '@/services/mcp/schemaValidate';
@@ -214,7 +214,12 @@ test('dispatcher: een GELDIGE call passeert de poort ongehinderd', async () => {
 
 // =================================================================================================
 // 3) Schema-dekking over ALLE 38 tools
-// ==========================================================================================  const offenders: string[] = [];
+// =================================================================================================
+test('alle 38 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
+  registerAllTools();
+  const tools = getTools();
+  assert(tools.length === 38, `verwachtte 38 tools, kreeg ${tools.length}`);
+  const offenders: string[] = [];
   for (const t of tools) {
     const unknown = unsupportedKeywords(t.inputSchema);
     if (unknown.length > 0) offenders.push(`${t.name}: ${unknown.join(', ')}`);
