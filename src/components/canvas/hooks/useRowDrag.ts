@@ -39,6 +39,12 @@ interface UseRowDragOptions {
   rows: ViewRow[];
   tasksById: Map<string, Task>;
   moveTaskTo: (id: string, target: DropTarget) => void;
+  /** Issue #26 (vervolgmelding): de huidige selectie. Sleep je een rij die daar deel van uitmaakt
+   *  én telt de selectie meer dan één taak, dan verhuist de HELE groep (`moveTasksTo`) — op het
+   *  canvas is een meervoudige selectie extra gewoon door de box-select. Sleep je een
+   *  niet-geselecteerde rij, dan verhuist alleen die rij. Identiek aan de tabel (useTableRowDrag). */
+  selectedTaskIds: string[];
+  moveTasksTo: (ids: string[], target: DropTarget) => void;
   /** Gedeelde vlag met de click-handler: onderdrukt de eerstvolgende click ná een rijsleep
    *  (zelfde patroon als `justBoxSelectedRef`). */
   justRowDraggedRef: RefObject<boolean>;
@@ -53,7 +59,7 @@ interface UseRowDragOptions {
 // window-listeners, gespiegeld aan `useBoxSelect`. De mutatie (`moveTaskTo`) gebeurt uitsluitend
 // bij mouseup, nooit tijdens het slepen zelf — dus één aanroep = één undo-stap, geen coalescing
 // nodig (zie ontwerp-B §4/§5).
-export function useRowDrag({ canvasRef, rendererRef, rows, tasksById, moveTaskTo, justRowDraggedRef, headerHeight }: UseRowDragOptions) {
+export function useRowDrag({ canvasRef, rendererRef, rows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo, justRowDraggedRef, headerHeight }: UseRowDragOptions) {
   const [rowDragCandidate, setRowDragCandidate] = useState<RowDragCandidate | null>(null);
   const [rowDragState, setRowDragState] = useState<RowDragState | null>(null);
 
@@ -126,7 +132,11 @@ export function useRowDrag({ canvasRef, rendererRef, rows, tasksById, moveTaskTo
 
     const handleMouseUp = () => {
       if (rowDragState.dropTarget) {
-        moveTaskTo(rowDragState.taskId, rowDragState.dropTarget);
+        // Onderdeel van een meervoudige selectie ⇒ de hele groep mee (issue #26-vervolgmelding);
+        // anders exact het oude pad. `moveTasksTo` doet de groep in één undo-stap.
+        const groepssleep = selectedTaskIds.length > 1 && selectedTaskIds.includes(rowDragState.taskId);
+        if (groepssleep) moveTasksTo(selectedTaskIds, rowDragState.dropTarget);
+        else moveTaskTo(rowDragState.taskId, rowDragState.dropTarget);
       }
       // Geen geldig doel (bv. cykel, buiten de lijst) ⇒ stille no-op — de store-actie zelf guardt
       // cykels ook al, dus dit is een dubbele bodem, geen enige bescherming.
@@ -163,7 +173,7 @@ export function useRowDrag({ canvasRef, rendererRef, rows, tasksById, moveTaskTo
       window.removeEventListener('keydown', handleKeyDown, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowDragState, moveTaskTo, justRowDraggedRef]);
+  }, [rowDragState, moveTaskTo, moveTasksTo, selectedTaskIds, justRowDraggedRef]);
 
   return {
     rowDragCandidate,
