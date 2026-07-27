@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, FileText, FolderOpen, Clock, Save, SaveAll, Download,
@@ -7,7 +7,7 @@ import {
 import { useAppStore, ExportFormat } from '@/state/appStore';
 import { BackstageSection } from '@/state/slices/types';
 import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent';
-import { DateTextInput } from '@/components/common/DateTextInput';
+import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/components/settings/ProjectInfoPanelContent';
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
 import { LibrarySection } from './LibrarySection';
@@ -414,20 +414,7 @@ function PrintSection({ onClose }: { onClose: () => void }) {
 function ProjectInfoSection({ onApply }: { onApply: () => void }) {
   const { t: tMenu } = useTranslation('menu');
   const { t: tCommon } = useTranslation('common');
-  const project = useAppStore(s => s.project);
-  const setProject = useAppStore(s => s.setProject);
-
-  const [name, setName] = useState(project.name);
-  const [description, setDescription] = useState(project.description);
-  const [author, setAuthor] = useState(project.author);
-  const [company, setCompany] = useState(project.company);
-  const [startDate, setStartDate] = useState(project.startDate);
-  const [endDate, setEndDate] = useState(project.endDate);
-
-  const apply = () => {
-    setProject({ name, description, author, company, startDate, endDate });
-    onApply();
-  };
+  const panelRef = useRef<ProjectInfoPanelContentHandle>(null);
 
   return (
     <>
@@ -435,40 +422,10 @@ function ProjectInfoSection({ onApply }: { onApply: () => void }) {
       <p className="backstage-subtitle">{tMenu('backstage.projectInfoSubtitle')}</p>
 
       <div className="backstage-form">
-        <div className="backstage-form-row">
-          <label>{tMenu('backstage.name')}</label>
-          <input value={name} onChange={e => setName(e.target.value)} />
-        </div>
-
-        <div className="backstage-form-row">
-          <label>{tMenu('backstage.description')}</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} />
-        </div>
-
-        <div className="backstage-form-grid-2">
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.author')}</label>
-            <input value={author} onChange={e => setAuthor(e.target.value)} />
-          </div>
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.company')}</label>
-            <input value={company} onChange={e => setCompany(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="backstage-form-grid-2">
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.startDate')}</label>
-            <DateTextInput value={startDate} onCommit={setStartDate} ariaLabel={tMenu('backstage.startDate')} />
-          </div>
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.endDate')}</label>
-            <DateTextInput value={endDate} onCommit={setEndDate} ariaLabel={tMenu('backstage.endDate')} />
-          </div>
-        </div>
+        <ProjectInfoPanelContent ref={panelRef} mode="edit" onDone={onApply} />
 
         <div className="backstage-actions">
-          <button className="btn btn--primary" onClick={apply}>{tCommon('apply')}</button>
+          <button className="btn btn--primary" onClick={() => panelRef.current?.submit()}>{tCommon('apply')}</button>
         </div>
       </div>
     </>

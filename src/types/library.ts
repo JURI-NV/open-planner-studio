@@ -46,11 +46,11 @@ export interface CompanyLibrary {
   pools: Record<string, CompanyPool>; // key = companyId
 }
 
-/** Vaste id van het automatische standaardbedrijf (spec §2, "Mijn bedrijf"). */
+/** Vaste id van de automatische standaard-resourcebibliotheek (spec §2, "Mijn resourcebibliotheek"). */
 export const DEFAULT_COMPANY_ID = 'company-default';
 
 export function createDefaultCompany(): Company {
-  return { id: DEFAULT_COMPANY_ID, name: 'Mijn bedrijf' };
+  return { id: DEFAULT_COMPANY_ID, name: 'Mijn resourcebibliotheek' };
 }
 
 export function createEmptyPool(company: Company): CompanyPool {

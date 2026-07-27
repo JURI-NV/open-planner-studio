@@ -295,6 +295,7 @@
     "notInCompany": "ライブラリにはもう存在しません",
     "linkedCompany": "リソースライブラリ",
     "noCompanyLinked": "なし(単独プロジェクト)",
+    "addNewOption": "+ 新しいリソースライブラリ…",
     "clientOrg": "発注者/組織",
     "companyView": "ライブラリ",
     "projectView": "プロジェクト",

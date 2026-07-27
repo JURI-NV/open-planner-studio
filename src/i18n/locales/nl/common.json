@@ -297,6 +297,7 @@
     "notInCompany": "niet meer in de bibliotheek",
     "linkedCompany": "Resourcebibliotheek",
     "noCompanyLinked": "geen bibliotheek (los project)",
+    "addNewOption": "+ Nieuwe resourcebibliotheek…",
     "clientOrg": "Opdrachtgever/organisatie",
     "companyView": "Bibliotheek",
     "projectView": "Project",

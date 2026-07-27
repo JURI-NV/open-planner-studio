@@ -295,6 +295,7 @@
     "notInCompany": "资源库中已不存在",
     "linkedCompany": "资源库",
     "noCompanyLinked": "无(独立项目)",
+    "addNewOption": "+ 新建资源库…",
     "clientOrg": "委托方/组织",
     "companyView": "资源库",
     "projectView": "项目",

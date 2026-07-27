@@ -297,6 +297,7 @@
     "notInCompany": "ya no está en la biblioteca",
     "linkedCompany": "Biblioteca de recursos",
     "noCompanyLinked": "ninguna (proyecto independiente)",
+    "addNewOption": "+ Nueva biblioteca de recursos…",
     "clientOrg": "Cliente/organización",
     "companyView": "Biblioteca",
     "projectView": "Proyecto",

@@ -301,6 +301,7 @@
     "notInCompany": "nie ma już w bibliotece",
     "linkedCompany": "Biblioteka zasobów",
     "noCompanyLinked": "brak (projekt niezależny)",
+    "addNewOption": "+ Nowa biblioteka zasobów…",
     "clientOrg": "Zleceniodawca/organizacja",
     "companyView": "Biblioteka",
     "projectView": "Projekt",

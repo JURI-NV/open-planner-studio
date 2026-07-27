@@ -297,6 +297,7 @@
     "notInCompany": "artık kitaplıkta değil",
     "linkedCompany": "Kaynak kitaplığı",
     "noCompanyLinked": "yok (bağımsız proje)",
+    "addNewOption": "+ Yeni kaynak kitaplığı…",
     "clientOrg": "Müşteri/kurum",
     "companyView": "Kitaplık",
     "projectView": "Proje",

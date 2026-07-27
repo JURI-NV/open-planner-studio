@@ -269,48 +269,13 @@
   color: var(--theme-accent-contrast, #fff);
 }
 
-/* Form sections (project info, settings) */
+/* Form sections (project info) — de veld-styling zelf zit nu in het gedeelde
+   ProjectInfoPanelContent (issue #19); dit is alleen nog de buitencontainer + actieknoppen. */
 .backstage-form {
   max-width: 560px;
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
-}
-.backstage-form-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-.backstage-form-row label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--theme-text);
-}
-.backstage-form-row input,
-.backstage-form-row textarea {
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  padding: var(--sp-3) var(--sp-4);
-  border: 1.5px solid var(--theme-control-border);
-  border-radius: var(--radius-md);
-  background: var(--theme-input-bg);
-  color: var(--theme-text);
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.backstage-form-row input:focus,
-.backstage-form-row textarea:focus {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.20);
-}
-.backstage-form-row textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-.backstage-form-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-4);
 }
 
 .backstage-actions {

@@ -295,6 +295,7 @@
     "notInCompany": "더 이상 라이브러리에 없음",
     "linkedCompany": "리소스 라이브러리",
     "noCompanyLinked": "없음(독립 프로젝트)",
+    "addNewOption": "+ 새 리소스 라이브러리…",
     "clientOrg": "발주처/조직",
     "companyView": "라이브러리",
     "projectView": "프로젝트",
