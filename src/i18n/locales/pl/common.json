@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Biblioteka zasobów",
     "intro": "Zarządzaj swoimi bibliotekami zasobów i ich wspólną pulą. Przypisywanie odbywa się w zakładce Zasoby; to, co przypiszesz, automatycznie staje się kopią z zachowanym pochodzeniem w projekcie.",
+    "resourceManagementHint": "Zasobami zarządzasz w zakładce Zasoby (widok Biblioteka); tutaj zarządzasz firmami, kalendarzami oraz importem/eksportem.",
     "companies": "Biblioteki zasobów",
     "addCompany": "Dodaj bibliotekę zasobów",
     "newCompany": "Nowa biblioteka zasobów",
@@ -288,6 +289,7 @@
     "syncNote": "Uwaga: biblioteki nie są synchronizowane między urządzeniami. Jeśli dwóch planistów pracuje z tą samą biblioteką zasobów, biblioteki mogą się rozjechać. Jeśli twoja organizacja dzieli brygady między spółkami operacyjnymi, świadomie wybierz jedną wspólną pulę.",
     "added": "Dodano.",
     "alreadyInProject": "Już jest w projekcie.",
+    "linkedToExisting": "Już istniał w bibliotece — teraz połączony.",
     "upToDate": "Aktualne",
     "exportWithPool": "Zapisz również plik biblioteki",
     "linkTitle": "Połącz bibliotekę zasobów",
@@ -318,7 +320,6 @@
     "companyViewHint": "To edytuje bibliotekę i dotyczy wszystkich projektów — poza cofaniem.",
     "assignFromCompany": "Przypisz do projektu",
     "removeFromProject": "Usuń z projektu",
-    "addToCompany": "Nowy w bibliotece",
     "confirmRemoveResource": "Usunąć „{{name}}” z biblioteki? Dotyczy to wszystkich projektów i nie można tego cofnąć.",
     "field": {
       "name": "Nazwa"
@@ -342,7 +343,12 @@
     "unitOfMeasure": "Jednostka",
     "parent": "Brygada",
     "projectCalendar": "Kalendarz projektu",
+    "noCalendar": "Brak kalendarza",
     "editCalendar": "Edytuj…",
+    "unlinkFromLibrary": "Odłącz od biblioteki",
+    "inheritedFieldHint": "Wartość z biblioteki — edytuj ją w widoku Biblioteka albo odłącz ten zasób od biblioteki.",
+    "fromLibraryBadge": "Z biblioteki",
+    "promoteToLibrary": "Do biblioteki",
     "noParent": "Brak",
     "availabilityStepsEditor": {
       "title": "Zdolność rozłożona w czasie",
@@ -354,11 +360,14 @@
     "panel": {
       "title": "Zasoby",
       "addRow": "Nowy zasób",
+      "addRowLibrary": "Nowy zasób w bibliotece",
       "deleteRow": "Usuń",
       "confirmDelete": "„{{name}}” ma przypisań: {{count}} — usunąć?",
       "confirmDeleteYes": "Usuń",
       "confirmDeleteNo": "Anuluj",
       "empty": "Brak zasobów. Dodaj jeden, aby zacząć.",
+      "emptyLinkedTitle": "Ten projekt nie korzysta jeszcze z żadnych zasobów z biblioteki.",
+      "emptyLinkedHint": "Przypisz jeden z widoku Biblioteka albo użyj „+ Nowy zasób”, aby utworzyć zasób należący wyłącznie do tego projektu.",
       "steps": "Kroki"
     },
     "compact": {

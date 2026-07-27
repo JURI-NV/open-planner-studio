@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "リソースライブラリ",
     "intro": "リソースライブラリと共有プールを管理します。割り当ては「リソース」タブで行います。割り当てた項目は、由来情報を保持したままプロジェクト内のコピーに自動的になります。",
+    "resourceManagementHint": "リソースはリソースタブ（ライブラリビュー）で管理します。ここでは会社、カレンダー、インポート/エクスポートを管理します。",
     "companies": "リソースライブラリ",
     "addCompany": "リソースライブラリを追加",
     "newCompany": "新しいリソースライブラリ",
@@ -285,6 +286,7 @@
     "syncNote": "注意：ライブラリは端末間で同期されません。同じリソースライブラリで2人のプランナーが作業すると、ライブラリが食い違うことがあります。組織内で複数の運営会社をまたいで班を共有している場合は、あえて1つの共有プールを選んでください。",
     "added": "追加しました。",
     "alreadyInProject": "すでにプロジェクトに含まれています。",
+    "linkedToExisting": "ライブラリに既に存在していました — 関連付けました。",
     "upToDate": "最新",
     "exportWithPool": "ライブラリファイルも一緒に保存",
     "linkTitle": "リソースライブラリにリンク",
@@ -312,7 +314,6 @@
     "companyViewHint": "これはライブラリデータを編集し、すべてのプロジェクトに適用されます — 元に戻す操作の対象外です。",
     "assignFromCompany": "プロジェクトに割り当て",
     "removeFromProject": "プロジェクトから削除",
-    "addToCompany": "ライブラリに新規追加",
     "confirmRemoveResource": "ライブラリから「{{name}}」を削除しますか？これはすべてのプロジェクトに適用され、元に戻せません。",
     "field": {
       "name": "名前"
@@ -336,7 +337,12 @@
     "unitOfMeasure": "単位",
     "parent": "班",
     "projectCalendar": "プロジェクトカレンダー",
+    "noCalendar": "カレンダーなし",
     "editCalendar": "編集…",
+    "unlinkFromLibrary": "ライブラリとの関連付けを解除",
+    "inheritedFieldHint": "ライブラリの値です。ライブラリビューで編集するか、このリソースをライブラリから切り離してください。",
+    "fromLibraryBadge": "ライブラリ由来",
+    "promoteToLibrary": "ライブラリへ",
     "noParent": "なし",
     "availabilityStepsEditor": {
       "title": "時期別キャパシティ",
@@ -348,11 +354,14 @@
     "panel": {
       "title": "リソース",
       "addRow": "新規リソース",
+      "addRowLibrary": "ライブラリに新規リソース",
       "deleteRow": "削除",
       "confirmDelete": "「{{name}}」には {{count}} 件の割り当てがあります — 削除しますか？",
       "confirmDeleteYes": "削除",
       "confirmDeleteNo": "キャンセル",
       "empty": "リソースがまだありません。追加して始めましょう。",
+      "emptyLinkedTitle": "このプロジェクトはまだライブラリのリソースを使用していません。",
+      "emptyLinkedHint": "ライブラリビューから割り当てるか、「+ 新規リソース」でこのプロジェクト専用のリソースを作成してください。",
       "steps": "ステップ"
     },
     "compact": {

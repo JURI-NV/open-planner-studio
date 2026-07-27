@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Libreria di risorse",
     "intro": "Gestisci le tue librerie di risorse e il loro pool condiviso. L'assegnazione avviene nella scheda Risorse; ciò che assegni diventa automaticamente una copia con provenienza all'interno del progetto.",
+    "resourceManagementHint": "Le risorse si gestiscono nella scheda Risorse (vista Libreria); qui gestisci aziende, calendari e importazione/esportazione.",
     "companies": "Librerie di risorse",
     "addCompany": "Aggiungi libreria di risorse",
     "newCompany": "Nuova libreria di risorse",
@@ -286,6 +287,7 @@
     "syncNote": "Nota: le librerie non vengono sincronizzate tra macchine diverse. Se due pianificatori lavorano con la stessa libreria di risorse, le librerie possono divergere. Se la tua organizzazione condivide le squadre tra più società operative, scegli deliberatamente un unico pool condiviso.",
     "added": "Aggiunto.",
     "alreadyInProject": "Già presente nel progetto.",
+    "linkedToExisting": "Esisteva già nella libreria — ora collegato.",
     "upToDate": "Aggiornato",
     "exportWithPool": "Salva anche il file di libreria",
     "linkTitle": "Collega libreria di risorse",
@@ -314,7 +316,6 @@
     "companyViewHint": "Questo modifica la libreria e vale per tutti i progetti — fuori dall'annulla.",
     "assignFromCompany": "Assegna al progetto",
     "removeFromProject": "Rimuovi dal progetto",
-    "addToCompany": "Nuovo nella libreria",
     "confirmRemoveResource": "Rimuovere «{{name}}» dalla libreria? Questo vale per tutti i progetti e non può essere annullato.",
     "field": {
       "name": "Nome"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Unità",
     "parent": "Squadra",
     "projectCalendar": "Calendario di progetto",
+    "noCalendar": "Nessun calendario",
     "editCalendar": "Modifica…",
+    "unlinkFromLibrary": "Scollega dalla libreria",
+    "inheritedFieldHint": "Valore di libreria — modificalo nella vista Libreria, oppure scollega questa risorsa dalla libreria.",
+    "fromLibraryBadge": "Dalla libreria",
+    "promoteToLibrary": "Nella libreria",
     "noParent": "Nessuna",
     "availabilityStepsEditor": {
       "title": "Capacità scaglionata nel tempo",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Risorse",
       "addRow": "Nuova risorsa",
+      "addRowLibrary": "Nuova risorsa nella libreria",
       "deleteRow": "Elimina",
       "confirmDelete": "'{{name}}' ha {{count}} assegnazione/i — eliminare?",
       "confirmDeleteYes": "Elimina",
       "confirmDeleteNo": "Annulla",
       "empty": "Ancora nessuna risorsa. Aggiungine una per iniziare.",
+      "emptyLinkedTitle": "Questo progetto non utilizza ancora risorse dalla libreria.",
+      "emptyLinkedHint": "Assegnane una dalla vista Libreria, oppure usa “+ Nuova risorsa” per creare una risorsa esclusiva di questo progetto.",
       "steps": "Fasi"
     },
     "compact": {

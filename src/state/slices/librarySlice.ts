@@ -59,7 +59,17 @@ export interface LibrarySlice {
    *  bovendien het BRON-projectitem (indien aanwezig) met de nieuwe herkomst, zodat "bijwerken vanuit
    *  bibliotheek" direct op het gepromoveerde item werkt. */
   promoteCalendarToPool: (companyId: string, calendar: import('@/types/calendar').WorkCalendar) => string | null;
-  promoteResourceToPool: (companyId: string, resource: import('@/types/resource').Resource) => string | null;
+  /** Resource-variant van `promoteCalendarToPool` — óók de "naar de bibliotheek"-rijactie op een
+   *  ongestempelde Projectweergave-rij (issue #19, punt D5). Standaardgedrag (geen `opts`, of
+   *  `dedupByName: false`) is ONGEWIJZIGD t.o.v. voorheen: altijd een NIEUW poolitem, ook als de pool
+   *  al een gelijknamig item heeft (bewaart de bestaande herkenningsstap-test die bewust twee
+   *  gelijknamige poolitems opzet om "ambigu ⇒ geen voorstel" te testen, spec §5.1). Met
+   *  `opts.dedupByName: true` (de Resources-tab-rijactie): is er een UNIEKE genormaliseerde-naam-match
+   *  al in de pool (`matchByName`), dan wordt GEEN duplicaat gepusht — het bronitem koppelt
+   *  (stempelt) in plaats daarvan aan dat bestaande poolitem ("bestond al, gekoppeld"). Retourneert in
+   *  beide gevallen de resulterende pool-item-id (nieuw of bestaand), of `null` als het bedrijf (de
+   *  pool) niet bestaat. Met dedup: no-op op een reeds gestempeld bronitem. */
+  promoteResourceToPool: (companyId: string, resource: import('@/types/resource').Resource, opts?: { dedupByName?: boolean }) => string | null;
   /** Bewerk pool-inhoud rechtstreeks (Backstage). Elke wijziging bumpt de pool. */
   updatePoolCalendar: (companyId: string, calendarId: string, updates: Partial<import('@/types/calendar').WorkCalendar>) => void;
   updatePoolResource: (companyId: string, resourceId: string, updates: Partial<import('@/types/resource').Resource>) => void;
@@ -146,6 +156,16 @@ export interface LibrarySlice {
    *  ververs de siblings; het net-geopende item krijgt de verse syncedHash zonder dubbele verversing
    *  (plan-eis 4). */
   resolveDeviation: (ref: { kind: 'resource' | 'calendar'; projectId: string }, choice: 'company' | 'file') => void;
+
+  /** "Losmaken van de bibliotheek" (Resources-tab, Projectweergave, issue #19): verwijder de
+   *  `libraryOrigin`-stempel van PRECIES DIT ÉNE projectitem. Anders dan `unbindProject` (dat ALLE
+   *  stempels van het hele project strip) raakt dit uitsluitend de gekozen resource — de rest van het
+   *  project blijft gekoppeld. De resource zelf blijft gewoon in het project staan, maar wordt weer
+   *  volledig bewerkbaar (naam/type/tarief/eenheid zijn dan niet langer bibliotheekafspraken) en volgt
+   *  de pool niet meer (geen verversing/afwijkingsvraag meer voor dit item). Undoable
+   *  (beginUndoable/finishMutation-patroon). No-op (geen undo-snapshot) op een onbekend id of een
+   *  resource zonder stempel. */
+  unlinkResourceFromLibrary: (resourceId: string) => void;
 }
 
 /**
@@ -361,8 +381,32 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     return newId;
   },
 
-  promoteResourceToPool: (companyId, resource) => {
+  promoteResourceToPool: (companyId, resource, opts) => {
     let newId: string | null = null;
+    // Dedup op naam (issue #19, punt D5 — "naar de bibliotheek tillen" vanaf een projecteigen rij in
+    // de Resources-tab) — UITSLUITEND bij `opts.dedupByName: true` (de Resources-tab-rijactie): heeft
+    // de pool al een UNIEKE genormaliseerde-naam-match (zelfde matcher als de herkenningsstap, spec
+    // §5.1/`matchByName`), dan wordt er GEEN duplicaat-poolitem gepusht — het bronprojectitem koppelt
+    // in plaats daarvan aan het bestaande poolitem ("bestond al, gekoppeld"). Ambigu (0 of >1
+    // kandidaten) ⇒ gewoon een nieuw poolitem. Zonder de vlag (elke andere/bestaande aanroeper, incl.
+    // de herkenningsstap-test die bewust twee gelijknamige poolitems opzet) blijft het gedrag exact
+    // zoals voorheen: altijd een nieuw poolitem, nooit stilzwijgend koppelen.
+    const existingPool = opts?.dedupByName ? get().pools[companyId] : undefined;
+    const existingMatch = existingPool ? matchByName(resource.name, existingPool.resources) : null;
+    if (existingMatch) {
+      let src: import('@/types/resource').Resource | undefined;
+      set((s) => {
+        const idx = s.resources.findIndex((r) => r.id === resource.id);
+        if (idx < 0 || s.resources[idx].libraryOrigin) return; // onbekend, of al gestempeld: no-op.
+        beginUndoable(s);
+        const pool = s.pools[companyId];
+        s.resources[idx].libraryOrigin = makeOrigin(pool, existingMatch.id, computeResourceHash(existingMatch));
+        finishMutation(s);
+        src = s.resources[idx];
+      });
+      if (src) get().recomputeViewRows();
+      return existingMatch.id;
+    }
     set((s) => {
       const pool = s.pools[companyId];
       if (!pool) return;
@@ -1015,5 +1059,19 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     // Siblings in alle open/slapende documenten volgen de nieuwe pool (plan-eis 4). Het net-opgeloste
     // item is nu gelijk aan de pool (diff up-to-date) ⇒ refreshAllDocumentsFromPool raakt het niet.
     get().refreshAllDocumentsFromPool(companyId);
+  },
+
+  unlinkResourceFromLibrary: (resourceId) => {
+    set((s) => {
+      const idx = s.resources.findIndex((r) => r.id === resourceId);
+      if (idx < 0 || !s.resources[idx].libraryOrigin) return; // onbekend id of al stempel-loos: no-op.
+      beginUndoable(s);
+      const { libraryOrigin: _drop, ...rest } = s.resources[idx];
+      s.resources[idx] = rest;
+      finishMutation(s);
+    });
+    // Puur een stempel weg: geen enkel bewaard VELD verandert (naam/type/tarief/eenheid/maxUnits/
+    // kalender blijven exact wat ze waren), dus geen datumimpact en geen belasting-/rijenherberekening
+    // nodig — anders dan updateResource/removeResource hierboven raakt dit geen CPM- of tabelinvoer.
   },
 });

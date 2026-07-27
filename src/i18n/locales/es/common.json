@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Biblioteca de recursos",
     "intro": "Gestiona tus bibliotecas de recursos y su pool compartido. La asignación se realiza en la pestaña Recursos; lo que asignes se convierte automáticamente en una copia con procedencia dentro del proyecto.",
+    "resourceManagementHint": "Los recursos se gestionan en la pestaña Recursos (vista Biblioteca); aquí gestionas empresas, calendarios e importación/exportación.",
     "companies": "Bibliotecas de recursos",
     "addCompany": "Añadir biblioteca de recursos",
     "newCompany": "Nueva biblioteca de recursos",
@@ -286,6 +287,7 @@
     "syncNote": "Nota: las bibliotecas no se sincronizan entre equipos. Si dos planificadores trabajan con la misma biblioteca de recursos, las bibliotecas pueden divergir. Si tu organización comparte cuadrillas entre empresas operativas, elige deliberadamente un único pool compartido.",
     "added": "Añadido.",
     "alreadyInProject": "Ya está en el proyecto.",
+    "linkedToExisting": "Ya existía en la biblioteca — ahora vinculado.",
     "upToDate": "Actualizado",
     "exportWithPool": "Guardar también el archivo de biblioteca",
     "linkTitle": "Vincular biblioteca de recursos",
@@ -314,7 +316,6 @@
     "companyViewHint": "Esto edita la biblioteca y se aplica a todos los proyectos — fuera de deshacer.",
     "assignFromCompany": "Asignar al proyecto",
     "removeFromProject": "Quitar del proyecto",
-    "addToCompany": "Nuevo en la biblioteca",
     "confirmRemoveResource": "¿Eliminar «{{name}}» de la biblioteca? Esto se aplica a todos los proyectos y no se puede deshacer.",
     "field": {
       "name": "Nombre"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Unidad",
     "parent": "Cuadrilla",
     "projectCalendar": "Calendario del proyecto",
+    "noCalendar": "Sin calendario",
     "editCalendar": "Editar…",
+    "unlinkFromLibrary": "Desvincular de la biblioteca",
+    "inheritedFieldHint": "Valor de la biblioteca — edítalo en la vista Biblioteca, o desvincula este recurso de la biblioteca.",
+    "fromLibraryBadge": "De la biblioteca",
+    "promoteToLibrary": "A la biblioteca",
     "noParent": "Ninguna",
     "availabilityStepsEditor": {
       "title": "Capacidad escalonada en el tiempo",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Recursos",
       "addRow": "Nuevo recurso",
+      "addRowLibrary": "Nuevo recurso en la biblioteca",
       "deleteRow": "Eliminar",
       "confirmDelete": "'{{name}}' tiene {{count}} asignación(es) — ¿eliminar?",
       "confirmDeleteYes": "Eliminar",
       "confirmDeleteNo": "Cancelar",
       "empty": "Aún no hay recursos. Añade uno para empezar.",
+      "emptyLinkedTitle": "Este proyecto aún no usa recursos de la biblioteca.",
+      "emptyLinkedHint": "Asigna uno desde la vista Biblioteca, o usa “+ Nuevo recurso” para crear un recurso exclusivo de este proyecto.",
       "steps": "Pasos"
     },
     "compact": {

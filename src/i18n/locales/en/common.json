@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Resource library",
     "intro": "Manage your resource libraries and their shared pool. Assigning happens in the Resources tab; what you assign automatically becomes a copy with provenance in the project.",
+    "resourceManagementHint": "You manage resources in the Resources tab (Library view); here you manage companies, calendars, and import/export.",
     "companies": "Resource libraries",
     "addCompany": "Add resource library",
     "newCompany": "New resource library",
@@ -286,6 +287,7 @@
     "syncNote": "Note: libraries are not synchronized between machines. If two planners work with the same resource library, the libraries may diverge. If your organization shares crews across operating companies, deliberately choose one shared pool.",
     "added": "Added.",
     "alreadyInProject": "Already in the project.",
+    "linkedToExisting": "Already existed in the library — now linked.",
     "upToDate": "Up to date",
     "exportWithPool": "Save library file alongside",
     "linkTitle": "Link resource library",
@@ -314,7 +316,6 @@
     "companyViewHint": "This edits the library and applies to all projects — outside undo.",
     "assignFromCompany": "Assign to project",
     "removeFromProject": "Remove from project",
-    "addToCompany": "New in library",
     "confirmRemoveResource": "Remove '{{name}}' from the library? This applies to all projects and cannot be undone.",
     "field": {
       "name": "Name"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Unit",
     "parent": "Crew",
     "projectCalendar": "Project calendar",
+    "noCalendar": "No calendar",
     "editCalendar": "Edit…",
+    "unlinkFromLibrary": "Unlink from library",
+    "inheritedFieldHint": "Library value — edit it in the Library view, or unlink this resource from the library.",
+    "fromLibraryBadge": "From the library",
+    "promoteToLibrary": "To the library",
     "noParent": "None",
     "availabilityStepsEditor": {
       "title": "Time-phased capacity",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Resources",
       "addRow": "New resource",
+      "addRowLibrary": "New resource in library",
       "deleteRow": "Delete",
       "confirmDelete": "'{{name}}' has {{count}} assignment(s) — delete?",
       "confirmDeleteYes": "Delete",
       "confirmDeleteNo": "Cancel",
       "empty": "No resources yet. Add one to get started.",
+      "emptyLinkedTitle": "This project isn't using any library resources yet.",
+      "emptyLinkedHint": "Assign one from the Library view, or use “+ New resource” to create a resource that belongs only to this project.",
       "steps": "Steps"
     },
     "compact": {

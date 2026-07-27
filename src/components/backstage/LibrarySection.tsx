@@ -87,6 +87,10 @@ export function LibrarySection() {
     <div className="backstage-panel library-section">
       <h2>{t('companyLibrary.title')}</h2>
       <p className="library-intro">{t('companyLibrary.intro')}</p>
+      {/* Issue #19, punt 5: resource-CRUD verhuisde naar de Resources-tab Bibliotheekweergave (dat
+          IS de bron nu, met de volledige inline-editor) — deze pagina beheert nog uitsluitend
+          bedrijven + kalenders + import/export. Kalenders blijven bewust hier staan (apart TODO). */}
+      <p className="library-intro" data-ops-library-resource-hint>{t('companyLibrary.resourceManagementHint')}</p>
 
       <div className="library-layout">
         <aside className="library-companies">

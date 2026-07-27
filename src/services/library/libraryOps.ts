@@ -315,6 +315,24 @@ export function classifyResourceOnOpen(projectRes: Resource, pool: CompanyPool):
   return classifyOnOpen(diffResourceVsPool(projectRes, pool).status, computeResourceHash(projectRes), projectRes.libraryOrigin.syncedHash);
 }
 
+/**
+ * Bepaalt of de BIBLIOTHEEKAFSPRAAK-velden van een projectresource (naam/type/tarief/eenheid) in de
+ * Resources-tab read-only moeten zijn (issue #19, punt 4). Puur, en gedeeld door `ResourcePanel`
+ * (UI-gating) én de headless tests (`tests/library/check-library-slice.ts`) — zo kan de gatingregel
+ * zelf getest worden zonder React te renderen.
+ *
+ * `null` (geen eigen-bedrijf-stempel, of bedrijf onbekend — zie `onOpenStatusForResource`) en
+ * `'unbound'` (stempel-loos) tellen NIET als geldige herkomst: puur project-eigen item, blijft
+ * volledig bewerkbaar. `'removed'` telt BEWUST OOK niet als geldig — de stempel wijst dan nergens
+ * meer naar (het poolorigineel is weg), dus die rij is feitelijk een wees: op slot zetten zou een
+ * dode referentie muurvast maken in plaats van de gebruiker de bestaande "Verwijder uit
+ * project"-actie te geven. Alleen 'in-sync'/'behind'/'deviated' (het poolorigineel bestaat nog)
+ * leveren de lock op; max.eenheden en kalender blijven in ALLE gevallen bewerkbaar (projectinzet).
+ */
+export function isResourceFieldLocked(status: OnOpenStatus | null): boolean {
+  return status !== null && status !== 'removed' && status !== 'unbound';
+}
+
 /** Pas de pool-waarden toe op een projectkalender bij "bijwerken" (spec §3): overschrijf de
  *  vergeleken velden, behoud id + herkomst (met verse poolVersion). Puur (nieuw object). */
 export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool): WorkCalendar {

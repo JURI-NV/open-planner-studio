@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Ressourcenbibliothek",
     "intro": "Verwalten Sie Ihre Ressourcenbibliotheken und deren gemeinsamen Pool. Die Zuweisung erfolgt im Tab „Ressourcen“; was Sie zuweisen, wird automatisch eine Kopie mit Herkunftsangabe im Projekt.",
+    "resourceManagementHint": "Ressourcen verwalten Sie im Ressourcen-Tab (Bibliotheksansicht); hier verwalten Sie Firmen, Kalender und Import/Export.",
     "companies": "Ressourcenbibliotheken",
     "addCompany": "Ressourcenbibliothek hinzufügen",
     "newCompany": "Neue Ressourcenbibliothek",
@@ -286,6 +287,7 @@
     "syncNote": "Hinweis: Bibliotheken werden nicht zwischen Geräten synchronisiert. Arbeiten zwei Planer mit derselben Ressourcenbibliothek, können die Bibliotheken auseinanderlaufen. Teilt Ihre Organisation Kolonnen über Betriebsgesellschaften hinweg, wählen Sie bewusst einen gemeinsamen Pool.",
     "added": "Hinzugefügt.",
     "alreadyInProject": "Bereits im Projekt vorhanden.",
+    "linkedToExisting": "War bereits in der Bibliothek vorhanden — jetzt verknüpft.",
     "upToDate": "Aktuell",
     "exportWithPool": "Bibliotheksdatei zusätzlich speichern",
     "linkTitle": "Ressourcenbibliothek verknüpfen",
@@ -314,7 +316,6 @@
     "companyViewHint": "Dies bearbeitet die Bibliothek und gilt für alle Projekte — außerhalb von Rückgängig.",
     "assignFromCompany": "Dem Projekt zuweisen",
     "removeFromProject": "Aus Projekt entfernen",
-    "addToCompany": "Neu in der Bibliothek",
     "confirmRemoveResource": "'{{name}}' aus der Bibliothek entfernen? Dies gilt für alle Projekte und kann nicht rückgängig gemacht werden.",
     "field": {
       "name": "Name"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Einheit",
     "parent": "Kolonne",
     "projectCalendar": "Projektkalender",
+    "noCalendar": "Kein Kalender",
     "editCalendar": "Bearbeiten…",
+    "unlinkFromLibrary": "Von der Bibliothek lösen",
+    "inheritedFieldHint": "Bibliothekswert — bearbeiten Sie ihn in der Bibliotheksansicht, oder lösen Sie diese Ressource von der Bibliothek.",
+    "fromLibraryBadge": "Aus der Bibliothek",
+    "promoteToLibrary": "Zur Bibliothek",
     "noParent": "Keine",
     "availabilityStepsEditor": {
       "title": "Zeitlich gestaffelte Kapazität",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Ressourcen",
       "addRow": "Neue Ressource",
+      "addRowLibrary": "Neue Ressource in der Bibliothek",
       "deleteRow": "Löschen",
       "confirmDelete": "„{{name}}“ hat {{count}} Zuweisung(en) — löschen?",
       "confirmDeleteYes": "Löschen",
       "confirmDeleteNo": "Abbrechen",
       "empty": "Noch keine Ressourcen. Fügen Sie eine hinzu, um zu beginnen.",
+      "emptyLinkedTitle": "Dieses Projekt verwendet noch keine Bibliotheksressourcen.",
+      "emptyLinkedHint": "Weisen Sie eine aus der Bibliotheksansicht zu, oder erstellen Sie mit „+ Neue Ressource“ eine Ressource, die nur zu diesem Projekt gehört.",
       "steps": "Schritte"
     },
     "compact": {

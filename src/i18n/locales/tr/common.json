@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Kaynak kitaplığı",
     "intro": "Kaynak kitaplıklarınızı ve paylaşılan havuzlarını yönetin. Atama işlemi Kaynaklar sekmesinde yapılır; atadığınız öğe otomatik olarak projede kaynağı korunan bir kopya haline gelir.",
+    "resourceManagementHint": "Kaynakları Kaynaklar sekmesinde (Kitaplık görünümü) yönetirsiniz; burada şirketleri, takvimleri ve içe/dışa aktarmayı yönetirsiniz.",
     "companies": "Kaynak kitaplıkları",
     "addCompany": "Kaynak kitaplığı ekle",
     "newCompany": "Yeni kaynak kitaplığı",
@@ -286,6 +287,7 @@
     "syncNote": "Not: kitaplıklar cihazlar arasında senkronize edilmez. İki planlamacı aynı kaynak kitaplığıyla çalışıyorsa kitaplıklar birbirinden farklılaşabilir. Kuruluşunuz ekipleri işletme şirketleri arasında paylaşıyorsa bilinçli olarak tek bir ortak havuz seçin.",
     "added": "Eklendi.",
     "alreadyInProject": "Zaten projede mevcut.",
+    "linkedToExisting": "Kitaplıkta zaten vardı — şimdi bağlandı.",
     "upToDate": "Güncel",
     "exportWithPool": "Kitaplık dosyasını da kaydet",
     "linkTitle": "Kaynak kitaplığını bağla",
@@ -314,7 +316,6 @@
     "companyViewHint": "Bu, kitaplığı düzenler ve tüm projeler için geçerlidir — geri almanın dışında.",
     "assignFromCompany": "Projeye ata",
     "removeFromProject": "Projeden kaldır",
-    "addToCompany": "Kitaplıkta yeni",
     "confirmRemoveResource": "'{{name}}' kitaplıktan kaldırılsın mı? Bu, tüm projeler için geçerlidir ve geri alınamaz.",
     "field": {
       "name": "Ad"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Birim",
     "parent": "Ekip",
     "projectCalendar": "Proje takvimi",
+    "noCalendar": "Takvim yok",
     "editCalendar": "Düzenle…",
+    "unlinkFromLibrary": "Kitaplıktan ayır",
+    "inheritedFieldHint": "Kitaplık değeri — Kitaplık görünümünde düzenleyin veya bu kaynağı kitaplıktan ayırın.",
+    "fromLibraryBadge": "Kitaplıktan",
+    "promoteToLibrary": "Kitaplığa",
     "noParent": "Yok",
     "availabilityStepsEditor": {
       "title": "Zamana bağlı kapasite",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Kaynaklar",
       "addRow": "Yeni kaynak",
+      "addRowLibrary": "Kitaplıkta yeni kaynak",
       "deleteRow": "Sil",
       "confirmDelete": "'{{name}}' için {{count}} atama var — silinsin mi?",
       "confirmDeleteYes": "Sil",
       "confirmDeleteNo": "İptal",
       "empty": "Henüz kaynak yok. Başlamak için bir tane ekleyin.",
+      "emptyLinkedTitle": "Bu proje henüz kitaplık kaynağı kullanmıyor.",
+      "emptyLinkedHint": "Kitaplık görünümünden bir tane atayın veya yalnızca bu projeye ait bir kaynak oluşturmak için “+ Yeni kaynak” kullanın.",
       "steps": "Adımlar"
     },
     "compact": {

@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "资源库",
     "intro": "管理你的资源库及其共享资源池。分配操作在“资源”标签页中进行；你分配的内容会自动成为项目中带来源信息的副本。",
+    "resourceManagementHint": "资源在“资源”标签页（资源库视图）中管理；此处仅管理公司、日历和导入/导出。",
     "companies": "资源库",
     "addCompany": "添加资源库",
     "newCompany": "新建资源库",
@@ -285,6 +286,7 @@
     "syncNote": "注意：资料库不会在多台设备间同步。如果两位计划员使用同一个资源库，资料库可能会产生分歧。如果你的组织跨多个运营公司共用班组，请刻意选择一个共同的资源池。",
     "added": "已添加。",
     "alreadyInProject": "已存在于项目中。",
+    "linkedToExisting": "资源库中已存在——现已关联。",
     "upToDate": "已是最新",
     "exportWithPool": "同时保存资料库文件",
     "linkTitle": "关联资源库",
@@ -312,7 +314,6 @@
     "companyViewHint": "此操作会编辑资源库数据，适用于所有项目——不在撤销范围内。",
     "assignFromCompany": "分配到项目",
     "removeFromProject": "从项目中移除",
-    "addToCompany": "在资源库中新建",
     "confirmRemoveResource": "要从资源库中移除“{{name}}”吗？此操作适用于所有项目，且无法撤销。",
     "field": {
       "name": "名称"
@@ -336,7 +337,12 @@
     "unitOfMeasure": "单位",
     "parent": "班组",
     "projectCalendar": "项目日历",
+    "noCalendar": "无日历",
     "editCalendar": "编辑…",
+    "unlinkFromLibrary": "取消与资源库的关联",
+    "inheritedFieldHint": "资源库数值——请在资源库视图中编辑，或将此资源与资源库取消关联。",
+    "fromLibraryBadge": "来自资源库",
+    "promoteToLibrary": "移至资源库",
     "noParent": "无",
     "availabilityStepsEditor": {
       "title": "分时段产能",
@@ -348,11 +354,14 @@
     "panel": {
       "title": "资源",
       "addRow": "新建资源",
+      "addRowLibrary": "在资源库中新建资源",
       "deleteRow": "删除",
       "confirmDelete": "“{{name}}”有 {{count}} 项分配 — 是否删除？",
       "confirmDeleteYes": "删除",
       "confirmDeleteNo": "取消",
       "empty": "尚无资源。添加一个开始使用。",
+      "emptyLinkedTitle": "此项目尚未使用资源库中的资源。",
+      "emptyLinkedHint": "从资源库视图中分配一个，或使用“+新建资源”创建仅属于此项目的资源。",
       "steps": "阶段"
     },
     "compact": {

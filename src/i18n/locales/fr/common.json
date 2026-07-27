@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Bibliothèque de ressources",
     "intro": "Gérez vos bibliothèques de ressources et leur pool partagé. L'affectation se fait dans l'onglet Ressources ; ce que vous affectez devient automatiquement une copie dont la provenance est conservée dans le projet.",
+    "resourceManagementHint": "Vous gérez les ressources dans l'onglet Ressources (vue Bibliothèque) ; ici, vous gérez les entreprises, les calendriers et l'import/export.",
     "companies": "Bibliothèques de ressources",
     "addCompany": "Ajouter une bibliothèque de ressources",
     "newCompany": "Nouvelle bibliothèque de ressources",
@@ -286,6 +287,7 @@
     "syncNote": "Remarque : les bibliothèques ne sont pas synchronisées entre les machines. Si deux planificateurs travaillent avec la même bibliothèque de ressources, les bibliothèques peuvent diverger. Si votre organisation partage des équipes entre plusieurs sociétés d'exploitation, choisissez délibérément un pool commun unique.",
     "added": "Ajouté.",
     "alreadyInProject": "Déjà présent dans le projet.",
+    "linkedToExisting": "Existait déjà dans la bibliothèque — désormais lié.",
     "upToDate": "À jour",
     "exportWithPool": "Enregistrer aussi le fichier de bibliothèque",
     "linkTitle": "Lier la bibliothèque de ressources",
@@ -314,7 +316,6 @@
     "companyViewHint": "Ceci modifie la bibliothèque et s'applique à tous les projets — hors annulation.",
     "assignFromCompany": "Affecter au projet",
     "removeFromProject": "Retirer du projet",
-    "addToCompany": "Nouveau dans la bibliothèque",
     "confirmRemoveResource": "Supprimer « {{name}} » de la bibliothèque ? Cela s'applique à tous les projets et est irréversible.",
     "field": {
       "name": "Nom"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Unité",
     "parent": "Équipe",
     "projectCalendar": "Calendrier du projet",
+    "noCalendar": "Aucun calendrier",
     "editCalendar": "Modifier…",
+    "unlinkFromLibrary": "Dissocier de la bibliothèque",
+    "inheritedFieldHint": "Valeur de bibliothèque — modifiez-la dans la vue Bibliothèque, ou dissociez cette ressource de la bibliothèque.",
+    "fromLibraryBadge": "Provient de la bibliothèque",
+    "promoteToLibrary": "Vers la bibliothèque",
     "noParent": "Aucune",
     "availabilityStepsEditor": {
       "title": "Capacité échelonnée dans le temps",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Ressources",
       "addRow": "Nouvelle ressource",
+      "addRowLibrary": "Nouvelle ressource dans la bibliothèque",
       "deleteRow": "Supprimer",
       "confirmDelete": "« {{name}} » a {{count}} affectation(s) — supprimer ?",
       "confirmDeleteYes": "Supprimer",
       "confirmDeleteNo": "Annuler",
       "empty": "Aucune ressource pour l’instant. Ajoutez-en une pour commencer.",
+      "emptyLinkedTitle": "Ce projet n'utilise pas encore de ressources de la bibliothèque.",
+      "emptyLinkedHint": "Attribuez-en une depuis la vue Bibliothèque, ou utilisez « + Nouvelle ressource » pour créer une ressource propre à ce projet.",
       "steps": "Étapes"
     },
     "compact": {

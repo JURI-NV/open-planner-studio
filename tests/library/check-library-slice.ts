@@ -3,8 +3,9 @@
 // stil terug (geen IndexedDB/Tauri) — we asserten alleen de in-memory state. Exitcode = poort.
 import { useAppStore } from '@/state/appStore';
 import { normalizeLoadedLibrary } from '@/state/slices/librarySlice';
-import { computeCalendarHash, computeResourceHash } from '@/services/library/libraryOps';
+import { computeCalendarHash, computeResourceHash, isResourceFieldLocked } from '@/services/library/libraryOps';
 import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
+import { ResourceRow } from '@/components/panels/ResourcePanel';
 
 declare const process: { exit(code: number): never };
 
@@ -975,6 +976,35 @@ const store = useAppStore.getState();
   assert(!!calId && useAppStore.getState().pools[cid].calendars.some(c => c.id === calId), 'addPoolCalendar voegt toe aan de pool');
 }
 
+// --- Bedrijfsweergave-CRUD (vervolg, issue #19 punt 1 — de nieuwe pool-editor in de Resources-tab):
+// updatePoolResource/removePoolResource raken óók UITSLUITEND s.pools, nooit s.resources (dezelfde
+// invariant als hierboven, nu voor de andere twee pool-CRUD-acties die de nieuwe editor aanroept). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Inv2 BV');
+  s.bindProjectToCompany(cid);
+  // Een PROJECTRESOURCE met exact dezelfde naam als straks de pool-mutatie, om te bewijzen dat de
+  // pool-CRUD 'm niet per ongeluk raakt (geen impliciete matching/sync in deze twee acties).
+  const projResId = s.addResource({ name: 'Steiger-Piet', type: 'LABOR', description: '', maxUnits: 1 });
+  const poolResId = s.addPoolResource(cid, { name: 'Steiger-Piet', type: 'LABOR', description: '', maxUnits: 1 })!;
+
+  const resSnapshotBeforeUpdate = JSON.stringify(useAppStore.getState().resources);
+  const poolVBeforeUpdate = useAppStore.getState().pools[cid].poolVersion;
+  s.updatePoolResource(cid, poolResId, { maxUnits: 7, costPerHour: 42 });
+  const afterUpdate = useAppStore.getState();
+  assert(afterUpdate.pools[cid].resources.find(r => r.id === poolResId)?.maxUnits === 7, 'updatePoolResource: wijziging landt in de pool');
+  assert(afterUpdate.pools[cid].poolVersion === poolVBeforeUpdate + 1, 'updatePoolResource bumpt de pool');
+  assert(JSON.stringify(afterUpdate.resources) === resSnapshotBeforeUpdate, 'updatePoolResource raakt s.resources NIET (invariant, issue #19 punt 1)');
+  assert(afterUpdate.resources.find(r => r.id === projResId)?.maxUnits === 1, 'updatePoolResource: de gelijknamige PROJECTresource blijft exact ongewijzigd');
+
+  const resSnapshotBeforeRemove = JSON.stringify(useAppStore.getState().resources);
+  s.removePoolResource(cid, poolResId);
+  const afterRemove = useAppStore.getState();
+  assert(!afterRemove.pools[cid].resources.some(r => r.id === poolResId), 'removePoolResource verwijdert uit de pool');
+  assert(JSON.stringify(afterRemove.resources) === resSnapshotBeforeRemove, 'removePoolResource raakt s.resources NIET (invariant, issue #19 punt 1)');
+  assert(afterRemove.resources.some(r => r.id === projResId), 'removePoolResource: de gelijknamige PROJECTresource blijft gewoon in het project staan');
+}
+
 // --- Grens 1: openen ververst 'behind' stil, markeert 'deviated' (spec §3) ---
 {
   const s = useAppStore.getState();
@@ -1351,6 +1381,138 @@ const store = useAppStore.getState();
   assert(after.project.companyId === cid, 'applyLoadedProject(linkedOpen: true): companyId BLIJFT staan (openFile/openRecentFile-route)');
   assert(after.project.companyName === 'Open BV', 'applyLoadedProject(linkedOpen: true): companyName BLIJFT staan');
   assert(after.resources.find(r => r.id === 'or')?.libraryOrigin?.companyId === cid, 'applyLoadedProject(linkedOpen: true): libraryOrigin-stempel BLIJFT intact');
+}
+
+// --- unlinkResourceFromLibrary (issue #19, punt 4): strip PRECIES ÉÉN stempel, undoable, andere
+// items blijven ongemoeid; onbekend id / stempel-loze resource = no-op (geen loze undo-stap). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Unlink BV');
+  s.bindProjectToCompany(cid);
+  const resIdA = s.promoteResourceToPool(cid, { id: 'ul-a', name: 'Kraanmachinist', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const resIdB = s.promoteResourceToPool(cid, { id: 'ul-b', name: 'Grondwerker', type: 'LABOR', description: '', maxUnits: 1 })!;
+  const addA = useAppStore.getState().addLibraryResourceToProject(cid, resIdA);
+  const addB = useAppStore.getState().addLibraryResourceToProject(cid, resIdB);
+  assert(!!useAppStore.getState().resources.find(r => r.id === addA.resourceId)?.libraryOrigin, 'setup: A gestempeld');
+  assert(!!useAppStore.getState().resources.find(r => r.id === addB.resourceId)?.libraryOrigin, 'setup: B gestempeld');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unlinkResourceFromLibrary(addA.resourceId!);
+  const afterUnlink = useAppStore.getState();
+  assert(afterUnlink.resources.find(r => r.id === addA.resourceId)?.libraryOrigin === undefined, 'unlinkResourceFromLibrary: stempel van A weg');
+  assert(!!afterUnlink.resources.find(r => r.id === addB.resourceId)?.libraryOrigin, 'unlinkResourceFromLibrary: stempel van B blijft (raakt precies ÉÉN item)');
+  assert(afterUnlink.resources.some(r => r.id === addA.resourceId), 'unlinkResourceFromLibrary: resource zelf blijft in het project staan');
+  assert(afterUnlink.undoStack.length === undoBefore + 1, 'unlinkResourceFromLibrary: undoable (undo-snapshot gepusht)');
+
+  useAppStore.getState().undo();
+  assert(!!useAppStore.getState().resources.find(r => r.id === addA.resourceId)?.libraryOrigin, 'undo van unlinkResourceFromLibrary: stempel van A terug');
+  useAppStore.getState().redo();
+  assert(useAppStore.getState().resources.find(r => r.id === addA.resourceId)?.libraryOrigin === undefined, 'redo van unlinkResourceFromLibrary: stempel weer weg');
+  useAppStore.getState().undo(); // terug naar "beide gestempeld" voor de rest van dit blok
+
+  // Negatieve controles: onbekend id / al-stempel-loos = no-op (geen loze undo-stap).
+  const undoBeforeNoop = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unlinkResourceFromLibrary('ghost-resource-id');
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop, 'unlinkResourceFromLibrary: onbekend id is een no-op (geen loze undo-stap)');
+
+  const plainResId = useAppStore.getState().addResource({ name: 'Projecteigen', type: 'LABOR', description: '', maxUnits: 1 });
+  const undoBeforeNoop2 = useAppStore.getState().undoStack.length;
+  useAppStore.getState().unlinkResourceFromLibrary(plainResId);
+  assert(useAppStore.getState().undoStack.length === undoBeforeNoop2, 'unlinkResourceFromLibrary: resource zonder stempel is een no-op (geen loze undo-stap)');
+}
+
+// --- isResourceFieldLocked (issue #19, punt 4 — bijgesteld op user-feedback: de kalender is óók
+// bibliotheekafspraak, niet projectinzet). De gedeelde, headless-testbare pure functie achter de
+// read-only-gating in de Projectweergave (`ResourceRow`). ---
+{
+  assert(isResourceFieldLocked(null) === false, 'isResourceFieldLocked(null): geen eigen-bedrijf-stempel ⇒ bewerkbaar');
+  assert(isResourceFieldLocked('unbound') === false, "isResourceFieldLocked('unbound'): stempel-loos ⇒ bewerkbaar");
+  assert(isResourceFieldLocked('removed') === false, "isResourceFieldLocked('removed'): poolorigineel weg ⇒ wees, blijft bewerkbaar");
+  assert(isResourceFieldLocked('in-sync') === true, "isResourceFieldLocked('in-sync'): geldige herkomst ⇒ locked");
+  assert(isResourceFieldLocked('behind') === true, "isResourceFieldLocked('behind'): geldige herkomst ⇒ locked");
+  assert(isResourceFieldLocked('deviated') === true, "isResourceFieldLocked('deviated'): geldige herkomst ⇒ locked");
+}
+
+// --- ResourceRow-broncontrole (patroon PoolImportDialog.toString() hierboven): React-render valt
+// buiten deze headless suite, dus we bewijzen de UI-WIRE-regels op de brontekst zelf — verwijder de
+// gecontroleerde regel en het bijbehorende blok kleurt rood. ---
+{
+  const rowSrc = ResourceRow.toString();
+
+  // D1 (user-feedback): naam/type/kalender/tarief/eenheid renderen als platte tekst (`cellStatic`) op
+  // een geërfde rij — precies 5 velden, max.eenheden NOOIT.
+  const cellStaticHits = (rowSrc.match(/cellStatic/g) || []).length;
+  assert(cellStaticHits === 5, `ResourceRow: precies 5 velden gebruiken cellStatic (naam/type/kalender/tarief/eenheid) — telde ${cellStaticHits}`);
+
+  const maxUnitsAnchor = rowSrc.indexOf('value: resource.maxUnits,');
+  const maxUnitsBlockEnd = rowSrc.indexOf('),', maxUnitsAnchor);
+  assert(maxUnitsAnchor >= 0 && maxUnitsBlockEnd > maxUnitsAnchor, 'setup: max.eenheden-cel (UnitsInput) gevonden in de broncode');
+  const maxUnitsSrc = rowSrc.slice(maxUnitsAnchor, maxUnitsBlockEnd);
+  assert(!maxUnitsSrc.includes('cellStatic'), 'ResourceRow: max.eenheden blijft het ENIGE bewerkbare veld — GEEN cellStatic in die cel (negatieve controle op D1)');
+
+  // D5: de "naar de bibliotheek"-knop is gated op `!resource.libraryOrigin` (alleen ongestempelde
+  // Projectweergave-rijen) — verwijder die guard en dit blok kleurt rood.
+  assert(rowSrc.includes('!resource.libraryOrigin && onPromoteToLibrary'), 'ResourceRow: "naar de bibliotheek"-knop is gated op !resource.libraryOrigin (D5)');
+}
+
+// --- promoteResourceToPool: dedup op naam (issue #19, punt D5 — "naar de bibliotheek tillen" vanuit
+// een projecteigen Resources-tab-rij). Hergebruikt de bestaande promote-actie (geen tweede route). ---
+{
+  const s = useAppStore.getState();
+  const cid = s.addCompany('Promote BV');
+  s.bindProjectToCompany(cid);
+
+  // (a) Precies één item optillen: stempelt het projectitem, undoable, raakt andere items niet.
+  const otherResId = s.addResource({ name: 'Ongerelateerd', type: 'LABOR', description: '', maxUnits: 1 });
+  const projResId = s.addResource({ name: 'Elektricien Piet', type: 'LABOR', description: '', maxUnits: 2 });
+  const projRes = useAppStore.getState().resources.find(r => r.id === projResId)!;
+  const poolCountBefore = useAppStore.getState().pools[cid].resources.length;
+  const undoBefore = useAppStore.getState().undoStack.length;
+
+  const poolId = useAppStore.getState().promoteResourceToPool(cid, projRes, { dedupByName: true });
+  const after = useAppStore.getState();
+  assert(!!poolId && after.pools[cid].resources.length === poolCountBefore + 1, 'promoteResourceToPool: precies één nieuw poolitem');
+  assert(after.pools[cid].resources.find(r => r.id === poolId)?.name === 'Elektricien Piet', 'promoteResourceToPool: het nieuwe poolitem draagt de juiste naam');
+  assert(after.resources.find(r => r.id === projResId)?.libraryOrigin?.libraryItemId === poolId, 'promoteResourceToPool: het bronitem is gestempeld naar het nieuwe poolitem');
+  assert(after.resources.find(r => r.id === otherResId)?.libraryOrigin === undefined, 'promoteResourceToPool: het ONGERELATEERDE item blijft ongemoeid');
+  assert(after.undoStack.length === undoBefore + 1, 'promoteResourceToPool: undoable (undo-snapshot gepusht)');
+  assert(isResourceFieldLocked(useAppStore.getState().onOpenStatusForResource(projResId)) === true, 'promoteResourceToPool: het bronitem is meteen geërfd/locked (in-sync met de pool die het zelf net gevoed heeft)');
+
+  useAppStore.getState().undo();
+  assert(useAppStore.getState().resources.find(r => r.id === projResId)?.libraryOrigin === undefined, 'undo van promoteResourceToPool: stempel weer weg (poolkopie blijft staan, zelfde bekende gedrag als promote-kalenders)');
+  assert(useAppStore.getState().pools[cid].resources.some(r => r.id === poolId), 'undo van promoteResourceToPool: de poolkopie zelf blijft staan (pool is app-globaal, niet undo-beschermd) — dus meteen bruikbaar als dedup-doel hieronder, ook al is projResId zelf weer stempel-loos');
+
+  // (b) Tweede keer promoveren met een GELIJKNAMIG (na normalisatie) projectitem ⇒ GEEN duplicaat in
+  // de pool — het bronitem koppelt aan het BESTAANDE poolitem ("bestond al, gekoppeld").
+  const dupProjResId = s.addResource({ name: '  elektricien piet  ', type: 'LABOR', description: '', maxUnits: 5 }); // normaliseert gelijk aan 'Elektricien Piet'
+  const dupProjRes = useAppStore.getState().resources.find(r => r.id === dupProjResId)!;
+  const poolCountBeforeDup = useAppStore.getState().pools[cid].resources.length;
+  const dupPoolId = useAppStore.getState().promoteResourceToPool(cid, dupProjRes, { dedupByName: true });
+  const afterDup = useAppStore.getState();
+  assert(dupPoolId === poolId, 'promoteResourceToPool (dedup): retourneert de BESTAANDE pool-item-id, geen nieuwe');
+  assert(afterDup.pools[cid].resources.length === poolCountBeforeDup, 'promoteResourceToPool (dedup): GEEN duplicaat-poolitem gepusht');
+  assert(afterDup.resources.find(r => r.id === dupProjResId)?.libraryOrigin?.libraryItemId === poolId, 'promoteResourceToPool (dedup): het tweede bronitem koppelt aan hetzelfde bestaande poolitem');
+
+  // (c) Negatieve controles: no-op op een reeds gestempeld item, en no-op op een onbestaand bedrijf
+  // (spiegelt het los-project-gedrag — geen pool ⇒ niets te doen).
+  const undoBeforeAlready = useAppStore.getState().undoStack.length;
+  const againId = useAppStore.getState().promoteResourceToPool(cid, useAppStore.getState().resources.find(r => r.id === dupProjResId)!, { dedupByName: true });
+  assert(againId === poolId, 'promoteResourceToPool op een AL gestempeld item: retourneert nog steeds de gekoppelde pool-id');
+  assert(useAppStore.getState().undoStack.length === undoBeforeAlready, 'promoteResourceToPool op een AL gestempeld item: no-op (geen loze undo-stap, geen doublestamp)');
+  assert(useAppStore.getState().pools[cid].resources.length === poolCountBeforeDup, 'promoteResourceToPool op een AL gestempeld item: geen extra poolitem');
+
+  const ghostRes = { id: 'ghost-res', name: 'Spookresource', type: 'LABOR' as const, description: '', maxUnits: 1 };
+  assert(useAppStore.getState().promoteResourceToPool('ghost-company', ghostRes, { dedupByName: true }) === null, 'promoteResourceToPool: null bij onbestaand bedrijf (los-project-equivalent — geen pool, dus niets te doen)');
+
+  // (d) Zonder `dedupByName` (elke bestaande aanroeper, incl. de herkenningsstap-test hierboven die
+  // bewust twee gelijknamige poolitems opzet): het ONGEWIJZIGDE oude gedrag — altijd een NIEUW
+  // poolitem, ook bij een naam-collision. Bewijst dat de vlag opt-in is, geen nieuw default-gedrag.
+  const thirdResId = s.addResource({ name: 'Elektricien Piet', type: 'LABOR', description: '', maxUnits: 1 });
+  const thirdRes = useAppStore.getState().resources.find(r => r.id === thirdResId)!;
+  const poolCountBeforeThird = useAppStore.getState().pools[cid].resources.length;
+  const thirdPoolId = useAppStore.getState().promoteResourceToPool(cid, thirdRes); // GEEN opts
+  assert(thirdPoolId !== null && thirdPoolId !== poolId, 'promoteResourceToPool ZONDER dedupByName: nieuw poolitem, ook bij een naam-collision (oud gedrag intact)');
+  assert(useAppStore.getState().pools[cid].resources.length === poolCountBeforeThird + 1, 'promoteResourceToPool ZONDER dedupByName: pusht wél een extra poolitem (negatieve controle op de opt-in-vlag)');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);

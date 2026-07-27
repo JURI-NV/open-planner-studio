@@ -255,6 +255,7 @@
   "companyLibrary": {
     "title": "Resourcebibliotheek",
     "intro": "Beheer je resourcebibliotheken en hun gedeelde pool. Toewijzen gebeurt in het Resources-tabblad; wat je toewijst wordt automatisch een kopie mét herkomst in het project.",
+    "resourceManagementHint": "Resources beheer je in het Resources-tabblad (Bibliotheekweergave); hier beheer je bedrijven, kalenders en import/export.",
     "companies": "Resourcebibliotheken",
     "addCompany": "Resourcebibliotheek toevoegen",
     "newCompany": "Nieuwe resourcebibliotheek",
@@ -286,6 +287,7 @@
     "syncNote": "Let op: bibliotheken worden niet gesynchroniseerd tussen machines. Werken twee planners met dezelfde resourcebibliotheek, dan kunnen de bibliotheken uiteenlopen. Deelt jullie organisatie ploegen over werkmaatschappijen heen, kies dan bewust één gezamenlijke pool.",
     "added": "Toegevoegd.",
     "alreadyInProject": "Zit al in het project.",
+    "linkedToExisting": "Bestond al in de bibliotheek — nu gekoppeld.",
     "upToDate": "Actueel",
     "exportWithPool": "Bibliotheekbestand ernaast opslaan",
     "linkTitle": "Resourcebibliotheek koppelen",
@@ -314,7 +316,6 @@
     "companyViewHint": "Dit bewerkt de bibliotheek en geldt voor alle projecten — valt buiten ongedaan maken.",
     "assignFromCompany": "Toewijzen aan project",
     "removeFromProject": "Verwijder uit project",
-    "addToCompany": "Nieuw in de bibliotheek",
     "confirmRemoveResource": "'{{name}}' verwijderen uit de bibliotheek? Dit geldt voor alle projecten en is niet ongedaan te maken.",
     "field": {
       "name": "Naam"
@@ -338,7 +339,12 @@
     "unitOfMeasure": "Eenheid",
     "parent": "Ploeg",
     "projectCalendar": "Projectkalender",
+    "noCalendar": "Geen kalender",
     "editCalendar": "Bewerken…",
+    "unlinkFromLibrary": "Losmaken van de bibliotheek",
+    "inheritedFieldHint": "Bibliotheekwaarde — bewerk in de Bibliotheekweergave, of maak deze resource los van de bibliotheek.",
+    "fromLibraryBadge": "Uit de bibliotheek",
+    "promoteToLibrary": "Naar de bibliotheek",
     "noParent": "Geen",
     "availabilityStepsEditor": {
       "title": "Tijd-gefaseerde capaciteit",
@@ -350,11 +356,14 @@
     "panel": {
       "title": "Resources",
       "addRow": "Nieuwe resource",
+      "addRowLibrary": "Nieuwe resource in de bibliotheek",
       "deleteRow": "Verwijderen",
       "confirmDelete": "'{{name}}' heeft {{count}} toewijzing(en) — verwijderen?",
       "confirmDeleteYes": "Verwijderen",
       "confirmDeleteNo": "Annuleren",
       "empty": "Nog geen resources. Voeg er een toe om te beginnen.",
+      "emptyLinkedTitle": "Dit project gebruikt nog geen resources uit de bibliotheek.",
+      "emptyLinkedHint": "Wijs er een toe vanuit de Bibliotheekweergave, of maak met “+ Nieuwe resource” een resource die alleen bij dit project hoort.",
       "steps": "Stappen"
     },
     "compact": {
