@@ -240,7 +240,11 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'structure',
     labelKey: 'context.indent',
     when: () => hasSelection() && !hasBlockingDialogOpen(),
-    run: (store) => { if (isTreeMode(store.view)) store.indentTasks(store.selectedTaskIds); },
+    // issue #26: buiten pure boommodus gebeurde er stil niets — nu legt de melding uit waarom.
+    run: (store) => {
+      if (isTreeMode(store.view)) store.indentTasks(store.selectedTaskIds);
+      else store.notifyStructureLocked();
+    },
   },
   {
     id: 'structure.outdent',
@@ -248,7 +252,11 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'structure',
     labelKey: 'context.outdent',
     when: () => hasSelection() && !hasBlockingDialogOpen(),
-    run: (store) => { if (isTreeMode(store.view)) store.outdentTasks(store.selectedTaskIds); },
+    // issue #26: zie structure.indent.
+    run: (store) => {
+      if (isTreeMode(store.view)) store.outdentTasks(store.selectedTaskIds);
+      else store.notifyStructureLocked();
+    },
   },
   // Aliassen (user-besluit tijdens golf 2): Alt+→/← naast de MS Project-conventie Alt+Shift+→/←
   // hierboven (die blijft bestaan). Zelfde `run`/`when` — puur een extra combo voor dezelfde actie.
@@ -261,7 +269,10 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'structure',
     labelKey: 'context.indent',
     when: () => hasSelection() && !hasBlockingDialogOpen(),
-    run: (store) => { if (isTreeMode(store.view)) store.indentTasks(store.selectedTaskIds); },
+    run: (store) => {
+      if (isTreeMode(store.view)) store.indentTasks(store.selectedTaskIds);
+      else store.notifyStructureLocked();
+    },
   },
   {
     id: 'structure.outdentAlt',
@@ -269,7 +280,10 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'structure',
     labelKey: 'context.outdent',
     when: () => hasSelection() && !hasBlockingDialogOpen(),
-    run: (store) => { if (isTreeMode(store.view)) store.outdentTasks(store.selectedTaskIds); },
+    run: (store) => {
+      if (isTreeMode(store.view)) store.outdentTasks(store.selectedTaskIds);
+      else store.notifyStructureLocked();
+    },
   },
   {
     id: 'structure.insertAbove',

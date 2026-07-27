@@ -13,6 +13,9 @@ export interface UiSlice {
   collapseAll: () => void;
   /** Presentatie-modus (§9): zet de flag + roept de echte Fullscreen-API aan. */
   setPresentationMode: (on: boolean) => void;
+  /** Meld dat een structuurmutatie geweigerd is omdat de weergave niet in pure boommodus staat
+   *  (issue #26): hoogt de teller op zodat `StructureLockedNotice` (opnieuw) verschijnt. */
+  notifyStructureLocked: () => void;
 }
 
 export function createDefaultUI(): UIState {
@@ -84,6 +87,7 @@ export function createDefaultUI(): UIState {
     // Issue #21 punt 5 (fase 2): default UIT (§0/§7.1 user-besluit).
     compressNonWorkdays: false,
     hourDataNotice: false,
+    structureLockedNotice: 0,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
@@ -121,6 +125,11 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       document.exitFullscreen?.().catch(() => { /* niet fataal */ });
     }
   },
+
+  // issue #26: sessie-UI-state, dus geen undo-snapshot en niet gepersisteerd — puur een signaal
+  // waar `StructureLockedNotice` op reageert.
+  notifyStructureLocked: () =>
+    set((s) => { s.ui.structureLockedNotice += 1; }),
 
   toggleCollapse: (taskId) => {
     set((s) => {
