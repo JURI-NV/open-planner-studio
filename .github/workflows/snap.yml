@@ -16,8 +16,18 @@ on:
         required: true
         default: 'v2026.6.0'
 
+# Bevinding O3, met dezelfde redenering als release.yml: één globale groep en
+# NIET annuleren. Twee releases kort na elkaar publiceren allebei naar het
+# `stable`-kanaal van de Snap Store, en een Snap-release is niet in te trekken.
+concurrency:
+  group: snap
+  cancel-in-progress: false
+
 jobs:
   build-snap:
+    # Bevinding O6. Ruim boven de snapcraft-bouwtijd, maar begrensd: deze job
+    # bevat een poll-lus (max ~2,5 min) plus een snapcraft-build in een VM.
+    timeout-minutes: 75
     runs-on: ubuntu-22.04
     # `types: [completed]` vuurt OOK als release.yml faalde of werd geannuleerd;
     # zonder deze gate zou een mislukte release alsnog een snap bouwen.

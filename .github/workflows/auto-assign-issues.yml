@@ -6,6 +6,8 @@ permissions:
   issues: write
 jobs:
   assign:
+    # Bevinding O6: één API-call, dus krap begrensd.
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v8

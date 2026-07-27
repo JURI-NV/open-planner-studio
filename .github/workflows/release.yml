@@ -11,6 +11,16 @@ on:
         required: true
         default: 'v0.1.0'
 
+# Bevinding O3. Bewust ÉÉN globale groep (niet per tag) en `cancel-in-progress:
+# false`: twee tags kort na elkaar beschrijven allebei dezelfde `latest.json` op
+# de release en zouden elkaars updater-entries overschrijven. Annuleren mag hier
+# al helemaal niet — een halverwege afgebroken release laat een draft met een
+# incomplete assetset achter, en de Windows-leg hangt via `needs` aan de
+# Linux/macOS-leg.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   # Release-gate: ci.yml draait de poorten (tsc, testsuite, verify:examples,
   # verify:docs), maar triggert alleen op push/PR naar `main` — een tag matcht
@@ -22,6 +32,7 @@ jobs:
   # updater gelijke versies en blijft de release voor bestaande installaties
   # STIL onzichtbaar. Bij verschil faalt deze job expliciet vóór create-release.
   gate:
+    timeout-minutes: 20
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -85,6 +96,7 @@ jobs:
 
   create-release:
     needs: gate
+    timeout-minutes: 10
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -123,6 +135,7 @@ jobs:
 
   build-linux-mac:
     needs: create-release
+    timeout-minutes: 45
     permissions:
       contents: write
     strategy:
@@ -146,6 +159,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -160,8 +174,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install frontend dependencies
-        run: npm install
+      # Bevinding O2: `npm ci` installeert exact wat de lockfile vastlegt en
+      # controleert de integriteitshashes — zonder dit was een gesigneerde
+      # installer niet reproduceerbaar. Er staat hier bewust GEEN rust-cache
+      # (zie ci.yml): een release bouwt uit een schone target-map.
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@action-v0.6.1
@@ -174,6 +192,7 @@ jobs:
 
   build-windows:
     needs: [create-release, build-linux-mac]
+    timeout-minutes: 45
     permissions:
       contents: write
     runs-on: windows-latest
@@ -188,12 +207,14 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend dependencies
-        run: npm install
+      # Bevinding O2 — zie de toelichting in build-linux-mac.
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@action-v0.6.1
@@ -324,6 +345,7 @@ jobs:
           Write-Host "Windows updater entries set to the .nsis.zip with matching signature"
 
   publish-release:
+    timeout-minutes: 10
     permissions:
       contents: write
     runs-on: ubuntu-latest

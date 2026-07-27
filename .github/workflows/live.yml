@@ -21,6 +21,9 @@ jobs:
   # deploy. (Geen versievergelijking hier: dat hoort bij een release, niet bij
   # een site-deploy.)
   gate:
+    # Bevinding O6. De `deploy`-job hieronder krijgt er bewust géén: op een job
+    # met `uses:` (reusable workflow) is `timeout-minutes` niet toegestaan.
+    timeout-minutes: 20
     permissions:
       contents: read
     runs-on: ubuntu-latest
