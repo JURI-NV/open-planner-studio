@@ -1,140 +1,177 @@
 # Marktonderzoek planningssoftware
 
-Deze map bevat het wereldwijde marktonderzoek naar projectplanning- en schedulingsoftware
-voor de bouw: deelrapporten per geografische markt, per verticale sector en per
+Wereldwijd marktonderzoek naar projectplanning- en schedulingsoftware, met nadruk op bouw
+en infrastructuur. 92 deelrapporten: per geografische markt, per verticale sector, per
 softwarepakket, plus overkoepelende dwarsdoorsnede-analyses.
 
-> **Let op — dit is een TUSSENSTAND.**
-> De geografische marktrapporten, sectoranalysesen en dwarsdoorsnede-thema's zijn voltooid
-> en geverifieerd. Van de 44 softwareprofielen zijn 36 geverifieerd (enterprise + PPM/algemeen);
-> de overige 8 (bouw/lean/4D/regionaal) zijn nog in voorbereiding.
-> De definitieve versie en het samenvattende **eindrapport** volgen later
-> en vervangen dan de bestanden in deze map.
+## ➜ Begin hier: [`eindrapport.md`](eindrapport.md)
+
+Het eindrapport is het hoofddocument. Het bevat de managementsamenvatting, het wereldwijde
+totaalbeeld met bandbreedtes, vergelijkende tabellen voor markten, sectoren en software,
+de dwarsanalyse (prijspatronen, lock-in, gaten in de markt), een gerangschikte
+groeipotentieel-analyse per markt en sector, en de implicaties voor Open Planner Studio.
+Onderaan staat een leeswijzer met links naar alle deelrapporten.
 
 ## Mapindeling
 
 | Map | Inhoud |
 | --- | --- |
-| `markten/` | Geografische marktrapporten — één rapport per land of landengroep (marktomvang, spelers, marktaandelen, kanalen, prijsniveau, lokale bijzonderheden). |
-| `sectoren/` | Verticale sectormarkten — planningssoftware bezien vanuit een bedrijfstak (bouw & infra, olie en gas, energie, …) met sectorspecifieke eisen en workflows. |
-| `profielen/` | Softwareprofielen per pakket — diepgaand profiel van één product (functionaliteit, doelgroep, licentiemodel, prijs, marktpositie, sterktes/zwaktes). |
-| `dwarsdoorsnede/` | Overkoepelende analyses die dwars door markten, sectoren en pakketten heen snijden: wereldmarktomvang en triangulatie, prijsbenchmark en licentiemodellen, normen/aanbestedings- en contracteisen, interoperabiliteit. |
+| `markten/` | Geografische marktrapporten — één per land of landengroep: marktomvang, spelers, marktaandelen, kanalen, prijsniveau, lokale bijzonderheden. |
+| `sectoren/` | Verticale sectormarkten — planningssoftware bezien vanuit een bedrijfstak, met sectorspecifieke eisen en workflows. |
+| `profielen/` | Softwareprofielen per pakket — functionaliteit, techniek, prijs, voor- en nadelen, interoperabiliteit, marktpositie, eindoordeel. |
+| `dwarsdoorsnede/` | Analyses die dwars door markten, sectoren en pakketten heen snijden. Deze dragen de analytische conclusies van het onderzoek. |
 
-Nog te verwachten in de root van deze map: `synthese.md` en het `eindrapport.md`.
+Elk deelrapport is na afronding onderworpen aan een adversariële verificatieronde; die staat
+onderaan het rapport in een sectie `Verificatie`, met per bewering een oordeel
+(bevestigd / gecorrigeerd / onzeker / weerlegd). Lees die sectie voordat je een cijfer citeert.
 
-## Wat er nu al staat
+## Bestandslijsten
 
-### `markten/` — geografische marktrapporten (27)
+### `dwarsdoorsnede/` — thema-analyses (8)
 
-| Bestand | Markt |
-| --- | --- |
-| `markt-australie-en-nieuw-zeeland.md` | Australië en Nieuw-Zeeland (Oceanië) |
-| `markt-benelux.md` | Benelux |
-| `markt-brazili.md` | Brazilië |
-| `markt-canada.md` | Canada |
-| `markt-china.md` | China (Oost-Azië) |
-| `markt-dach-duitsland-oostenrijk-zwitserland.md` | DACH (Duitsland, Oostenrijk, Zwitserland) |
-| `markt-egypte-en-noord-afrika.md` | Egypte en Noord-Afrika |
-| `markt-frankrijk.md` | Frankrijk |
-| `markt-golfstaten-gcc.md` | Golfstaten (GCC) |
-| `markt-hongkong-en-taiwan.md` | Hongkong en Taiwan |
-| `markt-india.md` | India |
-| `markt-israel.md` | Israël |
-| `markt-italie.md` | Italië |
-| `markt-japan.md` | Japan |
-| `markt-mexico.md` | Mexico |
-| `markt-nordics-zweden-noorwegen-denemarken-finland.md` | Nordics (Zweden, Noorwegen, Denemarken, Finland) |
-| `markt-polen-en-centraal-europa.md` | Polen en Centraal-Europa |
-| `markt-rest-latijns-amerika-chili-colombia-peru-argentini.md` | Rest Latijns-Amerika (Chili, Colombia, Peru, Argentinië) |
-| `markt-rusland-en-de-gos-landen.md` | Rusland en de GOS-landen |
-| `markt-spanje-en-portugal.md` | Spanje en Portugal (Iberisch schiereiland) |
-| `markt-spanje-portugal.md` | Spanje & Portugal (Zuid-Europa) |
-| `markt-turkije.md` | Turkije |
-| `markt-verenigd-koninkrijk-ierland.md` | Verenigd Koninkrijk & Ierland |
-| `markt-verenigde-staten.md` | Verenigde Staten (Noord-Amerika) |
-| `markt-zuid-afrika-en-sub-sahara-afrika.md` | Zuid-Afrika en Sub-Sahara Afrika |
-| `markt-zuid-korea.md` | Zuid-Korea |
-| `markt-zuidoost-azie.md` | Zuidoost-Azië |
+- `thema-ai-en-automatisering-in-planning.md`
+- `thema-interoperabiliteit-en-bestandsformaten.md`
+- `thema-kanalen-resellers-training-en-certificering.md`
+- `thema-marktdynamiek-consolidatie-en-migratiepatronen.md`
+- `thema-normen-aanbestedings-en-contracteisen.md`
+- `thema-open-source-en-gratis-alternatieven.md`
+- `thema-prijsbenchmark-en-licentiemodellen.md`
+- `thema-wereldmarktomvang-en-triangulatie.md`
 
-> De twee Spanje/Portugal-rapporten zijn onafhankelijk van elkaar opgesteld met
-> overlappende scope. Bij de definitieve versie worden ze samengevoegd tot één rapport.
+### `markten/` — geografische marktrapporten (26)
 
-### `sectoren/` — verticale sectormarkten (14)
+- `markt-australie-en-nieuw-zeeland.md`
+- `markt-benelux.md`
+- `markt-brazilie.md`
+- `markt-canada.md`
+- `markt-china.md`
+- `markt-dach-duitsland-oostenrijk-zwitserland.md`
+- `markt-egypte-en-noord-afrika.md`
+- `markt-frankrijk.md`
+- `markt-golfstaten-gcc.md`
+- `markt-hongkong-en-taiwan.md`
+- `markt-india.md`
+- `markt-israel.md`
+- `markt-italie.md`
+- `markt-japan.md`
+- `markt-mexico.md`
+- `markt-nordics-zweden-noorwegen-denemarken-finland.md`
+- `markt-polen-en-centraal-europa.md`
+- `markt-rest-latijns-amerika.md`
+- `markt-rusland-en-de-gos-landen.md`
+- `markt-spanje-en-portugal.md`
+- `markt-turkije.md`
+- `markt-verenigd-koninkrijk-ierland.md`
+- `markt-verenigde-staten.md`
+- `markt-zuid-afrika-en-sub-sahara-afrika.md`
+- `markt-zuid-korea.md`
+- `markt-zuidoost-azie.md`
 
-| Bestand | Sector |
-| --- | --- |
-| `sector-aerospace-en-defensie.md` | Aerospace en defensie |
-| `sector-bouw-en-infrastructuur-algemeen.md` | Bouw en infrastructuur (algemeen) |
-| `sector-energie-nutsbedrijven-en-nucleair.md` | Energie, nutsbedrijven en nucleair |
-| `sector-farma-biotech-en-r-d.md` | Farma, biotech en R&D |
-| `sector-industriele-epc-en-procesindustrie.md` | Industriële EPC en procesindustrie |
-| `sector-it-software-en-telecom.md` | IT, software en telecom |
-| `sector-mijnbouw-en-grondstoffen.md` | Mijnbouw en grondstoffen |
-| `sector-olie-en-gas-turnarounds-en-shutdowns.md` | Olie en gas — turnarounds en shutdowns (STO) |
-| `sector-onderhoud-asset-management-en-mro.md` | Onderhoud, asset management en MRO |
-| `sector-overheid-en-publieke-opdrachtgevers.md` | Overheid en publieke opdrachtgevers |
-| `sector-scheepsbouw-en-offshore.md` | Scheepsbouw en offshore |
-| `sector-spoor-tunnels-en-lineaire-infrastructuur.md` | Spoor, tunnels en lineaire infrastructuur |
-| `sector-woningbouw-projectontwikkeling-en-kleinere-aannemers.md` | Woningbouw, projectontwikkeling en kleinere aannemers |
-| `sector-aps-en-personeelsroostering.md` | Aangrenzend: APS en personeelsroostering |
+### `sectoren/` — sectorrapporten (14)
+
+- `sector-aangrenzende-segmenten-productieplanning-aps-en-personeelsroostering.md`
+- `sector-aerospace-en-defensie.md`
+- `sector-bouw-en-infrastructuur-algemeen.md`
+- `sector-energie-nutsbedrijven-en-nucleair.md`
+- `sector-farma-biotech-en-r-d.md`
+- `sector-industriele-epc-en-procesindustrie.md`
+- `sector-it-software-en-telecom.md`
+- `sector-mijnbouw-en-grondstoffen.md`
+- `sector-olie-en-gas-turnarounds-en-shutdowns.md`
+- `sector-onderhoud-asset-management-en-mro.md`
+- `sector-overheid-en-publieke-opdrachtgevers.md`
+- `sector-scheepsbouw-en-offshore.md`
+- `sector-spoor-tunnels-en-lineaire-infrastructuur.md`
+- `sector-woningbouw-projectontwikkeling-en-kleinere-aannemers.md`
 
 ### `profielen/` — softwareprofielen (44)
 
-Softwareprofielen zijn onderverdeeld in **geverifieerde** (36) en **in voorbereiding** (8).
+- `software-alice-technologies.md`
+- `software-asana.md`
+- `software-atlassian-jira-met-advanced-roadmaps-bigpicture-en-structure-gantt.md`
+- `software-autodesk-build-en-autodesk-construction-cloud.md`
+- `software-autodesk-navisworks-timeliner.md`
+- `software-bentley-synchro.md`
+- `software-bexel-manager.md`
+- `software-broadcom-clarity.md`
+- `software-buildertrend.md`
+- `software-clickup.md`
+- `software-deltek-open-plan-en-acumen-fuse.md`
+- `software-elecosoft-asta-powerproject.md`
+- `software-ganttpro.md`
+- `software-ganttproject.md`
+- `software-glodon.md`
+- `software-hexagon-ecosys.md`
+- `software-ineight-schedule.md`
+- `software-liquidplanner.md`
+- `software-microsoft-project.md`
+- `software-monday-com.md`
+- `software-nodes-links.md`
+- `software-nplan.md`
+- `software-openproject.md`
+- `software-oracle-primavera-cloud.md`
+- `software-oracle-primavera-p6.md`
+- `software-oracle-primavera-risk-analysis.md`
+- `software-phoenix-project-manager.md`
+- `software-planisware.md`
+- `software-procore.md`
+- `software-project-plan-365.md`
+- `software-projectlibre.md`
+- `software-rib-candy.md`
+- `software-rib-itwo.md`
+- `software-sablono.md`
+- `software-safran-project.md`
+- `software-sap-project-system-en-sap-portfolio-and-project-management.md`
+- `software-sciforma.md`
+- `software-smartsheet.md`
+- `software-spider-project.md`
+- `software-teamgantt.md`
+- `software-trimble-tilos.md`
+- `software-trimble-vico-office.md`
+- `software-wrike.md`
+- `software-zoho-projects.md`
 
-**Geverifieerd — Enterprise & PPM (36):**
-Alice Technologies, Asana, Atlassian Jira (met Advanced Roadmaps, BigPicture, Structure Gantt),
-Autodesk Build & Autodesk Construction Cloud, Autodesk Navisworks Timeliner, Bentley Synchro,
-Bexel Manager, Broadcom Clarity, Buildertrend, ClickUp, Deltek Open Plan & Acumen Fuse,
-Elecosoft Asta Powerproject, Glodon, Microsoft Project, monday.com, Nodes & Links, nPlan,
-Oracle Primavera Cloud, Oracle Primavera P6, Oracle Primavera Risk Analysis, Planisware,
-Procore, Sablono, SAP Project System & SAP Portfolio and Project Management,
-Sciforma (Planview ProjectAdvantage), Smartsheet, Trimble Tilos, Trimble Vico Office, Wrike,
-RIB Candy, RIB iTWO, InEight Schedule, Hexagon EcoSys, Phoenix Project Manager, Zoho Projects,
-GanttPRO, TeamGantt.
+## Beperkingen
 
-**In voorbereiding — Bouw/Lean/4D/Regionaal (8):**
-Touchplan, vPlanner, Luban, NEVARIS Build, Merlin Project, ScheduleReader, Steelray,
-Project Plan 365.
+Uitgebreid toegelicht in [§10 van het eindrapport](eindrapport.md#10-beperkingen-van-dit-onderzoek).
+In het kort:
 
-### `dwarsdoorsnede/` — overkoepelende analyses (8)
+- **Geen Gartner, IDC of Forrester.** Paywall en HTTP 403. Er staat geen enkel cijfer van
+  deze bureaus in het onderzoek, ook niet uit het geheugen. Zij publiceren overigens
+  sowieso geen openbaar marktomvangcijfer voor PPM of scheduling.
+- **Het zoekbudget van de onderzoekssessie raakte uitgeput.** Verschillende deelrapporten
+  zijn geschreven zonder websearch, uitsluitend met directe ophaalacties op bekende URL's.
+  Dat maakt ze bronkwalitatief sterker maar smaller in dekking: geen vakpers, geen
+  gebruikersfora, weinig regionale bronnen in de lokale taal.
+- **De duurste helft van de markt publiceert geen prijzen.** Voor quote-only leveranciers
+  zijn bedragen eigen schattingen met expliciete redenering, of ontbreken ze.
+- **Oracle's laatste openbare prijslijst is van november 2016.** Alle P6-prijzen zijn
+  daarop gebaseerd en gekalibreerd tegen wederverkoperprijzen van 2026.
+- **Bandbreedtes zijn breed en soms niet-overlappend.** Waar top-down en bottom-up elkaar
+  niet raken is de band opgerekt in plaats van een puntschatting geforceerd.
+- **Regionale cijfers zijn geen partitie van het wereldtotaal**, en sectorcijfers zijn
+  niet optelbaar — de overlap tussen energie, olie & gas, EPC en MRO is substantieel.
+- **De kansenscores in het groeipotentieel-hoofdstuk zijn een eigen oordeel**, geen
+  gemeten grootheid. Ze vatten vijf criteria samen die per markt verschillend zwaar wegen
+  en zijn bedoeld om te prioriteren, niet om te besluiten.
 
-| Bestand | Thema |
-| --- | --- |
-| `thema-ai-en-automatisering-in-planning.md` | AI en automatisering in planning |
-| `thema-interoperabiliteit-en-bestandsformaten.md` | Interoperabiliteit en bestandsformaten |
-| `thema-kanalen-resellers-training-en-certificering.md` | Kanalen, resellers, training en certificering |
-| `thema-marktdynamiek-consolidatie-en-migratiepatronen.md` | Marktdynamiek, consolidatie en migratiepatronen |
-| `thema-normen-aanbestedings-en-contracteisen.md` | Normen, aanbestedings- en contracteisen |
-| `thema-open-source-en-gratis-alternatieven.md` | Open source en gratis alternatieven |
-| `thema-prijsbenchmark-en-licentiemodellen.md` | Prijsbenchmark en licentiemodellen |
-| `thema-wereldmarktomvang-en-triangulatie.md` | Wereldmarktomvang en triangulatie |
+### Profielen die (nog) ontbreken
 
-## Nog te doen
+De 44 profielen dekken de internationale hoofdmoot, maar een aantal pakketten dat in de
+markt- en sectorrapporten wél prominent voorkomt heeft geen eigen profiel:
 
-### Softwareprofielen in voorbereiding (8)
+- **Deswik** en **Minemax/MineSched** — dominant in mijnbouwplanning (het sectorrapport
+  mijnbouw schat dat segment op ~$250 mln/jaar).
+- **Prometheus Group** en **IAMTech** — turnaround-/MRO-planning in olie & gas.
+- **Touchplan**, **Planera** en **KYP Project** — lean-/pull-planning en ketenplanning
+  (KYP is zeer sterk in de Nederlandse woningbouw).
+- **ScheduleReader** — bewijst dat er een markt is puur voor het lezen van XER.
+- **ACCA PriMus(-K)** (Italië), **Opus/Ecosoft** en **Neodata** (Mexico), **Sienge**
+  (Brazilië), **S10** (Peru), **SINCO** (Colombia), **Antura** (Nordics), **Norma**
+  (Polen) — lokale kampioenen die planning aan de lokale calculatiepraktijk koppelen.
+- **LibrePlan** en **Plan/KDE** — behandeld in het open-sourcethema, maar zonder eigen
+  profiel.
+- **Oracle Aconex** — als CDE veelgenoemd naast P6, met name in de GCC.
 
-De volgende softwarepakketten zijn nog in voorbereiding (bouw/lean/4D/regionaal):
-- Touchplan
-- vPlanner
-- Luban
-- NEVARIS Build
-- Merlin Project
-- ScheduleReader
-- Steelray
-- Project Plan 365
-
-### Aanvullende profielen voor toekomstige expansie
-
-Buiten de huidige scope maar potentieel nuttig:
-- Safran Project
-- Spider Project
-- ProjectLibre
-- GanttProject
-- OpenProject
-- LiquidPlanner
-
-### Structurering en samenstelwerk
-
-- De twee overlappende Spanje/Portugal-rapporten (`markt-spanje-en-portugal.md` en `markt-spanje-portugal.md`) moeten worden samengevoegd tot één definitief rapport
-- Het eindrapport (synthese, conclusies, aanbevelingen) moet nog worden geschreven
+Deze ontbrekende profielen veranderen de hoofdconclusies van het eindrapport niet, maar
+zijn relevant voor wie een specifieke markt of sector diepgaand wil bekijken.
