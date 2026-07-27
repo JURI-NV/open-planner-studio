@@ -18,6 +18,7 @@
 // Draait via run.sh. Exit 0 = alles groen.
 import { useAppStore } from '@/state/appStore';
 import { MAX_NOTIFICATIONS } from '@/state/slices/uiSlice';
+import { sameIFCSource } from '@/state/ifcSaveInput';
 
 const S = () => useAppStore.getState();
 const N = () => S().ui.notifications;
@@ -190,6 +191,54 @@ eq('48 redo laat de melding óók staan', N().length, 1);
 // `newProject` is een reset van de PROJECTdata, niet van de app-state.
 S().newProject();
 eq('49 newProject wist de meldingen niet', N().length, 1);
+
+// ── 7. De I/O-paden melden nu écht (K8b) ────────────────────────────────────
+// Deze twee paden zijn headless te draaien omdat ze afbreken vóór/op een browser-API die in Node
+// niet bestaat — precies de faalmodus waar de gebruiker vandaag niets van zag.
+
+// Een onleesbaar voorbeeldbestand: `readIFC` gooit sinds K4 een IfcParseError. Vroeger ging dat
+// naar `console.error` en zag de gebruiker een leeg scherm zonder uitleg.
+clearAll();
+S().openExampleFromString('dit is geen IFC', 'kapot.ifc');
+eq('50 een onleesbaar bestand meldt zich', N().length, 1);
+eq('51 als fout', N()[0]?.severity, 'error');
+eq('52 met de open-sleutel', N()[0]?.messageKey, 'notifications.openFailed');
+truthy('53 en met de rauwe parserfout als detail', (N()[0]?.detail ?? '').length > 0);
+
+// `saveFile` had helemaal GEEN try/catch, en de Tauri-backend vangt ook niets: een schijf vol of
+// een geweigerde permissie leverde een afgewezen promise op die nergens landde. Headless klapt
+// het pad al op `isTauri()` (geen `window`) — een andere oorzaak dan in productie, maar wél
+// precies de vraag die hier telt: komt een gooiende opslagpoging bij de gebruiker aan in plaats
+// van bij niemand. Wat deze batterij NIET kan halen is het geslaagde-opslag-pad; dat vereist een
+// echte bestandsdialoog. De `sameIFCSource`-guard op dát pad wordt hieronder los getest.
+clearAll();
+S().newProject();
+const sv = S().addTask({ name: 'niet-opgeslagen' });
+truthy('54 opzet: het document is gewijzigd', S().isDirty === true);
+let saveThrew = false;
+await S().saveFile().catch(() => { saveThrew = true; });
+eq('55 saveFile gooit niet meer naar de aanroeper', saveThrew, false);
+eq('56 de mislukte opslag meldt zich', N().length, 1);
+eq('57 met de opslaan-sleutel', N()[0]?.messageKey, 'notifications.saveFailed');
+eq('58 en het document blijft gewijzigd (geen valse "opgeslagen")', S().isDirty, true);
+truthy('59 de taak staat er nog', !!S().tasks.find(t => t.id === sv));
+
+// ── 8. `sameIFCSource`: de wacht op verouderde inhoud ───────────────────────
+// `saveFile` serialiseert, wacht dán op een native dialoog die minuten open kan staan, en wist
+// dán `isDirty`. Alles wat de gebruiker ondertussen typt gold als opgeslagen maar stond nergens.
+// De vergelijking hieronder is wat dat tegenhoudt; hij moet dus zowel gelijk als ONgelijk kunnen
+// zeggen. Referentievergelijking volstaat omdat Immer elk gemuteerd veld vervangt.
+S().newProject();
+const voor = S();
+truthy('60 dezelfde state is aan zichzelf gelijk', sameIFCSource(voor, S()));
+const bewerkt = S().addTask({ name: 'tijdens de dialoog getypt' });
+truthy('61 opzet: de taak is toegevoegd', !!S().tasks.find(t => t.id === bewerkt));
+truthy('62 een taakmutatie tijdens de await wordt gezien', !sameIFCSource(voor, S()));
+// Een puur UI-wijziging is GEEN inhoudswijziging — anders zou `isDirty` nooit meer gewist worden
+// zodra de gebruiker tijdens de dialoog ook maar een paneel opent.
+const naTaak = S();
+S().setUI({ rightPanelCollapsed: !S().ui.rightPanelCollapsed });
+truthy('63 een UI-wijziging telt niet als inhoudswijziging', sameIFCSource(naTaak, S()));
 
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {

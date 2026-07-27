@@ -79,6 +79,14 @@ export function useRecoveryRestore(): RecoveryRestore {
             // zonder STEP-kop of zonder sluitmarkering (= afgekapt). Zo'n snapshot wordt dus NIET
             // meer als volwaardig document aangeboden; de overige documenten lopen gewoon door.
             console.error('Failed to read recovery document:', d.id, err);
+            // dedupeKey: de lus hierboven itereert per document, dus bij vijf kapotte snapshots
+            // willen we één regel met teller, geen vijf afzonderlijke meldingen.
+            useAppStore.getState().notify({
+              severity: 'error',
+              messageKey: 'notifications.recoveryReadFailed',
+              detail: (err as Error).message,
+              dedupeKey: 'recovery-read',
+            });
           }
         }
 
@@ -104,10 +112,15 @@ export function useRecoveryRestore(): RecoveryRestore {
               } catch (err) {
                 // Snapshots blijven staan. `finish()` gaat bewust wél door: de auto-save-poort
                 // dichthouden zou betekenen dat vanaf nu NIETS meer wordt weggeschreven — een
-                // groter risico dan het verlies van deze ene snapshotgeneratie. De gebruiker
-                // ziet de fout in de debug-terminal (console wordt door appLog opgevangen);
-                // een echte melding hangt aan bevinding K8.
+                // groter risico dan het verlies van deze ene snapshotgeneratie. De fout is nu
+                // ook gebruikerszichtbaar via het meldingenkanaal (K8b); de debug-terminal houdt
+                // via appLog de volledige stack bij.
                 console.error('Recovery: herstellen mislukt — snapshots blijven staan:', err);
+                useAppStore.getState().notify({
+                  severity: 'error',
+                  messageKey: 'notifications.recoveryRestoreFailed',
+                  detail: (err as Error).message,
+                });
               } finally {
                 setRecovery(null);
                 finish();

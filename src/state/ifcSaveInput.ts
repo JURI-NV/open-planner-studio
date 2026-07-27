@@ -44,3 +44,26 @@ export function buildWriteIFCInput(src: IFCSaveSource): WriteIFCInput {
     activeBaselineId: src.activeBaselineId,
   };
 }
+
+/** De sleutels van `IFCSaveSource` op WAARDE-niveau. Twee compile-time asserts hieronder koppelen
+ *  deze lijst aan het type, zodat hij niet stil kan afdrijven van `buildWriteIFCInput`. */
+const IFC_SAVE_KEYS = [
+  'project', 'calendar', 'tasks', 'sequences', 'resources', 'assignments',
+  'activityCodeTypes', 'customFieldDefs', 'calendars', 'baselines', 'activeBaselineId',
+] as const;
+
+type MissingSaveKey = Exclude<keyof IFCSaveSource, typeof IFC_SAVE_KEYS[number]>;
+type ExtraSaveKey = Exclude<typeof IFC_SAVE_KEYS[number], keyof IFCSaveSource>;
+const _assertSaveKeysComplete: MissingSaveKey extends never ? true : ['IFC_SAVE_KEYS mist:', MissingSaveKey] = true;
+const _assertSaveKeysNoExtras: ExtraSaveKey extends never ? true : ['IFC_SAVE_KEYS bevat onbekende sleutels:', ExtraSaveKey] = true;
+void _assertSaveKeysComplete;
+void _assertSaveKeysNoExtras;
+
+/** Is de op te slaan documentinhoud nog dezelfde? Referentievergelijking volstaat: Immer geeft
+ *  elk gemuteerd veld een NIEUWE referentie, dus ongelijkheid = "er is iets gewijzigd". Gebruikt
+ *  door `saveFile`/`saveFileAs` om te bepalen of `isDirty` gewist mag worden ná een opslaan-dialoog
+ *  die minuten open kan hebben gestaan (bevinding K8b: stilletjes `isDirty=false` zetten terwijl de
+ *  gebruiker onderhanden wijzigingen deed, was stil dataverlies). */
+export function sameIFCSource(a: IFCSaveSource, b: IFCSaveSource): boolean {
+  return IFC_SAVE_KEYS.every((k) => a[k] === b[k]);
+}
