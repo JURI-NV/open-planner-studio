@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -122,6 +122,22 @@ export interface LibrarySlice {
   /** Vervang de HELE pool van een bedrijf door een geïmporteerde pool ná bevestiging (spec §4).
    *  De demping-waarschuwing zit in de UI (via `isPoolNewer`); deze actie vervangt onvoorwaardelijk. */
   replacePool: (companyId: string, pool: import('@/types/library').CompanyPool) => void;
+  /**
+   * Importeer een geïmporteerde pool als NIEUW bedrijf (issue #19: "een bibliotheek importeren"
+   * voelde aan als openen, maar was in werkelijkheid de gekozen bibliotheek onvoorwaardelijk
+   * overschrijven — deze actie is de veilige tegenhanger in `PoolImportDialog`). Anders dan
+   * `replacePool` (dat de HELE pool van een GEKOZEN bestaand bedrijf vervangt) maakt dit een NIEUW
+   * bedrijf aan met de inhoud van het bestand:
+   * - Naam: `pool.companyName` (met een onderscheidend " (2)"/" (3)"-achtervoegsel bij een lokale
+   *   naamsbotsing, via `resolveUniqueCompanyName`).
+   * - Id: behoudt `pool.companyId` uit het bestand als dat lokaal nog VRIJ is — dat is precies wat
+   *   een meegestuurd project (met stempels naar dat companyId) nodig heeft om zijn bibliotheek na
+   *   het delen te herkennen. Bestaat het id al lokaal, dan een vers gegenereerd id (het wordt dan
+   *   een kopie náást de bestaande, net als bij een naamsbotsing).
+   * Bindt het ACTIEVE project NIET aan het nieuwe bedrijf — dat is een aparte, bewuste
+   * gebruikershandeling. Retourneert het nieuwe companyId.
+   */
+  importPoolAsNewCompany: (pool: import('@/types/library').CompanyPool) => string;
   /** True als de lokale pool nieuwer is dan een te importeren pool (demping, spec §4). */
   isLocalPoolNewer: (companyId: string, imported: import('@/types/library').CompanyPool) => boolean;
 
@@ -700,6 +716,30 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     persist(get);
     // Bewust GEEN refreshAllDocumentsFromPool hier — pool-import volgt het grens-1-gedrag mét
     // afwijkingsvraag (taak 13).
+  },
+
+  importPoolAsNewCompany: (pool) => {
+    let newId = '';
+    set((s) => {
+      const name = resolveUniqueCompanyName(pool.companyName ?? '', s.companies.map((c) => c.name));
+      // Behoud het companyId uit het bestand als het lokaal nog vrij is (zie de uitgebreide
+      // toelichting bij de interface hierboven) — anders een vers id, net als bij een naamsbotsing.
+      const fileId = pool.companyId;
+      const id = (fileId && !s.companies.some((c) => c.id === fileId)) ? fileId : generateId('company');
+      const company: Company = { id, name };
+      s.companies.push(company);
+      // Zelfde defensieve normalisatie als replacePool (vorm-invalide bestand ⇒ geen TypeError op
+      // een latere .push/.find in promote/add-acties); companyName wordt daarna overschreven met de
+      // (mogelijk gededupliceerde) `name` — normalizePoolShape zou anders het RUWE pool.companyName
+      // laten staan.
+      const normalized = normalizePoolShape(id, pool, s.companies);
+      s.pools[id] = { ...normalized, companyName: name };
+      newId = id;
+    });
+    persist(get);
+    // Bewust GEEN bindProjectToCompany/runOpenBoundary hier — een nieuw-geïmporteerde bibliotheek
+    // koppelt het actieve project niet automatisch (aparte, bewuste gebruikershandeling, issue #19).
+    return newId;
   },
 
   isLocalPoolNewer: (companyId, imported) => {

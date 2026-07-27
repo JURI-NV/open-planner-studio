@@ -2,15 +2,34 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, X } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
-import { readPoolIFC } from '@/services/library';
+import { readPoolIFC, resolveUniqueCompanyName } from '@/services/library';
 import { openFileDialog } from '@/services/fileAccess';
 import { Dialog } from '@/components/common/Dialog';
 import type { CompanyPool } from '@/types/library';
 
 /**
- * Pool-import (spec §4): kies bestand → toon inhoud + demping-waarschuwing als de lokale pool
- * nieuwer is → vervang de HELE pool ná bevestiging. Legt het sync-probleem (§8.1) expliciet uit via
- * `syncNote` (bindend user-besluit — altijd zichtbaar, niet alleen bij de demping-waarschuwing).
+ * Pool-import (spec §4, issue #19-fix): kies bestand → kies expliciet een actie → bevestig.
+ *
+ * "Een bibliotheek importeren" voelde aan als "een bibliotheek openen" maar was in werkelijkheid de
+ * gekozen bibliotheek onvoorwaardelijk overschrijven (`replacePool`) — met als extra gevolg dat de
+ * herkomst uit het bestand (companyId/companyName) werd weggegooid en vervangen door het DOEL-bedrijf,
+ * wat het deel-scenario brak (een meegestuurd project met stempels naar het BRON-companyId herkende
+ * zijn bibliotheek dan niet meer na import). Twee expliciete opties lossen dat op:
+ *
+ * 1. "Toevoegen als nieuwe resourcebibliotheek" (`importPoolAsNewCompany`) — maakt een NIEUW bedrijf
+ *    van het bestand; behoudt het companyId uit het bestand als dat lokaal nog vrij is (zodat een
+ *    meegestuurd project zijn bibliotheek herkent), met naams-/id-botsing afgehandeld door de actie
+ *    zelf. Bindt het actieve project NIET automatisch.
+ * 2. "Een bestaande resourcebibliotheek vervangen" (`replacePool`) — het oude gedrag, inclusief de
+ *    demping-waarschuwing (`isLocalPoolNewer`) — nu ALLEEN zichtbaar bij deze optie.
+ *
+ * Voorselectie (de kern van de fix): bevat het bestand een companyId dat lokaal NIET bestaat, dan
+ * staat "toevoegen" voorgeselecteerd (de standaardklik kan dan nooit onherstelbaar iets overschrijven).
+ * Bestaat het id wél lokaal, dan staat "vervangen" voorgeselecteerd met precies díe bibliotheek gekozen
+ * — dat is aantoonbaar dezelfde bibliotheek in een andere versie.
+ *
+ * `syncNote` (uitleg over het ontbreken van synchronisatie) blijft altijd zichtbaar — bindend
+ * user-besluit, niet gekoppeld aan een van beide opties.
  */
 export function PoolImportDialog() {
   const { t } = useTranslation();
@@ -21,8 +40,10 @@ export function PoolImportDialog() {
   const poolImportCompanyId = useAppStore(s => s.ui.poolImportCompanyId);
   const isLocalPoolNewer = useAppStore(s => s.isLocalPoolNewer);
   const replacePool = useAppStore(s => s.replacePool);
+  const importPoolAsNewCompany = useAppStore(s => s.importPoolAsNewCompany);
 
   const [companyId, setCompanyId] = useState(defaultCompanyId);
+  const [action, setAction] = useState<'add' | 'replace'>('replace');
   const [imported, setImported] = useState<CompanyPool | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +51,9 @@ export function PoolImportDialog() {
   // in Backstage) — anders het standaardbedrijf, anders het eerste geldige bedrijf. Voorkomt zowel
   // een stille no-op-import als de voorselectie een verwijderd bedrijf betrof (critreview taak 11)
   // ALS het stil overschrijven van het verkeerde bedrijf wanneer je vanuit een ander bedrijf dan het
-  // standaardbedrijf importeert (bewezen V1).
+  // standaardbedrijf importeert (bewezen V1). Dit is slechts een BASIS-default voor de "vervangen"-
+  // select — `pick()` hieronder herberekent de echte voorselectie (actie + bedrijf) zodra een bestand
+  // gekozen is (issue #19).
   useEffect(() => {
     if (!open) return;
     const preferred = (poolImportCompanyId && companies.some(c => c.id === poolImportCompanyId))
@@ -45,6 +68,7 @@ export function PoolImportDialog() {
   const close = () => {
     setImported(null);
     setError(null);
+    setAction('replace');
     setUI({ showPoolImportDialog: false, poolImportCompanyId: null });
   };
 
@@ -53,20 +77,44 @@ export function PoolImportDialog() {
     const res = await openFileDialog([{ name: 'IFC', extensions: ['ifc'] }]);
     if (!res) return;
     try {
-      setImported(readPoolIFC(res.content));
+      const pool = readPoolIFC(res.content);
+      setImported(pool);
+      // Voorselectie (issue #19, kern van de fix): een companyId dat lokaal NIET bestaat kan door dit
+      // bestand nooit overschreven worden — "toevoegen" staat dan voorgeselecteerd (veilige default,
+      // de standaardklik kan nooit onherstelbaar iets wissen). Bestaat het id wél lokaal, dan is dit
+      // aantoonbaar dezelfde bibliotheek in een andere versie ⇒ "vervangen" met die bibliotheek gekozen.
+      const match = pool.companyId ? companies.find(c => c.id === pool.companyId) : undefined;
+      if (match) {
+        setAction('replace');
+        setCompanyId(match.id);
+      } else {
+        setAction('add');
+      }
     } catch {
       setError(t('companyLibrary.importNotAPool'));
       setImported(null);
     }
   };
 
-  const newer = imported ? isLocalPoolNewer(companyId, imported) : false;
+  // Demping-waarschuwing hoort UITSLUITEND bij "vervangen" — "toevoegen" overschrijft nooit iets.
+  const newer = imported && action === 'replace' ? isLocalPoolNewer(companyId, imported) : false;
+  const newCompanyName = imported ? resolveUniqueCompanyName(imported.companyName, companies.map(c => c.name)) : '';
+  const idCollision = imported ? companies.some(c => c.id === imported.companyId) : false;
 
   const confirm = () => {
-    if (imported) replacePool(companyId, imported);
+    if (imported) {
+      if (action === 'add') {
+        importPoolAsNewCompany(imported);
+      } else {
+        replacePool(companyId, imported);
+      }
+    }
     close();
     // Pool-import is een EXTERNE wijziging (spec §3): draai grens 1 voor het actieve document i.p.v.
-    // de stille grens 3 — de gebruiker houdt regie wanneer een import open projecten herschrijft.
+    // de stille grens 3 — de gebruiker houdt regie wanneer een import open projecten herschrijft. Bij
+    // "toevoegen" is dit inherent een no-op: het actieve project hangt nooit aan de zojuist
+    // nieuw-aangemaakte bibliotheek (dat vereist een aparte, bewuste koppelactie), dus runOpenBoundary
+    // vindt hooguit de bestaande toestand van het bedrijf waar het project al aan gebonden was.
     useAppStore.getState().runOpenBoundary();
   };
 
@@ -87,21 +135,6 @@ export function PoolImportDialog() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 text-xs">
-        {/* Bedrijfsselector alleen bij ≥2 bedrijven (spec §2) — eenpitters zien het bedrijvenconcept
-            niet; met 1 bedrijf importeert de dialoog stilzwijgend in dat ene bedrijf. */}
-        {companies.length >= 2 && (
-          <label className="flex flex-col gap-1">
-            <span className="text-text-secondary">{t('companyLibrary.importInto')}</span>
-            <select
-              value={companyId}
-              onChange={e => setCompanyId(e.target.value)}
-              className="input !text-xs !px-2.5 !py-1.5"
-            >
-              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </label>
-        )}
-
         <button onClick={pick} className="btn btn--sm btn--secondary self-start">
           {t('companyLibrary.chooseFile')}
         </button>
@@ -111,12 +144,56 @@ export function PoolImportDialog() {
         {imported && (
           <div className="flex flex-col gap-2">
             <p>{t('companyLibrary.importPreview', { calendars: imported.calendars.length, resources: imported.resources.length, version: imported.poolVersion })}</p>
-            <p className="text-text-secondary">{t('companyLibrary.importReplaces')}</p>
-            {newer && (
-              <p className="alert alert--warning flex items-center gap-2">
-                <AlertTriangle size={16} /> {t('companyLibrary.dempingWarning')}
-              </p>
-            )}
+
+            <div className="flex flex-col gap-3 border border-border rounded-[10px] p-2.5">
+              {/* Optie 1: toevoegen als nieuwe bibliotheek (issue #19: de veilige standaard). */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="poolImportAction"
+                  className="accent-accent mt-0.5"
+                  checked={action === 'add'}
+                  onChange={() => setAction('add')}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-medium">{t('companyLibrary.importActionAdd')}</span>
+                  <span className="text-text-secondary">{t('companyLibrary.importAsNewPreview', { name: newCompanyName })}</span>
+                  {idCollision && <span className="text-text-secondary">{t('companyLibrary.importAsNewCopyHint')}</span>}
+                </span>
+              </label>
+
+              {/* Optie 2: bestaande bibliotheek vervangen (oud gedrag, ongewijzigd). */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="poolImportAction"
+                  className="accent-accent mt-0.5"
+                  checked={action === 'replace'}
+                  onChange={() => setAction('replace')}
+                />
+                <span className="flex flex-col gap-1.5 flex-1">
+                  <span className="font-medium">{t('companyLibrary.importActionReplace')}</span>
+                  {/* Bedrijfsselector alleen bij ≥2 bedrijven (spec §2) — eenpitters zien het
+                      bedrijvenconcept niet; met 1 bedrijf vervangt de dialoog stilzwijgend dat ene bedrijf. */}
+                  {companies.length >= 2 && (
+                    <select
+                      value={companyId}
+                      onChange={e => setCompanyId(e.target.value)}
+                      disabled={action !== 'replace'}
+                      className="input !text-xs !px-2.5 !py-1.5"
+                    >
+                      {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  )}
+                  <span className="text-text-secondary">{t('companyLibrary.importReplaces')}</span>
+                  {action === 'replace' && newer && (
+                    <span className="alert alert--warning flex items-center gap-2">
+                      <AlertTriangle size={16} /> {t('companyLibrary.dempingWarning')}
+                    </span>
+                  )}
+                </span>
+              </label>
+            </div>
           </div>
         )}
 
@@ -125,7 +202,9 @@ export function PoolImportDialog() {
 
       <div className="flex justify-end gap-3 px-4 py-3 border-t border-border">
         <button onClick={close} className="btn btn--sm btn--secondary">{t('cancel')}</button>
-        <button onClick={confirm} disabled={!imported} className="btn btn--sm btn--primary">{t('companyLibrary.importConfirm')}</button>
+        <button onClick={confirm} disabled={!imported} className="btn btn--sm btn--primary">
+          {action === 'add' ? t('companyLibrary.importConfirmAdd') : t('companyLibrary.importConfirm')}
+        </button>
       </div>
     </Dialog>
   );

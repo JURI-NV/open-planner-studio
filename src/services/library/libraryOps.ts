@@ -271,6 +271,24 @@ export function matchByName<T extends { name: string }>(name: string, candidates
   return hits.length === 1 ? hits[0] : null;
 }
 
+/**
+ * Los een naamsbotsing op voor een NIEUW bedrijf (issue #19, "Toevoegen als nieuwe
+ * resourcebibliotheek" in `PoolImportDialog`): bestaat `rawName` al onder de gegeven bestaande namen
+ * (vergeleken via `normalizeName`, spiegelt `matchByName` — case/witruimte/onzichtbare-tekens-
+ * ongevoelig), dan krijgt de nieuwe naam een oplopend onderscheidend achtervoegsel " (2)", " (3)", …
+ * — net zo lang tot de naam vrij is. Een lege/pure-witruimte naam valt terug op een standaardlabel
+ * (spiegelt `addCompany`). Puur — geschikt voor losse unit-tests, en gedeeld door zowel de
+ * store-actie (`importPoolAsNewCompany`) als de dialoog-preview (geen dubbele/afwijkende logica).
+ */
+export function resolveUniqueCompanyName(rawName: string, existingNames: string[]): string {
+  const base = rawName.trim() || 'Nieuwe resourcebibliotheek';
+  const existing = new Set(existingNames.map(normalizeName));
+  if (!existing.has(normalizeName(base))) return base;
+  let n = 2;
+  while (existing.has(normalizeName(`${base} (${n})`))) n++;
+  return `${base} (${n})`;
+}
+
 export function diffCalendarVsPool(projectCal: WorkCalendar, pool: CompanyPool): ItemDiff {
   const id = projectCal.libraryOrigin?.libraryItemId;
   const source = id ? pool.calendars.find((c) => c.id === id) : undefined;

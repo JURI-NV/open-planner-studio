@@ -1653,5 +1653,113 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().pools[cid].resources.length === poolCountBeforeThird + 1, 'promoteResourceToPool ZONDER dedupByName: pusht wél een extra poolitem (negatieve controle op de opt-in-vlag)');
 }
 
+// --- importPoolAsNewCompany (issue #19, kern van de fix): "een bibliotheek importeren" voelde aan
+// als "openen" maar overschreef in werkelijkheid onvoorwaardelijk de gekozen bibliotheek (replacePool)
+// mét verlies van de bestandsherkomst (companyId/companyName werden overschreven door het DOELbedrijf).
+// Deze actie is de veilige tegenhanger: NIEUW bedrijf, companyId behouden als vrij, onderscheidende
+// naam bij botsing, bestaande bibliotheken blijven ongemoeid, en — het deel-scenario — een project met
+// stempels naar het geïmporteerde companyId herkent zijn items ná import als gekoppeld. ---
+{
+  // (a) Vrij companyId + geen naamsbotsing: het bestand-id wordt behouden; bestaande bibliotheken
+  // blijven volledig ongemoeid (geen enkele bestaande company/pool gemuteerd).
+  const beforeCompanies = useAppStore.getState().companies.map(c => ({ ...c }));
+  const beforePoolRefs = Object.fromEntries(Object.entries(useAppStore.getState().pools));
+  const freshPool = {
+    companyId: 'shared-fresh-co', companyName: 'Onderaannemer Fresh',
+    poolVersion: 4, modifiedAt: '2026-01-01T00:00:00.000Z',
+    calendars: [], resources: [{ id: 'fresh-res-1', name: 'Freskraan', type: 'EQUIPMENT' as const, description: '', maxUnits: 1 }],
+  };
+  const newId = useAppStore.getState().importPoolAsNewCompany(freshPool);
+  assert(newId === 'shared-fresh-co', 'importPoolAsNewCompany: een vrij companyId uit het bestand wordt behouden');
+  const afterA = useAppStore.getState();
+  assert(afterA.companies.some(c => c.id === 'shared-fresh-co' && c.name === 'Onderaannemer Fresh'), 'importPoolAsNewCompany: nieuw bedrijf aangemaakt met de bestandsnaam');
+  assert(afterA.pools['shared-fresh-co']?.resources.length === 1 && afterA.pools['shared-fresh-co'].resources[0].id === 'fresh-res-1', 'importPoolAsNewCompany: de nieuwe pool draagt de bestandsinhoud');
+  assert(afterA.pools['shared-fresh-co']?.companyName === 'Onderaannemer Fresh', 'importPoolAsNewCompany: pool.companyName volgt de (hier ongewijzigde) naam');
+  for (const c of beforeCompanies) {
+    const stillThere = afterA.companies.find(x => x.id === c.id);
+    assert(!!stillThere && stillThere.name === c.name, `importPoolAsNewCompany: bestaand bedrijf ${c.id} blijft ongemoeid`);
+  }
+  for (const [k, ref] of Object.entries(beforePoolRefs)) {
+    assert(afterA.pools[k] === ref, `importPoolAsNewCompany: bestaande pool ${k} blijft referentieel ongewijzigd (geen mutatie)`);
+  }
+
+  // (b) Botsend companyId (het bestand draagt het id van een bibliotheek die HIER al lokaal bestaat):
+  // de nieuwe bibliotheek krijgt een VERS id; de bestaande bibliotheek blijft byte-voor-byte intact.
+  const cidExisting = useAppStore.getState().defaultCompanyId;
+  const existingPoolBefore = useAppStore.getState().pools[cidExisting];
+  const collidingPool = {
+    companyId: cidExisting, companyName: 'Zelfde-id-als-bestaand',
+    poolVersion: 7, modifiedAt: '2026-02-02T00:00:00.000Z',
+    calendars: [], resources: [{ id: 'collide-res-1', name: 'Botsresource', type: 'LABOR' as const, description: '', maxUnits: 1 }],
+  };
+  const collidedId = useAppStore.getState().importPoolAsNewCompany(collidingPool);
+  const afterB = useAppStore.getState();
+  assert(collidedId !== cidExisting, 'importPoolAsNewCompany: een botsend companyId leidt NIET tot hergebruik van het bestaande id');
+  assert(afterB.companies.some(c => c.id === collidedId), 'importPoolAsNewCompany: het verse id staat als bedrijf geregistreerd');
+  assert(afterB.pools[collidedId]?.resources[0]?.id === 'collide-res-1', 'importPoolAsNewCompany: de nieuwe pool draagt de bestandsinhoud onder het VERSE id (kopie naast de bestaande)');
+  assert(afterB.pools[cidExisting] === existingPoolBefore, 'importPoolAsNewCompany: de BESTAANDE bibliotheek (zelfde companyId in het bestand) blijft volledig intact');
+
+  // (c) Naamsbotsing: onderscheidend " (2)"-achtervoegsel; een DERDE gelijknamige import telt door
+  // naar " (3)" (resolveUniqueCompanyName, gedeeld met de dialoog-preview — geen losse/afwijkende logica).
+  const dupNamePool = { companyId: 'shared-dup-name-co', companyName: 'Onderaannemer Fresh', poolVersion: 1, modifiedAt: '2026-03-03T00:00:00.000Z', calendars: [], resources: [] };
+  useAppStore.getState().importPoolAsNewCompany(dupNamePool);
+  const afterC = useAppStore.getState();
+  const dupCompany = afterC.companies.find(c => c.id === 'shared-dup-name-co');
+  assert(dupCompany?.name === 'Onderaannemer Fresh (2)', 'importPoolAsNewCompany: naamsbotsing krijgt een onderscheidend " (2)"-achtervoegsel');
+  assert(afterC.pools['shared-dup-name-co']?.companyName === 'Onderaannemer Fresh (2)', 'importPoolAsNewCompany: pool.companyName volgt de gededupliceerde naam');
+  const dupNamePool2 = { companyId: 'shared-dup-name-co-2', companyName: 'Onderaannemer Fresh', poolVersion: 1, modifiedAt: '2026-03-04T00:00:00.000Z', calendars: [], resources: [] };
+  useAppStore.getState().importPoolAsNewCompany(dupNamePool2);
+  assert(useAppStore.getState().companies.find(c => c.id === 'shared-dup-name-co-2')?.name === 'Onderaannemer Fresh (3)', 'importPoolAsNewCompany: een DERDE gelijknamige import telt door naar " (3)"');
+
+  // (d) De vervang-route (`replacePool`) blijft ONVERANDERD — geen nieuwe route erin gemengd. Dit
+  // herhaalt bewust geen bestaande assert (die staan hierboven, "Export/import pool + demping" en
+  // "Import-normalisatie via replacePool"); dit is een aanvullende smoke-check dat replacePool nog
+  // steeds het DOEL-companyId overschrijft (ongewijzigd gedrag, spec §4) terwijl importPoolAsNewCompany
+  // dat NOOIT doet (tegenovergestelde contract, hierboven bewezen in (a)/(b)).
+  const replaceTargetId = useAppStore.getState().addCompany('Vervang-doel BV');
+  const replaceInput = { companyId: 'volstrekt-ander-id', companyName: 'Vreemde naam', poolVersion: 2, modifiedAt: '2026-05-05T00:00:00.000Z', calendars: [], resources: [] };
+  useAppStore.getState().replacePool(replaceTargetId, replaceInput);
+  assert(useAppStore.getState().pools[replaceTargetId]?.companyId === replaceTargetId, 'replacePool (ongewijzigd gedrag): herschrijft companyId naar het DOELbedrijf, ook nu importPoolAsNewCompany bestaat');
+
+  // (e) HET DEEL-SCENARIO (issue #19, de kern van de fix): een project met stempels naar een
+  // companyId dat lokaal NOG NIET bestaat (zoals na het openen van andermans project-IFC, vóórdat
+  // zijn bibliotheekbestand geïmporteerd is) herkent zijn items als GEKOPPELD zodra die pool wordt
+  // geïmporteerd MET behoud van companyId — vóór de fix ging replacePool dat companyId altijd
+  // overschrijven met het DOELbedrijf, waardoor zo'n project zijn bibliotheek nooit meer herkende.
+  const shareCompanyId = 'shared-co-echo-9';
+  const sharedResourceInPool = { id: 'shared-res-echo', name: 'Gedeelde Vakman', type: 'LABOR' as const, description: '', maxUnits: 2, costPerHour: 3 };
+  const sharedPool = {
+    companyId: shareCompanyId, companyName: 'Collega BV', poolVersion: 5,
+    modifiedAt: '2026-04-04T00:00:00.000Z', calendars: [], resources: [sharedResourceInPool],
+  };
+  // Simuleer het ONTVANGEN project: een projectresource al gestempeld naar `shareCompanyId` — alsof
+  // die stempel meekwam in het geopende IFC-bestand van een collega — terwijl dat bedrijf hier lokaal
+  // nog niet bestaat (companies bevat shareCompanyId nog niet). Identiek qua getrackte diff-velden
+  // (naam/type/omschrijving/tarief/eenheid) aan het poolitem, zodat de hash-vergelijking hieronder
+  // niet toevallig 'changed' teruggeeft.
+  useAppStore.getState().newProject();
+  const sharedResId = useAppStore.getState().addResource({ name: 'Gedeelde Vakman', type: 'LABOR', description: '', maxUnits: 2, costPerHour: 3 });
+  useAppStore.setState((st) => {
+    st.project.companyId = shareCompanyId;
+    const r = st.resources.find(r => r.id === sharedResId)!;
+    r.libraryOrigin = {
+      companyId: shareCompanyId, libraryItemId: 'shared-res-echo', poolVersion: 5,
+      syncedHash: computeResourceHash(sharedResourceInPool),
+    };
+  });
+  // Vóór import: het bedrijf bestaat lokaal niet ⇒ los-gedrag (geen markering, spec §2-scope).
+  assert(useAppStore.getState().onOpenStatusForResource(sharedResId) === null, 'deel-scenario: vóór import bestaat het bedrijf lokaal niet ⇒ los-gedrag (null)');
+
+  // De gebruiker importeert nu het bibliotheekbestand van zijn collega als NIEUWE bibliotheek.
+  const importedShareId = useAppStore.getState().importPoolAsNewCompany(sharedPool);
+  assert(importedShareId === shareCompanyId, 'deel-scenario: het companyId uit het bestand is behouden (was lokaal vrij) — de sleutel tot herkenning');
+
+  // Ná import: hetzelfde projectitem wordt nu WEL herkend als gekoppeld aan de (nu aanwezige) pool.
+  const statusAfterShare = useAppStore.getState().onOpenStatusForResource(sharedResId);
+  assert(statusAfterShare !== null, 'deel-scenario [DE FIX]: het project herkent zijn item als gekoppeld zodra de bibliotheek (met behoud van companyId) geïmporteerd is');
+  assert(statusAfterShare === 'in-sync', 'deel-scenario: de getrackte velden matchen nog exact ⇒ in-sync (geen valse afwijkingsvraag)');
+  assert(useAppStore.getState().diffProjectResource(sharedResId)?.status === 'up-to-date', 'deel-scenario: diffProjectResource bevestigt up-to-date via het echte (geïmporteerde) poolitem');
+}
+
 console.log(`library-slice: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);
