@@ -15,6 +15,7 @@ import { readTools } from './tools/readTools';
 import { taskTools } from './tools/taskTools';
 import { calendarResourceTools } from './tools/calendarResourceTools';
 import { resourceTools } from './tools/resourceTools';
+import { baselineTools } from './tools/baselineTools';
 import { documentTools } from './tools/documentTools';
 import { fileTools } from './tools/fileTools';
 import { batchTools } from './tools/batchTool';
@@ -28,6 +29,9 @@ const MODULES: McpToolDef[][] = [
   taskTools,
   calendarResourceTools,
   resourceTools,
+  // Baselinebeheer staat direct ná de module waar `save_baseline` woont: samen vormen ze de
+  // volledige levensloop van een nulmeting (opslaan → opsommen → activeren → hernoemen → verwijderen).
+  baselineTools,
   documentTools,
   fileTools,
   batchTools,

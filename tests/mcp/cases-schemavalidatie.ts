@@ -213,13 +213,8 @@ test('dispatcher: een GELDIGE call passeert de poort ongehinderd', async () => {
 });
 
 // =================================================================================================
-// 3) Schema-dekking over ALLE 34 tools
-// =================================================================================================
-test('alle 34 inputSchema\'s gebruiken uitsluitend trefwoorden die de validator afdwingt', () => {
-  registerAllTools();
-  const tools = getTools();
-  assert(tools.length === 34, `verwachtte 34 tools, kreeg ${tools.length}`);
-  const offenders: string[] = [];
+// 3) Schema-dekking over ALLE 38 tools
+// ==========================================================================================  const offenders: string[] = [];
   for (const t of tools) {
     const unknown = unsupportedKeywords(t.inputSchema);
     if (unknown.length > 0) offenders.push(`${t.name}: ${unknown.join(', ')}`);
