@@ -451,8 +451,46 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 #### 3.8 Import/export
 > Zie ook GitHub-issue #17 (DutchSailor, 2026-07-06): onderbouwd formaten-voorstel met NL-marktanalyse
 > ("6+2"-lijst). Kern klopt met onze richting; prioriteiten hieronder daarop aangescherpt.
-- [ ] **Primavera XER import/export** — tekstformaat, native in TS haalbaar (geen JVM); samen met ons
-  bestaande PMXML dekt dit de P6-wereld. Hoogste interop-prioriteit na fase 2 (issue #17).
+- [ ] **Primavera XER import/export — hoogste interop-prioriteit.** Tekstformaat, native in TS
+  haalbaar (geen JVM); samen met ons bestaande PMXML dekt dit de P6-wereld (issue #17).
+  **Waarom eerst:** het marktonderzoek wijst XER aan als de poortwachter, niet PMXML — XER is het
+  formaat waarin P6-uitwisseling in de praktijk gebeurt (Oracle Primavera Cloud exporteert er zelf
+  naar) en aanbestedingen dwingen het af: het Amerikaanse defensiebestek UFGS 01 32 01.00 10 eist
+  letterlijk een `.xer`-exportbestand, en wie dat niet levert valt terug op een uitwijkclausule die
+  twee softwarelicenties, twee computers en training voor twee overheidsmedewerkers verplicht.
+  Dat er een betalende markt bestaat voor niets meer dan het *lezen* van XER (ScheduleReader,
+  $344–440/jaar) is het scherpste bewijs dat formaattoegang op zichzelf waarde heeft. Zie
+  `docs/marktonderzoek/eindrapport.md`,
+  `docs/marktonderzoek/dwarsdoorsnede/thema-interoperabiliteit-en-bestandsformaten.md` (§3) en
+  `docs/marktonderzoek/dwarsdoorsnede/thema-normen-aanbestedings-en-contracteisen.md`.
+  **Scope:** XER is een tab-gescheiden tekstdump van databasetabellen met `%T` (tabelnaam),
+  `%F` (veldnamen) en `%R` (rij) als recordmarkers. Minimaal nodig voor een bruikbare round-trip:
+  `PROJECT`, `PROJWBS`, `TASK`, `TASKPRED`, `CALENDAR`, `RSRC`, `TASKRSRC`. **Import eerst,
+  export daarna** — lezen levert direct waarde (P6-planningen binnenhalen) en legt de mapping vast
+  die de schrijver hergebruikt.
+  **Aandachtspunten:** het formaat is ongedocumenteerd en versiegebonden (de header bevat een
+  versieregel; bestaande parsers dekken typisch een venster van ~5 P6-releases), de kalender-
+  encoding is eigenzinnig (eigen uren/uitzonderingen-syntax, niet af te leiden uit de kolomnamen),
+  duur én lag staan in **uren** (niet dagen — onze `hours`-conversie moet er strak doorheen), en
+  er is **geen schema om tegen te valideren**. Daarom zijn testfixtures van échte P6-exports
+  noodzakelijk voordat dit "af" mag heten.
+  **Herbruik:** de domeinmapping ligt er al in de P6-PMXML-adapter (`src/services/p6/p6xmlReader.ts`,
+  `src/services/p6/p6xmlWriter.ts`) — constraint-codes, WBS-boom, relatietypen en kalender-
+  koppeling zijn dezelfde P6-semantiek, alleen een andere syntaxis. Bouw XER als tweede
+  serialisatielaag op die mapping, niet als losstaande adapter.
+- [ ] **Interop-bevindingen uit de code-inventarisatie (2026-07-27)** — twee concrete losse eindjes:
+  1. **BUG: baselines gaan bij MSPDI-export nooit mee.** `src/state/slices/fileSlice.ts:252` roept
+     `writeMSPDI` met zeven argumenten aan (t/m `state.calendars`), terwijl de baseline-parameters
+     de achtste en negende zijn (`baselines`, `activeBaselineId` — `src/services/msproject/mspdiWriter.ts:196-197`);
+     ze vallen dus stilzwijgend terug op hun defaults `[]`/`null`. De documentatie belooft het
+     tegenovergestelde: `public/docs/nl/gids-import-export.md:53` stelt dat kalenders én baselines
+     bij MSPDI wél meegaan. Kleine fix (twee argumenten doorgeven), maar tot die tijd maken we een
+     onjuiste belofte waar.
+  2. **P6-PMXML-elementnamen zijn niet tegen echte P6 geverifieerd.** Het commentaar in
+     `src/services/p6/p6xmlWriter.ts:78-80` zegt het zelf: de elementnamen volgen de MPXJ-PMXML-
+     conventie; het domeinrapport verifieerde de XER-kolomnamen, niet de PMXML-elementnamen.
+     Er zijn bovendien géén fixtures van echte P6- of MS Project-exports in `tests/planning/`.
+     Valideren met echte bestanden (en die als fixtures vastleggen — dubbelop nuttig voor XER).
 - [ ] **iCalendar (.ics) export** — mijlpalen/deadlines naar agenda-apps; goedkoop, hoge waarde (issue #17).
 - [ ] MS Project MPP import (readonly) — realistisch alleen via MPXJ (JVM): NIET als core-dependency
   (strijdig met lichte Tauri/web-architectuur); route = optionele externe converter (MPXJ-CLI/sidecar)
