@@ -800,7 +800,11 @@ function getCalendars(s: AppState) {
 function compareBaseline(s: AppState) {
   const baseline = activeBaseline(s);
   if (!baseline) {
-    throw new ToolError('VALIDATION', 'Geen actieve baseline. Sla eerst een baseline op (planner_save_baseline) of activeer er een.');
+    // De weigering moet naar een BESTAANDE weg wijzen: "activeer er een" was tot de komst van
+    // `baselineTools.ts` een instructie zonder tool om hem uit te voeren.
+    throw new ToolError('VALIDATION',
+      'Geen actieve baseline. Sla er een op met planner_save_baseline, of kies een bestaande met ' +
+      'planner_activate_baseline (planner_list_baselines toont welke er zijn).');
   }
   const cal = new CalendarEngine(s.calendar);
   const currentEnd = s.cpmResult?.projectEnd || undefined;
@@ -839,7 +843,10 @@ function compactVarianceRow(r: VarianceRow) {
 function analyzeDelay(s: AppState) {
   const baseline = activeBaseline(s);
   if (!baseline) {
-    throw new ToolError('VALIDATION', 'Geen actieve baseline. planner_analyze_delay vereist een baseline van vóór de vertraging.');
+    throw new ToolError('VALIDATION',
+      'Geen actieve baseline. planner_analyze_delay vereist een baseline van vóór de vertraging: ' +
+      'activeer er een met planner_activate_baseline (planner_list_baselines toont welke er zijn), ' +
+      'of leg er nu een vast met planner_save_baseline — die meet dan pas vanaf nu.');
   }
   const cpm = s.cpmResult;
   const cal = new CalendarEngine(s.calendar);

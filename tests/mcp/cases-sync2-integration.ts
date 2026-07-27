@@ -55,13 +55,14 @@ const EXPECTED_TOOLS = {
   taskOther: 3,      // T19 — undo, redo, run_cpm
   calResMutate: 7,   // T20 — update_calendar, manage_assignments, level_resources, clear_leveling,
                      //        update_project, move_project, save_baseline
+  baseline: 4,       // baselineTools — list/activate/rename/delete_baseline (beheer náást save_baseline)
   document: 4,       // T21 — list/new/switch/duplicate_document
   file: 2,           // T21 — export_ifc, import_schedule
   batch: 1,          // T22 — planner_batch
 };
-const EXPECTED_TOTAL = Object.values(EXPECTED_TOOLS).reduce((a, b) => a + b, 0); // = 33
+const EXPECTED_TOTAL = Object.values(EXPECTED_TOOLS).reduce((a, b) => a + b, 0); // = 37
 
-test('tools/list levert exact de verwachte toolstelling (33) via de dispatcher', async () => {
+test('tools/list levert exact de verwachte toolstelling (37) via de dispatcher', async () => {
   const raw = await handleMcpMessage(
     JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
     makeCtx(),
