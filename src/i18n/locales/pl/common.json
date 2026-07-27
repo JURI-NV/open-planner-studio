@@ -366,7 +366,7 @@
     },
     "panel": {
       "title": "Zasoby",
-      "addRow": "Nowy zasób",
+      "addRow": "Nowy zasób w projekcie",
       "addRowLibrary": "Nowy zasób w bibliotece",
       "deleteRow": "Usuń",
       "confirmDelete": "„{{name}}” ma przypisań: {{count}} — usunąć?",

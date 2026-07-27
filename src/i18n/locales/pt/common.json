@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Recursos",
-      "addRow": "Novo recurso",
+      "addRow": "Novo recurso no projeto",
       "addRowLibrary": "Novo recurso na biblioteca",
       "deleteRow": "Eliminar",
       "confirmDelete": "'{{name}}' tem {{count}} atribuição(ões) — eliminar?",

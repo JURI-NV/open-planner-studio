@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Resources",
-      "addRow": "Nieuwe resource",
+      "addRow": "Nieuwe resource in het project",
       "addRowLibrary": "Nieuwe resource in de bibliotheek",
       "deleteRow": "Verwijderen",
       "confirmDelete": "'{{name}}' heeft {{count}} toewijzing(en) — verwijderen?",

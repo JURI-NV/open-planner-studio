@@ -360,7 +360,7 @@
     },
     "panel": {
       "title": "자원",
-      "addRow": "새 자원",
+      "addRow": "프로젝트에 새 리소스",
       "addRowLibrary": "라이브러리에 새 리소스",
       "deleteRow": "삭제",
       "confirmDelete": "'{{name}}'에 {{count}}개의 할당이 있습니다 — 삭제하시겠습니까?",

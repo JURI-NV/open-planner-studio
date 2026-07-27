@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "منابع",
-      "addRow": "منبع جدید",
+      "addRow": "منبع جدید در پروژه",
       "addRowLibrary": "منبع جدید در کتابخانه",
       "deleteRow": "حذف",
       "confirmDelete": "«{{name}}» دارای {{count}} تخصیص است — حذف شود؟",

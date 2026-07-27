@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Ressourcen",
-      "addRow": "Neue Ressource",
+      "addRow": "Neue Ressource im Projekt",
       "addRowLibrary": "Neue Ressource in der Bibliothek",
       "deleteRow": "Löschen",
       "confirmDelete": "„{{name}}“ hat {{count}} Zuweisung(en) — löschen?",

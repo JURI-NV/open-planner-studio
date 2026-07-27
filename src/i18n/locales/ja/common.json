@@ -360,7 +360,7 @@
     },
     "panel": {
       "title": "リソース",
-      "addRow": "新規リソース",
+      "addRow": "プロジェクトに新規リソース",
       "addRowLibrary": "ライブラリに新規リソース",
       "deleteRow": "削除",
       "confirmDelete": "「{{name}}」には {{count}} 件の割り当てがあります — 削除しますか？",

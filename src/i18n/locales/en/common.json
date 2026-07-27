@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Resources",
-      "addRow": "New resource",
+      "addRow": "New resource in project",
       "addRowLibrary": "New resource in library",
       "deleteRow": "Delete",
       "confirmDelete": "'{{name}}' has {{count}} assignment(s) — delete?",

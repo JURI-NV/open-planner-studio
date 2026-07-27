@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Ressources",
-      "addRow": "Nouvelle ressource",
+      "addRow": "Nouvelle ressource dans le projet",
       "addRowLibrary": "Nouvelle ressource dans la bibliothèque",
       "deleteRow": "Supprimer",
       "confirmDelete": "« {{name}} » a {{count}} affectation(s) — supprimer ?",

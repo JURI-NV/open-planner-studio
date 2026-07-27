@@ -362,7 +362,7 @@
     },
     "panel": {
       "title": "Kaynaklar",
-      "addRow": "Yeni kaynak",
+      "addRow": "Projede yeni kaynak",
       "addRowLibrary": "Kitaplıkta yeni kaynak",
       "deleteRow": "Sil",
       "confirmDelete": "'{{name}}' için {{count}} atama var — silinsin mi?",

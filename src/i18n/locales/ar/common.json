@@ -370,7 +370,7 @@
     },
     "panel": {
       "title": "الموارد",
-      "addRow": "مورد جديد",
+      "addRow": "مورد جديد في المشروع",
       "addRowLibrary": "مورد جديد في المكتبة",
       "deleteRow": "حذف",
       "confirmDelete": "لدى '{{name}}' {{count}} تعيين(ات) — هل تريد الحذف؟",

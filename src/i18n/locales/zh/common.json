@@ -360,7 +360,7 @@
     },
     "panel": {
       "title": "资源",
-      "addRow": "新建资源",
+      "addRow": "在项目中新建资源",
       "addRowLibrary": "在资源库中新建资源",
       "deleteRow": "删除",
       "confirmDelete": "“{{name}}”有 {{count}} 项分配 — 是否删除？",
