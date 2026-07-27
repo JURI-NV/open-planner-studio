@@ -81,7 +81,7 @@ export type DocumentChromeStyle = 'tabs' | 'rail' | 'switcher';
 
 export const DOCUMENT_CHROME_STYLES: DocumentChromeStyle[] = ['tabs', 'rail', 'switcher'];
 
-export type RibbonTab = 'file' | 'start' | 'planning' | 'resources' | 'relations' | 'beeld' | 'instellingen' | 'table' | 'ifc' | 'report';
+export type RibbonTab = 'file' | 'start' | 'planning' | 'resources' | 'relations' | 'beeld' | 'instellingen' | 'table' | 'ifc' | 'report' | 'ai';
 
 // Backstage view (Office-style File tab full-screen) — sub-section selectie
 export type BackstageSection =
@@ -196,6 +196,10 @@ export interface UIState {
   tourSnapshot: TourUiSnapshot | null;
   // --- MCP-bridge / AI-modus (fase 1 MCP, spec §UI). App-globaal (niet per document): de bridge
   //     bedient de héle app, niet één tabblad. Gevoed door `src/services/mcp/server.ts`. ---
+  /** persisted — AI-modus (T14): AAN ⇒ het AI-ribbontabblad verschijnt (conditioneel, net als de
+   *  debug-terminal-vlag een paneel toont); UIT ⇒ tabblad weg + bridge geforceerd gestopt. De
+   *  bron is de `ops-aiMode`-setting; dit is de opstart-gehydrateerde spiegel voor de reactieve UI. */
+  aiMode: boolean;
   /** session — status van de MCP-bridge-server, gevoed door de `mcp://status`-events + de
    *  poort-bezet-fout van `mcp_bridge_start`. Default off op de default-poort. */
   aiServerStatus: McpServerStatus;
@@ -204,6 +208,9 @@ export interface UIState {
   aiPaused: boolean;
   /** session — alleen-lezen-schakelaar: muterende tools geweigerd zolang actief. */
   aiReadOnly: boolean;
+  /** session — AI-activiteitenpaneel (T15) zichtbaar in de rechter-rail (patroon debugTerminalOpen).
+   *  Wordt geforceerd dicht gezet als AI-modus uitgaat. */
+  aiActivityOpen: boolean;
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk

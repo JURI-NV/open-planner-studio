@@ -116,7 +116,52 @@
     "documentChromeRail": "Onglets verticaux",
     "documentChromeSwitcher": "Pastille",
     "dateNotation": "Format de date",
-    "dateNotationHint": "Détermine l'affichage des dates dans toute l'application. Les fichiers et les calculs ne sont pas affectés."
+    "dateNotationHint": "Détermine l'affichage des dates dans toute l'application. Les fichiers et les calculs ne sont pas affectés.",
+    "aiModeSection": "Mode IA",
+    "aiMode": "Activer le mode IA",
+    "aiModeHint": "Affiche l'onglet IA avec le pont MCP, permettant aux assistants IA de travailler sur votre planning via le Model Context Protocol. Le désactiver arrête le pont."
+  },
+  "ai": {
+    "start": "Démarrer le pont",
+    "stop": "Arrêter le pont",
+    "statusOff": "Désactivé",
+    "statusLive": "Actif sur le port {{port}}",
+    "statusPortBusy": "Port {{port}} occupé",
+    "statusError": "Erreur",
+    "desktopOnly": "Le pont ne fonctionne que dans l'application de bureau.",
+    "port": "Port",
+    "portLockedHint": "Modifiable uniquement lorsque le serveur est arrêté.",
+    "token": "Jeton",
+    "showToken": "Afficher le jeton",
+    "hideToken": "Masquer le jeton",
+    "copy": "Copier",
+    "regenerate": "Nouveau jeton",
+    "regenerateConfirm": "Générer un nouveau jeton rompt toutes les connexions existantes. Continuer ?",
+    "connectHint": "Exécutez ceci dans Claude Code pour connecter le pont (le jeton est transmis dans l'en-tête Authorization) :",
+    "statusDot": "Pont IA : {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Mettre en pause",
+    "resume": "Reprendre",
+    "pauseHint": "Les modifications sont temporairement refusées ; la lecture reste possible. Le pont reste actif.",
+    "readOnly": "Lecture seule",
+    "readOnlyHint": "Tous les outils de modification sont refusés tant que ceci est activé.",
+    "autoBackupOn": "Sauvegarde automatique : activée",
+    "autoBackupOff": "Sauvegarde automatique : désactivée",
+    "autoBackupHint": "Crée automatiquement une sauvegarde IFC avant la première modification IA de chaque document.",
+    "backupNow": "Sauvegarder maintenant",
+    "openFolder": "Ouvrir le dossier de sauvegarde",
+    "backupOk": "Sauvegarde créée : {{name}}",
+    "backupErr": "Échec de la sauvegarde : {{error}}",
+    "openErr": "Impossible d'ouvrir le dossier : {{error}}"
+  },
+  "aiActivity": {
+    "title": "Activité IA",
+    "panelButton": "Panneau d'activité",
+    "clear": "Effacer",
+    "empty": "Aucune activité IA pour l'instant. Les appels du pont apparaîtront ici.",
+    "args": "Arguments",
+    "result": "Réponse"
   },
   "confirm": {
     "newProject": "Créer un nouveau projet ? Les modifications non enregistrées seront perdues.",

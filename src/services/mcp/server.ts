@@ -17,9 +17,11 @@
 // `contracts.ts` (`McpContext`).
 
 import { useAppStore } from '@/state/appStore';
-import { loadMcpPort, loadMcpToken, saveMcpToken } from '@/utils/settingsStore';
+import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';
 import { handleMcpMessage } from './dispatcher';
-import type { McpContext, McpServerStatus } from './contracts';
+import { record as recordActivity, capField } from './activityLog';
+import { ensureBackup, resetBackupSession } from './backup';
+import type { McpContext, McpServerStatus, ActivityEntry } from './contracts';
 
 /** Draaien we in de Tauri-shell? (zelfde runtime-poort als de rest van de app-code). */
 const isTauri = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -48,13 +50,67 @@ export function ensureMcpToken(): string {
   return token;
 }
 
+/**
+ * Regenereer het bridge-token: genereer een vers token en overschrijf de gepersisteerde waarde.
+ * Verbreekt bewust alle bestaande koppelingen (die dragen het oude token) — de UI vraagt daarom
+ * eerst om bevestiging. Geeft het nieuwe token terug.
+ */
+export function regenerateMcpToken(): string {
+  const token = generateToken();
+  saveMcpToken(token);
+  return token;
+}
+
+// --- AI-modus-toggle (injecteerbaar → headless testbaar) -----------------------------------------
+
+export interface ApplyAiModeDeps {
+  /** Schrijf de ui-spiegel (echt: `setUI({ aiMode })`). */
+  setAiMode: (value: boolean) => void;
+  /** Persisteer de setting (echt: `saveAiMode`). */
+  persist: (value: boolean) => void | Promise<void>;
+  /** Stop de bridge (echt: `stopMcpServer`); alleen aangeroepen bij uitzetten. */
+  stopServer: () => void | Promise<void>;
+  /** Zet de serverstatus (echt: `setAiServerStatus`); geforceerd off bij uitzetten. */
+  setStatus: (status: McpServerStatus) => void;
+  /** Poort voor het off-statusobject (echt: `loadMcpPort()`). */
+  port: number;
+}
+
+/**
+ * Pas de AI-modus toe (T14, spec §UI): schrijf de ui-spiegel + persisteer. Bij UITZETTEN wordt de
+ * bridge geforceerd gestopt en de serverstatus expliciet op `off` gezet (op de web-build is
+ * `stopMcpServer` een no-op, dus de status-reset moet hier gebeuren, niet uit een stop-event).
+ * De reducer (`setUI`) valt zelf al terug naar de start-tab als het AI-tabblad actief was.
+ */
+export async function applyAiMode(value: boolean, deps: ApplyAiModeDeps): Promise<void> {
+  deps.setAiMode(value);
+  await deps.persist(value);
+  if (!value) {
+    await deps.stopServer();
+    deps.setStatus({ state: 'off', port: deps.port });
+  }
+}
+
+/** Productie-wiring van `applyAiMode` op de echte store + settings + bridge-lifecycle. */
+export function applyAiModeLive(value: boolean): Promise<void> {
+  const state = useAppStore.getState();
+  return applyAiMode(value, {
+    setAiMode: (v) => state.setUI({ aiMode: v }),
+    persist: saveAiMode,
+    stopServer: stopMcpServer,
+    setStatus: state.setAiServerStatus,
+    port: loadMcpPort(),
+  });
+}
+
 // --- Per-request context -------------------------------------------------------------------------
 
 /**
  * Bouw de `McpContext` voor één request. `paused`/`readOnly` worden LIVE uit de ui-state gelezen
  * (de user kan ze tussen requests door omzetten). De overige velden zijn placeholders tot de
  * runtime-/guardlaag (T17) ze invult: `expectedDocId` (drift-anker) = null, `tempIdMap` = lege Map
- * (de batch-executor bezit 'm), `ensureBackup` = no-op-stub (de AI-backup-hook).
+ * (de batch-executor bezit 'm). `ensureBackup` is de ECHTE AI-backup-service (T16) — zijn eigen
+ * `isTauri()`-gate + web-terugval zitten in `backup.ts`.
  */
 export function buildMcpContext(): McpContext {
   const ui = useAppStore.getState().ui;
@@ -63,7 +119,7 @@ export function buildMcpContext(): McpContext {
     tempIdMap: new Map<string, string>(),
     paused: ui.aiPaused,
     readOnly: ui.aiReadOnly,
-    ensureBackup: async () => null,
+    ensureBackup,
   };
 }
 
@@ -78,6 +134,105 @@ export interface RequestHandlerDeps {
   handleMessage: (body: string, ctx: McpContext) => Promise<string>;
 }
 
+// --- Activiteits-samenvatting (T15) --------------------------------------------------------------
+
+/**
+ * Vat de args van een `tools/call` compact samen voor het activiteitenpaneel: het eerste array-veld
+ * wordt "N <veld>" (bijv. "42 tasks"); ontbreekt dat, dan de veldnamen; lege args → "". Bewust géén
+ * i18n (de samenvatting is opgeslagen data, geen UI-string) en bewust generiek (geen per-tool-kennis
+ * — dit blijft correct als er nieuwe tools bijkomen).
+ */
+function summarizeArgs(args: unknown): string {
+  if (!args || typeof args !== 'object') return '';
+  const obj = args as Record<string, unknown>;
+  for (const [k, v] of Object.entries(obj)) {
+    if (Array.isArray(v)) return `${v.length} ${k}`;
+  }
+  const keys = Object.keys(obj);
+  return keys.length ? keys.join(', ') : '';
+}
+
+/** Best-effort foutmelding uit een MCP-tool-fout-respons (result.isError) — content-tekst of niets. */
+function extractToolError(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const r = result as Record<string, unknown>;
+  const content = r.content;
+  if (Array.isArray(content)) {
+    for (const c of content) {
+      if (c && typeof c === 'object' && typeof (c as any).text === 'string') return (c as any).text;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Parse request- + respons-body licht (try/catch) en `record` één `ActivityEntry`: tijdstip, tool/
+ * methode, compacte samenvatting, duur, ok/fout (+ evt. foutcode), en de volledige args/result-JSON
+ * (afgekapt op 20 kB per veld). Notificaties (lege respons-body) worden NIET gelogd — het paneel toont
+ * request/respons-paren, geen fire-and-forget-notificaties. Nooit gooien: het log mag de bridge niet
+ * kunnen breken.
+ */
+function recordRequestActivity(reqBody: string, respBody: string, durationMs: number): void {
+  // Notificatie ⇒ geen respons-body ⇒ niet loggen.
+  if (!respBody) return;
+  try {
+    let method = '?';
+    let tool = '?';
+    let argsJson = '';
+    let summary = '';
+    try {
+      const req = JSON.parse(reqBody) as { method?: unknown; params?: any };
+      method = typeof req.method === 'string' ? req.method : '?';
+      if (method === 'tools/call' && req.params && typeof req.params === 'object') {
+        tool = typeof req.params.name === 'string' ? req.params.name : '?';
+        const args = req.params.arguments ?? {};
+        argsJson = JSON.stringify(args);
+        const argsSummary = summarizeArgs(args);
+        summary = argsSummary ? `${tool}: ${argsSummary}` : tool;
+      } else {
+        tool = method;
+        argsJson = req.params !== undefined ? JSON.stringify(req.params) : '';
+        summary = method;
+      }
+    } catch {
+      summary = 'onparseerbaar request';
+    }
+
+    let ok = true;
+    let error: string | undefined;
+    try {
+      const resp = JSON.parse(respBody) as { error?: any; result?: any };
+      if (resp.error) {
+        ok = false;
+        const code = resp.error.code;
+        const msg = typeof resp.error.message === 'string' ? resp.error.message : '';
+        error = code != null ? `${code}: ${msg}` : (msg || 'fout');
+      } else if (resp.result && resp.result.isError === true) {
+        ok = false;
+        error = extractToolError(resp.result);
+      }
+    } catch {
+      // Onparseerbaar antwoord: markeer als fout zodat het in het paneel opvalt.
+      ok = false;
+      error = 'onparseerbaar antwoord';
+    }
+
+    const entry: ActivityEntry = {
+      ts: Date.now(),
+      tool,
+      summary,
+      durationMs,
+      ok,
+      ...(error ? { error } : {}),
+      argsJson: capField(argsJson),
+      resultJson: capField(respBody),
+    };
+    recordActivity(entry);
+  } catch {
+    /* het activiteitenlog mag de request-flow nooit kunnen breken */
+  }
+}
+
 /**
  * Maak de `mcp://request`-handler. Elk request draait door de dispatcher; het antwoord gaat 1-op-1
  * terug als `mcp://response` met HETZELFDE Rust-correlatie-id. Óók een notificatie (lege respons-
@@ -89,7 +244,10 @@ export function createRequestHandler(
 ): (payload: { id: number; body: string }) => Promise<void> {
   return async (payload) => {
     const ctx = deps.buildContext();
+    const start = performance.now();
     const body = await deps.handleMessage(payload.body, ctx);
+    // T15: leg de aanroep vast in het activiteitenlog (notificaties = lege body worden overgeslagen).
+    recordRequestActivity(payload.body, body, performance.now() - start);
     await deps.emit('mcp://response', { id: payload.id, body });
   };
 }
@@ -282,6 +440,7 @@ function getLiveController(): Promise<BridgeController> {
  */
 export async function startMcpServer(): Promise<void> {
   if (!isTauri()) return;
+  resetBackupSession(); // verse server-sessie ⇒ per-document auto-backup-tellers leeg (spec §Triggerregels)
   const controller = await getLiveController();
   await controller.start();
 }

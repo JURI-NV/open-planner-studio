@@ -116,7 +116,52 @@
     "documentChromeRail": "Karty pionowe",
     "documentChromeSwitcher": "Pigułka",
     "dateNotation": "Format daty",
-    "dateNotationHint": "Określa sposób wyświetlania dat w całej aplikacji. Pliki i obliczenia pozostają bez zmian."
+    "dateNotationHint": "Określa sposób wyświetlania dat w całej aplikacji. Pliki i obliczenia pozostają bez zmian.",
+    "aiModeSection": "Tryb AI",
+    "aiMode": "Włącz tryb AI",
+    "aiModeHint": "Pokazuje kartę AI z mostkiem MCP, dzięki czemu asystenci AI mogą pracować z Twoim harmonogramem za pomocą Model Context Protocol. Wyłączenie zatrzymuje mostek."
+  },
+  "ai": {
+    "start": "Uruchom mostek",
+    "stop": "Zatrzymaj mostek",
+    "statusOff": "Wyłączony",
+    "statusLive": "Aktywny na porcie {{port}}",
+    "statusPortBusy": "Port {{port}} zajęty",
+    "statusError": "Błąd",
+    "desktopOnly": "Mostek działa tylko w aplikacji desktopowej.",
+    "port": "Port",
+    "portLockedHint": "Można edytować tylko wtedy, gdy serwer jest zatrzymany.",
+    "token": "Token",
+    "showToken": "Pokaż token",
+    "hideToken": "Ukryj token",
+    "copy": "Kopiuj",
+    "regenerate": "Nowy token",
+    "regenerateConfirm": "Wygenerowanie nowego tokenu przerywa wszystkie istniejące połączenia. Kontynuować?",
+    "connectHint": "Uruchom to w Claude Code, aby połączyć się z mostkiem (token jest przekazywany w nagłówku Authorization):",
+    "statusDot": "Mostek AI: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Wstrzymaj",
+    "resume": "Wznów",
+    "pauseHint": "Modyfikacje są tymczasowo odrzucane; odczyt nadal działa. Mostek pozostaje aktywny.",
+    "readOnly": "Tylko do odczytu",
+    "readOnlyHint": "Wszystkie narzędzia modyfikujące są odrzucane, dopóki ta opcja jest włączona.",
+    "autoBackupOn": "Automatyczna kopia zapasowa: włączona",
+    "autoBackupOff": "Automatyczna kopia zapasowa: wyłączona",
+    "autoBackupHint": "Automatycznie tworzy kopię zapasową IFC przed pierwszą zmianą AI w danym dokumencie.",
+    "backupNow": "Utwórz kopię zapasową teraz",
+    "openFolder": "Otwórz folder kopii zapasowych",
+    "backupOk": "Utworzono kopię zapasową: {{name}}",
+    "backupErr": "Nie udało się utworzyć kopii zapasowej: {{error}}",
+    "openErr": "Nie można otworzyć folderu: {{error}}"
+  },
+  "aiActivity": {
+    "title": "Aktywność AI",
+    "panelButton": "Panel aktywności",
+    "clear": "Wyczyść",
+    "empty": "Brak aktywności AI. Wywołania mostka pojawią się tutaj.",
+    "args": "Argumenty",
+    "result": "Odpowiedź"
   },
   "confirm": {
     "newProject": "Utworzyć nowy projekt? Niezapisane zmiany zostaną utracone.",

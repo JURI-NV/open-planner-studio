@@ -4,6 +4,7 @@ import { useAppStore } from '@/state/appStore';
 import { Locale, LANGUAGE_LABELS, supportedLanguages, setLocale } from '@/i18n/config';
 import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode } from '@/state/slices/types';
 import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode } from '@/utils/settingsStore';
+import { applyAiModeLive } from '@/services/mcp/server';
 import { Select } from '@/components/common/Select';
 import { ScrollZoomSettings } from '@/components/dialogs/ScrollZoomSettings';
 import '@/components/dialogs/SettingsDialog.css';
@@ -45,6 +46,7 @@ export function SettingsPanelContent() {
   const allowMixedDayHour = useAppStore(s => s.ui.allowMixedDayHour);
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const barSplitMode = useAppStore(s => s.ui.barSplitMode);
+  const aiMode = useAppStore(s => s.ui.aiMode);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
@@ -399,6 +401,23 @@ export function SettingsPanelContent() {
               >
                 {t('benchmark.open')}
               </button>
+            </div>
+
+            {/* AI-modus (T14): de ENIGE AI-instelling hier — de rest van de bediening leeft op het
+                AI-tabblad. AAN ⇒ tabblad verschijnt; UIT ⇒ tabblad weg + bridge geforceerd gestopt
+                (`applyAiModeLive` → `stopMcpServer` + status off). Via deze gedeelde component op
+                alle 3 de ingangen (gear/Instellingen-ribbontab/Backstage). */}
+            <div className="settings-section">
+              <h3>{t('settings.aiModeSection')}</h3>
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={aiMode}
+                  onChange={e => { void applyAiModeLive(e.target.checked); }}
+                />
+                <span>{t('settings.aiMode')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.aiModeHint')}</p>
             </div>
 
             <div className="settings-section">

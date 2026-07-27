@@ -116,7 +116,52 @@
     "documentChromeRail": "Schede verticali",
     "documentChromeSwitcher": "Pillola",
     "dateNotation": "Formato data",
-    "dateNotationHint": "Determina come vengono visualizzate le date in tutta l'app. File e calcoli non vengono modificati."
+    "dateNotationHint": "Determina come vengono visualizzate le date in tutta l'app. File e calcoli non vengono modificati.",
+    "aiModeSection": "Modalità IA",
+    "aiMode": "Abilita modalità IA",
+    "aiModeHint": "Mostra la scheda IA con il bridge MCP, così gli assistenti IA possono lavorare sulla tua pianificazione tramite il Model Context Protocol. Disattivandola si interrompe il bridge."
+  },
+  "ai": {
+    "start": "Avvia bridge",
+    "stop": "Arresta bridge",
+    "statusOff": "Disattivo",
+    "statusLive": "Attivo sulla porta {{port}}",
+    "statusPortBusy": "Porta {{port}} occupata",
+    "statusError": "Errore",
+    "desktopOnly": "Il bridge funziona solo nell'app desktop.",
+    "port": "Porta",
+    "portLockedHint": "Modificabile solo quando il server è arrestato.",
+    "token": "Token",
+    "showToken": "Mostra token",
+    "hideToken": "Nascondi token",
+    "copy": "Copia",
+    "regenerate": "Nuovo token",
+    "regenerateConfirm": "Generare un nuovo token interrompe tutte le connessioni esistenti. Continuare?",
+    "connectHint": "Esegui questo comando in Claude Code per collegare il bridge (il token viene inviato come header Authorization):",
+    "statusDot": "Bridge IA: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Metti in pausa",
+    "resume": "Riprendi",
+    "pauseHint": "Le modifiche vengono temporaneamente rifiutate; la lettura resta possibile. Il bridge rimane attivo.",
+    "readOnly": "Sola lettura",
+    "readOnlyHint": "Tutti gli strumenti di modifica vengono rifiutati finché questa opzione è attiva.",
+    "autoBackupOn": "Backup automatico: attivo",
+    "autoBackupOff": "Backup automatico: disattivo",
+    "autoBackupHint": "Crea automaticamente un backup IFC prima della prima modifica IA per ciascun documento.",
+    "backupNow": "Esegui backup ora",
+    "openFolder": "Apri cartella di backup",
+    "backupOk": "Backup creato: {{name}}",
+    "backupErr": "Backup non riuscito: {{error}}",
+    "openErr": "Impossibile aprire la cartella: {{error}}"
+  },
+  "aiActivity": {
+    "title": "Attività IA",
+    "panelButton": "Pannello attività",
+    "clear": "Cancella",
+    "empty": "Nessuna attività IA finora. Le chiamate del bridge appariranno qui.",
+    "args": "Argomenti",
+    "result": "Risposta"
   },
   "confirm": {
     "newProject": "Creare un nuovo progetto? Le modifiche non salvate andranno perse.",

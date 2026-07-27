@@ -116,7 +116,52 @@
     "documentChromeRail": "Vertical tabs",
     "documentChromeSwitcher": "Pill",
     "dateNotation": "Date format",
-    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected."
+    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected.",
+    "aiModeSection": "AI mode",
+    "aiMode": "Enable AI mode",
+    "aiModeHint": "Shows the AI tab with the MCP bridge, so AI assistants can work with your schedule over the Model Context Protocol. Turning it off stops the bridge."
+  },
+  "ai": {
+    "start": "Start bridge",
+    "stop": "Stop bridge",
+    "statusOff": "Off",
+    "statusLive": "Live on port {{port}}",
+    "statusPortBusy": "Port {{port}} in use",
+    "statusError": "Error",
+    "desktopOnly": "The bridge only works in the desktop app.",
+    "port": "Port",
+    "portLockedHint": "Only editable while the server is stopped.",
+    "token": "Token",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "copy": "Copy",
+    "regenerate": "New token",
+    "regenerateConfirm": "Generating a new token breaks all existing connections. Continue?",
+    "connectHint": "Run this in Claude Code to connect the bridge (the token is passed as an Authorization header):",
+    "statusDot": "AI bridge: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "pauseHint": "Mutations are temporarily refused; reads still work. The bridge stays live.",
+    "readOnly": "Read-only",
+    "readOnlyHint": "All mutating tools are refused while this is on.",
+    "autoBackupOn": "Auto-backup: on",
+    "autoBackupOff": "Auto-backup: off",
+    "autoBackupHint": "Automatically writes an IFC backup before the first AI change per document.",
+    "backupNow": "Back up now",
+    "openFolder": "Open backup folder",
+    "backupOk": "Backup created: {{name}}",
+    "backupErr": "Backup failed: {{error}}",
+    "openErr": "Could not open folder: {{error}}"
+  },
+  "aiActivity": {
+    "title": "AI activity",
+    "panelButton": "Activity panel",
+    "clear": "Clear",
+    "empty": "No AI activity yet. Bridge calls will appear here.",
+    "args": "Arguments",
+    "result": "Response"
   },
   "confirm": {
     "newProject": "Create new project? Unsaved changes will be lost.",

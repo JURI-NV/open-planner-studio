@@ -116,7 +116,52 @@
     "documentChromeRail": "Dikey sekmeler",
     "documentChromeSwitcher": "Hap",
     "dateNotation": "Tarih biçimi",
-    "dateNotationHint": "Tarihlerin uygulama genelinde nasıl gösterileceğini belirler. Dosyalar ve hesaplamalar etkilenmez."
+    "dateNotationHint": "Tarihlerin uygulama genelinde nasıl gösterileceğini belirler. Dosyalar ve hesaplamalar etkilenmez.",
+    "aiModeSection": "Yapay zeka modu",
+    "aiMode": "Yapay zeka modunu etkinleştir",
+    "aiModeHint": "MCP köprüsüne sahip Yapay Zeka sekmesini gösterir; böylece yapay zeka asistanları Model Context Protocol üzerinden planınızla çalışabilir. Kapatmak köprüyü durdurur."
+  },
+  "ai": {
+    "start": "Köprüyü başlat",
+    "stop": "Köprüyü durdur",
+    "statusOff": "Kapalı",
+    "statusLive": "{{port}} portunda aktif",
+    "statusPortBusy": "{{port}} portu kullanımda",
+    "statusError": "Hata",
+    "desktopOnly": "Köprü yalnızca masaüstü uygulamasında çalışır.",
+    "port": "Port",
+    "portLockedHint": "Yalnızca sunucu durdurulduğunda düzenlenebilir.",
+    "token": "Token",
+    "showToken": "Token'ı göster",
+    "hideToken": "Token'ı gizle",
+    "copy": "Kopyala",
+    "regenerate": "Yeni token",
+    "regenerateConfirm": "Yeni bir token oluşturmak mevcut tüm bağlantıları kesecek. Devam edilsin mi?",
+    "connectHint": "Köprüye bağlanmak için bunu Claude Code'da çalıştırın (token, Authorization başlığı olarak gönderilir):",
+    "statusDot": "Yapay zeka köprüsü: {{status}}"
+  },
+  "aiSafety": {
+    "pause": "Duraklat",
+    "resume": "Devam ettir",
+    "pauseHint": "Değişiklikler geçici olarak reddedilir; okuma çalışmaya devam eder. Köprü aktif kalır.",
+    "readOnly": "Salt okunur",
+    "readOnlyHint": "Bu açıkken tüm değiştiren araçlar reddedilir.",
+    "autoBackupOn": "Otomatik yedekleme: açık",
+    "autoBackupOff": "Otomatik yedekleme: kapalı",
+    "autoBackupHint": "Her belge için ilk yapay zeka değişikliğinden önce otomatik olarak bir IFC yedeği oluşturur.",
+    "backupNow": "Şimdi yedekle",
+    "openFolder": "Yedekleme klasörünü aç",
+    "backupOk": "Yedekleme oluşturuldu: {{name}}",
+    "backupErr": "Yedekleme başarısız oldu: {{error}}",
+    "openErr": "Klasör açılamadı: {{error}}"
+  },
+  "aiActivity": {
+    "title": "Yapay zeka etkinliği",
+    "panelButton": "Etkinlik paneli",
+    "clear": "Temizle",
+    "empty": "Henüz yapay zeka etkinliği yok. Köprü çağrıları burada görünecek.",
+    "args": "Bağımsız değişkenler",
+    "result": "Yanıt"
   },
   "confirm": {
     "newProject": "Yeni proje oluşturulsun mu? Kaydedilmemiş değişiklikler kaybolacak.",

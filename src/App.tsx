@@ -40,6 +40,7 @@ import { HourDataNotice } from '@/components/layout/HourDataNotice';
 const IFCPanel = lazy(() => import('@/components/panels/IFCPanel').then(m => ({ default: m.IFCPanel })));
 const ReportPanel = lazy(() => import('@/components/panels/ReportPanel').then(m => ({ default: m.ReportPanel })));
 const DebugTerminal = lazy(() => import('@/components/panels/DebugTerminal').then(m => ({ default: m.DebugTerminal })));
+const AIActivityPanel = lazy(() => import('@/components/panels/AIActivityPanel').then(m => ({ default: m.AIActivityPanel })));
 const TaskDialog = lazy(() => import('@/components/dialogs/TaskDialog').then(m => ({ default: m.TaskDialog })));
 const ProjectInfoDialog = lazy(() => import('@/components/dialogs/ProjectInfoDialog').then(m => ({ default: m.ProjectInfoDialog })));
 const SettingsDialog = lazy(() => import('@/components/dialogs/SettingsDialog').then(m => ({ default: m.SettingsDialog })));
@@ -93,6 +94,8 @@ function AppContent() {
   const setUI = useAppStore(s => s.setUI);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
   const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
+  const aiMode = useAppStore(s => s.ui.aiMode);
+  const aiActivityOpen = useAppStore(s => s.ui.aiActivityOpen);
   const documentChromeStyle = useAppStore(s => s.ui.documentChromeStyle);
 
   // Rechterpaneel-breedte slepen (fase 2.10, punt 3) — generiek splitterpatroon (useSplitter,
@@ -311,6 +314,9 @@ function AppContent() {
               </div>
               {debugTerminalEnabled && debugTerminalOpen && (
                 <Suspense fallback={null}><DebugTerminal /></Suspense>
+              )}
+              {aiMode && aiActivityOpen && (
+                <Suspense fallback={null}><AIActivityPanel /></Suspense>
               )}
             </div>
           )

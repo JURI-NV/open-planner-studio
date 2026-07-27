@@ -302,12 +302,11 @@ export async function saveLastVersion(value: string): Promise<void> {
 // moet ze direct kunnen uitlezen bij het starten, en de headless test draait zonder async-bootstrap.
 // De `typeof localStorage`-guard houdt de Node-test-/headless-omgeving op de default zonder crash.
 
-/** AI-modus aan/uit — bepaalt of het AI-tabblad zichtbaar is en of de bridge mag draaien. Default UIT. */
-export async function loadAiMode(): Promise<boolean> {
-  const v = await getSetting<boolean>('aiMode');
-  return typeof v === 'boolean' ? v : false;
-}
-
+/**
+ * AI-modus persisteren. Default UIT. Het LADEN loopt via de settingsRegistry
+ * (`setting({ key: 'aiMode', … })` in `settingsRegistry.ts`) → `loadAllSettings`, dus een aparte
+ * `loadAiMode` is er niet: die zou dode code zijn.
+ */
 export async function saveAiMode(value: boolean): Promise<void> {
   await setSetting('aiMode', value);
 }
