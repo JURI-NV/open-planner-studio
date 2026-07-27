@@ -174,6 +174,28 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       dus per taal komen er vier vertaalbestanden bij onder `src/i18n/locales/<taal>/`. Geen van deze
       talen is RTL — `RTL_LOCALES` (nu `['ar', 'fa']`) hoeft niet aangepast te worden.
 
+- [ ] **Nordic talen toevoegen aan de locales.** De Nordics kwamen in het marktonderzoek
+      ([eindrapport](marktonderzoek/eindrapport.md), plus
+      [Nordics](marktonderzoek/markten/markt-nordics-zweden-noorwegen-denemarken-finland.md)) in de
+      **top-5 kansen** naar voren: hoge BIM-/IFC-volwassenheid, publieke opdrachtgevers die IFC als
+      oplevering vragen, goede betalingsbereidheid en geen dwingende P6-cultuur in het middensegment.
+      Toch zit geen van de vier Scandinavische talen in de huidige veertien locales, waardoor die
+      markt nu volledig op Engels terugvalt. Toe te voegen, in prioriteitsvolgorde:
+      - **Zweeds (`sv`)** — hoogste prioriteit, de grootste van de vier markten.
+      - **Noors bokmål (`nb`)** — sterke olie/gas- en offshore-sector met veel projectbeheersing; ook
+        de thuisbasis van Safran.
+      - **Deens (`da`)**.
+      - **Fins (`fi`)** — laagste prioriteit; taalkundig niet-Scandinavisch, dus geen hergebruik van
+        de andere drie.
+
+      Nuance: Engels wordt in de Noordse bouw- en engineeringsector breed geaccepteerd, dus dit is
+      **geen blokkade maar een adoptiedrempel**. Voor een gratis tool die het van vrijwillige
+      adoptie moet hebben is de eigen taal juist het verschil tussen uitproberen en aanbevelen.
+      *Technisch:* zelfde patroon als hierboven — locales in `src/i18n/config.ts` (`Locale`-union,
+      `LANGUAGE_LABELS`, `supportedLanguages`, `loadLocale()`) met vier namespaces (`common`, `task`,
+      `report`, `menu`), dus per taal vier vertaalbestanden onder `src/i18n/locales/<taal>/`. Geen
+      van deze talen is RTL.
+
 ### Distributie & Release
 
 #### Snap-packaging — follow-ups
