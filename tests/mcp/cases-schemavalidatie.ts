@@ -62,16 +62,30 @@ test('validator: type-mismatch noemt pad én verwachting', () => {
   assert(err!.includes('"10"'), `de ONTVANGEN waarde staat in de boodschap: ${err}`);
 });
 
-test('validator: geneste paden krijgen array-index en puntnotatie', () => {
-  const schema = {
-    type: 'object',
-    properties: {
-      updates: { type: 'array', items: { type: 'object', properties: { fields: { type: 'object', properties: { duration: { type: 'number' } } } } } },
-    },
-  };
-  const err = validateToolArgs(schema, { updates: [{ fields: { duration: '10' } }] });
+const NESTED_SCHEMA = {
+  type: 'object',
+  properties: {
+    updates: { type: 'array', minItems: 1, items: { type: 'object', properties: { fields: { type: 'object', properties: { duration: { type: 'number' } } } } } },
+  },
+};
+
+test('validator: geneste paden krijgen array-index en puntnotatie (deepArrayItems)', () => {
+  const err = validateToolArgs(NESTED_SCHEMA, { updates: [{ fields: { duration: '10' } }] }, { deepArrayItems: true });
   assert(err !== null, 'moet falen');
   assert(err!.startsWith('updates[0].fields.duration:'), `exact pad verwacht, kreeg: ${err}`);
+});
+
+test('DIEPTE-REGEL: standaard blijft de BINNENKANT van array-items ongemoeid (bulk-conventie)', () => {
+  // Zonder deze regel zou één rot item een hele bulk-call omgooien — precies wat spec §batch verbiedt.
+  assertEq(validateToolArgs(NESTED_SCHEMA, { updates: [{ fields: { duration: '10' } }] }), null,
+    'de inhoud van een array-item is aan de tool, niet aan de poort');
+});
+
+test('DIEPTE-REGEL: de BUITENKANT van een array blijft wél strikt (array-zijn, minItems, elementtype)', () => {
+  assert(validateToolArgs(NESTED_SCHEMA, { updates: 'geen array' })!.includes('verwacht array'), 'array-type');
+  assert(validateToolArgs(NESTED_SCHEMA, { updates: [] })!.includes('minstens 1'), 'minItems');
+  const err = validateToolArgs(NESTED_SCHEMA, { updates: ['een string'] });
+  assert(err !== null && err.startsWith('updates[0]:') && err.includes('verwacht object'), `elementtype: ${err}`);
 });
 
 test('validator: type als ARRAY-vorm (["string","null"]) blijft werken', () => {
@@ -150,6 +164,38 @@ test('dispatcher: lege verplichte array (minItems) en ontbrekend verplicht veld 
   registerAllTools();
   assert((await expectSchemaReject('planner_delete_tasks', { ids: [] })).includes('minstens 1'), 'minItems');
   assert((await expectSchemaReject('planner_update_tasks', {})).includes('`updates`'), 'required');
+});
+
+test('dispatcher: een rot ITEM in een bulk-call gooit de bulk NIET om (spec §batch blijft leidend)', async () => {
+  registerAllTools();
+  store.getState().newProject();
+  const goed = store.getState().addTask({ name: 'goed' });
+  const ook = store.getState().addTask({ name: 'ook-goed' });
+  // `progress.percent` is een schemaschending BINNEN een array-item van een bulk-tool: de poort laat
+  // hem door, de handler weigert hem per item — en het goede item landt gewoon.
+  const res = await rpcCall('planner_update_tasks', {
+    updates: [
+      { id: goed, fields: { name: 'hernoemd' } },
+      { id: ook, progress: { percent: 50 } },
+    ],
+  });
+  assertEq(res.isError, false, `de bulk-call mag NIET hard falen: ${JSON.stringify(res.structuredContent)}`);
+  const sc = res.structuredContent;
+  assertEq(sc.data.updated, [goed], 'het goede item is verwerkt');
+  assertEq(sc.itemRejections.length, 1, 'het rotte item komt als per-item-weigering terug');
+  assert(sc.itemRejections[0].reason.includes('percent'), `de weigering noemt de sleutel: ${sc.itemRejections[0].reason}`);
+  assertEq(store.getState().tasks.find((t) => t.id === goed)!.name, 'hernoemd', 'de mutatie is echt geland');
+});
+
+test('dispatcher: planner_add_tasks is de ATOMAIRE uitzondering — daar is een item-fout wél hard', async () => {
+  registerAllTools();
+  store.getState().newProject();
+  // add_tasks kent geen per-item-weigering (het contract is de VOLLEDIGE tempId→realId-map), dus een
+  // schending binnen een item hoort de hele call te laten falen zonder ook maar één taak aan te maken.
+  await expectSchemaReject('planner_add_tasks', {
+    tasks: [{ tempId: 'tmp-goed', name: 'Goed' }, { tempId: 'tmp-fout', name: 'Fout', duration: '10' }],
+  });
+  assertEq(store.getState().tasks.length, 0, 'geen enkele taak aangemaakt');
 });
 
 test('dispatcher: L3 — `position: "abc"` op move_task wordt door de schemapoort gestopt', async () => {

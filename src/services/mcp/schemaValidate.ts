@@ -27,6 +27,30 @@
 //
 // FOUTVORM: elke schending noemt het PAD én de verwachting, bijv.
 // `updates[0].fields.duration: verwacht number, kreeg string "10"`. Nooit een kale TypeError.
+//
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+// DIEPTE-REGEL — NIET OMDRAAIEN ZONDER DE SPEC TE WIJZIGEN.
+//
+// De bulk-conventie van de bridge (spec §batch, T19/T20) is: ÉÉN ROTTE REGEL ROLT DE BULK NOOIT
+// TERUG. Vijf kalenders waarvan er één een fout `generate.country` heeft, horen vier verwerkte
+// kalenders + één `itemRejections`-regel op te leveren — niet vijf mislukkingen. Zou deze poort de
+// BINNENKANT van array-items hard afkeuren, dan zou hij die conventie stilzwijgend omdraaien voor
+// elke bulk-tool. Daarom:
+//
+//   * BOVENSTE NIVEAU — STRIKT. Onbekende top-level sleutels, `required`, scalaire argumenten en de
+//     BUITENKANT van arrays (is het een array? `minItems`/`maxItems`? is elk element van het door
+//     `items.type` gevraagde type?) worden hard afgedwongen. Dat zijn vormfouten van de CALL, niet
+//     van één regel erin, en de tool kan er sowieso niets zinnigs mee.
+//   * BINNENKANT VAN ARRAY-ITEMS — AAN DE TOOL. Properties/enum/required/pattern binnen een
+//     array-item slaat deze validator standaard over; de handlers hebben daar allemaal hun eigen
+//     allowlist met PER-ITEM-weigering (`taskFields.ts`, `parseProgress`, `parseLag`, de kalender-/
+//     resource-tools). Zo blijft één rot item één `itemRejections`-regel.
+//   * UITZONDERING — `ATOMIC_ITEM_TOOLS`. Een tool wier contract per definitie ALLES-OF-NIETS is,
+//     kent geen per-item-weigering; daar is een harde VALIDATION juist correct. Vandaag is dat
+//     alleen `planner_add_tasks`: zijn contract is de VOLLEDIGE tempId→realId-map, dus een half
+//     geslaagde call is voor de aanroeper onbruikbaar (dat is ook nu al zijn gedrag — een onbekend
+//     veld in één item laat de hele call falen).
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Trefwoorden die deze validator daadwerkelijk afdwingt (de rest wordt genegeerd). */
 export const SUPPORTED_KEYWORDS: readonly string[] = [
@@ -46,6 +70,13 @@ export const SUPPORTED_KEYWORDS: readonly string[] = [
 
 /** Trefwoorden die puur documentatie zijn en dus geen validatie-betekenis hoeven te hebben. */
 const DOC_KEYWORDS: readonly string[] = ['description', 'title', 'examples', 'default'];
+
+/**
+ * Tools wier contract ALLES-OF-NIETS is en die dus géén per-item-weigering kennen: daar mag (en
+ * moet) de schemapoort óók de binnenkant van array-items hard afkeuren. Zie de DIEPTE-REGEL boven.
+ * Voeg hier alleen een tool aan toe die aantoonbaar geen `itemRejections` kan teruggeven.
+ */
+export const ATOMIC_ITEM_TOOLS: ReadonlySet<string> = new Set(['planner_add_tasks']);
 
 type Json = unknown;
 
@@ -107,7 +138,7 @@ function violation(path: string, message: string): string {
  * Valideer `value` tegen `schema` en verzamel ALLE schendingen (geen fail-fast: een agent die drie
  * dingen fout doet wil dat in één beurt horen).
  */
-function walk(schema: Json, value: Json, path: string, out: string[]): void {
+function walk(schema: Json, value: Json, path: string, out: string[], deepArrayItems: boolean): void {
   if (!isPlainObject(schema)) return;
 
   // --- type -------------------------------------------------------------------------------------
@@ -163,7 +194,15 @@ function walk(schema: Json, value: Json, path: string, out: string[]): void {
       out.push(violation(path, `verwacht hoogstens ${schema.maxItems} item(s), kreeg ${value.length}`));
     }
     if (isPlainObject(schema.items)) {
-      for (let i = 0; i < value.length; i++) walk(schema.items, value[i], `${path}[${i}]`, out);
+      for (let i = 0; i < value.length; i++) {
+        if (deepArrayItems) {
+          walk(schema.items, value[i], `${path}[${i}]`, out, true);
+        } else {
+          // DIEPTE-REGEL: alleen de BUITENKANT van het element (het type). De inhoud is aan de tool,
+          // die er een per-item-weigering van maakt in plaats van de hele bulk om te gooien.
+          walk({ type: (schema.items as Record<string, Json>).type }, value[i], `${path}[${i}]`, out, false);
+        }
+      }
     }
   }
 
@@ -189,7 +228,7 @@ function walk(schema: Json, value: Json, path: string, out: string[]): void {
     if (props) {
       for (const [key, sub] of Object.entries(props)) {
         if (!(key in value) || value[key] === undefined) continue;
-        walk(sub, value[key], joinPath(path, key), out);
+        walk(sub, value[key], joinPath(path, key), out, deepArrayItems);
       }
     }
   }
@@ -204,11 +243,19 @@ function walk(schema: Json, value: Json, path: string, out: string[]): void {
  * `undefined`/`null` als argumentenblok telt als `{}` — dat is precies wat elke handler zelf al doet
  * (`(args ?? {})`), en het geeft bij een ontbrekend verplicht veld een véél bruikbaardere melding
  * ("verplicht veld `ids` ontbreekt") dan "verwacht object, kreeg undefined".
+ *
+ * `opts.deepArrayItems` (DEFAULT FALSE — zie de DIEPTE-REGEL boven): standaard wordt van array-items
+ * alleen het TYPE gecontroleerd, zodat de per-item-weigeringsconventie van de bulk-tools intact
+ * blijft. Alleen tools uit `ATOMIC_ITEM_TOOLS` zetten hem aan.
  */
-export function validateToolArgs(schema: unknown, args: unknown): string | null {
+export function validateToolArgs(
+  schema: unknown,
+  args: unknown,
+  opts: { deepArrayItems?: boolean } = {},
+): string | null {
   const value = args === undefined || args === null ? {} : args;
   const out: string[] = [];
-  walk(schema, value, '', out);
+  walk(schema, value, '', out, opts.deepArrayItems === true);
   if (out.length === 0) return null;
   // Cap: bij een volledig verkeerd gevormde call zijn de eerste paar regels informatief, de rest ruis.
   const shown = out.slice(0, 8);

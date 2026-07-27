@@ -8,7 +8,7 @@
 // hogere laag op de dispatch-grens (spec §Sessie-semantiek / §AI-backup). Deze laag routeert puur.
 import type { McpContext, McpToolResult, McpToolDef } from './contracts';
 import { getTools, getTool } from './toolRegistry';
-import { validateToolArgs } from './schemaValidate';
+import { ATOMIC_ITEM_TOOLS, validateToolArgs } from './schemaValidate';
 
 /** serverInfo.name in de initialize-respons. */
 export const MCP_SERVER_NAME = 'open-planner-studio';
@@ -130,20 +130,16 @@ export async function handleMcpMessage(rawBody: string, ctx: McpContext): Promis
       // niet als JSON-RPC-fout: zo ziet de AI-client dezelfde foutvorm als bij elke andere
       // VALIDATION-weigering. Geen envelop: die hangt aan de store-laag en die raken we hier niet aan.
       //
-      // BEWUSTE KEUZE — VORMFOUTEN ZIJN HARD, OOK IN EEN BULK-CALL. De bulk-conventie ("één rotte
-      // regel rolt nooit de hele call terug", spec §batch) blijft gelden voor SEMANTISCHE weigeringen:
-      // die gaan over de TOESTAND (taak bestaat niet, relatie bestond al, completion buiten bereik) en
-      // komen per item als `itemRejections` terug. Een SCHEMAfout gaat niet over de toestand maar over
-      // het CONTRACT dat de client zelf uit `tools/list` heeft gekregen — één fout item betekent dat de
-      // call verkeerd is opgebouwd. Die valt daarom in zijn geheel om, vóór enige mutatie:
-      //   - het alternatief (per-item schemavalidatie) zou de poort juist moeten uitzetten op de
-      //     geneste paden waar hij het hardst nodig is (`updates[].fields.duration`, `progress.percent`);
-      //   - hard falen is ATOMAIR: de agent hoeft niet te reconstrueren welke vier van de vijf items
-      //     wél landden, corrigeert het ene item en stuurt exact dezelfde call opnieuw.
-      // Kort: vorm = hard en atomair, toestand = zacht per item. De handlers valideren hun items
-      // daarnaast nog steeds zelf, zodat het batch-pad (dat hier niet langskomt) dezelfde weigeringen
-      // geeft — daar zijn schemafouten van een STAP wél zacht/hard volgens de batch-conventie.
-      const schemaError = validateToolArgs(def.inputSchema, msg.params?.arguments);
+      // DIEPTE — DE BULK-CONVENTIE BLIJFT LEIDEND. Deze poort mag een bulk-call NOOIT in zijn geheel
+      // afwijzen om één rot item: spec §batch (T19/T20) zegt dat één rotte regel de bulk niet
+      // terugrolt, en de handlers maken er een `itemRejections`-regel van. De poort is daarom STRIKT
+      // op het bovenste niveau (onbekende top-level sleutels, `required`, scalairen, en van arrays de
+      // buitenkant: array-zijn, `minItems`, elementtype) en laat de BINNENKANT van array-items aan de
+      // tool. Enige uitzondering: `ATOMIC_ITEM_TOOLS` (vandaag alleen `planner_add_tasks`), wiens
+      // contract per definitie alles-of-niets is. Zie de DIEPTE-REGEL in `schemaValidate.ts`.
+      const schemaError = validateToolArgs(def.inputSchema, msg.params?.arguments, {
+        deepArrayItems: ATOMIC_ITEM_TOOLS.has(def.name),
+      });
       if (schemaError) {
         const err: McpToolResult = {
           ok: false,
