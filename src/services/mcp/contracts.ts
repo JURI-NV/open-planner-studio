@@ -29,6 +29,15 @@ export interface McpToolErr {
   envelope?: McpEnvelope;
   error: string;
   code: McpErrorCode;
+  /**
+   * Additieve aanvulling op het bevroren contract, besloten bij T22 (zelfde precedent als de
+   * `description` bij T9): een fout mag OPTIONEEL gestructureerde context dragen. `error` blijft de
+   * leesbare samenvatting; dit veld is de machine-leesbare bijlage. Nodig omdat een teruggerolde
+   * `planner_batch` anders zijn stap-rapport en sub-stappen kwijt is — juist bij een mislukking wil
+   * het AI-activiteitenpaneel tonen wélke stap viel. De dispatcher stuurt het hele resultaat al als
+   * `structuredContent` mee, dus er verandert niets aan het transport.
+   */
+  data?: unknown;
 }
 
 export type McpToolResult = McpToolOk | McpToolErr;
