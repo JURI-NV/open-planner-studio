@@ -27,12 +27,18 @@ const FONT_FAMILY = 'InterPDF, -apple-system, BlinkMacSystemFont, "Segoe UI", sa
 // x-positie van de VERTICALE knik, gerekend vanaf de rechterrand van de voorganger-balk.
 const DEP_STUB = 6;
 // Linkerpad van een taaklabel RECHTS van de balk. Bewust groter dan `DEP_STUB`: het label begint
-// pas voorbij de verticale relatie-knik, zodat lijn en tekst elkaar niet raken (issue #25 punt 2).
-// De koppeling is expliciet — verandert de stub, dan schuift het label mee.
+// pas voorbij de verticale knik van de relatie die uit DEZE balk vertrekt (issue #25 punt 2).
+// De koppeling is expliciet — verandert de stub, dan schuift het label mee. Let op: dit dekt alleen
+// de EIGEN knik; willekeurige andere relatielijnen kunnen nog steeds over het label lopen. Daar is
+// de halo voor ({@link fillTextWithHalo}).
 const BAR_LABEL_GAP = DEP_STUB + 8;
-// Kleine pad voor de LINKER fallback van een taaklabel; daar zit geen relatie-knik, dus daar is de
-// grote gap niet nodig.
+// Kleine pad voor de LINKER fallback van een taaklabel; daar vertrekt geen eigen relatie-knik, dus
+// daar is de grote gap niet nodig.
 const BAR_LABEL_PAD_LEFT = 4;
+// Horizontale pad (bij 100% rapport-lettergrootte) van de halo/knockout rondom een taaklabel:
+// hoeveel de vrijgehouden papierkleur links en rechts buiten de tekst uitsteekt. Verticaal wordt de
+// halo uit de fontgrootte afgeleid (zie `fillTextWithHalo`).
+const BAR_LABEL_HALO_PAD_X = 2;
 
 // Column definitions for the task table
 const COL = {
@@ -247,15 +253,77 @@ function fitText(d2d: Draw2D, text: string, maxWidth: number): string {
 }
 
 /**
+ * Teken tekst met een HALO/KNOCKOUT: eerst een rechthoekje in de papierkleur precies achter de
+ * tekst, daarna de tekst zelf. Waar een relatielijn over het label loopt wordt hij dus onderbroken,
+ * en blijft de taaknaam leesbaar; overal daarbuiten blijft de lijn gewoon zichtbaar.
+ *
+ * ==== WAAROM EEN RECHTHOEK EN GEEN `strokeText`-CONTOUR (bewuste keuze, niet vergeten) ====
+ * De klassieke halo is `strokeText` in de achtergrondkleur onder de `fillText` — dat volgt de
+ * glyf-contouren en knipt dus minder weg. Die kan hier niet:
+ *   1. `strokeText` zit NIET in de {@link Draw2D}-abstractie, en die abstractie heeft twee backends.
+ *      De raster-backend zou 'm zo doorgeven, maar de vector-backend (`pdfVectorDraw2d.ts`) heeft
+ *      DRIE tekst-paden (Latijns snelpad, RTL/bidi-shaping, CJK-runs) die elk hun eigen glyph- en
+ *      matrix-emissie doen; stroke-modus zou in alle drie gedupliceerd moeten worden.
+ *   2. Erger: een `strokeText` in de PDF is nóg een tekst-object. Elke taaknaam zou dan twee keer in
+ *      de tekstlaag staan en dus twee keer uit een kopieer-/zoekactie komen — precies het probleem
+ *      dat de vector-export elders (fase 2.1) bewust vermijdt.
+ * Een oplossing die alleen in de raster-preview werkt is geen oplossing: preview en export moeten
+ * WYSIWYG blijven. `fillRect` + `measureText` zitten wél in beide backends en worden er al volop
+ * gebruikt, dus de rechthoek landt in preview én vector-PDF identiek. Prijs: hij knipt een strak
+ * blokje uit de achtergrond (rasterlijnen/weekendarcering) i.p.v. de glyf-contour te volgen — voor
+ * een leesbaar label op papier een prima ruil, en het maakt labels boven arcering meteen rustiger.
+ *
+ * In de vector-PDF klopt de z-volgorde vanzelf: de rechthoek is een VORM (die gaan in het gedeelde
+ * Form-XObject, in tekenvolgorde — dus ná de relatielijnen, mits deze functie ook ná `drawDependencies`
+ * wordt aangeroepen), en tekst wordt daar altijd bovenop het XObject geëmit.
+ *
+ * @param x     ankerpunt; bij align 'left' de linkerrand van de tekst, bij 'right' de rechterrand
+ * @param y     baseline-y (verwacht `textBaseline === 'alphabetic'`)
+ * @param sizePx  de GESCHAALDE fontgrootte in px (`m.s(9)`), voor de hoogte van de halo
+ */
+function fillTextWithHalo(
+  d2d: Draw2D,
+  m: ReportMetrics,
+  text: string,
+  x: number,
+  y: number,
+  align: 'left' | 'right',
+  color: string,
+  sizePx: number,
+): void {
+  if (!text) return;
+  const width = d2d.measureText(text).width;
+  const padX = m.s(BAR_LABEL_HALO_PAD_X);
+  // Verticale extent rond de alfabetische baseline: ruim boven de hoogste ascender (0,85 em) en
+  // onder de diepste descender (0,25 em) van Inter. Bewust uit de fontgrootte afgeleid en niet uit
+  // een `measureText`-actualBoundingBox: die zit niet in de `Draw2D`-abstractie (en zou per backend
+  // verschillen), terwijl deze benadering in beide backends per definitie identiek uitvalt.
+  const top = y - sizePx * 0.85;
+  const height = sizePx * 1.1;
+  const left = (align === 'right' ? x - width : x) - padX;
+
+  d2d.fillStyle = PRINT_COLORS.bg;
+  d2d.fillRect(left, top, width + 2 * padX, height);
+
+  d2d.fillStyle = color;
+  d2d.textAlign = align;
+  d2d.fillText(text, x, y);
+}
+
+/**
  * Teken een taaknaam-label bij een staaf (klachten 4b + 7). Probeert rechts van de staaf; loopt het
  * daar voorbij de canvasrand, dan wordt het links van de staaf getekend (rechts-uitgelijnd,
  * eindigend net vóór de staaf). Past het ook links niet, dan wordt het afgekort met '…' aan de kant
  * met de meeste ruimte. Zo valt een label nooit voorbij `canvasWidth` en overlapt het minder met
  * naburige staven.
  *
+ * Elk label krijgt een halo/knockout ({@link fillTextWithHalo}) omdat de relatielijnen ONDER de
+ * labels door lopen; zie de tekenvolgorde in `renderReport`.
+ *
  * @param barRightX  x van de rechterrand van de staaf (incl. eventuele speling-indicator)
  * @param barLeftX   x van de linkerrand van de staaf
  * @param y          baseline-y voor de tekst (textBaseline blijft 'alphabetic')
+ * @param fontSize   BASIS-fontgrootte (ongeschaald, zoals bij `m.font`); de helper schaalt zelf
  */
 function drawBarLabel(
   d2d: Draw2D,
@@ -266,14 +334,18 @@ function drawBarLabel(
   y: number,
   canvasWidth: number,
   color: string,
-  font: string,
+  fontSize: number,
+  bold?: boolean,
 ) {
   const rightMargin = 10;
-  d2d.font = font;
+  d2d.font = m.font(fontSize, bold);
   d2d.fillStyle = color;
   d2d.textBaseline = 'alphabetic';
-  // Rechts: voorbij de verticale relatie-knik beginnen (`BAR_LABEL_GAP` > `DEP_STUB`), links de
-  // kleine pad — daar loopt geen relatielijn (issue #25 punt 2).
+  const sizePx = m.s(fontSize);
+  // Rechts: voorbij de verticale knik van de EIGEN uitgaande relatie beginnen (`BAR_LABEL_GAP` >
+  // `DEP_STUB`), links de kleine pad — daar vertrekt geen eigen relatie-knik (issue #25 punt 2).
+  // Dat houdt het label vrij van z'n eigen lijn; lijnen van ANDERE relaties kunnen er nog steeds
+  // overheen lopen, en daarvoor is de halo.
   //
   // `BAR_LABEL_GAP`/`BAR_LABEL_PAD_LEFT` schalen bewust NIET mee met de rapport-lettergrootte: de
   // gap bestaat alleen om vrij te blijven van de verticale relatie-knik, en die knik (`DEP_STUB`)
@@ -286,17 +358,13 @@ function drawBarLabel(
   const textWidth = d2d.measureText(name).width;
 
   if (textWidth <= rightAvail) {
-    d2d.textAlign = 'left';
-    d2d.fillText(name, rightStart, y);
+    fillTextWithHalo(d2d, m, name, rightStart, y, 'left', color, sizePx);
   } else if (textWidth <= leftAvail) {
-    d2d.textAlign = 'right';
-    d2d.fillText(name, leftEnd, y);
+    fillTextWithHalo(d2d, m, name, leftEnd, y, 'right', color, sizePx);
   } else if (rightAvail >= leftAvail) {
-    d2d.textAlign = 'left';
-    d2d.fillText(fitText(d2d, name, rightAvail), rightStart, y);
+    fillTextWithHalo(d2d, m, fitText(d2d, name, rightAvail), rightStart, y, 'left', color, sizePx);
   } else {
-    d2d.textAlign = 'right';
-    d2d.fillText(fitText(d2d, name, leftAvail), leftEnd, y);
+    fillTextWithHalo(d2d, m, fitText(d2d, name, leftAvail), leftEnd, y, 'right', color, sizePx);
   }
 }
 
@@ -555,6 +623,22 @@ export function renderReport(
   const barHeight = m.rowHeight * 0.55;
   const barOffset = (m.rowHeight - barHeight) / 2;
 
+  // De taaknaam-labels worden hier alleen VERZAMELD en pas ná de relatiepijlen getekend — zie de
+  // uitleg bij `drawDependencies` verderop. Eén job per label; de geometrie is op dat moment al
+  // uitgerekend, dus uitstellen kost niets.
+  interface BarLabelJob {
+    name: string;
+    /** x van de rechterrand van de staaf/ruit (incl. eventuele speling-indicator). */
+    barRightX: number;
+    /** x van de linkerrand van de staaf/ruit. */
+    barLeftX: number;
+    /** baseline-y van de tekst. */
+    y: number;
+    /** Vetgedrukt (alleen samenvattingstaken). */
+    bold: boolean;
+  }
+  const barLabelJobs: BarLabelJob[] = [];
+
   for (let i = 0; i < flatTasks.length; i++) {
     const task = flatTasks[i];
     const y = rowToY(i) + barOffset;
@@ -577,7 +661,7 @@ export function renderReport(
 
       // Task name label (rechts van de ruit, valt terug naar links/ellipsis bij de rand)
       if (options.showTaskNames) {
-        drawBarLabel(d2d, m, task.name, x + size, x - size, cy + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9));
+        barLabelJobs.push({ name: task.name, barRightX: x + size, barLeftX: x - size, y: cy + m.s(3), bold: false });
       }
     } else if (task.childIds.length > 0) {
       // Summary bracket bar
@@ -610,7 +694,7 @@ export function renderReport(
 
       // Task name label (rechts van de balk, valt terug naar links/ellipsis bij de rand)
       if (options.showTaskNames) {
-        drawBarLabel(d2d, m, task.name, x1 + width, x1, y + barHeight / 2 + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9, true));
+        barLabelJobs.push({ name: task.name, barRightX: x1 + width, barLeftX: x1, y: y + barHeight / 2 + m.s(3), bold: true });
       }
     } else {
       // Normal task bar
@@ -647,17 +731,33 @@ export function renderReport(
       if (options.showTaskNames) {
         const hasFloat = options.showFloat && task.time.totalFloat > 0 && !task.time.isCritical;
         const barRightX = x2 + (hasFloat ? task.time.totalFloat * zoom : 0);
-        drawBarLabel(d2d, m, task.name, barRightX, x1, y + barHeight / 2 + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9));
+        barLabelJobs.push({ name: task.name, barRightX, barLeftX: x1, y: y + barHeight / 2 + m.s(3), bold: false });
       }
     }
   }
 
-  // Relatiepijlen — bewust NÁ de balken-lus (issue #25 punt 3). Stonden ze ervóór, dan schilderde
-  // elke balk die een lijn kruist die lijn gewoon weg; nu liggen de lijnen bovenop en zijn ze altijd
-  // zichtbaar. Dat de taaklabels in diezelfde balken-lus getekend worden is geen probleem: die
-  // beginnen dankzij `BAR_LABEL_GAP` pas voorbij de verticale knik (punt 2).
+  // ---- TEKENVOLGORDE IN HET CHART-GEBIED: staven → relatiepijlen → taaklabels ----
+  //
+  // 1. Relatiepijlen ná de staven (issue #25 punt 3). Stonden ze ervóór, dan schilderde elke balk
+  //    die een lijn kruist die lijn gewoon weg; nu liggen de lijnen bovenop en zijn ze altijd
+  //    zichtbaar.
+  // 2. Maar de taaklabels moeten wéér boven de lijnen. Hier stond eerder de redenering dat dat niet
+  //    hoefde omdat een label dankzij `BAR_LABEL_GAP` pas voorbij de verticale knik begint — dat
+  //    argument gaat alleen op voor de knik van de EIGEN voorganger. Een relatie tussen twee heel
+  //    andere taken (t1 → t3) knikt verticaal dwars door de rij van t2 heen en streepte het label
+  //    van t2 zo doormidden. Daarom worden de labels nu als laatste getekend, met een halo/knockout
+  //    in de papierkleur ({@link fillTextWithHalo}): de tekst blijft leesbaar wáár een lijn eroverheen
+  //    zou lopen, en de lijn blijft zichtbaar overal daarbuiten.
+  //
+  // Dit geldt voor beide backends: in de raster-preview volgt de z-volgorde uit de tekenvolgorde
+  // hieronder, en in de vector-PDF komen de halo-rechthoeken (vormen, dus in het Form-XObject) ná de
+  // lijnen terwijl de tekst sowieso bovenop het XObject wordt geëmit — zelfde eindbeeld.
   if (options.showDeps) {
     drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom);
+  }
+
+  for (const job of barLabelJobs) {
+    drawBarLabel(d2d, m, job.name, job.barRightX, job.barLeftX, job.y, canvasWidth, PRINT_COLORS.text, 9, job.bold);
   }
 
   // ---- TIMELINE HEADER ----

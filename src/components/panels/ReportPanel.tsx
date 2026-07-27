@@ -134,9 +134,19 @@ export function ReportPanel() {
   const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>('A3');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
   const [companyName, setCompanyName] = useState(project.company || '');
-  // Issue #25 punt 1 — herhaal de datum-/projectkop bovenaan ELKE geëxporteerde pagina. Standaard
-  // aan (de gevraagde verbetering). Bewust géén veld in `PrintOptions`: de kopherhaling is puur een
-  // pagineerder-zaak (raster: hoogte in px; vector: boolean), niet iets dat de render-zoom raakt.
+  // Issue #25 punt 1 — herhaal de datum-/projectkop bovenaan ELKE geëxporteerde pagina.
+  //
+  // Standaard AAN, en dat is een BEWUSTE GEDRAGSWIJZIGING, geen gemakzucht: wie vóór deze versie
+  // een meerpagina-rapport exporteerde kreeg de kop alleen op de eerste rij pagina's, en krijgt hem
+  // vanaf nu op élke pagina. Dat is precies de verbetering die issue #25 punt 1 vraagt (een losse
+  // pagina uit de map is anders niet te plaatsen), maar het betekent óók dat een her-export van een
+  // bestaand project er anders uitziet dan de oude PDF — en dat er per pagina wat body-hoogte
+  // afgaat, dus mogelijk één pagina extra. De knop staat ernaast, dus wie het oude beeld wil zet
+  // 'm uit. De ENGINE-defaults (`paginate.ts`/`tileLayout.ts`/`paginateVector.ts`) blijven bewust
+  // op "niet herhalen" staan; alleen deze UI kiest anders.
+  //
+  // Bewust géén veld in `PrintOptions`: de kopherhaling is puur een pagineerder-zaak (raster:
+  // hoogte in px; vector: boolean), niet iets dat de render-zoom raakt.
   const [repeatHeader, setRepeatHeader] = useState(true);
   // Issue #25 punt 5 — smeert de tijdlijn uit over N paginabreedtes (1 = oud gedrag, geen
   // verrassing voor bestaande gebruikers). Alleen zinvol in fit-width-modus; daarom `disabled`
@@ -228,14 +238,23 @@ export function ReportPanel() {
         repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
         timelineColumns,
         supersample: 1, // preview: goedkoper; wordt toch verkleind weergegeven
+        // De limiet hoort HIER, niet pas bij het uitsnijden hieronder: de pagineerder maakt per
+        // pagina een volledig papier-canvas aan (A3 ≈ 4 MB RGBA), dus een rooster van 20×8 zou
+        // ~640 MB rasteren waarvan we er 30 tonen — bij elke optiewijziging opnieuw. Met `maxPages`
+        // worden de overige pagina's nooit getekend; `rows`/`cols` blijven het volledige rooster.
+        maxPages: PREVIEW_MAX_PAGES,
       });
+      // Goedkope dubbele bodem: mocht de pagineer-limiet ooit wegvallen, dan toont de preview nog
+      // steeds niet meer dan PREVIEW_MAX_PAGES vellen. Het echte werk zit in `maxPages` hierboven.
       const shown = tiles.pages.slice(0, PREVIEW_MAX_PAGES);
       setPreviewPages(shown.map(page => ({
         dataUrl: page.toDataURL('image/png'),
         wPt: tiles.pageWidthPt,
         hPt: tiles.pageHeightPt,
       })));
-      setPreviewTotalPages(tiles.pages.length);
+      // Het VOLLEDIGE paginatotaal (dus niet `tiles.pages.length` — dat is met `maxPages` bewust
+      // afgekapt): de gebruiker moet "5 van 160" kunnen zien, ook al rasteren we er maar 30.
+      setPreviewTotalPages(tiles.rows * tiles.cols);
     };
     // Wacht op het gevendorde Inter-font (family 'InterPDF') vóór de eerste render, zodat
     // measureText/afkapping deterministisch is (§5.2). ensureInterLoaded is idempotent; de

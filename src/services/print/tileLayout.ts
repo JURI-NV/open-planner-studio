@@ -25,7 +25,12 @@
  *      (issue #25 punt 5) zodat hij leesbaar blijft.
  *
  * Bij `repeatHeaderHeightPx: 0` en `timelineColumns: 1` reproduceert deze functie exact de oude
- * uitkomst; die twee defaults zijn dus het "oude gedrag".
+ * uitkomst; die twee defaults zijn dus het "oude gedrag" van deze ENGINE.
+ *
+ * Dat is uitdrukkelijk geen belofte over wat de gebruiker ziet: het rapportpaneel
+ * (`ReportPanel.tsx`) zet de knop "kop herhalen" sinds issue #25 punt 1 bewust standaard AAN en
+ * geeft dus standaard een `repeatHeaderHeightPx > 0` door. De defaults hier houden alleen deze
+ * module gedragsneutraal voor aanroepers die niets meegeven.
  */
 
 export type PaperSize = 'a4' | 'a3' | 'a1';
@@ -58,7 +63,9 @@ export interface TileLayoutInput {
   frozenColumnWidthPx?: number;
   /**
    * Hoogte (logische px, gemeten vanaf de BOVENkant van de bron) van de kopstrook die op elke
-   * verticale tegel bovenaan de pagina herhaald moet worden. Default 0 = geen herhaling, oud gedrag.
+   * verticale tegel bovenaan de pagina herhaald moet worden. Default 0 = geen herhaling; dat is de
+   * gedragsneutrale ENGINE-default, niet wat de UI standaard kiest (die herhaalt sinds issue #25
+   * punt 1 wél — zie de module-doc hierboven).
    */
   repeatHeaderHeightPx?: number;
   /**

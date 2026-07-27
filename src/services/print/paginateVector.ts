@@ -37,7 +37,10 @@ export interface VectorPaginateOptions {
   marginPt?: number;
   /**
    * Herhaal de kopstrook (project-kop + tijdschaal) bovenaan ELKE pagina (issue #25 punt 1).
-   * Default false = oud gedrag (kop alleen op de eerste rij pagina's).
+   * Default false = oud gedrag (kop alleen op de eerste rij pagina's) — maar dat is puur de
+   * gedragsneutrale ENGINE-default. Het rapportpaneel (`ReportPanel.tsx`) zet de knop bewust
+   * standaard AAN en geeft hier dus normaal `true` door; een her-export van een bestaand project
+   * krijgt daardoor op elke pagina een kop.
    *
    * Bewust een boolean en niet — zoals bij de raster-pagineerder — een expliciete px-hoogte: hier
    * draait de render pas ÍN deze functie, dus de aanroeper kent `headerHeight` nog niet. We nemen
