@@ -12,13 +12,14 @@
 import type { McpToolDef } from './contracts';
 import { registerToolModules } from './toolIndex';
 import { readTools } from './tools/readTools';
+import { documentTools } from './tools/documentTools';
+import { fileTools } from './tools/fileTools';
 import { batchTools } from './tools/batchTool';
 
 export { TOOL_PREFIX, registerToolModules, getTool, getTools } from './toolIndex';
 
-// Latere banen breiden dit uit, bijv.:
-//   const MODULES: McpToolDef[][] = [readTools, taskTools, calendarResourceTools, documentTools, batchTools];
-const MODULES: McpToolDef[][] = [readTools, batchTools];
+// Volgorde = registratievolgorde = de volgorde waarin `tools/list` ze teruggeeft.
+const MODULES: McpToolDef[][] = [readTools, documentTools, fileTools, batchTools];
 
 // Zelf-registratie bij module-load.
 registerToolModules(MODULES);

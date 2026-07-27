@@ -21,8 +21,10 @@ import { fileHasHourData } from '@/services/subdayIo';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
- *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad). */
-function isActivePristine(s: AppState): boolean {
+ *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad).
+ *  Geëxporteerd omdat de MCP-tool `planner_import_schedule` exact hetzelfde laadpatroon
+ *  moet volgen (spec §Bestands-tools) — één definitie, geen tweede die kan afdrijven. */
+export function isActivePristine(s: AppState): boolean {
   return (
     s.tasks.length === 0 &&
     s.sequences.length === 0 &&
@@ -33,8 +35,9 @@ function isActivePristine(s: AppState): boolean {
 }
 
 /** Kies de juiste XML-reader op basis van inhoudsmarkers (P6 vóór MS Project).
- *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen. */
-function parseProjectXml(content: string) {
+ *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen.
+ *  Geëxporteerd voor `planner_import_schedule` (MCP), dat dezelfde formaatherkenning gebruikt. */
+export function parseProjectXml(content: string) {
   const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
   const isMsProject =
     content.includes('schemas.microsoft.com/project') || content.includes('<Project');

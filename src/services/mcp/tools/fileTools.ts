@@ -1,0 +1,375 @@
+// MCP-bridge — de TWEE BESTANDS-TOOLS (taak T21, spec §Bestands-tools 107-111, §Overig regel 105).
+//
+// `export_ifc` en `import_schedule` zijn de enige tools die de wereld BUITEN de app raken. Daarom:
+//
+//  1. FS-SCOPE. De Tauri-capability dekt `$HOME` (recursief), niet de hele schijf (spec regel 109).
+//     Elk pad wordt eerst genormaliseerd (`..`/`.`/dubbele scheiders, `~`-expansie) en daarna tegen
+//     de home-map gehouden; erbuiten ⇒ code `SCOPE` met uitleg. Normaliseren VÓÓR de vergelijking is
+//     het hele punt: `$HOME/../../etc/x` ziet er anders uit als "binnen $HOME".
+//  2. OVERSCHRIJVEN. `export_ifc` weigert een bestaand bestand zonder expliciete `overwrite: true`
+//     (spec regel 110).
+//  3. GEEN USER-DIALOOG. Bewust geaccepteerd (spec regel 111): het pad komt uit de AI-args in plaats
+//     van uit een bestandskiezer — de instemming verschuift naar de opt-in van de bridge zelf. Het
+//     resultaat is altijd zichtbaar (import = een tabblad, export = een gemeld pad).
+//  4. GEEN AI-BACKUP, GEEN TRANSACTIE. Spec regel 130: `import_schedule` triggert zelf géén backup
+//     (de per-document-teller start op het RESULTERENDE document, zodat de eerste echte mutatie
+//     precies de post-import-staat vastlegt) ⇒ `kind: 'other'`, en het laden loopt via het bestaande
+//     `applyLoadedProject`-pad, niet via `runInMcpTransaction`.
+//  5. DRIFT-ANKER. `export_ifc` schrijft de inhoud van het ACTIEVE document weg ⇒ volle drift-check
+//     (het verkeerde document exporteren is stil fout). `import_schedule` verzet het anker naar het
+//     resulterende document (spec regel 111) — zonder dat zou de import zichzelf klemzetten.
+//
+// De fs-rand loopt via de injecteerbare naad `fileToolDeps` (zelfde motief als `backup.ts`): de
+// echte implementatie importeert `@tauri-apps/*` DYNAMISCH binnen een `isTauri()`-tak (anders breekt
+// de web-build), de headless tests spuiten een in-memory fs in.
+
+import { useAppStore } from '@/state/appStore';
+import { isTauri } from '@/utils/platform';
+import { writeIFC } from '@/services/ifc/ifcWriter';
+import { readIFC } from '@/services/ifc/ifcReader';
+import { readCSV } from '@/services/csv/csvReader';
+import { parseProjectXml, isActivePristine } from '@/state/slices/fileSlice';
+import { buildWriteIFCInput } from '@/state/ifcSaveInput';
+import type { ImportResult } from '@/services/importTypes';
+import { bindExpectedDoc, buildEnvelope, guardNonTransactional, toolError } from './runtime';
+import { guardBridgeFlags } from './documentTools';
+import type { McpToolAnnotations, McpToolDef, McpToolResult } from '../contracts';
+
+// --- fs-naad -------------------------------------------------------------------------------------
+
+/** Minimale bestandssysteem-abstractie voor de twee bestands-tools. */
+export interface McpFileFs {
+  /** Wortel van de toegestane scope (`$HOME`). */
+  homeDir(): Promise<string>;
+  exists(path: string): Promise<boolean>;
+  writeTextFile(path: string, content: string): Promise<void>;
+  readTextFile(path: string): Promise<string>;
+}
+
+/** Echte (Tauri-)fs; dynamisch geïmporteerd binnen een `isTauri()`-tak — spiegel van
+ *  `recoveryStore.ts`/`backup.ts`, zodat de web-build niet op een top-level `@tauri-apps`-import breekt. */
+async function realFs(): Promise<McpFileFs> {
+  if (!isTauri()) {
+    throw new Error(
+      'De bestands-tools werken alleen in de desktop-app (Tauri): de browserversie heeft geen ' +
+      'directe bestandssysteem-toegang. Gebruik daar Bestand → Openen/Exporteren.',
+    );
+  }
+  const { exists, readTextFile, writeTextFile, mkdir } = await import('@tauri-apps/plugin-fs');
+  const { homeDir } = await import('@tauri-apps/api/path');
+  return {
+    homeDir: () => homeDir(),
+    exists: (p) => exists(p),
+    readTextFile: (p) => readTextFile(p),
+    writeTextFile: async (p, content) => {
+      const dir = p.replace(/\\/g, '/').replace(/\/[^/]*$/, '');
+      if (dir) await mkdir(dir, { recursive: true }); // no-op wanneer de map al bestaat
+      await writeTextFile(p, content);
+    },
+  };
+}
+
+/** Injecteerbare afhankelijkheden (tests vervangen `getFs` door een in-memory fake). */
+export const fileToolDeps: { getFs: () => Promise<McpFileFs> } = { getFs: realFs };
+
+// --- Padnormalisatie + scope ---------------------------------------------------------------------
+
+/**
+ * Normaliseer een ABSOLUUT pad: backslashes → `/`, `.`/lege segmenten weg, `..` opgelost, geen
+ * afsluitende slash. Retourneert `null` voor een relatief pad of een `..` dat boven de wortel klimt —
+ * beide zijn per definitie niet te scopen en worden geweigerd. Bewust een eigen implementatie: het
+ * Node-`path`-pakket bestaat niet in de webview-build.
+ */
+export function normalizeAbsolutePath(input: string): string | null {
+  const unified = input.replace(/\\/g, '/');
+  let root = '';
+  let rest: string;
+  const drive = /^([A-Za-z]:)\//.exec(unified); // Windows: C:/…
+  if (drive) {
+    root = drive[1];
+    rest = unified.slice(drive[1].length);
+  } else if (unified.startsWith('/')) {
+    rest = unified;
+  } else {
+    return null; // relatief pad — er is geen werkmap-begrip aan deze kant van de bridge
+  }
+  const out: string[] = [];
+  for (const seg of rest.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      if (out.length === 0) return null; // klimt boven de wortel uit
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return `${root}/${out.join('/')}`;
+}
+
+/** Uitkomst van de scope-controle: het genormaliseerde pad, of een uitleg waarom het buiten de scope valt. */
+type ScopeCheck = { ok: true; path: string } | { ok: false; reason: string };
+
+/**
+ * Controleer of `input` binnen de `$HOME`-fs-scope valt (spec regel 109). `~`/`~/…` wordt eerst naar
+ * de home-map geëxpandeerd (comfort — het resultaat ligt per definitie binnen de scope). Vergelijking
+ * gebeurt op genormaliseerde paden; bij een Windows-driveletter hoofdletterongevoelig.
+ */
+export function checkScope(home: string, input: string): ScopeCheck {
+  const expanded = input === '~' || input.startsWith('~/') || input.startsWith('~\\')
+    ? `${home}/${input.slice(2)}`
+    : input;
+  const target = normalizeAbsolutePath(expanded);
+  const root = normalizeAbsolutePath(home);
+  if (target === null || root === null) {
+    return {
+      ok: false,
+      reason:
+        `Pad '${input}' is niet bruikbaar: geef een ABSOLUUT pad binnen '${home}' ` +
+        `(een relatief pad of een pad dat via '..' boven de wortel uitklimt wordt geweigerd).`,
+    };
+  }
+  const windows = /^[A-Za-z]:/.test(target) || /^[A-Za-z]:/.test(root);
+  const t = windows ? target.toLowerCase() : target;
+  const r = windows ? root.toLowerCase() : root;
+  const prefix = r.endsWith('/') ? r : `${r}/`;
+  if (!t.startsWith(prefix)) {
+    return {
+      ok: false,
+      reason:
+        `Pad '${input}' valt buiten de toegestane bestandsscope. De app mag alleen binnen de ` +
+        `home-map '${home}' lezen en schrijven; kies een pad daarbinnen.`,
+    };
+  }
+  return { ok: true, path: target };
+}
+
+// --- Formaatherkenning ---------------------------------------------------------------------------
+
+/** Leesbaar formaatlabel op basis van de extensie (de XML-variant wordt op inhoud gesnifft). */
+function formatOf(path: string, content: string): 'IFC' | 'CSV' | 'P6-XML' | 'MSPDI-XML' {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'csv') return 'CSV';
+  if (ext === 'xml') {
+    return content.includes('APIBusinessObjects') || content.includes('Primavera') ? 'P6-XML' : 'MSPDI-XML';
+  }
+  return 'IFC';
+}
+
+/** Parse volgens dezelfde regels als het bestaande open-pad (`fileSlice.openFile`). */
+function parseByExtension(path: string, content: string): ImportResult {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'csv') return readCSV(content);
+  if (ext === 'xml') return parseProjectXml(content);
+  return readIFC(content);
+}
+
+// --- Annotaties ----------------------------------------------------------------------------------
+
+/**
+ * Bestands-tool-annotaties. `openWorldHint: true` is de expliciete uitzondering uit spec regel 65
+ * ("de server raakt niets buiten de app **behalve de expliciete bestands-tools**"): deze twee tools
+ * lezen/schrijven op het bestandssysteem van de gebruiker, dus de MCP-client hoort dat te weten.
+ */
+const EXPORT_ANNOTATIONS: McpToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false, // weigert overschrijven tenzij de aanroeper er expliciet om vraagt
+  idempotentHint: false,
+  openWorldHint: true,
+};
+
+const IMPORT_ANNOTATIONS: McpToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true, // spec regel 65: destructiveHint op import_schedule
+  idempotentHint: false,
+  openWorldHint: true,
+};
+
+// --- Tooldefinities ------------------------------------------------------------------------------
+
+export const fileTools: McpToolDef[] = [
+  {
+    name: 'planner_export_ifc',
+    description:
+      'Schrijf het ACTIEVE document als IFC 4.3-bestand naar `path` (het native formaat: taken, ' +
+      'relaties, kalenders, resources, toewijzingen, baselines en structuur gaan volledig mee). ' +
+      'BESTANDSSCOPE: alleen paden binnen de home-map van de gebruiker; erbuiten volgt een ' +
+      'SCOPE-fout. Een bestaand bestand wordt NIET overschreven tenzij je expliciet ' +
+      '`overwrite: true` meegeeft. Dit wijzigt de planning niet en verandert ook het opslaan-doel ' +
+      'van het document niet: het blijft "niet opgeslagen" in de app — het is een export, geen ' +
+      '"opslaan als". Let op: het pad komt uit jouw argumenten, niet uit een bestandsdialoog van de ' +
+      'gebruiker; noem het gekozen pad dus altijd in je antwoord.',
+    kind: 'other',
+    batchable: false, // spec regel 100: export_ifc/import_schedule zijn uitgesloten van batch
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absoluut doelpad binnen de home-map, bv. /home/naam/planning.ifc (~ mag)' },
+        overwrite: { type: 'boolean', description: 'true = een bestaand bestand vervangen (default false)' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: EXPORT_ANNOTATIONS,
+    handler: async (args, ctx): Promise<McpToolResult> => {
+      // Volle guard incl. drift: we schrijven de inhoud van het ACTIEVE document weg.
+      const blocked = guardNonTransactional(ctx);
+      if (blocked) return blocked;
+      const raw = (args ?? {}) as { path?: unknown; overwrite?: unknown };
+      if (typeof raw.path !== 'string' || raw.path.trim() === '') {
+        return toolError(ctx, 'VALIDATION', "Parameter 'path' (tekst) is verplicht: het absolute doelpad van het IFC-bestand.");
+      }
+      if (raw.overwrite !== undefined && typeof raw.overwrite !== 'boolean') {
+        return toolError(ctx, 'VALIDATION', "Parameter 'overwrite' moet true of false zijn.");
+      }
+      const overwrite = raw.overwrite === true;
+
+      let fs: McpFileFs;
+      try {
+        fs = await fileToolDeps.getFs();
+      } catch (e) {
+        return toolError(ctx, 'INTERNAL', e instanceof Error ? e.message : String(e));
+      }
+
+      let path: string;
+      try {
+        const scope = checkScope(await fs.homeDir(), raw.path);
+        if (!scope.ok) return toolError(ctx, 'SCOPE', scope.reason);
+        path = scope.path;
+        if (!overwrite && await fs.exists(path)) {
+          return toolError(
+            ctx,
+            'VALIDATION',
+            `Er bestaat al een bestand op '${path}'. Geef 'overwrite': true mee om het te vervangen, ` +
+            'of kies een ander pad — de AI overschrijft niet uit zichzelf.',
+          );
+        }
+      } catch (e) {
+        return toolError(ctx, 'INTERNAL', `Kon het doelpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      const state = useAppStore.getState();
+      // Gedeelde state→writer-invoer (dezelfde bron als opslaan/auto-save), zodat deze route nooit
+      // stil velden kan laten vallen.
+      const content = writeIFC(buildWriteIFCInput(state));
+      try {
+        await fs.writeTextFile(path, content);
+      } catch (e) {
+        return toolError(ctx, 'INTERNAL', `Schrijven naar '${path}' is mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return {
+        ok: true,
+        envelope: buildEnvelope(),
+        data: {
+          path,
+          bytes: content.length,
+          tasks: state.tasks.length,
+          overwritten: overwrite,
+        },
+      };
+    },
+  },
+  {
+    name: 'planner_import_schedule',
+    description:
+      'Lees een planningsbestand van schijf en open het als DOCUMENT (tabblad). Ondersteund: .ifc ' +
+      '(native, volledig), .xml (Primavera P6 of MS Project MSPDI — het formaat wordt op inhoud ' +
+      'herkend) en .csv. Er wordt NIET samengevoegd met het huidige plan: een leeg-en-ongewijzigd ' +
+      'actief tabblad wordt hergebruikt, anders komt er een nieuw tabblad bij; het resultaat wordt ' +
+      'actief en het vervolgwerk landt daar. ' +
+      'VERLIES PER FORMAAT — noem dit tegen de gebruiker: CSV bevat GEEN kalender (het document ' +
+      'krijgt de standaardkalender, dus datums kunnen verschuiven!) en geen resources of ' +
+      'toewijzingen; P6-XML mapt Nonlabor-resources op EQUIPMENT; MSPDI is het rijkst na IFC. ' +
+      'Kalender-id\'s zijn per document: herbouw een kalender in het importdocument met ' +
+      'update_calendar (generator-pad of een lezing uit het masterdocument) — hergebruik nooit een ' +
+      'id uit een ander document. BESTANDSSCOPE: alleen paden binnen de home-map. Het pad komt uit ' +
+      'jouw argumenten, niet uit een bestandsdialoog van de gebruiker.',
+    kind: 'other',
+    batchable: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absoluut bronpad binnen de home-map (.ifc / .xml / .csv; ~ mag)' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: IMPORT_ANNOTATIONS,
+    handler: async (args, ctx): Promise<McpToolResult> => {
+      // GEEN drift-check: het resultaat is per definitie een vers/hergebruikt tabblad en het anker
+      // verzet mee (spec regel 111). Wel de veiligheidsvlaggen + dialoog-guard.
+      const blocked = guardBridgeFlags(ctx);
+      if (blocked) return blocked;
+      const raw = (args ?? {}) as { path?: unknown };
+      if (typeof raw.path !== 'string' || raw.path.trim() === '') {
+        return toolError(ctx, 'VALIDATION', "Parameter 'path' (tekst) is verplicht: het absolute pad van het te importeren bestand.");
+      }
+
+      let fs: McpFileFs;
+      try {
+        fs = await fileToolDeps.getFs();
+      } catch (e) {
+        return toolError(ctx, 'INTERNAL', e instanceof Error ? e.message : String(e));
+      }
+
+      let path: string;
+      let content: string;
+      try {
+        const scope = checkScope(await fs.homeDir(), raw.path);
+        if (!scope.ok) return toolError(ctx, 'SCOPE', scope.reason);
+        path = scope.path;
+      } catch (e) {
+        return toolError(ctx, 'INTERNAL', `Kon het bronpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      try {
+        content = await fs.readTextFile(path);
+      } catch (e) {
+        return toolError(ctx, 'NOT_FOUND', `Kon '${path}' niet lezen: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      let parsed: ImportResult;
+      try {
+        parsed = parseByExtension(path, content);
+      } catch (e) {
+        return toolError(ctx, 'VALIDATION', `'${path}' kon niet worden gelezen als planning: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      // Exact het bestaande laadpatroon (fileSlice.openFile): pristine tabblad hergebruiken, anders
+      // een nieuw document — er is bewust geen merge.
+      const store = useAppStore.getState();
+      const reusedActiveTab = isActivePristine(store);
+      if (!reusedActiveTab) store.newDocument();
+      useAppStore.getState().applyLoadedProject(parsed, {
+        filePath: path,
+        fileHandle: null,
+        recompute: true,
+        fit: true,
+        hourDataNotice: true,
+      });
+      // Drift-anker naar het RESULTERENDE document (spec regel 111) — anders zou de eerstvolgende
+      // mutatie op het importdocument als drift falen en zet de import zichzelf klem.
+      bindExpectedDoc(ctx);
+
+      const after = useAppStore.getState();
+      const format = formatOf(path, content);
+      return {
+        ok: true,
+        envelope: buildEnvelope(),
+        data: {
+          documentId: after.activeDocumentId,
+          path,
+          format,
+          reusedActiveTab,
+          tasks: after.tasks.length,
+          sequences: after.sequences.length,
+          resources: after.resources.length,
+          // Eerlijk over wat dit formaat NIET meebrengt — de AI hoort dit door te geven.
+          notice: format === 'CSV'
+            ? 'CSV bevat geen kalender (het document draait nu op de STANDAARDkalender — datums kunnen afwijken) en geen resources/toewijzingen.'
+            : format === 'P6-XML'
+              ? 'P6-XML: Nonlabor-resources zijn als EQUIPMENT geïmporteerd.'
+              : undefined,
+        },
+      };
+    },
+  },
+];
