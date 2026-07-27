@@ -10,8 +10,12 @@ permissions:
   contents: read
 
 concurrency:
+  # Bewust `false`: dit is een echte productie-deploy die met `rsync` bestanden
+  # overzet. Twee snelle pushes achter elkaar braken met `true` de eerste run
+  # middenin de overdracht af — resultaat: een half gedeployde site. Deploys
+  # horen op elkaar te wachten, niet elkaar te annuleren.
   group: deploy-site
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # Deploy-gate: live.yml is een echte productie-deploy (deploy-site.yml rsync't
@@ -59,7 +63,14 @@ jobs:
 
   deploy:
     needs: gate
-    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@main
+    # Op SHA gepind in plaats van `@main`. Deze reusable workflow krijgt
+    # `DEPLOY_SSH_KEY` doorgegeven: op `@main` kon iedereen met schrijfrechten op
+    # OpenAEC-Foundation/github bij de volgende main-push van DEZE repo de
+    # deploysleutel exfiltreren, zonder dat hier iets wijzigde. De repo heeft
+    # geen tags, dus een SHA is de enige onveranderlijke ref.
+    # Bijwerken = deze SHA bewust verhogen (upstream-wijzigingen komen niet meer
+    # vanzelf binnen); 33fa7d9 = "Update deployment actions to Node.js 24".
+    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@33fa7d9469a6632154d97210acbb637278738a04
     with:
       deploy_host: ${{ vars.DEPLOY_HOST }}
       deploy_port: ${{ vars.DEPLOY_PORT }}

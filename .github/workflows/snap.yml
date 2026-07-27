@@ -75,6 +75,23 @@ jobs:
             echo "::error::Kon geen versie afleiden (event=$EVENT_NAME, head_branch=$HEAD_BRANCH)"
             exit 1
           fi
+          # Bevinding O1, tweede helft: env alléén is hier niet genoeg. `version`
+          # en `version_number` gaan verderop een `sed`-VERVANGINGSPATROON in, en
+          # een dispatch-input is vrije tekst — een '/' of '&' herschrijft dat
+          # patroon, een nieuwe regel schrijft een tweede regel in
+          # $GITHUB_OUTPUT (output-injectie). Dezelfde whitelist als in
+          # release.yml: de `case` dekt de hele waarde (dus ook nieuwe regels),
+          # de regex daarna de structuur.
+          case "$VERSION" in
+            *[!v0-9.]*)
+              echo "::error::Versie bevat tekens buiten 'v', cijfers en punten." >&2
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Versie '$VERSION' heeft niet de vorm vX.Y.Z." >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_number=${VERSION#v}" >> "$GITHUB_OUTPUT"
 
