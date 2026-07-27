@@ -61,7 +61,6 @@
     "projectInfoSection": "プロジェクト",
     "language": "言語",
     "version": "バージョン",
-    "defaultZoom": "既定のズーム",
     "projectInfo": "プロジェクト情報...",
     "tourHint": "アプリの紹介ツアーをもう一度行います。",
     "theme": "テーマ",
@@ -119,7 +118,10 @@
     "documentChromeRail": "縦タブ",
     "documentChromeSwitcher": "ピル",
     "dateNotation": "日付形式",
-    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。"
+    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。",
+    "dateNotationDmy": "日-月-年",
+    "dateNotationMdy": "月-日-年",
+    "dateNotationYmd": "年-月-日"
   },
   "confirm": {
     "newProject": "新しいプロジェクトを作成しますか？保存されていない変更は失われます。",

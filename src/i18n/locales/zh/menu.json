@@ -221,22 +221,6 @@
     "unsaved": "未保存",
     "scheduleStale": "已过期 — 请重新计算（F5）"
   },
-  "menuBar": {
-    "file": "文件",
-    "newProject": "新建项目",
-    "open": "打开...",
-    "saveAs": "另存为 IFC...",
-    "printPreview": "打印预览...",
-    "edit": "编辑",
-    "undo": "撤销",
-    "redo": "重做",
-    "view": "视图",
-    "zoomIn": "放大",
-    "zoomOut": "缩小",
-    "planning": "计划",
-    "calculateCPM": "计算",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "返回",
     "recent": "最近",
@@ -330,5 +314,12 @@
       "custom": "自定义…",
       "none": "无假日"
     }
+  },
+  "commands": {
+    "newProject": "新建项目",
+    "undo": "撤销",
+    "redo": "重做",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
   }
 }

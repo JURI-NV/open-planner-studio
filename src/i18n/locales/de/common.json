@@ -61,7 +61,6 @@
     "projectInfoSection": "Projekt",
     "language": "Sprache",
     "version": "Version",
-    "defaultZoom": "Standard-Zoom",
     "projectInfo": "Projektinformationen...",
     "tourHint": "Wiederhole die einführende Tour durch die App.",
     "theme": "Design",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Vertikale Registerkarten",
     "documentChromeSwitcher": "Pille",
     "dateNotation": "Datumsformat",
-    "dateNotationHint": "Legt fest, wie Datumsangaben überall in der App angezeigt werden. Dateien und Berechnungen bleiben unverändert."
+    "dateNotationHint": "Legt fest, wie Datumsangaben überall in der App angezeigt werden. Dateien und Berechnungen bleiben unverändert.",
+    "dateNotationDmy": "TT-MM-JJJJ",
+    "dateNotationMdy": "MM-TT-JJJJ",
+    "dateNotationYmd": "JJJJ-MM-TT"
   },
   "confirm": {
     "newProject": "Neues Projekt erstellen? Nicht gespeicherte Änderungen gehen verloren.",

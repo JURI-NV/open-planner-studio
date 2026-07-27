@@ -61,7 +61,6 @@
     "projectInfoSection": "Projet",
     "language": "Langue",
     "version": "Version",
-    "defaultZoom": "Zoom par défaut",
     "projectInfo": "Informations du projet...",
     "tourHint": "Refaites la visite guidée d'introduction de l'application.",
     "theme": "Thème",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Onglets verticaux",
     "documentChromeSwitcher": "Pastille",
     "dateNotation": "Format de date",
-    "dateNotationHint": "Détermine l'affichage des dates dans toute l'application. Les fichiers et les calculs ne sont pas affectés."
+    "dateNotationHint": "Détermine l'affichage des dates dans toute l'application. Les fichiers et les calculs ne sont pas affectés.",
+    "dateNotationDmy": "jj-mm-aaaa",
+    "dateNotationMdy": "mm-jj-aaaa",
+    "dateNotationYmd": "aaaa-mm-jj"
   },
   "confirm": {
     "newProject": "Créer un nouveau projet ? Les modifications non enregistrées seront perdues.",

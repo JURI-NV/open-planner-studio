@@ -61,7 +61,6 @@
     "projectInfoSection": "Project",
     "language": "Language",
     "version": "Version",
-    "defaultZoom": "Default zoom",
     "projectInfo": "Project information...",
     "tourHint": "Take the app's introductory tour again.",
     "theme": "Theme",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Vertical tabs",
     "documentChromeSwitcher": "Pill",
     "dateNotation": "Date format",
-    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected."
+    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected.",
+    "dateNotationDmy": "dd-mm-yyyy",
+    "dateNotationMdy": "mm-dd-yyyy",
+    "dateNotationYmd": "yyyy-mm-dd"
   },
   "confirm": {
     "newProject": "Create new project? Unsaved changes will be lost.",

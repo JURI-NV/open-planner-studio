@@ -141,7 +141,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'file.newProject',
     combo: { key: 'n', mod: true },
     category: 'file',
-    labelKey: 'menu:menuBar.newProject',
+    labelKey: 'menu:commands.newProject',
     run: (store) => store.setUI({ showNewProjectDialog: true }),
   },
 
@@ -184,21 +184,21 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'edit.undo',
     combo: { key: 'z', mod: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.undo',
+    labelKey: 'menu:commands.undo',
     run: (store) => store.undo(),
   },
   {
     id: 'edit.redo',
     combo: { key: 'y', mod: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.redo',
+    labelKey: 'menu:commands.redo',
     run: (store) => store.redo(),
   },
   {
     id: 'edit.redoShiftZ',
     combo: { key: 'z', mod: true, shift: true },
     category: 'edit',
-    labelKey: 'menu:menuBar.redo', // zelfde actie/label als edit.redo — alternatieve combinatie
+    labelKey: 'menu:commands.redo', // zelfde actie/label als edit.redo — alternatieve combinatie
     run: (store) => store.redo(),
   },
   {
@@ -352,14 +352,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomIn',
     combo: { key: '=', mod: true },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomIn',
+    labelKey: 'menu:commands.zoomIn',
     run: (store) => store.setZoom(store.view.zoom + 10),
   },
   {
     id: 'view.zoomOut',
     combo: { key: '-', mod: true },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomOut',
+    labelKey: 'menu:commands.zoomOut',
     run: (store) => store.setZoom(store.view.zoom - 10),
   },
   {
@@ -421,7 +421,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomInBare',
     combo: { key: '=' }, // toont "+/=" — useZoomShortcuts matcht zelf zowel '+' als '='
     category: 'view',
-    labelKey: 'menu:menuBar.zoomIn',
+    labelKey: 'menu:commands.zoomIn',
     displayOnly: true,
     run: () => { /* displayOnly: useZoomShortcuts.ts handelt dit af */ },
   },
@@ -429,7 +429,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     id: 'view.zoomOutBare',
     combo: { key: '-' },
     category: 'view',
-    labelKey: 'menu:menuBar.zoomOut',
+    labelKey: 'menu:commands.zoomOut',
     displayOnly: true,
     run: () => { /* displayOnly: useZoomShortcuts.ts handelt dit af */ },
   },

@@ -61,7 +61,6 @@
     "projectInfoSection": "Proje",
     "language": "Dil",
     "version": "Sürüm",
-    "defaultZoom": "Varsayılan yakınlaştırma",
     "projectInfo": "Proje bilgileri...",
     "tourHint": "Uygulamanın tanıtım turunu tekrar yapın.",
     "theme": "Tema",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Dikey sekmeler",
     "documentChromeSwitcher": "Hap",
     "dateNotation": "Tarih biçimi",
-    "dateNotationHint": "Tarihlerin uygulama genelinde nasıl gösterileceğini belirler. Dosyalar ve hesaplamalar etkilenmez."
+    "dateNotationHint": "Tarihlerin uygulama genelinde nasıl gösterileceğini belirler. Dosyalar ve hesaplamalar etkilenmez.",
+    "dateNotationDmy": "gg-aa-yyyy",
+    "dateNotationMdy": "aa-gg-yyyy",
+    "dateNotationYmd": "yyyy-aa-gg"
   },
   "confirm": {
     "newProject": "Yeni proje oluşturulsun mu? Kaydedilmemiş değişiklikler kaybolacak.",

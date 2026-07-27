@@ -221,22 +221,6 @@
     "unsaved": "Non salvato",
     "scheduleStale": "Non aggiornato — ricalcola (F5)"
   },
-  "menuBar": {
-    "file": "File",
-    "newProject": "Nuovo progetto",
-    "open": "Apri...",
-    "saveAs": "Salva come IFC...",
-    "printPreview": "Anteprima di stampa...",
-    "edit": "Modifica",
-    "undo": "Annulla",
-    "redo": "Ripeti",
-    "view": "Vista",
-    "zoomIn": "Ingrandisci",
-    "zoomOut": "Riduci",
-    "planning": "Pianificazione",
-    "calculateCPM": "Calcola",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Indietro",
     "recent": "Recenti",
@@ -330,5 +314,12 @@
       "custom": "Personalizzato…",
       "none": "Nessuna festività"
     }
+  },
+  "commands": {
+    "newProject": "Nuovo progetto",
+    "undo": "Annulla",
+    "redo": "Ripeti",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci"
   }
 }

@@ -181,10 +181,13 @@ export function SettingsPanelContent() {
                 aria-label={t('settings.dateNotation')}
                 value={dateNotation}
                 onChange={v => applyDateNotation(v as DateNotation)}
+                // De patroonletters zijn taalgebonden (nl jjjj, en yyyy, de JJJJ, fr aaaa, …),
+                // dus door t() en niet hardgecodeerd — ze stonden hier in het Nederlands en
+                // bleven daardoor in alle 14 locales onvertaald.
                 options={[
-                  { value: 'dmy', label: 'dd-mm-jjjj' },
-                  { value: 'mdy', label: 'mm-dd-jjjj' },
-                  { value: 'ymd', label: 'jjjj-mm-dd' },
+                  { value: 'dmy', label: t('settings.dateNotationDmy') },
+                  { value: 'mdy', label: t('settings.dateNotationMdy') },
+                  { value: 'ymd', label: t('settings.dateNotationYmd') },
                 ]}
               />
               <p className="scrollzoom-hint">{t('settings.dateNotationHint')}</p>
@@ -206,12 +209,6 @@ export function SettingsPanelContent() {
               <p className="scrollzoom-hint">{t('settings.constructionModeHint')}</p>
             </div>
 
-            <div className="settings-section">
-              <h3>{t('settings.defaultZoom')}</h3>
-              <div className="settings-row">
-                <span>30 px/day</span>
-              </div>
-            </div>
           </div>
         )}
 

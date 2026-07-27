@@ -61,7 +61,6 @@
     "projectInfoSection": "Progetto",
     "language": "Lingua",
     "version": "Versione",
-    "defaultZoom": "Zoom predefinito",
     "projectInfo": "Informazioni sul progetto...",
     "tourHint": "Rifai il tour introduttivo dell'app.",
     "theme": "Tema",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Schede verticali",
     "documentChromeSwitcher": "Pillola",
     "dateNotation": "Formato data",
-    "dateNotationHint": "Determina come vengono visualizzate le date in tutta l'app. File e calcoli non vengono modificati."
+    "dateNotationHint": "Determina come vengono visualizzate le date in tutta l'app. File e calcoli non vengono modificati.",
+    "dateNotationDmy": "gg-mm-aaaa",
+    "dateNotationMdy": "mm-gg-aaaa",
+    "dateNotationYmd": "aaaa-mm-gg"
   },
   "confirm": {
     "newProject": "Creare un nuovo progetto? Le modifiche non salvate andranno perse.",

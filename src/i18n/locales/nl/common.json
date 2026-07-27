@@ -61,7 +61,6 @@
     "projectInfoSection": "Project",
     "language": "Taal",
     "version": "Versie",
-    "defaultZoom": "Standaard zoom",
     "projectInfo": "Projectinformatie...",
     "tourHint": "Loop de introductie-rondleiding van de app nog eens door.",
     "theme": "Thema",
@@ -119,7 +118,10 @@
     "documentChromeRail": "Verticale tabbladen",
     "documentChromeSwitcher": "Pil",
     "dateNotation": "Datumnotatie",
-    "dateNotationHint": "Bepaalt hoe datums overal in de app worden getoond. Bestanden en berekeningen blijven ongewijzigd."
+    "dateNotationHint": "Bepaalt hoe datums overal in de app worden getoond. Bestanden en berekeningen blijven ongewijzigd.",
+    "dateNotationDmy": "dd-mm-jjjj",
+    "dateNotationMdy": "mm-dd-jjjj",
+    "dateNotationYmd": "jjjj-mm-dd"
   },
   "confirm": {
     "newProject": "Nieuw project aanmaken? Niet-opgeslagen wijzigingen gaan verloren.",

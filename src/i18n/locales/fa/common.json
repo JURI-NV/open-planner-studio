@@ -61,7 +61,6 @@
     "projectInfoSection": "پروژه",
     "language": "زبان",
     "version": "نسخه",
-    "defaultZoom": "بزرگنمایی پیش‌فرض",
     "projectInfo": "اطلاعات پروژه...",
     "tourHint": "تور معرفی برنامه را دوباره انجام دهید.",
     "theme": "پوسته",
@@ -119,7 +118,10 @@
     "documentChromeRail": "زبانه‌های عمودی",
     "documentChromeSwitcher": "قرص",
     "dateNotation": "قالب تاریخ",
-    "dateNotationHint": "نحوه نمایش تاریخ‌ها را در سراسر برنامه تعیین می‌کند. فایل‌ها و محاسبات تغییر نمی‌کنند."
+    "dateNotationHint": "نحوه نمایش تاریخ‌ها را در سراسر برنامه تعیین می‌کند. فایل‌ها و محاسبات تغییر نمی‌کنند.",
+    "dateNotationDmy": "dd-mm-yyyy",
+    "dateNotationMdy": "mm-dd-yyyy",
+    "dateNotationYmd": "yyyy-mm-dd"
   },
   "confirm": {
     "newProject": "پروژه جدید ایجاد شود؟ تغییرات ذخیره‌نشده از بین خواهند رفت.",
