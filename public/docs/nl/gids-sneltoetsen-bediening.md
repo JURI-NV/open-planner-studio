@@ -48,6 +48,11 @@ duur). Houd **Shift** ingedrukt terwijl je vanaf een balk sleept, en je start in
 leggen van een **relatie** naar de taak waar je loslaat — hetzelfde als **Relatie leggen vanaf hier**
 in het balk-contextmenu, maar dan met de muis in één beweging.
 
+Klik op een balk om alleen die taak te selecteren. **Ctrl/⌘+klik** op een balk voegt hem juist toe
+aan of haalt hem uit de huidige selectie, in plaats van die te vervangen — zo bouw je balk voor balk
+een meervoudige selectie op, handig vlak voordat je op de knop **Relatie** klikt met precies twee
+taken geselecteerd, of voordat je een hele selectie taken in één keer versleept in de takentabel.
+
 ## Pannen versus box-selectie
 
 Een sleepbeweging die op lege ruimte begint, doet één van twee dingen, en dat hangt af van waar je
@@ -55,11 +60,11 @@ begint én van je scroll-modus (**Instellingen → Scrollen & zoomen**):
 
 - **In de takentabel** (de linkerkolom met WBS/naam/duur) is een sleepbeweging op lege ruimte
   **altijd** een box-selectie — pannen gebeurt daar nooit.
-- **In het Gantt-canvas zelf**: staat je scroll-modus op **Slepen** (kaart-stijl pannen), dan wint
-  pannen — precies zoals je van een kaarttoepassing zou verwachten. Sta je op een van de andere
-  scroll-modi (**Positie** of **Muiswiel-toewijzing**), dan is diezelfde sleepbeweging op leeg canvas
-  een box-selectie, waarmee je meerdere taken tegelijk selecteert door er een rechthoek omheen te
-  slepen.
+- **In het Gantt-canvas zelf**: staat je scroll-modus op **Zoom + slepen** (kaart-stijl pannen, de
+  standaard), dan wint pannen — precies zoals je van een kaarttoepassing zou verwachten. Sta je op
+  een van de andere scroll-modi (**Positie** of **Toetsen**), dan is diezelfde sleepbeweging op leeg
+  canvas een box-selectie, waarmee je meerdere taken tegelijk selecteert door er een rechthoek
+  omheen te slepen.
 
 Kortom: de takentabel selecteert altijd; het canvas pant alleen in de sleep-scroll-modus en
 selecteert anders.
@@ -69,7 +74,11 @@ selecteert anders.
 Naast de zoomknoppen op het lint werkt **+**/**=** (of **Ctrl+=**) voor inzoomen en **-** (of
 **Ctrl+-**) voor uitzoomen. Een kale **0** herstelt de zoom naar de standaardwaarde; **Ctrl+0** past
 de zoom aan zodat het hele project in beeld past ("passend maken op project") — hetzelfde als de
-knop met die naam in het lege-canvas-contextmenu hierboven.
+knop met die naam in het lege-canvas-contextmenu hierboven. De tijdlijnheader past zich aan naarmate
+je verder inzoomt: weeknummers verschijnen zodra er ruimte voor is, en dagnamen labelen elke kolom
+zodra je dicht genoeg op dagniveau zit. Staat **Alleen werkbare dagen tonen** (Instellingen →
+Tijdlijn / Zoomen) aan, dan slaan de header én de balken zelf weekenden en feestdagen helemaal over
+in plaats van ze alleen grijs te tonen, zodat een taak van 5 werkdagen precies 5 kolommen breed is.
 
 ## Documenttabs
 

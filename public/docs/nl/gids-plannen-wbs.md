@@ -5,7 +5,8 @@ Een planning begint met een taakstructuur: welke taken zijn er, hoe zijn ze onde
 ## Wat je hier leert
 
 - Een taakstructuur (WBS) opbouwen met inspringen en samenvattende taken.
-- Taken verplaatsen binnen dezelfde structuur, zonder opnieuw in te springen.
+- Taken verplaatsen binnen dezelfde structuur, zonder opnieuw in te springen — met het toetsenbord,
+  door te slepen, of op het spreadsheet-achtige tabblad **Tabel**.
 - De drie mijlpaal-soorten en het aparte verplicht-vlag voor contractuele momenten.
 - Activity codes en gebruikersvelden beheren via het venster **Codes & velden**, en erop groeperen.
 - Aantekeningen (een checklist per taak) gebruiken om openstaand werk bij te houden.
@@ -32,6 +33,24 @@ Naast het aanpassen van het niveau (indent/outdent) kun je een taak ook binnen h
 - **Alt+↓** verplaatst de taak omlaag.
 
 Dit werkt op elk niveau van de boom: verplaats je een fasetaak, dan verhuizen al haar subtaken vanzelfstandig mee.
+
+Liever met de muis? Pak een taak vast aan zijn rij in de taaktabel (de linkerkolom van de
+Gantt-weergave, met hetzelfde sleepgedrag op het tabblad **Tabel**) en sleep hem omhoog of omlaag.
+Laat hem tussen twee rijen los om hem tussen zijn broers/zussen te herschikken, net als Alt+↑/↓. Laat
+hem in plaats daarvan los op het onderste deel van de rij van een samenvattende taak, en hij nestelt:
+de taak wordt de nieuwe, laatste subtaak van die samenvattende taak — opnieuw inspringen in één
+beweging, het muis-equivalent van Alt+→. Selecteer eerst meerdere taken (Ctrl/Cmd-klik, of een
+box-selectie) en de hele selectie sleept en landt samen.
+
+Het lint-tabblad **Tabel** toont diezelfde structuur als een gewoon, bewerkbaar raster, handig als je
+in één keer veel taken invoert of corrigeert: één klik op een bewerkbare cel start meteen de
+bewerking met de bestaande waarde geselecteerd, de pijltjestoetsen verplaatsen een celcursor zonder
+hem te openen, **F2**/**Enter** opent de huidige cel voor bewerking, en **Tab**/**Shift+Tab** op een
+geselecteerde rij springt hem in/uit, net als Alt+→/←. **Enter** of **↓** op de allerlaatste rij maakt
+daar meteen een nieuwe zustertaak met de cursor al in de naamcel, zodat je een hele lijst kunt
+doorwerken zonder de muis aan te raken — dit werkt alleen in de gewone boomweergave, want met een
+filter, sortering of groepering actief zou de nieuwe taak meteen buiten beeld kunnen vallen, dus
+vraagt de app dat eerst na in plaats van stilzwijgend een taak te plaatsen die je niet ziet.
 
 ## Mijlpaal-soorten
 
