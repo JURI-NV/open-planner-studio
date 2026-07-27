@@ -18,6 +18,7 @@ npm run test:planning     # los: CPM/kalender-regressiesuite (== bash tests/plan
 npm run test:library      # los: bibliotheek/IFC/i18n-checks
 npm run test:mcp          # los: MCP-tools
 npm run test:dev-server   # los: node:test-units + integratietest van de dev-serverpoort/-locks
+npm run verify:i18n       # los: ontbrekende vertaalsleutels t.o.v. nl (CLDR-pluralcategorieën meegerekend)
 ```
 
 `tauri:dev` goes through `scripts/tauri-dev.mjs`, which picks the first free port ≥3007, derives a per-worktree instance slug from the directory name, and starts `tauri dev` with a matching `--config` `devUrl` plus `OPS_DEV_PORT`/`OPS_DEV_INSTANCE` in the env. This lets **multiple worktrees run their desktop builds at once** — each gets its own port (so the window never loads another worktree's Vite) and its own `recovery.<slug>.*`-auto-save-bestanden (so concurrent instances don't clobber each other in the shared `appDataDir`). `vite.config.ts` reads `OPS_DEV_PORT` with `strictPort`; `App.tsx` reads the slug via the `__OPS_DEV_INSTANCE__` define.
@@ -74,6 +75,8 @@ The shell is a Microsoft Office-style ribbon (`src/components/layout/Ribbon`) wi
 ### i18n
 
 Fourteen locales (`nl, en, fr, de, es, zh, it, pt, pl, tr, ar, ja, ko, fa`) via `react-i18next`, configured in `src/i18n/config.ts`; each locale has four namespaces (`common`, `task`, `report`, `menu`). `ar` and `fa` are RTL — `RTL_LOCALES` drives `document.documentElement.dir`. i18n initializes and falls back to **English** (`lng`/`fallbackLng: 'en'`); on startup `initLocale()` picks the saved preference, otherwise the OS/browser locale — it is not hard-defaulted to one language. The project's *working* language is Dutch, though: code comments, commit messages, and the canonical source translations are Dutch. Always go through `t(...)`; never hard-code visible text.
+
+`npm run verify:i18n` (onderdeel van `npm run verify`) bewaakt dat elke locale compleet is t.o.v. `nl`. Het rekent met **CLDR-pluralcategorieën**, niet met letterlijke sleutelvergelijking: `zh`/`ja`/`ko` kennen geen `one`, dus daar hoort géén `..._one` te staan, terwijl `pl` (`few`/`many`) en `es`/`fr`/`it`/`pt` (`many`) juist categorieën eisen die het Nederlands niet heeft. Een ontbrekende pluralvorm valt in i18next **niet** terug op `_other` maar op het Engels — dus een gat is zichtbare taalvervuiling, geen cosmetiek. Voor `es`/`fr`/`it`/`pt` is `_many` (alleen 1.000.000, 2.000.000, …) in dit project gelijk aan `_other`, omdat `{{count}}` altijd in cijfers wordt weergegeven en niet in compacte vorm.
 
 ### Settings persistence
 
