@@ -1316,6 +1316,41 @@ const store = useAppStore.getState();
   assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'newDocument() reset libraryRefreshNotice');
 }
 
+// newProject(): in tegenstelling tot newDocument() draaide dit pad de reset lang niet mee — de
+// vlaggen zijn APP-globaal en hydratePayload/freshPayload raken ze niet aan (issue #19-onderzoek,
+// 2026-07-27). Zonder de reset in newProject() zelf blijft een openstaande showLibraryLinkDialog/
+// libraryRefreshNotice van vóór "Nieuw" staan, en LibraryLinkDialog rendert onvoorwaardelijk zodra
+// de vlag waar is — op een net gestart, ongebonden project levert dat een leeg koppel-/
+// afwijkingenscherm op.
+{
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 11; });
+  useAppStore.getState().newProject();
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'newProject() reset showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'newProject() reset libraryRefreshNotice');
+}
+
+// createNewProject() (de daadwerkelijke "Nieuw"-wizard, ProjectInfoDialog): het PRISTINE-hergebruikpad
+// (leeg/ongewijzigd actief tabblad ⇒ geen newDocument()-aanroep, dus geen reset onderweg via dát pad)
+// draagt dezelfde kwetsbaarheid als newProject() hierboven. Zet de vlag op true op een pristine tab en
+// bewijs dat de wizard 'm zelf wist.
+{
+  const s0 = useAppStore.getState();
+  assert(
+    s0.tasks.length === 0 && s0.sequences.length === 0 && s0.resources.length === 0 && s0.filePath === null && !s0.isDirty,
+    'invariant-setup: actief tabblad is pristine (createNewProject neemt het hergebruikpad)',
+  );
+  useAppStore.setState((st) => { st.ui.showLibraryLinkDialog = true; st.ui.libraryRefreshNotice = 6; });
+  useAppStore.getState().createNewProject({
+    name: 'Wizard-project', startDate: '2026-01-01', phaseNames: [],
+    calendar: {
+      id: 'wiz-cal', name: 'Wizardkalender', description: '',
+      workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 16, hoursPerDay: 8, holidays: [],
+    },
+  });
+  assert(useAppStore.getState().ui.showLibraryLinkDialog === false, 'createNewProject() (pristine-hergebruikpad) reset showLibraryLinkDialog');
+  assert(useAppStore.getState().ui.libraryRefreshNotice === null, 'createNewProject() (pristine-hergebruikpad) reset libraryRefreshNotice');
+}
+
 // closeDocument(): de laatste-sluit-naar-leeg-tak (state.documents.length === 1) reset óók de vlaggen.
 {
   // Sluit alle andere openstaande documenten (inactieve tak) tot er nog maar één over is.

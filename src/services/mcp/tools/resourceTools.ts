@@ -45,6 +45,9 @@ import { enrichOk, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { draft } from '@/state/mcpTransaction';
 import type { AvailabilityStep, Resource, ResourceType } from '@/types/resource';
+// Bibliotheek-gating: EXACT dezelfde bronnen als het slot in `ResourcePanel`, zodat "wat de UI op
+// slot zet" en "wat deze tool weigert" nooit uiteen kunnen lopen (zie de noot bij `libraryLockReason`).
+import { RESOURCE_DIFF_FIELDS, isResourceFieldLocked } from '@/services/library/libraryOps';
 
 const STD_ANNOT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
@@ -217,6 +220,52 @@ type ResourcePlan =
  * `parentId` worden gebruikt, en een `delete` haalt de resource uit de simulatie zodat een daarna
  * volgende verwijzing ernaar correct wordt geweigerd.
  */
+/**
+ * BIBLIOTHEEK-GATING (B1.1, issue #19). Een resource die uit een bedrijfsbibliotheek komt draagt een
+ * herkomststempel; de bibliotheek bepaalt dan WAT die resource is (naam/type/omschrijving/tarief/
+ * eenheid — `RESOURCE_DIFF_FIELDS`) en het project bepaalt hoeveel en wanneer (`maxUnits`,
+ * `availabilitySteps`, `calendarId`). Het resourcepaneel rendert die eerste groep daarom als platte
+ * tekst: een mens KAN ze op zo'n rij niet wijzigen.
+ *
+ * Deze tool spiegelt dat slot in plaats van eromheen te lopen. Deed ze dat niet, dan schreef de
+ * bridge velden die de gebruiker zelf niet kan schrijven — en de gemeten uitkomst daarvan is een
+ * afwijkingsvraag bij de eerstvolgende verversgrens over een wijziging die de gebruiker niet zelf
+ * maakte; kiest hij daar (begrijpelijk) "bibliotheekwaarden gebruiken", dan is de bewerking weg.
+ * Een weigering die de twee echte routes noemt helpt de aanroeper verder dan een wijziging die later
+ * stilzwijgend terugdraait.
+ *
+ * De gating leunt op EXACT dezelfde twee bronnen als de UI — `onOpenStatusForResource` +
+ * `isResourceFieldLocked` voor de vraag "geldt hier een bibliotheekherkomst", en `RESOURCE_DIFF_FIELDS`
+ * voor de vraag "welke velden". Er is dus geen tweede, mee-te-onderhouden lijst: verhuist een veld
+ * ooit van bedrijfsafspraak naar projectinzet, dan bewegen paneel en bridge samen mee.
+ *
+ * Buiten schot blijven bewust: een stempel van een ÁNDER bedrijf dan het geopende en een 'removed'-wees
+ * (beide leveren `isResourceFieldLocked === false`, precies zoals de rij in het paneel gewoon
+ * bewerkbaar blijft), en `delete` — "Verwijder uit project" is in de UI óók een gewone rijactie.
+ *
+ * Retourneert `null` wanneer er niets te weigeren valt.
+ */
+function libraryLockReason(s: StoreState, resourceId: string, fields: FieldPatch): string | null {
+  if (!isResourceFieldLocked(s.onOpenStatusForResource(resourceId))) return null;
+  const geraakt = RESOURCE_DIFF_FIELDS.filter((f) => f in fields);
+  if (geraakt.length === 0) return null;
+
+  const res = s.resources.find((r) => r.id === resourceId);
+  const companyId = res?.libraryOrigin?.companyId;
+  const bedrijf = s.companies.find((c) => c.id === companyId)?.name ?? 'de bedrijfsbibliotheek';
+  const projectVelden = RESOURCE_FIELD_KEYS.filter((k) => !(RESOURCE_DIFF_FIELDS as string[]).includes(k));
+  return (
+    `resource '${resourceId}'${res ? ` ('${res.name}')` : ''} komt uit de bibliotheek van ${bedrijf}; ` +
+    `${geraakt.join(', ')} ${geraakt.length === 1 ? 'ligt' : 'liggen'} daar vast en ${geraakt.length === 1 ? 'is' : 'zijn'} ` +
+    'ook in het resourcepaneel niet te wijzigen (de bibliotheek bepaalt WAT een resource is). ' +
+    'Twee routes: wijzig het in de bibliotheek zelf (Backstage → Bibliotheek) — dat geldt dan voor ELK ' +
+    'project dat deze resource gebruikt, en die route heeft de bridge bewust niet, want dat raakt ook ' +
+    'projecten die nu niet openstaan; óf maak deze resource eerst los van de bibliotheek ' +
+    '("Losmaken van de bibliotheek" in de Resources-tab), waarna hij projecteigen en volledig ' +
+    `bewerkbaar is. Wél gewoon te wijzigen via deze tool: ${projectVelden.join(', ')} (projectinzet).`
+  );
+}
+
 function classifyResources(
   s: StoreState,
   actions: ResourceAction[],
@@ -345,6 +394,12 @@ function classifyResources(
         });
         return;
       }
+      // Bibliotheek-gating vóór de verwijzingscontroles: raakt de update een veld dat de bibliotheek
+      // bepaalt, dan wordt het HELE item geweigerd — niet half toegepast. Een gedeeltelijke toepassing
+      // ("maxUnits landde, costPerHour niet") zou precies de stille-no-op-klasse terugbrengen die dit
+      // oppervlak eerder heeft opgeruimd.
+      const lockBad = libraryLockReason(s, item.id, fields);
+      if (lockBad) { rejections.push({ id: item.id, reason: lockBad }); return; }
       const effectiveType = (fields.type as ResourceType) ?? cur.type;
       const refBad = referenceReason(fields, cur.id, effectiveType);
       if (refBad) { rejections.push({ id: item.id, reason: refBad }); return; }
@@ -523,7 +578,16 @@ const manageResources: BatchStepTool = {
     'precies wat er meeging (`removedAssignmentIds`, `affectedTaskIds`, `orphanedCrewMemberIds`). ' +
     'Geef bij `create` een `tempId` (`tmp-...`) mee als je de nieuwe resource in een volgende ' +
     'planner_batch-stap wilt toewijzen — het echte id komt terug in `created`. Geweigerde items ' +
-    'komen terug in `itemRejections`; de geldige items blijven gewoon staan.',
+    'komen terug in `itemRejections`; de geldige items blijven gewoon staan. ' +
+    'UIT DE BEDRIJFSBIBLIOTHEEK GEËRFDE RESOURCES: komt een resource uit een bedrijfsbibliotheek ' +
+    '(`libraryOrigin` in planner_list_resources), dan bepaalt die bibliotheek WAT hij is en liggen ' +
+    '`name`, `type`, `description`, `costPerHour` en `unitOfMeasure` vast — een `update` daarop ' +
+    'wordt geweigerd, precies zoals die velden ook in het resourcepaneel niet te wijzigen zijn. Wat ' +
+    'het PROJECT bepaalt blijft wél schrijfbaar: `maxUnits`, `calendarId`, `parentId` en ' +
+    '`availabilitySteps`. Moet zo\'n vastgelegd veld tóch anders, leg de gebruiker de twee routes ' +
+    'voor: in de bibliotheek wijzigen (geldt dan voor elk project dat de resource gebruikt; die ' +
+    'route heeft de bridge bewust niet) of de resource losmaken van de bibliotheek, waarna hij ' +
+    'projecteigen en volledig bewerkbaar is.',
   kind: 'mutate',
   batchable: true,
   // Verwijderen wist toewijzingen (en dus werk) — dat is destructief.
