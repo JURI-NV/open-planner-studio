@@ -20,6 +20,7 @@
   "autoFit": "Dopasuj do papieru",
   "zoom": "Powiększenie:",
   "repeatHeader": "Powtarzaj nagłówek na każdej stronie",
+  "reportFontScaleLabel": "Rozmiar czcionki:",
   "timelineColumnsLabel": "Oś czasu na:",
   "timelineColumnsHint": "Tylko przy automatycznym dopasowaniu",
   "timelineColumns_one": "{{count}} strona",

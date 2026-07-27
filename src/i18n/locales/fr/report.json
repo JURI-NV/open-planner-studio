@@ -20,6 +20,7 @@
   "autoFit": "Ajustement automatique au papier",
   "zoom": "Zoom :",
   "repeatHeader": "Répéter l'en-tête sur chaque page",
+  "reportFontScaleLabel": "Taille de police :",
   "timelineColumnsLabel": "Chronologie sur :",
   "timelineColumnsHint": "Uniquement avec ajustement automatique",
   "timelineColumns_one": "{{count}} page",

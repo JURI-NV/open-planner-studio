@@ -20,6 +20,7 @@
   "autoFit": "Adatta automaticamente alla pagina",
   "zoom": "Zoom:",
   "repeatHeader": "Ripeti intestazione su ogni pagina",
+  "reportFontScaleLabel": "Dimensione carattere:",
   "timelineColumnsLabel": "Cronologia su:",
   "timelineColumnsHint": "Solo con adattamento automatico",
   "timelineColumns_one": "{{count}} pagina",

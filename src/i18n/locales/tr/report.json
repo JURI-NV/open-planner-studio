@@ -20,6 +20,7 @@
   "autoFit": "Kağıda otomatik sığdır",
   "zoom": "Yakınlaştırma:",
   "repeatHeader": "Üstbilgiyi her sayfada yinele",
+  "reportFontScaleLabel": "Yazı boyutu:",
   "timelineColumnsLabel": "Zaman çizelgesi:",
   "timelineColumnsHint": "Yalnızca otomatik sığdırmada",
   "timelineColumns_one": "{{count}} sayfa",

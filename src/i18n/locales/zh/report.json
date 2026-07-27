@@ -20,6 +20,7 @@
   "autoFit": "自动适配纸张",
   "zoom": "缩放：",
   "repeatHeader": "在每页重复页眉",
+  "reportFontScaleLabel": "字号：",
   "timelineColumnsLabel": "时间轴跨：",
   "timelineColumnsHint": "仅在自动适配时可用",
   "timelineColumns_other": "{{count}} 页",

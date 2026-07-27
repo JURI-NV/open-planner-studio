@@ -20,6 +20,7 @@
   "autoFit": "ملاءمة تلقائية للورق",
   "zoom": "تكبير:",
   "repeatHeader": "تكرار الرأس في كل صفحة",
+  "reportFontScaleLabel": "حجم الخط:",
   "timelineColumnsLabel": "الجدول الزمني عبر:",
   "timelineColumnsHint": "فقط مع الملاءمة التلقائية",
   "timelineColumns_zero": "{{count}} صفحة",

@@ -20,6 +20,7 @@
   "autoFit": "Ajustar ao papel automaticamente",
   "zoom": "Zoom:",
   "repeatHeader": "Repetir cabeçalho em cada página",
+  "reportFontScaleLabel": "Tamanho da fonte:",
   "timelineColumnsLabel": "Cronograma em:",
   "timelineColumnsHint": "Apenas com ajuste automático",
   "timelineColumns_one": "{{count}} página",

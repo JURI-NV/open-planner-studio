@@ -20,6 +20,7 @@
   "autoFit": "Auto-fit op papier",
   "zoom": "Zoomen:",
   "repeatHeader": "Kop op elke pagina herhalen",
+  "reportFontScaleLabel": "Lettergrootte:",
   "timelineColumnsLabel": "Tijdlijn over:",
   "timelineColumnsHint": "Alleen bij automatische passing",
   "timelineColumns_one": "{{count}} pagina",

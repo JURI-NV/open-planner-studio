@@ -10,10 +10,11 @@ import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
 import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 
+// BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
+// tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
 const ROW_HEIGHT = 24;
 const PROJECT_HEADER_HEIGHT = 64;
 const TIMELINE_HEADER_HEIGHT = 44;
-const TOTAL_HEADER_HEIGHT = PROJECT_HEADER_HEIGHT + TIMELINE_HEADER_HEIGHT;
 const TABLE_WIDTH = 450;
 const FOOTER_HEIGHT = 50;
 // Inter (gevendorde glyf-TTF, family 'InterPDF') eerst — deterministisch en inbedbaar zodat preview
@@ -44,21 +45,96 @@ const COL = {
   complete:  { x: 0,   w: 45  },
 };
 
-// Compute right-aligned column positions
-function getColPositions() {
-  const completeX = TABLE_WIDTH - COL.complete.w;
-  const endX = completeX - COL.end.w;
-  const startX = endX - COL.start.w;
-  const durationX = startX - COL.duration.w;
-  const nameW = durationX - COL.name.x;
+// Compute right-aligned column positions. `k` is de rapport-lettergrootteschaal (zie
+// {@link ReportMetrics}); álle kolommaten schalen mee, want een grotere letter heeft een bredere
+// kolom nodig. Bij k = 1 is dit rekenkundig exact de oude, ongeschaalde uitkomst.
+function getColPositions(k: number) {
+  const tableWidth = TABLE_WIDTH * k;
+  const completeX = tableWidth - COL.complete.w * k;
+  const endX = completeX - COL.end.w * k;
+  const startX = endX - COL.start.w * k;
+  const durationX = startX - COL.duration.w * k;
+  const nameW = durationX - COL.name.x * k;
   return {
-    rowNum: { x: COL.rowNum.x, w: COL.rowNum.w },
-    wbs: { x: COL.wbs.x, w: COL.wbs.w },
-    name: { x: COL.name.x, w: nameW },
-    duration: { x: durationX, w: COL.duration.w },
-    start: { x: startX, w: COL.start.w },
-    end: { x: endX, w: COL.end.w },
-    complete: { x: completeX, w: COL.complete.w },
+    rowNum: { x: COL.rowNum.x * k, w: COL.rowNum.w * k },
+    wbs: { x: COL.wbs.x * k, w: COL.wbs.w * k },
+    name: { x: COL.name.x * k, w: nameW },
+    duration: { x: durationX, w: COL.duration.w * k },
+    start: { x: startX, w: COL.start.w * k },
+    end: { x: endX, w: COL.end.w * k },
+    complete: { x: completeX, w: COL.complete.w * k },
+  };
+}
+
+type ColPositions = ReturnType<typeof getColPositions>;
+
+/**
+ * De maatvoering van één rapport-render, geschaald met de instelbare rapport-lettergrootte
+ * (issue #25 punt 4, rapport-helft). Alle tekenhelpers rekenen met dit object in plaats van met de
+ * module-constanten hierboven — er mag geen pad overblijven waar nog een ONgeschaalde constante
+ * gebruikt wordt, anders scheurt de layout bij een andere schaal.
+ *
+ * ==== WAAROM RELATIEF EN NIET UNIFORM (lees dit vóór je dit "vereenvoudigt") ====
+ * Het hele rapport uniform opschalen is onder de fit-width-pagineerder een perfecte NO-OP. De
+ * pagineerder schaalt de bron naar papier met `scale = printW / cw` (bronbreedte cw → printbreedte)
+ * en berekent het aantal rijen per pagina als
+ *     rows = ceil((ch − repeatH) / (printH / scale − repeatH)).
+ * Vermenigvuldig je ALLE bronmaten met k, dan wordt de pagineerschaal `printW / (k·cw) = scale / k`
+ * en krijgen in die rows-formule zowel `ch` en `repeatH` als `printH / scale` allemaal dezelfde
+ * factor k — de uitkomst blijft exact gelijk. Op papier verandert er dus letterlijk niets: je zou
+ * een knop bouwen die niets doet.
+ *
+ * Een rapport-lettergrootte is daarom alleen zinvol als RELATIEVE wijziging. We schalen daarom WEL:
+ * alle fontgroottes, de rijhoogte, de beide kopstroken, de voettekst-strook, de tabelbreedte en de
+ * kolombreedtes — en NIET de tijdlijn-zoom (px per dag). Netto op papier: tekst en tabel worden
+ * echt groter, de chart-breedte krimpt navenant en er passen minder rijen op een vel. Precies wat
+ * een gebruiker van "grotere letters" verwacht.
+ *
+ * Vuistregel voor losse offsets: alles in de TEKST-zones (project-kop, tijdschaal-kop, taaktabel,
+ * voettekst, staaflabels) schaalt mee via {@link ReportMetrics.s}; de vaste decoraties in het
+ * CHART-gebied (relatie-stub, pijlpunt, samenvattings-driehoekjes) blijven ongeschaald, want die
+ * horen bij de ongeschaalde tijdlijn-geometrie.
+ */
+interface ReportMetrics {
+  /** De schaalfactor zelf. 1 = 100% = byte-identiek aan het gedrag van vóór deze instelling. */
+  k: number;
+  /** Schaal een losse lengte/offset in de tekst-zones mee (paddings, baseline-correcties). */
+  s(v: number): number;
+  /** `font(9)` / `font(9, true)` → de CSS-fontstring met de geschaalde puntgrootte. */
+  font(size: number, bold?: boolean): string;
+  rowHeight: number;
+  projectHeaderHeight: number;
+  timelineHeaderHeight: number;
+  totalHeaderHeight: number;
+  tableWidth: number;
+  footerHeight: number;
+  cols: ColPositions;
+}
+
+/**
+ * Bouw de {@link ReportMetrics} voor een render. `reportFontScale` is een PERCENTAGE; ontbreekt hij
+ * (of is hij onzin) dan geldt 100 ⇒ factor exact 1 ⇒ identieke output als voorheen. De klem houdt
+ * een handmatig doorgegeven waarde binnen iets wat nog op een vel past.
+ */
+function makeMetrics(reportFontScale: number | undefined): ReportMetrics {
+  const raw = reportFontScale ?? 100;
+  const pct = Number.isFinite(raw) ? Math.max(50, Math.min(200, raw)) : 100;
+  const k = pct / 100;
+  const projectHeaderHeight = PROJECT_HEADER_HEIGHT * k;
+  const timelineHeaderHeight = TIMELINE_HEADER_HEIGHT * k;
+  return {
+    k,
+    s: (v) => v * k,
+    font: (size, bold) => `${bold ? 'bold ' : ''}${size * k}px ${FONT_FAMILY}`,
+    rowHeight: ROW_HEIGHT * k,
+    projectHeaderHeight,
+    timelineHeaderHeight,
+    // Bewust de SOM van de twee geschaalde hoogtes, niet `(PROJECT + TIMELINE) * k`: alleen zo valt
+    // de kopstrook-grens gegarandeerd tot op de bit samen met waar de tijdschaal-kop eindigt.
+    totalHeaderHeight: projectHeaderHeight + timelineHeaderHeight,
+    tableWidth: TABLE_WIDTH * k,
+    footerHeight: FOOTER_HEIGHT * k,
+    cols: getColPositions(k),
   };
 }
 
@@ -108,6 +184,13 @@ export interface PrintOptions {
    * `timelineColumns` moet krijgen. Default 1 = oud gedrag (alles op één paginabreedte).
    */
   timelineColumns?: number;
+  /**
+   * Lettergrootte van het GEGENEREERDE RAPPORT als percentage (issue #25 punt 4). 100 (of
+   * ontbrekend) = het oude gedrag, byte-identiek. Werkt bewust RELATIEF: tekst, rijhoogtes,
+   * kopstroken en tabelbreedte schalen mee, de tijdlijn-zoom niet — zie de uitgebreide afleiding
+   * bij {@link ReportMetrics}, want uniform schalen zou onder de fit-width-pagineerder niets doen.
+   */
+  reportFontScale?: number;
 }
 
 interface PrintTask extends Task {
@@ -176,6 +259,7 @@ function fitText(d2d: Draw2D, text: string, maxWidth: number): string {
  */
 function drawBarLabel(
   d2d: Draw2D,
+  m: ReportMetrics,
   name: string,
   barRightX: number,
   barLeftX: number,
@@ -190,10 +274,15 @@ function drawBarLabel(
   d2d.textBaseline = 'alphabetic';
   // Rechts: voorbij de verticale relatie-knik beginnen (`BAR_LABEL_GAP` > `DEP_STUB`), links de
   // kleine pad — daar loopt geen relatielijn (issue #25 punt 2).
+  //
+  // `BAR_LABEL_GAP`/`BAR_LABEL_PAD_LEFT` schalen bewust NIET mee met de rapport-lettergrootte: de
+  // gap bestaat alleen om vrij te blijven van de verticale relatie-knik, en die knik (`DEP_STUB`)
+  // zit in de ongeschaalde chart-geometrie. Zou de gap wél meeschalen, dan verbrak dat de expliciete
+  // koppeling `BAR_LABEL_GAP = DEP_STUB + 8` en schoof het label bij 125% nodeloos van z'n staaf af.
   const rightStart = barRightX + BAR_LABEL_GAP;
   const rightAvail = canvasWidth - rightMargin - rightStart;
   const leftEnd = barLeftX - BAR_LABEL_PAD_LEFT;
-  const leftAvail = leftEnd - TABLE_WIDTH; // chart begint bij TABLE_WIDTH
+  const leftAvail = leftEnd - m.tableWidth; // chart begint bij de (geschaalde) tabelbreedte
   const textWidth = d2d.measureText(name).width;
 
   if (textWidth <= rightAvail) {
@@ -252,6 +341,10 @@ export function renderReport(
   projectName: string,
   options: PrintOptions,
 ): RenderReportResult {
+  // Alle maatvoering loopt via dit object — de tekenhelpers lezen de module-constanten niet meer
+  // rechtstreeks (zie {@link ReportMetrics} voor het waarom van relatief-schalen).
+  const m = makeMetrics(options.reportFontScale);
+
   // Flatten and compute depth
   const flatTasks: PrintTask[] = [];
   const depthMap = new Map<string, number>();
@@ -281,11 +374,12 @@ export function renderReport(
     d2d.fillStyle = PRINT_COLORS.bg;
     d2d.fillRect(0, 0, 600, 200);
     d2d.fillStyle = PRINT_COLORS.textSecondary;
-    d2d.font = `14px ${FONT_FAMILY}`;
+    d2d.font = m.font(14);
     d2d.textAlign = 'center';
     d2d.fillText(options.labels?.noTasks ?? 'No tasks to display', 300, 100);
     // Geen kop-/tijdschaalstrook in de lege-staat (alleen een centrale melding) ⇒ niets te herhalen.
-    return { width: 600, height: 200, tableWidth: TABLE_WIDTH, headerHeight: 0 };
+    // Het meldingsvak zelf houdt z'n vaste 600×200; alleen de tekst erin volgt de schaal.
+    return { width: 600, height: 200, tableWidth: m.tableWidth, headerHeight: 0 };
   }
 
   // Compute date range
@@ -319,26 +413,30 @@ export function renderReport(
   // Beschikbare chart-breedte over N papierbreedtes.
   //
   // AFLEIDING — de pagineerder tekent bij N fit-width-kolommen in totaal `canvasWidth +
-  // (N-1)·TABLE_WIDTH` bron-px (de naam-kolom wordt op elke volgende pagina herhaald) op N
+  // (N-1)·tableWidth` bron-px (de naam-kolom wordt op elke volgende pagina herhaald) op N
   // paginabreedtes. Wil je dat die "virtuele" breedte precies N pagina's vult op ~1:1-schaal, dan:
-  //     TABLE_WIDTH + chartWidth + (N-1)·TABLE_WIDTH = N·(paper.w - margins)
-  //  ⇒  chartWidth = N·(paper.w - margins) - N·TABLE_WIDTH = N·(paper.w - TABLE_WIDTH - margins)
-  // De N herhalingen van de naam-kolom zijn dus AL verrekend doordat we `TABLE_WIDTH` binnen de
-  // factor N aftrekken; er nog eens `TABLE_WIDTH·(N-1)` bij optellen zou ze dubbel tellen en de
+  //     tableWidth + chartWidth + (N-1)·tableWidth = N·(paper.w - margins)
+  //  ⇒  chartWidth = N·(paper.w - margins) - N·tableWidth = N·(paper.w - tableWidth - margins)
+  // De N herhalingen van de naam-kolom zijn dus AL verrekend doordat we `tableWidth` binnen de
+  // factor N aftrekken; er nog eens `tableWidth·(N-1)` bij optellen zou ze dubbel tellen en de
   // tijdlijn juist te breed (en dus na schaling te klein) maken. Bij N = 1 is dit exact de oude waarde.
-  const availableChartWidth = (paper.w - TABLE_WIDTH - margins) * timelineColumns;
+  // `m.tableWidth` is de GESCHAALDE tabelbreedte: bij een grotere rapport-letter neemt de tabel meer
+  // papier in en houdt de tijdlijn navenant minder over — precies de bedoelde ruil.
+  const availableChartWidth = (paper.w - m.tableWidth - margins) * timelineColumns;
 
   let zoom: number;
   if (options.autoFit && totalDays > 0) {
     zoom = availableChartWidth / totalDays;
+    // De klem blijft ONGESCHAALD: de tijdlijn-zoom (px per dag) is precies de maat die NIET meeschaalt,
+    // anders zou het rapport uniform schalen en op papier niets veranderen (zie {@link ReportMetrics}).
     zoom = Math.max(5, Math.min(40, zoom));
   } else {
     zoom = options.customZoom || 22;
   }
 
   const chartWidth = totalDays * zoom;
-  const canvasWidth = TABLE_WIDTH + chartWidth;
-  const canvasHeight = TOTAL_HEADER_HEIGHT + flatTasks.length * ROW_HEIGHT + FOOTER_HEIGHT;
+  const canvasWidth = m.tableWidth + chartWidth;
+  const canvasHeight = m.totalHeaderHeight + flatTasks.length * m.rowHeight + m.footerHeight;
 
   // Build holiday set
   const holidaySet = new Set<string>();
@@ -361,12 +459,12 @@ export function renderReport(
   // `daysFromStart`-berekening in `axisDateToX` is voor print altijd een geheel getal — identiek
   // aan de vroegere `diffCalendarDays(minDate, date) * zoom` (die intern ook afrondt, maar op een
   // al-geheel verschil is dat een no-op).
-  const dateToX = (date: Date) => axisDateToX(date, minDate, TABLE_WIDTH, zoom, 0);
-  const chartTop = TOTAL_HEADER_HEIGHT;
-  const chartBottom = canvasHeight - FOOTER_HEIGHT;
-  const rowToY = (i: number) => TOTAL_HEADER_HEIGHT + i * ROW_HEIGHT;
+  const dateToX = (date: Date) => axisDateToX(date, minDate, m.tableWidth, zoom, 0);
+  const chartTop = m.totalHeaderHeight;
+  const chartBottom = canvasHeight - m.footerHeight;
+  const rowToY = (i: number) => m.totalHeaderHeight + i * m.rowHeight;
 
-  const cols = getColPositions();
+  const cols = m.cols;
 
   // ==================== DRAW ====================
 
@@ -375,7 +473,7 @@ export function renderReport(
   d2d.fillRect(0, 0, canvasWidth, canvasHeight);
 
   // ---- PROJECT HEADER BOX ----
-  drawProjectHeader(d2d, canvasWidth, projectName, options);
+  drawProjectHeader(d2d, m, canvasWidth, projectName, options);
 
   // ---- GANTT CHART AREA ----
 
@@ -403,7 +501,7 @@ export function renderReport(
   for (let i = 0; i < flatTasks.length; i++) {
     if (i % 2 === 0) {
       d2d.fillStyle = 'rgba(249, 250, 251, 0.3)';
-      d2d.fillRect(TABLE_WIDTH, rowToY(i), chartWidth, ROW_HEIGHT);
+      d2d.fillRect(m.tableWidth, rowToY(i), chartWidth, m.rowHeight);
     }
   }
 
@@ -427,7 +525,7 @@ export function renderReport(
     d2d.strokeStyle = PRINT_COLORS.grid;
     d2d.lineWidth = 0.3;
     d2d.beginPath();
-    d2d.moveTo(TABLE_WIDTH, y);
+    d2d.moveTo(m.tableWidth, y);
     d2d.lineTo(canvasWidth, y);
     d2d.stroke();
   }
@@ -435,7 +533,7 @@ export function renderReport(
   // Today line
   const today = new Date();
   const todayX = dateToX(today);
-  if (todayX > TABLE_WIDTH && todayX < canvasWidth) {
+  if (todayX > m.tableWidth && todayX < canvasWidth) {
     d2d.strokeStyle = PRINT_COLORS.today;
     d2d.lineWidth = 1.5;
     d2d.setLineDash([5, 3]);
@@ -447,15 +545,15 @@ export function renderReport(
 
     // "Today" label
     d2d.fillStyle = PRINT_COLORS.today;
-    d2d.font = `bold 7px ${FONT_FAMILY}`;
+    d2d.font = m.font(7, true);
     d2d.textAlign = 'center';
-    d2d.fillText('Today', todayX, chartTop - 2);
+    d2d.fillText('Today', todayX, chartTop - m.s(2));
     d2d.textAlign = 'left';
   }
 
   // Task bars
-  const barHeight = ROW_HEIGHT * 0.55;
-  const barOffset = (ROW_HEIGHT - barHeight) / 2;
+  const barHeight = m.rowHeight * 0.55;
+  const barOffset = (m.rowHeight - barHeight) / 2;
 
   for (let i = 0; i < flatTasks.length; i++) {
     const task = flatTasks[i];
@@ -479,7 +577,7 @@ export function renderReport(
 
       // Task name label (rechts van de ruit, valt terug naar links/ellipsis bij de rand)
       if (options.showTaskNames) {
-        drawBarLabel(d2d, task.name, x + size, x - size, cy + 3, canvasWidth, PRINT_COLORS.text, `9px ${FONT_FAMILY}`);
+        drawBarLabel(d2d, m, task.name, x + size, x - size, cy + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9));
       }
     } else if (task.childIds.length > 0) {
       // Summary bracket bar
@@ -512,7 +610,7 @@ export function renderReport(
 
       // Task name label (rechts van de balk, valt terug naar links/ellipsis bij de rand)
       if (options.showTaskNames) {
-        drawBarLabel(d2d, task.name, x1 + width, x1, y + barHeight / 2 + 3, canvasWidth, PRINT_COLORS.text, `bold 9px ${FONT_FAMILY}`);
+        drawBarLabel(d2d, m, task.name, x1 + width, x1, y + barHeight / 2 + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9, true));
       }
     } else {
       // Normal task bar
@@ -549,7 +647,7 @@ export function renderReport(
       if (options.showTaskNames) {
         const hasFloat = options.showFloat && task.time.totalFloat > 0 && !task.time.isCritical;
         const barRightX = x2 + (hasFloat ? task.time.totalFloat * zoom : 0);
-        drawBarLabel(d2d, task.name, barRightX, x1, y + barHeight / 2 + 3, canvasWidth, PRINT_COLORS.text, `9px ${FONT_FAMILY}`);
+        drawBarLabel(d2d, m, task.name, barRightX, x1, y + barHeight / 2 + m.s(3), canvasWidth, PRINT_COLORS.text, m.font(9));
       }
     }
   }
@@ -559,19 +657,21 @@ export function renderReport(
   // zichtbaar. Dat de taaklabels in diezelfde balken-lus getekend worden is geen probleem: die
   // beginnen dankzij `BAR_LABEL_GAP` pas voorbij de verticale knik (punt 2).
   if (options.showDeps) {
-    drawDependencies(d2d, flatTasks, sequences, dateToX, rowToY, zoom);
+    drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom);
   }
 
   // ---- TIMELINE HEADER ----
-  drawTimelineHeader(d2d, canvasWidth, minDate, totalDays, zoom, dateToX, options);
+  drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options);
 
   // ---- TASK TABLE ----
-  drawTaskTable(d2d, flatTasks, depthMap, canvasHeight, cols, options);
+  drawTaskTable(d2d, m, flatTasks, depthMap, canvasHeight, cols, options);
 
   // ---- FOOTER ----
-  drawFooter(d2d, canvasWidth, canvasHeight, projectName, options);
+  drawFooter(d2d, m, canvasWidth, canvasHeight, projectName, options);
 
-  return { width: canvasWidth, height: canvasHeight, tableWidth: TABLE_WIDTH, headerHeight: TOTAL_HEADER_HEIGHT };
+  // Tabelbreedte en kophoogte gaan GESCHAALD terug: de pagineerder bevriest exact deze kolom en
+  // herhaalt exact deze strook per pagina, dus die moeten de rapport-lettergrootte volgen.
+  return { width: canvasWidth, height: canvasHeight, tableWidth: m.tableWidth, headerHeight: m.totalHeaderHeight };
 }
 
 
@@ -606,11 +706,15 @@ export function renderPrintCanvas(
 /** Draw the project header box at the top of the page */
 function drawProjectHeader(
   d2d: Draw2D,
+  m: ReportMetrics,
   canvasWidth: number,
   projectName: string,
   options: PrintOptions,
 ) {
-  const hh = PROJECT_HEADER_HEIGHT;
+  const hh = m.projectHeaderHeight;
+  // De regel-y's en de horizontale pad schalen mee met de strookhoogte; bleven ze vast, dan zouden
+  // de drie regels bij 125% over elkaar heen lopen (regelafstand 14 px bij een 11,25 px-letter).
+  const pad = m.s(10);
 
   // Background
   d2d.fillStyle = PRINT_COLORS.bg;
@@ -625,25 +729,25 @@ function drawProjectHeader(
   // en overlap voorkomen (klacht 7).
   const brandText = 'Open Planner Studio';
   d2d.fillStyle = PRINT_COLORS.textSecondary;
-  d2d.font = `8px ${FONT_FAMILY}`;
+  d2d.font = m.font(8);
   d2d.textBaseline = 'middle';
   d2d.textAlign = 'right';
-  d2d.fillText(brandText, canvasWidth - 10, 16);
+  d2d.fillText(brandText, canvasWidth - pad, m.s(16));
   const brandWidth = d2d.measureText(brandText).width;
 
   // Project name (large, bold) — inkorten zodat hij niet tot in de branding loopt
   d2d.fillStyle = PRINT_COLORS.text;
-  d2d.font = `bold 14px ${FONT_FAMILY}`;
+  d2d.font = m.font(14, true);
   d2d.textBaseline = 'middle';
   d2d.textAlign = 'left';
-  const nameMaxW = (canvasWidth - 10 - brandWidth - 12) - 10;
-  d2d.fillText(fitText(d2d, projectName, nameMaxW), 10, 16);
+  const nameMaxW = (canvasWidth - pad - brandWidth - m.s(12)) - pad;
+  d2d.fillText(fitText(d2d, projectName, nameMaxW), pad, m.s(16));
 
   // Row 2: Company | Author | Print date | Version
-  d2d.font = `9px ${FONT_FAMILY}`;
+  d2d.font = m.font(9);
   d2d.fillStyle = PRINT_COLORS.textSecondary;
-  const row2Y = 34;
-  const rowMaxW = canvasWidth - 20; // binnen de paginabreedte houden (klacht 7)
+  const row2Y = m.s(34);
+  const rowMaxW = canvasWidth - 2 * pad; // binnen de paginabreedte houden (klacht 7)
 
   const companyLabel = options.companyName || '';
   const authorLabel = options.projectAuthor || '';
@@ -655,10 +759,10 @@ function drawProjectHeader(
   if (authorLabel) row2Text += (row2Text ? '  |  ' : '') + authorLabel;
   row2Text += (row2Text ? '  |  ' : '') + `${options.labels?.printed ?? 'Printed:'} ${printDate}`;
 
-  d2d.fillText(fitText(d2d, row2Text, rowMaxW), 10, row2Y);
+  d2d.fillText(fitText(d2d, row2Text, rowMaxW), pad, row2Y);
 
   // Row 3: Project dates and duration
-  const row3Y = 48;
+  const row3Y = m.s(48);
   let row3Text = '';
   if (options.projectStartDate) {
     const sd = parseDate(options.projectStartDate);
@@ -675,7 +779,7 @@ function drawProjectHeader(
     row3Text += `  |  Duur: ${dur}d`;
   }
 
-  d2d.fillText(fitText(d2d, row3Text, rowMaxW), 10, row3Y);
+  d2d.fillText(fitText(d2d, row3Text, rowMaxW), pad, row3Y);
 
   d2d.textAlign = 'left';
   d2d.textBaseline = 'alphabetic';
@@ -685,6 +789,7 @@ function drawProjectHeader(
 /** Draw the timeline header with month/week/day rows */
 function drawTimelineHeader(
   d2d: Draw2D,
+  m: ReportMetrics,
   canvasWidth: number,
   minDate: Date,
   totalDays: number,
@@ -692,8 +797,8 @@ function drawTimelineHeader(
   dateToX: (d: Date) => number,
   options: PrintOptions,
 ) {
-  const top = PROJECT_HEADER_HEIGHT;
-  const h = TIMELINE_HEADER_HEIGHT;
+  const top = m.projectHeaderHeight;
+  const h = m.timelineHeaderHeight;
   const monthRowH = h / 2;
   const weekRowH = h / 2;
 
@@ -713,7 +818,7 @@ function drawTimelineHeader(
   d2d.strokeStyle = PRINT_COLORS.grid;
   d2d.lineWidth = 0.5;
   d2d.beginPath();
-  d2d.moveTo(TABLE_WIDTH, top + monthRowH);
+  d2d.moveTo(m.tableWidth, top + monthRowH);
   d2d.lineTo(canvasWidth, top + monthRowH);
   d2d.stroke();
 
@@ -749,9 +854,10 @@ function drawTimelineHeader(
 
       // Alleen het label tekenen als het niet over het vorige maandlabel heen loopt (klacht 7);
       // liever een gat dan over-elkaar-lopende tekst.
-      d2d.font = `bold 10px ${FONT_FAMILY}`;
-      const monthLabelStart = x + 4;
-      if (monthLabelStart >= lastMonthLabelRight + 6) {
+      // Label-offsets/-tussenruimtes horen bij de TEKST en schalen dus mee.
+      d2d.font = m.font(10, true);
+      const monthLabelStart = x + m.s(4);
+      if (monthLabelStart >= lastMonthLabelRight + m.s(6)) {
         d2d.fillStyle = PRINT_COLORS.text;
         d2d.textBaseline = 'middle';
         d2d.textAlign = 'left';
@@ -774,9 +880,9 @@ function drawTimelineHeader(
 
       // Alleen tekenen als er ruimte is t.o.v. het vorige weeklabel (klacht 7).
       const weekLabel = `W${weekNum}`;
-      const weekLabelStart = x + 2;
-      d2d.font = `9px ${FONT_FAMILY}`;
-      if (weekLabelStart >= lastWeekLabelRight + 4) {
+      const weekLabelStart = x + m.s(2);
+      d2d.font = m.font(9);
+      if (weekLabelStart >= lastWeekLabelRight + m.s(4)) {
         d2d.fillStyle = PRINT_COLORS.textSecondary;
         d2d.textAlign = 'left';
         d2d.textBaseline = 'middle';
@@ -790,22 +896,22 @@ function drawTimelineHeader(
       const dayNum = date.getUTCDate();
       if (dow !== 6 && dow !== 7) { // Skip weekend days for cleaner display
         d2d.fillStyle = PRINT_COLORS.textSecondary;
-        d2d.font = `7px ${FONT_FAMILY}`;
+        d2d.font = m.font(7);
         d2d.textAlign = 'center';
         d2d.textBaseline = 'bottom';
-        d2d.fillText(String(dayNum), x + zoom / 2, top + h - 1);
+        d2d.fillText(String(dayNum), x + zoom / 2, top + h - m.s(1));
       }
     }
   }
 
   // Table header area (left side of timeline header)
   d2d.fillStyle = PRINT_COLORS.headerBg;
-  d2d.fillRect(0, top, TABLE_WIDTH, h);
+  d2d.fillRect(0, top, m.tableWidth, h);
 
   // Table column headers
-  const cols = getColPositions();
+  const cols = m.cols;
   d2d.fillStyle = PRINT_COLORS.text;
-  d2d.font = `bold 9px ${FONT_FAMILY}`;
+  d2d.font = m.font(9, true);
   d2d.textBaseline = 'middle';
   d2d.textAlign = 'center';
   const headerY = top + h / 2;
@@ -815,7 +921,7 @@ function drawTimelineHeader(
   d2d.fillText(th?.wbs ?? 'WBS', cols.wbs.x + cols.wbs.w / 2, headerY);
 
   d2d.textAlign = 'left';
-  d2d.fillText(th?.taskName ?? 'Taaknaam', cols.name.x + 4, headerY);
+  d2d.fillText(th?.taskName ?? 'Taaknaam', cols.name.x + m.s(4), headerY);
 
   d2d.textAlign = 'center';
   d2d.fillText(th?.duration ?? 'Duur', cols.duration.x + cols.duration.w / 2, headerY);
@@ -826,7 +932,7 @@ function drawTimelineHeader(
   // Column separator lines in header
   d2d.strokeStyle = PRINT_COLORS.border;
   d2d.lineWidth = 0.5;
-  const colBorders = [cols.wbs.x, cols.name.x, cols.duration.x, cols.start.x, cols.end.x, cols.complete.x, TABLE_WIDTH];
+  const colBorders = [cols.wbs.x, cols.name.x, cols.duration.x, cols.start.x, cols.end.x, cols.complete.x, m.tableWidth];
   for (const cx of colBorders) {
     d2d.beginPath();
     d2d.moveTo(cx, top);
@@ -839,7 +945,7 @@ function drawTimelineHeader(
   d2d.lineWidth = 1;
   d2d.beginPath();
   d2d.moveTo(0, top + h);
-  d2d.lineTo(TABLE_WIDTH, top + h);
+  d2d.lineTo(m.tableWidth, top + h);
   d2d.stroke();
 
   d2d.textBaseline = 'alphabetic';
@@ -850,86 +956,91 @@ function drawTimelineHeader(
 /** Draw the task table (left side) */
 function drawTaskTable(
   d2d: Draw2D,
+  m: ReportMetrics,
   flatTasks: PrintTask[],
   depthMap: Map<string, number>,
   canvasHeight: number,
-  cols: ReturnType<typeof getColPositions>,
+  cols: ColPositions,
   options: PrintOptions,
 ) {
-  const chartBottom = canvasHeight - FOOTER_HEIGHT;
+  const chartBottom = canvasHeight - m.footerHeight;
+  // Cel-padding: schaalt mee met de kolombreedtes, anders vreet een grotere letter de padding op.
+  const cellPad = m.s(4);
 
   // Table background
   d2d.fillStyle = PRINT_COLORS.bg;
-  d2d.fillRect(0, TOTAL_HEADER_HEIGHT, TABLE_WIDTH, chartBottom - TOTAL_HEADER_HEIGHT);
+  d2d.fillRect(0, m.totalHeaderHeight, m.tableWidth, chartBottom - m.totalHeaderHeight);
 
   // Task rows
   for (let i = 0; i < flatTasks.length; i++) {
     const task = flatTasks[i];
-    const y = TOTAL_HEADER_HEIGHT + i * ROW_HEIGHT;
+    const y = m.totalHeaderHeight + i * m.rowHeight;
     const depth = depthMap.get(task.id) || 0;
-    const textY = y + ROW_HEIGHT / 2;
-    const indent = depth * 12;
+    const textY = y + m.rowHeight / 2;
+    // Inspringing per hiërarchieniveau schaalt mee: de naamkolom is breder geworden, dus een vaste
+    // 12 px zou de boomstructuur bij een grote letter optisch platslaan.
+    const indent = depth * m.s(12);
     const isSummary = task.childIds.length > 0;
 
     // Alternating row background
     if (i % 2 === 0) {
       d2d.fillStyle = PRINT_COLORS.rowEven;
-      d2d.fillRect(0, y, TABLE_WIDTH, ROW_HEIGHT);
+      d2d.fillRect(0, y, m.tableWidth, m.rowHeight);
     }
 
     // Row border
     d2d.strokeStyle = PRINT_COLORS.grid;
     d2d.lineWidth = 0.3;
     d2d.beginPath();
-    d2d.moveTo(0, y + ROW_HEIGHT);
-    d2d.lineTo(TABLE_WIDTH, y + ROW_HEIGHT);
+    d2d.moveTo(0, y + m.rowHeight);
+    d2d.lineTo(m.tableWidth, y + m.rowHeight);
     d2d.stroke();
 
     // Row number
     d2d.fillStyle = PRINT_COLORS.textSecondary;
-    d2d.font = `8px ${FONT_FAMILY}`;
+    d2d.font = m.font(8);
     d2d.textAlign = 'right';
     d2d.textBaseline = 'middle';
-    d2d.fillText(String(i + 1), cols.rowNum.x + cols.rowNum.w - 4, textY);
+    d2d.fillText(String(i + 1), cols.rowNum.x + cols.rowNum.w - cellPad, textY);
 
     // WBS
     d2d.fillStyle = PRINT_COLORS.textSecondary;
-    d2d.font = `8px ${FONT_FAMILY}`;
+    d2d.font = m.font(8);
     d2d.textAlign = 'left';
-    d2d.fillText(task.wbsCode || '', cols.wbs.x + 4, textY);
+    d2d.fillText(task.wbsCode || '', cols.wbs.x + cellPad, textY);
 
     // Name with indentation — afkorten met ellipsis i.p.v. hard clippen (klacht 4a)
     d2d.fillStyle = isSummary ? PRINT_COLORS.summary : PRINT_COLORS.text;
-    d2d.font = isSummary ? `bold 9px ${FONT_FAMILY}` : `9px ${FONT_FAMILY}`;
+    d2d.font = m.font(9, isSummary);
     d2d.textAlign = 'left';
-    const nameX = cols.name.x + 4 + indent;
-    const nameAvail = cols.name.x + cols.name.w - 2 - nameX; // kleine padding vóór de kolomrand
+    const nameX = cols.name.x + cellPad + indent;
+    const nameAvail = cols.name.x + cols.name.w - m.s(2) - nameX; // kleine padding vóór de kolomrand
     d2d.fillText(fitText(d2d, task.name, nameAvail), nameX, textY);
 
     // Duration
     d2d.fillStyle = PRINT_COLORS.textSecondary;
-    d2d.font = `8px ${FONT_FAMILY}`;
+    d2d.font = m.font(8);
     d2d.textAlign = 'right';
     d2d.textBaseline = 'middle';
-    d2d.fillText(formatDuration(task.time.scheduleDuration), cols.duration.x + cols.duration.w - 4, textY);
+    d2d.fillText(formatDuration(task.time.scheduleDuration), cols.duration.x + cols.duration.w - cellPad, textY);
 
     // Start date
     const startStr = task.time.earlyStart || task.time.scheduleStart;
     if (startStr) {
       const sd = parseDate(startStr);
-      d2d.fillText(formatDutchDate(sd, options.dateNotation), cols.start.x + cols.start.w - 4, textY);
+      d2d.fillText(formatDutchDate(sd, options.dateNotation), cols.start.x + cols.start.w - cellPad, textY);
     }
 
     // End date
     const endStr = task.time.earlyFinish || task.time.scheduleFinish;
     if (endStr) {
       const ed = parseDate(endStr);
-      d2d.fillText(formatDutchDate(ed, options.dateNotation), cols.end.x + cols.end.w - 4, textY);
+      d2d.fillText(formatDutchDate(ed, options.dateNotation), cols.end.x + cols.end.w - cellPad, textY);
     }
 
     // Completion
     if (options.showCompletion) {
-      d2d.fillText(formatCompletion(task.time.completion), cols.complete.x + cols.complete.w - 4, textY);
+      d2d.fillText(formatCompletion(task.time.completion), cols.complete.x + cols.complete.w - cellPad, textY);
     }
 
     d2d.textAlign = 'left';
@@ -942,7 +1053,7 @@ function drawTaskTable(
   const colBorders = [cols.wbs.x, cols.name.x, cols.duration.x, cols.start.x, cols.end.x, cols.complete.x];
   for (const cx of colBorders) {
     d2d.beginPath();
-    d2d.moveTo(cx, TOTAL_HEADER_HEIGHT);
+    d2d.moveTo(cx, m.totalHeaderHeight);
     d2d.lineTo(cx, chartBottom);
     d2d.stroke();
   }
@@ -951,13 +1062,13 @@ function drawTaskTable(
   d2d.strokeStyle = PRINT_COLORS.borderDark;
   d2d.lineWidth = 1;
   d2d.beginPath();
-  d2d.moveTo(TABLE_WIDTH, PROJECT_HEADER_HEIGHT);
-  d2d.lineTo(TABLE_WIDTH, chartBottom);
+  d2d.moveTo(m.tableWidth, m.projectHeaderHeight);
+  d2d.lineTo(m.tableWidth, chartBottom);
   d2d.stroke();
 
   // Table left border
   d2d.beginPath();
-  d2d.moveTo(0, PROJECT_HEADER_HEIGHT);
+  d2d.moveTo(0, m.projectHeaderHeight);
   d2d.lineTo(0, chartBottom);
   d2d.stroke();
 }
@@ -966,6 +1077,7 @@ function drawTaskTable(
 /** Draw dependency lines with arrowheads */
 function drawDependencies(
   d2d: Draw2D,
+  m: ReportMetrics,
   flatTasks: PrintTask[],
   sequences: Sequence[],
   dateToX: (d: Date) => number,
@@ -983,8 +1095,8 @@ function drawDependencies(
 
     const pred = flatTasks[predIdx];
     const succ = flatTasks[succIdx];
-    const predY = rowToY(predIdx) + ROW_HEIGHT / 2;
-    const succY = rowToY(succIdx) + ROW_HEIGHT / 2;
+    const predY = rowToY(predIdx) + m.rowHeight / 2;
+    const succY = rowToY(succIdx) + m.rowHeight / 2;
 
     const predEnd = parseDate(pred.time.earlyFinish || pred.time.scheduleFinish);
     const succStart = parseDate(succ.time.earlyStart || succ.time.scheduleStart);
@@ -1011,7 +1123,7 @@ function drawDependencies(
       const gutterInset = 2;
       const gutterY = succIdx > predIdx
         ? rowToY(succIdx) + gutterInset            // opvolger eronder ⇒ goot = bovenrand opvolger-rij
-        : rowToY(succIdx) + ROW_HEIGHT - gutterInset; // opvolger erboven ⇒ goot = onderrand opvolger-rij
+        : rowToY(succIdx) + m.rowHeight - gutterInset; // opvolger erboven ⇒ goot = onderrand opvolger-rij
       const outX = fromX + DEP_STUB;
       const inX = toX - DEP_STUB;
       d2d.moveTo(fromX, predY);
@@ -1037,16 +1149,20 @@ function drawDependencies(
 /** Draw the footer with project info, legend, and page number */
 function drawFooter(
   d2d: Draw2D,
+  m: ReportMetrics,
   canvasWidth: number,
   canvasHeight: number,
   projectName: string,
   options: PrintOptions,
 ) {
-  const footerTop = canvasHeight - FOOTER_HEIGHT;
+  const footerTop = canvasHeight - m.footerHeight;
+  // Alles in de voettekst is tekst-zone: de marge, de regelafstanden en de legenda-blokjes schalen
+  // mee met de strookhoogte, anders staan de twee regels bij 125% over elkaar.
+  const pad = m.s(10);
 
   // Background
   d2d.fillStyle = PRINT_COLORS.surface;
-  d2d.fillRect(0, footerTop, canvasWidth, FOOTER_HEIGHT);
+  d2d.fillRect(0, footerTop, canvasWidth, m.footerHeight);
 
   // Top border
   d2d.strokeStyle = PRINT_COLORS.borderDark;
@@ -1056,99 +1172,102 @@ function drawFooter(
   d2d.lineTo(canvasWidth, footerTop);
   d2d.stroke();
 
-  const midY = footerTop + FOOTER_HEIGHT / 2;
+  const midY = footerTop + m.footerHeight / 2;
 
   // Left: Project name + print date (breedtes meten voor de dynamische legenda-layout)
   d2d.fillStyle = PRINT_COLORS.text;
-  d2d.font = `bold 10px ${FONT_FAMILY}`;
+  d2d.font = m.font(10, true);
   d2d.textAlign = 'left';
   d2d.textBaseline = 'middle';
-  d2d.fillText(projectName, 10, midY - 8);
+  d2d.fillText(projectName, pad, midY - m.s(8));
   const leftNameW = d2d.measureText(projectName).width;
 
   d2d.fillStyle = PRINT_COLORS.textSecondary;
-  d2d.font = `8px ${FONT_FAMILY}`;
+  d2d.font = m.font(8);
   const printLocale = options.locale ?? 'nl';
   const dateStr = new Date().toLocaleDateString(printLocale, { day: '2-digit', month: 'long', year: 'numeric' });
   const dateText = `${options.labels?.printed ?? 'Afgedrukt:'} ${dateStr}`;
-  d2d.fillText(dateText, 10, midY + 8);
-  const leftBlockRight = 10 + Math.max(leftNameW, d2d.measureText(dateText).width);
+  d2d.fillText(dateText, pad, midY + m.s(8));
+  const leftBlockRight = pad + Math.max(leftNameW, d2d.measureText(dateText).width);
 
   // Right: Page number + branding (breedtes meten, dan tekenen)
   const pageLabel = options.labels?.page ?? 'Pagina';
   const ofLabel = options.labels?.of ?? 'van';
   const pageText = `${pageLabel} 1 ${ofLabel} 1`;
   const brandText = 'Open Planner Studio';
-  d2d.font = `9px ${FONT_FAMILY}`;
+  d2d.font = m.font(9);
   const pageW = d2d.measureText(pageText).width;
-  d2d.font = `8px ${FONT_FAMILY}`;
+  d2d.font = m.font(8);
   const brandW = d2d.measureText(brandText).width;
-  const rightBlockLeft = canvasWidth - 10 - Math.max(pageW, brandW);
+  const rightBlockLeft = canvasWidth - pad - Math.max(pageW, brandW);
 
   d2d.fillStyle = PRINT_COLORS.textSecondary;
   d2d.textAlign = 'right';
   d2d.textBaseline = 'middle';
-  d2d.font = `9px ${FONT_FAMILY}`;
-  d2d.fillText(pageText, canvasWidth - 10, midY - 6);
-  d2d.font = `8px ${FONT_FAMILY}`;
-  d2d.fillText(brandText, canvasWidth - 10, midY + 8);
+  d2d.font = m.font(9);
+  d2d.fillText(pageText, canvasWidth - pad, midY - m.s(6));
+  d2d.font = m.font(8);
+  d2d.fillText(brandText, canvasWidth - pad, midY + m.s(8));
 
   // Center: Legend — dynamisch tussen het linker- en rechterblok, items weglaten bij te weinig
   // ruimte i.p.v. over de blokken heen tekenen (klacht 7).
   if (options.showLegend) {
-    const availLeft = leftBlockRight + 16;
-    const availRight = rightBlockLeft - 16;
+    const availLeft = leftBlockRight + m.s(16);
+    const availRight = rightBlockLeft - m.s(16);
     const availSpan = availRight - availLeft;
-    if (availSpan > 20) {
+    if (availSpan > m.s(20)) {
       const lg = options.labels?.legend;
-      const swatchW = 16;
-      const gap = 16;
+      // De legenda-blokjes zijn op de 8px-legendatekst gemaat; ze schalen dus met de letter mee.
+      const swatchW = m.s(16);
+      const swatchH = m.s(10);
+      const gap = m.s(16);
+      const labelPad = m.s(4);
       type LegendItem = { label: string; draw: (x: number) => void };
       const items: LegendItem[] = [];
 
       if (options.showCritical) {
         items.push({ label: lg?.criticalPath ?? 'Kritiek pad', draw: (x) => {
           d2d.fillStyle = PRINT_COLORS.critical;
-          d2d.roundRect(x, midY - 5, 16, 10, 2);
+          d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
           d2d.fill();
         } });
       }
       items.push({ label: lg?.normal ?? 'Normaal', draw: (x) => {
         d2d.fillStyle = PRINT_COLORS.normal;
-        d2d.roundRect(x, midY - 5, 16, 10, 2);
+        d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
         d2d.fill();
       } });
       items.push({ label: lg?.milestone ?? 'Mijlpaal', draw: (x) => {
         d2d.fillStyle = PRINT_COLORS.milestone;
-        const mx = x + 8;
+        const mx = x + swatchW / 2;
         d2d.beginPath();
-        d2d.moveTo(mx, midY - 5);
-        d2d.lineTo(mx + 5, midY);
-        d2d.lineTo(mx, midY + 5);
-        d2d.lineTo(mx - 5, midY);
+        d2d.moveTo(mx, midY - m.s(5));
+        d2d.lineTo(mx + m.s(5), midY);
+        d2d.lineTo(mx, midY + m.s(5));
+        d2d.lineTo(mx - m.s(5), midY);
         d2d.closePath();
         d2d.fill();
       } });
       items.push({ label: lg?.summary ?? 'Samenvatting', draw: (x) => {
         d2d.fillStyle = PRINT_COLORS.summary;
-        d2d.fillRect(x, midY - 2, 16, 4);
+        d2d.fillRect(x, midY - m.s(2), swatchW, m.s(4));
         d2d.beginPath();
-        d2d.moveTo(x, midY - 2);
-        d2d.lineTo(x, midY + 5);
-        d2d.lineTo(x + 4, midY + 2);
+        d2d.moveTo(x, midY - m.s(2));
+        d2d.lineTo(x, midY + m.s(5));
+        d2d.lineTo(x + m.s(4), midY + m.s(2));
         d2d.closePath();
         d2d.fill();
       } });
       if (options.showFloat) {
         items.push({ label: lg?.float ?? 'Speling', draw: (x) => {
           d2d.fillStyle = PRINT_COLORS.float + '40';
-          d2d.fillRect(x, midY - 4, 16, 8);
+          d2d.fillRect(x, midY - m.s(4), swatchW, m.s(8));
         } });
       }
 
-      d2d.font = `8px ${FONT_FAMILY}`;
+      d2d.font = m.font(8);
       d2d.textBaseline = 'middle';
-      const widths = items.map(it => swatchW + 4 + d2d.measureText(it.label).width);
+      const widths = items.map(it => swatchW + labelPad + d2d.measureText(it.label).width);
       const measure = (n: number) => widths.slice(0, n).reduce((a, b) => a + b, 0) + gap * Math.max(0, n - 1);
       let visible = items.length;
       while (visible > 0 && measure(visible) > availSpan) visible--;
@@ -1158,7 +1277,7 @@ function drawFooter(
         items[k].draw(lx);
         d2d.fillStyle = PRINT_COLORS.textSecondary;
         d2d.textAlign = 'left';
-        d2d.fillText(items[k].label, lx + swatchW + 4, midY);
+        d2d.fillText(items[k].label, lx + swatchW + labelPad, midY);
         lx += widths[k] + gap;
       }
     }

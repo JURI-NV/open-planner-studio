@@ -20,6 +20,7 @@
   "autoFit": "Auto-fit to paper",
   "zoom": "Zoom:",
   "repeatHeader": "Repeat header on each page",
+  "reportFontScaleLabel": "Font size:",
   "timelineColumnsLabel": "Timeline over:",
   "timelineColumnsHint": "Only with auto-fit",
   "timelineColumns_one": "{{count}} page",

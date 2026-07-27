@@ -142,6 +142,11 @@ export function ReportPanel() {
   // verrassing voor bestaande gebruikers). Alleen zinvol in fit-width-modus; daarom `disabled`
   // wanneer `autoFit` uit staat (dan tegelt de export in 'actual'-modus toch al horizontaal).
   const [timelineColumns, setTimelineColumns] = useState(1);
+  // Issue #25 punt 4 (rapport-helft) — lettergrootte van het GEGENEREERDE rapport, in procenten.
+  // 100 = ongewijzigd t.o.v. eerdere versies. Los van de interface-tekstgrootte in Instellingen:
+  // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
+  // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
+  const [reportFontScale, setReportFontScale] = useState(100);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -191,6 +196,7 @@ export function ReportPanel() {
     projectAuthor: project.author,
     dateNotation,
     timelineColumns,
+    reportFontScale,
   };
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
@@ -236,7 +242,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -536,6 +542,19 @@ export function ReportPanel() {
                   { value: 'landscape', label: t('landscape') },
                   { value: 'portrait', label: t('portrait') },
                 ]}
+              />
+            </div>
+
+            {/* Lettergrootte van het rapport (issue #25 punt 4). Relatief bedoeld: bij een grotere
+                letter groeien tekst, rijen en tabel op het vel en levert de tijdlijn breedte in. */}
+            <div className="flex items-center gap-2">
+              <label className="text-text-secondary w-20">{t('reportFontScaleLabel')}</label>
+              <Select
+                className="flex-1"
+                aria-label={t('reportFontScaleLabel')}
+                value={String(reportFontScale)}
+                onChange={v => setReportFontScale(Number(v))}
+                options={[90, 100, 110, 125].map(n => ({ value: String(n), label: `${n}%` }))}
               />
             </div>
 

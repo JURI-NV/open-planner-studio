@@ -20,6 +20,7 @@
   "autoFit": "용지에 자동 맞춤",
   "zoom": "확대/축소:",
   "repeatHeader": "각 페이지에 머리글 반복",
+  "reportFontScaleLabel": "글자 크기:",
   "timelineColumnsLabel": "타임라인:",
   "timelineColumnsHint": "자동 맞춤일 때만",
   "timelineColumns_other": "{{count}}페이지",

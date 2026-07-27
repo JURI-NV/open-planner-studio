@@ -20,6 +20,7 @@
   "autoFit": "用紙に自動調整",
   "zoom": "ズーム：",
   "repeatHeader": "各ページにヘッダーを繰り返す",
+  "reportFontScaleLabel": "文字サイズ：",
   "timelineColumnsLabel": "タイムライン：",
   "timelineColumnsHint": "自動調整時のみ",
   "timelineColumns_other": "{{count}} ページ",
