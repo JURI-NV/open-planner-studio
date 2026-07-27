@@ -3,7 +3,7 @@
 import {
   bumpPool, isPoolNewer, makeOrigin, findCopyByOrigin,
   copyCalendarToProject, copyResourceToProject,
-  diffCalendarVsPool, diffResourceVsPool, applyResourceUpdate,
+  diffCalendarVsPool, diffResourceVsPool, applyResourceUpdate, applyCalendarUpdate,
   computeCalendarHash, computeResourceHash,
   normalizeName, matchByName,
   classifyCalendarOnOpen, classifyResourceOnOpen,
@@ -161,15 +161,65 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(diffCalendarVsPool(c, p).status === 'up-to-date', 'diff: kalenderkopie up-to-date');
 }
 
-// 8. applyResourceUpdate behoudt id + project-lokale calendarId, verse poolVersion
+// 8. applyResourceUpdate behoudt id + project-lokale calendarId, verse poolVersion, EN (F1,
+// critreview issue #19) laat PROJECTINZET-velden (maxUnits/availabilitySteps) ONGEMOEID — alleen
+// RESOURCE_DIFF_FIELDS (identiteit/bibliotheekafspraak) volgt de pool. Vóór de fix deed
+// `applyResourceUpdate` `{...structuredClone(source), id, calendarId, parentId, libraryOrigin}`, wat
+// het VOLLEDIGE poolitem overschreef — gemeten in de showcases: Schilders-maxUnits 8→4, en de
+// torenkraan verloor zijn availabilitySteps.
 {
   const p = bumpPool(pool()); // poolVersion 4
-  const copy = { ...res('local-r', 'Oude naam', 'local-cal'), libraryOrigin: makeOrigin({ ...p, poolVersion: 3 }, 'pr2') };
-  const updated = applyResourceUpdate(copy, { ...p, resources: [res('pr2', 'Nieuwe naam')] });
+  const copy = {
+    ...res('local-r', 'Oude naam', 'local-cal'),
+    maxUnits: 8,
+    availabilitySteps: [{ from: '2027-08-30', maxUnits: 2 }],
+    libraryOrigin: makeOrigin({ ...p, poolVersion: 3 }, 'pr2'),
+  };
+  const poolSource = { ...res('pr2', 'Nieuwe naam'), maxUnits: 4, costPerHour: 55 };
+  const updated = applyResourceUpdate(copy, { ...p, resources: [poolSource] });
   assert(updated.id === 'local-r', 'applyUpdate: behoudt project-id');
-  assert(updated.name === 'Nieuwe naam', 'applyUpdate: neemt pool-naam over');
+  assert(updated.name === 'Nieuwe naam', 'applyUpdate: neemt pool-naam over (identiteitsveld)');
+  assert(updated.costPerHour === 55, 'applyUpdate: neemt pool-costPerHour over (bibliotheekafspraak, RESOURCE_DIFF_FIELDS)');
   assert(updated.calendarId === 'local-cal', 'applyUpdate: behoudt project-lokale calendarId');
   assert(updated.libraryOrigin?.poolVersion === 4, 'applyUpdate: verse poolVersion in stempel');
+  // F1 (verplichte assert, issue #19): maxUnits/availabilitySteps zijn PROJECTINZET, geen
+  // bibliotheekafspraak — "bijwerken" mag ze niet overschrijven/wissen, ook al wijkt de pool af
+  // (poolSource.maxUnits=4 vs project 8, poolSource heeft GEEN availabilitySteps).
+  assert(updated.maxUnits === 8, 'F1: applyResourceUpdate laat maxUnits van het projectitem ongemoeid (was 8, pool zegt 4)');
+  assert(
+    JSON.stringify(updated.availabilitySteps) === JSON.stringify([{ from: '2027-08-30', maxUnits: 2 }]),
+    'F1: applyResourceUpdate laat availabilitySteps van het projectitem ongemoeid (torenkraan-casus — pool heeft geen availabilitySteps)',
+  );
+}
+
+// 8b. F1 negatieve controle: een ECHT bibliotheekafspraak-veld (costPerHour, in RESOURCE_DIFF_FIELDS)
+// volgt de pool WEL — bewijst dat de F1-fix niet per ongeluk ALLE velden bevriest (alleen de
+// projectinzet-velden buiten RESOURCE_DIFF_FIELDS blijven staan).
+{
+  const p = pool();
+  const copy = { ...res('local-r2', 'Oude naam'), costPerHour: 10, libraryOrigin: makeOrigin(p, 'pr2') };
+  const updated = applyResourceUpdate(copy, { ...p, resources: [{ ...res('pr2', 'Oude naam'), costPerHour: 999 }] });
+  assert(updated.costPerHour === 999, 'F1 negatieve controle: costPerHour (bibliotheekafspraak, RESOURCE_DIFF_FIELDS) volgt de pool WEL');
+}
+
+// 8c. applyCalendarUpdate: CALENDAR_DIFF_FIELDS dekt bewust ALLE inhoudelijke WorkCalendar-velden (er
+// is geen "projectinzet"-veld zoals bij Resource) — dus alle content-velden volgen de pool, alleen id
+// blijft van het project. `workTime`/`generation`/`shift` (optionele 2.8-velden) zitten hier expliciet
+// in scope om te bewijzen dat de refactor (applyDiffFields) niets stil laat liggen.
+{
+  const p = pool();
+  const projectCal: WorkCalendar = {
+    ...cal('local-c', 'Oude kalendernaam'),
+    hoursPerDay: 9,
+    shift: 'SECOND',
+    libraryOrigin: makeOrigin(p, 'pc1'),
+  };
+  const poolCal: WorkCalendar = { ...cal('pc1', 'Nieuwe kalendernaam'), hoursPerDay: 8, shift: 'FIRST' };
+  const updated = applyCalendarUpdate(projectCal, { ...p, calendars: [poolCal] });
+  assert(updated.id === 'local-c', 'applyCalendarUpdate: behoudt project-id');
+  assert(updated.name === 'Nieuwe kalendernaam', 'applyCalendarUpdate: neemt pool-naam over');
+  assert(updated.hoursPerDay === 8, 'applyCalendarUpdate: neemt pool-hoursPerDay over (in CALENDAR_DIFF_FIELDS)');
+  assert(updated.shift === 'FIRST', 'applyCalendarUpdate: neemt pool-shift over (in CALENDAR_DIFF_FIELDS)');
 }
 
 // --- syncedHash spiegelt de diff-normalisatie exact (plan-eis 8) ---

@@ -355,7 +355,9 @@ const store = useAppStore.getState();
   const undoBeforeUpd = useAppStore.getState().undoStack.length;
   useAppStore.getState().updateProjectResourceFromLibrary(projResId);
   const updated = useAppStore.getState().resources.find(r => r.id === projResId)!;
-  assert(updated.maxUnits === 4, 'updateProjectResourceFromLibrary: waarde overgenomen');
+  // F1 (critreview, issue #19): maxUnits is PROJECTINZET, geen bibliotheekafspraak — "bijwerken"
+  // laat 'm ongemoeid, ook al wijzigde de pool naar 4 (was vóór de fix: stilzwijgend overgenomen).
+  assert(updated.maxUnits === 1, 'F1: updateProjectResourceFromLibrary laat maxUnits (projectinzet) ongemoeid, ook al wijzigde de pool naar 4');
   assert(updated.id === projResId, 'updateProjectResourceFromLibrary: project-id behouden');
   assert(useAppStore.getState().undoStack.length === undoBeforeUpd + 1, 'updateProjectResourceFromLibrary: undo-snapshot gepusht (E-3)');
   assert(useAppStore.getState().diffProjectResource(projResId)?.status === 'up-to-date', 'na bijwerken weer up-to-date');
@@ -798,7 +800,10 @@ const store = useAppStore.getState();
   const linked = useAppStore.getState().resources.find(r => r.id === projResId);
   assert(linked?.libraryOrigin?.libraryItemId === poolResId, 'linkRecognizedItems stempelt het projectitem');
   assert(!!linked?.libraryOrigin?.syncedHash, 'linkRecognizedItems zet een syncedHash');
-  assert(linked?.maxUnits === 3, 'linkRecognizedItems ververst direct naar de poolwaarde');
+  // F1 (critreview, issue #19): maxUnits is PROJECTINZET — linkRecognizedItems (via
+  // applyResourceUpdate) laat 'm staan op de projectwaarde (1), ook al draagt de pool 3 (vóór de fix:
+  // stilzwijgend overgenomen — exact het overallocatie-scenario uit de showcase-bevinding).
+  assert(linked?.maxUnits === 1, 'F1: linkRecognizedItems laat maxUnits (projectinzet) ongemoeid, ook al draagt de pool 3');
   // Ontkoppelen stript de stempels.
   useAppStore.getState().unbindProject();
   const after = useAppStore.getState();

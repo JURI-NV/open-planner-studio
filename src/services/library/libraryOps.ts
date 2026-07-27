@@ -453,8 +453,32 @@ export function isResourceFieldLocked(status: OnOpenStatus | null): boolean {
   return status !== null && status !== 'removed' && status !== 'unbound';
 }
 
+/**
+ * Pas alleen de GEVOLGDE diff-velden van `source` toe op een kopie van `target`; elk ander veld van
+ * `target` blijft ONGEWIJZIGD (F1, critreview issue #19: `applyResourceUpdate` deed eerder
+ * `{...structuredClone(source), id, calendarId, parentId, libraryOrigin}` — dat kopieert het HELE
+ * poolitem over het projectitem heen en negeert de bewuste versmalling van `RESOURCE_DIFF_FIELDS`;
+ * `maxUnits`/`availabilitySteps` zijn PROJECTINZET, geen bibliotheekafspraak, en werden zo stilzwijgend
+ * overschreven/gewist — gemeten in de showcases "6 Rijwoningen De Akkers" (Schilders-`maxUnits` 8→4)
+ * en het appartementencomplex (torenkraan-`availabilitySteps` gewist)). `id`/`libraryOrigin` van
+ * `target` blijven expliciet buiten `fields` en worden dus altijd behouden door deze functie zelf —
+ * de aanroeper zet `libraryOrigin` daarna zelf vers. Puur (nieuw object, muteert geen van beide
+ * invoerobjecten).
+ */
+function applyDiffFields<T>(target: T, source: T, fields: readonly (keyof T)[]): T {
+  const patched: T = structuredClone(target);
+  for (const f of fields) {
+    patched[f] = structuredClone(source[f]);
+  }
+  return patched;
+}
+
 /** Pas de pool-waarden toe op een projectkalender bij "bijwerken" (spec §3): overschrijf de
- *  vergeleken velden, behoud id + herkomst (met verse poolVersion). Puur (nieuw object). */
+ *  vergeleken velden, behoud id + herkomst (met verse poolVersion). Puur (nieuw object).
+ *  `CALENDAR_DIFF_FIELDS` dekt hier BEWUST alle inhoudelijke `WorkCalendar`-velden (er is geen
+ *  "projectinzet"-veld zoals bij Resource) — `applyDiffFields` levert dus hetzelfde resultaat op als
+ *  de vroegere volledige-kloon-aanpak, alleen nu door-constructie veilig tegen een toekomstig
+ *  kalenderveld dat WEL projectinzet zou zijn (zie F1-verificatie, issue #19). */
 export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool): WorkCalendar {
   const id = projectCal.libraryOrigin?.libraryItemId;
   const source = id ? pool.calendars.find((c) => c.id === id) : undefined;
@@ -465,10 +489,17 @@ export function applyCalendarUpdate(projectCal: WorkCalendar, pool: CompanyPool)
   if (!source) {
     throw new Error(`applyCalendarUpdate: pool-origineel niet gevonden voor kalender "${projectCal.name}" (id=${projectCal.id}, libraryItemId=${id ?? 'ontbreekt'})`);
   }
-  const patched: WorkCalendar = { ...structuredClone(source), id: projectCal.id, libraryOrigin: makeOrigin(pool, id!, computeCalendarHash(source)) };
+  const patched = applyDiffFields(projectCal, source, CALENDAR_DIFF_FIELDS);
+  patched.libraryOrigin = makeOrigin(pool, id!, computeCalendarHash(source));
   return patched;
 }
 
+/** Pas de pool-waarden toe op een projectresource bij "bijwerken" (spec §3): overschrijf UITSLUITEND
+ *  de `RESOURCE_DIFF_FIELDS` (identiteit/bibliotheekafspraak — naam/type/omschrijving/tarief/eenheid),
+ *  behoud id + herkomst (met verse poolVersion). `maxUnits`, `availabilitySteps`, de gedeprecieerde
+ *  `availability`, `calendarId` en `parentId` zijn PROJECTINZET en blijven daarom altijd van `target`
+ *  (projectRes) — dat is de F1-fix (issue #19): eerder kopieerde deze functie het volledige poolitem
+ *  en overschreef zo stilzwijgend de eigen inzet van het project. Puur (nieuw object). */
 export function applyResourceUpdate(projectRes: Resource, pool: CompanyPool): Resource {
   const id = projectRes.libraryOrigin?.libraryItemId;
   const source = id ? pool.resources.find((r) => r.id === id) : undefined;
@@ -476,14 +507,7 @@ export function applyResourceUpdate(projectRes: Resource, pool: CompanyPool): Re
   if (!source) {
     throw new Error(`applyResourceUpdate: pool-origineel niet gevonden voor resource "${projectRes.name}" (id=${projectRes.id}, libraryItemId=${id ?? 'ontbreekt'})`);
   }
-  // Behoud id + de PROJECT-lokale calendarId (die verwijst naar de meegereisde projectkalender,
-  // niet naar de pool-id) + herkomst met verse versie; overschrijf de inhoudelijke velden.
-  const patched: Resource = {
-    ...structuredClone(source),
-    id: projectRes.id,
-    calendarId: projectRes.calendarId,
-    parentId: projectRes.parentId,
-    libraryOrigin: makeOrigin(pool, id!, computeResourceHash(source)),
-  };
+  const patched = applyDiffFields(projectRes, source, RESOURCE_DIFF_FIELDS);
+  patched.libraryOrigin = makeOrigin(pool, id!, computeResourceHash(source));
   return patched;
 }
