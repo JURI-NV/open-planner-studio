@@ -65,6 +65,15 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
   bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
   niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
+- [ ] **Niemand heeft gemeten of de MCP-tools de bibliotheekstempels bijwerken.** Mains nieuwe
+  `planner_*`-tools kunnen resources en kalenders muteren (`planner_manage_resources`,
+  `planner_update_calendar`), maar of ze daarbij `libraryOrigin`/`syncedHash` correct meebewegen is
+  nooit vastgesteld. Muteert een tool een gestempeld item zonder de hash bij te werken, dan wijkt het
+  bestand af van `syncedHash` en geldt het bij de eerstvolgende verversgrens onterecht als
+  `deviated` — de gebruiker krijgt dan een afwijkingsvraag over een wijziging die hij zelf niet
+  gemaakt heeft. Dit is een ongemeten interactie tussen twee features die onafhankelijk van elkaar
+  zijn gebouwd (MCP-bridge en B1.1-herkomststempels), niet een bekend defect. Vervolgstap: een
+  batterij die een MCP-resourcemutatie op een gestempeld item door de vier verversgrenzen haalt.
 - [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
   resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
   Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
