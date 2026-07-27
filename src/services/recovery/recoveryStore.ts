@@ -1,8 +1,8 @@
 import { isTauri } from '@/utils/platform';
 import { idbGetAll, idbPut, idbDelete } from '@/utils/idb';
 import {
-  recoveryBase, recoveryManifestName, legacyRecoveryFile, recoveryIfcName,
-  type RecoveryManifest,
+  ownRecoveryNames, recoveryTmpSuffix,
+  type RecoveryNames, type RecoveryManifest, type RecoveryManifestDoc,
 } from '@/hooks/recoveryPaths';
 
 /** Eén recovery-document (IFC-CONTENT, niet de bestandsnaam). */
@@ -29,15 +29,190 @@ export interface LoadedRecovery {
 
 // Padnamen + manifestvorm komen uit `@/hooks/recoveryPaths` — één bron voor de dev-slug-isolatie
 // (zie daar), gedeeld met de auto-save-/herstel-hooks.
-const manifestName = recoveryManifestName;
-const legacyFile = legacyRecoveryFile;
-const ifcName = recoveryIfcName;
+const names = ownRecoveryNames;
+const manifestName = names.manifest;
+const legacyFile = names.legacy;
+const ifcName = names.ifcName;
 
 /** Achtervoegsel van het halffabricaat van een atomaire schrijfactie (zie `saveTauri`). */
-const TMP_SUFFIX = '.tmp';
+const TMP_SUFFIX = recoveryTmpSuffix;
+
+/** Manifestversie mét eigenaarschapsvelden. Zie `RecoveryManifest` voor de migratieregel. */
+export const RECOVERY_MANIFEST_VERSION = 2;
+
+/**
+ * Id van DEZE app-instantie (proces/realm). Wordt in het manifest gezet zodat een volgende
+ * schrijfronde kan zien of het manifest dat er staat van onszelf is of van iemand anders — zie
+ * `manifestOwnership` en `planRecoveryCleanup`.
+ */
+function newInstanceId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `inst-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+const instanceId = newInstanceId();
+
+/** IFC-bestandsnamen die DEZE instantie ooit zelf heeft geschreven. */
+const ownWritten = new Set<string>();
+/**
+ * IFC-bestandsnamen die we van een VREEMDE eigenaar in ons manifest hebben overgenomen. Ze staan
+ * daarmee wel in "ons" manifest, maar ze zijn niet van ons en mogen dus nooit door onze opruimlus
+ * gewist worden.
+ */
+const adoptedIfc = new Set<string>();
+
+export type ManifestOwnership = 'none' | 'own' | 'legacy' | 'foreign';
+
+/**
+ * Van wie is het manifest dat er staat?
+ *   `none`    — er is er geen (of hij was onleesbaar);
+ *   `own`     — door deze instantie geschreven;
+ *   `legacy`  — v1-manifest zonder `ownerId`: geschreven door een build van vóór deze wijziging,
+ *               dus per definitie niet door een gelijktijdig draaiende instantie mét de fix.
+ *               Overnemen is hier de veilige keuze; niet-overnemen zou betekenen dat de eerste
+ *               start na de update nooit meer opruimt;
+ *   `foreign` — een andere `ownerId`.
+ */
+export function manifestOwnership(prev: RecoveryManifest | null, self: string): ManifestOwnership {
+  if (!prev) return 'none';
+  if (typeof prev.ownerId !== 'string' || prev.ownerId === '') return 'legacy';
+  return prev.ownerId === self ? 'own' : 'foreign';
+}
+
+export interface RecoveryCleanupInput {
+  /** Bestandsnamen zoals `readDir` ze oplevert (namen, geen paden). */
+  listing: string[];
+  /** Het manifest zoals het er stond VÓÓR deze schrijfronde (null = geen/onleesbaar). */
+  prev: RecoveryManifest | null;
+  /** Id van deze app-instantie. */
+  self: string;
+  /** IFC-bestandsnamen die we zojuist geschreven hebben — die blijven per definitie staan. */
+  keep: string[];
+  /** IFC-bestandsnamen die deze instantie ooit zelf schreef. */
+  ownWritten: string[];
+  /** IFC-bestandsnamen die we van een vreemde eigenaar hebben overgenomen. */
+  adopted: string[];
+  /** Naamgeving van DEZE base. */
+  names: RecoveryNames;
+}
+
+export interface RecoveryCleanupPlan {
+  ownership: ManifestOwnership;
+  /** Exacte bestandsnamen die weg mogen. */
+  remove: string[];
+  /** Documentregels van een vreemde eigenaar die in ons manifest mee moeten. */
+  carryOver: RecoveryManifestDoc[];
+}
+
+/**
+ * Bepaal wat één auto-save-ronde mag opruimen (bevinding K5).
+ *
+ * De oude lus was "alles in de map met de prefix dat niet in mijn keep-set zit" en dat is precies
+ * de bug: bij twee vensters wiste elke ronde de complete snapshotverzameling van de ander. De
+ * regel is nu omgedraaid — opruimen mag ALLEEN binnen de eigen boekhouding:
+ *
+ *   kandidaten = (het vorige manifest, mits van onszelf of van vóór deze wijziging)
+ *              ∪ (wat deze instantie zelf heeft geschreven)
+ *   minus        (wat we net geschreven hebben)
+ *   minus        (wat we van een vreemde eigenaar hebben overgenomen)
+ *   ∩            (wat er daadwerkelijk in de map staat, op EXACTE naam)
+ *
+ * Er wordt dus nooit meer op een prefix door de map geveegd: een bestand dat wij niet zelf hebben
+ * aangemaakt of geërfd, raken we niet aan — ook niet als single-instance ooit bewust uit gaat.
+ *
+ * Is het manifest van een ander, dan worden diens documentregels NIET gewist maar meegenomen in
+ * ons manifest (`carryOver`), zodat ze bij de volgende start nog steeds als herstelkandidaat
+ * worden aangeboden in plaats van stil wees te worden.
+ *
+ * Over `heartbeatAt`: dat veld wordt geschreven en is hier beschikbaar, maar het bepaalt bewust
+ * NIET of we mogen wissen. Een verse heartbeat is niet te onderscheiden tussen "er draait nu een
+ * tweede venster" en "het proces is drie seconden geleden gecrasht" — precies het geval waarvoor
+ * recovery bestaat. Elke drempel kiest dus tussen het wissen van de bestanden van een levend
+ * venster en het wissen van de bestanden van een crashslachtoffer. Daarom wissen we hier
+ * überhaupt niets van een vreemde eigenaar; opruimen van vreemde snapshots gebeurt uitsluitend
+ * via `clearRecovery()`, dus nadat de gebruiker ze aangeboden heeft gekregen en heeft gekozen.
+ */
+export function planRecoveryCleanup(input: RecoveryCleanupInput): RecoveryCleanupPlan {
+  const { listing, prev, self, keep, names: n } = input;
+  const ownership = manifestOwnership(prev, self);
+  const present = new Set(listing);
+  const keepSet = new Set(keep);
+  const adopted = new Set(input.adopted);
+
+  const candidates = new Set<string>();
+  if (prev && (ownership === 'own' || ownership === 'legacy')) {
+    for (const d of prev.documents) {
+      if (d && typeof d.ifc === 'string') candidates.add(d.ifc);
+    }
+  }
+  for (const name of input.ownWritten) candidates.add(name);
+
+  const remove: string[] = [];
+  for (const name of candidates) {
+    if (keepSet.has(name) || adopted.has(name)) continue;
+    // Naamvorm van een ándere base (of geen snapshotnaam) → nooit aanraken. Dit is de tweede
+    // helft van K5: de productie-base `recovery` is een prefix van elke dev-base.
+    if (n.snapshotDocId(name) === null) continue;
+    if (present.has(name)) remove.push(name);
+    if (present.has(name + recoveryTmpSuffix)) remove.push(name + recoveryTmpSuffix);
+  }
+
+  // Halffabricaten van een afgebroken schrijfactie voor bestanden die we NU schrijven (en voor het
+  // manifest zelf): die horen na een geslaagde `rename` niet meer te bestaan, dus wat er ligt is
+  // een restant van een crash. Ze worden op exacte naam aangewezen, niet met een sweep, zodat een
+  // in-flight `.tmp` van een andere instantie buiten schot blijft.
+  for (const name of [...keep, n.manifest]) {
+    const tmp = name + recoveryTmpSuffix;
+    if (present.has(tmp) && !remove.includes(tmp)) remove.push(tmp);
+  }
+
+  const carryOver: RecoveryManifestDoc[] = [];
+  if (prev && ownership === 'foreign') {
+    for (const d of prev.documents) {
+      if (!d || typeof d.ifc !== 'string' || typeof d.id !== 'string') continue;
+      if (keepSet.has(d.ifc)) continue;      // zelfde document — onze eigen regel wint
+      if (!present.has(d.ifc)) continue;     // snapshot is er niet (meer)
+      carryOver.push({ id: d.id, ifc: d.ifc, filePath: d.filePath ?? null, isDirty: d.isDirty ?? true });
+    }
+  }
+
+  return { ownership, remove, carryOver };
+}
+
+/**
+ * Bepaal wat `clearRecovery()` weghaalt: alle bestanden van DEZE base, op exacte naam.
+ *
+ * Bewust breder dan de opruimlus hierboven, en dat is bevinding K4: sinds `loadTauri` bij een
+ * corrupt manifest terugvalt op een directory-scan zou een snapshot die het manifest niet noemde
+ * anders bij de VOLGENDE start opnieuw als herstelkandidaat opduiken — terwijl de gebruiker net
+ * "verwerpen" (of een geslaagd herstel) achter de rug heeft. Wissen betekent wissen.
+ *
+ * Bewust NIET afhankelijk van eigenaarschap: wat hier weggaat is exact wat de gebruiker zojuist
+ * kreeg aangeboden, en `loadTauri` biedt aan wat er staat. De begrenzing zit in de EXACTE
+ * naamvorm — een productiebuild raakt geen `recovery.<slug>.…` van een dev-worktree meer aan, en
+ * een dev-build geen productiebestanden.
+ */
+export function planRecoveryClear(
+  listing: string[],
+  manifest: RecoveryManifest | null,
+  n: RecoveryNames,
+): string[] {
+  const out = new Set<string>();
+  for (const name of listing) {
+    if (n.isOwnFile(name)) out.add(name);
+  }
+  // Manifestregels meenemen ook als de directory-scan niets opleverde (bijv. `readDir` faalde):
+  // wél gefilterd op onze eigen naamvorm.
+  for (const d of manifest?.documents ?? []) {
+    if (d && typeof d.ifc === 'string' && n.snapshotDocId(d.ifc) !== null) out.add(d.ifc);
+  }
+  return [...out];
+}
 
 async function saveTauri(activeId: string, docs: RecoveryDocContent[]): Promise<void> {
-  const { writeTextFile, readDir, remove, rename } = await import('@tauri-apps/plugin-fs');
+  const { writeTextFile, readDir, readTextFile, exists, remove, rename } = await import('@tauri-apps/plugin-fs');
   const { appDataDir, join } = await import('@tauri-apps/api/path');
   const dir = await appDataDir();
 
@@ -68,33 +243,58 @@ async function saveTauri(activeId: string, docs: RecoveryDocContent[]): Promise<
     }
   };
 
-  for (const d of docs) {
-    await writeAtomic(ifcName(d.id), d.ifc);
+  // Het manifest zoals het er NU staat, vóór we het overschrijven: dat is de enige bron waaruit
+  // we weten welke snapshots van ons zijn (en of er inmiddels een andere instantie schrijft).
+  let prev: RecoveryManifest | null = null;
+  try {
+    const manifestPath = await join(dir, manifestName);
+    if (await exists(manifestPath)) prev = parseRecoveryManifest(await readTextFile(manifestPath));
+  } catch (err) {
+    console.error('Recovery: kon het bestaande manifest niet lezen vóór het opslaan:', err);
   }
 
+  const keep: string[] = [];
+  for (const d of docs) {
+    const name = ifcName(d.id);
+    await writeAtomic(name, d.ifc);
+    ownWritten.add(name);
+    keep.push(name);
+  }
+
+  let listing: string[] = [];
+  try {
+    listing = (await readDir(dir)).map((e) => e.name).filter((n): n is string => !!n);
+  } catch (err) {
+    console.error('Recovery: kon de appDataDir niet doorlopen bij het opruimen:', err);
+  }
+
+  const plan = planRecoveryCleanup({
+    listing, prev, self: instanceId, keep,
+    ownWritten: [...ownWritten], adopted: [...adoptedIfc], names,
+  });
+  if (plan.ownership === 'foreign') {
+    console.warn(
+      `Recovery: het manifest is van een andere instantie (${prev?.ownerId}); ` +
+      `${plan.carryOver.length} snapshot(s) blijven staan en worden meegenomen.`,
+    );
+  }
+  for (const d of plan.carryOver) adoptedIfc.add(d.ifc);
+
   const manifest: RecoveryManifest = {
-    version: 1,
+    version: RECOVERY_MANIFEST_VERSION,
     activeDocumentId: activeId,
-    documents: docs.map((d) => ({ id: d.id, ifc: ifcName(d.id), filePath: d.filePath, isDirty: d.isDirty })),
+    documents: [
+      ...docs.map((d) => ({ id: d.id, ifc: ifcName(d.id), filePath: d.filePath, isDirty: d.isDirty })),
+      ...plan.carryOver,
+    ],
+    ownerId: instanceId,
+    heartbeatAt: Date.now(),
   };
   await writeAtomic(manifestName, JSON.stringify(manifest));
 
-  // Ruim snapshots op van documenten die niet meer open zijn (zelfde slug).
-  const keep = new Set(docs.map((d) => ifcName(d.id)));
-  const prefix = `${recoveryBase}.`;
-  for (const entry of await readDir(dir)) {
-    const name = entry.name;
-    if (!name || !name.startsWith(prefix)) continue;
-    // Halffabricaat van een afgebroken schrijfactie: nooit een geldige bron, dus altijd weg.
-    // (Bij twee gelijktijdige instanties kan dit een in-flight `.tmp` van de ander raken — maar
-    // die instanties wissen elkaars snapshots sowieso al volledig; dat is bevinding K5.)
-    if (name.endsWith(TMP_SUFFIX)) {
-      try { await remove(await join(dir, name)); } catch { /* al weg */ }
-      continue;
-    }
-    if (name.endsWith('.ifc') && !keep.has(name)) {
-      await remove(await join(dir, name));
-    }
+  for (const name of plan.remove) {
+    try { await remove(await join(dir, name)); } catch { /* al weg */ }
+    ownWritten.delete(name);
   }
 }
 
@@ -129,15 +329,15 @@ async function scanTauriSnapshots(): Promise<LoadedRecoveryDoc[]> {
   const { readDir, readTextFile, stat } = await import('@tauri-apps/plugin-fs');
   const { appDataDir, join } = await import('@tauri-apps/api/path');
   const dir = await appDataDir();
-  const prefix = `${recoveryBase}.`;
   const docs: LoadedRecoveryDoc[] = [];
 
   for (const entry of await readDir(dir)) {
     const name = entry.name;
-    if (!name || !name.startsWith(prefix) || !name.endsWith('.ifc')) continue;
-    if (name === legacyFile) continue; // die heeft zijn eigen terugval, mét eigen doc-id
-    const id = name.slice(prefix.length, -'.ifc'.length);
-    if (!id) continue;
+    // EXACTE naamvorm (K5): met de oude prefix-vergelijking pikte een productiebuild hier ook de
+    // `recovery.<slug>.<docId>.ifc` van elke dev-worktree op. Het legacy-bestand valt hier
+    // automatisch buiten (dat heeft geen doc-id-segment) en heeft zijn eigen terugval hieronder.
+    const id = name ? names.snapshotDocId(name) : null;
+    if (!name || !id) continue;
     try {
       const path = await join(dir, name);
       const ifc = await readTextFile(path);
@@ -206,31 +406,29 @@ async function clearTauri(): Promise<void> {
   const { exists, readTextFile, remove, readDir } = await import('@tauri-apps/plugin-fs');
   const { appDataDir, join } = await import('@tauri-apps/api/path');
   const dir = await appDataDir();
+
+  let manifest: RecoveryManifest | null = null;
   const manifestPath = await join(dir, manifestName);
   if (await exists(manifestPath)) {
-    try {
-      const manifest = parseRecoveryManifest(await readTextFile(manifestPath));
-      for (const d of manifest?.documents ?? []) {
-        try { await remove(await join(dir, d.ifc)); } catch { /* al weg */ }
-      }
-    } catch { /* onleesbaar manifest — de sweep hieronder ruimt alsnog op */ }
-    try { await remove(manifestPath); } catch { /* al weg */ }
+    try { manifest = parseRecoveryManifest(await readTextFile(manifestPath)); }
+    catch { /* onleesbaar manifest — de directory-scan hieronder ruimt alsnog op */ }
   }
-  // Sweep op prefix, ná de manifest-route: sinds `loadTauri` bij een corrupt manifest terugvalt op
-  // een directory-scan, zou een snapshot die het manifest niet noemde anders blijven staan en bij
-  // de VOLGENDE start opnieuw als herstelkandidaat opduiken — terwijl de gebruiker net "verwerpen"
-  // (of een geslaagd herstel) achter de rug heeft. Wissen betekent wissen.
-  const prefix = `${recoveryBase}.`;
+
+  let listing: string[] = [];
   try {
-    for (const entry of await readDir(dir)) {
-      const name = entry.name;
-      if (!name || !name.startsWith(prefix)) continue;
-      if (!name.endsWith('.ifc') && !name.endsWith(TMP_SUFFIX)) continue;
-      if (name === legacyFile) continue; // hieronder, met zijn eigen `exists`-check
-      try { await remove(await join(dir, name)); } catch { /* al weg */ }
-    }
+    listing = (await readDir(dir)).map((e) => e.name).filter((n): n is string => !!n);
   } catch (err) {
     console.error('Recovery: kon de appDataDir niet doorlopen bij het opruimen:', err);
+  }
+
+  for (const name of planRecoveryClear(listing, manifest, names)) {
+    try { await remove(await join(dir, name)); } catch { /* al weg */ }
+    ownWritten.delete(name);
+    adoptedIfc.delete(name);
+  }
+  // Het manifest zelf zit al in de scan; als `readDir` faalde staat hij er nog.
+  if (await exists(manifestPath)) {
+    try { await remove(manifestPath); } catch { /* al weg */ }
   }
   const legacyPath = await join(dir, legacyFile);
   if (await exists(legacyPath)) {
@@ -247,15 +445,80 @@ const WEB_STORE = 'records';
 const SESSION_KEY = 'ops-recovery-session';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 dagen
 
-/** Per-tab id: overleeft reload/crash van hetzelfde tab (sessionStorage), niet tab-sluiten. */
-function sessionId(): string {
+/** Hoe lang we wachten voordat we een niet-verkregen claim als "echt bezet" beschouwen. */
+const CLAIM_RETRY_MS = 150;
+
+/**
+ * Claim `name` voor de LEVENSDUUR van deze pagina via de Web Locks API.
+ *
+ * De lock wordt bewust nooit vrijgegeven: de callback geeft een promise terug die nooit rond komt,
+ * waardoor de browser hem pas loslaat als het document weg is. Dat is het gedocumenteerde patroon
+ * voor een "page lease". `ifAvailable` zorgt dat we niet gaan wachten maar meteen weten of iemand
+ * anders hem al heeft.
+ */
+function claimLock(name: string): Promise<boolean> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  if (!locks) return Promise.resolve(true); // geen Web Locks → oude situatie, geen detectie
+  return new Promise<boolean>((resolve) => {
+    locks.request(name, { mode: 'exclusive', ifAvailable: true }, (lock) => {
+      resolve(lock !== null);
+      if (!lock) return undefined;
+      return new Promise<never>(() => { /* nooit vrijgeven: leeft zolang deze pagina leeft */ });
+    }).catch(() => resolve(false));
+  });
+}
+
+const delay = (ms: number) => new Promise<void>((r) => { setTimeout(r, ms); });
+
+/**
+ * Per-tab id: overleeft reload/crash van hetzelfde tab (sessionStorage), niet tab-sluiten.
+ *
+ * Waarom hier een lock omheen staat (bevinding K5, webhelft). `sessionStorage` scheidt tabs — met
+ * één uitzondering: "Tabblad dupliceren" KOPIEERT de volledige sessionStorage naar het nieuwe tab.
+ * Twee levende tabs deelden daarna dezelfde sessie-id en daarmee dezelfde IndexedDB-sleutels: de
+ * `clearRecovery()` van tab B wiste de records van tab A, en de opruimlus in `saveWeb` verwijderde
+ * elke ronde de doc-records die B niet open had. Zelfde bug als de Tauri-kant, ander opslagmedium.
+ *
+ * De detectie moet noodzakelijk aan de andere tabs gevraagd worden — een gekopieerde
+ * sessionStorage is lokaal niet van een echte te onderscheiden — en dat kan alleen asynchroon.
+ * Vandaar dat dit een promise is die één keer per pagina wordt uitgerekend; de drie
+ * web-backend-functies zijn toch al async.
+ *
+ * Bewuste keuze bij twijfel: als de claim mislukt minten we een NIEUWE id in plaats van de oude
+ * te delen. De prijs bij een vals alarm (een reload waarbij de oude lock nog net niet los is) is
+ * dat dit tab zijn eigen vorige snapshot niet meer terugvindt — die blijft staan en verdwijnt via
+ * de 7-daagse opruiming. De prijs bij niet-detecteren is dat twee tabs elkaars snapshots WISSEN.
+ * De ene retry met een korte pauze houdt dat valse alarm klein.
+ */
+async function resolveSessionId(): Promise<string> {
+  let id: string;
   try {
-    let id = sessionStorage.getItem(SESSION_KEY);
-    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem(SESSION_KEY, id); }
-    return id;
+    const stored = sessionStorage.getItem(SESSION_KEY);
+    id = stored ?? crypto.randomUUID();
+    if (!stored) sessionStorage.setItem(SESSION_KEY, id);
   } catch {
-    return 'default'; // sessionStorage geblokkeerd → vaste sleutel
+    return 'default'; // sessionStorage geblokkeerd → vaste sleutel, zoals voorheen
   }
+
+  const key = (v: string) => `${SESSION_KEY}:${v}`;
+  if (await claimLock(key(id))) return id;
+  // Eén korte retry: bij een gewone herlaad van hetzelfde tab kan de lock van het vorige document
+  // net nog vastzitten, en dan is dit géén duplicaat.
+  await delay(CLAIM_RETRY_MS);
+  if (await claimLock(key(id))) return id;
+
+  // Bezet door een ander levend tab (gedupliceerd tabblad): eigen id nemen.
+  id = crypto.randomUUID();
+  try { sessionStorage.setItem(SESSION_KEY, id); } catch { /* niet te schrijven — id blijft lokaal */ }
+  console.warn('Recovery: sessie-id was al in gebruik door een ander tabblad — nieuwe id genomen.');
+  await claimLock(key(id));
+  return id;
+}
+
+let sessionIdPromise: Promise<string> | null = null;
+function sessionId(): Promise<string> {
+  if (!sessionIdPromise) sessionIdPromise = resolveSessionId();
+  return sessionIdPromise;
 }
 
 interface WebDocRecord {
@@ -282,7 +545,7 @@ const docKey = (sid: string, docId: string): string => `${sid}::doc::${docId}`;
 const manifestKey = (sid: string): string => `${sid}::manifest`;
 
 async function saveWeb(activeId: string, docs: RecoveryDocContent[]): Promise<void> {
-  const sid = sessionId();
+  const sid = await sessionId();
   const now = Date.now();
   const all = await idbGetAll<WebRecord>(WEB_DB, WEB_STORE);
 
@@ -317,7 +580,7 @@ async function saveWeb(activeId: string, docs: RecoveryDocContent[]): Promise<vo
 }
 
 async function loadWeb(): Promise<LoadedRecovery> {
-  const sid = sessionId();
+  const sid = await sessionId();
   const all = await idbGetAll<WebRecord>(WEB_DB, WEB_STORE);
   const manifest = all.find((r) => r.kind === 'manifest' && r.sessionId === sid) as WebManifestRecord | undefined;
   if (!manifest) return { activeDocumentId: null, docs: [] };
@@ -331,7 +594,7 @@ async function loadWeb(): Promise<LoadedRecovery> {
 }
 
 async function clearWeb(): Promise<void> {
-  const sid = sessionId();
+  const sid = await sessionId();
   const all = await idbGetAll<WebRecord>(WEB_DB, WEB_STORE);
   for (const r of all) {
     if (r.sessionId === sid) await idbDelete(WEB_DB, WEB_STORE, r.id);
