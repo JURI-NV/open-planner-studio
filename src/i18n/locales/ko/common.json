@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "알림 닫기",
+    "openFailed": "파일을 열 수 없습니다",
+    "saveFailed": "저장하지 못했습니다",
+    "autoSaveFailed": "자동 저장 실패",
+    "recoveryReadFailed": "복구된 파일을 읽을 수 없습니다",
+    "recoveryRestoreFailed": "복원하지 못했습니다",
+    "scheduleFailed": "일정을 계산할 수 없습니다",
+    "ifcParseFailed": "IFC를 읽을 수 없습니다",
+    "templateSaved": "분기가 '{{name}}' 템플릿으로 저장되었습니다"
+  },
   "yes": "예",
   "no": "아니오",
   "days": "일",

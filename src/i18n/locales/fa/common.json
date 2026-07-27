@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "بستن اعلان",
+    "openFailed": "باز کردن فایل ناموفق بود",
+    "saveFailed": "ذخیره‌سازی ناموفق بود",
+    "autoSaveFailed": "ذخیره‌سازی خودکار ناموفق بود",
+    "recoveryReadFailed": "فایل بازیابی‌شده خوانده نشد",
+    "recoveryRestoreFailed": "بازیابی ناموفق بود",
+    "scheduleFailed": "محاسبهٔ برنامه ممکن نشد",
+    "ifcParseFailed": "خواندن IFC ناموفق بود",
+    "templateSaved": "شاخه به عنوان الگوی «{{name}}» ذخیره شد"
+  },
   "yes": "بله",
   "no": "خیر",
   "days": "ر",

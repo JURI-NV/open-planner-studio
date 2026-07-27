@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Zamknij powiadomienie",
+    "openFailed": "Nie udało się otworzyć pliku",
+    "saveFailed": "Nie udało się zapisać",
+    "autoSaveFailed": "Błąd autozapisu",
+    "recoveryReadFailed": "Nie udało się odczytać odzyskanego pliku",
+    "recoveryRestoreFailed": "Nie udało się przywrócić",
+    "scheduleFailed": "Nie udało się obliczyć harmonogramu",
+    "ifcParseFailed": "Nie udało się odczytać pliku IFC",
+    "templateSaved": "Gałąź zapisana jako szablon '{{name}}'"
+  },
   "yes": "Tak",
   "no": "Nie",
   "days": "d",

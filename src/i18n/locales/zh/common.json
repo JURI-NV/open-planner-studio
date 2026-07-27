@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "关闭通知",
+    "openFailed": "打开文件失败",
+    "saveFailed": "保存失败",
+    "autoSaveFailed": "自动保存失败",
+    "recoveryReadFailed": "无法读取恢复的文件",
+    "recoveryRestoreFailed": "恢复失败",
+    "scheduleFailed": "无法计算计划",
+    "ifcParseFailed": "无法读取 IFC",
+    "templateSaved": "分支已保存为模板“{{name}}”"
+  },
   "yes": "是",
   "no": "否",
   "days": "天",

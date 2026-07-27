@@ -132,6 +132,57 @@ export interface TourUiSnapshot {
   rightPanelCollapsed: boolean;
 }
 
+// --- Gebruikerszichtbaar meldingenkanaal (bevinding K8): één gecentraliseerde toast-stapel in
+//     `UIState.notifications`, gevoed vanuit élke laag (fileAccess, recovery, scheduler, IFC) en
+//     gerenderd door `NotificationHost`. Een fout ("error") plakt tot de gebruiker hem wegklikt;
+//     een info ("info") verdwijnt na 5 s. `detail` is bewust onvertaalde technische tekst. ---
+export type NotificationSeverity = 'error' | 'info';
+
+/**
+ * De i18n-sleutels die een melding mag dragen — bewust een GESLOTEN unie en geen vrije `string`.
+ *
+ * De vertaalbronnen van dit project zijn getypeerd (`src/i18n/types.d.ts` voedt i18next met de
+ * Nederlandse JSON als sleutelbron), dus élke andere `t(...)`-aanroep in de app is
+ * compile-gecontroleerd. Een vrije string zou hier de enige plek maken waar een typefout in een
+ * sleutel pas in productie zichtbaar wordt — als een lege toast, precies het stille-falen-patroon
+ * dat bevinding K8 juist opruimt.
+ *
+ * Alle sleutels wonen in de `common`-namespace. Dat is geen toeval maar een eis: i18next's
+ * typings accepteren een unie van sleutels alleen binnen ÉÉN namespace (een `'task:...'`-vorm of
+ * een unie over twee namespaces typecheckt niet, zelf nagemeten). Daarom staat de
+ * tak-als-sjabloon-melding hier als `notifications.templateSaved` en niet als
+ * `task:structure.templateSaved` — dezelfde vertaalde tekst, in de namespace die het kanaal kan
+ * typeren. Een nieuwe melding zet zijn sleutel hier én in alle veertien `common.json`-bestanden.
+ */
+export type NotificationMessageKey =
+  | 'notifications.openFailed'
+  | 'notifications.saveFailed'
+  | 'notifications.autoSaveFailed'
+  | 'notifications.recoveryReadFailed'
+  | 'notifications.recoveryRestoreFailed'
+  | 'notifications.scheduleFailed'
+  | 'notifications.ifcParseFailed'
+  | 'notifications.templateSaved';
+
+export interface AppNotification {
+  /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */
+  id: string;
+  severity: NotificationSeverity;
+  /** i18n-sleutel; `NotificationHost` vertaalt hem. */
+  messageKey: NotificationMessageKey;
+  /** Interpolatie-parameters voor `t()`. */
+  params?: Record<string, string | number>;
+  /** Rauwe technische tekst (`err.message`) — BEWUST onvertaald. */
+  detail?: string;
+  /** Samenvouw-sleutel: een tweede melding met dezelfde sleutel wordt één regel met een teller. */
+  dedupeKey?: string;
+  /** Aantal samengevouwen voorkomens; 1 bij de eerste. */
+  count: number;
+}
+
+/** Wat een aanroeper meegeeft; `id` en `count` vult de store. */
+export type NotifyInput = Omit<AppNotification, 'id' | 'count'>;
+
 export interface UIState {
   showTaskDialog: boolean;
   editingTaskId: string | null;
@@ -250,6 +301,11 @@ export interface UIState {
   /** session — AI-activiteitenpaneel (T15) zichtbaar in de rechter-rail (patroon debugTerminalOpen).
    *  Wordt geforceerd dicht gezet als AI-modus uitgaat. */
   aiActivityOpen: boolean;
+  /** session — gebruikerszichtbare meldingen (bevinding K8): gecentraliseerde toast-stapel, gevoed
+   *  vanuit fileAccess/recovery/scheduler/IFC en gerenderd door `NotificationHost`. App-globaal
+   *  (niet per document): `UIState` wordt als geheel niet geswapt — `collapsedTaskIds` is de énige
+   *  uitzondering die per document meegaat, dus `documentContract.ts` blijft ongemoeid. */
+  notifications: AppNotification[];
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk

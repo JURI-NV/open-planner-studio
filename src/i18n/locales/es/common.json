@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Cerrar notificación",
+    "openFailed": "No se pudo abrir el archivo",
+    "saveFailed": "No se pudo guardar",
+    "autoSaveFailed": "Error de guardado automático",
+    "recoveryReadFailed": "No se pudo leer el archivo recuperado",
+    "recoveryRestoreFailed": "No se pudo restaurar",
+    "scheduleFailed": "No se pudo calcular la planificación",
+    "ifcParseFailed": "No se pudo leer el IFC",
+    "templateSaved": "Rama guardada como plantilla '{{name}}'"
+  },
   "yes": "Sí",
   "no": "No",
   "days": "d",

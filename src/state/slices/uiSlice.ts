@@ -1,4 +1,4 @@
-import type { UIState, AppSlice } from './types';
+import type { UIState, AppSlice, NotifyInput } from './types';
 import type { McpServerStatus } from '@/services/mcp/contracts';
 import { MCP_DEFAULT_PORT } from '@/utils/settingsStore';
 
@@ -25,7 +25,20 @@ export interface UiSlice {
   /** Meld dat een structuurmutatie geweigerd is omdat de weergave niet in pure boommodus staat
    *  (issue #26): hoogt de teller op zodat `StructureLockedNotice` (opnieuw) verschijnt. */
   notifyStructureLocked: () => void;
+  /** Toon een melding aan de gebruiker (bevinding K8). Met `dedupeKey` vouwt een herhaling
+   *  samen tot één regel met een teller — nodig omdat de auto-save herhaaldelijk kan falen en
+   *  anders meldingen zouden stapelen. Een `error` verdwijnt niet uit zichzelf (klik = weg). */
+  notify: (n: NotifyInput) => void;
+  dismissNotification: (id: string) => void;
 }
+
+/** Maximum aantal gelijktijdig zichtbare meldingen; bij overschrijding valt de oudste weg
+ *  (fouten voorrang op info, zie `notify`). */
+export const MAX_NOTIFICATIONS = 3;
+
+// Module-scope teller voor stabiele, deterministische id's. BEWUST géén Date.now()/Math.random():
+// de headless planning-suite (tests/planning) moet op de meldingen-volgorde kunnen asserteren.
+let notificationSeq = 0;
 
 export function createDefaultUI(): UIState {
   return {
@@ -117,6 +130,7 @@ export function createDefaultUI(): UIState {
     aiPaused: false,
     aiReadOnly: false,
     aiActivityOpen: false,
+    notifications: [],
   };
 }
 
@@ -165,6 +179,40 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
   // waar `StructureLockedNotice` op reageert.
   notifyStructureLocked: () =>
     set((s) => { s.ui.structureLockedNotice += 1; }),
+
+  notify: (n) =>
+    set((s) => {
+      // 1. Samenvouwen: bestaat er al een melding met dezelfde dedupeKey? Verhoog dan alleen de
+      //    teller en ververs de velden (laatste boodschap/fout zichtbaar), maar laat de POSITIE in
+      //    de stapel staan — anders springt de stapel bij elke herhaling op en neer.
+      if (n.dedupeKey) {
+        const existing = s.ui.notifications.find((x) => x.dedupeKey === n.dedupeKey);
+        if (existing) {
+          existing.count += 1;
+          existing.severity = n.severity;
+          existing.messageKey = n.messageKey;
+          existing.params = n.params;
+          existing.detail = n.detail;
+          return;
+        }
+      }
+      // 2. Nieuwe melding onderaan toevoegen.
+      s.ui.notifications.push({ ...n, id: `n${++notificationSeq}`, count: 1 });
+      // 3. Begrens op MAX_NOTIFICATIONS. Bij overschrijding verwijderen we bij VOORKEUR de oudste
+      //    `info`, en pas als die er niet is de oudste melding overall — een fout mag nooit door een
+      //    info verdrongen worden (de cyclus-/opslaafout is juist degene die moet blijven staan).
+      if (s.ui.notifications.length > MAX_NOTIFICATIONS) {
+        const idx = s.ui.notifications.findIndex((x) => x.severity === 'info');
+        if (idx >= 0) s.ui.notifications.splice(idx, 1);
+        else s.ui.notifications.shift();
+      }
+    }),
+
+  dismissNotification: (id) =>
+    set((s) => {
+      const idx = s.ui.notifications.findIndex((x) => x.id === id);
+      if (idx >= 0) s.ui.notifications.splice(idx, 1);
+    }),
 
   toggleCollapse: (taskId) => {
     set((s) => {

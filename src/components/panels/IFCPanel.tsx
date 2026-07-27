@@ -23,6 +23,7 @@ export function IFCPanel() {
   const loadState = useAppStore(s => s.loadState);
   const setViewStartDate = useAppStore(s => s.setViewStartDate);
   const runCPM = useAppStore(s => s.runCPM);
+  const notify = useAppStore(s => s.notify);  // bevinding K8 — alert() vervangen door het meldingenkanaal
 
   const generated = useMemo(() => {
     return writeIFC(buildWriteIFCInput({
@@ -51,9 +52,14 @@ export function IFCPanel() {
       runCPM();
       setDirty(false);
     } catch (err) {
-      alert(`IFC parse error: ${(err as Error).message}`);
+      // Bevinding K8: alert() (de énige in de hele repo) vervangen door het gecentraliseerde kanaal.
+      notify({
+        severity: 'error',
+        messageKey: 'notifications.ifcParseFailed',
+        detail: (err as Error).message,
+      });
     }
-  }, [content, loadState, setViewStartDate, runCPM]);
+  }, [content, loadState, setViewStartDate, runCPM, notify]);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(content);

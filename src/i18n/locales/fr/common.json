@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Fermer la notification",
+    "openFailed": "Échec de l'ouverture du fichier",
+    "saveFailed": "Échec de l'enregistrement",
+    "autoSaveFailed": "Échec de l'enregistrement automatique",
+    "recoveryReadFailed": "Le fichier récupéré n'a pas pu être lu",
+    "recoveryRestoreFailed": "Échec de la restauration",
+    "scheduleFailed": "Le planning n'a pas pu être calculé",
+    "ifcParseFailed": "IFC n'a pas pu être lu",
+    "templateSaved": "Branche enregistrée comme modèle '{{name}}'"
+  },
   "yes": "Oui",
   "no": "Non",
   "days": "j",

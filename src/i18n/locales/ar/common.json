@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "إغلاق الإشعار",
+    "openFailed": "تعذّر فتح الملف",
+    "saveFailed": "تعذّر الحفظ",
+    "autoSaveFailed": "فشل الحفظ التلقائي",
+    "recoveryReadFailed": "تعذّرت قراءة الملف المستعاد",
+    "recoveryRestoreFailed": "فشل الاستعادة",
+    "scheduleFailed": "تعذّر حساب الجدول الزمني",
+    "ifcParseFailed": "تعذّرت قراءة IFC",
+    "templateSaved": "تم حفظ الفرع كقالب '{{name}}'"
+  },
   "yes": "نعم",
   "no": "لا",
   "days": "ي",
