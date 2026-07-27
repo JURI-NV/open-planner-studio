@@ -98,10 +98,15 @@ interface DocumentRow {
  * Alle open documenten met hun verrijkte kop-gegevens (spec regel 90).
  *
  * Het "niet doorgerekend"-signaal komt uit `cpmResult == null` en NADRUKKELIJK niet uit
- * `scheduleStale`: een via crash-herstel teruggekomen document heeft `scheduleStale === false`
- * (verse payload) én `cpmResult === null` (alleen het actieve document wordt na herstel
- * doorgerekend). Op `scheduleStale` sturen zou zo'n document als "actueel" presenteren terwijl er
- * geen einddatum bestaat.
+ * `scheduleStale`. De twee vlaggen beantwoorden verschillende vragen: `scheduleStale` zegt of de
+ * uitkomst nog kán kloppen, `cpmResult == null` of er überhaupt een uitkomst ís. Een document dat
+ * verouderd is maar wél een `cpmResult` draagt, is doorgerekend — alleen niet meer actueel — en
+ * hoort dus géén "niet doorgerekend" te melden; er is immers een (verouderde) einddatum te tonen.
+ * Op `scheduleStale` sturen zou dat verwarren, in beide richtingen.
+ *
+ * (Sinds `5e4b85a` markeert `restoreDocuments` een via crash-herstel teruggekomen document bewust
+ * ALS verouderd; daarvóór was dat `scheduleStale === false` mét `cpmResult === null`. Die
+ * gedragswijziging raakt deze afleiding niet — juist omdat ze niet op `scheduleStale` leunt.)
  *
  * Titels komen uit `getOpenDocuments()` — dezelfde afleiding als de tabbladen (bestandsnaam zonder
  * extensie, anders projectnaam, anders "Naamloos"), zodat er één bron voor de titel blijft.
