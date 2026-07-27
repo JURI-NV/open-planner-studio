@@ -120,18 +120,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
 > Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
-> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil — maar de
-> eerste schuurt echt met wat een gebruiker verwacht.
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil. De
+> eerste bleek bij nadere inspectie al opgelost (zie hieronder); de resterende twee staan nog open.
 
-- [ ] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.**
-      `ifcReader.extractCalendarLibrary` bouwt de bibliotheek uitsluitend uit
-      `IFCRELASSIGNSTOCONTROL`-relaties, dus een kalender waar niets aan hangt heeft geen enkel
-      spoor in het bestand en is na een round-trip weg. Dat raakt precies het overzet-scenario:
-      kalender overzetten naar een leeg document → opslaan → weg. **Voorafbestaand gedrag, geen
-      regressie** van het MCP-werk. Niet gerepareerd omdat het een ingreep in de IFC-leeslaag is
-      met gedragsrisico voor vreemde bestanden; een eigen `OPS_Calendars`-pset (naar het model van
-      `OPS_Baselines`) is de voor de hand liggende route, mét terugval op de bestaande
-      relatie-afleiding voor bestanden van derden.
+- [x] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.** *(achterhaald,
+      opgelost door de A2-fix, geverifieerd 2026-07-27)* Dit was voorafbestaand gedrag (`ifcReader.
+      extractCalendarLibrary` bouwde de bibliotheek uitsluitend uit `IFCRELASSIGNSTOCONTROL`-
+      relaties), maar B1.1 heeft de beperking al opgeheven: de A2-fix in `extractCalendarLibrary`
+      vangt nu ook alle overige `IFCWORKCALENDAR`-entiteiten op (behalve de projectkalender) die
+      geen relatie hebben — nodig omdat een naar de bibliotheek gepromote kalender anders zijn
+      `libraryOrigin`-stempel verloor. Empirisch bevestigd met een write→read round-trip van een
+      project met een kalender zonder enige taak/resource-koppeling: de kalender komt terug met
+      naam en uren intact.
 - [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
       werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
       een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook
