@@ -19,7 +19,8 @@ export const TOOL_PREFIX = 'planner_';
 //   import { readTools } from './tools/read';
 //   const MODULES: McpToolDef[][] = [readTools, mutateTools, documentTools, batchTools];
 import { taskTools } from './tools/taskTools';
-const MODULES: McpToolDef[][] = [taskTools];
+import { calendarResourceTools } from './tools/calendarResourceTools';
+const MODULES: McpToolDef[][] = [taskTools, calendarResourceTools];
 
 let flatTools: McpToolDef[] = [];
 let toolsByName = new Map<string, McpToolDef>();

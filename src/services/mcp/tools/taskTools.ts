@@ -9,15 +9,15 @@
 //
 // `undo`/`redo`/`run_cpm` lopen NIET via de transactie (ze beheren hun eigen undo-stack, resp. zijn
 // een pure herberekening) maar wél via dezelfde guards (`guardNonTransactional`).
-import type { McpContext, McpToolDef, McpToolOk, McpToolResult } from '../contracts';
+import type { McpToolDef, McpToolOk, McpToolResult } from '../contracts';
 import {
-  buildEnvelope,
   guardNonTransactional,
   McpStepError,
   runMutateTool,
   toolError,
   type MutationOutcome,
 } from './runtime';
+import { enrichOk, freshDates, okDirect, okEnvelope, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { draft, type BulkTaskItem } from '@/state/mcpTransaction';
 import { validate, progress } from '@/state/mcpValidation';
@@ -28,58 +28,8 @@ const isSeqType = (v: unknown): v is SequenceType => typeof v === 'string' && (S
 
 const STD_ANNOT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
-// --- gedeelde helpers ----------------------------------------------------------------------------
-
-/** Envelop voor de niet-transactionele tools (undo/redo/run_cpm): store-envelop + context-vlaggen. */
-function okEnvelope(ctx: McpContext) {
-  const env = buildEnvelope();
-  env.paused = ctx.paused;
-  env.readOnly = ctx.readOnly;
-  return env;
-}
-
-/** Herrekende datums per taak (na de eind-runCPM uit de store gelezen). */
-function freshDates(ids: string[]): { id: string; earlyStart: string; earlyFinish: string }[] {
-  const tasks = useAppStore.getState().tasks;
-  return ids.map((id) => {
-    const t = tasks.find((x) => x.id === id);
-    return { id, earlyStart: t?.time.earlyStart ?? '', earlyFinish: t?.time.earlyFinish ?? '' };
-  });
-}
-
-/** Projecteinde + optioneel de capped-taken (onwerkbaar-venster-signaal) uit het verse cpmResult. */
-function projectEndInfo(): { projectEnd: string; cappedTaskIds?: string[] } {
-  const cpm = useAppStore.getState().cpmResult;
-  const cappedTaskIds = cpm?.cappedTaskIds && cpm.cappedTaskIds.length > 0 ? cpm.cappedTaskIds : undefined;
-  return { projectEnd: cpm?.projectEnd ?? '', ...(cappedTaskIds ? { cappedTaskIds } : {}) };
-}
-
-/** Vervang de `data` van een geslaagd resultaat door een verrijkte payload (post-transactie gelezen). */
-function enrichOk(res: McpToolResult, build: () => unknown): McpToolResult {
-  if (res.ok) (res as McpToolOk).data = build();
-  return res;
-}
-
-/**
- * Directe Ok-respons ZONDER transactie (lege-batch-snelpad, reviewfix Issue 2). Wordt gebruikt wanneer
- * een muterende bulk-call statisch nul uitvoerbare items heeft (bv. delete_tasks met enkel onbekende
- * id's): dan mag er géén `runInMcpTransaction` draaien — dat zou een spurious undo-snapshot pushen én
- * de redo-stack van de user wissen door een AI-no-op. Envelop + context-vlaggen via `okEnvelope`; de
- * effect-data is leeg en `projectEnd` weerspiegelt de (ongewijzigde) huidige planning.
- */
-function okDirect(
-  ctx: McpContext,
-  data: unknown,
-  rejections: { id: string; reason: string }[],
-): McpToolResult {
-  const ok: McpToolOk = {
-    ok: true,
-    envelope: okEnvelope(ctx),
-    data,
-    ...(rejections.length > 0 ? { itemRejections: rejections } : {}),
-  };
-  return ok;
-}
+// De gedeelde post-transactie-helpers (okEnvelope/freshDates/projectEndInfo/enrichOk/okDirect) staan
+// sinds T20 in `./helpers.ts` — dezelfde conventie geldt voor de kalender-/resource-tools.
 
 // =================================================================================================
 // planner_add_tasks
