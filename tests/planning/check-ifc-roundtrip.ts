@@ -123,6 +123,9 @@ const _CALENDAR_FIELD_WITNESS = {
   generation: PROJ_GEN, shift: 'FIRST',
   workTime: { byWeekday: { 1: [{ start: 480, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
 } satisfies Required<WorkCalendar>;
+// `void`: de getuige bestaat puur op typeniveau, maar telt zo ook onder `noUnusedLocals` als
+// gebruikt (tsconfig.tests.json checkt dit bestand mét die vlag).
+void _CALENDAR_FIELD_WITNESS;
 
 // ── Structuurdefinities (round-trippen verliesloos via OPS_StructureMeta-JSON, incl. ids/kleuren) ─
 const activityCodeTypes = [
@@ -180,12 +183,15 @@ const TM = {
   },
   constraint: { type: 'MSO', date: '2026-07-15', hard: true },
   constraint2: { type: 'FNLT', date: '2026-07-20' },
+  // `satisfies Required<ExternalLink>`: dezelfde volledigheids-afdwinging als de andere getuigen in
+  // dit bestand — een nieuw veld op ExternalLink geeft hier een compile-fout i.p.v. stil buiten de
+  // round-trip te vallen. (De `ExternalLink`-import stond er al, maar werd nergens gebruikt.)
   externalLinks: [{
     id: 'e1', direction: 'predecessor', relType: 'FS', lagDays: 2, lagMinutes: 120,
     anchorDate: '2026-07-01',
     sourceRef: { projectId: 'p2', projectName: 'Ander project', taskId: 't9', taskName: 'Levering', filePath: '/x/ander.ifc' },
     sourceMissing: false,
-  }],
+  } satisfies Required<ExternalLink>],
   deadline: '2026-07-22',
   calendarId: 'libcal',
   notes: [{ id: 'n1', text: 'Keuring', done: true }, { id: 'n2', text: 'Sleuteloverdracht', done: false }],
@@ -231,6 +237,7 @@ const _SEQUENCE_FIELD_WITNESS = {
   id: 'w', predecessorId: 'a', successorId: 'b', type: 'FINISH_START',
   lagDays: 1, lagMinutes: 60, lagUnit: 'WORKTIME', lagPercent: 25,
 } satisfies Required<Sequence>;
+void _SEQUENCE_FIELD_WITNESS;
 
 // ── Resources: alle types + ploeg-nesting + capaciteit/tarief/eenheid/tijd-gefaseerd ─────────────
 const RCrew: Resource = { id: 'r-crew', name: 'Ploeg Alpha', type: 'CREW', description: 'Hoofdploeg', maxUnits: 1 };

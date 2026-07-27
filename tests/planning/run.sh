@@ -61,6 +61,46 @@ bundle_check "$DIR/harness.ts" "$OUT" || HARNESS_OK=0
 # $OUT hoort niet in BUNDLES: de tijdzone-matrix draait hem apart, mét "${FILES[@]}".
 if [ "$HARNESS_OK" -eq 1 ]; then unset 'BUNDLES[-1]'; fi
 
+# ── Batterij-inventaris (bevinding K10b) ───────────────────────────────────────────────────────
+# De casus-bestanden worden geglobd. Een batterij die bij een rebase/merge/verkeerde `git checkout`
+# verdwijnt, verdwijnt daarmee STIL: de run blijft groen, alleen met een lager totaal — en niemand
+# kent het totaal uit zijn hoofd. Daarom een EXPLICIETE lijst, in beide richtingen gecontroleerd:
+# een ontbrekend bestand is rood, en een nieuw bestand dat hier niet staat óók (anders loopt de
+# lijst stil achter en bewaakt hij niets meer). Nieuwe batterij ⇒ naam hieronder bijzetten.
+EXPECTED_BATTERIES=(
+  advanced-cpm baselines boundary calendar calibration constraints driving edge float
+  hours hours-relations kalenders lag-advanced milestone-kinds milestones move-project
+  probes progress relations resource-leveling resource-load view
+)
+
+check_batteries () {
+  local f base b missing=() unexpected=()
+  local -A want=() have=()
+  for b in "${EXPECTED_BATTERIES[@]}"; do want[$b]=1; done
+  for f in "$DIR"/cases-*.json; do
+    base="$(basename "$f")"; base="${base#cases-}"; base="${base%.json}"
+    have[$base]=1
+    if [ -z "${want[$base]:-}" ]; then unexpected+=("$base"); fi
+  done
+  for b in "${EXPECTED_BATTERIES[@]}"; do
+    if [ -z "${have[$b]:-}" ]; then missing+=("$b"); fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "XX  batterij-inventaris: ONTBREEKT ${#missing[@]} bestand(en): ${missing[*]}"
+    echo "    (verwacht tests/planning/cases-<naam>.json — verdwenen bij een rebase/checkout?)"
+    STATUS=1
+  fi
+  if [ "${#unexpected[@]}" -gt 0 ]; then
+    echo "XX  batterij-inventaris: ${#unexpected[@]} batterij(en) niet in EXPECTED_BATTERIES: ${unexpected[*]}"
+    echo "    (nieuwe batterij? zet de naam bij in EXPECTED_BATTERIES bovenin dit script)"
+    STATUS=1
+  fi
+  if [ "${#missing[@]}" -eq 0 ] && [ "${#unexpected[@]}" -eq 0 ]; then
+    echo "OK  batterij-inventaris: ${#EXPECTED_BATTERIES[@]}/${#EXPECTED_BATTERIES[@]} casusbestanden aanwezig"
+  fi
+}
+check_batteries
+
 if [ "$#" -gt 0 ]; then
   FILES=()
   for f in "$@"; do FILES+=("$DIR/$f"); done

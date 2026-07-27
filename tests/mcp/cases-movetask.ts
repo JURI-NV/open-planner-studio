@@ -98,8 +98,8 @@ test('positie midden ⇒ WBS klopt ondanks kleinkind tussen de siblings in de ar
 test('out-of-range positie klemt (te hoog ⇒ achteraan, negatief ⇒ vooraan)', () => {
   reset();
   const p = add('P');
-  const a = add('A', p);
-  const b = add('B', p);
+  add('A', p);   // siblings onder P; alleen hun bestaan telt voor de klem-grenzen
+  add('B', p);
   const x = add('X');
   const y = add('Y');
 

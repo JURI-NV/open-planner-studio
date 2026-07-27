@@ -133,6 +133,9 @@ test('draft.addCalendar voegt toe, draft.updateCalendar synct de projectkalender
   });
   assert(res1.ok, 'addCalendar-transactie hoort te slagen');
   assertEq(store.getState().calendars.length, beforeCount + 1, 'de bibliotheek hoort met 1 te groeien');
+  // De teruggegeven id moet ook echt de nieuwe entry aanwijzen (stond wel in een variabele, maar
+  // werd nergens gecontroleerd).
+  assertEq(store.getState().calendars.find((c) => c.id === newCalId)?.name, 'Extra kalender', 'de teruggegeven id hoort de nieuwe bibliotheek-entry aan te wijzen');
   // s.calendar blijft de cache van de projectkalender (die is niet gewijzigd).
   const projEntryA = store.getState().calendars.find((c) => c.id === projCalId);
   assertEq(JSON.stringify(store.getState().calendar), JSON.stringify(projEntryA), 's.calendar hoort consistent met de projectkalender-entry te blijven');

@@ -67,7 +67,9 @@ const moveProjectOf = (loc: string) =>
 // ── 1. Structuur: exact de categorieën die de taal volgens CLDR kent ──────────
 for (const loc of Object.keys(LOCALES)) {
   const mp = moveProjectOf(loc);
-  const expected = new Set(new Intl.PluralRules(loc).resolvedOptions().pluralCategories);
+  // Expliciet Set<string>: `pluralCategories` is `LDMLPluralRule[]`, maar we vergelijken hem met
+  // vrije sleutel-achtervoegsels uit de vertaalbestanden (gewone strings).
+  const expected = new Set<string>(new Intl.PluralRules(loc).resolvedOptions().pluralCategories);
 
   for (const key of PLURAL_KEYS) {
     checks++;

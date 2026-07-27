@@ -290,7 +290,7 @@ test('K7: een ongeldige endDate-vorm wordt geweigerd; lege string wist hem', asy
 /** Klein project met één overbelaste resource, zodat nivelleren daadwerkelijk iets doet. */
 function overloadedProject(): void {
   cleanProject([]);
-  const r = S().addResource({ name: 'Ploeg', type: 'LABOR', maxUnits: 1 });
+  const r = S().addResource({ name: 'Ploeg', type: 'LABOR', description: '', maxUnits: 1 });
   const a = S().addTask({ name: 'A' });
   const b = S().addTask({ name: 'B' });
   for (const id of [a, b]) {

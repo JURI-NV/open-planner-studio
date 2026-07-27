@@ -37,7 +37,7 @@ const setDur = (id: string, d: number) => {
   S().updateTask(id, { time: { ...t.time, scheduleDuration: d } });
 };
 setDur(a, 5); setDur(b, 5);
-S().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lag: 0 });
+S().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
 S().runCPM();
 const bNa1 = S().tasks.find(t => t.id === b)?.time.earlyStart;
 truthy('1 opzet: B heeft een berekende startdatum', !!bNa1);
@@ -58,8 +58,8 @@ truthy('5 B is opgeschoven door de langere voorganger', bNaExport !== bVoorExpor
 S().newProject();
 const c1 = S().addTask({ name: 'C1' });
 const c2 = S().addTask({ name: 'C2' });
-S().addSequence({ predecessorId: c1, successorId: c2, type: 'FINISH_START', lag: 0 });
-S().addSequence({ predecessorId: c2, successorId: c1, type: 'FINISH_START', lag: 0 });
+S().addSequence({ predecessorId: c1, successorId: c2, type: 'FINISH_START', lagDays: 0 });
+S().addSequence({ predecessorId: c2, successorId: c1, type: 'FINISH_START', lagDays: 0 });
 S().runCPM();
 truthy('6 opzet: de solver meldt een cyclus', !!S().cpmResult?.error);
 // Dit is de kern: na de cyclus is scheduleStale SCHOON, dus een guard op alleen die vlag

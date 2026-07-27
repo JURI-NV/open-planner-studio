@@ -64,6 +64,13 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # scripts/ en tests/ vallen buiten `include: ["src"]` van de hoofd-tsconfig en draaien via
+      # esbuild, dat types STRIPT zonder ze te controleren (bevinding K10b). Zonder deze stap wordt
+      # ~19k regels TypeScript — inclusief de CI-blokkerende verify-docs/verify-examples en de hele
+      # testharnas — nooit getypecheckt.
+      - name: Typecheck scripts/ en tests/
+        run: npx tsc --noEmit -p tsconfig.tests.json
+
       - name: Run planning/CPM regression suite
         run: bash tests/planning/run.sh
 

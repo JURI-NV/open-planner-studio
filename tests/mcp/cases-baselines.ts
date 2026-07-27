@@ -496,9 +496,11 @@ test('16. vier baselinetools: prefix, description, vier annotaties, batch-kern w
   for (const t of baselineTools) {
     assert(t.name.startsWith('planner_'), `${t.name}: prefix`);
     assert(t.description.trim().length > 40, `${t.name}: een description waarop de AI kan kiezen`);
-    const a = t.annotations as Record<string, unknown>;
-    for (const k of ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint']) {
-      assertEq(typeof a[k], 'boolean', `${t.name}: annotatie ${k}`);
+    // Sleutel-lijst `as const` ⇒ indexeert `McpToolAnnotations` rechtstreeks; de oude cast naar
+    // `Record<string, unknown>` was onmogelijk (geen index-signatuur) en verloor bovendien de
+    // koppeling met het type: een hernoemde hint zou hier stil als `undefined` doorlopen.
+    for (const k of ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint'] as const) {
+      assertEq(typeof t.annotations[k], 'boolean', `${t.name}: annotatie ${k}`);
     }
     assertEq(t.batchable, true, `${t.name}: batchable`);
     assert(!!getTool(t.name), `${t.name} is geregistreerd`);

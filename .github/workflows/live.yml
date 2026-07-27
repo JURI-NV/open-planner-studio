@@ -40,6 +40,11 @@ jobs:
       - name: TypeScript-check (tsc --noEmit)
         run: npx tsc --noEmit
 
+      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
+      # draaien via esbuild, dat types strip zonder controle.
+      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
+        run: npx tsc --noEmit -p tsconfig.tests.json
+
       - name: CPM/kalender-regressiesuite
         run: bash tests/planning/run.sh
 

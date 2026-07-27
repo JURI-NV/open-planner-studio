@@ -81,7 +81,7 @@ S().setFilePath('/tmp/doc1.ifc');       // filePath (+ isDirty al true door de m
 const expected = flat(capturePayload(S()));
 
 // Open document 2 (vers). newDocument bewaart doc1 in de registry en hydrateert een verse payload.
-const doc2Id = S().newDocument();
+S().newDocument();   // id niet nodig: doc2 is hierna gewoon het actieve document
 const doc2 = flat(capturePayload(S()));
 
 // (a1) Geen lek naar document 2: elk veld dat we in doc1 afwijkend zetten, mag in doc2 niet opduiken.
@@ -202,7 +202,7 @@ const mkInput = (id: string, name: string): RecoveryDocInput => ({
   // net als élk ander laadpad. Een stub zónder `time` was een via `as unknown` langs het
   // typesysteem geforceerd, ongeldig Task-object — echte recovery-documenten komen uit de
   // IFC-parser en hebben altijd een volledig `time`. De stub loopt nu gewoon door de solver.
-  tasks: [{ id: `task-${id}`, name: `Taak ${name}`, parentId: null, childIds: [], time: createDefaultTaskTime('2031-01-01') } as unknown as Task],
+  tasks: [{ id: `task-${id}`, name: `Taak ${name}`, parentId: null, childIds: [], time: createDefaultTaskTime('2031-01-01', 1) } as unknown as Task],
   sequences: [],
   resources: [],
   assignments: [],
@@ -266,7 +266,7 @@ S().newProject();
 S().setProject({ name: 'K3-project', startDate: '2031-03-03' });
 const kT1 = S().addTask({ name: 'K3 A' });
 const kT2 = S().addTask({ name: 'K3 B' });
-S().addSequence({ predecessorId: kT1, successorId: kT2, type: 'FINISH_START' });
+S().addSequence({ predecessorId: kT1, successorId: kT2, type: 'FINISH_START', lagDays: 0 });
 S().runCPM();
 S().saveBaseline('K3-nulmeting');
 // Momentopname vóór de round-trip; taak-id's worden bij het inlezen opnieuw gegenereerd (en de
@@ -374,9 +374,9 @@ const gB = S().addTask({ name: 'GB' });
 const gBase = S().undoStack.length;
 S().updateTask('bestaat-niet', { name: 'X' }); // afgewezen: onbekend id
 eq('g updateTask(onbekend id): geen loze undo-snapshot', S().undoStack.length, gBase);
-S().addSequence({ predecessorId: gA, successorId: gB, type: 'FINISH_START' }); // geldig
+S().addSequence({ predecessorId: gA, successorId: gB, type: 'FINISH_START', lagDays: 0 }); // geldig
 eq('g addSequence geldig: undo +1', S().undoStack.length, gBase + 1);
-S().addSequence({ predecessorId: gA, successorId: gB, type: 'FINISH_START' }); // exact duplicaat
+S().addSequence({ predecessorId: gA, successorId: gB, type: 'FINISH_START', lagDays: 0 }); // exact duplicaat
 eq('g addSequence(duplicaat): geen loze undo-snapshot', S().undoStack.length, gBase + 1);
 // Geldige mutatie ná een afgewezen: één undo herstelt direct de juiste staat (geen no-op-stap).
 S().updateTask(gA, { name: 'GA2' });
@@ -591,7 +591,11 @@ eq('h6b undo laat de eerdere taakbewerking staan', S().tasks.find(t => t.id === 
 // NIET de projectdefault, waarna `syncProjectCalendar` de cache op de verkeerde kalender zette.
 S().newProject();
 const hRcOldId = S().project.calendarId;
-const hRcExtra = S().addCalendar({ ...createDefaultCalendar(), id: 'cal-extra', name: 'Extra' });
+// Geen eigen `id` meegeven: `addCalendar` neemt `Omit<WorkCalendar, 'id'>` en genereert er zelf
+// een (de teruggegeven `hRcExtra`) — de meegegeven 'cal-extra' werd dus sowieso weggegooid.
+const { id: _hRcTemplateId, ...hRcTemplate } = createDefaultCalendar();
+void _hRcTemplateId;
+const hRcExtra = S().addCalendar({ ...hRcTemplate, name: 'Extra' });
 S().removeCalendar(hRcOldId);                       // verwijdert de PROJECTDEFAULT
 eq('h7 na removeCalendar: projectdefault viel terug op de fallback', S().project.calendarId, hRcExtra);
 S().undo();

@@ -167,7 +167,7 @@ test('list_tasks zonder_relaties: vindt precies de leaf-wezen (geen verzameltake
   // Twee gelinkte leaves (P→Q) + één losse leaf (WEES) + een verzameltaak met kind (geen relatie).
   const p = S().addTask({ name: 'P', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
   const q = S().addTask({ name: 'Q', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
-  const orphan = S().addTask({ name: 'WEES', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
+  S().addTask({ name: 'WEES', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
   const parent = S().addTask({ name: 'PARENT', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 1) });
   S().addTask({ name: 'KIND', isMilestone: false, parentId: parent, time: createDefaultTaskTime('2026-06-01', 1) });
   S().addSequence({ predecessorId: p, successorId: q, type: 'FINISH_START', lagDays: 0 });

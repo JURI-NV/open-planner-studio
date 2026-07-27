@@ -177,7 +177,7 @@ test('delete_tasks: verwijdert bestaande, onbekend id ⇒ zachte weigering', asy
 test('move_task: verplaatst taak onder nieuwe ouder op positie', async () => {
   reset();
   const p = store.getState().addTask({ name: 'P' });
-  const a = store.getState().addTask({ name: 'A', parentId: p });
+  store.getState().addTask({ name: 'A', parentId: p }); // zittend kind van P; id niet nodig
   const x = store.getState().addTask({ name: 'X' }); // losse root
   const ctx = makeCtx();
   const res = await call('planner_move_task', { id: x, newParentId: p, position: 0 }, ctx);
