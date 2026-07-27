@@ -284,6 +284,7 @@
     "importActionAdd": "Add as new resource library",
     "importAsNewPreview": "Will be added as “{{name}}”.",
     "importAsNewCopyHint": "This library is already known locally (same id) — this will become a separate copy alongside it.",
+    "importAsNewFreshIdentityHint": "This library will get its own, new identity locally.",
     "importActionReplace": "Replace an existing resource library",
     "importReplaces": "Importing replaces the ENTIRE pool of the selected resource library.",
     "importConfirm": "Replace",

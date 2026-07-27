@@ -283,6 +283,7 @@
     "importActionAdd": "新しいリソースライブラリとして追加",
     "importAsNewPreview": "「{{name}}」として追加されます。",
     "importAsNewCopyHint": "このライブラリはローカルに既に存在します（同じID）— 別のコピーとして追加されます。",
+    "importAsNewFreshIdentityHint": "このライブラリはこの端末で独自の新しい識別情報を持ちます。",
     "importActionReplace": "既存のリソースライブラリを置き換える",
     "importReplaces": "インポートすると、選択したリソースライブラリのプール全体が置き換えられます。",
     "importConfirm": "置き換える",

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, X } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
-import { readPoolIFC, resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, resolvePoolImportPreselection } from '@/services/library';
+import { readPoolIFC, resolveUniqueCompanyName, resolvePoolImportPreselection, classifyPoolImportIdentityHint } from '@/services/library';
 import { openFileDialog } from '@/services/fileAccess';
 import { Dialog } from '@/components/common/Dialog';
 import type { CompanyPool } from '@/types/library';
@@ -107,12 +107,16 @@ export function PoolImportDialog() {
   // Demping-waarschuwing hoort UITSLUITEND bij "vervangen" — "toevoegen" overschrijft nooit iets.
   const newer = imported && action === 'replace' ? isLocalPoolNewer(companyId, imported) : false;
   const newCompanyName = imported ? resolveUniqueCompanyName(imported.companyName, companies.map(c => c.name)) : '';
-  // "Wordt een aparte kopie"-hint: waar (a) is het bestand-id al lokaal aanwezig, ÓF (b) is het een
-  // reserved/onveilig id (critreview F1/F2) — in beide gevallen mint `importPoolAsNewCompany` altijd
-  // een vers id, dus verdient de gebruiker dezelfde uitleg.
-  const idCollision = imported
-    ? (companies.some(c => c.id === imported.companyId) || isReservedCompanyId(imported.companyId) || !isSafeFileCompanyId(imported.companyId))
-    : false;
+  // Twee verschillende redenen waarom "toevoegen" een VERS id mint — met elk hun EIGEN, feitelijk
+  // kloppende hint (critreview-herkeuring, issue #19: de vorige, ene `idCollision` overkoepelde beide
+  // gevallen en beweerde dan bij het tweede geval iets dat niet klopt). Gedelegeerd aan de PURE,
+  // headless-testbare `classifyPoolImportIdentityHint` (spiegelt `resolvePoolImportPreselection`):
+  // 'collision' = een ECHTE botsing (gewoon, niet-reserved/veilig id, lokaal al bekend) ⇒ "deze
+  // bibliotheek is al lokaal bekend, wordt een aparte kopie"; 'fresh-identity' = een RESERVED of
+  // onveilig id (DEFAULT_COMPANY_ID/DEMO_COMPANY_ID/"__proto__" e.d.) ⇒ geen garantie dat de
+  // bibliotheek al lokaal bekend is (bijv. de demo-bibliotheek kan hier nog nooit geseed zijn) — een
+  // neutrale hint die niets beweert over lokale bekendheid.
+  const identityHint = imported ? classifyPoolImportIdentityHint(imported.companyId, companies) : 'none';
 
   const confirm = () => {
     if (imported) {
@@ -175,7 +179,8 @@ export function PoolImportDialog() {
                 <span className="flex flex-col gap-0.5">
                   <span className="font-medium">{t('companyLibrary.importActionAdd')}</span>
                   <span className="text-text-secondary">{t('companyLibrary.importAsNewPreview', { name: newCompanyName })}</span>
-                  {idCollision && <span className="text-text-secondary">{t('companyLibrary.importAsNewCopyHint')}</span>}
+                  {identityHint === 'collision' && <span className="text-text-secondary">{t('companyLibrary.importAsNewCopyHint')}</span>}
+                  {identityHint === 'fresh-identity' && <span className="text-text-secondary">{t('companyLibrary.importAsNewFreshIdentityHint')}</span>}
                 </span>
               </label>
 

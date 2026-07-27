@@ -284,6 +284,7 @@
     "importActionAdd": "Toevoegen als nieuwe resourcebibliotheek",
     "importAsNewPreview": "Wordt toegevoegd als “{{name}}”.",
     "importAsNewCopyHint": "Deze bibliotheek staat al lokaal bekend (zelfde id) — dit wordt een aparte kopie ernaast.",
+    "importAsNewFreshIdentityHint": "Deze bibliotheek krijgt lokaal een eigen, nieuwe identiteit.",
     "importActionReplace": "Een bestaande resourcebibliotheek vervangen",
     "importReplaces": "Importeren vervangt de HELE pool van de gekozen resourcebibliotheek.",
     "importConfirm": "Vervangen",

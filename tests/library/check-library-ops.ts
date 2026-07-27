@@ -8,6 +8,7 @@ import {
   normalizeName, matchByName,
   classifyCalendarOnOpen, classifyResourceOnOpen,
   resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, resolvePoolImportPreselection,
+  classifyPoolImportIdentityHint,
 } from '@/services/library/libraryOps';
 import { DEFAULT_COMPANY_ID } from '@/types/library';
 import { DEMO_COMPANY_ID } from '@/services/library/demoLibrary';
@@ -485,6 +486,55 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   };
   const roundtrippedPreselection = resolvePoolImportPreselection(poolWithDefaultId.companyId, localCompanies);
   assert(roundtrippedPreselection.action === 'add', 'resolvePoolImportPreselection [F1, reviewer-reproductie]: een export van andermans DEFAULT_COMPANY_ID-bibliotheek selecteert bij de ontvanger "toevoegen", NOOIT "vervangen" op zijn eigen bibliotheek');
+}
+
+// --- classifyPoolImportIdentityHint (issue #19, critreview-herkeuring): onderscheidt de TWEE
+// redenen waarom "toevoegen" een vers id mint, elk met hun eigen feitelijk kloppende hint. De vorige,
+// ene `idCollision`-conditie overkoepelde beide gevallen en beweerde bij het tweede geval ("reserved
+// id") iets dat niet klopt: "deze bibliotheek is al lokaal bekend" — terwijl een reserved id (bv. het
+// demo-id vóórdat de demo-bibliotheek ooit geseed is) juist NIET lokaal bekend hoeft te zijn. ---
+{
+  const localCompanies = [{ id: DEFAULT_COMPANY_ID }, { id: 'company-eigen-2' }];
+
+  // 'collision': een gewoon (niet-reserved, veilig) id dat lokaal AL bestaat.
+  assert(
+    classifyPoolImportIdentityHint('company-eigen-2', localCompanies) === 'collision',
+    'classifyPoolImportIdentityHint: gewoon matchend id ⇒ "collision" (aantoonbaar al lokaal bekend)',
+  );
+
+  // 'none': een gewoon, nog onbekend id ⇒ geen hint nodig.
+  assert(
+    classifyPoolImportIdentityHint('company-onbekend-elders', localCompanies) === 'none',
+    'classifyPoolImportIdentityHint: geen match, niet reserved/onveilig ⇒ "none"',
+  );
+
+  // [DE HERKEURING] DEFAULT_COMPANY_ID bestaat hier lokaal, MAAR is reserved ⇒ 'fresh-identity', NIET
+  // 'collision' — de reserved-check wint altijd van de toevallige lokale botsing (spiegelt de
+  // voorrangsorde in resolvePoolImportPreselection/importPoolAsNewCompany).
+  assert(
+    classifyPoolImportIdentityHint(DEFAULT_COMPANY_ID, localCompanies) === 'fresh-identity',
+    'classifyPoolImportIdentityHint [DE FIX]: DEFAULT_COMPANY_ID ⇒ "fresh-identity", nooit "collision" — ook al bestaat het lokaal',
+  );
+
+  // [HET SCENARIO DAT DE OUDE TEKST ONWAAR MAAKTE] DEMO_COMPANY_ID bestaat hier lokaal NOG NIET (de
+  // demo-bibliotheek is nooit geseed) — "collision" zou hier een ronduit foute bewering zijn ("al
+  // lokaal bekend" terwijl dat niet zo is). "fresh-identity" is de enige feitelijk juiste hint.
+  assert(
+    !localCompanies.some((c) => c.id === DEMO_COMPANY_ID),
+    'setup: de demo-bibliotheek bestaat in dit scenario lokaal nog niet',
+  );
+  assert(
+    classifyPoolImportIdentityHint(DEMO_COMPANY_ID, localCompanies) === 'fresh-identity',
+    'classifyPoolImportIdentityHint [DE FIX]: DEMO_COMPANY_ID zonder lokale demo-bibliotheek ⇒ "fresh-identity", NIET "collision" (die bewering zou onwaar zijn)',
+  );
+
+  // Onveilig id ⇒ 'fresh-identity', ook al zou een lokaal bedrijf toevallig hetzelfde (onveilige) id
+  // dragen (theoretisch — onveilige ids kunnen normaal niet lokaal bestaan, maar de voorrangsorde
+  // moet dit hoe dan ook nooit als 'collision' classificeren).
+  assert(
+    classifyPoolImportIdentityHint('__proto__', [{ id: '__proto__' }]) === 'fresh-identity',
+    'classifyPoolImportIdentityHint: onveilig id ("__proto__") ⇒ "fresh-identity", nooit "collision"',
+  );
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);

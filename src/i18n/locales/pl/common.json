@@ -286,6 +286,7 @@
     "importActionAdd": "Dodaj jako nową bibliotekę zasobów",
     "importAsNewPreview": "Zostanie dodana jako „{{name}}”.",
     "importAsNewCopyHint": "Ta biblioteka jest już znana lokalnie (ten sam identyfikator) — powstanie osobna kopia obok niej.",
+    "importAsNewFreshIdentityHint": "Ta biblioteka otrzyma lokalnie własną, nową tożsamość.",
     "importActionReplace": "Zastąp istniejącą bibliotekę zasobów",
     "importReplaces": "Import zastępuje CAŁĄ pulę wybranej biblioteki zasobów.",
     "importConfirm": "Zastąp",

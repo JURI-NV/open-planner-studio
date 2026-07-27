@@ -283,6 +283,7 @@
     "importActionAdd": "添加为新的资源库",
     "importAsNewPreview": "将添加为“{{name}}”。",
     "importAsNewCopyHint": "本地已存在此库（相同 id）——这将作为单独的副本添加。",
+    "importAsNewFreshIdentityHint": "此库将在本地获得自己的全新身份。",
     "importActionReplace": "替换现有资源库",
     "importReplaces": "导入将替换所选资源库的整个资源池。",
     "importConfirm": "替换",

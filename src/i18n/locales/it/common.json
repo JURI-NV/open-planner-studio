@@ -284,6 +284,7 @@
     "importActionAdd": "Aggiungi come nuova libreria di risorse",
     "importAsNewPreview": "Verrà aggiunta come “{{name}}”.",
     "importAsNewCopyHint": "Questa libreria è già nota localmente (stesso id) — diventerà una copia separata accanto ad essa.",
+    "importAsNewFreshIdentityHint": "Questa libreria otterrà localmente una propria, nuova identità.",
     "importActionReplace": "Sostituisci una libreria di risorse esistente",
     "importReplaces": "L'importazione sostituisce l'INTERO pool della libreria di risorse selezionata.",
     "importConfirm": "Sostituisci",

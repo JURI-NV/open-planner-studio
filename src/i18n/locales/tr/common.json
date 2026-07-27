@@ -284,6 +284,7 @@
     "importActionAdd": "Yeni kaynak kitaplığı olarak ekle",
     "importAsNewPreview": "“{{name}}” olarak eklenecek.",
     "importAsNewCopyHint": "Bu kitaplık yerelde zaten biliniyor (aynı kimlik) — bunun yanına ayrı bir kopya olarak eklenecek.",
+    "importAsNewFreshIdentityHint": "Bu kitaplık yerelde kendine ait yeni bir kimlik alacak.",
     "importActionReplace": "Mevcut bir kaynak kitaplığını değiştir",
     "importReplaces": "İçe aktarma, seçilen kaynak kitaplığının TÜM havuzunun yerini alır.",
     "importConfirm": "Değiştir",

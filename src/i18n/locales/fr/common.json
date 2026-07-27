@@ -284,6 +284,7 @@
     "importActionAdd": "Ajouter comme nouvelle bibliothèque de ressources",
     "importAsNewPreview": "Sera ajoutée sous le nom « {{name}} ».",
     "importAsNewCopyHint": "Cette bibliothèque est déjà connue localement (même identifiant) — elle deviendra une copie distincte à côté.",
+    "importAsNewFreshIdentityHint": "Cette bibliothèque recevra localement sa propre identité, nouvelle.",
     "importActionReplace": "Remplacer une bibliothèque de ressources existante",
     "importReplaces": "L'importation remplace la TOTALITÉ du pool de la bibliothèque de ressources choisie.",
     "importConfirm": "Remplacer",

@@ -283,6 +283,7 @@
     "importActionAdd": "새 리소스 라이브러리로 추가",
     "importAsNewPreview": "\"{{name}}\"(으)로 추가됩니다.",
     "importAsNewCopyHint": "이 라이브러리는 로컬에 이미 있습니다(동일 ID) — 별도의 사본으로 추가됩니다.",
+    "importAsNewFreshIdentityHint": "이 라이브러리는 로컬에서 고유한 새 ID를 갖게 됩니다.",
     "importActionReplace": "기존 리소스 라이브러리 교체",
     "importReplaces": "가져오기를 실행하면 선택한 리소스 라이브러리의 풀 전체가 교체됩니다.",
     "importConfirm": "교체",

@@ -288,6 +288,7 @@
     "importActionAdd": "إضافة كمكتبة موارد جديدة",
     "importAsNewPreview": "سيتم إضافتها باسم «{{name}}».",
     "importAsNewCopyHint": "هذه المكتبة معروفة محليًا بالفعل (نفس المعرف) — ستصبح نسخة منفصلة بجانبها.",
+    "importAsNewFreshIdentityHint": "ستحصل هذه المكتبة على هوية جديدة خاصة بها محليًا.",
     "importActionReplace": "استبدال مكتبة موارد موجودة",
     "importReplaces": "الاستيراد يستبدل مجمع مكتبة الموارد المختارة بالكامل.",
     "importConfirm": "استبدال",

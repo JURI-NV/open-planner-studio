@@ -70,6 +70,30 @@ export function resolvePoolImportPreselection(
   return match ? { action: 'replace', companyId: match.id } : { action: 'add' };
 }
 
+/**
+ * Welke "toevoegen als nieuwe resourcebibliotheek"-hint hoort te verschijnen (issue #19,
+ * critreview-herkeuring): `importPoolAsNewCompany` mint in TWEE situaties een VERS id, en die twee
+ * verdienen elk hun EIGEN, feitelijk kloppende tekst — de dialoog gebruikte eerder één overkoepelende
+ * hint ("deze bibliotheek is al lokaal bekend") die bij het tweede geval gewoon ONWAAR kon zijn:
+ * - `'collision'`: het bestand-id is een gewoon (niet-reserved, veilig) id dat lokaal AL bestaat —
+ *   de bibliotheek is dan aantoonbaar al lokaal bekend, en wordt terecht "een aparte kopie ernaast".
+ * - `'fresh-identity'`: het bestand-id is reserved (`isReservedCompanyId` —
+ *   `DEFAULT_COMPANY_ID`/`DEMO_COMPANY_ID`) of onveilig (`isSafeFileCompanyId`) — er is dan GEEN
+ *   garantie dat de bibliotheek al lokaal bekend is (bijv. de demo-bibliotheek kan hier nog nooit
+ *   geseed zijn, of het bestand droeg een vijandig id als `"__proto__"`); een neutrale tekst die
+ *   niets beweert over lokale bekendheid.
+ * - `'none'`: geen van beide (een vers, niet-reserved, veilig en nog onbekend id) — geen hint nodig.
+ * Reserved/onveilig wint altijd van een toevallige lokale botsing (zie de reserved-check EERST) —
+ * spiegelt exact de voorrangsorde in `importPoolAsNewCompany`/`resolvePoolImportPreselection`. Puur
+ * — gedeeld door `PoolImportDialog` en de headless tests.
+ */
+export type PoolImportIdentityHint = 'collision' | 'fresh-identity' | 'none';
+export function classifyPoolImportIdentityHint(importedCompanyId: string, companies: { id: string }[]): PoolImportIdentityHint {
+  if (isReservedCompanyId(importedCompanyId) || !isSafeFileCompanyId(importedCompanyId)) return 'fresh-identity';
+  if (companies.some((c) => c.id === importedCompanyId)) return 'collision';
+  return 'none';
+}
+
 /** Nieuwe pool-versie na een wijziging: poolVersion+1 + verse modifiedAt. Puur (nieuw object). */
 export function bumpPool(pool: CompanyPool): CompanyPool {
   return { ...pool, poolVersion: pool.poolVersion + 1, modifiedAt: new Date().toISOString() };
