@@ -27,7 +27,7 @@ import { useFullscreenSync } from '@/hooks/useFullscreenSync';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useSplitter } from '@/hooks/useSplitter';
 import { useAppStore } from '@/state/appStore';
-import type { UIFontFamily } from '@/state/slices/types';
+import { UI_FONT_STACKS } from '@/utils/uiFont';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
@@ -62,16 +62,6 @@ const RecoveryDialog = lazy(() => import('@/components/dialogs/RecoveryDialog').
 const WelcomeDialog = lazy(() => import('@/components/dialogs/WelcomeDialog').then(m => ({ default: m.WelcomeDialog })));
 const TourOverlay = lazy(() => import('@/components/tour/TourOverlay').then(m => ({ default: m.TourOverlay })));
 const Backstage = lazy(() => import('@/components/backstage/Backstage').then(m => ({ default: m.Backstage })));
-
-// CSS font-stacks per lettertype-familie-keuze (issue #25.4). 'default' ontbreekt hier bewust: bij
-// 'default' verwijdert het effect in AppContent --font-heading/--font-body, zodat de stylesheet-
-// defaults (Space Grotesk / Inter, globals.css) weer gelden. 'system' is de expliciete OS-font-optie
-// — web-apps volgen die, anders dan native apps, niet automatisch, vandaar deze instelling.
-const UI_FONT_STACKS: Record<Exclude<UIFontFamily, 'default'>, string> = {
-  system: 'system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif',
-  serif: 'Georgia, "Times New Roman", serif',
-  mono: '"JetBrains Mono", ui-monospace, monospace',
-};
 
 function AppContent() {
   useKeyboardShortcuts();
@@ -152,6 +142,8 @@ function AppContent() {
   // (die expliciet `calc(<n>px * var(--ui-font-scale, 1))` gebruiken). De familie overschrijft de
   // CSS-variabelen --font-heading/--font-body, of verwijdert ze bij 'default' zodat de stylesheet-
   // defaults (Space Grotesk / Inter) weer gelden. Eén effect = één render-pas bij wijzigen.
+  // De stacks komen uit `@/utils/uiFont` — dezelfde tabel die `GanttCanvas` gebruikt om de
+  // Canvas-2D-renderers hun `ctx.font`-familie te geven (een canvas leest geen CSS-variabelen).
   useEffect(() => {
     const style = document.documentElement.style;
     style.setProperty('--ui-font-scale', String(uiFontScale / 100));

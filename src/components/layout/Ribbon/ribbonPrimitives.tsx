@@ -43,7 +43,7 @@ export function RibbonDropdown<T extends string>({ value, options, onChange }: {
             border: '1px solid var(--theme-control-border)',
             borderRadius: 'var(--radius-sm)',
             color: 'var(--theme-text)',
-            fontSize: 11,
+            fontSize: 'calc(11px * var(--ui-font-scale, 1))',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -52,7 +52,7 @@ export function RibbonDropdown<T extends string>({ value, options, onChange }: {
           }}
         >
           <span>{current?.label ?? value}</span>
-          <span style={{ fontSize: 8, opacity: 0.6 }}>▼</span>
+          <span style={{ fontSize: 'calc(8px * var(--ui-font-scale, 1))', opacity: 0.6 }}>▼</span>
         </button>
       }
     >
@@ -68,7 +68,7 @@ export function RibbonDropdown<T extends string>({ value, options, onChange }: {
             color: 'var(--theme-text)',
             border: 'none',
             textAlign: 'left',
-            fontSize: 11,
+            fontSize: 'calc(11px * var(--ui-font-scale, 1))',
             cursor: 'pointer',
           }}
           onMouseEnter={e => { if (o.value !== value) (e.target as HTMLElement).style.background = 'var(--theme-hover)'; }}
