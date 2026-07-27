@@ -260,12 +260,31 @@ export function TableEditor() {
     justDraggedRef,
   });
 
-  const startEdit = useCallback((taskId: string, field: string, value: string) => {
+  // "Selecteer alles bij het openen" (issue #26): opent de bewerking met de BESTAANDE waarde, dan
+  // hoort de eerstvolgende toets die waarde te vervangen — het hernoem-gedrag uit de
+  // bestandsverkenner. Alleen op de klik- en F2-route. Bewust NIET op de typ-route
+  // (`startEdit(..., e.key)`), de Backspace/Delete-route en de nieuwe-rij-route: daar is de seed het
+  // getypte teken of een lege string, en zou een select-all elke volgende toets de vorige laten
+  // wissen — dan kun je nog maar één letter typen. Een ref (geen state) omdat de vlag alleen tussen
+  // startEdit en het mounten van de input hoeft te leven en geen extra render mag veroorzaken.
+  const selectAllOnOpenRef = useRef(false);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+
+  const startEdit = useCallback((taskId: string, field: string, value: string, opts?: { selectAll?: boolean }) => {
+    selectAllOnOpenRef.current = opts?.selectAll === true;
     setEditCell({ taskId, field });
     setEditValue(value);
     // De cursor blijft ná de bewerking op dezelfde cel staan (issue #26).
     setActiveCell({ taskId, field });
   }, []);
+
+  // Loopt ná het mounten van de bewerk-input (refs zijn dan gezet), dus `select()` treft het echte
+  // veld. De vlag wordt meteen gewist zodat een volgende bewerking hem niet erft.
+  useEffect(() => {
+    if (!editCell || !selectAllOnOpenRef.current) return;
+    selectAllOnOpenRef.current = false;
+    editInputRef.current?.select();
+  }, [editCell]);
 
   const commitEdit = useCallback(() => {
     if (!editCell) return;
@@ -479,7 +498,7 @@ export function TableEditor() {
       e.preventDefault();
       // Niet doorlaten naar de globale sneltoetsen: F2 opent daar het taakdialoog.
       e.stopPropagation();
-      startEdit(activeCell.taskId, activeCell.field, getCellValue(task, activeCell.field));
+      startEdit(activeCell.taskId, activeCell.field, getCellValue(task, activeCell.field), { selectAll: true });
       return;
     }
     // KALE pijltjes verplaatsen de cursorcel. Met een modifier erbij houden we onze handen thuis:
@@ -519,6 +538,7 @@ export function TableEditor() {
       return (
         <input
           autoFocus
+          ref={editInputRef}
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
           onBlur={() => { commitEdit(); restoreGridFocus(); }}
@@ -537,25 +557,26 @@ export function TableEditor() {
     }
     return (
       <span
-        // Actieve cel (issue #26): een GEVULDE markering, bewust géén accentrand. Een omlijnde cel
-        // was vrijwel niet van de bewerk-<input> te onderscheiden (die heeft een 1px accentrand +
-        // gloed), waardoor je dacht in een tekstvak te staan terwijl je dat niet was. Nu is "op de
-        // cel" een vlak en "in de cel" een omlijnd invoerveld. De kleur staat in globals.css
-        // (`.table-cell-active`) omdat ze het ECHTE accent-token moet mengen — een inline
-        // rgba-terugval zou in het hoog-contrastthema (geel accent) de verkeerde kleur geven.
-        className={`block truncate cursor-text px-1${isActive ? ' table-cell-active' : ''}`}
+        // Cel met de toetsenbordcursor (issue #26): een ONOPVALLENDE markering — een stippellijntje
+        // onder de tekst, geen vlak en geen rand. Het gevulde vlak van hiervoor was lelijk en
+        // bovendien overbodig: sinds één klik meteen bewerkt komt "cursor op de cel maar niet in
+        // bewerking" alleen nog voor na Escape of pijltjesnavigatie. De regel staat in globals.css
+        // (`.table-cell-cursor`).
+        className={`block truncate cursor-text px-1${isActive ? ' table-cell-cursor' : ''}`}
         style={{ textAlign: align as 'left' | 'right' | 'center' }}
-        // Enkele klik zet de cursorcel; een klik op de cel die ál actief is start de bewerking
-        // (het hernoem-patroon uit de bestandsverkenner). BEWUST geen stopPropagation: de klik
-        // moet doorbubbelen naar de rij, anders breekt de (ctrl/shift-)rijselectie.
-        onClick={() => {
+        // ÉÉN klik bewerkt meteen (issue #26) — een takenlijst is geen spreadsheet, je klikt op een
+        // naam om hem te wijzigen. BEWUST geen stopPropagation: de klik moet doorbubbelen naar de
+        // rij, anders breekt de (ctrl/shift-)rijselectie en daarmee Tab-inspringen.
+        onClick={(e: React.MouseEvent) => {
           // De klik die het staartje van een rijsleep is mag niets activeren of openen — dezelfde
           // guard die de rij-onClick al had.
           if (justDraggedRef.current) return;
-          if (isActive) startEdit(taskId, field, value);
-          else setActiveCell({ taskId, field });
+          // Ctrl/⌘/Shift+klik zijn multi-selectklikken: die horen alleen te selecteren. Zou hier een
+          // editor opengaan, dan was multi-select (en dus Tab-inspringen op meerdere taken) stuk.
+          if (e.ctrlKey || e.metaKey || e.shiftKey) { setActiveCell({ taskId, field }); return; }
+          startEdit(taskId, field, value, { selectAll: true });
         }}
-        onDoubleClick={() => startEdit(taskId, field, value)}
+        onDoubleClick={() => startEdit(taskId, field, value, { selectAll: true })}
       >
         {displayValue ?? value}
       </span>

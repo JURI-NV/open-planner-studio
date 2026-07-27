@@ -729,15 +729,11 @@ input[type="checkbox"]:disabled {
   cursor: not-allowed;
 }
 
-/* Actieve cel in de TableEditor (issue #26). Bewust een GEVULD vlak zonder rand: de bewerk-input
-   heeft juist wél een accentrand + gloed, en toen de actieve cel er net zo uitzag dacht je in een
-   tekstvak te staan terwijl je dat niet was.
-   Twee background-declaraties: de eerste is de terugval voor engines zonder color-mix, de tweede
-   mengt het ECHTE accent-token — nodig omdat het hoog-contrastthema een geel accent heeft (#ffff00)
-   en een hardgecodeerde oranje tint daar simpelweg de verkeerde kleur is. De 26% ligt bewust boven
-   de 10% van een geselecteerde rij, zodat de cel ook op een geselecteerde rij leesbaar blijft. */
-.table-cell-active {
-  background: rgba(217, 119, 6, 0.26);
-  background: color-mix(in srgb, var(--theme-accent) 26%, transparent);
-  border-radius: var(--radius-sm);
+/* Cel met de toetsenbordcursor in de TableEditor (issue #26). Bewust ONOPVALLEND: geen vlak, geen
+   rand, geen accentkleur — het gevulde accentvlak van hiervoor domineerde de tabel. Sinds één klik
+   meteen bewerkt is deze toestand ook zeldzaam (alleen na Escape of pijltjesnavigatie), dus een
+   stippellijntje onder de tekst is genoeg als aanwijzing waar de volgende toets landt. */
+.table-cell-cursor {
+  text-decoration: underline dotted var(--theme-text-dim);
+  text-underline-offset: 3px;
 }
