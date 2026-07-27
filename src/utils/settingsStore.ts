@@ -9,6 +9,7 @@ import type {
   DateNotation,
   DurationDisplay,
   BarSplitMode,
+  UIFontFamily,
 } from '@/state/slices/types';
 
 export async function getSetting<T>(key: string): Promise<T | undefined> {
@@ -209,6 +210,17 @@ export function saveConstructionMode(value: boolean): void {
 // corrupte sleutel ⇒ undefined → de store houdt de default 'dmy' (dd-mm-jjjj), geen reset.
 export async function saveDateNotation(value: DateNotation): Promise<void> {
   await setSetting('dateNotation', value);
+}
+
+// Lettertype-instellingen interface (issue #25.4): app-instellingen onder de 3-plekken-regel
+// (tandwiel/ribbontab/backstage delen SettingsPanelContent). Ontbrekende/corrupte sleutel ⇒
+// undefined → de store houdt zijn default ('default' / 100), zonder reset van andere voorkeuren.
+export async function saveUIFontFamily(value: UIFontFamily): Promise<void> {
+  await setSetting('uiFontFamily', value);
+}
+
+export async function saveUIFontScale(value: number): Promise<void> {
+  await setSetting('uiFontScale', value);
 }
 
 // --- Fase 2.8b: urenplanning-instellingen (§6.8). App-instellingen, dus onder de 3-plekken-regel

@@ -5,6 +5,7 @@ import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRender
 import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
+import { resolveUIFontStack } from '@/utils/uiFont';
 import { setGanttChartWidth, setGanttScrollBounds, ORIGIN_PADDING_DAYS, computeFitToProject } from '@/utils/ganttViewport';
 import { MiniMap } from './MiniMap';
 import { diffDays, formatDate, parseDate, parseInstant, addCalendarDays } from '@/utils/dateUtils';
@@ -117,6 +118,13 @@ export function GanttCanvas() {
   const setViewStartDate = useAppStore(s => s.setViewStartDate);
   const project = useAppStore(s => s.project);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
+  // Interface-lettertypefamilie (issue #25 punt 4) → concrete CSS font-stack voor de Canvas-2D-
+  // renderers. De DOM krijgt de familie via CSS-variabelen, maar een canvas leest die niet, dus
+  // resolven we hem hier één keer en geven we de string mee aan beide renderers. De waarde staat
+  // ook in de deps van de teken-callbacks: zonder dat hertekent het canvas niet bij een wijziging
+  // en lijkt de instelling stuk (de chrome schakelt wél om, de planning niet).
+  const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
+  const canvasFontFamily = resolveUIFontStack(uiFontFamily);
   const weekStartDay = useAppStore(s => s.ui.weekStartDay);
   const enableQuarterHourZoom = useAppStore(s => s.ui.enableQuarterHourZoom);
   const scrollMode = useAppStore(s => s.ui.scrollMode);
@@ -421,6 +429,8 @@ export function GanttCanvas() {
       taskTableWidth,
       // Issue #21 punt 5 (fase 2, §10.1): dezelfde as-instantie als de primaire Gantt-pane.
       axis: sharedAxis,
+      // Issue #25 punt 4: zelfde lettertypefamilie als de Gantt erboven en de DOM-chrome.
+      fontFamily: canvasFontFamily,
       labels: { unitsSuffix: tCommon('resource.histogram.units') },
       emptyHint: !resourceLoadResult
         ? tCommon('resource.histogram.noData')
@@ -430,7 +440,7 @@ export function GanttCanvas() {
     });
     histogramRendererRef.current = renderer;
     renderer.render();
-  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis]);
+  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis, canvasFontFamily]);
 
   useCanvasLayer({
     canvasRef: histogramCanvasRef,
@@ -545,12 +555,14 @@ export function GanttCanvas() {
       // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
       compressNonWorkdays,
       axis: sharedAxis,
+      // Issue #25 punt 4: de gekozen interface-lettertypefamilie als concrete stack.
+      fontFamily: canvasFontFamily,
     };
 
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -594,10 +606,12 @@ export function GanttCanvas() {
       // Issue #21 punt 5 (fase 2): geen `axis` meegegeven — de secundaire split-view-pane heeft
       // eigen zoom/scrollX, dus bouwt de renderer zelf een consistente as via `compressNonWorkdays`.
       compressNonWorkdays,
+      // Issue #25 punt 4: de secundaire pane volgt dezelfde lettertypefamilie als de primaire.
+      fontFamily: canvasFontFamily,
     });
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,

@@ -27,7 +27,7 @@ export function PresentationHint() {
         borderRadius: 'var(--radius-md)',
         background: 'rgba(0,0,0,0.72)',
         color: '#fff',
-        fontSize: 12,
+        fontSize: 'calc(12px * var(--ui-font-scale, 1))',
         pointerEvents: 'none',
         zIndex: 10000,
         opacity: visible ? 1 : 0,

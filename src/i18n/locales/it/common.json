@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pillola",
     "dateNotation": "Formato data",
     "dateNotationHint": "Determina come vengono visualizzate le date in tutta l'app. File e calcoli non vengono modificati.",
+    "fontFamilyLabel": "Carattere",
+    "fontScaleLabel": "Dimensione testo",
+    "fontFamilyDefault": "Predefinito",
+    "fontFamilySystem": "Sistema",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Le app web non seguono automaticamente il carattere di sistema. Scegli qui il carattere e la dimensione dell'interfaccia.",
     "aiModeSection": "Modalità IA",
     "aiMode": "Abilita modalità IA",
     "aiModeHint": "Mostra la scheda IA con il bridge MCP, così gli assistenti IA possono lavorare sulla tua pianificazione tramite il Model Context Protocol. Disattivandola si interrompe il bridge."

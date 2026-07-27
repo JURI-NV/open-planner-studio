@@ -27,6 +27,7 @@ import { useFullscreenSync } from '@/hooks/useFullscreenSync';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useSplitter } from '@/hooks/useSplitter';
 import { useAppStore } from '@/state/appStore';
+import { UI_FONT_STACKS } from '@/utils/uiFont';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
@@ -92,6 +93,8 @@ function AppContent() {
   const showUpdateDialog = useAppStore(s => s.ui.showUpdateDialog);
   const presentationMode = useAppStore(s => s.ui.presentationMode);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
+  const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
+  const uiFontScale = useAppStore(s => s.ui.uiFontScale);
   const setUI = useAppStore(s => s.setUI);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
   const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
@@ -136,6 +139,26 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', uiTheme);
   }, [uiTheme]);
+
+  // Lettertype-interface toepassen (issue #25.4): de schaal stuurt de rem-basis (html font-size),
+  // zodat Tailwind-`text-*`-klassen van meestijgen EN de losse px-font-sizes in de chrome-css
+  // (die expliciet `calc(<n>px * var(--ui-font-scale, 1))` gebruiken). De familie overschrijft de
+  // CSS-variabelen --font-heading/--font-body, of verwijdert ze bij 'default' zodat de stylesheet-
+  // defaults (Space Grotesk / Inter) weer gelden. Eén effect = één render-pas bij wijzigen.
+  // De stacks komen uit `@/utils/uiFont` — dezelfde tabel die `GanttCanvas` gebruikt om de
+  // Canvas-2D-renderers hun `ctx.font`-familie te geven (een canvas leest geen CSS-variabelen).
+  useEffect(() => {
+    const style = document.documentElement.style;
+    style.setProperty('--ui-font-scale', String(uiFontScale / 100));
+    if (uiFontFamily === 'default') {
+      style.removeProperty('--font-heading');
+      style.removeProperty('--font-body');
+    } else {
+      const stack = UI_FONT_STACKS[uiFontFamily];
+      style.setProperty('--font-heading', stack);
+      style.setProperty('--font-body', stack);
+    }
+  }, [uiFontFamily, uiFontScale]);
 
   // Presentation mode (fase 2.7, §9.3): fullscreenchange-listener houdt de ui-flag in sync.
   useFullscreenSync();

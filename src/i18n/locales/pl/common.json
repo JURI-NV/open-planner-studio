@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pigułka",
     "dateNotation": "Format daty",
     "dateNotationHint": "Określa sposób wyświetlania dat w całej aplikacji. Pliki i obliczenia pozostają bez zmian.",
+    "fontFamilyLabel": "Czcionka",
+    "fontScaleLabel": "Rozmiar tekstu",
+    "fontFamilyDefault": "Domyślna",
+    "fontFamilySystem": "Systemowa",
+    "fontFamilySerif": "Szeryfowa",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Aplikacje webowe nie przejmują automatycznie czcionki ustawionej w systemie. Wybierz tutaj czcionkę i rozmiar interfejsu.",
     "aiModeSection": "Tryb AI",
     "aiMode": "Włącz tryb AI",
     "aiModeHint": "Pokazuje kartę AI z mostkiem MCP, dzięki czemu asystenci AI mogą pracować z Twoim harmonogramem za pomocą Model Context Protocol. Wyłączenie zatrzymuje mostek."

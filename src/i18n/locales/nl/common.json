@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pil",
     "dateNotation": "Datumnotatie",
     "dateNotationHint": "Bepaalt hoe datums overal in de app worden getoond. Bestanden en berekeningen blijven ongewijzigd.",
+    "fontFamilyLabel": "Lettertype",
+    "fontScaleLabel": "Tekengrootte",
+    "fontFamilyDefault": "Standaard",
+    "fontFamilySystem": "Systeem",
+    "fontFamilySerif": "Met schreef",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web-apps volgen niet automatisch de systeemlettertype-instelling. Kies hier het lettertype en de grootte voor de hele interface.",
     "aiModeSection": "AI-modus",
     "aiMode": "AI-modus inschakelen",
     "aiModeHint": "Toont het AI-tabblad met de MCP-bridge, zodat AI-assistenten via het Model Context Protocol met je planning kunnen werken. Uitzetten stopt de bridge."

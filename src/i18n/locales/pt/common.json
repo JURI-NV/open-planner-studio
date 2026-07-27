@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pílula",
     "dateNotation": "Formato de data",
     "dateNotationHint": "Determina como as datas são exibidas em todo o aplicativo. Arquivos e cálculos não são afetados.",
+    "fontFamilyLabel": "Fonte",
+    "fontScaleLabel": "Tamanho do texto",
+    "fontFamilyDefault": "Padrão",
+    "fontFamilySystem": "Sistema",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monoespaçada",
+    "fontHint": "Os aplicativos web não seguem automaticamente a fonte do sistema. Escolha aqui a fonte e o tamanho da interface.",
     "aiModeSection": "Modo IA",
     "aiMode": "Ativar modo IA",
     "aiModeHint": "Mostra o separador de IA com a ponte MCP, para que assistentes de IA possam trabalhar no seu planeamento através do Model Context Protocol. Desativar interrompe a ponte."

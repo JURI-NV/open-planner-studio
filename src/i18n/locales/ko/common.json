@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "알약",
     "dateNotation": "날짜 형식",
     "dateNotationHint": "앱 전체에서 날짜가 표시되는 방식을 결정합니다. 파일과 계산에는 영향을 주지 않습니다.",
+    "fontFamilyLabel": "글꼴",
+    "fontScaleLabel": "텍스트 크기",
+    "fontFamilyDefault": "기본",
+    "fontFamilySystem": "시스템",
+    "fontFamilySerif": "세리프",
+    "fontFamilyMono": "고정 폭",
+    "fontHint": "웹 앱은 시스템 글꼴 설정을 자동으로 따르지 않습니다. 여기서 인터페이스의 글꼴과 크기를 선택하세요.",
     "aiModeSection": "AI 모드",
     "aiMode": "AI 모드 사용",
     "aiModeHint": "MCP 브리지가 포함된 AI 탭을 표시하여 AI 어시스턴트가 Model Context Protocol을 통해 일정에서 작업할 수 있게 합니다. 끄면 브리지가 중지됩니다."

@@ -16,11 +16,14 @@
 // dit register vervangt alleen de LOAD-kant; de bestaande `saveX`-functies (en dus het
 // serialisatieformaat) blijven ongemoeid.
 
+import { snapToChoice } from '@/utils/numberChoice';
 import type { UIState } from '@/state/slices/types';
 import {
   DATE_NOTATIONS,
   DURATION_DISPLAYS,
   BAR_SPLIT_MODES,
+  UI_FONT_FAMILIES,
+  UI_FONT_SCALES,
 } from '@/state/slices/types';
 import type {
   WeekStartDay,
@@ -62,6 +65,15 @@ function parseClampedInt(min: number, max: number) {
     if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
     return Math.min(max, Math.max(min, Math.round(raw)));
   };
+}
+
+/** Numerieke keuze uit een vaste lijst. Bewust geen `parseClampedInt(min, max)`: klemmen op het
+ *  BEREIK laat een waarde binnen het bereik maar buiten de lijst ongemoeid (een handmatig gezette
+ *  108 bij de keuzes 90/100/110/125 overleeft de klem), en dan toont de bijbehorende Select niets
+ *  zinnigs. De snap-semantiek zelf staat in {@link snapToChoice} — dat is de enige plek waar dit
+ *  gedrag gedefinieerd is. */
+function parseNumberChoice(allowed: readonly number[]) {
+  return (raw: unknown): number | undefined => snapToChoice(allowed, raw);
 }
 
 const WHEEL_FUNCTIONS: WheelFunction[] = ['vertical', 'horizontal', 'zoom'];
@@ -148,6 +160,12 @@ export const SETTINGS: SettingDescriptor[] = [
 
   // Datumnotatie
   setting({ key: 'dateNotation', field: 'dateNotation', parse: parseEnum(DATE_NOTATIONS) }),
+
+  // Lettertype interface (issue #25.4): familie (enum) + schaalpercentage. De schaal snapt naar de
+  // dichtstbijzijnde waarde uit UI_FONT_SCALES — dezelfde lijst waaruit de Select zijn opties bouwt
+  // — zodat een geladen waarde gegarandeerd overeenkomt met een aanwijsbare optie.
+  setting({ key: 'uiFontFamily', field: 'uiFontFamily', parse: parseEnum(UI_FONT_FAMILIES) }),
+  setting({ key: 'uiFontScale', field: 'uiFontScale', parse: parseNumberChoice(UI_FONT_SCALES) }),
 
   // Urenplanning (fase 2.8b, §6.8)
   setting({ key: 'enableHourPlanning', field: 'enableHourPlanning', parse: parseBoolean }),

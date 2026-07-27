@@ -76,6 +76,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
+- [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
+      issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
+      maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
+      moet compleet zijn. Daar bestaan dus álle `rows * cols` pagina-canvassen tegelijk vóór de
+      omzetting naar JPEG, op `SUPERSAMPLE = 2`. Een A3-vel is daarmee ~2382×1684×4 ≈ 16 MB; het
+      gemeten scenario van 300 taken met `timelineColumns: 8` (20 rijen × 8 kolommen = 160 pagina's)
+      komt op ~2,5 GB. Let op wanneer dit toeslaat: raster is de `catch`-terugval van de vector-tak,
+      dus precies op het moment dat de vector-export net gefaald is. `MAX_TIMELINE_COLUMNS = 32`
+      begrenst het wel, maar staat nog steeds honderden pagina's toe. Pre-existing gedrag, geen
+      regressie van #25 — dat werk maakte het pad alleen makkelijker bereikbaar (één dropdown i.p.v.
+      een handmatige zoominstelling). Fix-richting: pagina's streamend omzetten naar JPEG en het
+      canvas per pagina vrijgeven i.p.v. ze allemaal vast te houden, of één pagina-canvas hergebruiken.
 - [ ] **Undo-stack heeft geen limiet.** Gemeten 2026-07-20: 64 MB na 500 taakbewerkingen bij een
       project van 500 taken (elke snapshot is een volledige deep clone). Er staat nergens een
       `.slice`/`.shift` op `undoStack`. Sinds project-mutaties ook snapshots pushen (2026-07-20) is

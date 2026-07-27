@@ -127,7 +127,7 @@ export function DebugTerminal() {
         background: 'var(--dashboard-bg)',
         color: 'var(--dashboard-text)',
         fontFamily: 'var(--font-code)',
-        fontSize: 11,
+        fontSize: 'calc(11px * var(--ui-font-scale, 1))',
       }}
     >
       {/* Toolbar */}
@@ -143,7 +143,7 @@ export function DebugTerminal() {
               onClick={() => toggleLevel(lvl)}
               title={t('debugTerminal.toggleLevel', { level: lvl })}
               style={{
-                fontSize: 10,
+                fontSize: 'calc(10px * var(--ui-font-scale, 1))',
                 padding: '1px 6px',
                 borderRadius: 'var(--radius-sm)',
                 border: `1px solid ${on ? LEVEL_COLOR[lvl] : 'var(--dashboard-border)'}`,
@@ -207,7 +207,7 @@ export function DebugTerminal() {
               border: '1px solid var(--dashboard-border)',
               borderRadius: 'var(--radius-full)',
               padding: '1px 8px',
-              fontSize: 10,
+              fontSize: 'calc(10px * var(--ui-font-scale, 1))',
               cursor: 'pointer',
               zIndex: 1,
             }}

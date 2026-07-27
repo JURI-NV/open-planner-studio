@@ -48,6 +48,10 @@ export function createDefaultUI(): UIState {
     showUpdateDialog: false,
     justUpdated: null,
     uiTheme: 'dark',
+    // Issue #25.4: interface-lettertype — default = huidige stylesheet-defaults + 100% schaal
+    // (bestaande gebruikers merken niets; App.tsx hydrateert bij opstart uit localStorage).
+    uiFontFamily: 'default',
+    uiFontScale: 100,
     enableQuarterHourZoom: false,
     weekStartDay: 'monday',
     // 'drag' (zoom + slepen, map-style) is sinds issue #22 de standaard: het is de meest

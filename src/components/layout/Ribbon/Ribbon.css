@@ -20,7 +20,7 @@
 
 .ribbon-tab {
   padding: 6px 16px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-font-scale, 1));
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
@@ -89,7 +89,7 @@
 
 .ribbon-group-label {
   font-family: var(--font-heading);
-  font-size: 9px;
+  font-size: calc(9px * var(--ui-font-scale, 1));
   color: var(--theme-text-muted);
   text-align: center;
   font-weight: 600;
@@ -178,7 +178,7 @@
 }
 
 .ribbon-btn-label {
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-font-scale, 1));
   color: var(--theme-text-dim);
   text-align: center;
   line-height: 1.1;
@@ -216,7 +216,7 @@
 }
 
 .ribbon-btn.small .ribbon-btn-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   text-align: left;
   max-width: none;
   white-space: nowrap;
@@ -328,7 +328,7 @@
   height: 15px;
 }
 .ribbon-container.compact .ribbon-btn-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-font-scale, 1));
   text-align: left;
   max-width: none;
   white-space: nowrap;
@@ -387,7 +387,7 @@
 }
 
 .ribbon-info {
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-font-scale, 1));
   color: var(--theme-text-dim);
   padding: 4px 8px;
   white-space: nowrap;

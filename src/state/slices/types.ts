@@ -73,6 +73,31 @@ export const UI_THEMES: { id: UITheme; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
+// Lettertype-familie voor de applicatie-interface (issue #25.4). Web-apps volgen — anders dan
+// native apps — niet automatisch de OS-lettertype-instelling, wat leesbaarheid/toegankelijkheid
+// kan beïnvloeden; deze instelling geeft de gebruiker de keuze. 'default' laat de stylesheet-
+// defaults (Space Grotesk / Inter, globals.css) staan; de andere waarden overschrijven via App.tsx
+// de CSS-variabelen --font-heading/--font-body. Labels komen uit i18n (geen `{label}` hier, net
+// als bij DATE_NOTATIONS) — de Select-options in SettingsPanelContent mappen id→vertaling.
+export type UIFontFamily = 'default' | 'system' | 'serif' | 'mono';
+
+export const UI_FONT_FAMILIES: UIFontFamily[] = ['default', 'system', 'serif', 'mono'];
+
+// Lettertype-grootte van de interface als schaalpercentage.
+//
+// Hoe het doorwerkt: `--ui-font-scale` (gezet in App.tsx) schaalt de rem-basis in globals.css, dus
+// Tailwind's `text-*`-klassen volgen vanzelf; de losse px-font-sizes in de chrome-css schalen
+// expliciet mee via `calc(<n>px * var(--ui-font-scale, 1))`, en de canvas-renderers volgen wél de
+// familie maar bewust NIET de grootte (vaste rijhoogte ⇒ clipping, zie GanttRenderer.font).
+//
+// BEWUST geen hogere waarden dan 125. Let op: de eerdere motivering hier ("paddings staan in px en
+// schalen niet mee") was FOUT — Tailwind's spacing-schaal is rem-gebaseerd en die rem-basis schalen
+// we juist wél, dus `p-*`/`gap-*`/`h-*` en de `--sp-*`-tokens groeien gewoon mee. De echte reden is
+// dat niet álle chrome meebeweegt: vaste px-hoogtes/-breedtes in losse componenten en de
+// canvas-geometrie blijven staan, en boven ~125% gaan knoplabels in het lint over meerdere regels
+// breken. 125 is de grens waarop dat nog acceptabel bleef in een echte browsercontrole.
+export const UI_FONT_SCALES: number[] = [90, 100, 110, 125];
+
 // Hoe de gebruiker tussen meerdere geopende documenten wisselt (multi-document).
 // 'tabs'     — horizontale tabstrip onder het lint (default, browser/Excel-stijl)
 // 'rail'     — verticale projectbalk links (VS Code activity-bar-stijl)
@@ -130,6 +155,8 @@ export interface UIState {
    *  start of verse installatie). Desktop-only; in de web-build altijd `null`. */
   justUpdated: { from: string; to: string } | null;
   uiTheme: UITheme;
+  uiFontFamily: UIFontFamily; // persisted — interface-lettertypefamilie (issue #25.4); 'default' = stylesheet-defaults
+  uiFontScale: number;        // persisted — interface-lettertypegrootte als schaalpercentage (90|100|110|125, issue #25.4)
   enableQuarterHourZoom: boolean;
   weekStartDay: WeekStartDay;
   scrollMode: ScrollMode;             // persisted — wheel behavior mode

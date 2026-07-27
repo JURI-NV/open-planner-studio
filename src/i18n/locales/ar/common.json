@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "حبة",
     "dateNotation": "تنسيق التاريخ",
     "dateNotationHint": "يحدد كيفية عرض التواريخ في جميع أنحاء التطبيق. الملفات والحسابات لا تتأثر.",
+    "fontFamilyLabel": "الخط",
+    "fontScaleLabel": "حجم النص",
+    "fontFamilyDefault": "افتراضي",
+    "fontFamilySystem": "النظام",
+    "fontFamilySerif": "ذو زوائد",
+    "fontFamilyMono": "ثابت العرض",
+    "fontHint": "تطبيقات الويب لا تتبع إعداد خط النظام تلقائيًا. اختر خط الواجهة وحجمها من هنا.",
     "aiModeSection": "وضع الذكاء الاصطناعي",
     "aiMode": "تفعيل وضع الذكاء الاصطناعي",
     "aiModeHint": "يعرض علامة تبويب الذكاء الاصطناعي مع جسر MCP، بحيث يمكن لمساعدي الذكاء الاصطناعي العمل مع مخططك الزمني عبر Model Context Protocol. إيقاف تفعيله يوقف الجسر."

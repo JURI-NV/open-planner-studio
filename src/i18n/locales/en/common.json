@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pill",
     "dateNotation": "Date format",
     "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected.",
+    "fontFamilyLabel": "Font",
+    "fontScaleLabel": "Text size",
+    "fontFamilyDefault": "Default",
+    "fontFamilySystem": "System",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web apps don't automatically follow your system font setting. Choose the font and size for the interface here.",
     "aiModeSection": "AI mode",
     "aiMode": "Enable AI mode",
     "aiModeHint": "Shows the AI tab with the MCP bridge, so AI assistants can work with your schedule over the Model Context Protocol. Turning it off stops the bridge."

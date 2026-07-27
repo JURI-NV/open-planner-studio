@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Hap",
     "dateNotation": "Tarih biçimi",
     "dateNotationHint": "Tarihlerin uygulama genelinde nasıl gösterileceğini belirler. Dosyalar ve hesaplamalar etkilenmez.",
+    "fontFamilyLabel": "Yazı tipi",
+    "fontScaleLabel": "Metin boyutu",
+    "fontFamilyDefault": "Varsayılan",
+    "fontFamilySystem": "Sistem",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web uygulamaları sistem yazı tipi ayarını otomatik olarak izlemez. Arayüzün yazı tipini ve boyutunu buradan seçin.",
     "aiModeSection": "Yapay zeka modu",
     "aiMode": "Yapay zeka modunu etkinleştir",
     "aiModeHint": "MCP köprüsüne sahip Yapay Zeka sekmesini gösterir; böylece yapay zeka asistanları Model Context Protocol üzerinden planınızla çalışabilir. Kapatmak köprüyü durdurur."

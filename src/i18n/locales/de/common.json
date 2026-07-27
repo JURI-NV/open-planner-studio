@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pille",
     "dateNotation": "Datumsformat",
     "dateNotationHint": "Legt fest, wie Datumsangaben überall in der App angezeigt werden. Dateien und Berechnungen bleiben unverändert.",
+    "fontFamilyLabel": "Schriftart",
+    "fontScaleLabel": "Textgröße",
+    "fontFamilyDefault": "Standard",
+    "fontFamilySystem": "System",
+    "fontFamilySerif": "Serifen",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web-Apps übernehmen nicht automatisch die Schriftarteinstellung des Systems. Wähle hier Schriftart und Größe der Benutzeroberfläche.",
     "aiModeSection": "KI-Modus",
     "aiMode": "KI-Modus aktivieren",
     "aiModeHint": "Zeigt den KI-Tab mit der MCP-Bridge, sodass KI-Assistenten über das Model Context Protocol mit Ihrer Planung arbeiten können. Deaktivieren stoppt die Bridge."

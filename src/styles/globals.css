@@ -291,12 +291,18 @@
   }
 }
 
+/* Interface-lettertype-schaal (issue #25.4). --ui-font-scale wordt door App.tsx gezet vanuit de
+   uiFontScale-instelling (default 1). Tailwind-`text-*`-klassen zijn rem-gebaseerd en volgen deze
+   html-font-size vanzelf; de losse px-font-sizes in de chrome-css volgen NIET automatisch en
+   schalen daarom expliciet mee via `calc(<n>px * var(--ui-font-scale, 1))` (zie de 10 chrome-CSS-
+   bestanden). De fallback `1` houdt de pre-hydratie-weergave en headless tests zonder App-effect
+   op de huidige 13px, zodat er geen verkeerde-grootte-flikkering ontstaat. */
 html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-font-scale, 1));
   background: var(--theme-bg);
   color: var(--theme-text);
 }
@@ -379,7 +385,7 @@ html, body, #root {
   border-radius: var(--radius-md);
   padding: var(--sp-2) var(--sp-3);
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-font-scale, 1));
   line-height: 1.5;
   color: var(--theme-text);
   box-shadow: var(--shadow-lg);
@@ -389,7 +395,7 @@ html, body, #root {
 
 .gantt-tooltip .tooltip-title {
   font-weight: 600;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-font-scale, 1));
   margin-bottom: 4px;
   color: var(--theme-text);
 }
@@ -426,7 +432,7 @@ html, body, #root {
   padding: var(--sp-3) var(--sp-6);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-font-scale, 1));
   line-height: 1.4;
   box-shadow: var(--shadow-lg);
   animation: toast-in 0.3s ease-out;
@@ -678,7 +684,7 @@ html, body, #root {
 /* Kaart-koptekst (Space Grotesk small-caps), bv. paneel-headers. */
 .ui-card-header {
   font-family: var(--font-heading);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-font-scale, 1));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;

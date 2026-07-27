@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Píldora",
     "dateNotation": "Formato de fecha",
     "dateNotationHint": "Determina cómo se muestran las fechas en toda la aplicación. Los archivos y los cálculos no se ven afectados.",
+    "fontFamilyLabel": "Fuente",
+    "fontScaleLabel": "Tamaño de texto",
+    "fontFamilyDefault": "Predeterminado",
+    "fontFamilySystem": "Sistema",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monoespaciada",
+    "fontHint": "Las aplicaciones web no siguen automáticamente la fuente del sistema. Elige aquí la fuente y el tamaño de la interfaz.",
     "aiModeSection": "Modo IA",
     "aiMode": "Activar modo IA",
     "aiModeHint": "Muestra la pestaña de IA con el puente MCP, para que los asistentes de IA puedan trabajar con tu planificación mediante el Model Context Protocol. Desactivarlo detiene el puente."

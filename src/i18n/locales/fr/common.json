@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "Pastille",
     "dateNotation": "Format de date",
     "dateNotationHint": "Détermine l'affichage des dates dans toute l'application. Les fichiers et les calculs ne sont pas affectés.",
+    "fontFamilyLabel": "Police",
+    "fontScaleLabel": "Taille du texte",
+    "fontFamilyDefault": "Par défaut",
+    "fontFamilySystem": "Système",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Les applications web ne suivent pas automatiquement la police du système. Choisissez ici la police et la taille de l'interface.",
     "aiModeSection": "Mode IA",
     "aiMode": "Activer le mode IA",
     "aiModeHint": "Affiche l'onglet IA avec le pont MCP, permettant aux assistants IA de travailler sur votre planning via le Model Context Protocol. Le désactiver arrête le pont."

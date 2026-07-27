@@ -413,7 +413,7 @@ export function DateTextInput({
           role="alert"
           style={{
             position: 'absolute', left: 0, top: '100%', marginTop: 2, zIndex: 30,
-            fontSize: 10, lineHeight: 1.2, color: 'var(--error)', whiteSpace: 'nowrap',
+            fontSize: 'calc(10px * var(--ui-font-scale, 1))', lineHeight: 1.2, color: 'var(--error)', whiteSpace: 'nowrap',
             background: 'var(--theme-surface, var(--surface, #fff))',
             border: '1px solid var(--error)', borderRadius: 4, padding: '1px 5px',
             pointerEvents: 'none', boxShadow: 'var(--shadow-pop)',

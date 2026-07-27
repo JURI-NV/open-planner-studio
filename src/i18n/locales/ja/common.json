@@ -120,6 +120,13 @@
     "documentChromeSwitcher": "ピル",
     "dateNotation": "日付形式",
     "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。",
+    "fontFamilyLabel": "フォント",
+    "fontScaleLabel": "文字サイズ",
+    "fontFamilyDefault": "標準",
+    "fontFamilySystem": "システム",
+    "fontFamilySerif": "セリフ",
+    "fontFamilyMono": "等幅",
+    "fontHint": "ウェブアプリはシステムのフォント設定に自動的に従いません。ここでインターフェースのフォントとサイズを選択します。",
     "aiModeSection": "AIモード",
     "aiMode": "AIモードを有効にする",
     "aiModeHint": "MCPブリッジを備えたAIタブを表示し、AIアシスタントがModel Context Protocol経由でスケジュールを操作できるようにします。無効にするとブリッジは停止します。"
