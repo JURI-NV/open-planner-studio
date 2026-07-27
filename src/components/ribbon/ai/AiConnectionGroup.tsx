@@ -1,24 +1,26 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Copy, Check, RefreshCw, Eye, EyeOff, Link2 } from 'lucide-react';
+import { Copy, Check, RefreshCw, Eye, EyeOff, Plug } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { loadMcpPort, saveMcpPort } from '@/utils/settingsStore';
 import { ensureMcpToken, regenerateMcpToken } from '@/services/mcp/server';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { AiConnectionDetailsDialog } from '@/components/dialogs/AiConnectionDetailsDialog';
-import { RibbonSmallButton } from '@/components/layout/Ribbon/ribbonPrimitives';
+import { RibbonButton } from '@/components/layout/Ribbon/ribbonPrimitives';
 
 /**
  * AI-ribbontab — groep **Verbinding** (T14, spec §UI):
  *  - poortveld (`loadMcpPort`/`saveMcpPort`), alleen wijzigbaar wanneer de server gestopt is;
  *  - tokenveld (verborgen; toon/verberg, kopieerknop, regenereerknop mét bevestigingswaarschuwing
  *    dat bestaande koppelingen breken);
- *  - een knop die de {@link AiConnectionDetailsDialog} opent (endpoint, auth-header,
- *    configuratiefragment).
+ *  - een normale (grote) ribbonknop "Verbinden" die de {@link AiConnectionDetailsDialog} opent
+ *    (endpoint, auth-header, configuratiefragment, koppelprompt) — het label volgt de intentie
+ *    ("ik wil verbinden") in plaats van de inhoud van de dialoog; die toelichting staat in de
+ *    tooltip (`ai.connectHint`).
  *
  * De koppelgegevens staan bewust in een dialoog en niet in de ribbon zelf: een ribbongroep is maar
  * 66 px hoog (`.ribbon-group-content`), dus een volledige URL/header-regel werd afgekapt. De groep
- * blijft daarom op twéé veldrijen naast één kleine knop — dat past ruim binnen de ribbonhoogte.
+ * blijft daarom op twéé veldrijen naast één grote knop — dat past ruim binnen de ribbonhoogte.
  *
  * Poort/token leven in localStorage (settingsStore), niet in de store — vandaar lokale React-state
  * die op mount uit de persistente laag wordt geïnitialiseerd. `ensureMcpToken` garandeert dat er een
@@ -138,12 +140,15 @@ export function AiConnectionGroup() {
         </label>
       </div>
 
-      {/* Endpoint/header/configuratiefragment staan in een dialoog — zie de toelichting boven. */}
-      <RibbonSmallButton
-        icon={<Link2 size={16} />}
-        label={t('ai.connectionDetails')}
-        onClick={() => setShowDetails(true)}
-      />
+      {/* Endpoint/header/configuratiefragment/koppelprompt staan in een dialoog — zie de
+          toelichting boven. Label volgt de intentie ("Verbinden"); de tooltip legt de inhoud uit. */}
+      <span title={t('ai.connectHint')}>
+        <RibbonButton
+          icon={<Plug size={20} />}
+          label={t('ai.connect')}
+          onClick={() => setShowDetails(true)}
+        />
+      </span>
 
       {showDetails && (
         <AiConnectionDetailsDialog port={port} token={token} onClose={() => setShowDetails(false)} />
