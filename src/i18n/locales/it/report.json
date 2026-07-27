@@ -24,6 +24,7 @@
   "timelineColumnsLabel": "Cronologia su:",
   "timelineColumnsHint": "Solo con adattamento automatico",
   "timelineColumns_one": "{{count}} pagina",
+  "timelineColumns_many": "{{count}} pagine",
   "timelineColumns_other": "{{count}} pagine",
   "company": "Azienda:",
   "companyPlaceholder": "Nome azienda",
@@ -35,6 +36,7 @@
   "page": "Pagina",
   "of": "di",
   "previewPageLimit_one": "… e {{count}} pagina in più — esporta per il documento completo",
+  "previewPageLimit_many": "… e {{count}} pagine in più — esporta per il documento completo",
   "previewPageLimit_other": "… e {{count}} pagine in più — esporta per il documento completo",
   "legend": {
     "criticalPath": "Percorso critico",

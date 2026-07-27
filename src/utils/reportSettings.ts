@@ -99,7 +99,6 @@ function parseEnum<T extends string>(allowed: readonly T[], raw: unknown): T | u
   return typeof raw === 'string' && (allowed as readonly string[]).includes(raw) ? (raw as T) : undefined;
 }
 
-/** Alleen een getal dat letterlijk in de toegestane trap staat (geen klemming: 97% bestaat niet). */
 // Zie `snapToChoice`: één gedeelde semantiek voor "getal buiten de keuzelijst" (snappen naar de
 // dichtstbijzijnde), zodat deze loader, de settings-loader en de render-engine niet elk hun eigen
 // antwoord geven op dezelfde vraag.

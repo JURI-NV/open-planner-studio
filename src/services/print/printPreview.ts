@@ -9,6 +9,7 @@ import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
 // `PRINT_COLORS` blijft behouden zodat de teken-aanroepen ongewijzigd zijn; waarden zijn identiek.
 import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
+import { snapToChoice } from '@/utils/numberChoice';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
 // tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
@@ -115,25 +116,22 @@ interface ReportMetrics {
 
 /**
  * De aangeboden rapport-lettergroottes (percentage). Dit is de ENIGE bron van waarheid: de Select in
- * `ReportPanel` bouwt zijn opties hieruit en `makeMetrics` klemt op het bereik ervan. Stonden de
- * lijst en de klem los van elkaar, dan zou een waarde binnen de klem maar buiten de lijst (bv. 108)
- * wél geaccepteerd worden terwijl de Select 'm niet kan tonen — twee waarheden over hetzelfde.
+ * `ReportPanel` bouwt zijn opties hieruit, `loadReportSettings` valideert ertegen en `makeMetrics`
+ * snapt ernaartoe.
  */
 export const REPORT_FONT_SCALES = [90, 100, 110, 125] as const;
 
-const REPORT_FONT_SCALE_MIN = Math.min(...REPORT_FONT_SCALES);
-const REPORT_FONT_SCALE_MAX = Math.max(...REPORT_FONT_SCALES);
-
 /**
  * Bouw de {@link ReportMetrics} voor een render. `reportFontScale` is een PERCENTAGE; ontbreekt hij
- * (of is hij onzin) dan geldt 100 ⇒ factor exact 1 ⇒ identieke output als voorheen. De klem volgt
- * {@link REPORT_FONT_SCALES}, zodat de engine precies accepteert wat de UI kan aanbieden.
+ * (of is hij onbruikbaar) dan geldt 100 ⇒ factor exact 1 ⇒ identieke output als voorheen.
+ *
+ * Een waarde buiten {@link REPORT_FONT_SCALES} wordt naar de dichtstbijzijnde toegestane waarde
+ * GESNAPT, niet op het bereik geklemd. Klemmen zou een 108 gewoon op 108% renderen — een grootte die
+ * geen enkele Select kan tonen en die na een herstart dus niet reproduceerbaar is. Zelfde semantiek
+ * als in de settings- en rapport-loaders, allemaal via {@link snapToChoice}.
  */
 function makeMetrics(reportFontScale: number | undefined): ReportMetrics {
-  const raw = reportFontScale ?? 100;
-  const pct = Number.isFinite(raw)
-    ? Math.max(REPORT_FONT_SCALE_MIN, Math.min(REPORT_FONT_SCALE_MAX, raw))
-    : 100;
+  const pct = snapToChoice(REPORT_FONT_SCALES, reportFontScale ?? 100) ?? 100;
   const k = pct / 100;
   const projectHeaderHeight = PROJECT_HEADER_HEIGHT * k;
   const timelineHeaderHeight = TIMELINE_HEADER_HEIGHT * k;

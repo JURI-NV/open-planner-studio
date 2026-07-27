@@ -202,12 +202,18 @@ export function ReportPanel() {
       setTimelineColumns(s.timelineColumns);
       setReportFontScale(s.reportFontScale);
       hydratedRef.current = true;
-    }).catch(() => {
+    }, () => {
       // Lezen kan falen (localStorage geblokkeerd of gepartitioneerd, quota-gedoe). Zonder deze
-      // catch blijft `hydratedRef` dan voor ALTIJD false en slaat het save-effect de rest van de
+      // handler blijft `hydratedRef` dan voor ALTIJD false en slaat het save-effect de rest van de
       // sessie alles over: de gebruiker verstelt vijftien opties en er wordt nooit iets bewaard,
-      // zonder enig signaal. We houden dan gewoon de defaults, maar zetten de vlag wél op true
-      // zodat opslaan blijft werken — een volgende poging kan best wél slagen.
+      // zonder enig signaal. We houden dan de defaults, maar zetten de vlag wél op true zodat
+      // opslaan blijft werken — een volgende poging kan best wél slagen.
+      //
+      // BEWUST de tweede parameter van `.then` en GEEN `.catch` erachter: een `.catch` zou óók een
+      // fout uit de hydratatie-body hierboven vangen. Dan zouden de eerste velden gehydrateerd zijn,
+      // de rest op default staan, en zou de vlag alsnog op true gaan — waarna de eerstvolgende
+      // wijziging die half gevulde mengeling als complete set terugschrijft over de opgeslagen
+      // voorkeuren. Precies het dataverlies dat deze guard moet voorkomen.
       if (cancelled) return;
       hydratedRef.current = true;
     });
@@ -220,11 +226,14 @@ export function ReportPanel() {
   // zojuist geladen waarden ongewijzigd terug; dat is bewust onschadelijk.
   useEffect(() => {
     if (!hydratedRef.current) return;
+    // `.catch` omdat `setSetting` op een geblokkeerde/gepartitioneerde localStorage gooit:
+    // zonder vangnet levert elke verstelde optie een onafgevangen rejection op. Opslaan is
+    // best-effort — mislukt het, dan blijft de instelling gewoon binnen deze sessie werken.
     void saveReportSettings({
       reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
       showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
       repeatHeader, timelineColumns, reportFontScale,
-    });
+    }).catch(() => {});
   }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
       showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
       reportFontScale]);

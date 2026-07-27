@@ -24,6 +24,7 @@
   "timelineColumnsLabel": "Cronograma em:",
   "timelineColumnsHint": "Apenas com ajuste automático",
   "timelineColumns_one": "{{count}} página",
+  "timelineColumns_many": "{{count}} páginas",
   "timelineColumns_other": "{{count}} páginas",
   "company": "Empresa:",
   "companyPlaceholder": "Nome da empresa",
@@ -35,6 +36,7 @@
   "page": "Página",
   "of": "de",
   "previewPageLimit_one": "… e mais {{count}} página — exporte para o documento completo",
+  "previewPageLimit_many": "… e mais {{count}} páginas — exporte para o documento completo",
   "previewPageLimit_other": "… e mais {{count}} páginas — exporte para o documento completo",
   "legend": {
     "criticalPath": "Caminho crítico",
