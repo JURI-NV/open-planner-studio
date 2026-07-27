@@ -10,6 +10,7 @@ import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
@@ -509,7 +510,9 @@ function ImportSection() {
         <div className="backstage-export-grid">
           {importers.map(imp => (
             <button key={`${imp.extensionId}:${imp.id}`} className="backstage-export-card" onClick={() => handleImport(imp)}>
-              <span className="backstage-export-icon">{imp.icon ? <span dangerouslySetInnerHTML={{ __html: imp.icon }} /> : <Upload size={20} />}</span>
+              {/* K6a: importer-iconen komen uit draaiende extensiecode — hygiëne, maar loopt
+                  langs dezelfde sanitizer als de manifest-iconen. */}
+              <span className="backstage-export-icon"><ExtensionIcon raw={imp.icon} fallback={<Upload size={20} />} /></span>
               <span className="backstage-export-info">
                 <h4>{imp.name}</h4>
                 <p>{imp.description} ({imp.fileExtensions.join(', ')})</p>

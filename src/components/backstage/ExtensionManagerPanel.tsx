@@ -12,6 +12,7 @@ import {
 } from '@/extensions';
 import type { InstalledExtension, CatalogEntry, ExtensionCategory } from '@/extensions/types';
 import { Puzzle, FileArchive, FileCode, Plus } from 'lucide-react';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import './ExtensionManagerPanel.css';
 
 type TabId = 'installed' | 'browse';
@@ -133,11 +134,9 @@ function InstalledExtensionCard({ ext }: { ext: InstalledExtension }) {
   return (
     <div className={`ext-card ${isError ? 'ext-card-error' : ''}`}>
       <div className="ext-card-icon">
-        {ext.manifest.icon ? (
-          <span dangerouslySetInnerHTML={{ __html: ext.manifest.icon }} />
-        ) : (
-          <Puzzle size={24} />
-        )}
+        {/* K6a: manifest-iconen komen ongefilterd uit de ZIP en worden al vóór elke poort
+            geregistreerd (ook met status `disabled`) — dus altijd via de sanitizer. */}
+        <ExtensionIcon raw={ext.manifest.icon} fallback={<Puzzle size={24} />} />
       </div>
 
       <div className="ext-card-body">

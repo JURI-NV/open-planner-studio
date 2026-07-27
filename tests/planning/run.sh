@@ -241,6 +241,22 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BUNDLES+=("$I18NCHECK")
   node "$I18NCHECK" || STATUS=1
 
+  # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
+  # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije
+  # beslissings- en herbouwlaag (allowlists, harde verwijderingen, waardecheck, serialisatie) tegen
+  # de bekende aanvalsvectoren én tegen een legitiem lucide-achtig icoon dat intact moet blijven.
+  # De parse-stap zelf valt hier buiten: Node heeft geen DOMParser (zie de kop van het script).
+  SVGCHECK="$DIR/.svg-sanitizer.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-svg-sanitizer.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$SVGCHECK" >/dev/null 2>&1
+  BUNDLES+=("$SVGCHECK")
+  node "$SVGCHECK" || STATUS=1
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een
