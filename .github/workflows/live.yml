@@ -14,7 +14,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Deploy-gate: live.yml is een echte productie-deploy (deploy-site.yml rsync't
+  # dist/ naar open-planner-studio.open-aec.com) en draaide tot nu toe parallel
+  # aan ci.yml, zónder op diens poorten te wachten — een rode suite kon daardoor
+  # gewoon live staan. Deze gate draait dezelfde vier poorten als ci.yml vóór de
+  # deploy. (Geen versievergelijking hier: dat hoort bij een release, niet bij
+  # een site-deploy.)
+  gate:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: TypeScript-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: CPM/kalender-regressiesuite
+        run: bash tests/planning/run.sh
+
+      - name: Verify examples
+        run: npm run verify:examples
+
+      - name: Verify docs
+        run: npm run verify:docs
+
   deploy:
+    needs: gate
     uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@main
     with:
       deploy_host: ${{ vars.DEPLOY_HOST }}
