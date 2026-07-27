@@ -14,6 +14,7 @@ import { LibrarySection } from './LibrarySection';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
+import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import './Backstage.css';
 
 export function Backstage() {
@@ -244,6 +245,9 @@ function ExamplesSection() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
       openExampleFromString(content, ex.name);
+      // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): NA het
+      // laden (openExampleFromString laadt bewust LOS), VOOR runCPM.
+      if (ex.category === 'showcase') applyDemoLibraryToShowcaseProject();
       runCPM();
       setUI({ activeRibbonTab: 'start' });
     } catch (err) {

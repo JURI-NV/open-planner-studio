@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -36,6 +36,12 @@ export interface LibrarySlice {
 
   initLibrary: () => Promise<void>;
   addCompany: (name: string) => string;
+  /** Seed (idempotent) de demo-resourcebibliotheek (issue #19, user-verzoek: showcase-voorbeelden
+   *  delen één gedeelde pool "dezelfde ploeg in twee projecten"). Bestaat het bedrijf `DEMO_COMPANY_ID`
+   *  al, dan gebeurt er NIETS (ook de inhoud wordt niet overschreven — de gebruiker mag 'm bewerkt
+   *  hebben) en wordt alleen het id teruggegeven. Loopt door dezelfde `set`/`persist`-laag als
+   *  `addCompany` — geen parallelle opslagroute. Retourneert altijd `DEMO_COMPANY_ID`. */
+  seedDemoLibrary: () => string;
   renameCompany: (id: string, name: string) => void;
   /** Verwijder een bedrijf (spec §5). Er blijft altijd ≥1 bedrijf (spec §2, no-op op het laatste).
    *  Ontkoppelt expliciet elk GEOPEND document (actief én slapend) dat aan dit bedrijf gekoppeld
@@ -221,6 +227,20 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     });
     persist(get);
     return id;
+  },
+
+  seedDemoLibrary: () => {
+    // Idempotentie (spec): bestaat het bedrijf al, dan niets aanmaken/overschrijven — alleen het
+    // vaste id teruggeven. Companies+pools horen 1-op-1 samen (invariant elders in deze slice), dus
+    // de aanwezigheid van het BEDRIJF is voldoende signaal.
+    if (get().companies.some((c) => c.id === DEMO_COMPANY_ID)) return DEMO_COMPANY_ID;
+    set((s) => {
+      const { company, pool } = buildDemoLibrarySeed();
+      s.companies.push(company);
+      s.pools[company.id] = pool;
+    });
+    persist(get);
+    return DEMO_COMPANY_ID;
   },
 
   renameCompany: (id, name) => {

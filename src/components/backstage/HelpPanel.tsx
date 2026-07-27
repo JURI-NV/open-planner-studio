@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { renderMiniMarkdown, extractHeadings } from '@/utils/miniMarkdown';
+import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import './HelpPanel.css';
 
 type HelpLayer = 'quickstart' | 'gidsen' | 'referentie';
@@ -126,6 +127,11 @@ export function HelpPanel() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
       openExampleFromString(content, file);
+      // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): zelfde
+      // volgorde als Backstage → Voorbeelden (`ExamplesSection.handleOpen`). Deze aanroeper kent
+      // alleen de bestandsnaam (geen manifest-`category`) — de showcase-bestanden dragen allemaal het
+      // `showcase-`-voorvoegsel (zie `public/examples/manifest.json`), de basisvoorbeelden niet.
+      if (file.startsWith('showcase-')) applyDemoLibraryToShowcaseProject();
       runCPM();
       setUI({ activeRibbonTab: 'start' });
     } catch (err) {
