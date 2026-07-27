@@ -288,6 +288,71 @@
         "missedDeadlinesSet": ["C"],
         "error": false
       }
+    },
+    {
+      "id": "prog-actualfinish-in-bouwvak",
+      "title": "Voltooide taak met een actualFinish IN onwerkbare tijd (bouwvak 3-21 aug): de berekende finish is de laatste werkdag OP-OF-VOOR het feit (vr 31 juli), niet de actualFinish zelf. De opvolger start hoe dan ook op de eerste werkdag na het bouwvak, dus de terugsnap kost hem niets. Pint het gemelde, verwarrende maar bedoelde gedrag vast.",
+      "anchor": "2026-07-27",
+      "statusDate": "2026-08-24",
+      "calendar": {
+        "workDays": [1, 2, 3, 4, 5],
+        "holidays": [{ "name": "Bouwvak", "startDate": "2026-08-03", "endDate": "2026-08-21" }]
+      },
+      "tasks": [
+        { "name": "Asbest", "dur": 5, "start": "2026-07-29", "completion": 1, "actualStart": "2026-07-29", "actualFinish": "2026-08-04" },
+        { "name": "Nieuwbouw", "dur": 3, "start": "2026-07-27" }
+      ],
+      "links": [{ "pred": "Asbest", "succ": "Nieuwbouw", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "Asbest": { "es": "2026-07-29", "ef": "2026-07-31" },
+          "Nieuwbouw": { "es": "2026-08-24", "ef": "2026-08-26" }
+        },
+        "projectEnd": "2026-08-26",
+        "error": false
+      }
+    },
+    {
+      "id": "prog-actualvenster-volledig-onwerkbaar",
+      "title": "Voltooide taak waarvan het HELE geregistreerde venster in het bouwvak valt (5 t/m 10 aug). Er bestaat geen werkdag binnen het feit; de taak hoort dan in het VERLEDEN te landen (laatste werkdag op-of-voor de actualFinish, vr 31 juli) en nooit voorbij de statusdatum.",
+      "anchor": "2026-07-27",
+      "statusDate": "2026-08-24",
+      "calendar": {
+        "workDays": [1, 2, 3, 4, 5],
+        "holidays": [{ "name": "Bouwvak", "startDate": "2026-08-03", "endDate": "2026-08-21" }]
+      },
+      "tasks": [
+        { "name": "Asbest", "dur": 5, "start": "2026-08-05", "completion": 1, "actualStart": "2026-08-05", "actualFinish": "2026-08-10" },
+        { "name": "Nieuwbouw", "dur": 3, "start": "2026-07-27" }
+      ],
+      "links": [{ "pred": "Asbest", "succ": "Nieuwbouw", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "Asbest": { "es": "2026-07-31", "ef": "2026-07-31" },
+          "Nieuwbouw": { "es": "2026-08-24", "ef": "2026-08-26" }
+        },
+        "projectEnd": "2026-08-26",
+        "error": false
+      }
+    },
+    {
+      "id": "prog-actualvenster-in-weekend",
+      "title": "Zelfde inversie-randgeval op een schone kalender: afgemeld za 1 t/m zo 2 augustus. Het paar landt op vr 31 juli (laatste werkdag op-of-voor het feit), zodat de opvolger op ma 3 augustus mag starten. Zou de start winnen i.p.v. de finish, dan schoof de afgemelde taak naar ma 3 augustus en de opvolger een dag te laat naar di 4 augustus.",
+      "anchor": "2026-07-27",
+      "statusDate": "2026-08-03",
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-08-01", "completion": 1, "actualStart": "2026-08-01", "actualFinish": "2026-08-02" },
+        { "name": "B", "dur": 3, "start": "2026-07-27" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-31", "ef": "2026-07-31" },
+          "B": { "es": "2026-08-03", "ef": "2026-08-05" }
+        },
+        "projectEnd": "2026-08-05",
+        "error": false
+      }
     }
   ]
 }

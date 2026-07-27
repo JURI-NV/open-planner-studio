@@ -481,6 +481,26 @@ function getTask(s: AppState, args: GetTaskArgs) {
       completion: pct(tt.completion),
       ...(tt.actualStart ? { actualStart: tt.actualStart } : {}),
       ...(tt.actualFinish ? { actualFinish: tt.actualFinish } : {}),
+      // Een voltooide taak wordt op zijn actuals gepind, maar de gerekende datums liggen ALTIJD op
+      // een werkdag van de taakkalender. Valt de `actualFinish` in onwerkbare tijd (weekend, bouwvak,
+      // feestdag), dan is `earlyFinish` de laatste werkdag daarvóór en wijkt hij zichtbaar af van het
+      // geregistreerde feit. Dat verschil stil laten staan is precies wat dit oppervlak niet doet:
+      // een AI die de twee velden naast elkaar ziet, concludeert anders dat de herberekening kapot is
+      // (zo is deze bevinding ook binnengekomen). Alleen zichtbaar wanneer er iets te melden valt.
+      ...(tt.completion >= 1 && tt.actualFinish && tt.earlyFinish && tt.earlyFinish !== tt.actualFinish
+        ? {
+            actualFinishAdjusted: {
+              actualFinish: tt.actualFinish,
+              earlyFinish: tt.earlyFinish,
+              reason:
+                'De `actualFinish` valt buiten de werktijd van de kalender ' +
+                `"${effCal.name}" (weekend, feestdag of bouwvak). De gerekende finish is daarom de ` +
+                'dichtstbijzijnde werk-moment op-of-vóór het feit; de actual zelf blijft ongewijzigd ' +
+                'bewaard. Wil je dat de berekening het feit letterlijk volgt, maak die periode dan ' +
+                'werkbaar in de kalender (planner_update_calendar).',
+            },
+          }
+        : {}),
     },
     ...(task.constraint ? { constraint: task.constraint } : {}),
     ...(task.constraint2 ? { constraint2: task.constraint2 } : {}),
@@ -887,7 +907,12 @@ export const readTools: McpToolDef[] = [
     description:
       'Projectmetadata + statistieken: taak-/relatie-/resource-/toewijzingsaantallen, mijlpalen, ' +
       'kritieke-taak-aantal, statusdatum, projecteinde/-duur, `scheduleStale` (planning verouderd?), ' +
-      'en een kalender-samenvatting. Goede eerste call om een project te leren kennen.',
+      'en een kalender-samenvatting. Goede eerste call om een project te leren kennen. ' +
+      'LET OP bij `project.statusDate`: dat is niet zomaar een peildatum-label maar de DATA DATE uit ' +
+      'P6/MSP, en die stuurt de berekening. Werk met completion 0 kan niet vóór die datum starten en ' +
+      'wordt erheen vooruitgeschoven — staat er een statusdatum, dan is `schedule.projectEnd` dus ' +
+      'mede dóór die datum bepaald, ook als er nog geen enkele voortgang geregistreerd is. Ontbreekt ' +
+      'het veld, dan geldt die vloer niet en zijn reeds geregistreerde actuals inert.',
     kind: 'read',
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
@@ -953,7 +978,15 @@ export const readTools: McpToolDef[] = [
       'curve) en voorgangers/opvolgers (met type + lag). Onbekend id ⇒ nette NOT_FOUND. ' +
       'NAAMDRIFT LEZEN↔SCHRIJVEN: `wbs` heet bij het schrijven `wbsCode`, en `calendar.effectiveId` ' +
       'heet daar `calendarId` (let op: `effectiveId` kan de PROJECTkalender zijn — dan staat er geen ' +
-      'eigen `calendarId` op de taak, zie `calendar.isProjectDefault`).',
+      'eigen `calendarId` op de taak, zie `calendar.isProjectDefault`). ' +
+      'TWEE DATUMS DIE ER FOUT UITZIEN MAAR HET NIET ZIJN: (1) bij NEGATIEVE `totalFloat` liggen de ' +
+      'late datums per definitie vóór de vroege — bij tf −33 dus 33 werkdagen terug, desnoods vóór de ' +
+      'projectstart; dat is de maat van de deadline-overschrijding, geen rekenfout. (2) een VOLTOOIDE ' +
+      'taak (completion 100) wordt op zijn actuals gepind, maar de gerekende datums liggen altijd op ' +
+      'een WERKdag van de taakkalender; valt de `actualFinish` in onwerkbare tijd (weekend, bouwvak, ' +
+      'feestdag), dan is `schedule.earlyFinish` de laatste werkdag daarvóór en wijkt hij dus af van ' +
+      'de `actualFinish` — de respons meldt dat expliciet onder `progress.actualFinishAdjusted`. ' +
+      'Beide zijn stabiel: een extra planner_run_cpm verandert er niets aan.',
     kind: 'read',
     batchable: true,
     inputSchema: {

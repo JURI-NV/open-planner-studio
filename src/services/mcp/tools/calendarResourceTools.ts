@@ -1618,6 +1618,16 @@ function parseUpdateProject(
   return { updates, clearStatusDate, clearProgressMode, touched };
 }
 
+/** De mechanisme-uitleg die MEE MOET zodra er een statusdatum wordt GEZET. Staat bewust in de
+ *  payload en niet alleen in de tool-beschrijving: de AI leest data vaak eerder dan de beschrijving,
+ *  en dit gevolg (de hele planning schuift op) is groot genoeg om niet stil te mogen blijven. Het
+ *  batch-pad krijgt hem hierdoor óók — daar is er geen `enrichOk` en dus geen voor/na-getal. */
+const STATUS_DATE_NOTE =
+  'De statusdatum is de DATA DATE: werk met completion 0 kan nooit vóór deze datum starten en wordt ' +
+  'erheen vooruitgeschoven. Ook zónder enige geregistreerde voortgang verschuift de hele planning ' +
+  '(inclusief de eerste mijlpaal) daardoor naar de statusdatum en schuift het projecteinde evenveel ' +
+  'op; `startDate` blijft ongemoeid. Wis de statusdatum (null) om dat terug te draaien.';
+
 /** Synchrone, transactie-vrije kern van `update_project`. */
 function updateProjectCore(
   p: { updates: Partial<Project>; clearStatusDate: boolean; clearProgressMode: boolean; touched: string[] },
@@ -1633,7 +1643,12 @@ function updateProjectCore(
       s.isDirty = true;
     });
   }
-  return { data: { updated: p.touched } };
+  return {
+    data: {
+      updated: p.touched,
+      ...(p.updates.statusDate ? { statusDateNote: STATUS_DATE_NOTE } : {}),
+    },
+  };
 }
 
 const updateProject: BatchStepTool = {
@@ -1648,7 +1663,14 @@ const updateProject: BatchStepTool = {
     'stil iets weggegooid. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
     'NIEUW aan te maken taken — het verschuift GEEN enkele bestaande taak. Wil je de hele bestaande ' +
     'planning opschuiven, gebruik dan `planner_move_project`. Zet `startDate` dus vóór add_tasks, ' +
-    'niet erna. `statusDate: null` (of een lege string) wist de statusdatum — doe dat bewust: zonder ' +
+    'niet erna. NET ZO BELANGRIJK over `statusDate`: dat is GEEN passief label maar de DATA DATE ' +
+    'uit P6/MSP, en die HERSCHIKT de planning. Werk dat nog niet begonnen is (completion 0) mag niet ' +
+    'meer vóór de statusdatum liggen en wordt naar die datum vooruitgeschoven; op een planning ' +
+    'zónder enige voortgang schuift dus ALLES mee — inclusief de eerste mijlpaal — en verspringt het ' +
+    'projecteinde evenveel, terwijl `startDate` gewoon blijft staan. Zet een statusdatum daarom pas ' +
+    'wanneer je ook echt voortgang gaat registreren. De respons meldt onder `statusDateEffect` het ' +
+    'projecteinde vóór én ná deze call, zodat je die verschuiving ziet. ' +
+    '`statusDate: null` (of een lege string) wist de statusdatum — doe dat bewust: zonder ' +
     'peildatum worden reeds geregistreerde actuals inert (de solver pint er niet meer op) en kunnen ' +
     'berekende datums bij de eerstvolgende herberekening verschuiven.',
   kind: 'mutate',
@@ -1663,7 +1685,13 @@ const updateProject: BatchStepTool = {
       company: { type: 'string' },
       startDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD). Anker voor NIEUWE taken; verschuift bestaande taken NIET.' },
       endDate: { type: 'string', description: 'Gewenste/contractuele einddatum als ISO-datum (JJJJ-MM-DD); lege string wist hem. Metadata — dwingt niets af in de planning.' },
-      statusDate: { type: ['string', 'null'], description: 'ISO-datum (JJJJ-MM-DD) of null om te wissen.' },
+      statusDate: {
+        type: ['string', 'null'],
+        description:
+          'ISO-datum (JJJJ-MM-DD) of null om te wissen. Dit is de DATA DATE: niet-gestart werk ' +
+          '(completion 0) wordt naar deze datum vooruitgeschoven, dus het zetten ervan verschuift ' +
+          'ook zonder enige voortgang de hele planning en het projecteinde.',
+      },
       progressMode: {
         type: ['string', 'null'],
         enum: ['RETAINED_LOGIC', 'PROGRESS_OVERRIDE', null],
@@ -1682,9 +1710,20 @@ const updateProject: BatchStepTool = {
     if (typeof parsed === 'string') return toolError(ctx, 'VALIDATION', parsed);
     const touched = parsed.touched;
 
+    // Voor/ná-meting van het projecteinde — vóór de mutatie gelezen, want de transactie sluit af met
+    // een `runCPM` en dan is de oude stand weg. Alleen zinvol wanneer de call de STATUSDATUM raakt:
+    // dat is de enige metadata-wijziging hier die de gerekende datums verzet (data-date-vloer).
+    // `staleBefore` reist mee omdat een verouderd `cpmResult` het voor-getal onbetrouwbaar maakt —
+    // dan is het verschil geen zuiver statusdatum-effect en moet de AI dat kunnen zien.
+    const statusDateTouched = touched.includes('statusDate');
+    const before = useAppStore.getState();
+    const projectEndBefore = statusDateTouched ? (before.cpmResult?.projectEnd ?? null) : null;
+    const staleBefore = before.scheduleStale;
+
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => updateProjectCore(parsed));
     return enrichOk(res, () => {
       const p = useAppStore.getState().project;
+      const projectEnd = projectEndInfo().projectEnd;
       return {
         updated: touched,
         project: {
@@ -1693,7 +1732,19 @@ const updateProject: BatchStepTool = {
         },
         // Herinnering in de payload zelf: de AI leest data vaak eerder dan de beschrijving.
         note: '`startDate` is alleen het anker voor NIEUWE taken; gebruik planner_move_project om de bestaande planning te verschuiven.',
-        projectEnd: projectEndInfo().projectEnd,
+        ...(statusDateTouched
+          ? {
+              statusDateEffect: {
+                statusDate: p.statusDate ?? null,
+                projectEndBefore,
+                projectEndAfter: projectEnd,
+                shifted: !!projectEndBefore && projectEndBefore !== projectEnd,
+                staleBefore,
+                note: STATUS_DATE_NOTE,
+              },
+            }
+          : {}),
+        projectEnd,
       };
     });
   },

@@ -636,12 +636,22 @@ export class CPMSolver {
         const t = task.time;
         if (t.actualFinish && t.completion >= 1) {
           // (1) VOLTOOID: volledig gepind op actuals — geen forward-drift voorbij actualFinish.
-          const es = this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
+          let es = this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
           let ef = task.isMilestone
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualFinish))
             : this.snapOnOrBefore(cal, this.parseIn(cal, t.actualFinish));
-          if (ef < es) ef = es;   // weekend-randgeval (rauwe imports)
+          // Inversie-randgeval: het HELE geregistreerde venster valt in onwerkbare tijd (weekend,
+          // bouwvak, feestdagenblok) — dan snapt de start vóóruit tot ná de finish, die achteruit
+          // snapte. Er bestaat dan geen werkdag binnen het feit, dus één van beide moet wijken.
+          // Dat MOET de start zijn: een taak die is afgemeld hoort per definitie in het VERLEDEN,
+          // nooit voorbij zijn eigen `actualFinish` (en al helemaal niet voorbij de statusdatum).
+          // Vroeger stond hier `ef = es` — dat tilde een op 2 augustus afgemelde taak naar de eerste
+          // werkdag ná de bouwvak (24 augustus, een week ná de statusdatum) en vertraagde daarmee óók
+          // zijn opvolger een dag. Met `es = ef` landt het paar op de laatste werkdag op-of-vóór de
+          // `actualFinish` en start de opvolger op de eerste werkdag daarna — precies waar het feit
+          // hem zet. Buiten dit randgeval (ef ≥ es) verandert er niets.
+          if (ef < es) es = ef;
           results.set(taskId, { es, ef });
           continue;
         }
