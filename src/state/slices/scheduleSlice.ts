@@ -172,6 +172,21 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
     // Filter/sort kunnen op de zojuist bijgewerkte totalFloat/isCritical/earlyStart keyen (§4.3).
     get().recomputeViewRows();
 
+    // Bevinding K8: een CPM-fout (cyclus, kalender zonder werkdagen, ongeldige startdatum) pusht
+    // zichzelf naar het gecentraliseerde meldingenkanaal. Eén controle hier dekt beide uitgangen
+    // van deze actie — de cyclus-bail boven én het normale pad — want in beide staat `cpmResult`
+    // met de fout. Winst: de fout is nu óók zichtbaar vanuit Backstage/tabel/rapport, waar de
+    // canvas-component (vroeger de énige toast) niet gemonteerd is.
+    const cpmError = get().cpmResult?.error;
+    if (cpmError) {
+      get().notify({
+        severity: 'error',
+        messageKey: 'notifications.scheduleFailed',
+        detail: cpmError,
+        dedupeKey: 'cpm-error',
+      });
+    }
+
     const cpm = get().cpmResult;
     emitExtensionEvent(HOST_EVENTS.scheduleCalculated, {
       hasError: !!cpm?.error,

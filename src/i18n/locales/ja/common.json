@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "通知を閉じる",
+    "openFailed": "ファイルを開けませんでした",
+    "saveFailed": "保存できませんでした",
+    "autoSaveFailed": "自動保存に失敗しました",
+    "recoveryReadFailed": "復元したファイルを読み込めませんでした",
+    "recoveryRestoreFailed": "復元に失敗しました",
+    "scheduleFailed": "スケジュールを計算できませんでした",
+    "ifcParseFailed": "IFC を読み込めませんでした",
+    "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました"
+  },
   "yes": "はい",
   "no": "いいえ",
   "days": "日",

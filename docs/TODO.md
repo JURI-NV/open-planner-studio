@@ -65,20 +65,47 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
   bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
   niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
-- [ ] **"Losmaken van de bibliotheek" als MCP-actie.** `planner_manage_resources` weigert sinds de
-  gating-ronde een wijziging op de velden die de bibliotheek bepaalt en verwijst de aanroeper naar
-  twee routes: in de bibliotheek wijzigen (bewust géén bridge-route — app-globale data, buiten de
-  ongedaan-maak-geschiedenis) of de resource losmaken. Die tweede route is projectlokaal, ongedaan te
-  maken en bestaat al als store-actie (`unlinkResourceFromLibrary`), maar is via de bridge alleen te
-  bénoemen, niet te doen — de assistent moet de gebruiker nu vragen het handmatig te doen. Als actie
-  toevoegen maakt het geadviseerde pad ook echt begaanbaar. Overwegen: dezelfde actie voor kalenders,
-  en of het een eigen tool wordt of een `action` op `manage_resources`.
-- [ ] **`newProject()` wist de afwijkingsdialoog-vlag niet.** Gemeten: `newDocument()` zet
-  `ui.showLibraryLinkDialog` netjes terug op `false` (de expliciete reset uit "voorstap taak 14"),
-  `newProject()` niet. Blijft de vlag staan, dan rendert `LibraryLinkDialog` — die kent geen
-  leeg-guard, alleen `if (!open) return null` — een leeg koppel-/afwijkingsscherm op een vers
-  project. Zelfde bug-klasse als de stale-vlag die voor `newDocument` al gerepareerd is; geen
-  dataverlies. Er is geen gebruikersroute nagelopen die het daadwerkelijk uitlokt.
+- [x] **Niemand heeft gemeten of de MCP-tools de bibliotheekstempels bijwerken.** *(gemeten
+  2026-07-27, geen defect)* Het stempelbeheer blijkt correct: `planner_manage_resources` en
+  `planner_update_calendar` laten `libraryOrigin` met rust en werken `syncedHash` niet bij, op alle
+  drie de routes (direct, via `planner_batch`, en bij aanmaken/verwijderen). Een MCP-wijziging op een
+  gevolgd veld levert dus netjes `deviated` op, een wijziging op `maxUnits` blijft `in-sync` (die zit
+  bewust niet in `RESOURCE_DIFF_FIELDS`), en een resource die de AI in een gekoppeld project aanmaakt
+  wordt projecteigen zonder stempel. Vastgepind in `tests/mcp/cases-bibliotheek.ts` (9 tests,
+  mutatie-getest tegen beide faalvormen). Bijvangst uit die meting: het blind meeschrijven van de
+  hash zou érger zijn dan gedacht — `fileHash === syncedHash` leest als `behind`, en `behind` wordt
+  door `runOpenBoundary` stil ververst naar de poolwaarden, waarmee de AI-bewerking geruisloos zou
+  verdwijnen in plaats van alleen onbevraagd te blijven.
+- [x] **De MCP-bridge mag schrijven waar de gebruiker niet mag — ontwerpbeslissing, geen defect.**
+  *(besloten én gebouwd 2026-07-27: spiegelen)* Volgde uit de meting hierboven. `ResourcePanel`
+  rendert naam, type, tarief/uur en eenheid als platte tekst zodra er een herkomststempel op zit
+  (`isResourceFieldLocked`), en `description` heeft in de projectweergave niet eens een kolom —
+  precies de vijf `RESOURCE_DIFF_FIELDS` die `planner_manage_resources` wél gewoon schreef. De
+  mechaniek klopte, maar de gemeten uitkomst was een afwijkingsdialoog over een wijziging die de
+  gebruiker niet met eigen handen had kúnnen maken; koos hij daar "bibliotheekwaarden gebruiken", dan
+  draaide de AI-bewerking terug. De tool weigert die velden nu op een gestempeld item en noemt de
+  twee routes die wél werken (in de bibliotheek wijzigen, of eerst losmaken); een gemengde update
+  sneuvelt in zijn geheel, zodat er geen half toegepaste stille no-op ontstaat. Gating en UI-slot
+  delen één bron (`onOpenStatusForResource` + `isResourceFieldLocked` + `RESOURCE_DIFF_FIELDS`), en
+  `planner_list_resources` geeft per geërfde rij een `library`-blok (company/status/lockedFields)
+  zodat een assistent het slot ziet in plaats van erin te lopen. De pool zelf is bewust NIET via MCP
+  muteerbaar gemaakt: app-globale data, raakt projecten die niet openstaan, valt buiten de
+  projecthistorie. Kalenders houden hun bestaande gedrag — daar kent de UI geen slot, dus is
+  'deviated' juist de gespiegelde uitkomst.
+- [ ] **"Losmaken van de bibliotheek" als MCP-actie.** Directe vervolgstap op het punt hierboven: de
+  weigering verwijst naar losmaken als de begaanbare route, maar de bridge kan die route alleen
+  bénoemen, niet lopen — de assistent moet de gebruiker vragen het handmatig te doen.
+  `unlinkResourceFromLibrary` bestaat al als store-actie, is projectlokaal en ongedaan te maken.
+  Overwegen: dezelfde actie voor kalenders, en of het een eigen tool wordt of een `action` op
+  `planner_manage_resources`.
+- [ ] **Crash-herstel reset de bibliotheek-UI-vlaggen niet.** `newDocument()`, `closeDocument()`,
+  `newProject()` en `createNewProject()` zetten `ui.showLibraryLinkDialog`/`ui.libraryRefreshNotice`
+  inmiddels alle vier terug (zie de asserts in `tests/library/check-library-slice.ts`), maar
+  `restoreDocuments()` doet dat niet expliciet. Dat pad draait bij het opstarten van de app, vóór
+  enige gebruikersinteractie, dus het risico dat er een vlag uit een vorige sessie overleeft is klein
+  — maar het is niet gemeten en de dialoog rendert onvoorwaardelijk zodra de vlag waar is, dus een
+  blijven-staande vlag toont een leeg koppel-/afwijkingsscherm. Vervolgstap: nagaan of de vlaggen het
+  herstelpad überhaupt kunnen bereiken, en zo ja dezelfde twee regels toevoegen plus een assert.
 - [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
   resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
   Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
@@ -124,15 +151,19 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
-> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Beide zijn
-> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil.
->
-> Het derde punt — "een kalender zonder taak of resource verdwijnt bij opslaan+herladen" — is
-> VERVALLEN: B1.1 heeft dat opgelost met de A2-fix in `ifcReader.extractCalendarLibrary`, die nu ook
-> `IFCWORKCALENDAR`-entiteiten zonder `IFCRELASSIGNSTOCONTROL`-relatie oppikt (de bedrijfspools hadden
-> er zelf last van: een gepromote kalender verloor zijn `libraryOrigin`). `cases-uurkalender.ts` pinde
-> nog de oude beperking en is omgedraaid naar het nieuwe gedrag.
+> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil. De
+> eerste bleek bij nadere inspectie al opgelost (zie hieronder); de resterende twee staan nog open.
 
+- [x] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.** *(achterhaald,
+      opgelost door de A2-fix, geverifieerd 2026-07-27)* Dit was voorafbestaand gedrag (`ifcReader.
+      extractCalendarLibrary` bouwde de bibliotheek uitsluitend uit `IFCRELASSIGNSTOCONTROL`-
+      relaties), maar B1.1 heeft de beperking al opgeheven: de A2-fix in `extractCalendarLibrary`
+      vangt nu ook alle overige `IFCWORKCALENDAR`-entiteiten op (behalve de projectkalender) die
+      geen relatie hebben — nodig omdat een naar de bibliotheek gepromote kalender anders zijn
+      `libraryOrigin`-stempel verloor. Empirisch bevestigd met een write→read round-trip van een
+      project met een kalender zonder enige taak/resource-koppeling: de kalender komt terug met
+      naam en uren intact.
 - [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
       werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
       een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook

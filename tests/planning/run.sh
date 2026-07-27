@@ -242,6 +242,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   RISOCHECK="$DIR/.recovery-isolation.mjs"
   if bundle_check "$DIR/check-recovery-isolation.ts" "$RISOCHECK"; then node "$RISOCHECK" || STATUS=1; fi
 
+  # Meldingenkanaal (bevinding K8). De app had geen gebruikerszichtbaar foutkanaal: mislukte
+  # opslag, mislukte auto-save en corrupte invoer hadden alle drie hetzelfde symptoom — niets.
+  # Deze batterij bewaakt de drie eigenschappen die stil kunnen afdrijven: samenvouwen op
+  # dedupeKey (de auto-save probeert het elke 10 s opnieuw), een fout die bij het aftoppen niet
+  # door een info verdrongen wordt, en app-globale opslag — zit `notifications` straks per ongeluk
+  # in het documentcontract, dan verdwijnt een opslaanfout bij een tabwissel of een Ctrl+Z.
+  NOTIFCHECK="$DIR/.notifications.mjs"
+  if bundle_check "$DIR/check-notifications.ts" "$NOTIFCHECK"; then node "$NOTIFCHECK" || STATUS=1; fi
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een

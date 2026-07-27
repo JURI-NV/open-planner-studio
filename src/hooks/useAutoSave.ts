@@ -59,6 +59,14 @@ export function useAutoSave(autoSaveEnabled: MutableRefObject<boolean>): void {
         await saveRecovery(state.activeDocumentId, recDocs);
       } catch (err) {
         console.error('Auto-save failed:', err);
+        // dedupeKey is hier niet optioneel: de auto-save probeert het elke ~10 s opnieuw, dus
+        // zonder samenvouwen levert één aanhoudende schrijffout zes meldingen per minuut op.
+        useAppStore.getState().notify({
+          severity: 'error',
+          messageKey: 'notifications.autoSaveFailed',
+          detail: (err as Error).message,
+          dedupeKey: 'autosave',
+        });
       } finally {
         saving = false;
         if (pending) { pending = false; void runAutoSave(); }

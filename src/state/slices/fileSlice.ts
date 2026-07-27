@@ -15,7 +15,7 @@ import { isTauri } from '@/utils/platform';
 import type { Task } from '@/types/task';
 import type { ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
-import { buildWriteIFCInput } from '../ifcSaveInput';
+import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
 import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
@@ -209,6 +209,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
         console.error('Failed to open file:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
 
@@ -217,30 +218,47 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // Gedeelde helper (pakket R1): één plek voor het state→IFC-options-object, zodat dit
       // pad niet opnieuw velden kan laten vallen.
       const content = writeIFC(buildWriteIFCInput(state));
+      // `state` is de momentopname vóór de eerste await. De opslaan-dialoog (en in Tauri de
+      // schrijfactie) kan minuten duren en de gebruiker kan ondertussen doorwerken; `content` is
+      // dan verouderd. Daarom mag `isDirty` pas worden gewist als de inhoud ná de await nog
+      // letterlijk dezelfde is — bepaald via `sameIFCSource` (bevinding K8b: anders stil verlies).
 
-      // Bestaand opslaan-doel? Web: fileHandle. Tauri: het echte pad in filePath.
-      const ref: FileRef | null = state.fileHandle
-        ? { kind: 'handle', handle: state.fileHandle }
-        : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
+      try {
+        // Bestaand opslaan-doel? Web: fileHandle. Tauri: het echte pad in filePath.
+        const ref: FileRef | null = state.fileHandle
+          ? { kind: 'handle', handle: state.fileHandle }
+          : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
 
-      if (ref && await saveToRef(ref, content)) {
-        set((s) => { s.isDirty = false; });
-        return;
+        if (ref && await saveToRef(ref, content)) {
+          // "Nog ongewijzigd?" bewust BUITEN de Immer-producer berekend met get(): binnen een draft
+          // is `s.tasks` e.d. een proxy en nóóit referentie-gelijk aan de plain array, dus een
+          // sameIFCSource(state, s) binnen de producer zou altijd false geven en isDirty nóóit
+          // meer wissen — een ergere regressie dan de bug die we hier repareren.
+          if (sameIFCSource(state, get())) set((s) => { s.isDirty = false; });
+          return;
+        }
+
+        // Geen (bruikbare) ref, of in-place opslaan geweigerd → opslaan-als.
+        const outcome = await saveFileDialog(
+          `${state.project.name || 'project'}.ifc`,
+          content,
+          [{ name: 'IFC Files', extensions: ['ifc'] }],
+        );
+        if (!outcome) return;
+        // Opnieuw buiten de producer bepalen of er tijdens de dialoog iets gewijzigd is.
+        const unchanged = sameIFCSource(state, get());
+        set((s) => {
+          s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
+          s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
+          // Alleen "opgeslagen" als er tijdens de dialoog niets gewijzigd is; anders blijft het
+          // document terecht gewijzigd en houdt de gebruiker zijn sluitwaarschuwing.
+          if (unchanged) s.isDirty = false;
+        });
+        await pushRecent(outcome.ref, outcome.name);
+      } catch (err) {
+        console.error('Save failed:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
       }
-
-      // Geen (bruikbare) ref, of in-place opslaan geweigerd → opslaan-als.
-      const outcome = await saveFileDialog(
-        `${state.project.name || 'project'}.ifc`,
-        content,
-        [{ name: 'IFC Files', extensions: ['ifc'] }],
-      );
-      if (!outcome) return;
-      set((s) => {
-        s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
-        s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
-        s.isDirty = false;
-      });
-      await pushRecent(outcome.ref, outcome.name);
     },
 
     saveFileAs: async () => {
@@ -248,19 +266,27 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // Gedeelde helper (pakket R1): één plek voor het state→IFC-options-object, zodat dit
       // pad niet opnieuw velden kan laten vallen.
       const content = writeIFC(buildWriteIFCInput(state));
+      // `state` = momentopname vóór de eerste await; zelfde reden als bij saveFile: isDirty pas
+      // wissen als er tijdens de opslaan-als-dialoog niets gewijzigd is (K8b).
 
-      const outcome = await saveFileDialog(
-        state.filePath ?? `${state.project.name || 'project'}.ifc`,
-        content,
-        [{ name: 'IFC Files', extensions: ['ifc'] }],
-      );
-      if (!outcome) return;
-      set((s) => {
-        s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
-        s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
-        s.isDirty = false;
-      });
-      await pushRecent(outcome.ref, outcome.name);
+      try {
+        const outcome = await saveFileDialog(
+          state.filePath ?? `${state.project.name || 'project'}.ifc`,
+          content,
+          [{ name: 'IFC Files', extensions: ['ifc'] }],
+        );
+        if (!outcome) return;
+        const unchanged = sameIFCSource(state, get());
+        set((s) => {
+          s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
+          s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
+          if (unchanged) s.isDirty = false;
+        });
+        await pushRecent(outcome.ref, outcome.name);
+      } catch (err) {
+        console.error('Save As failed:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
+      }
     },
 
     exportAs: async (format: ExportFormat): Promise<ExportResult> => {
@@ -448,6 +474,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         await pushRecent(entry.ref, entry.name);
       } catch (err) {
         console.error('Failed to open recent file:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
 
@@ -471,6 +498,10 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         });
       } catch (err) {
         console.error(`Failed to open example "${name}":`, err);
+        // `params: { name }` achterwege gelaten: de bestaande `notifications.openFailed`-string
+        // bevat geen {{name}}-placeholder, en i18n niet aanraken is een harde grens. De naam staat
+        // wel in de debug-terminal (console.error hierboven).
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
   };

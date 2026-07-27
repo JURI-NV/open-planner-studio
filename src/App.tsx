@@ -33,6 +33,7 @@ import { UI_FONT_STACKS } from '@/utils/uiFont';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
+import { NotificationHost } from '@/components/layout/NotificationHost';
 
 // Code-splitting (pakket E2): componenten die pas achter een `ui.show*`-vlag, een ribbontab of een
 // overlay renderen worden lazy geladen, zodat hun code niet in de eager first-load-bundel zit maar
@@ -219,6 +220,9 @@ function AppContent() {
           <GanttCanvas />
         </div>
         <PresentationHint />
+        {/* Gebruikersmeldingen (bevinding K8) — óók in de presentatiemodus: hier is verder geen
+            chrome, dus een stille opslaafout mag juist niet onzichtbaar worden. */}
+        <NotificationHost />
       </div>
     );
   }
@@ -437,6 +441,11 @@ function AppContent() {
           {t('companyLibrary.refreshNotice', { count: libraryRefreshNotice })}
         </div>
       )}
+
+      {/* Gebruikersmeldingen (bevinding K8) — buiten de Backstage-vertakking gemount (ná het
+          Suspense-dialogenblok, als laatste kind van de buitenste div), zodat een opslaafout óók
+          zichtbaar is wanneer de File-tab (Backstage) de body overneemt. */}
+      <NotificationHost />
     </div>
   );
 }

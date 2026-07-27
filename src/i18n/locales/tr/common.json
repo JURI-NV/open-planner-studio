@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Bildirimi kapat",
+    "openFailed": "Dosya açılamadı",
+    "saveFailed": "Kaydetme başarısız",
+    "autoSaveFailed": "Otomatik kaydetme başarısız",
+    "recoveryReadFailed": "Kurtarılan dosya okunamadı",
+    "recoveryRestoreFailed": "Geri yükleme başarısız",
+    "scheduleFailed": "Planlama hesaplanamadı",
+    "ifcParseFailed": "IFC okunamadı",
+    "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi"
+  },
   "yes": "Evet",
   "no": "Hayır",
   "days": "g",

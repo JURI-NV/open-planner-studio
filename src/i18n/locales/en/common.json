@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Close notification",
+    "openFailed": "Failed to open file",
+    "saveFailed": "Failed to save",
+    "autoSaveFailed": "Auto-save failed",
+    "recoveryReadFailed": "Recovered file could not be read",
+    "recoveryRestoreFailed": "Restore failed",
+    "scheduleFailed": "Schedule could not be calculated",
+    "ifcParseFailed": "IFC could not be read",
+    "templateSaved": "Branch saved as template '{{name}}'"
+  },
   "yes": "Yes",
   "no": "No",
   "days": "d",

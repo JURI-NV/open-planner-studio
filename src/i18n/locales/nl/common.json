@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Melding sluiten",
+    "openFailed": "Bestand openen mislukt",
+    "saveFailed": "Opslaan mislukt",
+    "autoSaveFailed": "Automatisch opslaan mislukt",
+    "recoveryReadFailed": "Hersteld bestand kon niet worden gelezen",
+    "recoveryRestoreFailed": "Herstellen mislukt",
+    "scheduleFailed": "Planning kon niet worden berekend",
+    "ifcParseFailed": "IFC kon niet worden gelezen",
+    "templateSaved": "Tak bewaard als sjabloon '{{name}}'"
+  },
   "yes": "Ja",
   "no": "Nee",
   "days": "d",

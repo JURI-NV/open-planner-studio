@@ -57,11 +57,6 @@ interface TooltipState {
   task: Task;
 }
 
-interface ToastState {
-  message: string;
-  type: 'error' | 'info';
-}
-
 export function GanttCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,7 +177,6 @@ export function GanttCanvas() {
   // hieronder), dit is puur een correctie-UI.
   const [relationPopover, setRelationPopover] = useState<{ sequenceId: string; x: number; y: number } | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
   const [histoTooltip, setHistoTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
 
   const localizedMonths = useMemo(() => getLocalizedMonths(i18n.language), [i18n.language]);
@@ -300,20 +294,6 @@ export function GanttCanvas() {
       drivenSuccessors: traceMode !== 'predecessors' ? [...tr.drivenSuccessors] : [],
     };
   }, [traceMode, selectedTaskIds, sequences, cpmResult]);
-
-  // Show toast when CPM detects circular dependency
-  useEffect(() => {
-    if (cpmResult?.error) {
-      setToast({ message: cpmResult.error, type: 'error' });
-    }
-  }, [cpmResult]);
-
-  // Auto-dismiss toast after 5 seconds
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   // Effective timeline origin (the date mapped to scrollX = 0). The stored
   // viewStartDate defaults to "today" and never accounts for tasks that start
@@ -1422,7 +1402,13 @@ export function GanttCanvas() {
             if (!contextMenu.task) return;
             const st = useAppStore.getState();
             const tpl = saveBranchAsWbsTemplate(contextMenu.task.name, contextMenu.task.id, st.tasks, st.sequences);
-            setToast({ message: tTask('structure.templateSaved', { name: tpl.name }), type: 'info' });
+            // Bevinding K8: lokale toast-state is opgeheven; de sjabloonmelding gaat door het
+            // gecentraliseerde kanaal (zichtbaar óók buiten de Gantt).
+            st.notify({
+              severity: 'info',
+              messageKey: 'notifications.templateSaved',
+              params: { name: tpl.name },
+            });
           }}
           onTracePath={() => {
             if (traceMode !== 'off') {
@@ -1507,17 +1493,6 @@ export function GanttCanvas() {
           y={relationPopover.y}
           onClose={() => setRelationPopover(null)}
         />
-      )}
-
-      {/* Toast notification */}
-      {toast && (
-        <div
-          className={`gantt-toast ${toast.type === 'error' ? 'toast-error' : 'toast-info'}`}
-          onClick={() => setToast(null)}
-          style={{ cursor: 'pointer' }}
-        >
-          {toast.message}
-        </div>
       )}
     </div>
   );

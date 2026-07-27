@@ -2,6 +2,17 @@
   "app": {
     "title": "Open Planner Studio"
   },
+  "notifications": {
+    "dismiss": "Chiudi notifica",
+    "openFailed": "Apertura del file non riuscita",
+    "saveFailed": "Salvataggio non riuscito",
+    "autoSaveFailed": "Salvataggio automatico non riuscito",
+    "recoveryReadFailed": "Impossibile leggere il file ripristinato",
+    "recoveryRestoreFailed": "Ripristino non riuscito",
+    "scheduleFailed": "Impossibile calcolare la programmazione",
+    "ifcParseFailed": "Impossibile leggere l'IFC",
+    "templateSaved": "Ramo salvato come modello '{{name}}'"
+  },
   "yes": "Sì",
   "no": "No",
   "days": "g",
