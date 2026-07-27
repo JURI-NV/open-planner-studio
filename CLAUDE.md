@@ -11,14 +11,29 @@ npm run preview      # Serve the built bundle
 npm run tauri:dev    # Run the desktop app (Tauri 2) via scripts/tauri-dev.mjs
 npm run tauri:build  # Produce desktop installers
 npm run bump X.Y.Z   # CalVer-versie syncen (package.json + tauri.conf.json + lock; Cargo.toml blijft bewust 0.1.0)
-bash tests/planning/run.sh   # CPM/kalender-regressiesuite (data-driven cases, headless op Node via esbuild)
+npm run verify       # DE poort — exact wat CI, de release-gate en de deploy-gate draaien
+npm run typecheck    # tsc --noEmit over src/ én scripts//tests/ (tsconfig.tests.json)
+npm test             # alle vier de suites: planning, library, mcp, dev-server
+npm run test:planning     # los: CPM/kalender-regressiesuite (== bash tests/planning/run.sh)
+npm run test:library      # los: bibliotheek/IFC/i18n-checks
+npm run test:mcp          # los: MCP-tools
+npm run test:dev-server   # los: node:test-units + integratietest van de dev-serverpoort/-locks
 ```
 
 `tauri:dev` goes through `scripts/tauri-dev.mjs`, which picks the first free port ≥3007, derives a per-worktree instance slug from the directory name, and starts `tauri dev` with a matching `--config` `devUrl` plus `OPS_DEV_PORT`/`OPS_DEV_INSTANCE` in the env. This lets **multiple worktrees run their desktop builds at once** — each gets its own port (so the window never loads another worktree's Vite) and its own `recovery.<slug>.*`-auto-save-bestanden (so concurrent instances don't clobber each other in the shared `appDataDir`). `vite.config.ts` reads `OPS_DEV_PORT` with `strictPort`; `App.tsx` reads the slug via the `__OPS_DEV_INSTANCE__` define.
 
-There is no unit-test runner (vitest/jest) and no lint script. `tsc` (invoked via `npm run build`) is the main static check; TypeScript is in `strict` mode with `noUnusedLocals`/`noUnusedParameters`, so build failures often surface dead code. The one behavioral suite is `tests/planning/` — data-driven CPM/kalender-cases (395 stuks over 21 batterijen) die de echte store + `CPMSolver`/`CalendarEngine` headless op Node draaien (`bash tests/planning/run.sh`, exit 0/1; zie `tests/planning/README.md`). Run it after touching scheduling code.
+Er is geen vitest/jest en geen lint script; `tsc` is de statische hoofdcheck (TypeScript staat op `strict` met `noUnusedLocals`/`noUnusedParameters`, dus builds leggen vaak dode code bloot). De gedragstests zitten in vier suites, samen achter `npm test`:
 
-CI (`.github/workflows/`): `ci.yml` runs `tauri build --no-bundle` on Ubuntu/Windows/macOS; `live.yml` deploys the browser build (`dist/`) to `open-planner-studio.open-aec.com` on every push to `main` — the web build is a real production deployment, not just a dev target; `release.yml` + `snap.yml` build installers on `v*` tags (see *Auto-update & releases* below).
+| suite | wat | runner |
+|---|---|---|
+| `tests/planning/` | data-driven CPM/kalender-cases + `check-*.ts`-contracttests (IFC-round-trip, documentcontract, renderer), plus een tijdzone-matrix | `run.sh`, esbuild → Node |
+| `tests/library/` | bibliotheek, pool-IFC, vijandige IFC-invoer, i18n-meervouden | `run.sh` |
+| `tests/mcp/` | de MCP-tools tegen de echte store | `run.sh` |
+| `tests/dev-server/` | poortallocatie en flock-races van de dev-server | `node:test` + `integration.sh` |
+
+Draai de planningssuite na elke wijziging aan planningscode. `npm run verify` is de poort die CI, de release-gate en de deploy-gate alle drie draaien — dat is één definitie in `package.json`, dus wat je lokaal draait is letterlijk wat CI draait. Zie `tests/planning/README.md` voor het toevoegen van cases.
+
+CI (`.github/workflows/`): `ci.yml` draait `npm run verify` plus `tauri build --no-bundle` op Ubuntu/Windows/macOS; `live.yml` deployt de browserbuild (`dist/`) naar `open-planner-studio.open-aec.com` bij elke push naar `main` — de webbuild is een echte productie-deploy, geen dev-target — achter dezelfde `verify`-gate; `release.yml` + `snap.yml` bouwen installers op `v*`-tags, ook achter die gate (zie *Auto-update & releases* hieronder).
 
 Path alias: `@/` → `src/` (configured in both `vite.config.ts` and `tsconfig.json`). Use it consistently in imports.
 

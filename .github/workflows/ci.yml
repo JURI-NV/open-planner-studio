@@ -88,21 +88,12 @@ jobs:
       - name: Install frontend dependencies (npm ci)
         run: npm ci
 
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      # scripts/ en tests/ vallen buiten `include: ["src"]` van de hoofd-tsconfig en draaien via
-      # esbuild, dat types STRIPT zonder ze te controleren (bevinding K10b). Zonder deze stap wordt
-      # ~19k regels TypeScript — inclusief de CI-blokkerende verify-docs/verify-examples en de hele
-      # testharnas — nooit getypecheckt.
-      - name: Typecheck scripts/ en tests/
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: Run planning/CPM regression suite
-        run: bash tests/planning/run.sh
-
-      - name: Verify example projects
-        run: npm run verify:examples
-
-      - name: Verify docs manifest
-        run: npm run verify:docs
+      # `npm run verify` = typecheck (src én scripts/tests, bevinding K10b) +
+      # alle vier de testsuites + verify:examples + verify:docs. Bewust ÉÉN
+      # commando in plaats van de losse stappen die hier stonden: dezelfde
+      # regel staat in de gate van release.yml en live.yml, en die drie liepen
+      # anders uit elkaar zodra er een suite bijkomt. Wat er precies in zit
+      # staat in package.json — één plek. Welke suite faalde blijkt uit de log:
+      # elke suite print zijn eigen kop en telling.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify

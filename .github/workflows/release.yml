@@ -22,9 +22,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Release-gate: ci.yml draait de poorten (tsc, testsuite, verify:examples,
-  # verify:docs), maar triggert alleen op push/PR naar `main` — een tag matcht
-  # geen van beide. Zonder deze poort wordt een tag die bovenop een commit met
+  # Release-gate: ci.yml draait de poorten (`npm run verify`), maar triggert
+  # alleen op push/PR naar `main` — een tag matcht geen van beide. Zonder deze
+  # poort wordt een tag die bovenop een commit met
   # een rode suite staat gewoon gebouwd, gesigneerd, gepubliceerd en via de
   # auto-updater naar alle bestaande installaties gepusht. De
   # versievergelijking hieronder vangt bovendien een vergeten `npm run bump`:
@@ -49,22 +49,11 @@ jobs:
       - name: Install dependencies (npm ci)
         run: npm ci
 
-      - name: TypeScript-check (tsc --noEmit)
-        run: npx tsc --noEmit
-
-      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
-      # draaien via esbuild, dat types strip zonder controle.
-      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: CPM/kalender-regressiesuite
-        run: bash tests/planning/run.sh
-
-      - name: Verify examples
-        run: npm run verify:examples
-
-      - name: Verify docs
-        run: npm run verify:docs
+      # Exact dezelfde poort als ci.yml en live.yml — één definitie, in
+      # package.json: typecheck (src én scripts/tests) + de vier testsuites +
+      # verify:examples + verify:docs.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify
 
       - name: Verify tag matches bumped version
         env:

@@ -21,9 +21,9 @@ jobs:
   # Deploy-gate: live.yml is een echte productie-deploy (deploy-site.yml rsync't
   # dist/ naar open-planner-studio.open-aec.com) en draaide tot nu toe parallel
   # aan ci.yml, zónder op diens poorten te wachten — een rode suite kon daardoor
-  # gewoon live staan. Deze gate draait dezelfde vier poorten als ci.yml vóór de
-  # deploy. (Geen versievergelijking hier: dat hoort bij een release, niet bij
-  # een site-deploy.)
+  # gewoon live staan. Deze gate draait `npm run verify`, precies wat ci.yml ook
+  # draait, vóór de deploy. (Geen versievergelijking hier: dat hoort bij een
+  # release, niet bij een site-deploy.)
   gate:
     # Bevinding O6. De `deploy`-job hieronder krijgt er bewust géén: op een job
     # met `uses:` (reusable workflow) is `timeout-minutes` niet toegestaan.
@@ -44,22 +44,11 @@ jobs:
       - name: Install dependencies (npm ci)
         run: npm ci
 
-      - name: TypeScript-check (tsc --noEmit)
-        run: npx tsc --noEmit
-
-      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
-      # draaien via esbuild, dat types strip zonder controle.
-      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: CPM/kalender-regressiesuite
-        run: bash tests/planning/run.sh
-
-      - name: Verify examples
-        run: npm run verify:examples
-
-      - name: Verify docs
-        run: npm run verify:docs
+      # Exact dezelfde poort als ci.yml en release.yml — één definitie, in
+      # package.json: typecheck (src én scripts/tests) + de vier testsuites +
+      # verify:examples + verify:docs.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify
 
   deploy:
     needs: gate
