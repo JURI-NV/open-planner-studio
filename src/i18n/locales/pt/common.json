@@ -119,7 +119,14 @@
     "documentChromeRail": "Separadores verticais",
     "documentChromeSwitcher": "Pílula",
     "dateNotation": "Formato de data",
-    "dateNotationHint": "Determina como as datas são exibidas em todo o aplicativo. Arquivos e cálculos não são afetados."
+    "dateNotationHint": "Determina como as datas são exibidas em todo o aplicativo. Arquivos e cálculos não são afetados.",
+    "fontFamilyLabel": "Fonte",
+    "fontScaleLabel": "Tamanho do texto",
+    "fontFamilyDefault": "Padrão",
+    "fontFamilySystem": "Sistema",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monoespaçada",
+    "fontHint": "Os aplicativos web não seguem automaticamente a fonte do sistema. Escolha aqui a fonte e o tamanho da interface."
   },
   "confirm": {
     "newProject": "Criar novo projeto? As alterações não guardadas serão perdidas.",

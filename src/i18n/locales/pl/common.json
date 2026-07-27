@@ -119,7 +119,14 @@
     "documentChromeRail": "Karty pionowe",
     "documentChromeSwitcher": "Pigułka",
     "dateNotation": "Format daty",
-    "dateNotationHint": "Określa sposób wyświetlania dat w całej aplikacji. Pliki i obliczenia pozostają bez zmian."
+    "dateNotationHint": "Określa sposób wyświetlania dat w całej aplikacji. Pliki i obliczenia pozostają bez zmian.",
+    "fontFamilyLabel": "Czcionka",
+    "fontScaleLabel": "Rozmiar tekstu",
+    "fontFamilyDefault": "Domyślna",
+    "fontFamilySystem": "Systemowa",
+    "fontFamilySerif": "Szeryfowa",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Aplikacje webowe nie przejmują automatycznie czcionki ustawionej w systemie. Wybierz tutaj czcionkę i rozmiar interfejsu."
   },
   "confirm": {
     "newProject": "Utworzyć nowy projekt? Niezapisane zmiany zostaną utracone.",

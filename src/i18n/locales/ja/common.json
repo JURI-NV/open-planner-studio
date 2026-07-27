@@ -119,7 +119,14 @@
     "documentChromeRail": "縦タブ",
     "documentChromeSwitcher": "ピル",
     "dateNotation": "日付形式",
-    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。"
+    "dateNotationHint": "アプリ全体で日付をどのように表示するかを決定します。ファイルや計算には影響しません。",
+    "fontFamilyLabel": "フォント",
+    "fontScaleLabel": "文字サイズ",
+    "fontFamilyDefault": "標準",
+    "fontFamilySystem": "システム",
+    "fontFamilySerif": "セリフ",
+    "fontFamilyMono": "等幅",
+    "fontHint": "ウェブアプリはシステムのフォント設定に自動的に従いません。ここでインターフェースのフォントとサイズを選択します。"
   },
   "confirm": {
     "newProject": "新しいプロジェクトを作成しますか？保存されていない変更は失われます。",

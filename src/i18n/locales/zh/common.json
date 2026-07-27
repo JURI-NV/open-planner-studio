@@ -119,7 +119,14 @@
     "documentChromeRail": "纵向标签页",
     "documentChromeSwitcher": "胶囊",
     "dateNotation": "日期格式",
-    "dateNotationHint": "决定日期在整个应用中的显示方式。文件和计算不受影响。"
+    "dateNotationHint": "决定日期在整个应用中的显示方式。文件和计算不受影响。",
+    "fontFamilyLabel": "字体",
+    "fontScaleLabel": "文字大小",
+    "fontFamilyDefault": "默认",
+    "fontFamilySystem": "系统",
+    "fontFamilySerif": "衬线",
+    "fontFamilyMono": "等宽",
+    "fontHint": "网页应用不会自动跟随系统的字体设置。请在此处选择界面的字体和大小。"
   },
   "confirm": {
     "newProject": "创建新项目？未保存的更改将丢失。",

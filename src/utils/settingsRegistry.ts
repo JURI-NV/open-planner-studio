@@ -21,6 +21,7 @@ import {
   DATE_NOTATIONS,
   DURATION_DISPLAYS,
   BAR_SPLIT_MODES,
+  UI_FONT_FAMILIES,
 } from '@/state/slices/types';
 import type {
   WeekStartDay,
@@ -145,6 +146,12 @@ export const SETTINGS: SettingDescriptor[] = [
 
   // Datumnotatie
   setting({ key: 'dateNotation', field: 'dateNotation', parse: parseEnum(DATE_NOTATIONS) }),
+
+  // Lettertype interface (issue #25.4): familie (enum) + schaalpercentage (geklemde int). De
+  // schaal-klem [90,125] valt samen met de discrete UI_FONT_SCALES-keuzes, zodat een corrupte
+  // waarde altijd op een geldige optie landt; de Select biedt zelf de 4 discrete stappen.
+  setting({ key: 'uiFontFamily', field: 'uiFontFamily', parse: parseEnum(UI_FONT_FAMILIES) }),
+  setting({ key: 'uiFontScale', field: 'uiFontScale', parse: parseClampedInt(90, 125) }),
 
   // Urenplanning (fase 2.8b, §6.8)
   setting({ key: 'enableHourPlanning', field: 'enableHourPlanning', parse: parseBoolean }),

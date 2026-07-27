@@ -119,7 +119,14 @@
     "documentChromeRail": "Vertical tabs",
     "documentChromeSwitcher": "Pill",
     "dateNotation": "Date format",
-    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected."
+    "dateNotationHint": "Determines how dates are displayed everywhere in the app. Files and calculations are unaffected.",
+    "fontFamilyLabel": "Font",
+    "fontScaleLabel": "Text size",
+    "fontFamilyDefault": "Default",
+    "fontFamilySystem": "System",
+    "fontFamilySerif": "Serif",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web apps don't automatically follow your system font setting. Choose the font and size for the interface here."
   },
   "confirm": {
     "newProject": "Create new project? Unsaved changes will be lost.",

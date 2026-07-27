@@ -37,7 +37,7 @@ export function ProjectOverview() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 700, color: '#fff' }}>
+            <span style={{ fontFamily: "var(--font-heading)", fontSize: 16, fontWeight: 700, color: '#fff' }}>
               {t('documents.overviewTitle')}
             </span>
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
@@ -77,7 +77,7 @@ export function ProjectOverview() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, paddingLeft: 6 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 700, color: 'var(--theme-text)' }}>
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 14, fontWeight: 700, color: 'var(--theme-text)' }}>
                       {card.title}
                     </span>
                     {card.isActive && (
@@ -92,7 +92,7 @@ export function ProjectOverview() {
                     )}
                   </div>
                   {card.fileName && (
-                    <div style={{ fontSize: 10, color: 'var(--theme-text-muted)', marginTop: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+                    <div style={{ fontSize: 10, color: 'var(--theme-text-muted)', marginTop: 3, fontFamily: "var(--font-code)" }}>
                       {card.fileName}
                     </div>
                   )}

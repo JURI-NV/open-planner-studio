@@ -119,7 +119,14 @@
     "documentChromeRail": "Vertikale Registerkarten",
     "documentChromeSwitcher": "Pille",
     "dateNotation": "Datumsformat",
-    "dateNotationHint": "Legt fest, wie Datumsangaben überall in der App angezeigt werden. Dateien und Berechnungen bleiben unverändert."
+    "dateNotationHint": "Legt fest, wie Datumsangaben überall in der App angezeigt werden. Dateien und Berechnungen bleiben unverändert.",
+    "fontFamilyLabel": "Schriftart",
+    "fontScaleLabel": "Textgröße",
+    "fontFamilyDefault": "Standard",
+    "fontFamilySystem": "System",
+    "fontFamilySerif": "Serifen",
+    "fontFamilyMono": "Monospace",
+    "fontHint": "Web-Apps übernehmen nicht automatisch die Schriftarteinstellung des Systems. Wähle hier Schriftart und Größe der Benutzeroberfläche."
   },
   "confirm": {
     "newProject": "Neues Projekt erstellen? Nicht gespeicherte Änderungen gehen verloren.",

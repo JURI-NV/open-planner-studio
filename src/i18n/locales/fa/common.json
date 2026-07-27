@@ -119,7 +119,14 @@
     "documentChromeRail": "زبانه‌های عمودی",
     "documentChromeSwitcher": "قرص",
     "dateNotation": "قالب تاریخ",
-    "dateNotationHint": "نحوه نمایش تاریخ‌ها را در سراسر برنامه تعیین می‌کند. فایل‌ها و محاسبات تغییر نمی‌کنند."
+    "dateNotationHint": "نحوه نمایش تاریخ‌ها را در سراسر برنامه تعیین می‌کند. فایل‌ها و محاسبات تغییر نمی‌کنند.",
+    "fontFamilyLabel": "قلم",
+    "fontScaleLabel": "اندازه متن",
+    "fontFamilyDefault": "پیش‌فرض",
+    "fontFamilySystem": "سیستم",
+    "fontFamilySerif": "سریف",
+    "fontFamilyMono": "تک‌عرض",
+    "fontHint": "برنامه‌های تحت وب به‌طور خودکار تنظیم قلم سیستم را دنبال نمی‌کنند. قلم و اندازه رابط کاربری را اینجا انتخاب کنید."
   },
   "confirm": {
     "newProject": "پروژه جدید ایجاد شود؟ تغییرات ذخیره‌نشده از بین خواهند رفت.",

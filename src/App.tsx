@@ -27,6 +27,7 @@ import { useFullscreenSync } from '@/hooks/useFullscreenSync';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useSplitter } from '@/hooks/useSplitter';
 import { useAppStore } from '@/state/appStore';
+import type { UIFontFamily } from '@/state/slices/types';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
@@ -62,6 +63,16 @@ const WelcomeDialog = lazy(() => import('@/components/dialogs/WelcomeDialog').th
 const TourOverlay = lazy(() => import('@/components/tour/TourOverlay').then(m => ({ default: m.TourOverlay })));
 const Backstage = lazy(() => import('@/components/backstage/Backstage').then(m => ({ default: m.Backstage })));
 
+// CSS font-stacks per lettertype-familie-keuze (issue #25.4). 'default' ontbreekt hier bewust: bij
+// 'default' verwijdert het effect in AppContent --font-heading/--font-body, zodat de stylesheet-
+// defaults (Space Grotesk / Inter, globals.css) weer gelden. 'system' is de expliciete OS-font-optie
+// — web-apps volgen die, anders dan native apps, niet automatisch, vandaar deze instelling.
+const UI_FONT_STACKS: Record<Exclude<UIFontFamily, 'default'>, string> = {
+  system: 'system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+  mono: '"JetBrains Mono", ui-monospace, monospace',
+};
+
 function AppContent() {
   useKeyboardShortcuts();
   const { t } = useTranslation('common');
@@ -91,6 +102,8 @@ function AppContent() {
   const showUpdateDialog = useAppStore(s => s.ui.showUpdateDialog);
   const presentationMode = useAppStore(s => s.ui.presentationMode);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
+  const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
+  const uiFontScale = useAppStore(s => s.ui.uiFontScale);
   const setUI = useAppStore(s => s.setUI);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
   const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
@@ -133,6 +146,24 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', uiTheme);
   }, [uiTheme]);
+
+  // Lettertype-interface toepassen (issue #25.4): de schaal stuurt de rem-basis (html font-size),
+  // zodat Tailwind-`text-*`-klassen van meestijgen EN de losse px-font-sizes in de chrome-css
+  // (die expliciet `calc(<n>px * var(--ui-font-scale, 1))` gebruiken). De familie overschrijft de
+  // CSS-variabelen --font-heading/--font-body, of verwijdert ze bij 'default' zodat de stylesheet-
+  // defaults (Space Grotesk / Inter) weer gelden. Eén effect = één render-pas bij wijzigen.
+  useEffect(() => {
+    const style = document.documentElement.style;
+    style.setProperty('--ui-font-scale', String(uiFontScale / 100));
+    if (uiFontFamily === 'default') {
+      style.removeProperty('--font-heading');
+      style.removeProperty('--font-body');
+    } else {
+      const stack = UI_FONT_STACKS[uiFontFamily];
+      style.setProperty('--font-heading', stack);
+      style.setProperty('--font-body', stack);
+    }
+  }, [uiFontFamily, uiFontScale]);
 
   // Presentation mode (fase 2.7, §9.3): fullscreenchange-listener houdt de ui-flag in sync.
   useFullscreenSync();
