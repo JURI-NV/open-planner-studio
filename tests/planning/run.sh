@@ -233,6 +233,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   RECCHECK="$DIR/.recovery-integrity.mjs"
   if bundle_check "$DIR/check-recovery-integrity.ts" "$RECCHECK"; then node "$RECCHECK" || STATUS=1; fi
 
+  # Recovery-isolatie tussen instanties (bevinding K5). De opruimlogica veegde op PREFIX door de
+  # gedeelde appDataDir. Twee gelijktijdige vensters wisten daarmee elkaars snapshots — en omdat
+  # de productie-base (`recovery`) een prefix is van elke dev-base (`recovery.<slug>`), wiste één
+  # start van de productiebuild ONVOORWAARDELIJK de snapshots van alle dev-worktrees. Deze
+  # batterij vuurt de pure beslissingslaag (naamherkenning + de twee opruimplanners) af tegen een
+  # gemengde directorylisting; de Tauri-I/O zelf draait niet headless.
+  RISOCHECK="$DIR/.recovery-isolation.mjs"
+  if bundle_check "$DIR/check-recovery-isolation.ts" "$RISOCHECK"; then node "$RISOCHECK" || STATUS=1; fi
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een
