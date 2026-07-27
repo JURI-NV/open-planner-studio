@@ -8,6 +8,7 @@
 // hogere laag op de dispatch-grens (spec §Sessie-semantiek / §AI-backup). Deze laag routeert puur.
 import type { McpContext, McpToolResult, McpToolDef } from './contracts';
 import { getTools, getTool } from './toolRegistry';
+import { validateToolArgs } from './schemaValidate';
 
 /** serverInfo.name in de initialize-respons. */
 export const MCP_SERVER_NAME = 'open-planner-studio';
@@ -120,6 +121,36 @@ export async function handleMcpMessage(rawBody: string, ctx: McpContext): Promis
       const def = typeof name === 'string' ? getTool(name) : undefined;
       if (!def) {
         return errorMsg(id, -32602, `Onbekende tool: ${String(name)}`);
+      }
+      // SCHEMA-POORT (audit-fix S): valideer de argumenten tegen `def.inputSchema` VÓÓR de handler.
+      // Zonder deze regel was elk `enum`/`type`/`required`/`minimum`/`additionalProperties` in de 33
+      // schema's puur decoratief — het ging mee in tools/list (waar de AI zich erop verlaat) maar
+      // werd nergens afgedwongen, dus alles wat een tool niet zélf hercontroleerde gleed erdoor.
+      // De schending komt terug als TOOL-resultaat (isError + structuredContent met code VALIDATION),
+      // niet als JSON-RPC-fout: zo ziet de AI-client dezelfde foutvorm als bij elke andere
+      // VALIDATION-weigering. Geen envelop: die hangt aan de store-laag en die raken we hier niet aan.
+      //
+      // BEWUSTE KEUZE — VORMFOUTEN ZIJN HARD, OOK IN EEN BULK-CALL. De bulk-conventie ("één rotte
+      // regel rolt nooit de hele call terug", spec §batch) blijft gelden voor SEMANTISCHE weigeringen:
+      // die gaan over de TOESTAND (taak bestaat niet, relatie bestond al, completion buiten bereik) en
+      // komen per item als `itemRejections` terug. Een SCHEMAfout gaat niet over de toestand maar over
+      // het CONTRACT dat de client zelf uit `tools/list` heeft gekregen — één fout item betekent dat de
+      // call verkeerd is opgebouwd. Die valt daarom in zijn geheel om, vóór enige mutatie:
+      //   - het alternatief (per-item schemavalidatie) zou de poort juist moeten uitzetten op de
+      //     geneste paden waar hij het hardst nodig is (`updates[].fields.duration`, `progress.percent`);
+      //   - hard falen is ATOMAIR: de agent hoeft niet te reconstrueren welke vier van de vijf items
+      //     wél landden, corrigeert het ene item en stuurt exact dezelfde call opnieuw.
+      // Kort: vorm = hard en atomair, toestand = zacht per item. De handlers valideren hun items
+      // daarnaast nog steeds zelf, zodat het batch-pad (dat hier niet langskomt) dezelfde weigeringen
+      // geeft — daar zijn schemafouten van een STAP wél zacht/hard volgens de batch-conventie.
+      const schemaError = validateToolArgs(def.inputSchema, msg.params?.arguments);
+      if (schemaError) {
+        const err: McpToolResult = {
+          ok: false,
+          code: 'VALIDATION',
+          error: `ongeldige argumenten voor ${def.name} — ${schemaError}`,
+        };
+        return resultMsg(id, wrapToolResult(err));
       }
       // Crash-barrière: een gooiende/rejectende handler mag de dispatcher niet laten omvallen én
       // mag geen interne details (message/stack) naar de client lekken — statische -32603-melding.

@@ -25,10 +25,13 @@ import { useAppStore } from '@/state/appStore';
 import { draft, type BulkTaskItem } from '@/state/mcpTransaction';
 import { validate, progress } from '@/state/mcpValidation';
 import {
+  parseProgress,
   parseTaskFields,
+  PROGRESS_FIELD_NAMES,
   TASK_FIELDS_DOC,
   TASK_FIELD_NAMES,
   TASK_FIELD_SCHEMA_PROPERTIES,
+  type ProgressPatch,
   type TaskFieldContext,
   type TaskFieldPatch,
 } from './taskFields';
@@ -38,7 +41,72 @@ import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { formatDate } from '@/utils/dateUtils';
 
 const SEQ_TYPES: SequenceType[] = ['FINISH_START', 'FINISH_FINISH', 'START_START', 'START_FINISH'];
-const isSeqType = (v: unknown): v is SequenceType => typeof v === 'string' && (SEQ_TYPES as string[]).includes(v);
+
+/**
+ * De SCHRIJFKANT MOET DE LEESKANT SPREKEN (audit-bevindingen H1/H2). `planner_get_task` en
+ * `planner_get_project_overview` geven relatietypes terug als `FS`/`SS`/`FF`/`SF` en lag als STRING
+ * (`"+2d"`, `"-1d"`, `"+50%"`), maar `add_dependencies` eiste de lange enum plus een `number`. Een
+ * agent die de voorgangers van taak A leest en op taak B spiegelt, gaf dus letterlijk `type: 'FS',
+ * lag: '+2d'` door — waarna het type zacht werd geweigerd en de lag STIL 0 werd. Daarom accepteert de
+ * schrijfkant nu beide notaties en vertaalt ze; niets verdampt meer in stilte.
+ */
+const SEQ_TYPE_ALIASES: Record<string, SequenceType> = {
+  FS: 'FINISH_START',
+  FF: 'FINISH_FINISH',
+  SS: 'START_START',
+  SF: 'START_FINISH',
+};
+/** Korte notaties zoals de leestools ze teruggeven — ook geldig als `type`-invoer. */
+const SEQ_TYPE_SHORT = Object.keys(SEQ_TYPE_ALIASES);
+
+/** Normaliseer een relatietype (lang of kort, hoofdletterongevoelig) ⇒ `SequenceType`, of null. */
+function normalizeSeqType(v: unknown): SequenceType | null {
+  if (typeof v !== 'string') return null;
+  const up = v.trim().toUpperCase();
+  if ((SEQ_TYPES as string[]).includes(up)) return up as SequenceType;
+  return SEQ_TYPE_ALIASES[up] ?? null;
+}
+
+/** Lag-vormen die de LEESKANT produceert: `"+2d"`, `"-1d"`, `"2d"`, `"2"`, `"+0.5d"`. */
+const LAG_STRING_RE = /^([+-]?\d+(?:[.,]\d+)?)\s*(?:d|dag|dagen|day|days|wd)?$/i;
+/** Procent-lag (`"+50%"`): bestaat wél in het model (`Sequence.lagPercent`) maar is via de bridge niet zetbaar. */
+const LAG_PERCENT_RE = /^[+-]?\d+(?:[.,]\d+)?\s*%$/;
+
+/**
+ * Valideer/normaliseer `lag` ⇒ hele-werkdagen-getal. Afwezig ⇒ 0 (bestaande default).
+ *
+ * Was (audit-bevinding K4) `typeof c.lag === 'number' ? c.lag : 0` — een niet-numerieke lag werd
+ * daarmee STIL 0 en de tool antwoordde gewoon `added: [...]`. LLM's sturen routinematig numerieke
+ * strings; die vorm wordt nu geaccepteerd én omgezet, al het overige wordt bij naam geweigerd.
+ */
+function parseLag(raw: unknown): { ok: true; value: number } | { ok: false; reason: string } {
+  if (raw === undefined || raw === null) return { ok: true, value: 0 };
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw)) return { ok: false, reason: '`lag` moet een eindig getal zijn (hele werkdagen)' };
+    return { ok: true, value: raw };
+  }
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (LAG_PERCENT_RE.test(s)) {
+      return {
+        ok: false,
+        reason:
+          `procent-lag (\`${s}\`) is via de bridge NIET zetbaar — de leestools tonen hem wel, maar ` +
+          'add_dependencies kent alleen een vaste lag in hele werkdagen (bijv. 2 of "+2d")',
+      };
+    }
+    const m = LAG_STRING_RE.exec(s);
+    if (m) {
+      const n = Number(m[1].replace(',', '.'));
+      if (Number.isFinite(n)) return { ok: true, value: n };
+    }
+    return {
+      ok: false,
+      reason: `\`lag\` '${s}' is geen geldige lag; geef hele werkdagen als getal (2, -1) of als string ("+2d", "-1d")`,
+    };
+  }
+  return { ok: false, reason: `\`lag\` moet een getal in werkdagen zijn (of een string als "+2d"), kreeg ${typeof raw}` };
+}
 
 const STD_ANNOT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
@@ -172,9 +240,9 @@ const addTasks: BatchStepTool = {
   description:
     'Maak één of meer taken aan (geneste WBS in één call). Elk item heeft een client-gekozen `tempId` ' +
     '(uniek binnen de call); `parentId` mag een bestaand taak-id of een `tempId` uit dezelfde call zijn. ' +
-    'Laat een tempId ALTIJD met `tmp-` of `tmp_` beginnen (bijv. `tmp-fundering`) — binnen ' +
-    '`planner_batch` is dat de GERESERVEERDE syntax waarop latere stappen hun verwijzingen herkennen; ' +
-    'een tempId zonder die prefix laat de hele batch falen. ' +
+    'Een tempId MOET met `tmp-` of `tmp_` beginnen (bijv. `tmp-fundering`) — dat is de GERESERVEERDE ' +
+    'syntax waarop latere `planner_batch`-stappen hun verwijzingen herkennen; het schema dwingt die ' +
+    'vorm nu overal af, zodat dezelfde call binnen én buiten een batch werkt. ' +
     '`position` is de invoeg-index binnen de ouder en klemt stil naar [0, aantal siblings]. ' +
     'Geef de DUUR direct mee met `duration` (hele werkdagen; zonder dat veld krijgt een taak de ' +
     'standaard 5 werkdagen). Een mijlpaal (`isMilestone`) heeft per definitie duur 0 — `duration` > 0 ' +
@@ -202,7 +270,7 @@ const addTasks: BatchStepTool = {
                 'Client-gekozen tijdelijk id, uniek binnen de call; sleutel in de terugmap. MOET met ' +
                 '`tmp-` of `tmp_` beginnen (gereserveerde batch-syntax, bijv. `tmp-fundering`): alleen ' +
                 'zo kan planner_batch verwijzingen in latere stappen veilig vervangen zonder ooit vrije ' +
-                'tekst te raken. Buiten een batch is de prefix niet verplicht, maar wél aangeraden.',
+                'tekst te raken. Deze eis geldt overal, ook buiten een batch (het schema dwingt hem af).',
             },
             parentId: { type: 'string', description: 'Bestaand taak-id of een tempId uit dezelfde call; weglaten = wortel.' },
             position: { type: 'integer', description: 'Invoeg-index binnen de ouder; klemt stil naar [0, aantal siblings].' },
@@ -214,6 +282,7 @@ const addTasks: BatchStepTool = {
       },
     },
     required: ['tasks'],
+    additionalProperties: false,
   },
   batchStep(args) {
     const parsed = parseAddTasks(args);
@@ -269,9 +338,10 @@ function resolveFieldsPatch(
   return res.ok ? { ok: true, patch: res.patch } : { ok: false, reason: res.reason };
 }
 
-/** Statische pre-classificatie van één update-item (existentie + fields-validatie), gedeeld door het
- *  lege-batch-snelpad en (impliciet) de transactie-fn. `progress`-geldigheid is DYNAMISCH en valt
- *  bewust buiten deze statische check (zie de restgeval-noot bij de handler). */
+/** Statische pre-classificatie van één update-item (existentie + fields- én progress-VORMvalidatie),
+ *  gedeeld door het lege-batch-snelpad en (impliciet) de transactie-fn. De INHOUDELIJKE
+ *  progress-checks (bereik, statusdatum, verzameltaak) blijven dynamisch — die kent alleen
+ *  `applyProgressUpdate` (zie de restgeval-noot bij de handler). */
 function classifyUpdate(
   state: ReturnType<typeof useAppStore.getState>,
   u: { id: string; fields?: any; progress?: any },
@@ -280,12 +350,15 @@ function classifyUpdate(
   if (missing) return { executable: false, rejection: missing };
   const hasFields = u.fields !== undefined;
   const fieldsRes = hasFields ? resolveFieldsPatch(state, u.id, u.fields) : null;
-  const hasProgress = u.progress !== undefined;
-  if ((fieldsRes && fieldsRes.ok) || hasProgress) return { executable: true };
-  return {
-    executable: false,
-    rejection: { id: u.id, reason: fieldsRes && !fieldsRes.ok ? fieldsRes.reason : 'geen `fields` of `progress` opgegeven' },
-  };
+  const progRes = u.progress !== undefined ? parseProgress(u.progress) : null;
+  if ((fieldsRes && fieldsRes.ok) || (progRes && progRes.ok)) return { executable: true };
+  const reason =
+    fieldsRes && !fieldsRes.ok
+      ? fieldsRes.reason
+      : progRes && !progRes.ok
+        ? progRes.reason
+        : 'geen `fields` of `progress` opgegeven';
+  return { executable: false, rejection: { id: u.id, reason } };
 }
 
 /** Vormvalidatie van `update_tasks`; string = foutboodschap. */
@@ -314,10 +387,19 @@ function updateTasksCore(updates: { id: string; fields?: any; progress?: any }[]
       else { draft.patchTaskFields(id, res.patch.top, res.patch.time); touched = true; }
     }
     if (u.progress !== undefined) {
-      let pr: { applied: true } | { applied: false; reason: string } = { applied: false, reason: 'niet-uitgevoerd' };
-      useAppStore.setState((s) => { pr = progress.applyProgressUpdate(s, id, u.progress, statusDate); });
-      if (pr.applied) touched = true;
-      else { rejections.push({ id, reason: pr.reason }); rejectedHere = true; }
+      // VORM eerst (audit-fix K3): `applyProgressUpdate` leest exact completion/actualStart/
+      // actualFinish en negeert al het overige — `progress: { percent: 50 }` kwam er dus als
+      // `{ applied: true }` uit terwijl er niets gebeurde. Een onbekende sleutel of een leeg blok is
+      // vanaf nu een ZACHTE weigering met naam en reden.
+      const shape = parseProgress(u.progress);
+      if (!shape.ok) { rejections.push({ id, reason: shape.reason }); rejectedHere = true; }
+      else {
+        const patch: ProgressPatch = shape.value;
+        let pr: { applied: true } | { applied: false; reason: string } = { applied: false, reason: 'niet-uitgevoerd' };
+        useAppStore.setState((s) => { pr = progress.applyProgressUpdate(s, id, patch, statusDate); });
+        if (pr.applied) touched = true;
+        else { rejections.push({ id, reason: pr.reason }); rejectedHere = true; }
+      }
     }
     if (touched) applied.push(id);
     else if (!rejectedHere) rejections.push({ id, reason: 'geen `fields` of `progress` opgegeven' });
@@ -329,8 +411,9 @@ const updateTasks: BatchStepTool = {
   name: 'planner_update_tasks',
   description:
     'Wijzig bestaande taken. Per item: `fields` (naam, DUUR in werkdagen, constraints, deadline, ' +
-    'kalender, …; GEEN voortgangsvelden) en/of `progress` (voortgangspad: `completion` in PROCENTEN ' +
-    '0–100, optioneel `actualStart`/`actualFinish` als ISO-datum). ' + TASK_FIELDS_DOC + ' Een ' +
+    'kalender, …; GEEN voortgangsvelden) en/of `progress` (voortgangspad: UITSLUITEND `completion` in ' +
+    'PROCENTEN 0–100, `actualStart` en `actualFinish` als ISO-datum — elke andere sleutel, en een leeg ' +
+    '`progress`-object, wordt per item zacht GEWEIGERD, nooit stil genegeerd). ' + TASK_FIELDS_DOC + ' Een ' +
     'geweigerd `fields`-blok laat de taak volledig ONGEWIJZIGD (nooit een halve merge). ' +
     'Voortgang > 0 leidt de actualStart af; actuals ná de ' +
     'projectstatusdatum of buiten 0–100 worden per item zacht geweigerd — geldige items blijven staan. ' +
@@ -361,17 +444,24 @@ const updateTasks: BatchStepTool = {
             },
             progress: {
               type: 'object',
+              description:
+                `Voortgangspad (expliciete allowlist: ${PROGRESS_FIELD_NAMES.join(', ')}). Een onbekende ` +
+                'sleutel (`percent`, `status`, …) wordt geweigerd met een reden — nooit stil genegeerd — ' +
+                'en een leeg `progress`-object ook: geef minstens één van de drie.',
               properties: {
                 completion: { type: 'number', minimum: 0, maximum: 100, description: 'Voltooiing in PROCENTEN (0–100).' },
-                actualStart: { type: 'string', description: 'ISO-datum; mag niet ná de statusdatum liggen.' },
-                actualFinish: { type: 'string', description: 'ISO-datum; ≥ actualStart en niet ná de statusdatum.' },
+                actualStart: { type: ['string', 'null'], description: 'ISO-datum; mag niet ná de statusdatum liggen. null wist hem.' },
+                actualFinish: { type: ['string', 'null'], description: 'ISO-datum; ≥ actualStart en niet ná de statusdatum. null wist hem.' },
               },
+              additionalProperties: false,
             },
           },
+          additionalProperties: false,
         },
       },
     },
     required: ['updates'],
+    additionalProperties: false,
   },
   // Géén lege-batch-snelpad nodig: dat snelpad bestaat alleen om een overbodige TRANSACTIE (snapshot +
   // redo-wipe + backup) te vermijden, en binnen een batch bezit `planner_batch` die al. Zijn er nul
@@ -426,24 +516,67 @@ function parseIdList(args: unknown, toolLabel: string): string[] | string {
   return a.ids as string[];
 }
 
-/** Synchrone, transactie-vrije kern van `delete_tasks`. */
+/**
+ * Synchrone, transactie-vrije kern van `delete_tasks`.
+ *
+ * ONDERRAPPORTAGE-FIX (audit-bevinding M1). `draft.deleteTask` verwijdert de héle subboom plus de
+ * relaties en toewijzingen daarvan; de kern zette alleen de GEVRAAGDE id's in `deleted`. Eén
+ * verzameltaak wissen kon zo stil dertig taken meenemen terwijl de respons `deleted: ['t5']` zei.
+ * En gaf je een ouder én haar kind in dezelfde `ids`-array, dan faalde het kind daarna op de
+ * existentiecheck met "taak 'x' bestaat niet" — verwarrend voor een volstrekt redelijk verzoek.
+ *
+ * Vanaf nu: het volledige VOOR/NA-verschil wordt gerapporteerd (`deletedTaskIds`, `deletedTaskCount`,
+ * `cascadedTaskIds` + de meegewiste relaties/toewijzingen), en een id dat al door een eerdere cascade
+ * verdween telt als SUCCES (`deleted`), niet als weigering.
+ */
 function deleteTasksCore(ids: string[]): MutationOutcome {
+  const before = useAppStore.getState();
+  const existedBefore = new Set(before.tasks.map((t) => t.id));
+  const seqBefore = before.sequences.length;
+  const asgBefore = before.assignments.length;
+
   const rejections: { id: string; reason: string }[] = [];
-  const deleted: string[] = [];
+  // Set: een id dat tweemaal in `ids` staat mag niet tweemaal in het rapport belanden.
+  const deletedSet = new Set<string>();
   for (const id of ids) {
     const exists = validate.taskExists(useAppStore.getState(), id);
-    if (exists) { rejections.push(exists); continue; }
+    if (exists) {
+      // Al meegenomen door de cascade van een eerder id in DEZELFDE call (of een dubbel id) ⇒ succes.
+      if (existedBefore.has(id)) { deletedSet.add(id); continue; }
+      rejections.push(exists);
+      continue;
+    }
     draft.deleteTask(id);
-    deleted.push(id);
+    deletedSet.add(id);
   }
-  return { data: { deleted }, itemRejections: rejections };
+  const deleted = [...deletedSet];
+
+  const after = useAppStore.getState();
+  const stillThere = new Set(after.tasks.map((t) => t.id));
+  const deletedTaskIds = [...existedBefore].filter((id) => !stillThere.has(id));
+  const requested = new Set(ids);
+  return {
+    data: {
+      deleted,
+      deletedTaskIds,
+      deletedTaskCount: deletedTaskIds.length,
+      cascadedTaskIds: deletedTaskIds.filter((id) => !requested.has(id)),
+      removedDependencyCount: seqBefore - after.sequences.length,
+      removedAssignmentCount: asgBefore - after.assignments.length,
+    },
+    itemRejections: rejections,
+  };
 }
 
 const deleteTasks: BatchStepTool = {
   name: 'planner_delete_tasks',
   description:
-    'Verwijder taken op id (inclusief hun subboom, relaties en toewijzingen). Een onbekend id wordt per ' +
-    'item zacht geweigerd; de rest wordt verwijderd. Retourneert de verwijderde id\'s en het nieuwe projecteinde.',
+    'Verwijder taken op id INCLUSIEF HUN VOLLEDIGE SUBBOOM, plus alle relaties en toewijzingen daarvan — ' +
+    'één verzameltaak wissen kan dus veel meer taken meenemen dan je opgaf. Daarom rapporteert de tool ' +
+    'wat er ECHT weg is: `deletedTaskIds` (alle verwijderde taken), `deletedTaskCount`, `cascadedTaskIds` ' +
+    '(de niet-gevraagde meegewiste taken) en `removedDependencyCount`/`removedAssignmentCount`; ' +
+    '`deleted` blijft de gevraagde id\'s. Een id dat al door de cascade van een ander id uit dezelfde ' +
+    'call verdween telt als succes. Een id dat nooit bestond wordt per item zacht geweigerd.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT, destructiveHint: true },
@@ -451,6 +584,7 @@ const deleteTasks: BatchStepTool = {
     type: 'object',
     properties: { ids: { type: 'array', minItems: 1, items: { type: 'string' } } },
     required: ['ids'],
+    additionalProperties: false,
   },
   // Zie de noot bij update_tasks: het lege-batch-snelpad is puur transactie-vermijding en dus
   // overbodig binnen een batch.
@@ -471,12 +605,25 @@ const deleteTasks: BatchStepTool = {
       if (staticRej.length === ids.length) {
         const g = guardNonTransactional(ctx);
         if (g) return g;
-        return okDirect(ctx, { deleted: [], projectEnd: projectEndInfo().projectEnd }, staticRej);
+        return okDirect(
+          ctx,
+          {
+            deleted: [],
+            deletedTaskIds: [],
+            deletedTaskCount: 0,
+            cascadedTaskIds: [],
+            removedDependencyCount: 0,
+            removedAssignmentCount: 0,
+            projectEnd: projectEndInfo().projectEnd,
+          },
+          staticRej,
+        );
       }
     }
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => deleteTasksCore(ids));
     return enrichOk(res, () => ({
-      deleted: ((res as McpToolOk).data as { deleted: string[] }).deleted,
+      // Het volledige cascade-rapport uit de kern doorgeven (M1) — niet alleen `deleted`.
+      ...((res as McpToolOk).data as object),
       projectEnd: projectEndInfo().projectEnd,
     }));
   },
@@ -492,6 +639,12 @@ function parseMoveTask(args: unknown): { id: string; newParentId: string | null;
   if (typeof a.id !== 'string') return 'move_task vereist een string-`id`';
   if (!(a.newParentId === null || typeof a.newParentId === 'string')) {
     return '`newParentId` moet een string of null zijn';
+  }
+  // Audit-bevinding L3: een niet-numerieke `position` werd hier STIL WEGGEGOOID (de taak belandde dan
+  // achteraan) en gaf verderop `Math.min(NaN, …)` ⇒ `splice(NaN)` ⇒ gedrag als index 0. De stille klem
+  // naar [0, aantal siblings] is gedocumenteerd en blijft; niet-numerieke invoer is dat niet.
+  if (a.position !== undefined && (typeof a.position !== 'number' || !Number.isInteger(a.position))) {
+    return '`position` moet een geheel getal zijn (invoeg-index binnen de ouder)';
   }
   return {
     id: a.id,
@@ -538,6 +691,7 @@ const moveTask: BatchStepTool = {
       position: { type: 'integer', description: 'Invoeg-index binnen de ouder; klemt stil naar [0, aantal siblings].' },
     },
     required: ['id', 'newParentId'],
+    additionalProperties: false,
   },
   batchStep(args) {
     const parsed = parseMoveTask(args);
@@ -563,23 +717,34 @@ const moveTask: BatchStepTool = {
  *  kandidaten, ín de transactie, als harde stap-fout). */
 function classifyDeps(
   st: ReturnType<typeof useAppStore.getState>,
-  deps: { predecessorId: string; successorId: string; type: string; lag?: number }[],
+  deps: { predecessorId: string; successorId: string; type: string; lag?: unknown }[],
 ): {
-  candidates: { predecessorId: string; successorId: string; type: SequenceType; lag?: number }[];
+  candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: number }[];
   rejections: { id: string; reason: string }[];
 } {
   const rejections: { id: string; reason: string }[] = [];
-  const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag?: number }[] = [];
+  const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: number }[] = [];
   const seen = new Set(st.sequences.map((s) => `${s.predecessorId}|${s.successorId}|${s.type}`));
   for (const d of deps) {
     const label = `${d.predecessorId}->${d.successorId}`;
-    if (!isSeqType(d.type)) { rejections.push({ id: label, reason: `onbekend relatietype '${d.type}'` }); continue; }
+    // Type: lange én korte (leeskant-)notatie, hoofdletterongevoelig — zie SEQ_TYPE_ALIASES (H1).
+    const type = normalizeSeqType(d.type);
+    if (!type) {
+      rejections.push({
+        id: label,
+        reason: `onbekend relatietype '${String(d.type)}'; toegestaan: ${SEQ_TYPES.join(' | ')} (of kort ${SEQ_TYPE_SHORT.join('/')})`,
+      });
+      continue;
+    }
+    // Lag: nooit meer stil naar 0 terugvallen (K4/H2).
+    const lag = parseLag(d.lag);
+    if (!lag.ok) { rejections.push({ id: label, reason: lag.reason }); continue; }
     if (!st.tasks.some((t) => t.id === d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
     if (!st.tasks.some((t) => t.id === d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
-    const key = `${d.predecessorId}|${d.successorId}|${d.type}`;
+    const key = `${d.predecessorId}|${d.successorId}|${type}`;
     if (seen.has(key)) { rejections.push({ id: label, reason: 'relatie bestond al' }); continue; }
     seen.add(key);
-    candidates.push({ predecessorId: d.predecessorId, successorId: d.successorId, type: d.type, lag: d.lag });
+    candidates.push({ predecessorId: d.predecessorId, successorId: d.successorId, type, lag: lag.value });
   }
   return { candidates, rejections };
 }
@@ -589,17 +754,17 @@ function classifyDeps(
 // kring ⇒ harde CYCLE + volledige rollback; duplicaat ⇒ zachte weigering.
 // =================================================================================================
 /** Vormvalidatie van `add_dependencies`; string = foutboodschap. */
-function parseAddDeps(args: unknown): { predecessorId: string; successorId: string; type: string; lag?: number }[] | string {
+function parseAddDeps(args: unknown): { predecessorId: string; successorId: string; type: string; lag?: unknown }[] | string {
   const a = (args ?? {}) as { dependencies?: unknown };
   if (!Array.isArray(a.dependencies) || a.dependencies.length === 0) {
     return 'add_dependencies vereist een niet-lege `dependencies`-array';
   }
-  return a.dependencies as { predecessorId: string; successorId: string; type: string; lag?: number }[];
+  return a.dependencies as { predecessorId: string; successorId: string; type: string; lag?: unknown }[];
 }
 
 /** Synchrone, transactie-vrije kern van `add_dependencies`. Een kring is een HARDE stapfout. */
 function addDependenciesCore(
-  deps: { predecessorId: string; successorId: string; type: string; lag?: number }[],
+  deps: { predecessorId: string; successorId: string; type: string; lag?: unknown }[],
 ): MutationOutcome {
   const st = useAppStore.getState();
   const { candidates, rejections } = classifyDeps(st, deps);
@@ -612,7 +777,9 @@ function addDependenciesCore(
       predecessorId: c.predecessorId,
       successorId: c.successorId,
       type: c.type,
-      lagDays: typeof c.lag === 'number' ? c.lag : 0,
+      // `c.lag` is hier al door `parseLag` gegaan (K4): een niet-numerieke lag heeft de relatie
+      // hierboven geweigerd en komt nooit als stille 0 binnen.
+      lagDays: c.lag,
     });
     if (newId) added.push(newId);
     else rejections.push({ id: `${c.predecessorId}->${c.successorId}`, reason: 'relatie bestond al' });
@@ -624,10 +791,13 @@ const addDependencies: BatchStepTool = {
   name: 'planner_add_dependencies',
   description:
     'Voeg relaties tussen taken toe. Per item: `predecessorId`, `successorId`, `type` ' +
-    '(FINISH_START | FINISH_FINISH | START_START | START_FINISH) en optioneel `lag` in werkdagen ' +
-    '(negatief = lead). Onbekende taak-id\'s of een reeds bestaande relatie worden per item zacht ' +
-    'geweigerd; een kringverwijzing (over de bestaande én voorgestelde relaties) is een harde fout die ' +
-    'de hele call terugrolt.',
+    '(FINISH_START | FINISH_FINISH | START_START | START_FINISH — de KORTE vorm FS/FF/SS/SF die de ' +
+    'leestools teruggeven mag ook) en optioneel `lag` in HELE WERKDAGEN (negatief = lead). `lag` mag ' +
+    'een getal (2, -1) of de leeskant-string ("+2d", "-1d", "2") zijn; elke andere vorm wordt per item ' +
+    'GEWEIGERD in plaats van stil op 0 gezet. PROCENT-LAG ("+50%") die de leestools kunnen tonen is via ' +
+    'de bridge niet zetbaar en wordt expliciet geweigerd. Onbekende taak-id\'s of een reeds bestaande ' +
+    'relatie worden per item zacht geweigerd; een kringverwijzing (over de bestaande én voorgestelde ' +
+    'relaties) is een harde fout die de hele call terugrolt.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },
@@ -643,13 +813,25 @@ const addDependencies: BatchStepTool = {
           properties: {
             predecessorId: { type: 'string' },
             successorId: { type: 'string' },
-            type: { type: 'string', enum: SEQ_TYPES },
-            lag: { type: 'number', description: 'Vaste lag in werkdagen (negatief = lead). Default 0.' },
+            type: {
+              type: 'string',
+              enum: [...SEQ_TYPES, ...SEQ_TYPE_SHORT],
+              description: 'Lange vorm (FINISH_START, …) of de korte vorm die de leestools teruggeven (FS/FF/SS/SF).',
+            },
+            lag: {
+              type: ['number', 'string'],
+              description:
+                'Vaste lag in HELE WERKDAGEN (negatief = lead). Default 0. Als getal (2, -1) of als de ' +
+                'leeskant-string ("+2d", "-1d", "2"). Procent-lag ("+50%") is via de bridge niet zetbaar ' +
+                'en wordt geweigerd — nooit stil op 0 gezet.',
+            },
           },
+          additionalProperties: false,
         },
       },
     },
     required: ['dependencies'],
+    additionalProperties: false,
   },
   batchStep(args) {
     const parsed = parseAddDeps(args);
@@ -715,6 +897,7 @@ const removeDependencies: BatchStepTool = {
     type: 'object',
     properties: { ids: { type: 'array', minItems: 1, items: { type: 'string' }, description: 'Sequence-id\'s.' } },
     required: ['ids'],
+    additionalProperties: false,
   },
   batchStep(args) {
     const parsed = parseIdList(args, 'remove_dependencies');
@@ -749,41 +932,64 @@ const removeDependencies: BatchStepTool = {
 // planner_undo / planner_redo — gedeelde undo-stack PER DOCUMENT (ook de user schrijft erin). Één
 // tool-mutatie = één stap. Niet-transactioneel: de store-acties beheren de stack zelf.
 // =================================================================================================
+/**
+ * Gedeelde kern van undo/redo (audit-fix K5).
+ *
+ * `historySlice.undo/redo` doen `if (stack.length === 0) return;` — een STILLE no-op. Beide tools
+ * gaven daarna onvoorwaardelijk `{ ok: true, data: { projectEnd } }` terug, dus een agent die drie
+ * stappen terugdraaide kreeg drie identieke `ok`'s, of er nu één, geen of alle drie landden. Vanaf nu
+ * meldt de respons of er daadwerkelijk iets is teruggedraaid én hoe diep beide stacks nog zijn.
+ */
+function historyStep(ctx: Parameters<McpToolDef['handler']>[1], dir: 'undo' | 'redo'): McpToolResult {
+  const g = guardNonTransactional(ctx);
+  if (g) return g;
+  const before = useAppStore.getState();
+  const depthBefore = dir === 'undo' ? before.undoStack.length : before.redoStack.length;
+  if (dir === 'undo') useAppStore.getState().undo();
+  else useAppStore.getState().redo();
+  const after = useAppStore.getState();
+  const done = depthBefore > 0;
+  return {
+    ok: true,
+    envelope: okEnvelope(ctx),
+    data: {
+      [dir === 'undo' ? 'undone' : 'redone']: done,
+      undoDepth: after.undoStack.length,
+      redoDepth: after.redoStack.length,
+      projectEnd: after.cpmResult?.projectEnd ?? '',
+      ...(done ? {} : { reason: `de ${dir}-stack is leeg; er is niets ${dir === 'undo' ? 'teruggedraaid' : 'opnieuw uitgevoerd'}` }),
+    },
+  };
+}
+
 const undo: McpToolDef = {
   name: 'planner_undo',
   description:
-    'Maak de laatste ongedaan-maakbare wijziging in het ACTIEVE document ongedaan (één stap). Let op: de ' +
-    'undo-stack is per document en wordt GEDEELD met de gebruiker — een undo kan dus een handmatige ' +
-    'wijziging van de gebruiker terugdraaien. Voor wat-als-werk: gebruik duplicate_document, niet undo.',
+    'Maak de laatste ongedaan-maakbare wijziging in het ACTIEVE document ongedaan (één stap). Controleer ' +
+    'ALTIJD `undone` in het antwoord: bij een lege undo-stack blijft de call `ok` maar is `undone` false ' +
+    '(met `reason`) — `ok` alleen betekent dus niet dat er iets is teruggedraaid. `undoDepth`/`redoDepth` ' +
+    'geven de resterende stackdiepte. Let op: de undo-stack is per document en wordt GEDEELD met de ' +
+    'gebruiker — een undo kan dus een handmatige wijziging van de gebruiker terugdraaien. Voor ' +
+    'wat-als-werk: gebruik duplicate_document, niet undo.',
   kind: 'other',
   batchable: false,
   annotations: { ...STD_ANNOT },
-  inputSchema: { type: 'object', properties: {} },
-  handler(_args, ctx): McpToolResult {
-    const g = guardNonTransactional(ctx);
-    if (g) return g;
-    useAppStore.getState().undo();
-    const cpm = useAppStore.getState().cpmResult;
-    return { ok: true, envelope: okEnvelope(ctx), data: { projectEnd: cpm?.projectEnd ?? '' } };
-  },
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  handler: (_args, ctx): McpToolResult => historyStep(ctx, 'undo'),
 };
 
 const redo: McpToolDef = {
   name: 'planner_redo',
   description:
-    'Herhaal de laatst ongedaan gemaakte wijziging in het ACTIEVE document (één stap). De redo-stack is ' +
-    'per document en gedeeld met de gebruiker; een nieuwe wijziging wist de redo-stack.',
+    'Herhaal de laatst ongedaan gemaakte wijziging in het ACTIEVE document (één stap). Controleer ALTIJD ' +
+    '`redone` in het antwoord: bij een lege redo-stack blijft de call `ok` maar is `redone` false (met ' +
+    '`reason`). `undoDepth`/`redoDepth` geven de resterende stackdiepte. De redo-stack is per document ' +
+    'en gedeeld met de gebruiker; een nieuwe wijziging wist de redo-stack.',
   kind: 'other',
   batchable: false,
   annotations: { ...STD_ANNOT },
-  inputSchema: { type: 'object', properties: {} },
-  handler(_args, ctx): McpToolResult {
-    const g = guardNonTransactional(ctx);
-    if (g) return g;
-    useAppStore.getState().redo();
-    const cpm = useAppStore.getState().cpmResult;
-    return { ok: true, envelope: okEnvelope(ctx), data: { projectEnd: cpm?.projectEnd ?? '' } };
-  },
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  handler: (_args, ctx): McpToolResult => historyStep(ctx, 'redo'),
 };
 
 // =================================================================================================
@@ -799,7 +1005,7 @@ const runCpm: McpToolDef = {
   kind: 'other',
   batchable: false,
   annotations: { ...STD_ANNOT, idempotentHint: true },
-  inputSchema: { type: 'object', properties: {} },
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   handler(_args, ctx): McpToolResult {
     const g = guardNonTransactional(ctx);
     if (g) return g;

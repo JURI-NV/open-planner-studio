@@ -291,6 +291,98 @@ export function parseTaskFields(raw: unknown, ctx: TaskFieldContext): TaskFieldR
   return { ok: true, patch: { top, ...(hasTime ? { time } : {}) } };
 }
 
+// --- Voortgangs-allowlist (`update_tasks.progress`) ----------------------------------------------
+//
+// ZELFDE ROOT-CAUSE ALS `fields`, ANDERE TAK (audit-bevinding K3): `progress` ging ONGEZIEN naar
+// `progress.applyProgressUpdate`, die exact drie sleutels leest (`completion`/`actualStart`/
+// `actualFinish`). Een agent die `progress: { percent: 50 }` stuurde, raakte geen van die drie ⇒
+// `touchesProgress` bleef false ⇒ zelfs de statusdatum-guard sloeg over ⇒ `{ applied: true }` ⇒ de
+// tool antwoordde `updated: ['t1']` terwijl de taak op 0% bleef staan. Idem voor `progress: {}`.
+// Daarom hier dezelfde behandeling als `fields`: expliciete allowlist, onbekende sleutel bij NAAM
+// geweigerd, en een `progress` zonder ook maar één bekende sleutel geweigerd.
+
+/** De enige sleutels die `applyProgressUpdate` daadwerkelijk leest. */
+export const PROGRESS_FIELD_NAMES = ['completion', 'actualStart', 'actualFinish'] as const;
+
+/** Gerichte hints voor voortgangs-sleutels die een agent redelijkerwijs probeert. */
+const PROGRESS_REJECT_HINTS: Record<string, string> = {
+  percent: 'gebruik `completion` (PROCENTEN 0–100)',
+  percentage: 'gebruik `completion` (PROCENTEN 0–100)',
+  percentComplete: 'gebruik `completion` (PROCENTEN 0–100)',
+  percent_complete: 'gebruik `completion` (PROCENTEN 0–100)',
+  progress: 'gebruik `completion` (PROCENTEN 0–100)',
+  complete: 'gebruik `completion` (PROCENTEN 0–100)',
+  completed: 'gebruik `completion` (PROCENTEN 0–100)',
+  status: 'de status wordt AFGELEID uit `completion` en de actuals; hij is niet direct zetbaar',
+  start: 'gebruik `actualStart` (ISO-datum)',
+  finish: 'gebruik `actualFinish` (ISO-datum)',
+  end: 'gebruik `actualFinish` (ISO-datum)',
+  actual_start: 'gebruik `actualStart` (ISO-datum)',
+  actual_finish: 'gebruik `actualFinish` (ISO-datum)',
+  remaining: 'de resterende duur wordt afgeleid uit `completion`',
+  remainingTime: 'de resterende duur wordt afgeleid uit `completion`',
+};
+
+/** Wat `applyProgressUpdate` als update-object verwacht. */
+export interface ProgressPatch {
+  completion?: number;
+  actualStart?: string;
+  actualFinish?: string;
+}
+
+export type ProgressParseResult =
+  | { ok: true; value: ProgressPatch }
+  | { ok: false; reason: string };
+
+/**
+ * Valideer één `progress`-blok tegen de allowlist. ALLES-OF-NIETS, net als `parseTaskFields`.
+ *
+ * `actualStart`/`actualFinish` mogen `null` of `''` zijn: dat is de bestaande WIS-vorm
+ * (`applyProgressUpdate` doet `update.actualX || undefined`, en de sleutel-aanwezigheid is wat telt).
+ * Die vorm wordt hier naar een expliciete `undefined` genormaliseerd, zodat de sleutel aanwezig blijft.
+ */
+export function parseProgress(raw: unknown): ProgressParseResult {
+  if (!isPlainObject(raw)) return { ok: false, reason: '`progress` moet een object zijn ({ completion?, actualStart?, actualFinish? })' };
+  const keys = Object.keys(raw);
+  const allowed = PROGRESS_FIELD_NAMES.join(', ');
+  if (keys.length === 0) {
+    return { ok: false, reason: `\`progress\` is leeg; geef minstens één van: ${allowed}` };
+  }
+  for (const k of keys) {
+    if (!(PROGRESS_FIELD_NAMES as readonly string[]).includes(k)) {
+      const hint = PROGRESS_REJECT_HINTS[k];
+      return {
+        ok: false,
+        reason: hint
+          ? `onbekend veld '${k}' in \`progress\`: ${hint}. Toegestaan: ${allowed}`
+          : `onbekend veld '${k}' in \`progress\`; toegestaan: ${allowed}`,
+      };
+    }
+  }
+
+  const value: ProgressPatch = {};
+  if ('completion' in raw) {
+    const c = raw.completion;
+    if (typeof c !== 'number' || !Number.isFinite(c)) {
+      return { ok: false, reason: '`progress.completion` moet een getal zijn (PROCENTEN 0–100)' };
+    }
+    value.completion = c;
+  }
+  for (const k of ['actualStart', 'actualFinish'] as const) {
+    if (!(k in raw)) continue;
+    const v = raw[k];
+    if (v === null || v === undefined || v === '') {
+      value[k] = undefined; // WIS-vorm: sleutel aanwezig, waarde leeg
+      continue;
+    }
+    if (!isIsoDate(v)) {
+      return { ok: false, reason: `\`progress.${k}\` moet een ISO-datum zijn (YYYY-MM-DD) of null om te wissen` };
+    }
+    value[k] = v;
+  }
+  return { ok: true, value };
+}
+
 // --- JSON-schema ---------------------------------------------------------------------------------
 
 /** De schema-properties van de allowlist — gedeeld door `add_tasks`-items en `update_tasks.fields`,
