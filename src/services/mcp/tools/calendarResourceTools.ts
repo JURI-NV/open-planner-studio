@@ -26,6 +26,7 @@ import {
 import { enrichOk, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { draft } from '@/state/mcpTransaction';
+import { syncProjectCalendar } from '@/state/syncProjectCalendar';
 import { validate } from '@/state/mcpValidation';
 import { resolveCalendarHolidays } from '../calendarGenerate';
 import { ensureFreshSchedule } from '../staleGuard';
@@ -39,6 +40,23 @@ import type { Project } from '@/types/project';
 import type { LevelingOptions, LevelingResult } from '@/engine/scheduler/ResourceLeveler';
 
 const STD_ANNOT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+
+/**
+ * Toegestane verdeelcurves + de bijbehorende typewachter — exact het `isSeqType`-patroon uit T19
+ * (`taskTools.ts`). DIT IS EEN VEILIGHEIDSGUARD, GEEN COMFORT: de dispatcher valideert `inputSchema`
+ * NIET, dus de tool-laag is de enige verdediging. Een onbekende curve (een LLM die `"bell"` i.p.v.
+ * `"BELL"` schrijft) belandt anders ongefilterd in de store, waarna `ResourceLoad.CURVE_POINTS[curve]`
+ * `undefined` oplevert en klapt in `recomputeResourceLoad()` — en dát draait in
+ * `runInMcpTransaction` BUITEN de try/catch (stap 5), dus voorbij het rollback-pad: uncaught
+ * TypeError, géén McpToolResult, corrupte waarde gecommit én een undo-stap erbij. Vandaar: filteren
+ * vóór de mutatie, als ZACHTE per-item-weigering.
+ */
+const RESOURCE_CURVES: ResourceCurve[] = ['UNIFORM', 'FRONT_LOADED', 'BACK_LOADED', 'BELL', 'EARLY_PEAK', 'LATE_PEAK'];
+const isCurve = (v: unknown): v is ResourceCurve =>
+  typeof v === 'string' && (RESOURCE_CURVES as string[]).includes(v);
+/** Leesbare weigeringsreden die de geldige waarden noemt (de AI kan zich direct corrigeren). */
+const curveReason = (v: unknown): string =>
+  `onbekende curve '${String(v)}'; geldige waarden zijn ${RESOURCE_CURVES.join(', ')} (hoofdlettergevoelig)`;
 
 type Rejection = { id: string; reason: string };
 type StoreState = ReturnType<typeof useAppStore.getState>;
@@ -252,7 +270,11 @@ const updateCalendar: McpToolDef = {
               { holidays: base.holidays, generation: base.generation },
             );
             cal.holidays = r.holidays;
-            cal.generation = r.generation;
+            // `delete` i.p.v. `= undefined`: een sleutel-met-undefined is niet hetzelfde als een
+            // afwezige sleutel (codebase-conventie, zie ook setStatusDate) — een letterlijke
+            // kalender hoort geen `generation`-sleutel te dragen.
+            if (r.generation !== undefined) cal.generation = r.generation;
+            else delete cal.generation;
             becameLiteral = r.becameLiteral;
           }
           const newId = draft.addCalendar(cal);
@@ -275,6 +297,7 @@ const updateCalendar: McpToolDef = {
         }
         const updates = calendarFieldPatch(item) as Partial<WorkCalendar>;
         let becameLiteral = false;
+        let dropGeneration = false;
         if (wantsHolidays) {
           const r = resolveCalendarHolidays(
             { generate: item.generate, rawHolidays: item.rawHolidays },
@@ -282,12 +305,25 @@ const updateCalendar: McpToolDef = {
             { holidays: existing.holidays, generation: existing.generation },
           );
           updates.holidays = r.holidays;
-          // BEWUST altijd zetten: bij `becameLiteral` is `r.generation` undefined en MOET de
-          // bestaande herkomst gewist worden (anders zou een regenerate de rauwe dagen wegvagen).
-          updates.generation = r.generation;
+          if (r.generation !== undefined) updates.generation = r.generation;
+          // Bij `becameLiteral` MOET de bestaande herkomst weg (anders zou een regenerate later de
+          // rauwe dagen wegvagen). `draft.updateCalendar` doet een Object.assign en kan dus geen
+          // sleutel verwijderen — vandaar de gerichte `delete` hieronder i.p.v. `= undefined`.
+          else dropGeneration = existing.generation !== undefined;
           becameLiteral = r.becameLiteral;
         }
         draft.updateCalendar(plan.targetId, updates);
+        if (dropGeneration) {
+          useAppStore.setState((s) => {
+            const idx = s.calendars.findIndex((c) => c.id === plan.targetId);
+            if (idx >= 0) delete s.calendars[idx].generation;
+            // De gedenormaliseerde projectkalender-cache moet de entry blijven volgen (§9.1);
+            // `draft.updateCalendar` synct zelf, maar deze extra producer maakt een nieuw
+            // entry-object en zou de cache anders op het oude object laten wijzen.
+            syncProjectCalendar(s);
+            s.isDirty = true;
+          });
+        }
         rows.push({ id: plan.targetId, created: false, promoted, becameLiteral });
       }
       return { data: { calendars: rows }, itemRejections: rejections };
@@ -357,6 +393,10 @@ function classifyAssignments(
           rejections.push({ id: label, reason: `resource '${act.resourceId}' bestaat niet` });
           return;
         }
+        if (act.curve !== undefined && !isCurve(act.curve)) {
+          rejections.push({ id: label, reason: curveReason(act.curve) });
+          return;
+        }
         const guard = validate.assignmentAllowed(simState(), act.taskId, act.resourceId, act.unitsPerDay);
         if (!guard.ok) {
           rejections.push({ id: label, reason: guard.reason });
@@ -381,6 +421,10 @@ function classifyAssignments(
         }
         if (hasUnits && !(typeof act.unitsPerDay === 'number' && Number.isFinite(act.unitsPerDay) && act.unitsPerDay > 0)) {
           rejections.push({ id: act.assignmentId, reason: `ongeldige unitsPerDay ${String(act.unitsPerDay)} (eenheden/dag, strikt positief vereist)` });
+          return;
+        }
+        if (hasCurve && !isCurve(act.curve)) {
+          rejections.push({ id: act.assignmentId, reason: curveReason(act.curve) });
           return;
         }
         if (hasUnits) cur.unitsPerDay = act.unitsPerDay!;
@@ -565,6 +609,15 @@ function levelingData(r: LevelingResult, dryRun: boolean, recomputed: boolean, c
       'resource- en taakkalender sluiten niet aan, INSUFFICIENT_CAPACITY = er is domweg te weinig capaciteit).',
     );
   }
+  // `projectEndAfter` is de VOORSPELLING van de nivelleerder; `projectEnd` is wat er ná de
+  // eind-runCPM daadwerkelijk in de store staat. Bij `dryRun` is dat per definitie de ONgewijzigde
+  // planning (== projectEndBefore) — beide meegeven maakt het verschil expliciet i.p.v. impliciet.
+  const { projectEnd, cappedTaskIds } = projectEndInfo();
+  if (cappedTaskIds) {
+    warnings.push(
+      `Onwerkbaar venster: ${cappedTaskIds.length} taak/taken passen niet binnen hun kalender (zie cappedTaskIds).`,
+    );
+  }
   return {
     dryRun,
     recomputed,
@@ -576,6 +629,8 @@ function levelingData(r: LevelingResult, dryRun: boolean, recomputed: boolean, c
     projectEndBefore: r.projectEndBefore,
     projectEndAfter: r.projectEndAfter,
     projectEndDelta: { before: r.projectEndBefore, after: r.projectEndAfter, calendarDays },
+    projectEnd,
+    ...(cappedTaskIds ? { cappedTaskIds } : {}),
     warnings,
   };
 }
@@ -608,7 +663,13 @@ const levelResources: McpToolDef = {
         items: { type: 'string' },
         description: 'Beperk tot deze resources; weglaten = alle hernieuwbare resources (materiaal telt nooit mee).',
       },
-      dryRun: { type: 'boolean', description: 'true = alleen preview; er wordt NIETS gewijzigd en er ontstaat geen ongedaan-maak-stap.' },
+      dryRun: {
+        type: 'boolean',
+        description:
+          'true = alleen preview: er wordt niets genivelleerd en er ontstaat geen ongedaan-maak-stap. ' +
+          'Let op: een nog niet doorgerekende planning wordt ook dan éérst herrekend (anders kloppen de ' +
+          'voor/na-datums niet); `recomputed` meldt dat.',
+      },
     },
   },
   async handler(args, ctx) {
@@ -664,7 +725,10 @@ const clearLeveling: McpToolDef = {
     'zonder een nieuwe te berekenen.',
   kind: 'mutate',
   batchable: true,
-  annotations: { ...STD_ANNOT, destructiveHint: true, idempotentHint: true },
+  // GEEN destructiveHint: spec r65 zet die annotatie op een GESLOTEN lijst (delete_tasks,
+  // remove_dependencies, import_schedule, update_calendar). Nivellerings-vertragingen zijn afgeleide,
+  // herberekenbare waarden — ze wissen vernietigt geen ingevoerde data.
+  annotations: { ...STD_ANNOT, idempotentHint: true },
   inputSchema: { type: 'object', properties: {} },
   async handler(_args, ctx) {
     const count = useAppStore.getState().tasks.filter((t) => t.levelingDelay !== undefined).length;
@@ -696,7 +760,9 @@ const updateProject: McpToolDef = {
     'update_tasks) en `startDate`. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
     'NIEUW aan te maken taken — het verschuift GEEN enkele bestaande taak. Wil je de hele bestaande ' +
     'planning opschuiven, gebruik dan `planner_move_project`. Zet `startDate` dus vóór add_tasks, ' +
-    'niet erna. `statusDate: null` (of een lege string) wist de statusdatum.',
+    'niet erna. `statusDate: null` (of een lege string) wist de statusdatum — doe dat bewust: zonder ' +
+    'peildatum worden reeds geregistreerde actuals inert (de solver pint er niet meer op) en kunnen ' +
+    'berekende datums bij de eerstvolgende herberekening verschuiven.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },

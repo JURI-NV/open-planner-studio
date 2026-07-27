@@ -11,6 +11,8 @@
 //   6. create:true ⇒ nieuwe bibliotheek-kalender met generator-basis
 //   7. manage_assignments add/update/move/remove happy path met de T18-veldnamen
 //   8. dubbele add in ÉÉN call ⇒ tweede zacht geweigerd (incrementele guard binnen de batch)
+//  8b. REVIEWFIX: onbekende `curve` (add én update) ⇒ zachte weigering i.p.v. uncaught crash;
+//      geldige items in dezelfde call blijven staan
 //   9. level_resources dryRun ⇒ store byte-identiek + volledig LevelingResult
 //  10. level_resources apply ⇒ delays + ÉÉN undo-stap + before/after
 //  11. stale vóór level_resources ⇒ eerst herrekend (WP8-guardpatroon)
@@ -165,6 +167,11 @@ test('update_calendar: generator (NL-bouwvak) + rawHolidays ⇒ merge, generatio
   assertEq(data.calendars[0].becameLiteral, true, 'becameLiteral gemeld per item');
   const cal = store.getState().calendars.find((c) => c.id === projCalId)!;
   assertEq(cal.generation, undefined, 'generation is gewist door de rauwe toevoeging');
+  // Reviewfix: écht verwijderd (delete), niet een sleutel-met-undefined — en de projectkalender-cache
+  // moet de bijgewerkte bibliotheek-entry blijven volgen (§9.1).
+  assertEq('generation' in cal, false, 'de generation-SLEUTEL is verwijderd, niet op undefined gezet');
+  assertEq('generation' in store.getState().calendar, false, 'de projectkalender-cache loopt mee');
+  assertEq(store.getState().calendar.holidays.length, cal.holidays.length, 'cache en entry zijn in sync');
   assert(cal.holidays.some((h) => h.name === 'Vorstverlet' && h.startDate === vorstStart), 'rauwe dag staat erin');
   assert(cal.holidays.length > 1, 'de generator-basis (bouwvak + feestdagen) staat er ook in');
 });
@@ -312,6 +319,78 @@ test('manage_assignments: dubbele add in één call ⇒ eerste toegepast, tweede
 });
 
 // =================================================================================================
+// 8b) REVIEWFIX-blocker — een onbekende `curve` mag NOOIT de store in
+//
+// Regressie die dit afdekt: de dispatcher valideert `inputSchema` NIET, dus zonder tool-guard belandde
+// bv. 'SPIRAAL' ongefilterd in de store. `recomputeResourceLoad()` draait in `runInMcpTransaction`
+// stap 5 — BUITEN de try/catch — en `ResourceLoad.CURVE_POINTS[curve]` is dan undefined: uncaught
+// TypeError, géén McpToolResult, corrupte waarde GECOMMIT plus een undo-stap erbij.
+// =================================================================================================
+test('manage_assignments: onbekende curve (add) ⇒ zachte weigering, store byte-identiek, geen undo-stap', async () => {
+  reset();
+  const a = addTask('curve-a', 5);
+  const r = store.getState().addResource({ name: 'Stukadoor', type: 'LABOR', description: '', maxUnits: 2 });
+  const before = JSON.stringify(createSnapshot(store.getState()));
+  const undoLen = store.getState().undoStack.length;
+
+  const ctx = makeCtx();
+  const res = await call('planner_manage_assignments', {
+    actions: [{ action: 'add', taskId: a, resourceId: r, unitsPerDay: 1, curve: 'SPIRAAL' }],
+  }, ctx);
+
+  assert(res.ok, 'de call levert een NORMAAL McpToolResult (geen uncaught crash)');
+  assertEq(okData(res).added, [], 'niets toegevoegd');
+  assertEq(rejections(res).length, 1, 'precies één zachte weigering');
+  assert(/SPIRAAL/.test(rejections(res)[0].reason), 'de reden noemt de foute waarde');
+  assert(/UNIFORM/.test(rejections(res)[0].reason) && /BELL/.test(rejections(res)[0].reason),
+    'de reden somt de geldige waarden op');
+  assertEq(store.getState().assignments.length, 0, 'geen toewijzing in de store');
+  assertEq(JSON.stringify(createSnapshot(store.getState())), before, 'store byte-identiek');
+  assertEq(store.getState().undoStack.length, undoLen, 'geen undo-stap gepusht');
+});
+
+test('manage_assignments: kleine-letter-curve ("bell") ⇒ geweigerd; geldig item in dezelfde call WEL toegepast', async () => {
+  reset();
+  const a = addTask('curve-mix-a', 5);
+  const b = addTask('curve-mix-b', 5);
+  const r = store.getState().addResource({ name: 'Metselaar', type: 'LABOR', description: '', maxUnits: 3 });
+  const ctx = makeCtx();
+  const res = await call('planner_manage_assignments', {
+    actions: [
+      { action: 'add', taskId: a, resourceId: r, unitsPerDay: 1, curve: 'bell' }, // hoofdlettergevoelig
+      { action: 'add', taskId: b, resourceId: r, unitsPerDay: 1, curve: 'BELL' },
+    ],
+  }, ctx);
+  const data = okData(res);
+  assertEq(data.added.length, 1, 'alleen het geldige item is toegepast');
+  assertEq(data.added[0].taskId, b, 'en dat is het item op taak B');
+  assertEq(rejections(res).length, 1, 'het kleine-letter-item is zacht geweigerd');
+  assertEq(store.getState().assignments.filter((x) => x.taskId === a).length, 0, 'niets op taak A');
+  assertEq(store.getState().assignments.find((x) => x.taskId === b)!.curve, 'BELL', 'taak B heeft de geldige curve');
+});
+
+test('manage_assignments: onbekende curve (update) ⇒ zachte weigering, bestaande toewijzing ongemoeid', async () => {
+  reset();
+  const a = addTask('curve-upd', 5);
+  const r = store.getState().addResource({ name: 'Voeger', type: 'LABOR', description: '', maxUnits: 1 });
+  const ctx = makeCtx();
+  const asgnId = okData(await call('planner_manage_assignments', {
+    actions: [{ action: 'add', taskId: a, resourceId: r, unitsPerDay: 1, curve: 'FRONT_LOADED' }],
+  }, ctx)).added[0].assignmentId as string;
+
+  const before = JSON.stringify(createSnapshot(store.getState()));
+  const undoLen = store.getState().undoStack.length;
+  const res = await call('planner_manage_assignments', {
+    actions: [{ action: 'update', assignmentId: asgnId, curve: 'ZIGZAG' }],
+  }, ctx);
+  assert(res.ok, 'normaal McpToolResult');
+  assertEq(rejections(res).length, 1, 'zachte weigering op de update-tak');
+  assertEq(store.getState().assignments.find((x) => x.id === asgnId)!.curve, 'FRONT_LOADED', 'curve ongewijzigd');
+  assertEq(JSON.stringify(createSnapshot(store.getState())), before, 'store byte-identiek');
+  assertEq(store.getState().undoStack.length, undoLen, 'geen undo-stap gepusht');
+});
+
+// =================================================================================================
 // 9/10/11) level_resources — dryRun / apply / staleness-guard
 // =================================================================================================
 /** Overbelasting-opzet: A (10 dagen) en B (5 dagen) parallel, beide 1 eenheid van dezelfde
@@ -359,6 +438,8 @@ test('level_resources apply: delays geschreven, ÉÉN undo-stap, before/after ge
   // constrainToFloat:false ⇒ de einddatum-delta hoort prominent te zijn.
   assert(data.projectEndDelta && typeof data.projectEndDelta.calendarDays === 'number',
     'projectEndDelta prominent bij constrainToFloat:false');
+  // Reviewfix: naast de VOORSPELDE projectEndAfter ook het werkelijke projecteinde uit de verse store.
+  assertEq(data.projectEnd, store.getState().cpmResult!.projectEnd, 'projectEnd komt uit de verse store');
   // Eén undo maakt de hele nivellering ongedaan.
   store.getState().undo();
   assertEq(store.getState().tasks.filter((t) => t.levelingDelay !== undefined).length, 0,
@@ -374,6 +455,8 @@ test('level_resources: stale planning ⇒ eerst herrekend (WP8-guardpatroon)', a
   const data = okData(res);
   assertEq(data.recomputed, true, 'de respons meldt dat er eerst is herrekend');
   assertEq(store.getState().scheduleStale, false, 'de planning is nu vers');
+  // Bij dryRun is het werkelijke projecteinde per definitie het ONgewijzigde (== before).
+  assertEq(data.projectEnd, data.projectEndBefore, 'dryRun laat het werkelijke projecteinde ongemoeid');
 });
 
 // =================================================================================================
@@ -505,6 +588,9 @@ test('registratie: zeven T20-tools met prefix, description, vier annotaties en J
   }
   assertEq(tools.find((t) => t.name === 'planner_update_calendar').annotations.destructiveHint, true,
     'update_calendar is destructief (spec §Naamgeving & annotaties)');
+  // Reviewfix: spec r65 zet destructiveHint op een GESLOTEN lijst — clear_leveling hoort er niet bij.
+  assertEq(tools.find((t) => t.name === 'planner_clear_leveling').annotations.destructiveHint, false,
+    'clear_leveling draagt GEEN destructiveHint (afgeleide, herberekenbare waarden)');
   // clear_leveling wijst de AI erop dat level_resources zelfresettend is.
   assert(/zelfreset|zelf.*reset|vooraf.*zinloos|niet nodig/i.test(tool('planner_clear_leveling').description),
     'clear_leveling-beschrijving legt uit dat het vóór level_resources zinloos is');
