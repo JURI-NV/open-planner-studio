@@ -16,6 +16,7 @@
 // dit register vervangt alleen de LOAD-kant; de bestaande `saveX`-functies (en dus het
 // serialisatieformaat) blijven ongemoeid.
 
+import { snapToChoice } from '@/utils/numberChoice';
 import type { UIState } from '@/state/slices/types';
 import {
   DATE_NOTATIONS,
@@ -66,18 +67,13 @@ function parseClampedInt(min: number, max: number) {
   };
 }
 
-/** Numerieke keuze uit een vaste lijst: snapt naar de DICHTSTBIJZIJNDE toegestane waarde.
- *
- *  Bewust geen `parseClampedInt(min, max)` voor dit soort instellingen: klemmen op het BEREIK laat
- *  een waarde binnen het bereik maar buiten de lijst ongemoeid (een handmatig gezette 108 bij de
- *  keuzes 90/100/110/125 overleeft de klem), en dan toont de bijbehorende Select niets zinnigs
- *  omdat er geen optie met die waarde bestaat. Snappen garandeert dat wat geladen wordt ook
- *  daadwerkelijk aanwijsbaar is in de UI. */
+/** Numerieke keuze uit een vaste lijst. Bewust geen `parseClampedInt(min, max)`: klemmen op het
+ *  BEREIK laat een waarde binnen het bereik maar buiten de lijst ongemoeid (een handmatig gezette
+ *  108 bij de keuzes 90/100/110/125 overleeft de klem), en dan toont de bijbehorende Select niets
+ *  zinnigs. De snap-semantiek zelf staat in {@link snapToChoice} — dat is de enige plek waar dit
+ *  gedrag gedefinieerd is. */
 function parseNumberChoice(allowed: readonly number[]) {
-  return (raw: unknown): number | undefined => {
-    if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
-    return allowed.reduce((best, v) => (Math.abs(v - raw) < Math.abs(best - raw) ? v : best), allowed[0]);
-  };
+  return (raw: unknown): number | undefined => snapToChoice(allowed, raw);
 }
 
 const WHEEL_FUNCTIONS: WheelFunction[] = ['vertical', 'horizontal', 'zoom'];

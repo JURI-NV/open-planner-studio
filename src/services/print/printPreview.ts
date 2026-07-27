@@ -29,16 +29,12 @@ const DEP_STUB = 6;
 // Linkerpad van een taaklabel RECHTS van de balk. Bewust groter dan `DEP_STUB`: het label begint
 // pas voorbij de verticale knik van de relatie die uit DEZE balk vertrekt (issue #25 punt 2).
 // De koppeling is expliciet — verandert de stub, dan schuift het label mee. Let op: dit dekt alleen
-// de EIGEN knik; willekeurige andere relatielijnen kunnen nog steeds over het label lopen. Daar is
-// de halo voor ({@link fillTextWithHalo}).
+// de EIGEN knik; dat willekeurige andere relatielijnen niet over het label lopen komt doordat de
+// labels als laatste getekend worden (zie de tekenvolgorde bij `drawDependencies`).
 const BAR_LABEL_GAP = DEP_STUB + 8;
 // Kleine pad voor de LINKER fallback van een taaklabel; daar vertrekt geen eigen relatie-knik, dus
 // daar is de grote gap niet nodig.
 const BAR_LABEL_PAD_LEFT = 4;
-// Horizontale pad (bij 100% rapport-lettergrootte) van de halo/knockout rondom een taaklabel:
-// hoeveel de vrijgehouden papierkleur links en rechts buiten de tekst uitsteekt. Verticaal wordt de
-// halo uit de fontgrootte afgeleid (zie `fillTextWithHalo`).
-const BAR_LABEL_HALO_PAD_X = 2;
 
 // Column definitions for the task table
 const COL = {
@@ -266,58 +262,26 @@ function fitText(d2d: Draw2D, text: string, maxWidth: number): string {
 }
 
 /**
- * Teken tekst met een HALO/KNOCKOUT: eerst een rechthoekje in de papierkleur precies achter de
- * tekst, daarna de tekst zelf. Waar een relatielijn over het label loopt wordt hij dus onderbroken,
- * en blijft de taaknaam leesbaar; overal daarbuiten blijft de lijn gewoon zichtbaar.
+ * Teken een taaklabel. Dunne wrapper rond `fillText` die de uitlijning en kleur zet.
  *
- * ==== WAAROM EEN RECHTHOEK EN GEEN `strokeText`-CONTOUR (bewuste keuze, niet vergeten) ====
- * De klassieke halo is `strokeText` in de achtergrondkleur onder de `fillText` — dat volgt de
- * glyf-contouren en knipt dus minder weg. Die kan hier niet:
- *   1. `strokeText` zit NIET in de {@link Draw2D}-abstractie, en die abstractie heeft twee backends.
- *      De raster-backend zou 'm zo doorgeven, maar de vector-backend (`pdfVectorDraw2d.ts`) heeft
- *      DRIE tekst-paden (Latijns snelpad, RTL/bidi-shaping, CJK-runs) die elk hun eigen glyph- en
- *      matrix-emissie doen; stroke-modus zou in alle drie gedupliceerd moeten worden.
- *   2. Erger: een `strokeText` in de PDF is nóg een tekst-object. Elke taaknaam zou dan twee keer in
- *      de tekstlaag staan en dus twee keer uit een kopieer-/zoekactie komen — precies het probleem
- *      dat de vector-export elders (fase 2.1) bewust vermijdt.
- * Een oplossing die alleen in de raster-preview werkt is geen oplossing: preview en export moeten
- * WYSIWYG blijven. `fillRect` + `measureText` zitten wél in beide backends en worden er al volop
- * gebruikt, dus de rechthoek landt in preview én vector-PDF identiek. Prijs: hij knipt een strak
- * blokje uit de achtergrond (rasterlijnen/weekendarcering) i.p.v. de glyf-contour te volgen — voor
- * een leesbaar label op papier een prima ruil, en het maakt labels boven arcering meteen rustiger.
- *
- * In de vector-PDF klopt de z-volgorde vanzelf: de rechthoek is een VORM (die gaan in het gedeelde
- * Form-XObject, in tekenvolgorde — dus ná de relatielijnen, mits deze functie ook ná `drawDependencies`
- * wordt aangeroepen), en tekst wordt daar altijd bovenop het XObject geëmit.
- *
- * @param x     ankerpunt; bij align 'left' de linkerrand van de tekst, bij 'right' de rechterrand
- * @param y     baseline-y (verwacht `textBaseline === 'alphabetic'`)
- * @param sizePx  de GESCHAALDE fontgrootte in px (`m.s(9)`), voor de hoogte van de halo
+ * Hier stond eerder een halo/knockout: een rechthoek in de papierkleur achter de tekst, zodat een
+ * relatielijn die over een label loopt de tekst niet onleesbaar maakte. Die is er bewust weer uit
+ * (review-ronde 2). Twee redenen. Ten eerste is hij overbodig geworden: de labels worden nu ná
+ * `drawDependencies` getekend en liggen dus sowieso boven de lijnen — en in de vector-PDF stond
+ * tekst altijd al boven alle vormen, want vormen gaan in het gedeelde Form-XObject en tekst wordt
+ * daarná per tegel geëmit. Ten tweede kostte hij zichtbaar meer dan hij opleverde: per label werd
+ * een strak wit blokje uit de weekend- en feestdagarcering en door de dag-rasterlijnen heen
+ * gestanst, en dat waren er net zoveel als er taken zijn.
  */
-function fillTextWithHalo(
+function fillLabelText(
   d2d: Draw2D,
-  m: ReportMetrics,
   text: string,
   x: number,
   y: number,
   align: 'left' | 'right',
   color: string,
-  sizePx: number,
 ): void {
   if (!text) return;
-  const width = d2d.measureText(text).width;
-  const padX = m.s(BAR_LABEL_HALO_PAD_X);
-  // Verticale extent rond de alfabetische baseline: ruim boven de hoogste ascender (0,85 em) en
-  // onder de diepste descender (0,25 em) van Inter. Bewust uit de fontgrootte afgeleid en niet uit
-  // een `measureText`-actualBoundingBox: die zit niet in de `Draw2D`-abstractie (en zou per backend
-  // verschillen), terwijl deze benadering in beide backends per definitie identiek uitvalt.
-  const top = y - sizePx * 0.85;
-  const height = sizePx * 1.1;
-  const left = (align === 'right' ? x - width : x) - padX;
-
-  d2d.fillStyle = PRINT_COLORS.bg;
-  d2d.fillRect(left, top, width + 2 * padX, height);
-
   d2d.fillStyle = color;
   d2d.textAlign = align;
   d2d.fillText(text, x, y);
@@ -330,8 +294,8 @@ function fillTextWithHalo(
  * met de meeste ruimte. Zo valt een label nooit voorbij `canvasWidth` en overlapt het minder met
  * naburige staven.
  *
- * Elk label krijgt een halo/knockout ({@link fillTextWithHalo}) omdat de relatielijnen ONDER de
- * labels door lopen; zie de tekenvolgorde in `renderReport`.
+ * De labels worden bewust als laatste getekend (zie de tekenvolgorde in `renderReport`), zodat een
+ * relatielijn die over een label loopt achter de tekst verdwijnt in plaats van erdoorheen.
  *
  * @param barRightX  x van de rechterrand van de staaf (incl. eventuele speling-indicator)
  * @param barLeftX   x van de linkerrand van de staaf
@@ -354,11 +318,10 @@ function drawBarLabel(
   d2d.font = m.font(fontSize, bold);
   d2d.fillStyle = color;
   d2d.textBaseline = 'alphabetic';
-  const sizePx = m.s(fontSize);
   // Rechts: voorbij de verticale knik van de EIGEN uitgaande relatie beginnen (`BAR_LABEL_GAP` >
   // `DEP_STUB`), links de kleine pad — daar vertrekt geen eigen relatie-knik (issue #25 punt 2).
   // Dat houdt het label vrij van z'n eigen lijn; lijnen van ANDERE relaties kunnen er nog steeds
-  // overheen lopen, en daarvoor is de halo.
+  // overheen lopen, maar die verdwijnen achter de tekst omdat de labels als laatste getekend worden.
   //
   // `BAR_LABEL_GAP`/`BAR_LABEL_PAD_LEFT` schalen bewust NIET mee met de rapport-lettergrootte: de
   // gap bestaat alleen om vrij te blijven van de verticale relatie-knik, en die knik (`DEP_STUB`)
@@ -371,13 +334,13 @@ function drawBarLabel(
   const textWidth = d2d.measureText(name).width;
 
   if (textWidth <= rightAvail) {
-    fillTextWithHalo(d2d, m, name, rightStart, y, 'left', color, sizePx);
+    fillLabelText(d2d, name, rightStart, y, 'left', color);
   } else if (textWidth <= leftAvail) {
-    fillTextWithHalo(d2d, m, name, leftEnd, y, 'right', color, sizePx);
+    fillLabelText(d2d, name, leftEnd, y, 'right', color);
   } else if (rightAvail >= leftAvail) {
-    fillTextWithHalo(d2d, m, fitText(d2d, name, rightAvail), rightStart, y, 'left', color, sizePx);
+    fillLabelText(d2d, fitText(d2d, name, rightAvail), rightStart, y, 'left', color);
   } else {
-    fillTextWithHalo(d2d, m, fitText(d2d, name, leftAvail), leftEnd, y, 'right', color, sizePx);
+    fillLabelText(d2d, fitText(d2d, name, leftAvail), leftEnd, y, 'right', color);
   }
 }
 
@@ -758,13 +721,14 @@ export function renderReport(
   //    hoefde omdat een label dankzij `BAR_LABEL_GAP` pas voorbij de verticale knik begint — dat
   //    argument gaat alleen op voor de knik van de EIGEN voorganger. Een relatie tussen twee heel
   //    andere taken (t1 → t3) knikt verticaal dwars door de rij van t2 heen en streepte het label
-  //    van t2 zo doormidden. Daarom worden de labels nu als laatste getekend, met een halo/knockout
-  //    in de papierkleur ({@link fillTextWithHalo}): de tekst blijft leesbaar wáár een lijn eroverheen
-  //    zou lopen, en de lijn blijft zichtbaar overal daarbuiten.
+  //    van t2 zo doormidden. Daarom worden de labels nu als LAATSTE getekend: de tekst wint van de
+  //    lijn, de lijn blijft zichtbaar overal waar geen tekst staat.
   //
-  // Dit geldt voor beide backends: in de raster-preview volgt de z-volgorde uit de tekenvolgorde
-  // hieronder, en in de vector-PDF komen de halo-rechthoeken (vormen, dus in het Form-XObject) ná de
-  // lijnen terwijl de tekst sowieso bovenop het XObject wordt geëmit — zelfde eindbeeld.
+  // Let op wat dit per backend betekent. In de vector-PDF — het primaire exportpad — stond tekst
+  // altijd al boven alle vormen (vormen gaan in het gedeelde Form-XObject, tekst wordt daarná per
+  // tegel geëmit), dus daar was dit nooit stuk. De omkering repareert dus feitelijk de RASTER-preview
+  // en brengt die in lijn met wat de export altijd al deed — wat precies de bedoeling is, want die
+  // twee horen WYSIWYG te zijn.
   if (options.showDeps) {
     drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom);
   }

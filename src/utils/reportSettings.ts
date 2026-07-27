@@ -21,6 +21,7 @@
 // hoort in het projectbestand thuis (IFC-round-trip), niet in localStorage.
 
 import { getSetting, setSetting } from '@/utils/settingsStore';
+import { snapToChoice } from '@/utils/numberChoice';
 import { REPORT_FONT_SCALES } from '@/services/print/printPreview';
 
 /** localStorage-sleutel (wordt door `setSetting` geprefixt tot `ops-reportSettings`). */
@@ -99,8 +100,11 @@ function parseEnum<T extends string>(allowed: readonly T[], raw: unknown): T | u
 }
 
 /** Alleen een getal dat letterlijk in de toegestane trap staat (geen klemming: 97% bestaat niet). */
+// Zie `snapToChoice`: één gedeelde semantiek voor "getal buiten de keuzelijst" (snappen naar de
+// dichtstbijzijnde), zodat deze loader, de settings-loader en de render-engine niet elk hun eigen
+// antwoord geven op dezelfde vraag.
 function parseNumberChoice(allowed: readonly number[], raw: unknown): number | undefined {
-  return typeof raw === 'number' && allowed.includes(raw) ? raw : undefined;
+  return snapToChoice(allowed, raw);
 }
 
 /** Vrij instelbaar getal: afronden + klemmen, zodat een rare waarde de UI niet onbruikbaar maakt. */

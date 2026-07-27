@@ -202,6 +202,14 @@ export function ReportPanel() {
       setTimelineColumns(s.timelineColumns);
       setReportFontScale(s.reportFontScale);
       hydratedRef.current = true;
+    }).catch(() => {
+      // Lezen kan falen (localStorage geblokkeerd of gepartitioneerd, quota-gedoe). Zonder deze
+      // catch blijft `hydratedRef` dan voor ALTIJD false en slaat het save-effect de rest van de
+      // sessie alles over: de gebruiker verstelt vijftien opties en er wordt nooit iets bewaard,
+      // zonder enig signaal. We houden dan gewoon de defaults, maar zetten de vlag wél op true
+      // zodat opslaan blijft werken — een volgende poging kan best wél slagen.
+      if (cancelled) return;
+      hydratedRef.current = true;
     });
     return () => { cancelled = true; };
   }, []);
