@@ -111,9 +111,17 @@ function wbsOf(taskById: Map<string, Task>, id: string): string {
   return taskById.get(id)?.wbsCode ?? id;
 }
 
-/** Verkorte uitgaande relatie vanuit een voorganger: "→2.3 FS+2d" (spec-rij get_project_overview). */
+/**
+ * Verkorte uitgaande relatie vanuit een voorganger: "→2.3 FS+2d #seq-7" (spec-rij
+ * get_project_overview), met het SEQUENCE-ID als `#`-suffix.
+ *
+ * H6 — waarom het id erbij moet: de overview wordt aangeprezen als DE call voor structuur- en
+ * netwerkanalyse ("één call volstaat"), maar élke mutatietool sleutelt op id — `remove_dependencies`
+ * neemt letterlijk sequence-id's. Zonder id moest de agent na de overview alsnog `get_task` per taak
+ * ophalen om aan een relatie-id te komen, wat vele malen duurder is dan de ~10 tekens die dit kost.
+ */
 function relShort(taskById: Map<string, Task>, seq: Sequence): string {
-  return `→${wbsOf(taskById, seq.successorId)} ${seqAbbrev(seq.type)}${lagLabel(seq)}`;
+  return `→${wbsOf(taskById, seq.successorId)} ${seqAbbrev(seq.type)}${lagLabel(seq)} #${seq.id}`;
 }
 
 interface PageArgs {
@@ -128,8 +136,55 @@ interface Paged<T> {
   next_offset: number | null;
 }
 
+// ── Invoervalidatie voor de leestools (auditbevindingen H10 + L1) ────────────────────────────────
+//
+// De leestools accepteerden hun filters ONGEVALIDEERD. Dat is bij een leestool net zo schadelijk als
+// bij een mutatietool, alleen stiller: `kritiek: "true"` matchte noch `=== true` noch `=== false`,
+// dus het filter werd NIET toegepast en de volledige takenlijst kwam terug alsof het de kritieke
+// verzameling was. `status: 'started'` gaf `{tasks: [], total: 0}` — niet te onderscheiden van "geen
+// gestarte taken". `van: '01-03-2026'` werd als kale string vergeleken (rommel-lexicografie).
+// Elke fout is nu een NETTE VALIDATION-fout die de toegestane waarden noemt.
+
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}/;
+const TASK_STATUSES = ['NOT_STARTED', 'STARTED', 'COMPLETED'];
+
+/** Gooit een `ToolError` wanneer `v` gezet maar geen boolean is. */
+function requireBool(v: unknown, name: string): void {
+  if (v !== undefined && typeof v !== 'boolean') {
+    throw new ToolError('VALIDATION', `\`${name}\` moet een boolean zijn (true/false), kreeg ${typeof v} '${String(v)}'.`);
+  }
+}
+
+/** Gooit een `ToolError` wanneer `v` gezet maar geen ISO-datum (JJJJ-MM-DD) is. */
+function requireIsoDate(v: unknown, name: string): void {
+  if (v === undefined) return;
+  if (typeof v !== 'string' || !ISO_DATE_ONLY.test(v)) {
+    throw new ToolError('VALIDATION', `\`${name}\` moet een ISO-datum zijn (JJJJ-MM-DD), kreeg '${String(v)}'.`);
+  }
+}
+
+/**
+ * Valideer `limit`/`offset` i.p.v. ze stil te klemmen (L1). Een `limit: 5000` die stil 1000 wordt,
+ * of een `limit: 0` die stil 1 wordt, kost de aanroeper een onnodige ronde zonder dat hij begrijpt
+ * waarom hij niet kreeg wat hij vroeg.
+ */
+function requirePageArgs(args: PageArgs): void {
+  if (args.limit !== undefined) {
+    if (typeof args.limit !== 'number' || !Number.isInteger(args.limit) || args.limit < 1 || args.limit > 1000) {
+      throw new ToolError('VALIDATION', `\`limit\` moet een geheel getal van 1 t/m 1000 zijn, kreeg '${String(args.limit)}'.`);
+    }
+  }
+  if (args.offset !== undefined) {
+    if (typeof args.offset !== 'number' || !Number.isInteger(args.offset) || args.offset < 0) {
+      throw new ToolError('VALIDATION', `\`offset\` moet een geheel getal ≥ 0 zijn, kreeg '${String(args.offset)}'.`);
+    }
+  }
+}
+
 /** Uniforme paginering (spec §Naamgeving): limit default 50, offset default 0, retour total/has_more/
- *  next_offset. `next_offset` is null zodra er niets meer volgt (heldere "einde"-markering). */
+ *  next_offset. `next_offset` is null zodra er niets meer volgt (heldere "einde"-markering).
+ *  De waarden zijn op dit punt al door `requirePageArgs` gevalideerd; de klemmen hieronder blijven
+ *  puur als vangnet staan. */
 function paginate<T>(items: T[], args: PageArgs): Paged<T> {
   const rawLimit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.floor(args.limit) : 50;
   const limit = Math.max(1, Math.min(rawLimit, 1000)); // harde bovengrens tegen een reuze-pagina
@@ -229,6 +284,10 @@ function getProjectOverview(s: AppState) {
   const rows = tasks.map((t) => {
     const rels = (outByPred.get(t.id) ?? []).map((seq) => relShort(taskById, seq));
     const row: Record<string, unknown> = {
+      // H6: het STABIELE Task.id staat vooraan. Zonder dit veld kon geen enkele mutatietool op de
+      // overview gevoed worden (die sleutelen allemaal op id, niet op WBS) — de "één call volstaat"-
+      // belofte in de beschrijving klopte daardoor niet voor structuurWERK, alleen voor -analyse.
+      id: t.id,
       wbs: t.wbsCode,
       name: t.name,
       dur: t.time.scheduleDuration,
@@ -263,6 +322,17 @@ interface ListTasksArgs extends PageArgs {
 }
 
 function listTasks(s: AppState, args: ListTasksArgs) {
+  // H10 — elk filter eerst valideren; een fout filter mag NOOIT stil een andere verzameling geven.
+  requireBool(args.kritiek, 'kritiek');
+  requireBool(args.zonder_relaties, 'zonder_relaties');
+  if (args.status !== undefined && !TASK_STATUSES.includes(args.status as string)) {
+    throw new ToolError('VALIDATION',
+      `\`status\` moet één van ${TASK_STATUSES.join(', ')} zijn (hoofdlettergevoelig), kreeg '${String(args.status)}'.`);
+  }
+  requireIsoDate(args.van, 'van');
+  requireIsoDate(args.tot, 'tot');
+  requirePageArgs(args);
+
   const inSeq = idsInAnySequence(s.sequences);
   let filtered = s.tasks;
 
@@ -479,6 +549,7 @@ function getCriticalPath(s: AppState) {
 // ── 6. planner_list_resources ────────────────────────────────────────────────────────────────────
 
 function listResources(s: AppState, args: PageArgs) {
+  requirePageArgs(args);
   // Toewijzings-samenvatting per resource (aantal toewijzingen, aantal betrokken taken, som units/dag).
   const byRes = new Map<string, { assignments: number; tasks: Set<string>; totalUnits: number }>();
   for (const a of s.assignments) {
@@ -523,15 +594,41 @@ interface HistogramArgs {
 }
 
 function getResourceHistogram(args: HistogramArgs) {
-  // Vers herrekenen wanneer stale — pusht nooit een undo-snapshot (staleGuard-invariant). Dit is de
-  // enige leestool die de cache raakt; het is een versheids-refresh, geen mutatie.
+  // H10 — VALIDEREN VÓÓR DE (potentieel dure) RECOMPUTE. Drie stille faalgevallen zaten hier:
+  //   - `bucket` werd gecoërceerd (`bucket: 'day'` werd stil 'week');
+  //   - niet-string `resourceIds` werden weggefilterd; viel alles weg, dan werd `scoped` false en
+  //     schakelde de tool stil naar de AGGREGAAT-modus — een heel andere respons dan gevraagd;
+  //   - een onbekend resource-id gaf een lege reeks die leest als "geen belasting".
+  if (args.bucket !== undefined && args.bucket !== 'dag' && args.bucket !== 'week') {
+    throw new ToolError('VALIDATION',
+      `\`bucket\` moet 'dag' of 'week' zijn (Nederlandse waarden), kreeg '${String(args.bucket)}'.`);
+  }
+  requireIsoDate(args.van, 'van');
+  requireIsoDate(args.tot, 'tot');
+  let resourceIds: string[] | undefined;
+  if (args.resourceIds !== undefined) {
+    if (!Array.isArray(args.resourceIds)) {
+      throw new ToolError('VALIDATION', "`resourceIds` moet een array van resource-id-strings zijn.");
+    }
+    if (args.resourceIds.some((x) => typeof x !== 'string' || x === '')) {
+      throw new ToolError('VALIDATION', '`resourceIds` mag alleen niet-lege resource-id-strings bevatten.');
+    }
+    const known = new Set(useAppStore.getState().resources.map((r) => r.id));
+    const unknown = (args.resourceIds as string[]).filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      throw new ToolError('VALIDATION',
+        `onbekende resource-id(s): ${unknown.join(', ')} — haal geldige id's op met planner_list_resources.`);
+    }
+    resourceIds = args.resourceIds as string[];
+  }
+
+  // Vers herrekenen wanneer stale of nog nooit gerekend — pusht nooit een undo-snapshot
+  // (staleGuard-invariant). Dit is de enige leestool die de cache raakt; het is een
+  // versheids-refresh, geen mutatie.
   const fresh = ensureFreshSchedule();
   const s = useAppStore.getState(); // verse state ná een eventuele recompute
 
   const bucket: 'dag' | 'week' = args.bucket === 'dag' ? 'dag' : 'week';
-  const resourceIds = Array.isArray(args.resourceIds)
-    ? (args.resourceIds.filter((x) => typeof x === 'string') as string[])
-    : undefined;
   const from = typeof args.van === 'string' ? args.van : undefined;
   const to = typeof args.tot === 'string' ? args.tot : undefined;
 
@@ -764,11 +861,16 @@ export const readTools: McpToolDef[] = [
   {
     name: 'planner_get_project_overview',
     description:
-      'Complete WBS-boom, compact: per taak wbs, naam, dur(werkdagen), start/end (vroege datums), ' +
+      'Complete WBS-boom, compact: per taak `id` (het stabiele Task.id — precies wat elke mutatietool ' +
+      'nodig heeft), wbs, naam, dur(werkdagen), start/end (vroege datums), ' +
       'prog(0-100), crit, ms(mijlpaal), parent(wbs) en uitgaande relaties in verkorte notatie ' +
-      '"→2.3 FS+2d". BEWUST ONGELIMITEERD: de volledige relatiegraaf zit gegarandeerd in deze ENE ' +
-      'respons (elke relatie staat één keer, bij zijn voorganger), dus één call volstaat voor ' +
-      'structuur-/netwerkanalyse. Voor grote projecten fors; gebruik list_tasks als je paginering wilt.',
+      '"→2.3 FS+2d #seq-7", waarbij het deel achter `#` het SEQUENCE-ID is (voer dat rechtstreeks aan ' +
+      'planner_remove_dependencies). BEWUST ONGELIMITEERD: de volledige relatiegraaf zit gegarandeerd ' +
+      'in deze ENE respons (elke relatie staat één keer, bij zijn voorganger), dus één call volstaat ' +
+      'voor structuur- én netwerkWERK — je hebt er geen tweede call voor id\'s bij nodig. ' +
+      'NAAMDRIFT LEZEN↔SCHRIJVEN: het veld heet hier `wbs`, bij het schrijven (add_tasks/update_tasks) ' +
+      '`wbsCode`; `id` heet daar `taskId`. Voor grote projecten fors; gebruik list_tasks als je ' +
+      'paginering wilt.',
     kind: 'read',
     batchable: true,
     inputSchema: NO_ARGS_SCHEMA,
@@ -782,7 +884,10 @@ export const readTools: McpToolDef[] = [
       '`kritiek` (bool), `status` (NOT_STARTED|STARTED|COMPLETED), `van`/`tot` (ISO-datumvenster: ' +
       'taken die met [van,tot] overlappen), `zonder_relaties` (bool — wees-detectie: alléén ' +
       'LEAF-taken die in geen enkele relatie voorkomen; verzameltaken worden uitgesloten). ' +
-      'Paginering: `limit` (default 50), `offset`; retourneert `total`, `has_more`, `next_offset`.',
+      'Paginering: `limit` (geheel getal 1..1000, default 50), `offset` (≥ 0); retourneert `total`, ' +
+      '`has_more`, `next_offset`. Elk filter wordt STRIKT gevalideerd: een verkeerd getypeerde of ' +
+      'buiten-domein waarde geeft een nette fout met de toegestane waarden erbij — nooit stilzwijgend ' +
+      'een andere verzameling.',
     kind: 'read',
     batchable: true,
     inputSchema: {
@@ -807,7 +912,10 @@ export const readTools: McpToolDef[] = [
       'Detail van één taak (`taskId` verplicht): metadata, duur/durationType, vroege/late datums, ' +
       'total/free float, kritiek-vlag, voortgang (+actuals), constraints (primair/secundair) en ' +
       'deadline, de effectieve kalender, ouder/kinderen, alle toewijzingen (resource, units/dag, ' +
-      'curve) en voorgangers/opvolgers (met type + lag). Onbekend id ⇒ nette NOT_FOUND.',
+      'curve) en voorgangers/opvolgers (met type + lag). Onbekend id ⇒ nette NOT_FOUND. ' +
+      'NAAMDRIFT LEZEN↔SCHRIJVEN: `wbs` heet bij het schrijven `wbsCode`, en `calendar.effectiveId` ' +
+      'heet daar `calendarId` (let op: `effectiveId` kan de PROJECTkalender zijn — dan staat er geen ' +
+      'eigen `calendarId` op de taak, zie `calendar.isProjectDefault`).',
     kind: 'read',
     batchable: true,
     inputSchema: {
@@ -857,9 +965,11 @@ export const readTools: McpToolDef[] = [
   {
     name: 'planner_get_resource_histogram',
     description:
-      'Belasting/capaciteit-histogram per resource. Params: `resourceIds` (leeg = alle), `van`/`tot` ' +
-      '(ISO-venster), `bucket` ("dag" of "week", default "week"). HERREKENT de planning vers wanneer ' +
-      'die verouderd is (en meldt dat via `recomputed`/`warning`). DETAIL-OP-AANVRAAG: zónder venster ' +
+      'Belasting/capaciteit-histogram per resource. Params: `resourceIds` (weglaten = alle; een ' +
+      'onbekend id geeft een nette fout, geen lege reeks), `van`/`tot` (ISO-venster), `bucket` (exact ' +
+      '"dag" of "week" — Nederlandse waarden, default "week"). HERREKENT de planning vers wanneer die ' +
+      'verouderd is of nog nooit is doorgerekend (en meldt dat via `recomputed`/`warning`). ' +
+      'DETAIL-OP-AANVRAAG: zónder venster ' +
       'ÉN zónder resourceIds (de naïeve eerste call) levert de tool `mode:"aggregate"` — per resource ' +
       'een samenvatting (peakLoad + peakDate, overallocatedDayCount, spanStart/spanEnd, loadSum, ' +
       'capacitySum) mét `detailAvailable:true`; pieken blijven zo zichtbaar maar de respons is klein. ' +

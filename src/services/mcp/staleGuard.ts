@@ -18,19 +18,28 @@ export interface FreshResult {
 }
 
 /**
- * Herrekent de planning ALLÉÉN wanneer die stale is.
+ * Herrekent de planning wanneer die stale is OF nog nooit gedraaid heeft.
  *
- * - `scheduleStale === false` ⇒ `{ recomputed: false }` en er wordt NIETS aangeraakt (geen
- *   onnodige recompute, `cpmResult`-referentie blijft ongewijzigd).
+ * - `scheduleStale === false` ÉN `cpmResult !== null` ⇒ `{ recomputed: false }` en er wordt NIETS
+ *   aangeraakt (geen onnodige recompute, `cpmResult`-referentie blijft ongewijzigd).
  * - `scheduleStale === true` ⇒ `runCPM()` wordt aangeroepen; daarna wordt `cpmResult.error`
  *   (indien gezet) als `error`-string teruggegeven. `runCPM` vangt kringverwijzingen zelf af en
  *   gooit niet — deze helper gooit dus evenmin.
+ *
+ * NOOIT-BEREKEND IS OOK NIET-VERS (auditbevinding H9). De begintoestand van een document is
+ * `scheduleStale: false` ÉN `cpmResult: null` (scheduleSlice), en precies die combinatie ontstaat
+ * ook bij crash-herstel / `applyLoadedProject({ recompute: false })` — `listDocuments` beschrijft
+ * hem expliciet als "notCalculated". Alleen op `scheduleStale` sturen liet zo'n document als "vers"
+ * passeren: `save_baseline` legde dan een baseline vast op de ONOPGELOSTE `scheduleStart`-fallback
+ * en rapporteerde `recomputed: false`, waarna elke `compare_baseline`/`analyze_delay` daartegen
+ * meet. Vandaar de extra `cpmResult`-voorwaarde. `runCPM` op een leeg/klein document is goedkoop en
+ * zet `isDirty` niet, dus dit kost hooguit rekenwerk.
  *
  * Pusht nooit een undo-snapshot (runCPM-invariant).
  */
 export function ensureFreshSchedule(): FreshResult {
   const state = useAppStore.getState();
-  if (!state.scheduleStale) {
+  if (!state.scheduleStale && state.cpmResult) {
     return { recomputed: false };
   }
   state.runCPM();

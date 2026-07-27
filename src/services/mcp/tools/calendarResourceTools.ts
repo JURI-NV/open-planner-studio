@@ -35,7 +35,7 @@ import { ensureFreshSchedule } from '../staleGuard';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { computeMoveDelta } from '@/engine/moveProject';
 import { diffDays } from '@/utils/dateUtils';
-import type { HolidayGenParams } from '@/engine/calendar/generateCalendarHolidays';
+import type { GeneratorCountry, HolidayGenParams } from '@/engine/calendar/generateCalendarHolidays';
 import type { Holiday, WorkCalendar } from '@/types/calendar';
 import type { ResourceCurve } from '@/types/resource';
 import type { Project } from '@/types/project';
@@ -95,12 +95,94 @@ interface CalendarItem {
   hoursPerDay?: number;
   generate?: HolidayGenParams;
   rawHolidays?: Holiday[];
+  /** `merge` (default) = rauwe dagen TOEVOEGEN; `replace` = de lijst exact vervangen (verwijderen). */
+  holidaysMode?: 'merge' | 'replace';
 }
 
-/** Velden die een item BETEKENISVOL maken; een update-item zonder één hiervan is een no-op-weigering. */
+/** Velden die een item BETEKENISVOL maken; een update-item zonder één hiervan is een no-op-weigering.
+ *  `holidaysMode` staat er BEWUST niet bij: een modus zonder `rawHolidays` verandert niets. */
 const CAL_FIELD_KEYS: (keyof CalendarItem)[] = [
   'name', 'description', 'workDays', 'workStartHour', 'workEndHour', 'hoursPerDay', 'generate', 'rawHolidays',
 ];
+
+// ── Invoervalidatie (auditbevindingen K6 + H7) ───────────────────────────────────────────────────
+//
+// Waarom hier, en niet alleen in het JSON-schema: het schema is DOCUMENTATIE voor de AI, geen poort.
+// Een foute waarde die er toch doorheen komt, moet een LEESBARE weigering geven — nooit een kale
+// TypeError diep in de generator (die belandt binnen `runInMcpTransaction` en rolt de hele call
+// terug met "Cannot read properties of undefined").
+
+/** Het ECHTE domein van `generate.country` (holidays.ts + generateCalendarHolidays.ts). */
+const GEN_COUNTRIES: GeneratorCountry[] = ['NL', 'DE', 'BE', 'FR', 'UK', 'AT', 'CH', 'none'];
+const BOUWVAK_CHOICES = ['geen', 'noord', 'midden', 'zuid'];
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * Vormvalidatie van één kalender-item. Retourneert een leesbare weigeringsreden of `null`.
+ * Elke weigering NOEMT de geldige verzameling, zodat de AI zich in één ronde kan corrigeren.
+ */
+function calendarItemReason(item: CalendarItem): string | null {
+  if (item.name !== undefined && typeof item.name !== 'string') return '`name` moet een string zijn';
+  if (item.description !== undefined && typeof item.description !== 'string') return '`description` moet een string zijn';
+  if (item.workDays !== undefined) {
+    if (!Array.isArray(item.workDays) || item.workDays.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) {
+      return '`workDays` moet een array van ISO-weekdagnummers zijn (1 = maandag … 7 = zondag)';
+    }
+  }
+  for (const k of ['workStartHour', 'workEndHour', 'hoursPerDay'] as const) {
+    if (item[k] !== undefined && !isFiniteNumber(item[k])) return `\`${k}\` moet een getal in UREN zijn`;
+  }
+
+  if (item.generate !== undefined) {
+    const g = item.generate as unknown;
+    if (!g || typeof g !== 'object' || Array.isArray(g)) return '`generate` moet een object zijn met minstens `country`';
+    const gen = g as Record<string, unknown>;
+    if (!(GEN_COUNTRIES as string[]).includes(gen.country as string)) {
+      return `onbekend \`generate.country\` '${String(gen.country)}'; geldige waarden zijn ${GEN_COUNTRIES.join(', ')} ` +
+        "(hoofdlettergevoelig; 'none' = geen feestdagenset, wist de gegenereerde dagen)";
+    }
+    if (gen.region !== undefined && typeof gen.region !== 'string') return '`generate.region` moet een string zijn';
+    if (gen.bouwvak !== undefined && !BOUWVAK_CHOICES.includes(gen.bouwvak as string)) {
+      return `onbekende \`generate.bouwvak\` '${String(gen.bouwvak)}'; geldige waarden zijn ${BOUWVAK_CHOICES.join(', ')}`;
+    }
+  }
+
+  if (item.holidaysMode !== undefined) {
+    if (item.holidaysMode !== 'merge' && item.holidaysMode !== 'replace') {
+      return `onbekende \`holidaysMode\` '${String(item.holidaysMode)}'; geldige waarden zijn merge, replace`;
+    }
+    if (item.rawHolidays === undefined) {
+      return '`holidaysMode` heeft alleen betekenis samen met `rawHolidays`';
+    }
+  }
+
+  if (item.rawHolidays !== undefined) {
+    if (!Array.isArray(item.rawHolidays)) return '`rawHolidays` moet een array zijn';
+    // K6 — DE stille no-op: een lege lijst in de (default) TOEVOEG-modus verandert per definitie
+    // niets, maar kwam terug als een geslaagde wijziging. Een agent die een feestdag wilde
+    // VERWIJDEREN stuurde precies dit (de overblijvende dagen ⇒ vaak leeg) en kreeg `ok`.
+    if (item.rawHolidays.length === 0 && (item.holidaysMode ?? 'merge') === 'merge') {
+      return 'een lege `rawHolidays` verandert niets in de standaard TOEVOEG-modus; gebruik ' +
+        '`holidaysMode: "replace"` om de feestdagenlijst te vervangen of te wissen';
+    }
+    for (const h of item.rawHolidays as unknown[]) {
+      if (!h || typeof h !== 'object' || Array.isArray(h)) return 'elk item in `rawHolidays` moet een object zijn';
+      const hh = h as Record<string, unknown>;
+      if (typeof hh.name !== 'string' || hh.name === '') return 'elke `rawHolidays`-uitzondering vereist een niet-lege `name`';
+      for (const k of ['startDate', 'endDate'] as const) {
+        if (typeof hh[k] !== 'string' || !ISO_DATE_ONLY.test(hh[k] as string)) {
+          return `\`rawHolidays.${k}\` moet een ISO-datum zijn (JJJJ-MM-DD), kreeg '${String(hh[k])}'`;
+        }
+      }
+      if ((hh.endDate as string) < (hh.startDate as string)) {
+        return `\`rawHolidays\`: endDate '${String(hh.endDate)}' ligt vóór startDate '${String(hh.startDate)}'`;
+      }
+    }
+  }
+  return null;
+}
 
 type CalendarPlan =
   | { mode: 'update'; item: CalendarItem; targetId: string; needsPromotion: boolean }
@@ -118,6 +200,13 @@ function classifyCalendars(s: StoreState, items: CalendarItem[]): { plans: Calen
     const label = typeof item?.id === 'string' ? item.id : String(item?.id);
     if (!item || typeof item.id !== 'string' || item.id === '') {
       rejections.push({ id: label, reason: 'elk kalender-item vereist een niet-lege string-`id`' });
+      continue;
+    }
+    // Vormvalidatie vóór élke dispatch-beslissing: een item met een onbruikbare `generate`/
+    // `rawHolidays` mag nooit een transactie openen (het zou daarbinnen klappen of stil niets doen).
+    const badShape = calendarItemReason(item);
+    if (badShape) {
+      rejections.push({ id: item.id, reason: badShape });
       continue;
     }
     const inLibrary = s.calendars.some((c) => c.id === item.id);
@@ -165,6 +254,33 @@ function calendarFieldPatch(item: CalendarItem): Partial<WorkCalendar> {
   return patch;
 }
 
+/**
+ * Los de definitieve feestdagenlijst op voor één item, inclusief de VERVANG-modus (K6).
+ *
+ * ONTWERPKEUZE. `resolveCalendarHolidays` (calendarGenerate.ts) is bewust alleen-toevoegend: het
+ * MERGET rauwe uitzonderingen in de bestaande lijst. Daardoor bestond er geen enkele manier om via
+ * de bridge een feestdag te VERWIJDEREN — een agent die gevraagd werd een vorstverletdag terug te
+ * draaien stuurde de overblijvende dagen, kreeg `ok`, en veranderde niets. `holidaysMode: 'replace'`
+ * dicht dat gat zónder de bestaande semantiek te breken:
+ *   - default (`merge`)  ⇒ exact het oude gedrag (dedup-merge met wat er stond);
+ *   - `replace`          ⇒ de lijst wordt EXACT de opgegeven `rawHolidays` (leeg = alles wissen).
+ * De vervangmodus wordt hier afgehandeld i.p.v. in `calendarGenerate.ts`, omdat `generate` al
+ * vervangend werkt (de generator negeert `existing.holidays`): alleen het generator-LOZE pad hoefde
+ * een vervangvariant. Bij `replace` vervalt een bestaande `generation` — anders zou een latere
+ * regenerate de bewust gewiste dagen terugbrengen.
+ */
+function resolveHolidaysForItem(
+  item: CalendarItem,
+  span: { projectStart: string; projectEnd: string },
+  existing: Pick<WorkCalendar, 'holidays' | 'generation'>,
+): { holidays: Holiday[]; generation?: WorkCalendar['generation']; becameLiteral: boolean } {
+  if (item.holidaysMode === 'replace' && item.generate === undefined) {
+    const holidays = [...(item.rawHolidays ?? [])].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return { holidays, becameLiteral: existing.generation !== undefined };
+  }
+  return resolveCalendarHolidays({ generate: item.generate, rawHolidays: item.rawHolidays }, span, existing);
+}
+
 /** Vormvalidatie van `update_calendar`; string = foutboodschap. */
 function parseUpdateCalendar(args: unknown): CalendarItem[] | string {
   const a = (args ?? {}) as { calendars?: unknown };
@@ -189,8 +305,8 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
         const cal: Omit<WorkCalendar, 'id'> = { ...base, name: item.name ?? 'Nieuwe kalender', ...calendarFieldPatch(item) };
         let becameLiteral = false;
         if (wantsHolidays) {
-          const r = resolveCalendarHolidays(
-            { generate: item.generate, rawHolidays: item.rawHolidays },
+          const r = resolveHolidaysForItem(
+            item,
             calendarSpan(useAppStore.getState(), true),
             { holidays: base.holidays, generation: base.generation },
           );
@@ -203,7 +319,19 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
           becameLiteral = r.becameLiteral;
         }
         const newId = draft.addCalendar(cal);
-        rows.push({ id: newId, requestedId: item.id, created: true, promoted: false, becameLiteral });
+        // M7 — MAAK DE GEËRFDE FEESTDAGEN ZICHTBAAR. De basis is `createDefaultCalendar()`, en die
+        // levert in bouwmodus (de default) een VOLLEDIGE NL-feestdagenset mét `generation`. Een
+        // agent die "een lege kalender" aanmaakt kreeg dus stilzwijgend ~30 NL-feestdagen mee,
+        // zonder dat één respons of beschrijving dat noemde. De herkomst staat nu per rij; de
+        // handler zet er bovendien een waarschuwing bij.
+        const holidaysFrom = item.generate !== undefined
+          ? 'generate'
+          : item.rawHolidays !== undefined ? 'rawHolidays' : 'app-default';
+        rows.push({
+          id: newId, requestedId: item.id, created: true, promoted: false, becameLiteral,
+          holidayCount: cal.holidays.length,
+          holidaysFrom,
+        });
         continue;
       }
 
@@ -224,8 +352,8 @@ function updateCalendarCore(items: CalendarItem[]): MutationOutcome {
       let becameLiteral = false;
       let dropGeneration = false;
       if (wantsHolidays) {
-        const r = resolveCalendarHolidays(
-          { generate: item.generate, rawHolidays: item.rawHolidays },
+        const r = resolveHolidaysForItem(
+          item,
           calendarSpan(useAppStore.getState(), false),
           { holidays: existing.holidays, generation: existing.generation },
         );
@@ -262,9 +390,18 @@ const updateCalendar: BatchStepTool = {
     'wordt zacht geweigerd). LET OP: kalender-id\'s zijn PER DOCUMENT — een geïmporteerd of ander ' +
     'document herbouwt kalenders via `create`, het hergebruikt nooit een id uit een ander document. ' +
     'Feestdagen kunnen op twee manieren: `generate` (land/regio/bouwvak — de generator materialiseert ' +
-    'de dagen over de projectspanne) en/of `rawHolidays` (letterlijke uitzonderingen, bijv. ' +
-    'vorstverlet). Worden er rauwe dagen toegevoegd, dan wordt de generator-herkomst gewist en is de ' +
-    'kalender voortaan LETTERLIJK (`becameLiteral: true` per item) — hergenereren kan dan niet meer. ' +
+    'de dagen over de projectspanne en VERVANGT de bestaande lijst) en/of `rawHolidays` (letterlijke ' +
+    'uitzonderingen, bijv. vorstverlet). LET OP — `rawHolidays` is standaard TOEVOEGEN: de opgegeven ' +
+    'dagen worden bij de bestaande gemergd (dedup op datumbereik), er verdwijnt niets. Wil je een ' +
+    'feestdag VERWIJDEREN of de lijst exact zetten, geef dan `holidaysMode: "replace"` mee — dan wordt ' +
+    'de lijst precies `rawHolidays` (een LEGE array wist alle feestdagen). Een lege `rawHolidays` in de ' +
+    'toevoeg-modus wordt zacht geweigerd, want die zou niets doen. Worden er rauwe dagen gezet, dan ' +
+    'wordt de generator-herkomst gewist en is de kalender voortaan LETTERLIJK (`becameLiteral: true` ' +
+    'per item) — hergenereren kan dan niet meer. ' +
+    'Bij `create: true` ZONDER `generate`/`rawHolidays` erft de nieuwe kalender de feestdagen van de ' +
+    'app-standaardkalender (in bouwmodus: de NL-set); de respons meldt dat per rij als ' +
+    '`holidaysFrom: "app-default"` met `holidayCount`. Wil je gegarandeerd géén feestdagen, geef dan ' +
+    '`generate: { country: "none" }` mee. ' +
     'Een kalender die geen enkele werkdag meer overlaat levert géén fout maar een prominente ' +
     'waarschuwing met `cappedTaskIds`: die taken pasten niet meer in hun venster.',
   kind: 'mutate',
@@ -299,14 +436,31 @@ const updateCalendar: BatchStepTool = {
               description: 'Generator-basis voor feestdagen; de jaarspanne wordt uit het project afgeleid.',
               required: ['country'],
               properties: {
-                country: { type: 'string', description: 'Landcode van de feestdagenset (bijv. NL, DE, BE, FR).' },
+                country: {
+                  type: 'string',
+                  enum: ['NL', 'DE', 'BE', 'FR', 'UK', 'AT', 'CH', 'none'],
+                  description:
+                    'Landcode van de feestdagenset — HOOFDLETTERS, exact één van de opgesomde waarden. ' +
+                    "`none` = geen feestdagenset: dat WIST de gegenereerde dagen (en de herkomst).",
+                },
                 region: { type: 'string', description: 'Bundesland/landsdeel/kanton; weglaten = landelijk.' },
                 bouwvak: { type: 'string', enum: ['geen', 'noord', 'midden', 'zuid'], description: 'Alleen NL; default `geen`.' },
               },
             },
+            holidaysMode: {
+              type: 'string',
+              enum: ['merge', 'replace'],
+              description:
+                '`merge` (default) = `rawHolidays` TOEVOEGEN aan de bestaande feestdagen. `replace` = de ' +
+                'feestdagenlijst exact gelijkstellen aan `rawHolidays` — dit is de ENIGE manier om een ' +
+                'feestdag te verwijderen; een lege `rawHolidays` wist ze dan allemaal.',
+            },
             rawHolidays: {
               type: 'array',
-              description: 'Letterlijke uitzonderingen (vorstverlet, bedrijfssluiting). Toevoegen wist de generator-herkomst.',
+              description:
+                'Letterlijke uitzonderingen (vorstverlet, bedrijfssluiting). Standaard TOEVOEGEN (niets ' +
+                'verdwijnt); met `holidaysMode: "replace"` vervangt deze lijst de bestaande volledig. ' +
+                'Rauwe dagen wissen de generator-herkomst.',
               items: {
                 type: 'object',
                 required: ['name', 'startDate', 'endDate'],
@@ -356,6 +510,16 @@ const updateCalendar: BatchStepTool = {
         warnings.push(
           `Onwerkbaar venster: ${cappedTaskIds.length} taak/taken konden niet binnen deze kalender worden ingepland ` +
           `(zie cappedTaskIds). De kalenderwijziging IS toegepast — controleer werkdagen en feestdagen.`,
+        );
+      }
+      // M7: een "leeg" aangemaakte kalender erft de feestdagen van de app-standaardkalender. Dat is
+      // een bewuste app-default, maar het mag niet STIL gebeuren — zeg het hardop.
+      const inherited = rows.filter((r) => r.created === true && r.holidaysFrom === 'app-default' && (r.holidayCount as number) > 0);
+      if (inherited.length > 0) {
+        warnings.push(
+          `${inherited.length} nieuw aangemaakte kalender(s) hebben de feestdagen van de app-standaardkalender ` +
+          `OVERGENOMEN (${inherited.map((r) => `${r.id}: ${r.holidayCount}`).join(', ')}) omdat er geen \`generate\` of ` +
+          '`rawHolidays` was opgegeven. Wil je een kalender zonder feestdagen, geef dan `generate: { country: "none" }`.',
         );
       }
       return { calendars: rows, warnings, projectEnd, ...(cappedTaskIds ? { cappedTaskIds } : {}) };
@@ -675,8 +839,30 @@ function parseLeveling(args: unknown): { options: LevelingOptions; constrainToFl
   if (a.constrainToFloat !== undefined && typeof a.constrainToFloat !== 'boolean') {
     return '`constrainToFloat` moet een boolean zijn';
   }
-  if (a.resourceIds !== undefined && !Array.isArray(a.resourceIds)) {
-    return "`resourceIds` moet een array van resource-id's zijn";
+  // H8 — `dryRun` werd als ENIGE parameter niet getypecheckt (`a.dryRun === true`). Elke
+  // waarheidsachtige niet-boolean (`"true"`, `1`) betekende stil `false`, dus een ECHTE nivellering
+  // terwijl de aanroeper dacht te previewen. Juist die parameter wordt in de beschrijving verkocht
+  // als de veilige manier om eerst te kijken ⇒ hard weigeren.
+  if (a.dryRun !== undefined && typeof a.dryRun !== 'boolean') {
+    return `\`dryRun\` moet een boolean zijn (true/false), kreeg ${typeof a.dryRun} '${String(a.dryRun)}' — ` +
+      'een niet-boolean zou stil als `false` gelden en dus een ECHTE nivellering uitvoeren';
+  }
+  if (a.resourceIds !== undefined) {
+    if (!Array.isArray(a.resourceIds)) return "`resourceIds` moet een array van resource-id's zijn";
+    // H11 — een selectie die (deels) niet bestaat, gaf een stille nul-effect-run: de leveler
+    // filtert onbekende id's weg, waarna `delays: {}` / `shifts: []` leest als "er hoefde niets
+    // genivelleerd te worden". Een lege selectie is om dezelfde reden nooit bedoeld.
+    if (a.resourceIds.length === 0) {
+      return '`resourceIds` is leeg; laat de parameter weg om ALLE hernieuwbare resources te nivelleren';
+    }
+    const bad = a.resourceIds.filter((x) => typeof x !== 'string' || x === '');
+    if (bad.length > 0) return "`resourceIds` mag alleen niet-lege resource-id-strings bevatten";
+    const known = new Set(useAppStore.getState().resources.map((r) => r.id));
+    const unknown = (a.resourceIds as string[]).filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      return `onbekende resource-id(s): ${unknown.join(', ')} — nivelleren zou dan stil niets doen; ` +
+        'haal geldige id\'s op met planner_list_resources';
+    }
   }
   const constrainToFloat = a.constrainToFloat !== false; // default true (de hoofdroute)
   return {
@@ -823,12 +1009,48 @@ const clearLeveling: BatchStepTool = {
 // =================================================================================================
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}/;
 
+/** Elke sleutel die `update_project` KENT — de allowlist waartegen onbekende sleutels afketsen. */
+const PROJECT_KEYS = [
+  'name', 'description', 'author', 'company', 'startDate', 'endDate', 'statusDate', 'progressMode',
+] as const;
+
+/** Projectvelden die de bridge BEWUST niet schrijft, mét een reden. Een expliciete weigering is
+ *  oneindig veel bruikbaarder dan de stilte van vroeger. */
+const PROJECT_REFUSED: Record<string, string> = {
+  schedulingOptions:
+    'de reken-opties (`schedulingOptions`, waaronder `floatPaths`, `criticalDefinition`, `lagCalendar`) ' +
+    'zijn NIET via de bridge instelbaar: het is een samenhangend blok dat de solver-semantiek van het ' +
+    'hele document verandert, en half blootstellen zou stille gedragsverschillen opleveren. Zet ze in ' +
+    'de app onder Planning → opties; `planner_get_critical_path` meldt met `pathsMode` welke stand geldt.',
+  floatPaths:
+    '`floatPaths` hoort in `project.schedulingOptions` en is NIET via de bridge instelbaar (zie de ' +
+    'app onder Planning → opties). `planner_get_critical_path` meldt met `pathsMode` welke stand geldt.',
+  calendarId:
+    'de projectkalender wissel je niet via update_project; gebruik `planner_update_calendar` (die ' +
+    'wijzigt/aanmaakt) — kalender-id\'s zijn per document.',
+  wbsAutoNumber: 'automatisch WBS-nummeren is een documentinstelling in de app, niet via de bridge.',
+  id: '`id` is de stabiele projectidentiteit en wordt nooit overschreven.',
+  createdAt: 'tijdstempels worden door de app beheerd.',
+  modifiedAt: 'tijdstempels worden door de app beheerd.',
+};
+
 /** Vormvalidatie van `update_project`; string = foutboodschap. Levert de veld-merge, de
- *  wis-vlag voor `statusDate` en de lijst geraakte velden. */
+ *  wis-vlaggen voor `statusDate`/`progressMode` en de lijst geraakte velden.
+ *
+ *  K7 — ONBEKENDE SLEUTELS KETSEN AF. Vroeger liep deze functie een vaste sleutellijst af en liet al
+ *  het andere STIL vallen: `{name:'X', endDate:'2027-01-01'}` meldde `updated:['name']` en gooide
+ *  `endDate` weg zonder één woord. Alleen een call ZONDER enige bekende sleutel gaf een fout. Nu
+ *  wordt elke onbekende sleutel bij naam geweigerd, mét de toegestane lijst erbij.
+ */
 function parseUpdateProject(
   args: unknown,
-): { updates: Partial<Project>; clearStatusDate: boolean; touched: string[] } | string {
+): { updates: Partial<Project>; clearStatusDate: boolean; clearProgressMode: boolean; touched: string[] } | string {
   const a = (args ?? {}) as Record<string, unknown>;
+  for (const key of Object.keys(a)) {
+    if ((PROJECT_KEYS as readonly string[]).includes(key)) continue;
+    if (PROJECT_REFUSED[key]) return `\`${key}\` wordt niet geschreven: ${PROJECT_REFUSED[key]}`;
+    return `onbekend veld \`${key}\`; update_project kent alleen: ${PROJECT_KEYS.join(', ')}`;
+  }
   const updates: Partial<Project> = {};
   for (const key of ['name', 'description', 'author', 'company'] as const) {
     if (a[key] !== undefined) {
@@ -841,6 +1063,30 @@ function parseUpdateProject(
       return '`startDate` moet een ISO-datum zijn (JJJJ-MM-DD)';
     }
     updates.startDate = a.startDate;
+  }
+  // `endDate` is een ECHT projectveld (Backstage-invoer, IFC-round-trip, MSPDI `FinishDate`, P6
+  // `MustFinishByDate`, en het voedt de generatie-spanne van `update_calendar`). De leeskant gaf hem
+  // al terug; hij hoorde dus ook schrijfbaar te zijn. `''` = geen einddatum (de app-conventie:
+  // `moveProject` laat '' bewust '' en de exporteurs slaan het veld dan over) — géén `null`, want
+  // het veld is in het type een verplichte string.
+  if (a.endDate !== undefined) {
+    if (typeof a.endDate !== 'string' || (a.endDate !== '' && !ISO_DATE.test(a.endDate))) {
+      return '`endDate` moet een ISO-datum zijn (JJJJ-MM-DD) of een lege string om hem te wissen';
+    }
+    updates.endDate = a.endDate;
+  }
+  // `progressMode` is een documentinstelling die de solver leest (out-of-sequence-afhandeling) en
+  // die `get_project_info` al teruggaf. Enum + wissen naar de default (RETAINED_LOGIC).
+  let clearProgressMode = false;
+  if (a.progressMode !== undefined) {
+    if (a.progressMode === null || a.progressMode === '') {
+      clearProgressMode = true;
+    } else if (a.progressMode !== 'RETAINED_LOGIC' && a.progressMode !== 'PROGRESS_OVERRIDE') {
+      return `\`progressMode\` moet RETAINED_LOGIC of PROGRESS_OVERRIDE zijn (of null om terug te vallen ` +
+        `op de default RETAINED_LOGIC), kreeg '${String(a.progressMode)}'`;
+    } else {
+      updates.progressMode = a.progressMode;
+    }
   }
   // Wissen loopt NIET via de veld-merge: `Object.assign({ statusDate: undefined })` laat de sleutel
   // met waarde `undefined` achter, terwijl de store-actie `setStatusDate` hem echt `delete`t. Die
@@ -855,19 +1101,28 @@ function parseUpdateProject(
       updates.statusDate = a.statusDate;
     }
   }
-  const touched = [...Object.keys(updates), ...(clearStatusDate ? ['statusDate'] : [])];
+  const touched = [
+    ...Object.keys(updates),
+    ...(clearStatusDate ? ['statusDate'] : []),
+    ...(clearProgressMode ? ['progressMode'] : []),
+  ];
   if (touched.length === 0) {
-    return 'update_project vereist minstens één veld (name/description/author/company/startDate/statusDate)';
+    return `update_project vereist minstens één veld (${PROJECT_KEYS.join('/')})`;
   }
-  return { updates, clearStatusDate, touched };
+  return { updates, clearStatusDate, clearProgressMode, touched };
 }
 
 /** Synchrone, transactie-vrije kern van `update_project`. */
-function updateProjectCore(p: { updates: Partial<Project>; clearStatusDate: boolean; touched: string[] }): MutationOutcome {
+function updateProjectCore(
+  p: { updates: Partial<Project>; clearStatusDate: boolean; clearProgressMode: boolean; touched: string[] },
+): MutationOutcome {
   draft.setProject(p.updates);
-  if (p.clearStatusDate) {
+  if (p.clearStatusDate || p.clearProgressMode) {
     useAppStore.setState((s) => {
-      delete s.project.statusDate;
+      // `delete` i.p.v. `= undefined`: de IFC-serialisatie en de solver-defaults lezen op
+      // sleutel-AANWEZIGHEID (zelfde conventie als de store-actie `setStatusDate`).
+      if (p.clearStatusDate) delete s.project.statusDate;
+      if (p.clearProgressMode) delete s.project.progressMode;
       s.project.modifiedAt = new Date().toISOString();
       s.isDirty = true;
     });
@@ -880,7 +1135,11 @@ const updateProject: BatchStepTool = {
   description:
     'Wijzig projectgegevens: `name`, `description`, `author`, `company`, `statusDate` (de peildatum ' +
     'waarop voortgang wordt geregistreerd — zónder deze datum weigert het voortgangspad van ' +
-    'update_tasks) en `startDate`. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
+    'update_tasks), `endDate` (de contractuele/gewenste einddatum — puur metadata, hij dwingt NIETS ' +
+    'af in de planning; lege string wist hem), `progressMode` (RETAINED_LOGIC of PROGRESS_OVERRIDE — ' +
+    'hoe de solver werk buiten de volgorde afhandelt; null = terug naar de default RETAINED_LOGIC) en ' +
+    '`startDate`. Een ONBEKEND veld wordt geweigerd met de toegestane lijst erbij — er wordt nooit ' +
+    'stil iets weggegooid. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
     'NIEUW aan te maken taken — het verschuift GEEN enkele bestaande taak. Wil je de hele bestaande ' +
     'planning opschuiven, gebruik dan `planner_move_project`. Zet `startDate` dus vóór add_tasks, ' +
     'niet erna. `statusDate: null` (of een lege string) wist de statusdatum — doe dat bewust: zonder ' +
@@ -897,8 +1156,15 @@ const updateProject: BatchStepTool = {
       author: { type: 'string' },
       company: { type: 'string' },
       startDate: { type: 'string', description: 'ISO-datum (JJJJ-MM-DD). Anker voor NIEUWE taken; verschuift bestaande taken NIET.' },
+      endDate: { type: 'string', description: 'Gewenste/contractuele einddatum als ISO-datum (JJJJ-MM-DD); lege string wist hem. Metadata — dwingt niets af in de planning.' },
       statusDate: { type: ['string', 'null'], description: 'ISO-datum (JJJJ-MM-DD) of null om te wissen.' },
+      progressMode: {
+        type: ['string', 'null'],
+        enum: ['RETAINED_LOGIC', 'PROGRESS_OVERRIDE', null],
+        description: 'Voortgangs-scheduling-modus; null = terug naar de default RETAINED_LOGIC.',
+      },
     },
+    additionalProperties: false,
   },
   batchStep(args) {
     const parsed = parseUpdateProject(args);
@@ -915,7 +1181,10 @@ const updateProject: BatchStepTool = {
       const p = useAppStore.getState().project;
       return {
         updated: touched,
-        project: { name: p.name, startDate: p.startDate, statusDate: p.statusDate ?? null },
+        project: {
+          name: p.name, startDate: p.startDate, endDate: p.endDate,
+          statusDate: p.statusDate ?? null, progressMode: p.progressMode ?? null,
+        },
         // Herinnering in de payload zelf: de AI leest data vaak eerder dan de beschrijving.
         note: '`startDate` is alleen het anker voor NIEUWE taken; gebruik planner_move_project om de bestaande planning te verschuiven.',
         projectEnd: projectEndInfo().projectEnd,
@@ -944,6 +1213,11 @@ function parseMoveProject(args: unknown): { newStartDate: string; shiftBaselines
   const a = (args ?? {}) as { newStartDate?: unknown; shiftBaselines?: unknown };
   if (typeof a.newStartDate !== 'string' || !ISO_DATE.test(a.newStartDate)) {
     return '`newStartDate` moet een ISO-datum zijn (JJJJ-MM-DD)';
+  }
+  // Zelfde patroon als `dryRun` (H8), lagere inzet: een niet-boolean gold stil als `false`, dus
+  // baselines bleven staan terwijl de aanroeper dacht ze mee te verschuiven.
+  if (a.shiftBaselines !== undefined && typeof a.shiftBaselines !== 'boolean') {
+    return `\`shiftBaselines\` moet een boolean zijn (true/false), kreeg ${typeof a.shiftBaselines} '${String(a.shiftBaselines)}'`;
   }
   return { newStartDate: a.newStartDate, shiftBaselines: a.shiftBaselines === true };
 }
@@ -1052,9 +1326,9 @@ const saveBaseline: McpToolDef = {
   name: 'planner_save_baseline',
   description:
     'Leg de huidige planning vast als baseline (nulmeting) en maak die direct actief; latere ' +
-    'afwijkingen meet je ertegen af met compare_baseline/analyze_delay. Is de planning nog niet ' +
-    'doorgerekend, dan wordt eerst herrekend zodat de baseline op verse datums staat (`recomputed` ' +
-    'meldt dat). Deze tool kan NIET als stap in een batch draaien: een baseline hoort een losse, ' +
+    'afwijkingen meet je ertegen af met compare_baseline/analyze_delay. Is de planning verouderd OF ' +
+    'nog nooit doorgerekend (bijv. na crash-herstel), dan wordt eerst herrekend zodat de baseline op ' +
+    'verse datums staat (`recomputed` meldt dat). Deze tool kan NIET als stap in een batch draaien: een baseline hoort een losse, ' +
     'bewuste nulmeting te zijn. Zonder `name` krijgt de baseline een oplopende standaardnaam.',
   kind: 'mutate',
   batchable: false,

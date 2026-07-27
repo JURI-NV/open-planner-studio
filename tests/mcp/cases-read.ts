@@ -111,7 +111,7 @@ test('get_project_overview: elke taak aanwezig; relatiegraaf compleet; verkorte 
   const a = S().addTask({ name: 'A', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
   const b = S().addTask({ name: 'B', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 3) });
   S().addTask({ name: 'C', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 1) });
-  S().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 2 });
+  const seq = S().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 2 });
   S().runCPM();
 
   const data = callOk('planner_get_project_overview');
@@ -122,7 +122,10 @@ test('get_project_overview: elke taak aanwezig; relatiegraaf compleet; verkorte 
   assertEq(totalRels, 1, 'relatiegraaf compleet: som van rels == relationCount');
   const aRow = data.tasks.find((r: any) => r.name === 'A');
   const bWbs = S().tasks.find((t) => t.id === b)!.wbsCode;
-  assertEq(aRow.rels, [`→${bWbs} FS+2d`], 'verkorte relatienotatie "→<wbs> FS+2d"');
+  // De notatie draagt sinds auditbevinding H6 het sequence-id als `#`-suffix, zodat
+  // remove_dependencies (die op sequence-id's werkt) uit deze ENE call gevoed kan worden.
+  assertEq(aRow.rels, [`→${bWbs} FS+2d #${seq}`], 'verkorte relatienotatie "→<wbs> FS+2d #<seqId>"');
+  assertEq(aRow.id, a, 'elke overview-rij draagt het stabiele Task.id (H6)');
 });
 
 // =================================================================================================
