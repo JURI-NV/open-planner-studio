@@ -16,7 +16,11 @@ export type IfcParseErrorReason =
   /** Geen STEP-uitwisselingsbestand: de verplichte `ISO-10303-21;`-kop ontbreekt. */
   | 'not-step'
   /** Wel een STEP-kop, maar de afsluitende `END-ISO-10303-21;` ontbreekt ⇒ afgekapt/onvolledig. */
-  | 'truncated';
+  | 'truncated'
+  /** Kop én sluitmarkering aanwezig, maar er is geen `DATA;`-sectiegrens te vinden. Zonder die
+   *  grens valt er niets te parsen; stil een leeg project teruggeven zou het bestand van de
+   *  gebruiker onder een leeg document begraven (het pad blijft immers gekoppeld). */
+  | 'no-data-section';
 
 export class IfcParseError extends Error {
   readonly reason: IfcParseErrorReason;

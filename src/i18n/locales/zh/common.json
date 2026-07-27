@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "资源库",
     "intro": "管理你的资源库及其共享资源池。分配操作在“资源”标签页中进行；你分配的内容会自动成为项目中带来源信息的副本。",
-    "resourceManagementHint": "资源在“资源”标签页（资源库视图）中管理；此处仅管理公司、日历和导入/导出。",
+    "resourceManagementHint": "资源在“资源”标签页（资源库视图）中管理；此处仅管理资源库、日历和导入/导出。",
     "companies": "资源库",
     "addCompany": "添加资源库",
     "newCompany": "新建资源库",

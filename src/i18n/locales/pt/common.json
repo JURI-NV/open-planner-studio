@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Biblioteca de recursos",
     "intro": "Faça a gestão das suas bibliotecas de recursos e do respetivo pool partilhado. A atribuição é feita no separador Recursos; o que atribuir torna-se automaticamente uma cópia com a origem preservada no projeto.",
-    "resourceManagementHint": "Os recursos são geridos no separador Recursos (vista Biblioteca); aqui geres empresas, calendários e importação/exportação.",
+    "resourceManagementHint": "Os recursos são geridos no separador Recursos (vista Biblioteca); aqui geres bibliotecas de recursos, calendários e importação/exportação.",
     "companies": "Bibliotecas de recursos",
     "addCompany": "Adicionar biblioteca de recursos",
     "newCompany": "Nova biblioteca de recursos",

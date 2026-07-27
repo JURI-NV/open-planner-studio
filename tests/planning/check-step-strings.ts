@@ -23,6 +23,7 @@
 import { useAppStore } from '@/state/appStore';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
+import { IfcParseError } from '@/services/ifc/ifcErrors';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { ImportResult } from '@/services/importTypes';
 
@@ -299,6 +300,61 @@ eq('8b handgeschreven: beide taken gelezen', rt8.tasks.map(t => t.name), ['Taak 
 eq('8c handgeschreven: commentaar tussen args weggestript, omschrijving intact',
   rt8.tasks[0]?.description, 'omschrijving');
 eq('8d handgeschreven: wbsCode intact', rt8.tasks[0]?.wbsCode, '1.1');
+
+// ════════════════════════════════════════════════════════════════════════════
+//  9. LEGACY-BESTANDEN: een rauwe, ongebalanceerde apostrof in de header
+// ════════════════════════════════════════════════════════════════════════════
+// De writer schreef t/m v2026.7.12 naam/auteur/bedrijf RAUW in `FILE_NAME(...)`. Een project
+// "Van 't Hof Toren" leverde daar dus een apostrof op die geen string opent én sluit. Zulke
+// bestanden staan in het veld — deze app heeft ze zelf geproduceerd.
+//
+// De eerste K2-opzet zocht de `DATA;`-sectiegrens quote-BEWUST vanaf byte 0. Op zo'n legacy-header
+// loopt die scan uit de pas, ziet de echte `DATA;` als "binnen een string" en gaf nul entiteiten:
+// een leeg project, ZONDER fout, terwijl `filePath` gekoppeld bleef — één Ctrl+S verder was het
+// origineel weg. Onder v2026.7.12 opende exact hetzelfde bestand gewoon.
+//
+// Deze batterij pint beide kanten vast: de legacy-header moet leesbaar blijven, en de K2-winst
+// (`DATA;`/`ENDSEC;` binnen een header-string mag de grens niet verzetten) moet overeind blijven.
+// De round-trip kan dit niet dekken: de huidige writer produceert zo'n header per definitie niet.
+const legacyFile = (fileName: string) => [
+  'ISO-10303-21;',
+  'HEADER;',
+  `FILE_NAME('${fileName}','2031-01-01T07:00:00',('A'),('B'),'x','y','');`,
+  'ENDSEC;',
+  'DATA;',
+  "#1=IFCPROJECT('g1',$,'Legacy',$,$,$,$,$,$);",
+  "#2=IFCTASK('g2',$,'Taak A',$,$,'1.1',$,$,$,.F.,$,$,.CONSTRUCTION.);",
+  'ENDSEC;',
+  'END-ISO-10303-21;',
+].join('\n');
+
+// 9a/9b — rauwe apostrof: vóór de fix nul entiteiten, nu gewoon leesbaar.
+const rt9 = readIFC(legacyFile("Van 't Hof Toren.ifc"));
+eq('9a legacy rauwe apostrof: projectnaam gelezen', rt9.project.name, 'Legacy');
+eq('9b legacy rauwe apostrof: taak gelezen', rt9.tasks.map(t => t.name), ['Taak A']);
+
+// 9c/9d — K2-winst: `DATA;` resp. `ENDSEC;` in de header-string verzet de sectiegrens niet.
+const rt9c = readIFC(legacyFile('DATA; Toren.ifc'));
+eq('9c header met DATA; in de naam: taak gelezen', rt9c.tasks.map(t => t.name), ['Taak A']);
+const rt9d = readIFC(legacyFile('ENDSEC; Toren.ifc'));
+eq('9d header met ENDSEC; in de naam: taak gelezen', rt9d.tasks.map(t => t.name), ['Taak A']);
+
+// 9e — géén datasectie ⇒ getypeerde fout, NOOIT stil een leeg project. Anders begraaft een
+// herstelde snapshot of een geopend bestand het origineel onder een leeg document.
+const ZONDER_DATA = [
+  'ISO-10303-21;',
+  'HEADER;',
+  "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+  'ENDSEC;',
+  'END-ISO-10303-21;',
+].join('\n');
+let reason9e = 'geen fout';
+try {
+  readIFC(ZONDER_DATA);
+} catch (e) {
+  reason9e = e instanceof IfcParseError ? e.reason : `andere fout: ${(e as Error).name}`;
+}
+eq('9e zonder DATA;-sectie: getypeerde leesfout i.p.v. leeg project', reason9e, 'no-data-section');
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

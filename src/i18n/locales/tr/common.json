@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Kaynak kitaplığı",
     "intro": "Kaynak kitaplıklarınızı ve paylaşılan havuzlarını yönetin. Atama işlemi Kaynaklar sekmesinde yapılır; atadığınız öğe otomatik olarak projede kaynağı korunan bir kopya haline gelir.",
-    "resourceManagementHint": "Kaynakları Kaynaklar sekmesinde (Kitaplık görünümü) yönetirsiniz; burada şirketleri, takvimleri ve içe/dışa aktarmayı yönetirsiniz.",
+    "resourceManagementHint": "Kaynakları Kaynaklar sekmesinde (Kitaplık görünümü) yönetirsiniz; burada kaynak kitaplıklarını, takvimleri ve içe/dışa aktarmayı yönetirsiniz.",
     "companies": "Kaynak kitaplıkları",
     "addCompany": "Kaynak kitaplığı ekle",
     "newCompany": "Yeni kaynak kitaplığı",

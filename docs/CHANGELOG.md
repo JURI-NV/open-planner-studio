@@ -24,8 +24,10 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
   app. New in-app guide "Connecting an AI assistant (MCP)" (NL+EN) documents what the assistant
   can and cannot do — including the resource-library fields it is not allowed to touch (see
   below).
-- **Resource libraries (issue #19): a resource pool that lives above individual projects, with
-  company binding, provenance and a real editor.** The Resources tab now has two views — a
+- **Resource libraries (issue #19, partly): a resource pool that lives above individual projects,
+  with company binding, provenance and a real editor.** Issue #19 also asked for a cross-project
+  overview of where each resource is already booked, to spot double-bookings; that part is not in
+  this release and the issue stays open for it. The Resources tab now has two views — a
   Library view that is the source of truth (with its own inline table editor, replacing an old
   `window.prompt()`-based one) and a Project view showing what a project actually assigns from
   it. Identity fields (name, type, description, rate, unit) follow the library and become
@@ -101,8 +103,9 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
   developing the app — no user-visible change.
 
 ### Changed
-- **Startup and bundle size.** Eighteen dialogs, Backstage and the rarely-open panels (IFC,
-  Report, Debug Terminal) now load via `React.lazy` instead of eagerly, cutting the app's eager
+- **Startup and bundle size.** Twenty dialogs, Backstage, the tour overlay and the rarely-open
+  panels (IFC, Report, AI activity, Debug Terminal) now load via `React.lazy` instead of eagerly,
+  cutting the app's eager
   first-load JS by about 17% (288,723 → 239,644 bytes gzip). Translations for all but English
   now load per-language on demand instead of all 14 locales upfront, cutting eager JS by
   roughly 41% in that change alone (488,982 → 287,864 bytes gzip) with no flash of untranslated
@@ -138,7 +141,11 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
   duration of 7 came back as 5 on reopen, with no error. The writer had the matching bug: an
   apostrophe in a project name, author or company produced syntactically invalid STEP output.
   All three parsing sites now share one quote-aware scanner; the header writer quotes those
-  three fields properly.
+  three fields properly. Files written by earlier versions keep opening: because their header can
+  contain that unbalanced apostrophe, the `DATA;` section boundary is located line-anchored rather
+  than by scanning quote-aware from the first byte — a quote-aware scan desynchronises on such a
+  header and would find no data section at all. A file with no `DATA;` boundary now raises a typed
+  read error instead of quietly opening as an empty project on top of the original file's path.
 - **Three compounding bugs in crash recovery could silently lose an entire relationship
   network, or let one instance overwrite another's recovered work.** Auto-save wrote recovery
   snapshots non-atomically and the reader had no truncation check, so an interrupted write

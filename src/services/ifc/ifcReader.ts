@@ -195,21 +195,6 @@ function skipQuotedOrComment(text: string, i: number): number {
   return -1;
 }
 
-/** Zoek `token` op CODE-niveau: voorkomens binnen een stringliteral of commentaar tellen niet mee. */
-function indexOfCode(text: string, token: string, from: number): number {
-  const first = token.charCodeAt(0);
-  for (let i = from; i < text.length;) {
-    const c = text.charCodeAt(i);
-    if (c === CH_QUOTE || c === CH_SLASH) {
-      const skip = skipQuotedOrComment(text, i);
-      if (skip >= 0) { i = skip; continue; }
-    }
-    if (c === first && text.startsWith(token, i)) return i;
-    i++;
-  }
-  return -1;
-}
-
 /** Verwijder `/* … *\/`-commentaar, maar uitsluitend BUITEN stringliterals. Geen commentaar in de
  *  tekst (het gangbare geval — onze eigen writer schrijft er geen) ⇒ de tekst gaat onaangeroerd
  *  terug, zonder kopie. */
@@ -290,11 +275,38 @@ function readEntity(text: string, at: number, out: StepEntity[]): number {
   return i;
 }
 
+/**
+ * Begin van de datasectie: de offset van het `DATA;`-token dat de sectiegrens vormt, of −1.
+ *
+ * REGEL-VERANKERD, en bewust NIET quote-bewust vanaf byte 0. Dat laatste was de eerste opzet en
+ * hij is stuk op onze eigen bestanden: de writer schreef t/m v2026.7.12 naam/auteur/bedrijf rauw in
+ * `FILE_NAME(...)`, dus een project "Van 't Hof Toren" levert daar een ONGEBALANCEERDE apostrof op.
+ * Een quote-bewuste scan loopt daarna de rest van het bestand uit de pas, ziet de échte `DATA;` als
+ * "binnen een string", en gaf −1 ⇒ nul entiteiten ⇒ stil een leeg project, op een bestand dat deze
+ * app zelf geschreven heeft en dat vóór de K2-fix gewoon opende.
+ *
+ * Regelverankering lost precies dat op zonder de K2-winst weg te gooien: die winst zit in de
+ * DATA-sectie (`DATA;`/`ENDSEC;` middenin een taaknaam), en dáár blijft de scan quote-bewust — we
+ * snijden hieronder vanaf deze grens. Een `DATA;` binnen een header-string staat nooit als eerste
+ * niet-witruimte op een eigen regel; de echte sectiegrens per ISO 10303-21 wel.
+ */
+function indexOfDataSection(content: string): number {
+  const m = /^[ \t]*DATA;/m.exec(content);
+  return m ? m.index + m[0].indexOf('DATA;') : -1;
+}
+
 function parseSTEP(content: string): StepEntity[] {
   const entities: StepEntity[] = [];
   // 1. Begin van de datasectie — een `DATA;` binnen de FILE_NAME-string van de header telt niet mee.
-  const dataAt = indexOfCode(content, 'DATA;', 0);
-  if (dataAt < 0) return entities;
+  const dataAt = indexOfDataSection(content);
+  // Geen sectiegrens ⇒ getypeerde fout, GEEN leeg resultaat. `openFile`/`useRecoveryRestore` tonen
+  // dan de leesfout in plaats van een leeg document te openen bovenop het pad van de gebruiker.
+  if (dataAt < 0) {
+    throw new IfcParseError(
+      'no-data-section',
+      "Onleesbaar IFC-bestand: de verplichte 'DATA;'-sectiegrens ontbreekt.",
+    );
+  }
 
   // 2. Commentaar strippen (buiten strings) + regeleindes normaliseren — zelfde volgorde als voorheen.
   const clean = stripStepComments(content.slice(dataAt + 'DATA;'.length)).replace(/\r\n/g, '\n');
