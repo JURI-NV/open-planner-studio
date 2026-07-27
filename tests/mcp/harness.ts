@@ -12,9 +12,14 @@
 // `hasBlockingDialogOpen`/`shortcutRegistry` in de MCP-tool-runtime, of via de tool-registry die de
 // tool-modules importeert — zet `initLocale`→`updateDirection` bij module-eval `document.documentElement.dir`.
 // Zonder deze stub is `documentElement` undefined en klapt die import in Node.
+// `documentElement` draagt bewust de VOLLEDIGE vorm die de i18n-init aanraakt (`dir`/`lang` schrijven,
+// `setAttribute`, `style`). Tot de eindintegratie stond die vorm in een los `uiShim.ts` dat zeven
+// casebestanden importeerden — maar de harness zette hier zelf al een (truthy, lege) `documentElement`,
+// waardoor uiShims `if (!doc.documentElement)`-guard nooit meer vuurde en het bestand een no-op was.
+// Eén bron dus: de harness.
 (globalThis as any).document = {
   createElement: () => ({ width: 0, height: 0, getContext: () => null }),
-  documentElement: {},
+  documentElement: { dir: 'ltr', lang: 'nl', setAttribute() {}, style: {} },
 };
 
 // Pas ná de shim de store importeren en re-exporteren.

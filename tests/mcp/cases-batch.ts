@@ -18,7 +18,6 @@
 //   - max 100 stappen; één backup-trigger met kind 'batch';
 //   - de stappenloop is volledig SYNCHROON (statische assert op de eigen broncode).
 import { useAppStore, test, assert, assertEq, run } from './harness';
-import './uiShim'; // ná de harness-shim: vult document.documentElement voor de i18n-init
 import { registerToolModules } from '@/services/mcp/toolRegistry';
 import { readTools } from '@/services/mcp/tools/readTools';
 import {
@@ -527,6 +526,10 @@ test('batch: tempId-herschrijving raakt nooit vrije tekst (name/description/note
         notes: 'tmp-fundering',
         fields: { name: 'tmp-fundering', parentId: 'tmp-fundering' },
         tasks: [{ name: 'tmp-fundering' }],
+        // De deny-list moet over de HELE subboom doorwerken, niet alleen op het eerste niveau.
+        // Twee vormen die tot nu toe ongepind waren (eindintegratie):
+        comment: { detail: 'tmp-fundering' },   // string TWEE niveaus onder een deny-sleutel
+        label: ['tmp-fundering'],               // ARRAY direct onder een deny-sleutel
       },
     },
   ]);
@@ -537,6 +540,7 @@ test('batch: tempId-herschrijving raakt nooit vrije tekst (name/description/note
   const seen = lastRecordArgs as {
     taskId: string; name: string; description: string; notes: string;
     fields: { name: string; parentId: string }; tasks: { name: string }[];
+    comment: { detail: string }; label: string[];
   };
 
   assertEq(seen.taskId, realId, 'een id-veld hoort wél herschreven te worden');
@@ -546,6 +550,8 @@ test('batch: tempId-herschrijving raakt nooit vrije tekst (name/description/note
   assertEq(seen.fields.name, 'tmp-fundering', 'ook genest onder `fields` blijft een naam letterlijk');
   assertEq(seen.fields.parentId, realId, 'een genest id-veld hoort wél herschreven te worden');
   assertEq(seen.tasks[0].name, 'tmp-fundering', 'een naam binnen een array van items blijft letterlijk');
+  assertEq(seen.comment.detail, 'tmp-fundering', 'twee niveaus onder een deny-sleutel blijft óók letterlijk (subboom-propagatie)');
+  assertEq(seen.label[0], 'tmp-fundering', 'een array-element onder een deny-sleutel blijft letterlijk');
 });
 
 // =================================================================================================

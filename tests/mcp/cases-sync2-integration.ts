@@ -17,11 +17,10 @@ const backing = new Map<string, string>();
 };
 
 import { useAppStore, test, assert, assertEq, run } from './harness';
-import './uiShim';
 import { getTool, getTools } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
 import { documentToolDeps } from '@/services/mcp/tools/documentTools';
-import { createBackupService } from '@/services/mcp/backup';
+import { createBackupService, markDuplicateBorn } from '@/services/mcp/backup';
 // Het IMPORTEREN van server.ts draait `initMcpRuntime()` — precies het productiepad dat draad A en C
 // leggen. Niets uit deze import wordt hier aangeroepen; de side-effect ÍS wat we testen.
 import { initMcpRuntime } from '@/services/mcp/server';
@@ -122,12 +121,12 @@ test('initMcpRuntime is idempotent en herstelt een afgeknotte registratie', asyn
 // =================================================================================================
 
 test('documentToolDeps.markDuplicateBorn is de ECHTE backup-functie, niet de no-op default', async () => {
-  // De no-op default is een pijlfunctie zonder parameters; de echte doorgeef-functie uit backup.ts
-  // neemt er één. Dat is een structurele, niet-brosse manier om "is de naad gelegd" vast te stellen.
-  assertEq(
-    documentToolDeps.markDuplicateBorn.length,
-    1,
-    'de naad wijst nog naar de parameterloze no-op — initMcpRuntime() is niet gedraaid',
+  // IDENTITEITScheck, geen arity-check: de vorige versie leunde op `.length === 1`, en die zou vals
+  // groen worden zodra iemand de no-op default een (ongebruikte) parameter geeft. Dit vergelijkt de
+  // naad met de daadwerkelijk geëxporteerde functie uit backup.ts — dat kan niet per ongeluk kloppen.
+  assert(
+    documentToolDeps.markDuplicateBorn === markDuplicateBorn,
+    'de naad wijst niet naar backup.markDuplicateBorn — initMcpRuntime() is niet gedraaid',
   );
 });
 
@@ -347,7 +346,9 @@ test('een batch met een onbekende tool rolt ALLES terug (de vangrail werkt over 
         name: 'planner_batch',
         arguments: {
           steps: [
-            { tool: 'planner_add_tasks', args: { tasks: [{ tempId: 'x', name: 'Wordt teruggedraaid', duration: 5 }] } },
+            // `tmp-`-prefix: anders zou de batch al op de GERESERVEERDE tempId-syntax (T22) stranden
+            // en zou deze case de onbekende-tool-vangrail niet meer bewijzen.
+            { tool: 'planner_add_tasks', args: { tasks: [{ tempId: 'tmp-x', name: 'Wordt teruggedraaid', duration: 5 }] } },
             { tool: 'planner_bestaat_niet', args: {} },
           ],
         },
@@ -358,6 +359,68 @@ test('een batch met een onbekende tool rolt ALLES terug (de vangrail werkt over 
   const payload = JSON.parse(JSON.parse(raw).result.content[0].text) as McpToolResult;
   assertEq(payload.ok, false, 'de batch weigert');
   assertEq(S().tasks.length, before, 'de eerste (geslaagde) stap is teruggedraaid');
+});
+
+// =================================================================================================
+// E. De curve-guard geldt óók op het batchStep-pad (eindintegratie)
+//
+// De T20-reviewfix zette `isCurve` in `classifyAssignments`; SYNC-2 tilde de synchrone kern daarna
+// uit als `manageAssignmentsCore` en gaf `planner_batch` daarmee een TWEEDE ingang naar diezelfde
+// logica. cases-mutate-cal-res.ts test alleen de losse-tool-ingang. Deze case pint de batch-ingang:
+// zou de guard ooit naar de handler-wikkel zakken, dan zou een onbekende curve via een batch
+// alsnog in de store belanden en `recomputeResourceLoad()` (stap 5, BUITEN de try/catch van
+// runInMcpTransaction) laten klappen — uncaught, dus voorbij het rollback-pad.
+// =================================================================================================
+test('batchStep-pad: een onbekende curve wordt óók binnen planner_batch zacht geweigerd', async () => {
+  S().newProject();
+  const ctx = makeCtx();
+
+  const addTask = (name: string): string => {
+    const id = S().addTask({ name });
+    const t = S().tasks.find((x) => x.id === id)!;
+    S().updateTask(id, { time: { ...t.time, scheduleDuration: 5 } });
+    return id;
+  };
+  const taskId = addTask('Curve-taak');
+  const taskB = addTask('Curve-taak-B');
+  const resourceId = S().addResource({ name: 'Timmerman', type: 'LABOR', description: '', maxUnits: 2 });
+
+  const raw = await handleMcpMessage(
+    JSON.stringify({
+      jsonrpc: '2.0', id: 30, method: 'tools/call',
+      params: {
+        name: 'planner_batch',
+        arguments: {
+          steps: [
+            {
+              tool: 'planner_manage_assignments',
+              args: {
+                actions: [
+                  { action: 'add', taskId, resourceId, unitsPerDay: 1, curve: 'bell' },   // kleine letters ⇒ ONGELDIG
+                  { action: 'add', taskId: taskB, resourceId, unitsPerDay: 1, curve: 'BELL' }, // geldig
+                ],
+              },
+            },
+          ],
+        },
+      },
+    }),
+    ctx,
+  );
+
+  // Géén uncaught crash: er komt gewoon een JSON-RPC-antwoord terug.
+  const payload = JSON.parse(JSON.parse(raw).result.content[0].text) as McpToolResult;
+  assertEq(payload.ok, true, `de batch hoort te slagen (zachte weigering), kreeg: ${raw.slice(0, 500)}`);
+
+  const asgns = S().assignments;
+  assertEq(asgns.filter((x) => x.taskId === taskId).length, 0, 'het item met de ongeldige curve is NIET aangemaakt');
+  const goed = asgns.find((x) => x.taskId === taskB);
+  assert(!!goed, 'het geldige item in dezelfde batchstap is wél aangemaakt');
+  assertEq(goed!.curve, 'BELL', 'en draagt de geldige curve');
+  assert(
+    !asgns.some((x) => x.curve !== undefined && !['UNIFORM', 'FRONT_LOADED', 'BACK_LOADED', 'BELL', 'EARLY_PEAK', 'LATE_PEAK'].includes(x.curve)),
+    'er staat na de batch geen enkele onbekende curve in de store',
+  );
 });
 
 run();

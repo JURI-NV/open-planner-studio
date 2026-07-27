@@ -4,7 +4,6 @@
 // De store is hier niet nodig; we importeren `test`/`assert`/`run` uit de harness (die de DOM-shim
 // en de store-re-export meebrengt — onschadelijk) en registreren stub-tools in de registry.
 import { test, assert, assertEq, run } from './harness';
-import './uiShim'; // toolRegistry importeert nu echte tools (readTools) → shortcutRegistry/i18n-init zet document.documentElement.dir
 import type { McpToolDef, McpToolResult, McpContext } from '@/services/mcp/contracts';
 import { registerToolModules } from '@/services/mcp/toolRegistry';
 import {

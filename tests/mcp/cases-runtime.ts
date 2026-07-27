@@ -9,7 +9,6 @@
 //   - AI-backup: pad ⇒ backupCreated precies één keer; reject ⇒ BACKUP_FAILED vóór enige mutatie;
 //   - transactie-fout ⇒ nette code (CYCLE bij kring, VALIDATION anders).
 import { useAppStore, test, assert, assertEq, run } from './harness';
-import './uiShim'; // ná de harness-shim: vult document.documentElement voor de i18n-init (zie uiShim.ts)
 import {
   buildEnvelope, runReadTool, runMutateTool, bindExpectedDoc,
   guardNonTransactional, toolError, McpStepError,

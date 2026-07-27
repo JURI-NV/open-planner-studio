@@ -11,10 +11,11 @@
 // `attemptBridgeStart`, `buildMcpContext`, `ensureMcpToken`/`generateToken`) nemen hun Tauri-randen
 // als injecteerbare functies, zodat ze headless — zonder Tauri — te testen zijn (`tests/mcp/`).
 //
-// De per-request `ctx` is hier BEWUST een minimale placeholder: `paused`/`readOnly` komen live uit
-// de ui-state, maar `expectedDocId` (drift-anker), `tempIdMap` (batch-executor) en `ensureBackup`
-// (AI-backup) zijn stubs — de echte runtime-/guardlaag is T17. Zie de tool-contracten in
-// `contracts.ts` (`McpContext`).
+// De per-request `ctx` is VOLLEDIG aangesloten (SYNC-2): `paused`/`readOnly` komen live uit de
+// ui-state, `expectedDocId` (drift-anker) en `tempIdMap` (batch-executor) zijn per verbinding
+// meegroeiende velden, en `ensureBackup` wijst naar de ECHTE AI-backup uit `backup.ts` — geen stub
+// meer. `initMcpRuntime()` hieronder legt daarnaast de T16-naad (`markDuplicateBorn`) en registreert
+// de tool-modules. Zie de tool-contracten in `contracts.ts` (`McpContext`).
 
 import { useAppStore } from '@/state/appStore';
 import { loadMcpPort, loadMcpToken, saveMcpToken, saveAiMode } from '@/utils/settingsStore';

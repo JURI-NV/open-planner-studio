@@ -39,17 +39,17 @@ import type { McpContext, McpToolAnnotations, McpToolDef, McpToolErr, McpToolRes
  *
  * `markDuplicateBorn` is het T16-contract (spec regel 130): een document dat in deze sessie via
  * `duplicate_document` is ontstaan slaat de automatische AI-backup over — zijn geboortestaat ÍS het
- * nog openstaande bronbestand. De echte implementatie woont in `services/mcp/backup.ts` (baan E);
- * die module bestaat in deze baan nog niet, vandaar de naad in plaats van een directe import.
+ * nog openstaande bronbestand. De echte implementatie woont in `services/mcp/backup.ts`.
  *
- * INTEGRATIE-TODO (bij het samenvoegen met baan E): één regel op de plek waar de backup-service
- * wordt opgezet (server-start):
- *     documentToolDeps.markDuplicateBorn = markDuplicateBorn; // uit services/mcp/backup.ts
- * Zonder die regel is de default een no-op en krijgt een duplicaat alsnog een (overbodige, maar
- * onschadelijke) auto-backup bij zijn eerste mutatie.
+ * De naad blijft bestaan als INVERSIE, niet als tijdelijke stellage: een directe import zou deze
+ * tool-module aan de backup-service (en daarmee aan de Tauri-fs) koppelen, terwijl de tests haar
+ * juist los willen kunnen draaien. AANGESLOTEN sinds SYNC-2 — `initMcpRuntime()` in `server.ts` zet
+ * `documentToolDeps.markDuplicateBorn = markDuplicateBorn`, en `cases-sync2-integration.ts` pint met
+ * een identiteitscheck vast dat die naad écht ligt. Blijft de default staan, dan krijgt een duplicaat
+ * alsnog een (overbodige, maar onschadelijke) auto-backup bij zijn eerste mutatie.
  */
 export const documentToolDeps: { markDuplicateBorn: (docId: string) => void } = {
-  markDuplicateBorn: () => { /* no-op tot de backup-service is aangesloten (zie INTEGRATIE-TODO) */ },
+  markDuplicateBorn: () => { /* no-op tot initMcpRuntime() de backup-service aansluit */ },
 };
 
 // --- Gedeelde veiligheidsvlag-guard --------------------------------------------------------------

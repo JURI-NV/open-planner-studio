@@ -6,7 +6,6 @@
 // een echt bestand geschreven en `isTauri()` (die `window` leest) wordt nooit aangeraakt.
 // De T16-hook `markDuplicateBorn` loopt via `documentToolDeps` en wordt hier bespioneerd.
 import { useAppStore, test, assert, assertEq, run } from './harness';
-import './uiShim'; // ná de harness-shim: shortcutRegistry sleept de i18n-init mee
 import { getTool } from '@/services/mcp/toolRegistry';
 import type { McpContext, McpToolResult, McpToolOk, McpToolErr } from '@/services/mcp/contracts';
 import { documentToolDeps } from '@/services/mcp/tools/documentTools';

@@ -6,7 +6,6 @@
 // Aan het eind: de payload-meting (geen poort) — JSON-groottes van overview/list_tasks(p1)/
 // histogram(week) op het 2500-taken-benchmarkproject, gerapporteerd via console.
 import { useAppStore, test, assert, assertEq, run } from './harness';
-import './uiShim'; // ná de harness-shim: vult document.documentElement voor de i18n-init
 import { getTool } from '@/services/mcp/toolRegistry';
 import type { McpContext, McpToolResult, McpToolOk } from '@/services/mcp/contracts';
 import { generateBenchmarkProject } from '@/services/benchmark/generateProject';
@@ -425,6 +424,38 @@ test('analyze_delay: baseline zonder projecteinde ⇒ expliciete melding i.p.v. 
   assertEq(data.projectEndDeltaAvailable, false, 'geen doorgerekend baseline-einde');
   assertEq(data.projectEndDelta, null, 'delta null, niet 0');
   assert(typeof data.note === 'string' && data.note.length > 0, 'expliciete melding aanwezig');
+});
+
+// =================================================================================================
+// DIALOOG-GUARD op de T18-leestools — GEDEELDE implementatie (eindintegratie)
+//
+// De `readTool`-wikkel had een eigen, derde kopie van de dialoog-guard die de blokkerende vlag NIET
+// benoemde. Sinds de eindintegratie delegeert hij naar `runReadTool` in runtime.ts. Deze case pint
+// dat vast: een leestool weigert mét de VLAGNAAM in de fout — precies zoals de document-/bestands-
+// tools (cases-doc-file.ts §10) en de runtime-wikkels (cases-runtime.ts §2) dat al deden.
+// =================================================================================================
+test('leestool: open dialoog ⇒ DIALOG_OPEN en de fout BENOEMT de blokkerende vlag', () => {
+  cleanProject();
+  S().addTask({ name: 'A', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 2) });
+  S().runCPM();
+
+  useAppStore.setState((s) => { s.ui.showNewProjectDialog = true; });
+  try {
+    const res = callErr('planner_get_project_overview');
+    assert(!res.ok, 'een leestool hoort te wachten op een open modaal (halve staat)');
+    if (res.ok) return;
+    assertEq(res.code, 'DIALOG_OPEN', 'code hoort DIALOG_OPEN te zijn');
+    assert(
+      res.error.includes('showNewProjectDialog'),
+      `de fout hoort de vlag-naam te noemen (gedeelde guard), kreeg: ${res.error}`,
+    );
+  } finally {
+    useAppStore.setState((s) => { s.ui.showNewProjectDialog = false; });
+  }
+
+  // Dialoog dicht ⇒ dezelfde call slaagt weer: bewijst dat de vlag de oorzaak was, niet de staat.
+  const data = callOk('planner_get_project_overview');
+  assertEq(data.tasks.length, 1, 'met de dialoog dicht leest dezelfde tool gewoon door');
 });
 
 // =================================================================================================

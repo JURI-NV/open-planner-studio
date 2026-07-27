@@ -5,8 +5,8 @@
 // bewust COMPACT (velden die false/0/leeg zijn worden weggelaten) — deze payloads gaan als JSON over
 // de bridge en de overview/list-tools kunnen op een groot project fors worden.
 //
-// Alle tools lopen door de lokale `readTool`-wikkel: die spiegelt `runReadTool` (dialoog-guard +
-// live envelop, GEEN drift/pauze-blokkade — spec regel 116) maar laat een tool een NETTE
+// Alle tools lopen door de lokale `readTool`-wikkel: die DELEGEERT naar `runReadTool` (dialoog-guard
+// + live envelop, GEEN drift/pauze-blokkade — spec regel 116) en laat daarbovenop een tool een NETTE
 // `ToolError`-code teruggeven (VALIDATION bij een onbekend id / ontbrekende baseline) i.p.v. de
 // generieke INTERNAL die een kale throw zou opleveren.
 //
@@ -17,9 +17,8 @@
 
 import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
-import { hasBlockingDialogOpen } from '@/hooks/keyboard/shortcutRegistry';
 import { ensureFreshSchedule } from '../staleGuard';
-import { buildEnvelope } from './runtime';
+import { runReadTool, toolError } from './runtime';
 import type { McpContext, McpToolDef, McpToolResult, McpErrorCode, McpToolAnnotations } from '../contracts';
 import type { Task } from '@/types/task';
 import type { Sequence, SequenceType } from '@/types/sequence';
@@ -41,30 +40,34 @@ class ToolError extends Error {
 }
 
 /**
- * Draai een leestool-kern. Guards spiegelen `runReadTool` (spec regel 116): ALLEEN de dialoog-guard
- * (een open modaal ⇒ de user zit in een handmatige actie, óók een lezing kan een half-bewerkte staat
- * zien); GEEN drift-fail en GEEN pauze-/alleen-lezen-blokkade (die raken alleen mutaties). Een
- * `ToolError` uit `fn` wordt zijn eigen nette code; elke andere throw wordt `INTERNAL`.
+ * Draai een leestool-kern. De guards zijn NIET meer gespiegeld maar GEDELEGEERD aan `runReadTool`
+ * (eindintegratie): er was een derde, private kopie van de dialoog-guard die — anders dan de
+ * runtime-versie — niet BENOEMDE wélke dialoog blokkeert, en die bij een volgende wijziging aan de
+ * guard-volgorde stil uit de pas zou lopen. Eén implementatie dus; deze wikkel voegt alleen nog het
+ * enige toe wat `runReadTool` niet kent: een `ToolError` uit `fn` behoudt zijn EIGEN code
+ * (VALIDATION bij een onbekend id / ontbrekende baseline) i.p.v. de generieke INTERNAL die een kale
+ * throw oplevert.
+ *
+ * De `ToolError` wordt binnen de callback afgevangen en via een houder naar buiten gedragen: gooien
+ * we hem door, dan maakt `runReadTool` er onherroepelijk INTERNAL van.
  */
 function readTool(ctx: McpContext, fn: (s: AppState) => unknown): McpToolResult {
-  void ctx; // leestools gebruiken de ctx-guards niet; parameter blijft voor een uniform tool-oppervlak
-  if (hasBlockingDialogOpen()) {
-    return {
-      ok: false,
-      code: 'DIALOG_OPEN',
-      error: 'Er staat een dialoog open; sluit die eerst voordat de AI de planning leest.',
-      envelope: buildEnvelope(),
-    };
-  }
-  try {
-    const data = fn(useAppStore.getState());
-    return { ok: true, envelope: buildEnvelope(), data };
-  } catch (e) {
-    if (e instanceof ToolError) {
-      return { ok: false, code: e.code, error: e.message, envelope: buildEnvelope() };
+  // Houder i.p.v. een losse `let`: TypeScript's control-flow-analyse zou een in een callback
+  // toegewezen variabele na de aanroep nog steeds als `null` narrowen.
+  const nice: { err: ToolError | null } = { err: null };
+  const res = runReadTool(ctx, (s) => {
+    try {
+      return fn(s);
+    } catch (e) {
+      if (e instanceof ToolError) {
+        nice.err = e;
+        return undefined;
+      }
+      throw e; // elke andere throw blijft INTERNAL, afgehandeld door runReadTool
     }
-    return { ok: false, code: 'INTERNAL', error: e instanceof Error ? e.message : String(e), envelope: buildEnvelope() };
-  }
+  });
+  if (nice.err) return toolError(ctx, nice.err.code, nice.err.message);
+  return res;
 }
 
 /** Leestool-annotaties (spec §Naamgeving): readOnly, niet-destructief, geen open wereld. `idempotentHint`

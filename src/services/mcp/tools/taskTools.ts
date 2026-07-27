@@ -90,6 +90,9 @@ const addTasks: BatchStepTool = {
   description:
     'Maak één of meer taken aan (geneste WBS in één call). Elk item heeft een client-gekozen `tempId` ' +
     '(uniek binnen de call); `parentId` mag een bestaand taak-id of een `tempId` uit dezelfde call zijn. ' +
+    'Laat een tempId ALTIJD met `tmp-` of `tmp_` beginnen (bijv. `tmp-fundering`) — binnen ' +
+    '`planner_batch` is dat de GERESERVEERDE syntax waarop latere stappen hun verwijzingen herkennen; ' +
+    'een tempId zonder die prefix laat de hele batch falen. ' +
     '`position` is de invoeg-index binnen de ouder en klemt stil naar [0, aantal siblings]. Een mijlpaal ' +
     '(`isMilestone`) heeft per definitie duur 0. Retourneert de volledige tempId→realId-map, de herrekende ' +
     'earlyStart/earlyFinish per aangemaakte taak en het projecteinde.',
@@ -107,7 +110,15 @@ const addTasks: BatchStepTool = {
           type: 'object',
           required: ['tempId', 'name'],
           properties: {
-            tempId: { type: 'string', description: 'Client-gekozen tijdelijk id, uniek binnen de call; sleutel in de terugmap.' },
+            tempId: {
+              type: 'string',
+              pattern: '^tmp[-_]',
+              description:
+                'Client-gekozen tijdelijk id, uniek binnen de call; sleutel in de terugmap. MOET met ' +
+                '`tmp-` of `tmp_` beginnen (gereserveerde batch-syntax, bijv. `tmp-fundering`): alleen ' +
+                'zo kan planner_batch verwijzingen in latere stappen veilig vervangen zonder ooit vrije ' +
+                'tekst te raken. Buiten een batch is de prefix niet verplicht, maar wél aangeraden.',
+            },
             name: { type: 'string' },
             parentId: { type: 'string', description: 'Bestaand taak-id of een tempId uit dezelfde call; weglaten = wortel.' },
             position: { type: 'integer', description: 'Invoeg-index binnen de ouder; klemt stil naar [0, aantal siblings].' },

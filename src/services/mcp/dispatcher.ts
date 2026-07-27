@@ -11,9 +11,16 @@ import { getTools, getTool } from './toolRegistry';
 
 /** serverInfo.name in de initialize-respons. */
 export const MCP_SERVER_NAME = 'open-planner-studio';
-/** serverInfo.version in de initialize-respons (informatief; los van de app-CalVer / Cargo 0.1.0). */
-// TODO(T24): koppel aan de app-CalVer (package.json-versie) i.p.v. deze losse placeholder-const.
-export const MCP_SERVER_VERSION = '0.1.0';
+/**
+ * `serverInfo.version` in de initialize-respons: de APP-CalVer uit package.json, via de
+ * `__APP_VERSION__`-define uit vite.config.ts — dezelfde bron als de titelbalk, de updater en de
+ * extensie-SDK. Eén versie voor het hele product dus: een AI-client die logt met welke bridge hij
+ * praat, noemt daarmee de echte app-versie (Cargo blijft bewust 0.1.0 en telt hier niet mee).
+ *
+ * De `typeof`-terugval is het codebase-patroon uit `extensionLoader.ts`: in de headless testrunners
+ * draait esbuild zónder die define, en een kale verwijzing zou daar een ReferenceError geven.
+ */
+export const MCP_SERVER_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 /** Onze default MCP-protocolversie wanneer de client er geen bekende meestuurt. */
 export const DEFAULT_PROTOCOL_VERSION = '2025-06-18';
 
