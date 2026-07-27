@@ -75,6 +75,9 @@ export function useRecoveryRestore(): RecoveryRestore {
               mtime: d.mtime,
             });
           } catch (err) {
+            // Vuurt sinds K4 ook echt: `readIFC` gooit nu een `IfcParseError` bij een bestand
+            // zonder STEP-kop of zonder sluitmarkering (= afgekapt). Zo'n snapshot wordt dus NIET
+            // meer als volwaardig document aangeboden; de overige documenten lopen gewoon door.
             console.error('Failed to read recovery document:', d.id, err);
           }
         }
@@ -84,13 +87,32 @@ export function useRecoveryRestore(): RecoveryRestore {
 
         setRecovery({
           entries,
+          // Volgorde is hier de hele bevinding (K4): `clearRecovery()` liep vroeger NAAST het
+          // herstellen (fire-and-forget, `void`), dus de snapshots konden al gewist zijn terwijl
+          // het herstel nog moest slagen. Nu pas wissen NADAT de documenten aantoonbaar in de
+          // store staan; gooit het herstel, dan blijven de snapshots op schijf staan.
           onRestore: () => {
-            if (restored.length > 0) {
-              useAppStore.getState().restoreDocuments(restored, loaded.activeDocumentId);
-            }
-            void clearRecovery();
-            setRecovery(null);
-            finish();
+            void (async () => {
+              try {
+                if (restored.length > 0) {
+                  useAppStore.getState().restoreDocuments(restored, loaded.activeDocumentId);
+                }
+                // Dialoog meteen weg zodra het herstel zelf klaar is — de opruimactie eronder is
+                // bestands-I/O en mag de gebruiker niet laten wachten.
+                setRecovery(null);
+                await clearRecovery();
+              } catch (err) {
+                // Snapshots blijven staan. `finish()` gaat bewust wél door: de auto-save-poort
+                // dichthouden zou betekenen dat vanaf nu NIETS meer wordt weggeschreven — een
+                // groter risico dan het verlies van deze ene snapshotgeneratie. De gebruiker
+                // ziet de fout in de debug-terminal (console wordt door appLog opgevangen);
+                // een echte melding hangt aan bevinding K8.
+                console.error('Recovery: herstellen mislukt — snapshots blijven staan:', err);
+              } finally {
+                setRecovery(null);
+                finish();
+              }
+            })();
           },
           onDiscard: () => { void clearRecovery(); setRecovery(null); finish(); },
           // Uitstellen: snapshots laten staan, niet herstellen (zie RecoveryDialog).

@@ -11,6 +11,7 @@ import { Baseline, BaselineTask } from '@/types/baseline';
 import { generateId } from '@/utils/id';
 import { formatDate, formatInstant, parseInstant } from '@/utils/dateUtils';
 import { ifcGuid } from './ifcWriter';
+import { IfcParseError } from './ifcErrors';
 import type { ImportResult } from '@/services/importTypes';
 import {
   DEFAULT_PRIORITY, IFC_TIME_ANCHOR, MEASURE_TO_FIELD, IFC_TO_RESOURCE_TYPE,
@@ -38,8 +39,48 @@ interface StepEntity {
   raw: string;
 }
 
+// ── Integriteitscontract (bevinding K4) ────────────────────────────────────────────────────────
+// `readIFC` had geen enkel contract: alles wat er niet uit te halen viel werd stil een leeg
+// project. Precies dát maakte een afgekapte auto-save-snapshot onzichtbaar. De minimale,
+// formaat-eigen controle: een STEP-uitwisselingsbestand BEGINT met `ISO-10303-21;` en EINDIGT met
+// `END-ISO-10303-21;` (ISO 10303-21 §5). Ontbreekt de kop, dan is het geen STEP-bestand; ontbreekt
+// de sluitmarkering, dan is de tekst afgekapt — het enige signaal dat een half weggeschreven
+// bestand überhaupt afgeeft. Bewust GEEN inhoudelijke drempel (zoals "minstens één taak"): een
+// leeg-maar-echt project — verse wizard met kalender en resources — is legitiem, en zou anders bij
+// crashherstel als onbruikbaar worden weggegooid.
+const STEP_HEADER = 'ISO-10303-21;';
+const STEP_TERMINATOR = 'END-ISO-10303-21;';
+/** Hoeveel tekens vanaf het EIND we afzoeken naar de sluitmarkering (die staat er per definitie). */
+const TERMINATOR_PROBE = 4096;
+
+/**
+ * Werp een {@link IfcParseError} als `content` geen compleet STEP-bestand is. Tolerant waar het
+ * mag (BOM, witruimte vóór de kop, kleine letters), streng waar het moet (kop én sluitmarkering).
+ */
+export function assertIfcIntegrity(content: string): void {
+  // Kop: BOM en voorafgaande witruimte overslaan zonder de hele tekst te kopiëren (bestanden zijn
+  // megabytes groot; `trimStart()` zou er een kopie van maken).
+  let i = content.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (i < content.length && isSpaceCode(content.charCodeAt(i))) i++;
+  if (content.slice(i, i + STEP_HEADER.length).toUpperCase() !== STEP_HEADER) {
+    throw new IfcParseError(
+      'not-step',
+      `Geen IFC/STEP-bestand: de verplichte kop '${STEP_HEADER}' ontbreekt.`,
+    );
+  }
+  if (!content.slice(-TERMINATOR_PROBE).toUpperCase().includes(STEP_TERMINATOR)) {
+    throw new IfcParseError(
+      'truncated',
+      `Onvolledig IFC-bestand: de afsluitende '${STEP_TERMINATOR}' ontbreekt — ` +
+      'de tekst is afgekapt (bijvoorbeeld door een crash tijdens het schrijven).',
+    );
+  }
+}
+
 /** Parse an IFC STEP file into the internal model */
 export function readIFC(content: string): ImportResult {
+  // Eerst de integriteitspoort: liever een expliciete fout dan een stil half project (K4).
+  assertIfcIntegrity(content);
   const entities = parseSTEP(content);
   const entityMap = new Map<string, StepEntity>();
   for (const e of entities) {
