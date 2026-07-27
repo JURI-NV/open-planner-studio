@@ -1,6 +1,74 @@
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource } from '@/types/resource';
 import type { Company, CompanyPool, LibraryOrigin } from '@/types/library';
+import { DEFAULT_COMPANY_ID } from '@/types/library';
+import { DEMO_COMPANY_ID } from './demoLibrary';
+
+/**
+ * Reserved companyId's die op ELKE installatie hetzelfde zijn (issue #19, critreview F1):
+ * `DEFAULT_COMPANY_ID` (de automatische standaardbibliotheek van een verse installatie) en
+ * `DEMO_COMPANY_ID` (de idempotente demo-seed, `seedDemoLibrary`). Vrijwel elke gebruiker heeft
+ * hooguit ÉÉN bibliotheek — dus vrijwel elk geëxporteerd bestand draagt zo'n reserved id. Zo'n id
+ * is daarom GEEN identiteitsbewijs: het companyId uit een bestand alleen behandelen als "dezelfde
+ * bibliotheek, andere versie" zodra het lokaal bestaat, zou voor deze twee ids de EIGEN bibliotheek
+ * van de ontvanger als vervang-doel voorstellen — precies het scenario dat `importPoolAsNewCompany`
+ * had moeten voorkomen. Eén gedeelde bron, gebruikt door zowel de dialoog-voorselectie
+ * (`PoolImportDialog`) als de import-actie zelf (`importPoolAsNewCompany`).
+ */
+export const RESERVED_COMPANY_IDS: ReadonlySet<string> = new Set([DEFAULT_COMPANY_ID, DEMO_COMPANY_ID]);
+
+export function isReservedCompanyId(id: string): boolean {
+  return RESERVED_COMPANY_IDS.has(id);
+}
+
+/**
+ * Is een companyId uit een GEÏMPORTEERD bestand veilig genoeg om als state-sleutel te behouden
+ * (issue #19, critreview F2)? `readPoolIFC` laat elke niet-lege string door zonder validatie — een
+ * vijandig bestand met bijv. `"__proto__"` of `"constructor"` als companyId zou anders `s.pools[id]
+ * = …` bereiken, waar Immer een draft-prototype-mutatie probeert en ONGEVANGEN gooit (geen van de
+ * aanroepers had een try/catch, en er is nergens een ErrorBoundary — de bevestigknop zou zichtbaar
+ * niets meer doen). Whitelist-regex (een blacklist mist altijd een variant — bewust GEEN
+ * opsomming van "gevaarlijke tekens") + een expliciete uitsluiting van de bekende
+ * prototype-sleutels, want die bestaan uitsluitend uit toegestane tekens (`_`) en zouden de regex
+ * anders alsnog doorkomen.
+ */
+const SAFE_COMPANY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const UNSAFE_COMPANY_IDS: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function isSafeFileCompanyId(id: string): boolean {
+  return SAFE_COMPANY_ID_PATTERN.test(id) && !UNSAFE_COMPANY_IDS.has(id);
+}
+
+/** Uitkomst van `resolvePoolImportPreselection`: welke actie voorgeselecteerd staat in
+ *  `PoolImportDialog`, en — uitsluitend bij "vervangen" — welke bibliotheek daarbij al gekozen is. */
+export type PoolImportPreselection =
+  | { action: 'add' }
+  | { action: 'replace'; companyId: string };
+
+/**
+ * Bepaal de voorselectie voor de pool-importdialoog (issue #19, critreview F1 — de kern van de
+ * blokkerende bevinding): welke actie ("toevoegen als nieuwe resourcebibliotheek" vs "een bestaande
+ * resourcebibliotheek vervangen") staat aan zodra een bestand gekozen is, en bij "vervangen" welke
+ * bibliotheek al geselecteerd is. Puur — dus rechtstreeks testbaar zonder een gemount dialoog
+ * (spiegelt de reviewer zijn eigen `writePoolIFC`→`readPoolIFC`→`pick()`-reproductie).
+ *
+ * Een bestand-companyId matcht een lokale bibliotheek ALLEEN als het (a) een veilige state-sleutel
+ * is (`isSafeFileCompanyId` — critreview F2, een vijandig id als `"__proto__"` mag nooit als
+ * "match" tellen) en (b) GEEN reserved id is (`isReservedCompanyId` — critreview F1:
+ * `DEFAULT_COMPANY_ID`/`DEMO_COMPANY_ID` zijn géén identiteitsbewijs; vrijwel elke installatie heeft
+ * er hooguit één bibliotheek, die dat id draagt — zonder deze uitsluiting zou de dialoog voor bijna
+ * elke gebruiker "vervangen" voorstellen op de EIGEN bibliotheek van de ontvanger, en één klik op de
+ * bevestigknop zou die dan onherstelbaar overschrijven). Zonder een matchende lokale bibliotheek (of
+ * bij een reserved/onveilig id) ⇒ altijd "toevoegen" (de veilige default — kan nooit iets overschrijven).
+ */
+export function resolvePoolImportPreselection(
+  importedCompanyId: string,
+  companies: { id: string }[],
+): PoolImportPreselection {
+  const canMatchById = !!importedCompanyId && isSafeFileCompanyId(importedCompanyId) && !isReservedCompanyId(importedCompanyId);
+  const match = canMatchById ? companies.find((c) => c.id === importedCompanyId) : undefined;
+  return match ? { action: 'replace', companyId: match.id } : { action: 'add' };
+}
 
 /** Nieuwe pool-versie na een wijziging: poolVersion+1 + verse modifiedAt. Puur (nieuw object). */
 export function bumpPool(pool: CompanyPool): CompanyPool {
@@ -276,12 +344,15 @@ export function matchByName<T extends { name: string }>(name: string, candidates
  * resourcebibliotheek" in `PoolImportDialog`): bestaat `rawName` al onder de gegeven bestaande namen
  * (vergeleken via `normalizeName`, spiegelt `matchByName` — case/witruimte/onzichtbare-tekens-
  * ongevoelig), dan krijgt de nieuwe naam een oplopend onderscheidend achtervoegsel " (2)", " (3)", …
- * — net zo lang tot de naam vrij is. Een lege/pure-witruimte naam valt terug op een standaardlabel
- * (spiegelt `addCompany`). Puur — geschikt voor losse unit-tests, en gedeeld door zowel de
- * store-actie (`importPoolAsNewCompany`) als de dialoog-preview (geen dubbele/afwijkende logica).
+ * — net zo lang tot de naam vrij is. Een lege/pure-witruimte/uitsluitend-onzichtbare-tekens-naam valt
+ * terug op een standaardlabel (spiegelt `addCompany`) — de leeg-CHECK gebruikt bewust `normalizeName`
+ * (critreview F4: `rawName.trim()` alleen strip ASCII-witruimte, geen U+200B/U+FEFF e.d.; een bestand
+ * met zo'n onzichtbare naam gaf vóór deze fix een bibliotheek met een ogenschijnlijk lege rij in
+ * Backstage in plaats van het standaardlabel). Puur — geschikt voor losse unit-tests, en gedeeld door
+ * zowel de store-actie (`importPoolAsNewCompany`) als de dialoog-preview (geen dubbele/afwijkende logica).
  */
 export function resolveUniqueCompanyName(rawName: string, existingNames: string[]): string {
-  const base = rawName.trim() || 'Nieuwe resourcebibliotheek';
+  const base = normalizeName(rawName) ? rawName.trim() : 'Nieuwe resourcebibliotheek';
   const existing = new Set(existingNames.map(normalizeName));
   if (!existing.has(normalizeName(base))) return base;
   let n = 2;

@@ -7,7 +7,10 @@ import {
   computeCalendarHash, computeResourceHash,
   normalizeName, matchByName,
   classifyCalendarOnOpen, classifyResourceOnOpen,
+  resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, resolvePoolImportPreselection,
 } from '@/services/library/libraryOps';
+import { DEFAULT_COMPANY_ID } from '@/types/library';
+import { DEMO_COMPANY_ID } from '@/services/library/demoLibrary';
 import type { CompanyPool } from '@/types/library';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource } from '@/types/resource';
@@ -382,6 +385,106 @@ const genId = (prefix: string) => `${prefix}-gen-${++n}`;
   assert(classifyResourceOnOpen(own, p) !== 'removed', 'classify(resource): unbound valt niet samen met removed');
   const ownCal: WorkCalendar = cal('own-c', 'Projecteigen kalender'); // geen libraryOrigin
   assert(classifyCalendarOnOpen(ownCal, p) === 'unbound', 'classify(calendar): geen libraryOrigin ⇒ unbound, niet removed');
+}
+
+// --- resolveUniqueCompanyName (issue #19, critreview F4/F6): naamsbotsing-dedup voor
+// importPoolAsNewCompany + de dialoog-preview. ---
+{
+  // Geen botsing: naam blijft ongewijzigd.
+  assert(resolveUniqueCompanyName('Nieuw BV', ['Ander BV']) === 'Nieuw BV', 'resolveUniqueCompanyName: geen botsing ⇒ ongewijzigd');
+  assert(resolveUniqueCompanyName('Enige BV', []) === 'Enige BV', 'resolveUniqueCompanyName: lege bestaande-lijst ⇒ ongewijzigd');
+
+  // Eén botsing ⇒ " (2)".
+  assert(resolveUniqueCompanyName('Nieuw BV', ['Nieuw BV']) === 'Nieuw BV (2)', 'resolveUniqueCompanyName: één botsing ⇒ " (2)"');
+
+  // Meervoudige botsing: zowel de kale naam als " (2)" al bezet ⇒ telt door naar " (3)".
+  assert(resolveUniqueCompanyName('X', ['X', 'X (2)']) === 'X (3)', 'resolveUniqueCompanyName: kale naam + " (2)" bezet ⇒ " (3)"');
+  assert(resolveUniqueCompanyName('X', ['X', 'X (2)', 'X (3)', 'X (4)']) === 'X (5)', 'resolveUniqueCompanyName: vier bezette varianten ⇒ telt door tot de eerste vrije');
+
+  // Case/witruimte-ongevoelige botsing (spiegelt matchByName/normalizeName) — de OUTPUT behoudt de
+  // eigen (getrimde) schrijfwijze uit het bestand, niet die van het botsende bestaande item.
+  assert(resolveUniqueCompanyName('  nieuw bv  ', ['Nieuw BV']) === 'nieuw bv (2)', 'resolveUniqueCompanyName: case/witruimte-ongevoelige botsing ⇒ eigen schrijfwijze + " (2)"');
+
+  // Lege/pure-witruimte naam ⇒ standaardlabel.
+  assert(resolveUniqueCompanyName('', []) === 'Nieuwe resourcebibliotheek', 'resolveUniqueCompanyName: lege naam ⇒ standaardlabel');
+  assert(resolveUniqueCompanyName('   ', []) === 'Nieuwe resourcebibliotheek', 'resolveUniqueCompanyName: pure ASCII-witruimte ⇒ standaardlabel');
+
+  // Critreview F4: een naam die UITSLUITEND uit onzichtbare tekens bestaat (zero-width spaces) is
+  // met `.trim()` alleen NIET leeg (ASCII-trim raakt U+200B niet) — de fix gebruikt `normalizeName`
+  // voor de leeg-check, die onzichtbare formatting-tekens WEL strript. Zonder de fix zou dit een
+  // bibliotheek met een ogenschijnlijk lege naam opleveren i.p.v. het standaardlabel.
+  const zeroWidthOnly = '​​​';
+  assert(resolveUniqueCompanyName(zeroWidthOnly, []) === 'Nieuwe resourcebibliotheek', 'resolveUniqueCompanyName [F4]: uitsluitend onzichtbare tekens ⇒ standaardlabel, niet een lege naam');
+  // Het standaardlabel zelf kan ook botsen (bv. een tweede onzichtbare-naam-import) ⇒ ook dan " (2)".
+  assert(resolveUniqueCompanyName(zeroWidthOnly, ['Nieuwe resourcebibliotheek']) === 'Nieuwe resourcebibliotheek (2)', 'resolveUniqueCompanyName [F4]: standaardlabel zelf kan ook botsen ⇒ " (2)"');
+}
+
+// --- isReservedCompanyId / isSafeFileCompanyId (issue #19, critreview F1/F2) ---
+{
+  // F1: DEFAULT_COMPANY_ID/DEMO_COMPANY_ID zijn reserved (géén identiteitsbewijs); een willekeurig
+  // gegenereerd of eigen id is dat niet.
+  assert(isReservedCompanyId(DEFAULT_COMPANY_ID) === true, 'isReservedCompanyId: DEFAULT_COMPANY_ID is reserved');
+  assert(isReservedCompanyId(DEMO_COMPANY_ID) === true, 'isReservedCompanyId: DEMO_COMPANY_ID is reserved');
+  assert(isReservedCompanyId('company-abc123') === false, 'isReservedCompanyId: een gewoon gegenereerd id is NIET reserved');
+  assert(isReservedCompanyId('') === false, 'isReservedCompanyId: lege string is niet reserved (geen valse positieve)');
+
+  // F2: veilige vs onveilige bestand-ids.
+  assert(isSafeFileCompanyId('shared-co-echo-9') === true, 'isSafeFileCompanyId: een normaal alfanumeriek-met-streepjes id is veilig');
+  assert(isSafeFileCompanyId('__proto__') === false, 'isSafeFileCompanyId: "__proto__" is ONVEILIG (bestaat uitsluitend uit toegestane tekens, dus de regex alleen zou het doorlaten)');
+  assert(isSafeFileCompanyId('constructor') === false, 'isSafeFileCompanyId: "constructor" is ONVEILIG');
+  assert(isSafeFileCompanyId('prototype') === false, 'isSafeFileCompanyId: "prototype" is ONVEILIG');
+  assert(isSafeFileCompanyId('') === false, 'isSafeFileCompanyId: lege string is ONVEILIG (regex vereist ≥1 teken)');
+  assert(isSafeFileCompanyId(' ') === false, 'isSafeFileCompanyId: een enkele spatie is ONVEILIG (niet in de whitelist-tekenklasse)');
+  assert(isSafeFileCompanyId('​') === false, 'isSafeFileCompanyId: een zero-width space is ONVEILIG (niet in de whitelist-tekenklasse)');
+  assert(isSafeFileCompanyId('a'.repeat(64)) === true, 'isSafeFileCompanyId: 64 tekens is nog net toegestaan (bovengrens)');
+  assert(isSafeFileCompanyId('a'.repeat(65)) === false, 'isSafeFileCompanyId: 65 tekens is te lang (negatieve controle op de bovengrens)');
+}
+
+// --- resolvePoolImportPreselection (issue #19, critreview F1 [BLOKKEREND]): dit is de PURE kern van
+// de dialoog-voorselectie — direct testbaar zonder een gemount dialoog. De reviewer toonde de bug
+// aan met een echte writePoolIFC→readPoolIFC→pick()-proef: een bestand met DEFAULT_COMPANY_ID (of
+// DEMO_COMPANY_ID) matcht bijna elke lokale installatie, en zonder de reserved-uitsluiting zou de
+// dialoog dan "vervangen" op de EIGEN bibliotheek van de ontvanger voorstellen. ---
+{
+  const localCompanies = [{ id: DEFAULT_COMPANY_ID }, { id: 'company-eigen-2' }];
+
+  // Gewone (niet-reserved) match: aantoonbaar dezelfde bibliotheek ⇒ "vervangen" met die bibliotheek.
+  assert(
+    JSON.stringify(resolvePoolImportPreselection('company-eigen-2', localCompanies)) === JSON.stringify({ action: 'replace', companyId: 'company-eigen-2' }),
+    'resolvePoolImportPreselection: gewoon (niet-reserved) matchend id ⇒ "vervangen" met die bibliotheek',
+  );
+  // Geen match ⇒ "toevoegen".
+  assert(
+    JSON.stringify(resolvePoolImportPreselection('company-onbekend-elders', localCompanies)) === JSON.stringify({ action: 'add' }),
+    'resolvePoolImportPreselection: geen lokale match ⇒ "toevoegen"',
+  );
+
+  // [DE BLOKKERENDE BEVINDING] DEFAULT_COMPANY_ID bestaat hier lokaal (typisch voor bijna elke
+  // installatie) — ZONDER de F1-fix zou dit "vervangen" op de eigen bibliotheek voorstellen.
+  assert(
+    resolvePoolImportPreselection(DEFAULT_COMPANY_ID, localCompanies).action === 'add',
+    'resolvePoolImportPreselection [F1, DE FIX]: DEFAULT_COMPANY_ID selecteert ALTIJD "toevoegen" voor, ook al bestaat het lokaal',
+  );
+  assert(
+    resolvePoolImportPreselection(DEMO_COMPANY_ID, [{ id: DEMO_COMPANY_ID }]).action === 'add',
+    'resolvePoolImportPreselection [F1]: DEMO_COMPANY_ID selecteert ALTIJD "toevoegen" voor, ook al bestaat het lokaal',
+  );
+
+  // F2: een vijandig bestand-id telt nooit als match, ook al zou (in theorie) een lokaal bedrijf
+  // toevallig hetzelfde (onveilige) id dragen.
+  assert(
+    resolvePoolImportPreselection('__proto__', [{ id: '__proto__' }]).action === 'add',
+    'resolvePoolImportPreselection [F2]: een onveilig bestand-id ("__proto__") matcht nooit, ook niet bij toevallige lokale gelijkenis',
+  );
+
+  // Reproductie van de reviewer zijn eigen proef: writePoolIFC → readPoolIFC → preselectie, met een
+  // pool die (zoals bijna elke installatie) DEFAULT_COMPANY_ID draagt.
+  const poolWithDefaultId: CompanyPool = {
+    companyId: DEFAULT_COMPANY_ID, companyName: 'Mijn resourcebibliotheek',
+    poolVersion: 2, modifiedAt: '2026-07-01T00:00:00.000Z', calendars: [], resources: [],
+  };
+  const roundtrippedPreselection = resolvePoolImportPreselection(poolWithDefaultId.companyId, localCompanies);
+  assert(roundtrippedPreselection.action === 'add', 'resolvePoolImportPreselection [F1, reviewer-reproductie]: een export van andermans DEFAULT_COMPANY_ID-bibliotheek selecteert bij de ontvanger "toevoegen", NOOIT "vervangen" op zijn eigen bibliotheek');
 }
 
 console.log(`library-ops: ${checks - fails}/${checks} groen`);

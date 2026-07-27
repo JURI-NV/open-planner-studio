@@ -266,25 +266,53 @@ expliciet tussen twee acties — geen impliciete "openen" meer dat in werkelijkh
 1. **"Toevoegen als nieuwe resourcebibliotheek"** (`importPoolAsNewCompany`) — de bibliotheek uit het
    bestand komt er als NIEUW bedrijf bij, met de naam uit het bestand (`resolveUniqueCompanyName` plakt
    er bij een lokale naamsbotsing een oplopend " (2)", " (3)", … achter). De **identiteit**
-   (`companyId`) uit het bestand blijft behouden zolang die lokaal nog vrij is — dat is precies wat het
-   deel-scenario nodig heeft: een meegestuurd project van een collega, met herkomststempels die naar
-   het companyId uit het bestand wijzen, herkent zijn bibliotheek na deze import meteen als gekoppeld
-   (geen valse "niet meer in de bibliotheek"-markering, geen handmatige herkenningsstap). Bestaat het
-   id al lokaal (aantoonbaar dezelfde bibliotheek, al eerder geïmporteerd of gedeeld), dan krijgt de
-   nieuwe bibliotheek een vers gegenereerd id en komt ze als losse kopie náást de bestaande te staan.
-   Deze route bindt het actieve project NIET automatisch aan de nieuwe bibliotheek — dat blijft een
-   aparte, bewuste koppelactie via Projectinfo.
+   (`companyId`) uit het bestand blijft behouden zolang die lokaal nog vrij is, GEEN reserved id is
+   (zie hieronder) en een veilige state-sleutel is — dat is precies wat het deel-scenario nodig heeft:
+   een meegestuurd project van een collega, met herkomststempels die naar het companyId uit het bestand
+   wijzen, herkent zijn bibliotheek na deze import meteen als gekoppeld (geen valse "niet meer in de
+   bibliotheek"-markering, geen handmatige herkenningsstap) — MITS die collega zelf óók al meerdere
+   losse bibliotheken had (dus een niet-reserved companyId); zie de uitzondering hieronder voor de
+   praktisch veel voorkomende tegenovergestelde situatie. Bestaat het id al lokaal (aantoonbaar
+   dezelfde bibliotheek, al eerder geïmporteerd of gedeeld), dan krijgt de nieuwe bibliotheek een vers
+   gegenereerd id en komt ze als losse kopie náást de bestaande te staan. Deze route bindt het actieve
+   project NIET automatisch aan de nieuwe bibliotheek — dat blijft een aparte, bewuste koppelactie via
+   Projectinfo.
 2. **"Een bestaande resourcebibliotheek vervangen"** (`replacePool`) — het oude gedrag, ongewijzigd: de
    HELE pool van de gekozen resourcebibliotheek wordt vervangen. Alleen bij déze route toont de dialoog
    de bedrijfsselector (zie hierboven, ≥2-regel) en de demping-waarschuwing.
 
-**Voorselectie.** Bevat het bestand een `companyId` dat lokaal nog niet bestaat, dan staat "toevoegen"
-voorgeselecteerd (de standaardklik kan dan nooit onherstelbaar iets overschrijven). Herkent de app het
-id wél (aantoonbaar dezelfde bibliotheek, een andere versie), dan staat "vervangen" voorgeselecteerd
-met precies díe bibliotheek al gekozen in de selector.
+**Voorselectie** (`resolvePoolImportPreselection`, puur en los-testbaar van de dialoog). Bevat het
+bestand een `companyId` dat lokaal nog niet bestaat, dan staat "toevoegen" voorgeselecteerd (de
+standaardklik kan dan nooit onherstelbaar iets overschrijven). Herkent de app het id wél (aantoonbaar
+dezelfde bibliotheek, een andere versie), dan staat "vervangen" voorgeselecteerd met precies díe
+bibliotheek al gekozen in de selector.
+
+**Uitzondering — reserved id's (critreview F1, blokkerende bevinding).** `DEFAULT_COMPANY_ID`
+("company-default", de automatische standaardbibliotheek van élke verse installatie) en
+`DEMO_COMPANY_ID` (de idempotente demo-seed) zijn GEEN identiteitsbewijs: vrijwel elke gebruiker heeft
+hooguit één resourcebibliotheek, dus vrijwel elk geëxporteerd bestand draagt zo'n reserved id. Zonder
+uitzondering zou de voorselectie dat id bij bijna elke ontvanger als "aantoonbaar dezelfde bibliotheek"
+herkennen en "vervangen" voorstellen — op de EIGEN bibliotheek van de ontvanger, met de bevestigknop
+één klik verwijderd van een onherstelbare overschrijving. `isReservedCompanyId` sluit deze twee ids
+daarom altijd uit van een match: ze selecteren ALTIJD "toevoegen" voor, en `importPoolAsNewCompany`
+mint er ALTIJD een vers id voor (nooit het bestand-id, ook niet als dat toevallig lokaal vrij is). Voor
+de praktische consequentie hiervan (geen automatische herkenning voor de meeste eenpitter-gebruikers)
+zie de gebruikersgids (`public/docs/*/gids-resourcebibliotheken.md`).
+
+Daarnaast valideert `isSafeFileCompanyId` (critreview F2) elk bestand-companyId vóór het als
+state-sleutel gebruikt wordt: `readPoolIFC` laat elke niet-lege string door, en een vijandig bestand
+met bijv. `"__proto__"` als companyId zou zonder validatie een ongevangen Immer-crash geven
+(`s.pools[id] = …` op zo'n sleutel) — de bevestigknop zou dan zichtbaar niets meer doen. Een onveilig
+id telt ook nooit als preselectie-match en krijgt in `importPoolAsNewCompany` altijd een vers id.
 
 De rest van deze sectie geldt uitsluitend voor route 2 ("vervangen") — route 1 overschrijft per
-definitie niets en kent dus geen van onderstaande eigenaardigheden.
+definitie niets en kent dus geen van onderstaande eigenaardigheden. Wél draait `runOpenBoundary()` (de
+grens-1-check) na ELKE bevestiging, ook na "toevoegen" — dat is meestal een no-op (de nieuwe
+bibliotheek is per definitie nog nergens aan gekoppeld), BEHALVE wanneer het actieve document al aan
+precies dat companyId hangt (het deel-scenario zelf: een meegestuurd project met stempels naar het
+zojuist geïmporteerde companyId). Dan ververst grens 1 'behind'-items stil naar de nieuwe pool en opent
+bij ≥1 'deviated'-item het koppel-/afwijkingenscherm — exact hetzelfde grens-1-gedrag als na een gewone
+bestand-opening, niet een aparte routine voor pool-import.
 
 Bij "vervangen" vervangt de gekozen IFC-pool de **hele** pool van de doelbibliotheek, ná bevestiging. Is
 de lokale pool nieuwer dan de te importeren pool (hogere `poolVersion` óf recentere `modifiedAt`), dan
@@ -353,6 +381,16 @@ Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tusse
    wijziging weggeschreven; twee open tabbladen (of twee vensters) op dezelfde machine overschrijven
    elkaars laatste schrijfactie stilzwijgend — zelfde wortel als punt 1 hierboven, alleen dan zonder de
    expliciete import-stap en dus zonder demping-waarschuwing.
+
+4. **Automatische herkenning bij "toevoegen" werkt niet voor eenpitters (critreview F1).** De
+   identiteit die "toevoegen als nieuwe resourcebibliotheek" behoudt, is het `companyId` uit het
+   bestand — maar dat id is `DEFAULT_COMPANY_ID`/`DEMO_COMPANY_ID` bij iedereen die zelf nooit een
+   tweede bibliotheek aanmaakte (de meeste gebruikers), en die twee ids zijn bewust GEEN
+   identiteitsbewijs (zie hierboven). Een meegestuurd project van zo iemand herkent zijn bibliotheek
+   dus NIET automatisch — de ontvanger moet de herkenningsstap zelf doorlopen (matching op naam neemt
+   het dan over). Structurele fix (het standaardbedrijf bij eerste start een gegenereerd i.p.v. een
+   vast id geven) staat als openstaand punt in `docs/TODO.md` — vergt een migratie voor bestaande
+   installaties en opgeslagen stempels, daarom nu niet gedaan.
 
 ## Bekende kleine punten
 

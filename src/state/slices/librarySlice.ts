@@ -3,7 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
-import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
+import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
@@ -132,8 +132,11 @@ export interface LibrarySlice {
    *   naamsbotsing, via `resolveUniqueCompanyName`).
    * - Id: behoudt `pool.companyId` uit het bestand als dat lokaal nog VRIJ is — dat is precies wat
    *   een meegestuurd project (met stempels naar dat companyId) nodig heeft om zijn bibliotheek na
-   *   het delen te herkennen. Bestaat het id al lokaal, dan een vers gegenereerd id (het wordt dan
-   *   een kopie náást de bestaande, net als bij een naamsbotsing).
+   *   het delen te herkennen. Bestaat het id al lokaal, is het een RESERVED id (`isReservedCompanyId`
+   *   — `DEFAULT_COMPANY_ID`/`DEMO_COMPANY_ID`, GEEN identiteitsbewijs: vrijwel elke installatie deelt
+   *   ze, zie critreview F1), of is het geen veilige state-sleutel (`isSafeFileCompanyId` — critreview
+   *   F2, een vijandig bestand-id als `"__proto__"` mag nooit als Immer-draft-sleutel eindigen), dan
+   *   een vers gegenereerd id (het wordt dan een kopie náást de bestaande, net als bij een naamsbotsing).
    * Bindt het ACTIEVE project NIET aan het nieuwe bedrijf — dat is een aparte, bewuste
    * gebruikershandeling. Retourneert het nieuwe companyId.
    */
@@ -722,10 +725,17 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     let newId = '';
     set((s) => {
       const name = resolveUniqueCompanyName(pool.companyName ?? '', s.companies.map((c) => c.name));
-      // Behoud het companyId uit het bestand als het lokaal nog vrij is (zie de uitgebreide
-      // toelichting bij de interface hierboven) — anders een vers id, net als bij een naamsbotsing.
+      // Behoud het companyId uit het bestand ALLEEN als het (a) lokaal nog vrij is, (b) GEEN reserved
+      // id is (critreview F1 — DEFAULT_COMPANY_ID/DEMO_COMPANY_ID zijn géén identiteitsbewijs, vrijwel
+      // elke installatie deelt ze) en (c) een veilige state-sleutel is (critreview F2 — een vijandig
+      // bestand-id als "__proto__" mag nooit als Immer-draft-sleutel eindigen). Anders een vers id,
+      // net als bij een naamsbotsing (zie de uitgebreide toelichting bij de interface hierboven).
       const fileId = pool.companyId;
-      const id = (fileId && !s.companies.some((c) => c.id === fileId)) ? fileId : generateId('company');
+      const canKeepFileId = !!fileId
+        && isSafeFileCompanyId(fileId)
+        && !isReservedCompanyId(fileId)
+        && !s.companies.some((c) => c.id === fileId);
+      const id = canKeepFileId ? fileId : generateId('company');
       const company: Company = { id, name };
       s.companies.push(company);
       // Zelfde defensieve normalisatie als replacePool (vorm-invalide bestand ⇒ geen TypeError op

@@ -5,6 +5,8 @@ import { useAppStore } from '@/state/appStore';
 import { normalizeLoadedLibrary } from '@/state/slices/librarySlice';
 import { computeCalendarHash, computeResourceHash, isResourceFieldLocked } from '@/services/library/libraryOps';
 import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
+import { DEFAULT_COMPANY_ID } from '@/types/library';
+import { DEMO_COMPANY_ID } from '@/services/library/demoLibrary';
 
 declare const process: { exit(code: number): never };
 
@@ -1759,6 +1761,114 @@ const store = useAppStore.getState();
   assert(statusAfterShare !== null, 'deel-scenario [DE FIX]: het project herkent zijn item als gekoppeld zodra de bibliotheek (met behoud van companyId) geïmporteerd is');
   assert(statusAfterShare === 'in-sync', 'deel-scenario: de getrackte velden matchen nog exact ⇒ in-sync (geen valse afwijkingsvraag)');
   assert(useAppStore.getState().diffProjectResource(sharedResId)?.status === 'up-to-date', 'deel-scenario: diffProjectResource bevestigt up-to-date via het echte (geïmporteerde) poolitem');
+}
+
+// --- Critreview F1 [BLOKKEREND]: DEFAULT_COMPANY_ID/DEMO_COMPANY_ID zijn GEEN identiteitsbewijs.
+// Vrijwel elke installatie heeft er hooguit één bibliotheek — die draagt vrijwel altijd
+// DEFAULT_COMPANY_ID. Zonder deze fix zou de voorselectie (en importPoolAsNewCompany) zo'n
+// reserved id als "aantoonbaar dezelfde bibliotheek" behandelen en de EIGEN bibliotheek van de
+// ontvanger als vervang-doel voorstellen/overschrijven. ---
+{
+  // (a) DEFAULT_COMPANY_ID: de bestaande bibliotheek (het standaardbedrijf van DEZE store-instantie)
+  // blijft byte-voor-byte intact; de import krijgt een VERS id, nooit DEFAULT_COMPANY_ID zelf.
+  const defaultId = useAppStore.getState().defaultCompanyId;
+  assert(defaultId === DEFAULT_COMPANY_ID, 'setup F1(a): defaultCompanyId is de reserved DEFAULT_COMPANY_ID (typisch voor een verse installatie)');
+  const defaultPoolBefore = useAppStore.getState().pools[defaultId];
+  const poolWithDefaultId = {
+    companyId: DEFAULT_COMPANY_ID, companyName: 'Kaping via standaard-id',
+    poolVersion: 9, modifiedAt: '2026-06-06T00:00:00.000Z', calendars: [],
+    resources: [{ id: 'kaping-res-1', name: 'Kaper', type: 'LABOR' as const, description: '', maxUnits: 1 }],
+  };
+  const kapingId = useAppStore.getState().importPoolAsNewCompany(poolWithDefaultId);
+  assert(kapingId !== DEFAULT_COMPANY_ID, 'F1(a): importPoolAsNewCompany mint een VERS id voor een bestand met DEFAULT_COMPANY_ID, behoudt het nooit');
+  assert(useAppStore.getState().pools[defaultId] === defaultPoolBefore, 'F1(a): de bestaande standaardbibliotheek blijft byte-voor-byte intact (referentiegelijk)');
+  assert(useAppStore.getState().pools[kapingId]?.resources[0]?.id === 'kaping-res-1', 'F1(a): de nieuwe bibliotheek staat onder het VERSE id, met de bestandsinhoud');
+
+  // (b) DEMO_COMPANY_ID: idem, EN de ECHTE demo-bibliotheek moet daarna nog steeds aan te maken zijn
+  // — dit is de kaping die de reviewer aantoonde: zonder de fix zou `seedDemoLibrary()` denken dat de
+  // demo-bibliotheek al bestaat (companies.some(id===DEMO_COMPANY_ID) is dan al waar door de import),
+  // en de echte demo-seed permanent overslaan.
+  assert(!useAppStore.getState().companies.some(c => c.id === DEMO_COMPANY_ID), 'setup F1(b): de echte demo-bibliotheek bestaat nog niet');
+  const poolWithDemoId = {
+    companyId: DEMO_COMPANY_ID, companyName: 'Kaping via demo-id',
+    poolVersion: 3, modifiedAt: '2026-06-07T00:00:00.000Z', calendars: [],
+    resources: [{ id: 'kaping-demo-res-1', name: 'Kaper Demo', type: 'LABOR' as const, description: '', maxUnits: 1 }],
+  };
+  const kapingDemoId = useAppStore.getState().importPoolAsNewCompany(poolWithDemoId);
+  assert(kapingDemoId !== DEMO_COMPANY_ID, 'F1(b): importPoolAsNewCompany mint een VERS id voor een bestand met DEMO_COMPANY_ID, behoudt het nooit');
+  assert(!useAppStore.getState().companies.some(c => c.id === DEMO_COMPANY_ID), 'F1(b): DEMO_COMPANY_ID blijft VRIJ na de import (nog niet gekaapt)');
+
+  const realDemoId = useAppStore.getState().seedDemoLibrary();
+  assert(realDemoId === DEMO_COMPANY_ID, 'F1(b) [DE FIX]: seedDemoLibrary() kan de ECHTE demo-bibliotheek nog steeds aanmaken (niet permanent gekaapt door de eerdere import)');
+  assert(useAppStore.getState().companies.find(c => c.id === DEMO_COMPANY_ID)?.name !== 'Kaping via demo-id', 'F1(b): de ECHTE demo-bibliotheek draagt de echte demo-naam, niet de gekaapte naam');
+  assert(useAppStore.getState().pools[kapingDemoId]?.resources[0]?.id === 'kaping-demo-res-1', 'F1(b): de eerder geïmporteerde bibliotheek (vers id) blijft naast de echte demo-bibliotheek gewoon bestaan');
+}
+
+// --- Critreview F2 [BLOKKEREND]: een vijandig bestand-companyId (bijv. "__proto__") mag nooit een
+// ongevangen Immer-crash geven bij importPoolAsNewCompany — de actie moet altijd een bruikbare
+// bibliotheek onder een VERS, veilig id opleveren, nooit gooien. ---
+{
+  const hostileIds = ['__proto__', 'constructor', ' ', '​']; // laatste element = zero-width space (U+200B)
+  for (const hostileId of hostileIds) {
+    const beforeCount = useAppStore.getState().companies.length;
+    let threw = false;
+    let newId = '';
+    try {
+      newId = useAppStore.getState().importPoolAsNewCompany({
+        companyId: hostileId, companyName: `Vijandig ${JSON.stringify(hostileId)}`,
+        poolVersion: 1, modifiedAt: '2026-06-08T00:00:00.000Z', calendars: [],
+        resources: [{ id: 'hostile-res', name: 'Hostile', type: 'LABOR' as const, description: '', maxUnits: 1 }],
+      });
+    } catch { threw = true; }
+    assert(!threw, `importPoolAsNewCompany [F2]: vijandig id ${JSON.stringify(hostileId)} gooit niet`);
+    assert(!!newId && newId !== hostileId, `importPoolAsNewCompany [F2]: vijandig id ${JSON.stringify(hostileId)} krijgt een VERS, veilig id`);
+    assert(useAppStore.getState().companies.length === beforeCount + 1, `importPoolAsNewCompany [F2]: precies één nieuw bedrijf voor ${JSON.stringify(hostileId)}`);
+    assert(useAppStore.getState().pools[newId]?.resources[0]?.id === 'hostile-res', `importPoolAsNewCompany [F2]: de nieuwe bibliotheek voor ${JSON.stringify(hostileId)} draagt de bestandsinhoud`);
+  }
+}
+
+// --- Critreview F3: de oude comment "bij toevoegen is dit inherent een no-op" was onjuist. Hangt
+// het ACTIEVE project al aan het companyId uit het bestand (exact het deel-scenario), dan doet
+// runOpenBoundary() ná de add-route WEL echt werk: 'behind'-items worden stil ververst, zonder
+// undo-stap en zonder isDirty, met de redoStack gewist. Dit blok legt dat gedrag vast — het
+// gedrag zelf verandert niet (grens-1-semantiek), alleen de comment werd gecorrigeerd. ---
+{
+  useAppStore.getState().newProject();
+  const boundaryCompanyId = 'shared-co-boundary-1';
+  const poolResourceV2 = { id: 'boundary-res-echo', name: 'Grensvakman', type: 'LABOR' as const, description: '', maxUnits: 1, costPerHour: 9 };
+  const boundaryPool = {
+    companyId: boundaryCompanyId, companyName: 'Boundary Collega BV', poolVersion: 6,
+    modifiedAt: '2026-06-09T00:00:00.000Z', calendars: [], resources: [poolResourceV2],
+  };
+  // Projectitem: fields matchen de OUDE waarde (costPerHour=3, file==syncedHash ⇒ niet lokaal
+  // bewerkt) — de pool hierboven draagt al de NIEUWE waarde (9). Na import is dit dus een 'behind'-
+  // item (grens 1 hoort het stil te verversen), niet 'deviated'.
+  const boundaryResId = useAppStore.getState().addResource({ name: 'Grensvakman', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 3 });
+  const oldFieldsHash = computeResourceHash({ id: 'x', name: 'Grensvakman', type: 'LABOR', description: '', maxUnits: 1, costPerHour: 3 });
+  useAppStore.setState((st) => {
+    st.project.companyId = boundaryCompanyId; // al gebonden aan een bedrijf dat lokaal nog niet bestaat
+    st.isDirty = false;
+    st.redoStack = [{} as never]; // aantoonbaar gewist door de niet-undoable verversing hieronder
+    const r = st.resources.find(r => r.id === boundaryResId)!;
+    r.libraryOrigin = { companyId: boundaryCompanyId, libraryItemId: 'boundary-res-echo', poolVersion: 6, syncedHash: oldFieldsHash };
+  });
+  assert(useAppStore.getState().onOpenStatusForResource(boundaryResId) === null, 'F3 setup: vóór import bestaat het bedrijf lokaal niet ⇒ los-gedrag (null)');
+
+  const undoBefore = useAppStore.getState().undoStack.length;
+  const isDirtyBefore = useAppStore.getState().isDirty;
+
+  // De "toevoegen"-route (companyId is hier vrij en niet reserved, dus behouden).
+  const importedBoundaryId = useAppStore.getState().importPoolAsNewCompany(boundaryPool);
+  assert(importedBoundaryId === boundaryCompanyId, 'F3 setup: companyId behouden (vrij, niet reserved)');
+
+  // Ná import: het project HANGT AL aan dit bedrijf ⇒ runOpenBoundary() is GEEN no-op.
+  const boundaryResult = useAppStore.getState().runOpenBoundary();
+  assert(boundaryResult.refreshed >= 1, 'F3 [DE CORRECTIE]: runOpenBoundary() ná de "toevoegen"-route doet ECHT werk als het actieve project al aan dat companyId hangt — geen "inherent no-op"');
+  const afterBoundary = useAppStore.getState();
+  assert(afterBoundary.resources.find(r => r.id === boundaryResId)?.costPerHour === 9, 'F3: het behind-item is stil ververst naar de nieuw-geïmporteerde poolwaarde');
+  assert(afterBoundary.undoStack.length === undoBefore, 'F3: geen undo-stap (grens 1 is niet-undoable, ongewijzigd gedrag)');
+  assert(afterBoundary.isDirty === isDirtyBefore, 'F3: isDirty blijft ongewijzigd (niet-undoable verversing zet geen isDirty)');
+  assert(afterBoundary.redoStack.length === 0, 'F3: de redoStack is gewist door de stille verversing');
 }
 
 console.log(`library-slice: ${checks - fails}/${checks} groen`);

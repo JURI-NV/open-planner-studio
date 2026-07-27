@@ -53,6 +53,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
   2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
   grotere suite.
+- [ ] **Standaardbibliotheek zou een gegenereerd id moeten krijgen i.p.v. de vaste
+  `DEFAULT_COMPANY_ID`-constante** (critreview F1/F8 op pool-import, issue #19). Vrijwel elke
+  installatie heeft hooguit één resourcebibliotheek onder dat vaste id — waardoor `importPoolAsNewCompany`
+  het (terecht) als `isReservedCompanyId` behandelt en er nooit de identiteit uit een geïmporteerd
+  bestand voor behoudt. Praktisch gevolg: een meegestuurd project van een eenpitter-collega (de
+  meest voorkomende situatie) herkent zijn bibliotheek na "toevoegen als nieuwe resourcebibliotheek"
+  niet automatisch — de ontvanger moet de herkenningsstap zelf één keer doorlopen (zie
+  docs/library.md "Bekende beperkingen" en de gebruikersgids). Zou het standaardbedrijf bij de
+  EERSTE start een vers gegenereerd id krijgen (i.p.v. de gedeelde constante), dan werkt automatische
+  herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
+  bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
+  niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
 
 ### Solver/presentatie — resterende punten (2026-07-20)
 
