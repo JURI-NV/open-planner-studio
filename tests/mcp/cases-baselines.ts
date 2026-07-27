@@ -513,4 +513,35 @@ test('16. vier baselinetools: prefix, description, vier annotaties, batch-kern w
   assertEq(getTool('planner_activate_baseline')!.annotations.readOnlyHint, false, 'activate muteert');
 });
 
+// =================================================================================================
+// 17) Veiligheidsvlaggen — ook het no-op-snelpad staat achter de guards
+//
+// Het `okDirect`-pad omzeilt `runMutateTool` (en daarmee zijn guards); zonder de expliciete
+// `guardNonTransactional` ervoor zou een gepauzeerde of alleen-lezen bridge een "geslaagde" mutatie-
+// call beantwoorden. Dat is precies het soort gat dat je pas merkt als het te laat is.
+// =================================================================================================
+test('17. pauze / alleen-lezen weigeren zowel de echte mutatie als het no-op-snelpad', async () => {
+  reset(1);
+  const a = await save('A');
+  const b = await save('B'); // B is actief ⇒ activate(B) is het no-op-pad, activate(A) het mutatie-pad
+
+  for (const flag of ['paused', 'readOnly'] as const) {
+    const ctx = makeCtx({ [flag]: true } as Partial<McpContext>);
+    const noop = await callErr('planner_activate_baseline', { baselineId: b }, ctx);
+    assertEq(noop.code, flag === 'paused' ? 'PAUSED' : 'READ_ONLY', `${flag}: no-op-pad geweigerd`);
+    const mut = await callErr('planner_activate_baseline', { baselineId: a }, ctx);
+    assertEq(mut.code, flag === 'paused' ? 'PAUSED' : 'READ_ONLY', `${flag}: mutatie-pad geweigerd`);
+    const del = await callErr('planner_delete_baseline', { baselineId: a }, ctx);
+    assertEq(del.code, flag === 'paused' ? 'PAUSED' : 'READ_ONLY', `${flag}: delete geweigerd`);
+    const ren = await callErr('planner_rename_baseline', { baselineId: b, name: 'B' }, ctx);
+    assertEq(ren.code, flag === 'paused' ? 'PAUSED' : 'READ_ONLY', `${flag}: rename-no-op geweigerd`);
+  }
+  assertEq(S().baselines.length, 2, 'niets verwijderd');
+  assertEq(S().activeBaselineId, b, 'niets geactiveerd');
+
+  // Lezen mag wél tijdens pauze/alleen-lezen (spec: die vlaggen raken alleen mutaties).
+  const l = await callOk('planner_list_baselines', {}, makeCtx({ paused: true, readOnly: true }));
+  assertEq(l.count, 2, 'list_baselines blijft beschikbaar');
+});
+
 await run();
