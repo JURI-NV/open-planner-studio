@@ -109,6 +109,12 @@ Zie [PLAN.md](PLAN.md) voor het volledige projectplan.
 
 Zie de [`examples/`](examples/) map voor voorbeeldplanningen in IFC-formaat.
 
+## Bijdragen
+
+Zie [CONTRIBUTING.md](CONTRIBUTING.md) — opzetten, de poort (`npm run verify`),
+en de vier dingen die het vaakst stil misgaan. Beveiligingsproblemen niet via een
+issue maar via [SECURITY.md](SECURITY.md).
+
 ## Licentie
 
 LGPL-3.0

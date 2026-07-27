@@ -12,17 +12,27 @@ npm run build        # tsc --noEmit && vite build → dist/  ← main static che
 npm run tauri:dev    # desktop app via scripts/tauri-dev.mjs (picks first free port ≥3007)
 npm run tauri:build  # desktop installers
 npm run bump X.Y.Z   # CalVer sync (package.json + tauri.conf.json; Cargo.toml stays 0.1.0)
-bash tests/planning/run.sh                 # CPM/calendar regression suite (all)
+npm run verify       # THE gate — literally what CI, the release gate and the deploy gate run
+npm run typecheck    # tsc --noEmit over src/ AND scripts/+tests/ (tsconfig.tests.json)
+npm test             # all four behavioral suites
 bash tests/planning/run.sh cases-<x>.json  # one battery
 ```
 
-- **No lint script, no unit-test runner.** `npm run build` (specifically `tsc`)
-  is the gate. `tsconfig.json` is `strict` with `noUnusedLocals` +
-  `noUnusedParameters` — dead code/unused params fail the build.
-- The one behavioral suite is `tests/planning/` (data-driven CPM/calendar
-  cases, headless on Node via esbuild). Run it after touching anything in
+- **No lint script and no formatter.** `tsc` is the static gate; `tsconfig.json`
+  is `strict` with `noUnusedLocals` + `noUnusedParameters`, so dead code and
+  unused params fail the build.
+- **`npm run verify` is one definition, in `package.json`** — ci.yml, the
+  release gate and the deploy gate all run that single line, so what passes
+  locally is exactly what passes in CI. It covers typecheck + `npm test` +
+  `verify:examples` + `verify:docs` + `verify:i18n`.
+- Four behavioral suites behind `npm test`: `tests/planning/` (data-driven
+  CPM/calendar cases + `check-*.ts` contract tests, headless on Node via
+  esbuild), `tests/library/`, `tests/mcp/`, and `tests/dev-server/` (`node:test`
+  + an integration script). Run the planning suite after touching anything in
   `src/engine/scheduler/`, `src/engine/calendar/`, or the `runCPM` action.
 - Node 22 (see CI). Rust stable required only for `tauri:*` commands.
+- New user-visible strings go through `t(...)` in all fourteen locales;
+  `npm run verify:i18n` checks that, CLDR plural categories included.
 
 ## Architectural facts that bite
 
