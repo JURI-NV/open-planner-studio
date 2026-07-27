@@ -16,3 +16,4 @@
 .workday-axis.mjs
 .svg-sanitizer.mjs
 .undo-bound.mjs
+.export-guard.mjs

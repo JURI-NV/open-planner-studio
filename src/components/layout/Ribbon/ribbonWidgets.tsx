@@ -382,7 +382,14 @@ export function ExportDropdown() {
           }}
           onMouseOver={e => (e.currentTarget.style.background = 'var(--theme-hover)')}
           onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-          onClick={() => { exportAs(f.format); setOpen(false); }}
+          onClick={() => {
+            // K7: exportAs geeft sinds deze wijziging een resultaat terug. Op dit tabblad is
+            // GanttCanvas gemonteerd, dus bij een cyclus (ok===false) vuurt daar al de
+            // cyclus-toast — bewust géén tweede meldmechanisme hier. Tussenstand: K8 trekt het
+            // foutkanaal samen tot één toast in uiSlice. Popover direct dicht, vóór de dialoog.
+            void exportAs(f.format);
+            setOpen(false);
+          }}
         >
           {f.label}
         </button>

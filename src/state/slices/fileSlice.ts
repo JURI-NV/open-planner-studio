@@ -45,6 +45,11 @@ function parseProjectXml(content: string) {
 
 export type ExportFormat = 'ifc' | 'csv' | 'mspdi' | 'p6';
 
+/** Resultaat van `exportAs` (K7): bij een cyclische planning wordt de export afgebroken vóór de
+ *  opslaan-dialoog en de CPM-cyclusfout (`cpmResult.error`) als boodschap meegegeven, zodat de
+ *  aanroeper die kan tonen i.p.v. stilletjes niets te doen. */
+export type ExportResult = { ok: true } | { ok: false; error: string };
+
 /** Opties voor `applyLoadedProject` — de één gedeelde "vul de actieve document-state met een
  *  geparsed project"-implementatie (audit P5/F6). Elke variant (de drie open-paden + `loadState`)
  *  dekt zijn historische gedrag af met deze vlaggen; defaults staan bewust op "niets doen". */
@@ -69,7 +74,7 @@ export interface FileSlice {
   openFile: () => Promise<void>;
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
-  exportAs: (format: ExportFormat) => Promise<void>;
+  exportAs: (format: ExportFormat) => Promise<ExportResult>;
   /** App-globale MRU-lijst van recente bestanden (spec §6). Async gehydrateerd bij opstart. */
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
@@ -232,7 +237,20 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       await pushRecent(outcome.ref, outcome.name);
     },
 
-    exportAs: async (format: ExportFormat) => {
+    exportAs: async (format: ExportFormat): Promise<ExportResult> => {
+      // K7 (docs/onderhoudbaarheid): alle vier exporters schrijven de CPM-uitvoer
+      // (task.time.earlyStart en afgeleiden) weg naar derden die die datums contractueel lezen.
+      // Een verouderde of cyclische planning mag dus niet stil worden uitgevoerd. Daarom: bij een
+      // stale schema eerst runCPM, en dán expliciet op cpmResult.error controleren vóór de
+      // opslaan-dialoog. Die tweede check is nodig omdat runCPM op zijn EERSTE regel al
+      // scheduleStale=false zet (vóór de solve); bij een cyclus breekt hij af mét cpmResult.error
+      // gezet én task.time nog op de oude waarden — een guard die alleen op scheduleStale kijkt
+      // zou de export in dat geval wél met verouderde datums doorlaten. De guard staat vóór de
+      // eerste await (saveFileDialog), zodat er niets half gebeurt.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
       const state = get();
 
       let content: string;
@@ -274,6 +292,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       const outcome = await saveFileDialog(`${state.project.name || 'project'}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
+      return { ok: true };
     },
 
     recentFiles: [],

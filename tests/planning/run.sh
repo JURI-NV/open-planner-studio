@@ -272,6 +272,20 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BUNDLES+=("$UNDOCHECK")
   node "$UNDOCHECK" || STATUS=1
 
+  # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
+  # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
+  # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
+  EXPCHECK="$DIR/.export-guard.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-export-guard.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$EXPCHECK" >/dev/null 2>&1
+  BUNDLES+=("$EXPCHECK")
+  node "$EXPCHECK" || STATUS=1
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een

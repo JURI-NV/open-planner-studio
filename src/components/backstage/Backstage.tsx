@@ -333,8 +333,20 @@ function ExportSection() {
     { format: 'ifc',   label: tMenu('export.ifcLabel'),   desc: tMenu('export.ifcDesc'),   icon: 'IFC' },
   ];
 
-  const handleExport = (format: ExportFormat) => {
-    void exportAs(format);
+  // K7: bij een cyclische planning geeft exportAs { ok: false } met cpmResult.error terug.
+  // Backstage vervangt de hele body, dus GanttCanvas is hier niet gemonteerd en de cyclus-toast
+  // (die in GanttCanvas leeft) vuurt niet — toon de fout daarom zelf in de bestaande
+  // backstage-stijl. Tussenstand: K8 trekt dit foutkanaal samen tot één toast in uiSlice.
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async (format: ExportFormat) => {
+    const result = await exportAs(format);
+    if (!result.ok) {
+      // Blijf in Backstage zodat de fout zichtbaar is; ga niet terug naar het Start-tab.
+      setExportError(result.error);
+      return;
+    }
+    setExportError(null);
     setUI({ activeRibbonTab: 'start' });
   };
 
@@ -342,9 +354,12 @@ function ExportSection() {
     <>
       <h2 className="backstage-title">{tMenu('backstage.exportTitle')}</h2>
       <p className="backstage-subtitle">{tMenu('backstage.exportSubtitle')}</p>
+      {exportError && (
+        <div className="backstage-empty">{exportError}</div>
+      )}
       <div className="backstage-export-grid">
         {formats.map(f => (
-          <button key={f.format} className="backstage-export-card" onClick={() => handleExport(f.format)}>
+          <button key={f.format} className="backstage-export-card" onClick={() => void handleExport(f.format)}>
             <span className="backstage-export-icon">{f.icon}</span>
             <span className="backstage-export-info">
               <h4>{f.label}</h4>
