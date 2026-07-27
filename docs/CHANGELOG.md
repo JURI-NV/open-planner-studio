@@ -6,48 +6,6 @@ version has its own section (no gaps); the newest is at the top. It is deliberat
 running archive of every individual commit: within a version there is a curated description,
 grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentation`).
 
-## Unreleased
-
-### Added
-- **Company libraries (B1.1, company-centric model).** A company *is* a resource library;
-  assigning to a project = materializing (copy/add-from/update-from/promote no longer exist as
-  separate operations). The link between a project and a company is now always visible and
-  editable (project wizard + Project info), instead of arising implicitly on the first library
-  action. New: a **Resources tab with Company/Project view** (assign, company-wide CRUD, per-row
-  deviation markers); a **shared link/deviation screen** (recognize + resolve deviations —
-  replaces the separate add/update dialogs) with three outcomes per deviation (use company
-  values / adopt into the company / decide later); a **refresh model with four boundaries**
-  (open, document switch, pool edit, crash recovery) that uses a `syncedHash` to distinguish a
-  silent refresh (`behind`) from asking a question (`deviated` — edited locally since the last
-  sync); and a discreet, self-clearing refresh notice. Removing a company explicitly unlinks
-  every open document. Calendar promotion remains, as a deliberate phase-1 interim, in Backstage
-  for now. See `docs/library.md`.
-- **Demo resource library for the showcase examples.** The three bundled showcase projects now
-  share one fixed "Demo resource library" ("dezelfde ploeg in twee projecten"), seeded
-  idempotently the first time any showcase is opened and left untouched afterwards — a user's own
-  existing libraries are never affected. Unambiguous name matches link automatically without
-  surfacing the deviation screen (it's a demo, not a question).
-
-### Changed
-- **Company libraries are now called resource libraries.** The user-facing term "company" for
-  the library concept (add/link/deviations, all 14 languages) has been renamed to "resource
-  library" (short: "library"); the "Client/organization" field and code identifiers such as
-  `companyId` are unchanged (issue #19).
-- **Shared project-info panel, with the library selector everywhere.** The project wizard, the
-  Project info dialog and Backstage → Project info now render the same
-  `ProjectInfoPanelContent`, instead of three near-duplicate forms drifting apart — the resource
-  library selector (bind/rebind/unlink) is one of the fields that now appears identically in all
-  three places.
-- **Resources tab: the roles were reversed.** The library view is now the full source-of-truth
-  editor (everything editable, changes apply to every project that draws on it and sit outside
-  undo); the project view shows what this project uses, with inherited identity fields (name,
-  type, description, rate/hour, unit) rendered as plain read-only text — while max units, the
-  time-phased availability and the calendar *choice* stay ordinary editable fields even on an
-  inherited row, since those are this project's own commitment, not a library fact. New per-row
-  actions close the loop: "Promote to library" on a project-only row, and "Unlink from library"
-  on an inherited or orphaned one (which also detaches a traveling calendar copy, unless another
-  still-linked resource in the project relies on it). See `docs/library.md`.
-
 ## v2026.7.12 — 2026-07-23
 
 ### Added
