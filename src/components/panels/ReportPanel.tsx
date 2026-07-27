@@ -134,6 +134,14 @@ export function ReportPanel() {
   const [paperSize, setPaperSize] = useState<'A3' | 'A4' | 'A1'>('A3');
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
   const [companyName, setCompanyName] = useState(project.company || '');
+  // Issue #25 punt 1 — herhaal de datum-/projectkop bovenaan ELKE geëxporteerde pagina. Standaard
+  // aan (de gevraagde verbetering). Bewust géén veld in `PrintOptions`: de kopherhaling is puur een
+  // pagineerder-zaak (raster: hoogte in px; vector: boolean), niet iets dat de render-zoom raakt.
+  const [repeatHeader, setRepeatHeader] = useState(true);
+  // Issue #25 punt 5 — smeert de tijdlijn uit over N paginabreedtes (1 = oud gedrag, geen
+  // verrassing voor bestaande gebruikers). Alleen zinvol in fit-width-modus; daarom `disabled`
+  // wanneer `autoFit` uit staat (dan tegelt de export in 'actual'-modus toch al horizontaal).
+  const [timelineColumns, setTimelineColumns] = useState(1);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -182,6 +190,7 @@ export function ReportPanel() {
     projectEndDate: project.endDate,
     projectAuthor: project.author,
     dateNotation,
+    timelineColumns,
   };
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
@@ -196,8 +205,8 @@ export function ReportPanel() {
     const renderPreview = () => {
       if (cancelled) return;
       const offscreen = document.createElement('canvas');
-      // Eerste render (schaal 1) → logische maten + naam-kolombreedte; tweede render → preview-raster.
-      const { width: logicalWidth, height: logicalHeight, tableWidth } = renderPrintCanvas(
+      // Eerste render (schaal 1) → logische maten + naam-kolombreedte + kop-hoogte; tweede render → preview-raster.
+      const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = renderPrintCanvas(
         offscreen, tasks, sequences, calendar, projectName, options, 1,
       );
       renderPrintCanvas(offscreen, tasks, sequences, calendar, projectName, options, PREVIEW_RENDER_SCALE);
@@ -208,6 +217,10 @@ export function ReportPanel() {
         logicalWidth,
         logicalHeight,
         frozenColumnWidthPx: tableWidth,
+        // Kop herhalen per pagina (issue #25 punt 1): de hoogte komt uit de render zelf; 0 = niet
+        // herhalen (oud gedrag). De raster-tak wil px, de vector-tak een boolean.
+        repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
+        timelineColumns,
         supersample: 1, // preview: goedkoper; wordt toch verkleind weergegeven
       });
       const shown = tiles.pages.slice(0, PREVIEW_MAX_PAGES);
@@ -223,7 +236,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -271,7 +284,7 @@ export function ReportPanel() {
       // 1) levert de LOGISCHE maten + naam-kolombreedte; de tweede render het high-res raster.
       const exportRaster = (): Uint8Array => {
         const exportCanvas = document.createElement('canvas');
-        const { width: logicalWidth, height: logicalHeight, tableWidth } = renderPrintCanvas(
+        const { width: logicalWidth, height: logicalHeight, tableWidth, headerHeight } = renderPrintCanvas(
           exportCanvas, tasks, sequences, calendar, projectName, options, 1,
         );
         const exportScale = computeHighResScale(logicalWidth, logicalHeight);
@@ -279,6 +292,10 @@ export function ReportPanel() {
         return paginateCanvasToPdfBytes(exportCanvas, {
           paperSize: lowerPaper, orientation, mode,
           logicalWidth, logicalHeight, frozenColumnWidthPx: tableWidth,
+          // Zelfde kopherhaling (px) en tijdlijn-spreiding als de preview en de vector-tak, zodat de
+          // raster-terugval WYSIWYG gelijk is aan beide (issue #25 punt 1 + 5).
+          repeatHeaderHeightPx: repeatHeader ? headerHeight : 0,
+          timelineColumns,
         });
       };
 
@@ -296,7 +313,15 @@ export function ReportPanel() {
         ]);
         pdfBytes = await paginateVectorToPdfBytes(
           (make) => renderReport(make, tasks, sequences, calendar, projectName, options),
-          { paperSize: lowerPaper, orientation, mode, baseDir: exportBaseDir },
+          {
+            paperSize: lowerPaper,
+            orientation,
+            mode,
+            baseDir: exportBaseDir,
+            // Kop per pagina herhalen (issue #25 punt 1) + tijdlijn over N pagina's (punt 5).
+            repeatHeader,
+            timelineColumns,
+          },
           { regular, bold },
           { regular: arabicRegular, bold: arabicBold },
         );
@@ -535,6 +560,33 @@ export function ReportPanel() {
                 <span className="w-8 text-right">{customZoom}</span>
               </div>
             )}
+
+            {/* Tijdlijn over N paginabreedtes (issue #25 punt 5). Alleen zinvol in fit-width-modus;
+                in 'actual'-modus (autoFit uit) tegelt de export sowieso al horizontaal, daarom
+                `disabled` — met een hint die dat uitlegt, zichtbaar zodra de keuze uitgeschakeld is. */}
+            <div className="flex items-center gap-2">
+              <label className="text-text-secondary w-20">{t('timelineColumnsLabel')}</label>
+              <Select
+                className="flex-1"
+                aria-label={t('timelineColumnsLabel')}
+                value={String(timelineColumns)}
+                onChange={v => setTimelineColumns(Number(v))}
+                disabled={!autoFit}
+                options={[1, 2, 3, 4, 5, 6, 7, 8].map(n => ({
+                  value: String(n),
+                  label: t('timelineColumns', { count: n }),
+                }))}
+              />
+            </div>
+            {!autoFit && (
+              <span className="text-text-secondary">{t('timelineColumnsHint')}</span>
+            )}
+
+            {/* Kop op elke pagina herhalen (issue #25 punt 1) */}
+            <label className="flex items-center gap-2 mt-1">
+              <input type="checkbox" checked={repeatHeader} onChange={e => setRepeatHeader(e.target.checked)} className="accent-accent" />
+              <span>{t('repeatHeader')}</span>
+            </label>
 
             <label className="flex items-center gap-2 mt-1">
               <input type="checkbox" checked={showTaskNames} onChange={e => setShowTaskNames(e.target.checked)} className="accent-accent" />
