@@ -129,7 +129,9 @@
     "fontHint": "Le app web non seguono automaticamente il carattere di sistema. Scegli qui il carattere e la dimensione dell'interfaccia.",
     "aiModeSection": "Modalità IA",
     "aiMode": "Abilita modalità IA",
-    "aiModeHint": "Mostra la scheda IA con il bridge MCP, così gli assistenti IA possono lavorare sulla tua pianificazione tramite il Model Context Protocol. Disattivandola si interrompe il bridge."
+    "aiModeHint": "Mostra la scheda IA con il bridge MCP, così gli assistenti IA possono lavorare sulla tua pianificazione tramite il Model Context Protocol. Disattivandola si interrompe il bridge.",
+    "aiAutostart": "Avvia il bridge automaticamente",
+    "aiAutostartHint": "Attiva il bridge MCP all'avvio dell'applicazione, così un client IA può collegarsi senza che tu apra prima la scheda IA. Solo nell'app desktop."
   },
   "ai": {
     "start": "Avvia bridge",

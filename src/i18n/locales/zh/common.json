@@ -129,7 +129,9 @@
     "fontHint": "网页应用不会自动跟随系统的字体设置。请在此处选择界面的字体和大小。",
     "aiModeSection": "AI 模式",
     "aiMode": "启用 AI 模式",
-    "aiModeHint": "显示带有 MCP 桥接的 AI 选项卡，让 AI 助手可以通过 Model Context Protocol 处理你的计划。关闭后将停止桥接服务。"
+    "aiModeHint": "显示带有 MCP 桥接的 AI 选项卡，让 AI 助手可以通过 Model Context Protocol 处理你的计划。关闭后将停止桥接服务。",
+    "aiAutostart": "自动启动桥接",
+    "aiAutostartHint": "应用启动时立即启用 MCP 桥接，AI 客户端无需你先打开 AI 选项卡即可连接。仅限桌面应用。"
   },
   "ai": {
     "start": "启动桥接",

@@ -129,7 +129,9 @@
     "fontHint": "Os aplicativos web não seguem automaticamente a fonte do sistema. Escolha aqui a fonte e o tamanho da interface.",
     "aiModeSection": "Modo IA",
     "aiMode": "Ativar modo IA",
-    "aiModeHint": "Mostra o separador de IA com a ponte MCP, para que assistentes de IA possam trabalhar no seu planeamento através do Model Context Protocol. Desativar interrompe a ponte."
+    "aiModeHint": "Mostra o separador de IA com a ponte MCP, para que assistentes de IA possam trabalhar no seu planeamento através do Model Context Protocol. Desativar interrompe a ponte.",
+    "aiAutostart": "Iniciar a ponte automaticamente",
+    "aiAutostartHint": "Ativa a ponte MCP assim que a aplicação arranca, para que um cliente de IA se possa ligar sem abrires primeiro o separador IA. Apenas na aplicação de ambiente de trabalho."
   },
   "ai": {
     "start": "Iniciar ponte",

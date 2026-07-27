@@ -129,7 +129,9 @@
     "fontHint": "ウェブアプリはシステムのフォント設定に自動的に従いません。ここでインターフェースのフォントとサイズを選択します。",
     "aiModeSection": "AIモード",
     "aiMode": "AIモードを有効にする",
-    "aiModeHint": "MCPブリッジを備えたAIタブを表示し、AIアシスタントがModel Context Protocol経由でスケジュールを操作できるようにします。無効にするとブリッジは停止します。"
+    "aiModeHint": "MCPブリッジを備えたAIタブを表示し、AIアシスタントがModel Context Protocol経由でスケジュールを操作できるようにします。無効にするとブリッジは停止します。",
+    "aiAutostart": "ブリッジを自動的に開始",
+    "aiAutostartHint": "アプリの起動と同時に MCP ブリッジを有効にします。AI タブを開かなくても AI クライアントが接続できます。デスクトップアプリのみ。"
   },
   "ai": {
     "start": "ブリッジを開始",

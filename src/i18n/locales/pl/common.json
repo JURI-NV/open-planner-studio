@@ -129,7 +129,9 @@
     "fontHint": "Aplikacje webowe nie przejmują automatycznie czcionki ustawionej w systemie. Wybierz tutaj czcionkę i rozmiar interfejsu.",
     "aiModeSection": "Tryb AI",
     "aiMode": "Włącz tryb AI",
-    "aiModeHint": "Pokazuje kartę AI z mostkiem MCP, dzięki czemu asystenci AI mogą pracować z Twoim harmonogramem za pomocą Model Context Protocol. Wyłączenie zatrzymuje mostek."
+    "aiModeHint": "Pokazuje kartę AI z mostkiem MCP, dzięki czemu asystenci AI mogą pracować z Twoim harmonogramem za pomocą Model Context Protocol. Wyłączenie zatrzymuje mostek.",
+    "aiAutostart": "Automatycznie uruchamiaj most",
+    "aiAutostartHint": "Uruchamia most MCP od razu po starcie aplikacji, dzięki czemu klient AI może się połączyć bez otwierania karty AI. Tylko w aplikacji desktopowej."
   },
   "ai": {
     "start": "Uruchom mostek",

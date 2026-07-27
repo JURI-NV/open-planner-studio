@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/state/appStore';
 import { Locale, LANGUAGE_LABELS, supportedLanguages, setLocale } from '@/i18n/config';
 import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode, UIFontFamily, UI_FONT_FAMILIES, UI_FONT_SCALES } from '@/state/slices/types';
-import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode, saveCompressNonWorkdays, saveUIFontFamily, saveUIFontScale } from '@/utils/settingsStore';
+import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode, saveCompressNonWorkdays, saveUIFontFamily, saveUIFontScale, saveAiAutostart } from '@/utils/settingsStore';
 import { applyAiModeLive } from '@/services/mcp/server';
 import { Select } from '@/components/common/Select';
 import { ScrollZoomSettings } from '@/components/dialogs/ScrollZoomSettings';
@@ -61,6 +61,7 @@ export function SettingsPanelContent() {
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const barSplitMode = useAppStore(s => s.ui.barSplitMode);
   const aiMode = useAppStore(s => s.ui.aiMode);
+  const aiAutostart = useAppStore(s => s.ui.aiAutostart);
   const compressNonWorkdays = useAppStore(s => s.ui.compressNonWorkdays);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
@@ -474,10 +475,12 @@ export function SettingsPanelContent() {
               </button>
             </div>
 
-            {/* AI-modus (T14): de ENIGE AI-instelling hier — de rest van de bediening leeft op het
-                AI-tabblad. AAN ⇒ tabblad verschijnt; UIT ⇒ tabblad weg + bridge geforceerd gestopt
-                (`applyAiModeLive` → `stopMcpServer` + status off). Via deze gedeelde component op
-                alle 3 de ingangen (gear/Instellingen-ribbontab/Backstage). */}
+            {/* AI-modus (T14) + automatisch starten: de enige twee AI-instellingen hier — de rest van
+                de bediening leeft op het AI-tabblad. AAN ⇒ tabblad verschijnt; UIT ⇒ tabblad weg +
+                bridge geforceerd gestopt (`applyAiModeLive` → `stopMcpServer` + status off). Via deze
+                gedeelde component op alle 3 de ingangen (gear/Instellingen-ribbontab/Backstage).
+                Automatisch starten hangt ONDER AI-modus: zonder AI-modus is er geen bridge om te
+                starten, dus die schakelaar staat dan uit-gegrijsd i.p.v. dat hij stil niets doet. */}
             <div className="settings-section">
               <h3>{t('settings.aiModeSection')}</h3>
               <label className="settings-checkbox-row">
@@ -489,6 +492,19 @@ export function SettingsPanelContent() {
                 <span>{t('settings.aiMode')}</span>
               </label>
               <p className="scrollzoom-hint">{t('settings.aiModeHint')}</p>
+              <label className="settings-checkbox-row" style={{ opacity: aiMode ? 1 : 0.5 }}>
+                <input
+                  type="checkbox"
+                  checked={aiAutostart}
+                  disabled={!aiMode}
+                  onChange={e => {
+                    setUI({ aiAutostart: e.target.checked });
+                    void saveAiAutostart(e.target.checked);
+                  }}
+                />
+                <span>{t('settings.aiAutostart')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.aiAutostartHint')}</p>
             </div>
 
             <div className="settings-section">

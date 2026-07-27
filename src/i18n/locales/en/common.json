@@ -129,7 +129,9 @@
     "fontHint": "Web apps don't automatically follow your system font setting. Choose the font and size for the interface here.",
     "aiModeSection": "AI mode",
     "aiMode": "Enable AI mode",
-    "aiModeHint": "Shows the AI tab with the MCP bridge, so AI assistants can work with your schedule over the Model Context Protocol. Turning it off stops the bridge."
+    "aiModeHint": "Shows the AI tab with the MCP bridge, so AI assistants can work with your schedule over the Model Context Protocol. Turning it off stops the bridge.",
+    "aiAutostart": "Start bridge automatically",
+    "aiAutostartHint": "Brings the MCP bridge live as soon as the app starts, so an AI client can connect without you opening the AI tab first. Desktop app only."
   },
   "ai": {
     "start": "Start bridge",

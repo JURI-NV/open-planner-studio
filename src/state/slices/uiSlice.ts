@@ -112,6 +112,7 @@ export function createDefaultUI(): UIState {
     // MCP-bridge / AI-modus (fase 1): AI-modus default uit (geen AI-tabblad); server staat default
     // uit op de default-poort; geen pauze/lezen.
     aiMode: false,
+    aiAutostart: false,
     aiServerStatus: { state: 'off', port: MCP_DEFAULT_PORT },
     aiPaused: false,
     aiReadOnly: false,

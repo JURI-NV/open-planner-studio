@@ -234,6 +234,11 @@ export interface UIState {
    *  debug-terminal-vlag een paneel toont); UIT ⇒ tabblad weg + bridge geforceerd gestopt. De
    *  bron is de `ops-aiMode`-setting; dit is de opstart-gehydrateerde spiegel voor de reactieve UI. */
   aiMode: boolean;
+  /** persisted — automatisch starten: bij het opstarten van de app de bridge meteen live zetten,
+   *  zodat een AI-client kan koppelen zonder dat de gebruiker eerst het AI-tabblad opent. Alleen
+   *  van kracht wanneer `aiMode` aanstaat én in de Tauri-schil (de bridge is desktop-only). Default
+   *  UIT: de bridge opent een luisterende poort, dus dat blijft een bewuste keuze. */
+  aiAutostart: boolean;
   /** session — status van de MCP-bridge-server, gevoed door de `mcp://status`-events + de
    *  poort-bezet-fout van `mcp_bridge_start`. Default off op de default-poort. */
   aiServerStatus: McpServerStatus;

@@ -329,6 +329,14 @@ export async function saveAiMode(value: boolean): Promise<void> {
   await setSetting('aiMode', value);
 }
 
+/**
+ * Automatisch starten van de bridge bij het opstarten van de app. Default UIT — een luisterende
+ * poort openen blijft een bewuste keuze. Laden loopt, net als `aiMode`, via de settingsRegistry.
+ */
+export async function saveAiAutostart(value: boolean): Promise<void> {
+  await setSetting('aiAutostart', value);
+}
+
 /** Automatische AI-backup vóór de eerste mutatie per document (spec §AI-backup). Default AAN. */
 export async function loadAiAutoBackup(): Promise<boolean> {
   const v = await getSetting<boolean>('aiAutoBackup');

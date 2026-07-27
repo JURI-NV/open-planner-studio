@@ -134,6 +134,8 @@ export const SETTINGS: SettingDescriptor[] = [
 
   // AI-modus (MCP-bridge, T14) — persistente spiegel die de conditionele AI-ribbontab voedt.
   setting({ key: 'aiMode', field: 'aiMode', parse: parseBoolean }),
+  // Bridge automatisch starten bij het opstarten van de app (alleen van kracht mét aiMode, Tauri-only).
+  setting({ key: 'aiAutostart', field: 'aiAutostart', parse: parseBoolean }),
 
   // Document-chrome-stijl
   setting({ key: 'documentChromeStyle', field: 'documentChromeStyle', parse: parseEnum(DOCUMENT_CHROME_STYLES) }),

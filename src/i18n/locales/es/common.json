@@ -129,7 +129,9 @@
     "fontHint": "Las aplicaciones web no siguen automáticamente la fuente del sistema. Elige aquí la fuente y el tamaño de la interfaz.",
     "aiModeSection": "Modo IA",
     "aiMode": "Activar modo IA",
-    "aiModeHint": "Muestra la pestaña de IA con el puente MCP, para que los asistentes de IA puedan trabajar con tu planificación mediante el Model Context Protocol. Desactivarlo detiene el puente."
+    "aiModeHint": "Muestra la pestaña de IA con el puente MCP, para que los asistentes de IA puedan trabajar con tu planificación mediante el Model Context Protocol. Desactivarlo detiene el puente.",
+    "aiAutostart": "Iniciar el puente automáticamente",
+    "aiAutostartHint": "Activa el puente MCP nada más iniciar la aplicación, para que un cliente de IA pueda conectarse sin que abras antes la pestaña IA. Solo en la aplicación de escritorio."
   },
   "ai": {
     "start": "Iniciar puente",

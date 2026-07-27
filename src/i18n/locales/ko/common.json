@@ -129,7 +129,9 @@
     "fontHint": "웹 앱은 시스템 글꼴 설정을 자동으로 따르지 않습니다. 여기서 인터페이스의 글꼴과 크기를 선택하세요.",
     "aiModeSection": "AI 모드",
     "aiMode": "AI 모드 사용",
-    "aiModeHint": "MCP 브리지가 포함된 AI 탭을 표시하여 AI 어시스턴트가 Model Context Protocol을 통해 일정에서 작업할 수 있게 합니다. 끄면 브리지가 중지됩니다."
+    "aiModeHint": "MCP 브리지가 포함된 AI 탭을 표시하여 AI 어시스턴트가 Model Context Protocol을 통해 일정에서 작업할 수 있게 합니다. 끄면 브리지가 중지됩니다.",
+    "aiAutostart": "브리지 자동 시작",
+    "aiAutostartHint": "앱이 시작될 때 MCP 브리지를 바로 활성화하여, AI 탭을 먼저 열지 않아도 AI 클라이언트가 연결할 수 있습니다. 데스크톱 앱에서만 사용할 수 있습니다."
   },
   "ai": {
     "start": "브리지 시작",

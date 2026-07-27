@@ -23,6 +23,7 @@ import { useAutoCalcCPM } from '@/hooks/useAutoCalcCPM';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useRecoveryRestore } from '@/hooks/useRecoveryRestore';
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
+import { useAiAutostart } from '@/hooks/useAiAutostart';
 import { useFullscreenSync } from '@/hooks/useFullscreenSync';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useSplitter } from '@/hooks/useSplitter';
@@ -172,6 +173,10 @@ function AppContent() {
 
   // Stille opstart-update-check (Tauri-only).
   useUpdateCheck();
+
+  // MCP-bridge automatisch starten wanneer AI-modus én autostart aanstaan (Tauri-only; de hook
+  // wacht op de asynchrone instellingen-hydratatie en start hoogstens één keer per app-sessie).
+  useAiAutostart();
 
   // Determine if we should show the gantt canvas or a full-panel view.
   // Fase 2.10 (item 6): een GEDOCKT resource-paneel (`resourcePanelDocked`) sluit `showResourcePanel`

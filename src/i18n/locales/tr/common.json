@@ -129,7 +129,9 @@
     "fontHint": "Web uygulamaları sistem yazı tipi ayarını otomatik olarak izlemez. Arayüzün yazı tipini ve boyutunu buradan seçin.",
     "aiModeSection": "Yapay zeka modu",
     "aiMode": "Yapay zeka modunu etkinleştir",
-    "aiModeHint": "MCP köprüsüne sahip Yapay Zeka sekmesini gösterir; böylece yapay zeka asistanları Model Context Protocol üzerinden planınızla çalışabilir. Kapatmak köprüyü durdurur."
+    "aiModeHint": "MCP köprüsüne sahip Yapay Zeka sekmesini gösterir; böylece yapay zeka asistanları Model Context Protocol üzerinden planınızla çalışabilir. Kapatmak köprüyü durdurur.",
+    "aiAutostart": "Köprüyü otomatik başlat",
+    "aiAutostartHint": "MCP köprüsünü uygulama açılır açılmaz devreye alır; böylece bir yapay zekâ istemcisi, siz önce AI sekmesini açmadan bağlanabilir. Yalnızca masaüstü uygulamasında."
   },
   "ai": {
     "start": "Köprüyü başlat",
