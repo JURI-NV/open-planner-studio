@@ -18,3 +18,4 @@
 .undo-bound.mjs
 .export-guard.mjs
 .step-strings.mjs
+.recovery-integrity.mjs

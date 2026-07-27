@@ -224,6 +224,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   SSCHECK="$DIR/.step-strings.mjs"
   if bundle_check "$DIR/check-step-strings.ts" "$SSCHECK"; then node "$SSCHECK" || STATUS=1; fi
 
+  # Recovery-integriteit (bevinding K4). `readIFC` had NUL throws: een afgekapte snapshot leverde
+  # stil een gedeeltelijk hersteld document op (bij 80% afkappen: alle taken, NUL relaties — een
+  # planning die compleet oogt en geen logicanetwerk heeft), waarna clearRecovery() hem opruimde.
+  # Deze batterij eist dat onzin-invoer en afgekapte bestanden een IfcParseError gooien, én dat een
+  # leeg-maar-geldig project (0 taken) gewoon doorparst — dat laatste borgt het INGETROKKEN
+  # voorstel om snapshots op taakaantal te filteren.
+  RECCHECK="$DIR/.recovery-integrity.mjs"
+  if bundle_check "$DIR/check-recovery-integrity.ts" "$RECCHECK"; then node "$RECCHECK" || STATUS=1; fi
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een
