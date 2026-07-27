@@ -241,10 +241,17 @@ De drie meegeleverde showcase-voorbeelden delen één vaste **"Demo-resourcebibl
 "dezelfde ploeg in twee projecten" zichtbaar maken zonder dat de gebruiker zelf iets hoeft op te
 zetten. Open je een showcase-voorbeeld, dan wordt deze bibliotheek **idempotent** aangemaakt (bestaat
 hij al, dan gebeurt er niets — ook de inhoud wordt niet overschreven, je mag 'm zelf bewerkt hebben) en
-gekoppeld aan het net-geopende voorbeeldproject; ondubbelzinnige naam-matches worden meteen gekoppeld,
-zonder het afwijkingenscherm te tonen (het is een demo, geen vraag). Bestaande, eigen
+gekoppeld aan het net-geopende voorbeeldproject; ondubbelzinnige naam-matches op **resources** worden
+meteen gekoppeld, zonder het afwijkingenscherm te tonen (het is een demo, geen vraag). Bestaande, eigen
 resourcebibliotheken blijven volledig ongemoeid — de demo-bibliotheek is gewoon een extra bibliotheek
 naast de jouwe.
+
+**Kalenders koppelen hier bewust NIET automatisch mee** (fix issue #19): een showcase-kalender kan
+zelf bewust gemodelleerd zijn (bijv. een eigen `hoursPerDay` of een specifieke vakantie) en voedt de
+CPM-berekening rechtstreeks — een stille naam-match zou die inhoud vervangen door de demo-versie en zo
+het eigen punt (en de CPM-uitkomst) van de showcase ondermijnen. De demo-pool draagt wél eigen
+kalenders (zichtbaar in de Bibliotheekweergave), maar die worden nooit automatisch aan
+showcase-kalenders gekoppeld — alleen handmatig via de gewone koppel-/herkenningsstap.
 
 ## Ontvangen bestanden (los)
 

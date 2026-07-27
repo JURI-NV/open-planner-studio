@@ -65,8 +65,21 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
   bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
   niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
-
-### Solver/presentatie — resterende punten (2026-07-20)
+- [ ] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
+  resources, terwijl het ontwerpdocument expliciet maar 1 belooft.**
+  `docs/superpowers/specs/2026-07-07-2.10-onderdeel4-showcases-design.md` (Fase 3, ~regel 307) zegt:
+  "een torenkraan die tussen de drie torens moet schuiven geeft de overallocatie, oplosbaar met
+  nivellering" — enkelvoud, alleen de torenkraan. Headless gemeten op het KALE gegenereerde bestand
+  (`examples/showcase-appartementencomplex.ifc`, dus NIET veroorzaakt door de resourcebibliotheken —
+  zie de F1/F2-fixes hierboven van issue #19): 10 van de 12 resources zijn overgealloceerd
+  (Betonvlechters, Timmerlieden, Torenkraan, Gevelbouwer, Liftleverancier, Stukadoors, Tegelzetters,
+  Keukenmonteurs, Installateurs, Schilders — alleen Metselaars/Metselploeg blijven schoon).
+  Vermoedelijk een datapunt in de showcase-generator (`scripts/gen-core.ts`/`showcases.ts`): een te
+  lage `maxUnits` t.o.v. de toegewezen `unitsPerDay` op de parallelle torentaken. `npm run
+  verify:examples` vangt dit niet — de poort checkt voor GROOT alleen `overalloc.length > 0` (zie
+  `scripts/verify-examples.ts`), dus "veel te veel overallocatie" en "precies de bedoelde ene
+  overallocatie" zijn voor die assert niet te onderscheiden. Kandidaat-fix: een bovengrens per
+  showcase (bv. `overalloc.length <= 1` voor GROOT) zou deze regressie wél zichtbaar maken.
 
 > De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
 > changelog. Twee ervan bleken een andere oorzaak te hebben dan het item beschreef: de `TF=-4` was

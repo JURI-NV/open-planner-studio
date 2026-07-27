@@ -100,5 +100,44 @@ function assert(cond: boolean, msg: string): void {
   assert(after.ui.showLibraryLinkDialog === false, 'wiring: geen afwijkingenscherm getoond (auto-link zonder gebruikersvraag)');
 }
 
+// --- F2 (critreview, issue #19): een showcase-kalender met een naam die de demo-pool ook draagt
+// ("Bouwkalender NL") mag NIET automatisch gekoppeld/overschreven worden — alleen resources koppelen.
+// Reproduceert de "6 Rijwoningen De Akkers"-bevinding: een bewust gemodelleerde kalender met een
+// eigen hoursPerDay en een "Vorstverlet fundering"-vakantie, die de demo-versie (hoursPerDay 8, geen
+// vakanties) anders stil zou overschrijven en zo de CPM-invoer zou veranderen.
+{
+  useAppStore.getState().newProject();
+  useAppStore.getState().addResource({ name: 'Schilders', type: 'LABOR', description: '', maxUnits: 4 });
+  const bouwkalenderId = useAppStore.getState().addCalendar({
+    name: 'Bouwkalender NL',
+    description: 'Showcase-specifieke bouwkalender met vorstverlet.',
+    workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7,
+    workEndHour: 16,
+    hoursPerDay: 9, // wijkt bewust af van de demo-versie (8) — zou anders 9→8 stilzwijgend veranderen.
+    holidays: [{ name: 'Vorstverlet fundering', startDate: '2027-01-10', endDate: '2027-01-24' }],
+  });
+  const before = useAppStore.getState().calendars.find(c => c.id === bouwkalenderId);
+  assert(before?.hoursPerDay === 9, 'setup F2: showcase-kalender heeft eigen hoursPerDay (9) vóór de koppeling');
+  assert(before?.holidays.length === 1, 'setup F2: showcase-kalender heeft zijn "Vorstverlet fundering"-vakantie vóór de koppeling');
+
+  applyDemoLibraryToShowcaseProject();
+
+  const after = useAppStore.getState();
+  const bouwkalenderAfter = after.calendars.find(c => c.id === bouwkalenderId);
+  assert(bouwkalenderAfter?.libraryOrigin === undefined, 'F2: kalender met naam-match blijft ONGESTEMPELD (alleen resources worden gekoppeld)');
+  assert(bouwkalenderAfter?.hoursPerDay === 9, 'F2: kalender-hoursPerDay blijft ongewijzigd (9, niet overschreven naar de demo-waarde 8)');
+  assert(
+    bouwkalenderAfter?.holidays.length === 1 && bouwkalenderAfter.holidays[0].name === 'Vorstverlet fundering',
+    'F2: kalender behoudt zijn "Vorstverlet fundering"-vakantie (niet gewist door de demo-versie)',
+  );
+
+  // Negatieve controle: resources op datzelfde project worden WEL gekoppeld (de fix schakelt alleen
+  // kalenders uit, niet de hele koppelfunctie) — anders zou dit blok toevallig groen zijn omdat er
+  // helemaal niets meer gekoppeld wordt.
+  const schilder = after.resources.find(r => r.name === 'Schilders');
+  assert(schilder?.libraryOrigin?.companyId === DEMO_COMPANY_ID, 'F2 negatieve controle: resource-koppeling (Schilders) werkt nog gewoon');
+}
+
 console.log(`demo-library: ${checks - fails}/${checks} groen`);
 process.exit(fails > 0 ? 1 : 0);

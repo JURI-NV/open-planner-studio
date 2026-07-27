@@ -11,6 +11,16 @@
  * Seedt de demo-pool idempotent, koppelt het net-geladen project eraan, en linkt automatisch elke
  * ONDUBBELZINNIGE naam-match (`computeRecognition`/`linkRecognizedItems`) — zonder het
  * afwijkingenscherm aan de gebruiker te tonen: dit is een demo, geen vraag.
+ *
+ * F2 (critreview, issue #19): UITSLUITEND resources worden zo gekoppeld — kalenders NIET, ook al
+ * matcht `computeRecognition` ze net zo goed op naam. Grond: showcase-kalenders zijn bewust
+ * gemodelleerd (bijv. "Bouwkalender NL" met een eigen `hoursPerDay` en een specifieke
+ * "Vorstverlet fundering"-vakantie in "6 Rijwoningen De Akkers") en voeden de CPM-berekening
+ * rechtstreeks — een stille naam-match zou die inhoud vervangen door de demo-kalenderversie en zo
+ * het eigen punt van de showcase (en zijn CPM-uitkomst) ondermijnen. Resources hebben dat risico niet
+ * (alleen belasting/overallocatie, geen CPM-invoer) en zijn juist de bedoelde demonstratie ("dezelfde
+ * ploeg in twee projecten"). De demo-pool behoudt haar eigen kalenders (zichtbaar in de
+ * Bibliotheekweergave); ze worden alleen niet automatisch aan showcase-kalenders gekoppeld.
  */
 import { useAppStore } from './appStore';
 
@@ -19,7 +29,7 @@ export function applyDemoLibraryToShowcaseProject(): void {
   const companyId = store.seedDemoLibrary();
   store.bindProjectToCompany(companyId);
   const links = store.computeRecognition()
-    .filter((c) => c.suggestedPoolId !== null)
+    .filter((c) => c.kind === 'resource' && c.suggestedPoolId !== null)
     .map((c) => ({ kind: c.kind, projectId: c.projectId, poolId: c.suggestedPoolId as string }));
   if (links.length > 0) store.linkRecognizedItems(links);
 }
