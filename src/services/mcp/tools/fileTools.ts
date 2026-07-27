@@ -5,9 +5,15 @@
 //  1. FS-SCOPE. De Tauri-capability dekt `$HOME` (recursief), niet de hele schijf (spec regel 109).
 //     Elk pad wordt eerst genormaliseerd (`..`/`.`/dubbele scheiders, `~`-expansie) en daarna tegen
 //     de home-map gehouden; erbuiten ⇒ code `SCOPE` met uitleg. Normaliseren VÓÓR de vergelijking is
-//     het hele punt: `$HOME/../../etc/x` ziet er anders uit als "binnen $HOME".
+//     het hele punt: `$HOME/../../etc/x` ziet er anders uit als "binnen $HOME". Deze guard is
+//     LEXICAAL — hij redeneert over de padtekst, niet over wat er op schijf staat. Een symlink
+//     BINNEN `$HOME` die naar buiten wijst passeert hem dus; dat is bewust: de Tauri-fs-scope
+//     (capability) is de tweede, gezaghebbende poort die zulke ontsnappingen alsnog weigert. De
+//     JS-guard levert de nette, uitlegbare fout; de capability levert de harde grens.
 //  2. OVERSCHRIJVEN. `export_ifc` weigert een bestaand bestand zonder expliciete `overwrite: true`
-//     (spec regel 110).
+//     (spec regel 110). Die controle is NIET atomair (check-dan-schrijf): tussen `exists` en
+//     `writeTextFile` kan een ander proces het bestand aanmaken. Acceptabel voor deze
+//     single-user-desktopcontext; er is geen exclusief-aanmaken-primitief in plugin-fs.
 //  3. GEEN USER-DIALOOG. Bewust geaccepteerd (spec regel 111): het pad komt uit de AI-args in plaats
 //     van uit een bestandskiezer — de instemming verschuift naar de opt-in van de bridge zelf. Het
 //     resultaat is altijd zichtbaar (import = een tabblad, export = een gemeld pad).
@@ -231,11 +237,15 @@ export const fileTools: McpToolDef[] = [
       }
 
       let path: string;
+      // `existed` wordt ALTIJD bepaald, ook met `overwrite: true` — de respons moet melden wat er
+      // werkelijk gebeurde (vervangen of nieuw aangemaakt), niet welke vlag de aanroeper meestuurde.
+      let existed: boolean;
       try {
         const scope = checkScope(await fs.homeDir(), raw.path);
         if (!scope.ok) return toolError(ctx, 'SCOPE', scope.reason);
         path = scope.path;
-        if (!overwrite && await fs.exists(path)) {
+        existed = await fs.exists(path);
+        if (existed && !overwrite) {
           return toolError(
             ctx,
             'VALIDATION',
@@ -261,9 +271,12 @@ export const fileTools: McpToolDef[] = [
         envelope: buildEnvelope(),
         data: {
           path,
-          bytes: content.length,
+          // Aantal TEKENS van het IFC-document (geen bytes: UTF-8 is multi-byte voor niet-ASCII
+          // projectnamen/omschrijvingen, dus `length` zou als byte-telling onjuist zijn).
+          characters: content.length,
           tasks: state.tasks.length,
-          overwritten: overwrite,
+          /** Werkelijke uitkomst: stond er al een bestand op dit pad dat nu vervangen is? */
+          overwritten: existed,
         },
       };
     },
@@ -279,6 +292,10 @@ export const fileTools: McpToolDef[] = [
       'VERLIES PER FORMAAT — noem dit tegen de gebruiker: CSV bevat GEEN kalender (het document ' +
       'krijgt de standaardkalender, dus datums kunnen verschuiven!) en geen resources of ' +
       'toewijzingen; P6-XML mapt Nonlabor-resources op EQUIPMENT; MSPDI is het rijkst na IFC. ' +
+      'Na een CSV-/XML-import heeft het document nog GEEN opslagdoel (opslaan schrijft altijd IFC, ' +
+      'dus het bronbestand wordt nooit overschreven); alleen een IFC-import neemt het bronpad over. ' +
+      'Gebruik altijd het `documentId` UIT DE RESPONS voor vervolgstappen — of het bestand in het ' +
+      'bestaande tabblad of in een nieuw tabblad landde hangt af van de staat van de app. ' +
       'Kalender-id\'s zijn per document: herbouw een kalender in het importdocument met ' +
       'update_calendar (generator-pad of een lezing uit het masterdocument) — hergebruik nooit een ' +
       'id uit een ander document. BESTANDSSCOPE: alleen paden binnen de home-map. Het pad komt uit ' +
@@ -338,8 +355,14 @@ export const fileTools: McpToolDef[] = [
       const store = useAppStore.getState();
       const reusedActiveTab = isActivePristine(store);
       if (!reusedActiveTab) store.newDocument();
+      const format = formatOf(path, content);
+      // OPSLAGDOEL alleen bij een IFC-bron. Opslaan schrijft ALTIJD IFC; zou een geïmporteerd
+      // .csv-/.xml-pad het opslagdoel worden, dan overschrijft de eerstvolgende Ctrl+S van de user
+      // zijn eigen bronbestand met IFC-inhoud onder een .csv/.xml-naam. Zelfde motief als de genulde
+      // `filePath` van `duplicate_document`. Gevolg: na een CSV-/XML-import is het document
+      // "naamloos" en wordt opslaan een opslaan-als — precies wat je wilt.
       useAppStore.getState().applyLoadedProject(parsed, {
-        filePath: path,
+        filePath: format === 'IFC' ? path : null,
         fileHandle: null,
         recompute: true,
         fit: true,
@@ -350,7 +373,15 @@ export const fileTools: McpToolDef[] = [
       bindExpectedDoc(ctx);
 
       const after = useAppStore.getState();
-      const format = formatOf(path, content);
+      const notices: string[] = [];
+      if (format === 'CSV') {
+        notices.push('CSV bevat geen kalender (het document draait nu op de STANDAARDkalender — datums kunnen afwijken) en geen resources/toewijzingen.');
+      } else if (format === 'P6-XML') {
+        notices.push('P6-XML: Nonlabor-resources zijn als EQUIPMENT geïmporteerd.');
+      }
+      if (format !== 'IFC') {
+        notices.push('Het document heeft nog GEEN opslagdoel: opslaan schrijft IFC, dus het bronbestand wordt niet overschreven — de gebruiker kiest bij opslaan een pad.');
+      }
       return {
         ok: true,
         envelope: buildEnvelope(),
@@ -359,15 +390,13 @@ export const fileTools: McpToolDef[] = [
           path,
           format,
           reusedActiveTab,
+          /** Opslagdoel van het document: het bronpad bij IFC, anders null (zie hierboven). */
+          filePath: after.filePath,
           tasks: after.tasks.length,
           sequences: after.sequences.length,
           resources: after.resources.length,
           // Eerlijk over wat dit formaat NIET meebrengt — de AI hoort dit door te geven.
-          notice: format === 'CSV'
-            ? 'CSV bevat geen kalender (het document draait nu op de STANDAARDkalender — datums kunnen afwijken) en geen resources/toewijzingen.'
-            : format === 'P6-XML'
-              ? 'P6-XML: Nonlabor-resources zijn als EQUIPMENT geïmporteerd.'
-              : undefined,
+          notice: notices.length > 0 ? notices.join(' ') : undefined,
         },
       };
     },

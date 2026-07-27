@@ -29,8 +29,7 @@
 
 import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
-import { hasBlockingDialogOpen } from '@/hooks/keyboard/shortcutRegistry';
-import { bindExpectedDoc, buildEnvelope, guardNonTransactional, runReadTool, toolError } from './runtime';
+import { bindExpectedDoc, buildEnvelope, guardNonTransactional, preBackupGuards, runReadTool, toolError } from './runtime';
 import type { McpContext, McpToolAnnotations, McpToolDef, McpToolErr, McpToolResult } from '../contracts';
 
 // --- T16-naad: markDuplicateBorn -----------------------------------------------------------------
@@ -56,27 +55,23 @@ export const documentToolDeps: { markDuplicateBorn: (docId: string) => void } = 
 // --- Gedeelde veiligheidsvlag-guard --------------------------------------------------------------
 
 /**
- * Pauze → alleen-lezen → dialoog, in EXACT de volgorde van `runMutateTool`/`guardNonTransactional`
- * (spec §UI/veiligheid 128-132), maar ZONDER de drift-check en zonder transactie/backup. De
- * runtime-versie hiervan (`preBackupGuards`) is module-privaat; deze tools kunnen die volgorde niet
- * hergebruiken zonder ook de drift-check te erven, en die is hier per tool verschillend (zie de
- * kopcomment). Gedeeld met `fileTools.ts` (zelfde T21-baan).
+ * Pauze → alleen-lezen → dialoog: EXACT dezelfde guards en volgorde als
+ * `runMutateTool`/`guardNonTransactional` (spec §UI/veiligheid 128-132), maar ZONDER de drift-check
+ * en zonder transactie/backup — die is hier per tool verschillend (zie de kopcomment).
+ *
+ * Bewust een dunne doorgeefpost naar de ÉNE guard-implementatie in `runtime.ts`
+ * (`preBackupGuards`, daarvoor geëxporteerd) in plaats van een tweede kopie. Een kopie zou (a) de
+ * guard-volgorde kunnen laten afdrijven en (b) — zoals de review terecht ving — de spec-eis missen
+ * dat de DIALOG_OPEN-fout BENOEMT wélke dialoog blokkeert; die naamgeving zit in de runtime-versie.
  *
  * Waarom óók `readOnly` op tools die de planning niet wijzigen: fail-closed. Een document aanmaken/
  * wisselen of een bestand wegschrijven zijn zichtbare neveneffecten op de werkomgeving van de user;
  * "alleen-lezen" hoort dan te betekenen dat de AI niets doet behalve lezen.
+ *
+ * Gedeeld met `fileTools.ts` (zelfde T21-baan).
  */
 export function guardBridgeFlags(ctx: McpContext): McpToolErr | null {
-  if (ctx.paused) {
-    return toolError(ctx, 'PAUSED', 'De AI-bridge is door de gebruiker gepauzeerd; alleen leestools zijn nu toegestaan.');
-  }
-  if (ctx.readOnly) {
-    return toolError(ctx, 'READ_ONLY', 'De AI-bridge staat in alleen-lezen-modus; alleen leestools zijn nu toegestaan.');
-  }
-  if (hasBlockingDialogOpen()) {
-    return toolError(ctx, 'DIALOG_OPEN', 'Er staat een dialoog open; sluit die eerst voordat de AI documenten wisselt of bestanden schrijft.');
-  }
-  return null;
+  return preBackupGuards(ctx);
 }
 
 // --- list_documents ------------------------------------------------------------------------------

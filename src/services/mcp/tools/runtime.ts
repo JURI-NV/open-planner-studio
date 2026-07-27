@@ -139,8 +139,14 @@ function mapTransactionError(message: string): McpErrorCode {
  * De guards die GEEN async grens kennen: pauze → alleen-lezen → dialoog. Gedeeld door
  * `runMutateTool` (vóór de backup-await) en `guardNonTransactional`. Retourneert een `McpToolErr` bij
  * een blokkade, anders null.
+ *
+ * GEËXPORTEERD (T21): de document-/bestands-tools hebben deze drie guards nodig ZONDER de
+ * drift-check erachter — `switch_document` is per spec juist de drift-bevestiging en mag er niet
+ * zelf op falen; `new_document`/`import_schedule` verzetten het anker sowieso. Zij hergebruiken
+ * deze functie i.p.v. de volgorde én de dialoog-naamgeving te kopiëren (spec: de fout benoemt
+ * wélke dialoog blokkeert).
  */
-function preBackupGuards(ctx: McpContext): McpToolErr | null {
+export function preBackupGuards(ctx: McpContext): McpToolErr | null {
   if (ctx.paused) {
     return toolError(ctx, 'PAUSED', 'De AI-bridge is door de gebruiker gepauzeerd; muterende tools zijn tijdelijk geweigerd.');
   }
