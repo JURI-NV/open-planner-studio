@@ -22,6 +22,9 @@ export interface UiSlice {
   collapseAll: () => void;
   /** Presentatie-modus (§9): zet de flag + roept de echte Fullscreen-API aan. */
   setPresentationMode: (on: boolean) => void;
+  /** Meld dat een structuurmutatie geweigerd is omdat de weergave niet in pure boommodus staat
+   *  (issue #26): hoogt de teller op zodat `StructureLockedNotice` (opnieuw) verschijnt. */
+  notifyStructureLocked: () => void;
 }
 
 export function createDefaultUI(): UIState {
@@ -47,7 +50,11 @@ export function createDefaultUI(): UIState {
     uiTheme: 'dark',
     enableQuarterHourZoom: false,
     weekStartDay: 'monday',
-    scrollMode: 'modifier',
+    // 'drag' (zoom + slepen, map-style) is sinds issue #22 de standaard: het is de meest
+    // intuïtieve navigatie en werkt zonder modifier-toetsen. Wie eerder al een voorkeur opsloeg
+    // houdt die — settingsRegistry patcht dit veld alleen bij een aanwezige localStorage-sleutel,
+    // en die wordt uitsluitend geschreven als de gebruiker de modus zelf omzet.
+    scrollMode: 'drag',
     positionDivision: 'left-right',
     modifierMap: { plain: 'vertical', ctrl: 'zoom', shift: 'horizontal' },
     debugTerminalEnabled: false,
@@ -86,7 +93,10 @@ export function createDefaultUI(): UIState {
     allowMixedDayHour: true,
     durationDisplay: 'auto',
     barSplitMode: 'selection',
+    // Issue #21 punt 5 (fase 2): default UIT (§0/§7.1 user-besluit).
+    compressNonWorkdays: false,
     hourDataNotice: false,
+    structureLockedNotice: 0,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
@@ -146,6 +156,10 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
   setAiServerStatus: (status) => set((s) => { s.ui.aiServerStatus = status; }),
   setAiPaused: (paused) => set((s) => { s.ui.aiPaused = paused; }),
   setAiReadOnly: (readOnly) => set((s) => { s.ui.aiReadOnly = readOnly; }),
+  // issue #26: sessie-UI-state, dus geen undo-snapshot en niet gepersisteerd — puur een signaal
+  // waar `StructureLockedNotice` op reageert.
+  notifyStructureLocked: () =>
+    set((s) => { s.ui.structureLockedNotice += 1; }),
 
   toggleCollapse: (taskId) => {
     set((s) => {

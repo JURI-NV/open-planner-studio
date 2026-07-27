@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/state/appStore';
 import { Locale, LANGUAGE_LABELS, supportedLanguages, setLocale } from '@/i18n/config';
 import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode } from '@/state/slices/types';
-import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode } from '@/utils/settingsStore';
+import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode, saveCompressNonWorkdays } from '@/utils/settingsStore';
 import { applyAiModeLive } from '@/services/mcp/server';
 import { Select } from '@/components/common/Select';
 import { ScrollZoomSettings } from '@/components/dialogs/ScrollZoomSettings';
@@ -47,6 +47,7 @@ export function SettingsPanelContent() {
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const barSplitMode = useAppStore(s => s.ui.barSplitMode);
   const aiMode = useAppStore(s => s.ui.aiMode);
+  const compressNonWorkdays = useAppStore(s => s.ui.compressNonWorkdays);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
@@ -98,6 +99,12 @@ export function SettingsPanelContent() {
   const applyBarSplitMode = (value: BarSplitMode) => {
     setUI({ barSplitMode: value });
     void saveBarSplitMode(value);
+  };
+
+  // Issue #21 punt 5 (fase 2): «alleen werkbare dagen tonen».
+  const applyCompressNonWorkdays = (checked: boolean) => {
+    setUI({ compressNonWorkdays: checked });
+    void saveCompressNonWorkdays(checked);
   };
 
   return (
@@ -281,6 +288,18 @@ export function SettingsPanelContent() {
                   { value: 'always', label: t('settings.barSplitAlways') },
                 ]}
               />
+            </div>
+            <div className="settings-section">
+              <h3>{t('settings.compressNonWorkdaysSection')}</h3>
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={compressNonWorkdays}
+                  onChange={e => applyCompressNonWorkdays(e.target.checked)}
+                />
+                <span>{t('settings.compressNonWorkdays')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.compressNonWorkdaysHint')}</p>
             </div>
             <div className="settings-section">
               <h3>{t('settings.weekStartDay')}</h3>

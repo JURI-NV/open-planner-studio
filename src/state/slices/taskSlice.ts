@@ -42,6 +42,17 @@ export interface TaskSlice {
    *  s.tasks-array (root-volgorde + WBS via flattenOrder, dat childIds negeert); dubbele-volgorde-
    *  principe als store-`addTask` met anker. Out-of-range positie klemt naar [0, aantal siblings]. */
   moveTask: (id: string, newParentId: string | null, position?: number) => void;
+  /** Issue #21 punt 1 (fase 1): verticaal taak-verslepen — verplaatst `id` naar een exacte positie
+   *  (i.p.v. `moveTask`'s "altijd achteraan"). `target.parentId` = nieuwe ouder (`null` = root);
+   *  `target.childIndex` = gewenste 0-based positie in diens kindlijst, geklemd op `[0..length]`.
+   *  Houdt (net als `addTask`-position) ALLE drie waarheidsbronnen synchroon: `parentId`,
+   *  `childIds` van oude+nieuwe ouder, én de rauwe `s.tasks`-array (enkel-node-splice, geen
+   *  block-move — `flattenOrder` groepeert toch op `parentId`). Guards (in volgorde): onbekende
+   *  taak/ouder, cykel (nieuwe ouder = zichzelf of een afstammeling), en no-op (zelfde ouder +
+   *  zelfde effectieve index) ⇒ stil niets doen, geen undo-entry. Raakt `task.time` nergens aan.
+   *  `scheduleStale` alleen bij reparent (andere ouder) — pure herordening binnen dezelfde ouder
+   *  raakt geen summary-rollups, net als `reorderSibling`. */
+  moveTaskTo: (id: string, target: { parentId: string | null; childIndex: number }) => void;
   selectTask: (id: string, multi?: boolean, range?: boolean) => void;
   selectTaskRange: (fromId: string, toId: string) => void;
   deselectAll: () => void;
@@ -88,6 +99,126 @@ export interface TaskSlice {
   addExternalLink: (taskId: string, link: Omit<ExternalLink, 'id'>) => string;
   /** Verwijder een externe link van een taak (fase 2.9). Datum-beïnvloedend ⇒ scheduleStale. */
   removeExternalLink: (taskId: string, linkId: string) => void;
+}
+
+/**
+ * Uitkomst van `planTaskPlacement`: WAAR een taak na de mutatie moet staan.
+ * `index` is de reeds op `[0..n]` geklemde positie in de kindlijst van de nieuwe ouder, gemeten
+ * in `siblingIdsAfterRemoval` (die lijst ZÓNDER de taak zelf — de mutatie is immers
+ * eerst-verwijderen-dan-invoegen). `siblingIdsAfterRemoval` wordt ook gebruikt om het juiste
+ * anker in de rauwe `s.tasks`-array te vinden.
+ */
+interface TaskPlacement {
+  parentId: string | null;
+  index: number;
+  siblingIdsAfterRemoval: string[];
+}
+
+/**
+ * Bepaalt de doelpositie van een taak ZONDER iets te muteren. Gedeeld door `moveTaskTo`
+ * (rij-slepen, issue #21) en `outdentTasks` (uitspringen, issue #26) zodat uitspringen niet
+ * opnieuw uit de pas kan lopen met slepen: één plek waar de guards, het klemmen én de
+ * ankerbepaling wonen.
+ *
+ * Guards (in volgorde) ⇒ `null`, en `null` betekent voor de aanroeper: HELEMAAL niets doen —
+ * geen undo-snapshot, geen halftoegepaste state:
+ *  1. onbekende taak;
+ *  2. onbekende doel-ouder (`null` = root is altijd geldig);
+ *  3. cykel — de nieuwe ouder is de taak zelf of een afstammeling ervan (loop omhoog door de
+ *     ouderketen, met visited-set tegen corrupte parentId-cycli uit een kapot IFC);
+ *  4. no-op — zelfde ouder én zelfde effectieve index; alleen wanneer `opts.rejectNoOp` aanstaat.
+ *     `curIdx` (index MÉT zichzelf) en `index` (index ZONDER zichzelf) zijn rechtstreeks
+ *     vergelijkbaar: alles vóór `curIdx` blijft na verwijdering ongewijzigd.
+ *
+ * De root-"kindlijst" bestaat niet als array: de root-siblingvolgorde is de relatieve volgorde
+ * binnen de rauwe `tasks`-array (zie `flattenOrder` in utils/wbs.ts, de `!parentId`-root-scan in
+ * engine/view/visibleRows.ts en de toelichting in engine/view/dropTarget.ts).
+ */
+function planTaskPlacement(
+  tasks: Task[],
+  id: string,
+  target: { parentId: string | null; childIndex: number },
+  opts: { rejectNoOp: boolean },
+): TaskPlacement | null {
+  // Guard 1: taak bestaat.
+  const task = tasks.find(t => t.id === id);
+  if (!task) return null;
+
+  // Guard 2: doel-ouder bestaat (of is root = null).
+  const newParentId = target.parentId;
+  if (newParentId !== null && !tasks.some(t => t.id === newParentId)) return null;
+
+  // Guard 3: cykel.
+  if (newParentId !== null) {
+    const bezocht = new Set<string>();
+    let cur: Task | undefined = newParentId === id ? task : tasks.find(t => t.id === newParentId);
+    while (cur && !bezocht.has(cur.id)) {
+      if (cur.id === id) return null; // newParentId is id zelf, of een afstammeling van id
+      bezocht.add(cur.id);
+      cur = cur.parentId ? tasks.find(t => t.id === cur!.parentId) : undefined;
+    }
+  }
+
+  const oldParentId = task.parentId;
+  const oldParent = oldParentId ? tasks.find(t => t.id === oldParentId) : undefined;
+  const newParent = newParentId ? tasks.find(t => t.id === newParentId) : undefined;
+
+  const siblingIdsAfterRemoval = newParent
+    ? newParent.childIds.filter(cid => cid !== id)
+    : tasks.filter(t => !t.parentId && t.id !== id).map(t => t.id);
+  const index = Math.max(0, Math.min(target.childIndex, siblingIdsAfterRemoval.length));
+
+  // Guard 4: no-op (alleen op verzoek — zie doc hierboven).
+  if (opts.rejectNoOp && newParentId === oldParentId) {
+    const curIdx = oldParent
+      ? oldParent.childIds.indexOf(id)
+      : tasks.filter(t => !t.parentId).map(t => t.id).indexOf(id);
+    if (index === curIdx) return null;
+  }
+
+  return { parentId: newParentId, index, siblingIdsAfterRemoval };
+}
+
+/**
+ * Voert een `planTaskPlacement`-plan uit en houdt ALLE drie de waarheidsbronnen synchroon:
+ * `task.parentId`, de `childIds` van oude+nieuwe ouder, én de rauwe `tasks`-array.
+ *
+ * De rauwe array verhuist als ENKELE NODE (geen block-move van de subtree): kinderen blijven via
+ * `parentId` gewoon hangen en `flattenOrder` groepeert toch op `parentId`, dus een verspreide
+ * subtree is functioneel prima — exact zoals `reorderSibling`'s root-swap de array al
+ * niet-aaneengesloten maakt zonder dat display/WBS breekt.
+ *
+ * Roep dit alleen aan met een plan dat op dezelfde (ongewijzigde) `tasks` is berekend; de
+ * aanroeper doet de undo-snapshot, `applyWbsNumbering` en `finishMutation`.
+ */
+function applyTaskPlacement(tasks: Task[], id: string, plan: TaskPlacement): void {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return; // kan niet: guard 1 van planTaskPlacement dekt dit al (defensief).
+  const oldParent = task.parentId ? tasks.find(t => t.id === task.parentId) : undefined;
+  const newParent = plan.parentId ? tasks.find(t => t.id === plan.parentId) : undefined;
+
+  // childIds (display-bron, zie visibleRows.ts): verwijderen uit oude ouder, invoegen in nieuwe.
+  if (oldParent) oldParent.childIds = oldParent.childIds.filter(cid => cid !== id);
+  task.parentId = plan.parentId;
+  if (newParent) newParent.childIds.splice(plan.index, 0, id);
+
+  // Rauwe tasks-array (WBS/flatten + root-volgorde, zie utils/wbs.ts flattenOrder).
+  const rawIdx = tasks.findIndex(t => t.id === id);
+  const [node] = tasks.splice(rawIdx, 1);
+  if (plan.index >= plan.siblingIdsAfterRemoval.length) {
+    // Achteraan: vlak ná het laatste element van de kindgroep in de rauwe array (of, als er
+    // geen enkele sibling is, gewoon achteraan de hele array).
+    const lastSiblingId = plan.siblingIdsAfterRemoval[plan.siblingIdsAfterRemoval.length - 1];
+    const lastSiblingRawIdx = lastSiblingId ? tasks.findIndex(t => t.id === lastSiblingId) : -1;
+    if (lastSiblingRawIdx >= 0) tasks.splice(lastSiblingRawIdx + 1, 0, node);
+    else tasks.push(node);
+  } else {
+    // Vóór het element dat nu (ná verwijdering van `id`) op `plan.index` staat.
+    const anchorId = plan.siblingIdsAfterRemoval[plan.index];
+    const anchorRawIdx = tasks.findIndex(t => t.id === anchorId);
+    if (anchorRawIdx >= 0) tasks.splice(anchorRawIdx, 0, node);
+    else tasks.push(node);
+  }
 }
 
 /**
@@ -314,9 +445,15 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // die haalt parentId daarom uit de kale `updateTask`-patch en roept in plaats daarvan dit aan).
       // `position` verandert deze guards NIET: een geweigerde move blijft ook mét positie geweigerd.
       if (newParentId != null) {
+        // Review issue #21 pt. 1: visited-set voorkomt een oneindige lus (app-bevriezing) op
+        // corrupte parentId-cycli die id zelf niet bevatten (bereikbaar via een corrupt IFC —
+        // extractNesting zet parentId zonder cykelcheck). flattenOrder overleeft zo'n cyclus
+        // al met een seen-set; deze walk nu ook.
+        const bezocht = new Set<string>();
         let cur: Task | undefined = newParentId === id ? task : s.tasks.find(t => t.id === newParentId);
-        while (cur) {
+        while (cur && !bezocht.has(cur.id)) {
           if (cur.id === id) return; // newParentId is id zelf, of een afstammeling van id
+          bezocht.add(cur.id);
           cur = cur.parentId ? s.tasks.find(t => t.id === cur!.parentId) : undefined;
         }
       }
@@ -385,6 +522,30 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     get().recomputeViewRows();
   },
 
+  moveTaskTo: (id, target) => {
+    set((s) => {
+      const task = s.tasks.find(t => t.id === id);
+      if (!task) return;
+      const oldParentId = task.parentId; // vóór de mutatie lezen (bepaalt hieronder `stale`).
+
+      // Alle guards (onbekende taak/ouder, cykel, no-op) zitten in de gedeelde planner; `null` ⇒
+      // GEEN snapshot, GEEN mutatie. `rejectNoOp: true` — slepen naar de eigen plek mag geen
+      // undo-entry of dirty-vlag opleveren.
+      const plan = planTaskPlacement(s.tasks, id, target, { rejectNoOp: true });
+      if (!plan) return;
+
+      beginUndoable(s); // één undo-stap, géén coalesceKey (één aanroep per geslaagde move).
+      applyTaskPlacement(s.tasks, id, plan);
+
+      if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
+      // Pure herordening (zelfde ouder) ⇒ géén stale (identiek aan reorderSibling: raakt geen
+      // tijden/CPM). Reparent (andere ouder) ⇒ stale:true — summary-rollups (vroege start/einde)
+      // verschuiven, dat herberekent alleen F5/runCPM. De taak zelf (`task.time`) blijft ongemoeid.
+      finishMutation(s, { stale: plan.parentId !== oldParentId });
+    });
+    get().recomputeViewRows();
+  },
+
   indentTasks: (ids) => {
     set((s) => {
       // Kandidaat-ouder = de voorgaande sibling in de weergavevolgorde (flattenOrder).
@@ -445,16 +606,36 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         if (!task || !task.parentId) continue;
         const parent = s.tasks.find(t => t.id === task.parentId);
         if (!parent) continue;
+
+        // Doel (issue #26): sibling DIRECT ná de voormalige ouder — precies wat de
+        // interface-comment hierboven belooft. Zoek daarvoor de positie van `parent` in DIENS
+        // eigen siblinglijst: de childIds van de grootouder, of — als `parent` op rootniveau
+        // staat — de root-volgorde uit de rauwe array (zie engine/view/dropTarget.ts).
+        // Dat root-geval was het echte gat: daar werd de volgorde vroeger helemaal niet
+        // bijgewerkt, waardoor de taak op zijn oude (meestal laatste) array-plek bleef staan.
+        const parentSiblingIds = parent.parentId
+          ? (s.tasks.find(t => t.id === parent.parentId)?.childIds ?? [])
+          : s.tasks.filter(t => !t.parentId).map(t => t.id);
+        const parentIdx = parentSiblingIds.indexOf(parent.id);
+        // `parent` niet in zijn eigen siblinglijst (corrupte state): achteraan, zoals vroeger.
+        const childIndex = parentIdx >= 0 ? parentIdx + 1 : parentSiblingIds.length;
+
+        // Zelfde plaatsingslogica als rij-slepen (`moveTaskTo`), inclusief het synchroon houden
+        // van parentId + childIds + rauwe array. `rejectNoOp: false`: uitspringen is per definitie
+        // een reparent, dus de no-op-guard kan hier nooit terecht afgaan — uitgezet zodat hij een
+        // legitieme herplaatsing niet per ongeluk kan tegenhouden.
+        const plan = planTaskPlacement(
+          s.tasks, id, { parentId: parent.parentId, childIndex }, { rejectNoOp: false },
+        );
+        if (!plan) continue; // alleen bij een kapotte boom (bv. verweesde grootouder-id).
+
+        // Lazy snapshot: pas bij de EERSTE échte wijziging, zodat een volledig geweigerde poging
+        // géén undo-stap oplevert — en meerdere taken samen precies één undo-stap.
         if (!snapshotPushed) {
           beginUndoable(s);
           snapshotPushed = true;
         }
-        parent.childIds = parent.childIds.filter(c => c !== id);
-        task.parentId = parent.parentId;
-        if (parent.parentId) {
-          const grandParent = s.tasks.find(t => t.id === parent.parentId);
-          if (grandParent) grandParent.childIds.push(id);
-        }
+        applyTaskPlacement(s.tasks, id, plan);
         changed = true;
       }
       if (!changed) return;
@@ -541,11 +722,26 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         if (idx < 0) return;
         const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (swapIdx < 0 || swapIdx >= parent.childIds.length) return; // rand: no-op
+        const otherId = parent.childIds[swapIdx];
 
         beginUndoable(s);
         const tmp = parent.childIds[idx];
         parent.childIds[idx] = parent.childIds[swapIdx];
         parent.childIds[swapIdx] = tmp;
+
+        // Rauwe s.tasks-array meeschuiven (WBS/flattenOrder-bron, zie utils/wbs.ts) —
+        // ENKEL-NODE-splice, exact zoals moveTaskTo hierboven (:414-434): alleen `taskId`
+        // zelf verhuist relatief t.o.v. `otherId`, subtrees blijven via parentId gewoon
+        // hangen. Zonder deze stap loopt de WBS-nummering (raw-array-volgorde) uit de pas
+        // met de weergave (childIds-volgorde, zie visibleRows.ts:242).
+        const rawIdx = s.tasks.findIndex(t => t.id === taskId);
+        const [node] = s.tasks.splice(rawIdx, 1);
+        const otherRawIdx = s.tasks.findIndex(t => t.id === otherId);
+        if (direction === 'up') {
+          s.tasks.splice(otherRawIdx, 0, node); // vóór otherId
+        } else {
+          s.tasks.splice(otherRawIdx + 1, 0, node); // ná otherId
+        }
       } else {
         // Root-niveau: er is geen aparte root-childIds-array — de sibling-volgorde is de
         // relatieve positie binnen de rauwe `s.tasks`-array (zie flattenOrder in utils/wbs.ts en

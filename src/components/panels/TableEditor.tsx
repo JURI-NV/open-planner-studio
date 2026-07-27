@@ -1,18 +1,21 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { Task } from '@/types/task';
 import { CustomFieldDef, CustomFieldValue } from '@/types/structure';
-import { defaultColumns } from '@/engine/view/visibleRows';
+import { defaultColumns, isTreeMode } from '@/engine/view/visibleRows';
+import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import { formatDate } from '@/utils/dateUtils';
 import { resourceCellValue, type ViewContext } from '@/engine/view/filterEval';
 import type { ColumnConfig, FieldRef, BuiltinFieldKey } from '@/state/slices/types';
 import { useTaskTypeLabels } from '@/i18n/taskTypes';
-import { DateTextInput } from '@/components/common/DateTextInput';
+import { DateTextInput, parseFlexibleDate } from '@/components/common/DateTextInput';
 import { useDisplayDate } from '@/hooks/displayDate';
 import { effectiveCalendarOf, effHoursPerDay, formatTaskDurationDisplay, detectMixedCalendars, durationSuffixesFrom } from '@/utils/taskDuration';
 import { isHourCalendar } from '@/services/subdayIo';
 import { parseDuration, formatDuration } from '@/utils/durationFormat';
 import { AlertTriangle } from 'lucide-react';
+import { useTableRowDrag } from './hooks/useTableRowDrag';
 
 const MIN_COLUMN_WIDTH = 40;
 
@@ -97,8 +100,19 @@ export function TableEditor() {
   const { labels: taskTypeLabels } = useTaskTypeLabels();
   const tasks = useAppStore(s => s.tasks);
   const updateTask = useAppStore(s => s.updateTask);
+  const addTask = useAppStore(s => s.addTask);
   const selectTask = useAppStore(s => s.selectTask);
+  // issue #26: voortgang loopt via de bewaakte route (statusdatum-invarianten, auto actualStart).
+  const setTaskProgress = useAppStore(s => s.setTaskProgress);
+  const project = useAppStore(s => s.project);
+  const view = useAppStore(s => s.view);
   const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+  // issue #26: Tab/Shift+Tab springt rijen in/uit; buiten pure boommodus legt de melding uit waarom niet.
+  const indentTasks = useAppStore(s => s.indentTasks);
+  const outdentTasks = useAppStore(s => s.outdentTasks);
+  const notifyStructureLocked = useAppStore(s => s.notifyStructureLocked);
+  // issue #26 punt 6: rijen verticaal slepen in de tabel (zelfde doelberekening als het canvas).
+  const moveTaskTo = useAppStore(s => s.moveTaskTo);
   const collapsedTaskIds = useAppStore(s => s.ui.collapsedTaskIds);
   const toggleCollapse = useAppStore(s => s.toggleCollapse);
   const activityCodeTypes = useAppStore(s => s.activityCodeTypes);
@@ -121,6 +135,28 @@ export function TableEditor() {
   const [editCell, setEditCell] = useState<{ taskId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [resizing, setResizing] = useState<{ index: number; startX: number; startWidth: number } | null>(null);
+  // issue #26 (spreadsheet-gevoel): de cel waar de cursor "staat" zonder dat er getypt wordt —
+  // één klik zet hem, typen/F2/Enter start pas de bewerking.
+  const [activeCell, setActiveCell] = useState<{ taskId: string; field: string } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Spiegel van `editCell` voor de focus-herstelcheck ná de render (zie restoreGridFocus).
+  const editCellRef = useRef<{ taskId: string; field: string } | null>(null);
+  useEffect(() => { editCellRef.current = editCell; }, [editCell]);
+
+  // Punt D (issue #26): na een commit hoort de focus terug op het raster, anders werkt
+  // "typen om te bewerken" niet meer zodra je één keer een cel bewerkt hebt. We plannen het
+  // herstel ná de render en slaan het over wanneer (a) er intussen een nieuwe bewerking loopt
+  // — een navigatiesprong, waar de autoFocus-input de focus hoort te houden — of (b) de focus
+  // bewust naar iets anders is geklikt (ribbon, select in een rij): dan staat er een echt
+  // element scherp en kapen we hem niet terug.
+  const restoreGridFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (editCellRef.current) return;
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      containerRef.current?.focus({ preventScroll: true });
+    });
+  }, []);
 
   // Mixed-kalender-detectie (§6.5): alleen relevant als Urenplanning aan staat (anders byte-identiek).
   const mixed = useMemo(
@@ -138,7 +174,11 @@ export function TableEditor() {
   // Geformatteerde duurweergave (§6.5) + parseerbare edit-seed (uur-taak ⇒ uur-vorm via parseDuration).
   const durationDisplayValue = (task: Task): string =>
     formatTaskDurationDisplay(task, effectiveCalendarOf(task, projectCal, calendars), durationDisplay, enableHourPlanning, durationSuffixes);
-  const durationEditSeed = (task: Task): string => {
+  // useCallback met de ECHTE dependencies: deze seed wordt niet alleen in de render gebruikt maar
+  // ook door `getCellValue`, en die hangt weer in de dependency-arrays van de toetsenbord-handlers.
+  // Zonder dit leest een handler-closure verouderde kalender-/urenplanning-state (er is geen lint
+  // die dat hier vangt).
+  const durationEditSeed = useCallback((task: Task): string => {
     const cal = effectiveCalendarOf(task, projectCal, calendars);
     if (enableHourPlanning && isHourCalendar(cal) && !task.isMilestone) {
       const hpd = effHoursPerDay(cal);
@@ -146,7 +186,7 @@ export function TableEditor() {
       return formatDuration(min, hpd, 'hours');
     }
     return `${task.isMilestone ? 0 : task.time.scheduleDuration}`;
-  };
+  }, [projectCal, calendars, enableHourPlanning]);
   const durationCellTitle = (task: Task): string | undefined => {
     if (!enableHourPlanning) return undefined;
     return `${effHoursPerDay(effectiveCalendarOf(task, projectCal, calendars))} ${t('table.hoursPerDayTip')}`;
@@ -207,10 +247,44 @@ export function TableEditor() {
     [viewRows],
   );
 
-  const startEdit = useCallback((taskId: string, field: string, value: string) => {
+  // issue #26 punt 6: verticaal rijen slepen. `rows` is bewust de VOLLEDIGE viewRows (inclusief
+  // groepsrijen) — `data-ops-row-index` en `resolveDropTarget` indexeren daarin, niet in taskRows.
+  const tasksById = useMemo(() => new Map(tasks.map(t2 => [t2.id, t2])), [tasks]);
+  const justDraggedRef = useRef(false);
+  const { startRowDrag, dragState: rowDragState, active: rowDragActive } = useTableRowDrag({
+    rows: viewRows,
+    tasksById,
+    moveTaskTo,
+    enabled: isTreeMode(view),
+    onBlocked: notifyStructureLocked,
+    justDraggedRef,
+  });
+
+  // "Selecteer alles bij het openen" (issue #26): opent de bewerking met de BESTAANDE waarde, dan
+  // hoort de eerstvolgende toets die waarde te vervangen — het hernoem-gedrag uit de
+  // bestandsverkenner. Alleen op de klik- en F2-route. Bewust NIET op de typ-route
+  // (`startEdit(..., e.key)`), de Backspace/Delete-route en de nieuwe-rij-route: daar is de seed het
+  // getypte teken of een lege string, en zou een select-all elke volgende toets de vorige laten
+  // wissen — dan kun je nog maar één letter typen. Een ref (geen state) omdat de vlag alleen tussen
+  // startEdit en het mounten van de input hoeft te leven en geen extra render mag veroorzaken.
+  const selectAllOnOpenRef = useRef(false);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+
+  const startEdit = useCallback((taskId: string, field: string, value: string, opts?: { selectAll?: boolean }) => {
+    selectAllOnOpenRef.current = opts?.selectAll === true;
     setEditCell({ taskId, field });
     setEditValue(value);
+    // De cursor blijft ná de bewerking op dezelfde cel staan (issue #26).
+    setActiveCell({ taskId, field });
   }, []);
+
+  // Loopt ná het mounten van de bewerk-input (refs zijn dan gezet), dus `select()` treft het echte
+  // veld. De vlag wordt meteen gewist zodat een volgende bewerking hem niet erft.
+  useEffect(() => {
+    if (!editCell || !selectAllOnOpenRef.current) return;
+    selectAllOnOpenRef.current = false;
+    editInputRef.current?.select();
+  }, [editCell]);
 
   const commitEdit = useCallback(() => {
     if (!editCell) return;
@@ -219,7 +293,10 @@ export function TableEditor() {
     if (!task) { setEditCell(null); return; }
 
     if (field === 'name') {
-      updateTask(taskId, { name: editValue });
+      // Een lege naam is nooit een bedoelde invoer: de nieuwe-rij-seed is bewust leeg (zodat typen
+      // direct overschrijft) en een blur zonder typen zou anders een naamloze taak achterlaten.
+      // Leeg ⇒ niets schrijven, net als bij de duur- en datumcellen.
+      if (editValue.trim() !== '') updateTask(taskId, { name: editValue });
     } else if (field === 'wbsCode') {
       updateTask(taskId, { wbsCode: editValue });
     } else if (field === 'duration') {
@@ -239,15 +316,27 @@ export function TableEditor() {
           updateTask(taskId, { time: { ...task.time, scheduleDuration: parseInt(editValue) || 0 } });
         }
       }
-    } else if (field === 'start') {
-      updateTask(taskId, { time: { ...task.time, scheduleStart: editValue } });
-    } else if (field === 'finish') {
-      updateTask(taskId, { time: { ...task.time, scheduleFinish: editValue } });
+    } else if (field === 'start' || field === 'finish') {
+      // Datumcel: parse-of-weiger, hetzelfde contract als de duurcel. Rauwe invoer wegschrijven zou
+      // rommel ("x") de CPM-invoer en het IFC-opslaan in duwen — en met "typen overschrijft" is één
+      // toets genoeg om daar te komen. Leeg of onparseerbaar ⇒ niets schrijven, waarde blijft staan;
+      // geen dialoog, geen toast (net als bij de duur).
+      const iso = parseFlexibleDate(editValue);
+      if (iso) {
+        updateTask(taskId, {
+          time: field === 'start'
+            ? { ...task.time, scheduleStart: iso }
+            : { ...task.time, scheduleFinish: iso },
+        });
+      }
     } else if (field === 'completion') {
-      updateTask(taskId, { time: { ...task.time, completion: (parseInt(editValue) || 0) / 100 } });
+      // Via de bewaakte route (issue #26): setTaskProgress klemt zelf op 0..1, zet auto een
+      // actualStart bij >0, laat actualFinish vallen onder 100% en past de statusdatum-
+      // invarianten toe — een rechtstreekse updateTask omzeilde dat allemaal.
+      setTaskProgress(taskId, (parseInt(editValue) || 0) / 100);
     }
     setEditCell(null);
-  }, [editCell, editValue, tasks, updateTask, projectCal, calendars, enableHourPlanning]);
+  }, [editCell, editValue, tasks, updateTask, setTaskProgress, projectCal, calendars, enableHourPlanning]);
 
   // Navigeerbare (bewerkbare) velden, in de volgorde van de zichtbare kolommen.
   const editableFields = useMemo(() => {
@@ -260,7 +349,7 @@ export function TableEditor() {
     return keys;
   }, [visibleColumns, wbsAutoNumber]);
 
-  const getCellValue = (task: Task, field: string): string => {
+  const getCellValue = useCallback((task: Task, field: string): string => {
     if (field === 'name') return task.name;
     if (field === 'wbsCode') return task.wbsCode;
     if (field === 'duration') return durationEditSeed(task);
@@ -268,30 +357,69 @@ export function TableEditor() {
     if (field === 'finish') return task.time.earlyFinish || task.time.scheduleFinish;
     if (field === 'completion') return `${Math.round(task.time.completion * 100)}`;
     return '';
-  };
+  }, [durationEditSeed]);
+
+  /** Pure buurcel-rekensom over (taakrijen × bewerkbare kolommen). `null` = geen buur (rand,
+   *  onbekende rij/kolom, of geen bewerkbare kolommen zichtbaar). Gedeeld door de bewerk-navigatie
+   *  en de rasternavigatie met de pijltjestoetsen (issue #26). */
+  const neighbourCell = useCallback(
+    (taskId: string, field: string, direction: 'up' | 'down' | 'left' | 'right'): { taskId: string; field: string } | null => {
+      const rowIndex = taskRows.findIndex(r => r.task.id === taskId);
+      const colIndex = editableFields.indexOf(field);
+      if (rowIndex === -1 || colIndex === -1) return null;
+
+      let newRow = rowIndex;
+      let newCol = colIndex;
+
+      if (direction === 'up') newRow = Math.max(0, rowIndex - 1);
+      else if (direction === 'down') newRow = Math.min(taskRows.length - 1, rowIndex + 1);
+      else if (direction === 'left') newCol = Math.max(0, colIndex - 1);
+      else if (direction === 'right') newCol = Math.min(editableFields.length - 1, colIndex + 1);
+
+      if (newRow === rowIndex && newCol === colIndex) return null;
+      return { taskId: taskRows[newRow].task.id, field: editableFields[newCol] };
+    },
+    [taskRows, editableFields],
+  );
+
+  // Een cel die niet meer BESTAAT mag niet actief of in bewerking blijven: de rij kan verdwenen zijn
+  // (verwijderd, weggefilterd, ingeklapt) of de kolom verborgen. Bleef `editCell` staan op een cel
+  // die nergens meer gerenderd wordt, dan was er geen input én slikte de guard bovenin
+  // `handleGridKeyDown` élke toets op — het raster stond dan stil dood. De bewerking wordt in dat
+  // geval afgebroken ZONDER commit (de cel is immers weg). Alleen zetten wanneer de waarde echt
+  // verandert, anders is dit een render-lus.
+  useEffect(() => {
+    const bestaat = (cell: { taskId: string; field: string } | null): boolean =>
+      !cell || (taskRows.some(r => r.task.id === cell.taskId) && editableFields.includes(cell.field));
+    if (!bestaat(activeCell)) setActiveCell(null);
+    if (!bestaat(editCell)) setEditCell(null);
+  }, [taskRows, editableFields, activeCell, editCell]);
 
   const navigateCell = useCallback((taskId: string, field: string, direction: 'up' | 'down' | 'left' | 'right') => {
     commitEdit();
+    const next = neighbourCell(taskId, field, direction);
+    if (next) {
+      const nextTask = taskRows.find(r => r.task.id === next.taskId)?.task;
+      if (!nextTask) return;
+      selectTask(nextTask.id);
+      startEdit(nextTask.id, next.field, getCellValue(nextTask, next.field));
+      return;
+    }
+    // issue #26: Enter/↓ op de LAATSTE rij maakt een nieuwe zustertaak en zet de cursor meteen in
+    // de naamcel — doorlopend invoeren zoals in een spreadsheet. Alleen in boommodus: met een
+    // filter/groepering/sortering actief kan de nieuwe taak zó weer uit beeld vallen. Dat weigeren
+    // gebeurt niet meer stil — de melding vertelt waarom (en biedt aan de standen te wissen).
+    if (direction !== 'down') return;
     const rowIndex = taskRows.findIndex(r => r.task.id === taskId);
-    const colIndex = editableFields.indexOf(field);
-    if (rowIndex === -1 || colIndex === -1) return;
-
-    let newRow = rowIndex;
-    let newCol = colIndex;
-
-    if (direction === 'up') newRow = Math.max(0, rowIndex - 1);
-    else if (direction === 'down') newRow = Math.min(taskRows.length - 1, rowIndex + 1);
-    else if (direction === 'left') newCol = Math.max(0, colIndex - 1);
-    else if (direction === 'right') newCol = Math.min(editableFields.length - 1, colIndex + 1);
-
-    if (newRow === rowIndex && newCol === colIndex) return;
-
-    const nextTask = taskRows[newRow].task;
-    const nextField = editableFields[newCol];
-    const nextValue = getCellValue(nextTask, nextField);
-    selectTask(nextTask.id);
-    startEdit(nextTask.id, nextField, nextValue);
-  }, [taskRows, editableFields, commitEdit, selectTask, startEdit]);
+    if (rowIndex === -1 || rowIndex !== taskRows.length - 1) return;
+    if (!isTreeMode(view)) { notifyStructureLocked(); return; }
+    const startDate = project.startDate || formatDate(new Date());
+    const time = createDefaultTaskTime(startDate, 5);
+    const newId = addTask({ name: t('defaultTask'), time, position: { anchorId: taskId, where: 'below' } });
+    selectTask(newId);
+    // Lege startwaarde (niet de standaardnaam) zodat wat de gebruiker typt direct overschrijft.
+    startEdit(newId, 'name', '');
+  }, [taskRows, neighbourCell, commitEdit, selectTask, startEdit, getCellValue, view, project, addTask, t, notifyStructureLocked]);
 
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, taskId: string, field: string) => {
     if (e.key === 'Enter' || e.key === 'ArrowDown') {
@@ -305,21 +433,115 @@ export function TableEditor() {
       navigateCell(taskId, field, e.shiftKey ? 'left' : 'right');
     } else if (e.key === 'Escape') {
       setEditCell(null);
+      // Focus terug op het raster, anders is "typen om te bewerken" na één Escape stuk.
+      restoreGridFocus();
     }
-  }, [navigateCell]);
+  }, [navigateCell, restoreGridFocus]);
+
+  /** Toetsenbord op rasterniveau (issue #26): geldt alleen wanneer er NIET bewerkt wordt — tijdens
+   *  een bewerking is `handleCellKeyDown` in de input de baas. */
+  const handleGridKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Alleen toetsen die naar de CONTAINER ZELF gaan zijn van het raster. Alles wat uit een kind
+    // omhoogborrelt — de inklap-chevron (<button>), de activity-code-<select>, de custom-field- en
+    // celinputs — blijft van dat kind: daar is Enter/spatie/Tab gewoon Enter/spatie/Tab. Dit
+    // vervangt de oude tagName-check, die knoppen niet dekte.
+    if (e.target !== e.currentTarget) return;
+
+    // Escape is de NOODREM en staat daarom vóór de editCell-guard: raakt de bewerking ooit los van
+    // een gerenderde input (verborgen kolom, verdwenen rij), dan is dit de enige uitweg — anders
+    // slikt de guard hieronder élke toets op. stopPropagation alleen wanneer er echt iets te wissen
+    // viel; stond er niets, dan hoort Escape door te gaan naar de globale deselectie-sneltoets.
+    if (e.key === 'Escape') {
+      const teWissen = !!editCell || !!activeCell;
+      if (editCell) setEditCell(null);
+      if (activeCell) setActiveCell(null);
+      if (teWissen) e.stopPropagation();
+      return;
+    }
+
+    if (editCell) return;
+
+    // Tab/Shift+Tab = in-/uitspringen op RIJniveau (issue #26). Bewust VÓÓR de activeCell-guard:
+    // je kunt rijen selecteren door op een rij te klikken zonder ooit een cel actief te maken, en
+    // dan hoort Tab óók te werken. Zónder selectie valt er niets in of uit te springen — dan Tab
+    // NIET onderscheppen, want dat maakt van het raster een focusval waar je alleen met de muis uit
+    // komt. Mét selectie is preventDefault altijd nodig — ook bij een geweigerde poging — anders
+    // verspringt de browserfocus en is het raster de toets kwijt. stopPropagation houdt de globale
+    // sneltoetsen (window) erbuiten.
+    if (e.key === 'Tab') {
+      if (selectedTaskIds.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!isTreeMode(view)) { notifyStructureLocked(); return; }
+      if (e.shiftKey) outdentTasks(selectedTaskIds);
+      else indentTasks(selectedTaskIds);
+      return;
+    }
+
+    if (!activeCell) return;
+    const task = tasks.find(t2 => t2.id === activeCell.taskId);
+    if (!task) return;
+
+    // Backspace/Delete zijn globaal gebonden aan taak-verwijderen. Met een actieve cel is dat een
+    // valstrik: je denkt een letter te wissen en raakt de hele taak kwijt. Mét actieve cel doen ze
+    // daarom wat een spreadsheet doet — de cel leegmaken en meteen in bewerkmodus staan. Bewust ná
+    // de activeCell-guard, zodat Delete zónder actieve cel gewoon de selectie blijft verwijderen.
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault();
+      e.stopPropagation();
+      startEdit(activeCell.taskId, activeCell.field, '');
+      return;
+    }
+
+    if (e.key === 'F2' || e.key === 'Enter') {
+      // Bestaande waarde verder bewerken.
+      e.preventDefault();
+      // Niet doorlaten naar de globale sneltoetsen: F2 opent daar het taakdialoog.
+      e.stopPropagation();
+      startEdit(activeCell.taskId, activeCell.field, getCellValue(task, activeCell.field), { selectAll: true });
+      return;
+    }
+    // KALE pijltjes verplaatsen de cursorcel. Met een modifier erbij houden we onze handen thuis:
+    // Alt(+Shift)+→/← zijn de bestaande globale in-/uitspring-sneltoetsen, en die moeten de
+    // window-handler kunnen bereiken — anders slokt de tabel ze op zodra er een cel actief is.
+    if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+      && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      const direction = e.key === 'ArrowUp' ? 'up' : e.key === 'ArrowDown' ? 'down' : e.key === 'ArrowLeft' ? 'left' : 'right';
+      const next = neighbourCell(activeCell.taskId, activeCell.field, direction);
+      if (!next) return;
+      setActiveCell(next);
+      if (next.taskId !== activeCell.taskId) selectTask(next.taskId);
+      return;
+    }
+    // Spatie is bewust UITGEZONDERD: die hoort zijn normale gedrag te houden (scrollen/activeren)
+    // en is geen zinnige eerste letter van een celwaarde.
+    if (e.key.length === 1 && e.key !== ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Typen OVERSCHRIJFT de cel: de bewerking begint met alleen het getypte teken.
+      e.preventDefault();
+      // Niet doorlaten: '0'/'-'/'=' zijn globale zoom-sneltoetsen (useZoomShortcuts).
+      e.stopPropagation();
+      startEdit(activeCell.taskId, activeCell.field, e.key);
+    }
+  }, [editCell, activeCell, tasks, startEdit, getCellValue, neighbourCell, selectTask, selectedTaskIds, view, indentTasks, outdentTasks, notifyStructureLocked]);
 
   // `displayValue` (optioneel): wat de cel TOONT wanneer hij niet in bewerking is — voor datumcellen
   // de notatie-geformatteerde datum. De bewerk-/navigatiewaarde blijft `value` (ISO), dus dubbelklik
   // en commit gedragen zich onveranderd; alleen de weergave volgt de datumnotatie-instelling.
   const renderCell = (taskId: string, field: string, value: string, align = 'left', displayValue?: string) => {
     const isEditing = editCell?.taskId === taskId && editCell?.field === field;
+    const isActive = activeCell?.taskId === taskId && activeCell?.field === field;
     if (isEditing) {
       return (
         <input
           autoFocus
+          ref={editInputRef}
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
-          onBlur={commitEdit}
+          onBlur={() => { commitEdit(); restoreGridFocus(); }}
           onKeyDown={e => handleCellKeyDown(e, taskId, field)}
           className="w-full px-1 py-0.5 text-xs outline-none"
           style={{
@@ -335,9 +557,26 @@ export function TableEditor() {
     }
     return (
       <span
-        className="block truncate cursor-text px-1"
+        // Cel met de toetsenbordcursor (issue #26): een ONOPVALLENDE markering — een stippellijntje
+        // onder de tekst, geen vlak en geen rand. Het gevulde vlak van hiervoor was lelijk en
+        // bovendien overbodig: sinds één klik meteen bewerkt komt "cursor op de cel maar niet in
+        // bewerking" alleen nog voor na Escape of pijltjesnavigatie. De regel staat in globals.css
+        // (`.table-cell-cursor`).
+        className={`block truncate cursor-text px-1${isActive ? ' table-cell-cursor' : ''}`}
         style={{ textAlign: align as 'left' | 'right' | 'center' }}
-        onDoubleClick={() => startEdit(taskId, field, value)}
+        // ÉÉN klik bewerkt meteen (issue #26) — een takenlijst is geen spreadsheet, je klikt op een
+        // naam om hem te wijzigen. BEWUST geen stopPropagation: de klik moet doorbubbelen naar de
+        // rij, anders breekt de (ctrl/shift-)rijselectie en daarmee Tab-inspringen.
+        onClick={(e: React.MouseEvent) => {
+          // De klik die het staartje van een rijsleep is mag niets activeren of openen — dezelfde
+          // guard die de rij-onClick al had.
+          if (justDraggedRef.current) return;
+          // Ctrl/⌘/Shift+klik zijn multi-selectklikken: die horen alleen te selecteren. Zou hier een
+          // editor opengaan, dan was multi-select (en dus Tab-inspringen op meerdere taken) stuk.
+          if (e.ctrlKey || e.metaKey || e.shiftKey) { setActiveCell({ taskId, field }); return; }
+          startEdit(taskId, field, value, { selectAll: true });
+        }}
+        onDoubleClick={() => startEdit(taskId, field, value, { selectAll: true })}
       >
         {displayValue ?? value}
       </span>
@@ -466,7 +705,15 @@ export function TableEditor() {
     (f.src === 'builtin' && BUILTIN_ALIGN[f.key]) || 'left';
 
   return (
-    <div className="flex-1 flex flex-col overflow-auto bg-surface">
+    // tabIndex maakt het raster focusbaar zodat de toetsen hierboven aankomen (issue #26);
+    // `outline-none` onderdrukt alleen de focusring die dat oplevert — de actieve CEL is de
+    // zichtbare cursor, niet de hele tabel.
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleGridKeyDown}
+      className="flex-1 flex flex-col overflow-auto bg-surface outline-none"
+    >
       {/* Header — sticky thead per LAYOUTS.md §3.2; kolombreedtes sleepbaar (§5.5) */}
       <div
         className="sticky top-0 z-10 flex bg-surface-alt text-[10px] font-bold uppercase tracking-wider select-none"
@@ -544,10 +791,25 @@ export function TableEditor() {
           const isSummary = task.childIds.length > 0;
           const isCollapsed = collapsedTaskIds.includes(task.id);
           const isSelected = selectedTaskIds.includes(task.id);
+          // issue #26 punt 6: is DEZE rij het actuele drop-doel, en zo ja in welke zone?
+          const dropZone = rowDragState?.hoverRowIndex === rowIdx && rowDragState.dropTarget
+            ? rowDragState.hoverZone
+            : null;
+          // De selectie-indicator (linkerbalkje) mag NIET verdwijnen zodra dezelfde rij ook
+          // drop-doel is — daarom combineren we de boxShadows in plaats van te vervangen.
+          const boxShadow = [
+            isSelected ? 'inset 2px 0 0 var(--theme-accent)' : null,
+            dropZone === 'before' ? 'inset 0 2px 0 0 var(--theme-accent)' : null,
+            dropZone === 'after' ? 'inset 0 -2px 0 0 var(--theme-accent)' : null,
+            dropZone === 'nest' ? 'inset 0 0 0 2px var(--theme-accent)' : null,
+          ].filter(Boolean).join(', ');
 
           return (
             <div
               key={`${task.id}-${rowIdx}`}
+              // De rijindex in de VOLLEDIGE viewRows; de rijsleep-hook meet hierop met
+              // elementFromPoint. Groepsrijen dragen dit attribuut bewust niet.
+              data-ops-row-index={rowIdx}
               className={`flex text-xs hover:bg-surface-hover cursor-default ${isSummary ? 'font-semibold' : ''}`}
               style={{
                 minHeight: 26,
@@ -555,15 +817,36 @@ export function TableEditor() {
                 // Gedimde rij (filter-ouderketen, §4.2): visueel dimmen.
                 ...(dimmed ? { opacity: 0.5 } : {}),
                 ...(isSelected
-                  ? {
-                      background: 'var(--theme-accent-soft, rgba(217,119,6,.10))',
-                      boxShadow: 'inset 2px 0 0 var(--theme-accent)',
-                    }
+                  ? { background: 'var(--theme-accent-soft, rgba(217,119,6,.10))' }
                   : {}),
+                // Nest-doel krijgt een lichte tint bovenop de rand.
+                ...(dropZone === 'nest' ? { background: 'rgba(217,119,6,.16)' } : {}),
+                ...(boxShadow ? { boxShadow } : {}),
+                // Zolang er gesleept wordt (al vanaf de kandidaatfase, dus vanaf de mousedown) mag
+                // de browser geen tekstselectie over de rijen verven — het canvas heeft dat probleem
+                // niet omdat daar geen tekst staat, de DOM-tabel wel. Bewust GEEN preventDefault op
+                // de mousedown: dat zou ook het focussen van het raster blokkeren en daarmee het
+                // hele toetsenbord.
+                ...(rowDragActive ? { cursor: 'grabbing', userSelect: 'none', WebkitUserSelect: 'none' } : {}),
+              }}
+              // issue #26 punt 6: kandidaat voor een rijsleep. Géén preventDefault en niet meteen
+              // slepen — pas boven de drempel (4 px) wordt het een sleep, zodat klikken,
+              // dubbelklikken en cel-activatie onaangetast blijven. Uitgezonderd: niet-linkse
+              // knoppen, de multi-select-modifiers, een lopende celbewerking en events uit een
+              // bedieningselement (inklap-chevron, custom-field-input, activity-code-select).
+              onMouseDown={e => {
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+                if (editCell) return;
+                if ((e.target as HTMLElement).closest('input, select, textarea, button')) return;
+                startRowDrag({ taskId: task.id, startClientX: e.clientX, startClientY: e.clientY });
               }}
               // issue #21 punt 3: ctrl/cmd toggelt, shift range-selecteert —zelfde selectiegedrag
               // als in het Gantt-canvas (was hiervoor altijd harde single-select).
-              onClick={e => selectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey)}
+              onClick={e => {
+                // Ná een rijsleep hoort de afsluitende klik de selectie niet te verzetten.
+                if (justDraggedRef.current) return;
+                selectTask(task.id, e.ctrlKey || e.metaKey, e.shiftKey);
+              }}
             >
               {visibleColumns.map(({ col, index }) => {
                 const isName = col.field.src === 'builtin' && col.field.key === 'name';
