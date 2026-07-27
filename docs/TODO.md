@@ -11,6 +11,29 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
+### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
+
+> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil — maar de
+> eerste schuurt echt met wat een gebruiker verwacht.
+
+- [ ] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.**
+      `ifcReader.extractCalendarLibrary` bouwt de bibliotheek uitsluitend uit
+      `IFCRELASSIGNSTOCONTROL`-relaties, dus een kalender waar niets aan hangt heeft geen enkel
+      spoor in het bestand en is na een round-trip weg. Dat raakt precies het overzet-scenario:
+      kalender overzetten naar een leeg document → opslaan → weg. **Voorafbestaand gedrag, geen
+      regressie** van het MCP-werk. Niet gerepareerd omdat het een ingreep in de IFC-leeslaag is
+      met gedragsrisico voor vreemde bestanden; een eigen `OPS_Calendars`-pset (naar het model van
+      `OPS_Baselines`) is de voor de hand liggende route, mét terugval op de bestaande
+      relatie-afleiding voor bestanden van derden.
+- [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
+      werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
+      een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook
+      oplossen.
+- [ ] **Wélke kalender de projectdefault is, kan de bridge niet wisselen** (de inhoud ervan wel, via
+      het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
+      of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
+
 ### Solver/presentatie — resterende punten (2026-07-20)
 
 > De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
