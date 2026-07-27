@@ -13,6 +13,7 @@ import { documentToolDeps } from '@/services/mcp/tools/documentTools';
 import { fileToolDeps, type McpFileFs } from '@/services/mcp/tools/fileTools';
 import { generateBenchmarkProject } from '@/services/benchmark/generateProject';
 import { writeIFC } from '@/services/ifc/ifcWriter';
+import { writeCSV } from '@/services/csv/csvWriter';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 
@@ -295,7 +296,22 @@ test('export_ifc: schrijft een IFC-bestand binnen de $HOME-scope', async () => {
   assert(written!.startsWith('ISO-10303-21'), 'de inhoud is een IFC-STEP-bestand');
   assert(written!.includes('IFCPROJECT'), 'de IFC-inhoud bevat het project');
   assertEq(data.path, path, 'de respons meldt het geschreven pad');
-  assert(data.bytes > 100, 'de respons meldt de omvang');
+  assert(data.characters > 100, 'de respons meldt de omvang in tekens');
+  assertEq(data.overwritten, false, 'er stond nog niets op dit pad ⇒ overwritten:false');
+});
+
+test('export_ifc: `overwritten` meldt de WERKELIJKHEID, niet de meegestuurde vlag', async () => {
+  installFakeFs();
+  resetToSingleEmptyDocument();
+  loadSmallProject('Export');
+
+  // overwrite:true op een LEEG pad ⇒ er is niets overschreven; de vlag mag niet als "feit" terugkomen.
+  const fresh = await callOk('planner_export_ifc', { path: `${HOME}/nieuw.ifc`, overwrite: true });
+  assertEq(fresh.overwritten, false, 'overwrite:true op een nieuw pad ⇒ overwritten:false');
+
+  // Zelfde call op datzelfde (nu bestaande) pad ⇒ er is wél vervangen.
+  const again = await callOk('planner_export_ifc', { path: `${HOME}/nieuw.ifc`, overwrite: true });
+  assertEq(again.overwritten, true, 'een bestaand bestand vervangen ⇒ overwritten:true');
 });
 
 test('export_ifc: pad buiten de $HOME-fs-scope ⇒ code SCOPE (ook via ..-traversal)', async () => {
@@ -313,6 +329,27 @@ test('export_ifc: pad buiten de $HOME-fs-scope ⇒ code SCOPE (ook via ..-traver
 
   const relative = await callErr('planner_export_ifc', { path: 'plan.ifc' });
   assertEq(relative.code, 'SCOPE', 'een relatief pad is niet te scopen ⇒ geweigerd');
+});
+
+test('export_ifc: SIBLING-PREFIX-ontsnapping ⇒ SCOPE (de scope-grens loopt op mapniveau)', async () => {
+  installFakeFs();
+  resetToSingleEmptyDocument();
+  loadSmallProject('Export');
+
+  // `/home/tester-evil/…` deelt de TEKSTprefix `/home/tester` met de home-map maar ligt er buiten.
+  // Een naïeve `startsWith(home)` zou dit doorlaten — dit is de enige plek waar de AI buiten de app
+  // kan schrijven, dus de mapgrens moet vastgepind zijn.
+  const sibling = await callErr('planner_export_ifc', { path: `${HOME}-evil/x.ifc` });
+  assertEq(sibling.code, 'SCOPE', 'een buurmap met dezelfde tekstprefix valt BUITEN de scope');
+
+  // Idem voor de `~`-expansie: alleen `~` en `~/…` zijn de home-map; `~evil` is een ándere gebruiker.
+  const tildeUser = await callErr('planner_export_ifc', { path: '~evil/x.ifc' });
+  assertEq(tildeUser.code, 'SCOPE', "'~evil' is niet de home-map van deze gebruiker ⇒ geweigerd");
+
+  // Ter contrast: de home-map zelf mét slash is wél binnen de scope.
+  await callOk('planner_export_ifc', { path: '~/binnen-scope.ifc' });
+  assert(files.has(`${HOME}/binnen-scope.ifc`), '~/ expandeert naar de home-map en mag wél');
+  assertEq(files.size, 1, 'de twee ontsnappingspogingen hebben niets geschreven');
 });
 
 test('export_ifc: bestaand bestand zonder overwrite ⇒ nette fout; mét overwrite:true ⇒ ok', async () => {
@@ -375,6 +412,31 @@ test('import_schedule: niet-pristine tabblad ⇒ NIEUW document + drift-anker ve
   assertEq(ctx.expectedDocId, data.documentId, 'het drift-anker verzet mee (anders zet de import zichzelf klem)');
 });
 
+test('import_schedule: IFC neemt het bronpad over als opslagdoel, CSV NIET (Ctrl+S mag de bron niet overschrijven)', async () => {
+  installFakeFs();
+  resetToSingleEmptyDocument();
+  loadSmallProject('Bron');
+  const s = S();
+  const csvPath = `${HOME}/onderaannemer.csv`;
+  files.set(csvPath, writeCSV(s.project, s.calendar, s.tasks, s.sequences, s.resources, s.assignments));
+  const ifcPath = `${HOME}/onderaannemer.ifc`;
+  files.set(ifcPath, writeIFC(buildWriteIFCInput(s)));
+
+  const csv = await callOk('planner_import_schedule', { path: csvPath });
+  assertEq(csv.format, 'CSV', 'de extensie bepaalt het formaat');
+  // Opslaan schrijft ALTIJD IFC: met csvPath als opslagdoel zou een Ctrl+S het CSV-bronbestand van
+  // de gebruiker met IFC-inhoud overschrijven.
+  assertEq(S().filePath, null, 'na een CSV-import heeft het document GEEN opslagdoel');
+  assertEq(csv.filePath, null, 'en de respons meldt dat ook');
+  assert(String(csv.notice).includes('opslagdoel'), 'de respons benoemt het ontbrekende opslagdoel');
+  assert(String(csv.notice).includes('kalender'), 'en het CSV-kalenderverlies');
+
+  const ifc = await callOk('planner_import_schedule', { path: ifcPath });
+  assertEq(ifc.format, 'IFC', 'IFC wordt als native formaat herkend');
+  assertEq(S().filePath, ifcPath, 'een IFC-import neemt het bronpad wél over (opslaan = terugschrijven)');
+  assertEq(ifc.filePath, ifcPath, 'en de respons meldt dat opslagdoel');
+});
+
 test('import_schedule: onbekend pad ⇒ NOT_FOUND, buiten de scope ⇒ SCOPE', async () => {
   installFakeFs();
   resetToSingleEmptyDocument();
@@ -385,7 +447,41 @@ test('import_schedule: onbekend pad ⇒ NOT_FOUND, buiten de scope ⇒ SCOPE', a
 });
 
 // =================================================================================================
-// 10. Veiligheidsvlaggen (pauze / alleen-lezen)
+// 10. Dialoog-guard — en de fout BENOEMT welke dialoog blokkeert (spec §Dialoog-guard)
+// =================================================================================================
+test('dialoog-guard: een open modaal blokkeert de document-/bestands-tools en de fout NOEMT de dialoog', async () => {
+  installFakeFs();
+  resetToSingleEmptyDocument();
+  loadSmallProject('Dialoog');
+  const activeId = S().activeDocumentId;
+  const docsBefore = S().documents.length;
+
+  useAppStore.setState({ ui: { ...S().ui, showTaskDialog: true } });
+  try {
+    const doc = await callErr('planner_new_document');
+    assertEq(doc.code, 'DIALOG_OPEN', 'new_document weigert terwijl er een dialoog openstaat');
+    assert(doc.error.includes('showTaskDialog'), 'de fout benoemt WELKE dialoog blokkeert (spec-eis)');
+
+    const file = await callErr('planner_export_ifc', { path: `${HOME}/x.ifc` });
+    assertEq(file.code, 'DIALOG_OPEN', 'export_ifc weigert eveneens');
+    assert(file.error.includes('showTaskDialog'), 'ook hier wordt de dialoog benoemd');
+
+    const read = await callErr('planner_list_documents');
+    assertEq(read.code, 'DIALOG_OPEN', 'zelfs de leestool wacht op een open modaal (halve staat)');
+
+    assertEq(S().documents.length, docsBefore, 'er is geen document bijgekomen');
+    assertEq(S().activeDocumentId, activeId, 'en er is niet gewisseld');
+    assertEq(files.size, 0, 'en er is niets geschreven');
+  } finally {
+    useAppStore.setState({ ui: { ...S().ui, showTaskDialog: false } });
+  }
+
+  // Dialoog dicht ⇒ dezelfde call slaagt weer (bewijst dat de vlag de oorzaak was).
+  await callOk('planner_list_documents');
+});
+
+// =================================================================================================
+// 11. Veiligheidsvlaggen (pauze / alleen-lezen)
 // =================================================================================================
 test('veiligheidsvlaggen: pauze en alleen-lezen weigeren de document-/bestands-tools, lezen mag door', async () => {
   installFakeFs();
