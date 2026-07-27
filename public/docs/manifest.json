@@ -106,6 +106,27 @@
       "cluster": "resources-histogram"
     },
     {
+      "id": "gids-resourcebibliotheken",
+      "title": {
+        "nl": "Resourcebibliotheken",
+        "en": "Resource libraries",
+        "de": "Ressourcenbibliotheken",
+        "fr": "Bibliothèques de ressources",
+        "es": "Bibliotecas de recursos",
+        "zh": "资源库",
+        "it": "Librerie di risorse",
+        "pt": "Bibliotecas de recursos",
+        "pl": "Biblioteki zasobów",
+        "tr": "Kaynak kitaplıkları",
+        "ar": "مكتبات الموارد",
+        "ja": "リソースライブラリ",
+        "ko": "자원 라이브러리",
+        "fa": "کتابخانه‌های منابع"
+      },
+      "layer": "gidsen",
+      "cluster": "resourcebibliotheken"
+    },
+    {
       "id": "gids-baselines-voortgang",
       "title": {
         "nl": "Baselines & voortgang",

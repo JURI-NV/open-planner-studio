@@ -1,0 +1,92 @@
+# Resourcebibliotheken
+
+Werk je aan meerdere projecten met dezelfde ploegen, dezelfde onderaannemers en dezelfde kalenders, dan wil je hun tarief, kalender en type maar op één plek onderhouden — niet in elk project opnieuw uittypen en bij een wijziging overal los bijwerken. Daarvoor bestaat de resourcebibliotheek: een gedeelde bron van resources en kalenders die bij je organisatie hoort, buiten de projecten leeft, en waar meerdere projecten uit putten. Deze gids legt uit hoe die bibliotheek zich verhoudt tot een project, wat er precies meereist en wat per project blijft, en hoe je tussen beide schakelt.
+
+## Wat je hier leert
+
+- Het onderscheid tussen de bibliotheek (gedeeld, bedrijfsbreed) en het project (wat dít project inzet).
+- Een project koppelen aan een bibliotheek, of bewust loskoppelen.
+- De twee weergaven op het Resources-tabblad: **Bibliotheek** en **Project**.
+- De drie soorten rijen die je in de projectweergave tegenkomt: uit de bibliotheek, projecteigen, en een wees.
+- Precies wat een bibliotheekresource meeneemt naar het project, en wat je vrij per project instelt.
+- De drie acties die bibliotheek en project met elkaar verbinden.
+- Hoe de app kopieën bijwerkt, en wat je te kiezen krijgt als een kopie afwijkt.
+- Delen, back-up en de beperkingen daarvan.
+
+Volg mee met [Nieuwbouw 6 Rijwoningen De Akkers](examples://showcase-rijwoningen-de-akkers.ifc) en [Nieuwbouw Appartementencomplex De Vaart](examples://showcase-appartementencomplex.ifc): beide showcases delen bij het openen automatisch één demo-resourcebibliotheek, en de ploegen **Timmerlieden**, **Installateurs**, **Stukadoors** en **Schilders** komen in allebei letterlijk onder dezelfde naam terug — het directe bewijs dat één bibliotheek meerdere projecten voedt.
+
+## Bibliotheek en project: twee werelden
+
+De **resourcebibliotheek** is de gedeelde bron: ze hoort bij je organisatie, niet bij één project, en overleeft elk individueel project. Het **project** bepaalt wat je daarvan dít project daadwerkelijk inzet — met eigen capaciteit, beschikbaarheid en kalenderkeuze. Een project hangt aan precies één bibliotheek, of staat helemaal los: in dat laatste geval werkt alles gewoon zoals je gewend bent, alleen zonder gedeelde bron om uit te putten of naar terug te schrijven.
+
+## Een project aan een bibliotheek koppelen
+
+Je kiest de bibliotheek op twee plekken, die hetzelfde paneel tonen:
+
+- De **projectwizard** ("Nieuw project"), met een bibliotheekselector.
+- **Projectinfo** van een bestaand project — zowel de dialoog als **Bestand → Projectinfo**.
+
+In diezelfde selector kies je ook **+ Nieuwe resourcebibliotheek…** om er ter plekke één aan te maken, zonder eerst naar Bestand → Bibliotheek te hoeven. **Geen bibliotheek** is een expliciete keuze in dezelfde lijst — je project ontkoppelen is dus nooit een toevallig neveneffect, maar iets wat je bewust kiest.
+
+## Het Resources-tabblad: twee weergaven
+
+Zodra een project aan een bibliotheek gekoppeld is, krijgt het Resources-tabblad rechtsboven een schuifknop met twee weergaven:
+
+- **Bibliotheek** — de bron zelf beheren. Alles hier is rechtstreeks bewerkbaar, een wijziging geldt meteen voor **alle** projecten die uit deze bibliotheek putten, en valt buiten ongedaan maken (Ctrl+Z) — het is geen projectbewerking.
+- **Project** — wat dít project daadwerkelijk gebruikt: de gewone projecttabel, met markeringen per rij voor herkomst en eventuele afwijkingen.
+
+## Drie soorten rijen in de projectweergave
+
+In de projectweergave kom je drie soorten rijen tegen:
+
+1. **Uit de bibliotheek** — herkenbaar aan de markering **Uit de bibliotheek**. Naam, type, tarief/uur en eenheid zijn geërfd van de bibliotheek en worden hier als platte tekst getoond: die bewerk je niet hier, maar in de weergave **Bibliotheek**. Max. eenheden, de tijdgefaseerde beschikbaarheid en de kalenderkeuze zijn wél gewoon bewerkbaar — dat is immers de inzet op dít project.
+2. **Projecteigen** — geen markering, volledig bewerkbaar. Ook een gekoppeld project kan zulke rijen hebben: handig voor eenmalige zaken die niet in de gedeelde bibliotheek horen, zoals een gehuurde kraan of een onderaannemer voor dit ene werk.
+3. **Wees** — het bibliotheekorigineel is verdwenen; de rij is gemarkeerd als **niet meer in de bibliotheek**. De kopie zelf blijft gewoon bruikbaar; je kunt hem loskoppelen of verwijderen.
+
+## Wat volgt de bibliotheek mee — en wat niet
+
+Dit is de kern om te onthouden: sommige velden zijn een bedrijfsafspraak en volgen de bibliotheek, andere zijn projectinzet en stel je vrij in, zonder dat het als afwijking geldt.
+
+**Volgt de bibliotheek mee:**
+- Naam
+- Type
+- Beschrijving
+- Tarief/uur
+- Eenheid
+- De **inhoud** van een meegereisde kalender (werkdagen, uren, vrije dagen)
+
+**Bepaal je per project, zonder dat het als afwijking telt:**
+- Max. eenheden
+- De tijdgefaseerde beschikbaarheid
+- De **keuze** wélke kalender aan de resource hangt
+
+Wijs je een bibliotheekresource toe, dan reist zijn kalender mee als een gekoppelde kopie die zelf ook de bibliotheek blijft volgen — vandaar dat de *inhoud* van die kalender in de linkerlijst hierboven staat. Maar de *keuze* wélke kalender aan een resource hangt, staat in de rechterlijst: dezelfde ploeg kan op een spoedklus zomaar een andere kalender draaien dan normaal, zonder dat dat een afwijking van de bibliotheek is. Dit onderscheid is subtiel maar belangrijk: verander je bij een bibliotheekresource de tarief of naam, dan wijkt de kopie af van de bibliotheek; verander je de kalenderkeuze of de max. eenheden, dan doe je precies waar dat veld voor bedoeld is.
+
+## Drie acties die de werelden verbinden
+
+- **Toewijzen aan project** — van bibliotheek naar project: maakt een bewerkbare kopie met herkomst.
+- **Naar de bibliotheek** — van een projecteigen rij naar de gedeelde bibliotheek: koppelt meteen. Bestaat er al een item met dezelfde naam in de bibliotheek, dan koppelt de app daaraan in plaats van te dupliceren.
+- **Losmaken van de bibliotheek** — de herkomst verdwijnt, alles wordt weer volledig bewerkbaar. Een meegereisde kalender gaat mee los, tenzij een andere nog-gekoppelde resource diezelfde kalender ook gebruikt.
+
+## Bijwerken en afwijkingen
+
+De app controleert op vier vaste momenten of jouw kopieën nog bij de bibliotheek passen: bij het **openen** van een bestand, bij het **wisselen** van document, na een **bewerking in de bibliotheek**, en na **crash-herstel**.
+
+- Loopt een kopie alleen achter (jij hebt hem niet zelf aangepast, de bibliotheek intussen wel), dan wordt hij **stil bijgewerkt** — je ziet alleen een korte melding, geen vraag.
+- Is een kopie lokaal (of door iemand anders) aangepast, dan verschijnt de markering **wijkt af — beslis**, en vraagt de app per item wat er moet gebeuren: **Bibliotheekwaarden gebruiken**, **Bestandswaarden overnemen in de bibliotheek**, of **Later beslissen**.
+
+Deze keuzes zijn niet met Ctrl+Z terug te draaien — de tweede optie wijzigt namelijk de bibliotheek zelf, en die valt buiten de projecthistorie.
+
+## Delen en back-up
+
+Een projectbestand is altijd zelfstandig compleet: geef je het aan iemand zonder jouw bibliotheek, dan werkt alles gewoon, alleen zonder gedeelde bron. Een bibliotheek exporteer en importeer je via **Bestand → Bibliotheek** — dat is tevens je back-up. Importeren **vervangt de hele inhoud** van de gekozen bibliotheek, en de app waarschuwt vooraf als jouw lokale versie nieuwer is dan wat je gaat importeren. Bibliotheken synchroniseren niet vanzelf tussen machines: werken twee planners met dezelfde bibliotheek op verschillende computers, dan kunnen die uit elkaar gaan lopen.
+
+## Demo-resourcebibliotheek in de voorbeelden
+
+Open je een van de showcase-voorbeelden (**Bestand → Voorbeelden** of via deze Help), dan maakt de app eenmalig een **Demo-resourcebibliotheek** aan en koppelt het geopende voorbeeld eraan. [Nieuwbouw 6 Rijwoningen De Akkers](examples://showcase-rijwoningen-de-akkers.ifc) en [Nieuwbouw Appartementencomplex De Vaart](examples://showcase-appartementencomplex.ifc) delen dezelfde ploegen uit die bibliotheek, zodat je meteen ziet hoe één bibliotheek meerdere projecten voedt. Je eigen, bestaande resourcebibliotheken blijven daarbij volledig ongemoeid.
+
+## Verder lezen
+
+- Resources toewijzen, het histogram lezen en nivelleren — dat draait allemaal om de projectkant van resources: lees de gids [Resources, histogram & nivellering](docs://gids-resources-histogram).
+- Een meegereisde kalender werkt met dezelfde bouwstenen als elke andere kalender — lees de gids [Kalenders & uren-planning](docs://gids-kalenders-uren).
+- Zie het delen van ploegen tussen projecten zelf terug in [Nieuwbouw 6 Rijwoningen De Akkers](examples://showcase-rijwoningen-de-akkers.ifc) en [Nieuwbouw Appartementencomplex De Vaart](examples://showcase-appartementencomplex.ifc).
