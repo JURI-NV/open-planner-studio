@@ -626,7 +626,7 @@ export function ReportPanel() {
                 value={companyName}
                 onChange={e => setCompanyName(e.target.value)}
                 placeholder={t('companyPlaceholder', { defaultValue: 'Bedrijfsnaam' })}
-                className="input flex-1 !w-auto !text-xs !px-2 !py-1"
+                className="input flex-1 min-w-0 !text-xs !px-2 !py-1"
               />
             </div>
 

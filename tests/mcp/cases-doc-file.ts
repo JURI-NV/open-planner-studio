@@ -143,8 +143,17 @@ test('list_documents: twee documenten met titel, dirty/actief, projectstart, pro
 
 // =================================================================================================
 // 3. "Niet doorgerekend" komt uit cpmResult == null, NIET uit scheduleStale (simulated restore)
+//
+// NOOT (2026-07-27): `restoreDocuments` markeert een hersteld document sinds `5e4b85a` bewust ALS
+// verouderd ("meld herstelde planning als verouderd"). Daarmee verviel de oorspronkelijke opzet van
+// deze case — die leunde op de combinatie stale=false + cpmResult=null om te bewijzen dat de vlag
+// niet uit `scheduleStale` komt. Die combinatie is nu niet meer via de herstelweg te maken, en met
+// stale=true én cpmResult=null zou de vlag uit béide bronnen kunnen volgen: de case zou meelopen met
+// een fout die hij hoort te vangen. De discriminerende richting is daarom omgedraaid en gebeurt
+// hieronder expliciet: een document dat WÉL verouderd is maar WÉL een cpmResult heeft, mag géén
+// "niet doorgerekend" melden. Alleen `cpmResult == null` mag de vlag zetten.
 // =================================================================================================
-test('list_documents: hersteld document (scheduleStale=false, cpmResult=null) meldt "niet doorgerekend"', async () => {
+test('list_documents: hersteld document zonder cpmResult meldt "niet doorgerekend" — de vlag volgt cpmResult, niet scheduleStale', async () => {
   resetToSingleEmptyDocument();
   const gen = generateBenchmarkProject(8);
   const base = {
@@ -164,10 +173,22 @@ test('list_documents: hersteld document (scheduleStale=false, cpmResult=null) me
   const restored = data.documents.find((d: any) => d.id === 'doc-hersteld-b');
   assertEq(active.notCalculated, undefined, 'het actieve herstelde document is door restoreDocuments doorgerekend');
   assertEq(restored.notCalculated, true, 'het niet-actieve herstelde document meldt "niet doorgerekend"');
-  // Precies het valstrikje uit de spec: de vlag mag NIET uit scheduleStale komen.
   const payload = S().documents.find((d) => d.id === 'doc-hersteld-b')!.payload!;
-  assertEq(payload.scheduleStale, false, 'voorwaarde van de case: een hersteld document is niet "stale"');
-  assertEq(payload.cpmResult, null, 'voorwaarde van de case: maar wél zonder cpmResult');
+  assertEq(payload.cpmResult, null, 'voorwaarde van de case: het herstelde document heeft géén cpmResult');
+
+  // De discriminerende helft: verouderd MÉT een cpmResult mag de vlag NIET zetten. Zou de tool op
+  // `scheduleStale` leunen, dan valt precies deze assertie om.
+  useAppStore.setState((s) => {
+    const doc = s.documents.find((d) => d.id === 'doc-hersteld-b')!;
+    doc.payload!.scheduleStale = true;
+    doc.payload!.cpmResult = { ...(S().cpmResult as CPMResult) };
+  });
+  const naSet = await callOk('planner_list_documents');
+  const verouderdMetResultaat = naSet.documents.find((d: any) => d.id === 'doc-hersteld-b');
+  assertEq(
+    verouderdMetResultaat.notCalculated, undefined,
+    'verouderd MÉT cpmResult is wél doorgerekend — de vlag mag niet uit scheduleStale komen',
+  );
 });
 
 // =================================================================================================
