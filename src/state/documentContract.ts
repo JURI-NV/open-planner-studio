@@ -252,10 +252,20 @@ export function freshPayload(): DocumentPayload {
  *  Delegeert naar `payloadFromImport` (bevinding K3): een `RecoveryDocInput` ÍS een `ImportResult`
  *  + identiteit, dus de veldmapping is exact dezelfde — inclusief de `resourceCalendars`→
  *  `calendars`-hernoeming en alle `?? []` / `?? null`-defaults. Eén veldlijst i.p.v. twee die uit
- *  elkaar kunnen lopen. Het enige echte verschil: recovery herstelt een NIET-opgeslagen document,
- *  dus `isDirty` komt uit de snapshot-metadata i.p.v. hard op `false`. */
+ *  elkaar kunnen lopen. Twee echte verschillen met de import-kant:
+ *
+ *  1. Recovery herstelt een NIET-opgeslagen document, dus `isDirty` komt uit de snapshot-metadata
+ *     in plaats van hard op `false`.
+ *  2. `scheduleStale` gaat op `true`. `freshPayload()` zet hem op `false` met een verse
+ *     `cpmResult: null` — dat klopt voor het ACTIEVE document (dat wordt na herstel doorgerekend),
+ *     maar `documentSlice` gebruikt deze functie óók voor de INACTIEVE documenten bij
+ *     crash-recovery, en `switchDocument` roept nooit `runCPM` aan. Met `false` toont
+ *     `StatusBar` dan geen waarschuwing terwijl er geen kritiek pad en geen float berekend is:
+ *     een planning die er correct uitziet en het niet is. `true` vertelt de waarheid — het
+ *     schema ís nog niet berekend — en laat de gebruiker met F5 verder.
+ */
 export function payloadFromInput(d: RecoveryDocInput): DocumentPayload {
-  return { ...payloadFromImport(d, d.filePath), isDirty: d.isDirty };
+  return { ...payloadFromImport(d, d.filePath), isDirty: d.isDirty, scheduleStale: true };
 }
 
 /** Verse payload uit een ingelezen project (IFC/CSV/MSPDI/P6). Alleen de IFC-round-trip-velden

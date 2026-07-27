@@ -257,6 +257,21 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BUNDLES+=("$SVGCHECK")
   node "$SVGCHECK" || STATUS=1
 
+  # Undo-grens + coalescing (prioriteitsitem 8). De undo-stack is begrensd op MAX_UNDO; die grens
+  # maakt `undoStack.length` als coalescing-identiteit onbruikbaar (constant bij een volle stack),
+  # dus die is een monotoon volgnummer geworden. Geen enkele CPM-case duwt 100+ stappen door de
+  # stack, dus zonder deze batterij is beide ongedekt.
+  UNDOCHECK="$DIR/.undo-bound.mjs"
+  "$ROOT/node_modules/.bin/esbuild" "$DIR/check-undo-bound.ts" \
+    --bundle --platform=node --format=esm --alias:@="$ROOT/src" \
+    --define:import.meta.env.DEV=false \
+    --define:import.meta.env.PROD=true \
+    --define:import.meta.env.MODE='"production"' \
+    --define:__OPS_DEV_INSTANCE__='"test"' \
+    --outfile="$UNDOCHECK" >/dev/null 2>&1
+  BUNDLES+=("$UNDOCHECK")
+  node "$UNDOCHECK" || STATUS=1
+
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
   #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een
