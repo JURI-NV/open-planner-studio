@@ -99,7 +99,7 @@
     "scrollModePosition": "위치",
     "scrollModeModifier": "키",
     "scrollModeDrag": "확대/축소 + 드래그",
-    "dragModeHint": "스크롤 휠 = 확대/축소 (커서 기준) · 차트 배경을 드래그하여 보기를 이동합니다. 작업 바 드래그는 평소처럼 해당 바를 이동합니다.",
+    "dragModeHint": "스크롤 휠 = 확대/축소 (커서 기준) · 차트 배경을 드래그하여 보기를 이동합니다. 작업 바 드래그는 평소처럼 해당 바를 이동합니다. · Shift + 휠로 행을 스크롤 · Ctrl/⌘ + 드래그로 선택 상자를 그립니다.",
     "screenDivision": "화면 분할",
     "screenDivisionLeftRight": "좌/우",
     "screenDivisionTopBottom": "상/하",

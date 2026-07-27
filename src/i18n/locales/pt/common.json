@@ -99,7 +99,7 @@
     "scrollModePosition": "Posição",
     "scrollModeModifier": "Teclas",
     "scrollModeDrag": "Zoom + arrastar",
-    "dragModeHint": "Roda do rato = zoom (centrado no cursor) · Arraste o fundo do gráfico para deslocar a vista. Arrastar uma barra de tarefa move essa barra normalmente.",
+    "dragModeHint": "Roda do rato = zoom (centrado no cursor) · Arraste o fundo do gráfico para deslocar a vista. Arrastar uma barra de tarefa move essa barra normalmente. · Shift + roda desloca pelas linhas · Ctrl/⌘ + arrastar desenha uma caixa de seleção.",
     "screenDivision": "Divisão do ecrã",
     "screenDivisionLeftRight": "Esquerda/direita",
     "screenDivisionTopBottom": "Cima/baixo",

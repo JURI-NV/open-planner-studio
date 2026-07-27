@@ -99,7 +99,7 @@
     "scrollModePosition": "位置",
     "scrollModeModifier": "キー",
     "scrollModeDrag": "ズーム＋ドラッグ",
-    "dragModeHint": "スクロールホイール＝ズーム（カーソル基点）・チャート背景をドラッグして表示をスクロール。タスクバーのドラッグは通常どおりバーを移動します。",
+    "dragModeHint": "スクロールホイール＝ズーム（カーソル基点）・チャート背景をドラッグして表示をスクロール。タスクバーのドラッグは通常どおりバーを移動します。・Shift＋ホイールで行をスクロール・Ctrl/⌘＋ドラッグで範囲選択。",
     "screenDivision": "画面分割",
     "screenDivisionLeftRight": "左右",
     "screenDivisionTopBottom": "上下",

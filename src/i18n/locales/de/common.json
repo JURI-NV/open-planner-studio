@@ -99,7 +99,7 @@
     "scrollModePosition": "Position",
     "scrollModeModifier": "Tasten",
     "scrollModeDrag": "Zoom + Ziehen",
-    "dragModeHint": "Mausrad = zoomen (zentriert auf den Cursor) · Planhintergrund ziehen, um die Ansicht zu verschieben. Eine Aufgabenleiste ziehen verschiebt diese wie gewohnt.",
+    "dragModeHint": "Mausrad = zoomen (zentriert auf den Cursor) · Planhintergrund ziehen, um die Ansicht zu verschieben. Eine Aufgabenleiste ziehen verschiebt diese wie gewohnt. · Umschalt + Mausrad scrollt durch die Zeilen · Strg/⌘ + Ziehen zieht einen Auswahlrahmen.",
     "screenDivision": "Bildschirmaufteilung",
     "screenDivisionLeftRight": "Links/rechts",
     "screenDivisionTopBottom": "Oben/unten",

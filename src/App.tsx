@@ -30,6 +30,7 @@ import { useSplitter } from '@/hooks/useSplitter';
 import { useAppStore } from '@/state/appStore';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
+import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
 
 // Code-splitting (pakket E2): componenten die pas achter een `ui.show*`-vlag, een ribbontab of een
 // overlay renderen worden lazy geladen, zodat hun code niet in de eager first-load-bundel zit maar
@@ -202,6 +203,10 @@ function AppContent() {
       {/* Uur-data-melding (§6.8): niet-blokkerende strook onder het lint wanneer een geladen
           bestand urenplanning bevat terwijl de hoofdschakelaar uit staat. */}
       <HourDataNotice />
+
+      {/* Structuur-vergrendeld-melding (issue #26): verschijnt wanneer in-/uitspringen geweigerd
+          wordt omdat er gefilterd/gegroepeerd/gesorteerd wordt. */}
+      <StructureLockedNotice />
 
       {/* Backstage view (File-tab actief) — neemt de volledige body over.
           Anders: gradient strip + main content. */}

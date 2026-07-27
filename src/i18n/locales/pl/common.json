@@ -99,7 +99,7 @@
     "scrollModePosition": "Pozycja",
     "scrollModeModifier": "Klawisze",
     "scrollModeDrag": "Zoom + przeciąganie",
-    "dragModeHint": "Kółko myszy = powiększenie (kotwica na kursorze) · Przeciągnij tło wykresu, aby przesunąć widok. Przeciąganie paska zadania nadal go przesuwa.",
+    "dragModeHint": "Kółko myszy = powiększenie (kotwica na kursorze) · Przeciągnij tło wykresu, aby przesunąć widok. Przeciąganie paska zadania nadal go przesuwa. · Shift + kółko przewija wiersze · Ctrl/⌘ + przeciąganie rysuje ramkę zaznaczenia.",
     "screenDivision": "Podział ekranu",
     "screenDivisionLeftRight": "Lewo/prawo",
     "screenDivisionTopBottom": "Góra/dół",

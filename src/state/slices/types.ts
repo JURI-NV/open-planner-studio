@@ -174,6 +174,10 @@ export interface UIState {
   // tijd-as (weekenden+feestdagen weggelaten). Globaal (geen ViewState), zie werkdagen-as-ontwerp §7.3.
   compressNonWorkdays: boolean;               // persisted — default UIT (§0 user-besluit)
   hourDataNotice: boolean;                   // session — geladen bestand bevat uur-data terwijl Urenplanning uit staat (§6.8)
+  /** session — teller voor de "structuur vergrendeld"-melding (issue #26): elke geweigerde
+   *  structuurpoging hoogt hem op, zodat de melding ook opnieuw verschijnt als hij al zichtbaar
+   *  was. 0 = niets te tonen. */
+  structureLockedNotice: number;
   // --- Fase 2.10 golf 1: sneltoetsen-fundament ---
   /** session — sneltoetsen-overzichtsdialoog (Ctrl/Cmd+/) open. De dialoog zelf komt in golf 3;
    *  deze golf zet alleen de vlag zodat de toets al bedraad/testbaar is. */

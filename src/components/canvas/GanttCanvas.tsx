@@ -1335,14 +1335,32 @@ export function GanttCanvas() {
         <MiniMap originDate={effectiveViewStart} chartWidth={primaryChartWidth} />
       )}
 
-      {/* Horizontal scrollbar */}
-      <div
-        ref={hScrollRef}
-        className="overflow-x-auto overflow-y-hidden"
-        style={{ height: 14, flexShrink: 0 }}
-        onScroll={handleHScroll}
-      >
-        <div style={{ width: totalContentWidth, height: 1 }} />
+      {/* Horizontale scrollbar (issue #22): beslaat alleen het chart-gedeelte van het primaire
+          pane — niet de taaktabel/WBS ervoor (die schuift horizontaal niet mee, wat verwarrend was)
+          en bij split view niet het secundaire pane (dat heeft zijn eigen scrollX). De scrollrange
+          blijft exact gelijk: zowel de contentbreedte als de zichtbare breedte krimpen met dezelfde
+          `taskTableWidth`, dus maxScrollLeft == de `maxScrollX` uit de scroll-bounds in
+          `drawPrimary`. De pane-breedte-expressie is bewust identiek aan die van de canvas-container
+          hierboven, zodat de balk exact onder het primaire pane uitlijnt.
+          `dir="ltr"` is nodig, niet cosmetisch: de renderer kent geen RTL (`isInTaskTable` is
+          simpelweg `canvasX < taskTableWidth`), dus de taaktabel staat in ar/fa óók links. Zonder
+          deze pin spiegelt de spacer naar rechts en ligt de balk juist wél onder de tabel. Het houdt
+          bovendien `scrollLeft` positief-oplopend, zoals `handleHScroll` en het sync-effect aannemen. */}
+      <div className="flex" dir="ltr" style={{ height: 14, flexShrink: 0 }}>
+        <div
+          className="flex"
+          style={{ width: splitView ? `${splitView.ratio * 100}%` : '100%', flexShrink: 0 }}
+        >
+          <div style={{ width: taskTableWidth, flexShrink: 0 }} />
+          <div
+            ref={hScrollRef}
+            className="overflow-x-auto overflow-y-hidden"
+            style={{ height: 14, flex: 1, minWidth: 0 }}
+            onScroll={handleHScroll}
+          >
+            <div style={{ width: Math.max(1, totalContentWidth - taskTableWidth), height: 1 }} />
+          </div>
+        </div>
       </div>
 
       {/* Context Menu */}
