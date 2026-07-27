@@ -13,9 +13,10 @@ zelfstandig, niet read-only).
 
 ## Resourcebibliotheken en koppeling
 
-Er is altijd één standaardbibliotheek (vaste standaardnaam: "Mijn bedrijf"). Beheer resourcebibliotheken
-via **Bestand → Bibliotheek** (aanmaken, hernoemen, verwijderen — de laatste resourcebibliotheek blijft
-altijd bestaan — en één als standaard aanwijzen).
+Er is altijd één standaardbibliotheek (vaste standaardnaam: "Mijn resourcebibliotheek" — bestaande
+installaties die de oudere naam "Mijn bedrijf" al hadden staan, houden die naam; hij is gewoon
+hernoembaar). Beheer resourcebibliotheken via **Bestand → Bibliotheek** (aanmaken, hernoemen,
+verwijderen — de laatste resourcebibliotheek blijft altijd bestaan — en één als standaard aanwijzen).
 
 De koppeling tussen een project en zijn resourcebibliotheek (`project.companyId`) is **altijd zichtbaar
 en bewerkbaar**, ook met maar één resourcebibliotheek — niet iets dat impliciet ontstaat bij de eerste

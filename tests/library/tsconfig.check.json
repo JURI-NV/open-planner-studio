@@ -9,6 +9,8 @@
   "include": [
     "check-library-ops.ts",
     "check-library-slice.ts",
+    "check-demo-library.ts",
+    "check-projectinfo-guard.ts",
     "check-pool-ifc.ts",
     "check-ifc-hostile.ts",
     "check-i18n-plurals.ts",

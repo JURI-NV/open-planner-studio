@@ -48,7 +48,7 @@ export function ProjectInfoDialog() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <ProjectInfoPanelContent ref={panelRef} mode={isNew ? 'wizard' : 'edit'} onDone={close} />
+          <ProjectInfoPanelContent ref={panelRef} mode={isNew ? 'wizard' : 'edit'} onDone={close} autoFocusName />
         </div>
 
         <div className="flex justify-end gap-3 px-4 py-3 border-t border-border">

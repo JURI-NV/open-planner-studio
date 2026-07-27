@@ -1,6 +1,7 @@
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
+import { Check, Pencil, X } from 'lucide-react';
 import { Select } from '@/components/common/Select';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { formatDate } from '@/utils/dateUtils';
@@ -10,7 +11,7 @@ import { CalcOptionsSection } from '@/components/dialogs/CalcOptionsSection';
 import { computeGenerateSpan, type HolidayGenParams } from '@/engine/calendar/generateCalendarHolidays';
 import type { HolidayCountry } from '@/engine/calendar/holidays';
 import { WIZARD_PRESETS, SHIFT_PRESET_LABEL, shiftPresetPatch, type ShiftPresetKey } from '@/utils/shiftPresets';
-import type { SchedulingOptions } from '@/types/project';
+import type { Project, SchedulingOptions } from '@/types/project';
 
 /** Wizard-generatorstatus: `HolidayGenParams` uitgebreid met de wizard-only pseudo-keuze
  *  `'custom'` ("Aangepast…", ontwerp §7.2) — die opent na aanmaken de kalenderdialoog i.p.v.
@@ -39,6 +40,9 @@ export interface ProjectInfoPanelContentProps {
   /** Aangeroepen NA een geslaagde submit(); de wrapper bepaalt wat "klaar" betekent (dialoog sluiten,
    *  Backstage terug naar Start-tab). */
   onDone: () => void;
+  /** Autofocus op het Naam-veld — ALLEEN de modale dialoog/wizard mag dit aanzetten (GO-NA-fix 4):
+   *  in de niet-modale Backstage-pagina zou autoFocus bij elk bezoek de focus grijpen. Default: uit. */
+  autoFocusName?: boolean;
 }
 
 /**
@@ -59,13 +63,35 @@ export interface ProjectInfoPanelContentProps {
  *    herkenning (`computeRecognition` → evt. `showLibraryLinkDialog`).
  *  - `mode="edit"`: `setProject(...)` + bibliotheek-(ont)koppeling (`bindProjectToCompany`/
  *    `unbindProject`) + (bij gewijzigde Berekening-sectie) `runCPM()`.
+ *
+ * STALE-DRAFT-GUARD (GO-NA-fix 1, code review op bf1c851): `ProjectInfoSection` in Backstage blijft
+ * gemount zolang de gebruiker op die pagina staat. `nav.switchDocumentN` (Ctrl+1..9) en `edit.undo`/
+ * `edit.redo` (Ctrl+Z/Y) hebben GEEN `when`-guard tegen open dialogen/Backstage (zie
+ * `shortcutRegistry.ts`) en negeren alleen invoervelden-met-focus (`isTypingTarget`) — dus een klik
+ * buiten een veld gevolgd door zo'n sneltoets kan het ACTIEVE document verwisselen terwijl deze
+ * component met de OUDE `useState`-waarden gemount blijft. Twee onafhankelijke vangnetten:
+ *  (a) re-init-effect op `activeDocumentId` (documentwissel — swapt `project` als geheel, dus dít is
+ *      het bewezen identiteitssignaal; zie hieronder waarom NIET op undo).
+ *  (b) `companyTouched`/`calcTouched`: de bibliotheek-(ont)koppeling en de Berekening/runCPM-tak
+ *      committeren ALLEEN als de gebruiker die specifieke control in DEZE mount daadwerkelijk heeft
+ *      aangeraakt — dus zelfs als (a) een scenario zou missen, kan een stale draft nooit meer stilletjes
+ *      een bibliotheek los- of vastkoppelen (het destructieve pad: `unbindProject()` strip ALLE
+ *      `libraryOrigin`-stempels).
+ *  Over undo specifiek: nagetrokken in `src/state/snapshot.ts` (B3-uitzondering) — het hele
+ *  `project`-object (op `wbsAutoNumber` na) staat BEWUST NIET in de undo/redo-snapshot, dus Ctrl+Z/Y
+ *  kan `name`/`description`/`author`/`company`/`startDate`/`endDate`/`companyId`/`schedulingOptions`
+ *  hier niet veranderen — er is dus niets om voor te re-initialiseren. (a) is daarom bewust gekoppeld
+ *  aan `activeDocumentId` (het bewezen vector), en (b) is de generieke vangrail die verder los staat
+ *  van WELK mechanisme de staleness veroorzaakt (dus ook toekomstbestendig tegen undo-gedrag dat
+ *  later wél projectvelden zou gaan raken).
  */
 export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle, ProjectInfoPanelContentProps>(
-  function ProjectInfoPanelContent({ mode, onDone }, ref) {
+  function ProjectInfoPanelContent({ mode, onDone, autoFocusName }, ref) {
     const isNew = mode === 'wizard';
     const { t: tMenu } = useTranslation('menu');
     const { t: tCommon } = useTranslation('common');
     const project = useAppStore(s => s.project);
+    const activeDocumentId = useAppStore(s => s.activeDocumentId);
     const activeRibbonTab = useAppStore(s => s.ui.activeRibbonTab);
     const setProject = useAppStore(s => s.setProject);
     const createNewProject = useAppStore(s => s.createNewProject);
@@ -81,7 +107,7 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
     // Berekening-sectie als DRAFT (fase 2.9-fix): net als Naam/Omschrijving bewerkt de Berekening-sectie
     // een lokale kopie; de store wijzigt pas op submit() (consistent Annuleren-gedrag). Vers gemount ⇒
     // initialiseert uit het huidige project.
-    const [schedulingOptions, setSchedulingOptions] = useState<SchedulingOptions>(
+    const [schedulingOptions, setSchedulingOptionsRaw] = useState<SchedulingOptions>(
       isNew ? {} : (project.schedulingOptions ?? {}),
     );
     // Bouwmodus (2026-07-13): in bouw-agnostische modus (bouwmodus UIT) start de kalender-generator op
@@ -101,15 +127,76 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
     const addCompany = useAppStore(s => s.addCompany);
     // Voorselectie: het gekoppelde bedrijf, anders het standaardbedrijf (spec §2 — gekoppeld is de norm).
     const [linkedCompanyId, setLinkedCompanyId] = useState<string>(isNew ? defaultCompanyId : (project.companyId ?? ''));
+    // GO-NA-fix 1b: alleen ná een daadwerkelijke gebruikersactie op de bibliotheek-select committeert
+    // submit() de bind/unbind-tak (mode="edit"; de wizard-tak heeft geen "vorige koppeling" om per
+    // ongeluk te overschrijven en blijft dus ongated).
+    const [companyTouched, setCompanyTouched] = useState(false);
+    // GO-NA-fix 2: "+ Nieuwe resourcebibliotheek…" toont een inline naamveld i.p.v. meteen te
+    // persisteren — de bibliotheek wordt pas in handleSubmit() aangemaakt (zie daar), zodat annuleren
+    // van de dialoog/sectie NIETS achterlaat. Twee aparte vlaggen, bewust niet samengevoegd:
+    // `creatingCompany` is puur UI (staat het invoervakje open?), `pendingNewCompany` is de
+    // COMMIT-intentie (moet handleSubmit() dit materialiseren?) — "bevestigen" sluit het vakje
+    // (creatingCompany → false) maar de intentie blijft staan tot submit/annuleren/andere keuze.
+    const [creatingCompany, setCreatingCompany] = useState(false);
+    const [pendingNewCompany, setPendingNewCompany] = useState(false);
+    const [newCompanyName, setNewCompanyName] = useState('');
     // Ploeg-preset (§6.7): default 'day' = dag-kalender (byte-identiek). Alleen zichtbaar met
     // Urenplanning aan; een niet-default preset materialiseert workTime + shift op de nieuwe kalender.
     const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
     const [shiftPreset, setShiftPreset] = useState<ShiftPresetKey>('day');
+    // GO-NA-fix 1b: net als companyTouched — de Berekening-sectie/runCPM-tak committeert ALLEEN als de
+    // gebruiker CalcOptionsSection in deze mount daadwerkelijk bewerkte.
+    const [calcTouched, setCalcTouched] = useState(false);
+    const setSchedulingOptions = (next: SchedulingOptions) => {
+      setCalcTouched(true);
+      setSchedulingOptionsRaw(next);
+    };
+
+    // GO-NA-fix 1a: her-initialiseer de VOLLEDIGE draft zodra het ACTIEVE document verandert
+    // (Ctrl+1..9 kan vuren terwijl deze component gemount blijft — zie de JSDoc hierboven). Alléén
+    // relevant in edit-modus (de wizard heeft geen "vorig document" om stale te worden). Bewust
+    // GEEN afhankelijkheid op losse `project`-velden: elke store-mutatie die toevallig een nieuwe
+    // `project`-referentie oplevert zou anders de tekst die de gebruiker nog aan het intypen is
+    // wegvegen; `activeDocumentId` is het bewezen, precieze identiteitssignaal (zie snapshot.ts-analyse
+    // hierboven — undo raakt geen projectvelden, dus er is daar niets te herinitialiseren).
+    const draftDocIdRef = useRef(activeDocumentId);
+    useLayoutEffect(() => {
+      if (isNew) return;
+      if (activeDocumentId === draftDocIdRef.current) return;
+      draftDocIdRef.current = activeDocumentId;
+      const p = useAppStore.getState().project; // vers — dit IS de state ná de documentwissel
+      setName(p.name);
+      setDescription(p.description);
+      setAuthor(p.author);
+      setCompany(p.company);
+      setStartDate(p.startDate);
+      setEndDate(p.endDate);
+      setSchedulingOptionsRaw(p.schedulingOptions ?? {});
+      setCalcTouched(false);
+      setLinkedCompanyId(p.companyId ?? '');
+      setCompanyTouched(false);
+      setCreatingCompany(false);
+      setPendingNewCompany(false);
+      setNewCompanyName('');
+    }, [isNew, activeDocumentId]);
 
     // Generatie-spanne bij aanmaak (§4.4): nog geen projecteinde bekend ⇒ startjaar−1..+3.
     const calSpan = useMemo(() => computeGenerateSpan(startDate, endDate || undefined), [startDate, endDate]);
 
     const handleSubmit = () => {
+      // "+ Nieuwe resourcebibliotheek…" materialiseert pas HIER (GO-NA-fix 2) — vóór dit punt bestaat
+      // er geen store-mutatie, dus Annuleren van de dialoog/sectie laat niets achter. `pendingNewCompany`
+      // (niet `creatingCompany`, dat sluit al bij "bevestigen" — zie confirmNewCompany) blijft de
+      // commit-intentie tot hier, dus een bevestigd-maar-niet-meer-open naamveld materialiseert nog
+      // steeds correct.
+      let effectiveLinkedCompanyId = linkedCompanyId;
+      let effectiveCompanyTouched = companyTouched;
+      if (pendingNewCompany) {
+        const createdId = addCompany(newCompanyName.trim() || tCommon('companyLibrary.newCompany'));
+        effectiveLinkedCompanyId = createdId;
+        effectiveCompanyTouched = true;
+      }
+
       if (isNew) {
         const isCustom = calState.country === 'custom';
         const calendar = isCustom
@@ -132,9 +219,11 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
           phaseNames: templatePhases(template),
         });
         // Spec §2/§5: koppel aan het gekozen bedrijf (default = standaardbedrijf). Herkenning start
-        // pas als het project al inhoud heeft — bij een vers, leeg project is dat een no-op.
-        if (linkedCompanyId) {
-          bindProjectToCompany(linkedCompanyId);
+        // pas als het project al inhoud heeft — bij een vers, leeg project is dat een no-op. Geen
+        // touched-gate nodig: een vers project heeft geen "vorige koppeling" om per ongeluk te
+        // overschrijven.
+        if (effectiveLinkedCompanyId) {
+          bindProjectToCompany(effectiveLinkedCompanyId);
           if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
             useAppStore.getState().setUI({ showLibraryLinkDialog: true });
           }
@@ -147,34 +236,41 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
           ...(activeRibbonTab === 'file' ? { activeRibbonTab: 'start' as const } : {}),
         });
       } else {
-        // Committeer de metadata + de Berekening-draft in één keer. `schedulingOptions` alleen aanraken
-        // als hij daadwerkelijk wijzigde (anders geen spurious dirty / geen onnodige herberekening).
-        // Genormaliseerd via JSON-roundtrip zodat undefined-sleutels verdwijnen ⇒ leeg wordt `undefined`
-        // (byte-identiek met "geen opties").
-        const normalized = JSON.parse(JSON.stringify(schedulingOptions)) as SchedulingOptions;
-        const soChanged = JSON.stringify(normalized) !== JSON.stringify(project.schedulingOptions ?? {});
-        setProject({
-          name, description, author, company, startDate, endDate,
-          ...(soChanged
-            ? { schedulingOptions: Object.keys(normalized).length > 0 ? normalized : undefined }
-            : {}),
-        });
-        const prevCompany = project.companyId ?? '';
-        if (linkedCompanyId !== prevCompany) {
-          if (linkedCompanyId) {
-            bindProjectToCompany(linkedCompanyId);
-            if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
-              useAppStore.getState().setUI({ showLibraryLinkDialog: true });
+        // Committeer de metadata altijd; de Berekening-draft ALLEEN als de gebruiker CalcOptionsSection
+        // aanraakte (GO-NA-fix 1b — anders geen spurious dirty / geen onnodige herberekening op een
+        // stale of nooit-bekeken draft). Genormaliseerd via JSON-roundtrip zodat undefined-sleutels
+        // verdwijnen ⇒ leeg wordt `undefined` (byte-identiek met "geen opties").
+        const patch: Partial<Project> = { name, description, author, company, startDate, endDate };
+        let soChanged = false;
+        if (calcTouched) {
+          const normalized = JSON.parse(JSON.stringify(schedulingOptions)) as SchedulingOptions;
+          soChanged = JSON.stringify(normalized) !== JSON.stringify(project.schedulingOptions ?? {});
+          if (soChanged) patch.schedulingOptions = Object.keys(normalized).length > 0 ? normalized : undefined;
+        }
+        setProject(patch);
+        // GO-NA-fix 1b: bind/unbind ALLEEN als de gebruiker de select in DEZE mount aanraakte — dit is
+        // de vangrail tegen de stale-draft-unbind (zie JSDoc hierboven).
+        if (effectiveCompanyTouched) {
+          const prevCompany = project.companyId ?? '';
+          if (effectiveLinkedCompanyId !== prevCompany) {
+            if (effectiveLinkedCompanyId) {
+              bindProjectToCompany(effectiveLinkedCompanyId);
+              if (useAppStore.getState().computeRecognition().some(c => c.suggestedPoolId)) {
+                useAppStore.getState().setUI({ showLibraryLinkDialog: true });
+              }
+            } else {
+              unbindProject();
             }
-          } else {
-            unbindProject();
           }
         }
-        if (soChanged) runCPM();
+        if (calcTouched && soChanged) runCPM();
       }
       onDone();
     };
 
+    // BEWUST geen dependency-array: elke render moet de NIEUWSTE `handleSubmit`-closure (met de
+    // actuele draft-state) aan de ref hangen. Een `[]` zou de closure op de EERSTE render bevriezen en
+    // submit() daarna altijd de staat van dat allereerste render laten committeren.
     useImperativeHandle(ref, () => ({ submit: handleSubmit }));
 
     const inputCls =
@@ -191,24 +287,39 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
       .filter(t => constructionMode || t.key === 'empty')
       .map(t => ({ value: t.key, label: templateLabel[t.key] }));
 
-    // "+ Nieuwe resourcebibliotheek…" (issue #19): direct vanuit de selector een nieuwe, lege
-    // resourcebibliotheek aanmaken en meteen als koppeling kiezen — zonder eerst naar Backstage →
-    // Bibliotheek te hoeven. De koppeling zelf committeert pas op submit() (zelfde als een bestaande
-    // resourcebibliotheek kiezen).
+    // "+ Nieuwe resourcebibliotheek…" (GO-NA-fix 2): toont het inline naamveld; de bibliotheek zelf
+    // materialiseert pas in handleSubmit(). Kiezen van een BESTAANDE bibliotheek (of "geen") annuleert
+    // een eventuele nieuw-aanmaak-intentie stilzwijgend (er is nog niets aangemaakt).
     const handleCompanySelectChange = (value: string) => {
       if (value === NEW_COMPANY_OPTION) {
-        const newId = addCompany(tCommon('companyLibrary.newCompany'));
-        setLinkedCompanyId(newId);
-      } else {
-        setLinkedCompanyId(value);
+        setCreatingCompany(true);
+        setPendingNewCompany(true);
+        setNewCompanyName('');
+        return;
       }
+      setCompanyTouched(true);
+      setCreatingCompany(false);
+      setPendingNewCompany(false);
+      setLinkedCompanyId(value);
+    };
+    const cancelNewCompany = () => {
+      setCreatingCompany(false);
+      setPendingNewCompany(false);
+      setNewCompanyName('');
+    };
+    const confirmNewCompany = () => {
+      // Sluit alleen het inline veldje — `pendingNewCompany` blijft AAN, dus de daadwerkelijke
+      // aanmaak gebeurt pas in handleSubmit(). Dit is puur een "ik ben klaar met typen"-affordance
+      // die het formulier opruimt (de naam blijft zichtbaar in de samenvattingsregel eronder).
+      setCreatingCompany(false);
+      setCompanyTouched(true);
     };
 
     return (
       <div className="flex flex-col gap-3 text-xs" data-ops-project-info-panel>
         <div className="flex flex-col gap-1">
           <label className="text-text-secondary font-medium">{tMenu('projectInfo.name')}</label>
-          <input value={name} onChange={e => setName(e.target.value)} className={inputCls} autoFocus />
+          <input value={name} onChange={e => setName(e.target.value)} className={inputCls} autoFocus={autoFocusName} />
         </div>
 
         <div className="flex flex-col gap-1">
@@ -224,7 +335,7 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
           <div className="flex flex-col gap-1">
             <label className="text-text-secondary font-medium">{tCommon('companyLibrary.linkedCompany')}</label>
             <select
-              value={linkedCompanyId}
+              value={(creatingCompany || pendingNewCompany) ? NEW_COMPANY_OPTION : linkedCompanyId}
               onChange={e => handleCompanySelectChange(e.target.value)}
               className={inputCls}
               data-ops-project-company-select
@@ -233,6 +344,64 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               <option value={NEW_COMPANY_OPTION}>{tCommon('companyLibrary.addNewOption')}</option>
             </select>
+            {creatingCompany && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <input
+                  value={newCompanyName}
+                  onChange={e => setNewCompanyName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); confirmNewCompany(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancelNewCompany(); }
+                  }}
+                  placeholder={tCommon('companyLibrary.newCompany')}
+                  aria-label={tCommon('companyLibrary.companyName')}
+                  className={inputCls}
+                  autoFocus
+                  data-ops-project-new-company-name
+                />
+                <button
+                  type="button"
+                  onClick={confirmNewCompany}
+                  className="p-1 hover:bg-surface-hover rounded-[6px] shrink-0"
+                  title={tCommon('ok')}
+                  data-ops-project-new-company-confirm
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelNewCompany}
+                  className="p-1 hover:bg-surface-hover rounded-[6px] shrink-0"
+                  title={tCommon('cancel')}
+                  data-ops-project-new-company-cancel
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {/* Bevestigd-maar-nog-niet-gematerialiseerd: het inline veldje is dicht, maar de naam
+                (en de commit-intentie) blijft zichtbaar tot submit()/annuleren/een andere keuze. */}
+            {pendingNewCompany && !creatingCompany && (
+              <div className="flex items-center gap-1.5 mt-1 text-text-secondary">
+                <span data-ops-project-new-company-pending>{newCompanyName.trim() || tCommon('companyLibrary.newCompany')}</span>
+                <button
+                  type="button"
+                  onClick={() => setCreatingCompany(true)}
+                  className="p-1 hover:bg-surface-hover rounded-[6px] shrink-0"
+                  title={tCommon('companyLibrary.editItem')}
+                >
+                  <Pencil size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelNewCompany}
+                  className="p-1 hover:bg-surface-hover rounded-[6px] shrink-0"
+                  title={tCommon('cancel')}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -289,7 +458,7 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
 
         {/* Berekening-sectie (fase 2.9 §5.7/§7, besluit B5) — alleen bij het bewerken van een
             bestaand project (niet in de nieuw-project-wizard). Draait nu identiek op beide
-            edit-oppervlakken (dialoog én Backstage). */}
+            edit-oppervlakken (dialoog én Backstage). onChange markeert calcTouched (GO-NA-fix 1b). */}
         {!isNew && <CalcOptionsSection value={schedulingOptions} onChange={setSchedulingOptions} />}
       </div>
     );

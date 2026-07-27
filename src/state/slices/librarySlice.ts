@@ -220,7 +220,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
 
   addCompany: (name) => {
     const id = generateId('company');
-    const company: Company = { id, name: name.trim() || 'Nieuw bedrijf' };
+    const company: Company = { id, name: name.trim() || 'Nieuwe resourcebibliotheek' };
     set((s) => {
       s.companies.push(company);
       s.pools[id] = createEmptyPool(company);
