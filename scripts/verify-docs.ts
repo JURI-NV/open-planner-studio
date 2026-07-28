@@ -186,6 +186,90 @@ function checkTranslationDrift(id: string, lang: string, translated: string, enS
   }
 }
 
+/**
+ * Poort 7 — machinaal controleerbare beweringen in CLAUDE.md.
+ *
+ * CLAUDE.md en AGENTS.md zijn de eerste bron die een bijdrager (mens of agent) leest, en ze
+ * driftten stelselmatig: de dev-server-beschrijving stond ruim een maand achter op de code, de
+ * auto-save-interval noemde nog de oude waarde, en twee ribbon-tabbladen plus drie
+ * Backstage-secties ontbraken. Elk van die gevallen was mechanisch te betrappen geweest.
+ *
+ * Deze check pakt alleen de beweringen die je écht uit de code kúnt afleiden. Prozaïsche
+ * beweringen blijven mensenwerk — er wordt hier bewust geen tekstuele gelijkenis gemeten.
+ */
+function checkAgentDocs(diffs: string[]): void {
+  const claude = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
+  const types = readFileSync(join(ROOT, 'src', 'state', 'slices', 'types.ts'), 'utf8');
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+  };
+
+  // 7a. `RibbonTab` en `BackstageSection`: elk lid van de union moet als `identifier` in CLAUDE.md
+  //     staan. Backticks in plaats van de Nederlandse weergavenaam, juist zodat dit te checken is.
+  const union = (name: string): string[] => {
+    const m = types.match(new RegExp(`export type ${name} =([\\s\\S]*?);`));
+    if (!m) return [];
+    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+  };
+  for (const typeName of ['RibbonTab', 'BackstageSection']) {
+    const members = union(typeName);
+    if (members.length === 0) {
+      diffs.push(`CLAUDE.md-check: kon de union ${typeName} niet uit slices/types.ts lezen (is hij hernoemd?)`);
+      continue;
+    }
+    const missing = members.filter((m) => !claude.includes(`\`${m}\``));
+    if (missing.length) {
+      diffs.push(`CLAUDE.md noemt ${missing.length} van de ${members.length} ${typeName}-waarden niet: ${missing.map((m) => `\`${m}\``).join(', ')}`);
+    }
+  }
+
+  // 7b. De auto-save-interval. Dit is precies de bewering die verouderde ("gedebounced 800 ms"
+  //     terwijl de code al op een throttle van 10 s zat) — een getal dat in twee bestanden staat.
+  const autoSave = readFileSync(join(ROOT, 'src', 'hooks', 'useAutoSave.ts'), 'utf8');
+  const intervalMatch = autoSave.match(/AUTOSAVE_INTERVAL_MS\s*=\s*([\d_]+)/);
+  if (!intervalMatch) {
+    diffs.push('CLAUDE.md-check: AUTOSAVE_INTERVAL_MS niet gevonden in useAutoSave.ts');
+  } else {
+    const seconds = Number(intervalMatch[1].replace(/_/g, '')) / 1000;
+    if (!claude.includes(`${seconds} s`)) {
+      diffs.push(`CLAUDE.md noemt de auto-save-interval niet als "${seconds} s" (useAutoSave.ts staat op ${intervalMatch[1]} ms)`);
+    }
+  }
+
+  // 7c. Elk npm-script moet in CLAUDE.md staan, en elk `npm run X` in CLAUDE.md moet bestaan.
+  //     Zo werd `verify:docs`/`publish:wiki` onzichtbaar: het script bestond, de doc noemde het niet,
+  //     en een agent wist dus niet dat er een 14-talige handleiding meemoet bij een nieuwe functie.
+  //     Uitgezonderd: wrappers en aliassen die niets toevoegen aan wat er al beschreven staat.
+  const SCRIPT_ALLOWLIST = new Set(['tauri', 'preview']);
+  const undocumented = Object.keys(pkg.scripts)
+    .filter((s) => !SCRIPT_ALLOWLIST.has(s))
+    .filter((s) => !claude.includes(`npm run ${s}`) && !(s === 'test' && claude.includes('npm test')));
+  if (undocumented.length) {
+    diffs.push(`package.json-scripts die CLAUDE.md niet noemt: ${undocumented.join(', ')}`);
+  }
+  const referenced = [...claude.matchAll(/npm run ([a-z][\w:-]*)/g)].map((m) => m[1]);
+  const dangling = [...new Set(referenced)].filter((s) => !(s in pkg.scripts));
+  if (dangling.length) {
+    diffs.push(`CLAUDE.md verwijst naar npm-scripts die niet bestaan: ${dangling.join(', ')}`);
+  }
+
+  // 7d. De locale-lijst. CLAUDE.md somt de talen op in één backtick-span; die span wordt hier
+  //     GEPARSED en als verzameling vergeleken. Bewust niet met `claude.includes('ko')`: een
+  //     tweeletterige code komt overal als deelwoord voor ("ko" in "koppeling"), dus zo'n check
+  //     slaagt altijd — vacuüm groen, precies de faalmodus die dit script hoort te vangen.
+  const listSpan = [...claude.matchAll(/`([a-z]{2}(?:,\s*[a-z]{2})+)`/g)]
+    .map((m) => m[1].split(',').map((s) => s.trim()))
+    .find((codes) => codes.length >= LANGS.length - 2);
+  if (!listSpan) {
+    diffs.push(`CLAUDE.md bevat geen herkenbare locale-opsomming (verwacht: een backtick-span met ${LANGS.length} komma-gescheiden codes)`);
+  } else {
+    const missing = LANGS.filter((l) => !listSpan.includes(l));
+    const extra = listSpan.filter((l) => !(LANGS as readonly string[]).includes(l));
+    if (missing.length) diffs.push(`CLAUDE.md's locale-opsomming mist: ${missing.join(', ')}`);
+    if (extra.length) diffs.push(`CLAUDE.md's locale-opsomming noemt onbekende locales: ${extra.join(', ')}`);
+  }
+}
+
 function main() {
   let anyFail = false;
   const globalDiffs: string[] = [];
@@ -194,6 +278,9 @@ function main() {
   const exampleFiles = loadExampleFiles();
   const ids = manifest.articles.map((a) => a.id);
   const idSet = new Set(ids);
+
+  // 7. Machinaal controleerbare beweringen in CLAUDE.md (zie checkAgentDocs).
+  checkAgentDocs(globalDiffs);
 
   // 1a. Dubbele ids in het manifest.
   const seen = new Set<string>();
@@ -215,8 +302,8 @@ function main() {
     }
   }
 
-  console.log('── Manifest-hygiëne ──');
-  if (globalDiffs.length === 0) console.log('  OK  geen dubbele ids, geen wees-bestanden');
+  console.log('── Manifest-hygiëne + CLAUDE.md-beweringen ──');
+  if (globalDiffs.length === 0) console.log('  OK  geen dubbele ids, geen wees-bestanden, CLAUDE.md loopt gelijk met de code');
   else { anyFail = true; for (const d of globalDiffs) console.log(`  XX  ${d}`); }
 
   // 2/3/4/5/6: per artikel.

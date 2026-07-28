@@ -563,6 +563,20 @@ De architectuur volgt het patroon van **Open 2D Studio** en **OpenFEM2D Studio**
 
 ## 4. Mappenstructuur
 
+> **⚠️ AANGENOMEN ONTWERP — GEEN BESCHRIJVING VAN DE CODE.**
+>
+> Deze boom is een plan uit de ontwerpfase en beschrijft **niet** de huidige
+> codebase. Grote delen ervan bestaan niet en hebben nooit bestaan: `src/api/`,
+> `src/state/documentStore.ts`, `selectionSlice`/`filterSlice`/`leanSlice`,
+> `TimelineRenderer`/`GridRenderer`/`DependencyRenderer`/`LOBRenderer`/
+> `NetworkRenderer`, `FloatCalculator`, `MonteCarloSim` en `IntervalTree`.
+> Andere delen heten inmiddels anders of wonen ergens anders.
+>
+> De boom is plausibel genoeg om als feit gelezen te worden — dat is precies het
+> gevaar. **Voor de werkelijke structuur: [`AGENTS.md`](AGENTS.md) en
+> [`CLAUDE.md`](CLAUDE.md)**, en anders `ls src/`. Lees dit hoofdstuk als
+> "waar we ooit heen dachten te gaan", niet als "waar de code staat".
+
 ```
 Open-Planner-Studio/
 ├── src/                              # TypeScript React frontend
@@ -1594,9 +1608,17 @@ python server.py
 
 ### 10.3 CI/CD (GitHub Actions)
 
-- **Test**: TypeScript compilatie + Vitest unit tests
+- **Poort**: `npm run verify` — TypeScript-check over `src/` én `scripts/`+`tests/`,
+  de vier gedragssuites, de voorbeeldprojecten, de in-app documentatie en de
+  vertaalsleutels. Eén definitie in `package.json`; `ci.yml`, de release-gate en
+  de deploy-gate draaien alle drie precies die regel.
+  (Er is **geen** Vitest — deze sectie claimde dat, maar het zit niet in
+  `package.json`. De suites draaien headless op Node via esbuild plus `node:test`.)
 - **Build**: Tauri build voor Linux, Windows, macOS
-- **Release**: Automatische binaries bij git tag
+- **Release**: gesigneerde binaries bij een `v*`-tag, achter dezelfde poort plus
+  een controle dat de tag overeenkomt met `package.json`/`tauri.conf.json`
+- **Deploy**: elke push naar `main` deployt de browserbuild naar
+  `open-planner-studio.open-aec.com` — achter dezelfde poort
 
 ---
 

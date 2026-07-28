@@ -6,6 +6,8 @@ permissions:
   issues: write
 jobs:
   assign:
+    # Bevinding O6: één API-call, dus krap begrensd.
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v8
@@ -15,5 +17,9 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              assignees: ['DutchSailor']
+              // Één bron met .github/CODEOWNERS: dat bestand wijst de review toe,
+              // deze workflow de issue-triage. Ze stonden op twee verschillende
+              // accounts (hier DutchSailor, in CODEOWNERS @Nozzit) zonder dat
+              // ergens vastlag welke de bedoelde was; nu allebei Nozzit.
+              assignees: ['Nozzit']
             });
