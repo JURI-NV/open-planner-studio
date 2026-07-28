@@ -1608,6 +1608,8 @@ function extractBaselines(
 
   let baselines: Baseline[] = [];
   let activeBaselineId: string | null = null;
+  /** Expliciete interne-taakId → GlobalId-map uit het bestand (B8); leeg bij oudere bestanden. */
+  let taskGuids: Record<string, string> | null = null;
 
   for (const e of entities) {
     if (e.type !== 'IFCPROPERTYSET' || stripQuotes(e.args[2] || '') !== PSET.Baselines) continue;
@@ -1624,6 +1626,16 @@ function extractBaselines(
         } catch { /* corrupte JSON — negeer, baselines blijft leeg */ }
       } else if (name === 'ActiveBaselineId') {
         activeBaselineId = raw;
+      } else if (name === 'TaskGuids') {
+        // Bevinding B8: de writer schrijft sinds deze versie expliciet weg wélk GlobalId hij per
+        // baseline-taak gebruikte, zodat wij de hash niet meer hoeven na te rekenen. Ontbreekt de
+        // map (bestanden van vóór die wijziging), dan valt de remap hieronder terug op de oude weg.
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            taskGuids = parsed as Record<string, string>;
+          }
+        } catch { /* corrupte JSON — negeer, we vallen terug op herberekening */ }
       }
     }
   }
@@ -1632,7 +1644,10 @@ function extractBaselines(
   for (const b of baselines) {
     if (!Array.isArray(b.tasks)) { b.tasks = []; continue; }
     for (const bt of b.tasks as BaselineTask[]) {
-      const remapped = guidToTaskId.get(ifcGuid(bt.taskId));
+      // B8: gebruik het GlobalId dat de writer daadwerkelijk uitgaf. Alleen bij bestanden van
+      // vóór de `TaskGuids`-map vallen we terug op het herberekenen van de hash.
+      const guid = taskGuids?.[bt.taskId] ?? ifcGuid(bt.taskId);
+      const remapped = guidToTaskId.get(guid);
       if (remapped) bt.taskId = remapped;
     }
   }

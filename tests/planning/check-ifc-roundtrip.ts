@@ -679,6 +679,59 @@ const rt2 = readIFC(writeIFC(rt1));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
+// (5) B8 — GlobalId-uitgifte: uniciteit, en de ONTKOPPELING van de baseline-remap.
+//
+// `ifcGuid` is een 32-bits hash, geen UUID. Twee dingen zijn nu geborgd, en de volgorde waarin ze
+// zijn aangepakt is wezenlijk: eerst de ontkoppeling (de writer schrijft wég welk GlobalId hij per
+// baseline-taak gebruikte), pas daarna de botsingscheck. Andersom zou een gesuffixt GlobalId de
+// remap breken, omdat de reader de hash dan nog zelf herberekende.
+{
+  const ifc = writeIFC(fixture);
+
+  // (5a) Elk ENTITY-GlobalId komt precies één keer voor. Let op de ankering op `#N=`: een naïeve
+  //      scan op `IFC…('…')` telt ook `IFCTEXT('<guid>')` mee, en dat zijn juist de bedoelde
+  //      VERWIJZINGEN naar een GlobalId (ParentGuid, en de resource-GUID als property-naam van een
+  //      toewijzing). Die horen te herhalen; entity-id's niet.
+  const entityGuids = [...ifc.matchAll(/^#\d+=IFC[A-Z]+\('([0-9A-Za-z_$]{22})'/gm)].map(m => m[1]);
+  const dupes = entityGuids.filter((g, i) => entityGuids.indexOf(g) !== i);
+  assert(entityGuids.length > 20, `verwachtte een flink aantal entity-GlobalIds — kreeg ${entityGuids.length}`);
+  assert(dupes.length === 0, `entity-GlobalIds moeten uniek zijn — dubbel: ${[...new Set(dupes)].join(', ')}`);
+
+  // (5b) De writer schrijft de taak→GlobalId-map expliciet weg, zodat de reader niets hoeft te
+  //      herberekenen.
+  assert(ifc.includes("'TaskGuids'"), 'writeBaselineMeta moet een TaskGuids-map schrijven zolang er baselines zijn');
+
+  const baseRt = readIFC(ifc);
+  const bt0 = baseRt.baselines![0].tasks[0];
+  assert(baseRt.tasks.some(t => t.id === bt0.taskId),
+    'basisgeval: de baseline-taak moet normaal op een bestaande taak worden geremapt');
+
+  // (5c) En de reader GEBRUIKT die map. Bewijs: wijs in de map de eerste baseline-taak naar het
+  //      GlobalId van een ÁNDERE taak. Herberekende de reader nog zelf, dan verandert er niets;
+  //      volgt hij de map, dan landt de baseline-taak op die andere taak.
+  const other = baseRt.tasks.find(t => t.id !== bt0.taskId)!;
+  const otherLine = ifc.split('\n').find(l => l.includes('=IFCTASK(') && l.includes(`'${other.name}'`))!;
+  const otherGuid = /=IFCTASK\('([0-9A-Za-z_$]{22})'/.exec(otherLine)![1];
+  const mapLine = ifc.split('\n').find(l => l.includes("'TaskGuids'"))!;
+  const origGuid = /IFCTEXT\('.*?:.*?([0-9A-Za-z_$]{22})/.exec(mapLine)?.[1];
+  assert(!!origGuid, 'kon het eerste GlobalId in de TaskGuids-map niet uitlezen');
+  const tampered = ifc.replace(mapLine, mapLine.replace(origGuid!, otherGuid));
+  const rtTampered = readIFC(tampered);
+  // NB: `readIFC` genereert per leesbeurt NIEUWE taak-id's, dus vergelijken met een id uit een
+  //     eerdere leesbeurt kan niet — we identificeren de doeltaak op naam binnen dezelfde beurt.
+  const otherInTampered = rtTampered.tasks.find(t => t.name === other.name)!;
+  assert(rtTampered.baselines![0].tasks.some(bt => bt.taskId === otherInTampered.id),
+    'de reader moet de expliciete TaskGuids-map volgen, niet de hash herberekenen (B8-ontkoppeling)');
+
+  // (5d) Terugval voor bestanden van vóór deze wijziging: haal de map weg en de remap moet nog
+  //      steeds werken via de herberekende hash.
+  const legacy = ifc.split('\n').filter(l => !l.includes("'TaskGuids'")).join('\n');
+  const rtLegacyGuids = readIFC(legacy);
+  assert(rtLegacyGuids.tasks.some(t => t.id === rtLegacyGuids.baselines![0].tasks[0].taskId),
+    'zonder TaskGuids-map (oud bestand) moet de remap terugvallen op het herberekenen van de hash');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);
   process.exit(0);
