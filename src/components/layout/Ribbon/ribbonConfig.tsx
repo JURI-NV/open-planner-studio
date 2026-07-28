@@ -10,7 +10,7 @@ import {
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
   Keyboard, Pin, PinOff, Compass,
-  CalendarClock,
+  CalendarClock, ChevronsDownUp, ChevronsUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { formatDate } from '@/utils/dateUtils';
@@ -548,9 +548,53 @@ const relationsTab: RibbonTabConfig = [
   { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
 ];
 
+/**
+ * Overzicht-groep (issue #35 punt 3): in- en uitklappen zijn APARTE knoppen, niet één toggle —
+ * met een toggle kun je een gemengde selectie nooit in één keer dezelfde kant op zetten.
+ * Beide werken op de selectie; zonder selectie op het hele plan, zodat de knop nooit een dode
+ * klik is. In gegroepeerde weergave negeert `computeViewRows` de taak-collapse volledig (de
+ * bandkoppen nemen het over), dus daar zijn de knoppen uitgeschakeld i.p.v. stil niets te doen.
+ */
+const outlineGroup: RibbonGroupSpec = {
+  id: 'outline', labelKey: 'menu:ribbon.outline',
+  items: [{
+    kind: 'stack', id: 'outlineStack', items: [
+      {
+        kind: 'small', id: 'collapseTasks', icon: <ChevronsDownUp size={14} />, labelKey: 'menu:ribbon.collapseTasks',
+        use: () => {
+          const collapseTasks = useAppStore(s => s.collapseTasks);
+          const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+          const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
+          const { t } = useTranslation('menu');
+          return {
+            onClick: () => collapseTasks(selectedTaskIds),
+            disabled: grouped,
+            title: t(grouped ? 'ribbon.outlineGroupedHint' : 'ribbon.collapseTasksTitle'),
+          };
+        },
+      },
+      {
+        kind: 'small', id: 'expandTasks', icon: <ChevronsUpDown size={14} />, labelKey: 'menu:ribbon.expandTasks',
+        use: () => {
+          const expandTasks = useAppStore(s => s.expandTasks);
+          const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+          const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
+          const { t } = useTranslation('menu');
+          return {
+            onClick: () => expandTasks(selectedTaskIds),
+            disabled: grouped,
+            title: t(grouped ? 'ribbon.outlineGroupedHint' : 'ribbon.expandTasksTitle'),
+          };
+        },
+      },
+    ],
+  }],
+};
+
 const beeldTab: RibbonTabConfig = [
   { id: 'timeScale', labelKey: 'menu:ribbon.timeScale', items: [{ kind: 'component', id: 'timeScale', Component: TimeScaleGroupContent }] },
   { id: 'display', labelKey: 'menu:ribbon.display', items: [{ kind: 'component', id: 'display', Component: DisplayGroupContent }] },
+  outlineGroup,
   {
     id: 'shortcuts', labelKey: 'common:shortcuts.title',
     items: [{
