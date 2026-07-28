@@ -36,7 +36,6 @@
     "addSubtask": "Añadir subtarea",
     "addMilestone": "Añadir hito",
     "addRelation": "Añadir relación",
-    "toggleCollapse": "Contraer/expandir",
     "delete": "Eliminar",
     "newTask": "Nueva tarea",
     "tracePath": "Trazar ruta",

@@ -36,7 +36,6 @@
     "addSubtask": "Unteraufgabe hinzufügen",
     "addMilestone": "Meilenstein hinzufügen",
     "addRelation": "Beziehung hinzufügen",
-    "toggleCollapse": "Ein-/ausklappen",
     "delete": "Löschen",
     "newTask": "Neue Aufgabe",
     "tracePath": "Pfad verfolgen",

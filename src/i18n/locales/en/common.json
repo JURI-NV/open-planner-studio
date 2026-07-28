@@ -36,7 +36,6 @@
     "addSubtask": "Add subtask",
     "addMilestone": "Add milestone",
     "addRelation": "Add relation",
-    "toggleCollapse": "Collapse/expand",
     "delete": "Delete",
     "newTask": "New task",
     "tracePath": "Trace path",

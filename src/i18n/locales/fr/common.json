@@ -36,7 +36,6 @@
     "addSubtask": "Ajouter une sous-tâche",
     "addMilestone": "Ajouter un jalon",
     "addRelation": "Ajouter une relation",
-    "toggleCollapse": "Réduire/développer",
     "delete": "Supprimer",
     "newTask": "Nouvelle tâche",
     "tracePath": "Tracer le chemin",

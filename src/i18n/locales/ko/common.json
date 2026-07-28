@@ -36,7 +36,6 @@
     "addSubtask": "하위 작업 추가",
     "addMilestone": "마일스톤 추가",
     "addRelation": "관계 추가",
-    "toggleCollapse": "접기/펼치기",
     "delete": "삭제",
     "newTask": "새 작업",
     "tracePath": "경로 추적",

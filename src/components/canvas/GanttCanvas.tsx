@@ -68,6 +68,23 @@ interface TooltipState {
   task: Task;
 }
 
+/**
+ * Reikwijdte van de in-/uitklap-items in het taakcontextmenu (issue #42).
+ *
+ * De AANGEKLIKTE taak is de handgreep, de SELECTIE is de reikwijdte: zit de aangeklikte taak in de
+ * huidige selectie, dan geldt de actie voor de hele selectie; zit hij er niet in, dan alleen voor
+ * die ene taak. Dat is precies de conventie die dit project al hanteert bij verticaal slepen
+ * ("slepen verplaatst de hele selectie", issue #26) — draai hem niet om.
+ *
+ * De selectie wordt LIVE uit de store gelezen en niet uit een render-closure, zodat de
+ * selectiecorrectie die `handleContextMenu` bij het openen doet (rechtsklik buiten de selectie ⇒
+ * die ene taak wordt de selectie) hoe dan ook is meegenomen op het moment dat je het item aanklikt.
+ */
+function contextMenuOutlineScope(taskId: string): string[] {
+  const selected = useAppStore.getState().selectedTaskIds;
+  return selected.includes(taskId) ? selected : [taskId];
+}
+
 export function GanttCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +144,10 @@ export function GanttCanvas() {
   // (collapsedTaskIds) en zijn expliciet "voor het bandkop-contextmenu" gebouwd.
   const expandAll = useAppStore(s => s.expandAll);
   const collapseAll = useAppStore(s => s.collapseAll);
+  // Issue #42: het taakcontextmenu klapt APART in/uit (net als de Beeld-tab) en gebruikt daarom
+  // dezelfde gerichte acties als `outlineGroup` — niet de toggle.
+  const collapseTasks = useAppStore(s => s.collapseTasks);
+  const expandTasks = useAppStore(s => s.expandTasks);
   const setZoom = useAppStore(s => s.setZoom);
   const setViewStartDate = useAppStore(s => s.setViewStartDate);
   const project = useAppStore(s => s.project);
@@ -1621,8 +1642,11 @@ export function GanttCanvas() {
               setUI({ traceMode: 'both' });
             }
           }}
-          onToggleCollapse={() => {
-            if (contextMenu.task) toggleCollapse(contextMenu.task.id);
+          onCollapse={() => {
+            if (contextMenu.task) collapseTasks(contextMenuOutlineScope(contextMenu.task.id));
+          }}
+          onExpand={() => {
+            if (contextMenu.task) expandTasks(contextMenuOutlineScope(contextMenu.task.id));
           }}
           onDelete={() => {
             if (contextMenu.task) deleteTask(contextMenu.task.id);
