@@ -1641,6 +1641,15 @@ export class GanttRenderer {
     // marge als de taaknaam-clip: `taskTableWidth - indent - 55`) — de kop volgt nu diezelfde
     // rechterrand/kolombreedte, plus alle drie de kopteksten worden afgekapt zodat ze nooit
     // buiten hun eigen kolom kunnen lopen.
+    //
+    // De rechter-uitlijning wordt hier BEWUST met de hand uitgerekend (linkerrand = rechterrand −
+    // tekstbreedte) in plaats van via `ctx.textAlign = 'right'`. Twee redenen: (1) `textAlign` is
+    // globale context-state die daarna weer teruggezet moet worden — een lek dat de rest van de
+    // frame-render stilletjes kan verschuiven; (2) de headless header-check
+    // (`tests/planning/check-header-compress.ts`) leest de x van elke `fillText` als LINKERrand en
+    // ziet een rechts-uitgelijnd label daardoor als een overlap met de tijdlijn-weeklabels
+    // ("stapeling ... 'Duur' overlapt 'W47'"). Zelf rekenen geeft exact dezelfde pixels, houdt de
+    // context schoon en laat de check kloppen op wat er werkelijk staat.
     const headers = this.opts.columnHeaders || { wbs: 'WBS', taskName: 'Taaknaam', duration: 'Duur' };
     const headerDurationColStart = taskTableWidth - 55; // zelfde kolomreservering als de rijen
     ctx.fillStyle = this.colors.text;
@@ -1648,9 +1657,9 @@ export class GanttRenderer {
     ctx.textBaseline = 'middle';
     ctx.fillText(this.truncate(headers.wbs, 44), 8, headerHeight / 2);
     ctx.fillText(this.truncate(headers.taskName, headerDurationColStart - 60 - 4), 60, headerHeight / 2);
-    ctx.textAlign = 'right';
-    ctx.fillText(this.truncate(headers.duration, 47), taskTableWidth - 8, headerHeight / 2);
-    ctx.textAlign = 'left';
+    const durationLabel = this.truncate(headers.duration, 47);
+    const durationX = taskTableWidth - 8 - ctx.measureText(durationLabel).width;
+    ctx.fillText(durationLabel, durationX, headerHeight / 2);
 
     // Header border
     ctx.strokeStyle = this.colors.border;
