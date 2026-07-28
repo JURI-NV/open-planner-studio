@@ -224,7 +224,9 @@
       "smaller": "{{size}} mniej niż poprzednia wersja",
       "larger": "{{size}} więcej niż poprzednia wersja",
       "sameSize": "Taki sam rozmiar jak poprzednia wersja",
-      "daysSincePrevious": "Od poprzedniego wydania: {{count}} dni"
+      "daysSincePrevious": "Od poprzedniego wydania: {{count}} dni",
+      "currentOnly": "Używasz teraz wersji {{version}}",
+      "whatsNewButton": "Co nowego"
     }
   },
   "statusWarnings": {

@@ -224,7 +224,9 @@
       "smaller": "{{size}} کوچک‌تر از نسخهٔ قبلی",
       "larger": "{{size}} بزرگ‌تر از نسخهٔ قبلی",
       "sameSize": "هم‌اندازهٔ نسخهٔ قبلی",
-      "daysSincePrevious": "از انتشار قبلی: {{count}} روز"
+      "daysSincePrevious": "از انتشار قبلی: {{count}} روز",
+      "currentOnly": "اکنون از نسخهٔ {{version}} استفاده می‌کنید",
+      "whatsNewButton": "تازه‌ها"
     }
   },
   "statusWarnings": {

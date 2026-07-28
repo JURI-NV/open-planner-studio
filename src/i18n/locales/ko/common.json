@@ -224,7 +224,9 @@
       "smaller": "이전 버전보다 {{size}} 작음",
       "larger": "이전 버전보다 {{size}} 큼",
       "sameSize": "이전 버전과 동일한 크기",
-      "daysSincePrevious": "이전 릴리스 이후: {{count}}일"
+      "daysSincePrevious": "이전 릴리스 이후: {{count}}일",
+      "currentOnly": "현재 {{version}} 버전을 사용 중입니다",
+      "whatsNewButton": "새로운 기능"
     }
   },
   "statusWarnings": {

@@ -10,7 +10,9 @@ import { formatBytes } from '@/utils/formatBytes';
 /**
  * "Je bent net geüpdatet"-dialoog. Toont de versiesprong plus drie weetjes over de update:
  * grootteverschil van de installer, dagen sinds de vorige release en de GitHub-release-beschrijving.
- * Verschijnt zodra `ui.justUpdated` gevuld is (gezet door de opstart-detectie in useUpdateCheck).
+ * Verschijnt zodra `ui.justUpdated` gevuld is (gezet door de opstart-detectie in useUpdateCheck, of
+ * handmatig via Instellingen → "Wat is er nieuw"). Is `from` `null` (verse installatie / geen
+ * eerdere versie bekend), dan tonen we geen pijl maar enkel de huidige versie.
  * Elke weetjes-regel toont zich alléén als de bijbehorende data beschikbaar is — bij offline/fout
  * blijft enkel de versiesprong over. Desktop-only qua trigger; de fetch werkt overal.
  */
@@ -69,12 +71,18 @@ export function JustUpdatedDialog() {
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 text-xs">
-        {/* Versiesprong */}
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <span className="text-text-secondary">{justUpdated.from}</span>
-          <span className="text-text-secondary">→</span>
-          <span className="text-accent">{justUpdated.to}</span>
-        </div>
+        {/* Versiesprong — zonder bekende "van"-versie (verse installatie) alleen de huidige. */}
+        {justUpdated.from === null ? (
+          <div className="text-sm font-semibold text-accent">
+            {t('updates.justUpdated.currentOnly', { version: justUpdated.to })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span className="text-text-secondary">{justUpdated.from}</span>
+            <span className="text-text-secondary">→</span>
+            <span className="text-accent">{justUpdated.to}</span>
+          </div>
+        )}
 
         {/* Weetjes — alleen tonen wat we hebben */}
         {(showSmaller || showLarger || showSame || days !== null) && (

@@ -224,7 +224,9 @@
       "smaller": "Önceki sürümden {{size}} daha küçük",
       "larger": "Önceki sürümden {{size}} daha büyük",
       "sameSize": "Önceki sürümle aynı boyutta",
-      "daysSincePrevious": "Önceki sürümden bu yana: {{count}} gün"
+      "daysSincePrevious": "Önceki sürümden bu yana: {{count}} gün",
+      "currentOnly": "Şu anda {{version}} sürümünü kullanıyorsunuz",
+      "whatsNewButton": "Yenilikler"
     }
   },
   "statusWarnings": {
