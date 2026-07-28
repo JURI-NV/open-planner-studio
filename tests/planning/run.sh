@@ -123,6 +123,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   JUCHECK="$DIR/.just-updated-check.mjs"
   if bundle_check "$DIR/check-just-updated.ts" "$JUCHECK"; then node "$JUCHECK" || STATUS=1; fi
 
+  # "Bestaat dit tekst-asset echt?"-poort van de in-app help (textAsset.ts — pure functies +
+  # injecteerbare fetch). Zet de desktopbug vast waarbij een content-type-check ALLE help-artikelen
+  # verwierp: de Tauri-webview labelt elke onbekende extensie (.md) als text/html.
+  TACHECK="$DIR/.text-asset-check.mjs"
+  if bundle_check "$DIR/check-text-asset.ts" "$TACHECK"; then node "$TACHECK" || STATUS=1; fi
+
   # CalendarEngine uur-modus-checks (fase 2.8b golf 1, §4/§9 — engine-primitieven, los van de CPM-cases).
   CHCHECK="$DIR/.calendar-hours-check.mjs"
   if bundle_check "$DIR/check-calendar-hours.ts" "$CHCHECK"; then node "$CHCHECK" || STATUS=1; fi
