@@ -47,6 +47,11 @@ Hold **Shift** while dragging from a bar, and instead you start drawing a **rela
 task you release on — the same thing as **Start relation from here** in the bar's context menu, but
 in one mouse motion.
 
+Click a bar to select just that task. **Ctrl/⌘+click** a bar toggles it into or out of the current
+selection instead of replacing it, so you can build up a multi-task selection one bar at a time —
+handy right before clicking the **Link** button with exactly two tasks selected, or before dragging a
+whole selection of tasks to a new position at once in the task table.
+
 ## Panning versus box-select
 
 A drag that starts on empty space does one of two things, and that depends on where you start it and
@@ -54,9 +59,9 @@ on your scroll mode (**Settings → Scroll & zoom**):
 
 - **In the task table** (the left-hand column with WBS/name/duration), a drag on empty space is
   **always** a box-select — panning never happens there.
-- **In the Gantt canvas itself**: if your scroll mode is set to **Drag** (map-style panning), panning
-  wins — exactly as you'd expect from a map application. On either of the other scroll modes
-  (**Position** or **Modifier mapping**), that same drag on empty canvas is a box-select, letting you
+- **In the Gantt canvas itself**: if your scroll mode is set to **Zoom + drag** (map-style panning,
+  the default), panning wins — exactly as you'd expect from a map application. On either of the other
+  scroll modes (**Position** or **Keys**), that same drag on empty canvas is a box-select, letting you
   select multiple tasks at once by dragging a rectangle around them.
 
 In short: the task table always selects; the canvas only pans in drag scroll mode and selects
@@ -67,7 +72,11 @@ otherwise.
 Besides the zoom buttons on the ribbon, **+**/**=** (or **Ctrl+=**) zooms in and **-** (or
 **Ctrl+-**) zooms out. A bare **0** resets zoom to the default; **Ctrl+0** adjusts zoom so the whole
 project fits on screen ("fit to project") — the same as the button with that name in the empty-canvas
-context menu above.
+context menu above. The timeline header adapts as you zoom in further: week numbers appear once
+there's room for them, and day names label each column once you're zoomed in close enough to work at
+day level. If **Show only working days** (Settings → Timeline / Zoom) is on, the header — and the
+bars themselves — skip weekends and holidays entirely instead of just greying them out, so a
+5-workday task is exactly 5 columns wide.
 
 ## Document tabs
 

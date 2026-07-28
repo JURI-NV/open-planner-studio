@@ -8,6 +8,14 @@ on:
     branches:
       - main
 
+# Zonder dit erft elke job de repo-default van GITHUB_TOKEN, terwijl deze
+# workflow op een PR de afhankelijkheden van vreemde code installeert — een
+# postinstall-script zou dan met schrijfrechten draaien. Beide jobs hebben
+# genoeg aan lezen. (Gemeld door CodeQL op PR #33; stond ook als ci.yml-#1 in
+# de workflow-audit.)
+permissions:
+  contents: read
+
 # Bevinding O3: zonder dit draaien alle pushes op één branch tegelijk door.
 # Hier mág er wél geannuleerd worden — een afgebroken CI-run laat niets achter
 # (in tegenstelling tot release.yml/snap.yml, die daarom `false` gebruiken).

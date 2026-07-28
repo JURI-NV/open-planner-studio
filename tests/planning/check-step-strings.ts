@@ -23,6 +23,7 @@
 import { useAppStore } from '@/state/appStore';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
+import { IfcParseError } from '@/services/ifc/ifcErrors';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { ImportResult } from '@/services/importTypes';
 
@@ -299,6 +300,126 @@ eq('8b handgeschreven: beide taken gelezen', rt8.tasks.map(t => t.name), ['Taak 
 eq('8c handgeschreven: commentaar tussen args weggestript, omschrijving intact',
   rt8.tasks[0]?.description, 'omschrijving');
 eq('8d handgeschreven: wbsCode intact', rt8.tasks[0]?.wbsCode, '1.1');
+
+// ════════════════════════════════════════════════════════════════════════════
+//  9. LEGACY-BESTANDEN: een rauwe, ongebalanceerde apostrof in de header
+// ════════════════════════════════════════════════════════════════════════════
+// De writer schreef t/m v2026.7.12 naam/auteur/bedrijf RAUW in `FILE_NAME(...)`. Een project
+// "Van 't Hof Toren" leverde daar dus een apostrof op die geen string opent én sluit. Zulke
+// bestanden staan in het veld — deze app heeft ze zelf geproduceerd.
+//
+// De eerste K2-opzet zocht de `DATA;`-sectiegrens quote-BEWUST vanaf byte 0. Op zo'n legacy-header
+// loopt die scan uit de pas, ziet de echte `DATA;` als "binnen een string" en gaf nul entiteiten:
+// een leeg project, ZONDER fout, terwijl `filePath` gekoppeld bleef — één Ctrl+S verder was het
+// origineel weg. Onder v2026.7.12 opende exact hetzelfde bestand gewoon.
+//
+// Deze batterij pint beide kanten vast: de legacy-header moet leesbaar blijven, en de K2-winst
+// (`DATA;`/`ENDSEC;` binnen een header-string mag de grens niet verzetten) moet overeind blijven.
+// De round-trip kan dit niet dekken: de huidige writer produceert zo'n header per definitie niet.
+const legacyFile = (fileName: string) => [
+  'ISO-10303-21;',
+  'HEADER;',
+  `FILE_NAME('${fileName}','2031-01-01T07:00:00',('A'),('B'),'x','y','');`,
+  'ENDSEC;',
+  'DATA;',
+  "#1=IFCPROJECT('g1',$,'Legacy',$,$,$,$,$,$);",
+  "#2=IFCTASK('g2',$,'Taak A',$,$,'1.1',$,$,$,.F.,$,$,.CONSTRUCTION.);",
+  'ENDSEC;',
+  'END-ISO-10303-21;',
+].join('\n');
+
+// 9a/9b — rauwe apostrof: vóór de fix nul entiteiten, nu gewoon leesbaar.
+const rt9 = readIFC(legacyFile("Van 't Hof Toren.ifc"));
+eq('9a legacy rauwe apostrof: projectnaam gelezen', rt9.project.name, 'Legacy');
+eq('9b legacy rauwe apostrof: taak gelezen', rt9.tasks.map(t => t.name), ['Taak A']);
+
+// 9c/9d — K2-winst: `DATA;` resp. `ENDSEC;` in de header-string verzet de sectiegrens niet.
+const rt9c = readIFC(legacyFile('DATA; Toren.ifc'));
+eq('9c header met DATA; in de naam: taak gelezen', rt9c.tasks.map(t => t.name), ['Taak A']);
+const rt9d = readIFC(legacyFile('ENDSEC; Toren.ifc'));
+eq('9d header met ENDSEC; in de naam: taak gelezen', rt9d.tasks.map(t => t.name), ['Taak A']);
+
+// 9e — géén datasectie ⇒ getypeerde fout, NOOIT stil een leeg project. Anders begraaft een
+// herstelde snapshot of een geopend bestand het origineel onder een leeg document.
+const ZONDER_DATA = [
+  'ISO-10303-21;',
+  'HEADER;',
+  "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+  'ENDSEC;',
+  'END-ISO-10303-21;',
+].join('\n');
+let reason9e = 'geen fout';
+try {
+  readIFC(ZONDER_DATA);
+} catch (e) {
+  reason9e = e instanceof IfcParseError ? e.reason : `andere fout: ${(e as Error).name}`;
+}
+eq('9e zonder DATA;-sectie: getypeerde leesfout i.p.v. leeg project', reason9e, 'no-data-section');
+
+// ── 9f–9k: de andere kant van de sectiegrens ────────────────────────────────
+// Een eerste poging tot bovenstaande fix zocht de grens UITSLUITEND regel-verankerd. Dat repareert
+// 9a, maar het weigert geldige STEP-bestanden en het verzint data. Deze zes casussen pinnen dat
+// vast; ze faalden allemaal tegen die variant. Regeleindes zijn in STEP gewone witruimte, geen
+// syntaxis — een bestand zonder één newline is volkomen legaal.
+const ENTITIES = "#1=IFCPROJECT('g1',$,'P',$,$,$,$,$,$);"
+  + "#2=IFCTASK('g2',$,'Taak A',$,$,'1.1',$,$,$,.F.,$,$,.CONSTRUCTION.);";
+const HDR = "ISO-10303-21;HEADER;FILE_NAME('X.ifc','t',('A'),('B'),'x','y','');ENDSEC;";
+/** Taaknamen uit een handgeschreven bestand. Een throw wordt een VERGELIJKBARE waarde in plaats van
+ *  een stacktrace, zodat een regressie hier als nette `XX`-regel in de suite-uitvoer landt en de
+ *  overige casussen gewoon doorlopen. */
+const names = (text: string): string[] | string => {
+  try {
+    return readIFC(text).tasks.map(t => t.name);
+  } catch (e) {
+    return e instanceof IfcParseError ? `THROW ${e.reason}` : `THROW ${(e as Error).name}`;
+  }
+};
+
+eq('9f hele bestand op een regel', names(`${HDR}DATA;${ENTITIES}ENDSEC;END-ISO-10303-21;`), ['Taak A']);
+eq('9g ENDSEC;DATA; op een regel',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('X.ifc','t',('A'),('B'),'x','y','');\nENDSEC;DATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+// Form feed / vertical tab zijn STEP-witruimte, maar geen `[ \t]` — een regel-verankerd patroon
+// mist ze en weigerde het bestand.
+eq('9h form feed voor DATA;',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('X.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\n\fDATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+eq('9i vertical tab voor DATA;',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('X.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\n\vDATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+// `DATA;` aan het begin van een regel BINNEN een blokcommentaar: de grens mag daar niet landen,
+// anders wordt de commentaarinhoud als echte entiteiten gelezen — verzonnen data is erger dan
+// verloren data.
+eq('9j DATA; in blokcommentaar levert geen spookentiteit',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('X.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\n/* banner\nDATA;\n#9=IFCTASK('g9',$,'SPOOK',$,$,$,$,$,$,.F.,$,$,.CONSTRUCTION.);\n*/\nDATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+// Een ECHT regeleinde binnen een header-string zet de tekst erna aan het regelbegin. Zonder de
+// writer-sanitatie hieronder produceerden we dit zelf, en dan gaf een regel-verankerde lezer nul
+// entiteiten ZONDER fout — precies het scenario dat batterij 9 heet af te dekken.
+eq('9k header-string met echt regeleinde + DATA;',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('Renovatie fase 1\nDATA; en fase 2.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\nDATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+
+// ── 9l: de WRITER mag zo'n header niet meer produceren ──────────────────────
+// De hele klasse hierboven is pas echt dicht als onze eigen writer geen rauwe controltekens meer
+// in de drie headervelden zet. Dit draait de ECHTE keten met een regeleinde in de projectnaam.
+S().newProject();
+S().setProject({
+  name: 'Renovatie fase 1\nDATA; en fase 2',
+  author: 'A\r\nB',
+  company: 'C\tD',
+  startDate: '2031-04-07',
+});
+S().addTask({ name: 'Taak in kwetsbaar project' });
+const ifc9 = save();
+const headerLines = ifc9.split('\n').filter(l => l.startsWith('FILE_NAME('));
+eq('9l writer: FILE_NAME staat volledig op EEN regel', headerLines.length, 1);
+const args9 = readStepCall(ifc9, 'FILE_NAME');
+truthy('9m writer: header blijft syntactisch geldig', args9 !== null);
+eq('9n writer: regeleinde in de projectnaam werd witruimte',
+  unquote(args9?.[0]), 'Renovatie fase 1 DATA; en fase 2.ifc');
+const rt9l = roundTrip();
+eq('9o writer: taak overleeft de round-trip', rt9l.tasks.map(t => t.name), ['Taak in kwetsbaar project']);
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

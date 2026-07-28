@@ -17,12 +17,12 @@ Download the latest installer for your platform from the
 
 - **Windows** — the signed `.exe` installer.
 - **macOS** — the universal `.dmg` (Apple Silicon and Intel).
-- **Linux** — an AppImage or a `.deb` package.
+- **Linux** — an AppImage, a `.deb` package, or a `.snap`.
 
 ## Automatic updates
 
-The desktop app checks for updates on startup and can install them in place. AppImage builds are updated
-outside the app, so the in-app updater steps aside for those.
+The desktop app checks for updates on startup and can install them in place. Snap and AppImage builds
+are updated outside the app, so the in-app updater steps aside for those.
 
 ## Build from source
 

@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Biblioteca de recursos",
     "intro": "Gestiona tus bibliotecas de recursos y su pool compartido. La asignación se realiza en la pestaña Recursos; lo que asignes se convierte automáticamente en una copia con procedencia dentro del proyecto.",
-    "resourceManagementHint": "Los recursos se gestionan en la pestaña Recursos (vista Biblioteca); aquí gestionas empresas, calendarios e importación/exportación.",
+    "resourceManagementHint": "Los recursos se gestionan en la pestaña Recursos (vista Biblioteca); aquí gestionas bibliotecas de recursos, calendarios e importación/exportación.",
     "companies": "Bibliotecas de recursos",
     "addCompany": "Añadir biblioteca de recursos",
     "newCompany": "Nueva biblioteca de recursos",

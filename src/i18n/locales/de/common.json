@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Ressourcenbibliothek",
     "intro": "Verwalten Sie Ihre Ressourcenbibliotheken und deren gemeinsamen Pool. Die Zuweisung erfolgt im Tab „Ressourcen“; was Sie zuweisen, wird automatisch eine Kopie mit Herkunftsangabe im Projekt.",
-    "resourceManagementHint": "Ressourcen verwalten Sie im Ressourcen-Tab (Bibliotheksansicht); hier verwalten Sie Firmen, Kalender und Import/Export.",
+    "resourceManagementHint": "Ressourcen verwalten Sie im Ressourcen-Tab (Bibliotheksansicht); hier verwalten Sie Ressourcenbibliotheken, Kalender und Import/Export.",
     "companies": "Ressourcenbibliotheken",
     "addCompany": "Ressourcenbibliothek hinzufügen",
     "newCompany": "Neue Ressourcenbibliothek",

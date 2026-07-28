@@ -334,7 +334,7 @@
   "companyLibrary": {
     "title": "Bibliothèque de ressources",
     "intro": "Gérez vos bibliothèques de ressources et leur pool partagé. L'affectation se fait dans l'onglet Ressources ; ce que vous affectez devient automatiquement une copie dont la provenance est conservée dans le projet.",
-    "resourceManagementHint": "Vous gérez les ressources dans l'onglet Ressources (vue Bibliothèque) ; ici, vous gérez les entreprises, les calendriers et l'import/export.",
+    "resourceManagementHint": "Vous gérez les ressources dans l'onglet Ressources (vue Bibliothèque) ; ici, vous gérez les bibliothèques de ressources, les calendriers et l'import/export.",
     "companies": "Bibliothèques de ressources",
     "addCompany": "Ajouter une bibliothèque de ressources",
     "newCompany": "Nouvelle bibliothèque de ressources",

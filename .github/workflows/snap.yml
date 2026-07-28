@@ -16,6 +16,11 @@ on:
         required: true
         default: 'v2026.6.0'
 
+# Minimale default; de build-snap-job zet zelf `contents: write` omdat hij de
+# snap als asset aan de release hangt.
+permissions:
+  contents: read
+
 # Bevinding O3, met dezelfde redenering als release.yml: één globale groep en
 # NIET annuleren. Twee releases kort na elkaar publiceren allebei naar het
 # `stable`-kanaal van de Snap Store, en een Snap-release is niet in te trekken.
