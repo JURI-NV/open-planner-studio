@@ -156,6 +156,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   DCCHECK="$DIR/.document-contract-check.mjs"
   if bundle_check "$DIR/check-document-contract.ts" "$DCCHECK"; then node "$DCCHECK" || STATUS=1; fi
 
+  # Band-collapse (issue #35): "alle groepen in-/uitklappen" via de echte store-acties. De valkuil
+  # is de sleutelbron: een ingeklapte band emit zijn subbanden niet, dus een route via `viewRows`
+  # slaat precies de al-dichtgeklapte takken over. Aantoonbaar rood tegen die naïeve route.
+  BCCHECK="$DIR/.band-collapse.mjs"
+  if bundle_check "$DIR/check-band-collapse.ts" "$BCCHECK"; then node "$BCCHECK" || STATUS=1; fi
+
   # Gantt-cull-regressie: de speling-band mag niet verdwijnen zolang hij zichtbaar is. De cull in
   # drawTaskBar keek alleen naar de BALK-extent, terwijl de band ná de balk doorloopt — een band die
   # nog honderden pixels in beeld stond verdween daardoor mee. Draait de echte renderer met een

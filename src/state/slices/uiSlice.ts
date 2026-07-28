@@ -22,10 +22,12 @@ export interface UiSlice {
   collapseTasks: (taskIds?: string[]) => void;
   /** Issue #35 punt 3: tegenhanger van `collapseTasks` — klapt expliciet UIT. Zie daar. */
   expandTasks: (taskIds?: string[]) => void;
-  /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLE summary-taken (childIds.length>0)
-   *  expliciet uit. Dunne wrapper om `expandTasks()` zodat er één waarheid is. */
+  /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLES uit in de HUIDIGE weergavemodus.
+   *  Boommodus ⇒ alle summary-taken (`expandTasks()`); gegroepeerde weergave ⇒ alle groepsbanden
+   *  (`expandAllGroups()`), want daar negeert `computeViewRows` de taak-collapse volledig en zou
+   *  de actie anders een dode klik zijn (issue #35). Dunne wrappers zodat er één waarheid is. */
   expandAll: () => void;
-  /** Golf 1 (fase 2.10): klap ALLE summary-taken expliciet in. Zie `expandAll`. */
+  /** Golf 1 (fase 2.10): klap ALLES in in de huidige weergavemodus. Zie `expandAll`. */
   collapseAll: () => void;
   /** Presentatie-modus (§9): zet de flag + roept de echte Fullscreen-API aan. */
   setPresentationMode: (on: boolean) => void;
@@ -270,7 +272,17 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
     get().recomputeViewRows();
   },
 
-  expandAll: () => get().expandTasks(),
+  // Modus-bewust (issue #35): de enige aanroeper is het bandkop-contextmenu, en dat verschijnt
+  // alléén in gegroepeerde weergave — daar bedoelt "alles uit-/inklappen" dus de banden.
+  expandAll: () => {
+    const s = get();
+    if ((s.view.group?.length ?? 0) > 0) s.expandAllGroups();
+    else s.expandTasks();
+  },
 
-  collapseAll: () => get().collapseTasks(),
+  collapseAll: () => {
+    const s = get();
+    if ((s.view.group?.length ?? 0) > 0) s.collapseAllGroups();
+    else s.collapseTasks();
+  },
 });

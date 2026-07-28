@@ -21,3 +21,4 @@
 .recovery-integrity.mjs
 .recovery-isolation.mjs
 .notifications.mjs
+.band-collapse.mjs

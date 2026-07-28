@@ -34,7 +34,8 @@ Rechtsklikken in de Gantt-weergave geeft een ander menu, afhankelijk van waar de
 - **Op een takenrij zonder balk-hit** (bijvoorbeeld een rij zonder zichtbare balk op dat moment) —
   hetzelfde taakmenu, maar zonder het balk-specifieke item.
 - **Op een bandkop** (de rij die een gegroepeerde set taken samenvat) — een klein menu met
-  in-/uitklappen van die ene groep, plus **Alles uitklappen**/**Alles inklappen** voor de hele boom.
+  in-/uitklappen van die ene groep, plus **Alles uitklappen**/**Alles inklappen**, die alle
+  groepsbanden tegelijk openen of sluiten (ook de banden binnen een band).
 - **Op leeg canvas** (geen taak, geen bandkop) — **Nieuwe taak**, **Mijlpaal toevoegen**, **Plakken**
   (indien er iets op het klembord staat), **Zoom herstellen** en **Passend maken op project**.
 

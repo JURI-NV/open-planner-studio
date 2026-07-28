@@ -254,6 +254,26 @@ export function computeViewRows(tasks: Task[], opts: ViewRowOpts, ctx: ViewConte
 }
 
 /**
+ * Alle bandsleutels van de huidige groepering — óók die van banden die op dit moment ingeklapt
+ * zijn. Voor "alle groepen inklappen" (issue #35).
+ *
+ * Bewust NIET afgeleid uit de bestaande `viewRows`: `walk()` hierboven daalt niet af in een
+ * ingeklapte band, dus zodra er ook maar één band dicht staat ontbreken de sleutels van al zijn
+ * subbanden in `viewRows`. "Alles inklappen" zou dan precies de takken overslaan die de gebruiker
+ * al eerder had dichtgeklapt — en na één keer uitklappen stonden die weer open. Daarom draaien we
+ * de pijplijn hier één keer met een LEGE collapse-set: dan emit elk niveau al zijn banden.
+ * Zonder groepering zijn er per definitie geen banden ⇒ lege lijst.
+ */
+export function allBandKeys(tasks: Task[], opts: ViewRowOpts, ctx: ViewContext): string[] {
+  if (opts.group.length === 0) return [];
+  const keys: string[] = [];
+  for (const row of computeViewRows(tasks, { ...opts, collapsedGroupKeys: new Set() }, ctx)) {
+    if (row.kind === 'group') keys.push(row.key);
+  }
+  return keys;
+}
+
+/**
  * taskId → eerste rij-index in `viewRows` (§7.1): bij multi-band-duplicaten wint de laagste index,
  * zodat de pijl-renderer één keer verbindt i.p.v. pijl-spaghetti.
  */

@@ -551,9 +551,14 @@ const relationsTab: RibbonTabConfig = [
 /**
  * Overzicht-groep (issue #35 punt 3): in- en uitklappen zijn APARTE knoppen, niet één toggle —
  * met een toggle kun je een gemengde selectie nooit in één keer dezelfde kant op zetten.
- * Beide werken op de selectie; zonder selectie op het hele plan, zodat de knop nooit een dode
- * klik is. In gegroepeerde weergave negeert `computeViewRows` de taak-collapse volledig (de
- * bandkoppen nemen het over), dus daar zijn de knoppen uitgeschakeld i.p.v. stil niets te doen.
+ *
+ * De knoppen zijn MODUS-BEWUST en dus nooit uitgeschakeld:
+ *  - boommodus: de selectie; zonder selectie het hele plan (`collapseTasks`/`expandTasks`);
+ *  - gegroepeerde weergave: alle groepsbanden (`collapseAllGroups`/`expandAllGroups`), want daar
+ *    negeert `computeViewRows` de taak-collapse volledig — de bandkoppen nemen het over.
+ * Een taakselectie heeft in gegroepeerde weergave bewust GEEN effect: dezelfde taak kan in
+ * meerdere banden vallen (resource-groepering) en een band is geen taak, dus er is geen zinnige
+ * vertaling van "deze taken" naar "deze banden". Alles-of-niets is daar het enige eerlijke gedrag.
  */
 const outlineGroup: RibbonGroupSpec = {
   id: 'outline', labelKey: 'menu:ribbon.outline',
@@ -563,13 +568,13 @@ const outlineGroup: RibbonGroupSpec = {
         kind: 'small', id: 'collapseTasks', icon: <ChevronsDownUp size={14} />, labelKey: 'menu:ribbon.collapseTasks',
         use: () => {
           const collapseTasks = useAppStore(s => s.collapseTasks);
+          const collapseAllGroups = useAppStore(s => s.collapseAllGroups);
           const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
           const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
           const { t } = useTranslation('menu');
           return {
-            onClick: () => collapseTasks(selectedTaskIds),
-            disabled: grouped,
-            title: t(grouped ? 'ribbon.outlineGroupedHint' : 'ribbon.collapseTasksTitle'),
+            onClick: () => (grouped ? collapseAllGroups() : collapseTasks(selectedTaskIds)),
+            title: t(grouped ? 'ribbon.collapseGroupsTitle' : 'ribbon.collapseTasksTitle'),
           };
         },
       },
@@ -577,13 +582,13 @@ const outlineGroup: RibbonGroupSpec = {
         kind: 'small', id: 'expandTasks', icon: <ChevronsUpDown size={14} />, labelKey: 'menu:ribbon.expandTasks',
         use: () => {
           const expandTasks = useAppStore(s => s.expandTasks);
+          const expandAllGroups = useAppStore(s => s.expandAllGroups);
           const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
           const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
           const { t } = useTranslation('menu');
           return {
-            onClick: () => expandTasks(selectedTaskIds),
-            disabled: grouped,
-            title: t(grouped ? 'ribbon.outlineGroupedHint' : 'ribbon.expandTasksTitle'),
+            onClick: () => (grouped ? expandAllGroups() : expandTasks(selectedTaskIds)),
+            title: t(grouped ? 'ribbon.expandGroupsTitle' : 'ribbon.expandTasksTitle'),
           };
         },
       },
