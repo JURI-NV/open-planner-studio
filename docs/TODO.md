@@ -387,6 +387,27 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 
 ### Kwaliteit & verificatie
 
+- [ ] **Geen enkele poort raakt het Tauri-asset-protocol — een hele klasse desktopbugs is
+  structureel onzichtbaar.** Aangetoond 2026-07-28: in de uitgeleverde `.deb` v2026.7.13 toonde
+  Backstage → Help bij élk artikel "Artikel niet gevonden", terwijl alle 354 artikelen gewoon in de
+  binary zaten (gefixt in `e257770`). Oorzaak: `tauri-utils` kent de extensie `md` niet en valt terug
+  op `MimeType::Html`, dus de webview labelt elk artikel als `text/html` — en onze eigen
+  SPA-fallback-guard verwierp precies dat.
+  **Waarom niets het ving:** dev, de webdeploy én `npm run tauri:dev` gaan allemaal via Vite, dat
+  `.md` wél correct serveert. Alleen een gebundelde build met embedded assets vertoont het. CI bouwt
+  die wel (`tauri build --no-bundle`) maar start hem nooit. `verify:docs` bewijst dat de bestanden
+  kloppen, niets bewijst dat de app ze kán laden.
+  **Nog steeds latent** (uit de audit bij die fix): `.ifc`-voorbeelden (`Backstage.tsx`,
+  `HelpPanel.tsx`) krijgen op de desktop óók `text/html` en overleven alleen doordat dat pad geen
+  header-check heeft — zet iemand daar ooit een guard neer, dan breken de voorbeelden op dezelfde
+  manier. Idem `pdf/hbSubset.ts`: `arrayBuffer()` is veilig, maar een overstap naar
+  `WebAssembly.instantiateStreaming` zou op de desktop stukgaan op het content-type.
+  **Kandidaat-poort:** de gebundelde binary in CI daadwerkelijk starten en één asset per uitgeleverd
+  bestandstype (`.md`, `.ifc`, `.wasm`, fonts) laten laden — of, veel goedkoper, een headless check
+  die de extensies die wij uitleveren aftoetst tegen de MIME-tabel van de gebruikte `tauri-utils` en
+  waarschuwt zodra er één op de HTML-fallback landt. Dat laatste is geen echte end-to-end-poort,
+  maar had deze bug wél gevangen.
+
 - [ ] **ResourceLeveler-schaalbaarheid (gemeten 2026-07-06, benchmark tegen de echte engine).**
   De leveler groeit ~kwadratisch met het taakaantal (dag-modus: 100 taken=0,15s, 500=6,2s,
   2000≈100s geëxtrapoleerd; uur-modus is consequent ~4× sneller: 500=1,5s, 2000=25,3s gemeten).
