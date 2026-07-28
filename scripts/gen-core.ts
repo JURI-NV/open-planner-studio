@@ -38,14 +38,14 @@ function nlHolidays(year: number): Holiday[] {
   let kings = new Date(Date.UTC(year, 3, 27)); // 27 april; op zondag → 26 april
   if (isoDayOfWeek(kings) === 7) kings = new Date(Date.UTC(year, 3, 26));
   return [
-    oneDay('Nieuwjaar', new Date(Date.UTC(year, 0, 1))),
-    oneDay('Goede Vrijdag', addDays(easter, -2)),
-    { name: 'Pasen', startDate: iso(easter), endDate: iso(addDays(easter, 1)) },
-    oneDay('Koningsdag', kings),
-    oneDay('Bevrijdingsdag', new Date(Date.UTC(year, 4, 5))),
-    oneDay('Hemelvaart', addDays(easter, 39)),
-    { name: 'Pinksteren', startDate: iso(addDays(easter, 49)), endDate: iso(addDays(easter, 50)) },
-    { name: 'Kerst', startDate: iso(new Date(Date.UTC(year, 11, 25))), endDate: iso(new Date(Date.UTC(year, 11, 26))) },
+    oneDay("New Year's Day", new Date(Date.UTC(year, 0, 1))),
+    oneDay('Good Friday', addDays(easter, -2)),
+    { name: 'Easter', startDate: iso(easter), endDate: iso(addDays(easter, 1)) },
+    oneDay("King's Day", kings),
+    oneDay('Liberation Day', new Date(Date.UTC(year, 4, 5))),
+    oneDay('Ascension Day', addDays(easter, 39)),
+    { name: 'Whitsun', startDate: iso(addDays(easter, 49)), endDate: iso(addDays(easter, 50)) },
+    { name: 'Christmas', startDate: iso(new Date(Date.UTC(year, 11, 25))), endDate: iso(new Date(Date.UTC(year, 11, 26))) },
   ];
 }
 
@@ -54,7 +54,7 @@ function bouwvak(year: number): Holiday {
   let d = new Date(Date.UTC(year, 6, 1));
   while (isoDayOfWeek(d) !== 1) d = addDays(d, 1); // 1e maandag
   d = addDays(d, 21); // 4e maandag
-  return { name: 'Bouwvak (regio Noord)', startDate: iso(d), endDate: iso(addDays(d, 20)) };
+  return { name: 'Construction holiday (northern region)', startDate: iso(d), endDate: iso(addDays(d, 20)) };
 }
 
 /** Eerste maandag van maart, volgend jaar (relatief aan de generatiedatum). */
@@ -86,8 +86,8 @@ function buildCalendar(anchor: Date, cal?: CalSpec): WorkCalendar {
   const holidays = [...holidaysForSpan(anchor), ...extraHolidays];
   return {
     id: 'cal-default',
-    name: cal?.name ?? 'Bouwkalender NL',
-    description: cal?.description ?? 'Standaard bouwkalender: ma-vr 07:00-16:00',
+    name: cal?.name ?? 'Construction calendar NL',
+    description: cal?.description ?? 'Standard construction calendar: Mon-Fri 07:00-16:00',
     workDays,
     workStartHour: 7,
     workEndHour: 16,
@@ -124,8 +124,8 @@ export function build(spec: ProjectSpec): BuildResult {
     name: spec.name,
     description: spec.description ?? '',
     startDate: anchorIso,
-    author: spec.author ?? 'Projectleider',
-    company: spec.company ?? 'Bouwbedrijf BV',
+    author: spec.author ?? 'Project manager',
+    company: spec.company ?? 'Construction Company BV',
   });
   // Reken-opties (fase 2.10, golf 2: near-critical + float paths) — vóór de eerste runCPM.
   if (spec.schedulingOptions) S().setProject({ schedulingOptions: spec.schedulingOptions });
@@ -155,7 +155,7 @@ export function build(spec: ProjectSpec): BuildResult {
       const base = buildCalendar(anchor, r.calendar);
       const { id: _id, ...rest } = base;
       void _id;
-      calendarId = S().addCalendar({ ...rest, name: r.calendar.name ?? `${r.name} kalender` });
+      calendarId = S().addCalendar({ ...rest, name: r.calendar.name ?? `${r.name} calendar` });
     }
     const steps = r.steps?.map(s => ({ from: offset(anchor, s.fromDay), maxUnits: s.maxUnits }));
     resIds[r.name] = S().addResource({
@@ -369,12 +369,16 @@ interface TopoDef { id: string; name: string; description?: string; author?: str
 /** Kalenders variëren: infra/water-achtige projecten krijgen een 6-daagse week (ma-za). */
 const SIX_DAY = new Set([4, 8, 11, 13, 15, 17]); // 0-based index → 05,09,12,14,16,18
 
+// Let op: deze twee heuristieken lezen de ENGELSE taaknamen uit `example-topologies.json` (de
+// voorbeelddata is Engelstalig, zie issue #39). Ze reproduceren exact de classificatie die de
+// eerdere Nederlandse patronen opleverden — een wijziging hier verandert dus de mijlpaalsoort
+// (START/FINISH) en de verplicht-vlag in álle 20 gegenereerde basisvoorbeelden.
 function startKind(name: string): 'START' | 'FINISH' | undefined {
-  if (/\bstart\b|aanvang|begin\b/i.test(name)) return 'START';
-  if (/gereed|oplever|opgeleverd|dicht|klaar|punt|voltooid|afgerond|einde/i.test(name)) return 'FINISH';
+  if (/\bstart\b|commencement|kick-?off/i.test(name)) return 'START';
+  if (/handover|topping out|weathertight|complete|completion|finish|ready\b|delivered/i.test(name)) return 'FINISH';
   return undefined;
 }
-const isMandatoryMs = (name: string) => /inspectie|keuring|controle|oplever|opgeleverd|goedkeuring|acceptatie/i.test(name);
+const isMandatoryMs = (name: string) => /inspection|handover|approval|acceptance|certification|sign-?off/i.test(name);
 
 /** Zet een flat phases/children-topologie om naar een ProjectSpec met échte fase-overlap
  *  (SS/FF/leads/%-lag) zodat er een realistisch kritiek pad mét float ontstaat i.p.v. 44/45
@@ -456,7 +460,7 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
     company: def.company,
     category: 'basic',
     calendar: SIX_DAY.has(index)
-      ? { workDays: [1, 2, 3, 4, 5, 6], name: 'Infrakalender ma-za', description: 'Infra/water: ma-za' }
+      ? { workDays: [1, 2, 3, 4, 5, 6], name: 'Infrastructure calendar Mon-Sat', description: 'Infrastructure/hydraulic works: Mon-Sat' }
       : undefined,
     tasks, links,
   };

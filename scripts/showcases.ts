@@ -22,45 +22,45 @@ import type { ProjectSpec, TaskSpec, LinkSpec } from './spec';
 // MIDDEL, die wél een deadline-conflict (negatieve float) toont.
 const KLEIN: ProjectSpec = {
   slug: 'showcase-verbouwing-eengezinswoning',
-  name: 'Verbouwing & Aanbouw Eengezinswoning',
-  author: 'Aannemer',
-  company: 'Bouwbedrijf Van Dijk BV',
+  name: 'Refurbishment & Extension of a Family Home',
+  author: 'Contractor',
+  company: 'Van Dijk Construction BV',
   category: 'showcase',
-  description: 'Aanbouw + inpandige verbouwing van een eengezinswoning — instapniveau-planning.',
+  description: 'Extension plus internal refurbishment of a family home — entry-level schedule.',
   publicDescription:
-    'Instap-showcase: aanbouw van een eengezinswoning met WBS-fasering, een FS-keten mét één ' +
-    'SS-overlap (wanden/dak) en één FF-koppeling (schilderwerk vlak na tegelwerk), een ' +
-    'SNET-vergunningconstraint, start-/verplichte-oplevermijlpaal, een comfortabele deadline ' +
-    '(geen conflict) en één baseline direct na opzet.',
-  tags: ['woningbouw', 'klein', 'instap', 'mijlpalen', 'constraints', 'baseline'],
+    'Entry-level showcase: an extension to a family home with WBS phasing, a finish-start chain with one ' +
+    'start-start overlap (walls/roof) and one finish-finish link (painting just after tiling), an ' +
+    'SNET permit constraint, a start milestone and a mandatory handover milestone, a comfortable deadline ' +
+    '(no conflict) and one baseline taken right after set-up.',
+  tags: ['residential', 'small', 'entry-level', 'milestones', 'constraints', 'baseline'],
   tasks: [
     // 1. Voorbereiding
-    { key: 'ms_start', name: 'Start verbouwing', milestone: true, milestoneKind: 'START' },
-    { key: 'P1', name: '1. Voorbereiding', taskType: 'LOGISTIC' },
-    { key: 'v1', name: 'Bouwplaats inrichten', parent: 'P1', dur: 2, taskType: 'LOGISTIC' },
-    { key: 'v2', name: 'Sloop bestaande aanbouw', parent: 'P1', dur: 3, taskType: 'DEMOLITION',
+    { key: 'ms_start', name: 'Start of refurbishment', milestone: true, milestoneKind: 'START' },
+    { key: 'P1', name: '1. Preparation', taskType: 'LOGISTIC' },
+    { key: 'v1', name: 'Set up site', parent: 'P1', dur: 2, taskType: 'LOGISTIC' },
+    { key: 'v2', name: 'Demolish existing extension', parent: 'P1', dur: 3, taskType: 'DEMOLITION',
       constraint: { type: 'SNET', offsetDay: 6 } }, // mag niet starten vóór de omgevingsvergunning
     // 2. Fundering & ruwbouw
-    { key: 'P2', name: '2. Fundering & ruwbouw', taskType: 'CONSTRUCTION' },
-    { key: 'f1', name: 'Grondwerk aanbouw', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION' },
-    { key: 'f2', name: 'Fundering aanbouw', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION' },
-    { key: 'f3', name: 'Begane grondvloer storten', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION' },
-    { key: 'f4', name: 'Wanden opmetselen', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION' },
-    { key: 'f5', name: 'Dakconstructie plaatsen', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION' },
+    { key: 'P2', name: '2. Foundations & structure', taskType: 'CONSTRUCTION' },
+    { key: 'f1', name: 'Earthworks for extension', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION' },
+    { key: 'f2', name: 'Extension foundations', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION' },
+    { key: 'f3', name: 'Pour ground floor slab', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION' },
+    { key: 'f4', name: 'Build masonry walls', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION' },
+    { key: 'f5', name: 'Install roof structure', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION' },
     // 3. Afbouw
-    { key: 'P3', name: '3. Afbouw', taskType: 'CONSTRUCTION' },
-    { key: 'a1', name: 'Dakbedekking aanbrengen', parent: 'P3', dur: 3, taskType: 'CONSTRUCTION' },
-    { key: 'a2', name: 'Kozijnen plaatsen', parent: 'P3', dur: 4, taskType: 'INSTALLATION' },
-    { key: 'a3', name: 'Stucwerk', parent: 'P3', dur: 5, taskType: 'CONSTRUCTION' },
-    { key: 'a4', name: 'Tegelwerk', parent: 'P3', dur: 4, taskType: 'INSTALLATION' },
-    { key: 'a5', name: 'Schilderwerk', parent: 'P3', dur: 3, taskType: 'CONSTRUCTION' },
+    { key: 'P3', name: '3. Fit-out', taskType: 'CONSTRUCTION' },
+    { key: 'a1', name: 'Apply roofing', parent: 'P3', dur: 3, taskType: 'CONSTRUCTION' },
+    { key: 'a2', name: 'Install window frames', parent: 'P3', dur: 4, taskType: 'INSTALLATION' },
+    { key: 'a3', name: 'Plastering', parent: 'P3', dur: 5, taskType: 'CONSTRUCTION' },
+    { key: 'a4', name: 'Tiling', parent: 'P3', dur: 4, taskType: 'INSTALLATION' },
+    { key: 'a5', name: 'Painting', parent: 'P3', dur: 3, taskType: 'CONSTRUCTION' },
     // 4. Oplevering
-    { key: 'P4', name: '4. Oplevering', taskType: 'ATTENDANCE' },
-    { key: 'o1', name: 'Eindschoonmaak', parent: 'P4', dur: 1, taskType: 'LOGISTIC' },
-    { key: 'ms_opl', name: 'Opleveringsinspectie', parent: 'P4', milestone: true, milestoneKind: 'FINISH',
+    { key: 'P4', name: '4. Handover', taskType: 'ATTENDANCE' },
+    { key: 'o1', name: 'Final cleaning', parent: 'P4', dur: 1, taskType: 'LOGISTIC' },
+    { key: 'ms_opl', name: 'Handover inspection', parent: 'P4', milestone: true, milestoneKind: 'FINISH',
       mandatory: true, deadlineDay: 60, // comfortabele deadline — bewust GEEN conflict (contrast met MIDDEL)
-      description: 'Verplichte opleveringsinspectie; de deadline heeft ruime marge (geen conflict).' },
-    { key: 'o2', name: 'Eindoplevering met bewoner', parent: 'P4', dur: 1, taskType: 'ATTENDANCE' },
+      description: 'Mandatory handover inspection; the deadline has ample margin (no conflict).' },
+    { key: 'o2', name: 'Final handover with the occupant', parent: 'P4', dur: 1, taskType: 'ATTENDANCE' },
   ],
   links: [
     { pred: 'ms_start', succ: 'v1' }, { pred: 'v1', succ: 'v2' }, { pred: 'v2', succ: 'f1' },
@@ -71,7 +71,7 @@ const KLEIN: ProjectSpec = {
     { pred: 'a4', succ: 'a5', type: 'FINISH_FINISH', lag: 1 }, // schilderwerk gereed vlak na tegelwerk
     { pred: 'a5', succ: 'o1' }, { pred: 'o1', succ: 'ms_opl' }, { pred: 'ms_opl', succ: 'o2' },
   ],
-  baselines: [{ name: 'Basisplanning' }],
+  baselines: [{ name: 'Baseline plan' }],
 };
 
 // ── Showcase 2 — MIDDEL: 6 grondgebonden rijwoningen (~80 taken) ───────────────────────────
@@ -94,22 +94,22 @@ middelTasks.push(
   // al lang actuals had) — anders een out-of-sequence-melding + een door de data-date-vloer
   // gevloerde ES die als fantoom-negatieve float door de hele (allang voltooide) startketen
   // propageert (zelfde patroon als GROOT, zie showcase-groot.ts).
-  { key: 'ms_start', name: 'Start bouw', milestone: true, milestoneKind: 'START', codes: { Woning: 'ALG' },
+  { key: 'ms_start', name: 'Start of construction', milestone: true, milestoneKind: 'START', codes: { House: 'GEN' },
     completion: 1, actualStartDay: 0, actualFinishDay: 0 },
-  { key: 'P1', name: '1. Terreininrichting', taskType: 'LOGISTIC', codes: { Woning: 'ALG' } },
-  { key: 't0', name: 'Bouwbord & veiligheidshek plaatsen', parent: 'P1', dur: 1, taskType: 'LOGISTIC',
-    codes: { Woning: 'ALG' },
+  { key: 'P1', name: '1. Site set-up', taskType: 'LOGISTIC', codes: { House: 'GEN' } },
+  { key: 't0', name: 'Install site board & safety fencing', parent: 'P1', dur: 1, taskType: 'LOGISTIC',
+    codes: { House: 'GEN' },
     completion: 1, actualStartDay: 0, actualFinishDay: 1 },
-  { key: 't1', name: 'Bouwweg aanleggen', parent: 'P1', dur: 3, taskType: 'LOGISTIC',
-    codes: { Woning: 'ALG' },
+  { key: 't1', name: 'Construct site road', parent: 'P1', dur: 3, taskType: 'LOGISTIC',
+    codes: { House: 'GEN' },
     completion: 1, actualStartDay: 1, actualFinishDay: 4 },
-  { key: 't2', name: 'Bouwketen plaatsen', parent: 'P1', dur: 2, taskType: 'LOGISTIC',
-    codes: { Woning: 'ALG' },
+  { key: 't2', name: 'Place site huts', parent: 'P1', dur: 2, taskType: 'LOGISTIC',
+    codes: { House: 'GEN' },
     completion: 1, actualStartDay: 4, actualFinishDay: 6 },
-  { key: 't3', name: 'Nutsaansluitingen aanleggen', parent: 'P1', dur: 3, taskType: 'LOGISTIC',
+  { key: 't3', name: 'Install utility connections', parent: 'P1', dur: 3, taskType: 'LOGISTIC',
     priority: 1000, // vastgepind: vaste aansluitdatum van het nutsbedrijf, mag niet verschuiven
-    description: 'Vastgepind (prioriteit 1000): de aansluitdatum ligt vast bij het nutsbedrijf en mag niet schuiven.',
-    codes: { Woning: 'ALG' },
+    description: 'Pinned (priority 1000): the connection date is fixed by the utility company and must not move.',
+    codes: { House: 'GEN' },
     completion: 1, actualStartDay: 6, actualFinishDay: 9 },
 );
 middelLinks.push(
@@ -118,26 +118,26 @@ middelLinks.push(
 
 // 2. Fundering (gedeeld, met vorstverlet)
 middelTasks.push(
-  { key: 'P2', name: '2. Fundering (gedeeld)', taskType: 'CONSTRUCTION', codes: { Woning: 'ALG' } },
-  { key: 'f1', name: 'Grondwerk bouwput', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
-    codes: { Woning: 'ALG' },
+  { key: 'P2', name: '2. Foundations (shared)', taskType: 'CONSTRUCTION', codes: { House: 'GEN' } },
+  { key: 'f1', name: 'Excavation, building pit', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
+    codes: { House: 'GEN' },
     completion: 1, actualStartDay: 9, actualFinishDay: 14 },
-  { key: 'f2', name: 'Funderingsbalken storten', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
-    codes: { Woning: 'ALG' }, fields: { Kostenraming: 95000 },
-    assign: [{ res: 'Beton C20/25', units: 60, curve: 'FRONT_LOADED' }],
+  { key: 'f2', name: 'Pour foundation beams', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
+    codes: { House: 'GEN' }, fields: { 'Cost estimate': 95000 },
+    assign: [{ res: 'Concrete C20/25', units: 60, curve: 'FRONT_LOADED' }],
     completion: 1, actualStartDay: 14, actualFinishDay: 20 },
   // Fase 2.10 (QA-bevinding): actuals kloppend gemaakt met de ELAPSEDTIME-lag hierbeneden (3
   // KALENDERdagen ná f2's actualFinish 2027-03-29 = 2027-04-01 → offsetDay 23, niet 20 — de
   // oorspronkelijke [20,24] liet f3 op dezelfde dag starten als f2 eindigde, terwijl beton 24/7
   // (dus ook in het weekend) uithardt en de relatie dat expliciet in kalenderdagen afdwingt).
-  { key: 'f3', name: 'Begane grondvloer storten', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION',
-    codes: { Woning: 'ALG' },
-    assign: [{ res: 'Beton C20/25', units: 50, curve: 'FRONT_LOADED' }],
+  { key: 'f3', name: 'Pour ground floor slab', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION',
+    codes: { House: 'GEN' },
+    assign: [{ res: 'Concrete C20/25', units: 50, curve: 'FRONT_LOADED' }],
     completion: 1, actualStartDay: 23, actualFinishDay: 27 },
   // Fase 2.10 (P1-datafix): mijlpaal geactualiseerd op f3's (nu kloppende) actualFinish — was
   // completion=0 terwijl de opvolger 'r1_mg' allang actuals had (out-of-sequence).
-  { key: 'ms_fund', name: 'Inspectie fundering', parent: 'P2', milestone: true, milestoneKind: 'FINISH',
-    mandatory: true, codes: { Woning: 'ALG' },
+  { key: 'ms_fund', name: 'Foundation inspection', parent: 'P2', milestone: true, milestoneKind: 'FINISH',
+    mandatory: true, codes: { House: 'GEN' },
     completion: 1, actualStartDay: 27, actualFinishDay: 27 },
 );
 middelLinks.push(
@@ -148,7 +148,7 @@ middelLinks.push(
 );
 
 // 3. Ruwbouw per woning (doorschuivende metselploeg: mg-taak van woning i → woning i+1)
-middelTasks.push({ key: 'P3', name: '3. Ruwbouw per woning', taskType: 'CONSTRUCTION', codes: { Discipline: 'RUW' } });
+middelTasks.push({ key: 'P3', name: '3. Structural works per house', taskType: 'CONSTRUCTION', codes: { Discipline: 'STR' } });
 // Voortgang: woning 1-3 volledig gereed, woning 4 in uitvoering (mg gereed, vl halverwege), 5-6 nog niet gestart.
 // Fase 2.10 (QA-bevinding): alle dagwaarden +3 t.o.v. de oorspronkelijke tabel — ms_fund (de
 // voorganger van r1_mg) schoof door de ELAPSEDTIME-fix (zie f3 hierboven) 3 dagen op (naar 27),
@@ -170,42 +170,42 @@ for (const i of HOUSES) {
   const mvProg = prog?.mv ? { completion: 1 as const, actualStartDay: prog.mv[0], actualFinishDay: prog.mv[1] } : {};
   const kapProg = prog?.kap ? { completion: 1 as const, actualStartDay: prog.kap[0], actualFinishDay: prog.kap[1] } : {};
   middelTasks.push(
-    { key: `r${i}_mg`, name: `Metselwerk begane grond — Woning ${i}`, parent: 'P3', dur: 6, taskType: 'CONSTRUCTION',
-      codes: { Woning: String(i), Discipline: 'RUW' }, assign: [{ res: 'Metselaars', units: 2 }], ...mgProg },
-    { key: `r${i}_vl`, name: `Verdiepingsvloer — Woning ${i}`, parent: 'P3', dur: 4, taskType: 'CONSTRUCTION',
-      codes: { Woning: String(i), Discipline: 'RUW' },
+    { key: `r${i}_mg`, name: `Ground floor masonry — House ${i}`, parent: 'P3', dur: 6, taskType: 'CONSTRUCTION',
+      codes: { House: String(i), Discipline: 'STR' }, assign: [{ res: 'Bricklayers', units: 2 }], ...mgProg },
+    { key: `r${i}_vl`, name: `Upper floor slab — House ${i}`, parent: 'P3', dur: 4, taskType: 'CONSTRUCTION',
+      codes: { House: String(i), Discipline: 'STR' },
       ...(i === 4
         ? { notes: [
-            { text: 'Wapeningstekening controleren met constructeur', done: false },
-            { text: 'Bekisting gecontroleerd door uitvoerder', done: true },
+            { text: 'Check rebar drawing with the structural engineer', done: false },
+            { text: 'Formwork checked by the site manager', done: true },
           ] }
         : {}),
       ...vlProg },
-    { key: `r${i}_mv`, name: `Metselwerk verdieping — Woning ${i}`, parent: 'P3', dur: 6, taskType: 'CONSTRUCTION',
-      codes: { Woning: String(i), Discipline: 'RUW' }, assign: [{ res: 'Metselaars', units: 2 }], ...mvProg },
-    { key: `r${i}_kap`, name: `Kapconstructie — Woning ${i}`, parent: 'P3', dur: 5, taskType: 'CONSTRUCTION',
-      codes: { Woning: String(i), Discipline: 'RUW' }, assign: [{ res: 'Timmerlieden', units: 2 }], ...kapProg },
+    { key: `r${i}_mv`, name: `Upper floor masonry — House ${i}`, parent: 'P3', dur: 6, taskType: 'CONSTRUCTION',
+      codes: { House: String(i), Discipline: 'STR' }, assign: [{ res: 'Bricklayers', units: 2 }], ...mvProg },
+    { key: `r${i}_kap`, name: `Roof structure — House ${i}`, parent: 'P3', dur: 5, taskType: 'CONSTRUCTION',
+      codes: { House: String(i), Discipline: 'STR' }, assign: [{ res: 'Carpenters', units: 2 }], ...kapProg },
   );
   middelLinks.push(
     { pred: `r${i}_mg`, succ: `r${i}_vl` }, { pred: `r${i}_vl`, succ: `r${i}_mv` }, { pred: `r${i}_mv`, succ: `r${i}_kap` },
   );
   if (i > 1) middelLinks.push({ pred: `r${i - 1}_mg`, succ: `r${i}_mg` }); // metselploeg schuift door naar de volgende woning
 }
-middelTasks.push({ key: 'ms_hoog', name: 'Hoogste punt bereikt', parent: 'P3', milestone: true, milestoneKind: 'FINISH', codes: { Woning: 'ALG', Discipline: 'RUW' } });
+middelTasks.push({ key: 'ms_hoog', name: 'Topping out reached', parent: 'P3', milestone: true, milestoneKind: 'FINISH', codes: { House: 'GEN', Discipline: 'STR' } });
 middelLinks.push({ pred: 'ms_fund', succ: 'r1_mg' });
 for (const i of HOUSES) middelLinks.push({ pred: `r${i}_kap`, succ: 'ms_hoog' });
 
 // 4. Installaties per woning (resource-kalender: 4-daagse werkweek op de installateurs)
-middelTasks.push({ key: 'P4', name: '4. Installaties', taskType: 'INSTALLATION', codes: { Discipline: 'INST' } });
+middelTasks.push({ key: 'P4', name: '4. Building services', taskType: 'INSTALLATION', codes: { Discipline: 'MEP' } });
 for (const i of HOUSES) {
   middelTasks.push(
-    { key: `in${i}_lg`, name: `Loodgieterswerk — Woning ${i}`, parent: 'P4', dur: 3, taskType: 'INSTALLATION',
-      codes: { Woning: String(i), Discipline: 'INST' }, assign: [{ res: 'Installateurs', units: 1 }],
-      ...(i === 3 ? { notes: [{ text: 'Materiaallevering leidingwerk bevestigen bij leverancier', done: false }] } : {}) },
-    { key: `in${i}_el`, name: `Elektra — Woning ${i}`, parent: 'P4', dur: 3, taskType: 'INSTALLATION',
-      codes: { Woning: String(i), Discipline: 'INST' }, assign: [{ res: 'Installateurs', units: 1 }] },
-    { key: `in${i}_ins`, name: `Opleverkeuring installaties — Woning ${i}`, parent: 'P4', dur: 1, taskType: 'ATTENDANCE',
-      codes: { Woning: String(i), Discipline: 'INST' } },
+    { key: `in${i}_lg`, name: `Plumbing — House ${i}`, parent: 'P4', dur: 3, taskType: 'INSTALLATION',
+      codes: { House: String(i), Discipline: 'MEP' }, assign: [{ res: 'MEP fitters', units: 1 }],
+      ...(i === 3 ? { notes: [{ text: 'Confirm pipework material delivery with the supplier', done: false }] } : {}) },
+    { key: `in${i}_el`, name: `Electrical — House ${i}`, parent: 'P4', dur: 3, taskType: 'INSTALLATION',
+      codes: { House: String(i), Discipline: 'MEP' }, assign: [{ res: 'MEP fitters', units: 1 }] },
+    { key: `in${i}_ins`, name: `Services commissioning inspection — House ${i}`, parent: 'P4', dur: 1, taskType: 'ATTENDANCE',
+      codes: { House: String(i), Discipline: 'MEP' } },
   );
   middelLinks.push(
     { pred: `r${i}_kap`, succ: `in${i}_lg` }, { pred: `in${i}_lg`, succ: `in${i}_el` },
@@ -217,7 +217,7 @@ for (const i of HOUSES) {
 }
 
 // 5. Afbouw per woning (curve-variatie + bewuste overallocatie op de stukadoors)
-middelTasks.push({ key: 'P5', name: '5. Afbouw', taskType: 'CONSTRUCTION', codes: { Discipline: 'AFB' } });
+middelTasks.push({ key: 'P5', name: '5. Fit-out', taskType: 'CONSTRUCTION', codes: { Discipline: 'FIT' } });
 // Fase 2.10 (QA-bevinding): Stukadoors draagt bewust GEEN curve-variatie meer (alleen UNIFORM) —
 // FRONT_LOADED/BACK_LOADED concentreren bij een lage pool (maxUnits 2, units 2) de piekvraag van
 // een ENKELE woning al boven de pool (bv. FRONT_LOADED op 5 dagen piekt naar ~3,3 eenheden) —
@@ -230,19 +230,19 @@ const SCHIL_CURVE: Record<number, 'UNIFORM' | 'FRONT_LOADED' | 'BACK_LOADED'> = 
 };
 for (const i of HOUSES) {
   middelTasks.push(
-    { key: `af${i}_stuc`, name: `Stucwerk — Woning ${i}`, parent: 'P5', dur: 5, codes: { Woning: String(i), Discipline: 'AFB' },
-      assign: [{ res: 'Stukadoors', units: 2, curve: 'UNIFORM' }],
-      ...(i === 2 ? { notes: [{ text: 'Vochtmeting muren uitgevoerd', done: true }] } : {}) },
+    { key: `af${i}_stuc`, name: `Plastering — House ${i}`, parent: 'P5', dur: 5, codes: { House: String(i), Discipline: 'FIT' },
+      assign: [{ res: 'Plasterers', units: 2, curve: 'UNIFORM' }],
+      ...(i === 2 ? { notes: [{ text: 'Moisture readings taken on walls', done: true }] } : {}) },
     // Fase 2.10 (QA-advies): consistentie met KLEIN/GROOT (beide dragen een Tegelwerk-stap).
     // Bewust GEEN resource-toewijzing — zelfde patroon als KLEIN se 'a4' (Tegelwerk): puur
     // structurele consistentie, geen extra resource-last die de bedoeld-ENIGE overallocatie
     // (stukadoors, zie hieronder) zou kunnen verstoren.
-    { key: `af${i}_tegel`, name: `Tegelwerk — Woning ${i}`, parent: 'P5', dur: 3, taskType: 'INSTALLATION',
-      codes: { Woning: String(i), Discipline: 'AFB' } },
-    { key: `af${i}_san`, name: `Sanitair plaatsen — Woning ${i}`, parent: 'P5', dur: 3, taskType: 'INSTALLATION',
-      codes: { Woning: String(i), Discipline: 'AFB' } },
-    { key: `af${i}_schil`, name: `Schilderwerk — Woning ${i}`, parent: 'P5', dur: 4, codes: { Woning: String(i), Discipline: 'AFB' },
-      assign: [{ res: 'Schilders', units: 2, curve: SCHIL_CURVE[i] }] },
+    { key: `af${i}_tegel`, name: `Tiling — House ${i}`, parent: 'P5', dur: 3, taskType: 'INSTALLATION',
+      codes: { House: String(i), Discipline: 'FIT' } },
+    { key: `af${i}_san`, name: `Install sanitary fittings — House ${i}`, parent: 'P5', dur: 3, taskType: 'INSTALLATION',
+      codes: { House: String(i), Discipline: 'FIT' } },
+    { key: `af${i}_schil`, name: `Painting — House ${i}`, parent: 'P5', dur: 4, codes: { House: String(i), Discipline: 'FIT' },
+      assign: [{ res: 'Painters', units: 2, curve: SCHIL_CURVE[i] }] },
   );
   middelLinks.push(
     { pred: `in${i}_ins`, succ: `af${i}_stuc` }, { pred: `af${i}_stuc`, succ: `af${i}_tegel` },
@@ -258,58 +258,58 @@ for (const i of HOUSES) {
 middelLinks.push({ pred: 'af1_stuc', succ: 'af2_stuc', type: 'START_START', lag: 0 });
 
 // 6. Oplevering (per-woning verplichte inspectie + bewust te krappe contractdeadline)
-middelTasks.push({ key: 'P6', name: '6. Oplevering', taskType: 'ATTENDANCE', codes: { Woning: 'ALG' } });
+middelTasks.push({ key: 'P6', name: '6. Handover', taskType: 'ATTENDANCE', codes: { House: 'GEN' } });
 for (const i of HOUSES) {
-  middelTasks.push({ key: `opl${i}`, name: `Opleverinspectie — Woning ${i}`, parent: 'P6', milestone: true,
-    milestoneKind: 'FINISH', mandatory: true, codes: { Woning: String(i) } });
+  middelTasks.push({ key: `opl${i}`, name: `Handover inspection — House ${i}`, parent: 'P6', milestone: true,
+    milestoneKind: 'FINISH', mandatory: true, codes: { House: String(i) } });
   middelLinks.push({ pred: `af${i}_schil`, succ: `opl${i}` }, { pred: `af${i}_san`, succ: `opl${i}` });
 }
-middelTasks.push({ key: 'ms_contract', name: 'Contractuele oplevering project', parent: 'P6', milestone: true,
+middelTasks.push({ key: 'ms_contract', name: 'Contractual project handover', parent: 'P6', milestone: true,
   milestoneKind: 'FINISH', mandatory: true, deadlineDay: 98, // BEWUST te krap → negatieve float
-  codes: { Woning: 'ALG' },
-  description: 'Contractuele einddatum met de opdrachtgever; de deadline ligt bewust vóór de vroegst haalbare datum (negatieve float).' });
+  codes: { House: 'GEN' },
+  description: 'Contractual completion date agreed with the client; the deadline deliberately falls before the earliest achievable date (negative total float).' });
 for (const i of HOUSES) middelLinks.push({ pred: `opl${i}`, succ: 'ms_contract' });
 
 const MIDDEL: ProjectSpec = {
   slug: 'showcase-rijwoningen-de-akkers',
-  name: 'Nieuwbouw 6 Rijwoningen De Akkers',
-  author: 'Uitvoerder',
-  company: 'Van der Meer Bouw BV',
+  name: '6 New Terraced Houses, De Akkers',
+  author: 'Site manager',
+  company: 'Van der Meer Construction BV',
   category: 'showcase',
-  description: 'Nieuwbouw van een blok van 6 identieke rijwoningen — repeterende structuur, resources en voortgangsrapportage.',
+  description: 'New-build block of six identical terraced houses — repeating structure, resources and progress reporting.',
   publicDescription:
-    'Middelgrote showcase: 6 rijwoningen met gedeelde fundering (vorstverlet via extraHolidays), ' +
-    'een doorschuivende metselploeg (CREW+LABOR) per woning, installateurs op een 4-daagse ' +
-    'resource-kalender, afbouw met curve-variatie (UNIFORM/FRONT_LOADED/BACK_LOADED) en zichtbare ' +
-    'overallocatie op de stukadoors, per-woning verplichte opleverinspecties + een bewust te ' +
-    'krappe contractdeadline (negatieve float), activity codes Woning×Discipline, aantekeningen ' +
-    '(open + afgevinkt), voortgang + statusdatum halverwege, en een baseline vóór start.',
-  tags: ['woningbouw', 'middel', 'resources', 'overallocatie', 'voortgang', 'baseline', 'activity-codes', 'aantekeningen'],
+    'Mid-sized showcase: six terraced houses with a shared foundation (frost delay via extraHolidays), ' +
+    'a masonry crew (CREW+LABOR) moving from house to house, MEP fitters on a four-day ' +
+    'resource calendar, fit-out with curve variation (UNIFORM/FRONT_LOADED/BACK_LOADED) and a visible ' +
+    'over-allocation on the plasterers, a mandatory handover inspection per house plus a deliberately ' +
+    'tight contract deadline (negative total float), activity codes House x Discipline, notes ' +
+    '(open and completed), progress plus a status date halfway through, and a baseline before start.',
+  tags: ['residential', 'medium', 'resources', 'over-allocation', 'progress', 'baseline', 'activity-codes', 'notes'],
   calendar: {
-    extraHolidays: [{ name: 'Vorstverlet fundering', fromDay: 16, calendarDays: 6 }],
+    extraHolidays: [{ name: 'Frost delay, foundations', fromDay: 16, calendarDays: 6 }],
   },
   codeTypes: [
-    { name: 'Woning', values: [
-      { code: '1', description: 'Woning 1' }, { code: '2', description: 'Woning 2' },
-      { code: '3', description: 'Woning 3' }, { code: '4', description: 'Woning 4' },
-      { code: '5', description: 'Woning 5' }, { code: '6', description: 'Woning 6' },
-      { code: 'ALG', description: 'Algemeen / terrein', color: '#6b7280' },
+    { name: 'House', values: [
+      { code: '1', description: 'House 1' }, { code: '2', description: 'House 2' },
+      { code: '3', description: 'House 3' }, { code: '4', description: 'House 4' },
+      { code: '5', description: 'House 5' }, { code: '6', description: 'House 6' },
+      { code: 'GEN', description: 'General / site', color: '#6b7280' },
     ] },
     { name: 'Discipline', values: [
-      { code: 'RUW', description: 'Ruwbouw', color: '#b45309' },
-      { code: 'INST', description: 'Installaties', color: '#0891b2' },
-      { code: 'AFB', description: 'Afbouw', color: '#7c3aed' },
+      { code: 'STR', description: 'Structural works', color: '#b45309' },
+      { code: 'MEP', description: 'Building services', color: '#0891b2' },
+      { code: 'FIT', description: 'Fit-out', color: '#7c3aed' },
     ] },
   ],
-  fields: [{ name: 'Kostenraming', type: 'cost' }],
+  fields: [{ name: 'Cost estimate', type: 'cost' }],
   resources: [
     // Fase 2.10 (QA-bevinding): draagt nu ook de resource-kalender-demo (was op Installateurs,
-    // zie aldaar) — Metselploeg zelf krijgt NOOIT een toewijzing (alleen het kind 'Metselaars'
+    // zie aldaar) — Metselploeg zelf krijgt NOOIT een toewijzing (alleen het kind 'Bricklayers'
     // doet dat), dus deze kalender kan de belasting/overallocatie-berekening per definitie nooit
     // raken (geen assignment ⇒ geen load-bucket ⇒ nooit in `overallocatedDays`) — een risicoloze
     // plek voor de "resource-kalender aanwezig"-dekking, puur decoratief op de ploeg-hiërarchie.
-    { name: 'Metselploeg', type: 'CREW', maxUnits: 1, description: 'Overkoepelende metselploeg (schuift door per woning)',
-      calendar: { workDays: [1, 2, 3, 4], name: 'Metselploeg 4-daagse week', description: 'Ma-do' } },
+    { name: 'Masonry crew', type: 'CREW', maxUnits: 1, description: 'Overarching masonry crew (moves from house to house)',
+      calendar: { workDays: [1, 2, 3, 4], name: 'Masonry crew, 4-day week', description: 'Mon-Thu' } },
     // Fase 2.10 (QA-bevinding): 3 → 6. In de korte overgangsvensters tussen woningen (metselwerk-
     // verdieping van woning i loopt nog terwijl metselwerk-begane-grond van woning i+1 én i+2 kort
     // overlappen) piekt de vraag tot 3 taken × 2 man = 6 — en dit venster valt op reeds VOLTOOIDE
@@ -317,19 +317,19 @@ const MIDDEL: ProjectSpec = {
     // — de tekst belooft precies ÉÉN bedoelde (wél oplosbare) overallocatie, de stukadoors
     // hieronder, dus deze wordt volledig via capaciteit weggenomen i.p.v. fasering (die zou de
     // doorschuivende-metselploeg-demonstratie zelf verstoren).
-    { name: 'Metselaars', type: 'LABOR', maxUnits: 6, costPerHour: 46, parent: 'Metselploeg' },
-    { name: 'Timmerlieden', type: 'LABOR', maxUnits: 2, costPerHour: 45 },
+    { name: 'Bricklayers', type: 'LABOR', maxUnits: 6, costPerHour: 46, parent: 'Masonry crew' },
+    { name: 'Carpenters', type: 'LABOR', maxUnits: 2, costPerHour: 45 },
     // Fase 2.10 (QA-bevinding): 2 → 4 (en de 4-daagse resource-kalender eraf, zie Metselploeg
     // hierboven — bij een strak-opeenvolgende installatieketen (lg→el, 3+3 dagen, bijna geen
     // speling) gaf die kalender een bijna-onvermijdbare vrijdag-capaciteit=0-mismatch zodra een
     // taak over een vrijdag heen liep, los van elke hoeveelheidsoverweging — buiten de
     // gesanctioneerde solver-scope om via de nivelleerder op te lossen). Zonder de kalender lost
     // de capaciteitsverhoging de resterende (zuiver hoeveelheids-)overlap tussen woningen wél op.
-    { name: 'Installateurs', type: 'LABOR', maxUnits: 4, costPerHour: 48 },
+    { name: 'MEP fitters', type: 'LABOR', maxUnits: 4, costPerHour: 48 },
     // Stukadoors: BEWUST ONGEWIJZIGD (maxUnits 2) — dit is de ENE bedoelde overallocatie (de
     // geforceerde af1_stuc/af2_stuc-overlap hieronder, 2×2 eenheden > pool 2), aantoonbaar volledig
     // opgelost door de echte leveler (zie golf-4-verificatie).
-    { name: 'Stukadoors', type: 'LABOR', maxUnits: 2, costPerHour: 42 },
+    { name: 'Plasterers', type: 'LABOR', maxUnits: 2, costPerHour: 42 },
     // Fase 2.10 (QA-bevinding): 2 → 8 — het schilderwerk draagt bewust FRONT_LOADED/BACK_LOADED
     // curve-variatie (units 2, dur 4): die concentreert de piekvraag van ÉÉN woning alleen al tot
     // ~3,3 eenheden (largest-remainder-afgerond), en twee opeenvolgende woningen met
@@ -338,8 +338,8 @@ const MIDDEL: ProjectSpec = {
     // onoplosbare overrun (curve/capaciteit-mismatch, geen nivelleringsprobleem). Bij 8 past het
     // dubbele-piek-worstcase ruim, blijft de curve-variatie zichtbaar én is er geen
     // restoverallocatie buiten de bedoelde stukadoors-overlap.
-    { name: 'Schilders', type: 'LABOR', maxUnits: 8, costPerHour: 38 },
-    { name: 'Beton C20/25', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
+    { name: 'Painters', type: 'LABOR', maxUnits: 8, costPerHour: 38 },
+    { name: 'Concrete C20/25', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
   ],
   tasks: middelTasks,
   links: middelLinks,
@@ -347,7 +347,7 @@ const MIDDEL: ProjectSpec = {
   // ELAPSEDTIME-fix + de daaruit volgende +3-translatie van de ruwbouwketen (zie hierboven);
   // dezelfde relatieve positie t.o.v. "woning 4 in uitvoering" blijft behouden.
   statusDay: 58,
-  baselines: [{ name: 'Baseline start' }],
+  baselines: [{ name: 'Baseline at start' }],
 };
 
 export const SHOWCASES: ProjectSpec[] = [KLEIN, MIDDEL];

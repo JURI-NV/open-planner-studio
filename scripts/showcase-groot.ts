@@ -50,26 +50,26 @@ import type { ProjectSpec, TaskSpec, LinkSpec } from './spec';
 // oplevert. `sourceMissing:true` in de GROOT-koppeling is BEWUST (architect-besluit 4): het
 // bronbestand reist niet mee in de gepubliceerde (Backstage-)selectie, dus een gebruiker die GROOT
 // via de app opent kan het echt niet verversen — precies het "bron ontbreekt"-pad demonstrerend.
-export const ANCHOR_TASK_NAME = 'Terrein gereed voor bestrating hoofdaannemer';
+export const ANCHOR_TASK_NAME = 'Site ready for main contractor paving';
 
 export const TERREIN_ONDERAANNEMER: ProjectSpec = {
   slug: 'showcase-groot-terrein-onderaannemer',
-  name: 'Terreininrichting Onderaannemer',
-  author: 'Uitvoerder terrein',
-  company: 'GrondWerk Zuid BV',
+  name: 'Site Works Subcontractor',
+  author: 'Site works supervisor',
+  company: 'GroundWorks South BV',
   category: 'external-source',
   description:
-    'NIET-PUBLIC bronbestand voor de externe (cross-project) koppeling in de GROOT-showcase — ' +
-    'een andere partij levert de terreininrichting/parkeergarage-omgeving apart aan. Geen ' +
-    'showcase, bewust geen onderdeel van de Backstage-lijst.',
+    'NON-PUBLIC source file for the external (cross-project) link in the LARGE showcase — ' +
+    'another party delivers the site works/car park surroundings separately. Not a ' +
+    'showcase, and deliberately not part of the Backstage list.',
   tasks: [
-    { key: 'ms_start', name: 'Start terreinwerk onderaannemer', milestone: true, milestoneKind: 'START' },
-    { key: 't1', name: 'Bouwweg onderaannemer verharden', dur: 4, taskType: 'LOGISTIC' },
-    { key: 't2', name: 'Kabels & leidingen terrein aanleggen', dur: 5, taskType: 'INSTALLATION' },
-    { key: 't3', name: 'Rioolaansluiting terrein', dur: 4, taskType: 'CONSTRUCTION' },
-    { key: 't4', name: 'Grondverbetering parkeerterrein', dur: 5, taskType: 'CONSTRUCTION' },
-    { key: 't5', name: 'Funderingslaag parkeerterrein aanbrengen', dur: 4, taskType: 'CONSTRUCTION' },
-    { key: 't6', name: 'Groenvoorziening aanleggen', dur: 3, taskType: 'CONSTRUCTION' },
+    { key: 'ms_start', name: 'Start of subcontractor site works', milestone: true, milestoneKind: 'START' },
+    { key: 't1', name: 'Pave subcontractor site road', dur: 4, taskType: 'LOGISTIC' },
+    { key: 't2', name: 'Install site cables & pipework', dur: 5, taskType: 'INSTALLATION' },
+    { key: 't3', name: 'Site sewer connection', dur: 4, taskType: 'CONSTRUCTION' },
+    { key: 't4', name: 'Ground improvement, car park', dur: 5, taskType: 'CONSTRUCTION' },
+    { key: 't5', name: 'Lay car park sub-base', dur: 4, taskType: 'CONSTRUCTION' },
+    { key: 't6', name: 'Install landscaping', dur: 3, taskType: 'CONSTRUCTION' },
     { key: 'ms_gereed', name: ANCHOR_TASK_NAME, milestone: true, milestoneKind: 'FINISH', mandatory: true },
   ],
   links: [
@@ -88,8 +88,8 @@ const FLOORS = 12;
 // pauzeband gemodelleerd — voldoende voor de sub-dag-precisie-demonstratie). 420=07:00, 900=15:00.
 const STORT_UUR_BAND = { start: 420, end: 900 };
 const STORT_KALENDER = {
-  name: 'Uur-kalender vlechtwerk & stort',
-  description: 'Ma-vr 07:00-15:00, uur-precisie voor wapening/beton (fase 2.10, golf 2).',
+  name: 'Hourly calendar, rebar fixing & pouring',
+  description: 'Mon-Fri 07:00-15:00, hourly precision for reinforcement/concrete (phase 2.10, wave 2).',
   workTime: {
     byWeekday: {
       1: [STORT_UUR_BAND], 2: [STORT_UUR_BAND], 3: [STORT_UUR_BAND], 4: [STORT_UUR_BAND], 5: [STORT_UUR_BAND],
@@ -112,25 +112,25 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
 
   // ── Fase 1 — Voorbereiding & bouwrijp maken (~10 taken) ───────────────────────────────────
   tasks.push(
-    { key: 'ms_start', name: 'Start project Appartementencomplex', milestone: true, milestoneKind: 'START' },
-    { key: 'P1', name: '1. Voorbereiding & bouwrijp maken', taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v0', name: 'Sonderingen & grondonderzoek', parent: 'P1', dur: 3, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v1', name: 'Omgevingsvergunning verkrijgen', parent: 'P1', dur: 10, taskType: 'LOGISTIC',
-      codes: { Toren: 'ALG', Discipline: 'CIV' }, fields: { Vergunningnummer: 'OV-2026-00417' } },
+    { key: 'ms_start', name: 'Start of Apartment Complex project', milestone: true, milestoneKind: 'START' },
+    { key: 'P1', name: '1. Preparation & site clearance', taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v0', name: 'CPT soundings & soil investigation', parent: 'P1', dur: 3, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v1', name: 'Obtain building permit', parent: 'P1', dur: 10, taskType: 'LOGISTIC',
+      codes: { Tower: 'GEN', Discipline: 'CIV' }, fields: { 'Permit number': 'OV-2026-00417' } },
     // Hard pin (fase 2.9/2.10): P6 Mandatory Start — de gemeente staat de wegafzetting alleen op
     // exact deze vergunde datum toe; de logica buigt ervoor (constraint.hard = true).
-    { key: 'v2', name: 'Wegafzetting gemeente (vergunde stremmingsperiode)', parent: 'P1', dur: 3, taskType: 'ATTENDANCE',
+    { key: 'v2', name: 'Municipal road closure (permitted closure period)', parent: 'P1', dur: 3, taskType: 'ATTENDANCE',
       constraint: { type: 'MSO', offsetDay: 8, hard: true },
-      description: 'Hard-pin (P6 Mandatory Start): de vergunde stremmingsdatum ligt vast bij de gemeente en overschrijft de netwerklogica.',
-      codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v3', name: 'Bouwweg aanleggen', parent: 'P1', dur: 4, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v4', name: 'Bouwketen plaatsen', parent: 'P1', dur: 2, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v5', name: 'Nutsaansluitingen aanleggen', parent: 'P1', dur: 4, taskType: 'LOGISTIC', priority: 1000,
-      description: 'Vastgepind (prioriteit 1000): vaste aansluitdatum van het nutsbedrijf, mag niet schuiven.',
-      codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'v6', name: 'Bemaling plaatsen', parent: 'P1', dur: 5, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'ms_bouwrijp', name: 'Terrein bouwrijp', parent: 'P1', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      codes: { Toren: 'ALG', Discipline: 'CIV' } },
+      description: 'Hard pin (P6 Mandatory Start): the permitted closure date is fixed by the municipality and overrides the network logic.',
+      codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v3', name: 'Construct site road', parent: 'P1', dur: 4, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v4', name: 'Place site huts', parent: 'P1', dur: 2, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v5', name: 'Install utility connections', parent: 'P1', dur: 4, taskType: 'LOGISTIC', priority: 1000,
+      description: 'Pinned (priority 1000): fixed connection date from the utility company, must not move.',
+      codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'v6', name: 'Install dewatering', parent: 'P1', dur: 5, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'ms_bouwrijp', name: 'Site ready for construction', parent: 'P1', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      codes: { Tower: 'GEN', Discipline: 'CIV' } },
   );
   links.push(
     { pred: 'ms_start', succ: 'v0' }, { pred: 'ms_start', succ: 'v2' },
@@ -140,13 +140,13 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
 
   // ── Fase 2 — Fundering & kelder/parkeergarage (~25 taken, uren-planning) ──────────────────
   tasks.push(
-    { key: 'P2', name: '2. Fundering & kelder/parkeergarage', taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f0', name: 'Bemaling in bedrijf stellen', parent: 'P2', dur: 2, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f1', name: 'Grondwerk bouwput', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f2', name: 'Damwanden plaatsen', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f3', name: 'Funderingsbalken storten (gezamenlijk)', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION',
-      codes: { Toren: 'ALG', Discipline: 'CIV' }, fields: { Kostenraming: 340000 },
-      assign: [{ res: 'Beton C30/37', units: 60, curve: 'FRONT_LOADED' }] },
+    { key: 'P2', name: '2. Foundations & basement/car park', taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f0', name: 'Commission dewatering', parent: 'P2', dur: 2, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f1', name: 'Excavation, building pit', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f2', name: 'Install sheet piling', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f3', name: 'Pour foundation beams (shared)', parent: 'P2', dur: 4, taskType: 'CONSTRUCTION',
+      codes: { Tower: 'GEN', Discipline: 'CIV' }, fields: { 'Cost estimate': 340000 },
+      assign: [{ res: 'Concrete C30/37', units: 60, curve: 'FRONT_LOADED' }] },
   );
   links.push(
     { pred: 'ms_bouwrijp', succ: 'f0' }, { pred: 'f0', succ: 'f1' }, { pred: 'f1', succ: 'f2' }, { pred: 'f2', succ: 'f3' },
@@ -154,20 +154,20 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   for (const tw of TORENS) {
     const grond = `f${tw}_grond`, vlkv = `f${tw}_vlkv`, stkv = `f${tw}_stkv`, vlkw = `f${tw}_vlkw`, stkw = `f${tw}_stkw`;
     tasks.push(
-      { key: grond, name: `Grondwerk kelder — Toren ${tw}`, parent: 'P2', dur: 3, taskType: 'CONSTRUCTION',
-        codes: { Toren: tw, Discipline: 'CIV' } },
+      { key: grond, name: `Basement earthworks — Tower ${tw}`, parent: 'P2', dur: 3, taskType: 'CONSTRUCTION',
+        codes: { Tower: tw, Discipline: 'CIV' } },
       // Vlechtwerk/stort op de uur-kalender (`calendarKey`); de stort-taken zijn sub-dag
       // (6u/4u < 8u netto/dag) — zichtbaar aan een balk die niet op een hele dag valt.
-      { key: vlkv, name: `Vlechtwerk wapening keldervloer — Toren ${tw}`, parent: 'P2', durMinutes: 480, calendarKey: 'stort',
-        taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'CIV' } },
-      { key: stkv, name: `Stort keldervloer — Toren ${tw}`, parent: 'P2', durMinutes: 360, calendarKey: 'stort',
-        taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'CIV' },
-        assign: [{ res: 'Beton C30/37', units: 30, curve: 'UNIFORM' }] },
-      { key: vlkw, name: `Vlechtwerk wapening kelderwanden — Toren ${tw}`, parent: 'P2', durMinutes: 480, calendarKey: 'stort',
-        taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'CIV' } },
-      { key: stkw, name: `Stort kelderwanden — Toren ${tw}`, parent: 'P2', durMinutes: 240, calendarKey: 'stort',
-        taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'CIV' },
-        assign: [{ res: 'Beton C30/37', units: 25, curve: 'UNIFORM' }] },
+      { key: vlkv, name: `Rebar fixing, basement floor — Tower ${tw}`, parent: 'P2', durMinutes: 480, calendarKey: 'stort',
+        taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'CIV' } },
+      { key: stkv, name: `Pour basement floor — Tower ${tw}`, parent: 'P2', durMinutes: 360, calendarKey: 'stort',
+        taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'CIV' },
+        assign: [{ res: 'Concrete C30/37', units: 30, curve: 'UNIFORM' }] },
+      { key: vlkw, name: `Rebar fixing, basement walls — Tower ${tw}`, parent: 'P2', durMinutes: 480, calendarKey: 'stort',
+        taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'CIV' } },
+      { key: stkw, name: `Pour basement walls — Tower ${tw}`, parent: 'P2', durMinutes: 240, calendarKey: 'stort',
+        taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'CIV' },
+        assign: [{ res: 'Concrete C30/37', units: 25, curve: 'UNIFORM' }] },
     );
     links.push(
       { pred: 'f3', succ: grond }, { pred: grond, succ: vlkv }, { pred: vlkv, succ: stkv },
@@ -175,13 +175,13 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
     );
   }
   tasks.push(
-    { key: 'f4', name: 'Afdichting kelder', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f5', name: 'Terugstorten grond rondom kelder', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'f7', name: 'Parkeerdek storten (afdek begane grond)', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
-      codes: { Toren: 'ALG', Discipline: 'CIV' }, assign: [{ res: 'Beton C30/37', units: 50, curve: 'FRONT_LOADED' }] },
-    { key: 'f6', name: 'Damwanden verwijderen', parent: 'P2', dur: 2, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'ms_kelder', name: 'Kelder waterdicht — keuring', parent: 'P2', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      codes: { Toren: 'ALG', Discipline: 'CIV' } },
+    { key: 'f4', name: 'Basement sealing', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f5', name: 'Backfill around basement', parent: 'P2', dur: 3, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'f7', name: 'Pour parking deck (ground floor cover)', parent: 'P2', dur: 5, taskType: 'CONSTRUCTION',
+      codes: { Tower: 'GEN', Discipline: 'CIV' }, assign: [{ res: 'Concrete C30/37', units: 50, curve: 'FRONT_LOADED' }] },
+    { key: 'f6', name: 'Remove sheet piling', parent: 'P2', dur: 2, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'ms_kelder', name: 'Basement watertight — inspection', parent: 'P2', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      codes: { Tower: 'GEN', Discipline: 'CIV' } },
   );
   for (const tw of TORENS) links.push({ pred: `f${tw}_stkw`, succ: 'f4' });
   links.push(
@@ -190,8 +190,8 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
 
   // ── Fase 3 — Ruwbouw torens A/B/C parallel (~90 taken) ────────────────────────────────────
   tasks.push(
-    { key: 'P3', name: '3. Ruwbouw torens A/B/C (parallel)', taskType: 'CONSTRUCTION' },
-    { key: 'kraan_op', name: 'Torenkraan opbouwen', parent: 'P3', dur: 3, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'RUW' } },
+    { key: 'P3', name: '3. Structural works, towers A/B/C (parallel)', taskType: 'CONSTRUCTION' },
+    { key: 'kraan_op', name: 'Erect tower crane', parent: 'P3', dur: 3, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'STR' } },
   );
   links.push({ pred: 'ms_kelder', succ: 'kraan_op' });
 
@@ -204,10 +204,10 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
 
   for (const tw of TORENS) {
     const pkey = `P3_${tw}`;
-    tasks.push({ key: pkey, name: `Ruwbouw — Toren ${tw}`, parent: 'P3', taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'RUW' } });
+    tasks.push({ key: pkey, name: `Structural works — Tower ${tw}`, parent: 'P3', taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'STR' } });
     const bgv = `t${tw}_bgv`;
-    tasks.push({ key: bgv, name: `Begane grondvloer storten — Toren ${tw}`, parent: pkey, dur: 4, taskType: 'CONSTRUCTION',
-      codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Beton C30/37', units: 40, curve: 'FRONT_LOADED' }] });
+    tasks.push({ key: bgv, name: `Pour ground floor slab — Tower ${tw}`, parent: pkey, dur: 4, taskType: 'CONSTRUCTION',
+      codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Concrete C30/37', units: 40, curve: 'FRONT_LOADED' }] });
     links.push({ pred: 'kraan_op', succ: bgv }, { pred: `f${tw}_stkw`, succ: bgv });
     torenFirstReal[tw] = bgv;
 
@@ -215,22 +215,22 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
     for (let f = 1; f <= FLOORS; f++) {
       const w = `t${tw}_w${f}`, v = `t${tw}_v${f}`;
       tasks.push(
-        { key: w, name: `Wanden verdieping ${f} — Toren ${tw}`, parent: pkey, dur: 4, taskType: 'CONSTRUCTION',
-          codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Betonvlechters', units: 2 }, { res: 'Torenkraan', units: 1 }] },
-        { key: v, name: `Vloer verdieping ${f} — Toren ${tw}`, parent: pkey, dur: 3, taskType: 'CONSTRUCTION',
-          codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Timmerlieden', units: 2 }, { res: 'Torenkraan', units: 1 }] },
+        { key: w, name: `Walls, floor ${f} — Tower ${tw}`, parent: pkey, dur: 4, taskType: 'CONSTRUCTION',
+          codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Steel fixers', units: 2 }, { res: 'Tower crane', units: 1 }] },
+        { key: v, name: `Slab, floor ${f} — Tower ${tw}`, parent: pkey, dur: 3, taskType: 'CONSTRUCTION',
+          codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Carpenters', units: 2 }, { res: 'Tower crane', units: 1 }] },
       );
       links.push({ pred: prev, succ: w }, { pred: w, succ: v, type: 'START_START', lag: 2 });
       prev = v;
     }
     const dak = `t${tw}_dak`, trap = `t${tw}_trap`, msGereed = `t${tw}_ruwbouw_gereed`;
     tasks.push(
-      { key: trap, name: `Trappenhuis & liftschacht — Toren ${tw}`, parent: pkey, dur: FLOORS * 3, taskType: 'CONSTRUCTION',
-        codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Timmerlieden', units: 2 }] },
-      { key: dak, name: `Dakconstructie plaatsen — Toren ${tw}`, parent: pkey, dur: 5, taskType: 'CONSTRUCTION',
-        codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Timmerlieden', units: 2 }, { res: 'Torenkraan', units: 1 }] },
-      { key: msGereed, name: `Ruwbouw gereed — Toren ${tw}`, parent: pkey, milestone: true, milestoneKind: 'FINISH',
-        codes: { Toren: tw, Discipline: 'RUW' } },
+      { key: trap, name: `Stair core & lift shaft — Tower ${tw}`, parent: pkey, dur: FLOORS * 3, taskType: 'CONSTRUCTION',
+        codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Carpenters', units: 2 }] },
+      { key: dak, name: `Install roof structure — Tower ${tw}`, parent: pkey, dur: 5, taskType: 'CONSTRUCTION',
+        codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Carpenters', units: 2 }, { res: 'Tower crane', units: 1 }] },
+      { key: msGereed, name: `Structural works complete — Tower ${tw}`, parent: pkey, milestone: true, milestoneKind: 'FINISH',
+        codes: { Tower: tw, Discipline: 'STR' } },
     );
     links.push(
       { pred: bgv, succ: trap, type: 'START_START' }, { pred: prev, succ: dak },
@@ -242,34 +242,34 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   // Hammock (fase 2.9/2.10): span AFGELEID uit gewone links naar deze taak — start-driver =
   // begane grondvloer toren A (SS), finish-driver = dakconstructie toren A (FF). Puur topologisch,
   // geen apart driver-veld nodig (zie CPMSolver.ts hammockEarlyStart/hammockEarlyFinish).
-  tasks.push({ key: 'hammock_A', name: 'Ruwbouw toren A (LOE)', parent: 'P3_A', hammock: true });
+  tasks.push({ key: 'hammock_A', name: 'Structural works tower A (LOE)', parent: 'P3_A', hammock: true });
   links.push(
     { pred: torenFirstReal.A, succ: 'hammock_A', type: 'START_START' },
     { pred: torenLastReal.A, succ: 'hammock_A', type: 'FINISH_FINISH' },
   );
-  tasks.push({ key: 'kraan_af', name: 'Torenkraan afbreken', parent: 'P3', dur: 2, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'RUW' } });
+  tasks.push({ key: 'kraan_af', name: 'Dismantle tower crane', parent: 'P3', dur: 2, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'STR' } });
   for (const tw of TORENS) links.push({ pred: torenMsGereed[tw], succ: 'kraan_af' });
 
   // ── Fase 4 — Gevel & dak (~30 taken, near-critical zichtbaar) ─────────────────────────────
-  tasks.push({ key: 'P4', name: '4. Gevel & dak', taskType: 'CONSTRUCTION' });
+  tasks.push({ key: 'P4', name: '4. Facade & roof', taskType: 'CONSTRUCTION' });
   for (const tw of TORENS) {
     const pkey = `P4_${tw}`;
-    tasks.push({ key: pkey, name: `Gevel & dak — Toren ${tw}`, parent: 'P4', codes: { Toren: tw, Discipline: 'RUW' } });
+    tasks.push({ key: pkey, name: `Facade & roof — Tower ${tw}`, parent: 'P4', codes: { Tower: tw, Discipline: 'STR' } });
     const steig = `t${tw}_steiger_op`, gevIso = `t${tw}_gevIso`, gevBekl = `t${tw}_gevBekl`, kozijn = `t${tw}_kozijn`,
       dakIso = `t${tw}_dakIso`, dakBed = `t${tw}_dakBed`, balkon = `t${tw}_balkon`, regen = `t${tw}_regen`,
       steigAf = `t${tw}_steiger_af`;
     tasks.push(
-      { key: steig, name: `Steigerwerk plaatsen — Toren ${tw}`, parent: pkey, dur: 3, taskType: 'LOGISTIC', codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: gevIso, name: `Gevelisolatie aanbrengen — Toren ${tw}`, parent: pkey, dur: 8, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Gevelbouwer', units: 2 }] },
-      { key: gevBekl, name: `Gevelbekleding monteren — Toren ${tw}`, parent: pkey, dur: 10, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'RUW' }, assign: [{ res: 'Gevelbouwer', units: 2 }] },
-      { key: kozijn, name: `Kozijnen plaatsen — Toren ${tw}`, parent: pkey, dur: 6, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: dakIso, name: `Dakisolatie aanbrengen — Toren ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: dakBed, name: `Dakbedekking aanbrengen — Toren ${tw}`, parent: pkey, dur: 5, taskType: 'CONSTRUCTION', codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: balkon, name: `Balkonhekwerken monteren — Toren ${tw}`, parent: pkey, dur: 5, codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: regen, name: `Regenwaterafvoer aansluiten — Toren ${tw}`, parent: pkey, dur: 3, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'RUW' } },
-      { key: steigAf, name: `Steigerwerk verwijderen — Toren ${tw}`, parent: pkey, dur: 2, taskType: 'LOGISTIC', codes: { Toren: tw, Discipline: 'RUW' } },
+      { key: steig, name: `Erect scaffolding — Tower ${tw}`, parent: pkey, dur: 3, taskType: 'LOGISTIC', codes: { Tower: tw, Discipline: 'STR' } },
+      { key: gevIso, name: `Apply facade insulation — Tower ${tw}`, parent: pkey, dur: 8, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Facade contractor', units: 2 }] },
+      { key: gevBekl, name: `Install facade cladding — Tower ${tw}`, parent: pkey, dur: 10, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'STR' }, assign: [{ res: 'Facade contractor', units: 2 }] },
+      { key: kozijn, name: `Install window frames — Tower ${tw}`, parent: pkey, dur: 6, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'STR' } },
+      { key: dakIso, name: `Apply roof insulation — Tower ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'STR' } },
+      { key: dakBed, name: `Apply roofing — Tower ${tw}`, parent: pkey, dur: 5, taskType: 'CONSTRUCTION', codes: { Tower: tw, Discipline: 'STR' } },
+      { key: balkon, name: `Install balcony balustrades — Tower ${tw}`, parent: pkey, dur: 5, codes: { Tower: tw, Discipline: 'STR' } },
+      { key: regen, name: `Connect rainwater drainage — Tower ${tw}`, parent: pkey, dur: 3, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'STR' } },
+      { key: steigAf, name: `Strike scaffolding — Tower ${tw}`, parent: pkey, dur: 2, taskType: 'LOGISTIC', codes: { Tower: tw, Discipline: 'STR' } },
     );
     links.push(
       { pred: torenLastReal[tw], succ: steig }, { pred: steig, succ: gevIso }, { pred: gevIso, succ: gevBekl },
@@ -279,18 +279,18 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
     torenLastGevel[tw] = steigAf;
   }
   tasks.push(
-    { key: 'entree_gevel', name: 'Gevelbeplating hoofdentree', parent: 'P4', dur: 4, codes: { Toren: 'ALG', Discipline: 'RUW' } },
-    { key: 'parkeer_overkap', name: 'Overkapping parkeerdek plaatsen', parent: 'P4', dur: 5, codes: { Toren: 'ALG', Discipline: 'RUW' } },
+    { key: 'entree_gevel', name: 'Facade cladding, main entrance', parent: 'P4', dur: 4, codes: { Tower: 'GEN', Discipline: 'STR' } },
+    { key: 'parkeer_overkap', name: 'Install parking deck canopy', parent: 'P4', dur: 5, codes: { Tower: 'GEN', Discipline: 'STR' } },
   );
   links.push({ pred: torenLastGevel.A, succ: 'entree_gevel' }, { pred: 'f7', succ: 'parkeer_overkap' });
 
   // ── Fase 5 — Installaties (MEP) (~35 taken, secundaire constraint) ────────────────────────
   tasks.push(
-    { key: 'P5', name: '5. Installaties (MEP)', taskType: 'INSTALLATION' },
-    { key: 'techniek_warmte', name: 'Warmtecentrale plaatsen', parent: 'P5', dur: 6, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'techniek_elek', name: 'Hoofdverdeler elektra aansluiten', parent: 'P5', dur: 4, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'techniek_nood', name: 'Noodstroomaggregaat plaatsen & testen', parent: 'P5', dur: 3, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'techniek_data', name: 'Datacentrum serverruimte inrichten', parent: 'P5', dur: 4, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
+    { key: 'P5', name: '5. Building services (MEP)', taskType: 'INSTALLATION' },
+    { key: 'techniek_warmte', name: 'Install heating plant room', parent: 'P5', dur: 6, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'techniek_elek', name: 'Connect main electrical distribution board', parent: 'P5', dur: 4, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'techniek_nood', name: 'Install & test emergency generator', parent: 'P5', dur: 3, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'techniek_data', name: 'Fit out data centre server room', parent: 'P5', dur: 4, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
   );
   links.push(
     { pred: 'entree_gevel', succ: 'techniek_warmte' }, { pred: 'techniek_warmte', succ: 'techniek_elek' },
@@ -298,28 +298,28 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   );
   for (const tw of TORENS) {
     const pkey = `P5_${tw}`;
-    tasks.push({ key: pkey, name: `Installaties — Toren ${tw}`, parent: 'P5', codes: { Toren: tw, Discipline: 'INST' } });
+    tasks.push({ key: pkey, name: `Building services — Tower ${tw}`, parent: 'P5', codes: { Tower: tw, Discipline: 'MEP' } });
     const w = `t${tw}_wtb`, el = `t${tw}_elek`, vent = `t${tw}_vent`, sprink = `t${tw}_sprink`, data = `t${tw}_data`,
       brand = `t${tw}_brand`, lift = `t${tw}_lift`, keur = `t${tw}_keurinst`;
     tasks.push(
-      { key: w, name: `Werktuigbouwkundige installatie — Toren ${tw}`, parent: pkey, dur: 8, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'INST' }, assign: [{ res: 'Installateurs', units: 3 }] },
-      { key: el, name: `Elektra aanleggen — Toren ${tw}`, parent: pkey, dur: 7, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'INST' }, assign: [{ res: 'Installateurs', units: 3 }] },
-      { key: vent, name: `Ventilatiekanalen aansluiten — Toren ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'INST' } },
-      { key: sprink, name: `Sprinklerinstallatie aanleggen — Toren ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'INST' } },
-      { key: data, name: `Data/ICT-bekabeling aanleggen — Toren ${tw}`, parent: pkey, dur: 4, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'INST' } },
-      { key: brand, name: `Brandmeldinstallatie aanleggen — Toren ${tw}`, parent: pkey, dur: 4, taskType: 'INSTALLATION', codes: { Toren: tw, Discipline: 'INST' } },
+      { key: w, name: `Mechanical services — Tower ${tw}`, parent: pkey, dur: 8, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'MEP' }, assign: [{ res: 'MEP fitters', units: 3 }] },
+      { key: el, name: `Install electrical services — Tower ${tw}`, parent: pkey, dur: 7, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'MEP' }, assign: [{ res: 'MEP fitters', units: 3 }] },
+      { key: vent, name: `Connect ventilation ductwork — Tower ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'MEP' } },
+      { key: sprink, name: `Install sprinkler system — Tower ${tw}`, parent: pkey, dur: 5, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'MEP' } },
+      { key: data, name: `Install data/ICT cabling — Tower ${tw}`, parent: pkey, dur: 4, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'MEP' } },
+      { key: brand, name: `Install fire alarm system — Tower ${tw}`, parent: pkey, dur: 4, taskType: 'INSTALLATION', codes: { Tower: tw, Discipline: 'MEP' } },
       {
-        key: lift, name: `Levering & installatie liftinstallatie — Toren ${tw}`, parent: pkey, dur: 10, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'INST' }, assign: [{ res: 'Liftleverancier', units: 1 }],
-        fields: { KritiekeLevering: true },
+        key: lift, name: `Lift supply & installation — Tower ${tw}`, parent: pkey, dur: 10, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'MEP' }, assign: [{ res: 'Lift supplier', units: 1 }],
+        fields: { 'Critical delivery': true },
         // Secundaire constraint (fase 2.9/2.10, `constraint2`, altijd soft): primair ASAP
         // (afwezig), secundair een praktische bovengrens (SNLT) op de leverdatum.
         ...(tw === 'A' ? { constraint2: { type: 'SNLT', offsetDay: 300 } } : {}),
       },
-      { key: keur, name: `Oplevermeting installaties — Toren ${tw}`, parent: pkey, milestone: true, milestoneKind: 'FINISH', mandatory: true,
-        codes: { Toren: tw, Discipline: 'INST' } },
+      { key: keur, name: `Services commissioning inspection — Tower ${tw}`, parent: pkey, milestone: true, milestoneKind: 'FINISH', mandatory: true,
+        codes: { Tower: tw, Discipline: 'MEP' } },
     );
     links.push(
       { pred: torenLastGevel[tw], succ: w }, { pred: w, succ: el, type: 'START_START', lag: 2 }, { pred: el, succ: vent },
@@ -334,29 +334,29 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   // toren C near-critical maakt (§3.3) komt pas uit de rebaseline-mutatie hieronder (meerwerk op
   // A+B verlengt precies díe twee torens, C blijft ongewijzigd ⇒ 3 werkdagen kortere, near-
   // critical keten), niet uit een vooraf ingebakken duurverschil.
-  tasks.push({ key: 'P6', name: '6. Afbouw', taskType: 'CONSTRUCTION' });
+  tasks.push({ key: 'P6', name: '6. Fit-out', taskType: 'CONSTRUCTION' });
   for (const tw of TORENS) {
     const pkey = `P6_${tw}`;
-    tasks.push({ key: pkey, name: `Afbouw — Toren ${tw}`, parent: 'P6', codes: { Toren: tw, Discipline: 'AFB' } });
+    tasks.push({ key: pkey, name: `Fit-out — Tower ${tw}`, parent: 'P6', codes: { Tower: tw, Discipline: 'FIT' } });
     const stuc = `t${tw}_stuc`, tegel = `t${tw}_tegel`, keuken = `t${tw}_keuken`, sanit = `t${tw}_sanit`,
       schil = `t${tw}_schil`, vloer = `t${tw}_vloer`, plafond = `t${tw}_plafond`, deuren = `t${tw}_deuren`;
     tasks.push(
-      { key: stuc, name: `Stucwerk — Toren ${tw}`, parent: pkey, dur: 12, codes: { Toren: tw, Discipline: 'AFB' },
-        assign: [{ res: 'Stukadoors', units: 3, curve: 'UNIFORM' }],
-        ...(tw === 'B' ? { notes: [{ text: 'Vochtmeting muren uitgevoerd', done: true }] } : {}) },
-      { key: tegel, name: `Tegelwerk — Toren ${tw}`, parent: pkey, dur: 10, codes: { Toren: tw, Discipline: 'AFB' },
-        assign: [{ res: 'Tegelzetters', units: 3, curve: 'FRONT_LOADED' }] },
-      { key: keuken, name: `Keukens plaatsen — Toren ${tw}`, parent: pkey, dur: 8, codes: { Toren: tw, Discipline: 'AFB' },
-        assign: [{ res: 'Keukenmonteurs', units: 2, curve: 'BACK_LOADED' }],
-        ...(tw === 'A' ? { notes: [{ text: 'Levering keukenapparatuur controleren bij leverancier', done: false }] } : {}) },
-      { key: sanit, name: `Sanitair plaatsen — Toren ${tw}`, parent: pkey, dur: 7, taskType: 'INSTALLATION',
-        codes: { Toren: tw, Discipline: 'AFB' }, assign: [{ res: 'Installateurs', units: 3, curve: 'BELL' }] },
-      { key: schil, name: `Schilderwerk — Toren ${tw}`, parent: pkey, dur: 8, codes: { Toren: tw, Discipline: 'AFB' },
-        assign: [{ res: 'Schilders', units: 3, curve: 'EARLY_PEAK' }] },
-      { key: vloer, name: `Vloerafwerking — Toren ${tw}`, parent: pkey, dur: 5, codes: { Toren: tw, Discipline: 'AFB' },
-        assign: [{ res: 'Tegelzetters', units: 2, curve: 'LATE_PEAK' }] },
-      { key: plafond, name: `Plafonds afwerken — Toren ${tw}`, parent: pkey, dur: 5, codes: { Toren: tw, Discipline: 'AFB' } },
-      { key: deuren, name: `Deuren hang- en sluitwerk — Toren ${tw}`, parent: pkey, dur: 4, codes: { Toren: tw, Discipline: 'AFB' } },
+      { key: stuc, name: `Plastering — Tower ${tw}`, parent: pkey, dur: 12, codes: { Tower: tw, Discipline: 'FIT' },
+        assign: [{ res: 'Plasterers', units: 3, curve: 'UNIFORM' }],
+        ...(tw === 'B' ? { notes: [{ text: 'Moisture readings taken on walls', done: true }] } : {}) },
+      { key: tegel, name: `Tiling — Tower ${tw}`, parent: pkey, dur: 10, codes: { Tower: tw, Discipline: 'FIT' },
+        assign: [{ res: 'Tilers', units: 3, curve: 'FRONT_LOADED' }] },
+      { key: keuken, name: `Install kitchens — Tower ${tw}`, parent: pkey, dur: 8, codes: { Tower: tw, Discipline: 'FIT' },
+        assign: [{ res: 'Kitchen fitters', units: 2, curve: 'BACK_LOADED' }],
+        ...(tw === 'A' ? { notes: [{ text: 'Check kitchen appliance delivery with the supplier', done: false }] } : {}) },
+      { key: sanit, name: `Install sanitary fittings — Tower ${tw}`, parent: pkey, dur: 7, taskType: 'INSTALLATION',
+        codes: { Tower: tw, Discipline: 'FIT' }, assign: [{ res: 'MEP fitters', units: 3, curve: 'BELL' }] },
+      { key: schil, name: `Painting — Tower ${tw}`, parent: pkey, dur: 8, codes: { Tower: tw, Discipline: 'FIT' },
+        assign: [{ res: 'Painters', units: 3, curve: 'EARLY_PEAK' }] },
+      { key: vloer, name: `Floor finishes — Tower ${tw}`, parent: pkey, dur: 5, codes: { Tower: tw, Discipline: 'FIT' },
+        assign: [{ res: 'Tilers', units: 2, curve: 'LATE_PEAK' }] },
+      { key: plafond, name: `Finish ceilings — Tower ${tw}`, parent: pkey, dur: 5, codes: { Tower: tw, Discipline: 'FIT' } },
+      { key: deuren, name: `Doors and ironmongery — Tower ${tw}`, parent: pkey, dur: 4, codes: { Tower: tw, Discipline: 'FIT' } },
     );
     links.push(
       { pred: torenLastInst[tw], succ: stuc }, { pred: stuc, succ: tegel }, { pred: tegel, succ: keuken },
@@ -366,13 +366,13 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
     torenLastAfbouw[tw] = deuren;
   }
   tasks.push(
-    { key: 'entreehal_afb', name: 'Entreehal afwerken', parent: 'P6', dur: 6, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'fietsenst_afb', name: 'Fietsenstalling afwerken', parent: 'P6', dur: 4, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'liftlobby_afb', name: "Liftlobby's afwerken", parent: 'P6', dur: 4, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'trappenhuis_afb', name: 'Gemeenschappelijke trappenhuizen afwerken', parent: 'P6', dur: 5, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'buitenschil', name: 'Buitenschilderwerk plint gevel', parent: 'P6', dur: 4, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'signage', name: 'Signage & bewegwijzering plaatsen', parent: 'P6', dur: 2, codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'eindschoon_gem', name: 'Eindschoonmaak gemeenschappelijke ruimtes', parent: 'P6', dur: 3, codes: { Toren: 'ALG', Discipline: 'AFB' } },
+    { key: 'entreehal_afb', name: 'Finish entrance hall', parent: 'P6', dur: 6, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'fietsenst_afb', name: 'Finish bicycle store', parent: 'P6', dur: 4, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'liftlobby_afb', name: 'Finish lift lobbies', parent: 'P6', dur: 4, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'trappenhuis_afb', name: 'Finish communal stair cores', parent: 'P6', dur: 5, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'buitenschil', name: 'External painting, facade plinth', parent: 'P6', dur: 4, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'signage', name: 'Install signage & wayfinding', parent: 'P6', dur: 2, codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'eindschoon_gem', name: 'Final cleaning of communal areas', parent: 'P6', dur: 3, codes: { Tower: 'GEN', Discipline: 'FIT' } },
   );
   // Ontwerpkeuze (§3.3, zelfde reden als fase 8 hierboven): NIET gegateed door alle 3 torens
   // tegelijk (dat zou — net als bij de oplevering — twee getide torens weer laten samensmelten
@@ -398,32 +398,32 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   // al in juni opgebroken terwijl de torens nog omhoog moesten — nu gebeurt dat pas nadat het
   // steigerwerk weg is.
   tasks.push(
-    { key: 'P7', name: '7. Parkeergarage & terrein', taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
+    { key: 'P7', name: '7. Car park & site works', taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
     // Garage-afbouw: een aaneengesloten ambachtsketen onder het (al gestorte) parkeerdek.
-    { key: 'gar_wanden', name: 'Binnenwanden, bergingen & trappenhuizen parkeergarage', parent: 'P7', dur: 30, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'gar_leiding', name: 'Leidingwerk & kabelgoten parkeergarage', parent: 'P7', dur: 24, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_vent', name: 'Ventilatie- & rookafvoerinstallatie parkeergarage', parent: 'P7', dur: 22, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_sprink', name: 'Sprinkler- & droge blusleiding parkeergarage', parent: 'P7', dur: 16, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_elek', name: 'Elektra, verlichting & noodverlichting parkeergarage', parent: 'P7', dur: 16, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_brand', name: 'Brandmeld- & ontruimingsinstallatie parkeergarage', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_ev', name: 'Laadinfrastructuur elektrische auto’s', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_coating', name: 'Vloercoating & belijning parkeergarage', parent: 'P7', dur: 14, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'gar_toegang', name: 'Toegangscontrole, slagbomen & parkeerbeheersysteem', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'gar_inregel', name: 'Inregelen & testen installaties parkeergarage', parent: 'P7', dur: 12, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'INST' } },
-    { key: 'ms_garage', name: 'Veiligheidskeuring parkeergarage', parent: 'P7', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      codes: { Toren: 'ALG', Discipline: 'INST' },
-      description: 'Afsluiting van de garage-afbouwstroom — de tweede, van de torens onafhankelijke kritieke keten in dit project.' },
-    { key: 'ontsl1', name: 'Nieuwe hoofdontsluiting aanleggen', parent: 'P7', dur: 4, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'ontsl2', name: 'Nieuwe hoofdontsluiting in gebruik genomen', parent: 'P7', milestone: true, milestoneKind: 'START', codes: { Toren: 'ALG', Discipline: 'CIV' } },
+    { key: 'gar_wanden', name: 'Internal walls, storage units & stair cores, car park', parent: 'P7', dur: 30, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'gar_leiding', name: 'Pipework & cable trays, car park', parent: 'P7', dur: 24, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_vent', name: 'Ventilation & smoke extraction system, car park', parent: 'P7', dur: 22, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_sprink', name: 'Sprinkler & dry riser, car park', parent: 'P7', dur: 16, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_elek', name: 'Power, lighting & emergency lighting, car park', parent: 'P7', dur: 16, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_brand', name: 'Fire alarm & evacuation system, car park', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_ev', name: 'EV charging infrastructure', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_coating', name: 'Floor coating & line marking, car park', parent: 'P7', dur: 14, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'gar_toegang', name: 'Access control, barriers & parking management system', parent: 'P7', dur: 10, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'gar_inregel', name: 'Commission & test car park services', parent: 'P7', dur: 12, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'MEP' } },
+    { key: 'ms_garage', name: 'Car park safety inspection', parent: 'P7', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      codes: { Tower: 'GEN', Discipline: 'MEP' },
+      description: 'Closes out the car park fit-out stream — the second critical chain in this project, independent of the towers.' },
+    { key: 'ontsl1', name: 'Construct new main access road', parent: 'P7', dur: 4, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'ontsl2', name: 'New main access road in use', parent: 'P7', milestone: true, milestoneKind: 'START', codes: { Tower: 'GEN', Discipline: 'CIV' } },
     // START_FINISH: het opbreken van de tijdelijke bouwweg mag pas EINDIGEN nadat de nieuwe
     // ontsluiting is gestart (SF: pred START → succ FINISH) — de enige SF-relatie in de suite.
-    { key: 'bouwweg_op', name: 'Tijdelijke bouwweg opbreken', parent: 'P7', dur: 3, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'riool_terrein', name: 'Rioolaansluiting terrein hoofdgebouw', parent: 'P7', dur: 4, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
+    { key: 'bouwweg_op', name: 'Break up temporary site road', parent: 'P7', dur: 3, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'riool_terrein', name: 'Site sewer connection, main building', parent: 'P7', dur: 4, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
     // Externe (cross-project) koppeling (fase 2.9/2.10, §4.2): het bestratingswerk hangt af van
     // het bevroren anker uit het NIET-PUBLIC bronbestand van de terrein-onderaannemer.
     {
-      key: 'bestrating', name: 'Bestrating parkeerterrein', parent: 'P7', dur: 6, taskType: 'CONSTRUCTION',
-      codes: { Toren: 'ALG', Discipline: 'CIV' },
+      key: 'bestrating', name: 'Car park paving', parent: 'P7', dur: 6, taskType: 'CONSTRUCTION',
+      codes: { Tower: 'GEN', Discipline: 'CIV' },
       externalLink: {
         direction: 'predecessor', relType: 'FS', lagDays: 0,
         anchorDate: ext.anchorDate,
@@ -437,13 +437,13 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
         sourceMissing: true,
       },
     },
-    { key: 'fietsenst_buiten', name: 'Fietsenstalling buiten plaatsen', parent: 'P7', dur: 3, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'groen_terrein', name: 'Groenvoorziening hoofdterrein aanleggen', parent: 'P7', dur: 5, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'buitenverl', name: 'Buitenverlichting plaatsen', parent: 'P7', dur: 3, taskType: 'INSTALLATION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'erfafsch', name: 'Erfafscheiding plaatsen', parent: 'P7', dur: 2, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'parkvak', name: 'Parkeervakken markeren', parent: 'P7', dur: 1, taskType: 'CONSTRUCTION', codes: { Toren: 'ALG', Discipline: 'CIV' } },
-    { key: 'ms_terrein', name: 'Oplevering terrein — eindinspectie', parent: 'P7', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      codes: { Toren: 'ALG', Discipline: 'CIV' } },
+    { key: 'fietsenst_buiten', name: 'Install outdoor bicycle shelter', parent: 'P7', dur: 3, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'groen_terrein', name: 'Install landscaping, main site', parent: 'P7', dur: 5, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'buitenverl', name: 'Install external lighting', parent: 'P7', dur: 3, taskType: 'INSTALLATION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'erfafsch', name: 'Install boundary fencing', parent: 'P7', dur: 2, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'parkvak', name: 'Mark out parking bays', parent: 'P7', dur: 1, taskType: 'CONSTRUCTION', codes: { Tower: 'GEN', Discipline: 'CIV' } },
+    { key: 'ms_terrein', name: 'Site handover — final inspection', parent: 'P7', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      codes: { Tower: 'GEN', Discipline: 'CIV' } },
   );
   links.push(
     // Garage-afbouwketen: strak sequentieel vanaf de (voltooide) parkeerdek-overkapping.
@@ -477,23 +477,23 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   // noodzakelijke voorwaarde; VOLDOENDE is het niet — zie de toelichting bovenaan dit bestand:
   // beide torenketens tracen alsnog het voltooide voorstuk in, dus het tweede kritieke pad komt
   // van de garage/terrein-stroom in fase 7.
-  tasks.push({ key: 'P8', name: '8. Oplevering', taskType: 'ATTENDANCE', codes: { Toren: 'ALG', Discipline: 'AFB' } });
+  tasks.push({ key: 'P8', name: '8. Handover', taskType: 'ATTENDANCE', codes: { Tower: 'GEN', Discipline: 'FIT' } });
   for (const tw of TORENS) {
     const opl = `opl_${tw}`;
-    tasks.push({ key: opl, name: `Opleverkeuring — Toren ${tw}`, parent: 'P8', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      codes: { Toren: tw, Discipline: 'AFB' },
-      description: `Contractuele overdracht van Toren ${tw} aan de VvE/bewoners — onafhankelijk eindpunt (géén gezamenlijk slotmijlpaal met de andere torens).` });
+    tasks.push({ key: opl, name: `Handover inspection — Tower ${tw}`, parent: 'P8', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      codes: { Tower: tw, Discipline: 'FIT' },
+      description: `Contractual handover of Tower ${tw} to the owners' association/residents — an independent end point (no shared final milestone with the other towers).` });
     links.push({ pred: torenLastAfbouw[tw], succ: opl }, { pred: 'ms_terrein', succ: opl });
   }
   tasks.push(
-    { key: 'documentatie', name: 'Documentatie-overdracht (revisietekeningen)', parent: 'P8', dur: 3, taskType: 'ATTENDANCE', codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'sleutels', name: 'Sleuteloverdracht beheerder', parent: 'P8', dur: 2, taskType: 'ATTENDANCE', codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'eindschoon_geb', name: 'Eindschoonmaak gemeenschappelijke ruimtes gebouw', parent: 'P8', dur: 3, taskType: 'LOGISTIC', codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'ms_hoofddeadline', name: 'Projectadministratie & contractuele afronding', parent: 'P8', milestone: true, milestoneKind: 'FINISH', mandatory: true,
-      deadlineDay: 560, codes: { Toren: 'ALG', Discipline: 'AFB' },
-      description: 'Contractuele/administratieve afronding (revisiedossier, beheerderoverdracht) — loopt parallel vanaf de terreinoplevering, niet gegateed door de torens (zie fase-toelichting).' },
-    { key: 'ms_nazorg', name: 'Nazorgperiode gestart', parent: 'P8', milestone: true, milestoneKind: 'START', codes: { Toren: 'ALG', Discipline: 'AFB' } },
-    { key: 'onderhoud', name: 'Onderhoudscontract technische installaties starten', parent: 'P8', dur: 1, taskType: 'ATTENDANCE', codes: { Toren: 'ALG', Discipline: 'AFB' } },
+    { key: 'documentatie', name: 'Documentation handover (as-built drawings)', parent: 'P8', dur: 3, taskType: 'ATTENDANCE', codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'sleutels', name: 'Key handover to the building manager', parent: 'P8', dur: 2, taskType: 'ATTENDANCE', codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'eindschoon_geb', name: 'Final cleaning of communal areas, building', parent: 'P8', dur: 3, taskType: 'LOGISTIC', codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'ms_hoofddeadline', name: 'Project administration & contractual close-out', parent: 'P8', milestone: true, milestoneKind: 'FINISH', mandatory: true,
+      deadlineDay: 560, codes: { Tower: 'GEN', Discipline: 'FIT' },
+      description: 'Contractual/administrative close-out (as-built dossier, handover to the building manager) — runs in parallel from site handover onwards, not gated by the towers (see phase notes).' },
+    { key: 'ms_nazorg', name: 'Aftercare period started', parent: 'P8', milestone: true, milestoneKind: 'START', codes: { Tower: 'GEN', Discipline: 'FIT' } },
+    { key: 'onderhoud', name: 'Start maintenance contract for building services', parent: 'P8', dur: 1, taskType: 'ATTENDANCE', codes: { Tower: 'GEN', Discipline: 'FIT' } },
   );
   links.push(
     { pred: 'ms_terrein', succ: 'documentatie' },
@@ -560,11 +560,11 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
   const baselines: NonNullable<ProjectSpec['baselines']> = [
     { name: 'Contract' },
     {
-      name: 'Herbaseline (meerwerk)',
+      name: 'Re-baseline (variation order)',
       mutationBefore: {
         addTasks: [
-          { key: 'meerwerk_berging', name: 'Meerwerk: extra bergingen kelder', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION',
-            codes: { Toren: 'ALG', Discipline: 'CIV' }, description: 'Meerwerk-opdracht ná contractbaseline: extra bergingen in de kelder.' },
+          { key: 'meerwerk_berging', name: 'Variation: additional basement storage units', parent: 'P2', dur: 6, taskType: 'CONSTRUCTION',
+            codes: { Tower: 'GEN', Discipline: 'CIV' }, description: 'Variation order issued after the contract baseline: additional storage units in the basement.' },
         ],
         addLinks: [
           { pred: 'ms_kelder', succ: 'meerwerk_berging' }, { pred: 'meerwerk_berging', succ: 'kraan_af' },
@@ -576,39 +576,39 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
 
   return {
     slug: 'showcase-appartementencomplex',
-    name: 'Nieuwbouw Appartementencomplex De Vaart',
-    author: 'Projectdirecteur',
-    company: 'BouwGroep Randstad BV',
+    name: 'De Vaart Apartment Complex',
+    author: 'Project director',
+    company: 'Randstad Construction Group BV',
     category: 'showcase',
     description:
-      'Appartementencomplex van 3 torens op één kavel, met parkeergarage/terrein door een ' +
-      'onderaannemer — de "kitchen sink"-showcase die alle geavanceerde functies draagt.',
+      'Apartment complex of three towers on one plot, with the car park/site works delivered by a ' +
+      'subcontractor — the "kitchen sink" showcase that carries every advanced feature.',
     publicDescription:
-      'GROOT: appartementencomplex met 3 parallelle torens (~250 taken) — hard-pin MSO, ' +
-      'secundaire constraint, hammock (LOE), near-critical-markering + meerdere kritieke paden ' +
-      '(floatPaths), uren-planning voor vlechtwerk/stort, alle 5 resourcetypes incl. torenkraan ' +
-      '(EQUIPMENT) met capaciteitsstap, alle 4 relatietypes (incl. START_FINISH), alle 6 ' +
-      'toewijzingscurves, een externe koppeling naar een apart aangeleverd terreinbestand, twee ' +
-      'baselines (Contract → Herbaseline na meerwerk) en voortgang + statusdatum.',
-    tags: ['woningbouw', 'groot', 'geavanceerd', 'kitchen-sink', 'near-critical', 'float-paths', 'hammock', 'uren-planning', 'externe-koppeling', 'baseline'],
-    calendar: { workDays: [1, 2, 3, 4, 5], name: 'Bouwkalender NL (GROOT)' },
+      'LARGE: apartment complex with three parallel towers (~250 tasks) — hard-pin MSO, ' +
+      'secondary constraint, hammock (LOE), near-critical marking plus multiple critical paths ' +
+      '(floatPaths), hourly scheduling for rebar fixing/pouring, all five resource types including a tower crane ' +
+      '(EQUIPMENT) with a capacity step, all four relationship types (including START_FINISH), all six ' +
+      'assignment curves, an external link to a separately delivered site file, two ' +
+      'baselines (Contract then Re-baseline after a variation order) and progress plus a status date.',
+    tags: ['residential', 'large', 'advanced', 'kitchen-sink', 'near-critical', 'float-paths', 'hammock', 'hourly-scheduling', 'external-link', 'baseline'],
+    calendar: { workDays: [1, 2, 3, 4, 5], name: 'Construction calendar NL (LARGE)' },
     calendars: { stort: STORT_KALENDER },
     codeTypes: [
-      { name: 'Toren', values: [
-        { code: 'A', description: 'Toren A' }, { code: 'B', description: 'Toren B' }, { code: 'C', description: 'Toren C' },
-        { code: 'ALG', description: 'Algemeen / gedeeld', color: '#6b7280' },
+      { name: 'Tower', values: [
+        { code: 'A', description: 'Tower A' }, { code: 'B', description: 'Tower B' }, { code: 'C', description: 'Tower C' },
+        { code: 'GEN', description: 'General / shared', color: '#6b7280' },
       ] },
       { name: 'Discipline', values: [
-        { code: 'CIV', description: 'Civiel', color: '#78350f' },
-        { code: 'RUW', description: 'Ruwbouw', color: '#b45309' },
-        { code: 'INST', description: 'Installaties', color: '#0891b2' },
-        { code: 'AFB', description: 'Afbouw', color: '#7c3aed' },
+        { code: 'CIV', description: 'Civil works', color: '#78350f' },
+        { code: 'STR', description: 'Structural works', color: '#b45309' },
+        { code: 'MEP', description: 'Building services', color: '#0891b2' },
+        { code: 'FIT', description: 'Fit-out', color: '#7c3aed' },
       ] },
     ],
     fields: [
-      { name: 'Kostenraming', type: 'cost' },
-      { name: 'Vergunningnummer', type: 'text' },
-      { name: 'KritiekeLevering', type: 'boolean' },
+      { name: 'Cost estimate', type: 'cost' },
+      { name: 'Permit number', type: 'text' },
+      { name: 'Critical delivery', type: 'boolean' },
     ],
     // ── Capaciteit: bewust op DRIE torens tegelijk gedimensioneerd ────────────────────────────
     // De showcase belooft PRECIES TWEE knelpunten (torenkraan + stukadoors, zie hieronder); alle
@@ -634,19 +634,19 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
     // waarvan er 4 zelfs ná nivellering bleven staan (de piek van één losse taak overschreed de
     // pool al) — precies wat die belofte tegensprak.
     resources: [
-      { name: 'Ruwbouwploeg', type: 'CREW', maxUnits: 1, description: 'Overkoepelende ruwbouwploeg' },
-      { name: 'Betonvlechters', type: 'LABOR', maxUnits: 6, costPerHour: 44, parent: 'Ruwbouwploeg' },
-      { name: 'Timmerlieden', type: 'LABOR', maxUnits: 12, costPerHour: 45 },
-      { name: 'Torenkraan', type: 'EQUIPMENT', maxUnits: 1, costPerHour: 120, description: 'Eén torenkraan; tweede kraan later bijgeplaatst',
+      { name: 'Structural works crew', type: 'CREW', maxUnits: 1, description: 'Overarching structural works crew' },
+      { name: 'Steel fixers', type: 'LABOR', maxUnits: 6, costPerHour: 44, parent: 'Structural works crew' },
+      { name: 'Carpenters', type: 'LABOR', maxUnits: 12, costPerHour: 45 },
+      { name: 'Tower crane', type: 'EQUIPMENT', maxUnits: 1, costPerHour: 120, description: 'One tower crane; a second crane is added later',
         steps: [{ fromDay: 130, maxUnits: 2 }] },
-      { name: 'Beton C30/37', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
-      { name: 'Gevelbouwer', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 60 },
-      { name: 'Liftleverancier', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 90 },
-      { name: 'Stukadoors', type: 'LABOR', maxUnits: 3, costPerHour: 42, description: 'Eén stukadoorsploeg voor drie torens — bewust krap (knelpunt 2 van 2)' },
-      { name: 'Tegelzetters', type: 'LABOR', maxUnits: 15, costPerHour: 43 },
-      { name: 'Keukenmonteurs', type: 'LABOR', maxUnits: 9, costPerHour: 46 },
-      { name: 'Installateurs', type: 'LABOR', maxUnits: 18, costPerHour: 48 },
-      { name: 'Schilders', type: 'LABOR', maxUnits: 15, costPerHour: 38 },
+      { name: 'Concrete C30/37', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
+      { name: 'Facade contractor', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 60 },
+      { name: 'Lift supplier', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 90 },
+      { name: 'Plasterers', type: 'LABOR', maxUnits: 3, costPerHour: 42, description: 'One plastering crew for three towers — deliberately tight (bottleneck 2 of 2)' },
+      { name: 'Tilers', type: 'LABOR', maxUnits: 15, costPerHour: 43 },
+      { name: 'Kitchen fitters', type: 'LABOR', maxUnits: 9, costPerHour: 46 },
+      { name: 'MEP fitters', type: 'LABOR', maxUnits: 18, costPerHour: 48 },
+      { name: 'Painters', type: 'LABOR', maxUnits: 15, costPerHour: 38 },
     ],
     // Near-critical + float paths (fase 2.9/2.10, golf 2): FREE_FLOAT-peeling levert
     // `criticalPaths.length > 1` op zodra torens A/B exact tied zijn (§3.3-ontwerp hierboven).

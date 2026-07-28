@@ -209,7 +209,7 @@ function verifyExternalSource(specs: ProjectSpec[], diffs: string[]) {
   if (!existsSync(terrainPath)) { diffs.push(`extern bronbestand niet op schijf: ${terrainPath}`); return; }
   const terrainParsed = readIFC(readFileSync(terrainPath, 'utf8'));
 
-  const groot = specs.find(s => s.category === 'showcase' && (s.tags ?? []).includes('groot'));
+  const groot = specs.find(s => s.category === 'showcase' && (s.tags ?? []).includes('large'));
   if (!groot) { diffs.push('GROOT-showcase (tag "groot") niet gevonden'); return; }
   const grootPath = join(EX_DIR, `${groot.slug}.ifc`);
   if (!existsSync(grootPath)) { diffs.push(`GROOT-bestand niet op schijf: ${grootPath}`); return; }
@@ -297,7 +297,7 @@ function main() {
       if (parsed.tasks.some(t => t.priority === 1000)) scPin = true;
       if (facts.negFloat > 0) scNegFloat = true;
       if (parsed.project.statusDate && parsed.tasks.some(t => t.time.completion > 0)) scProgress = true;
-      if (parsed.calendar.holidays.some(h => /vorst/i.test(h.name))) scVorstverlet = true;
+      if (parsed.calendar.holidays.some(h => /frost/i.test(h.name))) scVorstverlet = true;
       parsed.tasks.forEach(t => { for (const n of t.notes ?? []) allNotes.push(n); });
       // Golf 2 — geavanceerde functies.
       if (parsed.tasks.some(t => t.constraint?.hard === true)) scHardPin = true;
