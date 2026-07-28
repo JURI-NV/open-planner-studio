@@ -175,6 +175,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GFCHECK="$DIR/.gantt-float-cull.mjs"
   if bundle_check "$DIR/check-gantt-float-cull.ts" "$GFCHECK"; then node "$GFCHECK" || STATUS=1; fi
 
+  # Pijlrouting (issue #41): relatielijnen worden vóór de balken getekend, dus alles wat onder een
+  # balk door loopt is onzichtbaar. De vaste elleboog `fromX+8` lag bij SS midden ín de voorganger-
+  # balk en liep bij krappe/achterwaartse relaties dwars door de OPVOLGERbalk (incl. pijlkop).
+  # Toetst met de echte renderer + opnemende stub dat geen enkel pijlsegment nog binnen een
+  # balkrechthoek valt, over een zoom×scrollX-raster.
+  ARCHECK="$DIR/.arrow-routing.mjs"
+  if bundle_check "$DIR/check-arrow-routing.ts" "$ARCHECK"; then node "$ARCHECK" || STATUS=1; fi
+
   # Tijd-as-consolidatie (issue #21 punt 5, fase 0): geconsolideerde `timeAxis.dateToX`/`xToDate`/
   # `xToDayOffset` vs. letterlijk-gekopieerde OUDE formules (printPreview/GanttCanvas/GanttRenderer/
   # useBarDrag), plus een live-render-vergelijking van de grid-`startOffset`. Bewijst dat de

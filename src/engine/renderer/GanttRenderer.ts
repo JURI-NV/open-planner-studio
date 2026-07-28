@@ -105,6 +105,25 @@ export interface GanttRenderOptions {
  *  renderen als vóór issue #25 punt 4. */
 const FALLBACK_FONT_STACK = '-apple-system, BlinkMacSystemFont, sans-serif';
 
+/**
+ * Issue #41 — obstakel-index voor de relatie-routing: per ZICHTBARE rij het x-interval dat de balk
+ * van die rij bedekt (incl. marge). Alleen zichtbare rijen: een balk buiten beeld kan niets
+ * verbergen, en zo blijft de index O(zichtbare rijen) i.p.v. O(taken) — ook bij duizenden taken.
+ *
+ * `x1[k] = +Infinity` / `x2[k] = -Infinity` betekent "geen obstakel op deze rij" (bandkoprij), zodat
+ * de vrij-test één uniforme vergelijking blijft zonder null-checks.
+ */
+interface RowObstacles {
+  /** Rij-index van element 0. */
+  r0: number;
+  /** Laatste geïndexeerde rij-index (inclusief); `r1 < r0` ⇒ lege index. */
+  r1: number;
+  x1: Float64Array;
+  x2: Float64Array;
+}
+
+const EMPTY_SPANS = new Float64Array(0);
+
 // Near-critical "geblokt"-vulpatroon voor het high-contrast-thema (fase 2.9 §5.4, BINDEND besluit).
 // GEMEMOIZED op moduleniveau: de bitmap wordt één keer getekend en de `CanvasPattern` één keer
 // gemunt — nooit per frame (elke render maakt een nieuwe GanttRenderer, dus instance-caching zou
@@ -1311,9 +1330,142 @@ export class GanttRenderer {
     ctx.fill();
   }
 
+  // ── Relatie-routing (issue #41) ─────────────────────────────────────────────
+  // De pijlen worden VÓÓR de balken getekend (render-volgorde), dus alles wat onder een balk
+  // doorloopt is per definitie onzichtbaar. De routing moet de balken daarom écht ontwijken.
+  // Twee bouwstenen: (1) horizontaal reizen gebeurt in de GOOT tussen twee rijen — balken beslaan
+  // alleen de middelste helft van een rij (`barHeight = rowHeight/2`, gecentreerd), dus de rijgrens
+  // is per constructie balkvrij; (2) verticaal reizen gebeurt in een KOLOM die geen balk van een
+  // tussenliggende rij raakt (`pickColumn`).
+
+  /** Marge rond een balk waarbinnen geen doorsteek-kolom wordt gekozen (dekt selectiering + afronding). */
+  private static readonly ARROW_PAD = 3;
+  /** Uit-/inlooplengte van de pijlstubs naast de balkrand. */
+  private static readonly ARROW_STUB = 8;
+  /** Compacte stub voor krappe gevallen (FS zonder gat: `toX ≈ fromX`) — houdt het "omheen"-blokje
+   *  klein zodat de meest voorkomende relatie geen brede zigzag wordt. */
+  private static readonly ARROW_STUB_TIGHT = 4;
+  /** Hergebruikt scratch-pad voor het pijlpad: max 8 punten. Een array per pijl zou bij duizenden
+   *  relaties × 60 fps puur GC-druk zijn. */
+  private readonly arrowPts: number[] = new Array(16).fill(0);
+
+  /**
+   * Bouwt de obstakel-index van de zichtbare rijen. Bewuste keuzes over wat wél/niet als obstakel telt:
+   *  - de BALK zelf (taak/summary/hammock/mijlpaal) telt — dat is de dekkende vulling uit de melding;
+   *  - een BANDKOPRIJ telt NIET: die strook is 8% transparant (`summary + '14'`) en verbergt niets,
+   *    terwijl hij de volle breedte beslaat en dus élke kolom zou blokkeren;
+   *  - de SPELINGSBAND, baseline-onderbalk, constraint-pins en aantekening-badges tellen NIET.
+   *    De speling-band kan tientallen dagen breed zijn; hem als obstakel meenemen zou pijlen
+   *    kilometers laten omlopen (spaghetti) voor een strook die maar een halve balkhoogte hoog is.
+   *    De andere drie zijn punt-glyphs c.q. liggen buiten de goot (baseline eindigt op 0,89·rowHeight,
+   *    de goot ligt op de rijgrens).
+   */
+  private buildRowObstacles(): RowObstacles {
+    const { rowHeight, headerHeight, canvasHeight, view } = this.opts;
+    const n = this.rows.length;
+    // Zichtbaar: rowToY(i) < canvasHeight  én  rowToY(i) + rowHeight > headerHeight. Eén rij extra
+    // marge aan beide kanten kost niets en houdt de index tolerant voor afrondingen.
+    const first = Math.max(0, Math.ceil(view.scrollY / rowHeight) - 2);
+    const last = Math.min(n - 1, Math.ceil((canvasHeight - headerHeight + view.scrollY) / rowHeight) + 1);
+    if (last < first) return { r0: 0, r1: -1, x1: EMPTY_SPANS, x2: EMPTY_SPANS };
+
+    const len = last - first + 1;
+    const x1 = new Float64Array(len).fill(Infinity);
+    const x2 = new Float64Array(len).fill(-Infinity);
+    for (let i = first; i <= last; i++) {
+      const row = this.rows[i];
+      if (row.kind !== 'task') continue;
+      const geo = this.barGeometry(row.task);
+      // Een mijlpaalruit steekt buiten [x1,x2] uit (anker + halve ruitbreedte); ruimer padden i.p.v.
+      // de anker-logica van `drawMilestone` te dupliceren (die zou stil uit de pas kunnen lopen).
+      const pad = row.task.isMilestone ? 6 : GanttRenderer.ARROW_PAD;
+      x1[i - first] = geo.x1 - pad;
+      x2[i - first] = geo.x2 + pad;
+    }
+    return { r0: first, r1: last, x1, x2 };
+  }
+
+  /** Is kolom `x` vrij van balken in de rijen STRIKT tussen `a` en `b`? De rijen van de voorganger
+   *  en de opvolger zelf horen er niet bij: daar wordt de kolom per constructie al naast de balk
+   *  gelegd. Rijen buiten de index (= buiten beeld) tellen niet mee. */
+  private isColumnFree(obs: RowObstacles, x: number, a: number, b: number): boolean {
+    const lo = Math.max(Math.min(a, b) + 1, obs.r0);
+    const hi = Math.min(Math.max(a, b) - 1, obs.r1);
+    for (let i = lo; i <= hi; i++) {
+      const k = i - obs.r0;
+      if (x > obs.x1[k] && x < obs.x2[k]) return false;
+    }
+    return true;
+  }
+
+  /** Kiest de verticale doorsteek-kolom: eerst de voorkeur, dan het alternatief, en pas als beide
+   *  geblokkeerd zijn een gatenzoektocht in de corridor ertussen (de dure tak — zeldzaam, en
+   *  begrensd tot de corridor zodat een omweg nooit buiten de eigen bounding box uitwaaiert).
+   *  Vindt hij niets, dan wint de voorkeur en accepteren we de occlusie: liever een gedeeltelijk
+   *  bedekte pijl dan een pijl die dwars door het hele diagram slingert. */
+  private pickColumn(obs: RowObstacles, prefer: number, alt: number, a: number, b: number): number {
+    if (this.isColumnFree(obs, prefer, a, b)) return prefer;
+    if (this.isColumnFree(obs, alt, a, b)) return alt;
+
+    const lo = Math.min(prefer, alt);
+    const hi = Math.max(prefer, alt);
+    if (hi - lo < 2) return prefer;
+    const rLo = Math.max(Math.min(a, b) + 1, obs.r0);
+    const rHi = Math.min(Math.max(a, b) - 1, obs.r1);
+
+    const spans: { a: number; b: number }[] = [];
+    for (let i = rLo; i <= rHi; i++) {
+      const k = i - obs.r0;
+      if (obs.x2[k] > lo && obs.x1[k] < hi) spans.push({ a: obs.x1[k], b: obs.x2[k] });
+    }
+    spans.sort((p, q) => p.a - q.a);
+
+    let best = NaN;
+    let bestDist = Infinity;
+    const consider = (from: number, to: number): void => {
+      if (to - from < 1) return;
+      const c = Math.min(Math.max(prefer, from), to);
+      const d = Math.abs(c - prefer);
+      if (d < bestDist) { bestDist = d; best = c; }
+    };
+    let cursor = lo;
+    for (const s of spans) {
+      if (s.a > cursor) consider(cursor, Math.min(s.a, hi));
+      if (s.b > cursor) cursor = s.b;
+      if (cursor >= hi) break;
+    }
+    if (cursor < hi) consider(cursor, hi);
+    return Number.isNaN(best) ? prefer : best;
+  }
+
+  /** Tekent het pijlpad uit het scratch-pad (`n` = aantal getallen, dus 2× het aantal punten).
+   *  Punten die samenvallen worden overgeslagen — een lege lineTo is met `lineCap:'butt'` weliswaar
+   *  onzichtbaar, maar zo blijft het pad ook onafhankelijk van een eventuele lineCap van buiten. */
+  private strokeArrowPath(pts: number[], n: number): void {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    let px = pts[0];
+    let py = pts[1];
+    ctx.moveTo(px, py);
+    for (let i = 2; i < n; i += 2) {
+      const x = pts[i];
+      const y = pts[i + 1];
+      if (x === px && y === py) continue;
+      ctx.lineTo(x, y);
+      px = x;
+      py = y;
+    }
+    ctx.stroke();
+  }
+
   private drawDependencyArrows(): void {
     const ctx = this.ctx;
+    // `lineWidth` blijft VÓÓR de vroege uitstap staan: de today-/statusdatumlijn hierboven laat 'm op
+    // 2 achter, en de balklaag hieronder rekent op de 1 die deze methode altijd zette. De
+    // setLineDash/globalAlpha-resets onderaan zijn zonder relaties per definitie no-ops.
     ctx.lineWidth = 1;
+    if (this.opts.sequences.length === 0) return;
+    const obs = this.buildRowObstacles();
 
     // P6-conventie die elke planner direct leest: doorgetrokken = driving (bindt de opvolger),
     // gestreept = non-driving; rood wanneer de driving relatie twee kritieke taken verbindt.
@@ -1353,12 +1505,16 @@ export class GanttRenderer {
       const predY = this.rowToY(predIdx) + rowH / 2;
       const succY = this.rowToY(succIdx) + rowH / 2;
 
-      // Verticale offscreen-cull (prestatie): valt de hele pijl — beide endpoints, de elleboog
-      // ertussen én de pijlkop (succY ± ~3) — ruim boven of onder het canvas, dan tekent hij
-      // niets zichtbaars. Marge 8px dekt pijlkop + lijnbreedte ruim, zodat een net-zichtbare pijl
-      // NOOIT wordt overgeslagen. Bespaart de dure parseDate/dateToX hieronder voor die pijlen.
+      // Verticale offscreen-cull (prestatie). Issue #41: het pad is niet langer één elleboog, dus
+      // de marge is opnieuw afgeleid. Alle y-waarden van de route liggen in {predY, succY, laneP,
+      // laneS}; de goten `laneP`/`laneS` liggen op een rijgrens op ±rowHeight/2 van hun eigen
+      // endpoint en dus (bij verschillende rijen) TUSSEN predY en succY. Alleen in het degeneratieve
+      // geval predIdx === succIdx kan een goot rowHeight/2 buiten het paar vallen. Marge =
+      // rowHeight/2 + 8 dekt dat plus pijlkop (±3) en lijnbreedte — een net-zichtbare pijl wordt
+      // dus NOOIT overgeslagen. Bespaart de dure parseDate/dateToX hieronder voor de rest.
       const canvasH = this.opts.canvasHeight;
-      if (Math.max(predY, succY) < -8 || Math.min(predY, succY) > canvasH + 8) continue;
+      const cullMargin = rowH / 2 + 8;
+      if (Math.max(predY, succY) < -cullMargin || Math.min(predY, succY) > canvasH + cullMargin) continue;
 
       let fromX: number, toX: number;
 
@@ -1387,14 +1543,53 @@ export class GanttRenderer {
 
       if (fromX < this.opts.taskTableWidth && toX < this.opts.taskTableWidth) continue;
 
-      // Draw path
-      ctx.beginPath();
-      ctx.moveTo(fromX, predY);
-      const midX = fromX + 8;
-      ctx.lineTo(midX, predY);
-      ctx.lineTo(midX, succY);
-      ctx.lineTo(toX, succY);
-      ctx.stroke();
+      // ── Routing (issue #41) ──────────────────────────────────────────────
+      // Uitlooprichting = WEG van de voorgangerbalk. Bij SS ankert `fromX` op de LINKERrand van de
+      // balk (de start), dus loopt de pijl daar naar links weg; bij FS/FF op de rechterrand (de
+      // finish) en dus naar rechts. Vóór deze fix liep de stub bij SS altijd 8px de balk ín — de
+      // gemelde "lijn begint pas onder de balk".
+      const dirOut = seq.type === 'START_START' ? -1 : 1;
+      // De pijlkop wijst naar rechts en landt op de linkerrand van de opvolgerbalk, dus de laatste
+      // rechte MOET van links komen: het inloop-punt ligt links van `toX`, nooit erop of erachter.
+      const tight = Math.abs(toX - fromX) < 2 * GanttRenderer.ARROW_STUB;
+      const stub = tight ? GanttRenderer.ARROW_STUB_TIGHT : GanttRenderer.ARROW_STUB;
+      const xa = fromX + dirOut * stub;      // naast de voorgangerbalk
+      const enter = toX - stub;              // links van de opvolgerbalk
+
+      const pts = this.arrowPts;
+      let n = 0;
+      if (xa <= enter && this.isColumnFree(obs, xa, predIdx, succIdx)) {
+        // Klassieke elleboog — ongewijzigd t.o.v. vóór #41 (op de stublengte na, die alleen in
+        // krappe gevallen kleiner wordt): er is ruimte vóór de opvolger én de kolom is vrij.
+        // Het laatste horizontale stuk loopt op succY naar `toX` toe en blijft dus links van de
+        // opvolgerbalk; de daling bij `xa` blijft naast de voorgangerbalk.
+        pts[n++] = fromX; pts[n++] = predY;
+        pts[n++] = xa;    pts[n++] = predY;
+        pts[n++] = xa;    pts[n++] = succY;
+        pts[n++] = toX;   pts[n++] = succY;
+      } else {
+        // Trap om de balken heen: uit de balk stappen, in de GOOT tussen de rijen reizen, en pas
+        // links van de opvolgerbalk weer de rij in zakken. Dekt (a) FS zonder gat (toX ≈ fromX),
+        // waar de oude route haar laatste stuk + pijlkop ónder de opvolgerbalk legde, (b) negatieve
+        // lag / toX < fromX, en (c) een tussenliggende balk die de kolom blokkeert.
+        const down = succIdx >= predIdx;
+        const predTop = predY - rowH / 2;
+        const succTop = succY - rowH / 2;
+        const laneP = down ? predTop + rowH : predTop;   // rijgrens van de voorganger, kant opvolger
+        const laneS = down ? succTop : succTop + rowH;   // rijgrens van de opvolger, kant voorganger
+        // Bij aangrenzende rijen vallen beide goten samen: dan is er geen lange verticaal en doet de
+        // kolomkeuze er niet toe (de trap knijpt zichzelf tot één horizontale in de goot).
+        const col = laneP === laneS ? enter : this.pickColumn(obs, enter, xa, predIdx, succIdx);
+        pts[n++] = fromX; pts[n++] = predY;
+        pts[n++] = xa;    pts[n++] = predY;
+        pts[n++] = xa;    pts[n++] = laneP;
+        pts[n++] = col;   pts[n++] = laneP;
+        pts[n++] = col;   pts[n++] = laneS;
+        pts[n++] = enter; pts[n++] = laneS;
+        pts[n++] = enter; pts[n++] = succY;
+        pts[n++] = toX;   pts[n++] = succY;
+      }
+      this.strokeArrowPath(pts, n);
 
       // Arrowhead
       ctx.beginPath();
