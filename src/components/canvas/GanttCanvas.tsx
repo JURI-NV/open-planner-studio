@@ -6,7 +6,8 @@ import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engin
 import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
-import { setGanttChartWidth, setGanttScrollBounds, ORIGIN_PADDING_DAYS, computeFitToProject } from '@/utils/ganttViewport';
+import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, ORIGIN_PADDING_DAYS, computeFitToProject } from '@/utils/ganttViewport';
+import { resolveWheelFunction } from '@/utils/ganttWheel';
 import { MiniMap } from './MiniMap';
 import { diffDays, formatDate, parseDate, parseInstant, addCalendarDays } from '@/utils/dateUtils';
 import { effectiveCalendarByTask } from '@/services/subdayIo';
@@ -37,12 +38,15 @@ const ROW_HEIGHT = 28;
 const HEADER_HEIGHT = 50;
 // Halve breedte van de grijpzone rond de tabel/chart-scheiding (splitter).
 const SPLITTER_GRAB_MARGIN = 4;
-// Dikte van de scrollbar-goten om de panes heen (issue #22 horizontaal, #35 verticaal). De
-// ::-webkit-scrollbar zelf is 8px (globals.css); de goot is ruimer zodat de balk niet tegen de
-// canvasrand plakt. Elke rij ónder de panes reserveert dezelfde goot, zodat alles uitlijnt.
-const SCROLLBAR_GUTTER = 14;
-// Breedte van de sleepbare ratio-balk tussen de twee panes — de rijen eronder (mini-map,
-// scrollbalken) laten exact dezelfde tussenruimte, anders schuiven ze t.o.v. hun pane.
+// Dikte van de ZWEVENDE scrollbalken over de panes (issue #22 horizontaal, #35 verticaal).
+// Exact de `::-webkit-scrollbar`-maat uit globals.css (8px) — NIET ruimer. Stond eerst op 14 met
+// als gedachte "dan plakt de balk niet tegen de canvasrand", maar dat leverde 6px dode strook op
+// die als een veel te brede balk las (user-feedback bij #35). Sinds de balken overlays zijn is
+// gelijkheid met globals.css bovendien functioneel: de strook is dan precies één scrollbalk dik,
+// dus er ontstaat geen dode klikzone náást de balk die de kaart eronder afdekt.
+const SCROLLBAR_GUTTER = 8;
+// Breedte van de sleepbare ratio-balk tussen de twee panes — de mini-map-strook eronder laat
+// exact dezelfde tussenruimte, anders schuift hij t.o.v. zijn pane.
 const SPLIT_RATIO_BAR_WIDTH = 5;
 // Zelfde default als de kale '0'-toets in useZoomShortcuts.ts (Zoom reset, leeg-canvas-contextmenu).
 const DEFAULT_ZOOM = 30;
@@ -648,8 +652,14 @@ export function GanttCanvas() {
     if (!splitView) secondaryRendererRef.current = null;
   }, [splitView]);
 
-  // Ctrl+scroll boven het secundaire pane past de EIGEN zoom aan (cursor-verankerd, §10.3);
-  // shift = eigen horizontale scroll; gewoon scrollen = gedeelde verticale scroll.
+  // Wiel boven het secundaire pane. Wélke functie het wiel uitvoert (zoom/horizontaal/verticaal)
+  // wordt bepaald door exact dezelfde gedeelde beslissing als links (`resolveWheelFunction`), dus
+  // het secundaire pane volgt de gebruikersinstelling `ui.scrollMode` mee. Vóór deze fix had dit
+  // pane eigen hardgecodeerde regels (Ctrl = zoom, Shift = horizontaal, plat = verticaal), zodat
+  // in de STANDAARDmodus 'drag' hetzelfde wiel links zoomde en rechts verticaal scrolde — twee
+  // navigatiemethoden in één venster. Alleen het DOEL verschilt hier: zoom en horizontaal gaan
+  // naar de EIGEN `secondaryZoom`/`secondaryScrollX` (§10.3), verticaal blijft gedeeld
+  // (`view.scrollY` — beide panes tekenen dezelfde rijen).
   useEffect(() => {
     if (!splitView) return;
     const container = secondaryContainerRef.current;
@@ -657,14 +667,31 @@ export function GanttCanvas() {
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const sv = useAppStore.getState().view.splitView;
-      if (!sv) return;
       const st = useAppStore.getState();
+      const sv = st.view.splitView;
+      if (!sv) return;
       const rect = container.getBoundingClientRect();
       const anchorX = e.clientX - rect.left;
+      const anchorY = e.clientY - rect.top;
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
 
-      if (e.ctrlKey || e.metaKey) {
+      // Cursorfracties tegen de EIGEN container: dit pane heeft geen takentabel
+      // (`taskTableWidth` is hier 0), dus de hele breedte is chart — de 'position'-verdelingen
+      // (links/rechts, boven/onder, hoek) gelden 1-op-1 over deze rect.
+      const fn = resolveWheelFunction({
+        mode: st.ui.scrollMode,
+        ctrl: e.ctrlKey || e.metaKey,
+        shift: e.shiftKey,
+        fracX: rect.width > 0 ? anchorX / rect.width : 0,
+        fracY: rect.height > 0 ? anchorY / rect.height : 0,
+        division: st.ui.positionDivision,
+        map: st.ui.modifierMap,
+      });
+
+      const scrollSecondaryX = (d: number) =>
+        st.setSplitView({ ...sv, secondaryScrollX: Math.max(0, sv.secondaryScrollX + d) });
+
+      if (fn === 'zoom') {
         const max = st.ui.enableQuarterHourZoom ? 1000 : 400;
         const factor = delta > 0 ? 1 / 1.1 : 1.1;
         const clamped = Math.max(0.5, Math.min(max, sv.secondaryZoom * factor));
@@ -673,10 +700,22 @@ export function GanttCanvas() {
         const daysUnderCursor = (anchorX + sv.secondaryScrollX) / sv.secondaryZoom;
         const newScrollX = Math.max(0, daysUnderCursor * clamped - anchorX);
         st.setSplitView({ ...sv, secondaryZoom: clamped, secondaryScrollX: newScrollX });
-      } else if (e.shiftKey) {
-        st.setSplitView({ ...sv, secondaryScrollX: Math.max(0, sv.secondaryScrollX + delta) });
+      } else if (fn === 'horizontal') {
+        scrollSecondaryX(delta);
       } else {
-        st.setScroll(st.view.scrollX, st.view.scrollY + delta);
+        // Verticaal is gedeeld: `view.scrollY` verschuift de rijen in BEIDE panes, ongeacht boven
+        // welk pane je scrollt. De "dood wiel"-terugval van het primaire pad geldt hier net zo
+        // goed: past het hele project verticaal in beeld (`maxScrollY <= 0`), dan doet verticaal
+        // scrollen niets en zou het wiel niets lijken te doen — val dan terug op horizontaal, maar
+        // wél op de EIGEN tijdas van dit pane. De grenzen zijn gedeeld: `maxScrollY` wordt in de
+        // primaire render geregistreerd uit dezelfde rijenlijst, en beide panes zijn even hoog.
+        // `maxScrollY === null` = nog geen render-pass (headless) → ongewijzigd verticaal.
+        const { maxScrollY } = getGanttScrollBounds();
+        if (maxScrollY !== null && maxScrollY <= 0) {
+          scrollSecondaryX(delta);
+        } else {
+          st.setScroll(st.view.scrollX, st.view.scrollY + delta);
+        }
       }
     };
 
@@ -1201,18 +1240,20 @@ export function GanttCanvas() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Pane-rij (§10) + verticale scrollgoot (issue #35 punt 2). De goot is een échte kolom naast
-          de panes, geen overlay: zo dekt hij nooit taakbalken af.
-          `dir="ltr"` op de pane-rij is FUNCTIONEEL, om dezelfde reden als bij de horizontale balk
-          verderop: de renderer kent geen RTL (`isInTaskTable` is letterlijk `canvasX <
-          taskTableWidth`), dus de taaktabel wordt in ar/fa óók links getekend. Liet je deze rij
-          mirroren, dan wisselen primair en secundair pane visueel van plek terwijl de mini-map- en
-          scrollbalk-rijen hieronder wél LTR gepind zijn — die kwamen dan onder het VERKEERDE pane
-          te liggen (gemeten in ar: primair pane rechts, zijn strook links). Dezelfde pin houdt
-          bovendien de ratio-sleep kloppend, die `clientX - rect.left` tegen `paneRowRef` rekent en
-          dus een niet-gespiegelde rij veronderstelt. */}
-      <div className="flex-1 flex overflow-hidden" dir="ltr">
-      <div ref={paneRowRef} className="flex-1 min-w-0 flex overflow-hidden">
+      {/* Pane-rij (§10). De scrollbalken zijn ZWEVENDE overlays binnen deze rij en binnen de panes
+          zelf (issue #35): ze staan niet meer als eigen kolom/rij in de layout. Dat was geen
+          cosmetiek — een echte 8px-goot/-rij snoept die 8px van de kaart af en laat onder de
+          takenlijst een strook achter die daar niets te zoeken heeft (de user: "het onderliggende
+          paneel moet daar gewoon in doorlopen"). Als overlay houdt het canvas de volle hoogte en
+          breedte en loopt het paneel eronder door tot de rand.
+          `dir="ltr"` op de pane-rij is FUNCTIONEEL: de renderer kent geen RTL (`isInTaskTable` is
+          letterlijk `canvasX < taskTableWidth`), dus de taaktabel wordt in ar/fa óók links
+          getekend. Liet je deze rij mirroren, dan wisselen primair en secundair pane visueel van
+          plek terwijl de mini-map-strook hieronder wél LTR gepind is — die kwam dan onder het
+          VERKEERDE pane te liggen (gemeten in ar). Dezelfde pin houdt bovendien de ratio-sleep
+          kloppend, die `clientX - rect.left` tegen `paneRowRef` rekent en dus een niet-gespiegelde
+          rij veronderstelt, én zet de overlay-balken hieronder aan de kant waar ze horen. */}
+      <div ref={paneRowRef} className="flex-1 min-w-0 flex overflow-hidden relative" dir="ltr">
       <div
         ref={containerRef}
         className="overflow-hidden relative"
@@ -1360,6 +1401,28 @@ export function GanttCanvas() {
             </div>
           </div>
         )}
+
+        {/* Horizontale scrollbalk van het primaire pane (issue #22, sinds #35 een overlay). Hij
+            zweeft ONDERIN dit pane in plaats van in een eigen rij eronder, zodat het canvas de
+            volle hoogte houdt en de kaart tot de onderrand doorloopt.
+            Hij begint pas bij `taskTableWidth`: de taaktabel schuift horizontaal niet mee, dus een
+            balk daaronder was verwarrend (#22) — en dát is precies wat de losse rij weer opleverde.
+            DE VALKUIL: de scrollrange moet exact gelijk zijn aan de klem in `setScroll`
+            (`maxScrollX = totalContentWidth − canvasbreedte`, gezet in `drawPrimary`). Dat klopt
+            hier omdat zowel de zichtbare breedte (`left: taskTableWidth; right: 0` ⇒ paneBreedte −
+            taskTableWidth) als de spacer (`totalContentWidth − taskTableWidth`) met dezelfde
+            `taskTableWidth` krimpen. Laat hem dus NIET vóór de verticale balk stoppen (`right: 8`):
+            dan is hij 8px smaller dan het chartgebied en loopt de DOM-range 8px uit de pas met
+            `maxScrollX`. De 8×8px hoekoverlap met de verticale balk is bewust geaccepteerd. */}
+        <div
+          ref={hScrollRef}
+          data-testid="gantt-hscroll"
+          className="gantt-overlay-scrollbar absolute overflow-x-auto overflow-y-hidden"
+          style={{ left: taskTableWidth, right: 0, bottom: 0, height: SCROLLBAR_GUTTER, zIndex: 4 }}
+          onScroll={handleHScroll}
+        >
+          <div style={{ width: Math.max(1, totalContentWidth - taskTableWidth), height: 1 }} />
+        </div>
       </div>
       {/* Secundair pane (§10): eigen tijdvenster, gedeelde rijen + verticale scroll */}
       {splitView && (
@@ -1379,36 +1442,48 @@ export function GanttCanvas() {
               className="absolute inset-0"
               onClick={handleSecondaryClick}
             />
+            {/* Eigen zwevende horizontale balk (issue #35 punt 1): dit pane heeft een EIGEN
+                tijdvenster (`secondaryScrollX`/`secondaryZoom`) en geen taaktabel — drawSecondary
+                tekent met `taskTableWidth: 0`, dus `left: 0` en de spacer is de volle
+                `secondaryContentWidth`. Zichtbare breedte == canvasbreedte, dus de DOM-range is
+                per constructie `secondaryContentWidth − canvasbreedte`. */}
+            <div
+              ref={hScrollSecondaryRef}
+              data-testid="gantt-hscroll-secondary"
+              className="gantt-overlay-scrollbar absolute overflow-x-auto overflow-y-hidden"
+              style={{ left: 0, right: 0, bottom: 0, height: SCROLLBAR_GUTTER, zIndex: 4 }}
+              onScroll={handleSecondaryHScroll}
+            >
+              <div style={{ width: Math.max(1, secondaryContentWidth), height: 1 }} />
+            </div>
           </div>
         </>
       )}
-      </div>
       {/* Verticale scrollbalk (issue #35 punt 2): snelle rij-navigatie voor grote WBS-structuren,
-          waar alleen het muiswiel te traag was. Eén balk voor beide panes, want `view.scrollY` is
-          gedeeld (drawSecondary hergebruikt hem) — precies zoals het wiel boven het secundaire pane
-          al de gedeelde verticale scroll bediende.
+          waar alleen het muiswiel te traag was. Eén balk voor BEIDE panes — `view.scrollY` is
+          gedeeld (drawSecondary hergebruikt hem) — dus hij zweeft rechts in de pane-RIJ, niet in
+          één pane.
           De scrollrange moet EXACT gelijk zijn aan de klem in `setScroll`
           (`maxScrollY = rijen·ROW_HEIGHT − (paneHoogte − HEADER_HEIGHT)`), anders loopt de balk vóór
-          of achter op het canvas. Daarom staat er een blokje van HEADER_HEIGHT bóven de
-          scroll-container: die is dan precies zo hoog als het rijen-gebied (paneHoogte −
-          HEADER_HEIGHT) terwijl de spacer de volledige contenthoogte (rijen·ROW_HEIGHT) is —
-          hetzelfde trucje als de taaktabel-spacer in de horizontale balk hieronder. */}
-      <div className="flex flex-col" dir="ltr" style={{ width: SCROLLBAR_GUTTER, flexShrink: 0 }}>
-        <div style={{ height: HEADER_HEIGHT, flexShrink: 0 }} />
-        <div
-          ref={vScrollRef}
-          data-testid="gantt-vscroll"
-          className="overflow-y-auto overflow-x-hidden"
-          style={{ flex: 1, minHeight: 0 }}
-          onScroll={handleVScroll}
-        >
-          <div style={{ height: Math.max(1, viewRows.length * ROW_HEIGHT), width: 1 }} />
-        </div>
+          of achter op het canvas. Daarom begint hij op `top: HEADER_HEIGHT` en loopt tot
+          `bottom: 0`: dan is hij precies zo hoog als het rijen-gebied (paneHoogte − HEADER_HEIGHT)
+          terwijl de spacer de volledige contenthoogte (rijen·ROW_HEIGHT) is — hetzelfde trucje als
+          de `left: taskTableWidth` van de horizontale balk. Vroeger deed een leeg blokje van
+          HEADER_HEIGHT dat werk in een echte goot-kolom; die kolom sneed 8px van de kaart af en is
+          nu een overlay. */}
+      <div
+        ref={vScrollRef}
+        data-testid="gantt-vscroll"
+        className="gantt-overlay-scrollbar absolute overflow-y-auto overflow-x-hidden"
+        style={{ right: 0, top: HEADER_HEIGHT, bottom: 0, width: SCROLLBAR_GUTTER, zIndex: 5 }}
+        onScroll={handleVScroll}
+      >
+        <div style={{ height: Math.max(1, viewRows.length * ROW_HEIGHT), width: 1 }} />
       </div>
       </div>
-      {/* Histogramstrook (fase 2.5, §6.4) — derde canvas met gedeelde X-as. Het opvulblokje aan het
-          eind spiegelt de verticale scrollgoot hierboven, zodat de X-as van het histogram exact
-          even breed blijft als die van het primaire pane. */}
+      {/* Histogramstrook (fase 2.5, §6.4) — derde canvas met gedeelde X-as. Loopt over de volle
+          breedte, net als de pane-rij hierboven: sinds de scrollbalken overlays zijn, is er geen
+          goot meer om onder te blijven en dus ook geen opvulblokje meer nodig. */}
       {showHistogram && (
         <>
           <div
@@ -1416,11 +1491,10 @@ export function GanttCanvas() {
             onMouseDown={e => { e.preventDefault(); histogramSplitter.start(); }}
             style={{ height: 5, flexShrink: 0, cursor: 'row-resize', background: 'var(--theme-border)' }}
           />
-          <div className="flex" style={{ flexShrink: 0 }}>
           <div
             ref={histogramContainerRef}
-            className="relative overflow-hidden flex-1 min-w-0"
-            style={{ height: histogramHeight }}
+            className="relative overflow-hidden"
+            style={{ height: histogramHeight, flexShrink: 0 }}
             data-tour-anchor="histogram-strip"
           >
             <canvas
@@ -1453,8 +1527,6 @@ export function GanttCanvas() {
               </div>
             )}
           </div>
-          <div style={{ width: SCROLLBAR_GUTTER, flexShrink: 0 }} />
-          </div>
         </>
       )}
 
@@ -1463,83 +1535,33 @@ export function GanttCanvas() {
           `splitView.secondaryScrollX`/`secondaryZoom` i.p.v. de gedeelde `view`. De breedte-
           expressies (ratio-% + dezelfde 5px tussenruimte als de ratio-balk) zijn letterlijk die van
           de pane-rij, zodat elke strook onder zijn eigen pane ligt. Zonder split view: één strook
-          over de volle breedte, exact zoals voorheen. */}
+          over de volle breedte, exact zoals voorheen.
+          `dir="ltr"` pint de rij net als de pane-rij: de panes zelf spiegelen niet mee met de
+          leesrichting, dus deze stroken mogen dat ook niet — anders liggen ze in ar/fa onder het
+          verkeerde pane. Er is geen opvulblokje meer nodig: de verticale scrollbalk is een overlay
+          en neemt geen kolombreedte meer in. */}
       {showMiniMap && (
-        <div className="flex" style={{ flexShrink: 0 }}>
-          <div className="flex flex-1 min-w-0" dir="ltr">
-            <div style={{ width: splitView ? `${splitView.ratio * 100}%` : '100%', flexShrink: 0 }}>
-              <MiniMap originDate={effectiveViewStart} chartWidth={primaryChartWidth} />
-            </div>
-            {splitView && (
-              <>
-                <div style={{ width: SPLIT_RATIO_BAR_WIDTH, flexShrink: 0 }} />
-                <div className="flex-1 min-w-0">
-                  <MiniMap
-                    originDate={effectiveViewStart}
-                    chartWidth={secondaryChartWidth}
-                    scrollX={splitView.secondaryScrollX}
-                    zoom={splitView.secondaryZoom}
-                    onScrollXChange={handleSecondaryMiniScroll}
-                    testId="minimap-secondary"
-                  />
-                </div>
-              </>
-            )}
+        <div className="flex" dir="ltr" style={{ flexShrink: 0 }}>
+          <div style={{ width: splitView ? `${splitView.ratio * 100}%` : '100%', flexShrink: 0 }}>
+            <MiniMap originDate={effectiveViewStart} chartWidth={primaryChartWidth} />
           </div>
-          <div style={{ width: SCROLLBAR_GUTTER, flexShrink: 0 }} />
+          {splitView && (
+            <>
+              <div style={{ width: SPLIT_RATIO_BAR_WIDTH, flexShrink: 0 }} />
+              <div className="flex-1 min-w-0">
+                <MiniMap
+                  originDate={effectiveViewStart}
+                  chartWidth={secondaryChartWidth}
+                  scrollX={splitView.secondaryScrollX}
+                  zoom={splitView.secondaryZoom}
+                  onScrollXChange={handleSecondaryMiniScroll}
+                  testId="minimap-secondary"
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
-
-      {/* Horizontale scrollbar (issue #22): beslaat alleen het chart-gedeelte van het primaire
-          pane — niet de taaktabel/WBS ervoor (die schuift horizontaal niet mee, wat verwarrend was)
-          en bij split view niet het secundaire pane (dat heeft zijn eigen scrollX). De scrollrange
-          blijft exact gelijk: zowel de contentbreedte als de zichtbare breedte krimpen met dezelfde
-          `taskTableWidth`, dus maxScrollLeft == de `maxScrollX` uit de scroll-bounds in
-          `drawPrimary`. De pane-breedte-expressie is bewust identiek aan die van de canvas-container
-          hierboven, zodat de balk exact onder het primaire pane uitlijnt.
-          `dir="ltr"` is nodig, niet cosmetisch: de renderer kent geen RTL (`isInTaskTable` is
-          simpelweg `canvasX < taskTableWidth`), dus de taaktabel staat in ar/fa óók links. Zonder
-          deze pin spiegelt de spacer naar rechts en ligt de balk juist wél onder de tabel. Het houdt
-          bovendien `scrollLeft` positief-oplopend, zoals `handleHScroll` en het sync-effect aannemen.
-          De pin staat op de INNER-rij, niet op de buitenste: zo mirrort het opvulblokje voor de
-          verticale goot wél met de leesrichting en blijft het onder die goot liggen.
-          Issue #35 punt 1: bij split view komt er een tweede balk voor het secundaire pane. Die
-          heeft geen taaktabel-spacer (drawSecondary tekent met `taskTableWidth: 0`) en rekent zijn
-          contentbreedte met de EIGEN zoom (`secondaryContentWidth`). */}
-      <div className="flex" style={{ height: SCROLLBAR_GUTTER, flexShrink: 0 }}>
-        <div className="flex flex-1 min-w-0" dir="ltr">
-        <div
-          className="flex"
-          style={{ width: splitView ? `${splitView.ratio * 100}%` : '100%', flexShrink: 0 }}
-        >
-          <div style={{ width: taskTableWidth, flexShrink: 0 }} />
-          <div
-            ref={hScrollRef}
-            data-testid="gantt-hscroll"
-            className="overflow-x-auto overflow-y-hidden"
-            style={{ height: SCROLLBAR_GUTTER, flex: 1, minWidth: 0 }}
-            onScroll={handleHScroll}
-          >
-            <div style={{ width: Math.max(1, totalContentWidth - taskTableWidth), height: 1 }} />
-          </div>
-        </div>
-        {splitView && (
-          <>
-            <div style={{ width: SPLIT_RATIO_BAR_WIDTH, flexShrink: 0 }} />
-            <div
-              ref={hScrollSecondaryRef}
-              data-testid="gantt-hscroll-secondary"
-              className="overflow-x-auto overflow-y-hidden"
-              style={{ height: SCROLLBAR_GUTTER, flex: 1, minWidth: 0 }}
-              onScroll={handleSecondaryHScroll}
-            >
-              <div style={{ width: Math.max(1, secondaryContentWidth), height: 1 }} />
-            </div>
-          </>
-        )}
-        </div>
-        <div style={{ width: SCROLLBAR_GUTTER, flexShrink: 0 }} />
-      </div>
 
       {/* Context Menu */}
       {contextMenu && (
