@@ -11,6 +11,7 @@ import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/c
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
 import { LibrarySection } from './LibrarySection';
+import { useDocumentActions } from '@/components/layout/DocumentChrome/useDocumentCards';
 import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
@@ -24,9 +25,24 @@ export function Backstage() {
   const setUI = useAppStore(s => s.setUI);
   const section = useAppStore(s => s.ui.backstageSection);
 
+  // Issue #37: "Sluit project" sloot niets — het riep `handleNewProject()` aan (copy-paste van de
+  // New-knop) en toonde dus de projectwizard. Het sluiten loopt nu via exact dezelfde route als de
+  // document-chrome (tabstrip/projectbalk/overzicht): `closeWithGuard` → dirty toont de 3-weg
+  // sluit-bevestiging, schoon sluit meteen.
+  const { closeWithGuard } = useDocumentActions();
+  const activeDocumentId = useAppStore(s => s.activeDocumentId);
+  const isDirty = useAppStore(s => s.isDirty); // top-level = het actieve document
+
   const closeBackstage = () => {
     // Terug naar Start-tab
     setUI({ activeRibbonTab: 'start' });
+  };
+
+  const handleCloseProject = () => {
+    // Backstage éérst dicht: de sluit-bevestiging hoort boven de gewone werkruimte te staan, niet
+    // achter/onder het File-menu dat de hele body overneemt.
+    closeBackstage();
+    closeWithGuard({ id: activeDocumentId, isDirty });
   };
 
   // Esc sluit backstage
@@ -89,7 +105,7 @@ export function Backstage() {
 
         <div className="backstage-nav-divider" />
 
-        <ActionItem icon={<X size={14} />} label={tMenu('backstage.closeProject')} onClick={() => { handleNewProject(); closeBackstage(); }} />
+        <ActionItem icon={<X size={14} />} label={tMenu('backstage.closeProject')} onClick={handleCloseProject} />
       </aside>
 
       <main className="backstage-main">
