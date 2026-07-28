@@ -8,6 +8,11 @@
     "table": "Tableau",
     "ifc": "IFC",
     "report": "Rapport",
+    "ai": "IA",
+    "aiServer": "Serveur",
+    "aiConnection": "Connexion",
+    "aiSafety": "Sécurité",
+    "aiActivity": "Activité",
     "file": "Fichier",
     "new": "Nouveau",
     "save": "Enregistrer",
@@ -171,7 +176,7 @@
     "name": "Nom du projet",
     "number": "Numéro de projet",
     "description": "Description",
-    "author": "Ingénieur",
+    "author": "Auteur",
     "company": "Entreprise",
     "startDate": "Date de début",
     "endDate": "Date de fin",
@@ -221,22 +226,6 @@
     "unsaved": "Non enregistré",
     "scheduleStale": "Obsolète — recalculer (F5)"
   },
-  "menuBar": {
-    "file": "Fichier",
-    "newProject": "Nouveau projet",
-    "open": "Ouvrir...",
-    "saveAs": "Enregistrer sous IFC...",
-    "printPreview": "Aperçu avant impression...",
-    "edit": "Édition",
-    "undo": "Annuler",
-    "redo": "Rétablir",
-    "view": "Affichage",
-    "zoomIn": "Zoom avant",
-    "zoomOut": "Zoom arrière",
-    "planning": "Planification",
-    "calculateCPM": "Calculer",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Retour",
     "recent": "Récents",
@@ -265,18 +254,16 @@
     "openPrintPreview": "Ouvrir l'aperçu avant impression",
     "projectInfoTitle": "Info projet",
     "projectInfoSubtitle": "Métadonnées de ce projet.",
-    "name": "Nom",
-    "description": "Description",
-    "author": "Auteur",
-    "company": "Entreprise",
-    "startDate": "Date de début",
-    "endDate": "Date de fin",
     "help": "Aide",
     "helpSubtitle": "Documentation et guide utilisateur, intégrés à l'application.",
     "helpSearchPlaceholder": "Rechercher dans la documentation…",
     "helpLoading": "Chargement…",
     "helpLoadError": "Impossible de charger la documentation.",
     "helpArticleNotFound": "Article introuvable.",
+    "library": "Bibliothèque",
+    "helpDocsLang": "Langue de la documentation",
+    "helpDocsLangAuto": "Suivre la langue de l'application",
+    "helpStale": "Cette langue n'est mise à jour qu'occasionnellement. Pour la documentation la plus à jour, passez à l'anglais ou au néerlandais.",
     "helpLayer": {
       "quickstart": "Démarrage rapide",
       "gidsen": "Guides par thème",
@@ -327,5 +314,12 @@
       "custom": "Personnalisé…",
       "none": "Aucun jour férié"
     }
+  },
+  "commands": {
+    "newProject": "Nouveau projet",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière"
   }
 }

@@ -6,7 +6,7 @@
 import type { ViewState } from '@/types/view';
 import { parseDate, formatDate, addCalendarDays } from '@/utils/dateUtils';
 import { readHistogramPalette, type HistogramPalette } from './themePalette';
-import { dateToX as axisDateToX } from './timeAxis';
+import { dateToX as axisDateToX, type GanttAxis } from './timeAxis';
 
 export interface HistogramSeries {
   /** iso-datum → belaste eenheden voor de getoonde resource (of som over alle renewables). */
@@ -37,7 +37,22 @@ export interface HistogramRenderOptions {
   /** Geïnjecteerd histogram-palet (audit C5/P17). Afwezig ⇒ zelf gelezen via
    *  `readHistogramPalette()` (identiek resultaat); meegeven maakt de renderer headless-testbaar. */
   palette?: HistogramPalette;
+  /** Issue #21 punt 5 (fase 2, ontwerp §10.1 — BINDEND): de HistogramRenderer deelt bewust EXACT
+   *  dezelfde X-as als de Gantt, dus krijgt hier de LETTERLIJK ZELFDE `GanttAxis`-instantie als
+   *  `GanttRenderer` (door `GanttCanvas` gebouwd en aan beide renderers doorgegeven) — anders
+   *  schuiven de resource-staafjes onder de verkeerde kolommen zodra de as gecomprimeerd is.
+   *  Afwezig ⇒ terugvallen op de oude rechtstreekse `timeAxis.dateToX`-aanroep (byte-identiek). */
+  axis?: GanttAxis;
+  /** Issue #25 punt 4: de CSS font-stack van de gekozen interface-lettertypefamilie
+   *  (`resolveUIFontStack(ui.uiFontFamily)`). Een canvas leest géén CSS-variabelen, dus de stack
+   *  moet als string mee — anders blijft de resourcestrook in het oude lettertype staan terwijl de
+   *  Gantt erboven en de chrome eromheen wél omschakelen. Afwezig ⇒ `FALLBACK_FONT_STACK`. */
+  fontFamily?: string;
 }
+
+/** De historische, hardgecodeerde stack van deze renderer; fallback wanneer een aanroeper
+ *  `fontFamily` niet meegeeft (byte-identiek aan vóór issue #25 punt 4). */
+const FALLBACK_FONT_STACK = 'system-ui, sans-serif';
 
 const ROW_H = 18;          // hoogte van een resourcekiezer-rij
 const TOP_PAD = 8;         // ruimte boven de hoogste staaf
@@ -57,14 +72,30 @@ export class HistogramRenderer {
     this.viewStart = parseDate(opts.view.viewStartDate);
   }
 
-  /** Gedeelde X-as met GanttRenderer via `timeAxis.dateToX` (bit-identiek), zodat de dagkolommen
-   *  1-op-1 boven de taakbalken staan. */
+  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4).
+   *  Zelfde helper (en zelfde afweging) als in `GanttRenderer`.
+   *
+   *  BEWUST NIET: de GROOTTE meeschalen met `ui.uiFontScale`. De strookgeometrie ligt vast
+   *  (`ROW_H = 18` voor de resourcekiezer, vaste paddings, een canvashoogte die de gebruiker
+   *  instelt) — grotere tekst zou clippen in plaats van meegroeien. Alleen samen met een
+   *  schaalbare geometrie te wijzigen. */
+  private font(sizePx: number, bold = false): string {
+    return `${bold ? 'bold ' : ''}${sizePx}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
+  }
+
+  /** Gedeelde X-as met GanttRenderer (issue #21 punt 5, fase 2 — ontwerp §10.1): `opts.axis`
+   *  (meegegeven door `GanttCanvas`, de letterlijk gedeelde instantie) wint; afwezig ⇒ het oude
+   *  rechtstreekse `timeAxis.dateToX`-pad (bit-identiek), zodat de dagkolommen 1-op-1 boven de
+   *  taakbalken staan zowel bij de kalender- als de werkdagen-as. */
   private dateToX(date: Date): number {
+    if (this.opts.axis) return this.opts.axis.dateToX(date);
     return axisDateToX(date, this.viewStart, this.opts.taskTableWidth, this.opts.view.zoom, this.opts.view.scrollX);
   }
 
-  /** Inverse: kolom-iso onder een X-positie in de plotzone. */
+  /** Inverse: kolom-iso onder een X-positie in de plotzone. Gaat via `opts.axis.xToDate` zodra die
+   *  gedeelde as gecomprimeerd is (§10.1) — anders (as afwezig) het oude kalenderdag-pad. */
   dateAtX(x: number): string {
+    if (this.opts.axis) return formatDate(this.opts.axis.xToDate(x));
     const daysFromStart = (x - this.opts.taskTableWidth + this.opts.view.scrollX) / this.opts.view.zoom;
     const d = addCalendarDays(this.viewStart, Math.floor(daysFromStart));
     return formatDate(d);
@@ -112,7 +143,7 @@ export class HistogramRenderer {
 
     if (this.opts.emptyHint) {
       ctx.fillStyle = c.textDim;
-      ctx.font = '11px system-ui, sans-serif';
+      ctx.font = this.font(11);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(this.opts.emptyHint, (taskTableWidth + canvasWidth) / 2, canvasHeight / 2);
@@ -141,7 +172,7 @@ export class HistogramRenderer {
 
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.font = '11px system-ui, sans-serif';
+    ctx.font = this.font(11);
 
     this.opts.picker.forEach((item, i) => {
       const y = TOP_PAD + i * ROW_H;
@@ -247,7 +278,7 @@ export class HistogramRenderer {
 
     // Y-as-label (max) linksboven in de plotzone
     ctx.fillStyle = c.textDim;
-    ctx.font = '9px system-ui, sans-serif';
+    ctx.font = this.font(9);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText(`${this.formatUnits(yMaxData)} ${this.opts.labels.unitsSuffix}`, this.opts.taskTableWidth + 4, 2);

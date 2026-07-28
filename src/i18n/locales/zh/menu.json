@@ -8,6 +8,11 @@
     "table": "表格",
     "ifc": "IFC",
     "report": "报告",
+    "ai": "AI",
+    "aiServer": "服务器",
+    "aiConnection": "连接",
+    "aiSafety": "安全",
+    "aiActivity": "活动",
     "file": "文件",
     "new": "新建",
     "save": "保存",
@@ -171,7 +176,7 @@
     "name": "项目名称",
     "number": "项目编号",
     "description": "描述",
-    "author": "工程师",
+    "author": "作者",
     "company": "公司",
     "startDate": "开始日期",
     "endDate": "结束日期",
@@ -221,22 +226,6 @@
     "unsaved": "未保存",
     "scheduleStale": "已过期 — 请重新计算（F5）"
   },
-  "menuBar": {
-    "file": "文件",
-    "newProject": "新建项目",
-    "open": "打开...",
-    "saveAs": "另存为 IFC...",
-    "printPreview": "打印预览...",
-    "edit": "编辑",
-    "undo": "撤销",
-    "redo": "重做",
-    "view": "视图",
-    "zoomIn": "放大",
-    "zoomOut": "缩小",
-    "planning": "计划",
-    "calculateCPM": "计算",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "返回",
     "recent": "最近",
@@ -265,18 +254,16 @@
     "openPrintPreview": "打开打印预览",
     "projectInfoTitle": "项目信息",
     "projectInfoSubtitle": "本项目的元数据。",
-    "name": "名称",
-    "description": "描述",
-    "author": "作者",
-    "company": "公司",
-    "startDate": "开始日期",
-    "endDate": "结束日期",
     "help": "帮助",
     "helpSubtitle": "内置于应用中的文档和用户指南。",
     "helpSearchPlaceholder": "搜索文档…",
     "helpLoading": "加载中…",
     "helpLoadError": "无法加载文档。",
     "helpArticleNotFound": "未找到文章。",
+    "library": "资料库",
+    "helpDocsLang": "文档语言",
+    "helpDocsLangAuto": "跟随应用语言",
+    "helpStale": "此语言的文档仅偶尔更新。如需查看最新文档，请切换到英语或荷兰语。",
     "helpLayer": {
       "quickstart": "快速入门",
       "gidsen": "主题指南",
@@ -327,5 +314,12 @@
       "custom": "自定义…",
       "none": "无假日"
     }
+  },
+  "commands": {
+    "newProject": "新建项目",
+    "undo": "撤销",
+    "redo": "重做",
+    "zoomIn": "放大",
+    "zoomOut": "缩小"
   }
 }

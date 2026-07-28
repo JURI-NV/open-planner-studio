@@ -18,6 +18,7 @@ import { ExportFormat } from '@/state/appStore';
 import { supportsHandles } from '@/services/fileAccess';
 import { formatDate } from '@/utils/dateUtils';
 import { DateTextInput } from '@/components/common/DateTextInput';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type TimeScale } from '@/state/slices/types';
 import type { ResourceCurve } from '@/types/resource';
@@ -71,7 +72,7 @@ export function BaselinesProgressGroupContent() {
           onCommit={v => setStatusDate(v || undefined)}
           ariaLabel={tMenu('ribbon.statusDate')}
           style={{
-            padding: '3px 6px', fontSize: 11, background: 'var(--theme-input-bg)',
+            padding: '3px 6px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', background: 'var(--theme-input-bg)',
             border: '1px solid var(--theme-control-border)', borderRadius: 'var(--radius-sm)',
             color: 'var(--theme-text)',
           }}
@@ -206,7 +207,7 @@ export function MilestoneDropdown() {
           key={item.key}
           style={{
             display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px',
-            fontSize: 11, border: 'none', background: 'transparent',
+            fontSize: 'calc(11px * var(--ui-font-scale, 1))', border: 'none', background: 'transparent',
             color: 'var(--theme-text)', cursor: 'pointer', whiteSpace: 'nowrap',
           }}
           onMouseOver={e => (e.currentTarget.style.background = 'var(--theme-hover)')}
@@ -246,7 +247,7 @@ export function TemplatesDropdown() {
       }
     >
       {templates.length === 0 ? (
-        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--theme-text-dim)' }}>
+        <div style={{ padding: '8px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)' }}>
           {tMenu('ribbon.noTemplates')}
         </div>
       ) : (
@@ -254,7 +255,7 @@ export function TemplatesDropdown() {
           <div key={tpl.id} style={{ display: 'flex', alignItems: 'center' }}>
             <button
               style={{
-                flex: 1, textAlign: 'left', padding: '6px 12px', fontSize: 11, border: 'none',
+                flex: 1, textAlign: 'left', padding: '6px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', border: 'none',
                 background: 'transparent', color: 'var(--theme-text)', cursor: 'pointer',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}
@@ -267,7 +268,7 @@ export function TemplatesDropdown() {
               }}
             >
               {tpl.name}
-              <span style={{ display: 'block', fontSize: 9, color: 'var(--theme-text-dim)', marginTop: 1 }}>
+              <span style={{ display: 'block', fontSize: 'calc(9px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)', marginTop: 1 }}>
                 {tMenu('ribbon.templateMeta', { tasks: tpl.tasks.length, relations: tpl.sequences.length })}
               </span>
             </button>
@@ -310,7 +311,7 @@ export function RecentFilesDropdown() {
       }
     >
       {recentFiles.length === 0 ? (
-        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--theme-text-dim)' }}>
+        <div style={{ padding: '8px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)' }}>
           {tMenu('ribbon.noRecentFiles')}
         </div>
       ) : (
@@ -322,7 +323,7 @@ export function RecentFilesDropdown() {
               key={e.id}
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
-                padding: '6px 12px', fontSize: 11, border: 'none',
+                padding: '6px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', border: 'none',
                 background: 'transparent', color: 'var(--theme-text)',
                 cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}
@@ -332,7 +333,7 @@ export function RecentFilesDropdown() {
               onClick={() => { void openRecentFile(e.id); setOpen(false); }}
             >
               {e.name}
-              <span style={{ display: 'block', fontSize: 9, color: 'var(--theme-text-dim)', marginTop: 1 }}>
+              <span style={{ display: 'block', fontSize: 'calc(9px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)', marginTop: 1 }}>
                 {sub}
               </span>
             </button>
@@ -375,13 +376,20 @@ export function ExportDropdown() {
           key={f.format}
           style={{
             display: 'block', width: '100%', textAlign: 'left',
-            padding: '6px 12px', fontSize: 11, border: 'none',
+            padding: '6px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', border: 'none',
             background: 'transparent', color: 'var(--theme-text)',
             cursor: 'pointer',
           }}
           onMouseOver={e => (e.currentTarget.style.background = 'var(--theme-hover)')}
           onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-          onClick={() => { exportAs(f.format); setOpen(false); }}
+          onClick={() => {
+            // K7: exportAs geeft sinds deze wijziging een resultaat terug. Op dit tabblad is
+            // GanttCanvas gemonteerd, dus bij een cyclus (ok===false) vuurt daar al de
+            // cyclus-toast — bewust géén tweede meldmechanisme hier. Tussenstand: K8 trekt het
+            // foutkanaal samen tot één toast in uiSlice. Popover direct dicht, vóór de dialoog.
+            void exportAs(f.format);
+            setOpen(false);
+          }}
         >
           {f.label}
         </button>
@@ -416,10 +424,14 @@ export function ExtensionRibbonGroups({ tab }: { tab: RibbonTab }) {
               <RibbonButton
                 key={`${b.extensionId}:${b.label}`}
                 label={b.label}
+                // K6a: ribbon-iconen komen uit draaiende extensiecode — hygiëne, maar loopt
+                // langs dezelfde sanitizer als de manifest-iconen.
                 icon={
-                  b.icon
-                    ? <span style={{ display: 'inline-flex', width: 20, height: 20 }} dangerouslySetInnerHTML={{ __html: b.icon }} />
-                    : <Puzzle size={20} />
+                  <ExtensionIcon
+                    raw={b.icon}
+                    fallback={<Puzzle size={20} />}
+                    style={{ display: 'inline-flex', width: 20, height: 20 }}
+                  />
                 }
                 onClick={b.onClick}
               />
@@ -472,14 +484,14 @@ export function ResourceAssignDropdown() {
       }
     >
       {available.length === 0 ? (
-            <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--theme-text-dim)' }}>
+            <div style={{ padding: '8px 12px', fontSize: 'calc(11px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)' }}>
               {resources.length === 0 ? tTask('properties.assignments.noResources') : tTask('properties.assignments.allAssigned')}
             </div>
           ) : (
             <>
               {/* Eenheden/dag + curve gelden voor de volgende toewijzing die je aanklikt. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}>
-                <label style={{ fontSize: 10, color: 'var(--theme-text-dim)' }}>{tTask('properties.assignments.unitsPerDay')}</label>
+                <label style={{ fontSize: 'calc(10px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)' }}>{tTask('properties.assignments.unitsPerDay')}</label>
                 <UnitsInput
                   value={units}
                   ariaLabel={tTask('properties.assignments.unitsPerDay')}
@@ -488,7 +500,7 @@ export function ResourceAssignDropdown() {
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px 6px' }}>
-                <label style={{ fontSize: 10, color: 'var(--theme-text-dim)' }}>{tTask('properties.assignments.curve')}</label>
+                <label style={{ fontSize: 'calc(10px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)' }}>{tTask('properties.assignments.curve')}</label>
                 <select
                   value={curve}
                   aria-label={tTask('properties.assignments.curve')}
@@ -506,7 +518,7 @@ export function ResourceAssignDropdown() {
                   key={r.id}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px',
-                    fontSize: 11, border: 'none', background: 'transparent', color: 'var(--theme-text)',
+                    fontSize: 'calc(11px * var(--ui-font-scale, 1))', border: 'none', background: 'transparent', color: 'var(--theme-text)',
                     cursor: 'pointer', whiteSpace: 'nowrap',
                   }}
                   onMouseOver={e => (e.currentTarget.style.background = 'var(--theme-hover)')}
@@ -735,7 +747,11 @@ export function LayoutGroupContent() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', minWidth: 150 }}>
+    // minWidth 150 → 210 (issue #29): bij 150 kregen de drie knoppen elk maar ~46px — te weinig
+    // voor "Opslaan als…"/"Beheren…" (NL) en zeker voor langere talen (bv. FR "Enregistrer sous…"),
+    // wat de labels rauw liet afknippen i.p.v. netjes met "…" (zie de ellipsis-fix in Ribbon.css
+    // hierboven, die als vangnet blijft voor talen die ook bij 210px nog niet passen).
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', minWidth: 210 }}>
       <select
         value={selectedId}
         onChange={e => pick(e.target.value)}
@@ -898,7 +914,7 @@ export function OverallocationIndicator() {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', fontSize: 12,
+      display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', fontSize: 'calc(12px * var(--ui-font-scale, 1))',
       color: overallocatedCount > 0 ? 'var(--error)' : 'var(--theme-text-dim)',
     }}>
       {overallocatedCount > 0 && <AlertTriangle size={16} />}

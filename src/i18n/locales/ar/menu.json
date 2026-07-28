@@ -8,6 +8,11 @@
     "table": "الجدول",
     "ifc": "IFC",
     "report": "التقرير",
+    "ai": "الذكاء الاصطناعي",
+    "aiServer": "الخادم",
+    "aiConnection": "الاتصال",
+    "aiSafety": "الأمان",
+    "aiActivity": "النشاط",
     "file": "ملف",
     "new": "جديد",
     "save": "حفظ",
@@ -171,7 +176,7 @@
     "name": "اسم المشروع",
     "number": "رقم المشروع",
     "description": "الوصف",
-    "author": "المهندس",
+    "author": "المؤلف",
     "company": "الشركة",
     "startDate": "تاريخ البداية",
     "endDate": "تاريخ النهاية",
@@ -221,22 +226,6 @@
     "unsaved": "غير محفوظ",
     "scheduleStale": "قديم — أعد الحساب (F5)"
   },
-  "menuBar": {
-    "file": "ملف",
-    "newProject": "مشروع جديد",
-    "open": "فتح...",
-    "saveAs": "حفظ كـ IFC...",
-    "printPreview": "معاينة الطباعة...",
-    "edit": "تعديل",
-    "undo": "تراجع",
-    "redo": "إعادة",
-    "view": "العرض",
-    "zoomIn": "تكبير",
-    "zoomOut": "تصغير",
-    "planning": "التخطيط",
-    "calculateCPM": "حساب",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "رجوع",
     "recent": "الأخيرة",
@@ -265,18 +254,16 @@
     "openPrintPreview": "فتح معاينة الطباعة",
     "projectInfoTitle": "معلومات المشروع",
     "projectInfoSubtitle": "البيانات الوصفية لهذا المشروع.",
-    "name": "الاسم",
-    "description": "الوصف",
-    "author": "المؤلف",
-    "company": "الشركة",
-    "startDate": "تاريخ البداية",
-    "endDate": "تاريخ النهاية",
     "help": "المساعدة",
     "helpSubtitle": "التوثيق ودليل المستخدم مدمجان في التطبيق.",
     "helpSearchPlaceholder": "البحث في التوثيق…",
     "helpLoading": "جارٍ التحميل…",
     "helpLoadError": "تعذر تحميل التوثيق.",
     "helpArticleNotFound": "لم يتم العثور على المقالة.",
+    "library": "المكتبة",
+    "helpDocsLang": "لغة التوثيق",
+    "helpDocsLangAuto": "اتباع لغة التطبيق",
+    "helpStale": "يُحدَّث هذا التوثيق بهذه اللغة من حين لآخر فقط. للحصول على أحدث توثيق، بدّل إلى الإنجليزية أو الهولندية.",
     "helpLayer": {
       "quickstart": "البدء السريع",
       "gidsen": "أدلة حسب الموضوع",
@@ -327,5 +314,12 @@
       "custom": "مخصص…",
       "none": "بدون عطل رسمية"
     }
+  },
+  "commands": {
+    "newProject": "مشروع جديد",
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير"
   }
 }

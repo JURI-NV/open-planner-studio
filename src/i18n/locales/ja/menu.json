@@ -8,6 +8,11 @@
     "table": "テーブル",
     "ifc": "IFC",
     "report": "レポート",
+    "ai": "AI",
+    "aiServer": "サーバー",
+    "aiConnection": "接続",
+    "aiSafety": "安全性",
+    "aiActivity": "アクティビティ",
     "file": "ファイル",
     "new": "新規",
     "save": "保存",
@@ -171,7 +176,7 @@
     "name": "プロジェクト名",
     "number": "プロジェクト番号",
     "description": "説明",
-    "author": "担当者",
+    "author": "作成者",
     "company": "会社",
     "startDate": "開始日",
     "endDate": "終了日",
@@ -221,22 +226,6 @@
     "unsaved": "未保存",
     "scheduleStale": "古くなっています — 再計算してください（F5）"
   },
-  "menuBar": {
-    "file": "ファイル",
-    "newProject": "新しいプロジェクト",
-    "open": "開く...",
-    "saveAs": "IFC として保存...",
-    "printPreview": "印刷プレビュー...",
-    "edit": "編集",
-    "undo": "元に戻す",
-    "redo": "やり直し",
-    "view": "表示",
-    "zoomIn": "拡大",
-    "zoomOut": "縮小",
-    "planning": "計画",
-    "calculateCPM": "計算",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "戻る",
     "recent": "最近",
@@ -265,18 +254,16 @@
     "openPrintPreview": "印刷プレビューを開く",
     "projectInfoTitle": "プロジェクト情報",
     "projectInfoSubtitle": "このプロジェクトのメタデータです。",
-    "name": "名前",
-    "description": "説明",
-    "author": "作成者",
-    "company": "会社",
-    "startDate": "開始日",
-    "endDate": "終了日",
     "help": "ヘルプ",
     "helpSubtitle": "アプリに組み込まれたドキュメントとユーザーガイド。",
     "helpSearchPlaceholder": "ドキュメントを検索…",
     "helpLoading": "読み込み中…",
     "helpLoadError": "ドキュメントを読み込めませんでした。",
     "helpArticleNotFound": "記事が見つかりません。",
+    "library": "ライブラリ",
+    "helpDocsLang": "ドキュメントの言語",
+    "helpDocsLangAuto": "アプリの言語に従う",
+    "helpStale": "この言語は不定期にのみ更新されます。最新のドキュメントを確認するには、英語またはオランダ語に切り替えてください。",
     "helpLayer": {
       "quickstart": "クイックスタート",
       "gidsen": "トピック別ガイド",
@@ -327,5 +314,12 @@
       "custom": "カスタム…",
       "none": "祝日なし"
     }
+  },
+  "commands": {
+    "newProject": "新しいプロジェクト",
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
   }
 }

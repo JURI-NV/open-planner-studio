@@ -1,7 +1,25 @@
-/** Parse an ISO date string to a Date object at midnight UTC */
+/**
+ * Parse an ISO date string to a Date object at midnight UTC.
+ *
+ * Het kalenderdeel wordt TEKSTUEEL uit de string gelezen en niet via `new Date(iso)`:
+ * een date-only string wordt door de engine als UTC-middernacht geïnterpreteerd, en die
+ * instant met LOKALE getters uitlezen levert bij elke negatieve UTC-offset (Amerika) de
+ * dag ervoor op — "2026-06-01" werd dan 2026-05-31 en de hele planning schoof een dag op.
+ * Tekstueel parsen maakt de uitkomst tijdzone-onafhankelijk: dezelfde datum in, dezelfde
+ * datum uit, waar de machine ook staat.
+ *
+ * De fallback (niet-date-only invoer, bv. een volledige datetime met offset) laat `Date`
+ * zelf parsen en kapt daarna met UTC-getters af, want de engine rekent overal in
+ * UTC-instants (§1) — lokale getters zouden hier dezelfde dagverschuiving terugbrengen.
+ * Onparsebare invoer geeft bewust de `Invalid Date` ongewijzigd terug; de guards verderop
+ * (o.a. `CPMSolver`) leunen op `isNaN(getTime())` om zulke data af te vangen.
+ */
 export function parseDate(iso: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
   const d = new Date(iso);
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  if (isNaN(d.getTime())) return d;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 /** Format a Date as ISO date string (YYYY-MM-DD) */

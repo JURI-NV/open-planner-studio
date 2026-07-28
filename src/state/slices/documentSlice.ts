@@ -1,4 +1,5 @@
 import type { Project } from '@/types/project';
+import type { AppState } from '../appStore';
 import type { AppSlice } from './types';
 import { generateId } from '@/utils/id';
 import {
@@ -50,6 +51,12 @@ export interface DocumentSlice {
   activeDocumentId: string;
   /** Open een nieuw, leeg document in een eigen tab en maak het actief. Geeft het nieuwe id terug. */
   newDocument: () => string;
+  /** Dupliceer het actieve document naar een nieuwe, actieve kopie (wat-als/variant, MCP-WP4). De
+   *  kopie krijgt genulde `filePath`/`fileHandle` (zodat Ctrl+S het bronbestand niet overschrijft),
+   *  `isDirty = true`, verse lege undo/redo-stacks en lege selectie, en álle muteerbare payload-velden
+   *  worden diep gekloond (geen enkele array/object gedeeld met de bron). Naam: `name` indien
+   *  meegegeven, anders `"<projectnaam> (variant N)"`. Geeft het nieuwe document-id terug. */
+  duplicateDocument: (name?: string) => string;
   /** Wissel naar een ander geopend document. */
   switchDocument: (id: string) => void;
   /** Sluit een document; het laatste sluiten reset naar één leeg document. */
@@ -71,6 +78,39 @@ function documentTitle(filePath: string | null, project: Project): string {
   return project.name || 'Naamloos';
 }
 
+/** Diepe JSON-kloon — zelfde precedent als `snapshot.ts` (de projectdata is JSON-veilig). */
+function deepClone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v)) as T;
+}
+
+/** `"Basis (variant 3)"` → `"Basis"`; een naam zonder variant-suffix blijft ongewijzigd. Zo blijft de
+ *  basisnaam stabiel wanneer je een variant-document opnieuw dupliceert (varianten-van-varianten). */
+const VARIANT_RE = /^(.*) \(variant (\d+)\)$/;
+function variantBaseName(name: string): string {
+  const m = VARIANT_RE.exec(name);
+  return m ? m[1] : name;
+}
+
+/** `"<basis> (variant N)"` met N = laagste vrije nummer ≥ 2 over de open document-projectnamen met
+ *  dezelfde basisnaam. Zo krijgen achtereenvolgende duplicaten variant 2, 3, 4, … en kan
+ *  `list_documents` de varianten onderscheiden. */
+function nextVariantName(sourceName: string, openNames: string[]): string {
+  const base = variantBaseName(sourceName);
+  const used = new Set<number>();
+  for (const nm of openNames) {
+    const m = VARIANT_RE.exec(nm);
+    if (m && m[1] === base) used.add(parseInt(m[2], 10));
+  }
+  let n = 2;
+  while (used.has(n)) n++;
+  return `${base} (variant ${n})`;
+}
+
+/** Projectnamen van álle open documenten (actief live top-level, rest uit de registry). */
+function openProjectNames(s: AppState): string[] {
+  return s.documents.map((d) => (d.id === s.activeDocumentId ? s.project.name : d.payload!.project.name));
+}
+
 const INITIAL_DOC_ID = generateId('doc');
 
 export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
@@ -86,9 +126,70 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.documents.push({ id: newId, payload: null });
       s.activeDocumentId = newId;
       hydratePayload(s, freshPayload());
+      // Voorstap taak 14 (critreview taak 12): een vers leeg document draait GEEN runOpenBoundary
+      // (er is niets aan gekoppeld), dus zonder expliciete reset hier zou een stale
+      // showLibraryLinkDialog/libraryRefreshNotice van het vorige document blijven hangen
+      // ("File→Nieuw" lekt dan een afwijkingenscherm dat niet bij dit document hoort).
+      s.ui.showLibraryLinkDialog = false;
+      s.ui.libraryRefreshNotice = null;
     });
     get().recomputeViewRows();
     emitExtensionEvent(HOST_EVENTS.projectNew);
+    return newId;
+  },
+
+  duplicateDocument: (name) => {
+    // Een documentwissel breekt een lopende coalesce-reeks af (zie switchDocument): de kopie mag niet
+    // stilzwijgend verdergaan op de undo-stap van de bron.
+    resetUndoCoalescing();
+    const source = get();
+    // `outgoing` = de bron per referentie (wordt zo in de registry geparkeerd — identiek aan wat
+    // newDocument/switchDocument doen). `src` lezen we ook als de bron van de kloon.
+    const src = capturePayload(source);
+    const copyName = name ?? nextVariantName(src.project.name, openProjectNames(source));
+    const newId = generateId('doc');
+
+    // Bouw de kopie-payload EXPLICIET — geen stilzwijgende afhankelijkheid van Immer-copy-on-write.
+    // 'clone'-rolvelden + view/collapsedTaskIds worden diep gekloond; selectie/undo/redo starten vers;
+    // filePath/fileHandle genuld; cpmResult/resourceLoadResult ('ref') mogen per referentie mee.
+    const copy: DocumentPayload = {
+      project: { ...deepClone(src.project), name: copyName },
+      calendar: deepClone(src.calendar),
+      tasks: deepClone(src.tasks),
+      sequences: deepClone(src.sequences),
+      resources: deepClone(src.resources),
+      assignments: deepClone(src.assignments),
+      calendars: deepClone(src.calendars),
+      activityCodeTypes: deepClone(src.activityCodeTypes),
+      customFieldDefs: deepClone(src.customFieldDefs),
+      baselines: deepClone(src.baselines),
+      activeBaselineId: src.activeBaselineId,
+      cpmResult: src.cpmResult,
+      resourceLoadResult: src.resourceLoadResult,
+      scheduleStale: src.scheduleStale,
+      selectedTaskIds: [],
+      view: deepClone(src.view),
+      collapsedTaskIds: deepClone(src.collapsedTaskIds),
+      undoStack: [],
+      redoStack: [],
+      filePath: null,
+      fileHandle: null,
+      isDirty: true,
+    };
+
+    set((s) => {
+      const cur = s.documents.find((d) => d.id === s.activeDocumentId);
+      if (cur) cur.payload = src; // bron parkeren (per referentie, net als newDocument/switchDocument)
+      s.documents.push({ id: newId, payload: null });
+      s.activeDocumentId = newId;
+      hydratePayload(s, copy);
+    });
+    get().recomputeViewRows();
+    emitExtensionEvent(HOST_EVENTS.projectLoaded, {
+      tasks: copy.tasks.length,
+      sequences: copy.sequences.length,
+      resources: copy.resources.length,
+    });
     return newId;
   },
 
@@ -111,6 +212,24 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = id;
     });
     get().recomputeViewRows();
+    // Grens 2 (spec §3.2): activeren ververst STIL — behind-only (deviated blijft gemarkeerd, spec §3),
+    // zelfhelend als de pool schoof terwijl het document sliep. Geen dialoog bij documentwissel
+    // (alleen bij openen/herstel). Gebruikt de primitief uit Taak 5.
+    // NB (critreview taak 10, verplicht): showLibraryLinkDialog/libraryRefreshNotice zijn app-globaal
+    // en worden door runOpenBoundary alleen AANgezet — zonder expliciete reset hier zou taak 14's
+    // dialoog stale data van het VORIGE document tonen. Het net-geactiveerde document bepaalt de
+    // nieuwe toestand: dialoog blijft altijd dicht (grens 2 is stil, geen vraag), en het signaal
+    // reflecteert alleen déze verversing (of null als er niets ververst is) — nooit een oud getal.
+    {
+      const cid = get().project.companyId;
+      const refreshed = cid ? get().refreshBehindItems(cid) : 0;
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: refreshed > 0 ? refreshed : null });
+    }
+    // Grens 3/4 (plan-eis 1) kan resources/kalenders van een SLAPENDE payload hebben ververst
+    // terwijl het `resourceLoadResult` van dat document nog de oude waarden droeg (er was toen geen
+    // actief document om te herberekenen). Bij activering hier onvoorwaardelijk herberekenen dicht
+    // die hele klasse — niet alleen het pool-edit-geval, elke toekomstige dormant-mutatie ook.
+    get().recomputeResourceLoad();
     emitExtensionEvent(HOST_EVENTS.projectLoaded, {
       tasks: incoming.tasks.length,
       sequences: incoming.sequences.length,
@@ -129,6 +248,10 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
         s.documents = [{ id: newId, payload: null }];
         s.activeDocumentId = newId;
         hydratePayload(s, freshPayload());
+        // Voorstap taak 14 (critreview taak 12): zie newDocument() hierboven — de laatste-sluit-naar-
+        // leeg-tak levert net zo'n vers, ongekoppeld document op en moet dezelfde reset dragen.
+        s.ui.showLibraryLinkDialog = false;
+        s.ui.libraryRefreshNotice = null;
       });
       get().recomputeViewRows();
       emitExtensionEvent(HOST_EVENTS.projectNew);
@@ -155,6 +278,17 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.activeDocumentId = neighbor.id;
     });
     get().recomputeViewRows();
+    // Grens 2 (spec §3.2) + NB (critreview taak 10): zie switchDocument hierboven — zelfde stille
+    // behind-only-verversing én dezelfde deterministische reset van showLibraryLinkDialog/
+    // libraryRefreshNotice, want ook hier wordt een ander document actief.
+    {
+      const cid = get().project.companyId;
+      const refreshed = cid ? get().refreshBehindItems(cid) : 0;
+      get().setUI({ showLibraryLinkDialog: false, libraryRefreshNotice: refreshed > 0 ? refreshed : null });
+    }
+    // Zie switchDocument hierboven: het net-geactiveerde buurdocument kan een verouderd
+    // `resourceLoadResult` dragen (grens 3/4 ververste zijn payload terwijl het sliep).
+    get().recomputeResourceLoad();
     emitExtensionEvent(HOST_EVENTS.projectLoaded, {
       tasks: incoming.tasks.length,
       sequences: incoming.sequences.length,

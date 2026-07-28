@@ -8,6 +8,11 @@
     "table": "Tabelle",
     "ifc": "IFC",
     "report": "Bericht",
+    "ai": "KI",
+    "aiServer": "Server",
+    "aiConnection": "Verbindung",
+    "aiSafety": "Sicherheit",
+    "aiActivity": "Aktivität",
     "file": "Datei",
     "new": "Neu",
     "save": "Speichern",
@@ -171,7 +176,7 @@
     "name": "Projektname",
     "number": "Projektnummer",
     "description": "Beschreibung",
-    "author": "Ingenieur",
+    "author": "Autor",
     "company": "Unternehmen",
     "startDate": "Startdatum",
     "endDate": "Enddatum",
@@ -221,22 +226,6 @@
     "unsaved": "Nicht gespeichert",
     "scheduleStale": "Veraltet — neu berechnen (F5)"
   },
-  "menuBar": {
-    "file": "Datei",
-    "newProject": "Neues Projekt",
-    "open": "Öffnen...",
-    "saveAs": "Speichern als IFC...",
-    "printPreview": "Druckvorschau...",
-    "edit": "Bearbeiten",
-    "undo": "Rückgängig",
-    "redo": "Wiederholen",
-    "view": "Ansicht",
-    "zoomIn": "Vergrößern",
-    "zoomOut": "Verkleinern",
-    "planning": "Planung",
-    "calculateCPM": "Berechnen",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Zurück",
     "recent": "Zuletzt verwendet",
@@ -265,18 +254,16 @@
     "openPrintPreview": "Druckvorschau öffnen",
     "projectInfoTitle": "Projektinfo",
     "projectInfoSubtitle": "Metadaten dieses Projekts.",
-    "name": "Name",
-    "description": "Beschreibung",
-    "author": "Autor",
-    "company": "Unternehmen",
-    "startDate": "Startdatum",
-    "endDate": "Enddatum",
     "help": "Hilfe",
     "helpSubtitle": "Dokumentation und Benutzerhandbuch, direkt in der App integriert.",
     "helpSearchPlaceholder": "Dokumentation durchsuchen…",
     "helpLoading": "Wird geladen…",
     "helpLoadError": "Dokumentation konnte nicht geladen werden.",
     "helpArticleNotFound": "Artikel nicht gefunden.",
+    "library": "Bibliothek",
+    "helpDocsLang": "Dokumentationssprache",
+    "helpDocsLangAuto": "App-Sprache folgen",
+    "helpStale": "Diese Sprache wird nur gelegentlich aktualisiert. Für die aktuellste Dokumentation wechseln Sie zu Englisch oder Niederländisch.",
     "helpLayer": {
       "quickstart": "Schnellstart",
       "gidsen": "Themenbezogene Anleitungen",
@@ -327,5 +314,12 @@
       "custom": "Benutzerdefiniert…",
       "none": "Keine Feiertage"
     }
+  },
+  "commands": {
+    "newProject": "Neues Projekt",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern"
   }
 }

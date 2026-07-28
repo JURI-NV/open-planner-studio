@@ -32,9 +32,15 @@
 // tf 0 en kritiek); toren C is identiek t/m de afbouw-fase, maar krijgt daar één
 // kortere taak (`Vloerafwerking — Toren C`, 3 werkdagen korter) — dat plaatst toren C's hele keten
 // op precies 3 werkdagen positieve speling, binnen de `nearCriticalThreshold` (3), dus zichtbaar
-// near-critical i.p.v. kritiek. De torenkraan (EQUIPMENT, maxUnits 1 t/m een `availabilitySteps`-
-// capaciteitsstap) wordt door alle drie torens tegelijk bevraagd ⇒ zichtbare, met nivellering
-// oplosbare overallocatie (geen van de bevraagde taken heeft prioriteit 1000).
+// near-critical i.p.v. kritiek.
+//
+// ── Overallocatie: bewust PRECIES TWEE knelpunten ───────────────────────────────────────────
+// De torenkraan (EQUIPMENT, maxUnits 1 t/m een `availabilitySteps`-capaciteitsstap) wordt door
+// alle drie torens tegelijk bevraagd ⇒ zichtbare overallocatie (geen van de bevraagde taken heeft
+// prioriteit 1000). Daarnaast blijft één stukadoorsploeg (LABOR, 3 man) bewust krap voor drie
+// torens afbouw. Alle ÓVERIGE pools zijn expliciet op drie parallelle torens gedimensioneerd en
+// horen schoon te blijven — zie de toelichting bij `resources` onderaan dit bestand; de poort
+// `verify-examples.ts` bewaakt zowel de ondergrens (≥1, de bedoelde les) als de bovengrens (≤2).
 import type { ProjectSpec, TaskSpec, LinkSpec } from './spec';
 
 // ── Extern bronbestand — "Terreininrichting Onderaannemer" (NIET-PUBLIC, §4.2) ─────────────
@@ -604,20 +610,43 @@ export function buildGrootSpec(ext: GrootExternalAnchor): ProjectSpec {
       { name: 'Vergunningnummer', type: 'text' },
       { name: 'KritiekeLevering', type: 'boolean' },
     ],
+    // ── Capaciteit: bewust op DRIE torens tegelijk gedimensioneerd ────────────────────────────
+    // De showcase belooft PRECIES TWEE knelpunten (torenkraan + stukadoors, zie hieronder); alle
+    // andere pools moeten dus schoon blijven. Omdat de drie torens per ontwerp parallel lopen,
+    // is de maatgevende vraag per pool = 3 × de piek van ÉÉN toren (gemeten met de echte
+    // `computeResourceLoad`, per toren afzonderlijk — dus onafhankelijk van hoe de torens
+    // toevallig op de kalender uitlijnen; ook de curves zitten daar al in verwerkt, want een
+    // FRONT_LOADED/BELL-toewijzing concentreert het tempo op enkele dagen). `maxUnits` raakt de
+    // CPM-datums niet (het speelt alleen in het histogram en bij nivellering), dus deze dimensie
+    // is de minst verstorende: kritieke paden, constraints en speling blijven ongewijzigd.
+    // Per pool (piek/toren × 3): Betonvlechters 2×3, Timmerlieden 4×3, Gevelbouwer 2×3,
+    // Liftleverancier 1×3, Tegelzetters 5×3, Keukenmonteurs 3×3, Installateurs 6×3, Schilders 5×3.
+    //
+    // De twee BEDOELDE knelpunten houden hun krappe capaciteit:
+    //  • Torenkraan (EQUIPMENT, 1 stuks t/m de `availabilitySteps`-capaciteitsstap naar 2) —
+    //    de door het ontwerpdoc voorgeschreven overallocatie: één kraan die tussen drie torens
+    //    moet schuiven terwijl de vraag tot 6 kraanposities per dag oploopt.
+    //  • Stukadoors (LABOR, 3 man) — één afbouwploeg die niet op drie torens tegelijk kan staan
+    //    (vraag 9): dezelfde les als in de MIDDEL-showcase, maar op grotere schaal.
+    // Beide knelpunten zijn met de ECHTE nivelleerder volledig oplosbaar (headless gemeten:
+    // 80 overgealloceerde resource-dagen → 0, 0 onopgeloste taken) — conform het ontwerpdoc
+    // ("oplosbaar met nivellering"). Vóór deze dimensionering liepen ook de andere 8 pools over,
+    // waarvan er 4 zelfs ná nivellering bleven staan (de piek van één losse taak overschreed de
+    // pool al) — precies wat die belofte tegensprak.
     resources: [
       { name: 'Ruwbouwploeg', type: 'CREW', maxUnits: 1, description: 'Overkoepelende ruwbouwploeg' },
-      { name: 'Betonvlechters', type: 'LABOR', maxUnits: 4, costPerHour: 44, parent: 'Ruwbouwploeg' },
-      { name: 'Timmerlieden', type: 'LABOR', maxUnits: 4, costPerHour: 45 },
+      { name: 'Betonvlechters', type: 'LABOR', maxUnits: 6, costPerHour: 44, parent: 'Ruwbouwploeg' },
+      { name: 'Timmerlieden', type: 'LABOR', maxUnits: 12, costPerHour: 45 },
       { name: 'Torenkraan', type: 'EQUIPMENT', maxUnits: 1, costPerHour: 120, description: 'Eén torenkraan; tweede kraan later bijgeplaatst',
         steps: [{ fromDay: 130, maxUnits: 2 }] },
       { name: 'Beton C30/37', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
-      { name: 'Gevelbouwer', type: 'SUBCONTRACTOR', maxUnits: 2, costPerHour: 60 },
-      { name: 'Liftleverancier', type: 'SUBCONTRACTOR', maxUnits: 1, costPerHour: 90 },
-      { name: 'Stukadoors', type: 'LABOR', maxUnits: 3, costPerHour: 42 },
-      { name: 'Tegelzetters', type: 'LABOR', maxUnits: 3, costPerHour: 43 },
-      { name: 'Keukenmonteurs', type: 'LABOR', maxUnits: 2, costPerHour: 46 },
-      { name: 'Installateurs', type: 'LABOR', maxUnits: 4, costPerHour: 48 },
-      { name: 'Schilders', type: 'LABOR', maxUnits: 3, costPerHour: 38 },
+      { name: 'Gevelbouwer', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 60 },
+      { name: 'Liftleverancier', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 90 },
+      { name: 'Stukadoors', type: 'LABOR', maxUnits: 3, costPerHour: 42, description: 'Eén stukadoorsploeg voor drie torens — bewust krap (knelpunt 2 van 2)' },
+      { name: 'Tegelzetters', type: 'LABOR', maxUnits: 15, costPerHour: 43 },
+      { name: 'Keukenmonteurs', type: 'LABOR', maxUnits: 9, costPerHour: 46 },
+      { name: 'Installateurs', type: 'LABOR', maxUnits: 18, costPerHour: 48 },
+      { name: 'Schilders', type: 'LABOR', maxUnits: 15, costPerHour: 38 },
     ],
     // Near-critical + float paths (fase 2.9/2.10, golf 2): FREE_FLOAT-peeling levert
     // `criticalPaths.length > 1` op zodra torens A/B exact tied zijn (§3.3-ontwerp hierboven).

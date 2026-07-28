@@ -11,6 +11,190 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
+### Bedrijfsbibliotheken (B1.1) — vervolgen (2026-07-24)
+- [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
+  herkomststempels + Resources-tab Bedrijfsweergave uit B1.1). Zie docs/library.md
+  "Bekende beperkingen".
+- [ ] **Gedeelde opslag/sync** tussen machines (wortel van alle drie de B1.1-beperkingen: pool-
+  divergentie tussen planners, bezettingsoverzicht dat alleen de eigen machine ziet, en
+  stilzwijgend overschrijven tussen twee tabbladen/vensters op dezelfde machine).
+- [ ] **Kalenderpromotie naar de Resources-tab** verhuizen — momenteel een bewuste fase-1-interim
+  in Backstage → Bibliotheek (resourcepromotie/-CRUD is al verhuisd). Zie docs/library.md
+  "Resources-tab: Bedrijfsweergave en Projectweergave".
+- [ ] **Cross-document-plakken verliest resource-toewijzingen stil** (bestaand gedrag van vóór
+  B1.1, herbevestigd in de B1.1-vlootverificatie). Toewijzingen wijzen naar resource-id's van het
+  brondocument; plak je taken in een ánder document, dan blijven die id's onopgelost en verdwijnen
+  de toewijzingen zonder melding. Minstens een melding is de korte-termijn-fix; via de
+  herkomststempels (§spec) zou het ook automatisch kunnen herkoppelen aan dezelfde gedeelde
+  bedrijfspool-resource, mits beide documenten aan hetzelfde bedrijf gebonden zijn.
+- [ ] **Twee gelijknamige bedrijven zijn in selectors niet te onderscheiden.** De
+  bedrijfsselectors (projectinfo, koppeldialoog) tonen alleen de bedrijfsnaam; bij twee bedrijven
+  met dezelfde naam (bv. na hernoemen of dubbele import) valt met het blote oog niet te zien welke
+  van de twee je selecteert. Kandidaat-fix: secundair kenmerk tonen (aanmaakdatum, id-fragment) bij
+  naamcollisie.
+- [ ] **Projectinfo-selector toont visueel "geen bedrijf" bij een binding aan een niet-meer-
+  bestaand bedrijf.** `project.companyId` behoudt de dode id wanneer het gekoppelde bedrijf
+  inmiddels verwijderd is; de selector valt dan terug op "geen bedrijf" i.p.v. de binding zichtbaar
+  als kapot te markeren. Verder onschadelijk (los-gedrag, geen dataverlies) — presentatie-polish.
+- [ ] **Herkenning-performance-schaalgrens bij grote pools (1000+ items).** `computeRecognition()`
+  (LibraryLinkDialog) herberekent bij elke render zonder memoization; bij bedrijfspools met 1000+
+  resources/kalenders kan dat merkbaar worden. Niet gemeten binnen B1.1-scope (pools in de
+  vlootverificatie waren klein); kandidaat-fix: memoiseren op pool-/documentversie zoals elders in
+  de store.
+- [ ] **Undo na ontkoppelen laat een inconsistente tussenstaat achter.** `unbindProject`/
+  `bindProjectToCompany` doen `beginUndoable()`, maar `project.companyId` valt (op `wbsAutoNumber`
+  na) bewust buiten de undo-snapshot (B3-uitzondering in `src/state/snapshot.ts`). Een Ctrl+Z na
+  ontkoppelen zet dus de `libraryOrigin`-stempels terug op een project dat ontkoppeld blíjft. Geen
+  dataverlies (los-gedrag, stempels zijn inert en zelfherstellend bij terugkoppelen), maar wel
+  verwarrend. Gevonden bij de critreview op de ProjectInfo-unificatie (2026-07-25).
+- [ ] **`tests/planning/` typecheckt maar één van de tien check-bestanden.** Er is alleen
+  `tsconfig.roundtrip.json` met `check-ifc-roundtrip.ts` in `include`; de overige negen
+  (`check-advanced-cpm`, `check-calendar-hours`, `check-move-task`, `check-document-contract`, …)
+  worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
+  2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
+  grotere suite.
+- [ ] **Standaardbibliotheek zou een gegenereerd id moeten krijgen i.p.v. de vaste
+  `DEFAULT_COMPANY_ID`-constante** (critreview F1/F8 op pool-import, issue #19). Vrijwel elke
+  installatie heeft hooguit één resourcebibliotheek onder dat vaste id — waardoor `importPoolAsNewCompany`
+  het (terecht) als `isReservedCompanyId` behandelt en er nooit de identiteit uit een geïmporteerd
+  bestand voor behoudt. Praktisch gevolg: een meegestuurd project van een eenpitter-collega (de
+  meest voorkomende situatie) herkent zijn bibliotheek na "toevoegen als nieuwe resourcebibliotheek"
+  niet automatisch — de ontvanger moet de herkenningsstap zelf één keer doorlopen (zie
+  docs/library.md "Bekende beperkingen" en de gebruikersgids). Zou het standaardbedrijf bij de
+  EERSTE start een vers gegenereerd id krijgen (i.p.v. de gedeelde constante), dan werkt automatische
+  herkenning ook voor eenpitters. Vergt een migratie voor bestaande installaties (opgeslagen
+  bibliotheken én de `libraryOrigin`-stempels die al naar `DEFAULT_COMPANY_ID` wijzen) — daarom nu
+  niet gedaan; `DEMO_COMPANY_ID` blijft sowieso bewust vast (idempotente seed, spec-eis).
+- [x] **Niemand heeft gemeten of de MCP-tools de bibliotheekstempels bijwerken.** *(gemeten
+  2026-07-27, geen defect)* Het stempelbeheer blijkt correct: `planner_manage_resources` en
+  `planner_update_calendar` laten `libraryOrigin` met rust en werken `syncedHash` niet bij, op alle
+  drie de routes (direct, via `planner_batch`, en bij aanmaken/verwijderen). Een MCP-wijziging op een
+  gevolgd veld levert dus netjes `deviated` op, een wijziging op `maxUnits` blijft `in-sync` (die zit
+  bewust niet in `RESOURCE_DIFF_FIELDS`), en een resource die de AI in een gekoppeld project aanmaakt
+  wordt projecteigen zonder stempel. Vastgepind in `tests/mcp/cases-bibliotheek.ts` (9 tests,
+  mutatie-getest tegen beide faalvormen). Bijvangst uit die meting: het blind meeschrijven van de
+  hash zou érger zijn dan gedacht — `fileHash === syncedHash` leest als `behind`, en `behind` wordt
+  door `runOpenBoundary` stil ververst naar de poolwaarden, waarmee de AI-bewerking geruisloos zou
+  verdwijnen in plaats van alleen onbevraagd te blijven.
+- [x] **De MCP-bridge mag schrijven waar de gebruiker niet mag — ontwerpbeslissing, geen defect.**
+  *(besloten én gebouwd 2026-07-27: spiegelen)* Volgde uit de meting hierboven. `ResourcePanel`
+  rendert naam, type, tarief/uur en eenheid als platte tekst zodra er een herkomststempel op zit
+  (`isResourceFieldLocked`), en `description` heeft in de projectweergave niet eens een kolom —
+  precies de vijf `RESOURCE_DIFF_FIELDS` die `planner_manage_resources` wél gewoon schreef. De
+  mechaniek klopte, maar de gemeten uitkomst was een afwijkingsdialoog over een wijziging die de
+  gebruiker niet met eigen handen had kúnnen maken; koos hij daar "bibliotheekwaarden gebruiken", dan
+  draaide de AI-bewerking terug. De tool weigert die velden nu op een gestempeld item en noemt de
+  twee routes die wél werken (in de bibliotheek wijzigen, of eerst losmaken); een gemengde update
+  sneuvelt in zijn geheel, zodat er geen half toegepaste stille no-op ontstaat. Gating en UI-slot
+  delen één bron (`onOpenStatusForResource` + `isResourceFieldLocked` + `RESOURCE_DIFF_FIELDS`), en
+  `planner_list_resources` geeft per geërfde rij een `library`-blok (company/status/lockedFields)
+  zodat een assistent het slot ziet in plaats van erin te lopen. De pool zelf is bewust NIET via MCP
+  muteerbaar gemaakt: app-globale data, raakt projecten die niet openstaan, valt buiten de
+  projecthistorie. Kalenders houden hun bestaande gedrag — daar kent de UI geen slot, dus is
+  'deviated' juist de gespiegelde uitkomst.
+- [ ] **"Losmaken van de bibliotheek" als MCP-actie.** Directe vervolgstap op het punt hierboven: de
+  weigering verwijst naar losmaken als de begaanbare route, maar de bridge kan die route alleen
+  bénoemen, niet lopen — de assistent moet de gebruiker vragen het handmatig te doen.
+  `unlinkResourceFromLibrary` bestaat al als store-actie, is projectlokaal en ongedaan te maken.
+  Overwegen: dezelfde actie voor kalenders, en of het een eigen tool wordt of een `action` op
+  `planner_manage_resources`.
+- [ ] **Crash-herstel reset de bibliotheek-UI-vlaggen niet.** `newDocument()`, `closeDocument()`,
+  `newProject()` en `createNewProject()` zetten `ui.showLibraryLinkDialog`/`ui.libraryRefreshNotice`
+  inmiddels alle vier terug (zie de asserts in `tests/library/check-library-slice.ts`), maar
+  `restoreDocuments()` doet dat niet expliciet. Dat pad draait bij het opstarten van de app, vóór
+  enige gebruikersinteractie, dus het risico dat er een vlag uit een vorige sessie overleeft is klein
+  — maar het is niet gemeten en de dialoog rendert onvoorwaardelijk zodra de vlag waar is, dus een
+  blijven-staande vlag toont een leeg koppel-/afwijkingsscherm. Vervolgstap: nagaan of de vlaggen het
+  herstelpad überhaupt kunnen bereiken, en zo ja dezelfde twee regels toevoegen plus een assert.
+- [x] **GROOT-showcase "Nieuwbouw Appartementencomplex De Vaart" overalloceert 10 van zijn 12
+  resources, terwijl het ontwerpdocument expliciet maar 1 belooft.** *(gefixt 2026-07-27)*
+  Oorzaak was inderdaad de generator: `scripts/showcase-groot.ts` dimensioneerde de pools op ÉÉN
+  toren terwijl de drie torens per ontwerp parallel lopen (en de niet-uniforme curves het tempo
+  bovendien op enkele dagen concentreren). Elke pool is nu op de gemeten worst case gezet —
+  3 × de piek van één toren, per toren afzonderlijk gemeten met de echte `computeResourceLoad`:
+  Betonvlechters 4→6, Timmerlieden 4→12, Gevelbouwer 2→6, Liftleverancier 1→3, Tegelzetters 3→15,
+  Keukenmonteurs 2→9, Installateurs 4→18, Schilders 3→15. Torenkraan (1, met capaciteitsstap naar
+  2) en Stukadoors (3) houden bewust hun krappe capaciteit: dat zijn de twee bedoelde knelpunten.
+  Resultaat: 261 → 80 overgealloceerde resource-dagen, 10 → 2 pools; beide resterende knelpunten
+  zijn met de echte nivelleerder volledig oplosbaar (80 → 0 dagen, 0 onopgeloste taken) — vóór de
+  fix bleven er 4 pools zélfs ná nivellering staan. `maxUnits` raakt de CPM-datums niet
+  (resources-design §3), empirisch bevestigd: alle 260 taken houden identieke ES/EF/LS/LF/TF/
+  kritiek-vlaggen en `criticalPaths` blijft 2. De ontbrekende bovengrens is ook gedicht:
+  `scripts/verify-examples.ts` assert nu naast `overalloc.length > 0` óók `<= 2` voor GROOT, met
+  de namen in de foutboodschap; die assert is aantoonbaar rood gezien tegen de oude data.
+
+### MCP-bridge — robuustheid van de server zelf (2026-07-27)
+
+> Gemeten tijdens de eerste echte koppelpoging. Beide punten gaan niet over de tools maar over de
+> schil eromheen: de bridge kan in een toestand raken waarin hij nog luistert maar niets meer
+> beantwoordt, zonder dat iemand dat merkt. Dat is dezelfde faalklasse als de stille no-ops die deze
+> ronde zijn opgeruimd — alleen een laag dieper.
+
+- [ ] **De bridge merkt niet dat het venster erachter weg is.** Gemeten: het venster dat poort 3877
+      bezat had een hot-reload gehad, waardoor de frontend-listeners uit `createBridgeController`
+      verdwenen waren. De Rust-kant bleef luisteren; élke aanvraag liep vast tot de 120s-timeout.
+      Ook een aanvraag **zonder token** — die hoort puur in Rust op een 401 te stranden en raakt de
+      webview helemaal niet — bleef hangen, dus één blokkerend verzoek zet via de serialisatie-mutex
+      ook al het verkeer erachter vast. Een client ziet dan geen fout maar twee minuten stilte.
+      Richtingen: de auth-/Origin-/methode-afwijzingen vóór de mutex afhandelen (die hebben de
+      webview niet nodig), een korte hartslag naar de frontend met een snelle "geen luisteraar"-fout
+      i.p.v. de volledige timeout, en de frontend zijn listeners laten herstellen na een reload.
+      Hot reload bestaat alleen in dev, maar een gecrashte of vastgelopen webview in een echte
+      installatie geeft exact hetzelfde beeld.
+- [ ] **Een tweede app-instantie is onzichtbaar voor de gebruiker.** De dubbele bewaker
+      (`scripts/tauri-dev.mjs`) verhindert twee dev-servers, maar niet twee app-vensters — terwijl de
+      bridge-poort een singleton is. Wie als tweede start krijgt "poort bezet", wat klopt maar niet
+      vertelt dát er al een ander venster luistert (laat staan welk). Waargenomen na een crash van de
+      ontwikkelomgeving: een verweesde instantie hield de poort vast terwijl de gebruiker in een
+      nieuwer venster zat te kijken. Richting: bij "poort bezet" onderzoeken of het onze eigen app is
+      en dat benoemen in de statusmelding.
+
+### IFC-lezer — resterende punten uit de release-review v2026.7.13 (2026-07-27)
+
+> Gevonden bij de hyperkritische review op de releasekandidaat, nadat die twee keer op de
+> `DATA;`-sectiegrens was misgegaan. De blokkerende gevallen zijn gerepareerd en vastgepind in
+> `tests/planning/check-step-strings.ts` (batterij 9); dit zijn de resten die de release niet
+> tegenhielden.
+
+- [ ] **Een rauwe apostrof in een taaknaam in de DATA-sectie verliest nog steeds stil data.** Een
+      handgeschreven of door een derde tool geschreven `#2=IFCTASK('g2',$,'Van 't Hof',…)` levert
+      nul taken op zonder fout: de sectiegrens wórdt gevonden, dus `no-data-section` vuurt niet, en
+      de quote-bewuste entiteitsscan loopt daarna uit de pas. v2026.7.12 gaf hier 2 taken met een
+      verminkte naam. Onze eigen writer produceert dit niet (taaknamen gaan altijd door `ifcStr`),
+      dus eigen bestanden zijn veilig — maar een geïmporteerd bestand kan er zo uitzien. Richting:
+      per entiteit detecteren dat de scan een niet-afgesloten string tegenkomt en dan óf de regel
+      overslaan met een melding, óf de hele lezing als getypeerde fout afkeuren. Niet stil nul.
+- [ ] **De leesfouten zijn hardgecodeerd Nederlands.** `not-step`, `truncated` en `no-data-section`
+      gooien een Nederlandse `message` die via `notify({ detail })` letterlijk in de UI belandt —
+      ook in een Engelse, Japanse of Arabische interface. Richting: de `reason` is al getypeerd, dus
+      een `messageKey` per reason en de vertaling bij de aanroeper.
+- [ ] **De sectiegrens is hoofdlettergevoelig.** `assertIfcIntegrity` uppercase't de kop vóór het
+      vergelijken, maar `indexOfDataSection` niet: een bestand met `data;` valt door de mand. Dat
+      was ook zo vóór deze release; hier alleen genoteerd omdat het in dezelfde functie zit.
+
+### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
+
+> Gevonden tijdens het overzetbaar maken van uurkalenders via de MCP-bridge. Alle drie zijn
+> **beschreven** in de tool-descriptions en met tests vastgepind, dus niets gebeurt stil. De
+> eerste bleek bij nadere inspectie al opgelost (zie hieronder); de resterende twee staan nog open.
+
+- [x] **Een kalender zonder taak of resource verdwijnt bij opslaan+herladen.** *(achterhaald,
+      opgelost door de A2-fix, geverifieerd 2026-07-27)* Dit was voorafbestaand gedrag (`ifcReader.
+      extractCalendarLibrary` bouwde de bibliotheek uitsluitend uit `IFCRELASSIGNSTOCONTROL`-
+      relaties), maar B1.1 heeft de beperking al opgeheven: de A2-fix in `extractCalendarLibrary`
+      vangt nu ook alle overige `IFCWORKCALENDAR`-entiteiten op (behalve de projectkalender) die
+      geen relatie hebben — nodig omdat een naar de bibliotheek gepromote kalender anders zijn
+      `libraryOrigin`-stempel verloor. Empirisch bevestigd met een write→read round-trip van een
+      project met een kalender zonder enige taak/resource-koppeling: de kalender komt terug met
+      naam en uren intact.
+- [ ] **Per weekdag verschillende uurbanden overleven een round-trip niet.** IFC draagt één
+      werkweek-patroon, dus alle werkdagen krijgen bij herladen de banden van de eerste werkdag —
+      een korte vrijdag komt terug als kopie van maandag. Zelfde route als hierboven zou dit ook
+      oplossen.
+- [ ] **Wélke kalender de projectdefault is, kan de bridge niet wisselen** (de inhoud ervan wel, via
+      het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
+      of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
+
 ### Solver/presentatie — resterende punten (2026-07-20)
 
 > De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
@@ -53,6 +237,18 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
+- [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
+      issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
+      maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
+      moet compleet zijn. Daar bestaan dus álle `rows * cols` pagina-canvassen tegelijk vóór de
+      omzetting naar JPEG, op `SUPERSAMPLE = 2`. Een A3-vel is daarmee ~2382×1684×4 ≈ 16 MB; het
+      gemeten scenario van 300 taken met `timelineColumns: 8` (20 rijen × 8 kolommen = 160 pagina's)
+      komt op ~2,5 GB. Let op wanneer dit toeslaat: raster is de `catch`-terugval van de vector-tak,
+      dus precies op het moment dat de vector-export net gefaald is. `MAX_TIMELINE_COLUMNS = 32`
+      begrenst het wel, maar staat nog steeds honderden pagina's toe. Pre-existing gedrag, geen
+      regressie van #25 — dat werk maakte het pad alleen makkelijker bereikbaar (één dropdown i.p.v.
+      een handmatige zoominstelling). Fix-richting: pagina's streamend omzetten naar JPEG en het
+      canvas per pagina vrijgeven i.p.v. ze allemaal vast te houden, of één pagina-canvas hergebruiken.
 - [ ] **Undo-stack heeft geen limiet.** Gemeten 2026-07-20: 64 MB na 500 taakbewerkingen bij een
       project van 500 taken (elke snapshot is een volledige deep clone). Er staat nergens een
       `.slice`/`.shift` op `undoStack`. Sinds project-mutaties ook snapshots pushen (2026-07-20) is

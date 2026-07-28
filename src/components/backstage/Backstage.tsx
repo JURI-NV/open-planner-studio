@@ -1,18 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, FileText, FolderOpen, Clock, Save, SaveAll, Download,
-  Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy,
+  Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy, Building2,
 } from 'lucide-react';
 import { useAppStore, ExportFormat } from '@/state/appStore';
 import { BackstageSection } from '@/state/slices/types';
 import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent';
-import { DateTextInput } from '@/components/common/DateTextInput';
+import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/components/settings/ProjectInfoPanelContent';
 import { ExtensionManagerPanel } from '@/components/backstage/ExtensionManagerPanel';
 import { HelpPanel } from '@/components/backstage/HelpPanel';
+import { LibrarySection } from './LibrarySection';
+import { ExtensionIcon } from '@/components/common/ExtensionIcon';
 import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
+import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import './Backstage.css';
 
 export function Backstage() {
@@ -64,6 +67,7 @@ export function Backstage() {
         <NavItem icon={<Info size={14} />} label={tMenu('ribbon.projectInfo')} active={section === 'project-info'} onClick={() => goTo('project-info')} />
         <NavItem icon={<Settings size={14} />} label={tMenu('backstage.settings')} active={section === 'settings'} onClick={() => goTo('settings')} />
         <NavItem icon={<Puzzle size={14} />} label={tMenu('extensions.title')} active={section === 'extensions'} onClick={() => goTo('extensions')} />
+        <NavItem icon={<Building2 size={14} />} label={tMenu('backstage.library')} active={section === 'library'} onClick={() => goTo('library')} />
 
         <div className="backstage-nav-divider" />
 
@@ -97,6 +101,7 @@ export function Backstage() {
         {section === 'project-info' && <ProjectInfoSection onApply={closeBackstage} />}
         {section === 'settings' && <SettingsSection />}
         {section === 'extensions' && <ExtensionsSection />}
+        {section === 'library' && <LibrarySection />}
         {section === 'help' && <HelpSection />}
       </main>
     </div>
@@ -241,6 +246,9 @@ function ExamplesSection() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
       openExampleFromString(content, ex.name);
+      // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): NA het
+      // laden (openExampleFromString laadt bewust LOS), VOOR runCPM.
+      if (ex.category === 'showcase') applyDemoLibraryToShowcaseProject();
       runCPM();
       setUI({ activeRibbonTab: 'start' });
     } catch (err) {
@@ -322,8 +330,19 @@ function ExamplesSection() {
 
 function ExportSection() {
   const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const exportAs = useAppStore(s => s.exportAs);
+  const exportProjectWithPool = useAppStore(s => s.exportProjectWithPool);
   const setUI = useAppStore(s => s.setUI);
+  const companyId = useAppStore(s => s.project.companyId);
+  const [alsoPool, setAlsoPool] = useState(false);
+
+  // Geen stale true laten hangen als het project z'n bedrijfskoppeling verliest (bijv. door te
+  // wisselen naar een ongekoppeld document) — anders blijft het vinkje aan staan voor een checkbox
+  // die niet eens meer zichtbaar is.
+  useEffect(() => {
+    if (!companyId) setAlsoPool(false);
+  }, [companyId]);
 
   const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = [
     { format: 'csv',   label: tMenu('export.csvLabel'),   desc: tMenu('export.csvDesc'),   icon: 'CSV' },
@@ -332,8 +351,25 @@ function ExportSection() {
     { format: 'ifc',   label: tMenu('export.ifcLabel'),   desc: tMenu('export.ifcDesc'),   icon: 'IFC' },
   ];
 
-  const handleExport = (format: ExportFormat) => {
-    void exportAs(format);
+  // K7: bij een cyclische planning geeft exportAs { ok: false } met cpmResult.error terug.
+  // Backstage vervangt de hele body, dus GanttCanvas is hier niet gemonteerd en de cyclus-toast
+  // (die in GanttCanvas leeft) vuurt niet — toon de fout daarom zelf in de bestaande
+  // backstage-stijl. Tussenstand: K8 trekt dit foutkanaal samen tot één toast in uiSlice.
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExport = async (format: ExportFormat) => {
+    // Pool-ernaast geldt alleen voor de IFC-kaart (spec §4: het is een IFC-tweede-bestand, geen
+    // embed in CSV/MSPDI/P6). Bij een ander formaat blijft het bestaande pad ongemoeid. Beide
+    // paden geven hetzelfde ExportResult terug, dus de K7-foutafhandeling geldt voor allebei.
+    const result = format === 'ifc' && alsoPool
+      ? await exportProjectWithPool()
+      : await exportAs(format);
+    if (!result.ok) {
+      // Blijf in Backstage zodat de fout zichtbaar is; ga niet terug naar het Start-tab.
+      setExportError(result.error);
+      return;
+    }
+    setExportError(null);
     setUI({ activeRibbonTab: 'start' });
   };
 
@@ -341,9 +377,12 @@ function ExportSection() {
     <>
       <h2 className="backstage-title">{tMenu('backstage.exportTitle')}</h2>
       <p className="backstage-subtitle">{tMenu('backstage.exportSubtitle')}</p>
+      {exportError && (
+        <div className="backstage-empty">{exportError}</div>
+      )}
       <div className="backstage-export-grid">
         {formats.map(f => (
-          <button key={f.format} className="backstage-export-card" onClick={() => handleExport(f.format)}>
+          <button key={f.format} className="backstage-export-card" onClick={() => void handleExport(f.format)}>
             <span className="backstage-export-icon">{f.icon}</span>
             <span className="backstage-export-info">
               <h4>{f.label}</h4>
@@ -352,6 +391,12 @@ function ExportSection() {
           </button>
         ))}
       </div>
+      {companyId && (
+        <label className="flex items-center gap-2 mt-1 text-xs">
+          <input type="checkbox" checked={alsoPool} onChange={e => setAlsoPool(e.target.checked)} className="accent-accent" />
+          <span>{tCommon('companyLibrary.exportWithPool')}</span>
+        </label>
+      )}
     </>
   );
 }
@@ -388,20 +433,7 @@ function PrintSection({ onClose }: { onClose: () => void }) {
 function ProjectInfoSection({ onApply }: { onApply: () => void }) {
   const { t: tMenu } = useTranslation('menu');
   const { t: tCommon } = useTranslation('common');
-  const project = useAppStore(s => s.project);
-  const setProject = useAppStore(s => s.setProject);
-
-  const [name, setName] = useState(project.name);
-  const [description, setDescription] = useState(project.description);
-  const [author, setAuthor] = useState(project.author);
-  const [company, setCompany] = useState(project.company);
-  const [startDate, setStartDate] = useState(project.startDate);
-  const [endDate, setEndDate] = useState(project.endDate);
-
-  const apply = () => {
-    setProject({ name, description, author, company, startDate, endDate });
-    onApply();
-  };
+  const panelRef = useRef<ProjectInfoPanelContentHandle>(null);
 
   return (
     <>
@@ -409,40 +441,10 @@ function ProjectInfoSection({ onApply }: { onApply: () => void }) {
       <p className="backstage-subtitle">{tMenu('backstage.projectInfoSubtitle')}</p>
 
       <div className="backstage-form">
-        <div className="backstage-form-row">
-          <label>{tMenu('backstage.name')}</label>
-          <input value={name} onChange={e => setName(e.target.value)} />
-        </div>
-
-        <div className="backstage-form-row">
-          <label>{tMenu('backstage.description')}</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} />
-        </div>
-
-        <div className="backstage-form-grid-2">
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.author')}</label>
-            <input value={author} onChange={e => setAuthor(e.target.value)} />
-          </div>
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.company')}</label>
-            <input value={company} onChange={e => setCompany(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="backstage-form-grid-2">
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.startDate')}</label>
-            <DateTextInput value={startDate} onCommit={setStartDate} ariaLabel={tMenu('backstage.startDate')} />
-          </div>
-          <div className="backstage-form-row">
-            <label>{tMenu('backstage.endDate')}</label>
-            <DateTextInput value={endDate} onCommit={setEndDate} ariaLabel={tMenu('backstage.endDate')} />
-          </div>
-        </div>
+        <ProjectInfoPanelContent ref={panelRef} mode="edit" onDone={onApply} />
 
         <div className="backstage-actions">
-          <button className="btn btn--primary" onClick={apply}>{tCommon('apply')}</button>
+          <button className="btn btn--primary" onClick={() => panelRef.current?.submit()}>{tCommon('apply')}</button>
         </div>
       </div>
     </>
@@ -509,7 +511,9 @@ function ImportSection() {
         <div className="backstage-export-grid">
           {importers.map(imp => (
             <button key={`${imp.extensionId}:${imp.id}`} className="backstage-export-card" onClick={() => handleImport(imp)}>
-              <span className="backstage-export-icon">{imp.icon ? <span dangerouslySetInnerHTML={{ __html: imp.icon }} /> : <Upload size={20} />}</span>
+              {/* K6a: importer-iconen komen uit draaiende extensiecode — hygiëne, maar loopt
+                  langs dezelfde sanitizer als de manifest-iconen. */}
+              <span className="backstage-export-icon"><ExtensionIcon raw={imp.icon} fallback={<Upload size={20} />} /></span>
               <span className="backstage-export-info">
                 <h4>{imp.name}</h4>
                 <p>{imp.description} ({imp.fileExtensions.join(', ')})</p>

@@ -1,5 +1,5 @@
 import { createSnapshot, restoreSnapshot, type Snapshot } from '../snapshot';
-import { resetUndoCoalescing } from '../transaction';
+import { resetUndoCoalescing, pushUndoSnapshot } from '../transaction';
 import type { AppSlice } from './types';
 
 export interface HistorySlice {
@@ -29,7 +29,8 @@ export const createHistorySlice: AppSlice<HistorySlice> = (set, get) => ({
     resetUndoCoalescing(); // idem als bij undo — zie daar.
     set((s) => {
       if (s.redoStack.length === 0) return;
-      s.undoStack.push(createSnapshot(s));
+      // Via de helper, zodat de MAX_UNDO-grens en het coalesce-volgnummer op één plek blijven.
+      pushUndoSnapshot(s);
       restoreSnapshot(s, s.redoStack.pop()!);
     });
     get().recomputeViewRows();

@@ -73,8 +73,8 @@ const setDur = (id: string, d: number) => {
 setDur(a.id, 2);
 setDur(b.id, 12);
 setDur(c.id, 2);
-S().addSequence({ predecessorId: a.id, successorId: c.id, type: 'FINISH_START' });
-S().addSequence({ predecessorId: b.id, successorId: c.id, type: 'FINISH_START' });
+S().addSequence({ predecessorId: a.id, successorId: c.id, type: 'FINISH_START', lagDays: 0 });
+S().addSequence({ predecessorId: b.id, successorId: c.id, type: 'FINISH_START', lagDays: 0 });
 S().runCPM();
 
 const floatTask = S().tasks.find((t) => t.id === a.id)!;

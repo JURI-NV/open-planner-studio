@@ -202,7 +202,57 @@ interface Case {
     unresolvedTasks?: string[];   // namen aanwezig in result.unresolved (verzameling)
     reasons?: Record<string, string>; // taaknaam → verwachte reden
   };
-  expect: any;
+  /** Vrije toelichting in het casusbestand — puur documentatie, de harness doet er niets mee. */
+  note?: string;
+  expect?: CaseExpect;
+}
+
+// ── Verwachtingen ────────────────────────────────────────────────────────────────────────────────
+// Dit was tot bevinding K10b `expect: any`, en `any` betekende: geen enkele controle. Een typefout
+// in een sleutel (`projectEndd`) liet het bijbehorende assertieblok stil verdwijnen — de casus bleef
+// groen zónder ook maar iets te toetsen. Het type hieronder legt de vorm vast; de RUNTIME-controle
+// (`validateCaseKeys`, onderaan) maakt van een onbekende sleutel een harde fout, want de casussen
+// komen uit JSON en glippen dus langs elke compile-tijd-controle.
+
+/** Per-taak-velden; de sleutels spiegelen `readTask`/`KEYMAP`. */
+interface TaskExpect {
+  es?: string; ef?: string; ls?: string; lf?: string;
+  tf?: number; ff?: number; intf?: number;
+  crit?: boolean; nearCrit?: boolean;
+  floatPath?: number;
+}
+
+interface CaseExpect {
+  /** true ⇒ verwacht een fout; string ⇒ substring in de foutmelding; false ⇒ verwacht géén fout. */
+  error?: boolean | string;
+  tasks?: Record<string, TaskExpect>;
+  /** Verzamelingen van taaknamen (volgorde-onafhankelijk vergeleken). */
+  criticalPathSet?: string[];
+  nearCriticalSet?: string[];
+  hammockNoFinishDriversSet?: string[];
+  violatedConstraintsSet?: string[];
+  missedDeadlinesSet?: string[];
+  /** Verzamelingen van relatie-triples [voorganger, opvolger, type]. */
+  drivingSet?: string[][];
+  truncatedLeadSet?: string[][];
+  outOfSequenceSet?: string[][];
+  /** Float-path-nummer per taaknaam; kritieke ketens als verzameling-van-verzamelingen. */
+  floatPaths?: Record<string, number>;
+  criticalPaths?: string[][];
+  projectEnd?: string;
+  projectDuration?: number;
+  projectStartDate?: string;
+  /** Datums in de ACTIEVE baseline, per taaknaam. */
+  baselineTasks?: Record<string, { start?: string; finish?: string; duration?: number }>;
+  scheduleStale?: boolean;
+  calendarInvariant?: boolean;
+  /** resourcenaam → ISO-dag → belasting; resourcenaam → overbelaste dagen (verzameling). */
+  load?: Record<string, Record<string, number>>;
+  overallocatedDays?: Record<string, string[]>;
+  variance?: {
+    rows?: Record<string, Record<string, unknown>>;
+    projectEndDelta?: number;
+  };
 }
 
 type AfterOp =
@@ -1067,17 +1117,127 @@ function runCase(c: Case) {
   return { id: c.id, title: c.title, pass: diffs.length === 0, diffs };
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+//  SCHEMACONTROLE OP DE CASUS-JSON (bevinding K10b)
+//
+//  De casussen komen uit JSON en gaan dus als `any` het typesysteem binnen: geen enkele sleutel
+//  wordt bij het lezen gecontroleerd. Elke OPTIONELE sleutel gedroeg zich daardoor hetzelfde bij een
+//  typefout — stil weg. `previewExpectt` liet het complete preview-assertieblok verdwijnen (casus
+//  blijft groen, toetst niets meer); `linkss` gooide de relaties weg, waarna de casus een ánder
+//  scenario doorrekende dan bedoeld en de verwachtingen daar toevallig bij konden passen.
+//
+//  Daarom: een onbekende sleutel — op casus-niveau, in `expect` of in `expect.tasks[naam]` — is een
+//  HARDE fout, met bestand, casusnaam en de onbekende sleutel erbij.
+//
+//  De sleutel-tabellen zijn `satisfies Record<keyof X, true>`: een nieuw veld op `Case`/`CaseExpect`
+//  moet hier óók worden opgevoerd (anders compile-fout in tsconfig.tests.json), en een sleutel die
+//  op het type niet bestaat wordt door de excess-property-controle geweigerd. Zo kunnen de tabel en
+//  het type niet uit elkaar lopen.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+const CASE_KEYS = {
+  id: true, title: true, note: true,
+  calendar: true, anchor: true, calendars: true,
+  resources: true, codes: true, customFields: true,
+  view: true, sourceParity: true,
+  statusDate: true, scheduleOptions: true, schedulingOptions: true,
+  tasks: true, links: true,
+  level: true, levelPreview: true,
+  baseline: true, varianceMutations: true,
+  afterCPM: true, previewExpect: true,
+  expect: true,
+} satisfies Record<keyof Case, true>;
+
+const EXPECT_KEYS = {
+  error: true, tasks: true,
+  criticalPathSet: true, nearCriticalSet: true, hammockNoFinishDriversSet: true,
+  violatedConstraintsSet: true, missedDeadlinesSet: true,
+  drivingSet: true, truncatedLeadSet: true, outOfSequenceSet: true,
+  floatPaths: true, criticalPaths: true,
+  projectEnd: true, projectDuration: true, projectStartDate: true,
+  baselineTasks: true, scheduleStale: true, calendarInvariant: true,
+  load: true, overallocatedDays: true, variance: true,
+} satisfies Record<keyof CaseExpect, true>;
+
+const TASK_EXPECT_KEYS = {
+  es: true, ef: true, ls: true, lf: true,
+  tf: true, ff: true, intf: true,
+  crit: true, nearCrit: true, floatPath: true,
+} satisfies Record<keyof TaskExpect, true>;
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+/** Eigen sleutel? (`in` zou ook `toString` & co. accepteren.) */
+const known = (table: object, key: string): boolean => Object.prototype.hasOwnProperty.call(table, key);
+
+/** Schemafouten van één casus; lege lijst = schoon. */
+function validateCaseKeys(file: string, raw: unknown, index: number): string[] {
+  const errs: string[] = [];
+  if (!isPlainObject(raw)) return [`${file}: casus #${index} is geen object`];
+  const id = typeof raw.id === 'string' ? raw.id : `#${index}`;
+  const title = typeof raw.title === 'string' ? ` — ${raw.title}` : '';
+  const where = `${file}: casus [${id}]${title}`;
+
+  for (const k of Object.keys(raw)) {
+    if (!known(CASE_KEYS, k)) errs.push(`${where}: onbekende sleutel "${k}" op casus-niveau`);
+  }
+
+  const exp = raw.expect;
+  if (exp !== undefined) {
+    if (!isPlainObject(exp)) {
+      errs.push(`${where}: "expect" is geen object`);
+    } else {
+      for (const k of Object.keys(exp)) {
+        if (!known(EXPECT_KEYS, k)) errs.push(`${where}: onbekende sleutel "${k}" in expect`);
+      }
+      const tasks = exp.tasks;
+      if (tasks !== undefined) {
+        if (!isPlainObject(tasks)) {
+          errs.push(`${where}: "expect.tasks" is geen object`);
+        } else {
+          for (const [taskName, want] of Object.entries(tasks)) {
+            if (!isPlainObject(want)) {
+              errs.push(`${where}: "expect.tasks.${taskName}" is geen object`);
+              continue;
+            }
+            for (const k of Object.keys(want)) {
+              if (!known(TASK_EXPECT_KEYS, k))
+                errs.push(`${where}: onbekende sleutel "${k}" in expect.tasks."${taskName}"`);
+            }
+          }
+        }
+      }
+    }
+  }
+  return errs;
+}
+
 const files = process.argv.slice(2);
 let grandPass = 0;
 let grandTotal = 0;
 let anyFail = false;
 for (const file of files) {
   const data = JSON.parse(readFileSync(file, 'utf8'));
-  const cases: Case[] = data.cases ?? [];
   const name = file.replace(/^.*\/cases-/, '').replace(/\.json$/, '');
+  if (data?.cases !== undefined && !Array.isArray(data.cases)) {
+    console.log(`XX ${name}: "cases" is geen array`);
+    anyFail = true;
+    continue;
+  }
+  const cases: Case[] = data.cases ?? [];
   // Een leeg/sleutelloos casusbestand mag niet stil als "0/0 groen" passeren.
   if (cases.length === 0) {
     console.log(`XX ${name}: GEEN cases (leeg of ontbrekende "cases"-sleutel)`);
+    anyFail = true;
+    continue;
+  }
+  // Schemacontrole vóór het rekenen: een typefout in een sleutel mag nooit stil een assertieblok
+  // laten verdwijnen. Bij fouten draaien we de batterij bewust NIET — het resultaat zou toch niet
+  // betekenen wat het lijkt te betekenen.
+  const schemaErrs = cases.flatMap((c, i) => validateCaseKeys(name, c, i));
+  if (schemaErrs.length > 0) {
+    console.log(`XX ${name}: ${schemaErrs.length} schemafout(en) — batterij niet gedraaid`);
+    for (const e of schemaErrs) console.log(`   - ${e}`);
     anyFail = true;
     continue;
   }

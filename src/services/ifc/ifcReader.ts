@@ -6,11 +6,13 @@ import { Project, SchedulingOptions } from '@/types/project';
 import { WorkCalendar, Holiday, CalendarGeneration } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { HolidayCountry } from '@/engine/calendar/holidays';
+import type { LibraryOrigin } from '@/types/library';
 import { ActivityCodeType, CustomFieldDef, CustomFieldValue } from '@/types/structure';
 import { Baseline, BaselineTask } from '@/types/baseline';
 import { generateId } from '@/utils/id';
 import { formatDate, formatInstant, parseInstant } from '@/utils/dateUtils';
 import { ifcGuid } from './ifcWriter';
+import { IfcParseError } from './ifcErrors';
 import type { ImportResult } from '@/services/importTypes';
 import {
   DEFAULT_PRIORITY, IFC_TIME_ANCHOR, MEASURE_TO_FIELD, IFC_TO_RESOURCE_TYPE,
@@ -38,8 +40,48 @@ interface StepEntity {
   raw: string;
 }
 
+// ── Integriteitscontract (bevinding K4) ────────────────────────────────────────────────────────
+// `readIFC` had geen enkel contract: alles wat er niet uit te halen viel werd stil een leeg
+// project. Precies dát maakte een afgekapte auto-save-snapshot onzichtbaar. De minimale,
+// formaat-eigen controle: een STEP-uitwisselingsbestand BEGINT met `ISO-10303-21;` en EINDIGT met
+// `END-ISO-10303-21;` (ISO 10303-21 §5). Ontbreekt de kop, dan is het geen STEP-bestand; ontbreekt
+// de sluitmarkering, dan is de tekst afgekapt — het enige signaal dat een half weggeschreven
+// bestand überhaupt afgeeft. Bewust GEEN inhoudelijke drempel (zoals "minstens één taak"): een
+// leeg-maar-echt project — verse wizard met kalender en resources — is legitiem, en zou anders bij
+// crashherstel als onbruikbaar worden weggegooid.
+const STEP_HEADER = 'ISO-10303-21;';
+const STEP_TERMINATOR = 'END-ISO-10303-21;';
+/** Hoeveel tekens vanaf het EIND we afzoeken naar de sluitmarkering (die staat er per definitie). */
+const TERMINATOR_PROBE = 4096;
+
+/**
+ * Werp een {@link IfcParseError} als `content` geen compleet STEP-bestand is. Tolerant waar het
+ * mag (BOM, witruimte vóór de kop, kleine letters), streng waar het moet (kop én sluitmarkering).
+ */
+export function assertIfcIntegrity(content: string): void {
+  // Kop: BOM en voorafgaande witruimte overslaan zonder de hele tekst te kopiëren (bestanden zijn
+  // megabytes groot; `trimStart()` zou er een kopie van maken).
+  let i = content.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (i < content.length && isSpaceCode(content.charCodeAt(i))) i++;
+  if (content.slice(i, i + STEP_HEADER.length).toUpperCase() !== STEP_HEADER) {
+    throw new IfcParseError(
+      'not-step',
+      `Geen IFC/STEP-bestand: de verplichte kop '${STEP_HEADER}' ontbreekt.`,
+    );
+  }
+  if (!content.slice(-TERMINATOR_PROBE).toUpperCase().includes(STEP_TERMINATOR)) {
+    throw new IfcParseError(
+      'truncated',
+      `Onvolledig IFC-bestand: de afsluitende '${STEP_TERMINATOR}' ontbreekt — ` +
+      'de tekst is afgekapt (bijvoorbeeld door een crash tijdens het schrijven).',
+    );
+  }
+}
+
 /** Parse an IFC STEP file into the internal model */
 export function readIFC(content: string): ImportResult {
+  // Eerst de integriteitspoort: liever een expliciete fout dan een stil half project (K4).
+  assertIfcIntegrity(content);
   const entities = parseSTEP(content);
   const entityMap = new Map<string, StepEntity>();
   for (const e of entities) {
@@ -72,8 +114,9 @@ export function readIFC(content: string): ImportResult {
   // projecteert ze terug op elke taak. Deterministische, gede-dupliceerde volgorde (eerste-zien in
   // de assignments-volgorde, die op zijn beurt uit de STEP-volgorde komt).
   reconstructResourceIds(tasks, assignments);
+  const libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined } = { value: undefined };
   const { activityCodeTypes, customFieldDefs } = extractStructure(
-    entities, entityMap, project, tasks, taskStepIdMap,
+    entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
   );
   // Fase 3 (P11): OPS_Leveling wordt nu binnen extractStructure via de per-taak-registry gedispatcht
   // (samen met de andere zeven per-taak-psets) — geen losse extractLevelingMeta-aanroep meer.
@@ -93,29 +136,217 @@ export function readIFC(content: string): ImportResult {
     project, calendar, tasks, sequences, resources, assignments,
     activityCodeTypes, customFieldDefs, resourceCalendars,
     baselines, activeBaselineId,
+    libraryPool: libraryPoolOut.value,
   };
+}
+
+// ── STEP-tekstscan: één quote-bewuste toestandsmachine voor álle lagen (bevinding K2) ───────────
+// De parser was string-ONVEILIG in drie lagen, elk met een eigen quote-BLINDE truc:
+//   1. sectie-split      `content.split('DATA;')[1]?.split('ENDSEC;')[0]`
+//   2. commentaar-strip  een globale `/*…*/`-regex
+//   3. entity-regex      non-greedy tot de EERSTE `);`
+// `);`, `(…)`, `/* */` en zelfs `ENDSEC;` zijn normale Nederlandse plantekst ("Fase 1 (ruwbouw);
+// fase 2"), dus alle drie kapten stil planningsdata af — het ergst bij (3): een afgekapte IFCTASK
+// verliest zijn TaskTime-ref en valt terug op de DEFAULT-duur, waardoor de planning bij opslaan en
+// heropenen zonder enig signaal verandert. `splitArgs` kende `inString` wél, maar draaide pas ná de
+// truncatie en kon het niet meer redden. Alle lagen draaien nu op `skipQuotedOrComment` hieronder.
+// De scan blijft lineair: één pas over de tekst, geen index of terugsprongen.
+
+const CH_QUOTE = 39;   // '
+const CH_STAR = 42;    // *
+const CH_SLASH = 47;   // /
+const CH_HASH = 35;    // #
+const CH_LPAREN = 40;  // (
+const CH_RPAREN = 41;  // )
+const CH_SEMI = 59;    // ;
+const CH_EQ = 61;      // =
+const CH_E = 69;       // E
+
+/** Woordteken (`\w` van de oude entity-regex): letters, cijfers, `_`. */
+function isWordCode(c: number): boolean {
+  return (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95;
+}
+/** Witruimte (`\s`, ASCII-deel — STEP kent geen unicode-witruimte buiten strings). */
+function isSpaceCode(c: number): boolean {
+  return c === 32 || (c >= 9 && c <= 13);
+}
+
+/**
+ * DÉ plek waar de STEP-quoteregels worden geïnterpreteerd. Staat `i` op het begin van een
+ * stringliteral (`'…'`, met `''` als ontsnapte apostrof — precies wat `splitArgs` en `stripQuotes`
+ * al aanhouden) of van een `/* … *\/`-commentaar, geef dan de index DIRECT ERNA; anders `-1`.
+ * Een niet-afgesloten string/commentaar loopt door tot het einde van de tekst (tolerant, net als de
+ * oude regex, die zulke invoer simpelweg niet matchte).
+ */
+function skipQuotedOrComment(text: string, i: number): number {
+  const c = text.charCodeAt(i);
+  if (c === CH_QUOTE) {
+    for (let j = i + 1; j < text.length; j++) {
+      if (text.charCodeAt(j) !== CH_QUOTE) continue;
+      if (text.charCodeAt(j + 1) === CH_QUOTE) { j++; continue; } // '' = ontsnapte apostrof
+      return j + 1;
+    }
+    return text.length;
+  }
+  if (c === CH_SLASH && text.charCodeAt(i + 1) === CH_STAR) {
+    const end = text.indexOf('*/', i + 2);
+    return end < 0 ? text.length : end + 2;
+  }
+  return -1;
+}
+
+/** Zoek `token` op CODE-niveau: voorkomens binnen een stringliteral of commentaar tellen niet mee. */
+function indexOfCode(text: string, token: string, from: number): number {
+  const first = token.charCodeAt(0);
+  for (let i = from; i < text.length;) {
+    const c = text.charCodeAt(i);
+    if (c === CH_QUOTE || c === CH_SLASH) {
+      const skip = skipQuotedOrComment(text, i);
+      if (skip >= 0) { i = skip; continue; }
+    }
+    if (c === first && text.startsWith(token, i)) return i;
+    i++;
+  }
+  return -1;
+}
+
+/** Verwijder `/* … *\/`-commentaar, maar uitsluitend BUITEN stringliterals. Geen commentaar in de
+ *  tekst (het gangbare geval — onze eigen writer schrijft er geen) ⇒ de tekst gaat onaangeroerd
+ *  terug, zonder kopie. */
+function stripStepComments(text: string): string {
+  if (text.indexOf('/*') < 0) return text;
+  let out = '';
+  let copiedFrom = 0;
+  for (let i = 0; i < text.length;) {
+    const c = text.charCodeAt(i);
+    if (c === CH_QUOTE) { i = skipQuotedOrComment(text, i); continue; } // string verbatim houden
+    if (c === CH_SLASH && text.charCodeAt(i + 1) === CH_STAR) {
+      out += text.slice(copiedFrom, i);
+      i = skipQuotedOrComment(text, i);
+      copiedFrom = i;
+      continue;
+    }
+    i++;
+  }
+  return out + text.slice(copiedFrom);
+}
+
+/**
+ * Lees één `#id=TYPE(args);` vanaf `at` en zet 'm in `out`. Geeft de index NÁ de puntkomma terug,
+ * of `-1` als het geen complete entiteit is — dan schuift de scan één teken op, precies zoals de
+ * oude regex over onbegrepen tekst heen liep. De sluithaak wordt op HAAKDIEPTE gezocht met
+ * `skipQuotedOrComment` erlangs, zodat een `);` binnen een taaknaam of notitie de entiteit niet
+ * meer afkapt.
+ */
+function readEntity(text: string, at: number, out: StepEntity[]): number {
+  const n = text.length;
+  let i = at + 1;
+  const idStart = i;
+  while (i < n && isWordCode(text.charCodeAt(i))) i++;
+  if (i === idStart) return -1;
+  const id = text.slice(idStart, i);
+
+  while (i < n && isSpaceCode(text.charCodeAt(i))) i++;
+  if (text.charCodeAt(i) !== CH_EQ) return -1;
+  i++;
+  while (i < n && isSpaceCode(text.charCodeAt(i))) i++;
+
+  const typeStart = i;
+  while (i < n && isWordCode(text.charCodeAt(i))) i++;
+  if (i === typeStart) return -1;
+  const type = text.slice(typeStart, i);
+
+  while (i < n && isSpaceCode(text.charCodeAt(i))) i++;
+  if (text.charCodeAt(i) !== CH_LPAREN) return -1;
+  const argsStart = i + 1;
+
+  let depth = 0;
+  let argsEnd = -1;
+  while (i < n) {
+    const c = text.charCodeAt(i);
+    if (c === CH_QUOTE || c === CH_SLASH) {
+      const skip = skipQuotedOrComment(text, i);
+      if (skip >= 0) { i = skip; continue; }
+    }
+    if (c === CH_LPAREN) depth++;
+    else if (c === CH_RPAREN) {
+      depth--;
+      if (depth === 0) { argsEnd = i; i++; break; }
+    }
+    i++;
+  }
+  if (argsEnd < 0) return -1;
+
+  while (i < n && isSpaceCode(text.charCodeAt(i))) i++;
+  if (text.charCodeAt(i) !== CH_SEMI) return -1;
+  i++;
+
+  out.push({
+    id,
+    type: type.toUpperCase(),
+    args: splitArgs(text.slice(argsStart, argsEnd)),
+    raw: text.slice(at, i),
+  });
+  return i;
+}
+
+/**
+ * Begin van de datasectie: de offset van het `DATA;`-token dat de sectiegrens vormt, of −1.
+ *
+ * TWEE POGINGEN, in deze volgorde — de volgorde ís de bevinding.
+ *
+ *  1. **Quote- en commentaar-bewust** (`indexOfCode`). Dit is de juiste scan voor élk syntactisch
+ *     geldig STEP-bestand: hij slaat `DATA;` binnen een header-string of binnen een `/* … *\/`
+ *     over, en hij is ongevoelig voor opmaak — een bestand zónder één regeleinde (volkomen legaal;
+ *     regeleindes zijn witruimte, geen syntaxis), `ENDSEC;DATA;` op één regel, of witruimte als
+ *     form feed / vertical tab / NBSP vóór het token.
+ *  2. **Regel-verankerd**, alleen als (1) niets vond. Dat gebeurt bij LEGACY-bestanden: onze writer
+ *     schreef t/m v2026.7.12 naam/auteur/bedrijf rauw in `FILE_NAME(...)`, dus een project
+ *     "Van 't Hof Toren" levert daar een ONGEBALANCEERDE apostrof op. De quote-bewuste scan loopt
+ *     daarop de rest van het bestand uit de pas en vindt niets ⇒ zonder deze terugval stil een
+ *     leeg project op een bestand dat deze app zélf geschreven heeft.
+ *
+ * Niet andersom: regelverankering als PRIMAIRE scan weigert de geldige bestanden uit (1) en pikt
+ * bovendien een `DATA;` op dat aan het begin van een regel binnen een commentaar of binnen een
+ * header-string met een echt regeleinde staat — dat laatste levert nul entiteiten zónder fout, en
+ * verzonnen entiteiten uit commentaar. Beide gevallen zijn getest in `check-step-strings` (9f–9k).
+ */
+function indexOfDataSection(content: string): number {
+  const strict = indexOfCode(content, 'DATA;', 0);
+  if (strict >= 0) return strict;
+  const anchored = /^[ \t]*DATA;/m.exec(content);
+  return anchored ? anchored.index + anchored[0].indexOf('DATA;') : -1;
 }
 
 function parseSTEP(content: string): StepEntity[] {
   const entities: StepEntity[] = [];
-  const dataSection = content.split('DATA;')[1]?.split('ENDSEC;')[0];
-  if (!dataSection) return entities;
+  // 1. Begin van de datasectie — een `DATA;` binnen de FILE_NAME-string van de header telt niet mee.
+  const dataAt = indexOfDataSection(content);
+  // Geen sectiegrens ⇒ getypeerde fout, GEEN leeg resultaat. `openFile`/`useRecoveryRestore` tonen
+  // dan de leesfout in plaats van een leeg document te openen bovenop het pad van de gebruiker.
+  if (dataAt < 0) {
+    throw new IfcParseError(
+      'no-data-section',
+      "Onleesbaar IFC-bestand: de verplichte 'DATA;'-sectiegrens ontbreekt.",
+    );
+  }
 
-  // Strip comments (/* ... */) and normalize whitespace
-  const clean = dataSection
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\r\n/g, '\n');
+  // 2. Commentaar strippen (buiten strings) + regeleindes normaliseren — zelfde volgorde als voorheen.
+  const clean = stripStepComments(content.slice(dataAt + 'DATA;'.length)).replace(/\r\n/g, '\n');
 
-  // Match all entity definitions: #123=IFCTYPE(...); or #300T=IFCTASKTIME(...);
-  const entityRegex = /#(\w+)\s*=\s*(\w+)\s*\(([\s\S]*?)\)\s*;/g;
-  let match;
-  while ((match = entityRegex.exec(clean)) !== null) {
-    entities.push({
-      id: match[1],
-      type: match[2].toUpperCase(),
-      args: splitArgs(match[3]),
-      raw: match[0],
-    });
+  // 3. Entiteiten (`#123=IFCTYPE(...);`, ook `#300T=IFCTASKTIME(...);`). Het afsluitende `ENDSEC;`
+  //    van de datasectie wordt hier op CODE-niveau herkend — dezelfde grens als de oude split, maar
+  //    nu ongevoelig voor `ENDSEC;` in een taaknaam. Één pas, geen aparte zoek-pas over de sectie.
+  for (let i = 0; i < clean.length;) {
+    const c = clean.charCodeAt(i);
+    if (c === CH_QUOTE) { i = skipQuotedOrComment(clean, i); continue; }
+    if (c === CH_HASH) {
+      const next = readEntity(clean, i, entities);
+      i = next > 0 ? next : i + 1;
+      continue;
+    }
+    if (c === CH_E && clean.startsWith('ENDSEC;', i)) break;
+    i++;
   }
 
   return entities;
@@ -410,8 +641,11 @@ function extractTasks(
     tasks.push({
       id,
       name: stripQuotes(te.args[TASK_SLOT.name] || '') || 'Naamloze taak',
-      description: stripQuotes(te.args[TASK_SLOT.description] || '') || '',
-      wbsCode: stripQuotes(te.args[TASK_SLOT.identification] || '') || '',
+      // `$`/leeg/afwezig ⇒ '' (niet de letterlijke '$' — zelfde bug/fix als IFCPROJECT.Description
+      // hierboven; de writer schrijft description/identification bewust als bare `$` via `ifcStr`
+      // wanneer leeg, zie ifcTaskSlots.ts).
+      description: ifcSlotText(te.args[TASK_SLOT.description]),
+      wbsCode: ifcSlotText(te.args[TASK_SLOT.identification]),
       taskType: te.args[predefinedTypeIdx] ? parseTaskType(te.args[predefinedTypeIdx]) : 'CONSTRUCTION',
       status: 'NOT_STARTED',
       isMilestone,
@@ -561,6 +795,7 @@ function extractStructure(
   project: Project,
   tasks: Task[],
   taskStepIdMap: Map<string, string>,
+  libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined },
 ): { activityCodeTypes: ActivityCodeType[]; customFieldDefs: CustomFieldDef[] } {
   let activityCodeTypes: ActivityCodeType[] = [];
   let customFieldDefs: CustomFieldDef[] = [];
@@ -639,6 +874,20 @@ function extractStructure(
       continue;
     }
 
+    if (psetName === PSET.Library) {
+      for (const prop of props) {
+        if (prop.type !== 'IFCPROPERTYSINGLEVALUE') continue;
+        if (stripQuotes(prop.args[0] || '') !== 'pool') continue;
+        const v = parseTypedValue(prop.args[2] || '');
+        if (typeof v === 'string' && v) {
+          try {
+            libraryPoolOut.value = JSON.parse(v) as import('@/types/library').CompanyPool;
+          } catch { /* corrupte pool-JSON: negeren, geen pool-resultaat */ }
+        }
+      }
+      continue;
+    }
+
     if (psetName === PSET.ProjectSettings) {
       for (const prop of props) {
         if (prop.type !== 'IFCPROPERTYSINGLEVALUE') continue;
@@ -667,6 +916,10 @@ function extractStructure(
           if (typeof v === 'string' && v) project.createdAt = v;
         } else if (name === 'ModifiedAt') {
           if (typeof v === 'string' && v) project.modifiedAt = v;
+        } else if (name === 'CompanyId') {
+          if (typeof v === 'string' && v) project.companyId = v;
+        } else if (name === 'CompanyName') {
+          if (typeof v === 'string' && v) project.companyName = v;
         }
       }
       continue;
@@ -757,7 +1010,8 @@ function extractResources(
       id,
       name: stripQuotes(e.args[2] || '') || 'Resource',
       type: resType,
-      description: stripQuotes(e.args[3] || '') || '',
+      // `$`/leeg/afwezig ⇒ '' (zelfde bug/fix als IfcTask.Description hierboven).
+      description: ifcSlotText(e.args[3]),
       maxUnits: 1,
     });
   }
@@ -817,6 +1071,25 @@ function extractResourceMeta(
         } else if (name === 'ParentGuid' && typeof value === 'string' && !res.parentId) {
           const parentId = resourceGuidMap.get(value);
           if (parentId) res.parentId = parentId;
+        } else if (name === 'LibraryOrigin' && typeof value === 'string' && value && !res.libraryOrigin) {
+          // A6-fix: EERSTE geldige LibraryOrigin wint (gezet-is-gezet-guard), gelijk aan het
+          // kalenderpad (extractCalendarLibraryOrigin returnt op de eerste treffer). Zonder de
+          // `!res.libraryOrigin`-guard koos dit pad de LAATSTE bij dubbele props in één pset —
+          // een stille inconsistentie tussen de twee paden.
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+                && typeof parsed.poolVersion === 'number') {
+              // F2 (vloot-fixpakket, issue #19): `syncedHash` is optioneel, maar als het veld AANWEZIG
+              // is moet het een string zijn — een corrupte/vervalste waarde (bv. een getal) mag niet
+              // als "syncedHash" doorschieten naar de classificatielogica (`classifyOnOpen` doet
+              // `fileHash === syncedHash`, een non-string zou daar altijd `false` geven, wat toevallig
+              // ongevaarlijk is, maar type-onveilig blijft). Veilige kant: veld weglaten, rest van de
+              // stempel (companyId/libraryItemId/poolVersion) behouden.
+              if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
+              res.libraryOrigin = parsed;
+            }
+          } catch { /* corrupte JSON: negeren */ }
         }
       }
     }
@@ -911,6 +1184,49 @@ function extractCalendarGeneration(
   return undefined;
 }
 
+/**
+ * Fase B1 (§6) — `LibraryOrigin`-herkomststempel teruglezen uit het `OPS_Calendar`-pset (spiegel van
+ * de writer, die 'm naast de generation-props schrijft). BEWUST losstaand van
+ * `extractCalendarGeneration`: die `continue`t bij een onvolledige generation, waardoor een kalender
+ * met ALLEEN een LibraryOrigin (gepromoveerd, niet gegenereerd) er verloren zou gaan. Geen/corrupte
+ * property ⇒ `undefined`.
+ */
+function extractCalendarLibraryOrigin(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): LibraryOrigin | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'LibraryOrigin') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value !== 'string' || !value) continue;
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed.companyId === 'string' && typeof parsed.libraryItemId === 'string'
+            && typeof parsed.poolVersion === 'number') {
+          // F2 (vloot-fixpakket, issue #19): zie de identieke toelichting bij het resourcepad
+          // hierboven — aanwezig-maar-niet-string `syncedHash` wordt weggelaten, rest van de stempel
+          // blijft staan (veilige/deviated-kant).
+          if ('syncedHash' in parsed && typeof parsed.syncedHash !== 'string') delete parsed.syncedHash;
+          return parsed as LibraryOrigin;
+        }
+      } catch { /* corrupte JSON: negeren */ }
+    }
+  }
+  return undefined;
+}
+
 /** Bouwt een `WorkCalendar` uit een `IFCWORKCALENDAR`-entiteit: naam/omschrijving/feestdagen
  *  (bestaand), plus (fase 2.8a, §8.1) werkdagen/uren teruggelezen uit de
  *  `WorkingTimes`-keten (args[5] → IFCWORKTIME → RecurrencePattern-ref → IFCRECURRENCEPATTERN
@@ -926,7 +1242,11 @@ function buildCalendarFromEntity(
 ): WorkCalendar {
   const calendar = createDefaultCalendar();
   calendar.name = stripQuotes(cal.args[2] || '') || calendar.name;
-  calendar.description = stripQuotes(cal.args[3] || '') || calendar.description;
+  // Fix B7: `ifcSlotText` i.p.v. kale `stripQuotes` — een lege omschrijving schrijft de writer als
+  // STEP-null (`$`), en `stripQuotes('$')` geeft het letterlijke tweetekentje `'$'` terug (het start/
+  // eindigt niet met een quote, dus de functie laat de string ongewijzigd) i.p.v. '' — dezelfde
+  // `$`-conventie die elders al via `ifcSlotText` wordt toegepast (bv. project-omschrijving).
+  calendar.description = ifcSlotText(cal.args[3]) || calendar.description;
 
   // Werkweek + uren (§8.1). WorkingTimes (args[5]) is een lijst met precies één ref (zo schrijft
   // de writer 'm) naar het "hoofd"-IFCWORKTIME; de holiday-IFCWORKTIME's zitten in ExceptionTimes
@@ -1005,6 +1325,7 @@ function buildCalendarFromEntity(
   // pset het expliciet zegt. Eerst wissen, dan (evt.) invullen uit de pset.
   delete calendar.generation;
   calendar.generation = extractCalendarGeneration(cal.id, entities, entityMap);
+  calendar.libraryOrigin = extractCalendarLibraryOrigin(cal.id, entities, entityMap);
 
   return calendar;
 }
@@ -1066,6 +1387,23 @@ function extractCalendarLibrary(
         if (task) task.calendarId = cal.id;
       }
     }
+  }
+
+  // A2-fix: bibliotheekkalenders ZONDER gebruiker. De lus hierboven vindt kalenders uitsluitend via
+  // IFCRELASSIGNSTOCONTROL (wie 'm gebruikt). Een gepromote/toegevoegde kalender die nog geen
+  // resource-/taak-toewijzing heeft — het normale "voeg toe vóór toewijzing"-patroon — werd wel door
+  // writeIFC geschreven maar hier nooit teruggevonden: stil verlies incl. libraryOrigin-stempel. Vang
+  // daarom álle overige IFCWORKCALENDAR-entiteiten (behalve de projectkalender) op, gededupliceerd
+  // tegen wat de rel-route al vond (calByStepId), met behoud van bestandsvolgorde (rel-gevonden eerst,
+  // ongebruikte daarna) zodat bestaande round-trip-gedragingen onveranderd blijven.
+  for (const ce of entities) {
+    if (ce.type !== 'IFCWORKCALENDAR') continue;
+    if (projectCalendarEntity && ce.id === projectCalendarEntity.id) continue;
+    if (calByStepId.has(ce.id)) continue;
+    const cal = buildCalendarFromEntity(ce, entityMap, entities);
+    cal.id = generateId('rescal');
+    calByStepId.set(ce.id, cal);
+    calendars.push(cal);
   }
 
   return calendars;

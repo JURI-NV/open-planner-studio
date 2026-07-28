@@ -34,11 +34,16 @@ export function CloseDocumentDialog() {
   const dontSave = () => { closeDocument(pendingId); setUI({ pendingCloseDocId: null }); };
   const save = async () => {
     if (pendingId !== useAppStore.getState().activeDocumentId) switchDocument(pendingId);
-    await saveFile();
-    // Alleen sluiten als het opslaan ook echt lukte (bij geannuleerde 'Opslaan als…'
-    // blijft isDirty staan → document open laten, geen werk verliezen).
-    if (!useAppStore.getState().isDirty) closeDocument(pendingId);
-    setUI({ pendingCloseDocId: null });
+    try {
+      await saveFile();
+      // Alleen sluiten als het opslaan ook echt lukte (bij een geannuleerde 'Opslaan als…' of een
+      // schrijffout blijft isDirty staan → document open laten, geen werk verliezen).
+      if (!useAppStore.getState().isDirty) closeDocument(pendingId);
+    } finally {
+      // Ongeacht de afloop moet de bevestiging weg, anders blokkeert een mislukte opslag de hele
+      // app. Blijft nodig óók nu `saveFile` zelf vangt — verdedigingslinie tegen een throw hogerop.
+      setUI({ pendingCloseDocId: null });
+    }
   };
 
   return (
@@ -60,12 +65,12 @@ export function CloseDocumentDialog() {
         }}
       >
         <h3 style={{
-          margin: '0 0 8px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 15,
+          margin: '0 0 8px', fontFamily: "'Space Grotesk', sans-serif", fontSize: 'calc(15px * var(--ui-font-scale, 1))',
           fontWeight: 700, color: 'var(--theme-text)',
         }}>
           {t('documents.closeTitle')}
         </h3>
-        <p style={{ margin: '0 0 18px', fontSize: 13, lineHeight: 1.5, color: 'var(--theme-text-dim)' }}>
+        <p style={{ margin: '0 0 18px', fontSize: 'calc(13px * var(--ui-font-scale, 1))', lineHeight: 1.5, color: 'var(--theme-text-dim)' }}>
           {t('documents.closeBody', { name })}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

@@ -50,6 +50,11 @@ export interface Project {
   /** OPTIONEEL — project-scoped reken-opties (fase 2.9, §3.4/§7). Afwezig ⇒ elke default ⇒
    *  byte-identiek gedrag. */
   schedulingOptions?: SchedulingOptions;
+  /** OPTIONEEL — projectbinding aan een bedrijfsbibliotheek (spec B1, §2). Afwezig ⇒ project is
+   *  (nog) aan geen enkel bedrijf gebonden; heropening zonder de pool is onschuldig. `companyName`
+   *  is een gedenormaliseerde cache zodat een gedeeld bestand het bedrijf toont zonder de pool. */
+  companyId?: string;
+  companyName?: string;
 }
 
 export interface ProjectStats {

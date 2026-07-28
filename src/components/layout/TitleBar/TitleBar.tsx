@@ -147,17 +147,23 @@ export function TitleBar() {
         )}
       </div>
 
-      <div className="window-controls">
-        <button className="window-btn" title={tCommon('window.minimize')} onClick={handleMinimize}>
-          <Minus size={14} />
-        </button>
-        <button className="window-btn" title={maximized ? tCommon('window.restore') : tCommon('window.maximize')} onClick={handleMaximize}>
-          {maximized ? <Copy size={11} /> : <Square size={11} />}
-        </button>
-        <button className="window-btn window-btn-close" title={tCommon('close')} onClick={handleClose}>
-          <X size={14} />
-        </button>
-      </div>
+      {/* Vensterknoppen alleen in Tauri. In de browserbuild — die productie-live staat op
+          open-planner-studio.open-aec.com — beheert de browser het venster en beginnen alle drie
+          de handlers hierboven met `if (!isTauri()) return;`. Ze renderden tot nu toe
+          onvoorwaardelijk, dus de webgebruiker zag drie knoppen die niets deden. */}
+      {isTauri() && (
+        <div className="window-controls">
+          <button className="window-btn" title={tCommon('window.minimize')} onClick={handleMinimize}>
+            <Minus size={14} />
+          </button>
+          <button className="window-btn" title={maximized ? tCommon('window.restore') : tCommon('window.maximize')} onClick={handleMaximize}>
+            {maximized ? <Copy size={11} /> : <Square size={11} />}
+          </button>
+          <button className="window-btn window-btn-close" title={tCommon('close')} onClick={handleClose}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

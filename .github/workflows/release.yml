@@ -12,7 +12,96 @@ on:
         default: 'v0.1.0'
 
 jobs:
+  # Release-gate: ci.yml draait de poorten (tsc, testsuite, verify:examples,
+  # verify:docs), maar triggert alleen op push/PR naar `main` — een tag matcht
+  # geen van beide. Zonder deze poort wordt een tag die bovenop een commit met
+  # een rode suite staat gewoon gebouwd, gesigneerd, gepubliceerd en via de
+  # auto-updater naar alle bestaande installaties gepusht. De
+  # versievergelijking hieronder vangt bovendien een vergeten `npm run bump`:
+  # als tag en package.json/tauri.conf.json niet synchroon lopen, vergelijkt de
+  # updater gelijke versies en blijft de release voor bestaande installaties
+  # STIL onzichtbaar. Bij verschil faalt deze job expliciet vóór create-release.
+  gate:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      - name: TypeScript-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
+      # draaien via esbuild, dat types strip zonder controle.
+      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
+        run: npx tsc --noEmit -p tsconfig.tests.json
+
+      - name: CPM/kalender-regressiesuite
+        run: bash tests/planning/run.sh
+
+      - name: Verify examples
+        run: npm run verify:examples
+
+      - name: Verify docs
+        run: npm run verify:docs
+
+      - name: Verify tag matches bumped version
+        env:
+          # De dispatch-input is NIET-VERTROUWDE invoer (vrije tekst, geen
+          # tekenbeperking) en gaat daarom via een env-blok in plaats van een
+          # `${{ }}` rechtstreeks in het shellscript — anders wordt hij letterlijk
+          # in de shell geplakt vóórdat die start. `GITHUB_REF`/`GITHUB_EVENT_NAME`
+          # zetten we bewust NIET: die zijn al standaard aanwezig in de runner en
+          # de `GITHUB_`-prefix is gereserveerd.
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG_VERSION="${INPUT_VERSION:-}"
+          else
+            TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Strip de leidende 'v' (v2026.7.12 -> 2026.7.12).
+          TAG_VERSION="${TAG_VERSION#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAURI_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          echo "Tag (zonder v):     $TAG_VERSION"
+          echo "package.json:       $PKG_VERSION"
+          echo "tauri.conf.json:    $TAURI_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$TAURI_VERSION" ]; then
+            echo "::error::Versie kloppendheid mislukt: tag=$TAG_VERSION package.json=$PKG_VERSION tauri.conf.json=$TAURI_VERSION — draai 'npm run bump <versie>' voor je tagt." >&2
+            exit 1
+          fi
+
+      # Vroege signalering: ontbreekt docs/release-notes/<tag>.md, dan valt de
+      # release terug op de generieke tekst en blijft het updater-notes-veld
+      # leeg. Bewust een warning en géén fout — de terugval werkt — maar je wilt
+      # het weten vóór een build van een half uur, niet erna.
+      - name: Check release notes present
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG_VERSION="${INPUT_VERSION:-}"
+          else
+            TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # stderr (waar de ::warning:: op staat) naar de log, stdout weg.
+          node scripts/release-notes.mjs "$TAG_VERSION" --format=body 2>&1 >/dev/null
+
   create-release:
+    needs: gate
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -32,18 +121,32 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
+      # De releasetekst komt uit `docs/release-notes/<tag>.md` via
+      # scripts/release-notes.mjs; ontbreekt dat bestand, dan levert het script
+      # de generieke tekst die hier vroeger hardgecodeerd stond (en logt een
+      # warning). De versie gaat via `env` de stap in en NIET via een `${{ }}`
+      # in het script zelf: bij workflow_dispatch is dat vrije, niet-vertrouwde
+      # tekst die anders letterlijk in de JS-broncode geplakt wordt.
       - name: Create release
         id: create-release
         uses: actions/github-script@v8
+        env:
+          VERSION: ${{ steps.get-version.outputs.version }}
         with:
           script: |
-            const version = '${{ steps.get-version.outputs.version }}';
+            const { execFileSync } = require('node:child_process');
+            const version = process.env.VERSION;
+            const body = execFileSync(
+              'node',
+              ['scripts/release-notes.mjs', version, '--format=body'],
+              { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }
+            );
             const { data } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: version,
               name: `Open Planner Studio ${version}`,
-              body: `## What's New in ${version}\n\nFree, open-source project planner built with Tauri.\n\n### Downloads\n- **Windows**: Download the \`.exe\` setup file\n- **macOS**: Download the \`.dmg\` file (universal - supports Intel and Apple Silicon)\n- **Linux**: Download the \`.deb\` package or \`.AppImage\``,
+              body,
               draft: true,
               prerelease: false
             });
@@ -258,6 +361,35 @@ jobs:
     needs: [create-release, build-linux-mac, build-windows]
 
     steps:
+      - uses: actions/checkout@v5
+
+      # Het `notes`-veld in latest.json is wat de updater-dialoog toont op het
+      # moment dat de update wordt aangeboden. tauri-action laat het leeg, dus
+      # zetten we het hier — als laatste stap vóór publicatie, zodat het niet
+      # botst met de Windows-re-sign-stap die latest.json óók herschrijft.
+      - name: Set updater notes in latest.json
+        # Bewust niet-blokkerend: de notes zijn cosmetisch, de publicatie niet.
+        # Een release met 15 assets die als draft blijft hangen omdat een
+        # tekstveld niet gezet kon worden, is erger dan een lege notes-tekst.
+        # De stap kleurt wel rood in de UI, dus stil gaat het niet.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          node scripts/release-notes.mjs "$VERSION" --format=notes > release-notes.txt
+          gh release download "$VERSION" --pattern "latest.json" --output latest.json --clobber --repo "$REPO"
+          node -e '
+            const fs = require("node:fs");
+            const latest = JSON.parse(fs.readFileSync("latest.json", "utf8"));
+            latest.notes = fs.readFileSync("release-notes.txt", "utf8");
+            fs.writeFileSync("latest.json", JSON.stringify(latest, null, 2));
+            console.log(`notes: ${latest.notes.length} tekens, ${Object.keys(latest.platforms ?? {}).length} platform-entries`);
+          '
+          gh release upload "$VERSION" latest.json --clobber --repo "$REPO"
+
       - name: Publish release
         id: publish-release
         uses: actions/github-script@v8

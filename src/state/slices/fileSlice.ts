@@ -15,14 +15,16 @@ import { isTauri } from '@/utils/platform';
 import type { Task } from '@/types/task';
 import type { ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
-import { buildWriteIFCInput } from '../ifcSaveInput';
+import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
 import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
- *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad). */
-function isActivePristine(s: AppState): boolean {
+ *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad).
+ *  Geëxporteerd omdat de MCP-tool `planner_import_schedule` exact hetzelfde laadpatroon
+ *  moet volgen (spec §Bestands-tools) — één definitie, geen tweede die kan afdrijven. */
+export function isActivePristine(s: AppState): boolean {
   return (
     s.tasks.length === 0 &&
     s.sequences.length === 0 &&
@@ -33,8 +35,9 @@ function isActivePristine(s: AppState): boolean {
 }
 
 /** Kies de juiste XML-reader op basis van inhoudsmarkers (P6 vóór MS Project).
- *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen. */
-function parseProjectXml(content: string) {
+ *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen.
+ *  Geëxporteerd voor `planner_import_schedule` (MCP), dat dezelfde formaatherkenning gebruikt. */
+export function parseProjectXml(content: string) {
   const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
   const isMsProject =
     content.includes('schemas.microsoft.com/project') || content.includes('<Project');
@@ -44,6 +47,11 @@ function parseProjectXml(content: string) {
 }
 
 export type ExportFormat = 'ifc' | 'csv' | 'mspdi' | 'p6';
+
+/** Resultaat van `exportAs` (K7): bij een cyclische planning wordt de export afgebroken vóór de
+ *  opslaan-dialoog en de CPM-cyclusfout (`cpmResult.error`) als boodschap meegegeven, zodat de
+ *  aanroeper die kan tonen i.p.v. stilletjes niets te doen. */
+export type ExportResult = { ok: true } | { ok: false; error: string };
 
 /** Opties voor `applyLoadedProject` — de één gedeelde "vul de actieve document-state met een
  *  geparsed project"-implementatie (audit P5/F6). Elke variant (de drie open-paden + `loadState`)
@@ -63,13 +71,23 @@ export interface ApplyLoadedProjectOpts {
   fit?: boolean;
   /** Uur-data-melding (§6.8) berekenen en zetten. Open-paden: true; loadState: false. */
   hourDataNotice?: boolean;
+  /** True = een echt open-pad (openFile/openRecentFile): behoud bedrijfsbinding + stempels en draai
+   *  de grens-1-check. False (default) = een volledig-vervangende load (loadState: IFCPanel/MenuBar/
+   *  extensie-import): laad LOS — strip companyId/companyName + alle libraryOrigin-stempels (spec §5).
+   *  (Crash-herstel loopt NIET door applyLoadedProject maar via `restoreDocuments`, dat de opgeslagen —
+   *  dus gekoppelde — staat exact herstelt en de grens-1-check apart draait, Taak 11.) */
+  linkedOpen?: boolean;
 }
 
 export interface FileSlice {
   openFile: () => Promise<void>;
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
-  exportAs: (format: ExportFormat) => Promise<void>;
+  exportAs: (format: ExportFormat) => Promise<ExportResult>;
+  /** Exporteer het project + (spec §4) schrijf de gebonden bedrijfs-pool als tweede, LOS bestand
+   *  ernaast. Géén embed. No-op op de pool-kant als het project niet aan een bedrijf gebonden is.
+   *  Geeft hetzelfde `ExportResult` terug als `exportAs` — inclusief de K7-cyclusguard. */
+  exportProjectWithPool: () => Promise<ExportResult>;
   /** App-globale MRU-lijst van recente bestanden (spec §6). Async gehydrateerd bij opstart. */
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
@@ -122,6 +140,14 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // Web-opslaan-doel: undefined = ongemoeid laten (loadState-semantiek), anders expliciet zetten.
         payload.fileHandle = opts.fileHandle !== undefined ? opts.fileHandle : s.fileHandle;
         hydratePayload(s, payload);
+        // Spec §5 (review-punt 3): een volledig-vervangende load zonder open-pad-semantiek levert een
+        // LOS document — geen stille koppeling, geen stille herkenning. Strip bedrijfsbinding + stempels.
+        if (!opts.linkedOpen) {
+          s.project = { ...s.project, companyId: undefined, companyName: undefined };
+          s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
+          s.calendars = s.calendars.map((c) => { const { libraryOrigin: _d, ...rest } = c; return rest; });
+          s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
+        }
         // Uur-data-melding (§6.8): bevat het bestand urenplanning terwijl de hoofdschakelaar uit
         // staat, toon de niet-blokkerende melding — nooit stil wegronden (de engine rekent sowieso).
         if (opts.hourDataNotice) {
@@ -172,12 +198,18 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
+
+        // Grens 1 (spec §3, plan-eis 4): ná VOLLEDIGE hydratatie — behind stil verversen, deviated
+        // markeren/vragen. Nooit tijdens de hydratatie zelf.
+        get().runOpenBoundary();
 
         // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle).
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
         console.error('Failed to open file:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
 
@@ -186,30 +218,47 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // Gedeelde helper (pakket R1): één plek voor het state→IFC-options-object, zodat dit
       // pad niet opnieuw velden kan laten vallen.
       const content = writeIFC(buildWriteIFCInput(state));
+      // `state` is de momentopname vóór de eerste await. De opslaan-dialoog (en in Tauri de
+      // schrijfactie) kan minuten duren en de gebruiker kan ondertussen doorwerken; `content` is
+      // dan verouderd. Daarom mag `isDirty` pas worden gewist als de inhoud ná de await nog
+      // letterlijk dezelfde is — bepaald via `sameIFCSource` (bevinding K8b: anders stil verlies).
 
-      // Bestaand opslaan-doel? Web: fileHandle. Tauri: het echte pad in filePath.
-      const ref: FileRef | null = state.fileHandle
-        ? { kind: 'handle', handle: state.fileHandle }
-        : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
+      try {
+        // Bestaand opslaan-doel? Web: fileHandle. Tauri: het echte pad in filePath.
+        const ref: FileRef | null = state.fileHandle
+          ? { kind: 'handle', handle: state.fileHandle }
+          : (isTauri() && state.filePath ? { kind: 'path', path: state.filePath } : null);
 
-      if (ref && await saveToRef(ref, content)) {
-        set((s) => { s.isDirty = false; });
-        return;
+        if (ref && await saveToRef(ref, content)) {
+          // "Nog ongewijzigd?" bewust BUITEN de Immer-producer berekend met get(): binnen een draft
+          // is `s.tasks` e.d. een proxy en nóóit referentie-gelijk aan de plain array, dus een
+          // sameIFCSource(state, s) binnen de producer zou altijd false geven en isDirty nóóit
+          // meer wissen — een ergere regressie dan de bug die we hier repareren.
+          if (sameIFCSource(state, get())) set((s) => { s.isDirty = false; });
+          return;
+        }
+
+        // Geen (bruikbare) ref, of in-place opslaan geweigerd → opslaan-als.
+        const outcome = await saveFileDialog(
+          `${state.project.name || 'project'}.ifc`,
+          content,
+          [{ name: 'IFC Files', extensions: ['ifc'] }],
+        );
+        if (!outcome) return;
+        // Opnieuw buiten de producer bepalen of er tijdens de dialoog iets gewijzigd is.
+        const unchanged = sameIFCSource(state, get());
+        set((s) => {
+          s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
+          s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
+          // Alleen "opgeslagen" als er tijdens de dialoog niets gewijzigd is; anders blijft het
+          // document terecht gewijzigd en houdt de gebruiker zijn sluitwaarschuwing.
+          if (unchanged) s.isDirty = false;
+        });
+        await pushRecent(outcome.ref, outcome.name);
+      } catch (err) {
+        console.error('Save failed:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
       }
-
-      // Geen (bruikbare) ref, of in-place opslaan geweigerd → opslaan-als.
-      const outcome = await saveFileDialog(
-        `${state.project.name || 'project'}.ifc`,
-        content,
-        [{ name: 'IFC Files', extensions: ['ifc'] }],
-      );
-      if (!outcome) return;
-      set((s) => {
-        s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
-        s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
-        s.isDirty = false;
-      });
-      await pushRecent(outcome.ref, outcome.name);
     },
 
     saveFileAs: async () => {
@@ -217,22 +266,43 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // Gedeelde helper (pakket R1): één plek voor het state→IFC-options-object, zodat dit
       // pad niet opnieuw velden kan laten vallen.
       const content = writeIFC(buildWriteIFCInput(state));
+      // `state` = momentopname vóór de eerste await; zelfde reden als bij saveFile: isDirty pas
+      // wissen als er tijdens de opslaan-als-dialoog niets gewijzigd is (K8b).
 
-      const outcome = await saveFileDialog(
-        state.filePath ?? `${state.project.name || 'project'}.ifc`,
-        content,
-        [{ name: 'IFC Files', extensions: ['ifc'] }],
-      );
-      if (!outcome) return;
-      set((s) => {
-        s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
-        s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
-        s.isDirty = false;
-      });
-      await pushRecent(outcome.ref, outcome.name);
+      try {
+        const outcome = await saveFileDialog(
+          state.filePath ?? `${state.project.name || 'project'}.ifc`,
+          content,
+          [{ name: 'IFC Files', extensions: ['ifc'] }],
+        );
+        if (!outcome) return;
+        const unchanged = sameIFCSource(state, get());
+        set((s) => {
+          s.filePath = outcome.ref?.kind === 'path' ? outcome.ref.path : outcome.name;
+          s.fileHandle = outcome.ref?.kind === 'handle' ? outcome.ref.handle : null;
+          if (unchanged) s.isDirty = false;
+        });
+        await pushRecent(outcome.ref, outcome.name);
+      } catch (err) {
+        console.error('Save As failed:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
+      }
     },
 
-    exportAs: async (format: ExportFormat) => {
+    exportAs: async (format: ExportFormat): Promise<ExportResult> => {
+      // K7 (docs/onderhoudbaarheid): alle vier exporters schrijven de CPM-uitvoer
+      // (task.time.earlyStart en afgeleiden) weg naar derden die die datums contractueel lezen.
+      // Een verouderde of cyclische planning mag dus niet stil worden uitgevoerd. Daarom: bij een
+      // stale schema eerst runCPM, en dán expliciet op cpmResult.error controleren vóór de
+      // opslaan-dialoog. Die tweede check is nodig omdat runCPM op zijn EERSTE regel al
+      // scheduleStale=false zet (vóór de solve); bij een cyclus breekt hij af mét cpmResult.error
+      // gezet én task.time nog op de oude waarden — een guard die alleen op scheduleStale kijkt
+      // zou de export in dat geval wél met verouderde datums doorlaten. De guard staat vóór de
+      // eerste await (saveFileDialog), zodat er niets half gebeurt.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
       const state = get();
 
       let content: string;
@@ -274,6 +344,30 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       const outcome = await saveFileDialog(`${state.project.name || 'project'}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
+      return { ok: true };
+    },
+
+    exportProjectWithPool: async (): Promise<ExportResult> => {
+      // Zelfde K7-guard als `exportAs`: dit pad schrijft óók de CPM-uitvoer weg, dus een stale of
+      // cyclische planning mag hier evenmin stil worden geëxporteerd.
+      if (get().scheduleStale) get().runCPM();
+      const cpmError = get().cpmResult?.error;
+      if (cpmError) return { ok: false, error: cpmError };
+
+      const state = get();
+      // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
+      const projectContent = writeIFC(buildWriteIFCInput(state));
+      const base = state.project.name || 'project';
+      const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      if (!outcome) return { ok: true }; // dialoog geannuleerd — geen fout
+      await pushRecent(outcome.ref, outcome.name);
+      // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
+      const companyId = state.project.companyId;
+      if (!companyId) return { ok: true };
+      const poolContent = state.exportPoolIFC(companyId);
+      if (!poolContent) return { ok: true };
+      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      return { ok: true };
     },
 
     recentFiles: [],
@@ -370,12 +464,17 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           recompute: true,
           fit: true,
           hourDataNotice: true,
+          linkedOpen: true,
         });
+
+        // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
+        get().runOpenBoundary();
 
         // MRU verversen: het net-geopende bestand naar boven.
         await pushRecent(entry.ref, entry.name);
       } catch (err) {
         console.error('Failed to open recent file:', err);
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
 
@@ -399,6 +498,10 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         });
       } catch (err) {
         console.error(`Failed to open example "${name}":`, err);
+        // `params: { name }` achterwege gelaten: de bestaande `notifications.openFailed`-string
+        // bevat geen {{name}}-placeholder, en i18n niet aanraken is een harde grens. De naam staat
+        // wel in de debug-terminal (console.error hierboven).
+        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
       }
     },
   };

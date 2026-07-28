@@ -32,13 +32,22 @@ instellingenblok:
 - **Oriëntatie**: liggend of staand.
 - **Auto-fit op papier** (aan = de planning schaalt automatisch naar het gekozen formaat) of een
   handmatige **zoom**-schuif als je auto-fit uitzet.
+- **Lettergrootte** — 90, 100, 110 of 125%; schaalt de rapporttekst, rijhoogte en kop/voet mee, los
+  van het zoomniveau hierboven.
+- **Kop op elke pagina herhalen** — standaard aan; houdt de rapportkop zichtbaar op elke afgedrukte
+  pagina in plaats van alleen de eerste.
+- **Tijdlijn over** — verdeelt de Gantt-tijdlijn over 1 tot 8 pagina's naast elkaar; alleen
+  beschikbaar met auto-fit aan.
 - Aan/uit-schakelaars voor **taaknamen op staafjes**, **voltooiing tonen**, **kritiek pad**,
   **speling tonen**, **afhankelijkheden**, **weekenden** en **legenda**.
 - Een **bedrijf**-veld (vult automatisch de projectinstelling, maar is hier los aanpasbaar) en de
   **auteur** (alleen-lezen, uit de projectgegevens).
 
 Het overzichtsblok erboven toont live het aantal taken, bladtaken, kritieke taken en relaties in
-het project.
+het project. Het instellingenpaneel onthoudt je keuzes tussen sessies — open het tabblad Rapport
+later opnieuw en papierformaat, schakelaars, lettergrootte en de rest staan er weer precies zo bij
+als je ze achterliet. Alleen het bedrijfsveld reset: dat begint altijd bij de eigen instelling van
+het project, zodat een rapport nooit de bedrijfsnaam van een ander project meesleept.
 
 ### Mijlpalen-overzicht
 
@@ -69,10 +78,11 @@ voorbeeld als een echt PDF-bestand (bestandsnaam eindigend op `-planning.pdf`) �
 fysieke maat van het gekozen papierformaat en de oriëntatie. Het PDF-bestand is **vectorgrafisch**:
 balken, lijnen en tekst worden als PDF-tekenopdrachten opgeslagen in plaats van als één ingebedde
 afbeelding, dus het blijft haarscherp op elk zoomniveau en de tekst is selecteerbaar en doorzoekbaar
-in elke PDF-viewer. Dit geldt voor Latijnse, Cyrillische en Griekse tekst; bevat het project
-Chinese, Japanse, Koreaanse, Arabische of Perzische tekst, dan schakelt de export automatisch terug
-naar een raster-afbeelding voor die tekst — nog steeds correct leesbaar, maar niet selecteerbaar of
-doorzoekbaar. Handig voor e-mail of archief zonder de systeem-printdialoog erbij te hoeven halen.
+in elke PDF-viewer. Dit geldt voor Latijnse, Cyrillische, Griekse, Arabische en Perzische tekst — Arabisch en Perzisch
+worden eveneens als vector geshapet en ingebed. Chinese, Japanse en Koreaanse tekst is opt-in:
+installeer je een font-extensie die die glyphs levert, dan wordt ook die tekst als vector ingebed
+(selecteerbaar en doorzoekbaar); zonder zo'n extensie wordt die tekst als raster-afbeelding
+geëxporteerd — nog steeds correct leesbaar, maar niet selecteerbaar of doorzoekbaar. Handig voor e-mail of archief zonder de systeem-printdialoog erbij te hoeven halen.
 Wil je liever direct printen (of via de systeemdialoog naar PDF, bijvoorbeeld om een ander
 papierformaat te kiezen dan hierboven ingesteld), gebruik dan **Afdrukken...**.
 

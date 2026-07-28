@@ -1,7 +1,33 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import pkg from './package.json';
+
+/**
+ * Mappen die de dev-server mag serveren.
+ *
+ * In een git worktree is `node_modules` een symlink naar de hoofdcheckout, die buiten de Vite-root
+ * ligt. Vite weigert dan alles wat erdoorheen wordt opgevraagd ("outside of Vite serving allow
+ * list") — in de praktijk de @fontsource-woff2-bestanden, waardoor elke worktree-dev met
+ * systeemfonts draait in plaats van met Inter. Het ECHTE pad van node_modules toestaan lost dat op;
+ * in een gewone checkout valt dat samen met de root en verandert er niets.
+ *
+ * De realpath staat bewust in een try/catch: deze config wordt óók door `vite build` in CI geladen,
+ * en `fs.realpathSync` gooit hard (ENOENT) als node_modules er op dat moment niet is. Zonder vangnet
+ * zou dat een onbegrijpelijke configfout geven in plaats van een nette melding. Faalt hij, dan
+ * blijft alleen de root over — exact het gedrag van vóór deze toevoeging.
+ */
+function allowedFsRoots(): string[] {
+  const root = path.resolve(__dirname);
+  try {
+    return [root, fs.realpathSync(path.resolve(root, 'node_modules'))];
+  } catch {
+    return [root];
+  }
+}
+// @ts-expect-error — dev-port.mjs is plain JS zonder types
+import { worktreeRoot, readRecordedPort } from './scripts/dev-port.mjs';
 
 export default defineConfig({
   plugins: [react()],
@@ -20,8 +46,13 @@ export default defineConfig({
     // Port comes from scripts/tauri-dev.mjs (OPS_DEV_PORT) so the desktop
     // window's devUrl always matches. strictPort makes a clash fail loudly
     // instead of silently drifting to another port — see scripts/tauri-dev.mjs.
-    port: Number(process.env.OPS_DEV_PORT) || 3007,
+    // Poort: launcher zet OPS_DEV_PORT; anders de vastgelegde opsDevPort van dit
+    // worktree; anders 3007. readRecordedPort/worktreeRoot gooien nooit (CI: vite
+    // build in een .claude-loze checkout). strictPort maakt een clash luid.
+    port: Number(process.env.OPS_DEV_PORT) || readRecordedPort(worktreeRoot()) || 3007,
     strictPort: true,
+    // Zie allowedFsRoots(): laat de dev-server door de node_modules-symlink van een worktree heen.
+    fs: { allow: allowedFsRoots() },
     watch: {
       // Sibling git worktrees under .claude/worktrees/ each carry a full src
       // tree (14 locales × 4 namespaces + all components). Watching them

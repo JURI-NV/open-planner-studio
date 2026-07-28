@@ -10,11 +10,17 @@
 //      activity-codes/custom-fields, Sequence alle 4 types + lag-varianten, Resource alle types +
 //      curves + capaciteit, WorkCalendar + generation + shift + holidays, Project incl.
 //      schedulingOptions/statusDate/progressMode, ActivityCode/CustomField-definities, Baselines).
-//   2. COMPILE-AFDWINGING: de kern-fixtures zijn `satisfies Required<...>` — een nieuw domeinveld
-//      geeft een compile-fout hier (via tests/planning/tsconfig.roundtrip.json, want de hoofd-
-//      tsconfig sluit tests/ uit). Zo is de batterij ZELF-UITBREIDEND: nieuw veld → fixture MOET
-//      bijgewerkt → de round-trip bewaakt het automatisch. Twee types kunnen NIET direct
-//      `satisfies Required<>` (mutueel-exclusieve velden) → type-only getuige, zie WITNESS hieronder.
+//   2. COMPILE-AFDWINGING, op TWEE plekken (bevinding K10a — één was niet genoeg):
+//      (2a) de kern-fixtures zijn `satisfies Required<...>` — een nieuw domeinveld moet een WAARDE
+//           krijgen. Twee types kunnen NIET direct `satisfies Required<>` (mutueel-exclusieve
+//           velden) → type-only getuige, zie WITNESS hieronder.
+//      (2b) de VERGELIJKING (`canon`) is sleutel-gedreven: `satisfies CanonSpec<X>` =
+//           `Record<keyof X, ...>` per domeintype — een nieuw veld moet ook een EXPLICIETE keuze
+//           krijgen (meedoen of gemotiveerd overslaan). Zonder (2b) was de batterij NIET
+//           zelf-uitbreidend: een nieuw veld kreeg wel een fixture-waarde maar stond in geen enkele
+//           hand-opgesomde canon-literal, en round-tripte dus stil nul bytes. Zie het blok boven
+//           `canon` voor de meting.
+//      Beide leunen op tests/planning/tsconfig.roundtrip.json, want de hoofd-tsconfig sluit tests/ uit.
 //   3. writeIFC(fixture) → readIFC → diepe, veld-voor-veld-vergelijking van de HELE ImportResult.
 //      Gegenereerde ids (task/resource/sequence/kalender regenereren bij inlezen) worden
 //      genormaliseerd via NATUURLIJKE SLEUTELS (wbsCode/naam) i.p.v. letterlijk vergeleken; alle
@@ -59,9 +65,9 @@ import type { Task, TaskTime, ExternalLink } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { Project, SchedulingOptions } from '@/types/project';
-import type { WorkCalendar, CalendarGeneration } from '@/types/calendar';
-import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
-import type { Baseline } from '@/types/baseline';
+import type { WorkCalendar, CalendarGeneration, Holiday } from '@/types/calendar';
+import type { ActivityCodeType, ActivityCodeValue, CustomFieldDef } from '@/types/structure';
+import type { Baseline, BaselineTask } from '@/types/baseline';
 import type { ImportResult } from '@/services/importTypes';
 
 // tests/ valt buiten de hoofd-tsconfig; process is niet via @types/node beschikbaar in de
@@ -98,12 +104,14 @@ const projCal = {
     { name: 'Nieuwjaar', startDate: '2027-01-01', endDate: '2027-01-01' },
   ],
   generation: PROJ_GEN, shift: 'SECOND',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-projcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 const libCal = {
   id: 'libcal', name: 'Sublokatie kalender', description: 'Ma-za 07-15',
   workDays: [1, 2, 3, 4, 5, 6], workStartHour: 7, workEndHour: 15, hoursPerDay: 8,
   holidays: [{ name: 'Bouwvakdag', startDate: '2026-07-27', endDate: '2026-07-31' }],
   generation: LIB_GEN, shift: 'THIRD',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-libcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
 
 // Type-only VOLLEDIGHEIDSGETUIGE voor WorkCalendar: `workTime` aanwezig ⇒ UUR-kalender, wat de
@@ -115,8 +123,12 @@ const _CALENDAR_FIELD_WITNESS = {
   id: 'w', name: 'w', description: 'w', workDays: [1, 2, 3, 4, 5],
   workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
   generation: PROJ_GEN, shift: 'FIRST',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-witness', poolVersion: 1 },
   workTime: { byWeekday: { 1: [{ start: 480, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
 } satisfies Required<WorkCalendar>;
+// `void`: de getuige bestaat puur op typeniveau, maar telt zo ook onder `noUnusedLocals` als
+// gebruikt (tsconfig.tests.json checkt dit bestand mét die vlag).
+void _CALENDAR_FIELD_WITNESS;
 
 // ── Structuurdefinities (round-trippen verliesloos via OPS_StructureMeta-JSON, incl. ids/kleuren) ─
 const activityCodeTypes = [
@@ -174,12 +186,15 @@ const TM = {
   },
   constraint: { type: 'MSO', date: '2026-07-15', hard: true },
   constraint2: { type: 'FNLT', date: '2026-07-20' },
+  // `satisfies Required<ExternalLink>`: dezelfde volledigheids-afdwinging als de andere getuigen in
+  // dit bestand — een nieuw veld op ExternalLink geeft hier een compile-fout i.p.v. stil buiten de
+  // round-trip te vallen. (De `ExternalLink`-import stond er al, maar werd nergens gebruikt.)
   externalLinks: [{
     id: 'e1', direction: 'predecessor', relType: 'FS', lagDays: 2, lagMinutes: 120,
     anchorDate: '2026-07-01',
     sourceRef: { projectId: 'p2', projectName: 'Ander project', taskId: 't9', taskName: 'Levering', filePath: '/x/ander.ifc' },
     sourceMissing: false,
-  }],
+  } satisfies Required<ExternalLink>],
   deadline: '2026-07-22',
   calendarId: 'libcal',
   notes: [{ id: 'n1', text: 'Keuring', done: true }, { id: 'n2', text: 'Sleuteloverdracht', done: false }],
@@ -225,6 +240,7 @@ const _SEQUENCE_FIELD_WITNESS = {
   id: 'w', predecessorId: 'a', successorId: 'b', type: 'FINISH_START',
   lagDays: 1, lagMinutes: 60, lagUnit: 'WORKTIME', lagPercent: 25,
 } satisfies Required<Sequence>;
+void _SEQUENCE_FIELD_WITNESS;
 
 // ── Resources: alle types + ploeg-nesting + capaciteit/tarief/eenheid/tijd-gefaseerd ─────────────
 const RCrew: Resource = { id: 'r-crew', name: 'Ploeg Alpha', type: 'CREW', description: 'Hoofdploeg', maxUnits: 1 };
@@ -234,6 +250,7 @@ const RMember = {
   maxUnits: 3, calendarId: 'libcal',
   availabilitySteps: [{ from: '2026-07-06', maxUnits: 3 }, { from: '2026-07-20', maxUnits: 2 }],
   unitOfMeasure: 'uur', parentId: 'r-crew',
+  libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-res1', poolVersion: 4 },
 } satisfies Required<Resource>;
 const REquip: Resource = { id: 'r-eq', name: 'Torenkraan', type: 'EQUIPMENT', description: 'Liebherr 200', maxUnits: 2 };
 const RMat: Resource = { id: 'r-mat', name: 'Beton C30', type: 'MATERIAL', description: 'Stortbeton', maxUnits: 1, unitOfMeasure: 'm3' };
@@ -266,6 +283,7 @@ const project = {
   createdAt: '2026-01-01T00:00:00.000Z', modifiedAt: '2026-06-01T00:00:00.000Z', // (a) gaps
   author: 'Ir. Testz', company: 'Bouw BV',                                       // (a) gaps
   wbsAutoNumber: true, statusDate: '2026-07-25', progressMode: 'PROGRESS_OVERRIDE',
+  companyId: 'c-fixture', companyName: 'Fixture Bouw BV',
   schedulingOptions: SCHED_OPTS,
 } satisfies Required<Project> & { schedulingOptions: Required<SchedulingOptions> };
 
@@ -288,11 +306,208 @@ export const fixture: ImportResult = {
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 //  CANONICALISATIE — vervang volatiele ids door natuurlijke sleutels, herschrijf kruisverwijzingen,
 //  strip de KNOWN_GAPS-velden (aan BEIDE zijden, zodat ze geen mismatch geven; het VERLIES zelf
-//  bewijzen we los in assertGaps). Levert een puur, vergelijkbaar objectboom.
+//  bewijzen we los in blok (3)). Levert een puur, vergelijkbaar objectboom.
+//
+//  SLEUTEL-GEDREVEN (bevinding K10a). De kop van dit bestand claimde dat de batterij ZELF-UITBREIDEND
+//  is: een nieuw domeinveld geeft een compile-fout, dus de round-trip bewaakt het automatisch. Dat
+//  klopte maar half — de FIXTURE was afgedwongen (`satisfies Required<...>`), de VERGELIJKING niet.
+//  `canon` bouwde met de hand opgesomde object-literals; een nieuw veld stond daar simpelweg niet in
+//  en werd dus nooit vergeleken. Gemeten (het onderzoek achter K10a): een veld toevoegen aan `Task`,
+//  de twee compile-fouten oplossen die dat gaf (`src/engine/moveProject.ts` + de fixture hierboven)
+//  en reader/writer NIET aanraken gaf gewoon `OK ifc-roundtrip: alle checks groen`, exit 0. Het veld
+//  round-tripte nul bytes en geen enkele poort merkte het — exact de bugklasse (stil veldverlies)
+//  waarvoor deze batterij bestaat.
+//
+//  Daarom is élke projectie hieronder een `satisfies CanonSpec<X>`-tabel, d.w.z.
+//  `Record<keyof X, ...>`: dezelfde compile-time volledigheidstruc als `TASK_VERDICTS` in
+//  `src/engine/moveProject.ts` en `DOCUMENT_FIELDS` in `src/state/documentContract.ts`. Elke sleutel
+//  draagt een EXPLICIETE keuze — meedoen zoals hij is (`KEEP`), meedoen in geprojecteerde vorm
+//  (`{ get, as? }`), of bewust niet vergelijken (`{ skip: '<reden>' }`, reden verplicht). Een nieuw
+//  veld zonder cel geeft een compile-fout onder tests/planning/tsconfig.roundtrip.json.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 type Any = Record<string, unknown>;
 const def = <T>(v: T | undefined): v is T => v !== undefined;
+
+/** Volatiele id → leesbare, stabiele sleutel. Ids regenereren bij het inlezen, dus élke verwijzing
+ *  naar een ander object wordt via deze kaarten naar een natuurlijke sleutel herschreven. */
+interface Keys {
+  /** kalender-id → kalendernaam (undefined blijft undefined: "projectkalender"). */
+  cal(id: string | undefined): string | undefined;
+  /** taak-id → wbsCode. */
+  task(id: string): string;
+  /** resource-id → resourcenaam. */
+  res(id: string): string;
+  /** activity-code-TYPE-id → typenaam. */
+  codeType(id: string): string;
+  /** activity-code-WAARDE-id → code. */
+  codeValue(id: string): string;
+  /** custom-field-definitie-id → veldnaam. */
+  fieldDef(id: string): string;
+}
+
+/** "Doe mee aan de vergelijking, ongewijzigd, onder je eigen naam." */
+const KEEP = { keep: true } as const;
+
+/** Eén cel in een canon-tabel. De drie vormen zijn de enige toegestane keuzes per veld. */
+type CanonCell<T> =
+  | typeof KEEP
+  | { readonly skip: string }                                     // reden verplicht
+  | { readonly as?: string; readonly get: (o: T, k: Keys) => unknown };
+
+/** DE tabelvorm: één cel per sleutel van het domeintype — geen sleutel mag ontbreken. */
+type CanonSpec<T> = Record<keyof T, CanonCell<T>>;
+
+/** Bouw het vergelijkbare object sleutel-voor-sleutel uit de tabel. */
+function canonize<T extends object>(spec: CanonSpec<T>, o: T, k: Keys): Any {
+  const src = o as unknown as Any;
+  const out: Any = {};
+  for (const key of Object.keys(spec) as (keyof T & string)[]) {
+    const cell = spec[key];
+    if ('skip' in cell) continue;
+    if ('keep' in cell) out[key] = src[key];
+    else out[cell.as ?? key] = cell.get(o, k);
+  }
+  return out;
+}
+
+// ── De veldtabellen ─────────────────────────────────────────────────────────────────────────────
+
+const HOLIDAY_CANON = {
+  name: KEEP, startDate: KEEP, endDate: KEEP,
+} satisfies CanonSpec<Holiday>;
+
+const CALENDAR_CANON = {
+  id: { skip: 'regenereert bij inlezen; de NAAM is de natuurlijke sleutel (Keys.cal)' },
+  name: KEEP, description: KEEP,
+  workDays: { get: (c: WorkCalendar) => [...c.workDays] },
+  workStartHour: KEEP, workEndHour: KEEP, hoursPerDay: KEEP,
+  holidays: {
+    get: (c: WorkCalendar, k: Keys) => [...c.holidays]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(h => canonize(HOLIDAY_CANON, h, k)),
+  },
+  generation: KEEP,
+  workTime: { skip: 'aanwezig ⇒ UUR-kalender; deze fixture is dag-modus. Uur-round-trip: check-adapters-hours.ts' },
+  shift: KEEP,
+  libraryOrigin: KEEP,   // B1.1: herkomststempel round-trippt via OPS_LibraryOrigin
+} satisfies CanonSpec<WorkCalendar>;
+
+const TIME_CANON = {
+  durationType: KEEP, scheduleDuration: KEEP,
+  durationMinutes: { skip: '(b) UUR-modus-veld, n.v.t. in dag-modus; gedekt door check-adapters-hours.ts' },
+  scheduleStart: KEEP, scheduleFinish: KEEP,
+  earlyStart: KEEP, earlyFinish: KEEP, lateStart: KEEP, lateFinish: KEEP,
+  freeFloat: KEEP, totalFloat: KEEP, isCritical: KEEP,
+  // De drie analyse-velden round-trippen sinds pakket K BEWUST niet meer mee: de writer schrijft
+  // `OPS_Analysis` niet langer omdat het pure runCPM-uitvoer is die élk laadpad herberekent (zie
+  // ifcWriter.WRITTEN_PER_TASK_PSETS). Ze staan als (a)-gap in KNOWN_GAPS; het verlies zelf wordt
+  // in blok (3) apart geassserteerd. De LEESkant blijft bestaande bestanden gewoon accepteren.
+  interferingFloat: { skip: '(a) afgeleid; OPS_Analysis wordt sinds pakket K niet meer geschreven' },
+  isNearCritical: { skip: '(a) afgeleid; OPS_Analysis wordt sinds pakket K niet meer geschreven' },
+  floatPath: { skip: '(a) afgeleid; OPS_Analysis wordt sinds pakket K niet meer geschreven' },
+  actualStart: KEEP, actualFinish: KEEP, actualDuration: KEEP, remainingTime: KEEP,
+  remainingMinutes: { skip: '(b) UUR-modus-veld, n.v.t. in dag-modus (zie durationMinutes)' },
+  completion: KEEP,
+} satisfies CanonSpec<TaskTime>;
+
+const TASK_CANON = {
+  id: { skip: 'regenereert bij inlezen; wbsCode is de natuurlijke sleutel (Keys.task)' },
+  name: KEEP, description: KEEP, wbsCode: KEEP, taskType: KEEP, status: KEEP,
+  isMilestone: KEEP, milestoneKind: KEEP, mandatory: KEEP, priority: KEEP, levelingDelay: KEEP,
+  parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
+  childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
+  time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },
+  // color + resourceIds round-trippen sinds H2 (OPS_TaskAppearance resp. herbouw uit assignments).
+  // resourceIds naar natuurlijke sleutels (resourcenaam) + gesorteerd (volgorde-onafhankelijk).
+  resourceIds: { get: (t: Task, k: Keys) => [...t.resourceIds].map(id => k.res(id)).sort() },
+  color: KEEP,
+  activityCodes: {
+    get: (t: Task, k: Keys) => t.activityCodes
+      ? Object.fromEntries(Object.entries(t.activityCodes).map(([ty, va]) => [k.codeType(ty), k.codeValue(va)]))
+      : undefined,
+  },
+  customFields: {
+    get: (t: Task, k: Keys) => t.customFields
+      ? Object.fromEntries(Object.entries(t.customFields).map(([d, v]) => [k.fieldDef(d), v]))
+      : undefined,
+  },
+  constraint: KEEP, constraint2: KEEP, isHammock: KEEP, externalLinks: KEEP, deadline: KEEP,
+  calendarId: { as: 'calendar', get: (t: Task, k: Keys) => k.cal(t.calendarId) },
+  notes: KEEP,
+} satisfies CanonSpec<Task>;
+
+const SEQUENCE_CANON = {
+  id: { skip: 'regenereert bij inlezen; de relatie is identificeerbaar via pred/succ/type' },
+  predecessorId: { as: 'pred', get: (s: Sequence, k: Keys) => k.task(s.predecessorId) },
+  successorId: { as: 'succ', get: (s: Sequence, k: Keys) => k.task(s.successorId) },
+  type: KEEP, lagDays: KEEP, lagMinutes: KEEP, lagUnit: KEEP, lagPercent: KEEP,
+} satisfies CanonSpec<Sequence>;
+
+const RESOURCE_CANON = {
+  id: { skip: 'regenereert bij inlezen; de NAAM is de natuurlijke sleutel (Keys.res)' },
+  name: KEEP, type: KEEP, description: KEEP, costPerHour: KEEP,
+  availability: { skip: '(b) @deprecated migratieveld; de writer schrijft het bewust niet (KNOWN_GAPS)' },
+  maxUnits: KEEP,
+  calendarId: { as: 'calendar', get: (r: Resource, k: Keys) => k.cal(r.calendarId) },
+  availabilitySteps: KEEP, unitOfMeasure: KEEP,
+  parentId: { as: 'parent', get: (r: Resource, k: Keys) => (r.parentId ? k.res(r.parentId) : undefined) },
+  libraryOrigin: KEEP,   // B1.1: herkomststempel round-trippt via OPS_LibraryOrigin
+} satisfies CanonSpec<Resource>;
+
+const ASSIGNMENT_CANON = {
+  id: { skip: 'regenereert bij inlezen; taak+resource+units identificeren de toewijzing' },
+  taskId: { as: 'task', get: (a: ResourceAssignment, k: Keys) => k.task(a.taskId) },
+  resourceId: { as: 'resource', get: (a: ResourceAssignment, k: Keys) => k.res(a.resourceId) },
+  unitsPerDay: KEEP, curve: KEEP,
+} satisfies CanonSpec<ResourceAssignment>;
+
+const PROJECT_CANON = {
+  id: { skip: 'documentinterne id; de reader genereert een eigen id, geen contractuele data' },
+  name: KEEP,
+  // description/author/company/createdAt/modifiedAt round-trippen sinds H2.
+  description: KEEP, startDate: KEEP, endDate: KEEP,
+  calendarId: { as: 'calendar', get: (p: Project, k: Keys) => k.cal(p.calendarId) },
+  createdAt: KEEP, modifiedAt: KEEP, author: KEEP, company: KEEP,
+  wbsAutoNumber: KEEP, statusDate: KEEP, progressMode: KEEP, schedulingOptions: KEEP,
+  // B1.1: bedrijfsbinding round-trippt via OPS_CompanyBinding.
+  companyId: KEEP, companyName: KEEP,
+} satisfies CanonSpec<Project>;
+
+const BASELINE_TASK_CANON = {
+  taskId: { as: 'task', get: (bt: BaselineTask, k: Keys) => k.task(bt.taskId) },
+  start: KEEP, finish: KEEP, duration: KEEP, isMilestone: KEEP, milestoneKind: KEEP,
+} satisfies CanonSpec<BaselineTask>;
+
+const BASELINE_CANON = {
+  id: KEEP,   // baseline-ids round-trippen letterlijk mee (OPS_Baselines-JSON)
+  name: KEEP, createdAt: KEEP,
+  tasks: {
+    get: (b: Baseline, k: Keys) => (b.tasks ?? []).map(bt => canonize(BASELINE_TASK_CANON, bt, k))
+      .sort((x, y) => String(x.task).localeCompare(String(y.task))),
+  },
+  projectEnd: KEEP, projectDuration: KEEP,
+} satisfies CanonSpec<Baseline>;
+
+const CODE_VALUE_CANON = {
+  id: { skip: 'de meta-JSON bewaart de id letterlijk; de CODE is hier de natuurlijke sleutel' },
+  code: KEEP, description: KEEP, color: KEEP,
+} satisfies CanonSpec<ActivityCodeValue>;
+
+const CODE_TYPE_CANON = {
+  id: { skip: 'de meta-JSON bewaart de id letterlijk; de NAAM is hier de natuurlijke sleutel' },
+  name: KEEP,
+  values: {
+    get: (t: ActivityCodeType, k: Keys) => [...t.values]
+      .sort((x, y) => x.code.localeCompare(y.code))
+      .map(v => canonize(CODE_VALUE_CANON, v, k)),
+  },
+} satisfies CanonSpec<ActivityCodeType>;
+
+const FIELD_DEF_CANON = {
+  id: { skip: 'de meta-JSON bewaart de id letterlijk; de NAAM is hier de natuurlijke sleutel' },
+  name: KEEP, type: KEEP,
+} satisfies CanonSpec<CustomFieldDef>;
 
 function canon(r: ImportResult): Any {
   const cals = [r.calendar, ...(r.resourceCalendars ?? [])];
@@ -306,100 +521,34 @@ function canon(r: ImportResult): Any {
   for (const t of r.activityCodeTypes ?? []) for (const v of t.values) codeById.set(v.id, v.code);
   const defNameById = new Map((r.customFieldDefs ?? []).map(d => [d.id, d.name]));
 
-  const calKey = (id: string | undefined): string | undefined => (id ? calNameById.get(id) ?? id : undefined);
-
-  const canonCal = (c: WorkCalendar): Any => ({
-    name: c.name, description: c.description, workDays: [...c.workDays],
-    workStartHour: c.workStartHour, workEndHour: c.workEndHour, hoursPerDay: c.hoursPerDay,
-    holidays: [...c.holidays].sort((a, b) => a.name.localeCompare(b.name))
-      .map(h => ({ name: h.name, startDate: h.startDate, endDate: h.endDate })),
-    generation: c.generation, shift: c.shift,
-  });
-
-  const canonTime = (t: TaskTime): Any => ({
-    // Gestripte (b)-gaps: durationMinutes/remainingMinutes (uur-modus, n.v.t. in dag-modus).
-    // interferingFloat/isNearCritical/floatPath round-trippen sinds pakket K BEWUST NIET meer mee:
-    // de writer schrijft `OPS_Analysis` niet langer omdat het pure runCPM-uitvoer is die élk
-    // laadpad herberekent (zie ifcWriter.WRITTEN_PER_TASK_PSETS). Ze staan daarom weer als
-    // (a)-gap in KNOWN_GAPS hieronder — de LEESkant blijft bestaande bestanden gewoon accepteren.
-    durationType: t.durationType, scheduleDuration: t.scheduleDuration,
-    scheduleStart: t.scheduleStart, scheduleFinish: t.scheduleFinish,
-    earlyStart: t.earlyStart, earlyFinish: t.earlyFinish, lateStart: t.lateStart, lateFinish: t.lateFinish,
-    freeFloat: t.freeFloat, totalFloat: t.totalFloat, isCritical: t.isCritical,
-    actualStart: t.actualStart, actualFinish: t.actualFinish, actualDuration: t.actualDuration,
-    remainingTime: t.remainingTime, completion: t.completion,
-  });
-
-  const canonTask = (t: Task): Any => ({
-    // color + resourceIds round-trippen sinds H2 (OPS_TaskAppearance resp. herbouw uit assignments).
-    // resourceIds naar natuurlijke sleutels (resource-naam) + gesorteerd (volgorde-onafhankelijk).
-    wbsCode: t.wbsCode, name: t.name, description: t.description, taskType: t.taskType,
-    color: t.color,
-    resourceIds: [...t.resourceIds].map(id => resNameById.get(id) ?? id).sort(),
-    status: t.status, isMilestone: t.isMilestone, milestoneKind: t.milestoneKind, mandatory: t.mandatory,
-    priority: t.priority, levelingDelay: t.levelingDelay,
-    parent: t.parentId ? taskKeyById.get(t.parentId) ?? t.parentId : null,
-    children: t.childIds.map(c => taskKeyById.get(c) ?? c).sort(),
-    calendar: calKey(t.calendarId),
-    activityCodes: t.activityCodes
-      ? Object.fromEntries(Object.entries(t.activityCodes).map(([ty, va]) => [typeNameById.get(ty) ?? ty, codeById.get(va) ?? va]))
-      : undefined,
-    customFields: t.customFields
-      ? Object.fromEntries(Object.entries(t.customFields).map(([d, v]) => [defNameById.get(d) ?? d, v]))
-      : undefined,
-    constraint: t.constraint, constraint2: t.constraint2, deadline: t.deadline,
-    isHammock: t.isHammock, externalLinks: t.externalLinks, notes: t.notes,
-    time: canonTime(t.time),
-  });
-
-  const canonSeq = (s: Sequence): Any => ({
-    pred: taskKeyById.get(s.predecessorId) ?? s.predecessorId,
-    succ: taskKeyById.get(s.successorId) ?? s.successorId,
-    type: s.type, lagDays: s.lagDays, lagUnit: s.lagUnit, lagPercent: s.lagPercent, lagMinutes: s.lagMinutes,
-  });
-
-  const canonRes = (res: Resource): Any => ({
-    // Gestript gap: availability.
-    name: res.name, type: res.type, description: res.description,
-    costPerHour: res.costPerHour, maxUnits: res.maxUnits, unitOfMeasure: res.unitOfMeasure,
-    availabilitySteps: res.availabilitySteps, calendar: calKey(res.calendarId),
-    parent: res.parentId ? resNameById.get(res.parentId) ?? res.parentId : undefined,
-  });
-
-  const canonAsg = (a: ResourceAssignment): Any => ({
-    task: taskKeyById.get(a.taskId) ?? a.taskId, resource: resNameById.get(a.resourceId) ?? a.resourceId,
-    unitsPerDay: a.unitsPerDay, curve: a.curve,
-  });
-
-  const canonBaseline = (b: Baseline): Any => ({
-    id: b.id, name: b.name, createdAt: b.createdAt, projectEnd: b.projectEnd, projectDuration: b.projectDuration,
-    tasks: (b.tasks ?? []).map(bt => ({
-      task: taskKeyById.get(bt.taskId) ?? bt.taskId, start: bt.start, finish: bt.finish,
-      duration: bt.duration, isMilestone: bt.isMilestone, milestoneKind: bt.milestoneKind,
-    })).sort((x, y) => String(x.task).localeCompare(String(y.task))),
-  });
+  const k: Keys = {
+    cal: id => (id ? calNameById.get(id) ?? id : undefined),
+    task: id => taskKeyById.get(id) ?? id,
+    res: id => resNameById.get(id) ?? id,
+    codeType: id => typeNameById.get(id) ?? id,
+    codeValue: id => codeById.get(id) ?? id,
+    fieldDef: id => defNameById.get(id) ?? id,
+  };
 
   return {
-    project: {
-      // author/company/description/createdAt/modifiedAt round-trippen sinds H2.
-      name: r.project.name, startDate: r.project.startDate, endDate: r.project.endDate,
-      description: r.project.description, author: r.project.author, company: r.project.company,
-      createdAt: r.project.createdAt, modifiedAt: r.project.modifiedAt,
-      calendar: calKey(r.project.calendarId), wbsAutoNumber: r.project.wbsAutoNumber,
-      statusDate: r.project.statusDate, progressMode: r.project.progressMode,
-      schedulingOptions: r.project.schedulingOptions,
-    },
-    calendar: canonCal(r.calendar),
-    resourceCalendars: (r.resourceCalendars ?? []).map(canonCal).sort((a, b) => String(a.name).localeCompare(String(b.name))),
-    tasks: [...r.tasks].sort((a, b) => a.wbsCode.localeCompare(b.wbsCode)).map(canonTask),
-    sequences: [...r.sequences].map(canonSeq).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-    resources: [...r.resources].sort((a, b) => a.name.localeCompare(b.name)).map(canonRes),
-    assignments: [...r.assignments].map(canonAsg).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+    project: canonize(PROJECT_CANON, r.project, k),
+    calendar: canonize(CALENDAR_CANON, r.calendar, k),
+    resourceCalendars: (r.resourceCalendars ?? []).map(c => canonize(CALENDAR_CANON, c, k))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name))),
+    tasks: [...r.tasks].sort((a, b) => a.wbsCode.localeCompare(b.wbsCode)).map(t => canonize(TASK_CANON, t, k)),
+    sequences: [...r.sequences].map(s => canonize(SEQUENCE_CANON, s, k))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+    resources: [...r.resources].sort((a, b) => a.name.localeCompare(b.name)).map(res => canonize(RESOURCE_CANON, res, k)),
+    assignments: [...r.assignments].map(a => canonize(ASSIGNMENT_CANON, a, k))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     activityCodeTypes: [...(r.activityCodeTypes ?? [])]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(t => ({ name: t.name, values: [...t.values].sort((x, y) => x.code.localeCompare(y.code)).map(v => ({ code: v.code, description: v.description, color: v.color })) })),
-    customFieldDefs: [...(r.customFieldDefs ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map(d => ({ name: d.name, type: d.type })),
-    baselines: [...(r.baselines ?? [])].map(canonBaseline).sort((a, b) => String(a.id).localeCompare(String(b.id))),
+      .map(t => canonize(CODE_TYPE_CANON, t, k)),
+    customFieldDefs: [...(r.customFieldDefs ?? [])]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(d => canonize(FIELD_DEF_CANON, d, k)),
+    baselines: [...(r.baselines ?? [])].map(b => canonize(BASELINE_CANON, b, k))
+      .sort((a, b) => String(a.id).localeCompare(String(b.id))),
     activeBaselineId: r.activeBaselineId ?? null,
   };
 }
@@ -478,7 +627,25 @@ const rt2 = readIFC(writeIFC(rt1));
   void txOut;
 }
 
-// (4) Contractuele projectdatums — de drie gevallen van de OPS_ProjectSettings-opslag. Het GEVULDE
+// (4) B1 (§6) — projectbinding + herkomststempels expliciet: round-trippen door het project-IFC.
+{
+  assert(rt1.project.companyId === 'c-fixture', 'project.companyId round-trip');
+  assert(rt1.project.companyName === 'Fixture Bouw BV', 'project.companyName round-trip');
+  const rMem = rt1.resources.find(r => r.name === 'Timmerman Jan')!;
+  assert(rMem.libraryOrigin?.companyId === 'c-fixture'
+    && rMem.libraryOrigin?.libraryItemId === 'lib-res1'
+    && rMem.libraryOrigin?.poolVersion === 4, 'resource.libraryOrigin round-trip');
+  const rtProjCal = rt1.calendar;
+  assert(rtProjCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtProjCal.libraryOrigin?.libraryItemId === 'lib-projcal'
+    && rtProjCal.libraryOrigin?.poolVersion === 4, 'projectkalender.libraryOrigin round-trip');
+  const rtLibCal = (rt1.resourceCalendars ?? []).find(c => c.name === 'Sublokatie kalender')!;
+  assert(rtLibCal.libraryOrigin?.companyId === 'c-fixture'
+    && rtLibCal.libraryOrigin?.libraryItemId === 'lib-libcal'
+    && rtLibCal.libraryOrigin?.poolVersion === 4, 'bibliotheekkalender.libraryOrigin round-trip');
+}
+
+// (5) Contractuele projectdatums — de drie gevallen van de OPS_ProjectSettings-opslag. Het GEVULDE
 //     geval loopt al door de vergelijking in (1) (fixture: 2026-06-15 … 2026-09-30, bewust los van
 //     de taak-span 2026-07-06 … 2026-07-24). Hier de twee andere:
 {

@@ -8,6 +8,11 @@
     "table": "Table",
     "ifc": "IFC",
     "report": "Report",
+    "ai": "AI",
+    "aiServer": "Server",
+    "aiConnection": "Connection",
+    "aiSafety": "Safety",
+    "aiActivity": "Activity",
     "file": "File",
     "new": "New",
     "save": "Save",
@@ -171,7 +176,7 @@
     "name": "Project Name",
     "number": "Project Number",
     "description": "Description",
-    "author": "Engineer",
+    "author": "Author",
     "company": "Company",
     "startDate": "Start Date",
     "endDate": "End Date",
@@ -221,22 +226,6 @@
     "unsaved": "Unsaved",
     "scheduleStale": "Out of date — recalculate (F5)"
   },
-  "menuBar": {
-    "file": "File",
-    "newProject": "New project",
-    "open": "Open...",
-    "saveAs": "Save as IFC...",
-    "printPreview": "Print preview...",
-    "edit": "Edit",
-    "undo": "Undo",
-    "redo": "Redo",
-    "view": "View",
-    "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out",
-    "planning": "Planning",
-    "calculateCPM": "Calculate",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Back",
     "recent": "Recent",
@@ -265,18 +254,16 @@
     "openPrintPreview": "Open print preview",
     "projectInfoTitle": "Project info",
     "projectInfoSubtitle": "Metadata for this project.",
-    "name": "Name",
-    "description": "Description",
-    "author": "Author",
-    "company": "Company",
-    "startDate": "Start date",
-    "endDate": "End date",
     "help": "Help",
     "helpSubtitle": "Documentation and user guide, built into the app.",
     "helpSearchPlaceholder": "Search documentation…",
     "helpLoading": "Loading…",
     "helpLoadError": "Documentation could not be loaded.",
     "helpArticleNotFound": "Article not found.",
+    "library": "Library",
+    "helpDocsLang": "Documentation language",
+    "helpDocsLangAuto": "Follow app language",
+    "helpStale": "This language is updated only occasionally. For the most up-to-date documentation, switch to English or Dutch.",
     "helpLayer": {
       "quickstart": "Quick start",
       "gidsen": "Guides by topic",
@@ -327,5 +314,12 @@
       "custom": "Custom…",
       "none": "No holidays"
     }
+  },
+  "commands": {
+    "newProject": "New project",
+    "undo": "Undo",
+    "redo": "Redo",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   }
 }

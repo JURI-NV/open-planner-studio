@@ -8,6 +8,11 @@
     "table": "Tabla",
     "ifc": "IFC",
     "report": "Informe",
+    "ai": "IA",
+    "aiServer": "Servidor",
+    "aiConnection": "Conexión",
+    "aiSafety": "Seguridad",
+    "aiActivity": "Actividad",
     "file": "Archivo",
     "new": "Nuevo",
     "save": "Guardar",
@@ -171,7 +176,7 @@
     "name": "Nombre del proyecto",
     "number": "Número del proyecto",
     "description": "Descripción",
-    "author": "Ingeniero",
+    "author": "Autor",
     "company": "Empresa",
     "startDate": "Fecha de inicio",
     "endDate": "Fecha de fin",
@@ -221,22 +226,6 @@
     "unsaved": "Sin guardar",
     "scheduleStale": "Desactualizado — recalcula (F5)"
   },
-  "menuBar": {
-    "file": "Archivo",
-    "newProject": "Nuevo proyecto",
-    "open": "Abrir...",
-    "saveAs": "Guardar como IFC...",
-    "printPreview": "Vista previa de impresión...",
-    "edit": "Editar",
-    "undo": "Deshacer",
-    "redo": "Rehacer",
-    "view": "Vista",
-    "zoomIn": "Acercar",
-    "zoomOut": "Alejar",
-    "planning": "Planificación",
-    "calculateCPM": "Calcular",
-    "version": "Open Planner Studio v0.1"
-  },
   "backstage": {
     "back": "Volver",
     "recent": "Recientes",
@@ -265,18 +254,16 @@
     "openPrintPreview": "Abrir vista previa de impresión",
     "projectInfoTitle": "Info del proyecto",
     "projectInfoSubtitle": "Metadatos de este proyecto.",
-    "name": "Nombre",
-    "description": "Descripción",
-    "author": "Autor",
-    "company": "Empresa",
-    "startDate": "Fecha de inicio",
-    "endDate": "Fecha de fin",
     "help": "Ayuda",
     "helpSubtitle": "Documentación y guía del usuario, integradas en la aplicación.",
     "helpSearchPlaceholder": "Buscar en la documentación…",
     "helpLoading": "Cargando…",
     "helpLoadError": "No se pudo cargar la documentación.",
     "helpArticleNotFound": "Artículo no encontrado.",
+    "library": "Biblioteca",
+    "helpDocsLang": "Idioma de la documentación",
+    "helpDocsLangAuto": "Seguir el idioma de la aplicación",
+    "helpStale": "Este idioma solo se actualiza ocasionalmente. Para la documentación más actualizada, cambie a inglés o neerlandés.",
     "helpLayer": {
       "quickstart": "Inicio rápido",
       "gidsen": "Guías por tema",
@@ -327,5 +314,12 @@
       "custom": "Personalizado…",
       "none": "Sin festivos"
     }
+  },
+  "commands": {
+    "newProject": "Nuevo proyecto",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar"
   }
 }

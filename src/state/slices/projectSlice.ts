@@ -368,6 +368,14 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
     // project). hydratePayload promoveert + synct de projectkalender (§4.3/§9.1).
     set((s) => {
       hydratePayload(s, freshPayload());
+      // Zelfde reset als newDocument()/closeDocument() in documentSlice.ts (critreview taak 12):
+      // showLibraryLinkDialog/libraryRefreshNotice zijn APP-globaal en worden door hydratePayload
+      // NIET aangeraakt (het zijn geen DOCUMENT_FIELDS). Zonder deze reset kan een openstaande vlag
+      // van het vorige project blijven staan, en LibraryLinkDialog rendert onvoorwaardelijk zodra
+      // hij waar is — op een net gestart, ongebonden project levert dat een leeg koppel-/
+      // afwijkingenscherm op dat nergens bij hoort.
+      s.ui.showLibraryLinkDialog = false;
+      s.ui.libraryRefreshNotice = null;
     });
     emitExtensionEvent(HOST_EVENTS.projectNew);
   },
@@ -414,6 +422,12 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // Een leeg project (template 'Leeg') is nog niet 'dirty'; met fasen wél.
       payload.isDirty = opts.phaseNames.length > 0;
       hydratePayload(s, payload);
+      // Zelfde reset als newProject()/newDocument() hierboven: bij het PRISTINE-hergebruikpad
+      // (geen newDocument()-aanroep, dus geen reset onderweg) kan een openstaande
+      // showLibraryLinkDialog/libraryRefreshNotice van vóór deze wizard blijven hangen. Onvoorwaardelijk
+      // hier zetten is een no-op op het niet-pristine pad (newDocument() heeft al gereset).
+      s.ui.showLibraryLinkDialog = false;
+      s.ui.libraryRefreshNotice = null;
     });
     emitExtensionEvent(HOST_EVENTS.projectNew);
   },

@@ -135,7 +135,12 @@ export function MiniMap({ originDate, chartWidth }: MiniMapProps) {
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        style={{ cursor: dragOffsetDays !== null ? 'grabbing' : 'pointer' }}
+        // maxWidth/maxHeight (issue #30): <canvas> is een replaced element — vóór de eerste
+        // rAF-render (of wanneer die om wat voor reden dan ook uitblijft) valt `width`/`height`
+        // zonder eigen stijl terug op het browser-intrinsieke 300×150 i.p.v. mee te stretchen met
+        // `inset-0`. Deze twee regels zorgen dat de canvas nooit méér ruimte claimt dan de
+        // (wél altijd correct gestretchte) container, ongeacht die race.
+        style={{ cursor: dragOffsetDays !== null ? 'grabbing' : 'pointer', maxWidth: '100%', maxHeight: '100%' }}
         onMouseDown={handleMouseDown}
       />
     </div>

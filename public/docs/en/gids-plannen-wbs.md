@@ -5,7 +5,8 @@ A schedule starts with a task structure: which tasks exist, how are they broken 
 ## What you'll learn here
 
 - Building a task structure (WBS) using indenting and summary tasks.
-- Moving tasks within the same level, without re-indenting.
+- Moving tasks within the same level, without re-indenting — with the keyboard, by dragging, or in
+  the spreadsheet-style **Table** tab.
 - The three milestone kinds and the separate mandatory flag for contractual moments.
 - Managing activity codes and custom fields via the **Codes & fields** window, and grouping by them.
 - Using notes (a per-task checklist) to keep track of open items.
@@ -32,6 +33,23 @@ Besides changing a task's level (indent/outdent), you can also swap a task's pos
 - **Alt+↓** moves the task down.
 
 This works at any level of the tree: move a phase task, and all of its subtasks automatically move along with it.
+
+Prefer the mouse? Grab a task by its row in the task table (the left-hand column of the Gantt view,
+with the same drag behaviour on the **Table** ribbon tab) and drag it up or down. Drop it between two
+rows to reorder it among its siblings, same as Alt+↑/↓. Drop it onto the lower part of a summary
+task's row instead, and it nests: the task becomes that summary task's new last subtask, re-indenting
+it in one motion — that's the mouse equivalent of Alt+→. Select several tasks first (Ctrl/Cmd-click,
+or a box-select) and the whole selection drags and drops together.
+
+The **Table** ribbon tab shows this same structure as a plain, editable grid, useful when you're
+entering or correcting a lot of tasks at once: a single click on any editable cell starts editing
+immediately with the existing value selected, the arrow keys move a cell cursor without opening it,
+**F2**/**Enter** opens the current cell for editing, and **Tab**/**Shift+Tab** on a selected row
+indent/outdent it, same as Alt+→/←. Reaching **Enter** or **↓** on the very last row creates a new
+sibling task right there with the cursor already in its name cell, so you can keep a whole list going
+without touching the mouse — this only works in the plain tree view, since a filter, sort or grouping
+active could make the new task fall straight out of view, so the app asks first instead of silently
+placing a task you can't see.
 
 ## Milestone kinds
 

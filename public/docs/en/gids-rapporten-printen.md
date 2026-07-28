@@ -31,13 +31,22 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
 - **Orientation**: landscape or portrait.
 - **Auto-fit to paper** (on = the schedule scales automatically to the chosen size) or a manual
   **zoom** slider if you turn auto-fit off.
+- **Font size** — 90, 100, 110 or 125%; scales the report text, row height and header/footer,
+  independently of the zoom level above.
+- **Repeat header on each page** — on by default; keeps the report header visible on every printed
+  page instead of only the first.
+- **Timeline over** — spreads the Gantt timeline across 1 to 8 pages side by side; only available
+  with auto-fit on.
 - Toggles for **task names on bars**, **show completion**, **critical path**, **show float**,
   **dependencies**, **weekends** and **legend**.
 - A **company** field (auto-fills from the project setting, but is separately editable here) and the
   **author** (read-only, from the project info).
 
 The summary block above it shows the live count of tasks, leaf tasks, critical tasks and relations
-in the project.
+in the project. The settings panel remembers your choices between sessions — reopen the Report tab
+later and paper size, toggles, font size and the rest come back exactly as you left them. Only the
+company field resets: it always starts from the project's own setting, so a report never carries
+over another project's company name.
 
 ### Milestone overview
 
@@ -69,9 +78,10 @@ actual PDF file (filename ending in `-planning.pdf`) — one page sized to the p
 of the chosen paper size and orientation. The PDF file is **vector-based**: bars, lines and text
 are stored as PDF drawing instructions rather than a single embedded image, so it stays crisp at
 any zoom level and the text is selectable and searchable in any PDF viewer. This applies to Latin,
-Cyrillic and Greek text; if the project contains Chinese, Japanese, Korean, Arabic or Persian text,
-the export automatically falls back to a raster image for that text — still correctly displayed,
-but not selectable or searchable. Handy for email or archiving without going through the system
+Cyrillic, Greek, Arabic and Persian text — Arabic and Persian are shaped and embedded as vector text
+as well. Chinese, Japanese and Korean text is opt-in: install a font extension that supplies those
+glyphs and it is embedded as vector too (selectable and searchable); without such an extension that
+text is exported as a raster image — still correctly displayed, but not selectable or searchable. Handy for email or archiving without going through the system
 print dialog. If you'd rather print directly (or save to PDF via the system dialog, e.g. to pick a
 different paper size than the one configured above), use **Print...**.
 

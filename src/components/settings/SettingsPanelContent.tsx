@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/state/appStore';
 import { Locale, LANGUAGE_LABELS, supportedLanguages, setLocale } from '@/i18n/config';
-import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode } from '@/state/slices/types';
-import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode } from '@/utils/settingsStore';
+import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode, UIFontFamily, UI_FONT_FAMILIES, UI_FONT_SCALES } from '@/state/slices/types';
+import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode, saveCompressNonWorkdays, saveUIFontFamily, saveUIFontScale, saveAiAutostart } from '@/utils/settingsStore';
+import { applyAiModeLive } from '@/services/mcp/server';
 import { isTauri } from '@/utils/platform';
 import { Select } from '@/components/common/Select';
 import { ScrollZoomSettings } from '@/components/dialogs/ScrollZoomSettings';
@@ -26,6 +27,18 @@ const THEME_LABEL_KEYS = {
   'high-contrast': 'settings.themeHighContrast',
 } as const;
 
+// i18n-sleutels voor de lettertype-familie-opties (issue #25.4) — zelfde patroon als THEME_LABEL_KEYS.
+// `as const satisfies` i.p.v. een `Record<UIFontFamily, string>`-annotatie: die annotatie zou de
+// waarden verbreden naar `string`, en dan accepteert de getypeerde `t(...)` ze niet meer (i18next
+// valideert de sleutel tegen een union van bestaande keys). `satisfies` houdt de
+// volledigheidscheck op UIFontFamily én de letterlijke sleuteltypen.
+const FONT_FAMILY_LABEL_KEYS = {
+  'default': 'settings.fontFamilyDefault',
+  'system':  'settings.fontFamilySystem',
+  'serif':   'settings.fontFamilySerif',
+  'mono':    'settings.fontFamilyMono',
+} as const satisfies Record<UIFontFamily, string>;
+
 /**
  * Eén gedeelde settings-UI die in alle drie de toegangspunten draait
  * (gear-dialog, Instellingen-ribbon → dialog, en File → Backstage).
@@ -35,6 +48,8 @@ export function SettingsPanelContent() {
   const { t, i18n } = useTranslation('common');
   const setUI = useAppStore(s => s.setUI);
   const currentTheme = useAppStore(s => s.ui.uiTheme);
+  const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
+  const uiFontScale = useAppStore(s => s.ui.uiFontScale);
   const enableQuarterHourZoom = useAppStore(s => s.ui.enableQuarterHourZoom);
   const weekStartDay = useAppStore(s => s.ui.weekStartDay);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
@@ -46,6 +61,9 @@ export function SettingsPanelContent() {
   const allowMixedDayHour = useAppStore(s => s.ui.allowMixedDayHour);
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const barSplitMode = useAppStore(s => s.ui.barSplitMode);
+  const aiMode = useAppStore(s => s.ui.aiMode);
+  const aiAutostart = useAppStore(s => s.ui.aiAutostart);
+  const compressNonWorkdays = useAppStore(s => s.ui.compressNonWorkdays);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
@@ -86,6 +104,18 @@ export function SettingsPanelContent() {
     void saveDateNotation(notation);
   };
 
+  // Lettertype interface (issue #25.4): live toepassen + persisteren, zelfde patroon als boven.
+  // Het effect dat de CSS-variabelen/rem-basis daadwerkelijk schrijft zit in App.tsx (één plek).
+  const applyUIFontFamily = (value: UIFontFamily) => {
+    setUI({ uiFontFamily: value });
+    void saveUIFontFamily(value);
+  };
+
+  const applyUIFontScale = (value: number) => {
+    setUI({ uiFontScale: value });
+    void saveUIFontScale(value);
+  };
+
   // Bouwmodus (2026-07-13): live toepassen + persisteren (localStorage). De synchrone
   // kalenderfabriek leest de vlag rechtstreeks uit localStorage, dus de save moet vóór een
   // eventuele nieuw-project-actie geschreven zijn — vandaar direct (niet gedebounced).
@@ -113,6 +143,12 @@ export function SettingsPanelContent() {
   const applyBarSplitMode = (value: BarSplitMode) => {
     setUI({ barSplitMode: value });
     void saveBarSplitMode(value);
+  };
+
+  // Issue #21 punt 5 (fase 2): «alleen werkbare dagen tonen».
+  const applyCompressNonWorkdays = (checked: boolean) => {
+    setUI({ compressNonWorkdays: checked });
+    void saveCompressNonWorkdays(checked);
   };
 
   return (
@@ -171,6 +207,32 @@ export function SettingsPanelContent() {
               </div>
             </div>
 
+            {/* Lettertype interface (issue #25.4): familie + grootte. Web-apps volgen — anders dan
+                native apps — niet automatisch de systeemlettertype-instelling, wat leesbaarheid/
+                toegankelijkheid kan beïnvloeden; hier kiest de gebruiker beide. Familie overschrijft
+                via App.tsx de --font-heading/--font-body-variabelen (of herstelt ze bij 'default');
+                de schaal stuurt de rem-basis + de calc-px-sizes in de chrome-css. */}
+            <div className="settings-section">
+              <h3>{t('settings.fontFamilyLabel')}</h3>
+              <Select
+                aria-label={t('settings.fontFamilyLabel')}
+                value={uiFontFamily}
+                onChange={v => applyUIFontFamily(v as UIFontFamily)}
+                options={UI_FONT_FAMILIES.map(f => ({ value: f, label: t(FONT_FAMILY_LABEL_KEYS[f]) }))}
+              />
+              <p className="scrollzoom-hint">{t('settings.fontHint')}</p>
+            </div>
+
+            <div className="settings-section">
+              <h3>{t('settings.fontScaleLabel')}</h3>
+              <Select
+                aria-label={t('settings.fontScaleLabel')}
+                value={String(uiFontScale)}
+                onChange={v => applyUIFontScale(Number(v))}
+                options={UI_FONT_SCALES.map(s => ({ value: String(s), label: `${s}%` }))}
+              />
+            </div>
+
             <div className="settings-section">
               <h3>{t('settings.documentChrome')}</h3>
               <Select
@@ -191,10 +253,13 @@ export function SettingsPanelContent() {
                 aria-label={t('settings.dateNotation')}
                 value={dateNotation}
                 onChange={v => applyDateNotation(v as DateNotation)}
+                // De patroonletters zijn taalgebonden (nl jjjj, en yyyy, de JJJJ, fr aaaa, …),
+                // dus door t() en niet hardgecodeerd — ze stonden hier in het Nederlands en
+                // bleven daardoor in alle 14 locales onvertaald.
                 options={[
-                  { value: 'dmy', label: 'dd-mm-jjjj' },
-                  { value: 'mdy', label: 'mm-dd-jjjj' },
-                  { value: 'ymd', label: 'jjjj-mm-dd' },
+                  { value: 'dmy', label: t('settings.dateNotationDmy') },
+                  { value: 'mdy', label: t('settings.dateNotationMdy') },
+                  { value: 'ymd', label: t('settings.dateNotationYmd') },
                 ]}
               />
               <p className="scrollzoom-hint">{t('settings.dateNotationHint')}</p>
@@ -216,12 +281,6 @@ export function SettingsPanelContent() {
               <p className="scrollzoom-hint">{t('settings.constructionModeHint')}</p>
             </div>
 
-            <div className="settings-section">
-              <h3>{t('settings.defaultZoom')}</h3>
-              <div className="settings-row">
-                <span>30 px/day</span>
-              </div>
-            </div>
           </div>
         )}
 
@@ -296,6 +355,18 @@ export function SettingsPanelContent() {
                   { value: 'always', label: t('settings.barSplitAlways') },
                 ]}
               />
+            </div>
+            <div className="settings-section">
+              <h3>{t('settings.compressNonWorkdaysSection')}</h3>
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={compressNonWorkdays}
+                  onChange={e => applyCompressNonWorkdays(e.target.checked)}
+                />
+                <span>{t('settings.compressNonWorkdays')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.compressNonWorkdaysHint')}</p>
             </div>
             <div className="settings-section">
               <h3>{t('settings.weekStartDay')}</h3>
@@ -422,6 +493,38 @@ export function SettingsPanelContent() {
               >
                 {t('benchmark.open')}
               </button>
+            </div>
+
+            {/* AI-modus (T14) + automatisch starten: de enige twee AI-instellingen hier — de rest van
+                de bediening leeft op het AI-tabblad. AAN ⇒ tabblad verschijnt; UIT ⇒ tabblad weg +
+                bridge geforceerd gestopt (`applyAiModeLive` → `stopMcpServer` + status off). Via deze
+                gedeelde component op alle 3 de ingangen (gear/Instellingen-ribbontab/Backstage).
+                Automatisch starten hangt ONDER AI-modus: zonder AI-modus is er geen bridge om te
+                starten, dus die schakelaar staat dan uit-gegrijsd i.p.v. dat hij stil niets doet. */}
+            <div className="settings-section">
+              <h3>{t('settings.aiModeSection')}</h3>
+              <label className="settings-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={aiMode}
+                  onChange={e => { void applyAiModeLive(e.target.checked); }}
+                />
+                <span>{t('settings.aiMode')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.aiModeHint')}</p>
+              <label className="settings-checkbox-row" style={{ opacity: aiMode ? 1 : 0.5 }}>
+                <input
+                  type="checkbox"
+                  checked={aiAutostart}
+                  disabled={!aiMode}
+                  onChange={e => {
+                    setUI({ aiAutostart: e.target.checked });
+                    void saveAiAutostart(e.target.checked);
+                  }}
+                />
+                <span>{t('settings.aiAutostart')}</span>
+              </label>
+              <p className="scrollzoom-hint">{t('settings.aiAutostartHint')}</p>
             </div>
 
             <div className="settings-section">

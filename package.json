@@ -1,11 +1,13 @@
 {
   "name": "open-planner-studio",
   "private": true,
-  "version": "2026.7.12",
+  "version": "2026.7.13",
+  "license": "LGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/dev-server.mjs",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "node scripts/tauri-dev.mjs",
@@ -13,7 +15,8 @@
     "bump": "node scripts/bump-version.js",
     "gen:examples": "node scripts/run-ts.mjs scripts/generate-examples.ts",
     "verify:examples": "node scripts/run-ts.mjs scripts/verify-examples.ts",
-    "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts"
+    "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts",
+    "publish:wiki": "node scripts/publish-wiki.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -43,11 +46,12 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
     "@tauri-apps/cli": "^2.11.0",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0",
+    "postcss": "^8.5.18",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.5.0",
     "vite": "^7.3.5"

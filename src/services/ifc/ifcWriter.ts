@@ -103,16 +103,35 @@ export function writeIFC(input: WriteIFCInput): string {
     resourceCalendars = [],
     baselines = [],
     activeBaselineId = null,
+    libraryPool = undefined,
   } = input;
   const ctx: WriteContext = { lines: [], nextId: 1, idMap: new Map() };
   const now = new Date().toISOString().split('.')[0];
 
-  // Header
+  // Header. Naam/auteur/bedrijf MOETEN door `ifcStr` (bevinding K2): ze werden rauw
+  // geïnterpoleerd, en dan levert een gewone apostrof al syntactisch ongeldig STEP op
+  // (`FILE_NAME('O'Hara Tower.ifc',…)`) terwijl `DATA;`/`ENDSEC;` in de projectnaam die tokens vóór
+  // de echte sectiegrens zet ⇒ nul entiteiten, alles weg. Onze eigen reader raakte de header nooit
+  // aan, dus dit viel nooit op — een bestand met `Van 't Hof BV` erin hoeft Synchro of BlenderBIM
+  // niet te accepteren. Let op de VORM: `ifcStr(x + '.ifc')`, NIET `'${ifcStr(x)}.ifc'` — die
+  // laatste zet quotes om de al-gequote waarde heen (`''O''Hara'.ifc'`) en is erger dan het
+  // origineel. `ifcStr` geeft `$` bij een lege string; alle drie de waarden hier zijn nooit leeg
+  // (`.ifc`-suffix resp. een niet-lege terugval), dus de header houdt altijd echte stringliterals.
+  //
+  // Quoten alléén is niet genoeg: een REGELEINDE in de projectnaam (haalbaar via een geïmporteerd
+  // IFC-bestand en via de MCP-tool `update_project`) belandde rauw in de stringliteral. Dat is
+  // ongeldig STEP — een stringliteral loopt per ISO 10303-21 niet over regels heen — en het zet
+  // bovendien de tekst ná dat regeleinde aan het begin van een regel, waar een `DATA;` de
+  // sectiegrens van elke regel-verankerde lezer verzet. Vandaar `headerText`: regeleindes en
+  // andere controltekens worden één spatie. Dit raakt UITSLUITEND de drie headervelden; taaknamen
+  // en omschrijvingen in de datasectie gaan ongemoeid door `ifcStr` (daar is de scan quote-bewust
+  // en zijn regeleindes onschadelijk).
+  const headerText = (s: string) => s.replace(/[\u0000-\u001F\u007F]+/g, ' ');
   const header = [
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [SchedulingView]'),'2;1');",
-    `FILE_NAME('${project.name}.ifc','${now}',('${project.author || 'Open Planner Studio'}'),('${project.company || 'OpenAEC Foundation'}'),'Open Planner Studio 0.1','Open Planner Studio','');`,
+    `FILE_NAME(${ifcStr(headerText(project.name) + '.ifc')},${ifcStr(now)},(${ifcStr(headerText(project.author || 'Open Planner Studio'))}),(${ifcStr(headerText(project.company || 'OpenAEC Foundation'))}),'Open Planner Studio 0.1','Open Planner Studio','');`,
     "FILE_SCHEMA(('IFC4X3'));",
     'ENDSEC;',
     'DATA;',
@@ -225,6 +244,8 @@ export function writeIFC(input: WriteIFCInput): string {
 
   // Structuurdefinities (activity codes / custom fields) + waarden per taak + projectsettings
   writeStructure(ctx, project, tasks, activityCodeTypes, customFieldDefs, ownerHistId);
+  // Bedrijfsbibliotheek-pool (spec B1, §4): alleen een pool-BESTAND draagt dit; anders undefined ⇒ niets.
+  writeLibraryPool(ctx, ownerHistId, libraryPool);
 
   // De per-taak-psets (Constraints/ExternalLink/Hammock/Milestone/Leveling/TaskNotes/
   // TaskAppearance) via de gedeelde registry (ifcPsets.PER_TASK_PSETS). De volgorde in de
@@ -341,6 +362,15 @@ function writeStructure(
     projSettingProps.push(addLine(ctx, '_ps_modifiedat',
       `IFCPROPERTYSINGLEVALUE('ModifiedAt',$,IFCTEXT(${ifcStr(project.modifiedAt)}),$)`));
   }
+  // Projectbinding aan een bedrijfsbibliotheek (spec B1, §6). Golden rule: alleen wanneer gebonden.
+  if (project.companyId) {
+    projSettingProps.push(addLine(ctx, '_ps_companyid',
+      `IFCPROPERTYSINGLEVALUE('CompanyId',$,IFCTEXT(${ifcStr(project.companyId)}),$)`));
+  }
+  if (project.companyName) {
+    projSettingProps.push(addLine(ctx, '_ps_companyname',
+      `IFCPROPERTYSINGLEVALUE('CompanyName',$,IFCTEXT(${ifcStr(project.companyName)}),$)`));
+  }
   if (projSettingProps.length > 0) {
     const setId = addLine(ctx, '_pset_projset',
       `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_projset'))},#${ownerHistId},${ifcStr(PSET.ProjectSettings)},$,(${projSettingProps.map(i => `#${i}`).join(',')}))`);
@@ -419,6 +449,29 @@ function writeStructure(
       relDefines(`_rel_ac_${task.id}`, ref(ctx, `task_${task.id}`), setId);
     }
   }
+}
+
+/**
+ * Spec B1, §4 — de VOLLEDIGE pool als één autoritatief JSON-blob in het `OPS_Library`-pset op het
+ * IfcProject (patroon `OPS_StructureMeta`: één IFCTEXT-property, verliesloos, incl. ids en versie).
+ * Alleen een pool-BESTAND draagt dit; een gewoon projectbestand roept dit met `undefined` aan ⇒
+ * niets geschreven (golden rule, byte-identiek). De IFCWORKCALENDAR/resource-entiteiten in het
+ * bestand blijven voor derden leesbaar, maar deze JSON is voor ONZE reader de bron van waarheid.
+ */
+function writeLibraryPool(
+  ctx: WriteContext,
+  ownerHistId: number,
+  pool: import('@/types/library').CompanyPool | undefined,
+): void {
+  if (!pool) return;
+  const projRef = ref(ctx, '_project');
+  const json = JSON.stringify(pool);
+  const propId = addLine(ctx, '_ps_library',
+    `IFCPROPERTYSINGLEVALUE('pool',$,IFCTEXT(${ifcStr(json)}),$)`);
+  const setId = addLine(ctx, '_pset_library',
+    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_library'))},#${ownerHistId},${ifcStr(PSET.Library)},$,(#${propId}))`);
+  addLine(ctx, '_rel_library',
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_library'))},#${ownerHistId},$,$,(${projRef}),#${setId})`);
 }
 
 /**
@@ -579,22 +632,28 @@ function writeCalendarGenerationMeta(
   ownerHistId: number,
 ): void {
   const gen = cal.generation;
-  if (!gen) return;
+  if (!gen && !cal.libraryOrigin) return;
   const props: number[] = [];
-  props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('RuleSetId',$,IFCLABEL(${ifcStr(gen.ruleSetId)}),$)`));
-  if (gen.region) {
-    props.push(addLine(ctx, `_opscal_region_${cal.id}`,
-      `IFCPROPERTYSINGLEVALUE('Region',$,IFCLABEL(${ifcStr(gen.region)}),$)`));
+  if (gen) {
+    props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('RuleSetId',$,IFCLABEL(${ifcStr(gen.ruleSetId)}),$)`));
+    if (gen.region) {
+      props.push(addLine(ctx, `_opscal_region_${cal.id}`,
+        `IFCPROPERTYSINGLEVALUE('Region',$,IFCLABEL(${ifcStr(gen.region)}),$)`));
+    }
+    if (gen.breakChoice) {
+      props.push(addLine(ctx, `_opscal_break_${cal.id}`,
+        `IFCPROPERTYSINGLEVALUE('BreakChoice',$,IFCLABEL(${ifcStr(gen.breakChoice)}),$)`));
+    }
+    props.push(addLine(ctx, `_opscal_from_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('GeneratedFromYear',$,IFCINTEGER(${gen.generatedFromYear}),$)`));
+    props.push(addLine(ctx, `_opscal_to_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('GeneratedToYear',$,IFCINTEGER(${gen.generatedToYear}),$)`));
   }
-  if (gen.breakChoice) {
-    props.push(addLine(ctx, `_opscal_break_${cal.id}`,
-      `IFCPROPERTYSINGLEVALUE('BreakChoice',$,IFCLABEL(${ifcStr(gen.breakChoice)}),$)`));
+  if (cal.libraryOrigin) {
+    props.push(addLine(ctx, `_opscal_lo_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(cal.libraryOrigin))}),$)`));
   }
-  props.push(addLine(ctx, `_opscal_from_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('GeneratedFromYear',$,IFCINTEGER(${gen.generatedFromYear}),$)`));
-  props.push(addLine(ctx, `_opscal_to_${cal.id}`,
-    `IFCPROPERTYSINGLEVALUE('GeneratedToYear',$,IFCINTEGER(${gen.generatedToYear}),$)`));
   const setId = addLine(ctx, `_pset_opscal_${cal.id}`,
     `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
   addLine(ctx, `_rel_opscal_${cal.id}`,
@@ -786,6 +845,11 @@ function writeResourceMeta(ctx: WriteContext, resources: Resource[], ownerHistId
       // afhankelijk te zijn van relatie-richting-interpretatie door andere IFC-tools.
       const id = addLine(ctx, `_respg_${res.id}`,
         `IFCPROPERTYSINGLEVALUE('ParentGuid',$,IFCTEXT(${ifcStr(ifcGuid(res.parentId))}),$)`);
+      props.push(`#${id}`);
+    }
+    if (res.libraryOrigin) {
+      const id = addLine(ctx, `_reslo_${res.id}`,
+        `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(res.libraryOrigin))}),$)`);
       props.push(`#${id}`);
     }
     if (props.length === 0) continue;

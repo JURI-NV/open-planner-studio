@@ -101,15 +101,15 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
 
 {
   const p = readIFC(writeIFC({ project, calendar: H8, tasks, sequences, resources, assignments, resourceCalendars: lib }));
-  roundTrip('IFC', p.tasks, p.sequences, p.calendar, p.resourceCalendars, true);
+  roundTrip('IFC', p.tasks, p.sequences, p.calendar, p.resourceCalendars ?? [], true);
 }
 {
   const p = readP6XML(writeP6XML(project, H8, tasks, sequences, resources, assignments, lib));
-  roundTrip('P6', p.tasks, p.sequences, p.calendar, p.resourceCalendars, false);
+  roundTrip('P6', p.tasks, p.sequences, p.calendar, p.resourceCalendars ?? [], false);
 }
 {
   const p = readMSPDI(writeMSPDI(project, H8, tasks, sequences, resources, assignments, lib));
-  roundTrip('MSPDI', p.tasks, p.sequences, p.calendar, p.resourceCalendars, false);
+  roundTrip('MSPDI', p.tasks, p.sequences, p.calendar, p.resourceCalendars ?? [], false);
 }
 
 // ── Dag-bestand-discriminator (geen uur-lek + identieke leaf-schedule) ──────
@@ -124,9 +124,9 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
   const msp = readMSPDI(writeMSPDI(M.project, M.calendar, M.tasks, M.sequences, M.resources, M.assignments, M.resourceCalendars));
   eq('P6-example leaf-schedule', digest(p6.tasks), base);
   eq('MSPDI-example leaf-schedule', digest(msp.tasks), base);
-  assert([p6.calendar, ...p6.resourceCalendars].every(c => !c.workTime), 'P6-example: geen workTime-lek');
+  assert([p6.calendar, ...(p6.resourceCalendars ?? [])].every(c => !c.workTime), 'P6-example: geen workTime-lek');
   assert(p6.tasks.every(t => t.time.durationMinutes == null), 'P6-example: geen durationMinutes-lek');
-  assert([msp.calendar, ...msp.resourceCalendars].every(c => !c.workTime), 'MSPDI-example: geen workTime-lek');
+  assert([msp.calendar, ...(msp.resourceCalendars ?? [])].every(c => !c.workTime), 'MSPDI-example: geen workTime-lek');
   assert(msp.tasks.every(t => t.time.durationMinutes == null), 'MSPDI-example: geen durationMinutes-lek');
 }
 
@@ -203,7 +203,12 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
     assert(!mspXml.includes('<ConstraintType>2</ConstraintType>') && !mspXml.includes('<ConstraintType>3</ConstraintType>'), `MSPDI soft ${type} niet naar 2/3`);
     assert(warns.some(w => w.includes('gedegradeerd')), `MSPDI soft ${type} → semantiek-verlies-warn`);
     eq(`MSPDI soft ${type} leest terug als soft ${type === 'MSO' ? 'SNET' : 'FNET'}`, withWarns(() => readT('MSPDI', tk)).out.constraint?.type, type === 'MSO' ? 'SNET' : 'FNET');
-    // P6: soft MSO/MFO behoudt semantiek (geen degradatie).
+    // P6: soft MSO/MFO behoudt semantiek (geen degradatie) — zowel in de GESCHREVEN code als
+    // teruggelezen. De code-assertie ontbrak: `p6Code` stond wel in de tabel maar werd nooit
+    // gebruikt, dus een writer die stil naar CS_MANDSTART/CS_MANDFIN (hard) zou zakken bleef
+    // ongezien zolang de reader het type maar terugvond.
+    const p6Xml = writeP6XML(dayProj, dayCal, tk, [], [], []);
+    assert(p6Xml.includes(`<PrimaryConstraintType>${p6Code}</PrimaryConstraintType>`), `P6 soft ${type} → ${p6Code}`);
     const p6Back = readT('P6', tk).constraint;
     eq(`P6 soft ${type} behoudt type`, p6Back?.type, type);
     eq(`P6 soft ${type} blijft soft`, p6Back?.hard ?? false, false);
