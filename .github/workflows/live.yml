@@ -10,17 +10,24 @@ permissions:
   contents: read
 
 concurrency:
+  # Bewust `false`: dit is een echte productie-deploy die met `rsync` bestanden
+  # overzet. Twee snelle pushes achter elkaar braken met `true` de eerste run
+  # middenin de overdracht af — resultaat: een half gedeployde site. Deploys
+  # horen op elkaar te wachten, niet elkaar te annuleren.
   group: deploy-site
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # Deploy-gate: live.yml is een echte productie-deploy (deploy-site.yml rsync't
   # dist/ naar open-planner-studio.open-aec.com) en draaide tot nu toe parallel
   # aan ci.yml, zónder op diens poorten te wachten — een rode suite kon daardoor
-  # gewoon live staan. Deze gate draait dezelfde vier poorten als ci.yml vóór de
-  # deploy. (Geen versievergelijking hier: dat hoort bij een release, niet bij
-  # een site-deploy.)
+  # gewoon live staan. Deze gate draait `npm run verify`, precies wat ci.yml ook
+  # draait, vóór de deploy. (Geen versievergelijking hier: dat hoort bij een
+  # release, niet bij een site-deploy.)
   gate:
+    # Bevinding O6. De `deploy`-job hieronder krijgt er bewust géén: op een job
+    # met `uses:` (reusable workflow) is `timeout-minutes` niet toegestaan.
+    timeout-minutes: 20
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -37,26 +44,22 @@ jobs:
       - name: Install dependencies (npm ci)
         run: npm ci
 
-      - name: TypeScript-check (tsc --noEmit)
-        run: npx tsc --noEmit
-
-      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
-      # draaien via esbuild, dat types strip zonder controle.
-      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: CPM/kalender-regressiesuite
-        run: bash tests/planning/run.sh
-
-      - name: Verify examples
-        run: npm run verify:examples
-
-      - name: Verify docs
-        run: npm run verify:docs
+      # Exact dezelfde poort als ci.yml en release.yml — één definitie, in
+      # package.json: typecheck (src én scripts/tests) + de vier testsuites +
+      # verify:examples + verify:docs.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify
 
   deploy:
     needs: gate
-    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@main
+    # Op SHA gepind in plaats van `@main`. Deze reusable workflow krijgt
+    # `DEPLOY_SSH_KEY` doorgegeven: op `@main` kon iedereen met schrijfrechten op
+    # OpenAEC-Foundation/github bij de volgende main-push van DEZE repo de
+    # deploysleutel exfiltreren, zonder dat hier iets wijzigde. De repo heeft
+    # geen tags, dus een SHA is de enige onveranderlijke ref.
+    # Bijwerken = deze SHA bewust verhogen (upstream-wijzigingen komen niet meer
+    # vanzelf binnen); 33fa7d9 = "Update deployment actions to Node.js 24".
+    uses: OpenAEC-Foundation/github/.github/workflows/deploy-site.yml@33fa7d9469a6632154d97210acbb637278738a04
     with:
       deploy_host: ${{ vars.DEPLOY_HOST }}
       deploy_port: ${{ vars.DEPLOY_PORT }}

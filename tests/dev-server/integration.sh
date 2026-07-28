@@ -7,7 +7,13 @@ pass() { echo "OK: $1"; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 git init -q "$TMP/main"
-( cd "$TMP/main" && git commit -q --allow-empty -m init )
+# Identiteit expliciet in de tijdelijke repo zetten: een CI-runner heeft geen
+# globale user.name/user.email, en dan faalt `git commit` met "unable to
+# auto-detect email address". Dat viel hier niet op omdat het script geen `-e`
+# heeft — de commit mislukte stil en liet alleen een `fatal:` in de log achter.
+git -C "$TMP/main" config user.email "dev-server-test@example.invalid"
+git -C "$TMP/main" config user.name "dev-server test"
+git -C "$TMP/main" commit -q --allow-empty -m init || fail "kon de basiscommit niet maken"
 mkdir -p "$TMP/main/scripts"
 cp "$ROOT_REPO"/scripts/dev-port.mjs "$ROOT_REPO"/scripts/dev-lock.mjs "$ROOT_REPO"/scripts/dev-server.mjs "$TMP/main/scripts/"
 

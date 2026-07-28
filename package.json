@@ -8,6 +8,12 @@
     "dev": "node scripts/dev-server.mjs",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "test": "npm run test:planning && npm run test:library && npm run test:mcp && npm run test:dev-server",
+    "test:planning": "bash tests/planning/run.sh",
+    "test:library": "bash tests/library/run.sh",
+    "test:mcp": "bash tests/mcp/run.sh",
+    "test:dev-server": "node --test tests/dev-server/*.test.mjs && bash tests/dev-server/integration.sh",
+    "verify": "npm run typecheck && npm test && npm run verify:examples && npm run verify:docs && npm run verify:i18n",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "node scripts/tauri-dev.mjs",
@@ -16,6 +22,7 @@
     "gen:examples": "node scripts/run-ts.mjs scripts/generate-examples.ts",
     "verify:examples": "node scripts/run-ts.mjs scripts/verify-examples.ts",
     "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts",
+    "verify:i18n": "node scripts/i18n-diff.mjs",
     "publish:wiki": "node scripts/publish-wiki.mjs"
   },
   "dependencies": {

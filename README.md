@@ -4,7 +4,7 @@
 [![Downloads](https://img.shields.io/github/downloads/OpenAEC-Foundation/open-planner-studio/total?label=downloads&color=success)](https://github.com/OpenAEC-Foundation/open-planner-studio/releases)
 [![CI](https://github.com/OpenAEC-Foundation/open-planner-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenAEC-Foundation/open-planner-studio/actions/workflows/ci.yml)
 [![Live deploy](https://github.com/OpenAEC-Foundation/open-planner-studio/actions/workflows/live.yml/badge.svg)](https://open-planner-studio.open-aec.com)
-[![Planning-suite](https://img.shields.io/badge/planning--suite-395%2F395-brightgreen)](tests/planning/README.md)
+[![Testsuites](https://img.shields.io/badge/testsuites-planning%20%C2%B7%20library%20%C2%B7%20mcp%20%C2%B7%20dev--server-informational)](tests/planning/README.md)
 [![Talen](https://img.shields.io/badge/talen-14-informational)](src/i18n/config.ts)
 [![License](https://img.shields.io/github/license/OpenAEC-Foundation/open-planner-studio)](#licentie)
 
@@ -35,15 +35,18 @@ Open-source bouwplanningapplicatie voor de bouwsector. Native IFC-bestandsformaa
 ## Snel starten
 
 ```bash
-# Installeer dependencies
-npm install
+# Installeer dependencies (ci, niet install — de lockfile is bindend)
+npm ci
 
-# Start development server
+# Start de dev-server; hij print zelf op welke poort hij draait
 npm run dev
-
-# Open in browser
-open http://localhost:3007
 ```
+
+`npm run dev` wijst deze map een vaste poort toe in het bereik 3007–3106 en houdt
+die vast over herstarts heen, zodat meerdere kopieën van de repo naast elkaar
+kunnen draaien zonder elkaars poort af te pakken.
+
+Meebouwen? Zie [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Technologiestack
 
@@ -61,36 +64,24 @@ open http://localhost:3007
 
 ```
 src/
-  components/
-    backstage/       # Backstage (Office-achtig File-menu)
-    canvas/          # GanttCanvas, ContextMenu
-    common/          # Herbruikbare UI-componenten (Select)
-    dialogs/         # TaskDialog, ProjectInfoDialog, SettingsDialog
-    layout/          # Ribbon, MenuBar, StatusBar, TitleBar
-    panels/          # TableEditor, IFCPanel, ReportPanel, TaskPropertiesPanel, AIActivityPanel, DebugTerminal
-    ribbon/ai/       # AI-ribbongroepen (Server, Verbinding, Veiligheid, Activiteit)
-    settings/        # Instellingen-paneelinhoud
-  engine/
-    renderer/        # GanttRenderer (Canvas 2D)
-    scheduler/       # CPMSolver, CalendarEngine
-  hooks/             # Toetsenbord- en zoom-hooks
-  i18n/              # Vertalingen (14 talen)
-  services/
-    ifc/             # IFC 4.3 lezen/schrijven (native formaat)
-    csv/             # CSV import/export
-    msproject/       # MS Project (.xml) import/export
-    p6/              # Primavera P6 (.xml) import/export
-    mcp/             # MCP-server + tools (AI-assistent-koppeling)
-    library/         # Resourcebibliotheken (pool, import/export)
-    print/           # Afdrukvoorbeeld
-    pdf/             # Vector-PDF-export
-    debug/           # Logbus (debug terminal)
-  state/             # Zustand store (+ slices/types.ts)
-  styles/            # Globale CSS + Tailwind
-  types/             # TypeScript types (Task, Sequence, Resource, Calendar, Project)
-  utils/             # Datum-utils, ID-generator, instellingen-opslag
-examples/            # Voorbeeld IFC-planningen
+  components/        # React-schil: ribbon (incl. ribbon/ai), backstage, panelen, dialogen, canvas-chrome
+  engine/            # renderer/ (Canvas 2D), scheduler/ (CPM + resources), calendar/, view/
+  services/          # ifc/ (het native formaat) · import/export (csv, msproject, p6)
+                     # · fileAccess/ (Tauri↔web) · recovery/ · print/ · pdf/ · updater/
+                     # · feedback/ · library/ · mcp/ · benchmark/ · debug/
+  state/             # Zustand+Immer store: slices/ + het documentcontract
+  extensions/        # Extensiesysteem (types, api, loader, service)
+  i18n/              # Vertalingen, 14 talen × 4 namespaces
+  hooks/  types/  utils/  styles/
+public/docs/         # In-app handleiding: 27 artikelen × 14 talen (voedt ook de wiki)
+examples/            # Voorbeeldplanningen in IFC
+tests/               # planning · library · mcp · dev-server
+src-tauri/           # De Rust-schil (dun: precies één native command)
 ```
+
+Deze boom is bewust grofmazig — een uitgeschreven versie loopt binnen een maand
+achter. Voor de details en de architectuurbeslissingen: [CLAUDE.md](CLAUDE.md)
+en [AGENTS.md](AGENTS.md).
 
 ## Ribbon Tabs
 
@@ -107,15 +98,26 @@ examples/            # Voorbeeld IFC-planningen
 | **Rapport** | Live afdrukvoorbeeld met instelbare opties |
 | **AI** *(standaard uit, aan te zetten in Instellingen)* | MCP-bridge starten/verbinden, veiligheidsvlaggen, activiteitenlog |
 
+Plus **Bestand** — de Backstage: recent, voorbeelden, importeren/exporteren,
+printen, projectgegevens, instellingen, extensies, bibliotheek en help.
+
 ## Architectuur
 
 Onderdeel van de OpenAEC-Foundation-familie van desktop-apps, die een gedeeld patroon delen (Tauri 2 + React + Canvas, Office-achtige ribbon, `lucide-react`). De algehele shell volgt [Open 2D Studio](https://github.com/OpenAEC-Foundation/Open-2D-Studio) en [Open FEM2D Studio](https://github.com/OpenAEC-Foundation/Open-FEM2D-Studio); het [extensiesysteem](docs/extensions.md) en de huidige styling zijn gemodelleerd naar [Open Calc Studio](https://github.com/OpenAEC-Foundation/open-calc-studio).
 
-Zie [PLAN.md](PLAN.md) voor het volledige projectplan.
+Zie [PLAN.md](PLAN.md) voor de roadmap. Let op: hoofdstuk 4 daarvan is een
+aangenomen ontwerp uit de ontwerpfase en beschrijft de huidige code niet — er
+staat een waarschuwing boven.
 
 ## Voorbeelden
 
 Zie de [`examples/`](examples/) map voor voorbeeldplanningen in IFC-formaat.
+
+## Bijdragen
+
+Zie [CONTRIBUTING.md](CONTRIBUTING.md) — opzetten, de poort (`npm run verify`),
+en de vier dingen die het vaakst stil misgaan. Beveiligingsproblemen niet via een
+issue maar via [SECURITY.md](SECURITY.md).
 
 ## Licentie
 

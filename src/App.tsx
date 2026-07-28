@@ -191,7 +191,8 @@ function AppContent() {
   // Venstertitel volgt het actieve document (dirty-markering, projectnaam, bestandsnaam).
   useDocumentTitle();
 
-  // Auto-save (Tauri én web, gedebounced 800 ms): recovery-snapshots per open document,
+  // Auto-save (Tauri én web, gethrottled op 10 s — zie useAutoSave voor waarom een throttle en
+  // geen debounce): recovery-snapshots per open document,
   // plus de web-only beforeunload-waarschuwing bij niet-opgeslagen wijzigingen.
   useAutoSave(autoSaveEnabled);
 

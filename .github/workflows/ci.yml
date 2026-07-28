@@ -8,8 +8,26 @@ on:
     branches:
       - main
 
+# Zonder dit erft elke job de repo-default van GITHUB_TOKEN, terwijl deze
+# workflow op een PR de afhankelijkheden van vreemde code installeert — een
+# postinstall-script zou dan met schrijfrechten draaien. Beide jobs hebben
+# genoeg aan lezen. (Gemeld door CodeQL op PR #33; stond ook als ci.yml-#1 in
+# de workflow-audit.)
+permissions:
+  contents: read
+
+# Bevinding O3: zonder dit draaien alle pushes op één branch tegelijk door.
+# Hier mág er wél geannuleerd worden — een afgebroken CI-run laat niets achter
+# (in tegenstelling tot release.yml/snap.yml, die daarom `false` gebruiken).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    # Bevinding O6: zonder limiet loopt een hangende job door tot de 6-uursgrens
+    # van GitHub. De Tauri-build duurt normaal ~15-25 min per OS.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +45,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -35,19 +54,34 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
+      # Bevinding O7: de Rust-afhankelijkheden compileerden bij elke run op alle
+      # drie de OS'en opnieuw. rust-cache bewaart alleen de *dependency*-crates —
+      # de workspace-crate zelf wordt weggegooid en dus elke run vers gebouwd.
+      # Bewust NIET in release.yml: daar weegt reproduceerbaarheid van het
+      # gesigneerde artefact zwaarder dan wandkloktijd, en die jobs dragen de
+      # signing-sleutel in hun env.
+      - name: Cache Rust build (src-tauri)
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: 'src-tauri -> target'
+
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install frontend dependencies
-        run: npm install
+      # Bevinding O2: `npm install` mag de lockfile bijwerken, dus CI valideerde
+      # hem nooit — een out-of-sync lock glipte groen door en klapte pas op de
+      # productie-deploy (live.yml gebruikt al `npm ci`). Nu faalt CI hier.
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
       - name: Build Tauri app
         run: npm run tauri build -- --no-bundle
 
   test:
+    timeout-minutes: 20
     runs-on: ubuntu-22.04
 
     steps:
@@ -57,25 +91,17 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: 'npm'
 
-      - name: Install frontend dependencies
-        run: npm install
+      - name: Install frontend dependencies (npm ci)
+        run: npm ci
 
-      - name: Typecheck
-        run: npx tsc --noEmit
-
-      # scripts/ en tests/ vallen buiten `include: ["src"]` van de hoofd-tsconfig en draaien via
-      # esbuild, dat types STRIPT zonder ze te controleren (bevinding K10b). Zonder deze stap wordt
-      # ~19k regels TypeScript — inclusief de CI-blokkerende verify-docs/verify-examples en de hele
-      # testharnas — nooit getypecheckt.
-      - name: Typecheck scripts/ en tests/
-        run: npx tsc --noEmit -p tsconfig.tests.json
-
-      - name: Run planning/CPM regression suite
-        run: bash tests/planning/run.sh
-
-      - name: Verify example projects
-        run: npm run verify:examples
-
-      - name: Verify docs manifest
-        run: npm run verify:docs
+      # `npm run verify` = typecheck (src én scripts/tests, bevinding K10b) +
+      # alle vier de testsuites + verify:examples + verify:docs. Bewust ÉÉN
+      # commando in plaats van de losse stappen die hier stonden: dezelfde
+      # regel staat in de gate van release.yml en live.yml, en die drie liepen
+      # anders uit elkaar zodra er een suite bijkomt. Wat er precies in zit
+      # staat in package.json — één plek. Welke suite faalde blijkt uit de log:
+      # elke suite print zijn eigen kop en telling.
+      - name: Verify (typecheck, testsuites, examples, docs)
+        run: npm run verify
