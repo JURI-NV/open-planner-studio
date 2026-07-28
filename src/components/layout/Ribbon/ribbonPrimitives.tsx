@@ -99,8 +99,12 @@ export function RibbonButton({ icon, label, onClick, active, disabled, primary, 
   if (disabled) cls.push('disabled');
   if (primary) cls.push('primary');
   if (danger) cls.push('danger');
+  // Zonder eigen tooltip valt het label terug als tooltip: in de icoon-only-standen (handmatig
+  // ingeklapt, of automatisch gedegradeerd) is het label verborgen en zou de knop anders volstrekt
+  // naamloos zijn. Een expliciete `title` (bv. de Relatie-knop, issue #40) wint.
+  const tip = title ?? label;
   return (
-    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={title}>
+    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={tip} aria-label={tip}>
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>
     </button>
@@ -120,12 +124,14 @@ export function RibbonSmallButton({ icon, label, onClick, active, disabled, dang
   if (active) cls.push('active');
   if (disabled) cls.push('disabled');
   if (danger) cls.push('danger');
+  // Zie RibbonButton: label als terugval-tooltip, zodat een icoon-only knop nooit naamloos is.
+  const tip = title ?? label;
   return (
     <button
       className={cls.join(' ')}
       onClick={disabled ? undefined : onClick}
-      title={title}
-      aria-label={title}
+      title={tip}
+      aria-label={tip}
     >
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>

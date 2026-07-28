@@ -330,16 +330,22 @@
    baseline-overlap). Nu groeit de rij desnoods voorbij de rand i.p.v. te
    overlappen; de inklap-pijl zelf staat los hiervan altijd vast in de hoek
    (position:absolute, zie .ribbon-collapse-toggle). */
+/* Handmatig ingeklapt = ALLEEN iconen (gebruikerskeuze): in de 40px-strip verdwijnen de
+   tekstlabels volledig; de betekenis draagt via de tooltip (elke ribbonknop heeft een `title`,
+   opgevangen door de globale TooltipHost). Dat is ook wat de strip smal genoeg maakt: mét labels
+   was de compacte rij juist BREDER dan de volle weergave, omdat verticale knop-stapels hier
+   horizontale rijen worden — die overloop is nu weg. */
 .ribbon-container.compact .ribbon-btn {
   flex-direction: row;
   height: 28px;
   min-width: 0;
   flex-shrink: 0;
-  padding: 2px 8px 2px 5px;
-  gap: 5px;
-  justify-content: flex-start;
+  padding: 2px 6px;
+  gap: 0;
+  justify-content: center;
   border-radius: var(--radius-sm);
 }
+.ribbon-container.compact .ribbon-btn-label { display: none; }
 .ribbon-container.compact .ribbon-btn-icon {
   width: 18px;
   height: 18px;
@@ -347,14 +353,6 @@
 .ribbon-container.compact .ribbon-btn-icon svg {
   width: 15px;
   height: 15px;
-}
-.ribbon-container.compact .ribbon-btn-label {
-  font-size: calc(11px * var(--ui-font-scale, 1));
-  text-align: left;
-  max-width: none;
-  white-space: nowrap;
-  display: block;
-  -webkit-line-clamp: unset;
 }
 .ribbon-container.compact .ribbon-btn-stack {
   flex-direction: row;
