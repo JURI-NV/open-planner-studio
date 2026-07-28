@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server (port 3007, strictPort — fails if taken; override with OPS_DEV_PORT)
+npm run dev          # Dev-launcher (scripts/dev-server.mjs) — vaste poort per worktree, weigert dubbelstart
 npm run build        # tsc && vite build → dist/ (noEmit staat in tsconfig)
 npm run preview      # Serve the built bundle
 npm run tauri:dev    # Run the desktop app (Tauri 2) via scripts/tauri-dev.mjs
@@ -19,7 +19,13 @@ npm run test:library      # los: bibliotheek/IFC/i18n-checks
 npm run test:mcp          # los: MCP-tools
 npm run test:dev-server   # los: node:test-units + integratietest van de dev-serverpoort/-locks
 npm run verify:i18n       # los: ontbrekende vertaalsleutels t.o.v. nl (CLDR-pluralcategorieën meegerekend)
+npm run verify:examples   # los: de voorbeeldplanningen in examples/
+npm run verify:docs       # los: de in-app documentatie (public/docs) × 14 talen
+npm run gen:examples      # examples/ opnieuw genereren
+npm run publish:wiki      # public/docs → de GitHub-wiki (zie de wiki-skill; publiceren = expliciete stap)
 ```
+
+`npm run dev` gaat **niet** rechtstreeks naar Vite: `scripts/dev-server.mjs` wijst deze worktree een vaste poort toe in 3007–3106 (`dev-port.mjs`, onder flock via `dev-lock.mjs`), stempelt die in `.claude/launch.json` (`opsDevPort`) zodat hij over herstarts heen gelijk blijft, en weigert een tweede start in hetzelfde worktree. Zo botsen parallelle worktrees niet en laadt een venster nooit de Vite van een ander worktree. `OPS_DEV_PORT` overschrijft de toewijzing; `strictPort` in `vite.config.ts` is de harde backstop (twee worktrees op dezelfde poort → EADDRINUSE in plaats van een verkeerde build). De regressietests hiervoor staan in `tests/dev-server/`.
 
 `tauri:dev` goes through `scripts/tauri-dev.mjs`, which picks the first free port ≥3007, derives a per-worktree instance slug from the directory name, and starts `tauri dev` with a matching `--config` `devUrl` plus `OPS_DEV_PORT`/`OPS_DEV_INSTANCE` in the env. This lets **multiple worktrees run their desktop builds at once** — each gets its own port (so the window never loads another worktree's Vite) and its own `recovery.<slug>.*`-auto-save-bestanden (so concurrent instances don't clobber each other in the shared `appDataDir`). `vite.config.ts` reads `OPS_DEV_PORT` with `strictPort`; `App.tsx` reads the slug via the `__OPS_DEV_INSTANCE__` define.
 
@@ -66,11 +72,26 @@ The Gantt chart is drawn imperatively to a `<canvas>` via `src/engine/renderer/`
 
 Multi-document is **single-active**: het actieve document leeft op top-level (project/tasks/sequences/… zoals altijd), zodat alle slices, componenten en de renderer single-document blijven. `documentSlice` bewaart de overige geopende documenten als losse `DocumentPayload`-snapshots en swapt top-level ↔ payload bij `switchDocument`/`newDocument`/`closeDocument`. Per-document: project, kalender, taken/relaties/resources/toewijzingen, selectie, `cpmResult`, `view`, `collapsedTaskIds`, undo/redo-stacks, `filePath`, `isDirty`. App-globaal (niet geswapt): de rest van `ui` en `taskClipboard` (zo werkt kopiëren/plakken tussen documenten). Er is altijd minstens één document; het laatste sluiten reset naar een leeg document. De document-chrome-UI staat in `src/components/layout/DocumentChrome/`: `DocumentTabBar`, `ProjectRail` en `SwitcherPill` zijn drie instelbare stijlen (`ui.documentChromeStyle` ∈ `'tabs' | 'rail' | 'switcher'`, persistent), plus een `ProjectOverview`-overlay en `CloseDocumentDialog` met 3-weg sluitbevestiging (opslaan/niet opslaan/annuleren); Ctrl/⌘ 1–9 springt naar het n-de document. `openFile`/`openRecentFile` openen in een **nieuw** document tenzij het actieve tabblad nog leeg en ongewijzigd is (`isActivePristine` in `fileSlice`); "Nieuw" opent de projectwizard (`ProjectInfoDialog` met kalender-presets en faseringssjablonen, via `ui.showNewProjectDialog`) in plaats van een kaal `newProject()`.
 
-Scheduling is **manual, not reactive**: the `runCPM` action instantiates `CalendarEngine` + `CPMSolver` (`src/engine/scheduler/`) inline and writes computed fields (early/late dates, total float, critical-path flag) straight back via Immer — it does not re-run on every edit. It is triggered explicitly by F5, the ribbon **Calculate** button, the menu, and after an IFC load. Editing tasks without calling `runCPM` leaves the schedule stale, so call it after mutating tasks/sequences/calendar. Undo/redo is snapshot-based: mutating actions push a full `Snapshot` onto `undoStack` before mutating.
+Scheduling is **manual, not reactive**: the `runCPM` action instantiates `CalendarEngine` + `CPMSolver` (`src/engine/scheduler/`) inline and writes computed fields (early/late dates, total float, critical-path flag) straight back via Immer — it does not re-run on every edit. It is triggered explicitly by F5, the ribbon **Calculate** button, the menu, and after an IFC load. Editing tasks without calling `runCPM` leaves the schedule stale, so call it after mutating tasks/sequences/calendar.
+
+**Het documentcontract — lees dit vóór je een veld aan de state toevoegt.** Naast de slices staan er in `src/state/` vier modules die samen bepalen wat een "document" ís. Ze bestaan omdat deze afspraken eerder ~50× met de hand herhaald werden en dan stilzwijgend uit elkaar liepen:
+
+| module | rol |
+|---|---|
+| `documentContract.ts` | `DOCUMENT_FIELDS` — één descriptorlijst met per veld: waar het in de live state woont (`get`/`set`), de verse default (`fresh`), de rol in de undo-snapshot (`clone`/`ref`/`none`), en optioneel een leesmigratie. `capturePayload`/`hydratePayload`/`freshPayload` lopen key-gedreven over die ene lijst, dus capture en hydrate kúnnen niet divergeren. Een nieuw veld in `DocumentPayload` dat de lijst mist geeft een **compile-fout**. |
+| `snapshot.ts` | de undo/redo-snapshot als expliciete `Pick<>`-subset van datzelfde contract, gestuurd door de `snapshot`-rol per veld. |
+| `transaction.ts` | het muteer-ritueel (snapshot pushen, redo leegmaken, `isDirty`/`scheduleStale` zetten) op één plek in plaats van per actie. |
+| `ifcSaveInput.ts` | welke velden een IFC-save meeschrijft — precies de round-trip-velden van het contract, zodat alle callsites (opslaan, auto-save, IFCPanel, devBridge) dezelfde bron doorgeven. |
+
+Voeg je projectdata toe, dan hoort die dus in `DOCUMENT_FIELDS` — anders overleeft hij geen documentwissel, geen undo, geen crashherstel en geen opslaan. `tests/planning/check-document-contract.ts` bewaakt de keten.
 
 ### Ribbon-driven UI
 
-The shell is a Microsoft Office-style ribbon (`src/components/layout/Ribbon`) with tabs Start / Planning / Resources / Beeld / Instellingen / Tabel / IFC / Rapport, plus a Backstage view (`src/components/backstage/`) for File — sections: recent, export, import, print, project-info, settings, extensions (`BackstageSection` in `slices/types.ts`). The active tab is in `ui.activeRibbonTab`. Right-hand panels (`TaskPropertiesPanel`, `TableEditor`, `IFCPanel`, `ReportPanel`, `DebugTerminal`) are mounted conditionally based on UI state and the collapse state in `ui.rightPanelCollapsed` / `ui.rightPanelWidth`. Global dialogs (`UpdateDialog`, `FeedbackDialog` + `ScreenshotAnnotator`, `ProjectInfoDialog`) mount from `App.tsx` behind `ui.show*` flags.
+The shell is a Microsoft Office-style ribbon (`src/components/layout/Ribbon`) plus a Backstage view (`src/components/backstage/`) for File. De bron van beide lijsten is `slices/types.ts`, niet deze alinea — `npm run verify:docs` faalt als ze uit elkaar lopen.
+
+Tabbladen (`RibbonTab`): `file`, `start`, `planning`, `resources`, `relations`, `beeld`, `instellingen`, `table`, `ifc`, `report`, `ai` — die laatste rendert alleen in AI-modus.
+
+Backstage-secties (`BackstageSection`): `recent`, `examples`, `export`, `import`, `print`, `project-info`, `settings`, `extensions`, `library`, `help` — waarvan `help` een compleet documentatiesubsysteem is (zie *In-app documentatie & wiki* hieronder). The active tab is in `ui.activeRibbonTab`. Right-hand panels (`TaskPropertiesPanel`, `TableEditor`, `IFCPanel`, `ReportPanel`, `DebugTerminal`) are mounted conditionally based on UI state and the collapse state in `ui.rightPanelCollapsed` / `ui.rightPanelWidth`. Global dialogs (`UpdateDialog`, `FeedbackDialog` + `ScreenshotAnnotator`, `ProjectInfoDialog`) mount from `App.tsx` behind `ui.show*` flags.
 
 ### i18n
 
@@ -82,7 +103,7 @@ Fourteen locales (`nl, en, fr, de, es, zh, it, pt, pl, tr, ar, ja, ko, fa`) via 
 
 `src/utils/settingsStore.ts` persists settings to `localStorage` only, under `ops-`-prefixed keys — it does **not** use `@tauri-apps/plugin-store` (that package is a dependency but unused here). Theme, locale, zoom defaults, and the debug-terminal toggle load on mount in `App.tsx`; `initTheme()` migrates legacy theme names (7 → 3). Settings-UI-conventie: elke instelling moet op alle drie de plekken verschijnen — tandwiel-popup (⚙), Instellingen-ribbontab en Backstage → Instellingen — door één gedeeld component te gebruiken (`src/components/settings/SettingsPanelContent`).
 
-Separately, project **auto-save** draait zowel in Tauri als in de browser: een debounced (800 ms) store-subscription in `App.tsx` schrijft per open document één IFC-snapshot naar een gedeelde backend (`src/services/recovery/recoveryStore.ts` — Tauri: `appDataDir` via `plugin-fs`; web: IndexedDB) als `recovery[.<slug>].<docId>.ifc` plus een `recovery[.<slug>].documents.json`-manifest, met opruimen van verouderde snapshots, hersteld bij de volgende start. De oude enkele `recovery[.<slug>].ifc` wordt alleen nog als legacy-fallback gelezen.
+Separately, project **auto-save** draait zowel in Tauri als in de browser: een store-subscription (`src/hooks/useAutoSave.ts`, **gethrottled op 10 s** — bewust een throttle en geen debounce, want een debounce schrijft pas 10 s ná de láátste wijziging en vergroot dus juist het dataverliesvenster tijdens een lange bewerksessie) schrijft per open document één IFC-snapshot naar een gedeelde backend (`src/services/recovery/recoveryStore.ts` — Tauri: `appDataDir` via `plugin-fs`; web: IndexedDB) als `recovery[.<slug>].<docId>.ifc` plus een `recovery[.<slug>].documents.json`-manifest, met opruimen van verouderde snapshots, hersteld bij de volgende start. De oude enkele `recovery[.<slug>].ifc` wordt alleen nog als legacy-fallback gelezen.
 
 ### Auto-update & releases
 
@@ -99,9 +120,24 @@ Persistentie via een `isTauri()`-gesplitste `libraryStore`: IndexedDB `ops-libra
 `ops-library.json` in `appDataDir` op desktop. Herkomststempels en bedrijfsbinding round-trippen
 door het project-IFC via het bestaande `OPS_`-pset-patroon. Zie `docs/library.md`.
 
+### In-app documentatie & wiki
+
+`public/docs/` is een **eigen documentatiesubsysteem** met een eigen CI-poort — makkelijk over het hoofd te zien, want het staat niet in `src/`. Het bestaat uit `manifest.json` (artikel-id's, per-artikel titels in veertien talen, en een `layer` ∈ `quickstart | gidsen | referentie`) plus één map met Markdown-artikelen per taal.
+
+Twee afnemers, één bron:
+
+- **De in-app helpviewer** — `src/components/backstage/HelpPanel.tsx`, bereikbaar via Backstage → Help. Manifest en artikelen worden at-runtime gefetcht via `BASE_URL` (net als `public/examples/`), dus ze zitten niet in de bundel. De documentatietaal staat persistent los van de UI-taal (`ops-docs-locale`), zodat iemand de docs in het Engels kan lezen terwijl de app Nederlands blijft; ontbreekt een artikel in een taal, dan valt hij terug op EN.
+- **De GitHub-wiki** — via `npm run publish:wiki`. De wiki wordt **gegenereerd, nooit met de hand bewerkt**; zie de `wiki`-skill.
+
+De artikelen worden gerenderd door `src/utils/miniMarkdown.tsx`, dat een **beperkte** Markdown-subset kent: koppen `#`/`##`/`###`, paragrafen, enkelvoudige lijsten, `**vet**`/`*cursief*`/`` `code` ``, codeblokken, afbeeldingen, en uitsluitend `docs://`- en `examples://`-links. Geen tabellen, geen blockquotes, geen h4, geen rauwe HTML.
+
+`npm run verify:docs` (onderdeel van `npm run verify`) bewaakt dit: elk manifest-id moet minstens een `nl`- en een `en`-artikel hebben, geen weesbestanden, geen dubbele id's, elke `docs://`/`examples://`-link moet bestaan, en de inhoud moet binnen de parser-subset blijven. De overige twaalf talen mogen achterlopen maar worden gevalideerd zodra ze er zijn.
+
+**Bouw je een gebruikerszichtbare functie, dan hoort daar documentatie bij** — minimaal `nl` en `en`, met een manifest-entry. Zonder dat blokkeert `verify:docs` niet (het artikel bestaat dan simpelweg niet), maar de functie is voor gebruikers onvindbaar.
+
 ## Docs
 
-- [PLAN.md](PLAN.md) — large project plan, source of truth for roadmap.
+- [PLAN.md](PLAN.md) — large project plan, source of truth for the **roadmap**. ⚠️ Alleen voor de roadmap: §4 "Mappenstructuur" is een aangenomen ontwerp uit de ontwerpfase en beschrijft code die grotendeels niet bestaat (`src/api/`, `documentStore.ts`, `MonteCarloSim`, …). Er staat een banner boven. Voor de werkelijke structuur: dit bestand en `AGENTS.md`.
 - [docs/TODO.md](docs/TODO.md) — lopende to-do-lijst met dingen die nog gedaan moeten worden.
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) — changelog met alle noemenswaardige wijzigingen.
 - [docs/self-test-harness.md](docs/self-test-harness.md) — how Claude drives the app to self-test changes. Tier 1 (default): Playwright MCP (`.mcp.json`) + the dev-only `window.__OPS__` hook (installed by `src/utils/devBridge.ts`: store, log-bus, `extensions.*`) against the **browser** dev build (`npm run dev`, port 3007) — assert via store state, not canvas pixels. Tier 2 (opt-in): `tauri-driver` for the real desktop window.

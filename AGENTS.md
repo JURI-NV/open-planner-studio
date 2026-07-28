@@ -7,7 +7,7 @@ only what an agent would otherwise get wrong.
 ## Commands
 
 ```bash
-npm run dev          # Vite dev server (port 3007, strictPort; override OPS_DEV_PORT)
+npm run dev          # Dev launcher (scripts/dev-server.mjs) — per-worktree fixed port, refuses double start
 npm run build        # tsc --noEmit && vite build → dist/  ← main static check
 npm run tauri:dev    # desktop app via scripts/tauri-dev.mjs (picks first free port ≥3007)
 npm run tauri:build  # desktop installers
@@ -51,6 +51,15 @@ bash tests/planning/run.sh cases-<x>.json  # one battery
   (`AppSlice<XSlice>`) against the **full** `AppState`, so cross-slice
   actions (runCPM, undo/redo, file I/O) mutate the whole draft. Add new
   state/actions to the matching slice.
+- **New project data goes in `DOCUMENT_FIELDS`** (`src/state/documentContract.ts`)
+  — one descriptor list stating, per field, where it lives in the live state, its
+  fresh default, and its role in the undo snapshot. `capturePayload`/
+  `hydratePayload`/`freshPayload` walk that single list, so capture and hydrate
+  cannot diverge, and a `DocumentPayload` field missing from the list is a
+  **compile error**. `snapshot.ts` derives the undo snapshot from it,
+  `transaction.ts` wraps the mutate ritual, `ifcSaveInput.ts` picks the
+  round-trip fields for an IFC save. Skip this and your field silently dies on
+  document switch, undo, crash recovery and save.
 - **Scheduling is manual, not reactive.** `runCPM` instantiates
   `CalendarEngine` + `CPMSolver` inline and writes computed fields back via
   Immer. It does **not** re-run on edit — trigger it explicitly (F5, ribbon
@@ -94,10 +103,20 @@ const isTauri = () => '__TAURI_INTERNALS__' in window;
 - Settings persist to **`localStorage` under `ops-`-prefixed keys**
   (`src/utils/settingsStore.ts`). `@tauri-apps/plugin-store` is a dependency
   but **unused** — do not reach for it for settings.
-- Project auto-save runs in **both** Tauri and browser: debounced 800 ms in
-  `App.tsx`, one IFC snapshot per open document via
+- Project auto-save runs in **both** Tauri and browser: **throttled to 10 s** in
+  `src/hooks/useAutoSave.ts` (a throttle, not a debounce — a debounce would only
+  write 10 s after the *last* edit and so widen the data-loss window during a long
+  editing session), one IFC snapshot per open document via
   `src/services/recovery/recoveryStore.ts` (Tauri: `appDataDir`; web:
   IndexedDB), keyed by worktree instance slug.
+- **`public/docs/` is a documentation subsystem with its own CI gate** — 27
+  articles × 14 languages plus a manifest, feeding the in-app help viewer
+  (Backstage → Help) and the generated GitHub wiki (`npm run publish:wiki`;
+  never hand-edit the wiki). Articles render through a *limited* Markdown subset
+  (`src/utils/miniMarkdown.tsx`): no tables, no blockquotes, no h4, no raw HTML,
+  and only `docs://`/`examples://` links. `npm run verify:docs` enforces all of
+  that. A user-visible feature needs an article (at minimum `nl` + `en`) or it is
+  undiscoverable.
 
 ## Worktrees (how concurrent dev instances coexist)
 
