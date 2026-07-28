@@ -39,16 +39,18 @@ export interface ReleaseComparison {
 export type OsName = 'linux' | 'windows' | 'macos' | string;
 
 /**
- * Pure detectie: is de app zojuist geüpdatet? Geeft de versiesprong terug, of `null`.
- * - `stored` ontbreekt (verse installatie) → `null` (niets tonen).
- * - `stored === current` (normale start) → `null`.
+ * Pure detectie: moeten we de "wat is er nieuw"-dialoog tonen? Geeft de versiesprong terug, of
+ * `null` wanneer er niets te melden valt.
+ * - `stored` ontbreekt (verse installatie / eerste start) → `{ from: null, to: current }`: we tonen
+ *   de dialoog wél, maar zónder "van"-versie (die kennen we niet).
+ * - `stored === current` (normale herstart) → `null` (niets tonen).
  * - anders → `{ from: stored, to: current }` (ook bij downgrade).
  */
 export function detectJustUpdated(
   stored: string | undefined,
   current: string,
-): { from: string; to: string } | null {
-  if (!stored) return null;
+): { from: string | null; to: string } | null {
+  if (!stored) return { from: null, to: current };
   if (stored === current) return null;
   return { from: stored, to: current };
 }

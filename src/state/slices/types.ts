@@ -120,10 +120,12 @@ export interface UIState {
   showSettingsDialog: boolean;
   showCalendarDialog: boolean;
   showUpdateDialog: boolean;
-  /** Fase "kleine dingen": als de app zojuist naar een nieuwe versie is geüpdatet, bevat dit de
-   *  versiesprong (van → naar) en toont `JustUpdatedDialog` zich. `null` = geen sprong (normale
-   *  start of verse installatie). Desktop-only; in de web-build altijd `null`. */
-  justUpdated: { from: string; to: string } | null;
+  /** Fase "kleine dingen": als de app zojuist naar een nieuwe versie is geüpdatet — of voor het
+   *  eerst draait — bevat dit de versiesprong en toont `JustUpdatedDialog` zich. `from` is `null`
+   *  wanneer er geen eerder gestarte versie bekend is (verse installatie); dan toont de dialoog
+   *  enkel de huidige versie. `null` = niets tonen (normale herstart). Wordt bij de opstartdetectie
+   *  alleen in Tauri gezet, maar kan overal handmatig geopend worden via Instellingen. */
+  justUpdated: { from: string | null; to: string } | null;
   uiTheme: UITheme;
   enableQuarterHourZoom: boolean;
   weekStartDay: WeekStartDay;
