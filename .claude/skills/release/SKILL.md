@@ -31,6 +31,9 @@ per uitgebrachte versie (élke versie, geen gaten; géén `Ongepubliceerd`-kop, 
 - Release gebeurt **vanaf `main`**; feature-branch eerst mergen.
 - `release.yml` bouwt + signeert installers en publiceert `latest.json`; `snap.yml` verpakt de
   `.deb` tot Snap. Beide vuren op een `v*`-tag.
+- **De releasetekst heeft één bron**: `docs/release-notes/vX.Y.Z.md` (alleen de bullets).
+  `scripts/release-notes.mjs` maakt daar de releasepagina-markdown én de platte updater-tekst van;
+  `release.yml` roept dat zelf aan. Het bestand moet dus **in de getagde commit** zitten.
 - Repo `OpenAEC-Foundation/open-planner-studio`: main vereist PR's, maar Nozzit's account
   bypasst (direct pushen landt met een "Bypassed rule violations"-melding).
 
@@ -63,12 +66,27 @@ geen gaten.**
   uitgebreide beschrijving per rubriek: welke feature/bug, wortel-oorzaak, welk bestand, waarom.
   Hier **mág** het uitgebreid. Spiegel de stijl van de bestaande entries (Engels, inhoudelijk).
 
-### 4. Release-notes-concept — een paar bullets, meer niet (eis 2)
+### 4. Release-notes — een paar bullets in `docs/release-notes/vX.Y.Z.md` (eis 2)
 Schrijf 3–6 korte bullets in **platte tekst** (geen markdown-opsmuk — ze gaan óók in de
-updater-dialoog via `latest.json`). Geen alinea's, geen wortel-oorzaak-verhalen: dat staat al
-in de changelog. Bewaar als bv. `notes.txt` in de scratchpad.
+updater-dialoog via `latest.json`, die geen markdown rendert). Geen alinea's, geen
+wortel-oorzaak-verhalen: dat staat al in de changelog.
+
+Sla ze op als **`docs/release-notes/vX.Y.Z.md`** en commit dat bestand mee met de bump (stap 10).
+Dit bestand is de **enige bron** voor zowel de GitHub-releasepagina als het `notes`-veld in
+`latest.json` — `release.yml` zet allebei zelf, er is ná de tag géén handwerk meer. Zet er
+**alleen de bullets** in: de kop (`## What's New in vX.Y.Z`) en het Downloads-blok worden
+aangebouwd door `scripts/release-notes.mjs`.
+
+Controleer beide vormen vóór je tagt:
+```bash
+node scripts/release-notes.mjs vX.Y.Z --format=body    # de GitHub-releasepagina
+node scripts/release-notes.mjs vX.Y.Z --format=notes   # het latest.json-notes-veld
+```
 - Situationeel: was de vorige updater kapot, zet **bovenaan** een korte
   handmatige-download-waarschuwing (zoals bij v2026.7.8).
+- Vergeet je dit bestand, dan valt de release terug op een generieke tekst en een leeg
+  `notes`-veld — precies de situatie van v2026.7.12. De `gate`-job logt daar een warning voor,
+  vóór de build; lees die dus.
 
 ### 5. Docs & wiki bijwerken (eis 4 — allebei)
 **Uitvoering: aparte Sonnet-subagent die de `wiki`-skill aanroept** (los van de changelog-subagent
@@ -129,8 +147,10 @@ Twijfel? Laten staan en de user erop wijzen. **Nooit** een worktree met ongemerg
 Merge de release-branch → `main` (indien nog niet) en push.
 
 ### 10. Bump + commit
+De releasetekst uit stap 4 moet **mee de tag in** — `release.yml` leest hem uit de getagde commit.
 ```bash
 npm run bump X.Y.Z
+git add docs/release-notes/vX.Y.Z.md
 git commit -am "chore(release): vX.Y.Z"
 ```
 
@@ -161,20 +181,35 @@ gh run watch <run-id>       # of een achtergrond-lus op gh run list
 ```
 `release.yml` (installers + `latest.json`) en `snap.yml` moeten beide groen worden.
 
-### 15. Release notes zetten — de paar bullets (eis 2)
-`release.yml` publiceert met generieke auto-notes. Vervang/prepend jouw bullets:
+### 15. Releaseteksten controleren (zet `release.yml` zelf — eis 2)
+Sinds `fe0afb1` zet de workflow beide teksten uit `docs/release-notes/vX.Y.Z.md`: `create-release`
+de releasepagina, `publish-release` het `notes`-veld in `latest.json`. **Niets te doen — wel te
+controleren**, want de notes-stap is `continue-on-error` en faalt dus zichtbaar-maar-niet-blokkerend:
 ```bash
-gh release edit vX.Y.Z --notes-file notes.txt
+gh release view vX.Y.Z --json body --jq .body | head -5
+curl -sSL https://github.com/OpenAEC-Foundation/open-planner-studio/releases/latest/download/latest.json \
+  | node -e 'const j=JSON.parse(require("fs").readFileSync(0,"utf8")); console.log(j.version, "| notes:", j.notes.length, "tekens")'
 ```
-Houd de Downloads-sectie erin (Win `.exe` · mac `.dmg` universal · Linux `.deb`/`.AppImage`).
+Verwacht: jouw bullets in de body (mét Downloads-sectie eronder) en een niet-lege `notes`.
+De `/latest/download/`-CDN kan even de oude versie serveren — hercontroleer bij twijfel, of pak
+het asset rechtstreeks via `gh release download`.
 
-### 16. `latest.json`-notes → platte tekst
-De updater-dialoog toont het `notes`-veld uit `latest.json`. Zet daar dezelfde platte bullets in:
+### 16. Alleen bij een lege/generieke tekst — handmatig herstel
+Klopt stap 15 niet (bestand vergeten, notes-stap rood), repareer dan achteraf:
 ```bash
-gh release download vX.Y.Z -p latest.json -D /tmp/rel
-# bewerk het "notes"-veld → platte tekst
+mkdir -p /tmp/rel
+node scripts/release-notes.mjs vX.Y.Z --format=body  > /tmp/rel/body.md
+node scripts/release-notes.mjs vX.Y.Z --format=notes > /tmp/rel/notes.txt
+gh release edit vX.Y.Z --notes-file /tmp/rel/body.md
+gh release download vX.Y.Z -p latest.json -D /tmp/rel --clobber
+node -e 'const fs=require("fs"),p="/tmp/rel/latest.json";
+  const j=JSON.parse(fs.readFileSync(p,"utf8"));
+  j.notes=fs.readFileSync("/tmp/rel/notes.txt","utf8");
+  fs.writeFileSync(p,JSON.stringify(j,null,2));
+  console.log("notes:",j.notes.length,"tekens")'
 gh release upload vX.Y.Z /tmp/rel/latest.json --clobber
 ```
+Ontbrak het bronbestand, voeg het dan alsnog toe aan `main` — anders herhaalt het zich.
 
 ### 17. Slotverificatie
 ```bash
@@ -201,7 +236,8 @@ Daarna live-checken: fetch de Home + een gewijzigde pagina en bevestig dat de wi
 | Snap/AppImage | Slaan de in-app updater over (Snap Store werkt zelf bij). Detectie via `install_kind`. |
 | Cargo.toml | Blijft `0.1.0` — `bump` raakt 'm bewust niet. |
 | Versie-sync worktrees | Na een release lopen open worktrees achter op de versie; sync main→worktree waar relevant. |
-| latest.json markdown | De updater rendert geen markdown netjes → notes in `latest.json` = platte tekst. |
+| latest.json markdown | De updater rendert geen markdown netjes → notes in `latest.json` = platte tekst. `scripts/release-notes.mjs --format=notes` stript inline-markdown, maar schrijf de bullets alsnog opmaak-arm. |
+| Releasetekst vergeten | Zonder `docs/release-notes/vX.Y.Z.md` krijgt de release de generieke tekst en een leeg `notes`-veld (zoals v2026.7.12). Terugval breekt niets, maar de tekst is dan fout — let op de gate-warning. |
 | CLAUDE.md | Geen `verify:docs`-poort, dus rot stil weg — stap 6 is de enige check. |
 
 ## Rode vlaggen — stop
