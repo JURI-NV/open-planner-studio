@@ -228,6 +228,38 @@ npm run publish:wiki -- --push
 ```
 Daarna live-checken: fetch de Home + een gewijzigde pagina en bevestig dat de wijziging live staat.
 
+### 19. ⛔ Website bijwerken? — vraag het de user
+
+De productpagina op `OpenAEC-Foundation/website` pikt een release **maar deels** vanzelf op.
+Vraag na een geslaagde release expliciet of de site bijgewerkt moet worden. Ga daar niet
+ongevraagd aan de slag: het is een ander repo, met een eigen review-poort.
+
+**Gaat vanzelf** — de dagelijkse Action `update-stats.yml` (06:00 UTC):
+- `data/release-notes/open-planner-studio.json` wordt volledig opnieuw opgebouwd, inclusief de
+  uitgebreide sectie van de nieuwste versie uit `docs/CHANGELOG.md`.
+- Het statische changelog-blok in `open-planner-studio/index.html` en `softwareVersion` in de
+  JSON-LD, via `build-release-notes-static.js`.
+- Statistieken, downloadaantallen, `api/tools.json` en de `/md/`-mirrors.
+- De downloadknoppen, bestandsgroottes en het versielabel updaten sowieso al client-side: de
+  pagina haalt de laatste release live op via de GitHub API.
+
+**Gaat níét vanzelf** — dit is precies waar je naar vraagt:
+- Het "Nieuw in vX.Y.Z"-uitlichtblok bovenaan de pagina.
+- Het feature-grid, als deze release functionaliteit toevoegt.
+- `meta description`, `og:description`, `twitter:description` en de hero-tagline.
+- `featureList` in de `SoftwareApplication`-JSON-LD, en de FAQ-sectie als een antwoord verouderd is.
+- Screenshots, als de UI zichtbaar veranderd is.
+- De drie vertaalbestanden `shared/translations/open-planner-studio{,.fr,.tr}.json`. Die moeten in
+  hetzelfde tempo mee — een ontbrekende sleutel laat dat stuk pagina terugvallen op het Nederlands.
+- De regel in `llms.txt` en de toolmetadata in `scripts/build-tools-api.js` en
+  `scripts/build-markdown-mirrors.js`.
+- Een nieuwsbericht in `data/manual-news.json` — dat is meteen de enige natuurlijke interne link
+  naar de productpagina.
+
+**Vuistregel.** Een patch-release met alleen fixes: niets doen, de Action regelt het. Een release
+met nieuwe, zichtbare functies: vragen. Bij een "ja" pak je het website-repo apart op met een eigen
+branch en PR — `main` vereist daar een review en Nozzit heeft er géén bypass, anders dan hier.
+
 ## Gotchas
 | Val | Waarom |
 |-----|--------|
@@ -237,6 +269,7 @@ Daarna live-checken: fetch de Home + een gewijzigde pagina en bevestig dat de wi
 | Cargo.toml | Blijft `0.1.0` — `bump` raakt 'm bewust niet. |
 | Versie-sync worktrees | Na een release lopen open worktrees achter op de versie; sync main→worktree waar relevant. |
 | latest.json markdown | De updater rendert geen markdown netjes → notes in `latest.json` = platte tekst. `scripts/release-notes.mjs --format=notes` stript inline-markdown, maar schrijf de bullets alsnog opmaak-arm. |
+| Website loopt achter | De dagelijkse Action werkt alleen de gegenereerde delen van de productpagina bij. Handgeschreven content — uitlichtblok, features, FAQ, vertalingen, screenshots — blijft op de vorige release staan tot iemand het doet. Zie stap 19. |
 | Releasetekst vergeten | Zonder `docs/release-notes/vX.Y.Z.md` krijgt de release de generieke tekst en een leeg `notes`-veld (zoals v2026.7.12). Terugval breekt niets, maar de tekst is dan fout — let op de gate-warning. |
 | CLAUDE.md | Geen `verify:docs`-poort, dus rot stil weg — stap 6 is de enige check. |
 
@@ -246,3 +279,4 @@ Daarna live-checken: fetch de Home + een gewijzigde pagina en bevestig dat de wi
 - De suite-tail als bewijs nemen i.p.v. exitcode + `grep ^XX`.
 - Een worktree verwijderen met ongecommit werk of een draaiende dev-server.
 - Uitgebreide verhalen in de release notes proppen — die horen in de changelog.
+- De website ongevraagd bijwerken, of juist vergeten te vragen bij een release met nieuwe functies (stap 19).
