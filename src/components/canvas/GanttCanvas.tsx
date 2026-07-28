@@ -13,7 +13,6 @@ import { effectiveCalendarByTask } from '@/services/subdayIo';
 import { durationSuffixesFrom } from '@/utils/taskDuration';
 import { useDisplayDate } from '@/hooks/displayDate';
 import { Task } from '@/types/task';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { ContextMenu } from './ContextMenu';
 import { RelationTypePopover } from './RelationTypePopover';
@@ -114,7 +113,6 @@ export function GanttCanvas() {
   const collapseAll = useAppStore(s => s.collapseAll);
   const setZoom = useAppStore(s => s.setZoom);
   const setViewStartDate = useAppStore(s => s.setViewStartDate);
-  const project = useAppStore(s => s.project);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
   // Interface-lettertypefamilie (issue #25 punt 4) → concrete CSS font-stack voor de Canvas-2D-
   // renderers. De DOM krijgt de familie via CSS-variabelen, maar een canvas leest die niet, dus
@@ -813,11 +811,9 @@ export function GanttCanvas() {
       // Check '+' button (add child task)
       const addTarget = renderer.isAddButton(x, y);
       if (addTarget) {
-        const startDate = project.startDate || formatDate(new Date());
         addTask({
           name: defaultTaskName,
           parentId: addTarget.id,
-          time: createDefaultTaskTime(startDate, 5),
         });
         return;
       }
@@ -845,7 +841,7 @@ export function GanttCanvas() {
     } else {
       deselectAll();
     }
-  }, [selectTask, deselectAll, toggleCollapse, addTask, project.startDate, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen]);
+  }, [selectTask, deselectAll, toggleCollapse, addTask, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -1099,7 +1095,6 @@ export function GanttCanvas() {
     setScroll(target.scrollLeft, view.scrollY);
   }, [setScroll, view.scrollY]);
 
-  const startDate = project.startDate || formatDate(new Date());
 
   // Format date for tooltip display
   // Tooltip-datums volgen de datumnotatie-instelling (taak #53); leeg → '-'.
@@ -1381,7 +1376,6 @@ export function GanttCanvas() {
             addTask({
               name: defaultTaskName,
               parentId,
-              time: createDefaultTaskTime(startDate, 5),
             });
           }}
           onAddMilestone={() => {
@@ -1390,7 +1384,6 @@ export function GanttCanvas() {
               isMilestone: true,
               taskType: 'ATTENDANCE',
               parentId: contextMenu.task?.id || null,
-              time: createDefaultTaskTime(startDate, 0),
             });
           }}
           onAddRelation={() => {
@@ -1425,16 +1418,12 @@ export function GanttCanvas() {
             if (contextMenu.task) deleteTask(contextMenu.task.id);
           }}
           onAddTask={() => {
-            addTask({
-              name: defaultTaskName,
-              time: createDefaultTaskTime(startDate, 5),
-            });
+            addTask({ name: defaultTaskName });
           }}
           onInsertAbove={() => {
             if (!contextMenu.task) return;
             addTask({
               name: defaultTaskName,
-              time: createDefaultTaskTime(startDate, 5),
               position: { anchorId: contextMenu.task.id, where: 'above' },
             });
           }}
@@ -1442,7 +1431,6 @@ export function GanttCanvas() {
             if (!contextMenu.task) return;
             addTask({
               name: defaultTaskName,
-              time: createDefaultTaskTime(startDate, 5),
               position: { anchorId: contextMenu.task.id, where: 'below' },
             });
           }}

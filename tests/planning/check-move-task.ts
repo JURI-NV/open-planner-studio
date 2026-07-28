@@ -84,6 +84,31 @@ eq('18 addTask: notes komt aan op de nieuwe taak', task(idNotes)?.notes, [{ id: 
 const idNoNotes = S().addTask({ name: 'ZonderAantekeningen' });
 eq('19 addTask: geen notes-arg ⇒ undefined (byte-identiek default)', task(idNoNotes)?.notes, undefined);
 
+// ── 4) addTask's eigen `time`-default (K-item 31) ────────────────────────────
+// Negen callsites gaven `time: createDefaultTaskTime(project.startDate || vandaag, 5)` mee —
+// letterlijk wat de store zelf al doet. Die zijn weggehaald; deze checks zijn de reden dat dat
+// veilig is. Ze pinnen precies wat de callsites deden, dus als iemand de default in taskSlice
+// verandert (of hem terugzet op `new Date()`) valt dat hier om, en niet pas als een gebruiker
+// een taak op de verkeerde datum ziet verschijnen.
+S().setProject({ startDate: '2027-03-01' });
+
+const idDefTime = S().addTask({ name: 'ZonderTijd' });
+eq('20 addTask zonder time: start = project.startDate (niet vandaag)', task(idDefTime)?.time.scheduleStart, '2027-03-01');
+eq('21 addTask zonder time: duur 5 werkdagen voor een gewone taak', task(idDefTime)?.time.scheduleDuration, 5);
+
+const idDefMilestone = S().addTask({ name: 'ZonderTijdMijlpaal', isMilestone: true });
+eq('22 addTask zonder time: mijlpaal krijgt duur 0', task(idDefMilestone)?.time.scheduleDuration, 0);
+eq('23 addTask zonder time: mijlpaal start ook op project.startDate', task(idDefMilestone)?.time.scheduleStart, '2027-03-01');
+
+// Een expliciete `time` moet nog steeds voorrang houden — anders zouden de callsites die hem
+// wél om een reden meegeven (sjablonen, import, de SDK) stil overschreven worden.
+const idExplicit = S().addTask({
+  name: 'EigenTijd',
+  time: { ...task(idDefTime)!.time, scheduleStart: '2027-06-15', scheduleDuration: 12 },
+});
+eq('24 addTask mét time: expliciete waarde wint van de default', task(idExplicit)?.time.scheduleStart, '2027-06-15');
+eq('25 addTask mét time: expliciete duur wint van de default', task(idExplicit)?.time.scheduleDuration, 12);
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  move-task-check: alle checks groen (${checks})`);

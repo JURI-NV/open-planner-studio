@@ -27,8 +27,6 @@ import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
 import { isTreeMode } from '@/engine/view/visibleRows';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
-import { formatDate } from '@/utils/dateUtils';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
 
@@ -299,14 +297,12 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'context.insertAbove',
     when: () => !hasBlockingDialogOpen(),
     run: (store) => {
-      const startDate = store.project.startDate || formatDate(new Date());
       const name = i18n.t('defaultTask', { ns: 'task' });
       const anchorId = store.selectedTaskIds[0];
-      const time = createDefaultTaskTime(startDate, 5);
       if (anchorId) {
-        store.addTask({ name, time, position: { anchorId, where: 'above' } });
+        store.addTask({ name, position: { anchorId, where: 'above' } });
       } else {
-        store.addTask({ name, time });
+        store.addTask({ name });
       }
     },
   },
@@ -317,12 +313,10 @@ export const SHORTCUTS: ShortcutDef[] = [
     labelKey: 'context.addMilestone',
     when: () => !hasBlockingDialogOpen(),
     run: (store) => {
-      const startDate = store.project.startDate || formatDate(new Date());
       store.addTask({
         name: i18n.t('defaultMilestone', { ns: 'task' }),
         isMilestone: true,
         taskType: 'ATTENDANCE',
-        time: createDefaultTaskTime(startDate, 0),
       });
     },
   },

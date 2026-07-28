@@ -13,8 +13,6 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
-import { formatDate } from '@/utils/dateUtils';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
   saveShowHistogram, saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
@@ -112,13 +110,9 @@ const addTaskButton: RibbonButtonSpec = {
   kind: 'button', id: 'addTask', icon: <Plus size={20} />, labelKey: 'menu:ribbon.task',
   use: () => {
     const addTask = useAppStore(s => s.addTask);
-    const startDate = useAppStore(s => s.project.startDate);
     const { t } = useTranslation('task');
     return {
-      onClick: () => addTask({
-        name: t('defaultTask'),
-        time: createDefaultTaskTime(startDate || formatDate(new Date()), 5),
-      }),
+      onClick: () => addTask({ name: t('defaultTask') }),
     };
   },
 };
