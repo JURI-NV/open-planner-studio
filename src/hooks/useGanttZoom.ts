@@ -75,8 +75,10 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
         // Panning is done by dragging the canvas (see GanttCanvas).
         // Shift+wiel scrolt wél de rijen: sinds issue #22 is dit de STANDAARDmodus, en zonder
         // deze uitzondering is verticaal scrollen alleen bereikbaar door de chart-achtergrond te
-        // slepen — wat niet werkt vanuit de takentabel (die gaat naar rij-slepen/box-select) en
-        // er is geen verticale scrollbar of sneltoets als alternatief.
+        // slepen — wat niet werkt vanuit de takentabel (die gaat naar rij-slepen/box-select).
+        // Sinds issue #35 is er ook een echte verticale scrollbalk naast de panes, dus dit is niet
+        // langer de ENIGE uitweg; de sneltoets blijft staan omdat hij sneller is dan naar de balk
+        // grijpen (en dat was precies de klacht in #35: verticaal navigeren was te omslachtig).
         fn = e.shiftKey ? 'vertical' : 'zoom';
       } else if (mode === 'modifier') {
         if (e.ctrlKey || e.metaKey) fn = map.ctrl;
