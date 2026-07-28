@@ -85,6 +85,16 @@ export function stampLaunchJson(root, port) {
   renameSync(tmp, file);
 }
 
+/** Pad naar zijn symlink-vrije vorm, of ongewijzigd als dat niet kan (weg/geen rechten). */
+function resolvedPath(p) {
+  try { return realpathSync(p); } catch { return p; }
+}
+
+/** Wijzen twee worktree-paden naar dezelfde map? `git worktree list` is niet realpath-genormaliseerd. */
+function isSameRoot(a, b) {
+  return a === b || resolvedPath(a) === resolvedPath(b);
+}
+
 function listWorktreePaths(root) {
   const out = execFileSync('git', ['worktree', 'list', '--porcelain'], {
     cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
@@ -96,6 +106,22 @@ function listWorktreePaths(root) {
 
 /**
  * Wijst dit worktree één keer een unieke poort toe en legt 'm vast. Idempotent.
+ *
+ * Een reeds gestempelde poort wordt **gevalideerd**, niet blind vertrouwd: staat
+ * exact dezelfde poort óók in de `launch.json` van een ánder worktree, dan geeft
+ * de aanroeper toe — hij zoekt een verse vrije poort en stempelt die; de ander
+ * behoudt zijn stempel. Zo lost een dubbele stempel zichzelf in één start op
+ * (en niet in een ping-pong: de toegevende partij ziet binnen dezelfde flock de
+ * al-bijgewerkte stempels van de anderen).
+ *
+ * Het herstelsignaal is bewust **configuratie**-niveau (twee worktrees met
+ * dezelfde stempel) en NIET runtime-niveau (de poort is op dit moment gebonden).
+ * Onze eigen draaiende dev-server bindt namelijk juist onze eigen poort — en
+ * `allocatePort` draait in `tauri-dev.mjs` vóór `acquireGuardLock` — dus
+ * herstellen op "bezet" zou de poort van een volstrekt normaal draaiend worktree
+ * laten verspringen. Bezetting mag alleen meewegen bij het kiezen van een
+ * nieuwe poort, nooit bij het afkeuren van de eigen bestaande stempel.
+ *
  * deps injecteerbaar voor tests: { recorded, listPaths, portFree, stamp, lock }.
  */
 export async function allocatePort(root, deps = {}) {
@@ -107,23 +133,39 @@ export async function allocatePort(root, deps = {}) {
     lock = withAllocLock,
   } = deps;
 
-  const existing = recorded(root);
-  if (existing != null) return existing;
-
+  // Álles binnen de flock, inclusief de validatie van de bestaande stempel: zou
+  // de controle erbuiten vallen, dan kunnen twee worktrees elkaars botsing
+  // tegelijk "oplossen" en opnieuw op dezelfde poort landen — precies de race
+  // die dit repareert.
   return lock(root, async () => {
-    const again = recorded(root); // her-check binnen de flock
-    if (again != null) return again;
+    const mine = recorded(root);
 
+    // Poorten die door de ÁNDERE worktrees zijn vastgelegd (onszelf overslaan,
+    // anders zou onze eigen stempel als botsing tellen).
     const claimed = new Set();
     for (const p of listPaths(root)) {
+      if (isSameRoot(p, root)) continue;
       const port = recorded(p);
       if (port != null) claimed.add(port);
     }
+
+    // Onze stempel is uniek → ongemoeid laten: zelfde poort terug, geen nieuwe stempel.
+    if (mine != null && !claimed.has(mine)) return mine;
+
     const bound = new Set();
     for (let p = MIN_PORT; p <= MAX_PORT; p++) {
       if (!claimed.has(p) && !(await portFree(p))) bound.add(p);
     }
-    const port = chooseFreePort(claimed, (p) => bound.has(p));
+    let port;
+    try {
+      port = chooseFreePort(claimed, (p) => bound.has(p));
+    } catch {
+      throw new Error(
+        `Geen vrije dev-poort in ${MIN_PORT}-${MAX_PORT} voor worktree "${worktreeSlug(root)}"`
+        + ` — ${claimed.size} poort(en) geclaimd door andere worktrees, ${bound.size} in gebruik.`
+        + ' Sluit een dev-server af of verruim het bereik in scripts/dev-port.mjs.',
+      );
+    }
     stamp(root, port);
     return port;
   });

@@ -50,4 +50,27 @@ import("'"$TMP"'/wt-a/scripts/dev-lock.mjs").then(async (m) => {
 grep -q "WEIGERING-OK" "$TMP/dbl.txt" || fail "tweede bewaker werd niet geweigerd: $(cat "$TMP/dbl.txt")"
 pass "dubbelstart in hetzelfde worktree wordt geweigerd"
 
+# Deel 4: botsende stempels herstellen zichzelf (het echte pad: echte flock,
+# echte `git worktree list`, echte launch.json). We forceren de situatie die in
+# de praktijk optrad: twee worktrees met exact dezelfde opsDevPort.
+node --input-type=module -e '
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+for (const p of process.argv.slice(1)) {
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, JSON.stringify({ opsDevPort: 3105 }));
+}
+' "$TMP/wt-a/.claude/launch.json" "$TMP/wt-b/.claude/launch.json" || fail "kon de botsende stempels niet schrijven"
+PC=$( cd "$TMP/wt-a" && node scripts/dev-server.mjs --print-plan 2>&1 | grep -oE 'localhost:[0-9]+' | cut -d: -f2)
+PD=$( cd "$TMP/wt-b" && node scripts/dev-server.mjs --print-plan 2>&1 | grep -oE 'localhost:[0-9]+' | cut -d: -f2)
+[ -n "$PC" ] && [ -n "$PD" ] || fail "kon poorten niet uitlezen na botsing (A=$PC B=$PD)"
+[ "$PC" != "$PD" ] || fail "botsende stempels bleven botsen (beide $PC)"
+pass "botsende stempels lossen zichzelf op (A=$PC, B=$PD)"
+
+# Convergentie: geen ping-pong bij een volgende start
+PC2=$( cd "$TMP/wt-a" && node scripts/dev-server.mjs --print-plan 2>&1 | grep -oE 'localhost:[0-9]+' | cut -d: -f2)
+PD2=$( cd "$TMP/wt-b" && node scripts/dev-server.mjs --print-plan 2>&1 | grep -oE 'localhost:[0-9]+' | cut -d: -f2)
+[ "$PC" = "$PC2" ] && [ "$PD" = "$PD2" ] || fail "poorten niet stabiel na herstel (A=$PC/$PC2 B=$PD/$PD2)"
+pass "na herstel zijn de poorten stabiel (A=$PC, B=$PD)"
+
 echo "TOTAAL: dev-server integratie deel 1 groen"
