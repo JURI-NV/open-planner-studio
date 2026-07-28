@@ -169,7 +169,10 @@
     "presentationMode": "Apresentação",
     "splitView": "Vista dividida",
     "miniMap": "Minimapa",
-    "moveProject": "Mover projeto…"
+    "moveProject": "Mover projeto…",
+    "relationHintModeOn": "Ativar o modo de ligação: depois arraste de barra para barra no Gantt",
+    "relationHintModeOff": "Desativar o modo de ligação",
+    "relationHintPair": "Criar uma relação Fim-Início entre as duas tarefas selecionadas"
   },
   "ifc": {
     "title": "Editor IFC",

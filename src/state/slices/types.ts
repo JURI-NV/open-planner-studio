@@ -164,7 +164,9 @@ export type NotificationMessageKey =
   | 'notifications.recoveryRestoreFailed'
   | 'notifications.scheduleFailed'
   | 'notifications.ifcParseFailed'
-  | 'notifications.templateSaved';
+  | 'notifications.templateSaved'
+  | 'notifications.relationCreated'
+  | 'notifications.relationDuplicate';
 
 export interface AppNotification {
   /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */
@@ -188,8 +190,14 @@ export type NotifyInput = Omit<AppNotification, 'id' | 'count'>;
 export interface UIState {
   showTaskDialog: boolean;
   editingTaskId: string | null;
+  /** Relatiemodus (issue #40): een "plakkende Shift" voor de Gantt. Staat hij aan, dan start een
+   *  sleep vanaf een balk hetzelfde relatie-tekenen als shift+slepen, zónder de toets vast te
+   *  houden. Wordt gelezen door `GanttCanvas` (mousedown-hittest + cursor) en door
+   *  `DependencyModeNotice` (de strook die vertelt dat de modus aan staat); Escape en de
+   *  lint-knop zetten hem weer uit.
+   *  NB: het vroegere `dependencySourceId` is bewust weg — dat veld werd alleen geschreven en
+   *  nergens gelezen (dezelfde bevinding als de dode modus zelf). */
   showDependencyMode: boolean;
-  dependencySourceId: string | null;
   showProjectSettings: boolean;
   showProjectInfoDialog: boolean;
   leftPanelWidth: number;

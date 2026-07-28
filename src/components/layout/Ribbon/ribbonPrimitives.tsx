@@ -81,7 +81,7 @@ export function RibbonDropdown<T extends string>({ value, options, onChange }: {
   );
 }
 
-export function RibbonButton({ icon, label, onClick, active, disabled, primary, danger }: {
+export function RibbonButton({ icon, label, onClick, active, disabled, primary, danger, title }: {
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
@@ -89,6 +89,10 @@ export function RibbonButton({ icon, label, onClick, active, disabled, primary, 
   disabled?: boolean;
   primary?: boolean;
   danger?: boolean;
+  /** Tooltip — bestond alleen op de kleine knop; issue #40 heeft hem ook op de grote nodig, waar
+   *  de Relatie-knop afhankelijk van de selectie iets anders doet. Puur een `title`-attribuut:
+   *  geen enkel effect op de vormgeving van het lint. */
+  title?: string;
 }) {
   const cls = ['ribbon-btn'];
   if (active) cls.push('active');
@@ -96,7 +100,7 @@ export function RibbonButton({ icon, label, onClick, active, disabled, primary, 
   if (primary) cls.push('primary');
   if (danger) cls.push('danger');
   return (
-    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick}>
+    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={title}>
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>
     </button>

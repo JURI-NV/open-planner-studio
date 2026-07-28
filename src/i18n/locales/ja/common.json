@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "復元に失敗しました",
     "scheduleFailed": "スケジュールを計算できませんでした",
     "ifcParseFailed": "IFC を読み込めませんでした",
-    "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました"
+    "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました",
+    "relationCreated": "関係を作成しました: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "この関係はすでに存在します"
   },
   "yes": "はい",
   "no": "いいえ",
@@ -641,7 +643,9 @@
     "splitView": {
       "primary": "プライマリ",
       "secondary": "セカンダリ"
-    }
+    },
+    "dependencyModeHint": "リンクモード: ガントチャートでバーから別のバーへドラッグすると関係を作成します。Esc で終了します。",
+    "dependencyModeStop": "終了"
   },
   "dateInput": {
     "placeholder": "日-月-年",

@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "فشل الاستعادة",
     "scheduleFailed": "تعذّر حساب الجدول الزمني",
     "ifcParseFailed": "تعذّرت قراءة IFC",
-    "templateSaved": "تم حفظ الفرع كقالب '{{name}}'"
+    "templateSaved": "تم حفظ الفرع كقالب '{{name}}'",
+    "relationCreated": "تم إنشاء العلاقة: من {{predecessor}} إلى {{successor}}",
+    "relationDuplicate": "هذه العلاقة موجودة بالفعل"
   },
   "yes": "نعم",
   "no": "لا",
@@ -651,7 +653,9 @@
     "splitView": {
       "primary": "أساسي",
       "secondary": "ثانوي"
-    }
+    },
+    "dependencyModeHint": "وضع الربط: اسحب من شريط إلى آخر في مخطط جانت لإنشاء علاقة. اضغط Esc للإيقاف.",
+    "dependencyModeStop": "إيقاف"
   },
   "dateInput": {
     "placeholder": "يوم-شهر-سنة",

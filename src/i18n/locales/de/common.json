@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Wiederherstellung fehlgeschlagen",
     "scheduleFailed": "Zeitplan konnte nicht berechnet werden",
     "ifcParseFailed": "IFC konnte nicht gelesen werden",
-    "templateSaved": "Zweig als Vorlage '{{name}}' gespeichert"
+    "templateSaved": "Zweig als Vorlage '{{name}}' gespeichert",
+    "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Diese Beziehung besteht bereits"
   },
   "yes": "Ja",
   "no": "Nein",
@@ -643,7 +645,9 @@
     "splitView": {
       "primary": "Primär",
       "secondary": "Sekundär"
-    }
+    },
+    "dependencyModeHint": "Verknüpfungsmodus: Im Gantt von einem Balken zum anderen ziehen, um eine Beziehung zu erstellen. Esc beendet.",
+    "dependencyModeStop": "Beenden"
   },
   "dateInput": {
     "placeholder": "TT-MM-JJJJ",

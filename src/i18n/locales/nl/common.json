@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Herstellen mislukt",
     "scheduleFailed": "Planning kon niet worden berekend",
     "ifcParseFailed": "IFC kon niet worden gelezen",
-    "templateSaved": "Tak bewaard als sjabloon '{{name}}'"
+    "templateSaved": "Tak bewaard als sjabloon '{{name}}'",
+    "relationCreated": "Relatie aangemaakt: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Deze relatie bestaat al"
   },
   "yes": "Ja",
   "no": "Nee",
@@ -643,7 +645,9 @@
     "splitView": {
       "primary": "Primair",
       "secondary": "Secundair"
-    }
+    },
+    "dependencyModeHint": "Relatiemodus: sleep in de Gantt van de ene balk naar de andere om een relatie te leggen. Esc stopt.",
+    "dependencyModeStop": "Stoppen"
   },
   "dateInput": {
     "placeholder": "dd-mm-jjjj",

@@ -169,7 +169,10 @@
     "presentationMode": "Présentation",
     "splitView": "Vue partagée",
     "miniMap": "Mini-carte",
-    "moveProject": "Déplacer le projet…"
+    "moveProject": "Déplacer le projet…",
+    "relationHintModeOn": "Activer le mode lien : glissez ensuite d'une barre à l'autre dans le Gantt",
+    "relationHintModeOff": "Désactiver le mode lien",
+    "relationHintPair": "Créer une relation Fin-Début entre les deux tâches sélectionnées"
   },
   "ifc": {
     "title": "Éditeur IFC",

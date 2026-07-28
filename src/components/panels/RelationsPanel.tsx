@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
+import { createRelationWithFeedback } from '@/state/relationActions';
 import { useTranslation } from 'react-i18next';
 import { Task } from '@/types/task';
 import { Sequence, SequenceType, SEQUENCE_TYPE_OPTIONS } from '@/types/sequence';
@@ -23,7 +24,6 @@ export function RelationsPanel() {
   const cpmResult = useAppStore(s => s.cpmResult);
   const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
   const selectTask = useAppStore(s => s.selectTask);
-  const addSequence = useAppStore(s => s.addSequence);
   const updateSequence = useAppStore(s => s.updateSequence);
   const removeSequence = useAppStore(s => s.removeSequence);
   const removeExternalLink = useAppStore(s => s.removeExternalLink);
@@ -104,12 +104,9 @@ export function RelationsPanel() {
   const canAddFromSelection = selectedTaskIds.length === 2;
   const addFromSelection = () => {
     if (!canAddFromSelection) return;
-    addSequence({
-      predecessorId: selectedTaskIds[0],
-      successorId: selectedTaskIds[1],
-      type: 'FINISH_START',
-      lagDays: 0,
-    });
+    // Issue #40: dezelfde wrapper als de lint-knop en het slepen in de Gantt — die meldt succes
+    // én een geweigerd duplicaat (dat laatste was hier eerder een stille no-op).
+    createRelationWithFeedback(selectedTaskIds[0], selectedTaskIds[1]);
   };
 
   const selectPair = (seq: Sequence) => {

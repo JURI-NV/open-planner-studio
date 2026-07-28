@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Restore failed",
     "scheduleFailed": "Schedule could not be calculated",
     "ifcParseFailed": "IFC could not be read",
-    "templateSaved": "Branch saved as template '{{name}}'"
+    "templateSaved": "Branch saved as template '{{name}}'",
+    "relationCreated": "Relation created: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "That relation already exists"
   },
   "yes": "Yes",
   "no": "No",
@@ -643,7 +645,9 @@
     "splitView": {
       "primary": "Primary",
       "secondary": "Secondary"
-    }
+    },
+    "dependencyModeHint": "Link mode: drag from one bar to another in the Gantt to create a relation. Press Esc to stop.",
+    "dependencyModeStop": "Stop"
   },
   "dateInput": {
     "placeholder": "dd-mm-yyyy",

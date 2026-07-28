@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Échec de la restauration",
     "scheduleFailed": "Le planning n'a pas pu être calculé",
     "ifcParseFailed": "IFC n'a pas pu être lu",
-    "templateSaved": "Branche enregistrée comme modèle '{{name}}'"
+    "templateSaved": "Branche enregistrée comme modèle '{{name}}'",
+    "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Cette relation existe déjà"
   },
   "yes": "Oui",
   "no": "Non",
@@ -645,7 +647,9 @@
     "splitView": {
       "primary": "Principal",
       "secondary": "Secondaire"
-    }
+    },
+    "dependencyModeHint": "Mode lien : faites glisser d'une barre à l'autre dans le Gantt pour créer une relation. Échap pour arrêter.",
+    "dependencyModeStop": "Arrêter"
   },
   "dateInput": {
     "placeholder": "jj-mm-aaaa",

@@ -169,7 +169,10 @@
     "presentationMode": "ارائه",
     "splitView": "نمای تقسیم‌شده",
     "miniMap": "نقشه کوچک",
-    "moveProject": "جابه‌جایی پروژه…"
+    "moveProject": "جابه‌جایی پروژه…",
+    "relationHintModeOn": "روشن کردن حالت پیوند: سپس در نمودار گانت از میله‌ای به میله دیگر بکشید",
+    "relationHintModeOff": "خاموش کردن حالت پیوند",
+    "relationHintPair": "ایجاد رابطه پایان-شروع بین دو وظیفه انتخاب‌شده"
   },
   "ifc": {
     "title": "ویرایشگر IFC",

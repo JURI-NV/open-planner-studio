@@ -169,7 +169,10 @@
     "presentationMode": "Presentatie",
     "splitView": "Split view",
     "miniMap": "Mini-map",
-    "moveProject": "Project verplaatsen…"
+    "moveProject": "Project verplaatsen…",
+    "relationHintModeOn": "Relatiemodus aanzetten: sleep daarna in de Gantt van balk naar balk",
+    "relationHintModeOff": "Relatiemodus uitzetten",
+    "relationHintPair": "Eind-Start-relatie leggen tussen de twee geselecteerde taken"
   },
   "ifc": {
     "title": "IFC-editor",

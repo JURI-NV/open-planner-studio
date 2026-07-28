@@ -169,7 +169,10 @@
     "presentationMode": "프레젠테이션",
     "splitView": "분할 보기",
     "miniMap": "미니맵",
-    "moveProject": "프로젝트 이동…"
+    "moveProject": "프로젝트 이동…",
+    "relationHintModeOn": "링크 모드 켜기: 이후 간트 차트에서 막대에서 막대로 끕니다",
+    "relationHintModeOff": "링크 모드 끄기",
+    "relationHintPair": "선택한 두 작업 사이에 종료-시작 관계 만들기"
   },
   "ifc": {
     "title": "IFC 편집기",

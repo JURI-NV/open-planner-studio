@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "بازیابی ناموفق بود",
     "scheduleFailed": "محاسبهٔ برنامه ممکن نشد",
     "ifcParseFailed": "خواندن IFC ناموفق بود",
-    "templateSaved": "شاخه به عنوان الگوی «{{name}}» ذخیره شد"
+    "templateSaved": "شاخه به عنوان الگوی «{{name}}» ذخیره شد",
+    "relationCreated": "رابطه ایجاد شد: از {{predecessor}} به {{successor}}",
+    "relationDuplicate": "این رابطه از قبل وجود دارد"
   },
   "yes": "بله",
   "no": "خیر",
@@ -643,7 +645,9 @@
     "splitView": {
       "primary": "اصلی",
       "secondary": "فرعی"
-    }
+    },
+    "dependencyModeHint": "حالت پیوند: در نمودار گانت از یک میله به میله دیگر بکشید تا رابطه ساخته شود. برای توقف Esc را بزنید.",
+    "dependencyModeStop": "توقف"
   },
   "dateInput": {
     "placeholder": "روز-ماه-سال",

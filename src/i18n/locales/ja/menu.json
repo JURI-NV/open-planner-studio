@@ -169,7 +169,10 @@
     "presentationMode": "プレゼンテーション",
     "splitView": "分割ビュー",
     "miniMap": "ミニマップ",
-    "moveProject": "プロジェクトを移動…"
+    "moveProject": "プロジェクトを移動…",
+    "relationHintModeOn": "リンクモードをオンにする: その後ガントチャートでバーからバーへドラッグします",
+    "relationHintModeOff": "リンクモードをオフにする",
+    "relationHintPair": "選択した 2 つのタスクの間に終了-開始の関係を作成します"
   },
   "ifc": {
     "title": "IFC エディタ",

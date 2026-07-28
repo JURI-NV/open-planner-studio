@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Geri yükleme başarısız",
     "scheduleFailed": "Planlama hesaplanamadı",
     "ifcParseFailed": "IFC okunamadı",
-    "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi"
+    "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi",
+    "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Bu ilişki zaten var"
   },
   "yes": "Evet",
   "no": "Hayır",
@@ -643,7 +645,9 @@
     "splitView": {
       "primary": "Birincil",
       "secondary": "İkincil"
-    }
+    },
+    "dependencyModeHint": "Bağlantı modu: Gantt'ta bir çubuktan diğerine sürükleyerek ilişki oluşturun. Durdurmak için Esc.",
+    "dependencyModeStop": "Durdur"
   },
   "dateInput": {
     "placeholder": "gg-aa-yyyy",

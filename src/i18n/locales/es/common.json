@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "No se pudo restaurar",
     "scheduleFailed": "No se pudo calcular la planificación",
     "ifcParseFailed": "No se pudo leer el IFC",
-    "templateSaved": "Rama guardada como plantilla '{{name}}'"
+    "templateSaved": "Rama guardada como plantilla '{{name}}'",
+    "relationCreated": "Relación creada: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Esa relación ya existe"
   },
   "yes": "Sí",
   "no": "No",
@@ -645,7 +647,9 @@
     "splitView": {
       "primary": "Principal",
       "secondary": "Secundario"
-    }
+    },
+    "dependencyModeHint": "Modo enlace: arrastre de una barra a otra en el Gantt para crear una relación. Esc para detener.",
+    "dependencyModeStop": "Detener"
   },
   "dateInput": {
     "placeholder": "dd-mm-aaaa",

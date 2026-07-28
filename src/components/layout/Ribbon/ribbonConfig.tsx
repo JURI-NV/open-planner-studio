@@ -13,6 +13,7 @@ import {
   CalendarClock, ChevronsDownUp, ChevronsUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
+import { createRelationWithFeedback } from '@/state/relationActions';
 import { formatDate } from '@/utils/dateUtils';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { isTreeMode } from '@/engine/view/visibleRows';
@@ -56,7 +57,7 @@ export interface RibbonButtonBinding {
   onClick?: () => void;
   active?: boolean;
   disabled?: boolean;
-  /** Tooltip (alleen kleine knoppen). */
+  /** Tooltip (kleine én grote knoppen). */
   title?: string;
   /** Icoon-override voor knoppen die van staat wisselen (bv. Pin/PinOff, Eye/EyeOff). */
   icon?: ReactNode;
@@ -130,24 +131,28 @@ const relationButton: RibbonButtonSpec = {
     const setUI = useAppStore(s => s.setUI);
     const active = useAppStore(s => s.ui.showDependencyMode);
     const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
-    const addSequence = useAppStore(s => s.addSequence);
+    const { t } = useTranslation('menu');
+    // issue #40: de knop doet twee dingen afhankelijk van de selectie. Dat verraste (de melder zag
+    // "geen enkele actie"), dus de tooltip zegt vooraf wélke van de twee er nu gebeurt.
+    const pairMode = selectedTaskIds.length === 2;
     return {
       active,
+      title: pairMode
+        ? t('ribbon.relationHintPair')
+        : active ? t('ribbon.relationHintModeOff') : t('ribbon.relationHintModeOn'),
       onClick: () => {
         // issue #21 punt 4: bij precies 2 geselecteerde taken direct een Finish-Start-relatie
         // aanleggen (voorganger = eerst aangeklikt), via hetzelfde pad als
         // RelationsPanel.addFromSelection — zelfde actie, defaults (FS, lag 0) en duplicaat-guard.
-        // In alle andere gevallen (0/1/>2 geselecteerd) de afhankelijkheids-modus togglen, zoals voorheen.
-        if (selectedTaskIds.length === 2) {
-          addSequence({
-            predecessorId: selectedTaskIds[0],
-            successorId: selectedTaskIds[1],
-            type: 'FINISH_START',
-            lagDays: 0,
-          });
+        // Issue #40: nu via de gedeelde wrapper, zodat succes én een geweigerd duplicaat een
+        // zichtbare melding geven in plaats van stil te blijven.
+        // In alle andere gevallen (0/1/>2 geselecteerd) de relatiemodus togglen — die stuurt sinds
+        // issue #40 écht gedrag aan (zie `ui.showDependencyMode`).
+        if (pairMode) {
+          createRelationWithFeedback(selectedTaskIds[0], selectedTaskIds[1]);
           return;
         }
-        setUI({ showDependencyMode: !active, dependencySourceId: null });
+        setUI({ showDependencyMode: !active });
       },
     };
   },

@@ -169,7 +169,10 @@
     "presentationMode": "Sunum",
     "splitView": "Bölünmüş görünüm",
     "miniMap": "Mini harita",
-    "moveProject": "Projeyi taşı…"
+    "moveProject": "Projeyi taşı…",
+    "relationHintModeOn": "Bağlantı modunu aç: ardından Gantt'ta çubuktan çubuğa sürükleyin",
+    "relationHintModeOff": "Bağlantı modunu kapat",
+    "relationHintPair": "Seçili iki görev arasında Bitiş-Başlangıç ilişkisi oluştur"
   },
   "ifc": {
     "title": "IFC Düzenleyici",

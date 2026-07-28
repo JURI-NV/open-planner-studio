@@ -33,6 +33,7 @@ import { UI_FONT_STACKS } from '@/utils/uiFont';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
+import { DependencyModeNotice } from '@/components/layout/DependencyModeNotice';
 import { NotificationHost } from '@/components/layout/NotificationHost';
 
 // Code-splitting (pakket E2): componenten die pas achter een `ui.show*`-vlag, een ribbontab of een
@@ -243,6 +244,10 @@ function AppContent() {
       {/* Structuur-vergrendeld-melding (issue #26): verschijnt wanneer in-/uitspringen geweigerd
           wordt omdat er gefilterd/gegroepeerd/gesorteerd wordt. */}
       <StructureLockedNotice />
+
+      {/* Relatiemodus-strook (issue #40): zichtbaar zolang de Relatie-knop/het contextmenu de
+          "plakkende Shift" heeft aangezet — sleep dan in de Gantt van balk naar balk. */}
+      <DependencyModeNotice />
 
       {/* Backstage view (File-tab actief) — neemt de volledige body over.
           Anders: gradient strip + main content. */}

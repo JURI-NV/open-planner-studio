@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "恢复失败",
     "scheduleFailed": "无法计算计划",
     "ifcParseFailed": "无法读取 IFC",
-    "templateSaved": "分支已保存为模板“{{name}}”"
+    "templateSaved": "分支已保存为模板“{{name}}”",
+    "relationCreated": "已创建关系：{{predecessor}} → {{successor}}",
+    "relationDuplicate": "该关系已存在"
   },
   "yes": "是",
   "no": "否",
@@ -641,7 +643,9 @@
     "splitView": {
       "primary": "主要",
       "secondary": "次要"
-    }
+    },
+    "dependencyModeHint": "链接模式：在甘特图中从一个条形拖到另一个条形即可创建关系。按 Esc 退出。",
+    "dependencyModeStop": "退出"
   },
   "dateInput": {
     "placeholder": "日-月-年",

@@ -169,7 +169,10 @@
     "presentationMode": "Präsentation",
     "splitView": "Geteilte Ansicht",
     "miniMap": "Minimap",
-    "moveProject": "Projekt verschieben…"
+    "moveProject": "Projekt verschieben…",
+    "relationHintModeOn": "Verknüpfungsmodus einschalten: danach im Gantt von Balken zu Balken ziehen",
+    "relationHintModeOff": "Verknüpfungsmodus ausschalten",
+    "relationHintPair": "Ende-Anfang-Beziehung zwischen den beiden ausgewählten Vorgängen erstellen"
   },
   "ifc": {
     "title": "IFC-Editor",

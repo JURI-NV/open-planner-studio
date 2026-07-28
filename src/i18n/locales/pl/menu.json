@@ -169,7 +169,10 @@
     "presentationMode": "Prezentacja",
     "splitView": "Widok podzielony",
     "miniMap": "Minimapa",
-    "moveProject": "Przesuń projekt…"
+    "moveProject": "Przesuń projekt…",
+    "relationHintModeOn": "Włącz tryb połączeń: następnie przeciągaj od paska do paska na wykresie Gantta",
+    "relationHintModeOff": "Wyłącz tryb połączeń",
+    "relationHintPair": "Utwórz relację Zakończenie-Rozpoczęcie między dwoma zaznaczonymi zadaniami"
   },
   "ifc": {
     "title": "Edytor IFC",

@@ -54,7 +54,6 @@ export function createDefaultUI(): UIState {
     showTaskDialog: false,
     editingTaskId: null,
     showDependencyMode: false,
-    dependencySourceId: null,
     showProjectSettings: false,
     showProjectInfoDialog: false,
     leftPanelWidth: 350,

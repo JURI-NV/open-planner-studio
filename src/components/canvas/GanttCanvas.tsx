@@ -121,8 +121,11 @@ export function GanttCanvas() {
   const deselectAll = useAppStore(s => s.deselectAll);
   const toggleCollapse = useAppStore(s => s.toggleCollapse);
   const addTask = useAppStore(s => s.addTask);
-  const addSequence = useAppStore(s => s.addSequence);
   const updateTask = useAppStore(s => s.updateTask);
+  // Issue #40: de relatiemodus is een "plakkende Shift" — staat hij aan, dan armt een mousedown op
+  // een balk hetzelfde dependency-tekenen als shift+slepen. Dit is de ENIGE lezer die gedrag
+  // stuurt; vóór deze fix werd de vlag alleen geschreven (dode modus, knop deed niets zichtbaars).
+  const dependencyMode = useAppStore(s => s.ui.showDependencyMode);
   const deleteTask = useAppStore(s => s.deleteTask);
   // Issue #21 punt 1 (fase 2): store-actie uit fase 1 — verplaatst één taak naar een exacte
   // positie (reorder of reparent), gebruikt door useRowDrag bij mouseup.
@@ -267,8 +270,10 @@ export function GanttCanvas() {
     containerRef,
     depLineCanvasRef,
     rendererRef,
-    addSequence,
-    onRelationCreated: (sequenceId, x, y) => setRelationPopover({ sequenceId, x, y }),
+    onRelationCreated: useCallback(
+      (sequenceId: string, x: number, y: number) => setRelationPopover({ sequenceId, x, y }),
+      [],
+    ),
   });
 
   // Twee generieke sleep-splitters (pakket L, `useSplitter`): tabel/chart-breedte + histogram-hoogte.
@@ -1058,8 +1063,11 @@ export function GanttCanvas() {
 
     const hit = renderer.getTaskBarBounds(x, y);
     if (hit) {
-      // Shift+drag from task bar starts dependency drawing
-      if (e.shiftKey) {
+      // Shift+drag vanaf een balk tekent een relatie — en sinds issue #40 doet de relatiemodus
+      // exact hetzelfde zónder toets ("plakkende Shift"), zodat de lint-knop/het contextmenu-item
+      // een écht gebaar armen in plaats van een dode vlag te zetten. Bewust hetzelfde pad: een
+      // tweede interactie zou met box-select (ctrl) en deze sleep om dezelfde muis-events vechten.
+      if (e.shiftKey || dependencyMode) {
         e.preventDefault();
         depDraw.startDepDraw({
           sourceTaskId: hit.task.id,
@@ -1136,7 +1144,7 @@ export function GanttCanvas() {
 
     e.preventDefault();
     boxSelect.startBoxSelect({ startClientX: e.clientX, startClientY: e.clientY });
-  }, [selectTask, scrollMode, taskTableWidth, tableSplitter, depDraw, barDrag, boxSelect, pan, rowDrag, view, contextMenu]);
+  }, [selectTask, scrollMode, taskTableWidth, tableSplitter, depDraw, barDrag, boxSelect, pan, rowDrag, view, contextMenu, dependencyMode]);
 
   // Cursor changes on hover + tooltip
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -1174,10 +1182,15 @@ export function GanttCanvas() {
     // Check for task bar edges
     const hit = renderer.getTaskBarBounds(x, y);
     if (hit) {
-      if (hit.edge === 'left' || hit.edge === 'right') {
+      // Issue #40: shift OF de relatiemodus armt het relatie-tekenen — en dat wint in mousedown
+      // óók op de randen (die branch staat vóór de resize-branch), dus toont de cursor hier
+      // hetzelfde. Zo is de actieve modus zichtbaar zodra je boven een balk komt.
+      if (e.shiftKey || dependencyMode) {
+        setCursor('crosshair');
+      } else if (hit.edge === 'left' || hit.edge === 'right') {
         setCursor('ew-resize');
       } else {
-        setCursor(e.shiftKey ? 'crosshair' : 'grab');
+        setCursor('grab');
       }
       // Show tooltip for the hovered task
       setTooltip({ x: e.clientX, y: e.clientY, task: hit.task });
@@ -1210,7 +1223,7 @@ export function GanttCanvas() {
     }
 
     setCursor('default');
-  }, [barDrag.active, depDraw.active, pan.active, boxSelect.active, rowDrag.active, contextMenu, scrollMode, taskTableWidth]);
+  }, [barDrag.active, depDraw.active, pan.active, boxSelect.active, rowDrag.active, contextMenu, scrollMode, taskTableWidth, dependencyMode]);
 
   // Hide tooltip on mouse leave
   const handleMouseLeave = useCallback(() => {
@@ -1296,7 +1309,12 @@ export function GanttCanvas() {
                       ? 'crosshair'
                       : rowDrag.rowDragState
                         ? 'grabbing'
-                        : cursor,
+                        // Issue #40: staat de relatiemodus aan, dan is een balk-cursor altijd het
+                        // crosshair — ook als de muis sinds het aanzetten niet bewogen heeft (de
+                        // hover-handler hierboven vuurt dan immers niet).
+                        : dependencyMode && (cursor === 'grab' || cursor === 'ew-resize')
+                          ? 'crosshair'
+                          : cursor,
           }}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -1618,8 +1636,12 @@ export function GanttCanvas() {
             });
           }}
           onAddRelation={() => {
+            // Issue #40: zette vroeger dezelfde dode vlag als de lint-knop (plus een nooit gelezen
+            // `dependencySourceId`) en was dus óók een no-op. Nu armt het de echte relatiemodus.
+            // De aangeklikte taak wordt geselecteerd zodat zichtbaar is vanaf welke balk je sleept.
             if (contextMenu.task) {
-              setUI({ showDependencyMode: true, dependencySourceId: contextMenu.task.id });
+              selectTask(contextMenu.task.id, false);
+              setUI({ showDependencyMode: true });
             }
           }}
           onSaveTemplate={() => {
@@ -1688,8 +1710,10 @@ export function GanttCanvas() {
             if (contextMenu.task) updateTask(contextMenu.task.id, { priority });
           }}
           onStartRelationFromBar={() => {
+            // Zelfde route als `onAddRelation` (balk-contextmenu i.p.v. rij-contextmenu).
             if (contextMenu.task) {
-              setUI({ showDependencyMode: true, dependencySourceId: contextMenu.task.id });
+              selectTask(contextMenu.task.id, false);
+              setUI({ showDependencyMode: true });
             }
           }}
           onPaste={() => { pasteTasks(); }}

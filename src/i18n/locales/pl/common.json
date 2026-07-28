@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Nie udało się przywrócić",
     "scheduleFailed": "Nie udało się obliczyć harmonogramu",
     "ifcParseFailed": "Nie udało się odczytać pliku IFC",
-    "templateSaved": "Gałąź zapisana jako szablon '{{name}}'"
+    "templateSaved": "Gałąź zapisana jako szablon '{{name}}'",
+    "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Taka relacja już istnieje"
   },
   "yes": "Tak",
   "no": "Nie",
@@ -647,7 +649,9 @@
     "splitView": {
       "primary": "Główny",
       "secondary": "Dodatkowy"
-    }
+    },
+    "dependencyModeHint": "Tryb połączeń: przeciągnij od jednego paska do drugiego na wykresie Gantta, aby utworzyć relację. Esc kończy.",
+    "dependencyModeStop": "Zakończ"
   },
   "dateInput": {
     "placeholder": "dd-mm-rrrr",
