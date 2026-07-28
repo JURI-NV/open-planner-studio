@@ -52,7 +52,7 @@
 /* Ribbon Content */
 .ribbon-content {
   background: var(--theme-ribbon-content-bg);
-  padding: 4px 32px 0 8px;
+  padding: 4px 8px 0 8px;
   display: flex;
   align-items: stretch;
   height: 94px;
@@ -361,6 +361,12 @@
   flex-shrink: 0;
 }
 .ribbon-container.compact .ribbon-btn.small { height: 28px; min-width: 0; flex-shrink: 0; }
+
+/* Icoon-only dichtheid (auto-density, laatste stap): labels overal verbergen en de knoppen tot
+   icoongrootte krimpen wanneer zelfs de compacte rij niet meer past. Staat ná de .compact-regels,
+   dus wint bij gelijke specificiteit. Dropdowns houden hun tekst (die dragen een waarde). */
+.ribbon-container.compact-icons .ribbon-btn-label { display: none; }
+.ribbon-container.compact-icons .ribbon-btn { min-width: 0; padding: 2px 6px; gap: 0; }
 
 /* File tab (backstage trigger) — altijd amber, opvallend links */
 .ribbon-tab--file {

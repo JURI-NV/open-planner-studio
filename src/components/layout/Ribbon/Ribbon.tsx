@@ -1,29 +1,79 @@
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { ChevronUp, ChevronDown } from 'lucide-react';
-import { saveRibbonCompact } from '@/utils/settingsStore';
 import { RibbonTab } from '@/state/slices/types';
 import { RibbonTabContent } from './RibbonTabContent';
 import { ExtensionRibbonGroups } from './ribbonWidgets';
+import { RibbonDensity, RibbonDensityContext } from './ribbonDensity';
 import './Ribbon.css';
 
 /**
- * Ribbon-schil (audit P18): tabs-balk + generiek render-pad + inklap-toggle. De tab-inhoud is
- * volledig declaratief (RIBBON_TABS in ribbonConfig.tsx) en wordt door RibbonTabContent
- * gerenderd; complexe widgets zitten in ribbonWidgets.tsx. Deze schil abonneert alleen op
- * `activeRibbonTab` en `ribbonCompact` — de ~45 selectors uit de oude god-functie zijn naar de
- * afzonderlijke item-bindings/widgets verhuisd.
+ * Ribbon-schil (audit P18): tabs-balk + generiek render-pad. De dichtheid (vol/compact/icoon) is
+ * volledig automatisch: een ResizeObserver meet of de inhoud van de actieve tab horizontaal past;
+ * zo niet, dan schakelt {@link useRibbonAutoDensity} één stap compacter (vol → compact → alleen
+ * iconen). Er is geen handmatige inklap-knop meer — het lint past zich vanzelf aan de breedte aan.
+ * De gekozen dichtheid gaat via {@link RibbonDensityContext} naar de groep-componenten die zelf een
+ * compacte vorm renderen (TimeScale/Layout/Baselines), zodat klasse en inhoud consistent blijven.
  */
+function useRibbonAutoDensity(
+  containerRef: RefObject<HTMLElement | null>,
+  scrollRef: RefObject<HTMLElement | null>,
+  activeTab: RibbonTab,
+): RibbonDensity {
+  const [density, setDensity] = useState<RibbonDensity>('full');
+  const [, forceRemeasure] = useState(0);
+  const lastWidth = useRef(0);
+
+  // Bij tabwissel opnieuw vanaf 'full' evalueren (andere inhoud/breedte per tab).
+  useLayoutEffect(() => { setDensity('full'); }, [activeTab]);
+
+  // Stap compacter zolang de inhoud horizontaal overloopt. Draait na elke render en convergeert:
+  // 'icon' overloopt = geen verandering meer (React bailt op gelijke state), dan blijft de bestaande
+  // horizontale scroll als laatste vangnet.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollWidth > el.clientWidth + 1) {
+      setDensity(d => (d === 'full' ? 'compact' : d === 'compact' ? 'icon' : d));
+    }
+  });
+
+  // Bij een breedte-wijziging van het lint (venster/paneel) terug naar 'full' en opnieuw laten
+  // inklappen. Alleen op breedte reageren — de hoogte verandert mee met de dichtheid en zou anders
+  // een lus veroorzaken.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    lastWidth.current = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (Math.abs(w - lastWidth.current) > 0.5) {
+        lastWidth.current = w;
+        // Terug naar 'full' én een re-meting forceren — ook als density al 'full' was (anders geen
+        // re-render en meet de stap-omlaag-effect niet dat de inhoud nu overloopt).
+        setDensity('full');
+        forceRemeasure(t => t + 1);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef]);
+
+  return density;
+}
+
 export function Ribbon() {
   const { t: tMenu } = useTranslation('menu');
   const setUI = useAppStore(s => s.setUI);
-  const ribbonCompact = useAppStore(s => s.ui.ribbonCompact);
   const activeTab = useAppStore(s => s.ui.activeRibbonTab);
   // T14: het AI-tabblad verschijnt alleen bij ingeschakelde AI-modus (conditioneel, net als de
   // debug-terminal een paneel toont). Uitzetten verwijdert de tab; de reducer valt dan terug op
   // 'start' als dit tabblad actief was.
   const aiMode = useAppStore(s => s.ui.aiMode);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const density = useRibbonAutoDensity(containerRef, scrollRef, activeTab);
 
   const setActiveTab = useCallback((tab: RibbonTab) => {
     setUI({ activeRibbonTab: tab });
@@ -34,11 +84,12 @@ export function Ribbon() {
     ...(aiMode ? (['ai'] as RibbonTab[]) : []),
   ];
 
+  const densityClass =
+    density === 'icon' ? ' compact compact-icons' : density === 'compact' ? ' compact' : '';
+
   return (
-    <div className={`ribbon-container${ribbonCompact ? ' compact' : ''}`}>
-      {/* Tabs — 'file' is de speciale amber backstage-tab links.
-          data-tour-anchor (fase 2.10, onderdeel 3, tourstap 1): altijd zichtbaar, ook tijdens
-          Backstage, dus geen prepare() nodig voor deze stap. */}
+    <div ref={containerRef} className={`ribbon-container${densityClass}`}>
+      {/* Tabs — 'file' is de speciale amber backstage-tab links. */}
       <div className="ribbon-tabs" data-tour-anchor="ribbon-tabs">
         <button
           key="file"
@@ -60,28 +111,14 @@ export function Ribbon() {
 
       {/* Content — verborgen wanneer File-tab actief is (Backstage neemt de hele body over) */}
       {activeTab !== 'file' && (
-      <div className="ribbon-content">
-      <div className="ribbon-content-scroll">
-        <RibbonTabContent tab={activeTab} />
-        <ExtensionRibbonGroups tab={activeTab} />
-      </div>
-        {/* Compacte-modus-toggle rechtsonder (Word-web-stijl): ↑ = inklappen, ↓ = uitklappen.
-            position:absolute (zie CSS) zodat de pijl een vaste plek in de hoek houdt en
-            nooit kan worden dichtgeschoven/onklikbaar gemaakt door drukke tab-inhoud
-            (QA-bevinding 2.6a) — onafhankelijk van de flex-flow van de groepen ernaast. */}
-        <button
-          className="ribbon-collapse-toggle"
-          title={tMenu(ribbonCompact ? 'ribbon.expandRibbon' : 'ribbon.collapseRibbon')}
-          aria-label={tMenu(ribbonCompact ? 'ribbon.expandRibbon' : 'ribbon.collapseRibbon')}
-          onClick={() => {
-            const next = !ribbonCompact;
-            setUI({ ribbonCompact: next });
-            void saveRibbonCompact(next);
-          }}
-        >
-          {ribbonCompact ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </button>
-      </div>
+        <div className="ribbon-content">
+          <RibbonDensityContext.Provider value={density}>
+            <div ref={scrollRef} className="ribbon-content-scroll">
+              <RibbonTabContent tab={activeTab} />
+              <ExtensionRibbonGroups tab={activeTab} />
+            </div>
+          </RibbonDensityContext.Provider>
+        </div>
       )}
     </div>
   );

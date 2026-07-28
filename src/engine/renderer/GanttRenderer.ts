@@ -254,6 +254,19 @@ export class GanttRenderer {
     return formatDuration(taskDurationMinutes(task, cal), effHoursPerDay(cal), this.opts.durationDisplay ?? 'auto', this.opts.durationSuffixes);
   }
 
+  /** Kapt tekst af met een ellipsis zodra hij niet in `maxWidth` past (issue #38 punt 5): de
+   *  taaktabel-kopteksten (WBS/Taaknaam/Duur) mogen nooit buiten hun kolom in de Gantt-zone
+   *  lopen — vertalingen zoals DE "Dauer"/FR "Durée" kunnen breder zijn dan de gegokte offset
+   *  die hier voorheen stond. Meet met het al ingestelde `ctx.font`, dus vóór het aanroepen
+   *  moet de juiste font/grootte al gezet zijn. Zelfde aanpak als HistogramRenderer.truncate. */
+  private truncate(text: string, maxWidth: number): string {
+    const ctx = this.ctx;
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t + '…';
+  }
+
   /** Convert a date (with optional sub-day precision) to X position on canvas.
    *  Issue #21 punt 5 (fase 2): het ENE as-chokepoint (ontwerp §2.1/§10) — nu `this.axis.dateToX`
    *  i.p.v. rechtstreeks `timeAxis.dateToX`. Toggle uit ⇒ `this.axis` ís de kalender-as (dunne
@@ -1621,13 +1634,23 @@ export class GanttRenderer {
     ctx.fillRect(0, 0, taskTableWidth, headerHeight);
 
     // Header text
+    // Issue #38 punt 5: de duur-kop stond links-uitgelijnd op een gegokte offset
+    // (taskTableWidth - 45), dus een breder label (bv. DE "Dauer", FR "Durée") liep zo over de
+    // rechterrand van de tabel de Gantt-zone in. De duur-per-rij hieronder (§ Duration) staat al
+    // rechts-uitgelijnd op `taskTableWidth - 8` binnen een gereserveerde kolom van 55px (zelfde
+    // marge als de taaknaam-clip: `taskTableWidth - indent - 55`) — de kop volgt nu diezelfde
+    // rechterrand/kolombreedte, plus alle drie de kopteksten worden afgekapt zodat ze nooit
+    // buiten hun eigen kolom kunnen lopen.
     const headers = this.opts.columnHeaders || { wbs: 'WBS', taskName: 'Taaknaam', duration: 'Duur' };
+    const headerDurationColStart = taskTableWidth - 55; // zelfde kolomreservering als de rijen
     ctx.fillStyle = this.colors.text;
     ctx.font = this.font(11, true);
     ctx.textBaseline = 'middle';
-    ctx.fillText(headers.wbs, 8, headerHeight / 2);
-    ctx.fillText(headers.taskName, 60, headerHeight / 2);
-    ctx.fillText(headers.duration, taskTableWidth - 45, headerHeight / 2);
+    ctx.fillText(this.truncate(headers.wbs, 44), 8, headerHeight / 2);
+    ctx.fillText(this.truncate(headers.taskName, headerDurationColStart - 60 - 4), 60, headerHeight / 2);
+    ctx.textAlign = 'right';
+    ctx.fillText(this.truncate(headers.duration, 47), taskTableWidth - 8, headerHeight / 2);
+    ctx.textAlign = 'left';
 
     // Header border
     ctx.strokeStyle = this.colors.border;

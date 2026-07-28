@@ -10,6 +10,11 @@
   justify-content: space-between;
   gap: var(--sp-2);
   width: 100%;
+  /* Structureel (issue #38 punt 3): zonder dit blijft de trigger, als flex-item van een rij die
+     zelf krap gezet wordt (bv. `flex-1 min-w-0`), toch nooit smaller dan zijn ongewrapte label-
+     tekst — de browser-default `min-width: auto` neemt anders de min-content-breedte van
+     `.ops-select__value` (white-space: nowrap) over, en die duwt de kolom uit z'n voegen. */
+  min-width: 0;
   font-family: var(--font-body);
   font-size: 0.875rem;
   padding: var(--sp-3) var(--sp-4);
@@ -35,6 +40,11 @@
 }
 
 .ops-select__value {
+  /* Zonder `min-width: 0` blijft dit een flex-item met `min-width: auto`, en omdat de tekst
+     `white-space: nowrap` heeft is de min-content-breedte gelijk aan de volledige, ongewrapte
+     tekst — `overflow: hidden`/`text-overflow: ellipsis` krijgen dan nooit de kans om iets af
+     te knippen, want de doos wordt nooit smaller dan de tekst. */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
