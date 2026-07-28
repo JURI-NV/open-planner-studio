@@ -237,6 +237,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
+- [ ] **`GanttRenderer.barGeometry` crasht op een taak zónder start.** Gevonden 2026-07-28 tijdens
+      de overlay-scrollbalken van issue #35 (pre-existing, niets met die wijziging te maken).
+      `GanttRenderer.ts:263` doet `startStr.includes('T') || endStr.includes('T')` zonder guard;
+      heeft een taak noch `earlyStart` noch `scheduleStart` (idem voor de finish-kant), dan is die
+      string undefined en gooit de renderer `Cannot read properties of undefined` — per frame, dus
+      de Gantt blijft zwart tot de taak een datum krijgt. **Twee plekken**, niet één: naast
+      `barGeometry` (261-263) staat hetzelfde patroon ongeguard in `:1114-1115`. Bereikt via een taak
+      die alleen een duur heeft (bv. programmatisch of via een importer die de startdatum niet zet);
+      de normale `addTask`-route zet wél een datum, dus in de gewone UI bijt het niet. Fix: bail-out
+      of terugval op de projectstart op beide plekken, plus een regressiecase in `tests/planning/`.
 - [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
       issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
       maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
