@@ -477,7 +477,8 @@ export function ScreenshotAnnotator({ screenshotDataUrl, onChange }: ScreenshotA
                     onChange={e => setTextValue(e.target.value)}
                     onKeyDown={onTextKeyDown}
                     onBlur={commitTextInput}
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    // Bewust autoFocus: het tekstvak verschijnt pas ná een expliciete klik van de
+                    // gebruiker op de plek waar hij tekst wil zetten, dus de focus volgt zijn actie.
                     autoFocus
                   />
                 )}

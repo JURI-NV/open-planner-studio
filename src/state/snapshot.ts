@@ -3,7 +3,7 @@ import type { AppState } from './appStore';
 import type { DocumentPayload } from './documentContract';
 import { DOCUMENT_FIELDS } from './documentContract';
 import { syncProjectCalendar } from './syncProjectCalendar';
-import { createDefaultProject } from './slices/projectSlice';
+import { createDefaultProject } from './defaults';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 
 /**

@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Task } from '@/types/task';
 import { CustomFieldDef, CustomFieldValue } from '@/types/structure';
 import { defaultColumns, isTreeMode } from '@/engine/view/visibleRows';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
-import { formatDate } from '@/utils/dateUtils';
 import { resourceCellValue, type ViewContext } from '@/engine/view/filterEval';
 import type { ColumnConfig, FieldRef, BuiltinFieldKey } from '@/state/slices/types';
 import { useTaskTypeLabels } from '@/i18n/taskTypes';
@@ -104,7 +102,6 @@ export function TableEditor() {
   const selectTask = useAppStore(s => s.selectTask);
   // issue #26: voortgang loopt via de bewaakte route (statusdatum-invarianten, auto actualStart).
   const setTaskProgress = useAppStore(s => s.setTaskProgress);
-  const project = useAppStore(s => s.project);
   const view = useAppStore(s => s.view);
   const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
   // issue #26: Tab/Shift+Tab springt rijen in/uit; buiten pure boommodus legt de melding uit waarom niet.
@@ -418,13 +415,11 @@ export function TableEditor() {
     const rowIndex = taskRows.findIndex(r => r.task.id === taskId);
     if (rowIndex === -1 || rowIndex !== taskRows.length - 1) return;
     if (!isTreeMode(view)) { notifyStructureLocked(); return; }
-    const startDate = project.startDate || formatDate(new Date());
-    const time = createDefaultTaskTime(startDate, 5);
-    const newId = addTask({ name: t('defaultTask'), time, position: { anchorId: taskId, where: 'below' } });
+    const newId = addTask({ name: t('defaultTask'), position: { anchorId: taskId, where: 'below' } });
     selectTask(newId);
     // Lege startwaarde (niet de standaardnaam) zodat wat de gebruiker typt direct overschrijft.
     startEdit(newId, 'name', '');
-  }, [taskRows, neighbourCell, commitEdit, selectTask, startEdit, getCellValue, view, project, addTask, t, notifyStructureLocked]);
+  }, [taskRows, neighbourCell, commitEdit, selectTask, startEdit, getCellValue, view, addTask, t, notifyStructureLocked]);
 
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, taskId: string, field: string) => {
     if (e.key === 'Enter' || e.key === 'ArrowDown') {

@@ -108,7 +108,7 @@ export function HelpPanel() {
     let cancelled = false;
     setArticles({});
     setFailedIds(new Set());
-    Promise.all(
+    void Promise.all(
       manifest.articles.map(a => {
         // `fetchTextAsset` draagt de "bestaat dit echt?"-poort: status + SPA-fallback-body-sniff.
         // Bewust GEEN content-type-check meer — de Tauri-webview labelt élk `.md`-bestand als

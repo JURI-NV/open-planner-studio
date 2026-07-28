@@ -38,7 +38,7 @@ const resources = {
   en: { common: enCommon, task: enTask, report: enReport, menu: enMenu },
 };
 
-i18n
+void i18n
   .use(initReactI18next)
   .init({
     resources,

@@ -50,9 +50,9 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         const ctrlB = e.ctrlKey || e.metaKey;
         if (e.key === 'F5') runCPM();
-        else if (ctrlB && e.shiftKey && e.key.toLowerCase() === 's') saveFileAs();
-        else if (ctrlB && e.key.toLowerCase() === 's') saveFile();
-        else if (ctrlB && e.key.toLowerCase() === 'o') openFile();
+        else if (ctrlB && e.shiftKey && e.key.toLowerCase() === 's') void saveFileAs();
+        else if (ctrlB && e.key.toLowerCase() === 's') void saveFile();
+        else if (ctrlB && e.key.toLowerCase() === 'o') void openFile();
         // S2 (V1/V3-vondst): dezelfde "geen dialoog open"-guard als de `file.newProject`-entry in
         // shortcutRegistry.ts — zonder guard opende Ctrl+N de projectwizard óver een al openstaande
         // dialoog heen (twee overlays, wizard onbereikbaar).

@@ -45,7 +45,7 @@ export function useRecoveryRestore(): RecoveryRestore {
     if (recoveryChecked.current) return;
     recoveryChecked.current = true;
 
-    (async () => {
+    void (async () => {
       // Poort opent zodra de keuze is gemaakt (of er niets te herstellen valt);
       // pas dan mag de auto-save de snapshots overschrijven.
       const finish = () => { autoSaveEnabled.current = true; setRecoveryResolved(true); };

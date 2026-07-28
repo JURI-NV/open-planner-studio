@@ -351,6 +351,29 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ### Distributie & Release
 
+#### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)
+`docs/release-secrets.md` inventariseert de negen secrets van de uitleverketen, maar vier
+velden staan er nog als `⟨IN TE VULLEN⟩` in. Ze zijn per definitie niet uit de repo af te
+leiden. Zolang ze leeg zijn is dat document een inventarisatie en géén herstelplan.
+
+- [ ] **Bewaarplek van de minisign-privésleutel en zijn wachtwoord vastleggen.** Dit is de
+      enige onherstelbare sleutel in de hele keten: zijn publieke helft
+      (`28AC8F08A87C90CD`) staat hardgecodeerd in `tauri.conf.json` en zit dus in élke
+      uitgeleverde binary, en Tauri's updater kent één `pubkey`-veld — geen lijst, dus geen
+      reservesleutel meeleveren. Kwijt = elke bestaande installatie permanent afgesneden
+      van auto-updates, zonder weg terug. De GitHub-secret telt **niet** als back-up: die
+      is write-only. Minimum: sleutel én wachtwoord (op gescheiden plekken) in een gedeelde
+      password manager, plus één offline kopie.
+- [ ] **Een tweede persoon toegang geven.** Nu is de bus factor 1 op precies die sleutel.
+- [ ] **Vervaldatum van `AZURE_CLIENT_SECRET` (en het certificaatprofiel) vastleggen**, met
+      een agenda-herinnering een maand van tevoren die niet aan één persoon hangt. Verloopt
+      uit zichzelf en breekt dan midden in een release — ná de onomkeerbare tag-push.
+- [ ] **Vervaldatum van `SNAPCRAFT_STORE_CREDENTIALS` vastleggen**, idem. Verlopen
+      credentials laten de publish-stap falen terwijl de rest van de release slaagt.
+
+Het migratiepad voor de sleutel staat al uitgeschreven in `docs/release-secrets.md` §2 —
+met de dwingende volgorde, en het werkt alléén zolang de oude sleutel er nog is.
+
 #### Snap-packaging — follow-ups
 Snap-packaging is werkend en zit op `main` (zie changelog +
 [ontwerp](superpowers/specs/2026-06-26-snap-packaging-design.md)): `snap/snapcraft.yaml`

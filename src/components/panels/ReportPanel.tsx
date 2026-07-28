@@ -370,7 +370,7 @@ export function ReportPanel() {
     // Wacht op het gevendorde Inter-font (family 'InterPDF') vóór de eerste render, zodat
     // measureText/afkapping deterministisch is (§5.2). ensureInterLoaded is idempotent; de
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
-    ensureInterLoaded().then(renderPreview);
+    void ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
   }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale]);
 
@@ -813,7 +813,7 @@ export function ReportPanel() {
         {/* Action buttons — alle rapporttypes exporteren naar PDF (geen uitprinten meer). */}
         <div className="flex flex-col gap-2">
           <button
-            onClick={handleExportPDF}
+            onClick={() => { void handleExportPDF(); }}
             className="px-4 py-2 bg-accent text-accent-on rounded-lg hover:bg-accent-hover text-xs font-medium"
             style={{ boxShadow: 'var(--shadow-glow)' }}
           >

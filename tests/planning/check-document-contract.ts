@@ -672,6 +672,48 @@ typeDate('02072031', (iso) => S().setStatusDate(iso));
 eq('i coalescing loopt niet over een undo heen', S().undoStack.length - iAfterUndo, 1);
 eq('i mutatie na undo wist de redo-stack', S().redoStack.length, 0);
 
+// ══ (j) UI-VERWIJZINGEN NAAR HET UITGAANDE DOCUMENT (K-item 26) ═════════════════════════════════
+// `ui` is app-globaal, maar een paar velden erin wijzen naar iets uit het ACTIEVE document.
+// `editingTaskId` is de scherpste: hij komt uit TaskDialog en overleefde een tabwissel, waarna hij
+// naar een taak wees die in het nieuwe document niet bestaat. `resetDocumentScopedUI` in
+// documentSlice wist ze bij elke wissel; deze checks dekken alle vier de paden.
+{
+  const openTaskDialogOn = (taskId: string) => S().setUI({ showTaskDialog: true, editingTaskId: taskId });
+
+  // Pad 1 — switchDocument.
+  const jDocA = S().activeDocumentId;
+  const jTaskA = S().addTask({ name: 'j-taak-in-A' });
+  S().newDocument();
+  const jDocB = S().activeDocumentId;
+  S().switchDocument(jDocA);
+  openTaskDialogOn(jTaskA);
+  S().switchDocument(jDocB);
+  eq('j switchDocument wist editingTaskId van het vorige document', S().ui.editingTaskId, null);
+  eq('j switchDocument sluit de taakdialoog', S().ui.showTaskDialog, false);
+  eq('j switchDocument: de taak van A bestaat inderdaad niet in B', S().tasks.some(t => t.id === jTaskA), false);
+
+  // Pad 2 — newDocument.
+  S().switchDocument(jDocA);
+  openTaskDialogOn(jTaskA);
+  S().newDocument();
+  eq('j newDocument wist editingTaskId', S().ui.editingTaskId, null);
+  eq('j newDocument sluit de taakdialoog', S().ui.showTaskDialog, false);
+
+  // Pad 3 — duplicateDocument. De kopie bevat de taak wél, maar de dialoog hoort niet mee te
+  // reizen: je dupliceert een document, geen bewerksessie.
+  S().switchDocument(jDocA);
+  openTaskDialogOn(jTaskA);
+  S().duplicateDocument('j-kopie');
+  eq('j duplicateDocument wist editingTaskId', S().ui.editingTaskId, null);
+
+  // Pad 4 — closeDocument (actief document sluiten → naar de buur).
+  const jDocToClose = S().activeDocumentId;
+  openTaskDialogOn(S().tasks[0]?.id ?? jTaskA);
+  S().closeDocument(jDocToClose);
+  eq('j closeDocument wist editingTaskId', S().ui.editingTaskId, null);
+  eq('j closeDocument sluit de taakdialoog', S().ui.showTaskDialog, false);
+}
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  document-contract-check: alle checks groen (${checks})`);

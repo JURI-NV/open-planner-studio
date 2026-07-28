@@ -38,6 +38,29 @@ export interface DocumentEntry {
   payload: DocumentPayload | null;
 }
 
+/**
+ * `ui` is app-globaal (zie `AppGlobalKey` in documentContract), maar een handvol vélden erin
+ * verwijst naar iets uit het *uitgaande* document. Die moeten bij elke wissel mee, anders overleeft
+ * een verwijzing naar document A de sprong naar B.
+ *
+ * Dit stond eerder twee keer met de hand uitgeschreven in `newDocument` en `closeDocument` — en
+ * `switchDocument` deed het weer nét anders. Precies het patroon dat het documentcontract elders al
+ * heeft opgeruimd, dus hier één plek van gemaakt. Voeg je een `ui`-veld toe dat een taak-, resource-
+ * of documentverwijzing vasthoudt, dan hoort het hier.
+ *
+ * `editingTaskId` is het scherpste geval: hij komt uit `TaskDialog` en wees na een tabwissel naar
+ * een taak die in het nieuwe document niet bestaat. Vandaag ving de dialoog dat nog op met een
+ * vangnetpad, maar dat is geluk, geen ontwerp — daarom gaat de dialoog hier ook dicht.
+ */
+function resetDocumentScopedUI(s: AppState): void {
+  s.ui.showTaskDialog = false;
+  s.ui.editingTaskId = null;
+  // Bibliotheek-afwijkingen horen bij het document dat ze opleverde: `runOpenBoundary` zet deze
+  // twee alléén AAN, dus zonder reset toont een volgend document het scherm van zijn voorganger.
+  s.ui.showLibraryLinkDialog = false;
+  s.ui.libraryRefreshNotice = null;
+}
+
 /** Lichtgewicht weergave voor consumenten (bv. een toekomstige FileTabBar). */
 export interface DocumentInfo {
   id: string;
@@ -126,12 +149,9 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.documents.push({ id: newId, payload: null });
       s.activeDocumentId = newId;
       hydratePayload(s, freshPayload());
-      // Voorstap taak 14 (critreview taak 12): een vers leeg document draait GEEN runOpenBoundary
-      // (er is niets aan gekoppeld), dus zonder expliciete reset hier zou een stale
-      // showLibraryLinkDialog/libraryRefreshNotice van het vorige document blijven hangen
-      // ("File→Nieuw" lekt dan een afwijkingenscherm dat niet bij dit document hoort).
-      s.ui.showLibraryLinkDialog = false;
-      s.ui.libraryRefreshNotice = null;
+      // Een vers leeg document draait GEEN runOpenBoundary (er is niets aan gekoppeld), dus zonder
+      // deze reset blijft de ui-toestand van het vorige document hangen.
+      resetDocumentScopedUI(s);
     });
     get().recomputeViewRows();
     emitExtensionEvent(HOST_EVENTS.projectNew);
@@ -183,6 +203,7 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       s.documents.push({ id: newId, payload: null });
       s.activeDocumentId = newId;
       hydratePayload(s, copy);
+      resetDocumentScopedUI(s);
     });
     get().recomputeViewRows();
     emitExtensionEvent(HOST_EVENTS.projectLoaded, {
@@ -210,6 +231,7 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       const inc = s.documents.find((d) => d.id === id);
       if (inc) inc.payload = null;
       s.activeDocumentId = id;
+      resetDocumentScopedUI(s);
     });
     get().recomputeViewRows();
     // Grens 2 (spec §3.2): activeren ververst STIL — behind-only (deviated blijft gemarkeerd, spec §3),
@@ -248,10 +270,8 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
         s.documents = [{ id: newId, payload: null }];
         s.activeDocumentId = newId;
         hydratePayload(s, freshPayload());
-        // Voorstap taak 14 (critreview taak 12): zie newDocument() hierboven — de laatste-sluit-naar-
-        // leeg-tak levert net zo'n vers, ongekoppeld document op en moet dezelfde reset dragen.
-        s.ui.showLibraryLinkDialog = false;
-        s.ui.libraryRefreshNotice = null;
+        // Zie newDocument(): deze tak levert net zo'n vers, ongekoppeld document op.
+        resetDocumentScopedUI(s);
       });
       get().recomputeViewRows();
       emitExtensionEvent(HOST_EVENTS.projectNew);
@@ -276,6 +296,7 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       const n = s.documents.find((d) => d.id === neighbor.id);
       if (n) n.payload = null;
       s.activeDocumentId = neighbor.id;
+      resetDocumentScopedUI(s);
     });
     get().recomputeViewRows();
     // Grens 2 (spec §3.2) + NB (critreview taak 10): zie switchDocument hierboven — zelfde stille
@@ -325,6 +346,7 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       }));
       s.activeDocumentId = active.id;
       hydratePayload(s, payloadFromInput(active));
+      resetDocumentScopedUI(s);
     });
     get().recomputeViewRows();
     // Doorrekenen na herstel, net als élk ander laadpad (openFile/openRecentFile/

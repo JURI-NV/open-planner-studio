@@ -39,36 +39,36 @@ export function TitleBar() {
 
   useEffect(() => {
     if (!isTauri()) return;
-    (async () => {
+    void (async () => {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const appWindow = getCurrentWindow();
-      appWindow.isMaximized().then(setMaximized);
+      void appWindow.isMaximized().then(setMaximized);
       const unlisten = appWindow.onResized(() => {
-        appWindow.isMaximized().then(setMaximized);
+        void appWindow.isMaximized().then(setMaximized);
       });
-      return () => { unlisten.then(fn => fn()); };
+      return () => { void unlisten.then(fn => fn()); };
     })();
   }, []);
 
   const handleMinimize = useCallback(async () => {
     if (!isTauri()) return;
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    getCurrentWindow().minimize();
+    void getCurrentWindow().minimize();
   }, []);
   const handleMaximize = useCallback(async () => {
     if (!isTauri()) return;
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const appWindow = getCurrentWindow();
     if (await appWindow.isMaximized()) {
-      appWindow.unmaximize();
+      void appWindow.unmaximize();
     } else {
-      appWindow.maximize();
+      void appWindow.maximize();
     }
   }, []);
   const handleClose = useCallback(async () => {
     if (!isTauri()) return;
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    getCurrentWindow().close();
+    void getCurrentWindow().close();
   }, []);
 
   return (
@@ -81,10 +81,10 @@ export function TitleBar() {
           <button className="quick-access-btn" title={tMenu('ribbon.newProjectTitle')} onClick={() => setUI({ showNewProjectDialog: true })}>
             <FileText size={16} />
           </button>
-          <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => openFile()}>
+          <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => { void openFile(); }}>
             <FolderOpen size={16} />
           </button>
-          <button className="quick-access-btn" title={tMenu('ribbon.saveTitle')} onClick={() => saveFile()}>
+          <button className="quick-access-btn" title={tMenu('ribbon.saveTitle')} onClick={() => { void saveFile(); }}>
             <Save size={16} />
           </button>
 
@@ -153,13 +153,13 @@ export function TitleBar() {
           onvoorwaardelijk, dus de webgebruiker zag drie knoppen die niets deden. */}
       {isTauri() && (
         <div className="window-controls">
-          <button className="window-btn" title={tCommon('window.minimize')} onClick={handleMinimize}>
+          <button className="window-btn" title={tCommon('window.minimize')} onClick={() => { void handleMinimize(); }}>
             <Minus size={14} />
           </button>
-          <button className="window-btn" title={maximized ? tCommon('window.restore') : tCommon('window.maximize')} onClick={handleMaximize}>
+          <button className="window-btn" title={maximized ? tCommon('window.restore') : tCommon('window.maximize')} onClick={() => { void handleMaximize(); }}>
             {maximized ? <Copy size={11} /> : <Square size={11} />}
           </button>
-          <button className="window-btn window-btn-close" title={tCommon('close')} onClick={handleClose}>
+          <button className="window-btn window-btn-close" title={tCommon('close')} onClick={() => { void handleClose(); }}>
             <X size={14} />
           </button>
         </div>

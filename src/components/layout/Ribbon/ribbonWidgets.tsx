@@ -16,10 +16,8 @@ import {
 } from '@/utils/settingsStore';
 import { ExportFormat } from '@/state/appStore';
 import { supportsHandles } from '@/services/fileAccess';
-import { formatDate } from '@/utils/dateUtils';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionIcon } from '@/components/common/ExtensionIcon';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { RibbonTab, type GroupLevel, type SortLevel, type Layout, type TimeScale } from '@/state/slices/types';
 import type { ResourceCurve } from '@/types/resource';
 import { RESOURCE_CURVES, CURVE_KEY } from '@/components/task-sections/shared';
@@ -171,7 +169,6 @@ export function MilestoneDropdown() {
   const { t: tTask } = useTranslation('task');
   const [open, setOpen] = useState(false);
   const addTask = useAppStore(s => s.addTask);
-  const project = useAppStore(s => s.project);
 
   const add = (kind: 'START' | 'FINISH', inspection: boolean) => {
     addTask({
@@ -180,7 +177,6 @@ export function MilestoneDropdown() {
       milestoneKind: kind,
       taskType: inspection ? 'ATTENDANCE' : 'USERDEFINED',
       ...(inspection ? { mandatory: true } : {}),
-      time: createDefaultTaskTime(project.startDate || formatDate(new Date()), 0),
     });
     setOpen(false);
   };

@@ -14,8 +14,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { createRelationWithFeedback } from '@/state/relationActions';
-import { formatDate } from '@/utils/dateUtils';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
   saveShowHistogram, saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
@@ -113,13 +111,9 @@ const addTaskButton: RibbonButtonSpec = {
   kind: 'button', id: 'addTask', icon: <Plus size={20} />, labelKey: 'menu:ribbon.task',
   use: () => {
     const addTask = useAppStore(s => s.addTask);
-    const startDate = useAppStore(s => s.project.startDate);
     const { t } = useTranslation('task');
     return {
-      onClick: () => addTask({
-        name: t('defaultTask'),
-        time: createDefaultTaskTime(startDate || formatDate(new Date()), 5),
-      }),
+      onClick: () => addTask({ name: t('defaultTask') }),
     };
   },
 };
@@ -231,11 +225,11 @@ const startTab: RibbonTabConfig = [
           },
           {
             kind: 'small', id: 'save', icon: <Save size={14} />, labelKey: 'menu:ribbon.save',
-            use: () => { const saveFile = useAppStore(s => s.saveFile); return { onClick: () => saveFile() }; },
+            use: () => { const saveFile = useAppStore(s => s.saveFile); return { onClick: () => { void saveFile(); } }; },
           },
           {
             kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
-            use: () => { const openFile = useAppStore(s => s.openFile); return { onClick: () => openFile() }; },
+            use: () => { const openFile = useAppStore(s => s.openFile); return { onClick: () => { void openFile(); } }; },
           },
         ],
       },
@@ -245,7 +239,7 @@ const startTab: RibbonTabConfig = [
         kind: 'stack', id: 'fileStack2', items: [
           {
             kind: 'small', id: 'saveAs', icon: <SaveAll size={14} />, labelKey: 'menu:backstage.saveAs',
-            use: () => { const saveFileAs = useAppStore(s => s.saveFileAs); return { onClick: () => saveFileAs() }; },
+            use: () => { const saveFileAs = useAppStore(s => s.saveFileAs); return { onClick: () => { void saveFileAs(); } }; },
           },
           { kind: 'component', id: 'recentFiles', Component: RecentFilesDropdown },
           { kind: 'component', id: 'export', Component: ExportDropdown },

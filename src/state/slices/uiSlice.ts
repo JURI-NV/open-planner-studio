@@ -63,7 +63,6 @@ export function createDefaultUI(): UIState {
     activeRibbonTab: 'start',
     backstageSection: 'recent',
     collapsedTaskIds: [],
-    inlineEditTaskId: null,
     showSettingsDialog: false,
     showCalendarDialog: false,
     showUpdateDialog: false,

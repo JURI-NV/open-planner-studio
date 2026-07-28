@@ -7,13 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Browser-dev via scripts/dev-server.mjs (poort per worktree, dubbelstart-guard)
 npm run build        # tsc && vite build → dist/ (noEmit staat in tsconfig)
-npm run typecheck    # tsc --noEmit op src/ én op tsconfig.tests.json (scripts/ + tests/)
 npm run preview      # Serve the built bundle
 npm run tauri:dev    # Run the desktop app (Tauri 2) via scripts/tauri-dev.mjs
 npm run tauri:build  # Produce desktop installers
 npm run bump X.Y.Z   # CalVer-versie syncen (package.json + tauri.conf.json + lock; Cargo.toml blijft bewust 0.1.0)
 npm run verify       # DE poort — exact wat CI, de release-gate en de deploy-gate draaien
 npm run typecheck    # tsc --noEmit over src/ én scripts/+tests/ (tsconfig.tests.json)
+npm run lint         # los: ESLint over src/ — géén stijlregels, alleen promise-afhandeling + control-regex
 npm test             # alle vier de suites: planning, library, mcp, dev-server
 npm run test:planning     # los: CPM/kalender-regressiesuite (== bash tests/planning/run.sh)
 npm run test:library      # los: bibliotheek/IFC/i18n-checks
@@ -22,13 +22,15 @@ npm run test:dev-server   # los: node:test-units + integratietest van de dev-ser
 npm run verify:examples   # los: de gebundelde voorbeelden laden/rekenen door zoals verwacht
 npm run verify:docs       # los: in-app gidsen — nl+en hard vereist, overige 12 talen indien aanwezig
 npm run verify:i18n       # los: ontbrekende vertaalsleutels t.o.v. nl (CLDR-pluralcategorieën meegerekend)
+npm run verify:cycles     # los: circulaire imports binnen src/ (esbuild-metafile, dus ná type-erasure)
+npm run verify:audit      # los: npm audit --audit-level=high
 npm run gen:examples      # Voorbeeldprojecten (public/examples) opnieuw genereren
 npm run publish:wiki      # GitHub-wiki genereren uit repo-bronnen (dry-run; `-- --push` publiceert)
 ```
 
 `npm run dev` gaat via `scripts/dev-server.mjs`: dat wijst deze worktree via `scripts/dev-port.mjs` een **vaste** poort toe (verankerd aan de worktree-root, 3007–3106), claimt een guard-slot via `scripts/dev-lock.mjs` zodat een tweede start in dezelfde worktree wordt geweigerd in plaats van stilletjes een andere poort te pakken, stempelt `.claude/launch.json` met die poort (zodat `preview_start` meteen de juiste worktree opent), en spawnt dan pas Vite. `tauri:dev` (`scripts/tauri-dev.mjs`) doet hetzelfde en start `tauri dev` met een matchende `--config` `devUrl` plus `OPS_DEV_PORT`/`OPS_DEV_INSTANCE`/`OPS_DEV_GUARDED` in de env (de geneste `dev`-start slaat de toewijzing dan over). Zo kunnen **meerdere worktrees hun dev- en desktopbuild tegelijk draaien** — elk met een eigen poort (het venster laadt nooit de Vite van een andere worktree) en eigen `recovery.<slug>.*`-auto-save-bestanden (concurrent instanties overschrijven elkaar niet in de gedeelde `appDataDir`). `vite.config.ts` leest `OPS_DEV_PORT` met `strictPort` — dat is de harde backstop: twee worktrees op dezelfde poort geeft EADDRINUSE in plaats van een verkeerde build. `App.tsx` leest de slug via de `__OPS_DEV_INSTANCE__`-define. De regressietests hiervoor staan in `tests/dev-server/`.
 
-Er is geen vitest/jest en geen lint script; `tsc` is de statische hoofdcheck — draai `npm run typecheck` (dekt óók `scripts/` en `tests/`, incl. het casus-schema) in plaats van alleen `npm run build`. TypeScript staat op `strict` met `noUnusedLocals`/`noUnusedParameters`, dus builds leggen vaak dode code bloot. De gedragstests zitten in vier suites, samen achter `npm test`:
+Er is geen vitest/jest; `tsc` is de statische hoofdcheck — draai `npm run typecheck` (dekt óók `scripts/` en `tests/`, incl. het casus-schema) in plaats van alleen `npm run build`. TypeScript staat op `strict` met `noUnusedLocals`/`noUnusedParameters`, dus builds leggen vaak dode code bloot. Daarnaast draait er een **bewust minimale** ESLint-config (`eslint.config.js`): géén stijlregels — alleen `no-floating-promises`, `no-misused-promises` en `no-control-regex`, precies de dingen die `tsc` niet ziet en die hier eerder stil zijn misgegaan. `import/no-cycle` staat er bewust NIET in: `verify:cycles` doet dat beter (graaf ná type-erasure, dus geen valse treffers op `import type`). De gedragstests zitten in vier suites, samen achter `npm test`:
 
 | suite | wat | runner |
 |---|---|---|
@@ -81,6 +83,7 @@ Scheduling is **manual, not reactive**: the `runCPM` action instantiates `Calend
 | `snapshot.ts` | de undo/redo-snapshot als expliciete `Pick<>`-subset van datzelfde contract, gestuurd door de `snapshot`-rol per veld. |
 | `transaction.ts` | het muteer-ritueel (snapshot pushen, redo leegmaken, `isDirty`/`scheduleStale` zetten) op één plek in plaats van per actie. |
 | `ifcSaveInput.ts` | welke velden een IFC-save meeschrijft — precies de round-trip-velden van het contract, zodat alle callsites (opslaan, auto-save, IFCPanel, devBridge) dezelfde bron doorgeven. |
+| `defaults.ts` | de `fresh`-fabrieken (`createDefaultProject`/`createDefaultView`) als **bladmodule**: hij importeert niets uit `slices/`. Dat is geen stijlkeuze — stonden ze in hun slice, dan ontstaat de cyclus `projectSlice → transaction → snapshot → documentContract → projectSlice`, die alleen werkt zolang het function *declarations* zijn (hoisting). `npm run verify:cycles` bewaakt dat. |
 
 Voeg je projectdata toe, dan hoort die dus in `DOCUMENT_FIELDS` — anders overleeft hij geen documentwissel, geen undo, geen crashherstel en geen opslaan. `tests/planning/check-document-contract.ts` bewaakt de keten.
 

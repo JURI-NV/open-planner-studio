@@ -37,7 +37,7 @@ export function useUpdateCheck(): void {
     if (justUpdatedChecked.current) return;
     justUpdatedChecked.current = true;
     if (!isTauri()) return;
-    (async () => {
+    void (async () => {
       try {
         const { getVersion } = await import('@tauri-apps/api/app');
         const current = await getVersion();

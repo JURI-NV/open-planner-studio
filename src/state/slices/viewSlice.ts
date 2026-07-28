@@ -1,4 +1,7 @@
-import { formatDate } from '@/utils/dateUtils';
+// K-item 27: zie de kop van ../defaults — de fabriek is een bladmodule geworden om de
+// import-cyclus met documentContract/snapshot te breken. Hier doorgegeven voor bestaande importers.
+import { createDefaultView } from '../defaults';
+export { createDefaultView };
 import { TIMESCALE_ZOOM } from '@/engine/renderer/timelineTiers';
 import { getGanttChartWidth, clampGanttScroll } from '@/utils/ganttViewport';
 import { getNoneLabelValue } from '@/utils/noneLabel';
@@ -75,19 +78,6 @@ export interface ViewSlice {
   applyLayout: (layout: Layout) => void;
 }
 
-export function createDefaultView(): ViewState {
-  return {
-    scrollX: 0,
-    scrollY: 0,
-    zoom: 30, // pixels per dag
-    timeScale: 'week',
-    viewStartDate: formatDate(new Date()),
-    filter: null,
-    group: [],
-    sort: [],
-    collapsedGroupKeys: [],
-  };
-}
 
 export const createViewSlice: AppSlice<ViewSlice> = (set, get) => ({
   view: createDefaultView(),

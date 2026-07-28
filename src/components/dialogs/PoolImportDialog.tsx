@@ -156,7 +156,7 @@ export function PoolImportDialog() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 text-xs">
-        <button onClick={pick} className="btn btn--sm btn--secondary self-start">
+        <button onClick={() => { void pick(); }} className="btn btn--sm btn--secondary self-start">
           {t('companyLibrary.chooseFile')}
         </button>
 
