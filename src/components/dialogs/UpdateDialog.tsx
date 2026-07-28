@@ -53,7 +53,7 @@ export function UpdateDialog() {
   useEffect(() => {
     if (!showUpdateDialog) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       if (!isTauri()) return;
       try {
         const { getVersion } = await import('@tauri-apps/api/app');

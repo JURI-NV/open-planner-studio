@@ -125,7 +125,7 @@ export function LibrarySection() {
               <button onClick={() => setDefaultCompany(selected.id)} disabled={selected.id === defaultCompanyId}>
                 <Star size={13} /> {t('companyLibrary.setDefault')}
               </button>
-              <button onClick={onExport}><Download size={13} /> {t('companyLibrary.export')}</button>
+              <button onClick={() => { void onExport(); }}><Download size={13} /> {t('companyLibrary.export')}</button>
               {/* Fix B1: importdoel = het GEOPENDE bedrijf (`selected.id`), niet stilzwijgend het
                   standaardbedrijf — anders overschrijft "Bibliotheek → Importeren" vanuit een ander
                   bedrijf dan het standaardbedrijf per ongeluk de verkeerde pool. */}

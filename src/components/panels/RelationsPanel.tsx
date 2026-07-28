@@ -148,12 +148,12 @@ export function RelationsPanel() {
           )}
           {hasExternal && (
             <button
-              onClick={async () => {
+              onClick={() => { void (async () => {
                 const r = await refreshAllExternalAnchors();
                 setExtStatus(r.sources === 0
                   ? t('externalLinks.noSourcesToast')
                   : t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
-              }}
+              })(); }}
               title={t('externalLinks.refreshAllHint')}
               className="btn btn--sm flex items-center gap-1"
             >
@@ -297,11 +297,11 @@ export function RelationsPanel() {
                 <div className="w-[36px] px-1 flex justify-center" onClick={e => e.stopPropagation()}>
                   {link.sourceRef.filePath && (
                     <button title={t('externalLinks.refresh')} style={{ color: 'var(--theme-accent)' }}
-                      onClick={async () => {
+                      onClick={() => { void (async () => {
                         const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!);
                         if (r) setExtStatus(t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
                         else setExtStatus(t('externalLinks.notAvailableWeb'));
-                      }}>
+                      })(); }}>
                       <RefreshCw size={12} />
                     </button>
                   )}

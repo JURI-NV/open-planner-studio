@@ -28,7 +28,7 @@ export function JustUpdatedDialog() {
     if (!justUpdated) return;
     let cancelled = false;
     setLoading(true);
-    (async () => {
+    void (async () => {
       const installKind = await getInstallKind();
       const cmp = await fetchReleaseComparison(justUpdated.to, installKind);
       if (!cancelled) {

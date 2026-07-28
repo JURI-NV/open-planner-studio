@@ -126,6 +126,9 @@ export function writeIFC(input: WriteIFCInput): string {
   // andere controltekens worden één spatie. Dit raakt UITSLUITEND de drie headervelden; taaknamen
   // en omschrijvingen in de datasectie gaan ongemoeid door `ifcStr` (daar is de scan quote-bewust
   // en zijn regeleindes onschadelijk).
+  // Stuurtekens zijn hier het DOEL van de regex: dit is de header-sanitizer uit K2, die ze
+  // onschadelijk maakt vóór ze de STEP-header in gaan.
+  // eslint-disable-next-line no-control-regex
   const headerText = (s: string) => s.replace(/[\u0000-\u001F\u007F]+/g, ' ');
   const header = [
     'ISO-10303-21;',

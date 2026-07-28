@@ -62,7 +62,7 @@ export function IFCPanel() {
   }, [content, loadState, setViewStartDate, runCPM, notify]);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(content);
+    void navigator.clipboard.writeText(content);
   }, [content]);
 
   const lineCount = content.split('\n').length;

@@ -107,7 +107,7 @@ export function HelpPanel() {
     let cancelled = false;
     setArticles({});
     setFailedIds(new Set());
-    Promise.all(
+    void Promise.all(
       manifest.articles.map(a => {
         const fetchLang = (l: HelpLang) =>
           fetch(`${import.meta.env.BASE_URL}docs/${l}/${a.id}.md`)

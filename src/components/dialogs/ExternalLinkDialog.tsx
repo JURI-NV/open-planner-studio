@@ -55,7 +55,7 @@ export function ExternalLinkDialog({ taskId, onClose }: { taskId: string; onClos
     let cancelled = false;
     if (manual || !sourceFile) { setSource(null); setSourceTaskId(''); return; }
     setLoading(true);
-    parseExternalSource(sourceFile).then((res) => {
+    void parseExternalSource(sourceFile).then((res) => {
       if (cancelled) return;
       setSource(res);
       setSourceTaskId(res?.tasks[0]?.id ?? '');

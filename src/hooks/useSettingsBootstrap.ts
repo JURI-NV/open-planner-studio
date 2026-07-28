@@ -18,7 +18,7 @@ export function useSettingsBootstrap(recoveryResolved: boolean, recovery: Recove
     // blokken. `loadAllSettings` itereert het `SETTINGS`-register + de twee afwijkers (thema-migratie,
     // synchrone bouwmodus) en levert één `setUI`-patch. Gedrag identiek: zelfde sleutels/validators/
     // defaults; alleen minder losse setUI-calls (de eindtoestand is gelijk — geen veld overlapt).
-    loadAllSettings().then(patch => setUI(patch));
+    void loadAllSettings().then(patch => setUI(patch));
     void loadAllExtensions();
     // Recente bestanden leven in IndexedDB (async, met eenmalige localStorage-migratie) —
     // één keer bij opstart in de store hydrateren.
@@ -40,7 +40,7 @@ export function useSettingsBootstrap(recoveryResolved: boolean, recovery: Recove
     if (recovery !== null) return; // RecoveryDialog is zichtbaar — welkomstdialoog wacht
     welcomeChecked.current = true;
 
-    loadWelcomeSeen().then(seen => {
+    void loadWelcomeSeen().then(seen => {
       if (!seen) setUI({ showWelcomeDialog: true });
     });
   }, [recoveryResolved, recovery, setUI]);

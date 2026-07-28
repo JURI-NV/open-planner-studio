@@ -8,12 +8,13 @@
     "dev": "node scripts/dev-server.mjs",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "lint": "eslint src",
     "test": "npm run test:planning && npm run test:library && npm run test:mcp && npm run test:dev-server",
     "test:planning": "bash tests/planning/run.sh",
     "test:library": "bash tests/library/run.sh",
     "test:mcp": "bash tests/mcp/run.sh",
     "test:dev-server": "node --test tests/dev-server/*.test.mjs && bash tests/dev-server/integration.sh",
-    "verify": "npm run typecheck && npm test && npm run verify:examples && npm run verify:docs && npm run verify:i18n && npm run verify:cycles",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run verify:examples && npm run verify:docs && npm run verify:i18n && npm run verify:cycles && npm run verify:audit",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "node scripts/tauri-dev.mjs",
@@ -24,6 +25,7 @@
     "verify:docs": "node scripts/run-ts.mjs scripts/verify-docs.ts",
     "verify:i18n": "node scripts/i18n-diff.mjs",
     "verify:cycles": "node scripts/verify-cycles.mjs",
+    "verify:audit": "npm audit --audit-level=high",
     "publish:wiki": "node scripts/publish-wiki.mjs"
   },
   "dependencies": {
@@ -58,10 +60,12 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
-    "autoprefixer": "^10.4.0",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.18",
     "tailwindcss": "^4.2.0",
     "typescript": "^5.5.0",
+    "typescript-eslint": "^8.65.0",
     "vite": "^7.3.5"
   },
   "overrides": {

@@ -150,7 +150,7 @@ export function BenchmarkDialog() {
         {/* Run-knop + voortgang */}
         <div className="flex items-center gap-3">
           <button
-            onClick={run}
+            onClick={() => { void run(); }}
             disabled={running}
             className="btn btn--sm btn--primary flex items-center gap-1.5"
             data-ops-benchmark-run
@@ -180,7 +180,7 @@ export function BenchmarkDialog() {
           <div className="flex flex-col gap-3" data-ops-benchmark-result>
             <div className="flex items-center justify-between">
               <div className="font-semibold">{t('benchmark.resultsTitle')}</div>
-              <button onClick={copy} className="btn btn--sm btn--secondary flex items-center gap-1.5" data-ops-benchmark-copy>
+              <button onClick={() => { void copy(); }} className="btn btn--sm btn--secondary flex items-center gap-1.5" data-ops-benchmark-copy>
                 {copied ? <Check size={13} /> : <Copy size={13} />}
                 {copied ? t('benchmark.copied') : t('benchmark.copy')}
               </button>
