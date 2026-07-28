@@ -22,9 +22,11 @@ function check(name: string, cond: boolean): void {
 }
 
 // ── detectJustUpdated ──────────────────────────────────────────────
-check('detect: verse install → null', detectJustUpdated(undefined, '2026.7.11') === null);
-check('detect: gelijk → null', detectJustUpdated('2026.7.11', '2026.7.11') === null);
-check('detect: sprong → van/naar', JSON.stringify(detectJustUpdated('2026.7.10', '2026.7.11')) === JSON.stringify({ from: '2026.7.10', to: '2026.7.11' }));
+check('detect: verse install → from null, to huidig', JSON.stringify(detectJustUpdated(undefined, '2026.7.13')) === JSON.stringify({ from: null, to: '2026.7.13' }));
+check('detect: verse install is NIET null', detectJustUpdated(undefined, '2026.7.13') !== null);
+check('detect: lege opgeslagen versie → from null', JSON.stringify(detectJustUpdated('', '2026.7.13')) === JSON.stringify({ from: null, to: '2026.7.13' }));
+check('detect: gelijk → null', detectJustUpdated('2026.7.13', '2026.7.13') === null);
+check('detect: sprong → van/naar', JSON.stringify(detectJustUpdated('2026.7.12', '2026.7.13')) === JSON.stringify({ from: '2026.7.12', to: '2026.7.13' }));
 check('detect: downgrade telt ook', detectJustUpdated('2026.7.11', '2026.7.10') !== null);
 
 // ── daysBetween ────────────────────────────────────────────────────

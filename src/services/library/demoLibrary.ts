@@ -1,7 +1,7 @@
 /**
  * Demo-resourcebibliotheek (issue #19, user-verzoek): de drie showcase-voorbeelden (`public/examples/`,
  * `category: 'showcase'`) delen voortaan één gedeelde pool, zodat een nieuwe gebruiker "dezelfde ploeg
- * in twee projecten" direct in actie ziet — Timmerlieden/Installateurs/Stukadoors/Schilders komen
+ * in twee projecten" direct in actie ziet — Carpenters/MEP fitters/Plasterers/Painters komen
  * LETTERLIJK zo terug in zowel `showcase-rijwoningen-de-akkers.ifc` als
  * `showcase-appartementencomplex.ifc`, zodat de naam-herkenning (`matchByName`) ze automatisch koppelt.
  *
@@ -21,13 +21,13 @@ import { generateId } from '@/utils/id';
 export const DEMO_COMPANY_ID = 'demo-resourcebibliotheek';
 
 /** Vaste naam-literal (net als `createDefaultCompany()` in `@/types/library`) — bewust GEEN `t(...)`. */
-const DEMO_COMPANY_NAME = 'Demo-resourcebibliotheek';
+const DEMO_COMPANY_NAME = 'Demo resource library';
 
 function buildBouwkalenderNL(): WorkCalendar {
   return {
     id: generateId('cal'),
-    name: 'Bouwkalender NL',
-    description: 'Standaard Nederlandse bouwkalender: maandag t/m vrijdag, 07:00-16:00.',
+    name: 'Construction calendar NL',
+    description: 'Standard Dutch construction calendar: Monday to Friday, 07:00-16:00.',
     workDays: [1, 2, 3, 4, 5],
     workStartHour: 7,
     workEndHour: 16,
@@ -39,8 +39,8 @@ function buildBouwkalenderNL(): WorkCalendar {
 function buildMetselploegKalender(): WorkCalendar {
   return {
     id: generateId('cal'),
-    name: 'Metselploeg 4-daagse week',
-    description: 'Verkorte werkweek voor de metselploeg: maandag t/m donderdag, 07:00-16:00.',
+    name: 'Masonry crew, 4-day week',
+    description: 'Shortened working week for the masonry crew: Monday to Thursday, 07:00-16:00.',
     workDays: [1, 2, 3, 4],
     workStartHour: 7,
     workEndHour: 16,
@@ -59,20 +59,20 @@ export function buildDemoLibrarySeed(): { company: Company; pool: CompanyPool } 
   // Bedraad ná id-toekenning: Metselploeg.calendarId verwijst naar de zojuist gegenereerde
   // 4-daagse-week-kalender-id.
   const resources: Resource[] = [
-    { id: generateId('res'), name: 'Timmerlieden', type: 'LABOR', description: 'Timmerploeg voor ruwbouw en afbouw.', maxUnits: 4, costPerHour: 45 },
-    { id: generateId('res'), name: 'Installateurs', type: 'LABOR', description: 'Elektrotechnische en werktuigbouwkundige installaties.', maxUnits: 4, costPerHour: 48 },
-    { id: generateId('res'), name: 'Stukadoors', type: 'LABOR', description: 'Pleisterwerk op wanden en plafonds.', maxUnits: 3, costPerHour: 42 },
-    { id: generateId('res'), name: 'Schilders', type: 'LABOR', description: 'Schilderwerk binnen en buiten.', maxUnits: 4, costPerHour: 38 },
-    { id: generateId('res'), name: 'Metselaars', type: 'LABOR', description: 'Metselwerk voor gevels en binnenspouwbladen.', maxUnits: 6, costPerHour: 46 },
-    { id: generateId('res'), name: 'Metselploeg', type: 'CREW', description: 'Doorschuivende metselploeg per woning.', maxUnits: 1, calendarId: metselploegKalender.id },
-    { id: generateId('res'), name: 'Beton C20/25', type: 'MATERIAL', description: 'Standaard funderings- en constructiebeton.', maxUnits: 999, unitOfMeasure: 'm³' },
-    { id: generateId('res'), name: 'Betonvlechters', type: 'LABOR', description: 'Wapeningsvlechtwerk.', maxUnits: 4, costPerHour: 44 },
-    { id: generateId('res'), name: 'Tegelzetters', type: 'LABOR', description: 'Tegelwerk in badkamers en keukens.', maxUnits: 3, costPerHour: 43 },
-    { id: generateId('res'), name: 'Keukenmonteurs', type: 'LABOR', description: 'Montage van keukens.', maxUnits: 2, costPerHour: 46 },
-    { id: generateId('res'), name: 'Torenkraan', type: 'EQUIPMENT', description: 'Torenkraan voor verticaal transport.', maxUnits: 1, costPerHour: 120 },
-    { id: generateId('res'), name: 'Beton C30/37', type: 'MATERIAL', description: 'Hogesterktebeton voor constructieve stort.', maxUnits: 999, unitOfMeasure: 'm³' },
-    { id: generateId('res'), name: 'Gevelbouwer', type: 'SUBCONTRACTOR', description: 'Onderaannemer gevelbekleding.', maxUnits: 2, costPerHour: 60 },
-    { id: generateId('res'), name: 'Liftleverancier', type: 'SUBCONTRACTOR', description: 'Onderaannemer levering en montage van de lift.', maxUnits: 1, costPerHour: 90 },
+    { id: generateId('res'), name: 'Carpenters', type: 'LABOR', description: 'Carpentry crew for structural works and fit-out.', maxUnits: 4, costPerHour: 45 },
+    { id: generateId('res'), name: 'MEP fitters', type: 'LABOR', description: 'Electrical and mechanical building services.', maxUnits: 4, costPerHour: 48 },
+    { id: generateId('res'), name: 'Plasterers', type: 'LABOR', description: 'Plastering to walls and ceilings.', maxUnits: 3, costPerHour: 42 },
+    { id: generateId('res'), name: 'Painters', type: 'LABOR', description: 'Internal and external painting.', maxUnits: 4, costPerHour: 38 },
+    { id: generateId('res'), name: 'Bricklayers', type: 'LABOR', description: 'Masonry to facades and internal leaves.', maxUnits: 6, costPerHour: 46 },
+    { id: generateId('res'), name: 'Masonry crew', type: 'CREW', description: 'Masonry crew moving from house to house.', maxUnits: 1, calendarId: metselploegKalender.id },
+    { id: generateId('res'), name: 'Concrete C20/25', type: 'MATERIAL', description: 'Standard foundation and structural concrete.', maxUnits: 999, unitOfMeasure: 'm³' },
+    { id: generateId('res'), name: 'Steel fixers', type: 'LABOR', description: 'Reinforcement fixing.', maxUnits: 4, costPerHour: 44 },
+    { id: generateId('res'), name: 'Tilers', type: 'LABOR', description: 'Tiling in bathrooms and kitchens.', maxUnits: 3, costPerHour: 43 },
+    { id: generateId('res'), name: 'Kitchen fitters', type: 'LABOR', description: 'Kitchen installation.', maxUnits: 2, costPerHour: 46 },
+    { id: generateId('res'), name: 'Tower crane', type: 'EQUIPMENT', description: 'Tower crane for vertical transport.', maxUnits: 1, costPerHour: 120 },
+    { id: generateId('res'), name: 'Concrete C30/37', type: 'MATERIAL', description: 'High-strength concrete for structural pours.', maxUnits: 999, unitOfMeasure: 'm³' },
+    { id: generateId('res'), name: 'Facade contractor', type: 'SUBCONTRACTOR', description: 'Facade cladding subcontractor.', maxUnits: 2, costPerHour: 60 },
+    { id: generateId('res'), name: 'Lift supplier', type: 'SUBCONTRACTOR', description: 'Subcontractor supplying and installing the lift.', maxUnits: 1, costPerHour: 90 },
   ];
 
   const pool: CompanyPool = {

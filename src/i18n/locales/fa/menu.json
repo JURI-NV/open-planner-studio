@@ -122,6 +122,13 @@
     "deleteTemplate": "حذف الگو",
     "collapseRibbon": "جمع کردن نوار",
     "expandRibbon": "باز کردن نوار",
+    "outline": "طرح‌کلی",
+    "collapseTasks": "جمع کردن",
+    "expandTasks": "باز کردن",
+    "collapseTasksTitle": "جمع کردن وظیفه‌های خلاصه انتخاب‌شده (بدون انتخاب: همه)",
+    "expandTasksTitle": "باز کردن وظیفه‌های خلاصه انتخاب‌شده (بدون انتخاب: همه)",
+    "collapseGroupsTitle": "جمع کردن همهٔ گروه‌ها (نمای گروه‌بندی‌شده)",
+    "expandGroupsTitle": "باز کردن همهٔ گروه‌ها (نمای گروه‌بندی‌شده)",
     "resourceManagement": "مدیریت",
     "openResourcePanel": "منابع",
     "dockResourcePanel": "پیوند",
@@ -162,7 +169,10 @@
     "presentationMode": "ارائه",
     "splitView": "نمای تقسیم‌شده",
     "miniMap": "نقشه کوچک",
-    "moveProject": "جابه‌جایی پروژه…"
+    "moveProject": "جابه‌جایی پروژه…",
+    "relationHintModeOn": "روشن کردن حالت پیوند: سپس در نمودار گانت از میله‌ای به میله دیگر بکشید",
+    "relationHintModeOff": "خاموش کردن حالت پیوند",
+    "relationHintPair": "ایجاد رابطه پایان-شروع بین دو وظیفه انتخاب‌شده"
   },
   "ifc": {
     "title": "ویرایشگر IFC",

@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "No se pudo restaurar",
     "scheduleFailed": "No se pudo calcular la planificación",
     "ifcParseFailed": "No se pudo leer el IFC",
-    "templateSaved": "Rama guardada como plantilla '{{name}}'"
+    "templateSaved": "Rama guardada como plantilla '{{name}}'",
+    "relationCreated": "Relación creada: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Esa relación ya existe"
   },
   "yes": "Sí",
   "no": "No",
@@ -36,7 +38,6 @@
     "addSubtask": "Añadir subtarea",
     "addMilestone": "Añadir hito",
     "addRelation": "Añadir relación",
-    "toggleCollapse": "Contraer/expandir",
     "delete": "Eliminar",
     "newTask": "Nueva tarea",
     "tracePath": "Trazar ruta",
@@ -306,7 +307,9 @@
       "smaller": "{{size}} menos que la versión anterior",
       "larger": "{{size}} más que la versión anterior",
       "sameSize": "Del mismo tamaño que la versión anterior",
-      "daysSincePrevious": "Desde la versión anterior: {{count}} días"
+      "daysSincePrevious": "Desde la versión anterior: {{count}} días",
+      "currentOnly": "Ahora estás usando la versión {{version}}",
+      "whatsNewButton": "Novedades"
     }
   },
   "statusWarnings": {
@@ -644,7 +647,9 @@
     "splitView": {
       "primary": "Principal",
       "secondary": "Secundario"
-    }
+    },
+    "dependencyModeHint": "Modo enlace: arrastre de una barra a otra en el Gantt para crear una relación. Esc para detener.",
+    "dependencyModeStop": "Detener"
   },
   "dateInput": {
     "placeholder": "dd-mm-aaaa",

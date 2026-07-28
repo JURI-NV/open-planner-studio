@@ -1,6 +1,8 @@
 // Mini-map-strip onder de Gantt (fase 2.7, §11): thumbnail van de hele projectperiode
 // (MiniMapRenderer, 1 fillRect per taakrij) + sleepbaar viewport-kader gekoppeld aan
-// view.scrollX. Klik centreert het hoofdvenster; het kader toont het primaire pane (§10.3).
+// view.scrollX. Klik centreert het bestuurde venster; standaard is dat het primaire pane (§10.3).
+// Bij split view mount GanttCanvas een tweede strook die via de props het secundaire tijdvenster
+// bestuurt (issue #35 punt 1) — één component, twee bestuurde vensters.
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
@@ -11,21 +13,51 @@ const MINIMAP_HEIGHT = 48;
 interface MiniMapProps {
   /** Datum die in het hoofdvenster op scrollX = 0 ligt (effectiveViewStart van GanttCanvas). */
   originDate: string;
-  /** Breedte van het zichtbare chart-gedeelte van het primaire pane (px). */
+  /** Breedte van het zichtbare chart-gedeelte van het bestuurde pane (px). */
   chartWidth: number;
+  /** Issue #35 punt 1 — bestuurde tijdvenster. Alle drie afwezig ⇒ het PRIMAIRE pane: de strip
+   *  leest `view.scrollX`/`view.zoom` en schrijft via `setScroll` (ongewijzigd gedrag). Meegegeven
+   *  ⇒ een tweede strip die het secundaire split-view-venster bestuurt
+   *  (`splitView.secondaryScrollX`/`secondaryZoom`) zonder de gedeelde `view` aan te raken. De
+   *  store-selectors hieronder blijven onvoorwaardelijk draaien (hooks-regel); pas ná het lezen
+   *  kiezen we welke waarde geldt. */
+  scrollX?: number;
+  zoom?: number;
+  onScrollXChange?: (scrollX: number) => void;
+  /** Onderscheidt de twee stroken in self-tests; default is de bestaande 'minimap'. */
+  testId?: string;
 }
 
-export function MiniMap({ originDate, chartWidth }: MiniMapProps) {
+export function MiniMap({
+  originDate,
+  chartWidth,
+  scrollX: scrollXProp,
+  zoom: zoomProp,
+  onScrollXChange,
+  testId = 'minimap',
+}: MiniMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MiniMapRenderer | null>(null);
 
   const viewRows = useAppStore(s => s.viewRows);
-  const scrollX = useAppStore(s => s.view.scrollX);
-  const scrollY = useAppStore(s => s.view.scrollY);
-  const zoom = useAppStore(s => s.view.zoom);
+  const storeScrollX = useAppStore(s => s.view.scrollX);
+  const storeZoom = useAppStore(s => s.view.zoom);
   const setScroll = useAppStore(s => s.setScroll);
   const uiTheme = useAppStore(s => s.ui.uiTheme);
+
+  const scrollX = scrollXProp ?? storeScrollX;
+  const zoom = zoomProp ?? storeZoom;
+
+  /** Enige schrijfweg van de strip. Het primaire pad houdt `view.scrollY` ongemoeid — vers uit de
+   *  store, want tussen render en muis-event kan er verticaal gescrold zijn (de sleep-lus deed dat
+   *  al zo; `scrollY` hoeft daarom geen abonnement meer te zijn, wat een re-render per
+   *  verticale scroll scheelt). */
+  const applyScrollX = useCallback((next: number) => {
+    const clamped = Math.max(0, next);
+    if (onScrollXChange) onScrollXChange(clamped);
+    else setScroll(clamped, useAppStore.getState().view.scrollY);
+  }, [onScrollXChange, setScroll]);
 
   // Sleepstate: offset (in dagen) tussen de muispositie en de linkerrand van het kader.
   const [dragOffsetDays, setDragOffsetDays] = useState<number | null>(null);
@@ -98,10 +130,10 @@ export function MiniMap({ originDate, chartWidth }: MiniMapProps) {
       // Klik buiten het kader: centreer het hoofdvenster op het aangeklikte punt (§11.2)
       // en sleep daarna vanuit het midden verder.
       const halfDays = chartWidth > 0 ? chartWidth / 2 / zoom : 0;
-      setScroll(Math.max(0, (day - halfDays) * zoom), scrollY);
+      applyScrollX((day - halfDays) * zoom);
       setDragOffsetDays(halfDays);
     }
-  }, [scrollX, scrollY, zoom, chartWidth, setScroll]);
+  }, [scrollX, zoom, chartWidth, applyScrollX]);
 
   useEffect(() => {
     if (dragOffsetDays === null) return;
@@ -111,10 +143,7 @@ export function MiniMap({ originDate, chartWidth }: MiniMapProps) {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const next = scrollXForMiniX(x, dragOffsetDays);
-      if (next !== null) {
-        const v = useAppStore.getState().view;
-        setScroll(next, v.scrollY);
-      }
+      if (next !== null) applyScrollX(next);
     };
     const handleUp = () => setDragOffsetDays(null);
     window.addEventListener('mousemove', handleMove);
@@ -123,12 +152,12 @@ export function MiniMap({ originDate, chartWidth }: MiniMapProps) {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
     };
-  }, [dragOffsetDays, scrollXForMiniX, setScroll]);
+  }, [dragOffsetDays, scrollXForMiniX, applyScrollX]);
 
   return (
     <div
       ref={containerRef}
-      data-testid="minimap"
+      data-testid={testId}
       className="relative overflow-hidden"
       style={{ height: MINIMAP_HEIGHT, flexShrink: 0 }}
     >

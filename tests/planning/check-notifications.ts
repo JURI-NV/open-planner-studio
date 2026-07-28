@@ -19,6 +19,7 @@
 import { useAppStore } from '@/state/appStore';
 import { MAX_NOTIFICATIONS } from '@/state/slices/uiSlice';
 import { sameIFCSource } from '@/state/ifcSaveInput';
+import { createRelationWithFeedback } from '@/state/relationActions';
 
 const S = () => useAppStore.getState();
 const N = () => S().ui.notifications;
@@ -239,6 +240,32 @@ truthy('62 een taakmutatie tijdens de await wordt gezien', !sameIFCSource(voor, 
 const naTaak = S();
 S().setUI({ rightPanelCollapsed: !S().ui.rightPanelCollapsed });
 truthy('63 een UI-wijziging telt niet als inhoudswijziging', sameIFCSource(naTaak, S()));
+
+// ── 9. Relatie leggen meldt zich (issue #40) ────────────────────────────────
+// De Relatie-knop legde bij 2 selecties wél een relatie aan, maar volstrekt geluidloos — en een
+// geweigerd duplicaat was helemaal niet van "de knop doet niets" te onderscheiden. Alle drie de
+// callsites (lint-knop, Relaties-paneel, slepen in de Gantt) lopen nu door deze ene wrapper.
+clearAll();
+S().newProject();
+const rA = S().addTask({ name: 'Fundering' });
+const rB = S().addTask({ name: 'Wanden' });
+const rel1 = createRelationWithFeedback(rA, rB);
+truthy('64 de relatie is aangemaakt', !!rel1 && S().sequences.some(q => q.id === rel1));
+eq('65 en meldt zich', N().length, 1);
+eq('66 met de aanmaak-sleutel', N()[0]?.messageKey, 'notifications.relationCreated');
+eq('67 en de namen als parameters', N()[0]?.params, { predecessor: 'Fundering', successor: 'Wanden' });
+
+// Exact hetzelfde nog eens: `addSequence` weigert het duplicaat stil — de wrapper doet dat niet.
+const rel2 = createRelationWithFeedback(rA, rB);
+eq('68 een duplicaat levert geen id op', rel2, null);
+eq('69 en geen tweede relatie', S().sequences.length, 1);
+eq('70 maar wél een melding', N().length, 2);
+eq('71 met de duplicaat-sleutel', N()[1]?.messageKey, 'notifications.relationDuplicate');
+
+// Herhalen vouwt samen (dedupeKey) i.p.v. de stapel vol te rammen.
+createRelationWithFeedback(rA, rB);
+eq('72 herhaald duplicaat vouwt samen', N().length, 2);
+eq('73 en telt', N()[1]?.count, 2);
 
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {

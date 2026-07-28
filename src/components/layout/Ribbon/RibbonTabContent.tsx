@@ -54,6 +54,7 @@ function RibbonButtonView({ spec }: { spec: RibbonButtonSpec }) {
     <RibbonButton
       icon={icon} label={label}
       onClick={b.onClick} active={b.active} disabled={b.disabled} primary={spec.primary} danger={spec.danger}
+      title={b.title}
     />
   );
 }

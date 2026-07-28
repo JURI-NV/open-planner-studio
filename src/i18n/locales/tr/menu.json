@@ -122,6 +122,13 @@
     "deleteTemplate": "Şablonu sil",
     "collapseRibbon": "Şeridi daralt",
     "expandRibbon": "Şeridi genişlet",
+    "outline": "Anahat",
+    "collapseTasks": "Daralt",
+    "expandTasks": "Genişlet",
+    "collapseTasksTitle": "Seçili özet görevleri daraltır (seçim yoksa: tümü)",
+    "expandTasksTitle": "Seçili özet görevleri genişletir (seçim yoksa: tümü)",
+    "collapseGroupsTitle": "Tüm grupları daraltır (gruplanmış görünüm)",
+    "expandGroupsTitle": "Tüm grupları genişletir (gruplanmış görünüm)",
     "resourceManagement": "Yönet",
     "openResourcePanel": "Kaynaklar",
     "dockResourcePanel": "Sabitle",
@@ -162,7 +169,10 @@
     "presentationMode": "Sunum",
     "splitView": "Bölünmüş görünüm",
     "miniMap": "Mini harita",
-    "moveProject": "Projeyi taşı…"
+    "moveProject": "Projeyi taşı…",
+    "relationHintModeOn": "Bağlantı modunu aç: ardından Gantt'ta çubuktan çubuğa sürükleyin",
+    "relationHintModeOff": "Bağlantı modunu kapat",
+    "relationHintPair": "Seçili iki görev arasında Bitiş-Başlangıç ilişkisi oluştur"
   },
   "ifc": {
     "title": "IFC Düzenleyici",

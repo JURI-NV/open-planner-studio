@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Nie udało się przywrócić",
     "scheduleFailed": "Nie udało się obliczyć harmonogramu",
     "ifcParseFailed": "Nie udało się odczytać pliku IFC",
-    "templateSaved": "Gałąź zapisana jako szablon '{{name}}'"
+    "templateSaved": "Gałąź zapisana jako szablon '{{name}}'",
+    "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Taka relacja już istnieje"
   },
   "yes": "Tak",
   "no": "Nie",
@@ -36,7 +38,6 @@
     "addSubtask": "Dodaj podzadanie",
     "addMilestone": "Dodaj kamień milowy",
     "addRelation": "Dodaj relację",
-    "toggleCollapse": "Zwiń/rozwiń",
     "delete": "Usuń",
     "newTask": "Nowe zadanie",
     "tracePath": "Śledź ścieżkę",
@@ -306,7 +307,9 @@
       "smaller": "{{size}} mniej niż poprzednia wersja",
       "larger": "{{size}} więcej niż poprzednia wersja",
       "sameSize": "Taki sam rozmiar jak poprzednia wersja",
-      "daysSincePrevious": "Od poprzedniego wydania: {{count}} dni"
+      "daysSincePrevious": "Od poprzedniego wydania: {{count}} dni",
+      "currentOnly": "Używasz teraz wersji {{version}}",
+      "whatsNewButton": "Co nowego"
     }
   },
   "statusWarnings": {
@@ -646,7 +649,9 @@
     "splitView": {
       "primary": "Główny",
       "secondary": "Dodatkowy"
-    }
+    },
+    "dependencyModeHint": "Tryb połączeń: przeciągnij od jednego paska do drugiego na wykresie Gantta, aby utworzyć relację. Esc kończy.",
+    "dependencyModeStop": "Zakończ"
   },
   "dateInput": {
     "placeholder": "dd-mm-rrrr",

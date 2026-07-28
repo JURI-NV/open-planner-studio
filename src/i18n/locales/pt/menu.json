@@ -122,6 +122,13 @@
     "deleteTemplate": "Eliminar modelo",
     "collapseRibbon": "Recolher a faixa de opções",
     "expandRibbon": "Expandir a faixa de opções",
+    "outline": "Estrutura",
+    "collapseTasks": "Recolher",
+    "expandTasks": "Expandir",
+    "collapseTasksTitle": "Recolher as tarefas de resumo selecionadas (sem seleção: todas)",
+    "expandTasksTitle": "Expandir as tarefas de resumo selecionadas (sem seleção: todas)",
+    "collapseGroupsTitle": "Recolher todos os grupos (vista agrupada)",
+    "expandGroupsTitle": "Expandir todos os grupos (vista agrupada)",
     "resourceManagement": "Gerir",
     "openResourcePanel": "Recursos",
     "dockResourcePanel": "Ancorar",
@@ -162,7 +169,10 @@
     "presentationMode": "Apresentação",
     "splitView": "Vista dividida",
     "miniMap": "Minimapa",
-    "moveProject": "Mover projeto…"
+    "moveProject": "Mover projeto…",
+    "relationHintModeOn": "Ativar o modo de ligação: depois arraste de barra para barra no Gantt",
+    "relationHintModeOff": "Desativar o modo de ligação",
+    "relationHintPair": "Criar uma relação Fim-Início entre as duas tarefas selecionadas"
   },
   "ifc": {
     "title": "Editor IFC",

@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "復元に失敗しました",
     "scheduleFailed": "スケジュールを計算できませんでした",
     "ifcParseFailed": "IFC を読み込めませんでした",
-    "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました"
+    "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました",
+    "relationCreated": "関係を作成しました: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "この関係はすでに存在します"
   },
   "yes": "はい",
   "no": "いいえ",
@@ -36,7 +38,6 @@
     "addSubtask": "サブタスクを追加",
     "addMilestone": "マイルストーンを追加",
     "addRelation": "関係を追加",
-    "toggleCollapse": "折りたたむ／展開",
     "delete": "削除",
     "newTask": "新しいタスク",
     "tracePath": "パスをトレース",
@@ -306,7 +307,9 @@
       "smaller": "前のバージョンより {{size}} 小さい",
       "larger": "前のバージョンより {{size}} 大きい",
       "sameSize": "前のバージョンと同じサイズ",
-      "daysSincePrevious": "前回のリリースから：{{count}} 日"
+      "daysSincePrevious": "前回のリリースから：{{count}} 日",
+      "currentOnly": "現在バージョン {{version}} を使用しています",
+      "whatsNewButton": "更新内容"
     }
   },
   "statusWarnings": {
@@ -640,7 +643,9 @@
     "splitView": {
       "primary": "プライマリ",
       "secondary": "セカンダリ"
-    }
+    },
+    "dependencyModeHint": "リンクモード: ガントチャートでバーから別のバーへドラッグすると関係を作成します。Esc で終了します。",
+    "dependencyModeStop": "終了"
   },
   "dateInput": {
     "placeholder": "日-月-年",

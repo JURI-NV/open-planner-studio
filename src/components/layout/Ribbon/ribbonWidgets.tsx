@@ -7,7 +7,7 @@ import {
   History, Download, Puzzle,
   LayoutTemplate, UserPlus, Flag, GitCompareArrows, CalendarClock, X,
   Columns3, Filter, Layers, ArrowUpDown, Maximize2, Minimize2, SplitSquareHorizontal,
-  Map as MapIcon, AlertTriangle,
+  Map as MapIcon, AlertTriangle, Save, RefreshCw, Settings2,
 } from 'lucide-react';
 import { listWbsTemplates, deleteWbsTemplate, type WbsTemplate } from '@/utils/wbsTemplates';
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
@@ -29,6 +29,7 @@ import {
   RibbonButton, RibbonSmallButton, RibbonGroup, RibbonButtonStack, RibbonDropdown,
   encodeFieldRef, decodeFieldRef,
 } from './ribbonPrimitives';
+import { useRibbonDensity } from './ribbonDensity';
 
 /**
  * Ribbon-widgets (audit P18): de "component-escape-hatch" uit de config-registry — de
@@ -50,7 +51,7 @@ import {
 export function BaselinesProgressGroupContent() {
   const { t: tMenu } = useTranslation('menu');
   const [open, setOpen] = useState(false);
-  const compact = useAppStore(s => s.ui.ribbonCompact);
+  const compact = useRibbonDensity() !== 'full';
   const setUI = useAppStore(s => s.setUI);
   const statusDate = useAppStore(s => s.project.statusDate);
   const progressMode = useAppStore(s => s.project.progressMode);
@@ -564,6 +565,8 @@ export function GroupPopoverButton() {
       trigger={
         <button
           className={`ribbon-btn small${group.length > 0 ? ' active' : ''}`}
+          title={tMenu('ribbon.group')}
+          aria-label={tMenu('ribbon.group')}
           onClick={() => setOpen(o => !o)}
         >
           <span className="ribbon-btn-icon"><Layers size={14} /></span>
@@ -644,6 +647,8 @@ export function SortPopoverButton() {
       trigger={
         <button
           className={`ribbon-btn small${sort.length > 0 ? ' active' : ''}`}
+          title={tMenu('ribbon.sort')}
+          aria-label={tMenu('ribbon.sort')}
           onClick={() => setOpen(o => !o)}
         >
           <span className="ribbon-btn-icon"><ArrowUpDown size={14} /></span>
@@ -697,6 +702,7 @@ export function LayoutGroupContent() {
   const { t: tMenu } = useTranslation('menu');
   const { t: tCommon } = useTranslation('common');
   const setUI = useAppStore(s => s.setUI);
+  const compact = useRibbonDensity() !== 'full';
   const showLayoutsDialog = useAppStore(s => s.ui.showLayoutsDialog);
   const applyLayout = useAppStore(s => s.applyLayout);
   const view = useAppStore(s => s.view);
@@ -747,40 +753,54 @@ export function LayoutGroupContent() {
     // voor "Opslaan als…"/"Beheren…" (NL) en zeker voor langere talen (bv. FR "Enregistrer sous…"),
     // wat de labels rauw liet afknippen i.p.v. netjes met "…" (zie de ellipsis-fix in Ribbon.css
     // hierboven, die als vangnet blijft voor talen die ook bij 210px nog niet passen).
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px', minWidth: 210 }}>
+    // In compacte dichtheid vervalt die ondergrens: alles staat dan op één platte rij (A2-fix,
+    // issue #38 punt 4) i.p.v. een 2-regelige kolom die boven de 40px-strip uitstak.
+    <div style={{
+      display: 'flex',
+      flexDirection: compact ? 'row' : 'column',
+      alignItems: compact ? 'center' : 'stretch',
+      gap: 4, padding: '2px 4px', minWidth: compact ? 0 : 210,
+    }}>
       <select
         value={selectedId}
         onChange={e => pick(e.target.value)}
         className="input !text-[11px] !px-1.5 !py-1"
+        style={compact ? { width: 120 } : undefined}
         aria-label={tCommon('view.layout.activeLayout')}
       >
         <option value="">{tCommon('view.layout.none')}</option>
         {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 2 }}>
+        {/* Iconen zijn hier niet decoratief: in de icoon-dichtheid verbergt de CSS élk
+            `.ribbon-btn-label`, dus een knop zonder icoon bleef als leeg stompje van ~14px over.
+            Met een icoon houdt elke knop betekenis, en de tooltip draagt het label. */}
         <button
           className="ribbon-btn small"
-          style={{ minWidth: 0, flex: 1 }}
+          style={{ minWidth: 0, flex: '0 0 auto' }}
           onClick={() => setUI({ showLayoutsDialog: true })}
           title={tMenu('ribbon.saveLayoutAs')}
         >
+          <span className="ribbon-btn-icon"><Save size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.saveLayoutAs')}</span>
         </button>
         <button
           className="ribbon-btn small"
-          style={{ minWidth: 0, flex: 1 }}
+          style={{ minWidth: 0, flex: '0 0 auto' }}
           onClick={update}
           disabled={!activeLayout}
           title={tMenu('ribbon.updateLayout')}
         >
+          <span className="ribbon-btn-icon"><RefreshCw size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.updateLayout')}</span>
         </button>
         <button
           className="ribbon-btn small"
-          style={{ minWidth: 0, flex: 1 }}
+          style={{ minWidth: 0, flex: '0 0 auto' }}
           onClick={() => setUI({ showLayoutsDialog: true })}
           title={tMenu('ribbon.manageLayouts')}
         >
+          <span className="ribbon-btn-icon"><Settings2 size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.manageLayouts')}</span>
         </button>
       </div>
@@ -811,26 +831,29 @@ export function PresentationGroupContent() {
   };
 
   return (
-    <>
-      <RibbonButton
-        icon={presentationMode ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+    <RibbonButtonStack>
+      <RibbonSmallButton
+        icon={presentationMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         label={tMenu('ribbon.presentationMode')}
+        title={tMenu('ribbon.presentationMode')}
         onClick={() => setPresentationMode(!presentationMode)}
         active={presentationMode}
       />
-      <RibbonButton
-        icon={<SplitSquareHorizontal size={20} />}
+      <RibbonSmallButton
+        icon={<SplitSquareHorizontal size={14} />}
         label={tMenu('ribbon.splitView')}
+        title={tMenu('ribbon.splitView')}
         onClick={toggleSplitView}
         active={!!splitView}
       />
-      <RibbonButton
-        icon={<MapIcon size={20} />}
+      <RibbonSmallButton
+        icon={<MapIcon size={14} />}
         label={tMenu('ribbon.miniMap')}
+        title={tMenu('ribbon.miniMap')}
         onClick={toggleMiniMap}
         active={showMiniMap}
       />
-    </>
+    </RibbonButtonStack>
   );
 }
 
@@ -841,32 +864,51 @@ export function PresentationGroupContent() {
  */
 export function TimeScaleGroupContent() {
   const { t: tMenu } = useTranslation('menu');
+  const compact = useRibbonDensity() !== 'full';
   const zoom = useAppStore(s => s.view.zoom);
   const setZoom = useAppStore(s => s.setZoom);
   const setTimeScale = useAppStore(s => s.setTimeScale);
   const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
 
+  const zoomButtons = (
+    <>
+      <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + 10)} />
+      <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - 5)} />
+      <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(30)} />
+    </>
+  );
+  const dropdown = (
+    <RibbonDropdown
+      value={scaleFromZoom(zoom, enableHourPlanning)}
+      options={[
+        { value: 'year', label: tMenu('ribbon.year') },
+        { value: 'quarter', label: tMenu('ribbon.quarter') },
+        { value: 'month', label: tMenu('ribbon.month') },
+        { value: 'week', label: tMenu('ribbon.week') },
+        { value: 'day', label: tMenu('ribbon.day') },
+        // Fase 2.8b (§6.2): de uur-schaal is alleen bereikbaar met Urenplanning aan.
+        ...(enableHourPlanning ? [{ value: 'hour' as TimeScale, label: tMenu('ribbon.hour') }] : []),
+      ]}
+      onChange={v => setTimeScale(v as TimeScale)}
+    />
+  );
+
+  // Compacte modus (A1-fix): alles op één platte rij i.p.v. een 2-regelige kolom die boven de
+  // 40px-strip uitstak. De afgeleide zoom-tekst valt weg (secundair); knoppen collapsen via CSS.
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {zoomButtons}
+        <div style={{ minWidth: 96 }}>{dropdown}</div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      <RibbonButtonStack>
-        <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + 10)} />
-        <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - 5)} />
-        <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(30)} />
-      </RibbonButtonStack>
+      <RibbonButtonStack>{zoomButtons}</RibbonButtonStack>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '2px 4px' }}>
-        <RibbonDropdown
-          value={scaleFromZoom(zoom, enableHourPlanning)}
-          options={[
-            { value: 'year', label: tMenu('ribbon.year') },
-            { value: 'quarter', label: tMenu('ribbon.quarter') },
-            { value: 'month', label: tMenu('ribbon.month') },
-            { value: 'week', label: tMenu('ribbon.week') },
-            { value: 'day', label: tMenu('ribbon.day') },
-            // Fase 2.8b (§6.2): de uur-schaal is alleen bereikbaar met Urenplanning aan.
-            ...(enableHourPlanning ? [{ value: 'hour' as TimeScale, label: tMenu('ribbon.hour') }] : []),
-          ]}
-          onChange={v => setTimeScale(v as TimeScale)}
-        />
+        {dropdown}
         <span className="ribbon-info">{tMenu('ribbon.zoomLevel', { level: Math.round(zoom) })}</span>
       </div>
     </div>
@@ -884,9 +926,9 @@ export function DisplayGroupContent() {
   const filter = useAppStore(s => s.view.filter);
 
   return (
-    <div className="ribbon-display-grid">
-      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} onClick={() => setUI({ showColumnsDialog: true })} />
-      <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
+    <div className="ribbon-display-grid icons">
+      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} title={tMenu('ribbon.columns')} onClick={() => setUI({ showColumnsDialog: true })} />
+      <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} title={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
       <GroupPopoverButton />
       <SortPopoverButton />
     </div>

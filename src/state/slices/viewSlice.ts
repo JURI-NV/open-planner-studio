@@ -6,12 +6,36 @@ import { TIMESCALE_ZOOM } from '@/engine/renderer/timelineTiers';
 import { getGanttChartWidth, clampGanttScroll } from '@/utils/ganttViewport';
 import { getNoneLabelValue } from '@/utils/noneLabel';
 import {
-  computeViewRows, defaultColumns, type ViewRow, type ViewContext,
+  allBandKeys, computeViewRows, defaultColumns,
+  type ViewRow, type ViewContext, type ViewRowOpts,
 } from '@/engine/view/visibleRows';
+import type { AppState } from '../appStore';
 import type {
   ViewState, TimeScale, AppSlice, ColumnConfig, FilterNode, GroupLevel, SortLevel,
   SplitViewState, Layout,
 } from './types';
+
+/** De invoer van de rijen-pijplijn op één plek: zo kunnen `recomputeViewRows` en de
+ *  "alle banden"-acties niet uit elkaar lopen over welke weergave-instellingen gelden. */
+function rowInputs(s: AppState): { opts: ViewRowOpts; ctx: ViewContext } {
+  return {
+    opts: {
+      filter: s.view.filter ?? null,
+      group: s.view.group ?? [],
+      sort: s.view.sort ?? [],
+      collapsedTaskIds: new Set(s.ui.collapsedTaskIds),
+      collapsedGroupKeys: new Set(s.view.collapsedGroupKeys ?? []),
+    },
+    ctx: {
+      activityCodeTypes: s.activityCodeTypes,
+      customFieldDefs: s.customFieldDefs,
+      resources: s.resources,
+      assignments: s.assignments,
+      // Vertaalde "(geen)"-label, door de consument (App) gezet — engine blijft i18n-vrij (§4.1).
+      noneLabel: getNoneLabelValue(),
+    },
+  };
+}
 
 export interface ViewSlice {
   view: ViewState;
@@ -41,6 +65,11 @@ export interface ViewSlice {
   setSort: (sort: SortLevel[]) => void;
   /** Klap een groepsband in/uit op zijn pad-gecodeerde sleutel (§7.1). */
   setCollapsedGroupKey: (key: string, collapsed: boolean) => void;
+  /** Issue #35: klap ALLE groepsbanden in — ook geneste, ook die nu al dicht staan (hun subbanden
+   *  zitten dan niet in `viewRows`, zie `allBandKeys`). Zonder groepering een no-op. */
+  collapseAllGroups: () => void;
+  /** Issue #35: tegenhanger van `collapseAllGroups` — opent alle banden in één keer. */
+  expandAllGroups: () => void;
   /** Herbereken de `viewRows`-cache (resourceLoadResult-patroon: "manual, not reactive", §4.3). */
   recomputeViewRows: () => void;
   /** Layouts toepassen (§8.3): schrijft columns/group/sort/filter + de tijdschaal-zoom naar de
@@ -159,27 +188,26 @@ export const createViewSlice: AppSlice<ViewSlice> = (set, get) => ({
     get().recomputeViewRows();
   },
 
+  collapseAllGroups: () => {
+    const s = get();
+    if ((s.view.group?.length ?? 0) === 0) return; // geen groepering ⇒ geen banden
+    const { opts, ctx } = rowInputs(s);
+    const keys = allBandKeys(s.tasks, opts, ctx);
+    // Vervangen, niet aanvullen: `keys` is per definitie de complete set, en zo verdwijnen meteen
+    // sleutels van banden die na een data-/groepeerwijziging niet meer bestaan.
+    set((st) => { st.view.collapsedGroupKeys = keys; });
+    get().recomputeViewRows();
+  },
+
+  expandAllGroups: () => {
+    set((st) => { st.view.collapsedGroupKeys = []; });
+    get().recomputeViewRows();
+  },
+
   recomputeViewRows: () => {
     const s = get();
-    const ctx: ViewContext = {
-      activityCodeTypes: s.activityCodeTypes,
-      customFieldDefs: s.customFieldDefs,
-      resources: s.resources,
-      assignments: s.assignments,
-      // Vertaalde "(geen)"-label, door de consument (App) gezet — engine blijft i18n-vrij (§4.1).
-      noneLabel: getNoneLabelValue(),
-    };
-    const rows = computeViewRows(
-      s.tasks,
-      {
-        filter: s.view.filter ?? null,
-        group: s.view.group ?? [],
-        sort: s.view.sort ?? [],
-        collapsedTaskIds: new Set(s.ui.collapsedTaskIds),
-        collapsedGroupKeys: new Set(s.view.collapsedGroupKeys ?? []),
-      },
-      ctx,
-    );
+    const { opts, ctx } = rowInputs(s);
+    const rows = computeViewRows(s.tasks, opts, ctx);
     set((st) => { st.viewRows = rows; });
   },
 

@@ -122,6 +122,13 @@
     "deleteTemplate": "Vorlage löschen",
     "collapseRibbon": "Menüband einklappen",
     "expandRibbon": "Menüband ausklappen",
+    "outline": "Gliederung",
+    "collapseTasks": "Einklappen",
+    "expandTasks": "Ausklappen",
+    "collapseTasksTitle": "Ausgewählte Sammelaufgaben einklappen (ohne Auswahl: alle)",
+    "expandTasksTitle": "Ausgewählte Sammelaufgaben ausklappen (ohne Auswahl: alle)",
+    "collapseGroupsTitle": "Alle Gruppen einklappen (gruppierte Ansicht)",
+    "expandGroupsTitle": "Alle Gruppen ausklappen (gruppierte Ansicht)",
     "resourceManagement": "Verwalten",
     "openResourcePanel": "Ressourcen",
     "dockResourcePanel": "Andocken",
@@ -162,7 +169,10 @@
     "presentationMode": "Präsentation",
     "splitView": "Geteilte Ansicht",
     "miniMap": "Minimap",
-    "moveProject": "Projekt verschieben…"
+    "moveProject": "Projekt verschieben…",
+    "relationHintModeOn": "Verknüpfungsmodus einschalten: danach im Gantt von Balken zu Balken ziehen",
+    "relationHintModeOff": "Verknüpfungsmodus ausschalten",
+    "relationHintPair": "Ende-Anfang-Beziehung zwischen den beiden ausgewählten Vorgängen erstellen"
   },
   "ifc": {
     "title": "IFC-Editor",

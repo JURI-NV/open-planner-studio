@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Herstellen mislukt",
     "scheduleFailed": "Planning kon niet worden berekend",
     "ifcParseFailed": "IFC kon niet worden gelezen",
-    "templateSaved": "Tak bewaard als sjabloon '{{name}}'"
+    "templateSaved": "Tak bewaard als sjabloon '{{name}}'",
+    "relationCreated": "Relatie aangemaakt: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Deze relatie bestaat al"
   },
   "yes": "Ja",
   "no": "Nee",
@@ -36,7 +38,6 @@
     "addSubtask": "Subtaak toevoegen",
     "addMilestone": "Mijlpaal toevoegen",
     "addRelation": "Relatie toevoegen",
-    "toggleCollapse": "In-/uitklappen",
     "delete": "Verwijderen",
     "newTask": "Nieuwe taak",
     "tracePath": "Pad traceren",
@@ -306,7 +307,9 @@
       "smaller": "{{size}} kleiner dan de vorige versie",
       "larger": "{{size}} groter dan de vorige versie",
       "sameSize": "Even groot als de vorige versie",
-      "daysSincePrevious": "Sinds de vorige release: {{count}} dagen"
+      "daysSincePrevious": "Sinds de vorige release: {{count}} dagen",
+      "currentOnly": "Je draait nu versie {{version}}",
+      "whatsNewButton": "Wat is er nieuw"
     }
   },
   "statusWarnings": {
@@ -642,7 +645,9 @@
     "splitView": {
       "primary": "Primair",
       "secondary": "Secundair"
-    }
+    },
+    "dependencyModeHint": "Relatiemodus: sleep in de Gantt van de ene balk naar de andere om een relatie te leggen. Esc stopt.",
+    "dependencyModeStop": "Stoppen"
   },
   "dateInput": {
     "placeholder": "dd-mm-jjjj",

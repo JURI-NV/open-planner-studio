@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Geri yükleme başarısız",
     "scheduleFailed": "Planlama hesaplanamadı",
     "ifcParseFailed": "IFC okunamadı",
-    "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi"
+    "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi",
+    "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Bu ilişki zaten var"
   },
   "yes": "Evet",
   "no": "Hayır",
@@ -36,7 +38,6 @@
     "addSubtask": "Alt görev ekle",
     "addMilestone": "Kilometre taşı ekle",
     "addRelation": "İlişki ekle",
-    "toggleCollapse": "Daralt/genişlet",
     "delete": "Sil",
     "newTask": "Yeni görev",
     "tracePath": "Yolu izle",
@@ -306,7 +307,9 @@
       "smaller": "Önceki sürümden {{size}} daha küçük",
       "larger": "Önceki sürümden {{size}} daha büyük",
       "sameSize": "Önceki sürümle aynı boyutta",
-      "daysSincePrevious": "Önceki sürümden bu yana: {{count}} gün"
+      "daysSincePrevious": "Önceki sürümden bu yana: {{count}} gün",
+      "currentOnly": "Şu anda {{version}} sürümünü kullanıyorsunuz",
+      "whatsNewButton": "Yenilikler"
     }
   },
   "statusWarnings": {
@@ -642,7 +645,9 @@
     "splitView": {
       "primary": "Birincil",
       "secondary": "İkincil"
-    }
+    },
+    "dependencyModeHint": "Bağlantı modu: Gantt'ta bir çubuktan diğerine sürükleyerek ilişki oluşturun. Durdurmak için Esc.",
+    "dependencyModeStop": "Durdur"
   },
   "dateInput": {
     "placeholder": "gg-aa-yyyy",

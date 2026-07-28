@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "恢复失败",
     "scheduleFailed": "无法计算计划",
     "ifcParseFailed": "无法读取 IFC",
-    "templateSaved": "分支已保存为模板“{{name}}”"
+    "templateSaved": "分支已保存为模板“{{name}}”",
+    "relationCreated": "已创建关系：{{predecessor}} → {{successor}}",
+    "relationDuplicate": "该关系已存在"
   },
   "yes": "是",
   "no": "否",
@@ -36,7 +38,6 @@
     "addSubtask": "添加子任务",
     "addMilestone": "添加里程碑",
     "addRelation": "添加关系",
-    "toggleCollapse": "折叠/展开",
     "delete": "删除",
     "newTask": "新建任务",
     "tracePath": "追踪路径",
@@ -306,7 +307,9 @@
       "smaller": "比上一个版本小 {{size}}",
       "larger": "比上一个版本大 {{size}}",
       "sameSize": "与上一个版本大小相同",
-      "daysSincePrevious": "距上次发布：{{count}} 天"
+      "daysSincePrevious": "距上次发布：{{count}} 天",
+      "currentOnly": "你现在使用的是 {{version}} 版本",
+      "whatsNewButton": "更新内容"
     }
   },
   "statusWarnings": {
@@ -640,7 +643,9 @@
     "splitView": {
       "primary": "主要",
       "secondary": "次要"
-    }
+    },
+    "dependencyModeHint": "链接模式：在甘特图中从一个条形拖到另一个条形即可创建关系。按 Esc 退出。",
+    "dependencyModeStop": "退出"
   },
   "dateInput": {
     "placeholder": "日-月-年",

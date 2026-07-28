@@ -122,6 +122,13 @@
     "deleteTemplate": "حذف القالب",
     "collapseRibbon": "طي الشريط",
     "expandRibbon": "توسيع الشريط",
+    "outline": "المخطط التفصيلي",
+    "collapseTasks": "طي",
+    "expandTasks": "توسيع",
+    "collapseTasksTitle": "طي المهام الموجزة المحددة (بدون تحديد: الكل)",
+    "expandTasksTitle": "توسيع المهام الموجزة المحددة (بدون تحديد: الكل)",
+    "collapseGroupsTitle": "طي كل المجموعات (العرض المجمَّع)",
+    "expandGroupsTitle": "توسيع كل المجموعات (العرض المجمَّع)",
     "resourceManagement": "الإدارة",
     "openResourcePanel": "الموارد",
     "dockResourcePanel": "تثبيت",
@@ -162,7 +169,10 @@
     "presentationMode": "العرض التقديمي",
     "splitView": "عرض مقسم",
     "miniMap": "خريطة مصغرة",
-    "moveProject": "نقل المشروع…"
+    "moveProject": "نقل المشروع…",
+    "relationHintModeOn": "تشغيل وضع الربط: ثم اسحب من شريط إلى آخر في مخطط جانت",
+    "relationHintModeOff": "إيقاف وضع الربط",
+    "relationHintPair": "إنشاء علاقة إنهاء-بدء بين المهمتين المحددتين"
   },
   "ifc": {
     "title": "محرر IFC",

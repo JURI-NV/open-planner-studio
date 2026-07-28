@@ -3,84 +3,84 @@
   "examples": [
     {
       "file": "showcase-verbouwing-eengezinswoning.ifc",
-      "name": "Verbouwing & Aanbouw Eengezinswoning",
-      "description": "Instap-showcase: aanbouw van een eengezinswoning met WBS-fasering, een FS-keten mét één SS-overlap (wanden/dak) en één FF-koppeling (schilderwerk vlak na tegelwerk), een SNET-vergunningconstraint, start-/verplichte-oplevermijlpaal, een comfortabele deadline (geen conflict) en één baseline direct na opzet.",
+      "name": "Refurbishment & Extension of a Family Home",
+      "description": "Entry-level showcase: an extension to a family home with WBS phasing, a finish-start chain with one start-start overlap (walls/roof) and one finish-finish link (painting just after tiling), an SNET permit constraint, a start milestone and a mandatory handover milestone, a comfortable deadline (no conflict) and one baseline taken right after set-up.",
       "category": "showcase",
       "tags": [
-        "woningbouw",
-        "klein",
-        "instap",
-        "mijlpalen",
+        "residential",
+        "small",
+        "entry-level",
+        "milestones",
         "constraints",
         "baseline"
       ]
     },
     {
       "file": "showcase-rijwoningen-de-akkers.ifc",
-      "name": "Nieuwbouw 6 Rijwoningen De Akkers",
-      "description": "Middelgrote showcase: 6 rijwoningen met gedeelde fundering (vorstverlet via extraHolidays), een doorschuivende metselploeg (CREW+LABOR) per woning, installateurs op een 4-daagse resource-kalender, afbouw met curve-variatie (UNIFORM/FRONT_LOADED/BACK_LOADED) en zichtbare overallocatie op de stukadoors, per-woning verplichte opleverinspecties + een bewust te krappe contractdeadline (negatieve float), activity codes Woning×Discipline, aantekeningen (open + afgevinkt), voortgang + statusdatum halverwege, en een baseline vóór start.",
+      "name": "6 New Terraced Houses, De Akkers",
+      "description": "Mid-sized showcase: six terraced houses with a shared foundation (frost delay via extraHolidays), a masonry crew (CREW+LABOR) moving from house to house, MEP fitters on a four-day resource calendar, fit-out with curve variation (UNIFORM/FRONT_LOADED/BACK_LOADED) and a visible over-allocation on the plasterers, a mandatory handover inspection per house plus a deliberately tight contract deadline (negative total float), activity codes House x Discipline, notes (open and completed), progress plus a status date halfway through, and a baseline before start.",
       "category": "showcase",
       "tags": [
-        "woningbouw",
-        "middel",
+        "residential",
+        "medium",
         "resources",
-        "overallocatie",
-        "voortgang",
+        "over-allocation",
+        "progress",
         "baseline",
         "activity-codes",
-        "aantekeningen"
+        "notes"
       ]
     },
     {
       "file": "showcase-appartementencomplex.ifc",
-      "name": "Nieuwbouw Appartementencomplex De Vaart",
-      "description": "GROOT: appartementencomplex met 3 parallelle torens (~250 taken) — hard-pin MSO, secundaire constraint, hammock (LOE), near-critical-markering + meerdere kritieke paden (floatPaths), uren-planning voor vlechtwerk/stort, alle 5 resourcetypes incl. torenkraan (EQUIPMENT) met capaciteitsstap, alle 4 relatietypes (incl. START_FINISH), alle 6 toewijzingscurves, een externe koppeling naar een apart aangeleverd terreinbestand, twee baselines (Contract → Herbaseline na meerwerk) en voortgang + statusdatum.",
+      "name": "De Vaart Apartment Complex",
+      "description": "LARGE: apartment complex with three parallel towers (~250 tasks) — hard-pin MSO, secondary constraint, hammock (LOE), near-critical marking plus multiple critical paths (floatPaths), hourly scheduling for rebar fixing/pouring, all five resource types including a tower crane (EQUIPMENT) with a capacity step, all four relationship types (including START_FINISH), all six assignment curves, an external link to a separately delivered site file, two baselines (Contract then Re-baseline after a variation order) and progress plus a status date.",
       "category": "showcase",
       "tags": [
-        "woningbouw",
-        "groot",
-        "geavanceerd",
+        "residential",
+        "large",
+        "advanced",
         "kitchen-sink",
         "near-critical",
         "float-paths",
         "hammock",
-        "uren-planning",
-        "externe-koppeling",
+        "hourly-scheduling",
+        "external-link",
         "baseline"
       ]
     },
     {
       "file": "03-kantoorgebouw-zuidas.ifc",
-      "name": "Kantoorgebouw Zuidas",
-      "description": "8-laags kantoorgebouw met parkeerkelder BREEAM Excellent",
+      "name": "Zuidas Office Building",
+      "description": "Eight-storey office building with basement car park, BREEAM Excellent",
       "category": "basic",
       "tags": []
     },
     {
       "file": "05-brugvervanging-n279.ifc",
-      "name": "Brugvervanging N279",
-      "description": "Vervanging bestaande brug door nieuwe betonnen brug",
+      "name": "N279 Bridge Replacement",
+      "description": "Replacement of the existing bridge with a new concrete bridge",
       "category": "basic",
       "tags": []
     },
     {
       "file": "08-zorgcentrum-de-linde.ifc",
-      "name": "Zorgcentrum De Linde",
-      "description": "Nieuwbouw zorgcentrum 60 kamers met behandelruimten",
+      "name": "De Linde Care Centre",
+      "description": "New-build care centre with 60 rooms and treatment areas",
       "category": "basic",
       "tags": []
     },
     {
       "file": "10-villa-wassenaar.ifc",
-      "name": "Villa Nieuwbouw Wassenaar",
-      "description": "Vrijstaande luxe villa met zwembad en gastenverblijf",
+      "name": "New-Build Villa, Wassenaar",
+      "description": "Detached luxury villa with swimming pool and guest house",
       "category": "basic",
       "tags": []
     },
     {
       "file": "15-datacentrum-agriport.ifc",
-      "name": "Datacentrum Agriport A7",
-      "description": "Datacenter 5000m2 met eigen energievoorziening",
+      "name": "Agriport A7 Data Centre",
+      "description": "5,000 m2 data centre with its own power supply",
       "category": "basic",
       "tags": []
     }

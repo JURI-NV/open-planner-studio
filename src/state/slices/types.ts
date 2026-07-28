@@ -164,7 +164,9 @@ export type NotificationMessageKey =
   | 'notifications.recoveryRestoreFailed'
   | 'notifications.scheduleFailed'
   | 'notifications.ifcParseFailed'
-  | 'notifications.templateSaved';
+  | 'notifications.templateSaved'
+  | 'notifications.relationCreated'
+  | 'notifications.relationDuplicate';
 
 export interface AppNotification {
   /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */
@@ -188,6 +190,13 @@ export type NotifyInput = Omit<AppNotification, 'id' | 'count'>;
 export interface UIState {
   showTaskDialog: boolean;
   editingTaskId: string | null;
+  /** Relatiemodus (issue #40): een "plakkende Shift" voor de Gantt. Staat hij aan, dan start een
+   *  sleep vanaf een balk hetzelfde relatie-tekenen als shift+slepen, zónder de toets vast te
+   *  houden. Wordt gelezen door `GanttCanvas` (mousedown-hittest + cursor) en door
+   *  `DependencyModeNotice` (de strook die vertelt dat de modus aan staat); Escape en de
+   *  lint-knop zetten hem weer uit.
+   *  NB: het vroegere `dependencySourceId` is bewust weg — dat veld werd alleen geschreven en
+   *  nergens gelezen (dezelfde bevinding als de dode modus zelf). */
   showDependencyMode: boolean;
   showProjectSettings: boolean;
   showProjectInfoDialog: boolean;
@@ -201,10 +210,12 @@ export interface UIState {
   showSettingsDialog: boolean;
   showCalendarDialog: boolean;
   showUpdateDialog: boolean;
-  /** Fase "kleine dingen": als de app zojuist naar een nieuwe versie is geüpdatet, bevat dit de
-   *  versiesprong (van → naar) en toont `JustUpdatedDialog` zich. `null` = geen sprong (normale
-   *  start of verse installatie). Desktop-only; in de web-build altijd `null`. */
-  justUpdated: { from: string; to: string } | null;
+  /** Fase "kleine dingen": als de app zojuist naar een nieuwe versie is geüpdatet — of voor het
+   *  eerst draait — bevat dit de versiesprong en toont `JustUpdatedDialog` zich. `from` is `null`
+   *  wanneer er geen eerder gestarte versie bekend is (verse installatie); dan toont de dialoog
+   *  enkel de huidige versie. `null` = niets tonen (normale herstart). Wordt bij de opstartdetectie
+   *  alleen in Tauri gezet, maar kan overal handmatig geopend worden via Instellingen. */
+  justUpdated: { from: string | null; to: string } | null;
   uiTheme: UITheme;
   uiFontFamily: UIFontFamily; // persisted — interface-lettertypefamilie (issue #25.4); 'default' = stylesheet-defaults
   uiFontScale: number;        // persisted — interface-lettertypegrootte als schaalpercentage (90|100|110|125, issue #25.4)

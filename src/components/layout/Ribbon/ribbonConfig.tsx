@@ -9,10 +9,11 @@ import {
   IndentIncrease, IndentDecrease,
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
-  Keyboard, Pin, PinOff, Compass,
-  CalendarClock,
+  Keyboard, Pin, PinOff,
+  CalendarClock, ChevronsDownUp, ChevronsUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
+import { createRelationWithFeedback } from '@/state/relationActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
   saveShowHistogram, saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
@@ -54,7 +55,7 @@ export interface RibbonButtonBinding {
   onClick?: () => void;
   active?: boolean;
   disabled?: boolean;
-  /** Tooltip (alleen kleine knoppen). */
+  /** Tooltip (kleine én grote knoppen). */
   title?: string;
   /** Icoon-override voor knoppen die van staat wisselen (bv. Pin/PinOff, Eye/EyeOff). */
   icon?: ReactNode;
@@ -124,21 +125,25 @@ const relationButton: RibbonButtonSpec = {
     const setUI = useAppStore(s => s.setUI);
     const active = useAppStore(s => s.ui.showDependencyMode);
     const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
-    const addSequence = useAppStore(s => s.addSequence);
+    const { t } = useTranslation('menu');
+    // issue #40: de knop doet twee dingen afhankelijk van de selectie. Dat verraste (de melder zag
+    // "geen enkele actie"), dus de tooltip zegt vooraf wélke van de twee er nu gebeurt.
+    const pairMode = selectedTaskIds.length === 2;
     return {
       active,
+      title: pairMode
+        ? t('ribbon.relationHintPair')
+        : active ? t('ribbon.relationHintModeOff') : t('ribbon.relationHintModeOn'),
       onClick: () => {
         // issue #21 punt 4: bij precies 2 geselecteerde taken direct een Finish-Start-relatie
         // aanleggen (voorganger = eerst aangeklikt), via hetzelfde pad als
         // RelationsPanel.addFromSelection — zelfde actie, defaults (FS, lag 0) en duplicaat-guard.
-        // In alle andere gevallen (0/1/>2 geselecteerd) de afhankelijkheids-modus togglen, zoals voorheen.
-        if (selectedTaskIds.length === 2) {
-          addSequence({
-            predecessorId: selectedTaskIds[0],
-            successorId: selectedTaskIds[1],
-            type: 'FINISH_START',
-            lagDays: 0,
-          });
+        // Issue #40: nu via de gedeelde wrapper, zodat succes én een geweigerd duplicaat een
+        // zichtbare melding geven in plaats van stil te blijven.
+        // In alle andere gevallen (0/1/>2 geselecteerd) de relatiemodus togglen — die stuurt sinds
+        // issue #40 écht gedrag aan (zie `ui.showDependencyMode`).
+        if (pairMode) {
+          createRelationWithFeedback(selectedTaskIds[0], selectedTaskIds[1]);
           return;
         }
         setUI({ showDependencyMode: !active });
@@ -542,23 +547,58 @@ const relationsTab: RibbonTabConfig = [
   { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
 ];
 
+/**
+ * Overzicht-groep (issue #35 punt 3): in- en uitklappen zijn APARTE knoppen, niet één toggle —
+ * met een toggle kun je een gemengde selectie nooit in één keer dezelfde kant op zetten.
+ *
+ * De knoppen zijn MODUS-BEWUST en dus nooit uitgeschakeld:
+ *  - boommodus: de selectie; zonder selectie het hele plan (`collapseTasks`/`expandTasks`);
+ *  - gegroepeerde weergave: alle groepsbanden (`collapseAllGroups`/`expandAllGroups`), want daar
+ *    negeert `computeViewRows` de taak-collapse volledig — de bandkoppen nemen het over.
+ * Een taakselectie heeft in gegroepeerde weergave bewust GEEN effect: dezelfde taak kan in
+ * meerdere banden vallen (resource-groepering) en een band is geen taak, dus er is geen zinnige
+ * vertaling van "deze taken" naar "deze banden". Alles-of-niets is daar het enige eerlijke gedrag.
+ */
+const outlineGroup: RibbonGroupSpec = {
+  id: 'outline', labelKey: 'menu:ribbon.outline',
+  items: [{
+    kind: 'stack', id: 'outlineStack', items: [
+      {
+        kind: 'small', id: 'collapseTasks', icon: <ChevronsDownUp size={14} />, labelKey: 'menu:ribbon.collapseTasks',
+        use: () => {
+          const collapseTasks = useAppStore(s => s.collapseTasks);
+          const collapseAllGroups = useAppStore(s => s.collapseAllGroups);
+          const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+          const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
+          const { t } = useTranslation('menu');
+          return {
+            onClick: () => (grouped ? collapseAllGroups() : collapseTasks(selectedTaskIds)),
+            title: t(grouped ? 'ribbon.collapseGroupsTitle' : 'ribbon.collapseTasksTitle'),
+          };
+        },
+      },
+      {
+        kind: 'small', id: 'expandTasks', icon: <ChevronsUpDown size={14} />, labelKey: 'menu:ribbon.expandTasks',
+        use: () => {
+          const expandTasks = useAppStore(s => s.expandTasks);
+          const expandAllGroups = useAppStore(s => s.expandAllGroups);
+          const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+          const grouped = useAppStore(s => (s.view.group?.length ?? 0) > 0);
+          const { t } = useTranslation('menu');
+          return {
+            onClick: () => (grouped ? expandAllGroups() : expandTasks(selectedTaskIds)),
+            title: t(grouped ? 'ribbon.expandGroupsTitle' : 'ribbon.expandTasksTitle'),
+          };
+        },
+      },
+    ],
+  }],
+};
+
 const beeldTab: RibbonTabConfig = [
   { id: 'timeScale', labelKey: 'menu:ribbon.timeScale', items: [{ kind: 'component', id: 'timeScale', Component: TimeScaleGroupContent }] },
   { id: 'display', labelKey: 'menu:ribbon.display', items: [{ kind: 'component', id: 'display', Component: DisplayGroupContent }] },
-  {
-    id: 'shortcuts', labelKey: 'common:shortcuts.title',
-    items: [{
-      kind: 'small', id: 'shortcuts', icon: <Keyboard size={14} />, labelKey: 'common:shortcuts.title',
-      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showShortcutsDialog: true }) }; },
-    }],
-  },
-  {
-    id: 'tour', labelKey: 'common:tour.restartButton',
-    items: [{
-      kind: 'small', id: 'tourRestart', icon: <Compass size={14} />, labelKey: 'common:tour.restartButton',
-      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showTourOverlay: true, tourStepIndex: 0 }) }; },
-    }],
-  },
+  outlineGroup,
   { id: 'layout', labelKey: 'menu:ribbon.layout', items: [{ kind: 'component', id: 'layout', Component: LayoutGroupContent }] },
   { id: 'presentation', labelKey: 'menu:ribbon.presentationMode', items: [{ kind: 'component', id: 'presentation', Component: PresentationGroupContent }] },
   {
@@ -580,32 +620,35 @@ const beeldTab: RibbonTabConfig = [
     id: 'overlays', labelKey: 'menu:ribbon.baselines',
     items: [
       {
-        kind: 'button', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={20} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
-        use: () => {
-          const showBaselineOverlay = useAppStore(s => s.ui.showBaselineOverlay);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showBaselineOverlay, onClick: () => { const next = !showBaselineOverlay; setUI({ showBaselineOverlay: next }); void saveShowBaselineOverlay(next); } };
-        },
-      },
-      {
-        kind: 'button', id: 'toggleProgressLine', icon: <TrendingUp size={20} />, labelKey: 'menu:ribbon.toggleProgressLine',
-        use: () => {
-          const showProgressLine = useAppStore(s => s.ui.showProgressLine);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showProgressLine, onClick: () => { const next = !showProgressLine; setUI({ showProgressLine: next }); void saveShowProgressLine(next); } };
-        },
-      },
-      {
-        kind: 'button', id: 'toggleStatusDateLine', icon: <CalendarDays size={20} />, labelKey: 'menu:ribbon.toggleStatusDateLine',
-        use: () => {
-          const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
-        },
+        kind: 'stack', id: 'overlaysStack', items: [
+          {
+            kind: 'small', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={14} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
+            use: () => {
+              const showBaselineOverlay = useAppStore(s => s.ui.showBaselineOverlay);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showBaselineOverlay, onClick: () => { const next = !showBaselineOverlay; setUI({ showBaselineOverlay: next }); void saveShowBaselineOverlay(next); } };
+            },
+          },
+          {
+            kind: 'small', id: 'toggleProgressLine', icon: <TrendingUp size={14} />, labelKey: 'menu:ribbon.toggleProgressLine',
+            use: () => {
+              const showProgressLine = useAppStore(s => s.ui.showProgressLine);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showProgressLine, onClick: () => { const next = !showProgressLine; setUI({ showProgressLine: next }); void saveShowProgressLine(next); } };
+            },
+          },
+          {
+            kind: 'small', id: 'toggleStatusDateLine', icon: <CalendarDays size={14} />, labelKey: 'menu:ribbon.toggleStatusDateLine',
+            use: () => {
+              const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
+            },
+          },
+        ],
       },
     ],
   },
-  { id: 'printing', labelKey: 'menu:ribbon.printing', items: [printPreviewButton] },
 ];
 
 const instellingenTab: RibbonTabConfig = [
@@ -623,6 +666,13 @@ const instellingenTab: RibbonTabConfig = [
     ],
   },
   { id: 'calendar', labelKey: 'menu:ribbon.calendar', items: [calendarButton] },
+  {
+    id: 'shortcuts', labelKey: 'common:shortcuts.title',
+    items: [{
+      kind: 'small', id: 'shortcuts', icon: <Keyboard size={14} />, labelKey: 'common:shortcuts.title',
+      use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showShortcutsDialog: true }) }; },
+    }],
+  },
 ];
 
 const tableTab: RibbonTabConfig = [

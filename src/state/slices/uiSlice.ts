@@ -13,12 +13,21 @@ export interface UiSlice {
   /** MCP-bridge: zet de alleen-lezen-vlag (muterende tools geweigerd zolang actief). */
   setAiReadOnly: (readOnly: boolean) => void;
   toggleCollapse: (taskId: string) => void;
-  /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLE summary-taken (childIds.length>0)
-   *  expliciet uit (collapsed=false, niet togglen). Geen undo — `collapsedTaskIds` is
-   *  UI-sessiestate, net als `toggleCollapse` hierboven (zit niet in de undo-snapshot, zie
-   *  `state/snapshot.ts`). */
+  /** Issue #35 punt 3: klap de opgegeven summary-taken expliciet IN (collapsed=true, niet togglen).
+   *  Zonder lijst — of met een lege lijst — geldt de actie voor ALLE summary-taken; zo kan de
+   *  ribbon-knop zonder selectie toch iets zinnigs doen. Ids die geen summary-taak zijn (geen
+   *  kinderen) worden stil genegeerd: een blad inklappen is betekenisloos, geen fout. Geen undo —
+   *  `collapsedTaskIds` is UI-sessiestate, net als `toggleCollapse` hierboven (zit niet in de
+   *  undo-snapshot, zie `state/snapshot.ts`). */
+  collapseTasks: (taskIds?: string[]) => void;
+  /** Issue #35 punt 3: tegenhanger van `collapseTasks` — klapt expliciet UIT. Zie daar. */
+  expandTasks: (taskIds?: string[]) => void;
+  /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLES uit in de HUIDIGE weergavemodus.
+   *  Boommodus ⇒ alle summary-taken (`expandTasks()`); gegroepeerde weergave ⇒ alle groepsbanden
+   *  (`expandAllGroups()`), want daar negeert `computeViewRows` de taak-collapse volledig en zou
+   *  de actie anders een dode klik zijn (issue #35). Dunne wrappers zodat er één waarheid is. */
   expandAll: () => void;
-  /** Golf 1 (fase 2.10): klap ALLE summary-taken expliciet in (collapsed=true). Zie `expandAll`. */
+  /** Golf 1 (fase 2.10): klap ALLES in in de huidige weergavemodus. Zie `expandAll`. */
   collapseAll: () => void;
   /** Presentatie-modus (§9): zet de flag + roept de echte Fullscreen-API aan. */
   setPresentationMode: (on: boolean) => void;
@@ -229,18 +238,49 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
     get().recomputeViewRows(); // taak-collapse verandert de zichtbaarheid van kinderen (§4.3).
   },
 
-  expandAll: () => {
+  collapseTasks: (taskIds) => {
+    set((s) => {
+      const summaryIds = s.tasks.filter((t) => t.childIds.length > 0).map((t) => t.id);
+      if (!taskIds || taskIds.length === 0) {
+        // Geen doellijst ⇒ alles. Bewust een VERVANGING (niet toevoegen): zo verdwijnen meteen ook
+        // ids van taken die inmiddels geen summary meer zijn.
+        s.ui.collapsedTaskIds = summaryIds;
+        return;
+      }
+      const isSummary = new Set(summaryIds);
+      const collapsed = new Set(s.ui.collapsedTaskIds);
+      for (const id of taskIds) {
+        if (!isSummary.has(id) || collapsed.has(id)) continue; // blad of al ingeklapt ⇒ overslaan
+        collapsed.add(id);
+        s.ui.collapsedTaskIds.push(id);
+      }
+    });
+    get().recomputeViewRows(); // collapse verandert de zichtbaarheid van kinderen (§4.3).
+  },
+
+  expandTasks: (taskIds) => {
     set((s) => {
       const summaryIds = new Set(s.tasks.filter((t) => t.childIds.length > 0).map((t) => t.id));
-      s.ui.collapsedTaskIds = s.ui.collapsedTaskIds.filter((id) => !summaryIds.has(id));
+      // Doellijst beperken tot echte summary-taken; zonder lijst gelden ze allemaal.
+      const targets = !taskIds || taskIds.length === 0
+        ? summaryIds
+        : new Set(taskIds.filter((id) => summaryIds.has(id)));
+      s.ui.collapsedTaskIds = s.ui.collapsedTaskIds.filter((id) => !targets.has(id));
     });
     get().recomputeViewRows();
   },
 
+  // Modus-bewust (issue #35): de enige aanroeper is het bandkop-contextmenu, en dat verschijnt
+  // alléén in gegroepeerde weergave — daar bedoelt "alles uit-/inklappen" dus de banden.
+  expandAll: () => {
+    const s = get();
+    if ((s.view.group?.length ?? 0) > 0) s.expandAllGroups();
+    else s.expandTasks();
+  },
+
   collapseAll: () => {
-    set((s) => {
-      s.ui.collapsedTaskIds = s.tasks.filter((t) => t.childIds.length > 0).map((t) => t.id);
-    });
-    get().recomputeViewRows();
+    const s = get();
+    if ((s.view.group?.length ?? 0) > 0) s.collapseAllGroups();
+    else s.collapseTasks();
   },
 });

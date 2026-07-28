@@ -178,7 +178,7 @@ export function writeIFC(input: WriteIFCInput): string {
     `IFCWORKPLAN(${ifcStr(ifcGuid(project.id + '_wp'))},#${ownerHistId},${ifcStr(project.name)},${ifcStr(project.description)},$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
 
   const workSchedId = addLine(ctx, '_worksched',
-    `IFCWORKSCHEDULE(${ifcStr(ifcGuid(project.id + '_ws'))},#${ownerHistId},${ifcStr('Bouwplanning v1.0')},$,$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
+    `IFCWORKSCHEDULE(${ifcStr(ifcGuid(project.id + '_ws'))},#${ownerHistId},${ifcStr('Construction schedule v1.0')},$,$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
 
   // Baselines (fase 2.6, §8.3) — per baseline één `.BASELINE.`-IfcWorkSchedule-header (Name +
   // CreationDate, ZONDER taak-duplicatie: de datums leven verliesloos in het OPS_Baselines-JSON
@@ -604,7 +604,13 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
     timePeriodRefs = `#${timePeriodId}`;
   }
   const recurrenceId = addLine(ctx, '_recurrence', `IFCRECURRENCEPATTERN(.WEEKLY.,$,(${dayNums}),$,$,$,$,(${timePeriodRefs}))`);
-  const workTimeId = addLine(ctx, '_worktime', `IFCWORKTIME('Standaard werkweek',.PREDICTED.,$,#${recurrenceId},$,$)`);
+  // Engelstalig label (#39): dit belandt in ELK opgeslagen IFC-bestand, ook bij een gebruiker die
+  // de app in het Duits of Japans draait — en IFC is een Engelstalige standaard, dus een Nederlands
+  // label is hier vreemde eend. Veilig te wijzigen: de lezer gebruikt van dit "hoofd"-IFCWORKTIME
+  // alleen args[3] (de RecurrencePattern-ref), nooit de naam. Let op het verschil met de
+  // FEESTDAG-IFCWORKTIME's in ExceptionTimes: dáár leest de lezer args[0] wél, als feestdagnaam —
+  // die komen uit `cal.holidays` en staan hier los van.
+  const workTimeId = addLine(ctx, '_worktime', `IFCWORKTIME('Standard work week',.PREDICTED.,$,#${recurrenceId},$,$)`);
 
   // Holidays as exception times
   const holidayRefs: string[] = [];

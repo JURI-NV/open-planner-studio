@@ -122,6 +122,13 @@
     "deleteTemplate": "Sjabloon verwijderen",
     "collapseRibbon": "Lint inklappen",
     "expandRibbon": "Lint uitklappen",
+    "outline": "Overzicht",
+    "collapseTasks": "Inklappen",
+    "expandTasks": "Uitklappen",
+    "collapseTasksTitle": "Geselecteerde samenvattingstaken inklappen (zonder selectie: alle)",
+    "expandTasksTitle": "Geselecteerde samenvattingstaken uitklappen (zonder selectie: alle)",
+    "collapseGroupsTitle": "Alle groepen inklappen (gegroepeerde weergave)",
+    "expandGroupsTitle": "Alle groepen uitklappen (gegroepeerde weergave)",
     "resourceManagement": "Beheer",
     "openResourcePanel": "Resources",
     "dockResourcePanel": "Vastzetten",
@@ -162,7 +169,10 @@
     "presentationMode": "Presentatie",
     "splitView": "Split view",
     "miniMap": "Mini-map",
-    "moveProject": "Project verplaatsen…"
+    "moveProject": "Project verplaatsen…",
+    "relationHintModeOn": "Relatiemodus aanzetten: sleep daarna in de Gantt van balk naar balk",
+    "relationHintModeOff": "Relatiemodus uitzetten",
+    "relationHintPair": "Eind-Start-relatie leggen tussen de twee geselecteerde taken"
   },
   "ifc": {
     "title": "IFC-editor",

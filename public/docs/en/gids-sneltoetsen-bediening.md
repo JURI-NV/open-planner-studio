@@ -33,7 +33,8 @@ Right-clicking in the Gantt view gives a different menu depending on where the m
 - **On a task row without a bar hit** (for example a row with no bar currently visible) — the same
   task menu, but without the bar-specific item.
 - **On a group header row** (the row that summarizes a grouped set of tasks) — a small menu to
-  collapse/expand that one group, plus **Expand all**/**Collapse all** for the whole tree.
+  collapse/expand that one group, plus **Expand all**/**Collapse all**, which open or close every
+  group band at once (including bands nested inside a band).
 - **On empty canvas** (no task, no group header) — **New task**, **Add milestone**, **Paste** (if
   there's something on the clipboard), **Reset zoom** and **Fit to project**.
 

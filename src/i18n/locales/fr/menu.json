@@ -122,6 +122,13 @@
     "deleteTemplate": "Supprimer le modèle",
     "collapseRibbon": "Réduire le ruban",
     "expandRibbon": "Développer le ruban",
+    "outline": "Plan",
+    "collapseTasks": "Réduire",
+    "expandTasks": "Développer",
+    "collapseTasksTitle": "Réduire les tâches récapitulatives sélectionnées (sans sélection : toutes)",
+    "expandTasksTitle": "Développer les tâches récapitulatives sélectionnées (sans sélection : toutes)",
+    "collapseGroupsTitle": "Réduire tous les groupes (affichage groupé)",
+    "expandGroupsTitle": "Développer tous les groupes (affichage groupé)",
     "resourceManagement": "Gérer",
     "openResourcePanel": "Ressources",
     "dockResourcePanel": "Ancrer",
@@ -162,7 +169,10 @@
     "presentationMode": "Présentation",
     "splitView": "Vue partagée",
     "miniMap": "Mini-carte",
-    "moveProject": "Déplacer le projet…"
+    "moveProject": "Déplacer le projet…",
+    "relationHintModeOn": "Activer le mode lien : glissez ensuite d'une barre à l'autre dans le Gantt",
+    "relationHintModeOff": "Désactiver le mode lien",
+    "relationHintPair": "Créer une relation Fin-Début entre les deux tâches sélectionnées"
   },
   "ifc": {
     "title": "Éditeur IFC",

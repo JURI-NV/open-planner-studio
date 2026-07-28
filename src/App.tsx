@@ -7,6 +7,7 @@ import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
 import '@/components/layout/TitleBar/TitleBar.css';
 import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
 import { StatusBar } from '@/components/layout/StatusBar/StatusBar';
+import { TooltipHost } from '@/components/common/Tooltip';
 import { GanttCanvas } from '@/components/canvas/GanttCanvas';
 import { TaskPropertiesPanel } from '@/components/panels/TaskPropertiesPanel';
 import { TableEditor } from '@/components/panels/TableEditor';
@@ -33,6 +34,7 @@ import { UI_FONT_STACKS } from '@/utils/uiFont';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
+import { DependencyModeNotice } from '@/components/layout/DependencyModeNotice';
 import { NotificationHost } from '@/components/layout/NotificationHost';
 
 // Code-splitting (pakket E2): componenten die pas achter een `ui.show*`-vlag, een ribbontab of een
@@ -244,6 +246,10 @@ function AppContent() {
           wordt omdat er gefilterd/gegroepeerd/gesorteerd wordt. */}
       <StructureLockedNotice />
 
+      {/* Relatiemodus-strook (issue #40): zichtbaar zolang de Relatie-knop/het contextmenu de
+          "plakkende Shift" heeft aangezet — sleep dan in de Gantt van balk naar balk. */}
+      <DependencyModeNotice />
+
       {/* Backstage view (File-tab actief) — neemt de volledige body over.
           Anders: gradient strip + main content. */}
       {activeTab === 'file' ? (
@@ -447,6 +453,7 @@ function AppContent() {
           Suspense-dialogenblok, als laatste kind van de buitenste div), zodat een opslaafout óók
           zichtbaar is wanneer de File-tab (Backstage) de body overneemt. */}
       <NotificationHost />
+      <TooltipHost />
     </div>
   );
 }

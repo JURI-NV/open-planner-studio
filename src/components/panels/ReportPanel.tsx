@@ -9,6 +9,7 @@ import { paginateCanvasToPdfBytes, paginateCanvasToTiles } from '@/services/prin
 import { ensureInterLoaded, getInterFontBytes, getArabicFontBytes } from '@/services/pdf/fontLoader';
 import { RTL_LOCALES, type Locale } from '@/i18n/config';
 import { Select } from '@/components/common/Select';
+import { useSplitter } from '@/hooks/useSplitter';
 import { isTauri } from '@/utils/platform';
 import { DEFAULT_REPORT_SETTINGS, loadReportSettings, saveReportSettings } from '@/utils/reportSettings';
 import { useDisplayDate } from '@/hooks/displayDate';
@@ -104,6 +105,12 @@ const PREVIEW_RENDER_SCALE = 2;
 /** Maximaal aantal papiervellen dat de preview toont (rest verwijst naar de export). */
 const PREVIEW_MAX_PAGES = 30;
 
+/** Instellingenkolom (issue #38 punt 3): startbreedte (oude vaste `w-64`) + sleepgrenzen. Geen
+ *  eigen max-constante — de bovengrens is 50% van de kaartbreedte, dus dynamisch (zie `useSplitter`
+ *  hieronder), net als de rechterpaneel-breedte in App.tsx. */
+const SETTINGS_PANEL_DEFAULT_WIDTH = 256;
+const SETTINGS_PANEL_MIN_WIDTH = 200;
+
 /** Eén papiervel in de preview: PNG-dataURL + echte puntmaat (voor de beeldverhouding). */
 interface PreviewPage {
   dataUrl: string;
@@ -166,6 +173,27 @@ export function ReportPanel() {
   // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
   // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
   const [reportFontScale, setReportFontScale] = useState(DEFAULT_REPORT_SETTINGS.reportFontScale);
+
+  // Instellingenkolom horizontaal sleepbaar (issue #38 punt 3) — vaste `w-64` bood geen enkel
+  // handvat en de rechterkolom (live preview) kreeg dus nooit ruimte terug. Zelfde generieke
+  // sleeppatroon als de rechterpaneel-splitter in App.tsx en de tabel/chart-splitter in
+  // GanttCanvas (`useSplitter`): losse React-state (bewust NIET gepersisteerd — dit is een
+  // layout-voorkeur van dit ene paneel, geen rapportinstelling die mee-exporteert, dus hoort niet
+  // in `reportSettings.ts` of de 3-plekken-instellingenregel thuis). `containerRef` wijst naar de
+  // buitenste flex-rij (instellingen + preview) zodat de sleeppositie relatief aan DIE rand wordt
+  // berekend, niet aan het venster — de kolom staat immers niet tegen de vensterrand.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [settingsWidth, setSettingsWidth] = useState(SETTINGS_PANEL_DEFAULT_WIDTH);
+  const settingsSplitter = useSplitter({
+    min: SETTINGS_PANEL_MIN_WIDTH,
+    max: () => Math.round((containerRef.current?.getBoundingClientRect().width ?? 800) * 0.5),
+    computeSize: e => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return NaN;
+      return Math.round(e.clientX - rect.left);
+    },
+    onResize: w => { if (!Number.isNaN(w)) setSettingsWidth(w); },
+  });
 
   // --- Persistentie van de rapportopties (localStorage, sleutel `ops-reportSettings`) -----------
   //
@@ -547,9 +575,32 @@ export function ReportPanel() {
   const leafCount = tasks.filter(t => t.childIds.length === 0).length;
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-surface">
-      {/* Left: Settings panel */}
-      <div className="w-64 flex-shrink-0 overflow-y-auto p-3 flex flex-col gap-3" style={{ borderRight: '1px solid var(--theme-border)' }}>
+    <div ref={containerRef} className="flex-1 flex overflow-hidden bg-surface" style={{ position: 'relative' }}>
+      {/* Sleepgrijpzone — zelfde patroon als de rechterpaneel-splitter in App.tsx en de tabel/
+          chart-splitter in GanttCanvas: onzichtbare grijpzone over de rand (geen aparte balk,
+          geen kleur, geen ruimtebeslag). Bewust een kind van de BUITENSTE container en niet van de
+          instellingenkolom: die kolom scrollt (`overflow-y-auto`), en een zone die 4px buiten haar
+          rand steekt telde daar mee als scrollbreedte — precies de horizontale scrollbar die issue
+          #38 punt 3 meldt. `insetInlineStart` (i.p.v. `left`) houdt 'm in RTL (ar/fa) aan dezelfde
+          logische rand, want de instellingenkolom is in beide richtingen het eerste flex-kind. */}
+      <div
+        onMouseDown={e => { e.preventDefault(); settingsSplitter.start(); }}
+        style={{
+          position: 'absolute',
+          insetInlineStart: settingsWidth - 4,
+          top: 0,
+          bottom: 0,
+          width: 8,
+          cursor: 'col-resize',
+          zIndex: 10,
+        }}
+      />
+      {/* Left: Settings panel — breedte sleepbaar (issue #38 punt 3). `min-w-0` op de kolom zelf
+          voorkomt dat ZIJN eigen rijen de kolom breder duwen dan `settingsWidth`. */}
+      <div
+        className="flex-shrink-0 min-w-0 overflow-y-auto p-3 flex flex-col gap-3"
+        style={{ width: settingsWidth, borderRight: '1px solid var(--theme-border)' }}
+      >
         <span
           className="text-xs font-bold uppercase"
           style={{ fontFamily: 'var(--font-heading)', letterSpacing: '0.08em', color: 'var(--theme-text-muted)' }}
@@ -559,6 +610,7 @@ export function ReportPanel() {
 
         {/* Rapporttype (fase 2.4): Gantt-afdruk of mijlpalen-overzicht */}
         <Select
+          className="w-full min-w-0"
           aria-label={t('reportType.label')}
           value={reportType}
           onChange={v => setReportType(v as 'gantt' | 'milestones' | 'variance')}
@@ -619,8 +671,8 @@ export function ReportPanel() {
           <h3 className="ui-card-header !text-xs mb-2">{t('settings')}</h3>
           <div className="flex flex-col gap-2 text-xs">
             {/* Company name */}
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('company', { defaultValue: 'Bedrijf:' })}</label>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('company', { defaultValue: 'Bedrijf:' })}</label>
               <input
                 type="text"
                 value={companyName}
@@ -631,15 +683,15 @@ export function ReportPanel() {
             </div>
 
             {/* Author (read-only from project) */}
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('author', { defaultValue: 'Auteur:' })}</label>
-              <span className="flex-1 px-2 py-1 text-xs text-text-secondary">{project.author || '-'}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('author', { defaultValue: 'Auteur:' })}</label>
+              <span className="flex-1 min-w-0 truncate px-2 py-1 text-xs text-text-secondary">{project.author || '-'}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('paper')}</label>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('paper')}</label>
               <Select
-                className="flex-1"
+                className="flex-1 min-w-0"
                 aria-label={t('paper')}
                 value={paperSize}
                 onChange={v => setPaperSize(v as 'A3' | 'A4' | 'A1')}
@@ -650,10 +702,10 @@ export function ReportPanel() {
                 ]}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('orientation')}</label>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('orientation')}</label>
               <Select
-                className="flex-1"
+                className="flex-1 min-w-0"
                 aria-label={t('orientation')}
                 value={orientation}
                 onChange={v => setOrientation(v as 'landscape' | 'portrait')}
@@ -666,10 +718,10 @@ export function ReportPanel() {
 
             {/* Lettergrootte van het rapport (issue #25 punt 4). Relatief bedoeld: bij een grotere
                 letter groeien tekst, rijen en tabel op het vel en levert de tijdlijn breedte in. */}
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('reportFontScaleLabel')}</label>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('reportFontScaleLabel')}</label>
               <Select
-                className="flex-1"
+                className="flex-1 min-w-0"
                 aria-label={t('reportFontScaleLabel')}
                 value={String(reportFontScale)}
                 onChange={v => setReportFontScale(Number(v))}
@@ -678,34 +730,34 @@ export function ReportPanel() {
             </div>
 
             {/* Auto-fit checkbox */}
-            <label className="flex items-center gap-2 mt-1">
-              <input type="checkbox" checked={autoFit} onChange={e => setAutoFit(e.target.checked)} className="accent-accent" />
-              <span>{t('autoFit', { defaultValue: 'Auto-fit op papier' })}</span>
+            <label className="flex items-center gap-2 mt-1 min-w-0">
+              <input type="checkbox" checked={autoFit} onChange={e => setAutoFit(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('autoFit', { defaultValue: 'Auto-fit op papier' })}</span>
             </label>
 
             {/* Custom zoom slider (only when auto-fit is off) */}
             {!autoFit && (
-              <div className="flex items-center gap-2">
-                <label className="text-text-secondary w-20">{t('zoom', { defaultValue: 'Zoom:' })}</label>
+              <div className="flex items-center gap-2 min-w-0">
+                <label className="text-text-secondary w-20 flex-shrink-0">{t('zoom', { defaultValue: 'Zoom:' })}</label>
                 <input
                   type="range"
                   min={5}
                   max={40}
                   value={customZoom}
                   onChange={e => setCustomZoom(Number(e.target.value))}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
-                <span className="w-8 text-right">{customZoom}</span>
+                <span className="w-8 flex-shrink-0 text-right">{customZoom}</span>
               </div>
             )}
 
             {/* Tijdlijn over N paginabreedtes (issue #25 punt 5). Alleen zinvol in fit-width-modus;
                 in 'actual'-modus (autoFit uit) tegelt de export sowieso al horizontaal, daarom
                 `disabled` — met een hint die dat uitlegt, zichtbaar zodra de keuze uitgeschakeld is. */}
-            <div className="flex items-center gap-2">
-              <label className="text-text-secondary w-20">{t('timelineColumnsLabel')}</label>
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('timelineColumnsLabel')}</label>
               <Select
-                className="flex-1"
+                className="flex-1 min-w-0"
                 aria-label={t('timelineColumnsLabel')}
                 value={String(timelineColumns)}
                 onChange={v => setTimelineColumns(Number(v))}
@@ -721,38 +773,38 @@ export function ReportPanel() {
             )}
 
             {/* Kop op elke pagina herhalen (issue #25 punt 1) */}
-            <label className="flex items-center gap-2 mt-1">
-              <input type="checkbox" checked={repeatHeader} onChange={e => setRepeatHeader(e.target.checked)} className="accent-accent" />
-              <span>{t('repeatHeader')}</span>
+            <label className="flex items-center gap-2 mt-1 min-w-0">
+              <input type="checkbox" checked={repeatHeader} onChange={e => setRepeatHeader(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('repeatHeader')}</span>
             </label>
 
-            <label className="flex items-center gap-2 mt-1">
-              <input type="checkbox" checked={showTaskNames} onChange={e => setShowTaskNames(e.target.checked)} className="accent-accent" />
-              <span>{t('showTaskNames', { defaultValue: 'Taaknamen op staafjes' })}</span>
+            <label className="flex items-center gap-2 mt-1 min-w-0">
+              <input type="checkbox" checked={showTaskNames} onChange={e => setShowTaskNames(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showTaskNames', { defaultValue: 'Taaknamen op staafjes' })}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showCompletion} onChange={e => setShowCompletion(e.target.checked)} className="accent-accent" />
-              <span>{t('showCompletion', { defaultValue: 'Voltooiing tonen' })}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showCompletion} onChange={e => setShowCompletion(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showCompletion', { defaultValue: 'Voltooiing tonen' })}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showCritical} onChange={e => setShowCritical(e.target.checked)} className="accent-accent" />
-              <span>{t('showCriticalPath')}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showCritical} onChange={e => setShowCritical(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showCriticalPath')}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showFloat} onChange={e => setShowFloat(e.target.checked)} className="accent-accent" />
-              <span>{t('showFloat')}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showFloat} onChange={e => setShowFloat(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showFloat')}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showDeps} onChange={e => setShowDeps(e.target.checked)} className="accent-accent" />
-              <span>{t('showDependencies')}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showDeps} onChange={e => setShowDeps(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showDependencies')}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showWeekends} onChange={e => setShowWeekends(e.target.checked)} className="accent-accent" />
-              <span>{t('showWeekends')}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showWeekends} onChange={e => setShowWeekends(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showWeekends')}</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showLegend} onChange={e => setShowLegend(e.target.checked)} className="accent-accent" />
-              <span>{t('showLegend')}</span>
+            <label className="flex items-center gap-2 min-w-0">
+              <input type="checkbox" checked={showLegend} onChange={e => setShowLegend(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('showLegend')}</span>
             </label>
           </div>
         </div>

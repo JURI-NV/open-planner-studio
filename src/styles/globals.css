@@ -323,6 +323,20 @@ html, body, #root {
   background: var(--theme-text-dim);
 }
 
+/* Zwevende scrollbalken over de Gantt-kaart (issue #35). De balken van de Gantt zijn overlays
+   BINNEN het pane in plaats van een eigen goot/rij eromheen, zodat de kaart en de takenlijst tot
+   de rand doorlopen. Een dekkende track zou dat weer tenietdoen — die legt alsnog een 8px strook
+   over het canvas — dus alleen de duim is zichtbaar. De DIKTE blijft de 8px hierboven: die is
+   gelijk aan de SCROLLBAR_GUTTER in GanttCanvas.tsx, waarmee de overlay-strook precies één
+   scrollbalk breed/hoog is en er geen dode klikzone naast de balk ontstaat. */
+.gantt-overlay-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb) transparent;
+}
+.gantt-overlay-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Selection */
 ::selection {
   background: var(--theme-accent);

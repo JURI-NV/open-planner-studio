@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { getGanttScrollBounds } from '@/utils/ganttViewport';
-import type { WheelFunction } from '@/state/slices/types';
+import { resolveWheelFunction } from '@/utils/ganttWheel';
 
 interface UseGanttZoomOpts {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -9,10 +9,6 @@ interface UseGanttZoomOpts {
 }
 
 const ZOOM_FACTOR_PER_TICK = 1.1;
-
-// Position-mode split thresholds (fixed, no user slider for now).
-const HORIZONTAL_SPLIT = 0.5; // fraction of width: left half vs right half
-const VERTICAL_BAND = 0.3;    // fraction of height: top band (near timescale)
 
 export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts) {
   const view = useAppStore(s => s.view);
@@ -68,41 +64,18 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
       const delta =
         Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
 
-      // Decide which function this wheel event performs.
-      let fn: WheelFunction;
-      if (mode === 'drag') {
-        // Drag mode: the wheel zooms (cursor-anchored), no modifier needed.
-        // Panning is done by dragging the canvas (see GanttCanvas).
-        // Shift+wiel scrolt wél de rijen: sinds issue #22 is dit de STANDAARDmodus, en zonder
-        // deze uitzondering is verticaal scrollen alleen bereikbaar door de chart-achtergrond te
-        // slepen — wat niet werkt vanuit de takentabel (die gaat naar rij-slepen/box-select) en
-        // er is geen verticale scrollbar of sneltoets als alternatief.
-        fn = e.shiftKey ? 'vertical' : 'zoom';
-      } else if (mode === 'modifier') {
-        if (e.ctrlKey || e.metaKey) fn = map.ctrl;
-        else if (e.shiftKey) fn = map.shift;
-        else fn = map.plain;
-      } else {
-        // position mode: modifiers are fixed overrides, otherwise by cursor.
-        if (e.ctrlKey || e.metaKey) {
-          fn = 'zoom';
-        } else if (e.shiftKey) {
-          fn = 'horizontal';
-        } else {
-          const fracX = rect.width > 0 ? anchorX / rect.width : 0;
-          const fracY = rect.height > 0 ? anchorY / rect.height : 0;
-          if (division === 'left-right') {
-            fn = fracX < HORIZONTAL_SPLIT ? 'vertical' : 'horizontal';
-          } else if (division === 'top-bottom') {
-            // Top band (near the timescale) pans horizontally; below scrolls rows.
-            fn = fracY < VERTICAL_BAND ? 'horizontal' : 'vertical';
-          } else {
-            // corner: top-right quadrant pans horizontally; everything else vertical.
-            const topRight = fracX >= HORIZONTAL_SPLIT && fracY < 0.5;
-            fn = topRight ? 'horizontal' : 'vertical';
-          }
-        }
-      }
+      // Decide which function this wheel event performs. De beslissing zelf staat in
+      // `@/utils/ganttWheel` omdat het secundaire split-view-pane (GanttCanvas) exact dezelfde
+      // semantiek moet volgen — met alleen andere doelen om naartoe te schrijven.
+      const fn = resolveWheelFunction({
+        mode,
+        ctrl: e.ctrlKey || e.metaKey,
+        shift: e.shiftKey,
+        fracX: rect.width > 0 ? anchorX / rect.width : 0,
+        fracY: rect.height > 0 ? anchorY / rect.height : 0,
+        division,
+        map,
+      });
 
       // Execute the chosen function.
       if (fn === 'zoom') {

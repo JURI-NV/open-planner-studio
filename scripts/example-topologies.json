@@ -24,259 +24,259 @@
   "defs": [
     {
       "id": "proj-grachtenpand",
-      "name": "Nieuwbouw Grachtenpand Amsterdam",
-      "description": "Nieuwbouw 3-laags grachtenpand met kelder",
+      "name": "New-Build Canal House, Amsterdam",
+      "description": "New three-storey canal house with basement",
       "startDate": "2026-03-02",
       "endDate": "2027-05-01",
       "author": "Jan de Vries",
-      "company": "Amsterdam Bouw BV",
+      "company": "Amsterdam Construction BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Damwanden plaatsen",
+              "name": "Install sheet piling",
               "duration": 10,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Bemaling installeren",
+              "name": "Install dewatering",
               "duration": 5,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Grondonderzoek uitvoeren",
+              "name": "Carry out soil investigation",
               "duration": 3
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering & Kelder",
+          "name": "2. Foundations & basement",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Ontgraven bouwput",
+              "name": "Excavate building pit",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingspalen heien",
+              "name": "Drive foundation piles",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Wapening kelder",
+              "name": "Rebar fixing, basement",
               "duration": 8
             },
             {
-              "name": "Keldervloer storten",
+              "name": "Pour basement floor",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Kelderwanden storten",
+              "name": "Pour basement walls",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Waterdichting kelder",
+              "name": "Basement waterproofing",
               "duration": 5
             },
             {
-              "name": "Terugvullen bouwput",
+              "name": "Backfill building pit",
               "duration": 5,
               "taskType": "LOGISTIC"
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond metselwerk",
+              "name": "Ground floor masonry",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Vloer 1e verdieping",
+              "name": "First floor slab",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "1e verdieping metselwerk",
+              "name": "First floor masonry",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Vloer 2e verdieping",
+              "name": "Second floor slab",
               "duration": 5
             },
             {
-              "name": "2e verdieping metselwerk",
+              "name": "Second floor masonry",
               "duration": 10
             },
             {
-              "name": "Vloer 3e verdieping",
+              "name": "Third floor slab",
               "duration": 5
             },
             {
-              "name": "3e verdieping metselwerk",
+              "name": "Third floor masonry",
               "duration": 8
             },
             {
-              "name": "Dakconstructie hout",
+              "name": "Timber roof structure",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Dakbedekking",
+              "name": "Roofing",
               "duration": 8
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie",
+              "name": "Facade insulation",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Gevelbekleding natuursteen",
+              "name": "Natural stone cladding",
               "duration": 15,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Kozijnen plaatsen",
+              "name": "Install window frames",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Beglazing",
+              "name": "Glazing",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra eerste fix",
+              "name": "Electrical first fix",
               "duration": 10
             },
             {
-              "name": "Loodgieter eerste fix",
+              "name": "Plumbing first fix",
               "duration": 8
             },
             {
-              "name": "CV-installatie",
+              "name": "Heating installation",
               "duration": 10,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Ventilatie systeem",
+              "name": "Ventilation system",
               "duration": 8
             },
             {
-              "name": "Domotica bekabeling",
+              "name": "Home automation cabling",
               "duration": 5
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Binnenwanden",
+              "name": "Internal walls",
               "duration": 10
             },
             {
-              "name": "Stucwerk",
+              "name": "Plastering",
               "duration": 12
             },
             {
-              "name": "Tegelwerk badkamers",
+              "name": "Bathroom tiling",
               "duration": 8
             },
             {
-              "name": "Dekvloeren",
+              "name": "Screed floors",
               "duration": 5
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 10
             },
             {
-              "name": "Keuken plaatsen",
+              "name": "Install kitchen",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Sanitair afmonteren",
+              "name": "Second-fix sanitary fittings",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Vloerafwerking",
+              "name": "Floor finishes",
               "duration": 8
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Buitenruimte aanleggen",
+              "name": "Construct outdoor areas",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Schoonmaak",
+              "name": "Cleaning",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Eindcontrole installaties",
+              "name": "Final inspection of services",
               "duration": 3
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -286,191 +286,191 @@
     },
     {
       "id": "proj-school-renovatie",
-      "name": "Renovatie Basisschool De Regenboog",
-      "description": "Energetische renovatie en uitbreiding basisschool",
+      "name": "Renovation of De Regenboog Primary School",
+      "description": "Energy-efficiency renovation and extension of a primary school",
       "startDate": "2026-06-29",
       "endDate": "2026-12-18",
       "author": "Petra Jansen",
-      "company": "SchoolBouw Nederland",
+      "company": "SchoolBuild Netherlands",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Inventarisatie asbest",
+              "name": "Asbestos survey",
               "duration": 3
             },
             {
-              "name": "Tijdelijke huisvesting inrichten",
+              "name": "Set up temporary accommodation",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 3,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Start renovatie",
+              "name": "Start of renovation",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Sloop & Strippen",
+          "name": "2. Demolition & strip-out",
           "wbs": "2",
           "taskType": "DEMOLITION",
           "children": [
             {
-              "name": "Asbestsanering",
+              "name": "Asbestos removal",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Strippen interieur",
+              "name": "Strip out interior",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Sloop binnenwanden",
+              "name": "Demolish internal walls",
               "duration": 5
             },
             {
-              "name": "Dakbedekking verwijderen",
+              "name": "Remove roofing",
               "duration": 5
             },
             {
-              "name": "Kozijnen verwijderen",
+              "name": "Remove window frames",
               "duration": 3
             }
           ]
         },
         {
-          "name": "3. Constructief",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Funderingsherstel",
+              "name": "Foundation repair",
               "duration": 5
             },
             {
-              "name": "Staalconstructie versterking",
+              "name": "Structural steel strengthening",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Nieuwe dakconstructie",
+              "name": "New roof structure",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Uitbreiding metselwerk",
+              "name": "Extension masonry",
               "duration": 10
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie buitenzijde",
+              "name": "External facade insulation",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Nieuwe kozijnen HR++",
+              "name": "New HR++ window frames",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Dakisolatie en dakbedekking",
+              "name": "Roof insulation and roofing",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra vernieuwen",
+              "name": "Renew electrical installation",
               "duration": 8
             },
             {
-              "name": "Warmtepomp installeren",
+              "name": "Install heat pump",
               "duration": 5
             },
             {
-              "name": "Vloerverwarming",
+              "name": "Underfloor heating",
               "duration": 8,
               "depType": "SS",
               "lag": 2
             },
             {
-              "name": "Ventilatie WTW",
+              "name": "Heat recovery ventilation",
               "duration": 5
             },
             {
-              "name": "Zonnepanelen",
+              "name": "Solar panels",
               "duration": 5
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Binnenwanden plaatsen",
+              "name": "Install internal walls",
               "duration": 8
             },
             {
-              "name": "Plafonds",
+              "name": "Ceilings",
               "duration": 5
             },
             {
-              "name": "Vloerafwerking",
+              "name": "Floor finishes",
               "duration": 5
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 8
             },
             {
-              "name": "Sanitair",
+              "name": "Sanitary fittings",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Inrichting lokalen",
+              "name": "Classroom furnishing",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Buitenterrein",
+              "name": "External areas",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -480,283 +480,283 @@
     },
     {
       "id": "proj-kantoor-zuidas",
-      "name": "Kantoorgebouw Zuidas",
-      "description": "8-laags kantoorgebouw met parkeerkelder BREEAM Excellent",
+      "name": "Zuidas Office Building",
+      "description": "Eight-storey office building with basement car park, BREEAM Excellent",
       "startDate": "2026-02-02",
       "endDate": "2027-08-01",
       "author": "Mark Bakker",
-      "company": "Zuidas Ontwikkeling BV",
+      "company": "Zuidas Development BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 8,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Omgevingsmanagement",
+              "name": "Stakeholder management",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Verkeersmaatregelen",
+              "name": "Traffic management",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Monitoring peilbuizen",
+              "name": "Piezometer monitoring",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Grondwerk & Fundering",
+          "name": "2. Earthworks & foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Damwand profielen",
+              "name": "Sheet pile sections",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Bronbemaling",
+              "name": "Wellpoint dewatering",
               "duration": 5,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Ontgraven -2",
+              "name": "Excavate to level -2",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Ontgraven -1",
+              "name": "Excavate to level -1",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingspalen boren",
+              "name": "Bore foundation piles",
               "duration": 20,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken",
+              "name": "Foundation beams",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Keldervloer P2",
+              "name": "Basement floor P2",
               "duration": 8
             },
             {
-              "name": "Keldervloer P1",
+              "name": "Basement floor P1",
               "duration": 8
             },
             {
-              "name": "Kelderwanden storten",
+              "name": "Pour basement walls",
               "duration": 12
             },
             {
-              "name": "Waterdichting kelder",
+              "name": "Basement waterproofing",
               "duration": 8
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond kolommen & vloer",
+              "name": "Ground floor columns & slab",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Verdieping 1 ruwbouw",
+              "name": "Floor 1 structural works",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Verdieping 2 ruwbouw",
+              "name": "Floor 2 structural works",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Verdieping 3 ruwbouw",
+              "name": "Floor 3 structural works",
               "duration": 8
             },
             {
-              "name": "Verdieping 4 ruwbouw",
+              "name": "Floor 4 structural works",
               "duration": 8
             },
             {
-              "name": "Verdieping 5 ruwbouw",
+              "name": "Floor 5 structural works",
               "duration": 8
             },
             {
-              "name": "Verdieping 6 ruwbouw",
+              "name": "Floor 6 structural works",
               "duration": 8
             },
             {
-              "name": "Verdieping 7 ruwbouw",
+              "name": "Floor 7 structural works",
               "duration": 8
             },
             {
-              "name": "Verdieping 8 ruwbouw",
+              "name": "Floor 8 structural works",
               "duration": 8
             },
             {
-              "name": "Trappenhuis kern beton",
+              "name": "Concrete stair and lift core",
               "duration": 20,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Dakconstructie staal",
+              "name": "Steel roof structure",
               "duration": 10
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel",
+          "name": "4. Facade",
           "wbs": "4",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Vliesgevel montage fase 1",
+              "name": "Curtain wall installation, phase 1",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Vliesgevel montage fase 2",
+              "name": "Curtain wall installation, phase 2",
               "duration": 15
             },
             {
-              "name": "Vliesgevel montage fase 3",
+              "name": "Curtain wall installation, phase 3",
               "duration": 12
             },
             {
-              "name": "Dakafwerking en installaties",
+              "name": "Roof finishes and services",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Hoofdverdeelruimte elektra",
+              "name": "Main electrical switchroom",
               "duration": 10
             },
             {
-              "name": "Stijgleidingen elektra",
+              "name": "Risers, electrical",
               "duration": 12
             },
             {
-              "name": "Stijgleidingen W-installatie",
+              "name": "Risers, mechanical services",
               "duration": 12,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Luchtbehandelingskasten",
+              "name": "Air handling units",
               "duration": 10
             },
             {
-              "name": "Kanaalwerk ventilatie",
+              "name": "Ventilation ductwork",
               "duration": 15
             },
             {
-              "name": "Sprinklerinstallatie",
+              "name": "Sprinkler installation",
               "duration": 10
             },
             {
-              "name": "Liftinstallatie",
+              "name": "Lift installation",
               "duration": 20
             },
             {
-              "name": "BMS/gebouwbeheer",
+              "name": "BMS/building management",
               "duration": 8
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Systeemwanden kantoren",
+              "name": "Office system partitions",
               "duration": 15
             },
             {
-              "name": "Verlaagde plafonds",
+              "name": "Suspended ceilings",
               "duration": 12
             },
             {
-              "name": "Verhoogde vloeren",
+              "name": "Raised floors",
               "duration": 10
             },
             {
-              "name": "Sanitaire ruimten",
+              "name": "Sanitary rooms",
               "duration": 8
             },
             {
-              "name": "Keuken/pantry inbouw",
+              "name": "Kitchen/pantry fit-out",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk & afwerking",
+              "name": "Painting & finishing",
               "duration": 10
             }
           ]
         },
         {
-          "name": "7. Terrein & Oplevering",
+          "name": "7. Site works & handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Bestrating & groenvoorziening",
+              "name": "Paving & landscaping",
               "duration": 10
             },
             {
-              "name": "Inrichting entree & lobby",
+              "name": "Entrance & lobby fit-out",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Testen & inregelen",
+              "name": "Testing & commissioning",
               "duration": 10,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -766,257 +766,257 @@
     },
     {
       "id": "proj-appartementen-ehv",
-      "name": "Woningbouw 24 Appartementen Eindhoven",
-      "description": "24 appartementen in 4 bouwlagen met parkeerkelder",
+      "name": "24 Apartments, Eindhoven",
+      "description": "24 apartments over four storeys with basement car park",
       "startDate": "2026-03-16",
       "endDate": "2027-07-01",
       "author": "Sophie van Dijk",
-      "company": "Wonen Zuid BV",
+      "company": "Housing South BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Heiwerk proefbelasting",
+              "name": "Pile load test",
               "duration": 3,
               "isCritical": true
             },
             {
-              "name": "Nutsvoorzieningen omleggen",
+              "name": "Divert utilities",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien funderingspalen",
+              "name": "Pile driving, foundation piles",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Grondwerk parkeerkelder",
+              "name": "Earthworks, basement car park",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken en poeren",
+              "name": "Foundation beams and pile caps",
               "duration": 8
             },
             {
-              "name": "Keldervloer storten",
+              "name": "Pour basement floor",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Kelderwanden",
+              "name": "Basement walls",
               "duration": 8
             },
             {
-              "name": "Waterdichting",
+              "name": "Waterproofing",
               "duration": 5
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond wanden en vloer",
+              "name": "Ground floor walls and slab",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "1e verdieping beton",
+              "name": "First floor concrete",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "2e verdieping beton",
+              "name": "Second floor concrete",
               "duration": 10
             },
             {
-              "name": "3e verdieping beton",
+              "name": "Third floor concrete",
               "duration": 10
             },
             {
-              "name": "4e verdieping beton",
+              "name": "Fourth floor concrete",
               "duration": 10
             },
             {
-              "name": "Trappenhuis beton",
+              "name": "Concrete stair core",
               "duration": 15,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Dakopbouw",
+              "name": "Roof build-up",
               "duration": 8
             },
             {
-              "name": "Balkonconstructies",
+              "name": "Balcony structures",
               "duration": 10
             },
             {
-              "name": "Metselwerk gevels",
+              "name": "Facade masonry",
               "duration": 20
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie",
+              "name": "Facade insulation",
               "duration": 12,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kozijnen en beglazing",
+              "name": "Window frames and glazing",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Dakbedekking en isolatie",
+              "name": "Roofing and insulation",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Balkonhekwerk",
+              "name": "Balcony balustrades",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra stijgleidingen",
+              "name": "Electrical risers",
               "duration": 10
             },
             {
-              "name": "Loodgieter stijgleidingen",
+              "name": "Plumbing risers",
               "duration": 10,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "CV-leidingwerk per woning",
+              "name": "Heating pipework per dwelling",
               "duration": 12
             },
             {
-              "name": "Ventilatie WTW units",
+              "name": "Heat recovery ventilation units",
               "duration": 8
             },
             {
-              "name": "Liftinstallatie",
+              "name": "Lift installation",
               "duration": 15
             },
             {
-              "name": "Intercom en toegang",
+              "name": "Intercom and access control",
               "duration": 5
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Binnenwanden stellen",
+              "name": "Set out internal walls",
               "duration": 10
             },
             {
-              "name": "Stucwerk",
+              "name": "Plastering",
               "duration": 12
             },
             {
-              "name": "Tegelwerk",
+              "name": "Tiling",
               "duration": 10
             },
             {
-              "name": "Dekvloeren",
+              "name": "Screed floors",
               "duration": 8
             },
             {
-              "name": "Binnendeuren",
+              "name": "Internal doors",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Keukenopstelling",
+              "name": "Kitchen units installation",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 10
             },
             {
-              "name": "Vloerafwerking",
+              "name": "Floor finishes",
               "duration": 8
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Terreinverharding",
+              "name": "Site paving",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Groenvoorziening",
+              "name": "Landscaping",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Schoonmaak",
+              "name": "Cleaning",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Vooroplevering woningen",
+              "name": "Pre-handover inspection, dwellings",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -1026,207 +1026,207 @@
     },
     {
       "id": "proj-brug-n279",
-      "name": "Brugvervanging N279",
-      "description": "Vervanging bestaande brug door nieuwe betonnen brug",
+      "name": "N279 Bridge Replacement",
+      "description": "Replacement of the existing bridge with a new concrete bridge",
       "startDate": "2026-04-01",
       "endDate": "2027-04-01",
       "author": "Henk Mulder",
-      "company": "Infra Nederland BV",
+      "company": "Infra Netherlands BV",
       "phases": [
         {
-          "name": "1. Voorbereiding & Omleidingen",
+          "name": "1. Preparation & diversions",
           "wbs": "1",
           "taskType": "LOGISTIC",
           "children": [
             {
-              "name": "Verkeersmaatregelen instellen",
+              "name": "Implement traffic management",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Tijdelijke omleidingsroute",
+              "name": "Temporary diversion route",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5
             },
             {
-              "name": "Vaarbeperkingen instellen",
+              "name": "Impose shipping restrictions",
               "duration": 3
             },
             {
-              "name": "Start werkzaamheden",
+              "name": "Start of works",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Sloop oude brug",
+          "name": "2. Demolition of old bridge",
           "wbs": "2",
           "taskType": "DEMOLITION",
           "children": [
             {
-              "name": "Leidingen omleggen",
+              "name": "Divert services",
               "duration": 8,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Asfalt verwijderen",
+              "name": "Remove asphalt",
               "duration": 3,
               "isCritical": true
             },
             {
-              "name": "Brugleuningen demonteren",
+              "name": "Remove bridge railings",
               "duration": 3
             },
             {
-              "name": "Brugdek slopen",
+              "name": "Demolish bridge deck",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Landhoofden slopen",
+              "name": "Demolish abutments",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Puin afvoeren",
+              "name": "Remove rubble",
               "duration": 5,
               "taskType": "LOGISTIC"
             }
           ]
         },
         {
-          "name": "3. Fundering nieuw",
+          "name": "3. New foundations",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Damwanden slaan",
+              "name": "Drive sheet piling",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Onderwaterbeton",
+              "name": "Underwater concrete",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Droogzetten bouwkuip",
+              "name": "Dewater excavation pit",
               "duration": 5
             },
             {
-              "name": "Paalfundering boren",
+              "name": "Bore pile foundation",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Grondverbetering",
+              "name": "Ground improvement",
               "duration": 5
             }
           ]
         },
         {
-          "name": "4. Betonconstructie",
+          "name": "4. Concrete structure",
           "wbs": "4",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Landhoofd west wapenen en storten",
+              "name": "West abutment: rebar and pour",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Landhoofd oost wapenen en storten",
+              "name": "East abutment: rebar and pour",
               "duration": 15,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Pijler midden storten",
+              "name": "Pour central pier",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Prefab liggers plaatsen",
+              "name": "Place precast beams",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Brugdek wapening",
+              "name": "Bridge deck reinforcement",
               "duration": 10
             },
             {
-              "name": "Brugdek storten",
+              "name": "Pour bridge deck",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Uitharding beton",
+              "name": "Concrete curing",
               "duration": 15
             }
           ]
         },
         {
-          "name": "5. Afwerking",
+          "name": "5. Finishing",
           "wbs": "5",
           "children": [
             {
-              "name": "Brugleuningen monteren",
+              "name": "Install bridge railings",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Waterdichting brugdek",
+              "name": "Bridge deck waterproofing",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Asfalt brugdek",
+              "name": "Asphalt bridge deck",
               "duration": 3,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Asfalt aansluitingen",
+              "name": "Asphalt tie-ins",
               "duration": 5
             },
             {
-              "name": "Verlichting",
+              "name": "Lighting",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Geleiderail",
+              "name": "Crash barrier",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "6. Oplevering",
+          "name": "6. Handover",
           "wbs": "6",
           "children": [
             {
-              "name": "Proefbelasting",
+              "name": "Load test",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Omleidingen opheffen",
+              "name": "Remove diversions",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Bouwplaats opruimen",
+              "name": "Clear site",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Openstelling brug",
+              "name": "Bridge open to traffic",
               "milestone": true,
               "isCritical": true
             }
@@ -1236,224 +1236,224 @@
     },
     {
       "id": "proj-parkeergarage-utrecht",
-      "name": "Parkeergarage Stationsplein Utrecht",
-      "description": "Ondergrondse parkeergarage 3 lagen, 400 plaatsen",
+      "name": "Stationsplein Car Park, Utrecht",
+      "description": "Three-level underground car park, 400 spaces",
       "startDate": "2026-03-02",
       "endDate": "2027-06-01",
       "author": "Robert Visser",
-      "company": "Ondergronds Bouwen BV",
+      "company": "Underground Construction BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Kabels en leidingen verleggen",
+              "name": "Divert cables and pipes",
               "duration": 10,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Monitoring omgeving",
+              "name": "Environmental monitoring",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Verkeersmaatregelen",
+              "name": "Traffic management",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Bouwkuip",
+          "name": "2. Excavation pit",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Diepwanden uitvoeren",
+              "name": "Construct diaphragm walls",
               "duration": 20,
               "isCritical": true
             },
             {
-              "name": "Stempels niveau 1",
+              "name": "Struts, level 1",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Ontgraven laag 1",
+              "name": "Excavate layer 1",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Stempels niveau 2",
+              "name": "Struts, level 2",
               "duration": 8
             },
             {
-              "name": "Ontgraven laag 2",
+              "name": "Excavate layer 2",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Stempels niveau 3",
+              "name": "Struts, level 3",
               "duration": 8
             },
             {
-              "name": "Ontgraven laag 3",
+              "name": "Excavate layer 3",
               "duration": 10
             },
             {
-              "name": "Onderwaterbeton vloer",
+              "name": "Underwater concrete slab",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Droogpompen",
+              "name": "Pump dry",
               "duration": 5
             },
             {
-              "name": "Bouwkuip droog",
+              "name": "Excavation pit dry",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Betonconstructie",
+          "name": "3. Concrete structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Vloer niveau -3",
+              "name": "Slab at level -3",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Kolommen en wanden -3",
+              "name": "Columns and walls, level -3",
               "duration": 8
             },
             {
-              "name": "Vloer niveau -2",
+              "name": "Slab at level -2",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Kolommen en wanden -2",
+              "name": "Columns and walls, level -2",
               "duration": 8
             },
             {
-              "name": "Vloer niveau -1",
+              "name": "Slab at level -1",
               "duration": 10
             },
             {
-              "name": "Kolommen en wanden -1",
+              "name": "Columns and walls, level -1",
               "duration": 8
             },
             {
-              "name": "Dek parkeergarage",
+              "name": "Car park deck",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Stempels verwijderen",
+              "name": "Remove struts",
               "duration": 8,
               "taskType": "DEMOLITION"
             },
             {
-              "name": "Waterdichting",
+              "name": "Waterproofing",
               "duration": 10
             }
           ]
         },
         {
-          "name": "4. Installaties",
+          "name": "4. Building services",
           "wbs": "4",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra hoofdverdeling",
+              "name": "Main electrical distribution",
               "duration": 8
             },
             {
-              "name": "Verlichting parkeerlagen",
+              "name": "Lighting, parking levels",
               "duration": 10
             },
             {
-              "name": "Ventilatie en CO-detectie",
+              "name": "Ventilation and CO detection",
               "duration": 10
             },
             {
-              "name": "Sprinklerinstallatie",
+              "name": "Sprinkler installation",
               "duration": 8
             },
             {
-              "name": "Parkeergeleiding systeem",
+              "name": "Parking guidance system",
               "duration": 5
             },
             {
-              "name": "Liftinstallatie",
+              "name": "Lift installation",
               "duration": 12
             },
             {
-              "name": "Brandmeldinstallatie",
+              "name": "Fire alarm system",
               "duration": 5
             }
           ]
         },
         {
-          "name": "5. Afwerking",
+          "name": "5. Finishing",
           "wbs": "5",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Vloercoating aanbrengen",
+              "name": "Apply floor coating",
               "duration": 8
             },
             {
-              "name": "Belijning en bewegwijzering",
+              "name": "Road marking and signage",
               "duration": 5
             },
             {
-              "name": "Toegangscontrole slagbomen",
+              "name": "Access control barriers",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Nooduitgangen afwerken",
+              "name": "Finish emergency exits",
               "duration": 5
             }
           ]
         },
         {
-          "name": "6. Bovengronds herstel",
+          "name": "6. Surface reinstatement",
           "wbs": "6",
           "children": [
             {
-              "name": "Plein opnieuw inrichten",
+              "name": "Redevelop the square",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Bestrating en groen",
+              "name": "Paving and landscaping",
               "duration": 8
             },
             {
-              "name": "Verkeersmaatregelen opheffen",
+              "name": "Remove traffic management",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -1463,198 +1463,198 @@
     },
     {
       "id": "proj-industriehal-venlo",
-      "name": "Industriehal Logistiek Venlo",
-      "description": "Logistieke hal 10.000m2 met kantoorruimte",
+      "name": "Logistics Warehouse, Venlo",
+      "description": "10,000 m2 logistics warehouse with office space",
       "startDate": "2026-04-01",
       "endDate": "2026-12-01",
       "author": "Kees van der Berg",
-      "company": "Hallenbouw Limburg BV",
+      "company": "Limburg Hall Construction BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwterrein bouwrijp",
+              "name": "Site ready for construction",
               "duration": 5,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Riolering en nutsaansluitingen",
+              "name": "Sewerage and utility connections",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Grondverbetering",
+              "name": "Ground improvement",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Funderingsstroken storten",
+              "name": "Pour strip foundations",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Vloer op staal voorbereiden",
+              "name": "Prepare shallow-founded slab",
               "duration": 8
             }
           ]
         },
         {
-          "name": "3. Staalconstructie",
+          "name": "3. Steel structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Staalkolommen plaatsen",
+              "name": "Erect steel columns",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Stalen spanten monteren",
+              "name": "Erect steel trusses",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Gordingen en windverbanden",
+              "name": "Purlins and wind bracing",
               "duration": 5
             },
             {
-              "name": "Kraanbaan installeren",
+              "name": "Install crane runway",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Dakplaten sandwichpanelen",
+              "name": "Sandwich roof decking",
               "duration": 10,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Gevelbeplating",
+              "name": "Facade cladding",
               "duration": 12,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Overheaddeuren",
+              "name": "Overhead doors",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Lichtstraten dak",
+              "name": "Roof lights",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Vloer & Installaties",
+          "name": "5. Floor & services",
           "wbs": "5",
           "children": [
             {
-              "name": "Betonvloer hal storten",
+              "name": "Pour concrete hall floor",
               "duration": 10,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Vloerafwerking coating",
+              "name": "Floor coating",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Elektra-installatie hal",
+              "name": "Electrical installation, hall",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Verlichting hal",
+              "name": "Lighting, hall",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Brandmeldinstallatie",
+              "name": "Fire alarm system",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "6. Kantoorgedeelte",
+          "name": "6. Office section",
           "wbs": "6",
           "children": [
             {
-              "name": "Kantoor binnenwanden",
+              "name": "Office internal walls",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Kantoor installaties",
+              "name": "Office building services",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kantoor afwerking",
+              "name": "Office finishes",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Sanitaire voorzieningen",
+              "name": "Sanitary facilities",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "7. Terrein & Oplevering",
+          "name": "7. Site works & handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Terreinverharding",
+              "name": "Site paving",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Terreinverlichting",
+              "name": "Site lighting",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Hekwerk en poort",
+              "name": "Fencing and gate",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -1664,238 +1664,238 @@
     },
     {
       "id": "proj-zorgcentrum",
-      "name": "Zorgcentrum De Linde",
-      "description": "Nieuwbouw zorgcentrum 60 kamers met behandelruimten",
+      "name": "De Linde Care Centre",
+      "description": "New-build care centre with 60 rooms and treatment areas",
       "startDate": "2026-03-02",
       "endDate": "2027-05-01",
       "author": "Linda de Groot",
-      "company": "Zorgbouw Nederland BV",
+      "company": "Healthcare Construction Netherlands BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Grondonderzoek aanvullend",
+              "name": "Additional soil investigation",
               "duration": 3
             },
             {
-              "name": "Bomen kappen en verplanten",
+              "name": "Fell and transplant trees",
               "duration": 3,
               "taskType": "DEMOLITION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien funderingspalen",
+              "name": "Pile driving, foundation piles",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken",
+              "name": "Foundation beams",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Riolering en grondleidingen",
+              "name": "Sewerage and underground pipework",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Begane grondvloer storten",
+              "name": "Pour ground floor slab",
               "duration": 8,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond draagstructuur",
+              "name": "Ground floor load-bearing structure",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Verdieping 1 beton",
+              "name": "Floor 1 concrete",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Verdieping 2 beton",
+              "name": "Floor 2 concrete",
               "duration": 10
             },
             {
-              "name": "Metselwerk gevels",
+              "name": "Facade masonry",
               "duration": 15
             },
             {
-              "name": "Binnenwanden kalkzandsteen",
+              "name": "Internal walls, sand-lime brick",
               "duration": 10
             },
             {
-              "name": "Dakconstructie",
+              "name": "Roof structure",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie en afwerking",
+              "name": "Facade insulation and finish",
               "duration": 12,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kozijnen en puien",
+              "name": "Window frames and screens",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Dakisolatie en bedekking",
+              "name": "Roof insulation and covering",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Dakranden en hemelwaterafvoer",
+              "name": "Roof edges and rainwater drainage",
               "duration": 5
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra hoofdverdeling",
+              "name": "Main electrical distribution",
               "duration": 8
             },
             {
-              "name": "Noodstroomvoorziening",
+              "name": "Emergency power supply",
               "duration": 5
             },
             {
-              "name": "Zuurstof en medische gassen",
+              "name": "Oxygen and medical gases",
               "duration": 8
             },
             {
-              "name": "CV en koeling",
+              "name": "Heating and cooling",
               "duration": 10,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Ventilatie met HEPA filters",
+              "name": "Ventilation with HEPA filters",
               "duration": 10
             },
             {
-              "name": "Sprinkler en BMI",
+              "name": "Sprinkler and fire alarm",
               "duration": 8
             },
             {
-              "name": "Liftinstallatie",
+              "name": "Lift installation",
               "duration": 15
             },
             {
-              "name": "Zuster-oproepsysteem",
+              "name": "Nurse call system",
               "duration": 5
             },
             {
-              "name": "ICT bekabeling",
+              "name": "ICT cabling",
               "duration": 8
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Scheidingswanden",
+              "name": "Partition walls",
               "duration": 8
             },
             {
-              "name": "Plafonds en wanden afwerken",
+              "name": "Finish ceilings and walls",
               "duration": 10
             },
             {
-              "name": "Tegelwerk natte ruimten",
+              "name": "Tiling, wet rooms",
               "duration": 8
             },
             {
-              "name": "Dekvloeren en vloerafwerking",
+              "name": "Screeds and floor finishes",
               "duration": 8
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 10
             },
             {
-              "name": "Keukens en pantry",
+              "name": "Kitchens and pantry",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Sanitair plaatsen",
+              "name": "Install sanitary fittings",
               "duration": 5,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Buitenterrein aanleggen",
+              "name": "Construct external areas",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Inrichting kamers",
+              "name": "Room furnishing",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Testen installaties",
+              "name": "Test building services",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -1905,145 +1905,145 @@
     },
     {
       "id": "proj-riool-delft",
-      "name": "Rioolvervanging Centrum Delft",
-      "description": "Vervanging hoofdriool binnenstad inclusief herinrichting",
+      "name": "Sewer Replacement, Delft City Centre",
+      "description": "Replacement of the city-centre main sewer including street reinstatement",
       "startDate": "2026-05-04",
       "endDate": "2026-10-01",
       "author": "Bas Hendriks",
       "company": "Delft Infra BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "taskType": "LOGISTIC",
           "children": [
             {
-              "name": "Bewonersbrief en communicatie",
+              "name": "Resident letter and communication",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Verkeersmaatregelen",
+              "name": "Traffic management",
               "duration": 3,
               "isCritical": true
             },
             {
-              "name": "Kabels en leidingen lokaliseren",
+              "name": "Locate cables and pipes",
               "duration": 3
             },
             {
-              "name": "Start werkzaamheden",
+              "name": "Start of works",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fase 1 - Noordzijde",
+          "name": "2. Phase 1 - north side",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Bestrating opbreken fase 1",
+              "name": "Break up paving, phase 1",
               "duration": 5,
               "taskType": "DEMOLITION",
               "isCritical": true
             },
             {
-              "name": "Ontgraven sleuf fase 1",
+              "name": "Excavate trench, phase 1",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Rioolbuizen leggen fase 1",
+              "name": "Lay sewer pipes, phase 1",
               "duration": 8,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Huisaansluitingen fase 1",
+              "name": "House connections, phase 1",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Aanvullen en verdichten fase 1",
+              "name": "Backfill and compact, phase 1",
               "duration": 5
             }
           ]
         },
         {
-          "name": "3. Fase 2 - Zuidzijde",
+          "name": "3. Phase 2 - south side",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Bestrating opbreken fase 2",
+              "name": "Break up paving, phase 2",
               "duration": 5,
               "taskType": "DEMOLITION",
               "isCritical": true
             },
             {
-              "name": "Ontgraven sleuf fase 2",
+              "name": "Excavate trench, phase 2",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Rioolbuizen leggen fase 2",
+              "name": "Lay sewer pipes, phase 2",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Huisaansluitingen fase 2",
+              "name": "House connections, phase 2",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Aanvullen en verdichten fase 2",
+              "name": "Backfill and compact, phase 2",
               "duration": 5
             }
           ]
         },
         {
-          "name": "4. Herinrichting",
+          "name": "4. Reinstatement",
           "wbs": "4",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Fundatie bestrating",
+              "name": "Paving sub-base",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Bestrating herleggen",
+              "name": "Relay paving",
               "duration": 8
             },
             {
-              "name": "Straatmeubilair plaatsen",
+              "name": "Install street furniture",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Groenvoorziening",
+              "name": "Landscaping",
               "duration": 3
             }
           ]
         },
         {
-          "name": "5. Oplevering",
+          "name": "5. Handover",
           "wbs": "5",
           "children": [
             {
-              "name": "Inspectie riool camera",
+              "name": "CCTV sewer inspection",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Verkeersmaatregelen opheffen",
+              "name": "Remove traffic management",
               "duration": 2,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -2053,240 +2053,240 @@
     },
     {
       "id": "proj-villa-wassenaar",
-      "name": "Villa Nieuwbouw Wassenaar",
-      "description": "Vrijstaande luxe villa met zwembad en gastenverblijf",
+      "name": "New-Build Villa, Wassenaar",
+      "description": "Detached luxury villa with swimming pool and guest house",
       "startDate": "2026-03-02",
       "endDate": "2027-03-01",
       "author": "Thomas van Leeuwen",
-      "company": "Exclusief Wonen BV",
+      "company": "Exclusive Living BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 3,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Bomen beschermen",
+              "name": "Protect trees",
               "duration": 2,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Grondwerk & Fundering",
+          "name": "2. Earthworks & foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Ontgraven zwembad",
+              "name": "Excavate swimming pool",
               "duration": 8
             },
             {
-              "name": "Funderingssleuven graven",
+              "name": "Excavate foundation trenches",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Fundering storten",
+              "name": "Pour foundations",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Riolering en drainage",
+              "name": "Sewerage and drainage",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kruipruimte opvullen",
+              "name": "Fill crawl space",
               "duration": 3
             },
             {
-              "name": "Begane grondvloer",
+              "name": "Ground floor slab",
               "duration": 5,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond metselwerk",
+              "name": "Ground floor masonry",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Verdiepingsvloer storten",
+              "name": "Pour upper floor slab",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Verdieping metselwerk",
+              "name": "Upper floor masonry",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Dakconstructie hout",
+              "name": "Timber roof structure",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Dakpannen",
+              "name": "Roof tiles",
               "duration": 5
             },
             {
-              "name": "Schoorstenen metsen",
+              "name": "Build chimneys",
               "duration": 3
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie",
+              "name": "Facade insulation",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kozijnen hardhouten",
+              "name": "Hardwood window frames",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Beglazing HR+++",
+              "name": "Triple glazing HR+++",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Zinken goten en HWA",
+              "name": "Zinc gutters and downpipes",
               "duration": 5
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra eerste fix",
+              "name": "Electrical first fix",
               "duration": 8
             },
             {
-              "name": "Loodgieter eerste fix",
+              "name": "Plumbing first fix",
               "duration": 8,
               "depType": "SS",
               "lag": 2
             },
             {
-              "name": "Vloerverwarming",
+              "name": "Underfloor heating",
               "duration": 8
             },
             {
-              "name": "Domotica systeem",
+              "name": "Home automation system",
               "duration": 5
             },
             {
-              "name": "Zwembadtechniek",
+              "name": "Pool plant",
               "duration": 10
             },
             {
-              "name": "Warmtepomp en bodem",
+              "name": "Heat pump and ground loop",
               "duration": 8
             },
             {
-              "name": "Zonnepanelen",
+              "name": "Solar panels",
               "duration": 3
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Stucwerk wanden en plafonds",
+              "name": "Plastering, walls and ceilings",
               "duration": 12
             },
             {
-              "name": "Tegelwerk badkamers luxe",
+              "name": "Luxury bathroom tiling",
               "duration": 10
             },
             {
-              "name": "Natuurstenen vloeren",
+              "name": "Natural stone floors",
               "duration": 8
             },
             {
-              "name": "Eiken trappen",
+              "name": "Oak staircases",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Maatwerk keuken",
+              "name": "Bespoke kitchen",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 10
             },
             {
-              "name": "Sanitair afmonteren",
+              "name": "Second-fix sanitary fittings",
               "duration": 5,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "7. Buitenwerk & Oplevering",
+          "name": "7. External works & handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Zwembad afbouwen",
+              "name": "Complete swimming pool",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Tuinaanleg",
+              "name": "Garden landscaping",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Oprit en bestrating",
+              "name": "Driveway and paving",
               "duration": 5
             },
             {
-              "name": "Schoonmaak",
+              "name": "Cleaning",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -2296,192 +2296,192 @@
     },
     {
       "id": "proj-sporthal-amstelveen",
-      "name": "Sporthal Gemeente Amstelveen",
-      "description": "Multifunctionele sporthal met 3 zalen en tribune",
+      "name": "Amstelveen Municipal Sports Hall",
+      "description": "Multifunctional sports hall with three courts and a grandstand",
       "startDate": "2026-04-01",
       "endDate": "2027-02-01",
       "author": "Erik Smit",
-      "company": "Sportbouw Holland BV",
+      "company": "Sports Facilities Holland BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Grondwerk bouwrijp",
+              "name": "Earthworks, site preparation",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heipalen slaan",
+              "name": "Drive piles",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken",
+              "name": "Foundation beams",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Vloer op palen begane grond",
+              "name": "Ground floor slab on piles",
               "duration": 8
             }
           ]
         },
         {
-          "name": "3. Constructie",
+          "name": "3. Structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Staalconstructie spanten",
+              "name": "Structural steel trusses",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Stalen kolommen",
+              "name": "Steel columns",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Tribuneconstructie beton",
+              "name": "Concrete grandstand structure",
               "duration": 10
             },
             {
-              "name": "Dakliggers monteren",
+              "name": "Install roof beams",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Dakplaten isolatie",
+              "name": "Roof deck insulation",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Dakbedekking bitumen",
+              "name": "Bituminous roofing",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Gevelpanelen",
+              "name": "Facade panels",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Puien entree",
+              "name": "Entrance screens",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Sportvloer & Installaties",
+          "name": "5. Sports floor & services",
           "wbs": "5",
           "children": [
             {
-              "name": "Sportvloer onderbouw",
+              "name": "Sports floor sub-base",
               "duration": 10,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Sportvloer toplaag",
+              "name": "Sports floor top layer",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Sportverlichting",
+              "name": "Sports lighting",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Klimaatinstallatie",
+              "name": "HVAC installation",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Scoreborden en AV",
+              "name": "Scoreboards and AV",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "children": [
             {
-              "name": "Kleedkamers afbouw",
+              "name": "Changing room fit-out",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Sanitair en douches",
+              "name": "Sanitary fittings and showers",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Entreehal afwerking",
+              "name": "Entrance hall finishes",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Belijning sportvelden",
+              "name": "Sports pitch line marking",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Buitenterrein en parkeren",
+              "name": "External areas and parking",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Testen installaties",
+              "name": "Test building services",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -2491,36 +2491,36 @@
     },
     {
       "id": "proj-windturbine-offshore",
-      "name": "Windturbine Fundatie Offshore",
-      "description": "Monopile fundatie voor offshore windturbine 15MW",
+      "name": "Offshore Wind Turbine Foundation",
+      "description": "Monopile foundation for a 15 MW offshore wind turbine",
       "startDate": "2026-04-01",
       "endDate": "2026-10-01",
       "author": "Freek de Wind",
       "company": "North Sea Energy BV",
       "phases": [
         {
-          "name": "1. Fabricage & Voorbereiding",
+          "name": "1. Fabrication & preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Monopile fabricage controle",
+              "name": "Monopile fabrication inspection",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Transition piece fabricage",
+              "name": "Transition piece fabrication",
               "duration": 10,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Mobilisatie installatievaartuig",
+              "name": "Mobilise installation vessel",
               "duration": 8,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Zeebodemsurvey",
+              "name": "Seabed survey",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
@@ -2530,61 +2530,61 @@
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start offshore",
+              "name": "Start of offshore works",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Zeebodem voorbereiding",
+          "name": "2. Seabed preparation",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Zeebodem egaliseren",
+              "name": "Level seabed",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Scour protection laag 1",
+              "name": "Scour protection, layer 1",
               "duration": 3,
               "isCritical": true
             },
             {
-              "name": "Weervenster bewaking",
+              "name": "Weather window monitoring",
               "duration": 3,
               "taskType": "ATTENDANCE"
             }
           ]
         },
         {
-          "name": "3. Monopile installatie",
+          "name": "3. Monopile installation",
           "wbs": "3",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Monopile upenden",
+              "name": "Upend monopile",
               "duration": 2,
               "isCritical": true
             },
             {
-              "name": "Monopile positioneren",
+              "name": "Position monopile",
               "duration": 2,
               "isCritical": true
             },
             {
-              "name": "Monopile heien",
+              "name": "Drive monopile",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Vertikaliteit controle",
+              "name": "Verticality check",
               "duration": 1,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Transition piece plaatsen",
+              "name": "Install transition piece",
               "duration": 3,
               "isCritical": true
             },
@@ -2596,63 +2596,63 @@
           ]
         },
         {
-          "name": "4. Afwerking",
+          "name": "4. Finishing",
           "wbs": "4",
           "children": [
             {
-              "name": "Scour protection laag 2",
+              "name": "Scour protection, layer 2",
               "duration": 3,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "J-tube installatie",
+              "name": "J-tube installation",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Platform en railing",
+              "name": "Platform and railing",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kathodische bescherming",
+              "name": "Cathodic protection",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Boatlanding monteren",
+              "name": "Install boat landing",
               "duration": 3,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "5. Kabel & Oplevering",
+          "name": "5. Cable & handover",
           "wbs": "5",
           "children": [
             {
-              "name": "Exportkabel pull-in",
+              "name": "Export cable pull-in",
               "duration": 5,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Kabel aansluiting",
+              "name": "Cable termination",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Inspectie en survey",
+              "name": "Inspection and survey",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Demobilisatie",
+              "name": "Demobilisation",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Fundatie gereed",
+              "name": "Foundation complete",
               "milestone": true,
               "isCritical": true
             }
@@ -2662,138 +2662,138 @@
     },
     {
       "id": "proj-supermarkt-ah",
-      "name": "Supermarkt Verbouwing Albert Heijn",
-      "description": "Interne verbouwing en uitbreiding supermarkt",
+      "name": "Albert Heijn Supermarket Refurbishment",
+      "description": "Internal refurbishment and extension of a supermarket",
       "startDate": "2026-08-10",
       "endDate": "2026-11-06",
       "author": "Anne Willems",
-      "company": "Winkelbouw Express BV",
+      "company": "Retail Build Express BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Winkel ontruimen",
+              "name": "Clear out store",
               "duration": 3,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Tijdelijke voorzieningen",
+              "name": "Temporary facilities",
               "duration": 2,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Start verbouwing",
+              "name": "Start of refurbishment",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Sloopwerk",
+          "name": "2. Demolition works",
           "wbs": "2",
           "taskType": "DEMOLITION",
           "children": [
             {
-              "name": "Bestaande inrichting slopen",
+              "name": "Demolish existing fit-out",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Vloer uitbreken deels",
+              "name": "Partially break out floor",
               "duration": 3
             },
             {
-              "name": "Achtergevel openen uitbreiding",
+              "name": "Open up rear facade for extension",
               "duration": 5,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Uitbreiding",
+          "name": "3. Extension",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Fundering uitbreiding",
+              "name": "Foundations, extension",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Staalconstructie uitbreiding",
+              "name": "Structural steel, extension",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Dak en gevel uitbreiding",
+              "name": "Roof and facade, extension",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Vloer uitbreiding",
+              "name": "Floor, extension",
               "duration": 3
             }
           ]
         },
         {
-          "name": "4. Installaties",
+          "name": "4. Building services",
           "wbs": "4",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Koelinstallatie vernieuwen",
+              "name": "Renew cooling installation",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Elektra uitbreiding",
+              "name": "Electrical, extension",
               "duration": 5
             },
             {
-              "name": "Ventilatie en airco",
+              "name": "Ventilation and air conditioning",
               "duration": 5
             },
             {
-              "name": "Brandmeldinstallatie",
+              "name": "Fire alarm system",
               "duration": 3
             }
           ]
         },
         {
-          "name": "5. Afbouw & Inrichting",
+          "name": "5. Fit-out & furnishing",
           "wbs": "5",
           "children": [
             {
-              "name": "Vloertegels leggen",
+              "name": "Lay floor tiles",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Plafonds en verlichting",
+              "name": "Ceilings and lighting",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Stellingen en koelingen",
+              "name": "Shelving and refrigeration",
               "duration": 5,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Kassa-eiland",
+              "name": "Checkout island",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Vullen en inrichten",
+              "name": "Stocking and fit-out",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Heropening",
+              "name": "Reopening",
               "milestone": true,
               "isCritical": true
             }
@@ -2803,183 +2803,183 @@
     },
     {
       "id": "proj-fietstunnel-arnhem",
-      "name": "Fietstunnel Station Arnhem",
-      "description": "Ondergrondse fietstunnel onder spooremplacement",
+      "name": "Cycle Tunnel, Arnhem Station",
+      "description": "Underground cycle tunnel beneath a railway yard",
       "startDate": "2026-03-02",
       "endDate": "2026-12-01",
       "author": "Marian Bos",
-      "company": "Tunnelbouw Oost BV",
+      "company": "Tunnel Construction East BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Kabels en leidingen verleggen",
+              "name": "Divert cables and pipes",
               "duration": 8,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Treinvrije periodes plannen",
+              "name": "Plan track possessions",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Damwanden plaatsen",
+              "name": "Install sheet piling",
               "duration": 10,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Bouwkuip",
+          "name": "2. Excavation pit",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Stempels plaatsen",
+              "name": "Install struts",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Ontgraven fase 1",
+              "name": "Excavation, phase 1",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Ontgraven fase 2",
+              "name": "Excavation, phase 2",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Grondwater bemaling",
+              "name": "Groundwater dewatering",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Onderwaterbeton",
+              "name": "Underwater concrete",
               "duration": 5,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Tunnelconstructie",
+          "name": "3. Tunnel structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Vloer tunnelbak",
+              "name": "Tunnel box floor",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Wanden tunnelbak",
+              "name": "Tunnel box walls",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Dak tunnelbak",
+              "name": "Tunnel box roof",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Waterdichting",
+              "name": "Waterproofing",
               "duration": 5
             },
             {
-              "name": "Terugvullen en verdichten",
+              "name": "Backfill and compact",
               "duration": 5,
               "taskType": "LOGISTIC"
             }
           ]
         },
         {
-          "name": "4. Toeritten",
+          "name": "4. Approach ramps",
           "wbs": "4",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Toerit noord betonwerk",
+              "name": "North approach ramp, concrete works",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Toerit zuid betonwerk",
+              "name": "South approach ramp, concrete works",
               "duration": 8,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Hellingbaan fietspad",
+              "name": "Cycle path ramp",
               "duration": 5
             }
           ]
         },
         {
-          "name": "5. Installaties & Afwerking",
+          "name": "5. Building services & finishing",
           "wbs": "5",
           "children": [
             {
-              "name": "Verlichting tunnel",
+              "name": "Tunnel lighting",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Pompinstallatie",
+              "name": "Pump installation",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Ventilatie",
+              "name": "Ventilation",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Betegeling en wandafwerking",
+              "name": "Tiling and wall finishes",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Fietspad asfalt",
+              "name": "Cycle path asphalt",
               "duration": 3,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Bewegwijzering",
+              "name": "Signage",
               "duration": 2,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "6. Oplevering",
+          "name": "6. Handover",
           "wbs": "6",
           "children": [
             {
-              "name": "Spoor herstellen",
+              "name": "Reinstate track",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Testen en keuren",
+              "name": "Testing and inspection",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Openstelling tunnel",
+              "name": "Tunnel open to traffic",
               "milestone": true,
               "isCritical": true
             }
@@ -2989,185 +2989,185 @@
     },
     {
       "id": "proj-datacenter",
-      "name": "Datacentrum Agriport A7",
-      "description": "Datacenter 5000m2 met eigen energievoorziening",
+      "name": "Agriport A7 Data Centre",
+      "description": "5,000 m2 data centre with its own power supply",
       "startDate": "2026-03-02",
       "endDate": "2027-03-01",
       "author": "Vincent Kok",
       "company": "Digital Infrastructure BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Terrein bouwrijp maken",
+              "name": "Prepare site for construction",
               "duration": 8,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Nutsaansluitingen 10kV",
+              "name": "10 kV utility connections",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Security hekwerk tijdelijk",
+              "name": "Temporary security fencing",
               "duration": 3,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien funderingspalen",
+              "name": "Pile driving, foundation piles",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken",
+              "name": "Foundation beams",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Vloer op palen storten",
+              "name": "Pour slab on piles",
               "duration": 8
             },
             {
-              "name": "Kabelgoten in vloer",
+              "name": "Cable trays in floor",
               "duration": 5,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "3. Constructie",
+          "name": "3. Structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Prefab betonwanden",
+              "name": "Precast concrete walls",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Staalconstructie dak",
+              "name": "Structural steel, roof",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Dakpanelen sandwich",
+              "name": "Sandwich roof panels",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Verhoogde computervloer",
+              "name": "Raised computer floor",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Waterdicht",
+          "name": "4. Facade & weathertight",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie en beplating",
+              "name": "Facade insulation and cladding",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Laadperrons en deuren",
+              "name": "Loading docks and doors",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Waterdichting dak",
+              "name": "Roof waterproofing",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Elektra & Koeling",
+          "name": "5. Power & cooling",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Transformatoren 10kV",
+              "name": "10 kV transformers",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "UPS systemen",
+              "name": "UPS systems",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Noodstroomgeneratoren",
+              "name": "Emergency generators",
               "duration": 8
             },
             {
-              "name": "Hoofdverdeling en PDU",
+              "name": "Main distribution and PDUs",
               "duration": 10
             },
             {
-              "name": "Koelmachines",
+              "name": "Chillers",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "CRAH units datahallen",
+              "name": "CRAH units, data halls",
               "duration": 8
             },
             {
-              "name": "Koeltorens buiten",
+              "name": "External cooling towers",
               "duration": 8
             }
           ]
         },
         {
-          "name": "6. ICT & Beveiliging",
+          "name": "6. ICT & security",
           "wbs": "6",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Glasvezel inkomend",
+              "name": "Incoming fibre optics",
               "duration": 5
             },
             {
-              "name": "Patchpanelen en bekabeling",
+              "name": "Patch panels and cabling",
               "duration": 8
             },
             {
-              "name": "Brandblussysteem gas",
+              "name": "Gas fire suppression system",
               "duration": 5
             },
             {
-              "name": "Toegangscontrole biometrisch",
+              "name": "Biometric access control",
               "duration": 5
             },
             {
-              "name": "CCTV systeem",
+              "name": "CCTV system",
               "duration": 5
             },
             {
@@ -3177,26 +3177,26 @@
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Testen failover scenario",
+              "name": "Test failover scenario",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Terreinafwerking",
+              "name": "Site finishing",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Certificering Tier III",
+              "name": "Tier III certification",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -3206,83 +3206,83 @@
     },
     {
       "id": "proj-dijk-markermeerdijk",
-      "name": "Dijk Versterking Markermeerdijk",
-      "description": "Dijkversterking 5km traject Hoorn-Amsterdam",
+      "name": "Markermeerdijk Dike Reinforcement",
+      "description": "Dike reinforcement over a 5 km stretch, Hoorn-Amsterdam",
       "startDate": "2026-03-02",
       "endDate": "2027-09-01",
       "author": "Dirk Waterschap",
-      "company": "Waterbouw Holland BV",
+      "company": "Hydraulic Engineering Holland BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Ecologisch onderzoek",
+              "name": "Ecological survey",
               "duration": 10,
               "taskType": "ATTENDANCE",
               "isCritical": true
             },
             {
-              "name": "Vergunningen waterbeheer",
+              "name": "Water management permits",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Grondaankoop afronden",
+              "name": "Complete land acquisition",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Bouwwegen aanleggen",
+              "name": "Construct site roads",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Depots inrichten",
+              "name": "Set up depots",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start werkzaamheden",
+              "name": "Start of works",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Voorbelasting",
+          "name": "2. Preloading",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Grond aanvoeren depot",
+              "name": "Deliver soil to depot",
               "duration": 15,
               "taskType": "LOGISTIC",
               "isCritical": true
             },
             {
-              "name": "Voorbelasting km 0-1",
+              "name": "Preloading, km 0-1",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Voorbelasting km 1-2",
+              "name": "Preloading, km 1-2",
               "duration": 10,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Voorbelasting km 2-3",
+              "name": "Preloading, km 2-3",
               "duration": 10
             },
             {
-              "name": "Zettingsperiode afwachten",
+              "name": "Await settlement period",
               "duration": 20,
               "isCritical": true
             },
             {
-              "name": "Monitoring zettingen",
+              "name": "Settlement monitoring",
               "duration": 20,
               "taskType": "ATTENDANCE",
               "depType": "SS"
@@ -3290,116 +3290,116 @@
           ]
         },
         {
-          "name": "3. Grondlichaam",
+          "name": "3. Embankment",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Voorbelasting verwijderen",
+              "name": "Remove preloading",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Geotextiel aanbrengen",
+              "name": "Install geotextile",
               "duration": 8
             },
             {
-              "name": "Kleilaag kern opbouwen km 0-2",
+              "name": "Build up clay core, km 0-2",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Kleilaag kern opbouwen km 2-5",
+              "name": "Build up clay core, km 2-5",
               "duration": 15
             },
             {
-              "name": "Zandkern aanbrengen",
+              "name": "Place sand core",
               "duration": 12
             },
             {
-              "name": "Profielcontrole inmeten",
+              "name": "Survey profile check",
               "duration": 5,
               "taskType": "ATTENDANCE"
             }
           ]
         },
         {
-          "name": "4. Bekleding & Erosiebescherming",
+          "name": "4. Revetment & erosion protection",
           "wbs": "4",
           "children": [
             {
-              "name": "Steenzetting binnentalud",
+              "name": "Stone revetment, inner slope",
               "duration": 12,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Grasmat buitentalud",
+              "name": "Grass cover, outer slope",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Teenconstructie waterzijde",
+              "name": "Toe structure, waterside",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Kreukelberm storten",
+              "name": "Place toe protection berm",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             }
           ]
         },
         {
-          "name": "5. Kunstwerken",
+          "name": "5. Civil structures",
           "wbs": "5",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Duiker renovatie",
+              "name": "Culvert renovation",
               "duration": 10
             },
             {
-              "name": "Gemaal aanpassen",
+              "name": "Modify pumping station",
               "duration": 8,
               "taskType": "RENOVATION"
             },
             {
-              "name": "Keersluis onderhoud",
+              "name": "Barrier lock maintenance",
               "duration": 5,
               "taskType": "MAINTENANCE"
             },
             {
-              "name": "Trappen en overgangen",
+              "name": "Stairs and transitions",
               "duration": 8
             }
           ]
         },
         {
-          "name": "6. Afwerking & Herstel",
+          "name": "6. Finishing & reinstatement",
           "wbs": "6",
           "children": [
             {
-              "name": "Dijkweg herstellen",
+              "name": "Reinstate dike road",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Fietspad aanleggen",
+              "name": "Construct cycle path",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Ecologisch herstel",
+              "name": "Ecological restoration",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Hekwerk en bebording",
+              "name": "Fencing and signage",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Oplevering",
+              "name": "Handover",
               "milestone": true,
               "isCritical": true
             }
@@ -3409,246 +3409,246 @@
     },
     {
       "id": "proj-hotel-scheveningen",
-      "name": "Hotel 120 Kamers Scheveningen",
-      "description": "Nieuwbouw 6-laags hotel aan boulevard met wellness",
+      "name": "120-Room Hotel, Scheveningen",
+      "description": "New-build six-storey seafront hotel with wellness facilities",
       "startDate": "2026-03-02",
       "endDate": "2027-07-01",
       "author": "Chantal Zee",
-      "company": "Kustbouw BV",
+      "company": "Coastal Construction BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Sloop bestaand pand",
+              "name": "Demolish existing building",
               "duration": 10,
               "taskType": "DEMOLITION",
               "isCritical": true
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Funderingsonderzoek",
+              "name": "Foundation survey",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Start nieuwbouw",
+              "name": "Start of new build",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Damwanden boulevard",
+              "name": "Sheet piling, boulevard",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Ontgraven kelder",
+              "name": "Excavate basement",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Funderingspalen",
+              "name": "Foundation piles",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Keldervloer wellness",
+              "name": "Basement floor, wellness",
               "duration": 8
             },
             {
-              "name": "Kelderwanden",
+              "name": "Basement walls",
               "duration": 8
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond lobby",
+              "name": "Ground floor lobby",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Verdieping 1 kamers",
+              "name": "Floor 1 rooms",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Verdieping 2 kamers",
+              "name": "Floor 2 rooms",
               "duration": 8
             },
             {
-              "name": "Verdieping 3 kamers",
+              "name": "Floor 3 rooms",
               "duration": 8
             },
             {
-              "name": "Verdieping 4 kamers",
+              "name": "Floor 4 rooms",
               "duration": 8
             },
             {
-              "name": "Verdieping 5 kamers",
+              "name": "Floor 5 rooms",
               "duration": 8
             },
             {
-              "name": "Penthouse verdieping",
+              "name": "Penthouse floor",
               "duration": 10
             },
             {
-              "name": "Dakterras constructie",
+              "name": "Roof terrace structure",
               "duration": 8
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel",
+          "name": "4. Facade",
           "wbs": "4",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Vliesgevel zeezijde",
+              "name": "Curtain wall, sea side",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Vliesgevel landzijde",
+              "name": "Curtain wall, land side",
               "duration": 10
             },
             {
-              "name": "Gevelbekleding natuursteen",
+              "name": "Natural stone cladding",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Kozijnen en beglazing",
+              "name": "Window frames and glazing",
               "duration": 8
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra hoofdverdeling",
+              "name": "Main electrical distribution",
               "duration": 8
             },
             {
-              "name": "Stijgleidingen alle media",
+              "name": "Risers, all services",
               "duration": 12
             },
             {
-              "name": "VRF klimaatsysteem",
+              "name": "VRF climate system",
               "duration": 10,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Ventilatie en luchtbehandeling",
+              "name": "Ventilation and air handling",
               "duration": 10
             },
             {
-              "name": "Liftinstallatie 2x",
+              "name": "Lift installation (2 units)",
               "duration": 15
             },
             {
-              "name": "Sprinkler en BMI",
+              "name": "Sprinkler and fire alarm",
               "duration": 8
             },
             {
-              "name": "Wellness installaties",
+              "name": "Wellness building services",
               "duration": 10
             },
             {
-              "name": "Hotelautomatisering",
+              "name": "Hotel automation",
               "duration": 5
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Kamerwanden prefab",
+              "name": "Prefab room walls",
               "duration": 12
             },
             {
-              "name": "Badkamer prefab units",
+              "name": "Prefab bathroom pods",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Dekvloeren en tapijt",
+              "name": "Screeds and carpet",
               "duration": 8
             },
             {
-              "name": "Lobby afwerking luxe",
+              "name": "Luxury lobby finishes",
               "duration": 10
             },
             {
-              "name": "Restaurant keuken",
+              "name": "Restaurant kitchen",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 10
             },
             {
-              "name": "Inrichting kamers",
+              "name": "Room furnishing",
               "duration": 10,
               "taskType": "LOGISTIC"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Dakterras afwerken",
+              "name": "Finish roof terrace",
               "duration": 5,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Buitenterrein boulevard",
+              "name": "External areas, boulevard",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Testen en inregelen",
+              "name": "Testing and commissioning",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering hotel",
+              "name": "Hotel handover",
               "milestone": true,
               "isCritical": true
             }
@@ -3658,234 +3658,234 @@
     },
     {
       "id": "proj-station-breda",
-      "name": "Treinstation Uitbreiding Breda",
-      "description": "Uitbreiding stationshal en extra perron met onderdoorgang",
+      "name": "Breda Railway Station Extension",
+      "description": "Extension of the station concourse and an extra platform with underpass",
       "startDate": "2026-02-02",
       "endDate": "2027-10-01",
       "author": "Willem Spoor",
-      "company": "Stationsbouw BV",
+      "company": "Station Construction BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Fasering treinverkeer",
+              "name": "Phasing of rail traffic",
               "duration": 5,
               "taskType": "ATTENDANCE",
               "isCritical": true
             },
             {
-              "name": "Tijdelijke perronvoorziening",
+              "name": "Temporary platform facility",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Kabels en leidingen spoor",
+              "name": "Rail cables and pipes",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start werkzaamheden",
+              "name": "Start of works",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Onderdoorgang",
+          "name": "2. Underpass",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Damwanden tunnel",
+              "name": "Sheet piling, tunnel",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Buitendienststelling weekend 1",
+              "name": "Track possession, weekend 1",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Ontgraven tunnelbak",
+              "name": "Excavate tunnel box",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Tunnelvloer storten",
+              "name": "Pour tunnel floor",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Tunnelwanden storten",
+              "name": "Pour tunnel walls",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Tunneldak prefab leggen",
+              "name": "Place precast tunnel roof",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Buitendienststelling weekend 2",
+              "name": "Track possession, weekend 2",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Waterdichting tunnel",
+              "name": "Tunnel waterproofing",
               "duration": 8
             },
             {
-              "name": "Terugvullen boven tunnel",
+              "name": "Backfill over tunnel",
               "duration": 5,
               "taskType": "LOGISTIC"
             }
           ]
         },
         {
-          "name": "3. Perronconstructie",
+          "name": "3. Platform structure",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Perronranden prefab",
+              "name": "Prefab platform edges",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Perronopvulling",
+              "name": "Platform infill",
               "duration": 5
             },
             {
-              "name": "Perrontegels leggen",
+              "name": "Lay platform tiles",
               "duration": 8
             },
             {
-              "name": "Overkapping staal",
+              "name": "Steel canopy",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Overkapping glas",
+              "name": "Glass canopy",
               "duration": 8
             },
             {
-              "name": "Trappen en liften plaatsen",
+              "name": "Install stairs and lifts",
               "duration": 10,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "4. Stationshal uitbreiding",
+          "name": "4. Station concourse extension",
           "wbs": "4",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Staalconstructie hal",
+              "name": "Structural steel, hall",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Gevel en dak glas",
+              "name": "Glass facade and roof",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Vloeren natuursteen",
+              "name": "Natural stone flooring",
               "duration": 8
             },
             {
-              "name": "Winkelpuien",
+              "name": "Shopfronts",
               "duration": 5,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra en verlichting perron",
+              "name": "Platform power and lighting",
               "duration": 8
             },
             {
-              "name": "Reizigersinformatie systemen",
+              "name": "Passenger information systems",
               "duration": 5
             },
             {
-              "name": "Roltrappen installeren",
+              "name": "Install escalators",
               "duration": 10
             },
             {
-              "name": "Geluidsinstallatie omroep",
+              "name": "Public address system",
               "duration": 3
             },
             {
-              "name": "CCTV en veiligheid",
+              "name": "CCTV and security",
               "duration": 5
             },
             {
-              "name": "Klimaatinstallatie hal",
+              "name": "HVAC installation, hall",
               "duration": 8
             }
           ]
         },
         {
-          "name": "6. Spoor & Afwerking",
+          "name": "6. Track & finishing",
           "wbs": "6",
           "children": [
             {
-              "name": "Spoor nieuw perron leggen",
+              "name": "Lay track at new platform",
               "duration": 10,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Bovenleidingportalen",
+              "name": "Overhead line portals",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Bovenleiding rijden",
+              "name": "Overhead line commissioning",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Seinen en beveiliging",
+              "name": "Signalling and safety systems",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk en afwerking",
+              "name": "Painting and finishing",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Proefbedrijf perron",
+              "name": "Platform trial operation",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Tijdelijke voorzieningen slopen",
+              "name": "Remove temporary facilities",
               "duration": 5,
               "taskType": "DEMOLITION"
             },
             {
-              "name": "Ingebruikname station",
+              "name": "Station in service",
               "milestone": true,
               "isCritical": true
             }
@@ -3895,217 +3895,217 @@
     },
     {
       "id": "proj-ikc-school",
-      "name": "Basisschool Nieuwbouw IKC",
-      "description": "Integraal kindcentrum met school, BSO en kinderopvang",
+      "name": "New-Build Primary School (Integrated Child Centre)",
+      "description": "Integrated child centre with school, after-school care and day care",
       "startDate": "2026-03-02",
       "endDate": "2027-03-01",
       "author": "Femke Onderwijs",
-      "company": "Scholenbouw West BV",
+      "company": "School Construction West BV",
       "phases": [
         {
-          "name": "1. Voorbereiding",
+          "name": "1. Preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Bouwterrein klaarmaken",
+              "name": "Prepare construction site",
               "duration": 5,
               "taskType": "CONSTRUCTION",
               "isCritical": true
             },
             {
-              "name": "Bouwplaats inrichten",
+              "name": "Set up site",
               "duration": 3,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering",
+          "name": "2. Foundations",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien funderingspalen",
+              "name": "Pile driving, foundation piles",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Funderingsbalken en poeren",
+              "name": "Foundation beams and pile caps",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Riolering onder vloer",
+              "name": "Below-slab drainage",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Begane grondvloer storten",
+              "name": "Pour ground floor slab",
               "duration": 5,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "3. Ruwbouw",
+          "name": "3. Structural works",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Begane grond metselwerk",
+              "name": "Ground floor masonry",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Verdiepingsvloer prefab",
+              "name": "Precast upper floor slab",
               "duration": 5,
               "isCritical": true
             },
             {
-              "name": "Verdieping metselwerk",
+              "name": "Upper floor masonry",
               "duration": 10
             },
             {
-              "name": "CLT dakconstructie",
+              "name": "CLT roof structure",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Dakbedekking EPDM",
+              "name": "EPDM roofing",
               "duration": 5
             },
             {
-              "name": "Sedum dak aanleggen",
+              "name": "Install sedum roof",
               "duration": 3
             },
             {
-              "name": "Hoogste punt",
+              "name": "Topping out",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "4. Gevel & Dak",
+          "name": "4. Facade & roof",
           "wbs": "4",
           "children": [
             {
-              "name": "Gevelisolatie ETICS",
+              "name": "ETICS facade insulation",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Kozijnen aluminium",
+              "name": "Aluminium window frames",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Gevelafwerking baksteen strips",
+              "name": "Facade finish, brick slips",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Zonnepanelen dak",
+              "name": "Roof solar panels",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Wind- en waterdicht",
+              "name": "Wind and weathertight",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Installaties",
+          "name": "5. Building services",
           "wbs": "5",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra en data",
+              "name": "Electrical and data",
               "duration": 8
             },
             {
-              "name": "Warmtepomp lucht-water",
+              "name": "Air-to-water heat pump",
               "duration": 5
             },
             {
-              "name": "Vloerverwarming",
+              "name": "Underfloor heating",
               "duration": 8,
               "depType": "SS",
               "lag": 2
             },
             {
-              "name": "Ventilatie CO2-gestuurd",
+              "name": "CO2-controlled ventilation",
               "duration": 8
             },
             {
-              "name": "Sanitair leidingwerk",
+              "name": "Sanitary pipework",
               "duration": 5
             },
             {
-              "name": "Brandmeld en ontruiming",
+              "name": "Fire alarm and evacuation",
               "duration": 3
             }
           ]
         },
         {
-          "name": "6. Afbouw",
+          "name": "6. Fit-out",
           "wbs": "6",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Binnenwanden metal stud",
+              "name": "Internal walls, metal stud",
               "duration": 8
             },
             {
-              "name": "Plafonds akoestisch",
+              "name": "Acoustic ceilings",
               "duration": 5
             },
             {
-              "name": "Dekvloeren",
+              "name": "Screed floors",
               "duration": 5
             },
             {
-              "name": "Tegelwerk sanitair",
+              "name": "Tiling, sanitary areas",
               "duration": 5
             },
             {
-              "name": "Schilderwerk",
+              "name": "Painting",
               "duration": 8
             },
             {
-              "name": "Vloerafwerking linoleum",
+              "name": "Linoleum floor finish",
               "duration": 5
             },
             {
-              "name": "Buitenspeelplaats",
+              "name": "Outdoor playground",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             }
           ]
         },
         {
-          "name": "7. Oplevering",
+          "name": "7. Handover",
           "wbs": "7",
           "children": [
             {
-              "name": "Inrichting lokalen",
+              "name": "Classroom furnishing",
               "duration": 5,
               "taskType": "LOGISTIC"
             },
             {
-              "name": "Testen en inregelen",
+              "name": "Testing and commissioning",
               "duration": 3,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering IKC",
+              "name": "Child centre handover",
               "milestone": true,
               "isCritical": true
             }
@@ -4115,342 +4115,342 @@
     },
     {
       "id": "proj-woonwijk-almere",
-      "name": "Woonwijk 60 Woningen Almere",
-      "description": "Nieuwbouw woonwijk met 40 rijwoningen en 20 twee-onder-een-kap",
+      "name": "60-Home Residential District, Almere",
+      "description": "New residential district with 40 terraced houses and 20 semi-detached homes",
       "startDate": "2026-02-02",
       "endDate": "2028-02-01",
       "author": "Gerrit Nieuwland",
-      "company": "Woningbouw Flevoland BV",
+      "company": "Flevoland Housing Construction BV",
       "phases": [
         {
-          "name": "1. Bouwrijp maken",
+          "name": "1. Site preparation",
           "wbs": "1",
           "children": [
             {
-              "name": "Terrein ontruimen en egaliseren",
+              "name": "Clear and level site",
               "duration": 8,
               "taskType": "DEMOLITION",
               "isCritical": true
             },
             {
-              "name": "Hoofdriolering aanleggen",
+              "name": "Install main sewer",
               "duration": 12,
               "taskType": "INSTALLATION",
               "isCritical": true
             },
             {
-              "name": "Nutsvoorzieningen hoofdleiding",
+              "name": "Utility main",
               "duration": 10,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Bouwwegen aanleggen",
+              "name": "Construct site roads",
               "duration": 8,
               "taskType": "CONSTRUCTION"
             },
             {
-              "name": "Start bouw",
+              "name": "Start of construction",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "2. Fundering Fase 1 (blok 1-3)",
+          "name": "2. Foundations phase 1 (blocks 1-3)",
           "wbs": "2",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien blok 1 (10 rijwoningen)",
+              "name": "Piling block 1 (10 terraced houses)",
               "duration": 8,
               "isCritical": true
             },
             {
-              "name": "Heien blok 2 (10 rijwoningen)",
+              "name": "Piling block 2 (10 terraced houses)",
               "duration": 8
             },
             {
-              "name": "Heien blok 3 (10 rijwoningen)",
+              "name": "Piling block 3 (10 terraced houses)",
               "duration": 8,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Funderingsbalken blok 1-3",
+              "name": "Foundation beams, blocks 1-3",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Begane grondvloer blok 1-3",
+              "name": "Ground floor slab, blocks 1-3",
               "duration": 10
             }
           ]
         },
         {
-          "name": "3. Fundering Fase 2 (blok 4-5)",
+          "name": "3. Foundations phase 2 (blocks 4-5)",
           "wbs": "3",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Heien blok 4 (10 rijwoningen)",
+              "name": "Piling block 4 (10 terraced houses)",
               "duration": 8
             },
             {
-              "name": "Heien blok 5 (10 2-1-kap)",
+              "name": "Piling block 5 (10 semi-detached)",
               "duration": 8,
               "depType": "SS",
               "lag": 3
             },
             {
-              "name": "Funderingsbalken blok 4-5",
+              "name": "Foundation beams, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Begane grondvloer blok 4-5",
+              "name": "Ground floor slab, blocks 4-5",
               "duration": 8
             }
           ]
         },
         {
-          "name": "4. Ruwbouw Fase 1",
+          "name": "4. Structural works phase 1",
           "wbs": "4",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Metselwerk BG blok 1-3",
+              "name": "Masonry ground floor, blocks 1-3",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Verdiepingsvloer blok 1-3",
+              "name": "Upper floor slab, blocks 1-3",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Metselwerk verdieping blok 1-3",
+              "name": "Masonry upper floor, blocks 1-3",
               "duration": 15
             },
             {
-              "name": "Kapconstructie blok 1-3",
+              "name": "Roof structure, blocks 1-3",
               "duration": 12,
               "isCritical": true
             },
             {
-              "name": "Dakpannen blok 1-3",
+              "name": "Roof tiles, blocks 1-3",
               "duration": 10
             },
             {
-              "name": "Hoogste punt fase 1",
+              "name": "Topping out, phase 1",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "5. Ruwbouw Fase 2",
+          "name": "5. Structural works phase 2",
           "wbs": "5",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Metselwerk BG blok 4-5",
+              "name": "Masonry ground floor, blocks 4-5",
               "duration": 15
             },
             {
-              "name": "Verdiepingsvloer blok 4-5",
+              "name": "Upper floor slab, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Metselwerk verdieping blok 4-5",
+              "name": "Masonry upper floor, blocks 4-5",
               "duration": 12
             },
             {
-              "name": "Kapconstructie blok 4-5",
+              "name": "Roof structure, blocks 4-5",
               "duration": 10
             },
             {
-              "name": "Dakpannen blok 4-5",
+              "name": "Roof tiles, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Hoogste punt fase 2",
+              "name": "Topping out, phase 2",
               "milestone": true
             }
           ]
         },
         {
-          "name": "6. Gevels & Daken",
+          "name": "6. Facades & roofs",
           "wbs": "6",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Kozijnen blok 1-3",
+              "name": "Window frames, blocks 1-3",
               "duration": 10,
               "isCritical": true
             },
             {
-              "name": "Kozijnen blok 4-5",
+              "name": "Window frames, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Geveldichting en isolatie",
+              "name": "Facade sealing and insulation",
               "duration": 12
             },
             {
-              "name": "Dakgoten en HWA",
+              "name": "Gutters and rainwater downpipes",
               "duration": 8
             },
             {
-              "name": "Wind- en waterdicht alle blokken",
+              "name": "Wind and weathertight, all blocks",
               "milestone": true,
               "isCritical": true
             }
           ]
         },
         {
-          "name": "7. Installaties",
+          "name": "7. Building services",
           "wbs": "7",
           "taskType": "INSTALLATION",
           "children": [
             {
-              "name": "Elektra blok 1-3",
+              "name": "Electrical, blocks 1-3",
               "duration": 12
             },
             {
-              "name": "Elektra blok 4-5",
+              "name": "Electrical, blocks 4-5",
               "duration": 8,
               "depType": "SS",
               "lag": 5
             },
             {
-              "name": "Loodgieter blok 1-3",
+              "name": "Plumbing, blocks 1-3",
               "duration": 10
             },
             {
-              "name": "Loodgieter blok 4-5",
+              "name": "Plumbing, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Warmtepompen alle woningen",
+              "name": "Heat pumps, all dwellings",
               "duration": 15
             },
             {
-              "name": "Ventilatie WTW units",
+              "name": "Heat recovery ventilation units",
               "duration": 10
             }
           ]
         },
         {
-          "name": "8. Afbouw Fase 1",
+          "name": "8. Fit-out phase 1",
           "wbs": "8",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Stucwerk blok 1-3",
+              "name": "Plastering, blocks 1-3",
               "duration": 15
             },
             {
-              "name": "Tegelwerk blok 1-3",
+              "name": "Tiling, blocks 1-3",
               "duration": 10
             },
             {
-              "name": "Keukens blok 1-3",
+              "name": "Kitchens, blocks 1-3",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk blok 1-3",
+              "name": "Painting, blocks 1-3",
               "duration": 10
             },
             {
-              "name": "Vloerafwerking blok 1-3",
+              "name": "Floor finishes, blocks 1-3",
               "duration": 8
             }
           ]
         },
         {
-          "name": "9. Afbouw Fase 2",
+          "name": "9. Fit-out phase 2",
           "wbs": "9",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Stucwerk blok 4-5",
+              "name": "Plastering, blocks 4-5",
               "duration": 12
             },
             {
-              "name": "Tegelwerk blok 4-5",
+              "name": "Tiling, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Keukens blok 4-5",
+              "name": "Kitchens, blocks 4-5",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Schilderwerk blok 4-5",
+              "name": "Painting, blocks 4-5",
               "duration": 8
             },
             {
-              "name": "Vloerafwerking blok 4-5",
+              "name": "Floor finishes, blocks 4-5",
               "duration": 5
             }
           ]
         },
         {
-          "name": "10. Woonrijp maken",
+          "name": "10. Final site works",
           "wbs": "10",
           "taskType": "CONSTRUCTION",
           "children": [
             {
-              "name": "Definitieve riolering aansluiten",
+              "name": "Connect permanent sewer",
               "duration": 8,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Straatwerk en trottoirs",
+              "name": "Paving and pavements",
               "duration": 15,
               "isCritical": true
             },
             {
-              "name": "Parkeerplaatsen aanleggen",
+              "name": "Construct parking spaces",
               "duration": 8
             },
             {
-              "name": "Groenvoorziening en bomen",
+              "name": "Landscaping and trees",
               "duration": 10
             },
             {
-              "name": "Speelvoorzieningen",
+              "name": "Play equipment",
               "duration": 5,
               "taskType": "INSTALLATION"
             },
             {
-              "name": "Straatverlichting",
+              "name": "Street lighting",
               "duration": 5,
               "taskType": "INSTALLATION"
             }
           ]
         },
         {
-          "name": "11. Oplevering",
+          "name": "11. Handover",
           "wbs": "11",
           "children": [
             {
-              "name": "Vooroplevering fase 1",
+              "name": "Pre-handover inspection, phase 1",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Vooroplevering fase 2",
+              "name": "Pre-handover inspection, phase 2",
               "duration": 5,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Oplevering woningen",
+              "name": "Handover of dwellings",
               "duration": 10,
               "taskType": "ATTENDANCE"
             },
             {
-              "name": "Woonwijk gereed",
+              "name": "Residential district complete",
               "milestone": true,
               "isCritical": true
             }

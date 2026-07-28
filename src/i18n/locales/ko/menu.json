@@ -122,6 +122,13 @@
     "deleteTemplate": "템플릿 삭제",
     "collapseRibbon": "리본 접기",
     "expandRibbon": "리본 펼치기",
+    "outline": "개요",
+    "collapseTasks": "접기",
+    "expandTasks": "펼치기",
+    "collapseTasksTitle": "선택한 요약 작업 접기(선택 없음: 전체)",
+    "expandTasksTitle": "선택한 요약 작업 펼치기(선택 없음: 전체)",
+    "collapseGroupsTitle": "모든 그룹 접기(그룹화된 보기)",
+    "expandGroupsTitle": "모든 그룹 펼치기(그룹화된 보기)",
     "resourceManagement": "관리",
     "openResourcePanel": "자원",
     "dockResourcePanel": "도킹",
@@ -162,7 +169,10 @@
     "presentationMode": "프레젠테이션",
     "splitView": "분할 보기",
     "miniMap": "미니맵",
-    "moveProject": "프로젝트 이동…"
+    "moveProject": "프로젝트 이동…",
+    "relationHintModeOn": "링크 모드 켜기: 이후 간트 차트에서 막대에서 막대로 끕니다",
+    "relationHintModeOff": "링크 모드 끄기",
+    "relationHintPair": "선택한 두 작업 사이에 종료-시작 관계 만들기"
   },
   "ifc": {
     "title": "IFC 편집기",

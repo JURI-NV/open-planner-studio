@@ -14,8 +14,8 @@
  *
  * F2 (critreview, issue #19): UITSLUITEND resources worden zo gekoppeld — kalenders NIET, ook al
  * matcht `computeRecognition` ze net zo goed op naam. Grond: showcase-kalenders zijn bewust
- * gemodelleerd (bijv. "Bouwkalender NL" met een eigen `hoursPerDay` en een specifieke
- * "Vorstverlet fundering"-vakantie in "6 Rijwoningen De Akkers") en voeden de CPM-berekening
+ * gemodelleerd (bijv. "Construction calendar NL" met een eigen `hoursPerDay` en een specifieke
+ * "Frost delay, foundations"-vakantie in "6 New Terraced Houses, De Akkers") en voeden de CPM-berekening
  * rechtstreeks — een stille naam-match zou die inhoud vervangen door de demo-kalenderversie en zo
  * het eigen punt van de showcase (en zijn CPM-uitkomst) ondermijnen. Resources hebben dat risico niet
  * (alleen belasting/overallocatie, geen CPM-invoer) en zijn juist de bedoelde demonstratie ("dezelfde

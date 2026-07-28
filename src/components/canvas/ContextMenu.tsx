@@ -35,7 +35,9 @@ export interface ContextMenuProps {
   onAddRelation: () => void;
   onTracePath: () => void;
   onSaveTemplate: () => void;
-  onToggleCollapse: () => void;
+  /** Issue #42: APARTE in-/uitklap-acties (geen toggle) — zie het commentaar bij het menu-item. */
+  onCollapse: () => void;
+  onExpand: () => void;
   onDelete: () => void;
   onAddTask: () => void;
   // Golf 2 — taakrij
@@ -66,14 +68,17 @@ const PRIORITY_HIGH = 900;
 export function ContextMenu({
   x, y, task, barHit, group, traceActive, isTreeMode, calendars, canPaste, onClose,
   onEdit, onAddSubtask, onAddMilestone, onAddRelation, onTracePath, onSaveTemplate,
-  onToggleCollapse, onDelete, onAddTask,
+  onCollapse, onExpand, onDelete, onAddTask,
   onInsertAbove, onInsertBelow, onIndent, onOutdent, onToggleMilestone,
   onSetCalendar, onSetProgress, onSetPriority,
   onStartRelationFromBar,
   onPaste, onZoomReset, onFitToProject,
   onToggleGroupCollapse, onExpandAll, onCollapseAll,
 }: ContextMenuProps) {
-  const { t } = useTranslation('common');
+  // `common` blijft de standaard-namespace; `menu` staat erbij zodat het in-/uitklap-item exact
+  // dezelfde labels draagt als de Beeld-tab (issue #42) in plaats van een tweede, eigen vertaling
+  // die daar stilletjes van weg kan lopen.
+  const { t } = useTranslation(['common', 'menu']);
   const menuRef = useRef<HTMLDivElement>(null);
   // Welk submenu (bv. "calendar"/"progress"/"priority") momenteel opengeklapt is. Eén op een
   // moment — hoveren over een ander item/submenu-trigger sluit het vorige (zie SubMenuTrigger).
@@ -214,7 +219,17 @@ export function ContextMenu({
           {isSummary && (
             <>
               <Separator />
-              <MenuItem label={t('context.toggleCollapse')} onClick={() => { onToggleCollapse(); closeAll(); }} onEnter={() => setOpenSub(null)} />
+              {/* Issue #42: TWEE aparte items i.p.v. één "In-/uitklappen"-toggle, gelijk aan de
+                  Beeld-tab (zie `outlineGroup` in ribbonConfig.tsx). Reden om apart te zijn: de
+                  actie werkt op de hele selectie zodra de aangeklikte taak daarin zit, en een
+                  toggle kan een gemengde selectie nooit in één keer dezelfde kant op zetten.
+                  BEIDE items zijn ALTIJD zichtbaar en nooit uitgeschakeld — ook "Uitklappen" op een
+                  al-uitgeklapte tak. Een contextmenu waarvan de itemlijst per rij verspringt kost
+                  meer dan het oplevert (spiermemorie, en bij een selectie is "al ingeklapt?" per
+                  taak verschillend, dus er is geen eerlijk enkelvoudig antwoord). Idempotent
+                  klikken is hier onschadelijk. */}
+              <MenuItem label={t('menu:ribbon.collapseTasks')} onClick={() => { onCollapse(); closeAll(); }} onEnter={() => setOpenSub(null)} />
+              <MenuItem label={t('menu:ribbon.expandTasks')} onClick={() => { onExpand(); closeAll(); }} onEnter={() => setOpenSub(null)} />
               <MenuItem label={t('context.saveTemplate')} onClick={() => { onSaveTemplate(); closeAll(); }} onEnter={() => setOpenSub(null)} />
             </>
           )}

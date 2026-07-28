@@ -123,6 +123,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   JUCHECK="$DIR/.just-updated-check.mjs"
   if bundle_check "$DIR/check-just-updated.ts" "$JUCHECK"; then node "$JUCHECK" || STATUS=1; fi
 
+  # "Bestaat dit tekst-asset echt?"-poort van de in-app help (textAsset.ts — pure functies +
+  # injecteerbare fetch). Zet de desktopbug vast waarbij een content-type-check ALLE help-artikelen
+  # verwierp: de Tauri-webview labelt elke onbekende extensie (.md) als text/html.
+  TACHECK="$DIR/.text-asset-check.mjs"
+  if bundle_check "$DIR/check-text-asset.ts" "$TACHECK"; then node "$TACHECK" || STATUS=1; fi
+
   # CalendarEngine uur-modus-checks (fase 2.8b golf 1, §4/§9 — engine-primitieven, los van de CPM-cases).
   CHCHECK="$DIR/.calendar-hours-check.mjs"
   if bundle_check "$DIR/check-calendar-hours.ts" "$CHCHECK"; then node "$CHCHECK" || STATUS=1; fi
@@ -156,12 +162,26 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   DCCHECK="$DIR/.document-contract-check.mjs"
   if bundle_check "$DIR/check-document-contract.ts" "$DCCHECK"; then node "$DCCHECK" || STATUS=1; fi
 
+  # Band-collapse (issue #35): "alle groepen in-/uitklappen" via de echte store-acties. De valkuil
+  # is de sleutelbron: een ingeklapte band emit zijn subbanden niet, dus een route via `viewRows`
+  # slaat precies de al-dichtgeklapte takken over. Aantoonbaar rood tegen die naïeve route.
+  BCCHECK="$DIR/.band-collapse.mjs"
+  if bundle_check "$DIR/check-band-collapse.ts" "$BCCHECK"; then node "$BCCHECK" || STATUS=1; fi
+
   # Gantt-cull-regressie: de speling-band mag niet verdwijnen zolang hij zichtbaar is. De cull in
   # drawTaskBar keek alleen naar de BALK-extent, terwijl de band ná de balk doorloopt — een band die
   # nog honderden pixels in beeld stond verdween daardoor mee. Draait de echte renderer met een
   # opnemende 2D-context-stub (aantoonbaar rood tegen de oude cull).
   GFCHECK="$DIR/.gantt-float-cull.mjs"
   if bundle_check "$DIR/check-gantt-float-cull.ts" "$GFCHECK"; then node "$GFCHECK" || STATUS=1; fi
+
+  # Pijlrouting (issue #41): relatielijnen worden vóór de balken getekend, dus alles wat onder een
+  # balk door loopt is onzichtbaar. De vaste elleboog `fromX+8` lag bij SS midden ín de voorganger-
+  # balk en liep bij krappe/achterwaartse relaties dwars door de OPVOLGERbalk (incl. pijlkop).
+  # Toetst met de echte renderer + opnemende stub dat geen enkel pijlsegment nog binnen een
+  # balkrechthoek valt, over een zoom×scrollX-raster.
+  ARCHECK="$DIR/.arrow-routing.mjs"
+  if bundle_check "$DIR/check-arrow-routing.ts" "$ARCHECK"; then node "$ARCHECK" || STATUS=1; fi
 
   # Tijd-as-consolidatie (issue #21 punt 5, fase 0): geconsolideerde `timeAxis.dateToX`/`xToDate`/
   # `xToDayOffset` vs. letterlijk-gekopieerde OUDE formules (printPreview/GanttCanvas/GanttRenderer/

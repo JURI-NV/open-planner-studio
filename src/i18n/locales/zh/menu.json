@@ -122,6 +122,13 @@
     "deleteTemplate": "删除模板",
     "collapseRibbon": "折叠功能区",
     "expandRibbon": "展开功能区",
+    "outline": "大纲",
+    "collapseTasks": "折叠",
+    "expandTasks": "展开",
+    "collapseTasksTitle": "折叠选定的摘要任务（未选择时：全部）",
+    "expandTasksTitle": "展开选定的摘要任务（未选择时：全部）",
+    "collapseGroupsTitle": "折叠所有分组（分组视图）",
+    "expandGroupsTitle": "展开所有分组（分组视图）",
     "resourceManagement": "管理",
     "openResourcePanel": "资源",
     "dockResourcePanel": "停靠",
@@ -162,7 +169,10 @@
     "presentationMode": "演示",
     "splitView": "拆分视图",
     "miniMap": "小地图",
-    "moveProject": "移动项目…"
+    "moveProject": "移动项目…",
+    "relationHintModeOn": "开启链接模式：随后在甘特图中从一个条形拖到另一个条形",
+    "relationHintModeOff": "关闭链接模式",
+    "relationHintPair": "在两个所选任务之间创建完成-开始关系"
   },
   "ifc": {
     "title": "IFC 编辑器",

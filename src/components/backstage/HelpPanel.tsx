@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { LANGUAGE_LABELS } from '@/i18n/config';
 import { renderMiniMarkdown, extractHeadings } from '@/utils/miniMarkdown';
+import { fetchTextAsset } from '@/utils/textAsset';
 import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
 import './HelpPanel.css';
 
@@ -109,21 +110,13 @@ export function HelpPanel() {
     setFailedIds(new Set());
     void Promise.all(
       manifest.articles.map(a => {
+        // `fetchTextAsset` draagt de "bestaat dit echt?"-poort: status + SPA-fallback-body-sniff.
+        // Bewust GEEN content-type-check meer — de Tauri-webview labelt élk `.md`-bestand als
+        // `text/html` (onbekende extensie ⇒ MimeType::Html), waardoor een header-check in de
+        // uitgeleverde desktopbuild ALLE artikelen verwierp ("Artikel niet gevonden") terwijl de
+        // browserbuild het niet liet zien. Zie de toelichting in src/utils/textAsset.ts.
         const fetchLang = (l: HelpLang) =>
-          fetch(`${import.meta.env.BASE_URL}docs/${l}/${a.id}.md`)
-            .then(async r => {
-              if (!r.ok) throw new Error(`HTTP ${r.status}`);
-              // Vite (dev) en veel statische hosts (prod) serveren voor een ONBEKEND pad hun
-              // SPA-fallback (index.html) mét status 200 — `r.ok` is dus geen betrouwbaar
-              // "bestaat"-signaal. Herken de fallback aan het HTML-content-type en/of een
-              // <!doctype>/<html>-body en behandel 'm als "niet gevonden", anders belandt de
-              // rauwe app-HTML als "artikelinhoud" in de markdown-renderer.
-              const ct = r.headers.get('content-type') ?? '';
-              if (ct.includes('text/html')) throw new Error('SPA-fallback (content-type)');
-              const text = await r.text();
-              if (/^\uFEFF?\s*<(?:!doctype|html)\b/i.test(text)) throw new Error('SPA-fallback (body)');
-              return text;
-            });
+          fetchTextAsset(`${import.meta.env.BASE_URL}docs/${l}/${a.id}.md`);
         // Val per artikel terug op EN als de vertaling voor deze taal (nog) ontbreekt.
         return fetchLang(lang)
           .catch(() => (lang === 'en' ? Promise.reject(new Error('geen EN-fallback')) : fetchLang('en')))

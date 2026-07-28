@@ -237,6 +237,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
+- [ ] **`GanttRenderer.barGeometry` crasht op een taak zónder start.** Gevonden 2026-07-28 tijdens
+      de overlay-scrollbalken van issue #35 (pre-existing, niets met die wijziging te maken).
+      `GanttRenderer.ts:263` doet `startStr.includes('T') || endStr.includes('T')` zonder guard;
+      heeft een taak noch `earlyStart` noch `scheduleStart` (idem voor de finish-kant), dan is die
+      string undefined en gooit de renderer `Cannot read properties of undefined` — per frame, dus
+      de Gantt blijft zwart tot de taak een datum krijgt. **Twee plekken**, niet één: naast
+      `barGeometry` (261-263) staat hetzelfde patroon ongeguard in `:1114-1115`. Bereikt via een taak
+      die alleen een duur heeft (bv. programmatisch of via een importer die de startdatum niet zet);
+      de normale `addTask`-route zet wél een datum, dus in de gewone UI bijt het niet. Fix: bail-out
+      of terugval op de projectstart op beide plekken, plus een regressiecase in `tests/planning/`.
 - [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
       issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
       maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
@@ -339,17 +349,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
       plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
 
-### Klein — `showDependencyMode` is een knop die niets doet (2026-07-28)
-- [ ] **Relatie-modus: beslissen of hij af moet of weg.** Bij het opruimen van `dependencySourceId`
-      (K-item 26 — write-only: drie schrijvers, nul lezers, verwijderd) bleek `showDependencyMode`
-      zelf ook nergens gedrag te sturen: hij wordt gezet door de Relatie-knop en door twee
-      contextmenu-items, en de énige lezer is `ribbonConfig.tsx:125` — voor de *actief*-markering
-      van de knop zelf. Er is geen canvas-interactie, geen cursorwissel, geen klik-om-te-verbinden.
-      Voor de gebruiker: de knop licht op en er gebeurt niets. Twee wegen, allebei prima, maar het
-      is een productbeslissing: de modus **afbouwen** (knop weg; met twee taken geselecteerd legt
-      dezelfde knop al wél een FS-relatie, dat pad werkt), of de modus **afmaken** (klik-bron →
-      klik-doel op het canvas). Niet stilzwijgend laten staan.
-
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)
@@ -410,6 +409,27 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
   leest). Tot die tijd: procedure-stap niet vergeten.
 
 ### Kwaliteit & verificatie
+
+- [ ] **Geen enkele poort raakt het Tauri-asset-protocol — een hele klasse desktopbugs is
+  structureel onzichtbaar.** Aangetoond 2026-07-28: in de uitgeleverde `.deb` v2026.7.13 toonde
+  Backstage → Help bij élk artikel "Artikel niet gevonden", terwijl alle 354 artikelen gewoon in de
+  binary zaten (gefixt in `e257770`). Oorzaak: `tauri-utils` kent de extensie `md` niet en valt terug
+  op `MimeType::Html`, dus de webview labelt elk artikel als `text/html` — en onze eigen
+  SPA-fallback-guard verwierp precies dat.
+  **Waarom niets het ving:** dev, de webdeploy én `npm run tauri:dev` gaan allemaal via Vite, dat
+  `.md` wél correct serveert. Alleen een gebundelde build met embedded assets vertoont het. CI bouwt
+  die wel (`tauri build --no-bundle`) maar start hem nooit. `verify:docs` bewijst dat de bestanden
+  kloppen, niets bewijst dat de app ze kán laden.
+  **Nog steeds latent** (uit de audit bij die fix): `.ifc`-voorbeelden (`Backstage.tsx`,
+  `HelpPanel.tsx`) krijgen op de desktop óók `text/html` en overleven alleen doordat dat pad geen
+  header-check heeft — zet iemand daar ooit een guard neer, dan breken de voorbeelden op dezelfde
+  manier. Idem `pdf/hbSubset.ts`: `arrayBuffer()` is veilig, maar een overstap naar
+  `WebAssembly.instantiateStreaming` zou op de desktop stukgaan op het content-type.
+  **Kandidaat-poort:** de gebundelde binary in CI daadwerkelijk starten en één asset per uitgeleverd
+  bestandstype (`.md`, `.ifc`, `.wasm`, fonts) laten laden — of, veel goedkoper, een headless check
+  die de extensies die wij uitleveren aftoetst tegen de MIME-tabel van de gebruikte `tauri-utils` en
+  waarschuwt zodra er één op de HTML-fallback landt. Dat laatste is geen echte end-to-end-poort,
+  maar had deze bug wél gevangen.
 
 - [ ] **ResourceLeveler-schaalbaarheid (gemeten 2026-07-06, benchmark tegen de echte engine).**
   De leveler groeit ~kwadratisch met het taakaantal (dag-modus: 100 taken=0,15s, 500=6,2s,

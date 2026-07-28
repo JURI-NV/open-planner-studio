@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "복원하지 못했습니다",
     "scheduleFailed": "일정을 계산할 수 없습니다",
     "ifcParseFailed": "IFC를 읽을 수 없습니다",
-    "templateSaved": "분기가 '{{name}}' 템플릿으로 저장되었습니다"
+    "templateSaved": "분기가 '{{name}}' 템플릿으로 저장되었습니다",
+    "relationCreated": "관계를 만들었습니다: {{predecessor}} → {{successor}}",
+    "relationDuplicate": "이 관계는 이미 있습니다"
   },
   "yes": "예",
   "no": "아니오",
@@ -36,7 +38,6 @@
     "addSubtask": "하위 작업 추가",
     "addMilestone": "마일스톤 추가",
     "addRelation": "관계 추가",
-    "toggleCollapse": "접기/펼치기",
     "delete": "삭제",
     "newTask": "새 작업",
     "tracePath": "경로 추적",
@@ -306,7 +307,9 @@
       "smaller": "이전 버전보다 {{size}} 작음",
       "larger": "이전 버전보다 {{size}} 큼",
       "sameSize": "이전 버전과 동일한 크기",
-      "daysSincePrevious": "이전 릴리스 이후: {{count}}일"
+      "daysSincePrevious": "이전 릴리스 이후: {{count}}일",
+      "currentOnly": "현재 {{version}} 버전을 사용 중입니다",
+      "whatsNewButton": "새로운 기능"
     }
   },
   "statusWarnings": {
@@ -640,7 +643,9 @@
     "splitView": {
       "primary": "기본",
       "secondary": "보조"
-    }
+    },
+    "dependencyModeHint": "링크 모드: 간트 차트에서 막대에서 다른 막대로 끌어 관계를 만듭니다. Esc를 누르면 종료됩니다.",
+    "dependencyModeStop": "종료"
   },
   "dateInput": {
     "placeholder": "일-월-년",

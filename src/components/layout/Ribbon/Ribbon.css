@@ -52,6 +52,9 @@
 /* Ribbon Content */
 .ribbon-content {
   background: var(--theme-ribbon-content-bg);
+  /* rechts 32px i.p.v. 8px: ruimte voor de absoluut gepositioneerde .ribbon-collapse-toggle
+     (right:6px; width:22px ⇒ ~28px vanaf de rand nodig) zodat die niet over de laatste groep
+     heen valt en de groepen er niet onderdoor lopen. */
   padding: 4px 32px 0 8px;
   display: flex;
   align-items: stretch;
@@ -249,6 +252,19 @@
    over de buurgroep heen spilt (QA-bevinding fase 2.10). Terug naar natuurlijke breedte. */
 .ribbon-container.compact .ribbon-display-grid .ribbon-btn.small { width: auto; min-width: 0; }
 
+/* Alleen-iconen-variant (Display-groep op de Beeld-tab — gebruikerskeuze): labels verbergen en
+   de knoppen tot icoongrootte laten krimpen; de 2×2-vorm blijft. De betekenis draagt via de
+   tooltip (title-attribuut op elke knop). Specifieker dan de grid-basisregel hierboven, dus die
+   width:100%/min-width:70px wordt hier bewust overschreven. */
+.ribbon-display-grid.icons .ribbon-btn-label { display: none; }
+.ribbon-display-grid.icons .ribbon-btn.small {
+  width: auto;
+  min-width: 0;
+  padding: 2px 6px;
+  gap: 0;
+  justify-content: center;
+}
+
 /* Compacte-modus-toggle (Word-web-stijl): klein pijltje rechtsonder in het lint.
    ↑ klapt in naar één rij van 40px, ↓ klapt weer uit.
    position:absolute (i.p.v. een flex-child met margin-left:auto) zodat de pijl een
@@ -348,6 +364,59 @@
   flex-shrink: 0;
 }
 .ribbon-container.compact .ribbon-btn.small { height: 28px; min-width: 0; flex-shrink: 0; }
+
+/* ------------------------------------------------------------------------------------------
+   Automatische inpassing per knop (Office-lintpatroon) — aangestuurd door useRibbonAutoFit.
+
+   De lint-hoogte blijft 94px. Past de inhoud niet, dan degradeert de automaat knop-vóór-knop
+   van rechts naar links: een grote knop (66px, icoon boven label) wordt een icoon-only knopje
+   van 20px, en drie van die knopjes passen boven elkaar in dezelfde hoogte als één grote knop.
+   Alleen de knoppen die niet meer pasten verliezen hun label; de rest blijft groot.
+
+   Twee attributen, allebei imperatief gezet (React beheert ze niet, dus een re-render kan ze
+   niet wissen en het zetten ervan kan geen renderlus veroorzaken):
+     [data-ribbon-mini]       op de knop         → krimpen + label verbergen
+     [data-ribbon-grid]       op de groepsinhoud → 3-rijen-grid dat per kolom volloopt
+     [data-ribbon-mini-item]  op het directe kind → dit item is één rij hoog (i.p.v. de hele kolom)
+
+   Grid i.p.v. `flex-direction: column; flex-wrap: wrap`: bij een kolom-wrap-flexbox is de
+   intrinsieke BREEDTE van de container (de som van de kolommen) browser-gevoelig, terwijl een
+   grid met `grid-auto-columns: max-content` per definitie precies zo breed wordt als zijn
+   kolommen. De groepsbreedte is hier juist de grootheid die we meten. */
+.ribbon-group-content[data-ribbon-grid] {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: start;
+  justify-items: start;
+  column-gap: 2px;
+  row-gap: 1px;
+}
+/* Standaard vult een item de hele kolom (net als in de rij-indeling ernaast); alleen een
+   gedegradeerd knopje neemt één van de drie rijen in. */
+.ribbon-group-content[data-ribbon-grid] > * { grid-row: span 3; }
+.ribbon-group-content[data-ribbon-grid] > [data-ribbon-mini-item] { grid-row: span 1; }
+
+/* De gedegradeerde knop zelf: icoon-only, 20px hoog zodat er drie in de bestaande lint-hoogte
+   passen. Staat ná .ribbon-btn.small (gelijke specificiteit) en wint dus op bronvolgorde. */
+.ribbon-btn[data-ribbon-mini] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  width: auto;
+  min-width: 0;
+  padding: 2px 5px;
+  gap: 0;
+  border-radius: var(--radius-sm);
+}
+.ribbon-btn[data-ribbon-mini] .ribbon-btn-label { display: none; }
+.ribbon-btn[data-ribbon-mini] .ribbon-btn-icon { width: 18px; height: 18px; }
+.ribbon-btn[data-ribbon-mini] .ribbon-btn-icon svg { width: 15px; height: 15px; }
+/* De 2×2-grid-regels van de Beeld-tab zijn specifieker (.ribbon-display-grid .ribbon-btn.small)
+   en zouden de breedte anders op 70px vastpinnen. */
+.ribbon-display-grid .ribbon-btn.small[data-ribbon-mini] { width: auto; min-width: 0; }
 
 /* File tab (backstage trigger) — altijd amber, opvallend links */
 .ribbon-tab--file {

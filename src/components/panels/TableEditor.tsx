@@ -732,7 +732,11 @@ export function TableEditor() {
           return (
             <div
               key={index}
-              className="relative flex items-center px-2"
+              // min-w-0: defensief gelijkgetrokken met de body-cellen, die het al hadden. Zonder
+              // dit houdt een flex-item `min-width: auto` en kan het niet krimpen onder zijn
+              // min-content-breedte — hier in de praktijk al afgevangen doordat de label-span
+              // `truncate` (overflow:hidden) heeft, maar dat is een indirecte afhankelijkheid.
+              className="relative flex items-center px-2 min-w-0"
               style={{
                 width: col.width,
                 flex: isName ? `1 0 ${col.width}px` : `0 0 ${col.width}px`,

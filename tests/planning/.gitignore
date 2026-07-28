@@ -21,3 +21,6 @@
 .recovery-integrity.mjs
 .recovery-isolation.mjs
 .notifications.mjs
+.band-collapse.mjs
+.text-asset-check.mjs
+.arrow-routing.mjs

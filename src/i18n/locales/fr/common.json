@@ -11,7 +11,9 @@
     "recoveryRestoreFailed": "Échec de la restauration",
     "scheduleFailed": "Le planning n'a pas pu être calculé",
     "ifcParseFailed": "IFC n'a pas pu être lu",
-    "templateSaved": "Branche enregistrée comme modèle '{{name}}'"
+    "templateSaved": "Branche enregistrée comme modèle '{{name}}'",
+    "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
+    "relationDuplicate": "Cette relation existe déjà"
   },
   "yes": "Oui",
   "no": "Non",
@@ -36,7 +38,6 @@
     "addSubtask": "Ajouter une sous-tâche",
     "addMilestone": "Ajouter un jalon",
     "addRelation": "Ajouter une relation",
-    "toggleCollapse": "Réduire/développer",
     "delete": "Supprimer",
     "newTask": "Nouvelle tâche",
     "tracePath": "Tracer le chemin",
@@ -306,7 +307,9 @@
       "smaller": "{{size}} de moins que la version précédente",
       "larger": "{{size}} de plus que la version précédente",
       "sameSize": "Même taille que la version précédente",
-      "daysSincePrevious": "Depuis la version précédente : {{count}} jours"
+      "daysSincePrevious": "Depuis la version précédente : {{count}} jours",
+      "currentOnly": "Vous utilisez maintenant la version {{version}}",
+      "whatsNewButton": "Nouveautés"
     }
   },
   "statusWarnings": {
@@ -644,7 +647,9 @@
     "splitView": {
       "primary": "Principal",
       "secondary": "Secondaire"
-    }
+    },
+    "dependencyModeHint": "Mode lien : faites glisser d'une barre à l'autre dans le Gantt pour créer une relation. Échap pour arrêter.",
+    "dependencyModeStop": "Arrêter"
   },
   "dateInput": {
     "placeholder": "jj-mm-aaaa",

@@ -122,6 +122,13 @@
     "deleteTemplate": "Usuń szablon",
     "collapseRibbon": "Zwiń wstążkę",
     "expandRibbon": "Rozwiń wstążkę",
+    "outline": "Konspekt",
+    "collapseTasks": "Zwiń",
+    "expandTasks": "Rozwiń",
+    "collapseTasksTitle": "Zwiń zaznaczone zadania sumaryczne (bez zaznaczenia: wszystkie)",
+    "expandTasksTitle": "Rozwiń zaznaczone zadania sumaryczne (bez zaznaczenia: wszystkie)",
+    "collapseGroupsTitle": "Zwiń wszystkie grupy (widok pogrupowany)",
+    "expandGroupsTitle": "Rozwiń wszystkie grupy (widok pogrupowany)",
     "resourceManagement": "Zarządzaj",
     "openResourcePanel": "Zasoby",
     "dockResourcePanel": "Zadokuj",
@@ -162,7 +169,10 @@
     "presentationMode": "Prezentacja",
     "splitView": "Widok podzielony",
     "miniMap": "Minimapa",
-    "moveProject": "Przesuń projekt…"
+    "moveProject": "Przesuń projekt…",
+    "relationHintModeOn": "Włącz tryb połączeń: następnie przeciągaj od paska do paska na wykresie Gantta",
+    "relationHintModeOff": "Wyłącz tryb połączeń",
+    "relationHintPair": "Utwórz relację Zakończenie-Rozpoczęcie między dwoma zaznaczonymi zadaniami"
   },
   "ifc": {
     "title": "Edytor IFC",

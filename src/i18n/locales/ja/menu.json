@@ -122,6 +122,13 @@
     "deleteTemplate": "テンプレートを削除",
     "collapseRibbon": "リボンを折りたたむ",
     "expandRibbon": "リボンを展開する",
+    "outline": "アウトライン",
+    "collapseTasks": "折りたたむ",
+    "expandTasks": "展開",
+    "collapseTasksTitle": "選択したサマリータスクを折りたたむ（未選択時: すべて）",
+    "expandTasksTitle": "選択したサマリータスクを展開（未選択時: すべて）",
+    "collapseGroupsTitle": "すべてのグループを折りたたむ（グループ化ビュー）",
+    "expandGroupsTitle": "すべてのグループを展開（グループ化ビュー）",
     "resourceManagement": "管理",
     "openResourcePanel": "リソース",
     "dockResourcePanel": "ドッキング",
@@ -162,7 +169,10 @@
     "presentationMode": "プレゼンテーション",
     "splitView": "分割ビュー",
     "miniMap": "ミニマップ",
-    "moveProject": "プロジェクトを移動…"
+    "moveProject": "プロジェクトを移動…",
+    "relationHintModeOn": "リンクモードをオンにする: その後ガントチャートでバーからバーへドラッグします",
+    "relationHintModeOff": "リンクモードをオフにする",
+    "relationHintPair": "選択した 2 つのタスクの間に終了-開始の関係を作成します"
   },
   "ifc": {
     "title": "IFC エディタ",

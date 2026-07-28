@@ -156,7 +156,13 @@
   margin-bottom: 4px;
 }
 
+/* issue #38 punt 1: een <button> is inline-block, dus twee opeenvolgende links (Controleren op
+   updates + Wat is er nieuw) vloeiden náást elkaar op één regel i.p.v. onder elkaar, links
+   uitgelijnd met de versieregel erboven. Block + text-align:left zet elke link op een eigen regel
+   met dezelfde linkerkantlijn als de rest van de sectie. */
 .settings-link {
+  display: block;
+  text-align: left;
   background: none;
   border: none;
   color: var(--theme-accent-hover);
@@ -164,6 +170,9 @@
   padding: 0;
   cursor: pointer;
   text-decoration: none;
+}
+.settings-link + .settings-link {
+  margin-top: 4px;
 }
 
 .settings-link:hover {
