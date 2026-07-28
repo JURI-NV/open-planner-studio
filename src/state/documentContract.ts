@@ -208,6 +208,65 @@ type MissingFields = Exclude<keyof DocumentPayload, CoveredKey>;
 const _assertAllFieldsCovered: MissingFields extends never ? true : ['DOCUMENT_FIELDS mist velden:', MissingFields] = true;
 void _assertAllFieldsCovered;
 
+// ── De andere kant van het contract: geen ongeclassificeerde state ────────────────────────────
+//
+// De check hierboven sluit de PAYLOAD-kant: elk `DocumentPayload`-veld heeft een descriptor. Wat
+// hij NIET zag, is de STATE-kant. Wie een nieuw top-level veld aan een slice toevoegt kreeg
+// stilzwijgend app-globaal gedrag: het lekt tussen documenten, staat niet in de undo-snapshot en
+// wordt niet gereset door `newProject()`. De compiler zweeg, de suite zweeg, en je merkt het pas
+// als een gebruiker data van document A in document B ziet staan.
+//
+// Daarom classificeert de assert hieronder ELKE niet-functie-key van `AppState` in precies één van
+// drie categorieën. Voeg je een veld toe zonder keuze te maken, dan faalt de build — de keuze is
+// dus verplicht en bewust, in plaats van een stille default.
+
+/** Niet-functie-keys van T: de dataterreinen van de state, zonder de acties. */
+type StateDataKey<T> = { [K in keyof T]-?: T[K] extends (...a: never[]) => unknown ? never : K }[keyof T];
+
+/**
+ * Categorie 2 — app-globaal: bewust NIET per document geswapt, want het hoort bij de applicatie
+ * of bij de gebruiker, niet bij één project. Voeg hier alleen iets toe als je zeker weet dat het
+ * gedeeld hoort te zijn tussen alle open documenten.
+ */
+type AppGlobalKey =
+  // Chrome en gebruikersvoorkeuren. (`ui.collapsedTaskIds` is de ene uitzondering: dat veld zit
+  // wél in DOCUMENT_FIELDS en wordt per document geswapt.)
+  | 'ui'
+  // Klembord: expliciet app-globaal, zodat kopiëren/plakken tússen documenten werkt.
+  | 'taskClipboard'
+  // Recente bestanden: een eigenschap van de installatie, niet van een project.
+  | 'recentFiles'
+  // Multi-document-boekhouding zelf — dit ís de laag die de rest swapt.
+  | 'documents' | 'activeDocumentId'
+  // Extensies: app-niveau data, geen projectdata (zie CLAUDE.md, *Extensiesysteem*).
+  | 'installedExtensions' | 'extensionRibbonButtons' | 'extensionImporters'
+  | 'catalogEntries' | 'catalogLoading' | 'catalogError' | 'catalogLastFetched'
+  // Resourcebibliotheek: app-globaal, net als extensies (zie CLAUDE.md, *Resourcebibliotheken*).
+  | 'companies' | 'defaultCompanyId' | 'pools' | 'libraryLoaded';
+
+/**
+ * Categorie 3 — afgeleid: geen bron van waarheid, wordt herberekend uit velden die wél in het
+ * contract staan. Hoort daarom noch in de payload (dan zou hij kunnen verouderen) noch bij de
+ * app-globale velden. Elk swap-pad in `documentSlice` roept `recomputeViewRows()` aan.
+ */
+type DerivedKey = 'viewRows';
+
+type Unclassified = Exclude<StateDataKey<AppState>, keyof DocumentPayload | AppGlobalKey | DerivedKey>;
+const _assertNoUnclassifiedState: Unclassified extends never ? true : [
+  'Nieuw state-veld zonder keuze. Zet het in DocumentPayload (per document), in AppGlobalKey (gedeeld) of in DerivedKey (herberekend):',
+  Unclassified,
+] = true;
+void _assertNoUnclassifiedState;
+
+// En andersom: een classificatie die naar een verdwenen veld wijst is dode ballast die de check
+// stilletjes zwakker maakt. Hernoem of verwijder je een veld, dan valt deze regel om.
+type StaleClassification = Exclude<AppGlobalKey | DerivedKey, StateDataKey<AppState>>;
+const _assertNoStaleClassification: StaleClassification extends never ? true : [
+  'Geclassificeerd veld bestaat niet (meer) in AppState:',
+  StaleClassification,
+] = true;
+void _assertNoStaleClassification;
+
 // ── Payload-operaties (key-gedreven over DOCUMENT_FIELDS) ─────────────────────────────────────
 // De descriptor-lijst is een UNIE van `FieldDesc<K>` voor elke K; binnen een generieke loop kan TS
 // `get`/`set` niet correleren (klassiek correlated-union-probleem). We isoleren die onveiligheid in

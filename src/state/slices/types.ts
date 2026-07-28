@@ -189,7 +189,6 @@ export interface UIState {
   showTaskDialog: boolean;
   editingTaskId: string | null;
   showDependencyMode: boolean;
-  dependencySourceId: string | null;
   showProjectSettings: boolean;
   showProjectInfoDialog: boolean;
   leftPanelWidth: number;
@@ -199,7 +198,6 @@ export interface UIState {
   activeRibbonTab: RibbonTab;
   backstageSection: BackstageSection; // huidige sub-sectie wanneer File-tab actief is
   collapsedTaskIds: string[];   // summary tasks that are collapsed
-  inlineEditTaskId: string | null;
   showSettingsDialog: boolean;
   showCalendarDialog: boolean;
   showUpdateDialog: boolean;

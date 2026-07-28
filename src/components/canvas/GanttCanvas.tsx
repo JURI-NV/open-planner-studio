@@ -1388,7 +1388,7 @@ export function GanttCanvas() {
           }}
           onAddRelation={() => {
             if (contextMenu.task) {
-              setUI({ showDependencyMode: true, dependencySourceId: contextMenu.task.id });
+              setUI({ showDependencyMode: true });
             }
           }}
           onSaveTemplate={() => {
@@ -1450,7 +1450,7 @@ export function GanttCanvas() {
           }}
           onStartRelationFromBar={() => {
             if (contextMenu.task) {
-              setUI({ showDependencyMode: true, dependencySourceId: contextMenu.task.id });
+              setUI({ showDependencyMode: true });
             }
           }}
           onPaste={() => { pasteTasks(); }}

@@ -141,7 +141,7 @@ const relationButton: RibbonButtonSpec = {
           });
           return;
         }
-        setUI({ showDependencyMode: !active, dependencySourceId: null });
+        setUI({ showDependencyMode: !active });
       },
     };
   },

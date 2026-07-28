@@ -339,6 +339,17 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
       plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
 
+### Klein — `showDependencyMode` is een knop die niets doet (2026-07-28)
+- [ ] **Relatie-modus: beslissen of hij af moet of weg.** Bij het opruimen van `dependencySourceId`
+      (K-item 26 — write-only: drie schrijvers, nul lezers, verwijderd) bleek `showDependencyMode`
+      zelf ook nergens gedrag te sturen: hij wordt gezet door de Relatie-knop en door twee
+      contextmenu-items, en de énige lezer is `ribbonConfig.tsx:125` — voor de *actief*-markering
+      van de knop zelf. Er is geen canvas-interactie, geen cursorwissel, geen klik-om-te-verbinden.
+      Voor de gebruiker: de knop licht op en er gebeurt niets. Twee wegen, allebei prima, maar het
+      is een productbeslissing: de modus **afbouwen** (knop weg; met twee taken geselecteerd legt
+      dezelfde knop al wél een FS-relatie, dat pad werkt), of de modus **afmaken** (klik-bron →
+      klik-doel op het canvas). Niet stilzwijgend laten staan.
+
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)
