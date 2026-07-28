@@ -52,7 +52,10 @@
 /* Ribbon Content */
 .ribbon-content {
   background: var(--theme-ribbon-content-bg);
-  padding: 4px 8px 0 8px;
+  /* rechts 32px i.p.v. 8px: ruimte voor de absoluut gepositioneerde .ribbon-collapse-toggle
+     (right:6px; width:22px ⇒ ~28px vanaf de rand nodig) zodat die niet over de laatste groep
+     heen valt en de groepen er niet onderdoor lopen. */
+  padding: 4px 32px 0 8px;
   display: flex;
   align-items: stretch;
   height: 94px;

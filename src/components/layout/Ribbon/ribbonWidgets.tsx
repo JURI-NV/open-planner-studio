@@ -7,7 +7,7 @@ import {
   History, Download, Puzzle,
   LayoutTemplate, UserPlus, Flag, GitCompareArrows, CalendarClock, X,
   Columns3, Filter, Layers, ArrowUpDown, Maximize2, Minimize2, SplitSquareHorizontal,
-  Map as MapIcon, AlertTriangle,
+  Map as MapIcon, AlertTriangle, Save, RefreshCw, Settings2,
 } from 'lucide-react';
 import { listWbsTemplates, deleteWbsTemplate, type WbsTemplate } from '@/utils/wbsTemplates';
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
@@ -776,12 +776,16 @@ export function LayoutGroupContent() {
         {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 2 }}>
+        {/* Iconen zijn hier niet decoratief: in de icoon-dichtheid verbergt de CSS élk
+            `.ribbon-btn-label`, dus een knop zonder icoon bleef als leeg stompje van ~14px over.
+            Met een icoon houdt elke knop betekenis, en de tooltip draagt het label. */}
         <button
           className="ribbon-btn small"
           style={{ minWidth: 0, flex: '0 0 auto' }}
           onClick={() => setUI({ showLayoutsDialog: true })}
           title={tMenu('ribbon.saveLayoutAs')}
         >
+          <span className="ribbon-btn-icon"><Save size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.saveLayoutAs')}</span>
         </button>
         <button
@@ -791,6 +795,7 @@ export function LayoutGroupContent() {
           disabled={!activeLayout}
           title={tMenu('ribbon.updateLayout')}
         >
+          <span className="ribbon-btn-icon"><RefreshCw size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.updateLayout')}</span>
         </button>
         <button
@@ -799,6 +804,7 @@ export function LayoutGroupContent() {
           onClick={() => setUI({ showLayoutsDialog: true })}
           title={tMenu('ribbon.manageLayouts')}
         >
+          <span className="ribbon-btn-icon"><Settings2 size={14} /></span>
           <span className="ribbon-btn-label">{tMenu('ribbon.manageLayouts')}</span>
         </button>
       </div>

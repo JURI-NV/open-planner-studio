@@ -1,6 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
+import { ChevronUp, ChevronDown } from 'lucide-react';
+import { saveRibbonCompact } from '@/utils/settingsStore';
 import { RibbonTab } from '@/state/slices/types';
 import { RibbonTabContent } from './RibbonTabContent';
 import { ExtensionRibbonGroups } from './ribbonWidgets';
@@ -8,24 +10,33 @@ import { RibbonDensity, RibbonDensityContext } from './ribbonDensity';
 import './Ribbon.css';
 
 /**
- * Ribbon-schil (audit P18): tabs-balk + generiek render-pad. De dichtheid (vol/compact/icoon) is
- * volledig automatisch: een ResizeObserver meet of de inhoud van de actieve tab horizontaal past;
- * zo niet, dan schakelt {@link useRibbonAutoDensity} één stap compacter (vol → compact → alleen
- * iconen). Er is geen handmatige inklap-knop meer — het lint past zich vanzelf aan de breedte aan.
- * De gekozen dichtheid gaat via {@link RibbonDensityContext} naar de groep-componenten die zelf een
- * compacte vorm renderen (TimeScale/Layout/Baselines), zodat klasse en inhoud consistent blijven.
+ * Ribbon-schil (audit P18): tabs-balk + generiek render-pad + inklap-toggle. De dichtheid
+ * (vol/compact/icoon) is een combinatie van automatisch en handmatig: een ResizeObserver meet of
+ * de inhoud van de actieve tab horizontaal past; zo niet, dan schakelt {@link useRibbonAutoDensity}
+ * één stap compacter (vol → compact → alleen iconen). Daarnaast kan de gebruiker via de
+ * `.ribbon-collapse-toggle`-knop `ui.ribbonCompact` aanzetten — dat is een ONDERGRENS, geen
+ * absolute waarde: staat hij aan, dan is de effectieve dichtheid minimaal 'compact' (de
+ * automatische dichtheid mag 'm nog verder naar 'icon' duwen, maar nooit terug naar 'full'). Staat
+ * hij uit, dan is de effectieve dichtheid gewoon de automatische. De gekozen (effectieve) dichtheid
+ * gaat via {@link RibbonDensityContext} naar de groep-componenten die zelf een compacte vorm
+ * renderen (TimeScale/Layout/Baselines), zodat container-klasse en inhoud consistent blijven.
  */
 function useRibbonAutoDensity(
   containerRef: RefObject<HTMLElement | null>,
   scrollRef: RefObject<HTMLElement | null>,
   activeTab: RibbonTab,
+  manualCompact: boolean,
 ): RibbonDensity {
   const [density, setDensity] = useState<RibbonDensity>('full');
   const [, forceRemeasure] = useState(0);
   const lastWidth = useRef(0);
 
-  // Bij tabwissel opnieuw vanaf 'full' evalueren (andere inhoud/breedte per tab).
-  useLayoutEffect(() => { setDensity('full'); }, [activeTab]);
+  // Bij tabwissel opnieuw vanaf 'full' evalueren (andere inhoud/breedte per tab). Óók bij het
+  // omzetten van de handmatige knop: zolang die aan staat meet dit effect de compacte inhoud (die
+  // breder is dan de volle) en loopt de ladder door naar 'icon'. Zonder deze reset bleef die stand
+  // hangen zodra de gebruiker weer uitklapte, waardoor het lint op een breed scherm in icoon-modus
+  // bleef staan i.p.v. terug te gaan naar 'full'.
+  useLayoutEffect(() => { setDensity('full'); }, [activeTab, manualCompact]);
 
   // Stap compacter zolang de inhoud horizontaal overloopt. Draait na elke render en convergeert:
   // 'icon' overloopt = geen verandering meer (React bailt op gelijke state), dan blijft de bestaande
@@ -66,6 +77,7 @@ export function Ribbon() {
   const { t: tMenu } = useTranslation('menu');
   const setUI = useAppStore(s => s.setUI);
   const activeTab = useAppStore(s => s.ui.activeRibbonTab);
+  const ribbonCompact = useAppStore(s => s.ui.ribbonCompact);
   // T14: het AI-tabblad verschijnt alleen bij ingeschakelde AI-modus (conditioneel, net als de
   // debug-terminal een paneel toont). Uitzetten verwijdert de tab; de reducer valt dan terug op
   // 'start' als dit tabblad actief was.
@@ -73,7 +85,15 @@ export function Ribbon() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const density = useRibbonAutoDensity(containerRef, scrollRef, activeTab);
+  const autoDensity = useRibbonAutoDensity(containerRef, scrollRef, activeTab, ribbonCompact);
+  // Handmatig kiezen wint volledig: kiest de gebruiker compact, dan is het compact — automatisch
+  // mag daar niet meer overheen. Dat is bewust géén ondergrens-met-doorschuif-naar-'icon', want de
+  // compacte strip is BREDER dan de volle weergave (bij het platslaan worden verticale knop-stapels
+  // horizontale rijen: 3 knoppen gaan van ~70px naar ~210px). De automatische ladder zou dus altijd
+  // meteen naar 'icon' doorschieten en de gekozen strip-mét-labels nooit tonen. Zonder handmatige
+  // keuze bepaalt de automaat alles zoals voorheen.
+  // Puur afgeleid uit bestaande state — geen eigen setState, dus geen renderlus mogelijk.
+  const density: RibbonDensity = ribbonCompact ? 'compact' : autoDensity;
 
   const setActiveTab = useCallback((tab: RibbonTab) => {
     setUI({ activeRibbonTab: tab });
@@ -118,6 +138,22 @@ export function Ribbon() {
               <ExtensionRibbonGroups tab={activeTab} />
             </div>
           </RibbonDensityContext.Provider>
+          {/* Compacte-modus-toggle rechtsonder (Word-web-stijl): ↑ = inklappen, ↓ = uitklappen.
+              Sibling van .ribbon-content-scroll (niet erin) zodat position:absolute t.o.v.
+              .ribbon-content de knop een vaste plek in de hoek geeft, los van scroll/inhoud —
+              en in élke dichtheid (ook 'icon') zichtbaar en klikbaar blijft. */}
+          <button
+            className="ribbon-collapse-toggle"
+            title={tMenu(ribbonCompact ? 'ribbon.expandRibbon' : 'ribbon.collapseRibbon')}
+            aria-label={tMenu(ribbonCompact ? 'ribbon.expandRibbon' : 'ribbon.collapseRibbon')}
+            onClick={() => {
+              const next = !ribbonCompact;
+              setUI({ ribbonCompact: next });
+              void saveRibbonCompact(next);
+            }}
+          >
+            {ribbonCompact ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
         </div>
       )}
     </div>
