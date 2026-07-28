@@ -7,7 +7,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Browser-dev via scripts/dev-server.mjs (poort per worktree, dubbelstart-guard)
 npm run build        # tsc && vite build → dist/ (noEmit staat in tsconfig)
-npm run typecheck    # tsc --noEmit op src/ én op tsconfig.tests.json (scripts/ + tests/)
 npm run preview      # Serve the built bundle
 npm run tauri:dev    # Run the desktop app (Tauri 2) via scripts/tauri-dev.mjs
 npm run tauri:build  # Produce desktop installers
@@ -22,6 +21,7 @@ npm run test:dev-server   # los: node:test-units + integratietest van de dev-ser
 npm run verify:examples   # los: de gebundelde voorbeelden laden/rekenen door zoals verwacht
 npm run verify:docs       # los: in-app gidsen — nl+en hard vereist, overige 12 talen indien aanwezig
 npm run verify:i18n       # los: ontbrekende vertaalsleutels t.o.v. nl (CLDR-pluralcategorieën meegerekend)
+npm run verify:cycles     # los: circulaire imports binnen src/ (esbuild-metafile, dus ná type-erasure)
 npm run gen:examples      # Voorbeeldprojecten (public/examples) opnieuw genereren
 npm run publish:wiki      # GitHub-wiki genereren uit repo-bronnen (dry-run; `-- --push` publiceert)
 ```
@@ -81,6 +81,7 @@ Scheduling is **manual, not reactive**: the `runCPM` action instantiates `Calend
 | `snapshot.ts` | de undo/redo-snapshot als expliciete `Pick<>`-subset van datzelfde contract, gestuurd door de `snapshot`-rol per veld. |
 | `transaction.ts` | het muteer-ritueel (snapshot pushen, redo leegmaken, `isDirty`/`scheduleStale` zetten) op één plek in plaats van per actie. |
 | `ifcSaveInput.ts` | welke velden een IFC-save meeschrijft — precies de round-trip-velden van het contract, zodat alle callsites (opslaan, auto-save, IFCPanel, devBridge) dezelfde bron doorgeven. |
+| `defaults.ts` | de `fresh`-fabrieken (`createDefaultProject`/`createDefaultView`) als **bladmodule**: hij importeert niets uit `slices/`. Dat is geen stijlkeuze — stonden ze in hun slice, dan ontstaat de cyclus `projectSlice → transaction → snapshot → documentContract → projectSlice`, die alleen werkt zolang het function *declarations* zijn (hoisting). `npm run verify:cycles` bewaakt dat. |
 
 Voeg je projectdata toe, dan hoort die dus in `DOCUMENT_FIELDS` — anders overleeft hij geen documentwissel, geen undo, geen crashherstel en geen opslaan. `tests/planning/check-document-contract.ts` bewaakt de keten.
 

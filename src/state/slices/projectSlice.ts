@@ -8,7 +8,7 @@ import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { Baseline } from '@/types/baseline';
 import { generateId } from '@/utils/id';
-import { formatDate, diffDays } from '@/utils/dateUtils';
+import { diffDays } from '@/utils/dateUtils';
 import { applyWbsNumbering } from '@/utils/wbs';
 import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
 import {
@@ -21,6 +21,10 @@ import { syncProjectCalendar, promoteProjectCalendarToLibrary } from '../syncPro
 import { freshPayload, hydratePayload } from '../documentContract';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
+// K-item 27: de fabriek woont in de bladmodule `../defaults` (breekt de import-cyclus met
+// documentContract/snapshot). Hier alleen doorgegeven, zodat bestaande importers ongemoeid blijven.
+import { createDefaultProject } from '../defaults';
+export { createDefaultProject };
 
 /** Opties voor de nieuw-project-wizard. */
 export interface NewProjectOptions {
@@ -148,23 +152,6 @@ function projectChanges(current: Project, updates: Partial<Project>): boolean {
     .some((k) => k !== 'modifiedAt' && !sameValue(current[k], updates[k]));
 }
 
-export function createDefaultProject(): Project {
-  return {
-    id: generateId('proj'),
-    name: 'Nieuw Project',
-    description: '',
-    startDate: formatDate(new Date()),
-    endDate: '',
-    calendarId: 'cal-default',
-    createdAt: new Date().toISOString(),
-    modifiedAt: new Date().toISOString(),
-    author: '',
-    company: '',
-    // Nieuwe projecten nummeren de WBS automatisch; geladen bestanden zonder
-    // vlag blijven op vrije tekst (zie Project.wbsAutoNumber).
-    wbsAutoNumber: true,
-  };
-}
 
 export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
   project: createDefaultProject(),

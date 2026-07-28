@@ -11,9 +11,9 @@ import type { ImportResult } from '@/services/importTypes';
 import type { ViewState } from './slices/types';
 import type { Snapshot } from './snapshot';
 import type { AppState } from './appStore';
-import { createDefaultProject } from './slices/projectSlice';
+import { createDefaultProject } from './defaults';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
-import { createDefaultView } from './slices/viewSlice';
+import { createDefaultView } from './defaults';
 import { syncProjectCalendar, promoteProjectCalendarToLibrary } from './syncProjectCalendar';
 
 /**
