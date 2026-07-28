@@ -4,6 +4,7 @@ import { useAppStore } from '@/state/appStore';
 import { Locale, LANGUAGE_LABELS, supportedLanguages, setLocale } from '@/i18n/config';
 import { UITheme, UI_THEMES, DocumentChromeStyle, DateNotation, DurationDisplay, BarSplitMode } from '@/state/slices/types';
 import { saveLocale, saveTheme, saveZoomSettings, saveDebugTerminalEnabled, saveDocumentChromeStyle, saveAutoCalcCPM, saveConstructionMode, saveDateNotation, saveEnableHourPlanning, saveAllowMixedDayHour, saveDurationDisplay, saveBarSplitMode } from '@/utils/settingsStore';
+import { isTauri } from '@/utils/platform';
 import { Select } from '@/components/common/Select';
 import { ScrollZoomSettings } from '@/components/dialogs/ScrollZoomSettings';
 import '@/components/dialogs/SettingsDialog.css';
@@ -47,6 +48,22 @@ export function SettingsPanelContent() {
   const barSplitMode = useAppStore(s => s.ui.barSplitMode);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+
+  // "Wat is er nieuw" handmatig openen: toon JustUpdatedDialog voor de HUIDIGE versie (dus zonder
+  // "van"-versie). KRITIEK: `@tauri-apps/*` alleen dynamisch achter `isTauri()` — in de web-build
+  // valt dit terug op de build-time versie uit vite-define.
+  const openWhatsNew = async () => {
+    let version = __APP_VERSION__;
+    if (isTauri()) {
+      try {
+        const { getVersion } = await import('@tauri-apps/api/app');
+        version = await getVersion();
+      } catch {
+        /* terugval op __APP_VERSION__ */
+      }
+    }
+    setUI({ justUpdated: { from: null, to: version }, showSettingsDialog: false });
+  };
 
   // --- Live appliers (geen pending state) -------------------------------
   const applyTheme = (theme: UITheme) => {
@@ -346,6 +363,12 @@ export function SettingsPanelContent() {
                 }}
               >
                 {t('updates.checkButton')}
+              </button>
+              <button
+                className="settings-link"
+                onClick={() => { void openWhatsNew(); }}
+              >
+                {t('updates.justUpdated.whatsNewButton')}
               </button>
             </div>
 
