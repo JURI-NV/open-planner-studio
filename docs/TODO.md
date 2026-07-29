@@ -349,6 +349,17 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
       plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
 
+### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
+- [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
+      (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van
+      4528 ms naar 1533 ms en van 100 naar 1 undo-stap. Maar de schaling bleef ~3,5× bij een
+      verdubbeling van n, dus er is een tweede kwadratische factor: beide functies zijn O(n) en
+      worden n keer aangeroepen. `flattenOrder` is al gede-kwadrateerd, dus dát is het niet.
+      *Aanpak:* binnen een lopende batch de hernummering en de viewRows-herberekening uitstellen
+      tot het einde van de transactie. Let op: dan ziet code BÍNNEN de batch verouderde
+      `wbsCode`/`viewRows` — dat is een gedragswijziging, geen pure optimalisatie, en hoort
+      daarom niet stilzwijgend in K-item 32. Hangt samen met item 36 (prestaties).
+
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)

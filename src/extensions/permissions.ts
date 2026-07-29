@@ -68,6 +68,7 @@ export const API_PERMISSIONS: Record<string, PermissionCheck | null> = {
   'data.addSequence': null,
   'data.loadProject': null,
   'data.recalculate': null,
+  'data.batch': null,
 
   // Settings — kern-API.
   'settings.get': null,

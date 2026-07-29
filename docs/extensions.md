@@ -86,7 +86,7 @@ module.exports = {
 | Onderdeel | Functies |
 |---|---|
 | `api.importers` | `register(def)`, `unregister(id)` |
-| `api.data` | `getProject/getCalendar/getTasks/getSequences/getResources/getAssignments`, `addTask`, `updateTask`, `addSequence`, `loadProject(result)`, `recalculate()` |
+| `api.data` | `getProject/getCalendar/getTasks/getSequences/getResources/getAssignments`, `addTask`, `updateTask`, `addSequence`, `loadProject(result)`, `recalculate()`, `batch(fn)` |
 | `api.events` | `on/off/emit` (permissie `events`) |
 | `api.ui` | `addRibbonButton(reg)` (permissie `ribbon`), `showNotification(msg, type?)` |
 | `api.settings` | `get(key, default)`, `set(key, value)` — per extensie geprefixt in localStorage |
@@ -94,6 +94,22 @@ module.exports = {
 | `api.pdfFonts` | `register(provider)` (permissie `pdf-fonts`) — font-provider voor de vector-PDF-export; automatisch uitgeschreven bij disable |
 
 Belangrijk: na het muteren van taken/relaties zelf `api.data.recalculate()` aanroepen — het schema wordt niet reactief herberekend. `loadProject()` doet dat automatisch.
+
+**Muteer je meer dan een handvol dingen in een lus, wikkel dat dan in `api.data.batch()`.** Elke
+losse mutatie legt anders een eigen undo-snapshot aan: honderd taken toevoegen kost honderd
+snapshots (de kosten lopen kwadratisch op) en laat honderd undo-stappen achter voor wat de
+gebruiker als één handeling ziet. Binnen `batch` wordt de snapshot één keer genomen:
+
+```js
+api.data.batch(() => {
+  for (const row of rows) api.data.addTask({ name: row.naam });
+});
+api.data.recalculate();
+```
+
+`batch` kent geen rollback: gooit je callback halverwege, dan blijft staan wat al gemuteerd is —
+maar de ene snapshot dekt de begintoestand, dus de gebruiker draait het in één keer terug.
+Nesten mag; de binnenste `batch` doet dan niets extra's.
 
 ### Binaire assets & font-providers
 

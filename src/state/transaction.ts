@@ -96,6 +96,34 @@ export function setMcpTransactionActive(active: boolean): void {
 }
 
 /**
+ * Diepteteller voor bulk-transacties (K-item 32).
+ *
+ * Zonder dit pusht élke mutator zijn eigen deep-clone-snapshot. Een lus van n toevoegingen kloont
+ * dus 1 + 2 + … + n taken — kwadratisch. Dat gebeurt echt: `api.data.addTask` is de enige manier
+ * waarop een extensie taken kan aanmaken, dus een importer die duizend taken toevoegt betaalt
+ * duizend snapshots én laat duizend undo-stappen achter voor wat de gebruiker als één handeling ziet.
+ *
+ * Een TELLER en geen boolean, zodat een geneste `withTransaction` de buitenste niet voortijdig
+ * opheft. Module-state, net als de coalesce-marker en de MCP-vlag: een uitvoerings-"venster",
+ * geen documentdata.
+ */
+let batchDepth = 0;
+
+/** Loopt er een bulk-transactie? Dan neemt die de ene snapshot en zwijgen de mutators. */
+export function isBatchActive(): boolean {
+  return batchDepth > 0;
+}
+
+/** Uitsluitend door `withTransaction` aangeroepen, synchroon rond de callback (ook bij een throw). */
+export function enterBatch(): void {
+  batchDepth++;
+}
+
+export function exitBatch(): void {
+  if (batchDepth > 0) batchDepth--;
+}
+
+/**
  * Open een ongedaan-maakbare mutatie: leg de huidige staat op de undo-stack en wis de redo-stack.
  * ROEP DIT AAN NÁ eventuele guard-returns en VÓÓR de mutatie — zo vervuilt een no-op de undo-stack
  * niet (bewust patroon door de hele state-laag: acties pushen de snapshot pas als er echt iets
@@ -111,9 +139,10 @@ export function setMcpTransactionActive(active: boolean): void {
  * dezelfde bewerking vallen samen.
  */
 export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): void {
-  // WP0-suppressie: binnen een MCP-transactie neemt `runInMcpTransaction` zelf één snapshot vooraf;
-  // de individuele mutators mogen er dan géén pushen. Early-return vóór álle snapshot-/coalesce-logica.
-  if (mcpTransactionActive) return;
+  // Suppressie: binnen een MCP-transactie (WP0) óf een bulk-transactie (`withTransaction`,
+  // K-item 32) is de ene snapshot al vooraf genomen; de individuele mutators mogen er dan géén
+  // pushen. Early-return vóór álle snapshot-/coalesce-logica.
+  if (mcpTransactionActive || batchDepth > 0) return;
   const key = opts?.coalesceKey;
   if (key && coalesce && coalesce.key === key && coalesce.seq === undoSeq && coalesce.docId === s.activeDocumentId) {
     // Voortzetting van dezelfde bewerking: de bestaande snapshot dekt de begintoestand al.
