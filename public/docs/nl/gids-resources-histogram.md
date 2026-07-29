@@ -28,7 +28,7 @@ Elke resource heeft een **Type** (kolom in het resourcepaneel):
 
 ## Resources beheren
 
-Open het resourcepaneel via de lintgroep **Beheer** op het tabblad **Resources**: de knop **Resources** opent het volledige paneel (een aparte volledige-paneel-weergave, net als Tabel of Relaties), **Nieuwe resource** voegt direct een rij toe. In het paneel bewerk je per resource: **Naam**, **Type**, **Max. eenheden** (de capaciteit per werkdag — 1 = één persoon/stuk voltijds, 2 = twee eenheden tegelijk), **Kalender**, **Tarief/uur**, **Eenheid** (alleen materiaal) en **Ploeg** (bij welke ploeg deze resource hoort). Onderaan telt de kolom **Totaal** de kosten van elke resource op (belaste eenheden × uren/dag × tarief), herberekend bij elke F5.
+Open het resourcepaneel via de lintgroep **Beheer** op het tabblad **Resources**: de knop **Resources** opent het volledige paneel (een aparte volledige-paneel-weergave, net als Tabel of Relaties), **Nieuwe resource** opent het paneel met een concept-rij waarin je meteen de naam typt (net als de knop **+ Nieuwe resource** in het paneel zelf). De resource ontstaat pas zodra je een naam hebt ingevuld en op Enter drukt of wegklikt; laat je hem leeg, dan blijft er niets achter. In het paneel bewerk je per resource: **Naam**, **Type**, **Max. eenheden** (de capaciteit per werkdag — 1 = één persoon/stuk voltijds, 2 = twee eenheden tegelijk), **Kalender**, **Tarief/uur**, **Eenheid** (alleen materiaal) en **Ploeg** (bij welke ploeg deze resource hoort). Onderaan telt de kolom **Totaal** de kosten van elke resource op (belaste eenheden × uren/dag × tarief), herberekend bij elke F5.
 
 ### Tijd-gefaseerde capaciteit
 
@@ -78,6 +78,8 @@ Staat er "Herbereken (F5) om de belasting te tonen" in plaats van staafjes, dan 
 ## Het gedockte resourcepaneel
 
 Naast het volledige resourcepaneel (lintknop **Resources**) is er een compacte variant die je aan de rechterkant kunt vastzetten: knop **Vastzetten** in de lintgroep **Beheer**. Dit gedockte paneel toont alleen naam, **Max. eenheden** (direct bewerkbaar) en een rood/groen bolletje voor overallocatie — een snel overzicht naast je Gantt zonder het volledige paneel open te zetten. Het gedockte resourcepaneel en het eigenschappenpaneel van een taak sluiten elkaar wederzijds uit: je ziet er telkens één van de twee in de rechterrail.
+
+Dezelfde twee knoppen — **Vastzetten** en **Histogram** — staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Het zijn dezelfde schakelaars: waar je ze ook aanklikt, ze doen precies hetzelfde.
 
 ## Overallocatie herkennen
 

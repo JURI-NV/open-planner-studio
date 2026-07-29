@@ -128,6 +128,8 @@ export function createDefaultUI(): UIState {
     showLibraryLinkDialog: false,
     libraryRefreshNotice: null,
     resourcesView: 'project',
+    // Issue #48-1: ephemeral verzoek-vlag voor een concept-rij in het resource-paneel (zie UIState).
+    pendingNewResource: false,
     // Fase 2.10 onderdeel 3: first-startup — ephemeral, bootstrap-hook in App.tsx zet
     // showWelcomeDialog o.b.v. de persistente `welcomeSeen`-vlag (settingsStore.ts).
     showWelcomeDialog: false,

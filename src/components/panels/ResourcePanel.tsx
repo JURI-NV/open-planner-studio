@@ -72,6 +72,7 @@ export function ResourcePanel() {
   const companies = useAppStore(s => s.companies);
   const pools = useAppStore(s => s.pools);
   const resourcesView = useAppStore(s => s.ui.resourcesView);
+  const pendingNewResource = useAppStore(s => s.ui.pendingNewResource);
   const addPoolResource = useAppStore(s => s.addPoolResource);
   const removePoolResource = useAppStore(s => s.removePoolResource);
   const updatePoolResource = useAppStore(s => s.updatePoolResource);
@@ -108,6 +109,10 @@ export function ResourcePanel() {
   // wegklikken laat helemaal geen spoor na. Vervangt de eerdere `newRowId`-autofocus-aanpak (punt 3) —
   // de pending-rij bestaat sowieso maar heel even en mag altijd focus krijgen.
   const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; name: string } | null>(null);
+  /** Welke draft-variant hoort bij een gegeven weergave — één definitie, gebruikt door de knop, de
+   *  weergave-wissel-reset hieronder en de lintknop-route (#48-1). Spiegelt `inPoolView`. */
+  const variantForView = (view: 'company' | 'project'): 'project' | 'pool' =>
+    (linked && view === 'company' && !!pool) ? 'pool' : 'project';
   const commitPendingNew = () => {
     if (!pendingNew) return;
     const trimmed = pendingNew.name.trim();
@@ -124,10 +129,16 @@ export function ResourcePanel() {
   // stale confirm-stap of melding terugkomt bij een latere terugkeer naar deze weergave. Spiegel voor
   // `projectNotice` (Projectweergave — punt D5). Een pending-draft die nog niet gecommit is vervalt
   // ook bij het wisselen van weergave (bewust: hij hoorde bij de weergave die je verlaat).
+  // Uitzondering (#48-1): een draft die BIJ de nieuwe weergave hoort blijft staan. Dat is precies de
+  // lintknop-route — bij een verse mount kan de default-weergave-normalisatie hieronder de weergave
+  // nog omklappen nádat de draft is aangemaakt; zonder deze uitzondering zou de knop dan niets doen.
+  // Een echte gebruikers-wissel gooit de draft nog steeds weg (die draagt altijd de variant van de
+  // weergave die je verlaat).
   useEffect(() => {
     if (resourcesView !== 'company') { setConfirmPoolDelete(null); setPoolNotice(null); }
     if (resourcesView !== 'project') { setConfirmDelete(null); setProjectNotice(null); }
-    setPendingNew(null);
+    setPendingNew(p => (p && p.variant === variantForView(resourcesView) ? p : null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourcesView]);
 
   const onAssignFromCompany = (resourceId: string) => {
@@ -164,6 +175,19 @@ export function ResourcePanel() {
     setUI({ resourcesView: hasContent ? 'company' : 'project' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.companyId, linked]);
+
+  // Lintknop "Nieuwe resource" (#48-1): die persisteerde vroeger meteen een naamloze resource (echte
+  // store-mutatie + undo-stap). Nu zet hij alleen `ui.pendingNewResource` en opent dit effect
+  // dezelfde concept-rij als de "+ Nieuwe resource"-knop in het paneel — één route, één gedrag.
+  // BEWUST ná het default-weergave-effect hierboven: dat kan bij een verse mount de weergave nog
+  // omklappen, dus lezen we de weergave hier vers uit de store i.p.v. uit de render-waarde, zodat de
+  // draft in de tabel landt die de gebruiker daadwerkelijk te zien krijgt.
+  useEffect(() => {
+    if (!pendingNewResource) return;
+    setPendingNew({ variant: variantForView(useAppStore.getState().ui.resourcesView), name: '' });
+    setUI({ pendingNewResource: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingNewResource]);
 
   const crews = resources.filter(r => r.type === 'CREW');
   // Ploeg-kolom in de pool (issue #19, punt 1) — parentId is een geldig pool-lokaal veld (zie

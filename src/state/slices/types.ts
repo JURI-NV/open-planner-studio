@@ -294,6 +294,13 @@ export interface UIState {
   /** session — Resources-tabweergave: 'company' (bedrijfspool) of 'project' (wat dit project bevat).
    *  Default afgeleid: bij inhoud in de pool 'company', anders 'project' (spec §4). */
   resourcesView: 'company' | 'project';
+  /** session — eenmalig verzoek (issue #48-1) om in het resource-paneel een CONCEPT-rij te openen,
+   *  i.p.v. meteen een naamloze resource te persisteren. Gezet door de lintknop "Nieuwe resource",
+   *  geconsumeerd (en direct weer op false gezet) door `ResourcePanel`, dat er zijn lokale
+   *  `pendingNew`-draft mee opent — zo doorloopt de lintknop exact dezelfde gesaneerde route als de
+   *  "+ Nieuwe resource"-knop in het paneel zelf (geen undo-stap, geen leeg item bij niets typen).
+   *  App-globale UI-state, GEEN documentdata — hoort dus niet in `DOCUMENT_FIELDS`. */
+  pendingNewResource: boolean;
   // --- Fase 2.10 onderdeel 3: first-startup (welkomstdialoog + rondleiding) ---
   /** session — welkomstdialoog (2 stappen: voorkeuren + rondleiding-aanbod) open. Ephemeral:
    *  het bootstrap-effect in App.tsx zet 'm op true bij een verse `!loadWelcomeSeen()`, of de

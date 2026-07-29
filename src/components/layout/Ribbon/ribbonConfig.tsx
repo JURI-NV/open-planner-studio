@@ -416,6 +416,45 @@ const planningTab: RibbonTabConfig = [
   },
 ];
 
+/**
+ * Gedeelde item-specs (issue #46c): "Vastzetten" en "Histogram" staan zowel op de Resources-tab als
+ * onder Beeld → Panelen. Bewust GEDUPLICEERD (niet verplaatst) — de melder vroeg er expliciet om ze
+ * ook onder Beeld te zien, zonder ze bij Resources weg te halen. Eén definitie, twee callsites, in
+ * lijn met `calcButton`/`relationButton`/`calendarButton`/`printPreviewButton` hierboven.
+ */
+const dockResourcePanelButton: RibbonButtonSpec = {
+  kind: 'button', id: 'dockResourcePanel', icon: <Pin size={20} />, labelKey: 'menu:ribbon.dockResourcePanel',
+  use: () => {
+    const setUI = useAppStore(s => s.setUI);
+    const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
+    const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
+    const onClick = () => {
+      if (showResourcePanel && resourcePanelDocked) {
+        setUI({ showResourcePanel: false, resourcePanelDocked: false });
+      } else {
+        setUI({ showResourcePanel: true, resourcePanelDocked: true });
+      }
+    };
+    return {
+      icon: resourcePanelDocked ? <PinOff size={20} /> : <Pin size={20} />,
+      onClick,
+      active: showResourcePanel && resourcePanelDocked,
+    };
+  },
+};
+
+const toggleHistogramButton: RibbonButtonSpec = {
+  kind: 'button', id: 'toggleHistogram', icon: <BarChart3 size={20} />, labelKey: 'menu:ribbon.toggleHistogram',
+  use: () => {
+    const showHistogram = useAppStore(s => s.ui.showHistogram);
+    const setUI = useAppStore(s => s.setUI);
+    return {
+      active: showHistogram,
+      onClick: () => { const next = !showHistogram; setUI({ showHistogram: next }); void saveShowHistogram(next); },
+    };
+  },
+};
+
 const resourcesTab: RibbonTabConfig = [
   {
     id: 'resourceManagement', labelKey: 'menu:ribbon.resourceManagement',
@@ -432,33 +471,21 @@ const resourcesTab: RibbonTabConfig = [
           };
         },
       },
-      {
-        kind: 'button', id: 'dockResourcePanel', icon: <Pin size={20} />, labelKey: 'menu:ribbon.dockResourcePanel',
-        use: () => {
-          const setUI = useAppStore(s => s.setUI);
-          const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
-          const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-          const onClick = () => {
-            if (showResourcePanel && resourcePanelDocked) {
-              setUI({ showResourcePanel: false, resourcePanelDocked: false });
-            } else {
-              setUI({ showResourcePanel: true, resourcePanelDocked: true });
-            }
-          };
-          return {
-            icon: resourcePanelDocked ? <PinOff size={20} /> : <Pin size={20} />,
-            onClick,
-            active: showResourcePanel && resourcePanelDocked,
-          };
-        },
-      },
+      dockResourcePanelButton,
       {
         kind: 'button', id: 'newResource', icon: <Plus size={20} />, labelKey: 'menu:ribbon.newResource',
+        // Issue #48-1: deze knop persisteerde direct een NAAMLOZE resource (`addResource` ⇒ undo-stap
+        // + een lege rij die blijft staan als je niets typt), terwijl de "+ Nieuwe resource"-knop in
+        // het paneel al gesaneerd was tot een concept-rij (critreview-bevinding F10). Nu neemt de
+        // lintknop diezelfde route: alleen een verzoek-vlag zetten, `ResourcePanel` opent de draft en
+        // maakt pas bij een niet-lege naam écht een resource aan — in de bibliotheek of het project,
+        // afhankelijk van de actieve weergave. Daarom ook expliciet `resourcePanelDocked: false`
+        // (zoals `openResourcePanel` hierboven): in de gedockte rail bestaat het paneel niet en is de
+        // naam readonly, dus daar zou de zojuist aangevraagde resource onbenoembaar zijn.
         use: () => {
-          const addResource = useAppStore(s => s.addResource);
           const setUI = useAppStore(s => s.setUI);
           return {
-            onClick: () => { addResource({ name: '', type: 'LABOR', description: '', maxUnits: 1 }); setUI({ showResourcePanel: true }); },
+            onClick: () => setUI({ showResourcePanel: true, resourcePanelDocked: false, pendingNewResource: true }),
           };
         },
       },
@@ -471,17 +498,7 @@ const resourcesTab: RibbonTabConfig = [
   {
     id: 'histogram', labelKey: 'menu:ribbon.histogram',
     items: [
-      {
-        kind: 'button', id: 'toggleHistogram', icon: <BarChart3 size={20} />, labelKey: 'menu:ribbon.toggleHistogram',
-        use: () => {
-          const showHistogram = useAppStore(s => s.ui.showHistogram);
-          const setUI = useAppStore(s => s.setUI);
-          return {
-            active: showHistogram,
-            onClick: () => { const next = !showHistogram; setUI({ showHistogram: next }); void saveShowHistogram(next); },
-          };
-        },
-      },
+      toggleHistogramButton,
       {
         kind: 'stack', id: 'histogramStack', items: [
           {
@@ -603,18 +620,23 @@ const beeldTab: RibbonTabConfig = [
   { id: 'presentation', labelKey: 'menu:ribbon.presentationMode', items: [{ kind: 'component', id: 'presentation', Component: PresentationGroupContent }] },
   {
     id: 'panels', labelKey: 'menu:ribbon.panels',
-    items: [{
-      kind: 'button', id: 'properties', icon: <Eye size={20} />, labelKey: 'menu:ribbon.properties',
-      use: () => {
-        const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
-        const setUI = useAppStore(s => s.setUI);
-        return {
-          icon: !rightPanelCollapsed ? <Eye size={20} /> : <EyeOff size={20} />,
-          active: !rightPanelCollapsed,
-          onClick: () => setUI({ rightPanelCollapsed: !rightPanelCollapsed }),
-        };
+    items: [
+      {
+        kind: 'button', id: 'properties', icon: <Eye size={20} />, labelKey: 'menu:ribbon.properties',
+        use: () => {
+          const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
+          const setUI = useAppStore(s => s.setUI);
+          return {
+            icon: !rightPanelCollapsed ? <Eye size={20} /> : <EyeOff size={20} />,
+            active: !rightPanelCollapsed,
+            onClick: () => setUI({ rightPanelCollapsed: !rightPanelCollapsed }),
+          };
+        },
       },
-    }],
+      // Issue #46c: dezelfde twee paneelknoppen als op de Resources-tab (gedeelde specs hierboven).
+      dockResourcePanelButton,
+      toggleHistogramButton,
+    ],
   },
   {
     id: 'overlays', labelKey: 'menu:ribbon.baselines',

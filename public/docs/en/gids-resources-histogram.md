@@ -28,7 +28,7 @@ Every resource has a **Type** (a column in the resource panel):
 
 ## Managing resources
 
-Open the resource panel via the **Manage** ribbon group on the **Resources** tab: the **Resources** button opens the full panel (a separate full-panel view, like Table or Relations), **New resource** adds a row directly. In the panel you edit, per resource: **Name**, **Type**, **Max units** (capacity per work day — 1 = one person/item full time, 2 = two units at once), **Calendar**, **Rate/hour**, **Unit** (material only) and **Crew** (which crew this resource belongs to). At the bottom, the **Total** column adds up each resource's cost (loaded units × hours/day × rate), recalculated on every F5.
+Open the resource panel via the **Manage** ribbon group on the **Resources** tab: the **Resources** button opens the full panel (a separate full-panel view, like Table or Relations), **New resource** opens the panel with a draft row in which you type the name straight away (just like the **+ New resource** button in the panel itself). The resource is only created once you've entered a name and press Enter or click away; leave it empty and nothing is left behind. In the panel you edit, per resource: **Name**, **Type**, **Max units** (capacity per work day — 1 = one person/item full time, 2 = two units at once), **Calendar**, **Rate/hour**, **Unit** (material only) and **Crew** (which crew this resource belongs to). At the bottom, the **Total** column adds up each resource's cost (loaded units × hours/day × rate), recalculated on every F5.
 
 ### Time-phased capacity
 
@@ -78,6 +78,8 @@ If you see "Recalculate (F5) to show the load" instead of bars, the schedule has
 ## The docked resource panel
 
 Besides the full resource panel (ribbon button **Resources**), there's a compact variant you can dock on the right: the **Dock** button in the **Manage** ribbon group. This docked panel shows only the name, **Max units** (editable directly) and a red/green dot for overallocation — a quick overview next to your Gantt without opening the full panel. The docked resource panel and a task's properties panel are mutually exclusive — you'll see only one of the two in the right rail at a time.
+
+The same two buttons — **Dock** and **Histogram** — also sit on the **View** tab in the **Panels** ribbon group, next to **Properties**. They are the same toggles: wherever you click them, they do exactly the same thing.
 
 ## Spotting overallocation
 
