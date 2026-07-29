@@ -16,6 +16,9 @@ import { useDisplayDate } from '@/hooks/displayDate';
 import { Task } from '@/types/task';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { ContextMenu } from './ContextMenu';
+// Issue #42/#45: reikwijdte (aangeklikte taak = handgreep, selectie = bereik) + de bulk-uitvoering
+// als ÉÉN undo-stap. DOM-vrij afgezonderd zodat de regressiebatterij dezelfde functies draait.
+import { contextMenuOutlineScope, contextMenuBulk } from './contextMenuScope';
 import { RelationTypePopover } from './RelationTypePopover';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
@@ -67,23 +70,6 @@ interface TooltipState {
   task: Task;
 }
 
-/**
- * Reikwijdte van de in-/uitklap-items in het taakcontextmenu (issue #42).
- *
- * De AANGEKLIKTE taak is de handgreep, de SELECTIE is de reikwijdte: zit de aangeklikte taak in de
- * huidige selectie, dan geldt de actie voor de hele selectie; zit hij er niet in, dan alleen voor
- * die ene taak. Dat is precies de conventie die dit project al hanteert bij verticaal slepen
- * ("slepen verplaatst de hele selectie", issue #26) — draai hem niet om.
- *
- * De selectie wordt LIVE uit de store gelezen en niet uit een render-closure, zodat de
- * selectiecorrectie die `handleContextMenu` bij het openen doet (rechtsklik buiten de selectie ⇒
- * die ene taak wordt de selectie) hoe dan ook is meegenomen op het moment dat je het item aanklikt.
- */
-function contextMenuOutlineScope(taskId: string): string[] {
-  const selected = useAppStore.getState().selectedTaskIds;
-  return selected.includes(taskId) ? selected : [taskId];
-}
-
 export function GanttCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -125,7 +111,6 @@ export function GanttCanvas() {
   // een balk hetzelfde dependency-tekenen als shift+slepen. Dit is de ENIGE lezer die gedrag
   // stuurt; vóór deze fix werd de vlag alleen geschreven (dode modus, knop deed niets zichtbaars).
   const dependencyMode = useAppStore(s => s.ui.showDependencyMode);
-  const deleteTask = useAppStore(s => s.deleteTask);
   // Issue #21 punt 1 (fase 2): store-actie uit fase 1 — verplaatst één taak naar een exacte
   // positie (reorder of reparent), gebruikt door useRowDrag bij mouseup.
   const moveTaskTo = useAppStore(s => s.moveTaskTo);
@@ -135,11 +120,9 @@ export function GanttCanvas() {
   const setScroll = useAppStore(s => s.setScroll);
   const setUI = useAppStore(s => s.setUI);
   // Fase 2.10 golf 2 (contextmenu's): golf-1-helpers + bestaande taak-acties die het contextmenu
-  // nu ook ontsluit.
-  const indentTasks = useAppStore(s => s.indentTasks);
-  const outdentTasks = useAppStore(s => s.outdentTasks);
-  const setTaskCalendar = useAppStore(s => s.setTaskCalendar);
-  const setTaskProgress = useAppStore(s => s.setTaskProgress);
+  // nu ook ontsluit. De muterende taak-acties (in-/uitspringen, mijlpaal, kalender, voortgang,
+  // prioriteit, verwijderen) lopen sinds issue #45 via `contextMenuBulk` en worden hier daarom niet
+  // meer los uit de store getrokken.
   const pasteTasks = useAppStore(s => s.pasteTasks);
   const taskClipboard = useAppStore(s => s.taskClipboard);
   // Golf 1-docstring (uiSlice.ts): expandAll/collapseAll werken op de summary-taken
@@ -1664,7 +1647,7 @@ export function GanttCanvas() {
             if (contextMenu.task) expandTasks(contextMenuOutlineScope(contextMenu.task.id));
           }}
           onDelete={() => {
-            if (contextMenu.task) deleteTask(contextMenu.task.id);
+            if (contextMenu.task) contextMenuBulk.remove(contextMenu.task.id);
           }}
           onAddTask={() => {
             addTask({ name: defaultTaskName });
@@ -1683,19 +1666,19 @@ export function GanttCanvas() {
               position: { anchorId: contextMenu.task.id, where: 'below' },
             });
           }}
-          onIndent={() => { if (contextMenu.task) indentTasks([contextMenu.task.id]); }}
-          onOutdent={() => { if (contextMenu.task) outdentTasks([contextMenu.task.id]); }}
+          onIndent={() => { if (contextMenu.task) contextMenuBulk.indent(contextMenu.task.id); }}
+          onOutdent={() => { if (contextMenu.task) contextMenuBulk.outdent(contextMenu.task.id); }}
           onToggleMilestone={() => {
-            if (contextMenu.task) updateTask(contextMenu.task.id, { isMilestone: !contextMenu.task.isMilestone });
+            if (contextMenu.task) contextMenuBulk.toggleMilestone(contextMenu.task);
           }}
           onSetCalendar={(calendarId) => {
-            if (contextMenu.task) setTaskCalendar(contextMenu.task.id, calendarId);
+            if (contextMenu.task) contextMenuBulk.setCalendar(contextMenu.task.id, calendarId);
           }}
           onSetProgress={(completion) => {
-            if (contextMenu.task) setTaskProgress(contextMenu.task.id, completion);
+            if (contextMenu.task) contextMenuBulk.setProgress(contextMenu.task.id, completion);
           }}
           onSetPriority={(priority) => {
-            if (contextMenu.task) updateTask(contextMenu.task.id, { priority });
+            if (contextMenu.task) contextMenuBulk.setPriority(contextMenu.task.id, priority);
           }}
           onStartRelationFromBar={() => {
             // Zelfde route als `onAddRelation` (balk-contextmenu i.p.v. rij-contextmenu).
