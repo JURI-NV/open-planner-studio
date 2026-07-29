@@ -6,13 +6,17 @@
 // zichtbaar bijwerkt.
 
 import { CPMSolver } from '@/engine/scheduler/CPMSolver';
+// K-item 30: hier stond een eigen kopie van het terugschrijven, die al was gedivergeerd
+// (miste interferingFloat, isNearCritical, floatPath, de late-datum-rollup, de
+// min-over-kinderen voor tf/ff en de uur-modus). De benchmark mat daardoor niet meer wat
+// de app doet — precies het soort meting waar je beslissingen op baseert.
+import { applyCpmResult } from '@/engine/scheduler/applyCpmResult';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { GanttRenderer, type GanttRenderOptions } from '@/engine/renderer/GanttRenderer';
 import { computeViewRows, type ViewRow } from '@/engine/view/visibleRows';
 import type { ViewContext } from '@/engine/view/filterEval';
 import type { ViewState } from '@/types/view';
-import type { Task } from '@/types/task';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 import { generateBenchmarkProject, type GeneratedProject } from './generateProject';
 import { formatBytes } from '@/utils/formatBytes';
@@ -76,36 +80,6 @@ function iterationsFor(size: number, phase: PhaseId): number {
   return base;
 }
 
-/** Schrijf een CPM-resultaat terug op de taken (leaf + verzameltaak-rollup), zoals `runCPM` dat
- *  doet — zodat de IFC-write en de render met realistisch gespreide datums werken. Muteert alleen
- *  de meegegeven (lokale) taken; raakt de store niet. */
-function applyCpmResult(tasks: Task[], result: CPMResult): void {
-  const byId = new Map(tasks.map((t) => [t.id, t]));
-  for (const task of tasks) {
-    const r = result.tasks.get(task.id);
-    if (!r) continue;
-    task.time.earlyStart = r.earlyStart;
-    task.time.earlyFinish = r.earlyFinish;
-    task.time.lateStart = r.lateStart;
-    task.time.lateFinish = r.lateFinish;
-    task.time.totalFloat = r.totalFloat;
-    task.time.freeFloat = r.freeFloat;
-    task.time.isCritical = r.isCritical;
-  }
-  const rollup = (taskId: string) => {
-    const task = byId.get(taskId);
-    if (!task || task.childIds.length === 0) return;
-    for (const cid of task.childIds) rollup(cid);
-    const children = task.childIds.map((cid) => byId.get(cid)).filter(Boolean) as Task[];
-    if (children.length === 0) return;
-    const starts = children.map((c) => c.time.earlyStart).sort();
-    const finishes = children.map((c) => c.time.earlyFinish).sort();
-    task.time.earlyStart = starts[0];
-    task.time.earlyFinish = finishes[finishes.length - 1];
-    task.time.isCritical = children.some((c) => c.time.isCritical);
-  };
-  for (const task of tasks) if (!task.parentId) rollup(task.id);
-}
 
 /** Bouw de gedeelde `viewRows` (pure boommodus: geen filter/groep/sort) voor de render-fase. */
 function buildViewRows(data: GeneratedProject): ViewRow[] {
@@ -174,7 +148,9 @@ export async function runBenchmark({ size, version, onProgress }: RunOptions): P
   phases.push({ phase: 'cpm', iterations: cpmIters, ...stats(cpmSamples) });
 
   // Resultaat terugschrijven zodat write/read/render met echte datums werken.
-  if (lastResult && !lastResult.error) applyCpmResult(data.tasks, lastResult);
+  if (lastResult && !lastResult.error) {
+    applyCpmResult(data.tasks, lastResult, { projectCalendar: data.calendar, calendars: [data.calendar] });
+  }
   await yieldToUi();
 
   // --- Fase 3: IFC schrijven ---------------------------------------------------

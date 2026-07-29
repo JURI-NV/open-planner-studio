@@ -1,5 +1,5 @@
-import type { Task } from '@/types/task';
 import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
+import { applyCpmResult } from '@/engine/scheduler/applyCpmResult';
 import { computeResourceLoad, type ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import {
   levelResources as computeLeveling,
@@ -8,9 +8,6 @@ import {
 } from '@/engine/scheduler/ResourceLeveler';
 import { beginUndoable, finishMutation } from '../transaction';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
-import { effectiveCalendarOf } from '@/utils/taskDuration';
-import { isHourCalendar } from '@/services/subdayIo';
-import { parseInstant, formatInstant } from '@/utils/dateUtils';
 import type { AppSlice } from './types';
 
 export interface ScheduleSlice {
@@ -74,91 +71,9 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
         return;
       }
 
-      // Apply results back to tasks
-      for (const task of s.tasks) {
-        const r = result.tasks.get(task.id);
-        if (r) {
-          task.time.earlyStart = r.earlyStart;
-          task.time.earlyFinish = r.earlyFinish;
-          task.time.lateStart = r.lateStart;
-          task.time.lateFinish = r.lateFinish;
-          task.time.totalFloat = r.totalFloat;
-          task.time.freeFloat = r.freeFloat;
-          task.time.isCritical = r.isCritical;
-          // Fase 2.9 golf 2 (§4.6): analyse-afleidingen. `interferingFloat` is ALTIJD aanwezig
-          // (tf−ff); `isNearCritical`/`floatPath` alleen wanneer de bijbehorende optie draait —
-          // afwezig ⇒ het veld wordt gewist (zodat een uitgezette optie geen stale markering laat).
-          task.time.interferingFloat = r.interferingFloat;
-          if (r.isNearCritical !== undefined) task.time.isNearCritical = r.isNearCritical;
-          else task.time.isNearCritical = undefined;
-          if (r.floatPath !== undefined) task.time.floatPath = r.floatPath;
-          else task.time.floatPath = undefined;
-          // BEWUST GEEN scheduleStart-ANKER-drift: scheduleStart is de GEPLANDE anker (waarop de
-          // forward-pass voortbouwt, `CPMSolver` snapt hierop) en mag NIET de berekende earlyStart
-          // worden — anders bleef een taak na het verwijderen van een relatie op z'n gedrifte datum
-          // hangen. De berekende planning leeft in earlyStart/earlyFinish; weergave/export gebruikt
-          // `earlyStart || scheduleStart`.
-          //
-          // UUR-MODUS (fase 2.8b, FIX golf, §2.4): scheduleStart/scheduleFinish moeten wél een
-          // datetime-representatie dragen i.p.v. date-only/verouderd te blijven. scheduleFinish volgt
-          // de berekende finish (geen anker ⇒ veilig; nooit meer stale na een duur-wijziging);
-          // scheduleStart houdt zijn ANKER-instant maar wordt idempotent naar de datetime-vorm
-          // genormaliseerd (parseInstant→formatInstant('hour') verandert de instant niet, dus geen
-          // drift). Dag-taken blijven ONGEMOEID ⇒ byte-identiek (`formatDate`, verify:examples).
-          const effCal = effectiveCalendarOf(task, s.calendar, s.calendars);
-          if (isHourCalendar(effCal)) {
-            task.time.scheduleFinish = r.earlyFinish;
-            task.time.scheduleStart = formatInstant(parseInstant(task.time.scheduleStart), 'hour');
-          }
-        }
-      }
-
-      // Update summary tasks (roll up dates from children)
-      // A4 (prestatie): één vooraf gebouwde id→taak-Map i.p.v. `s.tasks.find` per taak én per kind
-      // (recursief) — dat was O(n²) op de rollup. `byId` bouwt op de draft `s.tasks`, dus
-      // `byId.get(...)` levert exact dezelfde draft-proxy als `find` (identiek muteren via
-      // `task.time.*`); alleen de opzoeking gaat van O(n) naar O(1). Rollup-logica, -volgorde en de
-      // berekende waarden blijven ongewijzigd (byte-identiek).
-      const byId = new Map<string, Task>(s.tasks.map(t => [t.id, t]));
-      const updateSummary = (taskId: string) => {
-        const task = byId.get(taskId);
-        if (!task || task.childIds.length === 0) return;
-
-        for (const childId of task.childIds) {
-          updateSummary(childId);
-        }
-
-        const children = task.childIds
-          .map(cid => byId.get(cid))
-          .filter(Boolean) as Task[];
-
-        if (children.length > 0) {
-          const starts = children.map(c => c.time.earlyStart).sort();
-          const finishes = children.map(c => c.time.earlyFinish).sort();
-          task.time.earlyStart = starts[0];
-          task.time.earlyFinish = finishes[finishes.length - 1];
-          task.time.isCritical = children.some(c => c.time.isCritical);
-
-          // Ook de LATE datums en speling oprollen — anders bleven die op de
-          // createDefaultTaskTime-defaults staan (lf=es, tf=0) en schreef o.a. ifcWriter
-          // misleidende fase-speling weg (een niet-kritieke fase met "tf=0").
-          const lateStarts = children.map(c => c.time.lateStart).sort();
-          const lateFinishes = children.map(c => c.time.lateFinish).sort();
-          task.time.lateStart = lateStarts[0];
-          task.time.lateFinish = lateFinishes[lateFinishes.length - 1];
-          // Een verzameltaak kan maar zo veel opschuiven als zijn krapste kind: min over de kinderen.
-          task.time.totalFloat = Math.min(...children.map(c => c.time.totalFloat));
-          task.time.freeFloat = Math.min(...children.map(c => c.time.freeFloat));
-          // Interfererende speling op de samenvatting = tf−ff (fase 2.9 golf 2, §4.6) — houdt de
-          // invariant ook op verzameltaken en vult de kolom voor WBS-rijen.
-          task.time.interferingFloat = task.time.totalFloat - task.time.freeFloat;
-        }
-      };
-
-      // Find root tasks (no parent)
-      for (const task of s.tasks) {
-        if (!task.parentId) updateSummary(task.id);
-      }
+      // Terugschrijven + verzameltaak-rollup: één gedeelde functie, ook gebruikt door de
+      // benchmark (K-item 30 — die had een eigen kopie die al gedivergeerd was).
+      applyCpmResult(s.tasks, result, { projectCalendar: s.calendar, calendars: s.calendars });
 
       s.cpmResult = result;
 

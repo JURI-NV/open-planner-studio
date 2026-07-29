@@ -21,6 +21,7 @@ import { validateConstraintPair } from '@/engine/scheduler/constraintValidation'
 import { refreshExternalAnchors, externalSourceSide, type ExternalSourceDoc } from '@/engine/externalLinks';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
+import { applyCpmResult } from '@/engine/scheduler/applyCpmResult';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -687,6 +688,47 @@ const gateP3: Task = mkTask('GateP3', 3, {
 });
 const rGateC = solve([gateQ, gateP3], [fs('gp3', 'GateQ', 'GateP3')]); // geen dataDate nodig — structureel te laat
 eq('186 detector-gate CONTROLE: geen actuals + structureel te laat ⇒ violation blijft vuren', rGateC.violatedConstraintTaskIds.includes('GateP3'), true);
+
+// ── applyCpmResult: de zes velden die de benchmark-kopie liet vallen (K-item 30) ──────────────
+// Dit terugschrijven stond twee keer: in `runCPM` en in de benchmark-runner. Die tweede kopie was
+// al gedivergeerd en miste precies de velden hieronder, waardoor de benchmark niet meer mat wat de
+// app doet. Er is nu één functie; deze checks pinnen haar contract op de verzameltaak-rollup, want
+// dáár zaten de gaten.
+{
+  const kid1 = mkTask('AC-kid1', 5, { parentId: 'AC-sum' });
+  const kid2 = mkTask('AC-kid2', 3, { parentId: 'AC-sum' });
+  const sum = mkTask('AC-sum', 0, { childIds: ['AC-kid1', 'AC-kid2'] });
+  const tasks = [sum, kid1, kid2];
+  // Twee bladeren met verschillende speling; de één kritiek, de ander niet.
+  const result = {
+    tasks: new Map([
+      // Bewust GEEN waarden die met de createDefaultTaskTime-defaults samenvallen (lateStart =
+      // scheduleStart = 2026-06-01, tf = ff = 0): anders slagen de rollup-checks ook wanneer de
+      // rollup helemaal niet draait, en meten ze niets.
+      ['AC-kid1', { earlyStart: '2026-06-01', earlyFinish: '2026-06-05', lateStart: '2026-06-03',
+        lateFinish: '2026-06-07', totalFloat: 2, freeFloat: 1, isCritical: true, interferingFloat: 1 }],
+      ['AC-kid2', { earlyStart: '2026-06-02', earlyFinish: '2026-06-04', lateStart: '2026-06-08',
+        lateFinish: '2026-06-10', totalFloat: 4, freeFloat: 3, isCritical: false, interferingFloat: 1 }],
+    ]),
+    projectStart: '2026-06-01', projectEnd: '2026-06-05', criticalPath: ['AC-kid1'],
+  } as unknown as Parameters<typeof applyCpmResult>[1];
+
+  applyCpmResult(tasks, result, { projectCalendar: CAL, calendars: [CAL] });
+
+  eq('187 rollup: earlyStart = vroegste kind', sum.time.earlyStart, '2026-06-01');
+  eq('188 rollup: earlyFinish = laatste kind', sum.time.earlyFinish, '2026-06-05');
+  eq('189 rollup: kritiek als één kind kritiek is', sum.time.isCritical, true);
+  // De vier hieronder ontbraken in de benchmark-kopie: late datums, min-over-kinderen en
+  // interferingFloat. Zonder die rollup bleven ze op de createDefaultTaskTime-defaults staan
+  // (lf = es, tf = 0) en schreef o.a. ifcWriter misleidende fase-speling weg.
+  eq('190 rollup: lateStart = vroegste late kind', sum.time.lateStart, '2026-06-03');
+  eq('191 rollup: lateFinish = laatste late kind', sum.time.lateFinish, '2026-06-10');
+  eq('192 rollup: totalFloat = min over kinderen (krapste kind bepaalt)', sum.time.totalFloat, 2);
+  eq('193 rollup: freeFloat = min over kinderen', sum.time.freeFloat, 1);
+  eq('194 rollup: interferingFloat = tf − ff, ook op de verzameltaak', sum.time.interferingFloat, 1);
+  // En op het blad zelf: interferingFloat/isNearCritical/floatPath gaan mee (idem gemist door de kopie).
+  eq('195 blad: interferingFloat komt door', kid2.time.interferingFloat, 1);
+}
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
