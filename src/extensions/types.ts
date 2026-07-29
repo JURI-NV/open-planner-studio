@@ -137,6 +137,22 @@ export interface ExtensionApi {
     loadProject(result: ExtImportResult): void;
     /** runCPM — herbereken het schema. */
     recalculate(): void;
+    /**
+     * Voer een reeks mutaties uit als ÉÉN ongedaan-maakbare stap.
+     *
+     * Zonder dit pusht elke `addTask`/`updateTask` zijn eigen deep-clone-snapshot: een lus van n
+     * toevoegingen kloont 1 + 2 + … + n taken (kwadratisch) en laat n undo-stappen achter voor wat
+     * de gebruiker als één handeling ziet. Binnen `batch` wordt de snapshot één keer genomen.
+     *
+     * Gebruik dit voor élke lus die meer dan een handvol mutaties doet — een importer bijvoorbeeld:
+     *
+     *   api.data.batch(() => { for (const t of rows) api.data.addTask(t); });
+     *   api.data.recalculate();
+     *
+     * Geen rollback bij een fout: gooit de callback, dan blijft wat al gemuteerd is staan en dekt de
+     * ene snapshot de begintoestand — de gebruiker draait het in één keer terug. Nesten is veilig.
+     */
+    batch<T>(fn: () => T): T;
   };
 
   /** Globale event-bus (permissie 'events' vereist). */

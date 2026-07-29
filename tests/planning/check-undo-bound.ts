@@ -12,6 +12,7 @@
 // Draait via run.sh. Exit 0 = alles groen.
 import { useAppStore } from '@/state/appStore';
 import { MAX_UNDO } from '@/state/transaction';
+import { withTransaction } from '@/state/batchTransaction';
 
 const S = () => useAppStore.getState();
 const diffs: string[] = [];
@@ -94,6 +95,51 @@ S().redo();
 eq('16 redo herstelt de bewerking', S().tasks.find(t => t.id === id4)?.name, `r-${MAX_UNDO + OVER}`);
 eq('17 redo laat de stack niet over de grens groeien', S().undoStack.length <= MAX_UNDO, true);
 truthy('18 undo na redo werkt nog', (S().undo(), S().tasks.find(t => t.id === id4)?.name === naEersteUndo));
+
+// ── withTransaction: één bulk = één undo-stap (K-item 32) ─────────────────────
+// Elke mutator pusht normaal zijn eigen deep-clone-snapshot. Een lus van n toevoegingen kloont dus
+// 1 + 2 + … + n taken én laat n undo-stappen achter voor wat de gebruiker als één handeling ziet.
+// `api.data.batch` (extensies) draait hierop.
+{
+  S().newProject();
+  const N = 25;
+
+  const before = S().undoStack.length;
+  for (let i = 0; i < N; i++) S().addTask({ name: `zonder-${i}` });
+  eq('bt1 zonder batch: n mutaties ⇒ n undo-stappen', S().undoStack.length - before, N);
+
+  S().newProject();
+  const beforeBatch = S().undoStack.length;
+  withTransaction(() => { for (let i = 0; i < N; i++) S().addTask({ name: `met-${i}` }); });
+  eq('bt2 met batch: n mutaties ⇒ precies één undo-stap', S().undoStack.length - beforeBatch, 1);
+  eq('bt3 met batch: alle taken zijn er wél', S().tasks.filter(t => t.name.startsWith('met-')).length, N);
+
+  // Die ene stap moet de HELE reeks terugdraaien — anders is "één undo-stap" een lege belofte.
+  S().undo();
+  eq('bt4 undo draait de hele bulk in één keer terug', S().tasks.filter(t => t.name.startsWith('met-')).length, 0);
+
+  // Nesten is veilig: de binnenste transactie mag de buitenste niet voortijdig opheffen.
+  S().newProject();
+  const beforeNest = S().undoStack.length;
+  withTransaction(() => {
+    S().addTask({ name: 'buiten' });
+    withTransaction(() => { S().addTask({ name: 'binnen-1' }); S().addTask({ name: 'binnen-2' }); });
+    S().addTask({ name: 'buiten-2' });
+  });
+  eq('bt5 geneste batch levert nog steeds één undo-stap', S().undoStack.length - beforeNest, 1);
+  eq('bt6 geneste batch: alle vier de taken staan er', S().tasks.length, 4);
+
+  // Gooit de callback, dan mag de suppressie NIET blijven hangen — anders levert elke volgende
+  // mutatie in de app stilzwijgend geen undo-stap meer op.
+  S().newProject();
+  try {
+    withTransaction(() => { S().addTask({ name: 'voor-de-fout' }); throw new Error('boem'); });
+  } catch { /* verwacht */ }
+  const afterThrow = S().undoStack.length;
+  S().addTask({ name: 'na-de-fout' });
+  eq('bt7 na een throw in de batch pusht een gewone mutatie weer een undo-stap',
+    S().undoStack.length - afterThrow, 1);
+}
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

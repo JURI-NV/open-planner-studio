@@ -13,6 +13,7 @@ import type {
 } from './types';
 import type { ExtImportResult } from './extTypes';
 import { useAppStore } from '@/state/appStore';
+import { withTransaction } from '@/state/batchTransaction';
 import { appLog } from '@/services/debug/appLog';
 import { registerCjkFontProvider, type CjkFontProvider } from '@/services/pdf/fontRegistry';
 import {
@@ -82,6 +83,9 @@ export function createExtensionApi(
         store.runCPM();
       },
       recalculate: () => useAppStore.getState().runCPM(),
+      // K-item 32: één snapshot voor de hele reeks i.p.v. één per mutatie — lineair in plaats van
+      // kwadratisch, en één undo-stap voor wat de gebruiker als één handeling ziet.
+      batch: <T,>(fn: () => T): T => withTransaction(fn),
     },
 
     events: {
