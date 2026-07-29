@@ -360,6 +360,27 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       `wbsCode`/`viewRows` — dat is een gedragswijziging, geen pure optimalisatie, en hoort
       daarom niet stilzwijgend in K-item 32. Hangt samen met item 36 (prestaties).
 
+### Klein — zes Gantt-schakelaars slaan aan terwijl de Gantt niet in beeld is (2026-07-29)
+- [ ] **Beeld-tab: histogram, baseline-overlay, voortgangslijn, statusdatumlijn, mini-map en
+      split view zijn actief te schakelen terwijl `GanttCanvas` helemaal niet gemount is.** Gemeten
+      met het volledige resource-paneel open: `showHistogram` gaat op `true`, de knop kleurt oranje,
+      `ganttVisible: false` en er verandert niets zichtbaars. Alle zes wonen ín `GanttCanvas` (het
+      histogram rond `:1521`), niet in de rechter-rail — anders dan Vastzetten/Eigenschappen, die
+      via de `setUI`-invarianten in `uiSlice` (`:171-199`) inmiddels wél de rail uitklappen.
+      *Dit is één ontwerpprobleem, geen zes bugs.* Losstaand één ervan repareren is een plakker;
+      de generieke regel "toon de Gantt bij het aanzetten van een Gantt-optie" doortrekken is
+      juist schadelijk — dan gooit het aanvinken van de voortgangslijn je resource-tabel dicht.
+      *Aanpak (keuze nodig):* de zes uitschakelen met een tooltip zolang de Gantt niet zichtbaar is,
+      óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
+      herstelwerk rond issue #46.
+
+### Klein — verwijderen buiten het contextmenu kost nog N undo-stappen (2026-07-29)
+- [ ] **De lintknop Verwijderen (`ribbonConfig.tsx:281`) en Delete/Backspace
+      (`shortcutRegistry.ts:215,223`) lussen `deleteTask` per id.** Vijf taken wissen geeft dus vijf
+      undo-stappen, terwijl het contextmenu sinds #45 één transactie gebruikt (`contextMenuScope.ts`,
+      `contextMenuBulk.remove`). Zelfde principe: één handeling is één Ctrl+Z. Tweeregelige fix met
+      `withTransaction`; viel buiten de scope van issue #45.
+
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)
