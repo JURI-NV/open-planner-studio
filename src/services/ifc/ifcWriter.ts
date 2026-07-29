@@ -71,6 +71,37 @@ interface WriteContext {
   lines: string[];
   nextId: number;
   idMap: Map<string, number>; // our ID -> STEP #id
+  /** seed → daadwerkelijk uitgegeven GlobalId (bevinding B8). */
+  guids: Map<string, string>;
+  /** Alle uitgegeven GlobalIds, om botsingen te detecteren (bevinding B8). */
+  usedGuids: Set<string>;
+}
+
+/**
+ * Geef het GlobalId uit voor `seed` — en garandeer dat het uniek is binnen dit bestand.
+ *
+ * Bevinding B8: `ifcGuid` is een 32-bits hash, geen UUID en geen conforme IFC-GUID. Over 20.000
+ * realistische id's zijn geen botsingen gemeten, maar 32 bits plus een niet-uniforme mixer maakt
+ * een verjaardagsbotsing bij tienduizenden id's niet uit te sluiten — en er was geen detectie.
+ * Een botsing gaf stille kruisbesmetting van baselines of toewijzingen.
+ *
+ * Dit is de enige plek die GlobalIds uitgeeft. Botst een hash met een eerder uitgegeven GlobalId,
+ * dan wordt er deterministisch doorgezocht met een gesuffixte seed. Zonder botsing is de uitkomst
+ * BYTE-IDENTIEK aan `guidOf(ctx, seed)` — bestaande bestanden veranderen dus niet.
+ *
+ * LET OP de volgorde waarin B8 is aangepakt: de ontkoppeling (de writer schrijft expliciet weg
+ * wélk GlobalId hij per taak gebruikte, zie `writeBaselineMeta`) moest EERST. Een botsingscheck
+ * zónder die ontkoppeling zou de baseline-remap breken, want de reader herberekende de hash zelf
+ * en zou een gesuffixt GlobalId nooit terugvinden.
+ */
+function guidOf(ctx: WriteContext, seed: string): string {
+  const cached = ctx.guids.get(seed);
+  if (cached !== undefined) return cached;
+  let guid = ifcGuid(seed);
+  for (let n = 1; ctx.usedGuids.has(guid); n++) guid = ifcGuid(`${seed}#dup${n}`);
+  ctx.guids.set(seed, guid);
+  ctx.usedGuids.add(guid);
+  return guid;
 }
 
 function ref(ctx: WriteContext, key: string): string {
@@ -105,7 +136,7 @@ export function writeIFC(input: WriteIFCInput): string {
     activeBaselineId = null,
     libraryPool = undefined,
   } = input;
-  const ctx: WriteContext = { lines: [], nextId: 1, idMap: new Map() };
+  const ctx: WriteContext = { lines: [], nextId: 1, idMap: new Map(), guids: new Map(), usedGuids: new Set() };
   const now = new Date().toISOString().split('.')[0];
 
   // Header. Naam/auteur/bedrijf MOETEN door `ifcStr` (bevinding K2): ze werden rauw
@@ -161,7 +192,7 @@ export function writeIFC(input: WriteIFCInput): string {
 
   // Project. Description (arg 3) draagt project.description (fase 3, H2) — de reader leest 'm terug
   // uit de IFCWORKPLAN.Description-slot, met terugval op deze.
-  addLine(ctx, '_project', `IFCPROJECT(${ifcStr(ifcGuid(project.id))},#${ownerHistId},${ifcStr(project.name)},${ifcStr(project.description)},$,$,$,(#${ctxId}),#${unitAssId})`);
+  addLine(ctx, '_project', `IFCPROJECT(${ifcStr(guidOf(ctx, project.id))},#${ownerHistId},${ifcStr(project.name)},${ifcStr(project.description)},$,$,$,(#${ctxId}),#${unitAssId})`);
 
   // Calendar (projectkalender — altijd de EERSTE IFCWORKCALENDAR in het bestand; vaste conventie
   // die de reader aanhoudt om 'm van de bibliotheek-kalenders hieronder te onderscheiden, §8.2).
@@ -175,10 +206,10 @@ export function writeIFC(input: WriteIFCInput): string {
   const planEnd = endDates[endDates.length - 1] || project.endDate;
 
   const workPlanId = addLine(ctx, '_workplan',
-    `IFCWORKPLAN(${ifcStr(ifcGuid(project.id + '_wp'))},#${ownerHistId},${ifcStr(project.name)},${ifcStr(project.description)},$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
+    `IFCWORKPLAN(${ifcStr(guidOf(ctx, project.id + '_wp'))},#${ownerHistId},${ifcStr(project.name)},${ifcStr(project.description)},$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
 
   const workSchedId = addLine(ctx, '_worksched',
-    `IFCWORKSCHEDULE(${ifcStr(ifcGuid(project.id + '_ws'))},#${ownerHistId},${ifcStr('Construction schedule v1.0')},$,$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
+    `IFCWORKSCHEDULE(${ifcStr(guidOf(ctx, project.id + '_ws'))},#${ownerHistId},${ifcStr('Construction schedule v1.0')},$,$,$,${ifcDateTime(now)},$,$,$,$,$,${ifcDateTime(planStart)},${ifcDateTime(planEnd)},.PLANNED.)`);
 
   // Baselines (fase 2.6, §8.3) — per baseline één `.BASELINE.`-IfcWorkSchedule-header (Name +
   // CreationDate, ZONDER taak-duplicatie: de datums leven verliesloos in het OPS_Baselines-JSON
@@ -187,13 +218,13 @@ export function writeIFC(input: WriteIFCInput): string {
   const baselineSchedRefs: string[] = [];
   for (const b of baselines) {
     const bId = addLine(ctx, `_baseline_ws_${b.id}`,
-      `IFCWORKSCHEDULE(${ifcStr(ifcGuid('baseline_ws_' + b.id))},#${ownerHistId},${ifcStr(b.name)},$,$,$,${ifcDateTime(b.createdAt)},$,$,$,$,$,$,${ifcDateTime(b.projectEnd)},.BASELINE.)`);
+      `IFCWORKSCHEDULE(${ifcStr(guidOf(ctx, 'baseline_ws_' + b.id))},#${ownerHistId},${ifcStr(b.name)},$,$,$,${ifcDateTime(b.createdAt)},$,$,$,$,$,$,${ifcDateTime(b.projectEnd)},.BASELINE.)`);
     baselineSchedRefs.push(`#${bId}`);
   }
 
   const schedRefs = [`#${workSchedId}`, ...baselineSchedRefs].join(',');
   addLine(ctx, '_agg_plan_sched',
-    `IFCRELAGGREGATES(${ifcStr(ifcGuid('agg_ps'))},#${ownerHistId},$,$,#${workPlanId},(${schedRefs}))`);
+    `IFCRELAGGREGATES(${ifcStr(guidOf(ctx, 'agg_ps'))},#${ownerHistId},$,$,#${workPlanId},(${schedRefs}))`);
 
   // Tasks. Fase 2.8b (§7.1): per taak de effectieve kalender bepaalt uur- vs dag-modus
   // (uur ⇒ echte tijden + minuut-duren; dag ⇒ byte-identiek `T07:00:00` + `P0Y0M{days}D`).
@@ -211,7 +242,7 @@ export function writeIFC(input: WriteIFCInput): string {
   if (rootTasks.length > 0) {
     const rootRefs = rootTasks.map(t => ref(ctx, `task_${t.id}`)).join(',');
     addLine(ctx, '_nest_sched',
-      `IFCRELNESTS(${ifcStr(ifcGuid('nest_root'))},#${ownerHistId},'WBS Hoofd',$,#${workSchedId},(${rootRefs}))`);
+      `IFCRELNESTS(${ifcStr(guidOf(ctx, 'nest_root'))},#${ownerHistId},'WBS Hoofd',$,#${workSchedId},(${rootRefs}))`);
   }
 
   // Sequences
@@ -242,7 +273,7 @@ export function writeIFC(input: WriteIFCInput): string {
   if (tasks.length > 0) {
     const allTaskRefs = tasks.map(t => ref(ctx, `task_${t.id}`)).join(',');
     addLine(ctx, '_ctrl',
-      `IFCRELASSIGNSTOCONTROL(${ifcStr(ifcGuid('ctrl'))},#${ownerHistId},$,$,(${allTaskRefs}),$,#${workSchedId})`);
+      `IFCRELASSIGNSTOCONTROL(${ifcStr(guidOf(ctx, 'ctrl'))},#${ownerHistId},$,$,(${allTaskRefs}),$,#${workSchedId})`);
   }
 
   // Structuurdefinities (activity codes / custom fields) + waarden per taak + projectsettings
@@ -313,7 +344,7 @@ function writeStructure(
   const projRef = ref(ctx, '_project');
   const relDefines = (key: string, objRef: string, setId: number) =>
     addLine(ctx, key,
-      `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid(key))},#${ownerHistId},$,$,(${objRef}),#${setId})`);
+      `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, key))},#${ownerHistId},$,$,(${objRef}),#${setId})`);
 
   // Projectsettings — wbsAutoNumber (fase 2.2) + statusDate/progressMode (fase 2.6, §8.2).
   // Golden rule: elk veld alleen wanneer gezet; geen enkel veld ⇒ geen OPS_ProjectSettings-pset.
@@ -376,7 +407,7 @@ function writeStructure(
   }
   if (projSettingProps.length > 0) {
     const setId = addLine(ctx, '_pset_projset',
-      `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_projset'))},#${ownerHistId},${ifcStr(PSET.ProjectSettings)},$,(${projSettingProps.map(i => `#${i}`).join(',')}))`);
+      `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_projset'))},#${ownerHistId},${ifcStr(PSET.ProjectSettings)},$,(${projSettingProps.map(i => `#${i}`).join(',')}))`);
     relDefines('_rel_projset', projRef, setId);
   }
 
@@ -387,7 +418,7 @@ function writeStructure(
   const metaPropId = addLine(ctx, '_ps_structmeta',
     `IFCPROPERTYSINGLEVALUE('structure',$,IFCTEXT(${ifcStr(metaJson)}),$)`);
   const metaSetId = addLine(ctx, '_pset_structmeta',
-    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_structmeta'))},#${ownerHistId},${ifcStr(PSET.StructureMeta)},$,(#${metaPropId}))`);
+    `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_structmeta'))},#${ownerHistId},${ifcStr(PSET.StructureMeta)},$,(#${metaPropId}))`);
   relDefines('_rel_structmeta', projRef, metaSetId);
 
   // Conformante templates + declaratie aan het project.
@@ -395,11 +426,11 @@ function writeStructure(
   if (customFieldDefs.length > 0) {
     const fieldTmplRefs = customFieldDefs.map(def => {
       const id = addLine(ctx, `_cft_${def.id}`,
-        `IFCSIMPLEPROPERTYTEMPLATE(${ifcStr(ifcGuid('cft_' + def.id))},#${ownerHistId},${ifcStr(def.name)},$,.P_SINGLEVALUE.,${ifcStr(FIELD_MEASURE[def.type])},$,$,$,$,$,$)`);
+        `IFCSIMPLEPROPERTYTEMPLATE(${ifcStr(guidOf(ctx, 'cft_' + def.id))},#${ownerHistId},${ifcStr(def.name)},$,.P_SINGLEVALUE.,${ifcStr(FIELD_MEASURE[def.type])},$,$,$,$,$,$)`);
       return `#${id}`;
     });
     templateIds.push(addLine(ctx, '_psett_fields',
-      `IFCPROPERTYSETTEMPLATE(${ifcStr(ifcGuid('psett_fields'))},#${ownerHistId},${ifcStr(PSET.CustomFields)},$,.PSET_OCCURRENCEDRIVEN.,'IfcTask',(${fieldTmplRefs.join(',')}))`));
+      `IFCPROPERTYSETTEMPLATE(${ifcStr(guidOf(ctx, 'psett_fields'))},#${ownerHistId},${ifcStr(PSET.CustomFields)},$,.PSET_OCCURRENCEDRIVEN.,'IfcTask',(${fieldTmplRefs.join(',')}))`));
   }
   if (activityCodeTypes.length > 0) {
     const codeTmplRefs = activityCodeTypes.map(t => {
@@ -407,15 +438,15 @@ function writeStructure(
       const enumId = addLine(ctx, `_acte_${t.id}`,
         `IFCPROPERTYENUMERATION(${ifcStr(t.name)},(${labels}),$)`);
       const id = addLine(ctx, `_actt_${t.id}`,
-        `IFCSIMPLEPROPERTYTEMPLATE(${ifcStr(ifcGuid('actt_' + t.id))},#${ownerHistId},${ifcStr(t.name)},$,.P_ENUMERATEDVALUE.,$,$,#${enumId},$,$,$,$)`);
+        `IFCSIMPLEPROPERTYTEMPLATE(${ifcStr(guidOf(ctx, 'actt_' + t.id))},#${ownerHistId},${ifcStr(t.name)},$,.P_ENUMERATEDVALUE.,$,$,#${enumId},$,$,$,$)`);
       return `#${id}`;
     });
     templateIds.push(addLine(ctx, '_psett_codes',
-      `IFCPROPERTYSETTEMPLATE(${ifcStr(ifcGuid('psett_codes'))},#${ownerHistId},${ifcStr(PSET.ActivityCodes)},$,.PSET_OCCURRENCEDRIVEN.,'IfcTask',(${codeTmplRefs.join(',')}))`));
+      `IFCPROPERTYSETTEMPLATE(${ifcStr(guidOf(ctx, 'psett_codes'))},#${ownerHistId},${ifcStr(PSET.ActivityCodes)},$,.PSET_OCCURRENCEDRIVEN.,'IfcTask',(${codeTmplRefs.join(',')}))`));
   }
   if (templateIds.length > 0) {
     addLine(ctx, '_decl_templates',
-      `IFCRELDECLARES(${ifcStr(ifcGuid('decl_templates'))},#${ownerHistId},$,$,${projRef},(${templateIds.map(i => `#${i}`).join(',')}))`);
+      `IFCRELDECLARES(${ifcStr(guidOf(ctx, 'decl_templates'))},#${ownerHistId},$,$,${projRef},(${templateIds.map(i => `#${i}`).join(',')}))`);
   }
 
   // Waarden per taak.
@@ -431,7 +462,7 @@ function writeStructure(
         return `#${id}`;
       });
       const setId = addLine(ctx, `_pset_cf_${task.id}`,
-        `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_cf_' + task.id))},#${ownerHistId},${ifcStr(PSET.CustomFields)},$,(${propRefs.join(',')}))`);
+        `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_cf_' + task.id))},#${ownerHistId},${ifcStr(PSET.CustomFields)},$,(${propRefs.join(',')}))`);
       relDefines(`_rel_cf_${task.id}`, ref(ctx, `task_${task.id}`), setId);
     }
 
@@ -448,7 +479,7 @@ function writeStructure(
         return `#${id}`;
       });
       const setId = addLine(ctx, `_pset_ac_${task.id}`,
-        `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_ac_' + task.id))},#${ownerHistId},${ifcStr(PSET.ActivityCodes)},$,(${propRefs.join(',')}))`);
+        `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_ac_' + task.id))},#${ownerHistId},${ifcStr(PSET.ActivityCodes)},$,(${propRefs.join(',')}))`);
       relDefines(`_rel_ac_${task.id}`, ref(ctx, `task_${task.id}`), setId);
     }
   }
@@ -472,9 +503,9 @@ function writeLibraryPool(
   const propId = addLine(ctx, '_ps_library',
     `IFCPROPERTYSINGLEVALUE('pool',$,IFCTEXT(${ifcStr(json)}),$)`);
   const setId = addLine(ctx, '_pset_library',
-    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_library'))},#${ownerHistId},${ifcStr(PSET.Library)},$,(#${propId}))`);
+    `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_library'))},#${ownerHistId},${ifcStr(PSET.Library)},$,(#${propId}))`);
   addLine(ctx, '_rel_library',
-    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_library'))},#${ownerHistId},$,$,(${projRef}),#${setId})`);
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_library'))},#${ownerHistId},$,$,(${projRef}),#${setId})`);
 }
 
 /**
@@ -508,9 +539,9 @@ function emitPerTaskPsets(ctx: WriteContext, tasks: Task[], ownerHistId: number)
         `#${addLine(ctx, `_prop_${desc.name}_${task.id}_${i}`,
           `IFCPROPERTYSINGLEVALUE(${ifcStr(s.name)},$,${s.value},$)`)}`);
       const setId = addLine(ctx, `_pset_${desc.name}_${task.id}`,
-        `IFCPROPERTYSET(${ifcStr(ifcGuid(desc.psetSeed + task.id))},#${ownerHistId},${ifcStr(desc.name)},$,(${propRefs.join(',')}))`);
+        `IFCPROPERTYSET(${ifcStr(guidOf(ctx, desc.psetSeed + task.id))},#${ownerHistId},${ifcStr(desc.name)},$,(${propRefs.join(',')}))`);
       addLine(ctx, `_rel_${desc.name}_${task.id}`,
-        `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid(desc.relSeed + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
+        `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, desc.relSeed + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
     }
   }
 }
@@ -535,14 +566,35 @@ function writeBaselineMeta(
   const props: number[] = [];
   props.push(addLine(ctx, '_ps_baselines_json',
     `IFCPROPERTYSINGLEVALUE('Baselines',$,IFCTEXT(${ifcStr(json)}),$)`));
+  // Bevinding B8, stap 1 — DE ONTKOPPELING, en die moet vóór de botsingscheck komen.
+  //
+  // De baseline-JSON draagt INTERNE taak-id's. De reader mapte die terug door zelf `ifcGuid(taskId)`
+  // te herberekenen en dat te vergelijken met de GlobalId's in het bestand. Daarmee was de kwaliteit
+  // van de hash semantisch dragend: een botsing gaf stille kruisbesmetting tussen baselines, en een
+  // gesuffixt GlobalId (wat `guidOf` bij een botsing uitgeeft) zou de reader nooit terugvinden.
+  //
+  // We schrijven daarom expliciet wég welk GlobalId deze writer per baseline-taak gebruikte. De
+  // reader leest die map en herberekent niets meer; de hash is dan alleen nog een naamgenerator.
+  // Alleen de taak-id's die in baselines voorkomen — de map blijft zo klein en de golden rule
+  // ("alleen schrijven wat nodig is") overeind.
+  const baselineTaskGuids: Record<string, string> = {};
+  for (const b of baselines) {
+    for (const bt of b.tasks ?? []) {
+      if (bt.taskId) baselineTaskGuids[bt.taskId] = guidOf(ctx, bt.taskId);
+    }
+  }
+  if (Object.keys(baselineTaskGuids).length > 0) {
+    props.push(addLine(ctx, '_ps_baselines_guids',
+      `IFCPROPERTYSINGLEVALUE('TaskGuids',$,IFCTEXT(${ifcStr(JSON.stringify(baselineTaskGuids))}),$)`));
+  }
   if (activeBaselineId) {
     props.push(addLine(ctx, '_ps_baselines_active',
       `IFCPROPERTYSINGLEVALUE('ActiveBaselineId',$,IFCTEXT(${ifcStr(activeBaselineId)}),$)`));
   }
   const setId = addLine(ctx, '_pset_baselines',
-    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_baselines'))},#${ownerHistId},${ifcStr(PSET.Baselines)},$,(${props.map(i => `#${i}`).join(',')}))`);
+    `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_baselines'))},#${ownerHistId},${ifcStr(PSET.Baselines)},$,(${props.map(i => `#${i}`).join(',')}))`);
   addLine(ctx, '_rel_baselines',
-    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_baselines'))},#${ownerHistId},$,$,(#${workSchedId}),#${setId})`);
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_baselines'))},#${ownerHistId},$,$,(#${workSchedId}),#${setId})`);
 }
 
 /**
@@ -562,9 +614,9 @@ function writeSchedulingOptionsMeta(
   const propId = addLine(ctx, '_ps_schedopts',
     `IFCPROPERTYSINGLEVALUE('SchedulingOptions',$,IFCTEXT(${ifcStr(json)}),$)`);
   const setId = addLine(ctx, '_pset_schedopts',
-    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_schedopts'))},#${ownerHistId},${ifcStr(PSET.SchedulingOptions)},$,(#${propId}))`);
+    `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_schedopts'))},#${ownerHistId},${ifcStr(PSET.SchedulingOptions)},$,(#${propId}))`);
   addLine(ctx, '_rel_schedopts',
-    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_schedopts'))},#${ownerHistId},$,$,(#${workSchedId}),#${setId})`);
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_schedopts'))},#${ownerHistId},$,$,(#${workSchedId}),#${setId})`);
 }
 
 /** Fase 2.8b (§7.1) — `IfcWorkCalendar.PredefinedType` uit `calendar.shift`. CONVENTIE: buildingSMART
@@ -624,7 +676,7 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
   // ObjectType (arg 4): alleen een label bij USERDEFINED-ploeg; anders `$` (byte-identiek).
   const objectType = cal.shift === 'USERDEFINED' ? ifcStr('USERDEFINED') : '$';
   return addLine(ctx, key,
-    `IFCWORKCALENDAR(${ifcStr(ifcGuid(cal.id))},#${ownerHistId},${ifcStr(cal.name)},${ifcStr(cal.description)},${objectType},(#${workTimeId}),${exceptStr},${shiftToPredefinedType(cal.shift)})`);
+    `IFCWORKCALENDAR(${ifcStr(guidOf(ctx, cal.id))},#${ownerHistId},${ifcStr(cal.name)},${ifcStr(cal.description)},${objectType},(#${workTimeId}),${exceptStr},${shiftToPredefinedType(cal.shift)})`);
 }
 
 /**
@@ -664,9 +716,9 @@ function writeCalendarGenerationMeta(
       `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(cal.libraryOrigin))}),$)`));
   }
   const setId = addLine(ctx, `_pset_opscal_${cal.id}`,
-    `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
+    `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
   addLine(ctx, `_rel_opscal_${cal.id}`,
-    `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_opscal_' + cal.id))},#${ownerHistId},$,$,(#${calStepId}),#${setId})`);
+    `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_opscal_' + cal.id))},#${ownerHistId},$,$,(#${calStepId}),#${setId})`);
 }
 
 /**
@@ -698,7 +750,7 @@ function writeCalendarLibrary(
       .filter(r => r !== '#0');
     if (resRefs.length > 0) {
       addLine(ctx, `resctrl_${cal.id}`,
-        `IFCRELASSIGNSTOCONTROL(${ifcStr(ifcGuid('resctrl_' + cal.id))},#${ownerHistId},$,$,(${resRefs.join(',')}),$,#${calStepId})`);
+        `IFCRELASSIGNSTOCONTROL(${ifcStr(guidOf(ctx, 'resctrl_' + cal.id))},#${ownerHistId},$,$,(${resRefs.join(',')}),$,#${calStepId})`);
     }
 
     const taskRefs = tasks
@@ -707,7 +759,7 @@ function writeCalendarLibrary(
       .filter(r => r !== '#0');
     if (taskRefs.length > 0) {
       addLine(ctx, `taskctrl_${cal.id}`,
-        `IFCRELASSIGNSTOCONTROL(${ifcStr(ifcGuid('taskctrl_' + cal.id))},#${ownerHistId},$,$,(${taskRefs.join(',')}),$,#${calStepId})`);
+        `IFCRELASSIGNSTOCONTROL(${ifcStr(guidOf(ctx, 'taskctrl_' + cal.id))},#${ownerHistId},$,$,(${taskRefs.join(',')}),$,#${calStepId})`);
     }
   }
 }
@@ -752,7 +804,7 @@ function writeTask(
     `IFCTASKTIME(${IFC_TASKTIME_SLOTS.map(s => s.write(ttCtx)).join(',')})`);
 
   const taskCtx: TaskWriteCtx = {
-    task, ownerHistId, guidArg: ifcStr(ifcGuid(task.id)), taskTimeId,
+    task, ownerHistId, guidArg: ifcStr(guidOf(ctx, task.id)), taskTimeId,
   };
   addLine(ctx, `task_${task.id}`,
     `IFCTASK(${IFC_TASK_SLOTS.map(s => s.write(taskCtx)).join(',')})`);
@@ -767,7 +819,7 @@ function writeWBSNesting(ctx: WriteContext, tasks: Task[], ownerHistId: number):
       .join(',');
     if (childRefs) {
       addLine(ctx, `nest_${task.id}`,
-        `IFCRELNESTS(${ifcStr(ifcGuid('nest_' + task.id))},#${ownerHistId},${ifcStr('WBS ' + task.name)},$,${ref(ctx, `task_${task.id}`)},( ${childRefs}))`);
+        `IFCRELNESTS(${ifcStr(guidOf(ctx, 'nest_' + task.id))},#${ownerHistId},${ifcStr('WBS ' + task.name)},$,${ref(ctx, `task_${task.id}`)},( ${childRefs}))`);
     }
   }
 }
@@ -804,14 +856,14 @@ function writeSequence(ctx: WriteContext, seq: Sequence, ownerHistId: number): v
   }
 
   addLine(ctx, `seq_${seq.id}`,
-    `IFCRELSEQUENCE(${ifcStr(ifcGuid(seq.id))},#${ownerHistId},$,$,${ref(ctx, `task_${seq.predecessorId}`)},${ref(ctx, `task_${seq.successorId}`)},${lagRef},.${seq.type}.,$)`);
+    `IFCRELSEQUENCE(${ifcStr(guidOf(ctx, seq.id))},#${ownerHistId},$,$,${ref(ctx, `task_${seq.predecessorId}`)},${ref(ctx, `task_${seq.successorId}`)},${lagRef},.${seq.type}.,$)`);
 }
 
 function writeResource(ctx: WriteContext, res: Resource, ownerHistId: number): void {
   // Entiteitnaam uit de gedeelde RESOURCE_TYPE_TO_IFC-map (reader leidt de inverse eruit af).
   // Fallback op MATERIAL is byte-identiek aan de vroegere switch-`default`.
   const entityName = RESOURCE_TYPE_TO_IFC[res.type] ?? 'IFCCONSTRUCTIONMATERIALRESOURCE';
-  const entity = `${entityName}(${ifcStr(ifcGuid(res.id))},#${ownerHistId},${ifcStr(res.name)},${ifcStr(res.description)},$,$,$,$,.USERDEFINED.)`;
+  const entity = `${entityName}(${ifcStr(guidOf(ctx, res.id))},#${ownerHistId},${ifcStr(res.name)},${ifcStr(res.description)},$,$,$,$,.USERDEFINED.)`;
   addLine(ctx, `res_${res.id}`, entity);
 }
 
@@ -853,7 +905,7 @@ function writeResourceMeta(ctx: WriteContext, resources: Resource[], ownerHistId
       // Vangnet naast IFCRELNESTS (writeCrewNesting): de eigen reader hoeft nooit
       // afhankelijk te zijn van relatie-richting-interpretatie door andere IFC-tools.
       const id = addLine(ctx, `_respg_${res.id}`,
-        `IFCPROPERTYSINGLEVALUE('ParentGuid',$,IFCTEXT(${ifcStr(ifcGuid(res.parentId))}),$)`);
+        `IFCPROPERTYSINGLEVALUE('ParentGuid',$,IFCTEXT(${ifcStr(guidOf(ctx, res.parentId))}),$)`);
       props.push(`#${id}`);
     }
     if (res.libraryOrigin) {
@@ -863,9 +915,9 @@ function writeResourceMeta(ctx: WriteContext, resources: Resource[], ownerHistId
     }
     if (props.length === 0) continue;
     const setId = addLine(ctx, `_pset_res_${res.id}`,
-      `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_res_' + res.id))},#${ownerHistId},${ifcStr(PSET.Resource)},$,(${props.join(',')}))`);
+      `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_res_' + res.id))},#${ownerHistId},${ifcStr(PSET.Resource)},$,(${props.join(',')}))`);
     addLine(ctx, `_rel_res_${res.id}`,
-      `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_res_' + res.id))},#${ownerHistId},$,$,(${ref(ctx, `res_${res.id}`)}),#${setId})`);
+      `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_res_' + res.id))},#${ownerHistId},$,$,(${ref(ctx, `res_${res.id}`)}),#${setId})`);
   }
 }
 
@@ -883,7 +935,7 @@ function writeCrewNesting(ctx: WriteContext, resources: Resource[], ownerHistId:
       .filter(r => r !== '#0');
     if (memberRefs.length === 0) continue;
     addLine(ctx, `nest_res_${crew.id}`,
-      `IFCRELNESTS(${ifcStr(ifcGuid('nest_res_' + crew.id))},#${ownerHistId},${ifcStr('Ploeg ' + crew.name)},$,${ref(ctx, `res_${crew.id}`)},(${memberRefs.join(',')}))`);
+      `IFCRELNESTS(${ifcStr(guidOf(ctx, 'nest_res_' + crew.id))},#${ownerHistId},${ifcStr('Ploeg ' + crew.name)},$,${ref(ctx, `res_${crew.id}`)},(${memberRefs.join(',')}))`);
   }
 }
 
@@ -901,7 +953,7 @@ function writeAssignments(ctx: WriteContext, assignments: ResourceAssignment[], 
     const taskRef = ref(ctx, `task_${taskId}`);
     if (taskRef === '#0') continue;
     addLine(ctx, `assign_${taskId}`,
-      `IFCRELASSIGNSTOPROCESS(${ifcStr(ifcGuid('assign_' + taskId))},#${ownerHistId},$,$,(${resRefs.join(',')}),$,${taskRef},$)`);
+      `IFCRELASSIGNSTOPROCESS(${ifcStr(guidOf(ctx, 'assign_' + taskId))},#${ownerHistId},$,$,(${resRefs.join(',')}),$,${taskRef},$)`);
   }
 }
 
@@ -916,7 +968,7 @@ function writeAssignments(ctx: WriteContext, assignments: ResourceAssignment[], 
  * propertynaam corrumpeerde meerdere assignments van DEZELFDE resource op één taak (bv.
  * R×1(UNIFORM) + R×0.5(BELL)) — de reader dedupte op propertynaam → last-wins. Het
  * `#<volgnummer>`-achtervoegsel (0-based positie binnen de assignmentlijst van de taak) maakt
- * elke property uniek. `ifcGuid(...)` produceert nooit een `#`, dus het scheidingsteken is
+ * elke property uniek. `guidOf(ctx, ...)` produceert nooit een `#`, dus het scheidingsteken is
  * eenduidig. De reader leest ZOWEL dit nieuwe formaat (`GUID#N`) als het oude kale-GUID-formaat
  * (legacy bestanden, §7.4). Alleen geschreven wanneer de taak minstens één assignment heeft
  * (golden rule §7.7).
@@ -936,7 +988,7 @@ function writeAssignmentMeta(
     const list = byTask.get(task.id);
     if (!list || list.length === 0) continue;
     const props = list.map((a, index) => {
-      const resGuid = ifcGuid(a.resourceId); // zelfde GUID als writeResource gebruikte
+      const resGuid = guidOf(ctx, a.resourceId); // zelfde GUID als writeResource gebruikte
       const propName = `${resGuid}#${index}`; // uniek per assignment (M3)
       const val = `${a.unitsPerDay}|${a.curve ?? 'UNIFORM'}`;
       const propId = addLine(ctx, `_asgn_${task.id}_${a.id}`,
@@ -944,8 +996,8 @@ function writeAssignmentMeta(
       return `#${propId}`;
     });
     const setId = addLine(ctx, `_pset_asgn_${task.id}`,
-      `IFCPROPERTYSET(${ifcStr(ifcGuid('pset_asgn_' + task.id))},#${ownerHistId},${ifcStr(PSET.Assignments)},$,(${props.join(',')}))`);
+      `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_asgn_' + task.id))},#${ownerHistId},${ifcStr(PSET.Assignments)},$,(${props.join(',')}))`);
     addLine(ctx, `_rel_asgn_${task.id}`,
-      `IFCRELDEFINESBYPROPERTIES(${ifcStr(ifcGuid('rel_asgn_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
+      `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_asgn_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
   }
 }
