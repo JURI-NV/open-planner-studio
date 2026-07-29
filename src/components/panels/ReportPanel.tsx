@@ -120,13 +120,15 @@ interface PreviewPage {
 
 export function ReportPanel() {
   const { t } = useTranslation('report');
-  const { i18n } = useTranslation();
+  const { t: tCommon, i18n } = useTranslation('common');
   const dd = useDisplayDate();
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
   const calendar = useAppStore(s => s.calendar);
   const project = useAppStore(s => s.project);
-  const projectName = project.name;
+  // Naamloos project ⇒ de vertaalde weergavenaam. De printlaag is een Canvas-renderer zonder
+  // `t(...)`: die krijgt de al-vertaalde tekst dóórgegeven (zelfde patroon als `options.labels`).
+  const projectName = project.name || tCommon('project.untitled');
   const dateNotation = useAppStore(s => s.ui.dateNotation);
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de

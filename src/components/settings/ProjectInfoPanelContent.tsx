@@ -319,7 +319,9 @@ export const ProjectInfoPanelContent = forwardRef<ProjectInfoPanelContentHandle,
       <div className="flex flex-col gap-3 text-xs" data-ops-project-info-panel>
         <div className="flex flex-col gap-1">
           <label className="text-text-secondary font-medium">{tMenu('projectInfo.name')}</label>
-          <input value={name} onChange={e => setName(e.target.value)} className={inputCls} autoFocus={autoFocusName} />
+          {/* Leeg laten mag: het project blijft dan naamloos in de data en toont overal de
+              vertaalde weergavenaam — die staat daarom als placeholder in het veld. */}
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={tCommon('project.untitled')} className={inputCls} autoFocus={autoFocusName} />
         </div>
 
         <div className="flex flex-col gap-1">

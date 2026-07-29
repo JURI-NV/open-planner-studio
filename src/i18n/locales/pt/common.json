@@ -211,7 +211,6 @@
     "explanation": "O Open Planner Studio não foi fechado normalmente. Os seguintes documentos tinham alterações não guardadas que podem ser restauradas:",
     "timeLabel": "Guardado",
     "taskCount": "{{count}} tarefas",
-    "untitled": "Projeto sem título",
     "restore": "Restaurar",
     "dontRestore": "Não restaurar"
   },
@@ -229,8 +228,10 @@
     "show": "Mostrar terminal de depuração",
     "hide": "Ocultar terminal de depuração"
   },
+  "project": {
+    "untitled": "Novo planeamento"
+  },
   "documents": {
-    "untitled": "Sem título",
     "overviewTitle": "Projetos abertos",
     "openBadge": "{{count}} abertos",
     "switchHint": "⌘1–9 para alternar",

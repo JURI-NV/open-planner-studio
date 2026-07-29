@@ -28,7 +28,7 @@ export function CloseDocumentDialog() {
   const entry = documents.find((d) => d.id === pendingId);
   const proj = pendingId === activeId ? project : entry?.payload?.project;
   const fp = pendingId === activeId ? filePath : entry?.payload?.filePath ?? null;
-  const name = documentTitle(fp, proj?.name ?? '') || t('documents.untitled');
+  const name = documentTitle(fp, proj?.name ?? '') || t('project.untitled');
 
   const cancel = () => setUI({ pendingCloseDocId: null });
   const dontSave = () => { closeDocument(pendingId); setUI({ pendingCloseDocId: null }); };

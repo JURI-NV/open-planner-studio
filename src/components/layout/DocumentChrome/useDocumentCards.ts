@@ -38,7 +38,7 @@ export function useDocumentCards(): DocumentCard[] {
   const isDirty = useAppStore((s) => s.isDirty);
 
   return useMemo(() => {
-    const untitled = t('documents.untitled');
+    const untitled = t('project.untitled');
     const fileBase = (p: string | null) => (p ? p.split(/[\\/]/).pop() || p : null);
 
     return documents.map((entry) => {

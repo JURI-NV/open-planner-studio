@@ -138,11 +138,11 @@ export function TitleBar() {
         ) : (
           <>
             <span className="title-bar-app-name">Open Planner Studio v{__APP_VERSION__}</span>
-            {project.name && (
-              <span className="title-bar-file-name">
-                {isDirty ? '* ' : ''}{project.name}
-              </span>
-            )}
+            {/* Een naamloos project blijft in de data naamloos; de weergave valt terug op de
+                vertaalde tekst (i.p.v. hier niets te tonen). */}
+            <span className="title-bar-file-name">
+              {isDirty ? '* ' : ''}{project.name || tCommon('project.untitled')}
+            </span>
           </>
         )}
       </div>

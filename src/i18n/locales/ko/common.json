@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio가 정상적으로 종료되지 않았습니다. 다음 문서에는 복원할 수 있는 저장되지 않은 변경 사항이 있습니다:",
     "timeLabel": "저장 시각",
     "taskCount": "{{count}}개 작업",
-    "untitled": "제목 없는 프로젝트",
     "restore": "복원",
     "dontRestore": "복원 안 함"
   },
@@ -229,8 +228,10 @@
     "show": "디버그 터미널 표시",
     "hide": "디버그 터미널 숨기기"
   },
+  "project": {
+    "untitled": "새 계획"
+  },
   "documents": {
-    "untitled": "제목 없음",
     "overviewTitle": "열린 프로젝트",
     "openBadge": "{{count}}개 열림",
     "switchHint": "⌘1–9 로 전환",

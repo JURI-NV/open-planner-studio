@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio non si è chiuso normalmente. I seguenti documenti presentavano modifiche non salvate che possono essere ripristinate:",
     "timeLabel": "Salvato",
     "taskCount": "{{count}} attività",
-    "untitled": "Progetto senza titolo",
     "restore": "Ripristina",
     "dontRestore": "Non ripristinare"
   },
@@ -229,8 +228,10 @@
     "show": "Mostra terminale di debug",
     "hide": "Nascondi terminale di debug"
   },
+  "project": {
+    "untitled": "Nuova pianificazione"
+  },
   "documents": {
-    "untitled": "Senza titolo",
     "overviewTitle": "Progetti aperti",
     "openBadge": "{{count}} aperti",
     "switchHint": "⌘1–9 per cambiare",

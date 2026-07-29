@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio normal şekilde kapanmadı. Aşağıdaki belgelerde geri yüklenebilecek kaydedilmemiş değişiklikler vardı:",
     "timeLabel": "Kaydedildi",
     "taskCount": "{{count}} görev",
-    "untitled": "Adsız proje",
     "restore": "Geri yükle",
     "dontRestore": "Geri yükleme"
   },
@@ -229,8 +228,10 @@
     "show": "Hata ayıklama terminalini göster",
     "hide": "Hata ayıklama terminalini gizle"
   },
+  "project": {
+    "untitled": "Yeni planlama"
+  },
   "documents": {
-    "untitled": "Adsız",
     "overviewTitle": "Açık projeler",
     "openBadge": "{{count}} açık",
     "switchHint": "Geçiş için ⌘1–9",

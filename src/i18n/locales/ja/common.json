@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio が正常に終了しませんでした。以下のドキュメントには復元可能な未保存の変更があります：",
     "timeLabel": "保存日時",
     "taskCount": "{{count}} 件のタスク",
-    "untitled": "無題のプロジェクト",
     "restore": "復元",
     "dontRestore": "復元しない"
   },
@@ -229,8 +228,10 @@
     "show": "デバッグターミナルを表示",
     "hide": "デバッグターミナルを非表示"
   },
+  "project": {
+    "untitled": "新しい計画"
+  },
   "documents": {
-    "untitled": "無題",
     "overviewTitle": "開いているプロジェクト",
     "openBadge": "{{count}} 件開いています",
     "switchHint": "⌘1–9 で切り替え",

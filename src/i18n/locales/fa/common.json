@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio به‌طور عادی بسته نشد. اسناد زیر تغییرات ذخیره‌نشده‌ای داشتند که قابل بازیابی هستند:",
     "timeLabel": "ذخیره شد",
     "taskCount": "{{count}} وظیفه",
-    "untitled": "پروژه بدون عنوان",
     "restore": "بازیابی",
     "dontRestore": "بازیابی نشود"
   },
@@ -229,8 +228,10 @@
     "show": "نمایش ترمینال اشکال‌زدایی",
     "hide": "پنهان‌کردن ترمینال اشکال‌زدایی"
   },
+  "project": {
+    "untitled": "برنامه‌ریزی جدید"
+  },
   "documents": {
-    "untitled": "بدون عنوان",
     "overviewTitle": "پروژه‌های باز",
     "openBadge": "{{count}} باز",
     "switchHint": "⌘1–9 برای جابجایی",

@@ -12,6 +12,7 @@ import {
 } from '../documentContract';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import { resetUndoCoalescing } from '../transaction';
+import { documentTitle } from '@/utils/documents';
 
 // Het documentcontract (payload-vorm + capture/hydrate/fresh) woont nu in `../documentContract`
 // (audit P10). Hier blijft alleen de multi-document back-end (registry, switchen, sluiten,
@@ -93,12 +94,16 @@ export interface DocumentSlice {
   restoreDocuments: (docs: RecoveryDocInput[], activeId: string | null) => void;
 }
 
-function documentTitle(filePath: string | null, project: Project): string {
-  if (filePath) {
-    const base = filePath.split(/[\\/]/).pop() || filePath;
-    return base.replace(/\.[^.]+$/, '');
-  }
-  return project.name || 'Naamloos';
+/**
+ * Titel-afleiding voor `getOpenDocuments()`. Dezelfde regel als de tabbladen — daarom letterlijk
+ * dezelfde pure helper uit `@/utils/documents` (er stond hier een tweede, licht afwijkende kopie).
+ *
+ * Een naamloos project levert bewust een LEGE titel: de store is een datalaag, geen weergavelaag,
+ * en hier stond eerder een hardgecodeerd Nederlands 'Naamloos'. De weergaveplekken vullen de
+ * vertaalde `common:project.untitled` in.
+ */
+function docTitle(filePath: string | null, project: Project): string {
+  return documentTitle(filePath, project.name);
 }
 
 /** Diepe JSON-kloon — zelfde precedent als `snapshot.ts` (de projectdata is JSON-veilig). */
@@ -166,7 +171,10 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
     // `outgoing` = de bron per referentie (wordt zo in de registry geparkeerd — identiek aan wat
     // newDocument/switchDocument doen). `src` lezen we ook als de bron van de kloon.
     const src = capturePayload(source);
-    const copyName = name ?? nextVariantName(src.project.name, openProjectNames(source));
+    // Een naamloze bron blijft naamloos: `nextVariantName('')` zou letterlijk ' (variant 2)' in de
+    // projectdata (en dus in het IFC) stempelen. Beide documenten tonen dan gewoon de vertaalde
+    // weergavenaam — net als wanneer je twee keer op Nieuw drukt.
+    const copyName = name ?? (src.project.name ? nextVariantName(src.project.name, openProjectNames(source)) : '');
     const newId = generateId('doc');
 
     // Bouw de kopie-payload EXPLICIET — geen stilzwijgende afhankelijkheid van Immer-copy-on-write.
@@ -324,7 +332,7 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       const filePath = active ? s.filePath : d.payload!.filePath;
       const project = active ? s.project : d.payload!.project;
       const isDirty = active ? s.isDirty : d.payload!.isDirty;
-      return { id: d.id, title: documentTitle(filePath, project), isDirty, isActive: active };
+      return { id: d.id, title: docTitle(filePath, project), isDirty, isActive: active };
     });
   },
 

@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio no se cerró correctamente. Los siguientes documentos tenían cambios sin guardar que se pueden restaurar:",
     "timeLabel": "Guardado",
     "taskCount": "{{count}} tareas",
-    "untitled": "Proyecto sin título",
     "restore": "Restaurar",
     "dontRestore": "No restaurar"
   },
@@ -229,8 +228,10 @@
     "show": "Mostrar terminal de depuración",
     "hide": "Ocultar terminal de depuración"
   },
+  "project": {
+    "untitled": "Nueva planificación"
+  },
   "documents": {
-    "untitled": "Sin título",
     "overviewTitle": "Proyectos abiertos",
     "openBadge": "{{count}} abiertos",
     "switchHint": "⌘1–9 para cambiar",

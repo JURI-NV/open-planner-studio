@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio wurde nicht normal beendet. Die folgenden Dokumente enthielten nicht gespeicherte Änderungen, die wiederhergestellt werden können:",
     "timeLabel": "Gespeichert",
     "taskCount": "{{count}} Aufgaben",
-    "untitled": "Unbenanntes Projekt",
     "restore": "Wiederherstellen",
     "dontRestore": "Nicht wiederherstellen"
   },
@@ -229,8 +228,10 @@
     "show": "Debug-Terminal anzeigen",
     "hide": "Debug-Terminal ausblenden"
   },
+  "project": {
+    "untitled": "Neue Planung"
+  },
   "documents": {
-    "untitled": "Unbenannt",
     "overviewTitle": "Offene Projekte",
     "openBadge": "{{count}} offen",
     "switchHint": "⌘1–9 zum Wechseln",

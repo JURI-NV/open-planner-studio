@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio is niet normaal afgesloten. De volgende documenten hadden niet-opgeslagen wijzigingen die hersteld kunnen worden:",
     "timeLabel": "Opgeslagen",
     "taskCount": "{{count}} taken",
-    "untitled": "Naamloos project",
     "restore": "Herstellen",
     "dontRestore": "Niet herstellen"
   },
@@ -229,8 +228,10 @@
     "show": "Debug-terminal tonen",
     "hide": "Debug-terminal verbergen"
   },
+  "project": {
+    "untitled": "Nieuwe planning"
+  },
   "documents": {
-    "untitled": "Naamloos",
     "overviewTitle": "Open projecten",
     "openBadge": "{{count}} open",
     "switchHint": "⌘1–9 om te wisselen",

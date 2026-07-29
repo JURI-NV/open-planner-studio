@@ -489,7 +489,11 @@ function extractProject(entities: StepEntity[], entityMap: Map<string, StepEntit
 
   return {
     id: generateId('proj'),
-    name: proj ? stripQuotes(proj.args[2] || '') : 'Geïmporteerd Project',
+    // `ifcSlotText`, niet `stripQuotes`: een NAAMLOOS project schrijft de writer als `$`
+    // (`ifcStr('')`), en `stripQuotes` gaf daar letterlijk '$' op terug — dan stond er na
+    // opslaan+heropenen een dollarteken als projectnaam. Leeg blijft nu leeg, zodat de
+    // weergave-fallback (`common:project.untitled`) ook ná het openen werkt.
+    name: proj ? ifcSlotText(proj.args[2]) : 'Geïmporteerd Project',
     // Omschrijving uit de IFCWORKPLAN.Description-slot (waar de writer 'm schrijft), met terugval op
     // de IFCPROJECT.Description-slot; `$`/leeg ⇒ '' (voorheen kwam letterlijk '$' terug — een bug).
     description: ifcSlotText(wp?.args[3]) || ifcSlotText(proj?.args[3]),

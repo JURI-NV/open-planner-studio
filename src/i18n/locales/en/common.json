@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio did not close normally. The following documents had unsaved changes that can be restored:",
     "timeLabel": "Saved",
     "taskCount": "{{count}} tasks",
-    "untitled": "Untitled project",
     "restore": "Restore",
     "dontRestore": "Don't restore"
   },
@@ -229,8 +228,10 @@
     "show": "Show debug terminal",
     "hide": "Hide debug terminal"
   },
+  "project": {
+    "untitled": "New schedule"
+  },
   "documents": {
-    "untitled": "Untitled",
     "overviewTitle": "Open projects",
     "openBadge": "{{count}} open",
     "switchHint": "⌘1–9 to switch",

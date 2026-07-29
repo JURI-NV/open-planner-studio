@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio ne s'est pas fermé normalement. Les documents suivants comportaient des modifications non enregistrées qui peuvent être restaurées :",
     "timeLabel": "Enregistré",
     "taskCount": "{{count}} tâches",
-    "untitled": "Projet sans titre",
     "restore": "Restaurer",
     "dontRestore": "Ne pas restaurer"
   },
@@ -229,8 +228,10 @@
     "show": "Afficher le terminal de débogage",
     "hide": "Masquer le terminal de débogage"
   },
+  "project": {
+    "untitled": "Nouvelle planification"
+  },
   "documents": {
-    "untitled": "Sans titre",
     "overviewTitle": "Projets ouverts",
     "openBadge": "{{count}} ouverts",
     "switchHint": "⌘1–9 pour changer",

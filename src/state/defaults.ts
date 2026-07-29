@@ -29,7 +29,10 @@ import { formatDate } from '@/utils/dateUtils';
 export function createDefaultProject(): Project {
   return {
     id: generateId('proj'),
-    name: 'Nieuw Project',
+    // Een vers project is NAAMLOOS in de data. Hier een (Nederlandse) tekst stempelen zou die taal
+    // in het IFC-bestand bakken en nooit meer meeveranderen met de UI-taal; elke weergaveplek valt
+    // daarom bij een lege naam terug op `common:project.untitled`.
+    name: '',
     description: '',
     startDate: formatDate(new Date()),
     endDate: '',

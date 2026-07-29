@@ -87,7 +87,7 @@ export function RecoveryDialog({ entries, onRestore, onDiscard, onClose }: Recov
                 <FileText size={15} className="text-accent mt-0.5 shrink-0" />
                 <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                   <span className="text-text-primary font-semibold text-[13px] truncate">
-                    {entry.name || t('recovery.untitled')}
+                    {entry.name || t('project.untitled')}
                   </span>
                   {entry.filePath && (
                     <span className="text-text-secondary truncate" title={entry.filePath}>

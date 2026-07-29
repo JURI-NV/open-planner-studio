@@ -211,7 +211,6 @@
     "explanation": "Open Planner Studio nie zostało zamknięte poprawnie. Poniższe dokumenty miały niezapisane zmiany, które można przywrócić:",
     "timeLabel": "Zapisano",
     "taskCount": "Zadania: {{count}}",
-    "untitled": "Projekt bez nazwy",
     "restore": "Przywróć",
     "dontRestore": "Nie przywracaj"
   },
@@ -229,8 +228,10 @@
     "show": "Pokaż terminal debugowania",
     "hide": "Ukryj terminal debugowania"
   },
+  "project": {
+    "untitled": "Nowy harmonogram"
+  },
   "documents": {
-    "untitled": "Bez nazwy",
     "overviewTitle": "Otwarte projekty",
     "openBadge": "Otwarte: {{count}}",
     "switchHint": "⌘1–9 aby przełączyć",

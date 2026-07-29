@@ -211,7 +211,6 @@
     "explanation": "لم يتم إغلاق Open Planner Studio بشكل طبيعي. المستندات التالية بها تغييرات غير محفوظة يمكن استعادتها:",
     "timeLabel": "تم الحفظ",
     "taskCount": "{{count}} مهمة",
-    "untitled": "مشروع بدون عنوان",
     "restore": "استعادة",
     "dontRestore": "عدم الاستعادة"
   },
@@ -229,8 +228,10 @@
     "show": "إظهار طرفية التصحيح",
     "hide": "إخفاء طرفية التصحيح"
   },
+  "project": {
+    "untitled": "تخطيط جديد"
+  },
   "documents": {
-    "untitled": "بدون عنوان",
     "overviewTitle": "المشاريع المفتوحة",
     "openBadge": "{{count}} مفتوح",
     "switchHint": "⌘1–9 للتبديل",
