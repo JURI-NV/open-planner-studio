@@ -575,9 +575,18 @@ export function renderReport(
   }
 
   // Today line
+  //
+  // Alleen de LIJN wordt hier getekend; het bijbehorende label hoort in de kopstrook en wordt
+  // daarom door `drawTimelineHeader` gezet (zie de uitleg daar). Dat is geen cosmetische
+  // herschikking maar een bugfix: dit blok loopt vóór `drawTimelineHeader`, en die schildert als
+  // eerste zijn hele kopstrook-band over — een label op `chartTop - …` werd in de RASTER-preview
+  // dus gewoon weggepoetst. In de VECTOR-PDF gebeurde dat níét (tekst staat daar altijd boven alle
+  // vormen, zie `PdfVectorDraw2D.operators` vs `.texts`), zodat preview en export uit elkaar liepen
+  // en het label in de PDF bovendien pal op het dagcijfer van vandaag landde.
   const today = new Date();
   const todayX = dateToX(today);
-  if (todayX > m.tableWidth && todayX < canvasWidth) {
+  const todayVisible = todayX > m.tableWidth && todayX < canvasWidth;
+  if (todayVisible) {
     d2d.strokeStyle = PRINT_COLORS.today;
     d2d.lineWidth = 1.5;
     d2d.setLineDash([5, 3]);
@@ -586,13 +595,6 @@ export function renderReport(
     d2d.lineTo(todayX, chartBottom);
     d2d.stroke();
     d2d.setLineDash([]);
-
-    // "Vandaag"-label
-    d2d.fillStyle = PRINT_COLORS.today;
-    d2d.font = m.font(7, true);
-    d2d.textAlign = 'center';
-    d2d.fillText(options.labels?.today ?? 'Vandaag', todayX, chartTop - m.s(2));
-    d2d.textAlign = 'left';
   }
 
   // Task bars
@@ -738,7 +740,7 @@ export function renderReport(
   }
 
   // ---- TIMELINE HEADER ----
-  drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options);
+  drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options, todayVisible ? todayX : null);
 
   // ---- TASK TABLE ----
   drawTaskTable(d2d, m, flatTasks, depthMap, canvasHeight, cols, options);
@@ -863,7 +865,51 @@ function drawProjectHeader(
 }
 
 
-/** Draw the timeline header with month/week/day rows */
+/** De gereserveerde plek van het vandaag-label in de onderste regel van de kopstrook. */
+interface TodayLabelBox {
+  text: string;
+  /** Horizontaal middelpunt waarop het label wordt gecentreerd (geklemd binnen het chartgebied). */
+  cx: number;
+  /** Gereserveerde x-band; dagcijfers die hierin vallen worden niet getekend. */
+  left: number;
+  right: number;
+}
+
+/**
+ * Bepaal of en waar het vandaag-label past. Levert `null` wanneer er geen vandaag-lijn is óf het
+ * label niet binnen het chartgebied past — dan valt het label weg in plaats van over de tijdschaal
+ * of over de bevroren tabelkolom te lopen.
+ *
+ * Alle maten lopen via {@link ReportMetrics}, dus dit klopt bij elke papiermaat en elke
+ * rapport-lettergrootte. De breedte komt uit `measureText`, waardoor het net zo goed werkt voor het
+ * korte `今日` als voor het lange `Aujourd'hui` — en voor RTL (`اليوم`, `امروز`), want de
+ * centrering is symmetrisch en beide backends meten de geshapte tekst.
+ */
+function reserveTodayLabel(
+  d2d: Draw2D,
+  m: ReportMetrics,
+  canvasWidth: number,
+  options: PrintOptions,
+  todayX: number | null,
+): TodayLabelBox | null {
+  if (todayX === null) return null;
+  const text = options.labels?.today ?? 'Vandaag';
+  d2d.font = m.font(7, true);
+  // Halve labelbreedte plus wat lucht, zodat een overgeslagen dagcijfer niet tegen het label plakt.
+  const half = d2d.measureText(text).width / 2 + m.s(3);
+  const min = m.tableWidth + half;
+  const max = canvasWidth - half;
+  if (max < min) return null;   // chartgebied smaller dan het label zelf ⇒ niets tekenen
+  const cx = Math.min(Math.max(todayX, min), max);
+  return { text, cx, left: cx - half, right: cx + half };
+}
+
+/**
+ * Draw the timeline header with month/week/day rows.
+ *
+ * @param todayX  x van de vandaag-lijn, of `null` als die buiten het chartgebied valt. Het
+ *                vandaag-LABEL wordt hier getekend en niet bij de lijn zelf — zie {@link TodayLabelBox}.
+ */
 function drawTimelineHeader(
   d2d: Draw2D,
   m: ReportMetrics,
@@ -873,11 +919,24 @@ function drawTimelineHeader(
   zoom: number,
   dateToX: (d: Date) => number,
   options: PrintOptions,
+  todayX: number | null,
 ) {
   const top = m.projectHeaderHeight;
   const h = m.timelineHeaderHeight;
   const monthRowH = h / 2;
   const weekRowH = h / 2;
+
+  // Het vandaag-label deelt de onderste regel van de kopstrook met de dagcijfers, en krijgt exact
+  // dezelfde baseline/lettergrootte-band als die cijfers. Het wordt daarom hier gereserveerd vóór
+  // de dag-lus: elk dagcijfer dat binnen deze box valt, wordt overgeslagen.
+  //
+  // Waarom wegLATEN en niet met een dekkend vlakje overschilderen? Omdat dat in de vector-PDF
+  // principieel niet kan: vormen gaan in het gedeelde Form-XObject en ALLE tekst wordt daarná
+  // geëmit (`PdfVectorDraw2D.operators` vs `.texts`), dus een rechthoek belandt altijd ONDER de
+  // dagcijfers. Alleen een geometrische oplossing landt identiek in beide backends — en het is
+  // bovendien hetzelfde idioom dat de maand-/weeklabels hieronder al hanteren (klacht 7): liever
+  // een gat dan tekst over tekst.
+  const todayLabel = reserveTodayLabel(d2d, m, canvasWidth, options, todayX);
 
   // Background
   d2d.fillStyle = PRINT_COLORS.headerBg;
@@ -976,9 +1035,30 @@ function drawTimelineHeader(
         d2d.font = m.font(7);
         d2d.textAlign = 'center';
         d2d.textBaseline = 'bottom';
-        d2d.fillText(String(dayNum), x + zoom / 2, top + h - m.s(1));
+        const dayCx = x + zoom / 2;
+        // Overlapt dit cijfer de gereserveerde band van het vandaag-label, dan laten we het weg
+        // (het label benoemt die dag toch al). Box-tegen-box, dus ook een breed tweecijferig
+        // getal op de rand valt correct af.
+        const dayHalf = d2d.measureText(String(dayNum)).width / 2;
+        const clash = todayLabel !== null
+          && dayCx + dayHalf > todayLabel.left
+          && dayCx - dayHalf < todayLabel.right;
+        if (!clash) {
+          d2d.fillText(String(dayNum), dayCx, top + h - m.s(1));
+        }
       }
     }
+  }
+
+  // Het vandaag-label, op exact de baseline en in exact de band van de dagcijfers die hierboven
+  // voor hem zijn weggelaten. `textBaseline` wordt expliciet gezet: bij lage zoom tekent de
+  // dag-lus niets en zou hij anders de 'middle' van de weeklabels erven.
+  if (todayLabel) {
+    d2d.fillStyle = PRINT_COLORS.today;
+    d2d.font = m.font(7, true);
+    d2d.textAlign = 'center';
+    d2d.textBaseline = 'bottom';
+    d2d.fillText(todayLabel.text, todayLabel.cx, top + h - m.s(1));
   }
 
   // Table header area (left side of timeline header)

@@ -215,6 +215,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   I18NCHECK="$DIR/.i18n-plurals.mjs"
   if bundle_check "$DIR/check-i18n-plurals.ts" "$I18NCHECK"; then node "$I18NCHECK" || STATUS=1; fi
 
+  # Het "vandaag"-label in de printkopstrook. Lag vóór `drawTimelineHeader` en werd daardoor in de
+  # RASTER-preview weggeschilderd, terwijl het in de VECTOR-PDF (waar alle tekst boven alle vormen
+  # staat) juist overleefde en pal op het dagcijfer landde — "Vand29ag". Deze check bewaakt de drie
+  # eigenschappen die dat uitsluiten: getekend ná de kopstrook-overschildering, geen overlap met een
+  # dagcijfer, en binnen het chartgebied — over talen × papierformaten × lettergroottes.
+  TODAYCHECK="$DIR/.today-label.mjs"
+  if bundle_check "$DIR/check-today-label.ts" "$TODAYCHECK"; then node "$TODAYCHECK" || STATUS=1; fi
+
   # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
   # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije
   # beslissings- en herbouwlaag (allowlists, harde verwijderingen, waardecheck, serialisatie) tegen
