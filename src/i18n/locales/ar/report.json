@@ -51,7 +51,8 @@
     "milestone": "معلم",
     "summary": "ملخص",
     "float": "الفائض",
-    "completion": "الإنجاز"
+    "completion": "الإنجاز",
+    "relationStyle": "حاكمة / غير حاكمة"
   },
   "tableHeaders": {
     "rowNum": "#",

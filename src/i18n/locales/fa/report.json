@@ -43,7 +43,8 @@
     "milestone": "نقطه عطف",
     "summary": "خلاصه",
     "float": "شناوری",
-    "completion": "پیشرفت"
+    "completion": "پیشرفت",
+    "relationStyle": "تعیین‌کننده / غیرتعیین‌کننده"
   },
   "tableHeaders": {
     "rowNum": "#",

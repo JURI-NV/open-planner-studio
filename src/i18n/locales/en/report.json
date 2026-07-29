@@ -43,7 +43,8 @@
     "milestone": "Milestone",
     "summary": "Summary",
     "float": "Float",
-    "completion": "Completion"
+    "completion": "Completion",
+    "relationStyle": "Driving / non-driving"
   },
   "tableHeaders": {
     "rowNum": "#",

@@ -45,7 +45,8 @@
     "milestone": "Traguardo",
     "summary": "Riepilogo",
     "float": "Margine",
-    "completion": "Avanzamento"
+    "completion": "Avanzamento",
+    "relationStyle": "Determinante / non determinante"
   },
   "tableHeaders": {
     "rowNum": "#",

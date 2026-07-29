@@ -177,7 +177,13 @@ export interface PrintOptions {
   labels?: {
     noTasks: string;
     printed: string;
-    legend: { criticalPath: string; normal: string; milestone: string; summary: string; float: string; completion: string };
+    legend: {
+      criticalPath: string; normal: string; milestone: string; summary: string; float: string; completion: string;
+      /** Eén regel die de LIJNSTIJL van de relaties verklaart: doorgetrokken = bepalend (driving),
+       *  gestreept = niet-bepalend. Verschijnt alleen als er relaties getekend worden én de
+       *  bindend-informatie beschikbaar is (zie {@link PrintOptions.drivingSequenceIds}). */
+      relationStyle: string;
+    };
     tableHeaders: { rowNum: string; wbs: string; taskName: string; start: string; end: string; duration: string; completion: string };
     page: string;
     of: string;
@@ -206,6 +212,17 @@ export interface PrintOptions {
    * bij {@link ReportMetrics}, want uniform schalen zou onder de fit-width-pagineerder niets doen.
    */
   reportFontScale?: number;
+  /**
+   * Ids van de BEPALENDE (driving) relaties uit de laatste CPM-run (issue #56). Zonder dit veld
+   * tekent het rapport élke relatie neutraal doorgetrokken — exact het gedrag van vóór de fix, en
+   * de eerlijke weergave zolang er niet gerekend is.
+   *
+   * WAAROM DIT DOOR MOET WORDEN GEGEVEN en niet uit de taken af te leiden is: "bepalend" is een
+   * eigenschap van de RELATIE (relationship free float = 0), geen eigenschap van de twee taken.
+   * Het is een `CPMResult`-veld dat bewust niet gepersisteerd wordt (ook niet in IFC), dus de enige
+   * bron is de aanroeper die de store leest ({@link ReportPanel}).
+   */
+  drivingSequenceIds?: string[];
 }
 
 interface PrintTask extends Task {
@@ -732,7 +749,7 @@ export function renderReport(
   // en brengt die in lijn met wat de export altijd al deed — wat precies de bedoeling is, want die
   // twee horen WYSIWYG te zijn.
   if (options.showDeps) {
-    drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom);
+    drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom, options);
   }
 
   for (const job of barLabelJobs) {
@@ -1231,7 +1248,39 @@ function drawTaskTable(
 }
 
 
-/** Draw dependency lines with arrowheads */
+/**
+ * Teken de relatielijnen met pijlpunt.
+ *
+ * ==== KLEUR EN LIJNSTIJL (issue #56) ====
+ * Het rapport zette hier één vaste grijze kleur BUITEN de lus en riep `setLineDash` nooit aan,
+ * terwijl het scherm (`GanttRenderer.drawDependencyArrows`) de P6-conventie hanteert die elke
+ * planner direct leest: doorgetrokken = bepalend (driving, bindt de opvolger), gestreept =
+ * niet-bepalend, en rood wanneer een BEPALENDE relatie twee kritieke taken verbindt. Een export
+ * waarin die betekenis wegvalt is geen cosmetisch verschil maar informatieverlies — precies de
+ * klacht. Deze functie spiegelt de schermbeslissing nu regel voor regel.
+ *
+ * Drie bewuste afwijkingen van het scherm, elk met een reden:
+ *  1. GRIJSTINT. Papier vraagt een lichtere neutrale lijn dan een beeldscherm; `PRINT_PALETTE`
+ *     houdt daarom bewust `#9CA3AF` waar het schermpalet `#6B7280` gebruikt (zie de waarschuwing
+ *     bovenin themePalette.ts). Alleen het KRITIEK-rood is in beide paletten dezelfde merk-hex.
+ *  2. `options.showCritical`. Zet de gebruiker "kritiek pad tonen" uit, dan tekent de balklaag
+ *     hierboven ook de kritieke taken neutraal blauw; rode lijnen tussen blauwe balken zou een
+ *     kritiek pad tonen dat de gebruiker net heeft uitgezet.
+ *  3. TRACE-DIMMING wordt NIET overgenomen: dat is interactieve state (het gedimd tonen van alles
+ *     buiten een aangeklikt pad) waar een statisch papieren rapport niets aan heeft.
+ *
+ * ==== RELATIETYPE ====
+ * De lus las `seq.type` helemaal niet en tekende élke relatie als FS (vanaf de VOORGANGER-FINISH).
+ * Een SS-relatie kwam daardoor uit de verkeerde balkrand — een feitelijk onjuiste export, geen
+ * cosmetiek. De ankerpunten volgen nu dezelfde `switch` als het scherm, inclusief de uitloop-
+ * RICHTING: bij SS ankert de lijn op de LINKERrand van de voorganger en moet de stub dus naar
+ * LINKS weglopen, anders begint de lijn ín de balk.
+ *
+ * De obstakel-routering van het scherm (kolomvrij-detectie, goot-trap om tussenliggende balken
+ * heen) is bewust NIET overgenomen: het scherm tekent zijn pijlen ÓNDER de balken en heeft die
+ * omweg nodig om ze zichtbaar te houden, het rapport tekent ze erBOVEN (zie de tekenvolgorde in
+ * `renderReport`) — daar bestaat het occlusieprobleem niet.
+ */
 function drawDependencies(
   d2d: Draw2D,
   m: ReportMetrics,
@@ -1240,10 +1289,13 @@ function drawDependencies(
   dateToX: (d: Date) => number,
   rowToY: (i: number) => number,
   zoom: number,
+  options: PrintOptions,
 ) {
-  d2d.strokeStyle = PRINT_COLORS.dependency;
-  d2d.fillStyle = PRINT_COLORS.dependency;
   d2d.lineWidth = 1.2;
+
+  // `null` = er is niet gerekend (of de aanroeper geeft het niet door) ⇒ alles neutraal
+  // doorgetrokken, exact het gedrag van vóór issue #56. Zelfde semantiek als op het scherm.
+  const drivingSet = options.drivingSequenceIds ? new Set(options.drivingSequenceIds) : null;
 
   for (const seq of sequences) {
     const predIdx = flatTasks.findIndex(t => t.id === seq.predecessorId);
@@ -1255,33 +1307,68 @@ function drawDependencies(
     const predY = rowToY(predIdx) + m.rowHeight / 2;
     const succY = rowToY(succIdx) + m.rowHeight / 2;
 
-    const predEnd = parseDate(pred.time.earlyFinish || pred.time.scheduleFinish);
-    const succStart = parseDate(succ.time.earlyStart || succ.time.scheduleStart);
-    const fromX = dateToX(predEnd) + zoom;
-    const toX = dateToX(succStart);
+    // Kleur + lijnstijl per relatie (issue #56) — zie de blokuitleg boven deze functie.
+    const isDriving = drivingSet ? drivingSet.has(seq.id) : true;
+    const isCriticalLink = drivingSet !== null && isDriving
+      && options.showCritical && pred.time.isCritical && succ.time.isCritical;
+    const color = isCriticalLink ? PRINT_COLORS.critical : PRINT_COLORS.dependency;
+    d2d.strokeStyle = color;
+    d2d.fillStyle = color;
+    // Het streepjespatroon schaalt mee met de rapport-lettergrootte. Op papier is dat het verschil
+    // tussen "streepjes die net zo fijn blijven terwijl alles eromheen groeit" en een lijnstijl die
+    // op elke schaal even leesbaar is: de pagineerder schaalt de bron met `printW / canvasWidth`, en
+    // die noemer is bij fit-width juist ONafhankelijk van de lettergrootte (`canvasWidth` =
+    // `m.tableWidth + chartWidth` = `paper.w - margins`, want de tijdlijn krimpt precies zoveel als
+    // de tabel groeit). Ongeschaald zou het patroon dus bij 90% én 125% dezelfde fysieke maat op
+    // papier houden terwijl de rijhoogte en de tekst wél meebewegen. Papierformaat vraagt geen
+    // compensatie: A4 en A1 krijgen allebei dezelfde 96dpi→pt-factor 0,75 (gemeten, zie de
+    // regressiebatterij `check-dependency-style.ts`).
+    d2d.setLineDash(isDriving ? [] : [m.s(4), m.s(3)]);
+
+    // Ankerpunten per relatietype — zelfde `switch` als `GanttRenderer.drawDependencyArrows`.
+    // `dirOut` is de richting waarin de lijn bij de VOORGANGER wegloopt: bij SS ankert `fromX` op de
+    // linkerrand (de start) en moet de stub naar links, anders loopt hij de balk ín.
+    let fromX: number;
+    let toX: number;
+    switch (seq.type) {
+      case 'START_START': {
+        fromX = dateToX(parseDate(pred.time.earlyStart || pred.time.scheduleStart));
+        toX = dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
+        break;
+      }
+      default: {
+        // FS/FF/SF: vanaf de voorganger-FINISH naar de opvolger-START — ongewijzigd t.o.v. vóór
+        // issue #56 en identiek aan de `default`-tak van het scherm.
+        fromX = dateToX(parseDate(pred.time.earlyFinish || pred.time.scheduleFinish)) + zoom;
+        toX = dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
+      }
+    }
+    const dirOut = seq.type === 'START_START' ? -1 : 1;
+
+    // De verticale knik naast de VOORGANGER. `dirOut` maakt dit het spiegelbeeld voor SS; bij
+    // FS/FF/SF (dirOut = 1) is dit letterlijk het oude `fromX + DEP_STUB`.
+    const outX = fromX + dirOut * DEP_STUB;
 
     // Twee routes (issue #25 punt 3):
-    //  - VOORWAARTS (`toX >= fromX + 2*DEP_STUB`): de opvolger begint ruim rechts van de voorganger,
-    //    dus de klassieke route volstaat — stukje rechtdoor, verticale knik, dan rechtdoor de
-    //    opvolger-balk in.
-    //  - TERUGWAARTS (`toX < fromX + 2*DEP_STUB`): de opvolger begint links van waar de lijn
-    //    uitkomt. Het horizontale segment zou dan op `succY` achteruit dwars DOOR de opvolger-balk
-    //    lopen. In plaats daarvan gaan we "omheen" via de rijgoot: de horizontale scheiding tussen
-    //    twee rijen (bovenrand van de opvolger-rij als die eronder ligt, onderrand als hij erboven
-    //    ligt), een paar px de rij in zodat de lijn nét naast de rasterlijn valt.
+    //  - VOORWAARTS (`toX >= outX + DEP_STUB`): de opvolger begint ruim rechts van de knik, dus de
+    //    klassieke route volstaat — stukje rechtdoor, verticale knik, dan rechtdoor de opvolger-balk
+    //    in. Bij FS/FF/SF is deze voorwaarde exact de oude `toX >= fromX + 2*DEP_STUB`.
+    //  - TERUGWAARTS: de opvolger begint links van waar de lijn uitkomt. Het horizontale segment zou
+    //    dan op `succY` achteruit dwars DOOR de opvolger-balk lopen. In plaats daarvan gaan we
+    //    "omheen" via de rijgoot: de horizontale scheiding tussen twee rijen (bovenrand van de
+    //    opvolger-rij als die eronder ligt, onderrand als hij erboven ligt), een paar px de rij in
+    //    zodat de lijn nét naast de rasterlijn valt.
     d2d.beginPath();
-    if (toX >= fromX + 2 * DEP_STUB) {
-      const midX = fromX + DEP_STUB;
+    if (toX >= outX + DEP_STUB) {
       d2d.moveTo(fromX, predY);
-      d2d.lineTo(midX, predY);
-      d2d.lineTo(midX, succY);
+      d2d.lineTo(outX, predY);
+      d2d.lineTo(outX, succY);
       d2d.lineTo(toX, succY);
     } else {
       const gutterInset = 2;
       const gutterY = succIdx > predIdx
         ? rowToY(succIdx) + gutterInset            // opvolger eronder ⇒ goot = bovenrand opvolger-rij
         : rowToY(succIdx) + m.rowHeight - gutterInset; // opvolger erboven ⇒ goot = onderrand opvolger-rij
-      const outX = fromX + DEP_STUB;
       const inX = toX - DEP_STUB;
       d2d.moveTo(fromX, predY);
       d2d.lineTo(outX, predY);
@@ -1292,7 +1379,8 @@ function drawDependencies(
     }
     d2d.stroke();
 
-    // Arrowhead (filled triangle)
+    // Arrowhead (filled triangle) — een `fill` negeert het dash-patroon, dus ook een niet-bepalende
+    // relatie houdt een massieve pijlpunt (net als op het scherm).
     d2d.beginPath();
     d2d.moveTo(toX, succY);
     d2d.lineTo(toX - 5, succY - 3);
@@ -1300,6 +1388,11 @@ function drawDependencies(
     d2d.closePath();
     d2d.fill();
   }
+
+  // VERPLICHTE reset: `drawTimelineHeader` en `drawTaskTable` lopen hierná en strepen hun kolom- en
+  // rasterlijnen met dezelfde Draw2D. Bleef het dash-patroon staan, dan werd de hele kopstrook
+  // gestreept zodra de laatste relatie niet-bepalend was.
+  d2d.setLineDash([]);
 }
 
 
@@ -1419,6 +1512,30 @@ function drawFooter(
         items.push({ label: lg?.float ?? 'Speling', draw: (x) => {
           d2d.fillStyle = PRINT_COLORS.float + '40';
           d2d.fillRect(x, midY - m.s(4), swatchW, m.s(8));
+        } });
+      }
+      // Lijnstijl-uitleg (issue #56): ÉÉN legenda-regel die beide stijlen tegelijk toont — boven een
+      // doorgetrokken, eronder een gestreept lijntje — zodat de conventie "doorgetrokken = bepalend,
+      // gestreept = niet-bepalend" in het rapport zelf staat en niet als stilzwijgende kennis. Alleen
+      // zinvol als er überhaupt relaties getekend worden ÉN de bindend-informatie er is: zonder
+      // `drivingSequenceIds` is élke lijn doorgetrokken en zou de regel iets beloven wat er niet is.
+      // Staat bewust achteraan: de legenda laat bij te weinig ruimte de laatste items weg, en dit is
+      // de minst essentiële regel.
+      if (options.showDeps && options.drivingSequenceIds) {
+        items.push({ label: lg?.relationStyle ?? 'Bepalend / niet-bepalend', draw: (x) => {
+          d2d.strokeStyle = PRINT_COLORS.dependency;
+          d2d.lineWidth = 1.2;
+          d2d.setLineDash([]);
+          d2d.beginPath();
+          d2d.moveTo(x, midY - m.s(3));
+          d2d.lineTo(x + swatchW, midY - m.s(3));
+          d2d.stroke();
+          d2d.setLineDash([m.s(4), m.s(3)]);
+          d2d.beginPath();
+          d2d.moveTo(x, midY + m.s(3));
+          d2d.lineTo(x + swatchW, midY + m.s(3));
+          d2d.stroke();
+          d2d.setLineDash([]);
         } });
       }
 

@@ -136,6 +136,10 @@ export function ReportPanel() {
   const projectName = project.name || tCommon('project.untitled');
   const fileBase = projectFileBase(project.name);
   const dateNotation = useAppStore(s => s.ui.dateNotation);
+  // Issue #56: de lijnstijl van de relaties in het rapport volgt de P6-conventie van het scherm
+  // (doorgetrokken = bepalend, gestreept = niet-bepalend). Die informatie zit alleen in `cpmResult`,
+  // dus een echte subscription — anders ververst de preview niet na een F5/Bereken.
+  const cpmResult = useAppStore(s => s.cpmResult);
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
   // eerste render overschreven door de opgeslagen voorkeuren (zie het hydratatie-effect verderop).
@@ -298,6 +302,7 @@ export function ReportPanel() {
       summary: t('legend.summary'),
       float: t('showFloat'),
       completion: t('showCompletion', { defaultValue: 'Completion' }),
+      relationStyle: t('legend.relationStyle'),
     },
     tableHeaders: {
       rowNum: '#',
@@ -327,6 +332,11 @@ export function ReportPanel() {
     dateNotation,
     timelineColumns,
     reportFontScale,
+    // Issue #56 — welke relaties BEPALEND (driving) zijn is een `CPMResult`-veld dat bewust niet
+    // gepersisteerd wordt; de printlaag kan het dus niet zelf afleiden en krijgt het hier door.
+    // Bij een cyclus (`cpmResult.error`) of vóór de eerste berekening blijft het `undefined`, en
+    // tekent het rapport alles neutraal doorgetrokken — dezelfde eerlijke terugval als het scherm.
+    drivingSequenceIds: cpmResult && !cpmResult.error ? cpmResult.drivingSequenceIds : undefined,
   };
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
@@ -381,7 +391,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     void ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();

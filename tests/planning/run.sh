@@ -168,6 +168,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BCCHECK="$DIR/.band-collapse.mjs"
   if bundle_check "$DIR/check-band-collapse.ts" "$BCCHECK"; then node "$BCCHECK" || STATUS=1; fi
 
+  # Contextmenu-reikwijdte (issue #45): de muterende taakitems werkten op de AANGEKLIKTE taak in
+  # plaats van op de selectie. Draait exact de functies die GanttCanvas aan het contextmenu hangt en
+  # bewaakt naast de reikwijdte ook de undo-KOSTEN — één menuklik = één Ctrl+Z. Die tweede helft
+  # kan stil afdrijven: een naïeve lus over de per-taak-mutators geeft dezelfde zichtbare uitkomst
+  # maar N undo-stappen.
+  CMSCHECK="$DIR/.context-menu-scope.mjs"
+  if bundle_check "$DIR/check-context-menu-scope.ts" "$CMSCHECK"; then node "$CMSCHECK" || STATUS=1; fi
+
   # Gantt-cull-regressie: de speling-band mag niet verdwijnen zolang hij zichtbaar is. De cull in
   # drawTaskBar keek alleen naar de BALK-extent, terwijl de band ná de balk doorloopt — een band die
   # nog honderden pixels in beeld stond verdween daardoor mee. Draait de echte renderer met een
@@ -222,6 +230,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # dagcijfer, en binnen het chartgebied — over talen × papierformaten × lettergroottes.
   TODAYCHECK="$DIR/.today-label.mjs"
   if bundle_check "$DIR/check-today-label.ts" "$TODAYCHECK"; then node "$TODAYCHECK" || STATUS=1; fi
+
+  # Relatielijn-stijl in het geëxporteerde rapport (issue #56). De printlaag zette één vaste grijze
+  # kleur BUITEN de lus, riep `setLineDash` nooit aan en las `seq.type` niet — de export gooide dus
+  # de P6-betekenis weg (doorgetrokken = bepalend, rood = kritiek) en tekende élke relatie als FS,
+  # ook een SS. Deze check draait `renderReport` met een opnemende Draw2D (dezelfde renderer die de
+  # raster-preview én de vector-PDF voedt) en bewaakt kleur, lijnstijl, dash-schaling, de SS/FS-
+  # ankerpunten, de dash-reset naar kopstrook/tabel en de legenda-regel.
+  DEPSTYLECHECK="$DIR/.dependency-style.mjs"
+  if bundle_check "$DIR/check-dependency-style.ts" "$DEPSTYLECHECK"; then node "$DEPSTYLECHECK" || STATUS=1; fi
 
   # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
   # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije

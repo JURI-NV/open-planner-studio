@@ -45,7 +45,8 @@
     "milestone": "Hito",
     "summary": "Resumen",
     "float": "Holgura",
-    "completion": "Avance"
+    "completion": "Avance",
+    "relationStyle": "Determinante / no determinante"
   },
   "tableHeaders": {
     "rowNum": "#",

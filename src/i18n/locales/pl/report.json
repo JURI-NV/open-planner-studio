@@ -47,7 +47,8 @@
     "milestone": "Kamień milowy",
     "summary": "Podsumowanie",
     "float": "Zapas",
-    "completion": "Postęp"
+    "completion": "Postęp",
+    "relationStyle": "Wiodąca / niewiodąca"
   },
   "tableHeaders": {
     "rowNum": "#",

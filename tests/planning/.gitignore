@@ -25,3 +25,5 @@
 .text-asset-check.mjs
 .arrow-routing.mjs
 .today-label.mjs
+.dependency-style.mjs
+.context-menu-scope.mjs

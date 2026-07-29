@@ -43,7 +43,8 @@
     "milestone": "Kilometre taşı",
     "summary": "Özet",
     "float": "Bolluk",
-    "completion": "Tamamlanma"
+    "completion": "Tamamlanma",
+    "relationStyle": "Belirleyici / belirleyici olmayan"
   },
   "tableHeaders": {
     "rowNum": "#",

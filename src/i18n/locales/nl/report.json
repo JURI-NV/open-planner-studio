@@ -43,7 +43,8 @@
     "milestone": "Mijlpaal",
     "summary": "Samenvatting",
     "float": "Speling",
-    "completion": "Voltooiing"
+    "completion": "Voltooiing",
+    "relationStyle": "Bepalend / niet-bepalend"
   },
   "tableHeaders": {
     "rowNum": "#",

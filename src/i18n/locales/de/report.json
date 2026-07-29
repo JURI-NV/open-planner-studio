@@ -43,7 +43,8 @@
     "milestone": "Meilenstein",
     "summary": "Zusammenfassung",
     "float": "Puffer",
-    "completion": "Fertigstellung"
+    "completion": "Fertigstellung",
+    "relationStyle": "Maßgebend / nicht maßgebend"
   },
   "tableHeaders": {
     "rowNum": "#",

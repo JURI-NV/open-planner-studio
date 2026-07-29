@@ -45,7 +45,8 @@
     "milestone": "Marco",
     "summary": "Resumo",
     "float": "Folga",
-    "completion": "Conclusão"
+    "completion": "Conclusão",
+    "relationStyle": "Determinante / não determinante"
   },
   "tableHeaders": {
     "rowNum": "#",

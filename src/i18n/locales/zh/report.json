@@ -41,7 +41,8 @@
     "milestone": "里程碑",
     "summary": "摘要",
     "float": "浮动",
-    "completion": "完成度"
+    "completion": "完成度",
+    "relationStyle": "驱动 / 非驱动"
   },
   "tableHeaders": {
     "rowNum": "#",

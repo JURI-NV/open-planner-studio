@@ -42,6 +42,12 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
 - A **company** field (auto-fills from the project setting, but is separately editable here) and the
   **author** (read-only, from the project info).
 
+Relationship lines in the report use the same visual language as the Gantt view: a **solid** line is
+a driving relationship, a **dashed** line a non-driving one, and a driving relationship between two
+critical tasks is **red**. Turn *critical path* off and those lines go neutral as well. The legend at
+the bottom summarises the difference. Before the first calculation every line is drawn neutral and
+solid — press *Calculate* (F5) first.
+
 The summary block above it shows the live count of tasks, leaf tasks, critical tasks and relations
 in the project. The settings panel remembers your choices between sessions — reopen the Report tab
 later and paper size, toggles, font size and the rest come back exactly as you left them. Only the

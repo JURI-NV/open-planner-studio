@@ -43,6 +43,12 @@ instellingenblok:
 - Een **bedrijf**-veld (vult automatisch de projectinstelling, maar is hier los aanpasbaar) en de
   **auteur** (alleen-lezen, uit de projectgegevens).
 
+De relatielijnen in het rapport gebruiken dezelfde tekentaal als het Gantt-scherm: een
+**doorgetrokken** lijn is een bepalende (driving) relatie, een **gestreepte** lijn een
+niet-bepalende, en een bepalende relatie tussen twee kritieke taken is **rood**. Zet je *kritiek pad*
+uit, dan worden ook die lijnen neutraal. De legenda onderaan vat het verschil samen. Is er nog niet
+gerekend, dan staan alle lijnen neutraal doorgetrokken — druk eerst op *Bereken* (F5).
+
 Het overzichtsblok erboven toont live het aantal taken, bladtaken, kritieke taken en relaties in
 het project. Het instellingenpaneel onthoudt je keuzes tussen sessies — open het tabblad Rapport
 later opnieuw en papierformaat, schakelaars, lettergrootte en de rest staan er weer precies zo bij

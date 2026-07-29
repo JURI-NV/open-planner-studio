@@ -41,7 +41,8 @@
     "milestone": "マイルストーン",
     "summary": "サマリー",
     "float": "フロート",
-    "completion": "進捗"
+    "completion": "進捗",
+    "relationStyle": "駆動 / 非駆動"
   },
   "tableHeaders": {
     "rowNum": "#",

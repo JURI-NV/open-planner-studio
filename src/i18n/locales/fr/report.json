@@ -45,7 +45,8 @@
     "milestone": "Jalon",
     "summary": "Résumé",
     "float": "Marge",
-    "completion": "Avancement"
+    "completion": "Avancement",
+    "relationStyle": "Déterminante / non déterminante"
   },
   "tableHeaders": {
     "rowNum": "#",
