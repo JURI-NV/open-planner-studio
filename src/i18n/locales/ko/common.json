@@ -229,7 +229,8 @@
     "hide": "디버그 터미널 숨기기"
   },
   "project": {
-    "untitled": "새 계획"
+    "untitled": "새 계획",
+    "imported": "가져온 프로젝트"
   },
   "documents": {
     "overviewTitle": "열린 프로젝트",

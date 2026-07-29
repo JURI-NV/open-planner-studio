@@ -65,7 +65,7 @@ export function Backstage() {
 
         {/* Actie-items: triggeren actie en sluiten backstage */}
         <ActionItem icon={<FileText size={14} />} label={tMenu('ribbon.new')} onClick={() => { handleNewProject(); closeBackstage(); }} />
-        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(); closeBackstage(); }} />
+        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(tCommon('project.imported')); closeBackstage(); }} />
         <NavItem icon={<Clock size={14} />} label={tMenu('backstage.recent')} active={section === 'recent'} onClick={() => goTo('recent')} />
         {/* data-tour-anchor (fase 2.10, onderdeel 3, tourstap 6): voorbeelden-navitem. */}
         <NavItem icon={<BookOpen size={14} />} label={tMenu('backstage.examples')} active={section === 'examples'} onClick={() => goTo('examples')} tourAnchor="backstage-examples" />
@@ -165,8 +165,9 @@ function handleNewProject() {
   useAppStore.getState().setUI({ showNewProjectDialog: true });
 }
 
-function handleOpen() {
-  void useAppStore.getState().openFile();
+// `importedProject` — de store-laag heeft geen `t(...)`; zie ImportLabels.
+function handleOpen(importedProject: string) {
+  void useAppStore.getState().openFile({ importedProject });
 }
 
 function handleSave() {
@@ -183,6 +184,7 @@ function handleSaveAs() {
 
 function RecentSection() {
   const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const recentFiles = useAppStore(s => s.recentFiles);
   const openRecentFile = useAppStore(s => s.openRecentFile);
   const setUI = useAppStore(s => s.setUI);
@@ -202,7 +204,7 @@ function RecentSection() {
               key={e.id}
               className="backstage-recent-item"
               onClick={() => {
-                void openRecentFile(e.id);
+                void openRecentFile(e.id, { importedProject: tCommon('project.imported') });
                 setUI({ activeRibbonTab: 'start' });
               }}
             >
@@ -233,6 +235,7 @@ interface ExampleEntry {
 
 function ExamplesSection() {
   const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const openExampleFromString = useAppStore(s => s.openExampleFromString);
   const runCPM = useAppStore(s => s.runCPM);
   const setUI = useAppStore(s => s.setUI);
@@ -261,7 +264,7 @@ function ExamplesSection() {
       const res = await fetch(`${import.meta.env.BASE_URL}examples/${ex.file}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
-      openExampleFromString(content, ex.name);
+      openExampleFromString(content, ex.name, { importedProject: tCommon('project.imported') });
       // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): NA het
       // laden (openExampleFromString laadt bewust LOS), VOOR runCPM.
       if (ex.category === 'showcase') applyDemoLibraryToShowcaseProject();

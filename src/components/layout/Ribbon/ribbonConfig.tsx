@@ -229,7 +229,11 @@ const startTab: RibbonTabConfig = [
           },
           {
             kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
-            use: () => { const openFile = useAppStore(s => s.openFile); return { onClick: () => { void openFile(); } }; },
+            use: () => {
+              const openFile = useAppStore(s => s.openFile);
+              const { t: tCommon } = useTranslation('common');
+              return { onClick: () => { void openFile({ importedProject: tCommon('project.imported') }); } };
+            },
           },
         ],
       },

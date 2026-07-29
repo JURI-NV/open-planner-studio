@@ -19,6 +19,7 @@ type SortKey = 'predecessor' | 'successor' | 'type' | 'lag' | 'driving' | 'freeF
  */
 export function RelationsPanel() {
   const { t } = useTranslation('task');
+  const { t: tCommon } = useTranslation('common');
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
   const cpmResult = useAppStore(s => s.cpmResult);
@@ -146,7 +147,7 @@ export function RelationsPanel() {
           {hasExternal && (
             <button
               onClick={() => { void (async () => {
-                const r = await refreshAllExternalAnchors();
+                const r = await refreshAllExternalAnchors({ importedProject: tCommon('project.imported') });
                 setExtStatus(r.sources === 0
                   ? t('externalLinks.noSourcesToast')
                   : t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
@@ -295,7 +296,7 @@ export function RelationsPanel() {
                   {link.sourceRef.filePath && (
                     <button title={t('externalLinks.refresh')} style={{ color: 'var(--theme-accent)' }}
                       onClick={() => { void (async () => {
-                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!);
+                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!, { importedProject: tCommon('project.imported') });
                         if (r) setExtStatus(t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
                         else setExtStatus(t('externalLinks.notAvailableWeb'));
                       })(); }}>

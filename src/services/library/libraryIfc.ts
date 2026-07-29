@@ -48,6 +48,8 @@ export function writePoolIFC(pool: CompanyPool): string {
  * SHAPE te garanderen voor de preview.
  */
 export function readPoolIFC(content: string): CompanyPool {
+  // Geen `labels`: dienstlaag zonder `t(...)` — pool-bestanden schrijft OPS zelf en hebben altijd een IFCPROJECT. `readIFC` valt dan terug op de Engelse
+  // default voor een bestand zonder IFCPROJECT (zie ImportLabels).
   const result = readIFC(content);
   if (!result.libraryPool) {
     throw new Error('Dit IFC-bestand bevat geen bedrijfsbibliotheek (OPS_Library).');

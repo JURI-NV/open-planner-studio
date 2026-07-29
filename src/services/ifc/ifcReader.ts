@@ -13,7 +13,7 @@ import { generateId } from '@/utils/id';
 import { formatDate, formatInstant, parseInstant } from '@/utils/dateUtils';
 import { ifcGuid } from './ifcWriter';
 import { IfcParseError } from './ifcErrors';
-import type { ImportResult } from '@/services/importTypes';
+import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import {
   DEFAULT_PRIORITY, IFC_TIME_ANCHOR, MEASURE_TO_FIELD, IFC_TO_RESOURCE_TYPE,
 } from './ifcConstants';
@@ -78,8 +78,21 @@ export function assertIfcIntegrity(content: string): void {
   }
 }
 
-/** Parse an IFC STEP file into the internal model */
-export function readIFC(content: string): ImportResult {
+/**
+ * Engelse terugval voor `ImportLabels.importedProject` — de app valt in i18n ook op Engels terug
+ * (`fallbackLng: 'en'`), en de MSPDI-reader doet hetzelfde met `'Imported Calendar'`. Aanroepers
+ * die bij een `t(...)` kunnen, horen die mee te geven.
+ */
+export const DEFAULT_IMPORTED_PROJECT_NAME = 'Imported project';
+
+/**
+ * Parse an IFC STEP file into the internal model.
+ *
+ * `labels` levert de vertaalde teksten die deze dienstlaag zelf niet kan oplossen — op dit moment
+ * alleen de projectnaam voor een bestand zónder `IFCPROJECT`. Weglaten is toegestaan en levert de
+ * Engelse default; zie `ImportLabels`.
+ */
+export function readIFC(content: string, labels: ImportLabels = {}): ImportResult {
   // Eerst de integriteitspoort: liever een expliciete fout dan een stil half project (K4).
   assertIfcIntegrity(content);
   const entities = parseSTEP(content);
@@ -89,7 +102,7 @@ export function readIFC(content: string): ImportResult {
   }
 
   // Extract project
-  const project = extractProject(entities, entityMap);
+  const project = extractProject(entities, entityMap, labels);
   const calendar = extractCalendar(entities, entityMap);
   // Taken die aan een `.BASELINE.`-IfcWorkSchedule hangen zijn baseline-snapshots, geen live
   // taken (fase 2.6, §8.3) — sla ze over (robuust tegen externe tools; OPS zelf hangt er geen op).
@@ -465,7 +478,11 @@ function parseSequenceType(s: string): SequenceType {
   return map[clean] || 'FINISH_START';
 }
 
-function extractProject(entities: StepEntity[], entityMap: Map<string, StepEntity>): Project {
+function extractProject(
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+  labels: ImportLabels,
+): Project {
   const proj = entities.find(e => e.type === 'IFCPROJECT');
   const wp = entities.find(e => e.type === 'IFCWORKPLAN');
 
@@ -489,11 +506,18 @@ function extractProject(entities: StepEntity[], entityMap: Map<string, StepEntit
 
   return {
     id: generateId('proj'),
-    // `ifcSlotText`, niet `stripQuotes`: een NAAMLOOS project schrijft de writer als `$`
-    // (`ifcStr('')`), en `stripQuotes` gaf daar letterlijk '$' op terug — dan stond er na
-    // opslaan+heropenen een dollarteken als projectnaam. Leeg blijft nu leeg, zodat de
-    // weergave-fallback (`common:project.untitled`) ook ná het openen werkt.
-    name: proj ? ifcSlotText(proj.args[2]) : 'Geïmporteerd Project',
+    // Twee verschillende gevallen, bewust verschillend afgehandeld:
+    //
+    //  1. Er ís een IFCPROJECT. Dan telt zijn naamslot — óók als die leeg is. `ifcSlotText`, niet
+    //     `stripQuotes`: een naamloos project schrijft de writer als `$` (`ifcStr('')`), en
+    //     `stripQuotes` gaf daar letterlijk '$' op terug — dan stond er na opslaan+heropenen een
+    //     dollarteken als projectnaam. Leeg blijft leeg, zodat de weergave-fallback
+    //     (`common:project.untitled`) ook ná het openen werkt.
+    //  2. Er is GEEN IFCPROJECT (kapot/vreemd bestand). Dan stempelen we wél een naam in de data:
+    //     leeg laten zou "Nieuwe planning" tonen, en dat suggereert ten onrechte dat de import
+    //     mislukt is terwijl er misschien gewoon taken uit het bestand komen. De tekst komt van de
+    //     aanroeper (`ImportLabels`), want deze dienstlaag heeft geen `t(...)`.
+    name: proj ? ifcSlotText(proj.args[2]) : (labels.importedProject || DEFAULT_IMPORTED_PROJECT_NAME),
     // Omschrijving uit de IFCWORKPLAN.Description-slot (waar de writer 'm schrijft), met terugval op
     // de IFCPROJECT.Description-slot; `$`/leeg ⇒ '' (voorheen kwam letterlijk '$' terug — een bug).
     description: ifcSlotText(wp?.args[3]) || ifcSlotText(proj?.args[3]),

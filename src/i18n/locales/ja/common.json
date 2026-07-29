@@ -229,7 +229,8 @@
     "hide": "デバッグターミナルを非表示"
   },
   "project": {
-    "untitled": "新しい計画"
+    "untitled": "新しい計画",
+    "imported": "インポートしたプロジェクト"
   },
   "documents": {
     "overviewTitle": "開いているプロジェクト",

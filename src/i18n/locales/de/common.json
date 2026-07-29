@@ -229,7 +229,8 @@
     "hide": "Debug-Terminal ausblenden"
   },
   "project": {
-    "untitled": "Neue Planung"
+    "untitled": "Neue Planung",
+    "imported": "Importiertes Projekt"
   },
   "documents": {
     "overviewTitle": "Offene Projekte",

@@ -7,6 +7,7 @@ import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 
 export function IFCPanel() {
   const { t } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
   const project = useAppStore(s => s.project);
   const calendar = useAppStore(s => s.calendar);
   const tasks = useAppStore(s => s.tasks);
@@ -46,7 +47,7 @@ export function IFCPanel() {
 
   const handleApply = useCallback(() => {
     try {
-      const data = readIFC(content);
+      const data = readIFC(content, { importedProject: tCommon('project.imported') });
       loadState(data);
       setViewStartDate(data.project.startDate);
       runCPM();

@@ -13,7 +13,7 @@ import type { AppSlice } from './types';
 import type { AppState } from '../appStore';
 import { isTauri } from '@/utils/platform';
 import type { Task } from '@/types/task';
-import type { ImportResult } from '@/services/importTypes';
+import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
 import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
 import { finishMutation } from '../transaction';
@@ -80,7 +80,9 @@ export interface ApplyLoadedProjectOpts {
 }
 
 export interface FileSlice {
-  openFile: () => Promise<void>;
+  /** `labels` — vertaalde teksten die de UI aanlevert omdat de store-laag geen `t(...)` heeft (zie
+   *  `ImportLabels`); weglaten geeft de Engelse default. Geldt voor elk laadpad hieronder. */
+  openFile: (labels?: ImportLabels) => Promise<void>;
   saveFile: () => Promise<void>;
   saveFileAs: () => Promise<void>;
   exportAs: (format: ExportFormat) => Promise<ExportResult>;
@@ -92,20 +94,20 @@ export interface FileSlice {
   recentFiles: RecentEntry[];
   /** Lees de recents uit IndexedDB (met eenmalige localStorage-migratie) in de store. */
   hydrateRecentFiles: () => Promise<void>;
-  openRecentFile: (id: string) => Promise<void>;
+  openRecentFile: (id: string, labels?: ImportLabels) => Promise<void>;
   /** Read-only parse van een bronbestand voor externe koppelingen (fase 2.9, §5.5): geeft de
    *  projectidentiteit + taken terug ZONDER het als document te openen (hergebruikt de bestaande
    *  readers). null bij een leesfout/onbekend formaat/niet-Tauri. */
-  parseExternalSource: (filePath: string) => Promise<{ projectId: string; projectName: string; filePath: string; tasks: Task[] } | null>;
+  parseExternalSource: (filePath: string, labels?: ImportLabels) => Promise<{ projectId: string; projectName: string; filePath: string; tasks: Task[] } | null>;
   /** Ververs alle externe ankers die naar `filePath` verwijzen uit de actuele bron (fase 2.9, §4.5/§5.5).
    *  Parset de bron read-only, herberekent de ankers + `sourceMissing`, en herrekent de planning. */
-  refreshExternalAnchorsFrom: (filePath: string) => Promise<{ refreshed: number; missing: number } | null>;
+  refreshExternalAnchorsFrom: (filePath: string, labels?: ImportLabels) => Promise<{ refreshed: number; missing: number } | null>;
   /** Projectbrede ververs-actie ("Ververs externe ankers"): ververs elke gerefereerde bron één keer. */
-  refreshAllExternalAnchors: () => Promise<{ refreshed: number; missing: number; sources: number }>;
+  refreshAllExternalAnchors: (labels?: ImportLabels) => Promise<{ refreshed: number; missing: number; sources: number }>;
   /** Open een meegeleverd voorbeeldproject uit een IFC-string als NIEUW document
    *  (geen filePath — opslaan wordt opslaan-als; isDirty=false). Werkt in web én
    *  Tauri; het bestand wordt door de aanroeper via fetch('/examples/…') geladen. */
-  openExampleFromString: (content: string, name: string) => void;
+  openExampleFromString: (content: string, name: string, labels?: ImportLabels) => void;
   /** Eén gedeelde load-implementatie (audit P5/F6): vul de ACTIEVE document-state met een geparsed
    *  project en voer de opt-afhankelijke nastappen uit (runCPM/fit/uur-melding/extensie-event).
    *  Neemt géén besluit over een nieuw tabblad — dat blijft bij de aanroeper vóór de load.
@@ -165,7 +167,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       });
     },
 
-    openFile: async () => {
+    openFile: async (labels) => {
       try {
         const opened = await openFileDialog([
           { name: 'All Supported', extensions: ['ifc', 'csv', 'xml'] },
@@ -182,7 +184,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         } else if (ext === 'xml') {
           parsed = parseProjectXml(opened.content);
         } else {
-          parsed = readIFC(opened.content);
+          parsed = readIFC(opened.content, labels);
         }
 
         // Multi-document: open het bestand in een eigen tabblad. Hergebruik het
@@ -377,13 +379,13 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       set((s) => { s.recentFiles = list; });
     },
 
-    parseExternalSource: async (filePath: string) => {
+    parseExternalSource: async (filePath: string, labels) => {
       if (!isTauri()) return null;
       try {
         const { readTextFile } = await import('@tauri-apps/plugin-fs');
         const content = await readTextFile(filePath);
         const ext = filePath.split('.').pop()?.toLowerCase() || '';
-        const parsed = ext === 'csv' ? readCSV(content) : ext === 'xml' ? parseProjectXml(content) : readIFC(content);
+        const parsed = ext === 'csv' ? readCSV(content) : ext === 'xml' ? parseProjectXml(content) : readIFC(content, labels);
         return {
           projectId: parsed.project.id,
           projectName: parsed.project.name,
@@ -396,8 +398,8 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       }
     },
 
-    refreshExternalAnchorsFrom: async (filePath: string) => {
-      const src = await get().parseExternalSource(filePath);
+    refreshExternalAnchorsFrom: async (filePath: string, labels) => {
+      const src = await get().parseExternalSource(filePath, labels);
       if (!src) return null;
       const source: ExternalSourceDoc = {
         projectId: src.projectId, filePath: src.filePath, projectName: src.projectName, tasks: src.tasks,
@@ -415,7 +417,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       return { refreshed: result.refreshed, missing: result.missing };
     },
 
-    refreshAllExternalAnchors: async () => {
+    refreshAllExternalAnchors: async (labels) => {
       // Verzamel de distinct bron-bestandspaden uit alle links (fallback: geen pad ⇒ niet verversbaar).
       const paths = new Set<string>();
       for (const task of get().tasks) {
@@ -427,13 +429,13 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       let missing = 0;
       let sources = 0;
       for (const p of paths) {
-        const r = await get().refreshExternalAnchorsFrom(p);
+        const r = await get().refreshExternalAnchorsFrom(p, labels);
         if (r) { refreshed += r.refreshed; missing += r.missing; sources++; }
       }
       return { refreshed, missing, sources };
     },
 
-    openRecentFile: async (id: string) => {
+    openRecentFile: async (id: string, labels) => {
       const entry = get().recentFiles.find((e) => e.id === id);
       if (!entry) return;
       const content = await readFromRef(entry.ref);
@@ -452,7 +454,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         } else if (ext === 'xml') {
           parsed = parseProjectXml(content);
         } else {
-          parsed = readIFC(content);
+          parsed = readIFC(content, labels);
         }
 
         if (!isActivePristine(get())) get().newDocument();
@@ -478,9 +480,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       }
     },
 
-    openExampleFromString: (content: string, name: string) => {
+    openExampleFromString: (content: string, name: string, labels) => {
       try {
-        const parsed = readIFC(content);
+        const parsed = readIFC(content, labels);
 
         // Zelfde multi-document-gedrag als openFile: hergebruik het actieve
         // tabblad alleen als dat nog leeg en ongewijzigd is, anders nieuw tabblad.

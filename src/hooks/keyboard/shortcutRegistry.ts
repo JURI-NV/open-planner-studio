@@ -134,7 +134,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: 'o', mod: true },
     category: 'file',
     labelKey: 'menu:ribbon.open',
-    run: (store) => { void store.openFile(); },
+    run: (store) => { void store.openFile({ importedProject: i18n.t('project.imported', { ns: 'common' }) }); },
   },
   {
     id: 'file.newProject',

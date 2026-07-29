@@ -229,7 +229,8 @@
     "hide": "隐藏调试终端"
   },
   "project": {
-    "untitled": "新建计划"
+    "untitled": "新建计划",
+    "imported": "导入的项目"
   },
   "documents": {
     "overviewTitle": "打开的项目",

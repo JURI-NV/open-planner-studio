@@ -229,7 +229,8 @@
     "hide": "Hide debug terminal"
   },
   "project": {
-    "untitled": "New schedule"
+    "untitled": "New schedule",
+    "imported": "Imported project"
   },
   "documents": {
     "overviewTitle": "Open projects",

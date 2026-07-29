@@ -166,6 +166,8 @@ function parseByExtension(path: string, content: string): ImportResult {
   const ext = path.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'csv') return readCSV(content);
   if (ext === 'xml') return parseProjectXml(content);
+  // Geen `labels`: dienstlaag zonder `t(...)` — de MCP-laag is AI-facing en kent geen UI-taal. `readIFC` valt dan terug op de Engelse
+  // default voor een bestand zonder IFCPROJECT (zie ImportLabels).
   return readIFC(content);
 }
 

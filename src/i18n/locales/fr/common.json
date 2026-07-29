@@ -229,7 +229,8 @@
     "hide": "Masquer le terminal de débogage"
   },
   "project": {
-    "untitled": "Nouvelle planification"
+    "untitled": "Nouvelle planification",
+    "imported": "Projet importé"
   },
   "documents": {
     "overviewTitle": "Projets ouverts",

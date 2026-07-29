@@ -174,6 +174,8 @@ export async function runBenchmark({ size, version, onProgress }: RunOptions): P
   for (let i = 0; i < readIters; i++) {
     report('ifcRead', 3, i + 1, readIters);
     const t0 = performance.now();
+    // Geen `labels`: dienstlaag zonder `t(...)` — de benchmark leest zijn eigen zojuist geschreven IFC. `readIFC` valt dan terug op de Engelse
+    // default voor een bestand zonder IFCPROJECT (zie ImportLabels).
     const parsed = readIFC(ifc);
     readSamples.push(performance.now() - t0);
     parsedTasks = parsed.tasks.length;

@@ -229,7 +229,8 @@
     "hide": "Ocultar terminal de depuração"
   },
   "project": {
-    "untitled": "Novo planeamento"
+    "untitled": "Novo planeamento",
+    "imported": "Projeto importado"
   },
   "documents": {
     "overviewTitle": "Projetos abertos",

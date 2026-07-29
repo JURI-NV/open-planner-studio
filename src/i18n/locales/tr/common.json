@@ -229,7 +229,8 @@
     "hide": "Hata ayıklama terminalini gizle"
   },
   "project": {
-    "untitled": "Yeni planlama"
+    "untitled": "Yeni planlama",
+    "imported": "İçe aktarılan proje"
   },
   "documents": {
     "overviewTitle": "Açık projeler",

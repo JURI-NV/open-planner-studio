@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/state/appStore';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { documentTitle } from '@/utils/documents';
@@ -32,6 +33,9 @@ export interface RecoveryRestore {
 }
 
 export function useRecoveryRestore(): RecoveryRestore {
+  // De reader heeft zelf geen `t(...)`; het label voor een snapshot zónder IFCPROJECT gaat mee.
+  // (Snapshots zijn door OPS zelf geschreven en hebben er altijd een — dit is een vangnet.)
+  const { t } = useTranslation('common');
   const [recovery, setRecovery] = useState<RecoveryState | null>(null);
   // Gezet op exact dezelfde momenten als `autoSaveEnabled.current = true` (dezelfde
   // `finish()`-closure).
@@ -61,7 +65,7 @@ export function useRecoveryRestore(): RecoveryRestore {
         let failed = 0;
         for (const d of loaded.docs) {
           try {
-            const parsed = readIFC(d.ifc);
+            const parsed = readIFC(d.ifc, { importedProject: t('project.imported') });
             // Welke velden bij crashherstel meegaan bepaalt `recoveryInputFromParsed` (bevinding
             // K3) — deze hook houdt bewust geen veldkennis.
             restored.push(recoveryInputFromParsed(parsed, {

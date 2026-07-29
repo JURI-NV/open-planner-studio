@@ -229,7 +229,8 @@
     "hide": "Debug-terminal verbergen"
   },
   "project": {
-    "untitled": "Nieuwe planning"
+    "untitled": "Nieuwe planning",
+    "imported": "Geïmporteerd project"
   },
   "documents": {
     "overviewTitle": "Open projecten",

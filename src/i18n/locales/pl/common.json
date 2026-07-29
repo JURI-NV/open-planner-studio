@@ -229,7 +229,8 @@
     "hide": "Ukryj terminal debugowania"
   },
   "project": {
-    "untitled": "Nowy harmonogram"
+    "untitled": "Nowy harmonogram",
+    "imported": "Zaimportowany projekt"
   },
   "documents": {
     "overviewTitle": "Otwarte projekty",

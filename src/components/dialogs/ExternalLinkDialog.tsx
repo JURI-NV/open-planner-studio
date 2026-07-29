@@ -19,6 +19,7 @@ type RelType = ExternalLink['relType'];
  */
 export function ExternalLinkDialog({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const { t } = useTranslation('task');
+  const { t: tCommon } = useTranslation('common');
   const recentFiles = useAppStore((s) => s.recentFiles);
   const parseExternalSource = useAppStore((s) => s.parseExternalSource);
   const addExternalLink = useAppStore((s) => s.addExternalLink);
@@ -55,14 +56,14 @@ export function ExternalLinkDialog({ taskId, onClose }: { taskId: string; onClos
     let cancelled = false;
     if (manual || !sourceFile) { setSource(null); setSourceTaskId(''); return; }
     setLoading(true);
-    void parseExternalSource(sourceFile).then((res) => {
+    void parseExternalSource(sourceFile, { importedProject: tCommon('project.imported') }).then((res) => {
       if (cancelled) return;
       setSource(res);
       setSourceTaskId(res?.tasks[0]?.id ?? '');
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [manual, sourceFile, parseExternalSource]);
+  }, [manual, sourceFile, parseExternalSource, tCommon]);
 
   const srcTask = source?.tasks.find((x) => x.id === sourceTaskId) ?? null;
   const anchorPreview = srcTask

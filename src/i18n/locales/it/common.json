@@ -229,7 +229,8 @@
     "hide": "Nascondi terminale di debug"
   },
   "project": {
-    "untitled": "Nuova pianificazione"
+    "untitled": "Nuova pianificazione",
+    "imported": "Progetto importato"
   },
   "documents": {
     "overviewTitle": "Progetti aperti",

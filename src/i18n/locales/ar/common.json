@@ -229,7 +229,8 @@
     "hide": "إخفاء طرفية التصحيح"
   },
   "project": {
-    "untitled": "تخطيط جديد"
+    "untitled": "تخطيط جديد",
+    "imported": "مشروع مستورد"
   },
   "documents": {
     "overviewTitle": "المشاريع المفتوحة",

@@ -46,7 +46,7 @@ const LAYERS: HelpLayer[] = ['quickstart', 'gidsen', 'referentie'];
 
 export function HelpPanel() {
   const { t: tMenu } = useTranslation('menu');
-  const { i18n } = useTranslation();
+  const { t: tCommon, i18n } = useTranslation('common');
   const openExampleFromString = useAppStore(s => s.openExampleFromString);
   const runCPM = useAppStore(s => s.runCPM);
   const setUI = useAppStore(s => s.setUI);
@@ -170,7 +170,7 @@ export function HelpPanel() {
       const res = await fetch(`${import.meta.env.BASE_URL}examples/${file}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
-      openExampleFromString(content, file);
+      openExampleFromString(content, file, { importedProject: tCommon('project.imported') });
       // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): zelfde
       // volgorde als Backstage → Voorbeelden (`ExamplesSection.handleOpen`). Deze aanroeper kent
       // alleen de bestandsnaam (geen manifest-`category`) — de showcase-bestanden dragen allemaal het

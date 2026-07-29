@@ -73,6 +73,7 @@ export function useDocumentCards(): DocumentCard[] {
 
 /** Gedeelde acties voor alle drie de chrome-stijlen + het overzicht. */
 export function useDocumentActions() {
+  const { t } = useTranslation('common');
   const switchDocument = useAppStore((s) => s.switchDocument);
   const closeDocument = useAppStore((s) => s.closeDocument);
   const openFile = useAppStore((s) => s.openFile);
@@ -92,7 +93,11 @@ export function useDocumentActions() {
 
   const openOverview = useCallback(() => setUI({ showProjectOverview: true }), [setUI]);
   const closeOverview = useCallback(() => setUI({ showProjectOverview: false }), [setUI]);
-  const openProject = useCallback(() => { void openFile(); }, [openFile]);
+  // De store-laag heeft geen `t(...)`; het label voor een bestand zónder IFCPROJECT gaat mee.
+  const openProject = useCallback(
+    () => { void openFile({ importedProject: t('project.imported') }); },
+    [openFile, t],
+  );
 
   return { switchTo, closeWithGuard, openOverview, closeOverview, openProject };
 }

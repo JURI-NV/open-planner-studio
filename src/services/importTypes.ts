@@ -20,6 +20,26 @@ import type { CompanyPool } from '@/types/library';
  * `writeIFC` hergebruikt dit type (zie `WriteIFCInput` in `ifcWriter.ts`) omdat de writer exact
  * dezelfde payload nodig heeft — zo blijft de IFC-round-trip symmetrisch getypeerd.
  */
+/**
+ * Vertaalde teksten die een aanroeper aan een reader meegeeft. De readers zijn dienstlaag: ze
+ * hebben geen `t(...)`, en `@/i18n/config` importeren is daar geen optie — die module raakt bij
+ * module-init `document.documentElement`, wat de headless test-/scriptbundels (`tests/planning`,
+ * `tests/mcp`, `scripts/verify-examples`) meteen sloopt met `document is not defined`.
+ *
+ * Zelfde patroon als `PrintOptions.labels` in `services/print/printPreview.ts`: de UI-laag lost de
+ * tekst op en geeft 'm door. Elk veld is optioneel; ontbreekt het, dan valt de reader terug op een
+ * Engelse default (net als `'Imported Calendar'` in de MSPDI-reader).
+ */
+export interface ImportLabels {
+  /**
+   * Projectnaam voor een bestand dat GEEN `IFCPROJECT` bevat — het noodgeval-pad voor een kapot of
+   * vreemd bestand. Deze naam wordt bewust in de DATA gestempeld (anders zou de weergave terugvallen
+   * op "naamloos", wat misleidend is zodra er wél taken uit het bestand komen); de taal van het
+   * moment bakt daarmee in de naam, en de gebruiker hernoemt.
+   */
+  importedProject?: string;
+}
+
 export interface ImportResult {
   // Kernvelden — door elk formaat geleverd.
   project: Project;
