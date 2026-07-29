@@ -36,7 +36,11 @@ export function ResourcePanelCompact() {
               value={r.maxUnits}
               ariaLabel={t('resource.maxUnits')}
               onCommit={n => updateResource(r.id, { maxUnits: n })}
-              className="input !text-[11px] !px-1 !py-0.5 w-14 text-right"
+              // `!w-14` met uitroepteken is hier VERPLICHT: `.input` in globals.css staat buiten elke
+              // cascade-layer en zet `width:100%`, terwijl Tailwind-utilities in `@layer utilities`
+              // zitten — unlayered CSS wint dus altijd van een kale `w-14`. Zonder `!` wordt de input
+              // 100% breed en krimpt de naam-span hiernaast naar 0 px (issue #46a).
+              className="input !text-[11px] !px-1 !py-0.5 !w-14 text-right"
               title={t('resource.maxUnits')}
             />
             <span
