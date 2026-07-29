@@ -1,32 +1,32 @@
-<!-- Bedankt voor je bijdrage. Zie CONTRIBUTING.md als iets onduidelijk is.
-     English is fine. -->
+<!-- Thanks for contributing. See CONTRIBUTING.md if anything is unclear.
+     Dutch is fine too. -->
 
-### Wat en waarom
+### What and why
 
-<!-- Wat verandert er, en welk probleem lost het op? Het diff laat zien wát er
-     verandert; schrijf hier waaróm. Verwijs naar een issue met "Fixes #123". -->
+<!-- What changes, and which problem does it solve? The diff already shows what
+     changes; use this space for why. Reference an issue with "Fixes #123". -->
 
-### Hoe geverifieerd
+### How it was verified
 
-<!-- `npm run verify` is de poort — die draait CI, de release-gate en de
-     deploy-gate ook. Zet hieronder wat je gedraaid hebt en wat eruit kwam.
-     Handmatig getest in de app? Zeg wat je geklikt hebt. -->
+<!-- `npm run verify` is the gate — CI, the release gate and the deploy gate all
+     run it. Note below what you ran and what came out of it. Tested by hand in
+     the app? Say what you clicked. -->
 
-- [ ] `npm run verify` groen
+- [ ] `npm run verify` green
 
-### Raakt dit
+### Does this touch
 
-<!-- Aankruisen wat van toepassing is; laat de rest staan. Deze vier gaan het
-     vaakst stil mis — zie CONTRIBUTING.md. -->
+<!-- Tick whatever applies; leave the rest as is. These four are the ones that
+     most often break silently — see CONTRIBUTING.md. -->
 
-- [ ] **Projectdata** — round-trippen door de IFC-laag geregeld en getest?
-- [ ] **Planningslogica** — casus toegevoegd aan `tests/planning/`?
-- [ ] **Zichtbare tekst** — via `t(...)`, en alle veertien locales aangevuld?
-- [ ] **`@tauri-apps/*`** — achter `isTauri()` of een dynamische import, zodat
-      de browserbuild blijft werken?
+- [ ] **Project data** — round-trips through the IFC layer, and tested?
+- [ ] **Scheduling logic** — case added to `tests/planning/`?
+- [ ] **User-visible text** — goes through `t(...)`, and all fourteen locales filled in?
+- [ ] **`@tauri-apps/*`** — behind `isTauri()` or a dynamic import, so the browser
+      build keeps working?
 
-### Documentatie
+### Documentation
 
-<!-- Verandert er iets aan de architectuur, aan een commando of aan het gedrag
-     dat elders beschreven staat? Werk dan CLAUDE.md/AGENTS.md, docs/CHANGELOG.md
-     of de in-app docs in deze PR bij. Zo niet: "n.v.t." -->
+<!-- Does this change the architecture, a command, or behaviour that is described
+     elsewhere? Then update CLAUDE.md/AGENTS.md, docs/CHANGELOG.md or the in-app
+     docs in this PR. If not: "n/a". -->

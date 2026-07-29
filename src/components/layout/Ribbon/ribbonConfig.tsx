@@ -627,13 +627,22 @@ const beeldTab: RibbonTabConfig = [
     items: [
       {
         kind: 'button', id: 'properties', icon: <Eye size={20} />, labelKey: 'menu:ribbon.properties',
+        // Issue #46c-nasleep: `!rightPanelCollapsed` is niet hetzelfde als "de rail staat er". Het
+        // VOLLEDIGE resource-paneel vervangt de hele werkruimte (App.tsx `isFullPanel`), dus dan
+        // lichtte deze knop actief op naast een rail die niet bestond, en deed een klik niets.
+        // Stuur icoon/actief/klik daarom op de wérkelijke zichtbaarheid; het uitklappen zelf maakt
+        // in `setUI` ruimte vrij (invariant 2 daar). De andere `isFullPanel`-termen (tabbladen
+        // table/relations/ifc/report) kunnen hier niet spelen: deze knop staat op de Beeld-tab.
         use: () => {
           const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
+          const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
+          const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
           const setUI = useAppStore(s => s.setUI);
+          const railVisible = !rightPanelCollapsed && !(showResourcePanel && !resourcePanelDocked);
           return {
-            icon: !rightPanelCollapsed ? <Eye size={20} /> : <EyeOff size={20} />,
-            active: !rightPanelCollapsed,
-            onClick: () => setUI({ rightPanelCollapsed: !rightPanelCollapsed }),
+            icon: railVisible ? <Eye size={20} /> : <EyeOff size={20} />,
+            active: railVisible,
+            onClick: () => setUI({ rightPanelCollapsed: railVisible }),
           };
         },
       },

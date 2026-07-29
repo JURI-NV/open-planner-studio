@@ -168,6 +168,35 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       if (updates.aiMode === false) {
         (updates as Partial<UIState>).aiActivityOpen = false;
       }
+      // Issue #46c-nasleep: een actie die een paneel AANZET moet dat paneel ook echt zichtbaar
+      // maken. De rechter-rail huisvest twee panelen (het eigenschappenpaneel én de GEDOCKTE
+      // resource-lijst) en kent twee dingen die hem verbergen: `rightPanelCollapsed`, en het
+      // VOLLEDIGE resource-paneel (`showResourcePanel && !resourcePanelDocked`) dat de hele
+      // werkruimte — Gantt én rail — vervangt. Beide invarianten staan hier, op de ene plek waar
+      // alle callsites (ribbon, MCP-tools, extensies, rondleiding) doorheen lopen, in plaats van
+      // als losse plakker per knop.
+      const showResourceNext = updates.showResourcePanel ?? s.ui.showResourcePanel;
+      const dockedNext = updates.resourcePanelDocked ?? s.ui.resourcePanelDocked;
+      // (1) De gedockte resource-lijst wordt zichtbaar gemaakt ⇒ klap de rail uit. Zonder dit
+      //     lichtte "Vastzetten" wel op terwijl de ingeklapte rail leeg bleef.
+      if (
+        showResourceNext && dockedNext
+        && !(s.ui.showResourcePanel && s.ui.resourcePanelDocked)
+        && updates.rightPanelCollapsed === undefined
+      ) {
+        (updates as Partial<UIState>).rightPanelCollapsed = false;
+      }
+      // (2) Andersom: wie de rail expliciet UITklapt terwijl het volledige resource-paneel de
+      //     werkruimte bezet houdt, vroeg om die rail — geef de ruimte dus vrij. Het GEDOCKTE
+      //     resource-paneel valt hier bewust buiten: dat deelt de werkruimte juist mét de Gantt.
+      if (
+        updates.rightPanelCollapsed === false
+        && showResourceNext && !dockedNext
+        && updates.showResourcePanel === undefined
+      ) {
+        (updates as Partial<UIState>).showResourcePanel = false;
+        (updates as Partial<UIState>).resourcePanelDocked = false;
+      }
       Object.assign(s.ui, updates);
       const max = s.ui.enableQuarterHourZoom ? 1000 : 400;
       if (s.view.zoom > max) s.view.zoom = max;
