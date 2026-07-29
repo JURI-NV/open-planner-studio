@@ -1653,18 +1653,10 @@ export function GanttCanvas() {
             addTask({ name: defaultTaskName });
           }}
           onInsertAbove={() => {
-            if (!contextMenu.task) return;
-            addTask({
-              name: defaultTaskName,
-              position: { anchorId: contextMenu.task.id, where: 'above' },
-            });
+            if (contextMenu.task) contextMenuBulk.insert(contextMenu.task.id, 'above', defaultTaskName);
           }}
           onInsertBelow={() => {
-            if (!contextMenu.task) return;
-            addTask({
-              name: defaultTaskName,
-              position: { anchorId: contextMenu.task.id, where: 'below' },
-            });
+            if (contextMenu.task) contextMenuBulk.insert(contextMenu.task.id, 'below', defaultTaskName);
           }}
           onIndent={() => { if (contextMenu.task) contextMenuBulk.indent(contextMenu.task.id); }}
           onOutdent={() => { if (contextMenu.task) contextMenuBulk.outdent(contextMenu.task.id); }}

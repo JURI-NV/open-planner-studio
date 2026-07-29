@@ -27,6 +27,10 @@ import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
 import { isTreeMode } from '@/engine/view/visibleRows';
+// DOM-vrij en JSX-vrij bij constructie (zie de kop van dat bestand): de reikwijdte- en ankerregels
+// van het contextmenu wonen daar zodat sneltoets, menu én regressiebatterij letterlijk dezelfde
+// functie draaien.
+import { insertAnchorForScope } from '@/components/canvas/contextMenuScope';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
 
@@ -298,7 +302,11 @@ export const SHORTCUTS: ShortcutDef[] = [
     when: () => !hasBlockingDialogOpen(),
     run: (store) => {
       const name = i18n.t('defaultTask', { ns: 'task' });
-      const anchorId = store.selectedTaskIds[0];
+      // Issue #45-nasleep: NIET `selectedTaskIds[0]` — dat is de EERST AANGEKLIKTE taak, dus wie
+      // van onder naar boven selecteert kreeg de nieuwe taak midden in zijn selectie. Dezelfde
+      // ankerregel als het menu-item ernaast (bovenste taak in schermvolgorde), gedeeld via
+      // `insertAnchorForScope`, zodat sneltoets en contextmenu niet uit elkaar kunnen lopen.
+      const anchorId = insertAnchorForScope(store.selectedTaskIds, 'above');
       if (anchorId) {
         store.addTask({ name, position: { anchorId, where: 'above' } });
       } else {

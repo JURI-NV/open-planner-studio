@@ -42,7 +42,7 @@ Je hoeft niet steeds terug naar het lint. Rechtsklik op een **lege rij** in de t
 
 Rechtsklik je in plaats daarvan op een **bestaande** taak, dan krijg je een ander contextmenu met onder meer:
 
-- **Invoegen boven** / **Invoegen onder** — voegt een taak in vóór of na de taak waarop je rechtsklikte.
+- **Invoegen boven** / **Invoegen onder** — voegt een taak in vóór of na de taak waarop je rechtsklikte. Heb je meerdere taken geselecteerd en rechtsklik je op één daarvan, dan komt de nieuwe taak boven de bovenste of onder de onderste taak van je selectie — één taak, niet één per geselecteerde taak.
 - **Subtaak toevoegen** — maakt in één keer een nieuwe taak aan als kind van die taak (zie stap 3 voor wat dat betekent).
 
 Typte je iets verkeerd, of voegde je een taak op de verkeerde plek toe? **Ctrl+Z** maakt de laatste actie ongedaan, **Ctrl+Y** (of **Ctrl+Shift+Z**) voert hem opnieuw uit — beide werken door de hele planning heen, niet alleen op tekstvelden.

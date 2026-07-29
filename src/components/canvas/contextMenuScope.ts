@@ -1,5 +1,6 @@
 import { useAppStore } from '@/state/appStore';
 import { withTransaction } from '@/state/batchTransaction';
+import { firstRowIndexByTask } from '@/engine/view/visibleRows';
 import type { Task } from '@/types/task';
 
 /**
@@ -23,6 +24,66 @@ import type { Task } from '@/types/task';
 export function contextMenuOutlineScope(taskId: string): string[] {
   const selected = useAppStore.getState().selectedTaskIds;
   return selected.includes(taskId) ? selected : [taskId];
+}
+
+/**
+ * Het ANKER voor "Invoegen boven/onder" over een reikwijdte (issue #45, nasleep): de BOVENSTE
+ * (`above`) respectievelijk ONDERSTE (`below`) taak van de reikwijdte, in de volgorde ZOALS DE
+ * GEBRUIKER ZE OP HET SCHERM ZIET (`viewRows`).
+ *
+ * Waarom de zichtbare volgorde en niets anders. Bij een meervoudige selectie zijn er drie
+ * kandidaat-volgordes, en twee daarvan zijn onvoorspelbaar voor de gebruiker:
+ *  - de KLIKVOLGORDE (`selectedTaskIds`) — Ctrl+klik duwt achteraan aan (`selectTask`), dus wie
+ *    van onder naar boven selecteert krijgt een ander anker dan wie van boven naar beneden
+ *    selecteert. Precies het gedrag dat de eigenaar als "werkt niet zoals je zou verwachten"
+ *    meldde: de nieuwe taak landde midden IN de selectie.
+ *  - de RAUWE `tasks`-array — dat is de documentvolgorde, die na indent/outdent en boomopbouw niet
+ *    één-op-één met het scherm loopt.
+ * Alleen "bovenste/onderste zoals getoond" is voorspelbaar, en het is dezelfde volgorde die de
+ * Gantt en de tabel renderen (§4.1 van de weergave-pijplijn).
+ *
+ * Randgevallen, bewust zo:
+ *  - NIET-AANEENGESLOTEN selectie (taak 1, 3 en 5): dezelfde regel, geen uitzondering — `above`
+ *    landt boven 1, `below` onder 5. De nieuwe taak omsluit de hele selectie; dat is de enige
+ *    uitkomst die niet van een willekeurig "gat" afhangt.
+ *  - Selectie over MEERDERE OUDERS: het anker is altijd een taak die de gebruiker écht selecteerde,
+ *    dus de nieuwe taak erft de ouder en het inspringniveau van die uiterste taak (`addTask` doet
+ *    dat al). `above` en `below` kunnen dan in verschillende takken landen — dat is correct: dat is
+ *    letterlijk waar de bovenste en de onderste selectieregel staan. We raden geen
+ *    gemeenschappelijke ouder; dat zou de taak op een plek zetten die niemand aanwees.
+ *  - Een geselecteerde taak die NIET zichtbaar is (ingeklapte ouder, actief filter) heeft geen
+ *    schermpositie. Zijn er zichtbare taken in de reikwijdte, dan tellen alleen die mee; is er
+ *    geen enkele zichtbaar, dan valt de rangschikking terug op de documentvolgorde van `tasks`.
+ *  - Gegroepeerde weergave kan één taak in meerdere banden tonen; dan telt de EERSTE rij, net als
+ *    bij de relatiepijlen (`firstRowIndexByTask`).
+ *
+ * Geeft `undefined` bij een lege reikwijdte — de aanroeper voegt dan achteraan toe (`addTask`
+ * zonder `position`), exact het bestaande "geen selectie"-gedrag van de Insert-sneltoets.
+ */
+export function insertAnchorForScope(ids: string[], where: 'above' | 'below'): string | undefined {
+  if (ids.length === 0) return undefined;
+  if (ids.length === 1) return ids[0];
+
+  const { viewRows, tasks } = useAppStore.getState();
+  const rowIndex = firstRowIndexByTask(viewRows);
+  const zichtbaar = ids.filter((id) => rowIndex.has(id));
+
+  let rank: (id: string) => number;
+  let pool: string[];
+  if (zichtbaar.length > 0) {
+    pool = zichtbaar;
+    rank = (id) => rowIndex.get(id)!;
+  } else {
+    const docIndex = new Map(tasks.map((t, i) => [t.id, i]));
+    pool = ids;
+    rank = (id) => docIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
+  }
+
+  let best = pool[0];
+  for (const id of pool) {
+    if (where === 'above' ? rank(id) < rank(best) : rank(id) > rank(best)) best = id;
+  }
+  return best;
 }
 
 /**
@@ -58,6 +119,18 @@ export const contextMenuBulk = {
 
   outdent(taskId: string): void {
     useAppStore.getState().outdentTasks(contextMenuOutlineScope(taskId));
+  },
+
+  /**
+   * "Invoegen boven/onder": ÉÉN nieuwe taak voor de hele reikwijdte — niet één per geselecteerde
+   * taak. Het anker is de uiterste taak van de reikwijdte in schermvolgorde (zie
+   * `insertAnchorForScope`); `addTask` regelt daarna zelf de ouder, de `childIds`-volgorde en de
+   * ene undo-stap. Rechtsklik buiten de selectie ⇒ alleen die taak, net als bij de rest van het
+   * menu (`contextMenuOutlineScope`).
+   */
+  insert(taskId: string, where: 'above' | 'below', name: string): void {
+    const anchorId = insertAnchorForScope(contextMenuOutlineScope(taskId), where);
+    useAppStore.getState().addTask(anchorId ? { name, position: { anchorId, where } } : { name });
   },
 
   /**

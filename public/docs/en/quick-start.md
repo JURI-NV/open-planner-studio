@@ -42,7 +42,7 @@ You don't have to keep going back to the ribbon. Right-click an **empty row** in
 
 Right-click an **existing** task instead, and you get a different context menu with, among others:
 
-- **Insert above** / **Insert below** — adds a task before or after the task you right-clicked.
+- **Insert above** / **Insert below** — adds a task before or after the task you right-clicked. If several tasks are selected and you right-click one of them, the new task lands above the topmost or below the bottommost task of your selection — one task, not one per selected task.
 - **Add subtask** — creates a new task as a child of that task in one step (see step 3 for what that means).
 
 Typed something wrong, or added a task in the wrong place? **Ctrl+Z** undoes the last action, **Ctrl+Y** (or **Ctrl+Shift+Z**) redoes it — both work throughout the whole schedule, not just in text fields.

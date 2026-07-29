@@ -14,7 +14,7 @@
 //
 // Draait via run.sh. Exit 0 = alles groen.
 import { useAppStore } from '@/state/appStore';
-import { contextMenuOutlineScope, contextMenuBulk } from '@/components/canvas/contextMenuScope';
+import { contextMenuOutlineScope, contextMenuBulk, insertAnchorForScope } from '@/components/canvas/contextMenuScope';
 import type { Task } from '@/types/task';
 
 const S = () => useAppStore.getState();
@@ -177,6 +177,115 @@ function verseVier(): { a: string; b: string; c: string; d: string } {
   eq('34 buiten de selectie: alleen de aangeklikte taak wijzigt', task(a)?.time.completion, 0.25);
   eq('35 buiten de selectie: de selectie blijft ongemoeid',
     [b, c, d].map(id => task(id)?.time.completion), [0, 0, 0]);
+}
+
+// ── 8) Invoegen boven / onder bij een MEERVOUDIGE selectie (issue #45, nasleep) ──────────────
+//
+// De bug: beide routes ankerden op één willekeurige taak. Het contextmenu nam de AANGEKLIKTE taak
+// (dus "boven" landde midden in de selectie als je op de middelste taak rechtsklikte); de
+// Insert-sneltoets nam `selectedTaskIds[0]`, de EERST AANGEKLIKTE taak — van onder naar boven
+// selecteren gaf dus een ander resultaat dan van boven naar beneden. De regel is nu: boven de
+// bovenste, onder de onderste, gemeten in de volgorde zoals de gebruiker ze ziet.
+{
+  const zichtbaar = (): string[] =>
+    S().viewRows.flatMap(r => (r.kind === 'task' ? [r.task.name] : []));
+
+  // 8a — aaneengesloten selectie, rechtsklik midden in de selectie.
+  {
+    const { c } = verseVier(); // A B C D, selectie = B, C, D
+    const aantalVoor = S().tasks.length;
+    const undoVoor = S().undoStack.length;
+    contextMenuBulk.insert(c, 'above', 'Nieuw');
+    eq('36 invoegen boven: landt boven de BOVENSTE van de selectie, niet boven de aangeklikte',
+      zichtbaar(), ['Taak A', 'Nieuw', 'Taak B', 'Taak C', 'Taak D']);
+    eq('37 invoegen: precies één nieuwe taak voor de hele selectie', S().tasks.length - aantalVoor, 1);
+    eq('38 invoegen: precies één undo-stap', S().undoStack.length - undoVoor, 1);
+    S().undo();
+    eq('39 invoegen: één Ctrl+Z draait de invoeging terug',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Taak D']);
+  }
+  {
+    const { c } = verseVier();
+    contextMenuBulk.insert(c, 'below', 'Nieuw');
+    eq('40 invoegen onder: landt onder de ONDERSTE van de selectie',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Taak D', 'Nieuw']);
+  }
+
+  // 8b — de klikvolgorde van de selectie mag niets uitmaken (dit was de sneltoets-bug).
+  {
+    const { b, c, d } = verseVier();
+    S().selectTasks([d, c, b], false); // van onder naar boven geselecteerd
+    eq('41 anker "boven" volgt de SCHERMvolgorde, niet de klikvolgorde',
+      insertAnchorForScope(S().selectedTaskIds, 'above'), b);
+    eq('42 anker "onder" volgt de SCHERMvolgorde, niet de klikvolgorde',
+      insertAnchorForScope(S().selectedTaskIds, 'below'), d);
+    contextMenuBulk.insert(c, 'above', 'Nieuw');
+    eq('43 invoegen boven na omgekeerde klikvolgorde: nog steeds boven de bovenste',
+      zichtbaar(), ['Taak A', 'Nieuw', 'Taak B', 'Taak C', 'Taak D']);
+  }
+
+  // 8c — rechtsklik BUITEN de selectie: alleen die ene taak telt (dezelfde bereikregel als de rest).
+  {
+    const { a } = verseVier(); // selectie = B, C, D
+    contextMenuBulk.insert(a, 'below', 'Nieuw');
+    eq('44 buiten de selectie: het anker is de aangeklikte taak',
+      zichtbaar(), ['Taak A', 'Nieuw', 'Taak B', 'Taak C', 'Taak D']);
+  }
+
+  // 8d — niet-aaneengesloten selectie: de nieuwe taak omsluit de hele selectie.
+  {
+    const { a, c } = verseVier();
+    S().selectTasks([a, c], false); // A en C, met B ertussen
+    contextMenuBulk.insert(c, 'above', 'Nieuw');
+    eq('45 niet-aaneengesloten: "boven" landt boven de bovenste (A), niet in het gat',
+      zichtbaar(), ['Nieuw', 'Taak A', 'Taak B', 'Taak C', 'Taak D']);
+  }
+  {
+    const { a, c } = verseVier();
+    S().selectTasks([a, c], false);
+    contextMenuBulk.insert(a, 'below', 'Nieuw');
+    eq('46 niet-aaneengesloten: "onder" landt onder de onderste (C)',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Nieuw', 'Taak D']);
+  }
+
+  // 8e — selectie over MEERDERE OUDERS: het anker is de uiterste geselecteerde taak, dus de nieuwe
+  // taak erft diens ouder en inspringniveau. "Boven" en "onder" landen dan in verschillende takken.
+  const verseBoom = () => {
+    S().newProject();
+    const p1 = S().addTask({ name: 'P1' });
+    const a1 = S().addTask({ name: 'A1', parentId: p1 });
+    const a2 = S().addTask({ name: 'A2', parentId: p1 });
+    const p2 = S().addTask({ name: 'P2' });
+    const b1 = S().addTask({ name: 'B1', parentId: p2 });
+    const b2 = S().addTask({ name: 'B2', parentId: p2 });
+    return { p1, a1, a2, p2, b1, b2 };
+  };
+  {
+    const { p1, a2, b1 } = verseBoom();
+    S().selectTasks([b1, a2], false); // bewust omgekeerd geselecteerd
+    contextMenuBulk.insert(b1, 'above', 'Nieuw');
+    eq('47 meerdere ouders: "boven" landt boven A2, binnen P1',
+      zichtbaar(), ['P1', 'A1', 'Nieuw', 'A2', 'P2', 'B1', 'B2']);
+    eq('48 meerdere ouders: de nieuwe taak erft de ouder van het anker',
+      S().tasks.find(t => t.name === 'Nieuw')?.parentId, p1);
+  }
+  {
+    const { p2, a2, b1 } = verseBoom();
+    S().selectTasks([a2, b1], false);
+    contextMenuBulk.insert(a2, 'below', 'Nieuw');
+    eq('49 meerdere ouders: "onder" landt onder B1, binnen P2',
+      zichtbaar(), ['P1', 'A1', 'A2', 'P2', 'B1', 'Nieuw', 'B2']);
+    eq('50 meerdere ouders: de nieuwe taak erft de ouder van het anker',
+      S().tasks.find(t => t.name === 'Nieuw')?.parentId, p2);
+  }
+
+  // 8f — lege reikwijdte: geen anker ⇒ de aanroeper voegt achteraan toe (bestaand gedrag van de
+  // Insert-sneltoets zonder selectie).
+  {
+    verseVier();
+    S().deselectAll();
+    eq('51 lege selectie ⇒ geen anker', insertAnchorForScope(S().selectedTaskIds, 'above'), undefined);
+  }
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
