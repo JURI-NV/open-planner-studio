@@ -1,17 +1,17 @@
-# LET OP: blank_issues_enabled MOET true blijven.
+# NOTE: blank_issues_enabled MUST stay true.
 #
-# De feedbackknop in de app bouwt een directe URL naar /issues/new met een
-# ingevulde title, labels en body (zie src/services/feedback/feedbackService.ts).
-# Zet je dit op false, dan stuurt GitHub die URL door naar de sjabloonkiezer en
-# gaat alles wat de app had ingevuld — inclusief de versie, het OS en de taal —
-# verloren. De sjablonen hieronder zijn dus een hulpmiddel voor wie handmatig
-# een issue opent, niet een verplichte route.
+# The feedback button in the app builds a direct URL to /issues/new with a
+# pre-filled title, labels and body (see src/services/feedback/feedbackService.ts).
+# If you set this to false, GitHub redirects that URL to the template chooser
+# instead, and everything the app had filled in — including the version, OS
+# and language — gets lost. The templates below are a convenience for anyone
+# opening an issue by hand, not a mandatory route.
 blank_issues_enabled: true
 
 contact_links:
-  - name: Beveiligingsprobleem melden (niet publiek)
+  - name: Report a security issue (not public)
     url: https://github.com/OpenAEC-Foundation/open-planner-studio/security/advisories/new
-    about: Meld kwetsbaarheden privé via GitHub Security Advisories — niet via een issue.
-  - name: Vraag of discussie
+    about: Report vulnerabilities privately via GitHub Security Advisories — not via an issue.
+  - name: Question or discussion
     url: https://github.com/OpenAEC-Foundation/open-planner-studio/discussions
-    about: Voor gebruiksvragen en ideeën die nog geen concreet verzoek zijn.
+    about: For usage questions and ideas that aren't a concrete request yet.

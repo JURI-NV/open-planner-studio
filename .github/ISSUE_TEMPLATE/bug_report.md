@@ -1,39 +1,40 @@
 ---
-name: Bug melden
-about: Iets werkt niet zoals het hoort
+name: Bug report
+about: Something isn't working as expected
 title: ''
 labels: bug
 assignees: ''
 ---
 
-*English is fine — answer in whichever language you prefer.*
+*Feel free to answer in your own language if that's easier — Dutch is very welcome too.*
 
-Tip: de feedbackknop in de app (rechtsonder) vult versie, besturingssysteem en
-taal automatisch in, en laat je een screenshot met aantekeningen meesturen.
+Tip: the feedback button in the app (bottom right) automatically fills in the
+version, operating system and language, and lets you attach an annotated
+screenshot.
 
-### Wat gebeurde er
+### What happened
 
-<!-- Wat zag je, en wat verwachtte je in plaats daarvan? -->
+<!-- What did you see, and what did you expect instead? -->
 
-### Stappen om het te herhalen
+### Steps to reproduce
 
 1.
 2.
 3.
 
-### Omgeving
+### Environment
 
-- Versie: <!-- Backstage → Instellingen, of de titelbalk -->
-- Desktop of browser: <!-- desktopversie (Windows/macOS/Linux) of open-planner-studio.open-aec.com -->
-- Besturingssysteem:
-- Taal in de app:
+- Version: <!-- Backstage → Settings, or the title bar -->
+- Desktop or browser: <!-- desktop version (Windows/macOS/Linux) or open-planner-studio.open-aec.com -->
+- Operating system:
+- Language in the app:
 
-### Bestand
+### File
 
-<!-- Als het aan een bepaald project ligt: een teruggebracht IFC-bestand dat het
-     probleem uitlokt helpt enorm. Laat bedrijfsgegevens eruit. -->
+<!-- If it's tied to a specific project: a reduced IFC file that triggers the
+     problem helps a lot. Please strip out any company data. -->
 
-### Verder
+### Anything else
 
-<!-- Screenshot, de inhoud van de debugterminal (Instellingen → Debugterminal),
-     of iets anders dat opviel. -->
+<!-- Screenshot, the contents of the debug terminal (Settings → Debug terminal),
+     or anything else you noticed. -->

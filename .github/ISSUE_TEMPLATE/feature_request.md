@@ -1,29 +1,28 @@
 ---
-name: Functie voorstellen
-about: Iets dat de app zou moeten kunnen
+name: Feature request
+about: Something the app should be able to do
 title: ''
 labels: enhancement
 assignees: ''
 ---
 
-*English is fine — answer in whichever language you prefer.*
+*Feel free to answer in your own language if that's easier — Dutch is very welcome too.*
 
-### Welk probleem los je hiermee op
+### What problem does this solve
 
-<!-- Beschrijf de situatie in je werk, niet meteen de oplossing. Waar loop je
-     vast, en hoe doe je het nu? -->
+<!-- Describe the situation in your work, not the solution right away. Where
+     do you get stuck, and how do you handle it now? -->
 
-### Wat zou de app moeten doen
+### What should the app do
 
-<!-- Je voorstel. Een schets of een verwijzing naar hoe andere planningssoftware
-     het oplost mag ook. -->
+<!-- Your proposal. A sketch, or a reference to how other planning software
+     solves it, is welcome too. -->
 
-### Hoe vaak komt dit voor
+### How often does this come up
 
-<!-- Elke planning, af en toe, of één specifiek project? Dat bepaalt vaak of iets
-     in de app hoort of in een extensie (zie docs/extensions.md). -->
+<!-- Every schedule, occasionally, or one specific project? That often decides
+     whether something belongs in the app or in an extension (see docs/extensions.md). -->
 
-### Verder
+### Anything else
 
-<!-- Alternatieven die je overwogen hebt, of waarom bestaande functies niet
-     volstaan. -->
+<!-- Alternatives you considered, or why existing features don't cover it. -->
