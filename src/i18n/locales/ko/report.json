@@ -33,6 +33,7 @@
   "printed": "인쇄일:",
   "page": "페이지",
   "of": "/",
+  "today": "오늘",
   "previewPageLimit_other": "… 외 {{count}}페이지 — 전체 문서를 보려면 내보내세요",
   "legend": {
     "criticalPath": "크리티컬 패스",

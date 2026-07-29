@@ -181,6 +181,8 @@ export interface PrintOptions {
     tableHeaders: { rowNum: string; wbs: string; taskName: string; start: string; end: string; duration: string; completion: string };
     page: string;
     of: string;
+    /** Label boven de gestippelde "vandaag"-lijn in het Gantt-gebied. */
+    today: string;
   };
   localizedMonths?: string[];
   localizedMonthsShort?: string[];
@@ -585,11 +587,11 @@ export function renderReport(
     d2d.stroke();
     d2d.setLineDash([]);
 
-    // "Today" label
+    // "Vandaag"-label
     d2d.fillStyle = PRINT_COLORS.today;
     d2d.font = m.font(7, true);
     d2d.textAlign = 'center';
-    d2d.fillText('Today', todayX, chartTop - m.s(2));
+    d2d.fillText(options.labels?.today ?? 'Vandaag', todayX, chartTop - m.s(2));
     d2d.textAlign = 'left';
   }
 

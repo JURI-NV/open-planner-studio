@@ -35,6 +35,7 @@
   "printed": "Imprimé :",
   "page": "Page",
   "of": "sur",
+  "today": "Aujourd’hui",
   "previewPageLimit_one": "… et {{count}} page de plus — exportez pour le document complet",
   "previewPageLimit_many": "… et {{count}} pages de plus — exportez pour le document complet",
   "previewPageLimit_other": "… et {{count}} pages de plus — exportez pour le document complet",

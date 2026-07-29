@@ -33,6 +33,7 @@
   "printed": "打印时间：",
   "page": "第",
   "of": "页，共",
+  "today": "今天",
   "previewPageLimit_other": "… 还有 {{count}} 页 — 导出以查看完整文档",
   "legend": {
     "criticalPath": "关键路径",
