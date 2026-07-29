@@ -3,6 +3,7 @@
 // Draait headless tegen de ECHTE Zustand-store via de gedeelde harness.
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import type { Baseline } from '@/types/baseline';
+import { displayDocumentTitle } from '@/utils/documents';
 
 /**
  * Zet de store terug op ÉÉN vers, actief document met een bekende projectnaam, een paar taken en
@@ -143,6 +144,52 @@ test('7 — baselines + activeBaselineId reizen mee naar de kopie', () => {
   assertEq(s.activeBaselineId, 'bl1', 'kopie behoudt activeBaselineId');
   // Deep-clone: niet hetzelfde array-object als de bron.
   assert(s.baselines !== sourceEntry(newId).payload!.baselines, 'kopie-baselines is een ander array (!==)');
+});
+
+// Regressie (punt 2): een NAAMLOOS project dupliceren gaf twee volstrekt identieke tabbladen — de
+// projectnaam bleef terecht leeg (anders belandt er een taalgebonden string in de IFC-data), maar
+// er kwam ook geen onderscheid meer. Dat onderscheid hoort nu uit `untitledOrdinal` te komen: een
+// taalonafhankelijk volgnummer op de AFGELEIDE laag, niet in de data.
+test('8 — naamloze bron: kopie blijft naamloos in de DATA maar krijgt een volgnummer', () => {
+  seedSource('');
+  useAppStore.setState((s) => { s.filePath = null; s.fileHandle = null; });
+  const newId = useAppStore.getState().duplicateDocument();
+  const s = useAppStore.getState();
+  assertEq(s.project.name, '', 'de kopie hoort naamloos te blijven — geen " (variant 2)" in de projectdata');
+  assertEq(sourceEntry(newId).payload!.project.name, '', 'de bron hoort óók naamloos te blijven');
+
+  const docs = s.getOpenDocuments();
+  assertEq(docs.length, 2, 'twee documenten open');
+  assertEq(docs.map((d) => d.title), ['', ''], 'de store blijft een lege titel leveren (datalaag)');
+  assertEq(docs.map((d) => d.untitledOrdinal), [undefined, 2],
+    'het eerste naamloze document blijft ongenummerd, het tweede krijgt volgnummer 2');
+  // Weergavelaag (useDocumentCards / mcpDocumentTitle) maakt hier onderscheidbare titels van.
+  assertEq(docs.map((d) => displayDocumentTitle(d.title, d.untitledOrdinal, 'Nieuwe planning')),
+    ['Nieuwe planning', 'Nieuwe planning (2)'], 'de twee tabbladen zijn onderscheidbaar');
+
+  const third = useAppStore.getState().duplicateDocument();
+  assert(!!third, 'derde document aangemaakt');
+  assertEq(useAppStore.getState().getOpenDocuments().map((d) => d.untitledOrdinal), [undefined, 2, 3],
+    'een derde naamloos document telt door');
+});
+
+test('9 — één naamloos document krijgt géén volgnummer (niets te onderscheiden)', () => {
+  seedSource('');
+  useAppStore.setState((s) => { s.filePath = null; s.fileHandle = null; });
+  const docs = useAppStore.getState().getOpenDocuments();
+  assertEq(docs.length, 1, 'precies één document');
+  assertEq(docs[0].untitledOrdinal, undefined, 'geen volgnummer bij een enkel naamloos document');
+});
+
+test('10 — een document mét naam telt niet mee in de naamloze nummering', () => {
+  seedSource('');
+  useAppStore.setState((s) => { s.filePath = null; s.fileHandle = null; });
+  const copyId = useAppStore.getState().duplicateDocument('Kade 7');
+  assert(!!copyId, 'kopie met expliciete naam aangemaakt');
+  const docs = useAppStore.getState().getOpenDocuments();
+  assertEq(docs.map((d) => d.title), ['', 'Kade 7'], 'één naamloos, één met naam');
+  assertEq(docs.map((d) => d.untitledOrdinal), [undefined, undefined],
+    'het enige naamloze document blijft ongenummerd');
 });
 
 await run();

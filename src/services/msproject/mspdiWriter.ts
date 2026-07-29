@@ -4,6 +4,7 @@ import { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import { Project } from '@/types/project';
 import { WorkCalendar } from '@/types/calendar';
 import { Baseline, BaselineTask } from '@/types/baseline';
+import { projectFileBase } from '@/utils/documents';
 import {
   effectiveCalendarByTask, isHourCalendar, minutesToClock, minutesToIsoDuration, taskMinutesForWrite,
 } from '@/services/subdayIo';
@@ -241,9 +242,18 @@ export function writeMSPDI(
   lines.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
   lines.push('<Project xmlns="http://schemas.microsoft.com/project">');
 
-  // Project properties
-  lines.push(`${indent(1)}<Name>${escapeXML(project.name)}</Name>`);
-  lines.push(`${indent(1)}<Title>${escapeXML(project.name)}</Title>`);
+  // Project properties.
+  // Een naamloos project leverde hier een LEEG <Name>/<Title> op — MS Project importeert dan een
+  // project zonder naam, en de gebruiker ziet in Projectgegevens (en op elke afdruk met een
+  // projectnaamveld) een leeg vak. Beide elementen zijn in MSPDI weliswaar optioneel, maar
+  // weglaten lost het niet op: het project blijft naamloos. Vandaar dezelfde neutrale,
+  // TAALONAFHANKELIJKE terugval als de bestandsnaam en de STEP-header (`projectFileBase`), zodat
+  // één begrip ook één waarde houdt. Bewust géén vertaalde terugval: uitwisselingsdata gaat naar
+  // een ander systeem en een andere gebruiker; een Nederlandse of Japanse tekst in een MSPDI-veld
+  // is daar geen hulp.
+  const exportName = projectFileBase(project.name);
+  lines.push(`${indent(1)}<Name>${escapeXML(exportName)}</Name>`);
+  lines.push(`${indent(1)}<Title>${escapeXML(exportName)}</Title>`);
   lines.push(`${indent(1)}<Author>${escapeXML(project.author)}</Author>`);
   lines.push(`${indent(1)}<Company>${escapeXML(project.company)}</Company>`);
   lines.push(`${indent(1)}<CreationDate>${formatMSPDateTime(project.createdAt.substring(0, 10))}</CreationDate>`);
@@ -321,7 +331,7 @@ export function writeMSPDI(
   lines.push(`${indent(2)}<Task>`);
   lines.push(`${indent(3)}<UID>0</UID>`);
   lines.push(`${indent(3)}<ID>0</ID>`);
-  lines.push(`${indent(3)}<Name>${escapeXML(project.name)}</Name>`);
+  lines.push(`${indent(3)}<Name>${escapeXML(exportName)}</Name>`);
   lines.push(`${indent(3)}<OutlineLevel>0</OutlineLevel>`);
   lines.push(`${indent(3)}<Summary>1</Summary>`);
   lines.push(`${indent(2)}</Task>`);

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/state/appStore';
 import {
   documentTitle, documentColor, documentCode, buildStats, buildThumbnail,
+  untitledOrdinals, displayDocumentTitle,
   type ThumbBar,
 } from '@/utils/documents';
 
@@ -41,7 +42,18 @@ export function useDocumentCards(): DocumentCard[] {
     const untitled = t('project.untitled');
     const fileBase = (p: string | null) => (p ? p.split(/[\\/]/).pop() || p : null);
 
-    return documents.map((entry) => {
+    // Rauwe titels eerst, zodat naamloze documenten onderling een volgnummer kunnen krijgen: twee
+    // lege tabbladen (bv. na dupliceren van een naamloos project) heetten anders allebei
+    // "Nieuwe planning". Zelfde afleiding als `getOpenDocuments()` in documentSlice.
+    const rawTitles = documents.map((entry) => {
+      const active = entry.id === activeId;
+      const p = active ? project : entry.payload!.project;
+      const fp = active ? filePath : entry.payload!.filePath;
+      return documentTitle(fp, p.name);
+    });
+    const ordinals = untitledOrdinals(rawTitles);
+
+    return documents.map((entry, i) => {
       const active = entry.id === activeId;
       const p = active ? project : entry.payload!.project;
       const tl = active ? tasks : entry.payload!.tasks;
@@ -50,7 +62,7 @@ export function useDocumentCards(): DocumentCard[] {
       const dirty = active ? isDirty : entry.payload!.isDirty;
 
       const color = documentColor(p.id);
-      const title = documentTitle(fp, p.name) || untitled;
+      const title = displayDocumentTitle(rawTitles[i], ordinals[i], untitled);
       const stats = buildStats(tl, cpm, p.endDate);
 
       return {

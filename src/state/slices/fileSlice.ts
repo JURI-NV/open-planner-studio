@@ -18,6 +18,7 @@ import { hydratePayload, payloadFromImport } from '../documentContract';
 import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
 import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
+import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
@@ -242,7 +243,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
         // Geen (bruikbare) ref, of in-place opslaan geweigerd → opslaan-als.
         const outcome = await saveFileDialog(
-          `${state.project.name || 'project'}.ifc`,
+          `${projectFileBase(state.project.name)}.ifc`,
           content,
           [{ name: 'IFC Files', extensions: ['ifc'] }],
         );
@@ -273,7 +274,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       try {
         const outcome = await saveFileDialog(
-          state.filePath ?? `${state.project.name || 'project'}.ifc`,
+          state.filePath ?? `${projectFileBase(state.project.name)}.ifc`,
           content,
           [{ name: 'IFC Files', extensions: ['ifc'] }],
         );
@@ -344,7 +345,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           break;
       }
 
-      const outcome = await saveFileDialog(`${state.project.name || 'project'}.${ext}`, content, filters);
+      const outcome = await saveFileDialog(`${projectFileBase(state.project.name)}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
       return { ok: true };
     },
@@ -359,7 +360,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       const state = get();
       // 1. Het project zelf (bevat altijd al alle gebruikte items — kernprincipe §1).
       const projectContent = writeIFC(buildWriteIFCInput(state));
-      const base = state.project.name || 'project';
+      const base = projectFileBase(state.project.name);
       const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
       if (!outcome) return { ok: true }; // dialoog geannuleerd — geen fout
       await pushRecent(outcome.ref, outcome.name);

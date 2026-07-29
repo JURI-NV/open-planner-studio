@@ -29,7 +29,7 @@
 
 import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
-import { bindExpectedDoc, buildEnvelope, guardNonTransactional, preBackupGuards, runReadTool, toolError } from './runtime';
+import { bindExpectedDoc, buildEnvelope, guardNonTransactional, mcpDocumentTitle, preBackupGuards, runReadTool, toolError } from './runtime';
 import type { McpContext, McpToolAnnotations, McpToolDef, McpToolErr, McpToolResult } from '../contracts';
 
 // --- T16-naad: markDuplicateBorn -----------------------------------------------------------------
@@ -109,7 +109,10 @@ interface DocumentRow {
  * gedragswijziging raakt deze afleiding niet — juist omdat ze niet op `scheduleStale` leunt.)
  *
  * Titels komen uit `getOpenDocuments()` — dezelfde afleiding als de tabbladen (bestandsnaam zonder
- * extensie, anders projectnaam, anders "Naamloos"), zodat er één bron voor de titel blijft.
+ * extensie, anders de projectnaam), zodat er één bron voor de titel blijft. Een NAAMLOOS document
+ * levert daar bewust een lege titel; `mcpDocumentTitle` zet daar de vaste Engelse terugval
+ * `MCP_UNTITLED_TITLE` (+ volgnummer bij meerdere naamloze) voor in de plaats, zodat de AI-client
+ * nooit een lege titel te zien krijgt. Zie de onderbouwing bij `MCP_UNTITLED_TITLE` in `runtime.ts`.
  */
 function listDocuments(s: AppState): { activeDocumentId: string; documents: DocumentRow[] } {
   const infos = new Map(s.getOpenDocuments().map((d) => [d.id, d]));
@@ -122,7 +125,7 @@ function listDocuments(s: AppState): { activeDocumentId: string; documents: Docu
     const info = infos.get(entry.id);
     const row: DocumentRow = {
       id: entry.id,
-      title: info ? info.title : project.name,
+      title: mcpDocumentTitle(info),
       isActive,
       isDirty: info ? info.isDirty : false,
       taskCount: tasks.length,
@@ -164,7 +167,10 @@ export const documentTools: McpToolDef[] = [
       '`notCalculated: true` betekent dat het document nog nooit is doorgerekend (typisch na ' +
       'crash-herstel — alleen het actieve document wordt dan doorgerekend) en dus geen einddatum ' +
       'heeft; `calculationError` betekent dat er wél gerekend is maar met een fout (kringverwijzing), ' +
-      'waardoor het einddatum-veld ontbreekt. Gebruik deze tool om varianten te vergelijken ' +
+      'waardoor het einddatum-veld ontbreekt. `title` is een WEERGAVEtitel: de bestandsnaam zonder ' +
+      'extensie, anders de projectnaam, en voor een project zonder naam "New schedule" (bij meerdere ' +
+      'naamloze documenten genummerd: "New schedule (2)"). Wil je weten of er écht een projectnaam ' +
+      'is gezet, lees dan `project.name` via get_project_info. Gebruik deze tool om varianten te vergelijken ' +
       '(einddatums naast elkaar) en om document-id\'s te vinden voor switch_document.',
     kind: 'document',
     batchable: false, // spec regel 100: document-tools zijn uitgesloten van batch
@@ -196,7 +202,7 @@ export const documentTools: McpToolDef[] = [
       return {
         ok: true,
         envelope: buildEnvelope(),
-        data: { documentId, title: info ? info.title : '' },
+        data: { documentId, title: mcpDocumentTitle(info) },
       };
     },
   },
@@ -209,7 +215,9 @@ export const documentTools: McpToolDef[] = [
       'planningsdata, LEEG bestandspad (zodat een Ctrl+S van de gebruiker het bronbestand niet ' +
       'overschrijft), verse undo-stack en `isDirty: true`. Naam: `name` indien meegegeven, anders ' +
       '"<projectnaam> (variant N)" met het laagste vrije nummer — er bestaat geen los titelveld, dus ' +
-      'dit is de projectnaam. Het drift-anker verschuift naar de kopie: alle vervolgstappen landen ' +
+      'dit is de projectnaam. Heeft de bron GEEN projectnaam, dan blijft ook de kopie naamloos (er ' +
+      'wordt geen naam verzonnen) en zijn de twee alleen in de weergavetitel te onderscheiden: ' +
+      '"New schedule" / "New schedule (2)". Het drift-anker verschuift naar de kopie: alle vervolgstappen landen ' +
       'dáár, dus switch expliciet terug naar het basisdocument voordat je een volgende variant maakt ' +
       '(anders krijg je varianten-van-varianten). De AI sluit varianten niet op: de gebruiker beslist.',
     kind: 'document',
@@ -244,7 +252,11 @@ export const documentTools: McpToolDef[] = [
         envelope: buildEnvelope(),
         data: {
           documentId,
-          title: info ? info.title : s.project.name,
+          title: mcpDocumentTitle(info),
+          // BEWUST rauw: dit is het echte `project.name`-veld, geen weergavetitel. Leeg betekent
+          // hier dus "dit project heeft geen naam" — een signaal waar de AI iets mee kan (bv.
+          // update_project) en dat verdwijnt zodra je er een terugval in zou schrijven. De
+          // weergaveterugval hoort in `title`, dat daar wél voor bedoeld is.
           projectName: s.project.name,
           taskCount: s.tasks.length,
         },
@@ -296,7 +308,7 @@ export const documentTools: McpToolDef[] = [
         envelope: buildEnvelope(),
         data: {
           documentId,
-          title: info ? info.title : after.project.name,
+          title: mcpDocumentTitle(info),
           taskCount: after.tasks.length,
         },
       };

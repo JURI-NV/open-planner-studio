@@ -14,6 +14,7 @@ import {
   IFC_TIME_ANCHOR, FIELD_MEASURE, RESOURCE_TYPE_TO_IFC,
 } from './ifcConstants';
 import { PSET, PER_TASK_PSETS, ifcStr } from './ifcPsets';
+import { projectFileBase } from '@/utils/documents';
 import {
   IFC_TASK_SLOTS, IFC_TASKTIME_SLOTS, type TaskTimeWriteCtx, type TaskWriteCtx,
 } from './ifcTaskSlots';
@@ -161,11 +162,18 @@ export function writeIFC(input: WriteIFCInput): string {
   // onschadelijk maakt vóór ze de STEP-header in gaan.
   // eslint-disable-next-line no-control-regex
   const headerText = (s: string) => s.replace(/[\u0000-\u001F\u007F]+/g, ' ');
+  // FILE_NAME[1] is per ISO 10303-21 de BESTANDSNAAM van het uitwisselingsbestand, niet de
+  // projectnaam. Een naamloos project leverde daar letterlijk `'.ifc'` op — geen bestandsnaam, en
+  // voor een lezer betekenisloos. Vandaar dezelfde neutrale, taalonafhankelijke basis die de
+  // opslaan-dialoog voorstelt (`projectFileBase` -> `project.ifc`), zodat header en voorgestelde
+  // bestandsnaam dezelfde waarde dragen. De ECHTE projectnaam blijft `IFCPROJECT.Name = $` — dat is
+  // de plek waar "geen naam" hoort te staan, en die raken we niet aan.
+  const headerFileName = projectFileBase(headerText(project.name)) + '.ifc';
   const header = [
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [SchedulingView]'),'2;1');",
-    `FILE_NAME(${ifcStr(headerText(project.name) + '.ifc')},${ifcStr(now)},(${ifcStr(headerText(project.author || 'Open Planner Studio'))}),(${ifcStr(headerText(project.company || 'OpenAEC Foundation'))}),'Open Planner Studio 0.1','Open Planner Studio','');`,
+    `FILE_NAME(${ifcStr(headerFileName)},${ifcStr(now)},(${ifcStr(headerText(project.author || 'Open Planner Studio'))}),(${ifcStr(headerText(project.company || 'OpenAEC Foundation'))}),'Open Planner Studio 0.1','Open Planner Studio','');`,
     "FILE_SCHEMA(('IFC4X3'));",
     'ENDSEC;',
     'DATA;',

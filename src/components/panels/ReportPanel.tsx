@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { renderPrintCanvas, renderReport, REPORT_FONT_SCALES, PrintOptions } from '@/services/print/printPreview';
 import { getLocalizedMonths, getLocalizedMonthsShort } from '@/i18n/dateFormat';
 import { ensureExtension } from '@/utils/filePath';
+import { projectFileBase } from '@/utils/documents';
 import { computeHighResScale } from '@/utils/miniPdf';
 import { paginateCanvasToPdfBytes, paginateCanvasToTiles } from '@/services/print/paginate';
 import { ensureInterLoaded, getInterFontBytes, getArabicFontBytes } from '@/services/pdf/fontLoader';
@@ -128,7 +129,12 @@ export function ReportPanel() {
   const project = useAppStore(s => s.project);
   // Naamloos project ⇒ de vertaalde weergavenaam. De printlaag is een Canvas-renderer zonder
   // `t(...)`: die krijgt de al-vertaalde tekst dóórgegeven (zelfde patroon als `options.labels`).
+  // Let op: dit is UITSLUITEND de tekst ÍN het rapport. Voor de BESTANDSNAAM van de export geldt de
+  // neutrale, taalonafhankelijke terugval (`fileBase` hieronder) — anders stelde deze route
+  // `Nieuwe planning-planning.pdf` voor terwijl Bestand → Opslaan in elke taal `project.ifc`
+  // voorstelt, en kreeg een Japanse of Perzische gebruiker een bestandsnaam in eigen schrift.
   const projectName = project.name || tCommon('project.untitled');
+  const fileBase = projectFileBase(project.name);
   const dateNotation = useAppStore(s => s.ui.dateNotation);
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
@@ -485,7 +491,7 @@ export function ReportPanel() {
         console.warn('[ReportPanel] Vector-PDF-export mislukt, terugval op raster:', describeVectorFallback(err));
         pdfBytes = exportRaster();
       }
-      await writePdf(pdfBytes, `${projectName || 'project'}-planning.pdf`);
+      await writePdf(pdfBytes, `${fileBase}-planning.pdf`);
       return;
     }
 
@@ -571,8 +577,8 @@ export function ReportPanel() {
       tablePdfBytes = await exportTableRaster();
     }
 
-    await writePdf(tablePdfBytes, `${projectName || 'project'}-${suffix}.pdf`);
-  }, [reportType, projectName, tasks, sequences, calendar, options, paperSize, orientation, autoFit, writePdf, t, dd, milestoneRows, varianceResult]);
+    await writePdf(tablePdfBytes, `${fileBase}-${suffix}.pdf`);
+  }, [reportType, projectName, fileBase, tasks, sequences, calendar, options, paperSize, orientation, autoFit, writePdf, t, dd, milestoneRows, varianceResult]);
 
   const criticalCount = tasks.filter(t => t.time.isCritical && t.childIds.length === 0).length;
   const leafCount = tasks.filter(t => t.childIds.length === 0).length;

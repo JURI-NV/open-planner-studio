@@ -12,6 +12,7 @@ import { useAppStore, test, assert, assertEq, run } from './harness';
 import {
   buildEnvelope, runReadTool, runMutateTool, bindExpectedDoc,
   guardNonTransactional, toolError, McpStepError,
+  mcpDocumentTitle, MCP_UNTITLED_TITLE,
 } from '@/services/mcp/tools/runtime';
 import type { MutationOutcome } from '@/services/mcp/tools/runtime';
 import type { McpContext } from '@/services/mcp/contracts';
@@ -59,11 +60,36 @@ test('buildEnvelope: alle contractvelden aanwezig en kloppend, geen backupCreate
   const env = buildEnvelope();
   const active = store.getState().getOpenDocuments().find((d) => d.isActive)!;
   assertEq(env.activeDocumentId, store.getState().activeDocumentId, 'activeDocumentId hoort het actieve doc-id te zijn');
-  assertEq(env.documentTitle, active.title, 'documentTitle hoort via de bestaande titel-afleiding te komen');
+  assertEq(env.documentTitle, mcpDocumentTitle(active), 'documentTitle hoort via de bestaande titel-afleiding te komen');
   assertEq(env.scheduleStale, store.getState().scheduleStale, 'scheduleStale hoort de top-level-vlag te spiegelen');
   assertEq(env.paused, false, 'paused hoort false te zijn in rusttoestand');
   assertEq(env.readOnly, false, 'readOnly hoort false te zijn in rusttoestand');
   assert(!('backupCreated' in env), 'backupCreated hoort te ontbreken zonder backup deze call');
+});
+
+// Regressie: de store levert voor een NAAMLOOS document bewust een lege titel (datalaag), maar de
+// MCP-laag mag nooit een lege titel naar de AI-client sturen — die zag anders "" waar vroeger een
+// naam stond. De terugval is een vaste Engelse string (geen `t(...)` in deze laag), en bij meerdere
+// naamloze documenten komt er een taalonafhankelijk volgnummer bij.
+test('buildEnvelope: naamloos document ⇒ Engelse terugvaltitel i.p.v. een lege string', () => {
+  resetFlags();
+  const before = store.getState().project.name;
+  store.setState((s) => { s.project = { ...s.project, name: '' }; s.filePath = null; s.fileHandle = null; });
+  const active = store.getState().getOpenDocuments().find((d) => d.isActive)!;
+  assertEq(active.title, '', 'de STORE hoort naamloos als lege titel te blijven leveren');
+  assertEq(buildEnvelope().documentTitle, MCP_UNTITLED_TITLE, 'de envelop hoort de terugvaltitel te dragen');
+  store.setState((s) => { s.project = { ...s.project, name: 'Kade 7' }; });
+  assertEq(buildEnvelope().documentTitle, 'Kade 7', 'met een naam hoort de echte projectnaam te komen');
+  store.setState((s) => { s.project = { ...s.project, name: before }; });
+});
+
+test('mcpDocumentTitle: volgnummer onderscheidt meerdere naamloze documenten', () => {
+  assertEq(mcpDocumentTitle({ id: 'a', title: '', isDirty: false, isActive: true }), MCP_UNTITLED_TITLE,
+    'zonder volgnummer hoort de kale terugvaltitel te komen');
+  assertEq(mcpDocumentTitle({ id: 'b', title: '', isDirty: false, isActive: false, untitledOrdinal: 2 }),
+    `${MCP_UNTITLED_TITLE} (2)`, 'met volgnummer hoort dat achter de terugvaltitel te staan');
+  assertEq(mcpDocumentTitle({ id: 'c', title: 'Kade 7', isDirty: false, isActive: false, untitledOrdinal: 3 }),
+    'Kade 7', 'een echte titel wint altijd van de terugval');
 });
 
 // =================================================================================================

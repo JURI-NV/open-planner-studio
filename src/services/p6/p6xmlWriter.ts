@@ -4,6 +4,7 @@ import { Resource, ResourceAssignment, ResourceType, ResourceCurve } from '@/typ
 import { Project } from '@/types/project';
 import { WorkCalendar } from '@/types/calendar';
 import { effectiveCalendarByTask, isHourCalendar, minutesToClock, taskMinutesForWrite } from '@/services/subdayIo';
+import { projectFileBase } from '@/utils/documents';
 
 // Curve-/contour-naammapping (fase 2.5, §8.3): P6 kent geen `LATE_PEAK`-curve — beste
 // benadering is 'Early Peak' (gedocumenteerd verlies, zie verliesmatrix §8.4). UNIFORM wordt
@@ -242,7 +243,10 @@ export function writeP6XML(
   lines.push(`${indent(1)}<Project>`);
   lines.push(`${indent(2)}<ObjectId>1</ObjectId>`);
   lines.push(`${indent(2)}<Id>${escapeXML(project.id)}</Id>`);
-  lines.push(`${indent(2)}<Name>${escapeXML(project.name)}</Name>`);
+  // Zelfde afweging als in mspdiWriter: een leeg <Name> gaf P6 een naamloos project, terwijl de
+  // projectnaam in P6 juist een dragend, verplicht ingevuld veld is. Dezelfde neutrale,
+  // taalonafhankelijke terugval als de bestandsnaam en de STEP-header.
+  lines.push(`${indent(2)}<Name>${escapeXML(projectFileBase(project.name))}</Name>`);
   lines.push(`${indent(2)}<Description>${escapeXML(project.description)}</Description>`);
   lines.push(`${indent(2)}<PlannedStartDate>${formatP6DateTime(project.startDate)}</PlannedStartDate>`);
   if (project.endDate) {

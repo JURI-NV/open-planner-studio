@@ -17,6 +17,8 @@ import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { runInMcpTransaction } from '@/state/mcpTransaction';
 import { hasBlockingDialogOpen } from '@/hooks/keyboard/shortcutRegistry';
+import type { DocumentInfo } from '@/state/slices/documentSlice';
+import { displayDocumentTitle } from '@/utils/documents';
 import type {
   McpContext,
   McpEnvelope,
@@ -33,6 +35,41 @@ export interface MutationOutcome {
   itemRejections?: { id: string; reason: string }[];
 }
 
+// --- Documenttitel voor de AI --------------------------------------------------------------------
+
+/**
+ * Terugval-titel voor een NAAMLOOS document in álle MCP-antwoorden.
+ *
+ * De store levert bewust een LEGE titel (datalaag, geen weergavelaag) en de UI vult daar de vertaalde
+ * `common:project.untitled` in. De MCP-laag heeft geen `t(...)`, dus er waren twee wegen:
+ *
+ *  (a) de `labels`-doorgeeftruc van `ImportLabels` — de aanroeper vertaalt en geeft de string mee;
+ *  (b) een vaste Engelse terugval in de MCP-laag zelf.
+ *
+ * Gekozen: **(b)**. Drie redenen. (1) Precedent: `services/mcp/backup.ts` doet met
+ * `sanitizeProjectName` → `'project'` al precies dit. (2) De naad past niet: `buildEnvelope()` zet
+ * `documentTitle` in ELK antwoord en neemt bindend géén `ctx` (zie de comment hieronder) — een
+ * label-parameter zou door de hele dispatcher, de bridge-eventlaag en elke tool heen moeten. (3)
+ * MCP is AI-facing, niet gebruikersgericht: de AI-client vertaalt zelf naar de taal van het gesprek.
+ *
+ * De waarde is letterlijk de `en`-vertaling van `common:project.untitled`, zodat de AI dezelfde term
+ * gebruikt als een gebruiker met Engelse UI ziet. (Geen JSON-import van de locale: `tsconfig.json`
+ * heeft geen `resolveJsonModule`, en de i18n-config importeren is uitgesloten — die crasht headless
+ * op `document is not defined`.) Wijzigt `en/common.json` → pas dit mee aan.
+ */
+export const MCP_UNTITLED_TITLE = 'New schedule';
+
+/**
+ * Weergavetitel van een document voor de AI: de afgeleide titel (bestandsnaam zonder extensie,
+ * anders de projectnaam), en bij een naamloos document `MCP_UNTITLED_TITLE` + het volgnummer dat
+ * `getOpenDocuments()` meegeeft — zodat twee naamloze tabbladen ook voor de AI uit elkaar te houden
+ * zijn ("New schedule" / "New schedule (2)").
+ */
+export function mcpDocumentTitle(info: DocumentInfo | undefined): string {
+  if (!info) return MCP_UNTITLED_TITLE;
+  return displayDocumentTitle(info.title, info.untitledOrdinal, MCP_UNTITLED_TITLE);
+}
+
 // --- Envelop -------------------------------------------------------------------------------------
 
 /**
@@ -40,7 +77,8 @@ export interface MutationOutcome {
  *   - `activeDocumentId` — top-level doc-registry;
  *   - `documentTitle` — via de bestaande titel-afleiding (`getOpenDocuments()`, dat de interne
  *     `documentTitle(filePath, project)` van documentSlice gebruikt); zo blijft er één bron voor de
- *     titel (bestandsnaam zonder extensie, anders projectnaam, anders "Naamloos");
+ *     titel (bestandsnaam zonder extensie, anders projectnaam, anders `MCP_UNTITLED_TITLE` +
+ *     eventueel een volgnummer — zie `mcpDocumentTitle`);
  *   - `scheduleStale` — top-level plannings-versheidsvlag;
  *   - `paused`/`readOnly` — de twee veiligheidsvlaggen, LIVE uit de ui-state. `McpContext.paused/
  *     readOnly` zijn een snapshot bij `buildMcpContext`; die gelijkheid geldt NIET meer zodra er een
@@ -56,7 +94,7 @@ export function buildEnvelope(): McpEnvelope {
   const active = s.getOpenDocuments().find((d) => d.isActive);
   return {
     activeDocumentId: s.activeDocumentId,
-    documentTitle: active ? active.title : '',
+    documentTitle: mcpDocumentTitle(active),
     scheduleStale: s.scheduleStale,
     paused: s.ui.aiPaused,
     readOnly: s.ui.aiReadOnly,

@@ -41,6 +41,58 @@ export function documentTitle(filePath: string | null, projectName: string): str
   return projectName || '';
 }
 
+/**
+ * Neutrale, TAALONAFHANKELIJKE basis voor bestandsnamen van een naamloos project.
+ *
+ * Bewust géén vertaalde terugval (`common:project.untitled`): een bestandsnaam is technische
+ * metadata die op een schijf belandt en door andere systemen gelezen wordt. `新しい計画.ifc` of
+ * `طرح جدید.ifc` is geen verbetering — het maakt het bestand juist lastiger uitwisselbaar, terwijl
+ * de gebruiker in de opslaan-dialoog toch zelf een naam kiest. Eén helper zodat opslaan (fileSlice),
+ * rapport-export (ReportPanel), de STEP-header en de uitwisselingsformaten dezelfde terugval
+ * gebruiken — die liepen uit elkaar (`'project'` versus de vertaalde weergavenaam).
+ *
+ * Trimt bewust: een naam van alleen spaties leverde anders `   .ifc`.
+ */
+export const DEFAULT_PROJECT_FILE_BASE = 'project';
+export function projectFileBase(projectName: string): string {
+  return (projectName ?? '').trim() || DEFAULT_PROJECT_FILE_BASE;
+}
+
+/**
+ * Volgnummers om NAAMLOZE documenten onderling te onderscheiden.
+ *
+ * Invoer: de rauwe titels (`documentTitle(...)`) van álle open documenten, in tabvolgorde. Uitvoer:
+ * per document `undefined` (het heeft een echte titel, óf het is het énige naamloze document) of een
+ * 1-gebaseerd volgnummer onder de naamloze documenten — waarbij de eerste bewust `undefined` blijft,
+ * zodat de nummering pas zichtbaar wordt zodra er iets te onderscheiden valt: `Nieuwe planning`,
+ * `Nieuwe planning (2)`, `Nieuwe planning (3)`, …
+ *
+ * Waarom hier en niet in de projectnaam: dupliceren van een naamloos project mocht géén taalgebonden
+ * string (`' (variant 2)'`) in de projectdata — en dus in het IFC — stempelen. Het onderscheid is
+ * puur weergave, dus hoort het in de weergave-afleiding. Het nummer zelf is taalonafhankelijk; alleen
+ * het label eromheen wordt vertaald door de aanroeper.
+ */
+export function untitledOrdinals(rawTitles: string[]): (number | undefined)[] {
+  const untitledCount = rawTitles.filter((t) => !t).length;
+  let seen = 0;
+  return rawTitles.map((t) => {
+    if (t) return undefined;
+    seen++;
+    return untitledCount > 1 && seen > 1 ? seen : undefined;
+  });
+}
+
+/** `raw` indien niet-leeg; anders het (al vertaalde) label, met het volgnummer uit
+ *  `untitledOrdinals` erachter. De aanroeper levert het label — deze module kent geen i18n. */
+export function displayDocumentTitle(
+  raw: string,
+  ordinal: number | undefined,
+  untitledLabel: string,
+): string {
+  if (raw) return raw;
+  return ordinal === undefined ? untitledLabel : `${untitledLabel} (${ordinal})`;
+}
+
 export interface DocStats {
   taskCount: number;
   milestoneCount: number;

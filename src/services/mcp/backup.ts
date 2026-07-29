@@ -17,6 +17,7 @@ import { isTauri } from '@/utils/platform';
 import { useAppStore } from '@/state/appStore';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
+import { DEFAULT_PROJECT_FILE_BASE } from '@/utils/documents';
 
 /** Submap-wortel onder `appDataDir` waarin per document een backup-submap komt. */
 export const BACKUP_ROOT = 'ai-backups';
@@ -65,7 +66,9 @@ export interface BackupService {
 
 // --- Naam-/padhelpers ----------------------------------------------------------------------------
 
-/** Saneer een projectnaam tot een veilige bestandsnaam-component; lege input → 'project'. */
+/** Saneer een projectnaam tot een veilige bestandsnaam-component; lege input → de gedeelde
+ *  neutrale terugval (`DEFAULT_PROJECT_FILE_BASE`, ook gebruikt door de opslaan-dialoog, de
+ *  rapport-export, de STEP-header en de MSPDI/P6-export — één begrip, één waarde). */
 export function sanitizeProjectName(name: string): string {
   const cleaned = (name ?? '')
     .replace(/[\/\\:*?"<>|]/g, '_') // padscheiders + Windows-verboden tekens
@@ -73,7 +76,7 @@ export function sanitizeProjectName(name: string): string {
     .trim()
     .replace(/[. ]+$/g, '') // geen trailing punt/spatie (Windows)
     .slice(0, 80);
-  return cleaned.length > 0 ? cleaned : 'project';
+  return cleaned.length > 0 ? cleaned : DEFAULT_PROJECT_FILE_BASE;
 }
 
 /** Compacte, lexicografisch-sorteerbare tijdstempel (= chronologisch): `2026-07-24T14-30-00-000Z`. */

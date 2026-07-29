@@ -12,7 +12,7 @@ import {
 } from '../documentContract';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import { resetUndoCoalescing } from '../transaction';
-import { documentTitle } from '@/utils/documents';
+import { documentTitle, untitledOrdinals } from '@/utils/documents';
 
 // Het documentcontract (payload-vorm + capture/hydrate/fresh) woont nu in `../documentContract`
 // (audit P10). Hier blijft alleen de multi-document back-end (registry, switchen, sluiten,
@@ -68,6 +68,10 @@ export interface DocumentInfo {
   title: string;
   isDirty: boolean;
   isActive: boolean;
+  /** Volgnummer onder de NAAMLOZE documenten (`title === ''`), of `undefined` wanneer dit document
+   *  een echte titel heeft of het enige/eerste naamloze is. De weergavelaag plakt het achter het
+   *  vertaalde `common:project.untitled`-label; zie `untitledOrdinals` in `@/utils/documents`. */
+  untitledOrdinal?: number;
 }
 
 export interface DocumentSlice {
@@ -172,8 +176,10 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
     // newDocument/switchDocument doen). `src` lezen we ook als de bron van de kloon.
     const src = capturePayload(source);
     // Een naamloze bron blijft naamloos: `nextVariantName('')` zou letterlijk ' (variant 2)' in de
-    // projectdata (en dus in het IFC) stempelen. Beide documenten tonen dan gewoon de vertaalde
-    // weergavenaam — net als wanneer je twee keer op Nieuw drukt.
+    // projectdata (en dus in het IFC) stempelen. Onderscheidbaar blijven ze wél — `getOpenDocuments()`
+    // geeft naamloze documenten een `untitledOrdinal` mee, waarmee de weergavelaag er
+    // "Nieuwe planning" / "Nieuwe planning (2)" van maakt. Het volgnummer is taalonafhankelijk en
+    // raakt de data niet; alleen het label eromheen wordt vertaald.
     const copyName = name ?? (src.project.name ? nextVariantName(src.project.name, openProjectNames(source)) : '');
     const newId = generateId('doc');
 
@@ -327,13 +333,18 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
 
   getOpenDocuments: () => {
     const s = get();
-    return s.documents.map((d) => {
+    const rows = s.documents.map((d) => {
       const active = d.id === s.activeDocumentId;
       const filePath = active ? s.filePath : d.payload!.filePath;
       const project = active ? s.project : d.payload!.project;
       const isDirty = active ? s.isDirty : d.payload!.isDirty;
       return { id: d.id, title: docTitle(filePath, project), isDirty, isActive: active };
     });
+    // Naamloze documenten krijgen een volgnummer mee, zodat twee lege tabbladen (bv. na
+    // `duplicateDocument` van een naamloos project) onderscheidbaar blijven zónder dat er een
+    // taalgebonden naam in de projectdata belandt.
+    const ordinals = untitledOrdinals(rows.map((r) => r.title));
+    return rows.map((r, i) => (ordinals[i] === undefined ? r : { ...r, untitledOrdinal: ordinals[i] }));
   },
 
   getOpenDocumentPayloads: () => {
