@@ -3,7 +3,7 @@ base: core22
 # Versie wordt in CI overschreven met het release-versienummer (zie .github/workflows/snap.yml).
 version: '0.0.0'
 title: Open Planner Studio
-summary: Construction scheduling with Gantt charts, CPM, and native IFC 4.3
+summary: Construction scheduling with Gantt charts and Critical Path Method
 description: |
   Open Planner Studio is a desktop application for construction planning:
   Gantt charts, Critical Path Method (CPM) scheduling, resources and
