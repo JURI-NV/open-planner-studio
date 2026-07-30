@@ -10,24 +10,46 @@ description: |
   calendars, with IFC 4.3 (buildingSMART) as its native file format — no
   separate project format, no lock-in.
 
-  Key features:
+  Scheduling & the Gantt chart:
   - Interactive Gantt chart rendered on Canvas, with drag & drop (including
     vertical drag to reorder or reparent tasks) and zoom
   - Critical Path Method (CPM) with automatic critical-path and float
     calculation
   - Work Breakdown Structure (WBS) with collapsible task groups
-  - IFC 4.3 native file format — open and save directly in the
-    buildingSMART standard
-  - Resource libraries shared across projects, with per-item provenance
-    tracking
   - Spreadsheet-style table view for quick bulk editing
-  - Import/export for CSV, Microsoft Project, and Primavera P6
   - Construction-specific calendars: holidays, seasonal shutdowns,
     inspection milestones, phasing
   - Built-in report view with a live, configurable print preview
+
+  Resource libraries:
+  - Resources and calendars live in a shared, project-independent library
+    instead of being copied into every project file
+  - Assigning a resource from the library materializes it into the
+    project, with per-item provenance stamps showing what it came from and
+    whether it has since drifted from the library version
+  - Share a resource library across a whole team or company, and reuse
+    the same equipment, crews, and calendars across many projects
+
+  File formats & interoperability:
+  - IFC 4.3 native file format — open and save directly in the
+    buildingSMART standard, so a project file is a standard-compliant IFC
+    model, not a proprietary blob
+  - Import/export for CSV, Microsoft Project, and Primavera P6
+
+  AI assistant (MCP):
+  - Open Planner Studio can expose itself as an MCP server, so an AI
+    assistant (such as Claude Code) can read and edit the open plan
+    directly — creating and rescheduling tasks, wiring up dependencies,
+    managing resources and calendars — instead of you doing it by hand
+  - Built-in safety controls: pause the assistant, put it in read-only
+    mode, automatic backups before AI-driven changes, and a visible
+    activity log of everything it did
+  - You decide when it's on — the AI assistant and its MCP server are
+    opt-in and off by default
+
+  Also included:
+  - An extension system for adding custom ribbon buttons and behavior
   - 14 languages, including right-to-left support for Arabic and Persian
-  - Optional AI assistant integration (MCP) that can drive the open plan
-    directly, with pause/read-only safety flags and an activity log
 
   Open Planner Studio is free and open source (LGPL-3.0-or-later), part of
   the OpenAEC Foundation family of applications, and built with Tauri for
