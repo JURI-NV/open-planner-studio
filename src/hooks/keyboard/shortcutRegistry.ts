@@ -33,6 +33,7 @@ import { isTreeMode } from '@/engine/view/visibleRows';
 import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
+import { saveShowHistogram } from '@/utils/settingsStore';
 
 export type ShortcutCategory = 'file' | 'edit' | 'structure' | 'view' | 'nav';
 
@@ -421,6 +422,25 @@ export const SHORTCUTS: ShortcutDef[] = [
     // tegelijk (geen enkele van de twee roept `stopPropagation()` op de Escape-keydown aan).
     when: () => !isTourOrWelcomeOpen(),
     run: (store) => store.setUI({ showShortcutsDialog: !store.ui.showShortcutsDialog }),
+  },
+  {
+    // Histogram aan/uit (user-verzoek): spiegelt de ribbon-knop 'toggleHistogram' (Resources-tab)
+    // exact — zelfde `ui.showHistogram`-toggle + `saveShowHistogram`-persistentie; het hergebruik van
+    // labelKey `menu:ribbon.toggleHistogram` houdt het bij één entry zónder nieuwe i18n-key.
+    // Ctrl+Shift+H i.p.v. kale Ctrl+H: Chrome/Firefox reserveren Ctrl+H voor Geschiedenis op
+    // browser-chrome-niveau, waar preventDefault() niets tegen doet — en de web-build is een echte
+    // productie-deploy (live.yml), dus een daar structureel dood combo valt af (exact de reden dat
+    // Ctrl+T niet werd gekozen voor structure.insertBelow hierboven). Ctrl+Shift+H is nergens
+    // gereserveerd en overal te onderscheppen; de H-mnemonic blijft behouden.
+    id: 'view.toggleHistogram',
+    combo: { key: 'h', mod: true, shift: true },
+    category: 'view',
+    labelKey: 'menu:ribbon.toggleHistogram',
+    run: (store) => {
+      const next = !store.ui.showHistogram;
+      store.setUI({ showHistogram: next });
+      void saveShowHistogram(next);
+    },
   },
 
   // --- Navigatie ---
