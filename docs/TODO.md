@@ -143,6 +143,14 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   bind/listen/accept toe "for anonymous sockets", en er zijn geen AppArmor-inet-regels die het
   alsnog mediëren. `network-bind` is alsnog toegevoegd — niet als reparatie, maar om die
   afhankelijkheid vast te leggen: nu hangt het luisteren aan een plug die er voor WebKit zit.
+  Ook gemeten in dezelfde ronde: **"Backup-map openen" werkt onder confinement.** `openBackupFolder`
+  (`src/services/mcp/backup.ts`) maakt de map aan en roept `open()` uit `plugin-shell` aan, wat op
+  Linux op xdg-open uitkomt. Binnen `snap run --shell` gaf `xdg-open` op de ai-backups-map exitcode 0
+  én startte er daadwerkelijk een bestandsbeheerder (nautilus). Kanttekening: getest is het
+  MECHANISME (xdg-open door de portal), niet de knop zelf in de AI-tab. De geopende map bevatte
+  bovendien echte backups — twee documentmappen, waarvan één het `activeDocumentId` uit de
+  bridge-envelope — dus ook het backup-schrijfpad werkt onder confinement (appDataDir valt binnen
+  `~/snap/open-planner-studio/`, dus zonder `home`-plug-afhankelijkheid).
 - [ ] **De bridge merkt niet dat het venster erachter weg is.** Gemeten: het venster dat poort 3877
       bezat had een hot-reload gehad, waardoor de frontend-listeners uit `createBridgeController`
       verdwenen waren. De Rust-kant bleef luisteren; élke aanvraag liep vast tot de 120s-timeout.
