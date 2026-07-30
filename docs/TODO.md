@@ -130,6 +130,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 > beantwoordt, zonder dat iemand dat merkt. Dat is dezelfde faalklasse als de stille no-ops die deze
 > ronde zijn opgeruimd — alleen een laag dieper.
 
+- [ ] **Snap: `network-bind` toegevoegd, maar niet op een echte installatie geverifieerd.** De
+  MCP-bridge bindt een `tiny_http`-listener op 127.0.0.1; `snap/snapcraft.yaml` plugde alleen
+  `network` (client-only) terwijl de storebeschrijving de MCP-server inmiddels wél aanprijst.
+  `network-bind` staat er nu bij. Wat NIET is vastgesteld: of het binden zónder die plug echt werd
+  geweigerd — op seccomp-niveau is `bind` toegestaan (via `network` én `browser-support`), dus de
+  weigering zou van AppArmor moeten komen, en er was lokaal geen geïnstalleerde snap met
+  `network-bind` als vergelijkingsgeval. Te doen bij de volgende snap-build (de
+  workflow_dispatch-route uit `snapcraft.yaml`): installeren, AI-modus aan, bridge starten, en
+  controleren dat hij luistert in plaats van een bind-fout te tonen. In dezelfde run meenemen: of
+  "Backup-map openen" (xdg-open via de portal) onder confinement werkt.
 - [ ] **De bridge merkt niet dat het venster erachter weg is.** Gemeten: het venster dat poort 3877
       bezat had een hot-reload gehad, waardoor de frontend-listeners uit `createBridgeController`
       verdwenen waren. De Rust-kant bleef luisteren; élke aanvraag liep vast tot de 120s-timeout.

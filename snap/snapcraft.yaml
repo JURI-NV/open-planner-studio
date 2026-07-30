@@ -70,7 +70,15 @@ apps:
       # Alleen de plugs die de gnome-extensie niet al levert:
       - home            # IFC openen/opslaan/exporteren in de home-map
       - removable-media # idem op externe schijven/USB
-      - network         # update-check, extensie-catalogus
+      - network         # update-check, extensie-catalogus (CLIENT-verkeer)
+      # De MCP-bridge is een echte server: `mcp_bridge.rs` bindt een tiny_http-listener op
+      # 127.0.0.1:<poort>. `network` dekt dat NIET — die interface is uitdrukkelijk client-only
+      # ("Can access the network as a client" in het gegenereerde AppArmor-profiel, zonder inet-
+      # regels); luisteren is precies waar `network-bind` voor is. Zonder deze plug faalt het binden
+      # en toont de app een bind-/"poort bezet"-fout die naar een tweede venster wijst dat er niet is
+      # — een geloofwaardige melding over de verkeerde oorzaak. Auto-connect, dus geen store-review.
+      # NOG NIET op een echte snap-installatie geverifieerd: zie docs/TODO.md.
+      - network-bind    # AI-modus: de MCP-bridge luistert op localhost
       - browser-support # WebKit-rendering/sandbox
       - audio-playback
 
