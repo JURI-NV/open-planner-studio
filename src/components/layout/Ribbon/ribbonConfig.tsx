@@ -711,16 +711,40 @@ const beeldTab: RibbonTabConfig = [
         // Stuur icoon/actief/klik daarom op de wérkelijke zichtbaarheid; het uitklappen zelf maakt
         // in `setUI` ruimte vrij (invariant 2 daar). De andere `isFullPanel`-termen (tabbladen
         // table/relations/ifc/report) kunnen hier niet spelen: deze knop staat op de Beeld-tab.
+        //
+        // Issue #46 (slot): de rail is nu een accordeon, dus "zichtbaar" heeft er een term bij —
+        // de Eigenschappen-SECTIE kan samengevouwen zijn terwijl de rail openstaat (dat is precies
+        // de nieuwe toestand na het aanzetten van het Resourcedock). Deze knop gaat over
+        // Eigenschappen, dus hij stuurt op die sectie.
+        //
+        // Het UITzetten kent twee gevallen, en dat is bewust:
+        //   - staat het Resourcedock ernaast, dan vouwt alleen de Eigenschappen-sectie samen; de
+        //     rail blijft staan voor de resourcelijst.
+        //   - is Eigenschappen de enige sectie, dan klapt de hele rail in — exact het gedrag van
+        //     vóór de accordeon, inclusief de ~280 px die de Gantt erbij krijgt. Zonder dit
+        //     onderscheid zou de knop in het gewone geval een verarming zijn: een lege kolom met
+        //     één balkje i.p.v. ruimte voor de planning.
         use: () => {
           const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
           const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
           const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
+          const railPropertiesCollapsed = useAppStore(s => s.ui.railPropertiesCollapsed);
           const setUI = useAppStore(s => s.setUI);
           const railVisible = !rightPanelCollapsed && !(showResourcePanel && !resourcePanelDocked);
+          const dockPresent = showResourcePanel && resourcePanelDocked;
+          const propertiesVisible = railVisible && !railPropertiesCollapsed;
           return {
-            icon: railVisible ? <Eye size={20} /> : <EyeOff size={20} />,
-            active: railVisible,
-            onClick: () => setUI({ rightPanelCollapsed: railVisible }),
+            icon: propertiesVisible ? <Eye size={20} /> : <EyeOff size={20} />,
+            active: propertiesVisible,
+            onClick: () => {
+              if (!propertiesVisible) {
+                setUI({ rightPanelCollapsed: false, railPropertiesCollapsed: false });
+              } else if (dockPresent) {
+                setUI({ railPropertiesCollapsed: true });
+              } else {
+                setUI({ rightPanelCollapsed: true });
+              }
+            },
           };
         },
       },

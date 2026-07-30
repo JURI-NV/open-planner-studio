@@ -109,6 +109,18 @@ export async function saveRightPanelWidth(value: number): Promise<void> {
   await setSetting('rightPanelWidth', Math.round(value));
 }
 
+// Hoogte van de Eigenschappen-sectie in de rail-accordeon (issue #46, slot; ui.railPropertiesHeight)
+// wanneer BEIDE secties openstaan. Zelfde categorie als histogramHeight hieronder: view-state, geen
+// instelling — persist via de ops-prefix, buiten de 3-plekken-regel. De boven-klem is bewust ruim en
+// statisch (een corrupte localStorage-waarde mag de rail niet onbruikbaar maken); de live klem
+// tijdens het slepen rekent met de werkelijke railhoogte, die pas op dat moment bekend is.
+export const RAIL_SECTION_MIN_HEIGHT = 120;
+export const RAIL_SECTION_MAX_HEIGHT = 2000;
+
+export async function saveRailPropertiesHeight(value: number): Promise<void> {
+  await setSetting('railPropertiesHeight', Math.round(value));
+}
+
 export async function saveRibbonCompact(value: boolean): Promise<void> {
   await setSetting('ribbonCompact', value);
 }

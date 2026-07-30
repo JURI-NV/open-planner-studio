@@ -10,7 +10,7 @@ Een taak vertelt je wanneer iets moet gebeuren; een resource vertelt je wie of w
 - Een toewijzing verplaatsen naar een andere taak.
 - Resourcekalenders en tijd-gefaseerde capaciteit (bijvoorbeeld een tweede kraan die later bijkomt).
 - Het histogram lezen: de resourcekiezer, drilldown per resource, overallocatie herkennen.
-- Het gedockte resourcepaneel naast de Gantt.
+- Het gedockte resourcepaneel naast de Gantt, als tweede sectie onder Eigenschappen.
 - Nivelleren: de opties in het venster **Resources nivelleren**, het verschil tussen binnen-speling en einddatum-verschuiving, en prioriteiten (incl. prioriteit 1000 = "niet nivelleren").
 - De eerlijke les: wanneer nivellering een overallocatie *niet* oplost.
 
@@ -83,9 +83,13 @@ Staat er "Herbereken (F5) om de belasting te tonen" in plaats van staafjes, dan 
 
 ## Het gedockte resourcepaneel
 
-Naast het volledige resourcepaneel (lintknop **Resources**) is er een compacte variant die je aan de rechterkant kunt vastzetten: knop **Resourcedock** in de lintgroep **Beheer**. Dit gedockte paneel toont alleen naam, **Max. eenheden** (direct bewerkbaar) en een rood/groen bolletje voor overallocatie — een snel overzicht naast je Gantt zonder het volledige paneel open te zetten. Het gedockte resourcepaneel en het eigenschappenpaneel van een taak sluiten elkaar wederzijds uit: je ziet er telkens één van de twee in de rechterrail.
+Naast het volledige resourcepaneel (lintknop **Resources**) is er een compacte variant die je aan de rechterkant kunt vastzetten: knop **Resourcedock** in de lintgroep **Beheer**. Dit gedockte paneel toont alleen naam, **Max. eenheden** (direct bewerkbaar) en een rood/groen bolletje voor overallocatie — een snel overzicht naast je Gantt zonder het volledige paneel open te zetten.
 
-Dezelfde drie knoppen — **Resources**, **Resourcedock** en **Histogram** — staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Zelfde naam, zelfde icoon, zelfde werking: waar je ze ook aanklikt, ze doen precies hetzelfde. Het verschil zit tussen de twee resourceknoppen onderling: **Resources** opent het volledige paneel over de werkruimte, **Resourcedock** zet de compacte lijst vast in de zijkolom.
+De zijkolom is een **accordeon**: **Eigenschappen** en de gedockte resourcelijst staan er als twee secties onder elkaar, niet in plaats van elkaar. Zet je het Resourcedock aan, dan vouwt Eigenschappen samen tot zijn kopbalkje en krijgt de resourcelijst de ruimte — één klik op dat balkje zet Eigenschappen weer open. Staan beide secties open, dan verdeel je de hoogte door aan de scheiding ertussen te slepen; die verdeling wordt onthouden. Staat er maar één sectie open, dan krijgt die altijd de volle hoogte.
+
+De knop rechtsboven in de bovenste kopbalk klapt de héle zijkolom weg. Je houdt dan een smalle strip over met een label per sectie; klik op **Eigenschappen** of **Resources** om de kolom terug te halen met precies die sectie open.
+
+Dezelfde drie knoppen — **Resources**, **Resourcedock** en **Histogram** — staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Zelfde naam, zelfde icoon, zelfde werking: waar je ze ook aanklikt, ze doen precies hetzelfde. Het verschil zit tussen de twee resourceknoppen onderling: **Resources** opent het volledige paneel over de werkruimte, **Resourcedock** zet de compacte lijst vast als tweede sectie in de zijkolom.
 
 ## Overallocatie herkennen
 

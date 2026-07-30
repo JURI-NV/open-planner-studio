@@ -123,6 +123,11 @@ export function TourOverlay() {
         backstageSection: ui.backstageSection,
         showHistogram: ui.showHistogram,
         rightPanelCollapsed: ui.rightPanelCollapsed,
+        // Issue #46 (slot): de rondleiding klapt de rail uit (tourstap 2), en `setUI` opent dan zo
+        // nodig ook de Eigenschappen-SECTIE (invariant 3 daar). Zonder deze twee in het snapshot
+        // zou de tour een bewust dichtgevouwen sectie stilzwijgend opengelaten achterlaten.
+        railPropertiesCollapsed: ui.railPropertiesCollapsed,
+        railResourcesCollapsed: ui.railResourcesCollapsed,
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

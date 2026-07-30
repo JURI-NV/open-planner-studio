@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Właściwości",
     "collapse": "Zwiń",
-    "expand": "Rozwiń"
+    "expand": "Rozwiń",
+    "collapseRail": "Zwiń kolumnę boczną",
+    "expandRail": "Rozwiń kolumnę boczną"
   },
   "context": {
     "edit": "Edytuj...",

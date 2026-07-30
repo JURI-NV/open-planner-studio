@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "الخصائص",
     "collapse": "طي",
-    "expand": "توسيع"
+    "expand": "توسيع",
+    "collapseRail": "طي العمود الجانبي",
+    "expandRail": "توسيع العمود الجانبي"
   },
   "context": {
     "edit": "تعديل...",

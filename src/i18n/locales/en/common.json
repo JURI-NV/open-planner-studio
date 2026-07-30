@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Properties",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "collapseRail": "Collapse side column",
+    "expandRail": "Expand side column"
   },
   "context": {
     "edit": "Edit...",

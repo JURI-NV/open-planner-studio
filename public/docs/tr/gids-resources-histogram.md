@@ -77,7 +77,7 @@ Aşırı yüklü bir çubuğa tıklayın, bir araç ipucu o gün kaç görevin y
 
 ## Sabitlenmiş kaynak paneli
 
-Tam kaynak panelinin (şerit düğmesi **Kaynaklar**) yanı sıra, sağa sabitleyebileceğiniz kompakt bir varyant vardır: **Yönet** şerit grubundaki **Kaynak doku** düğmesi. Bu sabitlenmiş panel yalnızca adı, **Maks. birim**i (doğrudan düzenlenebilir) ve aşırı atama için kırmızı/yeşil bir nokta gösterir — tam paneli açmadan Gantt'ınızın yanında hızlı bir genel bakış. Sabitlenmiş kaynak paneli ve bir görevin özellikler paneli birbirini dışlar — sağ rayda aynı anda yalnızca ikisinden birini görürsünüz.
+Tam kaynak panelinin (şerit düğmesi **Kaynaklar**) yanı sıra, sağa sabitleyebileceğiniz kompakt bir varyant vardır: **Yönet** şerit grubundaki **Kaynak doku** düğmesi. Bu sabitlenmiş panel yalnızca adı, **Maks. birim**i (doğrudan düzenlenebilir) ve aşırı atama için kırmızı/yeşil bir nokta gösterir — tam paneli açmadan Gantt'ınızın yanında hızlı bir genel bakış. Sabitlenmiş kaynak paneli ve özellikler paneli sağ sütunu iki katlanabilir bölüm olarak paylaşır: sabitlemeyi açtığınızda **Özellikler** kendi başlık çubuğuna katlanır, o çubuğa tıklamak onu yeniden açar.
 
 ## Aşırı atamayı tespit etme
 

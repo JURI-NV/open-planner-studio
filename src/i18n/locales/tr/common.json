@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Özellikler",
     "collapse": "Daralt",
-    "expand": "Genişlet"
+    "expand": "Genişlet",
+    "collapseRail": "Yan sütunu daralt",
+    "expandRail": "Yan sütunu genişlet"
   },
   "context": {
     "edit": "Düzenle...",

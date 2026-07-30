@@ -77,7 +77,7 @@ Jeśli zamiast słupków widzisz „Przelicz (F5), aby pokazać obciążenie", h
 
 ## Zadokowany panel zasobów
 
-Oprócz pełnego panelu zasobów (przycisk wstążki **Zasoby**), istnieje kompaktowy wariant, który możesz zadokować po prawej stronie: przycisk **Dok zasobów** w grupie wstążki **Zarządzaj**. Ten zadokowany panel pokazuje tylko nazwę, **Maks. jednostki** (edytowalne bezpośrednio) i czerwoną/zieloną kropkę oznaczającą nadmierne przydzielenie — szybki przegląd obok wykresu Gantta bez otwierania pełnego panelu. Zadokowany panel zasobów i panel właściwości zadania wykluczają się wzajemnie — w prawym pasie widzisz naraz tylko jedno z nich.
+Oprócz pełnego panelu zasobów (przycisk wstążki **Zasoby**), istnieje kompaktowy wariant, który możesz zadokować po prawej stronie: przycisk **Dok zasobów** w grupie wstążki **Zarządzaj**. Ten zadokowany panel pokazuje tylko nazwę, **Maks. jednostki** (edytowalne bezpośrednio) i czerwoną/zieloną kropkę oznaczającą nadmierne przydzielenie — szybki przegląd obok wykresu Gantta bez otwierania pełnego panelu. Zadokowany panel zasobów i panel właściwości dzielą prawą kolumnę jako dwie zwijane sekcje: włączenie doku zwija **Właściwości** do samego paska tytułu, a kliknięcie tego paska otwiera je z powrotem.
 
 ## Wykrywanie nadmiernego przydzielenia
 

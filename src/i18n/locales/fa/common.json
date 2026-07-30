@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "ویژگی‌ها",
     "collapse": "جمع",
-    "expand": "باز"
+    "expand": "باز",
+    "collapseRail": "جمع کردن ستون کناری",
+    "expandRail": "باز کردن ستون کناری"
   },
   "context": {
     "edit": "ویرایش...",

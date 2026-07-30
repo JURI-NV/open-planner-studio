@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "속성",
     "collapse": "접기",
-    "expand": "펼치기"
+    "expand": "펼치기",
+    "collapseRail": "사이드 열 접기",
+    "expandRail": "사이드 열 펼치기"
   },
   "context": {
     "edit": "편집...",

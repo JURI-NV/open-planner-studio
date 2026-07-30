@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { saveRightPanelWidth, RIGHT_PANEL_MIN_WIDTH } from '@/utils/settingsStore';
 import { setNoneLabelValue } from '@/utils/noneLabel';
 import { appLog } from '@/services/debug/appLog';
 import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
@@ -9,12 +8,11 @@ import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
 import { StatusBar } from '@/components/layout/StatusBar/StatusBar';
 import { TooltipHost } from '@/components/common/Tooltip';
 import { GanttCanvas } from '@/components/canvas/GanttCanvas';
-import { TaskPropertiesPanel } from '@/components/panels/TaskPropertiesPanel';
 import { TableEditor } from '@/components/panels/TableEditor';
 import { ResourcePanel } from '@/components/panels/ResourcePanel';
-import { ResourcePanelCompact } from '@/components/panels/ResourcePanelCompact';
 import { RelationsPanel } from '@/components/panels/RelationsPanel';
 import { PresentationHint } from '@/components/layout/PresentationHint';
+import { RightRail } from '@/components/layout/RightRail/RightRail';
 import { DocumentTabBar } from '@/components/layout/DocumentChrome/DocumentTabBar';
 import { ProjectRail } from '@/components/layout/DocumentChrome/ProjectRail';
 import { ProjectOverview } from '@/components/layout/DocumentChrome/ProjectOverview';
@@ -28,10 +26,8 @@ import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { useAiAutostart } from '@/hooks/useAiAutostart';
 import { useFullscreenSync } from '@/hooks/useFullscreenSync';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { useSplitter } from '@/hooks/useSplitter';
 import { useAppStore } from '@/state/appStore';
 import { UI_FONT_STACKS } from '@/utils/uiFont';
-import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 import { HourDataNotice } from '@/components/layout/HourDataNotice';
 import { StructureLockedNotice } from '@/components/layout/StructureLockedNotice';
 import { DependencyModeNotice } from '@/components/layout/DependencyModeNotice';
@@ -46,8 +42,6 @@ import { NotificationHost } from '@/components/layout/NotificationHost';
 // verschijnt is prima.
 const IFCPanel = lazy(() => import('@/components/panels/IFCPanel').then(m => ({ default: m.IFCPanel })));
 const ReportPanel = lazy(() => import('@/components/panels/ReportPanel').then(m => ({ default: m.ReportPanel })));
-const DebugTerminal = lazy(() => import('@/components/panels/DebugTerminal').then(m => ({ default: m.DebugTerminal })));
-const AIActivityPanel = lazy(() => import('@/components/panels/AIActivityPanel').then(m => ({ default: m.AIActivityPanel })));
 const TaskDialog = lazy(() => import('@/components/dialogs/TaskDialog').then(m => ({ default: m.TaskDialog })));
 const ProjectInfoDialog = lazy(() => import('@/components/dialogs/ProjectInfoDialog').then(m => ({ default: m.ProjectInfoDialog })));
 const SettingsDialog = lazy(() => import('@/components/dialogs/SettingsDialog').then(m => ({ default: m.SettingsDialog })));
@@ -75,8 +69,6 @@ function AppContent() {
   useKeyboardShortcuts();
   const { t } = useTranslation('common');
 
-  const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
-  const rightPanelWidth = useAppStore(s => s.ui.rightPanelWidth);
   const activeTab = useAppStore(s => s.ui.activeRibbonTab);
   const showProjectInfoDialog = useAppStore(s => s.ui.showProjectInfoDialog);
   const showNewProjectDialog = useAppStore(s => s.ui.showNewProjectDialog);
@@ -102,26 +94,8 @@ function AppContent() {
   const uiTheme = useAppStore(s => s.ui.uiTheme);
   const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
   const uiFontScale = useAppStore(s => s.ui.uiFontScale);
-  const setUI = useAppStore(s => s.setUI);
-  const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
-  const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
-  const aiMode = useAppStore(s => s.ui.aiMode);
-  const aiActivityOpen = useAppStore(s => s.ui.aiActivityOpen);
   const documentChromeStyle = useAppStore(s => s.ui.documentChromeStyle);
 
-  // Rechterpaneel-breedte slepen (fase 2.10, punt 3) — generiek splitterpatroon (useSplitter,
-  // gedeeld met de takentabel-splitter in GanttCanvas): losse drag-state, window-listeners voor
-  // move/up, klem tussen min/max, en pas persisteren (localStorage) bij loslaten. Anders dan de
-  // canvas-splitter is dit een gewone DOM-sleeprand (het rechterpaneel is React/DOM, niet canvas),
-  // en de klem is hier tweezijdig: min 200px (RIGHT_PANEL_MIN_WIDTH), max 60% van het venster
-  // (dynamisch, i.p.v. een vaste breedte — het venster kan resizen tussen sessies).
-  const rightPanelSplitter = useSplitter({
-    min: RIGHT_PANEL_MIN_WIDTH,
-    max: () => Math.round(window.innerWidth * 0.6),
-    computeSize: e => Math.round(window.innerWidth - e.clientX),
-    onResize: w => useAppStore.getState().setUI({ rightPanelWidth: w }),
-    onCommit: () => { void saveRightPanelWidth(useAppStore.getState().ui.rightPanelWidth); },
-  });
 
   // Recovery-restore bij opstarten (Tauri én web): detectie + RecoveryDialog-callbacks; levert ook
   // de auto-save-poort (`autoSaveEnabled`) en het reactieve "flow afgehandeld"-signaal.
@@ -211,7 +185,6 @@ function AppContent() {
   // resource-lijst dockt in de rechter-rail (zie het dock-blok hieronder) in plaats van de hele
   // werkruimte te vervangen.
   const isFullPanel = (showResourcePanel && !resourcePanelDocked) || activeTab === 'table' || activeTab === 'relations' || activeTab === 'ifc' || activeTab === 'report';
-  const resourceDocked = showResourcePanel && resourcePanelDocked;
 
   // Presentation mode (fase 2.7, §9.2): één wrapper-conditie i.p.v. losse `&& !presentationMode`-
   // guards door de hele boom — alle chrome (TitleBar/Ribbon/tabbar/brand-strip/rechterpaneel/
@@ -298,96 +271,11 @@ function AppContent() {
           </div>
         )}
 
-        {/* Right Panel: Properties (collapsible) — of, gedockt (fase 2.10 item 6), de compacte
-            resource-lijst i.p.v. het eigenschappenpaneel. Mutueel exclusief (architect-besluit 5):
-            één rail, geen tweede breedte/collapsed-veld. */}
-        {!isFullPanel && (
-          rightPanelCollapsed ? (
-            <div
-              className="ui-card cursor-pointer flex flex-col items-center justify-center gap-2 py-4 hover:bg-surface-hover overflow-hidden"
-              style={{ width: 28 }}
-              onClick={() => setUI({ rightPanelCollapsed: false })}
-            >
-              <ChevronLeft size={14} className="text-text-secondary" />
-              <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider"
-                style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-              >
-                {resourceDocked ? t('resource.compact.title') : t('properties')}
-              </span>
-            </div>
-          ) : (
-            <div
-              className="ui-card flex flex-col overflow-hidden"
-              style={{ width: rightPanelWidth, minWidth: 200, position: 'relative' }}
-              data-tour-anchor="properties-panel"
-            >
-              {/* Sleepgrijpzone (fase 2.10, punt 3-correctie op user-feedback c8cce49) — geen
-                  zichtbare balk meer (die kostte enkel ruimte); i.p.v. een aparte DOM-kolom nu
-                  een onzichtbare, absoluut gepositioneerde grijpzone die over de linkerrand van
-                  het paneel heen ligt (half erbinnen/erbuiten), zelfde patroon als de tabel/
-                  chart-splitter in GanttCanvas (SPLITTER_GRAB_MARGIN: grijpmarge rond de rand,
-                  geen aparte balk, geen kleur). `insetInlineStart` i.p.v. `left` zodat de zone in
-                  RTL (ar/fa) automatisch mee-spiegelt naar de juiste (binnen)rand — de flex-rij
-                  hierboven heeft geen expliciete `row-reverse`, dus de browser spiegelt 'm al bij
-                  `dir="rtl"` op `<html>` (RTL_LOCALES); logical properties houden deze grijpzone
-                  daarmee synchroon zonder aparte RTL-tak. Neemt geen ruimte in (geen invloed op
-                  paneel-breedte/padding); alleen cursor, geen achtergrond/border. */}
-              <div
-                onMouseDown={e => { e.preventDefault(); rightPanelSplitter.start(); }}
-                style={{
-                  position: 'absolute',
-                  insetInlineStart: -4,
-                  top: 0,
-                  bottom: 0,
-                  width: 8,
-                  cursor: 'col-resize',
-                  zIndex: 10,
-                }}
-                data-ops-right-panel-resize
-              />
-              <div className="flex items-center justify-between h-8 px-3 border-b border-border flex-shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">
-                  {resourceDocked ? t('resource.compact.title') : t('properties')}
-                </span>
-                <div className="flex items-center gap-0.5">
-                  {resourceDocked && (
-                    <>
-                      <button
-                        onClick={() => setUI({ resourcePanelDocked: false })}
-                        title={t('resource.compact.expandFull')}
-                        className="p-0.5 hover:bg-surface-hover rounded text-text-secondary"
-                      >
-                        <Maximize2 size={13} />
-                      </button>
-                      <button
-                        onClick={() => setUI({ showResourcePanel: false, resourcePanelDocked: false })}
-                        title={t('resource.compact.closeDock')}
-                        className="p-0.5 hover:bg-surface-hover rounded text-text-secondary"
-                      >
-                        <X size={14} />
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={() => setUI({ rightPanelCollapsed: true })}
-                    className="p-0.5 hover:bg-surface-hover rounded text-text-secondary"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                {resourceDocked ? <ResourcePanelCompact /> : <TaskPropertiesPanel />}
-              </div>
-              {debugTerminalEnabled && debugTerminalOpen && (
-                <Suspense fallback={null}><DebugTerminal /></Suspense>
-              )}
-              {aiMode && aiActivityOpen && (
-                <Suspense fallback={null}><AIActivityPanel /></Suspense>
-              )}
-            </div>
-          )
-        )}
+        {/* Right Panel — issue #46 (slot): geen wederzijdse uitsluiting meer tussen het
+            eigenschappenpaneel en de gedockte resourcelijst, maar een ACCORDEON met twee secties in
+            dezelfde rail. Nog steeds één rail en één breedte (dat deel van architect-besluit 5 staat
+            overeind); nieuw is enkel de verticale as. Alle mechaniek zit in `RightRail`. */}
+        {!isFullPanel && <RightRail />}
       </div>
         </div>{/* /werkruimte-kolom */}
       </div>{/* /body-rij */}

@@ -41,6 +41,8 @@ import {
   TASK_TABLE_MAX_WIDTH,
   RIGHT_PANEL_MIN_WIDTH,
   RIGHT_PANEL_MAX_WIDTH,
+  RAIL_SECTION_MIN_HEIGHT,
+  RAIL_SECTION_MAX_HEIGHT,
   HISTOGRAM_MIN_HEIGHT,
   HISTOGRAM_MAX_HEIGHT,
 } from '@/utils/settingsStore';
@@ -144,6 +146,11 @@ export const SETTINGS: SettingDescriptor[] = [
   setting({ key: 'leftPanelWidth', field: 'leftPanelWidth', parse: parseClampedInt(TASK_TABLE_MIN_WIDTH, TASK_TABLE_MAX_WIDTH) }),
   setting({ key: 'rightPanelWidth', field: 'rightPanelWidth', parse: parseClampedInt(RIGHT_PANEL_MIN_WIDTH, RIGHT_PANEL_MAX_WIDTH) }),
   setting({ key: 'ribbonCompact', field: 'ribbonCompact', parse: parseBoolean }),
+
+  // Rail-accordeon (issue #46, slot): hoogte van de Eigenschappen-sectie wanneer beide secties
+  // openstaan. Alleen de AFMETING is een voorkeur; de inklaptoestand per sectie is sessiewerk en
+  // staat hier daarom bewust NIET — net zoals `rightPanelCollapsed` er niet staat.
+  setting({ key: 'railPropertiesHeight', field: 'railPropertiesHeight', parse: parseClampedInt(RAIL_SECTION_MIN_HEIGHT, RAIL_SECTION_MAX_HEIGHT) }),
 
   // Histogramstrook (view-state) — zichtbaarheid + geklemde hoogte
   setting({ key: 'showHistogram', field: 'showHistogram', parse: parseBoolean }),

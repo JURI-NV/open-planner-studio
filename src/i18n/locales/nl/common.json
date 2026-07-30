@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Eigenschappen",
     "collapse": "Inklappen",
-    "expand": "Uitklappen"
+    "expand": "Uitklappen",
+    "collapseRail": "Zijkolom inklappen",
+    "expandRail": "Zijkolom uitklappen"
   },
   "context": {
     "edit": "Bewerken...",

@@ -389,6 +389,14 @@ html, body, #root {
   border-right: 1px solid var(--theme-border);
 }
 
+/* Issue #46 (slot): iconen die een RICHTING aanwijzen (de chevrons en het paneel-glyph in de
+   rechter-rail) moeten in RTL meespiegelen — daar staat de rail links, dus "de rail wegklappen"
+   wijst de andere kant op. Zelfde truc als `.ops-icon-rail` in Ribbon.css, maar dan bruikbaar
+   buiten de ribbon. Uitsluitend voor richtingsiconen; nooit voor iconen met tekst of een cijfer. */
+[dir="rtl"] .ops-icon-inline-flip {
+  transform: scaleX(-1);
+}
+
 /* Gantt tooltip */
 /* Issue #58: de titel liep buiten de kader-rand door. Oorzaak was `white-space: nowrap` naast een
    `max-width`: de doos werd wél op 280px geklemd, maar de tekst zette gewoon door en stak zichtbaar

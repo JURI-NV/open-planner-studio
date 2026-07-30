@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Propiedades",
     "collapse": "Contraer",
-    "expand": "Expandir"
+    "expand": "Expandir",
+    "collapseRail": "Contraer la columna lateral",
+    "expandRail": "Expandir la columna lateral"
   },
   "context": {
     "edit": "Editar...",

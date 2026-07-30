@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "プロパティ",
     "collapse": "折りたたむ",
-    "expand": "展開"
+    "expand": "展開",
+    "collapseRail": "サイド列を折りたたむ",
+    "expandRail": "サイド列を展開"
   },
   "context": {
     "edit": "編集...",

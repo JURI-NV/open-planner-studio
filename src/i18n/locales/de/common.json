@@ -31,7 +31,9 @@
   "sidebar": {
     "properties": "Eigenschaften",
     "collapse": "Einklappen",
-    "expand": "Ausklappen"
+    "expand": "Ausklappen",
+    "collapseRail": "Seitenspalte einklappen",
+    "expandRail": "Seitenspalte ausklappen"
   },
   "context": {
     "edit": "Bearbeiten...",

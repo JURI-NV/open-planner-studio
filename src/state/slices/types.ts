@@ -132,6 +132,8 @@ export interface TourUiSnapshot {
   backstageSection: BackstageSection;
   showHistogram: boolean;
   rightPanelCollapsed: boolean;
+  railPropertiesCollapsed: boolean;
+  railResourcesCollapsed: boolean;
 }
 
 // --- Gebruikerszichtbaar meldingenkanaal (bevinding K8): één gecentraliseerde toast-stapel in
@@ -237,8 +239,25 @@ export interface UIState {
   showResourcePanel: boolean;               // session — resource-beheerpaneel (full-panel) open (fase 2.5)
   /** Session — fase 2.10 (item 6): resource-paneel gedockt in de rechter-rail (compacte variant,
    *  in plaats van full-panel). Default false = byte-identiek bestaand gedrag. Alleen relevant
-   *  zolang `showResourcePanel` ook true is; mutueel exclusief met de volledige-paneel-modus. */
+   *  zolang `showResourcePanel` ook true is; mutueel exclusief met de volledige-paneel-modus.
+   *
+   *  Issue #46 (slot): "gedockt" betekent sinds deze wijziging *naast* het eigenschappenpaneel in
+   *  dezelfde rail (accordeon), niet meer *in plaats van*. Dit veld zegt alleen nog OF de
+   *  resource-sectie in de rail bestaat; `railResourcesCollapsed` zegt of hij openstaat. */
   resourcePanelDocked: boolean;
+  /** Session — issue #46 (slot): de rechter-rail is een accordeon met twee secties
+   *  (Eigenschappen + de gedockte resourcelijst). Deze twee vlaggen zeggen per sectie of hij is
+   *  samengevouwen tot alleen zijn kopbalkje. Bewust NIET gepersisteerd, precies zoals
+   *  `rightPanelCollapsed` (de rail als geheel) dat ook niet is: inklaptoestand is sessiewerk,
+   *  afmetingen (`rightPanelWidth`, `railPropertiesHeight`) zijn wél een voorkeur. */
+  railPropertiesCollapsed: boolean;
+  railResourcesCollapsed: boolean;
+  /** Persisted — issue #46 (slot): hoogte in px van de Eigenschappen-sectie (kopbalk inbegrepen)
+   *  wanneer BEIDE railsecties openstaan; de resourcesectie krijgt dan de resterende ruimte.
+   *  Staat er maar één sectie open, dan is dit veld niet van kracht (die sectie krijgt de volle
+   *  hoogte) — het onthoudt enkel de laatst gesleepte verdeling. Geklemd bij het laden
+   *  (`settingsRegistry`) én live tijdens het slepen. */
+  railPropertiesHeight: number;
   showHistogram: boolean;                   // persisted — histogramstrook onder de Gantt zichtbaar (fase 2.5)
   histogramHeight: number;                  // persisted — hoogte van de histogramstrook in px (fase 2.5)
   showLevelingDialog: boolean;              // session — nivelleer-dialoog open (fase 2.5)
