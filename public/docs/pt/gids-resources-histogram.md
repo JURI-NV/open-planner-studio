@@ -77,7 +77,7 @@ Se vir "Recalcular (F5) para mostrar a carga" em vez de barras, o cronograma nã
 
 ## O painel de recursos ancorado
 
-Além do painel de recursos completo (botão do friso **Recursos**), há uma variante compacta que pode ancorar à direita: o botão **Ancorar** no grupo do friso **Gerir**. Este painel ancorado mostra apenas o nome, as **Unidades máx.** (editáveis diretamente) e um ponto vermelho/verde para sobrealocação — uma visão rápida ao lado do seu Gantt sem abrir o painel completo. O painel de recursos ancorado e o painel de propriedades de uma tarefa são mutuamente exclusivos — só vê um dos dois de cada vez na coluna direita.
+Além do painel de recursos completo (botão do friso **Recursos**), há uma variante compacta que pode ancorar à direita: o botão **Dock de recursos** no grupo do friso **Gerir**. Este painel ancorado mostra apenas o nome, as **Unidades máx.** (editáveis diretamente) e um ponto vermelho/verde para sobrealocação — uma visão rápida ao lado do seu Gantt sem abrir o painel completo. O painel de recursos ancorado e o painel de propriedades de uma tarefa são mutuamente exclusivos — só vê um dos dois de cada vez na coluna direita.
 
 ## Detetar sobrealocação
 

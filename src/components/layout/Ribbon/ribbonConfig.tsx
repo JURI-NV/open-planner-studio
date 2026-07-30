@@ -9,7 +9,7 @@ import {
   IndentIncrease, IndentDecrease,
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
-  Keyboard, Pin, PinOff,
+  Keyboard, PanelRight,
   CalendarClock, ChevronsDownUp, ChevronsUpDown, Columns3,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
@@ -59,7 +59,7 @@ export interface RibbonButtonBinding {
   disabled?: boolean;
   /** Tooltip (kleine én grote knoppen). */
   title?: string;
-  /** Icoon-override voor knoppen die van staat wisselen (bv. Pin/PinOff, Eye/EyeOff). */
+  /** Icoon-override voor knoppen die van staat wisselen (bv. Eye/EyeOff). */
   icon?: ReactNode;
 }
 
@@ -475,67 +475,64 @@ const planningTab: RibbonTabConfig = [
 ];
 
 /**
- * Gedeelde item-specs (issue #46c): "Vastzetten" en "Histogram" staan zowel op de Resources-tab als
- * onder Beeld → Panelen. Bewust GEDUPLICEERD (niet verplaatst) — de melder vroeg er expliciet om ze
- * ook onder Beeld te zien, zonder ze bij Resources weg te halen. Eén definitie, twee callsites, in
- * lijn met `calcButton`/`relationButton`/`calendarButton`/`printPreviewButton` hierboven. De
- * dock-schakelaar deelt sindsdien zijn gedrag via een hook i.p.v. één spec-object — zie hieronder.
+ * Gedeelde item-specs (issue #46c): "Resources", "Resourcedock" en "Histogram" staan zowel op de
+ * Resources-tab als onder Beeld → Panelen. Bewust GEDUPLICEERD (niet verplaatst) — de melder vroeg
+ * er expliciet om ze ook onder Beeld te zien, zonder ze bij Resources weg te halen. Eén definitie,
+ * twee callsites, in lijn met `calcButton`/`relationButton`/`calendarButton`/`printPreviewButton`
+ * hierboven.
+ *
+ * Naamgeving (issue #46, slot): de twee resourceknoppen doen ECHT iets anders — `openResourcePanel`
+ * zet `resourcePanelDocked:false` (het volledige paneel, dat de werkruimte overneemt),
+ * `dockResourcePanel` zet `resourcePanelDocked:true` (de compacte rail in de zijkolom). Ze heten
+ * daarom verschillend ("Resources" vs "Resourcedock") en dragen een verschillend icoon — op béide
+ * tabbladen hetzelfde. Een eerdere ronde noemde de dock onder Beeld óók "Resources" met hetzelfde
+ * `Users`-icoon; dat verplaatste de verwarring alleen maar van binnen-één-tab naar over-tabs-heen.
  */
 
-/**
- * Eén schakelaar, twee knoppen — het gedrag is gedeeld, het etiket is dat bewust NIET (issue #46,
- * laatste punt). De melder zag onder Beeld → Panelen een punaise met het label "Vastzetten" en wist
- * niet wát er vastgezet werd. Op de Resources-tab is die context er wel: de knop staat pal naast
- * "Resources" (het volledige paneel), en het punaise-icoon is juist het verschil tussen die twee.
- * Daarom kan de naam niet overal hetzelfde zijn: noem je hem overal "Resources", dan staan er op de
- * Resources-tab twee knoppen met dezelfde naam én hetzelfde icoon naast elkaar.
- */
-function useDockResourcePanelBinding(): { onClick: () => void; active: boolean; docked: boolean; title: string } {
-  const setUI = useAppStore(s => s.setUI);
-  const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
-  const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-  const { t } = useTranslation('menu');
-  return {
-    onClick: () => {
-      if (showResourcePanel && resourcePanelDocked) {
-        setUI({ showResourcePanel: false, resourcePanelDocked: false });
-      } else {
-        setUI({ showResourcePanel: true, resourcePanelDocked: true });
-      }
-    },
-    active: showResourcePanel && resourcePanelDocked,
-    docked: resourcePanelDocked,
-    // Het begrip "vastzetten/dock" verdwijnt niet uit de UI — het verhuist naar de tooltip, waar
-    // ruimte is om te zeggen wat er gebeurt (rechterkolom i.p.v. de hele werkruimte).
-    title: t('ribbon.dockResourcePanelTitle'),
-  };
-}
-
-/** Resources-tab: staat naast "Resources" (volledig paneel); de punaise ís hier het onderscheid. */
-const dockResourcePanelButton: RibbonButtonSpec = {
-  kind: 'button', id: 'dockResourcePanel', icon: <Pin size={20} />, labelKey: 'menu:ribbon.dockResourcePanel',
+/** Het volledige resourcepaneel — Resources-tab én Beeld → Panelen (dezelfde spec, twee callsites). */
+const openResourcePanelButton: RibbonButtonSpec = {
+  kind: 'button', id: 'openResourcePanel', icon: <Users size={20} />, labelKey: 'menu:ribbon.openResourcePanel',
   use: () => {
-    const b = useDockResourcePanelBinding();
+    const setUI = useAppStore(s => s.setUI);
+    const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
+    const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
+    const { t } = useTranslation('menu');
     return {
-      icon: b.docked ? <PinOff size={20} /> : <Pin size={20} />,
-      onClick: b.onClick,
-      active: b.active,
-      title: b.title,
+      onClick: () => setUI({ showResourcePanel: true, resourcePanelDocked: false }),
+      active: showResourcePanel && !resourcePanelDocked,
+      title: t('ribbon.openResourcePanelTitle'),
     };
   },
 };
 
 /**
- * Beeld → Panelen: hier heten de buren naar het paneel dat ze tonen (Eigenschappen, Histogram), dus
- * heet deze knop "Resources" en draagt hij het resource-icoon dat de app daar al voor gebruikt
- * (`Users`, net als de knop op de Resources-tab). Geen icoonwissel bij aan/uit — precies zoals de
- * Histogram-knop ernaast: de actieve-staat-markering van het lint is de terugkoppeling.
+ * De gedockte compacte rail. Icoon: `PanelRight` — het paneel-in-de-zijkolom-glyph (rechthoek met
+ * een afgescheiden zijvak), dezelfde conventie als VS Code/Figma voor precies deze schakelaar. Het
+ * zegt WAAR het paneel komt; `Users` zegt WAT erin staat en hoort daarom bij de knop hierboven.
+ * Geen pijlpunt (`PanelRightOpen`/`-Close`) — dat detail valt weg op 20 px en in de compacte strip.
+ * Geen icoonwissel bij aan/uit: net als de Histogram-knop ernaast is de actief-markering van het
+ * lint de terugkoppeling. In RTL (`ar`/`fa`) staat de rail gemeten aan de LINKERkant, dus daar
+ * spiegelt het glyph mee — zie `.ribbon-btn-icon .ops-icon-rail` in Ribbon.css.
  */
-const dockResourcePanelViewButton: RibbonButtonSpec = {
-  kind: 'button', id: 'dockResourcePanelView', icon: <Users size={20} />, labelKey: 'menu:ribbon.dockResourcePanelView',
+const dockResourcePanelButton: RibbonButtonSpec = {
+  kind: 'button', id: 'dockResourcePanel', icon: <PanelRight size={20} className="ops-icon-rail" />,
+  labelKey: 'menu:ribbon.dockResourcePanel',
   use: () => {
-    const b = useDockResourcePanelBinding();
-    return { onClick: b.onClick, active: b.active, title: b.title };
+    const setUI = useAppStore(s => s.setUI);
+    const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
+    const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
+    const { t } = useTranslation('menu');
+    return {
+      onClick: () => {
+        if (showResourcePanel && resourcePanelDocked) {
+          setUI({ showResourcePanel: false, resourcePanelDocked: false });
+        } else {
+          setUI({ showResourcePanel: true, resourcePanelDocked: true });
+        }
+      },
+      active: showResourcePanel && resourcePanelDocked,
+      title: t('ribbon.dockResourcePanelTitle'),
+    };
   },
 };
 
@@ -555,18 +552,7 @@ const resourcesTab: RibbonTabConfig = [
   {
     id: 'resourceManagement', labelKey: 'menu:ribbon.resourceManagement',
     items: [
-      {
-        kind: 'button', id: 'openResourcePanel', icon: <Users size={20} />, labelKey: 'menu:ribbon.openResourcePanel',
-        use: () => {
-          const setUI = useAppStore(s => s.setUI);
-          const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
-          const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-          return {
-            onClick: () => setUI({ showResourcePanel: true, resourcePanelDocked: false }),
-            active: showResourcePanel && !resourcePanelDocked,
-          };
-        },
-      },
+      openResourcePanelButton,
       dockResourcePanelButton,
       {
         kind: 'button', id: 'newResource', icon: <Plus size={20} />, labelKey: 'menu:ribbon.newResource',
@@ -738,9 +724,12 @@ const beeldTab: RibbonTabConfig = [
           };
         },
       },
-      // Issue #46c: dezelfde twee paneelschakelaars als op de Resources-tab (gedeelde binding
-      // hierboven). De dock-knop draagt hier zijn eigen naam/icoon — zie de toelichting daar.
-      dockResourcePanelViewButton,
+      // Issue #46c + slot: dezelfde paneelschakelaars als op de Resources-tab (gedeelde specs
+      // hierboven), inclusief het volledige resourcepaneel. Zo staat in deze ene groep het hele
+      // aanbod aan panelen bij elkaar — Eigenschappen, Resources, Resourcedock, Histogram — en is
+      // het verschil tussen de twee resourceknoppen zichtbaar in plaats van verstopt per tabblad.
+      openResourcePanelButton,
+      dockResourcePanelButton,
       toggleHistogramButton,
     ],
   },

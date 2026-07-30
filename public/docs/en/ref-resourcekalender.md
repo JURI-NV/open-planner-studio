@@ -4,7 +4,7 @@ The **Resource calendar** window edits the own calendar of a single resource —
 
 ## Opening
 
-- Open the resource panel: **Resources** → ribbon group **Manage** → **Resources** (full panel) or **Dock** (docked next to the Gantt).
+- Open the resource panel: **Resources** → ribbon group **Manage** → **Resources** (full panel) or **Resource dock** (docked next to the Gantt).
 - In a resource's **Calendar** column, pick a calendar and click the pencil icon (**Edit…**) next to it to edit it; create a new calendar via the same dropdown.
 
 ## Differences from the calendar dialog

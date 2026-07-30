@@ -4,7 +4,7 @@ Okno **Kalendarz zasobu** edytuje własny kalendarz pojedynczego zasobu — na p
 
 ## Otwieranie
 
-- Otwórz panel zasobów: **Zasoby** → grupa wstążki **Zarządzaj** → **Zasoby** (pełny panel) albo **Zadokuj** (zadokowany obok wykresu Gantta).
+- Otwórz panel zasobów: **Zasoby** → grupa wstążki **Zarządzaj** → **Zasoby** (pełny panel) albo **Dok zasobów** (zadokowany obok wykresu Gantta).
 - W kolumnie **Kalendarz** zasobu wybierz kalendarz i kliknij ikonę ołówka (**Edytuj…**) obok niego, aby go edytować; nowy kalendarz utwórz przez tę samą rozwijaną listę.
 
 ## Różnice względem okna dialogowego kalendarza

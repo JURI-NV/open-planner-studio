@@ -77,7 +77,7 @@ Se vedi "Ricalcola (F5) per mostrare il carico" invece delle barre, la pianifica
 
 ## Il pannello risorse agganciato
 
-Oltre al pannello risorse completo (pulsante della barra multifunzione **Risorse**), c'è una variante compatta che puoi agganciare a destra: il pulsante **Aggancia** nel gruppo della barra multifunzione **Gestisci**. Questo pannello agganciato mostra solo il nome, le **Unità max.** (modificabili direttamente) e un punto rosso/verde per la sovrallocazione — una panoramica rapida accanto al tuo Gantt senza aprire il pannello completo. Il pannello risorse agganciato e il pannello delle proprietà di un'attività si escludono a vicenda — vedrai solo uno dei due nella colonna destra alla volta.
+Oltre al pannello risorse completo (pulsante della barra multifunzione **Risorse**), c'è una variante compatta che puoi agganciare a destra: il pulsante **Dock risorse** nel gruppo della barra multifunzione **Gestisci**. Questo pannello agganciato mostra solo il nome, le **Unità max.** (modificabili direttamente) e un punto rosso/verde per la sovrallocazione — una panoramica rapida accanto al tuo Gantt senza aprire il pannello completo. Il pannello risorse agganciato e il pannello delle proprietà di un'attività si escludono a vicenda — vedrai solo uno dei due nella colonna destra alla volta.
 
 ## Individuare la sovrallocazione
 

@@ -77,7 +77,7 @@ Wenn Sie statt Balken „Neu berechnen (F5), um die Auslastung anzuzeigen" sehen
 
 ## Das angedockte Ressourcen-Panel
 
-Neben dem vollständigen Ressourcen-Panel (Menüband-Schaltfläche **Ressourcen**) gibt es eine kompakte Variante, die Sie rechts andocken können: die Schaltfläche **Andocken** in der Menübandgruppe **Verwalten**. Dieses angedockte Panel zeigt nur den Namen, die **Max. Einheiten** (direkt editierbar) und einen roten/grünen Punkt für Überlastung — eine schnelle Übersicht neben Ihrem Gantt, ohne das vollständige Panel zu öffnen. Das angedockte Ressourcen-Panel und der Eigenschaftenbereich einer Aufgabe schließen sich gegenseitig aus — Sie sehen im rechten Bereich stets nur eines von beiden.
+Neben dem vollständigen Ressourcen-Panel (Menüband-Schaltfläche **Ressourcen**) gibt es eine kompakte Variante, die Sie rechts andocken können: die Schaltfläche **Ressourcen-Dock** in der Menübandgruppe **Verwalten**. Dieses angedockte Panel zeigt nur den Namen, die **Max. Einheiten** (direkt editierbar) und einen roten/grünen Punkt für Überlastung — eine schnelle Übersicht neben Ihrem Gantt, ohne das vollständige Panel zu öffnen. Das angedockte Ressourcen-Panel und der Eigenschaftenbereich einer Aufgabe schließen sich gegenseitig aus — Sie sehen im rechten Bereich stets nur eines von beiden.
 
 ## Überlastungen erkennen
 

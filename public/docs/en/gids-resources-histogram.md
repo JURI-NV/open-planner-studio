@@ -85,7 +85,7 @@ If you see "Recalculate (F5) to show the load" instead of bars, the schedule has
 
 Besides the full resource panel (ribbon button **Resources**), there's a compact variant you can dock on the right: the **Resource dock** button in the **Manage** ribbon group. This docked panel shows only the name, **Max units** (editable directly) and a red/green dot for overallocation — a quick overview next to your Gantt without opening the full panel. The docked resource panel and a task's properties panel are mutually exclusive — you'll see only one of the two in the right rail at a time.
 
-The same two toggles also sit on the **View** tab in the **Panels** ribbon group, next to **Properties**. There they are named after the panel they show: **Resources** (the same button as **Resource dock** above) and **Histogram**. Wherever you click them, they do exactly the same thing.
+The same three buttons — **Resources**, **Resource dock** and **Histogram** — also sit on the **View** tab in the **Panels** ribbon group, next to **Properties**. Same name, same icon, same behaviour: wherever you click them, they do exactly the same thing. The difference is between the two resource buttons themselves: **Resources** opens the full panel over the workspace, **Resource dock** pins the compact list in the side column.
 
 ## Spotting overallocation
 

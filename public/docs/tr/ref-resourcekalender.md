@@ -4,7 +4,7 @@
 
 ## Açma
 
-- Kaynak panelini açın: **Kaynaklar** → **Yönet** şerit grubu → **Kaynaklar** (tam panel) veya **Sabitle** (Gantt'ın yanında sabitlenmiş).
+- Kaynak panelini açın: **Kaynaklar** → **Yönet** şerit grubu → **Kaynaklar** (tam panel) veya **Kaynak doku** (Gantt'ın yanında sabitlenmiş).
 - Bir kaynağın **Takvim** sütununda bir takvim seçin ve onu düzenlemek için yanındaki kalem simgesine (**Düzenle…**) tıklayın; aynı açılır menü üzerinden yeni bir takvim oluşturun.
 
 ## Takvim iletişim penceresinden farklar

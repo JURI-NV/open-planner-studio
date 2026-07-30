@@ -4,7 +4,7 @@ La finestra **Calendario risorsa** modifica il calendario proprio di una singola
 
 ## Apertura
 
-- Apri il pannello risorse: **Risorse** → gruppo della barra multifunzione **Gestisci** → **Risorse** (pannello completo) o **Aggancia** (agganciato accanto al Gantt).
+- Apri il pannello risorse: **Risorse** → gruppo della barra multifunzione **Gestisci** → **Risorse** (pannello completo) o **Dock risorse** (agganciato accanto al Gantt).
 - Nella colonna **Calendario** di una risorsa, scegli un calendario e fai clic sull'icona a matita (**Modifica…**) accanto per modificarlo; crea un nuovo calendario tramite lo stesso menu a tendina.
 
 ## Differenze rispetto alla finestra di dialogo calendario

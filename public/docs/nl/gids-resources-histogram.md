@@ -85,7 +85,7 @@ Staat er "Herbereken (F5) om de belasting te tonen" in plaats van staafjes, dan 
 
 Naast het volledige resourcepaneel (lintknop **Resources**) is er een compacte variant die je aan de rechterkant kunt vastzetten: knop **Resourcedock** in de lintgroep **Beheer**. Dit gedockte paneel toont alleen naam, **Max. eenheden** (direct bewerkbaar) en een rood/groen bolletje voor overallocatie — een snel overzicht naast je Gantt zonder het volledige paneel open te zetten. Het gedockte resourcepaneel en het eigenschappenpaneel van een taak sluiten elkaar wederzijds uit: je ziet er telkens één van de twee in de rechterrail.
 
-Dezelfde twee schakelaars staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Daar heten ze naar het paneel dat ze tonen: **Resources** (dat is dezelfde knop als **Resourcedock** hierboven) en **Histogram**. Waar je ze ook aanklikt, ze doen precies hetzelfde.
+Dezelfde drie knoppen — **Resources**, **Resourcedock** en **Histogram** — staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Zelfde naam, zelfde icoon, zelfde werking: waar je ze ook aanklikt, ze doen precies hetzelfde. Het verschil zit tussen de twee resourceknoppen onderling: **Resources** opent het volledige paneel over de werkruimte, **Resourcedock** zet de compacte lijst vast in de zijkolom.
 
 ## Overallocatie herkennen
 

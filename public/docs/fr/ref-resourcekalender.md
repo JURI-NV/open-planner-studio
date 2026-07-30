@@ -4,7 +4,7 @@ La fenêtre **Calendrier de la ressource** modifie le calendrier propre d'une se
 
 ## Ouverture
 
-- Ouvrez le panneau des ressources : **Ressources** → groupe de ruban **Gérer** → **Ressources** (panneau complet) ou **Ancrer** (ancré à côté du Gantt).
+- Ouvrez le panneau des ressources : **Ressources** → groupe de ruban **Gérer** → **Ressources** (panneau complet) ou **Dock ressources** (ancré à côté du Gantt).
 - Dans la colonne **Calendrier** d'une ressource, choisissez un calendrier et cliquez sur l'icône de crayon (**Modifier…**) à côté pour le modifier ; créez un nouveau calendrier via la même liste déroulante.
 
 ## Différences par rapport à la boîte de dialogue de calendrier

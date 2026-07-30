@@ -77,7 +77,7 @@ Si ve "Recalcula (F5) para mostrar la carga" en lugar de barras, la planificaci�
 
 ## El panel de recursos anclado
 
-Además del panel de recursos completo (botón de cinta **Recursos**), hay una variante compacta que puede anclar a la derecha: el botón **Anclar** en el grupo de la cinta **Gestionar**. Este panel anclado muestra solo el nombre, las **Unidades máx.** (editables directamente) y un punto rojo/verde de sobreasignación — una visión rápida junto a su Gantt sin abrir el panel completo. El panel de recursos anclado y el panel de propiedades de una tarea son mutuamente excluyentes — solo verá uno de los dos en la franja lateral derecha a la vez.
+Además del panel de recursos completo (botón de cinta **Recursos**), hay una variante compacta que puede anclar a la derecha: el botón **Dock de recursos** en el grupo de la cinta **Gestionar**. Este panel anclado muestra solo el nombre, las **Unidades máx.** (editables directamente) y un punto rojo/verde de sobreasignación — una visión rápida junto a su Gantt sin abrir el panel completo. El panel de recursos anclado y el panel de propiedades de una tarea son mutuamente excluyentes — solo verá uno de los dos en la franja lateral derecha a la vez.
 
 ## Detectar sobreasignación
 

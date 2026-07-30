@@ -4,7 +4,7 @@ Das Fenster **Ressourcenkalender** bearbeitet den eigenen Kalender einer einzeln
 
 ## Öffnen
 
-- Öffnen Sie das Ressourcen-Panel: **Ressourcen** → Menübandgruppe **Verwalten** → **Ressourcen** (vollständiges Panel) oder **Andocken** (angedockt neben dem Gantt).
+- Öffnen Sie das Ressourcen-Panel: **Ressourcen** → Menübandgruppe **Verwalten** → **Ressourcen** (vollständiges Panel) oder **Ressourcen-Dock** (angedockt neben dem Gantt).
 - In der Spalte **Kalender** einer Ressource wählen Sie einen Kalender und klicken auf das Bleistift-Symbol (**Bearbeiten…**) daneben, um ihn zu bearbeiten; einen neuen Kalender erstellen Sie über dasselbe Dropdown.
 
 ## Unterschiede zum Kalender-Dialog

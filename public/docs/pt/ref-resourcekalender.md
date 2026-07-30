@@ -4,7 +4,7 @@ A janela **Calendário do recurso** edita o calendário próprio de um único re
 
 ## Abrir
 
-- Abra o painel de recursos: **Recursos** → grupo do friso **Gerir** → **Recursos** (painel completo) ou **Ancorar** (ancorado ao lado do Gantt).
+- Abra o painel de recursos: **Recursos** → grupo do friso **Gerir** → **Recursos** (painel completo) ou **Dock de recursos** (ancorado ao lado do Gantt).
 - Na coluna **Calendário** de um recurso, escolha um calendário e clique no ícone de lápis (**Editar…**) ao lado para o editar; crie um novo calendário através da mesma lista pendente.
 
 ## Diferenças em relação ao diálogo de calendário

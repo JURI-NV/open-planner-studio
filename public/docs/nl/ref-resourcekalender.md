@@ -4,7 +4,7 @@ Het venster **Resourcekalender** bewerkt de eigen kalender van één resource �
 
 ## Openen
 
-- Open het resourcepaneel: **Resources** → lintgroep **Beheer** → **Resources** (volledig paneel) of **Vastzetten** (gedockt naast de Gantt).
+- Open het resourcepaneel: **Resources** → lintgroep **Beheer** → **Resources** (volledig paneel) of **Resourcedock** (gedockt naast de Gantt).
 - Kies in de kolom **Kalender** van een resource een kalender en klik op het potlood-icoon (**Bewerken…**) ernaast om die te bewerken; kies een nieuwe kalender aan te maken via dezelfde dropdown.
 
 ## Verschillen met de kalenderdialoog

@@ -185,13 +185,32 @@
   color: var(--theme-text-dim);
   text-align: center;
   line-height: 1.1;
-  max-width: 58px;
+  /* Issue #46-slot: was 58px. Een derde regel kan niet — `.ribbon-btn` is 66px hoog en daarvan gaat
+     38px op aan icoon+gaps, dus er past maar 2×11px label in zonder de hele lintbalk te verhogen.
+     De ruimte moest dus in de BREEDTE komen. 76px is de gemeten drempel waarboven "Resourcedock"
+     (74,6px) op één regel past: `word-break` breekt puur op de overloop-positie, dus bij een
+     smallere kolom eindigt zo'n samenstelling als "Resourcedoc" + een losse "k". Samenstellingen
+     mét een breekpunt blijven netjes twee regels ("Ressourcen-" / "Dock", "Dock" / "ressources").
+     Blast radius gemeten (nl+de, tabbladen start/planning/resources/relations/beeld/table, vensters
+     1600→900px): het lint loopt nergens over en de auto-fit-degradatie in Ribbon.tsx is identiek
+     aan die bij 58px — één uitzondering, de Duitse Beeld-tab op exact 1200px, waar één knop een
+     stap eerder naar icoon-only zakt (tooltip blijft). Bonus: een al bestaand afgeknipt label op de
+     Planning-tab is hiermee ook heel. */
+  max-width: 76px;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   word-break: break-word;
   flex-shrink: 1;
+}
+
+/* Iconen die naar een KANT van de werkruimte verwijzen (de gedockte zijkolom) moeten meespiegelen
+   in RTL: bij `dir="rtl"` staat die kolom gemeten aan de linkerkant van het venster, dus een glyph
+   dat naar rechts wijst zou daar het verkeerde vak aanwijzen. Bewust smal gehouden tot deze ene
+   klasse — de overige lint-iconen zijn richtingloos en mogen niet spiegelen. */
+[dir='rtl'] .ribbon-btn-icon .ops-icon-rail {
+  transform: scaleX(-1);
 }
 
 .ribbon-btn:hover .ribbon-btn-label {

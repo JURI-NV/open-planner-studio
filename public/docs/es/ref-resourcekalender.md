@@ -4,7 +4,7 @@ La ventana **Calendario del recurso** edita el calendario propio de un único re
 
 ## Abrir
 
-- Abra el panel de recursos: **Recursos** → grupo de la cinta **Gestionar** → **Recursos** (panel completo) o **Anclar** (anclado junto al Gantt).
+- Abra el panel de recursos: **Recursos** → grupo de la cinta **Gestionar** → **Recursos** (panel completo) o **Dock de recursos** (anclado junto al Gantt).
 - En la columna **Calendario** de un recurso, elija un calendario y haga clic en el icono de lápiz (**Editar…**) junto a él para editarlo; cree un nuevo calendario mediante el mismo desplegable.
 
 ## Diferencias con el diálogo de calendario
