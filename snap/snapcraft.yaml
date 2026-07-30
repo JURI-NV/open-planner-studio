@@ -72,12 +72,19 @@ apps:
       - removable-media # idem op externe schijven/USB
       - network         # update-check, extensie-catalogus (CLIENT-verkeer)
       # De MCP-bridge is een echte server: `mcp_bridge.rs` bindt een tiny_http-listener op
-      # 127.0.0.1:<poort>. `network` dekt dat NIET — die interface is uitdrukkelijk client-only
-      # ("Can access the network as a client" in het gegenereerde AppArmor-profiel, zonder inet-
-      # regels); luisteren is precies waar `network-bind` voor is. Zonder deze plug faalt het binden
-      # en toont de app een bind-/"poort bezet"-fout die naar een tweede venster wijst dat er niet is
-      # — een geloofwaardige melding over de verkeerde oorzaak. Auto-connect, dus geen store-review.
-      # NOG NIET op een echte snap-installatie geverifieerd: zie docs/TODO.md.
+      # 127.0.0.1:<poort>, en `network` is uitdrukkelijk client-only ("Can access the network as a
+      # client" in het gegenereerde AppArmor-profiel, zonder inet-regels). `network-bind` is de
+      # interface die luisteren dekt, dus die hoort hier te staan.
+      #
+      # GEMETEN (2026-07-30, snap 2026.7.13 rev 1, ZONDER deze plug): binden werkt daar tóch —
+      # een listener op 127.0.0.1 lukt binnen `snap run --shell`, en de geïnstalleerde app luisterde
+      # daadwerkelijk op 3877 met een volledig werkende bridge (401/403-paden, initialize, 39 tools,
+      # echte tool-call). De oorzaak is `browser-support`: die staat in het seccomp-profiel
+      # bind/listen/accept toe "for anonymous sockets", en er zijn geen AppArmor-inet-regels die het
+      # alsnog mediëren. De mogelijkheid om te luisteren komt dus VAN EEN PLUG DIE ER VOOR WEBKIT
+      # ZIT, niet van een bewuste keuze. Deze regel repareert daarom niets — hij legt de afhankelijk-
+      # heid vast, zodat de bridge niet stilvalt als browser-support ooit wordt aangescherpt of
+      # verdwijnt. Auto-connect, dus geen store-review.
       - network-bind    # AI-modus: de MCP-bridge luistert op localhost
       - browser-support # WebKit-rendering/sandbox
       - audio-playback

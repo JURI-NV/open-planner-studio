@@ -130,16 +130,19 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 > beantwoordt, zonder dat iemand dat merkt. Dat is dezelfde faalklasse als de stille no-ops die deze
 > ronde zijn opgeruimd — alleen een laag dieper.
 
-- [ ] **Snap: `network-bind` toegevoegd, maar niet op een echte installatie geverifieerd.** De
-  MCP-bridge bindt een `tiny_http`-listener op 127.0.0.1; `snap/snapcraft.yaml` plugde alleen
-  `network` (client-only) terwijl de storebeschrijving de MCP-server inmiddels wél aanprijst.
-  `network-bind` staat er nu bij. Wat NIET is vastgesteld: of het binden zónder die plug echt werd
-  geweigerd — op seccomp-niveau is `bind` toegestaan (via `network` én `browser-support`), dus de
-  weigering zou van AppArmor moeten komen, en er was lokaal geen geïnstalleerde snap met
-  `network-bind` als vergelijkingsgeval. Te doen bij de volgende snap-build (de
-  workflow_dispatch-route uit `snapcraft.yaml`): installeren, AI-modus aan, bridge starten, en
-  controleren dat hij luistert in plaats van een bind-fout te tonen. In dezelfde run meenemen: of
-  "Backup-map openen" (xdg-open via de portal) onder confinement werkt.
+- [x] **Snap: werkt de MCP-bridge onder confinement?** *(gemeten 2026-07-30 op de geïnstalleerde
+  snap 2026.7.13 rev 1 — JA, volledig)* De vraag kwam op omdat `snap/snapcraft.yaml` alleen
+  `network` plugde (client-only) terwijl de storebeschrijving de MCP-server aanprijst. Gemeten
+  uitkomst: binden lukt tóch. Een TCP-listener op 127.0.0.1 slaagt binnen `snap run --shell`, en de
+  geïnstalleerde app luisterde daadwerkelijk op 3877 met een werkende bridge. De hele keten is
+  end-to-end gedraaid tegen die snap (dit was T24, dat nooit echt gelopen had): geen token ⇒ 401,
+  fout token ⇒ 401, `Origin`-header ⇒ 403, `initialize` ⇒ serverInfo 2026.7.13, `tools/list` ⇒ 39
+  tools met uitsluitend de `planner_`-prefix, en een echte `tools/call` op het geopende document met
+  correcte envelope. Alle antwoorden kwamen direct — geen spoor van het 120s-timeout-beeld.
+  Oorzaak dat het zonder `network-bind` werkt: `browser-support` staat in het seccomp-profiel
+  bind/listen/accept toe "for anonymous sockets", en er zijn geen AppArmor-inet-regels die het
+  alsnog mediëren. `network-bind` is alsnog toegevoegd — niet als reparatie, maar om die
+  afhankelijkheid vast te leggen: nu hangt het luisteren aan een plug die er voor WebKit zit.
 - [ ] **De bridge merkt niet dat het venster erachter weg is.** Gemeten: het venster dat poort 3877
       bezat had een hot-reload gehad, waardoor de frontend-listeners uit `createBridgeController`
       verdwenen waren. De Rust-kant bleef luisteren; élke aanvraag liep vast tot de 120s-timeout.
