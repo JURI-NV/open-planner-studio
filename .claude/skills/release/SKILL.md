@@ -30,7 +30,11 @@ per uitgebrachte versie (élke versie, geen gaten; géén `Ongepubliceerd`-kop, 
   `src-tauri/Cargo.toml` blijft **bewust `0.1.0`** — niet aanraken.
 - Release gebeurt **vanaf `main`**; feature-branch eerst mergen.
 - `release.yml` bouwt + signeert installers en publiceert `latest.json`; `snap.yml` verpakt de
-  `.deb` tot Snap. Beide vuren op een `v*`-tag.
+  `.deb` tot Snap. Beide vuren op een `v*`-tag. **Sinds 2026-07-30 staat `SNAPCRAFT_STORE_CREDENTIALS`**
+  als GitHub-secret (zie `docs/release-secrets.md`) — `snap.yml` publiceert de snap dus voortaan ook
+  écht naar het `stable`-kanaal van de Snap Store, bovenop het bijvoegen als GitHub-release-asset.
+  Dat is **onomkeerbaar** (een Snap-release trek je niet terug) — reken 'm mee in de akkoord-poort
+  (stap 12).
 - **De releasetekst heeft één bron**: `docs/release-notes/vX.Y.Z.md` (alleen de bullets).
   `scripts/release-notes.mjs` maakt daar de releasepagina-markdown én de platte updater-tekst van;
   `release.yml` roept dat zelf aan. Het bestand moet dus **in de getagde commit** zitten.
@@ -163,9 +167,10 @@ de user wil de review-uitkomst zien vóór de akkoord-vraag.
 
 ### 12. ⛔ AKKOORD-POORT
 Toon de user: de **versie**, de **paar bullets**, en dat CI nu gaat bouwen + publiceren +
-auto-updaten naar alle gebruikers. Wacht op een expliciet "ja". Dit is de enige harde vraag —
-de user bewaakt releases streng. (Bij een eenmalig verleend mandaat: nog steeds versie + notes
-tonen, maar door.)
+auto-updaten naar alle gebruikers — **inclusief een live publish naar het `stable`-kanaal van de
+Snap Store** (onomkeerbaar, sinds de credentials er staan — zie Vaste feiten). Wacht op een
+expliciet "ja". Dit is de enige harde vraag — de user bewaakt releases streng. (Bij een eenmalig
+verleend mandaat: nog steeds versie + notes tonen, maar door.)
 
 ### 13. Tag + push → CI vuurt
 ```bash
@@ -179,7 +184,9 @@ git push origin vX.Y.Z
 gh run list --limit 5
 gh run watch <run-id>       # of een achtergrond-lus op gh run list
 ```
-`release.yml` (installers + `latest.json`) en `snap.yml` moeten beide groen worden.
+`release.yml` (installers + `latest.json`) en `snap.yml` moeten beide groen worden. De
+"Publish to Snap Store"-stap in `snap.yml` heeft geen `continue-on-error`, dus een groene
+`snap.yml`-job is op zich al bewijs dat de store-publish ook echt gelukt is.
 
 ### 15. Releaseteksten controleren (zet `release.yml` zelf — eis 2)
 Sinds `fe0afb1` zet de workflow beide teksten uit `docs/release-notes/vX.Y.Z.md`: `create-release`
@@ -193,6 +200,16 @@ curl -sSL https://github.com/OpenAEC-Foundation/open-planner-studio/releases/lat
 Verwacht: jouw bullets in de body (mét Downloads-sectie eronder) en een niet-lege `notes`.
 De `/latest/download/`-CDN kan even de oude versie serveren — hercontroleer bij twijfel, of pak
 het asset rechtstreeks via `gh release download`.
+
+Check ook de Snap Store-publish zelf:
+```bash
+gh run view <snap-run-id> --repo OpenAEC-Foundation/open-planner-studio \
+  --json jobs --jq '.jobs[].steps[] | select(.name=="Publish to Snap Store") | .conclusion'
+```
+Verwacht `success`. Bij een eerste publish (of een manifest-wijziging in `snap/snapcraft.yaml`,
+bv. permissies/plugs) kan Canonical een handmatige review vereisen vóórdat de nieuwe revisie
+zichtbaar is op https://snapcraft.io/open-planner-studio — dat is geen falen van de workflow,
+gewoon wachten.
 
 ### 16. Alleen bij een lege/generieke tekst — handmatig herstel
 Klopt stap 15 niet (bestand vergeten, notes-stap rood), repareer dan achteraf:
@@ -266,6 +283,7 @@ branch en PR — `main` vereist daar een review en Nozzit heeft er géén bypass
 | macOS auto-update | Vereist de **`app`-target** in `bundle.targets`; zonder → alleen `.dmg`, geen `darwin`-updater-entry. |
 | Windows re-sign | Na Azure-signing klopt de updater-`.sig` niet meer; `release.yml` herbouwt de `.nsis.zip` zelf + haalt de URL via de release-API (spaties→punten in assetnamen → anders 404). |
 | Snap/AppImage | Slaan de in-app updater over (Snap Store werkt zelf bij). Detectie via `install_kind`. |
+| Snap Store publish | Sinds 2026-07-30 staat `SNAPCRAFT_STORE_CREDENTIALS` — elke release publiceert nu automatisch en onomkeerbaar naar het `stable`-kanaal. Verloopt/ontbreekt dit secret ooit weer (roteren via `snapcraft export-login`, zie `docs/release-secrets.md`), dan valt `snap.yml` stilzwijgend terug op alleen bouwen + als release-asset bijvoegen, zoals vóór 2026-07-30. |
 | Cargo.toml | Blijft `0.1.0` — `bump` raakt 'm bewust niet. |
 | Versie-sync worktrees | Na een release lopen open worktrees achter op de versie; sync main→worktree waar relevant. |
 | latest.json markdown | De updater rendert geen markdown netjes → notes in `latest.json` = platte tekst. `scripts/release-notes.mjs --format=notes` stript inline-markdown, maar schrijf de bullets alsnog opmaak-arm. |
