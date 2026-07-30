@@ -45,7 +45,11 @@ precies deze vijf items, in deze volgorde.
 ## Slepen op een taakbalk
 
 Een taakbalk vastpakken en verslepen verplaatst de taak (of, bij de rand van de balk, verandert de
-duur). Houd **Shift** ingedrukt terwijl je vanaf een balk sleept, en je start in plaats daarvan het
+duur). Zolang je aan een **rand** trekt, verschijnt er een klein donker pilletje tegen die rand met
+de duur die de taak op dat moment zou krijgen — bijvoorbeeld `15d`, of `6u` bij een taak in uren.
+Het loopt live mee terwijl je sleept, zodat je de nieuwe duur al ziet vóórdat je de muisknop
+loslaat. Bij het verplaatsen van de héle balk verschijnt het niet: de duur verandert dan immers
+niet. Houd **Shift** ingedrukt terwijl je vanaf een balk sleept, en je start in plaats daarvan het
 leggen van een **relatie** naar de taak waar je loslaat — hetzelfde als **Relatie leggen vanaf hier**
 in het balk-contextmenu, maar dan met de muis in één beweging.
 

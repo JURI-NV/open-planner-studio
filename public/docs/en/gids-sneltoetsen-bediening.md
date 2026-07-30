@@ -44,6 +44,10 @@ these five items, in this order.
 ## Dragging on a task bar
 
 Grabbing and dragging a task bar moves the task (or, when grabbing the edge, changes its duration).
+While you drag an **edge**, a small dark pill appears against that edge showing the duration the
+task would get — `15d`, for instance, or `6h` for a task planned in hours. It updates live as you
+drag, so you see the new duration before you release the mouse button. Moving the whole bar does not
+show it: that gesture leaves the duration unchanged.
 Hold **Shift** while dragging from a bar, and instead you start drawing a **relation** to whichever
 task you release on — the same thing as **Start relation from here** in the bar's context menu, but
 in one mouse motion.

@@ -239,6 +239,18 @@ export function GanttCanvas() {
   // mousedown-dispatch (handleMouseDown) doet nog de hit-test en roept de juiste `start…`-functie
   // aan; de hover-guard leest de gebundelde `active`-vlaggen i.p.v. een lange lijst losse states.
   const barDrag = useBarDrag({ zoom: view.zoom, enableQuarterHourZoom, enableHourPlanning, calendar, effectiveCalById, compressNonWorkdays, updateTask });
+  // Issue #51: tijdens een RAND-sleep zet de renderer een compact duur-pilletje tegen die balkrand.
+  // De duur staat op dat moment al live in de store (elke mousemove commit een `updateTask`), dus
+  // dit is puur "welke taak, welke rand" — er wordt hier niets herrekend. Een `body`-sleep
+  // (verplaatsen) valt er BEWUST buiten: die verandert de duur niet, en een meelopend duurcijfer bij
+  // een gebaar dat hem niet raakt is misleidend. De start/finish die dán wél schuiven staan al in de
+  // taakregel links en in de balkpositie zelf.
+  const durationDrag = useMemo(
+    () => (barDrag.dragState && barDrag.dragState.edge !== 'body'
+      ? { taskId: barDrag.dragState.taskId, edge: barDrag.dragState.edge }
+      : undefined),
+    [barDrag.dragState],
+  );
   const pan = usePan({ setScroll, justBoxSelectedRef });
   const boxSelect = useBoxSelect({ canvasRef, rendererRef, selectTasks, deselectAll, justBoxSelectedRef });
   // Issue #21 punt 1 (fase 2): id → Task voor `resolveDropTarget` (ouder/childIds-opzoek).
@@ -583,6 +595,8 @@ export function GanttCanvas() {
       durationDisplay,
       durationSuffixes,
       externalStaleLabel: tTask('externalLinks.stale'),
+      // Issue #51: live duur-pilletje bij een lopende rand-sleep (undefined ⇒ niets extra's).
+      durationDrag,
       highContrast: uiTheme === 'high-contrast',
       // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
       compressNonWorkdays,
@@ -594,7 +608,7 @@ export function GanttCanvas() {
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 

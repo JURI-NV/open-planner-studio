@@ -5,7 +5,7 @@ import { parseDate, parseInstant, addCalendarDays, diffCalendarDays, isoDayOfWee
 import { WorkCalendar } from '@/types/calendar';
 import { isHourCalendar } from '@/services/subdayIo';
 import { effHoursPerDay, taskDurationMinutes } from '@/utils/taskDuration';
-import { formatDuration, type DurationSuffixes } from '@/utils/durationFormat';
+import { formatDuration, DEFAULT_DURATION_SUFFIXES, type DurationSuffixes } from '@/utils/durationFormat';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
@@ -75,6 +75,12 @@ export interface GanttRenderOptions {
   /** Fase 2.9 (§5.5): vertaald "verouderd"-badgelabel voor een externe ghost-balk met sourceMissing.
    *  Afwezig ⇒ NL 'verouderd'. */
   externalStaleLabel?: string;
+  /** Issue #51 — de taak die op DIT moment aan een RAND gerekt wordt, plus welke rand. Aanwezig ⇒
+   *  de renderer zet een compact duur-pilletje tegen die balkrand (`drawDragDurationBadge`).
+   *  Afwezig ⇒ er wordt niets extra's getekend (byte-identiek aan vóór #51). Een `body`-sleep
+   *  (verplaatsen) hoort hier BEWUST niet in: de duur verandert dan niet, dus een meelopend
+   *  duurcijfer zou suggereren dat het gebaar hem beïnvloedt. */
+  durationDrag?: { taskId: string; edge: 'left' | 'right' };
   /** Fase 2.9 (§5.4): high-contrast-thema actief. BINDEND user-besluit — in HC is kleur alléén
    *  onvoldoende, dus near-critical-balken krijgen een geblokt/gearceerd vulpatroon (kritiek=massief,
    *  near-critical=geblokt, normaal=omlijnd). Afwezig/false ⇒ licht/donker (amber-kleur als signaal). */
@@ -339,6 +345,10 @@ export class GanttRenderer {
     // "opgerekte balk van vier weken" zonder duiding).
     this.drawHolidayLabels();
     this.drawProgressLine();
+    // Issue #51: het duur-pilletje van een lopende rand-sleep. Ná alle chart-lagen (het moet
+    // leesbaar bovenop de balk staan), maar VÓÓR header en taaktabel — die overschilderen hun eigen
+    // zone, zodat een pilletje dat tegen de linker chart-rand aan zit nooit óver de takenlijst valt.
+    this.drawDragDurationBadge();
     this.drawTimelineHeader();
     this.drawTaskTable();
   }
@@ -1341,6 +1351,117 @@ export class GanttRenderer {
     ctx.beginPath();
     ctx.arc(px - 6, y - 5, 2.5, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // ── Issue #51: live duur-pilletje tijdens een rand-sleep ────────────────────
+
+  /** Halve tekstmarge links/rechts binnen het pilletje. */
+  private static readonly DRAG_BADGE_PAD_X = 5;
+  /** Hoogte van het pilletje — iets hoger dan de balk (rowHeight/2 = 14), zodat hij als los
+   *  chipje leest en niet als een stuk vulling van de balk zelf. */
+  private static readonly DRAG_BADGE_H = 16;
+  /** Afstand tussen het pilletje en de gesleepte balkrand. Klein genoeg dat het label duidelijk
+   *  bij die rand hoort (de melder plakte hem in zijn voorbeeld tegen de resize-cursor aan). */
+  private static readonly DRAG_BADGE_GAP = 4;
+
+  /**
+   * Duurtekst voor het sleep-pilletje. Hergebruikt de duurkolom-formattering (`durationText`) en
+   * repareert alleen de twee gevallen waarin die voor dit doel te kort schiet:
+   *  - urenplanning UIT ⇒ `durationText` plakt een HARDGECODEERDE `d` achter het getal; los van de
+   *    tabelkop is dat de enige eenheidsaanduiding die de gebruiker ziet, dus hier de VERTAALDE
+   *    afkorting;
+   *  - een UUR-taak terwijl de urenplanning-schakelaar uit staat ⇒ `durationText` zou
+   *    `scheduleDuration` (dagen) tonen, maar een uur-sleep muteert `durationMinutes`. Het getal
+   *    zou dus stilstaan terwijl de balk beweegt. Formatteer dan alsnog uit de minuten.
+   */
+  private dragDurationText(task: Task): string {
+    const sfx = this.opts.durationSuffixes ?? DEFAULT_DURATION_SUFFIXES;
+    const startStr = task.time.earlyStart || task.time.scheduleStart;
+    const endStr = task.time.earlyFinish || task.time.scheduleFinish;
+    const hourMode = startStr.includes('T') || endStr.includes('T');
+    if (hourMode) {
+      const cal = this.opts.effectiveCalById?.get(task.id) ?? this.opts.calendar;
+      const minutes = task.time.durationMinutes ?? taskDurationMinutes(task, cal);
+      return formatDuration(minutes, effHoursPerDay(cal), this.opts.durationDisplay ?? 'auto', sfx);
+    }
+    if (!this.opts.enableHourPlanning) return `${task.time.scheduleDuration}${sfx.day}`;
+    return this.durationText(task);
+  }
+
+  /**
+   * Issue #51 — compact duur-pilletje tegen de rand die op dit moment gerekt wordt.
+   *
+   * Waarom hier en niet als DOM-overlay: de x van een balkrand komt uit `barGeometry` bovenop de
+   * gedeelde (mogelijk werkdag-gecomprimeerde) as. Buiten de renderer zou die geometrie een tweede
+   * keer nagebouwd moeten worden — precies het soort duplicaat dat elders in dit bestand met veel
+   * moeite tot ÉÉN as-chokepoint is teruggebracht. Bijkomend: het pilletje verschijnt zo in
+   * dezelfde paint als de balk die het beschrijft (geen frame-lag/scheuring tussen DOM en canvas),
+   * en de knipping tegen taaktabel/header komt gratis uit de tekenvolgorde in `render()`.
+   *
+   * Plaatsing: bij voorkeur BINNEN de balk tegen de gesleepte rand (zoals de melder het tekende);
+   * past hij daar niet (smalle balk), dan net BUITEN die rand. In beide gevallen geklemd op het
+   * chart-gebied, zodat een balk die tegen de vensterrand aan ligt zijn label niet kwijtraakt.
+   */
+  private drawDragDurationBadge(): void {
+    const drag = this.opts.durationDrag;
+    if (!drag) return;
+    const rowIndex = this.rowIndexByTask.get(drag.taskId);
+    if (rowIndex === undefined) return;
+    const row = this.rows[rowIndex];
+    if (row?.kind !== 'task') return;
+    const task = row.task;
+
+    const { rowHeight, headerHeight, canvasHeight, canvasWidth, taskTableWidth } = this.opts;
+    const barHeight = rowHeight * 0.5;
+    const barY = this.rowToY(rowIndex) + (rowHeight - barHeight) / 2;
+    // Rij weggescrold: niets tekenen (zelfde zichtbaarheidstest als drawTaskBars).
+    if (barY + barHeight < headerHeight || barY > canvasHeight) return;
+
+    const ctx = this.ctx;
+    const h = GanttRenderer.DRAG_BADGE_H;
+    const gap = GanttRenderer.DRAG_BADGE_GAP;
+    const label = this.dragDurationText(task);
+
+    ctx.save();
+    ctx.font = this.font(10, true);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(label).width + GanttRenderer.DRAG_BADGE_PAD_X * 2;
+
+    const { x1, x2 } = this.barGeometry(task);
+    let x: number;
+    if (drag.edge === 'right') {
+      // Rechts: bij voorkeur IN de balk (zoals de melder het tekende). De taaknaam staat links
+      // uitgelijnd en wordt afgekapt, dus daar is het rustig.
+      x = x2 - gap - w;
+      if (x < x1 + 2) x = x2 + gap;           // past niet in de balk ⇒ er net buiten
+    } else {
+      // Links: juist BUITEN de balk. Binnenin valt het pilletje per definitie bovenop het
+      // naamlabel (dat begint op x1 + een paar px) — gemeten gaf dat "8d)annen".
+      x = x1 - gap - w;
+      if (x < taskTableWidth + 2) x = x1 + gap;
+    }
+    // Binnen het chart-gebied houden; is dat smaller dan het pilletje, dan wint de linkerrand.
+    const lo = taskTableWidth + 2;
+    const hi = canvasWidth - w - 2;
+    x = hi < lo ? lo : Math.min(Math.max(x, lo), hi);
+    const y = barY + (barHeight - h) / 2;
+
+    // Omgekeerd contrast t.o.v. het thema: vulling = tekstkleur, tekst = paneelkleur. In het
+    // lichte thema geeft dat het donkere pilletje uit de melding, in het donkere/high-contrast
+    // thema automatisch de leesbare tegenhanger — zonder een eigen kleurenpaar te verzinnen.
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, h / 2);
+    ctx.fillStyle = this.colors.text;
+    ctx.fill();
+    // Dun randje in de paneelkleur: scheidt het pilletje van de gekleurde balk eronder.
+    ctx.strokeStyle = this.colors.bg;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = this.colors.bg;
+    ctx.fillText(label, x + GanttRenderer.DRAG_BADGE_PAD_X, y + h / 2 + 0.5);
+    ctx.restore();
   }
 
   // ── Relatie-routing (issue #41) ─────────────────────────────────────────────
