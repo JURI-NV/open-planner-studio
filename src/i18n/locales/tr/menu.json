@@ -132,6 +132,8 @@
     "resourceManagement": "Yönet",
     "openResourcePanel": "Kaynaklar",
     "dockResourcePanel": "Sabitle",
+    "dockResourcePanelView": "Kaynaklar",
+    "dockResourcePanelTitle": "Kaynak panelini sağ sütuna sabitle",
     "newResource": "Yeni kaynak",
     "resourceAssignment": "Atama",
     "assignResource": "Ata",

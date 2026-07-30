@@ -478,26 +478,64 @@ const planningTab: RibbonTabConfig = [
  * Gedeelde item-specs (issue #46c): "Vastzetten" en "Histogram" staan zowel op de Resources-tab als
  * onder Beeld → Panelen. Bewust GEDUPLICEERD (niet verplaatst) — de melder vroeg er expliciet om ze
  * ook onder Beeld te zien, zonder ze bij Resources weg te halen. Eén definitie, twee callsites, in
- * lijn met `calcButton`/`relationButton`/`calendarButton`/`printPreviewButton` hierboven.
+ * lijn met `calcButton`/`relationButton`/`calendarButton`/`printPreviewButton` hierboven. De
+ * dock-schakelaar deelt sindsdien zijn gedrag via een hook i.p.v. één spec-object — zie hieronder.
  */
-const dockResourcePanelButton: RibbonButtonSpec = {
-  kind: 'button', id: 'dockResourcePanel', icon: <Pin size={20} />, labelKey: 'menu:ribbon.dockResourcePanel',
-  use: () => {
-    const setUI = useAppStore(s => s.setUI);
-    const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
-    const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-    const onClick = () => {
+
+/**
+ * Eén schakelaar, twee knoppen — het gedrag is gedeeld, het etiket is dat bewust NIET (issue #46,
+ * laatste punt). De melder zag onder Beeld → Panelen een punaise met het label "Vastzetten" en wist
+ * niet wát er vastgezet werd. Op de Resources-tab is die context er wel: de knop staat pal naast
+ * "Resources" (het volledige paneel), en het punaise-icoon is juist het verschil tussen die twee.
+ * Daarom kan de naam niet overal hetzelfde zijn: noem je hem overal "Resources", dan staan er op de
+ * Resources-tab twee knoppen met dezelfde naam én hetzelfde icoon naast elkaar.
+ */
+function useDockResourcePanelBinding(): { onClick: () => void; active: boolean; docked: boolean; title: string } {
+  const setUI = useAppStore(s => s.setUI);
+  const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
+  const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
+  const { t } = useTranslation('menu');
+  return {
+    onClick: () => {
       if (showResourcePanel && resourcePanelDocked) {
         setUI({ showResourcePanel: false, resourcePanelDocked: false });
       } else {
         setUI({ showResourcePanel: true, resourcePanelDocked: true });
       }
-    };
+    },
+    active: showResourcePanel && resourcePanelDocked,
+    docked: resourcePanelDocked,
+    // Het begrip "vastzetten/dock" verdwijnt niet uit de UI — het verhuist naar de tooltip, waar
+    // ruimte is om te zeggen wat er gebeurt (rechterkolom i.p.v. de hele werkruimte).
+    title: t('ribbon.dockResourcePanelTitle'),
+  };
+}
+
+/** Resources-tab: staat naast "Resources" (volledig paneel); de punaise ís hier het onderscheid. */
+const dockResourcePanelButton: RibbonButtonSpec = {
+  kind: 'button', id: 'dockResourcePanel', icon: <Pin size={20} />, labelKey: 'menu:ribbon.dockResourcePanel',
+  use: () => {
+    const b = useDockResourcePanelBinding();
     return {
-      icon: resourcePanelDocked ? <PinOff size={20} /> : <Pin size={20} />,
-      onClick,
-      active: showResourcePanel && resourcePanelDocked,
+      icon: b.docked ? <PinOff size={20} /> : <Pin size={20} />,
+      onClick: b.onClick,
+      active: b.active,
+      title: b.title,
     };
+  },
+};
+
+/**
+ * Beeld → Panelen: hier heten de buren naar het paneel dat ze tonen (Eigenschappen, Histogram), dus
+ * heet deze knop "Resources" en draagt hij het resource-icoon dat de app daar al voor gebruikt
+ * (`Users`, net als de knop op de Resources-tab). Geen icoonwissel bij aan/uit — precies zoals de
+ * Histogram-knop ernaast: de actieve-staat-markering van het lint is de terugkoppeling.
+ */
+const dockResourcePanelViewButton: RibbonButtonSpec = {
+  kind: 'button', id: 'dockResourcePanelView', icon: <Users size={20} />, labelKey: 'menu:ribbon.dockResourcePanelView',
+  use: () => {
+    const b = useDockResourcePanelBinding();
+    return { onClick: b.onClick, active: b.active, title: b.title };
   },
 };
 
@@ -700,8 +738,9 @@ const beeldTab: RibbonTabConfig = [
           };
         },
       },
-      // Issue #46c: dezelfde twee paneelknoppen als op de Resources-tab (gedeelde specs hierboven).
-      dockResourcePanelButton,
+      // Issue #46c: dezelfde twee paneelschakelaars als op de Resources-tab (gedeelde binding
+      // hierboven). De dock-knop draagt hier zijn eigen naam/icoon — zie de toelichting daar.
+      dockResourcePanelViewButton,
       toggleHistogramButton,
     ],
   },

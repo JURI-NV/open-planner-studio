@@ -132,6 +132,8 @@
     "resourceManagement": "Beheer",
     "openResourcePanel": "Resources",
     "dockResourcePanel": "Vastzetten",
+    "dockResourcePanelView": "Resources",
+    "dockResourcePanelTitle": "Resourcepaneel vastzetten in de rechterkolom",
     "newResource": "Nieuwe resource",
     "resourceAssignment": "Toewijzing",
     "assignResource": "Toewijzen",

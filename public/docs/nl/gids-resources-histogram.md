@@ -28,7 +28,11 @@ Elke resource heeft een **Type** (kolom in het resourcepaneel):
 
 ## Resources beheren
 
-Open het resourcepaneel via de lintgroep **Beheer** op het tabblad **Resources**: de knop **Resources** opent het volledige paneel (een aparte volledige-paneel-weergave, net als Tabel of Relaties), **Nieuwe resource** opent het paneel met een concept-rij waarin je meteen de naam typt (net als de knop **+ Nieuwe resource** in het paneel zelf). De resource ontstaat pas zodra je een naam hebt ingevuld en op Enter drukt of wegklikt; laat je hem leeg, dan blijft er niets achter. In het paneel bewerk je per resource: **Naam**, **Type**, **Max. eenheden** (de capaciteit per werkdag — 1 = één persoon/stuk voltijds, 2 = twee eenheden tegelijk), **Kalender**, **Tarief/uur**, **Eenheid** (alleen materiaal) en **Ploeg** (bij welke ploeg deze resource hoort). Onderaan telt de kolom **Totaal** de kosten van elke resource op (belaste eenheden × uren/dag × tarief), herberekend bij elke F5.
+Open het resourcepaneel via de lintgroep **Beheer** op het tabblad **Resources**: de knop **Resources** opent het volledige paneel (een aparte volledige-paneel-weergave, net als Tabel of Relaties), **Nieuwe resource** opent het paneel met een concept-rij waarin je meteen de naam typt (net als de knop **+ Nieuwe resource** in het paneel zelf). In het paneel bewerk je per resource: **Naam**, **Type**, **Max. eenheden** (de capaciteit per werkdag — 1 = één persoon/stuk voltijds, 2 = twee eenheden tegelijk), **Kalender**, **Tarief/uur**, **Eenheid** (alleen materiaal) en **Ploeg** (bij welke ploeg deze resource hoort). Onderaan telt de kolom **Totaal** de kosten van elke resource op (belaste eenheden × uren/dag × tarief), herberekend bij elke F5.
+
+De concept-rij staat onderaan de tabel, precies waar de nieuwe resource ook komt te staan. Zij bestaat om één reden: een resource ontstaat pas zodra er een naam staat, zodat een knopdruk zonder invoer geen lege rij achterlaat. Typ je niets en klik je weg (of druk je op **Escape**), dan blijft er dus niets achter — geen resource, geen stap in de ongedaan-maken-geschiedenis, en je project geldt niet als gewijzigd. Zodra je een naam typt en verder wilt met **Tab** of **Enter**, bestaat de resource écht en zijn *alle* velden gewoon bewerkbaar: **Tab** zet je meteen in de kolom **Type** van diezelfde rij, **Enter** legt de resource vast en opent er direct een verse concept-rij onder, zodat je een hele lijst achter elkaar kunt intypen.
+
+Ook de bestaande rijen zijn met het toetsenbord te doorlopen, in beide weergaven (Bibliotheek en Project): **↑** en **↓** verplaatsen de cursor naar dezelfde kolom in de rij erboven of eronder, en **Enter** (omlaag) of **Shift+Enter** (omhoog) doet hetzelfde. Sta je op de allerlaatste rij, dan opent **Enter** daar een nieuwe concept-rij — dezelfde doorlopende invoer als in de takentabel. In de keuzelijsten (**Type**, **Kalender**, **Ploeg**) en in het spinner-veld **Max. eenheden** houden de pijltjestoetsen bewust hun eigen betekenis (een optie kiezen, een waarde ophogen); gebruik daar **Enter** om verder te gaan naar de volgende rij.
 
 ### Tijd-gefaseerde capaciteit
 
@@ -79,7 +83,7 @@ Staat er "Herbereken (F5) om de belasting te tonen" in plaats van staafjes, dan 
 
 Naast het volledige resourcepaneel (lintknop **Resources**) is er een compacte variant die je aan de rechterkant kunt vastzetten: knop **Vastzetten** in de lintgroep **Beheer**. Dit gedockte paneel toont alleen naam, **Max. eenheden** (direct bewerkbaar) en een rood/groen bolletje voor overallocatie — een snel overzicht naast je Gantt zonder het volledige paneel open te zetten. Het gedockte resourcepaneel en het eigenschappenpaneel van een taak sluiten elkaar wederzijds uit: je ziet er telkens één van de twee in de rechterrail.
 
-Dezelfde twee knoppen — **Vastzetten** en **Histogram** — staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Het zijn dezelfde schakelaars: waar je ze ook aanklikt, ze doen precies hetzelfde.
+Dezelfde twee schakelaars staan ook op het tabblad **Beeld** in de lintgroep **Panelen**, naast **Eigenschappen**. Daar heten ze naar het paneel dat ze tonen: **Resources** (dat is dezelfde knop als **Vastzetten** hierboven) en **Histogram**. Waar je ze ook aanklikt, ze doen precies hetzelfde.
 
 ## Overallocatie herkennen
 

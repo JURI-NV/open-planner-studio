@@ -132,6 +132,8 @@
     "resourceManagement": "Zarządzaj",
     "openResourcePanel": "Zasoby",
     "dockResourcePanel": "Zadokuj",
+    "dockResourcePanelView": "Zasoby",
+    "dockResourcePanelTitle": "Zadokuj panel zasobów w prawej kolumnie",
     "newResource": "Nowy zasób",
     "resourceAssignment": "Przydział",
     "assignResource": "Przydziel",

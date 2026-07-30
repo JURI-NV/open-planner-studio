@@ -132,6 +132,8 @@
     "resourceManagement": "الإدارة",
     "openResourcePanel": "الموارد",
     "dockResourcePanel": "تثبيت",
+    "dockResourcePanelView": "الموارد",
+    "dockResourcePanelTitle": "تثبيت لوحة الموارد في العمود الجانبي",
     "newResource": "مورد جديد",
     "resourceAssignment": "التخصيص",
     "assignResource": "تخصيص",

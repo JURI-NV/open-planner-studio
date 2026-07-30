@@ -132,6 +132,8 @@
     "resourceManagement": "Verwalten",
     "openResourcePanel": "Ressourcen",
     "dockResourcePanel": "Andocken",
+    "dockResourcePanelView": "Ressourcen",
+    "dockResourcePanelTitle": "Ressourcen-Panel in der rechten Spalte andocken",
     "newResource": "Neue Ressource",
     "resourceAssignment": "Zuweisung",
     "assignResource": "Zuweisen",

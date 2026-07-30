@@ -132,6 +132,8 @@
     "resourceManagement": "Gestionar",
     "openResourcePanel": "Recursos",
     "dockResourcePanel": "Anclar",
+    "dockResourcePanelView": "Recursos",
+    "dockResourcePanelTitle": "Anclar el panel de recursos en la columna derecha",
     "newResource": "Nuevo recurso",
     "resourceAssignment": "Asignación",
     "assignResource": "Asignar",

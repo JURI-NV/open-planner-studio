@@ -132,6 +132,8 @@
     "resourceManagement": "مدیریت",
     "openResourcePanel": "منابع",
     "dockResourcePanel": "پیوند",
+    "dockResourcePanelView": "منابع",
+    "dockResourcePanelTitle": "پنل منابع را در ستون کناری بچسبانید",
     "newResource": "منبع جدید",
     "resourceAssignment": "تخصیص",
     "assignResource": "تخصیص دادن",

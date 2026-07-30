@@ -132,6 +132,8 @@
     "resourceManagement": "管理",
     "openResourcePanel": "资源",
     "dockResourcePanel": "停靠",
+    "dockResourcePanelView": "资源",
+    "dockResourcePanelTitle": "将资源面板停靠在右侧栏",
     "newResource": "新建资源",
     "resourceAssignment": "分配",
     "assignResource": "分配",

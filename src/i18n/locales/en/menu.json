@@ -132,6 +132,8 @@
     "resourceManagement": "Manage",
     "openResourcePanel": "Resources",
     "dockResourcePanel": "Dock",
+    "dockResourcePanelView": "Resources",
+    "dockResourcePanelTitle": "Dock the resource panel in the right-hand column",
     "newResource": "New resource",
     "resourceAssignment": "Assignment",
     "assignResource": "Assign",
