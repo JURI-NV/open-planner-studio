@@ -15,6 +15,7 @@ import { isHourCalendar } from '@/services/subdayIo';
 import { parseDuration, formatDuration } from '@/utils/durationFormat';
 import { AlertTriangle } from 'lucide-react';
 import { useTableRowDrag } from './hooks/useTableRowDrag';
+import { neighbourGridCell, type GridDirection } from '@/utils/gridNavigation';
 
 const MIN_COLUMN_WIDTH = 40;
 
@@ -361,27 +362,20 @@ export function TableEditor() {
     return '';
   }, [durationEditSeed]);
 
-  /** Pure buurcel-rekensom over (taakrijen × bewerkbare kolommen). `null` = geen buur (rand,
-   *  onbekende rij/kolom, of geen bewerkbare kolommen zichtbaar). Gedeeld door de bewerk-navigatie
-   *  en de rasternavigatie met de pijltjestoetsen (issue #26). */
+  const taskRowIds = useMemo(() => taskRows.map(r => r.task.id), [taskRows]);
+
+  /** Buurcel over (taakrijen × bewerkbare kolommen). `null` = geen buur (rand, onbekende rij/kolom,
+   *  of geen bewerkbare kolommen zichtbaar). Gedeeld door de bewerk-navigatie en de rasternavigatie
+   *  met de pijltjestoetsen (issue #26). De rekensom zelf staat sinds issue #48 in
+   *  `@/utils/gridNavigation`, zodat de resourcetabel er letterlijk dezelfde definitie voor gebruikt
+   *  (zie de kop van dat bestand voor waarom alleen de REKENSOM gedeeld kan worden en niet de
+   *  cursor-mechaniek). */
   const neighbourCell = useCallback(
-    (taskId: string, field: string, direction: 'up' | 'down' | 'left' | 'right'): { taskId: string; field: string } | null => {
-      const rowIndex = taskRows.findIndex(r => r.task.id === taskId);
-      const colIndex = editableFields.indexOf(field);
-      if (rowIndex === -1 || colIndex === -1) return null;
-
-      let newRow = rowIndex;
-      let newCol = colIndex;
-
-      if (direction === 'up') newRow = Math.max(0, rowIndex - 1);
-      else if (direction === 'down') newRow = Math.min(taskRows.length - 1, rowIndex + 1);
-      else if (direction === 'left') newCol = Math.max(0, colIndex - 1);
-      else if (direction === 'right') newCol = Math.min(editableFields.length - 1, colIndex + 1);
-
-      if (newRow === rowIndex && newCol === colIndex) return null;
-      return { taskId: taskRows[newRow].task.id, field: editableFields[newCol] };
+    (taskId: string, field: string, direction: GridDirection): { taskId: string; field: string } | null => {
+      const next = neighbourGridCell(taskRowIds, editableFields, { rowId: taskId, field }, direction);
+      return next && { taskId: next.rowId, field: next.field };
     },
-    [taskRows, editableFields],
+    [taskRowIds, editableFields],
   );
 
   // Een cel die niet meer BESTAAT mag niet actief of in bewerking blijven: de rij kan verdwenen zijn

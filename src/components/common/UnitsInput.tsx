@@ -8,13 +8,17 @@ import { useEffect, useState } from 'react';
  * toegestaan (materiaal-max.eenheden, halve-dag-toewijzingen), dus `step="any"`.
  */
 export function UnitsInput({
-  value, onCommit, className = '', title, ariaLabel,
+  value, onCommit, className = '', title, ariaLabel, onKeyDown, gridCell,
 }: {
   value: number;
   onCommit: (n: number) => void;
   className?: string;
   title?: string;
   ariaLabel?: string;
+  /** Issue #48: rasternavigatie (Enter/Shift+Enter) — het veld is een cel in een live tabel. */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  /** `data-ops-grid-cell`-adres van deze cel; `useLiveGridNav` focust hierop. */
+  gridCell?: string;
 }) {
   const [draft, setDraft] = useState<string>(String(value));
   const [focused, setFocused] = useState(false);
@@ -36,6 +40,8 @@ export function UnitsInput({
       title={title}
       aria-label={ariaLabel}
       aria-invalid={invalid}
+      data-ops-grid-cell={gridCell}
+      onKeyDown={onKeyDown}
       onFocus={() => setFocused(true)}
       onChange={e => {
         setDraft(e.target.value);

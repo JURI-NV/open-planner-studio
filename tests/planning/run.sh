@@ -176,6 +176,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   CMSCHECK="$DIR/.context-menu-scope.mjs"
   if bundle_check "$DIR/check-context-menu-scope.ts" "$CMSCHECK"; then node "$CMSCHECK" || STATUS=1; fi
 
+  # Rasternavigatie (issue #48): de gedeelde kern onder de takentabel én de resourcetabel. Bewaakt
+  # het RANDgedrag (buur aan de rand = null, niet klemmen — daar hangt "Enter op de laatste rij maakt
+  # een nieuwe rij" aan) en het TOETSbeleid in een live raster: ↑/↓ mogen alleen in een tekstveld
+  # navigeren, want in een <select> of een number-spinner zou dat de optiekeuze resp. het stappen
+  # opeten. Dat laatste is precies het soort regressie dat een "werkt de navigatie?"-test mist.
+  GRIDCHECK="$DIR/.grid-nav.mjs"
+  if bundle_check "$DIR/check-grid-nav.ts" "$GRIDCHECK"; then node "$GRIDCHECK" || STATUS=1; fi
+
   # Gantt-cull-regressie: de speling-band mag niet verdwijnen zolang hij zichtbaar is. De cull in
   # drawTaskBar keek alleen naar de BALK-extent, terwijl de band ná de balk doorloopt — een band die
   # nog honderden pixels in beeld stond verdween daardoor mee. Draait de echte renderer met een
@@ -190,6 +198,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # balkrechthoek valt, over een zoom×scrollX-raster.
   ARCHECK="$DIR/.arrow-routing.mjs"
   if bundle_check "$DIR/check-arrow-routing.ts" "$ARCHECK"; then node "$ARCHECK" || STATUS=1; fi
+
+  # Live duur-pilletje tijdens een rand-sleep (issue #51). Toetst de GEOMETRIE (binnen de balk bij
+  # een brede balk, erbuiten bij een smalle, geklemd tegen taaktabel- en vensterrand, niets bij een
+  # weggescrolde rij) en de EENHEID (een uur-taak toont uren, nooit "1d" — die staat stil omdat de
+  # uur-sleep `durationMinutes` muteert). Meet het VERSCHIL tussen een render mét en zónder
+  # `durationDrag`, dus onafhankelijk van de rest van de tekenlaag.
+  DDCHECK="$DIR/.drag-duration-badge.mjs"
+  if bundle_check "$DIR/check-drag-duration-badge.ts" "$DDCHECK"; then node "$DDCHECK" || STATUS=1; fi
 
   # Tijd-as-consolidatie (issue #21 punt 5, fase 0): geconsolideerde `timeAxis.dateToX`/`xToDate`/
   # `xToDayOffset` vs. letterlijk-gekopieerde OUDE formules (printPreview/GanttCanvas/GanttRenderer/
