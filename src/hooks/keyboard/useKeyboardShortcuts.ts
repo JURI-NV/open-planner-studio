@@ -94,10 +94,10 @@ export function useKeyboardShortcuts() {
         setUI({ showTaskDialog: false, editingTaskId: null, showDependencyMode: false });
       } else if (ctrl && e.key === '=') {
         e.preventDefault();
-        setZoom(zoom + 10);
+        setZoom(useAppStore.getState().view.zoom + 10);
       } else if (ctrl && e.key === '-') {
         e.preventDefault();
-        setZoom(zoom - 10);
+        setZoom(useAppStore.getState().view.zoom - 10);
       } else if (ctrl && e.key === 'p') {
         e.preventDefault();
         setUI({ activeRibbonTab: 'report' });

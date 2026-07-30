@@ -275,11 +275,11 @@ export class CPMSolver {
 
     switch (seq.type) {
       case 'FINISH_START': {
-        // Predecessor must finish before successor starts - lag
+        // Predecessor must finish before successor starts
+        // LF = work day before successor's LS - lag
         let target = succResult.ls;
         if (lag > 0) target = this.calendar.subtractWorkDays(target, lag);
-        // Go back one day from successor's late start
-        return this.calendar.subtractWorkDays(target, 1);
+        return this.calendar.previousWorkDay(target);
       }
       case 'START_START': {
         // Predecessor must start before successor starts - lag

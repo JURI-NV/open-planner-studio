@@ -96,6 +96,17 @@ export class CalendarEngine {
   }
 
   /**
+   * Get the previous working day strictly before the given date.
+   */
+  previousWorkDay(date: Date): Date {
+    let current = addCalendarDays(date, -1);
+    while (!this.isWorkDay(current)) {
+      current = addCalendarDays(current, -1);
+    }
+    return current;
+  }
+
+  /**
    * Subtract working days from an end date.
    * Returns the start date.
    */

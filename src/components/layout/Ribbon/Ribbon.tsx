@@ -318,8 +318,8 @@ export function Ribbon() {
 
             <RibbonGroup label={tMenu('ribbon.zoom')}>
               <RibbonButtonStack>
-                <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + 10)} />
-                <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - 5)} />
+                <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(useAppStore.getState().view.zoom + 10)} />
+                <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(useAppStore.getState().view.zoom - 5)} />
               </RibbonButtonStack>
             </RibbonGroup>
           </>
@@ -351,8 +351,8 @@ export function Ribbon() {
           <>
             <RibbonGroup label={tMenu('ribbon.zoom')}>
               <RibbonButtonStack>
-                <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + 10)} />
-                <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - 5)} />
+                <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(useAppStore.getState().view.zoom + 10)} />
+                <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(useAppStore.getState().view.zoom - 5)} />
                 <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(30)} />
               </RibbonButtonStack>
             </RibbonGroup>

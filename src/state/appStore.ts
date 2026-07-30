@@ -801,3 +801,8 @@ export const useAppStore = create<AppState>()(
     },
   }))
 );
+
+// Debug: expose store for development
+if (import.meta.env.DEV) {
+  (window as any).__store = useAppStore;
+}

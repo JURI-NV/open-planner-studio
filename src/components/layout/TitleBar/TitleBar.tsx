@@ -105,7 +105,9 @@ export function TitleBar() {
       </div>
 
       <div className="title-bar-center" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-        <span className="title-bar-app-name">Open Planner Studio v{__APP_VERSION__}</span>
+        <span className="title-bar-app-name" style={{ fontFamily: '"Space Grotesk", system-ui, sans-serif', fontWeight: 700 }}>
+          Open <span style={{ color: '#D97706' }}>Planner</span> Studio v{__APP_VERSION__}
+        </span>
         {project.name && (
           <span className="title-bar-file-name">
             {isDirty ? '* ' : ''}{project.name}

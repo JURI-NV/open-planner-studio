@@ -46,9 +46,11 @@ function parseSTEP(content: string): StepEntity[] {
   if (!dataSection) return entities;
 
   // Strip comments (/* ... */) and normalize whitespace
+  // Also add missing trailing semicolons (tolerant of malformed files)
   const clean = dataSection
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\r\n/g, '\n');
+    .replace(/\r\n/g, '\n')
+    .replace(/\)\s*$/gm, ');');
 
   // Match all entity definitions: #123=IFCTYPE(...); or #300T=IFCTASKTIME(...);
   const entityRegex = /#(\w+)\s*=\s*(\w+)\s*\(([\s\S]*?)\)\s*;/g;

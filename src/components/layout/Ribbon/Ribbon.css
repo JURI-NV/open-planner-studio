@@ -68,6 +68,7 @@
 }
 
 .ribbon-group-label {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   color: var(--theme-text-muted);
   text-align: center;
@@ -76,7 +77,7 @@
   margin-top: auto;
   white-space: nowrap;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.1em;
 }
 
 .ribbon-group-content {
@@ -204,8 +205,8 @@
 
 /* Primary button */
 .ribbon-btn.primary {
-  background: #22c55e;
-  border-color: #22c55e;
+  background: #D97706;
+  border-color: #D97706;
 }
 
 .ribbon-btn.primary .ribbon-btn-icon,
@@ -214,8 +215,8 @@
 }
 
 .ribbon-btn.primary:hover {
-  background: #16a34a;
-  border-color: #16a34a;
+  background: #EA580C;
+  border-color: #EA580C;
 }
 
 /* Danger button */
