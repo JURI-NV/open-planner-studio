@@ -538,6 +538,12 @@ export function ResourceAssignDropdown() {
 /**
  * Groeperen-popover (fase 2.7, §7.4): tot 2 rijen {veld ▾, richting}. Vervangt de tijdelijke
  * één-niveau-groupdropdown uit golf 2. Live via `setGroup` (geen apart "toepassen").
+ *
+ * Let op de `!w-32` op de richting-select. `.input` staat in `globals.css` **buiten** elke
+ * cascade-layer met `width: 100%`, terwijl Tailwind-utilities in `@layer utilities` zitten —
+ * unlayered wint altijd van layered, dus een gewone `w-28` doet niets. Zonder die vaste breedte
+ * eiste de richting-select 100% van de rij en hield het veld-dropdown (`flex-1`, dus
+ * flex-basis 0) ~12px over: een sliver zonder leesbare tekst. Zelfde valkuil als issue #46.
  */
 export function GroupPopoverButton() {
   const { t: tMenu } = useTranslation('menu');
@@ -563,7 +569,7 @@ export function GroupPopoverButton() {
       open={open}
       onClose={() => setOpen(false)}
       panelStyle={{
-        marginTop: 2, zIndex: 9999, minWidth: 260, padding: 8,
+        marginTop: 2, zIndex: 9999, minWidth: 300, padding: 8,
         display: 'flex', flexDirection: 'column', gap: 6,
       }}
       trigger={
@@ -597,7 +603,7 @@ export function GroupPopoverButton() {
           <select
             value={lvl.dir}
             onChange={e => setLevel(i, { dir: e.target.value as 'asc' | 'desc' })}
-            className="input !text-[11px] !px-1.5 !py-1"
+            className="input !text-[11px] !px-1.5 !py-1 !w-32"
             aria-label={tCommon('view.group.direction')}
           >
             <option value="asc">{tCommon('view.sort.ascending')}</option>
@@ -645,7 +651,7 @@ export function SortPopoverButton() {
       open={open}
       onClose={() => setOpen(false)}
       panelStyle={{
-        marginTop: 2, zIndex: 9999, minWidth: 260, maxHeight: 320, overflowY: 'auto', padding: 8,
+        marginTop: 2, zIndex: 9999, minWidth: 300, maxHeight: 320, overflowY: 'auto', padding: 8,
         display: 'flex', flexDirection: 'column', gap: 6,
       }}
       trigger={
@@ -679,7 +685,7 @@ export function SortPopoverButton() {
           <select
             value={lvl.dir}
             onChange={e => setLevel(i, { dir: e.target.value as 'asc' | 'desc' })}
-            className="input !text-[11px] !px-1.5 !py-1"
+            className="input !text-[11px] !px-1.5 !py-1 !w-32"
             aria-label={tCommon('view.group.direction')}
           >
             <option value="asc">{tCommon('view.sort.ascending')}</option>
@@ -920,6 +926,29 @@ export function TimeScaleGroupContent() {
 }
 
 /**
+ * Kolommen-knop — gedeelde binding voor de Beeld-tab (kleine knop) en de Tabel-tab (grote knop).
+ *
+ * De dialoog schrijft naar `view.columns`, en dat leest **alleen** `TableEditor`. De takenlijst
+ * naast de Gantt tekent drie vaste kolommen (WBS, naam, duur) in `GanttRenderer` en trekt zich er
+ * niets van aan. `TableEditor` is bovendien alleen gemount op de Tabel-tab (`App.tsx`), dus wie de
+ * knop vanaf de Beeld-tab gebruikt ziet per definitie niets veranderen. Dat verraste de melder.
+ *
+ * Zelfde aanpak als de dynamische tooltips uit issue #40/#49 (`ribbon.relationHint*`,
+ * `ribbon.taskHint*`): de tooltip zegt vooraf wáár het effect landt, in plaats van achteraf uit te
+ * leggen wat er niet gebeurde.
+ */
+export function useColumnsButtonBinding() {
+  const { t: tMenu } = useTranslation('menu');
+  const setUI = useAppStore(s => s.setUI);
+  // Precies de conditie waaronder App.tsx de TableEditor mount.
+  const tableVisible = useAppStore(s => s.ui.activeRibbonTab === 'table' && !s.ui.showResourcePanel);
+  return {
+    title: tMenu(tableVisible ? 'ribbon.columnsHintTable' : 'ribbon.columnsHintGoToTable'),
+    onClick: () => setUI({ showColumnsDialog: true }),
+  };
+}
+
+/**
  * Weergave-groep (beeld, §13/§5.5/§6/§7.4): kolommen-dialoog, filter-editor, groepeer-/
  * sorteer-popovers. Narrow "small"-knoppen zodat de groep smal blijft en in compacte modus
  * niet overlapt.
@@ -928,10 +957,11 @@ export function DisplayGroupContent() {
   const { t: tMenu } = useTranslation('menu');
   const setUI = useAppStore(s => s.setUI);
   const filter = useAppStore(s => s.view.filter);
+  const columns = useColumnsButtonBinding();
 
   return (
     <div className="ribbon-display-grid icons">
-      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} title={tMenu('ribbon.columns')} onClick={() => setUI({ showColumnsDialog: true })} />
+      <RibbonSmallButton icon={<Columns3 size={14} />} label={tMenu('ribbon.columns')} title={columns.title} onClick={columns.onClick} />
       <RibbonSmallButton icon={<Filter size={14} />} label={tMenu('ribbon.filter')} title={tMenu('ribbon.filter')} onClick={() => setUI({ showFilterDialog: true })} active={filter !== null} />
       <GroupPopoverButton />
       <SortPopoverButton />

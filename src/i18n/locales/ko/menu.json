@@ -174,7 +174,9 @@
     "relationHintModeOff": "링크 모드 끄기",
     "relationHintPair": "선택한 두 작업 사이에 종료-시작 관계 만들기",
     "taskHintBelow": "선택한 작업 바로 아래에 새 작업 추가",
-    "taskHintAppend": "목록 맨 아래에 새 작업 추가"
+    "taskHintAppend": "목록 맨 아래에 새 작업 추가",
+    "columnsHintTable": "테이블 보기의 열 선택",
+    "columnsHintGoToTable": "테이블 보기의 열 선택 — 테이블 탭에 표시됩니다"
   },
   "ifc": {
     "title": "IFC 편집기",

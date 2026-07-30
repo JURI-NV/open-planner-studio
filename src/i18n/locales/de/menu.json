@@ -174,7 +174,9 @@
     "relationHintModeOff": "Verknüpfungsmodus ausschalten",
     "relationHintPair": "Ende-Anfang-Beziehung zwischen den beiden ausgewählten Vorgängen erstellen",
     "taskHintBelow": "Neuer Vorgang direkt unter der Auswahl",
-    "taskHintAppend": "Neuer Vorgang am Ende der Liste"
+    "taskHintAppend": "Neuer Vorgang am Ende der Liste",
+    "columnsHintTable": "Spalten der Tabellenansicht wählen",
+    "columnsHintGoToTable": "Spalten der Tabellenansicht wählen — sichtbar im Register Tabelle"
   },
   "ifc": {
     "title": "IFC-Editor",

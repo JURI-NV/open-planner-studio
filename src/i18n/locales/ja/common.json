@@ -581,7 +581,8 @@
       "visible": "表示",
       "width": "幅",
       "resetDefault": "既定値に戻す",
-      "available": "利用可能なフィールド"
+      "available": "利用可能なフィールド",
+      "scopeHint": "これらの列はテーブル ビューに適用されます。ガント横のタスク一覧は常に WBS・タスク名・期間を表示します。"
     },
     "filter": {
       "title": "フィルター",

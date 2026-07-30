@@ -124,7 +124,7 @@ export function MoveProjectDialog() {
                 type="date"
                 value={newStart}
                 onChange={e => changeStart(e.target.value)}
-                className="input !text-xs !px-2 !py-1 w-[160px]"
+                className="input !text-xs !px-2 !py-1 !w-[160px]"
               />
             </label>
 

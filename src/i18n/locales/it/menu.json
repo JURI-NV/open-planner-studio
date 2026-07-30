@@ -174,7 +174,9 @@
     "relationHintModeOff": "Disattiva la modalità collegamento",
     "relationHintPair": "Crea una relazione Fine-Inizio tra le due attività selezionate",
     "taskHintBelow": "Nuova attività subito sotto la selezione",
-    "taskHintAppend": "Nuova attività in fondo all’elenco"
+    "taskHintAppend": "Nuova attività in fondo all’elenco",
+    "columnsHintTable": "Scegli le colonne della vista Tabella",
+    "columnsHintGoToTable": "Scegli le colonne della vista Tabella — visibili nella scheda Tabella"
   },
   "ifc": {
     "title": "Editor IFC",

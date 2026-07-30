@@ -583,7 +583,8 @@
       "visible": "Görünür",
       "width": "Genişlik",
       "resetDefault": "Varsayılana sıfırla",
-      "available": "Kullanılabilir alanlar"
+      "available": "Kullanılabilir alanlar",
+      "scopeHint": "Bu sütunlar Tablo görünümü için geçerlidir. Gantt’ın yanındaki görev listesi her zaman WBS, ad ve süre gösterir."
     },
     "filter": {
       "title": "Filtre",

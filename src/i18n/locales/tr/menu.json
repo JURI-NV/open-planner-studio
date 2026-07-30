@@ -174,7 +174,9 @@
     "relationHintModeOff": "Bağlantı modunu kapat",
     "relationHintPair": "Seçili iki görev arasında Bitiş-Başlangıç ilişkisi oluştur",
     "taskHintBelow": "Yeni görev, seçimin hemen altına eklenir",
-    "taskHintAppend": "Yeni görev listenin sonuna eklenir"
+    "taskHintAppend": "Yeni görev listenin sonuna eklenir",
+    "columnsHintTable": "Tablo görünümünün sütunlarını seçin",
+    "columnsHintGoToTable": "Tablo görünümünün sütunlarını seçin — Tablo sekmesinde görünür"
   },
   "ifc": {
     "title": "IFC Düzenleyici",

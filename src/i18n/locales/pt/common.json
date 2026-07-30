@@ -585,7 +585,8 @@
       "visible": "Visível",
       "width": "Largura",
       "resetDefault": "Repor predefinição",
-      "available": "Campos disponíveis"
+      "available": "Campos disponíveis",
+      "scopeHint": "Estas colunas aplicam-se à vista Tabela. A lista de tarefas junto ao Gantt mostra sempre WBS, nome e duração."
     },
     "filter": {
       "title": "Filtro",

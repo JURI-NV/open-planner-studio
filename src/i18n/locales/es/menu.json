@@ -174,7 +174,9 @@
     "relationHintModeOff": "Desactivar el modo enlace",
     "relationHintPair": "Crear una relación Fin-Comienzo entre las dos tareas seleccionadas",
     "taskHintBelow": "Nueva tarea justo debajo de la selección",
-    "taskHintAppend": "Nueva tarea al final de la lista"
+    "taskHintAppend": "Nueva tarea al final de la lista",
+    "columnsHintTable": "Elegir las columnas de la vista Tabla",
+    "columnsHintGoToTable": "Elegir las columnas de la vista Tabla: se ven en la pestaña Tabla"
   },
   "ifc": {
     "title": "Editor IFC",

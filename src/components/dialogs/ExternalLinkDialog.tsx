@@ -194,7 +194,7 @@ export function ExternalLinkDialog({ taskId, onClose }: { taskId: string; onClos
           </div>
           <label className="flex flex-col gap-1">
             <span className="text-text-muted">{t('externalLinks.lag')}</span>
-            <input className="input w-24" type="number" value={lag} onChange={(e) => setLag(e.target.value)} />
+            <input className="input !w-24" type="number" value={lag} onChange={(e) => setLag(e.target.value)} />
           </label>
 
           {anchorPreview && !manual && (

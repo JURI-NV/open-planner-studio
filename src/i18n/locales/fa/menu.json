@@ -174,7 +174,9 @@
     "relationHintModeOff": "خاموش کردن حالت پیوند",
     "relationHintPair": "ایجاد رابطه پایان-شروع بین دو وظیفه انتخاب‌شده",
     "taskHintBelow": "وظیفه جدید درست زیر انتخاب",
-    "taskHintAppend": "وظیفه جدید در انتهای فهرست"
+    "taskHintAppend": "وظیفه جدید در انتهای فهرست",
+    "columnsHintTable": "انتخاب ستون‌های نمای جدول",
+    "columnsHintGoToTable": "انتخاب ستون‌های نمای جدول — در زبانه جدول دیده می‌شود"
   },
   "ifc": {
     "title": "ویرایشگر IFC",

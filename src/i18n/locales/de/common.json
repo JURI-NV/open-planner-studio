@@ -583,7 +583,8 @@
       "visible": "Sichtbar",
       "width": "Breite",
       "resetDefault": "Auf Standard zurücksetzen",
-      "available": "Verfügbare Felder"
+      "available": "Verfügbare Felder",
+      "scopeHint": "Diese Spalten gelten für die Tabellenansicht. Die Vorgangsliste neben dem Gantt zeigt immer PSP, Name und Dauer."
     },
     "filter": {
       "title": "Filter",

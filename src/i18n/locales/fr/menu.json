@@ -174,7 +174,9 @@
     "relationHintModeOff": "Désactiver le mode lien",
     "relationHintPair": "Créer une relation Fin-Début entre les deux tâches sélectionnées",
     "taskHintBelow": "Nouvelle tâche juste en dessous de la sélection",
-    "taskHintAppend": "Nouvelle tâche en bas de la liste"
+    "taskHintAppend": "Nouvelle tâche en bas de la liste",
+    "columnsHintTable": "Choisir les colonnes de la vue Tableau",
+    "columnsHintGoToTable": "Choisir les colonnes de la vue Tableau — visibles sous l’onglet Tableau"
   },
   "ifc": {
     "title": "Éditeur IFC",

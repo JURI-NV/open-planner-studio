@@ -585,7 +585,8 @@
       "visible": "Visible",
       "width": "Ancho",
       "resetDefault": "Restablecer valores predeterminados",
-      "available": "Campos disponibles"
+      "available": "Campos disponibles",
+      "scopeHint": "Estas columnas se aplican a la vista Tabla. La lista de tareas junto al Gantt siempre muestra EDT, nombre y duración."
     },
     "filter": {
       "title": "Filtro",

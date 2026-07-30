@@ -585,7 +585,8 @@
       "visible": "Visibile",
       "width": "Larghezza",
       "resetDefault": "Ripristina predefiniti",
-      "available": "Campi disponibili"
+      "available": "Campi disponibili",
+      "scopeHint": "Queste colonne valgono per la vista Tabella. L’elenco attività accanto al Gantt mostra sempre WBS, nome e durata."
     },
     "filter": {
       "title": "Filtro",

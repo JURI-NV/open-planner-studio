@@ -583,7 +583,8 @@
       "visible": "Zichtbaar",
       "width": "Breedte",
       "resetDefault": "Herstel standaard",
-      "available": "Beschikbare velden"
+      "available": "Beschikbare velden",
+      "scopeHint": "Deze kolommen gelden voor de Tabel-weergave. De takenlijst naast de Gantt toont altijd WBS, taaknaam en duur."
     },
     "filter": {
       "title": "Filteren",

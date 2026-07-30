@@ -583,7 +583,8 @@
       "visible": "Visible",
       "width": "Width",
       "resetDefault": "Reset to default",
-      "available": "Available fields"
+      "available": "Available fields",
+      "scopeHint": "These columns apply to the Table view. The task list next to the Gantt always shows WBS, task name and duration."
     },
     "filter": {
       "title": "Filter",

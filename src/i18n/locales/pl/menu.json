@@ -174,7 +174,9 @@
     "relationHintModeOff": "Wyłącz tryb połączeń",
     "relationHintPair": "Utwórz relację Zakończenie-Rozpoczęcie między dwoma zaznaczonymi zadaniami",
     "taskHintBelow": "Nowe zadanie bezpośrednio pod zaznaczeniem",
-    "taskHintAppend": "Nowe zadanie na końcu listy"
+    "taskHintAppend": "Nowe zadanie na końcu listy",
+    "columnsHintTable": "Wybierz kolumny widoku Tabela",
+    "columnsHintGoToTable": "Wybierz kolumny widoku Tabela — widoczne na karcie Tabela"
   },
   "ifc": {
     "title": "Edytor IFC",

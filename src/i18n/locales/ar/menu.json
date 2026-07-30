@@ -174,7 +174,9 @@
     "relationHintModeOff": "إيقاف وضع الربط",
     "relationHintPair": "إنشاء علاقة إنهاء-بدء بين المهمتين المحددتين",
     "taskHintBelow": "مهمة جديدة أسفل التحديد مباشرة",
-    "taskHintAppend": "مهمة جديدة في نهاية القائمة"
+    "taskHintAppend": "مهمة جديدة في نهاية القائمة",
+    "columnsHintTable": "اختيار أعمدة عرض الجدول",
+    "columnsHintGoToTable": "اختيار أعمدة عرض الجدول — تظهر في علامة التبويب الجدول"
   },
   "ifc": {
     "title": "محرر IFC",

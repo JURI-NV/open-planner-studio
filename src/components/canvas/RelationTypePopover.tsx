@@ -55,7 +55,10 @@ export function RelationTypePopover({ sequenceId, x, y, onClose }: RelationTypeP
             een flex-rij — dat zet flex-basis op 0%, dus het vakje krimpt tot ~11.75px (tekst
             onzichtbaar). Zelfde patroon als `TaskDependenciesSection` (properties.dependencies-
             rij): het select-vakje krijgt zijn natuurlijke content-breedte, de lag-input ernaast
-            blijft de vaste `w-16`. */}
+            blijft de vaste breedte. Die breedte moet `!w-16` zijn en niet `w-16`: `.input` staat
+            in `globals.css` buiten elke cascade-layer met `width: 100%`, en unlayered CSS wint van
+            de Tailwind-utilities in `@layer utilities` — zonder `!` deed de breedte niets en
+            vochten beide vakjes om dezelfde 100%. */}
         <select
           autoFocus
           value={sequence.type}
@@ -69,7 +72,7 @@ export function RelationTypePopover({ sequenceId, x, y, onClose }: RelationTypeP
         <SequenceLagInput
           seq={sequence}
           title={t('properties.lag')}
-          className="input !text-[11px] !px-1.5 !py-1 w-16 text-right"
+          className="input !text-[11px] !px-1.5 !py-1 !w-16 text-right"
           onCommit={patch => updateSequence(sequence.id, patch)}
         />
       </div>

@@ -587,7 +587,8 @@
       "visible": "Widoczna",
       "width": "Szerokość",
       "resetDefault": "Przywróć domyślne",
-      "available": "Dostępne pola"
+      "available": "Dostępne pola",
+      "scopeHint": "Te kolumny dotyczą widoku Tabela. Lista zadań obok wykresu Gantta zawsze pokazuje WBS, nazwę i czas trwania."
     },
     "filter": {
       "title": "Filtr",

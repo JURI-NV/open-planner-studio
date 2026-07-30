@@ -585,7 +585,8 @@
       "visible": "Visible",
       "width": "Largeur",
       "resetDefault": "Réinitialiser par défaut",
-      "available": "Champs disponibles"
+      "available": "Champs disponibles",
+      "scopeHint": "Ces colonnes s’appliquent à la vue Tableau. La liste des tâches à côté du Gantt affiche toujours WBS, nom et durée."
     },
     "filter": {
       "title": "Filtre",

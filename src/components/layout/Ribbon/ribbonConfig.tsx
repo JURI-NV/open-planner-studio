@@ -10,7 +10,7 @@ import {
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
   ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
   Keyboard, Pin, PinOff,
-  CalendarClock, ChevronsDownUp, ChevronsUpDown,
+  CalendarClock, ChevronsDownUp, ChevronsUpDown, Columns3,
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { createRelationWithFeedback } from '@/state/relationActions';
@@ -24,6 +24,7 @@ import {
   BaselinesProgressGroupContent, MilestoneDropdown, TemplatesDropdown, RecentFilesDropdown,
   ExportDropdown, ResourceAssignDropdown, LayoutGroupContent, PresentationGroupContent,
   TimeScaleGroupContent, DisplayGroupContent, OverallocationIndicator, IfcInfo,
+  useColumnsButtonBinding,
 } from './ribbonWidgets';
 import { AiServerGroup } from '@/components/ribbon/ai/AiServerGroup';
 import { AiConnectionGroup } from '@/components/ribbon/ai/AiConnectionGroup';
@@ -236,84 +237,119 @@ const traceGroup: RibbonGroupSpec = {
   ],
 };
 
+/**
+ * Bestand-groep: Nieuw / Opslaan / Openen / Opslaan als / Recent / Exporteren — gedeeld door de
+ * Start- én de Tabel-tab. Documentacties zijn weergave-onafhankelijk: opslaan slaat hetzelfde
+ * project op of je nu naar de Gantt of naar de tabel kijkt.
+ */
+const fileGroup: RibbonGroupSpec = {
+  id: 'file', labelKey: 'menu:ribbon.file',
+  items: [
+    {
+      kind: 'stack', id: 'fileStack1', items: [
+        {
+          kind: 'small', id: 'new', icon: <FileText size={14} />, labelKey: 'menu:ribbon.new',
+          use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showNewProjectDialog: true }) }; },
+        },
+        {
+          kind: 'small', id: 'save', icon: <Save size={14} />, labelKey: 'menu:ribbon.save',
+          use: () => { const saveFile = useAppStore(s => s.saveFile); return { onClick: () => { void saveFile(); } }; },
+        },
+        {
+          kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
+          use: () => {
+            const openFile = useAppStore(s => s.openFile);
+            const { t: tCommon } = useTranslation('common');
+            return { onClick: () => { void openFile({ importedProject: tCommon('project.imported') }); } };
+          },
+        },
+      ],
+    },
+    {
+      // Save As + Recent + Export horen sámen in één verticale kolom (reviewbevinding pakket P:
+      // los geplaatst renderden ze horizontaal en werd de groep ~2× zo breed).
+      kind: 'stack', id: 'fileStack2', items: [
+        {
+          kind: 'small', id: 'saveAs', icon: <SaveAll size={14} />, labelKey: 'menu:backstage.saveAs',
+          use: () => { const saveFileAs = useAppStore(s => s.saveFileAs); return { onClick: () => { void saveFileAs(); } }; },
+        },
+        { kind: 'component', id: 'recentFiles', Component: RecentFilesDropdown },
+        { kind: 'component', id: 'export', Component: ExportDropdown },
+      ],
+    },
+  ],
+};
+
+/**
+ * Bewerken-groep: Ongedaan maken / Opnieuw / Verwijderen — gedeeld door de Start- én de Tabel-tab.
+ * Alle drie werken op de store en op `selectedTaskIds`, en de tabel deelt die selectie met de
+ * Gantt; ze doen in de tabelweergave dus letterlijk hetzelfde.
+ */
+const editGroup: RibbonGroupSpec = {
+  id: 'edit', labelKey: 'menu:ribbon.edit',
+  items: [
+    {
+      kind: 'stack', id: 'editStack', items: [
+        {
+          kind: 'small', id: 'undo', icon: <Undo2 size={14} />, labelKey: 'menu:ribbon.undo',
+          use: () => {
+            const undo = useAppStore(s => s.undo);
+            const disabled = useAppStore(s => s.undoStack.length === 0);
+            return { onClick: () => undo(), disabled };
+          },
+        },
+        {
+          kind: 'small', id: 'redo', icon: <Redo2 size={14} />, labelKey: 'menu:ribbon.redo',
+          use: () => {
+            const redo = useAppStore(s => s.redo);
+            const disabled = useAppStore(s => s.redoStack.length === 0);
+            return { onClick: () => redo(), disabled };
+          },
+        },
+        {
+          kind: 'small', id: 'delete', icon: <Trash2 size={14} />, labelKey: 'menu:ribbon.delete', danger: true,
+          use: () => {
+            const deleteTask = useAppStore(s => s.deleteTask);
+            const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
+            return {
+              onClick: () => { for (const id of selectedTaskIds) deleteTask(id); },
+              disabled: selectedTaskIds.length === 0,
+            };
+          },
+        },
+      ],
+    },
+  ],
+};
+
+/** Bereken-groep (start + table) — één groepsdefinitie zodat de twee tabbladen niet uit elkaar lopen. */
+const scheduleGroup: RibbonGroupSpec = {
+  id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton],
+};
+
+/**
+ * Kolommen-groep op de Tabel-tab. De dialoog stuurt uitsluitend de kolommen van de Tabel-weergave
+ * aan (`view.columns` → `TableEditor`), dus dit is de enige tab waar hij direct zichtbaar effect
+ * heeft. Hij blijft ook op de Beeld-tab staan — daar hoort hij bij Filteren/Groeperen/Sorteren —
+ * maar met een tooltip die zegt waar het effect landt (zie `useColumnsButtonBinding`).
+ */
+const tableColumnsGroup: RibbonGroupSpec = {
+  // Groepskop zonder beletselteken (`menu:ribbon.columns` is "Kolommen…", een knoplabel);
+  // `common:view.columns.title` bestaat al in alle veertien talen.
+  id: 'tableColumns', labelKey: 'common:view.columns.title',
+  items: [{
+    kind: 'button', id: 'tableColumns', icon: <Columns3 size={20} />, labelKey: 'menu:ribbon.columns',
+    use: useColumnsButtonBinding,
+  }],
+};
+
 // ── Per-tab configuratie ─────────────────────────────────────────────────────────────────────
 
 const startTab: RibbonTabConfig = [
-  {
-    id: 'file', labelKey: 'menu:ribbon.file',
-    items: [
-      {
-        kind: 'stack', id: 'fileStack1', items: [
-          {
-            kind: 'small', id: 'new', icon: <FileText size={14} />, labelKey: 'menu:ribbon.new',
-            use: () => { const setUI = useAppStore(s => s.setUI); return { onClick: () => setUI({ showNewProjectDialog: true }) }; },
-          },
-          {
-            kind: 'small', id: 'save', icon: <Save size={14} />, labelKey: 'menu:ribbon.save',
-            use: () => { const saveFile = useAppStore(s => s.saveFile); return { onClick: () => { void saveFile(); } }; },
-          },
-          {
-            kind: 'small', id: 'open', icon: <FolderOpen size={14} />, labelKey: 'menu:ribbon.open',
-            use: () => {
-              const openFile = useAppStore(s => s.openFile);
-              const { t: tCommon } = useTranslation('common');
-              return { onClick: () => { void openFile({ importedProject: tCommon('project.imported') }); } };
-            },
-          },
-        ],
-      },
-      {
-        // Save As + Recent + Export horen sámen in één verticale kolom (reviewbevinding pakket P:
-        // los geplaatst renderden ze horizontaal en werd de groep ~2× zo breed).
-        kind: 'stack', id: 'fileStack2', items: [
-          {
-            kind: 'small', id: 'saveAs', icon: <SaveAll size={14} />, labelKey: 'menu:backstage.saveAs',
-            use: () => { const saveFileAs = useAppStore(s => s.saveFileAs); return { onClick: () => { void saveFileAs(); } }; },
-          },
-          { kind: 'component', id: 'recentFiles', Component: RecentFilesDropdown },
-          { kind: 'component', id: 'export', Component: ExportDropdown },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'edit', labelKey: 'menu:ribbon.edit',
-    items: [
-      {
-        kind: 'stack', id: 'editStack', items: [
-          {
-            kind: 'small', id: 'undo', icon: <Undo2 size={14} />, labelKey: 'menu:ribbon.undo',
-            use: () => {
-              const undo = useAppStore(s => s.undo);
-              const disabled = useAppStore(s => s.undoStack.length === 0);
-              return { onClick: () => undo(), disabled };
-            },
-          },
-          {
-            kind: 'small', id: 'redo', icon: <Redo2 size={14} />, labelKey: 'menu:ribbon.redo',
-            use: () => {
-              const redo = useAppStore(s => s.redo);
-              const disabled = useAppStore(s => s.redoStack.length === 0);
-              return { onClick: () => redo(), disabled };
-            },
-          },
-          {
-            kind: 'small', id: 'delete', icon: <Trash2 size={14} />, labelKey: 'menu:ribbon.delete', danger: true,
-            use: () => {
-              const deleteTask = useAppStore(s => s.deleteTask);
-              const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
-              return {
-                onClick: () => { for (const id of selectedTaskIds) deleteTask(id); },
-                disabled: selectedTaskIds.length === 0,
-              };
-            },
-          },
-        ],
-      },
-    ],
-  },
+  fileGroup,
+  editGroup,
   tasksGroup,
-  { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
+  scheduleGroup,
   {
     id: 'zoom', labelKey: 'menu:ribbon.zoom',
     items: [
@@ -729,13 +765,25 @@ const instellingenTab: RibbonTabConfig = [
 ];
 
 /**
- * Tabel-tab (issue #49): dezelfde Taken-groep als de Start-tab, zodat Taak/Mijlpaal/Relatie ook
- * hier staan. Bereken houdt zijn bestaande, meest linkse plek; de groepskop heet nu "Planning"
- * i.p.v. "Tabel", want dat is wat er in staat — precies zoals op de Start- en Planning-tab.
+ * Tabel-tab: de Start-tab min de zoomknoppen.
+ *
+ * Issue #49 bracht de Taken-groep hierheen; de vervolgvraag van de melder was "alles van Start
+ * hoort ook op Tabel, behalve zoom". Dat klopt inhoudelijk: Bestand, Bewerken, Taken en Bereken
+ * werken allemaal op de store en op `selectedTaskIds` — die selectie deelt de tabel met de Gantt,
+ * dus elke knop doet hier precies hetzelfde als op Start. **Zoom is de enige uitzondering**: dat
+ * schaalt de tijdas van de Gantt (`view.zoom` → `GanttRenderer`) en heeft in een tabel geen
+ * betekenis. Dezelfde redenering als bij de zes Gantt-schakelaars in `docs/TODO.md` — een knop
+ * aanbieden in een weergave waar hij niets kan doen, is geen volledigheid maar een valstrik.
+ *
+ * Alle vier de groepen zijn dezelfde module-scope constanten die `startTab` gebruikt (geen kopie),
+ * zodat een volgende knop op Start hier automatisch meekomt.
  */
 const tableTab: RibbonTabConfig = [
-  { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
+  fileGroup,
+  editGroup,
   tasksGroup,
+  scheduleGroup,
+  tableColumnsGroup,
 ];
 
 const ifcTab: RibbonTabConfig = [

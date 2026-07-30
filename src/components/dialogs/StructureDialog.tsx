@@ -73,7 +73,7 @@ export function StructureDialog() {
                 {type.values.map(v => (
                   <div key={v.id} className="flex items-center gap-1.5 pl-2">
                     <input
-                      className="input !text-xs !px-2 !py-1 w-24"
+                      className="input !text-xs !px-2 !py-1 !w-24"
                       value={v.code}
                       placeholder={t('structure.valueCode')}
                       onChange={e => updateActivityCodeValue(type.id, v.id, { code: e.target.value })}
@@ -164,7 +164,7 @@ export function StructureDialog() {
                 }}
               />
               <select
-                className="input !text-xs !px-2 !py-1 w-32"
+                className="input !text-xs !px-2 !py-1 !w-32"
                 value={newFieldType}
                 onChange={e => setNewFieldType(e.target.value as CustomFieldType)}
               >

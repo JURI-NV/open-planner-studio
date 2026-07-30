@@ -968,7 +968,7 @@ function AvailabilityStepsEditor({ steps, onChange }: {
             value={s.maxUnits}
             ariaLabel={t('resource.availabilityStepsEditor.maxUnits')}
             onCommit={n => update(i, { maxUnits: n })}
-            className="input !text-[11px] !px-1.5 !py-1 w-20 text-right"
+            className="input !text-[11px] !px-1.5 !py-1 !w-20 text-right"
           />
           <button onClick={() => remove(i)} className="p-0.5 rounded hover:bg-surface-hover" style={{ color: 'var(--error)' }}>
             <Trash2 size={12} />

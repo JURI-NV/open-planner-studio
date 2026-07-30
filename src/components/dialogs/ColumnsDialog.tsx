@@ -127,6 +127,14 @@ export function ColumnsDialog() {
           </button>
         </div>
 
+        {/* Reikwijdte staat vóór de lijst, niet erachter: deze kolommen sturen alleen de
+            Tabel-weergave aan (`view.columns` → `TableEditor`). De takenlijst naast de Gantt
+            tekent drie vaste kolommen in `GanttRenderer` en negeert dit. Zelfde hint-conventie
+            als `report:timelineColumnsHint`. */}
+        <div className="px-4 pt-3 text-[11px] text-text-secondary">
+          {t('view.columns.scopeHint')}
+        </div>
+
         <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5 text-xs">
           {columns.map((col, index) => (
             <div
