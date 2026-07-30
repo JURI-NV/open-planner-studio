@@ -1272,9 +1272,11 @@ function drawTaskTable(
  * ==== RELATIETYPE ====
  * De lus las `seq.type` helemaal niet en tekende élke relatie als FS (vanaf de VOORGANGER-FINISH).
  * Een SS-relatie kwam daardoor uit de verkeerde balkrand — een feitelijk onjuiste export, geen
- * cosmetiek. De ankerpunten volgen nu dezelfde `switch` als het scherm, inclusief de uitloop-
+ * cosmetiek. De ankerpunten volgen nu dezelfde logica als het scherm, inclusief de uitloop-
  * RICHTING: bij SS ankert de lijn op de LINKERrand van de voorganger en moet de stub dus naar
- * LINKS weglopen, anders begint de lijn ín de balk.
+ * LINKS weglopen, anders begint de lijn ín de balk. Issue #59 breidt dat uit naar FF/SF: die
+ * ankerten vroeger op de opvolger-START (de `default`-tak kende alleen FS/SS); nu landt de pijl
+ * op de opvolger-FINISH (rechterrand) en wijst de kop naar links, met een gespiegelde inlooproute.
  *
  * De obstakel-routering van het scherm (kolomvrij-detectie, goot-trap om tussenliggende balken
  * heen) is bewust NIET overgenomen: het scherm tekent zijn pijlen ÓNDER de balken en heeft die
@@ -1325,28 +1327,32 @@ function drawDependencies(
     // regressiebatterij `check-dependency-style.ts`).
     d2d.setLineDash(isDriving ? [] : [m.s(4), m.s(3)]);
 
-    // Ankerpunten per relatietype — zelfde `switch` als `GanttRenderer.drawDependencyArrows`.
-    // `dirOut` is de richting waarin de lijn bij de VOORGANGER wegloopt: bij SS ankert `fromX` op de
-    // linkerrand (de start) en moet de stub naar links, anders loopt hij de balk ín.
+    // Ankerpunten + looprichtingen per relatietype (issue #59: FF/SF landden vroeger op de
+    // opvolger-START doordat de `default`-tak ze als FS behandelde — spiegel van het scherm).
+    //   predStart  (voorganger-anker = start/linkerrand): SS, SF
+    //   succFinish (opvolger-anker  = finish/rechterrand): FF, SF
     let fromX: number;
     let toX: number;
-    switch (seq.type) {
-      case 'START_START': {
-        fromX = dateToX(parseDate(pred.time.earlyStart || pred.time.scheduleStart));
-        toX = dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
-        break;
-      }
-      default: {
-        // FS/FF/SF: vanaf de voorganger-FINISH naar de opvolger-START — ongewijzigd t.o.v. vóór
-        // issue #56 en identiek aan de `default`-tak van het scherm.
-        fromX = dateToX(parseDate(pred.time.earlyFinish || pred.time.scheduleFinish)) + zoom;
-        toX = dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
-      }
+    const predStart = seq.type === 'START_START' || seq.type === 'START_FINISH';
+    const succFinish = seq.type === 'FINISH_FINISH' || seq.type === 'START_FINISH';
+    if (predStart) {
+      fromX = dateToX(parseDate(pred.time.earlyStart || pred.time.scheduleStart));
+    } else {
+      fromX = dateToX(parseDate(pred.time.earlyFinish || pred.time.scheduleFinish)) + zoom;
     }
-    const dirOut = seq.type === 'START_START' ? -1 : 1;
+    if (succFinish) {
+      toX = dateToX(parseDate(succ.time.earlyFinish || succ.time.scheduleFinish)) + zoom;
+    } else {
+      toX = dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
+    }
+    // dirOut = uitlooprichting bij de voorganger (weg van de balk); dirIn = aankomstkant bij de
+    // opvolger: start-anker (FS/SS) komt van LINKS (−1, kop wijst naar rechts); finish-anker
+    // (FF/SF) van RECHTS (+1, kop wijst naar links).
+    const dirOut = predStart ? -1 : 1;
+    const dirIn = succFinish ? 1 : -1;
 
-    // De verticale knik naast de VOORGANGER. `dirOut` maakt dit het spiegelbeeld voor SS; bij
-    // FS/FF/SF (dirOut = 1) is dit letterlijk het oude `fromX + DEP_STUB`.
+    // De verticale knik naast de VOORGANGER (`outX`) ligt aan de uitloopkant; het inlooppunt
+    // naast de OPVOLGER aan de aankomstkant — onafhankelijk van het relatietype.
     const outX = fromX + dirOut * DEP_STUB;
 
     // Twee routes (issue #25 punt 3):
@@ -1359,7 +1365,9 @@ function drawDependencies(
     //    opvolger-rij als die eronder ligt, onderrand als hij erboven ligt), een paar px de rij in
     //    zodat de lijn nét naast de rasterlijn valt.
     d2d.beginPath();
-    if (toX >= outX + DEP_STUB) {
+    // Voorwaarts (knik volstaat) als `outX` ruim buiten de opvolgerbalk ligt aan de aankomstkant:
+    // bij start-aankomst (dirIn −1) rechts ervan, bij finish-aankomst (dirIn +1) links ervan.
+    if ((outX - toX) * dirIn >= DEP_STUB) {
       d2d.moveTo(fromX, predY);
       d2d.lineTo(outX, predY);
       d2d.lineTo(outX, succY);
@@ -1369,7 +1377,7 @@ function drawDependencies(
       const gutterY = succIdx > predIdx
         ? rowToY(succIdx) + gutterInset            // opvolger eronder ⇒ goot = bovenrand opvolger-rij
         : rowToY(succIdx) + m.rowHeight - gutterInset; // opvolger erboven ⇒ goot = onderrand opvolger-rij
-      const inX = toX - DEP_STUB;
+      const inX = toX + dirIn * DEP_STUB;
       d2d.moveTo(fromX, predY);
       d2d.lineTo(outX, predY);
       d2d.lineTo(outX, gutterY);
@@ -1383,8 +1391,8 @@ function drawDependencies(
     // relatie houdt een massieve pijlpunt (net als op het scherm).
     d2d.beginPath();
     d2d.moveTo(toX, succY);
-    d2d.lineTo(toX - 5, succY - 3);
-    d2d.lineTo(toX - 5, succY + 3);
+    d2d.lineTo(toX + dirIn * 5, succY - 3);
+    d2d.lineTo(toX + dirIn * 5, succY + 3);
     d2d.closePath();
     d2d.fill();
   }

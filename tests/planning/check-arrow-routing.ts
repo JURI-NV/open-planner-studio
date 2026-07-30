@@ -103,6 +103,10 @@ const names = [
   'D SS-opvolger',       // 3  SS lag 2  ⇒ uitloop moet naar LINKS
   'E SS achteruit',      // 4  SS lag -4 ⇒ achteruit én links
   'F lange sprong',      // 5  FS lag 12 vanaf A, over de rijen heen
+  'G FF-voorganger',     // 6  FF: opvolger eindigt als voorganger eindigt (zelfde finish)
+  'H FF-opvolger',       // 7
+  'I SF-voorganger',     // 8  SF: opvolger eindigt als voorganger start (pijl start→finish)
+  'J SF-opvolger',       // 9
 ];
 for (const n of names) S().addTask({ name: n });
 const t = S().tasks;
@@ -111,15 +115,22 @@ const setDur = (i: number, d: number) => {
   S().updateTask(cur.id, { time: { ...cur.time, scheduleDuration: d } });
 };
 setDur(0, 5); setDur(1, 4); setDur(2, 3); setDur(3, 6); setDur(4, 4); setDur(5, 3);
+setDur(6, 5); setDur(7, 4); setDur(8, 5); setDur(9, 4);
 S().addSequence({ predecessorId: t[0].id, successorId: t[1].id, type: 'FINISH_START', lagDays: 0 });
 S().addSequence({ predecessorId: t[1].id, successorId: t[2].id, type: 'FINISH_START', lagDays: -3 });
 S().addSequence({ predecessorId: t[2].id, successorId: t[3].id, type: 'START_START', lagDays: 2 });
 S().addSequence({ predecessorId: t[3].id, successorId: t[4].id, type: 'START_START', lagDays: -4 });
 S().addSequence({ predecessorId: t[0].id, successorId: t[5].id, type: 'FINISH_START', lagDays: 12 });
+// Issue #59: FF en SF ankerten vroeger op de verkeerde opvolger-rand (de `default`-tak katapulteerde
+// ze naar FS). G→H is finish-to-finish (beide eindigen gelijk); I→J is start-to-finish. I is via FS
+// achter H geplaatst zodat I.start ruim genoeg ligt om een negatieve J-start te vermijden.
+S().addSequence({ predecessorId: t[6].id, successorId: t[7].id, type: 'FINISH_FINISH', lagDays: 0 });
+S().addSequence({ predecessorId: t[7].id, successorId: t[8].id, type: 'FINISH_START', lagDays: 0 });
+S().addSequence({ predecessorId: t[8].id, successorId: t[9].id, type: 'START_FINISH', lagDays: 2 });
 S().runCPM();
 
-ok('opzet: 6 taken', S().tasks.length === 6, `kreeg ${S().tasks.length}`);
-ok('opzet: 5 relaties', S().sequences.length === 5, `kreeg ${S().sequences.length}`);
+ok('opzet: 10 taken', S().tasks.length === 10, `kreeg ${S().tasks.length}`);
+ok('opzet: 8 relaties', S().sequences.length === 8, `kreeg ${S().sequences.length}`);
 
 // ── Renderen + toetsen, over meerdere zoomniveaus en scrollposities ─────────
 const W = 1400, H = 500, TTW = 260, ROW = 28;
@@ -176,7 +187,7 @@ for (const zoom of [10, 15.5, 24, 40]) {
     ok(`zoom=${zoom} scrollX=${scrollX}: geen pijlsegment onder een balk`, hits.length === 0, hits.slice(0, 3).join(' | '));
     // Bij scrollX=0 staat alles in beeld; verder naar rechts cullt de renderer terecht de pijlen
     // waarvan BEIDE eindpunten links van de taaktabel liggen (bestaande, ongewijzigde cull).
-    if (scrollX === 0) ok(`zoom=${zoom}: alle 5 relaties getekend`, arrows.length === 5, `kreeg ${arrows.length}`);
+    if (scrollX === 0) ok(`zoom=${zoom}: alle 8 relaties getekend`, arrows.length === 8, `kreeg ${arrows.length}`);
   }
 }
 
@@ -185,15 +196,27 @@ ok('meting: pijlen opgenomen', totalArrows > 0, `${totalArrows}`);
 ok('meting: segmenten bemonsterd', totalSegments > 50, `${totalSegments}`);
 
 // ── Contract-eigenschappen van elk pad ──────────────────────────────────────
-// De pijlkop wijst naar rechts en landt op de linkerrand van de opvolgerbalk; het laatste segment
-// MOET dus horizontaal en naar rechts lopen (anders komt de lijn over de balk aan).
+// De pijlkop landt op de opvolger-rand die hoort bij het relatietype: bij FS/SS de START (linkerrand,
+// kop wijst naar rechts ⇒ laatste segment loopt naar rechts); bij FF/SF de FINISH (rechterrand, kop
+// wijst naar links ⇒ laatste segment loopt naar links). Vóór issue #59 liep het laatste stuk van
+// FF/SF altijd naar rechts (landde op de start) — deze per-type richtingstoets vangt die regressie.
+// `arrows` komt in dezelfde volgorde binnen als `sequences` (de renderer itereert die 1-op-1).
 {
   const { arrows } = render(15.5, 0);
-  for (const a of arrows) {
+  const seqs = S().sequences;
+  ok('richtingtest: alle relaties getekend', arrows.length === seqs.length, `${arrows.length}/${seqs.length}`);
+  for (let i = 0; i < arrows.length; i++) {
+    const a = arrows[i];
+    const type = seqs[i].type;
     const n = a.pts.length;
     const [x0, y0, x1, y1] = [a.pts[n - 4], a.pts[n - 3], a.pts[n - 2], a.pts[n - 1]];
-    ok('laatste segment is horizontaal', Math.abs(y1 - y0) < 0.001, `Δy=${(y1 - y0).toFixed(2)}`);
-    ok('laatste segment loopt naar rechts', x1 > x0, `x0=${x0.toFixed(1)} x1=${x1.toFixed(1)}`);
+    ok(`[${type}] laatste segment horizontaal`, Math.abs(y1 - y0) < 0.001, `Δy=${(y1 - y0).toFixed(2)}`);
+    const finishAnchored = type === 'FINISH_FINISH' || type === 'START_FINISH';
+    if (finishAnchored) {
+      ok(`[${type}] laatste segment loopt naar links (kop wijst ←)`, x1 < x0, `x0=${x0.toFixed(1)} x1=${x1.toFixed(1)}`);
+    } else {
+      ok(`[${type}] laatste segment loopt naar rechts (kop wijst →)`, x1 > x0, `x0=${x0.toFixed(1)} x1=${x1.toFixed(1)}`);
+    }
   }
 }
 

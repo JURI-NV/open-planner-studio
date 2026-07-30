@@ -249,6 +249,20 @@ console.log('-- relatielijnen: ankerpunt en uitloop per relatietype --');
     } else ok('FS ankert op de rechterrand (finish) van de voorgangerbalk');
     if (!(ss.pts[1][0] < ss.pts[0][0])) fail('SS: de stub loopt niet naar links weg van de balk (loopt de balk ín)');
     if (!(fs.pts[1][0] > fs.pts[0][0])) fail('FS: de stub loopt niet naar rechts weg van de balk');
+    // Issue #59 (rapport-pad): FINISH_FINISH landt op de opvolger-FINISH (rechterrand) ⇒ de kop wijst
+    // naar links ⇒ het laatste segment loopt naar links. Vóór de fix landde FF op de START en liep het
+    // laatste segment naar rechts (dezelfde default-als-FS-bug als op het scherm). Richtingstoets i.p.v.
+    // een exacte rand-x: het uiteinde valt óp de finish-rand, dus een `>`-assertie zou een valse treffer
+    // geven; de richting is de epsilon-vrije discriminator (gelijk aan check-arrow-routing.ts).
+    const ff = deps[idx('s6')];   // t3 → t6, FINISH_FINISH
+    if (!ff || ff.pts.length < 4) {
+      fail('FF-geometriecheck (#59): relatielijn s6 niet gevonden of te kort');
+    } else {
+      const m = ff.pts.length;
+      const [lx0, lx1] = [ff.pts[m - 2][0], ff.pts[m - 1][0]];
+      if (!(lx1 < lx0)) fail(`FF (#59): laatste segment loopt naar rechts (x ${lx0.toFixed(1)}→${lx1.toFixed(1)}), verwacht naar links — landt op opvolger-START i.p.v. FINISH`);
+      else ok('FF (#59): laatste segment loopt naar links ⇒ pijl landt op de opvolger-FINISH (rechterrand)');
+    }
   }
 }
 

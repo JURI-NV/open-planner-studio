@@ -1659,49 +1659,46 @@ export class GanttRenderer {
       const cullMargin = rowH / 2 + 8;
       if (Math.max(predY, succY) < -cullMargin || Math.min(predY, succY) > canvasH + cullMargin) continue;
 
-      let fromX: number, toX: number;
-
-      switch (seq.type) {
-        case 'FINISH_START': {
-          const predEnd = parseDate(pred.time.earlyFinish || pred.time.scheduleFinish);
-          fromX = this.dateToX(predEnd) + this.opts.view.zoom;
-          const succStart = parseDate(succ.time.earlyStart || succ.time.scheduleStart);
-          toX = this.dateToX(succStart);
-          break;
-        }
-        case 'START_START': {
-          const predStart = parseDate(pred.time.earlyStart || pred.time.scheduleStart);
-          fromX = this.dateToX(predStart);
-          const succStart = parseDate(succ.time.earlyStart || succ.time.scheduleStart);
-          toX = this.dateToX(succStart);
-          break;
-        }
-        default: {
-          const predEnd = parseDate(pred.time.earlyFinish || pred.time.scheduleFinish);
-          fromX = this.dateToX(predEnd) + this.opts.view.zoom;
-          const succStart = parseDate(succ.time.earlyStart || succ.time.scheduleStart);
-          toX = this.dateToX(succStart);
-        }
+      // Ankerpunten + looprichtingen per relatietype (issue #59: de oude `default`-tak tekende
+      // FF en SF als FS, dus landden ze altijd op de opvolger-START i.p.v. de FINISH).
+      //   predStart  — voorganger-anker = start/linkerrand  (SS, SF)
+      //   succFinish — opvolger-anker  = finish/rechterrand (FF, SF)
+      let fromX: number, toX: number, dirOut: number, dirIn: number;
+      const predStart = seq.type === 'START_START' || seq.type === 'START_FINISH';
+      const succFinish = seq.type === 'FINISH_FINISH' || seq.type === 'START_FINISH';
+      if (predStart) {
+        fromX = this.dateToX(parseDate(pred.time.earlyStart || pred.time.scheduleStart));
+      } else {
+        fromX = this.dateToX(parseDate(pred.time.earlyFinish || pred.time.scheduleFinish)) + this.opts.view.zoom;
       }
+      if (succFinish) {
+        toX = this.dateToX(parseDate(succ.time.earlyFinish || succ.time.scheduleFinish)) + this.opts.view.zoom;
+      } else {
+        toX = this.dateToX(parseDate(succ.time.earlyStart || succ.time.scheduleStart));
+      }
+      // dirOut = uitloop WEG van de voorgangerbalk; dirIn = aankomstkant bij de opvolger:
+      // start-anker (FS/SS) komt van links (kop wijst naar rechts); finish-anker (FF/SF) van rechts.
+      dirOut = predStart ? -1 : 1;
+      dirIn = succFinish ? 1 : -1;
 
       if (fromX < this.opts.taskTableWidth && toX < this.opts.taskTableWidth) continue;
 
-      // ── Routing (issue #41) ──────────────────────────────────────────────
-      // Uitlooprichting = WEG van de voorgangerbalk. Bij SS ankert `fromX` op de LINKERrand van de
-      // balk (de start), dus loopt de pijl daar naar links weg; bij FS/FF op de rechterrand (de
-      // finish) en dus naar rechts. Vóór deze fix liep de stub bij SS altijd 8px de balk ín — de
-      // gemelde "lijn begint pas onder de balk".
-      const dirOut = seq.type === 'START_START' ? -1 : 1;
-      // De pijlkop wijst naar rechts en landt op de linkerrand van de opvolgerbalk, dus de laatste
-      // rechte MOET van links komen: het inloop-punt ligt links van `toX`, nooit erop of erachter.
+      // ── Routing (issue #41, uitbreiding #59 voor FF/SF) ───────────────────
+      // `dirOut`/`dirIn` zijn hierboven berekend. `xa` ligt naast de voorgangerbalk (aan de
+      // uitloopkant); `enter` ligt naast de opvolgerbalk aan de AANKOMSTkant — bij FS/SS links
+      // (dirIn −1), bij FF/SF rechts (dirIn +1). Vóór #41 liep de SS-stub de balk ín.
       const tight = Math.abs(toX - fromX) < 2 * GanttRenderer.ARROW_STUB;
       const stub = tight ? GanttRenderer.ARROW_STUB_TIGHT : GanttRenderer.ARROW_STUB;
       const xa = fromX + dirOut * stub;      // naast de voorgangerbalk
-      const enter = toX - stub;              // links van de opvolgerbalk
+      const enter = toX + dirIn * stub;      // naast de opvolgerbalk, aan de aankomstkant
 
       const pts = this.arrowPts;
       let n = 0;
-      if (xa <= enter && this.isColumnFree(obs, xa, predIdx, succIdx)) {
+      // De elleboog (één verticaal op `xa`) volstaat als `xa` buiten de opvolgerbalk valt — bij
+      // start-aankomst (dirIn −1) betekent dat `xa <= enter`, bij finish-aankomst (dirIn +1) het
+      // gespiegelde `xa >= enter` — én de kolom niet door een tussenliggende balk wordt geblokkeerd.
+      const elbowOk = dirIn < 0 ? xa <= enter : xa >= enter;
+      if (elbowOk && this.isColumnFree(obs, xa, predIdx, succIdx)) {
         // Klassieke elleboog — ongewijzigd t.o.v. vóór #41 (op de stublengte na, die alleen in
         // krappe gevallen kleiner wordt): er is ruimte vóór de opvolger én de kolom is vrij.
         // Het laatste horizontale stuk loopt op succY naar `toX` toe en blijft dus links van de
@@ -1734,11 +1731,12 @@ export class GanttRenderer {
       }
       this.strokeArrowPath(pts, n);
 
-      // Arrowhead
+      // Arrowhead — base aan de aankomstkant (dirIn): FS/SS wijst naar rechts (base links), FF/SF
+      // naar links (base rechts). `toX + dirIn*5` geeft voor dirIn −1 de oude `toX − 5`.
       ctx.beginPath();
       ctx.moveTo(toX, succY);
-      ctx.lineTo(toX - 5, succY - 3);
-      ctx.lineTo(toX - 5, succY + 3);
+      ctx.lineTo(toX + dirIn * 5, succY - 3);
+      ctx.lineTo(toX + dirIn * 5, succY + 3);
       ctx.closePath();
       ctx.fill();
     }
