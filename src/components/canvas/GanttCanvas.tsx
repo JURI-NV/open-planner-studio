@@ -127,10 +127,13 @@ export function GanttCanvas() {
   // meer los uit de store getrokken.
   const pasteTasks = useAppStore(s => s.pasteTasks);
   const taskClipboard = useAppStore(s => s.taskClipboard);
-  // Golf 1-docstring (uiSlice.ts): expandAll/collapseAll werken op de summary-taken
-  // (collapsedTaskIds) en zijn expliciet "voor het bandkop-contextmenu" gebouwd.
-  const expandAll = useAppStore(s => s.expandAll);
-  const collapseAll = useAppStore(s => s.collapseAll);
+  // Issue #35b: het bandkop-contextmenu bestaat alléén in gegroepeerde weergave, en daar neemt
+  // `computeViewRows` de taak-collapse (collapsedTaskIds) volledig over door de groepsbanden. De oude
+  // `expandAll`/`collapseAll` werken op summary-taken en zijn daar dus inert — vandaar dat
+  // "Alles uit-/inklappen" in het bandkop-menu niets deed. Die items gebruiken nu de groepsacties
+  // (zelfde als de Beeld-tab in gegroepeerde weergave).
+  const expandAllGroups = useAppStore(s => s.expandAllGroups);
+  const collapseAllGroups = useAppStore(s => s.collapseAllGroups);
   // Issue #42: het taakcontextmenu klapt APART in/uit (net als de Beeld-tab) en gebruikt daarom
   // dezelfde gerichte acties als `outlineGroup` — niet de toggle.
   const collapseTasks = useAppStore(s => s.collapseTasks);
@@ -1714,8 +1717,8 @@ export function GanttCanvas() {
           onToggleGroupCollapse={() => {
             if (contextMenu.group) setCollapsedGroupKey(contextMenu.group.key, !contextMenu.group.collapsed);
           }}
-          onExpandAll={() => expandAll()}
-          onCollapseAll={() => collapseAll()}
+          onExpandAll={() => expandAllGroups()}
+          onCollapseAll={() => collapseAllGroups()}
         />
       )}
 

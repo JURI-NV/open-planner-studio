@@ -104,7 +104,7 @@ export function RibbonButton({ icon, label, onClick, active, disabled, primary, 
   // naamloos zijn. Een expliciete `title` (bv. de Relatie-knop, issue #40) wint.
   const tip = title ?? label;
   return (
-    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={tip} aria-label={tip}>
+    <button className={cls.join(' ')} onClick={disabled ? undefined : onClick} title={tip} aria-label={tip} aria-disabled={disabled || undefined}>
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>
     </button>
@@ -132,6 +132,7 @@ export function RibbonSmallButton({ icon, label, onClick, active, disabled, dang
       onClick={disabled ? undefined : onClick}
       title={tip}
       aria-label={tip}
+      aria-disabled={disabled || undefined}
     >
       <span className="ribbon-btn-icon">{icon}</span>
       <span className="ribbon-btn-label">{label}</span>
