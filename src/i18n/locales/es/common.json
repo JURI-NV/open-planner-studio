@@ -430,6 +430,7 @@
     "total": "Total",
     "totalHint": "Unidades asignadas × horas/día × tarifa (recalcula con F5)",
     "unitOfMeasure": "Unidad",
+    "unitOnlyMaterial": "Solo se rellena en recursos de tipo Material.",
     "parent": "Cuadrilla",
     "projectCalendar": "Calendario del proyecto",
     "noCalendar": "Sin calendario",

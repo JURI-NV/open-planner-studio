@@ -430,6 +430,7 @@
     "total": "Total",
     "totalHint": "Unités chargées × heures/jour × tarif (recalculer avec F5)",
     "unitOfMeasure": "Unité",
+    "unitOnlyMaterial": "À renseigner uniquement pour les ressources de type Matériau.",
     "parent": "Équipe",
     "projectCalendar": "Calendrier du projet",
     "noCalendar": "Aucun calendrier",

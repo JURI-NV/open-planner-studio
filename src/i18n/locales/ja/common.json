@@ -426,6 +426,7 @@
     "total": "合計",
     "totalHint": "負荷単位数 × 時間/日 × 単価（F5 で再計算）",
     "unitOfMeasure": "単位",
+    "unitOnlyMaterial": "「資材」タイプのリソースにのみ入力できます。",
     "parent": "班",
     "projectCalendar": "プロジェクトカレンダー",
     "noCalendar": "カレンダーなし",

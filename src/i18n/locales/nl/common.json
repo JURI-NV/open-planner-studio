@@ -428,6 +428,7 @@
     "total": "Totaal",
     "totalHint": "Belaste eenheden × uren/dag × tarief (herbereken met F5)",
     "unitOfMeasure": "Eenheid",
+    "unitOnlyMaterial": "Alleen in te vullen bij resources van het type Materiaal.",
     "parent": "Ploeg",
     "projectCalendar": "Projectkalender",
     "noCalendar": "Geen kalender",

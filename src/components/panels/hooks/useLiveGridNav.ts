@@ -1,6 +1,6 @@
 import { useCallback, useRef, type KeyboardEvent } from 'react';
 import {
-  controlKindOf, isLastGridRow, liveGridNavDirection, neighbourGridCell,
+  controlKindOf, isLastGridRow, liveGridNavDirection, neighbourGridCell, scrollDeltaToReveal,
 } from '@/utils/gridNavigation';
 
 /**
@@ -48,16 +48,46 @@ export function useLiveGridNav<F extends string>({ rowIds, fields, onAppendRow }
     return el;
   }, []);
 
+  /**
+   * Scroll de RIJ van dit element volledig in beeld. Expliciet, want `focus()` scrolt alleen mee
+   * wanneer de focus echt verspringt — en bij doorlopend invoeren met Enter blijft de cursor in
+   * hetzelfde naamveld staan (zie `scrollDeltaToReveal`). De rij i.p.v. de cel, zodat je de hele
+   * regel ziet waarin je typt.
+   */
+  const revealElement = useCallback((el: HTMLElement) => {
+    const root = gridRef.current;
+    if (!root) return;
+    const row: HTMLElement = el.closest('tr') ?? el;
+    const head = root.querySelector('thead');
+    const delta = scrollDeltaToReveal(
+      root.getBoundingClientRect(),
+      row.getBoundingClientRect(),
+      head ? head.getBoundingClientRect().height : 0,
+    );
+    if (delta !== 0) root.scrollTop += delta;
+  }, []);
+
+  /** Breng de rij van deze cel in beeld zonder de focus te verzetten. */
+  const revealCell = useCallback((rowId: string, field: F): boolean => {
+    const el = cellElement(rowId, field);
+    if (!el) return false;
+    revealElement(el);
+    return true;
+  }, [cellElement, revealElement]);
+
   /** Zet de focus op precies deze cel. `false` = die cel heeft geen bruikbaar element. */
   const focusCell = useCallback((rowId: string, field: F): boolean => {
     const el = cellElement(rowId, field);
     if (!el) return false;
-    el.focus({ preventScroll: false });
+    // preventScroll + eigen scroll: de impliciete scroll van `focus()` blijft weg zodra de focus
+    // niet verspringt, en dat is precies het geval waarin de rij uit beeld zakt.
+    el.focus({ preventScroll: true });
+    revealElement(el);
     // Spreadsheet-gedrag, gelijk aan de takentabel (`selectAll` bij klik/F2): wie met het
     // toetsenbord op een cel landt en begint te typen vervangt de waarde.
     if (el instanceof HTMLInputElement && el.type !== 'number') el.select();
     return true;
-  }, [cellElement]);
+  }, [cellElement, revealElement]);
 
   /**
    * Focus die pas kan landen na de volgende render. Wordt afgehandeld door `flushPendingFocus`,
@@ -104,7 +134,7 @@ export function useLiveGridNav<F extends string>({ rowIds, fields, onAppendRow }
 
   const rowProps = useCallback((rowId: string) => ({ 'data-ops-grid-row': rowId }), []);
 
-  return { gridRef, cellProps, rowProps, focusCell, requestFocus, flushPendingFocus, move };
+  return { gridRef, cellProps, rowProps, focusCell, revealCell, requestFocus, flushPendingFocus, move };
 }
 
 /**

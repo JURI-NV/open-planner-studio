@@ -426,6 +426,7 @@
     "total": "합계",
     "totalHint": "부하 단위 × 시간/일 × 단가(F5로 다시 계산)",
     "unitOfMeasure": "단위",
+    "unitOnlyMaterial": "‘자재’ 유형 리소스에서만 입력할 수 있습니다.",
     "parent": "팀",
     "projectCalendar": "프로젝트 달력",
     "noCalendar": "캘린더 없음",

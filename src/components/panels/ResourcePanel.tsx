@@ -10,6 +10,7 @@ import { UnitsInput } from '@/components/common/UnitsInput';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { isResourceFieldLocked, matchByName, computeResourceHash, normalizeName } from '@/services/library/libraryOps';
 import { useLiveGridNav } from './hooks/useLiveGridNav';
+import { controlKindOf, liveGridNavDirection } from '@/utils/gridNavigation';
 
 const RESOURCE_TYPES: ResourceType[] = ['LABOR', 'EQUIPMENT', 'MATERIAL', 'SUBCONTRACTOR', 'CREW'];
 
@@ -21,6 +22,23 @@ const GRID_FIELDS = ['name', 'type', 'maxUnits', 'calendar', 'cost', 'unit', 'pa
 type GridField = typeof GRID_FIELDS[number];
 /** Rij-id van de concept-rij; die staat als LAATSTE rij in het raster (zie `PendingNewRow`). */
 const DRAFT_ROW_ID = '__draft';
+
+/**
+ * De concept-rij houdt een VOLLEDIGE resource vast, niet alleen een naam (#48, tweede ronde).
+ * Puur lokale component-state: er staat pas iets in de store zodra er een naam is (zie
+ * `commitPendingNew`). Bewust géén `id`/`libraryOrigin` — die ontstaan pas bij het committeren.
+ */
+type ResourceDraft = {
+  name: string;
+  type: ResourceType;
+  maxUnits: number;
+  calendarId?: string;
+  costPerHour?: number;
+  unitOfMeasure?: string;
+  parentId?: string;
+};
+/** De waarden waarmee een nieuwe rij begint — zichtbaar in de rij zelf, niet verborgen in een default. */
+const freshDraft = (): ResourceDraft => ({ name: '', type: 'LABOR', maxUnits: 1 });
 
 const TYPE_KEY = {
   LABOR: 'resource.type.labor',
@@ -118,31 +136,56 @@ export function ResourcePanel() {
   // niet-lege naam (op blur/Enter) écht wordt aangemaakt (`addResource`/`addPoolResource`); leeg
   // wegklikken laat helemaal geen spoor na. Vervangt de eerdere `newRowId`-autofocus-aanpak (punt 3) —
   // de pending-rij bestaat sowieso maar heel even en mag altijd focus krijgen.
-  const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; name: string } | null>(null);
+  const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; draft: ResourceDraft } | null>(null);
   /** Welke draft-variant hoort bij een gegeven weergave — één definitie, gebruikt door de knop, de
    *  weergave-wissel-reset hieronder en de lintknop-route (#48-1). Spiegelt `inPoolView`. */
   const variantForView = (view: 'company' | 'project'): 'project' | 'pool' =>
     (linked && view === 'company' && !!pool) ? 'pool' : 'project';
+  const openDraft = (view: 'company' | 'project') =>
+    setPendingNew({ variant: variantForView(view), draft: freshDraft() });
 
-  // #48 (vervolgmelding van de melder): de concept-rij maakte ALLE andere velden onbewerkbaar, en
-  // dat las als een beperking van de invoer. Dat was nooit de bedoeling — de rij bestaat alleen om
-  // te voorkomen dat "knop indrukken en wegklikken" een lege resource achterlaat (F10). Het
-  // COMMIT-MOMENT is daarom vervroegd: zodra er een naam staat en de gebruiker verder wil (Tab,
-  // Enter, ↑/↓) bestaat de resource écht en zijn al zijn velden gewoon bewerkbaar. De concept-rij
-  // staat bovendien ONDERAAN — daar waar de resource ook landt — zodat het commit-moment de cursor
-  // niet meer laat wegspringen (zij was voorheen de eerste rij van de tabel terwijl de nieuwe
-  // resource achteraan werd aangehangen). Wat overeind blijft: niets typen ⇒ geen resource, geen
-  // undo-stap, document niet gewijzigd.
+  // #48 (vervolgmelding van de melder): "Is it the intended behavior for the concept row to have
+  // only the Name field editable?" — nee. De concept-rij bestaat om ÉÉN reden: voorkomen dat een
+  // knopdruk zonder invoer een lege resource achterlaat (F10). Ze is nooit bedoeld geweest om
+  // invoer te beperken, en zolang de overige cellen platte grijze tekst waren LAS ze wel zo — ook
+  // nadat het commit-moment vervroegd was, want de aanblik bleef "vergrendeld".
+  //
+  // Daarom houdt de draft nu de HELE resource vast (`ResourceDraft`) en rendert de rij overal een
+  // écht besturingselement. Je kunt dus eerst het type kiezen en dan pas de naam typen; bij het
+  // committeren gaat alles in één keer mee, in één undo-stap. De F10-regel is ongewijzigd en geldt
+  // nu ook voor de nieuwe velden: ZONDER NAAM WORDT ER NIETS GESCHREVEN — een dropdown verzetten en
+  // wegklikken laat evengoed geen resource, geen undo-stap en geen `isDirty` achter.
+  //
+  // De rij staat ONDERAAN, precies waar de resource ook landt, zodat het commit-moment de cursor
+  // niet verplaatst (de screencast van de melder liet zien hoe de hele tabel een rij opschoof).
   /** Commit de concept-rij. `null` = er is niets aangemaakt (geen draft, of een lege naam). */
   const commitPendingNew = (): string | null => {
     if (!pendingNew) return null;
-    const trimmed = pendingNew.name.trim();
-    if (trimmed === '') { setPendingNew(null); return null; } // niets getypt: geen spoor.
+    const { variant, draft } = pendingNew;
+    const trimmed = draft.name.trim();
+    if (trimmed === '') { setPendingNew(null); return null; } // geen naam: geen spoor.
+    const base = {
+      name: trimmed,
+      description: '',
+      type: draft.type,
+      maxUnits: draft.maxUnits,
+      calendarId: draft.calendarId,
+      costPerHour: draft.costPerHour,
+      unitOfMeasure: draft.type === 'MATERIAL' ? draft.unitOfMeasure : undefined,
+      parentId: draft.parentId,
+    };
     let newId: string | null = null;
-    if (pendingNew.variant === 'pool' && project.companyId) {
-      newId = addPoolResource(project.companyId, { name: trimmed, type: 'LABOR', description: '', maxUnits: 1 });
-    } else if (pendingNew.variant === 'project') {
-      newId = addResource({ name: trimmed, type: 'LABOR', description: '', maxUnits: 1 });
+    if (variant === 'pool' && project.companyId) {
+      newId = addPoolResource(project.companyId, base);
+      // `addPoolResource` strip `calendarId`/`parentId` (pool-lokale verwijzingen worden daar
+      // bewust niet uit een payload overgenomen). Zonder deze naslag zou een kalender- of
+      // ploegkeuze uit de concept-rij stil verdwijnen — precies het soort "ik vulde het in en het
+      // was weg" dat dit issue al aankaartte.
+      if (newId && (draft.calendarId || draft.parentId)) {
+        updatePoolResource(project.companyId, newId, { calendarId: draft.calendarId, parentId: draft.parentId });
+      }
+    } else if (variant === 'project') {
+      newId = addResource(base);
     }
     setPendingNew(null);
     return newId;
@@ -162,7 +205,7 @@ export function ResourcePanel() {
    *  "+ Nieuwe resource"-knop, dus ook hier geldt "niets typen ⇒ geen spoor". */
   const appendRow = useCallback((): boolean => {
     if (pendingNew) return false; // er staat er al een onderaan
-    setPendingNew({ variant: variantForView(useAppStore.getState().ui.resourcesView), name: '' });
+    openDraft(useAppStore.getState().ui.resourcesView);
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingNew, linked, pool]);
@@ -173,20 +216,19 @@ export function ResourcePanel() {
   // dependency-lijst: de aanvraag is een ref, dus dit is een goedkope no-op zolang er niets wacht.
   useEffect(() => { flushPendingFocus(); });
 
-  /** Toetsen in de concept-rij. `direction`/`advance` bepalen waar de cursor daarna heen gaat. */
-  const commitDraftAndMove = (mode: 'nextField' | 'nextRow' | 'prevRow') => {
+  /**
+   * Verticale navigatie VANUIT de concept-rij (Enter/↓/Shift+Enter/↑). Committeren gebeurt hier,
+   * niet bij het verlaten van een los veld: binnen de rij mag je vrij rondlopen met Tab en de muis
+   * zonder dat er al iets in de store belandt — dát is wat de rij volledig bewerkbaar maakt.
+   */
+  const commitDraftAndMove = (mode: 'nextRow' | 'prevRow') => {
     const newId = commitPendingNew();
-    if (mode === 'nextField') {
-      // Tab: de resource bestaat nu écht — door naar de volgende kolom van diezelfde rij, die
-      // (net als alle andere) gewoon bewerkbaar is.
-      if (newId) requestFocus(newId, 'type');
-      return;
-    }
     if (mode === 'nextRow') {
-      // Enter/↓: doorlopend invoeren. Meteen een verse concept-rij eronder — het naamveld blijft
-      // hetzelfde DOM-element, dus de cursor staat er al in.
+      // Enter/↓: doorlopend invoeren. Meteen een verse concept-rij eronder; het naamveld blijft
+      // hetzelfde DOM-element, dus de cursor staat er al in — maar de rij is intussen wél omlaag
+      // geschoven, dus hem expliciet in beeld halen (zie `focusCell`/`scrollDeltaToReveal`).
       if (newId) {
-        setPendingNew({ variant: variantForView(useAppStore.getState().ui.resourcesView), name: '' });
+        openDraft(useAppStore.getState().ui.resourcesView);
         requestFocus(DRAFT_ROW_ID, 'name');
       }
       return;
@@ -257,7 +299,7 @@ export function ResourcePanel() {
   // draft in de tabel landt die de gebruiker daadwerkelijk te zien krijgt.
   useEffect(() => {
     if (!pendingNewResource) return;
-    setPendingNew({ variant: variantForView(useAppStore.getState().ui.resourcesView), name: '' });
+    openDraft(useAppStore.getState().ui.resourcesView);
     requestFocus(DRAFT_ROW_ID, 'name');
     setUI({ pendingNewResource: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,7 +356,7 @@ export function ResourcePanel() {
   // vóór een niet-lege naam, zie `pendingNew`/`commitPendingNew` hierboven) — vervangt de oude aparte
   // "Nieuw in de bibliotheek"-knop (dubbelop geworden).
   const onAddClick = () => {
-    setPendingNew({ variant: inPoolView ? 'pool' : 'project', name: '' });
+    setPendingNew({ variant: inPoolView ? 'pool' : 'project', draft: freshDraft() });
     // Stond er al een concept-rij, dan is `autoFocus` al verbruikt — deze aanvraag zet de cursor
     // er alsnog in.
     requestFocus(DRAFT_ROW_ID, 'name');
@@ -363,15 +405,25 @@ export function ResourcePanel() {
 
   /** De concept-rij — één definitie voor beide weergaven; hij staat ONDERAAN de tabel (zie
    *  `commitPendingNew`), precies waar de resource straks ook staat. */
-  const draftRow = (variant: 'project' | 'pool', showTotalColumn: boolean, showParentColumn: boolean) => (
+  const draftRow = (
+    variant: 'project' | 'pool',
+    showTotalColumn: boolean,
+    showParentColumn: boolean,
+    calendarOptions: { id: string; name: string }[],
+    crewOptions: Resource[],
+  ) => (
     <PendingNewRow
+      draft={pendingNew?.draft ?? freshDraft()}
+      isPool={variant === 'pool'}
       showTotalColumn={showTotalColumn}
       showParentColumn={showParentColumn}
-      value={pendingNew?.name ?? ''}
-      onChange={v => setPendingNew({ variant, name: v })}
+      calendarOptions={calendarOptions}
+      crews={crewOptions}
+      onChange={patch => setPendingNew(p => (p ? { variant: p.variant, draft: { ...p.draft, ...patch } } : p))}
       onCommit={() => { commitPendingNew(); }}
       onMove={commitDraftAndMove}
       onCancel={() => setPendingNew(null)}
+      onReveal={() => grid.revealCell(DRAFT_ROW_ID, 'name')}
     />
   );
 
@@ -463,7 +515,7 @@ export function ResourcePanel() {
                     />
                   );
                 })}
-                {pendingNew?.variant === 'pool' && draftRow('pool', false, poolShowParentColumn)}
+                {pendingNew?.variant === 'pool' && draftRow('pool', false, poolShowParentColumn, pool.calendars, poolCrews)}
               </tbody>
             </table>
           )}
@@ -537,7 +589,7 @@ export function ResourcePanel() {
                   />
                 );
               })}
-              {pendingNew?.variant === 'project' && draftRow('project', true, true)}
+              {pendingNew?.variant === 'project' && draftRow('project', true, true, resourceCalendars, crews)}
             </tbody>
             {grandTotal !== undefined && (
               <tfoot>
@@ -862,6 +914,7 @@ function ResourceRow({
               onBlur={commitUnitDraft}
               {...cellProps(resource.id, 'unit')}
               className={cellInput + ' disabled:opacity-30'}
+              title={isMaterial ? undefined : t('resource.unitOnlyMaterial')}
             />
           ) : locked ? (
             <span className={cellStatic} title={t('resource.inheritedFieldHint')}>
@@ -874,6 +927,7 @@ function ResourceRow({
               onChange={e => onPatch({ unitOfMeasure: e.target.value || undefined })}
               {...cellProps(resource.id, 'unit')}
               className={cellInput + ' disabled:opacity-30'}
+              title={isMaterial ? undefined : t('resource.unitOnlyMaterial')}
             />
           )}
         </td>
@@ -988,67 +1042,169 @@ function ResourceRow({
 /**
  * F10 (critreview op 352bb94): de "nieuwe rij"-draft VÓÓR de eerste niet-lege naam — puur lokale
  * component-state in `ResourcePanel`, GEEN store-mutatie. Escape gooit de draft weg zonder spoor,
- * en wie niets typt en wegklikt laat evenmin iets achter: geen resource, geen undo-stap, document
+ * en wie niets invult en wegklikt laat evenmin iets achter: geen resource, geen undo-stap, document
  * niet als gewijzigd gemarkeerd. Dát is de reden dat deze rij bestaat.
  *
- * #48 (vervolgmelding): hij bestaat NIET om invoer te beperken. De rij is daarom zo kort mogelijk
- * geworden — zodra er een naam staat en de gebruiker verder wil (Tab, Enter, ↑/↓) committeert hij
- * en staat er een echte, volledig bewerkbare resource. De overige cellen tonen zolang de defaults
- * waarmee de rij wordt aangemaakt (LABOR, max.eenheden 1, projectkalender), als platte tekst — dat
- * is een VOORUITBLIK op wat je krijgt, geen slot. Hij staat onderaan, precies waar die resource ook
- * komt te staan, zodat het commit-moment de cursor niet verplaatst.
+ * #48 (vervolgmelding van de melder — "only the Name field editable? Remaining fields are locked"):
+ * hij bestaat NIET om invoer te beperken, dus is élke cel hier een ECHT besturingselement op de
+ * lokale draft. Vul in welke volgorde je wilt; er belandt pas iets in de store zodra er een naam
+ * staat én je de rij verlaat (klik elders, Tab voorbij de laatste cel) of Enter drukt — dan gaat
+ * alles in één keer mee, in één undo-stap. Een dropdown verzetten zónder naam blijft spoorloos.
+ *
+ * Bewust NIET aanwezig, in tegenstelling tot een echte rij: de uitklap-chevron voor tijd-gefaseerde
+ * capaciteit, het kalender-potlood en de verwijderknop. Die werken alle drie op een resource die
+ * nog niet bestaat; ze verschijnen zodra de rij echt is. Om dezelfde reden kent de kalenderkeuze
+ * hier geen "+ nieuwe kalender".
+ *
+ * De rij staat onderaan, precies waar die resource ook komt te staan, zodat het commit-moment de
+ * cursor niet verplaatst.
  */
 function PendingNewRow({
-  value, showTotalColumn, showParentColumn, onChange, onCommit, onCancel, onMove,
+  draft, isPool, showTotalColumn, showParentColumn, calendarOptions, crews,
+  onChange, onCommit, onCancel, onMove, onReveal,
 }: {
-  value: string;
+  draft: ResourceDraft;
+  isPool: boolean;
   showTotalColumn: boolean;
   showParentColumn: boolean;
-  onChange: (value: string) => void;
-  /** Wegklikken: committeer wat er staat (of laat geen spoor na als dat niets is). */
+  calendarOptions: { id: string; name: string }[];
+  crews: Resource[];
+  onChange: (patch: Partial<ResourceDraft>) => void;
+  /** De rij verlaten: committeer wat er staat (of laat geen spoor na als er geen naam is). */
   onCommit: () => void;
   onCancel: () => void;
-  /** Committeer en verplaats de cursor: Tab ⇒ volgende kolom, Enter/↓ ⇒ verse concept-rij, ↑ ⇒ terug. */
-  onMove: (mode: 'nextField' | 'nextRow' | 'prevRow') => void;
+  /** Enter/↓ ⇒ committeer + verse concept-rij; Shift+Enter/↑ ⇒ committeer + terug de tabel in. */
+  onMove: (mode: 'nextRow' | 'prevRow') => void;
+  /** De rij in beeld scrollen (de scroller kent alleen de hook, niet deze component). */
+  onReveal: () => void;
 }) {
   const { t } = useTranslation('common');
+  const isMaterial = draft.type === 'MATERIAL';
+
+  /** Eén toetsbeleid voor de hele rij — dezelfde regels als de echte rijen (`useLiveGridNav`),
+   *  zodat ↑/↓ in de dropdowns en de spinner gewoon hun eigen betekenis houden. */
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { e.stopPropagation(); onCancel(); return; }
+    const direction = liveGridNavDirection(e, controlKindOf(e.target as HTMLElement & { type?: string }));
+    if (!direction) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onMove(direction === 'down' ? 'nextRow' : 'prevRow');
+  };
+
+  /** Verlaat de focus de RIJ (niet slechts een cel), dan is dat het commit-moment. Binnen de rij
+   *  mag je vrij rondlopen — anders zou Tab van Naam naar Type de rij al wegschrijven en zou
+   *  "volledig bewerkbaar" niets betekenen. */
+  const onBlur = (e: React.FocusEvent<HTMLElement>) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    onCommit();
+  };
+
+  const cell = (field: GridField) => ({
+    'data-ops-grid-cell': `${DRAFT_ROW_ID}:${field}`,
+    onKeyDown,
+  });
+
   return (
     <tr
       className="border-b border-border-light"
       style={{ background: 'var(--theme-surface-alt)' }}
       data-ops-pending-new-row
       data-ops-grid-row={DRAFT_ROW_ID}
+      onBlur={onBlur}
+      onFocus={onReveal}
     >
       <td className="px-2 py-1">
         <input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onBlur={onCommit}
-          data-ops-grid-cell={`${DRAFT_ROW_ID}:name`}
-          onKeyDown={e => {
-            if (e.key === 'Escape') { onCancel(); return; }
-            const mode = e.key === 'Tab' && !e.shiftKey ? 'nextField'
-              : (e.key === 'Enter' && !e.shiftKey) || e.key === 'ArrowDown' ? 'nextRow'
-                : (e.key === 'Enter' && e.shiftKey) || e.key === 'ArrowUp' ? 'prevRow'
-                  : null;
-            if (!mode) return;
-            if (e.altKey || e.ctrlKey || e.metaKey) return;
-            e.preventDefault();
-            e.stopPropagation();
-            onMove(mode);
-          }}
+          value={draft.name}
+          onChange={e => onChange({ name: e.target.value })}
+          {...cell('name')}
           className={cellInput}
           placeholder={t('resource.name')}
           autoFocus
         />
       </td>
-      <td className="px-2 py-1"><span className={cellStatic}>{t(TYPE_KEY.LABOR)}</span></td>
-      <td className="px-2 py-1"><span className={cellStatic + ' text-right'}>1</span></td>
-      <td className="px-2 py-1"><span className={cellStatic}>{t('resource.projectCalendar')}</span></td>
-      <td className="px-2 py-1"><span className={cellStatic + ' text-right'}>—</span></td>
-      {showTotalColumn && <td className="px-2 py-1 text-right tabular-nums">—</td>}
-      <td className="px-2 py-1"><span className={cellStatic}>—</span></td>
-      {showParentColumn && <td className="px-2 py-1"><span className={cellStatic}>—</span></td>}
+      <td className="px-2 py-1">
+        <select
+          value={draft.type}
+          onChange={e => onChange({ type: e.target.value as ResourceType })}
+          {...cell('type')}
+          className={cellInput}
+        >
+          {RESOURCE_TYPES.map(rt => (
+            <option key={rt} value={rt}>{t(TYPE_KEY[rt])}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-2 py-1">
+        <div className="flex items-center gap-1 justify-end">
+          <UnitsInput
+            value={draft.maxUnits}
+            ariaLabel={t('resource.maxUnits')}
+            onCommit={n => onChange({ maxUnits: n })}
+            gridCell={cell('maxUnits')['data-ops-grid-cell']}
+            onKeyDown={onKeyDown}
+            className={cellInput + ' text-right'}
+          />
+        </div>
+      </td>
+      <td className="px-2 py-1">
+        <select
+          value={draft.calendarId ?? ''}
+          onChange={e => onChange({ calendarId: e.target.value || undefined })}
+          {...cell('calendar')}
+          className={cellInput}
+        >
+          <option value="">{isPool ? t('resource.noCalendar') : t('resource.projectCalendar')}</option>
+          {calendarOptions.map(c => (
+            <option key={c.id} value={c.id}>{c.name || c.id}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-2 py-1">
+        <input
+          type="number"
+          min={0}
+          step="any"
+          value={draft.costPerHour ?? ''}
+          onChange={e => {
+            const raw = e.target.value;
+            if (raw === '') { onChange({ costPerHour: undefined }); return; }
+            const n = parseFloat(raw);
+            if (Number.isFinite(n)) onChange({ costPerHour: n });
+          }}
+          {...cell('cost')}
+          className={cellInput + ' text-right'}
+        />
+      </td>
+      {/* "Totaal" is een berekening over de belasting — die bestaat pas als de resource bestaat. */}
+      {showTotalColumn && <td className="px-2 py-1 text-right tabular-nums text-text-secondary">—</td>}
+      <td className="px-2 py-1">
+        <input
+          value={draft.unitOfMeasure ?? ''}
+          disabled={!isMaterial}
+          onChange={e => onChange({ unitOfMeasure: e.target.value || undefined })}
+          {...cell('unit')}
+          className={cellInput + ' disabled:opacity-30'}
+          title={isMaterial ? undefined : t('resource.unitOnlyMaterial')}
+        />
+      </td>
+      {showParentColumn && (
+        <td className="px-2 py-1">
+          <select
+            value={draft.parentId ?? ''}
+            onChange={e => onChange({ parentId: e.target.value || undefined })}
+            {...cell('parent')}
+            className={cellInput}
+          >
+            <option value="">{t('resource.noParent')}</option>
+            {crews.map(c => (
+              <option key={c.id} value={c.id}>{c.name || c.id}</option>
+            ))}
+          </select>
+        </td>
+      )}
       <td className="px-1 py-1" />
     </tr>
   );

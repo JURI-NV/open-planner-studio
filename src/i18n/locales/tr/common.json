@@ -428,6 +428,7 @@
     "total": "Toplam",
     "totalHint": "Yüklenen birim × saat/gün × ücret (F5 ile yeniden hesaplayın)",
     "unitOfMeasure": "Birim",
+    "unitOnlyMaterial": "Yalnızca Malzeme türündeki kaynaklar için doldurulur.",
     "parent": "Ekip",
     "projectCalendar": "Proje takvimi",
     "noCalendar": "Takvim yok",

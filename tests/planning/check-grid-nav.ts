@@ -16,8 +16,14 @@
 //      "werkt de navigatie?"-test, want de navigatie werkt dan juist te goed.
 //
 // Draait via run.sh. Exit 0 = alles groen.
+//  (c) ZICHTBAARHEID. Navigeren is waardeloos als de cursor buiten beeld belandt. Bij doorlopend
+//      invoeren met Enter blijft de focus in hetzelfde naamveld staan, dus de impliciete scroll van
+//      `focus()` blijft weg — gemeten bij 40 resources in een venster van 900 px zakte de rij naar
+//      y 865 terwijl de scroller op 863 eindigde, en bleef daar. `scrollDeltaToReveal` rekent die
+//      verschuiving nu expliciet uit, mét marge voor de STICKY kolomkoppen (zonder die marge parkeer
+//      je een rij bij het omhoog navigeren precies ónder de kopregel: binnen de scroller, visueel weg).
 import {
-  neighbourGridCell, isLastGridRow, controlKindOf, liveGridNavDirection,
+  neighbourGridCell, isLastGridRow, controlKindOf, liveGridNavDirection, scrollDeltaToReveal,
   type GridControlKind, type GridDirection,
 } from '@/utils/gridNavigation';
 
@@ -132,6 +138,38 @@ for (const key of ['a', ' ', 'Tab', 'Escape', 'ArrowLeft', 'ArrowRight', 'Home',
   stap('down', 'text', 'Enter');
   stap('up', 'text', 'Enter');
   eq('loop door de naamkolom', pad, ['r2', 'r3', 'r2', 'r3', 'r2']);
+}
+
+// ── 6. Zichtbaarheid: hoeveel moet de scroller verschuiven? ────────────────────────────────
+// Scroller loopt van y 235 tot y 863 (de gemeten uitsnede van het resourcepaneel in een venster
+// van 900 px), rijen zijn 32 px hoog, sticky kopregel 23 px.
+{
+  const view = { top: 235, bottom: 863 };
+  const HEAD = 23;
+  const rij = (top: number) => ({ top, bottom: top + 32 });
+
+  eq('rij midden in beeld', scrollDeltaToReveal(view, rij(500), HEAD), 0);
+  eq('rij precies tegen de onderrand', scrollDeltaToReveal(view, rij(831), HEAD), 0);
+  eq('rij precies onder de kopregel', scrollDeltaToReveal(view, rij(258), HEAD), 0);
+
+  // (c) — het gemeten defect: na de eerste Enter stond de rij op 865..897 bij een onderrand van 863.
+  eq('rij net onder de vouw', scrollDeltaToReveal(view, rij(865), HEAD), 34);
+  eq('rij ver onder de vouw', scrollDeltaToReveal(view, rij(1200), HEAD), 369);
+
+  // Omhoog: de sticky kopregel telt mee, anders parkeert de rij eronder.
+  eq('rij onder de kopregel verstopt', scrollDeltaToReveal(view, rij(240), HEAD), -18);
+  eq('rij helemaal boven de scroller', scrollDeltaToReveal(view, rij(100), HEAD), -158);
+  // Zonder sticky kop is de bovengrens de scroller zelf — bewijst dat de marge écht meetelt.
+  eq('zelfde rij zonder sticky kop', scrollDeltaToReveal(view, rij(240), 0), 0);
+  eq('sticky kop verandert de uitkomst', scrollDeltaToReveal(view, rij(250), HEAD) !== scrollDeltaToReveal(view, rij(250), 0), true);
+
+  // Een rij die HOGER is dan het venster: de bovenkant wint, want daar staat de tekst waar je op
+  // mikt. Nooit zó ver doorschuiven dat de bovenkant onder de kopregel verdwijnt.
+  eq('te hoge rij, bovenkant boven de kop', scrollDeltaToReveal({ top: 0, bottom: 100 }, { top: 10, bottom: 400 }, 20), -10);
+  eq('te hoge rij die te ver zou zakken', scrollDeltaToReveal({ top: 0, bottom: 100 }, { top: 50, bottom: 500 }, 20), 30);
+
+  // Randgeval: rij exact zo hoog als het zichtbare deel.
+  eq('rij vult het venster precies', scrollDeltaToReveal({ top: 0, bottom: 100 }, { top: 20, bottom: 100 }, 20), 0);
 }
 
 // ── Verslag ────────────────────────────────────────────────────────────────────────────────

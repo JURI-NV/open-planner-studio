@@ -428,6 +428,7 @@
     "total": "Gesamt",
     "totalHint": "Belastete Einheiten × Std./Tag × Tarif (mit F5 neu berechnen)",
     "unitOfMeasure": "Einheit",
+    "unitOnlyMaterial": "Nur bei Ressourcen vom Typ Material auszufüllen.",
     "parent": "Kolonne",
     "projectCalendar": "Projektkalender",
     "noCalendar": "Kein Kalender",

@@ -428,6 +428,7 @@
     "total": "Total",
     "totalHint": "Loaded units × hours/day × rate (recalculate with F5)",
     "unitOfMeasure": "Unit",
+    "unitOnlyMaterial": "Only applies to resources of type Material.",
     "parent": "Crew",
     "projectCalendar": "Project calendar",
     "noCalendar": "No calendar",

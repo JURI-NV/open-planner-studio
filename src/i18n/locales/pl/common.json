@@ -432,6 +432,7 @@
     "total": "Razem",
     "totalHint": "Przydzielone jednostki × godziny/dzień × stawka (przelicz za pomocą F5)",
     "unitOfMeasure": "Jednostka",
+    "unitOnlyMaterial": "Do wypełnienia tylko dla zasobów typu Materiał.",
     "parent": "Brygada",
     "projectCalendar": "Kalendarz projektu",
     "noCalendar": "Brak kalendarza",

@@ -73,6 +73,39 @@ export function controlKindOf(el: { tagName: string; type?: string } | null | un
   return 'text';
 }
 
+/** Verticale uitsnede van een element/scroller — genoeg om zichtbaarheid mee te rekenen. */
+export interface GridBox {
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Hoeveel moet `scrollTop` van de scroller verschuiven om `row` volledig zichtbaar te maken?
+ * `0` = hij staat al goed. Positief = naar beneden scrollen, negatief = naar boven.
+ *
+ * Waarom dit expliciet gerekend wordt in plaats van op `el.focus()` te leunen (issue #48, tweede
+ * ronde): de browser scrolt alleen mee wanneer de focus DAADWERKELIJK verspringt. Bij doorlopend
+ * invoeren met Enter houdt hetzelfde naamveld de focus (de concept-rij blijft dezelfde
+ * DOM-node, alleen de rij erboven is aangegroeid), dus `focus()` is een no-op — inclusief het
+ * scrollen. Gemeten bij 40 resources in een venster van 900 px: de rij zakte naar y 865 terwijl de
+ * scroller op 863 eindigde, en bleef daar bij elke volgende Enter. De gebruiker typte blind.
+ *
+ * `stickyHeaderHeight` is niet optioneel gedrag maar noodzaak: de kolomkoppen van beide tabellen
+ * zijn `sticky top-0`. Zonder die marge zou "in beeld scrollen" bij de bovenrand een rij precies
+ * ONDER de kopregel parkeren — technisch binnen de scroller, visueel onzichtbaar.
+ */
+export function scrollDeltaToReveal(viewport: GridBox, row: GridBox, stickyHeaderHeight = 0): number {
+  const topLimit = viewport.top + stickyHeaderHeight;
+  // Past de rij helemaal niet? Dan de BOVENkant laten winnen — daar staat de tekst waar je op mikt.
+  if (row.top < topLimit) return row.top - topLimit;
+  if (row.bottom > viewport.bottom) {
+    const delta = row.bottom - viewport.bottom;
+    // Nooit zó ver doorschieten dat de bovenkant onder de kopregel verdwijnt.
+    return Math.min(delta, row.top - topLimit);
+  }
+  return 0;
+}
+
 export interface GridKeyEventLike {
   key: string;
   altKey?: boolean;
