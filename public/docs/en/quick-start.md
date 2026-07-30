@@ -32,7 +32,7 @@ Make sure you're on the ribbon tab **Home**. This tab shows the task table (left
 
 ### Via the ribbon
 
-1. In the **Tasks** ribbon group, click the **Task** button. A new task named "New task" appears, with a duration of 5 work days, at the bottom of both the task table and the Gantt chart.
+1. In the **Tasks** ribbon group, click the **Task** button. A new task named "New task" appears, with a duration of 5 work days, in both the task table and the Gantt chart. If a task is selected at that moment, the new task lands directly **below** it; if nothing is selected, it goes at the end. That way you build a list without having to drag things around afterwards. The same ribbon group is also on the **Table** tab.
 2. Repeat this a few times until you have a task for each main phase of your project. If you're following the example project, use the same main phases as it does: "1. Voorbereiding" (Preparation), "2. Fundering & ruwbouw" (Foundation & shell construction), "3. Afbouw" (Finishing) and "4. Oplevering" (Handover).
 3. Double-click a task — in the table or on its bar in the Gantt chart — to open the **Edit task** window. Adjust the **Name**, **Type** and **Duration (work days)** to match your phase.
 
@@ -44,6 +44,8 @@ Right-click an **existing** task instead, and you get a different context menu w
 
 - **Insert above** / **Insert below** — adds a task before or after the task you right-clicked. If several tasks are selected and you right-click one of them, the new task lands above the topmost or below the bottommost task of your selection — one task, not one per selected task.
 - **Add subtask** — creates a new task as a child of that task in one step (see step 3 for what that means).
+
+The keyboard is quickest for inserting: **Insert** puts a task above the selection, **Ctrl+I** (**Cmd+I** on macOS) below it. Both appear in the shortcut overview (**Ctrl+/**) under **Structure**. Inserting above or below only works in the plain tree view — with a filter, sort or grouping active the new task would show up somewhere other than where you put it, so the app explains that instead of silently placing it. More on this in the [Planning & WBS](docs://gids-plannen-wbs) guide.
 
 Typed something wrong, or added a task in the wrong place? **Ctrl+Z** undoes the last action, **Ctrl+Y** (or **Ctrl+Shift+Z**) redoes it — both work throughout the whole schedule, not just in text fields.
 

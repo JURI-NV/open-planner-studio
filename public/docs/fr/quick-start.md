@@ -45,6 +45,8 @@ Cliquez avec le bouton droit sur une tâche **existante** à la place, et vous o
 - **Insérer au-dessus** / **Insérer en dessous** — ajoute une tâche avant ou après la tâche sur laquelle vous avez cliqué avec le bouton droit.
 - **Ajouter une sous-tâche** — crée une nouvelle tâche en tant qu'enfant de cette tâche en une seule étape (voir l'étape 3 pour ce que cela signifie).
 
+Au clavier, l'insertion est la plus rapide : **Inser** place une tâche au-dessus de la sélection, **Ctrl+I** (**Cmd+I** sur macOS) en dessous. Les deux figurent dans l'aperçu des raccourcis (**Ctrl+/**) sous **Structure**. L'insertion au-dessus ou en dessous ne fonctionne qu'en vue arborescente normale : avec un filtre, un tri ou un regroupement actif, la nouvelle tâche apparaîtrait ailleurs que là où vous la placez, l'application vous l'explique donc au lieu de la placer en silence. Pour en savoir plus, voyez le guide [Planification & WBS](docs://gids-plannen-wbs).
+
 Vous avez tapé quelque chose de travers, ou ajouté une tâche au mauvais endroit ? **Ctrl+Z** annule la dernière action, **Ctrl+Y** (ou **Ctrl+Shift+Z**) la rétablit — les deux fonctionnent dans tout le planning, pas seulement dans les champs de texte.
 
 ### Ajouter un jalon

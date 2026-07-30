@@ -20,6 +20,8 @@ import { ContextMenu } from './ContextMenu';
 // als ÉÉN undo-stap. DOM-vrij afgezonderd zodat de regressiebatterij dezelfde functies draait.
 import { contextMenuOutlineScope, contextMenuBulk } from './contextMenuScope';
 import { RelationTypePopover } from './RelationTypePopover';
+// Issue #58: hover-tooltip die zichzelf binnen het venster houdt (nodig zodra de titel wrapt).
+import { HoverTooltip } from './HoverTooltip';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 // Issue #21 punt 5 (fase 2): gedeelde as-instantie voor Gantt + Histogram (ontwerp §10.1).
@@ -920,6 +922,13 @@ export function GanttCanvas() {
       }
 
       // Check '+' button (add child task)
+      // Issue #49, bewuste uitzondering: dit '+'-knopje staat ÓP een specifieke samenvattingsrij en
+      // betekent "voeg een kind toe aan DEZE taak". Het is dus rij-gestuurd, niet selectie-gestuurd
+      // — de gebruiker wijst het doel letterlijk aan. Hem meelaten lopen met "onder de selectie"
+      // (zoals de lintknop) zou de enige directe manier om een subtaak te maken slopen en het
+      // knopje tot een duplicaat van "+ Taak" maken; dat is precies de klacht uit issue #48.
+      // De positie binnen die ouder blijft achteraan: er is geen anker, dus ook geen boommodus-
+      // poort nodig (zie `taskInsertActions.canInsertRelative`).
       const addTarget = renderer.isAddButton(x, y);
       if (addTarget) {
         addTask({
@@ -1376,14 +1385,12 @@ export function GanttCanvas() {
           );
         })()}
 
-        {/* Tooltip */}
+        {/* Tooltip — issue #58: de titel wrapt nu (CSS) en `HoverTooltip` houdt de doos binnen het
+            venster; die twee horen bij elkaar, want een wrappende titel maakt hem hoger. */}
         {tooltip && (
-          <div
-            className="gantt-tooltip"
-            style={{
-              left: tooltip.x - (containerRef.current?.getBoundingClientRect().left || 0) + 16,
-              top: tooltip.y - (containerRef.current?.getBoundingClientRect().top || 0) - 10,
-            }}
+          <HoverTooltip
+            left={tooltip.x - (containerRef.current?.getBoundingClientRect().left || 0) + 16}
+            top={tooltip.y - (containerRef.current?.getBoundingClientRect().top || 0) - 10}
           >
             <div className="tooltip-title">{tooltip.task.name}</div>
             <div className="tooltip-row">
@@ -1416,7 +1423,7 @@ export function GanttCanvas() {
               <span className="tooltip-label">{tTask('properties.totalFloat')}</span>
               <span className="tooltip-value">{tooltip.task.time.totalFloat}d</span>
             </div>
-          </div>
+          </HoverTooltip>
         )}
 
         {/* Horizontale scrollbalk van het primaire pane (issue #22, sinds #35 een overlay). Hij
@@ -1531,17 +1538,15 @@ export function GanttCanvas() {
               </div>
             )}
             {histoTooltip && (
-              <div
-                className="gantt-tooltip"
-                style={{
-                  left: histoTooltip.x - (histogramContainerRef.current?.getBoundingClientRect().left || 0) + 14,
-                  top: histoTooltip.y - (histogramContainerRef.current?.getBoundingClientRect().top || 0) - 10,
-                }}
+              <HoverTooltip
+                left={histoTooltip.x - (histogramContainerRef.current?.getBoundingClientRect().left || 0) + 14}
+                top={histoTooltip.y - (histogramContainerRef.current?.getBoundingClientRect().top || 0) - 10}
               >
+                {/* Issue #58 geldt hier net zo goed: dit zijn resourcenamen, tot 9 regels. */}
                 {histoTooltip.lines.map((l, i) => (
                   <div key={i} className={i === 0 ? 'tooltip-title' : 'tooltip-row'}>{l}</div>
                 ))}
-              </div>
+              </HoverTooltip>
             )}
           </div>
         </>
@@ -1650,7 +1655,7 @@ export function GanttCanvas() {
             if (contextMenu.task) contextMenuBulk.remove(contextMenu.task.id);
           }}
           onAddTask={() => {
-            addTask({ name: defaultTaskName });
+            contextMenuBulk.addNearSelection(defaultTaskName);
           }}
           onInsertAbove={() => {
             if (contextMenu.task) contextMenuBulk.insert(contextMenu.task.id, 'above', defaultTaskName);

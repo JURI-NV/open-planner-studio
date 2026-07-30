@@ -172,7 +172,9 @@
     "moveProject": "Mover projeto…",
     "relationHintModeOn": "Ativar o modo de ligação: depois arraste de barra para barra no Gantt",
     "relationHintModeOff": "Desativar o modo de ligação",
-    "relationHintPair": "Criar uma relação Fim-Início entre as duas tarefas selecionadas"
+    "relationHintPair": "Criar uma relação Fim-Início entre as duas tarefas selecionadas",
+    "taskHintBelow": "Nova tarefa logo abaixo da seleção",
+    "taskHintAppend": "Nova tarefa no fim da lista"
   },
   "ifc": {
     "title": "Editor IFC",

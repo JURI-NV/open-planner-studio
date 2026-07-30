@@ -15,6 +15,7 @@ import {
   saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
 } from '@/utils/settingsStore';
 import { ExportFormat } from '@/state/appStore';
+import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { supportsHandles } from '@/services/fileAccess';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { ExtensionIcon } from '@/components/common/ExtensionIcon';
@@ -163,15 +164,17 @@ export function BaselinesProgressGroupContent() {
 /**
  * Mijlpaal-knop met keuzemenu (fase 2.4): startmijlpaal, eindmijlpaal of
  * inspectiemoment (eindmijlpaal + taaktype Keuring/Inspectie + verplicht).
+ *
+ * Issue #49: plaatst de mijlpaal onder de selectie i.p.v. altijd achteraan — exact dezelfde regel
+ * en dezelfde gedeelde route als de lintknop "+ Taak" (`addTaskNearSelection`).
  */
 export function MilestoneDropdown() {
   const { t: tMenu } = useTranslation('menu');
   const { t: tTask } = useTranslation('task');
   const [open, setOpen] = useState(false);
-  const addTask = useAppStore(s => s.addTask);
 
   const add = (kind: 'START' | 'FINISH', inspection: boolean) => {
-    addTask({
+    addTaskNearSelection({
       name: tTask(inspection ? 'defaultInspection' : 'defaultMilestone'),
       isMilestone: true,
       milestoneKind: kind,

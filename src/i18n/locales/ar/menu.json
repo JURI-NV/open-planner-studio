@@ -172,7 +172,9 @@
     "moveProject": "نقل المشروع…",
     "relationHintModeOn": "تشغيل وضع الربط: ثم اسحب من شريط إلى آخر في مخطط جانت",
     "relationHintModeOff": "إيقاف وضع الربط",
-    "relationHintPair": "إنشاء علاقة إنهاء-بدء بين المهمتين المحددتين"
+    "relationHintPair": "إنشاء علاقة إنهاء-بدء بين المهمتين المحددتين",
+    "taskHintBelow": "مهمة جديدة أسفل التحديد مباشرة",
+    "taskHintAppend": "مهمة جديدة في نهاية القائمة"
   },
   "ifc": {
     "title": "محرر IFC",

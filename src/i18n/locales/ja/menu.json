@@ -172,7 +172,9 @@
     "moveProject": "プロジェクトを移動…",
     "relationHintModeOn": "リンクモードをオンにする: その後ガントチャートでバーからバーへドラッグします",
     "relationHintModeOff": "リンクモードをオフにする",
-    "relationHintPair": "選択した 2 つのタスクの間に終了-開始の関係を作成します"
+    "relationHintPair": "選択した 2 つのタスクの間に終了-開始の関係を作成します",
+    "taskHintBelow": "選択したタスクのすぐ下に新しいタスクを追加します",
+    "taskHintAppend": "リストの末尾に新しいタスクを追加します"
   },
   "ifc": {
     "title": "IFC エディタ",

@@ -172,7 +172,9 @@
     "moveProject": "프로젝트 이동…",
     "relationHintModeOn": "링크 모드 켜기: 이후 간트 차트에서 막대에서 막대로 끕니다",
     "relationHintModeOff": "링크 모드 끄기",
-    "relationHintPair": "선택한 두 작업 사이에 종료-시작 관계 만들기"
+    "relationHintPair": "선택한 두 작업 사이에 종료-시작 관계 만들기",
+    "taskHintBelow": "선택한 작업 바로 아래에 새 작업 추가",
+    "taskHintAppend": "목록 맨 아래에 새 작업 추가"
   },
   "ifc": {
     "title": "IFC 편집기",

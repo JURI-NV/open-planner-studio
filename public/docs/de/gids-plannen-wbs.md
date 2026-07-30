@@ -24,6 +24,25 @@ Eine flache Aufgabenliste sagt nichts darüber aus, wie die Aufgaben zusammenhä
 
 Sobald eine Aufgabe mindestens eine Unteraufgabe hat, wird sie automatisch zu einer Sammelaufgabe: Ihr Balken im Gantt-Diagramm umfasst dann den gesamten Zeitraum vom frühesten Anfang bis zum spätesten Ende aller darunterliegenden Unteraufgaben, und ihre eigene Dauer und ihre Termine können nicht mehr unabhängig festgelegt werden. Eine Sammelaufgabe ist daher immer ein abgeleiteter Wert, nie ein Terminplan, den Sie direkt eingeben — löschen oder verschieben Sie die Unteraufgaben, und der Balken der Sammelaufgabe passt sich automatisch an.
 
+### Eine neue Aufgabe an der richtigen Stelle einfügen
+
+Neue Aufgaben landen nicht mehr zwangsläufig unten. Alle Schaltflächen und Tasten, die eine Aufgabe anlegen, folgen derselben Regel:
+
+- **Ist eine Aufgabe ausgewählt**, wird die neue Aufgabe direkt **darunter** eingefügt — nicht am Ende der gesamten Liste. Sie übernimmt Ebene und übergeordnete Aufgabe Ihrer Auswahl: Eine neue Aufgabe innerhalb einer Phase bleibt also in dieser Phase.
+- **Ist nichts ausgewählt**, kommt sie wie bisher ans Ende.
+- **Sind mehrere Aufgaben ausgewählt**, landet sie unter der **untersten** Aufgabe Ihrer Auswahl, so wie sie am Bildschirm steht — nie mitten in der Auswahl, und die Reihenfolge Ihrer Klicks spielt keine Rolle.
+
+Das gilt für die Schaltfläche **Aufgabe** und das Menü **Meilenstein** in der Menübandgruppe **Aufgaben** sowie für **Neue Aufgabe** im Kontextmenü. Diese Gruppe steht sowohl auf der Registerkarte **Start** als auch auf **Tabelle**, mit denselben drei Schaltflächen (**Aufgabe**, **Meilenstein**, **Verknüpfung**) — Sie müssen zum Erfassen von Aufgaben also nicht mehr die Registerkarte wechseln.
+
+Mit der Tastatur geht es noch schneller:
+
+- **Einfg** fügt eine Aufgabe **über** der Auswahl ein.
+- **Strg+I** (**Cmd+I** unter macOS) fügt eine Aufgabe **unter** der Auswahl ein — meist genau dort, wo Sie beim Durcharbeiten einer Liste hinwollen.
+
+Beide stehen auch in der Tastenkürzel-Übersicht (**Strg+/**) unter der Kategorie **Struktur**.
+
+**Nur in der normalen Baumansicht.** Das Einfügen darüber oder darunter ist ein Struktureingriff und nur sinnvoll, solange die angezeigte Reihenfolge auch die tatsächliche ist. Bei aktivem Filter, aktiver Sortierung oder Gruppierung würde die neue Aufgabe an anderer Stelle auftauchen als dort, wo Sie sie abgelegt haben. Die App verweigert dann das Einfügen darüber/darunter und zeigt einen Hinweisstreifen mit der Begründung sowie einer Schaltfläche, die Filter, Sortierung und Gruppierung mit einem Klick zurücksetzt. Die Schaltflächen **Aufgabe** und **Meilenstein** funktionieren weiterhin, setzen die Aufgabe dann aber ans Ende — mit derselben Erklärung.
+
 ### Aufgaben verschieben, ohne neu einzurücken
 
 Neben der Änderung der Aufgabenebene (Einrücken/Ausrücken) können Sie auch die Position einer Aufgabe innerhalb derselben Ebene tauschen, ohne die Struktur selbst zu ändern:

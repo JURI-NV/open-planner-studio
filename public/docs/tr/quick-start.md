@@ -45,6 +45,8 @@ Bunun yerine **mevcut** bir göreve sağ tıklarsanız, aralarında şunların d
 - **Üste ekle** / **Alta ekle** — sağ tıkladığınız görevden önce veya sonra bir görev ekler.
 - **Alt görev ekle** — o görevin altına tek adımda yeni bir görev oluşturur (bunun ne anlama geldiği için 3. adıma bakın).
 
+Klavyeyle eklemek en hızlısıdır: **Insert** seçimin üstüne bir görev koyar, **Ctrl+I** (macOS'ta **Cmd+I**) altına. Her ikisi de kısayol özetinde (**Ctrl+/**) **Yapı** başlığı altında yer alır. Üste veya alta ekleme yalnızca normal ağaç görünümünde çalışır: bir filtre, sıralama veya gruplama etkinken yeni görev koyduğunuz yerden başka bir yerde belirirdi; bu yüzden uygulama sessizce yerleştirmek yerine durumu açıklar. Ayrıntılar için [Planlama & WBS](docs://gids-plannen-wbs) kılavuzuna bakın.
+
 Yanlış bir şey mi yazdınız, ya da görevi yanlış yere mi eklediniz? **Ctrl+Z** son eylemi geri alır, **Ctrl+Y** (veya **Ctrl+Shift+Z**) yineler — ikisi de sadece metin alanlarında değil, planın tamamında çalışır.
 
 ### Kilometre taşı ekleyin

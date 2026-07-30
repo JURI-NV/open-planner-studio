@@ -45,6 +45,8 @@ Klicken Sie stattdessen mit der rechten Maustaste auf eine **vorhandene** Aufgab
 - **Oberhalb einfügen** / **Unterhalb einfügen** — fügt eine Aufgabe vor oder nach der per Rechtsklick ausgewählten Aufgabe hinzu.
 - **Unteraufgabe hinzufügen** — erstellt in einem Schritt eine neue Aufgabe als untergeordnete Aufgabe dieser Aufgabe (siehe Schritt 3 für die Bedeutung).
 
+Am schnellsten fügen Sie mit der Tastatur ein: **Einfg** setzt eine Aufgabe über die Auswahl, **Strg+I** (**Cmd+I** unter macOS) darunter. Beide stehen in der Tastenkürzel-Übersicht (**Strg+/**) unter **Struktur**. Das Einfügen darüber oder darunter funktioniert nur in der normalen Baumansicht: Bei aktivem Filter, aktiver Sortierung oder Gruppierung würde die neue Aufgabe an anderer Stelle auftauchen als dort, wo Sie sie ablegen — die App erklärt das, statt sie stillschweigend zu platzieren. Mehr dazu im Leitfaden [Planung & WBS](docs://gids-plannen-wbs).
+
 Etwas falsch eingegeben oder eine Aufgabe an der falschen Stelle hinzugefügt? **Ctrl+Z** macht die letzte Aktion rückgängig, **Ctrl+Y** (oder **Ctrl+Shift+Z**) stellt sie wieder her — beides funktioniert im gesamten Terminplan, nicht nur in Textfeldern.
 
 ### Einen Meilenstein hinzufügen

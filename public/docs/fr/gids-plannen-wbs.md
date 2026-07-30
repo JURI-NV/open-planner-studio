@@ -24,6 +24,25 @@ Une liste plate de tâches ne dit rien de leurs relations. En mettant une tâche
 
 Dès qu'une tâche a au moins une sous-tâche, elle devient automatiquement une tâche récapitulative : sa barre dans le diagramme de Gantt couvre alors toute la période, du début le plus tôt à la fin la plus tardive de toutes les sous-tâches qu'elle contient, et sa propre durée et ses propres dates ne peuvent plus être définies indépendamment. Une tâche récapitulative est donc toujours une valeur dérivée, jamais un planning que vous saisissez directement — supprimez ou décalez les sous-tâches, et la barre de la tâche récapitulative s'ajuste automatiquement.
 
+### Insérer une nouvelle tâche au bon endroit
+
+Les nouvelles tâches ne sont plus forcément ajoutées à la fin. Tous les boutons et toutes les touches qui créent une tâche suivent la même règle :
+
+- **Si une tâche est sélectionnée**, la nouvelle tâche se place directement **en dessous** de celle-ci, et non en bas de la liste. Elle hérite du niveau et de la tâche parente de votre sélection : une nouvelle tâche dans une phase reste donc dans cette phase.
+- **Si rien n'est sélectionné**, elle est ajoutée à la fin, comme auparavant.
+- **Si plusieurs tâches sont sélectionnées**, elle se place sous la tâche la **plus basse** de votre sélection telle qu'elle apparaît à l'écran — jamais au milieu de la sélection, et l'ordre dans lequel vous les avez cliquées n'a aucune importance.
+
+Cela vaut pour le bouton **Tâche** et le menu **Jalon** du groupe de ruban **Tâches**, ainsi que pour **Nouvelle tâche** dans le menu contextuel. Ce groupe figure aussi bien sur l'onglet **Accueil** que sur l'onglet **Tableau**, avec les trois mêmes boutons (**Tâche**, **Jalon**, **Lien**) : vous n'avez donc plus à changer d'onglet pour saisir des tâches.
+
+Au clavier, c'est encore plus rapide :
+
+- **Inser** insère une tâche **au-dessus** de la sélection.
+- **Ctrl+I** (**Cmd+I** sur macOS) insère une tâche **en dessous** de la sélection — l'endroit voulu la plupart du temps lorsqu'on déroule une liste.
+
+Les deux figurent aussi dans l'aperçu des raccourcis (**Ctrl+/**), catégorie **Structure**.
+
+**Uniquement en vue arborescente.** Insérer au-dessus ou en dessous est une intervention structurelle, qui n'a de sens que tant que l'ordre affiché correspond à l'ordre réel. Avec un filtre, un tri ou un regroupement actif, la nouvelle tâche apparaîtrait ailleurs que là où vous l'avez placée. L'application refuse alors l'insertion au-dessus/en dessous et affiche un bandeau qui explique pourquoi, avec un bouton pour effacer filtre, tri et regroupement en un clic. Les boutons **Tâche** et **Jalon** continuent de fonctionner, mais placent la tâche à la fin — avec la même explication.
+
 ### Déplacer des tâches sans les remettre en retrait
 
 Outre le changement de niveau d'une tâche (retrait/réduction du retrait), vous pouvez aussi permuter la position d'une tâche au sein du même niveau, sans changer la structure elle-même :

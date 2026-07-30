@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Task } from '@/types/task';
 import { CustomFieldDef, CustomFieldValue } from '@/types/structure';
 import { defaultColumns, isTreeMode } from '@/engine/view/visibleRows';
+import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import { resourceCellValue, type ViewContext } from '@/engine/view/filterEval';
 import type { ColumnConfig, FieldRef, BuiltinFieldKey } from '@/state/slices/types';
 import { useTaskTypeLabels } from '@/i18n/taskTypes';
@@ -98,7 +99,6 @@ export function TableEditor() {
   const { labels: taskTypeLabels } = useTaskTypeLabels();
   const tasks = useAppStore(s => s.tasks);
   const updateTask = useAppStore(s => s.updateTask);
-  const addTask = useAppStore(s => s.addTask);
   const selectTask = useAppStore(s => s.selectTask);
   // issue #26: voortgang loopt via de bewaakte route (statusdatum-invarianten, auto actualStart).
   const setTaskProgress = useAppStore(s => s.setTaskProgress);
@@ -414,12 +414,15 @@ export function TableEditor() {
     if (direction !== 'down') return;
     const rowIndex = taskRows.findIndex(r => r.task.id === taskId);
     if (rowIndex === -1 || rowIndex !== taskRows.length - 1) return;
-    if (!isTreeMode(view)) { notifyStructureLocked(); return; }
-    const newId = addTask({ name: t('defaultTask'), position: { anchorId: taskId, where: 'below' } });
+    // Issue #49: de boommodus-poort én de structuurmelding zitten sinds die fix in de gedeelde
+    // invoegroute, zodat élke route (lint, contextmenu, sneltoets, tabel) dezelfde regel volgt.
+    // `null` = de weergave hield hem tegen; de melding is dan al getoond.
+    const newId = insertTaskRelativeToScope([taskId], 'below', { name: t('defaultTask') });
+    if (!newId) return;
     selectTask(newId);
     // Lege startwaarde (niet de standaardnaam) zodat wat de gebruiker typt direct overschrijft.
     startEdit(newId, 'name', '');
-  }, [taskRows, neighbourCell, commitEdit, selectTask, startEdit, getCellValue, view, addTask, t, notifyStructureLocked]);
+  }, [taskRows, neighbourCell, commitEdit, selectTask, startEdit, getCellValue, t]);
 
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, taskId: string, field: string) => {
     if (e.key === 'Enter' || e.key === 'ArrowDown') {
@@ -435,8 +438,27 @@ export function TableEditor() {
       setEditCell(null);
       // Focus terug op het raster, anders is "typen om te bewerken" na één Escape stuk.
       restoreGridFocus();
+    } else if (e.key === 'Insert' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i')) {
+      // Issue #49: de melder wil de invoeg-sneltoetsen "consistent across all Task views", dus óók
+      // in de Tabel. De globale sneltoetsafhandeling laat een invoerveld met opzet met rust
+      // (`isTypingTarget` in `useKeyboardShortcuts`), zodat tekstbewerking nooit gekaapt wordt —
+      // hier vangen we ze daarom in de cel-input zelf op. Zonder dit werkten Insert/Ctrl+I in de
+      // Tabel alleen ná Escape, precies in de flow (naam typen, volgende taak) waar je ze wilt.
+      e.preventDefault();
+      e.stopPropagation();
+      const where = e.key === 'Insert' ? 'above' : 'below';
+      // Anker is de rij waarin de cursor staat — in een raster is dat ondubbelzinnig, en één klik
+      // op een cel zet de selectie toch al op die ene taak. De weergave-poort (boommodus) en de
+      // structuurmelding zitten in de gedeelde route.
+      commitEdit();
+      const newId = insertTaskRelativeToScope([taskId], where, { name: t('defaultTask') });
+      if (!newId) { restoreGridFocus(); return; }
+      selectTask(newId);
+      // Lege startwaarde, zodat wat je typt de standaardnaam direct overschrijft — zelfde gedrag
+      // als de doorlopende invoer met Enter/↓ op de laatste rij.
+      startEdit(newId, 'name', '');
     }
-  }, [navigateCell, restoreGridFocus]);
+  }, [navigateCell, restoreGridFocus, commitEdit, selectTask, startEdit, t]);
 
   /** Toetsenbord op rasterniveau (issue #26): geldt alleen wanneer er NIET bewerkt wordt — tijdens
    *  een bewerking is `handleCellKeyDown` in de input de baas. */

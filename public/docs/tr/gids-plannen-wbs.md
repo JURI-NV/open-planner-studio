@@ -24,6 +24,25 @@ Düz bir görev listesi, görevlerin nasıl ilişkili olduğu hakkında bir şey
 
 Bir görevin en az bir alt görevi olduğu anda, otomatik olarak bir özet göreve dönüşür: Gantt şemasındaki çubuğu o zaman altındaki tüm alt görevlerin en erken başlangıcından en geç bitişine kadar tüm süreyi kapsar ve kendi süresi ile tarihleri artık bağımsız olarak ayarlanamaz. Bu nedenle bir özet görev her zaman türetilmiş bir değerdir, asla doğrudan girdiğiniz bir plan değildir — alt görevleri silin veya kaydırın, özet görevin çubuğu kendini otomatik olarak ayarlar.
 
+### Yeni bir görevi doğru yere ekleme
+
+Yeni görevlerin en alta düşmesi şart değil. Görev oluşturan tüm düğmeler ve tuşlar aynı kuralı izler:
+
+- **Bir görev seçiliyse**, yeni görev doğrudan onun **altına** gelir; listenin en altına değil. Seçiminizin düzeyini ve üst görevini devralır, dolayısıyla bir aşama içindeki yeni görev o aşamada kalır.
+- **Hiçbir şey seçili değilse**, eskiden olduğu gibi sona eklenir.
+- **Birden fazla görev seçiliyse**, ekranda gördüğünüz haliyle seçiminizin **en alttaki** görevinin altına gelir — asla seçimin ortasına değil ve onlara hangi sırayla tıkladığınız fark etmez.
+
+Bu, şerit grubu **Görevler** içindeki **Görev** düğmesi ile **Kilometre taşı** menüsü ve bağlam menüsündeki **Yeni görev** için geçerlidir. Bu grup hem **Ana sayfa** sekmesinde hem de **Tablo** sekmesinde, aynı üç düğmeyle (**Görev**, **Kilometre taşı**, **Bağlantı**) bulunur; böylece görev girmek için artık sekme değiştirmeniz gerekmez.
+
+Klavyeyle daha da hızlıdır:
+
+- **Insert** seçimin **üstüne** bir görev ekler.
+- **Ctrl+I** (macOS'ta **Cmd+I**) seçimin **altına** bir görev ekler — bir listeyi işlerken genellikle gitmek istediğiniz yer burasıdır.
+
+Her ikisi de kısayol özetinde (**Ctrl+/**), **Yapı** kategorisinde yer alır.
+
+**Yalnızca normal ağaç görünümünde.** Üste veya alta ekleme yapısal bir müdahaledir ve yalnızca gösterilen sıra gerçek sıra olduğu sürece anlamlıdır. Bir filtre, sıralama veya gruplama etkinken yeni görev, koyduğunuz yerden başka bir yerde belirirdi. Uygulama bu durumda üste/alta eklemeyi reddeder ve nedenini açıklayan, filtre, sıralama ve gruplama ayarlarını tek tıkla temizleyen bir düğme içeren bir şerit gösterir. **Görev** ve **Kilometre taşı** düğmeleri çalışmaya devam eder, ancak görevi sona koyar — aynı açıklamayla birlikte.
+
 ### Yeniden girintilemeden görev taşıma
 
 Bir görevin düzeyini değiştirmenin (girinti/girintiyi kaldır) yanı sıra, yapının kendisini değiştirmeden bir görevin aynı düzey içindeki konumunu da değiştirebilirsiniz:

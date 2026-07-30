@@ -172,7 +172,9 @@
     "moveProject": "Project verplaatsen…",
     "relationHintModeOn": "Relatiemodus aanzetten: sleep daarna in de Gantt van balk naar balk",
     "relationHintModeOff": "Relatiemodus uitzetten",
-    "relationHintPair": "Eind-Start-relatie leggen tussen de twee geselecteerde taken"
+    "relationHintPair": "Eind-Start-relatie leggen tussen de twee geselecteerde taken",
+    "taskHintBelow": "Nieuwe taak direct onder de selectie",
+    "taskHintAppend": "Nieuwe taak onderaan de lijst"
   },
   "ifc": {
     "title": "IFC-editor",

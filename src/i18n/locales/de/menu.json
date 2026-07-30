@@ -172,7 +172,9 @@
     "moveProject": "Projekt verschieben…",
     "relationHintModeOn": "Verknüpfungsmodus einschalten: danach im Gantt von Balken zu Balken ziehen",
     "relationHintModeOff": "Verknüpfungsmodus ausschalten",
-    "relationHintPair": "Ende-Anfang-Beziehung zwischen den beiden ausgewählten Vorgängen erstellen"
+    "relationHintPair": "Ende-Anfang-Beziehung zwischen den beiden ausgewählten Vorgängen erstellen",
+    "taskHintBelow": "Neuer Vorgang direkt unter der Auswahl",
+    "taskHintAppend": "Neuer Vorgang am Ende der Liste"
   },
   "ifc": {
     "title": "IFC-Editor",

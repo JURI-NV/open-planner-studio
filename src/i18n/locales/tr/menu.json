@@ -172,7 +172,9 @@
     "moveProject": "Projeyi taşı…",
     "relationHintModeOn": "Bağlantı modunu aç: ardından Gantt'ta çubuktan çubuğa sürükleyin",
     "relationHintModeOff": "Bağlantı modunu kapat",
-    "relationHintPair": "Seçili iki görev arasında Bitiş-Başlangıç ilişkisi oluştur"
+    "relationHintPair": "Seçili iki görev arasında Bitiş-Başlangıç ilişkisi oluştur",
+    "taskHintBelow": "Yeni görev, seçimin hemen altına eklenir",
+    "taskHintAppend": "Yeni görev listenin sonuna eklenir"
   },
   "ifc": {
     "title": "IFC Düzenleyici",

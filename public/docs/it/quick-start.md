@@ -45,6 +45,8 @@ Fai invece clic destro su un'attività **esistente** e ottieni un menu contestua
 - **Inserisci sopra** / **Inserisci sotto** — aggiunge un'attività prima o dopo l'attività su cui hai fatto clic destro.
 - **Aggiungi sottoattività** — crea una nuova attività come figlia di quell'attività in un solo passaggio (vedi il passo 3 per il significato).
 
+Con la tastiera l'inserimento è più rapido: **Ins** mette un'attività sopra la selezione, **Ctrl+I** (**Cmd+I** su macOS) sotto. Entrambi compaiono nel riepilogo delle scorciatoie (**Ctrl+/**) sotto **Struttura**. Inserire sopra o sotto funziona solo nella normale vista ad albero: con un filtro, un ordinamento o un raggruppamento attivo la nuova attività comparirebbe altrove rispetto a dove la metti, quindi l'app te lo spiega invece di piazzarla in silenzio. Approfondimento nella guida [Pianificazione e WBS](docs://gids-plannen-wbs).
+
 Hai digitato qualcosa di sbagliato, o aggiunto un'attività nel posto sbagliato? **Ctrl+Z** annulla l'ultima azione, **Ctrl+Y** (o **Ctrl+Shift+Z**) la ripete — entrambe funzionano in tutta la pianificazione, non solo nei campi di testo.
 
 ### Aggiungi un traguardo

@@ -172,7 +172,9 @@
     "moveProject": "Move project…",
     "relationHintModeOn": "Turn on link mode: then drag from bar to bar in the Gantt",
     "relationHintModeOff": "Turn off link mode",
-    "relationHintPair": "Create a Finish-Start relation between the two selected tasks"
+    "relationHintPair": "Create a Finish-Start relation between the two selected tasks",
+    "taskHintBelow": "New task directly below the selection",
+    "taskHintAppend": "New task at the bottom of the list"
   },
   "ifc": {
     "title": "IFC Editor",

@@ -27,10 +27,10 @@ import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
 import { isAnyDialogOpen } from '@/hooks/useDialogKeys';
 import { isTreeMode } from '@/engine/view/visibleRows';
-// DOM-vrij en JSX-vrij bij constructie (zie de kop van dat bestand): de reikwijdte- en ankerregels
-// van het contextmenu wonen daar zodat sneltoets, menu én regressiebatterij letterlijk dezelfde
-// functie draaien.
-import { insertAnchorForScope } from '@/components/canvas/contextMenuScope';
+// DOM-vrij en JSX-vrij bij constructie (zie de kop van dat bestand): de anker- en weergaveregels
+// voor nieuwe taken wonen daar zodat sneltoets, menu, lintknop én regressiebatterij letterlijk
+// dezelfde functie draaien.
+import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
 
@@ -300,18 +300,40 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'structure',
     labelKey: 'context.insertAbove',
     when: () => !hasBlockingDialogOpen(),
+    // Issue #45-nasleep: NIET `selectedTaskIds[0]` — dat is de EERST AANGEKLIKTE taak, dus wie
+    // van onder naar boven selecteert kreeg de nieuwe taak midden in zijn selectie. Dezelfde
+    // ankerregel als het menu-item ernaast (bovenste taak in schermvolgorde), gedeeld via
+    // `insertTaskRelativeToScope`, zodat sneltoets en contextmenu niet uit elkaar kunnen lopen.
+    // Issue #49: die gedeelde route bewaakt nu ook de boommodus — buiten pure boommodus is de
+    // getoonde volgorde niet de documentvolgorde, dus wordt de invoeging geweigerd met dezelfde
+    // melding als bij in-/uitspringen hierboven.
     run: (store) => {
-      const name = i18n.t('defaultTask', { ns: 'task' });
-      // Issue #45-nasleep: NIET `selectedTaskIds[0]` — dat is de EERST AANGEKLIKTE taak, dus wie
-      // van onder naar boven selecteert kreeg de nieuwe taak midden in zijn selectie. Dezelfde
-      // ankerregel als het menu-item ernaast (bovenste taak in schermvolgorde), gedeeld via
-      // `insertAnchorForScope`, zodat sneltoets en contextmenu niet uit elkaar kunnen lopen.
-      const anchorId = insertAnchorForScope(store.selectedTaskIds, 'above');
-      if (anchorId) {
-        store.addTask({ name, position: { anchorId, where: 'above' } });
-      } else {
-        store.addTask({ name });
-      }
+      insertTaskRelativeToScope(store.selectedTaskIds, 'above', { name: i18n.t('defaultTask', { ns: 'task' }) });
+    },
+  },
+  {
+    // Issue #49 (aanvullend verzoek van de melder): "in veel gevallen wil je juist ónder de
+    // geselecteerde taak invoegen". De melder stelde Ctrl+I of Ctrl+T voor; het is Ctrl+I geworden.
+    //
+    // Waarom niet Ctrl+T: Chrome en Firefox reserveren dat op browser-chrome-niveau (nieuw
+    // tabblad) — `preventDefault()` haalt daar niets uit. De web-build is een échte
+    // productie-deploy (`live.yml`), dus een sneltoets die daar structureel dood is valt af.
+    //
+    // Waarom Ctrl+I wél kan: vrij in `SHORTCUTS` (de enige `i`-combinatie in dit bestand is er
+    // niet, en de browser-blokkadelijst in `useKeyboardShortcuts` kent alleen Ctrl+SHIFT+I voor
+    // devtools), en te onderscheppen in Chrome/Firefox/Safari. De bekende "Ctrl+I = inspringen"-
+    // associatie uit andere planningstools botst hier op niets: in-/uitspringen zit in deze app op
+    // Alt(+Shift)+→/← en op Tab in de tabel, en Ctrl+I is nergens aan iets anders gebonden.
+    //
+    // Zelfde `when`, zelfde route en dezelfde boommodus-poort als `structure.insertAbove`; de
+    // overzichtsdialoog toont hem automatisch, want die rendert uit dit register.
+    id: 'structure.insertBelow',
+    combo: { key: 'i', mod: true },
+    category: 'structure',
+    labelKey: 'context.insertBelow',
+    when: () => !hasBlockingDialogOpen(),
+    run: (store) => {
+      insertTaskRelativeToScope(store.selectedTaskIds, 'below', { name: i18n.t('defaultTask', { ns: 'task' }) });
     },
   },
   {

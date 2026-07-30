@@ -45,6 +45,8 @@ Kliknij prawym przyciskiem myszy **istniejące** zadanie, a otrzymasz inne menu 
 - **Wstaw powyżej** / **Wstaw poniżej** — dodaje zadanie przed lub po zadaniu, na którym kliknięto prawym przyciskiem.
 - **Dodaj podzadanie** — tworzy nowe zadanie jako podrzędne wobec tego zadania w jednym kroku (zobacz krok 3, co to oznacza).
 
+Z klawiatury idzie najszybciej: **Insert** wstawia zadanie nad zaznaczeniem, **Ctrl+I** (**Cmd+I** w macOS) pod nim. Oba znajdziesz w przeglądzie skrótów (**Ctrl+/**) w kategorii **Struktura**. Wstawianie nad lub pod działa tylko w zwykłym widoku drzewa: przy aktywnym filtrze, sortowaniu lub grupowaniu nowe zadanie pojawiłoby się gdzie indziej niż tam, gdzie je umieszczasz, więc aplikacja to wyjaśnia zamiast po cichu je wstawiać. Więcej w przewodniku [Planowanie i WBS](docs://gids-plannen-wbs).
+
 Wpisałeś coś źle albo dodałeś zadanie w niewłaściwym miejscu? **Ctrl+Z** cofa ostatnią akcję, **Ctrl+Y** (lub **Ctrl+Shift+Z**) ją ponawia — oba działają w całym harmonogramie, nie tylko w polach tekstowych.
 
 ### Dodaj kamień milowy

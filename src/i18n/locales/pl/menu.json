@@ -172,7 +172,9 @@
     "moveProject": "Przesuń projekt…",
     "relationHintModeOn": "Włącz tryb połączeń: następnie przeciągaj od paska do paska na wykresie Gantta",
     "relationHintModeOff": "Wyłącz tryb połączeń",
-    "relationHintPair": "Utwórz relację Zakończenie-Rozpoczęcie między dwoma zaznaczonymi zadaniami"
+    "relationHintPair": "Utwórz relację Zakończenie-Rozpoczęcie między dwoma zaznaczonymi zadaniami",
+    "taskHintBelow": "Nowe zadanie bezpośrednio pod zaznaczeniem",
+    "taskHintAppend": "Nowe zadanie na końcu listy"
   },
   "ifc": {
     "title": "Edytor IFC",

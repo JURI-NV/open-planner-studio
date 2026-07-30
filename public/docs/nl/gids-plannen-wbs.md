@@ -33,6 +33,40 @@ Zodra een taak minstens één subtaak heeft, wordt hij automatisch een samenvatt
 
 Het pijltje vóór een samenvattende taak blijft daarnaast gewoon werken om die ene tak los te openen of te sluiten.
 
+### Een nieuwe taak op de juiste plek invoegen
+
+Nieuwe taken hoeven niet onderaan te landen. Alle knoppen en toetsen die een taak aanmaken volgen
+dezelfde regel:
+
+- **Is er een taak geselecteerd**, dan komt de nieuwe taak direct **onder** die taak — en niet
+  onderaan de hele lijst. Hij erft daarbij het niveau en de bovenliggende taak van je selectie, dus
+  een nieuwe taak binnen een fase blijft binnen die fase.
+- **Is er niets geselecteerd**, dan komt hij achteraan, zoals altijd.
+- **Zijn er meerdere taken geselecteerd**, dan landt hij onder de **onderste** taak van je selectie
+  zoals je die op het scherm ziet — niet midden in de selectie, en het maakt niet uit in welke
+  volgorde je ze hebt aangeklikt.
+
+Dat geldt voor de knop **Taak** en het keuzemenu **Mijlpaal** in de lintgroep **Taken**, en voor
+**Nieuwe taak** in het contextmenu. Die lintgroep staat op het tabblad **Start** én op het tabblad
+**Tabel**, met dezelfde drie knoppen (**Taak**, **Mijlpaal**, **Relatie**), zodat je voor het
+invoeren van taken niet meer tussen tabbladen hoeft te wisselen.
+
+Met het toetsenbord gaat het nog sneller:
+
+- **Insert** voegt een taak **boven** de selectie in.
+- **Ctrl+I** (**Cmd+I** op macOS) voegt een taak **onder** de selectie in — precies waar je bij het
+  doorwerken van een lijst meestal naartoe wilt.
+
+Beide staan ook in het sneltoetsenoverzicht (**Ctrl+/**), onder de categorie **Structuur**.
+
+**Alleen in de gewone boomweergave.** Invoegen boven of onder is een structuur-ingreep, en die is
+alleen zinvol zolang de getoonde volgorde ook de werkelijke volgorde is. Staat er een filter, een
+sortering of een groepering aan, dan zou de nieuwe taak ergens anders opduiken dan waar je hem
+neerzette. De app weigert dan het invoegen boven/onder en toont een strook die uitlegt waarom, met
+een knop om de filter-, sorteer- en groepeerstanden in één klik te wissen. De knoppen **Taak** en
+**Mijlpaal** blijven in dat geval gewoon werken, maar zetten de taak achteraan — met dezelfde
+uitleg erbij.
+
 ### Taken herschikken zonder opnieuw in te springen
 
 Naast het aanpassen van het niveau (indent/outdent) kun je een taak ook binnen hetzelfde niveau van plaats laten wisselen, zonder de structuur zelf te wijzigen:

@@ -24,6 +24,25 @@ Uma lista plana de tarefas não diz nada sobre como se relacionam. Ao indentar u
 
 Assim que uma tarefa tem pelo menos uma subtarefa, torna-se automaticamente uma tarefa de resumo: a sua barra no diagrama de Gantt passa a abranger todo o período desde o início mais cedo até ao fim mais tarde de todas as subtarefas abaixo dela, e a sua própria duração e datas deixam de poder ser definidas de forma independente. Uma tarefa de resumo é, por isso, sempre um valor derivado, nunca um cronograma que introduz diretamente — elimine ou desloque as subtarefas, e a barra da tarefa de resumo ajusta-se automaticamente.
 
+### Inserir uma nova tarefa no sítio certo
+
+As tarefas novas já não têm de ficar no fim. Todos os botões e teclas que criam uma tarefa seguem a mesma regra:
+
+- **Se houver uma tarefa selecionada**, a nova tarefa fica diretamente **por baixo** dela, e não no fim de toda a lista. Herda o nível e a tarefa superior da sua seleção, por isso uma tarefa nova dentro de uma fase mantém-se nessa fase.
+- **Se não houver nada selecionado**, vai para o fim, como sempre.
+- **Se estiverem várias tarefas selecionadas**, fica por baixo da tarefa **mais abaixo** da sua seleção tal como a vê no ecrã — nunca no meio da seleção, e a ordem por que as clicou não interessa.
+
+Isto aplica-se ao botão **Tarefa** e ao menu **Marco** no grupo do friso **Tarefas**, e também a **Nova tarefa** no menu de contexto. Esse grupo está tanto no separador **Início** como no separador **Tabela**, com os mesmos três botões (**Tarefa**, **Marco**, **Ligação**), pelo que já não tem de mudar de separador para introduzir tarefas.
+
+Com o teclado é ainda mais rápido:
+
+- **Insert** insere uma tarefa **acima** da seleção.
+- **Ctrl+I** (**Cmd+I** no macOS) insere uma tarefa **abaixo** da seleção — normalmente é para aí que quer ir enquanto percorre uma lista.
+
+Ambos aparecem também no resumo de atalhos (**Ctrl+/**), na categoria **Estrutura**.
+
+**Apenas na vista em árvore normal.** Inserir acima ou abaixo é uma intervenção estrutural e só faz sentido enquanto a ordem apresentada for também a ordem real. Com um filtro, uma ordenação ou um agrupamento ativo, a nova tarefa apareceria noutro sítio que não aquele onde a colocou. A aplicação recusa então a inserção acima/abaixo e mostra uma faixa que explica porquê, com um botão para limpar filtro, ordenação e agrupamento num só clique. Os botões **Tarefa** e **Marco** continuam a funcionar, mas colocam a tarefa no fim — com a mesma explicação.
+
 ### Mover tarefas sem reindentar
 
 Além de alterar o nível de uma tarefa (indentar/diminuir indentação), pode também trocar a posição de uma tarefa dentro do mesmo nível, sem alterar a própria estrutura:

@@ -24,6 +24,25 @@ Płaska lista zadań nic nie mówi o tym, jak się one ze sobą wiążą. Wcinaj
 
 Gdy tylko zadanie ma co najmniej jedno podzadanie, automatycznie staje się zadaniem sumarycznym: jego pasek na wykresie Gantta obejmuje wtedy cały okres od najwcześniejszego początku do najpóźniejszego końca wszystkich podzadań pod nim, a jego własny czas trwania i daty nie mogą już być ustawiane niezależnie. Zadanie sumaryczne jest więc zawsze wartością pochodną, nigdy harmonogramem wpisywanym bezpośrednio — usuń lub przesuń podzadania, a pasek zadania sumarycznego dostosuje się automatycznie.
 
+### Wstawianie nowego zadania we właściwym miejscu
+
+Nowe zadania nie muszą już lądować na końcu. Wszystkie przyciski i klawisze tworzące zadanie działają według tej samej zasady:
+
+- **Jeśli zadanie jest zaznaczone**, nowe zadanie trafia bezpośrednio **pod** nim, a nie na koniec całej listy. Dziedziczy poziom i zadanie nadrzędne zaznaczenia, więc nowe zadanie w obrębie fazy pozostaje w tej fazie.
+- **Jeśli nic nie jest zaznaczone**, trafia na koniec, jak dotąd.
+- **Jeśli zaznaczono kilka zadań**, trafia pod **najniższe** zadanie zaznaczenia w kolejności widocznej na ekranie — nigdy w środek zaznaczenia, a kolejność klikania nie ma znaczenia.
+
+Dotyczy to przycisku **Zadanie** oraz menu **Kamień milowy** w grupie wstążki **Zadania**, a także pozycji **Nowe zadanie** w menu kontekstowym. Ta grupa znajduje się zarówno na karcie **Start**, jak i na karcie **Tabela**, z tymi samymi trzema przyciskami (**Zadanie**, **Kamień milowy**, **Połączenie**), więc do wprowadzania zadań nie trzeba już przełączać kart.
+
+Z klawiatury idzie jeszcze szybciej:
+
+- **Insert** wstawia zadanie **nad** zaznaczeniem.
+- **Ctrl+I** (**Cmd+I** w macOS) wstawia zadanie **pod** zaznaczeniem — zwykle właśnie tam chcesz trafić, przechodząc przez listę.
+
+Oba znajdziesz też w przeglądzie skrótów (**Ctrl+/**) w kategorii **Struktura**.
+
+**Tylko w zwykłym widoku drzewa.** Wstawianie nad lub pod jest ingerencją w strukturę i ma sens tylko dopóty, dopóki pokazywana kolejność jest kolejnością rzeczywistą. Przy aktywnym filtrze, sortowaniu lub grupowaniu nowe zadanie pojawiłoby się gdzie indziej niż tam, gdzie je umieszczasz. Aplikacja odmawia wtedy wstawienia nad/pod i pokazuje pasek z wyjaśnieniem oraz przyciskiem, który jednym kliknięciem czyści filtr, sortowanie i grupowanie. Przyciski **Zadanie** i **Kamień milowy** nadal działają, ale umieszczają zadanie na końcu — z tym samym wyjaśnieniem.
+
 ### Przenoszenie zadań bez ponownego wcinania
 
 Oprócz zmiany poziomu zadania (wcięcie/usunięcie wcięcia), możesz też zamienić pozycję zadania w obrębie tego samego poziomu, bez zmiany samej struktury:

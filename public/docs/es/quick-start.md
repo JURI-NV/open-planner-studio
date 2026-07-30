@@ -45,6 +45,8 @@ Haga clic derecho en una tarea **existente**, en cambio, y obtiene un menú cont
 - **Insertar arriba** / **Insertar debajo** — añade una tarea antes o después de la tarea sobre la que hizo clic derecho.
 - **Añadir subtarea** — crea una nueva tarea como hija de esa tarea en un solo paso (vea el paso 3 para saber qué significa eso).
 
+Con el teclado es lo más rápido: **Insert** coloca una tarea encima de la selección, **Ctrl+I** (**Cmd+I** en macOS) debajo. Ambas aparecen en el resumen de atajos (**Ctrl+/**) bajo **Estructura**. Insertar encima o debajo solo funciona en la vista de árbol normal: con un filtro, una ordenación o una agrupación activa la tarea nueva aparecería en un sitio distinto de donde la pone, así que la aplicación se lo explica en lugar de colocarla en silencio. Más sobre esto en la guía [Planificación y WBS](docs://gids-plannen-wbs).
+
 ¿Escribió algo mal, o añadió una tarea en el sitio equivocado? **Ctrl+Z** deshace la última acción, **Ctrl+Y** (o **Ctrl+Mayús+Z**) la rehace — ambos funcionan en toda la planificación, no solo en los campos de texto.
 
 ### Añadir un hito

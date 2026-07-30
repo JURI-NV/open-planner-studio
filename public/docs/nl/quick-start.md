@@ -32,7 +32,7 @@ Zorg dat je op het lint-tabblad **Start** staat. Dit tabblad toont de taaktabel 
 
 ### Via het lint
 
-1. Klik in de lintgroep **Taken** op de knop **Taak**. Er verschijnt een nieuwe taak genaamd "Nieuwe taak" met een duur van 5 werkdagen, onderaan zowel de taaktabel als het Gantt-diagram.
+1. Klik in de lintgroep **Taken** op de knop **Taak**. Er verschijnt een nieuwe taak genaamd "Nieuwe taak" met een duur van 5 werkdagen, in zowel de taaktabel als het Gantt-diagram. Heb je op dat moment een taak geselecteerd, dan komt de nieuwe taak direct **onder** die taak; is er niets geselecteerd, dan komt hij achteraan. Zo bouw je een lijst op zonder achteraf te hoeven slepen. Dezelfde lintgroep vind je ook op het tabblad **Tabel**.
 2. Herhaal dit een paar keer tot je een taak hebt voor elke hoofdfase van je project. Volg je het voorbeeldproject mee, gebruik dan dezelfde hoofdfasen als daarin: "1. Voorbereiding", "2. Fundering & ruwbouw", "3. Afbouw" en "4. Oplevering".
 3. Dubbelklik op een taak — in de tabel of op de balk in het Gantt-diagram — om het venster **Taak bewerken** te openen. Pas hier de **Naam**, het **Type** en de **Duur (werkdagen)** aan naar wat bij jouw fase past.
 
@@ -44,6 +44,8 @@ Rechtsklik je in plaats daarvan op een **bestaande** taak, dan krijg je een ande
 
 - **Invoegen boven** / **Invoegen onder** — voegt een taak in vóór of na de taak waarop je rechtsklikte. Heb je meerdere taken geselecteerd en rechtsklik je op één daarvan, dan komt de nieuwe taak boven de bovenste of onder de onderste taak van je selectie — één taak, niet één per geselecteerde taak.
 - **Subtaak toevoegen** — maakt in één keer een nieuwe taak aan als kind van die taak (zie stap 3 voor wat dat betekent).
+
+Met het toetsenbord gaat invoegen het snelst: **Insert** zet een taak boven de selectie, **Ctrl+I** (**Cmd+I** op macOS) eronder. Beide staan in het sneltoetsenoverzicht (**Ctrl+/**) onder **Structuur**. Invoegen boven of onder werkt alleen in de gewone boomweergave — staat er een filter, sortering of groepering aan, dan zou de nieuwe taak ergens anders opduiken dan waar je hem neerzet, dus legt de app dat uit in plaats van hem stilzwijgend te plaatsen. Meer hierover in de gids [Plannen & WBS](docs://gids-plannen-wbs).
 
 Typte je iets verkeerd, of voegde je een taak op de verkeerde plek toe? **Ctrl+Z** maakt de laatste actie ongedaan, **Ctrl+Y** (of **Ctrl+Shift+Z**) voert hem opnieuw uit — beide werken door de hele planning heen, niet alleen op tekstvelden.
 

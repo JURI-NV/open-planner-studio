@@ -12,9 +12,21 @@
 //       kapotmaakt zonder dat de zichtbare uitkomst verandert: elk van die mutators roept zelf
 //       `beginUndoable` aan, dus drie taken zouden drie undo-stappen kosten.
 //
+// Sinds issue #49 dekt deze batterij ook de tweede helft van hetzelfde onderwerp: WAAR een nieuwe
+// taak landt, ongeacht via welke route hij wordt aangemaakt (lintknop, mijlpaal-dropdown,
+// contextmenu, sneltoets). Zie sectie 9 t/m 12 onderaan.
+//
 // Draait via run.sh. Exit 0 = alles groen.
+// MOET als eerste staan: `shortcutRegistry` trekt `@/i18n/config` binnen, dat bij het laden al
+// `document.documentElement.dir` aanraakt.
+import './domShim';
 import { useAppStore } from '@/state/appStore';
-import { contextMenuOutlineScope, contextMenuBulk, insertAnchorForScope } from '@/components/canvas/contextMenuScope';
+import { contextMenuOutlineScope, contextMenuBulk } from '@/components/canvas/contextMenuScope';
+import {
+  insertAnchorForScope, addTaskNearSelection, insertTaskRelativeToScope, canInsertRelative,
+} from '@/state/taskInsertActions';
+import { SHORTCUTS } from '@/hooks/keyboard/shortcutRegistry';
+import { RIBBON_TABS, type RibbonGroupSpec } from '@/components/layout/Ribbon/ribbonConfig';
 import type { Task } from '@/types/task';
 
 const S = () => useAppStore.getState();
@@ -286,6 +298,269 @@ function verseVier(): { a: string; b: string; c: string; d: string } {
     S().deselectAll();
     eq('51 lege selectie ⇒ geen anker', insertAnchorForScope(S().selectedTaskIds, 'above'), undefined);
   }
+}
+
+// ── 9) "+ Taak" / "Mijlpaal" / contextmenu-"Taak toevoegen" volgen de selectie (issue #49) ──
+//
+// De melding: de knoppen zetten de nieuwe taak ALTIJD onderaan de lijst, ook met een taak
+// geselecteerd. Gevraagd gedrag: selectie ⇒ direct onder de selectie, geen selectie ⇒ achteraan.
+// Alle drie de knop-routes lopen door `addTaskNearSelection`, dus die is hier het meetpunt.
+{
+  const zichtbaar = (): string[] =>
+    S().viewRows.flatMap(r => (r.kind === 'task' ? [r.task.name] : []));
+
+  // 9a — enkelvoudige selectie: onder de geselecteerde taak, NIET onderaan de lijst.
+  {
+    const { b } = verseVier();
+    S().selectTasks([b], false);
+    const undoVoor = S().undoStack.length;
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('52 + Taak met selectie: direct ONDER de geselecteerde taak',
+      zichtbaar(), ['Taak A', 'Taak B', 'Nieuw', 'Taak C', 'Taak D']);
+    eq('53 + Taak: precies één undo-stap', S().undoStack.length - undoVoor, 1);
+    S().undo();
+    eq('54 + Taak: één Ctrl+Z draait de invoeging terug',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Taak D']);
+  }
+
+  // 9b — geen selectie: achteraan (ongewijzigd gedrag, en de expliciete tweede regel van de melder).
+  {
+    verseVier();
+    S().deselectAll();
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('55 + Taak zonder selectie: achteraan',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Taak D', 'Nieuw']);
+  }
+
+  // 9c — meervoudige selectie: onder de ONDERSTE van de selectie in schermvolgorde, ook wanneer er
+  // van onder naar boven is geklikt. Zelfde ankerregel als "Invoegen onder" (sectie 8).
+  {
+    const { b, c } = verseVier();
+    S().selectTasks([c, b], false); // van onder naar boven geselecteerd
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('56 + Taak met meervoudige selectie: onder de ONDERSTE, niet midden in de selectie',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Nieuw', 'Taak D']);
+  }
+
+  // 9d — een mijlpaal is dezelfde route: de extra velden blijven staan én de plaatsing klopt.
+  {
+    const { b } = verseVier();
+    S().selectTasks([b], false);
+    addTaskNearSelection({ name: 'M', isMilestone: true, milestoneKind: 'START' });
+    eq('57 Mijlpaal-dropdown: landt óók onder de selectie',
+      zichtbaar(), ['Taak A', 'Taak B', 'M', 'Taak C', 'Taak D']);
+    const m = S().tasks.find(t => t.name === 'M');
+    eq('58 Mijlpaal-dropdown: de mijlpaal-velden overleven de gedeelde route',
+      [m?.isMilestone, m?.milestoneKind], [true, 'START']);
+  }
+
+  // 9e — de nieuwe taak erft de ouder van het anker: selectie in een tak ⇒ nieuwe taak in die tak.
+  {
+    S().newProject();
+    const p = S().addTask({ name: 'P' });
+    const k1 = S().addTask({ name: 'K1', parentId: p });
+    S().addTask({ name: 'K2', parentId: p });
+    S().addTask({ name: 'Los' });
+    S().selectTasks([k1], false);
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('59 + Taak: erft de ouder van de selectie i.p.v. op rootniveau te landen',
+      zichtbaar(), ['P', 'K1', 'Nieuw', 'K2', 'Los']);
+    eq('60 + Taak: parentId van de nieuwe taak = die van de selectie',
+      S().tasks.find(t => t.name === 'Nieuw')?.parentId, p);
+  }
+
+  // 9f — het contextmenu-item "Taak toevoegen" hangt op dezelfde route (GanttCanvas.onAddTask).
+  {
+    const { b } = verseVier();
+    S().selectTasks([b], false);
+    contextMenuBulk.addNearSelection('Nieuw');
+    eq('61 contextmenu "Taak toevoegen": onder de selectie',
+      zichtbaar(), ['Taak A', 'Taak B', 'Nieuw', 'Taak C', 'Taak D']);
+  }
+}
+
+// ── 10) De weergave-poort: buiten pure boommodus (issue #49, toezegging aan de eigenaar) ────
+//
+// Wordt er gegroepeerd/gesorteerd/gefilterd, dan is de GETOONDE volgorde niet de documentvolgorde.
+// Een structurele invoeging "boven taak X" komt dan zichtbaar ergens anders uit: gemeten vóór deze
+// fix landde een Insert met een selectie in de band LOGISTIC zichtbaar in de band CONSTRUCTION.
+// Regel nu (gelijk aan in-/uitspringen en aan het doorlopend invoeren in de tabel):
+//   - expliciet "Invoegen boven/onder"  ⇒ GEWEIGERD + structuurmelding;
+//   - "+ Taak"/Mijlpaal                 ⇒ achteraan + structuurmelding (nooit geweigerd: anders kun
+//                                          je in een gegroepeerde weergave geen taak meer maken).
+{
+  const namen = (): string[] => S().tasks.map(t => t.name);
+  /** Vier taken, gegroepeerd op taaktype ⇒ geen pure boommodus meer. */
+  const verseGegroepeerd = () => {
+    const ids = verseVier();
+    S().setGroup([{ field: { src: 'builtin', key: 'taskType' }, dir: 'asc' }]);
+    return ids;
+  };
+
+  {
+    verseVier();
+    eq('62 pure boommodus ⇒ positioneel invoegen mag', canInsertRelative(), true);
+    S().setGroup([{ field: { src: 'builtin', key: 'taskType' }, dir: 'asc' }]);
+    eq('63 gegroepeerd ⇒ positioneel invoegen mag niet', canInsertRelative(), false);
+    S().setGroup([]);
+    S().setSort([{ field: { src: 'builtin', key: 'name' }, dir: 'asc' }]);
+    eq('64 gesorteerd ⇒ positioneel invoegen mag niet', canInsertRelative(), false);
+    S().setSort([]);
+    eq('65 standen gewist ⇒ weer pure boommodus', canInsertRelative(), true);
+  }
+
+  // 10a — "Invoegen boven/onder" wordt geweigerd, mét melding en zonder nieuwe taak.
+  {
+    const { b } = verseGegroepeerd();
+    S().selectTasks([b], false);
+    const meldingVoor = S().ui.structureLockedNotice;
+    const undoVoor = S().undoStack.length;
+    const id = insertTaskRelativeToScope(S().selectedTaskIds, 'above', { name: 'Nieuw' });
+    eq('66 gegroepeerd: "Invoegen boven" maakt GEEN taak aan', id, null);
+    eq('67 gegroepeerd: het document blijft ongewijzigd',
+      namen(), ['Taak A', 'Taak B', 'Taak C', 'Taak D']);
+    eq('68 gegroepeerd: geweigerde invoeging kost geen undo-stap',
+      S().undoStack.length - undoVoor, 0);
+    eq('69 gegroepeerd: de structuurmelding gaat af',
+      S().ui.structureLockedNotice - meldingVoor, 1);
+  }
+
+  // 10b — hetzelfde via het contextmenu (dezelfde gedeelde route, dus dit bewaakt de bedrading).
+  {
+    const { b } = verseGegroepeerd();
+    S().selectTasks([b], false);
+    const meldingVoor = S().ui.structureLockedNotice;
+    contextMenuBulk.insert(b, 'below', 'Nieuw');
+    eq('70 gegroepeerd: contextmenu "Invoegen onder" voegt niets in',
+      namen(), ['Taak A', 'Taak B', 'Taak C', 'Taak D']);
+    eq('71 gegroepeerd: contextmenu meldt het ook',
+      S().ui.structureLockedNotice - meldingVoor, 1);
+  }
+
+  // 10c — "+ Taak" blijft werken, maar achteraan en mét melding.
+  {
+    const { b } = verseGegroepeerd();
+    S().selectTasks([b], false);
+    const meldingVoor = S().ui.structureLockedNotice;
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('72 gegroepeerd: "+ Taak" voegt nog steeds toe, maar achteraan',
+      namen(), ['Taak A', 'Taak B', 'Taak C', 'Taak D', 'Nieuw']);
+    eq('73 gegroepeerd: "+ Taak" meldt waarom de plaatsing wegviel',
+      S().ui.structureLockedNotice - meldingVoor, 1);
+  }
+
+  // 10d — zonder selectie is er niets positioneels: geen melding, gewoon achteraan, in elke weergave.
+  {
+    verseGegroepeerd();
+    S().deselectAll();
+    const meldingVoor = S().ui.structureLockedNotice;
+    addTaskNearSelection({ name: 'Nieuw' });
+    eq('74 gegroepeerd zonder selectie: achteraan, zonder melding',
+      [namen(), S().ui.structureLockedNotice - meldingVoor],
+      [['Taak A', 'Taak B', 'Taak C', 'Taak D', 'Nieuw'], 0]);
+  }
+  {
+    verseGegroepeerd();
+    S().deselectAll();
+    const meldingVoor = S().ui.structureLockedNotice;
+    const id = insertTaskRelativeToScope(S().selectedTaskIds, 'above', { name: 'Nieuw2' });
+    eq('75 gegroepeerd zonder selectie: Insert voegt gewoon achteraan toe', !!id, true);
+    eq('76 gegroepeerd zonder selectie: Insert meldt niets',
+      S().ui.structureLockedNotice - meldingVoor, 0);
+  }
+
+  // Opruimen: de groepering is documentstate en zou anders in latere secties doorlekken.
+  S().newProject();
+}
+
+// ── 11) De sneltoetsen (issue #49, aanvullend verzoek van de melder) ────────────────────────
+//
+// `Insert` bestond al (invoegen boven); "invoegen onder" had geen toets. Dit bewaakt dat de nieuwe
+// entry er is, op welke combinatie hij zit, dat hij niet met een bestaande botst, en dat hij een
+// labelKey heeft — de overzichtsdialoog rendert rechtstreeks uit dit register.
+{
+  const boven = SHORTCUTS.find(s => s.id === 'structure.insertAbove');
+  const onder = SHORTCUTS.find(s => s.id === 'structure.insertBelow');
+  eq('77 sneltoets "invoegen boven" bestaat en zit op Insert',
+    boven && [boven.combo, boven.labelKey], [{ key: 'Insert' }, 'context.insertAbove']);
+  eq('78 sneltoets "invoegen onder" bestaat en zit op Ctrl/Cmd+I',
+    onder && [onder.combo, onder.labelKey, onder.category],
+    [{ key: 'i', mod: true }, 'context.insertBelow', 'structure']);
+
+  // Geen ONBEREIKBARE entry in het register: `useKeyboardShortcuts` stopt bij de EERSTE match, dus
+  // zodra een eerdere entry dezelfde combinatie ONVOORWAARDELIJK (zonder `when`) afvangt, vuurt
+  // alles daarachter met die combinatie nooit meer. Een botsing tussen entries die door een `when`
+  // uit elkaar worden gehouden is wél legitiem en bestaat bewust: Escape sluit eerst de
+  // presentatiemodus (`view.exitFullscreen`, met `when`) en deselecteert pas daarna
+  // (`edit.deselect`). Aliassen delen hun labelKey (Alt+→ naast Alt+Shift+→) maar nooit hun combo.
+  const sleutel = (c: { key: string; mod?: boolean; shift?: boolean; alt?: boolean }) =>
+    `${c.key.toLowerCase()}|${!!c.mod}|${!!c.shift}|${!!c.alt}`;
+  const onbereikbaar: string[] = [];
+  for (let i = 0; i < SHORTCUTS.length; i++) {
+    const k = sleutel(SHORTCUTS[i].combo);
+    for (let j = 0; j < i; j++) {
+      if (SHORTCUTS[j].displayOnly) continue;
+      if (sleutel(SHORTCUTS[j].combo) !== k) continue;
+      if (!SHORTCUTS[j].when) onbereikbaar.push(`${SHORTCUTS[i].id} onbereikbaar achter ${SHORTCUTS[j].id}`);
+    }
+  }
+  eq('79 geen sneltoets onbereikbaar achter een eerdere, onvoorwaardelijke entry', onbereikbaar, []);
+}
+
+// ── 12) De sneltoets-uitvoering zelf, via de route die het register aanroept ────────────────
+{
+  const zichtbaar = (): string[] =>
+    S().viewRows.flatMap(r => (r.kind === 'task' ? [r.task.name] : []));
+  // Defensief: ontbreekt de entry, dan hoort dat een nette afwijkingsregel te geven en geen
+  // stacktrace die de rest van de batterij meesleurt.
+  const draai = (id: string): boolean => {
+    const entry = SHORTCUTS.find(s => s.id === id);
+    if (!entry) { diffs.push(`sneltoets ${id} ontbreekt in SHORTCUTS`); checks++; return false; }
+    entry.run(S());
+    return true;
+  };
+
+  {
+    const { b } = verseVier();
+    S().selectTasks([b], false);
+    draai('structure.insertBelow');
+    eq('80 Ctrl+I: precies één nieuwe taak, direct ONDER de selectie',
+      zichtbaar().map((n, i) => (i === 2 ? '<nieuw>' : n)),
+      ['Taak A', 'Taak B', '<nieuw>', 'Taak C', 'Taak D']);
+  }
+  {
+    const { b } = verseVier();
+    S().selectTasks([b], false);
+    draai('structure.insertAbove');
+    eq('81 Insert: precies één nieuwe taak, direct BOVEN de selectie',
+      zichtbaar().map((n, i) => (i === 1 ? '<nieuw>' : n)),
+      ['Taak A', '<nieuw>', 'Taak B', 'Taak C', 'Taak D']);
+  }
+  {
+    verseVier();
+    S().deselectAll();
+    draai('structure.insertBelow');
+    eq('82 Ctrl+I zonder selectie: achteraan', S().tasks.length, 5);
+  }
+}
+
+// ── 13) Taakknoppen op élk takentabblad (issue #49, tweede punt van de melder) ──────────────
+//
+// "not all task-related buttons are displayed under the Table tab": de Tabel-tab had alleen
+// Bereken + Taak, terwijl de Start-tab Taak/Mijlpaal/Relatie heeft. Deze check eist dat beide
+// tabbladen LETTERLIJK dezelfde groep-definitie delen — een gekopieerde tweede lijst met toevallig
+// dezelfde items zou de volgende keer weer uit elkaar lopen.
+{
+  const groep = (tab: RibbonGroupSpec[], id: string) => tab.find(g => g.id === id);
+  const start = groep(RIBBON_TABS.start, 'tasks');
+  const tabel = groep(RIBBON_TABS.table, 'tasks');
+  eq('83 de Start-tab heeft een Taken-groep met Taak/Mijlpaal/Relatie',
+    start?.items.map(i => i.id), ['addTask', 'milestone', 'relation']);
+  eq('84 de Tabel-tab heeft dezelfde Taken-groep', tabel?.items.map(i => i.id),
+    ['addTask', 'milestone', 'relation']);
+  eq('85 het is één gedeelde definitie, geen kopie', start === tabel && start !== undefined, true);
+  eq('86 Bereken staat nog steeds op de Tabel-tab',
+    RIBBON_TABS.table.some(g => g.items.some(i => i.id === 'calc')), true);
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

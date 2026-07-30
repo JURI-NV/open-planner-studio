@@ -24,6 +24,25 @@ Una lista plana de tareas no dice nada sobre cómo se relacionan. Al sangrar una
 
 En cuanto una tarea tiene al menos una subtarea, se convierte automáticamente en una tarea de resumen: su barra en el diagrama de Gantt abarca entonces todo el período desde el inicio más temprano hasta el fin más tardío de todas las subtareas que hay debajo, y su propia duración y fechas ya no pueden establecerse de forma independiente. Una tarea de resumen es, por tanto, siempre un valor derivado, nunca una planificación que se introduce directamente — elimine o desplace las subtareas, y la barra de la tarea de resumen se ajusta automáticamente.
 
+### Insertar una tarea nueva en el sitio correcto
+
+Las tareas nuevas ya no tienen por qué acabar al final. Todos los botones y teclas que crean una tarea siguen la misma regla:
+
+- **Si hay una tarea seleccionada**, la nueva tarea se coloca justo **debajo** de ella, y no al final de toda la lista. Hereda el nivel y la tarea superior de su selección, así que una tarea nueva dentro de una fase se queda en esa fase.
+- **Si no hay nada seleccionado**, va al final, como siempre.
+- **Si hay varias tareas seleccionadas**, se coloca debajo de la tarea **más baja** de su selección tal y como aparece en pantalla — nunca en medio de la selección, y el orden en que las haya pulsado no influye.
+
+Esto vale para el botón **Tarea** y el menú **Hito** del grupo de cinta **Tareas**, y también para **Nueva tarea** en el menú contextual. Ese grupo está tanto en la pestaña **Inicio** como en la pestaña **Tabla**, con los mismos tres botones (**Tarea**, **Hito**, **Enlace**), de modo que ya no hace falta cambiar de pestaña para introducir tareas.
+
+Con el teclado es aún más rápido:
+
+- **Insert** inserta una tarea **encima** de la selección.
+- **Ctrl+I** (**Cmd+I** en macOS) inserta una tarea **debajo** de la selección — normalmente adonde quiere ir mientras recorre una lista.
+
+Ambas aparecen también en el resumen de atajos (**Ctrl+/**), en la categoría **Estructura**.
+
+**Solo en la vista de árbol normal.** Insertar encima o debajo es una intervención estructural, y solo tiene sentido mientras el orden mostrado sea el orden real. Con un filtro, una ordenación o una agrupación activa, la tarea nueva aparecería en un sitio distinto de donde la ha puesto. La aplicación rechaza entonces la inserción encima/debajo y muestra una franja que explica el motivo, con un botón para borrar filtro, ordenación y agrupación de una sola vez. Los botones **Tarea** e **Hito** siguen funcionando, pero colocan la tarea al final — con la misma explicación.
+
 ### Mover tareas sin volver a sangrar
 
 Además de cambiar el nivel de una tarea (sangrar/reducir sangría), también puede intercambiar la posición de una tarea dentro del mismo nivel, sin cambiar la estructura en sí:

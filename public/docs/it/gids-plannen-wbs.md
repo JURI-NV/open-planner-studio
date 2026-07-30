@@ -24,6 +24,25 @@ Un elenco piatto di attività non dice nulla su come si relazionano. Rientrando 
 
 Non appena un'attività ha almeno una sottoattività, diventa automaticamente un'attività di riepilogo: la sua barra nel diagramma di Gantt copre allora l'intero periodo dall'inizio più anticipato alla fine più posticipata di tutte le sottoattività sottostanti, e la sua propria durata e le sue date non possono più essere impostate in modo indipendente. Un'attività di riepilogo è quindi sempre un valore derivato, mai una pianificazione che inserisci direttamente — elimina o sposta le sottoattività, e la barra dell'attività di riepilogo si adatta automaticamente.
 
+### Inserire una nuova attività nel punto giusto
+
+Le nuove attività non devono più finire in fondo. Tutti i pulsanti e i tasti che creano un'attività seguono la stessa regola:
+
+- **Se un'attività è selezionata**, la nuova attività si inserisce direttamente **sotto** di essa, non in fondo all'intero elenco. Eredita il livello e l'attività superiore della selezione, quindi una nuova attività dentro una fase resta in quella fase.
+- **Se non è selezionato nulla**, finisce in coda, come sempre.
+- **Se sono selezionate più attività**, si posiziona sotto l'attività **più in basso** della selezione così come la vedi a schermo — mai in mezzo alla selezione, e l'ordine in cui le hai cliccate non conta.
+
+Vale per il pulsante **Attività** e per il menu **Traguardo** nel gruppo della barra multifunzione **Attività**, e per **Nuova attività** nel menu contestuale. Quel gruppo è presente sia sulla scheda **Home** sia sulla scheda **Tabella**, con gli stessi tre pulsanti (**Attività**, **Traguardo**, **Collegamento**): non devi più cambiare scheda per inserire attività.
+
+Con la tastiera è ancora più rapido:
+
+- **Ins** inserisce un'attività **sopra** la selezione.
+- **Ctrl+I** (**Cmd+I** su macOS) inserisce un'attività **sotto** la selezione — di solito è lì che vuoi andare mentre scorri un elenco.
+
+Entrambi compaiono anche nel riepilogo delle scorciatoie (**Ctrl+/**), nella categoria **Struttura**.
+
+**Solo nella normale vista ad albero.** Inserire sopra o sotto è un intervento strutturale, e ha senso solo finché l'ordine mostrato è anche quello reale. Con un filtro, un ordinamento o un raggruppamento attivo, la nuova attività comparirebbe altrove rispetto a dove l'hai messa. L'app rifiuta allora l'inserimento sopra/sotto e mostra una striscia che spiega il perché, con un pulsante per azzerare filtro, ordinamento e raggruppamento in un clic. I pulsanti **Attività** e **Traguardo** continuano a funzionare, ma mettono l'attività in fondo — con la stessa spiegazione.
+
 ### Spostare attività senza rientrare di nuovo
 
 Oltre a cambiare il livello di un'attività (rientra/rimuovi rientro), puoi anche scambiare la posizione di un'attività all'interno dello stesso livello, senza cambiare la struttura stessa:

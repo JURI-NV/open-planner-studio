@@ -33,6 +33,39 @@ As soon as a task has at least one subtask, it automatically becomes a summary t
 
 The arrow in front of a summary task still works as before, to open or close just that one branch.
 
+### Inserting a new task in the right place
+
+New tasks don't have to land at the bottom. Every button and key that creates a task follows the
+same rule:
+
+- **If a task is selected**, the new task goes directly **below** that task — not at the bottom of
+  the whole list. It inherits the level and parent of your selection, so a new task inside a phase
+  stays inside that phase.
+- **If nothing is selected**, it goes at the end, as before.
+- **If several tasks are selected**, it lands below the **bottommost** task of your selection as
+  shown on screen — never in the middle of the selection, and the order in which you clicked them
+  makes no difference.
+
+This applies to the **Task** button and the **Milestone** menu in the **Tasks** ribbon group, and to
+**New task** in the context menu. That ribbon group is on the **Home** tab as well as the **Table**
+tab, with the same three buttons (**Task**, **Milestone**, **Link**), so you no longer have to
+switch tabs to enter tasks.
+
+The keyboard is faster still:
+
+- **Insert** inserts a task **above** the selection.
+- **Ctrl+I** (**Cmd+I** on macOS) inserts a task **below** the selection — usually where you want to
+  go while working down a list.
+
+Both also appear in the shortcut overview (**Ctrl+/**), under the **Structure** category.
+
+**Tree view only.** Inserting above or below is a structural change, and that only makes sense as
+long as the displayed order is the real order. With a filter, a sort or a grouping active, the new
+task would show up somewhere other than where you put it. The app then refuses the insert above/below
+and shows a bar explaining why, with a button that clears the filter, sort and grouping settings in
+one click. The **Task** and **Milestone** buttons keep working in that case, but place the task at
+the end — with the same explanation.
+
 ### Moving tasks without re-indenting
 
 Besides changing a task's level (indent/outdent), you can also swap a task's position within the same level, without changing the structure itself:

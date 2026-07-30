@@ -172,7 +172,9 @@
     "moveProject": "移动项目…",
     "relationHintModeOn": "开启链接模式：随后在甘特图中从一个条形拖到另一个条形",
     "relationHintModeOff": "关闭链接模式",
-    "relationHintPair": "在两个所选任务之间创建完成-开始关系"
+    "relationHintPair": "在两个所选任务之间创建完成-开始关系",
+    "taskHintBelow": "在所选任务下方插入新任务",
+    "taskHintAppend": "在列表末尾添加新任务"
   },
   "ifc": {
     "title": "IFC 编辑器",

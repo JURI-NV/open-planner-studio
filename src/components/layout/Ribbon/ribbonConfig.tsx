@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { createRelationWithFeedback } from '@/state/relationActions';
+import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
   saveShowHistogram, saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
@@ -110,10 +111,17 @@ const calcButton: RibbonButtonSpec = {
 const addTaskButton: RibbonButtonSpec = {
   kind: 'button', id: 'addTask', icon: <Plus size={20} />, labelKey: 'menu:ribbon.task',
   use: () => {
-    const addTask = useAppStore(s => s.addTask);
     const { t } = useTranslation('task');
+    const { t: tMenu } = useTranslation('menu');
+    const hasSelection = useAppStore(s => s.selectedTaskIds.length > 0);
+    const treeMode = useAppStore(s => isTreeMode(s.view));
+    // Issue #49: de knop zette de nieuwe taak altijd onderaan de lijst. Nu volgt hij de selectie
+    // (zie `addTaskNearSelection`). Net als bij `relationButton` hierboven hangt het gedrag dus van
+    // de selectie af, en net als daar (issue #40) zegt de tooltip vooraf wélke van de twee er nu
+    // gebeurt — anders is "waarom staat mijn taak onderaan?" opnieuw een verrassing.
     return {
-      onClick: () => addTask({ name: t('defaultTask') }),
+      title: hasSelection && treeMode ? tMenu('ribbon.taskHintBelow') : tMenu('ribbon.taskHintAppend'),
+      onClick: () => addTaskNearSelection({ name: t('defaultTask') }),
     };
   },
 };
@@ -168,6 +176,23 @@ const printPreviewButton: RibbonButtonSpec = {
     const setUI = useAppStore(s => s.setUI);
     return { onClick: () => setUI({ activeRibbonTab: 'report' }) };
   },
+};
+
+/**
+ * Taken-groep: Taak / Mijlpaal / Relatie — gedeeld door de Start- én de Tabel-tab.
+ *
+ * Issue #49, tweede punt van de melder: de Tabel-tab had alleen Bereken + Taak, terwijl de Tabel
+ * net zo goed een takenweergave is ("not all task-related buttons are displayed under the Table
+ * tab"). Bewust ÉÉN gedeelde groep-definitie in plaats van een tweede lijst met dezelfde items —
+ * anders drijven de twee tabbladen bij de volgende taakknop opnieuw uit elkaar.
+ */
+const tasksGroup: RibbonGroupSpec = {
+  id: 'tasks', labelKey: 'menu:ribbon.tasks',
+  items: [
+    addTaskButton,
+    { kind: 'component', id: 'milestone', Component: MilestoneDropdown },
+    relationButton,
+  ],
 };
 
 /** Trace-groep (Task Path): predecessors/successors-toggle, gedeeld door planning + relations. */
@@ -287,14 +312,7 @@ const startTab: RibbonTabConfig = [
       },
     ],
   },
-  {
-    id: 'tasks', labelKey: 'menu:ribbon.tasks',
-    items: [
-      addTaskButton,
-      { kind: 'component', id: 'milestone', Component: MilestoneDropdown },
-      relationButton,
-    ],
-  },
+  tasksGroup,
   { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
   {
     id: 'zoom', labelKey: 'menu:ribbon.zoom',
@@ -710,8 +728,14 @@ const instellingenTab: RibbonTabConfig = [
   },
 ];
 
+/**
+ * Tabel-tab (issue #49): dezelfde Taken-groep als de Start-tab, zodat Taak/Mijlpaal/Relatie ook
+ * hier staan. Bereken houdt zijn bestaande, meest linkse plek; de groepskop heet nu "Planning"
+ * i.p.v. "Tabel", want dat is wat er in staat — precies zoals op de Start- en Planning-tab.
+ */
 const tableTab: RibbonTabConfig = [
-  { id: 'table', labelKey: 'task:table.title', items: [calcButton, addTaskButton] },
+  { id: 'schedule', labelKey: 'menu:ribbon.schedule', items: [calcButton] },
+  tasksGroup,
 ];
 
 const ifcTab: RibbonTabConfig = [

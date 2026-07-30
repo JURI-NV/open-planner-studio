@@ -172,7 +172,9 @@
     "moveProject": "Sposta progetto…",
     "relationHintModeOn": "Attiva la modalità collegamento: poi trascina da barra a barra nel Gantt",
     "relationHintModeOff": "Disattiva la modalità collegamento",
-    "relationHintPair": "Crea una relazione Fine-Inizio tra le due attività selezionate"
+    "relationHintPair": "Crea una relazione Fine-Inizio tra le due attività selezionate",
+    "taskHintBelow": "Nuova attività subito sotto la selezione",
+    "taskHintAppend": "Nuova attività in fondo all’elenco"
   },
   "ifc": {
     "title": "Editor IFC",

@@ -45,6 +45,8 @@ Clique com o botão direito numa tarefa **existente**, em vez disso, e obtém um
 - **Inserir acima** / **Inserir abaixo** — adiciona uma tarefa antes ou depois da tarefa em que clicou com o botão direito.
 - **Adicionar subtarefa** — cria uma nova tarefa como filha dessa tarefa num só passo (veja o passo 3 para saber o que isto significa).
 
+Com o teclado a inserção é mais rápida: **Insert** coloca uma tarefa acima da seleção, **Ctrl+I** (**Cmd+I** no macOS) abaixo. Ambos aparecem no resumo de atalhos (**Ctrl+/**) em **Estrutura**. Inserir acima ou abaixo só funciona na vista em árvore normal: com um filtro, uma ordenação ou um agrupamento ativo a nova tarefa apareceria noutro sítio que não aquele onde a coloca, por isso a aplicação explica-o em vez de a colocar em silêncio. Mais sobre isto no guia [Planeamento & WBS](docs://gids-plannen-wbs).
+
 Escreveu algo errado, ou adicionou uma tarefa no local errado? **Ctrl+Z** desfaz a última ação, **Ctrl+Y** (ou **Ctrl+Shift+Z**) refaz-a — ambos funcionam em todo o cronograma, não apenas em campos de texto.
 
 ### Adicionar um marco
