@@ -390,6 +390,21 @@ html, body, #root {
 }
 
 /* Gantt tooltip */
+/* Issue #58: de titel liep buiten de kader-rand door. Oorzaak was `white-space: nowrap` naast een
+   `max-width`: de doos werd wél op 280px geklemd, maar de tekst zette gewoon door en stak zichtbaar
+   uit (gemeten 178px bij een lange naam, 359px bij een naam zonder spaties). De keuze is WRAPPEN,
+   niet afkappen — de gebruiker moet de volledige taaknaam kunnen lezen. Drie dingen horen bij
+   elkaar en moeten samen blijven staan:
+     • `width: max-content` — zonder dit krimpt een absoluut gepositioneerde doos met wrappende
+       tekst tot de beschikbare ruimte rechts van `left`, dus een tooltip vlak bij de rechterrand
+       van het canvas zou een paar tekens breed worden.
+     • `max-width` schaalt mee met --ui-font-scale (zoals de font-size hieronder), zodat de tooltip
+       bij 125% niet minder tekst per regel toont; de `min()` met 100vw houdt hem in een smal
+       venster binnen beeld.
+     • `overflow-wrap: anywhere` breekt ook een naam zónder spaties (bestandsnaam/code); spaties
+       blijven de voorkeursbreekpunten.
+   De uitlijning binnen het venster (rechterrand/onderrand) zit NIET in CSS — dat kan alleen met een
+   gemeten positie: zie HoverTooltip.tsx. */
 .gantt-tooltip {
   position: absolute;
   pointer-events: none;
@@ -403,8 +418,10 @@ html, body, #root {
   line-height: 1.5;
   color: var(--theme-text);
   box-shadow: var(--shadow-lg);
-  max-width: 280px;
-  white-space: nowrap;
+  width: max-content;
+  max-width: min(calc(360px * var(--ui-font-scale, 1)), calc(100vw - 32px));
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .gantt-tooltip .tooltip-title {
