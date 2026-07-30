@@ -12,9 +12,18 @@
 // Draait via run.sh. Exit 0 = alles groen.
 
 // ── DOM-stubs vóór de imports: de renderer leest themakleuren via getComputedStyle. ──
+// De accent-vars krijgen SENTINEL-waarden. Zo bewijst de kleurcontrole hieronder dat het pilletje
+// zijn kleuren echt uit `--theme-accent`/`--theme-accent-on` haalt (dus per thema meebeweegt) en
+// niet uit een hardgecodeerde hex of een andere paletrol. Alle overige vars blijven leeg ⇒ de rest
+// van de tekenlaag valt terug op zijn defaults, precies als in de andere renderer-checks.
+const ACCENT = '#AA1111';       // sentinel voor --theme-accent
+const ACCENT_ON = '#22BB22';    // sentinel voor --theme-accent-on
 const g = globalThis as unknown as Record<string, unknown>;
 g.document = { documentElement: {} };
-g.getComputedStyle = () => ({ getPropertyValue: () => '' });
+g.getComputedStyle = () => ({
+  getPropertyValue: (name: string) =>
+    name === '--theme-accent' ? ACCENT : name === '--theme-accent-on' ? ACCENT_ON : '',
+});
 
 import { useAppStore } from '@/state/appStore';
 import { GanttRenderer, type GanttRenderOptions } from '@/engine/renderer/GanttRenderer';
@@ -39,8 +48,10 @@ function near(label: string, actual: number, expected: number, tol = 0.51): void
 // verwachte pilbreedte in deze test gewoon uit te rekenen is.
 const CHAR_W = 6;
 interface RoundRect { kind: 'roundRect'; x: number; y: number; w: number; h: number }
-interface FillText { kind: 'fillText'; text: string; x: number; y: number }
-type Op = RoundRect | FillText;
+interface FillText { kind: 'fillText'; text: string; x: number; y: number; style: string }
+interface Fill { kind: 'fill'; style: string }
+interface Stroke { kind: 'stroke'; style: string }
+type Op = RoundRect | FillText | Fill | Stroke;
 
 function makeCtx(): { ctx: CanvasRenderingContext2D; ops: Op[] } {
   const ops: Op[] = [];
@@ -51,9 +62,15 @@ function makeCtx(): { ctx: CanvasRenderingContext2D; ops: Op[] } {
     fillRect: noop, strokeRect: noop, clearRect: noop, beginPath: noop, closePath: noop,
     moveTo: noop, lineTo: noop, arc: noop, arcTo: noop, ellipse: noop, rect: noop,
     roundRect: (x: number, y: number, w: number, h: number) => { ops.push({ kind: 'roundRect', x, y, w, h }); },
-    fill: noop, stroke: noop, save: noop, restore: noop, clip: noop, translate: noop, scale: noop,
+    // `fill`/`stroke` nemen de op dát moment ingestelde stijl mee — zo is de KLEUR van het pilletje
+    // toetsbaar (de vulling wordt gezet ná `roundRect`, dus die kan er niet in).
+    fill: () => { ops.push({ kind: 'fill', style: String((ctx as { fillStyle: string }).fillStyle) }); },
+    stroke: () => { ops.push({ kind: 'stroke', style: String((ctx as { strokeStyle: string }).strokeStyle) }); },
+    save: noop, restore: noop, clip: noop, translate: noop, scale: noop,
     rotate: noop, setLineDash: noop, getLineDash: () => [],
-    fillText: (text: string, x: number, y: number) => { ops.push({ kind: 'fillText', text, x, y }); },
+    fillText: (text: string, x: number, y: number) => {
+      ops.push({ kind: 'fillText', text, x, y, style: String((ctx as { fillStyle: string }).fillStyle) });
+    },
     strokeText: noop,
     measureText: (t: string) => ({ width: String(t).length * CHAR_W }),
     createLinearGradient: () => ({ addColorStop: noop }),
@@ -106,13 +123,27 @@ function badgeOps(opts: GanttRenderOptions, drag: GanttRenderOptions['durationDr
   return extra;
 }
 
-/** Het pilletje = precies één roundRect + één fillText. */
+/** Het pilletje = precies één roundRect + één vulling + één randje + één fillText. */
 function badge(opts: GanttRenderOptions, drag: GanttRenderOptions['durationDrag'], label: string) {
   const extra = badgeOps(opts, drag);
   const rects = extra.filter((o): o is RoundRect => o.kind === 'roundRect');
   const texts = extra.filter((o): o is FillText => o.kind === 'fillText');
+  const fills = extra.filter((o): o is Fill => o.kind === 'fill');
   eq(`${label}: aantal extra roundRects`, rects.length, 1);
   eq(`${label}: aantal extra fillTexts`, texts.length, 1);
+  // De accentkleur is een BINDENDE eigenaarskeuze (issue #51, tweede ronde): het pilletje draagt
+  // het OpenAEC-accent, niet een neutrale/thema-omgekeerde tint. Beide kleuren moeten uit de
+  // CSS-vars komen, dus de sentinels hierboven.
+  eq(`${label}: vulling = accentkleur`, fills[0]?.style, ACCENT);
+  eq(`${label}: tekstkleur = accent-on`, texts[0]?.style, ACCENT_ON);
+  // Scheidend randje: de gesleepte balk is ALTIJD ook de geselecteerde balk, en die draagt een
+  // selectiering in diezelfde accentkleur. Valt het randje weg (of krijgt het de accentkleur), dan
+  // vloeien pil en ring aan de balkrand in elkaar over.
+  const strokes = extra.filter((o): o is Stroke => o.kind === 'stroke');
+  checks++;
+  if (!strokes.some((s) => s.style !== ACCENT)) {
+    diffs.push(`${label}: pil heeft geen contrasterend randje (alle strokes ${JSON.stringify(strokes.map((s) => s.style))})`);
+  }
   return { rect: rects[0], text: texts[0] };
 }
 

@@ -28,3 +28,5 @@
 .dependency-style.mjs
 .context-menu-scope.mjs
 .grid-nav.mjs
+.drag-duration-badge.mjs
+.holidays-check.mjs

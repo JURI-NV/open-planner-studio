@@ -89,6 +89,10 @@ export interface GanttPalette {
   floatPathTints: string[];
   /** Wit label-tekst op een gekleurde balk/knop. */
   barText: string;
+  /** Tekstkleur ÓP een accent-vlak (`--theme-accent-on`): wit in licht/donker, zwart in
+   *  high-contrast. Zelfde paar dat de DOM-chrome al gebruikt voor accentknoppen — de tekenlaag
+   *  mag daar geen eigen wit-op-oranje van maken (issue #51). */
+  accentOn: string;
 }
 
 /** Leest het Gantt-palet uit de CSS-thema-vars (met de vroegere fallbacks) + de merk-hex-tabel. */
@@ -131,6 +135,7 @@ export function readGanttPalette(): GanttPalette {
     traceSuccDriving: BRAND.traceSuccDriving,
     floatPathTints: FLOAT_PATH_TINTS,
     barText: '#ffffff',
+    accentOn: v('--theme-accent-on', '#ffffff'),
   };
 }
 

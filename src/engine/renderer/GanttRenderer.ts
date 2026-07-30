@@ -1447,19 +1447,28 @@ export class GanttRenderer {
     x = hi < lo ? lo : Math.min(Math.max(x, lo), hi);
     const y = barY + (barHeight - h) / 2;
 
-    // Omgekeerd contrast t.o.v. het thema: vulling = tekstkleur, tekst = paneelkleur. In het
-    // lichte thema geeft dat het donkere pilletje uit de melding, in het donkere/high-contrast
-    // thema automatisch de leesbare tegenhanger — zonder een eigen kleurenpaar te verzinnen.
+    // OpenAEC-accent (Construction Amber) met de bijbehorende tekstkleur — hetzelfde paar
+    // `--theme-accent` / `--theme-accent-on` dat de DOM-chrome voor accentknoppen gebruikt, dus
+    // per thema correct (licht/donker oranje + wit, high-contrast geel + zwart). `colors.selected`
+    // ís `--theme-accent`; deze renderer geeft die ene variabele per rol een eigen naam
+    // (`selected`/`today`/`statusDate`), en dit is dezelfde bron.
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, h / 2);
-    ctx.fillStyle = this.colors.text;
+    ctx.fillStyle = this.colors.selected;
     ctx.fill();
-    // Dun randje in de paneelkleur: scheidt het pilletje van de gekleurde balk eronder.
+    // Randje in de paneelkleur is hier FUNCTIONEEL, niet decoratief: de gesleepte balk is altijd
+    // ook de GESELECTEERDE balk (mousedown selecteert hem), en die draagt een 2px selectiering in
+    // exact dezelfde accentkleur. Zonder deze scheiding vloeit het pilletje aan de balkrand samen
+    // met die ring. BEKENDE GRENS (gemeten, issue #51): op een NEAR-CRITICAL balk — amber #F59E0B,
+    // alleen zichtbaar met die analyse-optie aan — ligt het accent (#D97706) daar zó dicht bij dat
+    // het pilletje zijn eigen vlak nauwelijks aftekent; leesbaar blijft het wel, want de witte
+    // tekst en dit randje dragen het contrast. Een dikker randje (2px geprobeerd) helpt daar niet
+    // zichtbaar aan en maakt het chipje alleen zwaarder, dus 1.5 gehouden.
     ctx.strokeStyle = this.colors.bg;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    ctx.fillStyle = this.colors.bg;
+    ctx.fillStyle = this.colors.accentOn;
     ctx.fillText(label, x + GanttRenderer.DRAG_BADGE_PAD_X, y + h / 2 + 0.5);
     ctx.restore();
   }
