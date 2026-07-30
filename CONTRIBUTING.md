@@ -37,18 +37,22 @@ CI. It covers:
 | component | what |
 |---|---|
 | `npm run typecheck` | `tsc --noEmit` over `src/` and over `scripts/`+`tests/` |
+| `npm run lint` | a minimal ESLint gate — only promise-handling and control-regex, **no style rules** |
 | `npm test` | the four behavior suites (planning, library, mcp, dev-server) |
 | `npm run verify:examples` | the example projects in `examples/` |
 | `npm run verify:docs` | the in-app documentation, 14 languages |
 | `npm run verify:i18n` | missing translation keys relative to `nl` |
+| `npm run verify:cycles` | circular imports within `src/` |
+| `npm run verify:audit` | `npm audit --audit-level=high` |
 
 Running individual components is also possible — see the command list at the top
 of [`CLAUDE.md`](CLAUDE.md). During work, `npm run test:planning` is usually
 enough; run `npm run verify` before you push.
 
-There is **no linter and no formatter**. `tsc` runs in `strict` mode with
-`noUnusedLocals`/`noUnusedParameters`, so dead code stands out on its own. Follow
-the style of the surrounding code.
+There is **no formatter, and no style rules** — the linter only catches what
+`tsc` cannot (floating/misused promises, control regex). `tsc` runs in `strict`
+mode with `noUnusedLocals`/`noUnusedParameters`, so dead code stands out on its
+own. Follow the style of the surrounding code.
 
 ## Things that easily go wrong
 
