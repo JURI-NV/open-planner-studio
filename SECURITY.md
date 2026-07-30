@@ -1,67 +1,64 @@
-# Beveiligingsbeleid
+# Security Policy
 
-*English: to report a vulnerability, use GitHub's private reporting on the
+To report a vulnerability, use GitHub's private reporting on the
 [Security tab](https://github.com/OpenAEC-Foundation/open-planner-studio/security/advisories/new).
-Please do not open a public issue. Reports in English are welcome.*
+Please do not open a public issue. Reports in English are welcome.
 
-## Een kwetsbaarheid melden
+## Reporting a vulnerability
 
-Meld een beveiligingsprobleem **niet** via een gewoon issue, een pull request of
-de feedbackknop in de app — die zijn allemaal publiek.
+Do **not** report a security issue through a regular issue, a pull request, or
+the in-app feedback button — those are all public.
 
-Gebruik in plaats daarvan GitHub's private melding:
+Instead, use GitHub's private reporting:
 **[Security → Report a vulnerability](https://github.com/OpenAEC-Foundation/open-planner-studio/security/advisories/new)**.
-Dat maakt een besloten draad aan tussen jou en de beheerders.
+This creates a private thread between you and the maintainers.
 
-Helpt bij een melding:
+Helpful in a report:
 
-- welke versie (de versie staat in Backstage → Instellingen, of in de titelbalk);
-- of het de desktopversie of de browserversie betreft — die verschillen in wat
-  ze mogen (bestandssysteem, updater);
-- een reproductie: de kleinste stappen of het kleinste bestand dat het uitlokt;
-- wat een aanvaller ermee zou kunnen bereiken.
+- which version (the version is shown in Backstage → Settings, or in the title bar);
+- whether it concerns the desktop version or the browser version — those differ
+  in what they are allowed to do (file system, updater);
+- a reproduction: the smallest steps or the smallest file that triggers it;
+- what an attacker could achieve with it.
 
-Stuur geen echte projectbestanden mee als daar bedrijfsgegevens in staan; een
-teruggebracht voorbeeldbestand is genoeg en meestal duidelijker.
+Do not send real project files if they contain company data; a reduced example
+file is enough and usually clearer.
 
-## Wat je kunt verwachten
+## What to expect
 
-Dit is een klein project zonder team dat piket draait. We streven naar een
-eerste reactie binnen een week. Je hoort van ons wat we met de melding doen,
-ook als we besluiten dat het geen kwetsbaarheid is. Als je dat wilt, word je
-genoemd in de release-notitie van de fix.
+This is a small project without a team on call. We aim for a first response
+within a week. You will hear from us what we do with the report, even if we
+decide it is not a vulnerability. If you wish, you will be mentioned in the
+release note of the fix.
 
-## Ondersteunde versies
+## Supported versions
 
-Alleen de nieuwste release krijgt fixes. Versies zijn CalVer (`JJJJ.M.patch`);
-de desktopversie werkt zichzelf bij via de ingebouwde updater, behalve bij een
-Snap- of AppImage-installatie — die worden door hun eigen kanaal bijgewerkt.
-De browserversie op `open-planner-studio.open-aec.com` loopt altijd op de
-nieuwste `main`.
+Only the latest release gets fixes. Versions are CalVer (`YYYY.M.patch`); the
+desktop version updates itself via the built-in updater, except on a Snap or
+AppImage installation — those are updated through their own channel. The browser
+version at `open-planner-studio.open-aec.com` always runs the latest `main`.
 
-## Waar de risico's zitten
+## Where the risks are
 
-Twee onderdelen zijn interessanter dan de rest, en het helpt als een melding
-duidelijk maakt om welke het gaat.
+Two components are more interesting than the rest, and it helps if a report makes
+clear which one it is about.
 
-**Extensies voeren code uit.** Een extensie is JavaScript dat in de app draait,
-in een `new Function(...)`-sandbox waarvan `require()` alleen de eigen API
-teruggeeft en waarvan de rechten per API-aanroep worden gecontroleerd. Die
-sandbox is een *afbakening*, geen beveiligingsgrens: installeer alleen
-extensies die je vertrouwt. Meldingen over ontsnappen uit die sandbox zijn
-welkom en worden serieus genomen.
+**Extensions execute code.** An extension is JavaScript that runs in the app, in
+a `new Function(...)` sandbox whose `require()` only returns the app's own API
+and whose permissions are checked per API call. That sandbox is a *confinement*,
+not a security boundary: only install extensions you trust. Reports about
+escaping that sandbox are welcome and taken seriously.
 
-**IFC-bestanden komen van buiten.** Openen betekent parsen. De parser wordt met
-vijandige invoer getest (`tests/library/check-ifc-hostile.ts`), maar een
-bestand dat de app laat crashen, laat vastlopen, of iets laat doen wat het niet
-hoort te doen, is een geldige melding.
+**IFC files come from outside.** Opening means parsing. The parser is tested
+against hostile input (`tests/library/check-ifc-hostile.ts`), but a file that
+makes the app crash, hang, or do something it should not is a valid report.
 
-Buiten scope: dat een extensie die je zelf installeert kan doen wat je hem
-toestaat, en dat een IFC-bestand rare planningen kan bevatten.
+Out of scope: an extension you install yourself being able to do what you allow
+it, and an IFC file containing strange schedules.
 
-## Openbaarmaking
+## Disclosure
 
-We werken met gecoördineerde openbaarmaking: we vragen je te wachten met
-publiceren tot er een fix uit is, of tot negentig dagen na je melding als het
-zolang duurt. Als een probleem al actief misbruikt wordt, gaan we sneller en
-melden we het openbaar zodra er een fix is.
+We work with coordinated disclosure: we ask you to wait with publishing until a
+fix is out, or until ninety days after your report if it takes that long. If an
+issue is already being actively exploited, we move faster and disclose it
+publicly as soon as a fix is available.

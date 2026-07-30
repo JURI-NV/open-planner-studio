@@ -1,108 +1,107 @@
-# Bijdragen aan Open Planner Studio
+# Contributing to Open Planner Studio
 
-Fijn dat je meedoet. Deze pagina beschrijft wat je nodig hebt om een wijziging
-door de poort te krijgen. Kort samengevat: **`npm run verify` moet groen zijn**,
-en de rest van dit document legt uit waarom de dingen zijn zoals ze zijn.
+Thanks for joining in. This page describes what you need to get a change through
+the gate. In short: **`npm run verify` must be green**, and the rest of this
+document explains why things are the way they are.
 
-*English: this project's working language is Dutch — code comments, commit
-messages and the canonical source translations are Dutch. Issues and pull
-requests in English are welcome and will be answered in English.*
+Note: this project's working language is Dutch — code comments, commit messages
+and the canonical source translations are Dutch. Issues and pull requests in
+English are welcome and will be answered in English.
 
-## Opzetten
+## Setting up
 
 ```bash
 git clone https://github.com/OpenAEC-Foundation/open-planner-studio.git
 cd open-planner-studio
-npm ci            # ci, niet install — de lockfile is bindend
-npm run dev       # browserversie op http://localhost:3007
-npm run tauri:dev # desktopversie (Tauri 2, Rust-toolchain nodig)
+npm ci            # ci, not install — the lockfile is binding
+npm run dev       # browser build at http://localhost:3007
+npm run tauri:dev # desktop build (Tauri 2, Rust toolchain required)
 ```
 
-Node 22 is wat CI draait. Voor `tauri:dev`/`tauri:build` heb je daarnaast een
-Rust-toolchain nodig en op Linux de systeembibliotheken uit `ci.yml`.
+Node 22 is what CI runs. For `tauri:dev`/`tauri:build` you additionally need a
+Rust toolchain and, on Linux, the system libraries listed in `ci.yml`.
 
-Meerdere worktrees tegelijk draaien mag: `tauri:dev` kiest per worktree een eigen
-poort en eigen auto-save-bestanden.
+Running multiple worktrees at the same time is fine: `tauri:dev` picks its own
+port and its own auto-save files per worktree.
 
-## De poort
+## The gate
 
 ```bash
 npm run verify
 ```
 
-Dat is letterlijk hetzelfde commando dat CI, de release-gate en de deploy-gate
-draaien — één definitie, in `package.json`. Als het lokaal groen is, is het in CI
-groen. Het omvat:
+That is literally the same command that CI, the release gate and the deploy gate
+run — one definition, in `package.json`. If it is green locally, it is green in
+CI. It covers:
 
-| onderdeel | wat |
+| component | what |
 |---|---|
-| `npm run typecheck` | `tsc --noEmit` over `src/` én over `scripts/`+`tests/` |
-| `npm test` | de vier gedragssuites (planning, library, mcp, dev-server) |
-| `npm run verify:examples` | de voorbeeldprojecten in `examples/` |
-| `npm run verify:docs` | de in-app documentatie, 14 talen |
-| `npm run verify:i18n` | ontbrekende vertaalsleutels t.o.v. `nl` |
+| `npm run typecheck` | `tsc --noEmit` over `src/` and over `scripts/`+`tests/` |
+| `npm test` | the four behavior suites (planning, library, mcp, dev-server) |
+| `npm run verify:examples` | the example projects in `examples/` |
+| `npm run verify:docs` | the in-app documentation, 14 languages |
+| `npm run verify:i18n` | missing translation keys relative to `nl` |
 
-Losse onderdelen draaien kan ook — zie de commando-lijst boven in
-[`CLAUDE.md`](CLAUDE.md). Tijdens het werk is `npm run test:planning` meestal
-genoeg; draai `npm run verify` voor je pusht.
+Running individual components is also possible — see the command list at the top
+of [`CLAUDE.md`](CLAUDE.md). During work, `npm run test:planning` is usually
+enough; run `npm run verify` before you push.
 
-Er is **geen linter en geen formatter**. `tsc` staat op `strict` met
-`noUnusedLocals`/`noUnusedParameters`, dus dode code valt vanzelf op. Volg de
-stijl van de omringende code.
+There is **no linter and no formatter**. `tsc` runs in `strict` mode with
+`noUnusedLocals`/`noUnusedParameters`, so dead code stands out on its own. Follow
+the style of the surrounding code.
 
-## Dingen die makkelijk misgaan
+## Things that easily go wrong
 
-Vier valkuilen die vaker fout gaan dan de rest. De achtergrond staat in
-[`CLAUDE.md`](CLAUDE.md); dit is de korte versie.
+Four pitfalls that go wrong more often than the rest. The background is in
+[`CLAUDE.md`](CLAUDE.md); this is the short version.
 
-1. **IFC is het bestandsformaat, niet een export.** Nieuwe projectdata moet
-   round-trippen door `src/services/ifc/` — anders is het weg na opslaan en
-   opnieuw openen. Er is geen apart JSON-projectformaat.
-2. **Planning is handmatig, niet reactief.** `runCPM` draait niet vanzelf na een
-   wijziging. Roep het aan nadat je taken, relaties of de kalender muteert.
-3. **De Gantt is een `<canvas>`.** Visueel gedrag zit in
-   `src/engine/renderer/`, niet in React-componenten.
-4. **De webbuild is productie.** Alles wat `@tauri-apps/*` aanraakt moet achter
-   een `isTauri()`-check of een dynamische import — een top-level import breekt
-   de browserversie, die live staat.
+1. **IFC is the file format, not an export.** New project data must round-trip
+   through `src/services/ifc/` — otherwise it is gone after saving and reopening.
+   There is no separate JSON project format.
+2. **Scheduling is manual, not reactive.** `runCPM` does not run on its own after
+   a change. Call it after mutating tasks, relations or the calendar.
+3. **The Gantt is a `<canvas>`.** Visual behavior lives in
+   `src/engine/renderer/`, not in React components.
+4. **The web build is production.** Anything that touches `@tauri-apps/*` must be
+   behind an `isTauri()` check or a dynamic import — a top-level import breaks
+   the browser version, which is live.
 
-Zichtbare tekst gaat altijd door `t(...)`. Voeg nieuwe sleutels toe aan `nl`
-(de bron) én aan de andere dertien locales; `npm run verify:i18n` controleert
-dat, inclusief de CLDR-meervoudscategorieën per taal.
+Visible text always goes through `t(...)`. Add new keys to `nl` (the source) and
+to the other thirteen locales; `npm run verify:i18n` checks that, including the
+CLDR plural categories per language.
 
-## Commits en pull requests
+## Commits and pull requests
 
-- Conventional commits met een scope: `fix(ifc): …`, `feat(ui): …`,
+- Conventional commits with a scope: `fix(ifc): …`, `feat(ui): …`,
   `test(planning): …`, `docs(…)`, `chore(…)`, `ci(…)`.
-- Commitberichten in het Nederlands, in de gebiedende wijs.
-- Beschrijf in de body **waarom**, niet wat het diff al laat zien. Een regel
-  over hoe je het geverifieerd hebt is meer waard dan een opsomming van
-  gewijzigde bestanden.
-- Eén onderwerp per pull request. Kleine PR's worden sneller gelezen.
-- Vermeld in de PR hoe je het getest hebt, en welke suite je gedraaid hebt.
+- Commit messages in Dutch, in the imperative mood.
+- Describe in the body **why**, not what the diff already shows. A line on how
+  you verified it is worth more than a list of changed files.
+- One topic per pull request. Small PRs get read faster.
+- Mention in the PR how you tested it, and which suite you ran.
 
-Raakt je wijziging planningscode? Voeg een casus toe aan `tests/planning/` —
-zie [`tests/planning/README.md`](tests/planning/README.md). Voor een bugfix is
-een casus die eerst rood staat de beste beschrijving van de bug.
+Does your change touch scheduling code? Add a case to `tests/planning/` — see
+[`tests/planning/README.md`](tests/planning/README.md). For a bugfix, a case that
+is red first is the best description of the bug.
 
-## Documentatie
+## Documentation
 
-- [`CLAUDE.md`](CLAUDE.md) — de diepe architectuurgids, ook nuttig voor mensen.
-- [`PLAN.md`](PLAN.md) — de roadmap.
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — noemenswaardige wijzigingen.
-- [`docs/TODO.md`](docs/TODO.md) — wat er nog ligt; goede plek om iets te zoeken
-  om aan te beginnen.
-- [`docs/extensions.md`](docs/extensions.md) — extensies schrijven.
+- [`CLAUDE.md`](CLAUDE.md) — the in-depth architecture guide, also useful for humans.
+- [`PLAN.md`](PLAN.md) — the roadmap.
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — noteworthy changes.
+- [`docs/TODO.md`](docs/TODO.md) — what is still open; a good place to look for
+  something to start on.
+- [`docs/extensions.md`](docs/extensions.md) — writing extensions.
 
-Verandert je wijziging iets aan de architectuur of aan een commando, werk dan
-`CLAUDE.md` en `AGENTS.md` in dezelfde PR bij.
+If your change affects the architecture or a command, update `CLAUDE.md` and
+`AGENTS.md` in the same PR.
 
-## Beveiliging
+## Security
 
-Meld beveiligingsproblemen **niet** via een issue. Zie
+Do **not** report security issues via an issue. See
 [`SECURITY.md`](SECURITY.md).
 
-## Licentie
+## License
 
-Deze code staat onder LGPL-3.0-or-later. Door bij te dragen ga je ermee akkoord
-dat je bijdrage onder diezelfde licentie wordt uitgebracht.
+This code is licensed under LGPL-3.0-or-later. By contributing, you agree that
+your contribution will be released under that same license.

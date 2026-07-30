@@ -6,6 +6,143 @@ version has its own section (no gaps); the newest is at the top. It is deliberat
 running archive of every individual commit: within a version there is a curated description,
 grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentation`).
 
+## v2026.7.14 — 2026-07-30
+
+A release centred on Gantt-interaction polish, a reworked right-hand panel layout, and a round
+of maintainability hardening behind one unified `npm run verify` gate. About 88 commits since
+v2026.7.13.
+
+### Added
+- **Gantt split-view navigation and separate collapse/expand actions (issue #35).** Each pane of
+  the split view now has its own horizontal scrollbar and its own mini-map viewport frame —
+  previously both drove the primary time window, so the secondary pane's independent scroll/zoom
+  was unreachable — plus a real vertical scrollbar the canvas never had (large WBS trees had to be
+  navigated by mouse wheel, Shift+wheel in drag mode). Collapse and Expand are now first-class,
+  separate actions instead of one per-task toggle: new `collapseTasks`/`expandTasks` store actions
+  operate on the whole selection (or globally when nothing is selected), dedicated buttons sit on
+  the View tab, collapse/expand works on the group-band headers when rows are grouped, the
+  band-header right-click menu gained Collapse all / Expand all, and the task context menu was
+  split into two items (#42) that reuse the ribbon keys so the two surfaces can never drift apart.
+  The WBS guide (NL+EN) documents them.
+- **The right-hand rail became a two-panel layout (issue #46).** Turning on the resource dock used
+  to replace the properties panel entirely, leaving it unreachable; the two now sit open together,
+  each with its own header toggle (the cross closes the same flag), divided by a draggable
+  splitter with a 120 px floor on both sides. The rail keeps its single width and single splitter
+  as before — only a vertical axis was added — and a collapsed panel takes just its header bar, so
+  "section closed" and "rail closed" stay separate intentions.
+- **Resources gained an inline concept row and keyboard navigation (issue #48).** Adding a
+  resource opens an editable row that no longer jumps to the bottom of the list after you type the
+  name (it renders at its final position from the start, so nothing shifts), stays fully editable
+  with the cursor in view, and supports Enter / Shift+Enter to move down and up and open a fresh
+  concept row — one commit still costs one Ctrl+Z. The Pin and Histogram toggles also moved under
+  the View tab, next to the resource dock.
+- **Ctrl+Shift+H toggles the resource histogram**, and the Link button on the Relations tab became
+  a real sticky-Shift mode (#40): with it on, dragging bar-to-bar does exactly what Shift+drag
+  does — with a crosshair cursor over the bars, a stop strip under the ribbon, and confirm/duplicate
+  feedback through the shared notification channel. Previously the button only lit up orange and did
+  nothing except silently create one FS link at exactly two selected tasks; the "add relation"
+  context-menu item was a second silent no-op in the same path.
+- **The duration pill now updates live while dragging a bar edge (issue #51)** — the hover tooltip
+  was suppressed during a drag and nothing replaced it, even though the duration already lived in
+  the store — and carries the OpenAEC brand accent rather than an inverted theme contrast that read
+  as a colourless patch. Hour tasks format from `durationMinutes` (13u / 13h, never 1d) and the day
+  suffix is translated. Right-edge drag shows the pill inside the bar; left-edge drag shows it
+  outside so it does not overlap the name label.
+- **Ribbon density became adaptive, with a manual compact mode and non-native tooltips (issue
+  #38).** The ribbon adapts its density to the window width; a manually collapsed ribbon shows
+  icons only, the View tab was compacted, and global non-native tooltips replace the OS-native ones
+  for consistent cross-platform styling.
+- **The updater gained a "What's new" button next to "Check for updates"**, and the just-updated
+  dialog was refined: it shows only the current version (not a confusing "from X to Y") and shows
+  what's new even on a first run with no previously saved version. The just-updated detection now
+  logs to the app log bus.
+- **Bundled examples, showcases and the demo resource library are now in English, and every written
+  IFC file carries English labels (issue #39)** — the showcase data and IFC header labels were
+  previously Dutch, which read oddly for an international audience.
+
+### Changed
+- **Snap packaging now publishes to the Snap Store for real.** The release workflow was silently
+  skipping the `snapcraft push` step; with the `SNAPCRAFT_STORE_CREDENTIALS` secret it now publishes
+  to the `stable` channel on every `v*` tag. The snap gained a `network-bind` plug for the MCP
+  bridge's listening port — though measuring the real installed snap (rev 1) showed the bridge
+  already bound its port correctly via `browser-support`, so the plug is harmless and kept — and an
+  English store title and description that mention the resource libraries and the AI/MCP feature.
+  The auto-backup directory was confirmed to work under snap confinement.
+- **Continued maintainability hardening (K-items 26–32), mostly internal with no behaviour change.**
+  The document contract now forces a conscious choice for every top-level state field: a new field
+  is a compile error unless classified as per-document, deliberately-app-global, or derived — so
+  data can no longer silently leak between documents, escape undo, or survive `newProject()`. This
+  caught a latent cross-document bug (`editingTaskId` from the task dialog survived a tab switch and
+  pointed at a task that no longer existed), and two dead UI fields were removed. A circular import
+  around `projectSlice` — held together only by function-declaration hoisting, so converting a
+  factory to `export const` would crash at module init, possibly only in the production bundle — was
+  broken into a leaf `defaults.ts` module and is now guarded by `verify:cycles`. A minimal ESLint
+  gate (the promise/regex cases `tsc` cannot see) and an `npm audit --audit-level=high` gate were
+  added; the scheduler's `applyCpmResult` was de-duplicated to one implementation; `addTask` now owns
+  its own time defaults; and the extension `api.data.batch(fn)` takes one undo snapshot per bulk
+  instead of one per mutation (measured on 600 adds: 4.5 s → 1.5 s, 100 → 1 undo steps).
+- **`npm run verify` is now the single gate** that CI, the release gate and the deploy gate all run
+  — one definition covering all four test suites plus typecheck, lint, examples, docs, cycles and
+  audit. The i18n difference check was promoted from an always-exit-0 soft warning to a real gate
+  using CLDR plural categories (it had been silently letting twenty new Dutch keys through, with the
+  app falling back to English), which surfaced and filled eight real `…_many` gaps in es/fr/it/pt —
+  a missing category falls back to English, not to `_other`.
+
+### Fixed
+- **Finish-to-Finish and Start-to-Finish relation arrows landed on the wrong edge of the successor
+  (issue #59).** The default rendering branch treated FF and SF as finish-to-start, so the arrow
+  always pointed at the successor's start (left edge); the CPM math was correct, only the drawn line
+  and the report export were wrong. Both render paths (screen and print/PDF) now anchor per type,
+  with a mirrored arrowhead direction for finish arrivals; FS and SS are byte-identical.
+- **Relation arrows were overdrawn by the task bars (issue #41).** Rather than reversing draw order
+  (which would send arrows over labels, the baseline overlay and the progress fill), the routing now
+  genuinely avoids obstacles: horizontal travel runs in the gutter between two rows (bar-free by
+  construction) and vertical travel in a column with no intervening bars, and the stub points away
+  from its own bar. A negative-lag SS arrow no longer leaves a lone floating arrowhead. Measured at
+  realistic size (2500 tasks, ~2900 relations): no visible performance change.
+- **The Gantt hover overlay truncated long task names and could scroll out of view (issue #58).**
+  Long names now run through and the overlay stays in view near the cursor.
+- **Report exports lost relation-line styling (issue #56), and the "Today" label collided with the
+  day numbers and was missing from the preview.** Relation lines now keep their style through the
+  PDF/raster export; the today label goes through the translation layer, no longer overlaps the day
+  figures, and appears in the live preview as well as the export.
+- **Context-menu actions affected only the clicked task, not the selection (issue #45).** They now
+  act on the whole selection and cost a single undo step.
+- **Task insertion was inconsistent (issue #49).** Insert-above / insert-below landed at the wrong
+  structural position in some surfaces and moved only the clicked task of a selection; it now lands
+  in the correct position everywhere (table, Gantt, context menu) and accounts for the entire
+  selection when inserting relative to it.
+- **A CSS cascade left input fields unusable, the Table tab incomplete, and the Columns entry
+  hidden.** `.input` in `globals.css` sits outside every cascade layer with `width:100%`, so a plain
+  `w-*` utility on it is dead code — a field dropdown in the group/sort popover measured 11.8 px
+  next to a 209 px sibling, and a number field in the resource panel stretched to 1263 px. Seven
+  broken call sites were measured and repaired; the Table tab gained its File and Edit groups; and
+  the Columns button — previously reachable only from the View tab, where it controls a table that
+  is mounted only on the Table tab — now also sits on the Table tab.
+- **Fallout from an empty project name.** Making a nameless project truly empty in the data exposed
+  four gaps: the MCP bridge sent an empty document title in every response (now an English
+  "Untitled" fallback matching the UI), two nameless documents were indistinguishable (now a sequence
+  number in the display layer, so no locale-bound string lands in the data), and duplication,
+  generated file names and exports handle the empty case gracefully.
+- **Smaller fixes.** "Close project" in Backstage opened the new-project wizard instead of closing
+  the document (#37); the desktop help viewer showed "Article not found" for every article because
+  of an over-strict content-type check on fetched markdown; a nameless schedule now shows a
+  translated "New schedule" and an IFC without a project definition gets a translated default name;
+  the IFC baseline remap was decoupled from the GUID hash before the collision check (B8); the
+  browser dev server now validates a committed port rather than trusting it blindly; and a
+  duration-header regression that broke main was fixed without a stray text-alignment mutation.
+
+### Documentation
+- **Governance files were added**: `CONTRIBUTING.md`, `SECURITY.md`, English issue and PR templates,
+  and a single declared repository owner. `CLAUDE.md`, `AGENTS.md`, `PLAN.md` and the README were
+  brought current, and the changes are mechanically enforced via the verify gates.
+- **The release secrets behind the delivery chain were inventoried** (`docs/release-secrets.md`):
+  what each secret does, what breaks on its loss, and the minisign-key migration path — the one
+  irrecoverable single point of failure, since its pubkey ships inside every binary. Release notes
+  now come from a single source (`docs/release-notes/v<version>.md`) feeding both the GitHub release
+  body and the updater dialog's plain-text notes, instead of a hardcoded generic body paired with an
+  empty `notes` field.
+
 ## v2026.7.13 — 2026-07-27
 
 ### Added
