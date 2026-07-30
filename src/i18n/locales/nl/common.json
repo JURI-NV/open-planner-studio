@@ -33,7 +33,8 @@
     "collapse": "Inklappen",
     "expand": "Uitklappen",
     "collapseRail": "Zijkolom inklappen",
-    "expandRail": "Zijkolom uitklappen"
+    "expandRail": "Zijkolom uitklappen",
+    "closeProperties": "Eigenschappen sluiten"
   },
   "context": {
     "edit": "Bewerken...",

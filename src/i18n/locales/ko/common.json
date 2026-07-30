@@ -33,7 +33,8 @@
     "collapse": "접기",
     "expand": "펼치기",
     "collapseRail": "사이드 열 접기",
-    "expandRail": "사이드 열 펼치기"
+    "expandRail": "사이드 열 펼치기",
+    "closeProperties": "속성 닫기"
   },
   "context": {
     "edit": "편집...",

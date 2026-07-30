@@ -32,12 +32,15 @@ export const TOUR_STEPS: TourStep[] = [
     prepare: () => { useAppStore.getState().setUI({ activeRibbonTab: 'start' }); },
   },
   {
-    // Stap 3 — eigenschappenpaneel. Klapt het rechterpaneel uit (indien dichtgeklapt).
+    // Stap 3 — eigenschappenpaneel. Zet het paneel aan én klapt de rechterkolom uit (indien
+    // dichtgeklapt). Issue #46 (slot): sinds het paneel een eigen aan/uit heeft is
+    // `rightPanelCollapsed: false` alléén niet meer genoeg — dan staat de kolom er wel, maar met
+    // hooguit de resourcelijst erin en zonder het anker van deze stap.
     anchor: 'properties-panel',
     titleKey: 'tour.step3Title',
     bodyKey: 'tour.step3Body',
     prepare: () => {
-      useAppStore.getState().setUI({ activeRibbonTab: 'start', rightPanelCollapsed: false });
+      useAppStore.getState().setUI({ activeRibbonTab: 'start', showPropertiesPanel: true, rightPanelCollapsed: false });
     },
   },
   {

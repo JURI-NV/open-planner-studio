@@ -33,7 +33,8 @@
     "collapse": "Zwiń",
     "expand": "Rozwiń",
     "collapseRail": "Zwiń kolumnę boczną",
-    "expandRail": "Rozwiń kolumnę boczną"
+    "expandRail": "Rozwiń kolumnę boczną",
+    "closeProperties": "Zamknij właściwości"
   },
   "context": {
     "edit": "Edytuj...",

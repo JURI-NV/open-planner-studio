@@ -132,8 +132,7 @@ export interface TourUiSnapshot {
   backstageSection: BackstageSection;
   showHistogram: boolean;
   rightPanelCollapsed: boolean;
-  railPropertiesCollapsed: boolean;
-  railResourcesCollapsed: boolean;
+  showPropertiesPanel: boolean;
 }
 
 // --- Gebruikerszichtbaar meldingenkanaal (bevinding K8): één gecentraliseerde toast-stapel in
@@ -242,19 +241,22 @@ export interface UIState {
    *  zolang `showResourcePanel` ook true is; mutueel exclusief met de volledige-paneel-modus.
    *
    *  Issue #46 (slot): "gedockt" betekent sinds deze wijziging *naast* het eigenschappenpaneel in
-   *  dezelfde rail (accordeon), niet meer *in plaats van*. Dit veld zegt alleen nog OF de
-   *  resource-sectie in de rail bestaat; `railResourcesCollapsed` zegt of hij openstaat. */
+   *  dezelfde rail, niet meer *in plaats van*. Dit veld is daarmee de aan/uit-schakelaar van het
+   *  resourcepaneel in de rail — precies zoals `showPropertiesPanel` dat is voor Eigenschappen. */
   resourcePanelDocked: boolean;
-  /** Session — issue #46 (slot): de rechter-rail is een accordeon met twee secties
-   *  (Eigenschappen + de gedockte resourcelijst). Deze twee vlaggen zeggen per sectie of hij is
-   *  samengevouwen tot alleen zijn kopbalkje. Bewust NIET gepersisteerd, precies zoals
-   *  `rightPanelCollapsed` (de rail als geheel) dat ook niet is: inklaptoestand is sessiewerk,
-   *  afmetingen (`rightPanelWidth`, `railPropertiesHeight`) zijn wél een voorkeur. */
-  railPropertiesCollapsed: boolean;
-  railResourcesCollapsed: boolean;
-  /** Persisted — issue #46 (slot): hoogte in px van de Eigenschappen-sectie (kopbalk inbegrepen)
-   *  wanneer BEIDE railsecties openstaan; de resourcesectie krijgt dan de resterende ruimte.
-   *  Staat er maar één sectie open, dan is dit veld niet van kracht (die sectie krijgt de volle
+  /** Session — issue #46 (slot): staat het eigenschappenpaneel in de rechter-rail aan?
+   *
+   *  De rail huisvest twee GELIJKWAARDIGE panelen die allebei gewoon open staan zodra ze aan
+   *  staan; er is geen samengevouwen tussentoestand. Elk paneel heeft daarom precies één
+   *  aan/uit-vlag: dit veld voor Eigenschappen, `resourcePanelDocked` voor de resourcelijst. Staan
+   *  ze allebei uit, dan is er geen rail. Default `true` = byte-identieke opstart.
+   *
+   *  Dit is iets ANDERS dan `rightPanelCollapsed`: dat verbergt de hele kolom tijdelijk (de Gantt
+   *  krijgt de breedte) zónder de paneelkeuze te vergeten. */
+  showPropertiesPanel: boolean;
+  /** Persisted — issue #46 (slot): hoogte in px van het Eigenschappen-paneel (kopbalk inbegrepen)
+   *  wanneer BEIDE railpanelen aan staan; het resourcepaneel krijgt dan de resterende ruimte.
+   *  Staat er maar één paneel aan, dan is dit veld niet van kracht (dat paneel krijgt de volle
    *  hoogte) — het onthoudt enkel de laatst gesleepte verdeling. Geklemd bij het laden
    *  (`settingsRegistry`) én live tijdens het slepen. */
   railPropertiesHeight: number;

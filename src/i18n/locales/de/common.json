@@ -33,7 +33,8 @@
     "collapse": "Einklappen",
     "expand": "Ausklappen",
     "collapseRail": "Seitenspalte einklappen",
-    "expandRail": "Seitenspalte ausklappen"
+    "expandRail": "Seitenspalte ausklappen",
+    "closeProperties": "Eigenschaften schließen"
   },
   "context": {
     "edit": "Bearbeiten...",

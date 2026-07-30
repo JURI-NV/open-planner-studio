@@ -33,7 +33,8 @@
     "collapse": "طي",
     "expand": "توسيع",
     "collapseRail": "طي العمود الجانبي",
-    "expandRail": "توسيع العمود الجانبي"
+    "expandRail": "توسيع العمود الجانبي",
+    "closeProperties": "إغلاق الخصائص"
   },
   "context": {
     "edit": "تعديل...",

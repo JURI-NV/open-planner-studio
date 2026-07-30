@@ -519,18 +519,22 @@ const dockResourcePanelButton: RibbonButtonSpec = {
   labelKey: 'menu:ribbon.dockResourcePanel',
   use: () => {
     const setUI = useAppStore(s => s.setUI);
+    const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
     const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
     const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
     const { t } = useTranslation('menu');
+    // Issue #46 (slot): exact dezelfde vorm als de Eigenschappen-knop hiernaast — actief ⇔
+    // zichtbaar, en klikken op een niet-actieve knop maakt het paneel gegarandeerd zichtbaar
+    // (`setUI`-invariant 1 klapt de rail zo nodig uit). Vóór deze ronde las `active` alleen de
+    // aan-vlag, waardoor de knop kon oplichten terwijl de kolom ingeklapt was.
+    const visible = showResourcePanel && resourcePanelDocked && !rightPanelCollapsed;
     return {
-      onClick: () => {
-        if (showResourcePanel && resourcePanelDocked) {
-          setUI({ showResourcePanel: false, resourcePanelDocked: false });
-        } else {
-          setUI({ showResourcePanel: true, resourcePanelDocked: true });
-        }
-      },
-      active: showResourcePanel && resourcePanelDocked,
+      onClick: () => setUI(
+        visible
+          ? { showResourcePanel: false, resourcePanelDocked: false }
+          : { showResourcePanel: true, resourcePanelDocked: true },
+      ),
+      active: visible,
       title: t('ribbon.dockResourcePanelTitle'),
     };
   },
@@ -708,43 +712,32 @@ const beeldTab: RibbonTabConfig = [
         // Issue #46c-nasleep: `!rightPanelCollapsed` is niet hetzelfde als "de rail staat er". Het
         // VOLLEDIGE resource-paneel vervangt de hele werkruimte (App.tsx `isFullPanel`), dus dan
         // lichtte deze knop actief op naast een rail die niet bestond, en deed een klik niets.
-        // Stuur icoon/actief/klik daarom op de wérkelijke zichtbaarheid; het uitklappen zelf maakt
-        // in `setUI` ruimte vrij (invariant 2 daar). De andere `isFullPanel`-termen (tabbladen
-        // table/relations/ifc/report) kunnen hier niet spelen: deze knop staat op de Beeld-tab.
+        // De andere `isFullPanel`-termen (tabbladen table/relations/ifc/report) kunnen hier niet
+        // spelen: deze knop staat op de Beeld-tab.
         //
-        // Issue #46 (slot): de rail is nu een accordeon, dus "zichtbaar" heeft er een term bij —
-        // de Eigenschappen-SECTIE kan samengevouwen zijn terwijl de rail openstaat (dat is precies
-        // de nieuwe toestand na het aanzetten van het Resourcedock). Deze knop gaat over
-        // Eigenschappen, dus hij stuurt op die sectie.
+        // Issue #46 (slot): de rail huisvest nu twee GELIJKWAARDIGE panelen, elk met een eigen
+        // aan/uit. Deze knop is die schakelaar voor Eigenschappen — de tegenhanger van
+        // "Resourcedock" ernaast, met exact dezelfde vorm:
         //
-        // Het UITzetten kent twee gevallen, en dat is bewust:
-        //   - staat het Resourcedock ernaast, dan vouwt alleen de Eigenschappen-sectie samen; de
-        //     rail blijft staan voor de resourcelijst.
-        //   - is Eigenschappen de enige sectie, dan klapt de hele rail in — exact het gedrag van
-        //     vóór de accordeon, inclusief de ~280 px die de Gantt erbij krijgt. Zonder dit
-        //     onderscheid zou de knop in het gewone geval een verarming zijn: een lege kolom met
-        //     één balkje i.p.v. ruimte voor de planning.
+        //     actief  ⇔  je ziet dit paneel nu
+        //     klik op een NIET-actieve knop  ⇒  je ziet het paneel daarna gegarandeerd
+        //
+        // Die tweede regel is de #46c-belofte, en hij is hier niet met de hand ingebouwd maar
+        // afgedwongen in `setUI` (invariant 1b): het paneel aanzetten klapt zo nodig de rail uit.
+        // Het UITzetten laat `rightPanelCollapsed` bewust met rust — dat veld is de tijdelijke
+        // "geef de Gantt de breedte"-stand, geen paneelkeuze.
         use: () => {
           const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
+          const showPropertiesPanel = useAppStore(s => s.ui.showPropertiesPanel);
           const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
           const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-          const railPropertiesCollapsed = useAppStore(s => s.ui.railPropertiesCollapsed);
           const setUI = useAppStore(s => s.setUI);
           const railVisible = !rightPanelCollapsed && !(showResourcePanel && !resourcePanelDocked);
-          const dockPresent = showResourcePanel && resourcePanelDocked;
-          const propertiesVisible = railVisible && !railPropertiesCollapsed;
+          const visible = railVisible && showPropertiesPanel;
           return {
-            icon: propertiesVisible ? <Eye size={20} /> : <EyeOff size={20} />,
-            active: propertiesVisible,
-            onClick: () => {
-              if (!propertiesVisible) {
-                setUI({ rightPanelCollapsed: false, railPropertiesCollapsed: false });
-              } else if (dockPresent) {
-                setUI({ railPropertiesCollapsed: true });
-              } else {
-                setUI({ rightPanelCollapsed: true });
-              }
-            },
+            icon: visible ? <Eye size={20} /> : <EyeOff size={20} />,
+            active: visible,
+            onClick: () => setUI(visible ? { showPropertiesPanel: false } : { showPropertiesPanel: true }),
           };
         },
       },

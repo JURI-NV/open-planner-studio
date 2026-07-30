@@ -33,7 +33,8 @@
     "collapse": "折叠",
     "expand": "展开",
     "collapseRail": "折叠侧边栏",
-    "expandRail": "展开侧边栏"
+    "expandRail": "展开侧边栏",
+    "closeProperties": "关闭属性"
   },
   "context": {
     "edit": "编辑...",

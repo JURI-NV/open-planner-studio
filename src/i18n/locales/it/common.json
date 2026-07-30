@@ -33,7 +33,8 @@
     "collapse": "Comprimi",
     "expand": "Espandi",
     "collapseRail": "Comprimi la colonna laterale",
-    "expandRail": "Espandi la colonna laterale"
+    "expandRail": "Espandi la colonna laterale",
+    "closeProperties": "Chiudi proprietà"
   },
   "context": {
     "edit": "Modifica...",

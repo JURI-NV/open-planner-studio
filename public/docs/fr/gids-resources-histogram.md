@@ -77,7 +77,7 @@ Si vous voyez « Recalculer (F5) pour afficher la charge » au lieu de barres, l
 
 ## Le panneau de ressources ancré
 
-Outre le panneau de ressources complet (bouton de ruban **Ressources**), il existe une variante compacte que vous pouvez ancrer à droite : le bouton **Dock ressources** dans le groupe de ruban **Gérer**. Ce panneau ancré affiche uniquement le nom, les **Unités max.** (modifiables directement) et un point rouge/vert pour la surallocation — un aperçu rapide à côté de votre Gantt sans ouvrir le panneau complet. Le panneau de ressources ancré et le panneau des propriétés partagent la colonne de droite sous forme de deux sections repliables : activer le dock replie **Propriétés** en une simple barre de titre, et un clic sur cette barre le rouvre.
+Outre le panneau de ressources complet (bouton de ruban **Ressources**), il existe une variante compacte que vous pouvez ancrer à droite : le bouton **Dock ressources** dans le groupe de ruban **Gérer**. Ce panneau ancré affiche uniquement le nom, les **Unités max.** (modifiables directement) et un point rouge/vert pour la surallocation — un aperçu rapide à côté de votre Gantt sans ouvrir le panneau complet. Le panneau de ressources ancré et le panneau des propriétés occupent la colonne de droite comme deux panneaux à part entière, l'un au-dessus de l'autre : chacun a son propre bouton de ruban, et vous répartissez la hauteur en faisant glisser la limite entre les deux.
 
 ## Repérer la surallocation
 

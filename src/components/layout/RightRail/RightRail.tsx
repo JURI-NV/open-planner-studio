@@ -1,6 +1,6 @@
 import { Suspense, lazy, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, Maximize2, PanelRightClose, X } from 'lucide-react';
+import { ChevronRight, Maximize2, PanelRightClose, X } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { useSplitter } from '@/hooks/useSplitter';
 import { TaskPropertiesPanel } from '@/components/panels/TaskPropertiesPanel';
@@ -16,60 +16,59 @@ const DebugTerminal = lazy(() => import('@/components/panels/DebugTerminal').the
 const AIActivityPanel = lazy(() => import('@/components/panels/AIActivityPanel').then(m => ({ default: m.AIActivityPanel })));
 
 /**
- * De rechter-rail als ACCORDEON (issue #46, slotpunt).
+ * De rechter-rail: TWEE GELIJKWAARDIGE PANELEN boven elkaar (issue #46, slotpunt).
  *
  * ── Wat hier is teruggedraaid ────────────────────────────────────────────────────────────────
  * Architect-besluit 5 van fase 2.10 luidde: "hergebruik de bestaande rechter-rail, mutueel
  * exclusief met het eigenschappenpaneel (resources gedockt ⇒ properties-rail tijdelijk vervangen).
- * Eén rail, geen tweede breedte/collapsed-veld." Dat was een bewuste soberheidskeuze — één breedte,
- * één inklapvlag — maar de melder van issue #46 liep er precies tegenaan: het Resourcedock
- * VERVANGT het eigenschappenpaneel, dus je verliest de taakeigenschappen zodra je de resources
- * erbij wilt. Zijn voorstel was het paneel te MINIMALISEREN in plaats van te vervangen.
+ * Eén rail, geen tweede breedte/collapsed-veld." De melder van issue #46 liep daar precies tegenaan:
+ * het Resourcedock VERVING het eigenschappenpaneel, dus je verloor de taakeigenschappen zodra je de
+ * resources erbij wilde.
  *
  * Wat blijft staan van dat besluit: **één rail en één breedte** — er is nog steeds precies één
  * `rightPanelWidth` en één breedte-splitter. Wat erbij komt is uitsluitend de verticale as: een
- * hoogteverdeling (`railPropertiesHeight`) en een inklapvlag per sectie.
+ * hoogteverdeling (`railPropertiesHeight`) met een sleepgrens.
  *
- * ── Het hoogtemodel ─────────────────────────────────────────────────────────────────────────
- * De rail huisvest maximaal twee secties: Eigenschappen (altijd) en de gedockte resourcelijst
- * (alleen bij `showResourcePanel && resourcePanelDocked`). Een samengevouwen sectie is exact zijn
- * kopbalk hoog. De verdeling is dan volledig bepaald door één regel:
+ * ── Het model, in drie regels ───────────────────────────────────────────────────────────────
+ * De rail huisvest twee panelen die elk hun eigen aan/uit-vlag hebben: `showPropertiesPanel` en
+ * `resourcePanelDocked`. Er is GEEN samengevouwen tussentoestand — staat een paneel aan, dan zie
+ * je zijn inhoud. Daaruit volgt de hele layout:
  *
- *   - staan er twee secties OPEN → Eigenschappen krijgt `railPropertiesHeight` px, de
- *     resourcelijst de rest, met een sleepbare scheiding ertussen;
- *   - staat er één sectie open → die krijgt de volle resterende hoogte (`flex: 1`), ongeacht
- *     `railPropertiesHeight`. Geen loze witruimte, en geen tweede geval om te onderhouden.
+ *   - twee panelen aan  → Eigenschappen krijgt `railPropertiesHeight` px, de resourcelijst de
+ *                         rest, met een sleepbare grens ertussen (ondergrens per paneel);
+ *   - één paneel aan    → dat paneel krijgt de volle hoogte, ongeacht `railPropertiesHeight`;
+ *   - geen paneel aan   → geen rail (App.tsx rendert dit component dan niet eens).
  *
- * Zijn BEIDE secties samengevouwen, dan blijft de rail staan met twee balkjes boven elkaar (het
- * VS Code-gedrag). Bewust niet de rail automatisch mee inklappen: "sectie dicht" en "rail dicht"
- * zijn twee verschillende wensen — de eerste zegt "ik wil deze inhoud even niet", de tweede "geef
- * de Gantt die 280 px". Ze samenvoegen maakt bovendien het heropenen dubbelzinnig (welke sectie
- * komt er terug?). De rail als geheel inklappen kan gewoon met de knop rechts in de bovenste
- * kopbalk; de ingeklapte strip toont dan één klikbaar label per sectie, zodat je gericht
- * terugkeert naar de sectie die je wilde.
+ * De enige manier om de verdeling te wijzigen is die sleepgrens; de enige manier om een paneel weg
+ * te krijgen is zijn eigen aan/uit — bereikbaar vanaf de lintknop (Beeld → Panelen, en voor de
+ * resourcelijst ook de Resources-tab) én vanaf de ✕ in zijn eigen kopbalk. Dat is twee ingangen
+ * naar ÉÉN schakelaar, niet twee mechanieken.
+ *
+ * `rightPanelCollapsed` is bewust iets anders en blijft bestaan: dat verbergt de hele kolom
+ * tijdelijk — de Gantt krijgt de breedte — zónder de paneelkeuze te vergeten. Vandaar de knop
+ * rechts in de bovenste kopbalk en de smalle strip die 'm terughaalt.
  */
 export function RightRail() {
   const { t } = useTranslation('common');
+  const { t: tMenu } = useTranslation('menu');
   const setUI = useAppStore(s => s.setUI);
   const rightPanelCollapsed = useAppStore(s => s.ui.rightPanelCollapsed);
   const rightPanelWidth = useAppStore(s => s.ui.rightPanelWidth);
+  const showPropertiesPanel = useAppStore(s => s.ui.showPropertiesPanel);
   const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
   const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
-  const propsCollapsed = useAppStore(s => s.ui.railPropertiesCollapsed);
-  const resCollapsed = useAppStore(s => s.ui.railResourcesCollapsed);
   const propsHeight = useAppStore(s => s.ui.railPropertiesHeight);
   const debugTerminalEnabled = useAppStore(s => s.ui.debugTerminalEnabled);
   const debugTerminalOpen = useAppStore(s => s.ui.debugTerminalOpen);
   const aiMode = useAppStore(s => s.ui.aiMode);
   const aiActivityOpen = useAppStore(s => s.ui.aiActivityOpen);
 
-  /** Bestaat de resource-sectie überhaupt in de rail? (Het VOLLEDIGE resourcepaneel is iets
-   *  anders: dat vervangt de hele werkruimte en komt hier niet langs — App.tsx rendert deze rail
-   *  dan niet.) */
-  const dockPresent = showResourcePanel && resourcePanelDocked;
-  const bothOpen = dockPresent && !propsCollapsed && !resCollapsed;
+  /** Staat het resourcepaneel in de rail aan? (Het VOLLEDIGE resourcepaneel is iets anders: dat
+   *  vervangt de hele werkruimte en komt hier niet langs — App.tsx rendert deze rail dan niet.) */
+  const dockOn = showResourcePanel && resourcePanelDocked;
+  const bothOn = showPropertiesPanel && dockOn;
 
-  /** Container waarbinnen de twee secties gestapeld staan — de referentie voor de sleepklem. */
+  /** Container waarbinnen de twee panelen gestapeld staan — de referentie voor de sleepklem. */
   const stackRef = useRef<HTMLDivElement>(null);
 
   // Breedte slepen (ongewijzigd t.o.v. de oude rail): één splitter, één `rightPanelWidth`.
@@ -82,7 +81,7 @@ export function RightRail() {
   });
 
   // Hoogte slepen — hetzelfde `useSplitter`-patroon, nu op de verticale as. De bovengrens is
-  // dynamisch: de stapel-hoogte minus de minimumhoogte van de onderste sectie, zodat de
+  // dynamisch: de stapel-hoogte minus de minimumhoogte van het onderste paneel, zodat de
   // resourcelijst nooit tot 0 px wordt geknepen. Beide grenzen zijn in px van de stapel-top af.
   const heightSplitter = useSplitter({
     min: RAIL_SECTION_MIN_HEIGHT,
@@ -99,25 +98,31 @@ export function RightRail() {
   });
 
   // ── Ingeklapte rail: de verticale strip ────────────────────────────────────────────────────
-  // Eén klikbaar label per AANWEZIGE sectie. Klikken klapt de rail uit én opent gericht díé
-  // sectie — anders zou de gebruiker na het uitklappen alsnog moeten raden welk balkje hij nodig
-  // heeft. Dit is ook precies het beeld dat de melder als referentie meestuurde.
+  // Eén knop, één label, één actie: de kolom terughalen zoals je 'm achterliet. Er valt niets meer
+  // te kiezen — de panelen die aan staan komen allemaal terug — dus een label per paneel zou een
+  // keuze suggereren die er niet is. Het label noemt daarom wát er terugkomt: de naam van het ene
+  // paneel als er één aan staat, en anders het verzamelwoord "Panelen" (`menu:ribbon.panels`,
+  // dezelfde term als de lintgroep waar de schakelaars staan).
   if (rightPanelCollapsed) {
+    const label = bothOn
+      ? tMenu('ribbon.panels')
+      : dockOn ? t('resource.compact.title') : t('properties');
     return (
-      <div className="ui-card flex flex-col items-center justify-center gap-4 py-4 overflow-hidden" style={{ width: 28 }}>
-        <RailStripLabel
-          label={t('properties')}
-          title={t('sidebar.expandRail')}
-          onClick={() => setUI({ rightPanelCollapsed: false, railPropertiesCollapsed: false })}
-        />
-        {dockPresent && (
-          <RailStripLabel
-            label={t('resource.compact.title')}
-            title={t('sidebar.expandRail')}
-            onClick={() => setUI({ rightPanelCollapsed: false, railResourcesCollapsed: false })}
-          />
-        )}
-      </div>
+      <button
+        onClick={() => setUI({ rightPanelCollapsed: false })}
+        title={t('sidebar.expandRail')}
+        className="ui-card flex flex-col items-center justify-center gap-2 py-4 hover:bg-surface-hover overflow-hidden"
+        style={{ width: 28 }}
+        data-ops-rail-strip
+      >
+        <ChevronRight size={14} className="text-text-secondary ops-icon-inline-flip" />
+        <span
+          className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+        >
+          {label}
+        </span>
+      </button>
     );
   }
 
@@ -139,32 +144,37 @@ export function RightRail() {
       />
 
       <div ref={stackRef} className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
-        <RailSection
-          id="properties"
-          title={t('properties')}
-          collapsed={propsCollapsed}
-          // Zonder resourcesectie is er niets om tegen af te wegen: een accordeon van één heeft
-          // geen vouw. De twisty verdwijnt dan, zodat de gebruiker zichzelf niet in een rail van
-          // 280 px met één balkje erin kan klikken. De rail als geheel wegklappen kan gewoon met de
-          // knop ernaast — precies zoals vóór deze wijziging.
-          showToggle={dockPresent}
-          onToggle={() => setUI({ railPropertiesCollapsed: !propsCollapsed })}
-          // De rail-als-geheel-knop hangt aan de BOVENSTE kopbalk (Eigenschappen staat er altijd
-          // en altijd bovenaan), zodat er precies één zo'n knop is en die niet verspringt.
-          onCollapseRail={() => setUI({ rightPanelCollapsed: true })}
-          collapseRailTitle={t('sidebar.collapseRail')}
-          // Vaste hoogte alleen als er écht twee secties openstaan; anders vult de open sectie
-          // de rail (`flex: 1`) en is er niets te verdelen.
-          fixedHeight={bothOpen ? propsHeight : undefined}
-          grow={!propsCollapsed && !bothOpen}
-        >
-          <TaskPropertiesPanel />
-        </RailSection>
+        {showPropertiesPanel && (
+          <RailPanel
+            id="properties"
+            title={t('properties')}
+            // De rail-als-geheel-knop hangt aan de BOVENSTE kopbalk, zodat er precies één zo'n knop
+            // is. Eigenschappen staat altijd bovenaan wanneer het aan staat; staat het uit, dan
+            // erft de resourcelijst hem (zie hieronder).
+            onCollapseRail={() => setUI({ rightPanelCollapsed: true })}
+            collapseRailTitle={t('sidebar.collapseRail')}
+            // Vaste hoogte alleen als er écht twee panelen aan staan; anders vult het ene paneel de
+            // rail (`flex: 1`) en is er niets te verdelen.
+            fixedHeight={bothOn ? propsHeight : undefined}
+            grow={!bothOn}
+            actions={
+              <button
+                onClick={() => setUI({ showPropertiesPanel: false })}
+                title={t('sidebar.closeProperties')}
+                className="p-0.5 hover:bg-surface-hover rounded text-text-secondary"
+              >
+                <X size={14} />
+              </button>
+            }
+          >
+            <TaskPropertiesPanel />
+          </RailPanel>
+        )}
 
-        {bothOpen && (
-          // Onzichtbare horizontale grijpzone tussen de twee secties — spiegelbeeld van de
+        {bothOn && (
+          // Onzichtbare horizontale grijpzone tussen de twee panelen — spiegelbeeld van de
           // breedte-grijpzone hierboven: geen eigen balk, alleen een cursor. De zichtbare
-          // scheiding is de `border-t` van de kopbalk van de sectie eronder.
+          // scheiding is de `border-t` van de kopbalk van het paneel eronder.
           <div
             onMouseDown={e => { e.preventDefault(); heightSplitter.start(); }}
             style={{ height: 0, position: 'relative', zIndex: 10, flexShrink: 0 }}
@@ -173,14 +183,15 @@ export function RightRail() {
           </div>
         )}
 
-        {dockPresent && (
-          <RailSection
+        {dockOn && (
+          <RailPanel
             id="resources"
             title={t('resource.compact.title')}
-            collapsed={resCollapsed}
-            onToggle={() => setUI({ railResourcesCollapsed: !resCollapsed })}
-            withTopBorder
-            grow={!resCollapsed}
+            withTopBorder={showPropertiesPanel}
+            grow
+            // Staat Eigenschappen uit, dan is dit de bovenste kopbalk en hoort de rail-knop hier.
+            onCollapseRail={showPropertiesPanel ? undefined : () => setUI({ rightPanelCollapsed: true })}
+            collapseRailTitle={t('sidebar.collapseRail')}
             actions={
               <>
                 <button
@@ -201,7 +212,7 @@ export function RightRail() {
             }
           >
             <ResourcePanelCompact />
-          </RailSection>
+          </RailPanel>
         )}
       </div>
 
@@ -215,98 +226,51 @@ export function RightRail() {
   );
 }
 
-/** Eén verticaal label in de ingeklapte strip. */
-function RailStripLabel({ label, title, onClick }: { label: string; title: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex flex-col items-center gap-2 cursor-pointer hover:bg-surface-hover rounded py-2 w-full"
-      data-ops-rail-strip
-    >
-      <ChevronRight size={14} className="text-text-secondary ops-icon-inline-flip" />
-      <span
-        className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider"
-        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-      >
-        {label}
-      </span>
-    </button>
-  );
-}
-
-interface RailSectionProps {
+interface RailPanelProps {
   id: string;
   title: string;
-  collapsed: boolean;
-  onToggle: () => void;
   children: React.ReactNode;
-  /** Extra knoppen rechts in de kopbalk (bv. "volledig paneel" / "dock sluiten"). */
+  /** Knoppen rechts in de kopbalk (sluiten, en voor de resourcelijst "volledig paneel"). */
   actions?: React.ReactNode;
-  /** De knop die de HELE rail inklapt — hangt alleen aan de bovenste sectie. */
+  /** De knop die de HELE kolom inklapt — hangt alleen aan de bovenste kopbalk. */
   onCollapseRail?: () => void;
   collapseRailTitle?: string;
-  /** Vaste hoogte in px (alleen wanneer beide secties openstaan). */
+  /** Vaste hoogte in px (alleen wanneer beide panelen aan staan). */
   fixedHeight?: number;
-  /** Vult deze sectie de resterende ruimte? */
+  /** Vult dit paneel de resterende ruimte? */
   grow?: boolean;
   withTopBorder?: boolean;
-  /** Toon de in-/uitklap-twisty? Uit wanneer deze sectie de enige in de rail is. */
-  showToggle?: boolean;
 }
 
-function RailSection({
-  id, title, collapsed, onToggle, children, actions, onCollapseRail, collapseRailTitle,
-  fixedHeight, grow, withTopBorder, showToggle = true,
-}: RailSectionProps) {
-  const { t } = useTranslation('common');
-  // Drie elkaar uitsluitende hoogtemodi — de hele verdeling zit in deze ene expressie:
-  //   samengevouwen → precies de kopbalk; groeiend → de resterende ruimte; anders → vaste hoogte.
-  //
+function RailPanel({
+  id, title, children, actions, onCollapseRail, collapseRailTitle,
+  fixedHeight, grow, withTopBorder,
+}: RailPanelProps) {
   // Twee details die pas bij het NAmeten bleken te kloppen, allebei voor de rail die KORTER is dan
   // de opgeslagen verdeling (laag venster, geopende debugterminal, uitgeklapt AI-paneel):
   //
   //  1. De vaste-hoogte-tak staat op `flex-shrink: 1` (`0 1 auto`), niet op `0 0 auto`. Anders
-  //     weigert de vastgezette sectie te krimpen en wordt alle overloop op de andere afgewenteld.
+  //     weigert het vastgezette paneel te krimpen en wordt alle overloop op het andere afgewenteld.
   //  2. Béide takken hebben een `minHeight` van precies één kopbalk (`2rem`, dezelfde `h-8` als de
   //     kopbalk zelf — en dus meeschalend met de interface-lettertypeschaal). Zonder die op de
   //     GROEIENDE tak is `flex: 1 1 0` bij negatieve vrije ruimte gewoon 0 px: gemeten op 1280×430
   //     kromp de resourcelijst dan tot 1 px terwijl Eigenschappen 146 px hield — de lijst verdween
-  //     zonder dat iets dat aangaf. Met de klem houden beide secties minstens hun kopbalk.
+  //     zonder dat iets dat aangaf. Met de klem houden beide panelen minstens hun kopbalk.
   const HEADER = '2rem';
-  const style: React.CSSProperties = collapsed
-    ? { flex: '0 0 auto' }
-    : grow
-      ? { flex: '1 1 0', minHeight: HEADER }
-      : { flex: '0 1 auto', height: fixedHeight, minHeight: HEADER };
+  const style: React.CSSProperties = grow
+    ? { flex: '1 1 0', minHeight: HEADER }
+    : { flex: '0 1 auto', height: fixedHeight, minHeight: HEADER };
 
   return (
     <div
       className={`flex flex-col overflow-hidden${withTopBorder ? ' border-t border-border' : ''}`}
       style={style}
-      data-ops-rail-section={id}
-      data-ops-collapsed={collapsed ? 'true' : 'false'}
+      data-ops-rail-panel={id}
     >
-      <div className="flex items-center h-8 px-2 border-b border-border flex-shrink-0">
-        {showToggle ? (
-          <button
-            onClick={onToggle}
-            title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-            aria-expanded={!collapsed}
-            className="flex items-center gap-1 flex-1 min-w-0 text-start hover:bg-surface-hover rounded px-1 py-0.5 -mx-1"
-          >
-            {collapsed
-              ? <ChevronRight size={13} className="text-text-secondary flex-shrink-0 ops-icon-inline-flip" />
-              : <ChevronDown size={13} className="text-text-secondary flex-shrink-0" />}
-            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary truncate">
-              {title}
-            </span>
-          </button>
-        ) : (
-          <span className="flex-1 min-w-0 px-1 text-[10px] font-bold uppercase tracking-wider text-text-secondary truncate">
-            {title}
-          </span>
-        )}
+      <div className="flex items-center h-8 px-3 border-b border-border flex-shrink-0">
+        <span className="flex-1 min-w-0 text-[10px] font-bold uppercase tracking-wider text-text-secondary truncate">
+          {title}
+        </span>
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {actions}
           {onCollapseRail && (
@@ -320,7 +284,7 @@ function RailSection({
           )}
         </div>
       </div>
-      {!collapsed && <div className="flex-1 overflow-y-auto">{children}</div>}
+      <div className="flex-1 overflow-y-auto">{children}</div>
     </div>
   );
 }

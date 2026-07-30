@@ -93,12 +93,10 @@ export function createDefaultUI(): UIState {
     traceMode: 'off',
     showResourcePanel: false,
     resourcePanelDocked: false,
-    // Issue #46 (slot) — railaccordeon. Beide secties standaard OPEN: zonder gedockte
-    // resourcelijst is er maar één sectie, en die hoort gewoon zichtbaar te zijn (byte-identiek
-    // aan het gedrag van vóór de accordeon). De hoogteverdeling is alleen van kracht als er
-    // écht twee secties openstaan.
-    railPropertiesCollapsed: false,
-    railResourcesCollapsed: false,
+    // Issue #46 (slot) — de rechter-rail. Eigenschappen staat standaard aan (byte-identieke
+    // opstart), het resourcepaneel niet; de hoogteverdeling is alleen van kracht als ze allebei
+    // aan staan.
+    showPropertiesPanel: true,
     railPropertiesHeight: 240,
     showHistogram: false,
     histogramHeight: 160,
@@ -184,34 +182,26 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       // als losse plakker per knop.
       const showResourceNext = updates.showResourcePanel ?? s.ui.showResourcePanel;
       const dockedNext = updates.resourcePanelDocked ?? s.ui.resourcePanelDocked;
-      const dockWasPresent = s.ui.showResourcePanel && s.ui.resourcePanelDocked;
       const dockIsPresent = showResourceNext && dockedNext;
-      // (1) De gedockte resource-lijst wordt zichtbaar gemaakt ⇒ klap de rail uit. Zonder dit
-      //     lichtte "Vastzetten" wel op terwijl de ingeklapte rail leeg bleef.
-      if (
-        dockIsPresent
-        && !dockWasPresent
-        && updates.rightPanelCollapsed === undefined
-      ) {
+      // (1) + (1b) Issue #46c en #46-slot — één regel, twee gelijkwaardige railpanelen:
+      //
+      //     een paneel expliciet AANzetten maakt het ook echt zichtbaar.
+      //
+      // Zonder dit lichtte "Resourcedock" wel op terwijl de ingeklapte rail leeg bleef (#46c), en
+      // met twee panelen geldt precies hetzelfde voor "Eigenschappen".
+      //
+      // Let op de vorm van de test: hij kijkt naar wat de AANROEPER schrijft, niet naar een
+      // false→true-overgang. Twee redenen, allebei nagemeten:
+      //   - een overgangstest mist de stand "paneel staat al aan, maar de kolom is ingeklapt":
+      //     de knop is dan niet actief, en zijn klik zou een stille no-op zijn — precies de
+      //     #46c-klacht terug;
+      //   - een test op de EINDstand (`dockIsPresent`) zou bij élke `setUI` vuren zolang het dock
+      //     aan staat, en de kolom dus nooit ingeklapt laten blijven.
+      // `updates.rightPanelCollapsed === undefined` laat een expliciete patch altijd winnen.
+      const turnsDockOn = (updates.showResourcePanel === true || updates.resourcePanelDocked === true) && dockIsPresent;
+      const turnsPropertiesOn = updates.showPropertiesPanel === true;
+      if ((turnsDockOn || turnsPropertiesOn) && updates.rightPanelCollapsed === undefined) {
         (updates as Partial<UIState>).rightPanelCollapsed = false;
-      }
-      // (1b) Issue #46 (slot) — dezelfde invariant één niveau dieper. De rail is nu een accordeon,
-      //      dus "de rail staat open" is niet meer hetzelfde als "je ziet de resourcelijst": de
-      //      sectie zelf kan samengevouwen zijn tot een balkje. Zet 'm dus open bij dezelfde
-      //      overgang, anders keert exact de #46c-klacht terug (knop licht op, niets te zien).
-      //      Tegelijk vouwt Eigenschappen samen tot zijn balkje — dat ís de gevraagde vorm uit
-      //      issue #46 ("expand the Resource dock while automatically minimizing the Properties
-      //      dock"). Beide alleen als de aanroeper er zelf niets over zegt, zodat een expliciete
-      //      patch (de kopbalk-knoppen, de ingeklapte strip) altijd wint.
-      if (dockIsPresent && !dockWasPresent) {
-        if (updates.railResourcesCollapsed === undefined) (updates as Partial<UIState>).railResourcesCollapsed = false;
-        if (updates.railPropertiesCollapsed === undefined) (updates as Partial<UIState>).railPropertiesCollapsed = true;
-      }
-      // (1c) Andersom: verdwijnt de resourcesectie uit de rail, dan mag Eigenschappen niet als
-      //      enige — en samengevouwen — sectie achterblijven. Dat zou een doodlopende rail zijn:
-      //      een kolom van 280 px met één balkje erin.
-      if (!dockIsPresent && dockWasPresent && updates.railPropertiesCollapsed === undefined) {
-        (updates as Partial<UIState>).railPropertiesCollapsed = false;
       }
       // (2) Andersom: wie de rail expliciet UITklapt terwijl het volledige resource-paneel de
       //     werkruimte bezet houdt, vroeg om die rail — geef de ruimte dus vrij. Het GEDOCKTE
@@ -225,16 +215,16 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
         (updates as Partial<UIState>).resourcePanelDocked = false;
       }
       // (3) Issue #46 (slot) — sluitstuk van dezelfde familie: wie de rail UITklapt moet ook echt
-      //     iets te zien krijgen. Zou elke aanwezige sectie samengevouwen zijn, dan opent
-      //     Eigenschappen — de sectie die er altijd is. Let op de volgorde: invariant (2) hierboven
-      //     kan het gedockte paneel net hebben weggehaald, dus lees de EINDstand uit `updates`.
+      //     iets te zien krijgen. Staat er geen enkel railpaneel aan, dan is er niets om uit te
+      //     klappen; zet dan Eigenschappen aan (het paneel dat standaard aan staat). Let op de
+      //     volgorde: invariant (2) hierboven kan het volledige resourcepaneel net hebben
+      //     weggehaald, dus lees de EINDstand uit `updates`.
       if (updates.rightPanelCollapsed === false) {
         const dockFinal = (updates.showResourcePanel ?? s.ui.showResourcePanel)
           && (updates.resourcePanelDocked ?? s.ui.resourcePanelDocked);
-        const propsCollapsedFinal = updates.railPropertiesCollapsed ?? s.ui.railPropertiesCollapsed;
-        const resCollapsedFinal = updates.railResourcesCollapsed ?? s.ui.railResourcesCollapsed;
-        if (propsCollapsedFinal && (!dockFinal || resCollapsedFinal)) {
-          (updates as Partial<UIState>).railPropertiesCollapsed = false;
+        const propsFinal = updates.showPropertiesPanel ?? s.ui.showPropertiesPanel;
+        if (!dockFinal && !propsFinal) {
+          (updates as Partial<UIState>).showPropertiesPanel = true;
         }
       }
       Object.assign(s.ui, updates);

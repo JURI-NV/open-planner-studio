@@ -33,7 +33,8 @@
     "collapse": "Contraer",
     "expand": "Expandir",
     "collapseRail": "Contraer la columna lateral",
-    "expandRail": "Expandir la columna lateral"
+    "expandRail": "Expandir la columna lateral",
+    "closeProperties": "Cerrar propiedades"
   },
   "context": {
     "edit": "Editar...",

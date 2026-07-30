@@ -33,7 +33,8 @@
     "collapse": "Recolher",
     "expand": "Expandir",
     "collapseRail": "Recolher a coluna lateral",
-    "expandRail": "Expandir a coluna lateral"
+    "expandRail": "Expandir a coluna lateral",
+    "closeProperties": "Fechar propriedades"
   },
   "context": {
     "edit": "Editar...",

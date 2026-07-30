@@ -33,7 +33,8 @@
     "collapse": "Collapse",
     "expand": "Expand",
     "collapseRail": "Collapse side column",
-    "expandRail": "Expand side column"
+    "expandRail": "Expand side column",
+    "closeProperties": "Close properties"
   },
   "context": {
     "edit": "Edit...",

@@ -33,7 +33,8 @@
     "collapse": "折りたたむ",
     "expand": "展開",
     "collapseRail": "サイド列を折りたたむ",
-    "expandRail": "サイド列を展開"
+    "expandRail": "サイド列を展開",
+    "closeProperties": "プロパティを閉じる"
   },
   "context": {
     "edit": "編集...",

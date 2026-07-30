@@ -33,7 +33,8 @@
     "collapse": "Daralt",
     "expand": "Genişlet",
     "collapseRail": "Yan sütunu daralt",
-    "expandRail": "Yan sütunu genişlet"
+    "expandRail": "Yan sütunu genişlet",
+    "closeProperties": "Özellikleri kapat"
   },
   "context": {
     "edit": "Düzenle...",

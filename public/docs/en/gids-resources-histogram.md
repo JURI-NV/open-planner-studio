@@ -10,7 +10,7 @@ A task tells you when something needs to happen; a resource tells you who or wha
 - Moving an assignment to a different task.
 - Resource calendars and time-phased capacity (for example a second crane added later).
 - Reading the histogram: the resource picker, drilling down per resource, spotting overallocation.
-- The docked resource panel next to the Gantt, as a second section below Properties.
+- The docked resource panel next to the Gantt, as a second panel below Properties.
 - Leveling: the options in the **Level resources** window, the difference between staying within slack and letting the end date shift, and priorities (including priority 1000 = "do not level").
 - The honest lesson: when leveling does *not* solve an overallocation.
 
@@ -85,11 +85,13 @@ If you see "Recalculate (F5) to show the load" instead of bars, the schedule has
 
 Besides the full resource panel (ribbon button **Resources**), there's a compact variant you can dock on the right: the **Resource dock** button in the **Manage** ribbon group. This docked panel shows only the name, **Max units** (editable directly) and a red/green dot for overallocation — a quick overview next to your Gantt without opening the full panel.
 
-The side column is an **accordion**: **Properties** and the docked resource list live there as two sections stacked on top of each other, not instead of one another. Turning the resource dock on collapses Properties to its header bar and gives the resource list the room — one click on that bar opens Properties again. With both sections open you split the height by dragging the divider between them; that split is remembered. When only one section is open, it always gets the full height.
+The side column holds **two equal panels** stacked on top of each other: **Properties** and the docked resource list. They don't replace one another and they don't fold away — if a panel is on, you simply see its content. Each panel has one switch of its own for that: the **Properties** and **Resource dock** ribbon buttons, both in the **Panels** group on the **View** tab. The same switch sits as an **✕** in the panel's own header bar.
 
-The button at the top right of the upper header bar collapses the entire side column. You're left with a narrow strip carrying one label per section; click **Properties** or **Resources** to bring the column back with exactly that section open.
+You split the height by dragging the **boundary between the two panels**; that split is remembered. When only one panel is on, it always gets the full height. With both off there is no side column at all and the Gantt gets the full width.
 
-The same three buttons — **Resources**, **Resource dock** and **Histogram** — also sit on the **View** tab in the **Panels** ribbon group, next to **Properties**. Same name, same icon, same behaviour: wherever you click them, they do exactly the same thing. The difference is between the two resource buttons themselves: **Resources** opens the full panel over the workspace, **Resource dock** pins the compact list as a second section in the side column.
+To get the column out of the way *without* losing your panel choice, use the button at the top right of the upper header bar. You're left with a narrow strip; one click on it brings the column back exactly as you left it.
+
+The same three buttons — **Resources**, **Resource dock** and **Histogram** — also sit on the **View** tab in the **Panels** ribbon group, next to **Properties**. Same name, same icon, same behaviour: wherever you click them, they do exactly the same thing. The difference is between the two resource buttons themselves: **Resources** opens the full panel over the workspace, **Resource dock** pins the compact list as a second panel in the side column.
 
 ## Spotting overallocation
 

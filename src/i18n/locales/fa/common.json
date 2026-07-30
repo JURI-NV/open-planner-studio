@@ -33,7 +33,8 @@
     "collapse": "جمع",
     "expand": "باز",
     "collapseRail": "جمع کردن ستون کناری",
-    "expandRail": "باز کردن ستون کناری"
+    "expandRail": "باز کردن ستون کناری",
+    "closeProperties": "بستن ویژگی‌ها"
   },
   "context": {
     "edit": "ویرایش...",

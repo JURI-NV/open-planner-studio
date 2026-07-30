@@ -76,6 +76,7 @@ function AppContent() {
   const showCalendarDialog = useAppStore(s => s.ui.showCalendarDialog);
   const showStructureDialog = useAppStore(s => s.ui.showStructureDialog);
   const showFeedbackDialog = useAppStore(s => s.ui.showFeedbackDialog);
+  const showPropertiesPanel = useAppStore(s => s.ui.showPropertiesPanel);
   const showResourcePanel = useAppStore(s => s.ui.showResourcePanel);
   const resourcePanelDocked = useAppStore(s => s.ui.resourcePanelDocked);
   const showLevelingDialog = useAppStore(s => s.ui.showLevelingDialog);
@@ -185,6 +186,10 @@ function AppContent() {
   // resource-lijst dockt in de rechter-rail (zie het dock-blok hieronder) in plaats van de hele
   // werkruimte te vervangen.
   const isFullPanel = (showResourcePanel && !resourcePanelDocked) || activeTab === 'table' || activeTab === 'relations' || activeTab === 'ifc' || activeTab === 'report';
+  // Issue #46 (slot): de rechterkolom bestaat alleen zolang er minstens één railpaneel aan staat.
+  // Zet de gebruiker ze allebei uit via hun lintknop, dan verdwijnt de kolom — inclusief de
+  // ingeklapte strip, want er valt dan niets terug te halen.
+  const railHasPanel = showPropertiesPanel || (showResourcePanel && resourcePanelDocked);
 
   // Presentation mode (fase 2.7, §9.2): één wrapper-conditie i.p.v. losse `&& !presentationMode`-
   // guards door de hele boom — alle chrome (TitleBar/Ribbon/tabbar/brand-strip/rechterpaneel/
@@ -272,10 +277,12 @@ function AppContent() {
         )}
 
         {/* Right Panel — issue #46 (slot): geen wederzijdse uitsluiting meer tussen het
-            eigenschappenpaneel en de gedockte resourcelijst, maar een ACCORDEON met twee secties in
-            dezelfde rail. Nog steeds één rail en één breedte (dat deel van architect-besluit 5 staat
-            overeind); nieuw is enkel de verticale as. Alle mechaniek zit in `RightRail`. */}
-        {!isFullPanel && <RightRail />}
+            eigenschappenpaneel en de gedockte resourcelijst, maar TWEE GELIJKWAARDIGE panelen boven
+            elkaar in dezelfde rail, met een sleepgrens ertussen. Nog steeds één rail en één breedte
+            (dat deel van architect-besluit 5 staat overeind); nieuw is enkel de verticale as. Staat
+            geen van beide panelen aan, dan is er geen kolom — vandaar `railHasPanel` hier en niet
+            een lege `ui-card` in `RightRail`. Alle overige mechaniek zit in `RightRail`. */}
+        {!isFullPanel && railHasPanel && <RightRail />}
       </div>
         </div>{/* /werkruimte-kolom */}
       </div>{/* /body-rij */}
