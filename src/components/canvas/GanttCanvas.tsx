@@ -490,6 +490,9 @@ export function GanttCanvas() {
       axis: sharedAxis,
       // Issue #25 punt 4: zelfde lettertypefamilie als de Gantt erboven en de DOM-chrome.
       fontFamily: canvasFontFamily,
+      // Issue #60 (nazit uit de PR-review): zelfde tekstschaal als de Gantt erboven, anders staan
+      // de strooklabels zichtbaar uit de pas op de gedeelde as.
+      fontScale,
       labels: { unitsSuffix: tCommon('resource.histogram.units') },
       emptyHint: !resourceLoadResult
         ? tCommon('resource.histogram.noData')
@@ -499,7 +502,7 @@ export function GanttCanvas() {
     });
     histogramRendererRef.current = renderer;
     renderer.render();
-  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis, canvasFontFamily]);
+  }, [histogramSeries, histogramPicker, histogramResourceId, effectiveView, taskTableWidth, resourceLoadResult, resources.length, tCommon, uiTheme, sharedAxis, canvasFontFamily, fontScale]);
 
   useCanvasLayer({
     canvasRef: histogramCanvasRef,
@@ -1062,13 +1065,17 @@ export function GanttCanvas() {
   // Drag and drop: mousedown (task move/resize + dependency drawing)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Issue #52 punt 2: middelste muisknop ingedrukt = pannen, in élke scroll-modus en ongeacht
-    // wat er onder de cursor ligt (balk, tabel of lege achtergrond) — het gebaar was nergens in
-    // gebruik, dus dit botst met geen enkele bestaande interactie. preventDefault onderdrukt
-    // meteen de browser-autoscroll die sommige platforms op middelklik starten.
+    // wat er onder de cursor ligt (balk, tabel of lege achtergrond). preventDefault onderdrukt
+    // meteen de browser-autoscroll die sommige platforms op middelklik starten. Loopt er al een
+    // ánder gebaar (balk-drag/resize, relatie tekenen, rij-drag, box-select of een pan), dan
+    // start er níét een tweede eroverheen — anders pant elke mousemove het beeld terwijl de
+    // balk-drag doorloopt en landt de taak op een onbedoelde datum.
     if (e.button === 1) {
       e.preventDefault();
+      if (barDrag.active || depDraw.active || boxSelect.active || rowDrag.active || pan.active) return;
       const v = useAppStore.getState().view;
       pan.startPan({
+        button: 1,
         startClientX: e.clientX,
         startClientY: e.clientY,
         originScrollX: v.scrollX,
@@ -1077,6 +1084,9 @@ export function GanttCanvas() {
       return;
     }
     if (e.button !== 0) return;
+    // Spiegelbeeld van de guard hierboven: tijdens een lopende middelklik-pan mag een linksklik
+    // geen balk-drag/box-select armen bovenop het schuivende beeld.
+    if (pan.active) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1170,6 +1180,7 @@ export function GanttCanvas() {
       e.preventDefault();
       const v = useAppStore.getState().view;
       pan.startPan({
+        button: 0,
         startClientX: e.clientX,
         startClientY: e.clientY,
         originScrollX: v.scrollX,

@@ -48,6 +48,11 @@ export interface HistogramRenderOptions {
    *  moet als string mee — anders blijft de resourcestrook in het oude lettertype staan terwijl de
    *  Gantt erboven en de chrome eromheen wél omschakelen. Afwezig ⇒ `FALLBACK_FONT_STACK`. */
   fontFamily?: string;
+  /** Issue #60 (nazit): schaalfactor van `ui.uiFontScale` (bv. 1.25), zelfde contract als
+   *  `GanttRenderOptions.fontScale`. Schaalt de labelfonts én de kiezerrij-hoogte mee, zodat de
+   *  strook niet zichtbaar uit de pas loopt met de wél geschaalde Gantt erboven.
+   *  Afwezig ⇒ factor 1 (byte-identiek aan voorheen). */
+  fontScale?: number;
 }
 
 /** De historische, hardgecodeerde stack van deze renderer; fallback wanneer een aanroeper
@@ -64,23 +69,26 @@ export class HistogramRenderer {
   private opts: HistogramRenderOptions;
   private colors: HistogramPalette;
   private viewStart: Date;
+  private fontScale: number;
+  /** Kiezerrij-hoogte, geschaald met `fontScale` (issue #60-nazit) — één instance-waarde voor
+   *  tekenen én hit-test, zodat die twee nooit uit elkaar kunnen lopen. */
+  private rowH: number;
 
   constructor(ctx: CanvasRenderingContext2D, opts: HistogramRenderOptions) {
     this.ctx = ctx;
     this.opts = opts;
     this.colors = opts.palette ?? readHistogramPalette();
     this.viewStart = parseDate(opts.view.viewStartDate);
+    this.fontScale = opts.fontScale ?? 1;
+    this.rowH = Math.round(ROW_H * this.fontScale);
   }
 
-  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4).
-   *  Zelfde helper (en zelfde afweging) als in `GanttRenderer`.
-   *
-   *  BEWUST NIET: de GROOTTE meeschalen met `ui.uiFontScale`. De strookgeometrie ligt vast
-   *  (`ROW_H = 18` voor de resourcekiezer, vaste paddings, een canvashoogte die de gebruiker
-   *  instelt) — grotere tekst zou clippen in plaats van meegroeien. Alleen samen met een
-   *  schaalbare geometrie te wijzigen. */
+  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4),
+   *  met de grootte geschaald via `fontScale` (issue #60-nazit) — zelfde helper (en zelfde
+   *  afweging) als in `GanttRenderer.font()`. De kiezerrij-hoogte (`rowH`) schaalt mee; de
+   *  plotzone zelf rekent met de door de gebruiker instelbare canvashoogte en blijft dus goed. */
   private font(sizePx: number, bold = false): string {
-    return `${bold ? 'bold ' : ''}${sizePx}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
+    return `${bold ? 'bold ' : ''}${Math.round(sizePx * this.fontScale)}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
   }
 
   /** Gedeelde X-as met GanttRenderer (issue #21 punt 5, fase 2 — ontwerp §10.1): `opts.axis`
@@ -104,7 +112,7 @@ export class HistogramRenderer {
   /** Hit-test op de kiezerzone: geeft { id } terug (id undefined = "alle resources"), of null. */
   pickerAt(x: number, y: number): { id?: string } | null {
     if (x >= this.opts.taskTableWidth) return null;
-    const idx = Math.floor((y - TOP_PAD) / ROW_H);
+    const idx = Math.floor((y - TOP_PAD) / this.rowH);
     if (idx < 0 || idx >= this.opts.picker.length) return null;
     return { id: this.opts.picker[idx].id };
   }
@@ -175,24 +183,24 @@ export class HistogramRenderer {
     ctx.font = this.font(11);
 
     this.opts.picker.forEach((item, i) => {
-      const y = TOP_PAD + i * ROW_H;
+      const y = TOP_PAD + i * this.rowH;
       if (y > this.opts.canvasHeight) return;
       const selected = item.id === this.opts.selectedResourceId;
       if (selected) {
         ctx.fillStyle = c.active;
-        ctx.fillRect(0, y, taskTableWidth, ROW_H);
+        ctx.fillRect(0, y, taskTableWidth, this.rowH);
       }
       // Rood badge bij overallocatie
       if (item.overallocated) {
         ctx.fillStyle = c.barOver;
         ctx.beginPath();
-        ctx.arc(LEFT_PAD + 3, y + ROW_H / 2, 3, 0, Math.PI * 2);
+        ctx.arc(LEFT_PAD + 3, y + this.rowH / 2, 3, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.fillStyle = selected ? c.text : c.textDim;
       const textX = LEFT_PAD + 12;
       const maxW = taskTableWidth - textX - 4;
-      ctx.fillText(this.truncate(item.label, maxW), textX, y + ROW_H / 2);
+      ctx.fillText(this.truncate(item.label, maxW), textX, y + this.rowH / 2);
     });
   }
 
