@@ -38,6 +38,9 @@ import { useBoxSelect } from './hooks/useBoxSelect';
 import { useRowDrag } from './hooks/useRowDrag';
 import { useDependencyDraw } from './hooks/useDependencyDraw';
 
+// Basisgeometrie op Tekengrootte 100% (issue #60): de component leidt hieruit de EFFECTIEVE
+// `rowHeight`/`headerHeight` af (× ui.uiFontScale/100) — gebruik binnen de component die geschaalde
+// waarden, nooit deze constanten direct, anders lopen tekenen en hit-testen uit de pas.
 const ROW_HEIGHT = 28;
 const HEADER_HEIGHT = 50;
 // Halve breedte van de grijpzone rond de tabel/chart-scheiding (splitter).
@@ -148,6 +151,15 @@ export function GanttCanvas() {
   // en lijkt de instelling stuk (de chrome schakelt wél om, de planning niet).
   const uiFontFamily = useAppStore(s => s.ui.uiFontFamily);
   const canvasFontFamily = resolveUIFontStack(uiFontFamily);
+  // Issue #60: de Tekengrootte-instelling (ui.uiFontScale). De DOM-chrome schaalt via de rem-basis
+  // (`--ui-font-scale` in App.tsx), maar een canvas leest geen CSS — de factor gaat daarom als
+  // `fontScale` mee naar de renderer, en schaalt hier óók de rij-/headerhoogte: zonder dat zou
+  // grotere tekst in de vaste 28px-rij clippen. Alle hit-tests, overlays en scrollgrenzen hieronder
+  // rekenen met dezelfde geschaalde waarden, zodat tekenen en aanwijzen op de pixel blijven kloppen.
+  const uiFontScale = useAppStore(s => s.ui.uiFontScale);
+  const fontScale = uiFontScale / 100;
+  const rowHeight = Math.round(ROW_HEIGHT * fontScale);
+  const headerHeight = Math.round(HEADER_HEIGHT * fontScale);
   const weekStartDay = useAppStore(s => s.ui.weekStartDay);
   const enableQuarterHourZoom = useAppStore(s => s.ui.enableQuarterHourZoom);
   const scrollMode = useAppStore(s => s.ui.scrollMode);
@@ -261,7 +273,7 @@ export function GanttCanvas() {
   const tasksById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   const rowDrag = useRowDrag({
     canvasRef, rendererRef, rows: viewRows, tasksById, moveTaskTo, selectedTaskIds, moveTasksTo,
-    justRowDraggedRef, headerHeight: HEADER_HEIGHT,
+    justRowDraggedRef, headerHeight,
   });
   const depDraw = useDependencyDraw({
     canvasRef,
@@ -563,7 +575,7 @@ export function GanttCanvas() {
     // extreme zoom-uit/-in-cyclus) de taakbalken-laag permanent buiten beeld kon duwen.
     setGanttScrollBounds({
       maxScrollX: Math.max(0, totalContentWidth - width),
-      maxScrollY: Math.max(0, viewRows.length * ROW_HEIGHT - (height - HEADER_HEIGHT)),
+      maxScrollY: Math.max(0, viewRows.length * rowHeight - (height - headerHeight)),
     });
 
     const opts: GanttRenderOptions = {
@@ -585,8 +597,8 @@ export function GanttCanvas() {
       canvasWidth: width,
       canvasHeight: height,
       taskTableWidth,
-      rowHeight: ROW_HEIGHT,
-      headerHeight: HEADER_HEIGHT,
+      rowHeight,
+      headerHeight,
       localizedMonths,
       localizedWeekdays,
       columnHeaders,
@@ -606,12 +618,14 @@ export function GanttCanvas() {
       axis: sharedAxis,
       // Issue #25 punt 4: de gekozen interface-lettertypefamilie als concrete stack.
       fontFamily: canvasFontFamily,
+      // Issue #60: Tekengrootte-schaal (rowHeight/headerHeight hierboven schalen al mee).
+      fontScale,
     };
 
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -645,8 +659,8 @@ export function GanttCanvas() {
       canvasWidth: width,
       canvasHeight: height,
       taskTableWidth: 0,
-      rowHeight: ROW_HEIGHT,
-      headerHeight: HEADER_HEIGHT,
+      rowHeight,
+      headerHeight,
       localizedMonths,
       localizedWeekdays,
       columnHeaders,
@@ -660,10 +674,12 @@ export function GanttCanvas() {
       compressNonWorkdays,
       // Issue #25 punt 4: de secundaire pane volgt dezelfde lettertypefamilie als de primaire.
       fontFamily: canvasFontFamily,
+      // Issue #60: en dezelfde tekengrootte-schaal.
+      fontScale,
     });
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,
@@ -779,7 +795,7 @@ export function GanttCanvas() {
     if (!canvas || !renderer) return;
     const rect = canvas.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    if (y < HEADER_HEIGHT) return;
+    if (y < headerHeight) return;
     const row = renderer.getRowAtY(y);
     if (row?.kind === 'group') {
       setCollapsedGroupKey(row.key, !row.collapsed);
@@ -787,7 +803,7 @@ export function GanttCanvas() {
     }
     if (row?.kind === 'task') selectTask(row.task.id, e.ctrlKey || e.metaKey, e.shiftKey);
     else deselectAll();
-  }, [selectTask, deselectAll, setCollapsedGroupKey]);
+  }, [selectTask, deselectAll, setCollapsedGroupKey, headerHeight]);
 
   // Open-fit (issue #16, WENS 1): fileSlice zet `view.pendingFit` na een load; hier — waar de
   // viewport-breedte bekend is — voeren we de gedeelde computeFitToProject uit zodat het HELE
@@ -921,7 +937,7 @@ export function GanttCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    if (y < HEADER_HEIGHT) return;
+    if (y < headerHeight) return;
 
     // Bandkop-rij (§4.5): alleen collapse-toggle, geen taak-interactie.
     const hitRow = renderer.getRowAtY(y);
@@ -978,7 +994,7 @@ export function GanttCanvas() {
     } else {
       deselectAll();
     }
-  }, [selectTask, deselectAll, toggleCollapse, addTask, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen]);
+  }, [selectTask, deselectAll, toggleCollapse, addTask, defaultTaskName, setCollapsedGroupKey, revealTaskIfOffscreen, headerHeight]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -1015,7 +1031,7 @@ export function GanttCanvas() {
     const renderer = rendererRef.current;
     if (!renderer) return;
 
-    if (y < HEADER_HEIGHT) return;
+    if (y < headerHeight) return;
 
     // Bandkop-rij (fase 2.10 golf 2): eigen, klein contextmenu — zelfde detectie als handleClick.
     const hitRow = renderer.getRowAtY(y);
@@ -1041,10 +1057,25 @@ export function GanttCanvas() {
     // dan gewoon het rij-menu zonder balk-specifieke items, zoals bedoeld.
     const barHit = !!task && !!renderer.getTaskBarBounds(x, y);
     setContextMenu({ x: e.clientX, y: e.clientY, task, barHit, group: null });
-  }, [selectTask, selectedTaskIds]);
+  }, [selectTask, selectedTaskIds, headerHeight]);
 
   // Drag and drop: mousedown (task move/resize + dependency drawing)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Issue #52 punt 2: middelste muisknop ingedrukt = pannen, in élke scroll-modus en ongeacht
+    // wat er onder de cursor ligt (balk, tabel of lege achtergrond) — het gebaar was nergens in
+    // gebruik, dus dit botst met geen enkele bestaande interactie. preventDefault onderdrukt
+    // meteen de browser-autoscroll die sommige platforms op middelklik starten.
+    if (e.button === 1) {
+      e.preventDefault();
+      const v = useAppStore.getState().view;
+      pan.startPan({
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        originScrollX: v.scrollX,
+        originScrollY: v.scrollY,
+      });
+      return;
+    }
     if (e.button !== 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1064,7 +1095,7 @@ export function GanttCanvas() {
       return;
     }
 
-    if (y < HEADER_HEIGHT) return;
+    if (y < headerHeight) return;
 
     const hit = renderer.getTaskBarBounds(x, y);
     if (hit) {
@@ -1149,7 +1180,7 @@ export function GanttCanvas() {
 
     e.preventDefault();
     boxSelect.startBoxSelect({ startClientX: e.clientX, startClientY: e.clientY });
-  }, [selectTask, scrollMode, taskTableWidth, tableSplitter, depDraw, barDrag, boxSelect, pan, rowDrag, view, contextMenu, dependencyMode]);
+  }, [selectTask, scrollMode, taskTableWidth, tableSplitter, depDraw, barDrag, boxSelect, pan, rowDrag, view, contextMenu, dependencyMode, headerHeight]);
 
   // Cursor changes on hover + tooltip
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -1178,7 +1209,7 @@ export function GanttCanvas() {
       return;
     }
 
-    if (y < HEADER_HEIGHT) {
+    if (y < headerHeight) {
       setCursor('default');
       setTooltip(null);
       return;
@@ -1228,7 +1259,7 @@ export function GanttCanvas() {
     }
 
     setCursor('default');
-  }, [barDrag.active, depDraw.active, pan.active, boxSelect.active, rowDrag.active, contextMenu, scrollMode, taskTableWidth, dependencyMode]);
+  }, [barDrag.active, depDraw.active, pan.active, boxSelect.active, rowDrag.active, contextMenu, scrollMode, taskTableWidth, dependencyMode, headerHeight]);
 
   // Hide tooltip on mouse leave
   const handleMouseLeave = useCallback(() => {
@@ -1374,14 +1405,14 @@ export function GanttCanvas() {
             zoals bij het box-selectiekader. */}
         {rowDrag.rowDragState?.dropTarget && rowDrag.rowDragState.hoverRowIndex !== null && (() => {
           const { hoverRowIndex, hoverZone } = rowDrag.rowDragState;
-          const rowTop = HEADER_HEIGHT + hoverRowIndex * ROW_HEIGHT - view.scrollY;
+          const rowTop = headerHeight + hoverRowIndex * rowHeight - view.scrollY;
           if (hoverZone === 'nest') {
             return (
               <div
                 data-testid="row-drag-nest"
                 className="absolute"
                 style={{
-                  left: 0, right: 0, top: rowTop, height: ROW_HEIGHT,
+                  left: 0, right: 0, top: rowTop, height: rowHeight,
                   border: '1px solid var(--theme-accent)',
                   pointerEvents: 'none',
                   zIndex: 6,
@@ -1392,7 +1423,7 @@ export function GanttCanvas() {
               </div>
             );
           }
-          const lineTop = hoverZone === 'after' ? rowTop + ROW_HEIGHT : rowTop;
+          const lineTop = hoverZone === 'after' ? rowTop + rowHeight : rowTop;
           return (
             <div
               data-testid="row-drag-line"
@@ -1516,10 +1547,10 @@ export function GanttCanvas() {
         ref={vScrollRef}
         data-testid="gantt-vscroll"
         className="gantt-overlay-scrollbar absolute overflow-y-auto overflow-x-hidden"
-        style={{ right: 0, top: HEADER_HEIGHT, bottom: 0, width: SCROLLBAR_GUTTER, zIndex: 5 }}
+        style={{ right: 0, top: headerHeight, bottom: 0, width: SCROLLBAR_GUTTER, zIndex: 5 }}
         onScroll={handleVScroll}
       >
-        <div style={{ height: Math.max(1, viewRows.length * ROW_HEIGHT), width: 1 }} />
+        <div style={{ height: Math.max(1, viewRows.length * rowHeight), width: 1 }} />
       </div>
       </div>
       {/* Histogramstrook (fase 2.5, §6.4) — derde canvas met gedeelde X-as. Loopt over de volle

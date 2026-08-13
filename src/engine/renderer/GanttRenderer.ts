@@ -104,6 +104,12 @@ export interface GanttRenderOptions {
    *  leesoppervlak van de app) in het oude hardgecodeerde lettertype staan terwijl de hele chrome
    *  eromheen wél omschakelt. Afwezig ⇒ `FALLBACK_FONT_STACK`, exact het oude gedrag. */
   fontFamily?: string;
+  /** Issue #60: de Tekengrootte-instelling (`ui.uiFontScale`) als factor (1 = 100%). Zelfde reden
+   *  als `fontFamily`: een canvas leest geen CSS-variabelen, dus de schaal moet expliciet mee.
+   *  De aanroeper (GanttCanvas) schaalt `rowHeight`/`headerHeight` met DEZELFDE factor, zodat de
+   *  grotere tekst ook de verticale ruimte krijgt (balkhoogtes/headerbanden zijn daar weer fracties
+   *  van). Afwezig ⇒ 1 — headless tests en print-/exportpaden renderen byte-identiek als voorheen. */
+  fontScale?: number;
 }
 
 /** De historische, hardgecodeerde stack van deze renderer. Blijft de fallback zodra een aanroeper
@@ -219,18 +225,19 @@ export class GanttRenderer {
     this.compressed = isCompressedEffective(this.projectEngine, !!opts.compressNonWorkdays);
   }
 
-  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4).
+  /** Bouwt een `ctx.font`-string in de gekozen interface-lettertypefamilie (issue #25 punt 4) én
+   *  -grootte (issue #60): `fontScale` (= `ui.uiFontScale`/100) schaalt elke fontgrootte mee.
    *  Enige plek waar deze renderer een font-stack samenstelt — vroeger stonden er 17 letterlijke
    *  `ctx.font`-strings verspreid door het bestand, die per definitie uit de pas liepen zodra de
    *  familie instelbaar werd.
    *
-   *  BEWUST NIET: de GROOTTE meeschalen met `ui.uiFontScale`. De canvas-geometrie ligt vast —
-   *  `ROW_HEIGHT = 28` (GanttCanvas), balkhoogtes, kolombreedtes en de headerbanden zijn constanten
-   *  in px. Grotere tekst zou dus niet "groter renderen" maar clippen en over rij-/balkranden heen
-   *  lopen. Meeschalen kan pas als de rijhoogte en balkgeometrie zelf van de schaal afgeleid worden;
-   *  dat is een aparte, veel grotere ingreep. Verander dit hier dus niet los. */
+   *  De GEOMETRIE schaalt bij de aanroeper mee: GanttCanvas leidt `rowHeight`/`headerHeight` van
+   *  dezelfde factor af, zodat grotere tekst niet clipt maar ruimte krijgt. Schaal hier dus nooit
+   *  de grootte zonder dat de aanroeper de rijhoogte meegeeft — en andersom. Afronden houdt de
+   *  tekst scherp (geen sub-pixel-fontgroottes). */
   private font(sizePx: number, bold = false): string {
-    return `${bold ? 'bold ' : ''}${sizePx}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
+    const size = Math.round(sizePx * (this.opts.fontScale ?? 1));
+    return `${bold ? 'bold ' : ''}${size}px ${this.opts.fontFamily ?? FALLBACK_FONT_STACK}`;
   }
 
   /** Basis-balkkleur (fase 2.9 §5.4): kritiek-rood ≻ near-critical-amber ≻ float-path-tint ≻
@@ -296,8 +303,20 @@ export class GanttRenderer {
   /** Balk-uiteinden voor een taak. Uur-taak: `[dateToX(start), dateToX(finish))` (geen +dag, §6.1).
    *  Dag-taak: `[dateToX(start), dateToX(finish)+zoom)` (inclusieve eind-dag, ongewijzigd). */
   private barGeometry(task: Task): { x1: number; x2: number; hourMode: boolean; start: Date; end: Date } {
-    const startStr = task.time.earlyStart || task.time.scheduleStart;
-    const endStr = task.time.earlyFinish || task.time.scheduleFinish;
+    // Guard (TODO 2026-07-28): een taak zonder énige datum (noch CPM- noch schedule-, bv. uit een
+    // onvolledige import) crashte hier per frame op `undefined.includes(...)` — de hele Gantt bleef
+    // zwart. Terugval: de ontbrekende kant leent van de andere kant; ontbreken beide, dan één
+    // dag-cel op de viewstart (zichtbaar, maar zonder datums geen sleep/resize — getTaskBarBounds
+    // weigert zulke taken).
+    const rawStart = task.time.earlyStart || task.time.scheduleStart || '';
+    const rawEnd = task.time.earlyFinish || task.time.scheduleFinish || '';
+    const startStr = rawStart || rawEnd;
+    const endStr = rawEnd || rawStart;
+    if (!startStr) {
+      const d = this.viewStart;
+      const x = this.dateToX(d);
+      return { x1: x, x2: x + this.opts.view.zoom, hourMode: false, start: d, end: d };
+    }
     const hourMode = startStr.includes('T') || endStr.includes('T');
     const start = hourMode ? parseInstant(startStr) : parseDate(startStr);
     const end = hourMode ? parseInstant(endStr) : parseDate(endStr);
@@ -1153,7 +1172,11 @@ export class GanttRenderer {
 
   private drawMilestone(task: Task, y: number, height: number, isSelected: boolean, overrideColor?: string): void {
     const ctx = this.ctx;
-    const startStr = task.time.earlyStart || task.time.scheduleStart;
+    // Zelfde guard als barGeometry (TODO 2026-07-28): een datumloze mijlpaal heeft niets om op te
+    // ankeren — niets tekenen i.p.v. per frame crashen op `undefined.includes(...)`.
+    const startStr = task.time.earlyStart || task.time.scheduleStart
+      || task.time.earlyFinish || task.time.scheduleFinish;
+    if (!startStr) return;
     const hourMode = startStr.includes('T');
     const date = hourMode ? parseInstant(startStr) : parseDate(startStr);
     // Grens-model (fase 2.4): een startmijlpaal ankert op het dagBEGIN (linkerrand van de
@@ -1376,8 +1399,10 @@ export class GanttRenderer {
    */
   private dragDurationText(task: Task): string {
     const sfx = this.opts.durationSuffixes ?? DEFAULT_DURATION_SUFFIXES;
-    const startStr = task.time.earlyStart || task.time.scheduleStart;
-    const endStr = task.time.earlyFinish || task.time.scheduleFinish;
+    // `|| ''`: zelfde datumloos-guard als barGeometry (een gesleepte taak hóórt datums te hebben,
+    // maar `.includes` op undefined zou het hele frame laten crashen).
+    const startStr = task.time.earlyStart || task.time.scheduleStart || '';
+    const endStr = task.time.earlyFinish || task.time.scheduleFinish || '';
     const hourMode = startStr.includes('T') || endStr.includes('T');
     if (hourMode) {
       const cal = this.opts.effectiveCalById?.get(task.id) ?? this.opts.calendar;
@@ -2020,6 +2045,12 @@ export class GanttRenderer {
     if (canvasX < this.opts.taskTableWidth) return null;
     const task = this.getTaskAtY(canvasY);
     if (!task || task.childIds.length > 0 || task.isMilestone) return null;
+    // Datumloos-guard (TODO 2026-07-28): barGeometry tekent voor zo'n taak een terugval-stub op de
+    // viewstart, maar die mag geen sleep/resize armen — de drag-hooks zouden met undefined
+    // originalStart/originalFinish rekenen.
+    if (!(task.time.earlyStart || task.time.scheduleStart) || !(task.time.earlyFinish || task.time.scheduleFinish)) {
+      return null;
+    }
 
     // Uur-bewuste balk-uiteinden, zodat de resize-grepen op een sub-dag-balk kloppen (§6.1/§6.3).
     const { x1, x2 } = this.barGeometry(task);

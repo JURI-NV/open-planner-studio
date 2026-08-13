@@ -36,12 +36,14 @@ export function usePan({ setScroll, justBoxSelectedRef }: UsePanOptions) {
       setScroll(panState.originScrollX - dx, panState.originScrollY - dy);
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
       // Fase 2.10 fix-golf 1: de browser vuurt na een mouseup nog een native click op het canvas.
       // Zonder onderdrukking zou die click de zojuist gepande selectie overschrijven/wissen (net als
       // bij box-select hierboven). Alleen onderdrukken als er ook echt gepand is — een klik zonder
       // beweging in 'drag'-modus moet gewoon als normale selectie-klik blijven werken.
-      if (panned) justBoxSelectedRef.current = true;
+      // Issue #52 punt 2: alléén bij de linkerknop (button 0) — een middelklik-pan vuurt geen
+      // native click af, dus de vlag zou blijven staan en de eerstvolgende gewone linksklik opeten.
+      if (panned && e.button === 0) justBoxSelectedRef.current = true;
       setPanState(null);
     };
 
