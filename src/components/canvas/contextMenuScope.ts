@@ -1,5 +1,5 @@
 import { useAppStore } from '@/state/appStore';
-import { withTransaction } from '@/state/batchTransaction';
+import { applyToTaskIds, deleteTasksBulk } from '@/state/taskBulkActions';
 import { addTaskNearSelection, insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import type { Task } from '@/types/task';
 
@@ -33,24 +33,10 @@ export function contextMenuOutlineScope(taskId: string): string[] {
  */
 
 /**
- * Voer een per-taak-mutator uit over de hele reikwijdte als ÉÉN ongedaan-maakbare stap.
- *
- * Waarom dit moet (issue #45). `updateTask`, `setTaskCalendar`, `setTaskProgress` en `deleteTask`
- * zijn per-taak-acties die elk zelf `beginUndoable` aanroepen. Naïef in een lus zou één menuklik dus
- * N undo-stappen kosten, terwijl de gebruiker één handeling deed en die met één Ctrl+Z terug
- * verwacht. `withTransaction` neemt de snapshot één keer vooraf en onderdrukt die van de mutators.
- *
- * Bij een reikwijdte van één taak wordt de mutator RECHTSTREEKS aangeroepen, zonder transactie.
- * Dat is geen optimalisatie maar gedragsbehoud: `withTransaction` pusht zijn snapshot
- * onvoorwaardelijk, terwijl de mutators een no-op-guard hebben die juist géén undo-stap achterlaat
- * (`setTaskCalendar` op een taak die die kalender al heeft). De enkelvoudige route blijft daarmee
- * exact het gedrag van vóór deze fix.
+ * De één-handeling-is-één-undo-stap-machinerie (`applyToTaskIds`) woont sinds de gelijktrekking
+ * van lintknop/Delete/Backspace in `src/state/taskBulkActions.ts` — de lint en de sneltoetsen
+ * horen niet uit `components/canvas/` te importeren (zelfde afweging als bij issue #49 hierboven).
  */
-function applyToIds(ids: string[], run: (id: string) => void): void {
-  if (ids.length === 0) return;
-  if (ids.length === 1) { run(ids[0]); return; }
-  withTransaction(() => { for (const id of ids) run(id); });
-}
 
 /**
  * De muterende contextmenu-acties, elk over de hele reikwijdte en elk goed voor precies één
@@ -97,7 +83,7 @@ export const contextMenuBulk = {
    */
   toggleMilestone(task: Task): void {
     const isMilestone = !task.isMilestone;
-    applyToIds(contextMenuOutlineScope(task.id), (id) => useAppStore.getState().updateTask(id, { isMilestone }));
+    applyToTaskIds(contextMenuOutlineScope(task.id), (id) => useAppStore.getState().updateTask(id, { isMilestone }));
   },
 
   setCalendar(taskId: string, calendarId: string | undefined): void {
@@ -107,15 +93,15 @@ export const contextMenuBulk = {
     const { tasks } = useAppStore.getState();
     const ids = contextMenuOutlineScope(taskId)
       .filter((id) => tasks.find((t) => t.id === id)?.calendarId !== calendarId);
-    applyToIds(ids, (id) => useAppStore.getState().setTaskCalendar(id, calendarId));
+    applyToTaskIds(ids, (id) => useAppStore.getState().setTaskCalendar(id, calendarId));
   },
 
   setProgress(taskId: string, completion: number): void {
-    applyToIds(contextMenuOutlineScope(taskId), (id) => useAppStore.getState().setTaskProgress(id, completion));
+    applyToTaskIds(contextMenuOutlineScope(taskId), (id) => useAppStore.getState().setTaskProgress(id, completion));
   },
 
   setPriority(taskId: string, priority: number): void {
-    applyToIds(contextMenuOutlineScope(taskId), (id) => useAppStore.getState().updateTask(id, { priority }));
+    applyToTaskIds(contextMenuOutlineScope(taskId), (id) => useAppStore.getState().updateTask(id, { priority }));
   },
 
   /**
@@ -124,11 +110,11 @@ export const contextMenuBulk = {
    * bestaat nergens in de app voor taken; ook de lintknop en Delete verwijderen de hele selectie
    * ongevraagd); de terugweg is Ctrl+Z, en dat is nu precies één stap voor de hele bulk.
    *
-   * `deleteTask` verwijdert de hele subboom plus de bijbehorende relaties/toewijzingen. Zit een
-   * ouder én haar kind in de selectie, dan is de tweede aanroep een stille no-op — de lijst is
-   * vooraf vastgelegd, dus de lus loopt niet mis op ids die er niet meer zijn.
+   * De uitvoering zelf (`deleteTasksBulk`) is sindsdien de GEDEELDE route met de lintknop
+   * Verwijderen en Delete/Backspace — zie `src/state/taskBulkActions.ts` voor de subboom- en
+   * ouder+kind-semantiek.
    */
   remove(taskId: string): void {
-    applyToIds(contextMenuOutlineScope(taskId), (id) => useAppStore.getState().deleteTask(id));
+    deleteTasksBulk(contextMenuOutlineScope(taskId));
   },
 };

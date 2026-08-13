@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/state/appStore';
 import { createRelationWithFeedback } from '@/state/relationActions';
+import { deleteTasksBulk } from '@/state/taskBulkActions';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
@@ -309,10 +310,11 @@ const editGroup: RibbonGroupSpec = {
         {
           kind: 'small', id: 'delete', icon: <Trash2 size={14} />, labelKey: 'menu:ribbon.delete', danger: true,
           use: () => {
-            const deleteTask = useAppStore(s => s.deleteTask);
             const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
             return {
-              onClick: () => { for (const id of selectedTaskIds) deleteTask(id); },
+              // Gedeelde bulk-route (één handeling = één undo-stap), zelfde als het contextmenu
+              // en Delete/Backspace — een kale `deleteTask`-lus kostte hier N Ctrl+Z's.
+              onClick: () => { deleteTasksBulk(selectedTaskIds); },
               disabled: selectedTaskIds.length === 0,
             };
           },

@@ -30,6 +30,7 @@ import { isTreeMode } from '@/engine/view/visibleRows';
 // DOM-vrij en JSX-vrij bij constructie (zie de kop van dat bestand): de anker- en weergaveregels
 // voor nieuwe taken wonen daar zodat sneltoets, menu, lintknop én regressiebatterij letterlijk
 // dezelfde functie draaien.
+import { deleteTasksBulk } from '@/state/taskBulkActions';
 import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
@@ -217,7 +218,9 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'edit',
     labelKey: 'context.delete',
     when: hasSelection,
-    run: (store) => { for (const id of store.selectedTaskIds) store.deleteTask(id); },
+    // Gedeelde bulk-route (één handeling = één undo-stap), zelfde als het contextmenu en de
+    // lintknop — een kale `deleteTask`-lus kostte hier N Ctrl+Z's.
+    run: (store) => deleteTasksBulk(store.selectedTaskIds),
   },
   {
     id: 'edit.deleteBackspace',
@@ -225,7 +228,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     category: 'edit',
     labelKey: 'context.delete',
     when: hasSelection,
-    run: (store) => { for (const id of store.selectedTaskIds) store.deleteTask(id); },
+    run: (store) => deleteTasksBulk(store.selectedTaskIds),
   },
   // Let op volgorde: MOET na `view.exitFullscreen` staan (zie bestandskop).
   {

@@ -563,6 +563,39 @@ function verseVier(): { a: string; b: string; c: string; d: string } {
     RIBBON_TABS.table.some(g => g.items.some(i => i.id === 'calc')), true);
 }
 
+// ── 14) Verwijderen buiten het contextmenu: één handeling = één undo-stap ───────────────────
+//
+// De lintknop Verwijderen en Delete/Backspace lusten vóór deze gelijktrekking kaal `deleteTask`
+// per id: drie taken wissen kostte drie Ctrl+Z's, terwijl het contextmenu het sinds issue #45 al
+// als één transactie deed. Alle drie de routes draaien nu `deleteTasksBulk`
+// (`src/state/taskBulkActions.ts`); dit vuurt de sneltoets-route af via het register — letterlijk
+// wat een toetsaanslag draait — en pint de undo-boekhouding vast.
+{
+  const zichtbaar = (): string[] =>
+    S().viewRows.flatMap(r => (r.kind === 'task' ? [r.task.name] : []));
+  const entry = SHORTCUTS.find(s => s.id === 'edit.delete');
+  const entryBackspace = SHORTCUTS.find(s => s.id === 'edit.deleteBackspace');
+  if (!entry || !entryBackspace) {
+    diffs.push('sneltoets edit.delete/edit.deleteBackspace ontbreekt in SHORTCUTS'); checks++;
+  } else {
+    verseVier(); // selecteert B/C/D; A blijft de controle
+    const undoVoor = S().undoStack.length;
+    entry.run(S());
+    eq('87 Delete: alle geselecteerde taken weg, de controle blijft', zichtbaar(), ['Taak A']);
+    eq('88 Delete: precies één undo-stap voor de hele bulk', S().undoStack.length - undoVoor, 1);
+    S().undo();
+    eq('89 Delete: één Ctrl+Z zet alle drie terug',
+      zichtbaar(), ['Taak A', 'Taak B', 'Taak C', 'Taak D']);
+
+    // Backspace is een alias van dezelfde handeling — zelfde boekhouding.
+    S().selectTasks(S().tasks.filter(t => t.name !== 'Taak A').map(t => t.id), false);
+    const undoVoorBs = S().undoStack.length;
+    entryBackspace.run(S());
+    eq('90 Backspace: zelfde bulk-route — alles weg in één undo-stap',
+      [zichtbaar(), S().undoStack.length - undoVoorBs], [['Taak A'], 1]);
+  }
+}
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  context-menu-scope-check: alle checks groen (${checks})`);
