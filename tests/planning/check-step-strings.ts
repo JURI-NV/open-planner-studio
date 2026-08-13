@@ -399,6 +399,17 @@ eq('9j DATA; in blokcommentaar levert geen spookentiteit',
 eq('9k header-string met echt regeleinde + DATA;',
   names(`ISO-10303-21;\nHEADER;\nFILE_NAME('Renovatie fase 1\nDATA; en fase 2.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\nDATA;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
   ['Taak A']);
+// STEP-sleutelwoorden zijn hoofdletterongevoelig, en `assertIfcIntegrity` accepteert een lowercase
+// kop/sluitmarkering al — maar `indexOfDataSection` vergeleek hoofdlettergevoelig, dus een bestand
+// met `data;` kwam wél door de integriteitspoort en gaf dan 'no-data-section'. Beide scans gedekt:
+// 9p de primaire quote-bewuste scan, 9q de regel-verankerde terugval (legacy-header met rauwe
+// apostrof, waar de primaire scan uit de pas loopt).
+eq('9p lowercase data;-sectiegrens: taak gelezen',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('X.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\ndata;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
+eq('9q lowercase data; + legacy rauwe apostrof (regel-verankerde terugval): taak gelezen',
+  names(`ISO-10303-21;\nHEADER;\nFILE_NAME('Van 't Hof Toren.ifc','t',('A'),('B'),'x','y','');\nENDSEC;\ndata;\n${ENTITIES}\nENDSEC;\nEND-ISO-10303-21;`),
+  ['Taak A']);
 
 // ── 9l: de WRITER mag zo'n header niet meer produceren ──────────────────────
 // De hele klasse hierboven is pas echt dicht als onze eigen writer geen rauwe controltekens meer

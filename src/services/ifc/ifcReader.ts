@@ -208,16 +208,31 @@ function skipQuotedOrComment(text: string, i: number): number {
   return -1;
 }
 
-/** Zoek `token` op CODE-niveau: voorkomens binnen een stringliteral of commentaar tellen niet mee. */
+/** ASCII-hoofdletterongevoelige match van `token` (zélf in hoofdletters) op positie `i`. Geen
+ *  `toUpperCase()` over de hele tekst: bestanden zijn megabytes groot en dat zou een kopie maken. */
+function startsWithTokenCI(text: string, i: number, token: string): boolean {
+  for (let k = 0; k < token.length; k++) {
+    let c = text.charCodeAt(i + k);
+    if (c >= 0x61 && c <= 0x7a) c -= 0x20; // a-z → A-Z
+    if (c !== token.charCodeAt(k)) return false;
+  }
+  return true;
+}
+
+/** Zoek `token` (in hoofdletters aangeleverd) op CODE-niveau: voorkomens binnen een stringliteral
+ *  of commentaar tellen niet mee. ASCII-hoofdletterongevoelig — STEP-sleutelwoorden zijn
+ *  case-insensitief, en `assertIfcIntegrity` accepteert kleine letters al (kop/sluitmarkering),
+ *  dus de sectiegrens moet dat ook (een bestand met `data;` viel er anders alsnog doorheen). */
 function indexOfCode(text: string, token: string, from: number): number {
   const first = token.charCodeAt(0);
   for (let i = from; i < text.length;) {
-    const c = text.charCodeAt(i);
+    let c = text.charCodeAt(i);
     if (c === CH_QUOTE || c === CH_SLASH) {
       const skip = skipQuotedOrComment(text, i);
       if (skip >= 0) { i = skip; continue; }
     }
-    if (c === first && text.startsWith(token, i)) return i;
+    if (c >= 0x61 && c <= 0x7a) c -= 0x20; // a-z → A-Z
+    if (c === first && startsWithTokenCI(text, i, token)) return i;
     i++;
   }
   return -1;
@@ -327,8 +342,9 @@ function readEntity(text: string, at: number, out: StepEntity[]): number {
 function indexOfDataSection(content: string): number {
   const strict = indexOfCode(content, 'DATA;', 0);
   if (strict >= 0) return strict;
-  const anchored = /^[ \t]*DATA;/m.exec(content);
-  return anchored ? anchored.index + anchored[0].indexOf('DATA;') : -1;
+  // `i`-vlag: zelfde hoofdletterongevoeligheid als de primaire scan (en als `assertIfcIntegrity`).
+  const anchored = /^[ \t]*DATA;/im.exec(content);
+  return anchored ? anchored.index + anchored[0].toUpperCase().indexOf('DATA;') : -1;
 }
 
 function parseSTEP(content: string): StepEntity[] {
