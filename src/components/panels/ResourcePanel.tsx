@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, X, Check, Unlink2, Library } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronDown, ChevronRight, X, Check, Unlink2, Library, AlertTriangle } from 'lucide-react';
 import type { Resource, ResourceType, AvailabilityStep } from '@/types/resource';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { formatDate } from '@/utils/dateUtils';
@@ -282,12 +282,15 @@ export function ResourcePanel() {
     );
   };
 
-  // Default-weergave (spec §4): Bibliotheekweergave zodra de pool inhoud heeft; lege pool of los
-  // project ⇒ Projectweergave. Draait bij koppeling-wissel, niet bij elke render/edit.
+  // Default-weergave (issue #64, vervangt spec §4): ALTIJD de Projectweergave bij het openen — óók
+  // met een gekoppelde, gevulde bibliotheek. De oude regel ("Bibliotheek zodra de pool inhoud
+  // heeft") liet gebruikers ongemerkt in de gedeelde, app-globale bibliotheek landen, waar elke
+  // bewerking buiten undo valt en alle projecten raakt. Bewust een RESET bij elke mount (en bij
+  // koppeling-wissel), geen persistente voorkeur: de Bibliotheekweergave is een bewuste tabkeuze
+  // per bezoek, geen toestand waar je een sessie later stil in terugvalt. Binnen één open paneel
+  // blijft de gekozen weergave gewoon staan (dit effect draait niet per render/edit).
   useEffect(() => {
-    if (!linked) { if (resourcesView !== 'project') setUI({ resourcesView: 'project' }); return; }
-    const hasContent = (pool?.resources.length ?? 0) > 0;
-    setUI({ resourcesView: hasContent ? 'company' : 'project' });
+    if (resourcesView !== 'project') setUI({ resourcesView: 'project' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.companyId, linked]);
 
@@ -459,9 +462,24 @@ export function ResourcePanel() {
 
       {inPoolView && pool ? (
         <div className="flex-1 overflow-auto" ref={grid.gridRef}>
-          <p className="flex items-center gap-1.5 text-text-secondary italic px-2 pt-2" data-ops-company-view-hint>
-            {t('companyLibrary.companyViewHint')}
-          </p>
+          {/* Waarschuwingsbanner (issue #64c): dit was platte cursieve tekst, maar "bewerkt de
+              bibliotheek, geldt voor alle projecten, valt buiten undo" is precies het soort
+              waarschuwing dat je niet mag kunnen missen — dus een contrasterend vlak + icoon.
+              Kleuren via de semantische --warning-token + per-thema --theme-warning-text, zodat de
+              banner in alle drie de thema's leesbaar blijft. */}
+          <div
+            className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-[8px] border font-medium"
+            style={{
+              background: 'color-mix(in srgb, var(--warning) 14%, transparent)',
+              borderColor: 'var(--warning)',
+              color: 'var(--theme-warning-text)',
+            }}
+            role="alert"
+            data-ops-company-view-hint
+          >
+            <AlertTriangle size={14} className="shrink-0" aria-hidden />
+            <span>{t('companyLibrary.companyViewHint')}</span>
+          </div>
           {poolNotice && (
             <p className="flex items-center gap-1.5 px-2" style={{ color: 'var(--success)' }} data-ops-pool-assign-notice>
               <Check size={13} /> {poolNotice}

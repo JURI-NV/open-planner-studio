@@ -71,8 +71,13 @@ begint én van je scroll-modus (**Instellingen → Scrollen & zoomen**):
   canvas een box-selectie, waarmee je meerdere taken tegelijk selecteert door er een rechthoek
   omheen te slepen.
 
-Kortom: de takentabel selecteert altijd; het canvas pant alleen in de sleep-scroll-modus en
-selecteert anders.
+Kortom: de takentabel selecteert altijd; het canvas pant met de línkerknop alleen in de
+sleep-scroll-modus en selecteert anders.
+
+Daarnaast is er één gebaar dat overal en altijd werkt: slepen met de **middelste muisknop**
+(het scrollwiel) ingedrukt pant het beeld — in élke scroll-modus, en ongeacht of je op een balk,
+in de takentabel of op lege ruimte begint. Handig als je op de Positie- of Toetsen-modus staat
+maar toch even snel wilt slepen.
 
 ## Zoomen
 

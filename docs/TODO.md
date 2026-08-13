@@ -47,12 +47,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   ontkoppelen zet dus de `libraryOrigin`-stempels terug op een project dat ontkoppeld blíjft. Geen
   dataverlies (los-gedrag, stempels zijn inert en zelfherstellend bij terugkoppelen), maar wel
   verwarrend. Gevonden bij de critreview op de ProjectInfo-unificatie (2026-07-25).
-- [ ] **`tests/planning/` typecheckt maar één van de tien check-bestanden.** Er is alleen
-  `tsconfig.roundtrip.json` met `check-ifc-roundtrip.ts` in `include`; de overige negen
-  (`check-advanced-cpm`, `check-calendar-hours`, `check-move-task`, `check-document-contract`, …)
-  worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
-  2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
-  grotere suite.
 - [ ] **Standaardbibliotheek zou een gegenereerd id moeten krijgen i.p.v. de vaste
   `DEFAULT_COMPANY_ID`-constante** (critreview F1/F8 op pool-import, issue #19). Vrijwel elke
   installatie heeft hooguit één resourcebibliotheek onder dat vaste id — waardoor `importPoolAsNewCompany`
@@ -189,9 +183,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       gooien een Nederlandse `message` die via `notify({ detail })` letterlijk in de UI belandt —
       ook in een Engelse, Japanse of Arabische interface. Richting: de `reason` is al getypeerd, dus
       een `messageKey` per reason en de vertaling bij de aanroeper.
-- [ ] **De sectiegrens is hoofdlettergevoelig.** `assertIfcIntegrity` uppercase't de kop vóór het
-      vergelijken, maar `indexOfDataSection` niet: een bestand met `data;` valt door de mand. Dat
-      was ook zo vóór deze release; hier alleen genoteerd omdat het in dezelfde functie zit.
 
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
@@ -258,16 +249,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       datum hangen na het verwijderen van een relatie).
 
 ### Klein
-- [ ] **`GanttRenderer.barGeometry` crasht op een taak zónder start.** Gevonden 2026-07-28 tijdens
-      de overlay-scrollbalken van issue #35 (pre-existing, niets met die wijziging te maken).
-      `GanttRenderer.ts:263` doet `startStr.includes('T') || endStr.includes('T')` zonder guard;
-      heeft een taak noch `earlyStart` noch `scheduleStart` (idem voor de finish-kant), dan is die
-      string undefined en gooit de renderer `Cannot read properties of undefined` — per frame, dus
-      de Gantt blijft zwart tot de taak een datum krijgt. **Twee plekken**, niet één: naast
-      `barGeometry` (261-263) staat hetzelfde patroon ongeguard in `:1114-1115`. Bereikt via een taak
-      die alleen een duur heeft (bv. programmatisch of via een importer die de startdatum niet zet);
-      de normale `addTask`-route zet wél een datum, dus in de gewone UI bijt het niet. Fix: bail-out
-      of terugval op de projectstart op beide plekken, plus een regressiecase in `tests/planning/`.
 - [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
       issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),
       maar `exportRaster()` in `ReportPanel.tsx` niet — en dat mag ook niet zomaar, want een export
@@ -340,13 +321,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       Restpunt: `public/examples/*.ifc` zijn niet geregenereerd en bevatten de nieuwe
       pset-properties dus nog niet — onschadelijk (ze lezen via de WORKPLAN-terugval), maar bij een
       volgende `gen:examples`-run komen ze er vanzelf bij.
-- [ ] **`<html lang>` volgt de taalkeuze niet** (gevonden tijdens de visuele verificatie van
-      2026-07-20). `src/i18n/config.ts:135` zet wél `document.documentElement.dir` op basis van
-      `RTL_LOCALES`, maar `lang` blijft op de hardcoded `lang="nl"` uit `index.html` staan — bij alle
-      dertien niet-Nederlandse talen kondigen schermlezers de inhoud dus als Nederlands aan, en
-      browser-hyphenation/spellcheck gebruiken de verkeerde regels. Aangetoond in de draaiende app:
-      met locale `ar` staat `dir="rtl"` correct en `lang="nl"` fout. Fix = één regel naast de
-      bestaande `dir`-toewijzing.
 - [ ] **Generator-scripts staan niet in CI.** `npm run gen:examples` en `npm run verify:examples`
       waren op de branch van 2026-07-20 volledig stuk (een verplaatste import en een gewijzigde
       `writeIFC`-signatuur, beide zonder `scripts/` mee te nemen) en dat viel pas op toen iemand ze
@@ -394,13 +368,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       *Aanpak (keuze nodig):* de zes uitschakelen met een tooltip zolang de Gantt niet zichtbaar is,
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
-
-### Klein — verwijderen buiten het contextmenu kost nog N undo-stappen (2026-07-29)
-- [ ] **De lintknop Verwijderen (`ribbonConfig.tsx:281`) en Delete/Backspace
-      (`shortcutRegistry.ts:215,223`) lussen `deleteTask` per id.** Vijf taken wissen geeft dus vijf
-      undo-stappen, terwijl het contextmenu sinds #45 één transactie gebruikt (`contextMenuScope.ts`,
-      `contextMenuBulk.remove`). Zelfde principe: één handeling is één Ctrl+Z. Tweeregelige fix met
-      `withTransaction`; viel buiten de scope van issue #45.
 
 ### Distributie & Release
 

@@ -1,6 +1,6 @@
 import type { UIState, AppSlice, NotifyInput } from './types';
 import type { McpServerStatus } from '@/services/mcp/contracts';
-import { MCP_DEFAULT_PORT } from '@/utils/settingsStore';
+import { MCP_DEFAULT_PORT, peekTheme } from '@/utils/settingsStore';
 
 export interface UiSlice {
   ui: UIState;
@@ -67,7 +67,9 @@ export function createDefaultUI(): UIState {
     showCalendarDialog: false,
     showUpdateDialog: false,
     justUpdated: null,
-    uiTheme: 'dark',
+    // Issue #61: synchroon uit localStorage, zodat de default nooit afwijkt van wat het
+    // pre-paint-script in index.html al op <html> zette (headless valt peekTheme terug op 'dark').
+    uiTheme: peekTheme(),
     // Issue #25.4: interface-lettertype — default = huidige stylesheet-defaults + 100% schaal
     // (bestaande gebruikers merken niets; App.tsx hydrateert bij opstart uit localStorage).
     uiFontFamily: 'default',

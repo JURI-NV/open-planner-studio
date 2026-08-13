@@ -65,6 +65,21 @@ export async function initTheme(): Promise<UITheme> {
   return migrated;
 }
 
+/** Synchrone tegenhanger van `initTheme` voor de stóre-default (issue #61): leest en migreert de
+ *  opgeslagen themavoorkeur zonder te persisteren. Zo start `ui.uiTheme` met hetzelfde thema als
+ *  het pre-paint-script in index.html en kan het `data-theme`-effect in App.tsx bij de eerste
+ *  commit nooit een verkeerde default terugzetten (de flits die #61 meldde). Headless (Node,
+ *  geen localStorage) valt dit terug op 'dark'; `initTheme` blijft de persisterende bron. */
+export function peekTheme(): UITheme {
+  try {
+    const saved = localStorage.getItem('ops-theme');
+    if (!saved) return 'dark';
+    return THEME_MIGRATION[saved] ?? 'dark';
+  } catch {
+    return 'dark';
+  }
+}
+
 export interface PersistedZoomSettings {
   enableQuarterHourZoom: boolean;
   weekStartDay: WeekStartDay;

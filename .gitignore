@@ -28,3 +28,7 @@ qa/
 # Gegenereerde wiki (build-artefact van scripts/publish-wiki.mjs)
 .wiki-build/
 .wiki-repo/
+
+# Lokale promptnotities (PR #62)
+PROMPTS.md
+output/

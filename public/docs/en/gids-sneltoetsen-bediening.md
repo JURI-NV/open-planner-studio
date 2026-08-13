@@ -69,8 +69,13 @@ on your scroll mode (**Settings → Scroll & zoom**):
   scroll modes (**Position** or **Keys**), that same drag on empty canvas is a box-select, letting you
   select multiple tasks at once by dragging a rectangle around them.
 
-In short: the task table always selects; the canvas only pans in drag scroll mode and selects
-otherwise.
+In short: the task table always selects; with the *left* button the canvas only pans in drag
+scroll mode and selects otherwise.
+
+Beyond that, one gesture works everywhere, always: dragging with the **middle mouse button**
+(the scroll wheel) held down pans the view — in every scroll mode, and regardless of whether you
+start on a bar, in the task table or on empty space. Handy when you're on the Position or Keys
+mode but want a quick drag anyway.
 
 ## Zooming
 

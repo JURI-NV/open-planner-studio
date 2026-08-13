@@ -191,6 +191,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GFCHECK="$DIR/.gantt-float-cull.mjs"
   if bundle_check "$DIR/check-gantt-float-cull.ts" "$GFCHECK"; then node "$GFCHECK" || STATUS=1; fi
 
+  # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
+  # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
+  # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:
+  # geen crash, gezonde taken tekenen door, de datumloze leaf krijgt de terugval-stub op de
+  # viewstart, en getTaskBarBounds weigert de stub (geen drag met undefined originalStart).
+  RDCHECK="$DIR/.renderer-dateless.mjs"
+  if bundle_check "$DIR/check-renderer-dateless.ts" "$RDCHECK"; then node "$RDCHECK" || STATUS=1; fi
+
   # Pijlrouting (issue #41): relatielijnen worden vóór de balken getekend, dus alles wat onder een
   # balk door loopt is onzichtbaar. De vaste elleboog `fromX+8` lag bij SS midden ín de voorganger-
   # balk en liep bij krappe/achterwaartse relaties dwars door de OPVOLGERbalk (incl. pijlkop).
@@ -314,10 +322,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
 
   # IFC-round-trip-contract (fase 3, P11, bevinding A2/F2). Twee stappen:
   #  (1) COMPILE-AFDWINGING van de fixture-volledigheid — de hoofd-tsconfig sluit tests/ uit, dus een
-  #      eigen tsconfig die alleen check-ifc-roundtrip.ts typecheckt (`satisfies Required<...>`); een
+  #      eigen tsconfig die de check-batterijen typecheckt (`satisfies Required<...>`); een
   #      nieuw domeinveld → compile-fout → fixture MOET bijgewerkt (zelf-uitbreidende batterij).
+  #      tsconfig.check.json dekt ÁLLE check-*.ts (model: tests/library/tsconfig.check.json) — het
+  #      oude tsconfig.roundtrip.json dekte alleen deze ene batterij, de rest werd door esbuild
+  #      gestript en dus nooit type-gecheckt.
   #  (2) De round-trip zelf: writeIFC→readIFC veld-voor-veld + idempotentie + KNOWN_GAPS.
-  node "$ROOT/node_modules/.bin/tsc" --noEmit -p "$DIR/tsconfig.roundtrip.json" || STATUS=1
+  node "$ROOT/node_modules/.bin/tsc" --noEmit -p "$DIR/tsconfig.check.json" || STATUS=1
 
   RTCHECK="$DIR/.ifc-roundtrip-check.mjs"
   if bundle_check "$DIR/check-ifc-roundtrip.ts" "$RTCHECK"; then node "$RTCHECK" || STATUS=1; fi

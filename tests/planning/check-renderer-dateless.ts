@@ -1,0 +1,175 @@
+// Renderer-regressie (TODO-item, gevonden 2026-07-28): `GanttRenderer.barGeometry` crashte op een
+// taak ZONDER datums — heeft een taak noch `earlyStart` noch `scheduleStart` (idem finish-kant,
+// bv. uit een onvolledige import), dan gooide `startStr.includes('T')` per frame een TypeError en
+// bleef de hele Gantt zwart. Hetzelfde ongegarde patroon zat in `drawMilestone` (en via
+// `barGeometry` ook onder `drawSummaryBar`).
+//
+// Deze batterij draait de ECHTE GanttRenderer met een opnemende 2D-context-stub over een rijenlijst
+// met één gezonde taak plus datumloze varianten van alle drie de tekenpaden (leaf-balk,
+// samenvattingsbalk, mijlpaal) en toetst:
+//   1. render() gooit NIET (aantoonbaar rood tegen de oude, ongegarde code);
+//   2. de gezonde taak wordt nog gewoon getekend (de guard dooft de tekenlaag niet);
+//   3. de datumloze leaf krijgt de terugval-stub op de viewstart (zichtbaar i.p.v. verdwenen);
+//   4. getTaskBarBounds weigert de datumloze taak (geen sleep/resize op de stub — de drag-hooks
+//      zouden anders met undefined originalStart/originalFinish rekenen) maar vindt de gezonde wél.
+//
+// Draait via run.sh. Exit 0 = alles groen.
+
+// ── DOM-stubs (vóór het instantiëren): de renderer leest themakleuren via
+//    getComputedStyle(document.documentElement); zonder stub gooit dat in Node.
+const g = globalThis as unknown as Record<string, unknown>;
+g.document = { documentElement: {} };
+g.getComputedStyle = () => ({ getPropertyValue: () => '' });
+
+import { useAppStore } from '@/state/appStore';
+import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
+import type { Task } from '@/types/task';
+import type { ViewRow } from '@/engine/view/visibleRows';
+
+const S = () => useAppStore.getState();
+
+let checks = 0;
+const diffs: string[] = [];
+function ok(label: string, cond: boolean): void {
+  checks++;
+  if (!cond) diffs.push(label);
+}
+
+// ── Opnemende 2D-context-stub (naar het model van check-gantt-float-cull) ────
+interface RRect { x: number; y: number; w: number; h: number }
+function makeCtx(): { ctx: CanvasRenderingContext2D; roundRects: RRect[] } {
+  const roundRects: RRect[] = [];
+  const noop = () => {};
+  const ctx = {
+    fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', textAlign: '', textBaseline: '',
+    globalAlpha: 1, lineCap: '', lineJoin: '', shadowBlur: 0, shadowColor: '',
+    fillRect: noop, strokeRect: noop, clearRect: noop, beginPath: noop, closePath: noop,
+    moveTo: noop, lineTo: noop, arc: noop, arcTo: noop, ellipse: noop, rect: noop,
+    roundRect: (x: number, y: number, w: number, h: number) => { roundRects.push({ x, y, w, h }); },
+    fill: noop, stroke: noop, save: noop, restore: noop, clip: noop,
+    translate: noop, scale: noop, rotate: noop,
+    setLineDash: noop, getLineDash: () => [], fillText: noop, strokeText: noop,
+    measureText: (t: string) => ({ width: String(t).length * 6 }),
+    createLinearGradient: () => ({ addColorStop: noop }),
+    createPattern: () => null,
+    quadraticCurveTo: noop, bezierCurveTo: noop, drawImage: noop,
+  };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, roundRects };
+}
+
+// ── Scenario: één gezonde taak + datumloze varianten van de drie tekenpaden ──
+S().newProject();
+S().addTask({ name: 'Gezond' });
+S().runCPM();
+const healthy = S().tasks[0];
+
+// De crash-vector is `undefined` op runtime (het Task-type zegt string, maar een onvolledige
+// import levert undefined) — precies wat `.includes` laat gooien. De ''-variant dekt de
+// lege-string-vorm van hetzelfde gat.
+function stripDates(t: Task, value: undefined | ''): Task {
+  return {
+    ...t,
+    id: `${t.id}-dateless-${value === undefined ? 'undef' : 'empty'}-${Math.random().toString(36).slice(2, 6)}`,
+    time: {
+      ...t.time,
+      earlyStart: value, earlyFinish: value,
+      scheduleStart: value, scheduleFinish: value,
+    },
+  } as unknown as Task;
+}
+
+const datelessLeaf = stripDates(healthy, undefined);
+const datelessLeafEmpty = stripDates(healthy, '');
+const datelessSummary = { ...stripDates(healthy, undefined), childIds: ['kind-x'] } as Task;
+const datelessMilestone = { ...stripDates(healthy, undefined), isMilestone: true } as Task;
+
+const rows: ViewRow[] = [
+  { kind: 'task', task: healthy, depth: 0, dimmed: false },
+  { kind: 'task', task: datelessLeaf, depth: 0, dimmed: false },
+  { kind: 'task', task: datelessLeafEmpty, depth: 0, dimmed: false },
+  { kind: 'task', task: datelessSummary, depth: 0, dimmed: false },
+  { kind: 'task', task: datelessMilestone, depth: 0, dimmed: false },
+];
+
+const W = 1200, H = 600, TTW = 300, ROWH = 28, HDRH = 60;
+const st = S();
+const view = { ...st.view, scrollX: 0, scrollY: 0 };
+
+const { ctx, roundRects } = makeCtx();
+const renderer = new GanttRenderer(ctx, {
+  rows,
+  sequences: [],
+  calendar: st.calendar,
+  view,
+  selectedTaskIds: [],
+  collapsedTaskIds: [],
+  // statusDate + voortgangslijn AAN: drawProgressLine loopt óók door barGeometry en moet de
+  // datumloze rijen zonder crash passeren.
+  statusDate: view.viewStartDate,
+  showProgressLine: true,
+  canvasWidth: W,
+  canvasHeight: H,
+  taskTableWidth: TTW,
+  rowHeight: ROWH,
+  headerHeight: HDRH,
+});
+
+// 1. render() mag niet gooien — dit is de eigenlijke regressie (oude code: TypeError per frame).
+let renderError: unknown = null;
+try {
+  renderer.render();
+} catch (err) {
+  renderError = err;
+}
+ok(`render() gooit op datumloze taken: ${String(renderError)}`, renderError === null);
+
+if (renderError === null) {
+  // Y-midden van rij i (scrollY=0).
+  const rowMidY = (i: number) => HDRH + i * ROWH + ROWH / 2;
+
+  // 2. De gezonde taak tekent nog gewoon een balk in zijn eigen rij-band.
+  const barTop = (i: number) => HDRH + i * ROWH;
+  const inRow = (r: RRect, i: number) => r.y >= barTop(i) && r.y + r.h <= barTop(i + 1);
+  const healthyBars = roundRects.filter(r => inRow(r, 0));
+  ok('gezonde taak: geen balk-roundRect in rij 0 getekend', healthyBars.length > 0);
+
+  // 3. De datumloze leaf krijgt de terugval-stub op de viewstart: dateToX(viewStart) = TTW bij
+  //    scrollX=0, één dag-cel breed.
+  const stubBars = roundRects.filter(r => inRow(r, 1));
+  ok('datumloze leaf: geen terugval-stub getekend in rij 1', stubBars.length > 0);
+  ok(
+    `datumloze leaf: stub niet op de viewstart (x=${stubBars[0]?.x}, verwacht ~${TTW})`,
+    stubBars.length > 0 && Math.abs(stubBars[0].x - TTW) < 1,
+  );
+  // Idem voor de ''-variant.
+  ok('datumloze leaf (lege strings): geen terugval-stub getekend in rij 2', roundRects.some(r => inRow(r, 2)));
+
+  // 4a. Hit-test óp de stub van de datumloze leaf: géén drag/resize armen.
+  let hitError: unknown = null;
+  let datelessHit: unknown = 'niet-gezet';
+  try {
+    datelessHit = renderer.getTaskBarBounds(TTW + 5, rowMidY(1));
+  } catch (err) {
+    hitError = err;
+  }
+  ok(`getTaskBarBounds gooit op datumloze taak: ${String(hitError)}`, hitError === null);
+  ok('getTaskBarBounds armt drag op een datumloze taak (verwacht null)', datelessHit === null);
+
+  // 4b. Dezelfde hit-test vindt de gezonde balk wél (guard is niet te breed). Kalibreer de x op
+  //     het midden van de opgenomen balk uit stap 2.
+  if (healthyBars.length > 0) {
+    const bar = healthyBars[0];
+    const healthyHit = renderer.getTaskBarBounds(bar.x + bar.w / 2, rowMidY(0));
+    ok('getTaskBarBounds vindt de gezonde balk niet meer (guard te breed)', healthyHit !== null);
+  }
+}
+
+// ── Uitslag ──────────────────────────────────────────────────────────────────
+if (diffs.length === 0) {
+  console.log(`OK  renderer-dateless: alle checks groen (${checks})`);
+  process.exit(0);
+} else {
+  console.log(`XX  renderer-dateless: ${diffs.length} afwijking(en) van ${checks}`);
+  for (const d of diffs) console.log(`   - ${d}`);
+  process.exit(1);
+}
