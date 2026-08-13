@@ -47,12 +47,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
   ontkoppelen zet dus de `libraryOrigin`-stempels terug op een project dat ontkoppeld blíjft. Geen
   dataverlies (los-gedrag, stempels zijn inert en zelfherstellend bij terugkoppelen), maar wel
   verwarrend. Gevonden bij de critreview op de ProjectInfo-unificatie (2026-07-25).
-- [ ] **`tests/planning/` typecheckt maar één van de tien check-bestanden.** Er is alleen
-  `tsconfig.roundtrip.json` met `check-ifc-roundtrip.ts` in `include`; de overige negen
-  (`check-advanced-cpm`, `check-calendar-hours`, `check-move-task`, `check-document-contract`, …)
-  worden door esbuild gestript en dus nooit type-gecheckt. `tests/library/` heeft dit gat sinds
-  2026-07-25 niet meer (alle zeven batterijen staan in `tsconfig.check.json`). Zelfde bug-klasse,
-  grotere suite.
 - [ ] **Standaardbibliotheek zou een gegenereerd id moeten krijgen i.p.v. de vaste
   `DEFAULT_COMPANY_ID`-constante** (critreview F1/F8 op pool-import, issue #19). Vrijwel elke
   installatie heeft hooguit één resourcebibliotheek onder dat vaste id — waardoor `importPoolAsNewCompany`
@@ -189,9 +183,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       gooien een Nederlandse `message` die via `notify({ detail })` letterlijk in de UI belandt —
       ook in een Engelse, Japanse of Arabische interface. Richting: de `reason` is al getypeerd, dus
       een `messageKey` per reason en de vertaling bij de aanroeper.
-- [ ] **De sectiegrens is hoofdlettergevoelig.** `assertIfcIntegrity` uppercase't de kop vóór het
-      vergelijken, maar `indexOfDataSection` niet: een bestand met `data;` valt door de mand. Dat
-      was ook zo vóór deze release; hier alleen genoteerd omdat het in dezelfde functie zit.
 
 ### IFC-kalenderbibliotheek — resterende punten (2026-07-27)
 
@@ -377,13 +368,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       *Aanpak (keuze nodig):* de zes uitschakelen met een tooltip zolang de Gantt niet zichtbaar is,
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
-
-### Klein — verwijderen buiten het contextmenu kost nog N undo-stappen (2026-07-29)
-- [ ] **De lintknop Verwijderen (`ribbonConfig.tsx:281`) en Delete/Backspace
-      (`shortcutRegistry.ts:215,223`) lussen `deleteTask` per id.** Vijf taken wissen geeft dus vijf
-      undo-stappen, terwijl het contextmenu sinds #45 één transactie gebruikt (`contextMenuScope.ts`,
-      `contextMenuBulk.remove`). Zelfde principe: één handeling is één Ctrl+Z. Tweeregelige fix met
-      `withTransaction`; viel buiten de scope van issue #45.
 
 ### Distributie & Release
 
