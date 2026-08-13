@@ -20,7 +20,7 @@
 //           zelf-uitbreidend: een nieuw veld kreeg wel een fixture-waarde maar stond in geen enkele
 //           hand-opgesomde canon-literal, en round-tripte dus stil nul bytes. Zie het blok boven
 //           `canon` voor de meting.
-//      Beide leunen op tests/planning/tsconfig.roundtrip.json, want de hoofd-tsconfig sluit tests/ uit.
+//      Beide leunen op tests/planning/tsconfig.check.json, want de hoofd-tsconfig sluit tests/ uit.
 //   3. writeIFC(fixture) → readIFC → diepe, veld-voor-veld-vergelijking van de HELE ImportResult.
 //      Gegenereerde ids (task/resource/sequence/kalender regenereren bij inlezen) worden
 //      genormaliseerd via NATUURLIJKE SLEUTELS (wbsCode/naam) i.p.v. letterlijk vergeleken; alle
@@ -323,7 +323,7 @@ export const fixture: ImportResult = {
 //  `src/engine/moveProject.ts` en `DOCUMENT_FIELDS` in `src/state/documentContract.ts`. Elke sleutel
 //  draagt een EXPLICIETE keuze — meedoen zoals hij is (`KEEP`), meedoen in geprojecteerde vorm
 //  (`{ get, as? }`), of bewust niet vergelijken (`{ skip: '<reden>' }`, reden verplicht). Een nieuw
-//  veld zonder cel geeft een compile-fout onder tests/planning/tsconfig.roundtrip.json.
+//  veld zonder cel geeft een compile-fout onder tests/planning/tsconfig.check.json.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 type Any = Record<string, unknown>;
