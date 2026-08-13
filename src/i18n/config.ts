@@ -52,10 +52,12 @@ void i18n
     react: { useSuspense: false },
   });
 
-// Set document direction on language change (RTL support)
+// Set document direction + lang on language change (RTL support; <html lang> volgt de
+// taalkeuze i.p.v. de hardcoded "nl" uit index.html — TODO-quick-win)
 function updateDirection(lng: string) {
   const locale = lng as Locale;
   document.documentElement.dir = RTL_LOCALES.includes(locale) ? 'rtl' : 'ltr';
+  document.documentElement.lang = lng;
 }
 updateDirection(i18n.language);
 i18n.on('languageChanged', updateDirection);
