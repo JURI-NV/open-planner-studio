@@ -8,8 +8,6 @@ import { PoolImportDialog } from '@/components/dialogs/PoolImportDialog';
 import { DEFAULT_COMPANY_ID } from '@/types/library';
 import { DEMO_COMPANY_ID } from '@/services/library/demoLibrary';
 
-declare const process: { exit(code: number): never };
-
 let checks = 0; let fails = 0;
 function assert(cond: boolean, msg: string): void {
   checks++;
