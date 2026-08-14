@@ -130,6 +130,17 @@ eq('28 moveTask zonder position: fundering blijft 1e kind',
 eq('29 moveTask zonder position: scheiding blijft 2e kind',
   task(idScheiding)?.wbsCode, `${task(idRuwbouw)?.wbsCode}.2`);
 
+// ── 6) addTask: taskType overerven van de bestaande ouder (alleen bij aanmaken). ──────────
+const idOuderLogistiek = S().addTask({ name: 'OuderLogistiek', taskType: 'LOGISTIC' });
+const idKindZonderType = S().addTask({ name: 'KindZonderType', parentId: idOuderLogistiek });
+eq('30 addTask met ouder: kind zonder eigen taskType erft LOGISTIC van de ouder', task(idKindZonderType)?.taskType, 'LOGISTIC');
+
+const idKindMetType = S().addTask({ name: 'KindMetType', parentId: idOuderLogistiek, taskType: 'DEMOLITION' });
+eq('31 addTask met ouder: expliciete taskType op het kind wint van de ouder', task(idKindMetType)?.taskType, 'DEMOLITION');
+
+const idRootZonderType = S().addTask({ name: 'RootZonderType' });
+eq('32 addTask zonder ouder: root valt terug op de bouwmodus-default (CONSTRUCTION)', task(idRootZonderType)?.taskType, 'CONSTRUCTION');
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  move-task-check: alle checks groen (${checks})`);

@@ -172,7 +172,8 @@ export const draft = {
       const now = s.project.startDate || formatDate(new Date());
       const parentId = partial.parentId ?? null;
       // Onbekende parentId ⇒ herkenbare fout (VÓÓR enige mutatie, dus geen halve state).
-      if (parentId !== null && !s.tasks.some((t) => t.id === parentId)) {
+      const parentTask = parentId !== null ? s.tasks.find((t) => t.id === parentId) : undefined;
+      if (parentId !== null && !parentTask) {
         throw new Error(`draft.addTask: onbekende parentId '${parentId}'`);
       }
 
@@ -181,7 +182,9 @@ export const draft = {
         name: partial.name,
         description: partial.description || '',
         wbsCode: partial.wbsCode || '',
-        taskType: partial.taskType || (s.ui.constructionMode ? 'CONSTRUCTION' : 'USERDEFINED'),
+        // Overerving (2026-08-14): zie taskSlice.ts addTask — zelfde regel, MCP-pad (ook gebruikt
+        // door draft.addTasks, die top-down per item deze functie aanroept).
+        taskType: partial.taskType || parentTask?.taskType || (s.ui.constructionMode ? 'CONSTRUCTION' : 'USERDEFINED'),
         status: partial.status || 'NOT_STARTED',
         isMilestone: partial.isMilestone || false,
         milestoneKind: partial.milestoneKind,

@@ -60,6 +60,30 @@ test('draft.addTask mijlpaal ⇒ duur 0, gewone taak ⇒ default 5', () => {
   assertEq(store.getState().tasks.find((t) => t.id === normalId)?.time.scheduleDuration, 5, 'gewone taak hoort default-duur 5 te krijgen');
 });
 
+test('draft.addTask erft taskType van de ouder wanneer de aanroeper er zelf geen opgeeft', () => {
+  const parentId = store.getState().addTask({ name: 'mcp-ouder', taskType: 'LOGISTIC' });
+
+  let childId = '';
+  const res = runInMcpTransaction(() => {
+    childId = draft.addTask({ name: 'mcp-kind', parentId });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  assertEq(store.getState().tasks.find((t) => t.id === childId)?.taskType, 'LOGISTIC', 'kind hoort taskType van de ouder over te nemen');
+});
+
+test('draft.addTask: expliciete taskType wint van de ouder', () => {
+  const parentId = store.getState().addTask({ name: 'mcp-ouder-2', taskType: 'LOGISTIC' });
+
+  let childId = '';
+  const res = runInMcpTransaction(() => {
+    childId = draft.addTask({ name: 'mcp-kind-2', parentId, taskType: 'DEMOLITION' });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  assertEq(store.getState().tasks.find((t) => t.id === childId)?.taskType, 'DEMOLITION', 'expliciete taskType hoort te winnen van de ouder');
+});
+
 // --- 2) addSequence -------------------------------------------------------------------------------
 test('draft.addSequence dedupt op (pred, succ, type)', () => {
   const a = store.getState().addTask({ name: 'seq-a' });
