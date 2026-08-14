@@ -9,7 +9,7 @@
 
 import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
-import { relationVerdict, hasSummaryEndpoint } from '@/state/relationRules';
+import { relationVerdict, hasSummaryEndpoint, type TaskLookup } from '@/state/relationRules';
 
 let checks = 0;
 const diffs: string[] = [];
@@ -35,28 +35,33 @@ const byId = new Map<string, Task>([
 const noSeqs: Sequence[] = [];
 const FS = 'FINISH_START' as const;
 
+const lookup: TaskLookup = (id) => byId.get(id);
+
 // ── hasSummaryEndpoint ───────────────────────────────────────────────────────
 ok('blad→blad telt als verzameltaak-eindpunt',
-  !hasSummaryEndpoint(byId, { predecessorId: 'a', successorId: 'b' }));
+  !hasSummaryEndpoint(lookup, { predecessorId: 'a', successorId: 'b' }));
 ok('MIJLPAAL als voorganger telt als verzameltaak-eindpunt (regressie-anker)',
-  !hasSummaryEndpoint(byId, { predecessorId: 'm', successorId: 'b' }));
+  !hasSummaryEndpoint(lookup, { predecessorId: 'm', successorId: 'b' }));
 ok('MIJLPAAL als opvolger telt als verzameltaak-eindpunt (regressie-anker)',
-  !hasSummaryEndpoint(byId, { predecessorId: 'a', successorId: 'm' }));
+  !hasSummaryEndpoint(lookup, { predecessorId: 'a', successorId: 'm' }));
 ok('verzameltaak als voorganger niet herkend',
-  hasSummaryEndpoint(byId, { predecessorId: 's', successorId: 'b' }));
+  hasSummaryEndpoint(lookup, { predecessorId: 's', successorId: 'b' }));
 ok('verzameltaak als opvolger niet herkend',
-  hasSummaryEndpoint(byId, { predecessorId: 'a', successorId: 's' }));
+  hasSummaryEndpoint(lookup, { predecessorId: 'a', successorId: 's' }));
+ok('onbekend eindpunt telt als verzameltaak-eindpunt (mag niet — zie spec §5)',
+  !hasSummaryEndpoint(lookup, { predecessorId: 'a', successorId: 'bestaat-niet' }));
 
 // Retroactief: een bladtaak die alsnog een kind krijgt is vanaf dat moment een verzameltaak.
 // Dit is de reden dat de markering AFGELEID is en niet opgeslagen.
 const promoted = new Map(byId);
 promoted.set('b', task('b', ['nieuw-kind']));
+const promotedLookup: TaskLookup = (id) => promoted.get(id);
 ok('retroactief: blad met nieuw kind niet als verzameltaak herkend',
-  hasSummaryEndpoint(promoted, { predecessorId: 'a', successorId: 'b' }));
+  hasSummaryEndpoint(promotedLookup, { predecessorId: 'a', successorId: 'b' }));
 
 // ── relationVerdict ──────────────────────────────────────────────────────────
 const verdict = (p: string, s: string, seqs: Sequence[] = noSeqs) =>
-  relationVerdict(byId, seqs, { predecessorId: p, successorId: s, type: FS });
+  relationVerdict(lookup, seqs, { predecessorId: p, successorId: s, type: FS });
 
 ok('blad→blad wordt niet toegestaan', verdict('a', 'b').ok);
 ok('mijlpaal→blad wordt niet toegestaan (regressie-anker)', verdict('m', 'b').ok);
@@ -75,6 +80,11 @@ const unknownV = verdict('a', 'bestaat-niet');
 ok('onbekende taak niet geweigerd', !unknownV.ok);
 ok('onbekende taak met verkeerde reden', !unknownV.ok && unknownV.reason === 'unknown-task');
 
+const unknownPredV = verdict('bestaat-niet', 'b');
+ok('onbekende voorganger niet geweigerd', !unknownPredV.ok);
+ok('onbekende voorganger met verkeerde reden',
+  !unknownPredV.ok && unknownPredV.reason === 'unknown-task');
+
 const existing: Sequence[] = [
   { id: 'seq1', predecessorId: 'a', successorId: 'b', type: FS, lagDays: 0 },
 ];
@@ -82,7 +92,9 @@ const dupV = verdict('a', 'b', existing);
 ok('duplicaat niet geweigerd', !dupV.ok);
 ok('duplicaat met verkeerde reden', !dupV.ok && dupV.reason === 'duplicate');
 ok('ander type tussen hetzelfde paar geweigerd (mag juist wél)',
-  relationVerdict(byId, existing, { predecessorId: 'a', successorId: 'b', type: 'START_START' }).ok);
+  relationVerdict(lookup, existing, { predecessorId: 'a', successorId: 'b', type: 'START_START' }).ok);
+ok('ander PAAR met hetzelfde type geweigerd als duplicaat (mag juist wél)',
+  relationVerdict(lookup, existing, { predecessorId: 'a', successorId: 'm', type: FS }).ok);
 
 // Volgorde van de regels: een verzameltaak-eindpunt dat óók een duplicaat is meldt het
 // inhoudelijke probleem, niet het duplicaat.

@@ -24,7 +24,14 @@ export type RelationRejection = 'self' | 'unknown-task' | 'summary-endpoint' | '
 
 export type RelationVerdict = { ok: true } | { ok: false; reason: RelationRejection };
 
-const OK: RelationVerdict = { ok: true };
+/**
+ * Hoe komt de regelmodule aan een taak? Bewust een functie en geen `Map`: de aanroepers hebben
+ * elk al een goedkope manier om op te zoeken — het Relaties-paneel heeft een `taskById`-useMemo,
+ * de MCP-classificatie bouwt één map voor de hele batch, en de store-acties draaien over een
+ * Immer-draft waar een Map bouwen ook nog eens elke child-proxy materialiseert. Een Map eisen zou
+ * die aanroepers dwingen er een tweede te bouwen, per aanroep, binnen een lus.
+ */
+export type TaskLookup = (id: string) => Task | undefined;
 
 /**
  * Heeft deze relatie een eindpunt zonder effect op de planning?
@@ -38,15 +45,18 @@ const OK: RelationVerdict = { ok: true };
  * ondersteunt hem volledig als voorganger én opvolger. Dat hij in de Gantt geen relatie kon armen
  * was een neveneffect van een hittest die voor slepen/resizen geschreven is.
  *
+ * Een ONBEKEND eindpunt geeft `false`, niet `true`. Binnen `relationVerdict` is dat onbereikbaar
+ * (`unknown-task` vangt eerder af), maar het Relaties-paneel roept deze functie los aan per
+ * bestaande rij, en een relatie naar een verdwenen taak hoort daar niet als verzameltaak-
+ * spookrelatie gemarkeerd te worden. Zie spec §5: bestaande `self`/`unknown-task`-relaties worden
+ * bewust niet gemarkeerd.
+ *
  * Aparte functie náást `relationVerdict` omdat de paneelmarkering hem per BESTAANDE rij nodig
  * heeft: daar is `relationVerdict` onbruikbaar, want elke bestaande relatie is haar eigen duplicaat.
  */
-export function hasSummaryEndpoint(
-  byId: ReadonlyMap<string, Task>,
-  seq: RelationEndpoints,
-): boolean {
-  const pred = byId.get(seq.predecessorId);
-  const succ = byId.get(seq.successorId);
+export function hasSummaryEndpoint(lookup: TaskLookup, seq: RelationEndpoints): boolean {
+  const pred = lookup(seq.predecessorId);
+  const succ = lookup(seq.successorId);
   return (pred?.childIds.length ?? 0) > 0 || (succ?.childIds.length ?? 0) > 0;
 }
 
@@ -56,15 +66,15 @@ export function hasSummaryEndpoint(
  * melden, niet "bestaat al".
  */
 export function relationVerdict(
-  byId: ReadonlyMap<string, Task>,
+  lookup: TaskLookup,
   sequences: readonly Sequence[],
   seq: RelationEndpoints & { type: SequenceType },
 ): RelationVerdict {
   if (seq.predecessorId === seq.successorId) return { ok: false, reason: 'self' };
-  if (!byId.has(seq.predecessorId) || !byId.has(seq.successorId)) {
+  if (!lookup(seq.predecessorId) || !lookup(seq.successorId)) {
     return { ok: false, reason: 'unknown-task' };
   }
-  if (hasSummaryEndpoint(byId, seq)) return { ok: false, reason: 'summary-endpoint' };
+  if (hasSummaryEndpoint(lookup, seq)) return { ok: false, reason: 'summary-endpoint' };
   // Exacte duplicaten weren, maar meerdere TYPES tussen hetzelfde paar blijven toegestaan
   // (bv. SS+FF als ladder-koppeling) — anders verdwijnt de tweede relatie stil.
   const exists = sequences.some(
@@ -72,10 +82,5 @@ export function relationVerdict(
       && e.successorId === seq.successorId
       && e.type === seq.type,
   );
-  return exists ? { ok: false, reason: 'duplicate' } : OK;
-}
-
-/** Bouwt de id→taak-map die beide functies verwachten. */
-export function taskMapOf(tasks: readonly Task[]): ReadonlyMap<string, Task> {
-  return new Map(tasks.map((t) => [t.id, t]));
+  return exists ? { ok: false, reason: 'duplicate' } : { ok: true };
 }
