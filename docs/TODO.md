@@ -688,18 +688,18 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 - [ ] **Primavera XER import/export** — tekstformaat, native in TS haalbaar (geen JVM); samen met ons
   bestaande PMXML dekt dit de P6-wereld. Hoogste interop-prioriteit na fase 2 (issue #17).
 - [ ] **iCalendar (.ics) export** — mijlpalen/deadlines naar agenda-apps; goedkoop, hoge waarde (issue #17).
-- [ ] MS Project MPP import (readonly) — realistisch alleen via MPXJ (JVM): NIET als core-dependency
-  (strijdig met lichte Tauri/web-architectuur); route = optionele externe converter (MPXJ-CLI/sidecar)
-  óf gebruikers MSPDI laten exporteren. Besluit gedocumenteerd in issue #17-triage (2026-07-07).
-  **Distributie via het extensiesysteem met "managed tools" (user-besluit 2026-07-07):** de
-  catalogus-extensie declareert in zijn manifest een benodigd hulpprogramma (naam, downloadUrl uit
-  onze eigen releases, sha256-checksum, grootte); de APP-KERN — niet de extensie — beheert daarop de
-  volledige binary-levenscyclus: één bevestigingsvraag bij installatie, download + checksum-verificatie,
-  opslag in de app-datamap, updates bij een nieuwere manifest-declaratie, opruimen bij de-installatie.
-  De extensie-sandbox blijft ongewijzigd (JS mag alleen declareren/vragen, nooit zelf processen of
-  bestanden beheren); de gebruiker hoeft nooit over Java/binaries na te denken. Web-versie: dezelfde
-  extensie toont "alleen desktop". Generiek bouwen (herbruikbaar voor toekomstige zware extensies).
-- [ ] Asta Powerproject PP import — zelfde MPXJ-afweging als MPP; zelfde converter-route.
+- [x] **MS Project MPP import (alleen-lezen)** — sinds fase 3.8 etappe 1 native in TS (MPP14 =
+  Project 2010 t/m 2021; `src/services/mpp/`, afgeleid van de MPXJ-bronnen, LGPL). **Besluit
+  herzien 2026-08-14:** de triage van 2026-07-07 ("realistisch alleen via MPXJ/JVM") rustte op de
+  premisse dat een native lezer onhaalbaar was; corpusonderzoek (2026-08-14, 52 bestanden uit
+  Project 2010–2021) toonde één stabiel, onversleuteld MPP14-containerformaat — native in de kern
+  is dus de lichtste route en de JVM-sidecar vervalt voor dit doel. Wachtwoord-versleutelde
+  bestanden en MPP8/9/12 geven een nette "exporteer als XML"-fout. Er bestaat geen .mpp-EXPORT
+  (ook MPXJ schrijft het niet): de export-tegenhanger blijft MSPDI-XML.
+- [ ] MPP9/12-legacy en Asta Powerproject PP — de eerder uitgewerkte "managed tools"-route
+  (user-besluit 2026-07-07: catalogus-extensie declareert een MPXJ-CLI-hulpprogramma met checksum;
+  de APP-KERN beheert download/levenscyclus; sandbox ongewijzigd; web = "alleen desktop") blijft
+  hiervoor de optie als er vraag naar blijkt.
 - [ ] **KYP Project REST API-integratie (onderzoek)** — de facto NL-bouwplanningstool zonder publieke
   export; directe API-koppeling zou een unieke NL-USP zijn. Eerst: API-toegang/partnerschap verkennen
   (issue #17).
