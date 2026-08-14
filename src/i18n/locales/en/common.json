@@ -514,6 +514,26 @@
       "bell": "Bell shaped",
       "earlyPeak": "Early peak",
       "latePeak": "Late peak"
+    },
+    "occupancyView": "Occupancy",
+    "occupancy": {
+      "empty": "No library resources booked in the open documents.",
+      "machineOnly": "This overview only sees the documents opened in this app.",
+      "staleDoc": "Not counted: schedule not calculated — activate this document and press F5.",
+      "staleBanner": "At least one document has not been calculated and is not included in the occupancy.",
+      "staleComputedDoc": "Calculated in advance for this overview — the document itself still shows older dates until you press F5 there.",
+      "staleComputedBanner": "Changed documents have been calculated in advance for this overview; press F5 in the document to see it there too.",
+      "docCount_one": "{{count}} document",
+      "docCount_other": "{{count}} documents",
+      "conflictDays_one": "{{count}} day double-booked",
+      "conflictDays_other": "{{count}} days double-booked",
+      "moreDays_one": "… and {{count}} more",
+      "moreDays_other": "… and {{count}} more",
+      "period": "Period",
+      "peak": "Peak",
+      "capacity": "Capacity",
+      "documents": "Documents",
+      "selectHint": "Select a resource to see the histogram."
     }
   },
   "calendar": {

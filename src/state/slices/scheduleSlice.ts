@@ -1,5 +1,5 @@
-import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
-import { applyCpmResult } from '@/engine/scheduler/applyCpmResult';
+import type { CPMResult } from '@/engine/scheduler/CPMSolver';
+import { solveProject } from '@/engine/scheduler/solveProject';
 import { computeResourceLoad, type ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import {
   levelResources as computeLeveling,
@@ -52,17 +52,19 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
   runCPM: () => {
     set((s) => {
       s.scheduleStale = false; // F5/Bereken gedraaid — schema is (voor deze taken/relaties) vers.
-      // Per-taak-kalender (fase 2.8a, §5.1): de solver krijgt de projectdefault + de bibliotheek en
-      // bouwt zelf een engine-cache; taken zonder eigen calendarId rekenen in de projectkalender.
-      const leafTasks = s.tasks.filter(t => t.childIds.length === 0);
-      const solver = new CPMSolver(leafTasks, s.sequences, s.calendar, s.calendars, {
+      // De reken-kern (leaf-filter → solve → terugschrijven/rollup) staat sinds A3/M3 in
+      // `solveProject` en draait rechtstreeks op de Immer-draft: `s.tasks` wordt in-place gemuteerd,
+      // net als voorheen. Dezelfde functie draait het bezettingsoverzicht op een KLOON van de taken
+      // van een stale document (B1b §4.3b) — één implementatie, geen divergentie.
+      const result = solveProject({
+        tasks: s.tasks,
+        sequences: s.sequences,
+        calendar: s.calendar,
+        calendars: s.calendars,
         dataDate: s.project.statusDate,
         progressMode: s.project.progressMode,
-        // Fase 2.9 golf 0: project-scoped reken-opties doorgeven. De solver leest ze nog nergens
-        // gedragswijzigend (afwezig/leeg ⇒ byte-identiek); de latere golven activeren ze.
         schedulingOptions: s.project.schedulingOptions,
       });
-      const result = solver.solve();
 
       // If circular dependency detected, store the result (with error) and bail
       if (result.error) {
@@ -70,10 +72,6 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
         s.resourceLoadResult = null;
         return;
       }
-
-      // Terugschrijven + verzameltaak-rollup: één gedeelde functie, ook gebruikt door de
-      // benchmark (K-item 30 — die had een eigen kopie die al gedivergeerd was).
-      applyCpmResult(s.tasks, result, { projectCalendar: s.calendar, calendars: s.calendars });
 
       s.cpmResult = result;
 

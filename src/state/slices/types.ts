@@ -315,9 +315,10 @@ export interface UIState {
   /** session — aantal items dat de meest recente stille verversing (grens 1/2/3/4) heeft bijgewerkt,
    *  of `null` zonder openstaand signaal (Taak 18: het verversingssignaal in de UI). */
   libraryRefreshNotice: number | null;
-  /** session — Resources-tabweergave: 'company' (bedrijfspool) of 'project' (wat dit project bevat).
+  /** session — Resources-tabweergave: 'company' (bedrijfspool), 'project' (wat dit project bevat)
+   *  of 'occupancy' (B1b: bezetting van de bibliotheek over álle open documenten — leesvenster).
    *  Default afgeleid: bij inhoud in de pool 'company', anders 'project' (spec §4). */
-  resourcesView: 'company' | 'project';
+  resourcesView: 'company' | 'project' | 'occupancy';
   /** session — eenmalig verzoek (issue #48-1) om in het resource-paneel een CONCEPT-rij te openen,
    *  i.p.v. meteen een naamloze resource te persisteren. Gezet door de lintknop "Nieuwe resource",
    *  geconsumeerd (en direct weer op false gezet) door `ResourcePanel`, dat er zijn lokale

@@ -514,6 +514,26 @@
       "bell": "Glockenform",
       "earlyPeak": "Frühe Spitze",
       "latePeak": "Späte Spitze"
+    },
+    "occupancyView": "Belegung",
+    "occupancy": {
+      "empty": "Keine Bibliotheksressourcen in den geöffneten Dokumenten gebucht.",
+      "machineOnly": "Diese Übersicht sieht nur die Dokumente, die in dieser App geöffnet sind.",
+      "staleDoc": "Zählt nicht mit: Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
+      "staleBanner": "Mindestens ein Dokument wurde nicht berechnet und zählt in der Belegung nicht mit.",
+      "staleComputedDoc": "Für diese Übersicht bereits vorab berechnet — das Dokument selbst zeigt noch ältere Daten, bis Sie dort F5 drücken.",
+      "staleComputedBanner": "Geänderte Dokumente wurden für diese Übersicht bereits vorab berechnet; drücken Sie F5 im Dokument, um es auch dort zu sehen.",
+      "docCount_one": "{{count}} Dokument",
+      "docCount_other": "{{count}} Dokumente",
+      "conflictDays_one": "{{count}} Tag doppelt belegt",
+      "conflictDays_other": "{{count}} Tage doppelt belegt",
+      "moreDays_one": "… und {{count}} weiterer",
+      "moreDays_other": "… und {{count}} weitere",
+      "period": "Zeitraum",
+      "peak": "Spitze",
+      "capacity": "Kapazität",
+      "documents": "Dokumente",
+      "selectHint": "Wählen Sie eine Ressource aus, um das Histogramm zu sehen."
     }
   },
   "calendar": {

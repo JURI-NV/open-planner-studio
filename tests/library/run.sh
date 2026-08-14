@@ -33,5 +33,6 @@ run_check check-projectinfo-guard
 run_check check-pool-ifc
 run_check check-ifc-hostile
 run_check check-i18n-plurals
+run_check check-occupancy
 
 exit "$STATUS"

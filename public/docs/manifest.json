@@ -127,6 +127,27 @@
       "cluster": "resourcebibliotheken"
     },
     {
+      "id": "gids-bezettingsoverzicht",
+      "title": {
+        "nl": "Bezettingsoverzicht",
+        "en": "Occupancy overview",
+        "de": "Auslastungsübersicht",
+        "fr": "Aperçu de l'occupation",
+        "es": "Resumen de ocupación",
+        "zh": "占用概览",
+        "it": "Panoramica dell'occupazione",
+        "pt": "Visão geral da ocupação",
+        "pl": "Przegląd obłożenia",
+        "tr": "Doluluk özeti",
+        "ar": "نظرة عامة على الإشغال",
+        "ja": "稼働状況の概要",
+        "ko": "가동 현황 개요",
+        "fa": "نمای کلی اشغال"
+      },
+      "layer": "gidsen",
+      "cluster": "bezettingsoverzicht"
+    },
+    {
       "id": "gids-baselines-voortgang",
       "title": {
         "nl": "Baselines & voortgang",

@@ -35,6 +35,8 @@ Sobald ein Projekt mit einer Bibliothek verknüpft ist, erhält das Tab Ressourc
 - **Bibliothek** — die Quelle selbst verwalten. Alles hier ist direkt bearbeitbar, eine Änderung gilt sofort für **jedes** Projekt, das aus dieser Bibliothek schöpft, und liegt außerhalb von Rückgängig machen (Strg+Z) — es ist keine Projektbearbeitung.
 - **Projekt** — was dieses Projekt tatsächlich verwendet: die gewohnte Projekttabelle, mit Markierungen pro Zeile für Herkunft und etwaige Abweichungen.
 
+Arbeiten Sie mit mehreren geöffneten Projekten, die alle aus derselben Bibliothek schöpfen, gibt es noch eine dritte Ansicht: **Auslastung**. Sie zeigt pro Bibliotheksressource, wo sie über *alle* geöffneten Dokumente hinweg gebucht ist, und markiert die Tage, an denen die Summe dieser Buchungen die Firmenkapazität übersteigt — Doppelbelegung zwischen Projekten, die kein einzelnes Projekt allein sehen kann. Lesen Sie die Anleitung [Auslastungsübersicht](docs://gids-bezettingsoverzicht).
+
 ## Drei Arten von Zeilen in der Projektansicht
 
 In der Projektansicht begegnen Ihnen drei Arten von Zeilen:

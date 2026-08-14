@@ -516,6 +516,29 @@
       "bell": "A campana",
       "earlyPeak": "Picco anticipato",
       "latePeak": "Picco tardivo"
+    },
+    "occupancyView": "Occupazione",
+    "occupancy": {
+      "empty": "Nessuna risorsa della libreria prenotata nei documenti aperti.",
+      "machineOnly": "Questa panoramica vede solo i documenti aperti in questa applicazione.",
+      "staleDoc": "Non conteggiato: pianificazione non calcolata — attiva questo documento e premi F5.",
+      "staleBanner": "Almeno un documento non è stato calcolato e non è incluso nell'occupazione.",
+      "staleComputedDoc": "Calcolato in anticipo per questa panoramica — il documento stesso mostra ancora le date precedenti finché non premi F5 al suo interno.",
+      "staleComputedBanner": "I documenti modificati sono stati calcolati in anticipo per questa panoramica; premi F5 nel documento per vederlo anche lì.",
+      "docCount_one": "{{count}} documento",
+      "docCount_many": "{{count}} documenti",
+      "docCount_other": "{{count}} documenti",
+      "conflictDays_one": "{{count}} giorno con doppia prenotazione",
+      "conflictDays_many": "{{count}} giorni con doppia prenotazione",
+      "conflictDays_other": "{{count}} giorni con doppia prenotazione",
+      "moreDays_one": "… e {{count}} altro",
+      "moreDays_many": "… e {{count}} altri",
+      "moreDays_other": "… e {{count}} altri",
+      "period": "Periodo",
+      "peak": "Picco",
+      "capacity": "Capacità",
+      "documents": "Documenti",
+      "selectHint": "Seleziona una risorsa per vedere l'istogramma."
     }
   },
   "calendar": {

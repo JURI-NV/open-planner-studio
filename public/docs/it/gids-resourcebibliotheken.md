@@ -35,6 +35,8 @@ Non appena un progetto è collegato a una libreria, la scheda Risorse ottiene in
 - **Libreria** — gestisci la fonte stessa. Qui tutto è direttamente modificabile, una modifica si applica immediatamente a **tutti** i progetti che attingono da questa libreria, e resta fuori dall'annullamento (Ctrl+Z) — non è una modifica di progetto.
 - **Progetto** — ciò che questo progetto usa effettivamente: la normale tabella di progetto, con contrassegni per riga per la provenienza ed eventuali scostamenti.
 
+Se lavori con più progetti aperti che attingono tutti dalla stessa libreria, esiste anche una terza vista: **Occupazione**. Mostra, per ogni risorsa di libreria, dove è impegnata attraverso *tutti* i documenti aperti, e segnala i giorni in cui la somma di quegli impegni supera la capacità dell'azienda — la doppia prenotazione tra progetti, che nessun progetto può vedere da solo. Leggi la guida [Panoramica dell'occupazione](docs://gids-bezettingsoverzicht).
+
 ## Tre tipi di righe nella vista di progetto
 
 Nella vista di progetto incontri tre tipi di righe:

@@ -35,6 +35,8 @@ Bir proje bir kitaplığa bağlandığında, Kaynaklar sekmesi sağ üstte iki g
 - **Kitaplık** — kaynağın kendisini yönetin. Buradaki her şey doğrudan düzenlenebilir, bir değişiklik bu kitaplıktan yararlanan **her** projeye anında uygulanır, ve geri almanın (Ctrl+Z) dışında kalır — bu bir proje düzenlemesi değildir.
 - **Proje** — bu projenin gerçekte kullandığı şey: kökeni ve olası sapmaları satır başına işaretlerle gösteren olağan proje tablosu.
 
+Hepsi aynı kitaplıktan yararlanan birden fazla açık projeyle çalışıyorsanız, bir de üçüncü görünüm vardır: **Doluluk**. Her kitaplık kaynağı için, *tüm* açık belgeler boyunca nerede ayrıldığını gösterir ve bu ayırmaların toplamının şirket kapasitesini aştığı günleri işaretler — hiçbir projenin tek başına göremeyeceği, projeler arası çifte rezervasyon. [Doluluk özeti](docs://gids-bezettingsoverzicht) kılavuzunu okuyun.
+
 ## Proje görünümündeki üç tür satır
 
 Proje görünümünde üç tür satırla karşılaşırsınız:

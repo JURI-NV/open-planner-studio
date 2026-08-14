@@ -14,7 +14,21 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 ### Bedrijfsbibliotheken (B1.1) — vervolgen (2026-07-24)
 - [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
   herkomststempels + Resources-tab Bedrijfsweergave uit B1.1). Zie docs/library.md
-  "Bekende beperkingen".
+  "Bekende beperkingen". In uitvoering — ontwerpdoc:
+  docs/superpowers/specs/2026-08-14-b1b-bezettingsoverzicht-design.md (incl. §5a-histogram
+  per poolitem, besluit eigenaar 2026-08-14).
+- [ ] **B1b-vervolg: "alle resources"-histogram verkennen** (wens eigenaar 2026-08-14). De
+  per-dag-data ligt er na B1b al (`dailyLoad` per booking). Drie kandidaatvormen, kiezen ná
+  praktijkervaring met v1: (a) totaalsom over alle poolitems zoals "All resources" in het
+  projecthistogram, met rood op dagen waarop minstens één item boven zijn capaciteit zit;
+  (b) mini-histogram/sparkline per tabelrij, elk op eigen schaal met eigen capaciteitslijn;
+  (c) heatmap resources × dagen met bezetting-t.o.v.-capaciteit als celkleur (de klassieke
+  "resource usage"-weergave, schaalt het best bij grote pools).
+- [ ] **B1c — nivelleren tegen restcapaciteit** (besluit eigenaar 2026-08-14): vanuit een
+  conflictregel het veroorzakende document activeren en dáár nivelleren tegen
+  bedrijfscapaciteit mín de boekingen van de andere open documenten. Eigen ontwerpdoc ná
+  oplevering B1b; zie het B1b-ontwerpdoc §12 voor de open ontwerpvragen. Echt simultaan
+  cross-document nivelleren blijft aan onderhoudbaarheidsitem 41 (`createAppStore()`) hangen.
 - [ ] **Gedeelde opslag/sync** tussen machines (wortel van alle drie de B1.1-beperkingen: pool-
   divergentie tussen planners, bezettingsoverzicht dat alleen de eigen machine ziet, en
   stilzwijgend overschrijven tussen twee tabbladen/vensters op dezelfde machine).

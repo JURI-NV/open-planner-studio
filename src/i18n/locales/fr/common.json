@@ -516,6 +516,29 @@
       "bell": "En cloche",
       "earlyPeak": "Pic précoce",
       "latePeak": "Pic tardif"
+    },
+    "occupancyView": "Occupation",
+    "occupancy": {
+      "empty": "Aucune ressource de la bibliothèque n'est réservée dans les documents ouverts.",
+      "machineOnly": "Cet aperçu ne voit que les documents ouverts dans cette application.",
+      "staleDoc": "Non compté : planification non calculée — activez ce document et appuyez sur F5.",
+      "staleBanner": "Au moins un document n'a pas été calculé et n'est pas pris en compte dans l'occupation.",
+      "staleComputedDoc": "Calculé à l'avance pour cet aperçu — le document lui-même affiche encore d'anciennes dates jusqu'à ce que vous appuyiez sur F5.",
+      "staleComputedBanner": "Les documents modifiés ont été calculés à l'avance pour cet aperçu ; appuyez sur F5 dans le document pour le voir également là-bas.",
+      "docCount_one": "{{count}} document",
+      "docCount_many": "{{count}} documents",
+      "docCount_other": "{{count}} documents",
+      "conflictDays_one": "{{count}} jour réservé en double",
+      "conflictDays_many": "{{count}} jours réservés en double",
+      "conflictDays_other": "{{count}} jours réservés en double",
+      "moreDays_one": "… et {{count}} de plus",
+      "moreDays_many": "… et {{count}} de plus",
+      "moreDays_other": "… et {{count}} de plus",
+      "period": "Période",
+      "peak": "Pic",
+      "capacity": "Capacité",
+      "documents": "Documents",
+      "selectHint": "Sélectionnez une ressource pour voir l'histogramme."
     }
   },
   "calendar": {

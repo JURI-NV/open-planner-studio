@@ -518,6 +518,32 @@
       "bell": "Dzwonowy",
       "earlyPeak": "Wczesny szczyt",
       "latePeak": "Późny szczyt"
+    },
+    "occupancyView": "Obłożenie",
+    "occupancy": {
+      "empty": "Brak zasobów z biblioteki zarezerwowanych w otwartych dokumentach.",
+      "machineOnly": "Ten przegląd widzi tylko dokumenty otwarte w tej aplikacji.",
+      "staleDoc": "Nie liczy się: harmonogram nieprzeliczony — aktywuj ten dokument i naciśnij F5.",
+      "staleBanner": "Co najmniej jeden dokument nie został przeliczony i nie jest uwzględniony w obłożeniu.",
+      "staleComputedDoc": "Obliczone z wyprzedzeniem na potrzeby tego przeglądu — sam dokument nadal pokazuje starsze daty, dopóki nie naciśniesz tam F5.",
+      "staleComputedBanner": "Zmienione dokumenty zostały obliczone z wyprzedzeniem na potrzeby tego przeglądu; naciśnij F5 w dokumencie, aby zobaczyć to również tam.",
+      "docCount_one": "{{count}} dokument",
+      "docCount_few": "{{count}} dokumenty",
+      "docCount_many": "{{count}} dokumentów",
+      "docCount_other": "{{count}} dokumentu",
+      "conflictDays_one": "{{count}} dzień podwójnie zarezerwowany",
+      "conflictDays_few": "{{count}} dni podwójnie zarezerwowane",
+      "conflictDays_many": "{{count}} dni podwójnie zarezerwowanych",
+      "conflictDays_other": "{{count}} dnia podwójnie zarezerwowanego",
+      "moreDays_one": "… i {{count}} więcej",
+      "moreDays_few": "… i {{count}} więcej",
+      "moreDays_many": "… i {{count}} więcej",
+      "moreDays_other": "… i {{count}} więcej",
+      "period": "Okres",
+      "peak": "Szczyt",
+      "capacity": "Zdolność",
+      "documents": "Dokumenty",
+      "selectHint": "Wybierz zasób, aby zobaczyć histogram."
     }
   },
   "calendar": {

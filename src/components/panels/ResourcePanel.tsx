@@ -9,6 +9,7 @@ import { ResourceCalendarDialog } from '@/components/dialogs/ResourceCalendarDia
 import { UnitsInput } from '@/components/common/UnitsInput';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { isResourceFieldLocked, matchByName, computeResourceHash, normalizeName } from '@/services/library/libraryOps';
+import { ResourceOccupancyView } from './ResourceOccupancyView';
 import { useLiveGridNav } from './hooks/useLiveGridNav';
 import { controlKindOf, liveGridNavDirection } from '@/utils/gridNavigation';
 
@@ -59,7 +60,10 @@ const cellStatic = 'block !text-[11px] !px-1.5 !py-1 w-full truncate text-text-s
 
 /**
  * Resource-beheerpaneel (fase 2.5, §6.2; herzien issue #19 — bibliotheek = bron, project = inzet).
- * Twee weergaven, BEIDE met de volledige inline-tabel-editor (`ResourceRow`, gedeeld):
+ * Drie weergaven; de eerste twee BEIDE met de volledige inline-tabel-editor (`ResourceRow`,
+ * gedeeld), de derde (B1b, `resourcesView === 'occupancy'`) is een leesvenster in een eigen
+ * component (`ResourceOccupancyView`): de bezetting van de gekoppelde bibliotheek over álle open
+ * documenten, alleen zichtbaar onder dezelfde `linked`-conditie als de Bibliotheekweergave.
  *
  * - **Bibliotheekweergave** (`resourcesView === 'company'`): de POOL van het gekoppelde bedrijf —
  *   dit IS de bron. CRUD loopt uitsluitend via `addPoolResource`/`updatePoolResource`/
@@ -110,6 +114,11 @@ export function ResourcePanel() {
   const linked = !!project.companyId && companies.some(c => c.id === project.companyId);
   const pool = project.companyId ? pools[project.companyId] : undefined;
   const inPoolView = linked && resourcesView === 'company' && !!pool;
+  // B1b (spec §3): derde stand — bezettingsoverzicht van de bibliotheek over alle open documenten.
+  // Zelfde vangnet als de Bibliotheekweergave: valt de koppeling weg terwijl deze weergave openstaat,
+  // dan is `inOccupancyView` false en rendert de else-tak (Projectweergave) — het effect op
+  // [project.companyId, linked] hieronder zet `ui.resourcesView` daarna ook echt terug.
+  const inOccupancyView = linked && resourcesView === 'occupancy' && !!pool;
 
   // Kalender-editor: null = dicht. `poolCompanyId` aanwezig ⇒ de dialoog bewerkt/maakt een
   // POOL-kalender (via addPoolCalendar/updatePoolCalendar) i.p.v. een projectkalender.
@@ -138,10 +147,12 @@ export function ResourcePanel() {
   // de pending-rij bestaat sowieso maar heel even en mag altijd focus krijgen.
   const [pendingNew, setPendingNew] = useState<{ variant: 'project' | 'pool'; draft: ResourceDraft } | null>(null);
   /** Welke draft-variant hoort bij een gegeven weergave — één definitie, gebruikt door de knop, de
-   *  weergave-wissel-reset hieronder en de lintknop-route (#48-1). Spiegelt `inPoolView`. */
-  const variantForView = (view: 'company' | 'project'): 'project' | 'pool' =>
+   *  weergave-wissel-reset hieronder en de lintknop-route (#48-1). Spiegelt `inPoolView`. De
+   *  Bezettingsweergave (B1b) is een leesvenster zonder tabel — daar hoort geen draft; aanroepers
+   *  schakelen eerst naar de Projectweergave (zie de lintknop-route hieronder). */
+  const variantForView = (view: 'company' | 'project' | 'occupancy'): 'project' | 'pool' =>
     (linked && view === 'company' && !!pool) ? 'pool' : 'project';
-  const openDraft = (view: 'company' | 'project') =>
+  const openDraft = (view: 'company' | 'project' | 'occupancy') =>
     setPendingNew({ variant: variantForView(view), draft: freshDraft() });
 
   // #48 (vervolgmelding van de melder): "Is it the intended behavior for the concept row to have
@@ -252,7 +263,9 @@ export function ResourcePanel() {
   useEffect(() => {
     if (resourcesView !== 'company') { setConfirmPoolDelete(null); setPoolNotice(null); }
     if (resourcesView !== 'project') { setConfirmDelete(null); setProjectNotice(null); }
-    setPendingNew(p => (p && p.variant === variantForView(resourcesView) ? p : null));
+    // De Bezettingsweergave (B1b) rendert geen tabel — een meereizende draft zou er onzichtbaar
+    // (en oncommitbaar) in blijven hangen, dus die vervalt daar altijd.
+    setPendingNew(p => (p && resourcesView !== 'occupancy' && p.variant === variantForView(resourcesView) ? p : null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourcesView]);
 
@@ -302,7 +315,15 @@ export function ResourcePanel() {
   // draft in de tabel landt die de gebruiker daadwerkelijk te zien krijgt.
   useEffect(() => {
     if (!pendingNewResource) return;
-    openDraft(useAppStore.getState().ui.resourcesView);
+    // B1b: de Bezettingsweergave is een leesvenster zonder tabel — een nieuwe resource hoort in de
+    // Projectweergave, dus daar eerst naartoe schakelen (de draft-reset hierboven laat een
+    // project-draft daar gewoon staan).
+    let view = useAppStore.getState().ui.resourcesView;
+    if (view === 'occupancy') {
+      view = 'project';
+      setUI({ resourcesView: 'project' });
+    }
+    openDraft(view);
     requestFocus(DRAFT_ROW_ID, 'name');
     setUI({ pendingNewResource: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -445,11 +466,21 @@ export function ResourcePanel() {
                 className={`px-2 py-1 ${resourcesView === 'project' ? 'bg-surface-hover font-semibold' : ''}`}
                 onClick={() => setUI({ resourcesView: 'project' })}
               >{t('companyLibrary.projectView')}</button>
+              {/* B1b (spec §3): derde stand — bezetting van de bibliotheek over alle open documenten.
+                  Zelfde zichtbaarheidsconditie als de hele schakelaar (`linked`). */}
+              <button
+                className={`px-2 py-1 ${resourcesView === 'occupancy' ? 'bg-surface-hover font-semibold' : ''}`}
+                onClick={() => setUI({ resourcesView: 'occupancy' })}
+                data-ops-occupancy-view-button
+              >{t('resource.occupancyView')}</button>
             </div>
           )}
-          <button onClick={onAddClick} className="btn btn--sm btn--primary flex items-center gap-1" data-ops-resource-add>
-            <Plus size={13} /> {inPoolView ? t('resource.panel.addRowLibrary') : t('resource.panel.addRow')}
-          </button>
+          {/* B1b: de Bezettingsweergave is een leesvenster — geen "+ Nieuwe resource" daar. */}
+          {!inOccupancyView && (
+            <button onClick={onAddClick} className="btn btn--sm btn--primary flex items-center gap-1" data-ops-resource-add>
+              <Plus size={13} /> {inPoolView ? t('resource.panel.addRowLibrary') : t('resource.panel.addRow')}
+            </button>
+          )}
           <button
             onClick={() => setUI({ showResourcePanel: false })}
             className="p-1 hover:bg-surface-hover rounded"
@@ -460,7 +491,9 @@ export function ResourcePanel() {
         </div>
       </div>
 
-      {inPoolView && pool ? (
+      {inOccupancyView && pool && project.companyId ? (
+        <ResourceOccupancyView companyId={project.companyId} pool={pool} />
+      ) : inPoolView && pool ? (
         <div className="flex-1 overflow-auto" ref={grid.gridRef}>
           {/* Waarschuwingsbanner (issue #64c): dit was platte cursieve tekst, maar "bewerkt de
               bibliotheek, geldt voor alle projecten, valt buiten undo" is precies het soort
