@@ -4,7 +4,7 @@ import { writeCSV } from '@/services/csv/csvWriter';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { openFileDialog, saveFileDialog, saveToRef, readFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
-import { openDialogFilters, parseOpenedFile, parseProjectXml, type ExportFormat } from '@/services/formatRegistry';
+import { openDialogFilters, parseOpenedFile, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -34,9 +34,9 @@ export function isActivePristine(s: AppState): boolean {
   );
 }
 
-// `parseProjectXml` en `ExportFormat` wonen nu in de formatRegistry (T1); hier her-exporteren
-// zodat bestaande importeurs (Backstage, MCP) ongewijzigd blijven werken.
-export { parseProjectXml, type ExportFormat };
+// `ExportFormat` woont nu in de formatRegistry (T1); hier her-exporteren zodat bestaande
+// importeurs (Backstage, via appStore) ongewijzigd blijven werken.
+export { type ExportFormat };
 
 /** Resultaat van `exportAs` (K7): bij een cyclische planning wordt de export afgebroken vóór de
  *  opslaan-dialoog en de CPM-cyclusfout (`cpmResult.error`) als boodschap meegegeven, zodat de

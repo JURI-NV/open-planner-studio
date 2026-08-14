@@ -15,6 +15,7 @@ import {
   saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
 } from '@/utils/settingsStore';
 import { ExportFormat } from '@/state/appStore';
+import { EXPORT_FORMATS } from '@/services/formatRegistry';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { supportsHandles } from '@/services/fileAccess';
 import { DateTextInput } from '@/components/common/DateTextInput';
@@ -350,12 +351,9 @@ export function ExportDropdown() {
   const [open, setOpen] = useState(false);
   const exportAs = useAppStore(s => s.exportAs);
 
-  const formats: { label: string; format: ExportFormat }[] = [
-    { label: tMenu('export.csvShort'), format: 'csv' },
-    { label: tMenu('export.mspdiLabel'), format: 'mspdi' },
-    { label: tMenu('export.p6Label'), format: 'p6' },
-    { label: tMenu('export.ifcLabel'), format: 'ifc' },
-  ];
+  const formats: { label: string; format: ExportFormat }[] = EXPORT_FORMATS.map(
+    (f) => ({ label: tMenu(f.shortLabelKey ?? f.labelKey), format: f.format }),
+  );
 
   return (
     <Popover

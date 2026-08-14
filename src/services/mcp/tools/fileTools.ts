@@ -341,6 +341,9 @@ export const fileTools: McpToolDef[] = [
 
       let parsed: ImportResult;
       try {
+        // Geen `labels`: dienstlaag zonder `t(...)` — de MCP-laag is AI-facing en kent geen UI-taal.
+        // `readIFC` valt dan terug op de Engelse default voor een bestand zonder IFCPROJECT (zie
+        // ImportLabels).
         parsed = await parseOpenedFile({ name: path, text: content });
       } catch (e) {
         return toolError(ctx, 'VALIDATION', `'${path}' kon niet worden gelezen als planning: ${e instanceof Error ? e.message : String(e)}`);

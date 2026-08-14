@@ -22,9 +22,9 @@ export interface ReadFormat {
   read(input: FormatInput, labels?: ImportLabels): Promise<ImportResult>;
 }
 
-/** Kies de juiste XML-reader op basis van inhoudsmarkers (P6 vóór MS Project).
- *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen.
- *  Geëxporteerd voor `planner_import_schedule` (MCP), dat dezelfde formaatherkenning gebruikt. */
+/** Interne subdispatch voor de xml-entry van `READ_FORMATS`: kies de juiste XML-reader op basis
+ *  van inhoudsmarkers (P6 vóór MS Project). Gooit bij een onbekend formaat i.p.v. stil als MSPDI
+ *  te parsen. */
 export function parseProjectXml(content: string): ImportResult {
   const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
   const isMsProject =
@@ -44,10 +44,18 @@ const READ_FORMATS: ReadFormat[] = [
     read: async (i) => parseProjectXml(i.text ?? '') },
 ];
 
-/** Extensie-match; onbekende extensie ⇒ IFC (bestaand gedrag: de else-tak van alle vijf kopieën). */
+/** Default-formaat bij een onbekende extensie (bestaand gedrag: de else-tak van alle vijf
+ *  kopieën). Expliciet op id opgezocht i.p.v. `READ_FORMATS[0]` — zo wisselt herordenen van
+ *  `READ_FORMATS` nooit stilzwijgend de default-reader. */
+const DEFAULT_FORMAT_ID = 'ifc';
+
+/** Extensie-match; onbekende extensie ⇒ de default (IFC). */
 export function readFormatForFile(name: string): ReadFormat {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  return READ_FORMATS.find((f) => f.extensions.includes(ext)) ?? READ_FORMATS[0];
+  return (
+    READ_FORMATS.find((f) => f.extensions.includes(ext)) ??
+    READ_FORMATS.find((f) => f.id === DEFAULT_FORMAT_ID)!
+  );
 }
 
 export function openDialogFilters(): FileFilter[] {
@@ -66,8 +74,13 @@ export function parseOpenedFile(input: FormatInput, labels?: ImportLabels): Prom
 }
 
 /** Vertaalsleutel voor een mislukte open-actie. Duck-typed op `mppCode` zodat deze module de
- *  (lazy geladen) mpp-chunk niet statisch hoeft te importeren. */
-export function importErrorMessageKey(err: unknown): string {
+ *  (lazy geladen) mpp-chunk niet statisch hoeft te importeren. Returntype is de letterlijke
+ *  union die de enige geplande afnemer (T8: `notify({ messageKey: … })`) verwacht — bewust
+ *  hier als losse literals herhaald i.p.v. `NotificationMessageKey` te importeren, zodat deze
+ *  laag (services/) niet van state/ afhangt. */
+export function importErrorMessageKey(
+  err: unknown,
+): 'notifications.openFailed' | 'notifications.mppEncrypted' | 'notifications.mppLegacy' {
   const code = (err as { mppCode?: string } | null | undefined)?.mppCode;
   if (code === 'MPP_ENCRYPTED') return 'notifications.mppEncrypted';
   if (code === 'MPP_LEGACY') return 'notifications.mppLegacy';
@@ -78,12 +91,20 @@ export function importErrorMessageKey(err: unknown): string {
 
 export type ExportFormat = 'ifc' | 'csv' | 'mspdi' | 'p6';
 
-export interface ExportFormatMeta { format: ExportFormat; icon: string; labelKey: string; descKey: string }
+export interface ExportFormatMeta {
+  format: ExportFormat;
+  icon: string;
+  labelKey: string;
+  descKey: string;
+  /** Korte variant voor de ribbon-exportdropdown (ExportDropdown); alleen csv wijkt af van
+   *  `labelKey` — de overige drie hergebruiken hun volle label. */
+  shortLabelKey?: string;
+}
 
-/** Volgorde = bestaande Backstage-volgorde. */
-export const EXPORT_FORMATS: ExportFormatMeta[] = [
-  { format: 'csv', icon: 'CSV', labelKey: 'export.csvLabel', descKey: 'export.csvDesc' },
-  { format: 'mspdi', icon: 'XML', labelKey: 'export.mspdiLabel', descKey: 'export.mspdiDesc' },
-  { format: 'p6', icon: 'P6', labelKey: 'export.p6Label', descKey: 'export.p6Desc' },
-  { format: 'ifc', icon: 'IFC', labelKey: 'export.ifcLabel', descKey: 'export.ifcDesc' },
-];
+/** Volgorde = bestaande Backstage-volgorde (en, sinds de review-fix, ook ExportDropdown). */
+export const EXPORT_FORMATS = [
+  { format: 'csv', icon: 'CSV', labelKey: 'export.csvLabel', descKey: 'export.csvDesc', shortLabelKey: 'export.csvShort' },
+  { format: 'mspdi', icon: 'XML', labelKey: 'export.mspdiLabel', descKey: 'export.mspdiDesc', shortLabelKey: undefined },
+  { format: 'p6', icon: 'P6', labelKey: 'export.p6Label', descKey: 'export.p6Desc', shortLabelKey: undefined },
+  { format: 'ifc', icon: 'IFC', labelKey: 'export.ifcLabel', descKey: 'export.ifcDesc', shortLabelKey: undefined },
+] as const satisfies readonly ExportFormatMeta[];

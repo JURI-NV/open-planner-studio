@@ -365,9 +365,7 @@ function ExportSection() {
   }, [companyId]);
 
   const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = EXPORT_FORMATS.map(
-    // Runtime-sleutel uit de registry i.p.v. een letterlijke union — zelfde `as never`-patroon als
-    // useRibbonTranslate (RibbonTabContent.tsx) om de i18next-typing (letterlijke sleutel-union) te omzeilen.
-    (f) => ({ format: f.format, label: tMenu(f.labelKey as never), desc: tMenu(f.descKey as never), icon: f.icon }),
+    (f) => ({ format: f.format, label: tMenu(f.labelKey), desc: tMenu(f.descKey), icon: f.icon }),
   );
 
   // K7: bij een cyclische planning geeft exportAs { ok: false } met cpmResult.error terug.
