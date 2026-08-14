@@ -154,7 +154,7 @@
     "notCalculated": "Neu berechnen (F5), um maßgebende Beziehungen und Puffer zu sehen",
     "warnTruncatedLead": "Vorlauf am Projektstart gekappt — die Überlappung wird nicht vollständig genutzt",
     "warnLeadExceedsDuration": "Der Vorlauf ist größer als die Dauer des Vorgängers",
-    "warnSummaryEndpoint": "Ohne Wirkung: Sammelvorgang als Endpunkt"
+    "warnSummaryEndpoint": "Ohne Wirkung: Sammelaufgabe als Endpunkt"
   },
   "structure": {
     "title": "Codes & Felder",

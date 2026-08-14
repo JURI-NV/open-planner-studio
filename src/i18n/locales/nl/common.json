@@ -15,8 +15,8 @@
     "templateSaved": "Tak bewaard als sjabloon '{{name}}'",
     "relationCreated": "Relatie aangemaakt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Deze relatie bestaat al",
-    "relationSummaryEndpoint": "Een verzameltaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.",
-    "summaryRelationsIgnored": "{{total}} relatie(s) op verzameltaken hebben geen effect op de planning."
+    "relationSummaryEndpoint": "Een samenvattingstaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.",
+    "summaryRelationsIgnored": "{{total}} relatie(s) op samenvattingstaken hebben geen effect op de planning."
   },
   "yes": "Ja",
   "no": "Nee",

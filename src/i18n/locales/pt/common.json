@@ -15,8 +15,8 @@
     "templateSaved": "Ramo guardado como modelo '{{name}}'",
     "relationCreated": "Relação criada: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Essa relação já existe",
-    "relationSummaryEndpoint": "Uma tarefa de resumo como extremidade não tem efeito no cronograma. Ligue a uma tarefa sem subtarefas.",
-    "summaryRelationsIgnored": "{{total}} relação(ões) em tarefas de resumo não têm efeito no cronograma."
+    "relationSummaryEndpoint": "Uma tarefa de resumo como extremidade não tem efeito na planificação. Ligue-a a uma tarefa sem subtarefas.",
+    "summaryRelationsIgnored": "{{total}} relação(ões) em tarefas de resumo não têm efeito na planificação."
   },
   "yes": "Sim",
   "no": "Não",

@@ -15,8 +15,8 @@
     "templateSaved": "Rama guardada como plantilla '{{name}}'",
     "relationCreated": "Relación creada: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Esa relación ya existe",
-    "relationSummaryEndpoint": "Una tarea de resumen como extremo no afecta a la programación. Vincule con una tarea sin subtareas.",
-    "summaryRelationsIgnored": "{{total}} relación(es) en tareas de resumen no afectan a la programación."
+    "relationSummaryEndpoint": "Una tarea de resumen como extremo no afecta a la planificación. Vincúlela a una tarea sin subtareas.",
+    "summaryRelationsIgnored": "{{total}} relación(es) en tareas de resumen no afectan a la planificación."
   },
   "yes": "Sí",
   "no": "No",

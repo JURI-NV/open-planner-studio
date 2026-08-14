@@ -154,7 +154,7 @@
     "notCalculated": "Herbereken (F5) om bepalende relaties en speling te zien",
     "warnTruncatedLead": "Lead afgekapt op de projectstart — de overlap wordt niet volledig benut",
     "warnLeadExceedsDuration": "Lead is groter dan de duur van de voorganger",
-    "warnSummaryEndpoint": "Zonder effect: verzameltaak als eindpunt"
+    "warnSummaryEndpoint": "Zonder effect: samenvattingstaak als eindpunt"
   },
   "structure": {
     "title": "Codes & velden",

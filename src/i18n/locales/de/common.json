@@ -15,8 +15,8 @@
     "templateSaved": "Zweig als Vorlage '{{name}}' gespeichert",
     "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Diese Beziehung besteht bereits",
-    "relationSummaryEndpoint": "Ein Sammelvorgang als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie mit einem Vorgang ohne Teilvorgänge.",
-    "summaryRelationsIgnored": "{{total}} Verknüpfung(en) an Sammelvorgängen haben keine Auswirkung auf den Terminplan."
+    "relationSummaryEndpoint": "Eine Sammelaufgabe als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie sie mit einer Aufgabe ohne Unteraufgaben.",
+    "summaryRelationsIgnored": "{{total}} Beziehung(en) an Sammelaufgaben haben keine Auswirkung auf den Terminplan."
   },
   "yes": "Ja",
   "no": "Nein",

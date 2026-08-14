@@ -15,8 +15,8 @@
     "templateSaved": "تم حفظ الفرع كقالب '{{name}}'",
     "relationCreated": "تم إنشاء العلاقة: من {{predecessor}} إلى {{successor}}",
     "relationDuplicate": "هذه العلاقة موجودة بالفعل",
-    "relationSummaryEndpoint": "مهمة التلخيص كنقطة نهاية ليس لها تأثير على الجدول الزمني. اربطها بمهمة بدون مهام فرعية.",
-    "summaryRelationsIgnored": "{{total}} علاقة على مهام التلخيص ليس لها تأثير على الجدول الزمني."
+    "relationSummaryEndpoint": "المهمة الموجزة كنقطة نهاية لا تؤثر في الجدول الزمني. اربطها بمهمة بدون مهام فرعية.",
+    "summaryRelationsIgnored": "عدد العلاقات المرتبطة بمهام موجزة والتي لا تؤثر في الجدول الزمني: {{total}}."
   },
   "yes": "نعم",
   "no": "لا",

@@ -319,28 +319,30 @@ Naast de bestaande `relationCreated` / `relationDuplicate` (nl/en regel 16-17).
 
 | locale | `relationSummaryEndpoint` | `summaryRelationsIgnored` |
 |---|---|---|
-| nl | `Een verzameltaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.` | `{{total}} relatie(s) op verzameltaken hebben geen effect op de planning.` |
+| nl | `Een samenvattingstaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.` | `{{total}} relatie(s) op samenvattingstaken hebben geen effect op de planning.` |
 | en | `A summary task as endpoint has no effect on the schedule. Link to a task without subtasks.` | `{{total}} relation(s) on summary tasks have no effect on the schedule.` |
-| de | `Ein Sammelvorgang als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie mit einem Vorgang ohne Teilvorgänge.` | `{{total}} Verknüpfung(en) an Sammelvorgängen haben keine Auswirkung auf den Terminplan.` |
-| fr | `Une tâche récapitulative comme extrémité n'a aucun effet sur le planning. Reliez à une tâche sans sous-tâches.` | `{{total}} liaison(s) sur des tâches récapitulatives n'ont aucun effet sur le planning.` |
-| es | `Una tarea de resumen como extremo no afecta a la programación. Vincule con una tarea sin subtareas.` | `{{total}} relación(es) en tareas de resumen no afectan a la programación.` |
-| it | `Un'attività di riepilogo come estremità non ha effetto sulla pianificazione. Collega a un'attività senza attività secondarie.` | `{{total}} relazione/i su attività di riepilogo non hanno effetto sulla pianificazione.` |
-| pt | `Uma tarefa de resumo como extremidade não tem efeito no cronograma. Ligue a uma tarefa sem subtarefas.` | `{{total}} relação(ões) em tarefas de resumo não têm efeito no cronograma.` |
+| de | `Eine Sammelaufgabe als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie sie mit einer Aufgabe ohne Unteraufgaben.` | `{{total}} Beziehung(en) an Sammelaufgaben haben keine Auswirkung auf den Terminplan.` |
+| fr | `Une tâche récapitulative comme extrémité n'a aucun effet sur le planning. Reliez-la plutôt à une tâche sans sous-tâches.` | `{{total}} relation(s) sur des tâches récapitulatives n'ont aucun effet sur le planning.` |
+| es | `Una tarea de resumen como extremo no afecta a la planificación. Vincúlela a una tarea sin subtareas.` | `{{total}} relación(es) en tareas de resumen no afectan a la planificación.` |
+| it | `Un'attività di riepilogo come estremità non ha effetto sulla pianificazione. Collegala a un'attività senza sottoattività.` | `{{total}} relazione/i su attività di riepilogo non hanno effetto sulla pianificazione.` |
+| pt | `Uma tarefa de resumo como extremidade não tem efeito na planificação. Ligue-a a uma tarefa sem subtarefas.` | `{{total}} relação(ões) em tarefas de resumo não têm efeito na planificação.` |
 | pl | `Zadanie sumaryczne jako punkt końcowy nie ma wpływu na harmonogram. Połącz z zadaniem bez podzadań.` | `Relacje na zadaniach sumarycznych bez wpływu na harmonogram: {{total}}.` |
 | tr | `Uç nokta olarak bir özet görev planlamayı etkilemez. Alt görevi olmayan bir göreve bağlayın.` | `Özet görevlerdeki {{total}} ilişki planlamayı etkilemiyor.` |
-| zh | `以摘要任务作为端点对进度计划没有影响。请链接到没有子任务的任务。` | `{{total}} 条位于摘要任务上的关系对进度计划没有影响。` |
+| zh | `以摘要任务作为端点对计划没有影响。请链接到没有子任务的任务。` | `{{total}} 条位于摘要任务上的关系对计划没有影响。` |
 | ja | `サマリータスクを端点にしてもスケジュールには影響しません。サブタスクのないタスクにリンクしてください。` | `サマリータスク上の {{total}} 件の関係はスケジュールに影響しません。` |
 | ko | `요약 작업을 끝점으로 사용해도 일정에 영향을 주지 않습니다. 하위 작업이 없는 작업에 연결하세요.` | `요약 작업의 관계 {{total}}개는 일정에 영향을 주지 않습니다.` |
-| ar | `مهمة التلخيص كنقطة نهاية ليس لها تأثير على الجدول الزمني. اربطها بمهمة بدون مهام فرعية.` | `{{total}} علاقة على مهام التلخيص ليس لها تأثير على الجدول الزمني.` |
+| ar | `المهمة الموجزة كنقطة نهاية لا تؤثر في الجدول الزمني. اربطها بمهمة بدون مهام فرعية.` | `عدد العلاقات المرتبطة بمهام موجزة والتي لا تؤثر في الجدول الزمني: {{total}}.` |
 | fa | `وظیفه خلاصه به عنوان نقطه پایانی تأثیری بر زمان‌بندی ندارد. به وظیفه‌ای بدون زیروظیفه پیوند دهید.` | `{{total}} رابطه روی وظایف خلاصه بر زمان‌بندی تأثیری ندارد.` |
+
+**Terminologie:** de `nl`-tekst gebruikt "samenvattingstaak" (de gevestigde gebruikersterm, o.a. `menu.json`, `task.json`, `public/docs/nl/ref-taakdialoog.md`) en niet "verzameltaak" — dat laatste is intern jargon dat in code blijft staan (bv. `src/state/relationRules.ts`), maar hoort niet in gebruikerzichtbare tekst. De `de`-tekst gebruikt "Sammelaufgabe" (gevestigd, o.a. `menu.json`, `task.json`) in plaats van "Sammelvorgang", en "Beziehung" (de gevestigde term voor een relatie, naast `relationCreated`/`relationDuplicate`) in plaats van "Verknüpfung" — dat laatste is in dit bestand al de term voor de externe, projectoverschrijdende koppelingen. De `zh`-tekst gebruikt "无影响" (geen effect) in plaats van "无效" (ongeldig) — de relaties blijven bestaan, ze tellen alleen niet mee in de berekening.
 
 Voorbeeld voor `src/i18n/locales/nl/common.json`:
 
 ```json
     "relationCreated": "Relatie aangemaakt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Deze relatie bestaat al",
-    "relationSummaryEndpoint": "Een verzameltaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.",
-    "summaryRelationsIgnored": "{{total}} relatie(s) op verzameltaken hebben geen effect op de planning."
+    "relationSummaryEndpoint": "Een samenvattingstaak als eindpunt heeft geen effect op de planning. Koppel aan een taak zonder subtaken.",
+    "summaryRelationsIgnored": "{{total}} relatie(s) op samenvattingstaken hebben geen effect op de planning."
 ```
 
 - [ ] **Stap 2: Voeg één sleutel toe aan het `relations`-blok van elke `task.json`**
@@ -349,19 +351,19 @@ Naast de bestaande `warnTruncatedLead`.
 
 | locale | `warnSummaryEndpoint` |
 |---|---|
-| nl | `Zonder effect: verzameltaak als eindpunt` |
+| nl | `Zonder effect: samenvattingstaak als eindpunt` |
 | en | `No effect: summary task as endpoint` |
-| de | `Ohne Wirkung: Sammelvorgang als Endpunkt` |
-| fr | `Sans effet : tâche récapitulative en extrémité` |
+| de | `Ohne Wirkung: Sammelaufgabe als Endpunkt` |
+| fr | `Sans effet : tâche récapitulative comme extrémité` |
 | es | `Sin efecto: tarea de resumen como extremo` |
 | it | `Senza effetto: attività di riepilogo come estremità` |
 | pt | `Sem efeito: tarefa de resumo como extremidade` |
 | pl | `Bez wpływu: zadanie sumaryczne jako punkt końcowy` |
 | tr | `Etkisiz: uç nokta olarak özet görev` |
-| zh | `无效：摘要任务作为端点` |
+| zh | `无影响：摘要任务作为端点` |
 | ja | `効果なし: 端点がサマリータスク` |
 | ko | `효과 없음: 끝점이 요약 작업` |
-| ar | `بلا تأثير: مهمة تلخيص كنقطة نهاية` |
+| ar | `بلا تأثير: مهمة موجزة كنقطة نهاية` |
 | fa | `بدون تأثیر: وظیفه خلاصه به عنوان نقطه پایانی` |
 
 - [ ] **Stap 3: Draai de i18n-poort**
