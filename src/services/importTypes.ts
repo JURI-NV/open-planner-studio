@@ -38,6 +38,13 @@ export interface ImportLabels {
    * moment bakt daarmee in de naam, en de gebruiker hernoemt.
    */
   importedProject?: string;
+  /**
+   * Naam voor de ingebouwde "niet-toegewezen"-resource (MPP-uniqueID 0 — MS Project schrijft die
+   * altijd mee, ook in zijn eigen MSPDI-export als "Niet toegekend"; T7-spec-review, B3). Zelfde
+   * DATA-stempel-redenering als `importedProject`. Engelse default `'Unassigned'` — de vertaalde
+   * doorgifte volgt via T8, net als de andere `ImportLabels`-velden.
+   */
+  unassignedResource?: string;
 }
 
 export interface ImportResult {

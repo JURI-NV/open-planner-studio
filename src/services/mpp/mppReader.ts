@@ -568,6 +568,28 @@ function parseProjectProperties(
 // zijn dan al gelezen en blijven bruikbaar. Anders dan calendars is de terugval hier een lege
 // array (geen "generieke default"-equivalent nodig — een lege relatie-/resource-/assignmentlijst
 // is een geldig, leeg `ImportResult`-onderdeel, spiegelt `readCSV` voor formaten zonder die data).
+//
+// TWEE VERDERE, ongenoemde MPXJ-afwijkingen (T7-spec-review, B6) — bewust, gedocumenteerd, en
+// GEMETEN als 0-voorkomens over het volledige beschikbare materiaal (drie ground-truth-bestanden +
+// 49-bestand-crawl, 52 bestanden/650 assignments samen, T7-spec-review-meting 2026-08-14):
+//  (a) `ResourceAssignmentFactory.java` vult een TE KORT assignment-FixedData-record aan met
+//      nullbytes tot `fieldMap.getMaxFixedDataSize(0)` vóórdat het de velden leest (`if (data.length
+//      < fieldMap.getMaxFixedDataSize(0)) { newData = new byte[maxSize]; arraycopy(data, newData); }
+//      data = newData;`). `readAssignmentsUnsafe` doet dat niet — elk per-veld-`data.length`-check
+//      hierboven (bv. `data.length >= unitsOffset + 8`) slaat een veld gewoon over/default'', i.p.v.
+//      het transparant als nullen te lezen. Op elk bestand in dit corpus+crawl is `TBkndAssn/
+//      FixedData` se lengte een EXACT veelvoud van 110 bytes (`FixedData.withoutMeta`'s itemSize),
+//      dus deze situatie doet zich hier nooit voor — een toekomstig bestand met een afgekapte
+//      laatste record zou wél verschillend gedrag kunnen zien (deze lezer laat 'm dan gewoon
+//      onvolledig/overgeslagen, i.p.v. de MPXJ-nulvulling).
+//  (b) `ResourceAssignmentFactory.java` dedupliceert: `if (task.getExistingResourceAssignment
+//      (resource) != null) continue;` — een taak+resource-paar dat MEERDERE malen in TBkndAssn
+//      voorkomt, levert bij MPXJ maar ÉÉN `ResourceAssignment`. `readAssignmentsUnsafe` dedupliceert
+//      niet — elk geldig record wordt een eigen `ResourceAssignment`, ook bij een herhaald paar.
+//      Over alle 52 beschikbare bestanden komt geen enkel taak+resource-paar dubbel voor (gemeten:
+//      0 van 650), dus dit verschil is hier onobserveerbaar — een bestand waarin een gebruiker
+//      dezelfde resource tweemaal aan dezelfde taak toewijst (bv. via een editor-bug of handmatige
+//      TBkndAssn-manipulatie) zou hier WEL twee assignments opleveren i.p.v. MPXJ's ene.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 /** TBkndCons/FixedMeta-itemgrootte (ConstraintFactory.java: `new FixedMeta(..., 10)`). */
@@ -582,8 +604,18 @@ const CONS_FIXED_DATA_ITEM_SIZE = 20;
  * 1/10 of minute" — ONGEACHT welke eenheidscode `unitCode` claimt) + eenheidscode →
  * `Sequence`-lagvelden. Spiegelt mspdiReader's lag-afhandeling (spiegelplicht, T7-taaktekst) maar
  * vanuit MPP se eigen eenheidscodering (`getDurationTimeUnits`, mppPrimitives.ts):
- *  - percent/elapsedPercent: MPPUtility.getDuration's default-tak laat de waarde ONGESCHAALD (geen
- *    /10, anders dan MSPDI's tienden-van-procent) — spiegelt de Java-bron letterlijk.
+ *  - percent/elapsedPercent: /10 — T7-spec-review (B2), BESLUIT: `mspdiReader.ts` behandelt
+ *    `LinkLag` bij LagFormat 19/20 als TIENDEN VAN EEN PROCENT (`seq.lagPercent = link.lag / 10`,
+ *    zie de `ELAPSED_DURATION_FORMATS`-sectie daar en `mspdiWriter.ts`'s spiegelbeeldige
+ *    `Math.round(seq.lagPercent * 10)` — een round-trip-consistent, project-eigen domeinconventie).
+ *    MPXJ se eigen `ConstraintFactory`/`MPPUtility.getDuration` laat de MPP-ruwe waarde voor
+ *    percent-eenheden ONGESCHAALD (geen /10) — maar MPXJ se `MSPDIReader.java` doet dat ZELF óók
+ *    (`Duration.getInstance(lag, lagUnits)` zonder /10 voor `TimeUnit.PERCENT`); dat is dus geen
+ *    signaal dat de MPP- en MSPDI-schaal VERSCHILLEN, alleen dat MPXJ se eigen `Duration`-model de
+ *    schaal niet normaliseert. Om beide OPS-lezers dezelfde domeinsemantiek (HELE procenten in
+ *    `Sequence.lagPercent`) te laten leveren, past deze functie dezelfde /10 toe als mspdiReader.ts
+ *    — vóór deze fix gaf een percent-lag hier 100× de waarde die mspdiReader voor eenzelfde
+ *    LinkLag-getal zou leveren (T7-spec-review, B2).
  *  - elke andere "elapsed"-variant (minuten/uren/dagen/weken/maanden delen allemaal dezelfde ruwe
  *    tienden-van-minuut-basis): kalenderdag-omrekening, identiek aan mspdiReader's
  *    ELAPSED_DURATION_FORMATS-tak (`Math.round(lag/10/60/24)`).
@@ -591,6 +623,12 @@ const CONS_FIXED_DATA_ITEM_SIZE = 20;
  *    (`durationTenthsOfMinuteToDays`) — spiegelt mspdiReader's "anders"-tak. MPP kent geen
  *    hour-mode-taken in etappe 1 (moduleheader: "Alles blijft DAG-modus"), dus mspdiReader's
  *    `lagMinutes`-tak (hour-mode-opvolger) heeft hier bewust geen tegenhanger.
+ *
+ * ⚠️ Dekkingsvoorbehoud (T7-spec-review, B1): het corpus (§Corpus & referentiemateriaal) draagt
+ * uitsluitend FINISH_START-relaties met lag=0 — de type-tabel (`mspTypeToSequenceType`) en alle
+ * lag-takken hierboven (WORKTIME met een echte dagenwaarde, ELAPSED, percent/elapsedPercent) worden
+ * dus UITSLUITEND door de synthetische fixtures in `check-mpp-relations.ts` gedekt, niet door het
+ * corpus. Zie de moduleheader daar voor de volledige toelichting.
  */
 type SequenceLagFields = Pick<Sequence, 'lagDays'> & Partial<Pick<Sequence, 'lagMinutes' | 'lagUnit' | 'lagPercent'>>;
 
@@ -598,7 +636,7 @@ function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: n
   if (rawLag === -1) return { lagDays: 0 }; // MPPUtility.getAdjustedDuration: duration===-1 ⇒ geen lag
   const unit = getDurationTimeUnits(unitCode);
   if (unit === 'percent' || unit === 'elapsedPercent') {
-    const fields: SequenceLagFields = { lagDays: 0, lagPercent: rawLag };
+    const fields: SequenceLagFields = { lagDays: 0, lagPercent: rawLag / 10 };
     if (unit === 'elapsedPercent') fields.lagUnit = 'ELAPSEDTIME';
     return fields;
   }
@@ -694,20 +732,45 @@ function readRelationsUnsafe(
 
 /** TBkndRsc/FixedMeta-itemgrootte (MPP14Reader.java: `new FixedMeta(..., 37)`). */
 const RESOURCE_FIXED_META_ITEM_SIZE = 37;
+/** TBkndRsc/Fixed2Meta-itemgrootte-KANDIDATEN (MPP14Reader.java: `new FixedMeta(...,
+ *  rscFixedData, 50, 51)` — de heuristische variant, `FixedMeta.withHeuristicItemSize`). */
+const RESOURCE_FIXED2_META_ITEM_SIZES = [50, 51];
 
 /** Bit die WORK vs. niet-WORK onderscheidt in het TBkndRsc/FixedMeta-item (37 bytes) — spiegelt
  *  MPP14Reader.java se `processResourceData`-tabelkeuze, zelfde "modern"-drempel als
- *  `milestoneBitFlag`/mppCalendars.ts se `useModernOffsets`. Vereenvoudiging (T7, gedocumenteerd):
- *  MPXJ onderscheidt bij een NIET-WORK-resource nog COST vs. MATERIAL via een bit in Fixed2Data —
- *  niet geport (buiten deze etappe se veldenset, zie mppPrimitives.ts se moduleheader). Deze lezer
- *  spiegelt daarom mspdiReader se eigen collapse (die kent ook geen aparte COST-tak): niet-WORK ⇒
- *  MATERIAL. `ResourceType` in dit project heeft sowieso geen `'COST'`-waarde
- *  (`src/types/resource.ts`), dus dit verliest geen onderscheid dat de rest van de app kan tonen. */
+ *  `milestoneBitFlag`/mppCalendars.ts se `useModernOffsets`. */
 function resourceTypeBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
   const version = applicationVersion ?? 0;
   return version > 14
     ? { offset: 12, mask: 0x10 } // PROJECT2013_RESOURCE_META_DATA_BIT_FLAGS
     : { offset: 9, mask: 0x02 }; // PROJECT2010_RESOURCE_META_DATA_BIT_FLAGS
+}
+
+/**
+ * T7-spec-review (B7, CORRECTIE): een eerdere versie van dit bestand beweerde dat het WORK/niet-
+ * WORK-onderscheid hierboven het enige geporte resourcetype-signaal was, en dat MPXJ het COST-vs-
+ * MATERIAL-onderscheid via "een bit in Fixed2Data" trekt — BEIDE beweringen waren fout. MPXJ leest
+ * de COST-bit uit **Fixed2META**, niet Fixed2Data (`MPP14Reader.java`: `byte[] metaData2 =
+ * rscFixed2Meta.getByteArrayValue(offset); ... if ((metaData2[8] & 0x10) != 0)
+ * resource.setType(COST); else resource.setType(MATERIAL);`), en die stream is WEL aanwezig in
+ * alle drie ground-truth-bestanden (679/526/424 bytes) — "buiten scope" was dus geen juiste
+ * motivering. Alsnog geport:
+ *  - `Fixed2Meta` wordt met dezelfde heuristische constructor gelezen als MPXJ gebruikt
+ *    (`FixedMeta.withHeuristicItemSize`, kandidaten 50/51 tegen `rscFixedData`'s itemcount als
+ *    ankerpunt — al geport in T4/`mppPrimitives.ts`, hier voor het eerst daadwerkelijk gebruikt).
+ *  - Defensief: de stream kan legitiem ontbreken (oudere/kleinere bestanden) — dan blijft het
+ *    gedrag exact zoals vóór deze fix (niet-WORK ⇒ MATERIAL).
+ *  - **Cost → LABOR** (niet MATERIAL): spiegelt mspdiReader.ts se eigen collapse (r. 180:
+ *    `type: type === 0 ? 'MATERIAL' : 'LABOR'` — UITSLUITEND MSP-Type 0 is MATERIAL, alles anders
+ *    (Work ÉN Cost) is LABOR). `ResourceType` in dit project heeft sowieso geen `'COST'`-waarde
+ *    (`src/types/resource.ts`); MATERIAL zou een Cost-resource dus fout hebben ingedeeld.
+ *
+ * Gemeten uitkomst per corpusbestand (T7-spec-review, B5) staat in `check-mpp-relations.ts` se
+ * corpussectie, mét het versieverschil-voorbehoud dat ook de rest van de T5/T7-vergelijkingen kent.
+ */
+function isFixed2MetaCostBit(fixed2Meta: FixedMeta | null, index: number): boolean {
+  const item = fixed2Meta?.getByteArrayValue(index) ?? null;
+  return !!item && item.length > 8 && (item[8] & 0x10) !== 0;
 }
 
 export interface ReadResourcesResult {
@@ -719,15 +782,16 @@ const EMPTY_RESOURCES_RESULT: ReadResourcesResult = { resources: [], resourceIdB
 
 /** Poort van `MPP14Reader.processResourceData`/`createResourceMap` (T7, stap 2) — `"   114"/
  *  TBkndRsc` → `Resource[]`. Geëxporteerd, zelfde testbaarheidsreden als `readRelations`
- *  hierboven. */
+ *  hierboven. `labels` (T7-spec-review, B3): zie `readResourcesUnsafe`'s UID-0-toelichting. */
 export function readResources(
   cfb: CfbFile,
   resourceFieldMap: FieldMapTable,
   applicationVersion: number | null,
   calResult: CalendarReadResult,
+  labels?: ImportLabels,
 ): ReadResourcesResult {
   try {
-    return readResourcesUnsafe(cfb, resourceFieldMap, applicationVersion, calResult);
+    return readResourcesUnsafe(cfb, resourceFieldMap, applicationVersion, calResult, labels);
   } catch {
     return EMPTY_RESOURCES_RESULT;
   }
@@ -738,6 +802,7 @@ function readResourcesUnsafe(
   resourceFieldMap: FieldMapTable,
   applicationVersion: number | null,
   calResult: CalendarReadResult,
+  labels: ImportLabels | undefined,
 ): ReadResourcesResult {
   const label = '"   114"/TBkndRsc';
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'FixedMeta']);
@@ -750,6 +815,19 @@ function readResourcesUnsafe(
   const fixedData = FixedData.fromMeta(fixedMeta, fixedDataBytes, 0, 0, `${label}/FixedData`);
   const varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
   const varData = new Var2Data(varMeta, var2DataBytes);
+
+  // B7: Fixed2Meta is OPTIONEEL op storage-niveau (defensief — zie `isFixed2MetaCostBit`'s
+  // toelichting); ontbreekt/onleesbaar ⇒ `fixed2Meta` blijft `null` en elke resource valt terug op
+  // het WORK-bit-only-gedrag van vóór deze fix.
+  const fixed2MetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'Fixed2Meta']);
+  let fixed2Meta: FixedMeta | null = null;
+  if (fixed2MetaBytes) {
+    try {
+      fixed2Meta = FixedMeta.withHeuristicItemSize(fixed2MetaBytes, fixedData, RESOURCE_FIXED2_META_ITEM_SIZES, `${label}/Fixed2Meta`);
+    } catch {
+      fixed2Meta = null;
+    }
+  }
 
   const uniqueIdOffset = fixedOffsetOf(resourceFieldMap, ResourceFieldId.UniqueId);
   const nameKey = varDataKeyOf(resourceFieldMap, ResourceFieldId.Name);
@@ -785,11 +863,36 @@ function readResourcesUnsafe(
     const data = fixedData.getByteArrayValue(index);
     if (!data) continue;
 
-    const name = varData.getUnicodeString(uniqueId, nameKey, MAX_VAR_TEXT_BYTES, `${label}/name[uid=${uniqueId}]`) || 'Resource';
+    // T7-spec-review (B3, BESLUIT): uniqueID 0 is MPP's ingebouwde "niet-toegewezen"-plaatshouder —
+    // MPXJ zelf SLAAT dit record OVER (`createResourceMap`'s `data.length < maxFixedDataSize`-
+    // guard, niet geport — zie de taakvariant se toelichting bij `collectValidTaskIndices`), dus
+    // MPXJ's eigen resourcetelling voor dit corpus zou 8/6/4 zijn, NIET 9/7/5. MS Project schrijft
+    // datzelfde record echter WÉL naar zijn eigen MSPDI-export (als "Niet toegekend", maxUnits 1) —
+    // deze lezer kiest bewust voor COUNT-PARITEIT MET readMSPDI (9/7/5) i.p.v. MPXJ-pariteit: het
+    // record blijft dus gematerialiseerd, maar met een VASTE, betekenisvolle vorm in plaats van de
+    // velden van een placeholder-FixedData-record te vertrouwen (die record is typisch te kort/leeg
+    // om een geldige naam/MAX_UNITS/type uit te lezen — vandaar hieronder de VASTE vorm i.p.v. de
+    // normale per-veld-afleiding). `isUnassignedPlaceholder` overschrijft UITSLUITEND naam/type/
+    // maxUnits — calendarId-koppeling (verderop) blijft de normale afleiding volgen: T6 heeft al
+    // vastgesteld dat resource-uniqueID 0 een geldig kalender-koppelpunt kan zijn (bijlage 13's
+    // afgeleide kalenders dragen resource-ID's t/m 0), dat blijft ongewijzigd. Zie
+    // `check-mpp-relations.ts`'s moduleheader voor deze bewuste MPXJ-divergentie (9/7/5 vs. 8/6/4).
+    const isUnassignedPlaceholder = uniqueId === 0;
 
-    const metaItem = fixedMeta.getByteArrayValue(index);
-    const isWork = !!metaItem && metaItem.length > typeOffset && (metaItem[typeOffset] & typeMask) !== 0;
-    const type: ResourceType = isWork ? 'LABOR' : 'MATERIAL';
+    const name = isUnassignedPlaceholder
+      ? (labels?.unassignedResource || 'Unassigned')
+      : varData.getUnicodeString(uniqueId, nameKey, MAX_VAR_TEXT_BYTES, `${label}/name[uid=${uniqueId}]`) || 'Resource';
+
+    let type: ResourceType;
+    if (isUnassignedPlaceholder) {
+      type = 'LABOR';
+    } else {
+      const metaItem = fixedMeta.getByteArrayValue(index);
+      const isWork = !!metaItem && metaItem.length > typeOffset && (metaItem[typeOffset] & typeMask) !== 0;
+      // B7: niet-WORK ⇒ Fixed2Meta se COST-bit beslist tussen LABOR (Cost, spiegelt mspdiReader se
+      // collapse) en MATERIAL — zie `isFixed2MetaCostBit`'s toelichting hierboven.
+      type = isWork || isFixed2MetaCostBit(fixed2Meta, index) ? 'LABOR' : 'MATERIAL';
+    }
 
     // MAX_UNITS (DataType.UNITS, FieldMap.java): 8-byte double. FieldMap.java's eigen `/100`
     // ("ignore the amount if result will be less than 0.1%") levert MPXJ's PERCENT-schaal op
@@ -799,7 +902,7 @@ function readResourcesUnsafe(
     // 100× de verwachte waarde (bv. "Tom" 200 i.p.v. 2, "malic" 150 i.p.v. 1.5) — dezelfde
     // afleiding als ASSIGNMENT_UNITS hieronder.
     let maxUnits = 1;
-    if (maxUnitsOffset !== null && data.length >= maxUnitsOffset + 8) {
+    if (!isUnassignedPlaceholder && maxUnitsOffset !== null && data.length >= maxUnitsOffset + 8) {
       const rawUnits = getDouble(data, maxUnitsOffset, `${label}/FixedData maxUnits`);
       maxUnits = (Math.abs(rawUnits) < 0.1 ? 0 : rawUnits) / 100 / 100;
     }
@@ -984,7 +1087,7 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   const sequences = readRelations(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId);
 
   const resourceFieldMap = createResourceFieldMap(projectProps);
-  const { resources, resourceIdByUniqueId } = readResources(cfb, resourceFieldMap, applicationVersion, calResult);
+  const { resources, resourceIdByUniqueId } = readResources(cfb, resourceFieldMap, applicationVersion, calResult, labels);
 
   const assignmentFieldMap = createAssignmentFieldMap(projectProps);
   const assignments = readAssignments(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
