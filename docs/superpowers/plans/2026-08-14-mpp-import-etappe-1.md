@@ -32,6 +32,14 @@
   - `DocumentInputStreamFactory.java` (XOR-decodering) — **buiten scope**: versleuteld ⇒ nette fout
 - **Containerstructuur van de doelbestanden (geverifieerd):** root bevat `\x01CompObj` (formaatstring `MSProject.MPP14`), `Props14`, storage `"   114"` (drie spaties + `114`) met stream `Props` (~88 kB) en substorages `TBkndTask`/`TBkndRsc`/`TBkndAssn`/`TBkndCons`/`TBkndCal` (elk `FixedMeta`/`FixedData`/`Fixed2Meta`/`Fixed2Data`/`VarMeta`/`Var2Data`); lege `TBkndLabel`/`Checklist`/`Conversation`/`Attachment` (negeren) en storage `"   214"` (views — **overslaan**, kan MB's groot zijn).
 
+> ⚠️ **Corpusbevinding T5-spec-review (2026-08-14): de drie `.mpp.xml`-ground-truths zijn een ándere
+> documentversie dan de `.mpp`'s** (compact hernummerde UID==ID 1..N, verplaatste taken, deels andere
+> datums — projectstart bestand 3 verschilt zelfs). De aantallen in de tabel hierboven (kalenders
+> 13/11/9, links 104/111/225, resources 9/7/5, assignments 51/146/221) zijn daardoor NIET gezaghebbend
+> voor de `.mpp`-inhoud; ruwe TBkndCons-scan geeft bv. 115/134/252 linkrecords. T6/T7/T9 mogen die
+> XML-aantallen dus niet hard asserteren — gebruik naam-gematchte vergelijking + per-veld-budgetten
+> zoals de T5-sectie van `check-mpp-import.ts` nu doet, en leg gemeten baselines vast.
+
 ## Bewust NIET in etappe 1
 
 - Geen `.mpp`-export (bestaat nergens, ook MPXJ niet — de MS-Project-export blijft de bestaande MSPDI-writer).
