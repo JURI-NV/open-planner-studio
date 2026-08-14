@@ -161,8 +161,16 @@ hieronder.
 
 De regels uit §1 bewaken uitsluitend het **aanmaken**. De markering dekt alleen
 `summary-endpoint` — een bestaand bestand met een `self`- of `unknown-task`-relatie wordt niet
-gemarkeerd of opgeruimd, want die gevallen zijn buiten MCP/extensies niet te maken en de solver
-handelt ze al af (cyclusfout, respectievelijk stille drop).
+gemarkeerd of opgeruimd, want die gevallen zijn buiten MCP/extensies vrijwel niet te maken en de
+solver handelt ze al af (cyclusfout, respectievelijk stille drop).
+
+**`addSequence` is niet de enige schrijver naar `s.sequences`**, en dat is met opzet. Behalve de
+bulk-laadpaden schrijven ook `pasteTasks` (`taskSlice.ts:975`) en `insertWbsTemplate`
+(`taskSlice.ts:1057`) er rechtstreeks in. Allebei **reproduceren** ze bestaande relaties met nieuwe
+id's; ze maken niets nieuws. Onder de keuze van §5 (bestaande relaties behouden) hoort dat ook zo:
+een tak plakken die een spookrelatie bevat mag die relatie meenemen — hij komt in het doelproject
+gemarkeerd terug, precies zoals in het bronproject. Wie later een schrijver toevoegt die wél nieuwe
+relatielogica aanmaakt, hoort door `relationVerdict` te gaan.
 
 Dat dekt gratis het randgeval waarin een bladtaak met bestaande relaties later een kind krijgt: hij
 wordt daarmee retroactief een verzameltaak en zijn relaties worden vanzelf gemarkeerd. Een
