@@ -11,11 +11,16 @@
 // `topologyToSpec` faalt hard als een naam nul of meer dan één taak raakt, zodat een hernoemde taak
 // niet stilzwijgend zijn ploeg verliest.
 //
-// KEUZE VAN DE ZES — verscheidenheid in soort werk, niet alle twintig (dan worden ze onderling
-// inwisselbaar): binnenstedelijke restauratie (01), infra met zwaar materieel (05), particuliere
-// nieuwbouw met kleine ploegen (10), materieel-gedreven offshore (12), MEP-zware utiliteit (15) en
-// repetitieve woningbouw (20). Samen dekken ze alle vijf de resourcetypes (LABOR, CREW, EQUIPMENT,
+// KEUZE VAN DE ACHT — verscheidenheid in soort werk, niet alle twintig (dan worden ze onderling
+// inwisselbaar): binnenstedelijke restauratie (01), grootstedelijke hoogbouw (03), infra met zwaar
+// materieel (05), zorgvastgoed met veel afbouw en installaties (08), particuliere nieuwbouw met
+// kleine ploegen (10), materieel-gedreven offshore (12), MEP-zware utiliteit (15) en repetitieve
+// woningbouw (20). Samen dekken ze alle vijf de resourcetypes (LABOR, CREW, EQUIPMENT,
 // SUBCONTRACTOR, MATERIAL) en tonen 01 + 20 een ploeg-hiërarchie (`parent`).
+//
+// 03 en 08 zijn er later bij gekomen om een gat te dichten dat alleen in de APP zichtbaar was: de
+// publieke selectie in `generate-examples.ts` toont vijf basisvoorbeelden (03, 05, 08, 10, 15), dus
+// wie 03 of 08 opende zag een lege Resources-tab en een leeg histogram.
 //
 // GEEN OVERALLOCATIE — harde eis. Dit zijn referentievoorbeelden: wie er één opent hoort geen rode
 // balken te zien die niemand bedoeld heeft (de bedoelde, met nivellering oplosbare overallocatie is
@@ -74,6 +79,128 @@ const GRACHTENPAND: ExampleResourceSet = {
   },
 };
 
+// ── 03 Kantoorgebouw Zuidas — grootstedelijke utiliteitsbouw op een krappe kavel ─────────────
+// Hoogbouw in de binnenstad: één torenkraan (er is domweg geen tweede opstelplaats), de gevel als
+// apart onderaannemerspakket, en een forse installatiecomponent die de tweede helft van de
+// planning domineert. Bewust géén materieel-inflatie: het verhaal is dat álles langs één kraan en
+// één krappe kavel moet.
+//
+// PIEKEN — de fasegrenzen van `topologyToSpec` zetten fase 2 (ruwbouw) met een %-lag van 40 % op
+// fase 1 (grondwerk/fundering), dus kelder en bovenbouw lopen hier vrijwel volledig PARALLEL. De
+// betonploeg en de vlechters zijn daarom op de opgetelde piek van die twee ketens gedimensioneerd
+// (twee ploegen, één in de kelder en één op de verdiepingen) — niet op één taak.
+const ZUIDAS: ExampleResourceSet = {
+  resources: [
+    { name: 'Tower crane', type: 'EQUIPMENT', maxUnits: 1, costPerHour: 110,
+      description: 'One tower crane — the plot has room for a single crane base; floors, core and steel roof all queue for it' },
+    { name: 'Site works contractor', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 58,
+      description: 'Site set-up, the traffic measures on the surrounding roads and, at the very end, the paving and landscaping' },
+    { name: 'Project management', type: 'LABOR', maxUnits: 2, costPerHour: 95,
+      description: 'Stakeholder management towards neighbours and the city, and the handover file' },
+    { name: 'Geotechnical monitoring contractor', type: 'SUBCONTRACTOR', maxUnits: 2, costPerHour: 115,
+      description: 'Piezometers and deformation monitoring of the adjoining buildings — standard for a deep basement in the inner city' },
+    { name: 'Piling contractor', type: 'SUBCONTRACTOR', maxUnits: 4, costPerHour: 78,
+      description: 'Sheet piling and bored foundation piles' },
+    { name: 'Earthworks contractor', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 62,
+      description: 'Dewatering and the excavation down to level -2' },
+    // 14 = twee ploegen van zeven: de kelder (fase 1) en de bovenbouw (fase 2) lopen door de
+    // 40 %-lag op de fasegrens vrijwel volledig naast elkaar, dus de gemeten piek is de som van
+    // één kelder- én één verdiepingstaak (6 + 8) — niet de 8 van de zwaarste losse taak.
+    { name: 'Structural works crew', type: 'LABOR', maxUnits: 14, costPerHour: 46,
+      description: 'Two concrete gangs of seven: one finishing the basement while the other climbs the tower' },
+    // Eigen ploeg voor de kern, en niet uit de betonploeg geleend: de kern start SS + 5 dagen op
+    // verdieping 8 (uit de topologie) terwijl de kelder óók nog loopt — drie betonfronten tegelijk.
+    // Dat is ook precies hoe zo'n kern gebouwd wordt: een vast klimbekistingsploegje dat naast de
+    // verdiepingscyclus doorloopt (gemeten: zónder deze ploeg piekte de betonploeg op 20).
+    { name: 'Core formwork gang', type: 'LABOR', maxUnits: 6, costPerHour: 48,
+      description: 'Dedicated gang on the self-climbing formwork of the stair and lift core, running alongside the floor cycle' },
+    // 8 = twee vlechtploegen van vier, om dezelfde reden. De vlechters zitten bewust alleen op het
+    // zware werk (funderingsbalken, kelderwanden, de transfervloer op de begane grond en de kern);
+    // de wapening van de standaardverdiepingen komt prefab op de bouw.
+    { name: 'Steel fixers', type: 'LABOR', maxUnits: 8, costPerHour: 44,
+      description: 'Two rebar gangs of four, on the heavy elements; the typical floors get prefabricated reinforcement' },
+    { name: 'Concrete C30/37', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
+    { name: 'Structural steel contractor', type: 'SUBCONTRACTOR', maxUnits: 4, costPerHour: 70,
+      description: 'Steel erection gang for the roof structure' },
+    { name: 'Facade contractor', type: 'SUBCONTRACTOR', maxUnits: 8, costPerHour: 72,
+      description: 'Unitised curtain wall, hoisted with its own monorail hoists off the floor edge — it never queues for the tower crane' },
+    { name: 'Roofing contractor', type: 'SUBCONTRACTOR', maxUnits: 4, costPerHour: 66 },
+    { name: 'Electricians', type: 'LABOR', maxUnits: 6, costPerHour: 49 },
+    { name: 'Mechanical fitters', type: 'LABOR', maxUnits: 8, costPerHour: 48,
+      description: 'Ductwork, air handling, sprinklers; peaks on the ventilation ductwork' },
+    { name: 'Lift contractor', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 82 },
+    { name: 'Fit-out crew', type: 'LABOR', maxUnits: 10, costPerHour: 44,
+      description: 'System partitions, ceilings and raised floors across eight office storeys' },
+    { name: 'Painters', type: 'LABOR', maxUnits: 6, costPerHour: 38 },
+  ],
+  assignments: {
+    'Set up site': [{ res: 'Site works contractor', units: 6 }],
+    'Stakeholder management': [{ res: 'Project management', units: 2 }],
+    'Traffic management': [{ res: 'Site works contractor', units: 4 }],
+    'Piezometer monitoring': [{ res: 'Geotechnical monitoring contractor', units: 2 }],
+    'Sheet pile sections': [{ res: 'Piling contractor', units: 4 }],
+    'Wellpoint dewatering': [{ res: 'Earthworks contractor', units: 3 }],
+    'Excavate to level -2': [{ res: 'Earthworks contractor', units: 6 }],
+    'Excavate to level -1': [{ res: 'Earthworks contractor', units: 6 }],
+    'Bore foundation piles': [{ res: 'Piling contractor', units: 4 }],
+    'Foundation beams': [{ res: 'Structural works crew', units: 6 }, { res: 'Steel fixers', units: 4 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Basement floor P2': [{ res: 'Structural works crew', units: 6 }, { res: 'Concrete C30/37', units: 70 }],
+    'Basement floor P1': [{ res: 'Structural works crew', units: 6 }, { res: 'Concrete C30/37', units: 70 }],
+    'Pour basement walls': [{ res: 'Structural works crew', units: 6 }, { res: 'Steel fixers', units: 4 },
+      { res: 'Concrete C30/37', units: 55, curve: 'FRONT_LOADED' }],
+    'Basement waterproofing': [{ res: 'Structural works crew', units: 4 }],
+    'Ground floor columns & slab': [{ res: 'Structural works crew', units: 8 }, { res: 'Steel fixers', units: 4 },
+      { res: 'Tower crane', units: 1 }, { res: 'Concrete C30/37', units: 60 }],
+    'Floor 1 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 2 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 3 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 4 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 5 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 6 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 7 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 8 structural works': [{ res: 'Structural works crew', units: 8 }, { res: 'Tower crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    // Geen kraan op de kern: die start (SS + 5 dagen, uit de topologie) al terwijl verdieping 8 nog
+    // loopt, en er is er maar één. Klimbekisting met een eigen hijsinstallatie is hier het gangbare
+    // — en precies daarom hoeft de kern niet in de kraanrij te staan.
+    'Concrete stair and lift core': [{ res: 'Core formwork gang', units: 6 }, { res: 'Steel fixers', units: 4 },
+      { res: 'Concrete C30/37', units: 35 }],
+    'Steel roof structure': [{ res: 'Structural steel contractor', units: 4 }, { res: 'Tower crane', units: 1 }],
+    'Curtain wall installation, phase 1': [{ res: 'Facade contractor', units: 8 }],
+    'Curtain wall installation, phase 2': [{ res: 'Facade contractor', units: 8 }],
+    'Curtain wall installation, phase 3': [{ res: 'Facade contractor', units: 6 }],
+    'Roof finishes and services': [{ res: 'Roofing contractor', units: 4 }],
+    'Main electrical switchroom': [{ res: 'Electricians', units: 4 }],
+    'Risers, electrical': [{ res: 'Electricians', units: 6 }],
+    // De mechanische stijgleidingen starten SS + 3 dagen op de elektrische (uit de topologie):
+    // twee disciplines in hetzelfde schachtenblok, dus bewust twee gescheiden pools.
+    'Risers, mechanical services': [{ res: 'Mechanical fitters', units: 6 }],
+    'Air handling units': [{ res: 'Mechanical fitters', units: 6 }],
+    'Ventilation ductwork': [{ res: 'Mechanical fitters', units: 8 }],
+    'Sprinkler installation': [{ res: 'Mechanical fitters', units: 6 }],
+    'Lift installation': [{ res: 'Lift contractor', units: 3 }],
+    'BMS/building management': [{ res: 'Electricians', units: 4 }],
+    'Office system partitions': [{ res: 'Fit-out crew', units: 10 }],
+    'Suspended ceilings': [{ res: 'Fit-out crew', units: 8 }],
+    'Raised floors': [{ res: 'Fit-out crew', units: 6 }],
+    'Sanitary rooms': [{ res: 'Fit-out crew', units: 4 }, { res: 'Mechanical fitters', units: 2 }],
+    'Kitchen/pantry fit-out': [{ res: 'Fit-out crew', units: 4 }],
+    'Painting & finishing': [{ res: 'Painters', units: 6 }],
+    'Paving & landscaping': [{ res: 'Site works contractor', units: 6 }],
+    'Entrance & lobby fit-out': [{ res: 'Fit-out crew', units: 6 }],
+    'Testing & commissioning': [{ res: 'Electricians', units: 3 }, { res: 'Mechanical fitters', units: 3 },
+      { res: 'Project management', units: 1 }],
+  },
+};
+
 // ── 05 Brugvervanging N279 — infra, zwaar materieel, korte stremmingsvensters ────────────────
 // Zes-daagse werkweek (zie `SIX_DAY` in gen-core). Eén rupskraan op het werk (sloop én liggers),
 // de asfaltploeg werkt binnen het afgesproken stremmingsvenster, verkeersmaatregelen en sloop
@@ -117,6 +244,96 @@ const BRUG_N279: ExampleResourceSet = {
     'Install bridge railings': [{ res: 'Concrete crew', units: 2 }],
     'Asphalt bridge deck': [{ res: 'Asphalt contractor', units: 6 }],
     'Asphalt tie-ins': [{ res: 'Asphalt contractor', units: 4 }],
+  },
+};
+
+// ── 08 Zorgcentrum De Linde — zorgvastgoed: bouwkundig plus veel afbouw en installaties ──────
+// Een gebouw dat straks bewoond wordt door mensen die zorg nodig hebben: dat zie je terug in de
+// installatielijst (medische gassen, zusteroproep, HEPA-ventilatie, noodstroom) en in de staart
+// van de planning — de zorgaanbieder wil de installaties ingeregeld en beproefd zien vóór hij de
+// sleutel aanneemt, vandaar de aparte inbedrijfstellingsrol op 'Test building services'.
+//
+// PIEKEN — net als bij 03 legt de generator fase 3 (ruwbouw) met een 40 %-lag op fase 2
+// (fundering), dus funderingsbalken/begane-grondvloer lopen naast de draagconstructie. De
+// betonploeg is op die opgetelde piek gedimensioneerd (5 + 7), de overige pools zitten allemaal in
+// een strikte FS-keten binnen hun eigen fase en dragen dus de piek van hun zwaarste losse taak.
+//
+// 'Additional soil investigation' blijft bewust ONBEZET: aanvullend sondeeronderzoek is werk van
+// een geotechnisch bureau en niet van een bouwploeg — een resource met precies één toewijzing die
+// nergens anders opduikt zou de bezetting alleen maar vertroebelen.
+const ZORGCENTRUM: ExampleResourceSet = {
+  resources: [
+    { name: 'Civils and landscaping contractor', type: 'SUBCONTRACTOR', maxUnits: 5, costPerHour: 56,
+      description: 'Site set-up, tree work, the underground pipework and the external areas at handover' },
+    { name: 'Piling contractor', type: 'SUBCONTRACTOR', maxUnits: 4, costPerHour: 78 },
+    // 12 = twee ploegen: één rondt de fundering af terwijl de andere aan de draagconstructie
+    // begint (fase 2 en 3 overlappen door de 40 %-lag op de fasegrens). Gemeten piek 5 + 7.
+    { name: 'Structural works crew', type: 'LABOR', maxUnits: 12, costPerHour: 46,
+      description: 'Concrete gangs for foundations and superstructure; the two phases overlap' },
+    { name: 'Bricklayers', type: 'LABOR', maxUnits: 6, costPerHour: 46,
+      description: 'Facade masonry and the sand-lime brick internal walls, one gang moving through the building' },
+    { name: 'Mobile crane', type: 'EQUIPMENT', maxUnits: 1, costPerHour: 95,
+      description: 'One mobile crane for the floors, the masonry supply and the roof structure' },
+    { name: 'Concrete C30/37', type: 'MATERIAL', maxUnits: 999, unitOfMeasure: 'm³' },
+    { name: 'Facade contractor', type: 'SUBCONTRACTOR', maxUnits: 6, costPerHour: 68,
+      description: 'Facade insulation and finish, window frames and sun screens' },
+    { name: 'Roofing contractor', type: 'SUBCONTRACTOR', maxUnits: 4, costPerHour: 66 },
+    { name: 'Electricians', type: 'LABOR', maxUnits: 4, costPerHour: 49,
+      description: 'Distribution, emergency power, nurse call and the data cabling' },
+    { name: 'Mechanical fitters', type: 'LABOR', maxUnits: 6, costPerHour: 48 },
+    { name: 'Medical gas contractor', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 88,
+      description: 'Certified installer for oxygen and medical gases — a care-specific package' },
+    { name: 'Lift contractor', type: 'SUBCONTRACTOR', maxUnits: 3, costPerHour: 82 },
+    { name: 'Fit-out crew', type: 'LABOR', maxUnits: 6, costPerHour: 44,
+      description: 'Partitions, ceilings, screeds, pantries and finally the room furnishing' },
+    { name: 'Tilers', type: 'LABOR', maxUnits: 4, costPerHour: 43 },
+    { name: 'Painters', type: 'LABOR', maxUnits: 5, costPerHour: 38 },
+    { name: 'Commissioning engineer', type: 'LABOR', maxUnits: 2, costPerHour: 85,
+      description: 'Balances and tests the services with the care provider before handover' },
+  ],
+  assignments: {
+    'Set up site': [{ res: 'Civils and landscaping contractor', units: 4 }],
+    'Fell and transplant trees': [{ res: 'Civils and landscaping contractor', units: 3 }],
+    'Pile driving, foundation piles': [{ res: 'Piling contractor', units: 4 }],
+    'Foundation beams': [{ res: 'Structural works crew', units: 5 }, { res: 'Concrete C30/37', units: 35 }],
+    'Sewerage and underground pipework': [{ res: 'Civils and landscaping contractor', units: 4 }],
+    'Pour ground floor slab': [{ res: 'Structural works crew', units: 5 },
+      { res: 'Concrete C30/37', units: 55, curve: 'FRONT_LOADED' }],
+    'Ground floor load-bearing structure': [{ res: 'Structural works crew', units: 7 },
+      { res: 'Mobile crane', units: 1 }, { res: 'Concrete C30/37', units: 40 }],
+    'Floor 1 concrete': [{ res: 'Structural works crew', units: 7 }, { res: 'Mobile crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Floor 2 concrete': [{ res: 'Structural works crew', units: 7 }, { res: 'Mobile crane', units: 1 },
+      { res: 'Concrete C30/37', units: 45 }],
+    'Facade masonry': [{ res: 'Bricklayers', units: 6 }, { res: 'Mobile crane', units: 1 }],
+    'Internal walls, sand-lime brick': [{ res: 'Bricklayers', units: 6 }],
+    'Roof structure': [{ res: 'Structural works crew', units: 6 }, { res: 'Mobile crane', units: 1 }],
+    'Facade insulation and finish': [{ res: 'Facade contractor', units: 6 }],
+    'Window frames and screens': [{ res: 'Facade contractor', units: 4 }],
+    'Roof insulation and covering': [{ res: 'Roofing contractor', units: 4 }],
+    'Roof edges and rainwater drainage': [{ res: 'Roofing contractor', units: 3 }],
+    'Main electrical distribution': [{ res: 'Electricians', units: 4 }],
+    'Emergency power supply': [{ res: 'Electricians', units: 3 }],
+    'Oxygen and medical gases': [{ res: 'Medical gas contractor', units: 3 }],
+    // Verwarming/koeling start SS + 3 dagen op de medische gassen (uit de topologie) — twee
+    // gescheiden pools, dus die overlap is bedoeld en niet belastend.
+    'Heating and cooling': [{ res: 'Mechanical fitters', units: 6 }],
+    'Ventilation with HEPA filters': [{ res: 'Mechanical fitters', units: 6 }],
+    'Sprinkler and fire alarm': [{ res: 'Mechanical fitters', units: 4 }],
+    'Lift installation': [{ res: 'Lift contractor', units: 3 }],
+    'Nurse call system': [{ res: 'Electricians', units: 3 }],
+    'ICT cabling': [{ res: 'Electricians', units: 4 }],
+    'Partition walls': [{ res: 'Fit-out crew', units: 6 }],
+    'Finish ceilings and walls': [{ res: 'Fit-out crew', units: 6 }],
+    'Tiling, wet rooms': [{ res: 'Tilers', units: 4 }],
+    'Screeds and floor finishes': [{ res: 'Fit-out crew', units: 5 }],
+    'Painting': [{ res: 'Painters', units: 5 }],
+    'Kitchens and pantry': [{ res: 'Fit-out crew', units: 3 }],
+    'Install sanitary fittings': [{ res: 'Mechanical fitters', units: 3 }],
+    'Construct external areas': [{ res: 'Civils and landscaping contractor', units: 5 }],
+    'Room furnishing': [{ res: 'Fit-out crew', units: 4 }],
+    'Test building services': [{ res: 'Commissioning engineer', units: 2 }, { res: 'Electricians', units: 2 },
+      { res: 'Mechanical fitters', units: 2 }],
   },
 };
 
@@ -324,7 +541,9 @@ const WOONWIJK: ExampleResourceSet = {
  *  resourceloos, precies zoals voorheen. */
 export const EXAMPLE_RESOURCES: Record<string, ExampleResourceSet> = {
   '01-grachtenpand-amsterdam': GRACHTENPAND,
+  '03-kantoorgebouw-zuidas': ZUIDAS,
   '05-brugvervanging-n279': BRUG_N279,
+  '08-zorgcentrum-de-linde': ZORGCENTRUM,
   '10-villa-wassenaar': VILLA,
   '12-windturbine-offshore': OFFSHORE,
   '15-datacentrum-agriport': DATACENTRUM,
