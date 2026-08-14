@@ -59,6 +59,16 @@ There are three ways to create a relation, depending on where you're already wor
 
 The **Driving** column shows, after a calculation, which relation actually determines the successor's start or finish date — for a task with multiple predecessors, that isn't necessarily the relation you created most recently, but the one with the latest (driving) date.
 
+## Relations on summary tasks
+
+You can also put a relation directly on a summary task (a phase or WBS group) instead of on one of the underlying tasks. Open Planner Studio automatically works this relation through to the underlying tasks — the same approach as MS Project:
+
+- **Summary as predecessor**: every underlying task itself becomes a predecessor of the successor. The successor effectively waits for the entire phase — the last task in that phase to finish determines the date.
+- **Summary as successor**: every underlying task itself becomes a successor of the predecessor. Every task in the phase waits for that same predecessor.
+- **Summary on both sides**: every task on one side gets a relation with every task on the other side.
+
+This is exact for **FS and FF** with a summary as predecessor, and for **FS and SS** with a summary as successor. For **SS/SF** with a summary as predecessor and **FF/SF** with a summary as successor — rare combinations in construction practice — Open Planner Studio deliberately plans on the safe side: possibly a bit later than strictly necessary, never earlier.
+
 ## Constraint types
 
 A constraint imposes a date boundary on a task, independent of its relations. Open Planner Studio has eight types, set via the **Constraint** field in the properties panel:

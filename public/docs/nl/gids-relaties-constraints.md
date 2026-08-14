@@ -59,6 +59,16 @@ Er zijn drie manieren om een relatie aan te maken, afhankelijk van waar je toch 
 
 De kolom **Bepalend** (driving) laat na een berekening zien welke relatie daadwerkelijk de start- of einddatum van de opvolger bepaalt — bij een taak met meerdere voorgangers is dat niet per se de relatie die je het laatst hebt aangemaakt, maar degene met de laatste (bepalende) datum.
 
+## Relaties op samenvattingstaken
+
+Je kunt een relatie ook rechtstreeks op een samenvattingstaak leggen (een fase of WBS-groep) in plaats van op een van de onderliggende taken. Open Planner Studio rekent zo'n relatie automatisch door naar de onderliggende taken — dezelfde aanpak als MS Project:
+
+- **Samenvatting als voorganger**: elke onderliggende taak wordt zelf voorganger van de opvolger. Die wacht dus effectief op de hele fase — de laatst afgeronde taak in die fase bepaalt de datum.
+- **Samenvatting als opvolger**: elke onderliggende taak wordt zelf opvolger van de voorganger. Alle taken in de fase wachten dus op diezelfde voorganger.
+- **Samenvatting aan beide kanten**: elke taak aan de ene kant krijgt een relatie met elke taak aan de andere kant.
+
+Dit is exact voor **FS en FF** met een samenvatting als voorganger, en voor **FS en SS** met een samenvatting als opvolger. Voor **SS/SF** met een samenvatting als voorganger en **FF/SF** met een samenvatting als opvolger — zeldzame combinaties in de bouwpraktijk — plant Open Planner Studio bewust aan de veilige kant: mogelijk iets later dan strikt nodig, nooit vroeger.
+
 ## Constraint-types
 
 Een constraint legt een datumgrens op een taak, los van zijn relaties. Open Planner Studio kent acht types, in te stellen via het veld **Constraint** in het eigenschappenpaneel:

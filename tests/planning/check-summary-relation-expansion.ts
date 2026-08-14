@@ -1,16 +1,20 @@
-// Samenvattingsrelatie-propagatie (vervolg op 489a9ef2): unit- en hostile-checks voor de PURE
-// functie `expandSummaryRelations` (los van de CPM-cases in cases-edge.json, die de vier vormen
-// end-to-end via de echte store dekken — zie de "wbs-summary-relation-*"-cases). Hier zitten de
-// boomtopologie-randgevallen die met handberekende datums lastig te toetsen zijn: welke relaties
-// exact worden gegenereerd (ids/richting/lag-behoud), cyclusvastheid, en de MAX_EXPANDED_RELATIONS-
-// klem onder een hostile kruisproduct.
+// Samenvattingsrelatie-propagatie (vervolg op 489a9ef2, CPM-review-vervolg): unit- en hostile-checks
+// voor de PURE functie `expandSummaryRelations` (los van de CPM-cases in cases-edge.json, die de
+// vier vormen + de vooroudersguard (C1) + de vier conservatieve-semantiek-pins (I3) end-to-end via
+// de echte store dekken — zie de "wbs-summary-relation-*"-cases). Hier zitten de boomtopologie-
+// randgevallen die met handberekende datums lastig te toetsen zijn: welke relaties exact worden
+// gegenereerd (ids/richting/lag-behoud), cyclusvastheid, de MAX_EXPANDED_RELATIONS-klem onder een
+// hostile kruisproduct, de vooroudersguard op functie-niveau (C1), de terugvouw-functie voor
+// synthetische ids in de solver-uitvoer (I2), en de id-botsingsklem (M9).
 //
 // Draait via run.sh (esbuild-bundel, zoals check-advanced-cpm.ts). Exit 0 = alles groen.
 import {
-  expandSummaryRelations, MAX_EXPANDED_RELATIONS,
+  expandSummaryRelations, foldSyntheticSequenceIds, originalSequenceId, MAX_EXPANDED_RELATIONS,
 } from '@/engine/scheduler/expandSummaryRelations';
+import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
 import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
+import type { WorkCalendar } from '@/types/calendar';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 
 const diffs: string[] = [];
@@ -22,6 +26,12 @@ const truthy = (label: string, cond: boolean) => {
 const eq = (label: string, got: unknown, want: unknown) => {
   checks++;
   if (got !== want) diffs.push(`${label}: verwacht ${JSON.stringify(want)}, kreeg ${JSON.stringify(got)}`);
+};
+
+// Schone dag-kalender ma-vr (§10d, echte CPMSolver-doorloop van de C1-guard).
+const CAL: WorkCalendar = {
+  id: 'c', name: 'c', description: 'c',
+  workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
 };
 
 function mkTask(id: string, extra: Partial<Task> = {}): Task {
@@ -207,6 +217,226 @@ function sortedPairs(seqs: Sequence[]): string[] {
   // volledig geëxpandeerd zijn — de klem raakt alleen wat zelf niet past, niet de rest van de batch.
   eq('38 hostile: de kleine relatie ernaast is wél volledig geëxpandeerd (300 relaties)', sequences.filter((s) => s.predecessorId === 'Small').length, N);
   eq('39 hostile: de kleine relatie staat niet in droppedSequenceIds', droppedSequenceIds.includes('small-fs'), false);
+}
+
+// ── 10) CPM-REVIEW C1 (blokkerend): vooroudersguard — een taak gekoppeld aan zijn EIGEN (voor)ouder-
+//       samenvatting (in beide richtingen) of P->P mag nooit een cyclus genereren. Zonder de guard
+//       zou minstens P->P letterlijk K1->K2 ÉN K2->K1 opleveren (kruisproduct van predIds/succIds
+//       die hier IDENTIEK zijn), en dat crasht `CPMSolver.solve()` met "Circular dependency" —
+//       PROJECTBREED geen datums meer, niet alleen voor deze ene relatie. ──────────────────────────
+{
+  const TOP = mkTask('TOP', { childIds: ['K1', 'K2'] });
+  const k1 = mkTask('K1', { parentId: 'TOP' });
+  const k2 = mkTask('K2', { parentId: 'TOP' });
+  const l = mkTask('L');
+  const tasks = [TOP, k1, k2, l];
+
+  // 10a) SUB->TOP: K1 (bladkind) als voorganger van zijn EIGEN ouder-samenvatting TOP.
+  {
+    const seq = fs('sub-to-top', 'K1', 'TOP');
+    const { sequences, droppedSequenceIds } = expandSummaryRelations(tasks, [seq]);
+    eq('40 C1 SUB->TOP: 0 gegenereerde relaties (geen cyclus mogelijk maken)', sequences.length, 0);
+    eq('41 C1 SUB->TOP: origineel gedropt', droppedSequenceIds.join(','), 'sub-to-top');
+  }
+
+  // 10b) TOP->SUB: de samenvatting TOP als voorganger van zijn EIGEN bladkind K1 (de spiegeling).
+  {
+    const seq = fs('top-to-sub', 'TOP', 'K1');
+    const { sequences, droppedSequenceIds } = expandSummaryRelations(tasks, [seq]);
+    eq('42 C1 TOP->SUB: 0 gegenereerde relaties', sequences.length, 0);
+    eq('43 C1 TOP->SUB: origineel gedropt', droppedSequenceIds.join(','), 'top-to-sub');
+  }
+
+  // 10c) P->P: letterlijk dezelfde samenvatting aan beide kanten — zonder guard predIds===succIds=
+  //      [K1,K2], dus het kruisproduct zou K1->K2 ÉN K2->K1 genereren (een directe 2-cyclus).
+  {
+    const seq = fs('p-to-p', 'TOP', 'TOP');
+    const { sequences, droppedSequenceIds } = expandSummaryRelations(tasks, [seq]);
+    eq('44 C1 P->P: 0 gegenereerde relaties (geen K1->K2/K2->K1-paar)', sequences.length, 0);
+    eq('45 C1 P->P: origineel gedropt', droppedSequenceIds.join(','), 'p-to-p');
+  }
+
+  // 10d) "de rest doorrekent": alle drie de vooroudersrelaties hierboven SAMEN met een normale,
+  //      ongerelateerde relatie in ÉÉN aanroep — bewijst dat de guard alleen de foute relaties raakt,
+  //      niet de batch. Vervolgens ECHT door CPMSolver.solve() heen (niet alleen expandSummaryRelations
+  //      zelf) — dat is precies het pad dat vóór C1 crashte: op de HELE solve, niet op deze functie.
+  {
+    const other = mkTask('Other', { time: createDefaultTaskTime('2026-06-01', 2) });
+    const allTasks = [TOP, k1, k2, l, other];
+    const seqs = [
+      fs('sub-to-top-2', 'K1', 'TOP'),
+      fs('top-to-sub-2', 'TOP', 'K1'),
+      fs('p-to-p-2', 'TOP', 'TOP'),
+      fs('other-to-l', 'Other', 'L'),
+    ];
+    const { sequences, droppedSequenceIds } = expandSummaryRelations(allTasks, seqs);
+    eq(
+      '46 C1 gemengde batch: exact 1 gegenereerde relatie (de enige geldige, "Other"->"L")',
+      sequences.length, 1,
+    );
+    eq('47 C1 gemengde batch: precies Other->L overleeft', sortedPairs(sequences).join(','), 'Other>L');
+    eq(
+      '48 C1 gemengde batch: alle drie vooroudersrelaties gedropt, "other-to-l" NIET',
+      [...droppedSequenceIds].sort().join(','),
+      ['p-to-p-2', 'sub-to-top-2', 'top-to-sub-2'].sort().join(','),
+    );
+
+    const leafTasks = allTasks.filter((t) => t.childIds.length === 0);
+    let threw: unknown = null;
+    let cpm: CPMResult | null = null;
+    try {
+      cpm = new CPMSolver(leafTasks, sequences, CAL, [], {}).solve();
+    } catch (err) {
+      threw = err;
+    }
+    truthy(
+      `49 C1 vóór de fix crashte dit: CPMSolver.solve() na expansie gooit niet (${threw instanceof Error ? threw.message : String(threw ?? '')})`,
+      threw === null && cpm !== null,
+    );
+    truthy('50 C1: geen circulaire-dependency-fout (projectbreed geen datums meer was precies het risico)', !!cpm && !cpm.error);
+    truthy('51 C1: L heeft een echt gerekend resultaat (de overlevende relatie deed haar werk)', !!cpm && cpm.tasks.has('L'));
+  }
+}
+
+// ── 11) I2 (CPM-review): terugvouwen van synthetische ids in CPMResult ────────────────────────────
+{
+  const mkResult = (over: Partial<CPMResult> = {}): CPMResult => ({
+    tasks: new Map(),
+    criticalPath: [],
+    drivingSequenceIds: [],
+    sequenceFreeFloat: {},
+    truncatedLeadSequenceIds: [],
+    violatedConstraintTaskIds: [],
+    missedDeadlineTaskIds: [],
+    outOfSequenceSequenceIds: [],
+    nearCriticalTaskIds: [],
+    criticalPaths: [[]],
+    floatPathByTask: {},
+    hammockNoFinishDriverTaskIds: [],
+    projectEnd: '2026-06-01',
+    projectDuration: 1,
+    ...over,
+  });
+
+  // 11a) originalSequenceId: idempotent, alleen een TRAILEND ::exp-N-patroon strippen.
+  eq('52 originalSequenceId: strip een trailend synthetisch suffix', originalSequenceId('seq-1::exp-3'), 'seq-1');
+  eq('53 originalSequenceId: dubbele cijfers werken ook', originalSequenceId('seq-1::exp-42'), 'seq-1');
+  eq('54 originalSequenceId: geen suffix ⇒ ongewijzigd (idempotent)', originalSequenceId('seq-1'), 'seq-1');
+  eq(
+    '55 originalSequenceId: "::exp-" NIET aan het eind (midden van een echte id) blijft ONGEMOEID',
+    originalSequenceId('seq-1::exp-weird-not-a-number'),
+    'seq-1::exp-weird-not-a-number',
+  );
+
+  // 11b) drivingSequenceIds: OR + dedup — minstens één synthetische instantie driving ⇒ origineel
+  //      driving, en de verzameling is gededupliceerd (geen 3x "seq-1" als 3 instanties driving zijn).
+  {
+    const result = mkResult({
+      drivingSequenceIds: ['seq-1::exp-0', 'seq-1::exp-1', 'seq-2::exp-0', 'plain-seq'],
+    });
+    foldSyntheticSequenceIds(result);
+    eq(
+      '56 drivingSequenceIds: OR + dedup naar originele ids',
+      [...result.drivingSequenceIds].sort().join(','),
+      ['plain-seq', 'seq-1', 'seq-2'].sort().join(','),
+    );
+  }
+
+  // 11c) sequenceFreeFloat: MIN over alle synthetische instanties van dezelfde originele relatie.
+  {
+    const result = mkResult({
+      sequenceFreeFloat: {
+        'seq-1::exp-0': 5, 'seq-1::exp-1': 0, 'seq-1::exp-2': 3, // MIN = 0
+        'seq-2::exp-0': 4, 'seq-2::exp-1': 2,                    // MIN = 2
+        'plain-seq': 7,                                          // ongewijzigd
+      },
+    });
+    foldSyntheticSequenceIds(result);
+    eq('57 sequenceFreeFloat: MIN over seq-1-instanties (0)', result.sequenceFreeFloat['seq-1'], 0);
+    eq('58 sequenceFreeFloat: MIN over seq-2-instanties (2)', result.sequenceFreeFloat['seq-2'], 2);
+    eq('59 sequenceFreeFloat: al-originele sleutel ongewijzigd', result.sequenceFreeFloat['plain-seq'], 7);
+    eq('60 sequenceFreeFloat: geen synthetische sleutels meer over', Object.keys(result.sequenceFreeFloat).some((k) => k.includes('::exp-')), false);
+  }
+
+  // 11d) truncatedLeadSequenceIds / outOfSequenceSequenceIds: dedup, GEEN optelling — dit was precies
+  //      de N×-tellerbug in de StatusBar (één samenvattingsrelatie met een kruisproduct van 5 paren
+  //      telde als 5 in plaats van 1).
+  {
+    const result = mkResult({
+      truncatedLeadSequenceIds: ['seq-1::exp-0', 'seq-1::exp-1', 'seq-1::exp-2'],
+      outOfSequenceSequenceIds: ['seq-1::exp-0', 'seq-1::exp-1', 'seq-1::exp-2', 'seq-1::exp-3', 'seq-1::exp-4'],
+    });
+    foldSyntheticSequenceIds(result);
+    eq('61 truncatedLeadSequenceIds: 3 synthetische instanties vouwen naar 1 origineel (geen optelling)', result.truncatedLeadSequenceIds.length, 1);
+    eq('62 truncatedLeadSequenceIds: het juiste origineel', result.truncatedLeadSequenceIds[0], 'seq-1');
+    eq('63 outOfSequenceSequenceIds: 5 kruisproduct-paren vouwen naar 1 (de N×-tellerbug, gefixt)', result.outOfSequenceSequenceIds.length, 1);
+  }
+
+  // 11e) droppedSequenceIds: defensief ook gefold + gededupliceerd; optioneel veld blijft optioneel.
+  {
+    const result = mkResult({ droppedSequenceIds: ['seq-1::exp-0', 'seq-1::exp-1', 'plain'] });
+    foldSyntheticSequenceIds(result);
+    eq(
+      '64 droppedSequenceIds: gefold + gededupliceerd',
+      [...(result.droppedSequenceIds ?? [])].sort().join(','),
+      ['plain', 'seq-1'].sort().join(','),
+    );
+    const noDropped = mkResult();
+    foldSyntheticSequenceIds(noDropped);
+    eq('65 droppedSequenceIds afwezig: blijft afwezig (geen [] erbij verzinnen)', noDropped.droppedSequenceIds, undefined);
+  }
+
+  // 11f) Idempotent: een tweede keer folden verandert niets meer.
+  {
+    const result = mkResult({
+      drivingSequenceIds: ['seq-1::exp-0', 'seq-2'],
+      sequenceFreeFloat: { 'seq-1::exp-0': 1, 'seq-2': 3 },
+    });
+    foldSyntheticSequenceIds(result);
+    const once = JSON.stringify({ d: result.drivingSequenceIds, f: result.sequenceFreeFloat });
+    foldSyntheticSequenceIds(result);
+    const twice = JSON.stringify({ d: result.drivingSequenceIds, f: result.sequenceFreeFloat });
+    eq('66 foldSyntheticSequenceIds is idempotent (2x toepassen == 1x)', twice, once);
+  }
+}
+
+// ── 12) M9: id-botsingsklem — een ECHTE relatie-id die toevallig al op het "::exp-N"-patroon eindigt
+//       mag nooit stil samenvallen met een gegenereerde synthetische id. ─────────────────────────────
+{
+  const p1 = mkTask('P1', { childIds: ['K1a', 'K1b'] });
+  const k1a = mkTask('K1a', { parentId: 'P1' });
+  const k1b = mkTask('K1b', { parentId: 'P1' });
+  const l = mkTask('L');
+  // Deze ECHTE relatie-id ZOU exact botsen met de eerste synthetische id die "pred-sum" anders zou
+  // genereren ("pred-sum::exp-0") — hij is zelf een gewone, geldige bladtaak-naar-bladtaak relatie
+  // (K1a->L) die dus ONGEWIJZIGD (met precies die id) in de output terecht moet komen.
+  const collidingReal: Sequence = { id: 'pred-sum::exp-0', predecessorId: 'K1a', successorId: 'L', type: 'FINISH_START', lagDays: 0 };
+  const seq = fs('pred-sum', 'P1', 'L'); // expandeert naar K1a->L + K1b->L, wil ook "pred-sum::exp-0" als eerste kandidaat-id
+  const { sequences } = expandSummaryRelations([p1, k1a, k1b, l], [collidingReal, seq]);
+
+  const ids = sequences.map((s) => s.id);
+  eq('67 M9: geen dubbele ids in de output ondanks de botsende bron-id', new Set(ids).size, ids.length);
+  eq('68 M9: precies drie relaties totaal (de botsende echte + 2 synthetische voor pred-sum)', sequences.length, 3);
+  truthy(
+    '69 M9: de echte, botsende relatie overleeft ONGEWIJZIGD op zijn eigen id (K1a->L, "pred-sum::exp-0")',
+    sequences.some((s) => s.id === 'pred-sum::exp-0' && s.predecessorId === 'K1a' && s.successorId === 'L'),
+  );
+  // De twee gegenereerde relaties voor "pred-sum" (K1a->L, K1b->L) bestaan ALSNOG, op ANDERE ids dan
+  // de al-bezette "pred-sum::exp-0" — de klem moet dus doortellen i.p.v. de tweede relatie te laten
+  // verdwijnen (wat een stille datavernietiging zou zijn, erger dan de botsing zelf).
+  eq(
+    '70 M9: beide gegenereerde pred-sum-paren (K1a->L, K1b->L) bestaan alsnog, elk op een vrije id',
+    sortedPairs(sequences.filter((s) => s.id !== 'pred-sum::exp-0')).join(','),
+    'K1a>L,K1b>L',
+  );
+  // Exacte ids: de teller wijkt bij de eerste botsing uit naar "::exp-1", en telt normaal door naar
+  // "::exp-2" voor het tweede paar (geen sprong terug naar 0 per paar, zie de O(1)-toelichting in
+  // expandSummaryRelations.ts).
+  eq(
+    '71 M9: de uitgeweken ids zijn precies "::exp-1" en "::exp-2" (monotoon doorgeteld, niet herstart)',
+    [...ids].sort().join(','),
+    ['pred-sum::exp-0', 'pred-sum::exp-1', 'pred-sum::exp-2'].sort().join(','),
+  );
 }
 
 if (diffs.length === 0) {

@@ -44,6 +44,16 @@ Há três formas de criar uma relação, dependendo de onde já está a trabalha
 
 A coluna **Determinante** mostra, após um cálculo, qual relação determina efetivamente a data de início ou fim da sucessora — para uma tarefa com múltiplas predecessoras, essa não é necessariamente a relação que criou mais recentemente, mas sim a que tem a data mais tardia (determinante).
 
+## Relações em tarefas de resumo
+
+Também é possível colocar uma relação diretamente numa tarefa de resumo (uma fase ou grupo EAP) em vez de numa das tarefas subjacentes. O Open Planner Studio propaga automaticamente essa relação para as tarefas subjacentes — a mesma abordagem do MS Project:
+
+- **Resumo como predecessora**: cada tarefa subjacente torna-se ela própria predecessora da sucessora. Esta espera assim, na prática, por toda a fase — a tarefa que termina por último nessa fase determina a data.
+- **Resumo como sucessora**: cada tarefa subjacente torna-se ela própria sucessora da predecessora. Todas as tarefas da fase esperam assim pela mesma predecessora.
+- **Resumo em ambos os lados**: cada tarefa de um lado recebe uma relação com cada tarefa do outro lado.
+
+Isto é exato para **FS e FF** com um resumo como predecessora, e para **FS e SS** com um resumo como sucessora. Para **SS/SF** com um resumo como predecessora e **FF/SF** com um resumo como sucessora — combinações raras na prática da construção — o Open Planner Studio planeia deliberadamente do lado seguro: possivelmente um pouco mais tarde do que estritamente necessário, nunca mais cedo.
+
 ## Tipos de restrição
 
 Uma restrição impõe um limite de data a uma tarefa, independentemente das suas relações. O Open Planner Studio tem oito tipos, definidos através do campo **Restrição** no painel de propriedades:

@@ -248,6 +248,40 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       `src/state/slices/scheduleSlice.ts:96-100` beschreven staat (taak blijft op zijn gedrifte
       datum hangen na het verwijderen van een relatie).
 
+### Samenvattingsrelatie-propagatie — resterende punten (CPM-review, 2026-08-15)
+
+> Vervolg op de samenvattingsrelatie-propagatie (`expandSummaryRelations`, MS Project-semantiek voor
+> relaties op WBS-samenvattingstaken). De CPM-review vond en fixte C1 (vooroudersguard, blokkerend),
+> I2 (synthetische ids terugvouwen in de solver-uitvoer) en M7 (waarschuwings-dedup); onderstaande
+> punten zijn bewust doorgeschoven.
+
+- [ ] **Echte MIN-semantiek voor SS/SF met een samenvatting als voorganger** (I3). De huidige
+      expansie (één relatie per bladkind, MAX over de forward-pass) is voor SS/SF-voorganger
+      CONSERVATIEF TE LAAT t.o.v. MS Project's ware "samenvatting-start" (de VROEGSTE kind-start,
+      dus MIN): de opvolger kan later gepland worden dan nodig, nooit vroeger. Voor FF/SF met een
+      samenvatting als OPVOLGER (een vorm die MS Project op een samenvatting zelf al ontmoedigt)
+      dwingt de expansie bovendien ELK kind individueel tot de constraint, i.p.v. alleen het laatst
+      afgeronde kind. Beide zijn gedocumenteerd in de moduleheader van
+      `src/engine/scheduler/expandSummaryRelations.ts` en gepind in vier regressiecases
+      (`wbs-summary-relation-conservative-*` in `tests/planning/cases-edge.json`). Echte MIN-
+      semantiek vergt de samenvatting als EIGEN solver-knoop (met een afgeleide duur/positie uit
+      zijn kinderen) i.p.v. een verzameling losse bladtaak-relaties — een grotere, aparte wijziging.
+      Corpusincidentie (Bijlage 13): 0 — geen gemeten regressie, alleen een grens.
+- [ ] **Procentuele lag (`lagPercent`) op een samenvattingsrelatie rekent tegen de duur van het
+      INDIVIDUELE bladkind, niet tegen de samenvatting als geheel** (M5). Ná expansie leest
+      `resolveEffectiveLagDays` de duur van de synthetische (bladtaak-)voorganger — bij kinderen met
+      sterk uiteenlopende duren geeft dat per gegenereerde bladrelatie een andere absolute lag.
+      Corpusincidentie (Bijlage 13): 0 (geen van de samenvatting-relaties heeft `lagPercent`). Zou
+      dezelfde "samenvatting als solver-knoop"-golf als het vorige punt vergen om goed op te lossen.
+- [ ] **`droppedSequenceIds` heeft nul consumenten** (I4). `CPMResult.droppedSequenceIds` (489a9ef2
+      + de expansie-drops uit C1/de MAX_EXPANDED_RELATIONS-klem) wordt nergens in de UI of MCP
+      getoond — een gebruiker met een gedropte relatie (kapotte tak, vooroudersrelatie, klem) ziet
+      dat nergens terug. Kandidaat-aansluitpunten: een badge naast de bestaande out-of-sequence-
+      teller in `StatusBar.tsx` (zelfde `⚠`-patroon, `cpmResult.outOfSequenceSequenceIds`), en/of
+      opname in `get_project_overview`/vergelijkbare MCP-leestools (`src/services/mcp/tools/
+      readTools.ts`) zodat een AI-assistent het kan zien en melden. Geen UI-werk nu — bewust
+      doorgeschoven, dit is puur zichtbaarheid, geen correctheidsgat.
+
 ### Klein
 - [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
       issue #25: de PREVIEW is inmiddels afgedekt (`maxPages` in `paginateCanvasToTiles`, 30 vellen),

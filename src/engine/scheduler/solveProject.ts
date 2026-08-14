@@ -21,7 +21,7 @@ import type { WorkCalendar } from '@/types/calendar';
 import type { ProgressMode, SchedulingOptions } from '@/types/project';
 import { CPMSolver, type CPMResult } from './CPMSolver';
 import { applyCpmResult } from './applyCpmResult';
-import { expandSummaryRelations } from './expandSummaryRelations';
+import { expandSummaryRelations, foldSyntheticSequenceIds } from './expandSummaryRelations';
 
 /** Invoer van één doorrekening — plain data, geen store. */
 export interface SolveProjectInput {
@@ -71,10 +71,18 @@ export function solveProject(input: SolveProjectInput): CPMResult {
     schedulingOptions: input.schedulingOptions,
   });
   const result = solver.solve();
+  // I2 (CPM-review): de solver rekende op de GEËXPANDEERDE (synthetische) relatie-set, dus zijn
+  // relatie-gekeyde velden dragen nog synthetische "::exp-N"-ids — geen enkele consument
+  // (RelationsPanel, StatusBar, ReportPanel, TaskDependenciesSection, GanttCanvas, MCP-leestools)
+  // kent die, want die lezen allemaal de store-`sequences` met de originele ids. Vouw ze terug
+  // vóórdat het resultaat naar de aanroeper gaat.
+  foldSyntheticSequenceIds(result);
   // Relaties die de expansie zelf niet kon representeren (lege/kapotte tak, of de
   // MAX_EXPANDED_RELATIONS-klem) horen in hetzelfde kanaal als de solver-eigen guard.
+  // Dedupliceren: expansionDropped draagt al originele ids, maar zou in theorie kunnen
+  // overlappen met wat de solver zelf al (gefold) droppte.
   if (expansionDropped.length > 0) {
-    result.droppedSequenceIds = [...(result.droppedSequenceIds ?? []), ...expansionDropped];
+    result.droppedSequenceIds = [...new Set([...(result.droppedSequenceIds ?? []), ...expansionDropped])];
   }
 
   // Cyclus gedetecteerd: resultaat (met fout) teruggeven en niets terugschrijven.

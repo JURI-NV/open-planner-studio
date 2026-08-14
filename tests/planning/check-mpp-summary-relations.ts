@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { readMPP } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { CPMSolver } from '@/engine/scheduler/CPMSolver';
-import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
+import { expandSummaryRelations, foldSyntheticSequenceIds } from '@/engine/scheduler/expandSummaryRelations';
 import { installDOMParser } from './xmldom-shim';
 
 const diffs: string[] = [];
@@ -105,10 +105,13 @@ if (!existsSync(path)) {
     );
 
     if (cpm) {
+      // I2 (CPM-review): zelfde volgorde als scheduleSlice.runCPM — eerst de synthetische ids in de
+      // vier relatie-gekeyde velden terugvouwen, dan pas de dropped-lijsten samenvoegen.
+      foldSyntheticSequenceIds(cpm);
       // Zelfde samenvoeging als scheduleSlice.runCPM: solver-eigen drops (489a9ef2-vangnet, écht
-      // verweesde ids) + expansie-drops (lege tak / MAX_EXPANDED_RELATIONS-klem) horen in hetzelfde
-      // kanaal.
-      const totalDropped = [...(cpm.droppedSequenceIds ?? []), ...expansionDropped];
+      // verweesde ids) + expansie-drops (lege tak / MAX_EXPANDED_RELATIONS-klem, of C1's voorouder-/
+      // zelfrelatie-guard) horen in hetzelfde kanaal.
+      const totalDropped = [...new Set([...(cpm.droppedSequenceIds ?? []), ...expansionDropped])];
 
       truthy('geen circulaire-dependency-fout', !cpm.error);
       truthy('cpmResult bevat taakresultaten (rekent echt door)', cpm.tasks.size === leafTasks.length);
@@ -135,6 +138,19 @@ if (!existsSync(path)) {
       // solver niet).
       truthy(`projectEnd-basislijn: ${cpm.projectEnd} (verwacht 2025-02-06T08:00)`, cpm.projectEnd === '2025-02-06T08:00');
       truthy(`projectDuration-basislijn: ${cpm.projectDuration} werkdagen (verwacht 4)`, cpm.projectDuration === 4);
+
+      // I2 (CPM-review): op een echt corpusbestand met kruisproduct-relaties moeten de vier relatie-
+      // gekeyde velden ná foldSyntheticSequenceIds GEEN synthetische "::exp-N"-ids meer dragen — dat
+      // is precies wat RelationsPanel/StatusBar/ReportPanel/GanttCanvas/MCP-leestools als "de echte
+      // relatie-id" herkennen (ze kennen alleen `s.sequences`).
+      const relationKeyedIds = [
+        ...cpm.drivingSequenceIds, ...cpm.truncatedLeadSequenceIds, ...cpm.outOfSequenceSequenceIds,
+        ...Object.keys(cpm.sequenceFreeFloat),
+      ];
+      truthy(
+        `I2: geen synthetische ids meer in drivingSequenceIds/sequenceFreeFloat/truncatedLead/outOfSequence ná fold (${relationKeyedIds.length} sleutels gecontroleerd)`,
+        relationKeyedIds.every((id) => !id.includes('::exp-')),
+      );
 
       // ── Ground-truth-vergelijking (informationeel, geen hard "dichterbij"-oordeel — zie header) ─
       const xmlPath = `${path}.xml`;

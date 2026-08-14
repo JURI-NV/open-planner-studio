@@ -191,6 +191,13 @@ export class CPMSolver {
   // constructie (zie de guard hieronder). Constant per instance (afgeleid uit de constructor-
   // input), dus NIET onderdeel van de idempotentie-reset in solve().
   private readonly droppedSequenceIds: string[];
+  // M7 (CPM-review): dedup-sleutel voor de dropped-relaties-waarschuwing hieronder, STATIC (gedeeld
+  // over alle instanties) — `ResourceLeveler` bouwt binnen één nivelleeraanroep O(taken) solvers,
+  // typisch allemaal met DEZELFDE gedropte relatieset (die hangt af van welke taak-ids bestaan, niet
+  // van de per-kandidaat `levelingDelay`-varianten die tussen die constructies verschillen). Zonder
+  // dedup logt dat de identieke waarschuwing tientallen tot honderden keren per nivellering. Een
+  // ECHTE wijziging in de gedropte set (ander document, andere relaties) logt gewoon opnieuw.
+  private static lastDroppedWarningSignature: string | null = null;
 
   constructor(
     tasks: Task[],
@@ -213,15 +220,14 @@ export class CPMSolver {
     // zodra dat fantoom-id in `order` viel — geen nette foutmelding, een onbehandelde throw die
     // `openFile`s catch opslokt, zodat het bestand opent maar de planning stil onberekend blijft.
     //
-    // Semantiek (interim, zie CPMResult.droppedSequenceIds): een relatie die een taak raakt die niet
-    // in de meegegeven set zit — typisch een samenvattingstaak, maar net zo goed een verweesd/
-    // ongeldig taak-id — wordt genegeerd i.p.v. de solver te laten crashen. Dat is BEWUST minder dan
-    // volledige MS Project-semantiek (waar een voorganger op een samenvatting effectief voor élk kind
-    // geldt, en een samenvatting als voorganger de opvolger op het einde van de hele tak laat wachten)
-    // — die propagatie naar bladtaken vereist boomstructuur-kennis die deze solver niet heeft (hij
-    // ziet per ontwerp alleen bladtaken) en is een grotere, aparte wijziging. De samenvattingstaak
-    // zelf blijft gewoon correct via de bestaande rollup; alleen déze specifieke relatie legt geen
-    // dwang meer op de planning.
+    // Semantiek: een relatie die een taak raakt die niet in de meegegeven set zit wordt genegeerd
+    // i.p.v. de solver te laten crashen. Dit blijft het VANGNET voor écht verweesde/ongeldige
+    // taak-ids — sinds `expandSummaryRelations` (vervolgtaak op deze guard) herschrijven de reguliere
+    // aanroepers (`runCPM`/`levelResources` in `scheduleSlice.ts`, de leveler in
+    // `ResourceLeveler.ts`, `benchmark/runner.ts`) een relatie op een WBS-samenvattingstaak ZELF al
+    // naar bladtaak-relaties vóórdat de solver ze ziet; die relaties bereiken deze guard dus normaal
+    // niet meer. Een aanroeper die `expandSummaryRelations` overslaat (bv. rechtstreeks tegen de
+    // solver getest) valt terug op het oude gedrag: droppen, niet crashen.
     const kept: Sequence[] = [];
     const dropped: string[] = [];
     for (const seq of sequences) {
@@ -234,11 +240,17 @@ export class CPMSolver {
     this.sequences = kept;
     this.droppedSequenceIds = dropped;
     if (dropped.length > 0) {
-      console.warn(
-        `CPMSolver: ${dropped.length} relatie(s) genegeerd omdat voorganger of opvolger geen ` +
-        'bladtaak is in de meegegeven set (waarschijnlijk een samenvattingstaak) — de solver kent ' +
-        `geen samenvattingsrelatie-propagatie. Relatie-id's: ${dropped.join(', ')}.`,
-      );
+      // M7: alleen loggen als de gedropte SET (niet de instantie) daadwerkelijk is veranderd sinds
+      // de vorige constructie — zie de toelichting bij `lastDroppedWarningSignature`.
+      const signature = [...dropped].sort().join(',');
+      if (signature !== CPMSolver.lastDroppedWarningSignature) {
+        CPMSolver.lastDroppedWarningSignature = signature;
+        console.warn(
+          `CPMSolver: ${dropped.length} relatie(s) genegeerd omdat voorganger of opvolger geen ` +
+          'bladtaak is in de meegegeven set (verweesd/ongeldig taak-id, of een aanroeper die ' +
+          `expandSummaryRelations niet gebruikt). Relatie-id's: ${dropped.join(', ')}.`,
+        );
+      }
     }
 
     this.projectCal = projectCalendar;
