@@ -37,7 +37,7 @@ import {
 } from './taskFields';
 import type { SequenceType } from '@/types/sequence';
 import type { Task } from '@/types/task';
-import { hasSummaryEndpoint, SUMMARY_ENDPOINT_REJECTION } from '@/state/relationRules';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 // De relatie-NOTATIE (type-aliassen, lag-vormen, schema-fragmenten) woont in de gedeelde veldlaag
 // `sequenceFields.ts` — één implementatie voor `add_dependencies` hier, `update_dependencies` in
 // `dependencyTools.ts` en de leeskant in `readTools.ts`. Zie de kop van dat bestand.
@@ -48,6 +48,7 @@ import {
   parseLag,
   normalizeSeqType,
   SEQ_TYPE_SCHEMA,
+  SUMMARY_ENDPOINT_REJECTION,
   unknownTypeReason,
   type ParsedLag,
 } from './sequenceFields';
@@ -740,7 +741,17 @@ function addDependenciesCore(
       ...(lp.lagPercent !== undefined ? { lagPercent: lp.lagPercent } : {}),
     });
     if (newId) added.push(newId);
-    else rejections.push({ id: `${c.predecessorId}->${c.successorId}`, reason: 'relatie bestond al' });
+    else {
+      // Backstop, niet de precieze reden: `classifyDeps` hierboven hoort elke afkeuring (dedup,
+      // verzameltaak-eindpunt, self, onbekende taak) al zelf te vangen, dus dit pad is vandaag
+      // onbereikbaar. Mocht een toekomstig gemist geval hier tóch belanden, dan mag de tekst niet
+      // meer beloven dan hij weet — "bestond al" zou een agent een niet-bestaande relatie laten
+      // zoeken en laten hercirkelen.
+      rejections.push({
+        id: `${c.predecessorId}->${c.successorId}`,
+        reason: 'relatie geweigerd door de relatieregels (duplicaat, of een eindpunt dat geen effect heeft)',
+      });
+    }
   }
   return { data: { added }, itemRejections: rejections };
 }
