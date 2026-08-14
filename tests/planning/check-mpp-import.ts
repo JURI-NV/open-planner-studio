@@ -1,14 +1,15 @@
-// MPP-import (fase 3.8 etappe 1, taak T3+): CFB/OLE2-container-regressie.
+// MPP-import (fase 3.8 etappe 1, taak T3+): CFB/OLE2-container-regressie + MPP-primitievenlaag.
 //
 // Twee lagen dekking:
-//  1. SYNTHETISCHE FIXTURES (deze module bouwt zelf minimale, geldige CFB-bytes) — draaien
-//     ALTIJD, ook zonder corpus. Dit is de dekking die CI daadwerkelijk op de CFB-laag zelf
-//     heeft: byte-exacte round-trip, de FAT/mini-stream-grens (4095 vs. 4096 bytes) en een reeks
-//     vijandige varianten (afgekapt bestand, foute header, cyclische FAT, self-referencing
-//     directory-child, sectornummer buiten bereik, een zelf-lussende DIFAT-sector gecombineerd
-//     met een vijandig grote `numFatSectors`, en een N-niveaus-diepe duplicaat-sibling-keten) die
-//     stuk voor stuk een nette `CFB:`-fout moeten geven (of, voor de laatste twee grensgevallen,
-//     snel en veilig moeten slagen) — nooit een hang, geheugenexplosie of rauwe RangeError.
+//  1. SYNTHETISCHE FIXTURES (deze module en `mppFixtures.ts` bouwen zelf minimale, geldige
+//     CFB-/MPP-bytes) — draaien ALTIJD, ook zonder corpus. Dit is de dekking die CI daadwerkelijk
+//     op de CFB-laag ÉN de MPP-primitievenlaag heeft: byte-exacte round-trips, grenswaarden
+//     (FAT/mini-stream-grens, VarMeta12-itemCount-clamping) en een reeks vijandige varianten
+//     (afgekapte bestanden, foute headers, cyclische FAT, self-referencing directory-child,
+//     sectornummer buiten bereik, een zelf-lussende DIFAT-sector, een N-niveaus-diepe
+//     duplicaat-sibling-keten, en — sinds de T4-kwaliteitsreview — hostile itemCount-claims op
+//     VarMeta12) die stuk voor stuk een nette fout moeten geven (of, voor de grensgevallen, snel
+//     en veilig moeten slagen) — nooit een hang, geheugenexplosie of rauwe RangeError.
 //  2. CORPUS-GEDREVEN structuurcheck tegen echte `.mpp`-bestanden. GEEN IN-REPO FIXTURE: het
 //     corpus bestaat uit echte bedrijfsbestanden van de gebruiker die NOOIT in de repo mogen
 //     komen — zowel omdat het geen testdata is die we mogen distribueren, als omdat er zonder
@@ -18,9 +19,15 @@
 //     (C3) beïnvloedt NOOIT de einduitslag: het eindoordeel hieronder kijkt altijd naar alle
 //     verzamelde `diffs`, ook de synthetische-fixture- en negatieve-casusdiffs van hierboven.
 //
+// De CFB-headerboilerplate (magic/versie-/sectorshift-velden, DIFAT, directory-naamschrijver) en
+// de MPP-blokencoders (CompObj/Props14) wonen sinds de T4-kwaliteitsreview in `mppFixtures.ts`
+// (M6) — gedeeld, zodat T5–T9 (die eigen backend-storage-fixtures gaan bouwen voor TBkndTask/
+// TBkndCal/TBkndCons/TBkndRsc/TBkndAssn) er direct op kunnen voortbouwen.
+//
 // Deze check groeit mee met de latere MPP-taken (T4–T7 bouwen de container-/veldlagen erbovenop;
-// T9 breidt 'm uit met een echt content-contract tegen de MSPDI-ground-truth). T3 zelf bewijst
-// alleen dat de CFB-laag de bekende MPP14-containerstructuur foutloos — en veilig — oplevert.
+// T9 breidt 'm uit met een echt content-contract tegen de MSPDI-ground-truth). T3/T4 bewijzen dat
+// de CFB-laag en de MPP-containerlaag de bekende MPP14-containerstructuur foutloos — en veilig —
+// opleveren.
 //
 // Draait via run.sh (binnen het RUN_HOLIDAYS-blok) en draait daarna ook 5x mee in de
 // tijdzone-matrix — daarom bewust geen tijdzone-gevoelige logica hierin (geen Date-aanmaak voor
@@ -29,9 +36,19 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
-import { detectMppVariant, assertReadable } from '@/services/mpp/mppContainer';
-import { FixedMeta, FixedData } from '@/services/mpp/mppPrimitives';
+import { detectMppVariant, assertReadable, Props } from '@/services/mpp/mppContainer';
+import {
+  FixedMeta, FixedData, VarMeta12, Var2Data,
+  getUnicodeString, getTimestamp, getGUID, getDuration,
+  type MppTimeUnit,
+} from '@/services/mpp/mppPrimitives';
 import { MppUnsupportedError } from '@/services/mpp/errors';
+import {
+  SECTOR, HEADER,
+  buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb,
+  encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
+  expectCfbError, expectMppError, bytesEqual,
+} from './mppFixtures';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -39,9 +56,6 @@ const truthy = (label: string, cond: boolean) => {
   checks++;
   if (!cond) diffs.push(`${label}: verwacht waar, kreeg onwaar`);
 };
-
-const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>
-  a.length === b.length && a.every((v, i) => v === b[i]);
 
 // ── Negatieve casus (in-memory, altijd uitgevoerd — onafhankelijk van het corpus) ────────────
 {
@@ -60,100 +74,6 @@ const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean =>
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // I2 — synthetische CFB-fixtures (±geen corpus nodig)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-const SECTOR = 512;
-const HEADER = 512;
-const CFB_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
-
-/** Bouwt een minimale, geldige CFB met twee streams: StreamA (4095 bytes — net onder de
- *  4096-mini-stream-cutoff, dus het mini-FAT-pad) en StreamB (4096 bytes — precies op de cutoff,
- *  dus het gewone-FAT-pad). Sectorlayout: 0=FAT, 1=directory, 2=mini-FAT, 3-10=root-ministream
- *  (StreamA's data, 8×512=4096 bytes), 11-18=StreamB's data (8×512=4096 bytes). */
-function buildSyntheticCfb(): { bytes: Uint8Array; streamA: Uint8Array; streamB: Uint8Array } {
-  const totalSectors = 19; // 0..18
-  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
-  const bytes = new Uint8Array(buf);
-  const view = new DataView(buf);
-
-  const streamA = new Uint8Array(4095);
-  for (let i = 0; i < streamA.length; i++) streamA[i] = i & 0xff;
-  const streamB = new Uint8Array(4096);
-  for (let i = 0; i < streamB.length; i++) streamB[i] = (255 - (i & 0xff)) & 0xff;
-
-  CFB_MAGIC.forEach((b, i) => (bytes[i] = b));
-  view.setUint16(26, 3, true); // major version 3
-  view.setUint16(30, 9, true); // sectorShift → 512
-  view.setUint16(32, 6, true); // miniSectorShift → 64
-  view.setUint32(44, 1, true); // numFatSectors
-  view.setUint32(48, 1, true); // firstDirSector
-  view.setUint32(56, 4096, true); // miniStreamCutoff
-  view.setUint32(60, 2, true); // firstMiniFatSector
-  view.setUint32(64, 1, true); // numMiniFatSectors
-  view.setUint32(68, 0xfffffffe, true); // firstDifatSector = ENDOFCHAIN
-  view.setUint32(72, 0, true); // numDifatSectors
-  for (let i = 0; i < 109; i++) {
-    view.setUint32(76 + i * 4, i === 0 ? 0 : 0xffffffff, true); // DIFAT[0] = sector 0 (FAT)
-  }
-
-  const sectorOff = (n: number) => HEADER + n * SECTOR;
-
-  // Sector 0: FAT (128 u32-entries; alleen 0..18 zinvol, rest FREE)
-  const fat = new Array<number>(128).fill(0xffffffff);
-  fat[0] = 0xfffffffd; // FATSECT
-  fat[1] = 0xfffffffe; // directory: één sector
-  fat[2] = 0xfffffffe; // mini-FAT: één sector
-  for (let s = 3; s <= 9; s++) fat[s] = s + 1; // root-ministream-keten 3→4→…→10
-  fat[10] = 0xfffffffe;
-  for (let s = 11; s <= 17; s++) fat[s] = s + 1; // StreamB-keten 11→…→18
-  fat[18] = 0xfffffffe;
-  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
-
-  // Sector 1: directory — 4 entries van 128 bytes (Root, StreamA, StreamB, ongebruikt)
-  const dirOff = sectorOff(1);
-  const writeName = (entryBase: number, name: string) => {
-    for (let c = 0; c < name.length; c++) view.setUint16(entryBase + c * 2, name.charCodeAt(c), true);
-    view.setUint16(entryBase + 64, (name.length + 1) * 2, true);
-  };
-  // Entry 0: Root
-  writeName(dirOff, 'Root Entry');
-  view.setUint8(dirOff + 66, 5); // type root
-  view.setUint32(dirOff + 68, 0xffffffff, true); // left
-  view.setUint32(dirOff + 72, 0xffffffff, true); // right
-  view.setUint32(dirOff + 76, 1, true); // child = StreamA
-  view.setUint32(dirOff + 116, 3, true); // ministream start-sector
-  view.setUint32(dirOff + 120, 4096, true); // ministream size
-  // Entry 1: StreamA
-  const e1 = dirOff + 128;
-  writeName(e1, 'StreamA');
-  view.setUint8(e1 + 66, 2);
-  view.setUint32(e1 + 68, 0xffffffff, true);
-  view.setUint32(e1 + 72, 2, true); // right = StreamB
-  view.setUint32(e1 + 76, 0xffffffff, true);
-  view.setUint32(e1 + 116, 0, true); // ministart-sector 0
-  view.setUint32(e1 + 120, streamA.length, true);
-  // Entry 2: StreamB
-  const e2 = dirOff + 256;
-  writeName(e2, 'StreamB');
-  view.setUint8(e2 + 66, 2);
-  view.setUint32(e2 + 68, 0xffffffff, true);
-  view.setUint32(e2 + 72, 0xffffffff, true);
-  view.setUint32(e2 + 76, 0xffffffff, true);
-  view.setUint32(e2 + 116, 11, true); // sector 11
-  view.setUint32(e2 + 120, streamB.length, true);
-  // Entry 3: ongebruikt (alle bytes 0 ⇒ typeByte 0)
-
-  // Sector 2: mini-FAT — 64 minisectoren van StreamA, keten 0→1→…→62→63=ENDOFCHAIN
-  const mfOff = sectorOff(2);
-  for (let i = 0; i < 64; i++) view.setUint32(mfOff + i * 4, i === 63 ? 0xfffffffe : i + 1, true);
-  for (let i = 64; i < 128; i++) view.setUint32(mfOff + i * 4, 0xffffffff, true);
-
-  // Sectoren 3-10: root-ministream = StreamA's bytes (laatste byte van sector 10 is padding)
-  bytes.set(streamA, sectorOff(3));
-  // Sectoren 11-18: StreamB
-  bytes.set(streamB, sectorOff(11));
-
-  return { bytes, streamA, streamB };
-}
-
 const synthetic = buildSyntheticCfb();
 
 // ── Basisbewijs: round-trip + FAT/mini-stream-grens + entry.size-contract ────────────────────
@@ -176,41 +96,25 @@ const synthetic = buildSyntheticCfb();
 // veilig slagen) — nooit een hang, nooit een rauwe RangeError. ────────────────────────────────
 const TIME_LIMIT_MS = 2000;
 
-function expectCfbError(label: string, run: () => void): void {
-  const start = Date.now();
-  let threw = false;
-  let message = '';
-  try {
-    run();
-  } catch (err) {
-    threw = true;
-    message = err instanceof Error ? err.message : String(err);
-  }
-  const elapsedMs = Date.now() - start;
-  truthy(`${label}: binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
-  truthy(`${label}: gooit`, threw);
-  truthy(`${label}: nette CFB-foutmelding (geen RangeError e.d.)`, message.startsWith('CFB:'));
-}
-
 // Afgekapt bestand: geknipt hálverwege de FAT-sector zelf (header blijft intact — die alleen zou
 // de header-checks niet raken — maar sector 0 kan niet meer volledig gelezen worden). Halverwege
 // het HELE bestand knippen bleek niet genoeg: header/FAT/directory/mini-FAT passen ruim in de
 // eerste ~2 KB, dus de constructor zelf slaagt dan gewoon (de afgeknipte streamdata wordt pas
 // gelezen bij een latere getStream()-aanroep, die deze test niet doet).
-expectCfbError('I2 afgekapt bestand', () => {
+expectCfbError(truthy, 'I2 afgekapt bestand', () => {
   const truncated = synthetic.bytes.slice(0, HEADER + SECTOR / 2);
   void new CfbFile(truncated);
 });
 
 // Foute sectorShift voor de opgegeven major version (I3).
-expectCfbError('I2 verkeerde sectorShift/version-combinatie', () => {
+expectCfbError(truthy, 'I2 verkeerde sectorShift/version-combinatie', () => {
   const bad = new Uint8Array(synthetic.bytes);
   new DataView(bad.buffer).setUint16(30, 10, true); // major version 3 verwacht shift 9, niet 10
   void new CfbFile(bad);
 });
 
 // Cyclische FAT: de directory-sector (1) wijst naar zichzelf i.p.v. ENDOFCHAIN.
-expectCfbError('I2 cyclische FAT', () => {
+expectCfbError(truthy, 'I2 cyclische FAT', () => {
   const cyclic = new Uint8Array(synthetic.bytes);
   new DataView(cyclic.buffer).setUint32(HEADER + 1 * 4, 1, true); // FAT[1] = 1 (self-loop)
   void new CfbFile(cyclic);
@@ -219,7 +123,7 @@ expectCfbError('I2 cyclische FAT', () => {
 // Sectornummer buiten bereik: StreamB's startsector wijst ver voorbij het bestand. De
 // constructor zelf leest StreamB's inhoud nog niet (dat gebeurt pas on-demand in getStream), dus
 // de fout valt daar.
-expectCfbError('I2 sectornummer buiten bereik', () => {
+expectCfbError(truthy, 'I2 sectornummer buiten bereik', () => {
   const oor = new Uint8Array(synthetic.bytes);
   const dirOff = HEADER + 1 * SECTOR;
   new DataView(oor.buffer).setUint32(dirOff + 256 + 116, 999999, true); // StreamB-entry (idx 2)
@@ -267,7 +171,7 @@ expectCfbError('I2 sectornummer buiten bereik', () => {
 // aan `difat.length`, dus de `cap`-kortsluiting alleen zou 'm niet vroegtijdig stoppen) en wijst
 // met haar "volgende DIFAT-sector"-veld naar zichzelf — puur `maxSectorSteps` (bestandsgrootte-
 // gebaseerd, NIET `numFatSectors`-gebaseerd) mag deze keten nog afkappen.
-expectCfbError('I2 DIFAT-zelflus + vijandig grote numFatSectors', () => {
+expectCfbError(truthy, 'I2 DIFAT-zelflus + vijandig grote numFatSectors', () => {
   const cyclicDifat = new Uint8Array(synthetic.bytes);
   const view = new DataView(cyclicDifat.buffer);
   view.setUint32(44, 0xffffffff, true); // numFatSectors: vijandig groot (ongevalideerde u32)
@@ -288,69 +192,6 @@ expectCfbError('I2 DIFAT-zelflus + vijandig grote numFatSectors', () => {
 // niveau opnieuw wordt opgebouwd: O(2^levels). Met levels=30 is dat het verschil tussen
 // milliseconden en >1 miljard operaties — een regressie kan deze test dus niet stilletjes
 // wegglippen, hooguit hem laten hangen (net zo'n onmiskenbaar signaal als de oorspronkelijke bug).
-const DIR_ENTRY = 128;
-
-function buildDuplicateSiblingCfb(levels: number): Uint8Array {
-  const dirSectors = Math.ceil(((levels + 1) * DIR_ENTRY) / SECTOR);
-  const totalSectors = 1 + dirSectors; // sector 0 = FAT, sectoren 1..dirSectors = directory
-  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
-  const bytes = new Uint8Array(buf);
-  const view = new DataView(buf);
-
-  CFB_MAGIC.forEach((b, i) => (bytes[i] = b));
-  view.setUint16(26, 3, true);
-  view.setUint16(30, 9, true);
-  view.setUint16(32, 6, true);
-  view.setUint32(44, 1, true); // numFatSectors
-  view.setUint32(48, 1, true); // firstDirSector
-  view.setUint32(56, 4096, true); // miniStreamCutoff
-  view.setUint32(60, 0xfffffffe, true); // firstMiniFatSector: geen mini-FAT nodig in deze fixture
-  view.setUint32(64, 0, true); // numMiniFatSectors
-  view.setUint32(68, 0xfffffffe, true); // firstDifatSector = ENDOFCHAIN
-  view.setUint32(72, 0, true); // numDifatSectors
-  for (let i = 0; i < 109; i++) view.setUint32(76 + i * 4, i === 0 ? 0 : 0xffffffff, true);
-
-  const sectorOff = (n: number) => HEADER + n * SECTOR;
-
-  // Sector 0: FAT — beschrijft zichzelf (FATSECT) en de geketende directory-sectoren 1..dirSectors.
-  const fat = new Array<number>(128).fill(0xffffffff);
-  fat[0] = 0xfffffffd;
-  for (let s = 1; s <= dirSectors; s++) fat[s] = s === dirSectors ? 0xfffffffe : s + 1;
-  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
-
-  // Directory-entries liggen aaneengesloten vanaf sector 1 — dat spoort met de FAT-keten
-  // hierboven, dus een simpele stride van DIR_ENTRY bytes is hier geoorloofd.
-  const entryOffset = (idx: number) => sectorOff(1) + idx * DIR_ENTRY;
-  const writeName = (base: number, name: string) => {
-    for (let c = 0; c < name.length; c++) view.setUint16(base + c * 2, name.charCodeAt(c), true);
-    view.setUint16(base + 64, (name.length + 1) * 2, true);
-  };
-
-  // Entry 0: root — child wijst naar entry 1, het begin van de duplicaat-keten.
-  const rootBase = entryOffset(0);
-  writeName(rootBase, 'Root Entry');
-  view.setUint8(rootBase + 66, 5);
-  view.setUint32(rootBase + 68, 0xffffffff, true);
-  view.setUint32(rootBase + 72, 0xffffffff, true);
-  view.setUint32(rootBase + 76, 1, true);
-
-  // Entries 1..levels: streams (geen eigen kinderen nodig) waarvan left én right naar hetzelfde
-  // volgende niveau wijzen.
-  for (let i = 1; i <= levels; i++) {
-    const base = entryOffset(i);
-    writeName(base, `Dup${i}`);
-    view.setUint8(base + 66, 2); // type stream
-    const next = i < levels ? i + 1 : 0xffffffff;
-    view.setUint32(base + 68, next, true); // left
-    view.setUint32(base + 72, next, true); // right — zelfde id als left
-    view.setUint32(base + 76, 0xffffffff, true); // child: n.v.t. voor een stream
-    view.setUint32(base + 116, 0xfffffffe, true); // startSector: nooit gelezen in deze test
-    view.setUint32(base + 120, 0, true); // size 0
-  }
-
-  return bytes;
-}
-
 {
   const levels = 30;
   const dupBytes = buildDuplicateSiblingCfb(levels);
@@ -403,156 +244,6 @@ function buildDuplicateSiblingCfb(levels: number): Uint8Array {
 const MPP_PASSWORD_FLAG_KEY = 893386752; // PropsKey.PASSWORD_FLAG (PropsKey.java r. 73)
 const MPP_PROTECTION_PASSWORD_HASH_KEY = 893386756; // PropsKey.PROTECTION_PASSWORD_HASH (r. 77)
 
-function encodeAsciiWithTerminator(s: string): Uint8Array {
-  const out = new Uint8Array(s.length + 1);
-  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-  out[s.length] = 0;
-  return out;
-}
-
-/** Spiegelt CompObj.java: 28 filler-bytes, dan lengte-geprefixte ASCII-strings (elke lengte
- *  telt de null-terminator mee). We stoppen na `fileFormat` — de applicationID-lengte (0, dus
- *  "overslaan") sluit het blok consistent af. */
-function encodeCompObjFileFormat(fileFormat: string): Uint8Array {
-  const nameBytes = encodeAsciiWithTerminator('OPS synthetic'); // willekeurig, mits ≠ "Microsoft Project 4.0"
-  const fmtBytes = encodeAsciiWithTerminator(fileFormat);
-  const out = new Uint8Array(28 + 4 + nameBytes.length + 4 + fmtBytes.length + 4);
-  const view = new DataView(out.buffer);
-  let pos = 28;
-  view.setInt32(pos, nameBytes.length, true);
-  pos += 4;
-  out.set(nameBytes, pos);
-  pos += nameBytes.length;
-  view.setInt32(pos, fmtBytes.length, true);
-  pos += 4;
-  out.set(fmtBytes, pos);
-  pos += fmtBytes.length;
-  view.setInt32(pos, 0, true); // applicationID-lengte: 0 ⇒ overslaan
-  return out;
-}
-
-/** Spiegelt Props14.java: 16-byte header (headerCount @12) + N entries (lengte/sleutel/
- *  genegeerd/data, uitgelijnd op een 2-byte-grens) — algemene vorm, ondersteunt meerdere
- *  PropsKeys in één stream (nodig voor de vlag+hash-scenario's hieronder). */
-function encodePropsEntries(entries: { key: number; data: Uint8Array }[]): Uint8Array {
-  let bodyLen = 0;
-  for (const e of entries) bodyLen += 12 + e.data.length + (e.data.length % 2 !== 0 ? 1 : 0);
-  const out = new Uint8Array(16 + bodyLen);
-  const view = new DataView(out.buffer);
-  view.setUint16(12, entries.length, true); // headerCount
-  let pos = 16;
-  for (const e of entries) {
-    view.setInt32(pos, e.data.length, true); // attrib1: datalengte
-    view.setInt32(pos + 4, e.key, true); // attrib2: sleutel
-    view.setInt32(pos + 8, 0, true); // attrib3: genegeerd
-    pos += 12;
-    out.set(e.data, pos);
-    pos += e.data.length;
-    if (e.data.length % 2 !== 0) pos += 1; // uitlijnen op een 2-byte-grens, zoals de leeskant verwacht
-  }
-  return out;
-}
-
-/** Eén PropsKey met een 1-byte waarde — het geval van PASSWORD_FLAG. */
-function encodePropsSingleByteEntry(key: number, valueByte: number): Uint8Array {
-  return encodePropsEntries([{ key, data: Uint8Array.of(valueByte) }]);
-}
-
-/** Bouwt een minimale, geldige CFB met twee ROOT-level streams (`nameA`/`nameB`), allebei via
- *  het mini-stream-pad. Generiek genoeg voor eender welke kleine (<4096 bytes) payload — niet
- *  hergebruikt de bestaande `buildSyntheticCfb` (die is toegesneden op de mini-/gewone-FAT-grens,
- *  niet op meerdere root-streams). */
-function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string, dataB: Uint8Array): Uint8Array {
-  const MINI = 64;
-  const minisectorsFor = (len: number) => Math.max(1, Math.ceil(len / MINI));
-  const miniCountA = minisectorsFor(dataA.length);
-  const miniCountB = minisectorsFor(dataB.length);
-  if (miniCountA + miniCountB > 128) {
-    throw new Error('buildTwoRootStreamsCfb: fixture te groot voor één mini-FAT-sector');
-  }
-  const ministreamBytes = (miniCountA + miniCountB) * MINI;
-  const ministreamSectors = Math.max(1, Math.ceil(ministreamBytes / SECTOR));
-  const totalSectors = 3 + ministreamSectors; // 0=FAT, 1=directory, 2=mini-FAT, 3..=root-ministream
-
-  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
-  const bytes = new Uint8Array(buf);
-  const view = new DataView(buf);
-
-  CFB_MAGIC.forEach((b, i) => (bytes[i] = b));
-  view.setUint16(26, 3, true);
-  view.setUint16(30, 9, true);
-  view.setUint16(32, 6, true);
-  view.setUint32(44, 1, true); // numFatSectors
-  view.setUint32(48, 1, true); // firstDirSector
-  view.setUint32(56, 4096, true); // miniStreamCutoff
-  view.setUint32(60, 2, true); // firstMiniFatSector
-  view.setUint32(64, 1, true); // numMiniFatSectors
-  view.setUint32(68, 0xfffffffe, true); // firstDifatSector = ENDOFCHAIN
-  view.setUint32(72, 0, true); // numDifatSectors
-  for (let i = 0; i < 109; i++) view.setUint32(76 + i * 4, i === 0 ? 0 : 0xffffffff, true);
-
-  const sectorOff = (n: number) => HEADER + n * SECTOR;
-
-  // Sector 0: FAT
-  const fat = new Array<number>(128).fill(0xffffffff);
-  fat[0] = 0xfffffffd; // FATSECT
-  fat[1] = 0xfffffffe; // directory: 1 sector
-  fat[2] = 0xfffffffe; // mini-FAT: 1 sector
-  for (let s = 3; s < 3 + ministreamSectors - 1; s++) fat[s] = s + 1;
-  fat[3 + ministreamSectors - 1] = 0xfffffffe;
-  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
-
-  // Sector 1: directory — Root, entry A, entry B, ongebruikt.
-  const dirOff = sectorOff(1);
-  const writeName = (entryBase: number, name: string) => {
-    for (let c = 0; c < name.length; c++) view.setUint16(entryBase + c * 2, name.charCodeAt(c), true);
-    view.setUint16(entryBase + 64, (name.length + 1) * 2, true);
-  };
-  writeName(dirOff, 'Root Entry');
-  view.setUint8(dirOff + 66, 5); // type root
-  view.setUint32(dirOff + 68, 0xffffffff, true);
-  view.setUint32(dirOff + 72, 0xffffffff, true);
-  view.setUint32(dirOff + 76, 1, true); // child = entry A
-  view.setUint32(dirOff + 116, 3, true); // ministream start-sector
-  view.setUint32(dirOff + 120, ministreamBytes, true);
-
-  const e1 = dirOff + 128;
-  writeName(e1, nameA);
-  view.setUint8(e1 + 66, 2); // type stream
-  view.setUint32(e1 + 68, 0xffffffff, true);
-  view.setUint32(e1 + 72, 2, true); // right = entry B
-  view.setUint32(e1 + 76, 0xffffffff, true);
-  view.setUint32(e1 + 116, 0, true); // ministart-sector 0
-  view.setUint32(e1 + 120, dataA.length, true);
-
-  const e2 = dirOff + 256;
-  writeName(e2, nameB);
-  view.setUint8(e2 + 66, 2);
-  view.setUint32(e2 + 68, 0xffffffff, true);
-  view.setUint32(e2 + 72, 0xffffffff, true);
-  view.setUint32(e2 + 76, 0xffffffff, true);
-  view.setUint32(e2 + 116, miniCountA, true); // ministart = na A's minisectoren
-  view.setUint32(e2 + 120, dataB.length, true);
-  // Entry 3: ongebruikt (alle bytes 0 ⇒ typeByte 0, buildTree slaat 'm over)
-
-  // Sector 2: mini-FAT
-  const mfOff = sectorOff(2);
-  for (let i = 0; i < 128; i++) view.setUint32(mfOff + i * 4, 0xffffffff, true); // FREE default
-  for (let i = 0; i < miniCountA; i++) {
-    view.setUint32(mfOff + i * 4, i === miniCountA - 1 ? 0xfffffffe : i + 1, true);
-  }
-  for (let i = 0; i < miniCountB; i++) {
-    const idx = miniCountA + i;
-    view.setUint32(mfOff + idx * 4, i === miniCountB - 1 ? 0xfffffffe : idx + 1, true);
-  }
-
-  // Root-ministream: A's bytes gevolgd door B's bytes, elk op een minisector-grens (64 bytes).
-  bytes.set(dataA, sectorOff(3));
-  bytes.set(dataB, sectorOff(3) + miniCountA * MINI);
-
-  return bytes;
-}
-
 // Wachtwoordpoort (review ná T4): MPXJ weigert pas als ZOWEL de vlag (bit 0x1) GEZET is ALS
 // PROTECTION_PASSWORD_HASH aanwezig is — zie de toelichting bij `readPasswordProtection` in
 // mppContainer.ts. Drie scenario's, exact de matrix die die functie moet dekken:
@@ -562,11 +253,14 @@ function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string,
   const compObj = encodeCompObjFileFormat('MSProject.MPP14');
   const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 0);
   const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
+  const cfb = new CfbFile(cfbBytes);
+  // M7 (kwaliteitsreview): detectMppVariant-assert buiten het try-blok, net als het MPP12-blok
+  // hieronder al deed — anders verdwijnt een falende detectMppVariant hier stilzwijgend in de
+  // "assertReadable gooit niet"-uitslag i.p.v. een eigen, specifieke diff te geven.
+  truthy('T4 synthetisch MPP14 (vlag=0): detectMppVariant === MPP14', detectMppVariant(cfb) === 'MPP14');
   let threw = false;
   let message = '';
   try {
-    const cfb = new CfbFile(cfbBytes);
-    truthy('T4 synthetisch MPP14 (vlag=0): detectMppVariant === MPP14', detectMppVariant(cfb) === 'MPP14');
     assertReadable(cfb);
   } catch (err) {
     threw = true;
@@ -636,6 +330,300 @@ function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string,
     mppCode = err instanceof MppUnsupportedError ? err.mppCode : undefined;
   }
   truthy("T4 synthetisch MPP12: assertReadable weigert met mppCode 'MPP_LEGACY'", mppCode === 'MPP_LEGACY');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// I5 (kwaliteitsreview) — containerlaag-foutpaden: altijd-draaiend, in-memory
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// Props-stream <16 bytes (kan de header zelf niet bevatten).
+expectMppError(truthy, 'I5 Props-stream <16 bytes', () => {
+  void new Props(new Uint8Array(10), 'te-kort');
+});
+
+// Props-header claimt méér entries dan daadwerkelijk aanwezig zijn — legt de bewust
+// vergevingsgezinde `break`-semantiek uit Props14.java vast (afkappen zonder te gooien, i.p.v.
+// een harde eis dat headerCount klopt met de werkelijke inhoud).
+{
+  const bytes = new Uint8Array(16 + 12 + 4);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(12, 5, true); // headerCount claimt 5 entries...
+  view.setInt32(16, 4, true); // ...maar er is er maar 1: attrib1 (lengte)
+  view.setInt32(20, 424242, true); // attrib2 (sleutel)
+  view.setInt32(24, 0, true); // attrib3 (genegeerd)
+  view.setInt32(28, 777, true); // data (4 bytes)
+
+  let threw = false;
+  let props: Props | null = null;
+  try {
+    props = new Props(bytes, 'over-claimed-header');
+  } catch {
+    threw = true;
+  }
+  truthy('I5 Props-header claimt meer entries dan aanwezig: construeert zonder te gooien', !threw);
+  truthy('I5 Props-header claimt meer entries dan aanwezig: de ene aanwezige entry is wél gelezen', props?.getInt(424242) === 777);
+}
+
+// Ontbrekende root-Props14 (CompObj aanwezig en herkend als MPP14, maar geen 'Props14'-stream in
+// de root) ⇒ assertReadable gooit een structurele MPP:-fout, GEEN MppUnsupportedError (dit is
+// geen "te oud"/"versleuteld"-afwijzing, maar een corrupt/onvolledig bestand).
+{
+  const compObj = encodeCompObjFileFormat('MSProject.MPP14');
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'NotProps14', Uint8Array.of(1));
+  const cfb = new CfbFile(cfbBytes);
+  let threw = false;
+  let message = '';
+  let isMppUnsupported = false;
+  try {
+    assertReadable(cfb);
+  } catch (err) {
+    threw = true;
+    message = err instanceof Error ? err.message : String(err);
+    isMppUnsupported = err instanceof MppUnsupportedError;
+  }
+  truthy('I5 ontbrekende root-Props14: assertReadable gooit', threw);
+  truthy('I5 ontbrekende root-Props14: geen MppUnsupportedError (structurele fout)', !isMppUnsupported);
+  truthy('I5 ontbrekende root-Props14: nette MPP:-foutmelding', message.startsWith('MPP:'));
+}
+
+// Afgekapt CompObj-blok (geknipt vóórdat de format-string gelezen kan worden) ⇒ de nette,
+// herkenbare "onbekend formaat"-fout — dezelfde als bij een volledig ontbrekend CompObj-blok.
+{
+  const truncated = encodeCompObjFileFormat('MSProject.MPP14').slice(0, 30);
+  const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 0);
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', truncated, 'Props14', props14);
+  const cfb = new CfbFile(cfbBytes);
+  let threw = false;
+  let message = '';
+  try {
+    detectMppVariant(cfb);
+  } catch (err) {
+    threw = true;
+    message = err instanceof Error ? err.message : String(err);
+  }
+  truthy('I5 afgekapt CompObj: detectMppVariant gooit', threw);
+  truthy("I5 afgekapt CompObj: 'Not a recognised MS Project MPP file'", message === 'Not a recognised MS Project MPP file');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// I4 (kwaliteitsreview) — mppPrimitives echt uitgevoerd: altijd-draaiend, in-memory
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+const FIXED_META_MAGIC = 0xfadfadba;
+
+/** Bouwt rauwe FixedMeta-bytes: 16-byte header (magic + RUWE itemCount-claim, die mag liegen
+ *  t.o.v. `numItems`) + `numItems` items van `itemSize` bytes, elk gevuld met zijn eigen index
+ *  (zodat `getByteArrayValue` verifieerbaar is). */
+function buildFixedMetaBytes(itemCountClaim: number, itemSize: number, numItems: number): Uint8Array {
+  const out = new Uint8Array(16 + numItems * itemSize);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, FIXED_META_MAGIC, true);
+  view.setInt32(8, itemCountClaim, true);
+  for (let i = 0; i < numItems; i++) {
+    for (let b = 0; b < itemSize; b++) out[16 + i * itemSize + b] = i;
+  }
+  return out;
+}
+
+// FixedMeta.withItemSize: geldig 3-itemblok.
+{
+  const bytes = buildFixedMetaBytes(3, 8, 3);
+  const fm = FixedMeta.withItemSize(bytes, 8, 'I4-valid3');
+  truthy('I4 FixedMeta.withItemSize geldig blok: getAdjustedItemCount === 3', fm.getAdjustedItemCount() === 3);
+  truthy('I4 FixedMeta.withItemSize geldig blok: item 0 correct', fm.getByteArrayValue(0)?.[0] === 0);
+  truthy('I4 FixedMeta.withItemSize geldig blok: item 2 correct', fm.getByteArrayValue(2)?.[0] === 2);
+  truthy('I4 FixedMeta.withItemSize geldig blok: index buiten bereik geeft null', fm.getByteArrayValue(3) === null);
+}
+
+// FixedMeta.withItemSize: foute magic.
+expectMppError(truthy, 'I4 FixedMeta.withItemSize foute magic', () => {
+  const bytes = buildFixedMetaBytes(1, 8, 1);
+  new DataView(bytes.buffer).setUint32(0, 0x12345678, true);
+  FixedMeta.withItemSize(bytes, 8, 'I4-bad-magic');
+});
+
+// FixedMeta.withItemSize: te klein voor de header.
+expectMppError(truthy, 'I4 FixedMeta.withItemSize te klein', () => {
+  FixedMeta.withItemSize(new Uint8Array(10), 8, 'I4-too-small');
+});
+
+// FixedMeta.withItemSize: itemSize=0.
+expectMppError(truthy, 'I4 FixedMeta.withItemSize itemSize=0', () => {
+  FixedMeta.withItemSize(buildFixedMetaBytes(1, 8, 1), 0, 'I4-zero-itemsize');
+});
+
+// FixedMeta.withItemSize: liegende header (claimt 1000 items, past er maar 3) — I1: getItemCount()
+// blijft geklemd op getAdjustedItemCount(), nooit de rauwe (potentieel hostile) headerwaarde.
+{
+  const bytes = buildFixedMetaBytes(1000, 8, 3);
+  const fm = FixedMeta.withItemSize(bytes, 8, 'I4-lying-header');
+  truthy('I4 FixedMeta.withItemSize liegende header: getAdjustedItemCount === 3', fm.getAdjustedItemCount() === 3);
+  truthy('I4 FixedMeta.withItemSize liegende header: getItemCount() geklemd (=== getAdjustedItemCount)', fm.getItemCount() === fm.getAdjustedItemCount());
+}
+
+// FixedMeta.withHeuristicItemSize: passende kandidaat (available/testSize === otherBlock.getItemCount()).
+{
+  const bytes = buildFixedMetaBytes(3, 10, 3); // 16 + 3*10 = 46 bytes ⇒ available = 30
+  const otherBlock = FixedData.withoutMeta(1, new Uint8Array(3)); // getItemCount() === 3
+  const fm = FixedMeta.withHeuristicItemSize(bytes, otherBlock, [5, 10, 15], 'I4-heuristic-match');
+  truthy('I4 FixedMeta.withHeuristicItemSize passende kandidaat: adjustedItemCount === 3 (itemSize=10 gekozen)', fm.getAdjustedItemCount() === 3);
+}
+
+// FixedMeta.withHeuristicItemSize: geen enkele kandidaat deelt `available` exact ⇒ terugval op de
+// EERSTE kandidaat (itemSizes[0]), zoals de Java-bron.
+{
+  const bytes = buildFixedMetaBytes(3, 10, 3); // available = 30; geen van 7/11/13 deelt 30 exact
+  const otherBlock = FixedData.withoutMeta(1, new Uint8Array(3));
+  const fm = FixedMeta.withHeuristicItemSize(bytes, otherBlock, [7, 11, 13], 'I4-heuristic-fallback');
+  truthy('I4 FixedMeta.withHeuristicItemSize geen kandidaat past: valt terug op itemSizes[0]=7 (adjustedItemCount=floor(30/7)=4)', fm.getAdjustedItemCount() === 4);
+}
+
+/** Bouwt rauwe VarMeta12-bytes: 24-byte header (magic + itemCount + dataSize) + N entries van
+ *  12 bytes (uniqueID/offset/type/onbekend). */
+function buildVarMetaBytes(entries: { uniqueId: number; offset: number; type: number }[], itemCountClaim = entries.length, dataSize = 0): Uint8Array {
+  const out = new Uint8Array(24 + entries.length * 12);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, FIXED_META_MAGIC, true); // VarMeta12 deelt hetzelfde magic-getal als FixedMeta
+  view.setInt32(8, itemCountClaim, true);
+  view.setUint32(20, dataSize, true);
+  let pos = 24;
+  for (const e of entries) {
+    view.setInt32(pos, e.uniqueId, true);
+    view.setInt32(pos + 4, e.offset, true);
+    view.setUint16(pos + 8, e.type, true);
+    pos += 12;
+  }
+  return out;
+}
+
+/** Bouwt rauwe Var2Data-bytes: op elke `offset` een 4-byte lengte-prefix gevolgd door `payload`. */
+function buildVar2DataBytes(items: { offset: number; payload: Uint8Array }[], totalLength: number): Uint8Array {
+  const out = new Uint8Array(totalLength);
+  const view = new DataView(out.buffer);
+  for (const it of items) {
+    view.setInt32(it.offset, it.payload.length, true);
+    out.set(it.payload, it.offset + 4);
+  }
+  return out;
+}
+
+function int32Payload(value: number): Uint8Array {
+  const p = new Uint8Array(4);
+  new DataView(p.buffer).setInt32(0, value, true);
+  return p;
+}
+
+// VarMeta12 + Var2Data round-trip: 2 uniqueIDs × 2 types.
+{
+  const entries = [
+    { uniqueId: 100, type: 1, offset: 0 },
+    { uniqueId: 100, type: 2, offset: 10 },
+    { uniqueId: 200, type: 1, offset: 20 },
+    { uniqueId: 200, type: 2, offset: 30 },
+  ];
+  const meta = new VarMeta12(buildVarMetaBytes(entries), 'I4-roundtrip');
+  const var2Bytes = buildVar2DataBytes(
+    entries.map((e) => ({ offset: e.offset, payload: int32Payload(e.uniqueId * 10 + e.type) })),
+    40,
+  );
+  const var2 = new Var2Data(meta, var2Bytes);
+  truthy('I4 VarMeta12+Var2Data round-trip: (100,1)', var2.getInt(100, 1) === 100 * 10 + 1);
+  truthy('I4 VarMeta12+Var2Data round-trip: (100,2)', var2.getInt(100, 2) === 100 * 10 + 2);
+  truthy('I4 VarMeta12+Var2Data round-trip: (200,1)', var2.getInt(200, 1) === 200 * 10 + 1);
+  truthy('I4 VarMeta12+Var2Data round-trip: (200,2)', var2.getInt(200, 2) === 200 * 10 + 2);
+  truthy('I4 VarMeta12+Var2Data round-trip: onbekend (id,type) ⇒ 0', var2.getInt(999, 1) === 0);
+}
+
+// Var2Data(meta, null) ⇒ een ECHTE assert dat de "legitiem afwezig"-observatie een lege dataset
+// oplevert (voorheen alleen informatief gelogd op het corpus, nooit hard getest).
+{
+  const meta = new VarMeta12(buildVarMetaBytes([{ uniqueId: 1, type: 1, offset: 0 }]), 'I4-null-var2');
+  const var2 = new Var2Data(meta, null);
+  truthy('I4 Var2Data(meta, null): getByteArray ⇒ null', var2.getByteArray(1, 1) === null);
+  truthy('I4 Var2Data(meta, null): getInt ⇒ 0', var2.getInt(1, 1) === 0);
+  truthy('I4 Var2Data(meta, null): getUnicodeString ⇒ null', var2.getUnicodeString(1, 1) === null);
+}
+
+// C1 (kwaliteitsreview, kritiek): VarMeta12 met een hostile itemCount-CLAIM op een buffer die
+// alleen ruimte heeft voor de 24-byte header (geen entries) — 0x7FFFFFFF, -1 en 10_000_000 mogen
+// nooit een OOM-crash of rauwe RangeError geven, en `getItemCount()` moet geklemd zijn op 0 (geen
+// ruimte voor entries in dit 24-byte-blok).
+for (const claim of [0x7fffffff, -1, 10_000_000]) {
+  const start = Date.now();
+  let ok = true;
+  let meta: VarMeta12 | null = null;
+  try {
+    const bytes = buildVarMetaBytes([], claim);
+    meta = new VarMeta12(bytes, `I4-C1-claim-${claim}`);
+  } catch {
+    ok = false;
+  }
+  const elapsedMs = Date.now() - start;
+  truthy(`I4 VarMeta12 C1 (itemCount-claim=${claim}): binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
+  truthy(`I4 VarMeta12 C1 (itemCount-claim=${claim}): construeert zonder te gooien`, ok);
+  truthy(`I4 VarMeta12 C1 (itemCount-claim=${claim}): getItemCount() geklemd op 0`, meta?.getItemCount() === 0);
+}
+
+// getUnicodeString: 400_000 code-units — betrapt een `String.fromCharCode(...array)`-regressie
+// die de argumentenlimiet van de JS-engine weer zou overschrijden (C2).
+{
+  const n = 400_000;
+  const data = new Uint8Array(n * 2 + 2); // + 2-byte null-terminator
+  const view = new DataView(data.buffer);
+  for (let i = 0; i < n; i++) view.setUint16(i * 2, 0x41 + (i % 26), true); // 'A'..'Z' herhalend
+  const start = Date.now();
+  const s = getUnicodeString(data, 0);
+  const elapsedMs = Date.now() - start;
+  truthy('I4 getUnicodeString(400k code-units): lengte klopt', s.length === n);
+  truthy('I4 getUnicodeString(400k code-units): eerste teken klopt', s[0] === 'A');
+  truthy('I4 getUnicodeString(400k code-units): laatste teken klopt', s[n - 1] === String.fromCharCode(0x41 + ((n - 1) % 26)));
+  truthy(`I4 getUnicodeString(400k code-units): binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
+}
+
+function timestampBytes(time: number, days: number): Uint8Array {
+  const out = new Uint8Array(4);
+  const view = new DataView(out.buffer);
+  view.setUint16(0, time, true);
+  view.setUint16(2, days, true);
+  return out;
+}
+
+// getTimestamp: NA-heuristieken.
+truthy('I4 getTimestamp: days=0 (≤1) ⇒ null', getTimestamp(timestampBytes(0, 0), 0) === null);
+truthy('I4 getTimestamp: days=1 (≤1) ⇒ null', getTimestamp(timestampBytes(0, 1), 0) === null);
+truthy('I4 getTimestamp: days=65535 (NA) ⇒ null', getTimestamp(timestampBytes(0, 65535), 0) === null);
+truthy('I4 getTimestamp: days<100 mét niet-nul secondedeel ⇒ null', getTimestamp(timestampBytes(1, 50), 0) === null);
+truthy('I4 getTimestamp: days<100 mét NUL secondedeel ⇒ geen null (geen overmatige NA-heuristiek)', getTimestamp(timestampBytes(10, 50), 0) !== null);
+truthy('I4 getTimestamp: days≥100 met normale tijd ⇒ geldig resultaat', getTimestamp(timestampBytes(10, 200), 0) !== null);
+
+// getGUID: alles-nul ⇒ null, plus één bekende mixed-endian-waarde.
+{
+  truthy('I4 getGUID: alles-nul ⇒ null', getGUID(new Uint8Array(16), 0) === null);
+  // {01020304-0506-0708-090A-0B0C0D0E0F10} in mixed-endian bytes (eerste 8 bytes per veld
+  // omgedraaid, laatste 8 bytes in volgorde — zie MPPUtility.getGUID).
+  const bytes = Uint8Array.of(0x04, 0x03, 0x02, 0x01, 0x06, 0x05, 0x08, 0x07, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10);
+  truthy('I4 getGUID: bekende mixed-endian-waarde', getGUID(bytes, 0) === '01020304-0506-0708-090a-0b0c0d0e0f10');
+}
+
+// getDuration: per eenheid (waarde in tienden van een minuut → numerieke duur in die eenheid).
+{
+  const cases: Array<[MppTimeUnit, number, number]> = [
+    ['minutes', 100, 10],
+    ['elapsedMinutes', 100, 10],
+    ['hours', 6000, 10],
+    ['elapsedHours', 6000, 10],
+    ['days', 48000, 10],
+    ['elapsedDays', 144000, 10],
+    ['weeks', 240000, 10],
+    ['elapsedWeeks', 1008000, 10],
+    ['months', 960000, 10],
+    ['elapsedMonths', 4320000, 10],
+    ['percent', 55, 55],
+    ['elapsedPercent', 55, 55],
+  ];
+  for (const [unit, value, expected] of cases) {
+    truthy(`I4 getDuration(${value}, '${unit}') === ${expected}`, getDuration(value, unit) === expected);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -725,7 +713,7 @@ if (!corpusPresent) {
       try {
         // itemSize=47, zoals MPP14Reader.java r. 993 voor TBkndTask/FixedMeta.
         const taskFixedMeta = FixedMeta.withItemSize(taskFixedMetaBytes, 47, `${file}/TBkndTask/FixedMeta`);
-        const taskFixedDataParsed = FixedData.fromMeta(taskFixedMeta, taskFixedData);
+        const taskFixedDataParsed = FixedData.fromMeta(taskFixedMeta, taskFixedData, 0, 0, `${file}/TBkndTask/FixedData`);
         truthy(
           `[${file}] TBkndTask FixedData.getItemCount() > 0`,
           taskFixedDataParsed.getItemCount() > 0,

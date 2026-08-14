@@ -29,25 +29,35 @@
 // `getInt`-aanroep) — hier zit de garantie bewust ook op het laagste niveau zelf, zodat een
 // vergeten aanroeper-check nooit een onleesbare crash oplevert.
 
-function dataViewOf(data: Uint8Array): DataView {
-  return new DataView(data.buffer, data.byteOffset, data.byteLength);
+/** Foutboodschap met optionele context (`ctx` — meestal het label van de aanroepende klasse,
+ *  bv. "FixedMeta[TBkndTask/FixedMeta]") — zelfde diagnoseerbaarheids-discipline als cfb.ts'
+ *  `fmtErr`. `ctx` is puur cosmetisch (wélke laag/stream het was), nooit onderdeel van de
+ *  bounds-logica zelf. */
+function boundsError(kind: string, offset: number, length: number, dataLen: number, ctx?: string): Error {
+  const bits = [`MPP: ${kind} buiten grenzen (offset=${offset}, lengte=${length}, bufferlengte=${dataLen})`];
+  if (ctx) bits.push(`[${ctx}]`);
+  return new Error(bits.join(' '));
 }
 
 /** LE unsigned 16-bit (ByteArrayHelper.getShort — ondanks de Java-naam "short" is dit altijd
- *  niet-negatief: de twee bytes worden zonder sign-extend geOR't). */
-export function getShort(data: Uint8Array, offset: number): number {
+ *  niet-negatief: de twee bytes worden zonder sign-extend geOR't). Handmatige shift-lezing i.p.v.
+ *  een `DataView`-allocatie per aanroep (M5-hardening, kwaliteitsreview: gemeten ~40× sneller op
+ *  de hot path van FixedData/VarMeta12-parsing, die per record meerdere reads doet). */
+export function getShort(data: Uint8Array, offset: number, ctx?: string): number {
   if (offset < 0 || offset + 2 > data.length) {
-    throw new Error(`MPP: getShort buiten grenzen (offset=${offset}, lengte=${data.length})`);
+    throw boundsError('getShort', offset, 2, data.length, ctx);
   }
-  return dataViewOf(data).getUint16(offset, true);
+  return data[offset] | (data[offset + 1] << 8);
 }
 
-/** LE signed 32-bit (ByteArrayHelper.getInt). */
-export function getInt(data: Uint8Array, offset: number): number {
+/** LE signed 32-bit (ByteArrayHelper.getInt). Zelfde M5-hardening als `getShort` hierboven — de
+ *  `<< 24` op de hoogste byte zet automatisch bit 31, dus dit blijft byte-voor-byte identiek aan
+ *  `DataView.getInt32(offset, true)`. */
+export function getInt(data: Uint8Array, offset: number, ctx?: string): number {
   if (offset < 0 || offset + 4 > data.length) {
-    throw new Error(`MPP: getInt buiten grenzen (offset=${offset}, lengte=${data.length})`);
+    throw boundsError('getInt', offset, 4, data.length, ctx);
   }
-  return dataViewOf(data).getInt32(offset, true);
+  return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
 }
 
 /** Magic-getal dat zowel FixedMeta- als VarMeta12-blokken (toevallig dezelfde constante,
@@ -86,12 +96,19 @@ export class FixedMeta {
         `MPP: FixedMeta[${label}] te klein voor header (${bytes.length} bytes, minimaal ${FIXED_META_HEADER_SIZE})`,
       );
     }
-    const magic = getInt(bytes, 0);
+    const magic = getInt(bytes, 0, `FixedMeta[${label}]`);
     if (magic !== BLOCK_MAGIC) {
       throw new Error(`MPP: FixedMeta[${label}] ongeldig magic-getal (0x${(magic >>> 0).toString(16)})`);
     }
-    const rawItemCount = getInt(bytes, 8);
     const adjustedItemCount = Math.max(0, Math.floor((bytes.length - FIXED_META_HEADER_SIZE) / itemSize));
+    // I1 (kwaliteitsreview): de RUWE headerwaarde wordt NIET meer ongeclampt blootgesteld via
+    // `getItemCount()` — MPXJ's eigen `ConstraintFactory` gebruikt 'm als lus-bovengrens, en een
+    // geprepareerd bestand kan hier tot 0x7FFFFFFF claimen (gemeten: ~3s lege lus op zo'n
+    // aanroepplek). Geklemd op `adjustedItemCount` (het werkelijke, blokgrootte-afgeleide
+    // maximum): op elk geldig bestand is de rauwe en geklemde waarde identiek, dus geen
+    // gedragsverschil daar — alleen een hostile/corrupt bestand ziet een kleinere `getItemCount()`
+    // i.p.v. een trage/hostile lus bij de aanroeper.
+    const rawItemCount = Math.max(0, Math.min(getInt(bytes, 8, `FixedMeta[${label}]`), adjustedItemCount));
     const items: (Uint8Array | null)[] = new Array(adjustedItemCount);
     let pos = FIXED_META_HEADER_SIZE;
     for (let i = 0; i < adjustedItemCount; i++) {
@@ -121,7 +138,10 @@ export class FixedMeta {
         `MPP: FixedMeta[${label}] te klein voor header (${bytes.length} bytes, minimaal ${FIXED_META_HEADER_SIZE})`,
       );
     }
-    const rawItemCount = getInt(bytes, 8);
+    // Puur een heuristiek-hint (vermenigvuldigd tegen kandidaat-groottes, nooit gebruikt voor
+    // allocatie) — geen clamp nodig zoals bij `withItemSize` hierboven, wel dezelfde `ctx` voor
+    // een diagnoseerbare foutmelding als de read zelf al buiten grenzen valt.
+    const rawItemCountHint = getInt(bytes, 8, `FixedMeta[${label}] (heuristiek)`);
     const available = bytes.length - FIXED_META_HEADER_SIZE;
     const otherCount = otherFixedBlock.getItemCount();
 
@@ -133,7 +153,7 @@ export class FixedMeta {
         chosen = testSize;
         break;
       }
-      const testDistance = rawItemCount * testSize - available;
+      const testDistance = rawItemCountHint * testSize - available;
       if (testDistance <= 0 && testDistance > distance) {
         chosen = testSize;
         distance = testDistance;
@@ -177,11 +197,20 @@ export class FixedMeta {
 
 export class FixedData {
   private readonly items: ReadonlyArray<Uint8Array | null>;
-  private readonly offsets: ReadonlyArray<number>;
+  /** I2 (kwaliteitsreview): `getIndexFromOffset` was een O(n) `Array#indexOf`-scan; TBkndCons se
+   *  relatie-opbouw (T7) roept 'm potentieel per relatie aan, dus O(n²) op grote projecten. Eén
+   *  keer opgebouwd in de constructor i.p.v. per lookup gescand. Bewaart `Array#indexOf`-
+   *  semantiek exact: bij een herhaald offset wint de EERSTE index (`set` alleen als de sleutel
+   *  nog niet bestaat) — inclusief offset 0 voor slots die geen item kregen (`offsets[i]` blijft
+   *  daar op zijn default 0 staan, precies zoals Java's `m_offset`-array). */
+  private readonly indexByOffset: Map<number, number>;
 
   private constructor(items: ReadonlyArray<Uint8Array | null>, offsets: ReadonlyArray<number>) {
     this.items = items;
-    this.offsets = offsets;
+    this.indexByOffset = new Map();
+    for (let i = 0; i < offsets.length; i++) {
+      if (!this.indexByOffset.has(offsets[i])) this.indexByOffset.set(offsets[i], i);
+    }
   }
 
   /** Poort van `FixedData(FixedMeta, InputStream[, maxExpectedSize[, minSize]])`. Elk item se
@@ -189,15 +218,16 @@ export class FixedData {
    *  het VOLGENDE item se offset (of "rest van het blok" voor het laatste item), begrensd door
    *  `maxExpectedSize` zodra opgegeven (>0) — dat voorkomt dat een corrupt offset een
    *  belachelijk grote slice claimt. */
-  static fromMeta(meta: FixedMeta, bytes: Uint8Array, maxExpectedSize = 0, minSize = 0): FixedData {
+  static fromMeta(meta: FixedMeta, bytes: Uint8Array, maxExpectedSize = 0, minSize = 0, label = 'FixedData'): FixedData {
     const itemCount = meta.getAdjustedItemCount();
     const items: (Uint8Array | null)[] = new Array(itemCount).fill(null);
     const offsets: number[] = new Array(itemCount).fill(0);
+    const ctx = `FixedData[${label}]`;
 
     for (let i = 0; i < itemCount; i++) {
       const metaData = meta.getByteArrayValue(i);
       if (!metaData || metaData.length < 8) continue; // offset staat @4, minstens 8 bytes nodig
-      const itemOffset = getInt(metaData, 4);
+      const itemOffset = getInt(metaData, 4, ctx);
       if (itemOffset < 0 || itemOffset > bytes.length) continue;
 
       let itemSize: number;
@@ -205,7 +235,7 @@ export class FixedData {
         itemSize = bytes.length - itemOffset;
       } else {
         const nextMetaData = meta.getByteArrayValue(i + 1);
-        const nextItemOffset = nextMetaData && nextMetaData.length >= 8 ? getInt(nextMetaData, 4) : itemOffset;
+        const nextItemOffset = nextMetaData && nextMetaData.length >= 8 ? getInt(nextMetaData, 4, ctx) : itemOffset;
         itemSize = nextItemOffset - itemOffset;
       }
       if (itemSize === 0) itemSize = minSize;
@@ -229,15 +259,16 @@ export class FixedData {
   /** Poort van `FixedData(FixedMeta, int itemSize, InputStream)` — het OFFSET komt nog uit
    *  `meta`, maar de GROOTTE is de opgegeven vaste waarde i.p.v. de (onbetrouwbaar geachte)
    *  door meta gerapporteerde grootte. Gebruikt voor TBkndCons (relaties): itemSize=20. */
-  static withItemSizeOverride(meta: FixedMeta, itemSize: number, bytes: Uint8Array): FixedData {
+  static withItemSizeOverride(meta: FixedMeta, itemSize: number, bytes: Uint8Array, label = 'FixedData'): FixedData {
     const itemCount = meta.getAdjustedItemCount();
     const items: (Uint8Array | null)[] = new Array(itemCount).fill(null);
     const offsets: number[] = new Array(itemCount).fill(0);
+    const ctx = `FixedData[${label}]`;
 
     for (let i = 0; i < itemCount; i++) {
       const metaData = meta.getByteArrayValue(i);
       if (!metaData || metaData.length < 8) continue;
-      const itemOffset = getInt(metaData, 4);
+      const itemOffset = getInt(metaData, 4, ctx);
       if (itemOffset < 0 || itemOffset > bytes.length) continue;
       const available = bytes.length - itemOffset;
       const size = itemSize < 0 ? available : Math.min(itemSize, available);
@@ -250,9 +281,9 @@ export class FixedData {
   /** Poort van `FixedData(int itemSize, InputStream)` — géén meta beschikbaar: rechttoe-
    *  rechtaan aaneengesloten brokken van `itemSize` bytes vanaf offset 0. Gebruikt voor
    *  TBkndAssn (assignments hebben geen eigen FixedMeta voor hun FixedData/Fixed2Data). */
-  static withoutMeta(itemSize: number, bytes: Uint8Array): FixedData {
+  static withoutMeta(itemSize: number, bytes: Uint8Array, label = 'FixedData'): FixedData {
     if (itemSize <= 0) {
-      throw new Error(`MPP: FixedData.withoutMeta ongeldige itemSize ${itemSize}`);
+      throw new Error(`MPP: FixedData[${label}].withoutMeta ongeldige itemSize ${itemSize}`);
     }
     const itemCount = Math.floor(bytes.length / itemSize);
     const items: (Uint8Array | null)[] = new Array(itemCount);
@@ -277,9 +308,10 @@ export class FixedData {
     return this.items[index];
   }
 
-  /** -1 als het offset niet voorkomt — spiegelt Java's `getIndexFromOffset`. */
+  /** -1 als het offset niet voorkomt — spiegelt Java's `getIndexFromOffset` (zie `indexByOffset`
+   *  hierboven voor de O(1)-hardening). */
   getIndexFromOffset(offset: number): number {
-    return this.offsets.indexOf(offset);
+    return this.indexByOffset.get(offset) ?? -1;
   }
 }
 
@@ -307,6 +339,7 @@ export class VarMeta12 {
   private readonly table = new Map<number, Map<number, number>>();
 
   constructor(bytes: Uint8Array, label = 'VarMeta') {
+    const ctx = `VarMeta[${label}]`;
     if (bytes.length < VAR_META_HEADER_SIZE) {
       throw new Error(
         `MPP: VarMeta[${label}] te klein voor header (${bytes.length} bytes, minimaal ${VAR_META_HEADER_SIZE})`,
@@ -314,28 +347,32 @@ export class VarMeta12 {
     }
     // "Ik heb één voorbeeld waar een verder geldig VarMeta-blok nul heeft als magic-getal. MS
     // Project leest het bestand prima, dus we behandelen nul als geldige waarde." (VarMeta12.java)
-    const magic = getInt(bytes, 0);
+    const magic = getInt(bytes, 0, ctx);
     if (magic !== 0 && magic !== BLOCK_MAGIC) {
       throw new Error(`MPP: VarMeta[${label}] ongeldig magic-getal (0x${(magic >>> 0).toString(16)})`);
     }
-    this.itemCount = getInt(bytes, 8);
-    this.dataSize = getInt(bytes, 20);
+    // C1 (kwaliteitsreview, kritiek): de RUWE headerwaarde werd voorheen ONGECLAMPT gebruikt om
+    // `offsets` te pre-sizen (`new Array(itemCount)`) — een geprepareerd bestand kan hier tot
+    // 0x7FFFFFFF claimen (OOM-crash, in de browser niet catchbaar) of een negatief getal (rauwe
+    // RangeError bij de allocatie). Geklemd op `maxEntries`, het werkelijk-mogelijke aantal
+    // entries dat in het resterende blok past. Dit is een BEWUSTE afwijking van VarMeta12.java
+    // (die `m_itemCount` ongeclampt blootstelt via `getItemCount()`, en het bijbehorende
+    // `int[m_itemCount]` zonder clamp alloceert): op elk geldig bestand is de geklemde waarde
+    // identiek aan de rauwe (de "nul-staart bij een afgekapt blok"-spiegeling die híér ooit
+    // stond is voor onze enige consument — Var2Data's `getOffsets()`-iteratie — sowieso
+    // onobserveerbaar, dus geen gedragsverschil op geldige data); alleen een hostile/corrupt
+    // bestand ziet een kleinere `getItemCount()` i.p.v. een crash.
+    const maxEntries = Math.floor((bytes.length - VAR_META_HEADER_SIZE) / VAR_META_ENTRY_SIZE);
+    this.itemCount = Math.max(0, Math.min(getInt(bytes, 8, ctx), maxEntries));
+    this.dataSize = getInt(bytes, 20, ctx);
 
-    // Java pre-sizet `offsets` op `m_itemCount` (`new int[m_itemCount]`, nul-gevuld) en vult 'm
-    // per iteratie op INDEX i — bij een vroegtijdig afgekapt blok (de `break` hieronder) blijven
-    // de ONGEVULDE staartposities dus op hun default 0 staan, en die nullen tellen gewoon mee in
-    // `Arrays.sort(offsets)`. Wij spiegelen dat hier bewust letterlijk (i.p.v. alleen de
-    // daadwerkelijk-gelezen offsets te verzamelen): een kortere array zou bij zo'n corrupt blok
-    // een net iets ANDER (te kort) resultaat geven dan de Java-bron. Gedragsverschil treedt dus
-    // alleen op bij corrupte/afgekapte bestanden — op de drie ground-truth-corpusbestanden (waar
-    // het blok altijd volledig is) is er geen enkel verschil.
     const offsets: number[] = new Array(this.itemCount).fill(0);
     let pos = VAR_META_HEADER_SIZE;
     for (let i = 0; i < this.itemCount; i++) {
       if (bytes.length - pos < VAR_META_ENTRY_SIZE) break; // afgekapt blok: stop, gooi niet
-      const uniqueId = getInt(bytes, pos);
-      const offset = getInt(bytes, pos + 4);
-      const type = getShort(bytes, pos + 8);
+      const uniqueId = getInt(bytes, pos, ctx);
+      const offset = getInt(bytes, pos + 4, ctx);
+      const type = getShort(bytes, pos + 8, ctx);
       pos += VAR_META_ENTRY_SIZE;
 
       let byType = this.table.get(uniqueId);
@@ -494,6 +531,13 @@ export function getTimestamp(data: Uint8Array, offset: number): Date | null {
   return result;
 }
 
+/** C2 (kwaliteitsreview, kritiek): `String.fromCharCode(...codeUnits)` spreidt de HELE array als
+ *  losse argumenten — V8 begint daar rond de ~125k-argumentengrens over te klagen (lager in
+ *  Safari/JSC), en een groot notitie-/tekstveld is geen randgeval hier. Bouwt de string daarom in
+ *  brokken van `CHUNK` code-units op, elk apart via `apply` (dat kent dezelfde argumentenlimiet,
+ *  dus CHUNK blijft ruim daaronder) en concateneert de brokken. */
+const UNICODE_STRING_CHUNK = 8192;
+
 /** UTF-16LE, null-terminated (of tot einde array). `maxLength` (bytes) knipt net als
  *  MPPUtility's overload met dat derde argument. Handmatig gedecodeerd (geen `TextDecoder`-
  *  afhankelijkheid) — spiegelt de Java-bron 1:1 en blijft zo consistent met de eigen-parser-
@@ -513,7 +557,11 @@ export function getUnicodeString(data: Uint8Array, offset: number, maxLength?: n
   for (let i = 0; i + 1 < length; i += 2) {
     codeUnits.push(data[offset + i] | (data[offset + i + 1] << 8));
   }
-  return String.fromCharCode(...codeUnits);
+  let out = '';
+  for (let i = 0; i < codeUnits.length; i += UNICODE_STRING_CHUNK) {
+    out += String.fromCharCode(...codeUnits.slice(i, i + UNICODE_STRING_CHUNK));
+  }
+  return out;
 }
 
 /** Microsoft-GUID-tekstrepresentatie (mixed-endian: de eerste 8 bytes zijn per veld

@@ -47,7 +47,7 @@ const FILE_FORMAT_TO_VARIANT: Record<string, MppVariant> = {
 function readCompObjFileFormat(bytes: Uint8Array): string | null {
   let pos = 28;
   const readInt32 = (): number => {
-    const v = getInt(bytes, pos);
+    const v = getInt(bytes, pos, 'CompObj');
     pos += 4;
     return v;
   };
@@ -90,8 +90,16 @@ export function detectMppVariant(cfb: CfbFile): MppVariant {
   let fileFormat: string | null;
   try {
     fileFormat = readCompObjFileFormat(compObjBytes);
-  } catch {
-    throw new Error('Not a recognised MS Project MPP file');
+  } catch (err) {
+    // M3 (kwaliteitsreview): de onderliggende oorzaak (bv. een afgekapt CompObj-blok) blijft
+    // beschikbaar via `cause` — handig bij het diagnosticeren van een vreemd-maar-"herkend"
+    // bestand, zonder de simpele, gebruikersgerichte boodschap hierboven te verliezen. De
+    // 2-argument-`Error`-constructor (`ErrorOptions`) zit in de ES2022-lib; dit project mikt op
+    // ES2020 (`tsconfig.json`), dus `cause` wordt hier expliciet ná constructie gezet i.p.v. via
+    // de constructor-optie — functioneel identiek, geen lib-bump nodig voor één plek.
+    const wrapped = new Error('Not a recognised MS Project MPP file') as Error & { cause?: unknown };
+    wrapped.cause = err;
+    throw wrapped;
   }
   const variant = fileFormat ? FILE_FORMAT_TO_VARIANT[fileFormat] : undefined;
   if (!variant) {
@@ -114,29 +122,28 @@ const PROPS14_HEADER_SIZE = 16;
  *  commentaar noemt expliciet bestanden waar dit misgaat op bepaalde JRE's. Wij spiegelen dat
  *  vergevingsgezinde gedrag hier bewust letterlijk. */
 function parsePropsBytes(bytes: Uint8Array, label: string): Map<number, Uint8Array> {
+  const ctx = `Props[${label}]`;
   const map = new Map<number, Uint8Array>();
   if (bytes.length < PROPS14_HEADER_SIZE) {
     throw new Error(`MPP: Props[${label}] te klein voor header (${bytes.length} bytes, minimaal ${PROPS14_HEADER_SIZE})`);
   }
-  const headerCount = getShort(bytes, 12);
+  const headerCount = getShort(bytes, 12, ctx);
   let pos = PROPS14_HEADER_SIZE;
-  let availableBytes = bytes.length - PROPS14_HEADER_SIZE;
   let found = 0;
 
+  // M4 (kwaliteitsreview): geen losse `availableBytes`-teller meer die parallel aan `pos`
+  // wordt bijgehouden (en dus uit de pas kon lopen) — `bytes.length - pos` is altijd de
+  // brontelling en kan niet divergeren.
   while (found < headerCount) {
-    if (availableBytes < 12) break;
-    if (pos + 12 > bytes.length) break; // extra grenscontrole (T4: defensief vóór elke read)
-    const length = getInt(bytes, pos);
-    const key = getInt(bytes, pos + 4);
+    if (bytes.length - pos < 12) break;
+    const length = getInt(bytes, pos, ctx);
+    const key = getInt(bytes, pos + 4, ctx);
     // bytes[pos+8 .. pos+11] (attrib3) genegeerd, zoals Props14.java.
     pos += 12;
-    availableBytes -= 12;
 
-    if (availableBytes < length || length < 1) break;
-    if (pos + length > bytes.length) break;
+    if (bytes.length - pos < length || length < 1) break;
     const data = bytes.subarray(pos, pos + length);
     pos += length;
-    availableBytes -= length;
 
     map.set(key, data);
     found++;
@@ -151,8 +158,10 @@ function parsePropsBytes(bytes: Uint8Array, label: string): Map<number, Uint8Arr
  *  PropsKey-constanten gebruiken zonder deze module te hoeven wijzigen. */
 export class Props {
   private readonly map: Map<number, Uint8Array>;
+  private readonly label: string;
 
   constructor(bytes: Uint8Array, label = 'Props') {
+    this.label = label;
     this.map = parsePropsBytes(bytes, label);
   }
 
@@ -167,12 +176,12 @@ export class Props {
 
   getShort(key: number): number {
     const item = this.map.get(key);
-    return item && item.length >= 2 ? getShort(item, 0) : 0;
+    return item && item.length >= 2 ? getShort(item, 0, `Props[${this.label}] key=${key}`) : 0;
   }
 
   getInt(key: number): number {
     const item = this.map.get(key);
-    return item && item.length >= 4 ? getInt(item, 0) : 0;
+    return item && item.length >= 4 ? getInt(item, 0, `Props[${this.label}] key=${key}`) : 0;
   }
 
   getBoolean(key: number): boolean {
@@ -189,38 +198,43 @@ export class Props {
  *  NIET voldoende om te weigeren — zie `readPasswordProtection` hieronder voor de volledige
  *  conditie (vlag ÉN hash). */
 const PASSWORD_FLAG = 893386752;
-/** PropsKey.java r. 59 — geëxporteerd ter documentatie/volledigheid (net als de Java-bron 'm
- *  naast PASSWORD_FLAG vermeldt), maar hier NIET gebruikt: de bijbehorende XOR-decodering
+/** PropsKey.java r. 59 — ter documentatie/volledigheid (net als de Java-bron 'm naast
+ *  PASSWORD_FLAG vermeldt), maar hier NIET gebruikt en (M2, kwaliteitsreview) bewust NIET
+ *  geëxporteerd — geen enkele afnemer heeft 'm nodig: de bijbehorende XOR-decodering
  *  (`DocumentInputStreamFactory`) is bewust niet geport, dus versleutelde streams worden nooit
  *  ontcijferd — alleen herkend en geweigerd via `PASSWORD_FLAG`. */
-export const ENCRYPTION_CODE = 893386759;
+const ENCRYPTION_CODE = 893386759;
+void ENCRYPTION_CODE; // gedocumenteerd bewaard (PropsKey-volledigheid), bewust ongebruikt
 /** PropsKey.java r. 77 (`PROTECTION_PASSWORD_HASH`). Samen met `PASSWORD_FLAG` de volledige
  *  afwijscondities hieronder — zie de toelichting bij `readPasswordProtection`. */
 const PROTECTION_PASSWORD_HASH = 893386756;
 
 /**
- * Poortbevinding (T4, corpus-geverifieerd tegen de drie ground-truth-bestanden): MPP14Reader.java
- * leest de wachtwoordvlag NIET uit `"   114"/Props` (de ~88 kB projectproperties-stream — dat is
- * `m_projectProps`, gebruikt voor project-brede instellingen zoals werkuren/startdatum), maar uit
- * de kleine, aparte ROOT-stream `Props14` (~0,7–0,8 kB in het corpus). Beide streams bestaan
- * naast elkaar; `PASSWORD_FLAG` komt in de drie corpusbestanden UITSLUITEND voor in de root-
- * `Props14`-stream (geverifieerd: 21 sleutels, PASSWORD_FLAG aanwezig, waarde 0) — in
- * `"   114"/Props` (261–262 sleutels) ontbreekt de sleutel volledig, dus `getByte` zou daar altijd
- * stil 0 teruggeven en versleutelde bestanden nooit herkennen. Deze functie leest daarom bewust
- * de root-stream, niet de "   114"-stream — een afwijking van de letterlijke planformulering
- * ("de Props-stream uit storage '   114'"), gemotiveerd door dit corpusonderzoek.
- */
-/**
- * Poortbevinding (review-ronde ná T4): MPXJ weigert een MPP14-bestand NIET op de vlag alleen.
- * MPP14Reader.java's `populateMemberData` (r. ~150-165) test EXPLICIET twee condities en gooit
- * pas als BEIDE waar zijn:
- *   passwordRequiredToRead = (passwordProtectionFlag & 0x1) != 0
- *   encryptionXmlPresent   = props.getByteArray(PropsKey.PROTECTION_PASSWORD_HASH) != null
- * De Java-bron documenteert dit met een expliciet voorbeeld: "I've come across an example where
- * the password flag was set, but the encryption XML was missing. In this case the file is
- * unencrypted and MS Project opens it without prompting for a password." Een kale vlag-check zou
- * zulke — reëel voorkomende — bestanden dus onterecht als versleuteld weigeren. Deze functie
- * spiegelt daarom beide condities.
+ * Twee poortbevindingen samengevoegd (M1, kwaliteitsreview — tooling toont bij een dubbel
+ * docblok alleen het laatste, dus de eerste ging onzichtbaar verloren):
+ *
+ * 1. WELKE Props-stream (T4, corpus-geverifieerd tegen de drie ground-truth-bestanden):
+ *    MPP14Reader.java leest de wachtwoordvlag NIET uit `"   114"/Props` (de ~88 kB
+ *    projectproperties-stream — dat is `m_projectProps`, gebruikt voor project-brede
+ *    instellingen zoals werkuren/startdatum), maar uit de kleine, aparte ROOT-stream `Props14`
+ *    (~0,7–0,8 kB in het corpus). Beide streams bestaan naast elkaar; `PASSWORD_FLAG` komt in de
+ *    drie corpusbestanden UITSLUITEND voor in de root-`Props14`-stream (geverifieerd: 21
+ *    sleutels, PASSWORD_FLAG aanwezig, waarde 0) — in `"   114"/Props` (261–262 sleutels)
+ *    ontbreekt de sleutel volledig, dus `getByte` zou daar altijd stil 0 teruggeven en
+ *    versleutelde bestanden nooit herkennen. Deze functie leest daarom bewust de root-stream,
+ *    niet de "   114"-stream — een afwijking van de letterlijke planformulering ("de Props-stream
+ *    uit storage '   114'"), gemotiveerd door dit corpusonderzoek.
+ *
+ * 2. VOLLEDIGE afwijsconditie (review-ronde ná T4): MPXJ weigert een MPP14-bestand NIET op de
+ *    vlag alleen. MPP14Reader.java's `populateMemberData` (r. ~150-165) test EXPLICIET twee
+ *    condities en gooit pas als BEIDE waar zijn:
+ *      passwordRequiredToRead = (passwordProtectionFlag & 0x1) != 0
+ *      encryptionXmlPresent   = props.getByteArray(PropsKey.PROTECTION_PASSWORD_HASH) != null
+ *    De Java-bron documenteert dit met een expliciet voorbeeld: "I've come across an example
+ *    where the password flag was set, but the encryption XML was missing. In this case the file
+ *    is unencrypted and MS Project opens it without prompting for a password." Een kale
+ *    vlag-check zou zulke — reëel voorkomende — bestanden dus onterecht als versleuteld weigeren.
+ *    Deze functie spiegelt daarom beide condities.
  */
 function readPasswordProtection(cfb: CfbFile): { flagSet: boolean; hashPresent: boolean } {
   const rootProps14Bytes = cfb.getStream(['Props14']);
