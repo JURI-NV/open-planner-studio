@@ -26,10 +26,12 @@ export type RelationVerdict = { ok: true } | { ok: false; reason: RelationReject
 
 /**
  * Hoe komt de regelmodule aan een taak? Bewust een functie en geen `Map`: de aanroepers hebben
- * elk al een goedkope manier om op te zoeken — het Relaties-paneel heeft een `taskById`-useMemo,
- * de MCP-classificatie bouwt één map voor de hele batch, en de store-acties draaien over een
- * Immer-draft waar een Map bouwen ook nog eens elke child-proxy materialiseert. Een Map eisen zou
- * die aanroepers dwingen er een tweede te bouwen, per aanroep, binnen een lus.
+ * elk al een goedkope manier om op te zoeken — het Relaties-paneel heeft een `taskById`-useMemo en
+ * de MCP-classificatie bouwt één map voor de hele batch. Een Map eisen zou die aanroepers dwingen
+ * er een tweede te bouwen, per aanroep, binnen een lus. In de store-acties draait de lookup over
+ * een Immer-draft; daar valt met deze vorm de Map-allocatie weg en sluit `find` bij een treffer
+ * kort. (Het scant nog steeds lineair en materialiseert onderweg dezelfde child-proxies — dit is
+ * een kleinere constante, geen andere complexiteit.)
  */
 export type TaskLookup = (id: string) => Task | undefined;
 

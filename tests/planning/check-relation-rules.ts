@@ -95,6 +95,8 @@ ok('ander type tussen hetzelfde paar geweigerd (mag juist wél)',
   relationVerdict(lookup, existing, { predecessorId: 'a', successorId: 'b', type: 'START_START' }).ok);
 ok('ander PAAR met hetzelfde type geweigerd als duplicaat (mag juist wél)',
   relationVerdict(lookup, existing, { predecessorId: 'a', successorId: 'm', type: FS }).ok);
+ok('ander PAAR met dezelfde opvolger geweigerd als duplicaat (mag juist wél)',
+  verdict('m', 'b', existing).ok);
 
 // Volgorde van de regels: een verzameltaak-eindpunt dat óók een duplicaat is meldt het
 // inhoudelijke probleem, niet het duplicaat.
