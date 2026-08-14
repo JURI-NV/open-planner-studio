@@ -2089,8 +2089,11 @@ export class GanttRenderer {
     }
 
     const { x1, x2 } = this.barGeometry(task);
-    // Een mijlpaal-ruit heeft x1 ≈ x2; zonder marge is er niets te raken. 6 px is dezelfde marge
-    // die `buildRowObstacles` voor mijlpalen aanhoudt (zie `pad` daar).
+    // Marge van 6px. In DAG-modus is dit niet strikt nodig — `barGeometry` geeft een mijlpaal
+    // x2 = x1 + zoom, dus de zone beslaat al een volle dagcel en de ruit valt er bij elke
+    // milestoneKind (START/AUTO/FINISH, anchor 0..zoom) binnen. In UUR-modus geldt x1 === x2
+    // exact en ankert de ruit op x1; dáár is deze marge het enige dat 'm grijpbaar maakt.
+    // 6 is dezelfde waarde die `buildRowObstacles` als mijlpaal-`pad` aanhoudt.
     const grab = 6;
     return canvasX >= x1 - grab && canvasX <= x2 + grab ? task : null;
   }
