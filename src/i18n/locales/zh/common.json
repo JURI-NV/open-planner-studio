@@ -14,7 +14,9 @@
     "ifcParseFailed": "无法读取 IFC",
     "templateSaved": "分支已保存为模板“{{name}}”",
     "relationCreated": "已创建关系：{{predecessor}} → {{successor}}",
-    "relationDuplicate": "该关系已存在"
+    "relationDuplicate": "该关系已存在",
+    "relationSummaryEndpoint": "以摘要任务作为端点对进度计划没有影响。请链接到没有子任务的任务。",
+    "summaryRelationsIgnored": "{{total}} 条位于摘要任务上的关系对进度计划没有影响。"
   },
   "yes": "是",
   "no": "否",

@@ -153,7 +153,8 @@
     "empty": "Ainda não há relações. Arraste com Shift entre as barras no Gantt, ou selecione duas tarefas e use o botão acima.",
     "notCalculated": "Recalcule (F5) para ver relações determinantes e folgas",
     "warnTruncatedLead": "Avanço truncado no início do projeto — a sobreposição não é totalmente aproveitada",
-    "warnLeadExceedsDuration": "O avanço é maior do que a duração da predecessora"
+    "warnLeadExceedsDuration": "O avanço é maior do que a duração da predecessora",
+    "warnSummaryEndpoint": "Sem efeito: tarefa de resumo como extremidade"
   },
   "structure": {
     "title": "Códigos e campos",

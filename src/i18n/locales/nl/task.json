@@ -153,7 +153,8 @@
     "empty": "Nog geen relaties. Shift-sleep tussen balken in de Gantt, of selecteer twee taken en gebruik de knop hierboven.",
     "notCalculated": "Herbereken (F5) om bepalende relaties en speling te zien",
     "warnTruncatedLead": "Lead afgekapt op de projectstart — de overlap wordt niet volledig benut",
-    "warnLeadExceedsDuration": "Lead is groter dan de duur van de voorganger"
+    "warnLeadExceedsDuration": "Lead is groter dan de duur van de voorganger",
+    "warnSummaryEndpoint": "Zonder effect: verzameltaak als eindpunt"
   },
   "structure": {
     "title": "Codes & velden",

@@ -14,7 +14,9 @@
     "ifcParseFailed": "No se pudo leer el IFC",
     "templateSaved": "Rama guardada como plantilla '{{name}}'",
     "relationCreated": "Relación creada: {{predecessor}} → {{successor}}",
-    "relationDuplicate": "Esa relación ya existe"
+    "relationDuplicate": "Esa relación ya existe",
+    "relationSummaryEndpoint": "Una tarea de resumen como extremo no afecta a la programación. Vincule con una tarea sin subtareas.",
+    "summaryRelationsIgnored": "{{total}} relación(es) en tareas de resumen no afectan a la programación."
   },
   "yes": "Sí",
   "no": "No",

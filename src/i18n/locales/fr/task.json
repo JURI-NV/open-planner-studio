@@ -153,7 +153,8 @@
     "empty": "Aucune relation pour l'instant. Faites glisser avec Shift entre les barres du Gantt, ou sélectionnez deux tâches et utilisez le bouton ci-dessus.",
     "notCalculated": "Recalculez (F5) pour voir les relations déterminantes et les marges",
     "warnTruncatedLead": "Avance tronquée au début du projet — le chevauchement n'est pas entièrement utilisé",
-    "warnLeadExceedsDuration": "L'avance est supérieure à la durée du prédécesseur"
+    "warnLeadExceedsDuration": "L'avance est supérieure à la durée du prédécesseur",
+    "warnSummaryEndpoint": "Sans effet : tâche récapitulative en extrémité"
   },
   "structure": {
     "title": "Codes et champs",
