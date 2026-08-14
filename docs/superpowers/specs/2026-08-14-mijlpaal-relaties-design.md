@@ -25,7 +25,9 @@ Maar sinds issue #40 armt diezelfde functie óók de relatie-sleep, en daar slaa
 nergens op.
 
 De spookrelaties komen uit de solver-architectuur: `runCPM` geeft alleen bladtaken aan de solver
-(`scheduleSlice.ts`, `s.tasks.filter(t => t.childIds.length === 0)`), en `CPMSolver` leest relaties
+(`solveProject.ts`, `input.tasks.filter(t => t.childIds.length === 0)` — die filter zat bij het
+schrijven van deze spec nog in `scheduleSlice.ts` en is daarna met de solve-kern meegeëxtraheerd),
+en `CPMSolver` leest relaties
 met optional chaining in (`this.successors.get(seq.predecessorId)?.push(seq)`). Een verzameltaak
 staat niet in die map, dus de relatie verdwijnt geruisloos. `applyCpmResult` overschrijft de datums
 van een verzameltaak daarna sowieso met de rollup uit de kinderen.
