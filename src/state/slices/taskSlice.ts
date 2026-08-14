@@ -287,6 +287,10 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         ? s.tasks.find(t => t.id === partial.position!.anchorId)
         : undefined;
       const parentId = anchorTask ? anchorTask.parentId : (partial.parentId || null);
+      // Overerving (2026-08-14): een taak met een bestaande ouder neemt diens taskType over als de
+      // aanroeper zelf geen taskType opgeeft — vóór de bouwmodus-brede default. Geldt alleen op het
+      // moment van aanmaken; indenteren/verslepen van een bestaande taak laat taskType met rust.
+      const parentTask = parentId ? s.tasks.find(t => t.id === parentId) : undefined;
 
       const task: Task = {
         id,
@@ -295,7 +299,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         wbsCode: partial.wbsCode || '',
         // Bouwmodus (2026-07-13): neutraal taaktype-default in bouw-agnostische modus (USERDEFINED)
         // i.p.v. CONSTRUCTION. Alleen de default bij aanmaken verandert; de enum blijft intact.
-        taskType: partial.taskType || (s.ui.constructionMode ? 'CONSTRUCTION' : 'USERDEFINED'),
+        taskType: partial.taskType || parentTask?.taskType || (s.ui.constructionMode ? 'CONSTRUCTION' : 'USERDEFINED'),
         status: partial.status || 'NOT_STARTED',
         isMilestone: partial.isMilestone || false,
         milestoneKind: partial.milestoneKind,

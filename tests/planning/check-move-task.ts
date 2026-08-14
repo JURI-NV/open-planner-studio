@@ -109,6 +109,17 @@ const idExplicit = S().addTask({
 eq('24 addTask mét time: expliciete waarde wint van de default', task(idExplicit)?.time.scheduleStart, '2027-06-15');
 eq('25 addTask mét time: expliciete duur wint van de default', task(idExplicit)?.time.scheduleDuration, 12);
 
+// ── 5) addTask: taskType overerven van de bestaande ouder (alleen bij aanmaken). ──────────
+const idOuderLogistiek = S().addTask({ name: 'OuderLogistiek', taskType: 'LOGISTIC' });
+const idKindZonderType = S().addTask({ name: 'KindZonderType', parentId: idOuderLogistiek });
+eq('26 addTask met ouder: kind zonder eigen taskType erft LOGISTIC van de ouder', task(idKindZonderType)?.taskType, 'LOGISTIC');
+
+const idKindMetType = S().addTask({ name: 'KindMetType', parentId: idOuderLogistiek, taskType: 'DEMOLITION' });
+eq('27 addTask met ouder: expliciete taskType op het kind wint van de ouder', task(idKindMetType)?.taskType, 'DEMOLITION');
+
+const idRootZonderType = S().addTask({ name: 'RootZonderType' });
+eq('28 addTask zonder ouder: root valt terug op de bouwmodus-default (CONSTRUCTION)', task(idRootZonderType)?.taskType, 'CONSTRUCTION');
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  move-task-check: alle checks groen (${checks})`);
