@@ -1,8 +1,9 @@
 // B1b-bezettingskern (spec 2026-08-14-b1b-bezettingsoverzicht-design.md §4/§6/§10). Headless
 // batterij over de pure `computeLibraryOccupancy`: handgebouwde `OccupancyDocInput`-fixtures +
 // een minimale `CompanyPool` — geen store, geen I/O. Exitcode is de poort (XX-regels tonen
-// afwijkingen). Cases 1–9 volgen letterlijk §10 van het ontwerpdoc; case 10 dekt de
-// scope-uitbreiding `OccupancyDocBooking.dailyLoad` (histogramvoeding, som-invariant).
+// afwijkingen). Cases 1–13 volgen letterlijk §10 van het herziene ontwerpdoc (critreview
+// 2026-08-14: stale telt niet mee, fantoomrij-guards); case 10 dekt daarnaast de
+// `OccupancyDocBooking.dailyLoad`-uitbreiding (histogramvoeding, som-invariant).
 import { computeLibraryOccupancy } from '@/services/library/occupancy';
 import type { OccupancyDocInput } from '@/services/library/occupancy';
 import { computeResourceLoad, maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
@@ -111,6 +112,7 @@ function pool(resources: Resource[]): CompanyPool {
   const d1 = row.docs.find(d => d.docId === 'd1');
   assert(d1?.firstDay === '2026-08-03' && d1?.lastDay === '2026-08-05', 'case 1: per-document firstDay/lastDay = taakspanne');
   assert(d1?.peak === 1.5, `case 1: per-document peak = 1,5 (kreeg ${d1?.peak})`);
+  assert(row.docs.every(d => d.counted === true), 'case 1: niet-stale boekingen zijn counted');
   assert(anyStale === false, 'case 1: geen stale documenten ⇒ anyStale false');
 }
 
@@ -201,7 +203,7 @@ function pool(resources: Resource[]): CompanyPool {
   assert(a?.totalPeak === 1 && b?.totalPeak === 2, 'case 6: boekingen NIET samengevoegd op naam — elk poolitem houdt zijn eigen belasting');
 }
 
-// ── Case 7 (§10.7): scheduleStale-document telt mee én markeert ──────────────────────────────────
+// ── Case 7 (§10.7 herzien): stale telt NIET mee, maar de booking blijft zichtbaar ────────────────
 {
   const p = pool([poolRes('lib-1', 'Kraan', 5)]);
   const vers = doc('d1', {
@@ -217,11 +219,17 @@ function pool(resources: Resource[]): CompanyPool {
   });
   const { rows, anyStale } = computeLibraryOccupancy('c1', p, [vers, stale]);
 
-  assert(rows.length === 1 && rows[0].docs.length === 2, 'case 7: het stale document telt gewoon mee (laatst bekende datums)');
-  assert(rows[0].totalPeak === 2, `case 7: overlap 08-04/08-05 telt op tot 2 (kreeg ${rows[0].totalPeak})`);
-  assert(rows[0].docs.find(d => d.docId === 'd2')?.scheduleStale === true, 'case 7: OccupancyDocBooking.scheduleStale staat op het stale document');
-  assert(rows[0].docs.find(d => d.docId === 'd1')?.scheduleStale === false, 'case 7: het verse document is NIET gemarkeerd');
-  assert(anyStale === true, 'case 7: anyStale staat zodra één meetellend document stale is');
+  assert(rows.length === 1 && rows[0].docs.length === 2, 'case 7: beide documenten zichtbaar (stale als ongetelde booking)');
+  assert(rows[0].totalPeak === 1, `case 7: totalPeak telt ALLEEN het verse document (1, niet 2; kreeg ${rows[0].totalPeak})`);
+  const staleBooking = rows[0].docs.find(d => d.docId === 'd2');
+  assert(staleBooking?.counted === false && staleBooking?.scheduleStale === true, 'case 7: stale booking is counted:false + scheduleStale:true');
+  assert(
+    staleBooking !== undefined && staleBooking.peak === 0 && staleBooking.firstDay === null &&
+    staleBooking.lastDay === null && Object.keys(staleBooking.dailyLoad).length === 0,
+    'case 7: stale booking draagt géén cijfers (dailyLoad {}, firstDay/lastDay null, peak 0)',
+  );
+  assert(rows[0].docs.find(d => d.docId === 'd1')?.counted === true, 'case 7: het verse document blijft gewoon geteld');
+  assert(anyStale === true, 'case 7: anyStale staat door de ongetelde booking');
 }
 
 // ── Case 8 (§10.8): binnen-document-overbezetting verschijnt óók als conflict (§6 punt 2) ────────
@@ -342,6 +350,107 @@ function pool(resources: Resource[]): CompanyPool {
       `case 10: dailyLoad van ${booking.docId} bevat alleen dagen met belasting > 0`,
     );
   }
+}
+
+// ── Case 11 (§10.11): stale-uitsluiting maskeert geen conflict verkeerd-groen ────────────────────
+{
+  // 11a: een echt conflict (het niet-stale document boekt in z'n eentje boven capaciteit) blijft
+  // staan, óók met een stale document ernaast.
+  const p = pool([poolRes('lib-1', 'Kraan', 2)]);
+  const overboekt = doc('d1', {
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: [task('d1-t1', '2026-08-03', '2026-08-05', 3)],
+    assignments: [assign('d1-a1', 'd1-t1', 'd1-r1', 3)], // 3 > 2, zonder hulp van het stale document
+  });
+  const staleDoc = doc('d2', {
+    scheduleStale: true,
+    resources: [stamped('d2-r1', 'lib-1')],
+    tasks: [task('d2-t1', '2026-08-03', '2026-08-05', 3)],
+    assignments: [assign('d2-a1', 'd2-t1', 'd2-r1', 1)],
+  });
+  const a = computeLibraryOccupancy('c1', p, [overboekt, staleDoc]);
+  assert(
+    JSON.stringify(a.rows[0]?.conflictDays) === JSON.stringify(['2026-08-03', '2026-08-04', '2026-08-05']),
+    `case 11a: conflict van het getelde document blijft staan naast een stale document (kreeg ${JSON.stringify(a.rows[0]?.conflictDays)})`,
+  );
+  assert(a.rows[0]?.totalPeak === 3, 'case 11a: totalPeak = alleen het getelde document (3)');
+  assert(a.anyStale === true, 'case 11a: anyStale staat (ongetelde booking aanwezig)');
+
+  // 11b: de som zou alléén mét het stale document boven capaciteit komen (1,5 + 1,5 > 2) ⇒ géén
+  // conflictdag (geen verzonnen cijfers), wél anyStale + de ongetelde booking (de banner draagt
+  // de waarschuwing).
+  const binnenCapaciteit = doc('d3', {
+    resources: [stamped('d3-r1', 'lib-1')],
+    tasks: [task('d3-t1', '2026-08-03', '2026-08-05', 3)],
+    assignments: [assign('d3-a1', 'd3-t1', 'd3-r1', 1.5)],
+  });
+  const staleAanvuller = doc('d4', {
+    scheduleStale: true,
+    resources: [stamped('d4-r1', 'lib-1')],
+    tasks: [task('d4-t1', '2026-08-03', '2026-08-05', 3)],
+    assignments: [assign('d4-a1', 'd4-t1', 'd4-r1', 1.5)],
+  });
+  const b = computeLibraryOccupancy('c1', p, [binnenCapaciteit, staleAanvuller]);
+  assert(
+    b.rows[0]?.conflictDays.length === 0,
+    `case 11b: som alleen-mét-stale boven capaciteit ⇒ géén conflictdag (kreeg ${JSON.stringify(b.rows[0]?.conflictDays)})`,
+  );
+  assert(b.rows[0]?.totalPeak === 1.5, `case 11b: totalPeak = alleen het getelde document (1,5; kreeg ${b.rows[0]?.totalPeak})`);
+  assert(b.anyStale === true, 'case 11b: anyStale staat wél — de banner draagt de waarschuwing');
+  assert(
+    b.rows[0]?.docs.some(d => d.docId === 'd4' && d.counted === false),
+    'case 11b: de ongetelde booking van het stale document is zichtbaar',
+  );
+}
+
+// ── Case 12 (§10.12): fantoomrij-triggers — 0 eenheden en ontbrekende datums (niet-stale) ───────
+{
+  const p = pool([poolRes('lib-1', 'Kraan', 2)]);
+
+  // 12a: niet-stale toewijzing met unitsPerDay 0 ⇒ geen booking, geen rij.
+  const nulEenheden = doc('d1', {
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: [task('d1-t1', '2026-08-03', '2026-08-05', 3)],
+    assignments: [assign('d1-a1', 'd1-t1', 'd1-r1', 0)],
+  });
+  const a = computeLibraryOccupancy('c1', p, [nulEenheden]);
+  assert(a.rows.length === 0, `case 12a: unitsPerDay 0 (niet-stale) ⇒ geen booking en geen rij (kreeg ${a.rows.length})`);
+  assert(a.anyStale === false, 'case 12a: geen ongetelde booking ⇒ anyStale false');
+
+  // 12b: niet-stale document zonder doorgerekende datums (earlyStart '') ⇒ idem. Dit is precies
+  // de val uit de critreview: ResourceLoad maakt de load-emmer al vóór de daglus aan, dus een
+  // truthy leeg object mag geen boeking opleveren.
+  const zonderDatums = doc('d2', {
+    resources: [stamped('d2-r1', 'lib-1')],
+    tasks: [task('d2-t1', '', '', 3)],
+    assignments: [assign('d2-a1', 'd2-t1', 'd2-r1', 2)],
+  });
+  const b = computeLibraryOccupancy('c1', p, [zonderDatums]);
+  assert(b.rows.length === 0, `case 12b: earlyStart '' zonder stale-vlag ⇒ geen booking en geen rij (kreeg ${b.rows.length})`);
+  assert(b.anyStale === false, 'case 12b: geen ongetelde booking ⇒ anyStale false');
+}
+
+// ── Case 13 (§10.13): stale zonder bruikbare datums ⇒ tóch zichtbaar als ongetelde booking ──────
+{
+  const p = pool([poolRes('lib-1', 'Kraan', 2)]);
+  const staleZonderDatums = doc('d1', {
+    scheduleStale: true,
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: [task('d1-t1', '', '', 3)], // geen bruikbare datums — niets verdwijnt stil
+    assignments: [assign('d1-a1', 'd1-t1', 'd1-r1', 2)],
+  });
+  const { rows, anyStale } = computeLibraryOccupancy('c1', p, [staleZonderDatums]);
+
+  assert(rows.length === 1, `case 13: stale met toewijzingen op het poolitem ⇒ wél een rij (kreeg ${rows.length})`);
+  const booking = rows[0]?.docs[0];
+  assert(rows[0]?.docs.length === 1 && booking?.counted === false, 'case 13: één zichtbare ongetelde booking');
+  assert(
+    booking !== undefined && booking.peak === 0 && booking.firstDay === null && booking.lastDay === null &&
+    Object.keys(booking.dailyLoad).length === 0,
+    'case 13: de ongetelde booking draagt géén cijfers',
+  );
+  assert(rows[0]?.totalPeak === 0 && rows[0]?.conflictDays.length === 0, 'case 13: geen getelde belasting ⇒ totalPeak 0, geen conflictdagen');
+  assert(anyStale === true, 'case 13: anyStale staat door de zichtbare ongetelde booking');
 }
 
 console.log(`occupancy: ${checks - fails}/${checks} groen`);

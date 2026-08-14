@@ -5,12 +5,20 @@
 // store, geen I/O — de weergavelaag (ResourceOccupancyView) mapt payload-snapshots naar
 // `OccupancyDocInput` en rendert het resultaat.
 //
-// Per document draait bewust de bestaande `computeResourceLoad` op de payload-velden — dezelfde
-// curve-verdeling (`distributeUnits`), leaf-filter en werkdag-mapping als het histogram, dus
-// per-document exact consistente cijfers. Er wordt NIET geleund op een opgeslagen
+// Per NIET-STALE document draait bewust de bestaande `computeResourceLoad` op de payload-velden —
+// dezelfde curve-verdeling (`distributeUnits`), leaf-filter en werkdag-mapping als het histogram,
+// dus per-document exact consistente cijfers. Er wordt NIET geleund op een opgeslagen
 // `resourceLoadResult` in de payload: dat kan achterlopen op ververste resources/kalenders
 // (zie het commentaar bij `switchDocument` in documentSlice); vers rekenen is goedkoop (§7) en
 // altijd juist t.o.v. wat de payload bevat.
+//
+// STALE documenten tellen NIET mee (§4.3, herzien na critreview 2026-08-14): bij een stale
+// document lopen `scheduleDuration` en `earlyStart..earlyFinish` per definitie uiteen, en
+// `computeResourceLoad` kapt de verdeling af op min(dagen, werkdagen) — het resultaat is dan noch
+// de oude noch de nieuwe planning en kan echte conflictdagen als groen maskeren. Zulke documenten
+// blijven wél zichtbaar: elke boeking (= toewijzingen op aan het poolitem gestempelde resources)
+// verschijnt als ongetelde booking (`counted: false`) zonder cijfers, zodat er niets stil
+// verdwijnt en de gebruiker weet wat te doen (document activeren, F5).
 //
 // Capaciteit komt van het POOLitem via `maxUnitsOn` (§6): `maxUnits`/`availabilitySteps` op een
 // projectkopie zijn projectinzet, maar de B1b-vraag is een bedrijfsvraag — twee projecten die elk
@@ -42,12 +50,14 @@ export interface OccupancyDocBooking {
   docId: string;
   title: string;
   scheduleStale: boolean;
-  firstDay: string | null;  // ISO, eerste dag met belasting > 0
+  /** false ⇒ stale: zichtbaar maar niet meegeteld (§4.3) — dan geen cijfers. */
+  counted: boolean;
+  firstDay: string | null;  // ISO, eerste dag met belasting > 0 (null bij counted: false)
   lastDay: string | null;
-  peak: number;             // hoogste dagbelasting binnen dít document
-  /** ISO-dag → belasting van dít document op dit poolitem (alleen dagen met belasting > 0) —
-   *  voedt de histogramweergave per rij; de som over documenten per dag is exact de som die
-   *  `totalPeak`/`conflictDays` hierboven al gebruiken. */
+  peak: number;             // hoogste dagbelasting binnen dít document (0 bij counted: false)
+  /** ISO-dag → belasting van dít document op dit poolitem (alleen dagen met belasting > 0;
+   *  {} bij counted: false) — voedt de histogramweergave per rij (§5a); de som over getelde
+   *  documenten per dag is exact de som die `totalPeak`/`conflictDays` gebruiken. */
   dailyLoad: Record<string, number>;
 }
 
@@ -56,7 +66,7 @@ export interface OccupancyRow {
   libraryItemId: string;    // pool-resource-id
   name: string;             // poolnaam (weergave; matching blijft op id)
   docs: OccupancyDocBooking[];
-  totalPeak: number;        // hoogste gesommeerde dagbelasting over documenten
+  totalPeak: number;        // hoogste gesommeerde dagbelasting over GETELDE documenten
   capacityAtPeak: number;   // maxUnitsOn(poolItem, piekdag)
   conflictDays: string[];   // ISO-datums waar som > capaciteit (gesorteerd)
 }
@@ -70,11 +80,16 @@ export interface OccupancyRow {
  *    bij geen enkel poolitem). Projecteigen resources (geen stempel) tellen nooit mee: hun
  *    dubbelbezetting is een binnen-project-vraag en die beantwoordt het bestaande histogram al;
  *  - poolitems zonder enige boeking krijgen géén rij (het overzicht toont inzet, geen catalogus).
- * Conflictdefinitie (§6): som over documenten > `maxUnitsOn(poolItem, dag)` — strikt groter;
- * som == capaciteit is géén conflict. `conflictDays` is oplopend gesorteerd. Rijvolgorde is de
- * poolvolgorde (deterministisch; de weergave sorteert zelf op conflicten/naam, §5). `anyStale`
- * staat zodra minstens één meetellend document met een boeking `scheduleStale` is (§4.3: zulke
- * documenten tellen mee op hun laatst bekende datums, met zichtbare markering).
+ * Boeking-/telregels (§4.3, herzien): een booking is `counted` wanneer het document niet stale is
+ * én de berekende belasting op minstens één dag > 0 is. Een stale document met toewijzingen op
+ * aan het poolitem gestempelde resources levert een ongetelde booking zonder cijfers; een
+ * niet-stale document zonder enige dag belasting > 0 (0 eenheden, geen doorgerekende datums)
+ * levert géén booking — de fantoomrij-guard. Een rij bestaat alleen bij minstens één booking
+ * (geteld of ongeteld); `anyStale` staat alleen wanneer een ongetelde booking daadwerkelijk in
+ * het overzicht voorkomt.
+ * Conflictdefinitie (§6): som over getelde documenten > `maxUnitsOn(poolItem, dag)` — strikt
+ * groter; som == capaciteit is géén conflict. `conflictDays` is oplopend gesorteerd. Rijvolgorde
+ * is de poolvolgorde (deterministisch; de weergave sorteert zelf op conflicten/naam, §5).
  */
 export function computeLibraryOccupancy(
   companyId: string,
@@ -83,12 +98,23 @@ export function computeLibraryOccupancy(
 ): { rows: OccupancyRow[]; anyStale: boolean } {
   const poolItemIds = new Set(pool.resources.map(r => r.id));
 
-  // Emmers: per poolitem → per document → dag-belasting, plus de gesommeerde dag-belasting.
+  // Emmers: per poolitem → per document → dag-belasting (alleen dagen > 0), plus de gesommeerde
+  // dag-belasting over getelde documenten. Een stale document krijgt een emmer zonder cijfers.
   interface DocBucket {
     doc: OccupancyDocInput;
-    daily: Map<string, number>;
+    counted: boolean;
+    daily: Map<string, number>; // leeg bij counted: false
   }
   const perItem = new Map<string, { byDoc: Map<string, DocBucket>; total: Map<string, number> }>();
+
+  const bucketFor = (itemId: string) => {
+    let bucket = perItem.get(itemId);
+    if (!bucket) {
+      bucket = { byDoc: new Map(), total: new Map() };
+      perItem.set(itemId, bucket);
+    }
+    return bucket;
+  };
 
   for (const doc of docs) {
     if (doc.companyId !== companyId) continue;
@@ -100,6 +126,20 @@ export function computeLibraryOccupancy(
       poolItemIds.has(r.libraryOrigin.libraryItemId));
     if (stampedResources.length === 0) continue;
 
+    if (doc.scheduleStale) {
+      // §4.3: stale ⇒ niet rekenen (de engine-uitkomst zou noch oud noch nieuw zijn), maar elke
+      // boeking — het document heeft toewijzingen op een gestempelde resource — blijft zichtbaar
+      // als ongetelde booking. Geen cijfers, dus ook geen bijdrage aan `total`.
+      for (const resource of stampedResources) {
+        if (!doc.assignments.some(a => a.resourceId === resource.id)) continue;
+        const bucket = bucketFor(resource.libraryOrigin!.libraryItemId);
+        if (!bucket.byDoc.has(doc.docId)) {
+          bucket.byDoc.set(doc.docId, { doc, counted: false, daily: new Map() });
+        }
+      }
+      continue;
+    }
+
     // Vers per document rekenen — zelfde engine-pass als het histogram (zie kopcommentaar).
     const loadResult = computeResourceLoad(doc.resources, doc.assignments, doc.tasks, doc.calendar, doc.calendars);
 
@@ -108,18 +148,19 @@ export function computeLibraryOccupancy(
       if (!daily) continue; // geen (geldige) toewijzingen ⇒ geen boeking
       const itemId = resource.libraryOrigin!.libraryItemId;
 
-      let bucket = perItem.get(itemId);
-      if (!bucket) {
-        bucket = { byDoc: new Map(), total: new Map() };
-        perItem.set(itemId, bucket);
-      }
-      let docBucket = bucket.byDoc.get(doc.docId);
-      if (!docBucket) {
-        docBucket = { doc, daily: new Map() };
-        bucket.byDoc.set(doc.docId, docBucket);
-      }
-      // Meerdere kopieën met dezelfde stempel in één document sommeren gewoon op.
+      // Fantoomrij-guard (critreview bevinding 2): `computeResourceLoad` maakt de load-emmer al
+      // vóór de daglus aan, dus een truthy (leeg) object is geen bewijs van belasting — en
+      // 0-eenheden-dagen evenmin. Alleen dagen met belasting > 0 vormen een boeking: zonder zo'n
+      // dag wordt hier geen emmer aangemaakt en bestaat de booking (en dus de rij) niet.
       for (const [iso, units] of Object.entries(daily)) {
+        if (units <= 0) continue;
+        const bucket = bucketFor(itemId);
+        let docBucket = bucket.byDoc.get(doc.docId);
+        if (!docBucket) {
+          docBucket = { doc, counted: true, daily: new Map() };
+          bucket.byDoc.set(doc.docId, docBucket);
+        }
+        // Meerdere kopieën met dezelfde stempel in één document sommeren gewoon op.
         docBucket.daily.set(iso, (docBucket.daily.get(iso) ?? 0) + units);
         bucket.total.set(iso, (bucket.total.get(iso) ?? 0) + units);
       }
@@ -135,23 +176,24 @@ export function computeLibraryOccupancy(
     if (!bucket) continue;
 
     const docBookings: OccupancyDocBooking[] = [];
-    for (const { doc, daily } of bucket.byDoc.values()) {
+    for (const { doc, counted, daily } of bucket.byDoc.values()) {
       let firstDay: string | null = null;
       let lastDay: string | null = null;
       let peak = 0;
       const dailyLoad: Record<string, number> = {};
       for (const [iso, units] of daily) {
-        if (units <= 0) continue; // curve-dagen met 0 eenheden zijn geen boeking
         dailyLoad[iso] = units;
         if (firstDay === null || iso < firstDay) firstDay = iso;
         if (lastDay === null || iso > lastDay) lastDay = iso;
         if (units > peak) peak = units;
       }
-      if (doc.scheduleStale) anyStale = true;
+      // anyStale alléén wanneer een ongetelde booking daadwerkelijk in het overzicht voorkomt.
+      if (!counted) anyStale = true;
       docBookings.push({
         docId: doc.docId,
         title: doc.title,
         scheduleStale: doc.scheduleStale,
+        counted,
         firstDay,
         lastDay,
         peak,
@@ -159,8 +201,8 @@ export function computeLibraryOccupancy(
       });
     }
 
-    // Som per dag (oplopend doorlopen ⇒ conflictDays vanzelf gesorteerd, en de piekdag is bij
-    // gelijke pieken deterministisch de vroegste).
+    // Som per dag over getelde documenten (oplopend doorlopen ⇒ conflictDays vanzelf gesorteerd,
+    // en de piekdag is bij gelijke pieken deterministisch de vroegste).
     let totalPeak = 0;
     let peakDay: string | null = null;
     const conflictDays: string[] = [];
@@ -178,8 +220,8 @@ export function computeLibraryOccupancy(
       name: poolItem.name,
       docs: docBookings,
       totalPeak,
-      // Zonder enige belaste dag (alle boekingen 0) is er geen piekdag; vlakke maxUnits als
-      // neutrale capaciteit.
+      // Zonder enige getelde belaste dag (alleen ongetelde boekingen) is er geen piekdag; vlakke
+      // maxUnits als neutrale capaciteit.
       capacityAtPeak: peakDay !== null ? maxUnitsOn(poolItem, peakDay) : poolItem.maxUnits,
       conflictDays,
     });
