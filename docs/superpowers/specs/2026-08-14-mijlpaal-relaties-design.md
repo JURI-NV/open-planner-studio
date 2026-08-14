@@ -1,0 +1,238 @@
+# Mijlpaal-relaties vrijgeven en spookrelaties dichten
+
+**Datum:** 2026-08-14
+**Status:** ontwerp, goedgekeurd — klaar voor implementatieplan
+
+## Aanleiding
+
+Twee klachten die op één plek in de code samenkomen:
+
+1. Je kunt in de Gantt **geen relatie slepen vanaf een mijlpaal**. Dat is een bug: een mijlpaal is
+   een 0-duur bladtaak die de solver volledig ondersteunt als voorganger én opvolger, met eigen
+   START/FINISH-relatiewiskunde en een uitgebreide testdekking (`cases-milestones.json`,
+   `cases-milestone-kinds.json`). De blokkade is een neveneffect van hergebruikte hit-test-code.
+
+2. Relaties met een **verzameltaak** als eindpunt zijn *spookrelaties*: ze worden opgeslagen,
+   getekend en geëxporteerd, maar hebben nul effect op de planning. Ze worden nu stil aangemaakt
+   zonder enige waarschuwing.
+
+### Waarom de bugs bestaan
+
+`GanttRenderer.getTaskBarBounds()` (`src/engine/renderer/GanttRenderer.ts`) weigert taken met
+`childIds.length > 0 || isMilestone`. Die functie is geschreven als hittest voor **slepen/resizen**
+— een ruit heeft geen duur om te resizen, een samenvattingsbalk heeft afgeleide datums. Terecht.
+Maar sinds issue #40 armt diezelfde functie óók de relatie-sleep, en daar slaat de mijlpaal-clausule
+nergens op.
+
+De spookrelaties komen uit de solver-architectuur: `runCPM` geeft alleen bladtaken aan de solver
+(`scheduleSlice.ts`, `s.tasks.filter(t => t.childIds.length === 0)`), en `CPMSolver` leest relaties
+met optional chaining in (`this.successors.get(seq.predecessorId)?.push(seq)`). Een verzameltaak
+staat niet in die map, dus de relatie verdwijnt geruisloos. `applyCpmResult` overschrijft de datums
+van een verzameltaak daarna sowieso met de rollup uit de kinderen.
+
+`addSequence` valideert niets op taaktype, dus de Relaties-paneelknop, de lint-knop, de extensie-API
+en de MCP-tools maken zulke relaties allemaal probleemloos aan.
+
+## Scope
+
+**Wel:**
+- Relatie-sleep vanaf een mijlpaal vrijgeven.
+- Nieuwe relaties met een verzameltaak-eindpunt overal weigeren, met leesbare reden.
+- Bestaande en geïmporteerde exemplaren behouden en zichtbaar markeren als "zonder effect".
+
+**Niet:**
+- Mijlpalen horizontaal verslepen om hun datum te wijzigen. Ligt geblokkeerd door dezelfde
+  `getTaskBarBounds`-null, maar raakt `barDrag` (0-duurtaak: alleen een body-sleep mag armen, nooit
+  een resize-greep, plus snapping/undo/uur-modus). Blijft open als TODO.
+- Verzameltaak-relaties *laten werken* via FS-desugaring. Zie "Toekomstpad".
+
+## Ontwerp
+
+### 1. `src/state/relationRules.ts` — één regel, meerdere lezers
+
+Nieuwe **bladmodule**: pure functies, importeert niets uit `slices/` of `appStore`. Dat is geen
+stijlkeuze maar noodzaak — anders ontstaat `sequenceSlice → relationRules → appStore →
+sequenceSlice` en slaat `verify:cycles` aan. Zelfde reden als bij `state/defaults.ts`.
+
+```ts
+export type RelationRejection = 'self' | 'unknown-task' | 'summary-endpoint' | 'duplicate';
+export type RelationVerdict = { ok: true } | { ok: false; reason: RelationRejection };
+
+interface RelationEndpoints { predecessorId: string; successorId: string }
+
+/**
+ * Heeft deze relatie een eindpunt zonder effect op de planning? De solver ziet alleen bladtaken,
+ * dus een verzameltaak als voorganger of opvolger wordt weggegooid.
+ *
+ * Mijlpalen zijn bladtaken en dus expliciet WÉL toegestaan — dat is het hele punt van dit ontwerp.
+ */
+export function hasSummaryEndpoint(
+  byId: ReadonlyMap<string, Task>,
+  seq: RelationEndpoints,
+): boolean;
+
+export function relationVerdict(
+  byId: ReadonlyMap<string, Task>,
+  sequences: readonly Sequence[],
+  seq: RelationEndpoints & { type: SequenceType },
+): RelationVerdict;
+```
+
+`hasSummaryEndpoint` staat er los naast omdat de paneelmarkering hem per rij nodig heeft zónder de
+`sequences`-array: elke *bestaande* relatie is zijn eigen duplicaat, dus `relationVerdict` is daar
+onbruikbaar.
+
+Naast `summary-endpoint` weigert de module ook `self` (voorganger == opvolger; de solver maakt daar
+nu een verwarrende cyclusfout van) en `unknown-task` (verwijzing naar een niet-bestaand id; zelfde
+stille-drop-mechaniek als een verzameltaak). Beide zijn één conditie en delen de hele omliggende
+plumbing; ze zijn alleen bereikbaar via MCP en de extensie-API, die geen UI-guard hebben.
+
+### 2. De dedup-regel verhuist mee
+
+`mcpTransaction.addSequence` (`src/state/mcpTransaction.ts`) is een handgeschreven kopie van
+`sequenceSlice.addSequence`, inclusief een tweede exemplaar van de dedup-regel "één per
+(voorganger, opvolger, type)". Dat is precies het duplicatiepatroon dat elders in deze codebase
+systematisch is opgeruimd (het documentcontract, `applyCpmResult`) — en het bijt hier meteen: zonder
+deze verhuizing zou validatie in de slice-actie MCP overslaan, en is MCP het gat waardoor precies de
+bug binnenkomt die we dichten.
+
+Na de verhuizing verschillen de twee implementaties alleen nog in **transactiemechaniek**
+(snapshot + `finishMutation` vs. snapshot-vrij, want MCP-batches beheren hun eigen transactie), niet
+meer in regels.
+
+### 3. Vier lezers
+
+| lezer | gedrag |
+|---|---|
+| `sequenceSlice.addSequence` | handhaving; retourneert `string \| null` in plaats van altijd een id |
+| `mcpTransaction.addSequence` | handhaving; geeft de `RelationRejection` door zodat de tool een herstelbare fout kan melden |
+| `createRelationWithFeedback` | vraagt het verdict vóór de mutatie, om de juiste melding te kiezen |
+| `RelationsPanel` (markering) + `getRelationSourceAt` (hittest) | lezen `hasSummaryEndpoint` |
+
+**Waarom zowel de wrapper als de slice het verdict opvraagt.** De wrapper heeft de *reden* nodig om
+de juiste melding te kiezen; de slice is de handhavingsgrens voor álle aanroepers (inclusief de
+extensie-API, die direct op de slice zit). Het alternatief — de reden door de retourwaarde van
+`addSequence` heen vlechten — maakt het typeoppervlak van de extensie-API onnodig ingewikkeld voor
+een pure functie die twee keer aanroepen gratis is. De *regel* staat op één plek; alleen de aanroep
+staat er twee keer.
+
+**Opruiming die hieruit valt:** `createRelationWithFeedback` verliest zijn
+`sequences.length`-vóór/ná-truc. Die bestond alleen omdat `addSequence` bij een geweigerd duplicaat
+tóch een id teruggaf die naar niets verwees. Met `string | null` is dat weg.
+
+**Extensie-API:** `addSequence` gaat van `string` naar `string | null` (`src/extensions/types.ts`,
+`docs/extensions.md` bijwerken). Voor auteurs is dat strikt correcter — de oude `string` bij een
+geweigerd duplicaat was al een id die nergens naar verwees. Extensies zijn CommonJS-JS, dus geen
+compile-breuk.
+
+### 4. Mijlpalen vrijgeven: een aparte hittest
+
+Nieuwe methode náást `getTaskBarBounds`, bewust géén versoepeling daarvan — anders wordt een
+mijlpaal-ruit versleepbaar en een samenvattingsbalk resizebaar, allebei fout.
+
+```ts
+/** Hittest voor het armen van een relatie-sleep. Ruimer dan getTaskBarBounds: mijlpalen tellen
+ *  wél mee (0 duur is geen bezwaar voor CPM-logica, alleen voor resizen), verzameltaken bewust
+ *  niet — een relatie daarheen zou een spookrelatie zijn. */
+getRelationSourceAt(canvasX: number, canvasY: number): Task | null
+```
+
+Hergebruikt `barGeometry`. Voor een ruit is `x1 ≈ x2`, dus het greepgebied krijgt dezelfde ±6 px die
+het pijltekenen al hanteert (`GanttRenderer.ts`, `pad = row.task.isMilestone ? 6 : ARROW_PAD`). De
+datumloos-guard uit `getTaskBarBounds` blijft gelden: een taak zonder datums heeft geen positie om
+vanaf te slepen.
+
+In `GanttCanvas.handleMouseDown` wordt de shift/relatiemodus-tak vóór de `getTaskBarBounds`-tak
+getrokken en leest die de nieuwe hittest. Sleep- en resizegedrag voor gewone taken blijft daarmee
+ongewijzigd. `handleContextMenu` blijft `getTaskBarBounds` gebruiken voor zijn `barHit` — dat gaat
+over balk-specifieke menu-items (slepen/resizen), niet over relaties, en de bestaande comment daar
+blijft dus kloppen.
+
+De **drop-kant** in `useDependencyDraw` blijft de ruime `getTaskAtY` gebruiken. Je mág dus op een
+verzamelbalk loslaten en krijgt dan de weigering mét reden — beter dan een pijl die geruisloos
+nergens landt.
+
+### 5. Bestaande spookrelaties: geen filter- of migratiecode
+
+Omdat de markering **afgeleid** is uit `childIds` en niet opgeslagen, hoeven IFC-laden en de
+importers niets te filteren en is er geen migratie nodig. Ze installeren de `sequences`-array in
+bulk; de markering rekent live mee. De enige toevoeging in een laadpad is de samenvattende melding
+hieronder.
+
+De regels uit §1 bewaken uitsluitend het **aanmaken**. De markering dekt alleen
+`summary-endpoint` — een bestaand bestand met een `self`- of `unknown-task`-relatie wordt niet
+gemarkeerd of opgeruimd, want die gevallen zijn buiten MCP/extensies niet te maken en de solver
+handelt ze al af (cyclusfout, respectievelijk stille drop).
+
+Dat dekt gratis het randgeval waarin een bladtaak met bestaande relaties later een kind krijgt: hij
+wordt daarmee retroactief een verzameltaak en zijn relaties worden vanzelf gemarkeerd. Een
+opgeslagen vlag zou daar stil verouderen.
+
+Zichtbaar op twee plekken:
+
+- **Relaties-paneel:** markering + tooltip per regel.
+- **Na het laden van een document:** één samenvattende melding ("N relaties op verzameltaken hebben
+  geen effect op de planning") via het bestaande `notify`-kanaal met `dedupeKey`. Dit gaat in
+  `loadProject` in `fileSlice.ts`, de trechter waar IFC-, CSV- en XML-import allemaal doorheen gaan
+  — naast de bestaande uur-data-melding, die exact dezelfde vorm heeft. **Te verifiëren in het
+  plan:** dat `loadProject` werkelijk de enige trechter is; is dat niet zo, dan liever de melding
+  uit het paneel halen dan hem op meerdere plekken herhalen.
+
+Waarom behouden en niet wegfilteren bij het laden: wegfilteren vernietigt logica uit het
+bronbestand (open + opslaan van een P6-plan verliest die relaties permanent), en het gooit precies
+de data weg die het toekomstpad hieronder nodig heeft.
+
+## Foutafhandeling
+
+| situatie | gedrag |
+|---|---|
+| UI-gebaar (sleep, lint-knop, paneelknop) op verzameltaak | geen mutatie; melding met reden en de suggestie om aan een bladtaak te koppelen |
+| Relatie-sleep vanaf een verzamelbalk | armt niet (de hittest geeft null) — weigert vroeg in plaats van na de sleep |
+| MCP-tool | fout met reden, zodat een agent kan herstellen |
+| Extensie-API | `null` retour |
+| Bestaand/geïmporteerd exemplaar | blijft staan, gemarkeerd |
+
+## Tests
+
+- **`tests/planning/check-relation-rules.ts`** (nieuw): verdict-matrix over de pure module, met
+  **mijlpaal-eindpunt = toegestaan** als expliciet regressie-anker, plus het retroactieve geval
+  (bladtaak met relaties krijgt een kind → gemarkeerd).
+- **`tests/planning/check-renderer-dateless.ts`** (uitbreiden, geen nieuw bestand): heeft de harnas
+  al — DOM-stubs, opnemende 2D-context, en rijen met een gezonde taak, een mijlpaal én een
+  samenvattingsbalk — en toetst al `getTaskBarBounds`. Toevoegen: `getRelationSourceAt` accepteert
+  de mijlpaal, weigert de verzameltaak, weigert de datumloze taak.
+- **`tests/mcp/cases-update-dependencies.ts`** (uitbreiden): weigering met leesbare reden op een
+  verzameltaak; acceptatie op een mijlpaal.
+
+## Documentatie
+
+- `public/docs/{nl,en}/gids-relaties-constraints.md` uitbreiden. Bestaat al — geen nieuwe
+  manifest-entry nodig.
+- `docs/extensions.md`: de `string | null`-retour van `addSequence`.
+- **Let op:** nieuwe i18n-sleutels moeten in alle veertien locales landen, anders faalt
+  `verify:i18n` (dat rekent met CLDR-pluralcategorieën, niet met letterlijke sleutelvergelijking).
+
+## Toekomstpad (niet nu bouwen)
+
+Als fase-koppeling ooit écht moet werken ("Ruwbouw klaar → Afbouw start"), is **FS-desugaring** de
+route: klap bij het oplossen een relatie met een verzameltaak-eindpunt uit naar de bladtaken.
+
+- `Fase → T (FS)` → voor elke bladtaak L in de fase: `L → T (FS)`. Correct: fase-eind = max over
+  kinderen.
+- `T → Fase (FS)` → voor elke L: `T → L (FS)`. Correct: fase-start = min over kinderen.
+
+Dit werkt **alleen voor FS**. `Fase → T (SS)` betekent "T start als de fase start" = **min** over de
+kinderstarts, en een conjunctie van blad-relaties levert **max**. Niet uitdrukbaar. Niet toevallig
+staat MS Project op verzameltaken alleen FS en SS toe — daar botst hetzelfde probleem.
+
+Voordeel van deze route boven "verzameltaken als echte netwerkknopen": de verzameltaak blijft géén
+knoop, dus float, kritiek pad, rollup, nivellering en baselines blijven onaangeroerd. Wél nodig bij
+die stap: een expliciete afwijzing van een relatie tussen een fase en haar eigen nakomeling — nu
+onzichtbaar (de edge verdwijnt), na desugaring een echte cyclus.
+
+Dit ontwerp houdt dat pad open door de relaties te bewaren in plaats van weg te filteren.
+
+## Losse waarneming (buiten scope)
+
+`useDependencyDraw.ts` toetst de drop-x tegen `ui.leftPanelWidth`, terwijl de rest van de
+canvas-hittests `taskTableWidth` gebruiken. Ziet er verdacht uit, maar staat los van dit ontwerp.
