@@ -10,6 +10,7 @@
 import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import { relationVerdict, hasSummaryEndpoint, type TaskLookup } from '@/state/relationRules';
+import { useAppStore } from '@/state/appStore';
 
 let checks = 0;
 const diffs: string[] = [];
@@ -106,6 +107,35 @@ const both: Sequence[] = [
 const bothV = verdict('s', 'b', both);
 ok('verzameltaak+duplicaat meldt duplicaat i.p.v. het inhoudelijke probleem',
   !bothV.ok && bothV.reason === 'summary-endpoint');
+
+// ── Store-integratie: de slice-actie handhaaft dezelfde regels ────────────────
+const S = () => useAppStore.getState();
+
+S().newProject();
+const fase = S().addTask({ name: 'Fase' });
+const kind = S().addTask({ name: 'Kind', parentId: fase });
+const los = S().addTask({ name: 'Los' });
+const mp = S().addTask({ name: 'Mijlpaal', isMilestone: true });
+
+ok('addTask met parentId geeft de ouder een childIds-vermelding (anders test dit niets)',
+  S().tasks.find((t) => t.id === fase)?.childIds.includes(kind) === true);
+
+const seqCountBefore = S().sequences.length;
+const summaryId = S().addSequence({ predecessorId: fase, successorId: los, type: FS, lagDays: 0 });
+ok('addSequence maakt een verzameltaak-relatie aan (verwacht null)', summaryId === null);
+ok('addSequence muteerde de store ondanks weigering',
+  S().sequences.length === seqCountBefore);
+
+const msId = S().addSequence({ predecessorId: mp, successorId: los, type: FS, lagDays: 0 });
+ok('addSequence weigert een MIJLPAAL als voorganger (regressie-anker)', msId !== null);
+
+const kindId = S().addSequence({ predecessorId: kind, successorId: los, type: FS, lagDays: 0 });
+ok('addSequence weigert een SUBTAAK zonder eigen kinderen', kindId !== null);
+
+// Een geweigerde relatie mag geen undo-stap achterlaten (zelfde regel als bij duplicaten, R3).
+const undoDepth = S().undoStack.length;
+S().addSequence({ predecessorId: fase, successorId: los, type: 'START_START', lagDays: 0 });
+ok('geweigerde relatie duwt tóch een undo-snapshot', S().undoStack.length === undoDepth);
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

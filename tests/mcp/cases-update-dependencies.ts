@@ -68,8 +68,9 @@ function threeChain(): { a: string; b: string; c: string; s1: string; s2: string
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
   const c = store.getState().addTask({ name: 'C' });
-  const s1 = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
-  const s2 = store.getState().addSequence({ predecessorId: b, successorId: c, type: 'FINISH_START', lagDays: 0 });
+  // Non-null: A/B/C zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd.
+  const s1 = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 })!;
+  const s2 = store.getState().addSequence({ predecessorId: b, successorId: c, type: 'FINISH_START', lagDays: 0 })!;
   return { a, b, c, s1, s2 };
 }
 
@@ -144,7 +145,7 @@ test('een achtergebleven lagMinutes wordt gewist EN gemeld (anders is de dag-lag
   // Zoals een IFC-/P6-import hem oplevert: dag-lag 0 met een minuut-precieze lag als bron van waarheid.
   const s = store.getState().addSequence({
     predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0, lagMinutes: 240,
-  });
+  })!; // Non-null: A/B zijn bladtaken zonder kinderen, deze relatie wordt nooit geweigerd.
   const res = await call('planner_update_dependencies', { updates: [{ seqId: s, lag: 2 }] });
   const data = okData(res);
   assertEq(seqById(s).lagDays, 2, 'de dag-lag staat op 2');
@@ -281,8 +282,9 @@ test('duplicaat: een type-wijziging die een BESTAANDE relatie dubbelt ⇒ zachte
   store.getState().newProject();
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
-  const fs = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
-  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
+  // Non-null: A/B zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd.
+  const fs = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 })!;
+  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 })!;
   const res = await call('planner_update_dependencies', { updates: [{ seqId: ss, type: 'FS' }] });
   assertEq(okData(res).updated, [], 'niets gewijzigd');
   assertEq(seqById(ss).type, 'START_START', 'de relatie is ongemoeid (store-updateSequence zou dit STIL negeren)');
@@ -295,8 +297,9 @@ test('duplicaat BINNEN dezelfde call ⇒ het tweede item wordt geweigerd', async
   store.getState().newProject();
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
-  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
-  const ff = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_FINISH', lagDays: 0 });
+  // Non-null: A/B zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd.
+  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 })!;
+  const ff = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_FINISH', lagDays: 0 })!;
   const res = await call('planner_update_dependencies', {
     updates: [{ seqId: ss, type: 'SF' }, { seqId: ff, type: 'SF' }],
   });

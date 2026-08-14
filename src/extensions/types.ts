@@ -132,7 +132,8 @@ export interface ExtensionApi {
     getAssignments(): ExtAssignment[];
     addTask(task: Partial<ExtTask> & { name: string }): string;
     updateTask(id: string, updates: Partial<ExtTask>): void;
-    addSequence(seq: Omit<ExtSequence, 'id'>): string;
+    /** Retourneert het nieuwe relatie-id, of `null` wanneer de relatie geweigerd is. */
+    addSequence(seq: Omit<ExtSequence, 'id'>): string | null;
     /** Vervang het volledige project (zoals een import doet) en herbereken. */
     loadProject(result: ExtImportResult): void;
     /** runCPM — herbereken het schema. */

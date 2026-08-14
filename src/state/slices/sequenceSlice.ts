@@ -1,11 +1,14 @@
 import type { Sequence } from '@/types/sequence';
 import { generateId } from '@/utils/id';
 import { beginUndoable, finishMutation } from '../transaction';
+import { relationVerdict } from '../relationRules';
 import type { AppSlice } from './types';
 
 export interface SequenceSlice {
   sequences: Sequence[];
-  addSequence: (seq: Omit<Sequence, 'id'>) => string;
+  /** Retourneert het nieuwe id, of `null` wanneer de relatie geweigerd is (duplicaat, zelfrelatie,
+   *  onbekende taak, of een verzameltaak als eindpunt — zie `relationRules.ts`). */
+  addSequence: (seq: Omit<Sequence, 'id'>) => string | null;
   /** Wijzig type/lag van een bestaande relatie. Geeft false terug wanneer de wijziging een
    *  duplicaat (zelfde voorganger+opvolger+type) zou opleveren en daarom genegeerd is. */
   updateSequence: (id: string, patch: Partial<Omit<Sequence, 'id' | 'predecessorId' | 'successorId'>>) => boolean;
@@ -17,18 +20,18 @@ export const createSequenceSlice: AppSlice<SequenceSlice> = (set) => ({
 
   addSequence: (seq) => {
     const id = generateId('seq');
+    let accepted = false;
     set((s) => {
-      // Voorkom exacte duplicaten, maar sta wél meerdere relatietypes tussen hetzelfde paar toe
-      // (bv. SS+FF als overlap/ladder-koppeling) — type meewegen, anders verdwijnt de 2e relatie stil.
-      const exists = s.sequences.some(
-        e => e.predecessorId === seq.predecessorId && e.successorId === seq.successorId && e.type === seq.type
-      );
-      if (exists) return; // afgewezen duplicaat: geen snapshot, geen loze undo-stap (R3).
+      // Alle regels (dedup, zelfrelatie, onbekende taak, verzameltaak-eindpunt) staan in
+      // relationRules.ts — één bron, gedeeld met mcpTransaction en de meldingswrapper.
+      const lookup = (tid: string) => s.tasks.find((t) => t.id === tid);
+      if (!relationVerdict(lookup, s.sequences, seq).ok) return; // geen snapshot, geen loze undo-stap (R3).
       beginUndoable(s); // snapshot pas ná de guard, vóór de mutatie (zie transaction.ts).
       s.sequences.push({ ...seq, id });
       finishMutation(s, { stale: true }); // nieuwe relatie (A6): planning verouderd tot F5.
+      accepted = true;
     });
-    return id;
+    return accepted ? id : null;
   },
 
   updateSequence: (id, patch) => {
