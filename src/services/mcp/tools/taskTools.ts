@@ -37,7 +37,7 @@ import {
 } from './taskFields';
 import type { SequenceType } from '@/types/sequence';
 import type { Task } from '@/types/task';
-import { hasSummaryEndpoint } from '@/state/relationRules';
+import { hasSummaryEndpoint, SUMMARY_ENDPOINT_REJECTION } from '@/state/relationRules';
 // De relatie-NOTATIE (type-aliassen, lag-vormen, schema-fragmenten) woont in de gedeelde veldlaag
 // `sequenceFields.ts` — één implementatie voor `add_dependencies` hier, `update_dependencies` in
 // `dependencyTools.ts` en de leeskant in `readTools.ts`. Zie de kop van dat bestand.
@@ -692,7 +692,7 @@ function classifyDeps(
     // worden weggegooid. Zacht weigeren i.p.v. een spookrelatie schrijven. Mijlpalen zijn
     // bladtaken en blijven dus gewoon toegestaan.
     if (hasSummaryEndpoint(lookup, d)) {
-      rejections.push({ id: label, reason: 'een verzameltaak als voorganger of opvolger heeft geen effect op de planning; koppel aan een taak zonder subtaken' });
+      rejections.push({ id: label, reason: SUMMARY_ENDPOINT_REJECTION });
       continue;
     }
     const key = `${d.predecessorId}|${d.successorId}|${type}`;

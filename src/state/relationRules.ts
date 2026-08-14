@@ -36,6 +36,16 @@ export type RelationVerdict = { ok: true } | { ok: false; reason: RelationReject
 export type TaskLookup = (id: string) => Task | undefined;
 
 /**
+ * De MCP-toollaag heeft twee onafhankelijke plekken die `hasSummaryEndpoint` als ZACHTE
+ * per-item-weigering rapporteren (`classifyDeps` in taskTools.ts voor NIEUWE relaties,
+ * `classifyDepUpdates` in dependencyTools.ts voor het VERHANGEN van een bestaand eindpunt) — één
+ * gedeelde tekst dus, zodat een agent bij beide tools dezelfde boodschap krijgt in plaats van twee
+ * net-iets-anders geformuleerde varianten die uit elkaar kunnen groeien.
+ */
+export const SUMMARY_ENDPOINT_REJECTION =
+  'een verzameltaak als voorganger of opvolger heeft geen effect op de planning; koppel aan een taak zonder subtaken';
+
+/**
  * Heeft deze relatie een eindpunt zonder effect op de planning?
  *
  * `runCPM` geeft alleen BLADtaken aan de solver (`tasks.filter(t => t.childIds.length === 0)`) en

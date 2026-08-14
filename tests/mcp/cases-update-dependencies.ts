@@ -532,4 +532,55 @@ test('add_dependencies: een verzameltaak-eindpunt wordt zacht geweigerd; mijlpaa
   );
 });
 
+// =================================================================================================
+// 12) planner_update_dependencies weigert een verzameltaak-eindpunt bij het VERHANGEN van een
+//     relatie. Dit pad schrijft seq.predecessorId/successorId rechtstreeks op de draft en gaat dus
+//     langs addSequence heen — anders dan bij het aanmaken zit er hier GEEN tweede laag onder, dus
+//     dit is de enige plek waar het kan worden tegengehouden.
+// =================================================================================================
+test('update_dependencies: voorganger verhangen naar een verzameltaak wordt zacht geweigerd, relatie ongemoeid', async () => {
+  store.getState().newProject();
+  const fase = store.getState().addTask({ name: 'Fase' });
+  store.getState().addTask({ name: 'Kind', parentId: fase }); // maakt Fase een verzameltaak
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, predecessorId: fase }] });
+  assertEq(okData(res).updated, [], 'niets gewijzigd');
+  const reason = rejections(res)[0].reason;
+  assert(/verzameltaak/.test(reason), `de reden noemt "verzameltaak": ${reason}`);
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid');
+  assertEq(seqById(s1).successorId, b, 'de opvolger is ongemoeid');
+});
+
+test('update_dependencies: opvolger verhangen naar een verzameltaak wordt zacht geweigerd, relatie ongemoeid', async () => {
+  store.getState().newProject();
+  const fase = store.getState().addTask({ name: 'Fase' });
+  store.getState().addTask({ name: 'Kind', parentId: fase }); // maakt Fase een verzameltaak
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, successorId: fase }] });
+  assertEq(okData(res).updated, [], 'niets gewijzigd');
+  const reason = rejections(res)[0].reason;
+  assert(/verzameltaak/.test(reason), `de reden noemt "verzameltaak": ${reason}`);
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid');
+  assertEq(seqById(s1).successorId, b, 'de opvolger is ongemoeid');
+});
+
+test('update_dependencies: opvolger verhangen naar een MIJLPAAL slaagt (regressie-anker)', async () => {
+  store.getState().newProject();
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const mp = store.getState().addTask({ name: 'MP', isMilestone: true });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, successorId: mp }] });
+  const data = okData(res);
+  assertEq(data.updated.length, 1, 'de wijziging naar de mijlpaal slaagt');
+  assertEq(seqById(s1).successorId, mp, 'de opvolger hangt nu echt aan de mijlpaal');
+});
+
 await run();
