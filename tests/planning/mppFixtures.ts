@@ -287,16 +287,17 @@ export interface CfbTreeNode {
   children?: Record<string, CfbTreeNode>;
 }
 
-/** Bouwt een CFB met een willekeurig geneste storage/stream-boom, uitsluitend via het mini-
- *  stream-pad — elke individuele stream moet dus < 4096 bytes zijn (ruim genoeg voor synthetische
- *  taak-/kalenderfixtures; voor een écht grote payload, zie de aparte in-memory
- *  `Var2Data`/`getUnicodeString`-fixtures die niet via een CFB-bestand hoeven te lopen). Maximaal
- *  128 minisectoren (8192 bytes aan gezamenlijke streaminhoud) en — omdat deze bouwer, net als
- *  `buildTwoRootStreamsCfb`, met precies 1 FAT-sector werkt (`writeCfbHeader`'s DIFAT[0]-aanname)
- *  — maximaal 128 gewone sectoren totaal (FAT + directory + mini-FAT + root-ministream). Gooit een
- *  duidelijke fout als een fixture die grens overschrijdt i.p.v. stilzwijgend corrupte bytes te
- *  schrijven; een toekomstige T6/T7-fixture die meer ruimte nodig heeft, breidt dit uit met
- *  geketende FAT-sectoren i.p.v. de aanname hier los te laten. */
+/** Bouwt een CFB met een willekeurig geneste storage/stream-boom. Streams < 4096 bytes gaan via het
+ *  mini-stream-pad (root-ministream + mini-FAT); streams ≥ 4096 bytes (T6-kwaliteitsreview, C1 —
+ *  nodig voor de "veel-kalenders"-hostile-fixture, die een FixedData-blok ver boven de mini-stream-
+ *  grens vereist) krijgen sinds deze uitbreiding hun EIGEN gewone-sectorketen (512 bytes/sector),
+ *  analoog aan `buildSyntheticCfb`'s StreamB — géén aparte vlag nodig, de grootte beslist. Maximaal
+ *  128 minisectoren (8192 bytes gezamenlijke mini-streaminhoud) en — omdat deze bouwer, net als
+ *  `buildTwoRootStreamsCfb`, met precies 1 FAT-sector werkt (`writeCfbHeader`'s DIFAT[0]-aanname) —
+ *  maximaal 128 gewone sectoren TOTAAL (FAT + directory + mini-FAT + root-ministream + alle grote-
+ *  streamketens samen). Gooit een duidelijke fout als een fixture die grens overschrijdt i.p.v.
+ *  stilzwijgend corrupte bytes te schrijven; een fixture die ook dát budget nodig heeft, breidt dit
+ *  verder uit met geketende FAT-sectoren (meer dan 1) i.p.v. de aanname hier los te laten. */
 export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
   interface FlatEntry {
     id: number;
@@ -323,16 +324,16 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
   }
   addChildren(0, root);
 
-  // Streamdata → minisectoren (elk 64 bytes) toewijzen, in entry-volgorde.
+  const MINI_CUTOFF = 4096;
+
+  // Streamdata → minisectoren (elk 64 bytes) toewijzen, in entry-volgorde — alleen voor streams
+  // ONDER de mini-stream-cutoff; grotere streams (zie hieronder) gaan via gewone sectoren.
   const MINI = 64;
   const minisectorsFor = (len: number) => Math.max(0, Math.ceil(len / MINI));
   let miniCursor = 0;
   const miniStart = new Map<number, number>(); // entry-id → ministart-sector
   for (const e of entries) {
-    if (e.type !== 'stream' || !e.data) continue;
-    if (e.data.length >= 4096) {
-      throw new Error(`buildNestedCfb: stream "${e.name}" is ${e.data.length} bytes — alleen het mini-stream-pad (<4096) wordt ondersteund`);
-    }
+    if (e.type !== 'stream' || !e.data || e.data.length >= MINI_CUTOFF) continue;
     const count = minisectorsFor(e.data.length);
     if (count === 0) continue; // lege stream: geen ministream-ruimte nodig (startSector blijft ENDOFCHAIN)
     miniStart.set(e.id, miniCursor);
@@ -352,7 +353,22 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
   const firstDirSector = 1;
   const firstMiniFatSector = firstDirSector + dirSectors;
   const firstMiniStreamSector = firstMiniFatSector + miniFatSectors;
-  const totalSectors = firstMiniStreamSector + ministreamSectors;
+
+  // Grote streams (≥ MINI_CUTOFF): elk zijn EIGEN aaneengesloten gewone-sectorketen, ná de
+  // root-ministream. `largeStart`/`largeSectorCount` spiegelen `miniStart`/`minisectorsFor` maar dan
+  // op 512-byte-sectorniveau.
+  const largeSectorsFor = (len: number) => Math.max(1, Math.ceil(len / SECTOR));
+  const largeStart = new Map<number, number>(); // entry-id → eerste gewone sector
+  const largeSectorCount = new Map<number, number>();
+  let largeCursor = firstMiniStreamSector + ministreamSectors;
+  for (const e of entries) {
+    if (e.type !== 'stream' || !e.data || e.data.length < MINI_CUTOFF) continue;
+    const count = largeSectorsFor(e.data.length);
+    largeStart.set(e.id, largeCursor);
+    largeSectorCount.set(e.id, count);
+    largeCursor += count;
+  }
+  const totalSectors = largeCursor;
   if (totalSectors > 128) {
     throw new Error(`buildNestedCfb: ${totalSectors} sectoren nodig, max 128 ondersteund (1 FAT-sector)`);
   }
@@ -370,7 +386,7 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
   const sectorOff = (n: number) => HEADER + n * SECTOR;
 
   // FAT: sector 0 = zichzelf (FATSECT), dan directory-sectoren, mini-FAT-sector(en),
-  // root-ministream-sectoren — elk een simpele lineaire keten.
+  // root-ministream-sectoren, dan elke grote-streamketen — elk een simpele lineaire keten.
   const fat = new Array<number>(128).fill(0xffffffff);
   fat[0] = 0xfffffffd;
   for (let s = firstDirSector; s < firstDirSector + dirSectors; s++) {
@@ -381,6 +397,12 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
   }
   for (let s = firstMiniStreamSector; s < firstMiniStreamSector + ministreamSectors; s++) {
     fat[s] = s === firstMiniStreamSector + ministreamSectors - 1 ? 0xfffffffe : s + 1;
+  }
+  for (const [id, start] of largeStart) {
+    const count = largeSectorCount.get(id)!;
+    for (let i = 0; i < count; i++) {
+      fat[start + i] = i === count - 1 ? 0xfffffffe : start + i + 1;
+    }
   }
   fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
 
@@ -397,7 +419,9 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
       view.setUint32(base + 116, ministreamSectors > 0 ? firstMiniStreamSector : 0xfffffffe, true);
       view.setUint32(base + 120, ministreamBytes, true);
     } else if (e.type === 'stream') {
-      const start = miniStart.get(e.id);
+      const largeS = largeStart.get(e.id);
+      const miniS = miniStart.get(e.id);
+      const start = largeS !== undefined ? largeS : miniS;
       view.setUint32(base + 116, start !== undefined ? start : 0xfffffffe, true);
       view.setUint32(base + 120, e.data!.length, true);
     } else {
@@ -428,9 +452,13 @@ export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
 
   for (const e of entries) {
     if (e.type !== 'stream' || !e.data) continue;
-    const start = miniStart.get(e.id);
-    if (start === undefined) continue;
-    bytes.set(e.data, sectorOff(firstMiniStreamSector) + start * MINI);
+    const miniS = miniStart.get(e.id);
+    if (miniS !== undefined) {
+      bytes.set(e.data, sectorOff(firstMiniStreamSector) + miniS * MINI);
+      continue;
+    }
+    const largeS = largeStart.get(e.id);
+    if (largeS !== undefined) bytes.set(e.data, sectorOff(largeS));
   }
 
   return bytes;
@@ -554,4 +582,99 @@ export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  *  leesbaarheid op de aanroepplekken (geen eigen logica). */
 export function buildTwoRootStreamsCfbFile(nameA: string, dataA: Uint8Array, nameB: string, dataB: Uint8Array): CfbFile {
   return new CfbFile(buildTwoRootStreamsCfb(nameA, dataA, nameB, dataB));
+}
+
+// ── TBkndCal-fixturebouwers (T6, verhuisd uit check-mpp-import.ts — T6-kwaliteitsreview M7) ────────
+//
+// Gedeeld tussen `tests/planning/check-mpp-import.ts` (het gecombineerde T5+T6 end-to-end-blok) en
+// `tests/planning/check-mpp-calendars.ts` (de T6-specifieke suite: hostile varianten, corpus- en
+// crawl-secties) — vandaar hier, naast de generieke CFB-/MPP-container-bouwers hierboven.
+
+/** FixedMeta/VarMeta12-magic-getal (`mppPrimitives.ts`'s `BLOCK_MAGIC`) — letterlijk herhaald i.p.v.
+ *  geïmporteerd uit de bronmodule: fixtures bouwen bewust RUWE bytes na, niet de typed structuren
+ *  zelf, dus deze module leunt principieel niet op `src/services/mpp/mppPrimitives.ts`'s eigen
+ *  constanten (zelfde conventie als de generieke CFB-header-bouwers hierboven). */
+const CAL_FIXED_META_MAGIC = 0xfadfadba;
+
+export function buildCalFixedMetaBlob(offsets: number[]): Uint8Array {
+  const out = new Uint8Array(16 + offsets.length * 10);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, CAL_FIXED_META_MAGIC, true);
+  view.setInt32(8, offsets.length, true);
+  offsets.forEach((offsetIntoFixedData, i) => view.setInt32(16 + i * 10 + 4, offsetIntoFixedData, true));
+  return out;
+}
+
+/** Eén TBkndCal/FixedData-record (12 bytes): calendarID@0/baseCalendarID@4/resourceID@8 — de
+ *  ≤2010-veldlayout (`MPP14CalendarFactory.java`'s `else`-tak), want de fixtures hier gebruiken
+ *  allemaal een CompObj-applicationName die `detectApplicationVersion`'s patroon niet matcht ⇒
+ *  `applicationVersion === null` ⇒ `useModernOffsets === false` in `mppCalendars.ts`. */
+export function buildCalFixedDataRecord(calendarId: number, baseCalendarId: number, resourceId: number): Uint8Array {
+  const out = new Uint8Array(12);
+  const view = new DataView(out.buffer);
+  view.setInt32(0, calendarId, true);
+  view.setInt32(4, baseCalendarId, true);
+  view.setInt32(8, resourceId, true);
+  return out;
+}
+
+/** Eén weekdag-blok (60 bytes) binnen een TBkndCal-kalenderdatablob — spiegelt
+ *  `AbstractCalendarFactory.processCalendarHours`'s per-dag-lay-out (`mppCalendars.ts`'s
+ *  `resolveOneDay`). `defaultFlag: 1` ⇒ "gebruik de default/base" (leeg `bands` genegeerd);
+ *  anders expliciete banden (leeg ⇒ niet-werkend). */
+export function writeCalDayBlock(view: DataView, dayOffset: number, opts: { defaultFlag?: 0 | 1; bands?: { startMinutes: number; durationMinutes: number }[] }): void {
+  view.setInt16(dayOffset, opts.defaultFlag ?? 0, true);
+  const bands = opts.bands ?? [];
+  view.setInt16(dayOffset + 2, bands.length, true);
+  bands.forEach((b, i) => {
+    view.setInt16(dayOffset + 8 + i * 2, b.startMinutes * 10, true); // tienden-van-minuut
+    view.setInt16(dayOffset + 20 + i * 4, b.durationMinutes * 10, true);
+  });
+}
+
+/** De volledige 420-byte werkuren-sectie (7×60 bytes, index 0=zo..6=za — MPP-dagblokvolgorde,
+ *  zie `mppCalendars.ts`'s `resolveOneDay`-toelichting). */
+export function buildCalHoursBlock(days: { defaultFlag?: 0 | 1; bands?: { startMinutes: number; durationMinutes: number }[] }[]): Uint8Array {
+  const out = new Uint8Array(420);
+  const view = new DataView(out.buffer);
+  days.forEach((d, i) => writeCalDayBlock(view, i * 60, d));
+  return out;
+}
+
+/** De uitzonderingen-staart (`AbstractCalendarAndExceptionFactory.processCalendarExceptions`) —
+ *  wordt ná het 420-byte urenblok geplakt. `recurrenceTypeValue` default 1 (DAILY) + `periodCount=0`
+ *  (niet-werkend) ⇒ een gewone, niet-recurrente feestdag. `freq76` (blob-offset `pos+76`) default
+ *  256 — BEWUST GEEN 1 — spiegelt `mppCalendars.ts`'s `parseExceptions`-toelichting (T6-spec-review-
+ *  fix): bij `recurrenceTypeValue===1` NEGEERT MPXJ de bytes op `@76` volledig (frequency wordt
+ *  hardgecodeerd op 1), dus een fixture die hier toevallig altijd 1 schreef zou de vroegere,
+ *  BUGGY conditie (die `@76===1` ten onrechte eiste) evengoed laten slagen — 256 bewijst dat de
+ *  materialisatie ONAFHANKELIJK is van deze bytes bij type 1, zoals crawl-corpusmeting ook liet
+ *  zien (`@76` is daar nooit 1: 0/256/23148). `recurrenceTypeValue=7` (het ANDERE DAILY-type, waar
+ *  `@76` WÉL als frequency telt) is expliciet aan te geven voor die tak van de conditie. */
+export function buildCalExceptionsTail(exceptions: { fromDay: number; toDay: number; recurrenceTypeValue?: number; freq76?: number }[]): Uint8Array {
+  const bodyLen = exceptions.length * 92; // geen namen in deze fixture ⇒ exceptionNameLength altijd 0
+  const out = new Uint8Array(4 + bodyLen);
+  const view = new DataView(out.buffer);
+  view.setInt16(0, exceptions.length, true); // exceptionCount (blob-offset 420)
+  let pos = 4;
+  for (const exc of exceptions) {
+    view.setInt16(pos, exc.fromDay, true);
+    view.setInt16(pos + 2, exc.toDay, true);
+    view.setInt16(pos + 14, 0, true); // periodCount = 0 ⇒ niet-werkend
+    view.setInt16(pos + 72, exc.recurrenceTypeValue ?? 1, true);
+    view.setInt16(pos + 76, exc.freq76 ?? 256, true); // bewust ≠ 1 — zie de toelichting hierboven
+    view.setInt32(pos + 88, 0, true); // exceptionNameLength = 0 (geen naam)
+    pos += 92;
+  }
+  return out;
+}
+
+export function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let pos = 0;
+  for (const p of parts) {
+    out.set(p, pos);
+    pos += p.length;
+  }
+  return out;
 }

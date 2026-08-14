@@ -150,6 +150,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPPCHECK="$DIR/.mpp-import.mjs"
   if bundle_check "$DIR/check-mpp-import.ts" "$MPPCHECK"; then node "$MPPCHECK" || STATUS=1; fi
 
+  # MPP-kalenders (fase 3.8 e1, T6 — T6-kwaliteitsreview M7): gesplitst uit check-mpp-import.ts.
+  # TBkndCal-lezer (mppCalendars.ts) — synthetische end-to-end/hostile-fixtures + corpus-/crawl-
+  # secties (OPS_MPP_CORPUS/OPS_MPP_CRAWL, zelfde nette-skip-conventie als hierboven).
+  MPPCALCHECK="$DIR/.mpp-calendars.mjs"
+  if bundle_check "$DIR/check-mpp-calendars.ts" "$MPPCALCHECK"; then node "$MPPCALCHECK" || STATUS=1; fi
+
   # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
   # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
   # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).

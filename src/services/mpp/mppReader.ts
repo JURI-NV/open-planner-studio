@@ -74,6 +74,7 @@ import { assertReadable, detectApplicationVersion, Props } from './mppContainer'
 import { FixedData, FixedMeta, Var2Data, VarMeta12, getInt, getShort, getTimestamp, getUnicodeString } from './mppPrimitives';
 import { TaskFieldId, createTaskFieldMap, fixedOffsetOf, varDataKeyOf, type FieldMapTable } from './fieldMap14';
 import { readCalendars } from './mppCalendars';
+import { MAX_VAR_TEXT_BYTES } from './limits';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
 // NIET uit de root-`Props14`-stream — die draagt alleen de wachtwoordvlag, zie mppContainer.ts). ──
@@ -148,8 +149,13 @@ export function clampOutlineLevel(raw: number): number {
  * code-review-discipline (de aanroepen hieronder gebruiken zichtbaar `MAX_VAR_TEXT_BYTES`, geen
  * kale `varData.getUnicodeString(uniqueId, key)` zonder derde argument) in plaats van een
  * geautomatiseerde guard.
+ *
+ * T6-kwaliteitsreview (minor M4): deze constante woont sinds T6 in `./limits.ts` (bladmodule,
+ * gedeeld met `mppCalendars.ts` — die had voorheen noodgedwongen een eigen kopie, want een
+ * omgekeerde import vanuit `mppCalendars.ts` naar déze module zou een cyclus geven). Hier alleen
+ * ge-re-importeerd zodat de rest van dit bestand ongewijzigd `MAX_VAR_TEXT_BYTES` kan blijven
+ * gebruiken.
  */
-export const MAX_VAR_TEXT_BYTES = 65_536;
 
 /** Milestone-vlag: `MppBitFlag(TaskField.MILESTONE, offset, mask, ...)` uit MPP14Reader.java's
  *  `PROJECT20xx_TASK_META_DATA_BIT_FLAGS`-tabellen. Voor déze lezer is alleen de MILESTONE-regel
@@ -541,7 +547,22 @@ function parseProjectProperties(
  * Relaties/resources/assignments zijn in deze taak nog lege arrays (T7 vult ze) — zie de
  * moduleheader.
  */
-export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult {
+/**
+ * T6-kwaliteitsreview (minor M6): de container-/Props-/versiepreambule van `readMPP` (CfbFile →
+ * `assertReadable` → `detectApplicationVersion` → `"   114"/Props`) geëxtraheerd tot een losse,
+ * geëxporteerde functie — vóór deze fix hield `check-mpp-import.ts`'s T6-crawl-sectie een HANDMATIGE
+ * kopie van precies deze vier stappen aan (om bij `readCalendars` te kunnen zonder de volledige
+ * `readMPP` te hoeven draaien), met het risico dat de twee stilzwijgend uit elkaar lopen zodra deze
+ * preambule ooit verandert. Nu is er ÉÉN bron: zowel `readMPP` hieronder als testcode importeren
+ * `openMppProject`.
+ */
+export interface OpenMppProject {
+  cfb: CfbFile;
+  projectProps: Props;
+  applicationVersion: number | null;
+}
+
+export function openMppProject(bytes: Uint8Array): OpenMppProject {
   const cfb = new CfbFile(bytes);
   assertReadable(cfb); // gooit MppUnsupportedError voor legacy/versleuteld, of een gewone Error
   // voor een onherkenbaar bestand (T4).
@@ -553,6 +574,12 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     throw new Error('MPP: "   114"/Props ontbreekt — geen geldig MPP14-bestand');
   }
   const projectProps = new Props(projectPropsBytes, '   114/Props');
+
+  return { cfb, projectProps, applicationVersion };
+}
+
+export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult {
+  const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
 
   const { project, hoursPerDay, calendarHoursPerDayOverride } = parseProjectProperties(projectProps, labels);
 

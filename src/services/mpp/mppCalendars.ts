@@ -12,23 +12,51 @@
  *
  * Doelsemantiek is IDENTIEK aan de kalendersectie van `mspdiReader.ts` (`applyCalendarBody`/
  * `parseCalendar`, spiegelplicht) — zelfde `WorkCalendar`-vorm, dezelfde `canonicalizeBands`/
- * `registerCalendarBands`/`promoteHourCalendar`-orkestratie uit `@/services/subdayIo`. Eén bewust
- * verschil: MPP-taken dragen in etappe 1 geen sub-dag-signaal (`mppReader.ts`'s moduleheader: "Alles
- * blijft DAG-modus") — `promoteHourCalendar` wordt hier dus altijd met `signaled=false` aangeroepen;
- * een kalender wordt uitsluitend gepromoveerd op grond van haar EIGEN banden (meerdere banden per
- * dag, of een band die middernacht kruist — discriminator (a)/(b), bv. een lunchpauze-kalender),
- * nooit op grond van een taakduur/-datum-signaal. Voor MPP-kalenders zelf is dit gedragsgelijk aan
- * een latere aparte promotie-pas (zoals mspdiReader die doet) met een altijd-false signaal-set —
- * er is dus geen aparte pas nodig.
+ * `registerCalendarBands`/`promoteHourCalendar`-orkestratie uit `@/services/subdayIo`.
+ *
+ * T6-kwaliteitsreview (M3) — DRIE bewuste, documenteerde verschillen met `mspdiReader.ts`:
+ *  1. `promoteHourCalendar` wordt hier ALTIJD met `signaled=false` aangeroepen — MPP-taken dragen in
+ *     etappe 1 geen sub-dag-signaal (`mppReader.ts`'s moduleheader: "Alles blijft DAG-modus"). Een
+ *     kalender promoveert hier uitsluitend op haar EIGEN banden (discriminator (a)/(b), bv. een
+ *     lunchpauze-kalender), nooit op grond van een taakduur/-datum-signaal — gedragsgelijk aan een
+ *     latere aparte promotie-pas (zoals mspdiReader die doet) met een altijd-false signaal-set, dus
+ *     geen aparte pas nodig.
+ *  2. `WorkCalendar.holidays` begint hier ALTIJD als `[]` (`buildCalendarFromDays`), ongeacht of er
+ *     daadwerkelijk uitzonderingen in het bestand staan — mspdiReader's `parseCalendar` start
+ *     daarentegen bij `createDefaultCalendar()` (die, in bouwmodus, de NL-feestdagenset genereert)
+ *     en overschrijft `calendar.holidays` ALLEEN als er ≥1 echte `<Exception>`-element gevonden is;
+ *     bij 0 exceptions blijft mspdiReader's gegenereerde NL-standaardset dus stil staan. Dat is GEEN
+ *     documentgegeven — het is mspdiReader's eigen "geen data ⇒ behoud de default"-conventie (relevant
+ *     voor T6-kwaliteitsreview I2: een eerdere versie van de corpuscheck verwarde die default-set
+ *     met "29 echte feestdagen uit de ground truth", terwijl de drie ground-truth-XML's zelf 0
+ *     `<Exception>`-elementen bevatten). MPP-kalenders zijn ALTIJD letterlijke bestandsdata, nooit
+ *     een stille default — vandaar de expliciete leegmaak, ook al is de uitkomst soms toevallig
+ *     hetzelfde (0 holidays).
+ *  3. Naamloze kalenders (geen CALENDAR_NAME-var-data) krijgen hier `"Kalender <uid>"`; mspdiReader
+ *     valt terug op de vaste string `"Imported Calendar"` (`parseCalendar`). Beide zijn placeholders
+ *     voor ontbrekende brondata, maar met een andere — voor MPP nuttigere, want uniek per kalender —
+ *     conventie (zie `nameOfOrFallback` hieronder).
  *
  * FieldMap-vrij: MPXJ's `CalendarFactory` gebruikt GEEN data-gedreven field map (in tegenstelling
  * tot taken/resources/assignments, zie `fieldMap14.ts`) — de var-data-typen voor naam (1) en
  * kalenderdata (8) zijn letterlijke constanten in `MPP14CalendarFactory.java`.
  *
  * Hardingsdiscipline (T5-kwaliteitsreviews, hier voortgezet): elke ruwe, bestandsgestuurde
- * lus-/allocatiegrens (dagperiodes, uitzonderingsaantal, feestdagbereik, base-kalender-keten) is
- * expliciet geklemd met een meetcommentaar — zie `MAX_DAY_HOUR_PERIODS`, `MAX_CALENDAR_EXCEPTIONS`,
- * `MAX_HOLIDAY_RANGE_DAYS` en `MAX_BASE_CHAIN_DEPTH` hieronder.
+ * lus-/allocatiegrens (dagperiodes, uitzonderingsaantal, feestdagbereik, base-kalender-keten,
+ * AANTAL kalenders, TOTAAL aantal gematerialiseerde holidays over het hele bestand) is expliciet
+ * geklemd met een meetcommentaar — zie `MAX_DAY_HOUR_PERIODS`, `MAX_CALENDAR_EXCEPTIONS`,
+ * `MAX_HOLIDAY_RANGE_DAYS`, `MAX_BASE_CHAIN_DEPTH`, `MAX_CALENDARS` en `MAX_TOTAL_HOLIDAY_SLOTS`
+ * hieronder. T6-kwaliteitsreview (C1, kritiek): de PER-KALENDER-klemmen alleen waren onvoldoende —
+ * niets begrensde het AANTAL kalenders of de TOTALE holiday-materialisatie over alle kalenders
+ * samen. Gemeten: een 3 MB TBkndCal-blok met 100.001 nep-basiskalender-records (12 bytes elk, geen
+ * echte var-data nodig) liet deze module vóór de fix 100.001 volledige `WorkCalendar`-objecten
+ * alloceren — die daarna in `ImportResult.resourceCalendars`, de app-state, undo-snapshots én
+ * IFC-saves belanden — een OOM-crash (exit 134) op een gewone dev-machine. `MAX_CALENDARS` kapt de
+ * FixedData-iteratie af; `MAX_TOTAL_HOLIDAY_SLOTS` is een gedeeld budget-object dat zowel
+ * `parseExceptions` (nieuwe materialisatie) als de base→afgeleide-overerving in `materializeDerived`
+ * (`[...baseCal.holidays, ...]`, die de basiskalender se array PER afgeleide kalender kopieert) laat
+ * afdragen — zonder dat budget zou N afgeleide kalenders × M base-holidays alsnog O(N×M) array-
+ * slots kunnen kosten, ook als elke individuele kalender ruim binnen `MAX_CALENDAR_EXCEPTIONS` blijft.
  */
 import type { Holiday, WorkCalendar } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
@@ -38,6 +66,7 @@ import { canonicalizeBands, promoteHourCalendar, registerCalendarBands } from '@
 import type { CfbFile } from './cfb';
 import type { Props } from './mppContainer';
 import { FixedData, FixedMeta, Var2Data, VarMeta12, getDate, getInt, getShort, getUnicodeString } from './mppPrimitives';
+import { MAX_VAR_TEXT_BYTES } from './limits';
 
 // ── PropsKey-sleutels (PropsKey.java) — gelezen uit `"   114"/Props`, net als de andere
 // project-brede sleutels in mppReader.ts. ──────────────────────────────────────────────────────
@@ -54,23 +83,69 @@ const CAL_FIXED_DATA_MAX_SIZE = 12;
 const CALENDAR_NAME_VAR_TYPE = 1;
 const CALENDAR_DATA_VAR_TYPE = 8;
 
-/** I1-stijl klem (spiegelt `MAX_VAR_TEXT_BYTES` in mppReader.ts — bewust een EIGEN, lokale
- *  constante i.p.v. die importeren: mppReader.ts importeert op zijn beurt DEZE module, dus een
- *  omgekeerde import zou een cyclus geven, precies wat `verify:cycles` bewaakt) — begrenst het
- *  scan-/decodeerwerk van kalendernamen en de DEFAULT_CALENDAR_NAME-projecteigenschap tegen een
- *  gedeelde, gededupliceerde var-data-offset (zie Var2Data's moduleheader in mppPrimitives.ts). */
-const MAX_CALENDAR_TEXT_BYTES = 65_536;
+/** T6-kwaliteitsreview (M4): gedeelde tekst-klem, nu geïmporteerd uit de bladmodule `./limits.ts`
+ *  i.p.v. een eigen lokale kopie (de vorige versie hield hier bewust een DUPLICAAT van
+ *  `mppReader.ts`'s `MAX_VAR_TEXT_BYTES` aan om de omgekeerde-import-cyclus te vermijden —
+ *  `limits.ts` lost dat structureel op, zie die module se toelichting). */
+const MAX_CALENDAR_TEXT_BYTES = MAX_VAR_TEXT_BYTES;
 
 /** C1-stijl klem: het aantal werktijd-periodes per weekdag (`periodCount`, SHORT 0..65535) stuurt
  *  een lus die per periode 2+4 bytes leest op een RUW, bestandsgestuurde offset — ongeklemd zou een
  *  geprepareerd bestand hier tot 65535 pogen te lezen, ver voorbij het 60-byte-dagblok, wat op een
  *  kort Var2Data-record al snel een `MPP:`-grensfout van de onderliggende primitief zou gooien en
  *  zo de HELE kalenderlezing (en dus `readMPP`) laat crashen — niet alleen dit ene veld. Geklemd op
- *  een ruim bovengrens (realistisch corpus: 1-2 banden/dag, uitschieters als een lunchpauze-
- *  kalender misschien 3-4) zodat een hostile claim nette, voorspelbare degradatie geeft (de extra
- *  "periodes" worden simpelweg genegeerd zodra de bytes opraken — de binnenste lus breekt zelf al
- *  af op een grensoverschrijding, deze klem is de tweede, goedkopere linie). */
-const MAX_DAY_HOUR_PERIODS = 24;
+ *  de STRUCTURELE capaciteit van het 60-byte-dagblok zelf (T6-kwaliteitsreview, minor M2 — was 24,
+ *  een willekeurig ruime marge zonder onderbouwing): startoffset `8+i*2` en duuroffset `20+i*4` — de
+ *  duurslot is de knellende grens, dat past hoogstens 10× (`20+10*4=60`, het volgende dagblok begint
+ *  dan pas) binnen de 60 bytes vóór het OVERLOOPT in de buurdag se eigen data. MS Project staat de
+ *  gebruiker zelf hooguit 5 periodes per dag toe (de UI kent geen 6e rij) — 10 is dus al de volledige
+ *  FYSIEKE bovengrens van het formaat, niet een los gekozen marge. */
+const MAX_DAY_HOUR_PERIODS = 10;
+
+/** C1 (kritiek, T6-kwaliteitsreview) — bovengrens op het AANTAL kalenders dat `readCalendars` uit
+ *  één `"   114"/TBkndCal`-storage materialiseert. Zonder deze klem kapt alleen `MAX_CALENDAR_
+ *  EXCEPTIONS`/`MAX_TOTAL_HOLIDAY_SLOTS` de HOLIDAY-kant af — het aantal `WorkCalendar`-OBJECTEN
+ *  zelf (elk met een eigen `id`, `workDays`, evt. `workTime`-banden) bleef ongeklemd. Gemeten: een
+ *  3 MB TBkndCal/FixedData-blok met 100.001 nep-records (elk 12 bytes: alleen een calendarID/
+ *  baseID/resourceID-triplet, geen andere var-data nodig) liet deze module vóór de fix 100.001
+ *  `WorkCalendar`-objecten alloceren, die daarna via `ImportResult.resourceCalendars` in de
+ *  app-state/undo-snapshots/IFC-saves belanden — OOM-crash (exit 134). Corpus: hoogstens 13
+ *  kalenders per bestand (plan-tabel). 1024 is ruim boven elk realistisch project (zelfs met
+ *  tientallen unieke resource-kalenders), maar begrenst een geprepareerd bestand hard — de
+ *  FixedData-iteratie in `readCalendars` stopt zodra `rawByUniqueId.size` deze klem raakt, dus de
+ *  rest van het (mogelijk enorme) FixedData-blok wordt dan simpelweg niet meer bekeken. */
+export const MAX_CALENDARS = 1_024;
+
+/** C1 (kritiek, T6-kwaliteitsreview) — gedeeld TOTAALBUDGET voor gematerialiseerde `Holiday`-
+ *  objecten over ALLE kalenders in één `readCalendars`-aanroep samen (basiskalenders se eigen
+ *  materialisatie ÉN de base→afgeleide-overerving, `[...baseCal.holidays, ...ownHolidays]` in
+ *  `materializeDerived` hieronder). `MAX_CALENDAR_EXCEPTIONS` (2000) begrenst alleen het aantal
+ *  NIEUW GEPARSTE uitzonderingen PER kalender — het kopiëren van een basiskalender se `holidays`-
+ *  array in ELKE afgeleide kalender die ervan erft blijft daar buiten: N afgeleide kalenders die elk
+ *  een basiskalender met M holidays overerven kost O(N×M) array-slots, ook als N (via `MAX_
+ *  CALENDARS`) en M (via `MAX_CALENDAR_EXCEPTIONS`) elk apart binnen hun eigen klem blijven (bv.
+ *  1024 afgeleide kalenders × 2000 geërfde holidays ≈ 2 miljoen slots, alleen al aan kopieerwerk).
+ *  Dit budget-object (zie `HolidayBudget` hieronder) wordt ÉÉN keer per `readCalendars`-aanroep
+ *  aangemaakt en door alle materialisatie-/overervingsstappen gedeeld gedecrementeerd; zodra het op
+ *  is, breekt zowel `parseExceptions` als de overervingskopie netjes af (geen crash, gewoon minder
+ *  holidays dan het bestand claimt). 100.000 is ruim boven elk realistisch corpus (gemeten crawl-
+ *  basislijn: 208 over 49 bestanden SAMEN — zie `tests/planning/check-mpp-calendars.ts`), maar
+ *  begrenst de ABSOLUTE bovengrens per bestand hard, ongeacht hoeveel kalenders het claimt. */
+export const MAX_TOTAL_HOLIDAY_SLOTS = 100_000;
+
+/** Gedeeld, mutabel budget-object — zie `MAX_TOTAL_HOLIDAY_SLOTS`. Een `{ remaining: number }`
+ *  i.p.v. een kale `number`-parameter zodat `parseExceptions`/de overervingskopie 'm in-place kunnen
+ *  decrementeren zonder de nieuwe waarde expliciet terug te hoeven geven op elke aanroepplek. */
+export interface HolidayBudget {
+  remaining: number;
+}
+
+/** Nieuw, vol budget — één per `readCalendars`-aanroep (zie `MAX_TOTAL_HOLIDAY_SLOTS`). Losse,
+ *  geëxporteerde fabrieksfunctie zodat testcode (`check-mpp-calendars.ts`) `parseExceptions`
+ *  rechtstreeks kan aanroepen zonder de interne `readCalendars`-orkestratie na te hoeven bouwen. */
+export function newHolidayBudget(): HolidayBudget {
+  return { remaining: MAX_TOTAL_HOLIDAY_SLOTS };
+}
 
 /** C1-stijl klem: `exceptionCount` (SHORT, 0..65535) — spiegelt `MAX_OUTLINE_LEVEL`/
  *  `MAX_VAR_TEXT_BYTES` in mppReader.ts. Elke uitzondering kost minstens 92 bytes om niet af te
@@ -105,7 +180,7 @@ export const MAX_HOLIDAY_RANGE_DAYS = 366;
  *  kalenders die naar elkaar verwijzen). De fixed-point-resolutie hieronder (`readCalendars`)
  *  probeert hoogstens dit aantal ronden; kalenders die dan nog niet opgelost zijn (cyclus, of een
  *  base die nooit bestaat) worden zonder overerving gematerialiseerd — zie de toelichting daar. */
-const MAX_BASE_CHAIN_DEPTH = 32;
+export const MAX_BASE_CHAIN_DEPTH = 32;
 
 /** Eén weekdag, volledig geresolveerd (geen "gebruik de default/base"-sentinel meer) — de
  *  tussenvorm die zowel de projectbrede DEFAULT_CALENDAR_HOURS-fallback, een basiskalender én een
@@ -261,19 +336,31 @@ function buildCalendarFromDays(name: string, days: ReadonlyArray<DayResolution>,
  *     `@76`. Ná de switch geldt `DAILY && frequency===1 ⇒ rd=null` (geflattened/niet-recurrent) —
  *     dus `recurrenceTypeValue===1` is ALTIJD geflattened, ongeacht wat er op `@76` staat. Een
  *     eerdere versie van deze functie eiste ten onrechte `getShort(data,offset+76)===1` óók voor
- *     type 1 — crawl-corpusmeting (49 bestanden, `check-mpp-import.ts`'s crawl-sectie) laat zien dat
- *     `@76` bij type 1 in de praktijk 0, 256 of 23148 is (NOOIT 1), waardoor de oude conditie STIL
- *     ALLE echte feestdagen liet vallen (0 van 208 gematerialiseerd, incl. bv. "Easter 2024/2025").
- *     `isDaily`/`frequency` hieronder spiegelt de Java-switch letterlijk. */
-export function parseExceptions(data: Uint8Array, ctx: string): Holiday[] {
+ *     type 1 — crawl-corpusmeting (49 bestanden, `check-mpp-calendars.ts`'s crawl-sectie) laat zien
+ *     dat `@76` bij type 1 in de praktijk 0, 256 of 23148 is (NOOIT 1), waardoor de oude conditie
+ *     STIL ALLE echte feestdagen liet vallen (0 van 208 gematerialiseerd, incl. bv. "Easter 2024/
+ *     2025"). `isDaily`/`frequency` hieronder spiegelt de Java-switch letterlijk.
+ *
+ * `budget` (T6-kwaliteitsreview, C1) — gedeeld `HolidayBudget` over ALLE kalenders in de aanroepende
+ * `readCalendars`-run (zie `MAX_TOTAL_HOLIDAY_SLOTS`); elke daadwerkelijk gematerialiseerde holiday
+ * decrementeert 'm, en de lus breekt netjes af zodra hij op is — nooit een crash, alleen minder
+ * holidays dan het bestand claimt. */
+export function parseExceptions(data: Uint8Array, ctx: string, budget: HolidayBudget): Holiday[] {
   const holidays: Holiday[] = [];
-  if (data.length <= 420) return holidays;
+  // I1-fix (T6-kwaliteitsreview): was `data.length <= 420` — bij length===421 gleed dat door de
+  // guard heen en liet `getShort(data, 420, ctx)` twee bytes lezen die maar deels beschikbaar zijn
+  // (420+2=422 > 421), wat een `MPP:`-grensfout gooide die — vóór de I1-try/catch-fix in
+  // `readCalendars` — de HELE `readMPP`-aanroep liet falen voor wat verder een prima leesbaar
+  // bestand kan zijn. `< 422` is de correcte grens: 422 bytes is het minimum om de 2-byte
+  // `exceptionCount` op offset 420 veilig te kunnen lezen.
+  if (data.length < 422) return holidays;
   const rawExceptionCount = getShort(data, 420, ctx);
   if (rawExceptionCount === 0) return holidays;
   const exceptionCount = Math.min(Math.max(rawExceptionCount, 0), MAX_CALENDAR_EXCEPTIONS); // zie MAX_CALENDAR_EXCEPTIONS
 
   let offset = 424;
   for (let index = 0; index < exceptionCount; index++) {
+    if (budget.remaining <= 0) break; // C1: gedeeld totaalbudget over ALLE kalenders in dit bestand op
     if (offset + 92 > data.length) break; // afgekapt blok — MPP14Reader.java breekt hier ook af
 
     const fromRaw = getShort(data, offset, ctx);
@@ -298,7 +385,11 @@ export function parseExceptions(data: Uint8Array, ctx: string): Holiday[] {
       if (fromDate && toDate) {
         let clampedTo = toDate;
         const rangeDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
-        if (rangeDays > MAX_HOLIDAY_RANGE_DAYS) {
+        // M1-fix (T6-kwaliteitsreview): `>=` i.p.v. `>` — bij `rangeDays === MAX_HOLIDAY_RANGE_DAYS`
+        // precies zou het INCLUSIEVE aantal dagen (`rangeDays + 1`) anders één dag boven de
+        // bedoelde bovengrens uitkomen; `>=` maakt `MAX_HOLIDAY_RANGE_DAYS` de ECHTE bovengrens
+        // (het geklemde bereik beslaat hoogstens `MAX_HOLIDAY_RANGE_DAYS` dagen inclusief).
+        if (rangeDays >= MAX_HOLIDAY_RANGE_DAYS) {
           // zie MAX_HOLIDAY_RANGE_DAYS — voorkomt een CalendarEngine.buildHolidaySet()-blowup.
           clampedTo = new Date(fromDate.getTime() + (MAX_HOLIDAY_RANGE_DAYS - 1) * 86_400_000);
         } else if (rangeDays < 0) {
@@ -310,6 +401,7 @@ export function parseExceptions(data: Uint8Array, ctx: string): Holiday[] {
           if (decoded) name = decoded;
         }
         holidays.push({ name, startDate: formatDate(fromDate), endDate: formatDate(clampedTo) });
+        budget.remaining--;
       }
     }
     offset += 92 + exceptionNameLength;
@@ -341,14 +433,16 @@ export interface CalendarReadResult {
    *  T7's `Resource.calendarId`-koppeling (TBkndRsc); T6 zelf verbruikt dit nog niet (er zijn nog
    *  geen `Resource`-objecten om aan te koppelen). */
   resourceCalendarUniqueIdByResourceUniqueId: ReadonlyMap<number, number>;
-  /** MPP-uniqueID → aantal EIGEN uitzonderingen van díe kalender (T6-slot, her-check): een afgeleide
-   *  kalender se `holidays`-array bevat `[...baseCal.holidays, ...ownHolidays]` (zie Fase 2
-   *  hieronder) — een consument die simpelweg `.holidays.length` per kalender optelt zou de
-   *  basiskalender se feestdagen ÉÉN KEER PER AFGELEIDE KALENDER dubbeltellen. Deze map draagt
-   *  uitsluitend het EIGEN aandeel (basiskalenders: hun volledige `holidays`, want daar bestaat geen
-   *  overerving; afgeleide kalenders: alleen `ownHolidays`, niet de geërfde base-feestdagen) — zodat
-   *  een aanroeper (bv. `check-mpp-import.ts`'s T6-crawl-sectie) een dubbeltelvrije som over ALLE
-   *  kalenders kan maken. */
+  /** DIAGNOSTISCHE telling (T6-slot, her-check; T6-kwaliteitsreview M5 — herformulering: dit is
+   *  GEEN productiedata die `readMPP`/`ImportResult` verder verbruikt, uitsluitend een meethaakje
+   *  voor testcode zoals `check-mpp-calendars.ts`'s crawl-sectie): MPP-uniqueID → aantal EIGEN
+   *  uitzonderingen van díe kalender. Nodig omdat een afgeleide kalender se `holidays`-array
+   *  `[...baseCal.holidays, ...ownHolidays]` bevat (zie Fase 2 hieronder) — een consument die
+   *  simpelweg `.holidays.length` per kalender optelt zou de basiskalender se feestdagen ÉÉN KEER
+   *  PER AFGELEIDE KALENDER dubbeltellen. Deze map draagt uitsluitend het EIGEN aandeel
+   *  (basiskalenders: hun volledige `holidays`, want daar bestaat geen overerving; afgeleide
+   *  kalenders: alleen `ownHolidays`) — zodat een dubbeltelvrije som over ALLE kalenders mogelijk is
+   *  zonder de interne overervingsstructuur te hoeven kennen. */
   ownHolidayCountByUniqueId: ReadonlyMap<number, number>;
 }
 
@@ -378,12 +472,32 @@ function fallbackResult(): CalendarReadResult {
  * (nooit op resource-kalenders). Om de override VÓÓR `promoteHourCalendar` te kunnen toepassen (zie
  * `buildCalendarFromDays`'s toelichting) moet de identiteit van de projectkalender al bekend zijn
  * VÓÓR de materialisatie-lussen — vandaar dat de naam-lookup hier vooraan staat i.p.v. achteraan.
- */
+ *
+ * I1-fix (T6-kwaliteitsreview): dunne, ALTIJD-vangende wrapper rond `readCalendarsUnsafe` —
+ * voorheen was alleen de FixedMeta/FixedData/VarMeta-CONSTRUCTIE in een try/catch gevangen; Fase 1/2
+ * (de eigenlijke materialisatie) zaten daarbuiten, dus een primitief-grensfout DAAR (bv. de
+ * off-by-one op `data.length<=420` — zie `parseExceptions`) liet de belofte "een kapotte
+ * kalendersectie blokkeert de import niet" (het commentaar stond er al) niet waarmaken: zo'n fout
+ * gooide dwars door `readCalendars` heen, `mppReader.ts` ving 'm nergens op, en de HELE `readMPP`-
+ * aanroep faalde voor wat verder een prima leesbaar bestand kan zijn. */
 export function readCalendars(
   cfb: CfbFile,
   projectProps: Props,
   applicationVersion: number | null,
   hoursPerDayOverride: number | null = null,
+): CalendarReadResult {
+  try {
+    return readCalendarsUnsafe(cfb, projectProps, applicationVersion, hoursPerDayOverride);
+  } catch {
+    return fallbackResult();
+  }
+}
+
+function readCalendarsUnsafe(
+  cfb: CfbFile,
+  projectProps: Props,
+  applicationVersion: number | null,
+  hoursPerDayOverride: number | null,
 ): CalendarReadResult {
   const label = '"   114"/TBkndCal';
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndCal', 'FixedMeta']);
@@ -397,18 +511,9 @@ export function readCalendars(
     return fallbackResult();
   }
 
-  let fixedMeta: FixedMeta;
-  let fixedData: FixedData;
-  let varMeta: VarMeta12;
-  try {
-    fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, CAL_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
-    fixedData = FixedData.fromMeta(fixedMeta, fixedDataBytes, CAL_FIXED_DATA_MAX_SIZE, 0, `${label}/FixedData`);
-    varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
-  } catch {
-    // Onleesbare TBkndCal-blokken (verkeerd magic-getal, te klein voor de header, …) ⇒ zelfde
-    // vangnet als hierboven — een kapotte kalendersectie mag de rest van `readMPP` niet blokkeren.
-    return fallbackResult();
-  }
+  const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, CAL_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
+  const fixedData = FixedData.fromMeta(fixedMeta, fixedDataBytes, CAL_FIXED_DATA_MAX_SIZE, 0, `${label}/FixedData`);
+  const varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
   const varData = new Var2Data(varMeta, var2DataBytes);
 
   // MPP14CalendarFactory.java: > ApplicationVersion.PROJECT_2010 (14) ⇒ 2013+-veldlayout.
@@ -418,10 +523,12 @@ export function readCalendars(
   const resourceIdOffset = useModernOffsets ? 4 : 8;
 
   // ── Ruwe FixedData-records → uniek per calendarUniqueId (eerste-wint, spiegelt Java's
-  // `!calendarMap.containsKey(calendarID)`-guard). ──────────────────────────────────────────────
+  // `!calendarMap.containsKey(calendarID)`-guard). C1 (kwaliteitsreview): de lus stopt zodra
+  // `rawByUniqueId.size` `MAX_CALENDARS` raakt — zie die constante se toelichting (100.001 nep-
+  // records ⇒ OOM zonder deze klem). ────────────────────────────────────────────────────────────
   const rawByUniqueId = new Map<number, RawCalendarEntry>();
   const itemCount = fixedData.getItemCount();
-  for (let index = 0; index < itemCount; index++) {
+  for (let index = 0; index < itemCount && rawByUniqueId.size < MAX_CALENDARS; index++) {
     const item = fixedData.getByteArrayValue(index);
     if (!item || item.length < 12) continue; // 12 bytes = max(calendarIdOffset,baseIdOffset,resourceIdOffset)+4
     const calendarUniqueId = getInt(item, calendarIdOffset, `${label}/FixedData calendarId`);
@@ -440,9 +547,25 @@ export function readCalendars(
   const resourceCalendarUniqueIdByResourceUniqueId = new Map<number, number>();
   const ownHolidayCountByUniqueId = new Map<number, number>();
   const baseCalendarUniqueIds = new Set<number>();
+  // C1 (kwaliteitsreview): ÉÉN gedeeld budget over ALLE kalenders in deze aanroep — zie
+  // `MAX_TOTAL_HOLIDAY_SLOTS`. Elke `parseExceptions`-aanroep (Fase 1 én 2) en de base→afgeleide-
+  // overervingskopie (Fase 2, `budgetedInherit`) decrementeren 'm.
+  const holidayBudget = newHolidayBudget();
 
-  const nameOf = (uid: number): string | null =>
-    varData.getUnicodeString(uid, CALENDAR_NAME_VAR_TYPE, MAX_CALENDAR_TEXT_BYTES, `${label}/name`);
+  // I3-fix (T6-kwaliteitsreview): `nameOf` scande voorheen 2× per kalender (eerst voor de
+  // projectkalender-naam-lookup hieronder, dan nogmaals in `nameOfOrFallback` tijdens materialisatie)
+  // ZONDER cache — bij een gedeelde, grote (tot 64 KiB) naam-var-data-offset (legitiem, zie
+  // Var2Data's moduleheader in mppPrimitives.ts) kost dat dubbel scanwerk per kalender. Gemeten:
+  // 8.000 kalenders die een 64 KiB-naam delen ≈ 5,9 s zonder cache. `nameCache` memoiseert per
+  // uniqueID (incl. het `null`-resultaat — een kalender zonder naam-var-data hoeft ook maar één keer
+  // "niet gevonden" te concluderen).
+  const nameCache = new Map<number, string | null>();
+  const nameOf = (uid: number): string | null => {
+    if (nameCache.has(uid)) return nameCache.get(uid) ?? null;
+    const name = varData.getUnicodeString(uid, CALENDAR_NAME_VAR_TYPE, MAX_CALENDAR_TEXT_BYTES, `${label}/name[uid=${uid}]`);
+    nameCache.set(uid, name);
+    return name;
+  };
   // T6-spec-review (minor c): een kalender zonder eigen naam-var-data (vooral afgeleide/resource-
   // kalenders — MPP koppelt de naam meestal aan de RESOURCE, niet aan de kalender zelf, en T6 kent
   // nog geen Resource-objecten om die naam uit te lenen, zie T7) krijgt hier "Kalender <uid>" i.p.v.
@@ -518,11 +641,12 @@ export function readCalendars(
 
     const ownData = varData.getByteArray(rec.calendarUniqueId, CALENDAR_DATA_VAR_TYPE);
     const effectiveData = ownData ?? defaultCalendarHoursBytes;
-    const days = ownData ? resolveDays(ownData, projectDefaultDays, `${label}/hours`) : projectDefaultDays;
+    const days = ownData ? resolveDays(ownData, projectDefaultDays, `${label}/hours[uid=${rec.calendarUniqueId}]`) : projectDefaultDays;
     daysByUniqueId.set(rec.calendarUniqueId, days);
 
     const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
-    cal.holidays = effectiveData ? parseExceptions(effectiveData, `${label}/exceptions`) : [];
+    // M9 (kwaliteitsreview): uid in de ctx, voor diagnoseerbare grensfouten per kalender.
+    cal.holidays = effectiveData ? parseExceptions(effectiveData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`, holidayBudget) : [];
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
     ownHolidayCountByUniqueId.set(rec.calendarUniqueId, cal.holidays.length); // basiskalender: alles is "eigen", geen overerving
     linkBaseResource(rec);
@@ -537,12 +661,14 @@ export function readCalendars(
   // gematerialiseerd i.p.v. lazy geresolved). ──────────────────────────────────────────────────────
   const materializeDerived = (rec: RawCalendarEntry, fallbackDays: DayResolution[], baseCal: WorkCalendar | null): void => {
     const ownData = varData.getByteArray(rec.calendarUniqueId, CALENDAR_DATA_VAR_TYPE);
-    const days = resolveDays(ownData, fallbackDays, `${label}/hours`);
+    const days = resolveDays(ownData, fallbackDays, `${label}/hours[uid=${rec.calendarUniqueId}]`);
     daysByUniqueId.set(rec.calendarUniqueId, days);
 
     const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
-    const ownHolidays = ownData ? parseExceptions(ownData, `${label}/exceptions`) : [];
-    cal.holidays = baseCal ? [...baseCal.holidays, ...ownHolidays] : ownHolidays;
+    const ownHolidays = ownData
+      ? parseExceptions(ownData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`, holidayBudget)
+      : [];
+    cal.holidays = baseCal ? budgetedInherit(baseCal.holidays, ownHolidays, holidayBudget) : ownHolidays;
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
     ownHolidayCountByUniqueId.set(rec.calendarUniqueId, ownHolidays.length); // NIET de geërfde base-holidays meetellen
     linkDerivedResource(rec);
@@ -584,4 +710,21 @@ export function readCalendars(
     resourceCalendarUniqueIdByResourceUniqueId,
     ownHolidayCountByUniqueId,
   };
+}
+
+/** C1 (kwaliteitsreview) — budget-bewuste vervanging van de kale `[...baseHolidays, ...ownHolidays]`-
+ *  spread: de spread kopieert `baseHolidays` VOLLEDIG bij ELKE afgeleide kalender die ervan erft,
+ *  dus N afgeleide kalenders × M base-holidays kost O(N×M) array-slots — dat bleef ONGETELD door
+ *  `MAX_CALENDAR_EXCEPTIONS` (die begrenst alleen NIEUWE parsing, geen overervingskopieën). Kapt de
+ *  BASE-portie af zodra `budget.remaining` op is (de `own`-portie is al bij het parsen ervan
+ *  gebudgetteerd, dus die wordt hier zonder verdere check toegevoegd — geen dubbele afboeking). */
+function budgetedInherit(baseHolidays: readonly Holiday[], ownHolidays: readonly Holiday[], budget: HolidayBudget): Holiday[] {
+  const merged: Holiday[] = [];
+  for (const h of baseHolidays) {
+    if (budget.remaining <= 0) break; // MAX_TOTAL_HOLIDAY_SLOTS bereikt: kap de overerving af
+    merged.push(h);
+    budget.remaining--;
+  }
+  merged.push(...ownHolidays); // al gebudgetteerd via de parseExceptions-aanroep die ze opleverde
+  return merged;
 }
