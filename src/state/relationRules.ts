@@ -36,14 +36,15 @@ export type RelationVerdict = { ok: true } | { ok: false; reason: RelationReject
 export type TaskLookup = (id: string) => Task | undefined;
 
 /**
- * De MCP-toollaag heeft twee onafhankelijke plekken die `hasSummaryEndpoint` als ZACHTE
- * per-item-weigering rapporteren (`classifyDeps` in taskTools.ts voor NIEUWE relaties,
- * `classifyDepUpdates` in dependencyTools.ts voor het VERHANGEN van een bestaand eindpunt) — één
- * gedeelde tekst dus, zodat een agent bij beide tools dezelfde boodschap krijgt in plaats van twee
- * net-iets-anders geformuleerde varianten die uit elkaar kunnen groeien.
+ * Is deze taak een verzameltaak — een taak MET subtaken? Een onbekende taak (`undefined`) is dat
+ * níét: zie de toelichting bij `hasSummaryEndpoint`. Eén predicaat, gedeeld door `hasSummaryEndpoint`
+ * (het PAAR) en de MCP-toollaag (`dependencyTools.ts`), die per KANT moet weten of een eindpunt een
+ * verzameltaak is — een bestaande relatie mag een verzameltaak-eindpunt houden zolang je dat eindpunt
+ * niet verlegt (spec §5: bestaande exemplaren blijven behouden én beheersbaar).
  */
-export const SUMMARY_ENDPOINT_REJECTION =
-  'een verzameltaak als voorganger of opvolger heeft geen effect op de planning; koppel aan een taak zonder subtaken';
+export function isSummaryTask(task: Task | undefined): boolean {
+  return (task?.childIds.length ?? 0) > 0;
+}
 
 /**
  * Heeft deze relatie een eindpunt zonder effect op de planning?
@@ -67,9 +68,7 @@ export const SUMMARY_ENDPOINT_REJECTION =
  * heeft: daar is `relationVerdict` onbruikbaar, want elke bestaande relatie is haar eigen duplicaat.
  */
 export function hasSummaryEndpoint(lookup: TaskLookup, seq: RelationEndpoints): boolean {
-  const pred = lookup(seq.predecessorId);
-  const succ = lookup(seq.successorId);
-  return (pred?.childIds.length ?? 0) > 0 || (succ?.childIds.length ?? 0) > 0;
+  return isSummaryTask(lookup(seq.predecessorId)) || isSummaryTask(lookup(seq.successorId));
 }
 
 /**
@@ -83,10 +82,13 @@ export function relationVerdict(
   seq: RelationEndpoints & { type: SequenceType },
 ): RelationVerdict {
   if (seq.predecessorId === seq.successorId) return { ok: false, reason: 'self' };
-  if (!lookup(seq.predecessorId) || !lookup(seq.successorId)) {
-    return { ok: false, reason: 'unknown-task' };
-  }
-  if (hasSummaryEndpoint(lookup, seq)) return { ok: false, reason: 'summary-endpoint' };
+  // Eén keer oplossen i.p.v. vier keer (twee via deze functie, twee via `hasSummaryEndpoint`): op
+  // het MCP-batchpad draait dit per relatie over een Immer-draft, en de dubbele lookup was gemeten
+  // goed voor een ~6× tragere batch (3000 taken / 1500 relaties: 798ms → 4645ms).
+  const pred = lookup(seq.predecessorId);
+  const succ = lookup(seq.successorId);
+  if (!pred || !succ) return { ok: false, reason: 'unknown-task' };
+  if (isSummaryTask(pred) || isSummaryTask(succ)) return { ok: false, reason: 'summary-endpoint' };
   // Exacte duplicaten weren, maar meerdere TYPES tussen hetzelfde paar blijven toegestaan
   // (bv. SS+FF als ladder-koppeling) — anders verdwijnt de tweede relatie stil.
   const exists = sequences.some(

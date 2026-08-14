@@ -29,7 +29,7 @@ import { guardNonTransactional, McpStepError, runMutateTool, toolError, type Mut
 import { enrichOk, freshDates, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { validate } from '@/state/mcpValidation';
-import { hasSummaryEndpoint, SUMMARY_ENDPOINT_REJECTION } from '@/state/relationRules';
+import { isSummaryTask } from '@/state/relationRules';
 import {
   LAG_DOC,
   LAG_SCHEMA,
@@ -39,6 +39,7 @@ import {
   parseLag,
   seqAbbrev,
   SEQ_TYPE_SCHEMA,
+  SUMMARY_ENDPOINT_REJECTION,
   unknownTypeReason,
 } from './sequenceFields';
 import type { Sequence, SequenceType } from '@/types/sequence';
@@ -215,12 +216,24 @@ function classifyDepUpdates(
       rejections.push({ id: seqId, reason: `een relatie kan taak '${nextPred}' niet met zichzelf verbinden` });
       continue;
     }
-    // Verzameltaak als eindpunt (spec 2026-08-14): de solver krijgt alleen bladtaken, dus een
-    // verhangen relatie naar een taak MET subtaken zou een spookrelatie worden. Dit pad schrijft de
+    // Verzameltaak als NIEUW eindpunt (spec 2026-08-14): de solver krijgt alleen bladtaken, dus
+    // verhangen náár een taak MET subtaken zou een spookrelatie worden. Dit pad schrijft de
     // eindpunten rechtstreeks op de draft (zie de mutatie verderop), dus dit is de ENIGE plek waar
     // dit tegengehouden kan worden — anders dan bij het aanmaken (classifyDeps → addSequence) zit er
     // hier geen tweede laag onder.
-    if (hasSummaryEndpoint(lookupTask, { predecessorId: nextPred, successorId: nextSucc })) {
+    //
+    // Bewust ALLEEN op eindpunten die daadwerkelijk WIJZIGEN: een bestaande relatie kan al een
+    // verzameltaak-eindpunt hebben (uit een import, of retroactief doordat een bladtaak een kind
+    // kreeg) en moet dan nog op type/lag te wijzigen zijn — spec §5 houdt bestaande exemplaren
+    // bewust behouden én beheersbaar. Verhangen wég van een verzameltaak (het herstelpad) blijft dus
+    // ook toegestaan, en één kant naar een blad verleggen terwijl de andere kant nog een
+    // verzameltaak is maakt het niet erger dan het al was.
+    const predIsNew = nextPred !== cur.predecessorId;
+    const succIsNew = nextSucc !== cur.successorId;
+    if (
+      (predIsNew && isSummaryTask(lookupTask(nextPred)))
+      || (succIsNew && isSummaryTask(lookupTask(nextSucc)))
+    ) {
       rejections.push({ id: seqId, reason: SUMMARY_ENDPOINT_REJECTION });
       continue;
     }

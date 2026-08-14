@@ -48,6 +48,17 @@ export function unknownTypeReason(raw: unknown): string {
   return `onbekend relatietype '${String(raw)}'; toegestaan: ${SEQ_TYPES.join(' | ')} (of kort ${SEQ_TYPE_SHORT.join('/')})`;
 }
 
+/**
+ * Weigeringstekst voor een verzameltaak-eindpunt (spec 2026-08-14). Dit is MCP-agent-tekst, geen
+ * regel — de regel zelf (`isSummaryTask`/`hasSummaryEndpoint`) staat in de bladmodule
+ * `state/relationRules.ts`, die geen Nederlandse volzinnen kent (alleen types en predicaten). De
+ * twee enige lezers zijn `classifyDeps` (taskTools.ts, NIEUWE relaties) en `classifyDepUpdates`
+ * (dependencyTools.ts, het VERHANGEN van een bestaand eindpunt) — exact de twee modules waarvoor
+ * deze gedeelde veldlaag al bestaat.
+ */
+export const SUMMARY_ENDPOINT_REJECTION =
+  'een verzameltaak als voorganger of opvolger heeft geen effect op de planning; koppel aan een taak zonder subtaken';
+
 /** FS/SS/FF/SF-afkorting voor de compacte relatienotatie (leeskant). */
 export function seqAbbrev(type: SequenceType): string {
   switch (type) {

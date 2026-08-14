@@ -583,4 +583,36 @@ test('update_dependencies: opvolger verhangen naar een MIJLPAAL slaagt (regressi
   assertEq(seqById(s1).successorId, mp, 'de opvolger hangt nu echt aan de mijlpaal');
 });
 
+// K5 (reviewbevinding op T4): een BESTAANDE relatie kan een verzameltaak-eindpunt hebben zonder dat
+// deze call dat eindpunt aanraakt — een taak die later een kind kreeg (retroactief, zoals een P6-
+// import kan opleveren) of, hier, gewoon een sibling-taak die na de relatie een kind kreeg. Zo'n
+// relatie moet nog op type/lag te wijzigen zijn: alleen een NIEUW eindpunt wordt geweigerd, niet een
+// bestaand. Vóór de B1-fix weigerde dit met "verzameltaak" terwijl geen van beide eindpunten werd
+// aangeraakt — een agent die "zet de lag van alle FS-relaties op 0" uitvoert op een geïmporteerd plan
+// zou hier blijven hangen op onbruikbare feedback.
+test('update_dependencies: alleen type/lag wijzigen op een relatie met een BESTAAND verzameltaak-eindpunt slaagt', async () => {
+  store.getState().newProject();
+  const a = store.getState().addTask({ name: 'A' });
+  const los = store.getState().addTask({ name: 'Los' });
+  const s1 = addSeq({ predecessorId: a, successorId: los, type: 'FINISH_START', lagDays: 0 });
+  // A krijgt PAS NA het aanmaken van de relatie een kind — A is nu retroactief een verzameltaak,
+  // en s1 (A→Los) is een bestaande relatie met een verzameltaak-eindpunt.
+  store.getState().addTask({ name: 'Kind', parentId: a });
+  assert(
+    store.getState().tasks.find((t) => t.id === a)!.childIds.length > 0,
+    'voorwaarde: A is nu echt een verzameltaak (heeft een kind)',
+  );
+
+  const resType = await call('planner_update_dependencies', { updates: [{ seqId: s1, type: 'SS' }] });
+  const dataType = okData(resType);
+  assertEq(dataType.updated.length, 1, 'type-only wijziging slaagt ondanks het bestaande verzameltaak-eindpunt');
+  assertEq(seqById(s1).type, 'START_START', 'het type is echt gewijzigd');
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid (nog steeds de verzameltaak)');
+
+  const resLag = await call('planner_update_dependencies', { updates: [{ seqId: s1, lag: 2 }] });
+  const dataLag = okData(resLag);
+  assertEq(dataLag.updated.length, 1, 'lag-only wijziging slaagt ondanks het bestaande verzameltaak-eindpunt');
+  assertEq(seqById(s1).lagDays, 2, 'de lag is echt gewijzigd');
+});
+
 await run();
