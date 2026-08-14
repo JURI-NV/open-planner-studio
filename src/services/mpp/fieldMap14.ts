@@ -65,24 +65,17 @@ const FIELD_MAP_ENTRY_SIZE = 28;
  *  field map kent geen locatie daarvoor (net als de Java-bron: "we just haven't worked out how to
  *  convert this into the actual location... For now we rely on the location in the file being
  *  fixed"). Geen van de velden die déze lezer nodig heeft valt in deze categorie (corpus-
- *  geverifieerd). De skip in `parseFieldMapBytes` hieronder ONTHOUDT zulke id's expliciet (in
- *  `metaDataIds`, zie het returntype) en `buildFieldMap` sluit ze STRUCTUREEL uit van de
- *  default-terugval (T5-spec-review, 4d — correctie: een eerdere versie liet de skip hier alleen
- *  "toevallig" veilig zijn omdat geen van de `defaults`-tabellen een META_DATA-veld-id bevat; die
- *  aanname stond nergens afgedwongen, dus een toekomstig default-entry voor zo'n id zou alsnog
- *  stil als FIXED_DATA/VAR_DATA zijn geïnterpreteerd — nu expliciet onmogelijk gemaakt). */
+ *  geverifieerd). `parseFieldMapBytes` hieronder SLAAT zulke entries simpelweg over (geen
+ *  `entries.set(...)`-aanroep) — sinds I3's alles-of-niets-terugval (zie `buildFieldMap`) is dat
+ *  vanzelf voldoende: een META_DATA-veld-id ontbreekt dan gewoon in `entries`, en er is geen
+ *  merge-met-defaults-pad meer dat zo'n gat alsnog met een FIXED_DATA/VAR_DATA-offset zou kunnen
+ *  vullen (T5-slot — een eerdere versie hield hiervoor een aparte `metaDataIds`-verzameling bij;
+ *  die is met I3's herstructurering ongebruikt komen te staan en is verwijderd, dezelfde
+ *  opruimnorm als de `stack.id`-opruiming elders in deze commit). */
 const META_DATA_CATEGORIES = new Set([0x0b, 0x64]);
 /** FieldMap.java: dataBlockOffset 65535 ⇒ dit veld heeft geen vaste plek, dus VAR_DATA (of
  *  UNKNOWN als de var-data-sleutel ook 0 is — niet relevant voor onze velden). */
 const NO_FIXED_OFFSET = 65535;
-
-interface ParsedFieldMap {
-  entries: Map<number, FieldEntry>;
-  /** Veld-id's die de field-map-data zélf als META_DATA (boolean-vlag) categoriseert — zie
-   *  `META_DATA_CATEGORIES` hierboven. `buildFieldMap` mag hiervoor NOOIT op `defaults`
-   *  terugvallen, ook al staat het id niet in `entries`. */
-  metaDataIds: Set<number>;
-}
 
 /**
  * Poort van `FieldMap.createFieldMap(byte[])`. Loopt in stappen van 28 bytes over de
@@ -92,9 +85,8 @@ interface ParsedFieldMap {
  * var-data-sleutel; er is geen substitutietabel nodig voor de velden hier — corpus-geverifieerd),
  * dus de var-data-sleutel is simpelweg dezelfde 16-bit-index als de fixed-data-veld-id.
  */
-function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
+function parseFieldMapBytes(bytes: Uint8Array): Map<number, FieldEntry> {
   const entries = new Map<number, FieldEntry>();
-  const metaDataIds = new Set<number>();
   let lastDataBlockOffset = 0;
   let dataBlockIndex = 0;
   for (let pos = 0; pos + FIELD_MAP_ENTRY_SIZE <= bytes.length; pos += FIELD_MAP_ENTRY_SIZE) {
@@ -103,10 +95,7 @@ function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
     const category = getShort(bytes, pos + 20, 'fieldMap14 category');
     const index = typeValue & 0xffff;
 
-    if (META_DATA_CATEGORIES.has(category)) {
-      metaDataIds.add(index);
-      continue;
-    }
+    if (META_DATA_CATEGORIES.has(category)) continue;
 
     if (dataBlockOffset !== NO_FIXED_OFFSET) {
       if (dataBlockOffset < lastDataBlockOffset) dataBlockIndex++;
@@ -121,28 +110,27 @@ function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
       entries.set(index, { location: 'var', varDataKey: index });
     }
   }
-  return { entries, metaDataIds };
+  return entries;
 }
 
 /** Bouwt de uiteindelijke tabel — ALLES-OF-NIETS per bron (T5-spec-review, I3; zie de
  *  moduleheader voor waarom een per-veld-mix stil verkeerde bytes zou lezen):
  *  - `fieldMapBytes` ontbreekt (geen `TASK_FIELD_MAP`/`TASK_FIELD_MAP2` e.d. in `Props`) ⇒
  *    volledig `defaults` (MPXJ: `createTaskFieldMap`'s `populateDefaultData`-tak).
- *  - `fieldMapBytes` aanwezig ⇒ UITSLUITEND de data-gedreven `entries` uit `parseFieldMapBytes` —
+ *  - `fieldMapBytes` aanwezig ⇒ UITSLUITEND de data-gedreven entries uit `parseFieldMapBytes` —
  *    `defaults` wordt dan HELEMAAL niet geraadpleegd, ook niet voor een veld dat toevallig
- *    ontbreekt in de geparste field map. `fixedOffsetOf`/`varDataKeyOf` geven voor zo'n veld dan
- *    `null` (net als voor elk ander onbekend veld) — de aanroeper (`readTasks`'s harde
- *    veldmap-check) bewaakt dat een té leeg resultaat een duidelijke fout geeft i.p.v. stil door
- *    te lezen met verkeerde offsets. `metaDataIds` blijft in `parseFieldMapBytes`'s returntype
- *    staan voor diagnose (bv. toekomstige logging), ook al heeft `buildFieldMap` het zelf niet
- *    meer nodig nu er geen merge-pad meer is dat het zou kunnen misbruiken. */
+ *    ontbreekt in de geparste field map (inclusief een META_DATA-veld-id, zie de toelichting bij
+ *    `META_DATA_CATEGORIES`). `fixedOffsetOf`/`varDataKeyOf` geven voor zo'n veld dan `null` (net
+ *    als voor elk ander onbekend veld) — de aanroeper (`readTasks`'s harde veldmap-check) bewaakt
+ *    dat een té leeg resultaat een duidelijke fout geeft i.p.v. stil door te lezen met verkeerde
+ *    offsets. */
 function buildFieldMap(fieldMapBytes: Uint8Array | null, defaults: Readonly<Record<number, FieldEntry>>): FieldMapTable {
   if (!fieldMapBytes) {
     const result = new Map<number, FieldEntry>();
     for (const key of Object.keys(defaults)) result.set(Number(key), defaults[Number(key)]);
     return result;
   }
-  return parseFieldMapBytes(fieldMapBytes).entries;
+  return parseFieldMapBytes(fieldMapBytes);
 }
 
 function firstByteArray(props: Props, keys: number[]): Uint8Array | null {

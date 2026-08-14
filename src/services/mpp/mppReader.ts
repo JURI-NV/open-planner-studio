@@ -138,6 +138,17 @@ export function clampOutlineLevel(raw: number): number {
  * door deze grens begrensd (niet alleen het eindresultaat), dus de kostenbovengrens is nu
  * O(N × MAX_VAR_TEXT_BYTES), lineair in N. 64 KiB is ruim boven elke realistische taaknaam/WBS-
  * tekst (het corpus blijft ver onder 1 KB), maar begrenst een geprepareerd bestand hard.
+ *
+ * Testdekking (T5-slot, precisering): alleen het PRIMITIEF is met een fixture gepind —
+ * `check-mpp-import.ts`'s I1-regressietest roept `Var2Data.getUnicodeString(..., maxLength, ctx)`
+ * rechtstreeks aan met een 400.000-byte gedeelde string en bewijst dat `maxLength` daar zowel het
+ * resultaat als de scan-kosten begrenst. Dat `readTasks` hieronder dit primitief ook daadwerkelijk
+ * met `MAX_VAR_TEXT_BYTES` aanroept (i.p.v. zonder grens) is NIET los end-to-end gepind: een
+ * >64 KiB-var-data-stream past bewust niet door `buildNestedCfb`'s mini-stream-only-bouwer
+ * (>4096 bytes per stream, zie mppFixtures.ts), dus die specifieke callsite-regressie steunt op
+ * code-review-discipline (de aanroepen hieronder gebruiken zichtbaar `MAX_VAR_TEXT_BYTES`, geen
+ * kale `varData.getUnicodeString(uniqueId, key)` zonder derde argument) in plaats van een
+ * geautomatiseerde guard.
  */
 export const MAX_VAR_TEXT_BYTES = 65_536;
 

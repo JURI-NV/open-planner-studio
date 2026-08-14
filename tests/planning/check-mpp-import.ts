@@ -949,29 +949,49 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     return out;
   }
 
-  // 4 taken: Root(1) → Child1(1.1), Child2(1.2) → Grandchild(1.2.1, milestone).
+  // 6 taken: Root(1) → ClampDeep1(1.1), ClampDeep2(1.2), Child1(1.3), Child2(1.4) →
+  // Grandchild(1.4.1, milestone). ClampDeep1/ClampDeep2 (T5-slot, C1-callsite-regressie) hebben
+  // RUWE outline-levels 300/400 — ver voorbij MAX_OUTLINE_LEVEL — en zitten in ID-volgorde
+  // ONMIDDELLIJK ná Root, vóór Child1/Child2/Grandchild (die daarom van id 2/3/4 naar 4/5/6
+  // opschuiven). Dit is de ENIGE plek in de stack waar de klem zichtbaar wordt: zónder
+  // `clampOutlineLevel` in `readTasks` zou ClampDeep2 (raw 400) NIET terugpoppen tot Root — een
+  // outline-level-stack popt alleen entries met `level >= eigen level`, en 300 < 400, dus
+  // ClampDeep2 zou een KIND van ClampDeep1 worden (wbsCode "1.1.1"). MÉT de klem (beide → 256)
+  // popt ClampDeep2 wél terug tot Root (256 >= 256) en wordt Root's TWEEDE kind: wbsCode "1.2" —
+  // het harde onderscheid dat deze regressie bewaakt (een toekomstige refactor die de
+  // `clampOutlineLevel`-aanroep in `readTasks` per ongeluk weglaat, laat deze assert direct rood
+  // uitslaan op "1.1.1" i.p.v. "1.2").
   const dummy = buildTaskFixedMetaRecord({ offsetIntoFixedData: 0 });
   const metaRoot = buildTaskFixedMetaRecord({ offsetIntoFixedData: 0 });
-  const metaChild1 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 130 });
-  const metaChild2 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 260 });
-  const metaGrandchild = buildTaskFixedMetaRecord({ offsetIntoFixedData: 390, milestone: true });
-  const fixedMetaBlob = buildFixedMetaBlob([dummy, dummy, dummy, metaRoot, metaChild1, metaChild2, metaGrandchild]);
+  const metaClampDeep1 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 130 });
+  const metaClampDeep2 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 260 });
+  const metaChild1 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 390 });
+  const metaChild2 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 520 });
+  const metaGrandchild = buildTaskFixedMetaRecord({ offsetIntoFixedData: 650, milestone: true });
+  const fixedMetaBlob = buildFixedMetaBlob([dummy, dummy, dummy, metaRoot, metaClampDeep1, metaClampDeep2, metaChild1, metaChild2, metaGrandchild]);
 
   const dataRoot = buildTaskFixedDataRecord({ uniqueId: 10, id: 1, outlineLevel: 1, startDays: 15000, finishDays: 15010 });
-  const dataChild1 = buildTaskFixedDataRecord({ uniqueId: 11, id: 2, outlineLevel: 2, startDays: 15000, finishDays: 15002, calendarUniqueId: 5 });
-  const dataChild2 = buildTaskFixedDataRecord({ uniqueId: 12, id: 3, outlineLevel: 2, startDays: 15003, finishDays: 15008 });
-  const dataGrandchild = buildTaskFixedDataRecord({ uniqueId: 13, id: 4, outlineLevel: 3, durationRaw: 0, startDays: 15008, finishDays: 15008 });
-  const fixedDataBlob = new Uint8Array(4 * 130);
-  [dataRoot, dataChild1, dataChild2, dataGrandchild].forEach((rec, i) => fixedDataBlob.set(rec, i * 130));
+  const dataClampDeep1 = buildTaskFixedDataRecord({ uniqueId: 14, id: 2, outlineLevel: 300, startDays: 15000, finishDays: 15001 });
+  const dataClampDeep2 = buildTaskFixedDataRecord({ uniqueId: 15, id: 3, outlineLevel: 400, startDays: 15000, finishDays: 15001 });
+  const dataChild1 = buildTaskFixedDataRecord({ uniqueId: 11, id: 4, outlineLevel: 2, startDays: 15000, finishDays: 15002, calendarUniqueId: 5 });
+  const dataChild2 = buildTaskFixedDataRecord({ uniqueId: 12, id: 5, outlineLevel: 2, startDays: 15003, finishDays: 15008 });
+  const dataGrandchild = buildTaskFixedDataRecord({ uniqueId: 13, id: 6, outlineLevel: 3, durationRaw: 0, startDays: 15008, finishDays: 15008 });
+  const fixedDataBlob = new Uint8Array(6 * 130); // 780 bytes, ruim onder buildNestedCfb's 4096-grens per stream
+  [dataRoot, dataClampDeep1, dataClampDeep2, dataChild1, dataChild2, dataGrandchild].forEach((rec, i) => fixedDataBlob.set(rec, i * 130));
 
-  // Namen (var key 14, default-fallback): Root@0, Child1@20, Child2@40, Grandchild@70 (100 bytes totaal).
+  // Namen (var key 14, default-fallback): Root@0 (12 bytes), ClampDeep1@20 (24 bytes: 10 tekens
+  // + 4-byte lengteprefix), ClampDeep2@50 (24 bytes), Child1@80 (16 bytes), Child2@100 (16 bytes),
+  // Grandchild@120 (24 bytes) — 150 bytes totaal, elke regio ruim uit elkaar zodat er geen
+  // overlap is.
   const varMetaBytes = buildVarMetaBytes([
     { uniqueId: 10, type: 14, offset: 0 },
-    { uniqueId: 11, type: 14, offset: 20 },
-    { uniqueId: 12, type: 14, offset: 40 },
-    { uniqueId: 13, type: 14, offset: 70 },
+    { uniqueId: 14, type: 14, offset: 20 },
+    { uniqueId: 15, type: 14, offset: 50 },
+    { uniqueId: 11, type: 14, offset: 80 },
+    { uniqueId: 12, type: 14, offset: 100 },
+    { uniqueId: 13, type: 14, offset: 120 },
   ]);
-  const var2DataBuf = new Uint8Array(100);
+  const var2DataBuf = new Uint8Array(150);
   const var2View = new DataView(var2DataBuf.buffer);
   const writeVar2 = (offset: number, s: string) => {
     const payload = encodeUnicodeStringAscii(s);
@@ -979,9 +999,11 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     var2DataBuf.set(payload, offset + 4);
   };
   writeVar2(0, 'Root');
-  writeVar2(20, 'Child1');
-  writeVar2(40, 'Child2');
-  writeVar2(70, 'Grandchild');
+  writeVar2(20, 'ClampDeep1');
+  writeVar2(50, 'ClampDeep2');
+  writeVar2(80, 'Child1');
+  writeVar2(100, 'Child2');
+  writeVar2(120, 'Grandchild');
 
   const projectPropsBytes = encodePropsEntries([
     { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
@@ -1020,28 +1042,59 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
   if (result) {
     truthy('I4 end-to-end readMPP: project.name uit Props/TITLE', result.project.name === 'Fixture Project');
     truthy('I4 end-to-end readMPP: hoursPerDay uit MINUTES_PER_DAY (480/60)', result.calendar.hoursPerDay === 8);
-    truthy('I4 end-to-end readMPP: 4 taken', result.tasks.length === 4);
+    truthy('I4 end-to-end readMPP: 6 taken', result.tasks.length === 6);
 
     const byName = new Map(result.tasks.map((t) => [t.name, t]));
     const root = byName.get('Root');
+    const clampDeep1 = byName.get('ClampDeep1');
+    const clampDeep2 = byName.get('ClampDeep2');
     const child1 = byName.get('Child1');
     const child2 = byName.get('Child2');
     const grandchild = byName.get('Grandchild');
-    truthy('I4 end-to-end readMPP: alle vier namen gevonden', !!root && !!child1 && !!child2 && !!grandchild);
+    truthy(
+      'I4 end-to-end readMPP: alle zes namen gevonden',
+      !!root && !!clampDeep1 && !!clampDeep2 && !!child1 && !!child2 && !!grandchild,
+    );
 
-    if (root && child1 && child2 && grandchild) {
+    if (root && clampDeep1 && clampDeep2 && child1 && child2 && grandchild) {
       truthy('I4 end-to-end readMPP: Root is wortel (parentId null)', root.parentId === null);
       truthy('I4 end-to-end readMPP: Root.wbsCode === "1"', root.wbsCode === '1');
+
+      // C1-CALLSITE-REGRESSIE (T5-slot): ClampDeep1/ClampDeep2 dragen ruwe outline-levels 300/400
+      // (ver voorbij MAX_OUTLINE_LEVEL). Dit is de enige plek die daadwerkelijk PINT dat
+      // `readTasks` `clampOutlineLevel` aanroept — de eerdere C1-stresstest (elders in dit
+      // bestand) klemt zijn EIGEN synthetische invoer al vóór het `assignHierarchyAndWbs`
+      // aanroept, dus die kan een vergeten `clampOutlineLevel()`-aanroep in `readTasks` zelf niet
+      // detecteren. Zie de toelichting bij de fixture-opbouw hierboven voor de volledige
+      // afleiding: MÉT de klem (beide → 256) wordt ClampDeep2 Root's TWEEDE kind ("1.2"); ZONDER
+      // de klem zou ClampDeep2 (raw 400) niet terugpoppen langs ClampDeep1 (raw 300, want
+      // 300 < 400) en dus een KIND van ClampDeep1 worden ("1.1.1") — een crisp, ondubbelzinnig
+      // onderscheid.
+      truthy('I4/C1 end-to-end readMPP: ClampDeep1.parentId === Root.id', clampDeep1.parentId === root.id);
+      truthy('I4/C1 end-to-end readMPP: ClampDeep1.wbsCode === "1.1"', clampDeep1.wbsCode === '1.1');
+      truthy('I4/C1 end-to-end readMPP: ClampDeep2.parentId === Root.id (NIET ClampDeep1 — bewijst de klem)', clampDeep2.parentId === root.id);
+      truthy('I4/C1 end-to-end readMPP: ClampDeep2.wbsCode === "1.2" (zónder klem zou dit "1.1.1" zijn)', clampDeep2.wbsCode === '1.2');
+
       truthy('I4 end-to-end readMPP: Child1.parentId === Root.id', child1.parentId === root.id);
-      truthy('I4 end-to-end readMPP: Child1.wbsCode === "1.1"', child1.wbsCode === '1.1');
+      truthy('I4 end-to-end readMPP: Child1.wbsCode === "1.3"', child1.wbsCode === '1.3');
       truthy('I4 end-to-end readMPP: Child2.parentId === Root.id', child2.parentId === root.id);
-      truthy('I4 end-to-end readMPP: Child2.wbsCode === "1.2"', child2.wbsCode === '1.2');
-      truthy('I4 end-to-end readMPP: Root.childIds === [Child1, Child2] (ID-volgorde)', root.childIds.length === 2 && root.childIds[0] === child1.id && root.childIds[1] === child2.id);
+      truthy('I4 end-to-end readMPP: Child2.wbsCode === "1.4"', child2.wbsCode === '1.4');
+      truthy(
+        'I4 end-to-end readMPP: Root.childIds === [ClampDeep1, ClampDeep2, Child1, Child2] (ID-volgorde)',
+        root.childIds.length === 4
+          && root.childIds[0] === clampDeep1.id
+          && root.childIds[1] === clampDeep2.id
+          && root.childIds[2] === child1.id
+          && root.childIds[3] === child2.id,
+      );
       truthy('I4 end-to-end readMPP: Grandchild.parentId === Child2.id', grandchild.parentId === child2.id);
-      truthy('I4 end-to-end readMPP: Grandchild.wbsCode === "1.2.1"', grandchild.wbsCode === '1.2.1');
+      truthy('I4 end-to-end readMPP: Grandchild.wbsCode === "1.4.1"', grandchild.wbsCode === '1.4.1');
       truthy('I4 end-to-end readMPP: Child2.childIds === [Grandchild]', child2.childIds.length === 1 && child2.childIds[0] === grandchild.id);
       truthy('I4 end-to-end readMPP: Grandchild.isMilestone === true (2010-milestone-tabel-terugval, 4a)', grandchild.isMilestone === true);
-      truthy('I4 end-to-end readMPP: Root/Child1/Child2 zijn GEEN milestone', !root.isMilestone && !child1.isMilestone && !child2.isMilestone);
+      truthy(
+        'I4 end-to-end readMPP: Root/ClampDeep1/ClampDeep2/Child1/Child2 zijn GEEN milestone',
+        !root.isMilestone && !clampDeep1.isMilestone && !clampDeep2.isMilestone && !child1.isMilestone && !child2.isMilestone,
+      );
       truthy('I4 end-to-end readMPP: Root.scheduleDuration === 1 dag (4800 tienden-van-minuut @ 8u/dag)', root.time.scheduleDuration === 1);
     }
   }
