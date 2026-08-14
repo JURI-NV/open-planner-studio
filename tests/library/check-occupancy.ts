@@ -1,15 +1,18 @@
 // B1b-bezettingskern (spec 2026-08-14-b1b-bezettingsoverzicht-design.md §4/§6/§10). Headless
 // batterij over de pure `computeLibraryOccupancy`: handgebouwde `OccupancyDocInput`-fixtures +
 // een minimale `CompanyPool` — geen store, geen I/O. Exitcode is de poort (XX-regels tonen
-// afwijkingen). Cases 1–13 volgen letterlijk §10 van het herziene ontwerpdoc (critreview
-// 2026-08-14: stale telt niet mee, fantoomrij-guards); case 10 dekt daarnaast de
-// `OccupancyDocBooking.dailyLoad`-uitbreiding (histogramvoeding, som-invariant).
-import { computeLibraryOccupancy } from '@/services/library/occupancy';
-import type { OccupancyDocInput } from '@/services/library/occupancy';
+// afwijkingen). Cases 1–13 dekken het VANGNETpad (§4.3): hun stale-fixtures dragen bewust géén
+// `solveInput`, dus de default-solve geeft `null` terug en het document blijft zichtbaar-ongeteld.
+// Cases 14–16 dekken de efemere solve van §4.3b (doorrekenen i.p.v. uitsluiten). Case 10 dekt
+// daarnaast de `OccupancyDocBooking.dailyLoad`-uitbreiding (histogramvoeding, som-invariant).
+import { computeLibraryOccupancy, ephemeralSolve } from '@/services/library/occupancy';
+import type { OccupancyDocInput, OccupancyEphemeralSolve } from '@/services/library/occupancy';
 import { computeResourceLoad, maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
+import { solveProject, cloneTasksForSolve } from '@/engine/scheduler/solveProject';
 import type { CompanyPool } from '@/types/library';
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Task } from '@/types/task';
+import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
 
 declare const process: { exit(code: number): never };
@@ -61,12 +64,25 @@ function assign(id: string, taskId: string, resourceId: string, unitsPerDay: num
   return { id, taskId, resourceId, unitsPerDay, curve };
 }
 
+/** Taak met een ANKER (scheduleStart) dat afwijkt van de opgeslagen — verouderde — early-datums:
+ *  de efemere solve moet de early-datums op het anker herrekenen (§4.3b, case 14/16). */
+function staleTask(id: string, anchor: string, staleStart: string, staleFinish: string, durationDays: number): Task {
+  const t = task(id, staleStart, staleFinish, durationDays);
+  t.time.scheduleStart = anchor;
+  t.time.scheduleFinish = anchor;
+  return t;
+}
+
 interface DocOpts {
   companyId?: string | null;
   scheduleStale?: boolean;
   resources?: Resource[];
   assignments?: ResourceAssignment[];
   tasks?: Task[];
+  /** Zetten ⇒ het document draagt `solveInput` (§4.3b, de VOLLEDIGE takenlijst). Afwezig ⇒ géén
+   *  solve-invoer, dus het vangnetpad van §4.3 — zo dekken cases 1–13 bewust het vangnetgedrag. */
+  solveTasks?: Task[];
+  solveSequences?: Sequence[];
 }
 
 function doc(docId: string, opts: DocOpts = {}): OccupancyDocInput {
@@ -79,6 +95,9 @@ function doc(docId: string, opts: DocOpts = {}): OccupancyDocInput {
     tasks: opts.tasks ?? [],
     calendar: cal(),
     calendars: [],
+    ...(opts.solveTasks !== undefined
+      ? { solveInput: { tasks: opts.solveTasks, sequences: opts.solveSequences ?? [] } }
+      : {}),
   };
 }
 
@@ -451,6 +470,144 @@ function pool(resources: Resource[]): CompanyPool {
   );
   assert(rows[0]?.totalPeak === 0 && rows[0]?.conflictDays.length === 0, 'case 13: geen getelde belasting ⇒ totalPeak 0, geen conflictdagen');
   assert(anyStale === true, 'case 13: anyStale staat door de zichtbare ongetelde booking');
+}
+
+// ── Case 14 (§10.14): efemere solve — stale mét solve-invoer telt mee met VERSE cijfers ─────────
+{
+  const poolItem = poolRes('lib-1', 'Kraan', 2);
+  const p = pool([poolItem]);
+  // Het document is stale: de opgeslagen early-datums (2026-08-10..12) zijn verouderd, het anker
+  // staat op 2026-08-03. Zonder efemere solve zou de belasting in de week van de 10e landen (of
+  // helemaal wegvallen); mét solve hoort ze op 03..05 te staan.
+  const staleTasks = [staleTask('t1', '2026-08-03', '2026-08-10', '2026-08-12', 3)];
+  const d1 = doc('d1', {
+    scheduleStale: true,
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: staleTasks,
+    assignments: [assign('d1-a1', 't1', 'd1-r1', 1.5)],
+    solveTasks: staleTasks,
+  });
+  // De injectie is hier expliciet de ECHTE kern (dezelfde die de default gebruikt) — dat is precies
+  // het punt van §4.3b: pariteit by construction, geen tweede implementatie.
+  const { rows, anyStale } = computeLibraryOccupancy('c1', p, [d1], ephemeralSolve);
+
+  // Referentie: dezelfde invoer vers doorgerekend (solveProject == de kern van runCPM) en dan door
+  // computeResourceLoad — precies wat F5-in-het-document + het projecthistogram zouden opleveren.
+  const refTasks = cloneTasksForSolve(staleTasks);
+  const refResult = solveProject({ tasks: refTasks, sequences: [], calendar: cal(), calendars: [] });
+  const refLoad = computeResourceLoad(d1.resources, d1.assignments, refTasks, cal(), []);
+  const refDaily = refLoad.load['d1-r1'];
+  const refDays = Object.keys(refDaily).filter(iso => refDaily[iso] > 0).sort();
+
+  assert(refResult.error === undefined, 'case 14 sanity: de referentie-solve slaagt');
+  assert(refDays.length > 0 && refDays[0] === '2026-08-03',
+    `case 14 sanity: de verse planning landt op het anker, niet op de verouderde datums (kreeg ${JSON.stringify(refDays)})`);
+
+  const row = rows[0];
+  const booking = row?.docs[0];
+  assert(rows.length === 1 && row?.docs.length === 1, `case 14: één rij met één booking (kreeg ${rows.length} rijen)`);
+  assert(booking?.counted === true, 'case 14: efemeer doorgerekend ⇒ counted true');
+  assert(booking?.scheduleStale === true, 'case 14: scheduleStale blijft true (informatieve ⚠)');
+  assert(anyStale === true, 'case 14: anyStale staat — er zit een stale document in het overzicht');
+  assert(
+    JSON.stringify(booking?.dailyLoad) === JSON.stringify(Object.fromEntries(refDays.map(iso => [iso, refDaily[iso]]))),
+    `case 14: dailyLoad exact gelijk aan de vers doorgerekende invoer (${JSON.stringify(refDaily)}; kreeg ${JSON.stringify(booking?.dailyLoad)})`,
+  );
+  assert(booking?.firstDay === refDays[0] && booking?.lastDay === refDays[refDays.length - 1],
+    `case 14: firstDay/lastDay volgen de verse planning (kreeg ${booking?.firstDay}..${booking?.lastDay})`);
+  assert(booking?.peak === Math.max(...refDays.map(iso => refDaily[iso])), `case 14: peak == verse curve-piek (kreeg ${booking?.peak})`);
+  assert(row?.totalPeak === 1.5 && row?.capacityAtPeak === 2, `case 14: het document telt mee in de som (totalPeak ${row?.totalPeak})`);
+  assert(
+    Object.keys(booking?.dailyLoad ?? {}).every(iso => iso < '2026-08-10'),
+    'case 14: er wordt NIET op de verouderde datums gerekend',
+  );
+}
+
+// ── Case 15 (§10.15): efemere solve faalt (gooit of geeft null) ⇒ vangnetgedrag ─────────────────
+{
+  const p = pool([poolRes('lib-1', 'Kraan', 2)]);
+  const staleTasks = [staleTask('t1', '2026-08-03', '2026-08-10', '2026-08-12', 3)];
+  const mkDoc = () => doc('d1', {
+    scheduleStale: true,
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: staleTasks,
+    assignments: [assign('d1-a1', 't1', 'd1-r1', 1.5)],
+    solveTasks: staleTasks,
+  });
+
+  // 15a: de injectie gooit (staat voor een onverwachte solverfout) — een leesvenster mag daar nooit
+  // op omvallen.
+  const throwing: OccupancyEphemeralSolve = () => { throw new Error('cyclus'); };
+  const a = computeLibraryOccupancy('c1', p, [mkDoc()], throwing);
+  assert(a.rows.length === 1 && a.rows[0].docs.length === 1, `case 15a: de booking blijft zichtbaar (kreeg ${a.rows.length} rijen)`);
+  assert(a.rows[0].docs[0].counted === false, 'case 15a: gefaalde solve ⇒ vangnet, counted false');
+  assert(
+    a.rows[0].docs[0].peak === 0 && a.rows[0].docs[0].firstDay === null &&
+    a.rows[0].docs[0].lastDay === null && Object.keys(a.rows[0].docs[0].dailyLoad).length === 0,
+    'case 15a: de ongetelde booking draagt géén cijfers',
+  );
+  assert(a.rows[0].totalPeak === 0 && a.rows[0].conflictDays.length === 0, 'case 15a: geen getelde belasting ⇒ geen som, geen conflictdagen');
+  assert(a.anyStale === true, 'case 15a: anyStale staat');
+
+  // 15b: de injectie geeft null (de echte `ephemeralSolve` doet dit bij een error-resultaat, bijv.
+  // een relatiecyclus) — zelfde uitkomst.
+  const nullSolve: OccupancyEphemeralSolve = () => null;
+  const b = computeLibraryOccupancy('c1', p, [mkDoc()], nullSolve);
+  assert(b.rows.length === 1 && b.rows[0].docs[0].counted === false && b.anyStale === true,
+    'case 15b: null-resultaat ⇒ zelfde vangnetgedrag als een exception');
+
+  // 15c: een ECHTE cyclus door de echte kern — bewijst dat `ephemeralSolve` een error-resultaat als
+  // mislukking behandelt in plaats van halve datums door te laten.
+  const cycTasks = [
+    staleTask('t1', '2026-08-03', '2026-08-10', '2026-08-12', 3),
+    staleTask('t2', '2026-08-03', '2026-08-10', '2026-08-12', 3),
+  ];
+  const cycSeqs: Sequence[] = [
+    { id: 's1', predecessorId: 't1', successorId: 't2', type: 'FINISH_START', lagDays: 0 },
+    { id: 's2', predecessorId: 't2', successorId: 't1', type: 'FINISH_START', lagDays: 0 },
+  ];
+  const cyclisch = doc('d1', {
+    scheduleStale: true,
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: cycTasks,
+    assignments: [assign('d1-a1', 't1', 'd1-r1', 1.5)],
+    solveTasks: cycTasks,
+    solveSequences: cycSeqs,
+  });
+  const c = computeLibraryOccupancy('c1', p, [cyclisch]); // default = de echte ephemeralSolve
+  assert(
+    c.rows.length === 1 && c.rows[0].docs.length === 1 && c.rows[0].docs[0].counted === false && c.anyStale === true,
+    'case 15c: een echte relatiecyclus valt via ephemeralSolve op het vangnet terug',
+  );
+}
+
+// ── Case 16 (§10.16): de efemere solve muteert zijn invoer niet ─────────────────────────────────
+{
+  const p = pool([poolRes('lib-1', 'Kraan', 2)]);
+  const staleTasks = [
+    staleTask('t1', '2026-08-03', '2026-08-10', '2026-08-12', 3),
+    // Verzameltaak erboven: `applyCpmResult` doet de rollup op de PARENT, dus die moet ook
+    // ongemoeid blijven — precies het veld dat een ondiepe kloon zou laten lekken.
+    { ...task('p1', '2026-08-10', '2026-08-12', 3), childIds: ['t1'] },
+  ];
+  staleTasks[0].parentId = 'p1';
+  const d1 = doc('d1', {
+    scheduleStale: true,
+    resources: [stamped('d1-r1', 'lib-1')],
+    tasks: staleTasks,
+    assignments: [assign('d1-a1', 't1', 'd1-r1', 1.5)],
+    solveTasks: staleTasks,
+  });
+  const before = JSON.stringify(staleTasks);
+  const { rows } = computeLibraryOccupancy('c1', p, [d1]);
+  const after = JSON.stringify(staleTasks);
+
+  assert(before === after, 'case 16: de payload-taken zijn ná de aanroep byte-gelijk aan ervoor');
+  // Sanity: er is daadwerkelijk gerekend (anders bewijst de gelijkheid niets).
+  assert(
+    rows.length === 1 && rows[0].docs[0].counted === true && rows[0].docs[0].firstDay === '2026-08-03',
+    `case 16 sanity: de solve is écht gedraaid (kreeg counted ${rows[0]?.docs[0]?.counted}, firstDay ${rows[0]?.docs[0]?.firstDay})`,
+  );
 }
 
 console.log(`occupancy: ${checks - fails}/${checks} groen`);

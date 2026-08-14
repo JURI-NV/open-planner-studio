@@ -64,10 +64,14 @@ function librarySlice(payload: DocumentPayload, companyId: string, poolItemIds: 
  * BINNEN de `useMemo` — als Zustand-selector is hij onbruikbaar (verse array per aanroep; zelfde
  * val die `useDocumentCards` ontwijkt). Geen nieuwe store-actie of -veld.
  *
- * Stale documenten (§4.3, herzien): de kern telt ze niet mee (`counted: false`, geen cijfers);
- * deze weergave toont ze als "—"-subregels met ⚠ en de staleDoc-uitleg, en een banner zodra
- * `anyStale` waar is. Een rij met uitsluitend ongetelde boekingen toont "—" voor periode/piek,
- * krijgt nooit een conflictbadge en bij selectie geen chart maar de stale-uitleg.
+ * Stale documenten (§4.3b): de kern rekent ze efemeer door op een kloon van hun taken — deze
+ * weergave levert daarvoor `solveInput` aan (volledige taken/relaties + de projectopties) en zo'n
+ * document telt gewoon mee (`counted: true`) met `scheduleStale: true` als informatieve markering.
+ * Lukt de solve niet (cyclus, solverfout), dan valt het document terug op het vangnet (§4.3):
+ * `counted: false`, geen cijfers. Deze weergave toont ongetelde boekingen als "—"-subregels met ⚠
+ * en de staleDoc-uitleg, en een banner zodra `anyStale` waar is. Een rij met uitsluitend ongetelde
+ * boekingen toont "—" voor periode/piek, krijgt nooit een conflictbadge en bij selectie geen chart
+ * maar de stale-uitleg.
  *
  * Prestaties (§7): lazy — dit component mount alleen in de Bezettingsweergave — en één `useMemo`
  * rond `computeLibraryOccupancy`, met als afhankelijkheden de identiteiten van `s.documents`, de
@@ -143,6 +147,17 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
         tasks: slice.tasks,
         calendar: payload.calendar,
         calendars: payload.calendars,
+        // §4.3b: invoer voor de efemere doorrekening van een stale document. Bewust de VOLLEDIGE
+        // takenlijst en relaties van de payload (niet de bibliotheek-snit): een gesnoeide graaf zou
+        // een andere planning opleveren dan F5 in dat document. Referenties, geen kopieën — de
+        // kosten vallen pas bij een daadwerkelijke solve, en die kloont zelf.
+        solveInput: {
+          tasks: payload.tasks,
+          sequences: payload.sequences,
+          dataDate: payload.project.statusDate,
+          progressMode: payload.project.progressMode,
+          schedulingOptions: payload.project.schedulingOptions,
+        },
       };
     });
     const result = computeLibraryOccupancy(companyId, pool, inputs);
