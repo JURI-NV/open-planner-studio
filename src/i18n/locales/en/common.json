@@ -519,6 +519,8 @@
       "machineOnly": "This overview only sees documents opened on this computer.",
       "staleDoc": "Not counted: schedule not calculated — activate this document and press F5.",
       "staleBanner": "At least one document has not been calculated and is not included in the occupancy.",
+      "staleComputedDoc": "Calculated in advance for this overview — the document itself still shows older dates until you press F5 there.",
+      "staleComputedBanner": "Changed documents have been calculated in advance for this overview; press F5 in the document to see it there too.",
       "docCount_one": "{{count}} document",
       "docCount_other": "{{count}} documents",
       "conflictDays_one": "{{count}} day double-booked",

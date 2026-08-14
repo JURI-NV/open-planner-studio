@@ -519,6 +519,8 @@
       "machineOnly": "Dit overzicht ziet alleen documenten die op deze computer geopend zijn.",
       "staleDoc": "Telt niet mee: planning niet doorgerekend — activeer dit document en druk F5.",
       "staleBanner": "Minstens één document is niet doorgerekend en telt niet mee in de bezetting.",
+      "staleComputedDoc": "Alvast doorgerekend voor dit overzicht — het document zelf toont oudere datums tot je daar F5 drukt.",
+      "staleComputedBanner": "Gewijzigde documenten zijn voor dit overzicht alvast doorgerekend; druk F5 in het document om het daar ook te zien.",
       "docCount_one": "{{count}} document",
       "docCount_other": "{{count}} documenten",
       "conflictDays_one": "{{count}} dag dubbel geboekt",

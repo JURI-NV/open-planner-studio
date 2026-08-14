@@ -521,6 +521,8 @@
       "machineOnly": "Cet aperçu ne voit que les documents ouverts sur cet ordinateur.",
       "staleDoc": "Non compté : planification non calculée — activez ce document et appuyez sur F5.",
       "staleBanner": "Au moins un document n'a pas été calculé et n'est pas pris en compte dans l'occupation.",
+      "staleComputedDoc": "Calculé à l'avance pour cet aperçu — le document lui-même affiche encore d'anciennes dates jusqu'à ce que vous appuyiez sur F5.",
+      "staleComputedBanner": "Les documents modifiés ont été calculés à l'avance pour cet aperçu ; appuyez sur F5 dans le document pour le voir également là-bas.",
       "docCount_one": "{{count}} document",
       "docCount_many": "{{count}} documents",
       "docCount_other": "{{count}} documents",

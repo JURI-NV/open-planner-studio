@@ -519,6 +519,8 @@
       "machineOnly": "Bu genel bakış yalnızca bu bilgisayarda açılan belgeleri görür.",
       "staleDoc": "Sayılmaz: plan hesaplanmadı — bu belgeyi etkinleştirin ve F5'e basın.",
       "staleBanner": "En az bir belge hesaplanmadı ve dolulukta sayılmıyor.",
+      "staleComputedDoc": "Bu genel bakış için önceden hesaplandı — belge kendisi orada F5'e basana kadar hâlâ eski tarihleri gösterir.",
+      "staleComputedBanner": "Değiştirilen belgeler bu genel bakış için önceden hesaplandı; orada da görmek için belgede F5'e basın.",
       "docCount_one": "{{count}} belge",
       "docCount_other": "{{count}} belge",
       "conflictDays_one": "{{count}} gün çift rezervasyonlu",
