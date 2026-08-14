@@ -354,7 +354,9 @@ Nieuwe sleutels in `common`, onder het bestaande `resource.*`-blok, in alle veer
 
 - `resource.occupancyView` — "Bezetting" (derde stand van de schakelaar)
 - `resource.occupancy.empty` — "Geen bibliotheekresources geboekt in de geopende documenten."
-- `resource.occupancy.machineOnly` — "Dit overzicht ziet alleen documenten die op deze computer geopend zijn."
+- `resource.occupancy.machineOnly` — "Dit overzicht ziet alleen de documenten die in dit
+  programma geopend zijn." (herzien 2026-08-14: "in dit programma", niet "op deze computer" —
+  een ander venster of andere applicatie op dezelfde machine telt niet mee)
 - `resource.occupancy.staleDoc` — "Telt niet mee: planning niet doorgerekend — activeer dit document en druk F5."
   (alleen nog het **vangnetpad** van §4.3: efemere solve mislukt/afwezig)
 - `resource.occupancy.staleBanner` — "Minstens één document is niet doorgerekend en telt niet mee in de bezetting."
