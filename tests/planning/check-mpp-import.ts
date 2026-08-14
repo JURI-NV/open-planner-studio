@@ -5,8 +5,10 @@
 //     ALTIJD, ook zonder corpus. Dit is de dekking die CI daadwerkelijk op de CFB-laag zelf
 //     heeft: byte-exacte round-trip, de FAT/mini-stream-grens (4095 vs. 4096 bytes) en een reeks
 //     vijandige varianten (afgekapt bestand, foute header, cyclische FAT, self-referencing
-//     directory-child, sectornummer buiten bereik) die stuk voor stuk een nette `CFB:`-fout
-//     moeten geven — nooit een hang of een rauwe RangeError.
+//     directory-child, sectornummer buiten bereik, een zelf-lussende DIFAT-sector gecombineerd
+//     met een vijandig grote `numFatSectors`, en een N-niveaus-diepe duplicaat-sibling-keten) die
+//     stuk voor stuk een nette `CFB:`-fout moeten geven (of, voor de laatste twee grensgevallen,
+//     snel en veilig moeten slagen) — nooit een hang, geheugenexplosie of rauwe RangeError.
 //  2. CORPUS-GEDREVEN structuurcheck tegen echte `.mpp`-bestanden. GEEN IN-REPO FIXTURE: het
 //     corpus bestaat uit echte bedrijfsbestanden van de gebruiker die NOOIT in de repo mogen
 //     komen — zowel omdat het geen testdata is die we mogen distribueren, als omdat er zonder
@@ -251,6 +253,122 @@ expectCfbError('I2 sectornummer buiten bereik', () => {
   const elapsedMs = Date.now() - start;
   truthy(`I2 self-referencing directory-child: binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
   truthy('I2 self-referencing directory-child: geen crash buiten het CFB-contract', !threw || message.startsWith('CFB:'));
+}
+
+// ── T3-slot (herreview): DIFAT-zelflus + vijandig grote numFatSectors ────────────────────────
+// Reproduceert precies het lek dat Fix 1 dichtte: `numFatSectors` is een ongevalideerde u32 —
+// vóór Fix 1 kon `cap` in `readDifat` daardoor feitelijk ongelimiteerd zijn (`Infinity` bij een
+// grote waarde), en liep een zelf-lussende DIFAT-keten net zo lang door tot het RUIMERE mini-
+// korrel-stapbudget haar stopte. Gemeten op 20 MB geprepareerde invoer: 932 MB piekgeheugen vóór
+// de nette fout viel. Deze DIFAT-sector bevat uitsluitend FREESECT-waarden (draagt dus NOOIT bij
+// aan `difat.length`, dus de `cap`-kortsluiting alleen zou 'm niet vroegtijdig stoppen) en wijst
+// met haar "volgende DIFAT-sector"-veld naar zichzelf — puur `maxSectorSteps` (bestandsgrootte-
+// gebaseerd, NIET `numFatSectors`-gebaseerd) mag deze keten nog afkappen.
+expectCfbError('I2 DIFAT-zelflus + vijandig grote numFatSectors', () => {
+  const cyclicDifat = new Uint8Array(synthetic.bytes);
+  const view = new DataView(cyclicDifat.buffer);
+  view.setUint32(44, 0xffffffff, true); // numFatSectors: vijandig groot (ongevalideerde u32)
+  view.setUint32(68, 2, true); // firstDifatSector = sector 2 (hergebruikt; hieronder overschreven)
+  view.setUint32(72, 1, true); // numDifatSectors > 0: activeert de keten-continuatie
+  const difatSectorOff = HEADER + 2 * SECTOR;
+  for (let i = 0; i < 127; i++) view.setUint32(difatSectorOff + i * 4, 0xffffffff, true); // alles FREESECT
+  view.setUint32(difatSectorOff + 127 * 4, 2, true); // "volgende DIFAT-sector" wijst naar zichzelf
+  void new CfbFile(cyclicDifat);
+});
+
+// ── T3-slot (herreview): duplicaat-siblings (left===right, N niveaus diep) ───────────────────
+// De enige fixture die betrapt als iemand de gedeelde, iteratieve visited-set uit C1 ooit weer
+// vervangt door iets dat per aanroep/niveau opnieuw begint: bij elk niveau i verwijzen ZOWEL
+// `left` als `right` naar HETZELFDE volgende niveau (i+1). Met een correct gedeelde visited-set
+// kost dit O(levels) werk (elke id hoogstens één keer verwerkt, de duplicaat-push wordt meteen
+// overgeslagen). Zonder gedeelde dedup verdubbelt elk niveau het aantal keer dat het volgende
+// niveau opnieuw wordt opgebouwd: O(2^levels). Met levels=30 is dat het verschil tussen
+// milliseconden en >1 miljard operaties — een regressie kan deze test dus niet stilletjes
+// wegglippen, hooguit hem laten hangen (net zo'n onmiskenbaar signaal als de oorspronkelijke bug).
+const DIR_ENTRY = 128;
+
+function buildDuplicateSiblingCfb(levels: number): Uint8Array {
+  const dirSectors = Math.ceil(((levels + 1) * DIR_ENTRY) / SECTOR);
+  const totalSectors = 1 + dirSectors; // sector 0 = FAT, sectoren 1..dirSectors = directory
+  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  CFB_MAGIC.forEach((b, i) => (bytes[i] = b));
+  view.setUint16(26, 3, true);
+  view.setUint16(30, 9, true);
+  view.setUint16(32, 6, true);
+  view.setUint32(44, 1, true); // numFatSectors
+  view.setUint32(48, 1, true); // firstDirSector
+  view.setUint32(56, 4096, true); // miniStreamCutoff
+  view.setUint32(60, 0xfffffffe, true); // firstMiniFatSector: geen mini-FAT nodig in deze fixture
+  view.setUint32(64, 0, true); // numMiniFatSectors
+  view.setUint32(68, 0xfffffffe, true); // firstDifatSector = ENDOFCHAIN
+  view.setUint32(72, 0, true); // numDifatSectors
+  for (let i = 0; i < 109; i++) view.setUint32(76 + i * 4, i === 0 ? 0 : 0xffffffff, true);
+
+  const sectorOff = (n: number) => HEADER + n * SECTOR;
+
+  // Sector 0: FAT — beschrijft zichzelf (FATSECT) en de geketende directory-sectoren 1..dirSectors.
+  const fat = new Array<number>(128).fill(0xffffffff);
+  fat[0] = 0xfffffffd;
+  for (let s = 1; s <= dirSectors; s++) fat[s] = s === dirSectors ? 0xfffffffe : s + 1;
+  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
+
+  // Directory-entries liggen aaneengesloten vanaf sector 1 — dat spoort met de FAT-keten
+  // hierboven, dus een simpele stride van DIR_ENTRY bytes is hier geoorloofd.
+  const entryOffset = (idx: number) => sectorOff(1) + idx * DIR_ENTRY;
+  const writeName = (base: number, name: string) => {
+    for (let c = 0; c < name.length; c++) view.setUint16(base + c * 2, name.charCodeAt(c), true);
+    view.setUint16(base + 64, (name.length + 1) * 2, true);
+  };
+
+  // Entry 0: root — child wijst naar entry 1, het begin van de duplicaat-keten.
+  const rootBase = entryOffset(0);
+  writeName(rootBase, 'Root Entry');
+  view.setUint8(rootBase + 66, 5);
+  view.setUint32(rootBase + 68, 0xffffffff, true);
+  view.setUint32(rootBase + 72, 0xffffffff, true);
+  view.setUint32(rootBase + 76, 1, true);
+
+  // Entries 1..levels: streams (geen eigen kinderen nodig) waarvan left én right naar hetzelfde
+  // volgende niveau wijzen.
+  for (let i = 1; i <= levels; i++) {
+    const base = entryOffset(i);
+    writeName(base, `Dup${i}`);
+    view.setUint8(base + 66, 2); // type stream
+    const next = i < levels ? i + 1 : 0xffffffff;
+    view.setUint32(base + 68, next, true); // left
+    view.setUint32(base + 72, next, true); // right — zelfde id als left
+    view.setUint32(base + 76, 0xffffffff, true); // child: n.v.t. voor een stream
+    view.setUint32(base + 116, 0xfffffffe, true); // startSector: nooit gelezen in deze test
+    view.setUint32(base + 120, 0, true); // size 0
+  }
+
+  return bytes;
+}
+
+{
+  const levels = 30;
+  const dupBytes = buildDuplicateSiblingCfb(levels);
+  const start = Date.now();
+  let threw = false;
+  let dupCount = 0;
+  try {
+    const cfb = new CfbFile(dupBytes);
+    for (let i = 1; i <= levels; i++) {
+      if (cfb.root.children.get(`Dup${i}`)) dupCount++;
+    }
+  } catch {
+    threw = true;
+  }
+  const elapsedMs = Date.now() - start;
+  truthy(
+    `I2 duplicaat-siblings (${levels} niveaus, left===right): binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms) — betrapt een teruggedraaide gedeelde visited-set`,
+    elapsedMs < TIME_LIMIT_MS,
+  );
+  truthy('I2 duplicaat-siblings: constructie slaagt zonder te gooien', !threw);
+  truthy(`I2 duplicaat-siblings: alle ${levels} niveaus precies één keer in de boom`, dupCount === levels);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
