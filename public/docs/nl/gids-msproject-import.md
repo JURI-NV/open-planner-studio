@@ -64,7 +64,7 @@ brondocument (MPXJ) waarop de lezer is gebaseerd. Daarnaast:
 
 - **Geen baselines**, custom fields, outline codes, subprojecten of kostenvelden. De veldenset is
   exact wat de MSPDI-import ook levert, min baselines.
-- **Oudere `.mpp`-formaten** (MPP8/9/12 — Project 2000 t/m 2003) worden herkend maar niet gelezen:
+- **Oudere `.mpp`-formaten** (MPP8/9/12 — Project 98 t/m 2007) worden herkend maar niet gelezen:
   je krijgt een duidelijke foutmelding met de suggestie om het bestand in MS Project als XML te
   exporteren (**Bestand → Opslaan als → XML**) en dát bestand te openen.
 - **Wachtwoord-versleutelde bestanden** geven dezelfde foutmelding met dezelfde suggestie — de

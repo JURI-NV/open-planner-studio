@@ -63,7 +63,7 @@ project (MPXJ) the reader is based on. In addition:
 
 - **No baselines**, custom fields, outline codes, subprojects or cost fields. The field set is
   exactly what the MSPDI import also delivers, minus baselines.
-- **Older `.mpp` formats** (MPP8/9/12 — Project 2000 through 2003) are recognized but not read:
+- **Older `.mpp` formats** (MPP8/9/12 — Project 98 through 2007) are recognized but not read:
   you get a clear error message suggesting you export the file as XML in MS Project
   (**File → Save As → XML**) and open that file instead.
 - **Password-protected files** give the same error with the same suggestion — the contents are
