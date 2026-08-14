@@ -185,6 +185,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ACPMCHECK="$DIR/.advanced-cpm-check.mjs"
   if bundle_check "$DIR/check-advanced-cpm.ts" "$ACPMCHECK"; then node "$ACPMCHECK" || STATUS=1; fi
 
+  # Samenvattingsrelatie-propagatie (vervolg op 489a9ef2): unit-/hostile-checks voor de PURE
+  # `expandSummaryRelations`-functie (boomtopologie, cyclusvastheid, de MAX_EXPANDED_RELATIONS-klem)
+  # — los van de vier end-to-end-vormen die via de echte store lopen (cases-edge.json,
+  # "wbs-summary-relation-*") en los van de corpus-check hierboven.
+  SUMEXPCHECK="$DIR/.summary-relation-expansion.mjs"
+  if bundle_check "$DIR/check-summary-relation-expansion.ts" "$SUMEXPCHECK"; then node "$SUMEXPCHECK" || STATUS=1; fi
+
   # moveAssignment-checks (fase 2.10, golf D, item 4 — headless tegen de echte store, guards +
   # resourceIds-boekhouding, los van de CPM-cases).
   MACHECK="$DIR/.move-assignment-check.mjs"

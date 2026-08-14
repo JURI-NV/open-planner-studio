@@ -6,6 +6,7 @@
 // zichtbaar bijwerkt.
 
 import { CPMSolver } from '@/engine/scheduler/CPMSolver';
+import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
 // K-item 30: hier stond een eigen kopie van het terugschrijven, die al was gedivergeerd
 // (miste interferingFloat, isNearCritical, floatPath, de late-datum-rollup, de
 // min-over-kinderen voor tf/ff en de uur-modus). De benchmark mat daardoor niet meer wat
@@ -131,6 +132,12 @@ export async function runBenchmark({ size, version, onProgress }: RunOptions): P
   // `data.leafCount` gebruikt (audit-punt 5), zodat het gerapporteerde aantal overeenkomt met
   // wat de CPM-fase daadwerkelijk verwerkt.
   const leafTasks = data.tasks.filter((t) => t.childIds.length === 0);
+  // Samenvattingsrelatie-propagatie (zie `scheduleSlice.runCPM`): de generator maakt vandaag alleen
+  // bladtaak-naar-bladtaak relaties (`generateProject.ts`), dus dit is hier een no-op passthrough —
+  // maar de benchmark-fase moet, net als elke andere CPMSolver-aanroeper, door dezelfde poort gaan
+  // i.p.v. impliciet op die aanname te leunen. Eén keer buiten de iteratielus (pure functie van
+  // data die niet wijzigt tussen iteraties), zodat de gemeten CPM-tijd niet vervuild raakt.
+  const { sequences: expandedSequences } = expandSummaryRelations(data.tasks, data.sequences);
 
   // --- Fase 2: CPM-kern (CalendarEngine + CPMSolver, direct) -------------------
   const cpmIters = iterationsFor(size, 'cpm');
@@ -138,7 +145,7 @@ export async function runBenchmark({ size, version, onProgress }: RunOptions): P
   let lastResult: CPMResult | null = null;
   for (let i = 0; i < cpmIters; i++) {
     report('cpm', 1, i + 1, cpmIters);
-    const solver = new CPMSolver(leafTasks, data.sequences, data.calendar, [], {});
+    const solver = new CPMSolver(leafTasks, expandedSequences, data.calendar, [], {});
     const t0 = performance.now();
     lastResult = solver.solve();
     cpmSamples.push(performance.now() - t0);

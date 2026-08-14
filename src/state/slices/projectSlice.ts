@@ -11,6 +11,7 @@ import { generateId } from '@/utils/id';
 import { diffDays } from '@/utils/dateUtils';
 import { applyWbsNumbering } from '@/utils/wbs';
 import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
+import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
 import {
   computeMoveDelta, computeMoveImpact, computeHolidayGaps, shiftIso, shiftTask,
   shiftProjectDates, shiftResource, shiftBaseline,
@@ -286,9 +287,13 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
     // LET OP: `CPMSolver` schrijft in de hammock-tak op de meegegeven task-objecten terug. Beide
     // takken hieronder krijgen daarom KOPIEËN uit `shiftTask` (dat `time` altijd kloont) — nooit de
     // store-objecten zelf. Zonder die kopie zou een "preview" de store muteren.
+    // Samenvattingsrelatie-propagatie (zie `scheduleSlice.runCPM`): de WBS-boom (parentId/childIds)
+    // wijzigt niet tussen de "voor"- en "na"-solve hieronder (alleen datums schuiven), dus één
+    // expansie op `s.tasks` volstaat voor beide takken.
+    const { sequences: expandedSequences } = expandSummaryRelations(s.tasks, s.sequences);
     const solve = (tasks: Task[], dataDate: string | undefined): CPMResult => {
       const leaf = tasks.filter((t) => t.childIds.length === 0);
-      return new CPMSolver(leaf, s.sequences, s.calendar, s.calendars, {
+      return new CPMSolver(leaf, expandedSequences, s.calendar, s.calendars, {
         dataDate,
         progressMode: s.project.progressMode,
         schedulingOptions: s.project.schedulingOptions,

@@ -1250,7 +1250,7 @@
     },
     {
       "id": "wbs-relation-touches-summary-01",
-      "title": "T8-rooktest: relaties die een WBS-samenvattingstaak (P) rechtstreeks raken — X->P en P->Y — in MS Project legaal, maar de solver rekent alleen bladtaken (runCPM filtert childIds.length===0 vóór de solver). Vóór de fix crashte dit (fantoom-taak-id in de topologische sortering); nu worden de twee relaties genegeerd zonder crash of fout. X en Y zijn dus twee gewone ONGEKOPPELDE bladtaken (geen dwang van/naar P): beide es=06-01, ef=06-02 (dur 2). P/K1/K2 rekenen als een normale WBS-parallel-rollup (K1 dur3, K2 dur5): P rolt op tot es=06-01/ef=06-05, K2 (langste kind) is kritiek, projectEnd=06-05 (K2 bepaalt het, X/Y zijn korter).",
+      "title": "Vervolg op het T8-rooktest-scenario: relaties die een WBS-samenvattingstaak (P) rechtstreeks raken — X->P en P->Y — zijn in MS Project legaal, maar de solver rekent alleen bladtaken. Sinds de samenvattingsrelatie-propagatie (expandSummaryRelations) worden zulke relaties niet meer genegeerd maar herschreven naar bladtaak-relaties: X->P wordt X->K1 + X->K2 (X is nu voorganger van BEIDE kinderen), P->Y wordt K1->Y + K2->Y (Y wacht op BEIDE kinderen). Resultaat: X->{K1,K2}->Y, een diamant. K2 (dur5, het langste kind) is de kritieke tak; K1 (dur3) krijgt 2 werkdagen speling. X is kritiek (het voedt de kritieke K2 zonder speling); Y is kritiek (wacht op de kritieke K2). projectEnd=06-11 (Y.ef), projectDuration=9 werkdagen (06-01..06-11 min het weekend).",
       "tasks": [
         { "name": "X", "dur": 2 },
         { "name": "Y", "dur": 2 },
@@ -1264,15 +1264,121 @@
       ],
       "expect": {
         "tasks": {
-          "X": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 3, "crit": false },
-          "Y": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 3, "crit": false },
-          "K1": { "es": "2026-06-01", "ef": "2026-06-03", "crit": false },
-          "K2": { "es": "2026-06-01", "ef": "2026-06-05", "tf": 0, "crit": true },
-          "P": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true }
+          "X": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 0, "crit": true },
+          "K1": { "es": "2026-06-03", "ef": "2026-06-05", "tf": 2, "crit": false },
+          "K2": { "es": "2026-06-03", "ef": "2026-06-09", "tf": 0, "crit": true },
+          "Y": { "es": "2026-06-10", "ef": "2026-06-11", "tf": 0, "crit": true },
+          "P": { "es": "2026-06-03", "ef": "2026-06-09", "crit": true }
         },
-        "criticalPathSet": ["K2"],
-        "projectEnd": "2026-06-05",
-        "projectDuration": 5,
+        "criticalPathSet": ["X", "K2", "Y"],
+        "projectEnd": "2026-06-11",
+        "projectDuration": 9,
+        "error": false
+      }
+    },
+    {
+      "id": "wbs-summary-relation-pred-01",
+      "title": "Samenvattingsrelatie-propagatie, vorm 1: de samenvatting is VOORGANGER. P (K1 dur3, K2 dur5, parallel, geen relatie tussen de kinderen) -> X (dur2) via FS. expandSummaryRelations herschrijft dit naar K1->X + K2->X: X wacht op BEIDE kinderen, dus effectief op de hele tak (de CPM-max doet het werk — geen aparte 'laatste kind'-berekening nodig). K2 (het langste kind) is driving: X start pas de werkdag ná K2's finish (06-09 -> 06-08 volgt niet, want 06-06/07 is weekend: eerstvolgende werkdag na 06-05 is 06-08). K1 krijgt 2 werkdagen speling t.o.v. K2. projectEnd=06-09 (X.ef), projectDuration=7.",
+      "tasks": [
+        { "name": "P" },
+        { "name": "K1", "dur": 3, "parent": "P" },
+        { "name": "K2", "dur": 5, "parent": "P" },
+        { "name": "X", "dur": 2 }
+      ],
+      "links": [
+        { "pred": "P", "succ": "X", "type": "FINISH_START", "lag": 0 }
+      ],
+      "expect": {
+        "tasks": {
+          "K1": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 2, "crit": false },
+          "K2": { "es": "2026-06-01", "ef": "2026-06-05", "tf": 0, "crit": true },
+          "P": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true },
+          "X": { "es": "2026-06-08", "ef": "2026-06-09", "tf": 0, "crit": true }
+        },
+        "criticalPathSet": ["K2", "X"],
+        "projectEnd": "2026-06-09",
+        "projectDuration": 7,
+        "error": false
+      }
+    },
+    {
+      "id": "wbs-summary-relation-succ-01",
+      "title": "Samenvattingsrelatie-propagatie, vorm 2: de samenvatting is OPVOLGER. X (dur2) -> P (K1 dur3, K2 dur5, parallel) via FS. expandSummaryRelations herschrijft dit naar X->K1 + X->K2: BEIDE kinderen wachten op dezelfde voorganger X, onafhankelijk van elkaar. K1 en K2 starten dus tegelijk (06-03, de werkdag ná X.ef). K2 (het langste kind) heeft geen eigen opvolger meer (P is geen echte solver-knoop) en bepaalt het projecteinde; K1 krijgt 2 werkdagen speling t.o.v. dat einde. projectEnd=06-09 (K2.ef), projectDuration=7.",
+      "tasks": [
+        { "name": "X", "dur": 2 },
+        { "name": "P" },
+        { "name": "K1", "dur": 3, "parent": "P" },
+        { "name": "K2", "dur": 5, "parent": "P" }
+      ],
+      "links": [
+        { "pred": "X", "succ": "P", "type": "FINISH_START", "lag": 0 }
+      ],
+      "expect": {
+        "tasks": {
+          "X": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 0, "crit": true },
+          "K1": { "es": "2026-06-03", "ef": "2026-06-05", "tf": 2, "crit": false },
+          "K2": { "es": "2026-06-03", "ef": "2026-06-09", "tf": 0, "crit": true },
+          "P": { "es": "2026-06-03", "ef": "2026-06-09", "crit": true }
+        },
+        "criticalPathSet": ["X", "K2"],
+        "projectEnd": "2026-06-09",
+        "projectDuration": 7,
+        "error": false
+      }
+    },
+    {
+      "id": "wbs-summary-relation-both-01",
+      "title": "Samenvattingsrelatie-propagatie, vorm 3: BEIDE kanten zijn een samenvatting — kruisproduct. P1 (K1a dur3, K1b dur5, parallel) -> P2 (K2a dur2, K2b dur4, parallel) via FS. expandSummaryRelations herschrijft dit naar het volledige kruisproduct: K1a->K2a, K1a->K2b, K1b->K2a, K1b->K2b — elk kind van P2 wacht dus op BEIDE kinderen van P1. K1b (langste kind van P1) en K2b (langste kind van P2, en zonder eigen opvolger dus zelf projecteinde-bepalend) vormen de kritieke keten; K1a en K2a krijgen elk 2 werkdagen speling. projectEnd=06-11 (K2b.ef), projectDuration=9.",
+      "tasks": [
+        { "name": "P1" },
+        { "name": "K1a", "dur": 3, "parent": "P1" },
+        { "name": "K1b", "dur": 5, "parent": "P1" },
+        { "name": "P2" },
+        { "name": "K2a", "dur": 2, "parent": "P2" },
+        { "name": "K2b", "dur": 4, "parent": "P2" }
+      ],
+      "links": [
+        { "pred": "P1", "succ": "P2", "type": "FINISH_START", "lag": 0 }
+      ],
+      "expect": {
+        "tasks": {
+          "K1a": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 2, "crit": false },
+          "K1b": { "es": "2026-06-01", "ef": "2026-06-05", "tf": 0, "crit": true },
+          "P1": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true },
+          "K2a": { "es": "2026-06-08", "ef": "2026-06-09", "tf": 2, "crit": false },
+          "K2b": { "es": "2026-06-08", "ef": "2026-06-11", "tf": 0, "crit": true },
+          "P2": { "es": "2026-06-08", "ef": "2026-06-11", "crit": true }
+        },
+        "criticalPathSet": ["K1b", "K2b"],
+        "projectEnd": "2026-06-11",
+        "projectDuration": 9,
+        "error": false
+      }
+    },
+    {
+      "id": "wbs-summary-relation-nested-01",
+      "title": "Samenvattingsrelatie-propagatie, vorm 4: GENESTE samenvattingen. TOPP bevat alleen MIDP (zelf een samenvatting), MIDP bevat de echte bladkinderen G1 (dur3) en G2 (dur5). TOPP -> X (dur2) via FS: expandSummaryRelations daalt recursief door MIDP af tot de bladtaken en herschrijft dit naar G1->X + G2->X — identiek qua uitkomst aan vorm 1 (pred-01), maar nu twee WBS-niveaus diep. Bewijst dat de expansie niet stopt bij het eerste kind-niveau. G2 (langste) is driving; G1 krijgt 2 werkdagen speling. Zowel MIDP als TOPP rollen op tot dezelfde es/ef als hun kritieke afstammeling. projectEnd=06-09 (X.ef), projectDuration=7.",
+      "tasks": [
+        { "name": "TOPP" },
+        { "name": "MIDP", "parent": "TOPP" },
+        { "name": "G1", "dur": 3, "parent": "MIDP" },
+        { "name": "G2", "dur": 5, "parent": "MIDP" },
+        { "name": "X", "dur": 2 }
+      ],
+      "links": [
+        { "pred": "TOPP", "succ": "X", "type": "FINISH_START", "lag": 0 }
+      ],
+      "expect": {
+        "tasks": {
+          "G1": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 2, "crit": false },
+          "G2": { "es": "2026-06-01", "ef": "2026-06-05", "tf": 0, "crit": true },
+          "MIDP": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true },
+          "TOPP": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true },
+          "X": { "es": "2026-06-08", "ef": "2026-06-09", "tf": 0, "crit": true }
+        },
+        "criticalPathSet": ["G2", "X"],
+        "projectEnd": "2026-06-09",
+        "projectDuration": 7,
         "error": false
       }
     },

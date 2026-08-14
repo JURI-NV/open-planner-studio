@@ -21,6 +21,7 @@ import type { WorkCalendar } from '@/types/calendar';
 import type { ProgressMode, SchedulingOptions } from '@/types/project';
 import { CPMSolver, type CPMResult } from './CPMSolver';
 import { applyCpmResult } from './applyCpmResult';
+import { expandSummaryRelations } from './expandSummaryRelations';
 
 /** Invoer van één doorrekening — plain data, geen store. */
 export interface SolveProjectInput {
@@ -56,7 +57,13 @@ export function solveProject(input: SolveProjectInput): CPMResult {
   // Per-taak-kalender (fase 2.8a, §5.1): de solver krijgt de projectdefault + de bibliotheek en
   // bouwt zelf een engine-cache; taken zonder eigen calendarId rekenen in de projectkalender.
   const leafTasks = input.tasks.filter(t => t.childIds.length === 0);
-  const solver = new CPMSolver(leafTasks, input.sequences, input.calendar, input.calendars, {
+  // Samenvattingsrelatie-propagatie (MS Project-semantiek): relaties die een WBS-samenvattingstaak
+  // raken worden herschreven naar equivalente bladtaak-relaties vóórdat de solver ze ziet — de
+  // solver kent alleen bladtaken. Dit hoort in de kern (niet in `runCPM`), zodat óók het
+  // bezettingsoverzicht (B1b §4.3b) en elke andere afnemer dezelfde semantiek krijgen.
+  const { sequences: expandedSequences, droppedSequenceIds: expansionDropped } =
+    expandSummaryRelations(input.tasks, input.sequences);
+  const solver = new CPMSolver(leafTasks, expandedSequences, input.calendar, input.calendars, {
     dataDate: input.dataDate,
     progressMode: input.progressMode,
     // Fase 2.9 golf 0: project-scoped reken-opties doorgeven. De solver leest ze nog nergens
@@ -64,6 +71,11 @@ export function solveProject(input: SolveProjectInput): CPMResult {
     schedulingOptions: input.schedulingOptions,
   });
   const result = solver.solve();
+  // Relaties die de expansie zelf niet kon representeren (lege/kapotte tak, of de
+  // MAX_EXPANDED_RELATIONS-klem) horen in hetzelfde kanaal als de solver-eigen guard.
+  if (expansionDropped.length > 0) {
+    result.droppedSequenceIds = [...(result.droppedSequenceIds ?? []), ...expansionDropped];
+  }
 
   // Cyclus gedetecteerd: resultaat (met fout) teruggeven en niets terugschrijven.
   if (result.error) return result;
