@@ -1227,6 +1227,10 @@ function extractResourceMeta(
           res.costPerHour = value;
         } else if (name === 'UnitOfMeasure' && typeof value === 'string') {
           res.unitOfMeasure = value;
+        } else if (name === 'Color' && typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value)) {
+          // #21: weergavekleur — alleen een geldige #rrggbb-hex accepteren (hostiele/mistorde
+          // invoer valt stil terug op "geen kleur" i.p.v. rommel in de kleurmodi te krijgen).
+          res.color = value;
         } else if (name === 'AvailabilitySteps' && typeof value === 'string') {
           const steps: AvailabilityStep[] = value
             .split(';')

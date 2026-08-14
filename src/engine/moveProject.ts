@@ -151,6 +151,7 @@ const RESOURCE_VERDICTS = {
   availability: 'n/a', maxUnits: 'n/a', calendarId: 'n/a',
   availabilitySteps: 'shift',     // .from schuift: effective-dated capaciteit is PROJECT-planning
   unitOfMeasure: 'n/a', parentId: 'n/a',
+  color: 'n/a',                   // #21: weergavekleur — geen datum, verschuift niet mee
   libraryOrigin: 'n/a',           // B1: herkomststempel-metadata, geen planningsdatum
 } satisfies Record<keyof Resource, MoveVerdict>;
 

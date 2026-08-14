@@ -975,6 +975,13 @@ function writeResourceMeta(ctx: WriteContext, resources: Resource[], ownerHistId
         `IFCPROPERTYSINGLEVALUE('UnitOfMeasure',$,IFCLABEL(${ifcStr(res.unitOfMeasure)}),$)`);
       props.push(`#${id}`);
     }
+    if (res.color) {
+      // #21: weergavekleur (hex) voor de resource-kleurmodi in de rapportexport. Presentatie, geen
+      // planningsdata — reist mee in het project-IFC zodat de export op elke machine gelijk kleurt.
+      const id = addLine(ctx, `_rescol_${res.id}`,
+        `IFCPROPERTYSINGLEVALUE('Color',$,IFCTEXT(${ifcStr(res.color)}),$)`);
+      props.push(`#${id}`);
+    }
     if (res.availabilitySteps && res.availabilitySteps.length > 0) {
       // Compacte encoding "from:maxUnits;from:maxUnits", chronologisch (B8).
       const encoded = [...res.availabilitySteps]

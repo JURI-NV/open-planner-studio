@@ -321,7 +321,7 @@ const RMember = {
   costPerHour: 42.5, availability: 0.9, // availability: (b) deprecated gap
   maxUnits: 3, calendarId: 'libcal',
   availabilitySteps: [{ from: '2026-07-06', maxUnits: 3 }, { from: '2026-07-20', maxUnits: 2 }],
-  unitOfMeasure: 'uur', parentId: 'r-crew',
+  unitOfMeasure: 'uur', parentId: 'r-crew', color: '#0EA5E9',
   libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-res1', poolVersion: 4 },
 } satisfies Required<Resource>;
 const REquip: Resource = { id: 'r-eq', name: 'Torenkraan', type: 'EQUIPMENT', description: 'Liebherr 200', maxUnits: 2 };
@@ -572,6 +572,7 @@ const RESOURCE_CANON = {
   calendarId: { as: 'calendar', get: (r: Resource, k: Keys) => k.cal(r.calendarId) },
   availabilitySteps: KEEP, unitOfMeasure: KEEP,
   parentId: { as: 'parent', get: (r: Resource, k: Keys) => (r.parentId ? k.res(r.parentId) : undefined) },
+  color: KEEP,           // #21: weergavekleur round-trippt via de OPS_Resource-pset (IFCTEXT Color)
   libraryOrigin: KEEP,   // B1.1: herkomststempel round-trippt via OPS_LibraryOrigin
 } satisfies CanonSpec<Resource>;
 
