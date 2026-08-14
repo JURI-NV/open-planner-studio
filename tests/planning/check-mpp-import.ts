@@ -828,40 +828,59 @@ if (!corpusPresent) {
 // 215. `installDOMParser` (xmldom-shim) geeft `readMSPDI` een browser-`DOMParser`-vervanger in
 // Node — hetzelfde patroon als `check-mspdi-baseline-export.ts`.
 //
-// BEVINDING (2026-08-14, corpus-onderzoek voor deze taak): een strikte POSITIONELE vergelijking
-// ("taak i in de .mpp-volgorde ⇔ taak i in de MSPDI-volgorde", zoals de letterlijke taaktekst
-// voorschrijft) is voor dit corpus NIET haalbaar — niet door een bug in deze lezer, maar door een
-// data-kwaliteitsissue IN de bronbestanden zelf. Geverifieerd op "Bijlage 13": de taak "Productie
-// driepuntsophanging" heeft een `TaskField.PARENT_TASK_UNIQUE_ID`-veld dat naar "Productie" wijst
-// (consistent met de rest van de "Productie X"/"Lassen X"-taken), terwijl de WBS/documentvolgorde
-// in de MSPDI-ground-truth 'm onder "Leveranciers" plaatst (WBS 1.1.2, vroeg in het document) —
-// twee TEGENSTRIJDIGE signalen BINNEN hetzelfde .mpp-bestand. Dat is precies het veld dat MPXJ's
-// eigen `MPP14Reader` ook gebruikt (`m_parentTasks.put(uid, PARENT_TASK_UNIQUE_ID)`), dus zelfs de
-// referentie-implementatie zou hier hetzelfde "verkeerde" antwoord geven: de taak is vermoedelijk
-// verplaatst in de MS Project-UI zonder dat het gecachete PARENT_TASK_UNIQUE_ID-veld (en daarmee
-// samenhangend, SCHEDULED_START/FINISH — een verschoven taak triggert een herberekening die de
-// live XML-export WEL en de gecachete FixedData-velden NIET altijd weerspiegelen) in de FixedData
-// is bijgewerkt bij het laatste opslaan — een MS-Project-eigen staleness, geen leesfout hier.
+// BEVINDING, GECORRIGEERD (T5-spec-review, 2026-08-14): een strikte POSITIONELE vergelijking
+// ("taak i in de .mpp-volgorde ⇔ taak i in de MSPDI-volgorde") is voor dit corpus NIET haalbaar —
+// niet door een bug in deze lezer. Een eerdere versie van deze sectie weet dat aan "staleness" van
+// `PARENT_TASK_UNIQUE_ID`/`SCHEDULED_START` binnen de `.mpp`'s zelf; die diagnose is WEERLEGD door
+// een byte-voor-byte hermeting: `PARENT_TASK_UNIQUE_ID` is in alle drie `.mpp`'s 100% consistent
+// met de outline-level-stack (0 verschillen op 51/134/215 taken — geen enkele interne
+// tegenstrijdigheid), en MPXJ gebruikt dat veld voor de hiërarchie ÜBERHAUPT NIET
+// (`MPP14Reader.processTaskData` vult `m_parentTasks`, maar `ProjectFile.updateStructure()` leest
+// die map nooit terug — de boom komt daar simpelweg uit de taken GESORTEERD OP ID plus het
+// outline-level, exact wat `mppReader.ts` doet; zie de moduleheader daar voor het volledige
+// verhaal).
+//
+// De WERKELIJKE oorzaak: de drie `.mpp.xml`-ground-truths zijn een ANDERE DOCUMENTVERSIE dan de
+// bijbehorende `.mpp`'s, geen export van precies dezelfde staat. Bewijs: alle drie XML's hebben
+// compact herNUMMERDE UID==ID 1..N (een echte export van dezelfde live state behoudt bestaande
+// unique-ID's — die zijn na jaren editen nooit toevallig weer 1..N op een rij); 27 van de 51
+// `.mpp`-unique-ID's in Bijlage 13 komen zelfs helemaal niet voor in die XML-reeks; taken zijn
+// verplaatst (een cut/paste-handtekening, geen enkel-veld-drift); en de projectstartdatum van
+// bijlage 7 verschilt ronduit tussen de twee bestanden (`.mpp` 2025-12-19 vs. `.mpp.xml`
+// 2025-12-08). Dat is een brongegeven van dít corpus — geen enkele lezer, MPXJ incluis, kan een
+// document tegen een andere revisie van zichzelf 1-op-1 positioneel matchen.
+//
+// ⚠️ T7-WAARSCHUWING: om dezelfde reden zijn de link-/resource-/assignmentaantallen in de
+// MSPDI-ground-truth (104/111/225 links, 9/7/5 resources, 51/146/221 assignments — zie het plan)
+// NIET gezaghebbend voor wat T7 uit de `.mpp`'s zelf hoort te lezen. Een ruwe TBkndCons-scan
+// (FixedMeta.getAdjustedItemCount(), vóór filtering) geeft bijvoorbeeld 115/134/252 linkrecords —
+// een heel ander beeld. T7 moet net als hier naam-/sleutel-gematchte vergelijkingen + gemeten
+// basislijnen gebruiken, nooit een harde eis dat het `.mpp`-aantal het XML-aantal evenaart.
 //
 // Deze check matcht taken daarom op NAAM (FIFO per naam, getrimd — zie de toelichting bij
 // `xmlByName` hieronder) i.p.v. op volgorde-index — dat isoleert de vergelijking van de niet-
-// beïnvloedbare document-volgorde-afwijking. Taakaantal + naam-matchpercentage zijn de HARDE
-// poorten (volgorde-onafhankelijk, en in de praktijk 100% haalbaar — corpus-geverifieerd op alle
-// drie bestanden). Velden die de staleness hierboven rechtstreeks raakt (start/finish/duur/
-// outline-diepte/constraintdatum) zijn NIET blind hard gemaakt: waar MPXJ zélf hetzelfde
-// "verkeerde" antwoord zou geven, is een harde 0-diffs-eis geen zinvolle regressiepoort. Ze lopen
-// als BUDGET-poort mee (aantal afwijkingen mag de geobserveerde basislijn niet overschrijden — een
-// regressie die dat aantal laat groeien, faalt dus wél) plus volledige diagnostische logging.
-// Milestone/constrainttype/deadline/completion zijn in de praktijk WEL 100% stabiel gebleken
-// (0 afwijkingen over alle 400 taken heen) en blijven daarom harde asserts.
+// beïnvloedbare documentversie-afwijking. Taakaantal + naam-matchpercentage zijn de HARDE poorten
+// (versie-onafhankelijk, en in de praktijk 100% haalbaar — corpus-geverifieerd op alle drie
+// bestanden). Velden die het versieverschil rechtstreeks raakt (start/finish/duur/outline-diepte/
+// constraintdatum) zijn NIET blind hard gemaakt: een harde 0-diffs-eis zou hier een documentversie-
+// verschil bestraffen, geen regressie in deze lezer. Ze lopen PER VELDSOORT als BUDGET-poort mee
+// (elke soort z'n eigen, exact gemeten basislijn — een regressie die één van die tellingen laat
+// groeien faalt dus wél) plus volledige diagnostische logging. Milestone/constrainttype/deadline/
+// completion zijn in de praktijk WEL 100% stabiel gebleken (0 afwijkingen over alle 400 taken
+// heen) en blijven daarom harde asserts; WBS krijgt een VORM-check (zie `wbsCode`-assert
+// hieronder) — géén ground-truth-gelijkheid, want de gegenereerde outline-nummering volgt per
+// definitie de `.mpp`-documentstructuur, niet de andere revisie in de XML.
 //
-// Duur: MSPDI-ground-truth kan bovendien URE-MODUS zijn (fractionele dagduren, tijd-component in
-// Finish) wanneer de projectkalender substantiële afwijkingen van "hele werkdagen" signaleert
-// (`mspdiReader`'s `promoteHourCalendar`) — corpus-geverifieerd voor Bijlage 20 en bijlage 7 (bv.
-// "6.40625" dagen). Deze lezer werkt in etappe 1 UITSLUITEND in dag-modus (taakopdracht T5: "Datums
-// dag-modus"), dus de duurvergelijking rondt de ground-truth-waarde af op hele dagen vóór
-// vergelijken; dat verklaart een deel van het budget hieronder (uur-modus is buiten scope voor
-// etappe 1, genoteerd als vervolgpunt in het T5-rapport).
+// Basislijn-samenstelling (2026-08-14, dit corpus, deze code — gemeten, niet geschat): 321 van de
+// 357 veldafwijkingen (≈90%) zijn start/finish-dagprefixverschillen, rechtstreeks toe te schrijven
+// aan het documentversieverschil hierboven (verplaatste taken/andere projectstart) — GEEN
+// uur-modus-artefact. Het duur-budget (22) is gemengd: een deel volgt uit datzelfde
+// versieverschil, een deel uit het feit dat de MSPDI-ground-truth voor Bijlage 20/bijlage 7
+// stellenwijs URE-MODUS is (fractionele dagduren, tijd-component in Finish — `mspdiReader`'s
+// `promoteHourCalendar`, bv. "6.40625" dagen) terwijl deze lezer in etappe 1 uitsluitend
+// DAG-modus kent (taakopdracht T5, expliciet) — de duurvergelijking rondt daarom af op hele dagen
+// vóór vergelijken. Outline-diepte (12) en constraintdatum (2) volgen ook uit het versieverschil
+// (verplaatste taken krijgen een andere boomdiepte/constraint-context in de andere revisie).
 if (corpusPresent) {
   installDOMParser();
   const EXPECTED_TASK_COUNTS: Record<string, number> = {
@@ -869,16 +888,32 @@ if (corpusPresent) {
     'Bijlage 20 productieplanning PKB.mpp': 134,
     'bijlage 7 Productie planning.mpp': 215,
   };
-  // Basislijn (2026-08-14, dit corpus, deze code): het EXACTE aantal veldafwijkingen onder
-  // gematchte taken (start/finish/duur/outline-diepte/constraintdatum samen), veroorzaakt door de
-  // hierboven toegelichte staleness + het uur-modus-verschil. Een regressie die dit aantal laat
-  // groeien, faalt de poort; een toekomstige verbetering (bv. uur-modus-ondersteuning) mag het
-  // laten dalen zonder dat de poort meeverandert (`<=`).
-  const FIELD_DIFF_BUDGET: Record<string, number> = {
-    'Bijlage 13 Productieplanning.mpp': 34,
-    'Bijlage 20 productieplanning PKB.mpp': 200,
-    'bijlage 7 Productie planning.mpp': 123,
+
+  interface FieldDiffBudget {
+    start: number;
+    finish: number;
+    duration: number;
+    outlineDepth: number;
+    constraintDate: number;
+  }
+  /** Basislijn PER VELDSOORT (T5-spec-review, punt 2 — vervangt de eerdere per-bestand-som): het
+   *  EXACTE aantal gemeten afwijkingen van dat type, veroorzaakt door het documentversieverschil
+   *  hierboven (+ het uur-modus-gat voor duur). Een regressie die één van deze tellingen laat
+   *  groeien, faalt de poort voor precies dát veld; een toekomstige verbetering (bv. uur-modus-
+   *  ondersteuning voor MPP) mag een telling laten dalen zonder dat de poort meeverandert (`<=`
+   *  per veldsoort, niet één gezamenlijke som die een regressie in het ene veld door ruimte in het
+   *  andere kan laten wegvallen). */
+  const FIELD_DIFF_BUDGET: Record<string, FieldDiffBudget> = {
+    'Bijlage 13 Productieplanning.mpp': { start: 12, finish: 12, duration: 5, outlineDepth: 5, constraintDate: 0 },
+    'Bijlage 20 productieplanning PKB.mpp': { start: 95, finish: 96, duration: 7, outlineDepth: 2, constraintDate: 0 },
+    'bijlage 7 Productie planning.mpp': { start: 53, finish: 53, duration: 10, outlineDepth: 5, constraintDate: 2 },
   };
+
+  /** Vorm-check voor een outline-genereerde WBS-code ("1", "1.2", "1.2.3", …) — zie de toelichting
+   *  bij `wbsCode`-generatie in `mppReader.ts`. Géén ground-truth-vergelijking (zie moduleheader):
+   *  dit verifieert alleen dat de gegenereerde vorm klopt en zelf-consistent is met de
+   *  outline-diepte, niet dat 'm letterlijk gelijk is aan de XML's (andere documentrevisie). */
+  const WBS_SHAPE = /^\d+(\.\d+)*$/;
 
   function outlineDepth(byId: Map<string, Task>, task: Task): number {
     let depth = 1;
@@ -948,7 +983,7 @@ if (corpusPresent) {
     }
 
     let matched = 0;
-    let fieldDiffCount = 0;
+    const fieldDiffCount: FieldDiffBudget = { start: 0, finish: 0, duration: 0, outlineDepth: 0, constraintDate: 0 };
     const fieldDiagnostics: string[] = [];
     for (const mppTask of mppTasks) {
       const queue = xmlByName.get(mppTask.name.trim());
@@ -961,19 +996,20 @@ if (corpusPresent) {
       matched++;
       const label = `"${mppTask.name}"`;
 
-      // Budget-gedekt (staleness/uur-modus, zie moduleheader) — GEEN harde `truthy`: geteld in
-      // `fieldDiffCount` en volledig gelogd in `fieldDiagnostics`, niet in `diffs`.
-      const softChecks: [string, boolean][] = [
-        ['start (dag-prefix)', mppTask.time.scheduleStart.slice(0, 10) === xmlTask.time.scheduleStart.slice(0, 10)],
-        ['finish (dag-prefix)', mppTask.time.scheduleFinish.slice(0, 10) === xmlTask.time.scheduleFinish.slice(0, 10)],
+      // Budget-gedekt PER VELDSOORT (documentversieverschil/uur-modus-gat, zie moduleheader) —
+      // GEEN harde `truthy`: geteld in `fieldDiffCount` (per soort) en volledig gelogd in
+      // `fieldDiagnostics`, niet in `diffs`.
+      const softChecks: [keyof FieldDiffBudget, string, boolean][] = [
+        ['start', 'start (dag-prefix)', mppTask.time.scheduleStart.slice(0, 10) === xmlTask.time.scheduleStart.slice(0, 10)],
+        ['finish', 'finish (dag-prefix)', mppTask.time.scheduleFinish.slice(0, 10) === xmlTask.time.scheduleFinish.slice(0, 10)],
         // Ground-truth-duur kan fractioneel zijn (uur-modus) — dag-modus vergelijkt afgerond.
-        ['duur in dagen', mppTask.time.scheduleDuration === Math.round(xmlTask.time.scheduleDuration)],
-        ['outline-diepte', outlineDepth(mppById, mppTask) === outlineDepth(xmlById, xmlTask)],
+        ['duration', 'duur in dagen', mppTask.time.scheduleDuration === Math.round(xmlTask.time.scheduleDuration)],
+        ['outlineDepth', 'outline-diepte', outlineDepth(mppById, mppTask) === outlineDepth(xmlById, xmlTask)],
       ];
       checks += softChecks.length;
-      for (const [fieldLabel, ok] of softChecks) {
+      for (const [category, fieldLabel, ok] of softChecks) {
         if (!ok) {
-          fieldDiffCount++;
+          fieldDiffCount[category]++;
           fieldDiagnostics.push(`${label}: ${fieldLabel}`);
         }
       }
@@ -984,7 +1020,7 @@ if (corpusPresent) {
         checks++;
         const ok = (mppTask.constraint?.date?.slice(0, 10) ?? '') === (xmlTask.constraint?.date?.slice(0, 10) ?? '');
         if (!ok) {
-          fieldDiffCount++;
+          fieldDiffCount.constraintDate++;
           fieldDiagnostics.push(`${label}: constraintdatum (dag-prefix)`);
         }
       }
@@ -996,6 +1032,14 @@ if (corpusPresent) {
         `[T5 ${file}] ${label}: deadline (dag-prefix)`,
         (mppTask.deadline?.slice(0, 10) ?? '') === (xmlTask.deadline?.slice(0, 10) ?? ''),
       );
+      // WBS: VORM-check + zelf-consistentie met outline-diepte (géén ground-truth-gelijkheid —
+      // zie moduleheader). Hard: dit hangt niet af van welke documentrevisie, alleen van of
+      // `mppReader.ts`'s outline-nummering intern klopt.
+      truthy(`[T5 ${file}] ${label}: wbsCode heeft de vorm "1" / "1.2" / "1.2.3.4"`, WBS_SHAPE.test(mppTask.wbsCode));
+      truthy(
+        `[T5 ${file}] ${label}: wbsCode-segmentaantal === outline-diepte`,
+        mppTask.wbsCode.split('.').length === outlineDepth(mppById, mppTask),
+      );
       // Completion in hele procenten vergelijken — voorkomt drijvende-kommaruis (0.5 vs 0.4999…9).
       truthy(
         `[T5 ${file}] ${label}: completion`,
@@ -1004,12 +1048,24 @@ if (corpusPresent) {
     }
 
     truthy(`[T5 ${file}] alle taken op naam gematcht met de ground truth (${matched}/${mppTasks.length})`, matched === mppTasks.length);
-    const budget = FIELD_DIFF_BUDGET[file] ?? 0;
-    truthy(
-      `[T5 ${file}] veldafwijkingen binnen bekende basislijn (${fieldDiffCount}/${budget}, staleness/uur-modus — zie moduleheader)`,
-      fieldDiffCount <= budget,
-    );
-    console.log(`   . [T5 ${file}] ${matched}/${mppTasks.length} taken op naam gematcht; ${fieldDiffCount} bekende veldafwijking(en) (budget ${budget}):`);
+
+    const budget: FieldDiffBudget = FIELD_DIFF_BUDGET[file] ?? { start: 0, finish: 0, duration: 0, outlineDepth: 0, constraintDate: 0 };
+    const budgetLabels: [keyof FieldDiffBudget, string][] = [
+      ['start', 'start (dag-prefix)'],
+      ['finish', 'finish (dag-prefix)'],
+      ['duration', 'duur in dagen'],
+      ['outlineDepth', 'outline-diepte'],
+      ['constraintDate', 'constraintdatum (dag-prefix)'],
+    ];
+    for (const [category, categoryLabel] of budgetLabels) {
+      truthy(
+        `[T5 ${file}] veldafwijkingen "${categoryLabel}" binnen bekende basislijn (${fieldDiffCount[category]}/${budget[category]}, documentversieverschil — zie moduleheader)`,
+        fieldDiffCount[category] <= budget[category],
+      );
+    }
+
+    const totalFieldDiffs = fieldDiffCount.start + fieldDiffCount.finish + fieldDiffCount.duration + fieldDiffCount.outlineDepth + fieldDiffCount.constraintDate;
+    console.log(`   . [T5 ${file}] ${matched}/${mppTasks.length} taken op naam gematcht; ${totalFieldDiffs} bekende veldafwijking(en) — start=${fieldDiffCount.start}/${budget.start} finish=${fieldDiffCount.finish}/${budget.finish} duur=${fieldDiffCount.duration}/${budget.duration} outline-diepte=${fieldDiffCount.outlineDepth}/${budget.outlineDepth} constraintdatum=${fieldDiffCount.constraintDate}/${budget.constraintDate}:`);
     for (const d of fieldDiagnostics) console.log(`      · ${d}`);
   }
 }

@@ -16,26 +16,51 @@
  * progress-normalisatie (`normalizeImportedProgress`). Alles blijft DAG-modus (geen uur-modus
  * voor MPP in etappe 1 — de plan-tekst noemt dat expliciet).
  *
- * Twee dingen die MPXJ WEL doet en deze module BEWUST anders/eenvoudiger doet (corpus-
- * geverifieerd, gedocumenteerd i.p.v. stilzwijgend genegeerd):
- *  - Hiërarchie/parentId komt hier uit een OUTLINE-LEVEL-STACK over de taken in ID-volgorde
- *    (zoals de tekst van deze taak voorschrijft), niet uit `TaskField.PARENT_TASK_UNIQUE_ID`
- *    (dat MPXJ wél gebruikt). Corpusbevinding (zie `tests/planning/check-mpp-import.ts`'s T5-
- *    sectie voor het volledige verhaal): in ÉÉN van de drie ground-truth-bestanden draagt een
- *    handvol taken een PARENT_TASK_UNIQUE_ID die niet meer overeenkomt met hun huidige
- *    WBS-/documentpositie (MS-Project-eigen staleness na een verplaatsing, niet iets deze lezer
- *    kan detecteren of corrigeren) — zelfs MPXJ's eigen algoritme zou daar hetzelfde "verkeerde"
- *    antwoord geven. Outline-level-stack is voor de OVERGROTE meerderheid van taken (alle drie
- *    bestanden: 100% naam-matchbaar met de MSPDI-ground-truth) exact gelijk aan wat
- *    PARENT_TASK_UNIQUE_ID zou geven, dus geen kwaliteitsverlies t.o.v. dat veld — alleen geen
- *    wondermiddel voor bestanden met deze specifieke, zeldzame staleness.
- *  - `task.getStart()`/`getFinish()` in MPP14Reader kan, voor HANDMATIG-geplande taken, afwijken
- *    van `SCHEDULED_START`/`SCHEDULED_FINISH` (het veld dat déze lezer gebruikt) — MPXJ leest
- *    beide (`TaskField.START` op een apart veld-id, 1283/1284) en kiest per taak op basis van
- *    de taakmodus (auto/handmatig, een boolean die zelf weer in Fixed2Meta zit — buiten T5's
- *    veldenlijst). Voor auto-geplande taken (de meerderheid in normale bestanden) is
- *    SCHEDULED_START/-FINISH exact de datum die ook in de UI staat, dus dit is een bewuste,
- *    beperkte vereenvoudiging — zie het T5-rapport voor de risico-inschatting.
+ * HIËRARCHIE/parentId — CORRECTIE (T5-spec-review, 2026-08-14): een eerdere versie van dit
+ * bestand beweerde dat deze lezer hier bewust van MPXJ afweek door `TaskField.PARENT_TASK_
+ * UNIQUE_ID` te negeren ten faveure van een outline-level-stack, en verklaarde de vergelijkings-
+ * afwijkingen tegen de ground truth als "staleness" van dat veld. Beide beweringen zijn WEERLEGD
+ * door een byte-voor-byte hermeting: `PARENT_TASK_UNIQUE_ID` is in alle drie corpusbestanden
+ * 100% consistent met de outline-level-stack (0 verschillen op 51/134/215 taken — geen enkele
+ * interne tegenstrijdigheid). Belangrijker: MPXJ's `MPP14Reader.processTaskData` vult
+ * `m_parentTasks` wél (`m_parentTasks.put(task.getUniqueID(), PARENT_TASK_UNIQUE_ID)`), maar
+ * leest die map NERGENS terug voor de hiërarchie — `ProjectFile.updateStructure()` (aangeroepen
+ * door `MPPReader.read()` ná alle per-variant-lezers) bouwt de boom uit de taken GESORTEERD OP
+ * ID, met het outline-level als enige dieptesignaal. Dat is EXACT wat deze lezer doet: de
+ * outline-level-stack hieronder is dus geen vereenvoudiging t.o.v. MPXJ, maar de letterlijke
+ * poort van hoe MPXJ het zelf doet.
+ *
+ * De WERKELIJKE oorzaak van de vergelijkingsafwijkingen tegen de MSPDI-ground-truth (zie de
+ * T5-sectie van `tests/planning/check-mpp-import.ts` voor de volledige onderbouwing): de drie
+ * `.mpp.xml`-bestanden zijn een ANDERE DOCUMENTVERSIE/-revisie dan de bijbehorende `.mpp`'s, geen
+ * export van exact dezelfde staat. Signalen: alle drie XML's hebben compact herNUMMERDE UID==ID
+ * 1..N (een echte MSPDI-export van dezelfde live state behoudt de bestaande unique-ID's, die zijn
+ * na jaren editen nooit toevallig weer 1..N op een rij) — 27 van de 51 `.mpp`-unique-ID's in
+ * bijlage 13 komen zelfs helemaal niet voor in die getallenreeks; taken zijn verplaatst (een
+ * cut/paste-handtekening, niet een los "vergeten te herberekenen"-veld); en de projectstartdatum
+ * van bijlage 7 verschilt ronduit tussen de twee bestanden (`.mpp` 2025-12-19 vs. `.mpp.xml`
+ * 2025-12-08). Dat is een brongegeven van het corpus, niet iets een lezer kan overbruggen — zie de
+ * per-veld-budgetten in `check-mpp-import.ts` voor de gemeten omvang per bestand.
+ *
+ * `task.getStart()`/`getFinish()` in MPP14Reader kan, voor HANDMATIG-geplande taken, afwijken van
+ * `SCHEDULED_START`/`SCHEDULED_FINISH` (het veld dat déze lezer gebruikt) — MPXJ leest beide
+ * (`TaskField.START` op een apart veld-id, 1283/1284) en kiest per taak op basis van de taakmodus
+ * (auto/handmatig, een boolean die zelf weer in Fixed2Meta zit — buiten T5's veldenlijst). Voor
+ * auto-geplande taken (de meerderheid in normale bestanden) is SCHEDULED_START/-FINISH exact de
+ * datum die ook in de UI staat, dus dit blijft een bewuste, beperkte vereenvoudiging.
+ *
+ * Twee VERDER niet-geporte MPXJ-kwaliteitsfilters (T5-spec-review, 4c) — bewuste, gedocumenteerde
+ * vereenvoudiging, geen bug: MPP14Reader's `createTaskMap` accepteert een taakrecord alleen als
+ * (a) het bijbehorende `Fixed2Data`-record (via een heuristisch-gedimensioneerde `Fixed2Meta`,
+ * kandidaten 92–96 bytes) ook niet-`null` is, én (b) de FixedData-recordlengte minstens 75% van
+ * `fieldMap.getMaxFixedDataSize(0)` beslaat (het werkelijke maximale offset+grootte over ALLE
+ * ~100 taakvelden in het bestand, niet alleen T5's kleine subset — dat maximum is met de huidige
+ * veldenlijst niet betrouwbaar te berekenen). Deze lezer laat beide filters weg: de eenvoudiger
+ * validatie (verwijderd-vlag + null-taak-grootte + spooktaak-check via VarMeta, zie
+ * `collectValidTaskIndices`) haalt al taakaantal-pariteit (51/134/215) op alle drie ground-truth-
+ * bestanden. Mocht een bredere corpuslezing (T9's crawl-smoke, 49 bestanden zonder ground truth)
+ * ooit een telling laten afwijken, dan is dát het signaal om `Fixed2Data`/`getMaxFixedDataSize`
+ * alsnog te porten — tot dan is dit een bewust uitgestelde uitbreiding, geen gat.
  */
 import type { Project } from '@/types/project';
 import type { Task, TaskConstraint } from '@/types/task';
@@ -76,10 +101,17 @@ const FIRST_TASK_INDEX = 3;
  *  nodig (de rest van die tabellen — FLAG1..20, MARKED, ROLLUP, … — valt buiten T5's veldenlijst).
  *  Project 2013 en 2016+ delen dezelfde milestone-offset/-mask (alleen andere, voor ons
  *  irrelevante velden verschillen tussen die twee), dus twee gevallen volstaan: ≤2010 vs. 2013+.
- *  Onbekende/ontbrekende versie (`detectApplicationVersion` gaf `null`) valt terug op de
- *  modernste tabel — corpus-geverifieerd (alle drie bestanden: "Microsoft.Project 16.0"). */
+ *  ONBEKENDE versie (`detectApplicationVersion` gaf `null`) valt terug op de 2010-TABEL, niet de
+ *  moderne (T5-spec-review, 4a — correctie t.o.v. een eerdere versie die hier de moderne tabel
+ *  koos): MPXJ leest de versie via `NumberHelper.getInt(m_file.getProjectProperties().
+ *  getApplicationVersion())`, en `NumberHelper.getInt(null)` levert `0` — `0 <= PROJECT_2010 (14)`
+ *  is dus waar, en MPXJ valt zelf terug op de 2010-tabel, niet op 2013+. Corpus-geverifieerd
+ *  levert alle drie bestanden altijd een echte versie op ("Microsoft.Project 16.0"), dus dit pad
+ *  raakt het corpus niet — het is puur voor MPXJ-trouw bij een onherkenbare/afwezige versiestring
+ *  in een ander bestand. */
 function milestoneBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
-  return applicationVersion !== null && applicationVersion <= 14
+  const version = applicationVersion ?? 0; // MPXJ: NumberHelper.getInt(null) === 0
+  return version <= 14
     ? { offset: 8, mask: 0x20 } // PROJECT2010_TASK_META_DATA_BIT_FLAGS
     : { offset: 10, mask: 0x02 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA_BIT_FLAGS
 }
@@ -88,6 +120,10 @@ interface RawTaskRecord {
   uniqueId: number;
   id: number;
   outlineLevel: number;
+  /** Expliciet door de gebruiker ingevoerde WBS-tekst, `null` als afwezig (het gebruikelijke
+   *  geval, zie de toelichting bij `storedWbs` hierboven) — de outline-level-stack hieronder
+   *  genereert dan zelf een WBS-code, net als MPXJ's `updateStructure()`. */
+  storedWbs: string | null;
   task: Task;
 }
 
@@ -116,7 +152,14 @@ function collectValidTaskIndices(fixedMeta: FixedMeta, fixedData: FixedData, var
       if (data.length >= 2) deletedIds.add(getShort(data, 0, 'TBkndTask/FixedData deleted-uid'));
       continue;
     }
-    if (data.length === NULL_TASK_BLOCK_SIZE) continue; // null-taak-plaatshouder
+    // Null-taak-plaatshouder: MPXJ VOEGT deze wél toe aan `m_file` (`task.setNull(true)`, met de
+    // ID/unique-ID uit de 16 bytes) — puur om ID-CONTINUÏTEIT te bewaren voor latere taken in
+    // dezelfde iteratie (bookkeeping, zie `m_nullTaskOrder`). Zo'n plaatshouder is nooit zichtbaar
+    // in de UI en dus ook nooit in een native XML-export, dus deze lezer slaat 'm bewust over i.p.v.
+    // 'm als onzichtbare taak te materialiseren. VERKLAART wél de ID-gaten die je in bijlage 7 kunt
+    // tegenkomen als je ruw door TBkndTask/FixedData loopt (T5-spec-review, 4b) — dat zijn geen
+    // ontbrekende/foutief-uitgesloten taken, maar precies deze plaatshouders.
+    if (data.length === NULL_TASK_BLOCK_SIZE) continue;
 
     if (data.length < uniqueIdOffset + 4) continue;
     const uniqueId = getInt(data, uniqueIdOffset, 'TBkndTask/FixedData uniqueId');
@@ -208,7 +251,13 @@ function readTasks(cfb: CfbFile, taskFieldMap: FieldMapTable, hoursPerDay: numbe
     const outlineLevel = outlineLevelRaw >= 1 ? outlineLevelRaw : 1;
 
     const name = (nameKey !== null ? varData.getUnicodeString(uniqueId, nameKey) : null) || 'Task';
-    const wbs = (wbsKey !== null ? varData.getUnicodeString(uniqueId, wbsKey) : null) || `${uniqueId}`;
+    // WBS-veld (T5-spec-review, 3): MPP slaat een AUTO-genereerde WBS-code niet op — het var-data-
+    // veld is in het corpus voor elke taak leeg. MPXJ genereert 'm zelf in `updateStructure()`
+    // (outline-nummering "1.2.3" over de afgeleide hiërarchie); deze lezer spiegelt dat verderop
+    // (na de outline-level-stack, zie `wbsCode` hieronder) — hier alleen een EXPLICIETE, door de
+    // gebruiker ingevoerde WBS-tekst vasthouden (`storedWbs`), zodat een bestand dat 'm wél draagt
+    // die overschrijft i.p.v. altijd de gegenereerde vorm te forceren.
+    const storedWbs = wbsKey !== null ? varData.getUnicodeString(uniqueId, wbsKey) : null;
 
     const start = readDateField(data, scheduledStartOffset) ?? formatDate(new Date());
     const finish = readDateField(data, scheduledFinishOffset) ?? start;
@@ -247,7 +296,7 @@ function readTasks(cfb: CfbFile, taskFieldMap: FieldMapTable, hoursPerDay: numbe
       id: generateId('task'),
       name,
       description: '',
-      wbsCode: wbs,
+      wbsCode: '', // wordt hieronder gezet — outline-nummering volgt pas ná de hiërarchie-opbouw
       taskType: 'CONSTRUCTION',
       status,
       isMilestone,
@@ -274,25 +323,38 @@ function readTasks(cfb: CfbFile, taskFieldMap: FieldMapTable, hoursPerDay: numbe
       ...(constraint ? { constraint } : {}),
       ...(deadline ? { deadline } : {}),
     };
-    records.push({ uniqueId, id, outlineLevel, task });
+    records.push({ uniqueId, id, outlineLevel, storedWbs, task });
   }
 
-  // ID-volgorde = de Gantt-/rijvolgorde die MS Project's eigen XML-export ook gebruikt (zie
-  // moduleheader) — nodig voor zowel de outline-level-stack-hiërarchie hieronder als de
-  // positie-gematchte corpusvergelijking in T5's testuitbreiding.
+  // ID-volgorde = zowel de Gantt-/rijvolgorde die MS Project's eigen XML-export gebruikt, als
+  // exact wat MPXJ's `ProjectFile.updateStructure()` zelf doet om de boom op te bouwen (zie
+  // moduleheader) — nodig voor de outline-level-stack-hiërarchie hieronder.
   records.sort((a, b) => a.id - b.id);
 
-  // Hiërarchie via een outline-level-stack (taakopdracht T5, letterlijk voorgeschreven i.p.v.
-  // MPXJ's PARENT_TASK_UNIQUE_ID-veld — zie moduleheader).
-  const stack: { id: string; level: number; task: Task }[] = [];
+  // Hiërarchie via een outline-level-stack, GESORTEERD OP ID — dit is letterlijk hoe MPXJ's
+  // `updateStructure()` het zelf doet (zie moduleheader; `PARENT_TASK_UNIQUE_ID` wordt door MPXJ
+  // gevuld maar nooit voor de boom gelezen). Genereert tegelijk de WBS-code als outline-nummering
+  // ("1", "1.1", "1.2.1", …) over diezelfde boom — MPXJ doet dat ook zelf in `updateStructure()`,
+  // want MPP slaat een auto-WBS niet op (zie de toelichting bij `storedWbs` hierboven). Een
+  // EXPLICIET door de gebruiker ingevoerde WBS-tekst (zeldzaam, corpus: nooit waargenomen) wint
+  // van de gegenereerde vorm.
+  const stack: { id: string; level: number; task: Task; wbs: string; childCount: number }[] = [];
+  let rootCount = 0;
   for (const rec of records) {
     while (stack.length > 0 && stack[stack.length - 1].level >= rec.outlineLevel) stack.pop();
     const parent = stack[stack.length - 1];
+    let generatedWbs: string;
     if (parent) {
+      parent.childCount++;
+      generatedWbs = `${parent.wbs}.${parent.childCount}`;
       rec.task.parentId = parent.task.id;
       parent.task.childIds.push(rec.task.id);
+    } else {
+      rootCount++;
+      generatedWbs = `${rootCount}`;
     }
-    stack.push({ id: rec.task.id, level: rec.outlineLevel, task: rec.task });
+    rec.task.wbsCode = rec.storedWbs || generatedWbs;
+    stack.push({ id: rec.task.id, level: rec.outlineLevel, task: rec.task, wbs: generatedWbs, childCount: 0 });
   }
 
   const tasks = records.map((r) => r.task);

@@ -57,12 +57,24 @@ const FIELD_MAP_ENTRY_SIZE = 28;
  *  field map kent geen locatie daarvoor (net als de Java-bron: "we just haven't worked out how to
  *  convert this into the actual location... For now we rely on the location in the file being
  *  fixed"). Geen van de velden die déze lezer nodig heeft valt in deze categorie (corpus-
- *  geverifieerd), maar de skip blijft staan zodat een toekomstige uitbreiding niet per ongeluk een
- *  META_DATA-entry als FIXED_DATA/VAR_DATA interpreteert. */
+ *  geverifieerd). De skip in `parseFieldMapBytes` hieronder ONTHOUDT zulke id's expliciet (in
+ *  `metaDataIds`, zie het returntype) en `buildFieldMap` sluit ze STRUCTUREEL uit van de
+ *  default-terugval (T5-spec-review, 4d — correctie: een eerdere versie liet de skip hier alleen
+ *  "toevallig" veilig zijn omdat geen van de `defaults`-tabellen een META_DATA-veld-id bevat; die
+ *  aanname stond nergens afgedwongen, dus een toekomstig default-entry voor zo'n id zou alsnog
+ *  stil als FIXED_DATA/VAR_DATA zijn geïnterpreteerd — nu expliciet onmogelijk gemaakt). */
 const META_DATA_CATEGORIES = new Set([0x0b, 0x64]);
 /** FieldMap.java: dataBlockOffset 65535 ⇒ dit veld heeft geen vaste plek, dus VAR_DATA (of
  *  UNKNOWN als de var-data-sleutel ook 0 is — niet relevant voor onze velden). */
 const NO_FIXED_OFFSET = 65535;
+
+interface ParsedFieldMap {
+  entries: Map<number, FieldEntry>;
+  /** Veld-id's die de field-map-data zélf als META_DATA (boolean-vlag) categoriseert — zie
+   *  `META_DATA_CATEGORIES` hierboven. `buildFieldMap` mag hiervoor NOOIT op `defaults`
+   *  terugvallen, ook al staat het id niet in `entries`. */
+  metaDataIds: Set<number>;
+}
 
 /**
  * Poort van `FieldMap.createFieldMap(byte[])`. Loopt in stappen van 28 bytes over de
@@ -72,8 +84,9 @@ const NO_FIXED_OFFSET = 65535;
  * var-data-sleutel; er is geen substitutietabel nodig voor de velden hier — corpus-geverifieerd),
  * dus de var-data-sleutel is simpelweg dezelfde 16-bit-index als de fixed-data-veld-id.
  */
-function parseFieldMapBytes(bytes: Uint8Array): Map<number, FieldEntry> {
-  const result = new Map<number, FieldEntry>();
+function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
+  const entries = new Map<number, FieldEntry>();
+  const metaDataIds = new Set<number>();
   let lastDataBlockOffset = 0;
   let dataBlockIndex = 0;
   for (let pos = 0; pos + FIELD_MAP_ENTRY_SIZE <= bytes.length; pos += FIELD_MAP_ENTRY_SIZE) {
@@ -82,7 +95,10 @@ function parseFieldMapBytes(bytes: Uint8Array): Map<number, FieldEntry> {
     const category = getShort(bytes, pos + 20, 'fieldMap14');
     const index = typeValue & 0xffff;
 
-    if (META_DATA_CATEGORIES.has(category)) continue;
+    if (META_DATA_CATEGORIES.has(category)) {
+      metaDataIds.add(index);
+      continue;
+    }
 
     if (dataBlockOffset !== NO_FIXED_OFFSET) {
       if (dataBlockOffset < lastDataBlockOffset) dataBlockIndex++;
@@ -91,28 +107,34 @@ function parseFieldMapBytes(bytes: Uint8Array): Map<number, FieldEntry> {
       // geparst door deze lezer, dus zulke entries blijven bewust ongebruikt in de tabel i.p.v.
       // een verkeerde offset tegen het verkeerde blok te suggereren.
       if (dataBlockIndex === 0) {
-        result.set(index, { location: 'fixed', fixedOffset: dataBlockOffset });
+        entries.set(index, { location: 'fixed', fixedOffset: dataBlockOffset });
       }
     } else if (index !== 0) {
-      result.set(index, { location: 'var', varDataKey: index });
+      entries.set(index, { location: 'var', varDataKey: index });
     }
   }
-  return result;
+  return { entries, metaDataIds };
 }
 
 /** Bouwt de uiteindelijke tabel: data-gedreven entries (indien de Props-sleutel aanwezig is) met
  *  een per-veld terugval op `defaults` voor elk nodig veld dat er niet in voorkomt — spiegelt
  *  `createTaskFieldMap`'s alles-of-niets-terugval (geen sleutel ⇒ volledig `getDefaultTaskData()`)
  *  én is tegelijk defensiever voor het (in de praktijk nog niet waargenomen) geval dat een enkel
- *  veld in een overigens aanwezige field map ontbreekt. */
+ *  veld in een overigens aanwezige field map ontbreekt. Een veld-id dat de field-map-data zelf als
+ *  META_DATA categoriseert (`metaDataIds`) krijgt NOOIT een default-terugval — die zou het immers
+ *  alsnog als FIXED_DATA/VAR_DATA presenteren, precies wat `META_DATA_CATEGORIES`'s skip moet
+ *  voorkomen (T5-spec-review, 4d). */
 function buildFieldMap(fieldMapBytes: Uint8Array | null, defaults: Readonly<Record<number, FieldEntry>>): FieldMapTable {
   const result = new Map<number, FieldEntry>();
+  let metaDataIds: Set<number> = new Set();
   if (fieldMapBytes) {
-    for (const [id, entry] of parseFieldMapBytes(fieldMapBytes)) result.set(id, entry);
+    const parsed = parseFieldMapBytes(fieldMapBytes);
+    for (const [id, entry] of parsed.entries) result.set(id, entry);
+    metaDataIds = parsed.metaDataIds;
   }
   for (const key of Object.keys(defaults)) {
     const id = Number(key);
-    if (!result.has(id)) result.set(id, defaults[id]);
+    if (!result.has(id) && !metaDataIds.has(id)) result.set(id, defaults[id]);
   }
   return result;
 }
