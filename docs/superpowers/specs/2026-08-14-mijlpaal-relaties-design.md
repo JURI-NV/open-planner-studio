@@ -157,9 +157,16 @@ vanaf te slepen.
 
 In `GanttCanvas.handleMouseDown` wordt de shift/relatiemodus-tak vóór de `getTaskBarBounds`-tak
 getrokken en leest die de nieuwe hittest. Sleep- en resizegedrag voor gewone taken blijft daarmee
-ongewijzigd. `handleContextMenu` blijft `getTaskBarBounds` gebruiken voor zijn `barHit` — dat gaat
-over balk-specifieke menu-items (slepen/resizen), niet over relaties, en de bestaande comment daar
-blijft dus kloppen.
+ongewijzigd.
+
+**Correctie (eindreview, punt A):** de oorspronkelijke aanname dat `handleContextMenu` ongemoeid kon
+blijven, was onjuist. `barHit` in `GanttCanvas.tsx` poort in `ContextMenu.tsx` precies één
+menu-item — `context.startRelationHere` ("Relatie leggen vanaf hier") — en niets over slepen of
+resizen. Dat is dus een relatie-actie, geen balk-specifieke actie, en hoort dezelfde hittest te
+gebruiken als de sleep-start: `getRelationSourceAt` in plaats van `getTaskBarBounds`. Vóór de
+correctie toonde rechtsklikken op een mijlpaal het item niet, terwijl slepen vanaf diezelfde
+mijlpaal via `getRelationSourceAt` al wél werkte — dezelfde bug, één laag verderop. Gefixt door de
+`barHit`-berekening in `handleContextMenu` om te zetten naar `getRelationSourceAt`.
 
 De **drop-kant** in `useDependencyDraw` blijft de ruime `getTaskAtY` gebruiken. Je mág dus op een
 verzamelbalk loslaten en krijgt dan de weigering mét reden — beter dan een pijl die geruisloos

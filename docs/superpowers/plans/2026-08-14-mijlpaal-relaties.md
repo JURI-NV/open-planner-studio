@@ -885,7 +885,12 @@ door:
     if (hit) {
 ```
 
-**Niet aanpassen:** `handleContextMenu` blijft `getTaskBarBounds` gebruiken voor zijn `barHit`. Dat gaat over balk-specifieke menu-items (slepen/resizen), niet over relaties, en de comment daar blijft dus kloppen.
+**Correctie (eindreview, punt A):** deze aanname was onjuist en is niet uitgevoerd zoals hier
+opgeschreven. `barHit` poort in `ContextMenu.tsx` precies één menu-item —
+`context.startRelationHere` ("Relatie leggen vanaf hier") — dus een relatie-actie, geen
+balk-specifieke actie. `handleContextMenu` is alsnog aangepast om `getRelationSourceAt` te
+gebruiken in plaats van `getTaskBarBounds`, met een herschreven comment; zie de spec, §4, voor de
+volledige toelichting.
 
 **Niet aanpassen:** de drop-kant in `useDependencyDraw.ts` blijft `getTaskAtY` gebruiken. Je mág op een verzamelbalk loslaten en krijgt dan de weigering mét reden uit Taak 3 — beter dan een pijl die geruisloos nergens landt.
 

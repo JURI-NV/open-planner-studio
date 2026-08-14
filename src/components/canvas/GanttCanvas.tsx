@@ -1055,10 +1055,16 @@ export function GanttCanvas() {
         selectTask(task.id, false);
       }
     }
-    // Balk-hit (fase 2.10 golf 2): dezelfde hit-test als drag-start; geeft null op de rij ernaast,
-    // op een mijlpaal en op een summary-balk (getTaskBarBounds sluit die bewust uit) — die krijgen
-    // dan gewoon het rij-menu zonder balk-specifieke items, zoals bedoeld.
-    const barHit = !!task && !!renderer.getTaskBarBounds(x, y);
+    // `barHit` poort in ContextMenu.tsx precies één menu-item: `context.startRelationHere`
+    // ("Relatie leggen vanaf hier"). Dat is een relatie-actie, geen sleep/resize-actie — dus
+    // hoort hij de relatie-hittest te gebruiken, niet `getTaskBarBounds` (die is geschreven voor
+    // slepen/resizen en weigert mijlpalen daarom terecht: een ruit heeft geen duur om te
+    // resizen). Vóór deze fix miste een rechtsklik op een mijlpaal het item, terwijl slepen
+    // vanaf diezelfde mijlpaal via `getRelationSourceAt` al wél werkte (zie GanttRenderer.ts).
+    // `getRelationSourceAt` geeft nog steeds null op de rij ernaast en op een summary-balk (een
+    // verzameltaak zou een spookrelatie opleveren, zie `state/relationRules.ts`) — die krijgen
+    // dan gewoon het rij-menu zonder het relatie-item, zoals bedoeld.
+    const barHit = !!task && !!renderer.getRelationSourceAt(x, y);
     setContextMenu({ x: e.clientX, y: e.clientY, task, barHit, group: null });
   }, [selectTask, selectedTaskIds, headerHeight]);
 
