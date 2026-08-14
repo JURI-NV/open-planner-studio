@@ -87,6 +87,7 @@ export interface OccupancyDocBooking {
   firstDay: string | null;  // ISO, eerste dag met belasting > 0
   lastDay: string | null;
   peak: number;             // hoogste dagbelasting binnen dít document
+  dailyLoad: Record<string, number>; // ISO-dag → belasting (alleen dagen > 0) — voedt het §5a-histogram
 }
 
 export interface OccupancyRow {
@@ -187,6 +188,27 @@ Bewuste eigenaardigheid, gedocumenteerd in §9: een variant-duplicaat (`duplicat
 telt als volwaardig extra document en verdubbelt dus de boekingen — het ís een geopend document.
 Wie varianten vergelijkt moet ze sluiten of negeren; het overzicht filtert er niet stil op.
 
+### 5a. Histogram per geselecteerd poolitem (v1-aanvulling — besluit eigenaar 2026-08-14)
+
+De eigenaar heeft bij review besloten dat een histogram wél in v1 hoort: het is de natuurlijke
+vorm om overbezetting in de tijd te zien, zoals het bestaande histogram dat binnen een project al
+is. De vorm blijft goedkoop en raakt de canvas-renderer niet:
+
+- **Selectie van een hoofdrij** toont onder (of naast) de tabel een histogram voor dát poolitem:
+  per ISO-dag de **gestapelde** bijdrage per document (vaste kleurtoewijzing per document, met
+  legenda = de documenttitels uit de uitklap), de **capaciteitslijn** van het poolitem
+  (`maxUnitsOn` per dag, dus `availabilitySteps`-knikken zichtbaar) eroverheen, en dagen waar de
+  som boven de lijn uitkomt **rood** gemarkeerd — dezelfde conflictdefinitie als §6, geen tweede
+  berekening.
+- **Techniek:** SVG in de DOM binnen `ResourceOccupancyView`, niet de canvas-`HistogramRenderer`
+  — die hangt aan de tijdschaal van het actieve project; hem losweken is het open P7/M5-werk
+  (TimeAxis/ThemePalette) en hoort niet in B1b. De databron is het `dailyLoad`-veld per
+  `OccupancyDocBooking` (§4.1); de UI sommeert zelf.
+- **Zonder selectie**: hint `t('resource.occupancy.selectHint')` ("Selecteer een resource om het
+  histogram te zien.").
+- Strikt binnen één bibliotheek — het besluit van 2026-07-20 tegen bedrijfsoverstijgende
+  histogrammen blijft onverkort staan; dit is een per-poolitem-weergave binnen de gekozen pool.
+
 ## 6. Wanneer is een resource dubbel geboekt? (vraag d)
 
 **Definitie (besluit):** poolitem *r* is dubbel geboekt op ISO-dag *d* wanneer
@@ -250,6 +272,7 @@ Nieuwe sleutels in `common`, onder het bestaande `resource.*`-blok, in alle veer
 - `resource.occupancy.period` / `resource.occupancy.peak` / `resource.occupancy.capacity` /
   `resource.occupancy.documents` — kolomkoppen
 - `resource.occupancy.moreDays` — "… en {{count}} meer" (afkap van de conflictdatum-lijst; plural)
+- `resource.occupancy.selectHint` — "Selecteer een resource om het histogram te zien." (§5a)
 
 Alle teksten via `t(...)`; niets hardgecodeerd (ook de "/" tussen piek en capaciteit is opmaak,
 geen tekst).
@@ -295,6 +318,9 @@ bibliotheeksuite. Model: `tests/library/run.sh` bundelt elke `check-*.ts` met es
 8. Binnen-document-overbezetting in één document ⇒ verschijnt als conflict (§6 punt 2).
 9. Curve-consistentie: een `FRONT_LOADED`-toewijzing levert per dag exact dezelfde bijdrage als
    `computeResourceLoad` voor dat document alleen (som-invariant).
+10. `dailyLoad`-consistentie (§5a): de som van `dailyLoad` over documenten per dag matcht de
+    som-invariant van case 9, en alle dagen in `dailyLoad` vallen binnen `firstDay`..`lastDay`
+    van die booking.
 
 De i18n-sleutels worden vanzelf bewaakt door `npm run verify:i18n` (pluralcategorieën) en het
 artikel door `npm run verify:docs`. De UI-kant (derde schakelstand, uitklap) is Tier-1
@@ -316,8 +342,15 @@ dat gedragspoorten headless zijn.
 
 ## 12. Bewust later
 
-- **Tijdlijn-/histogramweergave** van de bezetting (canvas of mini-SVG per rij) — pas als de
-  tabel in gebruik aantoonbaar tekortschiet.
+- ~~Tijdlijn-/histogramweergave~~ — **naar v1 gehaald als §5a** (besluit eigenaar 2026-08-14),
+  in de vorm van een SVG-histogram per geselecteerd poolitem. Wat wél later blijft: een
+  canvas-tijdlijn over álle poolitems tegelijk met de volledige Gantt-tijdschaal.
+- **B1c — nivelleren tegen restcapaciteit** (besluit eigenaar 2026-08-14): vanuit een
+  conflictregel het veroorzakende document activeren en dáár nivelleren tegen de
+  bedrijfscapaciteit mín wat de andere open documenten die dag boeken. Krijgt een eigen
+  ontwerpdoc ná oplevering van B1b; open ontwerpvragen: wie wijkt, per-dag-capaciteitsprofiel
+  de nivelleerder in, omgang met verouderde planningen. Echt simultaan cross-document
+  nivelleren blijft aan item 41 (`createAppStore()`) hangen.
 - **Bibliotheekkiezer voor losse documenten** zodat het overzicht ook zonder gekoppeld actief
   document te openen is.
 - **Per-docId-memoisatie** van de per-document-load (payload-referentie als sleutel) — alleen
