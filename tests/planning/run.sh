@@ -426,6 +426,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   DEPSTYLECHECK="$DIR/.dependency-style.mjs"
   if bundle_check "$DIR/check-dependency-style.ts" "$DEPSTYLECHECK"; then node "$DEPSTYLECHECK" || STATUS=1; fi
 
+  # Resourcepalet + kleurtoewijzing (#21 punt 1-nieuw): uniekheid, grijswaarden-onderscheid,
+  # hash-stabiliteit/-verspreiding, auto-toewijzing "eerste vrije kleur", hash-fallback muteert
+  # niets, geen botsing met kritiek-rood.
+  BARCOLORCHECK="$DIR/.bar-colors.mjs"
+  if bundle_check "$DIR/check-bar-colors.ts" "$BARCOLORCHECK"; then node "$BARCOLORCHECK" || STATUS=1; fi
+
   # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
   # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije
   # beslissings- en herbouwlaag (allowlists, harde verwijderingen, waardecheck, serialisatie) tegen
