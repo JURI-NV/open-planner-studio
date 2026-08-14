@@ -512,6 +512,24 @@
       "bell": "زنگی‌شکل",
       "earlyPeak": "اوج زودهنگام",
       "latePeak": "اوج دیرهنگام"
+    },
+    "occupancyView": "اشغال",
+    "occupancy": {
+      "empty": "هیچ منبعی از کتابخانه در اسناد باز رزرو نشده است.",
+      "machineOnly": "این نما فقط اسنادی را می‌بیند که روی این رایانه باز شده‌اند.",
+      "staleDoc": "برنامه محاسبه نشده است — این سند را فعال کنید و F5 را بزنید.",
+      "staleBanner": "دست‌کم یک سند محاسبه نشده است؛ اعداد ممکن است قدیمی باشند.",
+      "docCount_one": "{{count}} سند",
+      "docCount_other": "{{count}} سند",
+      "conflictDays_one": "{{count}} روز رزرو دوگانه",
+      "conflictDays_other": "{{count}} روز رزرو دوگانه",
+      "moreDays_one": "… و {{count}} مورد دیگر",
+      "moreDays_other": "… و {{count}} مورد دیگر",
+      "period": "دوره",
+      "peak": "اوج",
+      "capacity": "ظرفیت",
+      "documents": "اسناد",
+      "selectHint": "برای دیدن هیستوگرام یک منبع را انتخاب کنید."
     }
   },
   "calendar": {

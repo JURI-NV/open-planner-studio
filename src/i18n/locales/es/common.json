@@ -514,6 +514,27 @@
       "bell": "Forma de campana",
       "earlyPeak": "Pico temprano",
       "latePeak": "Pico tardío"
+    },
+    "occupancyView": "Ocupación",
+    "occupancy": {
+      "empty": "No hay recursos de la biblioteca reservados en los documentos abiertos.",
+      "machineOnly": "Esta vista solo ve los documentos abiertos en este equipo.",
+      "staleDoc": "Planificación sin calcular — activa este documento y pulsa F5.",
+      "staleBanner": "Al menos un documento no se ha calculado; las cifras pueden estar desactualizadas.",
+      "docCount_one": "{{count}} documento",
+      "docCount_many": "{{count}} documentos",
+      "docCount_other": "{{count}} documentos",
+      "conflictDays_one": "{{count}} día con doble reserva",
+      "conflictDays_many": "{{count}} días con doble reserva",
+      "conflictDays_other": "{{count}} días con doble reserva",
+      "moreDays_one": "… y {{count}} más",
+      "moreDays_many": "… y {{count}} más",
+      "moreDays_other": "… y {{count}} más",
+      "period": "Período",
+      "peak": "Pico",
+      "capacity": "Capacidad",
+      "documents": "Documentos",
+      "selectHint": "Selecciona un recurso para ver el histograma."
     }
   },
   "calendar": {

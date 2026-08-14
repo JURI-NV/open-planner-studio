@@ -512,6 +512,24 @@
       "bell": "Klokvorm",
       "earlyPeak": "Vroege piek",
       "latePeak": "Late piek"
+    },
+    "occupancyView": "Bezetting",
+    "occupancy": {
+      "empty": "Geen bibliotheekresources geboekt in de geopende documenten.",
+      "machineOnly": "Dit overzicht ziet alleen documenten die op deze computer geopend zijn.",
+      "staleDoc": "Planning niet doorgerekend — activeer dit document en druk F5.",
+      "staleBanner": "Minstens één document is niet doorgerekend; cijfers kunnen verouderd zijn.",
+      "docCount_one": "{{count}} document",
+      "docCount_other": "{{count}} documenten",
+      "conflictDays_one": "{{count}} dag dubbel geboekt",
+      "conflictDays_other": "{{count}} dagen dubbel geboekt",
+      "moreDays_one": "… en {{count}} meer",
+      "moreDays_other": "… en {{count}} meer",
+      "period": "Periode",
+      "peak": "Piek",
+      "capacity": "Capaciteit",
+      "documents": "Documenten",
+      "selectHint": "Selecteer een resource om het histogram te zien."
     }
   },
   "calendar": {

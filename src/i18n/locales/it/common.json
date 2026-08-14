@@ -514,6 +514,27 @@
       "bell": "A campana",
       "earlyPeak": "Picco anticipato",
       "latePeak": "Picco tardivo"
+    },
+    "occupancyView": "Occupazione",
+    "occupancy": {
+      "empty": "Nessuna risorsa della libreria prenotata nei documenti aperti.",
+      "machineOnly": "Questa panoramica vede solo i documenti aperti su questo computer.",
+      "staleDoc": "Pianificazione non calcolata — attiva questo documento e premi F5.",
+      "staleBanner": "Almeno un documento non è stato calcolato; i numeri potrebbero non essere aggiornati.",
+      "docCount_one": "{{count}} documento",
+      "docCount_many": "{{count}} documenti",
+      "docCount_other": "{{count}} documenti",
+      "conflictDays_one": "{{count}} giorno con doppia prenotazione",
+      "conflictDays_many": "{{count}} giorni con doppia prenotazione",
+      "conflictDays_other": "{{count}} giorni con doppia prenotazione",
+      "moreDays_one": "… e {{count}} altro",
+      "moreDays_many": "… e {{count}} altri",
+      "moreDays_other": "… e {{count}} altri",
+      "period": "Periodo",
+      "peak": "Picco",
+      "capacity": "Capacità",
+      "documents": "Documenti",
+      "selectHint": "Seleziona una risorsa per vedere l'istogramma."
     }
   },
   "calendar": {

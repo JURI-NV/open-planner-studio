@@ -510,6 +510,21 @@
       "bell": "山型（ベル型）",
       "earlyPeak": "早期ピーク",
       "latePeak": "後期ピーク"
+    },
+    "occupancyView": "稼働状況",
+    "occupancy": {
+      "empty": "開いているドキュメントで予約されているライブラリリソースはありません。",
+      "machineOnly": "この概要には、このコンピューターで開いているドキュメントのみが表示されます。",
+      "staleDoc": "スケジュールが未計算です — このドキュメントをアクティブにして F5 を押してください。",
+      "staleBanner": "少なくとも 1 つのドキュメントが計算されていません。数値が古い可能性があります。",
+      "docCount_other": "{{count}} 件のドキュメント",
+      "conflictDays_other": "{{count}} 日が二重予約",
+      "moreDays_other": "… 他 {{count}} 件",
+      "period": "期間",
+      "peak": "ピーク",
+      "capacity": "キャパシティ",
+      "documents": "ドキュメント",
+      "selectHint": "ヒストグラムを表示するにはリソースを選択してください。"
     }
   },
   "calendar": {

@@ -512,6 +512,24 @@
       "bell": "Glockenform",
       "earlyPeak": "Frühe Spitze",
       "latePeak": "Späte Spitze"
+    },
+    "occupancyView": "Belegung",
+    "occupancy": {
+      "empty": "Keine Bibliotheksressourcen in den geöffneten Dokumenten gebucht.",
+      "machineOnly": "Diese Übersicht sieht nur Dokumente, die auf diesem Computer geöffnet sind.",
+      "staleDoc": "Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
+      "staleBanner": "Mindestens ein Dokument wurde nicht berechnet; die Zahlen können veraltet sein.",
+      "docCount_one": "{{count}} Dokument",
+      "docCount_other": "{{count}} Dokumente",
+      "conflictDays_one": "{{count}} Tag doppelt belegt",
+      "conflictDays_other": "{{count}} Tage doppelt belegt",
+      "moreDays_one": "… und {{count}} weiterer",
+      "moreDays_other": "… und {{count}} weitere",
+      "period": "Zeitraum",
+      "peak": "Spitze",
+      "capacity": "Kapazität",
+      "documents": "Dokumente",
+      "selectHint": "Wählen Sie eine Ressource aus, um das Histogramm zu sehen."
     }
   },
   "calendar": {

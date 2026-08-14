@@ -512,6 +512,24 @@
       "bell": "Bell shaped",
       "earlyPeak": "Early peak",
       "latePeak": "Late peak"
+    },
+    "occupancyView": "Occupancy",
+    "occupancy": {
+      "empty": "No library resources booked in the open documents.",
+      "machineOnly": "This overview only sees documents opened on this computer.",
+      "staleDoc": "Schedule not calculated — activate this document and press F5.",
+      "staleBanner": "At least one document has not been calculated; figures may be out of date.",
+      "docCount_one": "{{count}} document",
+      "docCount_other": "{{count}} documents",
+      "conflictDays_one": "{{count}} day double-booked",
+      "conflictDays_other": "{{count}} days double-booked",
+      "moreDays_one": "… and {{count}} more",
+      "moreDays_other": "… and {{count}} more",
+      "period": "Period",
+      "peak": "Peak",
+      "capacity": "Capacity",
+      "documents": "Documents",
+      "selectHint": "Select a resource to see the histogram."
     }
   },
   "calendar": {

@@ -512,6 +512,24 @@
       "bell": "Çan eğrisi",
       "earlyPeak": "Erken zirve",
       "latePeak": "Geç zirve"
+    },
+    "occupancyView": "Doluluk",
+    "occupancy": {
+      "empty": "Açık belgelerde kitaplıktan ayrılmış kaynak yok.",
+      "machineOnly": "Bu genel bakış yalnızca bu bilgisayarda açılan belgeleri görür.",
+      "staleDoc": "Plan hesaplanmadı — bu belgeyi etkinleştirin ve F5'e basın.",
+      "staleBanner": "En az bir belge hesaplanmadı; rakamlar güncel olmayabilir.",
+      "docCount_one": "{{count}} belge",
+      "docCount_other": "{{count}} belge",
+      "conflictDays_one": "{{count}} gün çift rezervasyonlu",
+      "conflictDays_other": "{{count}} gün çift rezervasyonlu",
+      "moreDays_one": "… ve {{count}} tane daha",
+      "moreDays_other": "… ve {{count}} tane daha",
+      "period": "Dönem",
+      "peak": "Zirve",
+      "capacity": "Kapasite",
+      "documents": "Belgeler",
+      "selectHint": "Histogramı görmek için bir kaynak seçin."
     }
   },
   "calendar": {
