@@ -432,6 +432,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BARCOLORCHECK="$DIR/.bar-colors.mjs"
   if bundle_check "$DIR/check-bar-colors.ts" "$BARCOLORCHECK"; then node "$BARCOLORCHECK" || STATUS=1; fi
 
+  # Rapportexport #21/#54: volg-weergave (viewRows→renderReport), statuslijn (statusDate/progress),
+  # kleurmodi + legenda — via opnemende Draw2D, zelfde renderer als preview én vector-PDF.
+  PRTEXPCHECK="$DIR/.print-report.mjs"
+  if bundle_check "$DIR/check-print-report.ts" "$PRTEXPCHECK"; then node "$PRTEXPCHECK" || STATUS=1; fi
+
   # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
   # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije
   # beslissings- en herbouwlaag (allowlists, harde verwijderingen, waardecheck, serialisatie) tegen
