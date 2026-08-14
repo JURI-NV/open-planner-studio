@@ -230,6 +230,7 @@ const VOL_SEQUENCE = {
 
 const VOL_RESOURCE = {
   id: 'r1', name: 'Kraan', type: 'EQUIPMENT', description: 'omschrijving',
+  color: '#2563EB',
   costPerHour: 120, availability: 1, maxUnits: 2, calendarId: 'cal2',
   availabilitySteps: [{ from: '2026-03-01', maxUnits: 3 }],
   unitOfMeasure: 'stuks', parentId: 'crew1',

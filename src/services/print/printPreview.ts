@@ -12,6 +12,12 @@ import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 import { computeSplitSegments } from '@/engine/renderer/splitBarGeometry';
 import { snapToChoice } from '@/utils/numberChoice';
+// Balkkleurmodi (#21 punt 1-nieuw): pure adviesmodule — de printlaag vertaalt alleen naar
+// fill/segmenten/outline-aanroepen en houdt zelf geen kleurlogica.
+import { computeBarColors, type BarColorMode, type BarPalette } from '@/services/print/barColors';
+import { resourceDisplayColor } from '@/engine/renderer/resourcePalette';
+import type { Resource, ResourceAssignment } from '@/types/resource';
+import type { ViewRow } from '@/engine/view/visibleRows';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
 // tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
@@ -191,6 +197,8 @@ export interface PrintOptions {
     of: string;
     /** Label boven de gestippelde "vandaag"-lijn in het Gantt-gebied. */
     today: string;
+    /** Label boven de statusdatum-/voortgangslijn in de exportkop (#54). */
+    statusDate: string;
   };
   localizedMonths?: string[];
   localizedMonthsShort?: string[];
@@ -236,6 +244,32 @@ export interface PrintOptions {
    * bron is de aanroeper die de store leest ({@link ReportPanel}).
    */
   drivingSequenceIds?: string[];
+  /**
+   * Balkkleurmodi (#21 punt 1-nieuw): 'critical' (default = huidige rood/oranje/blauw), 'task'
+   * (per taak gekozen kleur), 'auto' (deterministische paletkleur per taak-id) of 'resource'
+   * (segmenten per uitvoerende resource, naar rato van units). Ontbreekt ⇒ 'critical' =
+   * byte-identiek oud gedrag. Kritieke taken krijgen in de niet-critical-modi een rode rand.
+   */
+  barColorMode?: BarColorMode;
+  /** Statuslijn in de export (#54): 'none' (default) | 'statusDate' (stippellijn) | 'progress' (zigzag). */
+  statusLine?: 'none' | 'statusDate' | 'progress';
+  /** Statusdatum (ISO) — bron voor beide lijnvarianten; ontbreekt ⇒ geen van beide tekent iets. */
+  statusDate?: string;
+  /** Resources + toewijzingen voor de resource-kleurmodi; de printlaag leeft buiten de store. */
+  resources?: Resource[];
+  assignments?: ResourceAssignment[];
+  /**
+   * WYSIWYG-rijen (#54): gegeven ⇒ de export tekent precies deze rijen (filter, groepering,
+   * sortering én inklapstatus van het scherm) i.p.v. de volledige takenboom. Groepsband-rijen
+   * (`kind: 'group'`) tekenen als samenvattings-strook. Bewust een afgeleide, geen configuratie:
+   * de printlaag bouwt géén eigen view-pijplijn (één bron van waarheid: `computeViewRows`).
+   */
+  rows?: ViewRow[];
+  /** Legendalabels voor de kleurmodi (reeds vertaald door de aanroeper — print heeft geen `t()`). */
+  barColorsLegendLabels?: {
+    criticalOutline: string;
+    resourcesMore: (n: number) => string;
+  };
 }
 
 interface PrintTask extends Task {
@@ -419,29 +453,52 @@ export function renderReport(
   // rechtstreeks (zie {@link ReportMetrics} voor het waarom van relatief-schalen).
   const m = makeMetrics(options.reportFontScale);
 
-  // Flatten and compute depth
-  const flatTasks: PrintTask[] = [];
+  // Rijen-bron (#54 volg-weergave): gegeven `options.rows` tekent het rapport precies die rijen —
+  // filter/groepering/sortering/inklapstatus van het scherm (WYSIWYG). Anders: de volledige
+  // takenboom (oud gedrag, self-flatten). Beide vormen normaliseren hier naar één rij-type:
+  // taakrijen mét diepte plus (nieuw) groepsband-rijen die als samenvattings-strook tekenen.
+  interface PrintRow {
+    kind: 'task' | 'group';
+    task?: Task;
+    depth: number;
+    label?: string;   // groepsband-label
+    count?: number;   // groepsband-aantal bladrijen
+  }
+  const printRows: PrintRow[] = [];
   const depthMap = new Map<string, number>();
-
-  const addRecursive = (task: Task, depth: number) => {
-    depthMap.set(task.id, depth);
-    flatTasks.push(task);
-    const children = tasks.filter(t => t.parentId === task.id);
-    for (const child of children) {
-      addRecursive(child, depth + 1);
+  if (options.rows) {
+    for (const row of options.rows) {
+      if (row.kind === 'task') {
+        depthMap.set(row.task.id, row.depth);
+        printRows.push({ kind: 'task', task: row.task, depth: row.depth });
+      } else {
+        printRows.push({ kind: 'group', depth: row.depth, label: row.label, count: row.count });
+      }
     }
-  };
+  } else {
+    const addRecursive = (task: Task, depth: number) => {
+      depthMap.set(task.id, depth);
+      printRows.push({ kind: 'task', task, depth });
+      const children = tasks.filter(t => t.parentId === task.id);
+      for (const child of children) {
+        addRecursive(child, depth + 1);
+      }
+    };
 
-  const roots = tasks.filter(t => !t.parentId);
-  for (const root of roots) {
-    addRecursive(root, 0);
-  }
-  for (const task of tasks) {
-    if (!flatTasks.find(t => t.id === task.id)) {
-      depthMap.set(task.id, 0);
-      flatTasks.push(task);
+    const roots = tasks.filter(t => !t.parentId);
+    for (const root of roots) {
+      addRecursive(root, 0);
+    }
+    for (const task of tasks) {
+      if (!printRows.find(r => r.kind === 'task' && r.task!.id === task.id)) {
+        depthMap.set(task.id, 0);
+        printRows.push({ kind: 'task', task, depth: 0 });
+      }
     }
   }
+  const flatTasks: PrintTask[] = printRows
+    .filter((r): r is PrintRow & { kind: 'task'; task: Task } => r.kind === 'task')
+    .map(r => ({ ...r.task, _depth: r.depth }));
 
   if (flatTasks.length === 0) {
     const d2d = makeDraw2D(600, 200);
@@ -510,7 +567,8 @@ export function renderReport(
 
   const chartWidth = totalDays * zoom;
   const canvasWidth = m.tableWidth + chartWidth;
-  const canvasHeight = m.totalHeaderHeight + flatTasks.length * m.rowHeight + m.footerHeight;
+  // Rij-aantal voor de hoogte: ALLE printrijen (taken + groepsbanden) — de banden zijn volle rijen.
+  const canvasHeight = m.totalHeaderHeight + printRows.length * m.rowHeight + m.footerHeight;
 
   // T13 (§T2-afwijking, LAAG-7-afnemer): vóór deze taak bouwde deze functie een EIGEN holidaySet
   // en gebruikte ze `dow === 6 || dow === 7` als hardcoded weekend-check — beide genegeerd
@@ -574,7 +632,7 @@ export function renderReport(
   }
 
   // Alternating row backgrounds in chart area
-  for (let i = 0; i < flatTasks.length; i++) {
+  for (let i = 0; i < printRows.length; i++) {
     if (i % 2 === 0) {
       d2d.fillStyle = 'rgba(249, 250, 251, 0.3)';
       d2d.fillRect(m.tableWidth, rowToY(i), chartWidth, m.rowHeight);
@@ -598,7 +656,7 @@ export function renderReport(
   }
 
   // Horizontal grid lines in chart area
-  for (let i = 0; i <= flatTasks.length; i++) {
+  for (let i = 0; i <= printRows.length; i++) {
     const y = rowToY(i);
     d2d.strokeStyle = PRINT_COLORS.grid;
     d2d.lineWidth = 0.3;
@@ -631,6 +689,59 @@ export function renderReport(
     d2d.setLineDash([]);
   }
 
+  // Statuslijn (#54): 'statusDate' = verticale stippellijn op project.statusDate; 'progress' =
+  // voortgangszigzag (zelfde definitie als GanttRenderer.drawProgressLine: leaf-rijen stulpen uit
+  // naar de voortgangspositie, summary/mijlpaal/band-rijen volgen de lijn recht). Beide alléén bij
+  // een gezette statusDate; buiten het chart-gebied tekent niets (zelfde visible-regel als today).
+  // Zelfde dash-patroon en kleur als de today-lijn: op papier is dit "dezelfde soort referentielijn".
+  let statusLineX: number | null = null;
+  if (options.statusDate && options.statusLine && options.statusLine !== 'none') {
+    const statusDay = parseDate(options.statusDate);
+    statusLineX = dateToX(statusDay);
+    if (statusLineX > m.tableWidth && statusLineX < canvasWidth) {
+      d2d.strokeStyle = PRINT_COLORS.today;
+      d2d.lineWidth = 1.5;
+      d2d.setLineDash([5, 3]);
+      d2d.beginPath();
+      if (options.statusLine === 'statusDate') {
+        d2d.moveTo(statusLineX, chartTop);
+        d2d.lineTo(statusLineX, chartBottom);
+      } else {
+        // progress: spine + per leaf-rij een zigzag naar de voortgangspositie (MSP-stijl). De
+        // dagniveau-vergelijking t.o.v. de statusdatum (niet het uur) houdt "op de statusdatum"
+        // stabiel — gespiegeld aan GanttRenderer.drawProgressLine.
+        d2d.moveTo(statusLineX, chartTop);
+        for (let i = 0; i < printRows.length; i++) {
+          const rowTop = rowToY(i);
+          const rowBottom = rowTop + m.rowHeight;
+          const rowMid = rowTop + m.rowHeight / 2;
+          let px = statusLineX;
+          const row = printRows[i];
+          if (row.kind === 'task' && row.task && !row.task.isMilestone && row.task.childIds.length === 0) {
+            const s = parseDate(row.task.time.earlyStart || row.task.time.scheduleStart);
+            const f = parseDate(row.task.time.earlyFinish || row.task.time.scheduleFinish);
+            const bx1 = dateToX(s);
+            const bx2 = dateToX(f) + zoom;
+            const c = Math.max(0, Math.min(1, row.task.time.completion || 0));
+            const finishDay = Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), f.getUTCDate());
+            const startDay = Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate());
+            const statusUtc = Date.UTC(statusDay.getUTCFullYear(), statusDay.getUTCMonth(), statusDay.getUTCDate());
+            const fullyDone = c >= 1 && finishDay <= statusUtc;
+            const notStarted = c === 0 && startDay >= statusUtc;
+            if (!fullyDone && !notStarted) px = bx1 + (bx2 - bx1) * c;
+          }
+          d2d.lineTo(statusLineX, rowTop);
+          d2d.lineTo(px, rowMid);
+          d2d.lineTo(statusLineX, rowBottom);
+        }
+      }
+      d2d.stroke();
+      d2d.setLineDash([]);
+    } else {
+      statusLineX = null;
+    }
+  }
+
   // Task bars
   const barHeight = m.rowHeight * 0.55;
   const barOffset = (m.rowHeight - barHeight) / 2;
@@ -651,9 +762,36 @@ export function renderReport(
   }
   const barLabelJobs: BarLabelJob[] = [];
 
-  for (let i = 0; i < flatTasks.length; i++) {
-    const task = flatTasks[i];
+  // Kleurmodi-context (#21): resources + toewijzingen komen binnen via options; de printlaag
+  // houdt zelf geen state. Eén palet-object voor alle balken van deze render.
+  const resources = options.resources ?? [];
+  const assignments = options.assignments ?? [];
+  const colorMode: BarColorMode = options.barColorMode ?? 'critical';
+  const pal: BarPalette = {
+    critical: PRINT_COLORS.critical, normal: PRINT_COLORS.normal,
+    nearCritical: PRINT_COLORS.nearCritical, milestone: PRINT_COLORS.milestone,
+  };
+
+  for (let i = 0; i < printRows.length; i++) {
+    const row = printRows[i];
     const y = rowToY(i) + barOffset;
+
+    if (row.kind === 'group') {
+      // Groepsband (#54 volg-weergave): lichte strook over de chart-rij + vet label. Een band is
+      // géén taak — geen datums, geen mijlpaal, geen dependencies; hij structureert de gegroepeerde
+      // rijen eronder. In de tabelzone tekent drawTaskTable hetzelfde label mee (zelfde bron).
+      d2d.fillStyle = PRINT_COLORS.gridWeekend;
+      d2d.fillRect(m.tableWidth, rowToY(i), canvasWidth - m.tableWidth, m.rowHeight);
+      if (options.showTaskNames) {
+        barLabelJobs.push({
+          name: `${row.label ?? ''}${row.count !== undefined ? ` (${row.count})` : ''}`,
+          barRightX: m.tableWidth + m.s(4), barLeftX: m.tableWidth + m.s(4),
+          y: rowToY(i) + m.rowHeight / 2 + m.s(3), bold: true,
+        });
+      }
+      continue;
+    }
+    const task = row.task!;
 
     if (task.isMilestone) {
       // Milestone diamond
@@ -662,7 +800,13 @@ export function renderReport(
       const cy = y + barHeight / 2;
       const size = barHeight * 0.45;
 
-      d2d.fillStyle = PRINT_COLORS.milestone;
+      const advies = computeBarColors(task, resources, assignments, colorMode, pal);
+      d2d.fillStyle = advies.kind === 'solid' ? advies.fill : advies.segments[0].color;
+      if (advies.outline) {
+        // Rode rand om een kritieke mijlpaal in de niet-critical-modi: de ruit omtrekken.
+        d2d.strokeStyle = advies.outline;
+        d2d.lineWidth = 1;
+      }
       d2d.beginPath();
       d2d.moveTo(x, cy - size);
       d2d.lineTo(x + size, cy);
@@ -670,6 +814,7 @@ export function renderReport(
       d2d.lineTo(x - size, cy);
       d2d.closePath();
       d2d.fill();
+      if (advies.outline) d2d.stroke();
 
       // Task name label (rechts van de ruit, valt terug naar links/ellipsis bij de rand)
       if (options.showTaskNames) {
@@ -715,34 +860,22 @@ export function renderReport(
       const x1 = dateToX(start);
       const x2 = dateToX(end) + zoom;
       const width = Math.max(x2 - x1, 3);
-      const isCritical = task.time.isCritical && options.showCritical;
-      const color = isCritical ? PRINT_COLORS.critical : PRINT_COLORS.normal;
 
-      // Z15 (O5-besluit, plan-§10): een ECHTE split (`Task.splitGaps`) tekent ALTIJD gesplitst —
-      // geen weergave-instelling betrokken hier (printPreview kent `barSplitMode`/kalender-necking
-      // sowieso niet, dat is puur een GanttRenderer-ding). `computeSplitSegments` (gedeeld met
-      // GanttRenderer, `splitBarGeometry.ts`) wandelt met `calEngine`; printPreview kent geen
-      // uur-modus (zie de moduleuitleg bij het `parseDate`-gebruik hierboven — alle datums hier
-      // komen uit `parseDate`, nooit `parseInstant`), dus `hourMode=false` altijd.
+      // Kleurmodi (#21) en onderbroken balken (Z15) zijn onafhankelijke dimensies: dezelfde
+      // kleurverhouding komt terug in elk werkblok van één taak.
+      const advies = computeBarColors(task, resources, assignments, colorMode, pal, width);
+      const baseColor = advies.kind === 'segments' ? advies.segments[0].color : advies.fill;
       const segments = task.splitGaps && task.splitGaps.length > 0
         ? computeSplitSegments(task.splitGaps, start, end, false, calEngine)
         : [{ start, end }];
-      // Eerste/laatste grens hergebruikt de AL BEKENDE volle-extent `x1`/`x2` (dragen de "+zoom voor
-      // de inclusieve laatste dag"-correctie al); tussengrenzen zijn EXCLUSIEF (zie
-      // `computeSplitSegments`), dus zuiver `dateToX(...)` — zelfde redenering als GanttRenderer.
       const segs = segments.map((s, i) => ({
         x1: i === 0 ? x1 : dateToX(s.start),
         x2: i === segments.length - 1 ? x2 : dateToX(s.end),
       }));
       const split = segs.length > 1;
 
-      // Necking-connector door de gaten (dunne lijn op halve hoogte) — puur weergave, zelfde
-      // conventie als GanttRenderer's necking-connector. Draw2D kent geen `globalAlpha`
-      // (canvas-only), dus de "halftransparant"-indruk komt hier uit een hex-alpha-suffix op de
-      // kleur (`+'80'`, zelfde patroon als de float-indicator hierboven met `+'40'`), niet uit een
-      // stateful alpha-property.
       if (split) {
-        d2d.strokeStyle = color + '80';
+        d2d.strokeStyle = baseColor + '80';
         d2d.lineWidth = 1;
         d2d.beginPath();
         d2d.moveTo(segs[0].x2, y + barHeight / 2);
@@ -750,21 +883,35 @@ export function renderReport(
         d2d.stroke();
       }
 
-      // Main bar with rounded corners — per segment (één segment ⇒ ongesplitst, ongewijzigd gedrag).
       for (const s of segs) {
         const sw = Math.max(s.x2 - s.x1, split ? 2 : 3);
-        d2d.fillStyle = color;
-        d2d.beginPath();
-        d2d.roundRect(s.x1, y, sw, barHeight, 3);
-        d2d.fill();
+        if (advies.kind === 'segments') {
+          let sx = s.x1;
+          advies.segments.forEach((seg, si) => {
+            const isLast = si === advies.segments.length - 1;
+            const w = isLast ? s.x1 + sw - sx : Math.round(sw * seg.weight);
+            d2d.fillStyle = seg.color;
+            d2d.roundRect(sx, y, w, barHeight, si === 0 ? 3 : 0);
+            d2d.fill();
+            sx += w;
+          });
+        } else {
+          d2d.fillStyle = advies.fill;
+          d2d.roundRect(s.x1, y, sw, barHeight, 3);
+          d2d.fill();
+        }
+        if (advies.outline) {
+          d2d.strokeStyle = advies.outline;
+          d2d.lineWidth = 1;
+          d2d.roundRect(s.x1, y, sw, barHeight, 3);
+          d2d.stroke();
+        }
       }
 
-      // Completion overlay (darker shade) — GLOBALE voortgangsgrens (`progressEnd`, over de volle
-      // `[x1,x2]`-breedte berekend, ná de eventuele split), niet per segment opnieuw: zelfde
-      // continuïteitsregel als GanttRenderer.drawTaskBar (Z15-acceptatiepunt 4).
+      // Eén globale voortgangsgrens over de volle taakduur, maar nooit kleur over de tijdgaten.
       if (options.showCompletion && task.time.completion > 0) {
         const progressEnd = x1 + width * task.time.completion;
-        d2d.fillStyle = isCritical ? PRINT_COLORS.criticalDark : PRINT_COLORS.normalDark;
+        d2d.fillStyle = 'rgba(0, 0, 0, 0.25)';
         for (const s of segs) {
           const sw = Math.max(s.x2 - s.x1, split ? 2 : 3);
           if (progressEnd > s.x1) {
@@ -813,7 +960,16 @@ export function renderReport(
   // en brengt die in lijn met wat de export altijd al deed — wat precies de bedoeling is, want die
   // twee horen WYSIWYG te zijn.
   if (options.showDeps) {
-    drawDependencies(d2d, m, flatTasks, sequences, dateToX, rowToY, zoom, options);
+    // #54 volg-weergave: alleen relaties waarvan béide endpoints een zichtbare rij zijn (zelfde
+    // regel als het scherm). rowIndexOf indexeert printRows (groepsbanden meegerekend) en is
+    // daarmee tegelijk het zichtbaarheids- én het y-positie-bron; in boom-modus (= alle taken
+    // zichtbaar) is dit exact het oude findIndex-gedrag.
+    const rowIndexOf = new Map<string, number>();
+    const tasksById = new Map<string, Task>();
+    printRows.forEach((r, idx) => {
+      if (r.kind === 'task' && r.task) { rowIndexOf.set(r.task.id, idx); tasksById.set(r.task.id, r.task); }
+    });
+    drawDependencies(d2d, m, tasksById, sequences, dateToX, rowToY, zoom, options, rowIndexOf);
   }
 
   for (const job of barLabelJobs) {
@@ -821,13 +977,13 @@ export function renderReport(
   }
 
   // ---- TIMELINE HEADER ----
-  drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options, todayVisible ? todayX : null);
+  drawTimelineHeader(d2d, m, canvasWidth, minDate, totalDays, zoom, dateToX, options, todayVisible ? todayX : null, statusLineX);
 
   // ---- TASK TABLE ----
-  drawTaskTable(d2d, m, flatTasks, depthMap, canvasHeight, cols, options);
+  drawTaskTable(d2d, m, printRows, canvasHeight, cols, options);
 
   // ---- FOOTER ----
-  drawFooter(d2d, m, canvasWidth, canvasHeight, projectName, options);
+  drawFooter(d2d, m, canvasWidth, canvasHeight, projectName, options, printRows);
 
   // Tabelbreedte en kophoogte gaan GESCHAALD terug: de pagineerder bevriest exact deze kolom en
   // herhaalt exact deze strook per pagina, dus die moeten de rapport-lettergrootte volgen.
@@ -986,6 +1142,26 @@ function reserveTodayLabel(
 }
 
 /**
+ * Reserveer een kopstrook-label op een willekeurige verticale lijn (#54 statusdatum) — gegeneraliseerd
+ * broertje van {@link reserveTodayLabel}: zelfde letter/band/klemp-regels, andere tekst + x.
+ */
+function reserveHeaderLineLabel(
+  d2d: Draw2D,
+  m: ReportMetrics,
+  canvasWidth: number,
+  lineX: number,
+  text: string,
+): TodayLabelBox | null {
+  d2d.font = m.font(7, true);
+  const half = d2d.measureText(text).width / 2 + m.s(3);
+  const min = m.tableWidth + half;
+  const max = canvasWidth - half;
+  if (max < min) return null;
+  const cx = Math.min(Math.max(lineX, min), max);
+  return { text, cx, left: cx - half, right: cx + half };
+}
+
+/**
  * Draw the timeline header with month/week/day rows.
  *
  * @param todayX  x van de vandaag-lijn, of `null` als die buiten het chartgebied valt. Het
@@ -1001,6 +1177,7 @@ function drawTimelineHeader(
   dateToX: (d: Date) => number,
   options: PrintOptions,
   todayX: number | null,
+  statusLineX: number | null = null,
 ) {
   const top = m.projectHeaderHeight;
   const h = m.timelineHeaderHeight;
@@ -1018,6 +1195,11 @@ function drawTimelineHeader(
   // bovendien hetzelfde idioom dat de maand-/weeklabels hieronder al hanteren (klacht 7): liever
   // een gat dan tekst over tekst.
   const todayLabel = reserveTodayLabel(d2d, m, canvasWidth, options, todayX);
+  // Statusdatum-label (#54): zelfde idioom als het vandaag-label, op de statusdatum-lijn. Alleen
+  // bij een zichtbare statuslijn; de reservering maakt dagcijfers vrij die eronder vallen.
+  const statusLabel = statusLineX === null
+    ? null
+    : reserveHeaderLineLabel(d2d, m, canvasWidth, statusLineX, options.labels?.statusDate ?? 'Statusdatum');
 
   // Background
   d2d.fillStyle = PRINT_COLORS.headerBg;
@@ -1126,10 +1308,10 @@ function drawTimelineHeader(
         // (het label benoemt die dag toch al). Box-tegen-box, dus ook een breed tweecijferig
         // getal op de rand valt correct af.
         const dayHalf = d2d.measureText(String(dayNum)).width / 2;
-        const clash = todayLabel !== null
-          && dayCx + dayHalf > todayLabel.left
-          && dayCx - dayHalf < todayLabel.right;
-        if (!clash) {
+        const clash = (label: TodayLabelBox | null) => label !== null
+          && dayCx + dayHalf > label.left
+          && dayCx - dayHalf < label.right;
+        if (!clash(todayLabel) && !clash(statusLabel)) {
           d2d.fillText(String(dayNum), dayCx, top + h - m.s(1));
         }
       }
@@ -1145,6 +1327,19 @@ function drawTimelineHeader(
     d2d.textAlign = 'center';
     d2d.textBaseline = 'bottom';
     d2d.fillText(todayLabel.text, todayLabel.cx, top + h - m.s(1));
+  }
+  // Statusdatum-label (#54): zelfde plek/stijl als het vandaag-label. Valt het met het vandaag-
+  // label op dezelfde plek (statusdatum ≈ vandaag), dan wint het vandaag-label — de reservering
+  // hieronder tekent het statuslabel alléén als de banden niet overlappen; anders staat er één
+  // duidelijk label i.p.v. twee door elkaar.
+  if (statusLabel && !(todayLabel
+      && statusLabel.left < todayLabel.right
+      && statusLabel.right > todayLabel.left)) {
+    d2d.fillStyle = PRINT_COLORS.today;
+    d2d.font = m.font(7, true);
+    d2d.textAlign = 'center';
+    d2d.textBaseline = 'bottom';
+    d2d.fillText(statusLabel.text, statusLabel.cx, top + h - m.s(1));
   }
 
   // Table header area (left side of timeline header)
@@ -1200,8 +1395,7 @@ function drawTimelineHeader(
 function drawTaskTable(
   d2d: Draw2D,
   m: ReportMetrics,
-  flatTasks: PrintTask[],
-  depthMap: Map<string, number>,
+  printRows: { kind: 'task' | 'group'; task?: Task; depth: number; label?: string; count?: number }[],
   canvasHeight: number,
   cols: ColPositions,
   options: PrintOptions,
@@ -1215,15 +1409,10 @@ function drawTaskTable(
   d2d.fillRect(0, m.totalHeaderHeight, m.tableWidth, chartBottom - m.totalHeaderHeight);
 
   // Task rows
-  for (let i = 0; i < flatTasks.length; i++) {
-    const task = flatTasks[i];
+  for (let i = 0; i < printRows.length; i++) {
+    const row = printRows[i];
     const y = m.totalHeaderHeight + i * m.rowHeight;
-    const depth = depthMap.get(task.id) || 0;
     const textY = y + m.rowHeight / 2;
-    // Inspringing per hiërarchieniveau schaalt mee: de naamkolom is breder geworden, dus een vaste
-    // 12 px zou de boomstructuur bij een grote letter optisch platslaan.
-    const indent = depth * m.s(12);
-    const isSummary = task.childIds.length > 0;
 
     // Alternating row background
     if (i % 2 === 0) {
@@ -1238,6 +1427,35 @@ function drawTaskTable(
     d2d.moveTo(0, y + m.rowHeight);
     d2d.lineTo(m.tableWidth, y + m.rowHeight);
     d2d.stroke();
+
+    // Groepsband-rij (#54 volg-weergave): vet label met inspringing, geen datacellen — een band
+    // groepeert, hij is géén taak met datums/duur.
+    if (row.kind === 'group') {
+      const indent = row.depth * m.s(12);
+      d2d.fillStyle = PRINT_COLORS.summary;
+      d2d.font = m.font(9, true);
+      d2d.textAlign = 'left';
+      d2d.textBaseline = 'middle';
+      const nameX = cols.name.x + cellPad + indent;
+      const nameAvail = cols.name.x + cols.name.w - m.s(2) - nameX;
+      const bandLabel = `${row.label ?? ''}${row.count !== undefined ? ` (${row.count})` : ''}`;
+      d2d.fillText(fitText(d2d, bandLabel, nameAvail), nameX, textY);
+      // Rijnummer telt mee (de band is een rij), maar geen WBS/duur/datums.
+      d2d.fillStyle = PRINT_COLORS.textSecondary;
+      d2d.font = m.font(8);
+      d2d.textAlign = 'right';
+      d2d.fillText(String(i + 1), cols.rowNum.x + cols.rowNum.w - cellPad, textY);
+      d2d.textAlign = 'left';
+      d2d.textBaseline = 'alphabetic';
+      continue;
+    }
+
+    const task = row.task!;
+    const depth = row.depth;
+    // Inspringing per hiërarchieniveau schaalt mee: de naamkolom is breder geworden, dus een vaste
+    // 12 px zou de boomstructuur bij een grote letter optisch platslaan.
+    const indent = depth * m.s(12);
+    const isSummary = task.childIds.length > 0;
 
     // Row number
     d2d.fillStyle = PRINT_COLORS.textSecondary;
@@ -1355,12 +1573,14 @@ function drawTaskTable(
 function drawDependencies(
   d2d: Draw2D,
   m: ReportMetrics,
-  flatTasks: PrintTask[],
+  tasksById: Map<string, Task>,
   sequences: Sequence[],
   dateToX: (d: Date) => number,
   rowToY: (i: number) => number,
   zoom: number,
   options: PrintOptions,
+  /** #54 volg-weergave: alleen paren met béide endpoints zichtbaar; óók de rij-index-bron. */
+  rowIndexOf: Map<string, number>,
 ) {
   d2d.lineWidth = 1.2;
 
@@ -1369,12 +1589,11 @@ function drawDependencies(
   const drivingSet = options.drivingSequenceIds ? new Set(options.drivingSequenceIds) : null;
 
   for (const seq of sequences) {
-    const predIdx = flatTasks.findIndex(t => t.id === seq.predecessorId);
-    const succIdx = flatTasks.findIndex(t => t.id === seq.successorId);
-    if (predIdx < 0 || succIdx < 0) continue;
-
-    const pred = flatTasks[predIdx];
-    const succ = flatTasks[succIdx];
+    const pred = rowIndexOf.has(seq.predecessorId) ? tasksById.get(seq.predecessorId) : undefined;
+    const succ = rowIndexOf.has(seq.successorId) ? tasksById.get(seq.successorId) : undefined;
+    if (!pred || !succ) continue;
+    const predIdx = rowIndexOf.get(seq.predecessorId)!;
+    const succIdx = rowIndexOf.get(seq.successorId)!;
     const predY = rowToY(predIdx) + m.rowHeight / 2;
     const succY = rowToY(succIdx) + m.rowHeight / 2;
 
@@ -1481,6 +1700,7 @@ function drawFooter(
   canvasHeight: number,
   projectName: string,
   options: PrintOptions,
+  printRows: { kind: 'task' | 'group'; task?: Task; depth: number; label?: string; count?: number }[],
 ) {
   const footerTop = canvasHeight - m.footerHeight;
   // Alles in de voettekst is tekst-zone: de marge, de regelafstanden en de legenda-blokjes schalen
@@ -1552,18 +1772,65 @@ function drawFooter(
       type LegendItem = { label: string; draw: (x: number) => void };
       const items: LegendItem[] = [];
 
-      if (options.showCritical) {
-        items.push({ label: lg?.criticalPath ?? 'Kritiek pad', draw: (x) => {
-          d2d.fillStyle = PRINT_COLORS.critical;
+      // Kleurmodus-legenda (#21): in de niet-critical-modi vervallen de critical/normal-swatches —
+      // ze beloven dan juist de verkeerde betekenis. In plaats daarvan: rode-rand-verklaring
+      // (kritiek pad) en in resource-modus de resourcekleuren zelf. De legenda laat bij te weinig
+      // ruimte de laatste items weg (zie hieronder); de resource-items staan daarom vóór de rand-
+      // verklaring zodat die essentiële regel het langst overleeft… nee: de rand-regel is de
+      // minst essentiële (het kritiek pad blijft zonder legenda ook zichtbaar als rode rand), dus
+      // die staat laATSTE — zelfde bewuste positie als de relatiestijl-regel hieronder.
+      const colorMode = options.barColorMode ?? 'critical';
+      if (colorMode === 'critical') {
+        if (options.showCritical) {
+          items.push({ label: lg?.criticalPath ?? 'Kritiek pad', draw: (x) => {
+            d2d.fillStyle = PRINT_COLORS.critical;
+            d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
+            d2d.fill();
+          } });
+        }
+        items.push({ label: lg?.normal ?? 'Normaal', draw: (x) => {
+          d2d.fillStyle = PRINT_COLORS.normal;
           d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
           d2d.fill();
         } });
       }
-      items.push({ label: lg?.normal ?? 'Normaal', draw: (x) => {
-        d2d.fillStyle = PRINT_COLORS.normal;
-        d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
-        d2d.fill();
-      } });
+      if (colorMode === 'resource' && options.resources && options.assignments) {
+        // Resources die daadwerkelijk op zichtbare BLADBALKEN voorkomen (first-come volgorde),
+        // cap op 8 + "… en N meer" — de legenda mag de voettekst niet overnemen.
+        const visibleLeafIds = new Set<string>();
+        for (const r of printRows) {
+          if (r.kind === 'task' && r.task && !r.task.childIds.length) visibleLeafIds.add(r.task.id);
+        }
+        const byId = new Map(options.resources.map(r => [r.id, r]));
+        const seen: { id: string; name: string; color: string }[] = [];
+        for (const a of options.assignments) {
+          if (visibleLeafIds.size > 0 && !visibleLeafIds.has(a.taskId)) continue;
+          const res = byId.get(a.resourceId);
+          if (!res || seen.some(s => s.id === res.id)) continue;
+          seen.push({ id: res.id, name: res.name, color: resourceDisplayColor(res) });
+        }
+        const LEGEND_RESOURCE_CAP = 8;
+        for (const s of seen.slice(0, LEGEND_RESOURCE_CAP)) {
+          items.push({ label: s.name, draw: (x) => {
+            d2d.fillStyle = s.color;
+            d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
+            d2d.fill();
+          } });
+        }
+        if (seen.length > LEGEND_RESOURCE_CAP && options.barColorsLegendLabels) {
+          const more = options.barColorsLegendLabels.resourcesMore(seen.length - LEGEND_RESOURCE_CAP);
+          items.push({ label: more, draw: () => { /* tekst-only item — geen swatch */ } });
+        }
+      }
+      if (colorMode !== 'critical') {
+        // "Rode rand = kritiek pad"-verklaring voor task/auto/resource.
+        items.push({ label: options.barColorsLegendLabels?.criticalOutline ?? 'Kritiek pad', draw: (x) => {
+          d2d.strokeStyle = PRINT_COLORS.critical;
+          d2d.lineWidth = 1;
+          d2d.roundRect(x, midY - swatchH / 2, swatchW, swatchH, m.s(2));
+          d2d.stroke();
+        } });
+      }
       items.push({ label: lg?.milestone ?? 'Mijlpaal', draw: (x) => {
         d2d.fillStyle = PRINT_COLORS.milestone;
         const mx = x + swatchW / 2;

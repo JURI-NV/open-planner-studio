@@ -317,6 +317,7 @@ export function ReportPanel() {
     page: t('page', { defaultValue: 'Pagina' }),
     of: t('of', { defaultValue: 'van' }),
     today: t('today', { defaultValue: 'Vandaag' }),
+    statusDate: t('statusDateLabel', { defaultValue: 'Statusdatum' }),
   };
 
   const options: PrintOptions = {

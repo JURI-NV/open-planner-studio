@@ -213,6 +213,9 @@ export const PRINT_PALETTE = {
   textSecondary: '#6b7280',
   critical: BRAND.critical,   // '#DC2626'
   criticalDark: '#991b1b',
+  // Bijna-kritiek (#21 kleurmodi): de print tekende bijna-kritiek nooit zelf (critical/normal
+  // waren de enige balkkleuren); de 'critical'-kleurmodus deelt die keuze nu met barColors.
+  nearCritical: BRAND.nearCritical, // '#F59E0B'
   normal: BRAND.normal,       // '#2563EB'
   normalDark: '#1d4ed8',
   milestone: BRAND.milestone, // '#7C3AED'
