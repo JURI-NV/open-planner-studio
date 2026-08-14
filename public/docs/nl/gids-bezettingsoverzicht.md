@@ -8,7 +8,7 @@ Plan je meerdere projecten die uit dezelfde resourcebibliotheek putten, dan wil 
 - Het histogram per geselecteerd bibliotheekitem lezen.
 - Wanneer een resource als dubbel geboekt telt.
 - Wat de ⚠-markering betekent en hoe je die oplost.
-- De belangrijkste beperking: het overzicht ziet alleen deze machine.
+- De belangrijkste beperking: het overzicht ziet alleen wat in dit programma geopend is.
 - Waarom een gedupliceerd document volwaardig meetelt.
 
 ## Het overzicht openen
@@ -43,11 +43,11 @@ Alleen wanneer die alvast-berekening zelf niet lukt — bijvoorbeeld door een cy
 
 Kortom: de ⚠ zelf is meestal onschuldig — het overzicht heeft het document dan al zelf doorgerekend. Pas een "—" in plaats van cijfers betekent dat er in dat document iets moet worden opgelost.
 
-## Alleen deze machine
+## Alleen dit programma
 
-Het bezettingsoverzicht ziet uitsluitend documenten die op deze computer geopend zijn. Er is geen gedeelde opslag tussen machines: boekingen die een collega op zíjn computer plant, bestaan hier lokaal niet en tellen dus niet mee — ook niet als jullie dezelfde bibliotheek delen via export en import. Onder de tabel staat deze grens als permanente voetnoot, zodat je er nooit omheen kunt lezen.
+Het bezettingsoverzicht ziet uitsluitend de documenten die in dít programma geopend zijn. Een ander venster of een andere toepassing op dezelfde computer telt niet mee — en al helemaal niet een collega die op een andere machine plant. Er is geen gedeelde opslag tussen programma-instanties: boekingen die elders geopend staan, bestaan hier lokaal niet en tellen dus niet mee — ook niet als jullie dezelfde bibliotheek delen via export en import. Onder de tabel staat deze grens als permanente voetnoot, zodat je er nooit omheen kunt lezen.
 
-Ook bestanden die wel op deze machine staan maar niet geopend zijn, tellen niet mee: het overzicht gaat over *open* documenten, niet over alles op schijf. Hoe het delen van bibliotheken tussen machines wél werkt — en welke beperkingen daarbij horen — lees je in de gids [Resourcebibliotheken](docs://gids-resourcebibliotheken).
+Ook bestanden die ergens op schijf staan maar niet geopend zijn, tellen niet mee: het overzicht gaat over *open* documenten, niet over alles op schijf. Hoe het delen van bibliotheken tussen machines wél werkt — en welke beperkingen daarbij horen — lees je in de gids [Resourcebibliotheken](docs://gids-resourcebibliotheken).
 
 ## Duplicaten tellen volwaardig mee
 

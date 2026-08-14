@@ -8,7 +8,7 @@ If you plan several projects that all draw from the same resource library, you'l
 - Reading the histogram for the selected library item.
 - When a resource counts as double-booked.
 - What the ⚠ marker means and how to resolve it.
-- The key limitation: the overview only sees this machine.
+- The key limitation: the overview only sees what's open in this app.
 - Why a duplicated document counts in full.
 
 ## Opening the overview
@@ -43,11 +43,11 @@ Only when that advance calculation itself fails — say, a cycle in the relation
 
 In short: the ⚠ itself is usually harmless — it just means the overview already calculated that document for you. Only a "—" instead of figures means something needs fixing in that document.
 
-## This machine only
+## This app only
 
-The occupancy overview only sees documents that are open on this computer. There is no shared storage between machines: bookings a colleague plans on their computer don't exist locally here and therefore don't count — not even if you share the same library through export and import. That boundary sits below the table as a permanent footnote, so you can never read past it.
+The occupancy overview only sees the documents that are open in this app. Another window or another application on the same computer doesn't count — let alone a colleague planning on a different machine. There is no shared storage between app instances: bookings opened elsewhere don't exist locally here and therefore don't count — not even if you share the same library through export and import. That boundary sits below the table as a permanent footnote, so you can never read past it.
 
-Files that live on this machine but aren't open don't count either: the overview is about *open* documents, not everything on disk. How sharing libraries between machines does work — and which limits come with it — is covered in the guide [Resource libraries](docs://gids-resourcebibliotheken).
+Files that live somewhere on disk but aren't open don't count either: the overview is about *open* documents, not everything on disk. How sharing libraries between machines does work — and which limits come with it — is covered in the guide [Resource libraries](docs://gids-resourcebibliotheken).
 
 ## Duplicates count in full
 
