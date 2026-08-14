@@ -14,6 +14,7 @@
     "check-pool-ifc.ts",
     "check-ifc-hostile.ts",
     "check-i18n-plurals.ts",
+    "check-occupancy.ts",
     "node-builtins.d.ts",
     "../../src/types/file-system-access.d.ts"
   ]
