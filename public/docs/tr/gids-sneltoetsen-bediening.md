@@ -21,14 +21,17 @@ Gantt görünümünde sağ tıklamak, farenin nerede olduğuna bağlı olarak fa
 
 - **Bir görev çubuğu üzerinde** — tam görev menüsü (düzenle, ekle, alt görev/kilometre taşı/ilişki ekle, takvim ata, ilerleme, öncelik, yolu izle, sil…), artı üstte bir ekstra çubuğa-özgü öğe: **İlişkiyi buradan başlat**.
 - **Bir çubuk isabeti olmayan bir görev satırında** (örneğin şu anda hiçbir çubuğu görünür olmayan bir satır) — aynı görev menüsü, ama çubuğa-özgü öğe olmadan.
-- **Bir grup başlığı satırında** (gruplanmış bir görev kümesini özetleyen satır) — o tek grubu daralt/genişlet için küçük bir menü, artı tüm ağaç için **Tümünü genişlet**/**Tümünü daralt**.
+- **Bir grup başlığı satırında** (gruplanmış bir görev kümesini özetleyen satır) — o tek grubu daralt/genişlet için küçük bir menü, artı her grup bandını (iç içe geçmiş bantlar dahil) tek seferde açan veya kapatan **Tümünü genişlet**/**Tümünü daralt**.
 - **Boş tuvalde** (görev yok, grup başlığı yok) — **Yeni görev**, **Kilometre taşı ekle**, **Yapıştır** (panoda bir şey varsa), **Yakınlaştırmayı sıfırla** ve **Projeye sığdır**.
 
 Bu son menü canlı olarak doğrulanmıştır: Gantt tuvalinde boş bir noktaya sağ tıklamak, tam olarak bu sırayla, tam olarak bu beş öğeyi üretir.
 
 ## Bir görev çubuğunda sürükleme
 
-Bir görev çubuğunu kavrayıp sürüklemek görevi taşır (veya kenarını kavradığınızda, süresini değiştirir). Bir çubuktan sürüklerken **Shift**'i basılı tutun, ve bunun yerine bıraktığınız göreve doğru bir **ilişki** çizmeye başlarsınız — çubuğun bağlam menüsündeki **İlişkiyi buradan başlat** ile aynı şey, ama tek bir fare hareketinde.
+Bir görev çubuğunu kavrayıp sürüklemek görevi taşır (veya kenarını kavradığınızda, süresini değiştirir). Bir **kenarı** sürüklerken, o kenara bitişik küçük, koyu renkli bir hap görevin alacağı süreyi gösterir — örneğin `15d`, veya saat bazında planlanan bir görev için `6h`. Fare düğmesini bırakmadan önce yeni süreyi görebilmeniz için sürüklerken canlı olarak güncellenir. Çubuğun tamamını taşımak bunu göstermez: bu hareket süreyi değiştirmeden bırakır.
+Bir çubuktan sürüklerken **Shift**'i basılı tutun, ve bunun yerine bıraktığınız göreve doğru bir **ilişki** çizmeye başlarsınız — çubuğun bağlam menüsündeki **İlişkiyi buradan başlat** ile aynı şey, ama tek bir fare hareketinde.
+
+Yalnızca o görevi seçmek için bir çubuğa tıklayın. **Ctrl/⌘+tıklama**, bir çubuğu değiştirmek yerine geçerli seçime ekler veya seçimden çıkarır, böylece çok görevli bir seçimi çubuk çubuk oluşturabilirsiniz — tam olarak iki görev seçiliyken **Bağlantı** düğmesine tıklamadan hemen önce, veya görev tablosunda tüm bir görev seçimini yeni bir konuma tek seferde sürüklemeden önce kullanışlıdır.
 
 ## Kaydırma ile kutu-seçim karşılaştırması
 
@@ -39,9 +42,11 @@ Boş alanda başlayan bir sürükleme, nerede başlattığınıza ve kaydırma m
 
 Kısaca: görev tablosu her zaman seçer; tuval yalnızca sürükleme kaydırma modunda kaydırır, aksi takdirde seçer.
 
+Bunun ötesinde, bir hareket her yerde ve her zaman çalışır: **orta fare düğmesini** (kaydırma tekerleği) basılı tutarak sürüklemek görünümü kaydırır — her kaydırma modunda, ve bir çubukta, görev tablosunda veya boş alanda başlatmanız fark etmeksizin. Konum veya Tuşlar modundayken ama yine de hızlı bir sürükleme yapmak istediğinizde kullanışlıdır.
+
 ## Yakınlaştırma
 
-Şerit üzerindeki yakınlaştırma düğmelerinin yanı sıra, **+**/**=** (veya **Ctrl+=**) yakınlaştırır ve **-** (veya **Ctrl+-**) uzaklaştırır. Salt bir **0** yakınlaştırmayı varsayılana sıfırlar; **Ctrl+0** tüm projenin ekrana sığması için yakınlaştırmayı ayarlar ("projeye sığdır") — yukarıdaki boş-tuval bağlam menüsündeki aynı adlı düğmeyle aynıdır.
+Şerit üzerindeki yakınlaştırma düğmelerinin yanı sıra, **+**/**=** (veya **Ctrl+=**) yakınlaştırır ve **-** (veya **Ctrl+-**) uzaklaştırır. Salt bir **0** yakınlaştırmayı varsayılana sıfırlar; **Ctrl+0** tüm projenin ekrana sığması için yakınlaştırmayı ayarlar ("projeye sığdır") — yukarıdaki boş-tuval bağlam menüsündeki aynı adlı düğmeyle aynıdır. Daha da yakınlaştırdıkça zaman çizelgesi üstbilgisi uyum sağlar: yer açıldığında hafta numaraları görünür, ve gün düzeyinde çalışacak kadar yakınlaştığınızda her sütunu gün adları etiketler. **Yalnızca iş günlerini göster** (Ayarlar → Zaman çizelgesi / Yakınlaştırma) açıksa, üstbilgi — ve çubukların kendisi — hafta sonlarını ve tatilleri sadece griye boyamak yerine tamamen atlar, böylece 5 iş günlük bir görev tam olarak 5 sütun genişliğinde olur.
 
 ## Belge sekmeleri
 

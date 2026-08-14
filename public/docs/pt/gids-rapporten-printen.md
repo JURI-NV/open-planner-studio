@@ -31,13 +31,28 @@ Uma impressão completa e formatada das barras de Gantt — este é o único tip
 - **Orientação**: paisagem ou retrato.
 - **Ajustar ao papel automaticamente** (ligado = o cronograma ajusta-se automaticamente ao tamanho escolhido) ou um
   controlo deslizante de **zoom** manual se desligar o ajuste automático.
+- **Tamanho da fonte** — 90, 100, 110 ou 125%; ajusta o texto do relatório, a altura das linhas e o
+  cabeçalho/rodapé, independentemente do nível de zoom acima.
+- **Repetir cabeçalho em cada página** — ligado por predefinição; mantém o cabeçalho do relatório visível em
+  todas as páginas impressas, em vez de apenas na primeira.
+- **Cronograma em** — distribui a linha do tempo de Gantt por 1 a 8 páginas lado a lado; só disponível
+  com o ajuste automático ligado.
 - Interruptores para **Nomes de tarefas nas barras**, **Mostrar conclusão**, **Caminho crítico**, **Mostrar folga**,
   **Dependências**, **Fins de semana** e **Legenda**.
 - Um campo **Empresa:** (autopreenchido a partir da definição do projeto, mas separadamente editável aqui) e o
   **Autor:** (só leitura, a partir das informações do projeto).
 
+As linhas de relação no relatório usam a mesma linguagem visual da vista de Gantt: uma linha **contínua** é
+uma relação determinante, uma linha **tracejada** uma não determinante, e uma relação determinante entre duas
+tarefas críticas é **vermelha**. Desative *caminho crítico* e essas linhas também ficam neutras. A legenda no
+fundo resume a diferença. Antes do primeiro cálculo, todas as linhas são desenhadas a neutro e contínuas —
+prima primeiro *Calcular* (F5).
+
 O bloco de resumo acima mostra a contagem ao vivo de tarefas, tarefas folha, tarefas críticas e relações
-no projeto.
+no projeto. O painel de definições memoriza as suas escolhas entre sessões — reabra o separador Relatório
+mais tarde e o tamanho de papel, os interruptores, o tamanho da fonte e o resto voltam exatamente como os
+deixou. Só o campo empresa é reposto: parte sempre da definição própria do projeto, para que um relatório
+nunca herde o nome da empresa de outro projeto.
 
 ### Visão geral de marcos
 
@@ -69,9 +84,10 @@ ficheiro PDF real (nome do ficheiro terminado em `-planning.pdf`) — uma págin
 físicas do tamanho de papel e orientação escolhidos. O ficheiro PDF é **baseado em vetores**: barras, linhas e texto
 são armazenados como instruções de desenho PDF em vez de uma única imagem incorporada, pelo que se mantém nítido em
 qualquer nível de zoom e o texto é selecionável e pesquisável em qualquer leitor de PDF. Isto aplica-se a texto
-Latino, Cirílico e Grego; se o projeto contiver texto Chinês, Japonês, Coreano, Árabe ou Persa, a exportação
-recorre automaticamente a uma imagem raster para esse texto — ainda corretamente apresentado,
-mas não selecionável nem pesquisável. Útil para email ou arquivo sem passar pelo diálogo de impressão do
+Latino, Cirílico, Grego, Árabe e Persa — o Árabe e o Persa também são moldados (shaped) e incorporados como texto
+vetorial. O texto Chinês, Japonês e Coreano é opcional: instale uma extensão de fonte que forneça esses
+glifos e também é incorporado como vetor (selecionável e pesquisável); sem essa extensão, esse texto é
+exportado como imagem raster — continua corretamente apresentado, mas não selecionável nem pesquisável. Útil para email ou arquivo sem passar pelo diálogo de impressão do
 sistema. Se preferir imprimir diretamente (ou guardar como PDF através do diálogo do sistema, por exemplo para escolher
 um tamanho de papel diferente do configurado acima), use **Imprimir...**.
 

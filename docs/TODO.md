@@ -223,20 +223,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 > forward-uitdrukking leveren dezelfde instant en er valt niets te spiegelen. Empirisch bevestigd:
 > alle varianten met vlaggen geven niet-negatieve float. **Niet opnieuw onderzoeken.**
 
-- [ ] **~~Dag-pred/uur-succ~~ — BEVESTIGD en in behandeling (2026-07-20).** In die arm is
-      `predDoneAt(ef)` gelijk aan `(ef + 1 dag)@00:00`; `forwardHour` onderdrukt die dagrand bij een
-      grensvlag, de backward-scanlus niet. Gemeten: dag-mijlpaal → uur-taak met FS 0 geeft
-      `tf = −1` waar het 0 moet zijn, en dezelfde netten puur dag→dag of puur uur→uur geven wél 0.
-      Ook bij lag 1 en 2. Geen enkele bestaande case pinde dit.
-- [ ] **Lag in minuten zonder dagen verdwijnt stil — BEVESTIGD en ERNSTIGER dan eerst genoteerd**
-      (2026-07-20). `resolveEffectiveLagDays` kent `seq.lagMinutes` niet, dus een lag met
-      `lagMinutes` gezet en `lagDays = 0` telt volledig als 0 (gemeten: `lagMinutes 240` geeft
-      exact dezelfde datums als lag 0). Dit is géén benigne eenheidskwestie: het is via import
-      bereikbaar, want `p6xmlReader.ts:520-528` en `mspdiReader.ts:388-405` keyen `lagMinutes` op de
-      **opvolger** terwijl de solver de lag in de **voorganger**-kalender oplost ⇒ P6-/MSPDI-import
-      met dag-voorganger en uur-opvolger verliest de lag zonder melding. IFC ontsnapt toevallig
-      (rondt `PT4H` op één dag af). Fix hoort in `resolveLag`/`shiftLagPred`. De lezer-kant is
-      **codelezing, geen import-fixture** — verifieer dat vóór je erop bouwt.
 - [ ] **Anker versus berekend: `scheduleStart` als datamodel-vraag.** Het paneelveld is op
       2026-07-20 gelijkgetrokken met de vier andere oppervlakken (toont `earlyStart || scheduleStart`,
       schrijft bij wijziging naar het anker), maar de onderliggende modellering blijft verwarrend: in
@@ -261,11 +247,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       regressie van #25 — dat werk maakte het pad alleen makkelijker bereikbaar (één dropdown i.p.v.
       een handmatige zoominstelling). Fix-richting: pagina's streamend omzetten naar JPEG en het
       canvas per pagina vrijgeven i.p.v. ze allemaal vast te houden, of één pagina-canvas hergebruiken.
-- [ ] **Undo-stack heeft geen limiet.** Gemeten 2026-07-20: 64 MB na 500 taakbewerkingen bij een
-      project van 500 taken (elke snapshot is een volledige deep clone). Er staat nergens een
-      `.slice`/`.shift` op `undoStack`. Sinds project-mutaties ook snapshots pushen (2026-07-20) is
-      het aantal pushes toegenomen, dus dit wordt relevanter. Fix = een bovengrens met afkappen aan
-      de onderkant; let op dat `redoStack` symmetrisch mee moet.
 - [ ] **Taakdatumvelden pushen 3 undo-stappen per ingetypte datum.** `DateTextInput` commit live bij
       elke toetsaanslag en `parseFlexibleDate` accepteert een jaar al bij 2 cijfers, dus "01062030"
       levert commits op voor 2020-06-01, 0203-06-01 en 2030-06-01 — elk met een volledige snapshot.
@@ -284,12 +265,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       corrupte of afgekapte recovery-snapshot na een crash laat het opstarten daardoor klappen in
       plaats van doormodderen. Overweeg een defensieve afhandeling rond die ene aanroep, met een
       zichtbare melding in plaats van een stille catch.
-- [ ] **Een leeg project levert `projectEnd: "1970-01-01"` in plaats van een lege waarde.** De
-      accumulator in `src/engine/scheduler/` start op `new Date(0)`; alleen het fóutpad geeft `''`.
-      Gevonden 2026-07-20 bij het bouwen van Move Project (het ontwerpdoc nam `''` aan). Het gedrag
-      is vastgelegd in case `move-07` en de epoch wordt in `previewMoveProject` afgevangen zodat hij
-      nooit als echte einddatum op het scherm komt — maar de bron hoort gerepareerd: een project
-      zonder taken heeft geen einddatum, geen datum uit 1970.
 - [x] **`project.endDate` overleeft opslaan + herladen niet.** *(gefixt 2026-07-20)* `ifcWriter` schrijft
       `planEnd = max(scheduleFinish)` en gebruikt `project.endDate` alleen als fallback bij nul
       taken; de reader leest dat terug ín `project.endDate`. Elke ingevulde contractuele einddatum
@@ -321,29 +296,6 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       Restpunt: `public/examples/*.ifc` zijn niet geregenereerd en bevatten de nieuwe
       pset-properties dus nog niet — onschadelijk (ze lezen via de WORKPLAN-terugval), maar bij een
       volgende `gen:examples`-run komen ze er vanzelf bij.
-- [ ] **Generator-scripts staan niet in CI.** `npm run gen:examples` en `npm run verify:examples`
-      waren op de branch van 2026-07-20 volledig stuk (een verplaatste import en een gewijzigde
-      `writeIFC`-signatuur, beide zonder `scripts/` mee te nemen) en dat viel pas op toen iemand ze
-      wilde draaien. `tsc` dekt ze niet af omdat `scripts/` buiten het build-pad valt. Een goedkope
-      CI-stap zou dit vangen.
-- [ ] **"Project verplaatsen…"-functie (Move Project, user-verzoek 2026-07-10).** Hele planning
-      N maanden/dagen verschuiven in één handeling: nieuwe projectstartdatum kiezen, alle expliciete
-      datums schuiven mee (constraint-datums, deadlines, werkelijke start/einde, statusdatum,
-      externe-koppeling-ankers), met keuze of baselines meegaan. Let op: kalender schuift NIET mee
-      (feestdagen/bouwvak liggen vast), dus einddatums kunnen verspringen — dat is correct en moet
-      in de preview zichtbaar zijn. Scope: store-actie + klein dialoog + tests (één golf).
-      **Bindend implementatieplan ligt klaar:**
-      [ontwerp](superpowers/specs/2026-07-20-move-project-design.md) — uitputtende veld-inventarisatie
-      met per veld een schuift-mee/niet-mee/afgeleid-verdict, uur-modus-gedrag, elf randgevallen,
-      store-/UI-/preview-ontwerp, i18n-sleutels en vijftien testcases. Twee correcties op de
-      aanname hierboven: `project.startDate` is **niet** het CPM-anker (de solver leidt de
-      projectstart af uit `scheduleStart` van taken zonder voorganger, `CPMSolver.ts:482-488`), dus
-      élk taakanker moet mee; en er is een randgeval bij dat er niet in stond — de gegenereerde
-      feestdagen dekken maar een eindige jarenspanne (`startjaar−1 … startjaar+3`), dus een grote
-      verschuiving vooruit rekent stil zonder feestdagen en moet een preview-waarschuwing krijgen.
-      §5.1 van het plan (undo-snapshot verbreden) is op 2026-07-20 al uitgevoerd, en anders dan het
-      plan voorstelde: `project` én `calendar` zitten nu volledig in de snapshot.
-
 ### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
 - [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
       (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van
@@ -401,32 +353,7 @@ Snap-packaging is werkend en zit op `main` (zie changelog +
 tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-run tegen
 `v2026.6.0` (groene build, geldig `.snap`, WebKitGTK uit de gnome-runtime). Wat rest:
 
-- [ ] **In-app updater overslaan binnen de snap.** In een read-only strict snap kan de
-      Tauri-updater de binary niet vervangen — de Snap Store doet de refresh. Zonder dit
-      krijgen snap-gebruikers een "update beschikbaar"-melding die niets kan uitvoeren.
-      *Aanpak:* detecteer de snap-runtime via de door snapd gezette env `SNAP`
-      (Rust-zijde, dun gehouden conform "keep Rust thin"), geef dat door aan de frontend
-      en sla de updater-check over wanneer actief (updater-logica zit in `App.tsx`).
-- [ ] **Live gaan in de Snap Store — eigenaar-stappen.** Daarna publiceert de al
-      bestaande gated stap in `snap.yml` (`snapcore/action-publish`, kanaal `stable`)
-      automatisch bij elke release-tag:
-      1. `snapcraft register open-planner-studio` (eenmalig; vereist een Snap Store-account
-         en claimt de naam).
-      2. Genereer credentials met `snapcraft export-login --snaps open-planner-studio
-         --channels stable -` en voeg de output toe als GitHub-repo-secret
-         `SNAPCRAFT_STORE_CREDENTIALS`.
-
 ### Distributie & Release — release notes in de in-app updater
-
-- [ ] **Release-notes-vulling van `latest.json` automatiseren.** De update-dialoog
-  (`UpdateDialog.tsx`) toont `update.body` al, maar het `notes`-veld in `latest.json` blijft
-  leeg omdat de release notes pas ná de CI-build handmatig op de GitHub-release worden gezet.
-  Sinds v2026.7.5 is de workaround een vaste release-procedure-stap: na `gh release edit
-  --notes-file` ook `latest.json` downloaden, `notes` vullen (platte-tekst-versie van de
-  notes) en met `--clobber` terug-uploaden. Automatiseren kan door in `release.yml` een
-  gated slotstap toe te voegen die na het publiceren de release-body in `latest.json` patcht
-  (of door de notes vóór het taggen in een bestand in de repo te leggen dat de workflow
-  leest). Tot die tijd: procedure-stap niet vergeten.
 
 ### Kwaliteit & verificatie
 

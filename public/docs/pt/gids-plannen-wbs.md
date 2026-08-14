@@ -5,7 +5,8 @@ Um cronograma começa com uma estrutura de tarefas: que tarefas existem, como se
 ## O que vai aprender aqui
 
 - Construir uma estrutura de tarefas (WBS) usando indentação e tarefas de resumo.
-- Mover tarefas dentro do mesmo nível, sem reindentar.
+- Mover tarefas dentro do mesmo nível, sem reindentar — com o teclado, arrastando, ou no separador
+  **Tabela**, ao estilo de uma folha de cálculo.
 - Os três tipos de marco e o indicador obrigatório separado para momentos contratuais.
 - Gerir códigos de atividade e campos personalizados através da janela **Códigos e campos**, e agrupar por eles.
 - Usar notas (uma lista de verificação por tarefa) para acompanhar itens em aberto.
@@ -23,6 +24,14 @@ Uma lista plana de tarefas não diz nada sobre como se relacionam. Ao indentar u
 5. Para uma subtarefa completamente nova há uma via mais rápida: clique com o botão direito na tarefa pai e escolha **Adicionar subtarefa**. Isso cria uma nova tarefa, já indentada, num só passo, em vez de adicionar primeiro uma tarefa e depois indentá-la separadamente.
 
 Assim que uma tarefa tem pelo menos uma subtarefa, torna-se automaticamente uma tarefa de resumo: a sua barra no diagrama de Gantt passa a abranger todo o período desde o início mais cedo até ao fim mais tarde de todas as subtarefas abaixo dela, e a sua própria duração e datas deixam de poder ser definidas de forma independente. Uma tarefa de resumo é, por isso, sempre um valor derivado, nunca um cronograma que introduz diretamente — elimine ou desloque as subtarefas, e a barra da tarefa de resumo ajusta-se automaticamente.
+
+**Recolher e expandir.** Com uma WBS grande, por vezes vai querer compactar a árvore temporariamente. O separador do friso **Visualização**, grupo **Estrutura**, tem dois botões separados para isto — **Recolher** e **Expandir** — deliberadamente não um único alternador, porque com uma seleção mista (alguns ramos abertos, outros fechados) um alternador nunca poderia definir tudo da mesma forma.
+
+- **Com uma seleção**, os botões atuam sobre as tarefas selecionadas; só as tarefas com subtarefas são afetadas, as tarefas isoladas são ignoradas.
+- **Sem seleção**, atuam sobre todo o cronograma. Retire a seleção com **Esc**, ou clique numa área vazia da vista de Gantt.
+- Numa vista agrupada (ver *Agrupar por códigos e campos* mais abaixo) os botões recolhem/expandem as faixas de grupo — incluindo faixas aninhadas — em vez das tarefas.
+
+A seta à frente de uma tarefa de resumo continua a funcionar como antes, para abrir ou fechar apenas esse ramo.
 
 ### Inserir uma nova tarefa no sítio certo
 
@@ -51,6 +60,10 @@ Além de alterar o nível de uma tarefa (indentar/diminuir indentação), pode t
 - **Alt+↓** move a tarefa para baixo.
 
 Isto funciona em qualquer nível da árvore: mova uma tarefa de fase, e todas as suas subtarefas movem-se automaticamente com ela.
+
+Prefere o rato? Agarre uma tarefa pela sua linha na tabela de tarefas (a coluna do lado esquerdo da vista de Gantt, com o mesmo comportamento de arrastar no separador do friso **Tabela**) e arraste-a para cima ou para baixo. Largue-a entre duas linhas para a reordenar entre as suas irmãs, tal como Alt+↑/↓. Em vez disso, largue-a na parte inferior da linha de uma tarefa de resumo, e ela aninha-se: a tarefa torna-se a nova última subtarefa dessa tarefa de resumo, reindentando-a num só movimento — é o equivalente em rato de Alt+→. Selecione primeiro várias tarefas (Ctrl/Cmd-clique, ou uma seleção por caixa) e toda a seleção é arrastada e largada em conjunto.
+
+O separador do friso **Tabela** mostra esta mesma estrutura como uma grelha simples e editável, útil quando está a introduzir ou a corrigir muitas tarefas de uma vez: um único clique em qualquer célula editável inicia imediatamente a edição com o valor existente selecionado, as teclas de seta movem um cursor de célula sem a abrir, **F2**/**Enter** abre a célula atual para edição, e **Tab**/**Shift+Tab** numa linha selecionada indenta/diminui a indentação, tal como Alt+→/←. Chegar a **Enter** ou **↓** na última linha cria ali mesmo uma nova tarefa irmã com o cursor já na sua célula de nome, para que possa manter uma lista inteira em andamento sem tocar no rato — isto só funciona na vista em árvore normal, já que um filtro, uma ordenação ou um agrupamento ativo poderiam fazer a nova tarefa cair diretamente fora de vista, por isso a aplicação pergunta primeiro em vez de colocar em silêncio uma tarefa que não consegue ver.
 
 ## Tipos de marco
 

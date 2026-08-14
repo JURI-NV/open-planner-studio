@@ -31,13 +31,28 @@ Una impresión completa y formateada de las barras del Gantt — este es el úni
 - **Orientación**: horizontal o vertical.
 - **Ajuste automático al papel** (activado = la planificación se escala automáticamente al tamaño elegido) o un
   control deslizante manual de **zoom** si desactiva el ajuste automático.
+- **Tamaño de letra** — 90, 100, 110 o 125%; escala el texto del informe, la altura de fila y el
+  encabezado/pie, independientemente del nivel de zoom anterior.
+- **Repetir encabezado en cada página** — activado por defecto; mantiene visible el encabezado del
+  informe en cada página impresa en lugar de solo en la primera.
+- **Cronograma en** — reparte el cronograma de Gantt en 1 a 8 páginas una junto a otra; solo
+  disponible con el ajuste automático activado.
 - Interruptores para **nombres de tarea en las barras**, **mostrar avance**, **ruta crítica**, **mostrar holgura**,
   **dependencias**, **fines de semana** y **leyenda**.
 - Un campo de **empresa** (se rellena automáticamente desde el ajuste del proyecto, pero es editable aquí por separado) y el
   **autor** (solo lectura, desde la información del proyecto).
 
+Las líneas de relación en el informe usan el mismo lenguaje visual que la vista de Gantt: una línea
+**continua** es una relación determinante, una línea **discontinua** una no determinante, y una
+relación determinante entre dos tareas críticas es **roja**. Desactive *ruta crítica* y esas líneas
+también se vuelven neutras. La leyenda al pie resume la diferencia. Antes del primer cálculo, todas
+las líneas se dibujan neutras y continuas — pulse *Calcular* (F5) primero.
+
 El bloque de resumen encima muestra el recuento en vivo de tareas, tareas hoja, tareas críticas y relaciones
-en el proyecto.
+en el proyecto. El panel de configuración recuerda sus elecciones entre sesiones — vuelva a abrir la
+pestaña Informe más tarde y el tamaño de papel, los interruptores, el tamaño de letra y el resto
+vuelven exactamente como los dejó. Solo el campo de empresa se restablece: siempre empieza desde el
+ajuste propio del proyecto, así que un informe nunca arrastra el nombre de empresa de otro proyecto.
 
 ### Resumen de hitos
 
@@ -69,10 +84,11 @@ archivo PDF real (nombre de archivo terminado en `-planning.pdf`) — una págin
 físicas del tamaño de papel y la orientación elegidos. El archivo PDF es **vectorial**: las barras, líneas y texto
 se guardan como instrucciones de dibujo PDF en lugar de una única imagen incrustada, así que se mantiene nítido a
 cualquier nivel de zoom y el texto es seleccionable y buscable en cualquier visor de PDF. Esto se aplica al texto en
-latín, cirílico y griego; si el proyecto contiene texto en chino, japonés, coreano, árabe o persa,
-la exportación recurre automáticamente a una imagen rasterizada para ese texto — que sigue mostrándose correctamente,
-pero no es seleccionable ni buscable. Útil para correo electrónico o archivado sin pasar por el diálogo de impresión
-del sistema. Si prefiere imprimir directamente (o guardar como PDF mediante el diálogo del sistema, por ejemplo para elegir
+latín, cirílico, griego, árabe y persa — el árabe y el persa también se conforman e incrustan como texto vectorial.
+El texto en chino, japonés y coreano es opcional: instale una extensión de fuente que proporcione esos glifos y
+también se incrusta como vectorial (seleccionable y buscable); sin esa extensión, ese texto se exporta como una
+imagen rasterizada — se sigue mostrando correctamente, pero no es seleccionable ni buscable. Útil para correo
+electrónico o archivado sin pasar por el diálogo de impresión del sistema. Si prefiere imprimir directamente (o guardar como PDF mediante el diálogo del sistema, por ejemplo para elegir
 un tamaño de papel distinto al configurado arriba), use **Imprimir...**.
 
 ## Los informes en la práctica

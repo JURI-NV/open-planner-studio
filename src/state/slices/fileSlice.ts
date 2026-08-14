@@ -345,6 +345,10 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           content = writeMSPDI(
             state.project, state.calendar, state.tasks,
             state.sequences, state.resources, state.assignments, state.calendars,
+            // Baselines meegeven (fase 2.6, §9.1): de actieve baseline gaat naar MSPDI-slot 0.
+            // Zonder deze twee argumenten viel de writer terug op zijn defaults ([] / null) en
+            // ging de baseline stil verloren bij export, terwijl de reader hem wél inleest.
+            state.baselines, state.activeBaselineId,
           );
           ext = 'xml';
           filters = [{ name: 'XML Files', extensions: ['xml'] }];

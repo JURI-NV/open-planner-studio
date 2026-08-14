@@ -33,13 +33,23 @@ di impostazioni:
 - **Orientamento**: orizzontale o verticale.
 - **Adatta automaticamente alla pagina** (attivo = la pianificazione si scala automaticamente al
   formato scelto) oppure un cursore manuale di **zoom** se disattivi l'adattamento automatico.
+- **Dimensione carattere** — 90, 100, 110 o 125%; scala il testo del report, l'altezza delle righe e
+  l'intestazione/piè di pagina, indipendentemente dal livello di zoom qui sopra.
+- **Ripeti intestazione su ogni pagina** — attivo per impostazione predefinita; mantiene
+  l'intestazione del report visibile su ogni pagina stampata invece che solo sulla prima.
+- **Timeline su** — distribuisce la timeline del Gantt su 1-8 pagine affiancate; disponibile solo
+  con l'adattamento automatico attivo.
 - Interruttori per **nomi attività sulle barre**, **mostra avanzamento**, **percorso critico**,
   **mostra margine**, **dipendenze**, **fine settimana** e **legenda**.
 - Un campo **azienda** (auto-compilato dall'impostazione del progetto, ma modificabile separatamente
   qui) e l'**autore** (sola lettura, dalle info del progetto).
 
 Il blocco di riepilogo sopra mostra il conteggio dal vivo di attività, attività foglia, attività
-critiche e relazioni nel progetto.
+critiche e relazioni nel progetto. Il pannello delle impostazioni ricorda le tue scelte tra le
+sessioni — riapri in seguito la scheda Rapporto e formato carta, interruttori, dimensione carattere
+e il resto tornano esattamente come li hai lasciati. Solo il campo azienda si azzera: parte sempre
+dall'impostazione propria del progetto, così un report non trascina mai il nome dell'azienda di un
+altro progetto.
 
 ### Panoramica attività cardine
 
@@ -71,9 +81,11 @@ e proprio file PDF (nome file terminante in `-planning.pdf`) — una pagina dime
 fisiche del formato carta e dell'orientamento scelti. Il file PDF è **vettoriale**: barre, linee e
 testo sono memorizzati come istruzioni di disegno PDF anziché come singola immagine incorporata, così
 resta nitido a qualsiasi livello di zoom e il testo è selezionabile e ricercabile in qualsiasi lettore
-PDF. Questo vale per il testo latino, cirillico e greco; se il progetto contiene testo cinese,
-giapponese, coreano, arabo o persiano, l'esportazione ricade automaticamente su un'immagine raster per
-quel testo — comunque visualizzata correttamente, ma non selezionabile o ricercabile. Comodo per
+PDF. Questo vale per il testo latino, cirillico, greco, arabo e persiano — anche l'arabo e il persiano
+vengono formati e incorporati come testo vettoriale. Il testo cinese, giapponese e coreano è opzionale:
+installa un'estensione di font che fornisca quei glifi e viene incorporato anch'esso come vettoriale
+(selezionabile e ricercabile); senza tale estensione quel testo viene esportato come immagine raster —
+comunque visualizzato correttamente, ma non selezionabile né ricercabile. Comodo per
 l'email o l'archiviazione senza passare per la finestra di dialogo di stampa di sistema. Se preferisci
 stampare direttamente (o salvare in PDF tramite la finestra di dialogo di sistema, ad esempio per
 scegliere un formato carta diverso da quello configurato sopra), usa **Stampa...**.

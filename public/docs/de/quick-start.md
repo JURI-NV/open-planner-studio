@@ -32,7 +32,7 @@ Stellen Sie sicher, dass Sie sich auf der Menüband-Registerkarte **Start** befi
 
 ### Über das Menüband
 
-1. Klicken Sie in der Menübandgruppe **Aufgaben** auf die Schaltfläche **Aufgabe**. Eine neue Aufgabe namens „Neue Aufgabe" erscheint mit einer Dauer von 5 Arbeitstagen unten sowohl in der Aufgabentabelle als auch im Gantt-Diagramm.
+1. Klicken Sie in der Menübandgruppe **Aufgaben** auf die Schaltfläche **Aufgabe**. Eine neue Aufgabe namens „Neue Aufgabe" erscheint mit einer Dauer von 5 Arbeitstagen, sowohl in der Aufgabentabelle als auch im Gantt-Diagramm. Ist zu diesem Zeitpunkt eine Aufgabe ausgewählt, landet die neue Aufgabe direkt **darunter**; ist nichts ausgewählt, kommt sie ans Ende. So bauen Sie eine Liste auf, ohne hinterher etwas verschieben zu müssen. Dieselbe Menübandgruppe finden Sie auch auf der Registerkarte **Tabelle**.
 2. Wiederholen Sie dies einige Male, bis Sie für jede Hauptphase Ihres Projekts eine Aufgabe haben. Wenn Sie dem Beispielprojekt folgen, verwenden Sie dieselben Hauptphasen wie dieses: „1. Voorbereiding" (Vorbereitung), „2. Fundering & ruwbouw" (Gründung & Rohbau), „3. Afbouw" (Ausbau) und „4. Oplevering" (Übergabe).
 3. Doppelklicken Sie auf eine Aufgabe — in der Tabelle oder auf ihrem Balken im Gantt-Diagramm —, um das Fenster **Aufgabe bearbeiten** zu öffnen. Passen Sie **Name**, **Typ** und **Dauer (Arbeitstage)** an Ihre Phase an.
 
@@ -42,7 +42,7 @@ Sie müssen nicht ständig zum Menüband zurückkehren. Klicken Sie mit der rech
 
 Klicken Sie stattdessen mit der rechten Maustaste auf eine **vorhandene** Aufgabe, erhalten Sie ein anderes Kontextmenü mit unter anderem:
 
-- **Oberhalb einfügen** / **Unterhalb einfügen** — fügt eine Aufgabe vor oder nach der per Rechtsklick ausgewählten Aufgabe hinzu.
+- **Oberhalb einfügen** / **Unterhalb einfügen** — fügt eine Aufgabe vor oder nach der per Rechtsklick ausgewählten Aufgabe hinzu. Sind mehrere Aufgaben ausgewählt und klicken Sie mit rechts auf eine davon, landet die neue Aufgabe oberhalb der obersten oder unterhalb der untersten Aufgabe Ihrer Auswahl — eine Aufgabe, nicht eine pro ausgewählter Aufgabe.
 - **Unteraufgabe hinzufügen** — erstellt in einem Schritt eine neue Aufgabe als untergeordnete Aufgabe dieser Aufgabe (siehe Schritt 3 für die Bedeutung).
 
 Am schnellsten fügen Sie mit der Tastatur ein: **Einfg** setzt eine Aufgabe über die Auswahl, **Strg+I** (**Cmd+I** unter macOS) darunter. Beide stehen in der Tastenkürzel-Übersicht (**Strg+/**) unter **Struktur**. Das Einfügen darüber oder darunter funktioniert nur in der normalen Baumansicht: Bei aktivem Filter, aktiver Sortierung oder Gruppierung würde die neue Aufgabe an anderer Stelle auftauchen als dort, wo Sie sie ablegen — die App erklärt das, statt sie stillschweigend zu platzieren. Mehr dazu im Leitfaden [Planung & WBS](docs://gids-plannen-wbs).

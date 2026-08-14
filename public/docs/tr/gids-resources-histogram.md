@@ -10,7 +10,7 @@ Bir görev, bir şeyin ne zaman olması gerektiğini söyler; bir kaynak, bunu k
 - Bir atamayı farklı bir göreve taşıma.
 - Kaynak takvimleri ve zamana bağlı kapasite (örneğin daha sonra eklenen ikinci bir vinç).
 - Histogramı okuma: kaynak seçici, kaynak başına derinlemesine inceleme, aşırı atamayı tespit etme.
-- Gantt'ın yanındaki sabitlenmiş kaynak paneli.
+- Gantt'ın yanındaki sabitlenmiş kaynak paneli, Özellikler'in altında ikinci bir panel olarak.
 - Nivelleme: **Kaynakları dengele** penceresindeki seçenekler, bolluk içinde kalma ile bitiş tarihinin kaymasına izin verme arasındaki fark, ve öncelikler (1000 önceliği = "dengelenmesin" dahil).
 - Dürüst ders: nivelleme bir aşırı atamayı *çözmediğinde*.
 
@@ -28,7 +28,13 @@ Her kaynağın bir **Tür**ü vardır (kaynak panelinde bir sütun):
 
 ## Kaynakları yönetme
 
-Kaynak panelini **Kaynaklar** sekmesindeki **Yönet** şerit grubu üzerinden açın: **Kaynaklar** düğmesi tam paneli açar (Tablo veya İlişkiler gibi ayrı bir tam-panel görünümü), **Yeni kaynak** doğrudan bir satır ekler. Panelde, kaynak başına şunları düzenlersiniz: **Ad**, **Tür**, **Maks. birim** (iş günü başına kapasite — 1 = tam zamanlı bir kişi/öğe, 2 = aynı anda iki birim), **Takvim**, **Ücret/saat**, **Birim** (yalnızca malzeme) ve **Ekip** (bu kaynağın hangi ekibe ait olduğu). Altta, **Toplam** sütunu her kaynağın maliyetini toplar (yüklenen birimler × saat/gün × ücret), her F5'te yeniden hesaplanır.
+Kaynak panelini **Kaynaklar** sekmesindeki **Yönet** şerit grubu üzerinden açın: **Kaynaklar** düğmesi tam paneli açar (Tablo veya İlişkiler gibi ayrı bir tam-panel görünümü), **Yeni kaynak** paneli, adı hemen yazacağınız taslak bir satırla açar (panelin kendisindeki **+ Yeni kaynak** düğmesiyle tamamen aynı şekilde). Panelde, kaynak başına şunları düzenlersiniz: **Ad**, **Tür**, **Maks. birim** (iş günü başına kapasite — 1 = tam zamanlı bir kişi/öğe, 2 = aynı anda iki birim), **Takvim**, **Ücret/saat**, **Birim** (yalnızca malzeme) ve **Ekip** (bu kaynağın hangi ekibe ait olduğu). Altta, **Toplam** sütunu her kaynağın maliyetini toplar (yüklenen birimler × saat/gün × ücret), her F5'te yeniden hesaplanır.
+
+Taslak satır, yeni kaynağın tam olarak yerleşeceği yerde, tablonun en altında durur ve baştan itibaren *tamamen* düzenlenebilir: tür, maks. birim, takvim, ücret, birim ve ekip hepsi sıradan kontrollerdir. Bunları size uyan herhangi bir sırayla doldurun — önce türü seçip adı sonra yazmakta özgürsünüz. **Tab** henüz hiçbir şeyi kaydetmeden satırda ilerlemenizi sağlar.
+
+Satır tek bir nedenle var olur: bir kaynak yalnızca bir **ad** girildiğinde oluşturulur, böylece hiçbir şey girmeden düğmeye basmak arkada boş bir satır bırakmaz. Bir ad girmeden başka yere tıklamak veya **Escape**'e basmak hiçbir iz bırakmaz — ne kaynak, ne geri alma geçmişinde bir adım, ve projeniz değişmiş olarak işaretlenmez; yol boyunca bir açılır menüyü değiştirmiş olsanız bile. Bir ad girildiğinde, satır ondan ayrıldığınız anda (başka yere tıklayarak veya son sütunu Tab ile geçerek) veya **Enter**'a bastığınızda — doldurduğunuz her şeyle birlikte tek seferde ve tek bir geri alma adımının geri aldığı tek bir adım olarak — kaydedilir. **Enter** ayrıca hemen altında yeni bir taslak satır açar, böylece koca bir listeyi tek seferde yazabilirsiniz.
+
+Mevcut satırlar da her iki görünümde (Kitaplık ve Proje) klavyeyle gezilebilir: **↑** ve **↓** imleci üstteki veya alttaki satırda aynı sütuna taşır, ve **Enter** (aşağı) veya **Shift+Enter** (yukarı) aynısını yapar. En son satırda, **Enter** orada yeni bir taslak satır açar — görev tablosundakiyle aynı sürekli giriş. Açılır menülerde (**Tür**, **Takvim**, **Ekip**) ve **Maks. birim** döndürücüsünde ok tuşları bilerek kendi anlamlarını korur (bir seçenek seçmek, bir değeri artırıp azaltmak); bir sonraki satıra geçmek için orada **Enter**'ı kullanın.
 
 ### Zamana bağlı kapasite
 
@@ -77,7 +83,15 @@ Aşırı yüklü bir çubuğa tıklayın, bir araç ipucu o gün kaç görevin y
 
 ## Sabitlenmiş kaynak paneli
 
-Tam kaynak panelinin (şerit düğmesi **Kaynaklar**) yanı sıra, sağa sabitleyebileceğiniz kompakt bir varyant vardır: **Yönet** şerit grubundaki **Kaynak doku** düğmesi. Bu sabitlenmiş panel yalnızca adı, **Maks. birim**i (doğrudan düzenlenebilir) ve aşırı atama için kırmızı/yeşil bir nokta gösterir — tam paneli açmadan Gantt'ınızın yanında hızlı bir genel bakış. Sabitlenmiş kaynak paneli ve özellikler paneli sağ sütunda üst üste iki tam panel olarak durur: her birinin kendi şerit düğmesi vardır ve yüksekliği aralarındaki sınırı sürükleyerek paylaştırırsınız.
+Tam kaynak panelinin (şerit düğmesi **Kaynaklar**) yanı sıra, sağa sabitleyebileceğiniz kompakt bir varyant vardır: **Yönet** şerit grubundaki **Kaynak doku** düğmesi. Bu sabitlenmiş panel yalnızca adı, **Maks. birim**i (doğrudan düzenlenebilir) ve aşırı atama için kırmızı/yeşil bir nokta gösterir — tam paneli açmadan Gantt'ınızın yanında hızlı bir genel bakış.
+
+Yan sütun, üst üste **iki eşit panel** barındırır: **Özellikler** ve sabitlenmiş kaynak listesi. Birbirinin yerini almazlar ve katlanıp kaybolmazlar — bir panel açıksa, içeriğini doğrudan görürsünüz. Her panelin bunun için kendi ayrı anahtarı vardır: **Görünüm** sekmesindeki **Paneller** grubunda bulunan **Özellikler** ve **Kaynak doku** şerit düğmeleri. Aynı anahtar, panelin kendi üstbilgi çubuğunda bir **✕** olarak da bulunur.
+
+Yüksekliği, **iki panel arasındaki sınırı** sürükleyerek paylaştırırsınız; bu bölünme hatırlanır. Yalnızca bir panel açıkken, her zaman tüm yüksekliği alır. İkisi de kapalıyken yan sütun hiç yoktur ve Gantt tüm genişliği alır.
+
+Panel seçiminizi kaybetmeden sütunu yoldan çekmek için üst üstbilgi çubuğunun sağ üstündeki düğmeyi kullanın. Geriye dar bir şerit kalır; buna tek bir tıklama, sütunu tam olarak bıraktığınız gibi geri getirir.
+
+Aynı üç düğme — **Kaynaklar**, **Kaynak doku** ve **Histogram** — **Özellikler**'in yanında, **Görünüm** sekmesindeki **Paneller** şerit grubunda da bulunur. Aynı ad, aynı simge, aynı davranış: onlara nerede tıklarsanız tıklayın, tam olarak aynı şeyi yaparlar. Fark iki kaynak düğmesinin kendisi arasındadır: **Kaynaklar** tam paneli çalışma alanının üzerine açar, **Kaynak doku** kompakt listeyi yan sütunda ikinci bir panel olarak sabitler.
 
 ## Aşırı atamayı tespit etme
 

@@ -31,13 +31,28 @@ Pełny, sformatowany wydruk pasków Gantta — to jedyny typ raportu z blokiem u
 - **Orientacja**: poziomo lub pionowo.
 - **Dopasuj do papieru** (włączone = harmonogram skaluje się automatycznie do wybranego rozmiaru) albo ręczny
   suwak **powiększenia**, jeśli wyłączysz dopasowanie automatyczne.
+- **Rozmiar czcionki** — 90, 100, 110 lub 125%; skaluje tekst raportu, wysokość wiersza oraz nagłówek/stopkę,
+  niezależnie od poziomu powiększenia powyżej.
+- **Powtarzaj nagłówek na każdej stronie** — domyślnie włączone; utrzymuje nagłówek raportu widoczny na każdej wydrukowanej
+  stronie, a nie tylko na pierwszej.
+- **Oś czasu na** — rozkłada oś czasu Gantta obok siebie na od 1 do 8 stron; dostępne tylko
+  przy włączonym dopasowaniu automatycznym.
 - Przełączniki dla **nazw zadań na paskach**, **pokaż postęp**, **ścieżki krytycznej**, **pokaż zapas**,
   **zależności**, **weekendów** i **legendy**.
 - Pole **firma** (wypełnia się automatycznie z ustawienia projektu, ale można je tu osobno edytować) i
   **autor** (tylko do odczytu, z informacji o projekcie).
 
+Linie relacji w raporcie używają tego samego języka wizualnego co widok Gantta: linia **ciągła**
+oznacza relację wiodącą, linia **przerywana** — niewiodącą, a relacja wiodąca między dwoma
+zadaniami krytycznymi jest **czerwona**. Wyłącz *ścieżkę krytyczną*, a te linie też staną się neutralne.
+Legenda na dole podsumowuje tę różnicę. Przed pierwszym obliczeniem każda linia jest rysowana neutralnie
+i w sposób ciągły — najpierw naciśnij *Oblicz* (F5).
+
 Blok podsumowania powyżej pokazuje na żywo liczbę zadań, zadań końcowych, zadań krytycznych i relacji
-w projekcie.
+w projekcie. Panel ustawień pamięta Twoje wybory między sesjami — otwórz kartę Raport ponownie
+później, a rozmiar papieru, przełączniki, rozmiar czcionki i reszta wracają dokładnie takie, jak je
+zostawiłeś. Resetuje się tylko pole firmy: zawsze zaczyna od własnego ustawienia projektu, więc raport
+nigdy nie przenosi nazwy firmy z innego projektu.
 
 ### Przegląd punktów kontrolnych
 
@@ -69,9 +84,11 @@ rzeczywisty plik PDF (nazwa pliku kończąca się na `-planning.pdf`) — jedną
 wybranego rozmiaru papieru i orientacji. Plik PDF jest **wektorowy**: paski, linie i tekst
 są zapisane jako instrukcje rysowania PDF, a nie jako pojedynczy osadzony obraz, więc pozostaje ostry
 przy dowolnym poziomie powiększenia, a tekst jest zaznaczalny i przeszukiwalny w każdej przeglądarce PDF. Dotyczy to tekstu
-łacińskiego, cyrylicy i greckiego; jeśli projekt zawiera tekst chiński, japoński, koreański, arabski lub perski,
-eksport automatycznie przełącza się na obraz rastrowy dla tego tekstu — wciąż poprawnie wyświetlany,
-ale niezaznaczalny ani nieprzeszukiwalny. Przydatne do wysyłki e-mailem lub archiwizacji bez przechodzenia przez systemowe
+łacińskiego, cyrylicy, greckiego, arabskiego i perskiego — tekst arabski i perski jest kształtowany i osadzany jako tekst
+wektorowy tak samo. Tekst chiński, japoński i koreański jest opcjonalny: zainstaluj rozszerzenie z czcionką,
+które dostarcza te glify, a on również zostanie osadzony jako wektor (zaznaczalny i przeszukiwalny); bez takiego
+rozszerzenia ten tekst jest eksportowany jako obraz rastrowy — nadal poprawnie wyświetlany, ale niezaznaczalny
+ani nieprzeszukiwalny. Przydatne do wysyłki e-mailem lub archiwizacji bez przechodzenia przez systemowe
 okno dialogowe druku. Jeśli wolisz drukować bezpośrednio (albo zapisać do PDF przez okno systemowe, np. aby wybrać
 inny rozmiar papieru niż skonfigurowany powyżej), użyj **Drukuj...**.
 

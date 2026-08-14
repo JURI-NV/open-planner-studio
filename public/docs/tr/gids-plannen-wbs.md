@@ -5,7 +5,7 @@ Bir plan bir görev yapısıyla başlar: hangi görevler var, bunlar fazlara nas
 ## Burada neler öğreneceksiniz
 
 - Girintileme ve özet görevler kullanarak bir görev yapısı (WBS) oluşturma.
-- Görevleri aynı düzey içinde, yeniden girintilemeden taşıma.
+- Görevleri aynı düzey içinde, yeniden girintilemeden taşıma — klavyeyle, sürükleyerek veya elektronik tablo tarzı **Tablo** sekmesinde.
 - Üç kilometre taşı türü ve sözleşmesel anlar için ayrı zorunlu bayrağı.
 - **Kodlar ve alanlar** penceresi üzerinden aktivite kodlarını ve kullanıcı alanlarını yönetme ve bunlara göre gruplama.
 - Açık maddeleri takip etmek için notları (görev başına bir kontrol listesi) kullanma.
@@ -23,6 +23,14 @@ Düz bir görev listesi, görevlerin nasıl ilişkili olduğu hakkında bir şey
 5. Yepyeni bir alt görev için daha hızlı bir yol vardır: üst göreve sağ tıklayın ve **Alt görev ekle**'yi seçin. Bu, önce bir görev ekleyip sonra ayrıca girintilemek yerine, tek adımda zaten girintilenmiş yeni bir görev oluşturur.
 
 Bir görevin en az bir alt görevi olduğu anda, otomatik olarak bir özet göreve dönüşür: Gantt şemasındaki çubuğu o zaman altındaki tüm alt görevlerin en erken başlangıcından en geç bitişine kadar tüm süreyi kapsar ve kendi süresi ile tarihleri artık bağımsız olarak ayarlanamaz. Bu nedenle bir özet görev her zaman türetilmiş bir değerdir, asla doğrudan girdiğiniz bir plan değildir — alt görevleri silin veya kaydırın, özet görevin çubuğu kendini otomatik olarak ayarlar.
+
+**Daralt ve genişlet.** Büyük bir WBS'de zaman zaman ağacı geçici olarak sıkıştırmak isteyeceksiniz. **Görünüm** şerit sekmesindeki **Anahat** grubunda bunun için iki ayrı düğme vardır — **Daralt** ve **Genişlet** — bilerek tek bir aç/kapat düğmesi değil, çünkü karma bir seçimde (bazı dallar açık, bazıları kapalı) bir aç/kapat düğmesi her şeyi asla aynı şekilde ayarlayamaz.
+
+- **Bir seçim varken**, düğmeler seçili görevler üzerinde işlem yapar; yalnızca alt görevi olan görevler etkilenir, tek başına duran görevler yok sayılır.
+- **Seçim yokken**, tüm plan üzerinde işlem yaparlar. **Esc** ile seçimi kaldırın, veya Gantt görünümünde boş bir alana tıklayın.
+- Gruplanmış bir görünümde (aşağıdaki *Kodlara ve alanlara göre gruplama* bölümüne bakın) düğmeler görevler yerine grup bantlarını daraltır/genişletir — iç içe bantlar dahil.
+
+Bir özet görevin önündeki ok, yalnızca o dalı açmak veya kapatmak için eskisi gibi çalışmaya devam eder.
 
 ### Yeni bir görevi doğru yere ekleme
 
@@ -51,6 +59,10 @@ Bir görevin düzeyini değiştirmenin (girinti/girintiyi kaldır) yanı sıra, 
 - **Alt+↓** görevi aşağı taşır.
 
 Bu, ağacın herhangi bir düzeyinde çalışır: bir faz görevini taşıyın, tüm alt görevleri otomatik olarak onunla birlikte taşınır.
+
+Fareyi mi tercih edersiniz? Görevi, görev tablosundaki satırından (Gantt görünümünün sol sütunu, **Tablo** şerit sekmesinde de aynı sürükleme davranışıyla) tutup yukarı veya aşağı sürükleyin. İki satır arasına bırakarak, Alt+↑/↓ ile aynı şekilde kardeşleri arasında yeniden sıralayın. Bunun yerine bir özet görevin satırının alt kısmına bırakırsanız iç içe geçer: görev, o özet görevin yeni son alt görevi haline gelir ve tek hareketle yeniden girintilenir — bu, Alt+→'nın fare karşılığıdır. Önce birden fazla görev seçin (Ctrl/Cmd ile tıklayarak veya bir kutu seçimiyle) ve tüm seçim birlikte sürüklenip bırakılır.
+
+**Tablo** şerit sekmesi aynı yapıyı düz, düzenlenebilir bir tablo olarak gösterir; aynı anda çok sayıda görev girerken veya düzeltirken kullanışlıdır: düzenlenebilir herhangi bir hücreye tek tıklama, mevcut değer seçili olarak hemen düzenlemeyi başlatır, ok tuşları hücreyi açmadan bir hücre imlecini hareket ettirir, **F2**/**Enter** geçerli hücreyi düzenlemek üzere açar ve seçili bir satırda **Tab**/**Shift+Tab**, Alt+→/← ile aynı şekilde girintiler/girintiyi kaldırır. En son satırda **Enter** veya **↓**'ya ulaşmak, imleç zaten ad hücresinde olacak şekilde tam orada yeni bir kardeş görev oluşturur, böylece fareye dokunmadan koca bir listeyi sürdürebilirsiniz — bu yalnızca normal ağaç görünümünde çalışır, çünkü etkin bir filtre, sıralama veya gruplama yeni görevin doğrudan görünümün dışına düşmesine yol açabilir, bu yüzden uygulama görmediğiniz bir görevi sessizce yerleştirmek yerine önce sorar.
 
 ## Kilometre taşı türleri
 

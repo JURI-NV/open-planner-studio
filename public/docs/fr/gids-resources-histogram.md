@@ -10,7 +10,7 @@ Une tâche vous dit quand quelque chose doit se produire ; une ressource vous di
 - Déplacer une affectation vers une autre tâche.
 - Calendriers de ressources et capacité échelonnée dans le temps (par exemple une deuxième grue ajoutée plus tard).
 - Lire l'histogramme : le sélecteur de ressource, l'exploration par ressource, repérer la surallocation.
-- Le panneau de ressources ancré à côté du Gantt.
+- Le panneau de ressources ancré à côté du Gantt, comme un second panneau sous Propriétés.
 - Le nivellement : les options de la fenêtre **Niveler les ressources**, la différence entre rester dans la marge et laisser la date de fin se décaler, et les priorités (y compris la priorité 1000 = « ne pas niveler »).
 - La leçon honnête : quand le nivellement ne résout *pas* une surallocation.
 
@@ -28,7 +28,13 @@ Chaque ressource a un **Type** (une colonne dans le panneau des ressources) :
 
 ## Gérer les ressources
 
-Ouvrez le panneau des ressources via le groupe de ruban **Gérer** de l'onglet **Ressources** : le bouton **Ressources** ouvre le panneau complet (une vue plein panneau distincte, comme Tableau ou Relations), **Nouvelle ressource** ajoute directement une ligne. Dans le panneau, vous modifiez, par ressource : **Nom**, **Type**, **Unités max.** (capacité par jour ouvré — 1 = une personne/un élément à temps plein, 2 = deux unités à la fois), **Calendrier**, **Tarif/heure**, **Unité** (matériau uniquement) et **Équipe** (à quelle équipe cette ressource appartient). En bas, la colonne **Total** additionne le coût de chaque ressource (unités chargées × heures/jour × tarif), recalculé à chaque F5.
+Ouvrez le panneau des ressources via le groupe de ruban **Gérer** de l'onglet **Ressources** : le bouton **Ressources** ouvre le panneau complet (une vue plein panneau distincte, comme Tableau ou Relations), **Nouvelle ressource** ouvre le panneau avec une ligne brouillon dans laquelle vous tapez directement le nom (tout comme le bouton **+ Nouvelle ressource** du panneau lui-même). Dans le panneau, vous modifiez, par ressource : **Nom**, **Type**, **Unités max.** (capacité par jour ouvré — 1 = une personne/un élément à temps plein, 2 = deux unités à la fois), **Calendrier**, **Tarif/heure**, **Unité** (matériau uniquement) et **Équipe** (à quelle équipe cette ressource appartient). En bas, la colonne **Total** additionne le coût de chaque ressource (unités chargées × heures/jour × tarif), recalculé à chaque F5.
+
+La ligne brouillon se trouve en bas du tableau, exactement là où la nouvelle ressource finira, et elle est *entièrement* modifiable tout de suite : type, unités max., calendrier, tarif, unité et équipe sont tous des contrôles ordinaires. Remplissez-les dans l'ordre qui vous convient — n'hésitez pas à choisir le type d'abord et à taper le nom ensuite. **Tab** vous fait parcourir la ligne sans encore rien enregistrer.
+
+Cette ligne existe pour une seule raison : une ressource n'est créée qu'une fois qu'il y a un **nom**, de sorte que cliquer sur le bouton sans rien saisir ne laisse pas de ligne vide derrière soi. Cliquer ailleurs ou appuyer sur **Échap** sans nom ne laisse rien derrière — pas de ressource, pas d'étape dans l'historique d'annulation, et votre projet n'est pas marqué comme modifié ; même si vous avez changé une liste déroulante en cours de route. Avec un nom en place, la ligne est validée dès que vous la quittez (clic ailleurs, ou Tab au-delà de la dernière colonne) ou en appuyant sur **Entrée** — en une fois, avec tout ce que vous avez rempli, et comme une seule étape qu'une annulation défait. **Entrée** ouvre aussi une nouvelle ligne brouillon juste en dessous, pour que vous puissiez taper toute une liste d'un coup.
+
+Les lignes existantes sont elles aussi navigables au clavier, dans les deux vues (Bibliothèque et Projet) : **↑** et **↓** déplacent le curseur vers la même colonne de la ligne au-dessus ou en dessous, et **Entrée** (vers le bas) ou **Maj+Entrée** (vers le haut) fait la même chose. Sur la toute dernière ligne, **Entrée** ouvre à cet endroit une nouvelle ligne brouillon — la même saisie continue que dans le tableau des tâches. Dans les listes déroulantes (**Type**, **Calendrier**, **Équipe**) et dans le compteur **Unités max.**, les touches fléchées gardent délibérément leur propre signification (choisir une option, faire varier une valeur) ; utilisez **Entrée** à cet endroit pour passer à la ligne suivante.
 
 ### Capacité échelonnée dans le temps
 
@@ -77,7 +83,15 @@ Si vous voyez « Recalculer (F5) pour afficher la charge » au lieu de barres, l
 
 ## Le panneau de ressources ancré
 
-Outre le panneau de ressources complet (bouton de ruban **Ressources**), il existe une variante compacte que vous pouvez ancrer à droite : le bouton **Dock ressources** dans le groupe de ruban **Gérer**. Ce panneau ancré affiche uniquement le nom, les **Unités max.** (modifiables directement) et un point rouge/vert pour la surallocation — un aperçu rapide à côté de votre Gantt sans ouvrir le panneau complet. Le panneau de ressources ancré et le panneau des propriétés occupent la colonne de droite comme deux panneaux à part entière, l'un au-dessus de l'autre : chacun a son propre bouton de ruban, et vous répartissez la hauteur en faisant glisser la limite entre les deux.
+Outre le panneau de ressources complet (bouton de ruban **Ressources**), il existe une variante compacte que vous pouvez ancrer à droite : le bouton **Dock ressources** dans le groupe de ruban **Gérer**. Ce panneau ancré affiche uniquement le nom, les **Unités max.** (modifiables directement) et un point rouge/vert pour la surallocation — un aperçu rapide à côté de votre Gantt sans ouvrir le panneau complet.
+
+La colonne latérale contient **deux panneaux à égalité** empilés l'un sur l'autre : **Propriétés** et la liste des ressources ancrée. Ils ne se remplacent pas l'un l'autre et ne se replient pas — si un panneau est activé, vous voyez simplement son contenu. Chaque panneau a son propre interrupteur pour cela : les boutons de ruban **Propriétés** et **Dock ressources**, tous deux dans le groupe **Panneaux** de l'onglet **Affichage**. Le même interrupteur se trouve aussi sous la forme d'une **✕** dans la barre d'en-tête propre au panneau.
+
+Vous répartissez la hauteur en faisant glisser la **limite entre les deux panneaux** ; ce partage est mémorisé. Quand un seul panneau est activé, il prend toujours toute la hauteur. Avec les deux désactivés, il n'y a plus du tout de colonne latérale et le Gantt occupe toute la largeur.
+
+Pour dégager la colonne *sans* perdre votre choix de panneaux, utilisez le bouton en haut à droite de la barre d'en-tête supérieure. Il vous reste une fine bande ; un clic dessus fait revenir la colonne exactement comme vous l'aviez laissée.
+
+Les trois mêmes boutons — **Ressources**, **Dock ressources** et **Histogramme** — se trouvent aussi sur l'onglet **Affichage**, dans le groupe de ruban **Panneaux**, à côté de **Propriétés**. Même nom, même icône, même comportement : où que vous cliquiez dessus, ils font exactement la même chose. La différence se joue entre les deux boutons de ressources eux-mêmes : **Ressources** ouvre le panneau complet par-dessus l'espace de travail, **Dock ressources** épingle la liste compacte comme second panneau dans la colonne latérale.
 
 ## Repérer la surallocation
 

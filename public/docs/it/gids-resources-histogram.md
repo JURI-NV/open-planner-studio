@@ -28,7 +28,13 @@ Ogni risorsa ha un **Tipo** (una colonna nel pannello risorse):
 
 ## Gestire le risorse
 
-Apri il pannello risorse tramite il gruppo della barra multifunzione **Gestisci** sulla scheda **Risorse**: il pulsante **Risorse** apre il pannello completo (una vista a pannello intero separata, come Tabella o Relazioni), **Nuova risorsa** aggiunge una riga direttamente. Nel pannello modifichi, per risorsa: **Nome**, **Tipo**, **Unità max.** (capacità per giorno lavorativo — 1 = una persona/elemento a tempo pieno, 2 = due unità contemporaneamente), **Calendario**, **Tariffa/ora**, **Unità** (solo materiale) e **Squadra** (a quale squadra appartiene questa risorsa). In fondo, la colonna **Totale** somma il costo di ogni risorsa (unità caricate × ore/giorno × tariffa), ricalcolato a ogni F5.
+Apri il pannello risorse tramite il gruppo della barra multifunzione **Gestisci** sulla scheda **Risorse**: il pulsante **Risorse** apre il pannello completo (una vista a pannello intero separata, come Tabella o Relazioni), **Nuova risorsa** apre il pannello con una riga in bozza in cui digiti subito il nome (proprio come il pulsante **+ Nuova risorsa** nel pannello stesso). Nel pannello modifichi, per risorsa: **Nome**, **Tipo**, **Unità max.** (capacità per giorno lavorativo — 1 = una persona/elemento a tempo pieno, 2 = due unità contemporaneamente), **Calendario**, **Tariffa/ora**, **Unità** (solo materiale) e **Squadra** (a quale squadra appartiene questa risorsa). In fondo, la colonna **Totale** somma il costo di ogni risorsa (unità caricate × ore/giorno × tariffa), ricalcolato a ogni F5.
+
+La riga in bozza si trova in fondo alla tabella, esattamente dove finirà la nuova risorsa, ed è *completamente* modificabile fin da subito: tipo, unità max., calendario, tariffa, unità e squadra sono tutti controlli ordinari. Compilali nell'ordine che preferisci — scegli pure prima il tipo e digita il nome dopo. **Tab** ti fa scorrere la riga senza salvare ancora nulla.
+
+La riga esiste per un motivo: una risorsa viene creata solo quando c'è un **nome**, così premere il pulsante senza inserire nulla non lascia una riga vuota. Cliccare altrove o premere **Esc** senza un nome non lascia nulla — nessuna risorsa, nessun passaggio nella cronologia annulla, e il tuo progetto non viene contrassegnato come modificato; nemmeno se hai cambiato un menu a tendina lungo il percorso. Con un nome inserito, la riga viene confermata nel momento in cui la lasci (clic altrove, o Tab oltre l'ultima colonna) o premi **Invio** — in un colpo solo, con tutto ciò che hai compilato, e come singolo passaggio che un solo annullamento riporta indietro. **Invio** apre inoltre subito una nuova riga in bozza appena sotto, così puoi digitare un intero elenco in un colpo solo.
+
+Anche le righe esistenti sono navigabili con la tastiera, in entrambe le viste (Biblioteca e Progetto): **↑** e **↓** spostano il cursore sulla stessa colonna nella riga sopra o sotto, e **Invio** (in basso) o **Shift+Invio** (in alto) fa lo stesso. Sull'ultimissima riga, **Invio** apre lì una nuova riga in bozza — lo stesso inserimento continuo della tabella delle attività. Nei menu a tendina (**Tipo**, **Calendario**, **Squadra**) e nello spinner **Unità max.** i tasti freccia mantengono deliberatamente il proprio significato (scegliere un'opzione, incrementare un valore); usa lì **Invio** per passare alla riga successiva.
 
 ### Capacità scaglionata nel tempo
 
@@ -77,7 +83,15 @@ Se vedi "Ricalcola (F5) per mostrare il carico" invece delle barre, la pianifica
 
 ## Il pannello risorse agganciato
 
-Oltre al pannello risorse completo (pulsante della barra multifunzione **Risorse**), c'è una variante compatta che puoi agganciare a destra: il pulsante **Dock risorse** nel gruppo della barra multifunzione **Gestisci**. Questo pannello agganciato mostra solo il nome, le **Unità max.** (modificabili direttamente) e un punto rosso/verde per la sovrallocazione — una panoramica rapida accanto al tuo Gantt senza aprire il pannello completo. Il pannello risorse agganciato e il pannello delle proprietà occupano la colonna destra come due pannelli a tutti gli effetti, uno sopra l'altro: ognuno ha il proprio pulsante sulla barra multifunzione, e l'altezza si ripartisce trascinando il confine tra i due.
+Oltre al pannello risorse completo (pulsante della barra multifunzione **Risorse**), c'è una variante compatta che puoi agganciare a destra: il pulsante **Dock risorse** nel gruppo della barra multifunzione **Gestisci**. Questo pannello agganciato mostra solo il nome, le **Unità max.** (modificabili direttamente) e un punto rosso/verde per la sovrallocazione — una panoramica rapida accanto al tuo Gantt senza aprire il pannello completo.
+
+La colonna laterale ospita **due pannelli equivalenti** impilati uno sopra l'altro: **Proprietà** e l'elenco risorse agganciato. Non si sostituiscono a vicenda e non si ripiegano — se un pannello è attivo, ne vedi semplicemente il contenuto. Ogni pannello ha per questo un proprio interruttore: i pulsanti della barra multifunzione **Proprietà** e **Dock risorse**, entrambi nel gruppo **Pannelli** sulla scheda **Vista**. Lo stesso interruttore compare come **✕** nella barra del titolo del pannello stesso.
+
+Dividi l'altezza trascinando il **confine tra i due pannelli**; quella divisione viene ricordata. Quando è attivo un solo pannello, questo ottiene sempre l'altezza intera. Con entrambi disattivati non c'è affatto colonna laterale e il Gantt ottiene tutta la larghezza.
+
+Per togliere di mezzo la colonna *senza* perdere la tua scelta di pannello, usa il pulsante in alto a destra della barra del titolo superiore. Ti resta una striscia stretta; un clic su di essa riporta la colonna esattamente come l'hai lasciata.
+
+Gli stessi tre pulsanti — **Risorse**, **Dock risorse** e **Istogramma** — si trovano anche sulla scheda **Vista** nel gruppo della barra multifunzione **Pannelli**, accanto a **Proprietà**. Stesso nome, stessa icona, stesso comportamento: ovunque li clicchi, fanno esattamente la stessa cosa. La differenza è tra i due pulsanti delle risorse stessi: **Risorse** apre il pannello completo sopra l'area di lavoro, **Dock risorse** fissa l'elenco compatto come secondo pannello nella colonna laterale.
 
 ## Individuare la sovrallocazione
 

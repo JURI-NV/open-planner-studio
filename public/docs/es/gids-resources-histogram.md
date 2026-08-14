@@ -10,7 +10,7 @@ Una tarea le dice cuándo debe ocurrir algo; un recurso le dice quién o qué lo
 - Mover una asignación a otra tarea.
 - Calendarios de recursos y capacidad escalonada en el tiempo (por ejemplo una segunda grúa añadida más adelante).
 - Leer el histograma: el selector de recursos, profundizar por recurso, detectar sobreasignación.
-- El panel de recursos anclado junto al Gantt.
+- El panel de recursos anclado junto al Gantt, como un segundo panel debajo de Propiedades.
 - Nivelación: las opciones en la ventana **Nivelar recursos**, la diferencia entre mantenerse dentro de la holgura y dejar que la fecha de fin se desplace, y las prioridades (incluida la prioridad 1000 = "no nivelar").
 - La lección honesta: cuándo la nivelación *no* resuelve una sobreasignación.
 
@@ -28,7 +28,29 @@ Todo recurso tiene un **Tipo** (una columna en el panel de recursos):
 
 ## Gestionar recursos
 
-Abra el panel de recursos mediante el grupo de la cinta **Gestionar** en la pestaña **Recursos**: el botón **Recursos** abre el panel completo (una vista de panel completo aparte, como Tabla o Relaciones), **Nuevo recurso** añade una fila directamente. En el panel edita, por recurso: **Nombre**, **Tipo**, **Unidades máx.** (capacidad por día laborable — 1 = una persona/elemento a jornada completa, 2 = dos unidades a la vez), **Calendario**, **Tarifa/hora**, **Unidad** (solo material) y **Cuadrilla** (a qué cuadrilla pertenece este recurso). Al pie, la columna **Total** suma el coste de cada recurso (unidades cargadas × horas/día × tarifa), recalculado en cada F5.
+Abra el panel de recursos mediante el grupo de la cinta **Gestionar** en la pestaña **Recursos**: el botón **Recursos** abre el panel completo (una vista de panel completo aparte, como Tabla o Relaciones), **Nuevo recurso** abre el panel con una fila de borrador en la que escribe el nombre de inmediato (igual que el botón **+ Nuevo recurso** dentro del propio panel). En el panel edita, por recurso: **Nombre**, **Tipo**, **Unidades máx.** (capacidad por día laborable — 1 = una persona/elemento a jornada completa, 2 = dos unidades a la vez), **Calendario**, **Tarifa/hora**, **Unidad** (solo material) y **Cuadrilla** (a qué cuadrilla pertenece este recurso). Al pie, la columna **Total** suma el coste de cada recurso (unidades cargadas × horas/día × tarifa), recalculado en cada F5.
+
+La fila de borrador se sitúa al pie de la tabla, exactamente donde acabará el nuevo recurso, y es
+*totalmente* editable de inmediato: tipo, unidades máx., calendario, tarifa, unidad y cuadrilla son
+todos controles normales. Rellénelos en el orden que le convenga — no dude en elegir primero el tipo
+y escribir el nombre después. **Tab** le va llevando por la fila sin guardar nada todavía.
+
+La fila existe por una razón: un recurso solo se crea en cuanto hay un **nombre**, de modo que
+pulsar el botón sin escribir nada no deja atrás una fila vacía. Hacer clic fuera o pulsar **Esc** sin
+nombre no deja nada atrás — ni recurso, ni paso en el historial de deshacer, y su proyecto no se
+marca como modificado; ni siquiera si cambió un desplegable por el camino. Con un nombre puesto, la
+fila se confirma en cuanto la abandona (clic en otro sitio, o Tab más allá de la última columna) o
+pulsa **Enter** — de una vez, con todo lo que rellenó, y como un único paso que un deshacer revierte.
+**Enter** también abre una nueva fila de borrador justo debajo, para que pueda escribir toda una
+lista de una sentada.
+
+Las filas existentes también son navegables con el teclado, en ambas vistas (Biblioteca y Proyecto):
+**↑** y **↓** mueven el cursor a la misma columna en la fila de arriba o de abajo, y **Enter** (abajo)
+o **Mayús+Enter** (arriba) hace lo mismo. En la última fila, **Enter** abre ahí una nueva fila de
+borrador — la misma entrada continua que en la tabla de tareas. En los desplegables (**Tipo**,
+**Calendario**, **Cuadrilla**) y en el selector numérico de **Unidades máx.** las teclas de flecha
+mantienen deliberadamente su propio significado (elegir una opción, incrementar un valor); use
+**Enter** ahí para pasar a la siguiente fila.
 
 ### Capacidad escalonada en el tiempo
 
@@ -77,7 +99,31 @@ Si ve "Recalcula (F5) para mostrar la carga" en lugar de barras, la planificaci�
 
 ## El panel de recursos anclado
 
-Además del panel de recursos completo (botón de cinta **Recursos**), hay una variante compacta que puede anclar a la derecha: el botón **Dock de recursos** en el grupo de la cinta **Gestionar**. Este panel anclado muestra solo el nombre, las **Unidades máx.** (editables directamente) y un punto rojo/verde de sobreasignación — una visión rápida junto a su Gantt sin abrir el panel completo. El panel de recursos anclado y el panel de propiedades ocupan la columna derecha como dos paneles completos, uno encima del otro: cada uno tiene su propio botón de cinta, y la altura se reparte arrastrando el límite entre ambos.
+Además del panel de recursos completo (botón de cinta **Recursos**), hay una variante compacta que
+puede anclar a la derecha: el botón **Dock de recursos** en el grupo de la cinta **Gestionar**. Este
+panel anclado muestra solo el nombre, las **Unidades máx.** (editables directamente) y un punto
+rojo/verde de sobreasignación — una visión rápida junto a su Gantt sin abrir el panel completo.
+
+La columna lateral contiene **dos paneles iguales** apilados uno encima del otro: **Propiedades** y
+la lista de recursos anclada. No se sustituyen entre sí ni se repliegan — si un panel está activado,
+simplemente ve su contenido. Cada panel tiene su propio interruptor para eso: los botones de cinta
+**Propiedades** y **Dock de recursos**, ambos en el grupo **Paneles** de la pestaña **Vista**. El
+mismo interruptor está también como una **✕** en la propia barra de cabecera del panel.
+
+La altura se reparte arrastrando el **límite entre los dos paneles**; esa división se recuerda.
+Cuando solo un panel está activado, siempre ocupa toda la altura. Con ambos desactivados no hay
+columna lateral en absoluto y el Gantt ocupa todo el ancho.
+
+Para apartar la columna *sin* perder su elección de paneles, use el botón en la esquina superior
+derecha de la barra de cabecera superior. Le queda una franja estrecha; un clic en ella devuelve la
+columna exactamente como la dejó.
+
+Los mismos tres botones — **Recursos**, **Dock de recursos** e **Histograma** — también están en la
+pestaña **Vista**, en el grupo de la cinta **Paneles**, junto a **Propiedades**. Mismo nombre, mismo
+icono, mismo comportamiento: dondequiera que haga clic en ellos, hacen exactamente lo mismo. La
+diferencia está entre los dos botones de recursos: **Recursos** abre el panel completo sobre el
+espacio de trabajo, **Dock de recursos** fija la lista compacta como un segundo panel en la columna
+lateral.
 
 ## Detectar sobreasignación
 

@@ -5,7 +5,8 @@ Un planning commence par une structure de tâches : quelles tâches existent, co
 ## Ce que vous allez apprendre ici
 
 - Construire une structure de tâches (WBS) à l'aide de la mise en retrait et des tâches récapitulatives.
-- Déplacer des tâches au sein d'un même niveau, sans les remettre en retrait.
+- Déplacer des tâches au sein d'un même niveau, sans les remettre en retrait — avec le clavier, à la
+  souris, ou sur l'onglet **Tableau** façon tableur.
 - Les trois types de jalons et l'indicateur obligatoire distinct pour les moments contractuels.
 - Gérer les codes d'activité et les champs personnalisés via la fenêtre **Codes et champs**, et grouper par leur biais.
 - Utiliser les notes (une liste de contrôle par tâche) pour suivre les points en suspens.
@@ -23,6 +24,14 @@ Une liste plate de tâches ne dit rien de leurs relations. En mettant une tâche
 5. Pour une toute nouvelle sous-tâche, il existe un raccourci plus rapide : cliquez avec le bouton droit sur la tâche parente et choisissez **Ajouter une sous-tâche**. Cela crée une nouvelle tâche déjà mise en retrait en une seule étape, au lieu d'ajouter d'abord une tâche puis de la mettre en retrait séparément.
 
 Dès qu'une tâche a au moins une sous-tâche, elle devient automatiquement une tâche récapitulative : sa barre dans le diagramme de Gantt couvre alors toute la période, du début le plus tôt à la fin la plus tardive de toutes les sous-tâches qu'elle contient, et sa propre durée et ses propres dates ne peuvent plus être définies indépendamment. Une tâche récapitulative est donc toujours une valeur dérivée, jamais un planning que vous saisissez directement — supprimez ou décalez les sous-tâches, et la barre de la tâche récapitulative s'ajuste automatiquement.
+
+**Réduire et développer.** Avec une grande WBS, vous voudrez parfois compacter temporairement l'arborescence. L'onglet du ruban **Affichage**, groupe **Plan**, propose pour cela deux boutons distincts — **Réduire** et **Développer** — délibérément pas un seul bouton à bascule, car avec une sélection mixte (certaines branches ouvertes, d'autres fermées) une bascule ne pourrait jamais tout mettre dans le même sens.
+
+- **Avec une sélection**, les boutons agissent sur les tâches sélectionnées ; seules les tâches ayant des sous-tâches sont concernées, les tâches isolées sont ignorées.
+- **Sans sélection**, ils agissent sur tout le planning. Désélectionnez avec **Échap**, ou cliquez sur une zone vide de la vue Gantt.
+- Dans une vue groupée (voir *Grouper par codes et champs* plus bas), les boutons réduisent/développent les bandeaux de groupe à la place — y compris les bandeaux imbriqués — plutôt que les tâches.
+
+La flèche devant une tâche récapitulative continue par ailleurs de fonctionner comme avant, pour ouvrir ou fermer uniquement cette branche-là.
 
 ### Insérer une nouvelle tâche au bon endroit
 
@@ -51,6 +60,27 @@ Outre le changement de niveau d'une tâche (retrait/réduction du retrait), vous
 - **Alt+↓** déplace la tâche vers le bas.
 
 Cela fonctionne à n'importe quel niveau de l'arborescence : déplacez une tâche de phase, et toutes ses sous-tâches se déplacent automatiquement avec elle.
+
+Vous préférez la souris ? Attrapez une tâche par sa ligne dans le tableau des tâches (la colonne de
+gauche de la vue Gantt, avec le même comportement de glisser-déposer sur l'onglet du ruban
+**Tableau**) et faites-la glisser vers le haut ou vers le bas. Déposez-la entre deux lignes pour la
+réordonner parmi ses tâches sœurs, comme avec Alt+↑/↓. Déposez-la plutôt sur la partie inférieure de
+la ligne d'une tâche récapitulative, et elle s'imbrique : la tâche devient la nouvelle dernière
+sous-tâche de cette tâche récapitulative, la mettant en retrait en un seul geste — c'est l'équivalent
+souris d'Alt+→. Sélectionnez d'abord plusieurs tâches (Ctrl/Cmd-clic, ou une sélection par
+rectangle) et toute la sélection se glisse et se dépose ensemble.
+
+L'onglet du ruban **Tableau** affiche cette même structure sous forme de grille simple et modifiable,
+utile lorsque vous saisissez ou corrigez beaucoup de tâches à la fois : un simple clic sur une cellule
+modifiable démarre immédiatement l'édition avec la valeur existante sélectionnée, les touches
+fléchées déplacent un curseur de cellule sans l'ouvrir, **F2**/**Entrée** ouvre la cellule actuelle
+pour édition, et **Tab**/**Maj+Tab** sur une ligne sélectionnée l'indente/la désindente, comme
+Alt+→/←. Atteindre **Entrée** ou **↓** sur la toute dernière ligne crée une nouvelle tâche sœur
+directement à cet endroit, avec le curseur déjà dans sa cellule de nom, pour que vous puissiez
+continuer toute une liste sans toucher la souris — cela ne fonctionne qu'en vue arborescente normale,
+car avec un filtre, un tri ou un regroupement actif, la nouvelle tâche pourrait tomber directement
+hors de vue ; l'application vous le demande donc d'abord au lieu de placer silencieusement une tâche
+que vous ne voyez pas.
 
 ## Types de jalons
 

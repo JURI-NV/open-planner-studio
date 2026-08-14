@@ -33,7 +33,8 @@ Hacer clic derecho en la vista de Gantt da un menú distinto según dónde esté
 - **Sobre una fila de tarea sin impacto en la barra** (por ejemplo una fila sin barra visible actualmente) — el mismo
   menú de tarea, pero sin el elemento específico de barra.
 - **Sobre una fila de encabezado de grupo** (la fila que resume un conjunto de tareas agrupadas) — un pequeño menú para
-  contraer/expandir ese grupo, más **Expandir todo**/**Contraer todo** para todo el árbol.
+  contraer/expandir ese grupo, más **Expandir todo**/**Contraer todo**, que abren o cierran todas las
+  bandas de grupo a la vez (incluidas las bandas anidadas dentro de una banda).
 - **Sobre lienzo vacío** (sin tarea, sin encabezado de grupo) — **Nueva tarea**, **Añadir hito**, **Pegar** (si
   hay algo en el portapapeles), **Restablecer zoom** y **Ajustar al proyecto**.
 
@@ -43,9 +44,19 @@ estos cinco elementos, en este orden.
 ## Arrastrar sobre una barra de tarea
 
 Agarrar y arrastrar una barra de tarea mueve la tarea (o, al agarrar el borde, cambia su duración).
+Mientras arrastra un **borde**, aparece una pequeña píldora oscura junto a ese borde mostrando la
+duración que obtendría la tarea — `15d`, por ejemplo, o `6h` para una tarea planificada en horas. Se
+actualiza en vivo mientras arrastra, así que ve la nueva duración antes de soltar el botón del ratón.
+Mover la barra completa no la muestra: ese gesto deja la duración sin cambios.
 Mantenga pulsado **Mayús** mientras arrastra desde una barra, y en su lugar empieza a dibujar una **relación** hacia
 la tarea sobre la que suelte — lo mismo que **Iniciar relación desde aquí** en el menú contextual de la barra, pero
 en un solo movimiento de ratón.
+
+Haga clic en una barra para seleccionar solo esa tarea. **Ctrl/⌘+clic** en una barra la añade o la
+quita de la selección actual en lugar de sustituirla, para que pueda construir una selección de
+varias tareas barra a barra — útil justo antes de hacer clic en el botón **Enlace** con exactamente
+dos tareas seleccionadas, o antes de arrastrar toda una selección de tareas a una nueva posición de
+una vez en la tabla de tareas.
 
 ## Desplazamiento panorámico frente a selección por rectángulo
 
@@ -62,12 +73,22 @@ su modo de desplazamiento (**Configuración → Desplazamiento y zoom**):
 En resumen: la tabla de tareas siempre selecciona; el lienzo solo se desplaza panorámicamente en modo de desplazamiento por arrastre y selecciona
 en los demás casos.
 
+Más allá de eso, un gesto funciona en todas partes, siempre: arrastrar con el **botón central del
+ratón** (la rueda) pulsado desplaza panorámicamente la vista — en todos los modos de desplazamiento,
+y sin importar si empieza sobre una barra, en la tabla de tareas o en espacio vacío. Útil cuando está
+en modo Posición o Teclas pero quiere de todos modos un desplazamiento rápido.
+
 ## Zoom
 
 Además de los botones de zoom en la cinta, **+**/**=** (o **Ctrl+=**) acerca y **-** (o
 **Ctrl+-**) aleja. Un **0** simple restablece el zoom al valor predeterminado; **Ctrl+0** ajusta el zoom para que todo el
 proyecto quepa en pantalla ("ajustar al proyecto") — lo mismo que el botón con ese nombre en el menú contextual de lienzo vacío
-descrito arriba.
+descrito arriba. El encabezado de la línea de tiempo se adapta a medida que sigue acercando el zoom:
+los números de semana aparecen en cuanto hay sitio para ellos, y los nombres de los días etiquetan
+cada columna en cuanto se ha acercado lo suficiente como para trabajar a nivel de día. Si **Mostrar
+solo días laborables** (Configuración → Línea de tiempo / Zoom) está activado, el encabezado — y las
+propias barras — omiten por completo los fines de semana y los festivos en lugar de solo atenuarlos,
+de modo que una tarea de 5 días laborables ocupa exactamente 5 columnas.
 
 ## Pestañas de documento
 

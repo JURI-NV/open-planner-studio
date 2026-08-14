@@ -32,7 +32,7 @@ Asegúrese de estar en la pestaña de la cinta **Inicio**. Esta pestaña muestra
 
 ### Mediante la cinta
 
-1. En el grupo de la cinta **Tareas**, haga clic en el botón **Tarea**. Aparece una nueva tarea llamada "Nueva tarea", con una duración de 5 días laborables, al final tanto de la tabla de tareas como del diagrama de Gantt.
+1. En el grupo de la cinta **Tareas**, haga clic en el botón **Tarea**. Aparece una nueva tarea llamada "Nueva tarea", con una duración de 5 días laborables, tanto en la tabla de tareas como en el diagrama de Gantt. Si en ese momento hay una tarea seleccionada, la tarea nueva se coloca justo **debajo** de ella; si no hay nada seleccionado, va al final. Así construye una lista sin tener que arrastrar cosas de un lado a otro después. Ese mismo grupo de la cinta también está en la pestaña **Tabla**.
 2. Repita esto varias veces hasta tener una tarea para cada fase principal de su proyecto. Si sigue el proyecto de ejemplo, use las mismas fases principales que él: "1. Voorbereiding" (Preparación), "2. Fundering & ruwbouw" (Cimentación y estructura), "3. Afbouw" (Acabados) y "4. Oplevering" (Entrega).
 3. Haga doble clic en una tarea — en la tabla o en su barra en el diagrama de Gantt — para abrir la ventana **Editar tarea**. Ajuste el **Nombre**, el **Tipo** y la **Duración (días laborables)** para que coincidan con su fase.
 
@@ -42,7 +42,7 @@ No tiene que volver siempre a la cinta. Haga clic derecho en una **fila vacía**
 
 Haga clic derecho en una tarea **existente**, en cambio, y obtiene un menú contextual distinto con, entre otros:
 
-- **Insertar arriba** / **Insertar debajo** — añade una tarea antes o después de la tarea sobre la que hizo clic derecho.
+- **Insertar arriba** / **Insertar debajo** — añade una tarea antes o después de la tarea sobre la que hizo clic derecho. Si hay varias tareas seleccionadas y hace clic derecho sobre una de ellas, la tarea nueva se coloca por encima de la tarea más alta o por debajo de la más baja de su selección — una sola tarea, no una por cada tarea seleccionada.
 - **Añadir subtarea** — crea una nueva tarea como hija de esa tarea en un solo paso (vea el paso 3 para saber qué significa eso).
 
 Con el teclado es lo más rápido: **Insert** coloca una tarea encima de la selección, **Ctrl+I** (**Cmd+I** en macOS) debajo. Ambas aparecen en el resumen de atajos (**Ctrl+/**) bajo **Estructura**. Insertar encima o debajo solo funciona en la vista de árbol normal: con un filtro, una ordenación o una agrupación activa la tarea nueva aparecería en un sitio distinto de donde la pone, así que la aplicación se lo explica en lugar de colocarla en silencio. Más sobre esto en la guía [Planificación y WBS](docs://gids-plannen-wbs).

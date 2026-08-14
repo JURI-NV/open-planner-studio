@@ -32,7 +32,7 @@ Artık boş bir projeniz var: solda boş bir görev tablosu, sağda boş bir Gan
 
 ### Şerit üzerinden
 
-1. **Görevler** şerit grubunda, **Görev** düğmesine tıklayın. Görev tablosunun ve Gantt şemasının en altında, 5 iş günü süreli "Yeni görev" adlı yeni bir görev görünür.
+1. **Görevler** şerit grubunda, **Görev** düğmesine tıklayın. Görev tablosunda ve Gantt şemasında, 5 iş günü süreli "Yeni görev" adlı yeni bir görev görünür. O anda bir görev seçiliyse, yeni görev doğrudan onun **altına** yerleşir; hiçbir şey seçili değilse listenin sonuna eklenir. Böylece sonradan sürükleyip taşımak zorunda kalmadan bir liste oluşturursunuz. Aynı şerit grubu **Tablo** sekmesinde de bulunur.
 2. Projenizin her ana fazı için bir görev oluşana kadar bunu birkaç kez tekrarlayın. Örnek projeyi takip ediyorsanız, onunla aynı ana fazları kullanın: "1. Voorbereiding" (Hazırlık), "2. Fundering & ruwbouw" (Temel & kaba inşaat), "3. Afbouw" (İnce işler) ve "4. Oplevering" (Teslim).
 3. Bir göreve — tabloda ya da Gantt şemasındaki çubuğunda — çift tıklayarak **Görevi düzenle** penceresini açın. **Ad**, **Tür** ve **Süre (iş günü)** alanlarını fazınıza uyacak şekilde ayarlayın.
 
@@ -42,7 +42,7 @@ Sürekli şeride geri dönmeniz gerekmez. Görev tablosunda **boş bir satıra**
 
 Bunun yerine **mevcut** bir göreve sağ tıklarsanız, aralarında şunların da bulunduğu farklı bir bağlam menüsü alırsınız:
 
-- **Üste ekle** / **Alta ekle** — sağ tıkladığınız görevden önce veya sonra bir görev ekler.
+- **Üste ekle** / **Alta ekle** — sağ tıkladığınız görevden önce veya sonra bir görev ekler. Birden fazla görev seçiliyken bunlardan birine sağ tıklarsanız, yeni görev seçiminizin en üstteki görevinin üstüne veya en alttaki görevinin altına eklenir — seçilen her görev için bir tane değil, tek bir görev.
 - **Alt görev ekle** — o görevin altına tek adımda yeni bir görev oluşturur (bunun ne anlama geldiği için 3. adıma bakın).
 
 Klavyeyle eklemek en hızlısıdır: **Insert** seçimin üstüne bir görev koyar, **Ctrl+I** (macOS'ta **Cmd+I**) altına. Her ikisi de kısayol özetinde (**Ctrl+/**) **Yapı** başlığı altında yer alır. Üste veya alta ekleme yalnızca normal ağaç görünümünde çalışır: bir filtre, sıralama veya gruplama etkinken yeni görev koyduğunuz yerden başka bir yerde belirirdi; bu yüzden uygulama sessizce yerleştirmek yerine durumu açıklar. Ayrıntılar için [Planlama & WBS](docs://gids-plannen-wbs) kılavuzuna bakın.

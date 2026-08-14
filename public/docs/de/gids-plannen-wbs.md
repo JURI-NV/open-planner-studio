@@ -5,7 +5,7 @@ Ein Terminplan beginnt mit einer Aufgabenstruktur: Welche Aufgaben gibt es, wie 
 ## Was Sie hier lernen
 
 - Aufbau einer Aufgabenstruktur (WBS) mittels Einrücken und Sammelaufgaben.
-- Verschieben von Aufgaben innerhalb derselben Ebene, ohne neu einzurücken.
+- Verschieben von Aufgaben innerhalb derselben Ebene, ohne neu einzurücken — mit der Tastatur, per Ziehen oder in der tabellenartigen Registerkarte **Tabelle**.
 - Die drei Meilensteinarten und der separate Verbindlich-Schalter für vertragliche Zeitpunkte.
 - Verwalten von Aufgabencodes und benutzerdefinierten Feldern über das Fenster **Codes & Felder** und das Gruppieren danach.
 - Verwenden von Notizen (einer Checkliste pro Aufgabe), um offene Punkte nachzuverfolgen.
@@ -23,6 +23,14 @@ Eine flache Aufgabenliste sagt nichts darüber aus, wie die Aufgaben zusammenhä
 5. Für eine ganz neue Unteraufgabe gibt es einen schnelleren Weg: Klicken Sie mit der rechten Maustaste auf die übergeordnete Aufgabe und wählen Sie **Unteraufgabe hinzufügen**. Das erstellt in einem Schritt eine neue, bereits eingerückte Aufgabe, statt erst eine Aufgabe hinzuzufügen und sie danach separat einzurücken.
 
 Sobald eine Aufgabe mindestens eine Unteraufgabe hat, wird sie automatisch zu einer Sammelaufgabe: Ihr Balken im Gantt-Diagramm umfasst dann den gesamten Zeitraum vom frühesten Anfang bis zum spätesten Ende aller darunterliegenden Unteraufgaben, und ihre eigene Dauer und ihre Termine können nicht mehr unabhängig festgelegt werden. Eine Sammelaufgabe ist daher immer ein abgeleiteter Wert, nie ein Terminplan, den Sie direkt eingeben — löschen oder verschieben Sie die Unteraufgaben, und der Balken der Sammelaufgabe passt sich automatisch an.
+
+**Einklappen und Ausklappen.** Bei einer großen WBS möchten Sie den Baum manchmal vorübergehend kompakter machen. Die Menüband-Registerkarte **Ansicht**, Gruppe **Gliederung**, bietet dafür zwei getrennte Schaltflächen — **Einklappen** und **Ausklappen** — bewusst kein einzelner Umschalter, denn bei einer gemischten Auswahl (manche Zweige offen, andere geschlossen) könnte ein Umschalter nie alles einheitlich setzen.
+
+- **Mit Auswahl** wirken die Schaltflächen auf die ausgewählten Aufgaben; nur Aufgaben mit Unteraufgaben sind betroffen, eigenständige Aufgaben werden ignoriert.
+- **Ohne Auswahl** wirken sie auf den gesamten Terminplan. Heben Sie die Auswahl mit **Esc** auf, oder klicken Sie auf eine leere Stelle der Gantt-Ansicht.
+- In einer gruppierten Ansicht (siehe *Gruppieren nach Codes und Feldern* weiter unten) klappen die Schaltflächen stattdessen die Gruppenbänder ein/aus — einschließlich verschachtelter Bänder — statt der Aufgaben.
+
+Der Pfeil vor einer Sammelaufgabe funktioniert weiterhin wie gewohnt, um nur diesen einen Zweig zu öffnen oder zu schließen.
 
 ### Eine neue Aufgabe an der richtigen Stelle einfügen
 
@@ -51,6 +59,10 @@ Neben der Änderung der Aufgabenebene (Einrücken/Ausrücken) können Sie auch d
 - **Alt+↓** verschiebt die Aufgabe nach unten.
 
 Das funktioniert auf jeder Ebene des Baums: Verschieben Sie eine Phasenaufgabe, wandern alle ihre Unteraufgaben automatisch mit.
+
+Arbeiten Sie lieber mit der Maus? Fassen Sie eine Aufgabe an ihrer Zeile in der Aufgabentabelle (der linken Spalte der Gantt-Ansicht, mit demselben Zieh-Verhalten auf der Menüband-Registerkarte **Tabelle**) und ziehen Sie sie nach oben oder unten. Lassen Sie sie zwischen zwei Zeilen fallen, um sie unter ihren Geschwisteraufgaben neu zu ordnen, genau wie Alt+↑/↓. Lassen Sie sie stattdessen auf dem unteren Teil der Zeile einer Sammelaufgabe fallen, wird sie verschachtelt: Die Aufgabe wird die neue letzte Unteraufgabe dieser Sammelaufgabe und dabei in einer Bewegung neu eingerückt — das ist das Maus-Äquivalent zu Alt+→. Wählen Sie zuerst mehrere Aufgaben aus (Ctrl/Cmd-Klick oder ein Auswahl-Rechteck), und die gesamte Auswahl wird gemeinsam gezogen und abgelegt.
+
+Die Menüband-Registerkarte **Tabelle** zeigt dieselbe Struktur als einfaches, editierbares Raster — nützlich, wenn Sie viele Aufgaben auf einmal erfassen oder korrigieren: Ein einzelner Klick auf eine editierbare Zelle startet die Bearbeitung sofort mit dem vorhandenen Wert ausgewählt, die Pfeiltasten bewegen einen Zellcursor, ohne ihn zu öffnen, **F2**/**Enter** öffnet die aktuelle Zelle zur Bearbeitung, und **Tab**/**Shift+Tab** rückt eine ausgewählte Zeile ein/aus, genau wie Alt+→/←. Erreichen Sie mit **Enter** oder **↓** die allerletzte Zeile, entsteht dort eine neue Geschwisteraufgabe mit dem Cursor bereits in ihrer Namenszelle, sodass Sie eine ganze Liste durcharbeiten können, ohne die Maus anzufassen — das funktioniert nur in der normalen Baumansicht, da bei aktivem Filter, aktiver Sortierung oder Gruppierung die neue Aufgabe direkt aus dem Sichtfeld fallen könnte; die App fragt daher vorher nach, statt stillschweigend eine Aufgabe zu platzieren, die Sie nicht sehen können.
 
 ## Meilensteinarten
 

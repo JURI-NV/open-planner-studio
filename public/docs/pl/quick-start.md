@@ -32,7 +32,7 @@ Upewnij się, że jesteś na karcie wstążki **Start**. Ta karta pokazuje obok 
 
 ### Przez wstążkę
 
-1. W grupie wstążki **Zadania** kliknij przycisk **Zadanie**. Na dole zarówno tabeli zadań, jak i wykresu Gantta pojawi się nowe zadanie o nazwie „Nowe zadanie", z czasem trwania 5 dni roboczych.
+1. W grupie wstążki **Zadania** kliknij przycisk **Zadanie**. Pojawi się nowe zadanie o nazwie „Nowe zadanie", z czasem trwania 5 dni roboczych, zarówno w tabeli zadań, jak i na wykresie Gantta. Jeśli w tym momencie jakieś zadanie jest zaznaczone, nowe zadanie trafia bezpośrednio **pod** nim; jeśli nic nie jest zaznaczone, trafia na koniec. Dzięki temu budujesz listę bez konieczności przeciągania elementów później. Tę samą grupę wstążki znajdziesz też na karcie **Tabela**.
 2. Powtórz to kilka razy, aż uzyskasz zadanie dla każdej głównej fazy projektu. Jeśli podążasz za przykładowym projektem, użyj tych samych głównych faz co on: „1. Voorbereiding" (Przygotowanie), „2. Fundering & ruwbouw" (Fundamenty i stan surowy), „3. Afbouw" (Wykończenie) i „4. Oplevering" (Odbiór).
 3. Kliknij dwukrotnie zadanie — w tabeli lub na jego pasku na wykresie Gantta — aby otworzyć okno **Edytuj zadanie**. Dostosuj **Nazwę**, **Typ** i **Czas trwania (dni robocze)** do swojej fazy.
 
@@ -42,7 +42,7 @@ Nie musisz za każdym razem wracać do wstążki. Kliknij prawym przyciskiem mys
 
 Kliknij prawym przyciskiem myszy **istniejące** zadanie, a otrzymasz inne menu kontekstowe, między innymi z opcjami:
 
-- **Wstaw powyżej** / **Wstaw poniżej** — dodaje zadanie przed lub po zadaniu, na którym kliknięto prawym przyciskiem.
+- **Wstaw powyżej** / **Wstaw poniżej** — dodaje zadanie przed lub po zadaniu, na którym kliknięto prawym przyciskiem. Jeśli zaznaczono kilka zadań i klikniesz prawym przyciskiem jedno z nich, nowe zadanie trafia nad najwyższym albo pod najniższym zadaniem Twojego zaznaczenia — jedno zadanie, nie jedno na każde zaznaczone zadanie.
 - **Dodaj podzadanie** — tworzy nowe zadanie jako podrzędne wobec tego zadania w jednym kroku (zobacz krok 3, co to oznacza).
 
 Z klawiatury idzie najszybciej: **Insert** wstawia zadanie nad zaznaczeniem, **Ctrl+I** (**Cmd+I** w macOS) pod nim. Oba znajdziesz w przeglądzie skrótów (**Ctrl+/**) w kategorii **Struktura**. Wstawianie nad lub pod działa tylko w zwykłym widoku drzewa: przy aktywnym filtrze, sortowaniu lub grupowaniu nowe zadanie pojawiłoby się gdzie indziej niż tam, gdzie je umieszczasz, więc aplikacja to wyjaśnia zamiast po cichu je wstawiać. Więcej w przewodniku [Planowanie i WBS](docs://gids-plannen-wbs).

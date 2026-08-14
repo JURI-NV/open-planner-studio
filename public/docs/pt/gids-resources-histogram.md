@@ -10,7 +10,7 @@ Uma tarefa diz-lhe quando algo precisa de acontecer; um recurso diz-lhe quem ou 
 - Mover uma atribuição para outra tarefa.
 - Calendários de recursos e capacidade faseada no tempo (por exemplo uma segunda grua adicionada mais tarde).
 - Ler o histograma: o seletor de recursos, aprofundar por recurso, detetar sobrealocação.
-- O painel de recursos ancorado ao lado do Gantt.
+- O painel de recursos ancorado ao lado do Gantt, como um segundo painel abaixo de Propriedades.
 - Nivelamento: as opções na janela **Nivelar recursos**, a diferença entre permanecer dentro da folga e deixar a data de fim deslocar-se, e prioridades (incluindo a prioridade 1000 = "não nivelar").
 - A lição honesta: quando o nivelamento *não* resolve uma sobrealocação.
 
@@ -28,7 +28,13 @@ Todo o recurso tem um **Tipo** (uma coluna no painel de recursos):
 
 ## Gerir recursos
 
-Abra o painel de recursos através do grupo do friso **Gerir** no separador **Recursos**: o botão **Recursos** abre o painel completo (uma vista de painel completo separada, como Tabela ou Relações), **Novo recurso** adiciona uma linha diretamente. No painel edita, por recurso: **Nome**, **Tipo**, **Unidades máx.** (capacidade por dia útil — 1 = uma pessoa/item a tempo inteiro, 2 = duas unidades ao mesmo tempo), **Calendário**, **Tarifa/hora**, **Unidade** (apenas material) e **Equipa** (a que equipa este recurso pertence). No fundo, a coluna **Total** soma o custo de cada recurso (unidades carregadas × horas/dia × tarifa), recalculado a cada F5.
+Abra o painel de recursos através do grupo do friso **Gerir** no separador **Recursos**: o botão **Recursos** abre o painel completo (uma vista de painel completo separada, como Tabela ou Relações), **Novo recurso** abre o painel com uma linha de rascunho na qual escreve o nome de imediato (tal como o botão **+ Novo recurso** no próprio painel). No painel edita, por recurso: **Nome**, **Tipo**, **Unidades máx.** (capacidade por dia útil — 1 = uma pessoa/item a tempo inteiro, 2 = duas unidades ao mesmo tempo), **Calendário**, **Tarifa/hora**, **Unidade** (apenas material) e **Equipa** (a que equipa este recurso pertence). No fundo, a coluna **Total** soma o custo de cada recurso (unidades carregadas × horas/dia × tarifa), recalculado a cada F5.
+
+A linha de rascunho fica no fundo da tabela, exatamente onde o novo recurso vai ficar, e é *totalmente* editável de imediato: tipo, unidades máx., calendário, tarifa, unidade e equipa são todos controlos normais. Preencha-os pela ordem que lhe convier — sinta-se à vontade para escolher primeiro o tipo e escrever o nome depois. **Tab** percorre a linha sem guardar nada ainda.
+
+A linha existe por uma razão: um recurso só é criado quando existe um **nome**, para que premir o botão sem introduzir nada não deixe uma linha vazia para trás. Clicar fora ou premir **Escape** sem um nome não deixa nada para trás — nenhum recurso, nenhum passo no histórico de desfazer, e o seu projeto não fica marcado como alterado; nem sequer se alterou uma lista pendente pelo caminho. Com um nome preenchido, a linha é confirmada no momento em que sai dela (clique noutro sítio, ou Tab para além da última coluna) ou prime **Enter** — de uma só vez, com tudo o que preencheu, e como um único passo que um desfazer anula. **Enter** também abre uma nova linha de rascunho logo a seguir, para que possa escrever uma lista inteira de uma vez.
+
+As linhas existentes também são navegáveis pelo teclado, em ambas as vistas (Biblioteca e Projeto): **↑** e **↓** movem o cursor para a mesma coluna na linha acima ou abaixo, e **Enter** (para baixo) ou **Shift+Enter** (para cima) fazem o mesmo. Na última linha, **Enter** abre ali uma nova linha de rascunho — a mesma introdução contínua que na tabela de tarefas. Nas listas pendentes (**Tipo**, **Calendário**, **Equipa**) e no seletor de **Unidades máx.** as teclas de seta mantêm deliberadamente o seu próprio significado (escolher uma opção, incrementar um valor); use **Enter** aí para avançar para a linha seguinte.
 
 ### Capacidade faseada no tempo
 
@@ -77,7 +83,15 @@ Se vir "Recalcular (F5) para mostrar a carga" em vez de barras, o cronograma nã
 
 ## O painel de recursos ancorado
 
-Além do painel de recursos completo (botão do friso **Recursos**), há uma variante compacta que pode ancorar à direita: o botão **Dock de recursos** no grupo do friso **Gerir**. Este painel ancorado mostra apenas o nome, as **Unidades máx.** (editáveis diretamente) e um ponto vermelho/verde para sobrealocação — uma visão rápida ao lado do seu Gantt sem abrir o painel completo. O painel de recursos ancorado e o painel de propriedades ocupam a coluna direita como dois painéis completos, um por cima do outro: cada um tem o seu próprio botão do friso, e a altura reparte-se arrastando o limite entre ambos.
+Além do painel de recursos completo (botão do friso **Recursos**), há uma variante compacta que pode ancorar à direita: o botão **Dock de recursos** no grupo do friso **Gerir**. Este painel ancorado mostra apenas o nome, as **Unidades máx.** (editáveis diretamente) e um ponto vermelho/verde para sobrealocação — uma visão rápida ao lado do seu Gantt sem abrir o painel completo.
+
+A coluna lateral contém **dois painéis iguais** empilhados um sobre o outro: **Propriedades** e a lista de recursos ancorada. Não se substituem um ao outro e não se recolhem — se um painel estiver ligado, simplesmente vê o seu conteúdo. Cada painel tem o seu próprio interruptor para isso: os botões do friso **Propriedades** e **Dock de recursos**, ambos no grupo **Painéis** no separador **Visualização**. O mesmo interruptor está presente como um **✕** na própria barra de cabeçalho do painel.
+
+Reparte a altura arrastando o **limite entre os dois painéis**; essa divisão é memorizada. Quando apenas um painel está ligado, ocupa sempre toda a altura. Com ambos desligados não há coluna lateral nenhuma e o Gantt ocupa toda a largura.
+
+Para tirar a coluna do caminho *sem* perder a sua escolha de painéis, use o botão no canto superior direito da barra de cabeçalho de cima. Fica com uma faixa estreita; um clique nela traz a coluna de volta exatamente como a deixou.
+
+Os mesmos três botões — **Recursos**, **Dock de recursos** e **Histograma** — também estão no separador **Visualização**, no grupo do friso **Painéis**, junto a **Propriedades**. Mesmo nome, mesmo ícone, mesmo comportamento: onde quer que clique neles, fazem exatamente a mesma coisa. A diferença está entre os dois botões de recursos propriamente ditos: **Recursos** abre o painel completo sobre a área de trabalho, **Dock de recursos** fixa a lista compacta como um segundo painel na coluna lateral.
 
 ## Detetar sobrealocação
 

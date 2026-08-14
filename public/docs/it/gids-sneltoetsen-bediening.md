@@ -35,7 +35,8 @@ Fare clic destro nella vista Gantt dà un menu diverso a seconda di dove si trov
   visibile) — lo stesso menu attività, ma senza la voce specifica della barra.
 - **Su una riga di intestazione di gruppo** (la riga che riassume un insieme raggruppato di attività)
   — un piccolo menu per comprimere/espandere quel singolo gruppo, più **Espandi tutto**/**Comprimi
-  tutto** per l'intero albero.
+  tutto**, che aprono o chiudono in un colpo solo tutte le fasce di gruppo (comprese quelle annidate
+  dentro una fascia).
 - **Su tela vuota** (nessuna attività, nessuna intestazione di gruppo) — **Nuova attività**,
   **Aggiungi traguardo**, **Incolla** (se c'è qualcosa negli appunti), **Reimposta zoom** e **Adatta
   al progetto**.
@@ -46,9 +47,19 @@ produce esattamente questi cinque elementi, in quest'ordine.
 ## Trascinamento su una barra attività
 
 Afferrare e trascinare una barra attività sposta l'attività (oppure, afferrando il bordo, cambia la
-sua durata). Tieni premuto **Shift** mentre trascini da una barra, e invece inizi a disegnare una
-**relazione** verso qualunque attività su cui rilasci — la stessa cosa di **Avvia relazione da qui**
-nel menu contestuale della barra, ma in un solo movimento del mouse.
+sua durata). Mentre trascini un **bordo**, accanto a quel bordo compare una piccola pillola scura che
+mostra la durata che otterrebbe l'attività — `15d`, per esempio, o `6h` per un'attività pianificata in
+ore. Si aggiorna dal vivo mentre trascini, così vedi la nuova durata prima ancora di rilasciare il
+pulsante del mouse. Spostare l'intera barra non la mostra: quel gesto lascia la durata invariata.
+Tieni premuto **Shift** mentre trascini da una barra, e invece inizi a disegnare una **relazione**
+verso qualunque attività su cui rilasci — la stessa cosa di **Avvia relazione da qui** nel menu
+contestuale della barra, ma in un solo movimento del mouse.
+
+Fai clic su una barra per selezionare solo quell'attività. **Ctrl/⌘+clic** su una barra la aggiunge o
+la toglie dalla selezione corrente invece di sostituirla, così puoi costruire una selezione multipla
+una barra alla volta — comodo appena prima di fare clic sul pulsante **Collegamento** con esattamente
+due attività selezionate, o prima di trascinare un'intera selezione di attività in una nuova posizione
+in un colpo solo nella tabella delle attività.
 
 ## Panoramica contro selezione a riquadro
 
@@ -66,12 +77,22 @@ dalla tua modalità di scorrimento (**Impostazioni → Scorrimento e zoom**):
 In breve: la tabella delle attività seleziona sempre; la tela esegue la panoramica solo in modalità
 di scorrimento a trascinamento e altrimenti seleziona.
 
+Al di là di ciò, c'è un gesto che funziona ovunque, sempre: trascinare con il **pulsante centrale del
+mouse** (la rotellina) premuto pant la vista — in ogni modalità di scorrimento, e indipendentemente dal
+fatto che tu inizi su una barra, nella tabella delle attività o su uno spazio vuoto. Comodo quando sei
+in modalità Posizione o Tasti ma vuoi comunque un trascinamento rapido.
+
 ## Zoom
 
 Oltre ai pulsanti di zoom sulla barra multifunzione, **+**/**=** (o **Ctrl+=**) ingrandisce e **-**
 (o **Ctrl+-**) riduce. Un semplice **0** reimposta lo zoom al predefinito; **Ctrl+0** regola lo zoom in
 modo che l'intero progetto stia sullo schermo ("adatta al progetto") — lo stesso del pulsante con quel
-nome nel menu contestuale della tela vuota sopra.
+nome nel menu contestuale della tela vuota sopra. L'intestazione della timeline si adatta man mano che
+ingrandisci: i numeri di settimana compaiono non appena c'è spazio per loro, e i nomi dei giorni
+etichettano ogni colonna una volta che sei abbastanza vicino da lavorare a livello di giorno. Se
+**Mostra solo i giorni lavorativi** (Impostazioni → Timeline / Zoom) è attivo, l'intestazione — e le
+barre stesse — saltano interamente i fine settimana e i giorni festivi invece di limitarsi a
+mostrarli in grigio, così un'attività di 5 giorni lavorativi è larga esattamente 5 colonne.
 
 ## Schede documento
 
