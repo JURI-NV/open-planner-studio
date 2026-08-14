@@ -33,3 +33,5 @@
 .renderer-dateless.mjs
 .web-save-fallback.mjs
 .mspdi-baseline-export.mjs
+.relrules.mjs
+.assign-resource-guard-check.mjs
