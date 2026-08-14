@@ -335,8 +335,13 @@ export const fileTools: McpToolDef[] = [
         return toolError(ctx, 'INTERNAL', `Kon het bronpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
       }
       const isBinary = readFormatForFile(path).kind === 'binary';
-      // `content` blijft '' voor een binair formaat: alleen gebruikt om het formaat te loggen
-      // (formatOf) — daar staat geen binaire sniffing achter, de extensie is voldoende.
+      // `content` blijft '' voor een binair formaat. Dit is NIET alleen voor logging: `formatOf`
+      // (verderop) sniffed op deze string om CSV/P6-XML/MSPDI-XML te onderscheiden, en het
+      // resultaat stuurt ook of het bestand het OPSLAGDOEL van het document wordt. Voor een
+      // binair formaat valt `formatOf` — zonder extra herkenning — terug op 'IFC' terwijl er geen
+      // IFC-tekst gelezen is; de opslagdoel-guard verderop compenseert dat expliciet met `isBinary`
+      // (nooit opslagdoel), want opslaan schrijft altijd IFC-TEKST — dat zou een binair bronbestand
+      // stil overschrijven met IFC-inhoud onder dezelfde naam.
       let content = '';
       let bytes: Uint8Array | undefined;
       try {
@@ -367,8 +372,11 @@ export const fileTools: McpToolDef[] = [
       // zijn eigen bronbestand met IFC-inhoud onder een .csv/.xml-naam. Zelfde motief als de genulde
       // `filePath` van `duplicate_document`. Gevolg: na een CSV-/XML-import is het document
       // "naamloos" en wordt opslaan een opslaan-als — precies wat je wilt.
+      // `&& !isBinary`: `formatOf` kent nog geen binaire formaten en valt voor een onbekende
+      // extensie terug op 'IFC' — zonder deze guard zou een binair bronbestand (bv. straks .mpp,
+      // T8) alsnog opslagdoel worden en bij de eerstvolgende save met IFC-TEKST overschreven raken.
       useAppStore.getState().applyLoadedProject(parsed, {
-        filePath: format === 'IFC' ? path : null,
+        filePath: format === 'IFC' && !isBinary ? path : null,
         fileHandle: null,
         recompute: true,
         fit: true,

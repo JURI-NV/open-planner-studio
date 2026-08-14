@@ -55,8 +55,15 @@ async function callErr(name: string, args: unknown = {}, ctx: McpContext = makeC
 const HOME = '/home/tester';
 let files = new Map<string, string>();
 
+/** Call-log van `readFile` (T2-review A2): de fake bedient `readFile` en `readTextFile` uit
+ *  dezelfde in-memory tekst-map, dus een verkeerde routering (bv. een binair formaat dat toch
+ *  via `readTextFile` binnenkomt) zou anders onzichtbaar blijven. T8 kan hierop asserteren dat
+ *  een binair formaat (straks .mpp) echt via het bytes-pad (`readFile`) loopt. */
+export const readFileCalls: string[] = [];
+
 function installFakeFs(): void {
   files = new Map<string, string>();
+  readFileCalls.length = 0;
   const fs: McpFileFs = {
     homeDir: async () => HOME,
     exists: async (p) => files.has(p),
@@ -67,6 +74,7 @@ function installFakeFs(): void {
       return v;
     },
     readFile: async (p) => {
+      readFileCalls.push(p);
       const v = files.get(p);
       if (v === undefined) throw new Error(`ENOENT: ${p}`);
       return new TextEncoder().encode(v);
