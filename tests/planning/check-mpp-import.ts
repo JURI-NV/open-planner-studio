@@ -29,6 +29,9 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
+import { detectMppVariant, assertReadable } from '@/services/mpp/mppContainer';
+import { FixedMeta, FixedData } from '@/services/mpp/mppPrimitives';
+import { MppUnsupportedError } from '@/services/mpp/errors';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -372,6 +375,228 @@ function buildDuplicateSiblingCfb(levels: number): Uint8Array {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T4 — MPP-containerlaag: synthetische fixtures (draaien ALTIJD, ook zonder corpus)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// ── Negatieve casus: een geldig CFB'tje zonder '\x01CompObj' ⇒ nette Error (geen CFB:-prefix,
+// want dit is een MPP-laagfout, geen containerfout — cfb.ts zelf leest prima door). Hergebruikt
+// de T3-fixture (`synthetic.bytes`: StreamA/StreamB, geen CompObj-stream). ─────────────────────
+{
+  let threw = false;
+  let message = '';
+  try {
+    detectMppVariant(new CfbFile(synthetic.bytes));
+  } catch (err) {
+    threw = true;
+    message = err instanceof Error ? err.message : String(err);
+  }
+  truthy('T4 CFB zonder \\x01CompObj: detectMppVariant gooit', threw);
+  truthy('T4 CFB zonder \\x01CompObj: geen CFB:-prefix (MPP-laagfout, geen containerfout)', !message.startsWith('CFB:'));
+  truthy('T4 CFB zonder \\x01CompObj: herkenbare boodschap', message === 'Not a recognised MS Project MPP file');
+}
+
+// ── Synthetische MPP14-container met root-streams '\x01CompObj' + 'Props14' — bouwt precies
+// genoeg om `detectMppVariant`/`assertReadable` end-to-end te beproeven zonder de volledige
+// "   114"-boom nodig te hebben (die twee streams leven ook op het echte corpus al rechtstreeks
+// in de root, zie mppContainer.ts). Beide streams gaan via het mini-stream-pad (elk << 4096
+// bytes). ─────────────────────────────────────────────────────────────────────────────────────
+const MPP_PASSWORD_FLAG_KEY = 893386752; // PropsKey.PASSWORD_FLAG (PropsKey.java r. 73)
+
+function encodeAsciiWithTerminator(s: string): Uint8Array {
+  const out = new Uint8Array(s.length + 1);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  out[s.length] = 0;
+  return out;
+}
+
+/** Spiegelt CompObj.java: 28 filler-bytes, dan lengte-geprefixte ASCII-strings (elke lengte
+ *  telt de null-terminator mee). We stoppen na `fileFormat` — de applicationID-lengte (0, dus
+ *  "overslaan") sluit het blok consistent af. */
+function encodeCompObjFileFormat(fileFormat: string): Uint8Array {
+  const nameBytes = encodeAsciiWithTerminator('OPS synthetic'); // willekeurig, mits ≠ "Microsoft Project 4.0"
+  const fmtBytes = encodeAsciiWithTerminator(fileFormat);
+  const out = new Uint8Array(28 + 4 + nameBytes.length + 4 + fmtBytes.length + 4);
+  const view = new DataView(out.buffer);
+  let pos = 28;
+  view.setInt32(pos, nameBytes.length, true);
+  pos += 4;
+  out.set(nameBytes, pos);
+  pos += nameBytes.length;
+  view.setInt32(pos, fmtBytes.length, true);
+  pos += 4;
+  out.set(fmtBytes, pos);
+  pos += fmtBytes.length;
+  view.setInt32(pos, 0, true); // applicationID-lengte: 0 ⇒ overslaan
+  return out;
+}
+
+/** Spiegelt Props14.java: 16-byte header (headerCount @12) + één entry (lengte/sleutel/
+ *  genegeerd/data). Precies genoeg om één PropsKey te dragen. */
+function encodePropsSingleByteEntry(key: number, valueByte: number): Uint8Array {
+  const out = new Uint8Array(16 + 12 + 1);
+  const view = new DataView(out.buffer);
+  view.setUint16(12, 1, true); // headerCount
+  view.setInt32(16, 1, true); // attrib1: datalengte
+  view.setInt32(20, key, true); // attrib2: sleutel
+  view.setInt32(24, 0, true); // attrib3: genegeerd
+  out[28] = valueByte;
+  return out;
+}
+
+/** Bouwt een minimale, geldige CFB met twee ROOT-level streams (`nameA`/`nameB`), allebei via
+ *  het mini-stream-pad. Generiek genoeg voor eender welke kleine (<4096 bytes) payload — niet
+ *  hergebruikt de bestaande `buildSyntheticCfb` (die is toegesneden op de mini-/gewone-FAT-grens,
+ *  niet op meerdere root-streams). */
+function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string, dataB: Uint8Array): Uint8Array {
+  const MINI = 64;
+  const minisectorsFor = (len: number) => Math.max(1, Math.ceil(len / MINI));
+  const miniCountA = minisectorsFor(dataA.length);
+  const miniCountB = minisectorsFor(dataB.length);
+  if (miniCountA + miniCountB > 128) {
+    throw new Error('buildTwoRootStreamsCfb: fixture te groot voor één mini-FAT-sector');
+  }
+  const ministreamBytes = (miniCountA + miniCountB) * MINI;
+  const ministreamSectors = Math.max(1, Math.ceil(ministreamBytes / SECTOR));
+  const totalSectors = 3 + ministreamSectors; // 0=FAT, 1=directory, 2=mini-FAT, 3..=root-ministream
+
+  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  CFB_MAGIC.forEach((b, i) => (bytes[i] = b));
+  view.setUint16(26, 3, true);
+  view.setUint16(30, 9, true);
+  view.setUint16(32, 6, true);
+  view.setUint32(44, 1, true); // numFatSectors
+  view.setUint32(48, 1, true); // firstDirSector
+  view.setUint32(56, 4096, true); // miniStreamCutoff
+  view.setUint32(60, 2, true); // firstMiniFatSector
+  view.setUint32(64, 1, true); // numMiniFatSectors
+  view.setUint32(68, 0xfffffffe, true); // firstDifatSector = ENDOFCHAIN
+  view.setUint32(72, 0, true); // numDifatSectors
+  for (let i = 0; i < 109; i++) view.setUint32(76 + i * 4, i === 0 ? 0 : 0xffffffff, true);
+
+  const sectorOff = (n: number) => HEADER + n * SECTOR;
+
+  // Sector 0: FAT
+  const fat = new Array<number>(128).fill(0xffffffff);
+  fat[0] = 0xfffffffd; // FATSECT
+  fat[1] = 0xfffffffe; // directory: 1 sector
+  fat[2] = 0xfffffffe; // mini-FAT: 1 sector
+  for (let s = 3; s < 3 + ministreamSectors - 1; s++) fat[s] = s + 1;
+  fat[3 + ministreamSectors - 1] = 0xfffffffe;
+  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
+
+  // Sector 1: directory — Root, entry A, entry B, ongebruikt.
+  const dirOff = sectorOff(1);
+  const writeName = (entryBase: number, name: string) => {
+    for (let c = 0; c < name.length; c++) view.setUint16(entryBase + c * 2, name.charCodeAt(c), true);
+    view.setUint16(entryBase + 64, (name.length + 1) * 2, true);
+  };
+  writeName(dirOff, 'Root Entry');
+  view.setUint8(dirOff + 66, 5); // type root
+  view.setUint32(dirOff + 68, 0xffffffff, true);
+  view.setUint32(dirOff + 72, 0xffffffff, true);
+  view.setUint32(dirOff + 76, 1, true); // child = entry A
+  view.setUint32(dirOff + 116, 3, true); // ministream start-sector
+  view.setUint32(dirOff + 120, ministreamBytes, true);
+
+  const e1 = dirOff + 128;
+  writeName(e1, nameA);
+  view.setUint8(e1 + 66, 2); // type stream
+  view.setUint32(e1 + 68, 0xffffffff, true);
+  view.setUint32(e1 + 72, 2, true); // right = entry B
+  view.setUint32(e1 + 76, 0xffffffff, true);
+  view.setUint32(e1 + 116, 0, true); // ministart-sector 0
+  view.setUint32(e1 + 120, dataA.length, true);
+
+  const e2 = dirOff + 256;
+  writeName(e2, nameB);
+  view.setUint8(e2 + 66, 2);
+  view.setUint32(e2 + 68, 0xffffffff, true);
+  view.setUint32(e2 + 72, 0xffffffff, true);
+  view.setUint32(e2 + 76, 0xffffffff, true);
+  view.setUint32(e2 + 116, miniCountA, true); // ministart = na A's minisectoren
+  view.setUint32(e2 + 120, dataB.length, true);
+  // Entry 3: ongebruikt (alle bytes 0 ⇒ typeByte 0, buildTree slaat 'm over)
+
+  // Sector 2: mini-FAT
+  const mfOff = sectorOff(2);
+  for (let i = 0; i < 128; i++) view.setUint32(mfOff + i * 4, 0xffffffff, true); // FREE default
+  for (let i = 0; i < miniCountA; i++) {
+    view.setUint32(mfOff + i * 4, i === miniCountA - 1 ? 0xfffffffe : i + 1, true);
+  }
+  for (let i = 0; i < miniCountB; i++) {
+    const idx = miniCountA + i;
+    view.setUint32(mfOff + idx * 4, i === miniCountB - 1 ? 0xfffffffe : idx + 1, true);
+  }
+
+  // Root-ministream: A's bytes gevolgd door B's bytes, elk op een minisector-grens (64 bytes).
+  bytes.set(dataA, sectorOff(3));
+  bytes.set(dataB, sectorOff(3) + miniCountA * MINI);
+
+  return bytes;
+}
+
+// PASSWORD_FLAG=0 (onversleuteld): assertReadable gooit niet.
+{
+  const compObj = encodeCompObjFileFormat('MSProject.MPP14');
+  const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 0);
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
+  let threw = false;
+  let message = '';
+  try {
+    const cfb = new CfbFile(cfbBytes);
+    truthy('T4 synthetisch MPP14 (wachtwoordvlag=0): detectMppVariant === MPP14', detectMppVariant(cfb) === 'MPP14');
+    assertReadable(cfb);
+  } catch (err) {
+    threw = true;
+    message = err instanceof Error ? err.message : String(err);
+  }
+  truthy('T4 synthetisch MPP14 (wachtwoordvlag=0): assertReadable gooit niet', !threw);
+  if (threw) diffs.push(`T4 synthetisch MPP14 (wachtwoordvlag=0): onverwachte fout: ${message}`);
+}
+
+// PASSWORD_FLAG=1 (versleuteld): assertReadable gooit MppUnsupportedError met mppCode
+// 'MPP_ENCRYPTED' — de acceptatiecriterium-casus uit T4 stap 4/5.
+{
+  const compObj = encodeCompObjFileFormat('MSProject.MPP14');
+  const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 1);
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
+  const cfb = new CfbFile(cfbBytes);
+  let threw = false;
+  let isMppUnsupported = false;
+  let mppCode: string | undefined;
+  try {
+    assertReadable(cfb);
+  } catch (err) {
+    threw = true;
+    isMppUnsupported = err instanceof MppUnsupportedError;
+    mppCode = err instanceof MppUnsupportedError ? err.mppCode : undefined;
+  }
+  truthy('T4 synthetisch MPP14 (wachtwoordvlag=1): assertReadable gooit', threw);
+  truthy('T4 synthetisch MPP14 (wachtwoordvlag=1): gooit MppUnsupportedError', isMppUnsupported);
+  truthy("T4 synthetisch MPP14 (wachtwoordvlag=1): mppCode === 'MPP_ENCRYPTED'", mppCode === 'MPP_ENCRYPTED');
+}
+
+// MPP12 (legacy): detectMppVariant herkent de variant correct, assertReadable weigert 'm met
+// mppCode 'MPP_LEGACY' — vóór er ooit naar een wachtwoordvlag wordt gekeken.
+{
+  const compObj = encodeCompObjFileFormat('MSProject.MPP12');
+  const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 0);
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
+  const cfb = new CfbFile(cfbBytes);
+  truthy('T4 synthetisch MPP12: detectMppVariant === MPP12', detectMppVariant(cfb) === 'MPP12');
+  let mppCode: string | undefined;
+  try {
+    assertReadable(cfb);
+  } catch (err) {
+    mppCode = err instanceof MppUnsupportedError ? err.mppCode : undefined;
+  }
+  truthy("T4 synthetisch MPP12: assertReadable weigert met mppCode 'MPP_LEGACY'", mppCode === 'MPP_LEGACY');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Corpus-gedreven structuurcheck (optioneel — zie moduleheader)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 const CORPUS =
@@ -435,6 +660,42 @@ if (!corpusPresent) {
 
     // Onbekend pad ⇒ null, geen throw (bewijst dat het pad-lookup-contract standhoudt).
     truthy(`[${file}] onbekend pad geeft null`, cfb.getStream(['does-not-exist']) === null);
+
+    // ── T4: MPP-containerlaag tegen de echte corpusbestanden ──────────────────────────────────
+    try {
+      const variant = detectMppVariant(cfb);
+      truthy(`[${file}] detectMppVariant === 'MPP14'`, variant === 'MPP14');
+    } catch (err) {
+      checks++;
+      diffs.push(`[${file}] detectMppVariant gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    try {
+      assertReadable(cfb);
+      truthy(`[${file}] assertReadable gooit niet (onversleuteld MPP14)`, true);
+    } catch (err) {
+      truthy(`[${file}] assertReadable gooit niet (onversleuteld MPP14)`, false);
+      diffs.push(`[${file}] assertReadable gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    const taskFixedMetaBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedMeta']);
+    if (taskFixedMetaBytes && taskFixedData) {
+      try {
+        // itemSize=47, zoals MPP14Reader.java r. 993 voor TBkndTask/FixedMeta.
+        const taskFixedMeta = FixedMeta.withItemSize(taskFixedMetaBytes, 47, `${file}/TBkndTask/FixedMeta`);
+        const taskFixedDataParsed = FixedData.fromMeta(taskFixedMeta, taskFixedData);
+        truthy(
+          `[${file}] TBkndTask FixedData.getItemCount() > 0`,
+          taskFixedDataParsed.getItemCount() > 0,
+        );
+      } catch (err) {
+        checks++;
+        diffs.push(`[${file}] TBkndTask FixedMeta/FixedData parse mislukte: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    } else {
+      checks++;
+      diffs.push(`[${file}] TBkndTask/FixedMeta of TBkndTask/FixedData ontbreekt`);
+    }
   }
 }
 
