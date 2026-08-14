@@ -77,11 +77,14 @@ const BLOCK_MAGIC = 0xfadfadba | 0;
 const FIXED_META_HEADER_SIZE = 16;
 
 export class FixedMeta {
-  private readonly rawItemCount: number;
+  /** Headerwaarde, GEKLEMD op `adjustedItemCount` (T5-restpunt a: hernoemd van `rawItemCount` —
+   *  de naam suggereerde ten onrechte een ongeclampte/onbetrouwbare waarde, terwijl 'm sinds I1
+   *  hieronder al bij constructie geklemd wordt; zie `getItemCount()`'s docblok). */
+  private readonly clampedItemCount: number;
   private readonly items: ReadonlyArray<Uint8Array | null>;
 
-  private constructor(rawItemCount: number, items: ReadonlyArray<Uint8Array | null>) {
-    this.rawItemCount = rawItemCount;
+  private constructor(clampedItemCount: number, items: ReadonlyArray<Uint8Array | null>) {
+    this.clampedItemCount = clampedItemCount;
     this.items = items;
   }
 
@@ -101,21 +104,21 @@ export class FixedMeta {
       throw new Error(`MPP: FixedMeta[${label}] ongeldig magic-getal (0x${(magic >>> 0).toString(16)})`);
     }
     const adjustedItemCount = Math.max(0, Math.floor((bytes.length - FIXED_META_HEADER_SIZE) / itemSize));
-    // I1 (kwaliteitsreview): de RUWE headerwaarde wordt NIET meer ongeclampt blootgesteld via
+    // I1 (kwaliteitsreview): de RUWE headerwaarde wordt NIET ongeclampt blootgesteld via
     // `getItemCount()` — MPXJ's eigen `ConstraintFactory` gebruikt 'm als lus-bovengrens, en een
     // geprepareerd bestand kan hier tot 0x7FFFFFFF claimen (gemeten: ~3s lege lus op zo'n
     // aanroepplek). Geklemd op `adjustedItemCount` (het werkelijke, blokgrootte-afgeleide
     // maximum): op elk geldig bestand is de rauwe en geklemde waarde identiek, dus geen
     // gedragsverschil daar — alleen een hostile/corrupt bestand ziet een kleinere `getItemCount()`
     // i.p.v. een trage/hostile lus bij de aanroeper.
-    const rawItemCount = Math.max(0, Math.min(getInt(bytes, 8, `FixedMeta[${label}]`), adjustedItemCount));
+    const clampedItemCount = Math.max(0, Math.min(getInt(bytes, 8, `FixedMeta[${label}]`), adjustedItemCount));
     const items: (Uint8Array | null)[] = new Array(adjustedItemCount);
     let pos = FIXED_META_HEADER_SIZE;
     for (let i = 0; i < adjustedItemCount; i++) {
       items[i] = bytes.subarray(pos, pos + itemSize);
       pos += itemSize;
     }
-    return new FixedMeta(rawItemCount, items);
+    return new FixedMeta(clampedItemCount, items);
   }
 
   /** Poort van `FixedMeta(InputStream, FixedData otherFixedBlock, int... itemSizes)` — de
@@ -162,11 +165,15 @@ export class FixedMeta {
     return FixedMeta.withItemSize(bytes, chosen, label);
   }
 
-  /** RUWE headerwaarde — MPXJ gebruikt deze soms (bv. ConstraintFactory's lus-bovengrens over
-   *  TBkndCons), ondanks dat 'm niet betrouwbaar is voor arraytoegang; `getByteArrayValue`
-   *  blijft daarom veilig null teruggeven voor een index buiten `getAdjustedItemCount()`. */
+  /** Headerwaarde, GEKLEMD op `getAdjustedItemCount()` (I1, kwaliteitsreview — zie de toelichting
+   *  bij `withItemSize` hierboven) — MPXJ gebruikt de ONgeclampte variant soms als lus-bovengrens
+   *  (bv. `ConstraintFactory` over TBkndCons); hier is dat bewust NIET 1-op-1 nagebouwd, want een
+   *  ongeclampte waarde zou een geprepareerd bestand een hostile lus-budget kunnen geven. Op elk
+   *  geldig bestand is de geklemde waarde identiek aan de rauwe headerwaarde, dus geen
+   *  gedragsverschil daar. `getByteArrayValue` blijft sowieso veilig `null` teruggeven voor een
+   *  index buiten `getAdjustedItemCount()`, ongeacht wat deze methode teruggeeft. */
   getItemCount(): number {
-    return this.rawItemCount;
+    return this.clampedItemCount;
   }
 
   /** Betrouwbare itemcount, afgeleid van de blokgrootte — dit is de lengte van de onderliggende
@@ -534,8 +541,10 @@ export function getTimestamp(data: Uint8Array, offset: number): Date | null {
 /** C2 (kwaliteitsreview, kritiek): `String.fromCharCode(...codeUnits)` spreidt de HELE array als
  *  losse argumenten — V8 begint daar rond de ~125k-argumentengrens over te klagen (lager in
  *  Safari/JSC), en een groot notitie-/tekstveld is geen randgeval hier. Bouwt de string daarom in
- *  brokken van `CHUNK` code-units op, elk apart via `apply` (dat kent dezelfde argumentenlimiet,
- *  dus CHUNK blijft ruim daaronder) en concateneert de brokken. */
+ *  brokken van `CHUNK` code-units op, elk apart via de spread-operator (`...slice(...)` — die kent
+ *  dezelfde argumentenlimiet, dus CHUNK blijft ruim daaronder; T5-restpunt e, kwaliteitsreview:
+ *  deze docregel noemde eerder `apply`, terwijl de code hieronder al spread gebruikte) en
+ *  concateneert de brokken. */
 const UNICODE_STRING_CHUNK = 8192;
 
 /** UTF-16LE, null-terminated (of tot einde array). `maxLength` (bytes) knipt net als

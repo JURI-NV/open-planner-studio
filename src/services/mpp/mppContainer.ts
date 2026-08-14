@@ -40,11 +40,15 @@ const FILE_FORMAT_TO_VARIANT: Record<string, MppVariant> = {
 /** Leest de CompObj-blokinhoud (CompObj.java): 28 bytes overslaan, dan drie optioneel-aanwezige
  *  lengte-geprefixte ASCII-strings (applicationName, fileFormat, applicationID) — elke string
  *  telt zijn eigen null-terminator mee in de opgegeven lengte, dus we nemen `length - 1` bytes.
- *  Alleen `fileFormat` is voor ons relevant; de rest wordt gelezen om de cursor synchroon te
- *  houden (niet nodig hier, want we stoppen zodra we fileFormat hebben) — vandaar dat we na
- *  fileFormat niet verder lezen. Grenscontroles: elke read gooit een duidelijke fout zodra de
- *  buffer te kort is (nooit een rauwe RangeError). */
-function readCompObjFileFormat(bytes: Uint8Array): string | null {
+ *  `applicationID` wordt niet gelezen (niets in deze lezer heeft 'm nodig; we stoppen zodra
+ *  `fileFormat` binnen is). Grenscontroles: elke read gooit een duidelijke fout zodra de buffer
+ *  te kort is (nooit een rauwe RangeError).
+ *
+ *  T5-uitbreiding: naast `fileFormat` (T4, formaatdetectie) geeft dit nu ook `applicationName`
+ *  terug — `detectApplicationVersion` hieronder heeft 'm nodig om de MS-Project-versie te bepalen
+ *  (bit-vlag-tabellen voor milestone e.d. verschillen tussen Project ≤2010 en 2013+, zie
+ *  `MPP14Reader.java` r. ~1029). Eén parse-doorgang i.p.v. 'm twee keer los te doen. */
+function readCompObjInfo(bytes: Uint8Array): { applicationName: string; fileFormat: string | null } {
   let pos = 28;
   const readInt32 = (): number => {
     const v = getInt(bytes, pos, 'CompObj');
@@ -71,11 +75,11 @@ function readCompObjFileFormat(bytes: Uint8Array): string | null {
   if (applicationName === 'Microsoft Project 4.0') {
     // MPP4 heeft geen apart format-veld in het blok (CompObj.java: kortsluit-tak) — en geen
     // entry in MPPReader's FILE_CLASS_MAP, dus voor ons net zo goed "onbekend/ongesteund".
-    return null;
+    return { applicationName, fileFormat: null };
   }
   const formatLength = readInt32();
-  if (formatLength <= 0) return null;
-  return readAsciiMinusTerminator(formatLength);
+  if (formatLength <= 0) return { applicationName, fileFormat: null };
+  return { applicationName, fileFormat: readAsciiMinusTerminator(formatLength) };
 }
 
 /** Formaatdetectie via het `\x01CompObj`-stream in de root van de CFB-container
@@ -89,7 +93,7 @@ export function detectMppVariant(cfb: CfbFile): MppVariant {
   }
   let fileFormat: string | null;
   try {
-    fileFormat = readCompObjFileFormat(compObjBytes);
+    fileFormat = readCompObjInfo(compObjBytes).fileFormat;
   } catch (err) {
     // M3 (kwaliteitsreview): de onderliggende oorzaak (bv. een afgekapt CompObj-blok) blijft
     // beschikbaar via `cause` — handig bij het diagnosticeren van een vreemd-maar-"herkend"
@@ -106,6 +110,30 @@ export function detectMppVariant(cfb: CfbFile): MppVariant {
     throw new Error('Not a recognised MS Project MPP file');
   }
   return variant;
+}
+
+/** `Microsoft.Project.<N>.0` (CompObj.java's `PATTERN`; de punten zijn ONgeëscaped regex-jokers
+ *  in de Java-bron, dus matchen ook de spatie die het corpus daadwerkelijk gebruikt —
+ *  "Microsoft.Project 16.0", corpus-geverifieerd op alle drie ground-truth-bestanden). */
+const APPLICATION_VERSION_PATTERN = /Microsoft.Project.(\d+).0/;
+
+/** T5-toevoeging: de MS-Project-versie (`CompObj.getApplicationVersion`) — MPP14Reader gebruikt
+ *  'm om te kiezen tussen de Project-≤2010- en de 2013+-bit-vlag-tabellen voor o.a. de
+ *  milestone-vlag (r. ~1029 e.v.). `null` als het patroon niet matcht (onbekende/geen versie in
+ *  `applicationName`) — de aanroeper valt dan terug op de modernste tabel (zie `mppReader.ts`). */
+export function detectApplicationVersion(cfb: CfbFile): number | null {
+  const compObjBytes = cfb.getStream(['\x01CompObj']);
+  if (!compObjBytes) return null;
+  let applicationName: string;
+  try {
+    applicationName = readCompObjInfo(compObjBytes).applicationName;
+  } catch {
+    return null;
+  }
+  const match = APPLICATION_VERSION_PATTERN.exec(applicationName);
+  if (!match) return null;
+  const version = parseInt(match[1], 10);
+  return Number.isFinite(version) ? version : null;
 }
 
 // ── Props (Props.java + Props14.java) ────────────────────────────────────────────────────────
@@ -198,13 +226,12 @@ export class Props {
  *  NIET voldoende om te weigeren — zie `readPasswordProtection` hieronder voor de volledige
  *  conditie (vlag ÉN hash). */
 const PASSWORD_FLAG = 893386752;
-/** PropsKey.java r. 59 — ter documentatie/volledigheid (net als de Java-bron 'm naast
- *  PASSWORD_FLAG vermeldt), maar hier NIET gebruikt en (M2, kwaliteitsreview) bewust NIET
- *  geëxporteerd — geen enkele afnemer heeft 'm nodig: de bijbehorende XOR-decodering
- *  (`DocumentInputStreamFactory`) is bewust niet geport, dus versleutelde streams worden nooit
- *  ontcijferd — alleen herkend en geweigerd via `PASSWORD_FLAG`. */
-const ENCRYPTION_CODE = 893386759;
-void ENCRYPTION_CODE; // gedocumenteerd bewaard (PropsKey-volledigheid), bewust ongebruikt
+// PropsKey.java r. 59 — ENCRYPTION_CODE = 893386759 — ter documentatie/volledigheid (net als de
+// Java-bron 'm naast PASSWORD_FLAG vermeldt). Bewust GEEN const-declaratie (T5-restpunt c,
+// kwaliteitsreview: een `void`-no-op op een ongebruikte const is een omweg — de waarde staat hier
+// puur in de commentaartekst): geen enkele afnemer heeft 'm nodig, want de bijbehorende
+// XOR-decodering (`DocumentInputStreamFactory`) is bewust niet geport — versleutelde streams
+// worden nooit ontcijferd, alleen herkend en geweigerd via `PASSWORD_FLAG`.
 /** PropsKey.java r. 77 (`PROTECTION_PASSWORD_HASH`). Samen met `PASSWORD_FLAG` de volledige
  *  afwijscondities hieronder — zie de toelichting bij `readPasswordProtection`. */
 const PROTECTION_PASSWORD_HASH = 893386756;

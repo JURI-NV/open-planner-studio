@@ -90,7 +90,7 @@ function mspTypeToSequenceType(type: number): SequenceType {
  * 2/3 (Must Start/Finish On) zijn HARD ⇒ `MSO`/`MFO` mét `hard:true` (daar klopt de semantiek); 4-7
  * zijn de soft SNET/SNLT/FNET/FNLT; 0 (ASAP, default) en onbekend ⇒ `undefined` (geen constraint).
  */
-function mspCodeToConstraint(code: number): { type: ConstraintType; hard?: boolean } | undefined {
+export function mspCodeToConstraint(code: number): { type: ConstraintType; hard?: boolean } | undefined {
   switch (code) {
     case 1: return { type: 'ALAP' };
     case 2: return { type: 'MSO', hard: true };

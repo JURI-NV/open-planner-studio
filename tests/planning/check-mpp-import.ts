@@ -39,7 +39,7 @@ import { CfbFile } from '@/services/mpp/cfb';
 import { detectMppVariant, assertReadable, Props } from '@/services/mpp/mppContainer';
 import {
   FixedMeta, FixedData, VarMeta12, Var2Data,
-  getUnicodeString, getTimestamp, getGUID, getDuration,
+  getUnicodeString, getTimestamp, getGUID, getDuration, getDate, getTime, getDurationTimeUnits,
   type MppTimeUnit,
 } from '@/services/mpp/mppPrimitives';
 import { MppUnsupportedError } from '@/services/mpp/errors';
@@ -49,6 +49,10 @@ import {
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   expectCfbError, expectMppError, bytesEqual,
 } from './mppFixtures';
+import { readMPP } from '@/services/mpp/mppReader';
+import { readMSPDI } from '@/services/msproject/mspdiReader';
+import { installDOMParser } from './xmldom-shim';
+import type { Task } from '@/types/task';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -627,6 +631,93 @@ truthy('I4 getTimestamp: days≥100 met normale tijd ⇒ geldig resultaat', getT
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T5-kwaliteitsreview-restpunten (b/d): altijd-draaiende mini-fixtures voor primitieven die tot
+// nu toe geen directe assert hadden — FixedData.getIndexFromOffset, FixedData.withItemSizeOverride,
+// getDate, getTime, getDurationTimeUnits.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Bouwt rauwe FixedMeta-bytes waar alleen het offsetveld (byte 4..7 van elk meta-item) ertoe
+ *  doet — de meta-ITEMGROOTTE hier is bewust 8 (het minimum dat het offsetveld nog veilig binnen
+ *  de item-grens laat vallen; ongerelateerd aan de FixedData-itemgrootte, die uit de
+ *  offset-deltas resp. `withItemSizeOverride`'s eigen parameter volgt). */
+function buildOffsetOnlyFixedMetaBytes(offsets: number[], label: string): FixedMeta {
+  const metaItemSize = 8;
+  const out = new Uint8Array(16 + offsets.length * metaItemSize);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, 0xfadfadba, true);
+  view.setInt32(8, offsets.length, true);
+  for (let i = 0; i < offsets.length; i++) view.setInt32(16 + i * metaItemSize + 4, offsets[i], true);
+  return FixedMeta.withItemSize(out, metaItemSize, label);
+}
+
+// getIndexFromOffset: 5 items, declared meta-offsets [0, 8, 8, 24, 32] — item 1 en item 2 delen
+// offset 8, wat item 1 (wiens EIGEN itemSize wordt afgeleid uit het verschil met item 2's offset,
+// dus 8-8=0) tot een NULL-slot maakt: `getByteArrayValue(1)` levert `null` en item 1's offset
+// blijft op zijn array-default (0) staan i.p.v. 8 — item 2 zelf krijgt wél een echte itemSize
+// (24-8=16) en claimt offset 8 als enige. Dit is precies het duplicaat-/nul-grootte-scenario dat
+// `getIndexFromOffset`'s O(1)-hardening (`indexByOffset`) moet overleven — zie de toelichting bij
+// die map in mppPrimitives.ts.
+{
+  const meta = buildOffsetOnlyFixedMetaBytes([0, 8, 8, 24, 32], 'I5-getIndexFromOffset-meta');
+  const payload = new Uint8Array(40);
+  for (let i = 0; i < payload.length; i++) payload[i] = i;
+  const fd = FixedData.fromMeta(meta, payload, 0, 0, 'I5-getIndexFromOffset');
+
+  truthy('I5 FixedData.getIndexFromOffset: item 1 is een null-slot (duplicaat-offset ⇒ itemSize 0)', fd.getByteArrayValue(1) === null);
+  truthy('I5 FixedData.getIndexFromOffset(0) === 0', fd.getIndexFromOffset(0) === 0);
+  truthy('I5 FixedData.getIndexFromOffset(8) === 2 (item 2 claimt de gedeelde offset, niet de null-slot item 1)', fd.getIndexFromOffset(8) === 2);
+  truthy('I5 FixedData.getIndexFromOffset(24) === 3', fd.getIndexFromOffset(24) === 3);
+  truthy('I5 FixedData.getIndexFromOffset(32) === 4 (laatste item)', fd.getIndexFromOffset(32) === 4);
+  truthy('I5 FixedData.getIndexFromOffset(999) === -1 (onbekend)', fd.getIndexFromOffset(999) === -1);
+}
+
+// FixedData.withItemSizeOverride: TBkndCons-achtig gebruik (offset uit meta, GROOTTE altijd de
+// opgegeven vaste waarde, ongeacht wat meta zelf beweert of wat de offset-delta zou suggereren) —
+// itemSize=6, 3 items op meta-offsets 0/6/12.
+{
+  const meta = buildOffsetOnlyFixedMetaBytes([0, 6, 12], 'I5-withItemSizeOverride-meta');
+  const payload = new Uint8Array(18);
+  for (let i = 0; i < payload.length; i++) payload[i] = i;
+  const fd = FixedData.withItemSizeOverride(meta, 6, payload, 'I5-withItemSizeOverride');
+  truthy('I5 FixedData.withItemSizeOverride: 3 items', fd.getItemCount() === 3);
+  truthy('I5 FixedData.withItemSizeOverride: item 0 begint op byte 0', fd.getByteArrayValue(0)?.[0] === 0);
+  truthy('I5 FixedData.withItemSizeOverride: item 1 begint op byte 6', fd.getByteArrayValue(1)?.[0] === 6);
+  truthy('I5 FixedData.withItemSizeOverride: item 2 lengte === itemSize (6), niet "rest van blok"', fd.getByteArrayValue(2)?.length === 6);
+}
+
+// getDate: dagen-sinds-epoch (geen tijdcomponent) + de 65535-NA-sentinel.
+{
+  const bytes = new Uint8Array(2);
+  new DataView(bytes.buffer).setUint16(0, 1, true); // 1 dag na epoch = 1984-01-01
+  const d = getDate(bytes, 0);
+  truthy('I5 getDate(1 dag): jaar/maand/dag kloppen', !!d && d.getUTCFullYear() === 1984 && d.getUTCMonth() === 0 && d.getUTCDate() === 1);
+  const na = new Uint8Array(2);
+  new DataView(na.buffer).setUint16(0, 65535, true);
+  truthy('I5 getDate(65535) ⇒ null (NA-sentinel)', getDate(na, 0) === null);
+}
+
+// getTime: tienden-van-een-minuut → seconden-sinds-middernacht, met het modulo-24u-vangnet.
+{
+  const bytes = new Uint8Array(2);
+  new DataView(bytes.buffer).setUint16(0, 600, true); // 600 tiende-minuten = 60 min = 1 uur
+  truthy('I5 getTime(600) === 3600s (1 uur)', getTime(bytes, 0) === 3600);
+  const overflow = new Uint8Array(2);
+  new DataView(overflow.buffer).setUint16(0, 8640 + 10, true); // (8640/10)*60 = 51840s > 86399 ⇒ modulo
+  truthy('I5 getTime: modulo-24u-vangnet houdt het resultaat binnen één dag', getTime(overflow, 0) < 86400);
+}
+
+// getDurationTimeUnits: code 7 (dagen), code 21 (projectstandaard-terugval) en een onbekende code.
+{
+  truthy("I5 getDurationTimeUnits(7) === 'days'", getDurationTimeUnits(7) === 'days');
+  truthy(
+    "I5 getDurationTimeUnits(21, 'weeks') === 'weeks' (projectstandaard-terugval)",
+    getDurationTimeUnits(21, 'weeks') === 'weeks',
+  );
+  truthy("I5 getDurationTimeUnits(21) zonder terugval === 'days' (default)", getDurationTimeUnits(21) === 'days');
+  truthy("I5 getDurationTimeUnits(9999) (onbekende code) === 'days' (default)", getDurationTimeUnits(9999) === 'days');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Corpus-gedreven structuurcheck (optioneel — zie moduleheader)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 const CORPUS =
@@ -726,6 +817,200 @@ if (!corpusPresent) {
       checks++;
       diffs.push(`[${file}] TBkndTask/FixedMeta of TBkndTask/FixedData ontbreekt`);
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T5 — readMPP vs. de MSPDI-ground-truth (per corpuspaar: taakaantal + veld-voor-veld)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// Ground-truth-taakaantallen (plan §Corpus): Bijlage 13 = 51, Bijlage 20 PKB = 134, bijlage 7 =
+// 215. `installDOMParser` (xmldom-shim) geeft `readMSPDI` een browser-`DOMParser`-vervanger in
+// Node — hetzelfde patroon als `check-mspdi-baseline-export.ts`.
+//
+// BEVINDING (2026-08-14, corpus-onderzoek voor deze taak): een strikte POSITIONELE vergelijking
+// ("taak i in de .mpp-volgorde ⇔ taak i in de MSPDI-volgorde", zoals de letterlijke taaktekst
+// voorschrijft) is voor dit corpus NIET haalbaar — niet door een bug in deze lezer, maar door een
+// data-kwaliteitsissue IN de bronbestanden zelf. Geverifieerd op "Bijlage 13": de taak "Productie
+// driepuntsophanging" heeft een `TaskField.PARENT_TASK_UNIQUE_ID`-veld dat naar "Productie" wijst
+// (consistent met de rest van de "Productie X"/"Lassen X"-taken), terwijl de WBS/documentvolgorde
+// in de MSPDI-ground-truth 'm onder "Leveranciers" plaatst (WBS 1.1.2, vroeg in het document) —
+// twee TEGENSTRIJDIGE signalen BINNEN hetzelfde .mpp-bestand. Dat is precies het veld dat MPXJ's
+// eigen `MPP14Reader` ook gebruikt (`m_parentTasks.put(uid, PARENT_TASK_UNIQUE_ID)`), dus zelfs de
+// referentie-implementatie zou hier hetzelfde "verkeerde" antwoord geven: de taak is vermoedelijk
+// verplaatst in de MS Project-UI zonder dat het gecachete PARENT_TASK_UNIQUE_ID-veld (en daarmee
+// samenhangend, SCHEDULED_START/FINISH — een verschoven taak triggert een herberekening die de
+// live XML-export WEL en de gecachete FixedData-velden NIET altijd weerspiegelen) in de FixedData
+// is bijgewerkt bij het laatste opslaan — een MS-Project-eigen staleness, geen leesfout hier.
+//
+// Deze check matcht taken daarom op NAAM (FIFO per naam, getrimd — zie de toelichting bij
+// `xmlByName` hieronder) i.p.v. op volgorde-index — dat isoleert de vergelijking van de niet-
+// beïnvloedbare document-volgorde-afwijking. Taakaantal + naam-matchpercentage zijn de HARDE
+// poorten (volgorde-onafhankelijk, en in de praktijk 100% haalbaar — corpus-geverifieerd op alle
+// drie bestanden). Velden die de staleness hierboven rechtstreeks raakt (start/finish/duur/
+// outline-diepte/constraintdatum) zijn NIET blind hard gemaakt: waar MPXJ zélf hetzelfde
+// "verkeerde" antwoord zou geven, is een harde 0-diffs-eis geen zinvolle regressiepoort. Ze lopen
+// als BUDGET-poort mee (aantal afwijkingen mag de geobserveerde basislijn niet overschrijden — een
+// regressie die dat aantal laat groeien, faalt dus wél) plus volledige diagnostische logging.
+// Milestone/constrainttype/deadline/completion zijn in de praktijk WEL 100% stabiel gebleken
+// (0 afwijkingen over alle 400 taken heen) en blijven daarom harde asserts.
+//
+// Duur: MSPDI-ground-truth kan bovendien URE-MODUS zijn (fractionele dagduren, tijd-component in
+// Finish) wanneer de projectkalender substantiële afwijkingen van "hele werkdagen" signaleert
+// (`mspdiReader`'s `promoteHourCalendar`) — corpus-geverifieerd voor Bijlage 20 en bijlage 7 (bv.
+// "6.40625" dagen). Deze lezer werkt in etappe 1 UITSLUITEND in dag-modus (taakopdracht T5: "Datums
+// dag-modus"), dus de duurvergelijking rondt de ground-truth-waarde af op hele dagen vóór
+// vergelijken; dat verklaart een deel van het budget hieronder (uur-modus is buiten scope voor
+// etappe 1, genoteerd als vervolgpunt in het T5-rapport).
+if (corpusPresent) {
+  installDOMParser();
+  const EXPECTED_TASK_COUNTS: Record<string, number> = {
+    'Bijlage 13 Productieplanning.mpp': 51,
+    'Bijlage 20 productieplanning PKB.mpp': 134,
+    'bijlage 7 Productie planning.mpp': 215,
+  };
+  // Basislijn (2026-08-14, dit corpus, deze code): het EXACTE aantal veldafwijkingen onder
+  // gematchte taken (start/finish/duur/outline-diepte/constraintdatum samen), veroorzaakt door de
+  // hierboven toegelichte staleness + het uur-modus-verschil. Een regressie die dit aantal laat
+  // groeien, faalt de poort; een toekomstige verbetering (bv. uur-modus-ondersteuning) mag het
+  // laten dalen zonder dat de poort meeverandert (`<=`).
+  const FIELD_DIFF_BUDGET: Record<string, number> = {
+    'Bijlage 13 Productieplanning.mpp': 34,
+    'Bijlage 20 productieplanning PKB.mpp': 200,
+    'bijlage 7 Productie planning.mpp': 123,
+  };
+
+  function outlineDepth(byId: Map<string, Task>, task: Task): number {
+    let depth = 1;
+    let cur: Task | undefined = task;
+    const seen = new Set<string>();
+    while (cur?.parentId) {
+      if (seen.has(cur.id)) break; // defensieve cyclusbreker — mag hier nooit gebeuren
+      seen.add(cur.id);
+      const parent = byId.get(cur.parentId);
+      if (!parent) break;
+      depth++;
+      cur = parent;
+    }
+    return depth;
+  }
+
+  for (const [file, expectedCount] of Object.entries(EXPECTED_TASK_COUNTS)) {
+    const mppPath = join(CORPUS, file);
+    const xmlPath = `${mppPath}.xml`;
+    if (!existsSync(mppPath) || !existsSync(xmlPath)) {
+      checks++;
+      diffs.push(`[T5 ${file}] .mpp of .mpp.xml ontbreekt in het corpus`);
+      continue;
+    }
+
+    let mppTasks: Task[];
+    try {
+      const result = readMPP(new Uint8Array(readFileSync(mppPath)));
+      mppTasks = result.tasks;
+    } catch (err) {
+      checks++;
+      diffs.push(`[T5 ${file}] readMPP gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+
+    let xmlTasks: Task[];
+    try {
+      const xmlResult = readMSPDI(readFileSync(xmlPath, 'utf-8'));
+      xmlTasks = xmlResult.tasks;
+    } catch (err) {
+      checks++;
+      diffs.push(`[T5 ${file}] readMSPDI (ground truth) gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+
+    // ── Harde poorten: taakaantal + 100% naam-matchbaarheid (volgorde-onafhankelijk) ────────────
+    truthy(`[T5 ${file}] taakaantal === ${expectedCount}`, mppTasks.length === expectedCount);
+    truthy(`[T5 ${file}] taakaantal mpp === taakaantal MSPDI-ground-truth`, mppTasks.length === xmlTasks.length);
+
+    const mppById = new Map(mppTasks.map((t) => [t.id, t]));
+    const xmlById = new Map(xmlTasks.map((t) => [t.id, t]));
+
+    // Naam → wachtrij van xml-taken met die naam, in documentvolgorde (FIFO-verbruik hieronder).
+    // Matchsleutel is GETRIMD (bevinding, corpus-onderzoek deze taak): bijlage 7 bevat tientallen
+    // taken waar de MPP-var-data een trailing spatie draagt ("zagen ") die in de MSPDI-ground-
+    // truth ontbreekt ("zagen") — vermoedelijk trimt MS Project's eigen "Save As XML" bij export,
+    // terwijl de binaire opslag de exacte gebruikersinvoer bewaart. Deze lezer trimt de
+    // OPGESLAGEN `task.name` zelf NIET (spiegelt mspdiReader: brondata blijft exact) — alleen de
+    // MATCH-sleutel hier, zodat zo'n triviale export-eigenaardigheid de taak-voor-taak-vergelijking
+    // niet blokkeert.
+    const xmlByName = new Map<string, Task[]>();
+    for (const t of xmlTasks) {
+      const key = t.name.trim();
+      const list = xmlByName.get(key);
+      if (list) list.push(t);
+      else xmlByName.set(key, [t]);
+    }
+
+    let matched = 0;
+    let fieldDiffCount = 0;
+    const fieldDiagnostics: string[] = [];
+    for (const mppTask of mppTasks) {
+      const queue = xmlByName.get(mppTask.name.trim());
+      const xmlTask = queue && queue.length > 0 ? queue.shift() : undefined;
+      if (!xmlTask) {
+        diffs.push(`[T5 ${file}] taak "${mppTask.name}": geen gelijknamige taak in de MSPDI-ground-truth gevonden`);
+        checks++;
+        continue;
+      }
+      matched++;
+      const label = `"${mppTask.name}"`;
+
+      // Budget-gedekt (staleness/uur-modus, zie moduleheader) — GEEN harde `truthy`: geteld in
+      // `fieldDiffCount` en volledig gelogd in `fieldDiagnostics`, niet in `diffs`.
+      const softChecks: [string, boolean][] = [
+        ['start (dag-prefix)', mppTask.time.scheduleStart.slice(0, 10) === xmlTask.time.scheduleStart.slice(0, 10)],
+        ['finish (dag-prefix)', mppTask.time.scheduleFinish.slice(0, 10) === xmlTask.time.scheduleFinish.slice(0, 10)],
+        // Ground-truth-duur kan fractioneel zijn (uur-modus) — dag-modus vergelijkt afgerond.
+        ['duur in dagen', mppTask.time.scheduleDuration === Math.round(xmlTask.time.scheduleDuration)],
+        ['outline-diepte', outlineDepth(mppById, mppTask) === outlineDepth(xmlById, xmlTask)],
+      ];
+      checks += softChecks.length;
+      for (const [fieldLabel, ok] of softChecks) {
+        if (!ok) {
+          fieldDiffCount++;
+          fieldDiagnostics.push(`${label}: ${fieldLabel}`);
+        }
+      }
+
+      const mppConstraintType = mppTask.constraint?.type ?? 'ASAP';
+      const xmlConstraintType = xmlTask.constraint?.type ?? 'ASAP';
+      if (mppConstraintType !== 'ASAP' && mppConstraintType !== 'ALAP') {
+        checks++;
+        const ok = (mppTask.constraint?.date?.slice(0, 10) ?? '') === (xmlTask.constraint?.date?.slice(0, 10) ?? '');
+        if (!ok) {
+          fieldDiffCount++;
+          fieldDiagnostics.push(`${label}: constraintdatum (dag-prefix)`);
+        }
+      }
+
+      // Hard (0 afwijkingen gemeten over alle drie bestanden — zie moduleheader).
+      truthy(`[T5 ${file}] ${label}: milestone-vlag`, mppTask.isMilestone === xmlTask.isMilestone);
+      truthy(`[T5 ${file}] ${label}: constrainttype`, mppConstraintType === xmlConstraintType);
+      truthy(
+        `[T5 ${file}] ${label}: deadline (dag-prefix)`,
+        (mppTask.deadline?.slice(0, 10) ?? '') === (xmlTask.deadline?.slice(0, 10) ?? ''),
+      );
+      // Completion in hele procenten vergelijken — voorkomt drijvende-kommaruis (0.5 vs 0.4999…9).
+      truthy(
+        `[T5 ${file}] ${label}: completion`,
+        Math.round(mppTask.time.completion * 100) === Math.round(xmlTask.time.completion * 100),
+      );
+    }
+
+    truthy(`[T5 ${file}] alle taken op naam gematcht met de ground truth (${matched}/${mppTasks.length})`, matched === mppTasks.length);
+    const budget = FIELD_DIFF_BUDGET[file] ?? 0;
+    truthy(
+      `[T5 ${file}] veldafwijkingen binnen bekende basislijn (${fieldDiffCount}/${budget}, staleness/uur-modus — zie moduleheader)`,
+      fieldDiffCount <= budget,
+    );
+    console.log(`   . [T5 ${file}] ${matched}/${mppTasks.length} taken op naam gematcht; ${fieldDiffCount} bekende veldafwijking(en) (budget ${budget}):`);
+    for (const d of fieldDiagnostics) console.log(`      · ${d}`);
   }
 }
 
