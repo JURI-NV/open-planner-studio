@@ -13,6 +13,12 @@ const ROOT = process.cwd();
 const EX_DIR = join(ROOT, 'examples');
 const PUB_DIR = join(ROOT, 'public', 'examples');
 
+/** Download-budget voor de publieke voorbeeldselectie (deze bestanden gaan mee in de webdeploy).
+ *  Was 600 kB; opgehoogd naar 700 kB toen drie van de publieke basisvoorbeelden (05/10/15) een
+ *  resourceset kregen. Gemeten op dat moment: 585 kB zónder die resourcesets, 615 kB mét — de
+ *  oude grens zat er dus al bijna tegenaan. Dit blijft een bloat-vangnet, geen streefwaarde. */
+const PUBLIC_BUDGET_KB = 700;
+
 function main() {
   if (!existsSync(EX_DIR)) mkdirSync(EX_DIR, { recursive: true });
   if (!existsSync(PUB_DIR)) mkdirSync(PUB_DIR, { recursive: true });
@@ -22,7 +28,7 @@ function main() {
 
   // Publieke selectie: alle showcases (afgeleid uit `category`, dus GROOT komt automatisch mee
   // zodra het `category:'showcase'` heeft — fase 2.10, golf 2) + representatieve basis-selectie,
-  // samen < ~600 kB. Het externe-koppeling-bronbestand (`category:'external-source'`) hoort hier
+  // samen onder `PUBLIC_BUDGET_KB`. Het externe-koppeling-bronbestand (`category:'external-source'`) hoort hier
   // NOOIT bij (§4.2) — het staat wél in `examples/` (hierboven al weggeschreven), niet hier.
   const PUBLIC = new Set<string>([
     ...specs.filter(s => s.category === 'showcase').map(s => s.slug),
@@ -80,8 +86,8 @@ function main() {
   writeFileSync(join(PUB_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
   console.log(`\n${built.length} voorbeelden → examples/`);
-  console.log(`Publiek: ${manifest.examples.length} bestanden, ${(pubBytes / 1024).toFixed(0)} kB (limiet ~600 kB)`);
-  if (pubBytes > 600 * 1024) { console.error('✗ Publieke selectie > 600 kB'); process.exit(1); }
+  console.log(`Publiek: ${manifest.examples.length} bestanden, ${(pubBytes / 1024).toFixed(0)} kB (limiet ~${PUBLIC_BUDGET_KB} kB)`);
+  if (pubBytes > PUBLIC_BUDGET_KB * 1024) { console.error(`✗ Publieke selectie > ${PUBLIC_BUDGET_KB} kB`); process.exit(1); }
 }
 
 main();
