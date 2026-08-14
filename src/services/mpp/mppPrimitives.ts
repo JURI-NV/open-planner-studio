@@ -476,24 +476,27 @@ export class Var2Data {
     return this.getByteArrayByOffset(this.meta.getOffset(uniqueId, type));
   }
 
-  getUnicodeString(uniqueId: number, type: number): string | null {
+  /** `maxLength` (I1, T5-kwaliteitsreview) — begrenst zowel het resultaat als het scan-werk in
+   *  `getUnicodeString` hierboven; zie die toelichting voor waarom dat kritiek is bij een gedeelde
+   *  var-data-offset. `ctx` is puur diagnostisch. */
+  getUnicodeString(uniqueId: number, type: number, maxLength?: number, ctx?: string): string | null {
     const data = this.getByteArray(uniqueId, type);
-    return data ? getUnicodeString(data, 0) : null;
+    return data ? getUnicodeString(data, 0, maxLength, ctx) : null;
   }
 
-  getInt(uniqueId: number, type: number): number {
+  getInt(uniqueId: number, type: number, ctx?: string): number {
     const data = this.getByteArray(uniqueId, type);
-    return data && data.length >= 4 ? getInt(data, 0) : 0;
+    return data && data.length >= 4 ? getInt(data, 0, ctx) : 0;
   }
 
-  getShort(uniqueId: number, type: number): number {
+  getShort(uniqueId: number, type: number, ctx?: string): number {
     const data = this.getByteArray(uniqueId, type);
-    return data && data.length >= 2 ? getShort(data, 0) : 0;
+    return data && data.length >= 2 ? getShort(data, 0, ctx) : 0;
   }
 
-  getTimestamp(uniqueId: number, type: number): Date | null {
+  getTimestamp(uniqueId: number, type: number, ctx?: string): Date | null {
     const data = this.getByteArray(uniqueId, type);
-    return data && data.length >= 4 ? getTimestamp(data, 0) : null;
+    return data && data.length >= 4 ? getTimestamp(data, 0, ctx) : null;
   }
 
   getVarMeta(): VarMeta12 {
@@ -510,17 +513,19 @@ export class Var2Data {
 const MPP_EPOCH_UTC_MS = Date.UTC(1983, 11, 31);
 const MS_PER_DAY = 86_400_000;
 
-/** Datum (geen tijd) — dagen sinds het MPP-epoch. 65535 = "N/A" ⇒ `null` (MPPUtility.getDate). */
-export function getDate(data: Uint8Array, offset: number): Date | null {
-  const days = getShort(data, offset);
+/** Datum (geen tijd) — dagen sinds het MPP-epoch. 65535 = "N/A" ⇒ `null` (MPPUtility.getDate).
+ *  `ctx` (T5-kwaliteitsreview) — label voor `getShort`'s grenscontrolefout, spiegelt het patroon
+ *  dat `getShort`/`getInt` al kenden; puur diagnostisch, geen gedragswijziging. */
+export function getDate(data: Uint8Array, offset: number, ctx?: string): Date | null {
+  const days = getShort(data, offset, ctx);
   if (days === 65535) return null;
   return new Date(MPP_EPOCH_UTC_MS + days * MS_PER_DAY);
 }
 
 /** Tijd-van-de-dag in SECONDEN sinds middernacht — MPP bewaart dit in tienden van een minuut
  *  (MPPUtility.getTime: `(kort/10)*60`, met een modulo-24u-vangnet voor waarden ≥ 86400s). */
-export function getTime(data: Uint8Array, offset: number): number {
-  let seconds = Math.floor(getShort(data, offset) / 10) * 60;
+export function getTime(data: Uint8Array, offset: number, ctx?: string): number {
+  let seconds = Math.floor(getShort(data, offset, ctx) / 10) * 60;
   if (seconds > 86399) seconds %= 86400;
   return seconds;
 }
@@ -528,10 +533,10 @@ export function getTime(data: Uint8Array, offset: number): number {
 /** Datum+tijd. Twee NA-heuristieken letterlijk uit MPPUtility.getTimestamp overgenomen:
  *  `days <= 1 of 65535` ⇒ null, en (bij `days < 100` mét een niet-nul secondedeel) eveneens
  *  null — MS Project toont zulke kleine dagwaarden zelf ook als "NB". */
-export function getTimestamp(data: Uint8Array, offset: number): Date | null {
-  const days = getShort(data, offset + 2);
+export function getTimestamp(data: Uint8Array, offset: number, ctx?: string): Date | null {
+  const days = getShort(data, offset + 2, ctx);
   if (days <= 1 || days === 65535) return null;
-  let time = getShort(data, offset);
+  let time = getShort(data, offset, ctx);
   if (time === 65535) time = 0;
   const result = new Date(MPP_EPOCH_UTC_MS + days * MS_PER_DAY + time * 6000);
   if (days < 100 && result.getUTCSeconds() !== 0) return null;
@@ -550,17 +555,35 @@ const UNICODE_STRING_CHUNK = 8192;
 /** UTF-16LE, null-terminated (of tot einde array). `maxLength` (bytes) knipt net als
  *  MPPUtility's overload met dat derde argument. Handmatig gedecodeerd (geen `TextDecoder`-
  *  afhankelijkheid) — spiegelt de Java-bron 1:1 en blijft zo consistent met de eigen-parser-
- *  traditie van dit project. */
-export function getUnicodeString(data: Uint8Array, offset: number, maxLength?: number): string {
-  if (offset < 0 || offset >= data.length) return '';
-  let length = data.length - offset;
-  for (let i = offset; i < data.length - 1; i += 2) {
+ *  traditie van dit project.
+ *
+ *  I1 (T5-kwaliteitsreview, kritiek): `maxLength` begrensde eerder alleen het EINDRESULTAAT — de
+ *  null-terminator-scan hierboven liep zelf nog over `data.length` heen, dus bij een groot
+ *  gedeeld var-data-blok (meerdere unique-ID's die naar dezelfde offset wijzen — legitiem, zie
+ *  Var2Data's moduleheader) kostte ELKE aanroep nog steeds O(werkelijke stringlengte) — bij N
+ *  taken die naar dezelfde offset wijzen dus O(N × S) i.p.v. het beoogde O(N × maxLength).
+ *  Gemeten (kwaliteitsreview): 1.000 aanroepen op een gedeelde 500 KB-string ≈ 3,0 s vóór deze
+ *  fix. Nu is `scanLimit` zelf al door `maxLength` begrensd, dus de scan-lus kan nooit verder dan
+ *  `maxLength` bytes voorbij `offset` — de kostenbovengrens is nu O(maxLength) per aanroep,
+ *  ongeacht hoe groot de onderliggende buffer daadwerkelijk is. `ctx` is puur diagnostisch (de
+ *  enige foutmelding hier is de nieuwe, hieronder toegelichte negatieve-offset-guard). */
+export function getUnicodeString(data: Uint8Array, offset: number, maxLength?: number, ctx?: string): string {
+  // Een negatieve offset is nooit legitiem (elke aanroeper berekent 'm uit een niet-negatieve
+  // Var2Data-offset) — dit is dus een programmeerfout, geen normale "geen data"-situatie, vandaar
+  // een echte fout i.p.v. de stille lege-string-terugval hieronder (die blijft voor het WEL
+  // legitieme "offset === data.length"-geval: een lege staart).
+  if (offset < 0) throw boundsError('getUnicodeString', offset, 0, data.length, ctx);
+  if (offset >= data.length) return '';
+  const scanLimit = maxLength !== undefined && maxLength > 0
+    ? Math.min(data.length, offset + maxLength)
+    : data.length;
+  let length = scanLimit - offset;
+  for (let i = offset; i < scanLimit - 1; i += 2) {
     if (data[i] === 0 && data[i + 1] === 0) {
       length = i - offset;
       break;
     }
   }
-  if (maxLength !== undefined && maxLength > 0 && length > maxLength) length = maxLength;
   if (length <= 0) return '';
   const codeUnits: number[] = [];
   for (let i = 0; i + 1 < length; i += 2) {

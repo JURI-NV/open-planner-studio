@@ -10,9 +10,17 @@
  * ground-truth-bestanden, MS Project 16.0/2016+): de ECHTE offsets in het bestand wijken af van
  * FieldMap14.java's `getDefaultTaskData()`-fallback (bv. UNIQUE_ID op offset 4 i.p.v. 0, ID op
  * offset 0 i.p.v. 4) — de data-gedreven parse is dus geen overdreven voorzichtigheid maar de
- * enige correcte weg; de fallback-tabel hieronder is uitsluitend voor het (zeldzame) geval dat de
- * `TASK_FIELD_MAP`-sleutel zelf ontbreekt in `Props`, exact zoals `createTaskFieldMap` in
- * FieldMap.java.
+ * enige correcte weg.
+ *
+ * De terugval-tabel is ALLES-OF-NIETS, per veld-map (T5-spec-review, I3 — correctie t.o.v. een
+ * eerdere versie die per ONTBREKEND VELD terugviel op de default): de default-tabel beschrijft
+ * een ANDERE fysieke recordlayout dan wat het bestand daadwerkelijk gebruikt (zie het
+ * UNIQUE_ID-voorbeeld hierboven — dat is geen slordigheidje, het is een structureel andere
+ * lay-out). Een enkel ontbrekend veld in een overigens data-gedreven field map per-veld met de
+ * default MENGEN zou dus een offset uit de ÉÉN layout tegen bytes uit de ANDERE layout lezen —
+ * stil verkeerde waarden, geen fout. `createTaskFieldMap` in FieldMap.java doet dan ook precies
+ * dit: `TASK_FIELD_MAP`/`TASK_FIELD_MAP2` beide afwezig ⇒ volledig `getDefaultTaskData()`;
+ * aanwezig ⇒ UITSLUITEND `createFieldMap(bytes)`, geen mix. Zie `buildFieldMap` hieronder.
  *
  * Vereenvoudiging t.o.v. de Java-bron (bewust, binnen scope): MPXJ's `FieldTypeHelper` vertaalt
  * een ruwe veld-id via een prefix (TASK_FIELD_BASE|...) naar een `TaskField`-enumwaarde, met een
@@ -90,9 +98,9 @@ function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
   let lastDataBlockOffset = 0;
   let dataBlockIndex = 0;
   for (let pos = 0; pos + FIELD_MAP_ENTRY_SIZE <= bytes.length; pos += FIELD_MAP_ENTRY_SIZE) {
-    const dataBlockOffset = getShort(bytes, pos + 4, 'fieldMap14');
-    const typeValue = getInt(bytes, pos + 12, 'fieldMap14');
-    const category = getShort(bytes, pos + 20, 'fieldMap14');
+    const dataBlockOffset = getShort(bytes, pos + 4, 'fieldMap14 dataBlockOffset');
+    const typeValue = getInt(bytes, pos + 12, 'fieldMap14 typeValue');
+    const category = getShort(bytes, pos + 20, 'fieldMap14 category');
     const index = typeValue & 0xffff;
 
     if (META_DATA_CATEGORIES.has(category)) {
@@ -116,27 +124,25 @@ function parseFieldMapBytes(bytes: Uint8Array): ParsedFieldMap {
   return { entries, metaDataIds };
 }
 
-/** Bouwt de uiteindelijke tabel: data-gedreven entries (indien de Props-sleutel aanwezig is) met
- *  een per-veld terugval op `defaults` voor elk nodig veld dat er niet in voorkomt — spiegelt
- *  `createTaskFieldMap`'s alles-of-niets-terugval (geen sleutel ⇒ volledig `getDefaultTaskData()`)
- *  én is tegelijk defensiever voor het (in de praktijk nog niet waargenomen) geval dat een enkel
- *  veld in een overigens aanwezige field map ontbreekt. Een veld-id dat de field-map-data zelf als
- *  META_DATA categoriseert (`metaDataIds`) krijgt NOOIT een default-terugval — die zou het immers
- *  alsnog als FIXED_DATA/VAR_DATA presenteren, precies wat `META_DATA_CATEGORIES`'s skip moet
- *  voorkomen (T5-spec-review, 4d). */
+/** Bouwt de uiteindelijke tabel — ALLES-OF-NIETS per bron (T5-spec-review, I3; zie de
+ *  moduleheader voor waarom een per-veld-mix stil verkeerde bytes zou lezen):
+ *  - `fieldMapBytes` ontbreekt (geen `TASK_FIELD_MAP`/`TASK_FIELD_MAP2` e.d. in `Props`) ⇒
+ *    volledig `defaults` (MPXJ: `createTaskFieldMap`'s `populateDefaultData`-tak).
+ *  - `fieldMapBytes` aanwezig ⇒ UITSLUITEND de data-gedreven `entries` uit `parseFieldMapBytes` —
+ *    `defaults` wordt dan HELEMAAL niet geraadpleegd, ook niet voor een veld dat toevallig
+ *    ontbreekt in de geparste field map. `fixedOffsetOf`/`varDataKeyOf` geven voor zo'n veld dan
+ *    `null` (net als voor elk ander onbekend veld) — de aanroeper (`readTasks`'s harde
+ *    veldmap-check) bewaakt dat een té leeg resultaat een duidelijke fout geeft i.p.v. stil door
+ *    te lezen met verkeerde offsets. `metaDataIds` blijft in `parseFieldMapBytes`'s returntype
+ *    staan voor diagnose (bv. toekomstige logging), ook al heeft `buildFieldMap` het zelf niet
+ *    meer nodig nu er geen merge-pad meer is dat het zou kunnen misbruiken. */
 function buildFieldMap(fieldMapBytes: Uint8Array | null, defaults: Readonly<Record<number, FieldEntry>>): FieldMapTable {
-  const result = new Map<number, FieldEntry>();
-  let metaDataIds: Set<number> = new Set();
-  if (fieldMapBytes) {
-    const parsed = parseFieldMapBytes(fieldMapBytes);
-    for (const [id, entry] of parsed.entries) result.set(id, entry);
-    metaDataIds = parsed.metaDataIds;
+  if (!fieldMapBytes) {
+    const result = new Map<number, FieldEntry>();
+    for (const key of Object.keys(defaults)) result.set(Number(key), defaults[Number(key)]);
+    return result;
   }
-  for (const key of Object.keys(defaults)) {
-    const id = Number(key);
-    if (!result.has(id) && !metaDataIds.has(id)) result.set(id, defaults[id]);
-  }
-  return result;
+  return parseFieldMapBytes(fieldMapBytes).entries;
 }
 
 function firstByteArray(props: Props, keys: number[]): Uint8Array | null {

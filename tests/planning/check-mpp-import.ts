@@ -45,14 +45,20 @@ import {
 import { MppUnsupportedError } from '@/services/mpp/errors';
 import {
   SECTOR, HEADER,
-  buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb,
+  buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb, buildNestedCfb,
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   expectCfbError, expectMppError, bytesEqual,
+  type CfbTreeNode,
 } from './mppFixtures';
-import { readMPP } from '@/services/mpp/mppReader';
+import { readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL, MAX_VAR_TEXT_BYTES } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
 import type { Task } from '@/types/task';
+import {
+  createTaskFieldMap, createResourceFieldMap, createAssignmentFieldMap,
+  TaskFieldId, ResourceFieldId, AssignmentFieldId,
+  fixedOffsetOf, varDataKeyOf,
+} from '@/services/mpp/fieldMap14';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -60,6 +66,13 @@ const truthy = (label: string, cond: boolean) => {
   checks++;
   if (!cond) diffs.push(`${label}: verwacht waar, kreeg onwaar`);
 };
+/** T5's budget-gedekte "soft"-veldvergelijkingen (start/finish/duur/outline-diepte/
+ *  constraintdatum in de MSPDI-ground-truth-vergelijking) tellen NIET mee in `checks`
+ *  (T5-kwaliteitsreview-minor — expliciet APART geteld i.p.v. in de gezamenlijke `checks`-som
+ *  verstopt, zodat "alle checks groen (N)" een schone poort-telling blijft: elke `truthy`-poort
+ *  die een ECHTE pass/fail-beslissing neemt, plus een los-gerapporteerd aantal diagnostische
+ *  soft-vergelijkingen dat zelf tegen een basislijn-budget loopt, niet tegen `diffs`). */
+let softChecksTotal = 0;
 
 // ── Negatieve casus (in-memory, altijd uitgevoerd — onafhankelijk van het corpus) ────────────
 {
@@ -718,6 +731,323 @@ function buildOffsetOnlyFixedMetaBytes(offsets: number[], label: string): FixedM
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T5-kwaliteitsreview (I4) — corpusloze T5-fixtures: vóór deze commit voerde CI-zonder-corpus
+// GEEN enkele regel T5-code uit (`fieldMap14.ts`/`mppReader.ts` waren alleen via de corpus-lus
+// getest). Draait ALTIJD, bewijst zowel I3 (alles-of-niets-terugval) als C1/I1 (de twee
+// hardingsfixes) zonder afhankelijk te zijn van echte bedrijfsbestanden.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Bouwt rauwe field-map-entries (28 bytes elk: mask(4, ongebruikt) + dataBlockOffset(2)@4 +
+ *  ongebruikt(2) + typeValue(4)@12 + ongebruikt(4) + category(2)@20 + ongebruikt(6)) — spiegelt
+ *  `fieldMap14.ts`'s `parseFieldMapBytes`-invoerformaat. */
+function buildFieldMapEntryBytes(entries: { typeValue: number; dataBlockOffset: number; category: number }[]): Uint8Array {
+  const out = new Uint8Array(entries.length * 28);
+  const view = new DataView(out.buffer);
+  entries.forEach((e, i) => {
+    const base = i * 28;
+    view.setUint16(base + 4, e.dataBlockOffset, true);
+    view.setInt32(base + 12, e.typeValue, true);
+    view.setUint16(base + 20, e.category, true);
+  });
+  return out;
+}
+
+// PropsKey-sleutels (PropsKey.java) — zie fieldMap14.ts/mppReader.ts voor dezelfde constanten;
+// hier lokaal herhaald omdat de bronmodules ze bewust niet exporteren (interne implementatiedetails).
+const PROPSKEY_TASK_FIELD_MAP = 131092;
+const PROPSKEY_RESOURCE_FIELD_MAP = 131093;
+const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
+
+// ── I4 (1): parseFieldMapBytes via een synthetische Props-entry — fixed-entry, var-entry,
+// META_DATA-entry (mag GEEN terugval krijgen — bewaakt de a6e05f17-fix), plus dezelfde toets voor
+// de resource-/assignment-maps (houdt die exports gedekt en levend vóór T7 ze gebruikt). ─────────
+{
+  const fieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 99, category: 3 }, // FIXED_DATA
+    { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 }, // VAR_DATA (65535 ⇒ geen vaste plek)
+    { typeValue: 24, dataBlockOffset: 0, category: 0x0b }, // META_DATA (bv. MILESTONE se raw index — hier is alleen de categorie relevant)
+  ]);
+  const props = new Props(encodePropsEntries([{ key: PROPSKEY_TASK_FIELD_MAP, data: fieldMapBytes }]), 'I4-fieldmap-fixed-var-meta');
+  const table = createTaskFieldMap(props);
+
+  truthy('I4 parseFieldMapBytes: FIXED_DATA-entry correct doorgegeven', fixedOffsetOf(table, TaskFieldId.UniqueId) === 99);
+  truthy('I4 parseFieldMapBytes: VAR_DATA-entry correct doorgegeven', varDataKeyOf(table, TaskFieldId.Name) === TaskFieldId.Name);
+  truthy(
+    'I4 parseFieldMapBytes: META_DATA-entry (24) NIET in de tabel (geen fixed, geen var — a6e05f17-regressie)',
+    fixedOffsetOf(table, 24) === null && varDataKeyOf(table, 24) === null,
+  );
+  // I3: alles-of-niets — de field-map-bytes ZIJN aanwezig, dus een veld dat er niet in voorkomt
+  // (OutlineLevel, wél in de defaulttabel) krijgt GEEN terugval.
+  truthy(
+    'I4/I3 fieldMap: veld niet in de aanwezige field-map-bytes ⇒ GEEN terugval op defaults (alles-of-niets)',
+    fixedOffsetOf(table, TaskFieldId.OutlineLevel) === null,
+  );
+}
+{
+  const resFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: ResourceFieldId.UniqueId, dataBlockOffset: 5, category: 3 },
+    { typeValue: ResourceFieldId.Name, dataBlockOffset: 65535, category: 8 },
+  ]);
+  const resProps = new Props(encodePropsEntries([{ key: PROPSKEY_RESOURCE_FIELD_MAP, data: resFieldMapBytes }]), 'I4-resource-fieldmap');
+  const resTable = createResourceFieldMap(resProps);
+  truthy('I4 createResourceFieldMap: FIXED_DATA-entry correct', fixedOffsetOf(resTable, ResourceFieldId.UniqueId) === 5);
+  truthy('I4 createResourceFieldMap: VAR_DATA-entry correct', varDataKeyOf(resTable, ResourceFieldId.Name) === ResourceFieldId.Name);
+}
+{
+  const asgFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: AssignmentFieldId.TaskUniqueId, dataBlockOffset: 12, category: 3 },
+    { typeValue: AssignmentFieldId.ResourceUniqueId, dataBlockOffset: 16, category: 3 },
+  ]);
+  const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'I4-assignment-fieldmap');
+  const asgTable = createAssignmentFieldMap(asgProps);
+  truthy('I4 createAssignmentFieldMap: eerste FIXED_DATA-entry correct', fixedOffsetOf(asgTable, AssignmentFieldId.TaskUniqueId) === 12);
+  truthy('I4 createAssignmentFieldMap: tweede FIXED_DATA-entry correct', fixedOffsetOf(asgTable, AssignmentFieldId.ResourceUniqueId) === 16);
+}
+
+// ── I4 (2): ontbrekende sleutel ⇒ VOLLEDIGE defaulttabel (geen enkele data-gedreven entry). ────
+{
+  const props = new Props(encodePropsEntries([]), 'I4-missing-fieldmap-key');
+  const table = createTaskFieldMap(props);
+  truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (UniqueId@0)', fixedOffsetOf(table, TaskFieldId.UniqueId) === 0);
+  truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (Id@4)', fixedOffsetOf(table, TaskFieldId.Id) === 4);
+  truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (OutlineLevel@40)', fixedOffsetOf(table, TaskFieldId.OutlineLevel) === 40);
+  truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (Name var@14)', varDataKeyOf(table, TaskFieldId.Name) === TaskFieldId.Name);
+}
+
+// ── C1: clampOutlineLevel — triviale aritmetiek, los van het stack-algoritme hieronder. ─────────
+{
+  truthy('C1 clampOutlineLevel(0) === 1', clampOutlineLevel(0) === 1);
+  truthy('C1 clampOutlineLevel(1) === 1', clampOutlineLevel(1) === 1);
+  truthy(`C1 clampOutlineLevel(${MAX_OUTLINE_LEVEL}) === ${MAX_OUTLINE_LEVEL}`, clampOutlineLevel(MAX_OUTLINE_LEVEL) === MAX_OUTLINE_LEVEL);
+  truthy(`C1 clampOutlineLevel(${MAX_OUTLINE_LEVEL + 1}) === ${MAX_OUTLINE_LEVEL} (klem)`, clampOutlineLevel(MAX_OUTLINE_LEVEL + 1) === MAX_OUTLINE_LEVEL);
+  truthy('C1 clampOutlineLevel(65535) === MAX_OUTLINE_LEVEL (klem)', clampOutlineLevel(65535) === MAX_OUTLINE_LEVEL);
+}
+
+// ── C1: assignHierarchyAndWbs onder de worst-case klem-toestand (elke taak op ~MAX_OUTLINE_LEVEL,
+// cyclisch) — bewijst dat de klem de kwadratische blowup voorkomt (zie mppReader.ts's C1-
+// toelichting): N taken op een BEGRENSDE diepte ⇒ O(N × MAX_OUTLINE_LEVEL), lineair in N. Gebruikt
+// lichte `HierarchyTaskLike`-fixtures (geen volledige `Task`) — dat is precies waarom die vorm zo
+// geëxporteerd is. ──────────────────────────────────────────────────────────────────────────────
+{
+  const N = 20_000;
+  interface Fixture {
+    outlineLevel: number;
+    storedWbs: string | null;
+    task: { id: string; parentId: string | null; childIds: string[]; wbsCode: string };
+  }
+  const entries: Fixture[] = [];
+  for (let i = 0; i < N; i++) {
+    entries.push({
+      outlineLevel: clampOutlineLevel((i % (MAX_OUTLINE_LEVEL + 50)) + 1), // cyclisch, tot ruim voorbij de klem
+      storedWbs: null,
+      task: { id: `t${i}`, parentId: null, childIds: [], wbsCode: '' },
+    });
+  }
+  const start = Date.now();
+  assignHierarchyAndWbs(entries);
+  const elapsedMs = Date.now() - start;
+  truthy(
+    `C1 assignHierarchyAndWbs(${N} taken, cyclisch tot voorbij MAX_OUTLINE_LEVEL): binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`,
+    elapsedMs < TIME_LIMIT_MS,
+  );
+  truthy(
+    `C1 assignHierarchyAndWbs: wbsCode-segmentaantal blijft ≤ MAX_OUTLINE_LEVEL (${MAX_OUTLINE_LEVEL})`,
+    entries.every((e) => e.task.wbsCode.split('.').length <= MAX_OUTLINE_LEVEL),
+  );
+  truthy('C1 assignHierarchyAndWbs: elke taak kreeg een wbsCode', entries.every((e) => e.task.wbsCode.length > 0));
+}
+
+// ── I1: Var2Data.getUnicodeString(maxLength) — een gedeelde, GROTE var-data-string mag geen
+// O(werkelijke lengte) kosten meer hebben per aanroep (zie mppPrimitives.ts's I1-toelichting: de
+// scan-lus zelf moet ook begrensd zijn, niet alleen het eindresultaat). ─────────────────────────
+{
+  const charCount = 200_000; // 400.000 bytes ruwe UTF-16LE-inhoud, ruim boven MAX_VAR_TEXT_BYTES
+  const payload = new Uint8Array(charCount * 2);
+  for (let i = 0; i < charCount; i++) {
+    payload[i * 2] = 0x41; // 'A'
+    payload[i * 2 + 1] = 0x00;
+  }
+  const meta = new VarMeta12(buildVarMetaBytes([{ uniqueId: 1, type: 1, offset: 0 }]), 'I1-large-string-meta');
+  const var2Bytes = buildVar2DataBytes([{ offset: 0, payload }], payload.length + 4);
+  const var2 = new Var2Data(meta, var2Bytes);
+
+  const start = Date.now();
+  const s = var2.getUnicodeString(1, 1, MAX_VAR_TEXT_BYTES, 'I1-large-string');
+  const elapsedMs = Date.now() - start;
+  truthy(
+    `I1 Var2Data.getUnicodeString(maxLength=${MAX_VAR_TEXT_BYTES}) op een 400.000-byte gedeelde string: binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`,
+    elapsedMs < TIME_LIMIT_MS,
+  );
+  truthy(
+    `I1 Var2Data.getUnicodeString: resultaat begrensd op MAX_VAR_TEXT_BYTES/2 = ${MAX_VAR_TEXT_BYTES / 2} tekens`,
+    s !== null && s.length === MAX_VAR_TEXT_BYTES / 2,
+  );
+}
+
+// ── I4 (3): end-to-end readMPP op een synthetisch MPP14'tje — 4 taken, bekende outline-levels,
+// via de nieuwe geneste-storage-builder (`buildNestedCfb`, mppFixtures.ts). Bewijst hiërarchie +
+// WBS-nummering + de milestone-bit-vlag, ONAFHANKELIJK van het corpus. `TASK_FIELD_MAP` wordt
+// bewust NIET meegegeven (oefent tegelijk I4-punt-2 uit in een echte end-to-end-context): de
+// FixedData hieronder gebruikt daarom de LETTERLIJKE default-offsets uit fieldMap14.ts. ─────────
+{
+  const PASSWORD_FLAG_KEY = 893386752;
+  const PROJECT_START_DATE_KEY = 37748738;
+  const PROJECT_FINISH_DATE_KEY = 37748739;
+  const MINUTES_PER_DAY_KEY = 37748765;
+  const TITLE_KEY = 37748744;
+
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  /** Eén TBkndTask/FixedData-record (130 bytes) op de LETTERLIJKE default-offsets uit
+   *  fieldMap14.ts's `DEFAULT_TASK_FIELDS` (uniqueId@0, id@4, outlineLevel@40, scheduledDuration@42,
+   *  constraintType@56, scheduledStart@64, scheduledFinish@68, actualStart/actualFinish/
+   *  constraintDate blijven op hun NA-standaardwaarde 0/0, calendarUniqueId@118, deadline@122
+   *  blijft NA). */
+  function buildTaskFixedDataRecord(opts: {
+    uniqueId: number; id: number; outlineLevel: number;
+    durationRaw?: number; startDays: number; finishDays: number; calendarUniqueId?: number;
+  }): Uint8Array {
+    const out = new Uint8Array(130);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, opts.uniqueId, true);
+    view.setInt32(4, opts.id, true);
+    view.setInt16(40, opts.outlineLevel, true);
+    view.setInt32(42, opts.durationRaw ?? 4800, true); // 4800 tienden-van-minuut = 480 min = 8u = 1 dag @480 min/dag
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setUint16(64, 0, true); // scheduledStart: tijd = 0
+    view.setUint16(66, opts.startDays, true); // scheduledStart: dagen
+    view.setUint16(68, 0, true); // scheduledFinish: tijd = 0
+    view.setUint16(70, opts.finishDays, true); // scheduledFinish: dagen
+    view.setInt32(118, opts.calendarUniqueId ?? -1, true); // -1 = geen taak-kalender-override
+    return out;
+  }
+
+  function buildTaskFixedMetaRecord(opts: { offsetIntoFixedData: number; milestone?: boolean }): Uint8Array {
+    const out = new Uint8Array(47);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, 0, true); // flags: niet verwijderd
+    view.setInt32(4, opts.offsetIntoFixedData, true);
+    // Milestone-bit: PROJECT2010_TASK_META_DATA_BIT_FLAGS (offset 8, mask 0x20) — deze fixture se
+    // CompObj-applicationName matcht `detectApplicationVersion`'s patroon niet (encodeCompObjFileFormat
+    // gebruikt een willekeurige naam), dus `milestoneBitFlag(null)` valt terug op de 2010-tabel
+    // (4a-fix) — dit is dus ook een impliciete regressietoets van die terugval.
+    if (opts.milestone) view.setInt32(8, 0x20, true);
+    return out;
+  }
+
+  function buildFixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  // 4 taken: Root(1) → Child1(1.1), Child2(1.2) → Grandchild(1.2.1, milestone).
+  const dummy = buildTaskFixedMetaRecord({ offsetIntoFixedData: 0 });
+  const metaRoot = buildTaskFixedMetaRecord({ offsetIntoFixedData: 0 });
+  const metaChild1 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 130 });
+  const metaChild2 = buildTaskFixedMetaRecord({ offsetIntoFixedData: 260 });
+  const metaGrandchild = buildTaskFixedMetaRecord({ offsetIntoFixedData: 390, milestone: true });
+  const fixedMetaBlob = buildFixedMetaBlob([dummy, dummy, dummy, metaRoot, metaChild1, metaChild2, metaGrandchild]);
+
+  const dataRoot = buildTaskFixedDataRecord({ uniqueId: 10, id: 1, outlineLevel: 1, startDays: 15000, finishDays: 15010 });
+  const dataChild1 = buildTaskFixedDataRecord({ uniqueId: 11, id: 2, outlineLevel: 2, startDays: 15000, finishDays: 15002, calendarUniqueId: 5 });
+  const dataChild2 = buildTaskFixedDataRecord({ uniqueId: 12, id: 3, outlineLevel: 2, startDays: 15003, finishDays: 15008 });
+  const dataGrandchild = buildTaskFixedDataRecord({ uniqueId: 13, id: 4, outlineLevel: 3, durationRaw: 0, startDays: 15008, finishDays: 15008 });
+  const fixedDataBlob = new Uint8Array(4 * 130);
+  [dataRoot, dataChild1, dataChild2, dataGrandchild].forEach((rec, i) => fixedDataBlob.set(rec, i * 130));
+
+  // Namen (var key 14, default-fallback): Root@0, Child1@20, Child2@40, Grandchild@70 (100 bytes totaal).
+  const varMetaBytes = buildVarMetaBytes([
+    { uniqueId: 10, type: 14, offset: 0 },
+    { uniqueId: 11, type: 14, offset: 20 },
+    { uniqueId: 12, type: 14, offset: 40 },
+    { uniqueId: 13, type: 14, offset: 70 },
+  ]);
+  const var2DataBuf = new Uint8Array(100);
+  const var2View = new DataView(var2DataBuf.buffer);
+  const writeVar2 = (offset: number, s: string) => {
+    const payload = encodeUnicodeStringAscii(s);
+    var2View.setInt32(offset, payload.length, true);
+    var2DataBuf.set(payload, offset + 4);
+  };
+  writeVar2(0, 'Root');
+  writeVar2(20, 'Child1');
+  writeVar2(40, 'Child2');
+  writeVar2(70, 'Grandchild');
+
+  const projectPropsBytes = encodePropsEntries([
+    { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
+    { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
+    { key: MINUTES_PER_DAY_KEY, data: int32Payload(480) },
+    { key: TITLE_KEY, data: encodeUnicodeStringAscii('Fixture Project') },
+  ]);
+
+  const tree: Record<string, CfbTreeNode> = {
+    '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+    Props14: { data: encodePropsSingleByteEntry(PASSWORD_FLAG_KEY, 0) },
+    '   114': {
+      children: {
+        Props: { data: projectPropsBytes },
+        TBkndTask: {
+          children: {
+            FixedMeta: { data: fixedMetaBlob },
+            FixedData: { data: fixedDataBlob },
+            VarMeta: { data: varMetaBytes },
+            Var2Data: { data: var2DataBuf },
+          },
+        },
+      },
+    },
+  };
+
+  let result: ReturnType<typeof readMPP> | null = null;
+  let threw: string | null = null;
+  try {
+    result = readMPP(buildNestedCfb(tree));
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  truthy(`I4 end-to-end readMPP: gooit niet (${threw ?? ''})`, threw === null);
+
+  if (result) {
+    truthy('I4 end-to-end readMPP: project.name uit Props/TITLE', result.project.name === 'Fixture Project');
+    truthy('I4 end-to-end readMPP: hoursPerDay uit MINUTES_PER_DAY (480/60)', result.calendar.hoursPerDay === 8);
+    truthy('I4 end-to-end readMPP: 4 taken', result.tasks.length === 4);
+
+    const byName = new Map(result.tasks.map((t) => [t.name, t]));
+    const root = byName.get('Root');
+    const child1 = byName.get('Child1');
+    const child2 = byName.get('Child2');
+    const grandchild = byName.get('Grandchild');
+    truthy('I4 end-to-end readMPP: alle vier namen gevonden', !!root && !!child1 && !!child2 && !!grandchild);
+
+    if (root && child1 && child2 && grandchild) {
+      truthy('I4 end-to-end readMPP: Root is wortel (parentId null)', root.parentId === null);
+      truthy('I4 end-to-end readMPP: Root.wbsCode === "1"', root.wbsCode === '1');
+      truthy('I4 end-to-end readMPP: Child1.parentId === Root.id', child1.parentId === root.id);
+      truthy('I4 end-to-end readMPP: Child1.wbsCode === "1.1"', child1.wbsCode === '1.1');
+      truthy('I4 end-to-end readMPP: Child2.parentId === Root.id', child2.parentId === root.id);
+      truthy('I4 end-to-end readMPP: Child2.wbsCode === "1.2"', child2.wbsCode === '1.2');
+      truthy('I4 end-to-end readMPP: Root.childIds === [Child1, Child2] (ID-volgorde)', root.childIds.length === 2 && root.childIds[0] === child1.id && root.childIds[1] === child2.id);
+      truthy('I4 end-to-end readMPP: Grandchild.parentId === Child2.id', grandchild.parentId === child2.id);
+      truthy('I4 end-to-end readMPP: Grandchild.wbsCode === "1.2.1"', grandchild.wbsCode === '1.2.1');
+      truthy('I4 end-to-end readMPP: Child2.childIds === [Grandchild]', child2.childIds.length === 1 && child2.childIds[0] === grandchild.id);
+      truthy('I4 end-to-end readMPP: Grandchild.isMilestone === true (2010-milestone-tabel-terugval, 4a)', grandchild.isMilestone === true);
+      truthy('I4 end-to-end readMPP: Root/Child1/Child2 zijn GEEN milestone', !root.isMilestone && !child1.isMilestone && !child2.isMilestone);
+      truthy('I4 end-to-end readMPP: Root.scheduleDuration === 1 dag (4800 tienden-van-minuut @ 8u/dag)', root.time.scheduleDuration === 1);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Corpus-gedreven structuurcheck (optioneel — zie moduleheader)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 const CORPUS =
@@ -931,11 +1261,21 @@ if (corpusPresent) {
   }
 
   for (const [file, expectedCount] of Object.entries(EXPECTED_TASK_COUNTS)) {
+    // I5 (T5-kwaliteitsreview): deze lus itereert over HARDGECODEERDE bestandsnamen (de drie
+    // ground-truth-paren) — wie `OPS_MPP_CORPUS` naar een eigen map met ANDERE `.mpp`-bestanden
+    // wijst, mag daar geen rode poort van krijgen. Een naam die niet in `corpusFiles` voorkomt
+    // (de dynamische `readdirSync`-listing hierboven) wordt dus netjes overgeslagen — alleen een
+    // bestand dat WEL in `corpusFiles` staat maar zonder bijbehorende `.mpp.xml` is een echte,
+    // hard te melden diff (dat IS een gat in het aangeboden corpus, geen ander-corpus-scenario).
+    if (!corpusFiles.includes(file)) {
+      console.log(`OK  mpp-import: T5 ${file} niet in dit corpus (${CORPUS}) — overgeslagen`);
+      continue;
+    }
     const mppPath = join(CORPUS, file);
     const xmlPath = `${mppPath}.xml`;
-    if (!existsSync(mppPath) || !existsSync(xmlPath)) {
+    if (!existsSync(xmlPath)) {
       checks++;
-      diffs.push(`[T5 ${file}] .mpp of .mpp.xml ontbreekt in het corpus`);
+      diffs.push(`[T5 ${file}] .mpp aanwezig maar .mpp.xml ontbreekt`);
       continue;
     }
 
@@ -1006,7 +1346,7 @@ if (corpusPresent) {
         ['duration', 'duur in dagen', mppTask.time.scheduleDuration === Math.round(xmlTask.time.scheduleDuration)],
         ['outlineDepth', 'outline-diepte', outlineDepth(mppById, mppTask) === outlineDepth(xmlById, xmlTask)],
       ];
-      checks += softChecks.length;
+      softChecksTotal += softChecks.length; // apart geteld, zie `softChecksTotal`'s toelichting
       for (const [category, fieldLabel, ok] of softChecks) {
         if (!ok) {
           fieldDiffCount[category]++;
@@ -1017,7 +1357,9 @@ if (corpusPresent) {
       const mppConstraintType = mppTask.constraint?.type ?? 'ASAP';
       const xmlConstraintType = xmlTask.constraint?.type ?? 'ASAP';
       if (mppConstraintType !== 'ASAP' && mppConstraintType !== 'ALAP') {
-        checks++;
+        // Ook budget-gedekt (constraintDate zit in FieldDiffBudget) — apart geteld, net als
+        // `softChecks` hierboven, niet in de harde `checks`-som.
+        softChecksTotal++;
         const ok = (mppTask.constraint?.date?.slice(0, 10) ?? '') === (xmlTask.constraint?.date?.slice(0, 10) ?? '');
         if (!ok) {
           fieldDiffCount.constraintDate++;
@@ -1077,7 +1419,7 @@ if (corpusPresent) {
 // in-memory casus, die ALTIJD draaien) domweg negeerde — een echte regressie in de CFB-laag zelf
 // zou zo op een corpusloze CI-machine onopgemerkt gebleven zijn.
 if (diffs.length === 0) {
-  console.log(`OK  mpp-import: alle checks groen (${checks})`);
+  console.log(`OK  mpp-import: alle checks groen (${checks} hard + ${softChecksTotal} budget-gedekt soft, zie softChecksTotal)`);
   process.exit(0);
 } else {
   console.log(`XX  mpp-import: ${diffs.length} afwijking(en) van ${checks}`);

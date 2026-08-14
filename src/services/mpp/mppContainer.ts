@@ -47,7 +47,18 @@ const FILE_FORMAT_TO_VARIANT: Record<string, MppVariant> = {
  *  T5-uitbreiding: naast `fileFormat` (T4, formaatdetectie) geeft dit nu ook `applicationName`
  *  terug — `detectApplicationVersion` hieronder heeft 'm nodig om de MS-Project-versie te bepalen
  *  (bit-vlag-tabellen voor milestone e.d. verschillen tussen Project ≤2010 en 2013+, zie
- *  `MPP14Reader.java` r. ~1029). Eén parse-doorgang i.p.v. 'm twee keer los te doen. */
+ *  `MPP14Reader.java` r. ~1029). Binnen DEZE functie is dat één parse-doorgang (`applicationName`
+ *  én `fileFormat` komen uit hetzelfde stuk cursor-voortschrijdende code, i.p.v. twee keer los
+ *  door de bytes te lopen).
+ *
+ *  T5-spec-review-minor (precisering, geen bug): dat is een uitspraak over ÉÉN aanroep van déze
+ *  functie, niet over het hele `readMPP`-traject — `assertReadable` (via `detectMppVariant`) en
+ *  `detectApplicationVersion` zijn twee LOSSE call-sites die elk hun eigen keer `readCompObjInfo`
+ *  aanroepen op dezelfde `\x01CompObj`-bytes, dus het CompObj-blok wordt binnen `readMPP` in de
+ *  praktijk tweemaal geparst. Bewust niet samengevoegd tot één gedeelde aanroep: het blok is
+ *  triviaal klein (tientallen bytes), de her-parse kost microseconden, en het zou de bestaande,
+ *  al-geteste T4-containerlaag-API (`detectMppVariant`/`assertReadable`) moeten laten aanschuiven
+ *  voor een puur cosmetische besparing. */
 function readCompObjInfo(bytes: Uint8Array): { applicationName: string; fileFormat: string | null } {
   let pos = 28;
   const readInt32 = (): number => {
@@ -120,7 +131,10 @@ const APPLICATION_VERSION_PATTERN = /Microsoft.Project.(\d+).0/;
 /** T5-toevoeging: de MS-Project-versie (`CompObj.getApplicationVersion`) — MPP14Reader gebruikt
  *  'm om te kiezen tussen de Project-≤2010- en de 2013+-bit-vlag-tabellen voor o.a. de
  *  milestone-vlag (r. ~1029 e.v.). `null` als het patroon niet matcht (onbekende/geen versie in
- *  `applicationName`) — de aanroeper valt dan terug op de modernste tabel (zie `mppReader.ts`). */
+ *  `applicationName`) — de aanroeper (`mppReader.ts`'s `milestoneBitFlag`) behandelt `null` dan
+ *  als `0` en valt zo terug op de 2010-TABEL, niet de moderne (T5-spec-review, minor — deze regel
+ *  zei eerder "modernste tabel", wat niet meer klopte na de 4a-correctie: MPXJ's eigen
+ *  `NumberHelper.getInt(null) === 0`, en `0 ≤ PROJECT_2010`). */
 export function detectApplicationVersion(cfb: CfbFile): number | null {
   const compObjBytes = cfb.getStream(['\x01CompObj']);
   if (!compObjBytes) return null;

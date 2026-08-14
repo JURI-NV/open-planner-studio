@@ -272,6 +272,170 @@ export function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: 
   return bytes;
 }
 
+// ── Willekeurig geneste storage/stream-boom (T5-kwaliteitsreview, I4) ───────────────────────────
+//
+// `buildTwoRootStreamsCfb` hierboven dekt alleen twee ROOT-level streams — T5's end-to-end-fixture
+// (en T6/T7's TBkndCal/TBkndCons/TBkndRsc/TBkndAssn-fixtures straks) hebben een ECHTE geneste boom
+// nodig: `"   114"` (storage) met daarin een `Props`-stream ÉN een `TBkndTask`-storage, die op zijn
+// beurt `FixedMeta`/`FixedData`/`VarMeta`/`Var2Data`-streams draagt. `buildNestedCfb` generaliseert
+// daarom naar een willekeurig geneste boom, opgegeven als gewoon geneste JS-objecten.
+
+/** Eén knoop in de boom die `buildNestedCfb` opbouwt: een stream draagt `data` (de ruwe bytes),
+ *  een storage draagt `children` (genest, zelfde vorm). Precies één van beide moet gezet zijn. */
+export interface CfbTreeNode {
+  data?: Uint8Array;
+  children?: Record<string, CfbTreeNode>;
+}
+
+/** Bouwt een CFB met een willekeurig geneste storage/stream-boom, uitsluitend via het mini-
+ *  stream-pad — elke individuele stream moet dus < 4096 bytes zijn (ruim genoeg voor synthetische
+ *  taak-/kalenderfixtures; voor een écht grote payload, zie de aparte in-memory
+ *  `Var2Data`/`getUnicodeString`-fixtures die niet via een CFB-bestand hoeven te lopen). Maximaal
+ *  128 minisectoren (8192 bytes aan gezamenlijke streaminhoud) en — omdat deze bouwer, net als
+ *  `buildTwoRootStreamsCfb`, met precies 1 FAT-sector werkt (`writeCfbHeader`'s DIFAT[0]-aanname)
+ *  — maximaal 128 gewone sectoren totaal (FAT + directory + mini-FAT + root-ministream). Gooit een
+ *  duidelijke fout als een fixture die grens overschrijdt i.p.v. stilzwijgend corrupte bytes te
+ *  schrijven; een toekomstige T6/T7-fixture die meer ruimte nodig heeft, breidt dit uit met
+ *  geketende FAT-sectoren i.p.v. de aanname hier los te laten. */
+export function buildNestedCfb(root: Record<string, CfbTreeNode>): Uint8Array {
+  interface FlatEntry {
+    id: number;
+    name: string;
+    type: 'storage' | 'stream';
+    data: Uint8Array | null;
+    childIds: number[];
+  }
+  const entries: FlatEntry[] = [{ id: 0, name: 'Root Entry', type: 'storage', data: null, childIds: [] }];
+
+  function addChildren(parentId: number, children: Record<string, CfbTreeNode>): void {
+    const ids: number[] = [];
+    for (const [name, node] of Object.entries(children)) {
+      if ((node.data !== undefined) === (node.children !== undefined)) {
+        throw new Error(`buildNestedCfb: knoop "${name}" moet precies één van data/children hebben`);
+      }
+      const id = entries.length;
+      const isStream = node.data !== undefined;
+      entries.push({ id, name, type: isStream ? 'stream' : 'storage', data: isStream ? node.data! : null, childIds: [] });
+      ids.push(id);
+      if (!isStream && node.children) addChildren(id, node.children);
+    }
+    entries[parentId].childIds = ids;
+  }
+  addChildren(0, root);
+
+  // Streamdata → minisectoren (elk 64 bytes) toewijzen, in entry-volgorde.
+  const MINI = 64;
+  const minisectorsFor = (len: number) => Math.max(0, Math.ceil(len / MINI));
+  let miniCursor = 0;
+  const miniStart = new Map<number, number>(); // entry-id → ministart-sector
+  for (const e of entries) {
+    if (e.type !== 'stream' || !e.data) continue;
+    if (e.data.length >= 4096) {
+      throw new Error(`buildNestedCfb: stream "${e.name}" is ${e.data.length} bytes — alleen het mini-stream-pad (<4096) wordt ondersteund`);
+    }
+    const count = minisectorsFor(e.data.length);
+    if (count === 0) continue; // lege stream: geen ministream-ruimte nodig (startSector blijft ENDOFCHAIN)
+    miniStart.set(e.id, miniCursor);
+    miniCursor += count;
+  }
+  const totalMinisectors = miniCursor;
+  if (totalMinisectors > 128) {
+    throw new Error(`buildNestedCfb: ${totalMinisectors} minisectoren nodig, max 128 ondersteund (1 mini-FAT-sector)`);
+  }
+  const ministreamBytes = totalMinisectors * MINI;
+  const ministreamSectors = totalMinisectors > 0 ? Math.max(1, Math.ceil(ministreamBytes / SECTOR)) : 0;
+
+  const dirEntryCount = entries.length;
+  const dirSectors = Math.max(1, Math.ceil((dirEntryCount * DIR_ENTRY) / SECTOR));
+  const miniFatSectors = totalMinisectors > 0 ? 1 : 0;
+
+  const firstDirSector = 1;
+  const firstMiniFatSector = firstDirSector + dirSectors;
+  const firstMiniStreamSector = firstMiniFatSector + miniFatSectors;
+  const totalSectors = firstMiniStreamSector + ministreamSectors;
+  if (totalSectors > 128) {
+    throw new Error(`buildNestedCfb: ${totalSectors} sectoren nodig, max 128 ondersteund (1 FAT-sector)`);
+  }
+
+  const buf = new ArrayBuffer(HEADER + totalSectors * SECTOR);
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+  writeCfbHeader(view, {
+    numFatSectors: 1,
+    firstDirSector,
+    firstMiniFatSector: miniFatSectors > 0 ? firstMiniFatSector : 0xfffffffe,
+    numMiniFatSectors: miniFatSectors,
+  });
+
+  const sectorOff = (n: number) => HEADER + n * SECTOR;
+
+  // FAT: sector 0 = zichzelf (FATSECT), dan directory-sectoren, mini-FAT-sector(en),
+  // root-ministream-sectoren — elk een simpele lineaire keten.
+  const fat = new Array<number>(128).fill(0xffffffff);
+  fat[0] = 0xfffffffd;
+  for (let s = firstDirSector; s < firstDirSector + dirSectors; s++) {
+    fat[s] = s === firstDirSector + dirSectors - 1 ? 0xfffffffe : s + 1;
+  }
+  for (let s = firstMiniFatSector; s < firstMiniFatSector + miniFatSectors; s++) {
+    fat[s] = s === firstMiniFatSector + miniFatSectors - 1 ? 0xfffffffe : s + 1;
+  }
+  for (let s = firstMiniStreamSector; s < firstMiniStreamSector + ministreamSectors; s++) {
+    fat[s] = s === firstMiniStreamSector + ministreamSectors - 1 ? 0xfffffffe : s + 1;
+  }
+  fat.forEach((v, i) => view.setUint32(sectorOff(0) + i * 4, v, true));
+
+  // Directory: basisvelden per entry, dan de sibling-keten (`right`) per ouder — in twee passes
+  // zodat childIds al bekend zijn wanneer de keten geschreven wordt.
+  for (const e of entries) {
+    const base = sectorOff(firstDirSector) + e.id * DIR_ENTRY;
+    writeDirEntryName(view, base, e.name);
+    view.setUint8(base + 66, e.id === 0 ? 5 : e.type === 'storage' ? 1 : 2);
+    view.setUint32(base + 68, 0xffffffff, true); // left (ongebruikt — alle siblings via right-keten)
+    view.setUint32(base + 72, 0xffffffff, true); // right (default; hieronder overschreven waar nodig)
+    view.setUint32(base + 76, e.childIds.length > 0 ? e.childIds[0] : 0xffffffff, true); // child
+    if (e.id === 0) {
+      view.setUint32(base + 116, ministreamSectors > 0 ? firstMiniStreamSector : 0xfffffffe, true);
+      view.setUint32(base + 120, ministreamBytes, true);
+    } else if (e.type === 'stream') {
+      const start = miniStart.get(e.id);
+      view.setUint32(base + 116, start !== undefined ? start : 0xfffffffe, true);
+      view.setUint32(base + 120, e.data!.length, true);
+    } else {
+      view.setUint32(base + 116, 0xfffffffe, true);
+      view.setUint32(base + 120, 0, true);
+    }
+  }
+  for (const e of entries) {
+    for (let i = 0; i < e.childIds.length - 1; i++) {
+      const base = sectorOff(firstDirSector) + e.childIds[i] * DIR_ENTRY;
+      view.setUint32(base + 72, e.childIds[i + 1], true); // right = volgende sibling
+    }
+  }
+
+  if (miniFatSectors > 0) {
+    const mfOff = sectorOff(firstMiniFatSector);
+    for (let i = 0; i < 128; i++) view.setUint32(mfOff + i * 4, 0xffffffff, true);
+    for (const e of entries) {
+      if (e.type !== 'stream' || !e.data) continue;
+      const start = miniStart.get(e.id);
+      if (start === undefined) continue;
+      const count = minisectorsFor(e.data.length);
+      for (let i = 0; i < count; i++) {
+        view.setUint32(mfOff + (start + i) * 4, i === count - 1 ? 0xfffffffe : start + i + 1, true);
+      }
+    }
+  }
+
+  for (const e of entries) {
+    if (e.type !== 'stream' || !e.data) continue;
+    const start = miniStart.get(e.id);
+    if (start === undefined) continue;
+    bytes.set(e.data, sectorOff(firstMiniStreamSector) + start * MINI);
+  }
+
+  return bytes;
+}
+
 // ── MPP-blokencoders (Props14.java/CompObj.java-formaat, spiegelt mppContainer.ts) ─────────────
 
 export function encodeAsciiWithTerminator(s: string): Uint8Array {
