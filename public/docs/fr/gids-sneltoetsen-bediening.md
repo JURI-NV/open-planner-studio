@@ -21,27 +21,32 @@ Cliquer avec le bouton droit dans la vue Gantt donne un menu différent selon o�
 
 - **Sur une barre de tâche** — le menu de tâche complet (éditer, insérer, ajouter une sous-tâche/un jalon/une relation, attribuer un calendrier, avancement, priorité, tracer le chemin, supprimer…), plus un élément supplémentaire spécifique à la barre en haut : **Démarrer une relation à partir d'ici**.
 - **Sur une ligne de tâche sans toucher de barre** (par exemple une ligne sans barre actuellement visible) — le même menu de tâche, mais sans l'élément spécifique à la barre.
-- **Sur une ligne d'en-tête de groupe** (la ligne qui résume un ensemble de tâches groupées) — un petit menu pour réduire/développer ce groupe précis, plus **Tout développer**/**Tout réduire** pour l'arborescence entière.
+- **Sur une ligne d'en-tête de groupe** (la ligne qui résume un ensemble de tâches groupées) — un petit menu pour réduire/développer ce groupe précis, plus **Tout développer**/**Tout réduire**, qui ouvrent ou ferment tous les bandeaux de groupe à la fois (y compris les bandeaux imbriqués dans un bandeau).
 - **Sur une zone vide du canevas** (aucune tâche, aucun en-tête de groupe) — **Nouvelle tâche**, **Ajouter un jalon**, **Coller** (s'il y a quelque chose dans le presse-papiers), **Réinitialiser le zoom** et **Ajuster au projet**.
 
 Ce dernier menu a été vérifié en direct : un clic droit sur un emplacement vide du canevas du Gantt produit exactement ces cinq éléments, dans cet ordre.
 
 ## Glisser-déposer sur une barre de tâche
 
-Saisir et faire glisser une barre de tâche déplace la tâche (ou, en saisissant le bord, modifie sa durée). Maintenez **Maj** enfoncée en faisant glisser depuis une barre, et vous commencez à la place à tracer une **relation** vers la tâche sur laquelle vous relâchez — la même chose que **Démarrer une relation à partir d'ici** dans le menu contextuel de la barre, mais en un seul mouvement de souris.
+Saisir et faire glisser une barre de tâche déplace la tâche (ou, en saisissant le bord, modifie sa durée). Pendant que vous faites glisser un **bord**, une petite pastille sombre apparaît contre ce bord et affiche la durée que la tâche obtiendrait — `15d`, par exemple, ou `6h` pour une tâche planifiée en heures. Elle se met à jour en direct pendant que vous faites glisser, de sorte que vous voyez la nouvelle durée avant de relâcher le bouton de la souris. Déplacer la barre entière ne l'affiche pas : ce geste laisse la durée inchangée.
+Maintenez **Maj** enfoncée en faisant glisser depuis une barre, et vous commencez à la place à tracer une **relation** vers la tâche sur laquelle vous relâchez — la même chose que **Démarrer une relation à partir d'ici** dans le menu contextuel de la barre, mais en un seul mouvement de souris.
+
+Cliquez sur une barre pour sélectionner uniquement cette tâche. **Ctrl/⌘+clic** sur une barre l'ajoute à la sélection actuelle ou l'en retire au lieu de la remplacer, ce qui vous permet de construire une sélection multi-tâches barre par barre — pratique juste avant de cliquer sur le bouton **Lien** avec exactement deux tâches sélectionnées, ou avant de faire glisser toute une sélection de tâches vers une nouvelle position d'un coup dans le tableau des tâches.
 
 ## Panoramique contre sélection par rectangle
 
 Un glissement qui démarre sur un espace vide fait l'une de deux choses, selon où vous le démarrez et selon votre mode de défilement (**Paramètres → Défilement & zoom**) :
 
 - **Dans le tableau des tâches** (la colonne de gauche avec WBS/nom/durée), un glissement sur un espace vide est **toujours** une sélection par rectangle — le panoramique n'y a jamais lieu.
-- **Dans le canevas du Gantt lui-même** : si votre mode de défilement est réglé sur **Glisser** (panoramique façon carte), le panoramique l'emporte — exactement comme on l'attendrait d'une application de carte. Avec l'un des autres modes de défilement (**Position** ou **Mappage des touches**), ce même glissement sur un canevas vide est une sélection par rectangle, vous permettant de sélectionner plusieurs tâches à la fois en faisant glisser un rectangle autour d'elles.
+- **Dans le canevas du Gantt lui-même** : si votre mode de défilement est réglé sur **Zoom + glisser** (panoramique façon carte, le mode par défaut), le panoramique l'emporte — exactement comme on l'attendrait d'une application de carte. Avec l'un des autres modes de défilement (**Position** ou **Touches**), ce même glissement sur un canevas vide est une sélection par rectangle, vous permettant de sélectionner plusieurs tâches à la fois en faisant glisser un rectangle autour d'elles.
 
-En bref : le tableau des tâches sélectionne toujours ; le canevas ne fait un panoramique qu'en mode de défilement Glisser et sélectionne dans les autres cas.
+En bref : le tableau des tâches sélectionne toujours ; avec le bouton *gauche*, le canevas ne fait un panoramique qu'en mode de défilement glisser et sélectionne dans les autres cas.
+
+En dehors de cela, un geste fonctionne partout, toujours : faire glisser en maintenant enfoncé le **bouton central de la souris** (la molette) fait un panoramique de la vue — dans tous les modes de défilement, et que vous commenciez sur une barre, dans le tableau des tâches ou sur un espace vide. Pratique quand vous êtes en mode Position ou Touches mais que vous voulez quand même un panoramique rapide.
 
 ## Zoom
 
-Outre les boutons de zoom sur le ruban, **+**/**=** (ou **Ctrl+=**) effectue un zoom avant et **-** (ou **Ctrl+-**) un zoom arrière. Un simple **0** réinitialise le zoom à la valeur par défaut ; **Ctrl+0** ajuste le zoom pour que tout le projet tienne à l'écran (« ajuster au projet ») — la même chose que le bouton de ce nom dans le menu contextuel du canevas vide ci-dessus.
+Outre les boutons de zoom sur le ruban, **+**/**=** (ou **Ctrl+=**) effectue un zoom avant et **-** (ou **Ctrl+-**) un zoom arrière. Un simple **0** réinitialise le zoom à la valeur par défaut ; **Ctrl+0** ajuste le zoom pour que tout le projet tienne à l'écran (« ajuster au projet ») — la même chose que le bouton de ce nom dans le menu contextuel du canevas vide ci-dessus. L'en-tête de la chronologie s'adapte à mesure que vous zoomez : les numéros de semaine apparaissent dès qu'il y a de la place pour eux, et les noms des jours étiquettent chaque colonne une fois que vous êtes zoomé assez près pour travailler au niveau du jour. Si **Afficher uniquement les jours ouvrables** (Paramètres → Chronologie / Zoom) est activé, l'en-tête — et les barres elles-mêmes — ignorent entièrement les week-ends et jours fériés au lieu de simplement les griser, de sorte qu'une tâche de 5 jours ouvrés occupe exactement 5 colonnes.
 
 ## Onglets de document
 

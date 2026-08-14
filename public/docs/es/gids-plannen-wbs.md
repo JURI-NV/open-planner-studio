@@ -5,7 +5,8 @@ Una planificación empieza con una estructura de tareas: ¿qué tareas existen, 
 ## Lo que aprenderá aquí
 
 - Construir una estructura de tareas (WBS) mediante sangrado y tareas de resumen.
-- Mover tareas dentro del mismo nivel, sin volver a sangrar.
+- Mover tareas dentro del mismo nivel, sin volver a sangrar — con el teclado, arrastrando, o en
+  la pestaña **Tabla** de estilo hoja de cálculo.
 - Los tres tipos de hito y el indicador de obligatoriedad independiente para los momentos contractuales.
 - Gestionar códigos de actividad y campos personalizados mediante la ventana **Códigos y campos**, y agrupar por ellos.
 - Usar notas (una lista de comprobación por tarea) para llevar el seguimiento de los puntos pendientes.
@@ -23,6 +24,14 @@ Una lista plana de tareas no dice nada sobre cómo se relacionan. Al sangrar una
 5. Para una subtarea completamente nueva hay una vía más rápida: haga clic derecho en la tarea padre y elija **Añadir subtarea**. Eso crea una nueva tarea, ya sangrada, en un solo paso, en lugar de añadir primero una tarea y sangrarla después por separado.
 
 En cuanto una tarea tiene al menos una subtarea, se convierte automáticamente en una tarea de resumen: su barra en el diagrama de Gantt abarca entonces todo el período desde el inicio más temprano hasta el fin más tardío de todas las subtareas que hay debajo, y su propia duración y fechas ya no pueden establecerse de forma independiente. Una tarea de resumen es, por tanto, siempre un valor derivado, nunca una planificación que se introduce directamente — elimine o desplace las subtareas, y la barra de la tarea de resumen se ajusta automáticamente.
+
+**Contraer y expandir.** Con una WBS grande, a veces querrá compactar el árbol temporalmente. La pestaña de la cinta **Vista**, grupo **Esquema**, tiene dos botones separados para esto — **Contraer** y **Expandir** — deliberadamente no un único interruptor, porque con una selección mixta (algunas ramas abiertas, otras cerradas) un interruptor nunca podría dejarlo todo igual.
+
+- **Con una selección**, los botones actúan sobre las tareas seleccionadas; solo se ven afectadas las tareas con subtareas, las tareas independientes se ignoran.
+- **Sin selección**, actúan sobre toda la planificación. Deseleccione con **Esc**, o haga clic en una zona vacía de la vista de Gantt.
+- En una vista agrupada (vea *Agrupar por códigos y campos* más abajo) los botones contraen/expanden las bandas de grupo en su lugar — incluidas las bandas anidadas — en lugar de las tareas.
+
+La flecha delante de una tarea de resumen sigue funcionando como antes, para abrir o cerrar solo esa rama.
 
 ### Insertar una tarea nueva en el sitio correcto
 
@@ -51,6 +60,25 @@ Además de cambiar el nivel de una tarea (sangrar/reducir sangría), también pu
 - **Alt+↓** mueve la tarea hacia abajo.
 
 Esto funciona en cualquier nivel del árbol: mueva una tarea de fase, y todas sus subtareas se mueven automáticamente con ella.
+
+¿Prefiere el ratón? Agarre una tarea por su fila en la tabla de tareas (la columna izquierda de la
+vista de Gantt, con el mismo comportamiento de arrastre en la pestaña de la cinta **Tabla**) y
+arrástrela hacia arriba o hacia abajo. Suéltela entre dos filas para reordenarla entre sus hermanas,
+igual que Alt+↑/↓. Suéltela en cambio sobre la parte inferior de la fila de una tarea de resumen, y
+se anida: la tarea se convierte en la nueva última subtarea de esa tarea de resumen, sangrándose en
+un solo movimiento — es el equivalente en ratón de Alt+→. Seleccione varias tareas primero
+(Ctrl/Cmd+clic, o una selección por rectángulo) y toda la selección se arrastra y suelta junta.
+
+La pestaña de la cinta **Tabla** muestra esta misma estructura como una cuadrícula plana y editable,
+útil cuando está introduciendo o corrigiendo muchas tareas a la vez: un solo clic en cualquier celda
+editable inicia la edición de inmediato con el valor existente seleccionado, las teclas de flecha
+mueven un cursor de celda sin abrirla, **F2**/**Enter** abre la celda actual para editarla, y
+**Tab**/**Mayús+Tab** en una fila seleccionada la sangra/reduce la sangría, igual que Alt+→/←.
+Llegar a **Enter** o **↓** en la última fila crea ahí mismo una nueva tarea hermana con el cursor ya
+en su celda de nombre, para que pueda seguir introduciendo toda una lista sin tocar el ratón — esto
+solo funciona en la vista de árbol normal, ya que un filtro, una ordenación o una agrupación activa
+podría hacer que la tarea nueva desapareciera de la vista, así que la aplicación pregunta primero en
+lugar de colocar en silencio una tarea que no puede ver.
 
 ## Tipos de hito
 

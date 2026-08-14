@@ -24,10 +24,15 @@ Gantt çubuklarının tam, biçimlendirilmiş bir çıktısı — bu, bir ayarla
 - **Kağıt**: A4, A3 veya A1.
 - **Yön**: yatay veya dikey.
 - **Kağıda otomatik sığdır** (açık = plan seçilen boyuta otomatik olarak ölçeklenir) veya otomatik sığdırmayı kapatırsanız manuel bir **yakınlaştırma** kaydırıcısı.
+- **Yazı boyutu** — %90, 100, 110 veya 125; yukarıdaki yakınlaştırma seviyesinden bağımsız olarak rapor metnini, satır yüksekliğini ve üstbilgi/altbilgiyi ölçeklendirir.
+- **Üstbilgiyi her sayfada yinele** — varsayılan olarak açık; rapor üstbilgisini yalnızca ilk sayfada değil, yazdırılan her sayfada görünür tutar.
+- **Zaman çizelgesi şu kadar sayfaya yayılsın** — Gantt zaman çizelgesini yan yana 1 ile 8 sayfa arasında yayar; yalnızca otomatik sığdırma açıkken kullanılabilir.
 - **Çubuklarda görev adları**, **tamamlanmayı göster**, **kritik yol**, **bolluğu göster**, **bağımlılıklar**, **hafta sonları** ve **gösterge** için açma/kapamalar.
 - Bir **şirket** alanı (proje ayarından otomatik doldurulur, ama burada ayrıca düzenlenebilir) ve **yazar** (proje bilgisinden, salt okunur).
 
-Üstteki özet bloğu, projedeki görevlerin, yaprak görevlerin, kritik görevlerin ve ilişkilerin canlı sayısını gösterir.
+Rapordaki ilişki çizgileri, Gantt görünümüyle aynı görsel dili kullanır: **düz** bir çizgi belirleyici (driving) bir ilişkidir, **kesikli** bir çizgi belirleyici olmayan bir ilişkidir ve iki kritik görev arasındaki belirleyici bir ilişki **kırmızıdır**. *Kritik yol*'u kapatırsanız bu çizgiler de nötr hale gelir. Alttaki gösterge bu farkı özetler. İlk hesaplamadan önce her çizgi nötr ve düz çizilir — önce *Hesapla*'ya (F5) basın.
+
+Üstteki özet bloğu, projedeki görevlerin, yaprak görevlerin, kritik görevlerin ve ilişkilerin canlı sayısını gösterir. Ayarlar paneli seçimlerinizi oturumlar arasında hatırlar — Rapor sekmesini daha sonra tekrar açtığınızda kağıt boyutu, açma/kapamalar, yazı boyutu ve gerisi tam olarak bıraktığınız gibi geri gelir. Yalnızca şirket alanı sıfırlanır: her zaman projenin kendi ayarından başlar, böylece bir rapor asla başka bir projenin şirket adını devralmaz.
 
 ### Kilometre taşı özeti
 
@@ -41,7 +46,7 @@ Mevcut planı etkin baseline ile karşılaştırır: baseline başlangıç/biti�
 
 Ayarlar panelinin altında her zaman bir **Yazdır...** düğmesi vardır — raporu içeren ayrı bir yazdırma penceresi açar ve hemen tarayıcı/işletim sistemi yazdırma iletişim penceresini tetikler. Gantt raporu için, o pencere seçilen kağıt boyutunu ve yönü kullanır; kilometre taşı ve variance raporları tabloyu gösterildiği gibi yazdırır.
 
-Yalnızca Gantt raporunun bir de **PDF dışa aktar** düğmesi vardır. Bu, geçerli önizlemeyi gerçek bir PDF dosyası olarak kaydeder (dosya adı `-planning.pdf` ile biter) — seçilen kağıt boyutu ve yönün fiziksel boyutlarına ölçeklenmiş tek bir sayfa. PDF dosyası **vektör tabanlıdır**: çubuklar, çizgiler ve metin, tek bir gömülü resim yerine PDF çizim talimatları olarak saklanır, bu yüzden herhangi bir yakınlaştırma seviyesinde net kalır ve metin herhangi bir PDF görüntüleyicisinde seçilebilir ve aranabilir. Bu, Latin, Kiril ve Yunan metni için geçerlidir; proje Çince, Japonca, Korece, Arapça veya Farsça metin içeriyorsa, dışa aktarma o metin için otomatik olarak bir raster resme geri döner — hâlâ doğru şekilde görüntülenir, ama seçilebilir veya aranabilir değildir. Sistem yazdırma iletişim penceresinden geçmeden e-posta veya arşivleme için kullanışlıdır. Bunun yerine doğrudan yazdırmayı (veya yukarıda yapılandırılandan farklı bir kağıt boyutu seçmek için örneğin sistem iletişim penceresi üzerinden PDF'ye kaydetmeyi) tercih ediyorsanız, **Yazdır...**'ı kullanın.
+Yalnızca Gantt raporunun bir de **PDF dışa aktar** düğmesi vardır. Bu, geçerli önizlemeyi gerçek bir PDF dosyası olarak kaydeder (dosya adı `-planning.pdf` ile biter) — seçilen kağıt boyutu ve yönün fiziksel boyutlarına ölçeklenmiş tek bir sayfa. PDF dosyası **vektör tabanlıdır**: çubuklar, çizgiler ve metin, tek bir gömülü resim yerine PDF çizim talimatları olarak saklanır, bu yüzden herhangi bir yakınlaştırma seviyesinde net kalır ve metin herhangi bir PDF görüntüleyicisinde seçilebilir ve aranabilir. Bu, Latin, Kiril, Yunan, Arapça ve Farsça metin için geçerlidir — Arapça ve Farsça da şekillendirilip vektör metin olarak gömülür. Çince, Japonca ve Korece metin isteğe bağlıdır: bu glifleri sağlayan bir yazı tipi uzantısı yükleyin, o zaman bu metin de vektör olarak gömülür (seçilebilir ve aranabilir); böyle bir uzantı yoksa bu metin bir raster resim olarak dışa aktarılır — hâlâ doğru şekilde görüntülenir, ama seçilebilir veya aranabilir değildir. Sistem yazdırma iletişim penceresinden geçmeden e-posta veya arşivleme için kullanışlıdır. Bunun yerine doğrudan yazdırmayı (veya yukarıda yapılandırılandan farklı bir kağıt boyutu seçmek için örneğin sistem iletişim penceresi üzerinden PDF'ye kaydetmeyi) tercih ediyorsanız, **Yazdır...**'ı kullanın.
 
 ## Pratikte raporlar
 

@@ -24,10 +24,15 @@ Ein vollständiger, formatierter Ausdruck der Gantt-Balken — dies ist der einz
 - **Papier**: A4, A3 oder A1.
 - **Ausrichtung**: Querformat oder Hochformat.
 - **Automatisch an Papier anpassen** (an = der Terminplan skaliert automatisch auf die gewählte Größe) oder ein manueller **Zoom**-Schieberegler, wenn Sie Auto-Anpassen ausschalten.
+- **Schriftgröße** — 90, 100, 110 oder 125 %; skaliert den Berichtstext, die Zeilenhöhe und Kopf-/Fußzeile, unabhängig von der Zoomstufe oben.
+- **Kopfzeile auf jeder Seite wiederholen** — standardmäßig an; hält die Berichtskopfzeile auf jeder gedruckten Seite sichtbar statt nur auf der ersten.
+- **Zeitachse über** — verteilt die Gantt-Zeitachse auf 1 bis 8 Seiten nebeneinander; nur verfügbar bei aktiviertem Auto-Anpassen.
 - Schalter für **Aufgabennamen auf Balken**, **Fertigstellung anzeigen**, **Kritischer Pfad**, **Puffer anzeigen**, **Abhängigkeiten**, **Wochenenden** und **Legende**.
 - Ein Feld **Unternehmen** (wird aus der Projekteinstellung auto-gefüllt, ist hier aber separat editierbar) und der **Autor** (schreibgeschützt, aus den Projektinformationen).
 
-Der Zusammenfassungsblock darüber zeigt die Live-Anzahl der Aufgaben, Blattaufgaben, kritischen Aufgaben und Beziehungen im Projekt.
+Beziehungslinien im Bericht verwenden dieselbe visuelle Sprache wie die Gantt-Ansicht: eine **durchgezogene** Linie ist eine treibende Beziehung, eine **gestrichelte** Linie eine nicht-treibende, und eine treibende Beziehung zwischen zwei kritischen Aufgaben ist **rot**. Schalten Sie *Kritischer Pfad* aus, werden auch diese Linien neutral. Die Legende unten fasst den Unterschied zusammen. Vor der ersten Berechnung wird jede Linie neutral und durchgezogen gezeichnet — drücken Sie zuerst *Berechnen* (F5).
+
+Der Zusammenfassungsblock darüber zeigt die Live-Anzahl der Aufgaben, Blattaufgaben, kritischen Aufgaben und Beziehungen im Projekt. Das Einstellungs-Panel merkt sich Ihre Wahl über Sitzungen hinweg — öffnen Sie die Registerkarte Bericht später erneut, kommen Papierformat, Schalter, Schriftgröße und der Rest genau so zurück, wie Sie sie verlassen haben. Nur das Feld Unternehmen setzt sich zurück: Es startet immer von der eigenen Einstellung des Projekts, sodass ein Bericht nie den Unternehmensnamen eines anderen Projekts übernimmt.
 
 ### Meilensteinübersicht
 
@@ -35,13 +40,13 @@ Eine Tabelle aller Meilensteine im Projekt: PSP, Name, Art (automatisch/Anfang/E
 
 ### Variance
 
-Vergleicht den aktuellen Terminplan mit der aktiven Baseline: Baseline-Anfang/-Ende gegenüber aktuellem Anfang/-Ende, die Differenz in Arbeitstagen für Anfang und Ende und ein Status pro Aufgabe (im Plan / später / früher / neu / entfallen). Wenn es keine aktive Baseline gibt, stellt der Bildschirm das ausdrücklich fest, statt einen leeren Bericht zu zeigen. Der Zusammenfassungsblock zeigt außerdem die Verschiebung des Projektendetools in Arbeitstagen, falls es eine gibt. Lesen Sie die Anleitung [Baselines & Fortschritt](docs://gids-baselines-voortgang), wie Sie eine Baseline erfassen, bevor dieser Bericht Ihnen etwas Nützliches sagen kann.
+Vergleicht den aktuellen Terminplan mit der aktiven Baseline: Baseline-Anfang/-Ende gegenüber aktuellem Anfang/-Ende, die Differenz in Arbeitstagen für Anfang und Ende und ein Status pro Aufgabe (im Plan / später / früher / neu / entfallen). Wenn es keine aktive Baseline gibt, stellt der Bildschirm das ausdrücklich fest, statt einen leeren Bericht zu zeigen. Der Zusammenfassungsblock zeigt außerdem die Verschiebung des Projektenddatums in Arbeitstagen, falls es eine gibt. Lesen Sie die Anleitung [Baselines & Fortschritt](docs://gids-baselines-voortgang), wie Sie eine Baseline erfassen, bevor dieser Bericht Ihnen etwas Nützliches sagen kann.
 
 ## Drucken und Exportieren
 
 Das Einstellungs-Panel hat unten stets eine Schaltfläche **Drucken...** — sie öffnet ein separates Druckfenster, das den Bericht enthält, und löst sofort den Browser-/OS-Druckdialog aus. Für den Gantt-Bericht verwendet dieses Fenster die gewählte Papiergröße und -ausrichtung; die Meilenstein- und Variance-Berichte drucken die Tabelle wie angezeigt.
 
-Nur der Gantt-Bericht hat zusätzlich eine Schaltfläche **PDF exportieren**. Diese speichert die aktuelle Vorschau als echte PDF-Datei (Dateiname endet auf `-planning.pdf`) — eine Seite in den physischen Abmessungen der gewählten Papiergröße und -ausrichtung. Die PDF-Datei ist **vektorbasiert**: Balken, Linien und Text werden als PDF-Zeichenanweisungen gespeichert statt als ein einzelnes eingebettetes Bild, sodass sie auf jeder Zoomstufe scharf bleiben und der Text in jedem PDF-Betrachter auswählbar und durchsuchbar ist. Das gilt für lateinischen, kyrillischen und griechischen Text; enthält das Projekt chinesischen, japanischen, koreanischen, arabischen oder persischen Text, fällt der Export für diesen Text automatisch auf ein Rasterbild zurück — weiterhin korrekt dargestellt, aber nicht auswählbar oder durchsuchbar. Praktisch für E-Mail oder Archivierung ohne den Systemdruckdialog. Möchten Sie direkt drucken (oder über den Systemdialog als PDF speichern, etwa um eine andere Papiergröße zu wählen als die oben eingestellte), verwenden Sie **Drucken...**.
+Nur der Gantt-Bericht hat zusätzlich eine Schaltfläche **PDF exportieren**. Diese speichert die aktuelle Vorschau als echte PDF-Datei (Dateiname endet auf `-planning.pdf`) — eine Seite in den physischen Abmessungen der gewählten Papiergröße und -ausrichtung. Die PDF-Datei ist **vektorbasiert**: Balken, Linien und Text werden als PDF-Zeichenanweisungen gespeichert statt als ein einzelnes eingebettetes Bild, sodass sie auf jeder Zoomstufe scharf bleiben und der Text in jedem PDF-Betrachter auswählbar und durchsuchbar ist. Das gilt für lateinischen, kyrillischen, griechischen, arabischen und persischen Text — Arabisch und Persisch werden ebenfalls als Vektortext geformt und eingebettet. Chinesischer, japanischer und koreanischer Text ist optional: Installieren Sie eine Schriftart-Erweiterung, die diese Glyphen liefert, wird auch dieser Text als Vektor eingebettet (auswählbar und durchsuchbar); ohne eine solche Erweiterung wird dieser Text als Rasterbild exportiert — weiterhin korrekt dargestellt, aber nicht auswählbar oder durchsuchbar. Praktisch für E-Mail oder Archivierung ohne den Systemdruckdialog. Möchten Sie direkt drucken (oder über den Systemdialog als PDF speichern, etwa um eine andere Papiergröße zu wählen als die oben eingestellte), verwenden Sie **Drucken...**.
 
 ## Berichte in der Praxis
 

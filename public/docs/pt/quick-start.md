@@ -32,7 +32,7 @@ Certifique-se de que está no separador do friso **Início**. Este separador mos
 
 ### Através do friso
 
-1. No grupo do friso **Tarefas**, clique no botão **Tarefa**. Aparece uma nova tarefa chamada "Nova tarefa", com uma duração de 5 dias úteis, no fundo da tabela de tarefas e do diagrama de Gantt.
+1. No grupo do friso **Tarefas**, clique no botão **Tarefa**. Aparece uma nova tarefa chamada "Nova tarefa", com uma duração de 5 dias úteis, tanto na tabela de tarefas como no diagrama de Gantt. Se nesse momento houver uma tarefa selecionada, a nova tarefa fica diretamente **abaixo** dela; se nada estiver selecionado, vai para o fim. Assim constrói uma lista sem ter de arrastar coisas de um lado para o outro depois. O mesmo grupo do friso também está no separador **Tabela**.
 2. Repita isto algumas vezes até ter uma tarefa para cada fase principal do seu projeto. Se estiver a seguir o projeto de exemplo, use as mesmas fases principais que ele: "1. Voorbereiding" (Preparação), "2. Fundering & ruwbouw" (Fundação & obra em bruto), "3. Afbouw" (Acabamento) e "4. Oplevering" (Entrega).
 3. Faça duplo clique numa tarefa — na tabela ou na sua barra no diagrama de Gantt — para abrir a janela **Editar tarefa**. Ajuste o **Nome**, o **Tipo** e a **Duração (dias úteis)** de acordo com a sua fase.
 
@@ -42,7 +42,7 @@ Não precisa de voltar sempre ao friso. Clique com o botão direito numa **linha
 
 Clique com o botão direito numa tarefa **existente**, em vez disso, e obtém um menu de contexto diferente com, entre outros:
 
-- **Inserir acima** / **Inserir abaixo** — adiciona uma tarefa antes ou depois da tarefa em que clicou com o botão direito.
+- **Inserir acima** / **Inserir abaixo** — adiciona uma tarefa antes ou depois da tarefa em que clicou com o botão direito. Se estiverem selecionadas várias tarefas e clicar com o botão direito numa delas, a nova tarefa fica acima da primeira ou abaixo da última tarefa da sua seleção — uma única tarefa, não uma por tarefa selecionada.
 - **Adicionar subtarefa** — cria uma nova tarefa como filha dessa tarefa num só passo (veja o passo 3 para saber o que isto significa).
 
 Com o teclado a inserção é mais rápida: **Insert** coloca uma tarefa acima da seleção, **Ctrl+I** (**Cmd+I** no macOS) abaixo. Ambos aparecem no resumo de atalhos (**Ctrl+/**) em **Estrutura**. Inserir acima ou abaixo só funciona na vista em árvore normal: com um filtro, uma ordenação ou um agrupamento ativo a nova tarefa apareceria noutro sítio que não aquele onde a coloca, por isso a aplicação explica-o em vez de a colocar em silêncio. Mais sobre isto no guia [Planeamento & WBS](docs://gids-plannen-wbs).

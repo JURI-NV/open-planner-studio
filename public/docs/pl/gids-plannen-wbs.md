@@ -5,7 +5,7 @@ Harmonogram zaczyna się od struktury zadań: jakie zadania istnieją, jak są p
 ## Czego się tu nauczysz
 
 - Budowania struktury zadań (WBS) za pomocą wcinania i zadań sumarycznych.
-- Przenoszenia zadań w obrębie tego samego poziomu, bez ponownego wcinania.
+- Przenoszenia zadań w obrębie tego samego poziomu, bez ponownego wcinania — z klawiatury, przeciąganiem albo na karcie **Tabela** w stylu arkusza kalkulacyjnego.
 - Trzech rodzajów kamieni milowych i osobnej flagi obowiązkowości dla momentów umownych.
 - Zarządzania kodami zadań i polami użytkownika przez okno **Kody i pola** oraz grupowania według nich.
 - Korzystania z notatek (listy kontrolnej dla każdego zadania), aby śledzić otwarte kwestie.
@@ -23,6 +23,14 @@ Płaska lista zadań nic nie mówi o tym, jak się one ze sobą wiążą. Wcinaj
 5. Dla zupełnie nowego podzadania istnieje szybsza droga: kliknij prawym przyciskiem zadanie nadrzędne i wybierz **Dodaj podzadanie**. Tworzy to w jednym kroku nowe, od razu wcięte zadanie, zamiast najpierw dodawać zadanie, a potem osobno je wcinać.
 
 Gdy tylko zadanie ma co najmniej jedno podzadanie, automatycznie staje się zadaniem sumarycznym: jego pasek na wykresie Gantta obejmuje wtedy cały okres od najwcześniejszego początku do najpóźniejszego końca wszystkich podzadań pod nim, a jego własny czas trwania i daty nie mogą już być ustawiane niezależnie. Zadanie sumaryczne jest więc zawsze wartością pochodną, nigdy harmonogramem wpisywanym bezpośrednio — usuń lub przesuń podzadania, a pasek zadania sumarycznego dostosuje się automatycznie.
+
+**Zwijanie i rozwijanie.** Przy dużym WBS czasem chcesz tymczasowo skompresować drzewo. Karta wstążki **Widok**, grupa **Konspekt**, ma do tego dwa osobne przyciski — **Zwiń** i **Rozwiń** — celowo nie jeden przełącznik, ponieważ przy mieszanym zaznaczeniu (część gałęzi otwarta, część zamknięta) przełącznik nigdy nie mógłby ustawić wszystkiego jednakowo.
+
+- **Z zaznaczeniem** przyciski działają na zaznaczonych zadaniach; dotyczą tylko zadań z podzadaniami, samodzielne zadania są pomijane.
+- **Bez zaznaczenia** działają na cały harmonogram. Usuń zaznaczenie klawiszem **Esc** albo kliknij puste miejsce w widoku Gantta.
+- W widoku pogrupowanym (zobacz *Grupowanie według kodów i pól* niżej) przyciski zwijają/rozwijają zamiast tego pasma grup — łącznie z zagnieżdżonymi pasmami — a nie zadania.
+
+Strzałka przed zadaniem sumarycznym nadal działa tak jak wcześniej, otwierając lub zamykając tylko tę jedną gałąź.
 
 ### Wstawianie nowego zadania we właściwym miejscu
 
@@ -51,6 +59,10 @@ Oprócz zmiany poziomu zadania (wcięcie/usunięcie wcięcia), możesz też zami
 - **Alt+↓** przenosi zadanie w dół.
 
 Działa to na każdym poziomie drzewa: przenieś zadanie fazowe, a wszystkie jego podzadania automatycznie przeniosą się razem z nim.
+
+Wolisz myszą? Chwyć zadanie za jego wiersz w tabeli zadań (lewa kolumna widoku Gantta, z tym samym zachowaniem przeciągania na karcie wstążki **Tabela**) i przeciągnij je w górę lub w dół. Upuść je między dwoma wierszami, aby zmienić jego kolejność wśród rodzeństwa — tak samo jak Alt+↑/↓. Upuść je zamiast tego na dolną część wiersza zadania sumarycznego, a zostanie zagnieżdżone: zadanie staje się nowym, ostatnim podzadaniem tego zadania sumarycznego, wcinając się w jednym ruchu — to myszowy odpowiednik Alt+→. Zaznacz najpierw kilka zadań (Ctrl/Cmd+klik albo zaznaczenie ramką), a całe zaznaczenie przeciąga się i upuszcza razem.
+
+Karta wstążki **Tabela** pokazuje tę samą strukturę jako zwykłą, edytowalną siatkę, przydatną, gdy wprowadzasz lub poprawiasz naraz wiele zadań: pojedyncze kliknięcie dowolnej edytowalnej komórki od razu rozpoczyna edycję z zaznaczoną istniejącą wartością, klawisze strzałek przesuwają kursor komórki bez jej otwierania, **F2**/**Enter** otwiera bieżącą komórkę do edycji, a **Tab**/**Shift+Tab** na zaznaczonym wierszu wcina go/usuwa wcięcie — tak samo jak Alt+→/←. Dotarcie klawiszem **Enter** lub **↓** do ostatniego wiersza tworzy w tym miejscu nowe zadanie na tym samym poziomie, z kursorem już w jego komórce nazwy, dzięki czemu możesz prowadzić dalej całą listę bez dotykania myszy — działa to tylko w zwykłym widoku drzewa, ponieważ przy aktywnym filtrze, sortowaniu lub grupowaniu nowe zadanie mogłoby całkowicie wypaść z widoku, więc aplikacja najpierw pyta, zamiast po cichu umieścić zadanie, którego nie widzisz.
 
 ## Rodzaje kamieni milowych
 

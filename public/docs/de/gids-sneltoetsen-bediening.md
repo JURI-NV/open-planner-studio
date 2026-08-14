@@ -21,14 +21,17 @@ Ein Rechtsklick in der Gantt-Ansicht ergibt je nach Position der Maus ein andere
 
 - **Auf einem Aufgabenbalken** — das vollständige Aufgaben-Menü (Bearbeiten, Einfügen, Unteraufgabe/Meilenstein/Beziehung hinzufügen, Kalender zuweisen, Fortschritt, Priorität, Pfad verfolgen, Löschen…), plus einen zusätzlichen balkenspezifischen Eintrag ganz oben: **Beziehung von hier aus starten**.
 - **Auf einer Aufgabenzeile ohne Treffer auf dem Balken** (zum Beispiel eine Zeile, deren Balken gerade nicht sichtbar ist) — dasselbe Aufgaben-Menü, aber ohne den balkenspezifischen Eintrag.
-- **Auf einer Gruppenkopfzeile** (der Zeile, die eine gruppierte Menge Aufgaben zusammenfasst) — ein kleines Menü zum Ein-/Ausklappen dieser einen Gruppe, plus **Alle ausklappen**/**Alle einklappen** für den gesamten Baum.
+- **Auf einer Gruppenkopfzeile** (der Zeile, die eine gruppierte Menge Aufgaben zusammenfasst) — ein kleines Menü zum Ein-/Ausklappen dieser einen Gruppe, plus **Alle ausklappen**/**Alle einklappen**, die auf einen Schlag jedes Gruppenband öffnen oder schließen (einschließlich in einem Band verschachtelter Bänder).
 - **Auf leerer Fläche** (keine Aufgabe, keine Gruppenkopfzeile) — **Neue Aufgabe**, **Meilenstein hinzufügen**, **Einfügen** (falls etwas in der Zwischenablage liegt), **Zoom zurücksetzen** und **An Projekt anpassen**.
 
 Dieses letzte Menü wurde live verifiziert: Ein Rechtsklick auf eine leere Stelle der Gantt-Leinwand erzeugt exakt diese fünf Einträge, in dieser Reihenfolge.
 
 ## Ziehen an einem Aufgabenbalken
 
-Einen Aufgabenbalken greifen und ziehen verschiebt die Aufgabe (oder ändert, wenn Sie die Kante greifen, ihre Dauer). Halten Sie beim Ziehen ab einem Balken **Shift**, beginnen Sie stattdessen, eine **Beziehung** zu der Aufgabe zu ziehen, auf der Sie loslassen — dasselbe wie **Beziehung von hier aus starten** im Kontextmenü des Balkens, aber in einer einzigen Mausbewegung.
+Einen Aufgabenbalken greifen und ziehen verschiebt die Aufgabe (oder ändert, wenn Sie die Kante greifen, ihre Dauer). Während Sie eine **Kante** ziehen, erscheint an dieser Kante eine kleine dunkle Pille, die die Dauer zeigt, die die Aufgabe erhalten würde — zum Beispiel `15d`, oder `6h` für eine in Stunden geplante Aufgabe. Sie aktualisiert sich live während des Ziehens, sodass Sie die neue Dauer sehen, bevor Sie die Maustaste loslassen. Beim Verschieben des ganzen Balkens erscheint sie nicht: Diese Geste lässt die Dauer unverändert.
+Halten Sie beim Ziehen ab einem Balken **Shift**, beginnen Sie stattdessen, eine **Beziehung** zu der Aufgabe zu ziehen, auf der Sie loslassen — dasselbe wie **Beziehung von hier aus starten** im Kontextmenü des Balkens, aber in einer einzigen Mausbewegung.
+
+Klicken Sie auf einen Balken, um nur diese Aufgabe auszuwählen. **Ctrl/⌘+Klick** auf einen Balken schaltet ihn in die aktuelle Auswahl hinein oder heraus, statt sie zu ersetzen, sodass Sie eine Mehrfachauswahl Balken für Balken aufbauen können — praktisch kurz bevor Sie die Schaltfläche **Verknüpfung** mit genau zwei ausgewählten Aufgaben klicken, oder bevor Sie eine ganze Auswahl von Aufgaben auf einmal an eine neue Position in der Aufgabentabelle ziehen.
 
 ## Verschieben versus Auswahl-Rechteck
 
@@ -39,9 +42,11 @@ Ein Ziehen, das auf leerem Raum beginnt, tut eines von zwei Dingen, und das hän
 
 Kurz: Die Aufgabentabelle wählt stets; die Leinwand verschiebt nur im Scroll-Modus „Ziehen" und wählt sonst aus.
 
+Darüber hinaus funktioniert eine Geste überall, immer: Ziehen mit gedrückter **mittlerer Maustaste** (dem Scrollrad) verschiebt die Ansicht — in jedem Scroll-Modus, und unabhängig davon, ob Sie auf einem Balken, in der Aufgabentabelle oder auf leerer Fläche beginnen. Praktisch, wenn Sie im Modus Position oder Tasten sind, aber trotzdem schnell verschieben möchten.
+
 ## Zoomen
 
-Neben den Zoom-Schaltflächen auf dem Menüband zoomen **+**/**=** (oder **Ctrl+=**) hinein und **-** (oder **Ctrl+-**) heraus. Ein nacktes **0** setzt den Zoom auf die Voreinstellung zurück; **Ctrl+0** passt den Zoom so an, dass das gesamte Projekt auf den Bildschirm passt („An Projekt anpassen") — dasselbe wie die gleichnamige Schaltfläche im Kontextmenü für leere Fläche oben.
+Neben den Zoom-Schaltflächen auf dem Menüband zoomen **+**/**=** (oder **Ctrl+=**) hinein und **-** (oder **Ctrl+-**) heraus. Ein nacktes **0** setzt den Zoom auf die Voreinstellung zurück; **Ctrl+0** passt den Zoom so an, dass das gesamte Projekt auf den Bildschirm passt („An Projekt anpassen") — dasselbe wie die gleichnamige Schaltfläche im Kontextmenü für leere Fläche oben. Die Kopfzeile der Zeitachse passt sich beim weiteren Hineinzoomen an: Wochennummern erscheinen, sobald Platz für sie ist, und Tagesnamen beschriften jede Spalte, sobald Sie nah genug herangezoomt sind, um auf Tagesebene zu arbeiten. Ist **Nur Arbeitstage anzeigen** (Einstellungen → Zeitachse / Zoom) aktiv, überspringen die Kopfzeile — und die Balken selbst — Wochenenden und Feiertage vollständig, statt sie nur auszugrauen, sodass eine 5-Arbeitstage-Aufgabe exakt 5 Spalten breit ist.
 
 ## Dokument-Registerkarten
 

@@ -33,7 +33,8 @@ Kliknięcie prawym przyciskiem w widoku Gantta daje inne menu w zależności od 
 - **Na wierszu zadania bez trafienia w pasek** (na przykład wiersz, w którym pasek nie jest aktualnie widoczny) — to samo
   menu zadania, ale bez pozycji specyficznej dla paska.
 - **Na wierszu nagłówka grupy** (wiersz podsumowujący pogrupowany zestaw zadań) — małe menu do
-  zwijania/rozwijania tej jednej grupy, plus **Rozwiń wszystko**/**Zwiń wszystko** dla całego drzewa.
+  zwijania/rozwijania tej jednej grupy, plus **Rozwiń wszystko**/**Zwiń wszystko**, które otwierają lub zamykają
+  jednocześnie każde pasmo grupy (łącznie z pasmami zagnieżdżonymi wewnątrz pasma).
 - **Na pustym płótnie** (bez zadania, bez nagłówka grupy) — **Nowe zadanie**, **Dodaj kamień milowy**, **Wklej** (jeśli
   jest coś w schowku), **Resetuj powiększenie** i **Dopasuj do projektu**.
 
@@ -43,9 +44,18 @@ te pięć pozycji, w tej kolejności.
 ## Przeciąganie na pasku zadania
 
 Chwycenie i przeciągnięcie paska zadania przesuwa zadanie (albo, gdy chwycisz krawędź, zmienia jego czas trwania).
+Podczas przeciągania **krawędzi** przy tej krawędzi pojawia się mała, ciemna pigułka pokazująca czas trwania,
+jaki uzyska zadanie — na przykład `15d`, albo `6h` dla zadania planowanego w godzinach. Aktualizuje się na żywo
+w trakcie przeciągania, więc widzisz nowy czas trwania, zanim zwolnisz przycisk myszy. Przesuwanie całego paska
+tego nie pokazuje: ten gest nie zmienia czasu trwania.
 Przytrzymaj **Shift** podczas przeciągania z paska, a zamiast tego zaczynasz rysować **relację** do
 zadania, na którym zwolnisz przycisk — to samo, co **Rozpocznij relację stąd** w menu kontekstowym paska, ale
 w jednym ruchu myszy.
+
+Kliknij pasek, aby zaznaczyć tylko to zadanie. **Ctrl/⌘+klik** na pasku dodaje go do bieżącego zaznaczenia
+albo z niego usuwa, zamiast je zastępować, dzięki czemu możesz budować zaznaczenie wielu zadań pasek po pasku —
+przydatne tuż przed kliknięciem przycisku **Połączenie** z dokładnie dwoma zaznaczonymi zadaniami, albo przed
+przeciągnięciem całego zaznaczenia zadań naraz na nową pozycję w tabeli zadań.
 
 ## Przesuwanie widoku kontra zaznaczanie ramką
 
@@ -54,19 +64,28 @@ od Twojego trybu przewijania (**Ustawienia → Przewijanie i powiększenie**):
 
 - **W tabeli zadań** (lewa kolumna z WBS/nazwą/czasem trwania) przeciąganie na pustej przestrzeni jest
   **zawsze** zaznaczaniem ramką — przesuwanie widoku nigdy tam nie następuje.
-- **W samym płótnie Gantta**: jeśli tryb przewijania jest ustawiony na **Zoom + przeciąganie** (przesuwanie widoku w stylu mapy),
-  wygrywa przesuwanie widoku — dokładnie tak, jak można by oczekiwać od aplikacji mapowej. Przy każdym z pozostałych trybów przewijania
+- **W samym płótnie Gantta**: jeśli tryb przewijania jest ustawiony na **Zoom + przeciąganie** (przesuwanie widoku w stylu mapy,
+  domyślnie), wygrywa przesuwanie widoku — dokładnie tak, jak można by oczekiwać od aplikacji mapowej. Przy każdym z pozostałych trybów przewijania
   (**Pozycja** lub **Klawisze**), to samo przeciąganie na pustym płótnie jest zaznaczaniem ramką, pozwalającym
   zaznaczyć wiele zadań naraz, przeciągając wokół nich prostokąt.
 
-Krótko mówiąc: tabela zadań zawsze zaznacza; płótno przesuwa widok tylko w trybie przewijania przeciąganiem, a poza tym zaznacza.
+Krótko mówiąc: tabela zadań zawsze zaznacza; lewym przyciskiem płótno przesuwa widok tylko w trybie przewijania przeciąganiem, a poza tym zaznacza.
+
+Poza tym jeden gest działa zawsze i wszędzie: przeciąganie z wciśniętym **środkowym przyciskiem myszy**
+(kółkiem przewijania) przesuwa widok — w każdym trybie przewijania, niezależnie od tego, czy zaczynasz na
+pasku, w tabeli zadań czy na pustej przestrzeni. Przydatne, gdy jesteś w trybie Pozycja lub Klawisze,
+ale mimo to chcesz szybko przeciągnąć widok.
 
 ## Powiększanie
 
 Oprócz przycisków powiększenia na wstążce, **+**/**=** (albo **Ctrl+=**) powiększa, a **-** (albo
 **Ctrl+-**) pomniejsza. Samo **0** resetuje powiększenie do wartości domyślnej; **Ctrl+0** dostosowuje powiększenie tak, aby cały
 projekt zmieścił się na ekranie („dopasuj do projektu") — to samo, co przycisk o tej nazwie w powyższym
-menu kontekstowym na pustym płótnie.
+menu kontekstowym na pustym płótnie. Nagłówek osi czasu dostosowuje się w miarę dalszego powiększania: numery tygodni
+pojawiają się, gdy jest na nie miejsce, a nazwy dni opisują każdą kolumnę, gdy powiększysz widok na tyle, by
+pracować na poziomie dnia. Jeśli **Pokazuj tylko dni robocze** (Ustawienia → Oś czasu / Powiększenie) jest włączone,
+nagłówek — i same paski — całkowicie pomijają weekendy i dni wolne zamiast tylko je wyszarzać, więc zadanie
+trwające 5 dni roboczych ma dokładnie 5 kolumn szerokości.
 
 ## Karty dokumentów
 

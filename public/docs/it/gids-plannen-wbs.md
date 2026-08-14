@@ -5,7 +5,8 @@ Una pianificazione inizia con una struttura delle attività: quali attività esi
 ## Cosa imparerai qui
 
 - Costruire una struttura delle attività (WBS) usando il rientro e le attività di riepilogo.
-- Spostare attività all'interno dello stesso livello, senza rientrare di nuovo.
+- Spostare attività all'interno dello stesso livello, senza rientrare di nuovo — con la tastiera,
+  trascinando, o nella scheda **Tabella**, in stile foglio di calcolo.
 - I tre tipi di cardine e il flag obbligatorio separato per i momenti contrattuali.
 - Gestire i codici attività e i campi personalizzati tramite la finestra **Codici e campi**, e raggrupparli.
 - Usare le note (una checklist per attività) per tenere traccia degli elementi aperti.
@@ -24,6 +25,14 @@ Un elenco piatto di attività non dice nulla su come si relazionano. Rientrando 
 
 Non appena un'attività ha almeno una sottoattività, diventa automaticamente un'attività di riepilogo: la sua barra nel diagramma di Gantt copre allora l'intero periodo dall'inizio più anticipato alla fine più posticipata di tutte le sottoattività sottostanti, e la sua propria durata e le sue date non possono più essere impostate in modo indipendente. Un'attività di riepilogo è quindi sempre un valore derivato, mai una pianificazione che inserisci direttamente — elimina o sposta le sottoattività, e la barra dell'attività di riepilogo si adatta automaticamente.
 
+**Comprimi ed espandi.** Con una WBS grande, a volte vuoi rendere l'albero temporaneamente più compatto. La scheda della barra multifunzione **Vista**, gruppo **Struttura**, ha per questo due pulsanti separati — **Comprimi** ed **Espandi** — deliberatamente non un unico interruttore, perché con una selezione mista (alcuni rami aperti, altri chiusi) un interruttore non potrebbe mai impostare tutto nello stesso senso.
+
+- **Con una selezione**, i pulsanti agiscono sulle attività selezionate; sono coinvolte solo le attività con sottoattività, le attività singole vengono ignorate.
+- **Senza selezione**, agiscono sull'intera pianificazione. Deseleziona con **Esc**, oppure fai clic su un'area vuota della vista Gantt.
+- In una vista raggruppata (vedi *Raggruppare per codici e campi* più avanti) i pulsanti comprimono/espandono le fasce di gruppo — comprese quelle annidate — invece delle attività.
+
+La freccia davanti a un'attività di riepilogo continua comunque a funzionare come prima, per aprire o chiudere solo quel ramo.
+
 ### Inserire una nuova attività nel punto giusto
 
 Le nuove attività non devono più finire in fondo. Tutti i pulsanti e i tasti che creano un'attività seguono la stessa regola:
@@ -32,7 +41,7 @@ Le nuove attività non devono più finire in fondo. Tutti i pulsanti e i tasti c
 - **Se non è selezionato nulla**, finisce in coda, come sempre.
 - **Se sono selezionate più attività**, si posiziona sotto l'attività **più in basso** della selezione così come la vedi a schermo — mai in mezzo alla selezione, e l'ordine in cui le hai cliccate non conta.
 
-Vale per il pulsante **Attività** e per il menu **Traguardo** nel gruppo della barra multifunzione **Attività**, e per **Nuova attività** nel menu contestuale. Quel gruppo è presente sia sulla scheda **Home** sia sulla scheda **Tabella**, con gli stessi tre pulsanti (**Attività**, **Traguardo**, **Collegamento**): non devi più cambiare scheda per inserire attività.
+Vale per il pulsante **Attività** e per il menu **Traguardo** nel gruppo della barra multifunzione **Attività**, e per **Nuova attività** nel menu contestuale. Quel gruppo è presente sia sulla scheda **Home** sia sulla scheda **Tabella**, con gli stessi tre pulsanti (**Attività**, **Traguardo**, **Collegamento**), così non devi più cambiare scheda per inserire attività.
 
 Con la tastiera è ancora più rapido:
 
@@ -41,7 +50,7 @@ Con la tastiera è ancora più rapido:
 
 Entrambi compaiono anche nel riepilogo delle scorciatoie (**Ctrl+/**), nella categoria **Struttura**.
 
-**Solo nella normale vista ad albero.** Inserire sopra o sotto è un intervento strutturale, e ha senso solo finché l'ordine mostrato è anche quello reale. Con un filtro, un ordinamento o un raggruppamento attivo, la nuova attività comparirebbe altrove rispetto a dove l'hai messa. L'app rifiuta allora l'inserimento sopra/sotto e mostra una striscia che spiega il perché, con un pulsante per azzerare filtro, ordinamento e raggruppamento in un clic. I pulsanti **Attività** e **Traguardo** continuano a funzionare, ma mettono l'attività in fondo — con la stessa spiegazione.
+**Solo nella normale vista ad albero.** Inserire sopra o sotto è un intervento strutturale, e ha senso solo finché l'ordine mostrato è anche quello reale. Con un filtro, un ordinamento o un raggruppamento attivo, la nuova attività comparirebbe altrove rispetto a dove l'hai messa. L'app rifiuta allora l'inserimento sopra/sotto e mostra una striscia che spiega il perché, con un pulsante per azzerare filtro, ordinamento e raggruppamento in un clic. I pulsanti **Attività** e **Traguardo** continuano a funzionare in quel caso, ma mettono l'attività in fondo — con la stessa spiegazione.
 
 ### Spostare attività senza rientrare di nuovo
 
@@ -51,6 +60,10 @@ Oltre a cambiare il livello di un'attività (rientra/rimuovi rientro), puoi anch
 - **Alt+↓** sposta l'attività in basso.
 
 Questo funziona a qualsiasi livello dell'albero: sposta un'attività di fase, e tutte le sue sottoattività si spostano automaticamente con essa.
+
+Preferisci il mouse? Afferra un'attività dalla sua riga nella tabella delle attività (la colonna sinistra della vista Gantt, con lo stesso comportamento di trascinamento sulla scheda della barra multifunzione **Tabella**) e trascinala su o giù. Rilasciala tra due righe per riordinarla tra i suoi elementi allo stesso livello, esattamente come Alt+↑/↓. Rilasciala invece sulla parte inferiore della riga di un'attività di riepilogo, e si annida: l'attività diventa la nuova ultima sottoattività di quell'attività di riepilogo, rientrandola in un solo movimento — è l'equivalente col mouse di Alt+→. Seleziona prima più attività (Ctrl/Cmd-clic, o una selezione a riquadro) e l'intera selezione si trascina e si rilascia insieme.
+
+La scheda della barra multifunzione **Tabella** mostra questa stessa struttura come una semplice griglia modificabile, utile quando inserisci o correggi molte attività in una volta: un singolo clic su una cella modificabile avvia subito la modifica con il valore esistente selezionato, i tasti freccia spostano un cursore di cella senza aprirla, **F2**/**Invio** apre la cella corrente per la modifica, e **Tab**/**Shift+Tab** su una riga selezionata la fa rientrare/rimuove il rientro, esattamente come Alt+→/←. Raggiungere **Invio** o **↓** sull'ultimissima riga crea lì una nuova attività dello stesso livello con il cursore già nella cella del nome, così puoi continuare a compilare un intero elenco senza toccare il mouse — questo funziona solo nella normale vista ad albero, perché con un filtro, un ordinamento o un raggruppamento attivo la nuova attività potrebbe finire subito fuori vista, quindi l'app lo chiede prima invece di posizionare in silenzio un'attività che non vedi.
 
 ## Tipi di cardine
 
@@ -62,7 +75,7 @@ Un traguardo è un'attività senza durata che segna un momento — un inizio, un
 
 Preferisci la scorciatoia **Ctrl+M**? Ti dà un traguardo generico ("Nuovo traguardo") che poi rinomini e tipizzi tu stesso.
 
-Vedrai questa stessa suddivisione nel pannello delle proprietà una volta selezionato un traguardo con la casella **Traguardo** attiva: il campo **Tipo di cardine** offre **Automatico**, **Attività cardine di inizio** o **Attività cardine di fine**. "Automatico" lascia che il motore di pianificazione decida come si comporta il traguardo in base alle sue relazioni — scegli questo se il traguardo non ha un carattere di inizio o fine pronunciato. Separatamente, c'è la casella **Obbligatoria (contrattuale)**: contrassegna un traguardo come vincolante dal punto di vista contrattuale, indipendentemente dal fatto che sia un cardine di inizio o di fine. Così puoi, ad esempio, rendere obbligatorio anche un cardine di inizio, oppure — come con **Punto di ispezione** — impostare un cardine di fine obbligatorio in un solo clic.
+Vedrai questa stessa suddivisione nel pannello delle proprietà una volta selezionato un traguardo con la casella **Traguardo** attiva: il campo **Tipo di cardine** offre **Automatico**, **Cardine di inizio** o **Cardine di fine**. "Automatico" lascia che il motore di pianificazione decida come si comporta il traguardo in base alle sue relazioni — scegli questo se il traguardo non ha un carattere di inizio o fine pronunciato. Separatamente, c'è la casella **Obbligatoria (contrattuale)**: contrassegna un traguardo come vincolante dal punto di vista contrattuale, indipendentemente dal fatto che sia un cardine di inizio o di fine. Così puoi, ad esempio, rendere obbligatorio anche un cardine di inizio, oppure — come con **Punto di ispezione** — impostare un cardine di fine obbligatorio in un solo clic.
 
 ## Codici e campi: codici attività e campi personalizzati
 

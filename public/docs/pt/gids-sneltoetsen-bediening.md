@@ -17,7 +17,7 @@ compreender por si próprios.
 ## A visão geral sempre atualizada
 
 Prima **Ctrl+/** (ou **Cmd+/** no macOS) para abrir a visão geral de atalhos — a mesma janela também é
-acessível através do botão **Atalhos de teclado** no separador do friso **Visualização**. Esta janela é só de leitura e é
+acessível através do botão **Mostrar atalhos** no separador do friso **Visualização**. Esta janela é só de leitura e é
 construída diretamente a partir do código-fonte da aplicação: um novo atalho aparece aqui automaticamente, sem
 nenhuma lista separada que alguém tenha de manter sincronizada. É exatamente por isso que este guia não duplica a lista —
 uma segunda lista, mantida à mão, mais cedo ou mais tarde divergiria do que a aplicação realmente faz. A
@@ -33,7 +33,8 @@ Clicar com o botão direito na vista de Gantt dá um menu diferente dependendo d
 - **Numa linha de tarefa sem atingir uma barra** (por exemplo uma linha sem barra atualmente visível) — o mesmo
   menu de tarefa, mas sem o item específico da barra.
 - **Numa linha de cabeçalho de grupo** (a linha que resume um conjunto agrupado de tarefas) — um pequeno menu para
-  recolher/expandir esse grupo, mais **Expandir tudo**/**Recolher tudo** para toda a árvore.
+  recolher/expandir esse grupo, mais **Expandir tudo**/**Recolher tudo**, que abrem ou fecham todas as faixas de
+  grupo de uma vez (incluindo faixas aninhadas dentro de outra faixa).
 - **Em tela vazia** (sem tarefa, sem cabeçalho de grupo) — **Nova tarefa**, **Adicionar marco**, **Colar** (se
   houver algo na área de transferência), **Repor zoom** e **Ajustar ao projeto**.
 
@@ -43,9 +44,18 @@ estes cinco itens, por esta ordem.
 ## Arrastar numa barra de tarefa
 
 Agarrar e arrastar uma barra de tarefa move a tarefa (ou, ao agarrar na extremidade, altera a sua duração).
+Enquanto arrasta uma **extremidade**, aparece uma pequena pastilha escura junto a essa extremidade a mostrar a
+duração que a tarefa passaria a ter — `15d`, por exemplo, ou `6h` para uma tarefa planeada em horas. Atualiza-se
+ao vivo enquanto arrasta, para que veja a nova duração antes de soltar o botão do rato. Mover a barra inteira
+não mostra isto: esse gesto deixa a duração inalterada.
 Mantenha premido **Shift** enquanto arrasta a partir de uma barra, e em vez disso começa a desenhar uma **relação** para
 qualquer tarefa em que soltar — o mesmo que **Iniciar relação a partir daqui** no menu de contexto da barra, mas
 num só movimento do rato.
+
+Clique numa barra para selecionar apenas essa tarefa. **Ctrl/⌘+clique** numa barra alterna-a dentro ou fora da
+seleção atual em vez de a substituir, para que possa construir uma seleção de várias tarefas barra a barra —
+útil mesmo antes de clicar no botão **Ligação** com exatamente duas tarefas selecionadas, ou antes de arrastar
+toda uma seleção de tarefas para uma nova posição de uma só vez na tabela de tarefas.
 
 ## Deslocação versus seleção por retângulo
 
@@ -62,12 +72,21 @@ do seu modo de deslocação (**Definições → Deslocação e zoom**):
 Em resumo: a tabela de tarefas sempre seleciona; a tela só se desloca no modo de deslocação por arrasto e seleciona
 nos outros casos.
 
+Além disso, há um gesto que funciona sempre, em qualquer lugar: arrastar com o **botão do meio do rato**
+(a roda de deslocação) premido desloca a vista — em qualquer modo de deslocação, e independentemente de
+começar numa barra, na tabela de tarefas ou em espaço vazio. Útil quando está no modo Posição ou Teclas mas
+quer na mesma um arrasto rápido.
+
 ## Zoom
 
 Além dos botões de zoom no friso, **+**/**=** (ou **Ctrl+=**) amplia e **-** (ou
 **Ctrl+-**) reduz. Um simples **0** repõe o zoom para a predefinição; **Ctrl+0** ajusta o zoom de modo a que todo
 o projeto caiba no ecrã ("ajustar ao projeto") — o mesmo que o botão com esse nome no menu de contexto de
-tela vazia acima.
+tela vazia acima. O cabeçalho da linha do tempo adapta-se à medida que amplia mais: os números de semana
+aparecem assim que há espaço para eles, e os nomes dos dias identificam cada coluna assim que amplia o
+suficiente para trabalhar ao nível do dia. Se **Mostrar apenas dias úteis** (Definições → Linha de tempo / Zoom)
+estiver ativado, o cabeçalho — e as próprias barras — saltam por completo fins de semana e feriados em vez de
+apenas os esbater, para que uma tarefa de 5 dias úteis tenha exatamente 5 colunas de largura.
 
 ## Separadores de documento
 

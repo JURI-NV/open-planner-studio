@@ -32,7 +32,7 @@ Assicurati di essere sulla scheda della barra multifunzione **Home**. Questa sch
 
 ### Tramite la barra multifunzione
 
-1. Nel gruppo della barra multifunzione **Attività**, fai clic sul pulsante **Attività**. Appare una nuova attività chiamata "Nuova attività", con una durata di 5 giorni lavorativi, in fondo sia alla tabella delle attività sia al diagramma di Gantt.
+1. Nel gruppo della barra multifunzione **Attività**, fai clic sul pulsante **Attività**. Appare una nuova attività chiamata "Nuova attività", con una durata di 5 giorni lavorativi, sia nella tabella delle attività sia nel diagramma di Gantt. Se in quel momento è selezionata un'attività, la nuova attività finisce direttamente **sotto** di essa; se non è selezionato nulla, va in fondo. In questo modo costruisci un elenco senza dover trascinare le cose in seguito. Lo stesso gruppo della barra multifunzione si trova anche sulla scheda **Tabella**.
 2. Ripeti questo alcune volte finché non hai un'attività per ogni fase principale del tuo progetto. Se stai seguendo il progetto di esempio, usa le stesse fasi principali che usa esso: "1. Voorbereiding" (Preparazione), "2. Fundering & ruwbouw" (Fondazione e struttura grezza), "3. Afbouw" (Finiture) e "4. Oplevering" (Consegna).
 3. Fai doppio clic su un'attività — nella tabella o sulla sua barra nel diagramma di Gantt — per aprire la finestra **Modifica attività**. Adatta il **Nome**, il **Tipo** e la **Durata (giorni lavorativi)** alla tua fase.
 

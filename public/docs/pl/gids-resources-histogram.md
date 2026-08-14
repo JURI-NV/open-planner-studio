@@ -10,7 +10,7 @@ Zadanie mówi, kiedy coś ma się wydarzyć; zasób mówi, kto lub co ma to zrob
 - Przenoszenia przydziału do innego zadania.
 - Kalendarzy zasobów i zdolności rozłożonej w czasie (na przykład drugiego żurawia dodanego później).
 - Odczytywania histogramu: selektora zasobów, zagłębiania się w pojedynczy zasób, wykrywania nadmiernego przydzielenia.
-- Zadokowanego panelu zasobów obok wykresu Gantta.
+- Zadokowanego panelu zasobów obok wykresu Gantta, jako drugiego panelu pod Właściwościami.
 - Bilansowania: opcji w oknie **Bilansuj zasoby**, różnicy między pozostawaniem w ramach zapasu a pozwoleniem na przesunięcie daty zakończenia, oraz priorytetów (w tym priorytetu 1000 = „nie bilansuj").
 - Uczciwej lekcji: kiedy bilansowanie *nie* rozwiązuje nadmiernego przydzielenia.
 
@@ -28,7 +28,13 @@ Każdy zasób ma **Typ** (kolumna w panelu zasobów):
 
 ## Zarządzanie zasobami
 
-Otwórz panel zasobów przez grupę wstążki **Zarządzaj** na karcie **Zasoby**: przycisk **Zasoby** otwiera pełny panel (osobny widok pełnopanelowy, jak Tabela lub Relacje), **Nowy zasób** dodaje wiersz bezpośrednio. W panelu edytujesz, dla każdego zasobu: **Nazwę**, **Typ**, **Maks. jednostki** (zdolność na dzień roboczy — 1 = jedna osoba/element na pełny etat, 2 = dwie jednostki naraz), **Kalendarz**, **Stawkę/godz.**, **Jednostkę** (tylko materiał) i **Brygadę** (do jakiej brygady należy ten zasób). Na dole kolumna **Razem** sumuje koszt każdego zasobu (przydzielone jednostki × godziny/dzień × stawka), przeliczana przy każdym F5.
+Otwórz panel zasobów przez grupę wstążki **Zarządzaj** na karcie **Zasoby**: przycisk **Zasoby** otwiera pełny panel (osobny widok pełnopanelowy, jak Tabela lub Relacje), **Nowy zasób** otwiera panel z wierszem roboczym, w którym od razu wpisujesz nazwę (tak samo jak przycisk **+ Nowy zasób** w samym panelu). W panelu edytujesz, dla każdego zasobu: **Nazwę**, **Typ**, **Maks. jednostki** (zdolność na dzień roboczy — 1 = jedna osoba/element na pełny etat, 2 = dwie jednostki naraz), **Kalendarz**, **Stawkę/godz.**, **Jednostkę** (tylko materiał) i **Brygadę** (do jakiej brygady należy ten zasób). Na dole kolumna **Razem** sumuje koszt każdego zasobu (przydzielone jednostki × godziny/dzień × stawka), przeliczana przy każdym F5.
+
+Wiersz roboczy siedzi na dole tabeli, dokładnie tam, gdzie nowy zasób ostatecznie wyląduje, i jest *w pełni* edytowalny od razu: typ, maks. jednostki, kalendarz, stawka, jednostka i brygada to zwykłe kontrolki. Wypełniaj je w dowolnej kolejności, która Ci odpowiada — możesz spokojnie wybrać najpierw typ, a nazwę wpisać później. **Tab** przeprowadza Cię przez wiersz, nie zapisując jeszcze niczego.
+
+Wiersz istnieje z jednego powodu: zasób jest tworzony dopiero, gdy ma **nazwę**, dzięki czemu naciśnięcie przycisku bez wpisania czegokolwiek nie zostawia po sobie pustego wiersza. Kliknięcie gdzie indziej albo naciśnięcie **Escape** bez nazwy nie zostawia niczego — żadnego zasobu, żadnego kroku w historii cofania, a Twój projekt nie jest oznaczony jako zmieniony, nawet jeśli po drodze zmieniłeś jakąś listę rozwijaną. Gdy nazwa jest już wpisana, wiersz zostaje zatwierdzony w chwili, gdy go opuścisz (klikniesz gdzie indziej albo Tab minie ostatnią kolumnę) albo naciśniesz **Enter** — za jednym razem, ze wszystkim, co wypełniłeś, i jako pojedynczy krok, który jedno cofnięcie odwraca. **Enter** otwiera też od razu nowy wiersz roboczy tuż pod nim, dzięki czemu możesz wpisać całą listę za jednym zamachem.
+
+Istniejące wiersze też są nawigowalne z klawiatury, w obu widokach (Biblioteka i Projekt): **↑** i **↓** przenoszą kursor do tej samej kolumny w wierszu powyżej lub poniżej, a **Enter** (w dół) albo **Shift+Enter** (w górę) robi to samo. Na samym ostatnim wierszu **Enter** otwiera tam nowy wiersz roboczy — to samo ciągłe wprowadzanie, co w tabeli zadań. W listach rozwijanych (**Typ**, **Kalendarz**, **Brygada**) i w liczniku **Maks. jednostki** klawisze strzałek celowo zachowują swoje własne znaczenie (wybór opcji, zmiana wartości o krok); użyj tam **Enter**, aby przejść do następnego wiersza.
 
 ### Zdolność rozłożona w czasie
 
@@ -77,7 +83,15 @@ Jeśli zamiast słupków widzisz „Przelicz (F5), aby pokazać obciążenie", h
 
 ## Zadokowany panel zasobów
 
-Oprócz pełnego panelu zasobów (przycisk wstążki **Zasoby**), istnieje kompaktowy wariant, który możesz zadokować po prawej stronie: przycisk **Dok zasobów** w grupie wstążki **Zarządzaj**. Ten zadokowany panel pokazuje tylko nazwę, **Maks. jednostki** (edytowalne bezpośrednio) i czerwoną/zieloną kropkę oznaczającą nadmierne przydzielenie — szybki przegląd obok wykresu Gantta bez otwierania pełnego panelu. Zadokowany panel zasobów i panel właściwości zajmują prawą kolumnę jako dwa pełnoprawne panele jeden nad drugim: każdy ma własny przycisk na wstążce, a wysokość dzielisz, przeciągając granicę między nimi.
+Oprócz pełnego panelu zasobów (przycisk wstążki **Zasoby**), istnieje kompaktowy wariant, który możesz zadokować po prawej stronie: przycisk **Dok zasobów** w grupie wstążki **Zarządzaj**. Ten zadokowany panel pokazuje tylko nazwę, **Maks. jednostki** (edytowalne bezpośrednio) i czerwoną/zieloną kropkę oznaczającą nadmierne przydzielenie — szybki przegląd obok wykresu Gantta bez otwierania pełnego panelu.
+
+Kolumna boczna zawiera **dwa równorzędne panele** ułożone jeden na drugim: **Właściwości** i zadokowaną listę zasobów. Nie zastępują się nawzajem i nie chowają się — jeśli panel jest włączony, po prostu widzisz jego zawartość. Każdy panel ma swój własny przełącznik do tego: przyciski wstążki **Właściwości** i **Dok zasobów**, oba w grupie **Panele** na karcie **Widok**. Ten sam przełącznik znajduje się jako **✕** na własnym pasku nagłówka panelu.
+
+Wysokość dzielisz, przeciągając **granicę między dwoma panelami**; ten podział jest zapamiętywany. Gdy włączony jest tylko jeden panel, zawsze zajmuje całą wysokość. Gdy oba są wyłączone, w ogóle nie ma kolumny bocznej, a wykres Gantta zajmuje pełną szerokość.
+
+Aby usunąć kolumnę z widoku *bez* utraty wyboru paneli, użyj przycisku w prawym górnym rogu górnego paska nagłówka. Zostaje wąski pasek; jedno kliknięcie na nim przywraca kolumnę dokładnie taką, jaką ją zostawiłeś.
+
+Te same trzy przyciski — **Zasoby**, **Dok zasobów** i **Histogram** — znajdują się też na karcie **Widok** w grupie wstążki **Panele**, obok **Właściwości**. Ta sama nazwa, ta sama ikona, to samo zachowanie: gdziekolwiek je klikniesz, robią dokładnie to samo. Różnica jest między dwoma przyciskami zasobów: **Zasoby** otwiera pełny panel nad obszarem roboczym, **Dok zasobów** przypina kompaktową listę jako drugi panel w kolumnie bocznej.
 
 ## Wykrywanie nadmiernego przydzielenia
 

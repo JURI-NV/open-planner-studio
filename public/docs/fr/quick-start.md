@@ -32,7 +32,7 @@ Assurez-vous d'être sur l'onglet du ruban **Accueil**. Cet onglet affiche le ta
 
 ### Via le ruban
 
-1. Dans le groupe de ruban **Tâches**, cliquez sur le bouton **Tâche**. Une nouvelle tâche nommée « Nouvelle tâche » apparaît, avec une durée de 5 jours ouvrés, en bas du tableau des tâches et du diagramme de Gantt.
+1. Dans le groupe de ruban **Tâches**, cliquez sur le bouton **Tâche**. Une nouvelle tâche nommée « Nouvelle tâche » apparaît, avec une durée de 5 jours ouvrés, à la fois dans le tableau des tâches et dans le diagramme de Gantt. Si une tâche est sélectionnée à ce moment-là, la nouvelle tâche vient se placer directement **en dessous** ; si rien n'est sélectionné, elle va à la fin. Vous construisez ainsi une liste sans avoir à faire de glisser-déposer par la suite. Le même groupe de ruban se trouve aussi sur l'onglet **Tableau**.
 2. Répétez cette opération plusieurs fois jusqu'à avoir une tâche pour chaque phase principale de votre projet. Si vous suivez le projet d'exemple, utilisez les mêmes phases principales que lui : « 1. Voorbereiding » (Préparation), « 2. Fundering & ruwbouw » (Fondation & gros œuvre), « 3. Afbouw » (Finitions) et « 4. Oplevering » (Réception).
 3. Double-cliquez sur une tâche — dans le tableau ou sur sa barre dans le diagramme de Gantt — pour ouvrir la fenêtre **Modifier la tâche**. Ajustez le **Nom**, le **Type** et la **Durée (jours ouvrés)** pour correspondre à votre phase.
 
@@ -42,7 +42,7 @@ Vous n'êtes pas obligé de revenir sans cesse au ruban. Cliquez avec le bouton 
 
 Cliquez avec le bouton droit sur une tâche **existante** à la place, et vous obtenez un menu contextuel différent, comprenant entre autres :
 
-- **Insérer au-dessus** / **Insérer en dessous** — ajoute une tâche avant ou après la tâche sur laquelle vous avez cliqué avec le bouton droit.
+- **Insérer au-dessus** / **Insérer en dessous** — ajoute une tâche avant ou après la tâche sur laquelle vous avez cliqué avec le bouton droit. Si plusieurs tâches sont sélectionnées et que vous cliquez avec le bouton droit sur l'une d'elles, la nouvelle tâche se place au-dessus de la première ou en dessous de la dernière tâche de votre sélection — une seule tâche, pas une par tâche sélectionnée.
 - **Ajouter une sous-tâche** — crée une nouvelle tâche en tant qu'enfant de cette tâche en une seule étape (voir l'étape 3 pour ce que cela signifie).
 
 Au clavier, l'insertion est la plus rapide : **Inser** place une tâche au-dessus de la sélection, **Ctrl+I** (**Cmd+I** sur macOS) en dessous. Les deux figurent dans l'aperçu des raccourcis (**Ctrl+/**) sous **Structure**. L'insertion au-dessus ou en dessous ne fonctionne qu'en vue arborescente normale : avec un filtre, un tri ou un regroupement actif, la nouvelle tâche apparaîtrait ailleurs que là où vous la placez, l'application vous l'explique donc au lieu de la placer en silence. Pour en savoir plus, voyez le guide [Planification & WBS](docs://gids-plannen-wbs).
@@ -64,7 +64,7 @@ Une liste plate de tâches devient rapidement confuse. En mettant des tâches en
 
 Répétez cette opération jusqu'à obtenir quelques niveaux de profondeur. Dans le projet d'exemple, la phase « 2. Fundering & ruwbouw » se décompose par exemple en sous-tâches « Grondwerk aanbouw » (Terrassement de l'extension), « Fundering aanbouw » (Fondation de l'extension), « Begane grondvloer storten » (Coulage du rez-de-chaussée), « Wanden opmetselen » (Maçonnerie des murs) et « Dakconstructie plaatsen » (Pose de la charpente).
 
-Cet article ne couvre la construction de la WBS qu'à un niveau pratique, pour vous lancer. Pour apprendre comment les types de jalons, les tâches récapitulatives et les codes d'activité fonctionnent ensemble en détail, lisez le guide [Planning & WBS](docs://gids-plannen-wbs).
+Cet article ne couvre la construction de la WBS qu'à un niveau pratique, pour vous lancer. Pour apprendre comment les types de jalons, les tâches récapitulatives et les codes d'activité fonctionnent ensemble en détail, lisez le guide [Planification & WBS](docs://gids-plannen-wbs).
 
 ## Étape 4 — Ajouter des relations
 
@@ -100,5 +100,5 @@ Maintenant que vous avez des tâches et des relations, vous pouvez faire calcule
 ## Continuer à s'entraîner
 
 - Rejouez les étapes ci-dessus avec un exemple complet : ouvrez [Verbouwing & Aanbouw Eengezinswoning](examples://showcase-verbouwing-eengezinswoning.ifc) via **Fichier → Exemples** et repérez la chaîne FS entre les phases, le chevauchement SS entre les travaux de murs et de charpente, le lien FF entre le carrelage et la peinture, et la contrainte de permis (SNET) avant le démarrage.
-- Vous voulez en savoir plus sur la structure des tâches, les tâches récapitulatives, les types de jalons et les codes d'activité ? Lisez le guide [Planning & WBS](docs://gids-plannen-wbs).
+- Vous voulez en savoir plus sur la structure des tâches, les tâches récapitulatives, les types de jalons et les codes d'activité ? Lisez le guide [Planification & WBS](docs://gids-plannen-wbs).
 - Vous préférez faire une visite visuelle des principales zones de l'écran ? Relancez la visite via l'onglet **Affichage** → bouton **Visite guidée**, ou via **Fichier** → **Démarrer la visite guidée**.

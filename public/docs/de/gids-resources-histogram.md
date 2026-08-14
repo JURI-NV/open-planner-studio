@@ -10,7 +10,7 @@ Eine Aufgabe sagt Ihnen, wann etwas geschehen muss; eine Ressource sagt Ihnen, w
 - Eine Zuweisung auf eine andere Aufgabe verschieben.
 - Ressourcenkalender und zeitlich gestaffelte Kapazität (zum Beispiel ein später hinzugefügter zweiter Kran).
 - Das Histogramm lesen: die Ressourcenauswahl, das Eingraben pro Ressource, Überlastungen erkennen.
-- Das angedockte Ressourcen-Panel neben dem Gantt.
+- Das angedockte Ressourcen-Panel neben dem Gantt, als zweites Panel unter Eigenschaften.
 - Abgleich: die Optionen im Fenster **Ressourcen abgleichen**, der Unterschied zwischen dem Bleiben innerhalb des Puffers und dem Verschieben des Endtermins sowie Prioritäten (einschließlich Priorität 1000 = „nicht abgleichen").
 - Die ehrliche Lektion: wann der Abgleich eine Überlastung *nicht* löst.
 
@@ -28,7 +28,13 @@ Jede Ressource hat einen **Typ** (eine Spalte im Ressourcen-Panel):
 
 ## Ressourcen verwalten
 
-Öffnen Sie das Ressourcen-Panel über die Menübandgruppe **Verwalten** auf der Registerkarte **Ressourcen**: Die Schaltfläche **Ressourcen** öffnet das vollständige Panel (eine separate Voll-Panel-Ansicht wie Tabelle oder Beziehungen), **Neue Ressource** fügt direkt eine Zeile hinzu. Im Panel bearbeiten Sie pro Ressource: **Name**, **Typ**, **Max. Einheiten** (Kapazität pro Arbeitstag — 1 = eine Person/ein Gegenstand vollzeit, 2 = zwei Einheiten zugleich), **Kalender**, **Tarif/Stunde**, **Einheit** (nur Material) und **Kolonne** (zu welcher Kolonne diese Ressource gehört). Unten summiert die Spalte **Gesamt** die Kosten jeder Ressource (belastete Einheiten × Stunden/Tag × Tarif), bei jedem F5 neu berechnet.
+Öffnen Sie das Ressourcen-Panel über die Menübandgruppe **Verwalten** auf der Registerkarte **Ressourcen**: Die Schaltfläche **Ressourcen** öffnet das vollständige Panel (eine separate Voll-Panel-Ansicht wie Tabelle oder Beziehungen), **Neue Ressource** öffnet das Panel mit einer Entwurfszeile, in der Sie den Namen sofort eintippen (genau wie die Schaltfläche **+ Neue Ressource** im Panel selbst). Im Panel bearbeiten Sie pro Ressource: **Name**, **Typ**, **Max. Einheiten** (Kapazität pro Arbeitstag — 1 = eine Person/ein Gegenstand vollzeit, 2 = zwei Einheiten zugleich), **Kalender**, **Tarif/Stunde**, **Einheit** (nur Material) und **Kolonne** (zu welcher Kolonne diese Ressource gehört). Unten summiert die Spalte **Gesamt** die Kosten jeder Ressource (belastete Einheiten × Stunden/Tag × Tarif), bei jedem F5 neu berechnet.
+
+Die Entwurfszeile sitzt unten in der Tabelle, genau dort, wo die neue Ressource landen wird, und ist sofort *vollständig* editierbar: Typ, Max. Einheiten, Kalender, Tarif, Einheit und Kolonne sind alle gewöhnliche Steuerelemente. Füllen Sie sie in beliebiger Reihenfolge aus — wählen Sie ruhig zuerst den Typ und tippen Sie den Namen erst danach ein. **Tab** führt Sie durch die Zeile, ohne bereits etwas zu speichern.
+
+Die Zeile existiert aus einem Grund: Eine Ressource wird erst angelegt, sobald ein **Name** vorhanden ist, damit ein Klick auf die Schaltfläche ohne weitere Eingabe keine leere Zeile hinterlässt. Wegklicken oder **Escape** drücken ohne Namen hinterlässt nichts — keine Ressource, kein Schritt in der Rückgängig-Chronik, und Ihr Projekt wird nicht als geändert markiert; selbst wenn Sie unterwegs ein Dropdown geändert haben. Ist ein Name vorhanden, wird die Zeile in dem Moment übernommen, in dem Sie sie verlassen (anderswo klicken oder mit Tab über die letzte Spalte hinausgehen) oder **Enter** drücken — in einem Schritt, mit allem, was Sie ausgefüllt haben, und als einzelner Schritt, den ein Rückgängig zurücknimmt. **Enter** öffnet außerdem direkt darunter eine neue Entwurfszeile, sodass Sie eine ganze Liste am Stück eintippen können.
+
+Auch die bestehenden Zeilen sind per Tastatur navigierbar, in beiden Ansichten (Bibliothek und Projekt): **↑** und **↓** bewegen den Cursor zur selben Spalte in der Zeile darüber oder darunter, und **Enter** (abwärts) oder **Shift+Enter** (aufwärts) tun dasselbe. Auf der allerletzten Zeile öffnet **Enter** dort eine neue Entwurfszeile — dieselbe durchgehende Erfassung wie in der Aufgabentabelle. In den Dropdowns (**Typ**, **Kalender**, **Kolonne**) und im Drehfeld **Max. Einheiten** behalten die Pfeiltasten bewusst ihre eigene Bedeutung (eine Option wählen, einen Wert schrittweise ändern); verwenden Sie dort **Enter**, um zur nächsten Zeile zu wechseln.
 
 ### Zeitlich gestaffelte Kapazität
 
@@ -77,7 +83,15 @@ Wenn Sie statt Balken „Neu berechnen (F5), um die Auslastung anzuzeigen" sehen
 
 ## Das angedockte Ressourcen-Panel
 
-Neben dem vollständigen Ressourcen-Panel (Menüband-Schaltfläche **Ressourcen**) gibt es eine kompakte Variante, die Sie rechts andocken können: die Schaltfläche **Ressourcen-Dock** in der Menübandgruppe **Verwalten**. Dieses angedockte Panel zeigt nur den Namen, die **Max. Einheiten** (direkt editierbar) und einen roten/grünen Punkt für Überlastung — eine schnelle Übersicht neben Ihrem Gantt, ohne das vollständige Panel zu öffnen. Das angedockte Ressourcen-Panel und der Eigenschaftenbereich stehen als zwei vollwertige Bereiche übereinander in der rechten Spalte: Jeder hat seine eigene Menüband-Schaltfläche, und die Höhe teilen Sie auf, indem Sie die Grenze dazwischen ziehen.
+Neben dem vollständigen Ressourcen-Panel (Menüband-Schaltfläche **Ressourcen**) gibt es eine kompakte Variante, die Sie rechts andocken können: die Schaltfläche **Ressourcen-Dock** in der Menübandgruppe **Verwalten**. Dieses angedockte Panel zeigt nur den Namen, die **Max. Einheiten** (direkt editierbar) und einen roten/grünen Punkt für Überlastung — eine schnelle Übersicht neben Ihrem Gantt, ohne das vollständige Panel zu öffnen.
+
+Die Seitenspalte enthält **zwei gleichwertige Panels** übereinander: **Eigenschaften** und die angedockte Ressourcenliste. Sie ersetzen einander nicht und klappen nicht weg — ist ein Panel eingeschaltet, sehen Sie einfach seinen Inhalt. Jedes Panel hat dafür einen eigenen Schalter: die Menüband-Schaltflächen **Eigenschaften** und **Ressourcen-Dock**, beide in der Gruppe **Bereiche** auf der Registerkarte **Ansicht**. Derselbe Schalter sitzt als **✕** auch in der eigenen Kopfleiste des Panels.
+
+Die Höhe teilen Sie auf, indem Sie die **Grenze zwischen den beiden Panels** ziehen; diese Aufteilung wird gemerkt. Ist nur ein Panel eingeschaltet, erhält es stets die volle Höhe. Sind beide aus, gibt es überhaupt keine Seitenspalte, und das Gantt erhält die volle Breite.
+
+Um die Spalte *ohne* Verlust Ihrer Panel-Auswahl aus dem Weg zu bekommen, verwenden Sie die Schaltfläche oben rechts in der oberen Kopfleiste. Übrig bleibt ein schmaler Streifen; ein Klick darauf bringt die Spalte genau so zurück, wie Sie sie verlassen haben.
+
+Dieselben drei Schaltflächen — **Ressourcen**, **Ressourcen-Dock** und **Histogramm** — sitzen ebenfalls auf der Registerkarte **Ansicht** in der Menübandgruppe **Bereiche**, neben **Eigenschaften**. Gleicher Name, gleiches Symbol, gleiches Verhalten: Wo auch immer Sie darauf klicken, sie tun genau dasselbe. Der Unterschied liegt zwischen den beiden Ressourcen-Schaltflächen selbst: **Ressourcen** öffnet das vollständige Panel über dem Arbeitsbereich, **Ressourcen-Dock** heftet die kompakte Liste als zweites Panel in der Seitenspalte an.
 
 ## Überlastungen erkennen
 
