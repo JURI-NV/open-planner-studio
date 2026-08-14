@@ -519,8 +519,8 @@
     "occupancy": {
       "empty": "Nenhum recurso da biblioteca reservado nos documentos abertos.",
       "machineOnly": "Esta vista só vê os documentos abertos neste computador.",
-      "staleDoc": "Planificação não calculada — ative este documento e prima F5.",
-      "staleBanner": "Pelo menos um documento não foi calculado; os números podem estar desatualizados.",
+      "staleDoc": "Não contabilizado: planificação não calculada — ative este documento e prima F5.",
+      "staleBanner": "Pelo menos um documento não foi calculado e não é contabilizado na ocupação.",
       "docCount_one": "{{count}} documento",
       "docCount_many": "{{count}} documentos",
       "docCount_other": "{{count}} documentos",

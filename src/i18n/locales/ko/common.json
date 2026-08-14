@@ -515,8 +515,8 @@
     "occupancy": {
       "empty": "열린 문서에 예약된 라이브러리 리소스가 없습니다.",
       "machineOnly": "이 개요는 이 컴퓨터에서 열린 문서만 표시합니다.",
-      "staleDoc": "일정이 계산되지 않았습니다 — 이 문서를 활성화하고 F5를 누르세요.",
-      "staleBanner": "적어도 하나의 문서가 계산되지 않았습니다. 숫자가 오래되었을 수 있습니다.",
+      "staleDoc": "집계 제외: 일정이 계산되지 않았습니다 — 이 문서를 활성화하고 F5를 누르세요.",
+      "staleBanner": "적어도 하나의 문서가 계산되지 않아 점유 현황에 포함되지 않습니다.",
       "docCount_other": "문서 {{count}}개",
       "conflictDays_other": "{{count}}일 이중 예약",
       "moreDays_other": "… 외 {{count}}개",

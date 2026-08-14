@@ -521,8 +521,8 @@
     "occupancy": {
       "empty": "Brak zasobów z biblioteki zarezerwowanych w otwartych dokumentach.",
       "machineOnly": "Ten przegląd widzi tylko dokumenty otwarte na tym komputerze.",
-      "staleDoc": "Harmonogram nieprzeliczony — aktywuj ten dokument i naciśnij F5.",
-      "staleBanner": "Co najmniej jeden dokument nie został przeliczony; liczby mogą być nieaktualne.",
+      "staleDoc": "Nie liczy się: harmonogram nieprzeliczony — aktywuj ten dokument i naciśnij F5.",
+      "staleBanner": "Co najmniej jeden dokument nie został przeliczony i nie jest uwzględniony w obłożeniu.",
       "docCount_one": "{{count}} dokument",
       "docCount_few": "{{count}} dokumenty",
       "docCount_many": "{{count}} dokumentów",

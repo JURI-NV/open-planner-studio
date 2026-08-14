@@ -517,8 +517,8 @@
     "occupancy": {
       "empty": "Keine Bibliotheksressourcen in den geöffneten Dokumenten gebucht.",
       "machineOnly": "Diese Übersicht sieht nur Dokumente, die auf diesem Computer geöffnet sind.",
-      "staleDoc": "Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
-      "staleBanner": "Mindestens ein Dokument wurde nicht berechnet; die Zahlen können veraltet sein.",
+      "staleDoc": "Zählt nicht mit: Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
+      "staleBanner": "Mindestens ein Dokument wurde nicht berechnet und zählt in der Belegung nicht mit.",
       "docCount_one": "{{count}} Dokument",
       "docCount_other": "{{count}} Dokumente",
       "conflictDays_one": "{{count}} Tag doppelt belegt",

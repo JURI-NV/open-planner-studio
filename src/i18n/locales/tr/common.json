@@ -517,8 +517,8 @@
     "occupancy": {
       "empty": "Açık belgelerde kitaplıktan ayrılmış kaynak yok.",
       "machineOnly": "Bu genel bakış yalnızca bu bilgisayarda açılan belgeleri görür.",
-      "staleDoc": "Plan hesaplanmadı — bu belgeyi etkinleştirin ve F5'e basın.",
-      "staleBanner": "En az bir belge hesaplanmadı; rakamlar güncel olmayabilir.",
+      "staleDoc": "Sayılmaz: plan hesaplanmadı — bu belgeyi etkinleştirin ve F5'e basın.",
+      "staleBanner": "En az bir belge hesaplanmadı ve dolulukta sayılmıyor.",
       "docCount_one": "{{count}} belge",
       "docCount_other": "{{count}} belge",
       "conflictDays_one": "{{count}} gün çift rezervasyonlu",

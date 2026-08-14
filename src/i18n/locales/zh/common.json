@@ -515,8 +515,8 @@
     "occupancy": {
       "empty": "打开的文档中没有预订资源库中的资源。",
       "machineOnly": "此概览仅显示在本机上打开的文档。",
-      "staleDoc": "计划未计算 — 请激活此文档并按 F5。",
-      "staleBanner": "至少有一个文档未经计算；数字可能已过期。",
+      "staleDoc": "不计入：计划未计算 — 请激活此文档并按 F5。",
+      "staleBanner": "至少有一个文档未经计算，未计入占用。",
       "docCount_other": "{{count}} 个文档",
       "conflictDays_other": "{{count}} 天重复预订",
       "moreDays_other": "… 另有 {{count}} 个",

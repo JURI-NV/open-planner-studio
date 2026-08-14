@@ -519,8 +519,8 @@
     "occupancy": {
       "empty": "Nessuna risorsa della libreria prenotata nei documenti aperti.",
       "machineOnly": "Questa panoramica vede solo i documenti aperti su questo computer.",
-      "staleDoc": "Pianificazione non calcolata — attiva questo documento e premi F5.",
-      "staleBanner": "Almeno un documento non è stato calcolato; i numeri potrebbero non essere aggiornati.",
+      "staleDoc": "Non conteggiato: pianificazione non calcolata — attiva questo documento e premi F5.",
+      "staleBanner": "Almeno un documento non è stato calcolato e non è incluso nell'occupazione.",
       "docCount_one": "{{count}} documento",
       "docCount_many": "{{count}} documenti",
       "docCount_other": "{{count}} documenti",
