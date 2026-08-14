@@ -2077,6 +2077,12 @@ export class GanttRenderer {
    * Verzameltaken blijven hier wél geweerd: de solver krijgt alleen bladtaken, dus zo'n relatie
    * zou een spookrelatie zijn (zie `state/relationRules.ts`). Vroeg weigeren — door de sleep niet
    * te armen — is prettiger dan hem na afloop afwijzen.
+   *
+   * De check hieronder is `task.childIds.length > 0` inline, geen import van `isSummaryTask` uit
+   * `state/relationRules.ts` — deze renderer importeert bewust niets uit `@/state`. Dat maakt
+   * `relationRules.ts` de enige bron van de RÉGEL, niet letterlijk de enige plek waar hij staat:
+   * de conditie zelf is hier gedupliceerd, en moet in lockstep blijven met `isSummaryTask` als die
+   * regel ooit verandert.
    */
   getRelationSourceAt(canvasX: number, canvasY: number): Task | null {
     if (canvasX < this.opts.taskTableWidth) return null;

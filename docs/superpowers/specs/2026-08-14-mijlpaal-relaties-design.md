@@ -201,14 +201,46 @@ Zichtbaar op twee plekken:
 - **Relaties-paneel:** markering + tooltip per regel.
 - **Na het laden van een document:** één samenvattende melding ("N relaties op verzameltaken hebben
   geen effect op de planning") via het bestaande `notify`-kanaal met `dedupeKey`. Dit gaat in
-  `loadProject` in `fileSlice.ts`, de trechter waar IFC-, CSV- en XML-import allemaal doorheen gaan
-  — naast de bestaande uur-data-melding, die exact dezelfde vorm heeft. **Te verifiëren in het
-  plan:** dat `loadProject` werkelijk de enige trechter is; is dat niet zo, dan liever de melding
-  uit het paneel halen dan hem op meerdere plekken herhalen.
+  `applyLoadedProject` in `fileSlice.ts`, de gedeelde implementatie waar `loadState` en de drie
+  open-paden allemaal doorheen lopen — naast de bestaande uur-data-melding, die exact dezelfde vorm
+  heeft. Bewaakt door `tests/planning/check-notifications.ts` (eindreview, punt C).
+  **Bekende beperking (eindreview, punt E2):** crash-herstel (`restoreDocuments`) loopt NIET door
+  `applyLoadedProject` — `fileSlice.ts:79` vermeldt dat zelf — dus na een herstelde sessie verschijnt
+  deze samenvattende melding niet, ook al kan het herstelde document dezelfde spookrelaties bevatten.
 
 Waarom behouden en niet wegfilteren bij het laden: wegfilteren vernietigt logica uit het
 bronbestand (open + opslaan van een P6-plan verliest die relaties permanent), en het gooit precies
 de data weg die het toekomstpad hieronder nodig heeft.
+
+### 5a. Bekende beperking: de indirecte route maakt spookrelaties zonder enig signaal
+
+Dit ontwerp blokkeert alleen het **directe** pad — een relatie rechtstreeks naar een verzameltaak
+leggen — met een leesbare weigering (§1, §Foutafhandeling). Het **indirecte** pad is volledig stil:
+`indentTasks`, `moveTaskTo`, `addTask({ parentId })` en `insertWbsTemplate` kunnen een bladtaak MET
+bestaande relaties tot verzameltaak maken door haar een kind te geven. Vanaf dat moment zijn haar
+relaties spookrelaties — §5 hierboven dekt dat gratis qua *markering* ("dekt gratis het randgeval"),
+maar niet qua *signalering op het moment zelf*.
+
+Concreet: een project met relatie A→B. De gebruiker sleept C onder B (inspringen). Vanaf dat moment
+doet A→B niets meer. De Gantt tekent de pijl **identiek** aan een werkende relatie; er verschijnt
+geen melding; een druk op F5 verschuift de planning zonder uitleg. De enige aanwijzing is het
+waarschuwingsdriehoekje in het Relaties-paneel (§5) — visueel niet te onderscheiden van de bestaande
+lead-waarschuwingen daar, en in een paneel dat niet standaard open staat.
+
+**MCP meldt hier ook niets.** `planner_add_tasks` met een `parentId` maakt de spookrelaties zonder
+een woord — er is geen zachte weigering, geen waarschuwing in het resultaat. De leestools
+(`planner_get_dependencies` e.d.) melden per relatie nergens "zonder effect"; alleen het
+Relaties-paneel toont de afgeleide markering, en dat paneel heeft geen MCP-equivalent. Een agent die
+via MCP een taak onder een andere hangt, ziet dus geen signaal dat hij zojuist bestaande relaties
+buiten werking heeft gezet.
+
+Mogelijke uitwegen (niet gebouwd, buiten scope van deze tak — genoemd door de eindreview):
+
+- Dezelfde samenvattende melding (§5) afvuren wanneer een structuurmutatie (`indentTasks`,
+  `moveTaskTo`, `addTask({ parentId })`, `insertWbsTemplate`) relaties zonder effect maakt — het
+  laadpad-patroon hergebruiken op het bewerkpad.
+- De spookpijl in de Gantt gestippeld of gedimd tekenen zodra `hasSummaryEndpoint` waar is, zodat het
+  zichtbaar is zonder het Relaties-paneel te openen.
 
 ## Foutafhandeling
 

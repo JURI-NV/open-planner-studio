@@ -85,6 +85,12 @@ export function relationVerdict(
   // Eén keer oplossen i.p.v. vier keer (twee via deze functie, twee via `hasSummaryEndpoint`): op
   // het MCP-batchpad draait dit per relatie over een Immer-draft, en de dubbele lookup was gemeten
   // goed voor een ~6× tragere batch (3000 taken / 1500 relaties: 798ms → 4645ms).
+  // Dit lost de dubbele lookup op, niet de trage lookup: `draft.addSequence` zoekt zelf nog
+  // lineair over de Immer-draft per relatie, dus er blijft een restpost staan (dezelfde meting:
+  // 692ms zonder taak-lookup vs. 2601ms nu, ~3,8×). Dat is een bewuste handhavingsgrens, geen gat —
+  // `classifyDeps` (`taskTools.ts`) heeft de hele batch al met een Map gevalideerd vóór deze functie
+  // draait; dit is de backstop die ook een direct store-pad (buiten MCP om) dekt, niet de plek waar
+  // de batch-performance vandaan moet komen.
   const pred = lookup(seq.predecessorId);
   const succ = lookup(seq.successorId);
   if (!pred || !succ) return { ok: false, reason: 'unknown-task' };

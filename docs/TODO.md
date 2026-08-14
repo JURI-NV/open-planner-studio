@@ -327,6 +327,23 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
 
+### Klein — de indirecte route naar een spookrelatie is volledig stil (2026-08-14)
+- [ ] **Structuurmutaties kunnen een bladtaak-met-relaties tot verzameltaak maken zonder enig
+      signaal.** De mijlpaal-relaties-tak (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-
+      design.md`, §5a) blokkeert alleen het *directe* pad — een relatie rechtstreeks naar een
+      verzameltaak leggen — met een leesbare weigering. Het *indirecte* pad via `indentTasks`,
+      `moveTaskTo`, `addTask({ parentId })` en `insertWbsTemplate` is stil: een project met A→B
+      waar de gebruiker C onder B inspringt, maakt A→B met terugwerkende kracht tot spookrelatie.
+      De Gantt tekent de pijl identiek, er komt geen melding, en F5 verschuift de planning zonder
+      uitleg. De enige aanwijzing is het waarschuwingsdriehoekje in het Relaties-paneel (niet
+      standaard open, visueel niet te onderscheiden van de bestaande lead-waarschuwingen daar).
+      MCP meldt hier ook niets: `planner_add_tasks` met een `parentId` maakt de spookrelaties
+      zonder een woord, en de leestools melden per relatie nergens "zonder effect".
+      *Kandidaat-aanpak:* dezelfde samenvattende melding als na het laden (`notifications.
+      summaryRelationsIgnored`) afvuren wanneer een structuurmutatie relaties zonder effect maakt,
+      óf de spookpijl in de Gantt gestippeld/gedimd tekenen zodra `hasSummaryEndpoint` waar is.
+      Gevonden bij de eindreview op die tak.
+
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)
