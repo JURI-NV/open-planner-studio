@@ -296,6 +296,12 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       Restpunt: `public/examples/*.ifc` zijn niet geregenereerd en bevatten de nieuwe
       pset-properties dus nog niet — onschadelijk (ze lezen via de WORKPLAN-terugval), maar bij een
       volgende `gen:examples`-run komen ze er vanzelf bij.
+- [ ] **Mijlpaal horizontaal verslepen om de datum te wijzigen.** Nu geblokkeerd door dezelfde
+      `getTaskBarBounds`-null die het relatie-tekenen blokkeerde (opgelost in spec 2026-08-14). Raakt
+      `barDrag`: bij een 0-duurtaak mag alleen een body-sleep armen, nooit een resize-greep, en
+      snapping/undo/uur-modus moeten kloppen.
+- [ ] **`useDependencyDraw.ts` toetst de drop-x tegen `ui.leftPanelWidth`, terwijl de overige
+      canvas-hittests `taskTableWidth` gebruiken.** Uitzoeken of dat een bug is.
 ### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
 - [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
       (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van
