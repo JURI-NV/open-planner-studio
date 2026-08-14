@@ -21,6 +21,7 @@ import type { Holiday, WorkCalendar } from '@/types/calendar';
 import type { CustomFieldType } from '@/types/structure';
 import { generateId } from '@/utils/id';
 import topologies from './example-topologies.json';
+import { EXAMPLE_RESOURCES } from './example-resources';
 import { SHOWCASES } from './showcases';
 import { TERREIN_ONDERAANNEMER, ANCHOR_TASK_NAME, buildGrootSpec } from './showcase-groot';
 import type { ProjectSpec, CalSpec, TaskSpec, LinkSpec } from './spec';
@@ -389,6 +390,12 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
   const phaseFirst: string[] = [];
   const phaseLastReal: string[] = [];
   const phaseWorkdays: number[] = [];
+  const slug: string = (topologies as any).filenames[index];
+  // Resourceset (alleen voor de voorbeelden die er één hebben, zie `example-resources.ts`).
+  // Toewijzingen koppelen op TAAKNAAM; `usedAssignments` bewaakt hieronder dat elke naam exact
+  // één taak raakt, zodat een hernoemde taak niet stil zijn ploeg kwijtraakt.
+  const resourceSet = EXAMPLE_RESOURCES[slug];
+  const usedAssignments = new Map<string, number>();
 
   def.phases.forEach((phase, pi) => {
     const pkey = `p${pi}`;
@@ -402,6 +409,8 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
       const ms = !!child.milestone;
       const dur = ms ? 0 : (child.duration ?? 5);
       sum += dur;
+      const assign = ms ? undefined : resourceSet?.assignments[child.name];
+      if (assign) usedAssignments.set(child.name, (usedAssignments.get(child.name) ?? 0) + 1);
       tasks.push({
         name: child.name, key, parent: pkey,
         taskType: child.taskType ?? phase.taskType,
@@ -409,6 +418,7 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
         ...(ms ? { milestone: true } : {}),
         ...(ms && startKind(child.name) ? { milestoneKind: startKind(child.name) } : {}),
         ...(ms && isMandatoryMs(child.name) ? { mandatory: true } : {}),
+        ...(assign ? { assign } : {}),
       });
       if (firstKey === null) firstKey = key;
       if (prev) {
@@ -452,8 +462,15 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
     }
   }
 
+  // Elke toewijzings-sleutel moet exact één (niet-mijlpaal) taak geraakt hebben — anders is de
+  // topologie hernoemd/gewijzigd en zou de ploeg er stil af vallen.
+  for (const name of Object.keys(resourceSet?.assignments ?? {})) {
+    const hits = usedAssignments.get(name) ?? 0;
+    if (hits !== 1) throw new Error(`[${slug}] toewijzing "${name}" raakt ${hits} taken (verwacht precies 1)`);
+  }
+
   return {
-    slug: (topologies as any).filenames[index],
+    slug,
     name: def.name,
     description: def.description,
     author: def.author,
@@ -462,6 +479,7 @@ export function topologyToSpec(def: TopoDef, index: number): ProjectSpec {
     calendar: SIX_DAY.has(index)
       ? { workDays: [1, 2, 3, 4, 5, 6], name: 'Infrastructure calendar Mon-Sat', description: 'Infrastructure/hydraulic works: Mon-Sat' }
       : undefined,
+    ...(resourceSet ? { resources: resourceSet.resources } : {}),
     tasks, links,
   };
 }
