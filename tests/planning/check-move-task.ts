@@ -109,6 +109,27 @@ const idExplicit = S().addTask({
 eq('24 addTask mét time: expliciete waarde wint van de default', task(idExplicit)?.time.scheduleStart, '2027-06-15');
 eq('25 addTask mét time: expliciete duur wint van de default', task(idExplicit)?.time.scheduleDuration, 12);
 
+// ── 5) moveTask zonder position: WBS-volgorde moet childIds-volgorde volgen (regressie voor de
+//      gerapporteerde 3.1/3.2/3.3-bug — een taak die vóór zijn latere siblings werd aangemaakt en
+//      via het Taakdialoog van ouder wisselt (TaskDialog.handleSave roept moveTask zónder position
+//      aan), moet het WBS-nummer van zijn NIEUWE (laatste) plek krijgen, niet van zijn oude
+//      array-positie). ──
+const idNieuweTaak = S().addTask({ name: 'Nieuwe taak' }); // root, vroeg in de rauwe array
+const idRuwbouw = S().addTask({ name: 'ruwbouw' });
+const idFundering = S().addTask({ name: 'herstellen fundering', parentId: idRuwbouw });
+const idScheiding = S().addTask({ name: 'scheidingswanden', parentId: idRuwbouw });
+
+S().moveTask(idNieuweTaak, idRuwbouw); // zoals TaskDialog.handleSave: geen position
+
+eq('26 moveTask zonder position: childIds-volgorde = [fundering, scheiding, nieuweTaak]',
+  task(idRuwbouw)?.childIds, [idFundering, idScheiding, idNieuweTaak]);
+eq('27 moveTask zonder position: WBS van nieuweTaak matcht zijn zichtbare (laatste) plek',
+  task(idNieuweTaak)?.wbsCode, `${task(idRuwbouw)?.wbsCode}.3`);
+eq('28 moveTask zonder position: fundering blijft 1e kind',
+  task(idFundering)?.wbsCode, `${task(idRuwbouw)?.wbsCode}.1`);
+eq('29 moveTask zonder position: scheiding blijft 2e kind',
+  task(idScheiding)?.wbsCode, `${task(idRuwbouw)?.wbsCode}.2`);
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  move-task-check: alle checks groen (${checks})`);

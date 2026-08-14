@@ -493,50 +493,48 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // Add to new parent
       task.parentId = newParentId;
 
-      if (position === undefined) {
-        // Zonder positie: BYTE-IDENTIEK aan het oude gedrag — achteraan childIds, de rauwe
-        // s.tasks-array blijft ongemoeid (de WBS-volgorde onder de nieuwe ouder volgt dan de
-        // bestaande array-positie van de taak, precies zoals voorheen).
-        if (newParentId) {
-          const newParent = s.tasks.find(t => t.id === newParentId);
-          if (newParent) newParent.childIds.push(id);
+      // Insert op `position` (T12), of — zonder positie — achteraan, volgens het dubbele-
+      // volgorde-principe van de store-`addTask` met anker. WBS-nummering (flattenOrder) leest de
+      // RAUWE array-volgorde en negeert childIds; de zichtbare volgorde van niet-root taken leest
+      // juist childIds (visibleRows.ts). Daarom moet de invoegplek op BEIDE plekken kloppen — ook
+      // zonder expliciete `position` (voorheen liet die tak de rauwe array ongemoeid, waardoor het
+      // WBS-nummer de oude array-positie van vóór de move bleef volgen terwijl de taak zichtbaar
+      // achteraan verscheen: gerapporteerde 3.1/3.2/3.3-bug, taskDialog "parent wijzigen").
+      //
+      // (1) childIds van de nieuwe ouder — zichtbare volgorde voor niet-root taken.
+      if (newParentId) {
+        const newParent = s.tasks.find(t => t.id === newParentId);
+        if (newParent) {
+          const at = position === undefined
+            ? newParent.childIds.length
+            : Math.max(0, Math.min(position, newParent.childIds.length));
+          newParent.childIds.splice(at, 0, id);
         }
-      } else {
-        // Mét positie (T12): insert op `position` volgens het dubbele-volgorde-principe van de
-        // store-`addTask` met anker. WBS-nummering (flattenOrder) leest de RAUWE array-volgorde en
-        // negeert childIds; de zichtbare volgorde van niet-root taken leest juist childIds
-        // (visibleRows.ts). Daarom moet de invoegplek op BEIDE plekken kloppen.
-        //
-        // (1) childIds van de nieuwe ouder — zichtbare volgorde voor niet-root taken.
-        if (newParentId) {
-          const newParent = s.tasks.find(t => t.id === newParentId);
-          if (newParent) {
-            const at = Math.max(0, Math.min(position, newParent.childIds.length));
-            newParent.childIds.splice(at, 0, id);
-          }
-        }
-        // (2) rauwe s.tasks-array — root-volgorde + WBS. Haal de taak eruit en zet 'm terug zó dat
-        // hij — gerekend over alléén zijn siblings (taken met dezelfde parentId, in array-volgorde)
-        // — op index `position` staat. Nakomelingen blijven staan waar ze staan; flattenOrder
-        // herbouwt de boom uit parentId, dus alleen de sibling-volgorde van deze taak telt.
-        const fromIdx = s.tasks.findIndex(t => t.id === id);
-        const [moved] = s.tasks.splice(fromIdx, 1);
-        const sibIdx: number[] = [];
-        s.tasks.forEach((t, i) => { if (t.parentId === newParentId) sibIdx.push(i); });
-        const at = Math.max(0, Math.min(position, sibIdx.length)); // klem naar [0, aantal siblings]
-        let insertAt: number;
-        if (at < sibIdx.length) {
-          insertAt = sibIdx[at];                       // vóór de huidige `at`-de sibling
-        } else if (sibIdx.length > 0) {
-          insertAt = sibIdx[sibIdx.length - 1] + 1;    // achter de laatste sibling
-        } else if (newParentId) {
-          const p = s.tasks.findIndex(t => t.id === newParentId);
-          insertAt = p >= 0 ? p + 1 : s.tasks.length;  // enig kind: vlak achter de ouder
-        } else {
-          insertAt = s.tasks.length;                   // enige root: achteraan
-        }
-        s.tasks.splice(insertAt, 0, moved);
       }
+      // (2) rauwe s.tasks-array — root-volgorde + WBS. Haal de taak eruit en zet 'm terug zó dat
+      // hij — gerekend over alléén zijn siblings (taken met dezelfde parentId, in array-volgorde)
+      // — op index `position` (of, zonder positie, achteraan) staat. Nakomelingen blijven staan
+      // waar ze staan; flattenOrder herbouwt de boom uit parentId, dus alleen de sibling-volgorde
+      // van deze taak telt.
+      const fromIdx = s.tasks.findIndex(t => t.id === id);
+      const [moved] = s.tasks.splice(fromIdx, 1);
+      const sibIdx: number[] = [];
+      s.tasks.forEach((t, i) => { if (t.parentId === newParentId) sibIdx.push(i); });
+      const at = position === undefined
+        ? sibIdx.length
+        : Math.max(0, Math.min(position, sibIdx.length)); // klem naar [0, aantal siblings]
+      let insertAt: number;
+      if (at < sibIdx.length) {
+        insertAt = sibIdx[at];                       // vóór de huidige `at`-de sibling
+      } else if (sibIdx.length > 0) {
+        insertAt = sibIdx[sibIdx.length - 1] + 1;    // achter de laatste sibling
+      } else if (newParentId) {
+        const p = s.tasks.findIndex(t => t.id === newParentId);
+        insertAt = p >= 0 ? p + 1 : s.tasks.length;  // enig kind: vlak achter de ouder
+      } else {
+        insertAt = s.tasks.length;                   // enige root: achteraan
+      }
+      s.tasks.splice(insertAt, 0, moved);
 
       if (s.project.wbsAutoNumber) applyWbsNumbering(s.tasks);
       finishMutation(s, { stale: true }); // datum-rakende mutatie (A6): planning verouderd tot F5.
