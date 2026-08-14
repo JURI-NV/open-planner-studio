@@ -268,6 +268,24 @@ function checkAgentDocs(diffs: string[]): void {
     if (missing.length) diffs.push(`CLAUDE.md's locale-opsomming mist: ${missing.join(', ')}`);
     if (extra.length) diffs.push(`CLAUDE.md's locale-opsomming noemt onbekende locales: ${extra.join(', ')}`);
   }
+
+  // 7e. Het aantal `planner_*`-MCP-tools. Dit getal dreef stil weg (CLAUDE.md zei 38 terwijl de
+  //     bridge er 39 draaide): een tool erbij is één regel in de registry, en niemand denkt dan
+  //     aan een zin verderop in CLAUDE.md. Precies het soort drift dat deze poort hoort te vangen.
+  //     Geteld over de tool-bestanden zelf, niet over een lijst die óók bij kan raken.
+  const toolsDir = join(ROOT, 'src', 'services', 'mcp', 'tools');
+  const toolNames = new Set<string>();
+  for (const file of readdirSync(toolsDir)) {
+    if (!file.endsWith('.ts')) continue;
+    const src = readFileSync(join(toolsDir, file), 'utf8');
+    for (const m of src.matchAll(/['"](planner_[a-z_]+)['"]/g)) toolNames.add(m[1]);
+  }
+  const claimed = claude.match(/De (\d+)\s*\n?`planner_\*`-tools/);
+  if (!claimed) {
+    diffs.push('CLAUDE.md-check: geen "De N `planner_*`-tools"-bewering gevonden (is de zin herschreven?)');
+  } else if (Number(claimed[1]) !== toolNames.size) {
+    diffs.push(`CLAUDE.md zegt ${claimed[1]} \`planner_*\`-tools, maar src/services/mcp/tools/ definieert er ${toolNames.size}`);
+  }
 }
 
 function main() {
