@@ -478,6 +478,7 @@ De vergelijkingen uit T5–T7 bestaan al; deze taak maakt de check af en hardt h
 **Afhankelijk van:** T9 + T10.
 **Files:** geen nieuwe (alleen fixes die uit de review rollen).
 
+- [ ] **Stap 0-bis (T7-kwaliteitsreview): `mppReader.ts` (1100+ regels, 4 verantwoordelijkheden) splitsen** — `readResources*`/`readAssignments*` hebben nul afhankelijkheid van de rest (schone verhuizing naar `mppResources.ts`/`mppAssignments.ts` of één `mppEntities.ts`); `readRelations*` hangt alleen aan de gedeelde duurhelper. Gemeten advies van de reviewer: nu goedkoopst, T8-T10 raken dit bestand nauwelijks.
 - [ ] **Stap 0: onderhoudsagenda uit de T2-kwaliteitsreview (optioneel maar geagendeerd).** (a) drievoudige "isBinary ? readFile : readTextFile"-duplicatie (fileSlice/devBridge/fileTools) samentrekken tot een `readFormatInput(name, io)`-helper in formatRegistry; (b) de gedupliceerde permissie-dans in webBackend (`readFromRefWeb`/`readBytesFromRefWeb`) naar één `readRefWeb<T>`-strategie; (c) 4× extensie-extractie naar één `extensionOf` in `@/utils/filePath`; (d) `parseProjectXml`-export heroverwegen (geen externe afnemer) en de `!` op de DEFAULT_FORMAT_ID-lookup vervangen door een benoemde const-entry.
 - [ ] **Stap 1: zelf-review-checklist.**
   - `grep -rn "readIFC(\|readCSV(\|readMSPDI(\|readP6XML(" src/ | grep -v "formatRegistry\|Reader.ts\|Writer.ts"` — geen dispatch-restanten buiten de registry (losse legitieme gebruikers zoals `openExampleFromString`/IFCPanel benoemen en laten staan).
