@@ -91,10 +91,15 @@ then shows exactly which items were dropped or simplified, and how many.
 
 ## Importing
 
-**File → Open** (or **Backstage → Open**) accepts `.ifc`, `.csv` and `.xml` files. For an `.xml`
-file, the app detects on its own whether it's a Primavera P6 or an MS Project file, based on the
-content. As described above: a CSV or P6 import produces a project **without baselines** (there
+**File → Open** (or **Backstage → Open**) accepts `.ifc`, `.csv`, `.xml` and `.mpp` files. For an
+`.xml` file, the app detects on its own whether it's a Primavera P6 or an MS Project file, based on
+the content. As described above: a CSV or P6 import produces a project **without baselines** (there
 weren't any in the source), while IFC and MSPDI bring baselines along.
+
+A `.mpp` file (Microsoft Project's native format, Project 2010 through 2021) is a separate path:
+that import is **read-only** — there is no `.mpp` export, so exporting back to MS Project runs
+through MSPDI XML. See the guide [Opening MS Project (.mpp)](docs://gids-msproject-import) for
+what comes along and what the limitations are.
 
 ## Extension importers
 

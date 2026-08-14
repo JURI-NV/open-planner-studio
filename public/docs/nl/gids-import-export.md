@@ -93,10 +93,16 @@ ontwikkelaarsconsole toont dan exact welke items zijn weggelaten of vereenvoudig
 
 ## Importeren
 
-**Bestand → Openen** (of **Backstage → Openen**) accepteert `.ifc`-, `.csv`- en `.xml`-bestanden.
-Bij een `.xml`-bestand herkent de app zelf of het een Primavera P6- of een MS Project-bestand is,
-aan de hand van de inhoud. Zoals hierboven beschreven: een CSV- of P6-import levert een project
-op **zonder baselines** (die stonden er niet in), terwijl IFC en MSPDI baselines wél meebrengen.
+**Bestand → Openen** (of **Backstage → Openen**) accepteert `.ifc`-, `.csv`-, `.xml`- en
+`.mpp`-bestanden. Bij een `.xml`-bestand herkent de app zelf of het een Primavera P6- of een MS
+Project-bestand is, aan de hand van de inhoud. Zoals hierboven beschreven: een CSV- of P6-import
+levert een project op **zonder baselines** (die stonden er niet in), terwijl IFC en MSPDI
+baselines wél meebrengen.
+
+Een `.mpp`-bestand (het native Microsoft Project-formaat, Project 2010 t/m 2021) is een aparte
+route: die import is **alleen-lezen** — er bestaat geen `.mpp`-export, dus terugexporteren naar
+MS Project loopt via MSPDI-XML. Zie de gids [MS Project (.mpp) openen](docs://gids-msproject-import)
+voor wat er meekomt en wat de beperkingen zijn.
 
 ## Extensie-importers
 
