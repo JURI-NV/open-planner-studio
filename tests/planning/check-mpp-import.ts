@@ -939,11 +939,16 @@ function buildCalHoursBlock(days: { defaultFlag?: 0 | 1; bands?: { startMinutes:
 }
 
 /** De uitzonderingen-staart (`AbstractCalendarAndExceptionFactory.processCalendarExceptions`) —
- *  wordt ná het 420-byte urenblok geplakt. Elke uitzondering hier is bewust NIET-recurrent
- *  (`recurrenceTypeValue=1` DAILY met `frequency@76=1` ⇒ MPXJ's eigen "vlak af tot een gewoon
- *  bereik"-geval, zie `mppCalendars.ts`'s `parseExceptions`) en NIET-werkend (`periodCount=0`),
- *  TENZIJ `nonFlattened` gezet is (voor de recurrentie-skip-regressie hieronder). */
-function buildCalExceptionsTail(exceptions: { fromDay: number; toDay: number; nonFlattened?: boolean }[]): Uint8Array {
+ *  wordt ná het 420-byte urenblok geplakt. `recurrenceTypeValue` default 1 (DAILY) + `periodCount=0`
+ *  (niet-werkend) ⇒ een gewone, niet-recurrente feestdag. `freq76` (blob-offset `pos+76`) default
+ *  256 — BEWUST GEEN 1 — spiegelt `mppCalendars.ts`'s `parseExceptions`-toelichting (T6-spec-review-
+ *  fix): bij `recurrenceTypeValue===1` NEGEERT MPXJ de bytes op `@76` volledig (frequency wordt
+ *  hardgecodeerd op 1), dus een fixture die hier toevallig altijd 1 schreef zou de vroegere,
+ *  BUGGY conditie (die `@76===1` ten onrechte eiste) evengoed laten slagen — 256 bewijst dat de
+ *  materialisatie ONAFHANKELIJK is van deze bytes bij type 1, zoals crawl-corpusmeting ook liet
+ *  zien (`@76` is daar nooit 1: 0/256/23148). `recurrenceTypeValue=7` (het ANDERE DAILY-type, waar
+ *  `@76` WÉL als frequency telt) is expliciet aan te geven voor die tak van de conditie. */
+function buildCalExceptionsTail(exceptions: { fromDay: number; toDay: number; recurrenceTypeValue?: number; freq76?: number }[]): Uint8Array {
   const bodyLen = exceptions.length * 92; // geen namen in deze fixture ⇒ exceptionNameLength altijd 0
   const out = new Uint8Array(4 + bodyLen);
   const view = new DataView(out.buffer);
@@ -953,8 +958,8 @@ function buildCalExceptionsTail(exceptions: { fromDay: number; toDay: number; no
     view.setInt16(pos, exc.fromDay, true);
     view.setInt16(pos + 2, exc.toDay, true);
     view.setInt16(pos + 14, 0, true); // periodCount = 0 ⇒ niet-werkend
-    view.setInt16(pos + 72, exc.nonFlattened ? 2 : 1, true); // 2=YEARLY (recurrent) vs. 1=DAILY
-    view.setInt16(pos + 76, 1, true); // frequency = 1 ⇒ (voor recurrenceTypeValue=1) geflattened
+    view.setInt16(pos + 72, exc.recurrenceTypeValue ?? 1, true);
+    view.setInt16(pos + 76, exc.freq76 ?? 256, true); // bewust ≠ 1 — zie de toelichting hierboven
     view.setInt32(pos + 88, 0, true); // exceptionNameLength = 0 (geen naam)
     pos += 92;
   }
@@ -1329,6 +1334,45 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
   truthy('T6-hostile circulaire base-keten: beide kalenders alsnog gematerialiseerd', result?.calendarByUniqueId.size === 2);
 }
 
+// ── T6-spec-review-fix-regressie: resource-uniqueID 0 op een AFGELEIDE kalender blijft gekoppeld.
+// AbstractCalendarFactory.java linkt basiskalenders alleen bij een POSITIEVE resource-ID (r. 158:
+// `resourceID.intValue() > 0 && !resourceMap.containsKey(resourceID)`), maar afgeleide kalenders
+// ONVOORWAARDELIJK (r. 176: kale `resourceMap.put(resourceID, cal)`, geen `>0`-check) — resource-
+// uniqueID 0 is een GELDIGE id (corpus: Bijlage 13's afgeleide kalenders dragen resource-ID's
+// 0,1,2,3,4,5,7,8,9). calId=1 is de basiskalender (resource=-1, dus NIET gelinkt — te verwachten:
+// -1 is ook geen positieve id); calId=2 is afgeleid met resource=0, die MOET gekoppeld blijven. ────
+{
+  const fixedMeta = buildCalFixedMetaBlob([0, 12]);
+  const fixedData = concatBytes(
+    buildCalFixedDataRecord(1, 1, -1), // basiskalender, geen resource
+    buildCalFixedDataRecord(2, 1, 0), // afgeleid van 1, resource-uniqueID 0
+  );
+  const varMeta = buildVarMetaBytes([]);
+  const projectProps = new Props(encodePropsEntries([]), 'T6-hostile-resourceUid0');
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': {
+      children: {
+        TBkndCal: {
+          children: {
+            FixedMeta: { data: fixedMeta },
+            FixedData: { data: fixedData },
+            VarMeta: { data: varMeta },
+          },
+        },
+      },
+    },
+  }));
+  const result = readCalendars(cfb, projectProps, null);
+  truthy(
+    'T6-spec-review-fix: afgeleide kalender met resource-uniqueID 0 blijft gekoppeld (geen >0-guard zoals MPXJ se afgeleide tak)',
+    result.resourceCalendarUniqueIdByResourceUniqueId.get(0) === 2,
+  );
+  truthy(
+    'T6-spec-review-fix: basiskalender met resource-uniqueID -1 blijft ONgekoppeld (>0-guard zoals MPXJ se basis-tak)',
+    !result.resourceCalendarUniqueIdByResourceUniqueId.has(-1),
+  );
+}
+
 // ── Extreem exception-aantal: `exceptionCount` claimt 60.000 (ver voorbij het SHORT-praktijk-
 // gebruik), tegen een buffer die daadwerkelijk 5.000 geldige 92-byte-uitzonderingsrecords draagt
 // (460.000 bytes) — bewijst dat `MAX_CALENDAR_EXCEPTIONS` de materialisatie klemt op 2000, ONGEACHT
@@ -1385,10 +1429,43 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
 // een meerjarig "feestdag"-bereik op te leveren. ────────────────────────────────────────────────
 {
   const hoursBlock = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
-  const tail = buildCalExceptionsTail([{ fromDay: 10000, toDay: 10100, nonFlattened: true }]);
+  const tail = buildCalExceptionsTail([{ fromDay: 10000, toDay: 10100, recurrenceTypeValue: 2 }]);
   const data = concatBytes(hoursBlock, tail);
   const holidays = parseExceptions(data, 'T6-hostile-recurring');
   truthy('T6-hostile recurrente uitzondering: NIET gematerialiseerd (0 holidays)', holidays.length === 0);
+}
+
+// ── T6-spec-review-fix-regressie: `recurrenceTypeValue===1` (DAILY) NEGEERT `@76` volledig — twee
+// records met bewust VERSCHILLENDE, NIET-1 `freq76`-waarden (0 en 256, de exacte crawl-corpus-
+// bevindingen) moeten BEIDE gematerialiseerd worden. De vroegere, buggy conditie eiste ten onrechte
+// `@76===1` en zou hier 0 holidays hebben opgeleverd i.p.v. 2. Daarnaast `recurrenceTypeValue===7`
+// (het ANDERE DAILY-type — hier telt `@76` WÉL als frequency): freq76=1 is geflattened
+// (gematerialiseerd), freq76=2 is een échte 2-daagse herhaling (NIET gematerialiseerd). ────────────
+{
+  const hoursBlock = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
+  const tail = buildCalExceptionsTail([
+    { fromDay: 20000, toDay: 20000, recurrenceTypeValue: 1, freq76: 0 }, // type 1: @76 genegeerd ⇒ altijd geflattened
+    { fromDay: 20010, toDay: 20010, recurrenceTypeValue: 1, freq76: 256 }, // idem, andere niet-1-waarde
+    { fromDay: 20020, toDay: 20020, recurrenceTypeValue: 7, freq76: 1 }, // type 7: @76 telt ⇒ freq=1 geflattened
+    { fromDay: 20030, toDay: 20030, recurrenceTypeValue: 7, freq76: 2 }, // type 7, freq=2 ⇒ échte herhaling, NIET geflattened
+  ]);
+  const data = concatBytes(hoursBlock, tail);
+  const holidays = parseExceptions(data, 'T6-spec-review-type1-frequency');
+  truthy(
+    'T6-spec-review-fix: 3 van de 4 uitzonderingen gematerialiseerd (alleen de échte type-7-herhaling niet)',
+    holidays.length === 3,
+  );
+  const materializedDays = new Set(holidays.map((h) => h.startDate));
+  const dayIso = (raw: number) => {
+    const buf = new Uint8Array(2);
+    new DataView(buf.buffer).setUint16(0, raw, true);
+    const d = getDate(buf, 0);
+    return d ? formatDate(d) : '';
+  };
+  truthy('T6-spec-review-fix: type-1 freq76=0 gematerialiseerd', materializedDays.has(dayIso(20000)));
+  truthy('T6-spec-review-fix: type-1 freq76=256 gematerialiseerd', materializedDays.has(dayIso(20010)));
+  truthy('T6-spec-review-fix: type-7 freq76=1 gematerialiseerd', materializedDays.has(dayIso(20020)));
+  truthy('T6-spec-review-fix: type-7 freq76=2 NIET gematerialiseerd', !materializedDays.has(dayIso(20030)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -1814,6 +1891,14 @@ if (corpusPresent) {
 
     const budget = HOLIDAY_DIFF_BUDGET[file];
     const holidayDiff = Math.abs(mppResult.calendar.holidays.length - xmlResult.calendar.holidays.length);
+    // `<=` (i.p.v. `===`) staat BEWUST ook 0 gelezen holidays toe — dat is precies het gemeten
+    // gedrag op deze drie bestanden (zie de toelichting hierboven). LET OP (T6-spec-review): dat is
+    // óók exact wat een echte regressie in `parseExceptions` (bv. de eerdere type-1-frequency-bug,
+    // die STIL alle 208 crawl-corpus-holidays liet vallen) hier zou maskeren — deze budget-poort kan
+    // dus niet detecteren of de lezer holidays daadwerkelijk correct materialiseert, alleen dat het
+    // verschil met déze specifieke (holiday-arme) ground truth binnen budget blijft. De crawl-
+    // corpussectie hieronder is de TEGENHANGER: die eist een positief holiday-totaal over een breder
+    // corpus, en zou de type-1-frequency-bug wél hard hebben gevangen.
     truthy(
       `[T6 ${file}] holiday-aantalverschil met de MSPDI-ground-truth binnen bekende basislijn (${holidayDiff}/${budget}, documentversieverschil — zie boven)`,
       holidayDiff <= budget,
@@ -1824,6 +1909,78 @@ if (corpusPresent) {
       + `projectkalender="${mppResult.calendar.name}" workDays=${JSON.stringify(mppResult.calendar.workDays)} `
       + `holidays=${mppResult.calendar.holidays.length}/${xmlResult.calendar.holidays.length} (ground truth):`,
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T6-crawl — breed corpus (49 `.mpp`, submappen MSP2016_OzBuild/MSP2021_OzBuild): holiday-
+// materialisatie ONAFHANKELIJK van de (toevallig holiday-arme) drie ground-truth-bestanden bewezen
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// De T6-sectie hierboven kan een regressie in `parseExceptions` NOOIT vangen: de drie ground-truth-
+// bestanden lezen zelf al 0 holidays (zie de toelichting daar), dus `holidayDiff <= budget` blijft
+// altijd binnen budget, ongeacht of de lezer daadwerkelijk holidays materialiseert. Dit bredere
+// corpus (OzBuild-projecten) draagt WEL feestdag-uitzonderingen — vooral "Easter <jaar>", een
+// verplaatsende feestdag die MS Project als losse, niet-recurrente datum-uitzonderingen per jaar
+// opslaat (`recurrenceTypeValue===1`) — en is dus de TEGENHANGER die de T6-spec-review-fix
+// (type-1-uitzonderingen negeren `@76` volledig) daadwerkelijk hard vangt bij een regressie.
+//
+// GEEN in-repo fixture (zelfde reden als het hoofdcorpus): mogelijk auteursrechtelijk beschermd
+// cursusmateriaal — override met OPS_MPP_CRAWL, nette skip zonder de map.
+{
+  const CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp';
+  const crawlPresent = existsSync(CRAWL);
+  if (!crawlPresent) {
+    console.log('OK  mpp-import: T6-crawl niet aanwezig (OPS_MPP_CRAWL) — crawlsectie overgeslagen');
+  } else {
+    function listMppFilesRecursive(dir: string): string[] {
+      const out: string[] = [];
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...listMppFilesRecursive(full));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mpp')) out.push(full);
+      }
+      return out;
+    }
+    const crawlFiles = listMppFilesRecursive(CRAWL);
+    if (crawlFiles.length === 0) {
+      console.log(`OK  mpp-import: T6-crawl-map aanwezig maar geen .mpp-bestanden erin (${CRAWL}) — crawlsectie overgeslagen`);
+    } else {
+      // Gemeten basislijn (2026-08-14, dit corpus, 49 bestanden, ná de T6-spec-review-fix): 116
+      // holidays op de PROJECTkalender (`resourceCalendars` bewust NIET meegeteld — die erven een
+      // kopie van dezelfde base-holidays, dus meetellen zou hetzelfde holiday meerdere keren tellen
+      // zonder extra signaal). VÓÓR de fix was dit 0 (de type-1-frequency-bug liet alle 208
+      // materialiseerbare uitzonderingen in dit corpus stil vallen — deze poort had de bug dus
+      // hard gevangen). `>=` (geen `===`): een toekomstige verbetering (bv. recurrente-
+      // uitzondering-expansie, zie `parseExceptions`'s moduleheader) mag dit laten STIJGEN zonder de
+      // poort te breken; een REGRESSIE laat het zakken en faalt hier.
+      const CRAWL_HOLIDAY_BASELINE = 116;
+      let totalHolidays = 0;
+      let filesWithHolidays = 0;
+      let readFailures = 0;
+      for (const file of crawlFiles) {
+        try {
+          const result = readMPP(new Uint8Array(readFileSync(file)));
+          const count = result.calendar.holidays.length;
+          totalHolidays += count;
+          if (count > 0) filesWithHolidays++;
+        } catch (err) {
+          readFailures++;
+          checks++;
+          diffs.push(`[T6-crawl] readMPP gooide onverwacht op ${file}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      truthy(`[T6-crawl] geen leesfouten over ${crawlFiles.length} bestanden`, readFailures === 0);
+      truthy(`[T6-crawl] totaal aantal gematerialiseerde holidays > 0 (${totalHolidays})`, totalHolidays > 0);
+      truthy(
+        `[T6-crawl] holiday-telling op/boven de gemeten basislijn (${totalHolidays}/${CRAWL_HOLIDAY_BASELINE})`,
+        totalHolidays >= CRAWL_HOLIDAY_BASELINE,
+      );
+      console.log(
+        `   . [T6-crawl] ${crawlFiles.length} bestanden, ${filesWithHolidays} met ≥1 holiday op de projectkalender, `
+        + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE})`,
+      );
+    }
   }
 }
 

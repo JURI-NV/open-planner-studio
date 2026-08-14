@@ -183,13 +183,26 @@ function resolveDays(data: Uint8Array | null, fallback: ReadonlyArray<DayResolut
  *  banden gezet — spiegelt `mspdiReader.ts`'s `applyCalendarBody`. `holidays` wordt HIER altijd
  *  leeggemaakt (nooit `createDefaultCalendar()`'s eigen NL-feestdagen-default laten doorlekken —
  *  die horen bij een NIEUW project, niet bij een uit een bestand gelezen kalender); de aanroeper
- *  zet de echte, gematerialiseerde `holidays` erna. */
-function buildCalendarFromDays(name: string | null, days: ReadonlyArray<DayResolution>): WorkCalendar {
+ *  zet de echte, gematerialiseerde `holidays` erna. `description` wordt eveneens altijd leeggemaakt
+ *  (T6-spec-review, minor c): MPP kent geen per-kalender-omschrijving, dus `createDefaultCalendar()`'s
+ *  hardgecodeerde "ma-vr 07:00-16:00"-tekst zou stil onwaar worden zodra de werkelijke, hier gelezen
+ *  uren daarvan afwijken.
+ *
+ *  `hoursPerDayOverride` (T6-spec-review-fix, minor b) — als niet-`null`, overschrijft dit de
+ *  scalar-afgeleide `hoursPerDay` VÓÓR `promoteHourCalendar` wordt aangeroepen, zodat promotie (die
+ *  op haar beurt `hoursPerDay` opnieuw kan afleiden via `deriveHoursPerDay` zodra de kalender
+ *  daadwerkelijk banden draagt) het LAATSTE woord houdt — exact de volgorde van mspdiReader
+ *  (`parseCalendar` past de MINUTES_PER_DAY-projecteigenschap toe, `promoteHourCalendar` draait
+ *  daarna pas). Een eerdere versie paste deze override pas ná `readCalendars` toe (in
+ *  `mppReader.ts`), dus NÁ promotie — dat liet promotie's eigen, preciezere afleiding stil
+ *  overschrijven door de grovere projecteigenschap, precies andersom dan mspdiReader. */
+function buildCalendarFromDays(name: string, days: ReadonlyArray<DayResolution>, hoursPerDayOverride: number | null): WorkCalendar {
   const cal = createDefaultCalendar();
   cal.id = generateId('mppcal');
   delete cal.generation; // MPP kent geen regelset-herkomst, net als MSPDI (zie mspdiReader.ts)
   cal.holidays = [];
-  if (name) cal.name = name;
+  cal.description = '';
+  cal.name = name;
 
   const rawByWeekday: Partial<Record<1 | 2 | 3 | 4 | 5 | 6 | 7, { start: number; end: number }[]>> = {};
   const workDays: number[] = [];
@@ -205,16 +218,23 @@ function buildCalendarFromDays(name: string | null, days: ReadonlyArray<DayResol
   }
   if (workDays.length > 0) cal.workDays = workDays.sort((a, b) => a - b);
   if (scalar) {
+    // T6-spec-review-fix (minor a): FLOOR op beide grenzen — spiegelt mspdiReader's
+    // `parseInt(toTime.split(':')[0])` (het HELE-UURDEEL van de kloktijd, geen afronding omhoog).
+    // `Math.ceil` op `workEndHour` gaf voorheen een AFWIJKENDE (te hoge) `hoursPerDay` zodra een
+    // bandgrens niet op een heel uur viel (bv. 17:30 werd 18 i.p.v. 17).
     cal.workStartHour = Math.floor(scalar.start / 60);
-    cal.workEndHour = Math.ceil(scalar.end / 60);
+    cal.workEndHour = Math.floor(scalar.end / 60);
     cal.hoursPerDay = cal.workEndHour - cal.workStartHour;
     if (cal.hoursPerDay <= 0) cal.hoursPerDay = 8;
   }
+  if (hoursPerDayOverride !== null) cal.hoursPerDay = hoursPerDayOverride;
 
   const { bands, deviates } = canonicalizeBands(rawByWeekday);
   registerCalendarBands(cal, { canonical: bands, deviates });
   // signaled=false: MPP-taken dragen in etappe 1 geen sub-dag-signaal (zie moduleheader) — een
-  // kalender promoveert hier uitsluitend op haar EIGEN banden (discriminator (a)/(b)).
+  // kalender promoveert hier uitsluitend op haar EIGEN banden (discriminator (a)/(b)). Draait NA de
+  // `hoursPerDayOverride`-toepassing hierboven, zodat promotie (indien de kalender deviates) het
+  // laatste woord heeft — zie de toelichting bij `hoursPerDayOverride`.
   promoteHourCalendar(cal, { canonical: bands, deviates }, false, false);
   return cal;
 }
@@ -231,14 +251,20 @@ function buildCalendarFromDays(name: string | null, days: ReadonlyArray<DayResol
  *     RECURRENTIEVENSTER, niet de feestdagdatum zelf — die blind als één doorlopend bereik
  *     materialiseren zou een meerjarig "feestdag"-bereik opleveren i.p.v. de bedoelde losse dagen.
  *     Recurrente uitzonderingen ondersteunt geen enkele lezer in dit project (mspdiReader ook niet)
- *     — hier bewust overgeslagen i.p.v. fout gematerialiseerd. `recurrenceTypeValue===1` (DAILY)
- *     mét frequency 1 is MPXJ's eigen "vlak af tot een gewoon bereik"-geval (`readRecurringData`'s
- *     `if (recurrenceType==DAILY && frequency==1) rd=null`) — dat behandelen we wél als een gewoon
- *     bereik, exact zoals MPXJ.
+ *     — hier bewust overgeslagen i.p.v. fout gematerialiseerd.
  *
- * Geëxporteerd (T6-hostile-tests, naar het model van `MAX_OUTLINE_LEVEL`/`clampOutlineLevel` in
- * mppReader.ts) zodat `check-mpp-import.ts` de `MAX_CALENDAR_EXCEPTIONS`-/`MAX_HOLIDAY_RANGE_DAYS`-
- * klemmen rechtstreeks kan aanroepen zonder een volledig CFB-bestand te hoeven bouwen. */
+ *     T6-SPEC-REVIEW-FIX (2026-08-14, BLOKKEREND — was een echte bug, geen theoretisch randgeval):
+ *     `readRecurringData`'s DAILY-tak (`recurrenceTypeValue` 1 ÓF 7 — beide `RecurrenceType.DAILY`,
+ *     zie `RECURRENCE_TYPES` in AbstractCalendarAndExceptionFactory.java) leest `frequency` NIET
+ *     altijd uit `@76`: bij `recurrenceTypeValue===1` hardcodeert MPXJ `frequency=1` (de bytes op
+ *     `@76` worden domweg GENEGEERD); alléén bij `recurrenceTypeValue===7` komt `frequency` uit
+ *     `@76`. Ná de switch geldt `DAILY && frequency===1 ⇒ rd=null` (geflattened/niet-recurrent) —
+ *     dus `recurrenceTypeValue===1` is ALTIJD geflattened, ongeacht wat er op `@76` staat. Een
+ *     eerdere versie van deze functie eiste ten onrechte `getShort(data,offset+76)===1` óók voor
+ *     type 1 — crawl-corpusmeting (49 bestanden, `check-mpp-import.ts`'s crawl-sectie) laat zien dat
+ *     `@76` bij type 1 in de praktijk 0, 256 of 23148 is (NOOIT 1), waardoor de oude conditie STIL
+ *     ALLE echte feestdagen liet vallen (0 van 208 gematerialiseerd, incl. bv. "Easter 2024/2025").
+ *     `isDaily`/`frequency` hieronder spiegelt de Java-switch letterlijk. */
 export function parseExceptions(data: Uint8Array, ctx: string): Holiday[] {
   const holidays: Holiday[] = [];
   if (data.length <= 420) return holidays;
@@ -261,8 +287,11 @@ export function parseExceptions(data: Uint8Array, ctx: string): Holiday[] {
     // bestand (naam ruim onder 64 KiB) is dit een no-op.
     exceptionNameLength = Math.max(0, Math.min(exceptionNameLength, MAX_CALENDAR_TEXT_BYTES));
 
-    const isFlattenedNonRecurring =
-      recurrenceTypeValue === 0 || (recurrenceTypeValue === 1 && getShort(data, offset + 76, ctx) === 1);
+    // T6-spec-review-fix (zie de moduleheader hierboven): `@76` telt UITSLUITEND mee bij
+    // recurrenceTypeValue===7 — bij ===1 hardcodeert MPXJ frequency=1 (ongeacht `@76`).
+    const isDaily = recurrenceTypeValue === 1 || recurrenceTypeValue === 7;
+    const frequency = recurrenceTypeValue === 1 ? 1 : getShort(data, offset + 76, ctx);
+    const isFlattenedNonRecurring = recurrenceTypeValue === 0 || (isDaily && frequency === 1);
     if (periodCount === 0 && isFlattenedNonRecurring && fromRaw !== 65535 && toRaw !== 65535) {
       const fromDate = getDate(data, offset, ctx);
       const toDate = getDate(data, offset + 2, ctx);
@@ -331,8 +360,21 @@ function fallbackResult(): CalendarReadResult {
  * `detectApplicationVersion` (mppContainer.ts) — `null`/laag ⇒ de ≤2010-veldlayout, precies zoals
  * MPXJ's eigen `NumberHelper.getInt(null) === 0`-terugval (zie ook `milestoneBitFlag` in
  * mppReader.ts voor hetzelfde patroon).
+ *
+ * `hoursPerDayOverride` (T6-spec-review-fix, minor b) — de MINUTES_PER_DAY-projecteigenschap, of
+ * `null` als die afwezig/ongeldig was (`mppReader.ts`'s `parseProjectProperties`). Wordt UITSLUITEND
+ * toegepast op de kalender die uiteindelijk de PROJECTkalender wordt (zie `projectCalendarUid`
+ * hieronder) — spiegelt mspdiReader, waar de MinutesPerDay-override alleen in `parseCalendar` zit
+ * (nooit op resource-kalenders). Om de override VÓÓR `promoteHourCalendar` te kunnen toepassen (zie
+ * `buildCalendarFromDays`'s toelichting) moet de identiteit van de projectkalender al bekend zijn
+ * VÓÓR de materialisatie-lussen — vandaar dat de naam-lookup hier vooraan staat i.p.v. achteraan.
  */
-export function readCalendars(cfb: CfbFile, projectProps: Props, applicationVersion: number | null): CalendarReadResult {
+export function readCalendars(
+  cfb: CfbFile,
+  projectProps: Props,
+  applicationVersion: number | null,
+  hoursPerDayOverride: number | null = null,
+): CalendarReadResult {
   const label = '"   114"/TBkndCal';
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndCal', 'FixedMeta']);
   const fixedDataBytes = cfb.getStream(['   114', 'TBkndCal', 'FixedData']);
@@ -390,12 +432,62 @@ export function readCalendars(cfb: CfbFile, projectProps: Props, applicationVers
 
   const nameOf = (uid: number): string | null =>
     varData.getUnicodeString(uid, CALENDAR_NAME_VAR_TYPE, MAX_CALENDAR_TEXT_BYTES, `${label}/name`);
+  // T6-spec-review (minor c): een kalender zonder eigen naam-var-data (vooral afgeleide/resource-
+  // kalenders — MPP koppelt de naam meestal aan de RESOURCE, niet aan de kalender zelf, en T6 kent
+  // nog geen Resource-objecten om die naam uit te lenen, zie T7) krijgt hier "Kalender <uid>" i.p.v.
+  // stil `createDefaultCalendar()`'s "Bouwkalender NL"/"Standaardkalender" te laten staan — die naam
+  // hoort bij een NIEUW project, niet bij een uit een bestand gelezen kalender.
+  const nameOfOrFallback = (uid: number): string => nameOf(uid) ?? `Kalender ${uid}`;
 
-  const linkResource = (rec: RawCalendarEntry): void => {
+  // T6-spec-review-fix (BLOKKEREND — was asymmetrisch verkeerd): AbstractCalendarFactory.java kent
+  // TWEE VERSCHILLENDE regels voor `resourceMap` — basiskalenders (r. 157-160) linken UITSLUITEND
+  // bij een POSITIEVE, nog-ongekoppelde resource-ID ("In theory, base calendars should not have a
+  // resource ID attached to them... As long as the resource ID isn't already linked..."); afgeleide
+  // kalenders (r. 174-176) linken ONVOORWAARDELIJK — geen `>0`-check, geen containsKey-check, altijd
+  // een kale `resourceMap.put(resourceID, cal)`, ook bij resource-ID 0. Resource-uniqueID 0 is een
+  // GELDIGE id (corpus: Bijlage 13's afgeleide kalenders dragen resource-ID's 0,1,2,3,4,5,7,8,9) —
+  // een eerdere versie gebruikte hier ÉÉN gedeelde, altijd-`>0`-geguarde `linkResource`-functie voor
+  // beide fases, wat resource-ID 0 op een afgeleide kalender stil liet vallen.
+  const linkBaseResource = (rec: RawCalendarEntry): void => {
     if (rec.resourceUniqueId > 0 && !resourceCalendarUniqueIdByResourceUniqueId.has(rec.resourceUniqueId)) {
       resourceCalendarUniqueIdByResourceUniqueId.set(rec.resourceUniqueId, rec.calendarUniqueId);
     }
   };
+  const linkDerivedResource = (rec: RawCalendarEntry): void => {
+    resourceCalendarUniqueIdByResourceUniqueId.set(rec.resourceUniqueId, rec.calendarUniqueId);
+  };
+
+  // ── Projectkalender-IDENTITEIT vooraf bepalen (vóór materialisatie) — DEFAULT_CALENDAR_NAME-
+  // lookup (AbstractCalendarFactory.java r. 205-210), met terugval op de eerste basiskalender, dan
+  // de eerste kalender van welke soort dan ook (Map-itteratievolgorde === FixedData-volgorde). Moet
+  // vóór Fase 1/2 gebeuren zodat `hoursPerDayOverride` (zie de toelichting bij deze functie) tijdens
+  // de materialisatie van PRECIES déze kalender kan worden toegepast — `nameOf` heeft alleen
+  // `varData` nodig, geen materialisatie. */
+  const defaultNameBytes = projectProps.getByteArray(PROPS_KEY_DEFAULT_CALENDAR_NAME);
+  const defaultName = defaultNameBytes
+    ? getUnicodeString(defaultNameBytes, 0, MAX_CALENDAR_TEXT_BYTES, `${label}/defaultCalendarName`)
+    : null;
+  let projectCalendarUid: number | null = null;
+  if (defaultName) {
+    for (const uid of rawByUniqueId.keys()) {
+      if (nameOf(uid) === defaultName) {
+        projectCalendarUid = uid;
+        break;
+      }
+    }
+  }
+  if (projectCalendarUid === null) {
+    for (const rec of rawByUniqueId.values()) {
+      if (rec.baseCalendarUniqueId <= 0 || rec.baseCalendarUniqueId === rec.calendarUniqueId) {
+        projectCalendarUid = rec.calendarUniqueId;
+        break;
+      }
+    }
+  }
+  if (projectCalendarUid === null) {
+    projectCalendarUid = rawByUniqueId.keys().next().value ?? null;
+  }
+  const overrideFor = (uid: number): number | null => (uid === projectCalendarUid ? hoursPerDayOverride : null);
 
   // ── Fase 1: basiskalenders (baseCalendarUniqueId<=0 of ===zichzelf, AbstractCalendarFactory.java
   // r. 136). Zelfstandig materialiseerbaar — geen afhankelijkheid van andere kalenders. Corpus-
@@ -418,10 +510,10 @@ export function readCalendars(cfb: CfbFile, projectProps: Props, applicationVers
     const days = ownData ? resolveDays(ownData, projectDefaultDays, `${label}/hours`) : projectDefaultDays;
     daysByUniqueId.set(rec.calendarUniqueId, days);
 
-    const cal = buildCalendarFromDays(nameOf(rec.calendarUniqueId), days);
+    const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
     cal.holidays = effectiveData ? parseExceptions(effectiveData, `${label}/exceptions`) : [];
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
-    linkResource(rec);
+    linkBaseResource(rec);
   }
 
   // ── Fase 2: afgeleide (resource-)kalenders — fixed-point-resolutie tegen de base-keten (kan zelf
@@ -436,11 +528,11 @@ export function readCalendars(cfb: CfbFile, projectProps: Props, applicationVers
     const days = resolveDays(ownData, fallbackDays, `${label}/hours`);
     daysByUniqueId.set(rec.calendarUniqueId, days);
 
-    const cal = buildCalendarFromDays(nameOf(rec.calendarUniqueId), days);
+    const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
     const ownHolidays = ownData ? parseExceptions(ownData, `${label}/exceptions`) : [];
     cal.holidays = baseCal ? [...baseCal.holidays, ...ownHolidays] : ownHolidays;
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
-    linkResource(rec);
+    linkDerivedResource(rec);
   };
 
   const pending = new Map<number, RawCalendarEntry>();
@@ -463,29 +555,8 @@ export function readCalendars(cfb: CfbFile, projectProps: Props, applicationVers
   // DEFAULT_CALENDAR_HOURS-fallback.
   for (const rec of pending.values()) materializeDerived(rec, projectDefaultDays, null);
 
-  // ── Projectkalender: DEFAULT_CALENDAR_NAME-lookup (AbstractCalendarFactory.java r. 205-210), met
-  // terugval op de eerste basiskalender, dan de eerste kalender van welke soort dan ook. ──────────
-  const defaultNameBytes = projectProps.getByteArray(PROPS_KEY_DEFAULT_CALENDAR_NAME);
-  const defaultName = defaultNameBytes
-    ? getUnicodeString(defaultNameBytes, 0, MAX_CALENDAR_TEXT_BYTES, `${label}/defaultCalendarName`)
-    : null;
-
-  let projectCalendar: WorkCalendar | undefined;
-  if (defaultName) {
-    for (const cal of calendarByUniqueId.values()) {
-      if (cal.name === defaultName) {
-        projectCalendar = cal;
-        break;
-      }
-    }
-  }
-  if (!projectCalendar) {
-    for (const uid of baseCalendarUniqueIds) {
-      projectCalendar = calendarByUniqueId.get(uid);
-      break;
-    }
-  }
-  if (!projectCalendar) projectCalendar = calendarByUniqueId.values().next().value;
+  const projectCalendar = (projectCalendarUid !== null ? calendarByUniqueId.get(projectCalendarUid) : undefined)
+    ?? calendarByUniqueId.values().next().value;
   if (!projectCalendar) return fallbackResult(); // defensief onbereikbaar (rawByUniqueId.size>0 hierboven al gecontroleerd)
 
   const resourceCalendars: WorkCalendar[] = [];

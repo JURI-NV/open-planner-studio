@@ -566,12 +566,14 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
 
   // T6: echte kalenders uit `"   114"/TBkndCal` (mppCalendars.ts) — basiskalenders + afgeleide
   // (resource-)kalenders, met de projectkalender gekozen via DEFAULT_CALENDAR_NAME.
-  const calResult = readCalendars(cfb, projectProps, applicationVersion);
+  // `calendarHoursPerDayOverride` (alleen niet-`null` als MINUTES_PER_DAY echt aanwezig/geldig
+  // was, zie `parseProjectProperties`'s returntype) gaat MEE de aanroep in i.p.v. er ná op de
+  // teruggegeven kalender te worden nagestempeld (T6-spec-review-fix, minor b) — `readCalendars`
+  // past 'm intern toe VÓÓR `promoteHourCalendar`, zodat promotie (die `hoursPerDay` opnieuw kan
+  // afleiden zodra de kalender daadwerkelijk banden draagt) het laatste woord houdt, exact zoals
+  // mspdiReader (MinutesPerDay-override in `parseCalendar`, `promoteHourCalendar` draait daarna).
+  const calResult = readCalendars(cfb, projectProps, applicationVersion, calendarHoursPerDayOverride);
   const calendar = calResult.projectCalendar;
-  // Authoritatieve override, alleen als MINUTES_PER_DAY echt aanwezig/geldig was (zie de
-  // toelichting bij `parseProjectProperties`'s returntype) — anders blijft de kalender se eigen,
-  // uit haar werktijd-banden afgeleide `hoursPerDay` staan.
-  if (calendarHoursPerDayOverride !== null) calendar.hoursPerDay = calendarHoursPerDayOverride;
   project.calendarId = calendar.id;
 
   // Taak-kalenders: de rauwe CALENDAR_UNIQUE_ID uit T5 vertalen naar de echte, hierboven gelezen
