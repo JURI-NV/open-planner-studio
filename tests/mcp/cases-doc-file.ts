@@ -66,6 +66,11 @@ function installFakeFs(): void {
       if (v === undefined) throw new Error(`ENOENT: ${p}`);
       return v;
     },
+    readFile: async (p) => {
+      const v = files.get(p);
+      if (v === undefined) throw new Error(`ENOENT: ${p}`);
+      return new TextEncoder().encode(v);
+    },
   };
   fileToolDeps.getFs = async () => fs;
 }

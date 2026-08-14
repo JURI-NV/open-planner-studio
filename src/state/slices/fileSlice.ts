@@ -3,8 +3,8 @@ import { readIFC } from '@/services/ifc/ifcReader';
 import { writeCSV } from '@/services/csv/csvWriter';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
-import { openFileDialog, saveFileDialog, saveToRef, readFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
-import { openDialogFilters, parseOpenedFile, type ExportFormat } from '@/services/formatRegistry';
+import { openFileDialog, saveFileDialog, saveToRef, readFromRef, readBytesFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
+import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -191,9 +191,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
     openFile: async (labels) => {
       try {
-        const opened = await openFileDialog(openDialogFilters());
+        const opened = await openFileDialog(openDialogFilters(), { binaryExtensions: binaryExtensions() });
         if (!opened) return;
-        const parsed = await parseOpenedFile({ name: opened.name, text: opened.content }, labels);
+        const parsed = await parseOpenedFile({ name: opened.name, text: opened.content, bytes: opened.bytes }, labels);
 
         // Multi-document: open het bestand in een eigen tabblad. Hergebruik het
         // actieve tabblad alleen als dat nog leeg en ongewijzigd is.
@@ -398,9 +398,17 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
     parseExternalSource: async (filePath: string, labels) => {
       if (!isTauri()) return null;
       try {
-        const { readTextFile } = await import('@tauri-apps/plugin-fs');
-        const content = await readTextFile(filePath);
-        const parsed = await parseOpenedFile({ name: filePath, text: content }, labels);
+        const isBinary = readFormatForFile(filePath).kind === 'binary';
+        let parsed: ImportResult;
+        if (isBinary) {
+          const { readFile } = await import('@tauri-apps/plugin-fs');
+          const bytes = await readFile(filePath);
+          parsed = await parseOpenedFile({ name: filePath, bytes }, labels);
+        } else {
+          const { readTextFile } = await import('@tauri-apps/plugin-fs');
+          const content = await readTextFile(filePath);
+          parsed = await parseOpenedFile({ name: filePath, text: content }, labels);
+        }
         return {
           projectId: parsed.project.id,
           projectName: parsed.project.name,
@@ -453,15 +461,22 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
     openRecentFile: async (id: string, labels) => {
       const entry = get().recentFiles.find((e) => e.id === id);
       if (!entry) return;
-      const content = await readFromRef(entry.ref);
-      if (content === null) {
-        // Geweigerd of verdwenen → entry stil verwijderen.
+      const isBinary = readFormatForFile(entry.name).kind === 'binary';
+      const content = isBinary ? null : await readFromRef(entry.ref);
+      const bytes = isBinary ? await readBytesFromRef(entry.ref) : null;
+      // Bij een binair formaat is `content` altijd null (niet gelezen) — dan telt uitsluitend
+      // `bytes`; bij een tekstformaat is `bytes` altijd null — dan telt uitsluitend `content`.
+      // Exact hetzelfde null-pad (geweigerd/verdwenen → entry stil verwijderen) als voorheen.
+      if (isBinary ? bytes === null : content === null) {
         const list = await removeRecent(entry.id);
         set((s) => { s.recentFiles = list; });
         return;
       }
       try {
-        const parsed = await parseOpenedFile({ name: entry.name, text: content }, labels);
+        const parsed = await parseOpenedFile(
+          { name: entry.name, text: content ?? undefined, bytes: bytes ?? undefined },
+          labels,
+        );
 
         if (!isActivePristine(get())) get().newDocument();
 

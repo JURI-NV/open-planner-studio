@@ -3,7 +3,7 @@ import { appLog } from '@/services/debug/appLog';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import { readIFC } from '@/services/ifc/ifcReader';
-import { parseOpenedFile } from '@/services/formatRegistry';
+import { parseOpenedFile, readFormatForFile } from '@/services/formatRegistry';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
 import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
@@ -75,11 +75,20 @@ async function saveToPath(path: string) {
 
 /** Niveau 2 — lees een bestand van schijf en laad het in de store (route op extensie). Tauri-only.
  *  Dev-only gedragsverbetering (T1): loopt nu via de formatRegistry, dus `.xml` wordt hier ook
- *  herkend (voorheen viel dat stil terug op IFC). */
+ *  herkend (voorheen viel dat stil terug op IFC). T2: binaire formaten worden als bytes gelezen
+ *  i.p.v. tekst. */
 async function openFromPath(path: string) {
-  const { readTextFile } = await import('@tauri-apps/plugin-fs');
-  const content = await readTextFile(path);
-  const parsed = await parseOpenedFile({ name: path, text: content });
+  const isBinary = readFormatForFile(path).kind === 'binary';
+  let parsed;
+  if (isBinary) {
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+    const bytes = await readFile(path);
+    parsed = await parseOpenedFile({ name: path, bytes });
+  } else {
+    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+    const content = await readTextFile(path);
+    parsed = await parseOpenedFile({ name: path, text: content });
+  }
   useAppStore.getState().loadState(parsed);
   return { path, ...counts(useAppStore.getState()) };
 }

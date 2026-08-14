@@ -1,4 +1,4 @@
-import type { FileFilter, FileRef, OpenedFile, SaveOutcome } from './index';
+import type { FileFilter, FileRef, OpenDialogOpts, OpenedFile, SaveOutcome } from './index';
 
 const hasFSA = (): boolean => typeof window !== 'undefined' && 'showOpenFilePicker' in window;
 
@@ -57,7 +57,12 @@ export function resetWebWriteRefusalForTests(): void {
 
 // ---- Fallback (Firefox/Safari): <input type=file> + blob-download ----
 
-function openViaInput(filters: FileFilter[]): Promise<OpenedFile | null> {
+function isBinaryName(name: string, opts?: OpenDialogOpts): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return (opts?.binaryExtensions ?? []).includes(ext);
+}
+
+function openViaInput(filters: FileFilter[], opts?: OpenDialogOpts): Promise<OpenedFile | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -66,6 +71,11 @@ function openViaInput(filters: FileFilter[]): Promise<OpenedFile | null> {
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) { resolve(null); return; }
+      if (isBinaryName(file.name, opts)) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        resolve({ name: file.name, content: '', bytes, ref: null });
+        return;
+      }
       const content = await file.text();
       resolve({ name: file.name, content, ref: null });
     };
@@ -85,11 +95,15 @@ function downloadBlob(name: string, content: string): void {
 
 // ---- Publieke web-backend ----
 
-export async function openFileDialogWeb(filters: FileFilter[]): Promise<OpenedFile | null> {
+export async function openFileDialogWeb(filters: FileFilter[], opts?: OpenDialogOpts): Promise<OpenedFile | null> {
   if (hasFSA()) {
     try {
       const [handle] = await window.showOpenFilePicker!({ multiple: false, types: toAcceptTypes(filters) });
       const file = await handle.getFile();
+      if (isBinaryName(file.name, opts)) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return { name: file.name, content: '', bytes, ref: { kind: 'handle', handle } };
+      }
       const content = await file.text();
       return { name: file.name, content, ref: { kind: 'handle', handle } };
     } catch (err) {
@@ -97,7 +111,7 @@ export async function openFileDialogWeb(filters: FileFilter[]): Promise<OpenedFi
       throw err;
     }
   }
-  return openViaInput(filters);
+  return openViaInput(filters, opts);
 }
 
 export async function saveFileDialogWeb(defaultName: string, content: string, filters: FileFilter[]): Promise<SaveOutcome | null> {
@@ -162,6 +176,21 @@ export async function readFromRefWeb(ref: FileRef): Promise<string | null> {
     }
     const file = await handle.getFile();
     return await file.text();
+  } catch {
+    return null;
+  }
+}
+
+export async function readBytesFromRefWeb(ref: FileRef): Promise<Uint8Array | null> {
+  if (ref.kind !== 'handle') return null;
+  const { handle } = ref;
+  const opts: FileSystemHandlePermissionDescriptor = { mode: 'read' };
+  try {
+    if ((await handle.queryPermission?.(opts)) !== 'granted') {
+      if ((await handle.requestPermission?.(opts)) !== 'granted') return null;
+    }
+    const file = await handle.getFile();
+    return new Uint8Array(await file.arrayBuffer());
   } catch {
     return null;
   }

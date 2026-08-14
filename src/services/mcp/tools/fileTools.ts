@@ -33,7 +33,7 @@ import { useAppStore } from '@/state/appStore';
 import { isTauri } from '@/utils/platform';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { isActivePristine } from '@/state/slices/fileSlice';
-import { parseOpenedFile } from '@/services/formatRegistry';
+import { parseOpenedFile, readFormatForFile } from '@/services/formatRegistry';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { ImportResult } from '@/services/importTypes';
 import { bindExpectedDoc, buildEnvelope, guardNonTransactional, toolError } from './runtime';
@@ -49,6 +49,7 @@ export interface McpFileFs {
   exists(path: string): Promise<boolean>;
   writeTextFile(path: string, content: string): Promise<void>;
   readTextFile(path: string): Promise<string>;
+  readFile(path: string): Promise<Uint8Array>;
 }
 
 /** Echte (Tauri-)fs; dynamisch geïmporteerd binnen een `isTauri()`-tak — spiegel van
@@ -60,12 +61,13 @@ async function realFs(): Promise<McpFileFs> {
       'directe bestandssysteem-toegang. Gebruik daar Bestand → Openen/Exporteren.',
     );
   }
-  const { exists, readTextFile, writeTextFile, mkdir } = await import('@tauri-apps/plugin-fs');
+  const { exists, readTextFile, readFile, writeTextFile, mkdir } = await import('@tauri-apps/plugin-fs');
   const { homeDir } = await import('@tauri-apps/api/path');
   return {
     homeDir: () => homeDir(),
     exists: (p) => exists(p),
     readTextFile: (p) => readTextFile(p),
+    readFile: (p) => readFile(p),
     writeTextFile: async (p, content) => {
       const dir = p.replace(/\\/g, '/').replace(/\/[^/]*$/, '');
       if (dir) await mkdir(dir, { recursive: true }); // no-op wanneer de map al bestaat
@@ -325,7 +327,6 @@ export const fileTools: McpToolDef[] = [
       }
 
       let path: string;
-      let content: string;
       try {
         const scope = checkScope(await fs.homeDir(), raw.path);
         if (!scope.ok) return toolError(ctx, 'SCOPE', scope.reason);
@@ -333,8 +334,14 @@ export const fileTools: McpToolDef[] = [
       } catch (e) {
         return toolError(ctx, 'INTERNAL', `Kon het bronpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
       }
+      const isBinary = readFormatForFile(path).kind === 'binary';
+      // `content` blijft '' voor een binair formaat: alleen gebruikt om het formaat te loggen
+      // (formatOf) — daar staat geen binaire sniffing achter, de extensie is voldoende.
+      let content = '';
+      let bytes: Uint8Array | undefined;
       try {
-        content = await fs.readTextFile(path);
+        if (isBinary) bytes = await fs.readFile(path);
+        else content = await fs.readTextFile(path);
       } catch (e) {
         return toolError(ctx, 'NOT_FOUND', `Kon '${path}' niet lezen: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -344,7 +351,7 @@ export const fileTools: McpToolDef[] = [
         // Geen `labels`: dienstlaag zonder `t(...)` — de MCP-laag is AI-facing en kent geen UI-taal.
         // `readIFC` valt dan terug op de Engelse default voor een bestand zonder IFCPROJECT (zie
         // ImportLabels).
-        parsed = await parseOpenedFile({ name: path, text: content });
+        parsed = await parseOpenedFile({ name: path, text: content, bytes });
       } catch (e) {
         return toolError(ctx, 'VALIDATION', `'${path}' kon niet worden gelezen als planning: ${e instanceof Error ? e.message : String(e)}`);
       }
