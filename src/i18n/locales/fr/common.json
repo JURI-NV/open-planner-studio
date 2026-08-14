@@ -518,7 +518,7 @@
     "occupancyView": "Occupation",
     "occupancy": {
       "empty": "Aucune ressource de la bibliothèque n'est réservée dans les documents ouverts.",
-      "machineOnly": "Cet aperçu ne voit que les documents ouverts sur cet ordinateur.",
+      "machineOnly": "Cet aperçu ne voit que les documents ouverts dans cette application.",
       "staleDoc": "Non compté : planification non calculée — activez ce document et appuyez sur F5.",
       "staleBanner": "Au moins un document n'a pas été calculé et n'est pas pris en compte dans l'occupation.",
       "staleComputedDoc": "Calculé à l'avance pour cet aperçu — le document lui-même affiche encore d'anciennes dates jusqu'à ce que vous appuyiez sur F5.",

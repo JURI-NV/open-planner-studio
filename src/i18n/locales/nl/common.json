@@ -516,7 +516,7 @@
     "occupancyView": "Bezetting",
     "occupancy": {
       "empty": "Geen bibliotheekresources geboekt in de geopende documenten.",
-      "machineOnly": "Dit overzicht ziet alleen documenten die op deze computer geopend zijn.",
+      "machineOnly": "Dit overzicht ziet alleen de documenten die in dit programma geopend zijn.",
       "staleDoc": "Telt niet mee: planning niet doorgerekend — activeer dit document en druk F5.",
       "staleBanner": "Minstens één document is niet doorgerekend en telt niet mee in de bezetting.",
       "staleComputedDoc": "Alvast doorgerekend voor dit overzicht — het document zelf toont oudere datums tot je daar F5 drukt.",

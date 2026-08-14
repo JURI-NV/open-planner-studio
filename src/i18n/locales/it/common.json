@@ -518,7 +518,7 @@
     "occupancyView": "Occupazione",
     "occupancy": {
       "empty": "Nessuna risorsa della libreria prenotata nei documenti aperti.",
-      "machineOnly": "Questa panoramica vede solo i documenti aperti su questo computer.",
+      "machineOnly": "Questa panoramica vede solo i documenti aperti in questa applicazione.",
       "staleDoc": "Non conteggiato: pianificazione non calcolata — attiva questo documento e premi F5.",
       "staleBanner": "Almeno un documento non è stato calcolato e non è incluso nell'occupazione.",
       "staleComputedDoc": "Calcolato in anticipo per questa panoramica — il documento stesso mostra ancora le date precedenti finché non premi F5 al suo interno.",

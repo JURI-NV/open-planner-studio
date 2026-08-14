@@ -520,7 +520,7 @@
     "occupancyView": "Obłożenie",
     "occupancy": {
       "empty": "Brak zasobów z biblioteki zarezerwowanych w otwartych dokumentach.",
-      "machineOnly": "Ten przegląd widzi tylko dokumenty otwarte na tym komputerze.",
+      "machineOnly": "Ten przegląd widzi tylko dokumenty otwarte w tej aplikacji.",
       "staleDoc": "Nie liczy się: harmonogram nieprzeliczony — aktywuj ten dokument i naciśnij F5.",
       "staleBanner": "Co najmniej jeden dokument nie został przeliczony i nie jest uwzględniony w obłożeniu.",
       "staleComputedDoc": "Obliczone z wyprzedzeniem na potrzeby tego przeglądu — sam dokument nadal pokazuje starsze daty, dopóki nie naciśniesz tam F5.",

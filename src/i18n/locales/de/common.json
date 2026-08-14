@@ -516,7 +516,7 @@
     "occupancyView": "Belegung",
     "occupancy": {
       "empty": "Keine Bibliotheksressourcen in den geöffneten Dokumenten gebucht.",
-      "machineOnly": "Diese Übersicht sieht nur Dokumente, die auf diesem Computer geöffnet sind.",
+      "machineOnly": "Diese Übersicht sieht nur die Dokumente, die in dieser App geöffnet sind.",
       "staleDoc": "Zählt nicht mit: Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
       "staleBanner": "Mindestens ein Dokument wurde nicht berechnet und zählt in der Belegung nicht mit.",
       "staleComputedDoc": "Für diese Übersicht bereits vorab berechnet — das Dokument selbst zeigt noch ältere Daten, bis Sie dort F5 drücken.",
