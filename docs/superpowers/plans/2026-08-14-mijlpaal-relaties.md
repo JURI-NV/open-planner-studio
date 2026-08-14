@@ -47,6 +47,15 @@
 
 ## Taak 1: De regelmodule
 
+> **Bijgesteld na de kwaliteitsreview.** De code hieronder is de oorspronkelijke opzet met een
+> `ReadonlyMap`-parameter en een `taskMapOf`-helper. Die is vervangen door een `TaskLookup`-functie
+> (`(id: string) => Task | undefined`) en `taskMapOf` is geschrapt: een Map eisen dwong élke
+> aanroeper er een te bouwen — per aanroep, in `sequenceSlice`/`mcpTransaction` zelfs over een
+> Immer-draft, wat ook nog elke child-proxy materialiseert, en in een `planner_batch`-lus per
+> relatie. Het Relaties-paneel heeft bovendien al een eigen `taskById`-`useMemo`. Er kwamen vier
+> checks bij (19 → 24) voor mutaties die eerder ongemerkt passeerden. Taken 3, 4, 7 en 8 hieronder
+> zijn al op de definitieve vorm gezet; raadpleeg voor de module zelf de code in de repo.
+
 **Files:**
 - Create: `src/state/relationRules.ts`
 - Create: `tests/planning/check-relation-rules.ts`
@@ -437,10 +446,10 @@ In `src/state/slices/sequenceSlice.ts`, wijzig de interface-regel:
 Voeg de import toe bovenaan:
 
 ```ts
-import { relationVerdict, taskMapOf } from '../relationRules';
+import { relationVerdict } from '../relationRules';
 ```
 
-En vervang de actie:
+En vervang de actie. Let op de **lookup-functie** in plaats van een Map: `s.tasks` is hier een Immer-draft, en een Map bouwen zou elke child-proxy materialiseren.
 
 ```ts
   addSequence: (seq) => {
@@ -449,7 +458,8 @@ En vervang de actie:
     set((s) => {
       // Alle regels (dedup, zelfrelatie, onbekende taak, verzameltaak-eindpunt) staan in
       // relationRules.ts — één bron, gedeeld met mcpTransaction en de meldingswrapper.
-      if (!relationVerdict(taskMapOf(s.tasks), s.sequences, seq).ok) return; // geen snapshot, geen loze undo-stap (R3).
+      const lookup = (tid: string) => s.tasks.find((t) => t.id === tid);
+      if (!relationVerdict(lookup, s.sequences, seq).ok) return; // geen snapshot, geen loze undo-stap (R3).
       beginUndoable(s); // snapshot pas ná de guard, vóór de mutatie (zie transaction.ts).
       s.sequences.push({ ...seq, id });
       finishMutation(s, { stale: true }); // nieuwe relatie (A6): planning verouderd tot F5.
@@ -472,7 +482,7 @@ Vervang in `src/state/relationActions.ts` de body van `createRelationWithFeedbac
 
 ```ts
 import { useAppStore } from '@/state/appStore';
-import { relationVerdict, taskMapOf, type RelationRejection } from '@/state/relationRules';
+import { relationVerdict, type RelationRejection } from '@/state/relationRules';
 import type { SequenceType } from '@/types/sequence';
 
 /** Namen in een melding blijven leesbaar: langere taaknamen worden afgekapt. */
@@ -512,7 +522,8 @@ export function createRelationWithFeedback(
   type: SequenceType = 'FINISH_START',
 ): string | null {
   const st = useAppStore.getState();
-  const verdict = relationVerdict(taskMapOf(st.tasks), st.sequences, { predecessorId, successorId, type });
+  const lookup = (id: string) => st.tasks.find((t) => t.id === id);
+  const verdict = relationVerdict(lookup, st.sequences, { predecessorId, successorId, type });
   if (!verdict.ok) {
     st.notify({
       severity: 'info',
@@ -595,22 +606,30 @@ Expected: `exit=1`, met een faalregel over de ontbrekende weigering — `Fase→
 In `src/services/mcp/tools/taskTools.ts`, voeg bovenaan toe:
 
 ```ts
-import { hasSummaryEndpoint, taskMapOf } from '@/state/relationRules';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 ```
 
-Bouw de map één keer buiten de lus, direct ná `const seen = new Set(...)` (regel 672):
+`classifyDeps` is de enige plek waar een Map écht loont: hij draait over een gewone (niet-draft) array en doet nu nog `st.tasks.some(...)` **per dep**. Bouw hem één keer buiten de lus, direct ná `const seen = new Set(...)` (regel 672):
 
 ```ts
-  const byId = taskMapOf(st.tasks);
+  const byId = new Map(st.tasks.map((t) => [t.id, t]));
+  const lookup = (id: string) => byId.get(id);
 ```
 
-En voeg de nieuwe weigering toe direct ná de twee bestaan-checks (na regel 685, vóór de dedup-check):
+Vervang meteen de twee bestaan-checks (regel 684-685) door de map, zodat de lus niet twee keer lineair over alle taken loopt:
+
+```ts
+    if (!byId.has(d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
+    if (!byId.has(d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
+```
+
+En voeg de nieuwe weigering toe direct daarná, vóór de dedup-check:
 
 ```ts
     // Verzameltaak als eindpunt: de solver krijgt alleen bladtaken, dus zo'n relatie zou stil
     // worden weggegooid. Zacht weigeren i.p.v. een spookrelatie schrijven. Mijlpalen zijn
     // bladtaken en blijven dus gewoon toegestaan.
-    if (hasSummaryEndpoint(byId, d)) {
+    if (hasSummaryEndpoint(lookup, d)) {
       rejections.push({ id: label, reason: 'een verzameltaak als voorganger of opvolger heeft geen effect op de planning; koppel aan een taak zonder subtaken' });
       continue;
     }
@@ -628,10 +647,10 @@ Werk ook de `description` van `planner_add_dependencies` bij, zodat een AI-agent
 In `src/state/mcpTransaction.ts`, voeg de import toe:
 
 ```ts
-import { relationVerdict, taskMapOf } from './relationRules';
+import { relationVerdict } from './relationRules';
 ```
 
-En vervang de dedup-check in `addSequence` (regel 374-378) door het gedeelde verdict:
+En vervang de dedup-check in `addSequence` (regel 374-378) door het gedeelde verdict. Ook hier een lookup-functie en géén Map: deze functie wordt door `planner_batch` **in een lus** aangeroepen, en een Map bouwen per relatie over een Immer-draft zou elke child-proxy materialiseren.
 
 ```ts
   addSequence(seq: Omit<Sequence, 'id'>): string | null {
@@ -641,7 +660,8 @@ En vervang de dedup-check in `addSequence` (regel 374-378) door het gedeelde ver
       // Dezelfde regels als de store-actie, uit relationRules.ts. Dit was een handgeschreven kopie
       // van alleen de dedup-regel; die kopie is precies waarom validatie in de slice-actie de
       // MCP-laag zou overslaan.
-      if (!relationVerdict(taskMapOf(s.tasks), s.sequences, seq).ok) return; // result blijft null
+      const lookup = (tid: string) => s.tasks.find((t) => t.id === tid);
+      if (!relationVerdict(lookup, s.sequences, seq).ok) return; // result blijft null
       s.sequences.push({ ...seq, id });
       s.isDirty = true;
       result = id;
@@ -913,14 +933,14 @@ Voeg de import toe bovenaan:
 import { hasSummaryEndpoint } from '@/state/relationRules';
 ```
 
-`taskById` bestaat al als `useMemo` (regel ~46) en is precies de map die `hasSummaryEndpoint` verwacht. Voeg in `rowData` één regel toe aan het `warnings`-blok, als **eerste** regel — het is het meest ingrijpende probleem van de drie:
+`taskById` bestaat al als `useMemo` (regel ~46); daar hangt de lookup zo op — géén tweede map bouwen. Voeg in `rowData` één regel toe aan het `warnings`-blok, als **eerste** regel — het is het meest ingrijpende probleem van de drie:
 
 ```ts
     const warnings: string[] = [];
     // Spookrelatie: de solver krijgt alleen bladtaken, dus een verzameltaak-eindpunt betekent dat
     // deze relatie geen enkel effect heeft. Afgeleid en niet opgeslagen, zodat een bladtaak die
     // later een kind krijgt vanzelf meegaat.
-    if (hasSummaryEndpoint(taskById, seq)) warnings.push(t('relations.warnSummaryEndpoint'));
+    if (hasSummaryEndpoint((id) => taskById.get(id), seq)) warnings.push(t('relations.warnSummaryEndpoint'));
     if (truncatedSet.has(seq.id)) warnings.push(t('relations.warnTruncatedLead'));
     if (effLag < 0 && Math.abs(effLag) > predDur) warnings.push(t('relations.warnLeadExceedsDuration'));
 ```
@@ -959,7 +979,7 @@ mee, zonder migratie."
 Voeg de import toe bovenaan:
 
 ```ts
-import { hasSummaryEndpoint, taskMapOf } from '@/state/relationRules';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 ```
 
 Voeg de melding toe direct ná het `set((s) => { ... })`-blok, náást de bestaande `runCPM`/`requestFitToProject`-aanroepen (rond regel 180) — dus buiten de Immer-draft, want `notify` is een store-actie:
@@ -969,8 +989,10 @@ Voeg de melding toe direct ná het `set((s) => { ... })`-blok, náást de bestaa
       // worden door de solver weggegooid. Ze worden bewust NIET gefilterd — dat zou logica uit het
       // bronbestand vernietigen bij open + opslaan — maar wel één keer gemeld, want anders merkt
       // niemand die een P6/MSP-plan importeert dat er logica stilvalt.
-      const byId = taskMapOf(parsed.tasks);
-      const ineffective = parsed.sequences.filter((seq) => hasSummaryEndpoint(byId, seq)).length;
+      // `parsed.tasks` is een gewone array (geen Immer-draft) en we lopen over álle relaties, dus
+      // hier loont een map wél — één keer bouwen i.p.v. een lineaire zoektocht per relatie.
+      const byId = new Map(parsed.tasks.map((t) => [t.id, t]));
+      const ineffective = parsed.sequences.filter((seq) => hasSummaryEndpoint((id) => byId.get(id), seq)).length;
       if (ineffective > 0) {
         get().notify({
           severity: 'info',
