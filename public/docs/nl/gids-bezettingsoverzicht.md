@@ -35,11 +35,13 @@ Per dag telt de app de belasting van alle meetellende geopende documenten bij el
 
 Let op: de capaciteit komt uit de bibliotheek, niet uit de projecten. Twee projecten die elk keurig binnen hun eigen max. eenheden blijven, kunnen samen alsnog dubbel geboekt zijn — het bedrijf heeft simpelweg minder krachten dan beide projecten samen claimen. En ook één document dat in z'n eentje boven de bedrijfscapaciteit boekt, verschijnt hier als conflict; de uitklap laat dan meteen zien dat er maar één veroorzaker is.
 
-## De ⚠-markering: document niet doorgerekend
+## De ⚠-markering: alvast doorgerekend, of toch niet meegeteld?
 
-Plannen rekent niet vanzelf door: je drukt F5 (of de knop **Berekenen**). Een document waarin sinds de laatste berekening iets gewijzigd is, telt **niet mee** in de sommen, pieken en conflictdagen — zijn duur en datums lopen dan per definitie uiteen, en half doorgerekende cijfers zouden een conflict net zo goed kunnen verbergen als verzinnen. Het document verdwijnt alleen niet stil: elke boeking blijft zichtbaar als subregel met een ⚠-markering en de melding dat hij niet meetelt, en boven de tabel staat een waarschuwing dat er documenten buiten de telling vallen.
+Plannen rekent niet vanzelf door: je drukt F5 (of de knop **Berekenen**) in een document zelf. Wijzig je iets sinds de laatste berekening, dan blijft dát document zijn oude datums tonen tot je daar F5 drukt — maar het bezettingsoverzicht wacht daar niet op. Voor zo'n gewijzigd document rekent het overzicht zelf, achter de schermen, alvast met de actuele taken en relaties door, en de boeking telt gewoon mee met de verse cijfers. De ⚠ bij zo'n boeking is dan informatief: "alvast doorgerekend voor dit overzicht — het document zelf toont oudere datums tot je daar F5 drukt". Boven de tabel staat in dat geval een even informatieve banner.
 
-De oplossing: activeer dat document (klik zijn tabblad), druk **F5**, en schakel terug naar het bezettingsoverzicht. De markering verdwijnt en het document telt weer gewoon mee.
+Alleen wanneer die alvast-berekening zelf niet lukt — bijvoorbeeld door een cyclus in de relaties, of een andere rekenfout — telt het document écht niet mee in de sommen, pieken en conflictdagen. Zo'n boeking blijft zichtbaar maar toont "—" in plaats van cijfers, met een ⚠ die wél om actie vraagt: activeer dat document (klik zijn tabblad), los de fout daar op, druk **F5**, en schakel terug naar het bezettingsoverzicht. Boven de tabel staat dan de waarschuwing dat er documenten buiten de telling vallen.
+
+Kortom: de ⚠ zelf is meestal onschuldig — het overzicht heeft het document dan al zelf doorgerekend. Pas een "—" in plaats van cijfers betekent dat er in dat document iets moet worden opgelost.
 
 ## Alleen deze machine
 

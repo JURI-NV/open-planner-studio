@@ -35,11 +35,13 @@ Per day, the app adds up the load from all qualifying open documents and compare
 
 Note that the capacity comes from the library, not from the projects. Two projects that each stay neatly within their own max units can still be double-booked together — the company simply has fewer people than both projects combined are claiming. And a single document that on its own books above the company capacity shows up here as a conflict too; the expanded view then immediately reveals there's only one culprit.
 
-## The ⚠ marker: document not recalculated
+## The ⚠ marker: calculated in advance, or actually left out?
 
-Schedules don't recalculate by themselves: you press F5 (or the **Calculate** button). A document that has changed since its last calculation is **not counted** in the sums, peaks and conflict days — its durations and dates are by definition out of step, and half-recalculated figures could just as easily hide a conflict as invent one. The document doesn't disappear silently, though: every booking stays visible as a sub-line with a ⚠ marker and a note that it isn't counted, and a warning above the table says that documents are being left out of the tally.
+Schedules don't recalculate by themselves: you press F5 (or the **Calculate** button) inside a document. If you change something since its last calculation, that document keeps showing its old dates until you press F5 there — but the occupancy overview doesn't wait for that. For such a changed document, the overview calculates it in advance itself, behind the scenes, with the current tasks and relations, and the booking counts normally with the fresh figures. The ⚠ on that booking is then informational: "calculated in advance for this overview — the document itself still shows older dates until you press F5 there." A similarly informational banner appears above the table in that case.
 
-The fix: activate that document (click its tab), press **F5**, and switch back to the occupancy overview. The marker disappears and the document counts again as normal.
+Only when that advance calculation itself fails — say, a cycle in the relations, or another calculation error — does the document truly not count, in the sums, peaks and conflict days. That booking stays visible but shows "—" instead of figures, with a ⚠ that does call for action: activate that document (click its tab), fix the error there, press **F5**, and switch back to the occupancy overview. A warning above the table then says that documents are being left out of the tally.
+
+In short: the ⚠ itself is usually harmless — it just means the overview already calculated that document for you. Only a "—" instead of figures means something needs fixing in that document.
 
 ## This machine only
 
