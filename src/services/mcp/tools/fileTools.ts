@@ -32,9 +32,8 @@
 import { useAppStore } from '@/state/appStore';
 import { isTauri } from '@/utils/platform';
 import { writeIFC } from '@/services/ifc/ifcWriter';
-import { readIFC } from '@/services/ifc/ifcReader';
-import { readCSV } from '@/services/csv/csvReader';
-import { parseProjectXml, isActivePristine } from '@/state/slices/fileSlice';
+import { isActivePristine } from '@/state/slices/fileSlice';
+import { parseOpenedFile } from '@/services/formatRegistry';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { ImportResult } from '@/services/importTypes';
 import { bindExpectedDoc, buildEnvelope, guardNonTransactional, toolError } from './runtime';
@@ -159,16 +158,6 @@ function formatOf(path: string, content: string): 'IFC' | 'CSV' | 'P6-XML' | 'MS
     return content.includes('APIBusinessObjects') || content.includes('Primavera') ? 'P6-XML' : 'MSPDI-XML';
   }
   return 'IFC';
-}
-
-/** Parse volgens dezelfde regels als het bestaande open-pad (`fileSlice.openFile`). */
-function parseByExtension(path: string, content: string): ImportResult {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  if (ext === 'csv') return readCSV(content);
-  if (ext === 'xml') return parseProjectXml(content);
-  // Geen `labels`: dienstlaag zonder `t(...)` — de MCP-laag is AI-facing en kent geen UI-taal. `readIFC` valt dan terug op de Engelse
-  // default voor een bestand zonder IFCPROJECT (zie ImportLabels).
-  return readIFC(content);
 }
 
 // --- Annotaties ----------------------------------------------------------------------------------
@@ -352,7 +341,7 @@ export const fileTools: McpToolDef[] = [
 
       let parsed: ImportResult;
       try {
-        parsed = parseByExtension(path, content);
+        parsed = await parseOpenedFile({ name: path, text: content });
       } catch (e) {
         return toolError(ctx, 'VALIDATION', `'${path}' kon niet worden gelezen als planning: ${e instanceof Error ? e.message : String(e)}`);
       }

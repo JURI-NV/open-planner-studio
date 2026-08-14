@@ -5,6 +5,7 @@ import {
   Printer, Info, Settings, X, FileType, Puzzle, Upload, BookOpen, Compass, LifeBuoy, Building2,
 } from 'lucide-react';
 import { useAppStore, ExportFormat } from '@/state/appStore';
+import { EXPORT_FORMATS } from '@/services/formatRegistry';
 import { BackstageSection } from '@/state/slices/types';
 import { SettingsPanelContent } from '@/components/settings/SettingsPanelContent';
 import { ProjectInfoPanelContent, type ProjectInfoPanelContentHandle } from '@/components/settings/ProjectInfoPanelContent';
@@ -363,12 +364,11 @@ function ExportSection() {
     if (!companyId) setAlsoPool(false);
   }, [companyId]);
 
-  const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = [
-    { format: 'csv',   label: tMenu('export.csvLabel'),   desc: tMenu('export.csvDesc'),   icon: 'CSV' },
-    { format: 'mspdi', label: tMenu('export.mspdiLabel'), desc: tMenu('export.mspdiDesc'), icon: 'XML' },
-    { format: 'p6',    label: tMenu('export.p6Label'),    desc: tMenu('export.p6Desc'),    icon: 'P6' },
-    { format: 'ifc',   label: tMenu('export.ifcLabel'),   desc: tMenu('export.ifcDesc'),   icon: 'IFC' },
-  ];
+  const formats: { format: ExportFormat; label: string; desc: string; icon: string }[] = EXPORT_FORMATS.map(
+    // Runtime-sleutel uit de registry i.p.v. een letterlijke union — zelfde `as never`-patroon als
+    // useRibbonTranslate (RibbonTabContent.tsx) om de i18next-typing (letterlijke sleutel-union) te omzeilen.
+    (f) => ({ format: f.format, label: tMenu(f.labelKey as never), desc: tMenu(f.descKey as never), icon: f.icon }),
+  );
 
   // K7: bij een cyclische planning geeft exportAs { ok: false } met cpmResult.error terug.
   // Backstage vervangt de hele body, dus GanttCanvas is hier niet gemonteerd en de cyclus-toast

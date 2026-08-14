@@ -3,7 +3,7 @@ import { appLog } from '@/services/debug/appLog';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import { readIFC } from '@/services/ifc/ifcReader';
-import { readCSV } from '@/services/csv/csvReader';
+import { parseOpenedFile } from '@/services/formatRegistry';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
 import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
@@ -73,12 +73,13 @@ async function saveToPath(path: string) {
   return { path, bytes: content.length };
 }
 
-/** Niveau 2 — lees een bestand van schijf en laad het in de store (route op extensie). Tauri-only. */
+/** Niveau 2 — lees een bestand van schijf en laad het in de store (route op extensie). Tauri-only.
+ *  Dev-only gedragsverbetering (T1): loopt nu via de formatRegistry, dus `.xml` wordt hier ook
+ *  herkend (voorheen viel dat stil terug op IFC). */
 async function openFromPath(path: string) {
   const { readTextFile } = await import('@tauri-apps/plugin-fs');
   const content = await readTextFile(path);
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  const parsed = ext === 'csv' ? readCSV(content) : readIFC(content);
+  const parsed = await parseOpenedFile({ name: path, text: content });
   useAppStore.getState().loadState(parsed);
   return { path, ...counts(useAppStore.getState()) };
 }

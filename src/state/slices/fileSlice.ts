@@ -1,12 +1,10 @@
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { writeCSV } from '@/services/csv/csvWriter';
-import { readCSV } from '@/services/csv/csvReader';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
-import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
-import { readP6XML } from '@/services/p6/p6xmlReader';
 import { openFileDialog, saveFileDialog, saveToRef, readFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
+import { openDialogFilters, parseOpenedFile, parseProjectXml, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -36,19 +34,9 @@ export function isActivePristine(s: AppState): boolean {
   );
 }
 
-/** Kies de juiste XML-reader op basis van inhoudsmarkers (P6 vóór MS Project).
- *  Gooit bij een onbekend formaat i.p.v. stil als MSPDI te parsen.
- *  Geëxporteerd voor `planner_import_schedule` (MCP), dat dezelfde formaatherkenning gebruikt. */
-export function parseProjectXml(content: string) {
-  const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
-  const isMsProject =
-    content.includes('schemas.microsoft.com/project') || content.includes('<Project');
-  if (isP6) return readP6XML(content);
-  if (isMsProject) return readMSPDI(content);
-  throw new Error('Onbekend XML-formaat: geen MS Project- of Primavera-markers gevonden');
-}
-
-export type ExportFormat = 'ifc' | 'csv' | 'mspdi' | 'p6';
+// `parseProjectXml` en `ExportFormat` wonen nu in de formatRegistry (T1); hier her-exporteren
+// zodat bestaande importeurs (Backstage, MCP) ongewijzigd blijven werken.
+export { parseProjectXml, type ExportFormat };
 
 /** Resultaat van `exportAs` (K7): bij een cyclische planning wordt de export afgebroken vóór de
  *  opslaan-dialoog en de CPM-cyclusfout (`cpmResult.error`) als boodschap meegegeven, zodat de
@@ -203,23 +191,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
     openFile: async (labels) => {
       try {
-        const opened = await openFileDialog([
-          { name: 'All Supported', extensions: ['ifc', 'csv', 'xml'] },
-          { name: 'IFC Files', extensions: ['ifc'] },
-          { name: 'CSV Files', extensions: ['csv'] },
-          { name: 'XML Files', extensions: ['xml'] },
-        ]);
+        const opened = await openFileDialog(openDialogFilters());
         if (!opened) return;
-        const ext = opened.name.split('.').pop()?.toLowerCase() || '';
-        let parsed: ImportResult;
-
-        if (ext === 'csv') {
-          parsed = readCSV(opened.content);
-        } else if (ext === 'xml') {
-          parsed = parseProjectXml(opened.content);
-        } else {
-          parsed = readIFC(opened.content, labels);
-        }
+        const parsed = await parseOpenedFile({ name: opened.name, text: opened.content }, labels);
 
         // Multi-document: open het bestand in een eigen tabblad. Hergebruik het
         // actieve tabblad alleen als dat nog leeg en ongewijzigd is.
@@ -426,8 +400,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       try {
         const { readTextFile } = await import('@tauri-apps/plugin-fs');
         const content = await readTextFile(filePath);
-        const ext = filePath.split('.').pop()?.toLowerCase() || '';
-        const parsed = ext === 'csv' ? readCSV(content) : ext === 'xml' ? parseProjectXml(content) : readIFC(content, labels);
+        const parsed = await parseOpenedFile({ name: filePath, text: content }, labels);
         return {
           projectId: parsed.project.id,
           projectName: parsed.project.name,
@@ -488,16 +461,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         return;
       }
       try {
-        const ext = entry.name.split('.').pop()?.toLowerCase() || '';
-        let parsed: ImportResult;
-
-        if (ext === 'csv') {
-          parsed = readCSV(content);
-        } else if (ext === 'xml') {
-          parsed = parseProjectXml(content);
-        } else {
-          parsed = readIFC(content, labels);
-        }
+        const parsed = await parseOpenedFile({ name: entry.name, text: content }, labels);
 
         if (!isActivePristine(get())) get().newDocument();
 
