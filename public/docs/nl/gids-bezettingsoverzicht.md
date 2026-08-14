@@ -5,6 +5,7 @@ Plan je meerdere projecten die uit dezelfde resourcebibliotheek putten, dan wil 
 ## Wat je hier leert
 
 - Het overzicht openen en de tabel lezen: één rij per geboekt bibliotheekitem, uitklapbaar per document.
+- Het histogram per geselecteerd bibliotheekitem lezen.
 - Wanneer een resource als dubbel geboekt telt.
 - Wat de ⚠-markering betekent en hoe je die oplost.
 - De belangrijkste beperking: het overzicht ziet alleen deze machine.
@@ -24,6 +25,10 @@ Klap een rij uit en je ziet één subregel per document: de documenttitel, de pe
 
 Bibliotheekitems zonder boeking in de geopende documenten krijgen géén rij: het overzicht toont inzet, geen catalogus — de catalogus staat in de weergave **Bibliotheek**. Projecteigen resources (zonder herkomst uit de bibliotheek) tellen evenmin mee; hun bezetting is een binnen-project-vraag en die beantwoordt het gewone histogram al.
 
+## Het histogram per resource
+
+Selecteer een hoofdrij en onder de tabel verschijnt een histogram voor dat bibliotheekitem: per dag de gestapelde bijdrage van elk document (elk document zijn eigen kleur, met de documenttitels als legenda), met daaroverheen de capaciteitslijn van het bibliotheekitem — knikken in de tijdgefaseerde beschikbaarheid zie je er gewoon in terug. Dagen waarop de stapel boven de lijn uitkomt zijn rood gemarkeerd: dezelfde conflictdefinitie als in de tabel, geen tweede berekening. Liggen boekingen ver uit elkaar in de tijd, dan wordt een lang leeg gat in de tijdas ingekort weergegeven met een breukteken, zodat de grafiek leesbaar blijft. Alleen meegetelde documenten voeden het histogram; een rij met uitsluitend niet-doorgerekende boekingen toont in plaats van een grafiek de ⚠-uitleg (zie hieronder).
+
 ## Wanneer telt een resource als dubbel geboekt?
 
 Per dag telt de app de belasting van alle meetellende geopende documenten bij elkaar op en vergelijkt die som met de capaciteit van het bibliotheekitem zelf — de max. eenheden zoals die in de bibliotheek staan, inclusief de tijdgefaseerde beschikbaarheid daar. Is de som *strikt groter* dan die capaciteit, dan is de dag dubbel geboekt. Een som die precies gelijk is aan de capaciteit is dus géén conflict.
@@ -32,9 +37,9 @@ Let op: de capaciteit komt uit de bibliotheek, niet uit de projecten. Twee proje
 
 ## De ⚠-markering: document niet doorgerekend
 
-Plannen rekent niet vanzelf door: je drukt F5 (of de knop **Berekenen**). Een document waarin sinds de laatste berekening iets gewijzigd is, telt in het overzicht gewoon mee — op zijn laatst doorgerekende datums — maar draagt een ⚠-markering op elke regel waar het voorkomt, en boven de tabel verschijnt een waarschuwing. De cijfers van zo'n document kunnen verouderd zijn.
+Plannen rekent niet vanzelf door: je drukt F5 (of de knop **Berekenen**). Een document waarin sinds de laatste berekening iets gewijzigd is, telt **niet mee** in de sommen, pieken en conflictdagen — zijn duur en datums lopen dan per definitie uiteen, en half doorgerekende cijfers zouden een conflict net zo goed kunnen verbergen als verzinnen. Het document verdwijnt alleen niet stil: elke boeking blijft zichtbaar als subregel met een ⚠-markering en de melding dat hij niet meetelt, en boven de tabel staat een waarschuwing dat er documenten buiten de telling vallen.
 
-De oplossing: activeer dat document (klik zijn tabblad), druk **F5**, en schakel terug naar het bezettingsoverzicht. De markering verdwijnt en de cijfers zijn weer actueel.
+De oplossing: activeer dat document (klik zijn tabblad), druk **F5**, en schakel terug naar het bezettingsoverzicht. De markering verdwijnt en het document telt weer gewoon mee.
 
 ## Alleen deze machine
 

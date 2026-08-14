@@ -5,6 +5,7 @@ If you plan several projects that all draw from the same resource library, you'l
 ## What you'll learn here
 
 - Opening the overview and reading the table: one row per booked library item, expandable per document.
+- Reading the histogram for the selected library item.
 - When a resource counts as double-booked.
 - What the ⚠ marker means and how to resolve it.
 - The key limitation: the overview only sees this machine.
@@ -24,6 +25,10 @@ Expand a row and you get one sub-line per document: the document title, the peri
 
 Library items with no booking in the open documents get no row at all: the overview shows deployment, not a catalogue — the catalogue lives in the **Library** view. Project-only resources (with no library provenance) don't count either; their occupancy is a within-project question, and the regular histogram already answers that one.
 
+## The histogram per resource
+
+Select a main row and a histogram for that library item appears below the table: per day, the stacked contribution of each document (each document in its own colour, with the document titles as the legend), overlaid with the library item's capacity line — steps in the time-phased availability show up in it as visible bends. Days where the stack rises above the line are marked red: the same conflict definition as in the table, not a second calculation. If bookings lie far apart in time, a long empty gap in the time axis is shown compressed with a break mark, so the chart stays readable. Only counted documents feed the histogram; a row with nothing but non-recalculated bookings shows the ⚠ explanation instead of a chart (see below).
+
 ## When does a resource count as double-booked?
 
 Per day, the app adds up the load from all qualifying open documents and compares that sum with the capacity of the library item itself — the max units as they stand in the library, including its time-phased availability there. If the sum is *strictly greater* than that capacity, the day is double-booked. A sum exactly equal to the capacity is therefore not a conflict.
@@ -32,9 +37,9 @@ Note that the capacity comes from the library, not from the projects. Two projec
 
 ## The ⚠ marker: document not recalculated
 
-Schedules don't recalculate by themselves: you press F5 (or the **Calculate** button). A document that has changed since its last calculation still counts in the overview — on its last calculated dates — but carries a ⚠ marker on every line where it appears, and a warning shows above the table. That document's figures may be out of date.
+Schedules don't recalculate by themselves: you press F5 (or the **Calculate** button). A document that has changed since its last calculation is **not counted** in the sums, peaks and conflict days — its durations and dates are by definition out of step, and half-recalculated figures could just as easily hide a conflict as invent one. The document doesn't disappear silently, though: every booking stays visible as a sub-line with a ⚠ marker and a note that it isn't counted, and a warning above the table says that documents are being left out of the tally.
 
-The fix: activate that document (click its tab), press **F5**, and switch back to the occupancy overview. The marker disappears and the figures are current again.
+The fix: activate that document (click its tab), press **F5**, and switch back to the occupancy overview. The marker disappears and the document counts again as normal.
 
 ## This machine only
 
