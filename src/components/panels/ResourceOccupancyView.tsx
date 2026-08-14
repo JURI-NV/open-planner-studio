@@ -3,7 +3,9 @@ import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import type { CompanyPool } from '@/types/library';
-import type { Resource } from '@/types/resource';
+import type { Resource, ResourceAssignment } from '@/types/resource';
+import type { Task } from '@/types/task';
+import type { DocumentPayload } from '@/state/documentContract';
 import {
   computeLibraryOccupancy,
   type OccupancyDocInput,
@@ -11,27 +13,84 @@ import {
 } from '@/services/library/occupancy';
 import { documentTitle, untitledOrdinals, displayDocumentTitle, documentColor } from '@/utils/documents';
 import { maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
-import { parseDate, formatDate, addCalendarDays } from '@/utils/dateUtils';
+import { parseDate, formatDate, addCalendarDays, diffDays } from '@/utils/dateUtils';
 
 /** Maximaal getoonde conflictdatums in de badge-tooltip/subregel (§5: "max. ~5, dan …"). */
 const MAX_CONFLICT_DATES_SHOWN = 5;
 
+/** De bibliotheek-relevante snit van één documentpayload (§7-cache, zie `librarySlice`). */
+interface LibrarySlice {
+  resources: Resource[];
+  assignments: ResourceAssignment[];
+  tasks: Task[];
+}
+
+/**
+ * De bibliotheek-relevante snit van een payload: alleen de resources met een stempel naar déze
+ * bibliotheek én een nog bestaand poolitem, alleen de toewijzingen op díé resources, en alleen de
+ * taken waar die toewijzingen naar wijzen.
+ *
+ * Dit is de per-payload-cachebare helft van de §7-maatregel (critreview bevinding 4). De snit is
+ * aantoonbaar betekenis-behoudend voor wat `computeLibraryOccupancy` uit het resultaat leest:
+ * `computeResourceLoad` bouwt `load[resourceId]` per resource onafhankelijk op uit de toewijzingen
+ * van díé resource, en de leaf-/mijlpaalfilter kijkt uitsluitend naar de taak van de toewijzing
+ * zelf (`task.isMilestone`, `task.childIds`) — niet naar broers of ouders. De velden die wél over
+ * álle resources gaan (`capacity`, `overallocatedDays`) leest de bezettingskern niet; hij gebruikt
+ * de POOL-capaciteit via `maxUnitsOn` (§6). De kern filtert `resources` bovendien zelf op precies
+ * dezelfde stempelvoorwaarde, dus vooraf snijden verandert zijn `stampedResources` niet.
+ */
+function librarySlice(payload: DocumentPayload, companyId: string, poolItemIds: Set<string>): LibrarySlice {
+  const resources = payload.resources.filter(r =>
+    r.libraryOrigin !== undefined &&
+    r.libraryOrigin.companyId === companyId &&
+    poolItemIds.has(r.libraryOrigin.libraryItemId));
+  if (resources.length === 0) return { resources: [], assignments: [], tasks: [] };
+  const resourceIds = new Set(resources.map(r => r.id));
+  const assignments = payload.assignments.filter(a => resourceIds.has(a.resourceId));
+  const taskIds = new Set(assignments.map(a => a.taskId));
+  return { resources, assignments, tasks: payload.tasks.filter(task => taskIds.has(task.id)) };
+}
+
 /**
  * B1b — bezettingsoverzicht per bibliotheek over álle open documenten (spec
- * 2026-08-14-b1b-bezettingsoverzicht-design.md §5/§5a). Derde stand van de Resources-schakelaar
- * (`ui.resourcesView === 'occupancy'`, gerenderd vanuit `ResourcePanel` onder dezelfde
- * `linked`-conditie als de Bibliotheekweergave). Leesvenster: er valt hier niets te muteren.
+ * 2026-08-14-b1b-bezettingsoverzicht-design.md §5/§5a, herzien na critreview). Derde stand van de
+ * Resources-schakelaar (`ui.resourcesView === 'occupancy'`, gerenderd vanuit `ResourcePanel` onder
+ * dezelfde `linked`-conditie als de Bibliotheekweergave). Leesvenster: er valt hier niets te
+ * muteren.
  *
  * Aanlevering (§4.4): de bestaande `getOpenDocumentPayloads()` (actief document via
  * `capturePayload`, de rest per referentie), per document gemapt naar `OccupancyDocInput` met de
- * titel-afleiding van de tabbladen (`documentTitle` + `untitledOrdinals`). Geen nieuwe
- * store-actie of -veld: de aggregatie is een leesberekening in de weergavelaag.
+ * titel-afleiding van de tabbladen (`documentTitle` + `untitledOrdinals`). De aanroep gebeurt
+ * BINNEN de `useMemo` — als Zustand-selector is hij onbruikbaar (verse array per aanroep; zelfde
+ * val die `useDocumentCards` ontwijkt). Geen nieuwe store-actie of -veld.
+ *
+ * Stale documenten (§4.3, herzien): de kern telt ze niet mee (`counted: false`, geen cijfers);
+ * deze weergave toont ze als "—"-subregels met ⚠ en de staleDoc-uitleg, en een banner zodra
+ * `anyStale` waar is. Een rij met uitsluitend ongetelde boekingen toont "—" voor periode/piek,
+ * krijgt nooit een conflictbadge en bij selectie geen chart maar de stale-uitleg.
  *
  * Prestaties (§7): lazy — dit component mount alleen in de Bezettingsweergave — en één `useMemo`
- * rond `computeLibraryOccupancy` met als afhankelijkheden de identiteiten van `s.documents`,
- * de pool en de top-level velden van het actieve document. Immer geeft nieuwe referenties bij
- * elke mutatie, dus dit is vanzelf correct; slapende payloads wijzigen alleen op de
- * verversingsgrenzen en die vervangen de payload-referentie.
+ * rond `computeLibraryOccupancy`, met als afhankelijkheden de identiteiten van `s.documents`, de
+ * pool en de top-level velden van het actieve document, PLUS `s.project` en `s.filePath` (de
+ * titelafleiding leest die twee; zonder deze deps bevriezen de titels na hernoemen/Opslaan-als —
+ * critreview bevinding 3, zelfde dep-lijst als `useDocumentCards`).
+ *
+ * Per-payload-cache (§7, critreview bevinding 4) — met een BEWUSTE AFWIJKING van de letterlijke
+ * ontwerptekst. Zolang de weergave openstaat is elke bewerking in het actieve document een
+ * memo-invalidatie; zonder maatregel rekent dan de volledige load van álle N documenten opnieuw.
+ * De `WeakMap` hier is gesleuteld op payload-referentie (slapende payloads zijn referentiestabiel,
+ * het actieve document krijgt per `capturePayload` een vers object) en cachet de bibliotheek-snit
+ * van elk document (`librarySlice`). Wat het ontwerp beschrijft — de gecachte per-document-LOAD,
+ * zodat alleen het actieve document nog rekent — kan hier niet: `computeLibraryOccupancy` rekent
+ * die load intern en accepteert niets voorgerekends, en de kern openbreken valt buiten deze
+ * wijziging (de aggregatie in de weergave nabouwen zou de conflictdefinitie van §6 een tweede bron
+ * geven — precies wat §5a verbiedt). Het effect van de gekozen snit: de engine-pass per document
+ * schaalt niet meer met de projectgrootte maar met het aantal bibliotheekboekingen erin, en de
+ * snit zelf wordt per bewerking nog maar voor één document gedaan. Restkost per bewerking:
+ * O(actief document) + O(N × bibliotheekboekingen), i.p.v. O(N × volledig document).
+ *
+ * De §5a-chart rendert alleen voor de geselecteerde rij en memoïseert zijn volledige geometrie
+ * (segmentindeling, staven, capaciteitspaden, labels) op [row, poolItem].
  */
 export function ResourceOccupancyView({ companyId, pool }: { companyId: string; pool: CompanyPool }) {
   const { t, i18n } = useTranslation('common');
@@ -39,7 +98,10 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   // §7-afhankelijkheden. De top-level velden van het actieve document staan hier uitsluitend als
   // memo-triggers: `getOpenDocumentPayloads()` leest ze zelf vers via `capturePayload`, maar zonder
   // deze subscriptions zou een bewerking in het actieve document de memo niet ongeldig maken.
+  // `project`/`filePath` zijn óók titel-invoer (documentTitle leest beide).
   const documents = useAppStore(s => s.documents);
+  const activeProject = useAppStore(s => s.project);
+  const activeFilePath = useAppStore(s => s.filePath);
   const activeResources = useAppStore(s => s.resources);
   const activeAssignments = useAppStore(s => s.assignments);
   const activeTasks = useAppStore(s => s.tasks);
@@ -50,33 +112,48 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
 
   const untitledLabel = t('project.untitled');
 
+  // §7-cache: één `WeakMap` per (bibliotheek × poolsamenstelling) — de gecachte snit hangt van
+  // beide af, dus een andere bibliotheek of een gewijzigde pool krijgt een verse cache in plaats
+  // van een handmatige invalidatie. `pool` is een Immer-object: elke poolmutatie vervangt de
+  // referentie.
+  const sliceCache = useMemo(() => new WeakMap<DocumentPayload, LibrarySlice>(), [companyId, pool]);
+
   const { rows, anyStale } = useMemo(() => {
     const payloads = getOpenDocumentPayloads();
     // Zelfde titel-afleiding als de tabbladen: rauwe titels eerst, dan volgnummers voor naamloze
     // documenten, dan het vertaalde label eromheen (zie `getOpenDocuments`/`useDocumentCards`).
     const rawTitles = payloads.map(({ payload }) => documentTitle(payload.filePath, payload.project.name));
     const ordinals = untitledOrdinals(rawTitles);
-    const inputs: OccupancyDocInput[] = payloads.map(({ id, payload }, i) => ({
-      docId: id,
-      title: displayDocumentTitle(rawTitles[i], ordinals[i], untitledLabel),
-      scheduleStale: payload.scheduleStale,
-      companyId: payload.project.companyId ?? null,
-      resources: payload.resources,
-      assignments: payload.assignments,
-      tasks: payload.tasks,
-      calendar: payload.calendar,
-      calendars: payload.calendars,
-    }));
+    const poolItemIds = new Set(pool.resources.map(r => r.id));
+    const inputs: OccupancyDocInput[] = payloads.map(({ id, payload }, i) => {
+      // De titel hoort bewust NIET in de cache: die hangt aan de locale en aan de volgnummers van
+      // de ándere documenten, niet aan deze payload.
+      let slice = sliceCache.get(payload);
+      if (slice === undefined) {
+        slice = librarySlice(payload, companyId, poolItemIds);
+        sliceCache.set(payload, slice);
+      }
+      return {
+        docId: id,
+        title: displayDocumentTitle(rawTitles[i], ordinals[i], untitledLabel),
+        scheduleStale: payload.scheduleStale,
+        companyId: payload.project.companyId ?? null,
+        resources: slice.resources,
+        assignments: slice.assignments,
+        tasks: slice.tasks,
+        calendar: payload.calendar,
+        calendars: payload.calendars,
+      };
+    });
     const result = computeLibraryOccupancy(companyId, pool, inputs);
     // Weergavesortering (§5): conflicten bovenaan (meeste conflictdagen eerst), daarna alfabetisch
     // op poolnaam — de kern levert bewust de neutrale poolvolgorde.
     const sorted = [...result.rows].sort((a, b) =>
       (b.conflictDays.length - a.conflictDays.length) || a.name.localeCompare(b.name, i18n.language));
     return { rows: sorted, anyStale: result.anyStale };
-    // De actieve-documentvelden zijn pure memo-triggers (zie het commentaar bij de subscriptions).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    documents, pool, companyId, untitledLabel, i18n.language,
+    getOpenDocumentPayloads, sliceCache, documents, pool, companyId, untitledLabel, i18n.language,
+    activeProject, activeFilePath,
     activeResources, activeAssignments, activeTasks, activeCalendar, activeCalendars, activeScheduleStale,
   ]);
 
@@ -91,14 +168,12 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
     [i18n.language],
   );
 
-  // Vaste kleur per document (§5a): het bestaande identiteitskleur-palet van de document-chrome,
-  // gezaaid op de docId zodat óók een variant-duplicaat (zelfde project-id) een eigen kleur krijgt.
-  const colorOf = (docId: string) => documentColor(docId);
-
   const selectedRow = selectedItem !== null ? rows.find(r => r.libraryItemId === selectedItem) : undefined;
   const selectedPoolItem = selectedRow ? pool.resources.find(r => r.id === selectedRow.libraryItemId) : undefined;
+  const selectedAllUncounted = selectedRow !== undefined && selectedRow.docs.every(d => !d.counted);
 
-  /** Totale periode van een rij: min `firstDay` … max `lastDay` over de documenten (§5). */
+  /** Totale periode van een rij: min `firstDay` … max `lastDay` over de GETELDE documenten (§5) —
+   *  ongetelde boekingen hebben geen datums (kern §4.3), dus die vallen er vanzelf uit. */
   const rowPeriod = (row: OccupancyRow): string => {
     let first: string | null = null;
     let last: string | null = null;
@@ -157,7 +232,11 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
             {rows.map(row => {
               const open = expandedItem === row.libraryItemId;
               const isSelected = selectedItem === row.libraryItemId;
-              const hasConflict = row.conflictDays.length > 0;
+              // §4.3/§5: uitsluitend ongetelde (stale) boekingen ⇒ "—" voor periode en piek, en
+              // NOOIT een conflictbadge. De kern levert zonder getelde belasting sowieso geen
+              // conflictdagen; de `!allUncounted` maakt die eis hier alsnog hard op weergaveniveau.
+              const allUncounted = row.docs.every(d => !d.counted);
+              const hasConflict = row.conflictDays.length > 0 && !allUncounted;
               return (
                 <Fragment key={row.libraryItemId}>
                   <tr
@@ -187,7 +266,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                       className="px-2 py-1.5 text-right tabular-nums"
                       style={hasConflict ? { color: 'var(--error)' } : undefined}
                     >
-                      {unitsFmt.format(row.totalPeak)} / {unitsFmt.format(row.capacityAtPeak)}
+                      {allUncounted ? '—' : <>{unitsFmt.format(row.totalPeak)} / {unitsFmt.format(row.capacityAtPeak)}</>}
                     </td>
                     <td className="px-2 py-1.5">
                       {hasConflict && (
@@ -215,17 +294,19 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                             <div key={doc.docId} className="flex items-center gap-2 min-w-0">
                               <span
                                 className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                style={{ background: colorOf(doc.docId) }}
+                                style={{ background: documentColor(doc.docId) }}
                                 aria-hidden
                               />
                               <span className="truncate font-medium">{doc.title || untitledLabel}</span>
+                              {/* §5 (herzien): ongetelde boekingen tonen "—" op de cijferplekken. */}
                               <span className="tabular-nums text-text-secondary">
-                                {doc.firstDay !== null && doc.lastDay !== null ? `${doc.firstDay} – ${doc.lastDay}` : '—'}
+                                {doc.counted && doc.firstDay !== null && doc.lastDay !== null
+                                  ? `${doc.firstDay} – ${doc.lastDay}` : '—'}
                               </span>
                               <span className="tabular-nums text-text-secondary">
-                                {t('resource.occupancy.peak')}: {unitsFmt.format(doc.peak)}
+                                {t('resource.occupancy.peak')}: {doc.counted ? unitsFmt.format(doc.peak) : '—'}
                               </span>
-                              {doc.scheduleStale && (
+                              {!doc.counted && (
                                 <span
                                   className="inline-flex items-center gap-1 flex-shrink-0"
                                   style={{ color: 'var(--theme-warning-text)' }}
@@ -249,16 +330,23 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
         </table>
       )}
 
-      {/* §5a: histogram voor het geselecteerde poolitem; zonder selectie de hint. */}
+      {/* §5a: histogram voor het geselecteerde poolitem; zonder selectie de hint; een rij met
+          uitsluitend ongetelde boekingen toont geen chart maar de stale-uitleg. */}
       {rows.length > 0 && (
         <div className="px-3 py-2 border-t border-border" data-ops-occupancy-histogram-section>
           {selectedRow && selectedPoolItem ? (
-            <OccupancyHistogram
-              row={selectedRow}
-              poolItem={selectedPoolItem}
-              colorOf={colorOf}
-              untitledLabel={untitledLabel}
-            />
+            selectedAllUncounted ? (
+              <p
+                className="flex items-center gap-1.5"
+                style={{ color: 'var(--theme-warning-text)' }}
+                data-ops-occupancy-chart-stale
+              >
+                <AlertTriangle size={13} className="shrink-0" aria-hidden />
+                {t('resource.occupancy.staleDoc')}
+              </p>
+            ) : (
+              <OccupancyHistogram row={selectedRow} poolItem={selectedPoolItem} untitledLabel={untitledLabel} />
+            )
           ) : (
             <p className="text-text-secondary">{t('resource.occupancy.selectHint')}</p>
           )}
@@ -285,79 +373,209 @@ const CHART = {
   minDayWidth: 4,
   maxDayWidth: 16,
   targetWidth: 760, // richtbreedte; meer dagen ⇒ breder (scroll), minder ⇒ bredere staven
+  breakWidth: 14,   // breedte van de "⋯"-breukmarkering tussen segmenten
 };
 
+/** Gaten langer dan dit aantal kalenderdagen zonder enige boeking worden ingeklapt (§5a). */
+const GAP_COMPRESS_DAYS = 30;
+
+/** Minimale horizontale ruimte tussen twee datumlabels (viewBox-eenheden ≈ px bij fontSize 8). */
+const MIN_LABEL_GAP = 48;
+
+interface ChartSegment {
+  /** Alle kalenderdagen van het segment (granulariteit één dag, incl. boekingsloze dagen). */
+  days: string[];
+  /** x-positie (viewBox) van de eerste dag. */
+  x0: number;
+}
+
+/** Alle ISO-kalenderdagen van `from` t/m `to` (inclusief). */
+function expandDays(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let d = parseDate(from); ; d = addCalendarDays(d, 1)) {
+    const iso = formatDate(d);
+    if (iso > to) break;
+    days.push(iso);
+  }
+  return days;
+}
+
 /**
- * Gestapeld daghistogram voor één poolitem (§5a): per ISO-dag de bijdrage per document (vaste
- * kleur per document + legenda), de capaciteitslijn van het poolitem via `maxUnitsOn` per dag
- * (availabilitySteps-knikken zichtbaar als trapjes) en de conflictdagen rood gemarkeerd — dat is
- * letterlijk `row.conflictDays` uit de kern, geen tweede berekening. SVG in de DOM; bewust niet de
+ * Gestapeld daghistogram voor één poolitem (§5a, herzien): per ISO-dag de bijdrage per GETELD
+ * document (vaste kleur per document + legenda), de capaciteitslijn van het poolitem via
+ * `maxUnitsOn` per dag (availabilitySteps-knikken zichtbaar als trapjes) en de conflictdagen rood
+ * gemarkeerd — letterlijk `row.conflictDays` uit de kern, geen tweede berekening.
+ *
+ * X-as-domein (critreview bevinding 5): de vereniging van de getelde geboekte dagen, met
+ * GATCOMPRESSIE — een aaneengesloten gat van meer dan 30 kalenderdagen zonder boeking klapt in
+ * tot één smalle "⋯"-breukmarkering, zodat ver uiteenliggende documenten geen duizenden lege
+ * kolommen produceren. Binnen een segment blijft de granulariteit één dag; het geheel scrollt
+ * horizontaal in zijn eigen container. Alle segmentindeling en padopbouw zit BINNEN de memo.
+ *
+ * De chart is geforceerd LTR (ook onder ar/fa) — een tijdas spiegelt in dit product nergens; de
+ * omringende tabel en legenda volgen gewoon de documentrichting. SVG in de DOM; bewust niet de
  * canvas-`HistogramRenderer` (die hangt aan de tijdschaal van het actieve project).
  */
-function OccupancyHistogram({ row, poolItem, colorOf, untitledLabel }: {
+function OccupancyHistogram({ row, poolItem, untitledLabel }: {
   row: OccupancyRow;
   poolItem: Resource;
-  colorOf: (docId: string) => string;
   untitledLabel: string;
 }) {
   const { t } = useTranslation('common');
 
   const chart = useMemo(() => {
-    // Doorlopende dag-as van de vroegste tot de laatste geboekte dag, zodat de tijd proportioneel
-    // blijft en de capaciteitslijn ook over boekingsloze dagen doorloopt.
-    let first: string | null = null;
-    let last: string | null = null;
-    for (const d of row.docs) {
-      if (d.firstDay !== null && (first === null || d.firstDay < first)) first = d.firstDay;
-      if (d.lastDay !== null && (last === null || d.lastDay > last)) last = d.lastDay;
+    const countedDocs = row.docs.filter(d => d.counted);
+
+    // Domein: de vereniging van de GETELDE geboekte dagen (ongetelde boekingen hebben per §4.3
+    // geen cijfers en dragen dus ook geen as-domein bij).
+    const bookedDays = new Set<string>();
+    for (const d of countedDocs) for (const iso of Object.keys(d.dailyLoad)) bookedDays.add(iso);
+    const sortedBooked = [...bookedDays].sort();
+    if (sortedBooked.length === 0) return null;
+
+    // Gatcompressie: een aaneengesloten reeks kalenderdagen ZONDER boeking die langer is dan
+    // GAP_COMPRESS_DAYS breekt het domein in twee segmenten. `diffDays(prev, iso) - 1` is precies
+    // de lengte van dat gat (opeenvolgende dagen ⇒ 0). Binnen een segment worden álle
+    // kalenderdagen getoond, ook boekingsloze, zodat de tijd daar proportioneel blijft.
+    const ranges: { from: string; to: string }[] = [];
+    let from = sortedBooked[0];
+    let prev = from;
+    for (let i = 1; i < sortedBooked.length; i++) {
+      const iso = sortedBooked[i];
+      if (diffDays(prev, iso) - 1 > GAP_COMPRESS_DAYS) {
+        ranges.push({ from, to: prev });
+        from = iso;
+      }
+      prev = iso;
     }
-    if (first === null || last === null) return null;
+    ranges.push({ from, to: prev });
 
-    const days: string[] = [];
-    for (let d = parseDate(first); ; d = addCalendarDays(d, 1)) {
-      const iso = formatDate(d);
-      if (iso > last) break;
-      days.push(iso);
-    }
-
-    const capacity = days.map(iso => maxUnitsOn(poolItem, iso));
-    const stacks = days.map(iso => row.docs.map(doc => doc.dailyLoad[iso] ?? 0));
-    const sums = stacks.map(stack => stack.reduce((a, b) => a + b, 0));
-    const maxY = Math.max(1, ...sums, ...capacity) * 1.1;
-
+    const totalDays = ranges.reduce((n, r) => n + diffDays(r.from, r.to) + 1, 0);
     const dayWidth = Math.max(
       CHART.minDayWidth,
-      Math.min(CHART.maxDayWidth, Math.floor(CHART.targetWidth / days.length)),
+      Math.min(CHART.maxDayWidth, Math.floor(CHART.targetWidth / totalDays)),
     );
-    const width = CHART.padLeft + days.length * dayWidth + CHART.padRight;
-    const height = CHART.padTop + CHART.plotHeight + CHART.axisGap;
-    const conflictSet = new Set(row.conflictDays);
 
-    // Datumlabels: eerste + laatste dag, en bij een langere as de maandovergangen ertussen.
-    const labelIdx = new Set<number>([0, days.length - 1]);
-    if (days.length > 45) {
-      days.forEach((iso, i) => { if (iso.endsWith('-01')) labelIdx.add(i); });
+    const segments: ChartSegment[] = [];
+    const breaks: number[] = []; // x-middens van de breukmarkeringen tussen de segmenten
+    let cursor = CHART.padLeft;
+    for (const range of ranges) {
+      if (segments.length > 0) {
+        breaks.push(cursor + CHART.breakWidth / 2);
+        cursor += CHART.breakWidth;
+      }
+      const days = expandDays(range.from, range.to);
+      segments.push({ days, x0: cursor });
+      cursor += days.length * dayWidth;
+    }
+    const width = cursor + CHART.padRight;
+    const height = CHART.padTop + CHART.plotHeight + CHART.axisGap;
+
+    // Belasting en capaciteit per getoonde dag; y-schaal over beide.
+    const capacityOf = new Map<string, number>();
+    let maxVal = 1;
+    for (const seg of segments) {
+      for (const iso of seg.days) {
+        const cap = maxUnitsOn(poolItem, iso);
+        capacityOf.set(iso, cap);
+        let sum = 0;
+        for (const d of countedDocs) sum += d.dailyLoad[iso] ?? 0;
+        if (cap > maxVal) maxVal = cap;
+        if (sum > maxVal) maxVal = sum;
+      }
+    }
+    const maxY = maxVal * 1.1;
+    const yOf = (units: number) => CHART.padTop + CHART.plotHeight * (1 - units / maxY);
+
+    // Geometrie volledig hier, niet in de render-body (§5a): staven, conflictbanden, het
+    // capaciteitspad per segment en de datumlabels.
+    const conflictSet = new Set(row.conflictDays);
+    const bars: { key: string; x: number; y: number; w: number; h: number; fill: string }[] = [];
+    const conflictRects: { key: string; x: number }[] = [];
+    const capPaths: string[] = [];
+
+    // Labels worden in oplopende x gepusht; te dicht op elkaar ⇒ overslaan. Een vastgezet label
+    // (segmentbegin, laatste dag) wint van een niet-vastgezet buurlabel dat in de weg staat.
+    const labels: { x: number; text: string; anchor: 'start' | 'end'; pinned: boolean }[] = [];
+    const pushLabel = (x: number, text: string, anchor: 'start' | 'end', pinned: boolean) => {
+      const last = labels[labels.length - 1];
+      // Een rechts uitgelijnd label loopt naar links wég van zijn x, dus dat heeft de dubbele
+      // tussenruimte nodig ten opzichte van het (links uitgelijnde) label ervóór.
+      const needed = anchor === 'end' ? MIN_LABEL_GAP * 2 : MIN_LABEL_GAP;
+      if (last !== undefined && x - last.x < needed) {
+        if (!pinned || last.pinned) return;
+        labels.pop();
+      }
+      labels.push({ x, text, anchor, pinned });
+    };
+
+    for (const seg of segments) {
+      let capPath = '';
+      let prevCap: number | null = null;
+      for (let i = 0; i < seg.days.length; i++) {
+        const iso = seg.days[i];
+        const x = seg.x0 + i * dayWidth;
+        // Conflictband (§6-definitie, letterlijk `row.conflictDays` — geen tweede berekening).
+        if (conflictSet.has(iso)) conflictRects.push({ key: iso, x });
+        // Gestapelde bijdrage per geteld document, in de vaste documentvolgorde van de rij.
+        let acc = 0;
+        for (const doc of countedDocs) {
+          const units = doc.dailyLoad[iso] ?? 0;
+          if (units <= 0) continue;
+          const y0 = yOf(acc);
+          acc += units;
+          const y1 = yOf(acc);
+          bars.push({
+            key: `${iso}-${doc.docId}`,
+            x: x + 0.5,
+            y: y1,
+            w: Math.max(1, dayWidth - 1),
+            h: Math.max(0.5, y0 - y1),
+            fill: documentColor(doc.docId),
+          });
+        }
+        // Capaciteits-traplijn: horizontaal over de dag, verticaal op elke knik.
+        const cap = capacityOf.get(iso)!;
+        const y = yOf(cap);
+        if (prevCap === null) capPath += `M ${x} ${y}`;
+        else if (cap !== prevCap) capPath += ` L ${x} ${y}`;
+        capPath += ` L ${x + dayWidth} ${y}`;
+        prevCap = cap;
+      }
+      capPaths.push(capPath);
+      // Datumlabels: het begin van elk segment (vastgezet — het markeert de breuk), plus de
+      // maandovergangen binnen een lang segment.
+      pushLabel(seg.x0, seg.days[0], 'start', true);
+      if (seg.days.length > 45) {
+        seg.days.forEach((iso, i) => {
+          if (i > 0 && iso.endsWith('-01')) pushLabel(seg.x0 + i * dayWidth, iso, 'start', false);
+        });
+      }
+    }
+    // Laatste dag rechts uitgelijnd, zodat het label niet buiten de viewBox valt.
+    const lastSeg = segments[segments.length - 1];
+    if (lastSeg.days.length > 1) {
+      pushLabel(
+        lastSeg.x0 + lastSeg.days.length * dayWidth,
+        lastSeg.days[lastSeg.days.length - 1],
+        'end',
+        true,
+      );
     }
 
-    return { days, capacity, stacks, maxY, dayWidth, width, height, conflictSet, labelIdx };
+    const capStart = capacityOf.get(segments[0].days[0])!;
+    return {
+      dayWidth, width, height,
+      bars, conflictRects, capPaths, breaks, labels,
+      baselineY: yOf(0),
+      capStartY: yOf(capStart),
+      capStartValue: capStart,
+    };
   }, [row, poolItem]);
 
   if (chart === null) {
-    // Alle boekingen van deze rij zijn 0 eenheden — er valt niets te stapelen.
+    // Kan alleen bij een rij zonder getelde boekingen — de aanroeper vangt dat al af (§5a).
     return <p className="text-text-secondary">{t('resource.occupancy.empty')}</p>;
-  }
-
-  const { days, capacity, stacks, maxY, dayWidth, width, height, conflictSet, labelIdx } = chart;
-  const yOf = (units: number) => CHART.padTop + CHART.plotHeight * (1 - units / maxY);
-  const xOf = (i: number) => CHART.padLeft + i * dayWidth;
-
-  // Capaciteits-traplijn: horizontaal per dag, verticaal op elke knik.
-  let capPath = '';
-  for (let i = 0; i < days.length; i++) {
-    const y = yOf(capacity[i]);
-    if (i === 0) capPath += `M ${xOf(0)} ${y}`;
-    else if (capacity[i] !== capacity[i - 1]) capPath += ` L ${xOf(i)} ${yOf(capacity[i - 1])} L ${xOf(i)} ${y}`;
-    capPath += ` L ${xOf(i + 1)} ${y}`;
   }
 
   return (
@@ -365,81 +583,78 @@ function OccupancyHistogram({ row, poolItem, colorOf, untitledLabel }: {
       <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--theme-text-muted)' }}>
         {row.name}
       </span>
-      <div className="overflow-x-auto">
+      {/* Geforceerd LTR (§5a): een tijdas spiegelt nergens in dit product, ook niet onder ar/fa. */}
+      <div className="overflow-x-auto" dir="ltr" style={{ direction: 'ltr' }}>
         <svg
-          width={width}
-          height={height}
-          viewBox={`0 0 ${width} ${height}`}
+          width={chart.width}
+          height={chart.height}
+          viewBox={`0 0 ${chart.width} ${chart.height}`}
           role="img"
           aria-label={row.name}
           style={{ display: 'block' }}
         >
-          {/* Conflictdagen (§6-definitie, uit `row.conflictDays`): rode band over de volle hoogte. */}
-          {days.map((iso, i) => conflictSet.has(iso) && (
+          {chart.conflictRects.map(r => (
             <rect
-              key={`c-${iso}`}
-              x={xOf(i)}
+              key={`c-${r.key}`}
+              x={r.x}
               y={CHART.padTop}
-              width={dayWidth}
+              width={chart.dayWidth}
               height={CHART.plotHeight}
               fill="var(--error)"
               opacity={0.16}
             />
           ))}
-          {/* Gestapelde bijdrage per document, in de vaste documentvolgorde van de rij. */}
-          {days.map((iso, i) => {
-            let acc = 0;
-            return stacks[i].map((units, di) => {
-              if (units <= 0) return null;
-              const y0 = yOf(acc);
-              acc += units;
-              const y1 = yOf(acc);
-              return (
-                <rect
-                  key={`${iso}-${row.docs[di].docId}`}
-                  x={xOf(i) + 0.5}
-                  y={y1}
-                  width={Math.max(1, dayWidth - 1)}
-                  height={Math.max(0.5, y0 - y1)}
-                  fill={colorOf(row.docs[di].docId)}
-                />
-              );
-            });
-          })}
+          {chart.bars.map(b => (
+            <rect key={b.key} x={b.x} y={b.y} width={b.w} height={b.h} fill={b.fill} />
+          ))}
           {/* Nullijn + y-as-waarden. */}
           <line
-            x1={CHART.padLeft} y1={yOf(0)} x2={xOf(days.length)} y2={yOf(0)}
+            x1={CHART.padLeft} y1={chart.baselineY} x2={chart.width - CHART.padRight} y2={chart.baselineY}
             stroke="var(--theme-border)" strokeWidth={1}
           />
-          <text x={CHART.padLeft - 4} y={yOf(0) + 3} textAnchor="end" fontSize={9} fill="var(--theme-text-muted)">0</text>
-          {/* Capaciteitslijn van het poolitem (maxUnitsOn per dag — knikken zichtbaar). */}
-          <path d={capPath} fill="none" stroke="var(--theme-text-dim)" strokeWidth={1.5} strokeDasharray="5 3" />
+          <text x={CHART.padLeft - 4} y={chart.baselineY + 3} textAnchor="end" fontSize={9} fill="var(--theme-text-muted)">0</text>
+          {/* Capaciteitslijn van het poolitem (maxUnitsOn per dag — knikken zichtbaar), per segment. */}
+          {chart.capPaths.map((d, i) => (
+            <path key={`cap-${i}`} d={d} fill="none" stroke="var(--theme-text-dim)" strokeWidth={1.5} strokeDasharray="5 3" />
+          ))}
           <text
             x={CHART.padLeft - 4}
-            y={yOf(capacity[0]) + 3}
+            y={chart.capStartY + 3}
             textAnchor="end"
             fontSize={9}
             fill="var(--theme-text-dim)"
-          >{capacity[0]}</text>
-          {/* Datumlabels. */}
-          {days.map((iso, i) => labelIdx.has(i) && (
+          >{chart.capStartValue}</text>
+          {/* Breukmarkeringen van de gatcompressie. */}
+          {chart.breaks.map((x, i) => (
             <text
-              key={`l-${iso}`}
-              x={xOf(i)}
+              key={`b-${i}`}
+              x={x}
+              y={CHART.padTop + CHART.plotHeight / 2}
+              textAnchor="middle"
+              fontSize={11}
+              fill="var(--theme-text-muted)"
+            >⋯</text>
+          ))}
+          {/* Datumlabels (segmentbegin, maandovergangen, laatste dag — al ontdubbeld in de memo). */}
+          {chart.labels.map((l, i) => (
+            <text
+              key={`l-${i}`}
+              x={l.x}
               y={CHART.padTop + CHART.plotHeight + 11}
+              textAnchor={l.anchor}
               fontSize={8}
               fill="var(--theme-text-muted)"
-            >{iso}</text>
+            >{l.text}</text>
           ))}
         </svg>
       </div>
-      {/* Legenda: de documenttitels met hun vaste kleur (zelfde kleuren als de uitklap-subregels). */}
+      {/* Legenda: alle documenten van de rij met hun vaste kleur; ongetelde met ⚠ (geen staafdata). */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-ops-occupancy-legend>
         {row.docs.map(doc => (
           <span key={doc.docId} className="inline-flex items-center gap-1.5 min-w-0">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: colorOf(doc.docId) }} aria-hidden />
+            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: documentColor(doc.docId) }} aria-hidden />
             <span className="truncate text-[10px] text-text-secondary">{doc.title || untitledLabel}</span>
-            {doc.scheduleStale && (
+            {!doc.counted && (
               <AlertTriangle size={11} style={{ color: 'var(--theme-warning-text)' }} aria-label={t('resource.occupancy.staleDoc')} />
             )}
           </span>
