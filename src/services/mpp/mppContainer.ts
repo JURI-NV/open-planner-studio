@@ -182,18 +182,21 @@ export class Props {
 
 // ── Leesbaarheids-poort ──────────────────────────────────────────────────────────────────────
 
-/** PropsKey.java r. 73. Alleen bit 0x1 ("protection password supplied") blokkeert LEZEN — bit
- *  0x2 is de schrijfreserveringswachtwoord-vlag, die MS Project ook niet vraagt bij het openen.
- *  Dit is een BEWUSTE precisering t.o.v. een kale "≠ 0"-check (zie MPP14Reader.java's
- *  `passwordRequiredToRead = (passwordProtectionFlag & 0x1) != 0`) — een kale ongelijkheidscheck
- *  zou een bestand met UITSLUITEND een schrijfreserveringswachtwoord onterecht als versleuteld
- *  afwijzen. */
+/** PropsKey.java r. 73. Alleen bit 0x1 ("protection password supplied") is relevant voor LEZEN —
+ *  bit 0x2 is de schrijfreserveringswachtwoord-vlag, die MS Project ook niet vraagt bij het
+ *  openen. Dit is een BEWUSTE precisering t.o.v. een kale "≠ 0"-check (zie MPP14Reader.java's
+ *  `passwordRequiredToRead = (passwordProtectionFlag & 0x1) != 0`). Bit 0x1 alléén is echter nog
+ *  NIET voldoende om te weigeren — zie `readPasswordProtection` hieronder voor de volledige
+ *  conditie (vlag ÉN hash). */
 const PASSWORD_FLAG = 893386752;
 /** PropsKey.java r. 59 — geëxporteerd ter documentatie/volledigheid (net als de Java-bron 'm
  *  naast PASSWORD_FLAG vermeldt), maar hier NIET gebruikt: de bijbehorende XOR-decodering
  *  (`DocumentInputStreamFactory`) is bewust niet geport, dus versleutelde streams worden nooit
  *  ontcijferd — alleen herkend en geweigerd via `PASSWORD_FLAG`. */
 export const ENCRYPTION_CODE = 893386759;
+/** PropsKey.java r. 77 (`PROTECTION_PASSWORD_HASH`). Samen met `PASSWORD_FLAG` de volledige
+ *  afwijscondities hieronder — zie de toelichting bij `readPasswordProtection`. */
+const PROTECTION_PASSWORD_HASH = 893386756;
 
 /**
  * Poortbevinding (T4, corpus-geverifieerd tegen de drie ground-truth-bestanden): MPP14Reader.java
@@ -207,13 +210,28 @@ export const ENCRYPTION_CODE = 893386759;
  * de root-stream, niet de "   114"-stream — een afwijking van de letterlijke planformulering
  * ("de Props-stream uit storage '   114'"), gemotiveerd door dit corpusonderzoek.
  */
-function readPasswordFlag(cfb: CfbFile): number {
+/**
+ * Poortbevinding (review-ronde ná T4): MPXJ weigert een MPP14-bestand NIET op de vlag alleen.
+ * MPP14Reader.java's `populateMemberData` (r. ~150-165) test EXPLICIET twee condities en gooit
+ * pas als BEIDE waar zijn:
+ *   passwordRequiredToRead = (passwordProtectionFlag & 0x1) != 0
+ *   encryptionXmlPresent   = props.getByteArray(PropsKey.PROTECTION_PASSWORD_HASH) != null
+ * De Java-bron documenteert dit met een expliciet voorbeeld: "I've come across an example where
+ * the password flag was set, but the encryption XML was missing. In this case the file is
+ * unencrypted and MS Project opens it without prompting for a password." Een kale vlag-check zou
+ * zulke — reëel voorkomende — bestanden dus onterecht als versleuteld weigeren. Deze functie
+ * spiegelt daarom beide condities.
+ */
+function readPasswordProtection(cfb: CfbFile): { flagSet: boolean; hashPresent: boolean } {
   const rootProps14Bytes = cfb.getStream(['Props14']);
   if (!rootProps14Bytes) {
     throw new Error('MPP: root-stream "Props14" ontbreekt — geen geldig MPP14-bestand');
   }
   const rootProps = new Props(rootProps14Bytes, 'Props14');
-  return rootProps.getByte(PASSWORD_FLAG);
+  return {
+    flagSet: (rootProps.getByte(PASSWORD_FLAG) & 0x1) !== 0,
+    hashPresent: rootProps.getByteArray(PROTECTION_PASSWORD_HASH) !== null,
+  };
 }
 
 /** Weigert MPP8/9/12 (te oud — deze lezer kent alleen MPP14) en wachtwoordbeveiligde bestanden,
@@ -228,8 +246,8 @@ export function assertReadable(cfb: CfbFile): void {
       `This .mpp uses the older Project 98/2000–2007 file format (${variant}).`,
     );
   }
-  const passwordFlag = readPasswordFlag(cfb);
-  if ((passwordFlag & 0x1) !== 0) {
+  const { flagSet, hashPresent } = readPasswordProtection(cfb);
+  if (flagSet && hashPresent) {
     throw new MppUnsupportedError('MPP_ENCRYPTED', 'This .mpp is password-protected.');
   }
 }

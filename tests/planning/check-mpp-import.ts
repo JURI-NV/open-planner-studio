@@ -401,6 +401,7 @@ function buildDuplicateSiblingCfb(levels: number): Uint8Array {
 // in de root, zie mppContainer.ts). Beide streams gaan via het mini-stream-pad (elk << 4096
 // bytes). ─────────────────────────────────────────────────────────────────────────────────────
 const MPP_PASSWORD_FLAG_KEY = 893386752; // PropsKey.PASSWORD_FLAG (PropsKey.java r. 73)
+const MPP_PROTECTION_PASSWORD_HASH_KEY = 893386756; // PropsKey.PROTECTION_PASSWORD_HASH (r. 77)
 
 function encodeAsciiWithTerminator(s: string): Uint8Array {
   const out = new Uint8Array(s.length + 1);
@@ -430,17 +431,31 @@ function encodeCompObjFileFormat(fileFormat: string): Uint8Array {
   return out;
 }
 
-/** Spiegelt Props14.java: 16-byte header (headerCount @12) + één entry (lengte/sleutel/
- *  genegeerd/data). Precies genoeg om één PropsKey te dragen. */
-function encodePropsSingleByteEntry(key: number, valueByte: number): Uint8Array {
-  const out = new Uint8Array(16 + 12 + 1);
+/** Spiegelt Props14.java: 16-byte header (headerCount @12) + N entries (lengte/sleutel/
+ *  genegeerd/data, uitgelijnd op een 2-byte-grens) — algemene vorm, ondersteunt meerdere
+ *  PropsKeys in één stream (nodig voor de vlag+hash-scenario's hieronder). */
+function encodePropsEntries(entries: { key: number; data: Uint8Array }[]): Uint8Array {
+  let bodyLen = 0;
+  for (const e of entries) bodyLen += 12 + e.data.length + (e.data.length % 2 !== 0 ? 1 : 0);
+  const out = new Uint8Array(16 + bodyLen);
   const view = new DataView(out.buffer);
-  view.setUint16(12, 1, true); // headerCount
-  view.setInt32(16, 1, true); // attrib1: datalengte
-  view.setInt32(20, key, true); // attrib2: sleutel
-  view.setInt32(24, 0, true); // attrib3: genegeerd
-  out[28] = valueByte;
+  view.setUint16(12, entries.length, true); // headerCount
+  let pos = 16;
+  for (const e of entries) {
+    view.setInt32(pos, e.data.length, true); // attrib1: datalengte
+    view.setInt32(pos + 4, e.key, true); // attrib2: sleutel
+    view.setInt32(pos + 8, 0, true); // attrib3: genegeerd
+    pos += 12;
+    out.set(e.data, pos);
+    pos += e.data.length;
+    if (e.data.length % 2 !== 0) pos += 1; // uitlijnen op een 2-byte-grens, zoals de leeskant verwacht
+  }
   return out;
+}
+
+/** Eén PropsKey met een 1-byte waarde — het geval van PASSWORD_FLAG. */
+function encodePropsSingleByteEntry(key: number, valueByte: number): Uint8Array {
+  return encodePropsEntries([{ key, data: Uint8Array.of(valueByte) }]);
 }
 
 /** Bouwt een minimale, geldige CFB met twee ROOT-level streams (`nameA`/`nameB`), allebei via
@@ -538,7 +553,11 @@ function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string,
   return bytes;
 }
 
-// PASSWORD_FLAG=0 (onversleuteld): assertReadable gooit niet.
+// Wachtwoordpoort (review ná T4): MPXJ weigert pas als ZOWEL de vlag (bit 0x1) GEZET is ALS
+// PROTECTION_PASSWORD_HASH aanwezig is — zie de toelichting bij `readPasswordProtection` in
+// mppContainer.ts. Drie scenario's, exact de matrix die die functie moet dekken:
+
+// (c) vlag=0 ⇒ leesbaar (hash-aan-/afwezigheid doet er dan niet toe — hier afwezig).
 {
   const compObj = encodeCompObjFileFormat('MSProject.MPP14');
   const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 0);
@@ -547,21 +566,44 @@ function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string,
   let message = '';
   try {
     const cfb = new CfbFile(cfbBytes);
-    truthy('T4 synthetisch MPP14 (wachtwoordvlag=0): detectMppVariant === MPP14', detectMppVariant(cfb) === 'MPP14');
+    truthy('T4 synthetisch MPP14 (vlag=0): detectMppVariant === MPP14', detectMppVariant(cfb) === 'MPP14');
     assertReadable(cfb);
   } catch (err) {
     threw = true;
     message = err instanceof Error ? err.message : String(err);
   }
-  truthy('T4 synthetisch MPP14 (wachtwoordvlag=0): assertReadable gooit niet', !threw);
-  if (threw) diffs.push(`T4 synthetisch MPP14 (wachtwoordvlag=0): onverwachte fout: ${message}`);
+  truthy('T4 synthetisch MPP14 (vlag=0): assertReadable gooit niet', !threw);
+  if (threw) diffs.push(`T4 synthetisch MPP14 (vlag=0): onverwachte fout: ${message}`);
 }
 
-// PASSWORD_FLAG=1 (versleuteld): assertReadable gooit MppUnsupportedError met mppCode
-// 'MPP_ENCRYPTED' — de acceptatiecriterium-casus uit T4 stap 4/5.
+// (b) vlag=1, GEEN hash ⇒ leesbaar. Dit is precies het door MPXJ gedocumenteerde geval ("the
+// password flag was set, but the encryption XML was missing... the file is unencrypted and MS
+// Project opens it without prompting") — vóór de review-fix zou dit onterecht MPP_ENCRYPTED
+// hebben gegooid.
 {
   const compObj = encodeCompObjFileFormat('MSProject.MPP14');
   const props14 = encodePropsSingleByteEntry(MPP_PASSWORD_FLAG_KEY, 1);
+  const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
+  let threw = false;
+  let message = '';
+  try {
+    const cfb = new CfbFile(cfbBytes);
+    assertReadable(cfb);
+  } catch (err) {
+    threw = true;
+    message = err instanceof Error ? err.message : String(err);
+  }
+  truthy('T4 synthetisch MPP14 (vlag=1, geen hash): assertReadable gooit niet', !threw);
+  if (threw) diffs.push(`T4 synthetisch MPP14 (vlag=1, geen hash): onverwachte fout: ${message}`);
+}
+
+// (a) vlag=1 ÉN hash aanwezig ⇒ MppUnsupportedError met mppCode 'MPP_ENCRYPTED'.
+{
+  const compObj = encodeCompObjFileFormat('MSProject.MPP14');
+  const props14 = encodePropsEntries([
+    { key: MPP_PASSWORD_FLAG_KEY, data: Uint8Array.of(1) },
+    { key: MPP_PROTECTION_PASSWORD_HASH_KEY, data: new Uint8Array(16).fill(0xab) }, // inhoud irrelevant, alleen aanwezigheid telt
+  ]);
   const cfbBytes = buildTwoRootStreamsCfb('\x01CompObj', compObj, 'Props14', props14);
   const cfb = new CfbFile(cfbBytes);
   let threw = false;
@@ -574,9 +616,9 @@ function buildTwoRootStreamsCfb(nameA: string, dataA: Uint8Array, nameB: string,
     isMppUnsupported = err instanceof MppUnsupportedError;
     mppCode = err instanceof MppUnsupportedError ? err.mppCode : undefined;
   }
-  truthy('T4 synthetisch MPP14 (wachtwoordvlag=1): assertReadable gooit', threw);
-  truthy('T4 synthetisch MPP14 (wachtwoordvlag=1): gooit MppUnsupportedError', isMppUnsupported);
-  truthy("T4 synthetisch MPP14 (wachtwoordvlag=1): mppCode === 'MPP_ENCRYPTED'", mppCode === 'MPP_ENCRYPTED');
+  truthy('T4 synthetisch MPP14 (vlag=1, hash aanwezig): assertReadable gooit', threw);
+  truthy('T4 synthetisch MPP14 (vlag=1, hash aanwezig): gooit MppUnsupportedError', isMppUnsupported);
+  truthy("T4 synthetisch MPP14 (vlag=1, hash aanwezig): mppCode === 'MPP_ENCRYPTED'", mppCode === 'MPP_ENCRYPTED');
 }
 
 // MPP12 (legacy): detectMppVariant herkent de variant correct, assertReadable weigert 'm met

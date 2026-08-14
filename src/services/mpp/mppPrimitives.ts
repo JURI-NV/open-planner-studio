@@ -321,7 +321,15 @@ export class VarMeta12 {
     this.itemCount = getInt(bytes, 8);
     this.dataSize = getInt(bytes, 20);
 
-    const offsets: number[] = [];
+    // Java pre-sizet `offsets` op `m_itemCount` (`new int[m_itemCount]`, nul-gevuld) en vult 'm
+    // per iteratie op INDEX i — bij een vroegtijdig afgekapt blok (de `break` hieronder) blijven
+    // de ONGEVULDE staartposities dus op hun default 0 staan, en die nullen tellen gewoon mee in
+    // `Arrays.sort(offsets)`. Wij spiegelen dat hier bewust letterlijk (i.p.v. alleen de
+    // daadwerkelijk-gelezen offsets te verzamelen): een kortere array zou bij zo'n corrupt blok
+    // een net iets ANDER (te kort) resultaat geven dan de Java-bron. Gedragsverschil treedt dus
+    // alleen op bij corrupte/afgekapte bestanden — op de drie ground-truth-corpusbestanden (waar
+    // het blok altijd volledig is) is er geen enkel verschil.
+    const offsets: number[] = new Array(this.itemCount).fill(0);
     let pos = VAR_META_HEADER_SIZE;
     for (let i = 0; i < this.itemCount; i++) {
       if (bytes.length - pos < VAR_META_ENTRY_SIZE) break; // afgekapt blok: stop, gooi niet
@@ -336,7 +344,7 @@ export class VarMeta12 {
         this.table.set(uniqueId, byType);
       }
       byType.set(type, offset);
-      offsets.push(offset);
+      offsets[i] = offset;
     }
     offsets.sort((a, b) => a - b);
     this.sortedOffsets = offsets;
