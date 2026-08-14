@@ -9,6 +9,7 @@ import { generateId } from '@/utils/id';
 import { formatDate, formatInstant, parseInstant } from '@/utils/dateUtils';
 import { normalizeImportedProgress, rebuildWbsHierarchy } from '@/services/importNormalize';
 import { isoDatePrefixOrToday } from '@/services/importDates';
+import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { descendantText, toInt, toFloat } from '@/services/xmlDom';
 import type { ImportResult } from '@/services/importTypes';
 import { WORKCONTOUR_TO_CURVE } from './mspdiWriter';
@@ -105,13 +106,6 @@ export function mspCodeToConstraint(code: number): { type: ConstraintType; hard?
     case 7: return { type: 'FNLT' };
     default: return undefined;
   }
-}
-
-function tenthsOfMinutesToDays(tenths: number, hoursPerDay: number): number {
-  // tenths of minutes -> days
-  const minutes = tenths / 10;
-  const hours = minutes / 60;
-  return Math.round(hours / hoursPerDay);
 }
 
 export function readMSPDI(content: string): ImportResult {

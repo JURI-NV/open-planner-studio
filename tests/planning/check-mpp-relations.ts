@@ -48,7 +48,7 @@ import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
 import { readRelations, readResources, readAssignments, readMPP, type ReadResourcesResult } from '@/services/mpp/mppReader';
 import type { CalendarReadResult } from '@/services/mpp/mppCalendars';
-import type { FieldEntry, FieldMapTable } from '@/services/mpp/fieldMap14';
+import { DEFAULT_RESOURCE_FIELDS, DEFAULT_ASSIGNMENT_FIELDS, type FieldMapTable } from '@/services/mpp/fieldMap14';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { installDOMParser } from './xmldom-shim';
@@ -62,7 +62,12 @@ import {
 
 const diffs: string[] = [];
 let checks = 0;
-let softChecksTotal = 0;
+// T7-kwaliteitsreview (M7): opgesplitst per domein i.p.v. één opgeteld "extra gematchte-paar-
+// tellingen"-getal — dat mengde relatie-/resource-/assignment-tellingen van verschillende aard
+// (type-ok/lag-ok/naam-ok/maxUnits-ok/units-ok) tot een getal zonder betekenisvolle interpretatie.
+let softChecksRelationsTotal = 0;
+let softChecksResourcesTotal = 0;
+let softChecksAssignmentsTotal = 0;
 const truthy = (label: string, cond: boolean) => {
   checks++;
   if (!cond) diffs.push(`${label}: verwacht waar, kreeg onwaar`);
@@ -157,10 +162,10 @@ function buildTaskFixedMetaBlob(records: Uint8Array[]): Uint8Array {
 // applicationName matcht `detectApplicationVersion`'s patroon nooit ⇒ `applicationVersion===null`
 // ⇒ `project15===false` (mppReader.ts se `readRelationsUnsafe`) ⇒ durationUnitsOffset=14,
 // durationOffset=16 — de layout die deze bouwer hieronder gebruikt. ──────────────────────────────
-function buildConsFixedMetaBlob(offsets: number[], itemCountClaim = offsets.length): Uint8Array {
+function buildConsFixedMetaBlob(offsets: number[], itemCountClaim = offsets.length, magic = FIXED_META_MAGIC): Uint8Array {
   const out = new Uint8Array(16 + offsets.length * 10);
   const view = new DataView(out.buffer);
-  view.setUint32(0, FIXED_META_MAGIC, true);
+  view.setUint32(0, magic, true);
   view.setInt32(8, itemCountClaim, true); // C1-stijl: mag liegen, getItemCount() klemt op de echte blokgrootte
   offsets.forEach((offsetIntoFixedData, i) => {
     view.setInt16(16 + i * 10, 0, true); // deleted-vlag SHORT: 0 = niet verwijderd
@@ -194,10 +199,10 @@ function buildRscFixedMetaRecord(opts: { offsetIntoFixedData: number; isWork: bo
   if (opts.isWork) out[9] = 0x02; // PROJECT2010_RESOURCE_META_DATA_BIT_FLAGS: offset 9, mask 0x02
   return out;
 }
-function buildRscFixedMetaBlob(records: Uint8Array[]): Uint8Array {
+function buildRscFixedMetaBlob(records: Uint8Array[], magic = FIXED_META_MAGIC): Uint8Array {
   const out = new Uint8Array(16 + records.length * 37);
   const view = new DataView(out.buffer);
-  view.setUint32(0, FIXED_META_MAGIC, true);
+  view.setUint32(0, magic, true);
   view.setInt32(8, records.length, true);
   records.forEach((r, i) => out.set(r, 16 + i * 37));
   return out;
@@ -239,10 +244,10 @@ function buildAssnFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
   new DataView(out.buffer).setInt32(4, offsetIntoFixedData, true);
   return out;
 }
-function buildAssnFixedMetaBlob(records: Uint8Array[]): Uint8Array {
+function buildAssnFixedMetaBlob(records: Uint8Array[], magic = FIXED_META_MAGIC): Uint8Array {
   const out = new Uint8Array(16 + records.length * 34);
   const view = new DataView(out.buffer);
-  view.setUint32(0, FIXED_META_MAGIC, true);
+  view.setUint32(0, magic, true);
   view.setInt32(8, records.length, true);
   records.forEach((r, i) => out.set(r, 16 + i * 34));
   return out;
@@ -517,14 +522,12 @@ const emptyCalResult: CalendarReadResult = {
   );
 }
 
-// De echte offsets uit fieldMap14.ts se DEFAULT_RESOURCE_FIELDS (ResourceFieldId.UniqueId=27,
-// Name=1, MaxUnits=4) — rechtstreeks opgebouwd i.p.v. via `createResourceFieldMap(props)`, zodat
-// de hostile-tests (c)/(d1)/(d2) hieronder niet ook nog een `Props`-fixture hoeven te bouwen.
-const RESOURCE_DEFAULT_FIELD_MAP: FieldMapTable = new Map<number, FieldEntry>([
-  [27, { location: 'fixed', fixedOffset: 0 }],
-  [1, { location: 'var', varDataKey: 1 }],
-  [4, { location: 'fixed', fixedOffset: 44 }],
-]);
+// T7-kwaliteitsreview (M6): hergebruikt de ECHTE default-tabellen uit fieldMap14.ts i.p.v. een
+// hardgecodeerd duplicaat aan te houden — rechtstreeks opgebouwd i.p.v. via `createResourceFieldMap
+// (props)`/`createAssignmentFieldMap(props)`, zodat de hostile-tests hieronder niet ook nog een
+// `Props`-fixture hoeven te bouwen.
+const RESOURCE_DEFAULT_FIELD_MAP: FieldMapTable = new Map(Object.entries(DEFAULT_RESOURCE_FIELDS).map(([k, v]) => [Number(k), v]));
+const ASSIGNMENT_DEFAULT_FIELD_MAP: FieldMapTable = new Map(Object.entries(DEFAULT_ASSIGNMENT_FIELDS).map(([k, v]) => [Number(k), v]));
 
 // ── (c) Ontbrekende Var2Data op TBkndRsc — legitiem afwezig (mppPrimitives.ts se Var2Data-
 // moduleheader), moet niet gooien: de resource wordt nog steeds gematerialiseerd, met de generieke
@@ -658,6 +661,97 @@ const RESOURCE_DEFAULT_FIELD_MAP: FieldMapTable = new Map<number, FieldEntry>([
   truthy('T7 readAssignments op ontbrekende TBkndAssn: lege array', readAssignments(cfb, new Map(), new Map(), new Map()).length === 0);
 }
 
+// ── (f) T7-kwaliteitsreview (I3, BLOKKEREND): de ALTIJD-vangende `readRelations`/`readResources`/
+// `readAssignments`-wrappers (I1-les uit T6) hadden GEEN eigen regressienet — elke hostile fixture
+// hierboven loopt via een EARLY RETURN (ontbrekende stream, niet-gevonden veld), nooit via de
+// try/catch zelf. De drie blokken hieronder geven `FixedMeta` een KAPOT magic-getal (0xdeadbeef ≠
+// BLOCK_MAGIC) — dat gooit diep in `FixedMeta.withItemSize`, VOORBIJ de early-return-checks — en
+// bewijzen dat de wrapper 'm daadwerkelijk vangt (spiegelt check-mpp-calendars.ts se T7-her-review-
+// restpunt (b) voor `readCalendars`). Zonder de try/catch zou elk van deze drie ongevangen gooien
+// en de hele `readMPP`-aanroep laten falen. ─────────────────────────────────────────────────────────
+const BAD_MAGIC = 0xdeadbeef;
+{
+  const fixedMeta = buildConsFixedMetaBlob([0], 1, BAD_MAGIC);
+  const fixedData = buildConsFixedDataRecord({ uniqueId: 1, predecessorTaskUid: 10, successorTaskUid: 11, relationType: 1, durationUnits: 7, duration: 0 });
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndCons: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData } } } } },
+  }));
+  let sequences: Sequence[] = [];
+  let threw: string | null = null;
+  try {
+    sequences = readRelations(cfb, null, 8, new Map([[10, 'a'], [11, 'b']]));
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  truthy(`T7-kwaliteitsreview-I3 readRelations-wrapper (fout FixedMeta-magic): gooit niet (${threw ?? ''})`, threw === null);
+  truthy('T7-kwaliteitsreview-I3 readRelations-wrapper: lege array (fallback)', sequences.length === 0);
+}
+{
+  const fixedMeta = buildRscFixedMetaBlob([buildRscFixedMetaRecord({ offsetIntoFixedData: 0, isWork: true })], BAD_MAGIC);
+  const fixedData = buildRscFixedDataRecord({ uniqueId: 1, maxUnitsRaw: 10000 });
+  const varMeta = buildVarMetaBytes([{ uniqueId: 1, type: 99, offset: 0 }]);
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndRsc: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData }, VarMeta: { data: varMeta } } } } },
+  }));
+  let result: ReadResourcesResult | null = null;
+  let threw: string | null = null;
+  try {
+    result = readResources(cfb, RESOURCE_DEFAULT_FIELD_MAP, null, emptyCalResult);
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  truthy(`T7-kwaliteitsreview-I3 readResources-wrapper (fout FixedMeta-magic): gooit niet (${threw ?? ''})`, threw === null);
+  truthy('T7-kwaliteitsreview-I3 readResources-wrapper: lege resourcelijst (fallback)', result?.resources.length === 0);
+}
+{
+  const fixedMeta = buildAssnFixedMetaBlob([buildAssnFixedMetaRecord(0)], BAD_MAGIC);
+  const fixedData = buildAssnFixedDataItem({ uniqueId: 1, taskUid: 10, resourceUid: 5, unitsRaw: 10000 });
+  const varMeta = buildVarMetaBytes([{ uniqueId: 1, type: 99, offset: 0 }]);
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData }, VarMeta: { data: varMeta } } } } },
+  }));
+  let assignments: ResourceAssignment[] = [];
+  let threw: string | null = null;
+  try {
+    assignments = readAssignments(cfb, ASSIGNMENT_DEFAULT_FIELD_MAP, new Map([[10, 'task']]), new Map([[5, 'res']]));
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  truthy(`T7-kwaliteitsreview-I3 readAssignments-wrapper (fout FixedMeta-magic): gooit niet (${threw ?? ''})`, threw === null);
+  truthy('T7-kwaliteitsreview-I3 readAssignments-wrapper: lege array (fallback)', assignments.length === 0);
+}
+
+// ── (g) T7-kwaliteitsreview (I2, BLOKKEREND): een geprepareerd ±Infinity-double-bitpatroon op
+// MAX_UNITS/ASSIGNMENT_UNITS mag niet doorlekken naar `Resource.maxUnits`/`ResourceAssignment.
+// unitsPerDay` (die zouden anders `Infinity` worden — corrupt bij een latere IFC-save, zie
+// `getDouble`'s I2-toelichting in mppPrimitives.ts). End-to-end door `readResources`/
+// `readAssignments` heen (niet alleen het primitief zelf, dat is al los gedekt in
+// check-mpp-import.ts). ─────────────────────────────────────────────────────────────────────────
+{
+  const fixedMeta = buildRscFixedMetaBlob([buildRscFixedMetaRecord({ offsetIntoFixedData: 0, isWork: true })]);
+  const fixedData = buildRscFixedDataRecord({ uniqueId: 1, maxUnitsRaw: Infinity });
+  const varMeta = buildVarMetaBytes([{ uniqueId: 1, type: 99, offset: 0 }]);
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndRsc: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData }, VarMeta: { data: varMeta } } } } },
+  }));
+  const result = readResources(cfb, RESOURCE_DEFAULT_FIELD_MAP, null, emptyCalResult);
+  truthy('T7-kwaliteitsreview-I2 readResources: 1 resource gelezen', result.resources.length === 1);
+  truthy('T7-kwaliteitsreview-I2 readResources: maxUnits eindig (Infinity-double ⇒ 0, geen Infinity-lek)', Number.isFinite(result.resources[0]?.maxUnits));
+  truthy('T7-kwaliteitsreview-I2 readResources: maxUnits === 0', result.resources[0]?.maxUnits === 0);
+}
+{
+  const fixedMeta = buildAssnFixedMetaBlob([buildAssnFixedMetaRecord(0)]);
+  const fixedData = buildAssnFixedDataItem({ uniqueId: 1, taskUid: 10, resourceUid: 5, unitsRaw: -Infinity });
+  const varMeta = buildVarMetaBytes([{ uniqueId: 1, type: 99, offset: 0 }]);
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData }, VarMeta: { data: varMeta } } } } },
+  }));
+  const assignments = readAssignments(cfb, ASSIGNMENT_DEFAULT_FIELD_MAP, new Map([[10, 'task']]), new Map([[5, 'res']]));
+  truthy('T7-kwaliteitsreview-I2 readAssignments: 1 assignment gelezen', assignments.length === 1);
+  truthy('T7-kwaliteitsreview-I2 readAssignments: unitsPerDay eindig (-Infinity-double ⇒ 0)', Number.isFinite(assignments[0]?.unitsPerDay));
+  truthy('T7-kwaliteitsreview-I2 readAssignments: unitsPerDay === 0', assignments[0]?.unitsPerDay === 0);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // T7 — corpus: readMPP vs. de MSPDI-ground-truth (naam-gematchte relaties/resources/assignments)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -735,9 +829,14 @@ if (!corpusPresent) {
       continue;
     }
 
-    // ── Gemeten-basislijn-poorten (>=, geen ===: een toekomstige verbetering mag laten stijgen —
-    // zie check-mpp-calendars.ts se crawl-sectie voor hetzelfde `>=`-precedent — maar minder dan de
-    // gemeten basislijn is een regressie). ─────────────────────────────────────────────────────────
+    // ── Gemeten-basislijn-poorten (T7-kwaliteitsreview M3: commentaar in lijn gebracht met de
+    // asserts — de drie tellingen zijn NIET allemaal hetzelfde soort poort). Relaties: `>=` (zie
+    // check-mpp-calendars.ts se crawl-sectie voor hetzelfde precedent) — een toekomstige verbetering
+    // (bv. een filter die MPXJ nu wel toepast en deze lezer nog niet) mag het aantal laten dalen
+    // richting de XML-telling zonder de poort te breken, minder dan de gemeten basislijn is een
+    // regressie. Resources/assignments: `===` — deze twee tellingen zijn in dit corpus STABIEL
+    // (deterministisch gemeten, geen documentversie-gevoelige filterstap zoals bij relaties), dus een
+    // exacte match is hier de juiste, striktere poort. ─────────────────────────────────────────────
     truthy(`[T7 ${file}] relatie-aantal >= gemeten basislijn (${mpp.sequences.length}/${expected.relations})`, mpp.sequences.length >= expected.relations);
     truthy(`[T7 ${file}] resource-aantal === gemeten basislijn (${mpp.resources.length}/${expected.resources})`, mpp.resources.length === expected.resources);
     truthy(`[T7 ${file}] assignment-aantal === gemeten basislijn (${mpp.assignments.length}/${expected.assignments})`, mpp.assignments.length === expected.assignments);
@@ -864,7 +963,9 @@ if (!corpusPresent) {
     truthy(`[T7 ${file}] assignments: alle op naam gematchte paren hebben gelijke units (${unitsOk}/${asgnMatched})`, unitsOk === asgnMatched);
     truthy(`[T7 ${file}] assignments: alle assignments zijn op naam gematcht (${asgnMatched}/${mpp.assignments.length})`, asgnMatched === mpp.assignments.length);
 
-    softChecksTotal += relMatched * 2 + resMatched + maxUnitsOk + unitsOk;
+    softChecksRelationsTotal += relMatched * 2; // type-ok + lag-ok, elk relMatched-tellingen
+    softChecksResourcesTotal += resMatched + maxUnitsOk; // naam-ok + maxUnits-ok
+    softChecksAssignmentsTotal += unitsOk;
     console.log(
       `   . [T7 ${file}] relaties=${mpp.sequences.length} (${relMatched} gematcht, ${relTypeOk} type-ok, ${relLagOk} lag-ok) `
       + `resources=${mpp.resources.length} (${resMatched} niet-plaatshouder naam-ok, ${maxUnitsOk} maxUnits-ok, ${typeMismatches}/${typeBudget} type-afwijkingen) `
@@ -902,14 +1003,26 @@ if (!corpusPresent) {
       const CRAWL_RELATIONS_BASELINE = 604;
       const CRAWL_RESOURCES_BASELINE = 175;
       const CRAWL_ASSIGNMENTS_BASELINE = 320;
+      // T7-kwaliteitsreview (M4): LABOR/MATERIAL-telling over dezelfde 49 bestanden — pint de B7-
+      // Fixed2Meta-heuristiek (`FixedMeta.withHeuristicItemSize`) breder dan de drie ground-truth-
+      // bestanden alleen. Gemeten: 157 LABOR, 18 MATERIAL (175 totaal, klopt met de resource-
+      // basislijn hierboven). `>=` op elke teller apart (niet een gecombineerde som — een regressie
+      // die LABOR laat zakken terwijl MATERIAL toevallig evenveel stijgt zou een enkele-som-poort
+      // niet vangen).
+      const CRAWL_LABOR_BASELINE = 157;
+      const CRAWL_MATERIAL_BASELINE = 18;
 
-      let totalRelations = 0, totalResources = 0, totalAssignments = 0, readFailures = 0;
+      let totalRelations = 0, totalResources = 0, totalAssignments = 0, totalLabor = 0, totalMaterial = 0, readFailures = 0;
       for (const file of crawlFiles) {
         try {
           const r = readMPP(new Uint8Array(readFileSync(file)));
           totalRelations += r.sequences.length;
           totalResources += r.resources.length;
           totalAssignments += r.assignments.length;
+          for (const res of r.resources) {
+            if (res.type === 'LABOR') totalLabor++;
+            else if (res.type === 'MATERIAL') totalMaterial++;
+          }
         } catch (err) {
           readFailures++;
           checks++;
@@ -923,9 +1036,12 @@ if (!corpusPresent) {
       truthy(`[T7-crawl] relaties op/boven de gemeten basislijn (${totalRelations}/${CRAWL_RELATIONS_BASELINE})`, totalRelations >= CRAWL_RELATIONS_BASELINE);
       truthy(`[T7-crawl] resources op/boven de gemeten basislijn (${totalResources}/${CRAWL_RESOURCES_BASELINE})`, totalResources >= CRAWL_RESOURCES_BASELINE);
       truthy(`[T7-crawl] assignments op/boven de gemeten basislijn (${totalAssignments}/${CRAWL_ASSIGNMENTS_BASELINE})`, totalAssignments >= CRAWL_ASSIGNMENTS_BASELINE);
+      truthy(`[T7-crawl] resourcetype LABOR op/boven de gemeten basislijn (${totalLabor}/${CRAWL_LABOR_BASELINE})`, totalLabor >= CRAWL_LABOR_BASELINE);
+      truthy(`[T7-crawl] resourcetype MATERIAL op/boven de gemeten basislijn (${totalMaterial}/${CRAWL_MATERIAL_BASELINE})`, totalMaterial >= CRAWL_MATERIAL_BASELINE);
       console.log(
         `   . [T7-crawl] ${crawlFiles.length} bestanden: relaties=${totalRelations} (basislijn ${CRAWL_RELATIONS_BASELINE}), `
-        + `resources=${totalResources} (basislijn ${CRAWL_RESOURCES_BASELINE}), assignments=${totalAssignments} (basislijn ${CRAWL_ASSIGNMENTS_BASELINE})`,
+        + `resources=${totalResources} (basislijn ${CRAWL_RESOURCES_BASELINE}, LABOR=${totalLabor}/${CRAWL_LABOR_BASELINE} MATERIAL=${totalMaterial}/${CRAWL_MATERIAL_BASELINE}), `
+        + `assignments=${totalAssignments} (basislijn ${CRAWL_ASSIGNMENTS_BASELINE})`,
       );
     }
   }
@@ -933,7 +1049,10 @@ if (!corpusPresent) {
 
 // ── Uitslag ────────────────────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
-  console.log(`OK  mpp-relations: alle checks groen (${checks} hard + ${softChecksTotal} extra gematchte-paar-tellingen)`);
+  console.log(
+    `OK  mpp-relations: alle checks groen (${checks} hard + ${softChecksRelationsTotal} relatie-paar-tellingen `
+    + `+ ${softChecksResourcesTotal} resource-paar-tellingen + ${softChecksAssignmentsTotal} assignment-paar-tellingen)`,
+  );
   process.exit(0);
 } else {
   console.log(`XX  mpp-relations: ${diffs.length} afwijking(en) van ${checks}`);

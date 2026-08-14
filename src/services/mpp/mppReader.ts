@@ -72,12 +72,13 @@ import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
+import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { mspCodeToConstraint, mspTypeToSequenceType } from '@/services/msproject/mspdiReader';
 import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
 import {
   FixedData, FixedMeta, Var2Data, VarMeta12,
-  getDouble, getDurationTimeUnits, getInt, getShort, getTimestamp, getUnicodeString,
+  getDouble, getDuration, getDurationTimeUnits, getInt, getShort, getTimestamp, getUnicodeString,
 } from './mppPrimitives';
 import {
   AssignmentFieldId, ResourceFieldId, TaskFieldId,
@@ -302,16 +303,6 @@ function collectValidTaskIndices(fixedMeta: FixedMeta, fixedData: FixedData, var
   return validIndexByUniqueId;
 }
 
-/** Duur in dagen, uit een ruwe MPP-waarde in TIENDEN VAN EEN MINUUT — dezelfde afrondings-
- *  semantiek als `parseMSPDuration` in mspdiReader.ts (`Math.round(minuten / (hoursPerDay*60))`).
- *  Vereenvoudiging (gedocumenteerd, T5-rapport): geen onderscheid elapsed-vs-werktijd-eenheden
- *  (`DurationUnits`-veld) — mspdiReader's dag-modus-pad maakt dat onderscheid ook niet. */
-function durationTenthsOfMinuteToDays(tenths: number, hoursPerDay: number): number {
-  const minutes = tenths / 10;
-  const perDay = hoursPerDay * 60;
-  return perDay > 0 ? Math.round(minutes / perDay) : 0;
-}
-
 /** Percent complete: SHORT, 0..100 direct (MPPUtility.getPercentage) — buiten dat bereik ⇒ 0
  *  (spiegelt de Java-bron: een ongeldige waarde levert daar `null`, hier de neutrale 0). */
 function readPercentComplete(data: Uint8Array, offset: number | null): number {
@@ -426,7 +417,12 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const durationRaw = durationOffset !== null && data.length >= durationOffset + 4
       ? getInt(data, durationOffset, 'TBkndTask duration')
       : 0;
-    const duration = durationTenthsOfMinuteToDays(durationRaw, hoursPerDay);
+    // `tenthsOfMinutesToDays` (T7-kwaliteitsreview M2: gedeeld met mspdiReader.ts, zie
+    // importDurations.ts) — dezelfde afrondingssemantiek als `parseMSPDuration` in mspdiReader.ts
+    // (`Math.round(minuten / (hoursPerDay*60))`). Vereenvoudiging (gedocumenteerd, T5-rapport): geen
+    // onderscheid elapsed-vs-werktijd-eenheden (`DurationUnits`-veld) — mspdiReader's dag-modus-pad
+    // maakt dat onderscheid ook niet.
+    const duration = tenthsOfMinutesToDays(durationRaw, hoursPerDay);
 
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
@@ -527,7 +523,7 @@ function parseProjectProperties(
 
   // minutesPerDay-klem (T5-kwaliteitsreview-minor): een dag heeft hoogstens 1440 minuten — zonder
   // bovengrens zou een corrupt/hostile Props-veld een absurde `hoursPerDay` (en dus een absurde
-  // duur-in-dagen-afronding, zie `durationTenthsOfMinuteToDays`) kunnen opleveren i.p.v. netjes op
+  // duur-in-dagen-afronding, zie `tenthsOfMinutesToDays`) kunnen opleveren i.p.v. netjes op
   // de 8-uursdag-default terug te vallen.
   const minutesPerDay = props.getInt(PROPS_KEY_MINUTES_PER_DAY);
   const minutesPerDayValid = minutesPerDay > 0 && minutesPerDay <= 1440;
@@ -569,6 +565,15 @@ function parseProjectProperties(
 // array (geen "generieke default"-equivalent nodig — een lege relatie-/resource-/assignmentlijst
 // is een geldig, leeg `ImportResult`-onderdeel, spiegelt `readCSV` voor formaten zonder die data).
 //
+// BEWUSTE ASYMMETRIE (T7-kwaliteitsreview, M5) t.o.v. T5's `readTasks`: die gooit HARD zodra de
+// taak-veldmap UNIQUE_ID/ID/NAME/SCHEDULED_START/SCHEDULED_FINISH mist (taken zonder naam/datum
+// zijn geen leesbaar bestand maar een mis-parse), terwijl `readResourcesUnsafe`/
+// `readAssignmentsUnsafe` hierboven bij een onvolledige veldmap stil een LEGE lijst teruggeven i.p.v.
+// te gooien. Geen inconsistentie: taken zijn de RUGGENGRAAT van het document (zonder taken is er
+// niets zinvols te tonen), relaties/resources/assignments zijn AANVULLEND — een deelresultaat (taken
+// + kalenders, zonder relaties/resources) is voor de gebruiker bruikbaarder dan de hele import te
+// laten falen op een veld dat deze etappe toevallig niet kent.
+//
 // TWEE VERDERE, ongenoemde MPXJ-afwijkingen (T7-spec-review, B6) — bewust, gedocumenteerd, en
 // GEMETEN als 0-voorkomens over het volledige beschikbare materiaal (drie ground-truth-bestanden +
 // 49-bestand-crawl, 52 bestanden/650 assignments samen, T7-spec-review-meting 2026-08-14):
@@ -590,6 +595,12 @@ function parseProjectProperties(
 //      0 van 650), dus dit verschil is hier onobserveerbaar — een bestand waarin een gebruiker
 //      dezelfde resource tweemaal aan dezelfde taak toewijst (bv. via een editor-bug of handmatige
 //      TBkndAssn-manipulatie) zou hier WEL twee assignments opleveren i.p.v. MPXJ's ene.
+//
+// DUPLICAAT-OFFSET-AMPLIFICATIE (T7-kwaliteitsreview, M8): net als T5's I1 voor Var2Data al
+// vaststelde, kost een gedeelde/dubbele offset hier hoogstens INPUT-LINEAIRE tijd — elke duplicaat-
+// verwijzing (VarMeta se dedup bij resourcenamen, of TBkndCons/TBkndAssn se `FixedData.
+// getIndexFromOffset`) triggert precies één O(1)-lookup (mppPrimitives.ts se I2-hardening), geen
+// amplificatie — dus bewust GEEN aparte klem hier, binnen hetzelfde precedent als T5.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 /** TBkndCons/FixedMeta-itemgrootte (ConstraintFactory.java: `new FixedMeta(..., 10)`). */
@@ -617,10 +628,13 @@ const CONS_FIXED_DATA_ITEM_SIZE = 20;
  *    — vóór deze fix gaf een percent-lag hier 100× de waarde die mspdiReader voor eenzelfde
  *    LinkLag-getal zou leveren (T7-spec-review, B2).
  *  - elke andere "elapsed"-variant (minuten/uren/dagen/weken/maanden delen allemaal dezelfde ruwe
- *    tienden-van-minuut-basis): kalenderdag-omrekening, identiek aan mspdiReader's
- *    ELAPSED_DURATION_FORMATS-tak (`Math.round(lag/10/60/24)`).
+ *    tienden-van-minuut-basis): kalenderdag-omrekening via `getDuration(rawLag, 'elapsedDays')`
+ *    (mppPrimitives.ts — T7-kwaliteitsreview M1: hergebruikt i.p.v. een losse `rawLag/10/60/24`-
+ *    inline-formule; `getDuration`'s `elapsedDays`-tak deelt door 14400 = 24*60*10, wiskundig
+ *    identiek), afgerond op hele dagen — identiek aan mspdiReader's ELAPSED_DURATION_FORMATS-tak.
  *  - elke WORKTIME-variant (niet-elapsed): dezelfde omrekening als taakduur
- *    (`durationTenthsOfMinuteToDays`) — spiegelt mspdiReader's "anders"-tak. MPP kent geen
+ *    (`tenthsOfMinutesToDays`, gedeeld met mspdiReader.ts — T7-kwaliteitsreview M2, zie
+ *    `@/services/importDurations`) — spiegelt mspdiReader's "anders"-tak. MPP kent geen
  *    hour-mode-taken in etappe 1 (moduleheader: "Alles blijft DAG-modus"), dus mspdiReader's
  *    `lagMinutes`-tak (hour-mode-opvolger) heeft hier bewust geen tegenhanger.
  *
@@ -641,9 +655,9 @@ function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: n
     return fields;
   }
   if (unit.startsWith('elapsed')) {
-    return { lagDays: Math.round(rawLag / 10 / 60 / 24), lagUnit: 'ELAPSEDTIME' };
+    return { lagDays: Math.round(getDuration(rawLag, 'elapsedDays')), lagUnit: 'ELAPSEDTIME' };
   }
-  return { lagDays: durationTenthsOfMinuteToDays(rawLag, hoursPerDay) };
+  return { lagDays: tenthsOfMinutesToDays(rawLag, hoursPerDay) };
 }
 
 /** Poort van `ConstraintFactory.process` (T7, stap 1) — `"   114"/TBkndCons` → `Sequence[]`.
@@ -778,7 +792,16 @@ export interface ReadResourcesResult {
   resourceIdByUniqueId: Map<number, string>;
 }
 
-const EMPTY_RESOURCES_RESULT: ReadResourcesResult = { resources: [], resourceIdByUniqueId: new Map() };
+/** T7-kwaliteitsreview (I1, BLOKKEREND): een module-singleton hier (`const EMPTY = {...}`,
+ *  teruggegeven bij elke lege/foute lezing) zou ÉÉN gedeelde array-/Map-instantie over ALLE
+ *  aanroepen zijn — die instantie gaat de Zustand-store in (multi-document: elk open document kan
+ *  z'n eigen `ImportResult` binnenhalen) en Immer's autoFreeze bevriest 'm bij de eerste mutatie-
+ *  poging MODULE-BREED, dus een latere, ANDERE lege lezing zou tegen een bevroren object aanlopen.
+ *  Spiegelt daarom `mppCalendars.ts`'s `fallbackResult()`-patroon: een FACTORY die bij elke aanroep
+ *  een verse `{ resources: [], resourceIdByUniqueId: new Map() }` teruggeeft. */
+function emptyResourcesResult(): ReadResourcesResult {
+  return { resources: [], resourceIdByUniqueId: new Map() };
+}
 
 /** Poort van `MPP14Reader.processResourceData`/`createResourceMap` (T7, stap 2) — `"   114"/
  *  TBkndRsc` → `Resource[]`. Geëxporteerd, zelfde testbaarheidsreden als `readRelations`
@@ -793,7 +816,7 @@ export function readResources(
   try {
     return readResourcesUnsafe(cfb, resourceFieldMap, applicationVersion, calResult, labels);
   } catch {
-    return EMPTY_RESOURCES_RESULT;
+    return emptyResourcesResult();
   }
 }
 
@@ -808,7 +831,7 @@ function readResourcesUnsafe(
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'FixedMeta']);
   const fixedDataBytes = cfb.getStream(['   114', 'TBkndRsc', 'FixedData']);
   const varMetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'VarMeta']);
-  if (!fixedMetaBytes || !fixedDataBytes || !varMetaBytes) return EMPTY_RESOURCES_RESULT;
+  if (!fixedMetaBytes || !fixedDataBytes || !varMetaBytes) return emptyResourcesResult();
   const var2DataBytes = cfb.getStream(['   114', 'TBkndRsc', 'Var2Data']); // legitiem afwezig (mppPrimitives.ts)
 
   const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, RESOURCE_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
@@ -832,7 +855,7 @@ function readResourcesUnsafe(
   const uniqueIdOffset = fixedOffsetOf(resourceFieldMap, ResourceFieldId.UniqueId);
   const nameKey = varDataKeyOf(resourceFieldMap, ResourceFieldId.Name);
   const maxUnitsOffset = fixedOffsetOf(resourceFieldMap, ResourceFieldId.MaxUnits);
-  if (uniqueIdOffset === null || nameKey === null) return EMPTY_RESOURCES_RESULT;
+  if (uniqueIdOffset === null || nameKey === null) return emptyResourcesResult();
 
   // Poort van `createResourceMap` (MPP14Reader.java r. 935-958): uniqueID→FixedData-index, gebouwd
   // via een SHORT-read op `uniqueIdOffset` — een letterlijke MPXJ-eigenaardigheid (het veld is een

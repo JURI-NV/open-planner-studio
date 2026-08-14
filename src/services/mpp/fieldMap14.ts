@@ -209,7 +209,10 @@ export const ResourceFieldId = {
   MaxUnits: 4,
 } as const;
 
-const DEFAULT_RESOURCE_FIELDS: Readonly<Record<number, FieldEntry>> = {
+/** T7-kwaliteitsreview (M6): geëxporteerd zodat `check-mpp-relations.ts` se hostile-fixtures deze
+ *  hergebruiken i.p.v. een hardgecodeerd duplicaat aan te houden dat stilzwijgend uit de pas kan
+ *  lopen zodra deze tabel ooit verandert. */
+export const DEFAULT_RESOURCE_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [ResourceFieldId.UniqueId]: { location: 'fixed', fixedOffset: 0 },
   [ResourceFieldId.MaxUnits]: { location: 'fixed', fixedOffset: 44 },
   [ResourceFieldId.Name]: { location: 'var', varDataKey: ResourceFieldId.Name },
@@ -229,7 +232,8 @@ export const AssignmentFieldId = {
   Units: 7,
 } as const;
 
-const DEFAULT_ASSIGNMENT_FIELDS: Readonly<Record<number, FieldEntry>> = {
+/** T7-kwaliteitsreview (M6): geëxporteerd, zelfde reden als `DEFAULT_RESOURCE_FIELDS` hierboven. */
+export const DEFAULT_ASSIGNMENT_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [AssignmentFieldId.UniqueId]: { location: 'fixed', fixedOffset: 0 },
   [AssignmentFieldId.TaskUniqueId]: { location: 'fixed', fixedOffset: 4 },
   [AssignmentFieldId.ResourceUniqueId]: { location: 'fixed', fixedOffset: 8 },

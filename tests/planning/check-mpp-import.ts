@@ -39,7 +39,7 @@ import { CfbFile } from '@/services/mpp/cfb';
 import { detectMppVariant, assertReadable, Props } from '@/services/mpp/mppContainer';
 import {
   FixedMeta, FixedData, VarMeta12, Var2Data,
-  getUnicodeString, getTimestamp, getGUID, getDuration, getDate, getTime, getDurationTimeUnits,
+  getUnicodeString, getTimestamp, getGUID, getDuration, getDate, getTime, getDurationTimeUnits, getDouble,
   type MppTimeUnit,
 } from '@/services/mpp/mppPrimitives';
 import { MppUnsupportedError } from '@/services/mpp/errors';
@@ -883,6 +883,27 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     `I1 Var2Data.getUnicodeString: resultaat begrensd op MAX_VAR_TEXT_BYTES/2 = ${MAX_VAR_TEXT_BYTES / 2} tekens`,
     s !== null && s.length === MAX_VAR_TEXT_BYTES / 2,
   );
+}
+
+// ── T7-kwaliteitsreview (I2, BLOKKEREND): getDouble se ±Infinity-lek. `Number.isNaN` alleen ving
+// een ±Infinity-bitpatroon niet — dat lekte door naar `Resource.maxUnits`/`ResourceAssignment.
+// unitsPerDay` (`Infinity`), en vandaar naar `ifcWriter` (`IFCREAL(Infinity)`, corrupte STEP bij
+// opslaan/auto-save). `getDouble` moet nu `Number.isFinite`-gebaseerd zijn: zowel NaN als
+// ±Infinity worden 0. ────────────────────────────────────────────────────────────────────────────
+{
+  const posInf = new Uint8Array(8);
+  new DataView(posInf.buffer).setFloat64(0, Infinity, true);
+  const negInf = new Uint8Array(8);
+  new DataView(negInf.buffer).setFloat64(0, -Infinity, true);
+  const nanBytes = new Uint8Array(8);
+  new DataView(nanBytes.buffer).setFloat64(0, NaN, true);
+  const finite = new Uint8Array(8);
+  new DataView(finite.buffer).setFloat64(0, 12345.5, true);
+
+  truthy('I2 getDouble(+Infinity) === 0 (geen Infinity-lek)', getDouble(posInf, 0, 'I2-pos-inf') === 0);
+  truthy('I2 getDouble(-Infinity) === 0', getDouble(negInf, 0, 'I2-neg-inf') === 0);
+  truthy('I2 getDouble(NaN) === 0 (bestaand gedrag, niet geregresseerd)', getDouble(nanBytes, 0, 'I2-nan') === 0);
+  truthy('I2 getDouble(eindige waarde) blijft ongewijzigd', getDouble(finite, 0, 'I2-finite') === 12345.5);
 }
 
 // ── I4 (3): end-to-end readMPP op een synthetisch MPP14'tje — 4 taken, bekende outline-levels,
