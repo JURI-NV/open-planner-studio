@@ -356,7 +356,14 @@ Nieuwe sleutels in `common`, onder het bestaande `resource.*`-blok, in alle veer
 - `resource.occupancy.empty` — "Geen bibliotheekresources geboekt in de geopende documenten."
 - `resource.occupancy.machineOnly` — "Dit overzicht ziet alleen documenten die op deze computer geopend zijn."
 - `resource.occupancy.staleDoc` — "Telt niet mee: planning niet doorgerekend — activeer dit document en druk F5."
+  (alleen nog het **vangnetpad** van §4.3: efemere solve mislukt/afwezig)
 - `resource.occupancy.staleBanner` — "Minstens één document is niet doorgerekend en telt niet mee in de bezetting."
+  (idem: alleen wanneer er een ongetelde booking in het overzicht staat)
+- `resource.occupancy.staleComputedDoc` — "Alvast doorgerekend voor dit overzicht — het document
+  zelf toont oudere datums tot je daar F5 drukt." (informatieve ⚠ bij een gételde stale-booking, §4.3b)
+- `resource.occupancy.staleComputedBanner` — "Gewijzigde documenten zijn voor dit overzicht
+  alvast doorgerekend; druk F5 in het document om het daar ook te zien." (banner wanneer er
+  wél stale documenten zijn maar allemaal geteld)
 - `resource.occupancy.docCount_one` / `_other` — "{{count}} document" / "{{count}} documenten"
 - `resource.occupancy.conflictDays_one` / `_other` — "{{count}} dag dubbel geboekt" / "{{count}} dagen dubbel geboekt"
 - `resource.occupancy.period` / `resource.occupancy.peak` / `resource.occupancy.capacity` /
