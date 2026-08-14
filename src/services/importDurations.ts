@@ -10,6 +10,13 @@
  * bij een kapotte/lege kalender — hetzelfde soort lek als T7-kwaliteitsreview I2 in `mppPrimitives.
  * ts`'s `getDouble`), terwijl mppReader.ts's `durationTenthsOfMinuteToDays` die guard al had. Deze
  * gedeelde versie neemt de guard mee voor BEIDE lezers.
+ *
+ * T7-restpunt (N1/N2): de AFRONDINGSVOLGORDE (eerst tienden-van-minuut → minuten, dán delen door
+ * `perDay` en pas daarna `Math.round`) is bewust gelijkgetrokken met `parseMSPDuration` — gemeten
+ * verschil met de vroegere, los gegroeide varianten zit uitsluitend bij NIET-dyadische
+ * `hoursPerDay` (bv. 7,6667 i.p.v. 8 of 4), waar een andere groeperingsvolgorde tot ±1 dag kan
+ * afwijken op halve-dag-grenzen (zie `tenthsOfMinutesToDays(16100, 460 / 60) === 4` hieronder/in
+ * `tests/planning/check-mpp-import.ts`).
  */
 export function tenthsOfMinutesToDays(tenths: number, hoursPerDay: number): number {
   const minutes = tenths / 10;

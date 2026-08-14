@@ -66,7 +66,7 @@ export function Backstage() {
 
         {/* Actie-items: triggeren actie en sluiten backstage */}
         <ActionItem icon={<FileText size={14} />} label={tMenu('ribbon.new')} onClick={() => { handleNewProject(); closeBackstage(); }} />
-        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(tCommon('project.imported')); closeBackstage(); }} />
+        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(tCommon('project.imported'), tCommon('project.unassignedResource')); closeBackstage(); }} />
         <NavItem icon={<Clock size={14} />} label={tMenu('backstage.recent')} active={section === 'recent'} onClick={() => goTo('recent')} />
         {/* data-tour-anchor (fase 2.10, onderdeel 3, tourstap 6): voorbeelden-navitem. */}
         <NavItem icon={<BookOpen size={14} />} label={tMenu('backstage.examples')} active={section === 'examples'} onClick={() => goTo('examples')} tourAnchor="backstage-examples" />
@@ -166,9 +166,9 @@ function handleNewProject() {
   useAppStore.getState().setUI({ showNewProjectDialog: true });
 }
 
-// `importedProject` — de store-laag heeft geen `t(...)`; zie ImportLabels.
-function handleOpen(importedProject: string) {
-  void useAppStore.getState().openFile({ importedProject });
+// `importedProject`/`unassignedResource` — de store-laag heeft geen `t(...)`; zie ImportLabels.
+function handleOpen(importedProject: string, unassignedResource: string) {
+  void useAppStore.getState().openFile({ importedProject, unassignedResource });
 }
 
 function handleSave() {
@@ -205,7 +205,7 @@ function RecentSection() {
               key={e.id}
               className="backstage-recent-item"
               onClick={() => {
-                void openRecentFile(e.id, { importedProject: tCommon('project.imported') });
+                void openRecentFile(e.id, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
                 setUI({ activeRibbonTab: 'start' });
               }}
             >

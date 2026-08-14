@@ -261,7 +261,7 @@ const fileGroup: RibbonGroupSpec = {
           use: () => {
             const openFile = useAppStore(s => s.openFile);
             const { t: tCommon } = useTranslation('common');
-            return { onClick: () => { void openFile({ importedProject: tCommon('project.imported') }); } };
+            return { onClick: () => { void openFile({ importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') }); } };
           },
         },
       ],

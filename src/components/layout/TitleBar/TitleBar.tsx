@@ -81,7 +81,7 @@ export function TitleBar() {
           <button className="quick-access-btn" title={tMenu('ribbon.newProjectTitle')} onClick={() => setUI({ showNewProjectDialog: true })}>
             <FileText size={16} />
           </button>
-          <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => { void openFile({ importedProject: tCommon('project.imported') }); }}>
+          <button className="quick-access-btn" title={tMenu('ribbon.open')} onClick={() => { void openFile({ importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') }); }}>
             <FolderOpen size={16} />
           </button>
           <button className="quick-access-btn" title={tMenu('ribbon.saveTitle')} onClick={() => { void saveFile(); }}>

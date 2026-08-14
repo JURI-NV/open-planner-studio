@@ -152,7 +152,7 @@ export function RelationsPanel() {
           {hasExternal && (
             <button
               onClick={() => { void (async () => {
-                const r = await refreshAllExternalAnchors({ importedProject: tCommon('project.imported') });
+                const r = await refreshAllExternalAnchors({ importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
                 setExtStatus(r.sources === 0
                   ? t('externalLinks.noSourcesToast')
                   : t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
@@ -301,7 +301,7 @@ export function RelationsPanel() {
                   {link.sourceRef.filePath && (
                     <button title={t('externalLinks.refresh')} style={{ color: 'var(--theme-accent)' }}
                       onClick={() => { void (async () => {
-                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!, { importedProject: tCommon('project.imported') });
+                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
                         if (r) setExtStatus(t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
                         else setExtStatus(t('externalLinks.notAvailableWeb'));
                       })(); }}>

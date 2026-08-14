@@ -170,7 +170,9 @@ export type NotificationMessageKey =
   | 'notifications.relationCreated'
   | 'notifications.relationDuplicate'
   | 'notifications.relationSummaryEndpoint'
-  | 'notifications.summaryRelationsIgnored';
+  | 'notifications.summaryRelationsIgnored'
+  | 'notifications.mppLegacy'
+  | 'notifications.mppEncrypted';
 
 export interface AppNotification {
   /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */

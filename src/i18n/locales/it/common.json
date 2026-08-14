@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Chiudi notifica",
     "openFailed": "Apertura del file non riuscita",
+    "mppLegacy": "Questo file .mpp utilizza un formato precedente (Project 2007 o versioni precedenti). Esportalo da MS Project come XML (File → Salva con nome → XML) e apri quel file.",
+    "mppEncrypted": "Questo file .mpp è protetto da password. Esportalo da MS Project come XML (File → Salva con nome → XML) e apri quel file.",
     "saveFailed": "Salvataggio non riuscito",
     "savedViaDownload": "Salvato come download: '{{name}}' si trova ora nella cartella dei download. Questo ambiente non consente all'applicazione di scrivere direttamente nella posizione scelta.",
     "autoSaveFailed": "Salvataggio automatico non riuscito",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "Nuova pianificazione",
-    "imported": "Progetto importato"
+    "imported": "Progetto importato",
+    "unassignedResource": "Non assegnato"
   },
   "documents": {
     "overviewTitle": "Progetti aperti",

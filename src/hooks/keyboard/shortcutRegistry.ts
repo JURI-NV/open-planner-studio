@@ -140,7 +140,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: 'o', mod: true },
     category: 'file',
     labelKey: 'menu:ribbon.open',
-    run: (store) => { void store.openFile({ importedProject: i18n.t('project.imported', { ns: 'common' }) }); },
+    run: (store) => { void store.openFile({ importedProject: i18n.t('project.imported', { ns: 'common' }), unassignedResource: i18n.t('project.unassignedResource', { ns: 'common' }) }); },
   },
   {
     id: 'file.newProject',

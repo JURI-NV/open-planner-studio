@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "通知を閉じる",
     "openFailed": "ファイルを開けませんでした",
+    "mppLegacy": "この .mpp ファイルは古い形式（Project 2007 以前）を使用しています。MS Project で XML としてエクスポートし（ファイル → 名前を付けて保存 → XML）、そのファイルを開いてください。",
+    "mppEncrypted": "この .mpp ファイルはパスワードで保護されています。MS Project で XML としてエクスポートし（ファイル → 名前を付けて保存 → XML）、そのファイルを開いてください。",
     "saveFailed": "保存できませんでした",
     "savedViaDownload": "ダウンロードとして保存しました。「{{name}}」はダウンロードフォルダーにあります。この環境では、アプリが選択した場所に直接書き込むことはできません。",
     "autoSaveFailed": "自動保存に失敗しました",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "新しい計画",
-    "imported": "インポートしたプロジェクト"
+    "imported": "インポートしたプロジェクト",
+    "unassignedResource": "未割り当て"
   },
   "documents": {
     "overviewTitle": "開いているプロジェクト",

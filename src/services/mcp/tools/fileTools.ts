@@ -152,10 +152,13 @@ export function checkScope(home: string, input: string): ScopeCheck {
 
 // --- Formaatherkenning ---------------------------------------------------------------------------
 
-/** Leesbaar formaatlabel op basis van de extensie (de XML-variant wordt op inhoud gesnifft). */
-function formatOf(path: string, content: string): 'IFC' | 'CSV' | 'P6-XML' | 'MSPDI-XML' {
+/** Leesbaar formaatlabel op basis van de extensie (de XML-variant wordt op inhoud gesnifft).
+ *  `MPP14` (T8): de enige binaire indeling die dit pad kent — `.mpp` (MS Project 2010-2021,
+ *  alleen-lezen native lezer, zie `src/services/mpp/`). */
+function formatOf(path: string, content: string): 'IFC' | 'CSV' | 'P6-XML' | 'MSPDI-XML' | 'MPP14' {
   const ext = path.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'csv') return 'CSV';
+  if (ext === 'mpp') return 'MPP14';
   if (ext === 'xml') {
     return content.includes('APIBusinessObjects') || content.includes('Primavera') ? 'P6-XML' : 'MSPDI-XML';
   }
@@ -279,14 +282,17 @@ export const fileTools: McpToolDef[] = [
     description:
       'Lees een planningsbestand van schijf en open het als DOCUMENT (tabblad). Ondersteund: .ifc ' +
       '(native, volledig), .xml (Primavera P6 of MS Project MSPDI — het formaat wordt op inhoud ' +
-      'herkend) en .csv. Er wordt NIET samengevoegd met het huidige plan: een leeg-en-ongewijzigd ' +
+      'herkend), .csv en .mpp (MS Project 2010-2021, MPP14, alleen-lezen — oudere formaten en ' +
+      'wachtwoordbestanden geven een fout die vraagt om eerst als XML te exporteren). Er wordt NIET ' +
+      'samengevoegd met het huidige plan: een leeg-en-ongewijzigd ' +
       'actief tabblad wordt hergebruikt, anders komt er een nieuw tabblad bij; het resultaat wordt ' +
       'actief en het vervolgwerk landt daar. ' +
       'VERLIES PER FORMAAT — noem dit tegen de gebruiker: CSV bevat GEEN kalender (het document ' +
       'krijgt de standaardkalender, dus datums kunnen verschuiven!) en geen resources of ' +
-      'toewijzingen; P6-XML mapt Nonlabor-resources op EQUIPMENT; MSPDI is het rijkst na IFC. ' +
-      'Na een CSV-/XML-import heeft het document nog GEEN opslagdoel (opslaan schrijft altijd IFC, ' +
-      'dus het bronbestand wordt nooit overschreven); alleen een IFC-import neemt het bronpad over. ' +
+      'toewijzingen; P6-XML mapt Nonlabor-resources op EQUIPMENT; MPP bevat geen baselines/custom ' +
+      'fields; MSPDI is het rijkst na IFC. ' +
+      'Na een CSV-/XML-/MPP-import heeft het document nog GEEN opslagdoel (opslaan schrijft altijd ' +
+      'IFC, dus het bronbestand wordt nooit overschreven); alleen een IFC-import neemt het bronpad over. ' +
       'Gebruik altijd het `documentId` UIT DE RESPONS voor vervolgstappen — of het bestand in het ' +
       'bestaande tabblad of in een nieuw tabblad landde hangt af van de staat van de app. ' +
       'Kalender-id\'s zijn per document: herbouw een kalender in het importdocument met ' +
@@ -303,7 +309,7 @@ export const fileTools: McpToolDef[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Absoluut bronpad binnen de home-map (.ifc / .xml / .csv; ~ mag)' },
+        path: { type: 'string', description: 'Absoluut bronpad binnen de home-map (.ifc / .xml / .csv / .mpp; ~ mag)' },
       },
       required: ['path'],
       additionalProperties: false,
@@ -392,6 +398,8 @@ export const fileTools: McpToolDef[] = [
         notices.push('CSV bevat geen kalender (het document draait nu op de STANDAARDkalender — datums kunnen afwijken) en geen resources/toewijzingen.');
       } else if (format === 'P6-XML') {
         notices.push('P6-XML: Nonlabor-resources zijn als EQUIPMENT geïmporteerd.');
+      } else if (format === 'MPP14') {
+        notices.push('MPP-import is alleen-lezen (best effort; baselines en custom fields komen niet mee). Opslaan schrijft IFC; export naar MS Project = MSPDI-XML.');
       }
       if (format !== 'IFC') {
         notices.push('Het document heeft nog GEEN opslagdoel: opslaan schrijft IFC, dus het bronbestand wordt niet overschreven — de gebruiker kiest bij opslaan een pad.');

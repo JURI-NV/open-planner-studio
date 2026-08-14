@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Cerrar notificación",
     "openFailed": "No se pudo abrir el archivo",
+    "mppLegacy": "Este archivo .mpp usa un formato antiguo (Project 2007 o anterior). Expórtalo en MS Project como XML (Archivo → Guardar como → XML) y abre ese archivo.",
+    "mppEncrypted": "Este archivo .mpp está protegido con contraseña. Expórtalo en MS Project como XML (Archivo → Guardar como → XML) y abre ese archivo.",
     "saveFailed": "No se pudo guardar",
     "savedViaDownload": "Guardado como descarga: '{{name}}' está ahora en tu carpeta de descargas. Este entorno no permite que la aplicación escriba directamente en la ubicación elegida.",
     "autoSaveFailed": "Error de guardado automático",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "Nueva planificación",
-    "imported": "Proyecto importado"
+    "imported": "Proyecto importado",
+    "unassignedResource": "Sin asignar"
   },
   "documents": {
     "overviewTitle": "Proyectos abiertos",

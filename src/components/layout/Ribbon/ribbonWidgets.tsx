@@ -332,7 +332,7 @@ export function RecentFilesDropdown() {
               title={sub}
               onMouseOver={ev => (ev.currentTarget.style.background = 'var(--theme-hover)')}
               onMouseOut={ev => (ev.currentTarget.style.background = 'transparent')}
-              onClick={() => { void openRecentFile(e.id, { importedProject: tCommon('project.imported') }); setOpen(false); }}
+              onClick={() => { void openRecentFile(e.id, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') }); setOpen(false); }}
             >
               {e.name}
               <span style={{ display: 'block', fontSize: 'calc(9px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)', marginTop: 1 }}>

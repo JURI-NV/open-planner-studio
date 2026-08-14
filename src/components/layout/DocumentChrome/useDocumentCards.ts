@@ -107,7 +107,7 @@ export function useDocumentActions() {
   const closeOverview = useCallback(() => setUI({ showProjectOverview: false }), [setUI]);
   // De store-laag heeft geen `t(...)`; het label voor een bestand zónder IFCPROJECT gaat mee.
   const openProject = useCallback(
-    () => { void openFile({ importedProject: t('project.imported') }); },
+    () => { void openFile({ importedProject: t('project.imported'), unassignedResource: t('project.unassignedResource') }); },
     [openFile, t],
   );
 

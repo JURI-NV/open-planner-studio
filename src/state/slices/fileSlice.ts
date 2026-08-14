@@ -4,7 +4,7 @@ import { writeCSV } from '@/services/csv/csvWriter';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { openFileDialog, saveFileDialog, saveToRef, readFromRef, readBytesFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
-import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, type ExportFormat } from '@/services/formatRegistry';
+import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -199,12 +199,19 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // actieve tabblad alleen als dat nog leeg en ongewijzigd is.
         if (!isActivePristine(get())) get().newDocument();
 
+        // Opslagdoel-guard (T8, stap 5a): een binair bronformaat (bv. .mpp) wordt NOOIT het
+        // opslagdoel — opslaan schrijft altijd IFC-TEKST, dus Ctrl+S zou het binaire bronbestand
+        // stil overschrijven met IFC-inhoud onder dezelfde naam. "Opslaan" wordt dan "opslaan-als".
+        // De MCP-kant (fileTools.ts) kent deze guard al; dit is 'm voor het UI-open-pad.
+        const isBinarySource = readFormatForFile(opened.name).kind === 'binary';
+
         // Gedeelde load-implementatie; open-pad-semantiek: identiteit + opslaan-doel zetten,
         // direct doorrekenen + fitten en de uur-melding evalueren.
         get().applyLoadedProject(parsed, {
           // Identiteit: echt pad (Tauri) of bestandsnaam (web); handle alleen als web-opslaan-doel.
-          filePath: opened.ref?.kind === 'path' ? opened.ref.path : opened.name,
-          fileHandle: opened.ref?.kind === 'handle' ? opened.ref.handle : null,
+          // Binair bronformaat ⇒ geen van beide (zie isBinarySource hierboven).
+          filePath: isBinarySource ? null : (opened.ref?.kind === 'path' ? opened.ref.path : opened.name),
+          fileHandle: isBinarySource ? null : (opened.ref?.kind === 'handle' ? opened.ref.handle : null),
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -215,11 +222,13 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // markeren/vragen. Nooit tijdens de hydratatie zelf.
         get().runOpenBoundary();
 
-        // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle).
+        // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle) — óók bij een binair
+        // bronformaat: heropenen via recents moet blijven werken, alleen het OPSLAGDOEL wordt niet
+        // gezet (zie isBinarySource hierboven).
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
         console.error('Failed to open file:', err);
-        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
+        get().notify({ severity: 'error', messageKey: importErrorMessageKey(err), detail: (err as Error).message });
       }
     },
 
@@ -480,10 +489,13 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
         if (!isActivePristine(get())) get().newDocument();
 
+        // Opslagdoel-guard (T8, stap 5a) — zie openFile voor de volledige toelichting.
+        const isBinarySource = readFormatForFile(entry.name).kind === 'binary';
+
         // Zelfde open-pad-semantiek als openFile (zie daar); loopt door de gedeelde implementatie.
         get().applyLoadedProject(parsed, {
-          filePath: entry.ref.kind === 'path' ? entry.ref.path : entry.name,
-          fileHandle: entry.ref.kind === 'handle' ? entry.ref.handle : null,
+          filePath: isBinarySource ? null : (entry.ref.kind === 'path' ? entry.ref.path : entry.name),
+          fileHandle: isBinarySource ? null : (entry.ref.kind === 'handle' ? entry.ref.handle : null),
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -493,11 +505,12 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
         get().runOpenBoundary();
 
-        // MRU verversen: het net-geopende bestand naar boven.
+        // MRU verversen: het net-geopende bestand naar boven (óók bij een binair bronformaat —
+        // alleen het opslagdoel blijft leeg, zie isBinarySource hierboven).
         await pushRecent(entry.ref, entry.name);
       } catch (err) {
         console.error('Failed to open recent file:', err);
-        get().notify({ severity: 'error', messageKey: 'notifications.openFailed', detail: (err as Error).message });
+        get().notify({ severity: 'error', messageKey: importErrorMessageKey(err), detail: (err as Error).message });
       }
     },
 

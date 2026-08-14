@@ -56,7 +56,7 @@ export function ExternalLinkDialog({ taskId, onClose }: { taskId: string; onClos
     let cancelled = false;
     if (manual || !sourceFile) { setSource(null); setSourceTaskId(''); return; }
     setLoading(true);
-    void parseExternalSource(sourceFile, { importedProject: tCommon('project.imported') }).then((res) => {
+    void parseExternalSource(sourceFile, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') }).then((res) => {
       if (cancelled) return;
       setSource(res);
       setSourceTaskId(res?.tasks[0]?.id ?? '');

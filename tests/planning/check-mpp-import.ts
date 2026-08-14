@@ -52,6 +52,7 @@ import {
 } from './mppFixtures';
 import { readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL } from '@/services/mpp/mppReader';
 import { MAX_VAR_TEXT_BYTES } from '@/services/mpp/limits';
+import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
 import type { Task } from '@/types/task';
@@ -87,6 +88,17 @@ let softChecksTotal = 0;
   }
   truthy('00 niet-CFB-bytes: constructor gooit', threw);
   truthy('00b niet-CFB-bytes: nette CFB-foutmelding', message.startsWith('CFB:'));
+}
+
+// ── T7-restpunt (N1/N2): tenthsOfMinutesToDays met een NIET-dyadische hoursPerDay (7,6667u/dag =
+// 460 minuten/dag) — het geval waar de afrondingsvolgorde daadwerkelijk uitmaakt (zie de
+// toelichting in importDurations.ts). 16100 tienden-van-minuut = 1610 minuten; 1610/460 = 3,5
+// dagen, en JS' Math.round rondt .5 naar boven ⇒ 4. ─────────────────────────────────────────────
+{
+  truthy(
+    '00c tenthsOfMinutesToDays(16100, 460/60) === 4 (niet-dyadische hoursPerDay, halve-dag-grens)',
+    tenthsOfMinutesToDays(16100, 460 / 60) === 4,
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

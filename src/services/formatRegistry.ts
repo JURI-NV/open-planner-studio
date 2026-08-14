@@ -24,8 +24,9 @@ export interface ReadFormat {
 
 /** Interne subdispatch voor de xml-entry van `READ_FORMATS`: kies de juiste XML-reader op basis
  *  van inhoudsmarkers (P6 vóór MS Project). Gooit bij een onbekend formaat i.p.v. stil als MSPDI
- *  te parsen. */
-export function parseProjectXml(content: string): ImportResult {
+ *  te parsen. Niet geëxporteerd (T1-restpunt): geen afnemer buiten deze module — de enige
+ *  aanroeper is de xml-entry hieronder. */
+function parseProjectXml(content: string): ImportResult {
   const isP6 = content.includes('APIBusinessObjects') || content.includes('Primavera');
   const isMsProject =
     content.includes('schemas.microsoft.com/project') || content.includes('<Project');
@@ -34,28 +35,36 @@ export function parseProjectXml(content: string): ImportResult {
   throw new Error('Onbekend XML-formaat: geen MS Project- of Primavera-markers gevonden');
 }
 
-// Volgorde = bestaande filtervolgorde in openFile ('All Supported' met ifc,csv,xml).
+/** Default-formaat bij een onbekende extensie (bestaand gedrag: de else-tak van alle vijf
+ *  kopieën). Een APARTE, benoemde const-entry (T1-restpunt) i.p.v. `READ_FORMATS.find(...)!` —
+ *  zo kan de default nooit "zoek 'm op en forceer met `!`" zijn (een niet-gevonden id zou dat stil
+ *  tot een runtime-crash maken); de entry staat bovendien nog steeds gewoon IN `READ_FORMATS`,
+ *  dus herordenen wisselt 'm nooit stilzwijgend. */
+const IFC_FORMAT: ReadFormat = {
+  id: 'ifc', extensions: ['ifc'], kind: 'text', filterName: 'IFC Files',
+  read: async (i, labels) => readIFC(i.text ?? '', labels),
+};
+
+// Volgorde = bestaande filtervolgorde in openFile ('All Supported' met ifc,csv,xml,mpp).
 const READ_FORMATS: ReadFormat[] = [
-  { id: 'ifc', extensions: ['ifc'], kind: 'text', filterName: 'IFC Files',
-    read: async (i, labels) => readIFC(i.text ?? '', labels) },
+  IFC_FORMAT,
   { id: 'csv', extensions: ['csv'], kind: 'text', filterName: 'CSV Files',
     read: async (i) => readCSV(i.text ?? '') },
   { id: 'xml', extensions: ['xml'], kind: 'text', filterName: 'XML Files',
     read: async (i) => parseProjectXml(i.text ?? '') },
+  { id: 'mpp', extensions: ['mpp'], kind: 'binary', filterName: 'MS Project Files',
+    read: async (i, labels) => {
+      if (!i.bytes) throw new Error('MPP requires binary content');
+      // Dynamic import: de parser (CFB + fieldmaps) blijft buiten de main chunk.
+      const { readMPP } = await import('@/services/mpp/mppReader');
+      return readMPP(i.bytes, labels);
+    } },
 ];
-
-/** Default-formaat bij een onbekende extensie (bestaand gedrag: de else-tak van alle vijf
- *  kopieën). Expliciet op id opgezocht i.p.v. `READ_FORMATS[0]` — zo wisselt herordenen van
- *  `READ_FORMATS` nooit stilzwijgend de default-reader. */
-const DEFAULT_FORMAT_ID = 'ifc';
 
 /** Extensie-match; onbekende extensie ⇒ de default (IFC). */
 export function readFormatForFile(name: string): ReadFormat {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  return (
-    READ_FORMATS.find((f) => f.extensions.includes(ext)) ??
-    READ_FORMATS.find((f) => f.id === DEFAULT_FORMAT_ID)!
-  );
+  return READ_FORMATS.find((f) => f.extensions.includes(ext)) ?? IFC_FORMAT;
 }
 
 export function openDialogFilters(): FileFilter[] {

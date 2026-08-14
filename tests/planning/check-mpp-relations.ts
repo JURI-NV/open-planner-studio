@@ -659,6 +659,16 @@ const ASSIGNMENT_DEFAULT_FIELD_MAP: FieldMapTable = new Map(Object.entries(DEFAU
   truthy('T7 readRelations op ontbrekende TBkndCons: lege array', readRelations(cfb, null, 8, new Map()).length === 0);
   truthy('T7 readResources op ontbrekende TBkndRsc: lege array', readResources(cfb, new Map(), null, emptyCalResult).resources.length === 0);
   truthy('T7 readAssignments op ontbrekende TBkndAssn: lege array', readAssignments(cfb, new Map(), new Map(), new Map()).length === 0);
+
+  // T7-kwaliteitsreview (I1, regressienet): TWEE losse lege lezingen mogen NOOIT dezelfde
+  // array-/Map-instantie terugkrijgen. Zou `emptyResourcesResult()` ooit weer een module-singleton
+  // worden (zie de toelichting daar), dan bevriest Immer's autoFreeze die instantie bij de eerste
+  // mutatiepoging in de store — en elke VOLGENDE lege lezing (een ander, later geopend document)
+  // zou tegen datzelfde bevroren object aanlopen. Referentie-ongelijkheid is hier het contract.
+  const first = readResources(cfb, new Map(), null, emptyCalResult);
+  const second = readResources(cfb, new Map(), null, emptyCalResult);
+  truthy('T7-kwaliteitsreview-I1 readResources: twee lege lezingen delen NIET dezelfde array-instantie', first.resources !== second.resources);
+  truthy('T7-kwaliteitsreview-I1 readResources: twee lege lezingen delen NIET dezelfde Map-instantie', first.resourceIdByUniqueId !== second.resourceIdByUniqueId);
 }
 
 // ── (f) T7-kwaliteitsreview (I3, BLOKKEREND): de ALTIJD-vangende `readRelations`/`readResources`/

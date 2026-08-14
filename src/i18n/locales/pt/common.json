@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Fechar notificação",
     "openFailed": "Falha ao abrir o arquivo",
+    "mppLegacy": "Este arquivo .mpp usa um formato antigo (Project 2007 ou anterior). Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
+    "mppEncrypted": "Este arquivo .mpp está protegido por senha. Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
     "saveFailed": "Falha ao salvar",
     "savedViaDownload": "Guardado como transferência: '{{name}}' está agora na sua pasta de transferências. Este ambiente não permite que a aplicação escreva diretamente no local escolhido.",
     "autoSaveFailed": "Falha no salvamento automático",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "Novo planeamento",
-    "imported": "Projeto importado"
+    "imported": "Projeto importado",
+    "unassignedResource": "Não atribuído"
   },
   "documents": {
     "overviewTitle": "Projetos abertos",

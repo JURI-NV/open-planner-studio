@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Melding sluiten",
     "openFailed": "Bestand openen mislukt",
+    "mppLegacy": "Dit .mpp-bestand gebruikt een oud formaat (Project 2007 of ouder). Exporteer het in MS Project als XML (Bestand → Opslaan als → XML) en open dat bestand.",
+    "mppEncrypted": "Dit .mpp-bestand is met een wachtwoord beveiligd. Exporteer het in MS Project als XML (Bestand → Opslaan als → XML) en open dat bestand.",
     "saveFailed": "Opslaan mislukt",
     "savedViaDownload": "Opgeslagen als download: '{{name}}' staat nu in je downloadmap. Deze omgeving staat de app niet toe rechtstreeks naar de gekozen locatie te schrijven.",
     "autoSaveFailed": "Automatisch opslaan mislukt",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "Nieuwe planning",
-    "imported": "Geïmporteerd project"
+    "imported": "Geïmporteerd project",
+    "unassignedResource": "Niet toegekend"
   },
   "documents": {
     "overviewTitle": "Open projecten",

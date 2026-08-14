@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Zamknij powiadomienie",
     "openFailed": "Nie udało się otworzyć pliku",
+    "mppLegacy": "Ten plik .mpp używa starszego formatu (Project 2007 lub starszy). Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
+    "mppEncrypted": "Ten plik .mpp jest zabezpieczony hasłem. Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
     "saveFailed": "Nie udało się zapisać",
     "savedViaDownload": "Zapisano jako pobrany plik: '{{name}}' znajduje się teraz w folderze pobierania. To środowisko nie pozwala aplikacji zapisywać bezpośrednio w wybranej lokalizacji.",
     "autoSaveFailed": "Błąd autozapisu",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "Nowy harmonogram",
-    "imported": "Zaimportowany projekt"
+    "imported": "Zaimportowany projekt",
+    "unassignedResource": "Nieprzypisany"
   },
   "documents": {
     "overviewTitle": "Otwarte projekty",

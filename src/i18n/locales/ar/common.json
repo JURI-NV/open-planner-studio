@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "إغلاق الإشعار",
     "openFailed": "تعذّر فتح الملف",
+    "mppLegacy": "يستخدم ملف .mpp هذا تنسيقًا قديمًا (Project 2007 أو أقدم). صدّره من MS Project بصيغة XML (ملف ← حفظ باسم ← XML) ثم افتح ذلك الملف.",
+    "mppEncrypted": "ملف .mpp هذا محمي بكلمة مرور. صدّره من MS Project بصيغة XML (ملف ← حفظ باسم ← XML) ثم افتح ذلك الملف.",
     "saveFailed": "تعذّر الحفظ",
     "savedViaDownload": "تم الحفظ كتنزيل: الملف ‘{{name}}’ موجود الآن في مجلد التنزيلات. لا تسمح هذه البيئة للتطبيق بالكتابة مباشرة إلى الموقع الذي اخترته.",
     "autoSaveFailed": "فشل الحفظ التلقائي",
@@ -236,7 +238,8 @@
   },
   "project": {
     "untitled": "تخطيط جديد",
-    "imported": "مشروع مستورد"
+    "imported": "مشروع مستورد",
+    "unassignedResource": "غير معيّن"
   },
   "documents": {
     "overviewTitle": "المشاريع المفتوحة",
