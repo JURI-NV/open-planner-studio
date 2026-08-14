@@ -65,8 +65,6 @@ function record(tasks: Task[], sequences: Sequence[], calendar: WorkCalendar, op
 // ── Fixtures ───────────────────────────────────────────────────────────────────────────────────
 const CRITICAL = '#DC2626';
 const NORMAL = '#2563EB';
-const NEAR = '#F59E0B';
-const MILESTONE = '#7C3AED';
 
 const cal: WorkCalendar = {
   id: 'c1', name: 'Standaard', description: '', workDays: [1, 2, 3, 4, 5, 6, 7],
@@ -172,8 +170,8 @@ const baseOptions = (over: Partial<PrintOptions> = {}): PrintOptions => ({
 }
 
 // ── 3. Kleurmodi ───────────────────────────────────────────────────────────────────────────────
-// Balken zijn roundRect-fills met barHeight ≈ 0.55 × rowHeight en y in het chart-gebied.
-const barsOf = (rr: RoundRectEv[], dims: { height: number }) => rr.filter(r => r.h > 10 && r.h < 20 && r.w > 3);
+// Balken zijn roundRect-fills met barHeight ≈ 0.55 × rowHeight (24 × 0.55 ≈ 13) — de filters
+// hieronder herkennen ze aan die hoogte-band plus een minimale breedte.
 {
   // critical (default): kritiek rood + gewone taak blauw — de twee roundRect-fills bestaan.
   const { roundRects } = record(FIX_TASKS, [], cal, baseOptions({ barColorMode: 'critical' }));
