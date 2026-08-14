@@ -72,7 +72,18 @@ export function LibrarySection() {
   const onExport = async () => {
     const content = exportPoolIFC(selected.id);
     if (!content) return;
-    await saveFileDialog(`bibliotheek-${selected.name}.ifc`, content, [{ name: 'IFC', extensions: ['ifc'] }]);
+    const outcome = await saveFileDialog(`bibliotheek-${selected.name}.ifc`, content, [{ name: 'IFC', extensions: ['ifc'] }]);
+    // Kwam het bestand via de download-terugval binnen (omgeving zonder schrijfrechten op
+    // File System Access-handles), dan staat het in de downloadmap en niet waar de gebruiker het
+    // aanwees — zeg dat, anders zoekt hij het op de verkeerde plek.
+    if (outcome?.viaDownload) {
+      useAppStore.getState().notify({
+        severity: 'info',
+        messageKey: 'notifications.savedViaDownload',
+        params: { name: outcome.name },
+        dedupeKey: 'saved-via-download',
+      });
+    }
   };
 
   // Bedrijf verwijderen (spec §5): meld hoeveel GEOPENDE documenten (actief + slapend) aan dit

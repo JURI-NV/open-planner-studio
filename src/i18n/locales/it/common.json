@@ -6,6 +6,7 @@
     "dismiss": "Chiudi notifica",
     "openFailed": "Apertura del file non riuscita",
     "saveFailed": "Salvataggio non riuscito",
+    "savedViaDownload": "Salvato come download: '{{name}}' si trova ora nella cartella dei download. Questo ambiente non consente all'applicazione di scrivere direttamente nella posizione scelta.",
     "autoSaveFailed": "Salvataggio automatico non riuscito",
     "recoveryReadFailed": "Impossibile leggere il file ripristinato",
     "recoveryRestoreFailed": "Ripristino non riuscito",

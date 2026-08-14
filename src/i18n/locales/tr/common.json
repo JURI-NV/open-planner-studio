@@ -6,6 +6,7 @@
     "dismiss": "Bildirimi kapat",
     "openFailed": "Dosya açılamadı",
     "saveFailed": "Kaydetme başarısız",
+    "savedViaDownload": "İndirme olarak kaydedildi: '{{name}}' artık indirmeler klasörünüzde. Bu ortam uygulamanın seçtiğiniz konuma doğrudan yazmasına izin vermiyor.",
     "autoSaveFailed": "Otomatik kaydetme başarısız",
     "recoveryReadFailed": "Kurtarılan dosya okunamadı",
     "recoveryRestoreFailed": "Geri yükleme başarısız",

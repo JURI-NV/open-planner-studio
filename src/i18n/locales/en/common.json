@@ -6,6 +6,7 @@
     "dismiss": "Close notification",
     "openFailed": "Failed to open file",
     "saveFailed": "Failed to save",
+    "savedViaDownload": "Saved as a download: '{{name}}' is now in your downloads folder. This environment does not let the app write directly to the location you picked.",
     "autoSaveFailed": "Auto-save failed",
     "recoveryReadFailed": "Recovered file could not be read",
     "recoveryRestoreFailed": "Restore failed",
