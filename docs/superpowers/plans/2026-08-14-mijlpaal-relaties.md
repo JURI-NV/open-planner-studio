@@ -53,7 +53,7 @@
 > aanroeper er een te bouwen — per aanroep, in `sequenceSlice`/`mcpTransaction` zelfs over een
 > Immer-draft, wat ook nog elke child-proxy materialiseert, en in een `planner_batch`-lus per
 > relatie. Het Relaties-paneel heeft bovendien al een eigen `taskById`-`useMemo`. Er kwamen vier
-> checks bij (19 → 24) voor mutaties die eerder ongemerkt passeerden. Taken 3, 4, 7 en 8 hieronder
+> checks bij (19 → 23) voor mutaties die eerder ongemerkt passeerden. Taken 3, 4, 7 en 8 hieronder
 > zijn al op de definitieve vorm gezet; raadpleeg voor de module zelf de code in de repo.
 
 **Files:**
@@ -1044,6 +1044,11 @@ laadroutes."
 
 Voeg aan beide gidsen een sectie toe over wat wél en niet kan. Houd je aan de **beperkte Markdown-subset** die `src/utils/miniMarkdown.tsx` aankan: koppen `#`/`##`/`###`, paragrafen, enkelvoudige lijsten, `**vet**`/`*cursief*`/`` `code` ``, codeblokken, afbeeldingen, en uitsluitend `docs://`- en `examples://`-links. **Geen tabellen, geen blockquotes, geen h4, geen rauwe HTML** — `npm run verify:docs` faalt daarop.
 
+**Terminologie:** gebruikerzichtbare Nederlandse tekst zegt **samenvattingstaak**, niet
+"verzameltaak" — dat is de term die de app al voert (`menu.json`, `task.json`, en de gids
+`ref-taakdialoog.md`). De code en dit plan gebruiken intern wél "verzameltaak"; dat blijft zo. In
+het Engels is "summary task" de gevestigde term.
+
 Inhoud (nl; maak een gelijkwaardige en-versie):
 
 ```markdown
@@ -1053,10 +1058,10 @@ Je kunt relaties leggen tussen alle gewone taken en tussen mijlpalen. Een mijlpa
 maar gedraagt zich verder als elke andere taak: hij kan voorganger én opvolger zijn, en hij kan op
 het kritieke pad liggen.
 
-Wat *niet* kan is een relatie aan een **verzameltaak** hangen — een taak die zelf subtaken heeft.
-De planningsmotor rekent alleen met taken zonder subtaken; de datums van een verzameltaak worden
-daarna afgeleid uit haar kinderen. Een relatie naar zo'n taak zou dus wel zichtbaar zijn, maar geen
-enkel effect hebben op de planning.
+Wat *niet* kan is een relatie aan een **samenvattingstaak** hangen — een taak die zelf subtaken
+heeft. De planningsmotor rekent alleen met taken zonder subtaken; de datums van een
+samenvattingstaak worden daarna afgeleid uit haar kinderen. Een relatie naar zo'n taak zou dus wel
+zichtbaar zijn, maar geen enkel effect hebben op de planning.
 
 Wil je twee fasen aan elkaar koppelen, leg de relatie dan tussen de taken zelf: de laatste taak van
 de ene fase naar de eerste taak van de volgende. Een mijlpaal aan het eind van een fase werkt daar
