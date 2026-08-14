@@ -36,7 +36,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
-import { detectMppVariant, assertReadable, Props } from '@/services/mpp/mppContainer';
+import { detectMppVariant, assertReadable, detectApplicationVersion, Props } from '@/services/mpp/mppContainer';
 import {
   FixedMeta, FixedData, VarMeta12, Var2Data,
   getUnicodeString, getTimestamp, getGUID, getDuration, getDate, getTime, getDurationTimeUnits,
@@ -1925,6 +1925,18 @@ if (corpusPresent) {
 // opslaat (`recurrenceTypeValue===1`) — en is dus de TEGENHANGER die de T6-spec-review-fix
 // (type-1-uitzonderingen negeren `@76` volledig) daadwerkelijk hard vangt bij een regressie.
 //
+// T6-SLOT (her-check): de eerste versie van deze sectie telde alleen `result.calendar.holidays`
+// (de PROJECTkalender) — een regressie die UITSLUITEND een niet-projectkalender raakt (bv. een
+// tweede basiskalender, corpus-bevestigd: "6 Day Week" draagt 92 van de 208 crawl-holidays, alleen
+// zichtbaar via `resourceCalendars`) glipte daar ongezien doorheen. Deze versie roept `readCalendars`
+// rechtstreeks aan (i.p.v. `readMPP`) en telt `ownHolidayCountByUniqueId` op over ALLE kalenders
+// (projectkalender + resourceCalendars samen = precies `calendarByUniqueId`) — bewust het EIGEN
+// aandeel per kalender, NIET `WorkCalendar.holidays.length` rechtstreeks: een afgeleide (resource-)
+// kalender se `holidays` bevat `[...baseCal.holidays, ...ownHolidays]` (zie `mppCalendars.ts`'s
+// Fase 2), dus een naïeve som over alle `.holidays.length` zou de basiskalender se feestdagen één
+// keer PER AFGELEIDE KALENDER dubbeltellen. `ownHolidayCountByUniqueId` is precies de dubbeltelvrije
+// bron — zie de toelichting daar in `mppCalendars.ts`.
+//
 // GEEN in-repo fixture (zelfde reden als het hoofdcorpus): mogelijk auteursrechtelijk beschermd
 // cursusmateriaal — override met OPS_MPP_CRAWL, nette skip zonder de map.
 {
@@ -1946,38 +1958,55 @@ if (corpusPresent) {
     if (crawlFiles.length === 0) {
       console.log(`OK  mpp-import: T6-crawl-map aanwezig maar geen .mpp-bestanden erin (${CRAWL}) — crawlsectie overgeslagen`);
     } else {
-      // Gemeten basislijn (2026-08-14, dit corpus, 49 bestanden, ná de T6-spec-review-fix): 116
-      // holidays op de PROJECTkalender (`resourceCalendars` bewust NIET meegeteld — die erven een
-      // kopie van dezelfde base-holidays, dus meetellen zou hetzelfde holiday meerdere keren tellen
-      // zonder extra signaal). VÓÓR de fix was dit 0 (de type-1-frequency-bug liet alle 208
-      // materialiseerbare uitzonderingen in dit corpus stil vallen — deze poort had de bug dus
-      // hard gevangen). `>=` (geen `===`): een toekomstige verbetering (bv. recurrente-
-      // uitzondering-expansie, zie `parseExceptions`'s moduleheader) mag dit laten STIJGEN zonder de
-      // poort te breken; een REGRESSIE laat het zakken en faalt hier.
-      const CRAWL_HOLIDAY_BASELINE = 116;
+      /** Dubbeltelvrije som van EIGEN holidays over ALLE kalenders (project + resource) van één
+       *  bestand — spiegelt exact `readMPP`'s eigen container-/Props-opbouw (CfbFile →
+       *  assertReadable → `"   114"/Props`), maar roept `readCalendars` rechtstreeks aan i.p.v.
+       *  `readMPP` zodat `ownHolidayCountByUniqueId` (T6-slot) beschikbaar is — die telling zit niet
+       *  in `ImportResult`. */
+      function ownHolidayTotal(bytes: Uint8Array): number {
+        const cfb = new CfbFile(bytes);
+        assertReadable(cfb);
+        const applicationVersion = detectApplicationVersion(cfb);
+        const projectPropsBytes = cfb.getStream(['   114', 'Props']);
+        if (!projectPropsBytes) return 0;
+        const projectProps = new Props(projectPropsBytes, '   114/Props');
+        const calResult = readCalendars(cfb, projectProps, applicationVersion);
+        let total = 0;
+        for (const count of calResult.ownHolidayCountByUniqueId.values()) total += count;
+        return total;
+      }
+
+      // Gemeten basislijn (2026-08-14, dit corpus, 49 bestanden, ná de T6-slot-uitbreiding): 208
+      // EIGEN holidays over ALLE kalenders (116 op de projectkalender "Standard" + 92 op de tweede
+      // basiskalender "6 Day Week", zichtbaar via `resourceCalendars` — her-check bevestigd, 0
+      // per-kalender-mismatches). VÓÓR de T6-spec-review-fix was dit 0 (de type-1-frequency-bug liet
+      // alle materialiseerbare uitzonderingen in dit corpus stil vallen). `>=` (geen `===`): een
+      // toekomstige verbetering (bv. recurrente-uitzondering-expansie, zie `parseExceptions`'s
+      // moduleheader) mag dit laten STIJGEN zonder de poort te breken; een REGRESSIE — óók één die
+      // uitsluitend een niet-projectkalender raakt — laat het zakken en faalt hier.
+      const CRAWL_HOLIDAY_BASELINE = 208;
       let totalHolidays = 0;
       let filesWithHolidays = 0;
       let readFailures = 0;
       for (const file of crawlFiles) {
         try {
-          const result = readMPP(new Uint8Array(readFileSync(file)));
-          const count = result.calendar.holidays.length;
+          const count = ownHolidayTotal(new Uint8Array(readFileSync(file)));
           totalHolidays += count;
           if (count > 0) filesWithHolidays++;
         } catch (err) {
           readFailures++;
           checks++;
-          diffs.push(`[T6-crawl] readMPP gooide onverwacht op ${file}: ${err instanceof Error ? err.message : String(err)}`);
+          diffs.push(`[T6-crawl] readCalendars gooide onverwacht op ${file}: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
       truthy(`[T6-crawl] geen leesfouten over ${crawlFiles.length} bestanden`, readFailures === 0);
       truthy(`[T6-crawl] totaal aantal gematerialiseerde holidays > 0 (${totalHolidays})`, totalHolidays > 0);
       truthy(
-        `[T6-crawl] holiday-telling op/boven de gemeten basislijn (${totalHolidays}/${CRAWL_HOLIDAY_BASELINE})`,
+        `[T6-crawl] holiday-telling (projectkalender + resourceCalendars, dubbeltelvrij) op/boven de gemeten basislijn (${totalHolidays}/${CRAWL_HOLIDAY_BASELINE})`,
         totalHolidays >= CRAWL_HOLIDAY_BASELINE,
       );
       console.log(
-        `   . [T6-crawl] ${crawlFiles.length} bestanden, ${filesWithHolidays} met ≥1 holiday op de projectkalender, `
+        `   . [T6-crawl] ${crawlFiles.length} bestanden, ${filesWithHolidays} met ≥1 eigen holiday (over alle kalenders), `
         + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE})`,
       );
     }

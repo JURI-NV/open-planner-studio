@@ -341,6 +341,15 @@ export interface CalendarReadResult {
    *  T7's `Resource.calendarId`-koppeling (TBkndRsc); T6 zelf verbruikt dit nog niet (er zijn nog
    *  geen `Resource`-objecten om aan te koppelen). */
   resourceCalendarUniqueIdByResourceUniqueId: ReadonlyMap<number, number>;
+  /** MPP-uniqueID → aantal EIGEN uitzonderingen van díe kalender (T6-slot, her-check): een afgeleide
+   *  kalender se `holidays`-array bevat `[...baseCal.holidays, ...ownHolidays]` (zie Fase 2
+   *  hieronder) — een consument die simpelweg `.holidays.length` per kalender optelt zou de
+   *  basiskalender se feestdagen ÉÉN KEER PER AFGELEIDE KALENDER dubbeltellen. Deze map draagt
+   *  uitsluitend het EIGEN aandeel (basiskalenders: hun volledige `holidays`, want daar bestaat geen
+   *  overerving; afgeleide kalenders: alleen `ownHolidays`, niet de geërfde base-feestdagen) — zodat
+   *  een aanroeper (bv. `check-mpp-import.ts`'s T6-crawl-sectie) een dubbeltelvrije som over ALLE
+   *  kalenders kan maken. */
+  ownHolidayCountByUniqueId: ReadonlyMap<number, number>;
 }
 
 /** Terugval bij een ontbrekende/onleesbare TBkndCal-storage — zelfde vangnet als de T5-placeholder
@@ -351,6 +360,7 @@ function fallbackResult(): CalendarReadResult {
     projectCalendar: createDefaultCalendar(),
     resourceCalendars: [],
     resourceCalendarUniqueIdByResourceUniqueId: new Map(),
+    ownHolidayCountByUniqueId: new Map(),
   };
 }
 
@@ -428,6 +438,7 @@ export function readCalendars(
   const calendarByUniqueId = new Map<number, WorkCalendar>();
   const daysByUniqueId = new Map<number, DayResolution[]>();
   const resourceCalendarUniqueIdByResourceUniqueId = new Map<number, number>();
+  const ownHolidayCountByUniqueId = new Map<number, number>();
   const baseCalendarUniqueIds = new Set<number>();
 
   const nameOf = (uid: number): string | null =>
@@ -513,6 +524,7 @@ export function readCalendars(
     const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
     cal.holidays = effectiveData ? parseExceptions(effectiveData, `${label}/exceptions`) : [];
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
+    ownHolidayCountByUniqueId.set(rec.calendarUniqueId, cal.holidays.length); // basiskalender: alles is "eigen", geen overerving
     linkBaseResource(rec);
   }
 
@@ -532,6 +544,7 @@ export function readCalendars(
     const ownHolidays = ownData ? parseExceptions(ownData, `${label}/exceptions`) : [];
     cal.holidays = baseCal ? [...baseCal.holidays, ...ownHolidays] : ownHolidays;
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
+    ownHolidayCountByUniqueId.set(rec.calendarUniqueId, ownHolidays.length); // NIET de geërfde base-holidays meetellen
     linkDerivedResource(rec);
   };
 
@@ -564,5 +577,11 @@ export function readCalendars(
     if (cal !== projectCalendar) resourceCalendars.push(cal);
   }
 
-  return { calendarByUniqueId, projectCalendar, resourceCalendars, resourceCalendarUniqueIdByResourceUniqueId };
+  return {
+    calendarByUniqueId,
+    projectCalendar,
+    resourceCalendars,
+    resourceCalendarUniqueIdByResourceUniqueId,
+    ownHolidayCountByUniqueId,
+  };
 }
