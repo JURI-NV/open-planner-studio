@@ -106,8 +106,21 @@ meer in regels.
 |---|---|
 | `sequenceSlice.addSequence` | handhaving; retourneert `string \| null` in plaats van altijd een id |
 | `mcpTransaction.addSequence` | handhaving; geeft de `RelationRejection` door zodat de tool een herstelbare fout kan melden |
+| `classifyDeps` (`planner_add_dependencies`) | zachte per-item weigering, op de bestaande mechaniek |
+| `classifyDepUpdates` (`planner_update_dependencies`) | idem — zie hieronder, dit was een gat |
 | `createRelationWithFeedback` | vraagt het verdict vóór de mutatie, om de juiste melding te kiezen |
 | `RelationsPanel` (markering) + `getRelationSourceAt` (hittest) | lezen `hasSummaryEndpoint` |
+
+**Het verhang-pad was een gat in dit ontwerp.** Deze spec keek alleen naar het *aanmaken* van een
+relatie. Maar `planner_update_dependencies` kan de voorganger of opvolger van een **bestaande**
+relatie wijzigen, en `dependencyTools.ts` schrijft die eindpunten **rechtstreeks** op de draft
+(`seq.predecessorId = …`) — langs `addSequence` én `updateSequence` heen. Daar zit dus, anders dan
+bij het aanmaken, géén tweede laag onder: `classifyDepUpdates` is de enige plek waar het
+tegengehouden kan worden. Gevonden tijdens de uitvoering van taak 4.
+
+Ter afbakening: de store-actie `updateSequence` heeft dit probleem *niet* — die accepteert per
+signatuur geen eindpuntwijziging (`Partial<Omit<Sequence, 'id' | 'predecessorId' | 'successorId'>>`)
+en houdt zijn eigen botsingsregel voor type-wijzigingen.
 
 **Waarom zowel de wrapper als de slice het verdict opvraagt.** De wrapper heeft de *reden* nodig om
 de juiste melding te kiezen; de slice is de handhavingsgrens voor álle aanroepers (inclusief de
