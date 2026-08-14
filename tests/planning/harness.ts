@@ -476,8 +476,8 @@ function buildAndSolve(c: Case): {
       useAppStore.setState((s) => {
         s.sequences.push({ ...seqInput, id: generateId('seq') });
       });
-    } else {
-      S().addSequence(seqInput);
+    } else if (S().addSequence(seqInput) === null) {
+      throw new Error(`relatie ${l.pred}->${l.succ} geweigerd door de relatieregels`);
     }
   }
   // Toewijzingen — ná addTask (assignResource is leaf/mijlpaal-bewust, §2.4) en vóór runCPM

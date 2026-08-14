@@ -267,6 +267,21 @@ createRelationWithFeedback(rA, rB);
 eq('72 herhaald duplicaat vouwt samen', N().length, 2);
 eq('73 en telt', N()[1]?.count, 2);
 
+// Verzameltaak-eindpunt (spec 2026-08-14): dezelfde weigeringsweg als het duplicaat hierboven,
+// maar met een ANDERE reden — `REJECTION_MESSAGE['summary-endpoint']` zou zonder deze check
+// onopgemerkt naar de duplicaat-sleutel kunnen wijzen en de gebruiker "relatie bestaat al" tonen
+// voor een relatie die de solver toch al als spookrelatie zou weggooien.
+clearAll();
+S().newProject();
+const rFase = S().addTask({ name: 'Fase' });
+S().addTask({ name: 'Kind', parentId: rFase });
+const rLos = S().addTask({ name: 'Los' });
+const rel3 = createRelationWithFeedback(rFase, rLos);
+eq('74 een verzameltaak-eindpunt levert geen id op', rel3, null);
+eq('75 en geen relatie erbij', S().sequences.length, 0);
+eq('76 maar wél een melding', N().length, 1);
+eq('77 met de verzameltaak-sleutel', N()[0]?.messageKey, 'notifications.relationSummaryEndpoint');
+
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {
   console.log(`XX  notifications: ${diffs.length} van de ${checks} checks FOUT`);

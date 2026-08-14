@@ -8,9 +8,12 @@ const MAX_NAME = 40;
 const shortName = (name: string | undefined) =>
   !name ? '?' : name.length > MAX_NAME ? `${name.slice(0, MAX_NAME - 1)}…` : name;
 
-/** Welke melding hoort bij een weigering? `self`/`unknown-task` zijn via de UI niet te maken
- *  (de gebaren selecteren bestaande, verschillende taken) — die vallen op de duplicaat-tekst
- *  terug in plaats van een eigen sleutel te eisen die nooit in beeld komt. */
+/** Welke melding hoort bij een weigering? `self` is via de UI niet te maken: de selectie is een
+ *  Set-unie en de Gantt-sleep guardt op een ander doel. `unknown-task` is wél bereikbaar, maar
+ *  alleen via een randgeval — `selectedTaskIds` staat op `snapshot: 'none'`, dus redo kan een
+ *  selectie achterlaten die naar een verwijderde taak wijst. Beide vallen op de duplicaat-tekst
+ *  terug: een eigen sleutel voor een toestand die de gebruiker niet kan begrijpen of herstellen
+ *  helpt niemand. */
 const REJECTION_MESSAGE: Record<RelationRejection, NotificationMessageKey> = {
   duplicate: 'notifications.relationDuplicate',
   'summary-endpoint': 'notifications.relationSummaryEndpoint',
@@ -53,6 +56,7 @@ export function createRelationWithFeedback(
   }
 
   const id = st.addSequence({ predecessorId, successorId, type, lagDays: 0 });
+  if (id === null) return null; // de slice weigerde alsnog: geen succesmelding over een relatie die er niet is.
   const after = useAppStore.getState();
   after.notify({
     severity: 'info',

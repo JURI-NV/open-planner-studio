@@ -117,7 +117,7 @@ const kind = S().addTask({ name: 'Kind', parentId: fase });
 const los = S().addTask({ name: 'Los' });
 const mp = S().addTask({ name: 'Mijlpaal', isMilestone: true });
 
-ok('addTask met parentId geeft de ouder een childIds-vermelding (anders test dit niets)',
+ok('addTask met parentId gaf de ouder GEEN childIds-vermelding — dan is Fase geen verzameltaak en toetst de rest hieronder niets',
   S().tasks.find((t) => t.id === fase)?.childIds.includes(kind) === true);
 
 const seqCountBefore = S().sequences.length;
@@ -128,6 +128,12 @@ ok('addSequence muteerde de store ondanks weigering',
 
 const msId = S().addSequence({ predecessorId: mp, successorId: los, type: FS, lagDays: 0 });
 ok('addSequence weigert een MIJLPAAL als voorganger (regressie-anker)', msId !== null);
+// Een id terugkrijgen is niet hetzelfde als een relatie hebben: ook echt in de store zoeken.
+ok('mijlpaal-relatie kreeg een id maar staat niet in de store',
+  S().sequences.some((e) => e.id === msId && e.predecessorId === mp && e.successorId === los));
+
+const msSuccId = S().addSequence({ predecessorId: los, successorId: mp, type: FS, lagDays: 0 });
+ok('addSequence weigert een MIJLPAAL als opvolger (regressie-anker)', msSuccId !== null);
 
 const kindId = S().addSequence({ predecessorId: kind, successorId: los, type: FS, lagDays: 0 });
 ok('addSequence weigert een SUBTAAK zonder eigen kinderen', kindId !== null);
