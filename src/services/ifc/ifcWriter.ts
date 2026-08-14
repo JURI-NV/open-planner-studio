@@ -993,7 +993,12 @@ function writeAssignmentMeta(
     byTask.get(a.taskId)!.push(a);
   }
   for (const task of tasks) {
-    const list = byTask.get(task.id);
+    // Zelfde defensie als writeAssignments hierboven: een toewijzing waarvan de resource niet
+    // (meer) bestaat — bv. een vergiftigd pre-fix document met resourceId null — wordt
+    // overgeslagen i.p.v. dat guidOf op een null-seed crasht en daarmee élke save/auto-save
+    // permanent blokkeert. Voor gezonde documenten filtert dit niets en blijft de uitvoer
+    // byte-identiek.
+    const list = byTask.get(task.id)?.filter(a => ref(ctx, `res_${a.resourceId}`) !== '#0');
     if (!list || list.length === 0) continue;
     const props = list.map((a, index) => {
       const resGuid = guidOf(ctx, a.resourceId); // zelfde GUID als writeResource gebruikte
