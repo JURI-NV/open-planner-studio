@@ -1249,6 +1249,34 @@
       }
     },
     {
+      "id": "wbs-relation-touches-summary-01",
+      "title": "T8-rooktest: relaties die een WBS-samenvattingstaak (P) rechtstreeks raken — X->P en P->Y — in MS Project legaal, maar de solver rekent alleen bladtaken (runCPM filtert childIds.length===0 vóór de solver). Vóór de fix crashte dit (fantoom-taak-id in de topologische sortering); nu worden de twee relaties genegeerd zonder crash of fout. X en Y zijn dus twee gewone ONGEKOPPELDE bladtaken (geen dwang van/naar P): beide es=06-01, ef=06-02 (dur 2). P/K1/K2 rekenen als een normale WBS-parallel-rollup (K1 dur3, K2 dur5): P rolt op tot es=06-01/ef=06-05, K2 (langste kind) is kritiek, projectEnd=06-05 (K2 bepaalt het, X/Y zijn korter).",
+      "tasks": [
+        { "name": "X", "dur": 2 },
+        { "name": "Y", "dur": 2 },
+        { "name": "P" },
+        { "name": "K1", "dur": 3, "parent": "P" },
+        { "name": "K2", "dur": 5, "parent": "P" }
+      ],
+      "links": [
+        { "pred": "X", "succ": "P", "type": "FINISH_START", "lag": 0 },
+        { "pred": "P", "succ": "Y", "type": "FINISH_START", "lag": 0 }
+      ],
+      "expect": {
+        "tasks": {
+          "X": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 3, "crit": false },
+          "Y": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 3, "crit": false },
+          "K1": { "es": "2026-06-01", "ef": "2026-06-03", "crit": false },
+          "K2": { "es": "2026-06-01", "ef": "2026-06-05", "tf": 0, "crit": true },
+          "P": { "es": "2026-06-01", "ef": "2026-06-05", "crit": true }
+        },
+        "criticalPathSet": ["K2"],
+        "projectEnd": "2026-06-05",
+        "projectDuration": 5,
+        "error": false
+      }
+    },
+    {
       "id": "edge-empty-project-01",
       "title": "Leeg project (nul taken), gewone runCPM zonder verdere acties. Er is geen enkele earlyFinish, dus geen projecteinde: projectEnd moet LEEG zijn en projectDuration 0 — dezelfde vorm die de foutterugval (emptyResult) al teruggaf. Bewaakt de bron-invariant uit pakket P: de projectEnd-accumulator start op new Date(0), dus zonder guard zou hier 1970-01-01 uitkomen en als een echte einddatum lezen (statusbalk, documentstatistiek, baseline, Move Project). Geen fout: een leeg project is geen degradatiepad.",
       "tasks": [],

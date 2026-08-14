@@ -730,6 +730,59 @@ eq('186 detector-gate CONTROLE: geen actuals + structureel te laat ⇒ violation
   eq('195 blad: interferingFloat komt door', kid2.time.interferingFloat, 1);
 }
 
+// ── T8-rooktest: relatie op een taak die niet in de meegegeven set zit (samenvattingstaak) ────
+// `runCPM` (scheduleSlice.ts) geeft de solver alleen BLADTAKEN mee (`childIds.length === 0`); een
+// relatie die een WBS-samenvattingstaak raakt (in MS Project legaal — mspdiReader/ifcReader/
+// mppReader lezen 'm gewoon in, er wordt nergens op import gefilterd) verwijst dan naar een
+// taak-id dat niet in `tasks` zit. Vóór de guard in de CPMSolver-constructor duwde
+// `topologicalSort` dat fantoom-id de volgorde in (hij telt `inDegree` onvoorwaardelijk voor élke
+// `successorId`) en crashte de forward pass op een `this.tasks.get(id)!`-aanname zodra dat
+// fantoom-id in `order` viel (T8-rooktest, Bijlage 13: het bestand opende, maar de planning bleef
+// stil onberekend doordat `openFile`s catch de crash opslokte). Nu wordt de relatie genegeerd
+// i.p.v. de solver te laten crashen — de samenvattingstaak zelf blijft correct via de bestaande
+// rollup (`applyCpmResult`), alleen déze relatie legt geen dwang meer op.
+{
+  const x = mkTask('T8-X', 4);              // onafhankelijke bladtaak, "voorganger" van de samenvatting
+  const y = mkTask('T8-Y', 2);              // onafhankelijke bladtaak, "opvolger" van de samenvatting
+  const k1 = mkTask('T8-K1', 3, { parentId: 'T8-S' });
+  const k2 = mkTask('T8-K2', 5, { parentId: 'T8-S' });
+  // 'T8-S' (de samenvattingstaak zelf) wordt BEWUST NIET meegegeven — exact zoals runCPM leaf-only filtert.
+  const seqIntoSummary = fs('t8-seq-in', 'T8-X', 'T8-S');          // X -> S (S = geen bladtaak)
+  const seqOutOfSummary = fs('t8-seq-out', 'T8-S', 'T8-Y');        // S -> Y (S = geen bladtaak)
+  const seqBogus = fs('t8-seq-bogus', 'does-not-exist', 'T8-Y');   // algemene robuustheid: elk ontbrekend id
+
+  let threw = false;
+  let result: CPMResult | undefined;
+  try {
+    result = solve([x, y, k1, k2], [seqIntoSummary, seqOutOfSummary, seqBogus]);
+  } catch {
+    threw = true;
+  }
+  eq('196 T8: relatie op samenvattingstaak crasht de solver niet meer', threw, false);
+  eq('197 T8: geen circulaire-dependency-fout gemeld (de relaties zijn gewoon acyclisch)', result?.error, undefined);
+  eq(
+    '198 T8: de drie genegeerde relaties staan in droppedSequenceIds',
+    [...(result?.droppedSequenceIds ?? [])].sort().join(','),
+    ['t8-seq-bogus', 't8-seq-in', 't8-seq-out'].sort().join(','),
+  );
+  // X en Y zijn na het negeren twee gewone ONGEKOPPELDE bladtaken: ASAP op het anker, geen dwang
+  // van/naar de (afwezige) samenvatting. K2 (dur 5, de langste taak) bepaalt het projecteinde.
+  eq('199 T8: X (voormalig "voorganger" van S) start gewoon op het anker', result?.tasks.get('T8-X')?.earlyStart, '2026-06-01');
+  eq('200 T8: Y (voormalig "opvolger" van S) start gewoon op het anker (geen wachten op S)', result?.tasks.get('T8-Y')?.earlyStart, '2026-06-01');
+  eq('201 T8: K1/K2 rekenen normaal door — K2 (langste kind) is kritiek', result?.tasks.get('T8-K2')?.isCritical, true);
+}
+
+// ── T8-rooktest: een gewone relatie tussen twee bestaande bladtaken blijft ONAANGERAAKT ───────
+// Guard tegen over-filteren: de nieuwe constructor-check mag alleen relaties raken die een
+// afwezig taak-id aanraken, nooit relaties tussen taken die wél allebei meegegeven zijn.
+{
+  const a = mkTask('T8-A', 3);
+  const b = mkTask('T8-B', 2);
+  const result = solve([a, b], [fs('t8-normal', 'T8-A', 'T8-B')]);
+  eq('202 T8: normale relatie blijft ongemoeid — geen droppedSequenceIds', result.droppedSequenceIds, undefined);
+  eq('203 T8: normale relatie blijft ongemoeid — B start ná A (FS)', result.tasks.get('T8-B')?.earlyStart, '2026-06-04');
+}
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  advanced-cpm-check: alle checks groen (${checks})`);

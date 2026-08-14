@@ -162,6 +162,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPPRELCHECK="$DIR/.mpp-relations.mjs"
   if bundle_check "$DIR/check-mpp-relations.ts" "$MPPRELCHECK"; then node "$MPPRELCHECK" || STATUS=1; fi
 
+  # T8-rooktest: "Bijlage 13 Productieplanning.mpp" end-to-end (readMPP -> leaf-only CPMSolver,
+  # exact het runCPM-pad) — bevat relaties op WBS-samenvattingstaken (in MS Project legaal) die
+  # vóór de fix de forward pass lieten crashen. Zelfde nette-skip-conventie zonder corpus.
+  MPPSUMCHECK="$DIR/.mpp-summary-relations.mjs"
+  if bundle_check "$DIR/check-mpp-summary-relations.ts" "$MPPSUMCHECK"; then node "$MPPSUMCHECK" || STATUS=1; fi
+
   # Opslagdoel-guard voor binaire bronformaten (fase 3.8 e1, T8-stap 5a): `fileSlice.openFile`
   # via de echte `<input type=file>`-terugval — .mpp krijgt GEEN opslagdoel, .ifc (contrast) wel.
   # Corpusdeel volgt dezelfde skip-OK-conventie als hierboven.

@@ -53,6 +53,13 @@ export interface CPMResult {
    *  maakt levert anders stil een onzin-datum. ZACHTE, niet-blokkerende waarschuwing: `error` blijft
    *  leeg, de overige taken rekenen normaal door. Afwezig/leeg ⇒ byte-identiek default. */
   cappedTaskIds?: string[];
+  /** OPTIONEEL (T8-rooktest): relatie-id's die de solver heeft genegeerd omdat voorganger of
+   *  opvolger geen bladtaak is in de meegegeven set — typisch een relatie die een WBS-samenvattings-
+   *  taak raakt (in MS Project legaal, maar deze solver rekent alleen bladtaken; de samenvatting
+   *  krijgt zijn datums via de rollup in `applyCpmResult`, niet als eigen CPM-knoop). Interim-gedrag:
+   *  genegeerd i.p.v. gecrasht — volledige samenvattingsrelatie-propagatie naar bladtaken is een
+   *  aparte, grotere wijziging. Afwezig/leeg ⇒ byte-identiek default. */
+  droppedSequenceIds?: string[];
   projectEnd: string;
   projectDuration: number; // work days
   error?: string; // Set if circular dependency detected
@@ -180,6 +187,10 @@ export class CPMSolver {
   private options: CPMOptions;
   // Werkdag-gesnapte statusdatum (fase 2.6), of null ⇒ geen statusdatum-gedrag. Gezet in solve().
   private dataDate: Date | null = null;
+  // Relaties waarvan voorganger- of opvolger-id niet in `this.tasks` zit — genegeerd bij de
+  // constructie (zie de guard hieronder). Constant per instance (afgeleid uit de constructor-
+  // input), dus NIET onderdeel van de idempotentie-reset in solve().
+  private readonly droppedSequenceIds: string[];
 
   constructor(
     tasks: Task[],
@@ -189,7 +200,47 @@ export class CPMSolver {
     options: CPMOptions = {},
   ) {
     this.tasks = new Map(tasks.map(t => [t.id, t]));
-    this.sequences = sequences;
+
+    // Guard (T8-rooktest, Bijlage 13): de aanroepers (`runCPM`/`levelResources` in
+    // `scheduleSlice.ts`, de leveler in `ResourceLeveler.ts`, `benchmark/runner.ts`) geven hier
+    // opzettelijk alleen BLADTAKEN aan mee (`childIds.length === 0`) — een samenvattingstaak krijgt
+    // zijn datums via de rollup in `applyCpmResult`, niet als eigen CPM-knoop. `sequences` komt
+    // ONGEFILTERD binnen: in MS Project is een relatie op een samenvattingstaak legaal (mspdiReader/
+    // ifcReader/mppReader lezen 'm gewoon in), maar deze solver kent geen samenvattingstaken. Vóór
+    // deze guard duwde zo'n relatie het niet-bestaande taak-id de topologische sortering in
+    // (`topologicalSort` telt `inDegree` onvoorwaardelijk voor élke `successorId`, ook een dat niet
+    // in `this.tasks` zit) en crashte de forward/backward pass op een `this.tasks.get(id)!`-aanname
+    // zodra dat fantoom-id in `order` viel — geen nette foutmelding, een onbehandelde throw die
+    // `openFile`s catch opslokt, zodat het bestand opent maar de planning stil onberekend blijft.
+    //
+    // Semantiek (interim, zie CPMResult.droppedSequenceIds): een relatie die een taak raakt die niet
+    // in de meegegeven set zit — typisch een samenvattingstaak, maar net zo goed een verweesd/
+    // ongeldig taak-id — wordt genegeerd i.p.v. de solver te laten crashen. Dat is BEWUST minder dan
+    // volledige MS Project-semantiek (waar een voorganger op een samenvatting effectief voor élk kind
+    // geldt, en een samenvatting als voorganger de opvolger op het einde van de hele tak laat wachten)
+    // — die propagatie naar bladtaken vereist boomstructuur-kennis die deze solver niet heeft (hij
+    // ziet per ontwerp alleen bladtaken) en is een grotere, aparte wijziging. De samenvattingstaak
+    // zelf blijft gewoon correct via de bestaande rollup; alleen déze specifieke relatie legt geen
+    // dwang meer op de planning.
+    const kept: Sequence[] = [];
+    const dropped: string[] = [];
+    for (const seq of sequences) {
+      if (this.tasks.has(seq.predecessorId) && this.tasks.has(seq.successorId)) {
+        kept.push(seq);
+      } else {
+        dropped.push(seq.id);
+      }
+    }
+    this.sequences = kept;
+    this.droppedSequenceIds = dropped;
+    if (dropped.length > 0) {
+      console.warn(
+        `CPMSolver: ${dropped.length} relatie(s) genegeerd omdat voorganger of opvolger geen ` +
+        'bladtaak is in de meegegeven set (waarschijnlijk een samenvattingstaak) — de solver kent ' +
+        `geen samenvattingsrelatie-propagatie. Relatie-id's: ${dropped.join(', ')}.`,
+      );
+    }
+
     this.projectCal = projectCalendar;
     this.registry = registry;
     this.projectEngine = new CalendarEngine(projectCalendar);
@@ -202,7 +253,7 @@ export class CPMSolver {
       this.successors.set(task.id, []);
       this.predecessors.set(task.id, []);
     }
-    for (const seq of sequences) {
+    for (const seq of this.sequences) {
       this.successors.get(seq.predecessorId)?.push(seq);
       this.predecessors.get(seq.successorId)?.push(seq);
     }
@@ -429,6 +480,9 @@ export class CPMSolver {
     // Zachte WP7-waarschuwing: alleen bij een echt onwerkbaar venster het veld zetten, zodat een
     // normale solve byte-identiek blijft (veld afwezig ⇒ geen wijziging aan bestaande consumenten).
     if (this.cappedTaskIds.length > 0) result.cappedTaskIds = [...this.cappedTaskIds];
+    // T8-rooktest: idem voor relaties die een niet-bladtaak raakten en al bij de constructie
+    // genegeerd zijn (zie de guard in de constructor) — byte-identiek default zolang dat niet gebeurt.
+    if (this.droppedSequenceIds.length > 0) result.droppedSequenceIds = [...this.droppedSequenceIds];
     return result;
   }
 
