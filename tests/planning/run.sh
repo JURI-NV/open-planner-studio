@@ -432,6 +432,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   HCCHECK="$DIR/.header-compress.mjs"
   if bundle_check "$DIR/check-header-compress.ts" "$HCCHECK"; then node "$HCCHECK" || STATUS=1; fi
 
+  # Om-en-om weekbanden onder compressie (issue #21 punt 2): met de gecomprimeerde as vervalt de
+  # weekend-arcering — in de praktijk dé visuele weekscheiding. De gecomprimeerde tak van
+  # drawGridBackground tint daarom de kolommen van ONEVEN weeknummers (`palette.gridWeekBand`).
+  # Bewijst: band ⇔ weeknummer-pariteit op elke zichtbare kolom (grens = weekStartDay, zelfde als
+  # de dikke weeklijn, voor 'monday' én 'sunday'), scroll-invariantie van de banding, en NUL
+  # band-fills zodra compressie uit staat (dat pad blijft byte-identiek).
+  WBCHECK="$DIR/.week-banding.mjs"
+  if bundle_check "$DIR/check-week-banding.ts" "$WBCHECK"; then node "$WBCHECK" || STATUS=1; fi
+
   # i18n-pluralisatie-contract voor de telsleutels van "Project verplaatsen…". Een ontbrekende
   # plural-categorie valt bij i18next NIET terug op de _other van dezelfde taal maar op fallbackLng,
   # en zet er dus Engels neer (in het Pools al zichtbaar bij twee items). Deze check eist per taal
