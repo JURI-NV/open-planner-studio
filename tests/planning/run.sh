@@ -115,6 +115,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   CHECK="$DIR/.holidays-check.mjs"
   if bundle_check "$DIR/check-holidays.ts" "$CHECK"; then node "$CHECK" || STATUS=1; fi
 
+  # Web-opslaan-terugval: kiest de web-backend de download-route zodra de omgeving schrijven via
+  # de File System Access API weigert? De embedded webview van de Claude-app heeft de complete API
+  # maar geeft picker-handles nooit een readwrite-grant, dus feature-detectie kiest daar een route
+  # die bij gebruik `NotAllowedError` gooit. Bewaakt óók de tegenkant: annuleren blijft geen fout
+  # en een echte schrijffout (schijf vol) wordt niet stil in een download omgezet.
+  WSFCHECK="$DIR/.web-save-fallback.mjs"
+  if bundle_check "$DIR/check-web-save-fallback.ts" "$WSFCHECK"; then node "$WSFCHECK" || STATUS=1; fi
+
   # Datetime-substraat + duur-parser-checks (fase 2.8b golf 0, §8 — los van de CPM-cases).
   DTCHECK="$DIR/.datetime-check.mjs"
   if bundle_check "$DIR/check-datetime.ts" "$DTCHECK"; then node "$DTCHECK" || STATUS=1; fi

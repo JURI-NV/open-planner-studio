@@ -6,6 +6,7 @@
     "dismiss": "Cerrar notificación",
     "openFailed": "No se pudo abrir el archivo",
     "saveFailed": "No se pudo guardar",
+    "savedViaDownload": "Guardado como descarga: '{{name}}' está ahora en tu carpeta de descargas. Este entorno no permite que la aplicación escriba directamente en la ubicación elegida.",
     "autoSaveFailed": "Error de guardado automático",
     "recoveryReadFailed": "No se pudo leer el archivo recuperado",
     "recoveryRestoreFailed": "No se pudo restaurar",

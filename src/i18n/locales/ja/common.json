@@ -6,6 +6,7 @@
     "dismiss": "通知を閉じる",
     "openFailed": "ファイルを開けませんでした",
     "saveFailed": "保存できませんでした",
+    "savedViaDownload": "ダウンロードとして保存しました。「{{name}}」はダウンロードフォルダーにあります。この環境では、アプリが選択した場所に直接書き込むことはできません。",
     "autoSaveFailed": "自動保存に失敗しました",
     "recoveryReadFailed": "復元したファイルを読み込めませんでした",
     "recoveryRestoreFailed": "復元に失敗しました",

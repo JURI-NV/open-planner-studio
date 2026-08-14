@@ -160,6 +160,7 @@ export type NotificationSeverity = 'error' | 'info';
 export type NotificationMessageKey =
   | 'notifications.openFailed'
   | 'notifications.saveFailed'
+  | 'notifications.savedViaDownload'
   | 'notifications.autoSaveFailed'
   | 'notifications.recoveryReadFailed'
   | 'notifications.recoveryRestoreFailed'

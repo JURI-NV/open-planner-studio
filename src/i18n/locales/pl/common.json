@@ -6,6 +6,7 @@
     "dismiss": "Zamknij powiadomienie",
     "openFailed": "Nie udało się otworzyć pliku",
     "saveFailed": "Nie udało się zapisać",
+    "savedViaDownload": "Zapisano jako pobrany plik: '{{name}}' znajduje się teraz w folderze pobierania. To środowisko nie pozwala aplikacji zapisywać bezpośrednio w wybranej lokalizacji.",
     "autoSaveFailed": "Błąd autozapisu",
     "recoveryReadFailed": "Nie udało się odczytać odzyskanego pliku",
     "recoveryRestoreFailed": "Nie udało się przywrócić",

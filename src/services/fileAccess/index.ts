@@ -31,6 +31,13 @@ export interface OpenedFile {
 export interface SaveOutcome {
   ref: FileRef | null;
   name: string;
+  /**
+   * Het bestand is via de browser-download bij de gebruiker gekomen in plaats van naar de gekozen
+   * locatie geschreven — omdat de omgeving geen File System Access-schrijfrechten geeft (embedded
+   * webviews) of de API helemaal niet heeft (Firefox/Safari). Het opslaan is dus GESLAAGD, maar het
+   * bestand staat in de downloadmap en niet waar de gebruiker het aanwees. De aanroeper meldt dat.
+   */
+  viaDownload?: boolean;
 }
 
 /** Capability-vlag voor UI-beslissingen (recents tonen/verbergen). */

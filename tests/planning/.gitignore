@@ -31,3 +31,4 @@
 .drag-duration-badge.mjs
 .holidays-check.mjs
 .renderer-dateless.mjs
+.web-save-fallback.mjs

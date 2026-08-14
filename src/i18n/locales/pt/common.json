@@ -6,6 +6,7 @@
     "dismiss": "Fechar notificação",
     "openFailed": "Falha ao abrir o arquivo",
     "saveFailed": "Falha ao salvar",
+    "savedViaDownload": "Guardado como transferência: '{{name}}' está agora na sua pasta de transferências. Este ambiente não permite que a aplicação escreva diretamente no local escolhido.",
     "autoSaveFailed": "Falha no salvamento automático",
     "recoveryReadFailed": "Não foi possível ler o arquivo recuperado",
     "recoveryRestoreFailed": "Falha na restauração",

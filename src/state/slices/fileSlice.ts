@@ -6,7 +6,7 @@ import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { readP6XML } from '@/services/p6/p6xmlReader';
-import { openFileDialog, saveFileDialog, saveToRef, readFromRef, type FileRef } from '@/services/fileAccess';
+import { openFileDialog, saveFileDialog, saveToRef, readFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -122,6 +122,24 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
     if (!ref) return; // fallback-web: geen herbruikbare ref → niet aan recents (spec §6)
     const list = await addRecent(ref, name);
     set((s) => { s.recentFiles = list; });
+  };
+
+  /**
+   * Kwam het bestand via de download-terugval binnen in plaats van op de gekozen plek? Zeg dat dan,
+   * want anders zoekt de gebruiker zijn bestand op een locatie waar het niet staat. Dit is
+   * nadrukkelijk GEEN fout (severity `info`): het opslaan is geslaagd, alleen langs een andere weg.
+   * Eén gedeelde helper zodat alle vier de opslaan/exporteer-paden dezelfde melding geven.
+   */
+  const noticeIfDownloaded = (outcome: SaveOutcome | null) => {
+    if (!outcome?.viaDownload) return;
+    get().notify({
+      severity: 'info',
+      messageKey: 'notifications.savedViaDownload',
+      params: { name: outcome.name },
+      // Bij "project + bibliotheek" vallen twee downloads vlak na elkaar; die horen niet als twee
+      // losse toasts de stapel te vullen.
+      dedupeKey: 'saved-via-download',
+    });
   };
 
   return {
@@ -258,6 +276,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           if (unchanged) s.isDirty = false;
         });
         await pushRecent(outcome.ref, outcome.name);
+        noticeIfDownloaded(outcome);
       } catch (err) {
         console.error('Save failed:', err);
         get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
@@ -286,6 +305,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           if (unchanged) s.isDirty = false;
         });
         await pushRecent(outcome.ref, outcome.name);
+        noticeIfDownloaded(outcome);
       } catch (err) {
         console.error('Save As failed:', err);
         get().notify({ severity: 'error', messageKey: 'notifications.saveFailed', detail: (err as Error).message });
@@ -347,6 +367,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       const outcome = await saveFileDialog(`${projectFileBase(state.project.name)}.${ext}`, content, filters);
       if (outcome) await pushRecent(outcome.ref, outcome.name);
+      noticeIfDownloaded(outcome);
       return { ok: true };
     },
 
@@ -364,12 +385,13 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       const outcome = await saveFileDialog(`${base}.ifc`, projectContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
       if (!outcome) return { ok: true }; // dialoog geannuleerd — geen fout
       await pushRecent(outcome.ref, outcome.name);
+      noticeIfDownloaded(outcome);
       // 2. De pool ernaast (los bestand), alleen als het project aan een bedrijf gebonden is.
       const companyId = state.project.companyId;
       if (!companyId) return { ok: true };
       const poolContent = state.exportPoolIFC(companyId);
       if (!poolContent) return { ok: true };
-      await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]);
+      noticeIfDownloaded(await saveFileDialog(`${base}-bibliotheek.ifc`, poolContent, [{ name: 'IFC Files', extensions: ['ifc'] }]));
       return { ok: true };
     },
 
