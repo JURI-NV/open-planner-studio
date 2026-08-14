@@ -35,6 +35,8 @@ En cuanto un proyecto está vinculado a una biblioteca, la pestaña Recursos obt
 - **Biblioteca** — gestionar la fuente en sí. Todo aquí es directamente editable, un cambio se aplica de inmediato a **todos** los proyectos que beben de esta biblioteca, y queda fuera de deshacer (Ctrl+Z) — no es una edición de proyecto.
 - **Proyecto** — lo que este proyecto realmente utiliza: la tabla de proyecto habitual, con marcas por fila para la procedencia y cualquier desviación.
 
+Si trabaja con varios proyectos abiertos que beben todos de la misma biblioteca, existe además una tercera vista: **Ocupación**. Muestra, por recurso de biblioteca, dónde está reservado a través de *todos* los documentos abiertos, y señala los días en que la suma de esas reservas supera la capacidad de la empresa — la doble reserva entre proyectos, que ningún proyecto puede ver por sí solo. Lea la guía [Resumen de ocupación](docs://gids-bezettingsoverzicht).
+
 ## Tres tipos de filas en la vista de proyecto
 
 En la vista de proyecto se encontrará con tres tipos de filas:

@@ -380,9 +380,12 @@ Alle drie komen voort uit dezelfde wortel — **er is geen gedeelde opslag tusse
    stille-terugzet-eigenaardigheid als je toch doorzet. De route "toevoegen als nieuwe
    resourcebibliotheek" kent dit risico niet — ze overschrijft nooit een bestaande pool.
 
-2. **Bezettingsoverzicht ziet alleen deze machine.** Boekingen op de machine van een collega bestaan
+2. **Bezettingsoverzicht ziet alleen deze machine.** Het bezettingsoverzicht bestaat sinds B1b
+   (Resources-tab, derde weergave "Bezetting"): per bibliotheekresource de boekingen over alle
+   geopende, aan die bibliotheek gekoppelde documenten heen, met markering van dubbelbezetting
+   (som > bedrijfscapaciteit van het poolitem). Maar boekingen op de machine van een collega bestaan
    lokaal niet, dus een bibliotheekbreed bezettingsoverzicht is beperkt tot wat op deze machine bekend
-   is.
+   is — de weergave zelf meldt die grens als permanente voetnoot.
 
 3. **Twee tabbladen, zelfde machine.** De bibliotheek leeft app-breed in-memory en wordt bij elke
    wijziging weggeschreven; twee open tabbladen (of twee vensters) op dezelfde machine overschrijven

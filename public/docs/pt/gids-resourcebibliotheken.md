@@ -35,6 +35,8 @@ Assim que um projeto está associado a uma biblioteca, o separador Recursos ganh
 - **Biblioteca** — gerir a fonte propriamente dita. Tudo aqui é diretamente editável, uma alteração aplica-se de imediato a **todos** os projetos que bebem desta biblioteca, e fica fora do desfazer (Ctrl+Z) — não é uma edição de projeto.
 - **Projeto** — o que este projeto realmente usa: a tabela de projeto habitual, com marcações por linha para a origem e eventuais desvios.
 
+Se trabalha com vários projetos abertos que bebem todos da mesma biblioteca, existe ainda uma terceira vista: **Ocupação**. Mostra, por recurso da biblioteca, onde ele está reservado ao longo de *todos* os documentos abertos, e assinala os dias em que a soma dessas reservas ultrapassa a capacidade da empresa — a dupla reserva entre projetos, que nenhum projeto consegue ver sozinho. Leia o guia [Visão geral da ocupação](docs://gids-bezettingsoverzicht).
+
 ## Três tipos de linhas na vista de projeto
 
 Na vista de projeto encontra três tipos de linhas:

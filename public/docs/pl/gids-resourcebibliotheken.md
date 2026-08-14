@@ -35,6 +35,8 @@ Gdy tylko projekt zostanie połączony z biblioteką, karta Zasoby zyskuje w pra
 - **Biblioteka** — zarządzanie samym źródłem. Wszystko tutaj jest bezpośrednio edytowalne, zmiana obowiązuje natychmiast we **wszystkich** projektach czerpiących z tej biblioteki i wykracza poza cofanie (Ctrl+Z) — to nie jest edycja projektu.
 - **Projekt** — to, co dany projekt faktycznie wykorzystuje: zwykła tabela projektu, z oznaczeniami przy każdym wierszu dla pochodzenia i ewentualnych odchyleń.
 
+Jeśli pracujesz z kilkoma otwartymi projektami czerpiącymi z tej samej biblioteki, istnieje jeszcze trzeci widok: **Obłożenie**. Pokazuje on, dla każdego zasobu biblioteki, gdzie jest on zarezerwowany we *wszystkich* otwartych dokumentach, i oznacza dni, w których suma tych rezerwacji przekracza możliwości firmy — podwójne obłożenie między projektami, którego żaden pojedynczy projekt sam nie zobaczy. Przeczytaj przewodnik [Przegląd obłożenia](docs://gids-bezettingsoverzicht).
+
 ## Trzy rodzaje wierszy w widoku projektu
 
 W widoku projektu napotkasz trzy rodzaje wierszy:

@@ -35,6 +35,8 @@ Dès qu'un projet est lié à une bibliothèque, l'onglet Ressources gagne un s�
 - **Bibliothèque** — gérer la source elle-même. Tout y est directement modifiable, une modification s'applique immédiatement à **tous** les projets qui puisent dans cette bibliothèque, et échappe à l'annulation (Ctrl+Z) — ce n'est pas une modification de projet.
 - **Projet** — ce que ce projet utilise réellement : le tableau de projet habituel, avec des marqueurs par ligne pour la provenance et les éventuels écarts.
 
+Si vous travaillez avec plusieurs projets ouverts qui puisent tous dans la même bibliothèque, il existe aussi une troisième vue : **Occupation**. Elle montre, par ressource de bibliothèque, où celle-ci est réservée à travers *tous* les documents ouverts, et signale les jours où la somme de ces réservations dépasse la capacité de l'entreprise — la double réservation entre projets, qu'aucun projet ne peut voir à lui seul. Lisez le guide [Aperçu de l'occupation](docs://gids-bezettingsoverzicht).
+
 ## Trois types de lignes dans la vue projet
 
 Dans la vue projet, vous rencontrerez trois types de lignes :

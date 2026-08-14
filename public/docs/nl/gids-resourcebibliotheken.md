@@ -35,6 +35,8 @@ Zodra een project aan een bibliotheek gekoppeld is, krijgt het Resources-tabblad
 - **Bibliotheek** — de bron zelf beheren. Alles hier is rechtstreeks bewerkbaar, een wijziging geldt meteen voor **alle** projecten die uit deze bibliotheek putten, en valt buiten ongedaan maken (Ctrl+Z) — het is geen projectbewerking.
 - **Project** — wat dít project daadwerkelijk gebruikt: de gewone projecttabel, met markeringen per rij voor herkomst en eventuele afwijkingen.
 
+Werk je met meerdere geopende projecten die allemaal uit dezelfde bibliotheek putten, dan is er nog een derde weergave: **Bezetting**. Die toont per bibliotheekresource waar hij over álle geopende documenten heen geboekt staat, en markeert de dagen waarop de som van die boekingen boven de bedrijfscapaciteit uitkomt — dubbelbezetting tussen projecten, die geen enkel project in z'n eentje kan zien. Lees de gids [Bezettingsoverzicht](docs://gids-bezettingsoverzicht).
+
 ## Drie soorten rijen in de projectweergave
 
 In de projectweergave kom je drie soorten rijen tegen:

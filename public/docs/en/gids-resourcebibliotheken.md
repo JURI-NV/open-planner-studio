@@ -35,6 +35,8 @@ Once a project is linked to a library, the Resources tab gains a toggle in the t
 - **Library** — manage the source itself. Everything here is directly editable, a change applies immediately to **every** project drawing from this library, and it falls outside undo (Ctrl+Z) — it isn't a project edit.
 - **Project** — what this project actually uses: the regular project table, with per-row markers for provenance and any deviations.
 
+If you work with several open projects that all draw from the same library, there is a third view as well: **Occupancy**. It shows, per library resource, where it is booked across *all* open documents, and flags the days where the sum of those bookings exceeds the company capacity — double-booking between projects, which no single project can see on its own. Read the guide [Occupancy overview](docs://gids-bezettingsoverzicht).
+
 ## Three kinds of rows in the project view
 
 In the project view you'll encounter three kinds of rows:
