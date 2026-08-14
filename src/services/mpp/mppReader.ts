@@ -4,12 +4,12 @@
  * LGPL-2.1) — structuurkennis en veldconstanten geport naar TypeScript voor
  * Open Planner Studio (LGPL-3.0).
  *
- * Entry point (T5): `readMPP(bytes, labels) → ImportResult`. Flow: CfbFile → assertReadable
+ * Entry point (T5/T6): `readMPP(bytes, labels) → ImportResult`. Flow: CfbFile → assertReadable
  * (formaatdetectie + wachtwoordpoort, T4) → Props (projecteigenschappen, `"   114"/Props`) →
  * FieldMap14 (T5) → taken uit `"   114"/TBkndTask` (FixedMeta/FixedData + VarMeta/Var2Data,
- * leesvolgorde van `MPP14Reader.processTaskData`). Kalenders/relaties/resources/assignments
- * blijven lege arrays + een placeholder-standaardkalender (T6/T7 vullen ze), zoals `readCSV` dat
- * ook doet voor formaten zonder die data.
+ * leesvolgorde van `MPP14Reader.processTaskData`) → kalenders uit `"   114"/TBkndCal` (T6,
+ * `mppCalendars.ts`) — projectkalender + taak-/resourcekalenders. Relaties/resources/assignments
+ * blijven lege arrays (T7 vult ze), zoals `readCSV` dat ook doet voor formaten zonder die data.
  *
  * Veldsemantiek is gespiegeld aan `readMSPDI` (mspdiReader.ts) — zelfde afronding voor duur,
  * dezelfde constrainttype-codes (`mspCodeToConstraint`, hergebruikt), dezelfde
@@ -64,9 +64,7 @@
  */
 import type { Project } from '@/types/project';
 import type { Task, TaskConstraint } from '@/types/task';
-import type { WorkCalendar } from '@/types/calendar';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
-import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
@@ -75,6 +73,7 @@ import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
 import { FixedData, FixedMeta, Var2Data, VarMeta12, getInt, getShort, getTimestamp, getUnicodeString } from './mppPrimitives';
 import { TaskFieldId, createTaskFieldMap, fixedOffsetOf, varDataKeyOf, type FieldMapTable } from './fieldMap14';
+import { readCalendars } from './mppCalendars';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
 // NIET uit de root-`Props14`-stream — die draagt alleen de wachtwoordvlag, zie mppContainer.ts). ──
@@ -491,7 +490,16 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   return { tasks, taskIdByUniqueId, calendarUniqueIdByTaskId };
 }
 
-function parseProjectProperties(props: Props, labels: ImportLabels | undefined): { project: Project; hoursPerDay: number } {
+/** `parseProjectProperties`'s resultaat — `calendarHoursPerDayOverride` is `null` wanneer
+ *  MINUTES_PER_DAY afwezig/ongeldig was (zie de klem-toelichting bij `hoursPerDay` hieronder): in
+ *  dat geval blijft de kalender se EIGEN, uit haar werktijd-banden afgeleide `hoursPerDay` staan
+ *  (T6) i.p.v. die blind te overschrijven met de 8-uursdag-terugval die `hoursPerDay` zelf gebruikt
+ *  voor de taakduur-afronding — spiegelt mspdiReader's `if (minutesPerDay > 0) calendar.hoursPerDay
+ *  = ...` (alleen overschrijven als de projecteigenschap ECHT aanwezig was). */
+function parseProjectProperties(
+  props: Props,
+  labels: ImportLabels | undefined,
+): { project: Project; hoursPerDay: number; calendarHoursPerDayOverride: number | null } {
   const titleBytes = props.getByteArray(PROPS_KEY_TITLE);
   const name = (titleBytes ? getUnicodeString(titleBytes, 0, MAX_VAR_TEXT_BYTES, 'Props title') : '') || labels?.importedProject || 'MS Project Import';
 
@@ -505,7 +513,8 @@ function parseProjectProperties(props: Props, labels: ImportLabels | undefined):
   // duur-in-dagen-afronding, zie `durationTenthsOfMinuteToDays`) kunnen opleveren i.p.v. netjes op
   // de 8-uursdag-default terug te vallen.
   const minutesPerDay = props.getInt(PROPS_KEY_MINUTES_PER_DAY);
-  const hoursPerDay = minutesPerDay > 0 && minutesPerDay <= 1440 ? minutesPerDay / 60 : 8;
+  const minutesPerDayValid = minutesPerDay > 0 && minutesPerDay <= 1440;
+  const hoursPerDay = minutesPerDayValid ? minutesPerDay / 60 : 8;
 
   const project: Project = {
     id: generateId('proj'),
@@ -524,13 +533,13 @@ function parseProjectProperties(props: Props, labels: ImportLabels | undefined):
   const statusDate = statusBytes && statusBytes.length >= 4 ? getTimestamp(statusBytes, 0, 'Props statusDate') : null;
   if (statusDate) project.statusDate = formatDate(statusDate);
 
-  return { project, hoursPerDay };
+  return { project, hoursPerDay, calendarHoursPerDayOverride: minutesPerDayValid ? hoursPerDay : null };
 }
 
 /**
- * Entry point (T5). `.mpp` (MPP14) → `ImportResult`, met dezelfde veldsemantiek als `readMSPDI`.
- * Kalenders/relaties/resources/assignments zijn in deze taak nog lege arrays + een
- * placeholder-standaardkalender (T6/T7 vullen ze) — zie de moduleheader.
+ * Entry point (T5/T6). `.mpp` (MPP14) → `ImportResult`, met dezelfde veldsemantiek als `readMSPDI`.
+ * Relaties/resources/assignments zijn in deze taak nog lege arrays (T7 vult ze) — zie de
+ * moduleheader.
  */
 export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult {
   const cfb = new CfbFile(bytes);
@@ -545,20 +554,39 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   }
   const projectProps = new Props(projectPropsBytes, '   114/Props');
 
-  const { project, hoursPerDay } = parseProjectProperties(projectProps, labels);
+  const { project, hoursPerDay, calendarHoursPerDayOverride } = parseProjectProperties(projectProps, labels);
 
   const taskFieldMap = createTaskFieldMap(projectProps);
   // I2 (T5-kwaliteitsreview): `readTasks` geeft ook `taskIdByUniqueId`/`calendarUniqueIdByTaskId`
-  // terug (voorbereid op T6/T7, zie `ReadTasksResult`) — `readMPP` zelf heeft ze nu nog niet nodig
-  // (geen kalender-/relatielaag om ze tegen te gebruiken), dus alleen `tasks` wordt hier verbruikt.
-  const { tasks } = readTasks({ cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion });
+  // terug — T6 gebruikt hier `calendarUniqueIdByTaskId` om `Task.calendarId` te koppelen aan de
+  // echte, hieronder gelezen kalenders (`taskIdByUniqueId` blijft voor T7's relaties/assignments).
+  const { tasks, calendarUniqueIdByTaskId } = readTasks({
+    cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion,
+  });
 
-  // Placeholder-kalender (T6 vervangt dit door de echte TBkndCal-afgeleide kalender(s)) — zelfde
-  // patroon als readCSV. `hoursPerDay` wordt wél al meegenomen zodat een meteen-berekenen vóór T6
-  // niet stilzwijgend op de generieke 8-uursdag terugvalt terwijl het bestand iets anders zegt.
-  const calendar: WorkCalendar = createDefaultCalendar();
-  calendar.hoursPerDay = hoursPerDay;
+  // T6: echte kalenders uit `"   114"/TBkndCal` (mppCalendars.ts) — basiskalenders + afgeleide
+  // (resource-)kalenders, met de projectkalender gekozen via DEFAULT_CALENDAR_NAME.
+  const calResult = readCalendars(cfb, projectProps, applicationVersion);
+  const calendar = calResult.projectCalendar;
+  // Authoritatieve override, alleen als MINUTES_PER_DAY echt aanwezig/geldig was (zie de
+  // toelichting bij `parseProjectProperties`'s returntype) — anders blijft de kalender se eigen,
+  // uit haar werktijd-banden afgeleide `hoursPerDay` staan.
+  if (calendarHoursPerDayOverride !== null) calendar.hoursPerDay = calendarHoursPerDayOverride;
   project.calendarId = calendar.id;
+
+  // Taak-kalenders: de rauwe CALENDAR_UNIQUE_ID uit T5 vertalen naar de echte, hierboven gelezen
+  // kalender — alleen zetten wanneer de referentie daadwerkelijk naar een gelezen kalender wijst
+  // (spiegelt mspdiReader's `taskCalUid > 1 ? calUidToId.get(taskCalUid) : undefined`-terugval:
+  // een onbekende/lege verwijzing laat `task.calendarId` op `undefined`, wat de engine als "gebruik
+  // de projectkalender" leest).
+  if (calendarUniqueIdByTaskId.size > 0) {
+    const taskById = new Map(tasks.map((t) => [t.id, t]));
+    for (const [taskId, calUid] of calendarUniqueIdByTaskId) {
+      const cal = calResult.calendarByUniqueId.get(calUid);
+      const task = cal && taskById.get(taskId);
+      if (task) task.calendarId = cal.id;
+    }
+  }
 
   return {
     project,
@@ -567,5 +595,6 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     sequences: [],
     resources: [],
     assignments: [],
+    resourceCalendars: calResult.resourceCalendars,
   };
 }
