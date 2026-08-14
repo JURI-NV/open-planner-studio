@@ -378,9 +378,11 @@ export const fileTools: McpToolDef[] = [
       // zijn eigen bronbestand met IFC-inhoud onder een .csv/.xml-naam. Zelfde motief als de genulde
       // `filePath` van `duplicate_document`. Gevolg: na een CSV-/XML-import is het document
       // "naamloos" en wordt opslaan een opslaan-als — precies wat je wilt.
-      // `&& !isBinary`: `formatOf` kent nog geen binaire formaten en valt voor een onbekende
-      // extensie terug op 'IFC' — zonder deze guard zou een binair bronbestand (bv. straks .mpp,
-      // T8) alsnog opslagdoel worden en bij de eerstvolgende save met IFC-TEKST overschreven raken.
+      // `&& !isBinary` (T8-spec-review F1): `formatOf` herkent `.mpp` inmiddels wél als `'MPP14'`
+      // (≠ `'IFC'`), dus deze extra `!isBinary`-voorwaarde is hier diepteverdediging, geen
+      // primaire poort — mocht `formatOf` ooit een binair formaat verkeerd classificeren (of een
+      // toekomstig binair formaat vóór `formatOf` bijgewerkt te hebben landen), dan valt de guard
+      // nog steeds niet stil terug op 'IFC': een binair bronbestand wordt nooit opslagdoel.
       useAppStore.getState().applyLoadedProject(parsed, {
         filePath: format === 'IFC' && !isBinary ? path : null,
         fileHandle: null,

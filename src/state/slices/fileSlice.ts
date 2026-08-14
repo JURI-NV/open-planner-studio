@@ -199,19 +199,22 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // actieve tabblad alleen als dat nog leeg en ongewijzigd is.
         if (!isActivePristine(get())) get().newDocument();
 
-        // Opslagdoel-guard (T8, stap 5a): een binair bronformaat (bv. .mpp) wordt NOOIT het
-        // opslagdoel — opslaan schrijft altijd IFC-TEKST, dus Ctrl+S zou het binaire bronbestand
-        // stil overschrijven met IFC-inhoud onder dezelfde naam. "Opslaan" wordt dan "opslaan-als".
-        // De MCP-kant (fileTools.ts) kent deze guard al; dit is 'm voor het UI-open-pad.
-        const isBinarySource = readFormatForFile(opened.name).kind === 'binary';
+        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4): ALLEEN een IFC-bron wordt
+        // het opslagdoel. Opslaan schrijft altijd IFC-TEKST, dus élk ANDER bronformaat (csv/xml/
+        // mpp — niet uitsluitend binaire formaten) zou bij een naïeve toewijzing zijn eigen
+        // bronbestand met IFC-inhoud laten overschrijven door de eerstvolgende Ctrl+S. "Opslaan"
+        // wordt dan "opslaan-als". Zelfde regel als de MCP-kant (`fileTools.ts`: `format === 'IFC'
+        // && !isBinary` — voor het UI-pad is dat gelijk aan `id === 'ifc'`, want IFC is hier het
+        // enige tekstformaat dat ook zijn eigen opslagdoel mag zijn).
+        const isIfcSource = readFormatForFile(opened.name).id === 'ifc';
 
         // Gedeelde load-implementatie; open-pad-semantiek: identiteit + opslaan-doel zetten,
         // direct doorrekenen + fitten en de uur-melding evalueren.
         get().applyLoadedProject(parsed, {
           // Identiteit: echt pad (Tauri) of bestandsnaam (web); handle alleen als web-opslaan-doel.
-          // Binair bronformaat ⇒ geen van beide (zie isBinarySource hierboven).
-          filePath: isBinarySource ? null : (opened.ref?.kind === 'path' ? opened.ref.path : opened.name),
-          fileHandle: isBinarySource ? null : (opened.ref?.kind === 'handle' ? opened.ref.handle : null),
+          // Niet-IFC-bron ⇒ geen van beide (zie isIfcSource hierboven).
+          filePath: isIfcSource ? (opened.ref?.kind === 'path' ? opened.ref.path : opened.name) : null,
+          fileHandle: isIfcSource ? (opened.ref?.kind === 'handle' ? opened.ref.handle : null) : null,
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -222,9 +225,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // markeren/vragen. Nooit tijdens de hydratatie zelf.
         get().runOpenBoundary();
 
-        // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle) — óók bij een binair
+        // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle) — óók bij een niet-IFC
         // bronformaat: heropenen via recents moet blijven werken, alleen het OPSLAGDOEL wordt niet
-        // gezet (zie isBinarySource hierboven).
+        // gezet (zie isIfcSource hierboven).
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
         console.error('Failed to open file:', err);
@@ -470,7 +473,10 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
     openRecentFile: async (id: string, labels) => {
       const entry = get().recentFiles.find((e) => e.id === id);
       if (!entry) return;
-      const isBinary = readFormatForFile(entry.name).kind === 'binary';
+      // T8-spec-review (F2): ÉÉN keer opzoeken, twee keer gebruikt — `kind` voor de lees-tak
+      // (bytes vs tekst), `id` voor de opslagdoel-guard hieronder (F4).
+      const readFormat = readFormatForFile(entry.name);
+      const isBinary = readFormat.kind === 'binary';
       const content = isBinary ? null : await readFromRef(entry.ref);
       const bytes = isBinary ? await readBytesFromRef(entry.ref) : null;
       // Bij een binair formaat is `content` altijd null (niet gelezen) — dan telt uitsluitend
@@ -489,13 +495,14 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
         if (!isActivePristine(get())) get().newDocument();
 
-        // Opslagdoel-guard (T8, stap 5a) — zie openFile voor de volledige toelichting.
-        const isBinarySource = readFormatForFile(entry.name).kind === 'binary';
+        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4) — zie openFile voor de
+        // volledige toelichting. `readFormat` is hierboven al opgezocht (F2).
+        const isIfcSource = readFormat.id === 'ifc';
 
         // Zelfde open-pad-semantiek als openFile (zie daar); loopt door de gedeelde implementatie.
         get().applyLoadedProject(parsed, {
-          filePath: isBinarySource ? null : (entry.ref.kind === 'path' ? entry.ref.path : entry.name),
-          fileHandle: isBinarySource ? null : (entry.ref.kind === 'handle' ? entry.ref.handle : null),
+          filePath: isIfcSource ? (entry.ref.kind === 'path' ? entry.ref.path : entry.name) : null,
+          fileHandle: isIfcSource ? (entry.ref.kind === 'handle' ? entry.ref.handle : null) : null,
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -505,8 +512,8 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // Grens 1 (idem openFile): ná hydratatie de openings-check draaien.
         get().runOpenBoundary();
 
-        // MRU verversen: het net-geopende bestand naar boven (óók bij een binair bronformaat —
-        // alleen het opslagdoel blijft leeg, zie isBinarySource hierboven).
+        // MRU verversen: het net-geopende bestand naar boven (óók bij een niet-IFC bronformaat —
+        // alleen het opslagdoel blijft leeg, zie isIfcSource hierboven).
         await pushRecent(entry.ref, entry.name);
       } catch (err) {
         console.error('Failed to open recent file:', err);
