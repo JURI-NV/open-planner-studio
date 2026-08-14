@@ -513,6 +513,21 @@ export class Var2Data {
 const MPP_EPOCH_UTC_MS = Date.UTC(1983, 11, 31);
 const MS_PER_DAY = 86_400_000;
 
+/** LE 64-bit float (MPPUtility.getDouble — `Double.longBitsToDouble`, NaN → 0). T7: nodig voor
+ *  `DataType.UNITS`-velden (resource MAX_UNITS, assignment ASSIGNMENT_UNITS — FieldMap.java's
+ *  `UNITS`/`CURRENCY`/`RATE`/`WORK`-categorie leest 8 bytes, zie fieldMap14.ts se moduleheader).
+ *  Geen hot-path-primitief zoals `getShort`/`getInt` (hoogstens één aanroep per resource/assignment-
+ *  record, niet per FixedData-/VarMeta-byte-scan), dus een `DataView`-allocatie per aanroep is hier
+ *  geen probleem — anders dan bij die twee (zie hun M5-hardening-toelichting). */
+export function getDouble(data: Uint8Array, offset: number, ctx?: string): number {
+  if (offset < 0 || offset + 8 > data.length) {
+    throw boundsError('getDouble', offset, 8, data.length, ctx);
+  }
+  const view = new DataView(data.buffer, data.byteOffset + offset, 8);
+  const value = view.getFloat64(0, true);
+  return Number.isNaN(value) ? 0 : value;
+}
+
 /** Datum (geen tijd) — dagen sinds het MPP-epoch. 65535 = "N/A" ⇒ `null` (MPPUtility.getDate).
  *  `ctx` (T5-kwaliteitsreview) — label voor `getShort`'s grenscontrolefout, spiegelt het patroon
  *  dat `getShort`/`getInt` al kenden; puur diagnostisch, geen gedragswijziging. */

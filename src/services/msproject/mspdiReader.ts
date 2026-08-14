@@ -75,7 +75,11 @@ function parseMSPDuration(s: string, hoursPerDay: number): number {
   return 0;
 }
 
-function mspTypeToSequenceType(type: number): SequenceType {
+/** Geëxporteerd (fase 3.8 e1, T7) zodat `mppReader.ts`'s TBkndCons-relatielezer exact dezelfde
+ *  code-tabel gebruikt i.p.v. een eigen kopie — MPXJ's `RelationType.getInstance` (ConstraintFactory
+ *  .java) gebruikt letterlijk dezelfde 0=FF/1=FS/2=SF/3=SS-codering met dezelfde FS-terugval voor
+ *  een onbekende/buiten-bereik-waarde, dus hergebruik i.p.v. spiegelen is hier de correcte poort. */
+export function mspTypeToSequenceType(type: number): SequenceType {
   switch (type) {
     case 0: return 'FINISH_FINISH';
     case 1: return 'FINISH_START';

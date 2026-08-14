@@ -4,12 +4,14 @@
  * LGPL-2.1) — structuurkennis en veldconstanten geport naar TypeScript voor
  * Open Planner Studio (LGPL-3.0).
  *
- * Entry point (T5/T6): `readMPP(bytes, labels) → ImportResult`. Flow: CfbFile → assertReadable
+ * Entry point (T5-T7): `readMPP(bytes, labels) → ImportResult`. Flow: CfbFile → assertReadable
  * (formaatdetectie + wachtwoordpoort, T4) → Props (projecteigenschappen, `"   114"/Props`) →
  * FieldMap14 (T5) → taken uit `"   114"/TBkndTask` (FixedMeta/FixedData + VarMeta/Var2Data,
  * leesvolgorde van `MPP14Reader.processTaskData`) → kalenders uit `"   114"/TBkndCal` (T6,
- * `mppCalendars.ts`) — projectkalender + taak-/resourcekalenders. Relaties/resources/assignments
- * blijven lege arrays (T7 vult ze), zoals `readCSV` dat ook doet voor formaten zonder die data.
+ * `mppCalendars.ts`) — projectkalender + taak-/resourcekalenders → relaties uit `"   114"/
+ * TBkndCons` (T7 — LET OP: dat is MPP-jargon voor RELATIES, niet datumconstraints, zie de
+ * T7-sectie hieronder) + resources uit `"   114"/TBkndRsc` + assignments uit `"   114"/TBkndAssn`
+ * (T7) — een compleet `ImportResult`, geen placeholders meer.
  *
  * Veldsemantiek is gespiegeld aan `readMSPDI` (mspdiReader.ts) — zelfde afronding voor duur,
  * dezelfde constrainttype-codes (`mspCodeToConstraint`, hergebruikt), dezelfde
@@ -64,16 +66,25 @@
  */
 import type { Project } from '@/types/project';
 import type { Task, TaskConstraint } from '@/types/task';
+import type { Sequence } from '@/types/sequence';
+import type { Resource, ResourceAssignment, ResourceType } from '@/types/resource';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
-import { mspCodeToConstraint } from '@/services/msproject/mspdiReader';
+import { mspCodeToConstraint, mspTypeToSequenceType } from '@/services/msproject/mspdiReader';
 import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
-import { FixedData, FixedMeta, Var2Data, VarMeta12, getInt, getShort, getTimestamp, getUnicodeString } from './mppPrimitives';
-import { TaskFieldId, createTaskFieldMap, fixedOffsetOf, varDataKeyOf, type FieldMapTable } from './fieldMap14';
-import { readCalendars } from './mppCalendars';
+import {
+  FixedData, FixedMeta, Var2Data, VarMeta12,
+  getDouble, getDurationTimeUnits, getInt, getShort, getTimestamp, getUnicodeString,
+} from './mppPrimitives';
+import {
+  AssignmentFieldId, ResourceFieldId, TaskFieldId,
+  createAssignmentFieldMap, createResourceFieldMap, createTaskFieldMap,
+  fixedOffsetOf, varDataKeyOf, type FieldMapTable,
+} from './fieldMap14';
+import { readCalendars, type CalendarReadResult } from './mppCalendars';
 import { MAX_VAR_TEXT_BYTES } from './limits';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -542,10 +553,362 @@ function parseProjectProperties(
   return { project, hoursPerDay, calendarHoursPerDayOverride: minutesPerDayValid ? hoursPerDay : null };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T7 — relaties (TBkndCons), resources (TBkndRsc) en assignments (TBkndAssn).
+//
+// LET OP DE NAAMSVERWARRING uit het plan: "constraints" is in MPP-bestandsjargon TBkndCons =
+// de RELATIE-/link-data (`ConstraintFactory.java`) — taak-DATUMconstraints kwamen al uit het
+// taak-fieldmap in T5 (`TaskFieldId.ConstraintType`/`ConstraintDate`). Poort-bronnen:
+// `ConstraintFactory.java` (relaties), `MPP14Reader.java`'s `createResourceMap`/
+// `processResourceData` (resources) en `ResourceAssignmentFactory.java` (assignments).
+//
+// Alle drie functies volgen `readCalendars`'s I1-les (T6-kwaliteitsreview): een dunne, ALTIJD-
+// vangende wrapper rond de eigenlijke `*Unsafe`-implementatie — een kapotte/afwezige backend-
+// storage voor relaties/resources/assignments mag `readMPP` niet laten falen, taken en kalenders
+// zijn dan al gelezen en blijven bruikbaar. Anders dan calendars is de terugval hier een lege
+// array (geen "generieke default"-equivalent nodig — een lege relatie-/resource-/assignmentlijst
+// is een geldig, leeg `ImportResult`-onderdeel, spiegelt `readCSV` voor formaten zonder die data).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** TBkndCons/FixedMeta-itemgrootte (ConstraintFactory.java: `new FixedMeta(..., 10)`). */
+const CONS_FIXED_META_ITEM_SIZE = 10;
+/** TBkndCons/FixedData-itemgrootte — ALTIJD 20, ongeacht wat de meta zelf rapporteert
+ *  (ConstraintFactory.java: `new FixedData(consFixedMeta, 20, ...)`, de `withItemSizeOverride`-
+ *  variant van `FixedData`, zie mppPrimitives.ts se moduleheader "meta's itemSize is fout"). */
+const CONS_FIXED_DATA_ITEM_SIZE = 20;
+
 /**
- * Entry point (T5/T6). `.mpp` (MPP14) → `ImportResult`, met dezelfde veldsemantiek als `readMSPDI`.
- * Relaties/resources/assignments zijn in deze taak nog lege arrays (T7 vult ze) — zie de
- * moduleheader.
+ * Ruwe TBkndCons-lag (tienden-van-minuut, MPPUtility.getDuration se javadoc: "value is given in
+ * 1/10 of minute" — ONGEACHT welke eenheidscode `unitCode` claimt) + eenheidscode →
+ * `Sequence`-lagvelden. Spiegelt mspdiReader's lag-afhandeling (spiegelplicht, T7-taaktekst) maar
+ * vanuit MPP se eigen eenheidscodering (`getDurationTimeUnits`, mppPrimitives.ts):
+ *  - percent/elapsedPercent: MPPUtility.getDuration's default-tak laat de waarde ONGESCHAALD (geen
+ *    /10, anders dan MSPDI's tienden-van-procent) — spiegelt de Java-bron letterlijk.
+ *  - elke andere "elapsed"-variant (minuten/uren/dagen/weken/maanden delen allemaal dezelfde ruwe
+ *    tienden-van-minuut-basis): kalenderdag-omrekening, identiek aan mspdiReader's
+ *    ELAPSED_DURATION_FORMATS-tak (`Math.round(lag/10/60/24)`).
+ *  - elke WORKTIME-variant (niet-elapsed): dezelfde omrekening als taakduur
+ *    (`durationTenthsOfMinuteToDays`) — spiegelt mspdiReader's "anders"-tak. MPP kent geen
+ *    hour-mode-taken in etappe 1 (moduleheader: "Alles blijft DAG-modus"), dus mspdiReader's
+ *    `lagMinutes`-tak (hour-mode-opvolger) heeft hier bewust geen tegenhanger.
+ */
+type SequenceLagFields = Pick<Sequence, 'lagDays'> & Partial<Pick<Sequence, 'lagMinutes' | 'lagUnit' | 'lagPercent'>>;
+
+function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: number): SequenceLagFields {
+  if (rawLag === -1) return { lagDays: 0 }; // MPPUtility.getAdjustedDuration: duration===-1 ⇒ geen lag
+  const unit = getDurationTimeUnits(unitCode);
+  if (unit === 'percent' || unit === 'elapsedPercent') {
+    const fields: SequenceLagFields = { lagDays: 0, lagPercent: rawLag };
+    if (unit === 'elapsedPercent') fields.lagUnit = 'ELAPSEDTIME';
+    return fields;
+  }
+  if (unit.startsWith('elapsed')) {
+    return { lagDays: Math.round(rawLag / 10 / 60 / 24), lagUnit: 'ELAPSEDTIME' };
+  }
+  return { lagDays: durationTenthsOfMinuteToDays(rawLag, hoursPerDay) };
+}
+
+/** Poort van `ConstraintFactory.process` (T7, stap 1) — `"   114"/TBkndCons` → `Sequence[]`.
+ *  Geëxporteerd (spiegelt `readCalendars`'s testbaarheidspatroon, T6) zodat
+ *  `check-mpp-relations.ts` 'm los kan aanroepen zonder de volledige `readMPP` te hoeven draaien. */
+export function readRelations(
+  cfb: CfbFile,
+  applicationVersion: number | null,
+  hoursPerDay: number,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+): Sequence[] {
+  try {
+    return readRelationsUnsafe(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId);
+  } catch {
+    return [];
+  }
+}
+
+function readRelationsUnsafe(
+  cfb: CfbFile,
+  applicationVersion: number | null,
+  hoursPerDay: number,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+): Sequence[] {
+  const label = '"   114"/TBkndCons';
+  const fixedMetaBytes = cfb.getStream(['   114', 'TBkndCons', 'FixedMeta']);
+  const fixedDataBytes = cfb.getStream(['   114', 'TBkndCons', 'FixedData']);
+  if (!fixedMetaBytes || !fixedDataBytes) return []; // legitiem afwezig (geen relaties in dit bestand)
+
+  const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, CONS_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
+  const fixedData = FixedData.withItemSizeOverride(fixedMeta, CONS_FIXED_DATA_ITEM_SIZE, fixedDataBytes, `${label}/FixedData`);
+
+  // project15 (ConstraintFactory.java): mppFileType===14 (altijd waar — assertReadable/T4 laat
+  // alleen MPP14 door) && applicationVersion > PROJECT_2010(14) — dezelfde "modern"-drempel als
+  // elders (mppCalendars.ts se useModernOffsets, milestoneBitFlag hierboven).
+  const project15 = (applicationVersion ?? 0) > 14;
+  const durationOffset = project15 ? 14 : 16;
+  const durationUnitsOffset = project15 ? 18 : 14;
+
+  const sequences: Sequence[] = [];
+  // GEKLEMD (mppPrimitives.ts se FixedMeta-I1) — ConstraintFactory.java gebruikt hier de RUWE
+  // headerwaarde als lusbovengrens (plan-waarschuwing); onze klem is al veilig, dus geen aparte
+  // klem nodig op dit niveau.
+  const itemCount = fixedMeta.getItemCount();
+  for (let index = 0; index < itemCount; index++) {
+    const metaItem = fixedMeta.getByteArrayValue(index);
+    if (!metaItem || metaItem.length < 8) continue;
+    // Verwijderd-vlag: SHORT (niet BYTE — zie de asymmetrie met TBkndAssn hieronder), spiegelt
+    // ConstraintFactory.java se "SourceForge bug 2209477"-commentaar letterlijk.
+    if (getShort(metaItem, 0, `${label}/FixedMeta deleted-flag`) !== 0) continue;
+
+    const dataOffset = getInt(metaItem, 4, `${label}/FixedMeta offset`);
+    const dataIndex = fixedData.getIndexFromOffset(dataOffset);
+    if (dataIndex === -1) continue;
+    const data = fixedData.getByteArrayValue(dataIndex);
+    if (!data || data.length < 14) continue;
+
+    const predecessorUid = getInt(data, 4, `${label}/FixedData taskId1`);
+    const successorUid = getInt(data, 8, `${label}/FixedData taskId2`);
+    if (predecessorUid === 0 || successorUid === 0) continue; // relatie met de projectsamenvattingstaak
+    if (predecessorUid === successorUid) continue; // circulaire relatie (ConstraintFactory.java)
+
+    // Relatie naar een niet-bestaande/gefilterde taak overslaan — spiegelt MPXJ se
+    // `task1 != null && task2 != null`-guard (getTaskByUniqueID geeft null voor een taak die T5's
+    // `collectValidTaskIndices` al wegfilterde, bv. een null-/spooktaak).
+    const predecessorId = taskIdByUniqueId.get(predecessorUid);
+    const successorId = taskIdByUniqueId.get(successorUid);
+    if (!predecessorId || !successorId) continue;
+
+    const relationTypeRaw = getShort(data, 12, `${label}/FixedData type`);
+    const type = mspTypeToSequenceType(relationTypeRaw);
+
+    const lagRaw = data.length >= durationOffset + 4 ? getInt(data, durationOffset, `${label}/FixedData lag`) : -1;
+    const lagUnitsRaw = data.length >= durationUnitsOffset + 2 ? getShort(data, durationUnitsOffset, `${label}/FixedData lagUnits`) : 0;
+
+    sequences.push({
+      id: generateId('seq'),
+      predecessorId,
+      successorId,
+      type,
+      ...mppLagToSequenceFields(lagRaw, lagUnitsRaw, hoursPerDay),
+    });
+  }
+  return sequences;
+}
+
+/** TBkndRsc/FixedMeta-itemgrootte (MPP14Reader.java: `new FixedMeta(..., 37)`). */
+const RESOURCE_FIXED_META_ITEM_SIZE = 37;
+
+/** Bit die WORK vs. niet-WORK onderscheidt in het TBkndRsc/FixedMeta-item (37 bytes) — spiegelt
+ *  MPP14Reader.java se `processResourceData`-tabelkeuze, zelfde "modern"-drempel als
+ *  `milestoneBitFlag`/mppCalendars.ts se `useModernOffsets`. Vereenvoudiging (T7, gedocumenteerd):
+ *  MPXJ onderscheidt bij een NIET-WORK-resource nog COST vs. MATERIAL via een bit in Fixed2Data —
+ *  niet geport (buiten deze etappe se veldenset, zie mppPrimitives.ts se moduleheader). Deze lezer
+ *  spiegelt daarom mspdiReader se eigen collapse (die kent ook geen aparte COST-tak): niet-WORK ⇒
+ *  MATERIAL. `ResourceType` in dit project heeft sowieso geen `'COST'`-waarde
+ *  (`src/types/resource.ts`), dus dit verliest geen onderscheid dat de rest van de app kan tonen. */
+function resourceTypeBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
+  const version = applicationVersion ?? 0;
+  return version > 14
+    ? { offset: 12, mask: 0x10 } // PROJECT2013_RESOURCE_META_DATA_BIT_FLAGS
+    : { offset: 9, mask: 0x02 }; // PROJECT2010_RESOURCE_META_DATA_BIT_FLAGS
+}
+
+export interface ReadResourcesResult {
+  resources: Resource[];
+  resourceIdByUniqueId: Map<number, string>;
+}
+
+const EMPTY_RESOURCES_RESULT: ReadResourcesResult = { resources: [], resourceIdByUniqueId: new Map() };
+
+/** Poort van `MPP14Reader.processResourceData`/`createResourceMap` (T7, stap 2) — `"   114"/
+ *  TBkndRsc` → `Resource[]`. Geëxporteerd, zelfde testbaarheidsreden als `readRelations`
+ *  hierboven. */
+export function readResources(
+  cfb: CfbFile,
+  resourceFieldMap: FieldMapTable,
+  applicationVersion: number | null,
+  calResult: CalendarReadResult,
+): ReadResourcesResult {
+  try {
+    return readResourcesUnsafe(cfb, resourceFieldMap, applicationVersion, calResult);
+  } catch {
+    return EMPTY_RESOURCES_RESULT;
+  }
+}
+
+function readResourcesUnsafe(
+  cfb: CfbFile,
+  resourceFieldMap: FieldMapTable,
+  applicationVersion: number | null,
+  calResult: CalendarReadResult,
+): ReadResourcesResult {
+  const label = '"   114"/TBkndRsc';
+  const fixedMetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'FixedMeta']);
+  const fixedDataBytes = cfb.getStream(['   114', 'TBkndRsc', 'FixedData']);
+  const varMetaBytes = cfb.getStream(['   114', 'TBkndRsc', 'VarMeta']);
+  if (!fixedMetaBytes || !fixedDataBytes || !varMetaBytes) return EMPTY_RESOURCES_RESULT;
+  const var2DataBytes = cfb.getStream(['   114', 'TBkndRsc', 'Var2Data']); // legitiem afwezig (mppPrimitives.ts)
+
+  const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, RESOURCE_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
+  const fixedData = FixedData.fromMeta(fixedMeta, fixedDataBytes, 0, 0, `${label}/FixedData`);
+  const varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
+  const varData = new Var2Data(varMeta, var2DataBytes);
+
+  const uniqueIdOffset = fixedOffsetOf(resourceFieldMap, ResourceFieldId.UniqueId);
+  const nameKey = varDataKeyOf(resourceFieldMap, ResourceFieldId.Name);
+  const maxUnitsOffset = fixedOffsetOf(resourceFieldMap, ResourceFieldId.MaxUnits);
+  if (uniqueIdOffset === null || nameKey === null) return EMPTY_RESOURCES_RESULT;
+
+  // Poort van `createResourceMap` (MPP14Reader.java r. 935-958): uniqueID→FixedData-index, gebouwd
+  // via een SHORT-read op `uniqueIdOffset` — een letterlijke MPXJ-eigenaardigheid (het veld is een
+  // 4-byte INT volgens de field map, maar `createResourceMap` leest 'm toch als SHORT). Puur een
+  // interne join-sleutel; de ECHTE unique-ID komt uit `varMeta.getUniqueIdentifierArray()`
+  // hieronder. Op elk realistisch bestand (resourceaantallen ruim < 65536, plan-corpus: 5-9) is de
+  // truncatie een no-op — T7 spiegelt de Java-bron hier bewust letterlijk i.p.v. 'm te "corrigeren"
+  // naar een INT-read.
+  const { offset: typeOffset, mask: typeMask } = resourceTypeBitFlag(applicationVersion);
+  const indexByShortUid = new Map<number, number>();
+  const itemCount = fixedMeta.getAdjustedItemCount();
+  for (let index = 0; index < itemCount; index++) {
+    const data = fixedData.getByteArrayValue(index);
+    if (!data || data.length < uniqueIdOffset + 2) continue;
+    const shortUid = getShort(data, uniqueIdOffset, `${label}/FixedData uniqueId (short, spiegelt MPXJ)`);
+    if (!indexByShortUid.has(shortUid)) indexByShortUid.set(shortUid, index); // eerste-wint, spiegelt Java's containsKey-guard
+  }
+
+  const resources: Resource[] = [];
+  const resourceIdByUniqueId = new Map<number, string>();
+  // Iterate op VarMeta se echte unique-ID's (spiegelt `rscVarMeta.getUniqueIdentifierArray()`) —
+  // uniqueID 0 is een GELDIGE resource-id (plan-waarschuwing, geverifieerd via mppCalendars.ts's
+  // T6-spec-review-fix-toelichting: bijlage 13 se afgeleide kalenders dragen resource-ID's t/m 0),
+  // dus GEEN uid===0-skip zoals bij taken (waar 0 de projectsamenvattingstaak is).
+  for (const uniqueId of varMeta.getUniqueIdentifierArray()) {
+    const index = indexByShortUid.get(uniqueId);
+    if (index === undefined) continue;
+    const data = fixedData.getByteArrayValue(index);
+    if (!data) continue;
+
+    const name = varData.getUnicodeString(uniqueId, nameKey, MAX_VAR_TEXT_BYTES, `${label}/name[uid=${uniqueId}]`) || 'Resource';
+
+    const metaItem = fixedMeta.getByteArrayValue(index);
+    const isWork = !!metaItem && metaItem.length > typeOffset && (metaItem[typeOffset] & typeMask) !== 0;
+    const type: ResourceType = isWork ? 'LABOR' : 'MATERIAL';
+
+    // MAX_UNITS (DataType.UNITS, FieldMap.java): 8-byte double. FieldMap.java's eigen `/100`
+    // ("ignore the amount if result will be less than 0.1%") levert MPXJ's PERCENT-schaal op
+    // (100.0 = voltijds) — dít project rekent in de FRACTIE-schaal die mspdiReader ook gebruikt
+    // (`Resource.maxUnits`'s docblok: "1 = 100%"), dus daar bovenop nóg een `/100`. Corpus-
+    // geverifieerd tegen de MSPDI-ground-truth (T7): zonder de tweede `/100` gaf elke resource
+    // 100× de verwachte waarde (bv. "Tom" 200 i.p.v. 2, "malic" 150 i.p.v. 1.5) — dezelfde
+    // afleiding als ASSIGNMENT_UNITS hieronder.
+    let maxUnits = 1;
+    if (maxUnitsOffset !== null && data.length >= maxUnitsOffset + 8) {
+      const rawUnits = getDouble(data, maxUnitsOffset, `${label}/FixedData maxUnits`);
+      maxUnits = (Math.abs(rawUnits) < 0.1 ? 0 : rawUnits) / 100 / 100;
+    }
+
+    const resource: Resource = { id: generateId('res'), name, type, description: '', maxUnits };
+    const calUid = calResult.resourceCalendarUniqueIdByResourceUniqueId.get(uniqueId);
+    if (calUid !== undefined) {
+      const cal = calResult.calendarByUniqueId.get(calUid);
+      if (cal) resource.calendarId = cal.id;
+    }
+
+    resources.push(resource);
+    resourceIdByUniqueId.set(uniqueId, resource.id);
+  }
+  return { resources, resourceIdByUniqueId };
+}
+
+/** TBkndAssn/FixedMeta-itemgrootte (MPP14Reader.java: `new FixedMeta(..., 34)`). */
+const ASSIGNMENT_FIXED_META_ITEM_SIZE = 34;
+/** TBkndAssn/FixedData-itemgrootte — GEEN meta-afgeleide offset/grootte, contigue blokken van 110
+ *  bytes vanaf offset 0 (MPP14Reader.java: `new FixedData(110, ...)`, de `withoutMeta`-variant). */
+const ASSIGNMENT_FIXED_DATA_ITEM_SIZE = 110;
+
+/** Poort van `ResourceAssignmentFactory.process` (T7, stap 2) — `"   114"/TBkndAssn` →
+ *  `ResourceAssignment[]`, met mspdiReader se `unitsPerDay`-afleiding. Geëxporteerd, zelfde
+ *  testbaarheidsreden als `readRelations` hierboven. */
+export function readAssignments(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  resourceIdByUniqueId: ReadonlyMap<number, string>,
+): ResourceAssignment[] {
+  try {
+    return readAssignmentsUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
+  } catch {
+    return [];
+  }
+}
+
+function readAssignmentsUnsafe(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  resourceIdByUniqueId: ReadonlyMap<number, string>,
+): ResourceAssignment[] {
+  const label = '"   114"/TBkndAssn';
+  const fixedMetaBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedMeta']);
+  const fixedDataBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedData']);
+  const varMetaBytes = cfb.getStream(['   114', 'TBkndAssn', 'VarMeta']);
+  if (!fixedMetaBytes || !fixedDataBytes || !varMetaBytes) return [];
+
+  const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, ASSIGNMENT_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
+  const fixedData = FixedData.withoutMeta(ASSIGNMENT_FIXED_DATA_ITEM_SIZE, fixedDataBytes, `${label}/FixedData`);
+  const varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
+
+  const uniqueIdOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.UniqueId);
+  const taskUidOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.TaskUniqueId);
+  const resourceUidOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.ResourceUniqueId);
+  const unitsOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Units);
+  if (uniqueIdOffset === null || taskUidOffset === null || resourceUidOffset === null) return [];
+
+  const assignments: ResourceAssignment[] = [];
+  // GEKLEMD (mppPrimitives.ts se FixedMeta-I1) — ResourceAssignmentFactory.java gebruikt hier
+  // `assnFixedMeta.getItemCount()` (de RUWE headerwaarde) als lusbovengrens; onze klem is al veilig.
+  const itemCount = fixedMeta.getItemCount();
+  for (let index = 0; index < itemCount; index++) {
+    const meta = fixedMeta.getByteArrayValue(index);
+    // Verwijderd-vlag: hier een enkele BYTE (`meta[0] !== 0`), NIET de SHORT-check van TBkndCons
+    // hierboven — spiegelt ResourceAssignmentFactory.java letterlijk (`meta[0] != 0`).
+    if (!meta || meta.length < 8 || meta[0] !== 0) continue;
+
+    const offset = getInt(meta, 4, `${label}/FixedMeta offset`);
+    const dataIndex = fixedData.getIndexFromOffset(offset);
+    if (dataIndex === -1) continue;
+    const data = fixedData.getByteArrayValue(dataIndex);
+    if (!data || data.length < uniqueIdOffset + 4) continue;
+
+    const uid = getInt(data, uniqueIdOffset, `${label}/FixedData uniqueId`);
+    if (!varMeta.containsKey(uid)) continue; // spiegelt `assnVarMeta.getUniqueIdentifierSet().contains(varDataId)`
+
+    if (data.length < taskUidOffset + 4 || data.length < resourceUidOffset + 4) continue;
+    const taskUid = getInt(data, taskUidOffset, `${label}/FixedData taskUid`);
+    const resourceUid = getInt(data, resourceUidOffset, `${label}/FixedData resourceUid`);
+    const taskId = taskIdByUniqueId.get(taskUid);
+    const resourceId = resourceIdByUniqueId.get(resourceUid);
+    // Onvindbare taak/resource ⇒ overslaan — spiegelt mspdiReader se assignmentsectie
+    // (`if (!taskId || !resourceId) continue;`), en dekt tegelijk MPXJ se ASSIGNMENT_NULL_RESOURCE_ID
+    // (-65535)-sentinel: die uid komt nooit in `resourceIdByUniqueId` voor, dus de lookup faalt vanzelf.
+    if (!taskId || !resourceId) continue;
+
+    // ASSIGNMENT_UNITS (DataType.UNITS, FieldMap.java): 8-byte double. Zelfde dubbele `/100` als
+    // `readResourcesUnsafe`'s MAX_UNITS hierboven — MPXJ's eigen `/100` levert de PERCENT-schaal op
+    // (100.0 = voltijds), dit project rekent in de FRACTIE-schaal (`ResourceAssignment.unitsPerDay`'s
+    // docblok: "1 = 100%", spiegelt mspdiReader's `<Units>`-lezing). Corpus-geverifieerd: zonder de
+    // tweede `/100` gaf elke assignment 100 i.p.v. 1.
+    let unitsPerDay = 1;
+    if (unitsOffset !== null && data.length >= unitsOffset + 8) {
+      const rawUnits = getDouble(data, unitsOffset, `${label}/FixedData units`);
+      unitsPerDay = (Math.abs(rawUnits) < 0.1 ? 0 : rawUnits) / 100 / 100;
+    }
+
+    assignments.push({ id: generateId('asgn'), taskId, resourceId, unitsPerDay });
+  }
+  return assignments;
+}
+
+/**
+ * Entry point (T5-T7). `.mpp` (MPP14) → compleet `ImportResult`, met dezelfde veldsemantiek als
+ * `readMSPDI`.
  */
 /**
  * T6-kwaliteitsreview (minor M6): de container-/Props-/versiepreambule van `readMPP` (CfbFile →
@@ -586,8 +949,8 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   const taskFieldMap = createTaskFieldMap(projectProps);
   // I2 (T5-kwaliteitsreview): `readTasks` geeft ook `taskIdByUniqueId`/`calendarUniqueIdByTaskId`
   // terug — T6 gebruikt hier `calendarUniqueIdByTaskId` om `Task.calendarId` te koppelen aan de
-  // echte, hieronder gelezen kalenders (`taskIdByUniqueId` blijft voor T7's relaties/assignments).
-  const { tasks, calendarUniqueIdByTaskId } = readTasks({
+  // echte, hieronder gelezen kalenders; `taskIdByUniqueId` voedt T7's relaties/assignments.
+  const { tasks, taskIdByUniqueId, calendarUniqueIdByTaskId } = readTasks({
     cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion,
   });
 
@@ -617,13 +980,22 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     }
   }
 
+  // T7: relaties/resources/assignments — compleet ImportResult, geen placeholders meer.
+  const sequences = readRelations(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId);
+
+  const resourceFieldMap = createResourceFieldMap(projectProps);
+  const { resources, resourceIdByUniqueId } = readResources(cfb, resourceFieldMap, applicationVersion, calResult);
+
+  const assignmentFieldMap = createAssignmentFieldMap(projectProps);
+  const assignments = readAssignments(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
+
   return {
     project,
     calendar,
     tasks,
-    sequences: [],
-    resources: [],
-    assignments: [],
+    sequences,
+    resources,
+    assignments,
     resourceCalendars: calResult.resourceCalendars,
   };
 }

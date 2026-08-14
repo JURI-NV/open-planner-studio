@@ -269,6 +269,35 @@ function mppDayToIso(raw: number): string {
 // T6-hostile: mppCalendars.ts tegen vijandige/geprepareerde invoer
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
+// ── T7-her-review restpunt (b): de ALTIJD-vangende `readCalendars`-wrapper (I1-fix, zie de
+// toelichting bij die functie) had tot deze taak GEEN eigen regressienet — elke andere hostile-test
+// hierboven/hieronder roept al ofwel `readCalendars` MET een geldige FixedMeta/FixedData aan
+// (test het materialisatiegedrag, niet de wrapper zelf), ofwel een low-level primitief los
+// (`parseExceptions`). Dit bewijst specifiek de wrapper: een FOUT FixedMeta-magic-getal op
+// `TBkndCal/FixedMeta` gooit diep in `readCalendarsUnsafe` (via `FixedMeta.withItemSize`) — de
+// wrapper moet dat vangen en `fallbackResult()` teruggeven (`calendarByUniqueId.size === 0`),
+// nooit de fout laten doorlekken naar `readMPP`. ────────────────────────────────────────────────
+{
+  const badMagicFixedMeta = new Uint8Array(16 + 12); // header + 1 item, magic bewust fout
+  new DataView(badMagicFixedMeta.buffer).setUint32(0, 0xdeadbeef, true); // ≠ BLOCK_MAGIC (0xfadfadba)
+  const fixedData = buildCalFixedDataRecord(1, 1, -1);
+  const projectProps = new Props(encodePropsEntries([]), 'T7-her-review-bad-magic');
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndCal: { children: { FixedMeta: { data: badMagicFixedMeta }, FixedData: { data: fixedData } } } } },
+  }));
+
+  let result: ReturnType<typeof readCalendars> | null = null;
+  let threw: string | null = null;
+  try {
+    result = readCalendars(cfb, projectProps, null);
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  truthy(`T7-her-review-b readCalendars-wrapper (fout FixedMeta-magic): gooit niet (${threw ?? ''})`, threw === null);
+  truthy('T7-her-review-b readCalendars-wrapper: calendarByUniqueId.size === 0 (fallbackResult)', result?.calendarByUniqueId.size === 0);
+  truthy('T7-her-review-b readCalendars-wrapper: projectCalendar blijft een geldige generieke default', !!result?.projectCalendar.workDays.length);
+}
+
 // ── Circulaire base-kalender-verwijzing: calId=10 verwijst naar base 20, calId=20 naar base 10 —
 // GEEN van beide is ooit een "echte" basiskalender (baseId<=0 of ===zichzelf), dus beide belanden
 // in `readCalendars`' Fase 2 (afgeleide kalenders) en verwijzen alleen naar elkaar. Zonder
@@ -629,9 +658,14 @@ function mppDayToIso(raw: number): string {
   if (result) {
     let totalHolidaySlots = 0;
     for (const cal of result.calendarByUniqueId.values()) totalHolidaySlots += cal.holidays.length;
+    // T7-her-review restpunt (c): `<=` ⇒ `===` — de uitkomst is deterministisch exact
+    // MAX_TOTAL_HOLIDAY_SLOTS (budget.remaining decrementeert per gematerialiseerde holiday en
+    // breekt precies af zodra hij 0 bereikt, zie `budgetedInherit`/`parseExceptions`), geen
+    // "hoogstens"-bovengrens die ook een kleinere, per ongeluk te vroeg afgekapte uitkomst zou
+    // laten slagen.
     truthy(
-      `T6-C1 keten-met-veel-holidays: totale holiday-materialisatie geklemd op MAX_TOTAL_HOLIDAY_SLOTS (${totalHolidaySlots}/${MAX_TOTAL_HOLIDAY_SLOTS}, ongeklemd zou ${(DERIVED_COUNT + 1) * HOLIDAY_COUNT} zijn)`,
-      totalHolidaySlots <= MAX_TOTAL_HOLIDAY_SLOTS,
+      `T6-C1 keten-met-veel-holidays: totale holiday-materialisatie exact op MAX_TOTAL_HOLIDAY_SLOTS (${totalHolidaySlots}/${MAX_TOTAL_HOLIDAY_SLOTS}, ongeklemd zou ${(DERIVED_COUNT + 1) * HOLIDAY_COUNT} zijn)`,
+      totalHolidaySlots === MAX_TOTAL_HOLIDAY_SLOTS,
     );
     truthy(
       `T6-C1 keten-met-veel-holidays: alle ${DERIVED_COUNT + 1} kalenders gematerialiseerd (klem raakt alleen de HOLIDAY-inhoud, niet het aantal kalenders)`,
