@@ -208,4 +208,24 @@ test('draft.addTasks mijlpaal zonder time ⇒ duur 0', () => {
   assertEq(t?.isMilestone, true, 'de taak hoort een mijlpaal te zijn');
 });
 
+// --- 9) taskType-overerving: geneste batch (net-aangemaakte tempId-ouder telt al mee) --------------
+test('draft.addTasks: taskType erft door de keten van tempId-ouder naar kind naar kleinkind', () => {
+  let map = new Map<string, string>();
+  const res = runInMcpTransaction(() => {
+    map = draft.addTasks([
+      { tempId: 'a', name: 'erf-niveau1', taskType: 'LOGISTIC' },
+      { tempId: 'b', name: 'erf-niveau2', parentId: 'a' },
+      { tempId: 'c', name: 'erf-niveau3', parentId: 'b', taskType: 'DEMOLITION' },
+    ]);
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const idA = map.get('a')!;
+  const idB = map.get('b')!;
+  const idC = map.get('c')!;
+  assertEq(store.getState().tasks.find((t) => t.id === idA)?.taskType, 'LOGISTIC', 'niveau1 behoudt zijn expliciete taskType');
+  assertEq(store.getState().tasks.find((t) => t.id === idB)?.taskType, 'LOGISTIC', 'niveau2 zonder eigen taskType erft van de net-aangemaakte tempId-ouder (a)');
+  assertEq(store.getState().tasks.find((t) => t.id === idC)?.taskType, 'DEMOLITION', 'niveau3 met een expliciete taskType wint van zijn ouder (b)');
+});
+
 await run();
