@@ -110,6 +110,11 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       // Leaf-only, geen-milestone-assignment-regel (§2.4): vroege return, geen snapshot.
       const task = s.tasks.find(t => t.id === taskId);
       if (!task || task.isMilestone || task.childIds.length > 0) return;
+      // Onbekend (of null/undefined — JS-callers via de dev-bridge omzeilen de compiler)
+      // resourceId: stil weigeren, geen snapshot (M6-conventie, zoals removeResource). Een
+      // toewijzing zonder bestaande resource vergiftigt anders élke writeIFC/auto-save
+      // (guidOf leest resourceId.length).
+      if (!s.resources.some(r => r.id === resourceId)) return;
       // Weigeren (bevinding 1): 0/negatieve eenheden/dag is geen geldige toewijzing.
       if (!isValidUnits(unitsPerDay)) return;
 

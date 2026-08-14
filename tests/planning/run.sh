@@ -161,6 +161,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MACHECK="$DIR/.move-assignment-check.mjs"
   if bundle_check "$DIR/check-move-assignment.ts" "$MACHECK"; then node "$MACHECK" || STATUS=1; fi
 
+  # assignResource-guard-checks (M6-conventie: onbekend/null resourceId stil weigeren; plus
+  # defensieve writeIFC tegen reeds vergiftigde toewijzingen — de auto-save-crash-regressie).
+  ARGCHECK="$DIR/.assign-resource-guard-check.mjs"
+  if bundle_check "$DIR/check-assign-resource-guard.ts" "$ARGCHECK"; then node "$ARGCHECK" || STATUS=1; fi
+
   # "Project verplaatsen"-checks (pakket D1 — veld-voor-veld shift-verdicten, R7-feestdagendekking,
   # preview-zuiverheid en de R8/R9-guards; headless tegen de echte store + pure engine-helpers,
   # los van de CPM-cases in cases-move-project.json).
