@@ -180,7 +180,8 @@
     "taskHintBelow": "在所选任务下方插入新任务",
     "taskHintAppend": "在列表末尾添加新任务",
     "columnsHintTable": "选择“表格”视图的列",
-    "columnsHintGoToTable": "选择“表格”视图的列 — 在“表格”选项卡中显示"
+    "columnsHintGoToTable": "选择“表格”视图的列 — 在“表格”选项卡中显示",
+    "toggleResourceAccent": "资源强调色"
   },
   "ifc": {
     "title": "IFC 编辑器",

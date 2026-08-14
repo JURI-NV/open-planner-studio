@@ -180,7 +180,8 @@
     "taskHintBelow": "Nouvelle tâche juste en dessous de la sélection",
     "taskHintAppend": "Nouvelle tâche en bas de la liste",
     "columnsHintTable": "Choisir les colonnes de la vue Tableau",
-    "columnsHintGoToTable": "Choisir les colonnes de la vue Tableau — visibles sous l’onglet Tableau"
+    "columnsHintGoToTable": "Choisir les colonnes de la vue Tableau — visibles sous l’onglet Tableau",
+    "toggleResourceAccent": "Accent ressource"
   },
   "ifc": {
     "title": "Éditeur IFC",

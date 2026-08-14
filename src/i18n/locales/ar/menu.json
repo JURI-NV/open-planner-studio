@@ -180,7 +180,8 @@
     "taskHintBelow": "مهمة جديدة أسفل التحديد مباشرة",
     "taskHintAppend": "مهمة جديدة في نهاية القائمة",
     "columnsHintTable": "اختيار أعمدة عرض الجدول",
-    "columnsHintGoToTable": "اختيار أعمدة عرض الجدول — تظهر في علامة التبويب الجدول"
+    "columnsHintGoToTable": "اختيار أعمدة عرض الجدول — تظهر في علامة التبويب الجدول",
+    "toggleResourceAccent": "لمسة المورد"
   },
   "ifc": {
     "title": "محرر IFC",

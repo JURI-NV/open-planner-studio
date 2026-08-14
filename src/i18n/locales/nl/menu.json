@@ -180,7 +180,8 @@
     "taskHintBelow": "Nieuwe taak direct onder de selectie",
     "taskHintAppend": "Nieuwe taak onderaan de lijst",
     "columnsHintTable": "Kolommen van de Tabel-weergave kiezen",
-    "columnsHintGoToTable": "Kolommen van de Tabel-weergave kiezen — te zien op het tabblad Tabel"
+    "columnsHintGoToTable": "Kolommen van de Tabel-weergave kiezen — te zien op het tabblad Tabel",
+    "toggleResourceAccent": "Resource-accent"
   },
   "ifc": {
     "title": "IFC-editor",

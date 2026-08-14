@@ -180,7 +180,8 @@
     "taskHintBelow": "Yeni görev, seçimin hemen altına eklenir",
     "taskHintAppend": "Yeni görev listenin sonuna eklenir",
     "columnsHintTable": "Tablo görünümünün sütunlarını seçin",
-    "columnsHintGoToTable": "Tablo görünümünün sütunlarını seçin — Tablo sekmesinde görünür"
+    "columnsHintGoToTable": "Tablo görünümünün sütunlarını seçin — Tablo sekmesinde görünür",
+    "toggleResourceAccent": "Kaynak vurgusu"
   },
   "ifc": {
     "title": "IFC Düzenleyici",

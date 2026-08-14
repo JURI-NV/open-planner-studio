@@ -180,7 +180,8 @@
     "taskHintBelow": "Nova tarefa logo abaixo da seleção",
     "taskHintAppend": "Nova tarefa no fim da lista",
     "columnsHintTable": "Escolher as colunas da vista Tabela",
-    "columnsHintGoToTable": "Escolher as colunas da vista Tabela — visíveis no separador Tabela"
+    "columnsHintGoToTable": "Escolher as colunas da vista Tabela — visíveis no separador Tabela",
+    "toggleResourceAccent": "Acento de recurso"
   },
   "ifc": {
     "title": "Editor IFC",

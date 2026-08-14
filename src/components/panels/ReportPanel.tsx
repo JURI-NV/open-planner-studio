@@ -141,6 +141,13 @@ export function ReportPanel() {
   // (doorgetrokken = bepalend, gestreept = niet-bepalend). Die informatie zit alleen in `cpmResult`,
   // dus een echte subscription — anders ververst de preview niet na een F5/Bereken.
   const cpmResult = useAppStore(s => s.cpmResult);
+  // #21/#54 — bronnen voor de nieuwe exportopties: resources/toewijzingen (kleurmodi), de
+  // schermweergave-rijen (volg weergave) en de statusdatum (statuslijn). Echte subscriptions
+  // (geen getState): de live preview moet op al deze wijzigingen her-renderen.
+  const viewRows = useAppStore(s => s.viewRows);
+  const resources = useAppStore(s => s.resources);
+  const assignments = useAppStore(s => s.assignments);
+  const statusDate = project.statusDate;
 
   // De rapportopties starten op de gedeelde defaults uit `reportSettings.ts` en worden vlak na de
   // eerste render overschreven door de opgeslagen voorkeuren (zie het hydratatie-effect verderop).
@@ -186,6 +193,12 @@ export function ReportPanel() {
   // die stuurt de app-chrome aan, deze alleen het papier. Werkt relatief (tekst/tabel groeien, de
   // tijdlijn-zoom niet) — zie de afleiding bij `ReportMetrics` in printPreview.ts.
   const [reportFontScale, setReportFontScale] = useState(DEFAULT_REPORT_SETTINGS.reportFontScale);
+  // #21 — balkkleurmodi in de export (critical is het huidige gedrag; task/auto/resource nieuw).
+  const [barColorMode, setBarColorMode] = useState(DEFAULT_REPORT_SETTINGS.barColorMode);
+  // #54 — statuslijn in de export: letterlijk drie opties (geen / statusdatumlijn / voortgangslijn).
+  const [statusLine, setStatusLine] = useState(DEFAULT_REPORT_SETTINGS.statusLine);
+  // #54 — volg weergave: export tekent exact de viewRows van het scherm (WYSIWYG).
+  const [followView, setFollowView] = useState(DEFAULT_REPORT_SETTINGS.followView);
 
   // Instellingenkolom horizontaal sleepbaar (issue #38 punt 3) — vaste `w-64` bood geen enkel
   // handvat en de rechterkolom (live preview) kreeg dus nooit ruimte terug. Zelfde generieke
@@ -245,6 +258,9 @@ export function ReportPanel() {
       setRepeatHeader(s.repeatHeader);
       setTimelineColumns(s.timelineColumns);
       setReportFontScale(s.reportFontScale);
+      setBarColorMode(s.barColorMode);
+      setStatusLine(s.statusLine);
+      setFollowView(s.followView);
       hydratedRef.current = true;
     }, () => {
       // Lezen kan falen (localStorage geblokkeerd of gepartitioneerd, quota-gedoe). Zonder deze
@@ -276,11 +292,11 @@ export function ReportPanel() {
     void saveReportSettings({
       reportType, showCritical, showFloat, showDeps, showWeekends, showLegend,
       showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation,
-      repeatHeader, timelineColumns, reportFontScale,
+      repeatHeader, timelineColumns, reportFontScale, barColorMode, statusLine, followView,
     }).catch(() => {});
   }, [reportType, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames,
       showCompletion, autoFit, customZoom, paperSize, orientation, repeatHeader, timelineColumns,
-      reportFontScale]);
+      reportFontScale, barColorMode, statusLine, followView]);
 
   const milestoneRef = useRef<HTMLDivElement>(null);
   const varianceRef = useRef<HTMLDivElement>(null);
@@ -343,6 +359,18 @@ export function ReportPanel() {
     // Bij een cyclus (`cpmResult.error`) of vóór de eerste berekening blijft het `undefined`, en
     // tekent het rapport alles neutraal doorgetrokken — dezelfde eerlijke terugval als het scherm.
     drivingSequenceIds: cpmResult && !cpmResult.error ? cpmResult.drivingSequenceIds : undefined,
+    // #21/#54 — balkkleurmodi, statuslijn en volg-weergave. `rows` alléén bij followView: zonder
+    // die optie tekent de export de volledige boom (oud gedrag, geen verrassingen).
+    barColorMode,
+    statusLine,
+    statusDate,
+    resources,
+    assignments,
+    rows: followView ? viewRows : undefined,
+    barColorsLegendLabels: {
+      criticalOutline: t('legend.criticalOutline', { defaultValue: 'Kritiek pad (rand)' }),
+      resourcesMore: (n: number) => t('legend.resourcesMore', { count: n, defaultValue: `… en ${n} meer` }),
+    },
   };
 
   // Bereken de Gantt-preview als gepagineerde papiervellen — via dezelfde pagineer-engine als de
@@ -397,7 +425,7 @@ export function ReportPanel() {
     // cancelled-guard voorkomt dat een verouderde async-render na deps-wijziging/unmount nog toepast.
     void ensureInterLoaded().then(renderPreview);
     return () => { cancelled = true; };
-  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult]);
+  }, [reportType, tasks, sequences, calendar, projectName, showCritical, showFloat, showDeps, showWeekends, showLegend, showTaskNames, showCompletion, autoFit, customZoom, paperSize, orientation, companyName, locale, dateNotation, repeatHeader, timelineColumns, reportFontScale, cpmResult, barColorMode, statusLine, statusDate, resources, assignments, followView, viewRows]);
 
   const milestoneRows = useMilestoneRows();
   const varianceResult = useVarianceResult();
@@ -753,6 +781,52 @@ export function ReportPanel() {
                 options={REPORT_FONT_SCALES.map(n => ({ value: String(n), label: `${n}%` }))}
               />
             </div>
+
+            {/* Balkkleuren (issue #21 punt 1-nieuw): hoe de export de balken kleurt. Critical is
+                het vertrouwen rood/oranje/blauw; de overige modi kleuren per taak of per
+                uitvoerende resource, met het kritieke pad als rode rand. */}
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('barColorModeLabel')}</label>
+              <Select
+                className="flex-1 min-w-0"
+                aria-label={t('barColorModeLabel')}
+                value={barColorMode}
+                onChange={v => setBarColorMode(v as typeof barColorMode)}
+                options={[
+                  { value: 'critical', label: t('barColorMode_critical') },
+                  { value: 'task', label: t('barColorMode_task') },
+                  { value: 'auto', label: t('barColorMode_auto') },
+                  { value: 'resource', label: t('barColorMode_resource') },
+                ]}
+              />
+            </div>
+
+            {/* Statuslijn (issue #54 punt 1): letterlijk drie opties. Zonder statusdatum in het
+                project tekent geen van beide iets — de hint maakt dat zichtbaar i.p.v. stil. */}
+            <div className="flex items-center gap-2 min-w-0">
+              <label className="text-text-secondary w-20 flex-shrink-0">{t('statusLineLabel')}</label>
+              <Select
+                className="flex-1 min-w-0"
+                aria-label={t('statusLineLabel')}
+                value={statusLine}
+                onChange={v => setStatusLine(v as typeof statusLine)}
+                options={[
+                  { value: 'none', label: t('statusLine_none') },
+                  { value: 'statusDate', label: t('statusLine_statusDate') },
+                  { value: 'progress', label: t('statusLine_progress') },
+                ]}
+              />
+            </div>
+            {statusLine !== 'none' && !statusDate && (
+              <p className="text-[11px] text-amber-600 mt-0.5">{t('statusLineHint')}</p>
+            )}
+
+            {/* Volg weergave (issue #54 punt 2): export = wat het scherm toont (filter, groepering,
+                sortering, inklapstatus). Uit (default) = de volledige takenboom, zoals altijd. */}
+            <label className="flex items-center gap-2 mt-1 min-w-0">
+              <input type="checkbox" checked={followView} onChange={e => setFollowView(e.target.checked)} className="accent-accent flex-shrink-0" />
+              <span className="min-w-0">{t('followView')}</span>
+            </label>
 
             {/* Auto-fit checkbox */}
             <label className="flex items-center gap-2 mt-1 min-w-0">

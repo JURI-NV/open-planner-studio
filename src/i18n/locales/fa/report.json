@@ -44,7 +44,10 @@
     "summary": "خلاصه",
     "float": "شناوری",
     "completion": "پیشرفت",
-    "relationStyle": "تعیین‌کننده / غیرتعیین‌کننده"
+    "relationStyle": "تعیین‌کننده / غیرتعیین‌کننده",
+    "resourcesMore_zero": "… و {{count}} منبع دیگر",
+    "resourcesMore_one": "… و یک منبع دیگر",
+    "resourcesMore_other": "… و {{count}} منبع دیگر"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -102,5 +105,17 @@
     "total": "نقاط عطف",
     "mandatoryCount": "الزامی",
     "lateCount": "با تأخیر"
-  }
+  },
+  "barColorModeLabel": "رنگ میله‌ها:",
+  "barColorMode_critical": "مسیر بحرانی",
+  "barColorMode_task": "به ازای هر کار — رنگ دلخواه",
+  "barColorMode_auto": "به ازای هر کار — خودکار",
+  "barColorMode_resource": "به ازای هر منبع",
+  "statusLineLabel": "خط وضعیت:",
+  "statusLine_none": "هیچ",
+  "statusLine_statusDate": "خط تاریخ وضعیت",
+  "statusLine_progress": "خط پیشرفت",
+  "statusLineHint": "ابتدا یک تاریخ وضعیت تعیین کنید",
+  "followView": "دنبال‌کردن نما (فیلتر، گروه‌بندی، مرتب‌سازی)",
+  "statusDateLabel": "تاریخ وضعیت"
 }

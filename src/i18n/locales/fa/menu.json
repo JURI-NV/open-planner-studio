@@ -180,7 +180,8 @@
     "taskHintBelow": "وظیفه جدید درست زیر انتخاب",
     "taskHintAppend": "وظیفه جدید در انتهای فهرست",
     "columnsHintTable": "انتخاب ستون‌های نمای جدول",
-    "columnsHintGoToTable": "انتخاب ستون‌های نمای جدول — در زبانه جدول دیده می‌شود"
+    "columnsHintGoToTable": "انتخاب ستون‌های نمای جدول — در زبانه جدول دیده می‌شود",
+    "toggleResourceAccent": "تأکید منبع"
   },
   "ifc": {
     "title": "ویرایشگر IFC",

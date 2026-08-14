@@ -52,7 +52,13 @@
     "summary": "ملخص",
     "float": "الفائض",
     "completion": "الإنجاز",
-    "relationStyle": "حاكمة / غير حاكمة"
+    "relationStyle": "حاكمة / غير حاكمة",
+    "resourcesMore_zero": "… و{{count}} مورد إضافي",
+    "resourcesMore_one": "… ومورد إضافي واحد",
+    "resourcesMore_two": "… وموردان إضافيان",
+    "resourcesMore_few": "… و{{count}} موارد إضافية",
+    "resourcesMore_many": "… و{{count}} موردًا إضافيًا",
+    "resourcesMore_other": "… و{{count}} مورد إضافي"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -110,5 +116,17 @@
     "total": "المعالم",
     "mandatoryCount": "إلزامية",
     "lateCount": "متأخرة"
-  }
+  },
+  "barColorModeLabel": "ألوان الأعمدة:",
+  "barColorMode_critical": "المسار الحرج",
+  "barColorMode_task": "لكل مهمة — لون مخصص",
+  "barColorMode_auto": "لكل مهمة — تلقائي",
+  "barColorMode_resource": "لكل مورد",
+  "statusLineLabel": "خط الحالة:",
+  "statusLine_none": "بدون",
+  "statusLine_statusDate": "خط تاريخ الحالة",
+  "statusLine_progress": "خط التقدم",
+  "statusLineHint": "عيّن أولاً تاريخ حالة",
+  "followView": "متابعة العرض (تصفية، تجميع، فرز)",
+  "statusDateLabel": "تاريخ الحالة"
 }

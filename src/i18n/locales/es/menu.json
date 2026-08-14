@@ -180,7 +180,8 @@
     "taskHintBelow": "Nueva tarea justo debajo de la selección",
     "taskHintAppend": "Nueva tarea al final de la lista",
     "columnsHintTable": "Elegir las columnas de la vista Tabla",
-    "columnsHintGoToTable": "Elegir las columnas de la vista Tabla: se ven en la pestaña Tabla"
+    "columnsHintGoToTable": "Elegir las columnas de la vista Tabla: se ven en la pestaña Tabla",
+    "toggleResourceAccent": "Acento de recurso"
   },
   "ifc": {
     "title": "Editor IFC",

@@ -180,7 +180,8 @@
     "taskHintBelow": "Nowe zadanie bezpośrednio pod zaznaczeniem",
     "taskHintAppend": "Nowe zadanie na końcu listy",
     "columnsHintTable": "Wybierz kolumny widoku Tabela",
-    "columnsHintGoToTable": "Wybierz kolumny widoku Tabela — widoczne na karcie Tabela"
+    "columnsHintGoToTable": "Wybierz kolumny widoku Tabela — widoczne na karcie Tabela",
+    "toggleResourceAccent": "Akcent zasobu"
   },
   "ifc": {
     "title": "Edytor IFC",

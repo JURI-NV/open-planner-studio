@@ -180,7 +180,8 @@
     "taskHintBelow": "Neuer Vorgang direkt unter der Auswahl",
     "taskHintAppend": "Neuer Vorgang am Ende der Liste",
     "columnsHintTable": "Spalten der Tabellenansicht wählen",
-    "columnsHintGoToTable": "Spalten der Tabellenansicht wählen — sichtbar im Register Tabelle"
+    "columnsHintGoToTable": "Spalten der Tabellenansicht wählen — sichtbar im Register Tabelle",
+    "toggleResourceAccent": "Ressourcen-Akzent"
   },
   "ifc": {
     "title": "IFC-Editor",

@@ -42,7 +42,8 @@
     "summary": "요약",
     "float": "여유",
     "completion": "진행률",
-    "relationStyle": "주도 / 비주도"
+    "relationStyle": "주도 / 비주도",
+    "resourcesMore_other": "… 외 {{count}}개 리소스"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -100,5 +101,17 @@
     "total": "마일스톤",
     "mandatoryCount": "필수",
     "lateCount": "지연"
-  }
+  },
+  "barColorModeLabel": "막대 색상:",
+  "barColorMode_critical": "임계 경로",
+  "barColorMode_task": "작업별 — 사용자 지정 색",
+  "barColorMode_auto": "작업별 — 자동",
+  "barColorMode_resource": "리소스별",
+  "statusLineLabel": "상태선:",
+  "statusLine_none": "없음",
+  "statusLine_statusDate": "상태 날짜선",
+  "statusLine_progress": "진행선",
+  "statusLineHint": "먼저 상태 날짜를 설정하세요",
+  "followView": "보기 따르기(필터, 그룹화, 정렬)",
+  "statusDateLabel": "상태 날짜"
 }

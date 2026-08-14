@@ -42,7 +42,8 @@
     "summary": "サマリー",
     "float": "フロート",
     "completion": "進捗",
-    "relationStyle": "駆動 / 非駆動"
+    "relationStyle": "駆動 / 非駆動",
+    "resourcesMore_other": "… 他{{count}}リソース"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -100,5 +101,17 @@
     "total": "マイルストーン",
     "mandatoryCount": "必須",
     "lateCount": "遅延"
-  }
+  },
+  "barColorModeLabel": "バーの色：",
+  "barColorMode_critical": "クリティカルパス",
+  "barColorMode_task": "タスクごと — 独自の色",
+  "barColorMode_auto": "タスクごと — 自動",
+  "barColorMode_resource": "リソースごと",
+  "statusLineLabel": "ステータス線:",
+  "statusLine_none": "なし",
+  "statusLine_statusDate": "ステータス日付線",
+  "statusLine_progress": "進捗線",
+  "statusLineHint": "先にステータス日付を設定してください",
+  "followView": "ビューに追従（フィルター・グループ化・並べ替え）",
+  "statusDateLabel": "ステータス日付"
 }

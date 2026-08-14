@@ -42,7 +42,8 @@
     "summary": "摘要",
     "float": "浮动",
     "completion": "完成度",
-    "relationStyle": "驱动 / 非驱动"
+    "relationStyle": "驱动 / 非驱动",
+    "resourcesMore_other": "… 还有 {{count}} 个资源"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -100,5 +101,17 @@
     "total": "里程碑",
     "mandatoryCount": "强制",
     "lateCount": "延迟"
-  }
+  },
+  "barColorModeLabel": "条形图颜色：",
+  "barColorMode_critical": "关键路径",
+  "barColorMode_task": "按任务 — 自定义颜色",
+  "barColorMode_auto": "按任务 — 自动",
+  "barColorMode_resource": "按资源",
+  "statusLineLabel": "状态线：",
+  "statusLine_none": "无",
+  "statusLine_statusDate": "状态日期线",
+  "statusLine_progress": "进度线",
+  "statusLineHint": "请先设置状态日期",
+  "followView": "跟随视图（筛选、分组、排序）",
+  "statusDateLabel": "状态日期"
 }

@@ -44,7 +44,9 @@
     "summary": "Zusammenfassung",
     "float": "Puffer",
     "completion": "Fertigstellung",
-    "relationStyle": "Maßgebend / nicht maßgebend"
+    "relationStyle": "Maßgebend / nicht maßgebend",
+    "resourcesMore_one": "… und {{count}} weitere Ressource",
+    "resourcesMore_other": "… und {{count}} weitere Ressourcen"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -102,5 +104,17 @@
     "total": "Meilensteine",
     "mandatoryCount": "Verbindlich",
     "lateCount": "Verspätet"
-  }
+  },
+  "barColorModeLabel": "Balkenfarben:",
+  "barColorMode_critical": "Kritischer Pfad",
+  "barColorMode_task": "Pro Aufgabe — eigene Farbe",
+  "barColorMode_auto": "Pro Aufgabe — automatisch",
+  "barColorMode_resource": "Pro Ressource",
+  "statusLineLabel": "Statuslinie:",
+  "statusLine_none": "Keine",
+  "statusLine_statusDate": "Statusdatumslinie",
+  "statusLine_progress": "Fortschrittslinie",
+  "statusLineHint": "Legen Sie zuerst ein Statusdatum fest",
+  "followView": "Ansicht folgen (Filter, Gruppierung, Sortierung)",
+  "statusDateLabel": "Statusdatum"
 }

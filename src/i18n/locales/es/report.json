@@ -46,7 +46,10 @@
     "summary": "Resumen",
     "float": "Holgura",
     "completion": "Avance",
-    "relationStyle": "Determinante / no determinante"
+    "relationStyle": "Determinante / no determinante",
+    "resourcesMore_one": "… y {{count}} recurso más",
+    "resourcesMore_many": "… y {{count}} recursos más",
+    "resourcesMore_other": "… y {{count}} recursos más"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -104,5 +107,17 @@
     "total": "Hitos",
     "mandatoryCount": "Obligatorios",
     "lateCount": "Retrasados"
-  }
+  },
+  "barColorModeLabel": "Colores de barras:",
+  "barColorMode_critical": "Ruta crítica",
+  "barColorMode_task": "Por tarea — color propio",
+  "barColorMode_auto": "Por tarea — automático",
+  "barColorMode_resource": "Por recurso",
+  "statusLineLabel": "Línea de estado:",
+  "statusLine_none": "Ninguna",
+  "statusLine_statusDate": "Línea de fecha de estado",
+  "statusLine_progress": "Línea de progreso",
+  "statusLineHint": "Establezca primero una fecha de estado",
+  "followView": "Seguir la vista (filtro, agrupación, orden)",
+  "statusDateLabel": "Fecha de estado"
 }

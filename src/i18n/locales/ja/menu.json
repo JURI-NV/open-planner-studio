@@ -180,7 +180,8 @@
     "taskHintBelow": "選択したタスクのすぐ下に新しいタスクを追加します",
     "taskHintAppend": "リストの末尾に新しいタスクを追加します",
     "columnsHintTable": "テーブル ビューの列を選択",
-    "columnsHintGoToTable": "テーブル ビューの列を選択 — テーブル タブに表示されます"
+    "columnsHintGoToTable": "テーブル ビューの列を選択 — テーブル タブに表示されます",
+    "toggleResourceAccent": "リソースアクセント"
   },
   "ifc": {
     "title": "IFC エディタ",

@@ -44,7 +44,9 @@
     "summary": "Summary",
     "float": "Float",
     "completion": "Completion",
-    "relationStyle": "Driving / non-driving"
+    "relationStyle": "Driving / non-driving",
+    "resourcesMore_one": "… and {{count}} more resource",
+    "resourcesMore_other": "… and {{count}} more resources"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -102,5 +104,17 @@
     "total": "Milestones",
     "mandatoryCount": "Mandatory",
     "lateCount": "Late"
-  }
+  },
+  "barColorModeLabel": "Bar colors:",
+  "barColorMode_critical": "Critical path",
+  "barColorMode_task": "Per task — custom color",
+  "barColorMode_auto": "Per task — automatic",
+  "barColorMode_resource": "Per resource",
+  "statusLineLabel": "Status line:",
+  "statusLine_none": "None",
+  "statusLine_statusDate": "Status date line",
+  "statusLine_progress": "Progress line",
+  "statusLineHint": "Set a status date first",
+  "followView": "Follow view (filter, grouping, sort)",
+  "statusDateLabel": "Status date"
 }

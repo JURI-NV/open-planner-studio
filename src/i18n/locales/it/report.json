@@ -46,7 +46,10 @@
     "summary": "Riepilogo",
     "float": "Margine",
     "completion": "Avanzamento",
-    "relationStyle": "Determinante / non determinante"
+    "relationStyle": "Determinante / non determinante",
+    "resourcesMore_one": "… e {{count}} altra risorsa",
+    "resourcesMore_many": "… e {{count}} altre risorse",
+    "resourcesMore_other": "… e {{count}} altre risorse"
   },
   "tableHeaders": {
     "rowNum": "#",
@@ -104,5 +107,17 @@
     "total": "Attività cardine",
     "mandatoryCount": "Obbligatorie",
     "lateCount": "In ritardo"
-  }
+  },
+  "barColorModeLabel": "Colori barre:",
+  "barColorMode_critical": "Percorso critico",
+  "barColorMode_task": "Per attività — colore proprio",
+  "barColorMode_auto": "Per attività — automatico",
+  "barColorMode_resource": "Per risorsa",
+  "statusLineLabel": "Linea di stato:",
+  "statusLine_none": "Nessuna",
+  "statusLine_statusDate": "Linea data di stato",
+  "statusLine_progress": "Linea di avanzamento",
+  "statusLineHint": "Imposta prima una data di stato",
+  "followView": "Segui vista (filtro, raggruppamento, ordine)",
+  "statusDateLabel": "Data di stato"
 }
