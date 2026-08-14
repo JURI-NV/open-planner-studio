@@ -46,8 +46,11 @@ Drie kandidaten afgewogen:
 
 Concreet:
 
-- `ui.resourcesView` wordt `'company' | 'project' | 'occupancy'`. Bestaand persist-gedrag van
-  het veld blijft ongewijzigd.
+- `ui.resourcesView` wordt `'company' | 'project' | 'occupancy'`. Het veld is **session-only**
+  (géén `ops-`-sleutel, geen settingsRegistry-entry) en `ResourcePanel` reset het bij elke
+  mount en bij elke wijziging van `[project.companyId, linked]` bewust naar `'project'`
+  (issue #64). De Bezettingsweergave erft dat gedrag: hij is weg na sluiten/heropenen van het
+  paneel — dat is bestaand, gecontroleerd gedrag, geen omissie (critreview bevinding 6).
 - De schakelaar rechtsboven in `src/components/panels/ResourcePanel.tsx` krijgt een derde knop
   **"Bezetting"** (`t('resource.occupancyView')`). De weergave zelf komt als eigen component
   `src/components/panels/ResourceOccupancyView.tsx`, gerenderd vanuit `ResourcePanel` wanneer
@@ -84,10 +87,11 @@ export interface OccupancyDocBooking {
   docId: string;
   title: string;
   scheduleStale: boolean;
-  firstDay: string | null;  // ISO, eerste dag met belasting > 0
+  counted: boolean;         // false ⇒ stale: zichtbaar maar niet meegeteld (§4.3) — dan geen cijfers
+  firstDay: string | null;  // ISO, eerste dag met belasting > 0 (null bij counted: false)
   lastDay: string | null;
-  peak: number;             // hoogste dagbelasting binnen dít document
-  dailyLoad: Record<string, number>; // ISO-dag → belasting (alleen dagen > 0) — voedt het §5a-histogram
+  peak: number;             // hoogste dagbelasting binnen dít document (0 bij counted: false)
+  dailyLoad: Record<string, number>; // ISO-dag → belasting (alleen dagen > 0; {} bij counted: false) — voedt §5a
 }
 
 export interface OccupancyRow {
@@ -135,7 +139,7 @@ Zelfde scope als alle B1.1-mechaniek (spec B1.1 §2, "stempel-scope"):
 - Poolitems zonder enige boeking in de open documenten krijgen géén rij — het overzicht toont
   inzet, geen catalogus (die staat in de Bibliotheekweergave).
 
-### 4.3 Stale planning: tonen mét markering, nooit stil herrekenen (besluit)
+### 4.3 Stale planning: zichtbaar maar NIET meegeteld (besluit, herzien na critreview 2026-08-14)
 
 Scheduling is handmatig (`runCPM` draait niet reactief) en B1b mag geen cross-document solve
 doen (§2 punt 4). De taakdatums in een payload (`task.time.earlyStart`/`earlyFinish`) zijn dus
@@ -143,12 +147,36 @@ de **laatst doorgerekende** datums; `payload.scheduleStale` zegt of er sindsdien
 (en staat na crash-herstel altijd op `true` voor niet-actieve documenten — zie
 `payloadFromInput` in `src/state/documentContract.ts`).
 
-Beleid: zo'n document telt gewoon mee op zijn laatst bekende datums, maar draagt een zichtbare
-markering ⚠ `t('resource.occupancy.staleDoc')` op elke regel waar het in voorkomt, plus een
-bannertje boven de tabel zodra `anyStale` waar is: "minstens één document is niet doorgerekend —
-activeer het en druk F5". Weglaten zou erger zijn (boekingen verdwijnen stil uit het overzicht);
-stil herrekenen kan niet zonder de solver op een payload los te laten die niet de actieve store
-is. De gebruiker houdt de regie: document activeren, F5, terugschakelen.
+**Waarom stale cijfers niet meetellen mogen.** De eerdere versie van deze paragraaf ("telt
+gewoon mee op zijn laatst bekende datums") beloofde precisie die de engine niet levert:
+`computeResourceLoad` verdeelt over `task.time.scheduleDuration` maar mapt op
+`earlyStart..earlyFinish`, afgekapt op `min(days.length, workDayIsos.length)`
+(`ResourceLoad.ts`). Bij een stale document lopen duur en datums per definitie uiteen; het
+resultaat is dan noch de oude noch de nieuwe planning, en de fout valt afhankelijk van de
+curve willekeurig te hoog óf te laag uit — de critreview mat een geval waarin zeven echte
+conflictdagen als groen verschenen. "Verkeerd groen" is voor dit overzicht onaanvaardbaar.
+
+**Beleid (besluit):** een stale document wordt **niet meegeteld** in sommen, pieken en
+`conflictDays`, maar blijft **zichtbaar**: elke boeking (= het document heeft toewijzingen op
+aan dit poolitem gestempelde resources) verschijnt als ongenummerde subregel met
+⚠ `t('resource.occupancy.staleDoc')` ("telt niet mee — activeer dit document en druk F5"), en
+boven de tabel staat de banner zodra `anyStale` waar is. Zo verdwijnt er niets stil — de
+gebruiker ziet dát er boekingen zijn en wat hij moet doen om ze mee te laten tellen — en er
+worden geen verzonnen getallen bij het bedrijfsbeeld opgeteld. Stil herrekenen kan niet zonder
+de solver op een niet-actieve payload los te laten; de gebruiker houdt de regie: document
+activeren, F5, terugschakelen.
+
+In de kern: een booking is `counted` wanneer het document niet stale is én de berekende
+belasting op minstens één dag > 0 is. Stale documenten met toewijzingen op het item leveren
+een booking zonder cijfers (`dailyLoad: {}`, `firstDay`/`lastDay: null`, `peak: 0`,
+`scheduleStale: true`). Niet-stale documenten zonder enige belasting > 0 (bijv. een toewijzing
+met 0 eenheden, of een document zonder doorgerekende datums dat tóch niet stale gemarkeerd
+staat) leveren **géén** booking — dat voorkomt de fantoomrijen uit de critreview. Een rij
+bestaat alleen als er minstens één booking (geteld of ongeteld) is; `anyStale` staat alleen
+wanneer een ongetelde booking daadwerkelijk in het overzicht voorkomt.
+
+Voor B1c is dit een harde voorwaarde: nivelleren tegen restcapaciteit mag uitsluitend op
+getelde (niet-stale) cijfers rusten — zie §12.
 
 ### 4.4 Aanlevering vanuit de store
 
@@ -158,6 +186,12 @@ is. De gebruiker houdt de regie: document activeren, F5, terugschakelen.
 mapt per document naar `OccupancyDocInput` (titel via de bestaande `documentTitle`-helper +
 `untitledOrdinals`, zoals de tabbladen). Geen nieuwe store-actie, geen nieuw store-veld: de
 aggregatie is een leesberekening in de weergavelaag over bestaande state.
+
+**Randvoorwaarde (critreview):** `getOpenDocumentPayloads()` bouwt bij élke aanroep een verse
+array met een vers actieve-document-object — als Zustand-selector is hij dus onbruikbaar
+(scheurt of loopt oneindig). Aanroepen **binnen** de `useMemo`, nooit als
+`useAppStore(s => s.getOpenDocumentPayloads())`; abonneer op de §7-afhankelijkheden. Dit is
+dezelfde val die `useDocumentCards` al bewust ontwijkt.
 
 ## 5. Wat de weergave toont (vraag c)
 
@@ -175,7 +209,9 @@ en staat op de bewust-later-lijst (§12). De goedkoopste vorm die de vraag écht
 - **Uitklap (chevron, zelfde patroon als de `availabilitySteps`-subrij in `ResourcePanel`)**:
   één subregel per document — documenttitel, periode (`firstDay`–`lastDay`), piek in dat
   document, en de ⚠-markering bij `scheduleStale`. Zo is direct zichtbaar wélke projecten de
-  resource claimen en wie de overlap veroorzaakt.
+  resource claimen en wie de overlap veroorzaakt. Ongetelde (stale) boekingen tonen "—" op de
+  cijferplekken (§4.3); een hoofdrij met uitsluitend ongetelde boekingen toont "—" voor
+  periode en piek en krijgt nooit een conflictbadge.
 - **Sortering**: rijen met conflicten bovenaan (meeste conflictdagen eerst), daarna alfabetisch
   op poolnaam.
 - **Permanente voetnoot** onder de tabel: `t('resource.occupancy.machineOnly')` — "dit overzicht
@@ -203,9 +239,23 @@ is. De vorm blijft goedkoop en raakt de canvas-renderer niet:
 - **Techniek:** SVG in de DOM binnen `ResourceOccupancyView`, niet de canvas-`HistogramRenderer`
   — die hangt aan de tijdschaal van het actieve project; hem losweken is het open P7/M5-werk
   (TimeAxis/ThemePalette) en hoort niet in B1b. De databron is het `dailyLoad`-veld per
-  `OccupancyDocBooking` (§4.1); de UI sommeert zelf.
+  `OccupancyDocBooking` (§4.1); de UI sommeert zelf, uitsluitend over `counted` boekingen (§4.3).
+- **X-as-domein en begrenzing (critreview bevinding 5):** het domein is de vereniging van de
+  gételde geboekte dagen, **met gatcompressie**: een aaneengesloten gat van meer dan 30
+  kalenderdagen zonder enige boeking wordt ingeklapt tot één smalle visuele breukmarkering
+  ("⋯"), zodat twee documenten die jaren uit elkaar liggen geen duizenden lege kolommen
+  produceren. Binnen de getoonde segmenten blijft de granulariteit één dag; wordt het geheel
+  breder dan het paneel, dan scrollt de chart horizontaal in zijn eigen container. De
+  capaciteitslijn wordt per getoond segment getekend en de padopbouw hoort **binnen** de memo,
+  niet in de render-body. (De zusterfunctie `computeHistogramReport` kreeg eerder om precies
+  deze reden `from`/`to`/`bucket` — onbegrensde dag-granulariteit is hier al één keer eerder
+  misgegaan.)
+- **Schrijfrichting:** de chart is geforceerd LTR, óók onder `ar`/`fa` — een tijdas spiegelt
+  in dit product nergens (de Gantt-canvas evenmin); de omringende tabel en legenda volgen
+  gewoon de documentrichting.
 - **Zonder selectie**: hint `t('resource.occupancy.selectHint')` ("Selecteer een resource om het
-  histogram te zien.").
+  histogram te zien."). Een rij met uitsluitend ongetelde (stale) boekingen toont geen chart
+  maar de stale-uitleg.
 - Strikt binnen één bibliotheek — het besluit van 2026-07-20 tegen bedrijfsoverstijgende
   histogrammen blijft onverkort staan; dit is een per-poolitem-weergave binnen de gekozen pool.
 
@@ -232,7 +282,10 @@ Twee bewuste vereenvoudigingen **(besluit)**:
    werkdagen van dát document (zo werkt `computeResourceLoad`); een extra pool-kalendercheck
    zou dagen met echte boekingen als capaciteit-0 kunnen bestempelen en valse conflicten tonen
    wanneer projectkalenders en poolkalender uiteenlopen. "Werkt de resource die dag wel" blijft
-   de per-project-vraag van het bestaande histogram.
+   de per-project-vraag van het bestaande histogram. **Keerzijde, even bewust aanvaard:** bij
+   documenten met uiteenlopende werkweken kan een conflictdag landen op een dag waarop het
+   bedrijf zelf niet werkt — het overzicht velt geen kalenderoordeel over de som, geen van
+   beide richtingen (critreview bevinding 9).
 2. **Binnen-document-overbezetting telt gewoon mee in de som.** Eén document dat in z'n eentje
    boven de poolcapaciteit boekt, verschijnt hier dus ook als conflict. Dat is juist: de vraag
    is bedrijfsbreed, en het uitklapniveau (§5) laat meteen zien dat er maar één veroorzaker is.
@@ -245,16 +298,25 @@ Twee bewuste vereenvoudigingen **(besluit)**:
 - **Memoization:** één `useMemo` in de component rond
   `computeLibraryOccupancy`, met als afhankelijkheden de identiteiten van `s.documents`,
   `s.pools[cid]`, en de top-level velden van het actieve document
-  (`s.resources`, `s.assignments`, `s.tasks`, `s.calendar`, `s.calendars`,
-  `s.scheduleStale`). Immer geeft nieuwe referenties bij elke mutatie, dus dit is
-  vanzelf correct: bewerk je het actieve document of de pool terwijl de weergave openstaat, dan
-  herrekent hij; slapende payloads wijzigen alleen op de vier verversingsgrenzen en die
-  vervangen de payload-referentie. Geen eigen cache-laag, geen invalidatie-boekhouding.
+  (`s.resources`, `s.assignments`, `s.tasks`, `s.calendar`, `s.calendars`, `s.scheduleStale`,
+  **plus `s.project` en `s.filePath`** — de titelafleiding leest die twee, dus zonder deze deps
+  bevriezen de documenttitels na hernoemen/Opslaan-als; critreview bevinding 3, zelfde
+  dep-lijst als `useDocumentCards`). Immer geeft nieuwe referenties bij elke mutatie, dus dit
+  is correct voor velden waarop daadwerkelijk geabonneerd is; slapende payloads wijzigen
+  alleen op de vier verversingsgrenzen en die vervangen de payload-referentie.
+- **Per-payload-cache (critreview bevinding 4):** zolang de weergave openstaat, is elke
+  taak-/toewijzingsbewerking in het actieve document een memo-invalidatie — het naastgelegen
+  takenraster blijft immers bedienbaar. Zónder maatregel herrekent elke toetsaanslag de load
+  van álle N documenten. Daarom cachet de component de per-document-load in een `WeakMap`
+  gesleuteld op payload-referentie: slapende payloads zijn referentiestabiel en komen uit de
+  cache, alleen het actieve document rekent opnieuw — daarmee is de per-bewerking-kost gelijk
+  aan die van het bestaande projecthistogram, ongeacht N. (De eerdere raming "zelfde
+  ordegrootte als `switchDocument`" gold per documentwissel, niet per toetsaanslag; de trigger
+  is bewerkfrequentie, niet documentaantal.)
 - **Kostenraming:** `computeResourceLoad` is O(assignments × taakduur) per document; N is het
-  aantal open tabbladen (praktisch ≤ ~10). Dit is dezelfde ordegrootte als wat `switchDocument`
-  nu al bij elke wissel draait voor één document — ruim binnen een render-frame, geen
-  `execute_async`/worker nodig. Mocht dit ooit knellen (honderden documenten), dan is een
-  per-docId-memoisatie op payload-referentie de voor de hand liggende stap — bewust later.
+  aantal open tabbladen (praktisch ≤ ~10). Met de per-payload-cache is de steady-state-kost
+  per bewerking die van één document. De §5a-chart rendert alleen voor de geselecteerde rij;
+  zijn padopbouw en segmentindeling zitten in de memo (§5a), niet in de render-body.
 
 ## 8. i18n (vraag f)
 
@@ -265,8 +327,8 @@ Nieuwe sleutels in `common`, onder het bestaande `resource.*`-blok, in alle veer
 - `resource.occupancyView` — "Bezetting" (derde stand van de schakelaar)
 - `resource.occupancy.empty` — "Geen bibliotheekresources geboekt in de geopende documenten."
 - `resource.occupancy.machineOnly` — "Dit overzicht ziet alleen documenten die op deze computer geopend zijn."
-- `resource.occupancy.staleDoc` — "Planning niet doorgerekend — activeer dit document en druk F5."
-- `resource.occupancy.staleBanner` — "Minstens één document is niet doorgerekend; cijfers kunnen verouderd zijn."
+- `resource.occupancy.staleDoc` — "Telt niet mee: planning niet doorgerekend — activeer dit document en druk F5."
+- `resource.occupancy.staleBanner` — "Minstens één document is niet doorgerekend en telt niet mee in de bezetting."
 - `resource.occupancy.docCount_one` / `_other` — "{{count}} document" / "{{count}} documenten"
 - `resource.occupancy.conflictDays_one` / `_other` — "{{count}} dag dubbel geboekt" / "{{count}} dagen dubbel geboekt"
 - `resource.occupancy.period` / `resource.occupancy.peak` / `resource.occupancy.capacity` /
@@ -314,13 +376,24 @@ bibliotheeksuite. Model: `tests/library/run.sh` bundelt elke `check-*.ts` met es
 5. Wees (stempel wijst naar verwijderd poolitem) ⇒ geen rij.
 6. Twee poolitems met identieke naam maar verschillende id's ⇒ blijven twee losse rijen
    (bewijst id-matching, nooit naam).
-7. `scheduleStale`-document ⇒ telt mee én `anyStale`/`OccupancyDocBooking.scheduleStale` staan.
+7. `scheduleStale`-document ⇒ telt NIET mee in sommen/`conflictDays` (§4.3 herzien), maar de
+   booking is zichtbaar (`counted: false`, geen cijfers) én `anyStale` staat.
 8. Binnen-document-overbezetting in één document ⇒ verschijnt als conflict (§6 punt 2).
 9. Curve-consistentie: een `FRONT_LOADED`-toewijzing levert per dag exact dezelfde bijdrage als
    `computeResourceLoad` voor dat document alleen (som-invariant).
 10. `dailyLoad`-consistentie (§5a): de som van `dailyLoad` over documenten per dag matcht de
     som-invariant van case 9, en alle dagen in `dailyLoad` vallen binnen `firstDay`..`lastDay`
     van die booking.
+11. Stale-uitsluiting maskeert geen conflict verkeerd-groen: een stale document naast een
+    niet-stale dat in z'n eentje boven capaciteit boekt ⇒ conflict blijft staan; en een som
+    die alléén mét het stale document boven capaciteit zou komen ⇒ géén conflictdag, wél
+    `anyStale` + ongetelde booking (de banner draagt de waarschuwing).
+12. Fantoomrij-triggers (critreview bevinding 2): een niet-stale toewijzing met
+    `unitsPerDay: 0` ⇒ geen booking en (zonder andere boekingen) geen rij; een niet-stale
+    document zonder doorgerekende datums (`earlyStart: ''`) ⇒ idem.
+13. Stale-detectie: een document met toewijzingen op het poolitem en `scheduleStale: true`
+    maar zónder bruikbare datums ⇒ tóch een zichtbare ongetelde booking (niets verdwijnt
+    stil).
 
 De i18n-sleutels worden vanzelf bewaakt door `npm run verify:i18n` (pluralcategorieën) en het
 artikel door `npm run verify:docs`. De UI-kant (derde schakelstand, uitklap) is Tier-1
@@ -349,8 +422,11 @@ dat gedragspoorten headless zijn.
   conflictregel het veroorzakende document activeren en dáár nivelleren tegen de
   bedrijfscapaciteit mín wat de andere open documenten die dag boeken. Krijgt een eigen
   ontwerpdoc ná oplevering van B1b; open ontwerpvragen: wie wijkt, per-dag-capaciteitsprofiel
-  de nivelleerder in, omgang met verouderde planningen. Echt simultaan cross-document
-  nivelleren blijft aan item 41 (`createAppStore()`) hangen.
+  de nivelleerder in, omgang met verouderde planningen. **Harde voorwaarde uit de critreview:**
+  restcapaciteit mag uitsluitend uit gételde (niet-stale) boekingen worden afgeleid — nivelleren
+  tegen cijfers van een stale document is nivelleren tegen een getal dat nergens vandaan komt
+  (§4.3). Echt simultaan cross-document nivelleren blijft aan item 41 (`createAppStore()`)
+  hangen.
 - **Bibliotheekkiezer voor losse documenten** zodat het overzicht ook zonder gekoppeld actief
   document te openen is.
 - **Per-docId-memoisatie** van de per-document-load (payload-referentie als sleutel) — alleen
