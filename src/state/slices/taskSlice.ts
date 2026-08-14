@@ -290,6 +290,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // Overerving (2026-08-14): een taak met een bestaande ouder neemt diens taskType over als de
       // aanroeper zelf geen taskType opgeeft — vóór de bouwmodus-brede default. Geldt alleen op het
       // moment van aanmaken; indenteren/verslepen van een bestaande taak laat taskType met rust.
+      // Zelfde regel in het MCP-pad: zie mcpTransaction.ts draft.addTask.
       const parentTask = parentId ? s.tasks.find(t => t.id === parentId) : undefined;
 
       const task: Task = {
