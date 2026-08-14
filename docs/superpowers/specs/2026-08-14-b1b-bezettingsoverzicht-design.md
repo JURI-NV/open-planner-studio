@@ -139,7 +139,35 @@ Zelfde scope als alle B1.1-mechaniek (spec B1.1 §2, "stempel-scope"):
 - Poolitems zonder enige boeking in de open documenten krijgen géén rij — het overzicht toont
   inzet, geen catalogus (die staat in de Bibliotheekweergave).
 
-### 4.3 Stale planning: zichtbaar maar NIET meegeteld (besluit, herzien na critreview 2026-08-14)
+### 4.3b Stale planning v2: efemeer doorrekenen (besluit eigenaar 2026-08-14, vervangt 4.3-beleid)
+
+De eigenaar heeft na oplevering van v1 besloten dat het overzicht stale documenten **zelf
+doorrekent** in plaats van ze uit te sluiten: "je zou toch gewoon alles kunnen berekenen voor
+je dat overzicht geeft" — dat kost weinig rekentijd en bespaart de gebruiker de
+activeer-en-F5-rondgang. De eerdere aanname dat dit cross-document solve zou vergen klopt
+niet: de solver draait al headless buiten de store (de benchmark doet `new CPMSolver(...)
+.solve()` + `applyCpmResult` op plain data, zonder Immer of de actieve store).
+
+- **Efemeer, nooit terugschrijvend:** bij het opbouwen van de aggregatie wordt elk document
+  met `scheduleStale: true` (inclusief het actieve) in het geheugen doorgerekend op een
+  kloon van zijn taken; de payload/store blijft onaangeraakt en het document zelf toont zijn
+  oude datums tot de gebruiker echt F5 drukt.
+- **Pariteit by construction:** de solve-kern van `runCPM` (solver-opties, statusdatum,
+  geavanceerde-CPM-nabewerking) wordt geëxtraheerd naar één pure functie die zowel `runCPM`
+  als het overzicht aanroepen — geen tweede implementatie die kan divergeren. Dit is meteen
+  prestatie-audit-item A3/M3 (solver injecteerbaar, buiten de Immer-produce); de bestaande
+  planningssuite is het vangnet voor de extractie.
+- **De ⚠ verandert van betekenis:** een doorgerekend-stale document telt gewoon mee
+  (`counted: true`) maar draagt een informatieve markering — "dit document zelf is nog niet
+  doorgerekend; het overzicht rekent alvast met de actuele invoer (F5 in het document om het
+  daar ook te zien)". De banner idem.
+- **Vangnet:** faalt de efemere solve (bijv. een relatiecyclus of een solverfout), dan valt
+  dát document terug op het 4.3-gedrag hieronder: zichtbaar maar niet meegeteld, met de
+  niet-meegeteld-⚠. De fantoomrij-guards blijven onverkort gelden.
+- **Cache:** de efemere solve valt onder dezelfde per-payload-cache als de load (§7) —
+  één keer per payload-versie, niet per toetsaanslag.
+
+### 4.3 Stale planning zonder efemere solve: zichtbaar maar NIET meegeteld (vangnetgedrag; herzien na critreview 2026-08-14)
 
 Scheduling is handmatig (`runCPM` draait niet reactief) en B1b mag geen cross-document solve
 doen (§2 punt 4). De taakdatums in een payload (`task.time.earlyStart`/`earlyFinish`) zijn dus
@@ -384,16 +412,23 @@ bibliotheeksuite. Model: `tests/library/run.sh` bundelt elke `check-*.ts` met es
 10. `dailyLoad`-consistentie (§5a): de som van `dailyLoad` over documenten per dag matcht de
     som-invariant van case 9, en alle dagen in `dailyLoad` vallen binnen `firstDay`..`lastDay`
     van die booking.
-11. Stale-uitsluiting maskeert geen conflict verkeerd-groen: een stale document naast een
-    niet-stale dat in z'n eentje boven capaciteit boekt ⇒ conflict blijft staan; en een som
-    die alléén mét het stale document boven capaciteit zou komen ⇒ géén conflictdag, wél
-    `anyStale` + ongetelde booking (de banner draagt de waarschuwing).
+11. Stale-uitsluiting (vangnetgedrag zonder solve-injectie) maskeert geen conflict
+    verkeerd-groen: een stale document naast een niet-stale dat in z'n eentje boven
+    capaciteit boekt ⇒ conflict blijft staan; en een som die alléén mét het stale document
+    boven capaciteit zou komen ⇒ géén conflictdag, wél `anyStale` + ongetelde booking.
 12. Fantoomrij-triggers (critreview bevinding 2): een niet-stale toewijzing met
     `unitsPerDay: 0` ⇒ geen booking en (zonder andere boekingen) geen rij; een niet-stale
     document zonder doorgerekende datums (`earlyStart: ''`) ⇒ idem.
 13. Stale-detectie: een document met toewijzingen op het poolitem en `scheduleStale: true`
     maar zónder bruikbare datums ⇒ tóch een zichtbare ongetelde booking (niets verdwijnt
-    stil).
+    stil) — geldt in het vangnetpad (geen of falende solve-injectie).
+14. Efemere solve (§4.3b): een stale document mét solve-injectie ⇒ `counted: true`, cijfers
+    exact gelijk aan wat dezelfde invoer ná runCPM zou geven (pariteits-assert via de
+    gedeelde solve-kern), `scheduleStale` blijft true (voor de informatieve ⚠).
+15. Efemere solve faalt (injectie gooit/geeft null, bijv. cyclus) ⇒ terugval op case 13-
+    gedrag: zichtbaar, ongeteld, `anyStale`.
+16. De efemere solve muteert zijn invoer niet: payload-taken zijn ná de aanroep byte-gelijk
+    aan ervoor.
 
 De i18n-sleutels worden vanzelf bewaakt door `npm run verify:i18n` (pluralcategorieën) en het
 artikel door `npm run verify:docs`. De UI-kant (derde schakelstand, uitklap) is Tier-1
