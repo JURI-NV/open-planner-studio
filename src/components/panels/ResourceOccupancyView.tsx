@@ -66,12 +66,15 @@ function librarySlice(payload: DocumentPayload, companyId: string, poolItemIds: 
  *
  * Stale documenten (§4.3b): de kern rekent ze efemeer door op een kloon van hun taken — deze
  * weergave levert daarvoor `solveInput` aan (volledige taken/relaties + de projectopties) en zo'n
- * document telt gewoon mee (`counted: true`) met `scheduleStale: true` als informatieve markering.
- * Lukt de solve niet (cyclus, solverfout), dan valt het document terug op het vangnet (§4.3):
- * `counted: false`, geen cijfers. Deze weergave toont ongetelde boekingen als "—"-subregels met ⚠
- * en de staleDoc-uitleg, en een banner zodra `anyStale` waar is. Een rij met uitsluitend ongetelde
- * boekingen toont "—" voor periode/piek, krijgt nooit een conflictbadge en bij selectie geen chart
- * maar de stale-uitleg.
+ * document telt gewoon mee (`counted: true`) met `scheduleStale: true` als INFORMATIEVE markering
+ * (`staleComputedDoc`/`staleComputedBanner`, hint-stijl — geen fout): de cijfers verschijnen gewoon
+ * en het document doet gewoon mee in de som, de chart en de legenda. Lukt de solve niet (cyclus,
+ * solverfout), dan valt het document terug op het vangnet (§4.3): `counted: false`, geen cijfers —
+ * die booking blijft de bestaande "—"-subregel met ⚠ en de staleDoc-uitleg. De banner kiest tussen
+ * de twee: minstens één ONGETELDE booking ⇒ de bestaande waarschuwing (`staleBanner`); zijn er
+ * alléén gételde stale boekingen ⇒ de informatieve variant (`staleComputedBanner`). Een rij met
+ * uitsluitend ongetelde boekingen toont "—" voor periode/piek, krijgt nooit een conflictbadge en
+ * bij selectie geen chart maar de stale-uitleg.
  *
  * Prestaties (§7): lazy — dit component mount alleen in de Bezettingsweergave — en één `useMemo`
  * rond `computeLibraryOccupancy`, met als afhankelijkheden de identiteiten van `s.documents`, de
@@ -122,7 +125,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   // referentie.
   const sliceCache = useMemo(() => new WeakMap<DocumentPayload, LibrarySlice>(), [companyId, pool]);
 
-  const { rows, anyStale } = useMemo(() => {
+  const { rows, anyUncountedStale, anyCountedStale } = useMemo(() => {
     const payloads = getOpenDocumentPayloads();
     // Zelfde titel-afleiding als de tabbladen: rauwe titels eerst, dan volgnummers voor naamloze
     // documenten, dan het vertaalde label eromheen (zie `getOpenDocuments`/`useDocumentCards`).
@@ -165,7 +168,19 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
     // op poolnaam — de kern levert bewust de neutrale poolvolgorde.
     const sorted = [...result.rows].sort((a, b) =>
       (b.conflictDays.length - a.conflictDays.length) || a.name.localeCompare(b.name, i18n.language));
-    return { rows: sorted, anyStale: result.anyStale };
+    // Twee stale-soorten (§4.3b) voor de banner-keuze: minstens één ONGETELDE booking (vangnet,
+    // §4.3) ⇒ de bestaande waarschuwing wint; zijn alle stale boekingen gewoon geteld (efemeer
+    // doorgerekend) ⇒ de informatieve variant. `result.anyStale` dekt beide gevallen samen en is
+    // hier niet fijnmazig genoeg voor die keuze.
+    let anyUncountedStale = false;
+    let anyCountedStale = false;
+    for (const row of sorted) {
+      for (const doc of row.docs) {
+        if (!doc.counted) anyUncountedStale = true;
+        else if (doc.scheduleStale) anyCountedStale = true;
+      }
+    }
+    return { rows: sorted, anyUncountedStale, anyCountedStale };
   }, [
     getOpenDocumentPayloads, sliceCache, documents, pool, companyId, untitledLabel, i18n.language,
     activeProject, activeFilePath,
@@ -210,9 +225,10 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
 
   return (
     <div className="flex-1 overflow-auto" data-ops-occupancy-view>
-      {anyStale && (
-        // Zelfde waarschuwingsbanner-vorm als de Bibliotheekweergave-hint: semantische
-        // --warning-token + per-thema --theme-warning-text, leesbaar in alle drie de thema's.
+      {anyUncountedStale ? (
+        // Vangnetpad (§4.3): minstens één booking telt niet mee — een echte waarschuwing. Zelfde
+        // vorm als de Bibliotheekweergave-hint: semantische --warning-token + per-thema
+        // --theme-warning-text, leesbaar in alle drie de thema's.
         <div
           className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-[8px] border font-medium"
           style={{
@@ -225,6 +241,22 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
         >
           <AlertTriangle size={14} className="shrink-0" aria-hidden />
           <span>{t('resource.occupancy.staleBanner')}</span>
+        </div>
+      ) : anyCountedStale && (
+        // §4.3b: alle stale documenten in dit overzicht zijn efemeer doorgerekend en tellen gewoon
+        // mee — informatief, geen fout. Zelfde vorm als hierboven, maar met de bestaande "dim"-stijl
+        // (--theme-text-dim / text-text-secondary) in plaats van de waarschuwingskleur.
+        <div
+          className="flex items-center gap-2 mx-2 mt-2 px-2.5 py-1.5 rounded-[8px] border font-medium text-text-secondary"
+          style={{
+            background: 'color-mix(in srgb, var(--theme-text-dim) 12%, transparent)',
+            borderColor: 'var(--theme-text-dim)',
+          }}
+          role="status"
+          data-ops-occupancy-stale-computed-banner
+        >
+          <AlertTriangle size={14} className="shrink-0" aria-hidden />
+          <span>{t('resource.occupancy.staleComputedBanner')}</span>
         </div>
       )}
 
@@ -321,7 +353,8 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                               <span className="tabular-nums text-text-secondary">
                                 {t('resource.occupancy.peak')}: {doc.counted ? unitsFmt.format(doc.peak) : '—'}
                               </span>
-                              {!doc.counted && (
+                              {!doc.counted ? (
+                                // Vangnetpad (§4.3): geen cijfers, echte waarschuwing.
                                 <span
                                   className="inline-flex items-center gap-1 flex-shrink-0"
                                   style={{ color: 'var(--theme-warning-text)' }}
@@ -330,6 +363,17 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                                 >
                                   <AlertTriangle size={12} aria-hidden />
                                   <span className="text-[10px]">{t('resource.occupancy.staleDoc')}</span>
+                                </span>
+                              ) : doc.scheduleStale && (
+                                // §4.3b: efemeer doorgerekend — de cijfers hierboven zijn al de
+                                // actuele; dit is een informatieve hint, geen fout (dim-stijl).
+                                <span
+                                  className="inline-flex items-center gap-1 flex-shrink-0 text-text-secondary"
+                                  title={t('resource.occupancy.staleComputedDoc')}
+                                  data-ops-occupancy-stale-computed-doc
+                                >
+                                  <AlertTriangle size={12} aria-hidden />
+                                  <span className="text-[10px]">{t('resource.occupancy.staleComputedDoc')}</span>
                                 </span>
                               )}
                             </div>
