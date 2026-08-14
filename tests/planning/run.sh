@@ -145,6 +145,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ADCHECK="$DIR/.adapters-hours-check.mjs"
   if bundle_check "$DIR/check-adapters-hours.ts" "$ADCHECK"; then node "$ADCHECK" || STATUS=1; fi
 
+  # MPP-import (fase 3.8 e1): CFB/OLE2 + MPP14-lezer tegen het lokale corpus (echte bedrijfs-
+  # bestanden, NIET in de repo). Zonder corpus (CI) slaat de check netjes over met een OK-regel.
+  MPPCHECK="$DIR/.mpp-import.mjs"
+  if bundle_check "$DIR/check-mpp-import.ts" "$MPPCHECK"; then node "$MPPCHECK" || STATUS=1; fi
+
   # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
   # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
   # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).
