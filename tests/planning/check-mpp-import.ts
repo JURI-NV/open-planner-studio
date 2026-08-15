@@ -62,6 +62,7 @@ import {
   buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb, buildNestedCfb,
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   expectCfbError, expectMppError, bytesEqual, buildVarMetaBytes,
+  buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock,
   type CfbTreeNode,
 } from './mppFixtures';
 import { readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL } from '@/services/mpp/mppReader';
@@ -1131,6 +1132,202 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// UURMODUS (etappe 1.5) — synthetische/corpusloze end-to-end fixtures: draaien ALTIJD, ook zonder
+// corpus (spiegelt de I4-sectie hierboven, T5-conventie). Twee bewust MINIMAAL verschillende
+// fixtures — beide met EXACT dezelfde kalendervorm (één band per werkdag, 08:00-16:00, 8u/dag —
+// GEEN lunchpauze-splitsing, dus discriminator (a)/(b) vuurt NOOIT vanuit de kalender zelf) — zodat
+// de enige variabele het TAAK-(c)-signaal is (isSubDayMinutes/hasNonAnchorTime), niet de
+// kalenderbanden. Dat isoleert deze etappe se daadwerkelijke toevoeging (T6's kalenderbanden-
+// discriminator werd al door de I4/T6-fixture in check-mpp-calendars.ts bewezen).
+{
+  const PASSWORD_FLAG_KEY = 893386752;
+  const PROJECT_START_DATE_KEY = 37748738;
+  const PROJECT_FINISH_DATE_KEY = 37748739;
+  const TITLE_KEY = 37748744;
+  const DEFAULT_CALENDAR_NAME_KEY = 37748750;
+
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  /** Eén TBkndTask/FixedData-record (130 bytes, LETTERLIJKE default-offsets — zie de I4-toelichting
+   *  hierboven) — hier met EXPLICIETE start-/finish-TIJD (niet alleen -dag), zodat de datum-kant
+   *  van discriminator (c) (`hasNonAnchorTime`) ook gericht te sturen is. */
+  function buildHourTaskFixedDataRecord(opts: {
+    uniqueId: number; id: number; durationRaw: number;
+    startTime: number; startDays: number; finishTime: number; finishDays: number;
+  }): Uint8Array {
+    const out = new Uint8Array(130);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, opts.uniqueId, true);
+    view.setInt32(4, opts.id, true);
+    view.setInt16(40, 1, true); // outlineLevel = 1
+    view.setInt32(42, opts.durationRaw, true);
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setUint16(64, opts.startTime, true);
+    view.setUint16(66, opts.startDays, true);
+    view.setUint16(68, opts.finishTime, true);
+    view.setUint16(70, opts.finishDays, true);
+    view.setInt32(118, -1, true); // geen taak-kalender-override — gebruik de projectkalender
+    return out;
+  }
+
+  function buildTaskFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
+    const out = new Uint8Array(47);
+    new DataView(out.buffer).setInt32(4, offsetIntoFixedData, true); // flags: niet verwijderd, geen milestone
+    return out;
+  }
+
+  function buildFixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  /** Bouwt één compleet CFB-bestand: 1 taak (op de gegeven duur/tijden) + 1 kalender ZONDER
+   *  lunchpauze-splitsing (dus zelf niet-deviërend) — de projectkalender via DEFAULT_CALENDAR_NAME. */
+  function buildFixture(opts: { taskName: string; durationRaw: number; startTime: number; startDays: number; finishTime: number; finishDays: number }): Uint8Array {
+    const dummy = buildTaskFixedMetaRecord(0);
+    // offsetIntoFixedData === 3*130 (390): matcht de BYTE-offset waarop `dataTask` hieronder in
+    // `fixedDataBlob` geschreven wordt (spiegelt de I4-fixture: dat veld is een BYTE-offset in
+    // FixedData, geen 1-op-1-indexrelatie met de positie in FixedMeta).
+    const metaTask = buildTaskFixedMetaRecord(3 * 130);
+    const fixedMetaBlob = buildFixedMetaBlob([dummy, dummy, dummy, metaTask]);
+
+    const dataTask = buildHourTaskFixedDataRecord({
+      uniqueId: 10, id: 1, durationRaw: opts.durationRaw,
+      startTime: opts.startTime, startDays: opts.startDays, finishTime: opts.finishTime, finishDays: opts.finishDays,
+    });
+    const fixedDataBlob = new Uint8Array(4 * 130);
+    fixedDataBlob.set(dataTask, 3 * 130);
+
+    const taskVarMetaBytes = buildVarMetaBytes([{ uniqueId: 10, type: 14, offset: 0 }]);
+    const namePayload = encodeUnicodeStringAscii(opts.taskName);
+    const taskVar2DataBuf = new Uint8Array(4 + namePayload.length);
+    new DataView(taskVar2DataBuf.buffer).setInt32(0, namePayload.length, true);
+    taskVar2DataBuf.set(namePayload, 4);
+
+    // Kalender calId=1: ma-vr, ÉÉN band 08:00-16:00 (480-960, dus 480 minuten = 8u), geen
+    // lunchpauze — canonicalizeBands.deviates === false op zichzelf (geen (a)/(b)-signaal).
+    const hoursBlock = buildCalHoursBlock([
+      { defaultFlag: 0 },
+      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+      { defaultFlag: 0 },
+    ]);
+    const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
+    const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
+    const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
+    const calVarMetaBytes = buildVarMetaBytes([
+      { uniqueId: 1, type: 1, offset: CAL_NAME_OFF },
+      { uniqueId: 1, type: 8, offset: CAL_DATA_OFF },
+    ]);
+    const calVar2DataBuf = new Uint8Array(700);
+    const calVar2View = new DataView(calVar2DataBuf.buffer);
+    const writeCalVar2 = (offset: number, payload: Uint8Array) => {
+      calVar2View.setInt32(offset, payload.length, true);
+      calVar2DataBuf.set(payload, offset + 4);
+    };
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii('Enkelband fixture'));
+    writeCalVar2(CAL_DATA_OFF, hoursBlock);
+
+    const projectPropsBytes = encodePropsEntries([
+      { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
+      { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
+      { key: TITLE_KEY, data: encodeUnicodeStringAscii('Uurmodus-fixture') },
+      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii('Enkelband fixture') },
+    ]);
+
+    const tree: Record<string, CfbTreeNode> = {
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+      Props14: { data: encodePropsSingleByteEntry(PASSWORD_FLAG_KEY, 0) },
+      '   114': {
+        children: {
+          Props: { data: projectPropsBytes },
+          TBkndTask: {
+            children: {
+              FixedMeta: { data: fixedMetaBlob },
+              FixedData: { data: fixedDataBlob },
+              VarMeta: { data: taskVarMetaBytes },
+              Var2Data: { data: taskVar2DataBuf },
+            },
+          },
+          TBkndCal: {
+            children: {
+              FixedMeta: { data: calFixedMetaBlob },
+              FixedData: { data: calFixedDataBlob },
+              VarMeta: { data: calVarMetaBytes },
+              Var2Data: { data: calVar2DataBuf },
+            },
+          },
+        },
+      },
+    };
+    return buildNestedCfb(tree);
+  }
+
+  // ── Fixture 1: uren-taak — 2 uur (1200 tienden-van-minuut = 120 minuten) op een kalender die
+  // zelf NIET deviëert ⇒ promotie kan hier UITSLUITEND van het taak-(c)-signaal komen. Start
+  // 08:00 (== anker, geen datumsignaal daar), Finish 10:00 (≠ anker — dus zowel het duur- als het
+  // datumsignaal vuurt, een dubbele bevestiging). ──────────────────────────────────────────────
+  {
+    const bytes = buildFixture({ taskName: 'HourTask', durationRaw: 1200, startTime: 4800, startDays: 15000, finishTime: 6000, finishDays: 15000 });
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (uren-taak): readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('uurmodus-fixture (uren-taak): 1 taak', result.tasks.length === 1);
+      const task = result.tasks[0];
+      truthy('uurmodus-fixture (uren-taak): projectkalender.workTime gezet (taak-signaal, GEEN eigen kalenderdeviatie)', !!result.calendar.workTime);
+      truthy('uurmodus-fixture (uren-taak): durationMinutes === 120 (geen dag-afronding naar 0)', task?.time.durationMinutes === 120);
+      truthy('uurmodus-fixture (uren-taak): scheduleDuration === 0.25 (120min / 8u), NIET 0', task?.time.scheduleDuration === 0.25);
+      truthy('uurmodus-fixture (uren-taak): scheduleStart draagt een tijdcomponent ("T" aanwezig)', !!task?.time.scheduleStart.includes('T'));
+      truthy('uurmodus-fixture (uren-taak): scheduleStart === 08:00', task?.time.scheduleStart.endsWith('T08:00'));
+      truthy('uurmodus-fixture (uren-taak): scheduleFinish === 10:00', task?.time.scheduleFinish.endsWith('T10:00'));
+    }
+  }
+
+  // ── Fixture 2: dag-modus-contrastcase — EXACT dezelfde kalendervorm, maar een taak met een
+  // duur die een heel aantal werkdagen beslaat (4800 tienden-van-minuut = 480 minuten = 8u = 1
+  // dag @ dit kalender se eigen 8u/dag) en Start/Finish die BEIDE op het kalender-anker (08:00)
+  // landen ⇒ geen enkel (c)-signaal ⇒ GEEN workTime-/durationMinutes-lek. ─────────────────────
+  {
+    const bytes = buildFixture({ taskName: 'DayTask', durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15001 });
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (dag-contrast): readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('uurmodus-fixture (dag-contrast): 1 taak', result.tasks.length === 1);
+      const task = result.tasks[0];
+      truthy('uurmodus-fixture (dag-contrast): projectkalender.workTime NIET gezet (geen lek)', !result.calendar.workTime);
+      truthy('uurmodus-fixture (dag-contrast): durationMinutes NIET gezet (geen lek)', task?.time.durationMinutes === undefined);
+      truthy('uurmodus-fixture (dag-contrast): scheduleDuration === 1 dag', task?.time.scheduleDuration === 1);
+      truthy('uurmodus-fixture (dag-contrast): scheduleStart is dag-alleen (geen "T")', !task?.time.scheduleStart.includes('T'));
+      truthy('uurmodus-fixture (dag-contrast): scheduleFinish is dag-alleen (geen "T")', !task?.time.scheduleFinish.includes('T'));
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Corpus-gedreven structuurcheck (optioneel — zie moduleheader)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 const CORPUS =
@@ -1317,9 +1514,15 @@ if (corpusPresent) {
    *  per veldsoort, niet één gezamenlijke som die een regressie in het ene veld door ruimte in het
    *  andere kan laten wegvallen). */
   const FIELD_DIFF_BUDGET: Record<string, FieldDiffBudget> = {
-    'Bijlage 13 Productieplanning.mpp': { start: 12, finish: 12, duration: 5, outlineDepth: 5, constraintDate: 0 },
-    'Bijlage 20 productieplanning PKB.mpp': { start: 95, finish: 96, duration: 7, outlineDepth: 2, constraintDate: 0 },
-    'bijlage 7 Productie planning.mpp': { start: 53, finish: 53, duration: 10, outlineDepth: 5, constraintDate: 2 },
+    // Etappe 1.5 (uurmodus, 2026-08-15) hermeting — zie "UURMODUS (etappe 1.5)" hieronder voor de
+    // volledige toelichting. start/finish: ONGEWIJZIGD t.o.v. etappe 1 (12/12, 95/96, 53/53) — de
+    // dag-prefix van een timestamp is identiek ongeacht dag- of uur-pad. duration: GEGROEID (was
+    // 5/7/10, nu 8/14/28) — bij minuut-precieze vergelijking (bothHour) is de duur-afwijking GEEN
+    // afrondingsartefact meer maar een rechtstreekse meting van het documentversieverschil (zie de
+    // T5-moduleheader) — de grovere dag-afgeronde vergelijking maskeerde een deel daarvan.
+    'Bijlage 13 Productieplanning.mpp': { start: 12, finish: 12, duration: 8, outlineDepth: 5, constraintDate: 0 },
+    'Bijlage 20 productieplanning PKB.mpp': { start: 95, finish: 96, duration: 14, outlineDepth: 2, constraintDate: 0 },
+    'bijlage 7 Productie planning.mpp': { start: 53, finish: 53, duration: 28, outlineDepth: 5, constraintDate: 2 },
   };
 
   /** Vorm-check voor een outline-genereerde WBS-code ("1", "1.2", "1.2.3", …) — zie de toelichting
@@ -1422,11 +1625,25 @@ if (corpusPresent) {
       // Budget-gedekt PER VELDSOORT (documentversieverschil/uur-modus-gat, zie moduleheader) —
       // GEEN harde `truthy`: geteld in `fieldDiffCount` (per soort) en volledig gelogd in
       // `fieldDiagnostics`, niet in `diffs`.
+      // Uurmodus (etappe 1.5): start/finish blijven ALTIJD op DAG-prefix vergeleken — de
+      // dag-component van een timestamp is identiek ongeacht of hij via `formatDate` (dag-pad) of
+      // `formatInstant(...,'hour')` (uur-pad) geformatteerd is (allebei `Date#toISOString()` als
+      // bron), dus deze vergelijking is NIET geraakt door de uurmodus-uitbreiding — vandaar dat de
+      // start/finish-budgets hieronder ONGEWIJZIGD blijven t.o.v. vóór etappe 1.5. Duur vergelijkt
+      // WEL uurmodus-bewust: als BEIDE kanten (mpp + de MSPDI-ground-truth) `durationMinutes` dragen
+      // (de discriminator-uitkomst), dan minuut-precies (`durationMinutes` rechtstreeks) — dat is
+      // precies het "de duur-diffs waren deels uurmodus-gerelateerd"-gat dat deze etappe dicht: een
+      // taak die vroeger op dag-niveau afweek door dubbele afronding (mpp ↓ naar hele dagen, xml
+      // fractioneel) kan nu op minuutniveau wél matchen. Anders (minstens één kant dag-modus)
+      // vergelijkt op AFGERONDE dagen aan BEIDE kanten (voorheen alleen de xml-kant afgerond, wat
+      // fout was zodra de mpp-kant zelf ook fractioneel werd — zie de T5-review hieronder).
+      const bothHour = mppTask.time.durationMinutes != null && xmlTask.time.durationMinutes != null;
       const softChecks: [keyof FieldDiffBudget, string, boolean][] = [
         ['start', 'start (dag-prefix)', mppTask.time.scheduleStart.slice(0, 10) === xmlTask.time.scheduleStart.slice(0, 10)],
         ['finish', 'finish (dag-prefix)', mppTask.time.scheduleFinish.slice(0, 10) === xmlTask.time.scheduleFinish.slice(0, 10)],
-        // Ground-truth-duur kan fractioneel zijn (uur-modus) — dag-modus vergelijkt afgerond.
-        ['duration', 'duur in dagen', mppTask.time.scheduleDuration === Math.round(xmlTask.time.scheduleDuration)],
+        bothHour
+          ? ['duration', 'duur in minuten', mppTask.time.durationMinutes === xmlTask.time.durationMinutes]
+          : ['duration', 'duur in dagen', Math.round(mppTask.time.scheduleDuration) === Math.round(xmlTask.time.scheduleDuration)],
         ['outlineDepth', 'outline-diepte', outlineDepth(mppById, mppTask) === outlineDepth(xmlById, xmlTask)],
       ];
       softChecksTotal += softChecks.length; // apart geteld, zie `softChecksTotal`'s toelichting
@@ -1496,11 +1713,92 @@ if (corpusPresent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// T9-crawl — end-to-end door de VOLLEDIGE readMPP() over het brede corpus (49 `.mpp`, submappen
-// MSP2016_OzBuild/MSP2021_OzBuild): geen-crash-poort + gepind totaal-taakaantal +
-// spooktaak-plausibiliteitsassert
+// UURMODUS (etappe 1.5) — gerichte discriminator-/durationMinutes-/workTime-assert voor
+// "bijlage 7 Productie planning.mpp"
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
+// De T5-sectie hierboven bewijst al dat de VELDWAARDEN (start/finish/duur) binnen een gemeten
+// budget overeenkomen; deze sectie bewijst apart de DISCRIMINATOR-UITKOMST zelf — het eigenlijke
+// doel van etappe 1.5 ("een .mpp-urenproject gedraagt zich ná import identiek aan zijn
+// MSPDI-export ná import: zelfde discriminator-uitkomst, zelfde velden gevuld"). Gemeten
+// (2026-08-15, dit corpus): alle DRIE bestanden lezen op BEIDE kanten (readMPP ÉN readMSPDI van de
+// bijbehorende `.mpp.xml`) 100% van hun taken in uur-modus (`durationMinutes` gezet) en hun
+// projectkalender met `workTime` gezet — Bijlage 13 incluis, wat de oorspronkelijke aanname
+// "Bijlage 13 blijft dag-modus" WEERLEGT (zie de moduleheader van `mppReader.ts`, "UURMODUS"):
+// zelfs de bestaande, ONGEWIJZIGDE `readMSPDI` leest Bijlage 13's eigen MSPDI-ground-truth al als
+// 51/51 taken in uur-modus — deze lezer moet dat spiegelen, niet tegenwerken. bijlage 7 is hier
+// gekozen als de expliciet gevraagde gerichte case (grootste bestand, 215 taken).
+if (corpusPresent) {
+  const file = 'bijlage 7 Productie planning.mpp';
+  if (corpusFiles.includes(file) && existsSync(join(CORPUS, `${file}.xml`))) {
+    const mppResult = readMPP(new Uint8Array(readFileSync(join(CORPUS, file))));
+    const xmlResult = readMSPDI(readFileSync(join(CORPUS, `${file}.xml`), 'utf-8'));
+
+    truthy(`[uurmodus ${file}] mpp projectkalender.workTime gezet`, !!mppResult.calendar.workTime);
+    truthy(`[uurmodus ${file}] MSPDI-ground-truth projectkalender.workTime gezet`, !!xmlResult.calendar.workTime);
+
+    const mppHourCount = mppResult.tasks.filter((t) => t.time.durationMinutes != null).length;
+    const xmlHourCount = xmlResult.tasks.filter((t) => t.time.durationMinutes != null).length;
+    // Gemeten basislijn (2026-08-15): 215/215 op BEIDE kanten — EXACT (`===`), niet `>=`: een
+    // regressie die minder taken in uur-modus zou lezen (bv. de discriminator-signaal-scan die per
+    // ongeluk de scalar-vóór-promotie-`hoursPerDay` niet meer leest) hoort deze poort te raken.
+    truthy(`[uurmodus ${file}] mpp: alle taken in uur-modus (${mppHourCount}/${mppResult.tasks.length})`, mppHourCount === mppResult.tasks.length);
+    truthy(`[uurmodus ${file}] MSPDI-ground-truth: alle taken in uur-modus (${xmlHourCount}/${xmlResult.tasks.length})`, xmlHourCount === xmlResult.tasks.length);
+
+    // Naam-gematchte vergelijking van durationMinutes (zelfde veld, zelfde discriminator-uitkomst
+    // aan beide kanten) — budget-gedekt, spiegelt de T5-sectie's "duur in minuten"-budget (28,
+    // hierboven) exact: dezelfde vergelijking, hier alleen apart benoemd zodat de discriminator-
+    // pariteit zelf een expliciete, leesbare poort heeft i.p.v. verstopt in de generieke T5-lus.
+    const xmlByName = new Map<string, Task[]>();
+    for (const t of xmlResult.tasks) {
+      const key = t.name.trim();
+      const list = xmlByName.get(key);
+      if (list) list.push(t);
+      else xmlByName.set(key, [t]);
+    }
+    let durationMinutesMatches = 0;
+    let durationMinutesCompared = 0;
+    for (const mt of mppResult.tasks) {
+      const queue = xmlByName.get(mt.name.trim());
+      const xt = queue && queue.length > 0 ? queue.shift() : undefined;
+      if (!xt || mt.time.durationMinutes == null || xt.time.durationMinutes == null) continue;
+      durationMinutesCompared++;
+      if (mt.time.durationMinutes === xt.time.durationMinutes) durationMinutesMatches++;
+    }
+    // Gemeten (2026-08-15): 215 vergeleken, 187 exact gelijk (28 afwijkend — het documentversie-
+    // verschil, zie de T5-moduleheader) ⇒ budget 28 afwijkingen, spiegelt FIELD_DIFF_BUDGET.duration.
+    const DURATION_MINUTES_DIFF_BUDGET = 28;
+    truthy(
+      `[uurmodus ${file}] durationMinutes naam-gematcht binnen budget (${durationMinutesCompared - durationMinutesMatches}/${DURATION_MINUTES_DIFF_BUDGET} afwijkingen op ${durationMinutesCompared} vergeleken)`,
+      durationMinutesCompared - durationMinutesMatches <= DURATION_MINUTES_DIFF_BUDGET,
+    );
+    console.log(`   . [uurmodus ${file}] mpp ${mppHourCount}/${mppResult.tasks.length} uur-modus, xml ${xmlHourCount}/${xmlResult.tasks.length} uur-modus, durationMinutes ${durationMinutesMatches}/${durationMinutesCompared} exact gelijk`);
+  } else {
+    console.log(`OK  mpp-import: uurmodus-sectie (${file}) niet in dit corpus — overgeslagen`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T9-crawl — end-to-end door de VOLLEDIGE readMPP() over het brede corpus (49 `.mpp`, submappen
+// MSP2016_OzBuild/MSP2021_OzBuild): geen-crash-poort + gepind totaal-taakaantal +
+// spooktaak-plausibiliteitsassert + (etappe 1.5) gepind uurmodus-taakaantal
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// UURMODUS-BEVINDING (etappe 1.5, 2026-08-15, VERRASSEND): alle 788 taken over dit HELE crawl-
+// corpus komen uit `readMPP` in uur-modus (`durationMinutes` gezet) — niet alleen de twee expliciet
+// als "intern urenproject" bekende ground-truth-bestanden. Dit is GEEN taak-signaal-lek: `check-
+// mpp-calendars.ts`'s eigen "geen lek"-poort bewijst dat het taak-(c)-signaal op dit corpus NUL
+// extra kalenderpromoties toevoegt t.o.v. discriminator (a)/(b) alleen (321/345 kalenders, op beide
+// manieren gemeten identiek) — de (bijna-)universele uur-modus-status komt uitsluitend van MS
+// Project's eigen standaard-"Standard"-kalender, die AL EEN LUNCHPAUZE-SPLITSING (08:00-12:00,
+// 13:00-17:00 — twee banden per werkdag) draagt en dus al sinds T6 als discriminator-(a)-afwijking
+// gold. Elk project dat die kalender ongewijzigd laat staan (verreweg de meeste, ook trainings-
+// bestanden die nooit expliciet "uren-modus" claimen) wordt hierdoor als "uur-project" gelezen —
+// exact dezelfde uitkomst als de ONGEWIJZIGDE `readMSPDI` al geeft voor een MSPDI-export van
+// diezelfde kalender (zie ook de T5-sectie hierboven: Bijlage 13's eigen ground-truth leest al
+// 51/51 taken in uur-modus). Dit weerlegt de oorspronkelijke aanname dat "dag-modus-bestanden"
+// een aparte, veelvoorkomende categorie zouden zijn — in de praktijk (dit corpus) is een écht
+// dag-modus-bestand (een kalender ZONDER lunchpauze-splitsing) de uitzondering, niet de regel.
 // T6-crawl (check-mpp-calendars.ts, holidays) en T7-crawl (check-mpp-relations.ts, relaties/
 // resources/assignments) bewijzen hun eigen domein al breed; deze sectie is de taken-tegenhanger
 // ÉN — omdat ze `readMPP()` zonder enige sub-scope aanroept, het complete `ImportResult` in één
@@ -1583,8 +1881,20 @@ if (corpusPresent) {
       const CRAWL_TASK_COUNT_BASELINE = 788;
       const CRAWL_ZERO_TASK_FILES_BASELINE = 4;
       const SUSPECT_RATIO_BUDGET = 0.02; // zie de sectietoelichting hierboven
+      // UURMODUS (etappe 1.5) — gemeten basislijn (2026-08-15, dit corpus): ALLE 788 taken komen uit
+      // `readMPP` met `durationMinutes` gezet. GEEN "MPP-eigenaardigheid" — `check-mpp-calendars.ts`'s
+      // eigen "geen lek"-poort bewijst dat dit uitsluitend komt van MS Project's standaard-
+      // "Standard"-kalender (lunchpauze-splitsing, discriminator (a) — bestond al sinds T6) en NIET
+      // van het nieuwe taak-(c)-signaal (dat draagt hier 0 extra kalenderpromoties bij). `===`
+      // (exact): een toekomstige wijziging aan de discriminator-orkestratie die dit percentage laat
+      // zakken (bv. de scalar-vóór-promotie-`hoursPerDay` per ongeluk verwisseld voor de
+      // ná-promotie-waarde) hoort deze poort te raken, net zo goed als een wijziging die het
+      // ONTERECHT laat stijgen (een calendar/task-signaal-lek naar bestanden die dat niet zouden
+      // moeten dragen).
+      const CRAWL_HOUR_TASK_BASELINE = 788;
 
       let totalTasks = 0;
+      let totalHourTasks = 0;
       let readFailures = 0;
       let filesWithZeroTasks = 0;
       let totalSuspect = 0;
@@ -1600,6 +1910,7 @@ if (corpusPresent) {
           continue;
         }
         totalTasks += result.tasks.length;
+        totalHourTasks += result.tasks.filter((t) => t.time.durationMinutes != null).length;
         if (result.tasks.length === 0) {
           filesWithZeroTasks++;
           zeroTaskFiles.push(file);
@@ -1631,8 +1942,13 @@ if (corpusPresent) {
         `[T9-crawl] totaal-taakaantal exact op de gemeten basislijn (${totalTasks}/${CRAWL_TASK_COUNT_BASELINE})`,
         totalTasks === CRAWL_TASK_COUNT_BASELINE,
       );
+      truthy(
+        `[T9-crawl] uurmodus-taakaantal (durationMinutes gezet) exact op de gemeten basislijn (${totalHourTasks}/${CRAWL_HOUR_TASK_BASELINE}, zie de toelichting hierboven)`,
+        totalHourTasks === CRAWL_HOUR_TASK_BASELINE,
+      );
       console.log(
         `   . [T9-crawl] ${crawlFiles.length} bestanden: totaal ${totalTasks} taken (basislijn ${CRAWL_TASK_COUNT_BASELINE}), `
+        + `${totalHourTasks} in uur-modus (basislijn ${CRAWL_HOUR_TASK_BASELINE}), `
         + `${filesWithZeroTasks} taakloos (basislijn ${CRAWL_ZERO_TASK_FILES_BASELINE}: ${zeroTaskFiles.map((f) => f.split('/').pop()).join(', ') || '—'}), `
         + `${totalSuspect} spooktaak-verdachten totaal (budget ${SUSPECT_RATIO_BUDGET * 100}% per bestand)`,
       );

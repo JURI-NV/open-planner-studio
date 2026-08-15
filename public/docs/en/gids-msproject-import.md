@@ -30,6 +30,13 @@ When you open a `.mpp` file, Open Planner Studio reads:
 This is the same field set as the existing MS Project XML import (MSPDI), except for the
 limitations listed below.
 
+For **hour-based projects** (tasks that MS Project schedules at hour or minute precision, or a
+calendar with, say, a lunch break) durations and working times come along at that precision: a
+2-hour task no longer comes out as 0 days, and start/finish times keep their real time of day
+instead of only the date. Open Planner Studio detects this automatically, per calendar — there's
+nothing to turn on. See [Calendars & hour planning](docs://gids-kalenders-uren) for how hour mode
+works elsewhere in the app.
+
 ## Opening
 
 You open a `.mpp` file the exact same way as any other project file:

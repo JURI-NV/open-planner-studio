@@ -14,14 +14,26 @@
  * `parseCalendar`, spiegelplicht) — zelfde `WorkCalendar`-vorm, dezelfde `canonicalizeBands`/
  * `registerCalendarBands`/`promoteHourCalendar`-orkestratie uit `@/services/subdayIo`.
  *
- * T6-kwaliteitsreview (M3) — DRIE bewuste, documenteerde verschillen met `mspdiReader.ts`:
- *  1. `promoteHourCalendar` wordt hier ALTIJD met `signaled=false` aangeroepen — MPP-taken dragen in
- *     etappe 1 geen sub-dag-signaal (`mppReader.ts`'s moduleheader: "Alles blijft DAG-modus"). Een
- *     kalender promoveert hier uitsluitend op haar EIGEN banden (discriminator (a)/(b), bv. een
- *     lunchpauze-kalender), nooit op grond van een taakduur/-datum-signaal — gedragsgelijk aan een
- *     latere aparte promotie-pas (zoals mspdiReader die doet) met een altijd-false signaal-set, dus
- *     geen aparte pas nodig.
- *  2. `WorkCalendar.holidays` begint hier ALTIJD als `[]` (`buildCalendarFromDays`), ongeacht of er
+ * ETAPPE 1.5 (uurmodus-taken, 2026-08-15) — CORRECTIE t.o.v. de oorspronkelijke T6-tekst hieronder:
+ * `buildCalendarFromDays` promoveert NIET MEER zelf (geen `promoteHourCalendar`-aanroep meer aan het
+ * eind) — die registreert alleen nog de banden (`registerCalendarBands`), spiegelt zo `mspdiReader.
+ * ts`'s `applyCalendarBody`/`parseCalendar` (die ook alleen registreren, nooit zelf promoveren).
+ * Promotie is nu een LOSSE stap, `promoteCalendarsForHourMode` (onderaan dit bestand) — `mppReader.
+ * ts`'s `readTasks` roept 'm aan NÁ een taak-signaal-scan (spiegelt mspdiReader's eigen tweefasen-
+ * opzet: eerst ALLE `<Calendar>`-elementen registreren, dan ALLE taken scannen op het (c)-signaal —
+ * sub-dag-duur of een niet-ankertijd-Start/Finish, zie `mppAnchorClock`/`hasNonAnchorTime` in
+ * mppReader.ts — en pas DAARNA promoveren). De reden voor de knip is precies dezelfde als bij
+ * mspdiReader: `isSubDayMinutes`/de datumdiscriminator moeten `cal.hoursPerDay` lezen VÓÓR promotie
+ * (de SCALAR, eerste-band-afgeleide waarde), niet de door `deriveHoursPerDay` herberekende waarde
+ * ná promotie — zou je hier ná promotie scannen, dan vergelijk je taakduren tegen de VERKEERDE
+ * (grovere/fijnere) dagsom. `readCalendars` zelf blijft ONVERANDERD verder: nog steeds `try/catch`-
+ * gevangen (I1-fix), nog steeds de basis→afgeleide-overerving — alleen de laatste regel van
+ * `buildCalendarFromDays` verdween.
+ *
+ * T6-kwaliteitsreview (M3) — twee bewuste, documenteerde verschillen met `mspdiReader.ts` blijven
+ * staan (punt 1 hierboven is met etappe 1.5 vervallen — MPP-taken dragen sinds 2026-08-15 wél een
+ * (c)-signaal, exact zoals mspdiReader):
+ *  a. `WorkCalendar.holidays` begint hier ALTIJD als `[]` (`buildCalendarFromDays`), ongeacht of er
  *     daadwerkelijk uitzonderingen in het bestand staan — mspdiReader's `parseCalendar` start
  *     daarentegen bij `createDefaultCalendar()` (die, in bouwmodus, de NL-feestdagenset genereert)
  *     en overschrijft `calendar.holidays` ALLEEN als er ≥1 echte `<Exception>`-element gevonden is;
@@ -32,7 +44,7 @@
  *     `<Exception>`-elementen bevatten). MPP-kalenders zijn ALTIJD letterlijke bestandsdata, nooit
  *     een stille default — vandaar de expliciete leegmaak, ook al is de uitkomst soms toevallig
  *     hetzelfde (0 holidays).
- *  3. Naamloze kalenders (geen CALENDAR_NAME-var-data) krijgen hier `"Kalender <uid>"`; mspdiReader
+ *  b. Naamloze kalenders (geen CALENDAR_NAME-var-data) krijgen hier `"Kalender <uid>"`; mspdiReader
  *     valt terug op de vaste string `"Imported Calendar"` (`parseCalendar`). Beide zijn placeholders
  *     voor ontbrekende brondata, maar met een andere — voor MPP nuttigere, want uniek per kalender —
  *     conventie (zie `nameOfOrFallback` hieronder).
@@ -62,7 +74,7 @@ import type { Holiday, WorkCalendar } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
-import { canonicalizeBands, promoteHourCalendar, registerCalendarBands } from '@/services/subdayIo';
+import { canonicalizeBands, getCalendarBands, promoteHourCalendar, registerCalendarBands } from '@/services/subdayIo';
 import type { CfbFile } from './cfb';
 import type { Props } from './mppContainer';
 import { FixedData, FixedMeta, Var2Data, VarMeta12, getDate, getInt, getShort, getUnicodeString } from './mppPrimitives';
@@ -306,11 +318,11 @@ function buildCalendarFromDays(name: string, days: ReadonlyArray<DayResolution>,
 
   const { bands, deviates } = canonicalizeBands(rawByWeekday);
   registerCalendarBands(cal, { canonical: bands, deviates });
-  // signaled=false: MPP-taken dragen in etappe 1 geen sub-dag-signaal (zie moduleheader) — een
-  // kalender promoveert hier uitsluitend op haar EIGEN banden (discriminator (a)/(b)). Draait NA de
-  // `hoursPerDayOverride`-toepassing hierboven, zodat promotie (indien de kalender deviates) het
-  // laatste woord heeft — zie de toelichting bij `hoursPerDayOverride`.
-  promoteHourCalendar(cal, { canonical: bands, deviates }, false, false);
+  // ETAPPE 1.5: promotie gebeurt HIER NIET MEER — zie de moduleheader. `cal.hoursPerDay` (hierboven,
+  // ná `hoursPerDayOverride`) blijft dus de SCALAR waarde tot `promoteCalendarsForHourMode`
+  // (onderaan dit bestand) draait; `mppReader.ts`'s `readTasks` heeft precies díe scalar-waarde
+  // nodig om het (c)-signaal per taak te bepalen vóórdat promotie 'm met `deriveHoursPerDay`
+  // herberekent.
   return cal;
 }
 
@@ -727,4 +739,34 @@ function budgetedInherit(baseHolidays: readonly Holiday[], ownHolidays: readonly
   }
   merged.push(...ownHolidays); // al gebudgetteerd via de parseExceptions-aanroep die ze opleverde
   return merged;
+}
+
+/**
+ * ETAPPE 1.5 — de LOSSE promotiestap die `buildCalendarFromDays` niet meer zelf doet (zie de
+ * moduleheader). `mppReader.ts`'s `readTasks` roept dit precies ÉÉN keer aan, NÁ een volledige
+ * taak-signaal-scan (spiegelt mspdiReader's eigen `hourModeCalIds`-lus in `readMSPDI`, die ook pas
+ * ná de eerste taken-lus draait). `signaledCalendars` = de kalender-OBJECTEN (identiteit, geen
+ * uniqueID-indirectie nodig — elke `WorkCalendar` hier is per-parse uniek, net als de gedeelde
+ * `bandRegistry`-WeakMap in `subdayIo.ts`) die minstens één (c)-signaal droegen: een taak met een
+ * sub-dag-duur (`isSubDayMinutes`) of een Start/Finish die van het kalender-eigen anker afwijkt
+ * (`hasNonAnchorTime`, zie `mppAnchorClock` in mppReader.ts).
+ *
+ * Itereert over ALLE kalenders in `calendarByUniqueId` (basis ÉN afgeleide/resource-kalenders) —
+ * een kalender zonder taak-signaal promoveert hier nog steeds op haar EIGEN banden (discriminator
+ * (a)/(b), bv. een lunchpauze-kalender), exact zoals vóór etappe 1.5 en exact zoals mspdiReader's
+ * `calById`-lus (die óók alle kalenders langsgaat, niet alleen de door taken aangeraakte). Retourneert
+ * de resulterende uur-modus-kalenders als `Set` (identiteit) — `readTasks` gebruikt die rechtstreeks
+ * om per taak `isHour` te bepalen (`hourModeCals.has(effCal)`), zonder nog een uniqueID-vertaalslag.
+ */
+export function promoteCalendarsForHourMode(
+  calendarByUniqueId: ReadonlyMap<number, WorkCalendar>,
+  signaledCalendars: ReadonlySet<WorkCalendar>,
+): Set<WorkCalendar> {
+  const hourModeCals = new Set<WorkCalendar>();
+  for (const cal of calendarByUniqueId.values()) {
+    if (promoteHourCalendar(cal, getCalendarBands(cal), signaledCalendars.has(cal), false)) {
+      hourModeCals.add(cal);
+    }
+  }
+  return hourModeCals;
 }

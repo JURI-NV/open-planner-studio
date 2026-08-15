@@ -124,9 +124,10 @@ const CONS_FIXED_DATA_ITEM_SIZE = 20;
  *    identiek), afgerond op hele dagen — identiek aan mspdiReader's ELAPSED_DURATION_FORMATS-tak.
  *  - elke WORKTIME-variant (niet-elapsed): dezelfde omrekening als taakduur
  *    (`tenthsOfMinutesToDays`, gedeeld met mspdiReader.ts — T7-kwaliteitsreview M2, zie
- *    `@/services/importDurations`) — spiegelt mspdiReader's "anders"-tak. MPP kent geen
- *    hour-mode-taken in etappe 1 (moduleheader: "Alles blijft DAG-modus"), dus mspdiReader's
- *    `lagMinutes`-tak (hour-mode-opvolger) heeft hier bewust geen tegenhanger.
+ *    `@/services/importDurations`) — spiegelt mspdiReader's "anders"-tak, TENZIJ de OPVOLGER
+ *    (etappe 1.5) in uur-modus zit: dan wint `lagMinutes` (minuut-precies, `Math.round(rawLag/10)`,
+ *    geen dag-afronding) — exact mspdiReader's `taskHourById.get(link.successorId)`-tak.
+ *    `isHourSuccessor` hieronder is die vertaling.
  *
  * ⚠️ Dekkingsvoorbehoud (T7-spec-review, B1): het corpus (§Corpus & referentiemateriaal) draagt
  * uitsluitend FINISH_START-relaties met lag=0 — de type-tabel (`mspTypeToSequenceType`) en alle
@@ -136,7 +137,7 @@ const CONS_FIXED_DATA_ITEM_SIZE = 20;
  */
 type SequenceLagFields = Pick<Sequence, 'lagDays'> & Partial<Pick<Sequence, 'lagMinutes' | 'lagUnit' | 'lagPercent'>>;
 
-function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: number): SequenceLagFields {
+function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: number, isHourSuccessor: boolean): SequenceLagFields {
   if (rawLag === -1) return { lagDays: 0 }; // MPPUtility.getAdjustedDuration: duration===-1 ⇒ geen lag
   const unit = getDurationTimeUnits(unitCode);
   if (unit === 'percent' || unit === 'elapsedPercent') {
@@ -147,20 +148,28 @@ function mppLagToSequenceFields(rawLag: number, unitCode: number, hoursPerDay: n
   if (unit.startsWith('elapsed')) {
     return { lagDays: Math.round(getDuration(rawLag, 'elapsedDays')), lagUnit: 'ELAPSEDTIME' };
   }
+  // Etappe 1.5 (spiegelt mspdiReader's `taskHourById.get(link.successorId)`-tak): een uur-modus-
+  // opvolger krijgt de lag minuut-precies i.p.v. dag-afgerond — `rawLag` is al tienden van een
+  // minuut, dus `/10` volstaat (geen `tenthsOfMinutesToDays`-omrekening).
+  if (isHourSuccessor) return { lagDays: 0, lagMinutes: Math.round(rawLag / 10) };
   return { lagDays: tenthsOfMinutesToDays(rawLag, hoursPerDay) };
 }
 
 /** Poort van `ConstraintFactory.process` (T7, stap 1) — `"   114"/TBkndCons` → `Sequence[]`.
  *  Geëxporteerd (spiegelt `readCalendars`'s testbaarheidspatroon, T6) zodat
- *  `check-mpp-relations.ts` 'm los kan aanroepen zonder de volledige `readMPP` te hoeven draaien. */
+ *  `check-mpp-relations.ts` 'm los kan aanroepen zonder de volledige `readMPP` te hoeven draaien.
+ *  `taskHourById` (etappe 1.5, OPTIONEEL — default een lege map, dus elke bestaande aanroep zonder
+ *  dit argument blijft ongewijzigd DAG-modus-gedrag geven): per opvolger-`Task.id` of die in
+ *  uur-modus zit, spiegelt mspdiReader's `taskHourById`-gebruik voor de lag-eenheid-keuze. */
 export function readRelations(
   cfb: CfbFile,
   applicationVersion: number | null,
   hoursPerDay: number,
   taskIdByUniqueId: ReadonlyMap<number, string>,
+  taskHourById: ReadonlyMap<string, boolean> = new Map(),
 ): Sequence[] {
   try {
-    return readRelationsUnsafe(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId);
+    return readRelationsUnsafe(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId, taskHourById);
   } catch {
     return [];
   }
@@ -171,6 +180,7 @@ function readRelationsUnsafe(
   applicationVersion: number | null,
   hoursPerDay: number,
   taskIdByUniqueId: ReadonlyMap<number, string>,
+  taskHourById: ReadonlyMap<string, boolean>,
 ): Sequence[] {
   const label = '"   114"/TBkndCons';
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndCons', 'FixedMeta']);
@@ -228,7 +238,7 @@ function readRelationsUnsafe(
       predecessorId,
       successorId,
       type,
-      ...mppLagToSequenceFields(lagRaw, lagUnitsRaw, hoursPerDay),
+      ...mppLagToSequenceFields(lagRaw, lagUnitsRaw, hoursPerDay, taskHourById.get(successorId) ?? false),
     });
   }
   return sequences;

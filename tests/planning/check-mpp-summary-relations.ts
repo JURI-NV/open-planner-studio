@@ -129,21 +129,21 @@ if (!existsSync(path)) {
         totalDropped.length === 0,
       );
 
-      // ── Regressiebaseline (gemeten 2026-08-15, deze code, dit corpusbestand) ──────────────────
-      // Zie de moduleheader voor waarom dit een PIN is en geen "closer to ground truth"-oordeel:
-      // 20 van de 32 bladtaken schuiven LATER (de 28 nu-echte relaties leggen eindelijk hun dwang
-      // op), 5 schuiven EERDER (één cross-samenvattings-keten — 4 voorganger-samenvattingen ×
-      // bladafstammelingen van een opvolger-samenvatting — die vóór de fix wegens 0 échte
-      // voorgangers terugviel op de RUWE, in de .mpp opgeslagen `scheduleStart` i.p.v. een vers
-      // berekende datum; ná de fix rekent de solver 'm voor het eerst zelf uit, en dat komt op dít
-      // corpusbestand 1 werkdag eerder uit dan de opgeslagen waarde), 7 blijven gelijk (buiten het
-      // bereik van de 28 relaties). Een wijziging in deze pin is een signaal om te onderzoeken, geen
-      // automatisch-rood: het kan een echte regressie zijn, of een legitieme verbetering (bv. als de
-      // solver ooit resource-leveling zou gaan modelleren, wat de MSPDI-taak "Hydrauliek monteren"
-      // — UID 47, Finish 2025-02-10T13:00 volgens de XML — kennelijk wél meeweegt en deze CPM-only
-      // solver niet).
-      truthy(`projectEnd-basislijn: ${cpm.projectEnd} (verwacht 2025-02-06T08:00)`, cpm.projectEnd === '2025-02-06T08:00');
-      truthy(`projectDuration-basislijn: ${cpm.projectDuration} werkdagen (verwacht 4)`, cpm.projectDuration === 4);
+      // ── Regressiebaseline — HERMETEN (etappe 1.5, uurmodus, 2026-08-15) ───────────────────────
+      // Zie de moduleheader voor waarom dit een PIN is en geen "closer to ground truth"-oordeel.
+      // Oorspronkelijke pin (T8, DAG-modus-lezer): projectEnd `2025-02-06T08:00`, projectDuration 4
+      // werkdagen. Etappe 1.5 (native MPP-uurmodus, zie mppReader.ts's moduleheader "UURMODUS") laat
+      // `readMPP` Bijlage 13 nu WEL in uur-modus lezen (dezelfde discriminator-uitkomst als
+      // `readMSPDI` al voor de bijbehorende `.mpp.xml` gaf, 51/51 taken — zie check-mpp-import.ts's
+      // T5-/uurmodus-secties): taakduren/-start/-finish dragen sindsdien hun echte minuut-precisie
+      // i.p.v. altijd naar hele dagen af te ronden. Dat verandert de INVOER van de CPM-solver
+      // wezenlijk (`scheduleDuration` is nu fractioneel, `scheduleStart`/`scheduleFinish` dragen een
+      // tijdcomponent), dus een verschoven uitkomst is een DIRECT, verwacht gevolg van de uurmodus-
+      // uitbreiding, geen regressie in `expandSummaryRelations`/`CPMSolver` zelf — vandaar hermeten
+      // i.p.v. de oude pin geforceerd vast te houden. Nieuwe basislijn (gemeten 2026-08-15, deze
+      // code, ná etappe 1.5): projectEnd `2025-02-10T13:45`, projectDuration 6 werkdagen.
+      truthy(`projectEnd-basislijn: ${cpm.projectEnd} (verwacht 2025-02-10T13:45, etappe 1.5 uurmodus)`, cpm.projectEnd === '2025-02-10T13:45');
+      truthy(`projectDuration-basislijn: ${cpm.projectDuration} werkdagen (verwacht 6, etappe 1.5 uurmodus)`, cpm.projectDuration === 6);
 
       // I2 (CPM-review): op een echt corpusbestand met kruisproduct-relaties moeten de vier relatie-
       // gekeyde velden ná foldSyntheticSequenceIds GEEN synthetische "::exp-N"-ids meer dragen — dat

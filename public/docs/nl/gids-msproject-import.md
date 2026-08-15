@@ -30,6 +30,13 @@ Bij het openen van een `.mpp`-bestand leest Open Planner Studio:
 Dit is dezelfde veldenset als de bestaande MS Project XML-import (MSPDI), op de uitzonderingen na
 die hieronder staan.
 
+Voor **urenprojecten** (taken die MS Project op uur- of minuutniveau plant, of een kalender met
+bijvoorbeeld een lunchpauze) komen duren en werktijden op die precisie mee: een taak van 2 uur komt
+niet meer op 0 dagen uit, en start-/eindtijden behouden hun echte tijdstip in plaats van alleen de
+datum. Open Planner Studio herkent dit automatisch, per kalender — je hoeft niets aan te zetten. Zie
+[Kalenders & uren-planning](docs://gids-kalenders-uren) voor hoe uren-modus in de rest van de app
+werkt.
+
 ## Openen
 
 Een `.mpp`-bestand open je op precies dezelfde manieren als elk ander projectbestand:

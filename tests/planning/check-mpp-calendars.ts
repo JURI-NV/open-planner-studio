@@ -35,7 +35,7 @@ import { CfbFile } from '@/services/mpp/cfb';
 import { Props } from '@/services/mpp/mppContainer';
 import { getDate } from '@/services/mpp/mppPrimitives';
 import {
-  readCalendars, parseExceptions, newHolidayBudget,
+  readCalendars, parseExceptions, newHolidayBudget, promoteCalendarsForHourMode,
   MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS, MAX_CALENDARS, MAX_TOTAL_HOLIDAY_SLOTS, MAX_BASE_CHAIN_DEPTH,
 } from '@/services/mpp/mppCalendars';
 import { readMPP, openMppProject } from '@/services/mpp/mppReader';
@@ -826,6 +826,50 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
       console.log(
         `   . [T6-crawl] ${crawlFiles.length} bestanden, ${filesWithHolidays} met ≥1 eigen holiday (over alle kalenders), `
         + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE})`,
+      );
+
+      // ── ETAPPE 1.5 "geen lek"-poort: het taak-(c)-signaal (mppReader.ts's `readTasks`, Fase B)
+      // mag op dit corpus GEEN kalender promoveren die niet al via discriminator (a)/(b) — de
+      // kalender se EIGEN banden, ONAFHANKELIJK van enige taak — promoveerde. Vergelijkt daarom de
+      // FULL-PIPELINE hour-kalendertelling (via `readMPP`, inclusief het taak-signaal) tegen een
+      // A/B-ALLEEN-baseline (`promoteCalendarsForHourMode` met een LEGE signaal-set — exact het
+      // gedrag van vóór etappe 1.5, toen `buildCalendarFromDays` intern altijd `signaled=false`
+      // aanriep). BEVINDING (2026-08-15, dit corpus): de twee tellingen zijn IDENTIEK (321/345 op
+      // beide manieren) — het taak-signaal draagt op dit corpus NUL extra kalenderpromoties bij; de
+      // (bijna-)volledige uur-modus-status van dit corpus (788/788 taken, zie `check-mpp-import.ts`'s
+      // uurmodus-sectie) komt UITSLUITEND van MS Project's eigen standaard-"Standard"-kalender, die
+      // AL EEN LUNCHPAUZE-SPLITSING (twee banden per werkdag) draagt — dat is discriminator (a),
+      // bestond al sinds T6, en is dus geen "lek" van deze etappe. `<=` (niet `===`): een
+      // toekomstige, bewust ruimere signaal-definitie mag dit laten STIJGEN zonder deze specifieke
+      // poort te breken (dat hoort dan bewust bijgewerkt te worden, met een nieuwe basislijn) — een
+      // regressie die het taak-signaal per ongeluk kalenders laat promoveren die het niet zouden
+      // moeten (bv. de scalar-vóór-promotie-`hoursPerDay`-lees per ongeluk vervangen door de
+      // AL-gepromoveerde waarde) zou deze telling laten STIJGEN t.o.v. de A/B-baseline en hier falen.
+      let fullPipelineHourCalendars = 0;
+      let abOnlyHourCalendars = 0;
+      let totalCalendarsSeen = 0;
+      let leakReadFailures = 0;
+      for (const file of crawlFiles) {
+        try {
+          const bytes = new Uint8Array(readFileSync(file));
+          const result = readMPP(bytes);
+          const allCals = [result.calendar, ...(result.resourceCalendars ?? [])];
+          fullPipelineHourCalendars += allCals.filter((c) => !!c.workTime).length;
+
+          const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
+          const calResult = readCalendars(cfb, projectProps, applicationVersion);
+          totalCalendarsSeen += calResult.calendarByUniqueId.size;
+          abOnlyHourCalendars += promoteCalendarsForHourMode(calResult.calendarByUniqueId, new Set()).size;
+        } catch (err) {
+          leakReadFailures++;
+          checks++;
+          diffs.push(`[T6-crawl uurmodus-lek] mislukte lezing op ${file}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      truthy('[T6-crawl uurmodus-lek] geen leesfouten', leakReadFailures === 0);
+      truthy(
+        `[T6-crawl uurmodus-lek] taak-signaal promoveert GEEN extra kalenders t.o.v. discriminator (a)/(b) alleen (full=${fullPipelineHourCalendars} vs a/b-alleen=${abOnlyHourCalendars}, van ${totalCalendarsSeen} kalenders totaal)`,
+        fullPipelineHourCalendars <= abOnlyHourCalendars,
       );
     }
   }

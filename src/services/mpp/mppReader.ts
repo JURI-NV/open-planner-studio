@@ -16,8 +16,34 @@
  *
  * Veldsemantiek is gespiegeld aan `readMSPDI` (mspdiReader.ts) — zelfde afronding voor duur,
  * dezelfde constrainttype-codes (`mspCodeToConstraint`, hergebruikt), dezelfde
- * progress-normalisatie (`normalizeImportedProgress`). Alles blijft DAG-modus (geen uur-modus
- * voor MPP in etappe 1 — de plan-tekst noemt dat expliciet).
+ * progress-normalisatie (`normalizeImportedProgress`).
+ *
+ * UURMODUS (etappe 1.5, 2026-08-15) — CORRECTIE t.o.v. de oorspronkelijke etappe-1-tekst hierboven
+ * ("Alles blijft DAG-modus"): die vereenvoudiging is VERVALLEN. De bron draagt de precisie al
+ * (duren in tienden van minuten, timestamps met een echte tijdcomponent, kalender-uurbanden — T6
+ * las die al) — deze lezer spiegelt nu exact dezelfde (c)-discriminator-orkestratie als
+ * `mspdiReader.ts` (zie `@/services/subdayIo`'s normatieve discriminator-tekst): een kalender
+ * promoveert naar uur-modus zodra ze zelf afwijkt (discriminator (a)/(b) — meerdere banden per
+ * werkdag, of een band die middernacht kruist) ÓF minstens één taak op die kalender een (c)-signaal
+ * draagt (sub-dag-duur, `isSubDayMinutes`, of een Start/Finish die van het kalender-eigen anker
+ * afwijkt, `hasNonAnchorTime`/`mppAnchorClock` hieronder). De promotie zelf is een LOSSE stap
+ * (`promoteCalendarsForHourMode` in `mppCalendars.ts`) die pas draait NÁ een volledige taak-scan —
+ * spiegelt mspdiReader's eigen tweefasen-opzet (`readMSPDI`: eerst alle `<Calendar>`-elementen
+ * registreren, dan alle taken scannen op het (c)-signaal, dán pas promoveren, dán pas de
+ * Task-objecten bouwen). `readTasks` hieronder doet dus drie passes over de geldige taken: (A) een
+ * ruwe scan (Date-/getalwaarden, geen `Task`-object), (B) signaalverzameling + promotie, (C) de
+ * uiteindelijke `Task`-objecten met de nu bekende dag/uur-beslissing per taak. Bij uur-modus komt
+ * `Task.time.durationMinutes` uit de rauwe tienden-van-minuut-duur (geen dag-afronding),
+ * `scheduleStart`/`scheduleFinish`/`actualStart`/`actualFinish`/constraint-/deadline-datums
+ * behouden hun echte tijdcomponent (`formatInstant(..., 'hour')` i.p.v. `formatDate`), en
+ * `TBkndCons`-lag voor een uur-modus-opvolger wordt minuut-precies (`Sequence.lagMinutes`,
+ * `mppEntities.ts`'s `mppLagToSequenceFields`) — exact de velden die mspdiReader's uur-modus-pad
+ * ook vult. Dag-modus-bestanden (geen enkel (a)/(b)/(c)-signaal op geen enkele kalender) doorlopen
+ * dezelfde code maar met `isHour=false` overal, en blijven dus BYTE-VOOR-BYTE hetzelfde resultaat
+ * opleveren als vóór etappe 1.5 — zie `check-mpp-import.ts`'s nieuwe uurmodus-sectie voor de
+ * corpusmeting die dat bevestigt (inclusief de bevinding dat het corpusbestand "Bijlage 13" zelf,
+ * ondanks de oorspronkelijke aanname, óók sub-dag-signaal draagt — de MSPDI-ground-truth van dát
+ * bestand leest via de bestaande, ongewijzigde `readMSPDI` al 51/51 taken in uur-modus).
  *
  * HIËRARCHIE/parentId — CORRECTIE (T5-spec-review, 2026-08-14): een eerdere versie van dit
  * bestand beweerde dat deze lezer hier bewust van MPXJ afweek door `TaskField.PARENT_TASK_
@@ -67,12 +93,14 @@
  */
 import type { Project } from '@/types/project';
 import type { Task, TaskConstraint } from '@/types/task';
+import type { WorkCalendar } from '@/types/calendar';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
-import { formatDate } from '@/utils/dateUtils';
+import { formatDate, formatInstant } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { mspCodeToConstraint } from '@/services/msproject/mspdiReader';
+import { hasNonAnchorTime, isSubDayMinutes } from '@/services/subdayIo';
 import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
 import {
@@ -84,7 +112,7 @@ import {
   createAssignmentFieldMap, createResourceFieldMap, createTaskFieldMap,
   fixedOffsetOf, varDataKeyOf, type FieldMapTable,
 } from './fieldMap14';
-import { readCalendars } from './mppCalendars';
+import { readCalendars, promoteCalendarsForHourMode, type CalendarReadResult } from './mppCalendars';
 import { MAX_VAR_TEXT_BYTES } from './limits';
 import { readRelations, readResources, readAssignments } from './mppEntities';
 
@@ -311,39 +339,89 @@ function readPercentComplete(data: Uint8Array, offset: number | null): number {
   return raw >= 0 && raw <= 100 ? raw : 0;
 }
 
-function readDateField(data: Uint8Array, offset: number | null, ctx: string): string | undefined {
-  if (offset === null || data.length < offset + 4) return undefined;
-  const ts = getTimestamp(data, offset, ctx);
-  return ts ? formatDate(ts) : undefined;
+/** Rauwe timestamp (Date, tijdcomponent behouden) — de etappe-1.5-tegenhanger van de oude
+ *  `readDateField` (die meteen naar een dag-alleen string formatteerde). De dag/uur-modus-
+ *  beslissing valt pas ná de signaal-scan (Fase B hieronder), dus Fase A bewaart hier de rauwe
+ *  `Date`; Fase C formatteert 'm dan met `formatDate` (dag) of `formatInstant(...,'hour')` (uur). */
+function readTimestampField(data: Uint8Array, offset: number | null, ctx: string): Date | null {
+  if (offset === null || data.length < offset + 4) return null;
+  return getTimestamp(data, offset, ctx);
+}
+
+/** Synthetisch anker voor de MPP-datumdiscriminator (c) — spiegelt mspdiReader's vaste
+ *  `MSP_TIME_ANCHOR` ('08:00:00', dezelfde waarde voor zowel Start als Finish), maar KALENDER-EIGEN
+ *  i.p.v. globaal-vast: een rauw MPP-bestand kent geen eigen schrijfconventie zoals OPS's
+ *  MSPDI-writer (die altijd letterlijk T08:00 plakt op een dag-modus-datum, ongeacht de kalender) —
+ *  de kalender se EIGEN scalar-startuur (`workStartHour`, de nog-NIET-gepromoveerde, eerste-band-
+ *  afgeleide waarde uit `buildCalendarFromDays`) is hier de betekenisvolle "dag-modus-verwachting":
+ *  een taak die exact op het startuur van haar eigen kalender begint/eindigt draagt geen sub-dag-
+ *  informatie, één die daarvan afwijkt (bv. een Finish midden op de dag, of een Start ná de lunch)
+ *  wél — precies zoals mspdiReader's vaste anker dat voor MSPDI's OPS-eigen schrijfconventie doet. */
+function mppAnchorClock(cal: WorkCalendar): string {
+  return `${String(cal.workStartHour).padStart(2, '0')}:00:00`;
 }
 
 /** I2 (T5-kwaliteitsreview) — vervangt de vijf losse positionele parameters die `readTasks` eerst
- *  had; T6/T7 breiden dit uit i.p.v. de parameterlijst nog verder te laten groeien. */
+ *  had; T6/T7 breiden dit uit i.p.v. de parameterlijst nog verder te laten groeien.
+ *
+ *  ETAPPE 1.5: `calResult` (T6's kalenders, UNGEPROMOVEERD — zie mppCalendars.ts's moduleheader)
+ *  komt er sinds etappe 1.5 bij; `readMPP` roept `readCalendars` daarom nu VÓÓR `readTasks` aan
+ *  (omgekeerde volgorde t.o.v. vóór deze etappe) — spiegelt mspdiReader's eigen volgorde
+ *  (`parseCalendar` vóór de taken-lus). */
 interface ReadTasksContext {
   cfb: CfbFile;
   taskFieldMap: FieldMapTable;
   hoursPerDay: number;
   statusDate: string | undefined;
   applicationVersion: number | null;
+  calResult: CalendarReadResult;
 }
 
 /** I2 (T5-kwaliteitsreview) — bereidt de returnvorm voor op T6/T7:
  *  - `taskIdByUniqueId`: T7's TBkndCons-relaties en TBkndAssn-assignments verwijzen naar taken via
  *    hun MPP-uniqueID, niet via het gegenereerde `Task.id` — deze map is precies de vertaling die
  *    daarvoor nodig is (spiegelt mspdiReader's `uidToId`).
- *  - `calendarUniqueIdByTaskId`: de rauwe `TaskField.CALENDAR_UNIQUE_ID`-waarde per taak (al hier
- *    gelezen, zie `TaskFieldId.CalendarUniqueId`), zodat T6 'm — ná het bouwen van de echte
- *    kalenders — kan vertalen naar `Task.calendarId`. T5 zelf doet niets met deze twee maps (er is
- *    nog geen kalender-/relatielaag om ze tegen te gebruiken), `readMPP` haalt er nu alleen
- *    `tasks` uit. */
+ *  - `taskHourById` (etappe 1.5, vervangt de oude `calendarUniqueIdByTaskId` — `Task.calendarId`
+ *    wordt nu INLINE gezet tijdens Fase C hieronder, spiegelt mspdiReader's `taskCalendarId`-
+ *    toewijzing tijdens de taken-lus, dus een aparte post-hoc-koppelstap in `readMPP` is niet meer
+ *    nodig): per taak of ze in UUR-modus is — T7's `readRelations` gebruikt dit voor de
+ *    lag-eenheid-keuze, spiegelt mspdiReader's `taskHourById`. */
 interface ReadTasksResult {
   tasks: Task[];
   taskIdByUniqueId: Map<number, string>;
-  calendarUniqueIdByTaskId: Map<string, number>;
+  taskHourById: Map<string, boolean>;
+}
+
+/** Fase A — rauwe scan: alle velden die `readTasks` nodig heeft, als getal/`Date`/string, NOG GEEN
+ *  `Task`-object. Kalender-/dag-of-uur-modus-afhankelijke velden (start/finish/duur/actuals/
+ *  constraintdatum/deadline) staan hier als rauwe waarde; Fase C formatteert ze pas, ná Fase B's
+ *  signaal-scan + promotie. `effCal` is de EFFECTIEVE kalender (taak-override, anders de
+ *  projectkalender) — al hier bepaald zodat Fase B er direct het (c)-signaal aan kan toekennen. */
+interface RawTaskScan {
+  uniqueId: number;
+  id: number;
+  outlineLevel: number;
+  storedWbs: string | null;
+  name: string;
+  startTs: Date | null;
+  finishTs: Date | null;
+  durationRaw: number; // tienden van een minuut
+  isMilestone: boolean;
+  constraintCode: number | null;
+  constraintDateTs: Date | null;
+  deadlineTs: Date | null;
+  percentComplete: number;
+  actualStartTs: Date | null;
+  actualFinishTs: Date | null;
+  effCal: WorkCalendar;
+  /** Alleen gezet als de taak een ECHTE, gevonden kalender-override droeg (spiegelt de oude
+   *  `calendarUniqueIdByTaskId`-guard: `calendarUniqueIdRaw >= 0` ÉN de referentie wees naar een
+   *  daadwerkelijk gelezen kalender) — bepaalt of Fase C `Task.calendarId` zet. */
+  calendarOverride: WorkCalendar | null;
 }
 
 function readTasks(ctx: ReadTasksContext): ReadTasksResult {
-  const { cfb, taskFieldMap, hoursPerDay, statusDate, applicationVersion } = ctx;
+  const { cfb, taskFieldMap, hoursPerDay, statusDate, applicationVersion, calResult } = ctx;
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedMeta']);
   const fixedDataBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedData']);
   const varMetaBytes = cfb.getStream(['   114', 'TBkndTask', 'VarMeta']);
@@ -385,10 +463,9 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const validIndices = collectValidTaskIndices(fixedMeta, fixedData, varMeta, uniqueIdOffset);
   const { offset: msOffset, mask: msMask } = milestoneBitFlag(applicationVersion);
 
-  const taskIdByUniqueId = new Map<number, string>();
-  const calendarUniqueIdByTaskId = new Map<string, number>();
-
-  const records: RawTaskRecord[] = [];
+  // ── Fase A: rauwe scan (zie moduleheader "UURMODUS" + `RawTaskScan`) — nog geen `Task`-object,
+  // wél al de effectieve kalender per taak (nodig voor Fase B's signaal-scan). ────────────────────
+  const raws: RawTaskScan[] = [];
   for (const [uniqueId, index] of validIndices) {
     if (uniqueId === 0) continue; // projectsamenvattingstaak (net als mspdiReader's uid===0-skip)
     const data = fixedData.getByteArrayValue(index);
@@ -411,28 +488,92 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // decodeerwerk, net als bij `name`.
     const storedWbs = wbsKey !== null ? varData.getUnicodeString(uniqueId, wbsKey, MAX_VAR_TEXT_BYTES, 'TBkndTask wbs') : null;
 
-    const start = readDateField(data, scheduledStartOffset, 'TBkndTask scheduledStart') ?? formatDate(new Date());
-    const finish = readDateField(data, scheduledFinishOffset, 'TBkndTask scheduledFinish') ?? start;
+    const startTs = readTimestampField(data, scheduledStartOffset, 'TBkndTask scheduledStart');
+    const finishTs = readTimestampField(data, scheduledFinishOffset, 'TBkndTask scheduledFinish');
 
     const durationRaw = durationOffset !== null && data.length >= durationOffset + 4
       ? getInt(data, durationOffset, 'TBkndTask duration')
       : 0;
-    // `tenthsOfMinutesToDays` (T7-kwaliteitsreview M2: gedeeld met mspdiReader.ts, zie
-    // importDurations.ts) — dezelfde afrondingssemantiek als `parseMSPDuration` in mspdiReader.ts
-    // (`Math.round(minuten / (hoursPerDay*60))`). Vereenvoudiging (gedocumenteerd, T5-rapport): geen
-    // onderscheid elapsed-vs-werktijd-eenheden (`DurationUnits`-veld) — mspdiReader's dag-modus-pad
-    // maakt dat onderscheid ook niet.
-    const duration = tenthsOfMinutesToDays(durationRaw, hoursPerDay);
 
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
 
+    const constraintCode = constraintTypeOffset !== null && data.length >= constraintTypeOffset + 2
+      ? getShort(data, constraintTypeOffset, 'TBkndTask constraintType')
+      : null;
+    const constraintDateTs = readTimestampField(data, constraintDateOffset, 'TBkndTask constraintDate');
+    const deadlineTs = readTimestampField(data, deadlineOffset, 'TBkndTask deadline');
+    const percentComplete = readPercentComplete(data, percentCompleteOffset);
+    const actualStartTs = readTimestampField(data, actualStartOffset, 'TBkndTask actualStart');
+    const actualFinishTs = readTimestampField(data, actualFinishOffset, 'TBkndTask actualFinish');
+
+    // CALENDAR_UNIQUE_ID: -1 (of ontbrekend veld) = geen taak-kalender-override, spiegelt
+    // MPP14Reader.java's `calendarID.intValue() == -1 ⇒ task.setCalendarUniqueID(null)`. `effCal` =
+    // de gevonden override, anders de projectkalender (spiegelt mspdiReader's `effCalIdOfUid`);
+    // `calendarOverride` blijft alleen gezet als de referentie ECHT naar een gelezen kalender wees
+    // (Fase C zet `Task.calendarId` alleen dán — spiegelt het oude post-hoc-koppelgedrag exact).
+    const calendarUniqueIdRaw = calendarUniqueIdOffset !== null && data.length >= calendarUniqueIdOffset + 4
+      ? getInt(data, calendarUniqueIdOffset, 'TBkndTask calendarUniqueId')
+      : -1;
+    const calendarOverride = calendarUniqueIdRaw >= 0 ? (calResult.calendarByUniqueId.get(calendarUniqueIdRaw) ?? null) : null;
+    const effCal = calendarOverride ?? calResult.projectCalendar;
+
+    raws.push({
+      uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isMilestone,
+      constraintCode, constraintDateTs, deadlineTs, percentComplete, actualStartTs, actualFinishTs,
+      effCal, calendarOverride,
+    });
+  }
+
+  // ── Fase B: (c)-signaal per kalender verzamelen + promoveren (spiegelt mspdiReader's
+  // `cSignalCalIds`-lus + `promoteHourCalendar`-lus in `readMSPDI`, vóór de taken-opbouw). Gebruikt
+  // per taak de EFFECTIEVE kalender se nog-NIET-gepromoveerde `hoursPerDay` (scalar, uit
+  // `buildCalendarFromDays`) — precies zoals mspdiReader's signaal-scan de SCALAR `cal.hoursPerDay`
+  // leest vóór promotie. ───────────────────────────────────────────────────────────────────────
+  const cSignalCals = new Set<WorkCalendar>();
+  for (const raw of raws) {
+    const cal = raw.effCal;
+    const durMinutes = raw.durationRaw / 10;
+    const durSignal = isSubDayMinutes(durMinutes, cal.hoursPerDay);
+    const anchor = mppAnchorClock(cal);
+    const dateSignal =
+      (raw.startTs != null && hasNonAnchorTime(formatInstant(raw.startTs, 'hour'), anchor)) ||
+      (raw.finishTs != null && hasNonAnchorTime(formatInstant(raw.finishTs, 'hour'), anchor));
+    if (durSignal || dateSignal) cSignalCals.add(cal);
+  }
+  const hourModeCals = promoteCalendarsForHourMode(calResult.calendarByUniqueId, cSignalCals);
+
+  // ── Fase C: de uiteindelijke `Task`-objecten, met de nu bekende dag/uur-beslissing per taak
+  // (spiegelt mspdiReader's taken-opbouwlus, die ook pas ná de promotie-lus draait). ─────────────
+  const taskIdByUniqueId = new Map<number, string>();
+  const taskHourById = new Map<string, boolean>();
+  const records: RawTaskRecord[] = [];
+  for (const raw of raws) {
+    const cal = raw.effCal;
+    const isHour = hourModeCals.has(cal);
+    const effHpd = cal.hoursPerDay;
+
+    // Duur: uur ⇒ minuten (bron van waarheid, geen dag-afronding — spiegelt mspdiReader's §7.3-pad);
+    // dag ⇒ het bestaande dag-pad, ONGEWIJZIGD op de PROJECT-brede `hoursPerDay` (niet `effHpd`) —
+    // spiegelt exact het gedrag van vóór etappe 1.5, zodat een genuine dag-modus-bestand met een
+    // taak-kalender-override (ander hoursPerDay dan het project) geen stille duurwijziging krijgt.
+    const durationMinutes = isHour ? Math.round(raw.durationRaw / 10) : undefined;
+    const duration = isHour
+      ? (effHpd > 0 ? durationMinutes! / (effHpd * 60) : 0)
+      : tenthsOfMinutesToDays(raw.durationRaw, hoursPerDay);
+
+    const formatField = (ts: Date | null): string | undefined =>
+      ts ? (isHour ? formatInstant(ts, 'hour') : formatDate(ts)) : undefined;
+    const start = formatField(raw.startTs) ?? formatDate(new Date());
+    const finish = formatField(raw.finishTs) ?? start;
+    const actualStart = formatField(raw.actualStartTs);
+    const actualFinish = formatField(raw.actualFinishTs);
+
     let constraint: TaskConstraint | undefined;
-    if (constraintTypeOffset !== null && data.length >= constraintTypeOffset + 2) {
-      const code = getShort(data, constraintTypeOffset, 'TBkndTask constraintType');
-      const mapped = mspCodeToConstraint(code);
+    if (raw.constraintCode !== null) {
+      const mapped = mspCodeToConstraint(raw.constraintCode);
       if (mapped) {
-        const constraintDate = readDateField(data, constraintDateOffset, 'TBkndTask constraintDate');
+        const constraintDate = formatField(raw.constraintDateTs);
         constraint = {
           type: mapped.type,
           ...(mapped.hard ? { hard: true } : {}),
@@ -440,29 +581,27 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
         };
       }
     }
-    const deadline = readDateField(data, deadlineOffset, 'TBkndTask deadline');
-    const percentComplete = readPercentComplete(data, percentCompleteOffset);
-    const actualStart = readDateField(data, actualStartOffset, 'TBkndTask actualStart');
-    const actualFinish = readDateField(data, actualFinishOffset, 'TBkndTask actualFinish');
+    const deadline = formatField(raw.deadlineTs);
 
     let status: 'NOT_STARTED' | 'STARTED' | 'COMPLETED' = 'NOT_STARTED';
-    if (percentComplete >= 100) status = 'COMPLETED';
-    else if (percentComplete > 0) status = 'STARTED';
+    if (raw.percentComplete >= 100) status = 'COMPLETED';
+    else if (raw.percentComplete > 0) status = 'STARTED';
 
     const task: Task = {
       id: generateId('task'),
-      name,
+      name: raw.name,
       description: '',
       wbsCode: '', // wordt hieronder gezet — outline-nummering volgt pas ná de hiërarchie-opbouw
       taskType: 'CONSTRUCTION',
       status,
-      isMilestone,
+      isMilestone: raw.isMilestone,
       priority: 500,
       parentId: null,
       childIds: [],
       time: {
         durationType: 'WORKTIME',
         scheduleDuration: duration,
+        ...(durationMinutes != null ? { durationMinutes } : {}),
         scheduleStart: start,
         scheduleFinish: finish,
         earlyStart: start,
@@ -474,22 +613,16 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
         isCritical: false,
         actualStart,
         actualFinish,
-        completion: percentComplete / 100,
+        completion: raw.percentComplete / 100,
       },
       resourceIds: [],
       ...(constraint ? { constraint } : {}),
       ...(deadline ? { deadline } : {}),
+      ...(raw.calendarOverride ? { calendarId: raw.calendarOverride.id } : {}),
     };
-    records.push({ uniqueId, id, outlineLevel, storedWbs, task });
-    taskIdByUniqueId.set(uniqueId, task.id);
-
-    // CALENDAR_UNIQUE_ID: -1 (of ontbrekend veld) = geen taak-kalender-override, spiegelt
-    // MPP14Reader.java's `calendarID.intValue() == -1 ⇒ task.setCalendarUniqueID(null)` — alleen
-    // een echte (≥0) waarde komt in de map terecht, T6 vertaalt 'm naar `Task.calendarId`.
-    const calendarUniqueIdRaw = calendarUniqueIdOffset !== null && data.length >= calendarUniqueIdOffset + 4
-      ? getInt(data, calendarUniqueIdOffset, 'TBkndTask calendarUniqueId')
-      : -1;
-    if (calendarUniqueIdRaw >= 0) calendarUniqueIdByTaskId.set(task.id, calendarUniqueIdRaw);
+    records.push({ uniqueId: raw.uniqueId, id: raw.id, outlineLevel: raw.outlineLevel, storedWbs: raw.storedWbs, task });
+    taskIdByUniqueId.set(raw.uniqueId, task.id);
+    taskHourById.set(task.id, isHour);
   }
 
   // ID-volgorde = zowel de Gantt-/rijvolgorde die MS Project's eigen XML-export gebruikt, als
@@ -500,7 +633,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
   const tasks = records.map((r) => r.task);
   normalizeImportedProgress(tasks, statusDate);
-  return { tasks, taskIdByUniqueId, calendarUniqueIdByTaskId };
+  return { tasks, taskIdByUniqueId, taskHourById };
 }
 
 /** `parseProjectProperties`'s resultaat — `calendarHoursPerDayOverride` is `null` wanneer
@@ -590,41 +723,33 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   const { project, hoursPerDay, calendarHoursPerDayOverride } = parseProjectProperties(projectProps, labels);
 
   const taskFieldMap = createTaskFieldMap(projectProps);
-  // I2 (T5-kwaliteitsreview): `readTasks` geeft ook `taskIdByUniqueId`/`calendarUniqueIdByTaskId`
-  // terug — T6 gebruikt hier `calendarUniqueIdByTaskId` om `Task.calendarId` te koppelen aan de
-  // echte, hieronder gelezen kalenders; `taskIdByUniqueId` voedt T7's relaties/assignments.
-  const { tasks, taskIdByUniqueId, calendarUniqueIdByTaskId } = readTasks({
-    cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion,
-  });
 
   // T6: echte kalenders uit `"   114"/TBkndCal` (mppCalendars.ts) — basiskalenders + afgeleide
   // (resource-)kalenders, met de projectkalender gekozen via DEFAULT_CALENDAR_NAME.
   // `calendarHoursPerDayOverride` (alleen niet-`null` als MINUTES_PER_DAY echt aanwezig/geldig
-  // was, zie `parseProjectProperties`'s returntype) gaat MEE de aanroep in i.p.v. er ná op de
-  // teruggegeven kalender te worden nagestempeld (T6-spec-review-fix, minor b) — `readCalendars`
-  // past 'm intern toe VÓÓR `promoteHourCalendar`, zodat promotie (die `hoursPerDay` opnieuw kan
-  // afleiden zodra de kalender daadwerkelijk banden draagt) het laatste woord houdt, exact zoals
-  // mspdiReader (MinutesPerDay-override in `parseCalendar`, `promoteHourCalendar` draait daarna).
+  // was, zie `parseProjectProperties`'s returntype) gaat MEE de aanroep in — spiegelt mspdiReader
+  // (MinutesPerDay-override in `parseCalendar`). UURMODUS (etappe 1.5): `readCalendars` draait nu
+  // VÓÓR `readTasks` (omgekeerde volgorde t.o.v. vóór deze etappe) — `readTasks` heeft de
+  // kalender-objecten (met hun scalar, nog-NIET-gepromoveerde `hoursPerDay`/banden) nodig om het
+  // (c)-signaal per taak te bepalen vóórdat `readTasks` ze zelf promoveert (zie mppCalendars.ts's
+  // moduleheader en `readTasks`'s Fase B/C). De kalenders die hieronder in `calendar`/
+  // `calResult.resourceCalendars` belanden zijn dus PAS na de `readTasks`-aanroep volledig
+  // gepromoveerd — dat is geen probleem: het zijn dezelfde object-referenties, `readTasks` muteert
+  // ze in-place (via `promoteHourCalendar`), en `readMPP` leest ze pas hieronder, ná die aanroep.
   const calResult = readCalendars(cfb, projectProps, applicationVersion, calendarHoursPerDayOverride);
   const calendar = calResult.projectCalendar;
   project.calendarId = calendar.id;
 
-  // Taak-kalenders: de rauwe CALENDAR_UNIQUE_ID uit T5 vertalen naar de echte, hierboven gelezen
-  // kalender — alleen zetten wanneer de referentie daadwerkelijk naar een gelezen kalender wijst
-  // (spiegelt mspdiReader's `taskCalUid > 1 ? calUidToId.get(taskCalUid) : undefined`-terugval:
-  // een onbekende/lege verwijzing laat `task.calendarId` op `undefined`, wat de engine als "gebruik
-  // de projectkalender" leest).
-  if (calendarUniqueIdByTaskId.size > 0) {
-    const taskById = new Map(tasks.map((t) => [t.id, t]));
-    for (const [taskId, calUid] of calendarUniqueIdByTaskId) {
-      const cal = calResult.calendarByUniqueId.get(calUid);
-      const task = cal && taskById.get(taskId);
-      if (task) task.calendarId = cal.id;
-    }
-  }
+  // I2 (T5-kwaliteitsreview)/etappe 1.5: `readTasks` zet `Task.calendarId` nu INLINE (spiegelt
+  // mspdiReader's `taskCalendarId`-toewijzing tijdens de taken-lus) — de oude post-hoc-koppelstap
+  // (`calendarUniqueIdByTaskId` → `calResult.calendarByUniqueId`-lookup ná `readTasks`) is dus
+  // vervallen; `taskHourById` voedt T7's relaties (lag-eenheid-keuze, spiegelt mspdiReader).
+  const { tasks, taskIdByUniqueId, taskHourById } = readTasks({
+    cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion, calResult,
+  });
 
   // T7: relaties/resources/assignments — compleet ImportResult, geen placeholders meer.
-  const sequences = readRelations(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId);
+  const sequences = readRelations(cfb, applicationVersion, hoursPerDay, taskIdByUniqueId, taskHourById);
 
   const resourceFieldMap = createResourceFieldMap(projectProps);
   const { resources, resourceIdByUniqueId } = readResources(cfb, resourceFieldMap, applicationVersion, calResult, labels);
