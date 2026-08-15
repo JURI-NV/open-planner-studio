@@ -405,18 +405,18 @@ function forwardHour(
       // geven" ⇒ er is geen echte lag toegepast.
       // GEEN `!predEndsBeginOfDay`-subconditie (L3, Opus-review — HERZIEN op een tweede review-
       // ronde: het eerdere commentaar hier claimde dat de exclusie "bewezen dood" was, met als
-      // argument dat een dagbegin-mijlpaal-anker altijd al in `[start,end)` ligt. Dat argument
-      // stilzwijgend aannam dat zo'n anker altijd via de EIGEN kalender van de voorganger tot
-      // stand komt — vals: de dataDate-vloer ("NIET GESTART", CPMSolver's forwardPass) zet de ES
-      // van een niet-gestarte nul-duur-voorganger op `dataDate`, dat zelf gesnapt is in de
-      // PROJECT-kalender, niet in de EIGEN kalender van die voorganger. Verschillen die twee
-      // kalenders van bandstructuur, dan kan zo'n mijlpaal-anker WÉL exact op een band-eind van
-      // zijn EIGEN kalender landen — precies de dataDate-vloer-constructie die case msp-06 in
-      // cases-msp-pariteit.json vastlegt (daar voor de SF-tak; hetzelfde mechanisme geldt hier
-      // voor `predEndsBeginOfDay` in de FS-tak: het verwijderen van de exclusie is dus een
-      // BEWUSTE verbreding van de MSP-conventie naar dat geval, geen no-op. Mutatiebewijs blijft
-      // hetzelfde soort bewijs als msp-06 zou geven met een FS-relatie i.p.v. SF (niet apart
-      // opnieuw gepind hier — het mechanisme is identiek, alleen de relatiepijl anders).
+      // argument dat zo'n voorganger-anker altijd al in `[start,end)` ligt. Dat argument nam
+      // stilzwijgend aan dat zo'n anker altijd via de EIGEN kalender van de voorganger tot stand
+      // komt — vals: de dataDate-vloer ("NIET GESTART", CPMSolver's forwardPass) zet de ES van
+      // een niet-gestarte nul-duur-voorganger (géén mijlpaal per se — `predEndsBeginOfDay` slaat
+      // hier al aan bij `scheduleDuration<=0`) op `dataDate`, dat zelf gesnapt is in de PROJECT-
+      // kalender, niet in de EIGEN kalender van die voorganger. Verschillen die twee kalenders van
+      // bandstructuur, dan kan zo'n anker WÉL exact op een band-eind van zijn EIGEN kalender
+      // landen — precies de dataDate-vloer-constructie die case msp-06 in cases-msp-pariteit.json
+      // vastlegt (daar voor de SF-tak). Hetzelfde mechanisme geldt hier voor `predEndsBeginOfDay`
+      // in de FS-tak: het verwijderen van de exclusie is dus een BEWUSTE verbreding van de MSP-
+      // conventie naar dat geval, geen no-op — mutatiebewezen door de tweelingcase msp-06b (idem,
+      // maar FS i.p.v. SF): `!predEndsBeginOfDay` teruggezet ⇒ msp-06b alleen ROOD.
       // `pe.isHourMode`-wacht is VERPLICHT: `nextWorkInstant` is een uur-modus-primitief
       // (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder guard) — bij een DAG-
       // voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`) zou de aanroep
