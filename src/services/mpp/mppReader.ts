@@ -437,12 +437,20 @@ function mppAnchorClock(cal: WorkCalendar): string {
  * Seconden worden genegeerd (MPP-tijdstempels zijn al minuut-precies, T5).
  *
  * Bandbegin ⇒ `'START'`; bandeinde ⇒ `'FINISH'`; anders `undefined` (huidig gedrag: geen veld
- * gezet). Een WRAP-band (`end > 1440`, middernacht-kruisend) staat geregistreerd onder de WEEKDAG
+ * gezet). Een WRAP-band (`end >= 1440`, middernacht-kruisend — INCLUSIEF een band die EXACT om
+ * middernacht eindigt, bv. een ploegendienst 20:00–24:00: `resolveOneDay` bouwt zo'n band zonder
+ * clamp en `canonicalizeBands` beschouwt 'm niet als afwijkend, dus dit is een volstrekt normale
+ * vorm elders in de codebase, geen theoretisch randgeval) staat geregistreerd onder de WEEKDAG
  * WAAROP HIJ BEGINT (§3.2 in `types/calendar.ts`) — de staart landt dus op de VOLGENDE
- * kalenderdag; de bandeinde-check kijkt daarom ook naar de banden van GISTEREN. Twee aangrenzende
- * banden zonder pauze ertussen (bandeinde van de ene band == bandbegin van de andere, op dezelfde
- * dag) zijn een gedegenereerd geval dat hier als `'START'` uitvalt (de bandbegin-check loopt eerst)
- * — geen corpusbestand of synthetische fixture raakt deze rand.
+ * kalenderdag; de bandeinde-check kijkt daarom ook naar de banden van GISTEREN. `b.end - 1440`
+ * is dan `0` voor een exact-om-middernacht-eindigende band, wat correct matcht met `minuteOfDay`
+ * van een 00:00-anker de dag erna (reviewbevinding: de eerdere STRIKTE `> 1440` miste precies dit
+ * geval — een band die letterlijk op middernacht eindigt in plaats van erover heen). Twee
+ * aangrenzende banden zonder pauze ertussen (bandeinde van de ene band == bandbegin van de andere,
+ * op dezelfde dag) zijn een gedegenereerd geval dat hier als `'START'` uitvalt (de bandbegin-check
+ * loopt eerst) — onschadelijk: bij een pauzeloze aaneensluiting is het gat tussen de banden nul,
+ * dus of het anker als START van de tweede band of als FINISH van de eerste wordt geclassificeerd
+ * maakt voor de datumberekening (dezelfde klokstand, geen dag-boundary-sprong) niets uit.
  */
 function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | undefined {
   const bands = cal.workTime;
@@ -459,7 +467,7 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
   }
   const yesterdays = bands.byWeekday[prevWd] ?? [];
   for (const b of yesterdays) {
-    if (b.end > 1440 && b.end - 1440 === minuteOfDay) return 'FINISH';
+    if (b.end >= 1440 && b.end - 1440 === minuteOfDay) return 'FINISH';
   }
   return undefined;
 }

@@ -2308,6 +2308,50 @@ if (corpusPresent) {
     }
   }
 
+  // ── Fixture F (spec-review-bevinding op fb385191): een band die EXACT om middernacht eindigt
+  // (`end === 1440`, bv. een ploegendienst 20:00-24:00 — `resolveOneDay` bouwt zo'n band zonder
+  // clamp en `canonicalizeBands` beschouwt 'm niet als afwijkend; dit is dus een volstrekt normale
+  // vorm, geen theoretisch randgeval) moet de VOLGENDE kalenderdag om 00:00 nog steeds als
+  // bandeinde herkennen. Maandag draagt TWEE banden (08:00-16:00 + 20:00-24:00, dus discriminator
+  // (a) alleen al garandeert promotie, los van de exact-1440-vraag die deze case toetst); de
+  // mijlpaal-anker staat op dinsdag 00:00 — geen enkele band op dinsdag zelf matcht (die begint pas
+  // om 08:00), dus dit bewijst specifiek de GISTEREN-tak (`yesterdays`) van `deriveMilestoneKind`
+  // met een niet-strikte grens. Mutatiebewijs: `b.end >= 1440` terug naar `b.end > 1440` laat
+  // precies deze assert rood uitslaan (de eerdere, STRIKTE grens miste dit exacte-middernacht-geval
+  // — een reviewer-reproductie op fb385191, bevestigd vóór de fix). ─────────────────────────────
+  {
+    const WRAP_MIDNIGHT_CAL_DAYS = [
+      { defaultFlag: 0 as const }, // zo
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }, { startMinutes: 1200, durationMinutes: 240 }] }, // ma: 08:00-16:00 + late ploeg 20:00-24:00
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // di — dag 15004 (2025-01-28) valt hierop
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // wo
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // do
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // vr
+      { defaultFlag: 0 as const }, // za
+    ];
+    const bytes = buildMilestoneKindFixture(
+      [{ name: 'MilestoneAfterMidnightWrap', uniqueId: 10, id: 1, milestone: true, durationRaw: 0, startTime: 0, startDays: 15004, finishTime: 0, finishDays: 15004 }],
+      WRAP_MIDNIGHT_CAL_DAYS,
+    );
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[T11 wrap-middernacht] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T11 wrap-middernacht] 1 taak', result.tasks.length === 1);
+      truthy('[T11 wrap-middernacht] projectkalender in uur-modus (maandag: 2 banden, discriminator a)', !!result.calendar.workTime);
+      const task = result.tasks[0];
+      truthy(
+        `[T11 wrap-middernacht] anker di 00:00 na een ma 20:00-24:00-band ⇒ milestoneKind === FINISH (kreeg ${task?.milestoneKind})`,
+        task?.milestoneKind === 'FINISH',
+      );
+    }
+  }
+
   // ── Corpus-leescase: `mpp14baseline.mpp` (publieke MPXJ-junit-testdata). Kalender: ma-vr
   // 08:00-12:00/13:00-17:00 (lunchpauze — twee banden per werkdag, dus discriminator (a) vuurt al
   // vanuit de kalender zelf, onafhankelijk van enig taak-signaal). Mijlpaal "Complete" landt op
