@@ -31,6 +31,16 @@ export class CalendarEngine {
   private workDaysPerWeek: number;        // som van true in workDayMask[1..7]
   private holidayDaySet: Set<number>;     // UTC-dagindices van alle holiday-dagen
   private holidayWorkdayIdxSorted: number[]; // holiday-dagindices OP een werk-weekdag, oplopend
+  // ── Fase 3.8 (T2, MSP-pariteit): werkende uitzonderingen — dag-uitzonderingen die een dag WERKEND
+  //    maken, evt. met eigen banden. Afwezig `workingExceptions` ⇒ alle drie de sets/maps blijven leeg
+  //    en elke `.has(...)` hieronder is false ⇒ byte-identiek gedrag met vóór deze taak.
+  private workingExceptionDaySet: Set<number>;    // UTC-dagindices die door een uitzondering WERKEND zijn
+  private workingExceptionSet: Set<string>;       // dezelfde dagen als datumstring (voor isHoliday's string-API)
+  private workingExceptionBandsByDay: Map<number, { start: number; end: number }[]>; // alleen bij expliciete override-banden
+  // Val-kuil (plan §T2): een werkende uitzondering op een NIET-werk-weekdag (bv. zaterdag) zit niet in
+  // `workDaysPerWeek`/`countWorkWeekdays` (die kennen alleen het vaste weekpatroon) en moet dus als
+  // EXTRA werkdag worden opgeteld in `workDaysBetween` — vandaar een eigen gesorteerde index.
+  private workingExceptionOnNonWorkWeekdayIdxSorted: number[];
   // Veiligheidsgrenzen tegen vastlopen bij een kapotte kalender (geen werkdagen)
   // of een ongeldige/sentinel-datum: MAX_SCAN = max dagen zoeken naar een werkdag;
   // MAX_DAYS = absolute iteratielimiet (~547 jaar) voor de tel-lussen.
@@ -64,6 +74,14 @@ export class CalendarEngine {
     this.holidayWorkdayIdxSorted = [...this.holidayDaySet]
       .filter((idx) => this.workDayMask[isoDayOfWeek(new Date(idx * CalendarEngine.MS_PER_DAY))])
       .sort((a, b) => a - b);
+    // Fase 3.8 (T2): werkende uitzonderingen — leeg blijven zonder `calendar.workingExceptions`.
+    this.workingExceptionDaySet = new Set<number>();
+    this.workingExceptionSet = new Set<string>();
+    this.workingExceptionBandsByDay = new Map<number, { start: number; end: number }[]>();
+    this.buildWorkingExceptions();
+    this.workingExceptionOnNonWorkWeekdayIdxSorted = [...this.workingExceptionDaySet]
+      .filter((idx) => !this.workDayMask[isoDayOfWeek(new Date(idx * CalendarEngine.MS_PER_DAY))])
+      .sort((a, b) => a - b);
     // ── Fase 2.8b: modus-detectie + uur-setup (§4.1). Afwezige `workTime` ⇒ dag-modus:
     //    dan wordt niets hieronder geraakt en draaien de bevroren dag-lussen ongewijzigd.
     this.mode = calendar.workTime ? 'hour' : 'day';
@@ -91,6 +109,28 @@ export class CalendarEngine {
     }
   }
 
+  /** Fase 3.8 (T2): materialiseert `calendar.workingExceptions` naar dagindex-/datumstring-sets plus,
+   *  bij expliciete override-banden, een dagindex→banden-map. INVARIANT (afgedwongen door de PARSER,
+   *  T3/T4 — hier alleen vertrouwd, niet herverifieerd): een datum staat nooit tegelijk in `holidays`
+   *  én in `workingExceptions`. Mirroring `buildHolidaySet` qua vorm — bewust géén gedeelde helper,
+   *  zodat een fout in de ene lus niet stilzwijgend in de andere meelift. */
+  private buildWorkingExceptions(): void {
+    for (const exc of this.calendar.workingExceptions ?? []) {
+      const start = parseDate(exc.startDate);
+      const end = parseDate(exc.endDate);
+      const days = diffCalendarDays(start, end);
+      for (let i = 0; i <= days; i++) {
+        const d = addCalendarDays(start, i);
+        const dayIdx = Math.floor(d.getTime() / CalendarEngine.MS_PER_DAY);
+        this.workingExceptionDaySet.add(dayIdx);
+        this.workingExceptionSet.add(formatDate(d));
+        if (exc.bands && exc.bands.length > 0) {
+          this.workingExceptionBandsByDay.set(dayIdx, exc.bands);
+        }
+      }
+    }
+  }
+
   /** Heeft de kalender überhaupt werkdagen? Een lege werkweek levert anders stil onzin-datums. */
   hasWorkingDays(): boolean {
     return Array.isArray(this.calendar.workDays) && this.calendar.workDays.length > 0;
@@ -102,16 +142,23 @@ export class CalendarEngine {
    *  Ongeldige datum: `isoDayOfWeek`→NaN ⇒ `workDayMask[NaN]`=undefined ⇒ return false (identiek
    *  aan het oude `workDays.includes(NaN)===false`, dat óók vóór `formatDate` short-circuitte). */
   isWorkDay(date: Date): boolean {
+    const dayIdx = Math.floor(date.getTime() / CalendarEngine.MS_PER_DAY);
+    // Fase 3.8 (T2): een werkende uitzondering wint altijd — ook op een niet-werk-weekdag (zaterdag)
+    // en ook boven een holiday op diezelfde datum (precedentie; de parser garandeert dat een datum
+    // nooit in beide voorkomt, maar deze volgorde is ook zonder die garantie het juiste gedrag).
+    // `dayIdx` is NaN voor een ongeldige `date`; `Set.has(NaN)` is hier altijd false (nooit ingevoegd),
+    // dus dit valt door naar exact het oude gedrag (`workDayMask[NaN]` ⇒ undefined ⇒ false).
+    if (this.workingExceptionDaySet.has(dayIdx)) return true;
     const dow = isoDayOfWeek(date);
     if (!this.workDayMask[dow]) return false;
-    const dayIdx = Math.floor(date.getTime() / CalendarEngine.MS_PER_DAY);
     if (this.holidayDaySet.has(dayIdx)) return false;
     return true;
   }
 
-  /** Check if a given date string is a holiday */
+  /** Check if a given date string is a holiday. Fase 3.8 (T2): een werkende uitzondering op dezelfde
+   *  datum overrulet — die dag is dan geen holiday meer (precedentie, zelfde volgorde als isWorkDay). */
   isHoliday(dateStr: string): boolean {
-    return this.holidaySet.has(dateStr);
+    return this.holidaySet.has(dateStr) && !this.workingExceptionSet.has(dateStr);
   }
 
   /**
@@ -167,7 +214,9 @@ export class CalendarEngine {
    *    Aantal dagen = `floor((endMs−startMs)/MS_PER_DAY)+1` als `endMs≥startMs`, anders 0.
    *  - CAP: de oude lus brak af zodra `steps > MAX_DAYS`; hij checkte dan de dagen k=0..MAX_DAYS
    *    (= MAX_DAYS+1 dagen) vóór hij stopte ⇒ `cappedDays = min(totalDays, MAX_DAYS+1)`.
-   * Telling: #werk-weekdagen in het (gecapte) bereik − #(holidays op een werk-weekdag) daarin.
+   * Telling: #werk-weekdagen in het (gecapte) bereik − #(holidays op een werk-weekdag) daarin
+   *  + #(werkende uitzonderingen op een NIET-werk-weekdag) daarin (fase 3.8, T2 — zie de val-kuil bij
+   *  `workingExceptionOnNonWorkWeekdayIdxSorted`: zonder deze term telt een werkende zaterdag niet mee).
    */
   workDaysBetween(start: Date, end: Date): number {
     const startMs = start.getTime();
@@ -177,7 +226,9 @@ export class CalendarEngine {
     const cappedDays = Math.min(totalDays, CalendarEngine.MAX_DAYS + 1);
     const startIdx = Math.floor(startMs / CalendarEngine.MS_PER_DAY);
     const lastIdx = startIdx + cappedDays - 1;
-    return this.countWorkWeekdays(startIdx, lastIdx) - this.countHolidayWorkdaysInRange(startIdx, lastIdx);
+    return this.countWorkWeekdays(startIdx, lastIdx)
+      - this.countHolidayWorkdaysInRange(startIdx, lastIdx)
+      + this.countWorkingExceptionsAddedInRange(startIdx, lastIdx);
   }
 
   /** #werk-weekdagen in het INCLUSIEVE dagindex-bereik [startIdx, lastIdx]. Volledige weken dragen
@@ -199,27 +250,43 @@ export class CalendarEngine {
     return count;
   }
 
-  /** Aantal holiday-dagen ÓP een werk-weekdag in het inclusieve bereik [startIdx, lastIdx], via
-   *  lower/upper-bound binary search over de oplopende `holidayWorkdayIdxSorted`. */
-  private countHolidayWorkdaysInRange(startIdx: number, lastIdx: number): number {
-    const a = this.holidayWorkdayIdxSorted;
-    // lo = eerste index i met a[i] >= startIdx (lower bound)
+  /** Aantal elementen van een oplopend gesorteerde dagindex-lijst in het inclusieve bereik
+   *  [startIdx, lastIdx], via lower/upper-bound binary search. Gedeeld door de holiday- (aftrekken)
+   *  en de werkende-uitzondering-telling (fase 3.8, T2 — optellen): zelfde vorm, ander teken bij de
+   *  aanroeper. Extractie is een pure refactor — geen gedragswijziging t.o.v. de oude, hier inline
+   *  staande versie. */
+  private countSortedIdxInRange(sorted: number[], startIdx: number, lastIdx: number): number {
+    // lo = eerste index i met sorted[i] >= startIdx (lower bound)
     let lo = 0;
-    let loHi = a.length;
+    let loHi = sorted.length;
     while (lo < loHi) {
       const mid = (lo + loHi) >>> 1;
-      if (a[mid] < startIdx) lo = mid + 1;
+      if (sorted[mid] < startIdx) lo = mid + 1;
       else loHi = mid;
     }
-    // hi = eerste index i met a[i] > lastIdx (upper bound)
+    // hi = eerste index i met sorted[i] > lastIdx (upper bound)
     let hi = 0;
-    let hiHi = a.length;
+    let hiHi = sorted.length;
     while (hi < hiHi) {
       const mid = (hi + hiHi) >>> 1;
-      if (a[mid] <= lastIdx) hi = mid + 1;
+      if (sorted[mid] <= lastIdx) hi = mid + 1;
       else hiHi = mid;
     }
     return hi - lo;
+  }
+
+  /** Aantal holiday-dagen ÓP een werk-weekdag in het inclusieve bereik [startIdx, lastIdx]. */
+  private countHolidayWorkdaysInRange(startIdx: number, lastIdx: number): number {
+    return this.countSortedIdxInRange(this.holidayWorkdayIdxSorted, startIdx, lastIdx);
+  }
+
+  /** Fase 3.8 (T2, de val-kuil uit het plan): aantal werkende uitzonderingen ÓP een NIET-werk-weekdag
+   *  in het inclusieve bereik [startIdx, lastIdx] — dagen die `countWorkWeekdays` (kent alleen het
+   *  vaste weekpatroon) NIET meetelt en die hier dus als EXTRA werkdag worden opgeteld. Een werkende
+   *  uitzondering op een reeds-werkende weekdag zit al in `countWorkWeekdays` en staat daarom niet in
+   *  `workingExceptionOnNonWorkWeekdayIdxSorted` (gefilterd in de constructor) — geen dubbeltelling. */
+  private countWorkingExceptionsAddedInRange(startIdx: number, lastIdx: number): number {
+    return this.countSortedIdxInRange(this.workingExceptionOnNonWorkWeekdayIdxSorted, startIdx, lastIdx);
   }
 
   /**
@@ -382,24 +449,30 @@ export class CalendarEngine {
   /** Absolute werk-intervallen voor de banden die op de dag `dayMs` STARTEN (§4.2). Een holiday op
    *  díé dag onderdrukt uitsluitend de banden die er starten (Bevinding 9); de staart na middernacht
    *  van de wrap-band van de vórige dag hoort bij die vorige dag en loopt gewoon door (hij wordt bij
-   *  díé dag gematerialiseerd). Gememoized op de gedeelde kalender-cache. */
+   *  díé dag gematerialiseerd). Gememoized op de gedeelde kalender-cache.
+   *  Fase 3.8 (T2, precedentie c): een werkende uitzondering op `dayMs` wint van de holiday-onderdrukking
+   *  hieronder — expliciete override-banden indien opgegeven, anders de gewone weekdag-banden. Zonder
+   *  `workingExceptions` is `workingExceptionDaySet` leeg en is dit tak-loos byte-identiek gedrag. */
   private bandsStartingOn(dayMs: number): BandInterval[] {
     const cache = this.bandCache!;
     const hit = cache.days.get(dayMs);
     if (hit) return hit;
     cache.fills++;
     const d = new Date(dayMs);
-    let result: BandInterval[];
-    if (this.holidaySet.has(formatDate(d))) {
-      result = []; // holiday onderdrukt de shifts die op deze dag STARTEN
+    const dayIdx = Math.floor(dayMs / CalendarEngine.MS_PER_DAY); // dayMs is altijd dag-uitgelijnd (aanroepers)
+    const wd = isoDayOfWeek(d) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+    let bands: { start: number; end: number }[];
+    if (this.workingExceptionDaySet.has(dayIdx)) {
+      bands = this.workingExceptionBandsByDay.get(dayIdx) ?? this.calendar.workTime!.byWeekday[wd] ?? [];
+    } else if (this.holidaySet.has(formatDate(d))) {
+      bands = []; // holiday onderdrukt de shifts die op deze dag STARTEN
     } else {
-      const wd = isoDayOfWeek(d) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
-      const bands = this.calendar.workTime!.byWeekday[wd] ?? [];
-      result = bands.map((b) => ({
-        start: dayMs + b.start * CalendarEngine.MS_PER_MIN,
-        end: dayMs + b.end * CalendarEngine.MS_PER_MIN,
-      }));
+      bands = this.calendar.workTime!.byWeekday[wd] ?? [];
     }
+    const result: BandInterval[] = bands.map((b) => ({
+      start: dayMs + b.start * CalendarEngine.MS_PER_MIN,
+      end: dayMs + b.end * CalendarEngine.MS_PER_MIN,
+    }));
     cache.days.set(dayMs, result);
     return result;
   }

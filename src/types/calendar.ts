@@ -23,6 +23,25 @@ export interface WorkCalendar {
   /** OPTIONEEL — herkomststempel wanneer deze kalender een kopie uit een bedrijfsbibliotheek is
    *  (spec B1, §2). Afwezig ⇒ handmatige/gegenereerde kalender. */
   libraryOrigin?: LibraryOrigin;
+  /** OPTIONEEL — dag-uitzonderingen die een dag WERKEND maken (fase 3.8, MSP-pariteit T2; MS Project:
+   *  "werkende uitzondering"). Afwezig ⇒ byte-identiek gedrag met vóór deze taak: geen enkele bestaande
+   *  dag- of uur-lus raakt dit veld. INVARIANT (afgedwongen door de parser, T3/T4, niet hier): een datum
+   *  komt nooit tegelijk in `holidays` én in `workingExceptions` voor. */
+  workingExceptions?: WorkingException[];
+}
+
+/** Dag-uitzondering die werktijd TOEVOEGT/AANPAST op een anders niet-werkende dag (fase 3.8, T2;
+ *  MS Project: "werkende uitzondering"). Precedentie t.o.v. `holidays` wordt door de parser opgelost
+ *  (T3/T4) — de engine leest deze lijst alleen en gaat uit van een reeds per-datum-unieke invoer. */
+export interface WorkingException {
+  name: string;
+  startDate: string; // ISO 8601 date
+  endDate: string;   // ISO 8601 date
+  /** Banden in minuten-vanaf-middernacht, zelfde canonieke vorm als `WorkTimeBands` (§3.2: `end > start`,
+   *  een wrap-band mag `end ∈ (1440, 2880]`). Leeg/afwezig ⇒ de weekdag-standaardbanden van de kalender
+   *  gelden (in uur-modus: `workTime.byWeekday[dow]`; in dag-modus telt de dag simpelweg als werkend
+   *  zonder banden-detail). */
+  bands?: { start: number; end: number }[];
 }
 
 /**

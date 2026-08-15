@@ -282,6 +282,75 @@ eq('L8  seed(0-24,24u): één band [0,1440]', JSON.stringify(seed247.byWeekday[1
 const bnd = seedScalarBands(360, 1080, 10);
 eq('L9  seedScalarBands(6-18,10u) som=600m (=10u)', bnd.reduce((s, x) => s + (x.end - x.start), 0), 600);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// M) Fase 3.8 (T2, MSP-pariteit) — werkende uitzonderingen (`WorkCalendar.workingExceptions`).
+//    Referentiedag: za 11 juli 2026 (normaal niet-werkend op Cal-MF, ma-vr).
+//    Bewijst: (a) een werkende zaterdag in dag-modus telt als EXTRA werkdag (de val-kuil-index
+//    `workingExceptionOnNonWorkWeekdayIdxSorted` in `workDaysBetween`), (b) een override-band op een
+//    uurkalender geeft de juiste `workMinutesBetween`, (c) een werkende uitzondering PRECEDEERT boven
+//    een holiday op dezelfde datum — zowel in dag- als uur-modus, én in `isHoliday`.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// M1-M2 (controle, zonder uitzondering): za 11 telt normaal niet mee.
+const engNoExc = new CalendarEngine(cal('NoExc'));
+eq('M1  controle zonder uitzondering: workDaysBetween(ma6,za11)=5', engNoExc.workDaysBetween(I('2026-07-06'), I('2026-07-11')), 5);
+eq('M2  controle zonder uitzondering: isWorkDay(za11)=false', engNoExc.isWorkDay(I('2026-07-11')), false);
+
+// M3-M7 (a): werkende zaterdag in DAG-modus — één werkdag EXTRA (de val-kuil-index).
+const engWorkSat = new CalendarEngine({
+  ...cal('WorkSat'),
+  workingExceptions: [{ name: 'Werkende zaterdag', startDate: '2026-07-11', endDate: '2026-07-11' }],
+});
+eq('M3  WorkSat isWorkDay(za11)=true (uitzondering)', engWorkSat.isWorkDay(I('2026-07-11')), true);
+eq('M4  WorkSat workDaysBetween(ma6,za11)=6 (5 gewone + 1 uitzondering, val-kuil-index)', engWorkSat.workDaysBetween(I('2026-07-06'), I('2026-07-11')), 6);
+eq('M5  WorkSat addWorkDays(ma6,6)=za11 (6e werkdag = de werkende zaterdag)', formatDate(engWorkSat.addWorkDays(I('2026-07-06'), 6)), '2026-07-11');
+// zo 12 blijft niet-werkend (alleen za11 is uitzondering) — bewijst dat de index niet te breed telt.
+eq('M6  WorkSat isWorkDay(zo12)=false (geen uitzondering op zondag)', engWorkSat.isWorkDay(I('2026-07-12')), false);
+eq('M7  WorkSat workDaysBetween(ma6,zo12)=6 (za11 telt, zo12 niet)', engWorkSat.workDaysBetween(I('2026-07-06'), I('2026-07-12')), 6);
+
+// M8-M10 (b): werkende uitzondering met AFWIJKENDE banden (06:00-12:00=360m) op een UURkalender.
+const engWorkSatBands = new CalendarEngine({
+  ...cal('WorkSatBands', w5([{ start: 480, end: 960 }])), // ma-vr 08:00-16:00 (H8-vorm)
+  workingExceptions: [{
+    name: 'Werkende zaterdag (halve dag)', startDate: '2026-07-11', endDate: '2026-07-11',
+    bands: [{ start: 360, end: 720 }], // 06:00-12:00
+  }],
+});
+eq('M8  WorkSatBands workMinutesBetween(za11 00:00,zo12 00:00)=360 (override-band)', engWorkSatBands.workMinutesBetween(I('2026-07-11'), I('2026-07-12')), 360);
+eq('M9  WorkSatBands isWork(za11 09:00)=true (binnen override-band)', engWorkSatBands.isWorkInstant(I('2026-07-11T09:00')), true);
+eq('M10 WorkSatBands isWork(za11 13:00)=false (buiten override-band, band eindigt 12:00)', engWorkSatBands.isWorkInstant(I('2026-07-11T13:00')), false);
+
+// M11-M12 (c, UUR-modus): een werkende uitzondering ZONDER eigen banden op een dag die ook een holiday
+// is — precedentie (de uitzondering wint) + fallback op de gewone weekdag-banden (§T2-ontwerp: "leeg =
+// de weekdag-standaardbanden gelden"). w7-kalender zodat zaterdag al standaardbanden heeft (anders is
+// een `0`-uitkomst dubbelzinnig tussen "precedentie werkt niet" en "zaterdag heeft toch geen banden").
+const w7H8 = w7([{ start: 480, end: 960 }]); // alle 7 dagen 08:00-16:00
+const engSatHolWorking = new CalendarEngine({
+  ...cal('SatHolWorking', w7H8, [{ name: 'Zaterdag dicht (normaal)', startDate: '2026-07-11', endDate: '2026-07-11' }]),
+  workingExceptions: [{ name: 'Toch open (precedentie, geen eigen banden)', startDate: '2026-07-11', endDate: '2026-07-11' }],
+});
+eq('M11 SatHolWorking workMinutesBetween(za11,zo12)=480 (uitzondering wint van holiday + fallback op standaardbanden)', engSatHolWorking.workMinutesBetween(I('2026-07-11'), I('2026-07-12')), 480);
+// Controle: dezelfde kalender ZONDER de werkende uitzondering (alleen de holiday) — za11 blijft dicht.
+const engSatHolPlain = new CalendarEngine(cal('SatHolPlain', w7H8, [{ name: 'Zaterdag dicht', startDate: '2026-07-11', endDate: '2026-07-11' }]));
+eq('M12 controle SatHolPlain workMinutesBetween(za11,zo12)=0 (holiday onderdrukt zonder override)', engSatHolPlain.workMinutesBetween(I('2026-07-11'), I('2026-07-12')), 0);
+
+// M13-M15 (c, DAG-modus): dezelfde precedentie voor `isWorkDay`/`isHoliday` — een maandag die zowel
+// holiday als werkende uitzondering is, telt als werkend en is GEEN holiday meer.
+const engHolOverridden = new CalendarEngine({
+  ...cal('HolOverridden', undefined, [{ name: 'Verkeerd-aangemerkte vrije dag', startDate: '2026-07-06', endDate: '2026-07-06' }]),
+  workingExceptions: [{ name: 'Toch werkend (precedentie)', startDate: '2026-07-06', endDate: '2026-07-06' }],
+});
+eq('M13 HolOverridden isWorkDay(ma6)=true (uitzondering wint van holiday)', engHolOverridden.isWorkDay(I('2026-07-06')), true);
+eq('M14 HolOverridden isHoliday(2026-07-06)=false (uitzondering overrulet)', engHolOverridden.isHoliday('2026-07-06'), false);
+// Controle: dezelfde kalender ZONDER de uitzondering (alleen de holiday) — ma6 blijft gewoon vrij.
+const engHolPlain = new CalendarEngine(cal('HolPlain', undefined, [{ name: 'Vrije dag', startDate: '2026-07-06', endDate: '2026-07-06' }]));
+eq('M15 controle HolPlain isWorkDay(ma6)=false (holiday zonder override)', engHolPlain.isWorkDay(I('2026-07-06')), false);
+
+// M16: een LEGE workingExceptions-array gedraagt zich identiek aan een AFWEZIG veld (byte-identiek-anker
+// voor deze taak — de A-L-secties hierboven bewijzen ditzelfde impliciet voor alle 92 bestaande checks).
+const engEmptyExc = new CalendarEngine({ ...cal('EmptyExc'), workingExceptions: [] });
+eq('M16 lege workingExceptions-array = byte-identiek aan afwezig veld', engEmptyExc.workDaysBetween(I('2026-07-06'), I('2026-07-11')), 5);
+
 if (diffs.length === 0) {
   console.log(`OK  calendar-hours-check: alle checks groen (${checks})`);
   process.exit(0);
