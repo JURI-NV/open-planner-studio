@@ -408,6 +408,17 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       relaties-tak (2026-08-14); herzien bij het eigenaarsbesluit van 2026-08-15 dat samenvattings-
       relaties liet meerekenen i.p.v. ze te weigeren.
 
+### Klein — gedropte relaties hebben geen reden-per-drop (her-review verzoening, 2026-08-15)
+- [ ] **`expandSummaryRelations` levert een platte `droppedSequenceIds` zonder oorzaak**, dus de
+      gebruikersmelding (`notifications.summaryRelationsDropped`) en de paneelmarkering
+      (`relations.warnDropped`) kunnen alleen neutraal zeggen "niet meegerekend — zie het
+      Relaties-paneel", en het paneel stopt daar ook: de gebruiker heeft geen route naar het
+      *waarom* (voorouderconflict, kapotte tak, of de `MAX_EXPANDED_RELATIONS`-budgetklem — die
+      laatste heeft de grootste impact: één relatie tussen twee grote samenvattingen kan de klem
+      in z'n eentje raken). Oplossing: de expansie een reden per gedropte relatie laten teruggeven
+      en die in het Relaties-paneel (tooltip/detail) tonen; de meldingtekst kan dan weer specifiek
+      worden. Gevonden bij de her-review van de verzoening (2026-08-15).
+
 ### Klein — testinfra: gedeelde bundelpaden in run.sh (projectstart-review, 2026-08-15)
 - [ ] **`tests/planning/run.sh`'s `bundle_check` schrijft elke check-bundel naar een VASTE naam**
       (`tests/planning/.<naam>.mjs`, bv. `.adapters-hours-check.mjs`) — prima voor één run, maar
