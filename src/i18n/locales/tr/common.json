@@ -14,7 +14,9 @@
     "ifcParseFailed": "IFC okunamadı",
     "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi",
     "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
-    "relationDuplicate": "Bu ilişki zaten var"
+    "relationDuplicate": "Bu ilişki zaten var",
+    "relationSummaryEndpoint": "Uç nokta olarak bir özet görev planlamayı etkilemez. Alt görevi olmayan bir göreve bağlayın.",
+    "summaryRelationsIgnored": "Özet görevlerdeki {{total}} ilişki planlamayı etkilemiyor."
   },
   "yes": "Evet",
   "no": "Hayır",

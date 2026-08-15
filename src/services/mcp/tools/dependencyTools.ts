@@ -29,6 +29,7 @@ import { guardNonTransactional, McpStepError, runMutateTool, toolError, type Mut
 import { enrichOk, freshDates, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { validate } from '@/state/mcpValidation';
+import { isSummaryTask } from '@/state/relationRules';
 import {
   LAG_DOC,
   LAG_SCHEMA,
@@ -38,6 +39,7 @@ import {
   parseLag,
   seqAbbrev,
   SEQ_TYPE_SCHEMA,
+  SUMMARY_ENDPOINT_REJECTION,
   unknownTypeReason,
 } from './sequenceFields';
 import type { Sequence, SequenceType } from '@/types/sequence';
@@ -125,7 +127,10 @@ function classifyDepUpdates(
   const candidates: DepCandidate[] = [];
   const byId = new Map(st.sequences.map((s) => [s.id, s]));
   const projected = new Map(st.sequences.map((s) => [s.id, fieldsOf(s)]));
-  const taskIds = new Set(st.tasks.map((t) => t.id));
+  // Eén Map voor zowel het bestaan-check als de verzameltaak-lookup hieronder — vervangt de losse
+  // `taskIds`-Set van vóór de verzameltaak-check, die dezelfde informatie droeg zonder de taakobjecten.
+  const byTaskId = new Map(st.tasks.map((t) => [t.id, t]));
+  const lookupTask = (tid: string) => byTaskId.get(tid);
   const seenSeqIds = new Set<string>();
 
   for (const raw of updates) {
@@ -203,12 +208,33 @@ function classifyDepUpdates(
       const v = it[key];
       if (v === undefined) continue;
       if (typeof v !== 'string') { bad = `\`${key}\` moet een taak-id (string) zijn, kreeg ${typeof v}`; break; }
-      if (!taskIds.has(v)) { bad = `taak '${v}' (\`${key}\`) bestaat niet`; break; }
+      if (!byTaskId.has(v)) { bad = `taak '${v}' (\`${key}\`) bestaat niet`; break; }
       set(v);
     }
     if (bad) { rejections.push({ id: seqId, reason: bad }); continue; }
     if (nextPred === nextSucc) {
       rejections.push({ id: seqId, reason: `een relatie kan taak '${nextPred}' niet met zichzelf verbinden` });
+      continue;
+    }
+    // Verzameltaak als NIEUW eindpunt (spec 2026-08-14): de solver krijgt alleen bladtaken, dus
+    // verhangen náár een taak MET subtaken zou een spookrelatie worden. Dit pad schrijft de
+    // eindpunten rechtstreeks op de draft (zie de mutatie verderop), dus dit is de ENIGE plek waar
+    // dit tegengehouden kan worden — anders dan bij het aanmaken (classifyDeps → addSequence) zit er
+    // hier geen tweede laag onder.
+    //
+    // Bewust ALLEEN op eindpunten die daadwerkelijk WIJZIGEN: een bestaande relatie kan al een
+    // verzameltaak-eindpunt hebben (uit een import, of retroactief doordat een bladtaak een kind
+    // kreeg) en moet dan nog op type/lag te wijzigen zijn — spec §5 houdt bestaande exemplaren
+    // bewust behouden én beheersbaar. Verhangen wég van een verzameltaak (het herstelpad) blijft dus
+    // ook toegestaan, en één kant naar een blad verleggen terwijl de andere kant nog een
+    // verzameltaak is maakt het niet erger dan het al was.
+    const predIsNew = nextPred !== cur.predecessorId;
+    const succIsNew = nextSucc !== cur.successorId;
+    if (
+      (predIsNew && isSummaryTask(lookupTask(nextPred)))
+      || (succIsNew && isSummaryTask(lookupTask(nextSucc)))
+    ) {
+      rejections.push({ id: seqId, reason: SUMMARY_ENDPOINT_REJECTION });
       continue;
     }
 
@@ -376,8 +402,9 @@ const updateDependencies: BatchStepTool = {
     '`lag`, `predecessorId`, `successorId`. ' + LAG_DOC + ' ' +
     'Zacht geweigerd per item (de rest van de bulk gaat gewoon door): een onbekend `seqId`, een ' +
     'onbekend veld (de weigering NOEMT de sleutel), een onbekend taak-id, een relatie naar zichzelf, ' +
-    'een wijziging die een BESTAANDE relatie zou dubbelen (zelfde voorganger+opvolger+type), en een ' +
-    'item dat niets verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats van ' +
+    'een verzameltaak (taak MET subtaken) als nieuwe voorganger/opvolger, een wijziging die een ' +
+    'BESTAANDE relatie zou dubbelen (zelfde voorganger+opvolger+type), en een item dat niets ' +
+    'verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats van ' +
     'een `ok` zonder effect. Een KRINGVERWIJZING (mogelijk zodra je een eindpunt verlegt) is een harde ' +
     'fout die de hele call terugrolt. Retourneert per gewijzigde relatie het echte VOOR/NA-verschil ' +
     '(`changes`), de herrekende datums van de geraakte taken en het nieuwe projecteinde.',

@@ -153,7 +153,8 @@
     "empty": "Nessuna relazione. Trascina con Shift tra le barre nel Gantt, oppure seleziona due attività e usa il pulsante qui sopra.",
     "notCalculated": "Ricalcola (F5) per vedere relazioni determinanti e margini",
     "warnTruncatedLead": "Anticipo troncato all'inizio del progetto — la sovrapposizione non è sfruttata del tutto",
-    "warnLeadExceedsDuration": "L'anticipo è maggiore della durata del predecessore"
+    "warnLeadExceedsDuration": "L'anticipo è maggiore della durata del predecessore",
+    "warnSummaryEndpoint": "Senza effetto: attività di riepilogo come estremità"
   },
   "structure": {
     "title": "Codici e campi",

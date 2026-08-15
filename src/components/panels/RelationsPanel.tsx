@@ -7,6 +7,7 @@ import { Sequence, SequenceType, SEQUENCE_TYPE_OPTIONS } from '@/types/sequence'
 import { resolveEffectiveLagDays } from '@/engine/scheduler/CPMSolver';
 import { SequenceLagInput } from '@/components/common/SequenceLagInput';
 import { ExternalLinkDialog } from '@/components/dialogs/ExternalLinkDialog';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 import { AlertTriangle, Plus, Trash2, Zap, Link2, RefreshCw } from 'lucide-react';
 
 type SortKey = 'predecessor' | 'successor' | 'type' | 'lag' | 'driving' | 'freeFloat';
@@ -63,6 +64,10 @@ export function RelationsPanel() {
     const effLag = pred ? resolveEffectiveLagDays(seq, pred) : 0;
     const predDur = pred && !pred.isMilestone ? pred.time.scheduleDuration : 0;
     const warnings: string[] = [];
+    // Spookrelatie: de solver krijgt alleen bladtaken, dus een verzameltaak-eindpunt betekent dat
+    // deze relatie geen enkel effect heeft. Afgeleid en niet opgeslagen, zodat een bladtaak die
+    // later een kind krijgt vanzelf meegaat.
+    if (hasSummaryEndpoint((id) => taskById.get(id), seq)) warnings.push(t('relations.warnSummaryEndpoint'));
     if (truncatedSet.has(seq.id)) warnings.push(t('relations.warnTruncatedLead'));
     if (effLag < 0 && Math.abs(effLag) > predDur) warnings.push(t('relations.warnLeadExceedsDuration'));
     return {

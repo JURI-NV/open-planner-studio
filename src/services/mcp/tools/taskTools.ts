@@ -37,6 +37,7 @@ import {
 } from './taskFields';
 import type { SequenceType } from '@/types/sequence';
 import type { Task } from '@/types/task';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 // De relatie-NOTATIE (type-aliassen, lag-vormen, schema-fragmenten) woont in de gedeelde veldlaag
 // `sequenceFields.ts` — één implementatie voor `add_dependencies` hier, `update_dependencies` in
 // `dependencyTools.ts` en de leeskant in `readTools.ts`. Zie de kop van dat bestand.
@@ -47,6 +48,7 @@ import {
   parseLag,
   normalizeSeqType,
   SEQ_TYPE_SCHEMA,
+  SUMMARY_ENDPOINT_REJECTION,
   unknownTypeReason,
   type ParsedLag,
 } from './sequenceFields';
@@ -670,6 +672,10 @@ function classifyDeps(
   const rejections: { id: string; reason: string }[] = [];
   const candidates: { predecessorId: string; successorId: string; type: SequenceType; lag: ParsedLag }[] = [];
   const seen = new Set(st.sequences.map((s) => `${s.predecessorId}|${s.successorId}|${s.type}`));
+  // Eén Map ipv. `st.tasks.some(...)` per dep: `st.tasks` is hier een gewone (niet-draft) array, dus
+  // een Map bouwen kost geen Immer-proxy-overhead en scheelt bij N deps N× een lineaire scan.
+  const byId = new Map(st.tasks.map((t) => [t.id, t]));
+  const lookup = (id: string) => byId.get(id);
   for (const d of deps) {
     const label = `${d.predecessorId}->${d.successorId}`;
     // Type: lange én korte (leeskant-)notatie, hoofdletterongevoelig — zie `sequenceFields` (H1).
@@ -681,8 +687,15 @@ function classifyDeps(
     // Lag: nooit meer stil naar 0 terugvallen (K4/H2).
     const lag = parseLag(d.lag);
     if (!lag.ok) { rejections.push({ id: label, reason: lag.reason }); continue; }
-    if (!st.tasks.some((t) => t.id === d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
-    if (!st.tasks.some((t) => t.id === d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
+    if (!byId.has(d.predecessorId)) { rejections.push({ id: label, reason: `voorganger '${d.predecessorId}' bestaat niet` }); continue; }
+    if (!byId.has(d.successorId)) { rejections.push({ id: label, reason: `opvolger '${d.successorId}' bestaat niet` }); continue; }
+    // Verzameltaak als eindpunt: de solver krijgt alleen bladtaken, dus zo'n relatie zou stil
+    // worden weggegooid. Zacht weigeren i.p.v. een spookrelatie schrijven. Mijlpalen zijn
+    // bladtaken en blijven dus gewoon toegestaan.
+    if (hasSummaryEndpoint(lookup, d)) {
+      rejections.push({ id: label, reason: SUMMARY_ENDPOINT_REJECTION });
+      continue;
+    }
     const key = `${d.predecessorId}|${d.successorId}|${type}`;
     if (seen.has(key)) { rejections.push({ id: label, reason: 'relatie bestond al' }); continue; }
     seen.add(key);
@@ -728,7 +741,17 @@ function addDependenciesCore(
       ...(lp.lagPercent !== undefined ? { lagPercent: lp.lagPercent } : {}),
     });
     if (newId) added.push(newId);
-    else rejections.push({ id: `${c.predecessorId}->${c.successorId}`, reason: 'relatie bestond al' });
+    else {
+      // Backstop, niet de precieze reden: `classifyDeps` hierboven hoort elke afkeuring (dedup,
+      // verzameltaak-eindpunt, self, onbekende taak) al zelf te vangen, dus dit pad is vandaag
+      // onbereikbaar. Mocht een toekomstig gemist geval hier tóch belanden, dan mag de tekst niet
+      // meer beloven dan hij weet — "bestond al" zou een agent een niet-bestaande relatie laten
+      // zoeken en laten hercirkelen.
+      rejections.push({
+        id: `${c.predecessorId}->${c.successorId}`,
+        reason: 'relatie geweigerd door de relatieregels (duplicaat, of een eindpunt dat geen effect heeft)',
+      });
+    }
   }
   return { data: { added }, itemRejections: rejections };
 }
@@ -738,8 +761,9 @@ const addDependencies: BatchStepTool = {
   description:
     'Voeg NIEUWE relaties tussen taken toe. Per item: `predecessorId`, `successorId`, `type` ' +
     '(FINISH_START | FINISH_FINISH | START_START | START_FINISH — de KORTE vorm FS/FF/SS/SF die de ' +
-    'leestools teruggeven mag ook) en optioneel `lag`. ' + LAG_DOC + ' Onbekende taak-id\'s of een reeds ' +
-    'bestaande relatie worden per item zacht geweigerd; een kringverwijzing (over de bestaande én ' +
+    'leestools teruggeven mag ook) en optioneel `lag`. ' + LAG_DOC + ' ' +
+    'Onbekende taak-id\'s, een reeds bestaande relatie, of een verzameltaak (taak MET subtaken) als ' +
+    'voorganger/opvolger worden per item zacht geweigerd; een kringverwijzing (over de bestaande én ' +
     'voorgestelde relaties) is een harde fout die de hele call terugrolt. ' +
     'WIL JE EEN BESTAANDE RELATIE WIJZIGEN (ander type, andere lag, andere voorganger/opvolger)? ' +
     'Gebruik planner_update_dependencies met het sequence-id — NIET verwijderen-en-opnieuw-toevoegen: ' +

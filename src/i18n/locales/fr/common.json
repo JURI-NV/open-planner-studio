@@ -14,7 +14,9 @@
     "ifcParseFailed": "IFC n'a pas pu être lu",
     "templateSaved": "Branche enregistrée comme modèle '{{name}}'",
     "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
-    "relationDuplicate": "Cette relation existe déjà"
+    "relationDuplicate": "Cette relation existe déjà",
+    "relationSummaryEndpoint": "Une tâche récapitulative comme extrémité n'a aucun effet sur le planning. Reliez-la plutôt à une tâche sans sous-tâches.",
+    "summaryRelationsIgnored": "{{total}} relation(s) sur des tâches récapitulatives n'ont aucun effet sur le planning."
   },
   "yes": "Oui",
   "no": "Non",

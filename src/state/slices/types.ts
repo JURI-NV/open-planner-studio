@@ -168,7 +168,9 @@ export type NotificationMessageKey =
   | 'notifications.ifcParseFailed'
   | 'notifications.templateSaved'
   | 'notifications.relationCreated'
-  | 'notifications.relationDuplicate';
+  | 'notifications.relationDuplicate'
+  | 'notifications.relationSummaryEndpoint'
+  | 'notifications.summaryRelationsIgnored';
 
 export interface AppNotification {
   /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */

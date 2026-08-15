@@ -1,6 +1,7 @@
 import { useAppStore } from './appStore';
 import { createSnapshot, restoreSnapshot, type Snapshot } from './snapshot';
 import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
+import { relationVerdict } from './relationRules';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
@@ -366,18 +367,19 @@ export const draft = {
   },
 
   /**
-   * Snapshot/recompute-vrije variant van de store-`addSequence`: dedup op (predecessor, successor,
-   * type) — meerdere relatietypes tussen hetzelfde paar blijven toegestaan. Retourneert het nieuwe id,
-   * of `null` wanneer een exact duplicaat is genegeerd.
+   * Snapshot/recompute-vrije variant van de store-`addSequence`: dezelfde regels als de store-actie,
+   * uit `relationRules.ts` (dedup op predecessor+successor+type — meerdere relatietypes tussen
+   * hetzelfde paar blijven toegestaan — plus self/onbekende-taak/verzameltaak-eindpunt). Dit was een
+   * handgeschreven kopie van alleen de dedup-regel; die kopie is precies waarom validatie in de
+   * slice-actie de MCP-laag zou overslaan. Retourneert het nieuwe id, of `null` wanneer de relatie is
+   * geweigerd.
    */
   addSequence(seq: Omit<Sequence, 'id'>): string | null {
     const id = generateId('seq');
     let result: string | null = null;
     useAppStore.setState((s) => {
-      const exists = s.sequences.some(
-        (e) => e.predecessorId === seq.predecessorId && e.successorId === seq.successorId && e.type === seq.type,
-      );
-      if (exists) return; // duplicaat: result blijft null
+      const lookup = (tid: string) => s.tasks.find((t) => t.id === tid);
+      if (!relationVerdict(lookup, s.sequences, seq).ok) return; // result blijft null
       s.sequences.push({ ...seq, id });
       s.isDirty = true;
       result = id;

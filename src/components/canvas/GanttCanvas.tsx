@@ -1055,10 +1055,16 @@ export function GanttCanvas() {
         selectTask(task.id, false);
       }
     }
-    // Balk-hit (fase 2.10 golf 2): dezelfde hit-test als drag-start; geeft null op de rij ernaast,
-    // op een mijlpaal en op een summary-balk (getTaskBarBounds sluit die bewust uit) — die krijgen
-    // dan gewoon het rij-menu zonder balk-specifieke items, zoals bedoeld.
-    const barHit = !!task && !!renderer.getTaskBarBounds(x, y);
+    // `barHit` poort in ContextMenu.tsx precies één menu-item: `context.startRelationHere`
+    // ("Relatie leggen vanaf hier"). Dat is een relatie-actie, geen sleep/resize-actie — dus
+    // hoort hij de relatie-hittest te gebruiken, niet `getTaskBarBounds` (die is geschreven voor
+    // slepen/resizen en weigert mijlpalen daarom terecht: een ruit heeft geen duur om te
+    // resizen). Vóór deze fix miste een rechtsklik op een mijlpaal het item, terwijl slepen
+    // vanaf diezelfde mijlpaal via `getRelationSourceAt` al wél werkte (zie GanttRenderer.ts).
+    // `getRelationSourceAt` geeft nog steeds null op de rij ernaast en op een summary-balk (een
+    // verzameltaak zou een spookrelatie opleveren, zie `state/relationRules.ts`) — die krijgen
+    // dan gewoon het rij-menu zonder het relatie-item, zoals bedoeld.
+    const barHit = !!task && !!renderer.getRelationSourceAt(x, y);
     setContextMenu({ x: e.clientX, y: e.clientY, task, barHit, group: null });
   }, [selectTask, selectedTaskIds, headerHeight]);
 
@@ -1107,16 +1113,19 @@ export function GanttCanvas() {
 
     if (y < headerHeight) return;
 
-    const hit = renderer.getTaskBarBounds(x, y);
-    if (hit) {
-      // Shift+drag vanaf een balk tekent een relatie — en sinds issue #40 doet de relatiemodus
-      // exact hetzelfde zónder toets ("plakkende Shift"), zodat de lint-knop/het contextmenu-item
-      // een écht gebaar armen in plaats van een dode vlag te zetten. Bewust hetzelfde pad: een
-      // tweede interactie zou met box-select (ctrl) en deze sleep om dezelfde muis-events vechten.
-      if (e.shiftKey || dependencyMode) {
+    // Shift+drag tekent een relatie — en sinds issue #40 doet de relatiemodus exact hetzelfde
+    // zónder toets ("plakkende Shift"), zodat de lint-knop/het contextmenu-item een écht gebaar
+    // armen in plaats van een dode vlag te zetten. Bewust hetzelfde pad: een tweede interactie zou
+    // met box-select (ctrl) en de balk-sleep om dezelfde muis-events vechten.
+    //
+    // Eigen hittest (spec 2026-08-14): getTaskBarBounds weigert mijlpalen omdat een ruit geen duur
+    // heeft om te resizen — voor een relatie is dat geen bezwaar en was het een bug.
+    if (e.shiftKey || dependencyMode) {
+      const source = renderer.getRelationSourceAt(x, y);
+      if (source) {
         e.preventDefault();
         depDraw.startDepDraw({
-          sourceTaskId: hit.task.id,
+          sourceTaskId: source.id,
           sourceX: e.clientX,
           sourceY: e.clientY,
           currentX: e.clientX,
@@ -1124,7 +1133,10 @@ export function GanttCanvas() {
         });
         return;
       }
+    }
 
+    const hit = renderer.getTaskBarBounds(x, y);
+    if (hit) {
       // issue #21 punt 3: Ctrl/Cmd-klik op een balk is een selectiegebaar, geen drag/resize.
       // Vroeger liep mousedown hier altijd door naar barDrag + een harde single-reset
       // (selectTask(id, false)), waarna handleClick's toggle het id er weer uit haalde → bij

@@ -153,7 +153,8 @@
     "empty": "関係はまだありません。ガントチャートのバー間を Shift を押しながらドラッグするか、2 つのタスクを選択して上のボタンを使用してください。",
     "notCalculated": "再計算（F5）すると駆動関係とフロートが表示されます",
     "warnTruncatedLead": "リードがプロジェクト開始で打ち切られました — 重複は完全には活用されません",
-    "warnLeadExceedsDuration": "リードが先行タスクの期間より大きくなっています"
+    "warnLeadExceedsDuration": "リードが先行タスクの期間より大きくなっています",
+    "warnSummaryEndpoint": "効果なし: 端点がサマリータスク"
   },
   "structure": {
     "title": "コードとフィールド",

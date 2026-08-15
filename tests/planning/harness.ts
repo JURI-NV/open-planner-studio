@@ -63,6 +63,7 @@ import type { CustomFieldType } from '@/types/structure';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { generateId } from '@/utils/id';
 
 const S = () => useAppStore.getState();
 const CLEAN_WORKDAYS = [1, 2, 3, 4, 5];
@@ -459,13 +460,25 @@ function buildAndSolve(c: Case): {
       if (mins == null) throw new Error(`relatie ${l.pred}->${l.succ}: onparseerbare lag "${l.lag}"`);
       lagMinutes = mins;
     }
-    S().addSequence({
+    const seqInput = {
       predecessorId: ids[l.pred], successorId: ids[l.succ], type: l.type as any,
       lagDays: lagDaysVal ?? 0,
       ...(lagMinutes !== undefined ? { lagMinutes } : {}),
       ...(l.lagUnit !== undefined ? { lagUnit: l.lagUnit as any } : {}),
       ...(l.lagPercent !== undefined ? { lagPercent: l.lagPercent } : {}),
-    });
+    };
+    if (seqInput.predecessorId === seqInput.successorId) {
+      // Zelf-lus (edge-selfloop-01): `addSequence` weigert dit sinds de relatieregels (verwacht
+      // gedrag, zie relationRules.ts) en zou hem stil buiten de sequences houden — dan test dit
+      // harnas de CPM-solver z'n eigen kringdetectie nooit. Zo'n relatie kán nog steeds bestaan
+      // (bv. een corrupt/legacy IFC dat via `loadState` binnenkomt, ongefilterd door de guard), dus
+      // omzeil hier bewust de store-actie en zet 'm rechtstreeks — de solver moet 'm zelf afvangen.
+      useAppStore.setState((s) => {
+        s.sequences.push({ ...seqInput, id: generateId('seq') });
+      });
+    } else if (S().addSequence(seqInput) === null) {
+      throw new Error(`relatie ${l.pred}->${l.succ} geweigerd door de relatieregels`);
+    }
   }
   // Toewijzingen — ná addTask (assignResource is leaf/mijlpaal-bewust, §2.4) en vóór runCPM
   // (de belasting wordt binnen runCPM herberekend, zie scheduleSlice.runCPM).

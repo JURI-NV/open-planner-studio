@@ -14,7 +14,9 @@
     "ifcParseFailed": "Nie udało się odczytać pliku IFC",
     "templateSaved": "Gałąź zapisana jako szablon '{{name}}'",
     "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
-    "relationDuplicate": "Taka relacja już istnieje"
+    "relationDuplicate": "Taka relacja już istnieje",
+    "relationSummaryEndpoint": "Zadanie sumaryczne jako punkt końcowy nie ma wpływu na harmonogram. Połącz z zadaniem bez podzadań.",
+    "summaryRelationsIgnored": "Relacje na zadaniach sumarycznych bez wpływu na harmonogram: {{total}}."
   },
   "yes": "Tak",
   "no": "Nie",
