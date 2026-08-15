@@ -174,6 +174,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPPGUARDCHECK="$DIR/.mpp-open-guard.mjs"
   if bundle_check "$DIR/check-mpp-open-guard.ts" "$MPPGUARDCHECK"; then node "$MPPGUARDCHECK" || STATUS=1; fi
 
+  # Chunk-poort (fase 3.8 e1, T11 — T8-review-agenda stap 0-ter d): '@/services/mpp' mag NERGENS
+  # onder src/ statisch geïmporteerd worden, alleen als `await import(` in formatRegistry.ts —
+  # anders trekt Rollup de mpp-parser (CFB/fieldmaps) alsnog in de main chunk. Geen corpus nodig,
+  # draait altijd (pure node:fs-grep, geen store/DOM).
+  MPPCHUNKCHECK="$DIR/.mpp-chunk-boundary.mjs"
+  if bundle_check "$DIR/check-mpp-chunk-boundary.ts" "$MPPCHUNKCHECK"; then node "$MPPCHUNKCHECK" || STATUS=1; fi
+
   # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
   # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
   # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).
