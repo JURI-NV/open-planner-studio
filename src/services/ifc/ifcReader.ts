@@ -1368,6 +1368,49 @@ function extractCalendarHoursPerDay(
   return undefined;
 }
 
+/**
+ * T5-HERZIENING (2026-08-15, spec-reviewbevinding: zie het plandocument §T5) — het STEP-id-signaal
+ * dat een `IFCWORKTIME` in `ExceptionTimes` een WERKENDE UITZONDERING is, i.p.v. een feestdag.
+ * Spiegel van `writeCalendarGenerationMeta`'s `WorkingExceptionIds`-property in hetzelfde
+ * `OPS_Calendar`-pset als generation/libraryOrigin/hoursPerDay. BEWUST geen discriminator op
+ * `IfcWorkTime.RecurrencePattern` (args[3]): IFC 4.3 reserveert die ref niet voor werkende
+ * uitzonderingen — een spec-conforme externe tool kan een RECURRENTE FEESTDAG ("elke 25 december")
+ * met exact zo'n gevulde ref schrijven, en die zou dan zonder deze pset-check als werkdag
+ * ingelezen worden (bewezen met een geconstrueerd fragment in de spec-review). Geen/corrupte
+ * property ⇒ `undefined` — de aanroeper valt dan terug op "alles in ExceptionTimes is een
+ * feestdag", het conservatieve pre-T5-gedrag voor bestanden zonder deze markering.
+ */
+function extractWorkingExceptionStepIds(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): Set<string> | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'WorkingExceptionIds') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value !== 'string' || !value) continue;
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed) && parsed.every(x => typeof x === 'string')) {
+          return new Set(parsed);
+        }
+      } catch { /* corrupte JSON: negeren — valt terug op "alles is feestdag" */ }
+    }
+  }
+  return undefined;
+}
+
 /** Bouwt een `WorkCalendar` uit een `IFCWORKCALENDAR`-entiteit: naam/omschrijving/feestdagen
  *  (bestaand), plus (fase 2.8a, §8.1) werkdagen/uren teruggelezen uit de
  *  `WorkingTimes`-keten (args[5] → IFCWORKTIME → RecurrencePattern-ref → IFCRECURRENCEPATTERN
@@ -1447,18 +1490,22 @@ function buildCalendarFromEntity(
   else if (predef.includes('THIRDSHIFT')) calendar.shift = 'THIRD';
   else if (predef.includes('USERDEFINED')) calendar.shift = 'USERDEFINED';
 
-  // ExceptionTimes (args[6]) draagt zowel feestdagen als werkende uitzonderingen (fase 3.8, T5),
-  // door elkaar in dezelfde lijst. Onderscheid: een werkende uitzondering heeft een GEVULDE
-  // RecurrencePattern-ref (args[3]) — de writer schrijft die alleen voor werkende uitzonderingen
-  // (`writeCalendar`, `_excrecurrence`); een feestdag-IFCWORKTIME houdt args[3] altijd op `$`.
+  // ExceptionTimes (args[6]) draagt zowel feestdagen als werkende uitzonderingen (fase 3.8, T5,
+  // HERZIEN 2026-08-15 na spec-reviewbevinding — zie het plandocument §T5). Het onderscheid is de
+  // OPS-pset-markering (`extractWorkingExceptionStepIds`), NIET de aanwezigheid van een gevulde
+  // RecurrencePattern-ref (args[3]): een spec-conforme externe tool kan een RECURRENTE FEESTDAG
+  // ("elke 25 december") met precies zo'n gevulde ref schrijven, en die zou dan zonder deze
+  // pset-check als WERKDAG worden ingelezen — een regressie t.o.v. het conservatieve pre-T5-gedrag.
+  // Geen markering (eigen bestand van vóór deze herziening, of extern) ⇒ alles in ExceptionTimes
+  // is een feestdag, óók met een gevulde recurrence-ref.
+  const workingExceptionIds = extractWorkingExceptionStepIds(cal.id, entities, entityMap);
   const exceptionRefs = parseRefs(cal.args[6] || '');
   const holidays: Holiday[] = [];
   const workingExceptions: WorkingException[] = [];
   for (const ref of exceptionRefs) {
     const wt = entityMap.get(ref);
     if (!wt || wt.type !== 'IFCWORKTIME') continue;
-    const excRecRef = parseRef(wt.args[3] || '');
-    if (!excRecRef) {
+    if (!workingExceptionIds?.has(ref)) {
       holidays.push({
         name: stripQuotes(wt.args[0] || '') || 'Feestdag',
         startDate: parseDateFromIFC(wt.args[4] || ''),
@@ -1466,22 +1513,25 @@ function buildCalendarFromEntity(
       });
       continue;
     }
-    // De RecurrencePattern van een werkende uitzondering draagt uitsluitend override-banden
-    // (TimePeriods, args[7]) — DayComponent is hier altijd leeg. Canoniseren naar `end > start`
-    // (§3.2-conventie, `WorkingException.bands`): een wrap-band komt als tijd-van-de-dag terug
-    // (`e ≤ s`) en krijgt hier `+1440` terug, precies zoals de hoofd-werktijdlus hierboven het aan
-    // `canonicalizeBands` overlaat.
+    // OPS-gemarkeerd als werkende uitzondering. De banden zitten — indien geschreven — nog steeds
+    // in de RecurrencePattern-ref (args[3] → TimePeriods, args[7]); DayComponent is hier altijd
+    // leeg. Canoniseren naar `end > start` (§3.2-conventie, `WorkingException.bands`): een
+    // wrap-band komt als tijd-van-de-dag terug (`e ≤ s`) en krijgt hier `+1440` terug, precies
+    // zoals de hoofd-werktijdlus hierboven het aan `canonicalizeBands` overlaat.
     const bands: { start: number; end: number }[] = [];
-    const excRec = entityMap.get(excRecRef);
-    if (excRec && excRec.type === 'IFCRECURRENCEPATTERN') {
-      for (const bRef of parseRefs(excRec.args[7] || '')) {
-        const tp = entityMap.get(bRef);
-        if (!tp || tp.type !== 'IFCTIMEPERIOD') continue;
-        const s = clockToMinutes(stripQuotes(tp.args[0] || ''));
-        let e = clockToMinutes(stripQuotes(tp.args[1] || ''));
-        if (s != null && e != null) {
-          if (e <= s) e += 1440;
-          bands.push({ start: s, end: e });
+    const excRecRef = parseRef(wt.args[3] || '');
+    if (excRecRef) {
+      const excRec = entityMap.get(excRecRef);
+      if (excRec && excRec.type === 'IFCRECURRENCEPATTERN') {
+        for (const bRef of parseRefs(excRec.args[7] || '')) {
+          const tp = entityMap.get(bRef);
+          if (!tp || tp.type !== 'IFCTIMEPERIOD') continue;
+          const s = clockToMinutes(stripQuotes(tp.args[0] || ''));
+          let e = clockToMinutes(stripQuotes(tp.args[1] || ''));
+          if (s != null && e != null) {
+            if (e <= s) e += 1440;
+            bands.push({ start: s, end: e });
+          }
         }
       }
     }

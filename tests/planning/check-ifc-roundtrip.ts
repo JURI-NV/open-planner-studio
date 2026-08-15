@@ -764,6 +764,48 @@ const rt2 = readIFC(writeIFC(rt1));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
+// (6) T5-HERZIENING (2026-08-15, spec-reviewbevinding — zie het plandocument §T5) — extern-stijl
+//     fragment: een spec-conforme externe IFC 4.3-tool mag een RECURRENTE FEESTDAG ("elke 25
+//     december") schrijven als `IFCWORKTIME` met een GEVULDE `RecurrencePattern`-ref (args[3]),
+//     zonder de OPS-pset-markering die alleen ONZE writer zet. Vóór de herziening zou zo'n ref op
+//     zichzelf al "werkende uitzondering" betekenen (het oorspronkelijke, foutieve ontwerp) — deze
+//     case bewijst dat de reader nu conservatief blijft: geen OPS-markering ⇒ feestdag, ook met een
+//     gevulde recurrence. We bouwen het fragment door de "Kerst"-feestdagregel uit de echte
+//     `writeIFC`-uitvoer te patchen (geen losse hand-geschreven STEP-file nodig — dat zou het risico
+//     lopen zelf een ongeldig fragment te zijn) en een YEARLY-recurrence toe te voegen die de writer
+//     zelf nooit voor een feestdag zou schrijven.
+{
+  const ifc = writeIFC(fixture);
+  const lines = ifc.split('\n');
+  const ids = lines.map(l => { const m = /^#(\d+)=/.exec(l); return m ? parseInt(m[1], 10) : 0; });
+  const newRecId = Math.max(...ids) + 1;
+
+  const kerstIdx = lines.findIndex(l => l.includes("IFCWORKTIME('Kerst',.PREDICTED.,$,$,"));
+  assert(kerstIdx >= 0, 'kon de ongepatchte Kerst-feestdagregel niet vinden (verwacht args[3]=$)');
+  const patchedLine = lines[kerstIdx].replace(
+    "IFCWORKTIME('Kerst',.PREDICTED.,$,$,",
+    `IFCWORKTIME('Kerst',.PREDICTED.,$,#${newRecId},`,
+  );
+  assert(patchedLine !== lines[kerstIdx], 'kon de RecurrencePattern-ref niet inpatchen in de Kerst-regel');
+  lines[kerstIdx] = patchedLine;
+
+  // Vóór de DATA-sluitende `ENDSEC;` (de HEADER-sectie heeft er ook één, vandaar `lastIndexOf` i.p.v.
+  // de eerste treffer — anders belandt de nieuwe entiteit vóór `DATA;` en is het fragment ongeldig).
+  const dataEndIdx = lines.lastIndexOf('ENDSEC;');
+  assert(dataEndIdx > 0, 'kon de sluitende ENDSEC; van de DATA-sectie niet vinden');
+  lines.splice(dataEndIdx, 0, `#${newRecId}=IFCRECURRENCEPATTERN(.YEARLY.,$,$,(25),(12),$,$,$);`);
+
+  const rt = readIFC(lines.join('\n'));
+  const kerstAsHoliday = rt.calendar.holidays.find(h => h.name === 'Kerst');
+  const kerstAsException = (rt.calendar.workingExceptions ?? []).find(e => e.name === 'Kerst');
+  assert(!!kerstAsHoliday, 'extern-fragment: "Kerst" met gevulde-maar-ongemarkeerde RecurrencePattern moet als feestdag teruglezen');
+  assert(!kerstAsException, 'extern-fragment: "Kerst" mag NIET als werkende uitzondering teruglezen — dat was precies de spec-reviewregressie');
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de oude discriminator ("recurrence-ref gevuld
+  // ⇒ werkende uitzondering") teruggezet in de reader maakt precies déze twee asserties ROOD.
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);
   process.exit(0);

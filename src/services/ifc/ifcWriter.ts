@@ -204,8 +204,9 @@ export function writeIFC(input: WriteIFCInput): string {
 
   // Calendar (projectkalender — altijd de EERSTE IFCWORKCALENDAR in het bestand; vaste conventie
   // die de reader aanhoudt om 'm van de bibliotheek-kalenders hieronder te onderscheiden, §8.2).
-  const projectCalStepId = writeCalendar(ctx, calendar, ownerHistId);
-  writeCalendarGenerationMeta(ctx, projectCalStepId, calendar, ownerHistId);
+  const { calStepId: projectCalStepId, workingExceptionStepIds: projectWorkingExceptionStepIds }
+    = writeCalendar(ctx, calendar, ownerHistId);
+  writeCalendarGenerationMeta(ctx, projectCalStepId, calendar, ownerHistId, projectWorkingExceptionStepIds);
 
   // Work plan & schedule
   const startDates = tasks.map(t => t.time.scheduleStart).filter(Boolean).sort();
@@ -640,7 +641,15 @@ function shiftToPredefinedType(shift: WorkCalendar['shift']): string {
   }
 }
 
-function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number, key: string = '_calendar'): number {
+/** Terugkeerwaarde van `writeCalendar` (fase 3.8, T5-herziening): naast het STEP-id van de
+ *  `IFCWORKCALENDAR` zelf ook de STEP-ids van de werkende-uitzondering-`IFCWORKTIME`'s, zodat
+ *  `writeCalendarGenerationMeta` die als OPS-discriminator kan wegschrijven (zie aldaar). */
+interface WriteCalendarResult {
+  calStepId: number;
+  workingExceptionStepIds: number[];
+}
+
+function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number, key: string = '_calendar'): WriteCalendarResult {
   // Work time recurrence (weekdays)
   const dayNums = cal.workDays.join(',');
   let timePeriodRefs: string;
@@ -680,18 +689,22 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
     holidayRefs.push(`#${hId}`);
   }
 
-  // Werkende uitzonderingen als exception times (fase 3.8, T5). Zelfde `ExceptionTimes`-lijst als
-  // de feestdagen hierboven, maar met een GEVULDE RecurrencePattern-ref (args[3]) — dát is het
-  // onderscheid dat de reader gebruikt om een werkende uitzondering van een feestdag te
-  // onderscheiden (een feestdag-IFCWORKTIME houdt args[3] altijd op `$`, zie boven). De
-  // RecurrencePattern draagt uitsluitend de override-banden (`TimePeriods`, args[7]); DayComponent
-  // (args[2]) blijft `$` — een enkele datum-range heeft geen weekdag-patroon nodig. Ontbreken de
-  // banden (`bands` leeg/afwezig ⇒ de weekdag-standaardbanden gelden, zie `WorkingException` in
-  // calendar.ts), dan schrijven we een lege TimePeriods-lijst (`$`); de reader herkent de
-  // uitzondering dan nog steeds aan de aanwezige RecurrencePattern-ref. Golden rule: `cal.
-  // workingExceptions` afwezig/leeg ⇒ deze lus doet niets, dus bestaande kalenders zonder werkende
-  // uitzonderingen blijven byte-identiek (geen nieuwe entiteiten, geen gewijzigde ExceptionTimes).
+  // Werkende uitzonderingen als exception times (fase 3.8, T5 — HERZIEN 2026-08-15 na
+  // spec-reviewbevinding: zie het plandocument §T5). Zelfde `ExceptionTimes`-lijst als de
+  // feestdagen hierboven; de banden blijven als datadrager in een RecurrencePattern staan
+  // (`TimePeriods`, args[7]; DayComponent, args[2], blijft `$` — een enkele datumrange heeft geen
+  // weekdag-patroon nodig). MAAR de RecurrencePattern-ref is GEEN discriminator meer: IFC 4.3
+  // reserveert die niet voor werkende uitzonderingen, en een spec-conforme externe tool kan een
+  // RECURRENTE FEESTDAG ("elke 25 december") met exact zo'n gevulde ref schrijven. Het echte
+  // onderscheid is de OPS-pset-markering hieronder (`writeCalendarGenerationMeta`,
+  // `WorkingExceptionIds`) — de STEP-ids van deze IFCWORKTIME's worden daar expliciet
+  // weggeschreven, en de reader behandelt alléén een gemarkeerd id als werkende uitzondering
+  // (conservatief: ongemarkeerd + gevulde ref ⇒ nog steeds feestdag, het pre-T5-gedrag voor
+  // externe bestanden). Golden rule: `cal.workingExceptions` afwezig/leeg ⇒ deze lus doet niets,
+  // dus bestaande kalenders zonder werkende uitzonderingen blijven byte-identiek (geen nieuwe
+  // entiteiten, geen gewijzigde ExceptionTimes, geen nieuwe pset-property).
   const workingExceptionRefs: string[] = [];
+  const workingExceptionStepIds: number[] = [];
   for (const exc of cal.workingExceptions ?? []) {
     const bandIds = (exc.bands ?? []).map((b) =>
       addLine(ctx, '_excband', `IFCTIMEPERIOD('${minutesToClock(b.start)}','${minutesToClock(b.end)}')`));
@@ -700,14 +713,16 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
     const wId = addLine(ctx, `_workexc_${exc.name}`,
       `IFCWORKTIME(${ifcStr(exc.name)},.PREDICTED.,$,#${excRecId},'${exc.startDate}','${exc.endDate}')`);
     workingExceptionRefs.push(`#${wId}`);
+    workingExceptionStepIds.push(wId);
   }
 
   const allExceptionRefs = [...holidayRefs, ...workingExceptionRefs];
   const exceptStr = allExceptionRefs.length > 0 ? `(${allExceptionRefs.join(',')})` : '$';
   // ObjectType (arg 4): alleen een label bij USERDEFINED-ploeg; anders `$` (byte-identiek).
   const objectType = cal.shift === 'USERDEFINED' ? ifcStr('USERDEFINED') : '$';
-  return addLine(ctx, key,
+  const calStepId = addLine(ctx, key,
     `IFCWORKCALENDAR(${ifcStr(guidOf(ctx, cal.id))},#${ownerHistId},${ifcStr(cal.name)},${ifcStr(cal.description)},${objectType},(#${workTimeId}),${exceptStr},${shiftToPredefinedType(cal.shift)})`);
+  return { calStepId, workingExceptionStepIds };
 }
 
 /**
@@ -725,17 +740,29 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
  * identiek); mét afwijking (bv. de standaard "Bouwkalender NL" 07-16 met een impliciet lunchuur,
  * hoursPerDay 8 ≠ 16−7=9) overleeft de expliciete waarde nu de round-trip i.p.v. stilzwijgend te
  * worden overschreven door de afgeleide span.
+ *
+ * T5-HERZIENING (2026-08-15, spec-reviewbevinding): `workingExceptionStepIds` — de STEP-ids van de
+ * werkende-uitzondering-`IFCWORKTIME`'s uit `writeCalendar` — worden hier als `WorkingExceptionIds`
+ * (JSON-array van STEP-id-strings) in HETZELFDE `OPS_Calendar`-pset weggeschreven. Dit IS de
+ * discriminator die de reader gebruikt om een werkende uitzondering van een (evt. recurrente)
+ * feestdag te onderscheiden — niet de aanwezigheid van een RecurrencePattern-ref, want die is geen
+ * IFC-gereserveerd signaal (zie `writeCalendar`). Golden rule: geen werkende uitzonderingen ⇒ geen
+ * property, dus deze tak alleen actief bij `workingExceptionStepIds.length > 0` — een kalender
+ * mét generation/libraryOrigin/hoursPerDayOverride maar ZONDER werkende uitzonderingen schrijft
+ * exact dezelfde pset-inhoud als vóór deze herziening.
  */
 function writeCalendarGenerationMeta(
   ctx: WriteContext,
   calStepId: number,
   cal: WorkCalendar,
   ownerHistId: number,
+  workingExceptionStepIds: number[],
 ): void {
   const gen = cal.generation;
   const derivedHoursPerDay = cal.workEndHour - cal.workStartHour;
   const needsHoursPerDayOverride = !cal.workTime && cal.hoursPerDay !== derivedHoursPerDay;
-  if (!gen && !cal.libraryOrigin && !needsHoursPerDayOverride) return;
+  const hasWorkingExceptions = workingExceptionStepIds.length > 0;
+  if (!gen && !cal.libraryOrigin && !needsHoursPerDayOverride && !hasWorkingExceptions) return;
   const props: number[] = [];
   if (gen) {
     props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
@@ -760,6 +787,11 @@ function writeCalendarGenerationMeta(
   if (needsHoursPerDayOverride) {
     props.push(addLine(ctx, `_opscal_hpd_${cal.id}`,
       `IFCPROPERTYSINGLEVALUE('HoursPerDay',$,IFCREAL(${cal.hoursPerDay}),$)`));
+  }
+  if (hasWorkingExceptions) {
+    const idJson = JSON.stringify(workingExceptionStepIds.map(String));
+    props.push(addLine(ctx, `_opscal_wexc_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('WorkingExceptionIds',$,IFCTEXT(${ifcStr(idJson)}),$)`));
   }
   const setId = addLine(ctx, `_pset_opscal_${cal.id}`,
     `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
@@ -787,8 +819,8 @@ function writeCalendarLibrary(
   ownerHistId: number,
 ): void {
   for (const cal of calendars) {
-    const calStepId = writeCalendar(ctx, cal, ownerHistId, `calendar_${cal.id}`);
-    writeCalendarGenerationMeta(ctx, calStepId, cal, ownerHistId);
+    const { calStepId, workingExceptionStepIds } = writeCalendar(ctx, cal, ownerHistId, `calendar_${cal.id}`);
+    writeCalendarGenerationMeta(ctx, calStepId, cal, ownerHistId, workingExceptionStepIds);
 
     const resRefs = resources
       .filter(r => r.calendarId === cal.id)
