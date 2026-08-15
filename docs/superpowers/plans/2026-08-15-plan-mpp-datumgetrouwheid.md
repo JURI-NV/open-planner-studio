@@ -235,6 +235,8 @@ De leeskant (`durationType: 'ELAPSEDTIME'` zetten uit veld `DurationUnits`=181) 
 
 **Precedent om te hergebruiken:** `resolveElapsedMinutes` + de `lagUnit === 'ELAPSEDTIME'`-takken in `relationMath.ts` doen dit al voor lags. Zelfde semantiek, niet een tweede variant.
 
+**Toegevoegd uit T10-review (2026-08-15):** de uurmodus-herberekening van `scheduleDuration` in `CPMSolver` (verifieer op inhoud: `mins / (cal.hoursPerDay * 60)` in de uur-tak) is elapsed-naïef — dezelfde dubbele-deling-valkuil als de dag-modus die T10 in de lezer fixte. T8 moet deze tak `durationType`-bewust maken én een case toevoegen die uurmodus+ELAPSEDTIME `scheduleDuration` pint (T10's corpuscase test dat bewust nog niet). De lezer-kant (uurmodus in `mppReader.ts`) volgt dezelfde conventie en is dan automatisch consistent.
+
 **Acceptatie (mutatie-bewijs).**
 1. `mpp14duration.mpp` bereikt 0 afwijkingen (nu 3 finish-afwijkingen: 1 elapsed dag = +24 klok-uur, 1 elapsed week = +7 kalenderdagen, 1 elapsed maand = +30 kalenderdagen).
 2. Nieuwe cases: taak met `durationType: 'ELAPSEDTIME'`, 2 dagen, start vrijdag → finish zondag (niet dinsdag).
