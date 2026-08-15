@@ -13,6 +13,7 @@ import type { WorkCalendar } from '@/types/calendar';
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Project } from '@/types/project';
 import type { LevelingResult } from '@/engine/scheduler/ResourceLeveler';
+import { clampProjectStartAnchors } from '@/engine/scheduler/projectStartAnchorClamp';
 
 /** Herintreedbaarheids-wachter: `true` zolang een `runInMcpTransaction` loopt. Los van de
  *  `beginUndoable`-suppressievlag in transaction.ts (die stuurt de mutators aan) — deze stuurt puur
@@ -725,12 +726,31 @@ export const draft = {
    * `modifiedAt`. Ankert alleen NIEUWE taken op `startDate` (bestaande planning verschuift niet — dat
    * is `moveProject`). De store-no-op-guard (`projectChanges`) wordt hier weggelaten: binnen een
    * transactie is de snapshot al genomen, dus een leeg-effect-merge kost niets extra's.
+   *
+   * T7-review H1: dit AI-bewerkmoment hoort zich IDENTIEK te gedragen als de UI-variant
+   * (`projectSlice.setProject`) — vóór deze fix deed dit alleen `Object.assign`, dus een LATERE
+   * `startDate` liet een verouderd wortel-anker via de AI stil vóór het officiële projectbegin
+   * hangen (headless bewezen: geen klem, geen melding). Dezelfde gedeelde `clampProjectStartAnchors`
+   * (`engine/scheduler/projectStartAnchorClamp.ts`) als de UI-kant — één definitie, geen tweede die
+   * kan afdrijven. GEEN eigen `runCPM`/melding hier: `runInMcpTransaction` herrekent altijd precies
+   * één keer aan het eind (stap 5); het AANTAL geklemde ankers gaat terug naar de AANROEPER (i.p.v.
+   * naar het UI-meldingenkanaal, dat de MCP-bridge niet gebruikt) zodat `planner_update_project` het
+   * in zijn tool-resultaat kan melden.
    */
-  setProject(updates: Partial<Project>): void {
+  setProject(updates: Partial<Project>): number {
+    let clampedAnchors = 0;
     useAppStore.setState((s) => {
+      const prevStartDate = s.project.startDate;
       Object.assign(s.project, updates);
       s.project.modifiedAt = new Date().toISOString();
+      if (typeof updates.startDate === 'string') {
+        clampedAnchors = clampProjectStartAnchors({
+          tasks: s.tasks, sequences: s.sequences, calendar: s.calendar, calendars: s.calendars,
+          prevStartDate, nextStartDate: updates.startDate,
+        });
+      }
       s.isDirty = true;
     });
+    return clampedAnchors;
   },
 };

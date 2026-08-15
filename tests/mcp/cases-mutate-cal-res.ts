@@ -478,11 +478,16 @@ test('clear_leveling: wist alle levelingDelays in één undo-stap', async () => 
 // =================================================================================================
 // 13) update_project — statusdatum + anker-semantiek van startDate
 // =================================================================================================
-test('update_project: statusdatum landt; startDate is ALLEEN anker voor nieuwe taken (verschuift niets)', async () => {
+test('update_project: statusdatum landt; startDate is GEEN volledige Δ-verschuiving zoals move_project (T7-review H1: wél de gerichte klem-uitzondering op een wortel-taak zonder voorganger/constraint)', async () => {
   reset();
-  const a = addTask('bestaand', 5);
+  const a = addTask('bestaand (wortel)', 5);
+  // Opvolger van `a` — heeft een voorganger, dus buiten de klem (T7b/H1: "wortel-taken zonder
+  // voorganger"). Bewijst dat `startDate` géén volledige `move_project`-stijl Δ-verschuiving doet:
+  // een taak met een voorganger blijft op zijn eigen (relatief bepaalde) anker staan.
+  const b = addTask('opvolger', 3);
+  store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
   store.getState().runCPM();
-  const startBefore = store.getState().tasks.find((t) => t.id === a)!.time.scheduleStart;
+  const bStartBefore = store.getState().tasks.find((t) => t.id === b)!.time.scheduleStart;
   const nieuweStart = shiftIso(store.getState().project.startDate, 40);
 
   const statusDatum = store.getState().project.startDate;
@@ -495,11 +500,19 @@ test('update_project: statusdatum landt; startDate is ALLEEN anker voor nieuwe t
   assertEq(store.getState().project.name, 'Renovatie Kade', 'naam gezet');
   assertEq(store.getState().project.statusDate, statusDatum, 'statusdatum gezet');
   assertEq(store.getState().project.startDate, nieuweStart, 'startDate gezet');
-  // ANKER-SEMANTIEK: de bestaande taak is NIET meegeschoven.
-  assertEq(store.getState().tasks.find((t) => t.id === a)!.time.scheduleStart, startBefore,
-    'bestaande taak is NIET verschoven door startDate');
+  // T7b/H1: `a` is een wortel-taak zonder voorganger/constraint mét een eigen anker vóór de nieuwe
+  // (latere) startDate — die klemt sinds deze fixronde óók via de MCP-tool mee, exact zoals de
+  // UI-variant (`projectSlice.setProject`) en gemeld via `anchorsClamped`.
+  assertEq(store.getState().tasks.find((t) => t.id === a)!.time.scheduleStart, nieuweStart,
+    'de wortel-taak zonder voorganger/constraint klemt mee naar de nieuwe startDate (T7b)');
+  assertEq(data.anchorsClamped, 1, 'de respons meldt het geklemde aantal');
+  // GEEN volledige Δ-verschuiving (dat blijft move_project): de OPVOLGER (heeft een voorganger, dus
+  // geen wortel-anker) blijft op zijn eigen, relatief bepaalde anker staan — startDate verschuift
+  // 'm niet mee zoals move_project dat zou doen.
+  assertEq(store.getState().tasks.find((t) => t.id === b)!.time.scheduleStart, bStartBefore,
+    'de opvolger (heeft een voorganger) is NIET verschoven door startDate');
   assert(/move_project/i.test(JSON.stringify(data)) || /move_project/i.test(tool('planner_update_project').description),
-    'de tool verwijst naar move_project voor het echt verschuiven');
+    'de tool verwijst naar move_project voor het écht volledig verschuiven van de hele planning');
 });
 
 test('update_project: statusDate null ⇒ sleutel ECHT verwijderd (niet als undefined blijven staan)', async () => {

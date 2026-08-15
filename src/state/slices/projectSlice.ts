@@ -12,6 +12,7 @@ import { diffDays } from '@/utils/dateUtils';
 import { applyWbsNumbering } from '@/utils/wbs';
 import { CPMSolver, type CPMResult } from '@/engine/scheduler/CPMSolver';
 import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
+import { clampProjectStartAnchors } from '@/engine/scheduler/projectStartAnchorClamp';
 import {
   computeMoveDelta, computeMoveImpact, computeHolidayGaps, shiftIso, shiftTask,
   shiftProjectDates, shiftResource, shiftBaseline,
@@ -162,11 +163,11 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
   fileHandle: null,
 
   setProject: (updates) => {
-    // T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B, ná escalatie T7): telt de
-    // wortel-ankers die deze aanroep klemt, buiten de Immer-`set()`-producer om — zelfde precedent
-    // als `moveProject` hieronder (een `let out`/teller die de producer vult, waarna de aanroeper
-    // ná `set()` op de VOLTOOIDE state reageert; `get().notify(...)` binnen een actieve producer
-    // aanroepen is hier bewust vermeden).
+    // T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B, ná escalatie T7 + de
+    // review-fixronde H1/H3/L1/L2/M4): telt de wortel-ankers die deze aanroep klemt, buiten de
+    // Immer-`set()`-producer om — zelfde precedent als `moveProject` hieronder (een `let out`/
+    // teller die de producer vult, waarna de aanroeper ná `set()` op de VOLTOOIDE state reageert;
+    // `get().notify(...)`/`get().runCPM()` binnen een actieve producer aanroepen kan niet).
     let clampedAnchors = 0;
     set((s) => {
       // No-op-guard vóór de snapshot (pakket H): een opslag met identieke waarden verandert niets —
@@ -183,36 +184,32 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // met een start die dateert van vóór deze wijziging) en een aantoonbaar-eerder MS-Project-
       // anker (uit een `.mpp`-import) EXACT dezelfde vorm — wortel-taak, `scheduleStart` vóór
       // `project.startDate`, geen constraint — dus kon de solver ze niet uit elkaar houden
-      // (architect-analyse, T7-escalatie). Alleen bij een verzetting naar een LATERE datum: wortel-
-      // taken (geen voorganger via `s.sequences`, bladtaken — `childIds.length === 0`, zelfde filter
-      // als de solver) zónder expliciete constraint (`constraint`/`constraint2` — die winnen altijd,
-      // ongeacht of hun eigen datum vóór of ná de nieuwe projectstart ligt) die vóór de nieuwe
-      // startdatum staan, schuiven mee náár die datum. Dit is KLEMMEN (alleen te-vroege ankers) —
-      // GEEN Δ-verschuiving van de rest van de planning; wie alles wil opschuiven gebruikt
-      // `moveProject` ("Project verplaatsen"), dat hierboven al expliciet ELK taakanker meeneemt.
-      // Geïmporteerde bestanden raken dit pad NIET: `loadState`/`applyLoadedProject` (fileSlice.ts)
-      // lopen nooit door `setProject` — ze hydrateren de payload rechtstreeks via het document-
-      // contract — dus importgetrouwheid (T7) en deze bewerkbescherming staan volledig los van
-      // elkaar, precies de scheiding die het orkestratorbesluit vroeg.
-      if (
-        'startDate' in updates && typeof updates.startDate === 'string' &&
-        updates.startDate !== prevStartDate && updates.startDate > prevStartDate
-      ) {
-        const hasPredecessor = new Set(s.sequences.map((seq) => seq.successorId));
-        for (const t of s.tasks) {
-          if (t.childIds.length > 0) continue; // alleen bladtaken (CPMSolver-precedent)
-          if (hasPredecessor.has(t.id)) continue; // heeft een voorganger — geen wortel-anker
-          if (t.constraint || t.constraint2) continue; // expliciete constraint wint altijd
-          if (t.time.scheduleStart < updates.startDate) {
-            t.time.scheduleStart = updates.startDate;
-            clampedAnchors++;
-          }
-        }
+      // (architect-analyse, T7-escalatie). GEEN Δ-verschuiving van de rest van de planning; wie
+      // alles wil opschuiven gebruikt `moveProject` ("Project verplaatsen"), dat hierboven al
+      // expliciet ELK taakanker meeneemt. Geïmporteerde bestanden raken dit pad NIET: `loadState`/
+      // `applyLoadedProject` (fileSlice.ts) lopen nooit door `setProject` — ze hydrateren de
+      // payload rechtstreeks via het documentcontract — dus importgetrouwheid (T7) en deze
+      // bewerkbescherming staan volledig los van elkaar, precies de scheiding die het
+      // orkestratorbesluit vroeg. De klem-mechaniek zelf (snap/scheduleFinish/constraint-check/
+      // hammock-skip) is UITBESTEED aan `clampProjectStartAnchors` (`engine/scheduler/
+      // projectStartAnchorClamp.ts`) — gedeeld met `mcpTransaction.ts`'s `draft.setProject` zodat
+      // de UI en de AI-assistent zich identiek gedragen (T7-review H1).
+      if ('startDate' in updates && typeof updates.startDate === 'string') {
+        clampedAnchors = clampProjectStartAnchors({
+          tasks: s.tasks, sequences: s.sequences, calendar: s.calendar, calendars: s.calendars,
+          prevStartDate, nextStartDate: updates.startDate,
+        });
       }
       // Alleen de projectstart raakt de planning (anker van de forward pass); naam/auteur niet (A6).
       finishMutation(s, { stale: 'startDate' in updates });
     });
     if (clampedAnchors > 0) {
+      // H3c: ná een DAADWERKELIJKE klem meteen herberekenen — anders is de melding ("meegeschoven")
+      // op het moment dat hij verschijnt nog niet waar (de taken staan dan wel op hun nieuwe anker,
+      // maar early/late-datums en het kritieke pad zijn nog niet bijgewerkt). Buiten `setProject`'s
+      // gebruikelijke "scheduling is handmatig"-regel (CLAUDE.md) — bewust smal: alleen wanneer er
+      // écht iets geklemd is, niet bij elke `setProject`-aanroep.
+      get().runCPM();
       get().notify({
         severity: 'info',
         messageKey: 'notifications.projectStartAnchorsClamped',

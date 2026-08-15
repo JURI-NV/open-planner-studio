@@ -73,18 +73,37 @@ export interface CPMOptions {
    *  wordt dit blok alleen doorgegeven; de solver leest het nog nergens gedragswijzigend. */
   schedulingOptions?: SchedulingOptions;
   /** De geconfigureerde PROJECTSTARTDATUM (`Project.startDate`, ISO-datum), gebruikstest-bevinding
-   *  2026-08: ondergrens tegen relatie-LEADS (een negatieve lag mag een opvolger niet vóór het
-   *  officiële projectbegin trekken — vóór deze optie leidde de forward pass "de projectstart"
-   *  stilzwijgend af als het minimum van de wortel-taken ONDERLING). Afwezig/onparseerbaar ⇒
-   *  terugval op het oude gedrag — byte-identiek voor elke bestaande aanroeper die deze optie
-   *  niet meegeeft.
+   *  2026-08: ondergrens voor de early-start-berekening van ELKE taak MET voorganger (en
+   *  hammocks) — NIET uitsluitend tegen leads (T7-review M2, gecorrigeerd): ook een gewone FS/FF-
+   *  relatie met lag 0 van een vroege wortel-taak (die sinds T7 z'n eigen anker vóór de
+   *  projectstart mag houden, zie hieronder) wordt hier gevloerd. Alleen de gebruikerszichtbare
+   *  markering (`truncatedLeadIds`, "afgekapte lead") is wél lead-specifiek — die signaleert
+   *  uitsluitend een negatieve lag die de vloer raakt, niet elke geflooerde relatie in het
+   *  algemeen. Vóór deze optie leidde de forward pass "de projectstart" stilzwijgend af als het
+   *  minimum van de wortel-taken ONDERLING. Afwezig/onparseerbaar ⇒ terugval op het oude gedrag —
+   *  byte-identiek voor elke bestaande aanroeper die deze optie niet meegeeft.
    *
    *  SINDS T7 (§9/O2, de brede regel "een ingelezen anker wordt nooit door de vloer overruled")
    *  klemt deze optie NIET meer de eigen ES van een taak ZONDER voorganger — die gebruikt altijd
    *  zijn eigen `scheduleStart` (`ownAnchor`), ook als die vóór de projectstart ligt. De vloer
-   *  (`rootFloor`) is versmald tot uitsluitend de ondergrens tegen relatie-leads hierboven; zie
-   *  de docstrings van `rootFloor`/`ownAnchor` in `CPMSolver` voor de volledige motivatie. */
+   *  (`rootFloor`) is versmald tot uitsluitend de early-start-ondergrens voor taken MÉT voorganger
+   *  (en hammocks) hierboven; zie de docstrings van `rootFloor`/`ownAnchor` in `CPMSolver` voor de
+   *  volledige motivatie. */
   projectStartDate?: string;
+}
+
+/**
+ * Eerste geldige werk-instant OP-of-NÁ `from`, in `eng` (dag ⇒ `nextWorkDay`, uur ⇒
+ * `nextWorkInstant`). Top-level EXPORT (T7-review H1/H3) zodat zowel de solver zélf (`ownAnchor`/
+ * `rootFloor` hierboven, via de instance-tunnel `snapOnOrAfter`) als `projectStartAnchorClamp.ts`
+ * (de T7b-klem, aangeroepen vanuit zowel `projectSlice.setProject` als `mcpTransaction.ts`'s
+ * `draft.setProject`) EXACT dezelfde anker-snap gebruiken. Vóór deze review deed de T7b-klem het
+ * anker een kale datumstring toekennen zonder kalender-snap — in uurmodus landde dat na de
+ * eerstvolgende `runCPM` op middernacht (H3a) i.p.v. de eerste werkband; nu delen beide plekken
+ * één definitie, dus kan dat niet meer uiteenlopen. Puur, geen instantie-state.
+ */
+export function snapWorkInstantOnOrAfter(eng: CalendarEngine, from: Date): Date {
+  return eng.isHourMode ? eng.nextWorkInstant(from) : eng.nextWorkDay(from);
 }
 
 /**
@@ -314,9 +333,13 @@ export class CPMSolver {
   private parseIn(eng: CalendarEngine, iso: string): Date {
     return eng.isHourMode ? parseInstant(iso) : parseDate(iso);
   }
-  /** Snap op-of-ná (voorwaarts): dag ⇒ `nextWorkDay`, uur ⇒ `nextWorkInstant`. */
+  /** Snap op-of-ná (voorwaarts): dag ⇒ `nextWorkDay`, uur ⇒ `nextWorkInstant`. Instance-tunnel naar
+   *  de top-level, GEDEELDE `snapWorkInstantOnOrAfter` (T7-review H1/H3): één definitie voor de
+   *  solver-interne aanroepen hier ÉN voor `projectStartAnchorClamp.ts` (de T7b-klem in
+   *  `projectSlice.setProject`/`mcpTransaction.ts`'s `draft.setProject`) — geen tweede snap-
+   *  implementatie die stil van deze kan afdrijven. */
   private snapOnOrAfter(eng: CalendarEngine, d: Date): Date {
-    return eng.isHourMode ? eng.nextWorkInstant(d) : eng.nextWorkDay(d);
+    return snapWorkInstantOnOrAfter(eng, d);
   }
   /** Snap op-of-vóór (achterwaarts): dag ⇒ `prevWorkDay`, uur ⇒ `prevWorkInstant`. */
   private snapOnOrBefore(eng: CalendarEngine, d: Date): Date {
@@ -362,9 +385,11 @@ export class CPMSolver {
    * onparseerbaar) ⇒ puur de eigen start, byte-identiek aan vóór deze optie.
    *
    * UITSLUITEND nog gebruikt voor de `projectStart`-precompute hieronder in `forwardPass`
-   * (taken MET voorganger + hammocks) — dat is de ondergrens tegen relatie-LEADS: een negatieve
-   * lag mag een opvolger niet vóór het officiële projectbegin trekken. Dát is exact de
-   * bescherming die het oorspronkelijke vloer-scenario (gebruikstest-bevinding 2026-08: een
+   * (taken MET voorganger + hammocks) — dat is de early-start-ONDERGRENS voor DIE hele categorie,
+   * niet uitsluitend tegen relatie-LEADS (T7-review M2, gecorrigeerd): ook een gewone FS/FF-
+   * relatie met lag 0 van een vroege wortel-taak wordt hier gevloerd, niet alleen een negatieve
+   * lag. Alleen de gebruikerszichtbare `truncatedLeadIds`-markering is wél lead-specifiek. Dát is
+   * exact de bescherming die het oorspronkelijke vloer-scenario (gebruikstest-bevinding 2026-08: een
    * VEROUDERDE `scheduleStart` — bv. gezet vóór een latere wijziging van de projectstartdatum —
    * die stil vóór het officiële projectbegin bleef doorlopen, in het verkeerde geval zelfs een
    * weekend "terug" t.o.v. een za/zo-projectstart) beoogde, en die blijft hier onverkort staan.
@@ -387,8 +412,8 @@ export class CPMSolver {
    * van een taak ZONDER voorganger (`forwardPass`, `preds.length === 0`-tak): een ingelezen
    * anker wordt nooit door de vloer overruled, ook niet als het vóór de geconfigureerde
    * projectstartdatum ligt. De vloer zelf (`rootFloor`) bestaat nog onverkort — maar uitsluitend
-   * nog als ondergrens tegen relatie-leads voor taken MET voorganger (zie `rootFloor`'s
-   * docstring). Een taak zónder voorganger én zónder relatie kan dus vanaf nu vóór de
+   * nog als early-start-ondergrens voor taken MET voorganger (zie `rootFloor`'s docstring: dat
+   * geldt breder dan alleen relatie-leads). Een taak zónder voorganger én zónder relatie kan dus vanaf nu vóór de
    * projectstart staan als het eigen anker dat zegt — exact de MS Project-semantiek die de
    * fidelity-audit meet.
    */

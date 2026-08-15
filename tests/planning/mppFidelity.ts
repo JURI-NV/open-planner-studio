@@ -70,8 +70,9 @@ export function solveMppBytes(bytes: Uint8Array): SolvedMpp {
     dataDate: result.project.statusDate,
     progressMode: result.project.progressMode,
     schedulingOptions: result.project.schedulingOptions,
-    // Gebruikstest-bevinding 2026-08 (zelfde vloer als runCPM): ondergrens voor taken zonder
-    // voorganger. T7 herijkt deze regel later in de etappe; dit meetscript volgt runCPM ongewijzigd.
+    // Gebruikstest-bevinding 2026-08 (zelfde optie als runCPM): sinds T7 (§9/O2, review-fixronde)
+    // is dit UITSLUITEND nog een early-start-ondergrens voor taken MÉT voorganger (en hammocks) —
+    // een taak zonder voorganger houdt sindsdien altijd haar eigen (evt. vóór-projectstart) anker aan.
     projectStartDate: result.project.startDate,
   });
   return { tasks: result.tasks, sequences: result.sequences, project: result.project, cpmError: cpm.error ?? null };

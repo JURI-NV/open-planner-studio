@@ -1632,7 +1632,10 @@ const STATUS_DATE_NOTE =
 function updateProjectCore(
   p: { updates: Partial<Project>; clearStatusDate: boolean; clearProgressMode: boolean; touched: string[] },
 ): MutationOutcome {
-  draft.setProject(p.updates);
+  // T7-review H1: `draft.setProject` levert nu het aantal wortel-ankers dat het klemde (zelfde
+  // bewerkbescherming als de UI, `projectSlice.setProject`) — meegeven in `data` zodat óók het
+  // `planner_batch`-pad (dat rechtstreeks `updateProjectCore` gebruikt, zonder `enrichOk`) dit ziet.
+  const anchorsClamped = draft.setProject(p.updates);
   if (p.clearStatusDate || p.clearProgressMode) {
     useAppStore.setState((s) => {
       // `delete` i.p.v. `= undefined`: de IFC-serialisatie en de solver-defaults lezen op
@@ -1646,6 +1649,7 @@ function updateProjectCore(
   return {
     data: {
       updated: p.touched,
+      ...(anchorsClamped > 0 ? { anchorsClamped } : {}),
       ...(p.updates.statusDate ? { statusDateNote: STATUS_DATE_NOTE } : {}),
     },
   };
@@ -1727,6 +1731,14 @@ const updateProject: BatchStepTool = {
     const staleBefore = before.scheduleStale;
 
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => updateProjectCore(parsed));
+    // T7-review H1: `enrichOk` hieronder OVERSCHRIJFT `res.data` met wat `build()` teruggeeft — dus
+    // het `anchorsClamped`-getal dat `updateProjectCore` er net inzette moet er vóór die overschrijving
+    // uit gelezen worden (binnen `build()`'s closure heeft `res.data` op dat moment nog de OUDE,
+    // niet-verrijkte waarde — `enrichOk` roept `build()` immers aan vóórdat het toewijst).
+    const anchorsClamped =
+      res.ok && res.data && typeof res.data === 'object' && 'anchorsClamped' in res.data
+        ? (res.data as { anchorsClamped: number }).anchorsClamped
+        : 0;
     return enrichOk(res, () => {
       const p = useAppStore.getState().project;
       const projectEnd = projectEndInfo().projectEnd;
@@ -1737,7 +1749,15 @@ const updateProject: BatchStepTool = {
           statusDate: p.statusDate ?? null, progressMode: p.progressMode ?? null,
         },
         // Herinnering in de payload zelf: de AI leest data vaak eerder dan de beschrijving.
-        note: '`startDate` is alleen het anker voor NIEUWE taken; gebruik planner_move_project om de bestaande planning te verschuiven.',
+        // T7-review H1: dit beloofde tot nu toe onvoorwaardelijk dat GEEN enkele bestaande taak
+        // verschuift — sinds de bewerkbescherming klopt dat niet meer voor de uitzondering
+        // hieronder (`anchorsClamped`).
+        note: '`startDate` is het anker voor NIEUWE taken en verschuift de REST van de bestaande ' +
+          'planning niet. Uitzondering (bewerkbescherming, geen Δ-verschuiving): bij een LATERE ' +
+          'startDate schuiven wortel-taken zonder voorganger/constraint die vóór de nieuwe datum ' +
+          'staan mee náár die datum — zie `anchorsClamped`. Gebruik planner_move_project om de ' +
+          'HELE bestaande planning (elk anker) te verschuiven.',
+        ...(anchorsClamped > 0 ? { anchorsClamped } : {}),
         ...(statusDateTouched
           ? {
               statusDateEffect: {

@@ -1538,6 +1538,41 @@
       }
     },
     {
+      "id": "edge-root-keeps-early-anchor-day-01",
+      "title": "T7-review H2 (CI-dekking): een wortel-taak (geen voorganger, geen constraint) met een eigen start VÓÓR de projectstart houdt die start aan — de kern van T7 (§9/O2, 'een ingelezen anker wordt nooit door de vloer overruled'), dag-modus. Vóór T7 klemde `rootFloor` dit naar de anker (06-01); sinds T7 (`CPMSolver.ownAnchor`, ongeklemd) blijft F op zijn eigen 05-01. Mutatiebewijs: `ownAnchor` terugzetten naar het oude `rootFloor`-gedrag (max met de vloer) maakt deze case ROOD (es zou 06-01 worden i.p.v. 05-01).",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "F", "dur": 3, "start": "2026-05-01" }
+      ],
+      "expect": {
+        "tasks": {
+          "F": { "es": "2026-05-01", "ef": "2026-05-05" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "edge-root-keeps-early-anchor-hour-01",
+      "title": "T7-review H2 (CI-dekking, uurmodus): zelfde kern als de dag-variant hierboven, nu met een uur-kalender (ma-vr 08:00-16:00) en een projectstart op een WERKDAG (ma 17-08) om weekend-snap-ambiguïteit te vermijden. Wortel-taak 'Fundering' (3 dagen, gewone — niet-expliciet-uur — duur) met een eigen start vr 14-08 (vóór de projectstart): houdt die start aan, gesnapt naar de eerste werkband (08:00) — GEEN vooruitklem naar de projectstart. Verwachte waarden empirisch bevestigd tegen de live solver (dezelfde cijfers als de oorspronkelijke, inmiddels vervallen 'hoofdscenario'-case vóór deze review de betekenis omdraaide). Mutatiebewijs: `ownAnchor` terugzetten naar het oude `rootFloor`-gedrag maakt deze case ROOD (es zou 2026-08-17T08:00 worden i.p.v. 2026-08-14T08:00).",
+      "anchor": "2026-08-17",
+      "calendar": {
+        "workTime": { "byWeekday": {
+          "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }],
+          "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }],
+          "5": [{ "start": 480, "end": 960 }], "6": [], "7": []
+        } }
+      },
+      "tasks": [
+        { "name": "Fundering", "dur": 3, "start": "2026-08-14" }
+      ],
+      "expect": {
+        "tasks": {
+          "Fundering": { "es": "2026-08-14T08:00", "ef": "2026-08-18T16:00" }
+        },
+        "error": false
+      }
+    },
+    {
       "id": "edge-root-floor-vs-snet-after-01",
       "title": "Projectstart-vloer-review: SNET NÁ de projectstart (06-10) op een wortel-taak blijft gewoon bindend — de vloer (anker 06-01, geen eigen afwijkende start) is hier al door de constraint overstemd. Pin tegen een toekomstige regressie die de constraint zou laten verdwijnen achter de vloer.",
       "anchor": "2026-06-01",
@@ -1582,16 +1617,16 @@
       }
     },
     {
-      "id": "edge-root-floor-vs-longer-chain-no-negative-float-01",
-      "title": "Her-verankerd ná T7 (plan-§9/O2, orkestratorbesluit 2026-08-15 — optie B): de projectstart-vloer klemt sinds T7 geen root-taak-anker meer in de solver zelf (`CPMSolver.ownAnchor`) — die bescherming verhuisde naar het bewerkmoment (`projectSlice.setProject`, zie `check-project-start-anchor.ts`). Het ORIGINEEL zette F's eigen start vóór de anker om de OUDE vloer-klem te triggeren; dat scenario bestaat op solver-niveau niet meer. Het EIGENLIJKE onderwerp blijft hier eerlijk getest met F gewoon op de anker (net als L, geen kunstmatige vóór-projectstart-start meer nodig): twee losse root-taken zonder relatie krijgen gewoon positieve float — geen negatief-float-artefact door een inconsistentie tussen de forward- en backward-pass. Zelfde reken-patroon als de bestaande `float-two-parallel-no-join-17`: tf = werkdagpositie(L) − werkdagpositie(F) = 18 − 3 = 15.",
+      "id": "edge-early-root-vs-longer-chain-no-negative-float-01",
+      "title": "Her-ijkt ná T7 (plan-§9/O2, orkestratorbesluit 2026-08-15 — optie B, review-bevinding M3): NIET meer vloer-afhankelijk — deze case is VROEGE-ROOT-afhankelijk, en juist DAARDOOR nu waardevol. F's eigen start (2026-05-01, vóór de anker 06-01) wordt sinds T7 NIET meer geklemd (`CPMSolver.ownAnchor`, ongeklemd) en blijft dus echt op 05-01 staan — meer dan een maand vóór L's 18-werkdagen-keten. Bewaakt dat een sterk vervroegde, ongerelateerde wortel-taak nog steeds een correcte (grote, positieve) tf krijgt — geen negatief-float-artefact of inconsistentie tussen de forward- en backward-pass, ook niet over zo'n groot gat heen. (De oude id bevatte 'floor'; hernoemd omdat er geen klem meer in het spel is — zie ook check-project-start-anchor.ts voor de bewerkbescherming die dit scenario in de UI/MCP nog wél afvangt.)",
       "anchor": "2026-06-01",
       "tasks": [
-        { "name": "F", "dur": 3 },
+        { "name": "F", "dur": 3, "start": "2026-05-01" },
         { "name": "L", "dur": 18 }
       ],
       "expect": {
         "tasks": {
-          "F": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 15, "ff": 15, "crit": false },
+          "F": { "es": "2026-05-01", "ef": "2026-05-05", "tf": 36, "ff": 36, "crit": false },
           "L": { "es": "2026-06-01", "ef": "2026-06-24", "tf": 0, "crit": true }
         },
         "criticalPathSet": ["L"],
