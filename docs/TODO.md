@@ -730,6 +730,17 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
   is dus de lichtste route en de JVM-sidecar vervalt voor dit doel. Wachtwoord-versleutelde
   bestanden en MPP8/9/12 geven een nette "exporteer als XML"-fout. Er bestaat geen .mpp-EXPORT
   (ook MPXJ schrijft het niet): de export-tegenhanger blijft MSPDI-XML.
+- [x] **MPP-resourcetype "afwijking" bij Bijlage 13 — vindbaarheids-item, GEEN bug (T11-eindreview).**
+  6 van de 8 niet-plaatshouderresources in 'Bijlage 13 Productieplanning.mpp' lezen als MATERIAL
+  waar de MSPDI-ground-truth ze als Work (LABOR) toont; gepind als budget
+  (`RESOURCE_TYPE_MISMATCH_BUDGET` in `tests/planning/check-mpp-relations.ts`, rond r. 799). Matcht
+  MPXJ's eigen bit-voor-bit-uitkomst exact (dus geen leesfout van de poort) en volgt hetzelfde
+  documentversieverschil-patroon als de taak-/kalendervergelijkingen elders in de mpp-checks (zie
+  de moduleheader van `check-mpp-import.ts`: de drie `.mpp.xml`-ground-truths zijn een ANDERE
+  documentrevisie dan de bijbehorende `.mpp`'s). Een onafhankelijke probe bevestigde bovendien dat
+  de `.mpp`-lezing hier de semantisch plausibele indeling geeft en de XML-revisie de uitzondering
+  is. Geen actie nodig aan de lezer — genoteerd zodat een toekomstige lezer dit niet als regressie
+  herontdekt.
 - [ ] MPP9/12-legacy en Asta Powerproject PP — de eerder uitgewerkte "managed tools"-route
   (user-besluit 2026-07-07: catalogus-extensie declareert een MPXJ-CLI-hulpprogramma met checksum;
   de APP-KERN beheert download/levenscyclus; sandbox ongewijzigd; web = "alleen desktop") blijft

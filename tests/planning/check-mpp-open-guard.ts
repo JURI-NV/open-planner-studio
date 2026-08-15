@@ -23,15 +23,22 @@
 //      `filePath`/`fileHandle` leeg blijven, terwijl taken/kalender/CPM wél degelijk geladen/
 //      herrekend zijn (T11: alle drie ground-truth-bestanden, niet meer één handmatig gekozen
 //      "veilig" bestand — zie de toelichting bij Part B hieronder).
+//  C.  `openRecentFile` — HET ANDERE open-pad, met een eigen `saveTargetFor`-callsite en een ander
+//      lees-mechanisme (`readBytesFromRef`/`readFromRef` op een bewaarde `FileRef` i.p.v. een
+//      dialoog-/`<input>`-bestand). C1 CORPUS-GEDREVEN: .mpp via recents ⇒ GEEN opslagdoel, entry
+//      blijft (verplaatst) in recents. C2 ALTIJD: contrast — IFC via recents krijgt WÉL een
+//      opslagdoel (eindreview-restpunt: dit was het enige bedrade pad zonder eigen poort).
 //
 // Draait via run.sh. Exit 0 = alles groen.
 //
-// DEKKINGSKAART (T9 — dit bestand toetst GEEN mpp-domeindata, alleen het opslagdoel-gedrag van de
-// open-route): A/A2/A3 → SYNTHETISCH (in-memory stubs, altijd); B → CORPUS (alle beschikbare
-// bestanden, `.mpp`-alleen — géén crawl-sectie, want dit is geen lezer-correctheidscheck). Zie
-// check-mpp-import.ts, check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten
-// van de mpp-lezer zelf (CFB/container/primitieven/taken/kalenders/relaties/resources/
-// assignments).
+// DEKKINGSKAART (T9, uitgebreid T11 — dit bestand toetst GEEN mpp-domeindata, alleen het
+// opslagdoel-gedrag van de open-routes): A/A2/A3/C2 → SYNTHETISCH (in-memory stubs, altijd); B/C1
+// → CORPUS (B: alle beschikbare bestanden; C1: het eerste — géén crawl-sectie, want dit is geen
+// lezer-correctheidscheck). C draait uitsluitend de WEB-backend-route (handle-based `FileRef`);
+// de Tauri-backend (pad-based ref) blijft in dit headless bestand bewust ongetest, net als A/A2/
+// A3/B dat al deden. Zie check-mpp-import.ts, check-mpp-calendars.ts en check-mpp-relations.ts
+// voor de dekkingskaarten van de mpp-lezer zelf (CFB/container/primitieven/taken/kalenders/
+// relaties/resources/assignments).
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { installDOMParser } from './xmldom-shim';
@@ -208,6 +215,77 @@ if (!corpusPresent || corpusFiles.length === 0) {
     eq(`13 [${name}] MPP-open: GEEN fileHandle`, S().fileHandle, null);
     eq(`14 [${name}] MPP-open: document blijft "ongewijzigd naamloos" — isDirty volgt de normale open-semantiek`, S().isDirty, false);
   }
+}
+
+// ── C. openRecentFile — het enige bedrade opslagdoel-lees-pad zonder eigen poort (eindreview-
+// restpunt): tot hier toetste dit bestand alleen `openFile`. `openRecentFile` heeft dezelfde
+// `saveTargetFor`-guard maar een ANDER lees-pad (`readBytesFromRef`/`readFromRef` op een bewaarde
+// `FileRef`, i.p.v. een dialoog/`<input>`-bestand) — dat pad had nog geen enkele regressietest.
+//
+// Deze omgeving (`isTauri()` blijft false — geen `__TAURI_INTERNALS__` op de gestubte `window`)
+// stuurt `readBytesFromRef`/`readFromRef` altijd naar de WEB-backend. Die backend leest alleen een
+// HANDLE-ref (`ref.kind === 'path'` levert daar meteen `null` op, spiegelt de Chromium-FSA-route);
+// een pad-ref hoort bij de Tauri-backend (`tauriBackend.ts`), die in deze headless run sowieso nooit
+// geraakt wordt (geen `@tauri-apps/*`-mocking hier) — dat pad blijft dus bewust ongetest in déze
+// check, net zoals de rest van dit bestand al uitsluitend de web-route drijft. De gestubte handle
+// hieronder (queryPermission/requestPermission/getFile) spiegelt `webBackend.ts`'s `readRefWeb`
+// (T11-consolidatie) letterlijk, naar het patroon van `check-web-save-fallback.ts`'s `makeHandle`.
+//
+// Recents zelf lopen door IndexedDB (`fileAccess/recentFiles.ts`); zonder een echte `indexedDB`-
+// global in Node faalt die laag stil (`idb.ts`'s eigen ontwerp — spec §10, "een IDB-fout mag de
+// app-start nooit blokkeren") en valt terug op een in-memory lege lijst. `pushRecent` (in
+// `openRecentFile`'s succespad) bouwt de nieuwe lijst dan uitsluitend uit DEZE aanroep, dus de
+// test zet de startlijst rechtstreeks via `useAppStore.setState` — hetzelfde patroon als
+// `tests/mcp/cases-doc-file.ts` gebruikt voor store-setup buiten de normale acties om.
+function makeFakeHandle(file: unknown): FileSystemFileHandle {
+  return {
+    kind: 'file',
+    name: 'fixture',
+    isSameEntry: () => Promise.resolve(false),
+    getFile: () => Promise.resolve(file),
+    queryPermission: () => Promise.resolve('granted'),
+    requestPermission: () => Promise.resolve('granted'),
+  } as unknown as FileSystemFileHandle;
+}
+
+// C1. CORPUS-GEDREVEN: .mpp via recents ⇒ GEEN opslagdoel; de entry blijft (verplaatst naar de
+// MRU-top via `pushRecent`, niet verwijderd — verwijderen gebeurt alleen als de READ zelf faalt).
+{
+  if (!corpusPresent || corpusFiles.length === 0) {
+    console.log('OK  mpp-open-guard: corpus niet aanwezig (OPS_MPP_CORPUS) — recents-deel overgeslagen');
+  } else {
+    const name = corpusFiles[0];
+    const bytes = new Uint8Array(readFileSync(join(CORPUS, name)));
+    const handle = makeFakeHandle(makeFakeFile(name, { bytes }));
+
+    S().newProject(); // vers, ongewijzigd actief tabblad
+    useAppStore.setState({ recentFiles: [{ id: 'recent-test-mpp', name, ref: { kind: 'handle', handle }, addedAt: Date.now() }] });
+    await S().openRecentFile('recent-test-mpp');
+
+    truthy(`15 [${name}] openRecentFile(.mpp): taken geladen`, S().tasks.length > 0);
+    eq(`16 [${name}] openRecentFile(.mpp): GEEN filePath (saveTargetFor: canBeSaveTarget=false)`, S().filePath, null);
+    eq(`17 [${name}] openRecentFile(.mpp): GEEN fileHandle`, S().fileHandle, null);
+    eq(`18 [${name}] openRecentFile(.mpp): entry blijft in recents (verplaatst, niet verwijderd)`, S().recentFiles.length, 1);
+  }
+}
+
+// C2. ALTIJD (geen corpus nodig): contrast — IFC via recents krijgt WÉL een opslagdoel. De ref is
+// hier handle-based (web-FSA), dus `saveTargetFor`'s `ref?.kind === 'path' ? ref.path : name`-
+// terugval geeft `filePath === name` (geen echt OS-pad in deze route) en `fileHandle === handle`.
+{
+  S().newProject();
+  S().setProject({ name: 'Guard-Recents-IFC-bron', startDate: '2026-08-03' });
+  S().addTask({ name: 'Recents-werkje' });
+  const ifcText = writeIFC(buildWriteIFCInput(S()));
+  const handle = makeFakeHandle(makeFakeFile('recents-bron.ifc', { text: ifcText }));
+
+  S().newProject();
+  useAppStore.setState({ recentFiles: [{ id: 'recent-test-ifc', name: 'recents-bron.ifc', ref: { kind: 'handle', handle }, addedAt: Date.now() }] });
+  await S().openRecentFile('recent-test-ifc');
+
+  eq('19 openRecentFile(.ifc): document telt de geïmporteerde taak', S().tasks.length, 1);
+  eq('20 openRecentFile(.ifc): filePath WÉL gezet (contrast, canBeSaveTarget=true)', S().filePath, 'recents-bron.ifc');
+  truthy('21 openRecentFile(.ifc): fileHandle gezet (handle-ref)', S().fileHandle === handle);
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-// UI-laag-helper (T11, T8-kwaliteitsreview-agenda stap 0-ter c): tien call-sites bouwden hun
+// UI-laag-helper (T11, T8-kwaliteitsreview-agenda stap 0-ter c): 15 call-sites bouwden hun
 // `ImportLabels` (`{ importedProject, unassignedResource }`, doorgegeven aan `openFile`/
 // `openRecentFile`/`parseExternalSource`/`refreshAllExternalAnchors`/`refreshExternalAnchorsFrom`
 // en enkele losse `readIFC`/`openExampleFromString`-aanroepen) met de hand op, elke keer dezelfde
@@ -26,7 +26,7 @@ import type { ImportLabels } from '@/services/importTypes';
 export type ImportLabelT = (key: any) => string;
 
 /** Bouwt `ImportLabels` uit de `project.imported`/`project.unassignedResource`-sleutels van de
- *  `common`-namespace — spiegelt de tien bestaande call-sites exact (zelfde sleutels, zelfde
+ *  `common`-namespace — spiegelt de 15 bestaande call-sites exact (zelfde sleutels, zelfde
  *  velden), puur een verhuizing van de letterlijke object-literal naar één functie. */
 export function buildImportLabels(t: ImportLabelT): ImportLabels {
   return {
