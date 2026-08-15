@@ -90,7 +90,7 @@
     "dependencies": "종속성",
     "relationPopoverTitle": "관계 유형",
     "driving": "주도 관계(드라이빙)",
-    "lag": "지연(예: 2d, 3ed, 50%, -25e%)",
+    "lag": "지연(예: 2d, 3ed, 2u, 50%, -25e%)",
     "recalculate": "계산",
     "assignments": {
       "title": "할당",

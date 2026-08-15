@@ -135,8 +135,11 @@ export const SHIFT_PRESET_LABEL: Record<ShiftPresetKey, string> = {
   'continuous': 'calendar.shift.continuous',
 };
 
-/** Presets in de kalenderdialoog-rij (§6.6a). */
-export const CALENDAR_PRESETS: ShiftPresetKey[] = ['day', 'two-shift', 'night', 'continuous'];
+/** Presets in de kalenderdialoog-rij (§6.6a). Bevat `three-shift` sinds F2 (gebruikstest-
+ *  bevinding): de gids (`public/docs/nl/gids-kalenders-uren.md`) noemt "3 ploegen" als vijfde
+ *  ingebouwde preset naast Dagdienst/2 ploegen/Nachtploeg/24-7 — de preset zelf (`shiftPresetPatch`)
+ *  bestond al (ook gebruikt door `WIZARD_PRESETS`), hij ontbrak alleen in deze rij. */
+export const CALENDAR_PRESETS: ShiftPresetKey[] = ['day', 'two-shift', 'three-shift', 'night', 'continuous'];
 /** Presets in de wizard-ploegkeuze (§6.7). */
 export const WIZARD_PRESETS: ShiftPresetKey[] = ['day', 'two-shift', 'three-shift', 'continuous'];
 

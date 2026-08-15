@@ -145,6 +145,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ADCHECK="$DIR/.adapters-hours-check.mjs"
   if bundle_check "$DIR/check-adapters-hours.ts" "$ADCHECK"; then node "$ADCHECK" || STATUS=1; fi
 
+  # Lag-notatie + ploeg-preset-checks (gebruikstest-bevindingen F1/F2, 2026-08-15): uren-syntax in
+  # parseLagInput/formatLagShort (round-trip + afgewezen invoer), updateSequence die lagMinutes nu
+  # via de ECHTE store-actie zet/wist (voorheen alleen via een rauwe setState), en de "3 ploegen"-
+  # preset (bandenstructuur, middernacht-wrap, CALENDAR_PRESETS-aanwezigheid).
+  LFCHECK="$DIR/.lag-format-check.mjs"
+  if bundle_check "$DIR/check-lag-format.ts" "$LFCHECK"; then node "$LFCHECK" || STATUS=1; fi
+
   # MPP-import (fase 3.8 e1): CFB/OLE2 + MPP14-lezer tegen het lokale corpus (echte bedrijfs-
   # bestanden, NIET in de repo). Zonder corpus (CI) slaat de check netjes over met een OK-regel.
   MPPCHECK="$DIR/.mpp-import.mjs"

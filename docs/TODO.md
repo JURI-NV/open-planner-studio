@@ -350,6 +350,15 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       snapping/undo/uur-modus moeten kloppen.
 - [ ] **`useDependencyDraw.ts` toetst de drop-x tegen `ui.leftPanelWidth`, terwijl de overige
       canvas-hittests `taskTableWidth` gebruiken.** Uitzoeken of dat een bug is.
+- [ ] **Het taakbewerkvenster met de uren-velden (`Duur (uren)`/`Totaal uren`) is alleen via
+      dubbelklik op de canvas-Gantt-balk bereikbaar** en dupliceert daarbij het rechter
+      eigenschappenpaneel met net andere labels. Gemeten tijdens een browsergebruikstest van de
+      urenplanning (2026-08-15): het paneel toont `Duur (dagen)`, de dialoog (`TaskDialog`, via de
+      gedeelde `task-sections`) toont `Duur (werkdagen)` voor hetzelfde veld — twee ingangen naar
+      dezelfde taakvelden met net iets andere bewoording, en de dialoog is niet vanuit het paneel
+      of het lint te openen. Op te lossen: óf één consistente labelset over beide oppervlakken,
+      óf de dialoog ook vanuit een expliciete actie (contextmenu/lint) bereikbaar maken i.p.v.
+      alleen via dubbelklik op de balk.
 ### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
 - [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
       (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van

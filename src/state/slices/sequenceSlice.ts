@@ -49,9 +49,16 @@ export const createSequenceSlice: AppSlice<SequenceSlice> = (set) => ({
       beginUndoable(s);
       if (patch.type !== undefined) seq.type = patch.type;
       if ('lagDays' in patch) seq.lagDays = Number.isFinite(patch.lagDays) ? (patch.lagDays as number) : 0;
-      // lagUnit/lagPercent expliciet op undefined zetten = terug naar default (werkdagen / vaste lag).
+      // lagUnit/lagPercent/lagMinutes expliciet op undefined zetten = terug naar default
+      // (werkdagen / vaste lag). lagMinutes was hier eerder afwezig (F1-bevinding): de UI zette
+      // hem via een rauwe setState omheen, waardoor uren-lag de reguliere actie (en dus undo/
+      // transactiebewaking) omzeilde. De solver leest lagPercent → lagMinutes → lagDays, dus een
+      // ongefilterde `Number.isFinite`-guard i.p.v. `!in`-check zou een expliciete `undefined`
+      // (= "wis de minuut-lag") laten staan; daarom net als lagUnit/lagPercent een kale
+      // toewijzing, geen omzetting naar 0.
       if ('lagUnit' in patch) seq.lagUnit = patch.lagUnit;
       if ('lagPercent' in patch) seq.lagPercent = patch.lagPercent;
+      if ('lagMinutes' in patch) seq.lagMinutes = patch.lagMinutes;
       finishMutation(s, { stale: true }); // relatie-wijziging (A6): planning verouderd tot F5.
       applied = true;
     });

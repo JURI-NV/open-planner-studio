@@ -3,26 +3,34 @@ import type { Sequence } from '@/types/sequence';
 import { formatLagShort, parseLagInput } from '@/utils/lagFormat';
 
 /**
- * Klein lag-invoerveld met MSP-notatie (2d / 3ed / 50% / -25e%); commit op blur/Enter,
- * herstelt de oude waarde bij onparseerbare invoer. Gedeeld door het eigenschappen-paneel
+ * Klein lag-invoerveld met MSP-notatie (2d / 3ed / 2u / 50% / -25e%); commit op blur/Enter,
+ * herstelt de oude waarde bij onparseerbare invoer (i.p.v. stil terug te springen zonder
+ * feedback — de rode rand + title hieronder geven de gebruiker een zichtbare hint, hetzelfde
+ * patroon als andere gevalideerde velden in dit paneel). Gedeeld door het eigenschappen-paneel
  * en de relatietabel.
  */
 export function SequenceLagInput({ seq, title, className, onCommit }: {
   seq: Sequence;
   title: string;
   className?: string;
-  onCommit: (patch: Pick<Sequence, 'lagDays' | 'lagUnit' | 'lagPercent'>) => void;
+  onCommit: (patch: Pick<Sequence, 'lagDays' | 'lagUnit' | 'lagPercent' | 'lagMinutes'>) => void;
 }) {
   const [val, setVal] = useState(formatLagShort(seq));
   useEffect(() => {
     setVal(formatLagShort(seq));
-  }, [seq.lagDays, seq.lagUnit, seq.lagPercent]);
+  }, [seq.lagDays, seq.lagUnit, seq.lagPercent, seq.lagMinutes]);
+  // Live-afgeleid (zoals `UnitsInput`): rood ZODRA de huidige tekst niet parseerbaar is — dus al
+  // tíjdens het typen, niet pas na een stille terugval bij blur (F1-bevinding: het veld sprong
+  // eerder terug zonder ENIGE indicatie dat de invoer geweigerd was).
+  const invalid = val !== '' && parseLagInput(val) === null;
   const commit = () => {
     const parsed = parseLagInput(val);
     if (parsed) {
       onCommit(parsed);
       setVal(formatLagShort(parsed));
     } else {
+      // Onparseerbare invoer: terugvallen op de laatst geldige waarde (bestaand gedrag) — de rode
+      // rand hierboven heeft de weigering al zichtbaar gemaakt vóórdat dit gebeurt.
       setVal(formatLagShort(seq));
     }
   };
@@ -30,12 +38,14 @@ export function SequenceLagInput({ seq, title, className, onCommit }: {
     <input
       value={val}
       title={title}
+      aria-invalid={invalid || undefined}
       placeholder="0d"
       onChange={e => setVal(e.target.value)}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
       onClick={e => e.stopPropagation()}
       className={className ?? 'input !text-[10px] !px-1 !py-0.5 w-14 text-right'}
+      style={invalid ? { borderColor: 'var(--error)', boxShadow: '0 0 0 1px var(--error)' } : undefined}
     />
   );
 }

@@ -90,7 +90,7 @@
     "dependencies": "Zależności",
     "relationPopoverTitle": "Typ relacji",
     "driving": "Relacja wiodąca (driving)",
-    "lag": "Zwłoka (np. 2d, 3ed, 50%, -25e%)",
+    "lag": "Zwłoka (np. 2d, 3ed, 2u, 50%, -25e%)",
     "recalculate": "Oblicz",
     "assignments": {
       "title": "Przydziały",
