@@ -23,6 +23,12 @@
 //      `fileHandle` leeg blijven, terwijl taken/kalender/CPM wél degelijk geladen/herrekend zijn.
 //
 // Draait via run.sh. Exit 0 = alles groen.
+//
+// DEKKINGSKAART (T9 — dit bestand toetst GEEN mpp-domeindata, alleen het opslagdoel-gedrag van de
+// open-route): A/A2/A3 → SYNTHETISCH (in-memory stubs, altijd); B → CORPUS (1 bestand, `.mpp`-
+// alleen — géén crawl-sectie, want dit is geen lezer-correctheidscheck). Zie check-mpp-import.ts,
+// check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten van de mpp-lezer zelf
+// (CFB/container/primitieven/taken/kalenders/relaties/resources/assignments).
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readMPP } from '@/services/mpp/mppReader';

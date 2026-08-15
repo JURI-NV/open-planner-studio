@@ -33,6 +33,20 @@
 // tijdzone-matrix — daarom bewust geen tijdzone-gevoelige logica hierin (geen Date-aanmaak voor
 // domeinlogica; alleen bytes/structuur en — uitsluitend voor de tijdslimiet-bewaking hieronder —
 // `Date.now()`-verschillen, die tijdzone-onafhankelijk zijn).
+//
+// DEKKINGSKAART (T9 — dit bestand is exclusief T3/T4/T5/T9-territorium; kalenders zitten in
+// check-mpp-calendars.ts (T6), relaties/resources/assignments in check-mpp-relations.ts (T7)):
+//   - CFB/OLE2-laag (container, DIFAT/FAT/mini-stream, hostile varianten)        → SYNTHETISCH, altijd
+//   - MPP-containerlaag (CompObj/Props14-detectie, wachtwoordpoort MPP_ENCRYPTED/
+//     MPP_LEGACY)                                                                → SYNTHETISCH, altijd
+//   - MPP-primitieven (FixedMeta/FixedData/VarMeta12/Var2Data/MPPUtility-equiv.)  → SYNTHETISCH, altijd
+//   - TBkndTask-structuurcheck (storages/streams aanwezig, itemCount>0)          → CORPUS (3 bestanden)
+//   - Taken + hiërarchie/WBS/milestone/constraint/deadline/completion (T5)       → CORPUS (3 ground-
+//     truth-paren, naam-gematcht + per-veldsoort-budget, zie de T5-sectietoelichting)
+//   - readMPP() end-to-end, geen-exception + gepind taakaantal + spooktaak-
+//     plausibiliteit (T9)                                                        → CRAWL (49 bestanden)
+// Corpus/crawl-afwezig ⇒ nette OK-skip, beïnvloedt NOOIT de einduitslag (C3, zie hierboven). Zie
+// check-mpp-calendars.ts en check-mpp-relations.ts voor hun eigen dekkingskaart.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
@@ -1496,6 +1510,142 @@ if (corpusPresent) {
     const totalFieldDiffs = fieldDiffCount.start + fieldDiffCount.finish + fieldDiffCount.duration + fieldDiffCount.outlineDepth + fieldDiffCount.constraintDate;
     console.log(`   . [T5 ${file}] ${matched}/${mppTasks.length} taken op naam gematcht; ${totalFieldDiffs} bekende veldafwijking(en) — start=${fieldDiffCount.start}/${budget.start} finish=${fieldDiffCount.finish}/${budget.finish} duur=${fieldDiffCount.duration}/${budget.duration} outline-diepte=${fieldDiffCount.outlineDepth}/${budget.outlineDepth} constraintdatum=${fieldDiffCount.constraintDate}/${budget.constraintDate}:`);
     for (const d of fieldDiagnostics) console.log(`      · ${d}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T9-crawl — end-to-end door de VOLLEDIGE readMPP() over het brede corpus (49 `.mpp`, submappen
+// MSP2016_OzBuild/MSP2021_OzBuild): geen-crash-poort + gepind totaal-taakaantal +
+// spooktaak-plausibiliteitsassert
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// T6-crawl (check-mpp-calendars.ts, holidays) en T7-crawl (check-mpp-relations.ts, relaties/
+// resources/assignments) bewijzen hun eigen domein al breed; deze sectie is de taken-tegenhanger
+// ÉN — omdat ze `readMPP()` zonder enige sub-scope aanroept, het complete `ImportResult` in één
+// keer — de enige plek die de VOLLEDIGE lezer (alle domeinen samen, exact het echte open-pad) over
+// alle 49 crawl-bestanden haalt. Netjes overgeslagen zonder de map (OPS_MPP_CRAWL), zelfde
+// skip-OK-conventie als de rest van dit bestand.
+//
+// BEVINDING (T9, gemeten op dit corpus): 4 van de 49 bestanden (`OzBuild Workshop 02.mpp` en
+// `OzBuild Workshop 03.mpp`, elk in zowel `MSP2016_OzBuild` als `MSP2021_OzBuild`) leveren 0 taken
+// op — géén leesfout, géén lege TBkndTask-storage, wél een expliciet gecontroleerde uitkomst:
+// FixedMeta draagt daar precies 4 items, waarvan de eerste drie (per MPXJ-conventie, zie
+// `FIRST_TASK_INDEX`) sowieso worden overgeslagen, en het vierde is uniqueID 0 — de
+// projectsamenvattingstaak, die `readTasks` bewust weglaat (`if (uniqueId === 0) continue`, spiegelt
+// mspdiReader's uid===0-skip). Deze vier bestanden dragen dus geen enkele echte taak (0 sequences,
+// 0 assignments, alleen de vaste "Unassigned"-plaatshouderresource — geverifieerd, geen half
+// leesresultaat) en zijn met aan zekerheid grenzende waarschijnlijkheid lege oefensjablonen uit de
+// cursusreeks (Workshop 02/03 vóórdat de cursist taken toevoegt). Een hard "≥1 taak per bestand"
+// (zoals de oorspronkelijke plantekst voorstelde) zou dus GEEN regressie in deze lezer bewijzen,
+// maar het bestaan van legitieme lege bestanden bestraffen — deze sectie telt dat aantal daarom
+// apart en pint het (`<=`, gemeten basislijn 4): een REGRESSIE die MEER bestanden ineens leeg
+// oplevert (bv. een kapotte FixedMeta/FixedData-koppeling) faalt hier alsnog; deze vier bekende
+// gevallen blokkeren de poort niet.
+//
+// PLAUSIBILITEITSASSERT (T9, bevinding uit de T5-spec-review — zie mppReader.ts's moduleheader
+// "Twee VERDER niet-geporte MPXJ-kwaliteitsfilters"): deze lezer laat MPXJ's twee filters weg
+// (het bijbehorende Fixed2Data-record moet niet-null zijn; de FixedData-recordlengte moet ≥75%
+// van het werkelijke taakveld-maximum beslaan) — `collectValidTaskIndices` hierboven gebruikt een
+// eenvoudigere validatie (verwijderd-vlag + null-taak-plaatshouder + spooktaak-check via VarMeta).
+// Op de drie ground-truth-bestanden maakt dat gemeten geen verschil (taakaantal-pariteit
+// 51/134/215), maar dat corpus is klein — een BESCHEIDEN overtelling (een handvol MPXJ zou
+// wegfilteren die híér toch doorglipt) zou een kale "geen exception"-poort niet vangen.
+//
+// Gekozen discriminator: een taak die (a) GEEN naam heeft (leeg na trim), (b) duration 0 heeft, ÉN
+// (c) in GEEN ENKELE relatie van hetzelfde bestand voorkomt (niet als voorganger, niet als
+// opvolger) is verdacht. Waarom dit betrouwbaar discrimineert zonder flaky te zijn: een taak die
+// een gebruiker daadwerkelijk aanmaakt in MS Project krijgt zo goed als altijd minstens één van
+// de drie — een naam (zelfs een auto-gegenereerde "Taak 1"), een duur (default 1 dag), of een
+// koppeling. Alle drie tegelijk ontbrekend is precies het profiel van een gefilterde
+// MPXJ-plaatshouder (verwijderd-/null-taakrecord) die hier toch als "geldige" taak doorkomt — geen
+// signaal dat toevallig ook legitieme taken raakt (een taak zonder naam MET een duur of relatie
+// telt hier bewust niet mee). Budget: ≤2% verdachte taken per bestand — ruim boven de op dit
+// corpus gemeten 0% (zie de console-samenvatting hieronder), zodat een enkel edge-case-bestand
+// geen valse rode poort geeft, maar een systematische regressie (bv. een filter die per ongeluk
+// wordt losgelaten) nog wel degelijk faalt. Bestanden zonder taken (zie de bevinding hierboven)
+// worden hier overgeslagen (0/0 zegt niets over plausibiliteit).
+{
+  const CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp';
+  if (!existsSync(CRAWL)) {
+    console.log('OK  mpp-import: T9-crawl niet aanwezig (OPS_MPP_CRAWL) — crawlsectie overgeslagen');
+  } else {
+    function listMppFilesRecursive(dir: string): string[] {
+      const out: string[] = [];
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...listMppFilesRecursive(full));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mpp')) out.push(full);
+      }
+      return out;
+    }
+    const crawlFiles = listMppFilesRecursive(CRAWL);
+    if (crawlFiles.length === 0) {
+      console.log(`OK  mpp-import: T9-crawl-map aanwezig maar geen .mpp-bestanden erin (${CRAWL}) — crawlsectie overgeslagen`);
+    } else {
+      // Gemeten basislijnen (2026-08-14, dit corpus, 49 bestanden, deze code): 788 taken totaal;
+      // 4 bestanden zonder taken (legitiem, zie de bevinding hierboven). `>=` resp. `<=` (zelfde
+      // precedent als T6-/T7-crawl voor de eerste): een toekomstige verbetering mag het taakaantal
+      // laten stijgen zonder de poort te breken; een regressie die taken laat verdwijnen (bv. een
+      // te strenge validatie, of een kapotte FixedMeta/FixedData-koppeling) faalt op minstens één
+      // van de twee — hetzij het totaal zakt onder de basislijn, hetzij er komen MEER dan 4 lege
+      // bestanden bij.
+      const CRAWL_TASK_COUNT_BASELINE = 788;
+      const CRAWL_ZERO_TASK_FILES_BASELINE = 4;
+      const SUSPECT_RATIO_BUDGET = 0.02; // zie de sectietoelichting hierboven
+
+      let totalTasks = 0;
+      let readFailures = 0;
+      let filesWithZeroTasks = 0;
+      let totalSuspect = 0;
+      const zeroTaskFiles: string[] = [];
+      for (const file of crawlFiles) {
+        let result: ReturnType<typeof readMPP>;
+        try {
+          result = readMPP(new Uint8Array(readFileSync(file)));
+        } catch (err) {
+          readFailures++;
+          checks++;
+          diffs.push(`[T9-crawl] readMPP gooide onverwacht op ${file}: ${err instanceof Error ? err.message : String(err)}`);
+          continue;
+        }
+        totalTasks += result.tasks.length;
+        if (result.tasks.length === 0) {
+          filesWithZeroTasks++;
+          zeroTaskFiles.push(file);
+          continue; // zie de bevinding hierboven — geen plausibiliteitsratio over 0 taken
+        }
+
+        // "In geen enkele relatie" = noch als voorganger, noch als opvolger in dit bestand.
+        const linkedTaskIds = new Set<string>();
+        for (const seq of result.sequences) {
+          linkedTaskIds.add(seq.predecessorId);
+          linkedTaskIds.add(seq.successorId);
+        }
+        const suspect = result.tasks.filter(
+          (t) => t.name.trim() === '' && t.time.scheduleDuration === 0 && !linkedTaskIds.has(t.id),
+        );
+        totalSuspect += suspect.length;
+        const ratio = suspect.length / result.tasks.length;
+        truthy(
+          `[T9-crawl] ${file}: spooktaak-verdachten binnen budget (${suspect.length}/${result.tasks.length} = ${(ratio * 100).toFixed(1)}% ≤ ${SUSPECT_RATIO_BUDGET * 100}%)`,
+          ratio <= SUSPECT_RATIO_BUDGET,
+        );
+      }
+      truthy(`[T9-crawl] geen leesfouten over ${crawlFiles.length} bestanden`, readFailures === 0);
+      truthy(
+        `[T9-crawl] taakloze bestanden binnen de gemeten basislijn (${filesWithZeroTasks}/${CRAWL_ZERO_TASK_FILES_BASELINE}, zie de bevinding hierboven)`,
+        filesWithZeroTasks <= CRAWL_ZERO_TASK_FILES_BASELINE,
+      );
+      truthy(
+        `[T9-crawl] totaal-taakaantal op/boven de gemeten basislijn (${totalTasks}/${CRAWL_TASK_COUNT_BASELINE})`,
+        totalTasks >= CRAWL_TASK_COUNT_BASELINE,
+      );
+      console.log(
+        `   . [T9-crawl] ${crawlFiles.length} bestanden: totaal ${totalTasks} taken (basislijn ${CRAWL_TASK_COUNT_BASELINE}), `
+        + `${filesWithZeroTasks} taakloos (basislijn ${CRAWL_ZERO_TASK_FILES_BASELINE}: ${zeroTaskFiles.map((f) => f.split('/').pop()).join(', ') || '—'}), `
+        + `${totalSuspect} spooktaak-verdachten totaal (budget ${SUSPECT_RATIO_BUDGET * 100}% per bestand)`,
+      );
+    }
   }
 }
 

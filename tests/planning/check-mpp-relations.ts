@@ -43,6 +43,18 @@
 //
 // Draait via run.sh (binnen het RUN_HOLIDAYS-blok) en draait daarna ook mee in de tijdzone-matrix —
 // bewust geen tijdzone-gevoelige logica hierin (datums alleen als strings vergelijken).
+//
+// DEKKINGSKAART (T9 — dit bestand is exclusief T7-territorium):
+//   - readRelations/readResources/readAssignments end-to-end + hostile
+//     varianten (typetabel, WORKTIME/ELAPSED/percent-lag, fractionele units)  → SYNTHETISCH, altijd
+//   - relaties/resources/assignments vs. MSPDI-ground-truth (naam-gematcht,
+//     FS/lag-0-pad, resourcetype/maxUnits, assignment-units)                  → CORPUS (3 paren —
+//     zie het DEKKINGSVOORBEHOUD hierboven voor wat het corpus wél/niet dekt)
+//   - relatie-/resource-/assignmentaantallen + resourcetype LABOR/MATERIAL,
+//     SAMEN over het hele corpus                                             → CRAWL (49 bestanden)
+// Corpus/crawl-afwezig ⇒ nette OK-skip, beïnvloedt nooit de einduitslag. Zie check-mpp-import.ts
+// (taken/container/CFB, plus de T9-taken-crawl) en check-mpp-calendars.ts (kalenders) voor de
+// andere domeinen.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';

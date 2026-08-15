@@ -17,6 +17,18 @@
 //
 // Draait via run.sh en draait daarna ook mee in de tijdzone-matrix — bewust geen tijdzone-gevoelige
 // logica hierin (zelfde discipline als check-mpp-import.ts).
+//
+// DEKKINGSKAART (T9 — dit bestand is exclusief T6-territorium):
+//   - TBkndCal-lezer end-to-end + hostile varianten (kalenderaantal-/holiday-budgetten,
+//     off-by-one, resource-UID-0, base-ketens)                         → SYNTHETISCH, altijd
+//   - projectkalender workDays + holidays vs. MSPDI-ground-truth        → CORPUS (3 bestanden — de
+//     holidaykant is hier toevallig altijd 0/0, zie de I2-toelichting; dus GEEN bewijslast voor
+//     `parseExceptions` — die levert de crawl-sectie)
+//   - holiday-materialisatie (EIGEN holidays, dubbeltelvrij, over ALLE
+//     kalenders van een bestand)                                       → CRAWL (49 bestanden, T6)
+// Corpus/crawl-afwezig ⇒ nette OK-skip, beïnvloedt nooit de einduitslag. Zie check-mpp-import.ts
+// (taken/container/CFB) en check-mpp-relations.ts (relaties/resources/assignments) voor de andere
+// domeinen.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';

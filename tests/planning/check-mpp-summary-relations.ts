@@ -22,6 +22,12 @@
 // bestand slaat deze check netjes over (OK, geen fout) en beïnvloedt hij de einduitslag niet.
 //
 // Draait via run.sh (binnen het RUN_HOLIDAYS-blok).
+//
+// DEKKINGSKAART (T9 — dit bestand toetst GEEN mpp-domeindata op zichzelf, alleen de CPM-solver-
+// propagatie op één specifiek corpusbestand): CORPUS (1 bestand, `Bijlage 13`) — géén synthetische
+// laag, géén crawl-sectie (dit is een scheduling-regressietest, geen lezer-breedtecheck). Zie
+// check-mpp-import.ts, check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten
+// van de mpp-lezer zelf.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readMPP } from '@/services/mpp/mppReader';
