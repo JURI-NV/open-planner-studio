@@ -17,8 +17,8 @@
     "templateSaved": "Zweig als Vorlage '{{name}}' gespeichert",
     "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Diese Beziehung besteht bereits",
-    "relationSummaryEndpoint": "Eine Sammelaufgabe als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie sie mit einer Aufgabe ohne Unteraufgaben.",
-    "summaryRelationsIgnored": "{{total}} Beziehung(en) an Sammelaufgaben haben keine Auswirkung auf den Terminplan."
+    "relationAncestorEndpoint": "Eine Beziehung zwischen einer Aufgabe und ihrer eigenen übergeordneten Sammelaufgabe ist nicht zulässig.",
+    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht in die Berechnung einbezogen werden (Abstammungskonflikt oder unvollständige Struktur)."
   },
   "yes": "Ja",
   "no": "Nein",

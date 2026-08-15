@@ -17,8 +17,8 @@
     "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi",
     "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Bu ilişki zaten var",
-    "relationSummaryEndpoint": "Uç nokta olarak bir özet görev planlamayı etkilemez. Alt görevi olmayan bir göreve bağlayın.",
-    "summaryRelationsIgnored": "Özet görevlerdeki {{total}} ilişki planlamayı etkilemiyor."
+    "relationAncestorEndpoint": "Bir görev ile kendi üst özet görevi arasında ilişki kurulmasına izin verilmez.",
+    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi (atalık çakışması veya eksik yapı)."
   },
   "yes": "Evet",
   "no": "Hayır",

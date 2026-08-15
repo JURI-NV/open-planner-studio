@@ -154,7 +154,7 @@
     "notCalculated": "再計算（F5）すると駆動関係とフロートが表示されます",
     "warnTruncatedLead": "リードがプロジェクト開始で打ち切られました — 重複は完全には活用されません",
     "warnLeadExceedsDuration": "リードが先行タスクの期間より大きくなっています",
-    "warnSummaryEndpoint": "効果なし: 端点がサマリータスク"
+    "warnDropped": "計算に含まれていません: 祖先の競合または構造が不完全"
   },
   "structure": {
     "title": "コードとフィールド",

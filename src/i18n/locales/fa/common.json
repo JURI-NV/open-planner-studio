@@ -17,8 +17,8 @@
     "templateSaved": "شاخه به عنوان الگوی «{{name}}» ذخیره شد",
     "relationCreated": "رابطه ایجاد شد: از {{predecessor}} به {{successor}}",
     "relationDuplicate": "این رابطه از قبل وجود دارد",
-    "relationSummaryEndpoint": "وظیفه خلاصه به عنوان نقطه پایانی تأثیری بر زمان‌بندی ندارد. به وظیفه‌ای بدون زیروظیفه پیوند دهید.",
-    "summaryRelationsIgnored": "{{total}} رابطه روی وظایف خلاصه بر زمان‌بندی تأثیری ندارد."
+    "relationAncestorEndpoint": "رابطه بین یک وظیفه و وظیفه خلاصه نیای (والد) خودش مجاز نیست.",
+    "summaryRelationsDropped": "{{total}} رابطه نتوانست در محاسبه لحاظ شود (تعارض نیاکان یا ساختار ناقص)."
   },
   "yes": "بله",
   "no": "خیر",

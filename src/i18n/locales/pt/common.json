@@ -17,8 +17,8 @@
     "templateSaved": "Ramo guardado como modelo '{{name}}'",
     "relationCreated": "Relação criada: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Essa relação já existe",
-    "relationSummaryEndpoint": "Uma tarefa de resumo como extremidade não tem efeito na planificação. Ligue-a a uma tarefa sem subtarefas.",
-    "summaryRelationsIgnored": "{{total}} relação(ões) em tarefas de resumo não têm efeito na planificação."
+    "relationAncestorEndpoint": "Não é permitida uma relação entre uma tarefa e a sua própria tarefa de resumo ancestral.",
+    "summaryRelationsDropped": "{{total}} relação(ões) não puderam ser incluídas no cálculo (conflito de ascendência ou estrutura incompleta)."
   },
   "yes": "Sim",
   "no": "Não",

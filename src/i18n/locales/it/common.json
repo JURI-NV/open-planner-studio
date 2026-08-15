@@ -17,8 +17,8 @@
     "templateSaved": "Ramo salvato come modello '{{name}}'",
     "relationCreated": "Relazione creata: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Questa relazione esiste già",
-    "relationSummaryEndpoint": "Un'attività di riepilogo come estremità non ha effetto sulla pianificazione. Collegala a un'attività senza sottoattività.",
-    "summaryRelationsIgnored": "{{total}} relazione/i su attività di riepilogo non hanno effetto sulla pianificazione."
+    "relationAncestorEndpoint": "Una relazione tra un'attività e la propria attività di riepilogo antenata non è consentita.",
+    "summaryRelationsDropped": "{{total}} relazione/i non hanno potuto essere incluse nel calcolo (conflitto di discendenza o struttura incompleta)."
   },
   "yes": "Sì",
   "no": "No",

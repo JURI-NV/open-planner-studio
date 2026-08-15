@@ -17,8 +17,8 @@
     "templateSaved": "分支已保存为模板“{{name}}”",
     "relationCreated": "已创建关系：{{predecessor}} → {{successor}}",
     "relationDuplicate": "该关系已存在",
-    "relationSummaryEndpoint": "以摘要任务作为端点对计划没有影响。请链接到没有子任务的任务。",
-    "summaryRelationsIgnored": "{{total}} 条位于摘要任务上的关系对计划没有影响。"
+    "relationAncestorEndpoint": "不允许在任务与其自身的（上级）汇总任务之间建立关系。",
+    "summaryRelationsDropped": "{{total}} 个关系未能计入计算（祖先冲突或结构不完整）。"
   },
   "yes": "是",
   "no": "否",

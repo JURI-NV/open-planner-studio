@@ -154,7 +154,7 @@
     "notCalculated": "Recalcule (F5) para ver las relaciones determinantes y las holguras",
     "warnTruncatedLead": "Adelanto truncado en el inicio del proyecto — la superposición no se aprovecha por completo",
     "warnLeadExceedsDuration": "El adelanto es mayor que la duración de la predecesora",
-    "warnSummaryEndpoint": "Sin efecto: tarea de resumen como extremo"
+    "warnDropped": "No incluida en el cálculo: conflicto de ascendencia o estructura incompleta"
   },
   "structure": {
     "title": "Códigos y campos",

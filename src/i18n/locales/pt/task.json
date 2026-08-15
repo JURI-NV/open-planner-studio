@@ -154,7 +154,7 @@
     "notCalculated": "Recalcule (F5) para ver relações determinantes e folgas",
     "warnTruncatedLead": "Avanço truncado no início do projeto — a sobreposição não é totalmente aproveitada",
     "warnLeadExceedsDuration": "O avanço é maior do que a duração da predecessora",
-    "warnSummaryEndpoint": "Sem efeito: tarefa de resumo como extremidade"
+    "warnDropped": "Não incluída no cálculo: conflito de ascendência ou estrutura incompleta"
   },
   "structure": {
     "title": "Códigos e campos",

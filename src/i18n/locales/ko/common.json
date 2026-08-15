@@ -17,8 +17,8 @@
     "templateSaved": "분기가 '{{name}}' 템플릿으로 저장되었습니다",
     "relationCreated": "관계를 만들었습니다: {{predecessor}} → {{successor}}",
     "relationDuplicate": "이 관계는 이미 있습니다",
-    "relationSummaryEndpoint": "요약 작업을 끝점으로 사용해도 일정에 영향을 주지 않습니다. 하위 작업이 없는 작업에 연결하세요.",
-    "summaryRelationsIgnored": "요약 작업의 관계 {{total}}개는 일정에 영향을 주지 않습니다."
+    "relationAncestorEndpoint": "작업과 자신의 (조상) 요약 작업 간의 관계는 허용되지 않습니다.",
+    "summaryRelationsDropped": "{{total}}개의 관계를 계산에 포함할 수 없었습니다(조상 충돌 또는 불완전한 구조)."
   },
   "yes": "예",
   "no": "아니오",

@@ -17,8 +17,8 @@
     "templateSaved": "Branche enregistrée comme modèle '{{name}}'",
     "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
     "relationDuplicate": "Cette relation existe déjà",
-    "relationSummaryEndpoint": "Une tâche récapitulative comme extrémité n'a aucun effet sur le planning. Reliez-la plutôt à une tâche sans sous-tâches.",
-    "summaryRelationsIgnored": "{{total}} relation(s) sur des tâches récapitulatives n'ont aucun effet sur le planning."
+    "relationAncestorEndpoint": "Une relation entre une tâche et sa propre tâche récapitulative parente (ou ancêtre) n'est pas autorisée.",
+    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte dans le calcul (conflit d'ascendance ou structure incomplète)."
   },
   "yes": "Oui",
   "no": "Non",

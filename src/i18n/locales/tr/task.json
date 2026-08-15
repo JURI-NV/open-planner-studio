@@ -154,7 +154,7 @@
     "notCalculated": "Belirleyici ilişkileri ve bollukları görmek için yeniden hesaplayın (F5)",
     "warnTruncatedLead": "Öne alma proje başlangıcında kesildi — örtüşme tam kullanılmıyor",
     "warnLeadExceedsDuration": "Öne alma, öncülün süresinden daha büyük",
-    "warnSummaryEndpoint": "Etkisiz: uç nokta olarak özet görev"
+    "warnDropped": "Hesaplamaya dahil edilmedi: atalık çakışması veya eksik yapı"
   },
   "structure": {
     "title": "Kodlar ve alanlar",
