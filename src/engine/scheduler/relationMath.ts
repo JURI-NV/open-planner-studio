@@ -330,7 +330,34 @@ function forwardHour(
       const predDone = (succIsFinishMs || predEndsBeginOfDay)
         ? predResult.ef                       // mijlpaal-grens: geen dag-boundary-+1 (dag-conceptueel)
         : pe.predDoneAt(predResult.ef);
-      return se.availableStart(deps.shiftLagPred(pe, predDone, seq, predTask, 1));
+      const lagged = deps.shiftLagPred(pe, predDone, seq, predTask, 1);
+      // MSP-pariteit (T6, §9/O6): een EINDmijlpaal-opvolger zonder lag landt op de RAUWE
+      // voorganger-finish-instant (bv. di 17:00) — niet op de eerstvolgende werk-instant erna.
+      // `shiftLagPred`/`availableStart` normaliseren via `nextWorkInstant` (rand `[start,end)`),
+      // dat is de FORWARD-conventie en sluit een instant exact op een band-EIND per definitie
+      // uit — precies de rand waar een finish legitiem op landt (`finishFromStart` bouwt `ef`
+      // zelf met de `(start,end]`-conventie). Bij lag=0 reduceert `shiftLagPred` dus altijd tot
+      // een overbodige — en hier SCHADELIJKE — dubbele snap, ook al onderdrukt `predEndsBeginOfDay
+      // || succIsFinishMs` hierboven al de dag-boundary-+1. `predDone` is in dat geval al een
+      // geldige instant (hij komt rechtstreeks van `predResult.ef`, dus geen `nextWorkInstant`-
+      // aanroep nodig zoals bij backward's spiegel (`prevWorkInstant`, die een niet-gegarandeerde
+      // `succResult.ls` alsnog moet normaliseren — hier ligt de garantie al bij de bron).
+      // `lagIsZero` is dezelfde detectietruc als de bestaande backward-arm (hour-hour FS default,
+      // hierboven in dit bestand): "de geshifte waarde == wat een kale nul-lag-normalisatie zou
+      // geven" ⇒ er is geen echte lag toegepast. Bij `predEndsBeginOfDay` (dagbegin-mijlpaal-
+      // voorganger) geldt de omgekeerde asymmetrie NIET — een dagbegin-anker ligt al binnen de
+      // `[start,end)`-conventie (§9/O6-meting: alleen het "MSP 17:00 → onze 08:00"-patroon, nooit
+      // een startmijlpaal-analoog) — dus die combinatie blijft ongewijzigd via `availableStart`.
+      // `pe.isHourMode`-wacht is VERPLICHT: `nextWorkInstant` is een uur-modus-primitief
+      // (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder guard) — bij een DAG-
+      // voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`) zou de aanroep
+      // crashen op de non-null assertion. Die combinatie werkt al correct via de bestaande
+      // dag-lag-tak van `shiftLagPred` + `availableStart` en blijft dus ongemoeid.
+      if (succIsFinishMs && !predEndsBeginOfDay && pe.isHourMode) {
+        const lagIsZero = lagged.getTime() === pe.nextWorkInstant(predDone).getTime();
+        if (lagIsZero) return predDone;
+      }
+      return se.availableStart(lagged);
     }
   }
 }

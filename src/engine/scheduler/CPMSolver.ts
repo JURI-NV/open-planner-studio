@@ -326,6 +326,22 @@ export class CPMSolver {
   private snapStrictBefore(eng: CalendarEngine, d: Date): Date {
     return eng.isHourMode ? eng.prevWorkInstantBefore(d) : eng.prevWorkDayBefore(d);
   }
+  /** Voorwaartse her-snap van een OPVOLGER-earlyStart die MSP-pariteit (T6, §9/O6) respecteert voor
+   *  een EINDmijlpaal: `snapOnOrAfter` normaliseert met `nextWorkInstant` (rand `[start,end)`), dat
+   *  een instant EXACT op een band-eind (bv. di 17:00) altijd naar de volgende werk-instant duwt —
+   *  precies de dubbele snap die `relationMath`'s FS-tak met de `lagIsZero`-kortsluiting al voorkomt
+   *  vóórdat de waarde hier aankomt. Zonder deze wacht herintroduceert de generieke her-snap
+   *  hieronder (regel 686/728, bestond al vóór T6 voor de "constrained root-taak op middernacht"-
+   *  situatie) diezelfde bug op het volgende niveau. `snapOnOrBefore(...) === d` is de test "`d` is
+   *  al een geldige `(start,end]`-instant" (band-interieur of band-eind) — precies de conventie
+   *  waarmee `finishFromStart` een `ef` bouwt; bij een niet-milestone of een dag-kalender reduceert
+   *  dit byte-identiek tot de kale `snapOnOrAfter`. */
+  private snapSuccessorEarlyStart(eng: CalendarEngine, d: Date, task: Task): Date {
+    if (eng.isHourMode && task.isMilestone && task.milestoneKind === 'FINISH') {
+      if (this.snapOnOrBefore(eng, d).getTime() === d.getTime()) return d;
+    }
+    return this.snapOnOrAfter(eng, d);
+  }
   private modeOf(eng: CalendarEngine): DateMode {
     return eng.isHourMode ? 'hour' : 'day';
   }
@@ -725,7 +741,7 @@ export class CPMSolver {
         }
         // `rawMax` (voorganger-druk) voedt de harde-pin-logicaschending-detectie (§4.2).
         earlyStart = this.applyForwardConstraints(task, earlyStart, rawMax, cal);
-        earlyStart = this.snapOnOrAfter(cal, earlyStart);
+        earlyStart = this.snapSuccessorEarlyStart(cal, earlyStart, task);
       }
 
       // Nivelleer-vertraging (fase 2.5, §5.6): schuif de zojuist bepaalde — al werkdag-gesnapte,
