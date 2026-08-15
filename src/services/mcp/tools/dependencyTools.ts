@@ -399,14 +399,16 @@ const updateDependencies: BatchStepTool = {
     '("→2.3 FS+2d #seq-7"). Per item is elk veld OPTIONEEL en wordt alleen het opgegevene gewijzigd ' +
     '(veld-merge): `type` (FINISH_START|FINISH_FINISH|START_START|START_FINISH, of kort FS/FF/SS/SF), ' +
     '`lag`, `predecessorId`, `successorId`. ' + LAG_DOC + ' ' +
-    'Zacht geweigerd per item (de rest van de bulk gaat gewoon door): een onbekend `seqId`, een ' +
-    'onbekend veld (de weigering NOEMT de sleutel), een onbekend taak-id, een relatie naar zichzelf, ' +
-    'een verzameltaak (taak MET subtaken) als nieuwe voorganger/opvolger, een wijziging die een ' +
-    'BESTAANDE relatie zou dubbelen (zelfde voorganger+opvolger+type), en een item dat niets ' +
-    'verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats van ' +
-    'een `ok` zonder effect. Een KRINGVERWIJZING (mogelijk zodra je een eindpunt verlegt) is een harde ' +
-    'fout die de hele call terugrolt. Retourneert per gewijzigde relatie het echte VOOR/NA-verschil ' +
-    '(`changes`), de herrekende datums van de geraakte taken en het nieuwe projecteinde.',
+    'Een verzameltaak (taak MET subtaken) als nieuwe voorganger/opvolger is TOEGESTAAN. Zacht ' +
+    'geweigerd per item (de rest van de bulk gaat gewoon door): een onbekend `seqId`, een onbekend ' +
+    'veld (de weigering NOEMT de sleutel), een onbekend taak-id, een relatie naar zichzelf, een ' +
+    'voorouder-relatie (een nieuwe voorganger/opvolger die de EIGEN (voor)ouder-samenvattingstaak ' +
+    'van de andere kant is), een wijziging die een BESTAANDE relatie zou dubbelen (zelfde ' +
+    'voorganger+opvolger+type), en een ' +
+    'item dat niets verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats ' +
+    'van een `ok` zonder effect. Een KRINGVERWIJZING (mogelijk zodra je een eindpunt verlegt) is een ' +
+    'harde fout die de hele call terugrolt. Retourneert per gewijzigde relatie het echte VOOR/NA-' +
+    'verschil (`changes`), de herrekende datums van de geraakte taken en het nieuwe projecteinde.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },

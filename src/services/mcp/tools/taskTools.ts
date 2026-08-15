@@ -763,9 +763,11 @@ const addDependencies: BatchStepTool = {
     'Voeg NIEUWE relaties tussen taken toe. Per item: `predecessorId`, `successorId`, `type` ' +
     '(FINISH_START | FINISH_FINISH | START_START | START_FINISH — de KORTE vorm FS/FF/SS/SF die de ' +
     'leestools teruggeven mag ook) en optioneel `lag`. ' + LAG_DOC + ' ' +
-    'Onbekende taak-id\'s, een reeds bestaande relatie, of een verzameltaak (taak MET subtaken) als ' +
-    'voorganger/opvolger worden per item zacht geweigerd; een kringverwijzing (over de bestaande én ' +
-    'voorgestelde relaties) is een harde fout die de hele call terugrolt. ' +
+    'Een verzameltaak (taak MET subtaken) als voorganger/opvolger is TOEGESTAAN — die relatie wordt ' +
+    'doorgerekend naar de onderliggende bladtaken. Onbekende taak-id\'s, een reeds bestaande relatie, ' +
+    'of een voorouder-relatie (een taak gekoppeld aan zijn eigen (voor)ouder-samenvattingstaak) ' +
+    'worden per item zacht geweigerd; een kringverwijzing (over de bestaande én voorgestelde ' +
+    'relaties) is een harde fout die de hele call terugrolt. ' +
     'WIL JE EEN BESTAANDE RELATIE WIJZIGEN (ander type, andere lag, andere voorganger/opvolger)? ' +
     'Gebruik planner_update_dependencies met het sequence-id — NIET verwijderen-en-opnieuw-toevoegen: ' +
     'dat verliest het id en levert twee undo-stappen op.',
