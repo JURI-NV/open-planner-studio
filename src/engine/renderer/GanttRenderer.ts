@@ -2074,20 +2074,26 @@ export class GanttRenderer {
    * nergens op: een mijlpaal is een bladtaak met duur 0 die de solver volledig ondersteunt als
    * voorganger én opvolger. Dat was de bug.
    *
-   * Verzameltaken blijven hier wél geweerd: de solver krijgt alleen bladtaken, dus zo'n relatie
-   * zou een spookrelatie zijn (zie `state/relationRules.ts`). Vroeg weigeren — door de sleep niet
-   * te armen — is prettiger dan hem na afloop afwijzen.
+   * VERZAMELTAKEN ZIJN SINDS HET EIGENAARSBESLUIT VAN 2026-08-15 EXPLICIET WÉL TOEGESTAAN ALS BRON.
+   * Tot dan weerde deze hit-test ze ("de solver krijgt alleen bladtaken, dus zo'n relatie zou een
+   * spookrelatie zijn") — maar `expandSummaryRelations` (`engine/scheduler/expandSummaryRelations.ts`)
+   * rekent een relatie mét een verzameltaak-eindpunt sindsdien gewoon door naar de onderliggende
+   * bladtaken (MS Project-semantiek), en droppen óp een verzamelbalk werkte via `relationVerdict`
+   * (`state/relationRules.ts`) al langer. Slepen VANAF een verzamelbalk hoorde in lockstep te
+   * blijven met droppen ERÓP; deze functie liep sinds die wijziging achter. De uiteindelijke
+   * legaliteit van de relatie (inclusief de resterende voorouder-weigering) wordt hoe dan ook pas
+   * bij het loslaten bepaald — door `createRelationWithFeedback`/`relationVerdict`, niet hier — dus
+   * deze hit-test hoeft alleen nog te weigeren waar helemaal geen zinnige balk staat (datumloos,
+   * buiten de balk).
    *
-   * De check hieronder is `task.childIds.length > 0` inline, geen import van `isSummaryTask` uit
-   * `state/relationRules.ts` — deze renderer importeert bewust niets uit `@/state`. Dat maakt
-   * `relationRules.ts` de enige bron van de RÉGEL, niet letterlijk de enige plek waar hij staat:
-   * de conditie zelf is hier gedupliceerd, en moet in lockstep blijven met `isSummaryTask` als die
-   * regel ooit verandert.
+   * De check hieronder importeert bewust niets uit `@/state` (deze renderer doet dat nergens) — zie
+   * `isSummaryTask`/`isAncestorRelation` in `state/relationRules.ts` voor de daadwerkelijke regels;
+   * hier is alleen de geometrie van belang.
    */
   getRelationSourceAt(canvasX: number, canvasY: number): Task | null {
     if (canvasX < this.opts.taskTableWidth) return null;
     const task = this.getTaskAtY(canvasY);
-    if (!task || task.childIds.length > 0) return null;
+    if (!task) return null;
     // Zelfde datumloos-guard als getTaskBarBounds: een taak zonder datums heeft alleen een
     // terugval-stub op de viewstart en dus geen betekenisvolle positie om vanaf te slepen.
     if (!(task.time.earlyStart || task.time.scheduleStart) || !(task.time.earlyFinish || task.time.scheduleFinish)) {

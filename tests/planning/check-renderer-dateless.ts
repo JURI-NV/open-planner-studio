@@ -85,7 +85,8 @@ const datelessSummary = { ...stripDates(healthy, undefined), childIds: ['kind-x'
 const datelessMilestone = { ...stripDates(healthy, undefined), isMilestone: true } as Task;
 
 // Gedateerde varianten voor de relatie-hittest: die moet mijlpalen WÉL accepteren (dat is de bug
-// die spec 2026-08-14 repareert) en verzameltaken NIET (spookrelatie).
+// die spec 2026-08-14 repareert) en sinds het eigenaarsbesluit van 2026-08-15 ook verzameltaken
+// (expandSummaryRelations rekent zo'n relatie door — geen spookrelatie meer).
 const datedMilestone = { ...healthy, id: 'ms-dated', isMilestone: true } as Task;
 const datedSummary = { ...healthy, id: 'sum-dated', childIds: ['kind-y'] } as Task;
 
@@ -204,8 +205,12 @@ if (renderError === null) {
     ok('getRelationSourceAt weigert een MIJLPAAL (dit is de bug die we repareren)',
       renderer.getRelationSourceAt(bar.x, rowMidY(5))?.id === 'ms-dated');
 
-    ok('getRelationSourceAt accepteert een VERZAMELTAAK (zou een spookrelatie worden)',
-      renderer.getRelationSourceAt(midX, rowMidY(6)) === null);
+    // Eigenaarsbesluit 2026-08-15: een verzameltaak als relatiebron is legaal sinds
+    // `expandSummaryRelations` zulke relaties naar bladtaken doorrekent (MS Project-semantiek) —
+    // droppen ERÓP werkte via `relationVerdict` al langer, slepen VANAF moest in lockstep mee. De
+    // uiteindelijke legaliteit (voorouder-weigering) wordt pas bij het loslaten bepaald, niet hier.
+    ok('getRelationSourceAt WEIGERT een VERZAMELTAAK als bron NIET MEER (regressie-anker 2026-08-15)',
+      renderer.getRelationSourceAt(midX, rowMidY(6))?.id === 'sum-dated');
 
     ok('getRelationSourceAt accepteert een datumloze taak',
       renderer.getRelationSourceAt(TTW + 5, rowMidY(1)) === null);

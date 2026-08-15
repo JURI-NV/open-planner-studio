@@ -1059,11 +1059,14 @@ export function GanttCanvas() {
     // ("Relatie leggen vanaf hier"). Dat is een relatie-actie, geen sleep/resize-actie — dus
     // hoort hij de relatie-hittest te gebruiken, niet `getTaskBarBounds` (die is geschreven voor
     // slepen/resizen en weigert mijlpalen daarom terecht: een ruit heeft geen duur om te
-    // resizen). Vóór deze fix miste een rechtsklik op een mijlpaal het item, terwijl slepen
-    // vanaf diezelfde mijlpaal via `getRelationSourceAt` al wél werkte (zie GanttRenderer.ts).
-    // `getRelationSourceAt` geeft nog steeds null op de rij ernaast en op een summary-balk (een
-    // verzameltaak zou een spookrelatie opleveren, zie `state/relationRules.ts`) — die krijgen
-    // dan gewoon het rij-menu zonder het relatie-item, zoals bedoeld.
+    // resizen). Vóór de mijlpaal-fix (2026-08-14) miste een rechtsklik op een mijlpaal het item,
+    // terwijl slepen vanaf diezelfde mijlpaal via `getRelationSourceAt` al wél werkte (zie
+    // GanttRenderer.ts). Sinds het eigenaarsbesluit van 2026-08-15 geldt hetzelfde voor
+    // verzamelbalken: `getRelationSourceAt` armt ze nu ook als bron, dus dit item verschijnt daar
+    // óók. `getRelationSourceAt` geeft nog steeds null op de rij ernaast en op een datumloze taak
+    // (geen zinnige balk om vanaf te starten) — die krijgen dan gewoon het rij-menu zonder het
+    // relatie-item, zoals bedoeld. De uiteindelijke legaliteit (o.a. de voorouder-weigering) wordt
+    // pas bij het loslaten bepaald, niet hier.
     const barHit = !!task && !!renderer.getRelationSourceAt(x, y);
     setContextMenu({ x: e.clientX, y: e.clientY, task, barHit, group: null });
   }, [selectTask, selectedTaskIds, headerHeight]);

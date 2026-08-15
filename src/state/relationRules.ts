@@ -46,10 +46,16 @@ export type TaskLookup = (id: string) => Task | undefined;
 
 /**
  * Is deze taak een verzameltaak — een taak MET subtaken? Een onbekende taak (`undefined`) is dat
- * níét. Blijft bestaan als algemeen predicaat (o.a. gebruikt om een bestaand relatie-eindpunt te
- * herkennen); de rejectie-beslissing zelf leunt sinds 2026-08-15 niet meer op dit predicaat, want
- * een verzameltaak-eindpunt is nu legaal — zie `isAncestorRelation` hieronder voor de regel die wél
- * nog weigert.
+ * níét. Sinds het eigenaarsbesluit van 2026-08-15 heeft GEEN productiecode meer een directe
+ * afhankelijkheid op deze functie: `relationVerdict` leunt niet meer op dit predicaat (een
+ * verzameltaak-eindpunt is nu legaal, zie `isAncestorRelation` hieronder voor de regel die wél nog
+ * weigert), en de drie oude UI-/MCP-lezers (RelationsPanel, fileSlice, dependencyTools) lezen sinds
+ * dat besluit `cpmResult.droppedSequenceIds` resp. `isAncestorRelation` in plaats van dit predicaat.
+ * `GanttRenderer.getRelationSourceAt` dupliceert het CONCEPT `childIds.length > 0` inline (die
+ * renderer importeert bewust niets uit `@/state`) maar staat een verzameltaak als relatiebron
+ * sindsdien juist WÉL toe — dat is dus geen lockstep-lezer van deze functie. Blijft geëxporteerd
+ * als algemeen, headless-getest predicaat (`tests/planning/check-relation-rules.ts`); niet
+ * verwijderd omdat "is dit een WBS-samenvatting" een op zichzelf staand, herbruikbaar begrip is.
  */
 export function isSummaryTask(task: Task | undefined): boolean {
   return (task?.childIds.length ?? 0) > 0;
@@ -83,6 +89,15 @@ function isAncestor(lookup: TaskLookup, maybeAncestorId: string, id: string): bo
  * (voor)ouder van de ander" — vandaar dat deze functie via `parentId` omhoog loopt i.p.v. de volledige
  * bladafstammelingenlijst te bouwen zoals `expandSummaryRelations.leafDescendantsOf` doet (die heeft
  * de VOLLEDIGE lijst nodig om te expanderen; wij hebben hier alleen een ja/nee-vraag).
+ *
+ * DIE EQUIVALENTIE GELDT ALLEEN ALS `parentId` EN `childIds` ELKAARS SPIEGEL ZIJN (taak X in
+ * `parent.childIds` ⇔ `X.parentId === parent.id`, over de hele boom). Bij een corrupte/inconsistente
+ * boom (bv. een IFC-/import-artefact waar een kind wél in `childIds` staat maar zijn eigen `parentId`
+ * elders — of nergens — naar wijst) kunnen deze functie (leunt op `parentId`) en de solver-eigen guard
+ * in `expandSummaryRelations` (leunt op `childIds` via `leafDescendantsOf`) verschillend oordelen over
+ * dezelfde relatie. Dat is GEACCEPTEERD gedrag, geen bug om hier op te lossen: de aanmaak-weigering
+ * (dit bestand) en de solver-guard (expandSummaryRelations) zijn twee onafhankelijke vangnetten met
+ * elk hun eigen, hier expliciet benoemde aanname — geen van beide claimt de ANDERE te vervangen.
  *
  * Bewust GEEN bredere `summary-endpoint`-weigering meer: een relatie náár (niet van-en-naar-elkaar)
  * een verzameltaak rekent sinds `expandSummaryRelations` gewoon volwaardig mee.
