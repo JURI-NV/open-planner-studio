@@ -1897,9 +1897,10 @@ if (corpusPresent) {
     // eerdere versie van dit commentaar beweerde dat een kapotte signaal-scan (bv. de scalar-vóór-
     // promotie-`hoursPerDay` per ongeluk niet meer gelezen) deze poort zou raken — DAT KLOPT NIET:
     // zo'n mutatie is hier onzichtbaar, om exact dezelfde reden als bij de crawl-drift-pin
-    // (`promoteHourCalendar`'s vroege `if (cal.workTime) return true` maakt de signaalwaarde
-    // irrelevant zodra de kalender al via (a)/(b) promoveert). Deze poort bewaakt de discriminator-
-    // UITKOMST-PARITEIT met MSPDI (het eigenlijke etappe-1.5-doel), niet de (c)-signaal-implementatie
+    // (`promoteHourCalendar`'s `deviates || signaled`-disjunctie kortsluit al op `deviates`, dus de
+    // signaalwaarde beslist daar niets meer zodra de kalender al via (a)/(b) promoveert). Deze
+    // poort bewaakt de discriminator-UITKOMST-PARITEIT met MSPDI (het eigenlijke etappe-1.5-doel),
+    // niet de (c)-signaal-implementatie
     // zelf — zie de synthetische fixtures verderop ("UURMODUS (etappe 1.5) — synthetische/corpusloze
     // end-to-end fixtures") voor een corpus-onafhankelijke, wél gerichte test van dat signaal.
     truthy(`[uurmodus ${file}] mpp: alle taken in uur-modus (${mppHourCount}/${mppResult.tasks.length})`, mppHourCount === mppResult.tasks.length);

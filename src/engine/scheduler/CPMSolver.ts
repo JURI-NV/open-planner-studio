@@ -72,6 +72,15 @@ export interface CPMOptions {
   /** Project-scoped reken-opties (fase 2.9, §3.4). Afwezig ⇒ elke default ⇒ byte-identiek. In golf 0
    *  wordt dit blok alleen doorgegeven; de solver leest het nog nergens gedragswijzigend. */
   schedulingOptions?: SchedulingOptions;
+  /** De geconfigureerde PROJECTSTARTDATUM (`Project.startDate`, ISO-datum), gebruikstest-bevinding
+   *  2026-08: ondergrens voor élke taak zónder voorganger (MS Project-semantiek — vóór deze optie
+   *  leidde de forward pass "de projectstart" stilzwijgend af als het minimum van de wortel-taken
+   *  ONDERLING, wat een taak met een verouderde `scheduleStart` — bv. gezet vóór een latere
+   *  wijziging van de projectstartdatum — gewoon vóór het officiële projectbegin liet doorlopen,
+   *  in het verkeerde geval zelfs een weekend "terug" t.o.v. een za/zo-projectstart). Afwezig/
+   *  onparseerbaar ⇒ terugval op het oude gedrag (`rootFloor` levert dan gewoon de eigen
+   *  taak-start) — byte-identiek voor elke bestaande aanroeper die deze optie niet meegeeft. */
+  projectStartDate?: string;
 }
 
 /**
@@ -187,6 +196,11 @@ export class CPMSolver {
   private options: CPMOptions;
   // Werkdag-gesnapte statusdatum (fase 2.6), of null ⇒ geen statusdatum-gedrag. Gezet in solve().
   private dataDate: Date | null = null;
+  // RUWE (ongesnapte) geconfigureerde projectstartdatum, of null ⇒ geen ondergrens-gedrag (byte-
+  // identiek aan vóór deze optie). Ongesnapt omdat elke wortel-taak 'm in zíjn EIGEN kalender snapt
+  // (`rootFloor`) — een taak op een kalender met een afwijkende werkweek mag de vloer dus op een
+  // andere dag landen dan de projectkalender zelf zou geven. Gezet in solve().
+  private projectStartRaw: Date | null = null;
   // Relaties waarvan voorganger- of opvolger-id niet in `this.tasks` zit — genegeerd bij de
   // constructie (zie de guard hieronder). Constant per instance (afgeleid uit de constructor-
   // input), dus NIET onderdeel van de idempotentie-reset in solve().
@@ -320,6 +334,23 @@ export class CPMSolver {
     return new Date(Math.floor(d.getTime() / CPMSolver.MS_PER_DAY) * CPMSolver.MS_PER_DAY);
   }
 
+  /**
+   * Vroegste toegestane start van een taak ZONDER voorganger, in `eng` (gebruikstest-bevinding
+   * 2026-08, MS Project-semantiek): het MAXIMUM van de taak-eigen gesnapte `scheduleStart` en de
+   * geconfigureerde projectstartdatum (zelf ook per `eng` gesnapt — een taak op een afwijkende
+   * kalender mag de vloer dus op een andere dag landen dan de projectkalender zelf zou geven).
+   * `projectStartRaw` afwezig (optie niet meegegeven, of onparseerbaar) ⇒ puur de eigen start,
+   * byte-identiek aan vóór deze optie. Gedeeld tussen de `projectStart`-vloer-precompute (voor
+   * taken MET voorganger + hammocks) en de eigen ES-tak van een wortel-taak, zodat beide nooit
+   * uiteen kunnen lopen.
+   */
+  private rootFloor(eng: CalendarEngine, scheduleStart: string): Date {
+    const own = this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
+    if (!this.projectStartRaw) return own;
+    const floor = this.snapOnOrAfter(eng, this.projectStartRaw);
+    return floor > own ? floor : own;
+  }
+
   /** De mode-bewuste primitieven die de relatie-wiskunde (`relationMath.ts`, audit P15) injectief
    *  krijgt aangereikt. Ze blijven hier gedefinieerd (delen de dag↔uur-reductie met de rest van de
    *  solver); `forwardConstraint`/`backwardConstraint` draaien de FS/SS/FF/SF-formules erop. */
@@ -432,6 +463,7 @@ export class CPMSolver {
     this.hammockNoFinishDriverIds = [];
     this.cappedTaskIds = [];
     this.dataDate = null; // wordt hieronder herzet; zo blijft hij ook over guard-returns heen nooit stale
+    this.projectStartRaw = null; // idem — herzet vóór elke solve, nooit stale over guard-returns heen
 
     // Check for circular dependencies before running CPM
     const cycle = this.detectCycle();
@@ -459,6 +491,14 @@ export class CPMSolver {
     // Uur-projectkalender ⇒ instant-snap via `nextWorkInstant` (§5.3); dag ⇒ `nextWorkDay` (byte-identiek).
     const dd = this.options.dataDate ? this.parseIn(this.projectEngine, this.options.dataDate) : null;
     this.dataDate = dd && !isNaN(dd.getTime()) ? this.snapOnOrAfter(this.projectEngine, dd) : null;
+
+    // Projectstartdatum (RUW, ongesnapt — zie `rootFloor`/`projectStartRaw`). Date-only strings
+    // (het enige wat de wizard/`DateTextInput` produceren) parsen via `parseDate` modus-onafhankelijk
+    // identiek aan `parseInstant`, dus één simpele `parseDate` hier volstaat (geen `this.parseIn`
+    // nodig — die zou voor een instant-projectkalender de tijd-component willen behouden, die
+    // `project.startDate` nooit heeft).
+    const psd = this.options.projectStartDate ? parseDate(this.options.projectStartDate) : null;
+    this.projectStartRaw = psd && !isNaN(psd.getTime()) ? psd : null;
 
     const order = this.topologicalSort();
     const earlyDates = this.forwardPass(order);
@@ -588,14 +628,15 @@ export class CPMSolver {
 
   private forwardPass(order: string[]): Map<string, { es: Date; ef: Date }> {
     const results = new Map<string, { es: Date; ef: Date }>();
-    // Vroegste projectstart (= vroegste start onder de taken zónder voorganger). Dient als
-    // ondergrens zodat een negatieve lag (lead) een taak niet vóór het projectbegin trekt.
+    // Vroegste projectstart (= vroegste start onder de taken zónder voorganger, ELK al geklemd op
+    // de geconfigureerde projectstartdatum via `rootFloor` — gebruikstest-bevinding 2026-08). Dient
+    // als ondergrens zodat een negatieve lag (lead) een taak niet vóór het projectbegin trekt.
     // Vooraf bepaald, zodat de topologische volgorde de uitkomst niet beïnvloedt.
     let projectStart: Date | null = null;
     for (const t of this.tasks.values()) {
       if ((this.predecessors.get(t.id) || []).length > 0) continue;
       const eng = this.calendarFor(t);
-      const s = this.snapOnOrAfter(eng, this.parseIn(eng, t.time.scheduleStart));
+      const s = this.rootFloor(eng, t.time.scheduleStart);
       if (!projectStart || s < projectStart) projectStart = s;
     }
 
@@ -628,8 +669,11 @@ export class CPMSolver {
       let earlyStart: Date;
 
       if (preds.length === 0) {
-        // No predecessors: use scheduled start
-        earlyStart = this.snapOnOrAfter(cal, this.parseIn(cal, task.time.scheduleStart));
+        // Geen voorganger: de eigen geplande start, geklemd op de projectstart-vloer (MS Project-
+        // semantiek, gebruikstest-bevinding 2026-08 — `rootFloor`). Een harde MSO/MFO-pin (hieronder
+        // in `applyForwardConstraints`) wint hier nog steeds onvoorwaardelijk: die controleert
+        // `hardPinStart` EERST en retourneert dan meteen, vóór deze vloer ooit gezien wordt.
+        earlyStart = this.rootFloor(cal, task.time.scheduleStart);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
         // Fase 2.8b (golf 3): her-snap ná de constraint — spiegelt de voorganger-tak (regel 466).

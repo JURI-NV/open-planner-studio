@@ -844,9 +844,10 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
       // per ongeluk vervangen door de ná-promotie-waarde) deze telling zou laten STIJGEN en hier zou
       // falen — DAT IS ONWAAR gebleken: zo'n mutatie raakt uitsluitend `isSubDayMinutes`/
       // `hasNonAnchorTime`-uitkomsten op kalenders die al (a)/(b)-gepromoveerd zijn (`promoteHour
-      // Calendar`'s vroege `if (cal.workTime) return true`-tak maakt de signaalwaarde daar irrelevant
-      // voor de PROMOTIE-uitkomst), dus deze telling blijft 321/345 ONGEACHT die mutatie. Wat deze
-      // poort WEL vangt: een REGRESSIE in de a/b-discriminator zelf, of een structurele wijziging in
+      // Calendar`'s `deviates || signaled`-disjunctie kortsluit al op `deviates`, dus de
+      // signaalwaarde beslist daar niets meer voor de PROMOTIE-uitkomst), dus deze telling blijft
+      // 321/345 ONGEACHT die mutatie. Wat deze poort WEL vangt: een REGRESSIE in de a/b-discriminator
+      // zelf, of een structurele wijziging in
       // welke kalenders taken feitelijk gebruiken (bv. als een toekomstige crawl-corpusaanvulling wél
       // een niet-deviërende, taak-gerefereerde kalender bevat — dan zou deze `<=` alsnog zinvol
       // worden). Zie `check-mpp-import.ts`'s uurmodus-sectie voor de bijbehorende taak-tellingpin, die

@@ -66,6 +66,10 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
         dataDate: s.project.statusDate,
         progressMode: s.project.progressMode,
         schedulingOptions: s.project.schedulingOptions,
+        // Gebruikstest-bevinding 2026-08: ondergrens voor taken zónder voorganger (`rootFloor` in
+        // CPMSolver) — zonder deze optie kon een taak met een verouderde `scheduleStart` (bv. gezet
+        // vóór een latere wijziging van de projectstartdatum) gewoon vóór het projectbegin doorlopen.
+        projectStartDate: s.project.startDate,
       });
 
       // If circular dependency detected, store the result (with error) and bail
@@ -131,7 +135,13 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
     // (zie de parameter-toelichting in `ResourceLeveler.ts:levelResources`).
     return computeLeveling(
       leafTasks, expandedSequences, s.resources, s.assignments, s.calendar, s.calendars, cpm, options,
-      { dataDate: s.project.statusDate, progressMode: s.project.progressMode, schedulingOptions: s.project.schedulingOptions },
+      {
+        dataDate: s.project.statusDate, progressMode: s.project.progressMode,
+        schedulingOptions: s.project.schedulingOptions,
+        // Zelfde projectstart-vloer als runCPM hierboven (gebruikstest-bevinding 2026-08) — anders
+        // zou de nivelleerder een wortel-taak vóór het projectbegin kunnen laten staan.
+        projectStartDate: s.project.startDate,
+      },
     );
   },
 
