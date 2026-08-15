@@ -806,6 +806,81 @@ const rt2 = readIFC(writeIFC(rt1));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
+// (7) T5-HERZIENING her-check-afronding (hardening-§7): rode-pad-fixture voor de `try { JSON.parse }
+//     catch` in `extractWorkingExceptionStepIds`, plus de reviewer-suggestie — een tweede
+//     extern-fragment-variant MET gevulde TimePeriods (block 6 dekte alleen de lege vorm).
+{
+  // (7a) Corrupte JSON in de `WorkingExceptionIds`-property. `libCal` heeft echte werkende
+  //      uitzonderingen in de fixture, dus zijn `OPS_Calendar`-pset draagt een reële property —
+  //      die corrumperen we naar onparseerbare tekst. Verwacht: geen crash, terugval op "alles in
+  //      ExceptionTimes is een feestdag" (dezelfde conservatieve terugval als "geen markering",
+  //      block 6).
+  const ifc7a = writeIFC(fixture);
+  const lines7a = ifc7a.split('\n');
+  const wexcIdx = lines7a.findIndex(l => l.includes("'WorkingExceptionIds'"));
+  assert(wexcIdx >= 0, 'kon de WorkingExceptionIds-property niet vinden (verwacht op libCal, die heeft werkende uitzonderingen)');
+  const corruptedLine = lines7a[wexcIdx].replace(/IFCTEXT\('[^']*'\)/, "IFCTEXT('{niet geldige json')");
+  assert(corruptedLine !== lines7a[wexcIdx], 'kon de WorkingExceptionIds-waarde niet corrumperen');
+  lines7a[wexcIdx] = corruptedLine;
+
+  let rt7a: ImportResult | undefined;
+  let threw: unknown;
+  try {
+    rt7a = readIFC(lines7a.join('\n'));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `corrupte WorkingExceptionIds-JSON mag niet crashen — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  const libCalOut = (rt7a?.resourceCalendars ?? []).find(c => c.name === 'Sublokatie kalender');
+  assert(!!libCalOut, 'kon libCal niet terugvinden ná de corrupte-JSON-fallback');
+  assert((libCalOut?.workingExceptions ?? []).length === 0,
+    `corrupte JSON moet terugvallen op "alles is feestdag" — workingExceptions moet leeg zijn, kreeg ${libCalOut?.workingExceptions?.length ?? 'n.v.t.'}`);
+  const holidayNames = (libCalOut?.holidays ?? []).map(h => h.name).sort();
+  assert(holidayNames.includes('Overwerkdag') && holidayNames.includes('Verschoven werkdag'),
+    `corrupte JSON: de twee werkende uitzonderingen moeten als feestdag teruglezen — kreeg holidays: ${JSON.stringify(holidayNames)}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { /* corrupte JSON: negeren */ }` in
+  // `extractWorkingExceptionStepIds` tijdelijk laten rethrowen ⇒ deze case ROOD op
+  // `assert(!threw, ...)` hierboven (een echte crash i.p.v. de bedoelde terugval).
+}
+
+{
+  // (7b) Reviewer-suggestie: een tweede extern-fragment-variant met een ongemarkeerde YEARLY-
+  //      recurrence die WEL gevulde TimePeriods draagt (06:00–12:00) — block 6 testte alleen de
+  //      lege-TimePeriods-vorm. We hergebruiken "Nieuwjaar" (de tweede feestdag in de fixture) zodat
+  //      dit los staat van block 6's "Kerst"-fragment.
+  const ifc7b = writeIFC(fixture);
+  const lines7b = ifc7b.split('\n');
+  const ids7b = lines7b.map(l => { const m = /^#(\d+)=/.exec(l); return m ? parseInt(m[1], 10) : 0; });
+  const newTpId = Math.max(...ids7b) + 1;
+  const newRecId = newTpId + 1;
+
+  const nieuwjaarIdx = lines7b.findIndex(l => l.includes("IFCWORKTIME('Nieuwjaar',.PREDICTED.,$,$,"));
+  assert(nieuwjaarIdx >= 0, 'kon de ongepatchte Nieuwjaar-feestdagregel niet vinden (verwacht args[3]=$)');
+  const patchedLine = lines7b[nieuwjaarIdx].replace(
+    "IFCWORKTIME('Nieuwjaar',.PREDICTED.,$,$,",
+    `IFCWORKTIME('Nieuwjaar',.PREDICTED.,$,#${newRecId},`,
+  );
+  assert(patchedLine !== lines7b[nieuwjaarIdx], 'kon de RecurrencePattern-ref niet inpatchen in de Nieuwjaar-regel');
+  lines7b[nieuwjaarIdx] = patchedLine;
+
+  const dataEndIdx7b = lines7b.lastIndexOf('ENDSEC;');
+  assert(dataEndIdx7b > 0, 'kon de sluitende ENDSEC; van de DATA-sectie niet vinden');
+  lines7b.splice(dataEndIdx7b, 0,
+    `#${newTpId}=IFCTIMEPERIOD('06:00:00','12:00:00');`,
+    `#${newRecId}=IFCRECURRENCEPATTERN(.YEARLY.,$,$,(1),(1),$,$,(#${newTpId}));`,
+  );
+
+  const rt7b = readIFC(lines7b.join('\n'));
+  const nieuwjaarAsHoliday = rt7b.calendar.holidays.find(h => h.name === 'Nieuwjaar');
+  const nieuwjaarAsException = (rt7b.calendar.workingExceptions ?? []).find(e => e.name === 'Nieuwjaar');
+  assert(!!nieuwjaarAsHoliday,
+    'extern-fragment-met-TimePeriods: "Nieuwjaar" moet als feestdag teruglezen, ook met daadwerkelijke banden op de ongemarkeerde recurrence');
+  assert(!nieuwjaarAsException,
+    'extern-fragment-met-TimePeriods: "Nieuwjaar" mag NIET als werkende uitzondering teruglezen — de OPS-markering ontbreekt, TimePeriods alleen is geen signaal');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);
   process.exit(0);
