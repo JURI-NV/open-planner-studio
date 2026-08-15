@@ -131,7 +131,7 @@ import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
 import {
   FixedData, FixedMeta, Var2Data, VarMeta12,
-  getInt, getShort, getTimestamp, getUnicodeString,
+  getInt, getShort, getTimestamp, getUnicodeString, getDurationTimeUnits,
 } from './mppPrimitives';
 import {
   TaskFieldId,
@@ -460,6 +460,11 @@ interface RawTaskScan {
   startTs: Date | null;
   finishTs: Date | null;
   durationRaw: number; // tienden van een minuut
+  /** T10: DurationUnits (veld-id 181, ACTUAL_DURATION_UNITS — dient als eenheden-bron voor
+   *  SCHEDULED_DURATION, zie `fieldMap14.ts`'s toelichting bij `TaskFieldId.DurationUnits`)
+   *  gedecodeerd tot "is dit een ELAPSED-eenheid" (elapsedMinutes/Hours/Days/Weeks/Months/Percent).
+   *  Ontbreekt het veld (oude/kapotte field map) dan `false` — spiegelt de bestaande WORKTIME-default. */
+  isElapsedDuration: boolean;
   isMilestone: boolean;
   constraintCode: number | null;
   constraintDateTs: Date | null;
@@ -495,6 +500,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const scheduledStartOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ScheduledStart);
   const scheduledFinishOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ScheduledFinish);
   const durationOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ScheduledDuration);
+  const durationUnitsOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.DurationUnits);
   const constraintTypeOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ConstraintType);
   const constraintDateOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ConstraintDate);
   const deadlineOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Deadline);
@@ -549,6 +555,16 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       ? getInt(data, durationOffset, 'TBkndTask duration')
       : 0;
 
+    // T10: DurationUnits (short) → MppTimeUnit → "is dit een ELAPSED-eenheid" (spiegelt
+    // MPPUtility.getDurationTimeUnits + de DataType.DURATION-tak in FieldMap.java's readFixedData,
+    // die ACTUAL_DURATION_UNITS als eenheden-bron voor SCHEDULED_DURATION gebruikt). Ontbreekt het
+    // veld, dan blijft `isElapsedDuration` false — de bestaande WORKTIME-default, ongewijzigd.
+    const durationUnitsRaw = durationUnitsOffset !== null && data.length >= durationUnitsOffset + 2
+      ? getShort(data, durationUnitsOffset, 'TBkndTask durationUnits')
+      : null;
+    const isElapsedDuration = durationUnitsRaw !== null
+      && getDurationTimeUnits(durationUnitsRaw).startsWith('elapsed');
+
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
 
@@ -573,9 +589,9 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const effCal = calendarOverride ?? calResult.projectCalendar;
 
     raws.push({
-      uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isMilestone,
-      constraintCode, constraintDateTs, deadlineTs, percentComplete, actualStartTs, actualFinishTs,
-      effCal, calendarOverride,
+      uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
+      isMilestone, constraintCode, constraintDateTs, deadlineTs, percentComplete, actualStartTs,
+      actualFinishTs, effCal, calendarOverride,
     });
   }
 
@@ -612,9 +628,19 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // spiegelt exact het gedrag van vóór etappe 1.5, zodat een genuine dag-modus-bestand met een
     // taak-kalender-override (ander hoursPerDay dan het project) geen stille duurwijziging krijgt.
     const durationMinutes = isHour ? Math.round(raw.durationRaw / 10) : undefined;
+    // T10-conversievalkuil (zie het plan bij DurationUnits): een ELAPSED-duur ligt in MPP al vast
+    // in KLOK-minuten (spiegelt MPPUtility.getAdjustedDuration's ELAPSED_DAYS/-WEEKS/-MONTHS-takken —
+    // vaste 24-uursdag, GEEN `properties.getMinutesPerDay()`/`hoursPerDay`-factor, ongeacht de
+    // nominale eenheid waarin de gebruiker de duur oorspronkelijk invoerde). `tenthsOfMinutesToDays`
+    // deelt door `hoursPerDay × 60` (WERK-tijd-semantiek) — op die ELAPSED klok-minuten toegepast zou
+    // dat de dag-omrekening ONTERECHT een tweede keer door `hoursPerDay` delen. Dag-modus + elapsed
+    // rekent daarom rechtstreeks met de vaste klok-dag (24 × 60 × 10 tienden), ongeacht `hoursPerDay`.
+    // De SOLVER-kant die deze klokduur ook daadwerkelijk 24/7 doorrekent is T8, niet dit bestand.
     const duration = isHour
       ? (effHpd > 0 ? durationMinutes! / (effHpd * 60) : 0)
-      : tenthsOfMinutesToDays(raw.durationRaw, hoursPerDay);
+      : raw.isElapsedDuration
+        ? raw.durationRaw / (24 * 60 * 10)
+        : tenthsOfMinutesToDays(raw.durationRaw, hoursPerDay);
 
     const formatField = (ts: Date | null): string | undefined =>
       ts ? (isHour ? formatInstant(ts, 'hour') : formatDate(ts)) : undefined;
@@ -653,7 +679,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       parentId: null,
       childIds: [],
       time: {
-        durationType: 'WORKTIME',
+        durationType: raw.isElapsedDuration ? 'ELAPSEDTIME' : 'WORKTIME',
         scheduleDuration: duration,
         ...(durationMinutes != null ? { durationMinutes } : {}),
         scheduleStart: start,

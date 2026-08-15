@@ -1159,6 +1159,10 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
   function buildHourTaskFixedDataRecord(opts: {
     uniqueId: number; id: number; durationRaw: number;
     startTime: number; startDays: number; finishTime: number; finishDays: number;
+    /** T10: rauwe DurationUnits-code (offset 46, short) — MPPUtility.getDurationTimeUnits-codes,
+     *  bv. 8 = elapsedDays. Standaard 0 (⇒ 'days', dus NIET elapsed) — ongewijzigd t.o.v. vóór T10,
+     *  zodat de bestaande fixtures 1-4 byte-identiek blijven. */
+    durationUnits?: number;
   }): Uint8Array {
     const out = new Uint8Array(130);
     const view = new DataView(out.buffer);
@@ -1166,6 +1170,7 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     view.setInt32(4, opts.id, true);
     view.setInt16(40, 1, true); // outlineLevel = 1
     view.setInt32(42, opts.durationRaw, true);
+    view.setUint16(46, opts.durationUnits ?? 0, true); // T10: DurationUnits — 0 = 'days' (WORKTIME)
     view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
     view.setUint16(64, opts.startTime, true);
     view.setUint16(66, opts.startDays, true);
@@ -1211,6 +1216,8 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     taskName: string; durationRaw: number; startTime: number; startDays: number; finishTime: number; finishDays: number;
     calendarDays?: { defaultFlag?: 0 | 1; bands?: { startMinutes: number; durationMinutes: number }[] }[];
     calendarName?: string;
+    /** T10: zie `buildHourTaskFixedDataRecord` — standaard 0 (WORKTIME). */
+    durationUnits?: number;
   }): Uint8Array {
     const dummy = buildTaskFixedMetaRecord(0);
     // offsetIntoFixedData === 3*130 (390): matcht de BYTE-offset waarop `dataTask` hieronder in
@@ -1222,6 +1229,7 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     const dataTask = buildHourTaskFixedDataRecord({
       uniqueId: 10, id: 1, durationRaw: opts.durationRaw,
       startTime: opts.startTime, startDays: opts.startDays, finishTime: opts.finishTime, finishDays: opts.finishDays,
+      durationUnits: opts.durationUnits,
     });
     const fixedDataBlob = new Uint8Array(4 * 130);
     fixedDataBlob.set(dataTask, 3 * 130);
@@ -1471,6 +1479,40 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
       truthy(
         'uurmodus-fixture (ankerdivergentie, mspdi-kant): durationMinutes === 480 (uurmodus, ondanks identieke taakinhoud als de mpp-kant)',
         xmlResult.tasks[0]?.time.durationMinutes === 480,
+      );
+    }
+  }
+
+  // ── Fixture 5 (T10): DAG-MODUS + ELAPSEDTIME — bewijst de conversievalkuil uit het plan direct,
+  // zonder corpus. DurationUnits=8 (elapsedDays), durationRaw=28800 tienden-van-minuut (= 2 KLOK-
+  // dagen van 24u). Start/Finish BEIDE op het kalender-anker (08:00) en 2880 minuten deelt exact
+  // door 480 (8u/dag) ⇒ GEEN taak-(c)-signaal ⇒ blijft dagmodus (spiegelt Fixture 2's opzet exact,
+  // alleen nu met elapsed-eenheden). CORRECT (klok-tijd, 24u/dag): scheduleDuration === 2. Zou de
+  // dag-omrekening ONTERECHT een tweede keer door `hoursPerDay` (8) delen — de conversievalkuil zelf
+  // — dan zou dit 28800/(10×8×60) = 6 opleveren i.p.v. 2. ──────────────────────────────────────
+  {
+    const bytes = buildFixture({
+      taskName: 'ElapsedDayModeTask', durationRaw: 28800,
+      startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15001,
+      durationUnits: 8, // elapsedDays (MPPUtility.getDurationTimeUnits-code)
+    });
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (T10 dag-modus elapsed): readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('uurmodus-fixture (T10 dag-modus elapsed): 1 taak', result.tasks.length === 1);
+      const task = result.tasks[0];
+      truthy('uurmodus-fixture (T10 dag-modus elapsed): projectkalender.workTime NIET gezet (dagmodus, geen lek)', !result.calendar.workTime);
+      truthy('uurmodus-fixture (T10 dag-modus elapsed): durationMinutes NIET gezet (dagmodus)', task?.time.durationMinutes === undefined);
+      truthy('uurmodus-fixture (T10 dag-modus elapsed): durationType === ELAPSEDTIME', task?.time.durationType === 'ELAPSEDTIME');
+      truthy(
+        `uurmodus-fixture (T10 dag-modus elapsed): scheduleDuration === 2 (klok-dagen, GEEN dubbele hoursPerDay-deling — kreeg ${task?.time.scheduleDuration})`,
+        task?.time.scheduleDuration === 2,
       );
     }
   }
@@ -1936,6 +1978,74 @@ if (corpusPresent) {
     console.log(`   . [uurmodus ${file}] mpp ${mppHourCount}/${mppResult.tasks.length} uur-modus, xml ${xmlHourCount}/${xmlResult.tasks.length} uur-modus, durationMinutes ${durationMinutesMatches}/${durationMinutesCompared} exact gelijk`);
   } else {
     console.log(`OK  mpp-import: uurmodus-sectie (${file}) niet in dit corpus — overgeslagen`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T10 — DurationUnits (veld-id 181) → `durationType`, tegen `mpp14duration.mpp` (publieke
+// MPXJ-junit-testdata, LGPL-2.1, geen bedrijfsbestand — mag met naam genoemd worden). Zelfde
+// OPS_MPP_CRAWL-conventie als het T9-crawlblok hieronder (env-override + absoluut standaardpad +
+// existsSync-guard + nette OK-skip), hier gericht op één met naam bekend bestand i.p.v. een map.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// Bestandsinhoud (gemeten, 2026-08-15, via readMPP): 10 taken op een UUR-kalender (project-
+// hoursPerDay 8, `calendar.workTime` gezet) — 5 in WORKTIME (Task 1-5) en 5 in ELAPSEDTIME
+// (Task 6-10), paarsgewijs dezelfde nominale duur in minuten/uren/dagen/weken/maanden:
+//   Task 1/6  — minutes/elapsedMinutes:  durationMinutes 1
+//   Task 2/7  — hours/elapsedHours:      durationMinutes 60   (1 uur)
+//   Task 3/8  — days/elapsedDays:        WORKTIME 480 (1 werkdag @8u) vs. ELAPSED 1440 (1 klokdag @24u)
+//   Task 4/9  — weeks/elapsedWeeks:      WORKTIME 2400 (5 werkdagen) vs. ELAPSED 10080 (7 klokdagen)
+//   Task 5/10 — months/elapsedMonths:    WORKTIME 9600 (20 werkdagen) vs. ELAPSED 43200 (30 klokdagen)
+// De ELAPSED-kant bewijst de conversievalkuil uit het plan: 1440/10080/43200 klopt alleen als de
+// eenheden-decodering de vaste 24-uursdag gebruikt (MPPUtility.getAdjustedDuration's ELAPSED_DAYS/
+// -WEEKS/-MONTHS-takken) — een dubbele deling door `hoursPerDay` (8) zou hier 180/1260/5400 geven.
+// Mutatiebewijs: `durationType: raw.isElapsedDuration ? 'ELAPSEDTIME' : 'WORKTIME'` teruggezet naar
+// het hardgecodeerde `'WORKTIME'` laat precies de 5 ELAPSEDTIME-asserts hieronder ROOD gaan.
+{
+  const DURATION_FIXTURE = process.env.OPS_MPP_DURATION_FIXTURE
+    ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14duration.mpp';
+  if (!existsSync(DURATION_FIXTURE)) {
+    console.log(`OK  mpp-import: T10 DurationUnits-leescase (${DURATION_FIXTURE}) niet aanwezig — overgeslagen`);
+  } else {
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(new Uint8Array(readFileSync(DURATION_FIXTURE)));
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[T10 mpp14duration] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T10 mpp14duration] 10 taken', result.tasks.length === 10);
+      const byName = new Map(result.tasks.map((t) => [t.name, t]));
+
+      const worktimeCases: Array<[string, number]> = [
+        ['Task 1', 1], ['Task 2', 60], ['Task 3', 480], ['Task 4', 2400], ['Task 5', 9600],
+      ];
+      for (const [name, expectedMinutes] of worktimeCases) {
+        const t = byName.get(name);
+        truthy(`[T10 mpp14duration] ${name} gevonden`, !!t);
+        if (t) {
+          truthy(`[T10 mpp14duration] ${name}.durationType === WORKTIME`, t.time.durationType === 'WORKTIME');
+          truthy(`[T10 mpp14duration] ${name}.durationMinutes === ${expectedMinutes}`, t.time.durationMinutes === expectedMinutes);
+        }
+      }
+
+      // De 5 ELAPSEDTIME-taken (elapsedMinutes/elapsedHours/elapsedDays/elapsedWeeks/elapsedMonths)
+      // — dit is de daadwerkelijke T10-leescase; de mutatie hierboven raakt uitsluitend deze vijf.
+      const elapsedCases: Array<[string, number]> = [
+        ['Task 6', 1], ['Task 7', 60], ['Task 8', 1440], ['Task 9', 10080], ['Task 10', 43200],
+      ];
+      for (const [name, expectedMinutes] of elapsedCases) {
+        const t = byName.get(name);
+        truthy(`[T10 mpp14duration] ${name} gevonden`, !!t);
+        if (t) {
+          truthy(`[T10 mpp14duration] ${name}.durationType === ELAPSEDTIME`, t.time.durationType === 'ELAPSEDTIME');
+          truthy(`[T10 mpp14duration] ${name}.durationMinutes === ${expectedMinutes} (klok-tijd, geen dubbele hoursPerDay-deling)`, t.time.durationMinutes === expectedMinutes);
+        }
+      }
+      console.log(`   . [T10 mpp14duration] ${result.tasks.length} taken: 5 WORKTIME + 5 ELAPSEDTIME correct gedecodeerd`);
+    }
   }
 }
 
