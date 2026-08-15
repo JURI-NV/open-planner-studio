@@ -680,7 +680,30 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
     holidayRefs.push(`#${hId}`);
   }
 
-  const exceptStr = holidayRefs.length > 0 ? `(${holidayRefs.join(',')})` : '$';
+  // Werkende uitzonderingen als exception times (fase 3.8, T5). Zelfde `ExceptionTimes`-lijst als
+  // de feestdagen hierboven, maar met een GEVULDE RecurrencePattern-ref (args[3]) — dát is het
+  // onderscheid dat de reader gebruikt om een werkende uitzondering van een feestdag te
+  // onderscheiden (een feestdag-IFCWORKTIME houdt args[3] altijd op `$`, zie boven). De
+  // RecurrencePattern draagt uitsluitend de override-banden (`TimePeriods`, args[7]); DayComponent
+  // (args[2]) blijft `$` — een enkele datum-range heeft geen weekdag-patroon nodig. Ontbreken de
+  // banden (`bands` leeg/afwezig ⇒ de weekdag-standaardbanden gelden, zie `WorkingException` in
+  // calendar.ts), dan schrijven we een lege TimePeriods-lijst (`$`); de reader herkent de
+  // uitzondering dan nog steeds aan de aanwezige RecurrencePattern-ref. Golden rule: `cal.
+  // workingExceptions` afwezig/leeg ⇒ deze lus doet niets, dus bestaande kalenders zonder werkende
+  // uitzonderingen blijven byte-identiek (geen nieuwe entiteiten, geen gewijzigde ExceptionTimes).
+  const workingExceptionRefs: string[] = [];
+  for (const exc of cal.workingExceptions ?? []) {
+    const bandIds = (exc.bands ?? []).map((b) =>
+      addLine(ctx, '_excband', `IFCTIMEPERIOD('${minutesToClock(b.start)}','${minutesToClock(b.end)}')`));
+    const bandRefs = bandIds.length > 0 ? `(${bandIds.map((i) => `#${i}`).join(',')})` : '$';
+    const excRecId = addLine(ctx, '_excrecurrence', `IFCRECURRENCEPATTERN(.DAILY.,$,$,$,$,$,$,${bandRefs})`);
+    const wId = addLine(ctx, `_workexc_${exc.name}`,
+      `IFCWORKTIME(${ifcStr(exc.name)},.PREDICTED.,$,#${excRecId},'${exc.startDate}','${exc.endDate}')`);
+    workingExceptionRefs.push(`#${wId}`);
+  }
+
+  const allExceptionRefs = [...holidayRefs, ...workingExceptionRefs];
+  const exceptStr = allExceptionRefs.length > 0 ? `(${allExceptionRefs.join(',')})` : '$';
   // ObjectType (arg 4): alleen een label bij USERDEFINED-ploeg; anders `$` (byte-identiek).
   const objectType = cal.shift === 'USERDEFINED' ? ifcStr('USERDEFINED') : '$';
   return addLine(ctx, key,

@@ -3,7 +3,7 @@ import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import { Sequence, SequenceType } from '@/types/sequence';
 import { Resource, ResourceAssignment, AvailabilityStep, ResourceCurve } from '@/types/resource';
 import { Project, SchedulingOptions } from '@/types/project';
-import { WorkCalendar, Holiday, CalendarGeneration } from '@/types/calendar';
+import { WorkCalendar, Holiday, CalendarGeneration, WorkingException } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { HolidayCountry } from '@/engine/calendar/holidays';
 import type { LibraryOrigin } from '@/types/library';
@@ -1447,19 +1447,53 @@ function buildCalendarFromEntity(
   else if (predef.includes('THIRDSHIFT')) calendar.shift = 'THIRD';
   else if (predef.includes('USERDEFINED')) calendar.shift = 'USERDEFINED';
 
+  // ExceptionTimes (args[6]) draagt zowel feestdagen als werkende uitzonderingen (fase 3.8, T5),
+  // door elkaar in dezelfde lijst. Onderscheid: een werkende uitzondering heeft een GEVULDE
+  // RecurrencePattern-ref (args[3]) — de writer schrijft die alleen voor werkende uitzonderingen
+  // (`writeCalendar`, `_excrecurrence`); een feestdag-IFCWORKTIME houdt args[3] altijd op `$`.
   const exceptionRefs = parseRefs(cal.args[6] || '');
   const holidays: Holiday[] = [];
+  const workingExceptions: WorkingException[] = [];
   for (const ref of exceptionRefs) {
     const wt = entityMap.get(ref);
-    if (wt && wt.type === 'IFCWORKTIME') {
+    if (!wt || wt.type !== 'IFCWORKTIME') continue;
+    const excRecRef = parseRef(wt.args[3] || '');
+    if (!excRecRef) {
       holidays.push({
         name: stripQuotes(wt.args[0] || '') || 'Feestdag',
         startDate: parseDateFromIFC(wt.args[4] || ''),
         endDate: parseDateFromIFC(wt.args[5] || ''),
       });
+      continue;
     }
+    // De RecurrencePattern van een werkende uitzondering draagt uitsluitend override-banden
+    // (TimePeriods, args[7]) — DayComponent is hier altijd leeg. Canoniseren naar `end > start`
+    // (§3.2-conventie, `WorkingException.bands`): een wrap-band komt als tijd-van-de-dag terug
+    // (`e ≤ s`) en krijgt hier `+1440` terug, precies zoals de hoofd-werktijdlus hierboven het aan
+    // `canonicalizeBands` overlaat.
+    const bands: { start: number; end: number }[] = [];
+    const excRec = entityMap.get(excRecRef);
+    if (excRec && excRec.type === 'IFCRECURRENCEPATTERN') {
+      for (const bRef of parseRefs(excRec.args[7] || '')) {
+        const tp = entityMap.get(bRef);
+        if (!tp || tp.type !== 'IFCTIMEPERIOD') continue;
+        const s = clockToMinutes(stripQuotes(tp.args[0] || ''));
+        let e = clockToMinutes(stripQuotes(tp.args[1] || ''));
+        if (s != null && e != null) {
+          if (e <= s) e += 1440;
+          bands.push({ start: s, end: e });
+        }
+      }
+    }
+    workingExceptions.push({
+      name: stripQuotes(wt.args[0] || '') || 'Werkende uitzondering',
+      startDate: parseDateFromIFC(wt.args[4] || ''),
+      endDate: parseDateFromIFC(wt.args[5] || ''),
+      ...(bands.length > 0 ? { bands } : {}),
+    });
   }
   if (holidays.length > 0) calendar.holidays = holidays;
+  if (workingExceptions.length > 0) calendar.workingExceptions = workingExceptions;
 
   // §4.3/§8.2 golden rule: createDefaultCalendar() zet altijd `generation` (nieuwe projecten zijn
   // per definitie gegenereerd) — een uit IFC gelezen kalender is dat NIET tenzij de OPS_Calendar-

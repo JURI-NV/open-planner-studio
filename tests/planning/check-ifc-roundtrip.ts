@@ -69,7 +69,7 @@ import type { Task, TaskTime, ExternalLink } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { Project, SchedulingOptions } from '@/types/project';
-import type { WorkCalendar, CalendarGeneration, Holiday } from '@/types/calendar';
+import type { WorkCalendar, CalendarGeneration, Holiday, WorkingException } from '@/types/calendar';
 import type { ActivityCodeType, ActivityCodeValue, CustomFieldDef } from '@/types/structure';
 import type { Baseline, BaselineTask } from '@/types/baseline';
 import type { ImportResult } from '@/services/importTypes';
@@ -104,6 +104,12 @@ const PROJ_GEN: Required<CalendarGeneration> = {
 const LIB_GEN: Required<CalendarGeneration> = {
   ruleSetId: 'DE', region: 'BY', breakChoice: 'noord', generatedFromYear: 2024, generatedToYear: 2027,
 };
+// T5 (fase 3.8): `projCal` blijft BEWUST zonder werkende uitzonderingen — dat is de golden-rule-
+// getuige (acceptatie 4: `verify:examples` byte-identiek zonder regeneratie). `libCal` draagt de
+// twee werkende-uitzondering-vormen: (a) met eigen banden (override-uren) en (b) zonder banden
+// (de weekdag-standaardbanden gelden — de "leeg ⇒ default"-clausule in `WorkingException.bands`,
+// calendar.ts). Data-only fixture: de datums/weekdag-samenhang is hier niet relevant — dat is
+// engine-semantiek, gedekt door tests/planning/check-calendar-hours.ts (T2).
 const projCal = {
   id: 'projcal', name: 'Projectkalender', description: 'Ma-vr 07-16 dag (lunchuur)',
   workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 16, hoursPerDay: 8,
@@ -111,6 +117,7 @@ const projCal = {
     { name: 'Kerst', startDate: '2026-12-25', endDate: '2026-12-26' },
     { name: 'Nieuwjaar', startDate: '2027-01-01', endDate: '2027-01-01' },
   ],
+  workingExceptions: [],
   generation: PROJ_GEN, shift: 'SECOND',
   libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-projcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
@@ -118,6 +125,10 @@ const libCal = {
   id: 'libcal', name: 'Sublokatie kalender', description: 'Ma-za 07-15',
   workDays: [1, 2, 3, 4, 5, 6], workStartHour: 7, workEndHour: 15, hoursPerDay: 8,
   holidays: [{ name: 'Bouwvakdag', startDate: '2026-07-27', endDate: '2026-07-31' }],
+  workingExceptions: [
+    { name: 'Overwerkdag', startDate: '2026-08-08', endDate: '2026-08-08', bands: [{ start: 360, end: 720 }] },
+    { name: 'Verschoven werkdag', startDate: '2026-08-15', endDate: '2026-08-15' },
+  ],
   generation: LIB_GEN, shift: 'THIRD',
   libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-libcal', poolVersion: 4 },
 } satisfies Omit<Required<WorkCalendar>, 'workTime'>;
@@ -130,6 +141,7 @@ const libCal = {
 const _CALENDAR_FIELD_WITNESS = {
   id: 'w', name: 'w', description: 'w', workDays: [1, 2, 3, 4, 5],
   workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  workingExceptions: [{ name: 'w', startDate: '2026-01-01', endDate: '2026-01-01', bands: [{ start: 0, end: 60 }] }],
   generation: PROJ_GEN, shift: 'FIRST',
   libraryOrigin: { companyId: 'c-fixture', libraryItemId: 'lib-witness', poolVersion: 1 },
   workTime: { byWeekday: { 1: [{ start: 480, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
@@ -385,6 +397,13 @@ const HOLIDAY_CANON = {
   name: KEEP, startDate: KEEP, endDate: KEEP,
 } satisfies CanonSpec<Holiday>;
 
+// T5 (fase 3.8): `bands` KEEP volstaat — `collectDiffs` behandelt een afwezig array-veld als `[]`
+// (zie het array-blok in `collectDiffs`), dus een fixture-uitzondering zonder `bands` (default
+// bandengelden) vergelijkt gelijk aan de teruggelezen `bands: undefined`.
+const WORKING_EXCEPTION_CANON = {
+  name: KEEP, startDate: KEEP, endDate: KEEP, bands: KEEP,
+} satisfies CanonSpec<WorkingException>;
+
 const CALENDAR_CANON = {
   id: { skip: 'regenereert bij inlezen; de NAAM is de natuurlijke sleutel (Keys.cal)' },
   name: KEEP, description: KEEP,
@@ -394,6 +413,11 @@ const CALENDAR_CANON = {
     get: (c: WorkCalendar, k: Keys) => [...c.holidays]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(h => canonize(HOLIDAY_CANON, h, k)),
+  },
+  workingExceptions: {
+    get: (c: WorkCalendar, k: Keys) => [...(c.workingExceptions ?? [])]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(e => canonize(WORKING_EXCEPTION_CANON, e, k)),
   },
   generation: KEEP,
   workTime: { skip: 'aanwezig ⇒ UUR-kalender; deze fixture is dag-modus. Uur-round-trip: check-adapters-hours.ts' },
