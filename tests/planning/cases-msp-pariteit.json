@@ -145,19 +145,22 @@
       }
     },
     {
-      "id": "msp-06-l1-sf-naar-eindmijlpaal-passthrough",
-      "title": "L1 (Opus-review), symmetrie-/regressiecase voor de SF-tak: A(H9,18u) -SF+0-> EINDmijlpaal M ankert op A's START (ma08:00, al binnen [start,end) — dus geen band-eind-scenario zoals FS/FF hierboven). SF's eigen kortsluiting is code-symmetrisch met FS/FF (O6, engine-breed) maar kan in de praktijk geen ANDER resultaat geven dan de niet-kortgesloten weg: een taak-START is per constructie altijd al [start,end)-geldig (elke ES loopt zelf al door `availableStart`/`snapOnOrAfter`), dus deze case is een pass-through-regressiepin, GEEN band-eind-bewijs (zie het commitbericht voor de volledige redenering).",
+      "id": "msp-06-l1-sf-naar-eindmijlpaal-databdatevloer",
+      "title": "L1 (Opus-review, gefalsifieerd/herzien): een SF-band-eind-scenario BESTAAT wél — via de dataDate-vloer. Z is een nul-duur voorganger op taakkalender TC (08:00-17:00), niet-gestart (completion 0), met een eigen geplande start (ma08:00) vóór de statusdatum. De 'NIET GESTART'-vloer (CPMSolver, forwardPass) zet Z.es dan onvoorwaardelijk op `dataDate` — die zelf gesnapt is in de PROJECT-kalender PC (08:00-18:00), NIET in Z's eigen TC. Statusdatum di17:00 valt WÉL binnen PC's band (17:00<18:00, dus ongewijzigd) maar NIET binnen TC's band (17:00 is TC's band-eind, exclusief) — Z.es/ef landt zo op een voor TC 'vuile' instant. SF+0 van Z naar eindmijlpaal M erft die instant: mét de kortsluiting blijft 'm staan (M=di17:00), zonder wordt 'm eerst vooraf gesnapt (M=wo08:00).",
+      "note": "Weerlegt de eerdere 'pass-through, geen ander resultaat mogelijk'-claim in dit bestand: een taak-START is NIET altijd al [start,end)-geldig in de EIGEN kalender — de dataDate-vloer snapt in de PROJECT-kalender, die een andere bandstructuur kan hebben dan de taak-kalender. Mutatiebewijs: SF-arm van de kortsluiting terugdraaien (relationMath) → M.es/ef verwacht 2026-07-07T17:00, krijgt 2026-07-08T08:00 — deze case ROOD.",
       "anchor": "2026-07-06",
-      "calendars": [{ "name": "H9", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } }],
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1080 }], "2": [{ "start": 480, "end": 1080 }], "3": [{ "start": 480, "end": 1080 }], "4": [{ "start": 480, "end": 1080 }], "5": [{ "start": 480, "end": 1080 }], "6": [], "7": [] } } },
+      "calendars": [{ "name": "TC", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } }],
+      "statusDate": "2026-07-07T17:00",
       "tasks": [
-        { "name": "A", "dur": "18u", "calendar": "H9" },
-        { "name": "M", "milestone": true, "milestoneKind": "FINISH", "calendar": "H9" }
+        { "name": "Z", "dur": 0, "completion": 0, "calendar": "TC" },
+        { "name": "M", "milestone": true, "milestoneKind": "FINISH", "calendar": "TC" }
       ],
-      "links": [{ "pred": "A", "succ": "M", "type": "START_FINISH" }],
+      "links": [{ "pred": "Z", "succ": "M", "type": "START_FINISH" }],
       "expect": {
         "tasks": {
-          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-07T17:00" },
-          "M": { "es": "2026-07-06T08:00", "ef": "2026-07-06T08:00" }
+          "Z": { "es": "2026-07-07T17:00", "ef": "2026-07-07T17:00" },
+          "M": { "es": "2026-07-07T17:00", "ef": "2026-07-07T17:00" }
         },
         "error": false
       }

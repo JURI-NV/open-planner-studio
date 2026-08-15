@@ -403,13 +403,20 @@ function forwardHour(
       // `lagIsZero` is dezelfde detectietruc als de bestaande backward-arm (hour-hour FS default,
       // hierboven in dit bestand): "de geshifte waarde == wat een kale nul-lag-normalisatie zou
       // geven" ⇒ er is geen echte lag toegepast.
-      // GEEN `!predEndsBeginOfDay`-subconditie (L3, Opus-review, was hier eerder aanwezig maar
-      // ongepind): wanneer `predEndsBeginOfDay` waar is, is `predDone` via de ternary hierboven
-      // TÓCH al `predResult.ef` (een dagbegin-mijlpaal-anker, bv. ma08:00) — exact dezelfde waarde
-      // als wanneer alleen `succIsFinishMs` de ternary stuurt. Zo'n anker ligt bovendien altijd al
-      // ín `[start,end)` (`nextWorkInstant` ervan is een no-op), dus `lagIsZero` en de niet-
-      // kortgesloten weg komen sowieso op dezelfde instant uit — de exclusie kan het gedrag hier
-      // niet veranderen (mutatiebewijs: schrappen ⇒ 459/459 + alle nieuwe cases groen).
+      // GEEN `!predEndsBeginOfDay`-subconditie (L3, Opus-review — HERZIEN op een tweede review-
+      // ronde: het eerdere commentaar hier claimde dat de exclusie "bewezen dood" was, met als
+      // argument dat een dagbegin-mijlpaal-anker altijd al in `[start,end)` ligt. Dat argument
+      // stilzwijgend aannam dat zo'n anker altijd via de EIGEN kalender van de voorganger tot
+      // stand komt — vals: de dataDate-vloer ("NIET GESTART", CPMSolver's forwardPass) zet de ES
+      // van een niet-gestarte nul-duur-voorganger op `dataDate`, dat zelf gesnapt is in de
+      // PROJECT-kalender, niet in de EIGEN kalender van die voorganger. Verschillen die twee
+      // kalenders van bandstructuur, dan kan zo'n mijlpaal-anker WÉL exact op een band-eind van
+      // zijn EIGEN kalender landen — precies de dataDate-vloer-constructie die case msp-06 in
+      // cases-msp-pariteit.json vastlegt (daar voor de SF-tak; hetzelfde mechanisme geldt hier
+      // voor `predEndsBeginOfDay` in de FS-tak: het verwijderen van de exclusie is dus een
+      // BEWUSTE verbreding van de MSP-conventie naar dat geval, geen no-op. Mutatiebewijs blijft
+      // hetzelfde soort bewijs als msp-06 zou geven met een FS-relatie i.p.v. SF (niet apart
+      // opnieuw gepind hier — het mechanisme is identiek, alleen de relatiepijl anders).
       // `pe.isHourMode`-wacht is VERPLICHT: `nextWorkInstant` is een uur-modus-primitief
       // (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder guard) — bij een DAG-
       // voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`) zou de aanroep

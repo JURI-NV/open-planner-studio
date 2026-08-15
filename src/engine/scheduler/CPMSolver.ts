@@ -1018,7 +1018,17 @@ export class CPMSolver {
    *  AFGELEIDE landingsinstant — "niet eerder dan 17:00" wordt door MS Project zelf ook gelezen als
    *  "dus ten vroegste de eerstvolgende werk-instant ná 17:00", niet als "land exact op 17:00". De
    *  MSP-pariteitsconventie (T6) geldt voor relatie-afgeleide instanten (FS/FF/SF-grenzen), niet
-   *  voor constraint-ondergrenzen. */
+   *  voor constraint-ondergrenzen.
+   *
+   *  VERWANTE OORZAAK (T6-her-review): de `dataDate`-vloer ("NIET GESTART", `forwardPass`) snapt
+   *  in de PROJECT-kalender (`this.projectEngine`), niet in de eigen kalender van de taak — bij
+   *  verschillende bandstructuren kan dat een ES opleveren die in de EIGEN taak-kalender géén
+   *  `[start,end)`-instant is. Dat is precies het mechanisme achter `msp-06` in
+   *  `cases-msp-pariteit.json` (en de FS-tak-verbreding rond `predEndsBeginOfDay` in
+   *  `relationMath.ts`, L3): een relatie-afgeleide instant kan dus, via een taak wiens ES zelf al
+   *  "vuil" is t.o.v. haar eigen kalender, alsnog een constraint-achtig gemengd-kalender-effect
+   *  krijgen — niet gefixt hier (dit blok blijft puur constraint-ondergrenzen), maar wel de
+   *  brug tussen deze beperking en de mijlpaal-instantconventie hierboven. */
   private forwardBoundOf(task: Task, c: TaskConstraint | undefined, eng: CalendarEngine): Date | null {
     const d = this.constraintInstant(c, eng);
     if (!c || !d) return null;
