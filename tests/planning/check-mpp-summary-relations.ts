@@ -129,19 +129,27 @@ if (!existsSync(path)) {
         totalDropped.length === 0,
       );
 
-      // ── Regressiebaseline — HERMETEN (etappe 1.5, uurmodus, 2026-08-15) ───────────────────────
-      // Zie de moduleheader voor waarom dit een PIN is en geen "closer to ground truth"-oordeel.
-      // Oorspronkelijke pin (T8, DAG-modus-lezer): projectEnd `2025-02-06T08:00`, projectDuration 4
-      // werkdagen. Etappe 1.5 (native MPP-uurmodus, zie mppReader.ts's moduleheader "UURMODUS") laat
-      // `readMPP` Bijlage 13 nu WEL in uur-modus lezen (dezelfde discriminator-uitkomst als
-      // `readMSPDI` al voor de bijbehorende `.mpp.xml` gaf, 51/51 taken — zie check-mpp-import.ts's
-      // T5-/uurmodus-secties): taakduren/-start/-finish dragen sindsdien hun echte minuut-precisie
-      // i.p.v. altijd naar hele dagen af te ronden. Dat verandert de INVOER van de CPM-solver
-      // wezenlijk (`scheduleDuration` is nu fractioneel, `scheduleStart`/`scheduleFinish` dragen een
-      // tijdcomponent), dus een verschoven uitkomst is een DIRECT, verwacht gevolg van de uurmodus-
-      // uitbreiding, geen regressie in `expandSummaryRelations`/`CPMSolver` zelf — vandaar hermeten
-      // i.p.v. de oude pin geforceerd vast te houden. Nieuwe basislijn (gemeten 2026-08-15, deze
-      // code, ná etappe 1.5): projectEnd `2025-02-10T13:45`, projectDuration 6 werkdagen.
+      // ── Regressiebaseline — HERMETEN, MEETBAAR VERBETERD (etappe 1.5, uurmodus, 2026-08-15) ────
+      // Zie de moduleheader voor waarom dit een PIN is en geen "closer to ground truth"-oordeel in
+      // het ALGEMEEN — MAAR op dit specifieke bestand is de verschuiving hieronder GEEN neutraal
+      // toeval, ze is meetbaar DICHTERBIJ MS Project's eigen antwoord, om twee onafhankelijke redenen
+      // (uurmodus-review, R4-iii):
+      //  1. `cpm.projectEnd`'s DATUM (`2025-02-10`) is nu EXACT gelijk aan `importResult.project.
+      //     endDate` — het FinishDate-veld dat MS Project zelf in de `.mpp` heeft opgeslagen voor dit
+      //     project (geverifieerd: `readMPP(...).project.endDate === '2025-02-10'`). De oude pin
+      //     (`2025-02-06`) zat 4 kalenderdagen VOOR die eigen einddatum.
+      //  2. Naam-gematchte ES-dagmatch (CPM-berekende `earlyStart`-dagprefix vs. de MSPDI-ground-
+      //     truth se `Start`-dagprefix, over alle 32 bladtaken): 13/32 vóór etappe 1.5 (gemeten door
+      //     de reviewer, DAG-modus-lezer) → 25/32 ná etappe 1.5 (zelf herbevestigd op deze code).
+      //
+      // Oorzaak: taakduren/-start/-finish dragen sinds etappe 1.5 hun echte minuut-precisie i.p.v.
+      // altijd naar hele dagen af te ronden (`scheduleDuration` is nu fractioneel, `scheduleStart`/
+      // `scheduleFinish` dragen een tijdcomponent) — dat verandert de INVOER van de CPM-solver
+      // wezenlijk, en de solver rekent nu kennelijk dichter bij wat MS Project zelf ook uitrekende.
+      // Vandaar hermeten i.p.v. de oude pin geforceerd vast te houden — geen regressie in
+      // `expandSummaryRelations`/`CPMSolver` zelf, maar een directe, POSITIEF gemeten consequentie
+      // van de uurmodus-uitbreiding. Nieuwe basislijn (gemeten 2026-08-15, deze code, ná etappe 1.5):
+      // projectEnd `2025-02-10T13:45`, projectDuration 6 werkdagen.
       truthy(`projectEnd-basislijn: ${cpm.projectEnd} (verwacht 2025-02-10T13:45, etappe 1.5 uurmodus)`, cpm.projectEnd === '2025-02-10T13:45');
       truthy(`projectDuration-basislijn: ${cpm.projectDuration} werkdagen (verwacht 6, etappe 1.5 uurmodus)`, cpm.projectDuration === 6);
 

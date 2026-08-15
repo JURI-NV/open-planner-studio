@@ -45,6 +45,32 @@
  * ondanks de oorspronkelijke aanname, óók sub-dag-signaal draagt — de MSPDI-ground-truth van dát
  * bestand leest via de bestaande, ongewijzigde `readMSPDI` al 51/51 taken in uur-modus).
  *
+ * PARITEITSCLAIM, GEKWALIFICEERD (uurmodus-review, R3): "identiek aan zijn MSPDI-export" geldt
+ * PRECIES wanneer de effectieve kalender se `workStartHour === 8` — MSPDI's eigen anker is een
+ * globale, vaste `08:00` (OPS's eigen MSPDI-schrijfconventie), terwijl deze lezer een KALENDER-EIGEN
+ * anker gebruikt (`mppAnchorClock` hieronder, bewust — zie die functie se toelichting voor waarom).
+ * Voor een kalender met een ANDER startuur (bv. 09:00) divergeren de twee lezers TWEEZIJDIG op een
+ * taak die precies op dat startuur landt: deze lezer classificeert 'm als dagmodus, `readMSPDI` op
+ * de equivalente XML als uurmodus. Zie `mppAnchorClock`'s eigen docblock voor de volledige
+ * toelichting (inclusief de HH:00-granulariteitsbeperking) en `check-mpp-import.ts`'s
+ * "ankerdivergentie"-fixture voor het gepinde bewijs.
+ *
+ * TWEE ASYMMETRISCHE REKENPADEN (uurmodus-review, R4-i/ii — bewust, niet stilzwijgend):
+ *  - `scheduleDuration`: het UUR-pad rekent op de EFFECTIEVE taak-kalender se EIGEN `hoursPerDay`
+ *    (`effHpd`, ná promotie via `deriveHoursPerDay`); het DAG-pad rekent — ONGEWIJZIGD t.o.v. vóór
+ *    etappe 1.5 — op de PROJECT-BREDE `hoursPerDay` (uit Props/MINUTES_PER_DAY, of de 8u-terugval),
+ *    ook als de taak een eigen kalender-override met een ANDER `hoursPerDay` draagt. Dat is een
+ *    bestaande, doelbewust ONGEMOEID gelaten beperking (zie `readTasks`'s Fase C-toelichting bij
+ *    `duration` hieronder) — dag-modus-bestanden moeten byte-voor-byte hetzelfde blijven geven als
+ *    vóór deze etappe, dus het rekenpad daar is niet "verbeterd" naar `effHpd`.
+ *  - `Sequence.lagMinutes`: een `TBkndCons`-relatie naar een UUR-modus-opvolger krijgt voortaan
+ *    `lagMinutes` gezet — INCLUSIEF `lagMinutes: 0` voor een relatie zonder lag (spiegelt
+ *    mspdiReader's `taskHourById`-tak exact, die ook zonder waarde-check `seq.lagMinutes =
+ *    Math.round(...)` zet). Dit verandert de IFC-/MSPDI-SERIALISATIEVORM van zo'n relatie (een
+ *    expliciete `lagMinutes: 0` schrijft een ander pad dan de afwezigheid van het veld) t.o.v. een
+ *    relatie die vóór etappe 1.5 hetzelfde stond maar via de opvolger nooit als uur-modus gelezen
+ *    werd — een gedocumenteerd, geaccepteerd neveneffect van de spiegelplicht, geen bug.
+ *
  * HIËRARCHIE/parentId — CORRECTIE (T5-spec-review, 2026-08-14): een eerdere versie van dit
  * bestand beweerde dat deze lezer hier bewust van MPXJ afweek door `TaskField.PARENT_TASK_
  * UNIQUE_ID` te negeren ten faveure van een outline-level-stack, en verklaarde de vergelijkings-
@@ -348,15 +374,43 @@ function readTimestampField(data: Uint8Array, offset: number | null, ctx: string
   return getTimestamp(data, offset, ctx);
 }
 
-/** Synthetisch anker voor de MPP-datumdiscriminator (c) — spiegelt mspdiReader's vaste
- *  `MSP_TIME_ANCHOR` ('08:00:00', dezelfde waarde voor zowel Start als Finish), maar KALENDER-EIGEN
- *  i.p.v. globaal-vast: een rauw MPP-bestand kent geen eigen schrijfconventie zoals OPS's
- *  MSPDI-writer (die altijd letterlijk T08:00 plakt op een dag-modus-datum, ongeacht de kalender) —
- *  de kalender se EIGEN scalar-startuur (`workStartHour`, de nog-NIET-gepromoveerde, eerste-band-
- *  afgeleide waarde uit `buildCalendarFromDays`) is hier de betekenisvolle "dag-modus-verwachting":
- *  een taak die exact op het startuur van haar eigen kalender begint/eindigt draagt geen sub-dag-
- *  informatie, één die daarvan afwijkt (bv. een Finish midden op de dag, of een Start ná de lunch)
- *  wél — precies zoals mspdiReader's vaste anker dat voor MSPDI's OPS-eigen schrijfconventie doet. */
+/**
+ * Synthetisch anker voor de MPP-datumdiscriminator (c) — spiegelt mspdiReader's vaste
+ * `MSP_TIME_ANCHOR` ('08:00:00', dezelfde waarde voor zowel Start als Finish), maar KALENDER-EIGEN
+ * i.p.v. globaal-vast: een rauw MPP-bestand kent geen eigen schrijfconventie zoals OPS's
+ * MSPDI-writer (die altijd letterlijk T08:00 plakt op een dag-modus-datum, ongeacht de kalender) —
+ * de kalender se EIGEN scalar-startuur (`workStartHour`, de nog-NIET-gepromoveerde, eerste-band-
+ * afgeleide waarde uit `buildCalendarFromDays`) is hier de betekenisvolle "dag-modus-verwachting":
+ * een taak die exact op het startuur van haar eigen kalender begint/eindigt draagt geen sub-dag-
+ * informatie, één die daarvan afwijkt (bv. een Finish midden op de dag, of een Start ná de lunch)
+ * wél — precies zoals mspdiReader's vaste anker dat voor MSPDI's OPS-eigen schrijfconventie doet.
+ *
+ * ANKERDIVERGENTIE (uurmodus-review, R3, 2026-08-15) — BEWUST vastgelegd, geen bug: de "gedraagt
+ * zich identiek aan zijn MSPDI-export"-belofte in de moduleheader geldt LETTERLIJK alleen wanneer
+ * `cal.workStartHour === 8` (dan vallen het kalender-eigen anker en MSPDI's vaste anker samen). Een
+ * kalender met een ANDER startuur (bv. 09:00) laat de twee lezers TWEEZIJDIG divergeren voor een
+ * verder identieke taak die precies op dat startuur begint/eindigt: deze lezer blijft DAGMODUS (de
+ * taak zit exact op haar eigen kalender-anker), terwijl `readMSPDI` diezelfde taak/kalender als
+ * MSPDI-XML gelezen WEL als uur-modus zou classificeren (09:00 ≠ MSPDI's vaste 08:00-anker). Zie
+ * `check-mpp-import.ts`'s "ankerdivergentie"-fixture (R3) voor het empirische bewijs — beide kanten
+ * (readMPP ÉN readMSPDI, op equivalente invoer) worden daar gepind. De keuze voor het kalender-eigen
+ * anker (i.p.v. MSPDI's vaste 08:00 blind overnemen) is bewust: voor een RAUWE MPP-timestamp — die,
+ * anders dan MSPDI-tekst, nooit een "date-only vs. echte tijd"-schrijfkeuze kent — is "wijkt de tijd
+ * af van déze kalender se eigen dagbegin" de semantisch juiste vraag, niet "wijkt de tijd af van een
+ * willekeurig, formaat-vreemd 08:00-getal".
+ *
+ * GRANULARITEIT (uurmodus-review, R3): het anker rondt `workStartHour` af op het HELE UUR (`:00:00`
+ * — geen minuten). Een kalender die om een HALF uur begint (bv. 07:30) krijgt dus een anker ("07:00")
+ * dat de kalender ZELF NOOIT als Start-/Finish-tijd oplevert — het datumsignaal (`hasNonAnchorTime`)
+ * vuurt dan voor ELKE taak op die kalender, ongeacht of de taak zelf sub-dag-precisie draagt. Dit is
+ * in de praktijk GEMASKEERD: een kalender met een half-uur-startuur heeft vrijwel altijd ook een
+ * band die niet op een heel uur eindigt, en `buildCalendarFromDays`'s `Math.floor`-afronding op
+ * `workStartHour`/`workEndHour` (T6-spec-review-fix, minor a) maakt zulke kalenders al typisch tot
+ * een gepromoveerde-via-eigen-banden-of-hoursPerDay-afwijking-kandidaat vóórdat het ankersignaal
+ * er nog toe doet. Een kalender die WEL een half-uur-startuur heeft maar verder perfect "rond"
+ * (hele-uur-lengte, geen lunch) is, zou dus per abuis altijd in uur-modus belanden — een bekende,
+ * ongeteste rand (geen corpusbestand raakt 'm; geen synthetische fixture pint 'm expliciet).
+ */
 function mppAnchorClock(cal: WorkCalendar): string {
   return `${String(cal.workStartHour).padStart(2, '0')}:00:00`;
 }

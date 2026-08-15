@@ -828,23 +828,29 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
         + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE})`,
       );
 
-      // ── ETAPPE 1.5 "geen lek"-poort: het taak-(c)-signaal (mppReader.ts's `readTasks`, Fase B)
-      // mag op dit corpus GEEN kalender promoveren die niet al via discriminator (a)/(b) — de
-      // kalender se EIGEN banden, ONAFHANKELIJK van enige taak — promoveerde. Vergelijkt daarom de
-      // FULL-PIPELINE hour-kalendertelling (via `readMPP`, inclusief het taak-signaal) tegen een
-      // A/B-ALLEEN-baseline (`promoteCalendarsForHourMode` met een LEGE signaal-set — exact het
-      // gedrag van vóór etappe 1.5, toen `buildCalendarFromDays` intern altijd `signaled=false`
-      // aanriep). BEVINDING (2026-08-15, dit corpus): de twee tellingen zijn IDENTIEK (321/345 op
-      // beide manieren) — het taak-signaal draagt op dit corpus NUL extra kalenderpromoties bij; de
-      // (bijna-)volledige uur-modus-status van dit corpus (788/788 taken, zie `check-mpp-import.ts`'s
-      // uurmodus-sectie) komt UITSLUITEND van MS Project's eigen standaard-"Standard"-kalender, die
-      // AL EEN LUNCHPAUZE-SPLITSING (twee banden per werkdag) draagt — dat is discriminator (a),
-      // bestond al sinds T6, en is dus geen "lek" van deze etappe. `<=` (niet `===`): een
-      // toekomstige, bewust ruimere signaal-definitie mag dit laten STIJGEN zonder deze specifieke
-      // poort te breken (dat hoort dan bewust bijgewerkt te worden, met een nieuwe basislijn) — een
-      // regressie die het taak-signaal per ongeluk kalenders laat promoveren die het niet zouden
-      // moeten (bv. de scalar-vóór-promotie-`hoursPerDay`-lees per ongeluk vervangen door de
-      // AL-gepromoveerde waarde) zou deze telling laten STIJGEN t.o.v. de A/B-baseline en hier falen.
+      // ── ETAPPE 1.5 — DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1):
+      // vergelijkt de FULL-PIPELINE hour-kalendertelling (via `readMPP`, inclusief het taak-(c)-
+      // signaal) tegen een A/B-ALLEEN-baseline (`promoteCalendarsForHourMode` met een LEGE
+      // signaal-set — exact het gedrag van vóór etappe 1.5). BEVINDING (2026-08-15, dit corpus): de
+      // twee tellingen zijn IDENTIEK (321/345 op beide manieren) — niet toevallig gelijk, maar
+      // STRUCTUREEL gegarandeerd gelijk op dit corpus: mutatietest bevestigt dat de 24 kalenders die
+      // NIET via (a)/(b) deviëren NOOIT de effectieve kalender van een taak zijn (0 van 24, over alle
+      // 49 bestanden — geverifieerd door voor elke niet-deviërende kalender-UID te controleren of
+      // enige `Task.calendarId`/de projectkalender ernaar verwijst). Dit corpus kan het taak-signaal
+      // op kalenderpromotie-NIVEAU dus NIET oefenen — elke taak zit al op een kalender die sowieso
+      // via (a)/(b) promoveert (MS Project's standaard-"Standard"-kalender met een lunchpauze-
+      // splitsing, discriminator (a), bestond al sinds T6). EEN EERDERE VERSIE van dit commentaar
+      // beweerde dat een kapotte taak-signaal-berekening (bv. de scalar-vóór-promotie-`hoursPerDay`
+      // per ongeluk vervangen door de ná-promotie-waarde) deze telling zou laten STIJGEN en hier zou
+      // falen — DAT IS ONWAAR gebleken: zo'n mutatie raakt uitsluitend `isSubDayMinutes`/
+      // `hasNonAnchorTime`-uitkomsten op kalenders die al (a)/(b)-gepromoveerd zijn (`promoteHour
+      // Calendar`'s vroege `if (cal.workTime) return true`-tak maakt de signaalwaarde daar irrelevant
+      // voor de PROMOTIE-uitkomst), dus deze telling blijft 321/345 ONGEACHT die mutatie. Wat deze
+      // poort WEL vangt: een REGRESSIE in de a/b-discriminator zelf, of een structurele wijziging in
+      // welke kalenders taken feitelijk gebruiken (bv. als een toekomstige crawl-corpusaanvulling wél
+      // een niet-deviërende, taak-gerefereerde kalender bevat — dan zou deze `<=` alsnog zinvol
+      // worden). Zie `check-mpp-import.ts`'s uurmodus-sectie voor de bijbehorende taak-tellingpin, die
+      // dezelfde beperking deelt. `<=`: een bewust ruimere signaal-definitie mag dit laten STIJGEN.
       let fullPipelineHourCalendars = 0;
       let abOnlyHourCalendars = 0;
       let totalCalendarsSeen = 0;

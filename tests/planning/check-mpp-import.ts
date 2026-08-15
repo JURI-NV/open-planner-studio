@@ -1192,7 +1192,26 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
 
   /** Bouwt één compleet CFB-bestand: 1 taak (op de gegeven duur/tijden) + 1 kalender ZONDER
    *  lunchpauze-splitsing (dus zelf niet-deviërend) — de projectkalender via DEFAULT_CALENDAR_NAME. */
-  function buildFixture(opts: { taskName: string; durationRaw: number; startTime: number; startDays: number; finishTime: number; finishDays: number }): Uint8Array {
+  // Standaard kalendervorm: ma-vr, ÉÉN band 08:00-16:00 (480-960, dus 480 minuten = 8u), geen
+  // lunchpauze — canonicalizeBands.deviates === false op zichzelf (geen (a)/(b)-signaal). `opts.
+  // calendarDays` (R2/R3, uurmodus-review) laat een fixture een AFWIJKENDE kalendervorm meegeven
+  // (bv. per-weekdag verschillende bandlengtes, of een ander startuur) zonder de rest van de
+  // CFB-boom te hoeven herhalen.
+  const UNIFORM_8H_CAL_DAYS = [
+    { defaultFlag: 0 as const },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const },
+  ];
+
+  function buildFixture(opts: {
+    taskName: string; durationRaw: number; startTime: number; startDays: number; finishTime: number; finishDays: number;
+    calendarDays?: { defaultFlag?: 0 | 1; bands?: { startMinutes: number; durationMinutes: number }[] }[];
+    calendarName?: string;
+  }): Uint8Array {
     const dummy = buildTaskFixedMetaRecord(0);
     // offsetIntoFixedData === 3*130 (390): matcht de BYTE-offset waarop `dataTask` hieronder in
     // `fixedDataBlob` geschreven wordt (spiegelt de I4-fixture: dat veld is een BYTE-offset in
@@ -1213,17 +1232,8 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
     new DataView(taskVar2DataBuf.buffer).setInt32(0, namePayload.length, true);
     taskVar2DataBuf.set(namePayload, 4);
 
-    // Kalender calId=1: ma-vr, ÉÉN band 08:00-16:00 (480-960, dus 480 minuten = 8u), geen
-    // lunchpauze — canonicalizeBands.deviates === false op zichzelf (geen (a)/(b)-signaal).
-    const hoursBlock = buildCalHoursBlock([
-      { defaultFlag: 0 },
-      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
-      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
-      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
-      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
-      { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
-      { defaultFlag: 0 },
-    ]);
+    const calendarName = opts.calendarName ?? 'Enkelband fixture';
+    const hoursBlock = buildCalHoursBlock(opts.calendarDays ?? UNIFORM_8H_CAL_DAYS);
     const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
     const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
     const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
@@ -1237,14 +1247,14 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
       calVar2View.setInt32(offset, payload.length, true);
       calVar2DataBuf.set(payload, offset + 4);
     };
-    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii('Enkelband fixture'));
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii(calendarName));
     writeCalVar2(CAL_DATA_OFF, hoursBlock);
 
     const projectPropsBytes = encodePropsEntries([
       { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
       { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
       { key: TITLE_KEY, data: encodeUnicodeStringAscii('Uurmodus-fixture') },
-      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii('Enkelband fixture') },
+      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii(calendarName) },
     ]);
 
     const tree: Record<string, CfbTreeNode> = {
@@ -1323,6 +1333,145 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
       truthy('uurmodus-fixture (dag-contrast): scheduleDuration === 1 dag', task?.time.scheduleDuration === 1);
       truthy('uurmodus-fixture (dag-contrast): scheduleStart is dag-alleen (geen "T")', !task?.time.scheduleStart.includes('T'));
       truthy('uurmodus-fixture (dag-contrast): scheduleFinish is dag-alleen (geen "T")', !task?.time.scheduleFinish.includes('T'));
+    }
+  }
+
+  // ── Fixture 3 (R2, uurmodus-review): ONDERSCHEIDENDE case voor SCALAR-vóór- vs ná-promotie
+  // `hoursPerDay` — de reviewer se aangereikte tegenvoorbeeld. Kalender: ma 08:00-12:00 (4u), di-vr
+  // 08:00-16:00 (8u), ÉÉN band per dag ⇒ `canonicalizeBands.deviates === false` (geen (a)/(b)-
+  // signaal — geen dag heeft >1 band, geen band kruist middernacht). `buildCalendarFromDays`'s
+  // SCALAR `hoursPerDay` komt uit de EERSTE werkende dag in de MPP-dagblokvolgorde (0=zo..6=za) —
+  // dat is maandag, dus scalar hpd = 4. `deriveHoursPerDay` (de MODALE dagsom, ná promotie) zou
+  // daarentegen 8 geven (4 dagen van 8u tegen 1 dag van 4u). Taak: 240 minuten, Start/Finish BEIDE
+  // op het kalender-anker (08:00, geen datumsignaal). CORRECT (scalar-vóór-promotie, hpd=4):
+  // 240 % (4×60=240) === 0 ⇒ GEEN durSignal ⇒ dagmodus. Zou `readTasks`'s signaal-scan per ongeluk
+  // de ná-promotie-waarde (8) lezen: 240 % (8×60=480) = 240 ≠ 0 ⇒ WEL durSignal ⇒ uurmodus — exact
+  // het onderscheid dat de crawl-corpus-drift-pins (R1 hierboven) NIET konden vangen. Zelf geverifieerd
+  // (uurmodus-review, niet gecommit): een tijdelijke mutatie die `cal.hoursPerDay` vóór de signaal-
+  // scan herberekent via `deriveHoursPerDay` (i.p.v. de scalar-waarde te laten staan) laat deze
+  // fixture-asserts daadwerkelijk rood uitslaan (`workTime` wordt dan gezet, `durationMinutes` 60) —
+  // zie het commitrapport voor de exacte mutatie en poortuitvoer.
+  {
+    const MON_4H_TUE_FRI_8H_DAYS = [
+      { defaultFlag: 0 as const }, // zo
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 240 }] }, // ma 08:00-12:00 (4u)
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // di 08:00-16:00 (8u)
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // wo
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // do
+      { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // vr
+      { defaultFlag: 0 as const }, // za
+    ];
+    const bytes = buildFixture({
+      taskName: 'ScalarVsPromotedTask', durationRaw: 2400, // 240 minuten
+      startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15001, // beide 08:00 = anker
+      calendarDays: MON_4H_TUE_FRI_8H_DAYS, calendarName: 'Ongelijke dagen fixture',
+    });
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (scalar-vs-promoted): readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('uurmodus-fixture (scalar-vs-promoted): 1 taak', result.tasks.length === 1);
+      const task = result.tasks[0];
+      truthy(
+        `uurmodus-fixture (scalar-vs-promoted): projectkalender.workTime NIET gezet (scalar hpd=4, 240%240===0) — hoursPerDay=${result.calendar.hoursPerDay}`,
+        !result.calendar.workTime,
+      );
+      truthy('uurmodus-fixture (scalar-vs-promoted): durationMinutes NIET gezet', task?.time.durationMinutes === undefined);
+    }
+  }
+
+  // ── Fixture 4 (R3, uurmodus-review): ANKERDIVERGENTIE — de "conform MSPDI-import"-belofte in de
+  // moduleheader/commitboodschap geldt ALLEEN wanneer de kalender se eigen startuur toevallig 08:00
+  // is (MSPDI's vaste, writer-gekalibreerde anker). Kalender: ma-vr ÉÉN band 09:00-17:00 (8u, geen
+  // lunchpauze ⇒ geen (a)/(b)-signaal). Taak: 480 minuten (= exact 8u = deze kalender se hoursPerDay
+  // ⇒ geen durSignal), Start/Finish BEIDE om 09:00 (== déze kalender se EIGEN anker, `mppAnchorClock`
+  // gebruikt `cal.workStartHour`, hier 9 ⇒ "09:00:00" ⇒ geen datumsignaal). MPP-kant: BLIJFT dagmodus.
+  // MSPDI-kant: dezelfde taak/kalender, hierbeneden als minimale MSPDI-XML opgebouwd en door de
+  // ONGEWIJZIGDE `readMSPDI` gehaald — díe vergelijkt tegen het VASTE `MSP_TIME_ANCHOR` (08:00), dus
+  // 09:00 ≠ 08:00 ⇒ WEL een datumsignaal ⇒ UURMODUS. Bewust vastgelegd (niet "opgelost"): het
+  // kalender-eigen anker is voor een rauw MPP-bestand semantisch juister dan MSPDI's vaste
+  // schrijfconventie (zie `mppAnchorClock`'s toelichting in mppReader.ts) — dit is dus een
+  // GEACCEPTEERDE, TWEEZIJDIGE divergentie tussen de twee lezers voor niet-08:00-kalenders, geen bug.
+  {
+    installDOMParser();
+
+    const bytes = buildFixture({
+      taskName: 'AnchorDivergenceTask', durationRaw: 4800, // 480 minuten = 8u
+      startTime: 5400, startDays: 15000, finishTime: 5400, finishDays: 15001, // beide 09:00 = déze kalender se anker
+      calendarDays: [
+        { defaultFlag: 0 as const }, // zo
+        { defaultFlag: 0 as const, bands: [{ startMinutes: 540, durationMinutes: 480 }] }, // ma 09:00-17:00
+        { defaultFlag: 0 as const, bands: [{ startMinutes: 540, durationMinutes: 480 }] }, // di
+        { defaultFlag: 0 as const, bands: [{ startMinutes: 540, durationMinutes: 480 }] }, // wo
+        { defaultFlag: 0 as const, bands: [{ startMinutes: 540, durationMinutes: 480 }] }, // do
+        { defaultFlag: 0 as const, bands: [{ startMinutes: 540, durationMinutes: 480 }] }, // vr
+        { defaultFlag: 0 as const }, // za
+      ],
+      calendarName: '09:00-kalender fixture',
+    });
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (ankerdivergentie, mpp-kant): readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('uurmodus-fixture (ankerdivergentie, mpp-kant): 1 taak', result.tasks.length === 1);
+      truthy(
+        'uurmodus-fixture (ankerdivergentie, mpp-kant): projectkalender.workTime NIET gezet (kalender-eigen anker 09:00 == taaktijden)',
+        !result.calendar.workTime,
+      );
+      truthy('uurmodus-fixture (ankerdivergentie, mpp-kant): durationMinutes NIET gezet (dagmodus)', result.tasks[0]?.time.durationMinutes === undefined);
+    }
+
+    // Dezelfde taak/kalender als minimale MSPDI-XML — bewijst de ANDERE kant van de divergentie.
+    const mspdiXml = `<?xml version="1.0"?>
+<Project xmlns="http://schemas.microsoft.com/project">
+<Name>AnkerdivergentieFixture</Name>
+<StartDate>2026-07-06T09:00:00</StartDate>
+<FinishDate>2026-07-07T09:00:00</FinishDate>
+<Calendars>
+<Calendar>
+<UID>1</UID>
+<Name>09:00-kalender fixture</Name>
+<WeekDays>
+<WeekDay><DayType>2</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>09:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+<WeekDay><DayType>3</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>09:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+<WeekDay><DayType>4</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>09:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+<WeekDay><DayType>5</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>09:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+<WeekDay><DayType>6</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>09:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+</WeekDays>
+</Calendar>
+</Calendars>
+<Tasks>
+<Task><UID>1</UID><Name>AnchorDivergenceTask</Name><OutlineLevel>1</OutlineLevel><Start>2026-07-06T09:00:00</Start><Finish>2026-07-07T09:00:00</Finish><Duration>PT8H0M0S</Duration></Task>
+</Tasks>
+</Project>`;
+    let xmlResult: ReturnType<typeof readMSPDI> | null = null;
+    let xmlThrew: string | null = null;
+    try {
+      xmlResult = readMSPDI(mspdiXml);
+    } catch (err) {
+      xmlThrew = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`uurmodus-fixture (ankerdivergentie, mspdi-kant): readMSPDI gooit niet (${xmlThrew ?? ''})`, xmlThrew === null);
+    if (xmlResult) {
+      truthy('uurmodus-fixture (ankerdivergentie, mspdi-kant): 1 taak', xmlResult.tasks.length === 1);
+      truthy(
+        'uurmodus-fixture (ankerdivergentie, mspdi-kant): projectkalender.workTime WEL gezet (MSPDI se vaste 08:00-anker ≠ 09:00)',
+        !!xmlResult.calendar.workTime,
+      );
+      truthy(
+        'uurmodus-fixture (ankerdivergentie, mspdi-kant): durationMinutes === 480 (uurmodus, ondanks identieke taakinhoud als de mpp-kant)',
+        xmlResult.tasks[0]?.time.durationMinutes === 480,
+      );
     }
   }
 }
@@ -1739,9 +1888,20 @@ if (corpusPresent) {
 
     const mppHourCount = mppResult.tasks.filter((t) => t.time.durationMinutes != null).length;
     const xmlHourCount = xmlResult.tasks.filter((t) => t.time.durationMinutes != null).length;
-    // Gemeten basislijn (2026-08-15): 215/215 op BEIDE kanten — EXACT (`===`), niet `>=`: een
-    // regressie die minder taken in uur-modus zou lezen (bv. de discriminator-signaal-scan die per
-    // ongeluk de scalar-vóór-promotie-`hoursPerDay` niet meer leest) hoort deze poort te raken.
+    // Gemeten basislijn (2026-08-15): 215/215 op BEIDE kanten — EXACT (`===`).
+    //
+    // DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1): bijlage 7's
+    // projectkalender deviëert al via discriminator (a)/(b) (eigen banden, lunchpauze-splitsing —
+    // net als de crawl-corpuskalenders, zie `check-mpp-calendars.ts`'s T6-crawl-drift-pin), dus ELKE
+    // taak op die kalender komt hier al in uur-modus terecht ONGEACHT het taak-(c)-signaal. Een
+    // eerdere versie van dit commentaar beweerde dat een kapotte signaal-scan (bv. de scalar-vóór-
+    // promotie-`hoursPerDay` per ongeluk niet meer gelezen) deze poort zou raken — DAT KLOPT NIET:
+    // zo'n mutatie is hier onzichtbaar, om exact dezelfde reden als bij de crawl-drift-pin
+    // (`promoteHourCalendar`'s vroege `if (cal.workTime) return true` maakt de signaalwaarde
+    // irrelevant zodra de kalender al via (a)/(b) promoveert). Deze poort bewaakt de discriminator-
+    // UITKOMST-PARITEIT met MSPDI (het eigenlijke etappe-1.5-doel), niet de (c)-signaal-implementatie
+    // zelf — zie de synthetische fixtures verderop ("UURMODUS (etappe 1.5) — synthetische/corpusloze
+    // end-to-end fixtures") voor een corpus-onafhankelijke, wél gerichte test van dat signaal.
     truthy(`[uurmodus ${file}] mpp: alle taken in uur-modus (${mppHourCount}/${mppResult.tasks.length})`, mppHourCount === mppResult.tasks.length);
     truthy(`[uurmodus ${file}] MSPDI-ground-truth: alle taken in uur-modus (${xmlHourCount}/${xmlResult.tasks.length})`, xmlHourCount === xmlResult.tasks.length);
 
@@ -1883,14 +2043,21 @@ if (corpusPresent) {
       const SUSPECT_RATIO_BUDGET = 0.02; // zie de sectietoelichting hierboven
       // UURMODUS (etappe 1.5) — gemeten basislijn (2026-08-15, dit corpus): ALLE 788 taken komen uit
       // `readMPP` met `durationMinutes` gezet. GEEN "MPP-eigenaardigheid" — `check-mpp-calendars.ts`'s
-      // eigen "geen lek"-poort bewijst dat dit uitsluitend komt van MS Project's standaard-
-      // "Standard"-kalender (lunchpauze-splitsing, discriminator (a) — bestond al sinds T6) en NIET
-      // van het nieuwe taak-(c)-signaal (dat draagt hier 0 extra kalenderpromoties bij). `===`
-      // (exact): een toekomstige wijziging aan de discriminator-orkestratie die dit percentage laat
-      // zakken (bv. de scalar-vóór-promotie-`hoursPerDay` per ongeluk verwisseld voor de
-      // ná-promotie-waarde) hoort deze poort te raken, net zo goed als een wijziging die het
-      // ONTERECHT laat stijgen (een calendar/task-signaal-lek naar bestanden die dat niet zouden
-      // moeten dragen).
+      // eigen drift-pin (T6-crawl) meet dat dit uitsluitend komt van MS Project's standaard-
+      // "Standard"-kalender (lunchpauze-splitsing, discriminator (a) — bestond al sinds T6): 321/345
+      // kalenders zijn zowel MET als ZONDER het taak-(c)-signaal gepromoveerd.
+      //
+      // DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1): `===` vangt hier een
+      // wijziging in de a/b-discriminator, de taakfilter (`collectValidTaskIndices`), of het corpus
+      // zelf. Het vangt NIET specifiek een kapotte (c)-signaal-berekening (bv. de scalar-vóór-
+      // promotie-`hoursPerDay` per ongeluk verwisseld voor de ná-promotie-waarde) — mutatietest
+      // bevestigt dat zo'n mutatie deze telling op dit corpus ONGEWIJZIGD laat: alle 24 kalenders die
+      // niet via (a)/(b) deviëren zijn nooit de effectieve kalender van een taak (0/24, alle 49
+      // bestanden), dus het (c)-signaal beslist hier voor GEEN ENKELE taak mee over dag- vs
+      // uur-modus. Deze poort bewaakt dus de a/b-kant van de discriminator plus de taakfilter, niet
+      // de (c)-signaal-implementatie in `mppReader.ts`'s `readTasks` — die wordt gericht getest door
+      // de synthetische fixtures verderop in dit bestand (zie "UURMODUS (etappe 1.5) — synthetische/
+      // corpusloze end-to-end fixtures").
       const CRAWL_HOUR_TASK_BASELINE = 788;
 
       let totalTasks = 0;
