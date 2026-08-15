@@ -388,6 +388,42 @@ const engWorkSatNoBands = new CalendarEngine({
 eq('M25 WorkSatNoBands workMinutesBetween(za11,zo12)=480 (valt terug op standaard-werkdagbanden, niet 0)', engWorkSatNoBands.workMinutesBetween(I('2026-07-11'), I('2026-07-12')), 480);
 eq('M26 WorkSatNoBands workMinutesBetween(zo12,ma13)=0 (zondag blijft ongemoeid, geen lekkage van de fallback)', engWorkSatNoBands.workMinutesBetween(I('2026-07-12'), I('2026-07-13')), 0);
 
+// M27-M29 (her-review-bevinding MIDDEN-A): een REALISTISCHE T3-kalender heeft een holiday ÉN een
+// werkende uitzondering, maar op VERSCHILLENDE datums. Vóór deze fix bestond `isWorkDay` uit twee bijna-
+// identieke takken (met/zonder uitzonderingen), elk met een eigen holiday-check — de reviewer haalde
+// de holiday-check alleen uit de "met uitzonderingen"-tak weg en 118/118 bleef groen, omdat geen enkele
+// bestaande case een holiday test op een kalender die ELDERS ook `workingExceptions` heeft. Dat brak
+// `addWorkDays`: de feestdag werd stil een werkdag zodra de kalender ook maar één werkende uitzondering
+// had, ongeacht de datum ervan.
+const engHolElsewhereExcElsewhere = new CalendarEngine({
+  ...cal('HolElsewhereExcElsewhere', undefined, [{ name: 'Feestdag (di)', startDate: '2026-07-07', endDate: '2026-07-07' }]),
+  workingExceptions: [{ name: 'Werkende zaterdag (elders)', startDate: '2026-07-11', endDate: '2026-07-11' }],
+});
+eq('M27 HolElsewhereExcElsewhere isWorkDay(di7)=false (holiday blijft holiday, ook met workingExceptions elders)', engHolElsewhereExcElsewhere.isWorkDay(I('2026-07-07')), false);
+eq('M28 HolElsewhereExcElsewhere addWorkDays(ma6,4)=vr10 (di7 overgeslagen, niet do9)', formatDate(engHolElsewhereExcElsewhere.addWorkDays(I('2026-07-06'), 4)), '2026-07-10');
+eq('M29 HolElsewhereExcElsewhere isWorkDay(za11)=true (de werkende uitzondering zelf werkt nog gewoon)', engHolElsewhereExcElsewhere.isWorkDay(I('2026-07-11')), true);
+
+// M30-M31 (her-review-bevinding LAAG-9): `computeStandardWorkdayBands` moet DEZELFDE "normale werkdag"
+// aanwijzen als `hoursPerDay` (`computeDerivedHoursPerDay`, modaal). Op een ASYMMETRISCHE kalender
+// (ma 4u, di-vr 8u) wees de eerste-werkdag-met-banden-regel voorheen maandag (240m) aan, terwijl
+// `hoursPerDay`=8 (modaal, 4 van de 5 werkdagen) — een band-loze werkende zaterdag kreeg dan 240m i.p.v.
+// de verwachte 480m: `hoursPerDay` en de fallback spraken elkaar tegen.
+const engAsymmetric = new CalendarEngine({
+  ...cal('Asymmetric', {
+    byWeekday: {
+      1: [{ start: 480, end: 720 }],  // ma 08:00-12:00 = 4u
+      2: [{ start: 480, end: 960 }],  // di 08:00-16:00 = 8u
+      3: [{ start: 480, end: 960 }],
+      4: [{ start: 480, end: 960 }],
+      5: [{ start: 480, end: 960 }],
+      6: [], 7: [],
+    },
+  }),
+  workingExceptions: [{ name: 'Werkende zaterdag zonder eigen banden', startDate: '2026-07-11', endDate: '2026-07-11' }],
+});
+eq('M30 Asymmetric hoursPerDay=8 (modaal, controle)', engAsymmetric.hoursPerDay, 8);
+eq('M31 Asymmetric workMinutesBetween(za11,zo12)=480 (modale standaardbanden, niet de eerste-dag 240m)', engAsymmetric.workMinutesBetween(I('2026-07-11'), I('2026-07-12')), 480);
+
 if (diffs.length === 0) {
   console.log(`OK  calendar-hours-check: alle checks groen (${checks})`);
   process.exit(0);
