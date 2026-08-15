@@ -5,7 +5,7 @@ Tasks that stand on their own don't shift when the schedule changes. Relations r
 ## What you'll learn here
 
 - The four relation types (FS/SS/FF/SF) and when to use each.
-- Where a relation can and can't attach — milestones can, summary tasks can't.
+- Where a relation can and can't attach — milestones and summary tasks both can; only a relation to your own (grand)parent phase is rejected.
 - Lag and lead, including percentage lag and elapsed-time lag (for example for concrete curing).
 - Adding relations three ways: dragging, selection, and the relations table.
 - All eight constraint types, plus the hard pin (P6 Mandatory) and the secondary constraint.
@@ -26,17 +26,17 @@ Want to recognise these first three types in a real example? The "Verbouwing & A
 
 You can create such a relation between ordinary tasks and between milestones. A milestone has zero
 duration, but otherwise behaves like any other task: it can be a predecessor or a successor, and it
-can sit on the critical path. What you *can't* do is attach a relation to a **summary task** — a
-task that has subtasks of its own. The scheduling engine only calculates tasks without subtasks; a
-summary task's dates are then derived from its children afterwards. A relation to a summary task
-would show up, but it would have no effect at all on the schedule. If you want to link two phases
-together, connect the tasks themselves instead: the last task of one phase to the first task of the
-next — a milestone at the end of a phase works well for this.
+can sit on the critical path. You can also put a relation directly on a **summary task** — a task
+that has subtasks of its own: see the section below ("Relations on summary tasks") for how Open
+Planner Studio works such a relation through to the underlying tasks.
 
-If an opened file already contains a relation with a summary task as endpoint anyway — for example
-from Primavera P6 or MS Project, which do allow it — that relation is preserved and carried through
-unchanged on save. The Relations panel flags it as *no effect*, so you can see the schedule isn't
-calculating with it.
+One kind of link is rejected: a relation between a task and its own **(grand)parent summary task**
+(in either direction). Such a relation would effectively tie the task to its own phase — logically
+pointless, and without this rejection it could produce a cycle at calculation time that loops back
+through the task's own branch, which would make the whole calculation fail. If an opened file already
+contains such a relation anyway — for example from Primavera P6 or MS Project, which do allow it —
+it's preserved and carried through unchanged on save, but it doesn't count in the calculation: the
+Relations panel flags it as *not included*.
 
 ## Lag and lead
 

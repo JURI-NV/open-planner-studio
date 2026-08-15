@@ -384,22 +384,29 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
 
-### Klein — de indirecte route naar een spookrelatie is volledig stil (2026-08-14)
-- [ ] **Structuurmutaties kunnen een bladtaak-met-relaties tot verzameltaak maken zonder enig
-      signaal.** De mijlpaal-relaties-tak (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-
-      design.md`, §5a) blokkeert alleen het *directe* pad — een relatie rechtstreeks naar een
-      verzameltaak leggen — met een leesbare weigering. Het *indirecte* pad via `indentTasks`,
-      `moveTaskTo`, `addTask({ parentId })` en `insertWbsTemplate` is stil: een project met A→B
-      waar de gebruiker C onder B inspringt, maakt A→B met terugwerkende kracht tot spookrelatie.
-      De Gantt tekent de pijl identiek, er komt geen melding, en F5 verschuift de planning zonder
-      uitleg. De enige aanwijzing is het waarschuwingsdriehoekje in het Relaties-paneel (niet
-      standaard open, visueel niet te onderscheiden van de bestaande lead-waarschuwingen daar).
-      MCP meldt hier ook niets: `planner_add_tasks` met een `parentId` maakt de spookrelaties
-      zonder een woord, en de leestools melden per relatie nergens "zonder effect".
-      *Kandidaat-aanpak:* dezelfde samenvattende melding als na het laden (`notifications.
-      summaryRelationsIgnored`) afvuren wanneer een structuurmutatie relaties zonder effect maakt,
-      óf de spookpijl in de Gantt gestippeld/gedimd tekenen zodra `hasSummaryEndpoint` waar is.
-      Gevonden bij de eindreview op die tak.
+### Klein — structuurmutaties die een relatie laten droppen zijn stil (2026-08-15, herzien)
+- [ ] **Structuurmutaties kunnen een bestaande relatie retroactief tot voorouder-relatie maken,
+      zonder enig signaal op het moment zelf.** Sinds het eigenaarsbesluit van 2026-08-15
+      (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-design.md`, banner bovenaan) is een
+      relatie naar een verzameltaak-eindpunt geen spookrelatie meer — `expandSummaryRelations`
+      rekent hem gewoon door naar de onderliggende bladtaken (MS Project-semantiek). Wat overblijft
+      is de voorouder-guard: als een structuurmutatie (`indentTasks`, `moveTaskTo`,
+      `addTask({ parentId })`, `insertWbsTemplate`) een bestaande relatie retroactief tot een
+      relatie tussen een taak en zijn EIGEN (voor)ouder-samenvatting maakt (bv. A→B bestond al,
+      en de gebruiker maakt A vervolgens tot kind van B, of B tot kind van A), dan droppt de
+      solver-guard die relatie voortaan stil — pas zichtbaar bij de eerstvolgende herberekening,
+      via de *niet meegerekend*-markering in het Relaties-paneel (niet standaard open) en
+      `cpmResult.droppedSequenceIds`. Er komt op het moment van de structuurmutatie zelf geen
+      melding, in tegenstelling tot het laadpad (`notifications.summaryRelationsDropped`), dat wél
+      meldt zodra `applyLoadedProject` klaar is. MCP meldt hier ook niets: `planner_add_tasks` met
+      een `parentId` die een bestaande relatie tot voorouder-relatie promoveert, doet dat zonder
+      een woord.
+      *Kandidaat-aanpak:* na elke structuurmutatie die relaties kan raken, `cpmResult.
+      droppedSequenceIds` vóór/ná vergelijken en bij een toename dezelfde melding afvuren als na
+      het laden (`notifications.summaryRelationsDropped`), of het aantal daadwerkelijk gedropte
+      relaties tonen als niet-blokkerende toast. Gevonden bij de eindreview op de mijlpaal-
+      relaties-tak (2026-08-14); herzien bij het eigenaarsbesluit van 2026-08-15 dat samenvattings-
+      relaties liet meerekenen i.p.v. ze te weigeren.
 
 ### Klein — testinfra: gedeelde bundelpaden in run.sh (projectstart-review, 2026-08-15)
 - [ ] **`tests/planning/run.sh`'s `bundle_check` schrijft elke check-bundel naar een VASTE naam**
