@@ -73,13 +73,17 @@ export interface CPMOptions {
    *  wordt dit blok alleen doorgegeven; de solver leest het nog nergens gedragswijzigend. */
   schedulingOptions?: SchedulingOptions;
   /** De geconfigureerde PROJECTSTARTDATUM (`Project.startDate`, ISO-datum), gebruikstest-bevinding
-   *  2026-08: ondergrens voor élke taak zónder voorganger (MS Project-semantiek — vóór deze optie
-   *  leidde de forward pass "de projectstart" stilzwijgend af als het minimum van de wortel-taken
-   *  ONDERLING, wat een taak met een verouderde `scheduleStart` — bv. gezet vóór een latere
-   *  wijziging van de projectstartdatum — gewoon vóór het officiële projectbegin liet doorlopen,
-   *  in het verkeerde geval zelfs een weekend "terug" t.o.v. een za/zo-projectstart). Afwezig/
-   *  onparseerbaar ⇒ terugval op het oude gedrag (`rootFloor` levert dan gewoon de eigen
-   *  taak-start) — byte-identiek voor elke bestaande aanroeper die deze optie niet meegeeft. */
+   *  2026-08: ondergrens tegen relatie-LEADS (een negatieve lag mag een opvolger niet vóór het
+   *  officiële projectbegin trekken — vóór deze optie leidde de forward pass "de projectstart"
+   *  stilzwijgend af als het minimum van de wortel-taken ONDERLING). Afwezig/onparseerbaar ⇒
+   *  terugval op het oude gedrag — byte-identiek voor elke bestaande aanroeper die deze optie
+   *  niet meegeeft.
+   *
+   *  SINDS T7 (§9/O2, de brede regel "een ingelezen anker wordt nooit door de vloer overruled")
+   *  klemt deze optie NIET meer de eigen ES van een taak ZONDER voorganger — die gebruikt altijd
+   *  zijn eigen `scheduleStart` (`ownAnchor`), ook als die vóór de projectstart ligt. De vloer
+   *  (`rootFloor`) is versmald tot uitsluitend de ondergrens tegen relatie-leads hierboven; zie
+   *  de docstrings van `rootFloor`/`ownAnchor` in `CPMSolver` voor de volledige motivatie. */
   projectStartDate?: string;
 }
 
@@ -351,20 +355,45 @@ export class CPMSolver {
   }
 
   /**
-   * Vroegste toegestane start van een taak ZONDER voorganger, in `eng` (gebruikstest-bevinding
-   * 2026-08, MS Project-semantiek): het MAXIMUM van de taak-eigen gesnapte `scheduleStart` en de
-   * geconfigureerde projectstartdatum (zelf ook per `eng` gesnapt — een taak op een afwijkende
-   * kalender mag de vloer dus op een andere dag landen dan de projectkalender zelf zou geven).
-   * `projectStartRaw` afwezig (optie niet meegegeven, of onparseerbaar) ⇒ puur de eigen start,
-   * byte-identiek aan vóór deze optie. Gedeeld tussen de `projectStart`-vloer-precompute (voor
-   * taken MET voorganger + hammocks) en de eigen ES-tak van een wortel-taak, zodat beide nooit
-   * uiteen kunnen lopen.
+   * De `projectStart`-ONDERGRENS (T7, §9/O2): het MAXIMUM van de taak-eigen gesnapte
+   * `scheduleStart` en de geconfigureerde projectstartdatum (zelf ook per `eng` gesnapt — een
+   * taak op een afwijkende kalender mag de vloer dus op een andere dag landen dan de
+   * projectkalender zelf zou geven). `projectStartRaw` afwezig (optie niet meegegeven, of
+   * onparseerbaar) ⇒ puur de eigen start, byte-identiek aan vóór deze optie.
+   *
+   * UITSLUITEND nog gebruikt voor de `projectStart`-precompute hieronder in `forwardPass`
+   * (taken MET voorganger + hammocks) — dat is de ondergrens tegen relatie-LEADS: een negatieve
+   * lag mag een opvolger niet vóór het officiële projectbegin trekken. Dát is exact de
+   * bescherming die het oorspronkelijke vloer-scenario (gebruikstest-bevinding 2026-08: een
+   * VEROUDERDE `scheduleStart` — bv. gezet vóór een latere wijziging van de projectstartdatum —
+   * die stil vóór het officiële projectbegin bleef doorlopen, in het verkeerde geval zelfs een
+   * weekend "terug" t.o.v. een za/zo-projectstart) beoogde, en die blijft hier onverkort staan.
+   *
+   * Sinds T7 NIET meer gebruikt voor de eigen ES van een wortel-taak zelf (§9/O2, de brede regel:
+   * "een ingelezen anker wordt nooit door de vloer overruled") — zie `ownAnchor` daarvoor. Vóór
+   * T7 leverde deze functie ook dié waarde, wat 25 taken in 12 corpusbestanden vooruit duwde
+   * t.o.v. hun eigen, in het bronbestand opgeslagen anker (11 met een expliciete SNET vóór
+   * projectstart, 14 zonder enige constraint) — minuut-exactheid eist dat het eigen anker wint.
    */
   private rootFloor(eng: CalendarEngine, scheduleStart: string): Date {
     const own = this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
     if (!this.projectStartRaw) return own;
     const floor = this.snapOnOrAfter(eng, this.projectStartRaw);
     return floor > own ? floor : own;
+  }
+
+  /**
+   * Taak-eigen gesnapte start, ONGEKLEMD tegen de projectstart (T7, §9/O2). Gebruikt voor de ES
+   * van een taak ZONDER voorganger (`forwardPass`, `preds.length === 0`-tak): een ingelezen
+   * anker wordt nooit door de vloer overruled, ook niet als het vóór de geconfigureerde
+   * projectstartdatum ligt. De vloer zelf (`rootFloor`) bestaat nog onverkort — maar uitsluitend
+   * nog als ondergrens tegen relatie-leads voor taken MET voorganger (zie `rootFloor`'s
+   * docstring). Een taak zónder voorganger én zónder relatie kan dus vanaf nu vóór de
+   * projectstart staan als het eigen anker dat zegt — exact de MS Project-semantiek die de
+   * fidelity-audit meet.
+   */
+  private ownAnchor(eng: CalendarEngine, scheduleStart: string): Date {
+    return this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
   }
 
   /** De mode-bewuste primitieven die de relatie-wiskunde (`relationMath.ts`, audit P15) injectief
@@ -647,7 +676,10 @@ export class CPMSolver {
     // Vroegste projectstart (= vroegste start onder de taken zónder voorganger, ELK al geklemd op
     // de geconfigureerde projectstartdatum via `rootFloor` — gebruikstest-bevinding 2026-08). Dient
     // als ondergrens zodat een negatieve lag (lead) een taak niet vóór het projectbegin trekt.
-    // Vooraf bepaald, zodat de topologische volgorde de uitkomst niet beïnvloedt.
+    // Vooraf bepaald, zodat de topologische volgorde de uitkomst niet beïnvloedt. Sinds T7 (§9/O2)
+    // is dit de ENIGE plek waar `rootFloor` nog klemt — de eigen ES-tak van een wortel-taak
+    // hieronder gebruikt `ownAnchor` (ongeklemd); deze precompute-lus en `hammockEarlyStart`
+    // (die `projectStart` als basis gebruikt) blijven ongewijzigd.
     let projectStart: Date | null = null;
     for (const t of this.tasks.values()) {
       if ((this.predecessors.get(t.id) || []).length > 0) continue;
@@ -685,11 +717,12 @@ export class CPMSolver {
       let earlyStart: Date;
 
       if (preds.length === 0) {
-        // Geen voorganger: de eigen geplande start, geklemd op de projectstart-vloer (MS Project-
-        // semantiek, gebruikstest-bevinding 2026-08 — `rootFloor`). Een harde MSO/MFO-pin (hieronder
-        // in `applyForwardConstraints`) wint hier nog steeds onvoorwaardelijk: die controleert
-        // `hardPinStart` EERST en retourneert dan meteen, vóór deze vloer ooit gezien wordt.
-        earlyStart = this.rootFloor(cal, task.time.scheduleStart);
+        // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
+        // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
+        // MSO/MFO-pin (hieronder in `applyForwardConstraints`) wint hier nog steeds
+        // onvoorwaardelijk: die controleert `hardPinStart` EERST en retourneert dan meteen, vóór
+        // deze waarde ooit gezien wordt.
+        earlyStart = this.ownAnchor(cal, task.time.scheduleStart);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
         // Fase 2.8b (golf 3): her-snap ná de constraint — spiegelt de voorganger-tak (regel 466).

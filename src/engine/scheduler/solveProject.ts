@@ -39,9 +39,12 @@ export interface SolveProjectInput {
   progressMode?: ProgressMode;
   /** `project.schedulingOptions` — project-scoped reken-opties (fase 2.9). */
   schedulingOptions?: SchedulingOptions;
-  /** `project.startDate` — ondergrens (`rootFloor`) voor taken zonder voorganger: die starten op of
-   *  ná de projectstart, vooruit gesnapt in hun eigen kalender (gebruikstest-bevinding 2026-08).
-   *  Harde constraints (MSO/MFO) winnen van deze vloer. */
+  /** `project.startDate` — ondergrens (`rootFloor`) tegen relatie-leads: een negatieve lag mag een
+   *  opvolger niet vóór de projectstart trekken (gebruikstest-bevinding 2026-08). Harde
+   *  constraints (MSO/MFO) winnen van deze vloer. SINDS T7 (§9/O2) klemt deze optie NIET meer de
+   *  eigen ES van een taak zónder voorganger — die start op zijn eigen, ingelezen `scheduleStart`
+   *  (`ownAnchor`), ook als die vóór de projectstart ligt; "een ingelezen anker wordt nooit door
+   *  de vloer overruled". */
   projectStartDate?: string;
 }
 
