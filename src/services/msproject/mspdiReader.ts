@@ -1,12 +1,12 @@
-import { Task, TaskConstraint, ConstraintType } from '@/types/task';
+import { Task, TaskConstraint, ConstraintType, MilestoneKind } from '@/types/task';
 import { Sequence, SequenceType } from '@/types/sequence';
 import { Resource, ResourceAssignment } from '@/types/resource';
 import { Project } from '@/types/project';
-import { WorkCalendar, Holiday } from '@/types/calendar';
+import { WorkCalendar } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { Baseline, BaselineTask } from '@/types/baseline';
 import { generateId } from '@/utils/id';
-import { formatDate, formatInstant, parseInstant } from '@/utils/dateUtils';
+import { formatDate, formatInstant, parseInstant, parseDate, addCalendarDays, isoDayOfWeek } from '@/utils/dateUtils';
 import { normalizeImportedProgress, rebuildWbsHierarchy } from '@/services/importNormalize';
 import { isoDatePrefixOrToday } from '@/services/importDates';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
@@ -17,6 +17,19 @@ import {
   canonicalizeBands, clockToMinutes, getCalendarBands, hasNonAnchorTime, isSubDayMinutes,
   promoteHourCalendar, registerCalendarBands,
 } from '@/services/subdayIo';
+// T4 (MSPDI-uitzonderingssemantiek, spiegel van mppCalendars.ts's T3) — hergebruikt T3's
+// recurrentie-expansie (`expandRecurrence`) en precedentie-/invariant-motor (`resolveContributions`)
+// rechtstreeks i.p.v. een tweede expansie te bouwen (plan-§T4). `RECURRENCE_TYPES`/`RELATIVE_MAP`/
+// `RECURRENCE_PRECEDENCE_ORDER` zijn LETTERLIJK dezelfde codetabellen als MSPDI's eigen
+// `<Type>`-element gebruikt (geverifieerd tegen `org.mpxj.mspdi.MSPDIReader`'s eigen
+// `RECURRENCE_TYPES`/`RELATIVE_MAP` — byte-voor-byte identiek aan de MPP-tabellen). `MAX_CALENDAR_
+// EXCEPTIONS`/`MAX_HOLIDAY_RANGE_DAYS` zijn dezelfde hardingsklemmen als de MPP-kant, hier hergebruikt
+// i.p.v. een eigen, mogelijk afwijkende marge te verzinnen.
+import {
+  expandRecurrence, resolveContributions, newHolidayBudget, RECURRENCE_TYPES, RELATIVE_MAP,
+  RECURRENCE_PRECEDENCE_ORDER, MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS,
+} from '@/services/mpp/mppCalendars';
+import type { RecurrenceSpec, RecordContribution, HolidayBudget } from '@/services/mpp/mppCalendars';
 
 /** Synthetisch anker dat de DAG-schrijver op date-only datetimes plakt (§7.3). */
 const MSP_TIME_ANCHOR = '08:00:00';
@@ -38,6 +51,34 @@ function getElementInt(parent: Element, tagName: string, fallback = 0): number {
 
 function getElementFloat(parent: Element, tagName: string, fallback = 0): number {
   return toFloat(getElementText(parent, tagName), fallback);
+}
+
+/** T4 (§9/O6-vervolg) — MSPDI-spiegel van mppReader.ts's `deriveMilestoneKind` (T11, `fb385191`,
+ *  niet geëxporteerd daar — dit bestand zit buiten T4's exclusieve scope om te wijzigen, dus hier
+ *  lokaal herhaald met ZELFDE algoritme, bewust GEEN gedragsverschil): een UUR-modus-mijlpaal krijgt
+ *  `milestoneKind` wanneer het opgeslagen anker exact op een bandgrens van de EFFECTIEVE
+ *  (gepromoveerde) kalender ligt — bandbegin ⇒ `'START'`, bandeinde (vandaag, of gisteren over
+ *  middernacht) ⇒ `'FINISH'`. Kijkt uitsluitend naar de kalender-eigen weekdagbanden
+ *  (`cal.workTime.byWeekday`), geen holiday-/werkuitzondering-materialisatie (dat is
+ *  `CalendarEngine`'s taak in de solver, buiten deze lezer se scope). */
+function deriveMspdiMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | undefined {
+  const bands = cal.workTime;
+  if (!bands) return undefined;
+  const wd = isoDayOfWeek(anchor) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  const prevWd = (((wd + 5) % 7) + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7; // wd - 1, gewrapt naar 1..7
+  const minuteOfDay = anchor.getUTCHours() * 60 + anchor.getUTCMinutes();
+  const todays = bands.byWeekday[wd] ?? [];
+  for (const b of todays) {
+    if (b.start === minuteOfDay) return 'START';
+  }
+  for (const b of todays) {
+    if (b.end === minuteOfDay) return 'FINISH';
+  }
+  const yesterdays = bands.byWeekday[prevWd] ?? [];
+  for (const b of yesterdays) {
+    if (b.end > 1440 && b.end - 1440 === minuteOfDay) return 'FINISH';
+  }
+  return undefined;
 }
 
 /** MS Project-datum in DAG-modus (`2026-03-09T08:00:00` → `2026-03-09`); gedeeld met P6 (F5-a). */
@@ -121,7 +162,11 @@ export function readMSPDI(content: string): ImportResult {
 
   // Parse project
   const project = parseProject(root);
-  const calendar = parseCalendar(root);
+  // T4: één gedeeld `HolidayBudget` over ALLE kalenders in dit document (projectkalender + elke
+  // resourcekalender) — zie `applyCalendarBody`'s toelichting (spiegelt mppCalendars.ts's C1-
+  // discipline, `MAX_TOTAL_HOLIDAY_SLOTS`).
+  const holidayBudget = newHolidayBudget();
+  const calendar = parseCalendar(root, holidayBudget);
   const hoursPerDay = calendar.hoursPerDay;
 
   // Resource-kalenders (fase 2.5, §8.2): elk <Calendar>-element in <Calendars> behalve UID 1
@@ -142,7 +187,7 @@ export function readMSPDI(content: string): ImportResult {
       // §8.3: werkweek/uren/feestdagen ook voor bibliotheek-kalenders teruglezen (voorheen alleen
       // naam/id — dezelfde beperking die de projectkalender vóór 2.8a had). MSPDI kent geen
       // regelset-herkomst (verliesmatrix §8.4) — generation blijft altijd undefined.
-      applyCalendarBody(calEl, cal);
+      applyCalendarBody(calEl, cal, holidayBudget);
       delete cal.generation;
       calUidToId.set(uid, cal.id);
       resourceCalendars.push(cal);
@@ -261,6 +306,18 @@ export function readMSPDI(content: string): ImportResult {
     const start = isHour ? parseMSPInstant(getElementText(te, 'Start')) : parseMSPDate(getElementText(te, 'Start'));
     const finish = isHour ? parseMSPInstant(getElementText(te, 'Finish')) : parseMSPDate(getElementText(te, 'Finish'));
     const isMilestone = getElementInt(te, 'Milestone') === 1;
+    // T4 (§9/O6-vervolg) — MSPDI-spiegel van mppReader.ts's T11-afleiding (`fb385191`, niet
+    // geëxporteerd daar, dus hier lokaal herhaald met `deriveMspdiMilestoneKind`, zelfde algoritme):
+    // een UUR-modus-mijlpaal krijgt `milestoneKind` wanneer het opgeslagen anker (finish, of start als
+    // finish ontbreekt — bij een echte mijlpaal, duur 0, zijn beide gelijk) exact op een bandgrens van
+    // de EFFECTIEVE (gepromoveerde) kalender ligt. `finish`/`start` zijn al de juiste, per-taakmodus
+    // geparste waarden (isHour ⇒ `parseMSPInstant`-string, minuutprecisie) — hergebruikt i.p.v. een
+    // tweede DOM-lookup, zodat dit nooit een ANDER Finish-element kan raken dan waar `time.
+    // scheduleFinish` al op gebaseerd is.
+    const effCalForMilestone = calById.get(effCalId);
+    const milestoneKind = isMilestone && isHour && effCalForMilestone
+      ? deriveMspdiMilestoneKind(effCalForMilestone, parseInstant(finish || start))
+      : undefined;
     const percentComplete = getElementInt(te, 'PercentComplete');
     const priority = getElementInt(te, 'Priority', 500);
     const description = getElementText(te, 'Notes');
@@ -323,6 +380,7 @@ export function readMSPDI(content: string): ImportResult {
       taskType: 'CONSTRUCTION',
       status,
       isMilestone,
+      ...(milestoneKind ? { milestoneKind } : {}),
       priority,
       parentId: null,
       childIds: [],
@@ -498,6 +556,185 @@ function parseProject(root: Element): Project {
   return project;
 }
 
+/** Eén RUW gelezen `<Exception>`-element — vóór precedentie-resolutie. Spiegelt `RawException` in
+ *  mppCalendars.ts (T3), maar dan met MSPDI's eigen bronvelden (XML-elementnamen i.p.v. 92-byte-
+ *  offsets) — dát deel kán niet gedeeld worden, de PRECEDENTIE/INVARIANT-resolutie erna wel (zie
+ *  `buildMspdiContributions`/`resolveContributions`). */
+interface MspdiRawException {
+  fromDate: Date;
+  toDate: Date | null;
+  working: boolean;
+  bands: { start: number; end: number }[];
+  name: string;
+  recurring: RecurrenceSpec | null;
+}
+
+/** Poort van `MSPDIReader.readRecurringData` (org.mpxj.mspdi) — MSPDI-equivalent van
+ *  mppCalendars.ts's `readRecurringData`, maar leest genaamde XML-elementen i.p.v. byte-offsets.
+ *  `<Type>` draagt LETTERLIJK dezelfde codewaarde als MPP se `recurrenceTypeValue` (geverifieerd
+ *  tegen de MPXJ-bron — `RECURRENCE_TYPES`/`RELATIVE_MAP` zijn daarom hergebruikt, niet gekopieerd).
+ *  Retourneert `null` voor een out-of-range/afwezig `<Type>` ÉÉN voor een geflattende DAILY-
+ *  recurrentie (frequentie 1 — spiegelt MSPDIReader se eigen slotblok: "flatten daily recurring
+ *  exceptions if they only result in one date range"). */
+function readMspdiRecurringData(exc: Element, fromDate: Date, toDate: Date | null): RecurrenceSpec | null {
+  const typeValue = getElementInt(exc, 'Type', 0);
+  const type = typeValue >= 0 && typeValue < RECURRENCE_TYPES.length ? RECURRENCE_TYPES[typeValue] : null;
+  if (type === null) return null;
+  const relative = typeValue < RELATIVE_MAP.length ? RELATIVE_MAP[typeValue] : false;
+  const occurrences = getElementInt(exc, 'Occurrences', 0);
+  // `getFrequency` (MSPDIReader.java): `<Period>` afwezig ⇒ 1 — spiegelt mppCalendars.ts's
+  // DAILY-`@76`-asymmetrie functioneel (bij een niet-recurrente Type=1-export schrijft MSPDIWriter
+  // nooit `<Period>`, dus de default-1 hier heeft hetzelfde effect als MPP se harde `frequency=1`
+  // bij recurrenceTypeValue===1).
+  const period = getElementInt(exc, 'Period', 1);
+
+  let frequency = 1;
+  let weeklyDayMask = 0;
+  let dayNumber = 0;
+  let dayOfWeekValue = 0;
+  let monthNumber = 0;
+
+  switch (type) {
+    case 'DAILY':
+      frequency = period;
+      break;
+    case 'WEEKLY':
+      // `<DaysOfWeek>` is al de bitmap in DAY_MASKS-layout (bit0=zondag..bit6=zaterdag) — zelfde
+      // conventie als MPP se `weeklyDayMask` (geverifieerd: MSPDIReader se `DAY_MASKS` is byte-voor-
+      // byte gelijk aan mppCalendars.ts's aanname), dus geen vertaalslag nodig.
+      weeklyDayMask = getElementInt(exc, 'DaysOfWeek', 0);
+      frequency = period;
+      break;
+    case 'MONTHLY':
+      if (relative) {
+        dayOfWeekValue = getElementInt(exc, 'MonthItem', 0) - 2;
+        dayNumber = getElementInt(exc, 'MonthPosition', 0) + 1;
+      } else {
+        dayNumber = getElementInt(exc, 'MonthDay', 0);
+      }
+      frequency = period;
+      break;
+    case 'YEARLY':
+      if (relative) {
+        dayOfWeekValue = getElementInt(exc, 'MonthItem', 0) - 2;
+        dayNumber = getElementInt(exc, 'MonthPosition', 0) + 1;
+      } else {
+        dayNumber = getElementInt(exc, 'MonthDay', 0);
+      }
+      monthNumber = getElementInt(exc, 'Month', 0) + 1;
+      // MSPDIReader leest hier GEEN `<Period>` (YEARLY kent geen frequentie-veld in het schema) —
+      // `frequency` blijft op de default (1), ongebruikt door `expandRecurrence`'s YEARLY-tak.
+      break;
+  }
+
+  if (type === 'DAILY' && frequency === 1) return null; // flatten, spiegelt MSPDIReader
+  return { type, relative, startDate: fromDate, finishDate: toDate, occurrences, frequency, weeklyDayMask, dayNumber, dayOfWeekValue, monthNumber };
+}
+
+/** Leest alle `<Exception>`-elementen van één `<Calendar>` in RUWE vorm — geklemd op
+ *  `MAX_CALENDAR_EXCEPTIONS` (gedeeld met mppCalendars.ts, zie de importtoelichting bovenaan dit
+ *  bestand). Spiegelt MSPDIReader.readException's guard: een record zonder BEIDE FromDate/ToDate
+ *  wordt overgeslagen ("Vico Schedule Planner"-leeg-record-guard); een record met een fromDate maar
+ *  zonder toDate is alleen bruikbaar als het een RECURRENTE (occurrences-begrensde) uitzondering is
+ *  — een niet-recurrent bereik heeft een expliciet einde nodig (spiegelt mppCalendars.ts's
+ *  `readRawExceptions`: "Niet-recurrent ZONDER toDate wordt overgeslagen"). */
+function readRawMspdiExceptions(calEl: Element): MspdiRawException[] {
+  const exceptionsRoot = calEl.getElementsByTagName('Exceptions')[0];
+  if (!exceptionsRoot) return [];
+  const exceptionEls = exceptionsRoot.getElementsByTagName('Exception');
+  const out: MspdiRawException[] = [];
+  const limit = Math.min(exceptionEls.length, MAX_CALENDAR_EXCEPTIONS); // zie MAX_CALENDAR_EXCEPTIONS (mppCalendars.ts)
+  for (let i = 0; i < limit; i++) {
+    const exc = exceptionEls[i];
+    if (exc.parentElement !== exceptionsRoot) continue;
+
+    const timePeriod = exc.getElementsByTagName('TimePeriod')[0];
+    if (!timePeriod) continue;
+    const fromDateRaw = getElementText(timePeriod, 'FromDate');
+    const toDateRaw = getElementText(timePeriod, 'ToDate');
+    if (!fromDateRaw && !toDateRaw) continue; // beide leeg — spiegelt MSPDIReader's Vico-guard
+    if (!fromDateRaw) continue; // startdatum is altijd vereist om te kunnen materialiseren
+
+    const fromDate = parseDate(parseMSPDate(fromDateRaw));
+    const toDate = toDateRaw ? parseDate(parseMSPDate(toDateRaw)) : null;
+
+    const dayWorking = getElementInt(exc, 'DayWorking', 0) === 1;
+    const name = getElementText(exc, 'Name');
+
+    const bands: { start: number; end: number }[] = [];
+    if (dayWorking) {
+      const timesRoot = exc.getElementsByTagName('WorkingTimes')[0];
+      if (timesRoot) {
+        const workingTimeEls = timesRoot.getElementsByTagName('WorkingTime');
+        for (let k = 0; k < workingTimeEls.length; k++) {
+          const wt = workingTimeEls[k];
+          if (wt.parentElement !== timesRoot) continue;
+          const s = clockToMinutes(getElementText(wt, 'FromTime'));
+          const e = clockToMinutes(getElementText(wt, 'ToTime'));
+          if (s != null && e != null) bands.push({ start: s, end: e });
+        }
+      }
+    }
+
+    const recurring = readMspdiRecurringData(exc, fromDate, toDate);
+    if (!recurring && !toDate) continue; // niet-recurrent bereik zonder einddatum: geen bruikbaar bereik
+
+    out.push({ fromDate, toDate, working: dayWorking, bands, name, recurring });
+  }
+  return out;
+}
+
+/** Groepeert `raw` in `RecordContribution`'s, in DEZELFDE precedentie-volgorde als mppCalendars.ts's
+ *  `buildContributions` (WEEKLY→MONTHLY→YEARLY→DAILY, dan niet-recurrent) — de RUWE-record-vorm is
+ *  MSPDI-eigen, maar de contributie-opbouw (recurrent via `expandRecurrence`, niet-recurrent als
+ *  geklemd dag-voor-dag-bereik via `MAX_HOLIDAY_RANGE_DAYS`) is een BEWUSTE spiegeling — geen eigen
+ *  klemwaarde, dezelfde geïmporteerde constante als de MPP-kant, zodat de twee paden niet stil uit
+ *  de pas kunnen lopen. Het resultaat gaat naar `resolveContributions` (T3, hergebruikt) voor de
+ *  daadwerkelijke precedentie-/invariant-resolutie — die logica wordt hier NIET herhaald. */
+function buildMspdiContributions(raw: MspdiRawException[]): RecordContribution[] {
+  const contributions: RecordContribution[] = [];
+  const recurringByType = new Map<RecurrenceSpec['type'], MspdiRawException[]>();
+  const nonRecurring: MspdiRawException[] = [];
+  for (const exc of raw) {
+    if (exc.recurring) {
+      const bucket = recurringByType.get(exc.recurring.type);
+      if (bucket) bucket.push(exc);
+      else recurringByType.set(exc.recurring.type, [exc]);
+    } else if (exc.toDate) {
+      nonRecurring.push(exc);
+    }
+  }
+
+  for (const type of RECURRENCE_PRECEDENCE_ORDER) {
+    for (const exc of recurringByType.get(type) ?? []) {
+      const rd = exc.recurring;
+      /* v8 ignore next */
+      if (!rd) continue; // defensief onbereikbaar — bucket is al op recurring-aanwezigheid gefilterd
+      contributions.push({ ownDates: expandRecurrence(rd), working: exc.working, bands: exc.bands, name: exc.name });
+    }
+  }
+
+  for (const exc of nonRecurring) {
+    const toDate = exc.toDate as Date; // gegarandeerd niet-null door het filter hierboven
+    let clampedTo = toDate;
+    const rangeDays = Math.round((toDate.getTime() - exc.fromDate.getTime()) / 86_400_000);
+    if (rangeDays >= MAX_HOLIDAY_RANGE_DAYS) {
+      clampedTo = addCalendarDays(exc.fromDate, MAX_HOLIDAY_RANGE_DAYS - 1);
+    } else if (rangeDays < 0) {
+      clampedTo = exc.fromDate; // omgekeerd bereik: degradeer naar 1 dag i.p.v. een lege/negatieve marge
+    }
+    const ownDates: Date[] = [];
+    let cursor = exc.fromDate;
+    while (cursor.getTime() <= clampedTo.getTime()) {
+      ownDates.push(cursor);
+      cursor = addCalendarDays(cursor, 1);
+    }
+    contributions.push({ ownDates, working: exc.working, bands: exc.bands, name: exc.name });
+  }
+
+  return contributions;
+}
+
 /**
  * Werkdagen/uren/feestdagen uit een `<Calendar>`-element in `calendar` toepassen (spiegel van
  * `writeCalendarBlock`) — gedeeld tussen de projectkalender (`parseCalendar`) en elke
@@ -505,8 +742,15 @@ function parseProject(root: Element): Project {
  * hun eigen werkweek/uren/feestdagen terug — dezelfde beperkte lezing als de projectkalender vóór
  * 2.8a). Golden rule: ontbrekende WeekDay/WorkingTime/Exception-elementen laten de
  * `createDefaultCalendar()`-defaults ongemoeid.
+ *
+ * `budget` (T4) — één gedeeld `HolidayBudget` over ALLE kalenders in één `readMSPDI`-aanroep (zie de
+ * aanroepplekken in `parseCalendar`/`readMSPDI`) — spiegelt mppCalendars.ts's C1-discipline
+ * (`MAX_TOTAL_HOLIDAY_SLOTS`): zonder gedeeld budget zou N kalenders × M uitzonderingen elk apart
+ * binnen `MAX_CALENDAR_EXCEPTIONS` kunnen blijven maar SAMEN alsnog een onbegrensde totale
+ * dag-voor-dag-materialisatie kunnen forceren (dezelfde klasse bug die T6-kwaliteitsreview C1 voor
+ * MPP al vond — hier voorkomen vóórdat hij ooit bestond, niet achteraf gefixt).
  */
-function applyCalendarBody(calEl: Element, calendar: WorkCalendar): void {
+function applyCalendarBody(calEl: Element, calendar: WorkCalendar, budget: HolidayBudget): void {
   // Parse work days from WeekDay elements
   const weekDays = calEl.getElementsByTagName('WeekDay');
   const workDays: number[] = [];
@@ -561,28 +805,26 @@ function applyCalendarBody(calEl: Element, calendar: WorkCalendar): void {
   const { bands, deviates } = canonicalizeBands(rawByWeekday);
   registerCalendarBands(calendar, { canonical: bands, deviates });
 
-  // Parse exceptions (holidays)
-  const exceptions = calEl.getElementsByTagName('Exception');
-  const holidays: Holiday[] = [];
-  for (let i = 0; i < exceptions.length; i++) {
-    const exc = exceptions[i];
-    const dayWorking = getElementInt(exc, 'DayWorking');
-    if (dayWorking === 0) {
-      const name = getElementText(exc, 'Name') || 'Holiday';
-      const timePeriods = exc.getElementsByTagName('TimePeriod');
-      if (timePeriods.length > 0) {
-        const fromDate = parseMSPDate(getElementText(timePeriods[0], 'FromDate'));
-        const toDate = parseMSPDate(getElementText(timePeriods[0], 'ToDate'));
-        holidays.push({ name, startDate: fromDate, endDate: toDate });
-      }
-    }
-  }
-  if (holidays.length > 0) {
+  // T4: uitzonderingen (holidays + werkende uitzonderingen + recurrente expansie) — hergebruikt T3's
+  // `resolveContributions` voor de precedentie-/invariant-resolutie (zie de toelichting bij
+  // `buildMspdiContributions` hierboven). Golden rule ONGEWIJZIGD: 0 `<Exception>`-elementen in het
+  // bestand ⇒ `createDefaultCalendar()`'s NL-feestdagen-default blijft ongemoeid — de override-
+  // beslissing hangt daarom af van `rawExceptions.length` (zag het bestand ÉCHTE uitzonderingsdata),
+  // niet van de RESOLVED output-lengte (die kan 0 zijn terwijl het bestand wél degelijk data droeg,
+  // bv. een kalender met uitsluitend werkende uitzonderingen en 0 feestdagen).
+  const rawExceptions = readRawMspdiExceptions(calEl);
+  if (rawExceptions.length > 0) {
+    const contributions = buildMspdiContributions(rawExceptions);
+    const { holidays, workingExceptions } = resolveContributions(contributions, budget);
     calendar.holidays = holidays;
+    // Spiegelt mppCalendars.ts: `workingExceptions` blijft AFWEZIG (niet `[]`) wanneer leeg — byte-
+    // identiek gedrag met vóór deze taak voor elke kalender zonder werkende uitzonderingen.
+    if (workingExceptions.length > 0) calendar.workingExceptions = workingExceptions;
+    else delete calendar.workingExceptions;
   }
 }
 
-function parseCalendar(root: Element): WorkCalendar {
+function parseCalendar(root: Element, budget: HolidayBudget): WorkCalendar {
   const calElements = root.getElementsByTagName('Calendar');
   if (calElements.length === 0) return createDefaultCalendar();
 
@@ -594,7 +836,7 @@ function parseCalendar(root: Element): WorkCalendar {
   // (nieuwe projecten zijn per definitie gegenereerd); een uit MSPDI gelezen kalender is dat niet.
   delete calendar.generation;
 
-  applyCalendarBody(cal, calendar);
+  applyCalendarBody(cal, calendar, budget);
 
   // Parse minutes per day from project level — authoritatief, overschrijft de
   // WorkingTime-afgeleide waarde uit applyCalendarBody (bestaand gedrag).

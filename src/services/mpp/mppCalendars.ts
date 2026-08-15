@@ -372,7 +372,7 @@ export interface ParsedExceptions {
  *  flatten-beslissing in `readRawExceptions` toetst bewust op de RAUWE `frequency`-waarde (identiek
  *  aan MPXJ's eigen volgorde: eerst de flatten-check op het ongeklemde veld, dan pas populateDates'
  *  eigen clamp). */
-interface RecurrenceSpec {
+export interface RecurrenceSpec {
   type: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   relative: boolean;
   startDate: Date;
@@ -391,17 +391,26 @@ interface RecurrenceSpec {
  *  `getRecurrenceType(value)===null`-uitkomst, die in de praktijk 0 datums oplevert
  *  (`RecurringData.populateDates`'s switch kent geen default-tak), dus functioneel gelijk aan "geen
  *  recurrentie" — `readRecurringData` hieronder retourneert in dat geval `null`. */
-const RECURRENCE_TYPES: ReadonlyArray<RecurrenceSpec['type'] | null> = [
+// T4 (MSPDI-pariteit) — geëxporteerd (was module-lokaal): `MSPDIReader.java`'s eigen
+// `RECURRENCE_TYPES`/`RELATIVE_MAP`-tabellen zijn LETTERLIJK dezelfde array's als hier (geverifieerd
+// tegen de MPXJ-bron, `mspdi/MSPDIReader.java`) — MSPDI's `<Type>`-element draagt exact dezelfde
+// codewaarde als MPP se `recurrenceTypeValue`. `mspdiReader.ts` hergebruikt daarom deze tabellen
+// rechtstreeks i.p.v. een eigen kopie te onderhouden die stil uit de pas kan lopen. Puur additief —
+// geen gedragswijziging aan de MPP-kant.
+export const RECURRENCE_TYPES: ReadonlyArray<RecurrenceSpec['type'] | null> = [
   null, 'DAILY', 'YEARLY', 'YEARLY', 'MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY',
 ];
 /** `RELATIVE_MAP` (idem) — index 3 (YEARLY-relatief) en 5 (MONTHLY-relatief) zijn `true`; alles
  *  erbuiten (incl. WEEKLY=6, DAILY=7, en elke out-of-range index) `false` — spiegelt Java's eigen
- *  `value>=RELATIVE_MAP.length ⇒ false`-terugval (het array is bewust maar 6 lang). */
-const RELATIVE_MAP: ReadonlyArray<boolean> = [false, false, false, true, false, true];
+ *  `value>=RELATIVE_MAP.length ⇒ false`-terugval (het array is bewust maar 6 lang). Geëxporteerd
+ *  (T4) om dezelfde reden als `RECURRENCE_TYPES` hierboven. */
+export const RELATIVE_MAP: ReadonlyArray<boolean> = [false, false, false, true, false, true];
 /** `ORDERED_RECURRENCE_TYPES` (ProjectCalendar.java) — de precedentie-volgorde waarin recurrente
  *  uitzonderingsGROEPEN over elkaar heen worden gelegd (latere groep wint per datum) vóórdat de
- *  niet-recurrente uitzonderingen als hoogste-prioriteitslaag overheen gaan. */
-const RECURRENCE_PRECEDENCE_ORDER: ReadonlyArray<RecurrenceSpec['type']> = ['WEEKLY', 'MONTHLY', 'YEARLY', 'DAILY'];
+ *  niet-recurrente uitzonderingen als hoogste-prioriteitslaag overheen gaan. Geëxporteerd (T4): MSPDI
+ *  kent DEZELFDE precedentie-eis (plan-§T4) en moet dezelfde volgorde-constante gebruiken, niet een
+ *  losse kopie die uit de pas kan lopen. */
+export const RECURRENCE_PRECEDENCE_ORDER: ReadonlyArray<RecurrenceSpec['type']> = ['WEEKLY', 'MONTHLY', 'YEARLY', 'DAILY'];
 
 /** Losse, grens-gecontroleerde ENKELE-byte-lezer — `mppPrimitives.ts` exporteert alleen
  *  `getShort`/`getInt` (2/4 bytes); de MONTHLY/YEARLY-recurrentievelden (`+76`/`+77`/`+78`) zijn
@@ -771,8 +780,11 @@ function readRawExceptions(data: Uint8Array, ctx: string): RawException[] {
  *  [fromDate,clampedToDate] (bestaand T6-gedrag, ONGEWIJZIGD qua bereik-klem — zie
  *  `MAX_HOLIDAY_RANGE_DAYS`). Draagt tevens de WAARDE die deze bron voor elke dag in die lijst
  *  claimt (`working`/`bands`/`name`) — `resolveExceptions` beslist per datum of die claim de
- *  autoriteitskaart wint. */
-interface RecordContribution {
+ *  autoriteitskaart wint. Geëxporteerd (T4): `mspdiReader.ts` bouwt zijn EIGEN ruwe-record-opbouw
+ *  (XML-elementnamen i.p.v. 92-byte-offsets — dát deel kan niet gedeeld worden) maar geeft het
+ *  resultaat aan dezelfde `resolveContributions` door, zodat de precedentie-/invariant-garantie
+ *  niet in een tweede, potentieel-divergerende implementatie hoeft te worden herbouwd. */
+export interface RecordContribution {
   ownDates: Date[];
   working: boolean;
   bands: { start: number; end: number }[];
@@ -858,8 +870,10 @@ function isNextCalendarDay(prevIso: string, iso: string): boolean {
  *  BYTE-IDENTIEKE output aan vóór deze taak: één entry per record, ONGEACHT of een ANDER,
  *  ongerelateerd record toevallig een aangrenzende datum claimt (dat wordt NOOIT meegenomen in
  *  dezelfde entry — samenvoeging gebeurt uitsluitend BINNEN de dagenlijst van ÉÉN contributie, nooit
- *  ACROSS records). */
-function resolveContributions(contributions: RecordContribution[], budget: HolidayBudget): ParsedExceptions {
+ *  ACROSS records). Geëxporteerd (T4) — zie `RecordContribution`'s toelichting: dit is de gedeelde
+ *  precedentie-/invariant-motor die `mspdiReader.ts` rechtstreeks hergebruikt in plaats van een
+ *  tweede expansie te bouwen. */
+export function resolveContributions(contributions: RecordContribution[], budget: HolidayBudget): ParsedExceptions {
   const authority = new Map<string, number>(); // ISO-datum → winnende contributie-index
   outer: for (let i = 0; i < contributions.length; i++) {
     for (const date of contributions[i].ownDates) {

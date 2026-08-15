@@ -336,6 +336,114 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
   }
 }
 
+// ══ T4 (fase 3.8, MSP-pariteit, baan K) — MSPDI-uitzonderingssemantiek ═══════════════════════════
+// mspdiReader.ts leest sinds T4 dezelfde uitzonderingssemantiek uit <Exception> als mppCalendars.ts
+// (T3) uit het 92-byte MPP-blok: DayWorking=1 + <WorkingTimes> → WorkingException met banden;
+// <Type> (recurrent) wordt geëxpandeerd via T3's `expandRecurrence`/`resolveContributions`
+// (rechtstreeks hergebruikt, geen tweede expansie). writeMSPDI schrijft dit nog niet (buiten T4's
+// scope, alleen de READER), dus deze fixtures zijn hand-gebouwde MSPDI-XML-strings — niet via
+// writeMSPDI geproduceerd, wél binnen het schema zoals MSPDIWriter.java het daadwerkelijk emitteert
+// (geverifieerd tegen de MPXJ-bron, zie mspdiReader.ts's importtoelichting).
+{
+  const weekdayXml = (dayType: number): string => `<WeekDay><DayType>${dayType}</DayType><DayWorking>1</DayWorking>` +
+    `<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>`;
+  // MSP-dagtype: 1=zo..7=za — 2..6 = ma..vr (spiegelt de bestaande DayType-conversie in applyCalendarBody).
+  const monVriWeekDays = [2, 3, 4, 5, 6].map(weekdayXml).join('');
+  const mkDoc = (exceptionsXml: string, tasksXml = ''): string => `<?xml version="1.0"?>
+<Project>
+  <StartDate>2026-01-01T00:00:00</StartDate>
+  <FinishDate>2026-12-31T00:00:00</FinishDate>
+  <Calendars>
+    <Calendar>
+      <UID>1</UID>
+      <Name>T4-test</Name>
+      <WeekDays>${monVriWeekDays}</WeekDays>
+      <Exceptions>${exceptionsXml}</Exceptions>
+    </Calendar>
+  </Calendars>
+  ${tasksXml}
+</Project>`;
+
+  // (a) DayWorking=1 + <WorkingTimes> (niet-recurrent) → WorkingException met banden, GEEN holiday.
+  //     Plan-§T4-acceptatie 1. 2026-01-10 is een zaterdag (niet-werk-weekdag) — de uitzondering maakt
+  //     'm werkend met eigen 06:00-12:00-banden i.p.v. de standaard 08:00-17:00.
+  {
+    const xml = mkDoc(
+      '<Exception><Name>Werkende zaterdag</Name><DayWorking>1</DayWorking>' +
+      '<TimePeriod><FromDate>2026-01-10T00:00:00</FromDate><ToDate>2026-01-10T00:00:00</ToDate></TimePeriod>' +
+      '<WorkingTimes><WorkingTime><FromTime>06:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime></WorkingTimes></Exception>',
+    );
+    const cal = readMSPDI(xml).calendar;
+    eq('T4 DayWorking=1: 0 holidays', cal.holidays.length, 0);
+    assert((cal.workingExceptions ?? []).length === 1, 'T4 DayWorking=1: 1 workingException');
+    const w = (cal.workingExceptions ?? [])[0];
+    eq('T4 DayWorking=1: datum', [w?.startDate, w?.endDate], ['2026-01-10', '2026-01-10']);
+    eq('T4 DayWorking=1: banden 06:00-12:00', w?.bands, [{ start: 360, end: 720 }]);
+  }
+
+  // (b) Recurrente uitzondering (<Type>) wordt geëxpandeerd — plan-§T4-acceptatie "recurrente
+  //     exceptie wordt geëxpandeerd". Type=2 = YEARLY-absoluut (RECURRENCE_TYPES, hergebruikt van
+  //     mppCalendars.ts); MonthDay=1/Month=0 (→ monthNumber=1) = "elk jaar 1 januari". Venster
+  //     2020-01-01..2022-12-31 — zelfde fixture-wiskunde als T3's directe expandRecurrence-test in
+  //     check-mpp-calendars.ts (3 datums: 2020/2021/2022, telkens 1 januari), hier via de MSPDI-
+  //     leeskant bewezen i.p.v. rechtstreeks op expandRecurrence.
+  {
+    const xml = mkDoc(
+      '<Exception><Name>Nieuwjaar</Name><DayWorking>0</DayWorking>' +
+      '<TimePeriod><FromDate>2020-01-01T00:00:00</FromDate><ToDate>2022-12-31T00:00:00</ToDate></TimePeriod>' +
+      '<Type>2</Type><MonthDay>1</MonthDay><Month>0</Month></Exception>',
+    );
+    const cal = readMSPDI(xml).calendar;
+    assert(cal.holidays.length === 3, `T4 YEARLY-recurrentie: 3 holidays (kreeg ${cal.holidays.length})`);
+    const dates = cal.holidays.map((h) => h.startDate).sort();
+    eq('T4 YEARLY-recurrentie: exacte datums', dates, ['2020-01-01', '2021-01-01', '2022-01-01']);
+  }
+
+  // (c) Precedentie: recurrente WERKENDE uitzondering (elk jaar 1 januari) + niet-recurrente
+  //     FEESTDAG op dezelfde datum, LATER in het document → de niet-recurrente laag wint over de
+  //     recurrente, ONGEACHT working/holiday-richting (T3's precedentie is symmetrisch: niet-
+  //     recurrent > elke recurrente groep). Spiegelt check-mpp-calendars.ts's "MET niet-recurrente
+  //     laag"-precedentietest, hier met omgekeerde working/holiday-rollen voor variatie.
+  {
+    const xml = mkDoc(
+      '<Exception><Name>Jaarlijkse werkdag</Name><DayWorking>1</DayWorking>' +
+      '<TimePeriod><FromDate>2020-01-01T00:00:00</FromDate><ToDate>2020-12-31T00:00:00</ToDate></TimePeriod>' +
+      '<Type>2</Type><MonthDay>1</MonthDay><Month>0</Month>' +
+      '<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime></WorkingTimes></Exception>' +
+      '<Exception><Name>Override-feestdag</Name><DayWorking>0</DayWorking>' +
+      '<TimePeriod><FromDate>2020-01-01T00:00:00</FromDate><ToDate>2020-01-01T00:00:00</ToDate></TimePeriod></Exception>',
+    );
+    const cal = readMSPDI(xml).calendar;
+    const holidayHit = cal.holidays.some((h) => h.startDate <= '2020-01-01' && '2020-01-01' <= h.endDate);
+    const workingHit = (cal.workingExceptions ?? []).some((w) => w.startDate <= '2020-01-01' && '2020-01-01' <= w.endDate);
+    assert(Number(holidayHit) + Number(workingHit) === 1, 'T4 precedentie: 2020-01-01 in precies één van de twee arrays');
+    assert(holidayHit && !workingHit, 'T4 precedentie: niet-recurrent (feestdag) wint over recurrent (werkend)');
+  }
+
+  // (d) T11-spiegel: MSPDI-kant van milestoneKind (§9/O6-vervolg) — een UUR-modus-mijlpaal krijgt
+  //     'FINISH' wanneer het anker op een bandeinde landt, 'START' op een bandbegin; een gewone taak
+  //     blijft ongemoeid. 2026-01-06 = dinsdag, 2026-01-07 = woensdag (beide ma-vr-werkdagen op de
+  //     08:00-17:00-kalender hierboven). Task 1's 17:00-anker triggert het (c)-uurmodus-signaal voor
+  //     de HELE kalender (MSP_TIME_ANCHOR='08:00:00' — 17:00 is geen anker-tijd), dus task 2 en 3
+  //     (op dezelfde kalender) draaien automatisch ook in uurmodus.
+  {
+    const tasksXml = `<Tasks>
+      <Task><UID>1</UID><Name>MijlpaalFinish</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone>
+        <Duration>PT0H0M0S</Duration><Start>2026-01-06T17:00:00</Start><Finish>2026-01-06T17:00:00</Finish></Task>
+      <Task><UID>2</UID><Name>MijlpaalStart</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone>
+        <Duration>PT0H0M0S</Duration><Start>2026-01-07T08:00:00</Start><Finish>2026-01-07T08:00:00</Finish></Task>
+      <Task><UID>3</UID><Name>GewoneTaak</Name><OutlineLevel>1</OutlineLevel><Milestone>0</Milestone>
+        <Duration>PT8H0M0S</Duration><Start>2026-01-06T08:00:00</Start><Finish>2026-01-06T17:00:00</Finish></Task>
+    </Tasks>`;
+    const xml = mkDoc('', tasksXml);
+    const tasks = readMSPDI(xml).tasks;
+    const byName = new Map(tasks.map((t) => [t.name, t]));
+    eq('T4 milestoneKind: bandeinde (17:00) → FINISH', byName.get('MijlpaalFinish')?.milestoneKind, 'FINISH');
+    eq('T4 milestoneKind: bandbegin (08:00) → START', byName.get('MijlpaalStart')?.milestoneKind, 'START');
+    eq('T4 milestoneKind: gewone taak blijft ongezet', byName.get('GewoneTaak')?.milestoneKind, undefined);
+  }
+}
+
 if (fails === 0) {
   console.log(`OK  adapters-hours: alle checks groen (${checks})`);
   process.exit(0);
