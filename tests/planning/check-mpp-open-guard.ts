@@ -18,20 +18,22 @@
 //  A.  ALTIJD (geen corpus nodig): IFC door dezelfde open-route krijgt WÉL een opslagdoel (contrast).
 //  A2. ALTIJD: CSV door dezelfde open-route krijgt GEEN opslagdoel.
 //  A3. ALTIJD: MS-Project-XML (MSPDI) door dezelfde open-route krijgt GEEN opslagdoel.
-//  B.  CORPUS-GEDREVEN (skip-OK zonder corpus, zelfde conventie als check-mpp-import.ts): een echt
-//      `.mpp`-bestand door de open-route — bewijst dat na een geslaagde MPP-open `filePath`/
-//      `fileHandle` leeg blijven, terwijl taken/kalender/CPM wél degelijk geladen/herrekend zijn.
+//  B.  CORPUS-GEDREVEN (skip-OK zonder corpus, zelfde conventie als check-mpp-import.ts): ELK
+//      `.mpp`-bestand in het corpus door de open-route — bewijst dat na een geslaagde MPP-open
+//      `filePath`/`fileHandle` leeg blijven, terwijl taken/kalender/CPM wél degelijk geladen/
+//      herrekend zijn (T11: alle drie ground-truth-bestanden, niet meer één handmatig gekozen
+//      "veilig" bestand — zie de toelichting bij Part B hieronder).
 //
 // Draait via run.sh. Exit 0 = alles groen.
 //
 // DEKKINGSKAART (T9 — dit bestand toetst GEEN mpp-domeindata, alleen het opslagdoel-gedrag van de
-// open-route): A/A2/A3 → SYNTHETISCH (in-memory stubs, altijd); B → CORPUS (1 bestand, `.mpp`-
-// alleen — géén crawl-sectie, want dit is geen lezer-correctheidscheck). Zie check-mpp-import.ts,
-// check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten van de mpp-lezer zelf
-// (CFB/container/primitieven/taken/kalenders/relaties/resources/assignments).
+// open-route): A/A2/A3 → SYNTHETISCH (in-memory stubs, altijd); B → CORPUS (alle beschikbare
+// bestanden, `.mpp`-alleen — géén crawl-sectie, want dit is geen lezer-correctheidscheck). Zie
+// check-mpp-import.ts, check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten
+// van de mpp-lezer zelf (CFB/container/primitieven/taken/kalenders/relaties/resources/
+// assignments).
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readMPP } from '@/services/mpp/mppReader';
 import { installDOMParser } from './xmldom-shim';
 
 // ── Headless browser-stubs (vóór de eerste store-import) ─────────────────────────────────────
@@ -172,66 +174,40 @@ installDOMParser(); // readMSPDI (via parseProjectXml) gebruikt de browser-DOMPa
 }
 
 // ── B. Corpus-gedreven: .mpp door de open-route ───────────────────────────────────────────────
+//
+// T11 (stap 1g): dit deel testte ooit alleen het EERSTE corpusbestand ZONDER een relatie op een
+// niet-leaf (WBS-samenvattings-)taak — `CPMSolver.topologicalSort()`/`forwardPass` crashte vóór
+// de CPM-fix op zo'n relatie (`s.sequences` gaat ongefilterd de solver in, ook al filtert
+// `runCPM` de taakinvoer zelf op leaf-taken). Die fix is geland (04909f36: samenvattingsrelaties
+// propageren naar leaf-taken; 130e7750: voorouder-guard + terugvouwing) en gereviewd — het
+// `findSafeCorpusFile`-filter dat om die crash heen koos is nu dood gewicht. Alle drie
+// ground-truth-bestanden lopen hieronder door de ECHTE open-route (incl. 'Bijlage 13
+// Productieplanning.mpp', die wél zo'n relatie draagt), net als check-mpp-import.ts/-relations.ts
+// al deden.
 const CORPUS =
   process.env.OPS_MPP_CORPUS ??
   '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
 const corpusPresent = existsSync(CORPUS);
 const corpusFiles = corpusPresent ? readdirSync(CORPUS).filter((f) => f.toLowerCase().endsWith('.mpp')) : [];
 
-// Kies het EERSTE corpusbestand waarvan geen enkele relatie een niet-leaf (WBS-samenvattings-)taak
-// raakt. `runCPM` filtert de solver-invoer op leaf-taken (`scheduleSlice.ts`: `s.tasks.filter(t =>
-// t.childIds.length === 0)`), maar geeft `s.sequences` ONGEFILTERD mee — een relatie die een
-// samenvattingstaak als voor-/opvolger heeft (geverifieerd op dit corpus: 'Bijlage 13
-// Productieplanning.mpp' heeft dat, de andere twee niet) laat `CPMSolver.topologicalSort()` een
-// niet-bestaand taak-id in de queue duwen, en `forwardPass` crasht dan op `this.tasks.get(taskId)!`.
-// Dat is een bestaand, MPP-onafhankelijk scheduler-gat (elk formaat met zo'n relatie zou het raken)
-// — buiten de scope van T8 (registratie/bedrading). Deze check kiest daarom bewust een corpusbestand
-// zonder die relatievorm, zodat hij zuiver de opslagdoel-guard bewijst i.p.v. op een ongerelateerde
-// bug te stranden; zie het rapport van T8 voor de doorverwijzing (achtergrondtaak "Fix CPMSolver
-// crash on relations touching WBS-summary tasks").
-// TODO(T11): zodra die CPM-fix geland is, mag dit filter (en `findSafeCorpusFile` zelf) weg — dan
-// kan Part B gewoon het EERSTE corpusbestand nemen, net als check-mpp-import.ts/-relations.ts doen.
-function findSafeCorpusFile(): string | null {
-  for (const name of corpusFiles) {
-    try {
-      const bytes = new Uint8Array(readFileSync(join(CORPUS, name)));
-      const parsed = readMPP(bytes);
-      const leafIds = new Set(parsed.tasks.filter((t) => t.childIds.length === 0).map((t) => t.id));
-      const touchesNonLeaf = parsed.sequences.some(
-        (s) => !leafIds.has(s.predecessorId) || !leafIds.has(s.successorId),
-      );
-      if (!touchesNonLeaf && parsed.tasks.length > 0) return name;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-const safeCorpusFile = corpusPresent ? findSafeCorpusFile() : null;
-
 if (!corpusPresent || corpusFiles.length === 0) {
   console.log('OK  mpp-open-guard: corpus niet aanwezig (OPS_MPP_CORPUS) — corpusdeel overgeslagen');
-} else if (!safeCorpusFile) {
-  // T8-spec-review (F3): dit is GEEN stille-skip-situatie — het corpus IS aanwezig. Geen enkel
-  // bestand zonder samenvattingstaak-relatie vinden is een echte regressie (bv. een gewijzigd
-  // corpus, of de CPM-fix uit de TODO hierboven loste het probleem niet daadwerkelijk op) en hoort
-  // dus XX te zijn, niet een zwijgend-groene OK.
-  checks++;
-  diffs.push('corpusdeel: corpus aanwezig maar GEEN enkel bestand zonder samenvattingstaak-relatie gevonden (verwacht minstens één "veilig" bestand — zie findSafeCorpusFile)');
 } else {
-  const mppPath = join(CORPUS, safeCorpusFile);
-  const bytes = new Uint8Array(readFileSync(mppPath));
+  for (const name of corpusFiles) {
+    const mppPath = join(CORPUS, name);
+    const bytes = new Uint8Array(readFileSync(mppPath));
 
-  S().newProject(); // vers, ongewijzigd actief tabblad
-  nextFile = makeFakeFile(safeCorpusFile, { bytes });
-  await S().openFile();
+    S().newProject(); // vers, ongewijzigd actief tabblad
+    nextFile = makeFakeFile(name, { bytes });
+    await S().openFile();
 
-  truthy('09 MPP-open: taken geladen', S().tasks.length > 0);
-  truthy('10 MPP-open: kalender gezet (id aanwezig)', !!S().calendar?.id);
-  truthy('11 MPP-open: planning herberekend (cpmResult aanwezig)', S().cpmResult !== null);
-  eq('12 MPP-open: GEEN filePath (opslagdoel-guard, T8-stap 5a/F4)', S().filePath, null);
-  eq('13 MPP-open: GEEN fileHandle', S().fileHandle, null);
-  eq('14 MPP-open: document blijft "ongewijzigd naamloos" — isDirty volgt de normale open-semantiek', S().isDirty, false);
+    truthy(`09 [${name}] MPP-open: taken geladen`, S().tasks.length > 0);
+    truthy(`10 [${name}] MPP-open: kalender gezet (id aanwezig)`, !!S().calendar?.id);
+    truthy(`11 [${name}] MPP-open: planning herberekend (cpmResult aanwezig, geen crash)`, S().cpmResult !== null);
+    eq(`12 [${name}] MPP-open: GEEN filePath (opslagdoel-guard, T8-stap 5a/F4)`, S().filePath, null);
+    eq(`13 [${name}] MPP-open: GEEN fileHandle`, S().fileHandle, null);
+    eq(`14 [${name}] MPP-open: document blijft "ongewijzigd naamloos" — isDirty volgt de normale open-semantiek`, S().isDirty, false);
+  }
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────────────────────

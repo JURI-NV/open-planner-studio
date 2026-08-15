@@ -498,13 +498,46 @@ De vergelijkingen uit T5–T7 bestaan al; deze taak maakt de check af en hardt h
 **Afhankelijk van:** T9 + T10.
 **Files:** geen nieuwe (alleen fixes die uit de review rollen).
 
-- [ ] **Stap 0-bis (T7-kwaliteitsreview): `mppReader.ts` (1100+ regels, 4 verantwoordelijkheden) splitsen** — `readResources*`/`readAssignments*` hebben nul afhankelijkheid van de rest (schone verhuizing naar `mppResources.ts`/`mppAssignments.ts` of één `mppEntities.ts`); `readRelations*` hangt alleen aan de gedeelde duurhelper. Gemeten advies van de reviewer: nu goedkoopst, T8-T10 raken dit bestand nauwelijks.
-- [ ] **Stap 0: onderhoudsagenda uit de T2-kwaliteitsreview (optioneel maar geagendeerd).** (a) drievoudige "isBinary ? readFile : readTextFile"-duplicatie (fileSlice/devBridge/fileTools) samentrekken tot een `readFormatInput(name, io)`-helper in formatRegistry; (b) de gedupliceerde permissie-dans in webBackend (`readFromRefWeb`/`readBytesFromRefWeb`) naar één `readRefWeb<T>`-strategie; (c) 4× extensie-extractie naar één `extensionOf` in `@/utils/filePath`; (d) `parseProjectXml`-export heroverwegen (geen externe afnemer) en de `!` op de DEFAULT_FORMAT_ID-lookup vervangen door een benoemde const-entry.
-- [ ] **Stap 0-ter: onderhoudsagenda uit de T8-kwaliteitsreview.** (a) `buildVarMetaBytes` (VarMeta12-blob) staat nu **4×** los: `check-mpp-import.ts`, `check-mpp-relations.ts`, `check-mpp-calendars.ts` en — sinds fb6ea03c — als `mppBuildTaskVarMetaBytes` in `tests/mcp/cases-doc-file.ts`. Verhuizen naar `tests/planning/mppFixtures.ts` en overal importeren; die vierde kopie importeert dáár al `buildNestedCfb`/`encodePropsEntries` uit, dus het "cross-suite import kan niet"-argument in de comment daar gaat niet op. (b) opslagdoel-regel als eigenschap op `ReadFormat` (`canBeSaveTarget`, alleen `true` op de IFC-entry) i.p.v. de magische `id === 'ifc'`-vergelijking in `fileSlice` en de aparte `formatOf`-classificatie in `fileTools`; `formatOf` houdt dan puur zijn AI-facing label. (c) `buildImportLabels(t)`-helper voor de 10 callsites die `{ importedProject, unassignedResource }` met de hand opbouwen. (d) een echte poort op de lazy mpp-chunk (nu alleen handmatige build+grep).
-- [ ] **Stap 1: zelf-review-checklist.**
+- [x] **Stap 0-bis (T7-kwaliteitsreview): `mppReader.ts` (1100+ regels, 4 verantwoordelijkheden) splitsen** — `readResources*`/`readAssignments*` hebben nul afhankelijkheid van de rest (schone verhuizing naar `mppResources.ts`/`mppAssignments.ts` of één `mppEntities.ts`); `readRelations*` hangt alleen aan de gedeelde duurhelper. Gemeten advies van de reviewer: nu goedkoopst, T8-T10 raken dit bestand nauwelijks.
+  **Gedaan:** één `src/services/mpp/mppEntities.ts` (readRelations/readResources/readAssignments +
+  hun uitsluitende helpers, incl. `mppLagToSequenceFields`) — gemotiveerd boven drie losse
+  bestanden: ze deelden al één T7-banner, dezelfde altijd-vangende-wrapper-conventie en blijven
+  elkaars buren in `readMPP`'s orkestratie. `mppReader.ts` houdt orkestratie + taken (readTasks,
+  hiërarchie/WBS, openMppProject, readMPP). Pure verhuizing, baselines exact gelijk. Tests
+  bijgewerkt: `check-mpp-relations.ts` importeert nu rechtstreeks uit `mppEntities.ts`.
+- [x] **Stap 0: onderhoudsagenda uit de T2-kwaliteitsreview (optioneel maar geagendeerd).** (a) drievoudige "isBinary ? readFile : readTextFile"-duplicatie (fileSlice/devBridge/fileTools) samentrekken tot een `readFormatInput(name, io)`-helper in formatRegistry; (b) de gedupliceerde permissie-dans in webBackend (`readFromRefWeb`/`readBytesFromRefWeb`) naar één `readRefWeb<T>`-strategie; (c) 4× extensie-extractie naar één `extensionOf` in `@/utils/filePath`; (d) `parseProjectXml`-export heroverwegen (geen externe afnemer) en de `!` op de DEFAULT_FORMAT_ID-lookup vervangen door een benoemde const-entry.
+  **Gedaan:** (a)/(b)/(c) geïmplementeerd zoals beschreven. (d) bleek al vervallen: T8 had
+  `parseProjectXml` al niet-geëxporteerd gemaakt en de `!`-lookup al vervangen door de benoemde
+  `IFC_FORMAT`-const (zie formatRegistry.ts's T1-restpunt-commentaar) — niets meer te doen.
+- [x] **Stap 0-ter: onderhoudsagenda uit de T8-kwaliteitsreview.** (a) `buildVarMetaBytes` (VarMeta12-blob) staat nu **4×** los: `check-mpp-import.ts`, `check-mpp-relations.ts`, `check-mpp-calendars.ts` en — sinds fb6ea03c — als `mppBuildTaskVarMetaBytes` in `tests/mcp/cases-doc-file.ts`. Verhuizen naar `tests/planning/mppFixtures.ts` en overal importeren; die vierde kopie importeert dáár al `buildNestedCfb`/`encodePropsEntries` uit, dus het "cross-suite import kan niet"-argument in de comment daar gaat niet op. (b) opslagdoel-regel als eigenschap op `ReadFormat` (`canBeSaveTarget`, alleen `true` op de IFC-entry) i.p.v. de magische `id === 'ifc'`-vergelijking in `fileSlice` en de aparte `formatOf`-classificatie in `fileTools`; `formatOf` houdt dan puur zijn AI-facing label. (c) `buildImportLabels(t)`-helper voor de 10 callsites die `{ importedProject, unassignedResource }` met de hand opbouwen. (d) een echte poort op de lazy mpp-chunk (nu alleen handmatige build+grep).
+  **Gedaan:** (a) `buildVarMetaBytes` nu geëxporteerd uit `mppFixtures.ts`, alle vier
+  aanroepplekken importeren 'm. (b) `canBeSaveTarget` op `ReadFormat` + gedeelde `saveTargetFor`-
+  helper; `check-mpp-open-guard.ts` asserteert dat exact één formaat de vlag draagt. (c)
+  `src/i18n/importLabels.ts`'s `buildImportLabels(t)`, 14 callsites (10 met beide velden + 4 met
+  alleen `importedProject`, allemaal omgezet — `unassignedResource` is toch optioneel). (d)
+  `tests/planning/check-mpp-chunk-boundary.ts`: lexicale node:fs-scan, geen build nodig,
+  geregistreerd in run.sh.
+- [x] **Stap 1: zelf-review-checklist.**
   - `grep -rn "readIFC(\|readCSV(\|readMSPDI(\|readP6XML(" src/ | grep -v "formatRegistry\|Reader.ts\|Writer.ts"` — geen dispatch-restanten buiten de registry (losse legitieme gebruikers zoals `openExampleFromString`/IFCPanel benoemen en laten staan).
   - `grep -rn "from '@/services/mpp" src/` — uitsluitend de dynamic import in `formatRegistry.ts`.
   - `npm run build` + chunk-controles van T8 stap 6 herhalen.
   - Alle taakvinkjes in dit plan afgevinkt; corpusbestanden NIET in `git status`.
-- [ ] **Stap 2: DE poort.** `npm run verify` — exitcode 0 is het oordeel (typecheck + lint + alle vier testsuites + examples/docs/i18n/cycles/audit), nooit de tail-uitvoer.
-- [ ] **Stap 3: commit** van eventuele review-fixes: `chore(mpp): eindreview fase 3.8 etappe 1 — verify groen`.
+  **Uitgevoerd:** beide greps schoon (readIFC-treffers zijn de bekende legitieme call-sites:
+  useRecoveryRestore/benchmark-runner/libraryIfc/IFCPanel/devBridge-roundTrip/openExampleFromString
+  — geen dispatch-restanten; de `from '@/services/mpp`-grep geeft 0 treffers omdat de enige
+  toegestane import een `await import(...)` is, wat geen `from '` bevat — precies wat
+  `check-mpp-chunk-boundary.ts` nu automatisch bewaakt). `npm run build` groen; `ls dist/assets |
+  grep mpp-reader` → precies 1 chunk; `grep -l 'TBkndTask' dist/assets/index-*.js` → niets.
+  `git status` schoon, geen corpusbestanden. Als addendum: de `findSafeCorpusFile`-filter + het
+  `TODO(T11)` in `check-mpp-open-guard.ts` zijn verwijderd (de CPM-fix — 04909f36/130e7750 — is
+  geland en gereviewd) — Part B daar loopt nu over ALLE drie corpusbestanden (incl. 'Bijlage 13
+  Productieplanning.mpp', die de samenvattingstaak-relatie draagt die vóór de fix crashte); 32/32
+  groen (was 18).
+- [x] **Stap 2: DE poort.** `npm run verify` — exitcode 0 is het oordeel (typecheck + lint + alle vier testsuites + examples/docs/i18n/cycles/audit), nooit de tail-uitvoer.
+  **Uitgevoerd:** exit 0. Alle baselines exact gelijk: mpp-import 2733 hard/1735 soft,
+  mpp-calendars 66, mpp-relations 111/880/36/330, mpp-summary-relations 14, mpp-open-guard 32
+  (was 18, +14 uit de corpus-verbreding), mpp-chunk-boundary 2 (nieuw), planning 444/444, MCP
+  33/0, library/dev-server/examples/docs(28×14)/i18n(13 locales)/cycles(387 modules)/audit(0
+  vulns) allemaal groen. Extra: `OPS_MPP_CORPUS=/nonexistent bash tests/planning/run.sh` —
+  exit 0, alle vier mpp-checks vallen netjes terug op de skip-OK-regel (CI-pad).
+- [x] **Stap 3: commit** van eventuele review-fixes: `chore(mpp): eindreview fase 3.8 etappe 1 — verify groen`.
