@@ -19,8 +19,18 @@
 // naar stdout schrijft — ook een transiente faalregel in een CI-log kan gekopieerd/geplakt worden
 // (en belandde eerder zelfs letterlijk in een commitbericht). Elke diagnoseregel over een
 // CORPUS-bestand identificeert het daarom UITSLUITEND via zijn hash; alleen CRAWL-bestanden mogen
-// met hun leesbare (relatieve) pad in de uitvoer verschijnen — zie `tagFor()` hieronder, dat is de
-// ENIGE plek in dit bestand die een bestand naar tekst omzet.
+// met hun leesbare (relatieve) pad in de uitvoer verschijnen — zie `tagFor()` hieronder.
+//
+// `tagFor()` DEKT ALLEEN IDENTITEIT, NIET INHOUD (her-reviewbevinding, ná H2). Het is de enige
+// plek die een bestand naar een IDENTIFICERENDE tekst (hash of relatief pad) omzet — maar de
+// default-modus kan via `measureFidelity`'s foutmeldingen (bv. de uitlijningsguard in
+// `mppFidelity.ts`, H2) nog steeds tekst UIT het bestand zelf naar stdout laten lekken als die
+// meldingen niet zelf al schoon zijn; dat is dáár gefixt, niet hier. `OPS_MPP_FIDELITY_REPORT=
+// detail` (`printDetail()` hieronder) is een APARTE, BEWUST BREDERE categorie: die print per
+// afwijkende taak de MSP-naam, kalender-id, constraint en voorgangernamen — CORPUSINHOUD, niet
+// alleen een identificerende tag. Detail-modus is bedoeld voor lokaal, interactief gebruik tijdens
+// de etappe (plan §5); de uitvoer ervan hoort NOOIT in een commit, PR-beschrijving of CI-log
+// geplakt te worden — dat is precies zo gevoelig als het corpusbestand zelf.
 //
 // PINNING (plan §5, "geen somtotalen"): per bestand, met `===` — `tasks`, `startExact`,
 // `startSameday`, `startDiff`, `finishExact`, `finishSameday`, `finishDiff`. Plus twee globale
@@ -41,6 +51,12 @@
 // gedraagt zich hetzelfde als een afwezige map: één OK-regel, geen assert. Voorheen gaf zo'n lege
 // map wél de OK-skipregel MAAR ook nog een rode globale pin, want de assert keek naar
 // `corpusPresent` (bestaat de map) i.p.v. "is er iets gescand").
+//
+// DELTA-SLOTREGEL (coordinator-verzoek, ná de Opus-review): één informatieve `console.log`-regel
+// aan het eind van de scan — hoeveel gepinde bestanden verbeterden/verslechterden/gelijk bleven
+// t.o.v. de pin, en de netto som. GEEN poort (geen `checks++`/`diffs.push`) en vervangt de
+// per-bestand-per-veld-pins hierboven niet — puur zodat een andere baan in één regel ziet welke
+// KANT een rode of groene run op wijst, zonder door tientallen individuele pin-regels te scrollen.
 //
 // `MPP_LEGACY`/`MPP_ENCRYPTED`-weigeringen tellen als overgeslagen (eigenaarsbesluit O7), nooit
 // als fout; alleen een ONVERWACHTE throw (geen `mppCode`) is een echte faal.
@@ -124,14 +140,18 @@ const CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/te
 
 type RootName = 'corpus' | 'crawl';
 
-// L2 (reviewbevinding): entries per map alfabetisch sorteren — `readdirSync` garandeert GEEN
-// volgorde (filesystem-afhankelijk), en de pad-pariteitscase hieronder kiest "het eerste bruikbare
-// bestand" tijdens de scan. Zonder sortering kan die keuze tussen machines/runs wisselen, wat de
-// pariteitscase non-deterministisch maakt. Met sortering is de scanvolgorde (en dus de gekozen
-// pariteitsfile) stabiel.
+// L2 (reviewbevinding): entries per map sorteren — `readdirSync` garandeert GEEN volgorde
+// (filesystem-afhankelijk), en de pad-pariteitscase hieronder kiest "het eerste bruikbare bestand"
+// tijdens de scan. Zonder sortering kan die keuze tussen machines/runs wisselen, wat de
+// pariteitscase non-deterministisch maakt. Nit (reviewbevinding): een kale `<`-vergelijking op de
+// UTF-16-code-units i.p.v. `localeCompare` — die laatste hangt af van de ICU-/locale-configuratie
+// van de machine (Node kan met of zonder volledige ICU-data gebouwd zijn) en zou dus in theorie
+// zelf een bron van machine-afhankelijkheid kunnen worden, precies wat deze sortering juist moet
+// uitsluiten. `<`/`>` op strings is altijd codepoint-ordening, overal identiek.
 function listMppFilesRecursive(dir: string): string[] {
   const out: string[] = [];
-  const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  const entries = readdirSync(dir, { withFileTypes: true })
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...listMppFilesRecursive(full));
@@ -194,6 +214,16 @@ const actualDiffHashesByRoot: Record<RootName, Set<string>> = { corpus: new Set(
 let rejectedCount = 0;
 let firstUsableFile: { path: string; bytes: Uint8Array; root: RootName; hash: string; label: string | undefined } | null = null;
 
+// ── Delta-slotregel (coordinator-verzoek, ná de Opus-review) — GEEN poort, puur leesbaarheid:
+// telt per gepind bestand of het totaal (startDiff+finishDiff) t.o.v. de pin verbeterd/verslechterd/
+// gelijk is, zodat een andere baan in één regel ziet welke KANT een rode run op wijst — zonder de
+// per-bestand-per-veld-pins hierboven te vervangen (dit is een SOM, en §5 waarschuwt expliciet dat
+// een som compenserende wijzigingen verdoezelt; die pins blijven dus de echte poort).
+let improvedFiles = 0, regressedFiles = 0, unchangedFiles = 0, netDiffDelta = 0;
+
+/** OPS_MPP_FIDELITY_REPORT=detail: print CORPUSINHOUD (taaknamen, kalender-id's, voorgangernamen)
+ *  — niet alleen een identificerende tag zoals `tagFor()`. Bedoeld voor lokaal, interactief gebruik
+ *  (plan §5); nooit naar een commit/PR/CI-log kopiëren. */
 function printDetail(tag: string, row: FidelityRow) {
   if (row.diffTasks.length === 0) return;
   console.log(`   . [detail ${tag}] ${row.diffTasks.length} afwijkende taak/taken:`);
@@ -259,6 +289,14 @@ function processFile(path: string, bytes: Uint8Array, root: RootName, label: str
   eq(`[${tag}] finishExact`, row.finishExact, pin.finishExact);
   eq(`[${tag}] finishSameday`, row.finishSameday, pin.finishSameday);
   eq(`[${tag}] finishDiff`, row.finishDiff, pin.finishDiff);
+
+  // Delta-slotregel-boekhouding (zie de toelichting bij de accumulatoren) — puur informatief.
+  const before = pin.startDiff + pin.finishDiff;
+  const after = row.startDiff + row.finishDiff;
+  if (after < before) improvedFiles++;
+  else if (after > before) regressedFiles++;
+  else unchangedFiles++;
+  netDiffDelta += before - after; // positief = netto verbetering t.o.v. de pin
 }
 
 // ── OPS_MPP_CORPUS — geen label (bedrijfsbestanden, plan §6) ────────────────────────────────
@@ -335,6 +373,17 @@ function assertRootPins(root: RootName) {
 }
 if (corpusScanned) assertRootPins('corpus');
 if (crawlScanned) assertRootPins('crawl');
+
+// Delta-slotregel: één leesbare regel voor welke KANT een rode/groene run op wijst t.o.v. de
+// gepinde baseline — geen assert, alleen een samenvatting bovenop de per-bestand-pins hierboven.
+if (improvedFiles + regressedFiles + unchangedFiles > 0) {
+  const richting = netDiffDelta > 0 ? 'netto verbeterd' : netDiffDelta < 0 ? 'netto VERSLECHTERD' : 'netto ongewijzigd';
+  console.log(
+    `   . delta t.o.v. mpp-fidelity-baseline.json: ${improvedFiles} bestand(en) verbeterd, `
+    + `${regressedFiles} verslechterd, ${unchangedFiles} ongewijzigd — ${richting} `
+    + `(${netDiffDelta >= 0 ? '-' : '+'}${Math.abs(netDiffDelta)} start+finish-afwijkingen)`,
+  );
+}
 
 // ── T1-acceptatie: pad-pariteitscase — de ECHTE store (applyLoadedProject+runCPM, patroon
 // check-mpp-open-guard.ts) tegen mppFidelity's solveMppBytes op HETZELFDE bestand. Wijken die af,

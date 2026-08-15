@@ -10,15 +10,6 @@
  * kalenders via de base-kalender-verwijzing, weekdag-uren → `WorkCalendar.workDays` + banden,
  * uitzonderingen → `WorkCalendar.holidays` (gematerialiseerd).
  *
- * T3 (fase 3.8, MSP-pariteit, 2026-08-15) — UITBREIDING op T6's uitzonderingsmaterialisatie: waar
- * T6 uitsluitend PLATTE, niet-werkende uitzonderingen materialiseerde (recurrente records werden
- * bewust overgeslagen), expandeert T3 alle vier recurrentietypes (DAILY/WEEKLY/MONTHLY/YEARLY ×
- * absoluut/relatief — poort van `RecurringData`) en materialiseert ook WERKENDE uitzonderingen
- * (`periodCount>0`) als `WorkCalendar.workingExceptions`. Zie de sectiekop bij `ParsedExceptions`
- * verderop in dit bestand voor de volledige ontwerptoelichting (precedentie, invariant-garantie,
- * overerving). Corpusmeting (testdata-crawl, 661 bestanden, 3413 taken, 2026-08-15): startDiff
- * 313→197, finishDiff 450→264 (t.o.v. de T2-baseline, vóór deze taak).
- *
  * Doelsemantiek is IDENTIEK aan de kalendersectie van `mspdiReader.ts` (`applyCalendarBody`/
  * `parseCalendar`, spiegelplicht) — zelfde `WorkCalendar`-vorm, dezelfde `canonicalizeBands`/
  * `registerCalendarBands`/`promoteHourCalendar`-orkestratie uit `@/services/subdayIo`.
@@ -79,15 +70,15 @@
  * afdragen — zonder dat budget zou N afgeleide kalenders × M base-holidays alsnog O(N×M) array-
  * slots kunnen kosten, ook als elke individuele kalender ruim binnen `MAX_CALENDAR_EXCEPTIONS` blijft.
  */
-import type { Holiday, WorkCalendar, WorkingException } from '@/types/calendar';
+import type { Holiday, WorkCalendar } from '@/types/calendar';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import { generateId } from '@/utils/id';
-import { formatDate, parseDate, addCalendarDays } from '@/utils/dateUtils';
+import { formatDate } from '@/utils/dateUtils';
 import { canonicalizeBands, getCalendarBands, promoteHourCalendar, registerCalendarBands } from '@/services/subdayIo';
 import type { CfbFile } from './cfb';
 import type { Props } from './mppContainer';
 import { FixedData, FixedMeta, Var2Data, VarMeta12, getDate, getInt, getShort, getUnicodeString } from './mppPrimitives';
-import { MAX_VAR_TEXT_BYTES, MAX_EXCEPTION_BAND_PERIODS, MAX_RECURRENCE_DATES } from './limits';
+import { MAX_VAR_TEXT_BYTES } from './limits';
 
 // ── PropsKey-sleutels (PropsKey.java) — gelezen uit `"   114"/Props`, net als de andere
 // project-brede sleutels in mppReader.ts. ──────────────────────────────────────────────────────
@@ -335,394 +326,59 @@ function buildCalendarFromDays(name: string, days: ReadonlyArray<DayResolution>,
   return cal;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// T3 (fase 3.8, MSP-pariteit) — recurrente uitzonderingen expanderen + werkende uitzonderingen
-// lezen. Poort van drie MPXJ-bronnen (verifieer op INHOUD, niet op regelnummer):
-//  - `AbstractCalendarAndExceptionFactory.processCalendarExceptions`/`readRecurringData`
-//    (org.mpxj.mpp) — het 92-byte-blok zelf, incl. de DAILY-`@76`-asymmetrie (T6-spec-review-fix,
-//    hieronder ongewijzigd voortgezet).
-//  - `RecurringData.populateDates()`/`getDates()` (org.mpxj) — de vier datumgeneratoren
-//    (DAILY/WEEKLY/MONTHLY/YEARLY × absoluut/relatief), hier 1:1 geport als `getXxxDates`-functies
-//    op UTC-middernacht-`Date`'s (zelfde substraat als `getDate`/`formatDate`).
-//  - `ProjectCalendar.populateExpandedExceptions()`/`ORDERED_RECURRENCE_TYPES` (org.mpxj) — de
-//    precedentie: recurrente uitzonderingen in de volgorde WEEKLY→MONTHLY→YEARLY→DAILY, dan
-//    niet-recurrente uitzonderingen als hoogste-prioriteitslaag.
-//
-// ONTWERPKEUZE t.o.v. een letterlijke MPXJ-poort — de "autoriteitskaart" (BEWUST STRENGER dan
-// MPXJ): MPXJ's eigen precedentiekaart is sleutelt op `getFromDate()` (één datum per uitzondering,
-// ook als een niet-recurrente uitzondering een MEERDAAGS bereik beslaat) — twee niet-recurrente
-// uitzonderingen met VERSCHILLENDE fromDates maar OVERLAPPENDE bereiken botsen daar dus niet in de
-// kaart, en `getException(date)`'s binary search kan dan een onderbepaald resultaat geven. Voor dit
-// project is dat GEEN acceptabel randgeval: T2's `WorkCalendar`-invariant ("een datum nooit tegelijk
-// in `holidays` én `workingExceptions`") wordt door `CalendarEngine` NIET zelf afgedwongen — een
-// schending gaf al een echte bug (negatief float, Opus-T2-review LAAG-6/7). `resolveExceptions`
-// hieronder bouwt daarom een ECHTE per-datum-autoriteitskaart (`authority`, sleutel = ISO-datum) die
-// ELKE dag van ELKE uitzondering langsloopt — recurrent én niet-recurrent — zodat de invariant AL
-// BIJ CONSTRUCTIE geldt, ongeacht welke twee brondocument-records elkaar overlappen.
-export interface ParsedExceptions {
-  holidays: Holiday[];
-  workingExceptions: WorkingException[];
-}
-
-/** Eén herhalingspatroon — poort van `RecurringData` (org.mpxj.RecurringData). Draagt precies de
- *  velden die `readRecurringData` uit het 92-byte-blok leest. `frequency`/`occurrences` zijn BEWUST
- *  ongeklemd hier (spiegelt `RecurringData.setFrequency`/`setOccurrences`, die de rauwe bytewaarde
- *  bewaren zonder ze te normaliseren) — het `<1→1`-vangnet (`RecurringData.populateDates`) gebeurt
- *  pas in `moreDates`/de generatiefuncties, bij de daadwerkelijke datumgeneratie. De
- *  flatten-beslissing in `readRawExceptions` toetst bewust op de RAUWE `frequency`-waarde (identiek
- *  aan MPXJ's eigen volgorde: eerst de flatten-check op het ongeklemde veld, dan pas populateDates'
- *  eigen clamp). */
-interface RecurrenceSpec {
-  type: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
-  relative: boolean;
-  startDate: Date;
-  finishDate: Date | null;
-  occurrences: number;
-  frequency: number;
-  weeklyDayMask: number;   // WEEKLY: bit0=zondag..bit6=zaterdag — MPP se eigen DAY_MASKS-bit-layout
-  dayNumber: number;       // MONTHLY/YEARLY
-  dayOfWeekValue: number;  // MONTHLY/YEARLY-relatief: 1=zondag..7=zaterdag (DayOfWeekHelper-schema)
-  monthNumber: number;     // YEARLY: 1..12
-}
-
-/** `RECURRENCE_TYPES` (AbstractCalendarAndExceptionFactory.java) — index = `recurrenceTypeValue`
- *  (SHORT @+72). `null` op index 0 (geen recurrentie) én op elke index buiten dit bereik (een
- *  geprepareerd/corrupt bestand kan hier elke SHORT-waarde 0..65535 claimen) — MPXJ's eigen
- *  `getRecurrenceType(value)===null`-uitkomst, die in de praktijk 0 datums oplevert
- *  (`RecurringData.populateDates`'s switch kent geen default-tak), dus functioneel gelijk aan "geen
- *  recurrentie" — `readRecurringData` hieronder retourneert in dat geval `null`. */
-const RECURRENCE_TYPES: ReadonlyArray<RecurrenceSpec['type'] | null> = [
-  null, 'DAILY', 'YEARLY', 'YEARLY', 'MONTHLY', 'MONTHLY', 'WEEKLY', 'DAILY',
-];
-/** `RELATIVE_MAP` (idem) — index 3 (YEARLY-relatief) en 5 (MONTHLY-relatief) zijn `true`; alles
- *  erbuiten (incl. WEEKLY=6, DAILY=7, en elke out-of-range index) `false` — spiegelt Java's eigen
- *  `value>=RELATIVE_MAP.length ⇒ false`-terugval (het array is bewust maar 6 lang). */
-const RELATIVE_MAP: ReadonlyArray<boolean> = [false, false, false, true, false, true];
-/** `ORDERED_RECURRENCE_TYPES` (ProjectCalendar.java) — de precedentie-volgorde waarin recurrente
- *  uitzonderingsGROEPEN over elkaar heen worden gelegd (latere groep wint per datum) vóórdat de
- *  niet-recurrente uitzonderingen als hoogste-prioriteitslaag overheen gaan. */
-const RECURRENCE_PRECEDENCE_ORDER: ReadonlyArray<RecurrenceSpec['type']> = ['WEEKLY', 'MONTHLY', 'YEARLY', 'DAILY'];
-
-/** Losse, grens-gecontroleerde ENKELE-byte-lezer — `mppPrimitives.ts` exporteert alleen
- *  `getShort`/`getInt` (2/4 bytes); de MONTHLY/YEARLY-recurrentievelden (`+76`/`+77`/`+78`) zijn
- *  losse BYTES (`MPPUtility.getByte`). Zelfde grenscontrolediscipline als de gedeelde primitieven. */
-function getByteAt(data: Uint8Array, offset: number, ctx: string): number {
-  if (offset < 0 || offset + 1 > data.length) {
-    throw new Error(`MPP: getByte buiten grenzen (offset=${offset}, bufferlengte=${data.length}) [${ctx}]`);
-  }
-  return data[offset];
-}
-
-/** Poort van `AbstractCalendarAndExceptionFactory.readRecurringData` (het deel van het 92-byte-
- *  uitzonderingsblok vanaf `+72`) — alle vier recurrentietypes × absoluut/relatief, letterlijk naar
- *  de plan-§T3-byte-offsets: WEEKLY dagen-bitmap `+76`/frequentie `+78`; MONTHLY absoluut dagnummer
- *  `+76`/frequentie `+78`, relatief weekdag `+77-2`/dagnummer `+76+1`/frequentie `+78` (SHORT);
- *  YEARLY absoluut dagnummer `+77`/maand `+76+1`, relatief weekdag `+78-2`/dagnummer `+77+1`/maand
- *  `+76+1`. Retourneert `null` voor een out-of-range `recurrenceTypeValue` (zie `RECURRENCE_TYPES`). */
-function readRecurringData(data: Uint8Array, offset: number, fromDate: Date, toDate: Date | null, ctx: string): RecurrenceSpec | null {
-  const recurrenceTypeValue = getShort(data, offset + 72, ctx);
-  const type = recurrenceTypeValue >= 0 && recurrenceTypeValue < RECURRENCE_TYPES.length ? RECURRENCE_TYPES[recurrenceTypeValue] : null;
-  if (type === null) return null;
-  const relative = recurrenceTypeValue < RELATIVE_MAP.length ? RELATIVE_MAP[recurrenceTypeValue] : false;
-  const occurrences = getShort(data, offset + 4, ctx);
-
-  let frequency = 1;
-  let weeklyDayMask = 0;
-  let dayNumber = 0;
-  let dayOfWeekValue = 0;
-  let monthNumber = 0;
-
-  switch (type) {
-    case 'DAILY':
-      // T6-spec-review-fix (zie de historische toelichting bij `isFlattenedNonRecurring` in
-      // `readRawExceptions`): `@76` telt UITSLUITEND mee bij recurrenceTypeValue===7 — bij ===1
-      // hardcodeert MPXJ frequency=1 (ongeacht `@76`).
-      frequency = recurrenceTypeValue === 1 ? 1 : getShort(data, offset + 76, ctx);
-      break;
-    case 'WEEKLY':
-      // De rauwe byte IS al de bitmap in DAY_MASKS-layout (bit0=zondag..bit6=zaterdag) — MPXJ's
-      // `setWeeklyDaysFromBitmap(byte, DAY_MASKS)` past exact dezelfde bit-per-index-toewijzing toe
-      // (DAY_MASKS = {0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40}, index 1..7 = zo..za), dus geen
-      // vertaalslag nodig — `getWeeklyDates` hieronder toetst met `1 << jsGetUTCDay()`, dezelfde
-      // bit-per-weekdag-conventie (JS: 0=zo..6=za).
-      weeklyDayMask = getByteAt(data, offset + 76, ctx);
-      frequency = getShort(data, offset + 78, ctx);
-      break;
-    case 'MONTHLY':
-      if (relative) {
-        dayOfWeekValue = getByteAt(data, offset + 77, ctx) - 2;
-        dayNumber = getByteAt(data, offset + 76, ctx) + 1;
-        frequency = getShort(data, offset + 78, ctx);
-      } else {
-        dayNumber = getByteAt(data, offset + 76, ctx);
-        frequency = getByteAt(data, offset + 78, ctx);
-      }
-      break;
-    case 'YEARLY':
-      if (relative) {
-        dayOfWeekValue = getByteAt(data, offset + 78, ctx) - 2;
-        dayNumber = getByteAt(data, offset + 77, ctx) + 1;
-      } else {
-        dayNumber = getByteAt(data, offset + 77, ctx);
-      }
-      monthNumber = getByteAt(data, offset + 76, ctx) + 1;
-      break;
-  }
-
-  return { type, relative, startDate: fromDate, finishDate: toDate, occurrences, frequency, weeklyDayMask, dayNumber, dayOfWeekValue, monthNumber };
-}
-
-// ── Datumrekenkunde op UTC-middernacht-`Date`'s (zelfde substraat als `getDate`/`formatDate`/
-// `parseDate`/`addCalendarDays` uit `@/utils/dateUtils`) — poort van `RecurringData`'s
-// `java.time.LocalDate`-rekenkunde. ─────────────────────────────────────────────────────────────
-
-function daysInMonthUtc(year: number, month0: number): number {
-  return new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
-}
-
-/** MPXJ se `DayOfWeekHelper.getValue` (1=zondag..7=zaterdag) toegepast op een UTC-`Date` via
- *  `getUTCDay()` (0=zondag..6=zaterdag) — `+1` is exact de vertaling tussen de twee schema's. */
-function mpxjDayValue(d: Date): number {
-  return d.getUTCDay() + 1;
-}
-
-/** MPXJ se `moreDates(date, dates)` (RecurringData.java): zonder `finishDate` bepaalt `occurrences`
- *  (geklemd op minimaal 1, net als Java) de grens; mét `finishDate` geldt `!date.isAfter(finish)`. */
-function moreDates(date: Date, generatedCount: number, finishDate: Date | null, occurrences: number): boolean {
-  if (!finishDate) {
-    const occ = occurrences < 1 ? 1 : occurrences;
-    return generatedCount < occ;
-  }
-  return date.getTime() <= finishDate.getTime();
-}
-
-/** MPXJ se `getOrdinalRelativeDay` — de n-de gevraagde weekdag vanaf `date`. */
-function ordinalRelativeDay(date: Date, dayNumber: number, dayOfWeekValue: number): Date {
-  const currentDayOfWeek = mpxjDayValue(date);
-  let offset = 0;
-  if (dayOfWeekValue > currentDayOfWeek) offset = dayOfWeekValue - currentDayOfWeek;
-  else if (dayOfWeekValue < currentDayOfWeek) offset = 7 - (currentDayOfWeek - dayOfWeekValue);
-  let d = offset !== 0 ? addCalendarDays(date, offset) : date;
-  if (dayNumber > 1) d = addCalendarDays(d, 7 * (dayNumber - 1));
-  return d;
-}
-
-/** MPXJ se `getLastRelativeDay` — de laatste gevraagde weekdag van de maand van `date`. */
-function lastRelativeDay(date: Date, dayOfWeekValue: number): Date {
-  const year = date.getUTCFullYear();
-  const month0 = date.getUTCMonth();
-  let d = new Date(Date.UTC(year, month0, daysInMonthUtc(year, month0)));
-  const currentDayOfWeek = mpxjDayValue(d);
-  let offset = 0;
-  if (currentDayOfWeek > dayOfWeekValue) offset = dayOfWeekValue - currentDayOfWeek;
-  else if (currentDayOfWeek < dayOfWeekValue) offset = -7 + (dayOfWeekValue - currentDayOfWeek);
-  if (offset !== 0) d = addCalendarDays(d, offset);
-  return d;
-}
-
-/** MPXJ se `getDailyDates`. `MAX_RECURRENCE_DATES` (limits.ts) is een harde generatie-klem,
- *  ONAFHANKELIJK van `finishDate`/`occurrences` — zie die constante se meetcommentaar (de
- *  vijandige-invoer-acceptatie-eis uit plan-§T3: `occurrences=65535` + een 165-jaars bereik moet
- *  binnen 100ms klemmen, niet crashen). */
-function getDailyDates(startDate: Date, frequency: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  let date = startDate;
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    dates.push(date);
-    date = addCalendarDays(date, frequency);
-  }
-  return dates;
-}
-
-/** MPXJ se `getWeeklyDates`. `currentDay` cyclet 0=zo..6=za (JS `getUTCDay()`), wat toevallig
- *  identiek is aan `dayMask`'s bit-layout (zie `readRecurringData`'s WEEKLY-toelichting) — geen
- *  aparte vertaaltabel nodig. De "terug naar zondag"-aanpassing gebruikt eveneens plain `jsDay`
- *  (Java se `currentDay.getValue()` — STANDAARD `java.time.DayOfWeek` 1=ma..7=zo, NIET
- *  DayOfWeekHelper se schema — komt toevallig 1:1 overeen met JS se `getUTCDay()` voor elke
- *  niet-zondag-waarde: ma=1..za=6 in beide schema's). */
-function getWeeklyDates(startDate: Date, frequency: number, dayMask: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  let date = startDate;
-  let currentDay = date.getUTCDay();
-  if (currentDay !== 0) {
-    date = addCalendarDays(date, -currentDay);
-    currentDay = 0;
-  }
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    let offset = 0;
-    for (let dayIndex = 0; dayIndex < 7 && dates.length < MAX_RECURRENCE_DATES; dayIndex++) {
-      if ((dayMask & (1 << currentDay)) !== 0) {
-        if (offset !== 0) {
-          date = addCalendarDays(date, offset);
-          offset = 0;
-        }
-        if (!moreDates(date, dates.length, finishDate, occurrences)) break;
-        if (date.getTime() >= startDate.getTime()) dates.push(date);
-      }
-      offset++;
-      currentDay = (currentDay + 1) % 7;
-    }
-    if (frequency > 1) offset += 7 * (frequency - 1);
-    date = addCalendarDays(date, offset);
-  }
-  return dates;
-}
-
-/** MPXJ se `getMonthlyAbsoluteDates`. */
-function getMonthlyAbsoluteDates(startDate: Date, frequency: number, dayNumber: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  const currentDayNumber = startDate.getUTCDate();
-  let date = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
-  if (dayNumber < currentDayNumber) date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    const year = date.getUTCFullYear();
-    const month0 = date.getUTCMonth();
-    const useDay = Math.min(dayNumber, daysInMonthUtc(year, month0));
-    date = new Date(Date.UTC(year, month0, useDay));
-    dates.push(date);
-    date = new Date(Date.UTC(year, month0, 1));
-    date = new Date(Date.UTC(year, month0 + frequency, 1));
-  }
-  return dates;
-}
-
-/** MPXJ se `getMonthlyRelativeDates`. */
-function getMonthlyRelativeDates(startDate: Date, frequency: number, dayOfWeekValue: number, dayNumber: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  let date = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    date = dayNumber > 4 ? lastRelativeDay(date, dayOfWeekValue) : ordinalRelativeDay(date, dayNumber, dayOfWeekValue);
-    if (date.getTime() >= startDate.getTime()) {
-      dates.push(date);
-      if (!moreDates(date, dates.length, finishDate, occurrences)) break;
-    }
-    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + frequency, 1));
-  }
-  return dates;
-}
-
-/** MPXJ se `getYearlyAbsoluteDates`. LET OP (letterlijk overgenomen MPXJ-gedrag, geen eigen bug):
- *  de WHILE-conditie toetst de cursor VÓÓR de `date.isBefore(startDate) ⇒ +1 jaar`-correctie, dus
- *  het laatst toegevoegde datum kan net BUITEN het nominale `[startDate,finishDate]`-venster vallen
- *  (spiegelt `getCalculatedLastDate`'s eigen documentatie: "de finish-datum hoeft niet exact op een
- *  gegenereerde datum te liggen"). */
-function getYearlyAbsoluteDates(startDate: Date, dayNumber: number, monthNumber: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  let date = new Date(Date.UTC(startDate.getUTCFullYear(), monthNumber - 1, 1));
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    const year = date.getUTCFullYear();
-    const month0 = date.getUTCMonth();
-    const useDay = Math.min(dayNumber, daysInMonthUtc(year, month0));
-    date = new Date(Date.UTC(year, month0, useDay));
-    if (date.getTime() < startDate.getTime()) date = new Date(Date.UTC(year + 1, month0, useDay));
-    dates.push(date);
-    date = new Date(Date.UTC(date.getUTCFullYear(), month0, 1));
-    date = new Date(Date.UTC(date.getUTCFullYear() + 1, month0, 1));
-  }
-  return dates;
-}
-
-/** MPXJ se `getYearlyRelativeDates`. */
-function getYearlyRelativeDates(startDate: Date, dayOfWeekValue: number, dayNumber: number, monthNumber: number, finishDate: Date | null, occurrences: number): Date[] {
-  const dates: Date[] = [];
-  let date = new Date(Date.UTC(startDate.getUTCFullYear(), monthNumber - 1, 1));
-  while (dates.length < MAX_RECURRENCE_DATES && moreDates(date, dates.length, finishDate, occurrences)) {
-    date = dayNumber > 4 ? lastRelativeDay(date, dayOfWeekValue) : ordinalRelativeDay(date, dayNumber, dayOfWeekValue);
-    if (date.getTime() >= startDate.getTime()) {
-      dates.push(date);
-      if (!moreDates(date, dates.length, finishDate, occurrences)) break;
-    }
-    date = new Date(Date.UTC(date.getUTCFullYear() + 1, date.getUTCMonth(), 1));
-  }
-  return dates;
-}
-
-/** Poort van `RecurringData.populateDates()`/`getDates()` — dispatcht naar de generatiefunctie voor
- *  `spec.type`. `frequency<1 ⇒ 1` (Java se eigen `NumberHelper.getInt(m_frequency)<1 ⇒ 1`-vangnet in
- *  `populateDates`, hier vlak vóór dispatch i.p.v. in elke generatiefunctie apart). Geëxporteerd
- *  zodat testcode (`check-mpp-calendars.ts`) 'm rechtstreeks kan aanroepen (mutatiebewijs op de
- *  YEARLY-tak specifiek, plan-§T3 acceptatie 2) zonder de volledige `parseExceptions`-orkestratie na
- *  te hoeven bouwen. */
-export function expandRecurrence(spec: RecurrenceSpec): Date[] {
-  const frequency = spec.frequency < 1 ? 1 : spec.frequency;
-  switch (spec.type) {
-    case 'DAILY':
-      return getDailyDates(spec.startDate, frequency, spec.finishDate, spec.occurrences);
-    case 'WEEKLY':
-      return getWeeklyDates(spec.startDate, frequency, spec.weeklyDayMask, spec.finishDate, spec.occurrences);
-    case 'MONTHLY':
-      return spec.relative
-        ? getMonthlyRelativeDates(spec.startDate, frequency, spec.dayOfWeekValue, spec.dayNumber, spec.finishDate, spec.occurrences)
-        : getMonthlyAbsoluteDates(spec.startDate, frequency, spec.dayNumber, spec.finishDate, spec.occurrences);
-    case 'YEARLY':
-      return spec.relative
-        ? getYearlyRelativeDates(spec.startDate, spec.dayOfWeekValue, spec.dayNumber, spec.monthNumber, spec.finishDate, spec.occurrences)
-        : getYearlyAbsoluteDates(spec.startDate, spec.dayNumber, spec.monthNumber, spec.finishDate, spec.occurrences);
-  }
-}
-
-/** Eén RUW gelezen 92-byte-uitzonderingsblok — vóór precedentie-resolutie. `recurring` is gezet
- *  voor een NIET-geflattende recurrente uitzondering (zie `isFlattenedNonRecurring` in
- *  `readRawExceptions`); anders `null` en geldt het venster als een letterlijk
- *  [fromDate,toDate]-bereik (bestaand T6-gedrag, spiegelt mspdiReader's `DayWorking`-exceptions). */
-interface RawException {
-  fromDate: Date;
-  toDate: Date | null;
-  periodCount: number;
-  bands: { start: number; end: number }[];
-  name: string;
-  recurring: RecurrenceSpec | null;
-}
-
-/** Eén uitzonderingsblok se werktijd-BANDEN (`+20+i*2` start, `+32+i*4` duur — plan-§T3) — gezet
- *  wanneer `periodCount>0` ("werkende uitzondering", MS Project: een anders niet-werkende dag krijgt
- *  eigen uren). `MAX_EXCEPTION_BAND_PERIODS` (limits.ts) is de structurele capaciteit van het
- *  92-byte-blok zelf (spiegelt `MAX_DAY_HOUR_PERIODS`'s klemdiscipline voor het 60-byte-dagblok). */
-function readExceptionBands(data: Uint8Array, offset: number, periodCountRaw: number, ctx: string): { start: number; end: number }[] {
-  const periodCount = Math.min(Math.max(periodCountRaw, 0), MAX_EXCEPTION_BAND_PERIODS);
-  const bands: { start: number; end: number }[] = [];
-  for (let i = 0; i < periodCount; i++) {
-    const startOffset = offset + 20 + i * 2;
-    const durationOffset = offset + 32 + i * 4;
-    if (data.length < startOffset + 2 || data.length < durationOffset + 2) break;
-    const startMinutes = mppTimeToMinutes(getShort(data, startOffset, ctx));
-    const durationMinutes = Math.floor(getShort(data, durationOffset, ctx) / 10);
-    if (durationMinutes > 0) bands.push({ start: startMinutes, end: startMinutes + durationMinutes });
-  }
-  return bands;
-}
-
 /** Eén uitzonderingenblok (`AbstractCalendarAndExceptionFactory.processCalendarExceptions`) →
- *  RUWE `RawException[]` — nog GEEN precedentie-resolutie (die doet `resolveExceptions`). Elk
- *  record met een leesbare `fromDate` (sentinel `65535 ⇒ null` — zie `getDate`) én ofwel een geldig
- *  recurrentiepatroon ofwel géén recurrentie wordt bewaard; een out-of-range `recurrenceTypeValue`
- *  (`readRecurringData` retourneert dan `null` terwijl `isFlattenedNonRecurring` ook `false` is)
- *  wordt STIL OVERGESLAGEN — spiegelt MPXJ's eigen uitkomst van 0 geëxpandeerde datums voor zo'n
- *  record (zie `RECURRENCE_TYPES`'s toelichting), functioneel gelijk zonder een nutteloos
- *  `RawException` met een lege datumlijst te hoeven dragen. */
-function readRawExceptions(data: Uint8Array, ctx: string): RawException[] {
-  const out: RawException[] = [];
+ *  gematerialiseerde `Holiday[]`. Alleen NIET-recurrente, NIET-werkende uitzonderingen worden
+ *  gematerialiseerd (spiegelt `mspdiReader.ts`'s `applyCalendarBody`, die ook alleen
+ *  `DayWorking===0`-exceptions als holiday leest):
+ *   - "niet-werkend" ⇒ `periodCount === 0` (geen werktijd-banden binnen de uitzondering) — een
+ *     uitzondering MET banden is een "bijzondere werkdag"-override (bv. een ingehaalde zaterdag),
+ *     géén feestdag, en wordt (net als in mspdiReader) niet gematerialiseerd.
+ *   - "niet-recurrent" — MPXJ's `readRecurringData` kan een uitzondering aan een herhalingspatroon
+ *     koppelen (jaarlijks/maandelijks/wekelijks); in dat geval zijn `fromDate`/`toDate` het
+ *     RECURRENTIEVENSTER, niet de feestdagdatum zelf — die blind als één doorlopend bereik
+ *     materialiseren zou een meerjarig "feestdag"-bereik opleveren i.p.v. de bedoelde losse dagen.
+ *     Recurrente uitzonderingen ondersteunt geen enkele lezer in dit project (mspdiReader ook niet)
+ *     — hier bewust overgeslagen i.p.v. fout gematerialiseerd.
+ *
+ *     T6-SPEC-REVIEW-FIX (2026-08-14, BLOKKEREND — was een echte bug, geen theoretisch randgeval):
+ *     `readRecurringData`'s DAILY-tak (`recurrenceTypeValue` 1 ÓF 7 — beide `RecurrenceType.DAILY`,
+ *     zie `RECURRENCE_TYPES` in AbstractCalendarAndExceptionFactory.java) leest `frequency` NIET
+ *     altijd uit `@76`: bij `recurrenceTypeValue===1` hardcodeert MPXJ `frequency=1` (de bytes op
+ *     `@76` worden domweg GENEGEERD); alléén bij `recurrenceTypeValue===7` komt `frequency` uit
+ *     `@76`. Ná de switch geldt `DAILY && frequency===1 ⇒ rd=null` (geflattened/niet-recurrent) —
+ *     dus `recurrenceTypeValue===1` is ALTIJD geflattened, ongeacht wat er op `@76` staat. Een
+ *     eerdere versie van deze functie eiste ten onrechte `getShort(data,offset+76)===1` óók voor
+ *     type 1 — crawl-corpusmeting (49 bestanden, `check-mpp-calendars.ts`'s crawl-sectie) laat zien
+ *     dat `@76` bij type 1 in de praktijk 0, 256 of 23148 is (NOOIT 1), waardoor de oude conditie
+ *     STIL ALLE echte feestdagen liet vallen (0 van 208 gematerialiseerd, incl. bv. "Easter 2024/
+ *     2025"). `isDaily`/`frequency` hieronder spiegelt de Java-switch letterlijk.
+ *
+ * `budget` (T6-kwaliteitsreview, C1) — gedeeld `HolidayBudget` over ALLE kalenders in de aanroepende
+ * `readCalendars`-run (zie `MAX_TOTAL_HOLIDAY_SLOTS`); elke daadwerkelijk gematerialiseerde holiday
+ * decrementeert 'm, en de lus breekt netjes af zodra hij op is — nooit een crash, alleen minder
+ * holidays dan het bestand claimt. */
+export function parseExceptions(data: Uint8Array, ctx: string, budget: HolidayBudget): Holiday[] {
+  const holidays: Holiday[] = [];
   // I1-fix (T6-kwaliteitsreview): was `data.length <= 420` — bij length===421 gleed dat door de
   // guard heen en liet `getShort(data, 420, ctx)` twee bytes lezen die maar deels beschikbaar zijn
   // (420+2=422 > 421), wat een `MPP:`-grensfout gooide die — vóór de I1-try/catch-fix in
   // `readCalendars` — de HELE `readMPP`-aanroep liet falen voor wat verder een prima leesbaar
   // bestand kan zijn. `< 422` is de correcte grens: 422 bytes is het minimum om de 2-byte
   // `exceptionCount` op offset 420 veilig te kunnen lezen.
-  if (data.length < 422) return out;
+  if (data.length < 422) return holidays;
   const rawExceptionCount = getShort(data, 420, ctx);
-  if (rawExceptionCount === 0) return out;
+  if (rawExceptionCount === 0) return holidays;
   const exceptionCount = Math.min(Math.max(rawExceptionCount, 0), MAX_CALENDAR_EXCEPTIONS); // zie MAX_CALENDAR_EXCEPTIONS
 
   let offset = 424;
   for (let index = 0; index < exceptionCount; index++) {
+    if (budget.remaining <= 0) break; // C1: gedeeld totaalbudget over ALLE kalenders in dit bestand op
     if (offset + 92 > data.length) break; // afgekapt blok — MPP14Reader.java breekt hier ook af
 
-    const fromDate = getDate(data, offset, ctx);
-    const toDate = getDate(data, offset + 2, ctx);
-    const periodCountRaw = getShort(data, offset + 14, ctx);
+    const fromRaw = getShort(data, offset, ctx);
+    const toRaw = getShort(data, offset + 2, ctx);
+    const periodCount = getShort(data, offset + 14, ctx);
     const recurrenceTypeValue = getShort(data, offset + 72, ctx);
-
     let exceptionNameLength = getInt(data, offset + 88, ctx);
     if (exceptionNameLength % 4 !== 0) exceptionNameLength = (Math.floor(exceptionNameLength / 4) + 1) * 4;
     // I1-stijl klem (zie MAX_CALENDAR_TEXT_BYTES): begrenst zowel het decodeerwerk als — op een
@@ -730,224 +386,39 @@ function readRawExceptions(data: Uint8Array, ctx: string): RawException[] {
     // bestand (naam ruim onder 64 KiB) is dit een no-op.
     exceptionNameLength = Math.max(0, Math.min(exceptionNameLength, MAX_CALENDAR_TEXT_BYTES));
 
-    if (fromDate) {
-      // T6-spec-review-fix (zie `readRecurringData`'s DAILY-toelichting): `@76` telt UITSLUITEND
-      // mee bij recurrenceTypeValue===7 — bij ===1 hardcodeert MPXJ frequency=1 (ongeacht `@76`).
-      const isDaily = recurrenceTypeValue === 1 || recurrenceTypeValue === 7;
-      const rawFrequency = recurrenceTypeValue === 1 ? 1 : getShort(data, offset + 76, ctx);
-      const isFlattenedNonRecurring = recurrenceTypeValue === 0 || (isDaily && rawFrequency === 1);
-
-      let recurring: RecurrenceSpec | null = null;
-      let contributesNothing = false;
-      if (!isFlattenedNonRecurring) {
-        recurring = readRecurringData(data, offset, fromDate, toDate, ctx);
-        contributesNothing = recurring === null; // out-of-range recurrenceTypeValue — zie RECURRENCE_TYPES
-      }
-
-      if (!contributesNothing) {
-        const bands = readExceptionBands(data, offset, periodCountRaw, ctx);
-        let name = '';
+    // T6-spec-review-fix (zie de moduleheader hierboven): `@76` telt UITSLUITEND mee bij
+    // recurrenceTypeValue===7 — bij ===1 hardcodeert MPXJ frequency=1 (ongeacht `@76`).
+    const isDaily = recurrenceTypeValue === 1 || recurrenceTypeValue === 7;
+    const frequency = recurrenceTypeValue === 1 ? 1 : getShort(data, offset + 76, ctx);
+    const isFlattenedNonRecurring = recurrenceTypeValue === 0 || (isDaily && frequency === 1);
+    if (periodCount === 0 && isFlattenedNonRecurring && fromRaw !== 65535 && toRaw !== 65535) {
+      const fromDate = getDate(data, offset, ctx);
+      const toDate = getDate(data, offset + 2, ctx);
+      if (fromDate && toDate) {
+        let clampedTo = toDate;
+        const rangeDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
+        // M1-fix (T6-kwaliteitsreview): `>=` i.p.v. `>` — bij `rangeDays === MAX_HOLIDAY_RANGE_DAYS`
+        // precies zou het INCLUSIEVE aantal dagen (`rangeDays + 1`) anders één dag boven de
+        // bedoelde bovengrens uitkomen; `>=` maakt `MAX_HOLIDAY_RANGE_DAYS` de ECHTE bovengrens
+        // (het geklemde bereik beslaat hoogstens `MAX_HOLIDAY_RANGE_DAYS` dagen inclusief).
+        if (rangeDays >= MAX_HOLIDAY_RANGE_DAYS) {
+          // zie MAX_HOLIDAY_RANGE_DAYS — voorkomt een CalendarEngine.buildHolidaySet()-blowup.
+          clampedTo = new Date(fromDate.getTime() + (MAX_HOLIDAY_RANGE_DAYS - 1) * 86_400_000);
+        } else if (rangeDays < 0) {
+          clampedTo = fromDate; // omgekeerd bereik: degradeer naar een 1-dags holiday i.p.v. een lege/negatieve marge
+        }
+        let name = 'Holiday';
         if (exceptionNameLength > 0 && data.length >= offset + 92 + exceptionNameLength) {
           const decoded = getUnicodeString(data, offset + 92, exceptionNameLength, ctx);
           if (decoded) name = decoded;
         }
-        out.push({
-          fromDate,
-          toDate,
-          periodCount: Math.min(Math.max(periodCountRaw, 0), MAX_EXCEPTION_BAND_PERIODS),
-          bands,
-          name,
-          recurring,
-        });
+        holidays.push({ name, startDate: formatDate(fromDate), endDate: formatDate(clampedTo) });
+        budget.remaining--;
       }
     }
     offset += 92 + exceptionNameLength;
   }
-  return out;
-}
-
-/** Eén brondocument-record se EIGEN, geordende datumlijst — voor recurrente records de geëxpandeerde
- *  datums (`expandRecurrence`), voor niet-recurrente records het (geklemde) dag-voor-dag-bereik
- *  [fromDate,clampedToDate] (bestaand T6-gedrag, ONGEWIJZIGD qua bereik-klem — zie
- *  `MAX_HOLIDAY_RANGE_DAYS`). Draagt tevens de WAARDE die deze bron voor elke dag in die lijst
- *  claimt (`working`/`bands`/`name`) — `resolveExceptions` beslist per datum of die claim de
- *  autoriteitskaart wint. */
-interface RecordContribution {
-  ownDates: Date[];
-  working: boolean;
-  bands: { start: number; end: number }[];
-  name: string;
-}
-
-/** Groepeert `raw` in `RecordContribution`'s, in PRECEDENTIE-VOLGORDE: eerst recurrente records per
- *  `RECURRENCE_PRECEDENCE_ORDER`-groep (WEEKLY→MONTHLY→YEARLY→DAILY; binnen één groep in
- *  brondocument-volgorde), dan niet-recurrente records (in brondocument-volgorde) — exact de
- *  volgorde waarin `resolveExceptions` ze over de autoriteitskaart legt (latere contributie wint per
- *  datum). */
-function buildContributions(raw: RawException[]): RecordContribution[] {
-  const contributions: RecordContribution[] = [];
-  const recurringByType = new Map<RecurrenceSpec['type'], RawException[]>();
-  const nonRecurring: RawException[] = [];
-  for (const exc of raw) {
-    if (exc.recurring) {
-      const bucket = recurringByType.get(exc.recurring.type);
-      if (bucket) bucket.push(exc);
-      else recurringByType.set(exc.recurring.type, [exc]);
-    } else if (exc.toDate) {
-      // Niet-recurrent ZONDER toDate (sentinel `65535`) wordt overgeslagen — bestaand T6-gedrag.
-      nonRecurring.push(exc);
-    }
-  }
-
-  for (const type of RECURRENCE_PRECEDENCE_ORDER) {
-    for (const exc of recurringByType.get(type) ?? []) {
-      const rd = exc.recurring;
-      /* v8 ignore next */
-      if (!rd) continue; // defensief onbereikbaar — bucket is al op recurring-aanwezigheid gefilterd
-      contributions.push({ ownDates: expandRecurrence(rd), working: exc.periodCount > 0, bands: exc.bands, name: exc.name });
-    }
-  }
-
-  for (const exc of nonRecurring) {
-    const toDate = exc.toDate as Date; // gegarandeerd niet-null door het filter hierboven
-    let clampedTo = toDate;
-    const rangeDays = Math.round((toDate.getTime() - exc.fromDate.getTime()) / 86_400_000);
-    // M1-fix (T6-kwaliteitsreview, ongewijzigd voortgezet): `>=` i.p.v. `>` maakt
-    // `MAX_HOLIDAY_RANGE_DAYS` de ECHTE (inclusieve) bovengrens op het aantal dagen.
-    if (rangeDays >= MAX_HOLIDAY_RANGE_DAYS) {
-      clampedTo = addCalendarDays(exc.fromDate, MAX_HOLIDAY_RANGE_DAYS - 1);
-    } else if (rangeDays < 0) {
-      clampedTo = exc.fromDate; // omgekeerd bereik: degradeer naar 1 dag i.p.v. een lege/negatieve marge
-    }
-    const ownDates: Date[] = [];
-    let cursor = exc.fromDate;
-    while (cursor.getTime() <= clampedTo.getTime()) {
-      ownDates.push(cursor);
-      cursor = addCalendarDays(cursor, 1);
-    }
-    contributions.push({ ownDates, working: exc.periodCount > 0, bands: exc.bands, name: exc.name });
-  }
-
-  return contributions;
-}
-
-function isNextCalendarDay(prevIso: string, iso: string): boolean {
-  return formatDate(addCalendarDays(parseDate(prevIso), 1)) === iso;
-}
-
-/** Precedentie-resolutie over `contributions` (al in de juiste volgorde — zie `buildContributions`):
- *  bouwt EERST een per-datum-autoriteitskaart (`authority`) door ELKE dag van ELKE contributie in
- *  volgorde te zetten (latere `.set()` wint) — dit IS de invariant-garantie (T2-review LAAG-6/7):
- *  per datum bestaat er precies één beslissing, ongeacht hoeveel brondocument-records diezelfde dag
- *  claimen of via welke twee-verschillende-fromDates-botsing MPXJ's eigen kaart dat zou missen. De
- *  kaart bewaart de WINNENDE CONTRIBUTIE-INDEX (niet de waarde zelf) — BLOKKEREND detail: twee
- *  VERSCHILLENDE contributies kunnen toevallig een IDENTIEKE waarde claimen voor dezelfde dag (bv.
- *  twee ongenaamde, bandloze feestdag-records) — een waarde-gelijkheids-toets zou dan niet kunnen
- *  onderscheiden welke van de twee "gewonnen" heeft, en zou de dag bij BEIDE contributies als
- *  "overleefd" laten gelden (dubbele output-entries voor dezelfde dag). Identiteit via index sluit
- *  dat expliciet uit. `budget` wordt hier verbruikt (één slot per dag die de kaart daadwerkelijk
- *  bereikt) — dit is STRIKTER dan "één slot per output-entry" (een lange reeks wordt hier per DAG
- *  afgeboekt, niet per bereik), bewust conservatief: het bindt de kaart se eigen geheugengrootte,
- *  niet alleen de uiteindelijke entry-telling.
- *
- *  DAARNA worden de OORSPRONKELIJKE contributies opnieuw doorlopen (zelfde volgorde) om de
- *  outputvorm te bepalen: voor elke contributie (op INDEX) wordt gekeken welke van haar EIGEN dagen
- *  de autoriteitskaart nog steeds aan HAAR (exact díe index) toekent — aaneengesloten overlevende
- *  dagen worden samengevoegd tot één bereik-entry. Een record wiens dagen NOOIT door iets anders
- *  geclaimd worden (het overgrote-merendeel-geval — elke bestaande T6-fixture) levert dus
- *  BYTE-IDENTIEKE output aan vóór deze taak: één entry per record, ONGEACHT of een ANDER,
- *  ongerelateerd record toevallig een aangrenzende datum claimt (dat wordt NOOIT meegenomen in
- *  dezelfde entry — samenvoeging gebeurt uitsluitend BINNEN de dagenlijst van ÉÉN contributie, nooit
- *  ACROSS records). */
-function resolveContributions(contributions: RecordContribution[], budget: HolidayBudget): ParsedExceptions {
-  const authority = new Map<string, number>(); // ISO-datum → winnende contributie-index
-  outer: for (let i = 0; i < contributions.length; i++) {
-    for (const date of contributions[i].ownDates) {
-      if (budget.remaining <= 0) break outer;
-      authority.set(formatDate(date), i);
-      budget.remaining--;
-    }
-  }
-
-  const holidays: Holiday[] = [];
-  const workingExceptions: WorkingException[] = [];
-  for (let i = 0; i < contributions.length; i++) {
-    const c = contributions[i];
-    let runStart: string | null = null;
-    let runEnd: string | null = null;
-    const flush = (): void => {
-      if (runStart === null || runEnd === null) return;
-      const name = c.name || (c.working ? 'Working exception' : 'Holiday');
-      if (c.working) workingExceptions.push({ name, startDate: runStart, endDate: runEnd, bands: c.bands.length ? c.bands : undefined });
-      else holidays.push({ name, startDate: runStart, endDate: runEnd });
-    };
-    for (const date of c.ownDates) {
-      const iso = formatDate(date);
-      const survives = authority.get(iso) === i;
-      if (!survives) {
-        flush();
-        runStart = null;
-        runEnd = null;
-        continue;
-      }
-      if (runStart === null) {
-        runStart = iso;
-      } else if (runEnd !== null && !isNextCalendarDay(runEnd, iso)) {
-        flush();
-        runStart = iso;
-      }
-      runEnd = iso;
-    }
-    flush();
-  }
-
-  return { holidays, workingExceptions };
-}
-
-/** Poort van `AbstractCalendarAndExceptionFactory.processCalendarExceptions` + de T3-uitbreiding
- *  (recurrente expansie + werkende uitzonderingen) — zie de sectiekop hierboven voor de volledige
- *  ontwerptoelichting. `budget` (T6-kwaliteitsreview C1, ongewijzigd voortgezet) blijft het gedeelde
- *  `HolidayBudget` over ALLE kalenders in de aanroepende `readCalendars`-run, nu gedeeld door zowel
- *  `holidays` ALS `workingExceptions` (Opus-T2-review-eis: werkende uitzonderingen tellen mee in
- *  hetzelfde budget). */
-export function parseExceptions(data: Uint8Array, ctx: string, budget: HolidayBudget): ParsedExceptions {
-  return resolveContributions(buildContributions(readRawExceptions(data, ctx)), budget);
-}
-
-/** Herexpandeert een AL GERESOLVEDE (compacte) `Holiday`/`WorkingException`-reeks — voor
- *  overervingsdoeleinden (`mergeInherited` hieronder): de basiskalender se holidays/
- *  workingExceptions zijn zelf al `resolveExceptions`-uitvoer (dus al binnen alle bestaande klemmen
- *  gematerialiseerd), maar moeten opnieuw dag-voor-dag beschikbaar zijn om tegen de EIGEN
- *  uitzonderingen van de afgeleide kalender te kunnen prioriteren (`resolveExceptions` beslist per
- *  DAG, niet per bereik — zie `resolveContributions`). Geklemd op `MAX_RECURRENCE_DATES` als eigen veiligheidsgrens (onafhankelijk
- *  van `budget` — dit is een HER-expansie van reeds-gematerialiseerde, dus al geklemde, data, geen
- *  nieuwe bestandsgestuurde lus, maar een dubbele klem kost niets en voorkomt een verrassing als een
- *  toekomstige wijziging die garantie ooit verzwakt). */
-function reExpandRange(startIso: string, endIso: string): Date[] {
-  const start = parseDate(startIso);
-  const end = parseDate(endIso);
-  const rangeDays = Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-  const cappedDays = Math.min(rangeDays, MAX_RECURRENCE_DATES - 1);
-  const out: Date[] = [];
-  for (let i = 0; i <= cappedDays; i++) out.push(addCalendarDays(start, i));
-  return out;
-}
-
-/** Overervingsregel afgeleide kalender (plan-§T3, verplichte stap): "eigen uitzondering wint per
- *  datum van de basiskalender" — MPXJ valt pas op de ouder terug als de eigen kalender die datum
- *  niet kent. Herbruikt `resolveContributions`'s autoriteitskaart-mechanisme: de basiskalender se
- *  ALREADY-gematerialiseerde `holidays`/`workingExceptions` worden als LAAGSTE-prioriteit-
- *  contributies aangeboden (herexpansie via `reExpandRange`), gevolgd door de afgeleide kalender se
- *  EIGEN rauwe uitzonderingen op hun gebruikelijke interne precedentie — exact dezelfde
- *  "latere-contributie-wint-per-datum"-mechaniek als binnen één kalender, nu toegepast over de
- *  basis→afgeleide-grens heen. Vervangt de oude `budgetedInherit`'s kale `[...base, ...own]`-concat,
- *  die geen per-datum-precedentie kon uitdrukken zodra werkende uitzonderingen bestaan. */
-function mergeInherited(base: ParsedExceptions, ownContributions: RecordContribution[], budget: HolidayBudget): ParsedExceptions {
-  const baseContributions: RecordContribution[] = [
-    ...base.holidays.map((h) => ({ ownDates: reExpandRange(h.startDate, h.endDate), working: false, bands: [], name: h.name })),
-    ...base.workingExceptions.map((w) => ({ ownDates: reExpandRange(w.startDate, w.endDate), working: true, bands: w.bands ?? [], name: w.name })),
-  ];
-  return resolveContributions([...baseContributions, ...ownContributions], budget);
+  return holidays;
 }
 
 /** Eén ruwe TBkndCal/FixedData-record (12 bytes): kalender-uniqueID + base-kalender-uniqueID +
@@ -1090,8 +561,7 @@ function readCalendarsUnsafe(
   const baseCalendarUniqueIds = new Set<number>();
   // C1 (kwaliteitsreview): ÉÉN gedeeld budget over ALLE kalenders in deze aanroep — zie
   // `MAX_TOTAL_HOLIDAY_SLOTS`. Elke `parseExceptions`-aanroep (Fase 1 én 2) en de base→afgeleide-
-  // overervingskopie (Fase 2, `mergeInherited` → `resolveContributions`) decrementeren 'm — sinds
-  // T3 óók per gematerialiseerde `workingException`-dag, niet alleen holidays (Opus-T2-review-eis).
+  // overervingskopie (Fase 2, `budgetedInherit`) decrementeren 'm.
   const holidayBudget = newHolidayBudget();
 
   // I3-fix (T6-kwaliteitsreview): `nameOf` scande voorheen 2× per kalender (eerst voor de
@@ -1188,13 +658,7 @@ function readCalendarsUnsafe(
 
     const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
     // M9 (kwaliteitsreview): uid in de ctx, voor diagnoseerbare grensfouten per kalender.
-    const parsed: ParsedExceptions = effectiveData
-      ? parseExceptions(effectiveData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`, holidayBudget)
-      : { holidays: [], workingExceptions: [] };
-    cal.holidays = parsed.holidays;
-    // T3: `workingExceptions` blijft AFWEZIG (niet `[]`) wanneer leeg — byte-identiek gedrag met
-    // vóór deze taak voor elke kalender zonder werkende uitzonderingen.
-    if (parsed.workingExceptions.length > 0) cal.workingExceptions = parsed.workingExceptions;
+    cal.holidays = effectiveData ? parseExceptions(effectiveData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`, holidayBudget) : [];
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
     ownHolidayCountByUniqueId.set(rec.calendarUniqueId, cal.holidays.length); // basiskalender: alles is "eigen", geen overerving
     linkBaseResource(rec);
@@ -1213,23 +677,12 @@ function readCalendarsUnsafe(
     daysByUniqueId.set(rec.calendarUniqueId, days);
 
     const cal = buildCalendarFromDays(nameOfOrFallback(rec.calendarUniqueId), days, overrideFor(rec.calendarUniqueId));
-    const ownRaw = ownData ? readRawExceptions(ownData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`) : [];
-    const ownContributions = buildContributions(ownRaw);
-    // Diagnostisch (T6-slot, `ownHolidayCountByUniqueId`) — EIGEN, ONGEBUDGETTEERD budget: dit is
-    // uitsluitend een dubbeltelvrije meethaakje voor testcode (zie `CalendarReadResult`'s
-    // toelichting), geen productie-uitvoer, dus moet niet van het GEDEELDE `holidayBudget` afdoen
-    // (dat zou de "eigen"-telling en de daadwerkelijke `merged`-materialisatie hieronder tegen
-    // elkaar laten concurreren om dezelfde slots — de eigen data zelf is al structureel begrensd
-    // door `MAX_CALENDAR_EXCEPTIONS`, dus een verse `newHolidayBudget()` hier is veilig).
-    const ownParsed = resolveContributions(ownContributions, newHolidayBudget());
-    const baseParsed: ParsedExceptions = baseCal
-      ? { holidays: baseCal.holidays, workingExceptions: baseCal.workingExceptions ?? [] }
-      : { holidays: [], workingExceptions: [] };
-    const merged = baseCal ? mergeInherited(baseParsed, ownContributions, holidayBudget) : resolveContributions(ownContributions, holidayBudget);
-    cal.holidays = merged.holidays;
-    if (merged.workingExceptions.length > 0) cal.workingExceptions = merged.workingExceptions;
+    const ownHolidays = ownData
+      ? parseExceptions(ownData, `${label}/exceptions[uid=${rec.calendarUniqueId}]`, holidayBudget)
+      : [];
+    cal.holidays = baseCal ? budgetedInherit(baseCal.holidays, ownHolidays, holidayBudget) : ownHolidays;
     calendarByUniqueId.set(rec.calendarUniqueId, cal);
-    ownHolidayCountByUniqueId.set(rec.calendarUniqueId, ownParsed.holidays.length); // NIET de geërfde base-holidays meetellen
+    ownHolidayCountByUniqueId.set(rec.calendarUniqueId, ownHolidays.length); // NIET de geërfde base-holidays meetellen
     linkDerivedResource(rec);
   };
 
@@ -1269,6 +722,23 @@ function readCalendarsUnsafe(
     resourceCalendarUniqueIdByResourceUniqueId,
     ownHolidayCountByUniqueId,
   };
+}
+
+/** C1 (kwaliteitsreview) — budget-bewuste vervanging van de kale `[...baseHolidays, ...ownHolidays]`-
+ *  spread: de spread kopieert `baseHolidays` VOLLEDIG bij ELKE afgeleide kalender die ervan erft,
+ *  dus N afgeleide kalenders × M base-holidays kost O(N×M) array-slots — dat bleef ONGETELD door
+ *  `MAX_CALENDAR_EXCEPTIONS` (die begrenst alleen NIEUWE parsing, geen overervingskopieën). Kapt de
+ *  BASE-portie af zodra `budget.remaining` op is (de `own`-portie is al bij het parsen ervan
+ *  gebudgetteerd, dus die wordt hier zonder verdere check toegevoegd — geen dubbele afboeking). */
+function budgetedInherit(baseHolidays: readonly Holiday[], ownHolidays: readonly Holiday[], budget: HolidayBudget): Holiday[] {
+  const merged: Holiday[] = [];
+  for (const h of baseHolidays) {
+    if (budget.remaining <= 0) break; // MAX_TOTAL_HOLIDAY_SLOTS bereikt: kap de overerving af
+    merged.push(h);
+    budget.remaining--;
+  }
+  merged.push(...ownHolidays); // al gebudgetteerd via de parseExceptions-aanroep die ze opleverde
+  return merged;
 }
 
 /**

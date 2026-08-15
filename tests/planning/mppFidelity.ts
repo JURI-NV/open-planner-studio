@@ -178,11 +178,20 @@ export function measureFidelity(bytes: Uint8Array): FidelityRow {
   // naam-mismatches, 0 dubbele MSP-ID's over 3413 taken/216 bestanden. Dat maakt deze check op dit
   // corpus "gratis" (nooit rood), maar een toekomstig corpusbestand met een collision zou hier
   // stil verkeerd rekenen zonder deze guard — rood, niet stil doorgaan.
+  //
+  // H2 (reviewbevinding, privacy): de foutmelding hieronder draagt NOOIT de taaknamen zelf — alleen
+  // positie, MSP-id en naamLENGTE. `errorRow`'s boodschap komt in DEFAULT-modus (niet alleen
+  // detail-modus) via `processFile` op stdout terecht, en dat is precies de uitvoer die CI-logs/
+  // agents/mensen kopiëren-plakken — een taaknaam uit een bedrijfsbestand hoort daar nooit in,
+  // zelfs niet als "bewijs" van een mismatch. Positie + id + lengte volstaat om het defect te
+  // lokaliseren; wie de werkelijke namen nodig heeft draait zelf `OPS_MPP_FIDELITY_REPORT=detail`
+  // (die modus print corpusinhoud bewust wél, zie de waarschuwing daarover in check-mpp-fidelity.ts).
   for (let i = 0; i < raws.length; i++) {
     if (raws[i].name !== tasks[i].name) {
       return errorRow(
-        `grondwaarheid-uitlijning mislukt op positie ${i}: raw naam "${raws[i].name}" (MSP-id ${raws[i].id}) `
-        + `≠ readMPP-naam "${tasks[i].name}" — de twee scans zijn losgeraakt`,
+        `grondwaarheid-uitlijning mislukt op positie ${i}: raw naamlengte ${raws[i].name.length} `
+        + `(MSP-id ${raws[i].id}) ≠ readMPP-naamlengte ${tasks[i].name.length} — de twee scans zijn losgeraakt `
+        + `(namen bewust niet in deze melding — draai OPS_MPP_FIDELITY_REPORT=detail voor de inhoud)`,
       );
     }
   }

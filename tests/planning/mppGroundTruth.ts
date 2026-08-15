@@ -19,13 +19,18 @@
 // veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar
 // `readTasks` zelf.
 //
-// BEKENDE BEPERKING (reviewbevinding L5): `SCHEDULED_START`/`SCHEDULED_FINISH` zijn de door MS
-// Project herberekende datums voor AUTO_SCHEDULED-taken. Een HANDMATIG geplande taak (MSP
-// "Manually Scheduled") ankert op een ander veld-paar; deze scan leest dat paar niet apart, dus
-// zo'n taak zou hier een spookafwijking geven t.o.v. onze eigen (altijd automatisch herberekende)
-// datums. Corpusbreed niet waargenomen (geen enkele afwijkende taak in de T1-nulmeting wees hierop
-// terug via de attribuut-emmers), maar niet uitgesloten voor toekomstige corpusuitbreiding — zie
-// T15's residu-iteratie.
+// BEKENDE BEPERKING (reviewbevinding L5, afgezwakt naar het bewijsbare — her-review): `SCHEDULED_
+// START`/`SCHEDULED_FINISH` zijn de door MS Project herberekende datums voor AUTO_SCHEDULED-taken.
+// Een HANDMATIG geplande taak (MSP "Manually Scheduled") ankert op een ander veld-paar; deze scan
+// leest dat paar niet apart, dus zo'n taak zou hier een spookafwijking geven t.o.v. onze eigen
+// (altijd automatisch herberekende) datums. GEEN CLAIM DAT DE T1-ATTRIBUUT-EMMERS (`mppFidelity.ts`'s
+// `diffBuckets`: `storedVoorProjectstart`/`heeftVoortgang`/`samenvattingstaak`/`heeftConstraint`/
+// `wijLater`/`wijVroeger`) dit zouden hebben opgemerkt — die emmers dragen GEEN signaal voor
+// "handmatig gepland" en zouden een dergelijke afwijking gewoon in de generieke `wijLater`/
+// `wijVroeger`-telling laten vallen, niet apart herkenbaar maken. Er is dus geen gerichte controle
+// op dit scenario geweest, alleen de afwezigheid van een onverklaard restpatroon in de bestaande
+// emmers — dat is zwakker bewijs dan "niet waargenomen" suggereert. Niet uitgesloten voor
+// toekomstige corpusuitbreiding — zie T15's residu-iteratie.
 //
 // Overgenomen (nagenoeg letterlijk) uit het scratchpad-audit-harnas (`measure.ts`'s `rawScan()`,
 // gepind op snapshot 97368f7d — zie het plandocument §5 "Het gedeelde meetscript"). Het filter voor
