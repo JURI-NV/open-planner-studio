@@ -741,6 +741,29 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
   de `.mpp`-lezing hier de semantisch plausibele indeling geeft en de XML-revisie de uitzondering
   is. Geen actie nodig aan de lezer — genoteerd zodat een toekomstige lezer dit niet als regressie
   herontdekt.
+- [ ] **MPP-vervolgetappes (user-wens 2026-08-15: de bewuste beperkingen van etappe 1 zijn geen
+  eindstation — "als we hier een keer genoeg tokens tegenaan gooien dan lukt het wel").** In
+  oplopende moeilijkheidsgraad:
+  - [ ] **Baselines + custom fields/outline codes uit `.mpp` lezen** — de var-data-typen bestaan in
+    `FieldMap14.java`; onze data-gedreven veldmap-parser (`fieldMap14.ts`) hoeft alleen extra
+    veld-ids te leren. Meest haalbare uitbreiding; ground truth voor baselines ligt klaar in
+    `mpxj/junit/data/generated/task-baselines/`.
+  - [ ] **Recurrente kalenderuitzonderingen materialiseren** (jaarlijks Kerst e.d. mét
+    herhaalregel) — de recurrence-records worden al herkend maar overgeslagen
+    (`mppCalendars.ts`); materialiseren = de RecurringData-varianten van
+    `AbstractCalendarAndExceptionFactory.java` porten en per regel concrete datums genereren
+    binnen de projecthorizon. Levert méér dan MSPDI-pariteit op (de XML-import kan dit ook niet —
+    die zou het er dan bij kunnen krijgen).
+  - [ ] **MPP9/12 native lezen** (Project 2000-2007) — zelfde containerformaat, andere veldmaps:
+    `MPP9Reader.java`/`MPP12Reader.java` + `FieldMap9/12` porten op de bestaande
+    CFB/primitieven-laag; de XOR-decodering uit `DocumentInputStreamFactory.java` (simpel:
+    `0xFF - code`) erbij voor "versleutelde" bestanden. Testdata: `mpxj/junit/data/legacy/`.
+  - [ ] **`.mpp`-EXPORT (schrijven)** — de moonshot: geen enkele OSS-implementatie bestaat (ook
+    MPXJ niet; alleen MS Project zelf via COM). Onze leeskennis (CFB-writer + veldmaps + Props)
+    is het halve werk, maar de andere helft (alle verplichte streams/checksums die Project bij
+    het openen eist) is onontgonnen reverse-engineering met MS Project als enige orakel.
+    Realistischer tussenstap als er vraag is: MSPDI-export ís de officiële uitwisselroute en
+    opent verliesvrij in MS Project.
 - [ ] MPP9/12-legacy en Asta Powerproject PP — de eerder uitgewerkte "managed tools"-route
   (user-besluit 2026-07-07: catalogus-extensie declareert een MPXJ-CLI-hulpprogramma met checksum;
   de APP-KERN beheert download/levenscyclus; sandbox ongewijzigd; web = "alleen desktop") blijft
