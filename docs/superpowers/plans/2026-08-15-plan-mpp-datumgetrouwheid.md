@@ -330,6 +330,7 @@ De leeskant (`durationType: 'ELAPSEDTIME'` zetten uit veld `DurationUnits`=181) 
 - **(b)** de taak is aantoonbaar gesplitst/genivelleerd/resource-gedreven → moet in de T12-detectie vallen (zo niet: detectie verbreden) en in de gids staan;
 - **(c)** geen van beide → **escaleren**, niet stilzwijgend pinnen. Pinnen mag alleen met een geschreven, gemeten reden in het baselinebestand én akkoord van de orkestrator.
 **Uitgangscriterium.** Elke taak in het corpus valt in (a-opgelost) of (b). Categorie (c) is leeg of expliciet door de eigenaar geaccordeerd.
+**Bekende (b)-detectiegrens (T12-fixronde 2026-08-15):** zuivere resource-contouring zónder vensteruitrekking is niet betrouwbaar detecteerbaar — het WORK_CONTOUR-FixedMeta-bit uit de MPXJ-bron bleek op MPXJ's eigen referentiebestand (mpp14resource.mpp) géén discriminator (brute-force-scan, 0 treffers). Gevolg: zulke taken wijken af zónder melding — expliciet gedocumenteerd in gids + moduleheader + KNOWN-GAP-leescase. T15 mag dit her-onderzoeken (bv. via aanwezigheid van timephased-datablokken als signaal); anders is dit een punt voor het eigenaarsakkoord bij de goal-afronding, want de goal-tekst eist melding voor de uitzonderingscategorie.
 
 #### T16 — Eindreview, `verify`, documentatie bijwerken
 
