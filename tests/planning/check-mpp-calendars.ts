@@ -36,10 +36,18 @@ import { Props } from '@/services/mpp/mppContainer';
 import { getDate } from '@/services/mpp/mppPrimitives';
 import type { Holiday } from '@/types/calendar';
 import {
-  readCalendars, parseExceptions, expandRecurrence, newHolidayBudget, promoteCalendarsForHourMode,
-  MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS, MAX_CALENDARS, MAX_TOTAL_HOLIDAY_SLOTS, MAX_BASE_CHAIN_DEPTH,
+  readCalendars, parseExceptions, promoteCalendarsForHourMode,
+  MAX_CALENDARS, MAX_BASE_CHAIN_DEPTH,
 } from '@/services/mpp/mppCalendars';
-import { MAX_RECURRENCE_DATES } from '@/services/mpp/limits';
+// Formaat-neutrale recurrentie-/precedentiekern (chunk-grens-fix, Opus-review) — rechtstreeks uit
+// de bladmodule, niet via mppCalendars.ts's her-export (die bestaat alleen voor bestaande callers
+// zoals mspdiReader.ts totdat T4 zijn eigen import repoint).
+import {
+  expandRecurrence, buildContributions, resolveContributions, newHolidayBudget,
+  MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS, MAX_TOTAL_HOLIDAY_SLOTS,
+  MAX_RECURRENCE_DATES, MAX_RECURRENCE_ITERATIONS,
+} from '@/services/calendarRecurrence';
+import type { RawException } from '@/services/calendarRecurrence';
 import { readMPP, openMppProject } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
@@ -671,6 +679,139 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
       days === MAX_RECURRENCE_DATES,
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Opus-review-fixronde (na commit eb074986) — HOOG-1 (oneindige-lus-hangs), MIDDEN-1
+// (ongeklemde totale expansie in buildContributions), LAAG-1 (ontbrekende "1-datum-expansie telt
+// als niet-recurrent"-regel), LAAG-2 (schrikkeljaar-rollover in getYearlyAbsoluteDates).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+// ── HOOG-1 (kritiek): MAX_RECURRENCE_DATES alleen klemt de OUTPUT (dates.length) — een
+// generatorlus die NOOIT een datum toevoegt triggert die klem nooit en liep vóór deze fixronde
+// ONEINDIG door. Twee reviewer-bevestigde, timeout-bewezen (≥45s vóór de fix) gevallen; beide nu
+// gedekt door de onafhankelijke `MAX_RECURRENCE_ITERATIONS`-klem in `calendarRecurrence.ts`.
+// Mutatiebewijs (uitgevoerd, niet permanent in dit bestand — een hangende test zou de suite zelf
+// blokkeren): met de `iterations`-klem TIJDELIJK uit beide generatoren verwijderd liep dit blok
+// vast; met `timeout 3 node …` op de gebundelde check kwam de run niet binnen 3s terug (exitcode
+// 124). Hersteld: onderstaande twee gevallen lopen nu binnen milliseconden af. ──────────────────
+{
+  // (a) MONTHLY-relatief: dagnummer 1, dayOfWeekValue=-2 op een maand die op zaterdag begint (hier:
+  // 2021-05-01) laat `ordinalRelativeDay` de cursor TERUGZETTEN in de vorige maand (negatieve
+  // dag-offset); bij frequentie 1 komt de daaropvolgende "reset naar eerste-van-de-maand-plus-1-
+  // maand"-stap exact weer uit op DEZELFDE maand — de cursor staat dan stil, `dates.length` blijft 0.
+  const start = Date.now();
+  const dates = expandRecurrence({
+    type: 'MONTHLY', relative: true,
+    startDate: new Date(Date.UTC(2021, 4, 1)), finishDate: null,
+    occurrences: 5, frequency: 1, weeklyDayMask: 0, dayNumber: 1, dayOfWeekValue: -2, monthNumber: 0,
+  });
+  const elapsedMs = Date.now() - start;
+  truthy(
+    `HOOG-1a MONTHLY-relatief (stilstaande cursor): binnen 200ms (${elapsedMs}ms) — was ≥3s zonder MAX_RECURRENCE_ITERATIONS (${MAX_RECURRENCE_ITERATIONS} iteraties)`,
+    elapsedMs < 200,
+  );
+  truthy('HOOG-1a: 0 datums (cursor kwam nooit voorbij startDate, correct gedegradeerd i.p.v. gehangen)', dates.length === 0);
+}
+{
+  // (b) WEEKLY met een LEGE dagen-bitmap (`weeklyDayMask=0`) + `finishDate=null`: `moreDates()` valt
+  // dan terug op `occurrences`, maar `dates.length` groeit nooit (geen enkele weekdag matcht) — de
+  // vergelijking `dates.length<occurrences` blijft voor altijd waar, ongeacht hoe vaak de cursor
+  // intussen vooruitschuift.
+  const start = Date.now();
+  const dates = expandRecurrence({
+    type: 'WEEKLY', relative: false,
+    startDate: new Date(Date.UTC(2020, 0, 1)), finishDate: null,
+    occurrences: 5, frequency: 1, weeklyDayMask: 0, dayNumber: 0, dayOfWeekValue: 0, monthNumber: 0,
+  });
+  const elapsedMs = Date.now() - start;
+  truthy(`HOOG-1b WEEKLY lege bitmap + finishDate=null: binnen 200ms (${elapsedMs}ms) — was ≥3s zonder MAX_RECURRENCE_ITERATIONS`, elapsedMs < 200);
+  truthy('HOOG-1b: 0 datums (geen enkele weekdag matcht de lege bitmap)', dates.length === 0);
+}
+
+// ── MIDDEN-1: `buildContributions` moet de TOTALE generatie zelf al tegen het budget klemmen, niet
+// pas `resolveContributions` daarna — anders alloceert een hostile bestand ALLE datums van ALLE
+// records vóórdat er ook maar naar het budget gekeken wordt (gemeten vóór deze fixronde: 2000
+// WEEKLY-records ≈ 5,2s/~1GB). Hier: 50 WEEKLY-alle-dagen-records (elk tot MAX_RECURRENCE_DATES
+// datums potentieel) tegen een budget van slechts 100. ────────────────────────────────────────────
+{
+  const raw: RawException[] = Array.from({ length: 50 }, (_, i) => ({
+    fromDate: new Date(Date.UTC(2000 + i, 0, 1)),
+    toDate: new Date(Date.UTC(2000 + i, 0, 1)),
+    periodCount: 0,
+    bands: [],
+    name: '',
+    recurring: {
+      type: 'WEEKLY' as const, relative: false,
+      startDate: new Date(Date.UTC(2000 + i, 0, 1)), finishDate: new Date(Date.UTC(2000 + i + 100, 0, 1)),
+      occurrences: 0, frequency: 1, weeklyDayMask: 0x7f, dayNumber: 0, dayOfWeekValue: 0, monthNumber: 0,
+    },
+  }));
+  const budget = { remaining: 100 };
+  const start = Date.now();
+  const contributions = buildContributions(raw, budget);
+  const elapsedMs = Date.now() - start;
+  const totalDates = contributions.reduce((sum, c) => sum + c.ownDates.length, 0);
+  truthy(`MIDDEN-1 buildContributions: binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
+  truthy(`MIDDEN-1 buildContributions: totale ownDates over ALLE contributies geklemd op het budget (${totalDates}/100)`, totalDates <= 100);
+  truthy(
+    `MIDDEN-1 buildContributions: latere records worden overgeslagen zodra het budget op is (${contributions.length}/50 records droegen bij)`,
+    contributions.length < 50,
+  );
+}
+
+// ── LAAG-2 (schrikkeljaar-rollover): de `+1-jaar`-correctie in `getYearlyAbsoluteDates` moet het
+// GECORRIGEERDE jaar se eigen maandlengte gebruiken, niet het RAUWE dagnummer van het originele
+// (schrikkel)jaar klakkeloos hergebruiken. Reviewer-repro: dag 29, maand 2 (februari), startDate
+// 2020-06-01 — 2020 is een schrikkeljaar (29 feb bestaat), 2021 niet; de correctie moet naar
+// 2021-02-28 klemmen, niet doorrollen naar 2021-03-01. ─────────────────────────────────────────────
+{
+  const dates = expandRecurrence({
+    type: 'YEARLY', relative: false,
+    startDate: new Date(Date.UTC(2020, 5, 1)), finishDate: new Date(Date.UTC(2021, 11, 31)),
+    occurrences: 0, frequency: 1, weeklyDayMask: 0, dayNumber: 29, dayOfWeekValue: 0, monthNumber: 2,
+  });
+  truthy(
+    `LAAG-2 schrikkeljaar: precies 1 datum, geklemd op 2021-02-28 (kreeg ${dates.map((d) => formatDate(d)).join(',')})`,
+    dates.length === 1 && formatDate(dates[0]) === '2021-02-28',
+  );
+}
+
+// ── LAAG-1 (ontbrekende MPXJ-regel): `ProjectCalendar.populateExpandedExceptions()` classificeert
+// een uitzondering op `expanded.size()===1` (expandeert tot PRECIES ÉÉN datum), niet op haar
+// recurrentietype — zo'n uitzondering krijgt dan NIET-recurrente (hoogste) prioriteit, ONGEACHT
+// welk type ze heeft. Reviewer-repro: een DAILY-frequentie-2-werkende-uitzondering (record 1,
+// normaliter de HOOGSTE recurrente precedentie) en een YEARLY-absolute holiday die toevallig tot
+// precies 1 datum inklapt (record 2, LATER in het bestand) botsen op dezelfde dag — de YEARLY
+// (tot niet-recurrent gepromoveerd, en LATER in het bestand) moet winnen: een holiday, geen
+// werkende uitzondering. ─────────────────────────────────────────────────────────────────────────
+{
+  const dailyRecord: RawException = {
+    fromDate: new Date(Date.UTC(2020, 0, 1)), toDate: new Date(Date.UTC(2020, 0, 1)),
+    periodCount: 1, bands: [{ start: 480, end: 720 }], name: 'DailyWorking',
+    recurring: {
+      type: 'DAILY', relative: false,
+      startDate: new Date(Date.UTC(2020, 0, 1)), finishDate: new Date(Date.UTC(2020, 0, 1)),
+      occurrences: 0, frequency: 2, weeklyDayMask: 0, dayNumber: 0, dayOfWeekValue: 0, monthNumber: 0,
+    },
+  };
+  const yearlyRecord: RawException = {
+    fromDate: new Date(Date.UTC(2020, 0, 1)), toDate: new Date(Date.UTC(2020, 0, 1)),
+    periodCount: 0, bands: [], name: 'YearlyOnce',
+    recurring: {
+      type: 'YEARLY', relative: false,
+      startDate: new Date(Date.UTC(2020, 0, 1)), finishDate: new Date(Date.UTC(2020, 0, 1)),
+      occurrences: 0, frequency: 1, weeklyDayMask: 0, dayNumber: 1, dayOfWeekValue: 0, monthNumber: 1,
+    },
+  };
+  const budget = newHolidayBudget();
+  const contributions = buildContributions([dailyRecord, yearlyRecord], budget);
+  const { holidays, workingExceptions } = resolveContributions(contributions, budget);
+  truthy('LAAG-1: precies 1 hit op 2020-01-01 (holidays+workingExceptions samen)', holidays.length + workingExceptions.length === 1);
+  truthy(
+    'LAAG-1: YEARLY (tot 1 datum ingeklapt, niet-recurrent-equivalent, LATER in het bestand) wint over DAILY (normaliter hogere recurrente precedentie)',
+    holidays.length === 1 && holidays[0]?.name === 'YearlyOnce' && workingExceptions.length === 0,
+  );
 }
 
 // ── T6-kwaliteitsreview (M8-a): ≥3-niveau-keten — transitieve overerving. calId=1 (basis, ma/wo/vr

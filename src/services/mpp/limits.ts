@@ -25,42 +25,27 @@
 export const MAX_VAR_TEXT_BYTES = 65_536;
 
 /**
- * T3 (fase 3.8, MSP-pariteit) — structurele klem op het aantal werktijd-BANDEN binnen ÉÉN
- * 92-byte kalender-uitzonderingsblok (`AbstractCalendarAndExceptionFactory.processCalendarExceptions`,
- * `readExceptionBands` in `mppCalendars.ts`). Spiegelt `MAX_DAY_HOUR_PERIODS`'s klemdiscipline
- * (die hetzelfde doet voor het 60-byte WEEKDAG-blok) maar dan voor het 92-byte UITZONDERINGS-blok:
- * duur staat op `+32 + i*4` (2-byte read), en dat past hoogstens `Math.floor((92-32-2)/4)+1 = 15`
- * keer (`i=0..14`, de 15e slot eindigt exact op byte 90, de 16e (`i=15`) zou op byte 92+ lezen —
- * buiten dit blok, in de naam-vardata van de VOLGENDE uitzondering). Geklemd op de STRUCTURELE
- * capaciteit van het blok zelf, niet een losse marge — een ongeklemde `periodCount` (SHORT,
- * 0..65535) zou anders tot 65535 iteraties per uitzondering kunnen forceren, wat bij
- * `MAX_CALENDAR_EXCEPTIONS` (2000) uitzonderingen per kalender tot 131 miljoen ongebruikte
- * lus-iteraties zou kunnen oplopen (elke iteratie ná i=14 leest toch al buiten het blok en zou de
- * bestaande `data.length<...`-grenscontrole in `readExceptionBands` raken, dus geen crash — wél
- * onnodig CPU-werk zonder deze klem).
- */
-export const MAX_EXCEPTION_BAND_PERIODS = 15;
-
-/**
- * T3 (fase 3.8, MSP-pariteit) — bovengrens op het aantal datums dat `expandRecurrence` uit ÉÉN
- * recurrente uitzondering genereert (poort van `RecurringData.populateDates()`,
- * `org.mpxj.RecurringData`). Gemeten corpuswaarde (plan §1.2.1, causale audit 2026-08-15): 368
- * niet-geflattende recurrente records over het HELE corpus samen (YEARLY-absoluut 295,
- * YEARLY-relatief 13, MONTHLY-absoluut 7, MONTHLY-relatief 21, WEEKLY 23, DAILY-met-frequentie 9)
- * — de overgrote meerderheid (80%) is YEARLY en genereert dus hoogstens enkele tientallen datums
- * (één per jaar over een paar decennia). 3660 (≈ 10 jaar dagelijks, of ≈ 70 jaar wekelijks) is ruim
- * boven elk realistisch herhalingspatroon in een bouwplanning-kalender (jaarlijkse feestdagen over
- * hoogstens enkele decennia).
+ * T3 (fase 3.8, MSP-pariteit) — structurele klem op het aantal werktijd-BANDEN binnen ÉÉN 92-byte
+ * kalender-uitzonderingsblok (`AbstractCalendarAndExceptionFactory.processCalendarExceptions`,
+ * `readExceptionBands` in `mppCalendars.ts`).
  *
- * Ergste geval ZONDER deze klem: een geprepareerd bestand kan `fromDate`/`toDate` (elk een SHORT,
- * MPP-epoch-dagen) tot het volledige bereik van ~65534 dagen (~179 jaar) laten claimen. Een WEEKLY-
- * uitzondering met frequentie 1 en alle 7 dagen aangevinkt zou dan tot ~179×365 ≈ 65.000 datums per
- * RECORD kunnen genereren; met `MAX_CALENDAR_EXCEPTIONS` (2000) uitzonderingen per kalender zou dat
- * zonder klem tot ~130 miljoen `Map`-inserts kunnen oplopen — ver voorbij `MAX_TOTAL_HOLIDAY_SLOTS`
- * (100.000) se eigen vangnet, dat pas NA generatie decrementeert (`expandRecurrence` zelf moet dus
- * ONAFHANKELIJK van het budget al begrensd zijn, anders kost de generatie-LUS zelf al te veel CPU
- * vóór het budget kan ingrijpen). Elke generatiefunctie (`getDailyDates`/`getWeeklyDates`/
- * `getMonthlyAbsoluteDates`/… in `mppCalendars.ts`) stopt hard zodra dit aantal bereikt is,
- * ongeacht `finishDate`/`occurrences`.
+ * LAAG-3-FIX (Opus-review — de vorige versie van dit commentaar rekende de klem verkeerd uit): het
+ * ANALYSEERDE alleen de DUUR-array (`+32 + i*4`, past 15× vóór de naam-vardata) en NEGEERDE dat de
+ * START-array (`+20 + i*2`, 2-byte-stride) een VEEL knellendere grens is — start-slot `i` staat op
+ * `20+2i`, wat exact BOTST met duur-slot 0 (op `+32`) zodra `20+2i>=32`, dus `i>=6`. Structureel
+ * passen er dus hoogstens 6 NIET-OVERLAPPENDE periodes (`i=0..5`) vóór start-slot 6 al in duur-slot
+ * 0 se bytes leest — gedemonstreerd (reviewer-repro): bij `periodCount=15` (de oude klem) las
+ * periode-index 6+ een "fantoomband" uit wat feitelijk duur-/naamlengte-bytes van ANDERE periodes/
+ * de naam-vardata waren. Geklemd op 5 (niet de structurele 6-slot-bovengrens): MS Project se eigen
+ * UI staat de gebruiker hooguit 5 werktijdperiodes per uitzondering toe (dezelfde autoritatieve
+ * grens als `MAX_DAY_HOUR_PERIODS`'s eigen toelichting citeert voor het 60-byte-dagblok) — 5 is dus
+ * zowel de STRUCTURELE (5<6, geen overlap-risico) als de PRODUCT-grens, en dus de motiveerbaarste
+ * keuze. (`MAX_DAY_HOUR_PERIODS` hierboven draagt dezelfde start/duur-overlapfout — dat is
+ * PRE-EXISTING buiten deze taak se scope, gemeld voor een latere T-taak, hier bewust ongewijzigd.)
+ * Een ongeklemde `periodCount` (SHORT, 0..65535) zou zonder deze klem tot 65535 iteraties per
+ * uitzondering kunnen forceren; bij `MAX_CALENDAR_EXCEPTIONS` (2000) uitzonderingen per kalender is
+ * dat tot 131 miljoen ongebruikte lus-iteraties (elke iteratie ná i=5 leest al buiten de bedoelde
+ * band-slots en zou — vóór deze fix — een fantoomband kunnen opleveren, ná deze fix simpelweg niet
+ * meer bereikt worden).
  */
-export const MAX_RECURRENCE_DATES = 3_660;
+export const MAX_EXCEPTION_BAND_PERIODS = 5;
