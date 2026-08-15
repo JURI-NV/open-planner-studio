@@ -118,11 +118,11 @@
  * alsnog te porten — tot dan is dit een bewust uitgestelde uitbreiding, geen gat.
  */
 import type { Project } from '@/types/project';
-import type { Task, TaskConstraint } from '@/types/task';
+import type { Task, TaskConstraint, MilestoneKind } from '@/types/task';
 import type { WorkCalendar } from '@/types/calendar';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
-import { formatDate, formatInstant } from '@/utils/dateUtils';
+import { formatDate, formatInstant, isoDayOfWeek } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { mspCodeToConstraint } from '@/services/msproject/mspdiReader';
@@ -415,6 +415,55 @@ function mppAnchorClock(cal: WorkCalendar): string {
   return `${String(cal.workStartHour).padStart(2, '0')}:00:00`;
 }
 
+/**
+ * T11 (§9/O6-vervolg): geeft `milestoneKind` aan een UUR-modus-mijlpaal wanneer het opgeslagen
+ * anker EXACT op een bandgrens van de effectieve kalender ligt — de informatie die T6's solverkant
+ * (`succIsFinishMs`/`predEndsBeginOfDay` in `relationMath.ts`) nodig heeft om MS Projects eigen
+ * klokstand (bv. `…T17:00`) te herkennen i.p.v. de eerstvolgende werk-instant (`…T08:00` de
+ * volgende dag) te forceren. `milestoneKind` staat al op `Task` en wordt al door de solver
+ * geconsumeerd (T6, `70ec7f92`) — geen enkele lezer zette 'm nog vóór deze taak.
+ *
+ * Kijkt UITSLUITEND naar de KALENDER-EIGEN weekdagbanden (`cal.workTime.byWeekday`, ná promotie
+ * door `promoteCalendarsForHourMode` — op het moment dat Fase C dit aanroept is `cal.workTime` dus
+ * al gezet voor elke `isHour`-kalender). Geen dag-specifieke holiday-/werkuitzondering-
+ * materialisatie (dat is `CalendarEngine`'s taak in de solver, buiten deze lezer se scope): een
+ * mijlpaal-anker landt per definitie nooit op een holiday (die dag heeft geen banden in
+ * `byWeekday`), en een werkende uitzondering met eigen banden is een T3-aangelegenheid — als de
+ * corpusmeting ooit een taak op zo'n dag laat zien die hierdoor ten onrechte `undefined` blijft,
+ * is dat een T13-heroverweging, geen gat in deze functie.
+ *
+ * `minuteOfDay` vergelijkt op UTC-getters (`getUTCHours`/`getUTCMinutes`) — spiegelt de rest van de
+ * engine, die overal in UTC-instants zonder DST rekent (zie `dateUtils.ts`'s moduleheader).
+ * Seconden worden genegeerd (MPP-tijdstempels zijn al minuut-precies, T5).
+ *
+ * Bandbegin ⇒ `'START'`; bandeinde ⇒ `'FINISH'`; anders `undefined` (huidig gedrag: geen veld
+ * gezet). Een WRAP-band (`end > 1440`, middernacht-kruisend) staat geregistreerd onder de WEEKDAG
+ * WAAROP HIJ BEGINT (§3.2 in `types/calendar.ts`) — de staart landt dus op de VOLGENDE
+ * kalenderdag; de bandeinde-check kijkt daarom ook naar de banden van GISTEREN. Twee aangrenzende
+ * banden zonder pauze ertussen (bandeinde van de ene band == bandbegin van de andere, op dezelfde
+ * dag) zijn een gedegenereerd geval dat hier als `'START'` uitvalt (de bandbegin-check loopt eerst)
+ * — geen corpusbestand of synthetische fixture raakt deze rand.
+ */
+function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | undefined {
+  const bands = cal.workTime;
+  if (!bands) return undefined;
+  const wd = isoDayOfWeek(anchor) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  const prevWd = (((wd + 5) % 7) + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7; // wd - 1, gewrapt naar 1..7
+  const minuteOfDay = anchor.getUTCHours() * 60 + anchor.getUTCMinutes();
+  const todays = bands.byWeekday[wd] ?? [];
+  for (const b of todays) {
+    if (b.start === minuteOfDay) return 'START';
+  }
+  for (const b of todays) {
+    if (b.end === minuteOfDay) return 'FINISH';
+  }
+  const yesterdays = bands.byWeekday[prevWd] ?? [];
+  for (const b of yesterdays) {
+    if (b.end > 1440 && b.end - 1440 === minuteOfDay) return 'FINISH';
+  }
+  return undefined;
+}
+
 /** I2 (T5-kwaliteitsreview) — vervangt de vijf losse positionele parameters die `readTasks` eerst
  *  had; T6/T7 breiden dit uit i.p.v. de parameterlijst nog verder te laten groeien.
  *
@@ -681,6 +730,17 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     if (raw.percentComplete >= 100) status = 'COMPLETED';
     else if (raw.percentComplete > 0) status = 'STARTED';
 
+    // T11: `milestoneKind` alleen afleiden voor een UUR-modus-mijlpaal (§9/O6-vervolg — de
+    // MSPDI-kant is BAAN K/T4, niet dit bestand). `raw.finishTs ?? raw.startTs` is het opgeslagen
+    // anker: bij een echte mijlpaal (duur 0) zijn beide gelijk, dus de keuze is neutraal; ontbreekt
+    // finish (nooit in de praktijk, wel theoretisch mogelijk bij een kapot record) dan valt terug op
+    // start. `deriveMilestoneKind` retourneert `undefined` — geen veld gezet, huidig gedrag — zowel
+    // buiten uur-modus als wanneer het anker niet exact op een bandgrens ligt.
+    const milestoneAnchor = raw.finishTs ?? raw.startTs;
+    const milestoneKind = raw.isMilestone && isHour && milestoneAnchor
+      ? deriveMilestoneKind(cal, milestoneAnchor)
+      : undefined;
+
     const task: Task = {
       id: generateId('task'),
       name: raw.name,
@@ -689,6 +749,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       taskType: 'CONSTRUCTION',
       status,
       isMilestone: raw.isMilestone,
+      ...(milestoneKind ? { milestoneKind } : {}),
       priority: 500,
       parentId: null,
       childIds: [],

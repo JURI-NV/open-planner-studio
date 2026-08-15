@@ -2063,6 +2063,288 @@ if (corpusPresent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T11 — `milestoneKind` afleiden bij import (§9/O6-vervolg): alleen voor `isMilestone`-taken in
+// UUR-modus krijgt een anker dat EXACT op een bandeinde van de effectieve kalender ligt
+// `milestoneKind: 'FINISH'`; exact op een bandbegin `'START'`; overal elders — incl. dag-modus en
+// niet-mijlpalen — blijft het veld ONGEZET (huidig gedrag). Dit is de informatie die T6's
+// solverkant (`succIsFinishMs`/`predEndsBeginOfDay` in `relationMath.ts`, commit `70ec7f92`) al
+// consumeert maar tot deze taak nooit kreeg — géén lezer zette 'm nog.
+//
+// Twee lagen, spiegelt de T10-sectie hierboven:
+//  1. SYNTHETISCH (`buildMilestoneKindFixture`) — draait ALTIJD, ook zonder corpus. Vier taken op
+//     ÉÉN gedeelde uur-kalender (enkele band 08:00-16:00, ma-vr, geen lunchpauze — dezelfde vorm
+//     als de UURMODUS-sectie hierboven) zodat promotie naar uur-modus uitsluitend van de
+//     TAAK-(c)-signalen komt: een mijlpaal op het bandeinde (FINISH), een mijlpaal op het
+//     bandbegin (START), een mijlpaal MIDDEN in de band (geen kind — "elders") en een
+//     NIET-mijlpaal exact op hetzelfde bandeinde (nooit een kind, ongeacht de klokstand). Plus een
+//     losse dag-modus-fixture (`buildDayModeMilestoneFixture`): een mijlpaal op de kalender se
+//     EIGEN anker, kalender zelf niet-deviërend ⇒ blijft dag-modus ⇒ nooit een kind, ook al "ligt"
+//     08:00 in klokterm op een bandgrens.
+//  2. CORPUS-LEESCASE tegen `mpp14baseline.mpp` (publieke MPXJ-junit-testdata, LGPL-2.1, geen
+//     bedrijfsbestand — mag met naam genoemd worden, zelfde OPS_MPP_*-conventie als de T10-sectie
+//     hierboven): de mijlpaal "Complete" (MSP: `2006-09-14T17:00`) landt op déze kalender se eigen
+//     lunch-band-eind (08:00-12:00/13:00-17:00 ⇒ bandeinde 17:00) en krijgt dus `'FINISH'`.
+//
+// Mutatiebewijs (zie het implementatierapport voor de exacte rode regels): de `deriveMilestoneKind`-
+// aanroep in `mppReader.ts` weglaten (`milestoneKind` altijd `undefined` laten) laat zowel de
+// synthetische FINISH-/START-asserts hieronder als de `mpp14baseline`-leescase ROOD uitslaan, en
+// laat de relatieve corpus-fidelity-delta (T6+T11 samen) verdwijnen — zie het commitbericht.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  const PASSWORD_FLAG_KEY = 893386752;
+  const PROJECT_START_DATE_KEY = 37748738;
+  const PROJECT_FINISH_DATE_KEY = 37748739;
+  const TITLE_KEY = 37748744;
+  const DEFAULT_CALENDAR_NAME_KEY = 37748750;
+
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  /** Eén TBkndTask/FixedData-record (130 bytes, letterlijke default-offsets — zie de I4-/
+   *  uurmodus-toelichting hierboven in dit bestand). */
+  function buildMsTaskFixedDataRecord(opts: {
+    uniqueId: number; id: number; durationRaw: number;
+    startTime: number; startDays: number; finishTime: number; finishDays: number;
+  }): Uint8Array {
+    const out = new Uint8Array(130);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, opts.uniqueId, true);
+    view.setInt32(4, opts.id, true);
+    view.setInt16(40, 1, true); // outlineLevel = 1
+    view.setInt32(42, opts.durationRaw, true);
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setUint16(64, opts.startTime, true);
+    view.setUint16(66, opts.startDays, true);
+    view.setUint16(68, opts.finishTime, true);
+    view.setUint16(70, opts.finishDays, true);
+    view.setInt32(118, -1, true); // geen taak-kalender-override — gebruik de projectkalender
+    return out;
+  }
+
+  /** Milestone-bit: PROJECT2010_TASK_META_DATA_BIT_FLAGS (offset 8, mask 0x20) — deze fixture se
+   *  CompObj-applicationName matcht `detectApplicationVersion`'s patroon niet, dus
+   *  `milestoneBitFlag(null)` valt terug op de 2010-tabel (spiegelt de I4-toelichting). */
+  function buildMsTaskFixedMetaRecord(offsetIntoFixedData: number, milestone: boolean): Uint8Array {
+    const out = new Uint8Array(47);
+    const view = new DataView(out.buffer);
+    view.setInt32(4, offsetIntoFixedData, true);
+    if (milestone) view.setInt32(8, 0x20, true);
+    return out;
+  }
+
+  function buildFixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  // Enkele band 08:00-16:00 (480-960 min, 480 min = 8u), ma-vr, GEEN lunchpauze — dezelfde
+  // kalendervorm als de UURMODUS-sectie hierboven, dus `canonicalizeBands.deviates === false` op
+  // zichzelf: promotie kan hier UITSLUITEND van een taak-(c)-signaal komen.
+  const SINGLE_BAND_8H_CAL_DAYS = [
+    { defaultFlag: 0 as const }, // zo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // ma
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // di
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // wo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // do
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // vr — dag 15000 (2025-01-24) valt hierop
+    { defaultFlag: 0 as const }, // za
+  ];
+
+  interface MsTaskSpec {
+    name: string; uniqueId: number; id: number; milestone: boolean; durationRaw: number;
+    startTime: number; startDays: number; finishTime: number; finishDays: number;
+  }
+
+  /** Bouwt één compleet CFB-bestand met N taken op ÉÉN gedeelde kalender — spiegelt de UURMODUS-
+   *  fixture hierboven, maar met meerdere taken i.p.v. één (nodig om de FINISH/START/geen-kind/
+   *  nooit-voor-niet-mijlpaal-vergelijking op DEZELFDE kalenderpromotie te doen). */
+  function buildMilestoneKindFixture(tasks: MsTaskSpec[], calendarDays = SINGLE_BAND_8H_CAL_DAYS): Uint8Array {
+    const n = tasks.length;
+    const dummy = buildMsTaskFixedMetaRecord(0, false);
+    const metas = tasks.map((t, i) => buildMsTaskFixedMetaRecord((3 + i) * 130, t.milestone));
+    const fixedMetaBlob = buildFixedMetaBlob([dummy, dummy, dummy, ...metas]);
+
+    const fixedDataBlob = new Uint8Array((3 + n) * 130);
+    tasks.forEach((t, i) => fixedDataBlob.set(buildMsTaskFixedDataRecord(t), (3 + i) * 130));
+
+    let nameOffset = 0;
+    const varMetaEntries: { uniqueId: number; type: number; offset: number }[] = [];
+    const namePayloads: { offset: number; payload: Uint8Array }[] = [];
+    for (const t of tasks) {
+      varMetaEntries.push({ uniqueId: t.uniqueId, type: 14, offset: nameOffset });
+      const payload = encodeUnicodeStringAscii(t.name);
+      namePayloads.push({ offset: nameOffset, payload });
+      nameOffset += 4 + payload.length;
+    }
+    const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
+    const taskVar2DataBuf = new Uint8Array(nameOffset);
+    const taskVar2View = new DataView(taskVar2DataBuf.buffer);
+    for (const { offset, payload } of namePayloads) {
+      taskVar2View.setInt32(offset, payload.length, true);
+      taskVar2DataBuf.set(payload, offset + 4);
+    }
+
+    const calendarName = 'T11 mijlpaal-fixture';
+    const hoursBlock = buildCalHoursBlock(calendarDays);
+    const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
+    const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
+    const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
+    const calVarMetaBytes = buildVarMetaBytes([
+      { uniqueId: 1, type: 1, offset: CAL_NAME_OFF },
+      { uniqueId: 1, type: 8, offset: CAL_DATA_OFF },
+    ]);
+    const calVar2DataBuf = new Uint8Array(700);
+    const calVar2View = new DataView(calVar2DataBuf.buffer);
+    const writeCalVar2 = (offset: number, payload: Uint8Array) => {
+      calVar2View.setInt32(offset, payload.length, true);
+      calVar2DataBuf.set(payload, offset + 4);
+    };
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii(calendarName));
+    writeCalVar2(CAL_DATA_OFF, hoursBlock);
+
+    const projectPropsBytes = encodePropsEntries([
+      { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
+      { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
+      { key: TITLE_KEY, data: encodeUnicodeStringAscii('T11-fixture') },
+      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii(calendarName) },
+    ]);
+
+    const tree: Record<string, CfbTreeNode> = {
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+      Props14: { data: encodePropsSingleByteEntry(PASSWORD_FLAG_KEY, 0) },
+      '   114': {
+        children: {
+          Props: { data: projectPropsBytes },
+          TBkndTask: {
+            children: {
+              FixedMeta: { data: fixedMetaBlob },
+              FixedData: { data: fixedDataBlob },
+              VarMeta: { data: taskVarMetaBytes },
+              Var2Data: { data: taskVar2DataBuf },
+            },
+          },
+          TBkndCal: {
+            children: {
+              FixedMeta: { data: calFixedMetaBlob },
+              FixedData: { data: calFixedDataBlob },
+              VarMeta: { data: calVarMetaBytes },
+              Var2Data: { data: calVar2DataBuf },
+            },
+          },
+        },
+      },
+    };
+    return buildNestedCfb(tree);
+  }
+
+  // ── Fixture A t/m D: vier taken, dag 15000 (vrijdag 2025-01-24, een werkdag op deze kalender),
+  // allemaal duur 0 (mijlpalen dragen geen duur) behalve waar expliciet anders. Tijd-eenheid is
+  // tienden-van-minuut (spiegelt `getTimestamp`: `time*6000ms` = 0,1 min/eenheid), dus 08:00 = 4800,
+  // 12:00 = 7200, 16:00 = 9600. ────────────────────────────────────────────────────────────────
+  {
+    const bytes = buildMilestoneKindFixture([
+      { name: 'MilestoneBandEnd', uniqueId: 10, id: 1, milestone: true, durationRaw: 0, startTime: 9600, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+      { name: 'MilestoneBandStart', uniqueId: 11, id: 2, milestone: true, durationRaw: 0, startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15000 },
+      { name: 'MilestoneMidBand', uniqueId: 12, id: 3, milestone: true, durationRaw: 0, startTime: 7200, startDays: 15000, finishTime: 7200, finishDays: 15000 },
+      { name: 'NonMilestoneBandEnd', uniqueId: 13, id: 4, milestone: false, durationRaw: 0, startTime: 9600, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+    ]);
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[T11 synthetisch] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T11 synthetisch] 4 taken', result.tasks.length === 4);
+      truthy('[T11 synthetisch] projectkalender in uur-modus (workTime gezet)', !!result.calendar.workTime);
+      const byName = new Map(result.tasks.map((t) => [t.name, t]));
+      const bandEnd = byName.get('MilestoneBandEnd');
+      const bandStart = byName.get('MilestoneBandStart');
+      const midBand = byName.get('MilestoneMidBand');
+      const nonMilestone = byName.get('NonMilestoneBandEnd');
+      truthy('[T11 synthetisch] alle vier taken gevonden', !!bandEnd && !!bandStart && !!midBand && !!nonMilestone);
+      if (bandEnd) truthy('[T11 synthetisch] anker exact op bandeinde (16:00) ⇒ milestoneKind === FINISH', bandEnd.milestoneKind === 'FINISH');
+      if (bandStart) truthy('[T11 synthetisch] anker exact op bandbegin (08:00) ⇒ milestoneKind === START', bandStart.milestoneKind === 'START');
+      if (midBand) truthy('[T11 synthetisch] anker midden in de band (12:00) ⇒ GEEN milestoneKind ("elders")', midBand.milestoneKind === undefined);
+      if (nonMilestone) {
+        truthy('[T11 synthetisch] niet-mijlpaal blijft isMilestone === false', nonMilestone.isMilestone === false);
+        truthy('[T11 synthetisch] niet-mijlpaal krijgt NOOIT een milestoneKind, ook op een bandeinde', nonMilestone.milestoneKind === undefined);
+      }
+    }
+  }
+
+  // ── Fixture E: dag-modus-controlecase — kalender zelf niet-deviërend, mijlpaal exact op de
+  // kalender se EIGEN anker (08:00, `mppAnchorClock`) ⇒ geen datumsignaal, duur 0 ⇒ geen
+  // duursignaal ⇒ het bestand blijft GEHEEL dag-modus. Bewijst "dagmodus ⇒ nooit een kind" los van
+  // de mutatie-redenering (die alleen aantoont dat uur-modus-bestanden verslechteren). ──────────
+  {
+    const bytes = buildMilestoneKindFixture([
+      { name: 'DayModeMilestone', uniqueId: 10, id: 1, milestone: true, durationRaw: 0, startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15000 },
+    ]);
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[T11 dagmodus] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T11 dagmodus] 1 taak', result.tasks.length === 1);
+      truthy('[T11 dagmodus] projectkalender.workTime NIET gezet (dag-modus)', !result.calendar.workTime);
+      const task = result.tasks[0];
+      truthy('[T11 dagmodus] taak is mijlpaal', task?.isMilestone === true);
+      truthy('[T11 dagmodus] GEEN milestoneKind (afleiding geldt alleen in uur-modus)', task?.milestoneKind === undefined);
+    }
+  }
+
+  // ── Corpus-leescase: `mpp14baseline.mpp` (publieke MPXJ-junit-testdata). Kalender: ma-vr
+  // 08:00-12:00/13:00-17:00 (lunchpauze — twee banden per werkdag, dus discriminator (a) vuurt al
+  // vanuit de kalender zelf, onafhankelijk van enig taak-signaal). Mijlpaal "Complete" landt op
+  // `2006-09-14T17:00` — exact het bandeinde van de tweede band ⇒ `'FINISH'` (empirisch geverifieerd
+  // tegen déze lezer vóór het schrijven van deze assert, spiegelt de T10-sectie se werkwijze). ────
+  {
+    const BASELINE_FIXTURE = process.env.OPS_MPP_BASELINE_FIXTURE
+      ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14baseline.mpp';
+    if (!existsSync(BASELINE_FIXTURE)) {
+      console.log(`OK  mpp-import: T11 mpp14baseline-leescase (${BASELINE_FIXTURE}) niet aanwezig — overgeslagen`);
+    } else {
+      let result: ReturnType<typeof readMPP> | null = null;
+      let threw: string | null = null;
+      try {
+        result = readMPP(new Uint8Array(readFileSync(BASELINE_FIXTURE)));
+      } catch (err) {
+        threw = err instanceof Error ? err.message : String(err);
+      }
+      truthy(`[T11 mpp14baseline] readMPP gooit niet (${threw ?? ''})`, threw === null);
+      if (result) {
+        truthy('[T11 mpp14baseline] projectkalender in uur-modus', !!result.calendar.workTime);
+        const complete = result.tasks.find((t) => t.name === 'Complete');
+        truthy('[T11 mpp14baseline] mijlpaal "Complete" gevonden', !!complete);
+        if (complete) {
+          truthy('[T11 mpp14baseline] "Complete".isMilestone === true', complete.isMilestone === true);
+          truthy(
+            `[T11 mpp14baseline] "Complete".milestoneKind === FINISH (anker ${complete.time.scheduleFinish}, kreeg ${complete.milestoneKind})`,
+            complete.milestoneKind === 'FINISH',
+          );
+        }
+        console.log('   . [T11 mpp14baseline] mijlpaal "Complete" correct als FINISH gelezen');
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // T9-crawl — end-to-end door de VOLLEDIGE readMPP() over het brede corpus (49 `.mpp`, submappen
 // MSP2016_OzBuild/MSP2021_OzBuild): geen-crash-poort + gepind totaal-taakaantal +
 // spooktaak-plausibiliteitsassert + (etappe 1.5) gepind uurmodus-taakaantal
