@@ -33,8 +33,9 @@ import { useAppStore } from '@/state/appStore';
 import { isTauri } from '@/utils/platform';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { isActivePristine } from '@/state/slices/fileSlice';
-import { parseOpenedFile, readFormatForFile } from '@/services/formatRegistry';
+import { parseOpenedFile, readFormatForFile, readFormatInput, type FormatInput } from '@/services/formatRegistry';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
+import { extensionOf } from '@/utils/filePath';
 import type { ImportResult } from '@/services/importTypes';
 import { bindExpectedDoc, buildEnvelope, guardNonTransactional, toolError } from './runtime';
 import { guardBridgeFlags } from './documentTools';
@@ -156,7 +157,7 @@ export function checkScope(home: string, input: string): ScopeCheck {
  *  `MPP14` (T8): de enige binaire indeling die dit pad kent — `.mpp` (MS Project 2010-2021,
  *  alleen-lezen native lezer, zie `src/services/mpp/`). */
 function formatOf(path: string, content: string): 'IFC' | 'CSV' | 'P6-XML' | 'MSPDI-XML' | 'MPP14' {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  const ext = extensionOf(path);
   if (ext === 'csv') return 'CSV';
   if (ext === 'mpp') return 'MPP14';
   if (ext === 'xml') {
@@ -341,27 +342,27 @@ export const fileTools: McpToolDef[] = [
         return toolError(ctx, 'INTERNAL', `Kon het bronpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
       }
       const readFormat = readFormatForFile(path);
-      const isBinary = readFormat.kind === 'binary';
       // `content` blijft '' voor een binair formaat — puur voor `formatOf` (verderop) se sniffen
       // op CSV/P6-XML/MSPDI-XML-inhoud; het OPSLAGDOEL-besluit hangt sinds T11 niet meer af van
       // `formatOf`'s AI-facing label maar rechtstreeks van `readFormat.canBeSaveTarget` (zie
       // verderop) — dus geen risico meer dat een binair formaat via `formatOf`'s IFC-terugval per
       // ongeluk als opslagdoel-waardig zou worden gelezen.
-      let content = '';
-      let bytes: Uint8Array | undefined;
+      let input: FormatInput;
       try {
-        if (isBinary) bytes = await fs.readFile(path);
-        else content = await fs.readTextFile(path);
+        // T11 (T2-kwaliteitsreview-agenda stap 0 a): gedeelde isBinary?readFile:readTextFile-tak,
+        // óók hier — `fs` (McpFileFs) is structureel compatibel met `readFormatInput`'s `FormatIO`.
+        input = await readFormatInput(path, fs);
       } catch (e) {
         return toolError(ctx, 'NOT_FOUND', `Kon '${path}' niet lezen: ${e instanceof Error ? e.message : String(e)}`);
       }
+      const content = input.text ?? '';
 
       let parsed: ImportResult;
       try {
         // Geen `labels`: dienstlaag zonder `t(...)` — de MCP-laag is AI-facing en kent geen UI-taal.
         // `readIFC` valt dan terug op de Engelse default voor een bestand zonder IFCPROJECT (zie
         // ImportLabels).
-        parsed = await parseOpenedFile({ name: path, text: content, bytes });
+        parsed = await parseOpenedFile(input);
       } catch (e) {
         return toolError(ctx, 'VALIDATION', `'${path}' kon niet worden gelezen als planning: ${e instanceof Error ? e.message : String(e)}`);
       }

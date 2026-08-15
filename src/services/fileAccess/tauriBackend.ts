@@ -1,5 +1,5 @@
 import type { FileFilter, FileRef, OpenDialogOpts, OpenedFile, SaveOutcome } from './index';
-import { ensureExtension } from '@/utils/filePath';
+import { ensureExtension, extensionOf } from '@/utils/filePath';
 
 const basename = (p: string): string => p.split(/[\\/]/).pop() || p;
 
@@ -8,8 +8,7 @@ export async function openFileDialogTauri(filters: FileFilter[], opts?: OpenDial
   const selected = await open({ multiple: false, filters });
   if (!selected) return null;
   const path = selected as string;
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  const isBinary = (opts?.binaryExtensions ?? []).includes(ext);
+  const isBinary = (opts?.binaryExtensions ?? []).includes(extensionOf(path));
   if (isBinary) {
     const { readFile } = await import('@tauri-apps/plugin-fs');
     const bytes = await readFile(path);

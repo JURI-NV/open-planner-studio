@@ -9,6 +9,7 @@ import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { readP6XML } from '@/services/p6/p6xmlReader';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import type { FileFilter, FileRef } from '@/services/fileAccess';
+import { extensionOf } from '@/utils/filePath';
 
 /** Invoer voor een reader: tekstformaten krijgen `text`, binaire formaten `bytes`. */
 export interface FormatInput { name: string; text?: string; bytes?: Uint8Array }
@@ -71,7 +72,7 @@ const READ_FORMATS: ReadFormat[] = [
 
 /** Extensie-match; onbekende extensie ⇒ de default (IFC). */
 export function readFormatForFile(name: string): ReadFormat {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  const ext = extensionOf(name);
   return READ_FORMATS.find((f) => f.extensions.includes(ext)) ?? IFC_FORMAT;
 }
 
@@ -95,6 +96,25 @@ export function allReadFormats(): readonly ReadFormat[] {
 
 export function parseOpenedFile(input: FormatInput, labels?: ImportLabels): Promise<ImportResult> {
   return readFormatForFile(input.name).read(input, labels);
+}
+
+/** Injecteerbare lees-naad voor `readFormatInput` — bewust een structureel subset-compatibele vorm
+ *  van `McpFileFs` (fileTools.ts), zodat de MCP-kant 'm zonder wrapper kan meegeven; de twee
+ *  Tauri-directe aanroepers (fileSlice, devBridge) geven de destructured `plugin-fs`-functies mee
+ *  (`{ readTextFile, readFile }`), die dezelfde vorm hebben. */
+export interface FormatIO {
+  readTextFile(path: string): Promise<string>;
+  readFile(path: string): Promise<Uint8Array>;
+}
+
+/** Leest `name` als tekst óf bytes — welke van de twee hangt af van het geregistreerde formaat
+ *  (T11, T2-kwaliteitsreview-agenda stap 0 a): de "isBinary ? readFile : readTextFile"-tak stond
+ *  tot deze refactor 3x los (fileSlice.parseExternalSource, devBridge.openFromPath, en in
+ *  aangepaste vorm fileTools.ts's `import_schedule`-handler). Eén plek voor de beslissing; de
+ *  aanroeper blijft verantwoordelijk voor foutafhandeling rond de I/O zelf. */
+export async function readFormatInput(name: string, io: FormatIO): Promise<FormatInput> {
+  const isBinary = readFormatForFile(name).kind === 'binary';
+  return isBinary ? { name, bytes: await io.readFile(name) } : { name, text: await io.readTextFile(name) };
 }
 
 /** Opslagdoel-beslissing (T11, T8-kwaliteitsreview-agenda stap 0-ter b): één plek voor de

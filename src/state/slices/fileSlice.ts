@@ -4,7 +4,7 @@ import { writeCSV } from '@/services/csv/csvWriter';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { openFileDialog, saveFileDialog, saveToRef, readFromRef, readBytesFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
-import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, saveTargetFor, type ExportFormat } from '@/services/formatRegistry';
+import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, saveTargetFor, readFormatInput, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -407,17 +407,9 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
     parseExternalSource: async (filePath: string, labels) => {
       if (!isTauri()) return null;
       try {
-        const isBinary = readFormatForFile(filePath).kind === 'binary';
-        let parsed: ImportResult;
-        if (isBinary) {
-          const { readFile } = await import('@tauri-apps/plugin-fs');
-          const bytes = await readFile(filePath);
-          parsed = await parseOpenedFile({ name: filePath, bytes }, labels);
-        } else {
-          const { readTextFile } = await import('@tauri-apps/plugin-fs');
-          const content = await readTextFile(filePath);
-          parsed = await parseOpenedFile({ name: filePath, text: content }, labels);
-        }
+        const { readTextFile, readFile } = await import('@tauri-apps/plugin-fs');
+        const input = await readFormatInput(filePath, { readTextFile, readFile });
+        const parsed = await parseOpenedFile(input, labels);
         return {
           projectId: parsed.project.id,
           projectName: parsed.project.name,

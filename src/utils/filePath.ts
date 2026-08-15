@@ -15,3 +15,15 @@ export function ensureExtension(path: string, ext: string): string {
   const suffix = `.${ext.toLowerCase()}`;
   return path.toLowerCase().endsWith(suffix) ? path : `${path}.${ext}`;
 }
+
+/**
+ * Lowercase bestandsextensie zónder punt, of `''` als er geen `.` in de naam zit — de vier
+ * plekken die deze extractie deden (`formatRegistry.readFormatForFile`, `fileTools.formatOf`,
+ * `webBackend.isBinaryName`, `tauriBackend`'s binair-beslissing) hadden allemaal letterlijk
+ * dezelfde `path.split('.').pop()?.toLowerCase() ?? ''` (T11, T2-kwaliteitsreview-agenda stap
+ * 0 c). Werkt op een volledig pad EN een kale bestandsnaam (alleen het laatste segment na de
+ * laatste punt telt, `split('.')` kijkt niet naar `/`).
+ */
+export function extensionOf(name: string): string {
+  return name.split('.').pop()?.toLowerCase() ?? '';
+}

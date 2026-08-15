@@ -1,4 +1,5 @@
 import type { FileFilter, FileRef, OpenDialogOpts, OpenedFile, SaveOutcome } from './index';
+import { extensionOf } from '@/utils/filePath';
 
 const hasFSA = (): boolean => typeof window !== 'undefined' && 'showOpenFilePicker' in window;
 
@@ -58,8 +59,7 @@ export function resetWebWriteRefusalForTests(): void {
 // ---- Fallback (Firefox/Safari): <input type=file> + blob-download ----
 
 function isBinaryName(name: string, opts?: OpenDialogOpts): boolean {
-  const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  return (opts?.binaryExtensions ?? []).includes(ext);
+  return (opts?.binaryExtensions ?? []).includes(extensionOf(name));
 }
 
 function openViaInput(filters: FileFilter[], opts?: OpenDialogOpts): Promise<OpenedFile | null> {
@@ -166,7 +166,15 @@ export async function saveToRefWeb(ref: FileRef, content: string): Promise<boole
   }
 }
 
-export async function readFromRefWeb(ref: FileRef): Promise<string | null> {
+/**
+ * Gedeelde permissie-dans voor een leesactie op een handle (T11, T2-kwaliteitsreview-agenda
+ * stap 0 b): `readFromRefWeb`/`readBytesFromRefWeb` waren tot deze refactor twee bijna-identieke
+ * kopieën van dezelfde read-grant-aanvraag, alleen verschillend in hoe ze de uiteindelijke `File`
+ * naar het resultaat vertalen (`.text()` vs. `new Uint8Array(await .arrayBuffer())`). `extract`
+ * draagt dat verschil; de rest (kind-guard, queryPermission/requestPermission, try/catch → `null`)
+ * blijft één plek.
+ */
+async function readRefWeb<T>(ref: FileRef, extract: (file: File) => Promise<T>): Promise<T | null> {
   if (ref.kind !== 'handle') return null;
   const { handle } = ref;
   const opts: FileSystemHandlePermissionDescriptor = { mode: 'read' };
@@ -175,23 +183,16 @@ export async function readFromRefWeb(ref: FileRef): Promise<string | null> {
       if ((await handle.requestPermission?.(opts)) !== 'granted') return null;
     }
     const file = await handle.getFile();
-    return await file.text();
+    return await extract(file);
   } catch {
     return null;
   }
 }
 
-export async function readBytesFromRefWeb(ref: FileRef): Promise<Uint8Array | null> {
-  if (ref.kind !== 'handle') return null;
-  const { handle } = ref;
-  const opts: FileSystemHandlePermissionDescriptor = { mode: 'read' };
-  try {
-    if ((await handle.queryPermission?.(opts)) !== 'granted') {
-      if ((await handle.requestPermission?.(opts)) !== 'granted') return null;
-    }
-    const file = await handle.getFile();
-    return new Uint8Array(await file.arrayBuffer());
-  } catch {
-    return null;
-  }
+export function readFromRefWeb(ref: FileRef): Promise<string | null> {
+  return readRefWeb(ref, (file) => file.text());
+}
+
+export function readBytesFromRefWeb(ref: FileRef): Promise<Uint8Array | null> {
+  return readRefWeb(ref, async (file) => new Uint8Array(await file.arrayBuffer()));
 }
