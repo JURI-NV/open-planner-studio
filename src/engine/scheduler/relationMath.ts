@@ -295,6 +295,25 @@ function forwardHour(
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
   const elapsedMin = () => deps.resolveElapsedMinutes(seq, predTask) * MS_PER_MIN;
 
+  // MSP-pariteit (T6, §9/O6; her-herzien op Opus-review H1/L1/L2). Een EINDmijlpaal-opvolger
+  // zonder échte lag landt op de RAUWE voorganger-instant (bv. di 17:00) i.p.v. de eerstvolgende
+  // werk-instant erna — `nextWorkInstant`/`availableStart` normaliseren met de FORWARD-conventie
+  // `[start,end)`, die een instant exact op een band-EIND per definitie uitsluit (precies de rand
+  // waarop een finish legitiem landt: `finishFromStart` bouwt `ef` met `(start,end]`). Geldt voor
+  // alle vier relatietypes (FS/FF/SF hebben elk hun eigen "rauwe kandidaat-instant"; SS eindigt
+  // nooit op de opvolger-FINISH, dus buiten scope) — vandaar één gedeelde landings-helper i.p.v.
+  // een aparte kortsluiting per arm.
+  //
+  // `landRawInstant` (H1, Opus-review): de rauwe instant is een uur-precisie `Date` uit de
+  // VOORGANGER-kalender. Is de opvolger zelf ook uur-modus, dan is dat instant al geldig — gewoon
+  // teruggeven. Is de opvolger DAG-modus, dan mag de tijd-component niet blijven hangen: `nextWorkDay`
+  // behoudt "tijd-van-de-dag" op een niet-middernacht-`Date` (het is een dag-primitief, geen
+  // instant-primitief), dus zonder eerst naar `startOfDay` te normaliseren rapporteert de taak een
+  // correct ogende dag met een spook-tijdscomponent erin — onzichtbaar in dag-geformatteerde
+  // datums, maar `workDaysBetween`/`workMinutesBetween` tellen 'm wél mee, met een speling die één
+  // werkdag te laag uitvalt (vóór deze fix gemeten: tf=2 waar de dag-referentie tf=3 geeft).
+  const landRawInstant = (raw: Date): Date => (se.isHourMode ? raw : se.nextWorkDay(deps.startOfDay(raw)));
+
   switch (seq.type) {
     case 'START_START': {
       const base = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
@@ -304,17 +323,44 @@ function forwardHour(
       return deps.snapOnOrAfter(se, deps.shiftLagPred(pe, base, seq, predTask, 1));
     }
     case 'FINISH_FINISH': {
-      const reqFinish = elapsed
-        ? deps.snapOnOrAfter(se, new Date(predResult.ef.getTime() + elapsedMin()))
-        : deps.shiftLagPred(pe, predResult.ef, seq, predTask, 1);
+      // MSP-pariteit (L1, Opus-review): `startFromFinish` geeft voor een mijlpaal-opvolger
+      // `reqFinish` ONGEWIJZIGD terug (pure pass-through) — vóór deze fix werd `reqFinish` dus
+      // altijd al vooraf gesnapt via `shiftLagPred`, óók bij lag=0, en landde een FF-eindmijlpaal
+      // dus nooit op de rauwe voorganger-finish. Zelfde `lagIsZero`-kortsluiting als de FS-tak
+      // hieronder, hier tegen `predResult.ef` (de FF-relatie ankert al op de finish, geen aparte
+      // dagrand-normalisatie nodig zoals FS se `predDone`).
+      let reqFinish: Date;
+      if (elapsed) {
+        reqFinish = deps.snapOnOrAfter(se, new Date(predResult.ef.getTime() + elapsedMin()));
+      } else {
+        const lagged = deps.shiftLagPred(pe, predResult.ef, seq, predTask, 1);
+        if (succIsFinishMs && pe.isHourMode
+          && lagged.getTime() === pe.nextWorkInstant(predResult.ef).getTime()) {
+          reqFinish = landRawInstant(predResult.ef);
+        } else {
+          reqFinish = lagged;
+        }
+      }
       if (succIsStartMs && !predEndsBeginOfDay) return deps.snapStrictAfter(se, reqFinish);
       return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'START_FINISH': {
+      // MSP-pariteit (L1, Opus-review): zelfde redenering als FINISH_FINISH hierboven, maar het
+      // rauwe anker is hier `startMoment` (de voorganger-START-zijde, incl. dagbegin-mijlpaal-
+      // correctie) i.p.v. `predResult.ef` — SF ankert de opvolger-finish op de voorganger-START.
       const startMoment = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
-      const reqFinish = elapsed
-        ? deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()))
-        : deps.shiftLagPred(pe, startMoment, seq, predTask, 1);
+      let reqFinish: Date;
+      if (elapsed) {
+        reqFinish = deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()));
+      } else {
+        const lagged = deps.shiftLagPred(pe, startMoment, seq, predTask, 1);
+        if (succIsFinishMs && pe.isHourMode
+          && lagged.getTime() === pe.nextWorkInstant(startMoment).getTime()) {
+          reqFinish = landRawInstant(startMoment);
+        } else {
+          reqFinish = lagged;
+        }
+      }
       return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'FINISH_START':
@@ -324,8 +370,20 @@ function forwardHour(
       // volledige werkdag (scenario 7 uur→dag) en snapt een uur-opvolger naar de eerstvolgende
       // werk-instant (scenario 1/6). Lag telt daarvóór in de voorganger-engine.
       if (elapsed) {
-        // Klok-minuten 24/7 vanaf de exclusieve finish, dan vooruit-snap (scenario 6b).
-        return se.availableStart(new Date(predResult.ef.getTime() + elapsedMin()));
+        // MSP-pariteit (L2, Opus-review): een ELAPSEDTIME-lag van exact 0 klok-minuten is dezelfde
+        // "geen échte lag"-situatie als de WORKTIME-tak hieronder — vóór deze fix ging deze arm
+        // altijd via `se.availableStart`, ook bij 0 minuten, en landde een elapsed-FS-eindmijlpaal
+        // dus nooit op de rauwe instant. Geen `lagIsZero`-vergelijking nodig: 0 klok-minuten is per
+        // definitie geen verschuiving. Anker is `predResult.ef` RECHTSTREEKS (NIET `predDone` —
+        // die dag-boundary-+1-afleiding hieronder is een WORKTIME-concept en hoort hier niet: vóór
+        // deze fix gebruikte deze arm ook al kaal `predResult.ef`, byte-identiek voor `pe.isHourMode
+        // === false`; het per-ongeluk gebruiken van `predDone` hier schoof een dag-pred-scenario een
+        // hele dag op — gevangen door `elapsed-day-to-hour` in cases-hours.json).
+        const target = new Date(predResult.ef.getTime() + elapsedMin());
+        if (succIsFinishMs && pe.isHourMode && elapsedMin() === 0) {
+          return landRawInstant(target);
+        }
+        return se.availableStart(target);
       }
       const predDone = (succIsFinishMs || predEndsBeginOfDay)
         ? predResult.ef                       // mijlpaal-grens: geen dag-boundary-+1 (dag-conceptueel)
@@ -344,18 +402,22 @@ function forwardHour(
       // `succResult.ls` alsnog moet normaliseren — hier ligt de garantie al bij de bron).
       // `lagIsZero` is dezelfde detectietruc als de bestaande backward-arm (hour-hour FS default,
       // hierboven in dit bestand): "de geshifte waarde == wat een kale nul-lag-normalisatie zou
-      // geven" ⇒ er is geen echte lag toegepast. Bij `predEndsBeginOfDay` (dagbegin-mijlpaal-
-      // voorganger) geldt de omgekeerde asymmetrie NIET — een dagbegin-anker ligt al binnen de
-      // `[start,end)`-conventie (§9/O6-meting: alleen het "MSP 17:00 → onze 08:00"-patroon, nooit
-      // een startmijlpaal-analoog) — dus die combinatie blijft ongewijzigd via `availableStart`.
+      // geven" ⇒ er is geen echte lag toegepast.
+      // GEEN `!predEndsBeginOfDay`-subconditie (L3, Opus-review, was hier eerder aanwezig maar
+      // ongepind): wanneer `predEndsBeginOfDay` waar is, is `predDone` via de ternary hierboven
+      // TÓCH al `predResult.ef` (een dagbegin-mijlpaal-anker, bv. ma08:00) — exact dezelfde waarde
+      // als wanneer alleen `succIsFinishMs` de ternary stuurt. Zo'n anker ligt bovendien altijd al
+      // ín `[start,end)` (`nextWorkInstant` ervan is een no-op), dus `lagIsZero` en de niet-
+      // kortgesloten weg komen sowieso op dezelfde instant uit — de exclusie kan het gedrag hier
+      // niet veranderen (mutatiebewijs: schrappen ⇒ 459/459 + alle nieuwe cases groen).
       // `pe.isHourMode`-wacht is VERPLICHT: `nextWorkInstant` is een uur-modus-primitief
       // (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder guard) — bij een DAG-
       // voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`) zou de aanroep
       // crashen op de non-null assertion. Die combinatie werkt al correct via de bestaande
       // dag-lag-tak van `shiftLagPred` + `availableStart` en blijft dus ongemoeid.
-      if (succIsFinishMs && !predEndsBeginOfDay && pe.isHourMode) {
+      if (succIsFinishMs && pe.isHourMode) {
         const lagIsZero = lagged.getTime() === pe.nextWorkInstant(predDone).getTime();
-        if (lagIsZero) return predDone;
+        if (lagIsZero) return landRawInstant(predDone);
       }
       return se.availableStart(lagged);
     }

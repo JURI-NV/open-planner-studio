@@ -826,7 +826,13 @@ export class CPMSolver {
   /** Hammock-ES (§4.4): de gewone forward-`max` over de START-drivers (SS/FS-voorgangers), met de
    *  projectstart als vloer. FF/SF-voorgangers (finish-drivers) doen hier NIET mee — die bepalen de
    *  EF. `forwardConstraint` levert voor SS/FS een start-grens; `seqConstraint` wordt bewust NIET
-   *  gezet, zodat de hammock-relaties buiten de driving-/float-path-analyse blijven (§4.4). */
+   *  gezet, zodat de hammock-relaties buiten de driving-/float-path-analyse blijven (§4.4).
+   *
+   *  BEKENDE BEPERKING (L4, T6-her-review, §9/O1): een hammock-taak die TEGELIJK `isMilestone` is,
+   *  volgt de MSP-instantconventie hier NIET — `snapOnOrAfter` is de kale her-snap, niet de
+   *  mijlpaal-bewuste `landRawInstant`/`snapSuccessorEarlyStart`. Bewust niet gefixt: de combinatie
+   *  hammock+mijlpaal is pathologisch (een hammock leidt zijn eigen duur af uit ES→EF; een mijlpaal
+   *  hééft geen duur) en geen van beide bronbestandsformaten (`.mpp`/MSPDI) schrijft 'm zo. */
   private hammockEarlyStart(
     task: Task,
     preds: Sequence[],
@@ -1003,7 +1009,16 @@ export class CPMSolver {
   /** Forward-ondergrens (start) van ÉÉN soft constraint (§4.1/§4.3), of null zonder forward-effect.
    *  SNET/MSO ⇒ start-ondergrens; FNET/MFO ⇒ finish-ondergrens vertaald naar de start. Dag-modus
    *  reduceert byte-identiek tot `nextWorkDay`/`addWorkingDaysSigned`; uur-modus gebruikt de instant-
-   *  vinders + de minuut-aftrek van `startFromFinish` (via `durationMinutesOf`). */
+   *  vinders + de minuut-aftrek van `startFromFinish` (via `durationMinutesOf`).
+   *
+   *  BEKENDE BEPERKING (L5, T6-her-review, §9/O6): een SNET/MSO exact op een band-eind (bv.
+   *  "niet vóór di 17:00") volgt de mijlpaal-instantconventie NIET — `snapOnOrAfter` snapt hier
+   *  altijd vooruit via `nextWorkInstant`, ook op een eindmijlpaal. Bewust: een constraint is een
+   *  door de gebruiker/bronbestand OPGELEGDE ondergrens ("niet eerder dan X"), geen door een relatie
+   *  AFGELEIDE landingsinstant — "niet eerder dan 17:00" wordt door MS Project zelf ook gelezen als
+   *  "dus ten vroegste de eerstvolgende werk-instant ná 17:00", niet als "land exact op 17:00". De
+   *  MSP-pariteitsconventie (T6) geldt voor relatie-afgeleide instanten (FS/FF/SF-grenzen), niet
+   *  voor constraint-ondergrenzen. */
   private forwardBoundOf(task: Task, c: TaskConstraint | undefined, eng: CalendarEngine): Date | null {
     const d = this.constraintInstant(c, eng);
     if (!c || !d) return null;
