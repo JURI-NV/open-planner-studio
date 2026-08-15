@@ -34,10 +34,12 @@ import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
 import { Props } from '@/services/mpp/mppContainer';
 import { getDate } from '@/services/mpp/mppPrimitives';
+import type { Holiday } from '@/types/calendar';
 import {
-  readCalendars, parseExceptions, newHolidayBudget, promoteCalendarsForHourMode,
+  readCalendars, parseExceptions, expandRecurrence, newHolidayBudget, promoteCalendarsForHourMode,
   MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS, MAX_CALENDARS, MAX_TOTAL_HOLIDAY_SLOTS, MAX_BASE_CHAIN_DEPTH,
 } from '@/services/mpp/mppCalendars';
+import { MAX_RECURRENCE_DATES } from '@/services/mpp/limits';
 import { readMPP, openMppProject } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
@@ -359,10 +361,10 @@ function mppDayToIso(raw: number): string {
   const data = concatBytes(hoursBlock, tail);
 
   const start = Date.now();
-  let holidays: ReturnType<typeof parseExceptions> = [];
+  let holidays: Holiday[] = [];
   let threw: string | null = null;
   try {
-    holidays = parseExceptions(data, 'T6-hostile-exception-count', newHolidayBudget());
+    holidays = parseExceptions(data, 'T6-hostile-exception-count', newHolidayBudget()).holidays;
   } catch (err) {
     threw = err instanceof Error ? err.message : String(err);
   }
@@ -370,6 +372,9 @@ function mppDayToIso(raw: number): string {
   truthy(`T6-hostile extreem exception-aantal: binnen tijdslimiet (${elapsedMs}ms < ${TIME_LIMIT_MS}ms)`, elapsedMs < TIME_LIMIT_MS);
   truthy(`T6-hostile extreem exception-aantal: gooit niet (${threw ?? ''})`, threw === null);
   truthy(
+    // T3: elk record is nog steeds een LOS 1-dags entry (geen samenvoeging ACROSS records, ook al
+    // zijn de dagen 10000..11999 toevallig aaneengesloten — zie `resolveContributions`'s
+    // toelichting), dus de telling blijft exact op de record-klem staan.
     `T6-hostile extreem exception-aantal: geklemd op MAX_CALENDAR_EXCEPTIONS (${holidays.length}/${MAX_CALENDAR_EXCEPTIONS}, buffer bood ${EXTREME_COUNT} geldige records)`,
     holidays.length === MAX_CALENDAR_EXCEPTIONS,
   );
@@ -380,7 +385,7 @@ function mppDayToIso(raw: number): string {
   const hoursBlock = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
   const tail = buildCalExceptionsTail([{ fromDay: 0, toDay: 65534 }]);
   const data = concatBytes(hoursBlock, tail);
-  const holidays = parseExceptions(data, 'T6-hostile-range', newHolidayBudget());
+  const holidays = parseExceptions(data, 'T6-hostile-range', newHolidayBudget()).holidays;
   truthy('T6-hostile extreem bereik: precies 1 holiday gematerialiseerd', holidays.length === 1);
   if (holidays.length === 1) {
     const days = Math.round((new Date(holidays[0].endDate).getTime() - new Date(holidays[0].startDate).getTime()) / 86_400_000);
@@ -398,10 +403,10 @@ function mppDayToIso(raw: number): string {
   const data421 = new Uint8Array(421);
   data421.set(buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const }))), 0);
   const start = Date.now();
-  let holidays: ReturnType<typeof parseExceptions> = [];
+  let holidays: Holiday[] = [];
   let threw: string | null = null;
   try {
-    holidays = parseExceptions(data421, 'I1-fix-421-bytes', newHolidayBudget());
+    holidays = parseExceptions(data421, 'I1-fix-421-bytes', newHolidayBudget()).holidays;
   } catch (err) {
     threw = err instanceof Error ? err.message : String(err);
   }
@@ -410,18 +415,37 @@ function mppDayToIso(raw: number): string {
   truthy(`I1-fix: binnen tijdslimiet (${Date.now() - start}ms < ${TIME_LIMIT_MS}ms)`, Date.now() - start < TIME_LIMIT_MS);
 }
 
-// ── Recurrente (niet-geflattende) uitzondering: recurrenceTypeValue=2 (YEARLY) wordt bewust NIET
-// gematerialiseerd. ─────────────────────────────────────────────────────────────────────────────
+// ── T3-GEDRAGSWIJZIGING (was: "recurrenceTypeValue=2 (YEARLY) wordt bewust NIET gematerialiseerd"
+// — vóór T3 kende deze module geen enkele recurrente expansie). recurrenceTypeValue=2 = YEARLY
+// absoluut; `freq76` (default 256 = 0x0100 little-endian ⇒ byte@76=0, byte@77=1) levert
+// dayNumber=byte@77=1, monthNumber=byte@76+1=1 ⇒ "elk jaar 1 januari". fromDay=10000/toDay=10100
+// (het RECURRENTIEVENSTER, niet de feestdag zelf) vertaalt naar 2011-05-18..2011-08-26 — geen 1
+// januari daarbinnen. `getYearlyAbsoluteDates` (poort van MPXJ se `RecurringData.
+// getYearlyAbsoluteDates`) evalueert de WHILE-conditie tegen de cursor VÓÓR de
+// `isBefore(startDate) ⇒ +1 jaar`-correctie (zie de toelichting bij die functie in
+// mppCalendars.ts) — dat levert hier `2012-01-01` op, net BUITEN het nominale venster. Dit is
+// LETTERLIJK MPXJ-gedrag (bevestigd door de poort daadwerkelijk te draaien tegen deze fixture,
+// niet aangenomen), geen eigen bug. ─────────────────────────────────────────────────────────────
 {
   const hoursBlock = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
   const tail = buildCalExceptionsTail([{ fromDay: 10000, toDay: 10100, recurrenceTypeValue: 2 }]);
   const data = concatBytes(hoursBlock, tail);
-  const holidays = parseExceptions(data, 'T6-hostile-recurring', newHolidayBudget());
-  truthy('T6-hostile recurrente uitzondering: NIET gematerialiseerd (0 holidays)', holidays.length === 0);
+  const holidays = parseExceptions(data, 'T6-hostile-recurring', newHolidayBudget()).holidays;
+  truthy('T3 YEARLY-recurrentie: precies 1 holiday gematerialiseerd (was 0 vóór T3)', holidays.length === 1);
+  truthy(
+    `T3 YEARLY-recurrentie: gegenereerde datum === 2012-01-01 (dayNumber=1, monthNumber=1, MPXJ se eigen buiten-het-venster-gedrag)`,
+    holidays[0]?.startDate === '2012-01-01' && holidays[0]?.endDate === '2012-01-01',
+  );
 }
 
 // ── T6-spec-review-fix-regressie: recurrenceTypeValue===1 (DAILY) negeert @76 volledig; type 7
-// telt @76 wél mee. ─────────────────────────────────────────────────────────────────────────────
+// telt @76 wél mee. T3-GEDRAGSWIJZIGING op de LAATSTE case (was: "type-7 freq76=2 NIET
+// gematerialiseerd" — vóór T3 werd elke recurrente uitzondering overgeslagen): `freq76=2` is nu een
+// ECHTE recurrente DAILY-uitzondering (frequentie 2, niet geflattend). Met fromDate===toDate
+// (20030/20030) genereert `getDailyDates` precies 1 datum: `moreDates(startDate,…)` is waar zodra
+// `startDate<=finishDate` (0<=0), dus de datum wordt toegevoegd vóór de eerstvolgende `+2 dagen`-
+// stap de lus al beëindigt (`startDate+2>finishDate`). Bevestigd door de poort daadwerkelijk te
+// draaien (niet aangenomen). ─────────────────────────────────────────────────────────────────────
 {
   const hoursBlock = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
   const tail = buildCalExceptionsTail([
@@ -431,13 +455,222 @@ function mppDayToIso(raw: number): string {
     { fromDay: 20030, toDay: 20030, recurrenceTypeValue: 7, freq76: 2 },
   ]);
   const data = concatBytes(hoursBlock, tail);
-  const holidays = parseExceptions(data, 'T6-spec-review-type1-frequency', newHolidayBudget());
-  truthy('T6-spec-review-fix: 3 van de 4 uitzonderingen gematerialiseerd (alleen de échte type-7-herhaling niet)', holidays.length === 3);
+  const holidays = parseExceptions(data, 'T6-spec-review-type1-frequency', newHolidayBudget()).holidays;
+  truthy('T3: alle 4 uitzonderingen gematerialiseerd (freq76=2 is nu een 1-occurrence recurrente DAILY, was NIET vóór T3)', holidays.length === 4);
   const materializedDays = new Set(holidays.map((h) => h.startDate));
   truthy('T6-spec-review-fix: type-1 freq76=0 gematerialiseerd', materializedDays.has(mppDayToIso(20000)));
   truthy('T6-spec-review-fix: type-1 freq76=256 gematerialiseerd', materializedDays.has(mppDayToIso(20010)));
   truthy('T6-spec-review-fix: type-7 freq76=1 gematerialiseerd', materializedDays.has(mppDayToIso(20020)));
-  truthy('T6-spec-review-fix: type-7 freq76=2 NIET gematerialiseerd', !materializedDays.has(mppDayToIso(20030)));
+  truthy('T3: type-7 freq76=2 NU OOK gematerialiseerd (1-occurrence recurrente DAILY)', materializedDays.has(mppDayToIso(20030)));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// T3 (fase 3.8, MSP-pariteit) — werkende uitzonderingen, invariant, precedentie, vijandige
+// occurrences+bereik-fixture (plan-§T3-acceptatie 5)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Lokale 92-byte-uitzonderingsrecord-bouwer met VOLLEDIGE controle over periodCount/banden/
+ *  recurrentievelden — `buildCalExceptionsTail` (mppFixtures.ts, gedeelde infra buiten mijn
+ *  bestandsscope voor T3) ondersteunt alleen niet-werkende, niet-recurrente uitzonderingen; deze
+ *  T3-tests hebben zowel werkende uitzonderingen (banden) als alle vier recurrentietypes nodig
+ *  (plan-§T3-byte-offsets: WEEKLY dagen-bitmap `+76`(byte)/frequentie `+78`(SHORT); MONTHLY
+ *  absoluut dagnummer `+76`(byte)/frequentie `+78`(byte); YEARLY absoluut dagnummer `+77`(byte)/
+ *  maand `+76`(byte)+1; DAILY(type 7) frequentie `+76`(SHORT)). */
+interface ExceptionRecordSpec {
+  fromDay: number;
+  toDay: number;
+  occurrences?: number;
+  periodCount?: number;
+  bands?: { startMinutes: number; durationMinutes: number }[];
+  recurrenceTypeValue?: number;
+  byte76?: number;
+  byte77?: number;
+  short76?: number;
+  short78?: number;
+  byte78?: number;
+}
+function buildExceptionRecord(spec: ExceptionRecordSpec): Uint8Array {
+  const out = new Uint8Array(92);
+  const view = new DataView(out.buffer);
+  view.setInt16(0, spec.fromDay, true);
+  view.setInt16(2, spec.toDay, true);
+  view.setInt16(4, spec.occurrences ?? 0, true);
+  view.setInt16(14, spec.periodCount ?? 0, true);
+  (spec.bands ?? []).forEach((b, i) => {
+    view.setInt16(20 + i * 2, b.startMinutes * 10, true);
+    view.setInt16(32 + i * 4, b.durationMinutes * 10, true);
+  });
+  view.setInt16(72, spec.recurrenceTypeValue ?? 1, true);
+  if (spec.short76 !== undefined) view.setInt16(76, spec.short76, true);
+  else if (spec.byte76 !== undefined) view.setUint8(76, spec.byte76);
+  if (spec.byte77 !== undefined) view.setUint8(77, spec.byte77);
+  if (spec.short78 !== undefined) view.setInt16(78, spec.short78, true);
+  else if (spec.byte78 !== undefined) view.setUint8(78, spec.byte78);
+  view.setInt32(88, 0, true);
+  return out;
+}
+function buildExceptionsTailRaw(records: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(4 + records.length * 92);
+  new DataView(out.buffer).setInt16(0, records.length, true);
+  let pos = 4;
+  for (const r of records) {
+    out.set(r, pos);
+    pos += 92;
+  }
+  return out;
+}
+const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ defaultFlag: 0 as const })));
+
+// ── expandRecurrence rechtstreeks (poort van RecurringData.populateDates): YEARLY-absoluut over 3
+// jaar levert precies de 3 verwachte 1-januari-datums. Mutatiebewijs-acceptatie 2 (plan-§T3, hier op
+// FUNCTIENIVEAU — de corpusbrede variant met ≥30 bestanden staat in het eindrapport). ─────────────
+{
+  const dates = expandRecurrence({
+    type: 'YEARLY', relative: false,
+    startDate: new Date(Date.UTC(2020, 0, 1)), finishDate: new Date(Date.UTC(2022, 11, 31)),
+    occurrences: 0, frequency: 1, weeklyDayMask: 0, dayNumber: 1, dayOfWeekValue: 0, monthNumber: 1,
+  });
+  truthy('T3 expandRecurrence YEARLY: 3 datums (2020/2021/2022, telkens 1 januari)', dates.length === 3);
+  truthy(
+    'T3 expandRecurrence YEARLY: exacte datums',
+    JSON.stringify(dates.map((d) => formatDate(d))) === JSON.stringify(['2020-01-01', '2021-01-01', '2022-01-01']),
+  );
+}
+
+// ── Werkende uitzondering (periodCount>0) materialiseert als WorkingException met banden, NIET als
+// Holiday — plan-§T3 verplichte stap. ──────────────────────────────────────────────────────────
+{
+  const WORK_DAY = 30000;
+  const record = buildExceptionRecord({
+    fromDay: WORK_DAY, toDay: WORK_DAY, recurrenceTypeValue: 0, // niet-recurrent
+    periodCount: 1, bands: [{ startMinutes: 360, durationMinutes: 360 }], // 06:00-12:00
+  });
+  const data = concatBytes(T3_NO_BANDS_HOURS, buildExceptionsTailRaw([record]));
+  const { holidays, workingExceptions } = parseExceptions(data, 'T3-working-exception', newHolidayBudget());
+  truthy('T3 werkende uitzondering: 0 holidays', holidays.length === 0);
+  truthy('T3 werkende uitzondering: 1 workingException', workingExceptions.length === 1);
+  if (workingExceptions.length === 1) {
+    const w = workingExceptions[0];
+    truthy('T3 werkende uitzondering: juiste datum', w.startDate === mppDayToIso(WORK_DAY) && w.endDate === mppDayToIso(WORK_DAY));
+    truthy('T3 werkende uitzondering: banden 06:00-12:00', JSON.stringify(w.bands) === JSON.stringify([{ start: 360, end: 720 }]));
+  }
+}
+
+// ── Invariant (Opus-T2-review-eis, LAAG-6/7): dezelfde datum als holiday ÉN als werkende
+// uitzondering in het bronbestand → de parser levert er EXACT ÉÉN op (nooit beide, nooit géén). Twee
+// NIET-recurrente records met VERSCHILLENDE fromDates maar die BEIDE dezelfde dag claimen (record A
+// een 3-daags holiday-bereik, record B — LATER in het bestand — een 1-dags werkende uitzondering
+// midden in dat bereik) — MPXJ's eigen fromDate-only-sleutelde precedentiekaart zou dit NIET
+// opvangen (de twee fromDates verschillen), maar `resolveContributions`'s per-DAG-autoriteitskaart
+// (identiteit via contributie-index, niet waarde-gelijkheid) wel. ──────────────────────────────────
+{
+  const HOLIDAY_START = 31000;
+  const COLLISION_DAY = 31001; // valt binnen het 3-daagse holiday-bereik [31000,31002]
+  const holidayRecord = buildExceptionRecord({ fromDay: HOLIDAY_START, toDay: HOLIDAY_START + 2, recurrenceTypeValue: 0 });
+  const workingRecord = buildExceptionRecord({
+    fromDay: COLLISION_DAY, toDay: COLLISION_DAY, recurrenceTypeValue: 0,
+    periodCount: 1, bands: [{ startMinutes: 480, durationMinutes: 240 }],
+  });
+  const data = concatBytes(T3_NO_BANDS_HOURS, buildExceptionsTailRaw([holidayRecord, workingRecord]));
+  const { holidays, workingExceptions } = parseExceptions(data, 'T3-invariant', newHolidayBudget());
+  const collisionIso = mppDayToIso(COLLISION_DAY);
+  const inHolidays = holidays.filter((h) => h.startDate <= collisionIso && collisionIso <= h.endDate).length;
+  const inWorking = workingExceptions.filter((w) => w.startDate <= collisionIso && collisionIso <= w.endDate).length;
+  truthy(
+    `T3 invariant: botsende datum (${collisionIso}) staat in PRECIES ÉÉN van de twee arrays (holidays=${inHolidays}, workingExceptions=${inWorking})`,
+    inHolidays + inWorking === 1,
+  );
+  // Niet-recurrent+LATER-in-het-bestand wint (record-volgorde bepaalt bij gelijke prioriteit,
+  // spiegelt MPXJ's map-put-per-record-volgorde): de werkende uitzondering (record B) wint dus over
+  // het holidaybereik (record A) op de botsende dag — het holiday-bereik splitst rond de botsing.
+  truthy('T3 invariant: de botsende dag is een WERKENDE uitzondering (later record wint)', inWorking === 1 && inHolidays === 0);
+  truthy(
+    'T3 invariant: het holiday-bereik is rond de botsing GESPLITST (2 losse 1-dags entries, niet 1 doorlopend bereik)',
+    holidays.length === 2 && holidays.every((h) => h.startDate === h.endDate),
+  );
+}
+
+// ── Precedentie WEEKLY→MONTHLY→YEARLY→DAILY (recurrent), dan niet-recurrent als hoogste laag —
+// plan-§T3 verplichte stap + mutatiebewijs-acceptatie 3. Alle vijf lagen claimen DEZELFDE datum
+// (2020-01-01, MPP-dag 13150): WEEKLY (alle dagen aangevinkt, dus triviaal inbegrepen), MONTHLY (dag
+// 1 van elke maand — 1 januari IS dag 1), YEARLY (1 januari), DAILY (recurrent, frequentie 2,
+// venster=exact die ene dag), en tot slot een niet-recurrente werkende uitzondering. ───────────────
+{
+  const TARGET_DAY = 13150; // 2020-01-01 (woensdag)
+  const WINDOW_END = 13515; // 2020-12-31
+  const targetIso = mppDayToIso(TARGET_DAY);
+  truthy(`T3 precedentie: fixture-aanname TARGET_DAY===2020-01-01 (${targetIso})`, targetIso === '2020-01-01');
+
+  const weekly = buildExceptionRecord({ fromDay: TARGET_DAY, toDay: WINDOW_END, recurrenceTypeValue: 6, byte76: 0x7f, short78: 1 });
+  const monthly = buildExceptionRecord({ fromDay: TARGET_DAY, toDay: WINDOW_END, recurrenceTypeValue: 4, byte76: 1, byte78: 1 });
+  const yearly = buildExceptionRecord({ fromDay: TARGET_DAY, toDay: WINDOW_END, recurrenceTypeValue: 2, byte76: 0, byte77: 1 });
+  const daily = buildExceptionRecord({ fromDay: TARGET_DAY, toDay: TARGET_DAY, recurrenceTypeValue: 7, short76: 2 });
+  const nonRecurring = buildExceptionRecord({
+    fromDay: TARGET_DAY, toDay: TARGET_DAY, recurrenceTypeValue: 0,
+    periodCount: 1, bands: [{ startMinutes: 360, durationMinutes: 360 }],
+  });
+
+  // (a) zonder niet-recurrente laag: DAILY (hoogste recurrente precedentie) moet winnen.
+  {
+    const data = concatBytes(T3_NO_BANDS_HOURS, buildExceptionsTailRaw([weekly, monthly, yearly, daily]));
+    const { holidays, workingExceptions } = parseExceptions(data, 'T3-precedence-recurrent-only', newHolidayBudget());
+    const holidayHits = holidays.filter((h) => h.startDate <= targetIso && targetIso <= h.endDate);
+    const workingHits = workingExceptions.filter((w) => w.startDate <= targetIso && targetIso <= w.endDate);
+    truthy(`T3 precedentie (alleen recurrent): precies 1 hit op ${targetIso}`, holidayHits.length + workingHits.length === 1);
+    truthy(
+      'T3 precedentie (alleen recurrent): DAILY (laatste in RECURRENCE_PRECEDENCE_ORDER) wint over WEEKLY/MONTHLY/YEARLY',
+      holidayHits.length === 1 && workingHits.length === 0,
+    );
+  }
+
+  // (b) MET niet-recurrente laag: die wint over ALLES, ook over DAILY.
+  {
+    const data = concatBytes(T3_NO_BANDS_HOURS, buildExceptionsTailRaw([weekly, monthly, yearly, daily, nonRecurring]));
+    const { holidays, workingExceptions } = parseExceptions(data, 'T3-precedence-with-nonrecurring', newHolidayBudget());
+    const holidayHits = holidays.filter((h) => h.startDate <= targetIso && targetIso <= h.endDate);
+    const workingHits = workingExceptions.filter((w) => w.startDate <= targetIso && targetIso <= w.endDate);
+    truthy(
+      `T3 precedentie (met niet-recurrent): niet-recurrent wint — de dag is een WERKENDE uitzondering (${targetIso})`,
+      holidayHits.length === 0 && workingHits.length === 1,
+    );
+    if (workingHits.length === 1) {
+      truthy('T3 precedentie: de winnende banden zijn van de niet-recurrente laag (06:00-12:00)', JSON.stringify(workingHits[0].bands) === JSON.stringify([{ start: 360, end: 720 }]));
+    }
+  }
+}
+
+// ── Vijandige invoer (plan-§T3 acceptatie 5): occurrences=65535 + een 165-jaars bereik (1984-2149)
+// moet KLEMMEN (MAX_RECURRENCE_DATES), niet hangen of exploderen. WEEKLY/alle-dagen/frequentie=1 is
+// het ergste geval (zie MAX_RECURRENCE_DATES se meetcommentaar in limits.ts): ongeklemd zou dit
+// ~60.000 datums genereren. ──────────────────────────────────────────────────────────────────────
+{
+  const record = buildExceptionRecord({
+    fromDay: 1, toDay: 60267, occurrences: 65535, recurrenceTypeValue: 6, byte76: 0x7f, short78: 1,
+  });
+  const data = concatBytes(T3_NO_BANDS_HOURS, buildExceptionsTailRaw([record]));
+  const start = Date.now();
+  let result: ReturnType<typeof parseExceptions> | null = null;
+  let threw: string | null = null;
+  try {
+    result = parseExceptions(data, 'T3-hostile-occurrences-and-range', newHolidayBudget());
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  const elapsedMs = Date.now() - start;
+  truthy(`T3-hostile occurrences=65535+165-jaars-bereik: gooit niet (${threw ?? ''})`, threw === null);
+  truthy(`T3-hostile occurrences=65535+165-jaars-bereik: binnen 100ms (${elapsedMs}ms < 100ms)`, elapsedMs < 100);
+  // WEEKLY/alle-dagen genereert LETTERLIJK elke dag in het venster ⇒ de overlevende dagen van deze
+  // ENE contributie zijn allemaal aaneengesloten en worden dus tot ÉÉN Holiday-bereik samengevoegd
+  // (spiegelt het bestaande "MAX_HOLIDAY_RANGE_DAYS klemt de RANGE-lengte"-bewijs hierboven, niet
+  // een entry-AANTAL — de klem zit op het aantal GEGENEREERDE datums, niet op de output-vorm).
+  truthy('T3-hostile occurrences=65535+165-jaars-bereik: precies 1 (aaneengesloten) holiday-bereik', result?.holidays.length === 1);
+  if (result?.holidays.length === 1) {
+    const days = Math.round((new Date(result.holidays[0].endDate).getTime() - new Date(result.holidays[0].startDate).getTime()) / 86_400_000) + 1;
+    truthy(
+      `T3-hostile occurrences=65535+165-jaars-bereik: geklemd op MAX_RECURRENCE_DATES (${days}/${MAX_RECURRENCE_DATES} dagen)`,
+      days === MAX_RECURRENCE_DATES,
+    );
+  }
 }
 
 // ── T6-kwaliteitsreview (M8-a): ≥3-niveau-keten — transitieve overerving. calId=1 (basis, ma/wo/vr
@@ -787,7 +1020,11 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
       /** Dubbeltelvrije som van EIGEN holidays over ALLE kalenders (project + resource) van één
        *  bestand — `openMppProject` (mppReader.ts, M6) levert de container-/Props-preambule
        *  drift-vrij; `readCalendars` rechtstreeks aanroepen (i.p.v. `readMPP`) is nodig omdat
-       *  `ownHolidayCountByUniqueId` (T6-slot) niet in `ImportResult` zit. */
+       *  `ownHolidayCountByUniqueId` (T6-slot) niet in `ImportResult` zit. T3: telt ALLEEN
+       *  `holidays` (ongewijzigde semantiek — zie `ownHolidayCountByUniqueId`'s eigen toelichting in
+       *  mppCalendars.ts); `workingExceptionFileTotal` hieronder is de T3-tegenhanger voor
+       *  `workingExceptions` (géén dubbeltel-vrije EIGEN-telling nodig, want die array wordt niet via
+       *  overerving gedeeld op eenzelfde manier bewaakt — hier volstaat "heeft dit bestand er ≥1"). */
       function ownHolidayTotal(bytes: Uint8Array): number {
         const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
         const calResult = readCalendars(cfb, projectProps, applicationVersion);
@@ -796,21 +1033,44 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
         return total;
       }
 
-      // Gemeten basislijn (2026-08-14, dit corpus, 49 bestanden): 208 EIGEN holidays over ALLE
-      // kalenders (116 op de projectkalender "Standard" + 92 op de tweede basiskalender
-      // "6 Day Week", zichtbaar via `resourceCalendars` — her-check bevestigd, 0 per-kalender-
-      // mismatches). `>=` (geen `===`): een toekomstige verbetering mag dit laten STIJGEN zonder de
+      /** T3: heeft minstens één kalender (project of resource) van dit bestand een
+       *  `workingExceptions`-entry? Plan-§T3-acceptatiecriterium 4 ("de 10 bestanden met werkende
+       *  uitzonderingen") als PERMANENTE regressievloer, niet alleen een eenmalige meting. */
+      function hasWorkingExceptions(bytes: Uint8Array): boolean {
+        const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
+        const calResult = readCalendars(cfb, projectProps, applicationVersion);
+        for (const cal of calResult.calendarByUniqueId.values()) {
+          if ((cal.workingExceptions?.length ?? 0) > 0) return true;
+        }
+        return false;
+      }
+
+      // Basislijn vóór T3 (2026-08-14, dit corpus, 49 bestanden): 208 EIGEN holidays — recurrente
+      // uitzonderingen (Easter e.d.) werden toen nog NIET geëxpandeerd. NA T3 (2026-08-15, ONGEWIJZIGD
+      // corpus): 2968 EIGEN holidays (14× — de recurrente expansie is de "grootste enkele winst" uit
+      // het plan). `>=` (geen `===`): een toekomstige verbetering mag dit laten STIJGEN zonder de
       // poort te breken; een REGRESSIE — óók één die uitsluitend een niet-projectkalender raakt —
       // laat het zakken en faalt hier.
-      const CRAWL_HOLIDAY_BASELINE = 208;
+      const CRAWL_HOLIDAY_BASELINE = 2968;
+      // T3: gemeten 2026-08-15 — dit specifieke 49-bestanden-corpus (crawl-mpp, MSP2016/2021 OzBuild-
+      // workshopmateriaal) draagt 0 werkende uitzonderingen (`periodCount>0`); de "10 bestanden" uit
+      // plan-§1.2.2 slaat op het BREDERE testdata-crawl-corpus (o.a. de MPXJ-junit-testset, die
+      // specifiek voor deze functie gebouwde fixtures bevat). Geen `>=1`-regressievloer HIER dus —
+      // die zou een no-op zijn op deze deelverzameling. De permanente regressiebescherming voor de
+      // werkende-uitzondering-FUNCTIE zelf zit in de synthetische T3-tests hierboven
+      // (T3-working-exception, T3-precedentie); acceptatiecriterium 4 (plan-§T3) is apart, ad-hoc
+      // tegen het bredere corpus geverifieerd — zie het implementatierapport.
       let totalHolidays = 0;
       let filesWithHolidays = 0;
+      let filesWithWorkingExceptions = 0;
       let readFailures = 0;
       for (const file of crawlFiles) {
         try {
-          const count = ownHolidayTotal(new Uint8Array(readFileSync(file)));
+          const bytes = new Uint8Array(readFileSync(file));
+          const count = ownHolidayTotal(bytes);
           totalHolidays += count;
           if (count > 0) filesWithHolidays++;
+          if (hasWorkingExceptions(bytes)) filesWithWorkingExceptions++;
         } catch (err) {
           readFailures++;
           checks++;
@@ -825,7 +1085,8 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
       );
       console.log(
         `   . [T6-crawl] ${crawlFiles.length} bestanden, ${filesWithHolidays} met ≥1 eigen holiday (over alle kalenders), `
-        + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE})`,
+        + `totaal ${totalHolidays} holidays (basislijn ${CRAWL_HOLIDAY_BASELINE}); ${filesWithWorkingExceptions} met ≥1 werkende uitzondering `
+        + '(dit corpus draagt er geen — zie de toelichting bij CRAWL_HOLIDAY_BASELINE)',
       );
 
       // ── ETAPPE 1.5 — DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1):
