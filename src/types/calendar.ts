@@ -38,9 +38,15 @@ export interface WorkingException {
   startDate: string; // ISO 8601 date
   endDate: string;   // ISO 8601 date
   /** Banden in minuten-vanaf-middernacht, zelfde canonieke vorm als `WorkTimeBands` (§3.2: `end > start`,
-   *  een wrap-band mag `end ∈ (1440, 2880]`). Leeg/afwezig ⇒ de weekdag-standaardbanden van de kalender
-   *  gelden (in uur-modus: `workTime.byWeekday[dow]`; in dag-modus telt de dag simpelweg als werkend
-   *  zonder banden-detail). */
+   *  een wrap-band mag `end ∈ (1440, 2880]`). Leeg/afwezig ⇒ FALLBACK-KETEN (fase 3.8, T2-review
+   *  MIDDEN-2 — orkestratorbesluit, raakt alleen ons eigen model: MPXJ produceert nooit band-loos):
+   *  (1) de eigen weekdag-banden van de kalender op díé weekdag (`workTime.byWeekday[dow]`), als die
+   *  niet leeg zijn; anders (2) de STANDAARD-werkdagbanden van de kalender — de banden van de eerste
+   *  `workDays`-weekdag die wél banden heeft (`CalendarEngine.computeStandardWorkdayBands`). Zónder deze
+   *  fallback zou een band-loze uitzondering op een dag zonder eigen weekdagbanden (bv. een werkende
+   *  zaterdag in een ma-vr-uurkalender) `isWorkDay`=true maar `workMinutesBetween`=0 opleveren — dag- en
+   *  uurmodus zouden elkaar tegenspreken en ResourceLoad/workdayAxis een werkdag zonder capaciteit zien.
+   *  In dag-modus telt de dag simpelweg als werkend zonder banden-detail (banden zijn daar irrelevant). */
   bands?: { start: number; end: number }[];
 }
 
