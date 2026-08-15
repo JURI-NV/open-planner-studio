@@ -64,4 +64,19 @@ export interface ImportResult {
   /** OPTIONEEL — een pool-bestand (spec B1, §4) draagt zijn autoritatieve pool-JSON in het
    *  OPS_Library-pset; een gewoon projectbestand niet. Afwezig ⇒ geen pool-bestand. */
   libraryPool?: CompanyPool;
+  /**
+   * OPTIONEEL — T12 (datumgetrouwheid-etappe, §9/O1): telling van taken met een aantoonbaar
+   * onderbroken, genivelleerde of resource-gedreven (resource-contouring) planning in het
+   * bronbestand. Alleen `readMPP` (`services/mpp/mppReader.ts`) vult dit vooralsnog — de andere
+   * lezers laten het weg. Uitsluitend een IMPORT-TIJD-telling voor de eenmalige meldingen bij
+   * openen (`fileSlice.ts`, patroon `summaryRelationsDropped`); GEEN persistent taakveld en dus
+   * geen documentcontract-impact (§9/O3) — een taak die zo gemarkeerd was, verliest die markering
+   * bij de eerstvolgende opslaan/heropenen-cyclus, en dat is bewust zo.
+   *
+   * `leveled` = expliciet (LEVELING_DELAY ≠ 0 in het bronbestand); `spanGt` = afgeleid (het
+   * MSP-eigen venster tussen start en finish, geteld in werkminuten, is groter dan de MSP-eigen
+   * opgeslagen duur — een onderbroken of uitgesmeerde balk). `total` is de VERENIGING van beide
+   * (een taak die beide signalen draagt telt één keer) — dat is het getal dat de melding toont.
+   */
+  sourceScheduleNotes?: { total: number; leveled: number; spanGt: number };
 }

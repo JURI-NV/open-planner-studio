@@ -127,6 +127,7 @@ import { normalizeImportedProgress } from '@/services/importNormalize';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { mspCodeToConstraint } from '@/services/msproject/mspdiReader';
 import { hasNonAnchorTime, isSubDayMinutes } from '@/services/subdayIo';
+import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { CfbFile } from './cfb';
 import { assertReadable, detectApplicationVersion, Props } from './mppContainer';
 import {
@@ -472,6 +473,56 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
   return undefined;
 }
 
+/**
+ * T12 (§9/O1) — detectie van de "toegestane uitzondering" op de datumgetrouwheid-goal:
+ * resource-gedreven planning (nivellering, leveling delay, resource-contouring/timephased werk).
+ * Wij rekenen zulke taken aaneengesloten door; hun datums kunnen daardoor afwijken van MS Project.
+ * Geen taakveld (§9/O3, geen documentcontract-impact) — alleen een telling op `ImportResult` en een
+ * eenmalige melding bij openen (`fileSlice.ts`).
+ *
+ * Twee bronnen, in volgorde van bewijskracht:
+ *
+ * 1. EXPLICIET — `TaskField.LEVELING_DELAY` (FieldMap14.java: `new FieldItem(TaskField.
+ *    LEVELING_DELAY, FieldLocation.FIXED_DATA, 0, 58, 20, 0, 0)` — typeValue 20, corpus-offset 58,
+ *    zelfde `(offset, typeValue)`-volgorde als elk ander veld hier, zie `TaskFieldId.UniqueId`
+ *    e.a.) ≠ 0. Bewust GEEN toevoeging aan `fieldMap14.ts`'s `TaskFieldId`/`DEFAULT_TASK_FIELDS`
+ *    (dat bestand valt buiten T12's bestandenlijst) — `fixedOffsetOf` leest de offset sowieso
+ *    DATA-GEDREVEN uit het bestand se eigen field map (alle drie ground-truth-bestanden dragen een
+ *    echte field map, zie fieldMap14.ts se moduleheader); alleen het zeldzame
+ *    ALLES-ONTBREEKT-fallback-pad (`DEFAULT_TASK_FIELDS`) zou dit veld dan missen en degradeert
+ *    netjes naar "geen detectie via dit signaal" voor zo'n bestand — geen bug, hetzelfde
+ *    degradatiepatroon als elk ander veld dat niet in de fallback-tabel staat.
+ *
+ * 2. AFGELEID (`spanGt`) — SPLITS ZELF (`Task.WORK_SPLITS` in MPXJ) bleek NIET via een simpel
+ *    Var2Data-array leesbaar: `Task.java`'s `calculateWorkSplits()` is een BEREKEND veld
+ *    (`CALCULATED_FIELD_MAP`), afgeleid uit `ResourceAssignment.getWorkSplits()` — dat leest
+ *    TIMEPHASED assignment-data (variabele-lengte werksegmenten per resource-toewijzing in
+ *    `TBkndAssn`), niet een taakeigen Var2Data-sleutel. Een `grep` op `setSplits`/`SPLITS` in de
+ *    MPXJ-bron (`voor claude/testdata-crawl/mpxj/src/main/java/org/mpxj/mpp/`) bevestigt dit: GEEN
+ *    van de MPP-lezers (`MPP9Reader`/`MPP12Reader`/`MPP14Reader`) zet ooit een taakeigen
+ *    splits-array — `setSplits`/`SPLITS` komt uitsluitend voor in `TaskField.java` (het veld-enum
+ *    zelf), `Task.java` (de berekening), `MSPDIWriter.java` (schrijft de BEREKENDE splits terug
+ *    naar XML) en de P3-lezer (ander formaat). Timephased-assignmentdata volledig porten voor
+ *    uitsluitend een detectie-telling staat niet in verhouding tot deze taak se scope — vandaar de
+ *    afgeleide proxy hieronder, precies zoals het plan voorziet ("lukt de splits-bytes niet
+ *    betrouwbaar, dan…").
+ *
+ *    De proxy: het MSP-EIGEN venster tussen `SCHEDULED_START` en `SCHEDULED_FINISH`, geteld in
+ *    werkminuten op de EFFECTIEVE kalender (`CalendarEngine.workMinutesBetween`, betrouwbaar sinds
+ *    T3's kalenderexpansie — een gemiste feestdag/werkende uitzondering zou anders een vals
+ *    positief geven), is STRIKT GROTER dan de MSP-eigen opgeslagen duur. Een onderbroken taak
+ *    (split) of een taak die door nivellering/resource-contouring over een langere periode
+ *    uitgesmeerd is, heeft een venster dat langer is dan het werk dat erin past — een aaneengesloten
+ *    taak heeft venster == duur (op afrondingsmarge na, zie `SPAN_GT_TOLERANCE_MINUTES`).
+ */
+const TASK_FIELD_LEVELING_DELAY = 20;
+
+/** Ruimte voor sub-minuut-afrondingsverschil tussen de rauwe tienden-van-minuut-duur en
+ *  `CalendarEngine.workMinutesBetween`'s bandrekenwerk (beide zijn intern al minuut-precies, dus dit
+ *  vangt uitsluitend drijvendekomma-restjes — NIET bedoeld om een echte, kleine onderbreking te
+ *  maskeren: de kleinste gemeten `spanGt`-taak in het corpus wijkt uren tot dagen af, geen minuten). */
+const SPAN_GT_TOLERANCE_MINUTES = 1;
+
 /** I2 (T5-kwaliteitsreview) — vervangt de vijf losse positionele parameters die `readTasks` eerst
  *  had; T6/T7 breiden dit uit i.p.v. de parameterlijst nog verder te laten groeien.
  *
@@ -501,6 +552,11 @@ interface ReadTasksResult {
   tasks: Task[];
   taskIdByUniqueId: Map<number, string>;
   taskHourById: Map<string, boolean>;
+  /** T12 (§9/O1) — detectietelling voor de resource-gedreven-planning-uitzondering (zie de
+   *  moduleheader hierboven bij `TASK_FIELD_LEVELING_DELAY`). `total` is de VERENIGING van beide
+   *  signalen (een taak die zowel `leveled` als `spanGt` draagt telt in `total` maar één keer) —
+   *  dat is het getal dat de melding toont, zie `ImportResult.sourceScheduleNotes`. */
+  scheduleNotes: { total: number; leveled: number; spanGt: number };
 }
 
 /** Fase A — rauwe scan: alle velden die `readTasks` nodig heeft, als getal/`Date`/string, NOG GEEN
@@ -522,6 +578,10 @@ interface RawTaskScan {
    *  gedecodeerd tot "is dit een ELAPSED-eenheid" (elapsedMinutes/Hours/Days/Weeks/Months/Percent).
    *  Ontbreekt het veld (oude/kapotte field map) dan `false` — spiegelt de bestaande WORKTIME-default. */
   isElapsedDuration: boolean;
+  /** T12 — rauwe LEVELING_DELAY (tienden van een minuut, zelfde eenheid als `durationRaw`; alleen
+   *  ≠ 0 relevant voor de detectie, geen eenheden-decodering nodig). `0` als het veld ontbreekt
+   *  (oude/kapotte field map) — spiegelt de bestaande defaults elders in deze scan. */
+  levelingDelayRaw: number;
   isMilestone: boolean;
   constraintCode: number | null;
   constraintDateTs: Date | null;
@@ -565,6 +625,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const actualStartOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualStart);
   const actualFinishOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualFinish);
   const calendarUniqueIdOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.CalendarUniqueId);
+  const levelingDelayOffset = fixedOffsetOf(taskFieldMap, TASK_FIELD_LEVELING_DELAY); // T12
   const nameKey = varDataKeyOf(taskFieldMap, TaskFieldId.Name);
   const wbsKey = varDataKeyOf(taskFieldMap, TaskFieldId.Wbs);
 
@@ -622,6 +683,12 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const isElapsedDuration = durationUnitsRaw !== null
       && getDurationTimeUnits(durationUnitsRaw).startsWith('elapsed');
 
+    // T12: LEVELING_DELAY — zelfde INT-vorm als SCHEDULED_DURATION (tienden van een minuut), alleen
+    // de ≠0-vraag is relevant hier, dus geen eenheden-decodering nodig (zie de moduleheader).
+    const levelingDelayRaw = levelingDelayOffset !== null && data.length >= levelingDelayOffset + 4
+      ? getInt(data, levelingDelayOffset, 'TBkndTask levelingDelay')
+      : 0;
+
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
 
@@ -647,8 +714,8 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
     raws.push({
       uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
-      isMilestone, constraintCode, constraintDateTs, deadlineTs, percentComplete, actualStartTs,
-      actualFinishTs, effCal, calendarOverride,
+      levelingDelayRaw, isMilestone, constraintCode, constraintDateTs, deadlineTs, percentComplete,
+      actualStartTs, actualFinishTs, effCal, calendarOverride,
     });
   }
 
@@ -675,10 +742,40 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const taskIdByUniqueId = new Map<number, string>();
   const taskHourById = new Map<string, boolean>();
   const records: RawTaskRecord[] = [];
+  // T12 — één `CalendarEngine` per kalender-object, gedeeld over alle taken die 'm gebruiken
+  // (spiegelt `bandCacheRegistry`'s per-object-memoization in CalendarEngine.ts zelf): de
+  // bandopbouw is de dure stap, en meerdere taken op dezelfde (project- of override-)kalender
+  // zouden 'm anders elk apart betalen.
+  const spanEngineByCal = new Map<WorkCalendar, CalendarEngine>();
+  const spanEngineFor = (c: WorkCalendar): CalendarEngine => {
+    let engine = spanEngineByCal.get(c);
+    if (!engine) { engine = new CalendarEngine(c); spanEngineByCal.set(c, engine); }
+    return engine;
+  };
+  let scheduleNoteLeveled = 0;
+  let scheduleNoteSpanGt = 0;
+  let scheduleNoteTotal = 0;
   for (const raw of raws) {
     const cal = raw.effCal;
     const isHour = hourModeCals.has(cal);
     const effHpd = cal.hoursPerDay;
+
+    // T12 (§9/O1) — detectie, ná de kalender-promotie zodat de effectieve kalender hier al zijn
+    // definitieve (dag- of uur-)vorm heeft. Zie de moduleheader bij `TASK_FIELD_LEVELING_DELAY`
+    // voor de twee signalen. `spanGt` UITSLUITEND in UUR-MODUS (`isHour`): `workMinutesBetween`
+    // rekent via `CalendarEngine.bandsStartingOn`, dat ongeclausuleerd `calendar.workTime!`
+    // dereferentieert — een dag-modus-kalender heeft `workTime` nooit gezet (alleen
+    // `promoteCalendarsForHourMode` vult dat), dus een blinde aanroep crasht daar. Dezelfde guard
+    // staat overal elders in de engine (`CPMSolver.ts`: `eng.isHourMode ? workMinutesBetween(...) :
+    // …`) — spiegelt dat patroon exact, in plaats van zelf dag-modus-vensterrekenwerk uit te vinden.
+    // Kost niets op het echte corpus: T9-crawl mat dat vrijwel elk bestand toch al in uur-modus
+    // leest (de vrijwel-universele MS Project-standaardkalender heeft al een lunchpauze-splitsing).
+    const leveled = raw.levelingDelayRaw !== 0;
+    const spanGt = isHour && raw.startTs != null && raw.finishTs != null
+      && spanEngineFor(cal).workMinutesBetween(raw.startTs, raw.finishTs) > raw.durationRaw / 10 + SPAN_GT_TOLERANCE_MINUTES;
+    if (leveled) scheduleNoteLeveled++;
+    if (spanGt) scheduleNoteSpanGt++;
+    if (leveled || spanGt) scheduleNoteTotal++;
 
     // Duur: uur ⇒ minuten (bron van waarheid, geen dag-afronding — spiegelt mspdiReader's §7.3-pad);
     // dag ⇒ het bestaande dag-pad, ONGEWIJZIGD op de PROJECT-brede `hoursPerDay` (niet `effHpd`) —
@@ -796,7 +893,10 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
   const tasks = records.map((r) => r.task);
   normalizeImportedProgress(tasks, statusDate);
-  return { tasks, taskIdByUniqueId, taskHourById };
+  return {
+    tasks, taskIdByUniqueId, taskHourById,
+    scheduleNotes: { total: scheduleNoteTotal, leveled: scheduleNoteLeveled, spanGt: scheduleNoteSpanGt },
+  };
 }
 
 /** `parseProjectProperties`'s resultaat — `calendarHoursPerDayOverride` is `null` wanneer
@@ -907,7 +1007,7 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   // mspdiReader's `taskCalendarId`-toewijzing tijdens de taken-lus) — de oude post-hoc-koppelstap
   // (`calendarUniqueIdByTaskId` → `calResult.calendarByUniqueId`-lookup ná `readTasks`) is dus
   // vervallen; `taskHourById` voedt T7's relaties (lag-eenheid-keuze, spiegelt mspdiReader).
-  const { tasks, taskIdByUniqueId, taskHourById } = readTasks({
+  const { tasks, taskIdByUniqueId, taskHourById, scheduleNotes } = readTasks({
     cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion, calResult,
   });
 
@@ -928,5 +1028,9 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     resources,
     assignments,
     resourceCalendars: calResult.resourceCalendars,
+    // T12 (§9/O1): alleen gezet als er daadwerkelijk ≥1 taak een signaal draagt — `undefined` bij
+    // een schoon bestand, zodat `fileSlice.ts` met `parsed.sourceScheduleNotes?.total` kan volstaan
+    // en geen aparte "0 gevonden"-staat hoeft te onderscheiden.
+    ...(scheduleNotes.total > 0 ? { sourceScheduleNotes: scheduleNotes } : {}),
   };
 }

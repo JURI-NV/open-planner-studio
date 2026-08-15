@@ -190,6 +190,21 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           dedupeKey: 'summary-relations-dropped',
         });
       }
+      // T12 (§9/O1, mpp-datumgetrouwheid): een `.mpp`-bestand met aantoonbaar onderbroken,
+      // genivelleerde of resource-gedreven (nivellering/leveling delay/resource-contouring) taken —
+      // wij rekenen die aaneengesloten door, dus hun datums kunnen van MS Project afwijken. Alleen
+      // `readMPP` vult `sourceScheduleNotes` (ander formaat ⇒ `undefined` ⇒ geen melding). Zelfde
+      // patroon als `summaryRelationsDropped` hierboven: info, één keer per open, gededupliceerd op
+      // dedupeKey. Géén taakveld (§9/O3) — puur een import-tijd-telling voor deze melding.
+      const scheduleNotesTotal = parsed.sourceScheduleNotes?.total ?? 0;
+      if (scheduleNotesTotal > 0) {
+        get().notify({
+          severity: 'info',
+          messageKey: 'notifications.mppSourceScheduleNotes',
+          params: { count: scheduleNotesTotal },
+          dedupeKey: 'mpp-split-leveled',
+        });
+      }
       emitExtensionEvent(HOST_EVENTS.projectLoaded, {
         tasks: parsed.tasks.length,
         sequences: parsed.sequences.length,
