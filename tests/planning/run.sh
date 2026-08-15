@@ -70,7 +70,7 @@ if [ "$HARNESS_OK" -eq 1 ]; then unset 'BUNDLES[-1]'; fi
 EXPECTED_BATTERIES=(
   advanced-cpm baselines boundary calendar calibration constraints driving edge float
   hours hours-relations kalenders lag-advanced milestone-kinds milestones move-project
-  probes progress relations resource-leveling resource-load view
+  msp-pariteit probes progress relations resource-leveling resource-load view
 )
 
 check_batteries () {

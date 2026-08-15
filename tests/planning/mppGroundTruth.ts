@@ -6,9 +6,26 @@
 // veld-offset, een verkeerde byte-volgorde) zou anders onopgemerkt blijven, want de "grondwaarheid"
 // zou dezelfde fout maken. Deze module leest daarom ZELF, met een eigen lus, MS Projects eigen
 // opgeslagen `SCHEDULED_START`/`SCHEDULED_FINISH` (TaskField 35/36) rechtstreeks uit `TBkndTask`'s
-// `FixedMeta`/`FixedData`, en deelt UITSLUITEND de laagste-niveau-primitieven
-// (`mppPrimitives.ts`) en de veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/
-// `varDataKeyOf`) — geen enkele aanroep naar `readTasks`/`readMPP` zelf.
+// `FixedMeta`/`FixedData`.
+//
+// EERLIJKE REIKWIJDTE VAN "ONAFHANKELIJK" (reviewbevinding L8): dit bestand deelt WEL
+// `openMppProject` (dus ook `assertReadable`/CFB-parse/`detectApplicationVersion`/de Props-
+// preambule) met `mppReader.ts` — die containerlaag ís de lezer, er bestaat geen tweede manier om
+// een CFB-bestand te openen zonder 'm te herschrijven, en een bug dáár zou toch al als een
+// leesfout naar voren komen (niet als een stille datumafwijking). Wat WEL onafhankelijk blijft —
+// en waar de garantie van deze module om draait — is de TAAK-SCAN zelf: de `FixedMeta`/
+// `FixedData`/`VarMeta`/`Var2Data`-lus over `TBkndTask`, de veld-offset-opzoeking en de
+// waardedecodering. Deelt UITSLUITEND de laagste-niveau-primitieven (`mppPrimitives.ts`) en de
+// veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar
+// `readTasks` zelf.
+//
+// BEKENDE BEPERKING (reviewbevinding L5): `SCHEDULED_START`/`SCHEDULED_FINISH` zijn de door MS
+// Project herberekende datums voor AUTO_SCHEDULED-taken. Een HANDMATIG geplande taak (MSP
+// "Manually Scheduled") ankert op een ander veld-paar; deze scan leest dat paar niet apart, dus
+// zo'n taak zou hier een spookafwijking geven t.o.v. onze eigen (altijd automatisch herberekende)
+// datums. Corpusbreed niet waargenomen (geen enkele afwijkende taak in de T1-nulmeting wees hierop
+// terug via de attribuut-emmers), maar niet uitgesloten voor toekomstige corpusuitbreiding — zie
+// T15's residu-iteratie.
 //
 // Overgenomen (nagenoeg letterlijk) uit het scratchpad-audit-harnas (`measure.ts`'s `rawScan()`,
 // gepind op snapshot 97368f7d — zie het plandocument §5 "Het gedeelde meetscript"). Het filter voor
@@ -23,12 +40,12 @@ import {
 import {
   FixedData, FixedMeta, Var2Data, VarMeta12, getInt, getShort, getTimestamp, getDurationTimeUnits,
 } from '@/services/mpp/mppPrimitives';
+import { MAX_VAR_TEXT_BYTES } from '@/services/mpp/limits';
 
 const TASK_FIXED_META_ITEM_SIZE = 47;
 const NULL_TASK_BLOCK_SIZE = 16;
 const DELETED_TASK_FLAG = 0x02;
 const FIRST_TASK_INDEX = 3;
-const MAX_TEXT = 65536;
 
 export interface RawTask {
   uniqueId: number;
@@ -94,7 +111,7 @@ export function scanGroundTruthTasks(bytes: Uint8Array): { raws: RawTask[]; fiel
     raws.push({
       uniqueId: uid,
       id: data.length >= offId + 4 ? getInt(data, offId, 'id') : uid,
-      name: varData.getUnicodeString(uid, nameKey, MAX_TEXT, 'n') || 'Task',
+      name: varData.getUnicodeString(uid, nameKey, MAX_VAR_TEXT_BYTES, 'n') || 'Task',
       start: data.length >= offStart + 4 ? getTimestamp(data, offStart, 's') : null,
       finish: data.length >= offFinish + 4 ? getTimestamp(data, offFinish, 'f') : null,
       durationRaw: offDur !== null && data.length >= offDur + 4 ? getInt(data, offDur, 'du') : 0,

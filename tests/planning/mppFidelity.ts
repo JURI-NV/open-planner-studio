@@ -6,12 +6,20 @@
 // regressietest. Beide lopen tegen de LIVE worktree — geen gepinde code-snapshot, geen tweede
 // harnas dat kan afdrijven.
 //
-// KRITIEK ONTWERPPUNT (T1-acceptatie #1): dit bestand roept `solveProject` aan — NIET een losse
-// `new CPMSolver(...).solve()` zoals het scratchpad-audit-harnas (`measure.ts`) nog deed. Het
-// scratchpad-harnas is gepind op vóór de `expandSummaryRelations`-verzoening en meet dus een ANDER
-// pad dan wat de app draait; `solveProject` (`src/engine/scheduler/solveProject.ts`) is sinds A3/M3
-// de exacte kern die `scheduleSlice.runCPM` aanroept (leaf-filter → samenvattingsrelatie-propagatie
-// → CPM → terugschrijven/rollup), dus dit bestand meet wat de gebruiker daadwerkelijk krijgt.
+// KRITIEK ONTWERPPUNT (T1-acceptatie #1, herzien na reviewbevinding M3): dit bestand roept
+// `solveProject` aan — NIET een losse `new CPMSolver(...).solve()` zoals het scratchpad-audit-
+// harnas (`measure.ts`) nog deed. Dat scratchpad-harnas riep zelf óók `expandSummaryRelations` +
+// `applyCpmResult` aan (het HAD dus feitelijk dezelfde keten, niet "een ander pad" — de eerdere
+// versie van dit commentaar overdreef dat) — maar als HANDMATIG SAMENGESTELDE kopie van de stappen
+// die `solveProject` bundelt. Zo'n kopie kan afdrijven van de echte app-keten zodra `runCPM` een
+// stap toevoegt/herordent zonder dat het scratchpad-harnas meeverandert (het IS immers gepind op
+// snapshot 97368f7d en wordt niet meer bijgewerkt). `solveProject`
+// (`src/engine/scheduler/solveProject.ts`) is sinds A3/M3 de exacte, GEGARANDEERDE kern die
+// `scheduleSlice.runCPM` zelf aanroept — dit bestand roept 'm rechtstreeks aan in plaats van de
+// stappen ervan te herhalen, zodat een toekomstige wijziging in de app-keten hier automatisch
+// meekomt. Zie T1-acceptatie #1 (mutatiebewijs: de `expandSummaryRelations`-aanroep in
+// `solveProject.ts` tijdelijk verwijderen maakt deze suite rood — bewijst dat er geen tweede,
+// stilzwijgend gedupliceerde implementatie in dit bestand zit).
 import { readMPP } from '@/services/mpp/mppReader';
 import { solveProject } from '@/engine/scheduler/solveProject';
 import { scanGroundTruthTasks, type RawTask } from './mppGroundTruth';
@@ -97,6 +105,12 @@ export interface FidelityRow {
   errMsg?: string;
   tasks: number;
   startExact: number;
+  /** Zelfde dag, andere klokstand (uurmodus). Wordt WEL per-veld gepind (`===`, dus een regressie
+   *  van sameday naar diff of vice versa faalt gewoon de betreffende pin), maar telt bewust NIET
+   *  mee in de "bestanden met ≥1 afwijking"-verzameling (reviewbevinding L6, zie
+   *  check-mpp-fidelity.ts) — die verzameling volgt uitsluitend `startDiff`/`finishDiff` (een
+   *  andere DAG, de eis van de goal is "tot op de minuut", maar de globale set-pin dient om een
+   *  NIEUW afwijkend bestand te vangen, niet om sameday-ruis daarin mee te wegen). */
   startSameday: number;
   startDiff: number;
   finishExact: number;
@@ -156,6 +170,22 @@ export function measureFidelity(bytes: Uint8Array): FidelityRow {
   if (raws.length !== tasks.length) {
     return errorRow(`grondwaarheid-uitlijning mislukt: ${raws.length} raw vs ${tasks.length} taken (readTasks/scanGroundTruthTasks lopen niet meer synchroon op ID)`);
   }
+  // M2 (reviewbevinding): lengte-gelijkheid alleen bewijst nog GEEN 1-op-1-uitlijning — een
+  // verschoven positie (bv. één taak eerder in de ene lijst geskipt, één later in de andere) zou
+  // een lengte-match geven terwijl raws[i] en tasks[i] niet dezelfde taak zijn. Beide lijsten
+  // sorteren op MS Projects eigen taak-ID (readTasks en scanGroundTruthTasks doen dat allebei),
+  // dus de namen op gelijke positie moeten identiek zijn — corpusbreed gemeten (T1-review): 0
+  // naam-mismatches, 0 dubbele MSP-ID's over 3413 taken/216 bestanden. Dat maakt deze check op dit
+  // corpus "gratis" (nooit rood), maar een toekomstig corpusbestand met een collision zou hier
+  // stil verkeerd rekenen zonder deze guard — rood, niet stil doorgaan.
+  for (let i = 0; i < raws.length; i++) {
+    if (raws[i].name !== tasks[i].name) {
+      return errorRow(
+        `grondwaarheid-uitlijning mislukt op positie ${i}: raw naam "${raws[i].name}" (MSP-id ${raws[i].id}) `
+        + `≠ readMPP-naam "${tasks[i].name}" — de twee scans zijn losgeraakt`,
+      );
+    }
+  }
 
   const truthStart = new Map<string, string | null>();
   const truthFinish = new Map<string, string | null>();
@@ -191,14 +221,18 @@ export function measureFidelity(bytes: Uint8Array): FidelityRow {
     else if (cs === 'sameday') ss++;
     else if (cs === 'diff') {
       sd++;
-      if (truthS && dayDelta(t.time.earlyStart, truthS) !== 0) {
-        if (truthS < project.startDate) bump('storedVoorProjectstart');
-        if ((t.time.completion ?? 0) > 0) bump('heeftVoortgang');
-        if (t.childIds.length > 0) bump('samenvattingstaak');
-        if (t.constraint) bump('heeftConstraint');
-        bump(dayDelta(t.time.earlyStart, truthS) > 0 ? 'wijLater' : 'wijVroeger');
-        bump('totaal');
-      }
+      // L7 (reviewbevinding): géén `truthS && dayDelta(...) !== 0`-guard meer — beide waren dode
+      // conditie. `classify()` geeft 'diff' UITSLUITEND terug wanneer `truth` niet-null was (anders
+      // 'missing') én de dag verschilt (anders 'exact'/'sameday'), dus `truthS` is hier altijd
+      // gezet en `dayDelta(...) !== 0` is hier altijd waar — vandaar de niet-null-assertie i.p.v.
+      // een dubbele check die nooit `false` kan zijn.
+      const delta = dayDelta(t.time.earlyStart, truthS!);
+      if (truthS! < project.startDate) bump('storedVoorProjectstart');
+      if ((t.time.completion ?? 0) > 0) bump('heeftVoortgang');
+      if (t.childIds.length > 0) bump('samenvattingstaak');
+      if (t.constraint) bump('heeftConstraint');
+      bump(delta > 0 ? 'wijLater' : 'wijVroeger');
+      bump('totaal');
     }
 
     if (cf === 'exact') fe++;
