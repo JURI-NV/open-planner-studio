@@ -45,6 +45,11 @@ In de projectweergave kom je drie soorten rijen tegen:
 2. **Projecteigen** — geen markering, volledig bewerkbaar. Ook een gekoppeld project kan zulke rijen hebben: handig voor eenmalige zaken die niet in de gedeelde bibliotheek horen, zoals een gehuurde kraan of een onderaannemer voor dit ene werk.
 3. **Wees** — het bibliotheekorigineel is verdwenen; de rij is gemarkeerd als **niet meer in de bibliotheek**. De kopie zelf blijft gewoon bruikbaar; je kunt hem loskoppelen of verwijderen.
 
+Elke rij begint met een klein kleurvak: de **resourcekleur**. Nieuwe resources krijgen automatisch
+een vrije kleur uit een vast palet, en je kunt de kleur hier altijd zelf kiezen. De kleur is puur
+presentatie — ze kleurt de balken in de rapportexport (Rapport → Balkkleuren → *Per resource*) en
+het scherm-accent op de Beeld-tab, maar telt niet als afwijking tussen bibliotheek en project.
+
 ## Wat volgt de bibliotheek mee — en wat niet
 
 Dit is de kern om te onthouden: sommige velden zijn een bedrijfsafspraak en volgen de bibliotheek, andere zijn projectinzet en stel je vrij in, zonder dat het als afwijking geldt.

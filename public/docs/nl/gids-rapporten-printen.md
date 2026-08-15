@@ -40,6 +40,22 @@ instellingenblok:
   beschikbaar met auto-fit aan.
 - Aan/uit-schakelaars voor **taaknamen op staafjes**, **voltooiing tonen**, **kritiek pad**,
   **speling tonen**, **afhankelijkheden**, **weekenden** en **legenda**.
+- **Balkkleuren** — hoe de balken hun kleur krijgen. Standaard staat dit op *Kritiek pad*: rood
+  voor kritieke taken, oranje voor bijna-kritieke en blauw voor de rest, zoals u gewend bent. De
+  andere standen: *Per taak — eigen kleur* (gebruikt de kleur die u per taak kunt instellen in het
+  eigenschappenpaneel), *Per taak — automatisch* (elke taak krijgt automatisch een eigen, vaste
+  kleur uit een palet) of *Per resource* (elke balk kleurt naar de uitvoerende partij — denk
+  metselaar geel, loodgieter groen; een taak met meerdere partijen krijgt gesegmenteerde balk in
+  verhouding tot de inzet, en taken zonder partij blijven blauw). In de laatste drie standen
+  markeert een **rode rand** om de balk het kritieke pad, en de legenda onderin past zich aan — bij
+  *Per resource* staat daar welke kleur bij welke partij hoort.
+- **Statuslijn** — *Geen* (standaard), *Statusdatumlijn* (een verticale stippellijn op de
+  statusdatum van het project) of *Voortgangslijn* (dezelfde zigzaglijn als op het scherm: per taak
+  een uitstulping naar de voortgangspositie). Zonder statusdatum in het project tekent niets —
+  stel er eerst één in via de projectgegevens; het paneel wijst u daarop.
+- **Volg weergave** — staat dit aan, dan print de export precies wat u op het scherm ziet: het
+  actieve filter, de groepering, de sortering én ingeklapte groepen blijven ingeklapt. Uit
+  (standaard) print de export de volledige takenboom.
 - Een **bedrijf**-veld (vult automatisch de projectinstelling, maar is hier los aanpasbaar) en de
   **auteur** (alleen-lezen, uit de projectgegevens).
 

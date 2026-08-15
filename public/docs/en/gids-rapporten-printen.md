@@ -39,6 +39,22 @@ A full, formatted printout of the Gantt bars — this is the only report type wi
   with auto-fit on.
 - Toggles for **task names on bars**, **show completion**, **critical path**, **show float**,
   **dependencies**, **weekends** and **legend**.
+- **Bar colors** — how the bars get their color. The default is *Critical path*: red for critical
+  tasks, orange for near-critical and blue for the rest, as you are used to. The other modes:
+  *Per task — custom color* (uses the color you can set per task in the properties panel),
+  *Per task — automatic* (every task gets its own fixed color from a palette) or *Per resource*
+  (each bar takes the color of the party performing it — think bricklayer yellow, plumber green; a
+  task with multiple parties gets a segmented bar proportional to their assignment, and tasks
+  without a party stay blue). In the last three modes a **red outline** around the bar marks the
+  critical path, and the legend at the bottom adapts — in *Per resource* mode it lists which color
+  belongs to which party.
+- **Status line** — *None* (default), *Status date line* (a vertical dashed line at the project's
+  status date) or *Progress line* (the same zigzag line as on screen: per task a bulge toward the
+  progress position). Without a status date in the project nothing is drawn — set one first via
+  the project info; the panel points this out.
+- **Follow view** — when on, the export prints exactly what you see on screen: the active filter,
+  grouping, sorting and collapsed groups stay collapsed. Off (default), the export prints the full
+  task tree.
 - A **company** field (auto-fills from the project setting, but is separately editable here) and the
   **author** (read-only, from the project info).
 
