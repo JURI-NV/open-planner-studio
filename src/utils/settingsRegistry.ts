@@ -160,6 +160,7 @@ export const SETTINGS: SettingDescriptor[] = [
   setting({ key: 'showBaselineOverlay', field: 'showBaselineOverlay', parse: parseBoolean }),
   setting({ key: 'showProgressLine', field: 'showProgressLine', parse: parseBoolean }),
   setting({ key: 'showStatusDateLine', field: 'showStatusDateLine', parse: parseBoolean }),
+  setting({ key: 'showResourceAccent', field: 'showResourceAccent', parse: parseBoolean }),
 
   // Mini-map (view-state)
   setting({ key: 'showMiniMap', field: 'showMiniMap', parse: parseBoolean }),

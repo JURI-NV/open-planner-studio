@@ -167,6 +167,10 @@ export async function saveShowStatusDateLine(value: boolean): Promise<void> {
   await setSetting('showStatusDateLine', value);
 }
 
+export async function saveShowResourceAccent(value: boolean): Promise<void> {
+  await setSetting('showResourceAccent', value);
+}
+
 // Mini-map (fase 2.7, §11.3): app-globale zichtbaarheid, view-state zoals showHistogram —
 // persist via dezelfde ops-prefix (`ops-showMiniMap`), buiten de 3-plekken-regel.
 export async function saveShowMiniMap(value: boolean): Promise<void> {

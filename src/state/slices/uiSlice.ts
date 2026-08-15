@@ -119,6 +119,7 @@ export function createDefaultUI(): UIState {
     showBaselineOverlay: true,
     showProgressLine: true,
     showStatusDateLine: true,
+    showResourceAccent: false,   // #21: schermbeeld verandert eerst niet — expliciet aanzetten
     presentationMode: false,
     showMiniMap: false,
     showColumnsDialog: false,

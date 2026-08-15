@@ -282,6 +282,9 @@ export interface UIState {
   showBaselineOverlay: boolean;             // persisted — baseline-onderbalk in de Gantt (fase 2.6)
   showProgressLine: boolean;                // persisted — voortgangslijn in de Gantt (fase 2.6)
   showStatusDateLine: boolean;              // persisted — statusdatumlijn in de Gantt (fase 2.6)
+  /** #21: dun streepje in de resourcekleur onder taakbalken (scherm-accent; de balkvulling zelf
+   *  blijft kritiek-pad-gekleurd — resourcekleuren gelden voor de export, dit is het schermsignaal). */
+  showResourceAccent: boolean;               // persisted
   presentationMode: boolean;                // session — presentatie-modus (fase 2.7, §9); niet gepersisteerd
   showMiniMap: boolean;                     // persisted — mini-map naast/onder de Gantt (fase 2.7, §11)
   // --- Fase 2.7 golf 3: dialogen (§5.5/§6/§13.1/§8) ---

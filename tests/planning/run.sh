@@ -437,6 +437,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   PRTEXPCHECK="$DIR/.print-report.mjs"
   if bundle_check "$DIR/check-print-report.ts" "$PRTEXPCHECK"; then node "$PRTEXPCHECK" || STATUS=1; fi
 
+  # Resource-accent op het scherm (#21): dun streepje resourcekleur onder bladbalken, gesegmenteerd
+  # naar rato van unitsPerDay; zonder vlag niets extra. ECHTE GanttRenderer met opnemende ctx-stub.
+  RACCHECK="$DIR/.resource-accent.mjs"
+  if bundle_check "$DIR/check-resource-accent.ts" "$RACCHECK"; then node "$RACCHECK" || STATUS=1; fi
+
   # Icoon-sanitizer (bevinding K6a): extensie-geleverde iconen worden nog steeds als inline SVG
   # gerenderd, maar uitsluitend herbouwd uit een allowlist. Deze check draait de DOM-vrije
   # beslissings- en herbouwlaag (allowlists, harde verwijderingen, waardecheck, serialisatie) tegen

@@ -8,7 +8,7 @@ import {
   Tags, ListOrdered, Hash,
   IndentIncrease, IndentDecrease,
   Users, BarChart3, Scale, Eraser, ChevronLeft, ChevronRight,
-  ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays,
+  ArrowLeftToLine, ArrowRightToLine, LayoutGrid, TrendingUp, CalendarDays, Palette,
   Keyboard, PanelRight,
   CalendarClock, ChevronsDownUp, ChevronsUpDown, Columns3,
 } from 'lucide-react';
@@ -19,7 +19,7 @@ import { createRelationWithFeedback } from '@/state/relationActions';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import {
-  saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
+  saveShowBaselineOverlay, saveShowProgressLine, saveShowResourceAccent, saveShowStatusDateLine,
 } from '@/utils/settingsStore';
 import type { RibbonTab } from '@/state/slices/types';
 import {
@@ -750,6 +750,16 @@ const beeldTab: RibbonTabConfig = [
               const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
               const setUI = useAppStore(s => s.setUI);
               return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
+            },
+          },
+          {
+            // #21: scherm-accent — dun streepje resourcekleur onder de balken (kleurmodi zelf
+            // zitten in Rapport → Balkkleuren; dit is het compacte schermsignaal).
+            kind: 'small', id: 'toggleResourceAccent', icon: <Palette size={14} />, labelKey: 'menu:ribbon.toggleResourceAccent',
+            use: () => {
+              const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showResourceAccent, onClick: () => { const next = !showResourceAccent; setUI({ showResourceAccent: next }); void saveShowResourceAccent(next); } };
             },
           },
         ],

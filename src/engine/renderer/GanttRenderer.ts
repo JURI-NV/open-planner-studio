@@ -9,6 +9,9 @@ import { formatDuration, DEFAULT_DURATION_SUFFIXES, type DurationSuffixes } from
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { isZeroDurationMilestone } from '@/engine/scheduler/duration';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
+// #21: resource-accent — dezelfde pure toewijzings-module als de printlaag (één definitie van
+// "welke resources kleuren welke taak"), geen tweede implementatie in de renderer.
+import { assignmentsFor } from '@/services/print/barColors';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
 import { readGanttPalette, type GanttPalette } from './themePalette';
 import { xToDayOffset, type GanttAxis } from './timeAxis';
@@ -47,6 +50,12 @@ export interface GanttRenderOptions {
   showStatusDateLine?: boolean;                          // UI-toggle
   showProgressLine?: boolean;                            // UI-toggle
   showBaselineOverlay?: boolean;                         // UI-toggle
+  /** #21: dun streepje resourcekleur ónder elke bladbalk (gesegmenteerd bij meerdere resources).
+   *  Supplement, geen vervanging: de balkvulling blijft kritiek-pad-gekleurd. */
+  showResourceAccent?: boolean;                          // UI-toggle
+  /** Voor het accent: resources + toewijzingen (de renderer leeft buiten de store). */
+  resources?: import('@/types/resource').Resource[];
+  assignments?: import('@/types/resource').ResourceAssignment[];
   /** Overlay-datums uit de actieve baseline, keyed op Task.id (alleen leaf-taken). */
   baselineOverlay?: Map<string, { start: string; finish: string; isMilestone: boolean }>;
   canvasWidth: number;
@@ -1106,6 +1115,26 @@ export class GanttRenderer {
       ctx.beginPath();
       ctx.roundRect(x1 - 1, y - 1, width + 2, height + 2, 4);
       ctx.stroke();
+    }
+
+    // Resource-accent (#21): dun streepje in de resourcekleur direct ónder de balk, gesegmenteerd
+    // naar rato van unitsPerDay bij meerdere resources. Eén vast hoogtemaatje van 3 px — subtiel
+    // genoeg om het kritiek-pad-beeld niet te verdringen, duidelijk genoeg om "wie doet dit" te lezen.
+    if (this.opts.showResourceAccent) {
+      const rows = assignmentsFor(task.id, this.opts.resources ?? [], this.opts.assignments ?? []);
+      if (rows.length > 0) {
+        const total = rows.reduce((a, r) => a + r.unitsPerDay, 0) || 1;
+        const accentH = 3;
+        const accentY = y + height + 1;
+        let ax = x1;
+        rows.forEach((r, i) => {
+          const isLast = i === rows.length - 1;
+          const w = isLast ? x2 - ax : (x2 - x1) * (r.unitsPerDay / total);
+          ctx.fillStyle = r.color;
+          ctx.fillRect(ax, accentY, Math.max(w, 1), accentH);
+          ax += w;
+        });
+      }
     }
 
     // Task name on bar (if wide enough)

@@ -183,11 +183,14 @@ export function GanttCanvas() {
   const statusDate = useAppStore(s => s.project.statusDate);
   const showBaselineOverlay = useAppStore(s => s.ui.showBaselineOverlay);
   const showProgressLine = useAppStore(s => s.ui.showProgressLine);
+  // #21: resource-accent + de bijbehorende resources/toewijzingen (zelfde bron als de histogram/
+  // tabelweergave — de renderer krijgt alles doorgegeven en leeft buiten de store).
+  const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
+  const resources = useAppStore(s => s.resources);
+  const assignments = useAppStore(s => s.assignments);
   const showStatusDateLine = useAppStore(s => s.ui.showStatusDateLine);
   const baselines = useAppStore(s => s.baselines);
   const activeBaselineId = useAppStore(s => s.activeBaselineId);
-  const resources = useAppStore(s => s.resources);
-  const assignments = useAppStore(s => s.assignments);
   const setHistogramResource = useAppStore(s => s.setHistogramResource);
 
   const { zoomAt } = useGanttZoom({ containerRef, taskTableWidth });
@@ -525,6 +528,9 @@ export function GanttCanvas() {
       statusDate,
       showStatusDateLine,
       showProgressLine,
+      showResourceAccent,
+      resources,
+      assignments,
       showBaselineOverlay,
       baselineOverlay,
       trace,
@@ -563,7 +569,7 @@ export function GanttCanvas() {
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, resources, assignments, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -589,6 +595,9 @@ export function GanttCanvas() {
       statusDate,
       showStatusDateLine,
       showProgressLine,
+      showResourceAccent,
+      resources,
+      assignments,
       showBaselineOverlay,
       baselineOverlay,
       trace,
@@ -632,7 +641,7 @@ export function GanttCanvas() {
     }));
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showResourceAccent, resources, assignments, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,
