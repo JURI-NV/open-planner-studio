@@ -1547,23 +1547,28 @@ if (corpusPresent) {
 // (het bijbehorende Fixed2Data-record moet niet-null zijn; de FixedData-recordlengte moet ≥75%
 // van het werkelijke taakveld-maximum beslaan) — `collectValidTaskIndices` hierboven gebruikt een
 // eenvoudigere validatie (verwijderd-vlag + null-taak-plaatshouder + spooktaak-check via VarMeta).
-// Op de drie ground-truth-bestanden maakt dat gemeten geen verschil (taakaantal-pariteit
-// 51/134/215), maar dat corpus is klein — een BESCHEIDEN overtelling (een handvol MPXJ zou
-// wegfilteren die híér toch doorglipt) zou een kale "geen exception"-poort niet vangen.
 //
-// Gekozen discriminator: een taak die (a) GEEN naam heeft (leeg na trim), (b) duration 0 heeft, ÉN
-// (c) in GEEN ENKELE relatie van hetzelfde bestand voorkomt (niet als voorganger, niet als
-// opvolger) is verdacht. Waarom dit betrouwbaar discrimineert zonder flaky te zijn: een taak die
-// een gebruiker daadwerkelijk aanmaakt in MS Project krijgt zo goed als altijd minstens één van
-// de drie — een naam (zelfs een auto-gegenereerde "Taak 1"), een duur (default 1 dag), of een
-// koppeling. Alle drie tegelijk ontbrekend is precies het profiel van een gefilterde
-// MPXJ-plaatshouder (verwijderd-/null-taakrecord) die hier toch als "geldige" taak doorkomt — geen
-// signaal dat toevallig ook legitieme taken raakt (een taak zonder naam MET een duur of relatie
-// telt hier bewust niet mee). Budget: ≤2% verdachte taken per bestand — ruim boven de op dit
-// corpus gemeten 0% (zie de console-samenvatting hieronder), zodat een enkel edge-case-bestand
-// geen valse rode poort geeft, maar een systematische regressie (bv. een filter die per ongeluk
-// wordt losgelaten) nog wel degelijk faalt. Bestanden zonder taken (zie de bevinding hierboven)
-// worden hier overgeslagen (0/0 zegt niets over plausibiliteit).
+// EERLIJKE REIKWIJDTE (T9-review, mutatiegetoetst): de discriminator hieronder — GEEN naam (leeg
+// na trim), duration 0, ÉN in geen enkele relatie van hetzelfde bestand — vangt uitsluitend een
+// écht KAAL record: een taak zonder ENIG spoor van gebruikersinvoer. Getest door in-memory
+// `DELETED_TASK_FLAG`-filtering uit te schakelen op een corpusbestand: het aantal gelezen taken
+// steeg (788 → 853 over het hele corpus), maar de spooktaak-ratio bleef 0% — een "verwijderde"
+// taak in dit corpus behoudt gewoon zijn oorspronkelijke naam/duur/relaties in het FixedData-
+// record (alleen de vlag zegt dat 'm verwijderd is), dus die matcht het kale-record-profiel NOOIT.
+// Dezelfde mutatie op de null-taak-plaatshouder-check werd uitsluitend gevangen door de T5-
+// taakaantal-vergelijking tegen de MSPDI-ground-truth (die corpuspaar-sectie hierboven), niet door
+// deze plausibiliteitsassert. Met andere woorden: deze assert is GEEN vervanging voor de exacte
+// crawl-baselines hieronder (`CRAWL_TASK_COUNT_BASELINE`/`CRAWL_ZERO_TASK_FILES_BASELINE`, beide
+// `===`) — DIE zijn de echte poort tegen een losgelaten of verzwakt filter (elke afwijking van het
+// deterministische corpustotaal faalt hard, in beide richtingen). Wat de assert wél toevoegt,
+// bovenop die exacte telling: een los-van-het-totaal, per-bestand signaal voor het ANDERE
+// MPXJ-filter dat hier niet geport is (Fixed2Data/75%-heuristiek) — een taakrecord dat door de
+// FixedMeta/FixedData-koppeling komt maar zelf leeg is (geen naam, geen duur, geen relatie) zou
+// door dát filter wél geweerd worden, en is dus het patroon dat specifiek bij het NIET-porten van
+// die 75%-heuristiek zou kunnen ontstaan. Budget: ≤2% verdachte taken per bestand — gemeten 0% op
+// dit corpus; blijft als goedkope extra naast de exacte baselines, niet als vervanging ervan.
+// Bestanden zonder taken (zie de bevinding hierboven) worden hier overgeslagen (0/0 zegt niets
+// over plausibiliteit).
 {
   const CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp';
   if (!existsSync(CRAWL)) {
@@ -1583,12 +1588,16 @@ if (corpusPresent) {
       console.log(`OK  mpp-import: T9-crawl-map aanwezig maar geen .mpp-bestanden erin (${CRAWL}) — crawlsectie overgeslagen`);
     } else {
       // Gemeten basislijnen (2026-08-14, dit corpus, 49 bestanden, deze code): 788 taken totaal;
-      // 4 bestanden zonder taken (legitiem, zie de bevinding hierboven). `>=` resp. `<=` (zelfde
-      // precedent als T6-/T7-crawl voor de eerste): een toekomstige verbetering mag het taakaantal
-      // laten stijgen zonder de poort te breken; een regressie die taken laat verdwijnen (bv. een
-      // te strenge validatie, of een kapotte FixedMeta/FixedData-koppeling) faalt op minstens één
-      // van de twee — hetzij het totaal zakt onder de basislijn, hetzij er komen MEER dan 4 lege
-      // bestanden bij.
+      // 4 bestanden zonder taken (legitiem, zie de bevinding hierboven). EXACT (`===`), NIET `>=`/
+      // `<=` (T9-review, mutatiegetoetst — zie de plausibiliteitsassert-toelichting hierboven): het
+      // taakaantal volgt DETERMINISTISCH uit dit vaste corpus + de huidige filter-semantiek in
+      // `collectValidTaskIndices`, dus elke afwijking — in BEIDE richtingen — is een signaal. Een
+      // losser filter (bv. `DELETED_TASK_FLAG` per ongeluk uitgeschakeld) telt MEER taken, niet
+      // minder — gemeten 788 → 853 bij die specifieke mutatie — en een `>=`-baseline zou dat
+      // straffeloos door laten glippen; een strenger filter telt er MINDER. Een bewuste wijziging
+      // van de filter-semantiek (bv. het alsnog porten van MPXJ's Fixed2Data/75%-heuristiek, zie
+      // mppReader.ts's moduleheader) moet deze twee getallen dan ook EXPLICIET bijwerken — precies
+      // dán hoort deze poort af te gaan, ter herbevestiging van het nieuwe, bewust gekozen totaal.
       const CRAWL_TASK_COUNT_BASELINE = 788;
       const CRAWL_ZERO_TASK_FILES_BASELINE = 4;
       const SUSPECT_RATIO_BUDGET = 0.02; // zie de sectietoelichting hierboven
@@ -1633,12 +1642,12 @@ if (corpusPresent) {
       }
       truthy(`[T9-crawl] geen leesfouten over ${crawlFiles.length} bestanden`, readFailures === 0);
       truthy(
-        `[T9-crawl] taakloze bestanden binnen de gemeten basislijn (${filesWithZeroTasks}/${CRAWL_ZERO_TASK_FILES_BASELINE}, zie de bevinding hierboven)`,
-        filesWithZeroTasks <= CRAWL_ZERO_TASK_FILES_BASELINE,
+        `[T9-crawl] taakloze bestanden exact op de gemeten basislijn (${filesWithZeroTasks}/${CRAWL_ZERO_TASK_FILES_BASELINE}, zie de bevinding hierboven)`,
+        filesWithZeroTasks === CRAWL_ZERO_TASK_FILES_BASELINE,
       );
       truthy(
-        `[T9-crawl] totaal-taakaantal op/boven de gemeten basislijn (${totalTasks}/${CRAWL_TASK_COUNT_BASELINE})`,
-        totalTasks >= CRAWL_TASK_COUNT_BASELINE,
+        `[T9-crawl] totaal-taakaantal exact op de gemeten basislijn (${totalTasks}/${CRAWL_TASK_COUNT_BASELINE})`,
+        totalTasks === CRAWL_TASK_COUNT_BASELINE,
       );
       console.log(
         `   . [T9-crawl] ${crawlFiles.length} bestanden: totaal ${totalTasks} taken (basislijn ${CRAWL_TASK_COUNT_BASELINE}), `
