@@ -1988,17 +1988,30 @@ if (corpusPresent) {
 // existsSync-guard + nette OK-skip), hier gericht op één met naam bekend bestand i.p.v. een map.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
-// Bestandsinhoud (gemeten, 2026-08-15, via readMPP): 10 taken op een UUR-kalender (project-
-// hoursPerDay 8, `calendar.workTime` gezet) — 5 in WORKTIME (Task 1-5) en 5 in ELAPSEDTIME
-// (Task 6-10), paarsgewijs dezelfde nominale duur in minuten/uren/dagen/weken/maanden:
-//   Task 1/6  — minutes/elapsedMinutes:  durationMinutes 1
-//   Task 2/7  — hours/elapsedHours:      durationMinutes 60   (1 uur)
-//   Task 3/8  — days/elapsedDays:        WORKTIME 480 (1 werkdag @8u) vs. ELAPSED 1440 (1 klokdag @24u)
-//   Task 4/9  — weeks/elapsedWeeks:      WORKTIME 2400 (5 werkdagen) vs. ELAPSED 10080 (7 klokdagen)
-//   Task 5/10 — months/elapsedMonths:    WORKTIME 9600 (20 werkdagen) vs. ELAPSED 43200 (30 klokdagen)
+// Bestandsinhoud (hardening-§7: verwachte waarden ONAFHANKELIJK van deze lezer afgeleid uit de
+// MPXJ-bron, NIET "gemeten via readMPP"): het publieke MPXJ-fixturebestand draagt 10 taken —
+// "Task 1".."Task 10" (letterlijke namen, geverifieerd tegen de ruwe bestandsinhoud) — 5 in
+// WORKTIME en 5 in ELAPSEDTIME, paarsgewijs telkens "1 nominale eenheid" (minuten/uren/dagen/
+// weken/maanden). De taken staan op een uur-kalender met project-`hoursPerDay` 8. `durationMinutes`
+// is in BEIDE gevallen simpelweg `raw.durationRaw / 10` (MPP bewaart elke duur intern in TIENDEN
+// VAN EEN MINUUT, ongeacht of de eenheid elapsed is — dat conversiefeit staat letterlijk in
+// MPPUtility.java's eigen doc-commentaar, niet in deze lezer), dus de expliciete afleiding per paar:
+//   Task 1/6  — minutes/elapsedMinutes:  1 min ×10 tienden/min           =    10 tienden → 1 min
+//   Task 2/7  — hours/elapsedHours:      1 uur ×600 tienden/uur          =   600 tienden → 60 min
+//   Task 3    — days (WORKTIME):         1 werkdag × (hoursPerDay×60×10 = 4800 tienden/werkdag @8u) = 4800 → 480 min
+//   Task 8    — elapsedDays:             1 klokdag × 14400 tienden/klokdag (MPPUtility.getAdjustedDuration's
+//                                         ELAPSED_DAYS-tak: vaste 24×600, GEEN hoursPerDay)          = 14400 → 1440 min
+//   Task 4    — weeks (WORKTIME):        1 werkweek (5 werkdagen) × 4800                              = 24000 → 2400 min
+//   Task 9    — elapsedWeeks:            1 klokweek × 100800 tienden/klokweek (ELAPSED_WEEKS-tak:
+//                                         vaste 60×24×7×10, GEEN hoursPerDay)                         = 100800 → 10080 min
+//   Task 5    — months (WORKTIME):       1 werkmaand (MPXJ-standaard 20 werkdagen) × 4800             = 96000 → 9600 min
+//   Task 10   — elapsedMonths:           1 klokmaand × 432000 tienden/klokmaand (ELAPSED_MONTHS-tak:
+//                                         vaste 60×24×30×10, GEEN hoursPerDay)                        = 432000 → 43200 min
 // De ELAPSED-kant bewijst de conversievalkuil uit het plan: 1440/10080/43200 klopt alleen als de
-// eenheden-decodering de vaste 24-uursdag gebruikt (MPPUtility.getAdjustedDuration's ELAPSED_DAYS/
-// -WEEKS/-MONTHS-takken) — een dubbele deling door `hoursPerDay` (8) zou hier 180/1260/5400 geven.
+// eenheden-decodering de vaste 24-uursdag gebruikt (de ELAPSED_DAYS/-WEEKS/-MONTHS-constanten
+// hierboven, rechtstreeks uit MPPUtility.getAdjustedDuration) — een dubbele deling door
+// `hoursPerDay` (8) zou hier 180/1260/5400 geven (14400/8, 100800/8, 432000/8 — de bug die Fixture
+// 5 verderop synthetisch reproduceert en aan de kaak stelt).
 // Mutatiebewijs: `durationType: raw.isElapsedDuration ? 'ELAPSEDTIME' : 'WORKTIME'` teruggezet naar
 // het hardgecodeerde `'WORKTIME'` laat precies de 5 ELAPSEDTIME-asserts hieronder ROOD gaan.
 {

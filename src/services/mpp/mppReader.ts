@@ -627,6 +627,16 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // dag ⇒ het bestaande dag-pad, ONGEWIJZIGD op de PROJECT-brede `hoursPerDay` (niet `effHpd`) —
     // spiegelt exact het gedrag van vóór etappe 1.5, zodat een genuine dag-modus-bestand met een
     // taak-kalender-override (ander hoursPerDay dan het project) geen stille duurwijziging krijgt.
+    // SCOPING (T10-spec-review): dit `isHour`-pad zet `durationMinutes` op `raw.durationRaw / 10`
+    // ONGEACHT WORKTIME/ELAPSEDTIME — dat getal zelf is dus al klok-tijd-neutraal correct (een minuut
+    // is een minuut, zie de T10-corpuscase hieronder in check-mpp-import.ts). Wat hier NIET gebeurt
+    // — bewust, buiten T10's scope — is de SOLVER de uur-kalender 24/7 laten doorrekenen voor
+    // ELAPSEDTIME-taken: `CPMSolver` kent nog geen `durationType`-onderscheid en behandelt deze
+    // `durationMinutes` op een uur-kalender nu nog elapsed-naïef (als WERKtijd, dus begrensd door de
+    // kalenderbanden i.p.v. 24/7 doorlopend). Pas T8 (elapsed-duur rekent in kalendertijd) maakt de
+    // hier gelezen `scheduleDuration`/`durationMinutes` ook op een uur-kalender daadwerkelijk
+    // eind-tot-eind kloppend voor ELAPSEDTIME-taken — tot dan is dit uur-mode-pad alleen een correcte
+    // LEESKANT, geen correcte planning.
     const durationMinutes = isHour ? Math.round(raw.durationRaw / 10) : undefined;
     // T10-conversievalkuil (zie het plan bij DurationUnits): een ELAPSED-duur ligt in MPP al vast
     // in KLOK-minuten (spiegelt MPPUtility.getAdjustedDuration's ELAPSED_DAYS/-WEEKS/-MONTHS-takken —
@@ -635,7 +645,11 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // deelt door `hoursPerDay × 60` (WERK-tijd-semantiek) — op die ELAPSED klok-minuten toegepast zou
     // dat de dag-omrekening ONTERECHT een tweede keer door `hoursPerDay` delen. Dag-modus + elapsed
     // rekent daarom rechtstreeks met de vaste klok-dag (24 × 60 × 10 tienden), ongeacht `hoursPerDay`.
-    // De SOLVER-kant die deze klokduur ook daadwerkelijk 24/7 doorrekent is T8, niet dit bestand.
+    // BEREIK VAN DEZE FIX: uitsluitend het DAG-MODUS-pad hieronder (`raw.isElapsedDuration` ⇒
+    // klok-dag-deler). Het UUR-MODUS-pad hierboven kreeg GEEN aparte elapsed-correctie — dat was ook
+    // niet nodig voor `durationMinutes` zelf (zie de SCOPING-toelichting hierboven), maar betekent wél
+    // dat de SOLVER-kant die deze klokduur daadwerkelijk 24/7 doorrekent (op BEIDE kalendermodi) T8
+    // is, niet dit bestand.
     const duration = isHour
       ? (effHpd > 0 ? durationMinutes! / (effHpd * 60) : 0)
       : raw.isElapsedDuration
