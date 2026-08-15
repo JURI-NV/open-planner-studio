@@ -290,12 +290,14 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // Exact de gekozen datum, niet via Δ: voorkomt drift als `project.startDate` een datetime was.
       s.project.startDate = newStartDate;
       s.project.modifiedAt = new Date().toISOString();
-      // Élk taakanker moet mee: sinds de projectstart-vloer (CPMSolver.rootFloor, r. 172 hierboven)
-      // is `project.startDate` zelf wél een ondergrens voor wortel-taken — maar een Δ-verschuiving
-      // die ALLEEN die vloer verzet zou elke taak die verder dan Δ ná de oude vloer al gepland stond
-      // gewoon op zijn eigen (nu ongewijzigde) `scheduleStart` laten staan. Een "project verplaatsen"
-      // moet het HELE project Δ dagen opschuiven, niet alleen het minimum optrekken; alle ankers
-      // (taken, resources, evt. baselines) moeten dus expliciet mee.
+      // Élk taakanker moet mee: sinds T7 is `project.startDate` GEEN ondergrens meer voor een
+      // wortel-taak-eigen ES in de solver (`CPMSolver.ownAnchor` is ongeklemd — de vloer geldt nu
+      // uitsluitend nog als ondergrens tegen relatie-leads voor taken MET voorganger). De T7b-
+      // bewerkbescherming in `setProject` hierboven (`clampProjectStartAnchors`) grijpt hier niet
+      // in — `moveProject` roept `setProject` niet aan. Een Δ-verschuiving die ALLEEN
+      // `project.startDate` verzet zou dus GEEN ENKEL taakanker meeschuiven, vooruit noch terug.
+      // Een "project verplaatsen" moet het HELE project Δ dagen opschuiven; alle ankers (taken,
+      // resources, evt. baselines) moeten dus expliciet mee.
       s.tasks = s.tasks.map((t) => shiftTask(t, delta));
       s.resources = s.resources.map((r) => shiftResource(r, delta));
       // Default UIT (§1.6): een baseline bestaat om afwijking te meten; meeschuiven wist het signaal.

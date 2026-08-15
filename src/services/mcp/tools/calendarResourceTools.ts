@@ -1665,10 +1665,11 @@ const updateProject: BatchStepTool = {
     'hoe de solver werk buiten de volgorde afhandelt; null = terug naar de default RETAINED_LOGIC) en ' +
     '`startDate`. Een ONBEKEND veld wordt geweigerd met de toegestane lijst erbij — er wordt nooit ' +
     'stil iets weggegooid. BELANGRIJK over `startDate`: het is het anker voor NIEUW aan te maken ' +
-    'taken en verschuift de REST van de bestaande planning niet — geen enkele taak-EIND schuift mee. ' +
+    'taken en verschuift de REST van de bestaande planning niet — geen enkele taak-EIND schuift mee, ' +
+    'behalve het eind van de geklemde ankers zelf, dat duurbehoudend meeschuift. ' +
     'Sinds T7b is er wél één gerichte uitzondering (bewerkbescherming, geen Δ-verschuiving): een ' +
     'LATERE `startDate` klemt bestaande taak-ankers die zónder voorganger en zónder constraint vóór ' +
-    'de nieuwe startdatum staan, vooruit náár die datum (een melding meldt hoeveel) — zo blijft een ' +
+    'de nieuwe startdatum staan, vooruit náár die datum (de respons meldt `anchorsClamped`) — zo blijft een ' +
     'wortel-taak niet stil vóór het officiële projectbegin hangen na het verzetten van de start. Een ' +
     'taak met een voorganger, een constraint, of een start ná de nieuwe datum blijft ongemoeid. Wil ' +
     'je de HELE bestaande planning (elk anker, elke taak) Δ dagen opschuiven, gebruik dan ' +
