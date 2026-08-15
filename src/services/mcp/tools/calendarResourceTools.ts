@@ -1660,10 +1660,16 @@ const updateProject: BatchStepTool = {
     'af in de planning; lege string wist hem), `progressMode` (RETAINED_LOGIC of PROGRESS_OVERRIDE — ' +
     'hoe de solver werk buiten de volgorde afhandelt; null = terug naar de default RETAINED_LOGIC) en ' +
     '`startDate`. Een ONBEKEND veld wordt geweigerd met de toegestane lijst erbij — er wordt nooit ' +
-    'stil iets weggegooid. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
-    'NIEUW aan te maken taken — het verschuift GEEN enkele bestaande taak. Wil je de hele bestaande ' +
-    'planning opschuiven, gebruik dan `planner_move_project`. Zet `startDate` dus vóór add_tasks, ' +
-    'niet erna. NET ZO BELANGRIJK over `statusDate`: dat is GEEN passief label maar de DATA DATE ' +
+    'stil iets weggegooid. BELANGRIJK over `startDate`: het is het anker voor NIEUW aan te maken ' +
+    'taken en verschuift de REST van de bestaande planning niet — geen enkele taak-EIND schuift mee. ' +
+    'Sinds T7b is er wél één gerichte uitzondering (bewerkbescherming, geen Δ-verschuiving): een ' +
+    'LATERE `startDate` klemt bestaande taak-ankers die zónder voorganger en zónder constraint vóór ' +
+    'de nieuwe startdatum staan, vooruit náár die datum (een melding meldt hoeveel) — zo blijft een ' +
+    'wortel-taak niet stil vóór het officiële projectbegin hangen na het verzetten van de start. Een ' +
+    'taak met een voorganger, een constraint, of een start ná de nieuwe datum blijft ongemoeid. Wil ' +
+    'je de HELE bestaande planning (elk anker, elke taak) Δ dagen opschuiven, gebruik dan ' +
+    '`planner_move_project`. Zet `startDate` dus vóór add_tasks, niet erna. NET ZO BELANGRIJK over ' +
+    '`statusDate`: dat is GEEN passief label maar de DATA DATE ' +
     'uit P6/MSP, en die HERSCHIKT de planning. Werk dat nog niet begonnen is (completion 0) mag niet ' +
     'meer vóór de statusdatum liggen en wordt naar die datum vooruitgeschoven; op een planning ' +
     'zónder enige voortgang schuift dus ALLES mee — inclusief de eerste mijlpaal — en verspringt het ' +

@@ -230,6 +230,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPCHECK="$DIR/.move-project-check.mjs"
   if bundle_check "$DIR/check-move-project.ts" "$MPCHECK"; then node "$MPCHECK" || STATUS=1; fi
 
+  # T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B): projectstart-
+  # bewerkbescherming — een LATERE `setProject({ startDate })` klemt wortel-ankers zonder
+  # voorganger/constraint vooruit, met melding; geïmporteerde bestanden (loadState/
+  # applyLoadedProject) raken dit pad niet. Headless tegen de echte store; registratie hier is de
+  # eerste sinds T1 (baan M is klaar, `run.sh` was daarna weer vrij voor een nieuwe check).
+  PSACHECK="$DIR/.project-start-anchor-check.mjs"
+  if bundle_check "$DIR/check-project-start-anchor.ts" "$PSACHECK"; then node "$PSACHECK" || STATUS=1; fi
+
   # moveTask-cykelguard + addTask.notes-checks (fase 2.10 onderdeel 2, QA-fixes P1/4 — headless
   # tegen de echte store, los van de CPM-cases).
   MTCHECK="$DIR/.move-task-check.mjs"

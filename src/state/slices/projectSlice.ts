@@ -161,17 +161,66 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
   filePath: null,
   fileHandle: null,
 
-  setProject: (updates) =>
+  setProject: (updates) => {
+    // T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B, ná escalatie T7): telt de
+    // wortel-ankers die deze aanroep klemt, buiten de Immer-`set()`-producer om — zelfde precedent
+    // als `moveProject` hieronder (een `let out`/teller die de producer vult, waarna de aanroeper
+    // ná `set()` op de VOLTOOIDE state reageert; `get().notify(...)` binnen een actieve producer
+    // aanroepen is hier bewust vermeden).
+    let clampedAnchors = 0;
     set((s) => {
       // No-op-guard vóór de snapshot (pakket H): een opslag met identieke waarden verandert niets —
       // geen undo-stap, geen `modifiedAt`-bump, geen isDirty.
       if (!projectChanges(s.project, updates)) return;
       beginUndoable(s);
+      const prevStartDate = s.project.startDate;
       Object.assign(s.project, updates);
       s.project.modifiedAt = new Date().toISOString();
+      // T7b: de projectstart-vloer verhuisde UIT de solver (CPMSolver is sinds T7 MSP-getrouw — een
+      // ingelezen anker wordt nooit meer door de vloer overruled, zie `CPMSolver.ownAnchor`) NAAR
+      // HIER, het bewerkmoment. Alléén hier bestaat het intentiesignaal "de gebruiker heeft zojuist
+      // zelf de projectstart verzet": in de solver hebben een VEROUDERD in-app-anker (bv. een taak
+      // met een start die dateert van vóór deze wijziging) en een aantoonbaar-eerder MS-Project-
+      // anker (uit een `.mpp`-import) EXACT dezelfde vorm — wortel-taak, `scheduleStart` vóór
+      // `project.startDate`, geen constraint — dus kon de solver ze niet uit elkaar houden
+      // (architect-analyse, T7-escalatie). Alleen bij een verzetting naar een LATERE datum: wortel-
+      // taken (geen voorganger via `s.sequences`, bladtaken — `childIds.length === 0`, zelfde filter
+      // als de solver) zónder expliciete constraint (`constraint`/`constraint2` — die winnen altijd,
+      // ongeacht of hun eigen datum vóór of ná de nieuwe projectstart ligt) die vóór de nieuwe
+      // startdatum staan, schuiven mee náár die datum. Dit is KLEMMEN (alleen te-vroege ankers) —
+      // GEEN Δ-verschuiving van de rest van de planning; wie alles wil opschuiven gebruikt
+      // `moveProject` ("Project verplaatsen"), dat hierboven al expliciet ELK taakanker meeneemt.
+      // Geïmporteerde bestanden raken dit pad NIET: `loadState`/`applyLoadedProject` (fileSlice.ts)
+      // lopen nooit door `setProject` — ze hydrateren de payload rechtstreeks via het document-
+      // contract — dus importgetrouwheid (T7) en deze bewerkbescherming staan volledig los van
+      // elkaar, precies de scheiding die het orkestratorbesluit vroeg.
+      if (
+        'startDate' in updates && typeof updates.startDate === 'string' &&
+        updates.startDate !== prevStartDate && updates.startDate > prevStartDate
+      ) {
+        const hasPredecessor = new Set(s.sequences.map((seq) => seq.successorId));
+        for (const t of s.tasks) {
+          if (t.childIds.length > 0) continue; // alleen bladtaken (CPMSolver-precedent)
+          if (hasPredecessor.has(t.id)) continue; // heeft een voorganger — geen wortel-anker
+          if (t.constraint || t.constraint2) continue; // expliciete constraint wint altijd
+          if (t.time.scheduleStart < updates.startDate) {
+            t.time.scheduleStart = updates.startDate;
+            clampedAnchors++;
+          }
+        }
+      }
       // Alleen de projectstart raakt de planning (anker van de forward pass); naam/auteur niet (A6).
       finishMutation(s, { stale: 'startDate' in updates });
-    }),
+    });
+    if (clampedAnchors > 0) {
+      get().notify({
+        severity: 'info',
+        messageKey: 'notifications.projectStartAnchorsClamped',
+        params: { count: clampedAnchors },
+        dedupeKey: 'project-start-anchors-clamped',
+      });
+    }
+  },
 
   setWbsAutoNumber: (on) =>
     set((s) => {
