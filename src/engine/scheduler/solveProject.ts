@@ -39,6 +39,10 @@ export interface SolveProjectInput {
   progressMode?: ProgressMode;
   /** `project.schedulingOptions` — project-scoped reken-opties (fase 2.9). */
   schedulingOptions?: SchedulingOptions;
+  /** `project.startDate` — ondergrens (`rootFloor`) voor taken zonder voorganger: die starten op of
+   *  ná de projectstart, vooruit gesnapt in hun eigen kalender (gebruikstest-bevinding 2026-08).
+   *  Harde constraints (MSO/MFO) winnen van deze vloer. */
+  projectStartDate?: string;
 }
 
 /**
@@ -69,6 +73,7 @@ export function solveProject(input: SolveProjectInput): CPMResult {
     // Fase 2.9 golf 0: project-scoped reken-opties doorgeven. De solver leest ze nog nergens
     // gedragswijzigend (afwezig/leeg ⇒ byte-identiek); de latere golven activeren ze.
     schedulingOptions: input.schedulingOptions,
+    projectStartDate: input.projectStartDate,
   });
   const result = solver.solve();
   // I2 (CPM-review): de solver rekende op de GEËXPANDEERDE (synthetische) relatie-set, dus zijn

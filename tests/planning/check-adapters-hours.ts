@@ -15,6 +15,7 @@ import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Task, ConstraintType } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar, WorkTimeBands } from '@/types/calendar';
@@ -23,6 +24,14 @@ import type { Resource, ResourceAssignment } from '@/types/resource';
 import { installDOMParser } from './xmldom-shim';
 
 installDOMParser();
+
+// `import.meta.url`-relatief i.p.v. `process.cwd()` (review-bevinding): dit bestand draait via
+// `bash tests/planning/run.sh`, dat NOOIT naar de repo-root `cd`'t — de child-`node`'s cwd is dus
+// gewoon die van de AANROEPER. Vanaf een andere cwd (of tijdens twee gelijktijdige runs waarvan
+// er één elders zit) las de oude `join(process.cwd(), 'examples', ...)` een niet-bestaand pad:
+// een kale `ENOENT`-stacktrace zonder `XX`-regel, precies het soort onverklaarde "flake" dat
+// eerder in deze suite is gerapporteerd. `HERE` is het bestandspad zelf, tijdzone/cwd-onafhankelijk.
+const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 let checks = 0;
 let fails = 0;
@@ -169,7 +178,7 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
 
 // ── Dag-bestand-discriminator (geen uur-lek + identieke leaf-schedule) ──────
 {
-  const src = readFileSync(join(process.cwd(), 'examples', '03-kantoorgebouw-zuidas.ifc'), 'utf8');
+  const src = readFileSync(join(HERE, '..', '..', 'examples', '03-kantoorgebouw-zuidas.ifc'), 'utf8');
   const M = readIFC(src);
   const startOf = (t: Task) => (t.time.earlyStart || t.time.scheduleStart).substring(0, 10);
   const digest = (ts: Task[]) => ts.filter(t => t.childIds.length === 0)

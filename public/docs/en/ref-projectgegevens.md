@@ -15,7 +15,7 @@ The **Project Information** window holds the project's metadata plus the **Calcu
 - **Project Name** — the name in the title bar and the document tab.
 - **Description** — free text.
 - **Engineer** and **Company** — free text; stored in the IFC file.
-- **Start Date** — the project start the calculation counts from.
+- **Start Date** — the project start the calculation counts from. A task with no predecessors is never scheduled before this date (except with a hard Must-Start-On/Must-Finish-On constraint, which always wins).
 - **End Date** — informative end of the project.
 
 ## Calculation

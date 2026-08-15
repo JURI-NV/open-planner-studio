@@ -15,7 +15,7 @@ Het venster **Projectinformatie** bevat de metadata van het project plus de sect
 - **Projectnaam** — de naam in de titelbalk en het documenttabblad.
 - **Beschrijving** — vrije tekst.
 - **Ingenieur** en **Bedrijf** — vrije tekst; gaan mee in het IFC-bestand.
-- **Startdatum** — de projectstart waarvandaan de berekening rekent.
+- **Startdatum** — de projectstart waarvandaan de berekening rekent. Een taak zonder voorganger wordt nooit vóór deze datum ingepland (behalve met een harde Must-Start-On/Must-Finish-On-constraint, die altijd wint).
 - **Einddatum** — informatief einde van het project.
 
 ## Berekening

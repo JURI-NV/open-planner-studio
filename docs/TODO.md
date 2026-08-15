@@ -401,6 +401,20 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de spookpijl in de Gantt gestippeld/gedimd tekenen zodra `hasSummaryEndpoint` waar is.
       Gevonden bij de eindreview op die tak.
 
+### Klein — testinfra: gedeelde bundelpaden in run.sh (projectstart-review, 2026-08-15)
+- [ ] **`tests/planning/run.sh`'s `bundle_check` schrijft elke check-bundel naar een VASTE naam**
+      (`tests/planning/.<naam>.mjs`, bv. `.adapters-hours-check.mjs`) — prima voor één run, maar
+      twee GELIJKTIJDIGE `bash tests/planning/run.sh`-runs (twee agents/worktrees/CI-jobs tegen
+      dezelfde checkout, of een lokale run naast een CI-run op een gedeelde runner) delen dat pad:
+      de een kan de bundel van de ander overschrijven tussen bundelen en uitvoeren in, waarna een
+      run een MENGSEL van twee bronversies test — of een bundel leest die de andere run net aan het
+      overschrijven is. Gevonden tijdens het onderzoek naar de eerder gerapporteerde "flake" in
+      `check-adapters-hours.ts` (waarvan de eigenlijke oorzaak een `process.cwd()`-fixture-pad
+      bleek, zie de changelog/commit-historie — gefixt). Bewust NIET gefixt: een per-run tmp-map
+      voor de bundels raakt `bundle_check`/`BUNDLES`/de tijdzone-matrix-hergebruik-logica in
+      `run.sh` overal tegelijk — groter dan een enkele testfix. Risico is bovendien laag zolang de
+      suite hoofdzakelijk sequentieel draait (lokaal, en CI-jobs per PR).
+
 ### Distributie & Release
 
 #### Sleutelbeheer — vier velden die alleen de eigenaar kan invullen (2026-07-28)

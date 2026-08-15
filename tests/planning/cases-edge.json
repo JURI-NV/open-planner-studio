@@ -1606,6 +1606,81 @@
         },
         "error": false
       }
+    },
+    {
+      "id": "edge-root-floor-vs-snet-after-01",
+      "title": "Projectstart-vloer-review: SNET NÁ de projectstart (06-10) op een wortel-taak blijft gewoon bindend — de vloer (anker 06-01, geen eigen afwijkende start) is hier al door de constraint overstemd. Pin tegen een toekomstige regressie die de constraint zou laten verdwijnen achter de vloer.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "B", "dur": 2, "constraint": { "type": "SNET", "date": "2026-06-10" } }
+      ],
+      "expect": {
+        "tasks": { "B": { "es": "2026-06-10" } }
+      }
+    },
+    {
+      "id": "edge-root-floor-vs-snet-before-01",
+      "title": "Projectstart-vloer-review: SNET VÓÓR de projectstart (05-25) op een wortel-taak wint NIET van de vloer — een SNET is een ondergrens ('niet eerder dan'), geen pin, dus hij kan de al-op-de-projectstart-staande vloer (anker 06-01) niet naar een eerdere datum trekken. `applyForwardConstraints` raist `es` alleen als de constraint-datum ná de al-bepaalde `es` valt (§4.1) — 05-25 < 06-01, dus geen effect.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "B", "dur": 2, "constraint": { "type": "SNET", "date": "2026-05-25" } }
+      ],
+      "expect": {
+        "tasks": { "B": { "es": "2026-06-01" } }
+      }
+    },
+    {
+      "id": "edge-root-floor-own-start-later-01",
+      "title": "Projectstart-vloer-review: een wortel-taak met een eigen (constraint-loze) start ná de projectstart (06-15, anker 06-01) blijft gewoon op zijn eigen start — de vloer is een ondergrens, geen anker die een latere eigen start naar zich toe zou trekken.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "B", "dur": 2, "start": "2026-06-15" }
+      ],
+      "expect": {
+        "tasks": { "B": { "es": "2026-06-15" } }
+      }
+    },
+    {
+      "id": "edge-root-floor-vs-hard-mso-01",
+      "title": "Projectstart-vloer-review: een HARDE MSO-pin (05-27, vóór de projectstart-anker 06-01) wint onvoorwaardelijk van de vloer — `applyForwardConstraints` controleert `hardPinStart` EERST en retourneert dan meteen, vóór `rootFloor` ooit gezien wordt (§4.2). tf=0 (LS=ES/LF=EF op de pin, geen opvolgers om de late datum anders te zetten).",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "B", "dur": 2, "constraint": { "type": "MSO", "date": "2026-05-27", "hard": true } }
+      ],
+      "expect": {
+        "tasks": { "B": { "es": "2026-05-27", "tf": 0 } }
+      }
+    },
+    {
+      "id": "edge-root-floor-vs-longer-chain-no-negative-float-01",
+      "title": "Projectstart-vloer-review: een gevloerde wortel-taak (eigen scheduleStart 2026-05-01, vóór de anker 06-01 ⇒ geklemd naar 06-01) náást een langere, ongerelateerde keten (18 werkdagen) krijgt gewoon positieve float — geen negatief-float-artefact door een inconsistentie tussen de voorwaartse vloer-klem en de achterwaartse pas. Zelfde reken-patroon als de bestaande `float-two-parallel-no-join-17` (twee losse taken, geen relaties): tf = werkdagpositie(L) − werkdagpositie(F) = 18 − 3 = 15.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "F", "dur": 3, "start": "2026-05-01" },
+        { "name": "L", "dur": 18 }
+      ],
+      "expect": {
+        "tasks": {
+          "F": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 15, "ff": 15, "crit": false },
+          "L": { "es": "2026-06-01", "ef": "2026-06-24", "tf": 0, "crit": true }
+        },
+        "criticalPathSet": ["L"],
+        "projectEnd": "2026-06-24"
+      }
+    },
+    {
+      "id": "edge-root-floor-own-seven-day-calendar-01",
+      "title": "Projectstart-vloer-review (snap-in-eigen-kalender): een wortel-taak op een EIGEN 7-daagse kalender (weekendploeg) met een verouderde eigen start (2026-08-10, vóór de projectstart za 15-08) wordt geklemd op de projectstart-vloer — maar die vloer wordt gesnapt in de TAAK-EIGEN kalender (`rootFloor(eng, ...)` met `eng` = de kalender van de taak, niet de projectkalender), dus za 15-08 blijft zaterdag: een 7-daagse kalender kent geen weekend om overheen te snappen.",
+      "anchor": "2026-08-15",
+      "calendars": [
+        { "name": "Weekendploeg", "workDays": [1, 2, 3, 4, 5, 6, 7] }
+      ],
+      "tasks": [
+        { "name": "Weekendploeg-taak", "dur": 2, "calendar": "Weekendploeg", "start": "2026-08-10" }
+      ],
+      "expect": {
+        "tasks": { "Weekendploeg-taak": { "es": "2026-08-15" } }
+      }
     }
   ]
 }
