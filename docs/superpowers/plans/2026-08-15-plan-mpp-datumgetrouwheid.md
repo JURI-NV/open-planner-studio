@@ -205,6 +205,8 @@ Concreet uit de Java-bron (alle offsets relatief aan het 92-byte-uitzonderingsbl
 
 **Afhankelijk van:** niets. **Blokkeert:** T13. **Risico:** hoog (raakt gedeelde relatie-wiskunde). Kwaliteitsreview op Opus.
 
+> **Bevinding tijdens uitvoering (2026-08-15):** T6 is **corpus-dormant** tot T11 — geen lezer zet `milestoneKind`, dus `succIsFinishMs` is op het corpus overal false en T6's corpusdelta is vandaag exact 0 (schoon geïsoleerd gemeten). De verwachte ~92 finish-/~32 start-verbetering materialiseert pas bij T13 wanneer T6+T11 samen zijn geïntegreerd — T13's hermeting moet dat gecombineerde effect verantwoorden, niet per taak. Er bleken bovendien twéé onafhankelijke dubbel-snap-plekken (forwardHour-FS-tak én de generieke her-snap in forwardPass), beide apart mutatie-bewezen op case msp-01.
+
 #### T7 — Projectstart-vloer: nooit een ingelezen anker overrulen
 
 **Doel.** De vloer (`rootFloor`) mag geen taak vooruit klemmen die in het bronbestand aantoonbaar eerder start.
