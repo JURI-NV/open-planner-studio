@@ -61,7 +61,7 @@ import {
   SECTOR, HEADER,
   buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb, buildNestedCfb,
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
-  expectCfbError, expectMppError, bytesEqual,
+  expectCfbError, expectMppError, bytesEqual, buildVarMetaBytes,
   type CfbTreeNode,
 } from './mppFixtures';
 import { readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL } from '@/services/mpp/mppReader';
@@ -520,24 +520,6 @@ expectMppError(truthy, 'I4 FixedMeta.withItemSize itemSize=0', () => {
   const otherBlock = FixedData.withoutMeta(1, new Uint8Array(3));
   const fm = FixedMeta.withHeuristicItemSize(bytes, otherBlock, [7, 11, 13], 'I4-heuristic-fallback');
   truthy('I4 FixedMeta.withHeuristicItemSize geen kandidaat past: valt terug op itemSizes[0]=7 (adjustedItemCount=floor(30/7)=4)', fm.getAdjustedItemCount() === 4);
-}
-
-/** Bouwt rauwe VarMeta12-bytes: 24-byte header (magic + itemCount + dataSize) + N entries van
- *  12 bytes (uniqueID/offset/type/onbekend). */
-function buildVarMetaBytes(entries: { uniqueId: number; offset: number; type: number }[], itemCountClaim = entries.length, dataSize = 0): Uint8Array {
-  const out = new Uint8Array(24 + entries.length * 12);
-  const view = new DataView(out.buffer);
-  view.setUint32(0, FIXED_META_MAGIC, true); // VarMeta12 deelt hetzelfde magic-getal als FixedMeta
-  view.setInt32(8, itemCountClaim, true);
-  view.setUint32(20, dataSize, true);
-  let pos = 24;
-  for (const e of entries) {
-    view.setInt32(pos, e.uniqueId, true);
-    view.setInt32(pos + 4, e.offset, true);
-    view.setUint16(pos + 8, e.type, true);
-    pos += 12;
-  }
-  return out;
 }
 
 /** Bouwt rauwe Var2Data-bytes: op elke `offset` een 4-byte lengte-prefix gevolgd door `payload`. */

@@ -17,9 +17,11 @@ import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 // T8-spec-review (B1): CFB-/Props-boilerplate NIET opnieuw uitschrijven — hergebruik de gedeelde
 // builders uit tests/planning/mppFixtures.ts (M6-fixturebouwers, ook door check-mpp-import.ts's
-// I4-fixture gebruikt). Alleen de TASK-specifieke encoders hieronder zijn lokaal, naar hetzelfde
-// (getrimde, 1-taaks) patroon als I4.
-import { buildNestedCfb, encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry, type CfbTreeNode } from '../planning/mppFixtures';
+// I4-fixture gebruikt). Sinds T11 (fixture-consolidatie) ook `buildVarMetaBytes` cross-suite van
+// daar — voorheen een vierde lokale kopie naast de drie in de planning-checks. Alleen de
+// TASK-specifieke encoders hieronder blijven lokaal, naar hetzelfde (getrimde, 1-taaks) patroon
+// als I4.
+import { buildNestedCfb, encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry, buildVarMetaBytes, type CfbTreeNode } from '../planning/mppFixtures';
 
 const S = () => useAppStore.getState();
 
@@ -168,23 +170,6 @@ function mppBuildTaskFixedMetaBlob(): Uint8Array {
   return out;
 }
 
-/** VarMeta12: 24-byte header (magic@0 uint32, itemCount@8 int32, dataSize@20 uint32) + N entries
- *  van 12 bytes (uniqueId@0 int32, offset@4 int32, type@8 uint16, 2 bytes pad) — zelfde lay-out
- *  als de `buildVarMetaBytes`-helper in check-mpp-import.ts/check-mpp-relations.ts/
- *  check-mpp-calendars.ts (bewust hier lokaal herhaald i.p.v. cross-suite geïmporteerd: die drie
- *  bestanden houden 'm ook alle drie als eigen kopie aan). */
-function mppBuildTaskVarMetaBytes(): Uint8Array {
-  const out = new Uint8Array(24 + 12);
-  const view = new DataView(out.buffer);
-  view.setUint32(0, 0xfadfadba, true); // FIXED_META_MAGIC — VarMeta12 deelt 'm met FixedMeta
-  view.setInt32(8, 1, true); // itemCount
-  view.setUint32(20, 0, true); // dataSize (ongebruikt in dit minimale geval, spiegelt bestaande fixtures)
-  view.setInt32(24, 10, true); // uniqueId
-  view.setInt32(28, 0, true); // offset in Var2Data
-  view.setUint16(32, 14, true); // varDataKey (NAME)
-  return out;
-}
-
 /** Bouwt een minimale, geldige MPP14-CFB met precies één taak ('Fixture'). `readMPP(...)` op deze
  *  bytes geeft een `ImportResult` met 1 taak, geen exception — genoeg om de MCP-import_schedule-
  *  route (bytes-pad, formaatherkenning, opslagdoel-guard) end-to-end te bewijzen. */
@@ -211,7 +196,7 @@ function buildMinimalMppBytes(): Uint8Array {
           children: {
             FixedMeta: { data: mppBuildTaskFixedMetaBlob() },
             FixedData: { data: mppBuildTaskFixedDataRecord() },
-            VarMeta: { data: mppBuildTaskVarMetaBytes() },
+            VarMeta: { data: buildVarMetaBytes([{ uniqueId: 10, offset: 0, type: 14 }]) }, // 14 = varDataKey NAME
             Var2Data: { data: var2Data },
           },
         },

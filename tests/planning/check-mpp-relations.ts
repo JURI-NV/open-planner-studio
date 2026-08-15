@@ -70,7 +70,7 @@ import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import {
   buildNestedCfb, encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
-  concatBytes, type CfbTreeNode,
+  concatBytes, buildVarMetaBytes, type CfbTreeNode,
 } from './mppFixtures';
 
 const diffs: string[] = [];
@@ -117,25 +117,6 @@ function int32Payload(value: number): Uint8Array {
   const p = new Uint8Array(4);
   new DataView(p.buffer).setInt32(0, value, true);
   return p;
-}
-
-/** Rauwe VarMeta12-bytes: 24-byte header (magic + itemCount + dataSize) + N entries van 12 bytes
- *  (uniqueID/offset/type/onbekend) — spiegelt check-mpp-import.ts/check-mpp-calendars.ts se
- *  gelijknamige helper. */
-function buildVarMetaBytes(entries: { uniqueId: number; offset: number; type: number }[]): Uint8Array {
-  const out = new Uint8Array(24 + entries.length * 12);
-  const view = new DataView(out.buffer);
-  view.setUint32(0, FIXED_META_MAGIC, true);
-  view.setInt32(8, entries.length, true);
-  view.setUint32(20, 0, true);
-  let pos = 24;
-  for (const e of entries) {
-    view.setInt32(pos, e.uniqueId, true);
-    view.setInt32(pos + 4, e.offset, true);
-    view.setUint16(pos + 8, e.type, true);
-    pos += 12;
-  }
-  return out;
 }
 
 // ── Taak-fixturebouwers (minimaal — spiegelt check-mpp-calendars.ts se eigen taak-fixture, alleen

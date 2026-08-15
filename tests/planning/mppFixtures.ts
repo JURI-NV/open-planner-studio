@@ -521,6 +521,48 @@ export function encodePropsSingleByteEntry(key: number, valueByte: number): Uint
   return encodePropsEntries([{ key, data: Uint8Array.of(valueByte) }]);
 }
 
+// ── VarMeta12-fixturebouwer (T11, fixture-consolidatie stap 0-ter e) ────────────────────────────
+//
+// `buildVarMetaBytes` stond 4× los: check-mpp-import.ts, check-mpp-relations.ts,
+// check-mpp-calendars.ts (alle drie letterlijk dezelfde 12-regelige DataView-schrijver) en — sinds
+// fb6ea03c — `mppBuildTaskVarMetaBytes` in tests/mcp/cases-doc-file.ts (een vaste-invoer-variant
+// van dezelfde lay-out, met het commentaar dat cross-suite import "niet kon" omdat de drie
+// planning-checks 'm zelf ook alle drie als eigen kopie aanhielden — een cirkelredenering die deze
+// consolidatie doorbreekt: cases-doc-file.ts importeert hierboven al `buildNestedCfb`/
+// `encodePropsEntries` cross-suite uit deze module (regel 22 aldaar), dus het precedent bestaat al.
+//
+// Signatuur = check-mpp-import.ts's VOLLEDIGE vorm (met de optionele `itemCountClaim`/`dataSize`,
+// nodig voor haar I4-hostile-fixtures); de andere drie aanroepplekken gebruiken alleen `entries` en
+// krijgen daarmee byte-voor-byte hetzelfde resultaat als hun eigen, nu verwijderde kopie.
+
+/** FixedMeta/VarMeta12-magic-getal (`mppPrimitives.ts`'s `BLOCK_MAGIC`, VarMeta12 deelt 'm met
+ *  FixedMeta) — letterlijk herhaald i.p.v. geïmporteerd uit de bronmodule, zelfde conventie als
+ *  `CAL_FIXED_META_MAGIC` hieronder (fixtures bouwen bewust RUWE bytes na, leunen principieel niet
+ *  op `src/services/mpp/mppPrimitives.ts`'s eigen constanten). */
+const VAR_META_MAGIC = 0xfadfadba;
+
+/** Bouwt rauwe VarMeta12-bytes: 24-byte header (magic@0 + itemCount@8 + dataSize@20) + N entries
+ *  van 12 bytes (uniqueID@0/offset@4/type@8, 2 bytes pad). */
+export function buildVarMetaBytes(
+  entries: { uniqueId: number; offset: number; type: number }[],
+  itemCountClaim = entries.length,
+  dataSize = 0,
+): Uint8Array {
+  const out = new Uint8Array(24 + entries.length * 12);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, VAR_META_MAGIC, true);
+  view.setInt32(8, itemCountClaim, true);
+  view.setUint32(20, dataSize, true);
+  let pos = 24;
+  for (const e of entries) {
+    view.setInt32(pos, e.uniqueId, true);
+    view.setInt32(pos + 4, e.offset, true);
+    view.setUint16(pos + 8, e.type, true);
+    pos += 12;
+  }
+  return out;
+}
+
 // ── Assert-helpers ("faalt-nette-fout"-patroon) ──────────────────────────────────────────────
 
 const DEFAULT_TIME_LIMIT_MS = 2000;
