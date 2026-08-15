@@ -477,6 +477,42 @@ function parseDurationDays(s: string): number {
   return 0;
 }
 
+/**
+ * Review-follow-up (2026-08, op bugfix B1) — het dag-deel (`P{d}D`, VÓÓR een eventuele `T`) van een
+ * ISO-8601-duur, in minuten. Bewust LOKAAL hier (niet in `subdayIo.ts`'s `isoDurationToMinutes`,
+ * die drie andere aanroepers heeft — schedule-/remaining-duur in de uur-modus-post-pass — die
+ * ongetest zouden meeveranderen): deze functie bestaat uitsluitend voor de lag-leestak hierboven,
+ * die zelf ook alleen een VERDEDIGENDE tak is voor bestanden van andere tools (onze eigen schrijver,
+ * `minutesToIsoDuration`, emitteert nooit een dag-component vóór `T`, dus dit raakt nooit de eigen
+ * round-trip).
+ *
+ * KEUZE + ONDERBOUWING: geïnterpreteerd als KALENDERTIJD (1D = 1440 minuten), niet als werkdag ×
+ * hoursPerDay. Twee redenen: (1) ISO 8601 zelf is kalendertijd — de WORKTIME/ELAPSEDTIME-duiding
+ * (`IfcLagTime.DurationType`) stuurt pas LATER hoe de resulterende hoeveelheid tegen een kalender
+ * wordt afgezet (`CPMSolver.resolveElapsedMinutes` rekent een dag-lag bij ELAPSEDTIME ook al ×24×60,
+ * exact deze conventie); (2) een werkdag-interpretatie zou de kalender van de VOORGANGER-taak nodig
+ * hebben (`hoursPerDay`), die op dit punt in de reader niet beschikbaar is (sequences worden vóór de
+ * kalenderbibliotheek/taak-kalender-toewijzing geëxtraheerd) — gokken met een impliciete 8u-default
+ * zou een tweede, ONGEDOCUMENTEERDE aanname toevoegen. Bij een WORKTIME-lag blijft de resulterende
+ * `lagMinutes` dus licht ruw (kalenderminuten i.p.v. werkminuten) voor dit randgeval — een bewuste,
+ * gedocumenteerde afweging, geen stille correctheidsclaim; het alternatief (het dag-deel laten
+ * verdwijnen, zoals vóór deze fix) is strikt slechter.
+ *
+ * Geen dag-component vóór `T` (het normale eigen-schrijver-pad) ⇒ 0, dus geen gedragswijziging voor
+ * bestaande bestanden of de andere twee ondersteunde lag-lay-outs.
+ */
+function isoDurationLeadingDaysMinutes(iso: string): number {
+  const MIN_PER_CALENDAR_DAY = 1440;
+  const clean = iso.trim();
+  const neg = clean.startsWith('-');
+  const tIdx = clean.indexOf('T');
+  const datePart = tIdx >= 0 ? clean.slice(0, tIdx) : '';
+  const dayMatch = datePart.match(/(\d+)D/);
+  if (!dayMatch) return 0;
+  const days = parseInt(dayMatch[1], 10);
+  return (neg ? -days : days) * MIN_PER_CALENDAR_DAY;
+}
+
 function parseTaskType(s: string): TaskType {
   // IFC-specifieke normalisatie: STEP-enum-punten strippen (`.CONSTRUCTION.` → `CONSTRUCTION`).
   const clean = s.replace(/\./g, '').trim();
@@ -788,12 +824,31 @@ function extractSequences(
           // `lagMinutes` geraakt en overschreef die stilzwijgend met een afgeronde dag (2u → +1d).
           // Alleen een PUUR dag-duur (`P{d}D`, geen `T`) levert `isoDurationToMinutes === null` en
           // valt terug op `parseDurationDays`.
-          lagMinutes = isoDurationToMinutes(stripQuotes(durMatch[1])) ?? undefined;
-          lagDays = lagMinutes != null ? 0 : parseDurationDays(durMatch[1]);
+          const raw = stripQuotes(durMatch[1]);
+          const timeMinutes = isoDurationToMinutes(raw);
+          if (timeMinutes != null) {
+            // Review-follow-up (2026-08): GEMENGDE vorm (`P1DT2H0M0S`) uit een vreemd bestand — onze
+            // eigen schrijver emitteert nooit een dag-component vóór de `T` (zie `minutesToIsoDuration`),
+            // maar deze soepel-lezen-tak bestaat juist voor andermans bestanden. Zonder dit zou het
+            // dag-deel stil verdwijnen (`isoDurationLeadingDaysMinutes` hieronder). Samen optellen i.p.v.
+            // kiezen voorkomt dataverlies aan beide kanten.
+            lagMinutes = timeMinutes + isoDurationLeadingDaysMinutes(raw);
+            lagDays = 0;
+          } else {
+            lagMinutes = undefined;
+            lagDays = parseDurationDays(durMatch[1]);
+          }
         } else if (lagValue.startsWith("'")) {
           // Ongetypte duur-string (soepel lezen van andermans bestanden) — zelfde volgorde als hierboven.
-          lagMinutes = isoDurationToMinutes(stripQuotes(lagValue)) ?? undefined;
-          lagDays = lagMinutes != null ? 0 : parseDurationDays(lagValue);
+          const raw = stripQuotes(lagValue);
+          const timeMinutes = isoDurationToMinutes(raw);
+          if (timeMinutes != null) {
+            lagMinutes = timeMinutes + isoDurationLeadingDaysMinutes(raw);
+            lagDays = 0;
+          } else {
+            lagMinutes = undefined;
+            lagDays = parseDurationDays(lagValue);
+          }
         } else {
           // Legacy-lay-out: de duur staat in arg 5.
           lagDays = parseDurationDays(lagEntity.args[4] || '');

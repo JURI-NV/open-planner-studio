@@ -117,6 +117,56 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
   roundTrip('MSPDI', p.tasks, p.sequences, p.calendar, p.resourceCalendars ?? [], false);
 }
 
+// ── Review-follow-up (2026-08, op bugfix B1): GEMENGDE ISO-duur uit een VREEMD bestand ─────────────
+// Onze eigen schrijver emitteert nooit een dag-component vóór de `T` (`minutesToIsoDuration` schrijft
+// altijd kaal `PT{h}H{m}M0S`); `P1DT2H0M0S` is de vorm die een ANDER tool zou kunnen schrijven. Vóór
+// deze follow-up verdween bij zo'n gemengde vorm stilzwijgend óf het dag-deel (nieuwe B1-volgorde:
+// lagMinutes eerst) óf het uur-deel (oude volgorde: parseDurationDays zag alleen de D). De keuze nu:
+// dag- én uurdeel samen in `lagMinutes`, kalendertijd-interpretatie (1D = 1440 min) — onderbouwing in
+// `isoDurationLeadingDaysMinutes` (ifcReader.ts). Bewijst ook dat de twee bestaande (pure) vormen
+// (kaal-uur, kaal-dag) ONGEWIJZIGD blijven.
+{
+  const dayCalMix: WorkCalendar = {
+    id: 'cal-mix', name: 'Mix', description: 'ma-vr', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  };
+  const projMix: Project = {
+    id: 'p-mix', name: 'Mix', description: '', startDate: '2026-06-01', endDate: '2026-06-30',
+    calendarId: 'cal-mix', createdAt: '2026-06-01T00:00', modifiedAt: '2026-06-01T00:00', author: 'T', company: 'C',
+  };
+  const D = '2026-06-08';
+  const mkMix = (id: string, name: string, wbs: string): Task => ({
+    id, name, description: '', wbsCode: wbs, taskType: 'CONSTRUCTION', status: 'NOT_STARTED',
+    isMilestone: false, priority: 500, parentId: null, childIds: [],
+    time: {
+      durationType: 'WORKTIME', scheduleDuration: 2, scheduleStart: D, scheduleFinish: '2026-06-09',
+      earlyStart: D, earlyFinish: '2026-06-09', lateStart: D, lateFinish: '2026-06-09',
+      freeFloat: 0, totalFloat: 0, isCritical: false, completion: 0,
+    },
+    resourceIds: [],
+  });
+  const mixTasks = [mkMix('mix-a', 'Mix-A', '1'), mkMix('mix-b', 'Mix-B', '2')];
+  const mixSeq: Sequence[] = [{ id: 'mix-s', predecessorId: 'mix-a', successorId: 'mix-b', type: 'FINISH_START', lagDays: 0, lagMinutes: 30 }];
+  const ifc = writeIFC({ project: projMix, calendar: dayCalMix, tasks: mixTasks, sequences: mixSeq, resources: [], assignments: [] });
+  const needle = "IFCDURATION('PT0H30M0S')";
+  assert(ifc.includes(needle), 'setup: eigen schrijver emitteert PT0H30M0S voor lagMinutes 30');
+
+  // (a) Hand-getampeerde GEMENGDE vorm: dag- én uurdeel moeten SAMEN landen, geen stil verlies.
+  const mixedBack = readIFC(ifc.replace(needle, "IFCDURATION('P1DT2H0M0S')")).sequences[0];
+  eq('gemengd P1DT2H0M0S: lagMinutes = 1D(1440)+2H(120)', mixedBack?.lagMinutes, 1560);
+  eq('gemengd P1DT2H0M0S: lagDays blijft 0 (geen dubbeltelling)', mixedBack?.lagDays, 0);
+
+  // (b) Bestaande vorm 1 (ongewijzigd): kaal uur, geen dag-component.
+  const pureHourBack = readIFC(ifc).sequences[0];
+  eq('bestaande vorm ongewijzigd: PT0H30M0S ⇒ lagMinutes 30', pureHourBack?.lagMinutes, 30);
+  eq('bestaande vorm ongewijzigd: PT0H30M0S ⇒ lagDays 0', pureHourBack?.lagDays, 0);
+
+  // (c) Bestaande vorm 2 (ongewijzigd): kaal dag, geen `T` — puur het oude `parseDurationDays`-pad.
+  const pureDayBack = readIFC(ifc.replace(needle, "IFCDURATION('P3D')")).sequences[0];
+  eq('bestaande vorm ongewijzigd: P3D ⇒ lagDays 3', pureDayBack?.lagDays, 3);
+  eq('bestaande vorm ongewijzigd: P3D ⇒ lagMinutes undefined', pureDayBack?.lagMinutes, undefined);
+}
+
 // ── Dag-bestand-discriminator (geen uur-lek + identieke leaf-schedule) ──────
 {
   const src = readFileSync(join(process.cwd(), 'examples', '03-kantoorgebouw-zuidas.ifc'), 'utf8');
