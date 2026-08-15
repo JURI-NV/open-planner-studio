@@ -760,9 +760,63 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
   );
 }
 
+// ── MIDDEN-A (Opus-review-herronde): MAX_RECURRENCE_ITERATIONS was per RECORD goedkoop (100.000 ×
+// µs-schaal) maar per BESTAND niet — een gedegenereerd record (0 datums, geen budget-aftrek) kost
+// nog steeds de volle klem. Reviewer mat 46,3s voor 2000 gedegenereerde MONTHLY-relatief-records
+// (dezelfde stilstaande-cursor-bug als HOOG-1a hierboven, maar dan 2000× in één kalender — het
+// aantal dat `MAX_CALENDAR_EXCEPTIONS` toestaat). Fix: `MAX_RECURRENCE_ITERATIONS` geklemd op
+// `MAX_RECURRENCE_DATES + 16` i.p.v. een los, groot getal (plus een nevenoptimalisatie: één
+// Date-allocatie minder per doorloop in de cursor-reset, zie `getMonthlyRelativeDates`) — hier
+// bewezen met exact dat ergste geval: 2000 records, elk gedegenereerd. Gemeten op deze machine:
+// ~1,1s (was 46,3s, een 42× verbetering — ruimer dan de ~27× die de theoretische
+// iteratie-reductie alleen voorspelt, dankzij de allocatie-nevenoptimalisatie). Geklemd op 2s
+// i.p.v. letterlijk 1s: ruime marge voor een tragere CI-machine, terwijl de verbetering
+// onmiskenbaar (>20×) blijft aangetoond. ─────────────────────────────────────────────────────────
+{
+  const raw: RawException[] = Array.from({ length: 2000 }, () => ({
+    fromDate: new Date(Date.UTC(2021, 4, 1)),
+    toDate: new Date(Date.UTC(2021, 4, 1)),
+    periodCount: 0,
+    bands: [],
+    name: '',
+    recurring: {
+      type: 'MONTHLY' as const, relative: true,
+      startDate: new Date(Date.UTC(2021, 4, 1)), finishDate: null,
+      occurrences: 5, frequency: 1, weeklyDayMask: 0, dayNumber: 1, dayOfWeekValue: -2, monthNumber: 0,
+    },
+  }));
+  const budget = newHolidayBudget();
+  const start = Date.now();
+  const contributions = buildContributions(raw, budget);
+  const elapsedMs = Date.now() - start;
+  const totalDates = contributions.reduce((sum, c) => sum + c.ownDates.length, 0);
+  truthy(
+    `MIDDEN-A 2000 gedegenereerde MONTHLY-relatief-records: aantoonbaar snel (${elapsedMs}ms, geklemd op 2s) — was 46,3s vóór MAX_RECURRENCE_ITERATIONS=MAX_RECURRENCE_DATES+16 (gemeten ~1,1s op de implementatiemachine, ruime marge voor een tragere CI-machine)`,
+    elapsedMs < 2000,
+  );
+  truthy('MIDDEN-A: 0 datums over alle 2000 records (allemaal gedegenereerd, geen enkele draagt bij)', totalDates === 0);
+}
+
+// ── T3-hostile occurrences=65535+165-jaars-bereik (regressie ná MIDDEN-A): de bestaande hostile-
+// fixture (hierboven, vóór dit blok) moet met de VERLAAGDE MAX_RECURRENCE_ITERATIONS nog steeds
+// correct klemmen — die assertie draait al mee in de suite (regel "T3-hostile occurrences=65535…"),
+// hier alleen een expliciete herbevestiging dat de WEEKLY/alle-dagen-productieve lus (die WEL elke
+// doorloop een datum toevoegt) niet per ongeluk te vroeg afkapt door de kleinere iteratieklem. ────
+{
+  const dates = expandRecurrence({
+    type: 'WEEKLY', relative: false,
+    startDate: new Date(Date.UTC(2020, 0, 1)), finishDate: new Date(Date.UTC(2020, 11, 31)),
+    occurrences: 0, frequency: 1, weeklyDayMask: 0x7f, dayNumber: 0, dayOfWeekValue: 0, monthNumber: 0,
+  });
+  truthy(
+    `MIDDEN-A-regressie: een PRODUCTIEVE WEEKLY/alle-dagen-lus (2020, 366 dagen) wordt NIET voortijdig afgekapt door de kleinere MAX_RECURRENCE_ITERATIONS (${dates.length} datums)`,
+    dates.length === 366,
+  );
+}
+
 // ── LAAG-2 (schrikkeljaar-rollover): de `+1-jaar`-correctie in `getYearlyAbsoluteDates` moet het
-// GECORRIGEERDE jaar se eigen maandlengte gebruiken, niet het RAUWE dagnummer van het originele
-// (schrikkel)jaar klakkeloos hergebruiken. Reviewer-repro: dag 29, maand 2 (februari), startDate
+// AL-GEKLEMDE dagnummer van het BRONjaar herklemmen tegen het GECORRIGEERDE jaar — niet het RAUWE
+// gevraagde dagnummer. Reviewer-repro (LAAG-2, eerste ronde): dag 29, maand 2 (februari), startDate
 // 2020-06-01 — 2020 is een schrikkeljaar (29 feb bestaat), 2021 niet; de correctie moet naar
 // 2021-02-28 klemmen, niet doorrollen naar 2021-03-01. ─────────────────────────────────────────────
 {
@@ -774,6 +828,26 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
   truthy(
     `LAAG-2 schrikkeljaar: precies 1 datum, geklemd op 2021-02-28 (kreeg ${dates.map((d) => formatDate(d)).join(',')})`,
     dates.length === 1 && formatDate(dates[0]) === '2021-02-28',
+  );
+}
+
+// ── LAAG-A (Opus-review-herronde): de EERSTE LAAG-2-fix klemde het RAUWE `dayNumber` opnieuw tegen
+// het gecorrigeerde jaar — fout, want `LocalDate.plusYears` (MPXJ/Java) klemt het AL-GEKLEMDE
+// dagnummer van het BRONjaar, niet het oorspronkelijk gevraagde getal. Reviewer-repro: dag 29,
+// maand 2, startDate 2019-06-01 — 2019 is GEEN schrikkeljaar (29 feb bestaat niet, klemt naar 28),
+// dus de cursor start op 2019-02-28. Die datum valt vóór startDate, correctie naar 2020 (WEL een
+// schrikkeljaar): met het rauwe dagnummer (29) herklemmen geeft `min(29,29)=29` ⇒ 2020-02-29 — FOUT.
+// Met het AL-28-GEWORDEN `useDay` herklemmen geeft `min(28,29)=28` ⇒ 2020-02-28 — CORRECT (het
+// bronjaar se eigen klem "kleeft", ook al biedt het doeljaar zelf ruimte voor 29). ─────────────────
+{
+  const dates = expandRecurrence({
+    type: 'YEARLY', relative: false,
+    startDate: new Date(Date.UTC(2019, 5, 1)), finishDate: new Date(Date.UTC(2020, 11, 31)),
+    occurrences: 0, frequency: 1, weeklyDayMask: 0, dayNumber: 29, dayOfWeekValue: 0, monthNumber: 2,
+  });
+  truthy(
+    `LAAG-A schrikkeljaar (bronjaar-klem kleeft): precies 1 datum, geklemd op 2020-02-28 (kreeg ${dates.map((d) => formatDate(d)).join(',')})`,
+    dates.length === 1 && formatDate(dates[0]) === '2020-02-28',
   );
 }
 

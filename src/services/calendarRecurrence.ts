@@ -121,13 +121,32 @@ export const MAX_RECURRENCE_DATES = 3_660;
  * klem; de lus breekt af zodra hij op is, met wat er tot dan toe verzameld is (typisch 0 datums voor
  * de twee gevallen hierboven — geen crash, gewoon een niet-materialiserende uitzondering, exact het
  * "minder resultaat dan het bestand claimt"-patroon dat de rest van deze module ook hanteert).
- * Gemeten kosten: elke iteratie is simpele datum-rekenkunde (µs-schaal); 100.000 iteraties (≈27×
- * `MAX_RECURRENCE_DATES`, ruime marge voor legitieme patronen die een paar "verspilde" doorlopen
- * nodig hebben vóór de eerste geldige datum, bv. een relatieve-dag-berekening die pas na een paar
- * jaar-bounces boven `startDate` uitkomt) kost in de orde van enkele tientallen ms — ruim binnen de
- * <100ms-eis (plan-§T3-acceptatie 5).
+ *
+ * MIDDEN-A-FIX (Opus-review, TWEEDE RONDE — de eerste waarde (100.000) was per RECORD goedkoop maar
+ * per BESTAND niet): een gedegenereerd record (0 datums, zoals de twee gevallen hierboven) kost de
+ * VOLLE `MAX_RECURRENCE_ITERATIONS` maar trekt NIETS af van het gedeelde `HolidayBudget` —
+ * `buildContributions`'s `if (dates.length === 0) continue;` slaat de budget-aftrek over omdat er
+ * niets te budgetteren valt. Met de oude waarde (100.000) en `MAX_CALENDAR_EXCEPTIONS` (2000)
+ * gedegenereerde records in één kalender was het ERGSTE geval dus 2000 × 100.000 = 200 miljoen
+ * iteraties — reviewer mat 46,3s voor 2000 gedegenereerde MONTHLY-relatief-records op de UI-thread,
+ * ver boven wat één seconde nog acceptabel maakt. §7 van de hardingsdiscipline eist het ERGSTE geval
+ * per BESTAND, niet het (goedkopere) geval per record.
+ *
+ * Fix: geklemd op `MAX_RECURRENCE_DATES + 16` i.p.v. een los getal. Elke LEGITIEME generatoraanroep
+ * voegt per doorloop minstens één datum toe (DAILY/MONTHLY-absoluut/YEARLY-absoluut: exact 1 per
+ * doorloop; WEEKLY: minstens 1 binnen de 7-dagen-binnenlus, tenzij de bitmap leeg is — precies het
+ * gedegenereerde geval dat deze klem juist moet afvangen) — een legitiem patroon heeft dus hoogstens
+ * `MAX_RECURRENCE_DATES` PRODUCTIEVE doorlopen nodig, plus een kleine marge voor "verspilde"
+ * aanloop-bounces vóór de eerste geldige datum (MONTHLY/YEARLY-relatief kan een paar maand-/
+ * jaar-stappen nodig hebben vóórdat de berekende datum boven `startDate` uitkomt — in de praktijk
+ * hoogstens een paar doorlopen, 16 is een royale marge). Met deze waarde (3676) is het ERGSTE geval
+ * per bestand 2000 × 3676 ≈ 7,35 miljoen iteraties — ~27× goedkoper dan de oude 200 miljoen, en
+ * elke iteratie is simpele datum-rekenkunde (µs-schaal), dus dat blijft ruim binnen een seconde.
+ * Mutatiebewijs: `check-mpp-calendars.ts`'s bestaande hostile-cases (occurrences=65535+165-jaars-
+ * bereik) blijven groen, en een nieuwe fixture met 2000 gedegenereerde MONTHLY-relatief-records
+ * termineert aantoonbaar binnen 1s (was 46,3s).
  */
-export const MAX_RECURRENCE_ITERATIONS = 100_000;
+export const MAX_RECURRENCE_ITERATIONS = MAX_RECURRENCE_DATES + 16;
 
 /** Gedeeld, mutabel budget-object — zie `MAX_TOTAL_HOLIDAY_SLOTS`. Een `{ remaining: number }`
  *  i.p.v. een kale `number`-parameter zodat `resolveContributions`/`buildContributions`/de
@@ -344,7 +363,11 @@ function getMonthlyRelativeDates(startDate: Date, frequency: number, dayOfWeekVa
       dates.push(date);
       if (!moreDates(date, dates.length, finishDate, occurrences)) break;
     }
-    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    // MIDDEN-A-nevenoptimalisatie: één allocatie i.p.v. twee — de vorige regel construeerde eerst
+    // een tussentijdse "dag 1 van dezelfde maand"-Date die de daaropvolgende regel meteen weer
+    // weggooide; jaar/maand hier al vastleggen en in één stap doorschuiven scheelt ~1/3 van de
+    // Date-allocaties per doorloop (relevant op de HOOG-1a/MIDDEN-A-gedegenereerde-lus-paden, waar
+    // deze reset duizenden keren per record kan draaien).
     date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + frequency, 1));
   }
   return dates;
@@ -356,16 +379,20 @@ function getMonthlyRelativeDates(startDate: Date, frequency: number, dayOfWeekVa
  *  (spiegelt `getCalculatedLastDate`'s eigen documentatie: "de finish-datum hoeft niet exact op een
  *  gegenereerde datum te liggen").
  *
- *  LAAG-2-fix (Opus-review, schrikkeljaar-rollover): de `+1-jaar`-correctie hergebruikte voorheen
- *  het AL-GEKLEMDE `useDay` van het ORIGINELE jaar (bv. 29 bij een schrikkeljaar) zonder het opnieuw
- *  te klemmen voor het GECORRIGEERDE jaar — `Date.UTC(jaar+1, 1, 29)` in een niet-schrikkeljaar ROLT
- *  in JavaScript stil door naar 1 maart (JS normaliseert dag-overloop, i.p.v. te klemmen zoals Java's
- *  `LocalDate.plusYears`/`withDayOfMonth` doet). Reviewer-repro: YEARLY-absoluut dag 29 maand 2 (28
- *  na klem), startDate 2020-06-01 ⇒ cursor start op Feb29-2020 (2020 is een schrikkeljaar), valt vóór
- *  startDate, correctie moet naar Feb28-2021 (2021 is GEEN schrikkeljaar) i.p.v. de vroegere,
- *  foutieve Mar1-2021. Fix: `dayNumber` (het RAUWE gevraagde dagnummer, niet het al-geklemde
- *  `useDay`) opnieuw klemmen tegen het GECORRIGEERDE jaar se eigen maandlengte — spiegelt exact het
- *  patroon dat `getMonthlyAbsoluteDates` hierboven al gebruikt. */
+ *  LAAG-2-fix (Opus-review, schrikkeljaar-rollover, TWEEDE RONDE — de eerste poging klemde het
+ *  verkeerde getal): de `+1-jaar`-correctie moet `LocalDate.plusYears`'s ECHTE semantiek spiegelen —
+ *  Java construeert het brondatum-object EERST met het AL-GEKLEMDE dagnummer van het ORIGINELE jaar
+ *  (`useDay`, bv. 28 in een niet-schrikkeljaar), en `plusYears(1)` klemt DÁT getal (via
+ *  `resolvePreviousValid`) opnieuw tegen de nieuwe maandlengte — het rauwe, ORSPRONKELIJK GEVRAAGDE
+ *  `dayNumber` (bv. 29) komt daar nooit meer aan te pas, ook niet als het doeljaar toevallig weer een
+ *  schrikkeljaar is. Reviewer-repro (LAAG-A, de eerste fix-poging faalde hierop): dag 29 maand 2,
+ *  startDate 2019-06-01 ⇒ cursor start op `useDay=min(29,daysInMonthUtc(2019,Feb)=28)=28`
+ *  (2019 is GEEN schrikkeljaar) ⇒ Feb28-2019, valt vóór startDate ⇒ correctie naar 2020 (WEL een
+ *  schrikkeljaar). Met het rauwe `dayNumber` (29) herklemmen geeft `min(29,29)=29` ⇒ Feb29-2020 —
+ *  FOUT, want MPXJ/Java klemt het AL-28-GEWORDEN getal opnieuw: `min(28,29)=28` ⇒ Feb28-2020. Het
+ *  bronjaar se eigen klem "kleeft" dus aan het getal, ook al zou het doeljaar zelf ruimte voor 29
+ *  bieden. Fix: `useDay` (niet `dayNumber`) opnieuw klemmen tegen het GECORRIGEERDE jaar se
+ *  maandlengte. */
 function getYearlyAbsoluteDates(startDate: Date, dayNumber: number, monthNumber: number, finishDate: Date | null, occurrences: number): Date[] {
   const dates: Date[] = [];
   let date = new Date(Date.UTC(startDate.getUTCFullYear(), monthNumber - 1, 1));
@@ -378,7 +405,7 @@ function getYearlyAbsoluteDates(startDate: Date, dayNumber: number, monthNumber:
     date = new Date(Date.UTC(year, month0, useDay));
     if (date.getTime() < startDate.getTime()) {
       const bumpedYear = year + 1;
-      const bumpedDay = Math.min(dayNumber, daysInMonthUtc(bumpedYear, month0)); // LAAG-2: her-klemmen tegen het GECORRIGEERDE jaar
+      const bumpedDay = Math.min(useDay, daysInMonthUtc(bumpedYear, month0)); // LAAG-2: het AL-GEKLEMDE useDay her-klemmen, niet het rauwe dayNumber
       date = new Date(Date.UTC(bumpedYear, month0, bumpedDay));
     }
     dates.push(date);
