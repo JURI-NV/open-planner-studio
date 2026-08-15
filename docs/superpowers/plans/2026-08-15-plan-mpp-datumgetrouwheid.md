@@ -110,7 +110,8 @@ Invariant, hard te documenteren én te testen: **een datum komt nooit in `holida
 **Let op:** `workDaysBetween` telt nu "werk-weekdagen − feestdagen-op-een-werkweekdag" via binary search. Een werkende uitzondering op een zaterdag **voegt** een werkdag toe; dat vraagt een tweede gesorteerde index (`workingExceptionOnNonWorkWeekdayIdxSorted`) — anders klopt de telling stil niet meer. Dit is de meest waarschijnlijke stille bug in deze taak.
 
 **Acceptatie (mutatie-bewijs).**
-1. Nieuwe cases in `cases-kalenders.json`: (a) werkende zaterdag in een taakduur → één werkdag extra; (b) werkende uitzondering met afwijkende banden (06:00–12:00) op een uurkalender → `workMinutesBetween` = 360 die dag; (c) werkende uitzondering die op een feestdag valt (precedentie) → dag telt als werkend.
+> **Wijziging tijdens uitvoering (2026-08-15, goedgekeurd door orkestrator):** `cases-kalenders.json` wordt geïnterpreteerd door `tests/planning/harness.ts` (gedeelde infra, geen baan-eigendom), en dat `Cal`-type kent geen `workingExceptions` — een JSON-case zou stil niets testen. Daarom bewijst T2 acceptatie 1–4 als directe CalendarEngine-unit-tests in `check-calendar-hours.ts`; de CPM-end-to-end-cases via de harness zijn verplaatst naar T13 (zie daar).
+1. Cases (a)–(c) als unit-tests in `check-calendar-hours.ts`: (a) werkende zaterdag in een taakduur → één werkdag extra; (b) werkende uitzondering met afwijkende banden (06:00–12:00) op een uurkalender → `workMinutesBetween` = 360 die dag; (c) werkende uitzondering die op een feestdag valt (precedentie) → dag telt als werkend.
 2. Mutatie: laat `isWorkDay` `workingExceptions` negeren → (a) en (c) ROOD.
 3. Mutatie: laat `bandsStartingOn` de override-banden negeren → (b) ROOD.
 4. Mutatie: sla de nieuwe index in `workDaysBetween` over (val terug op de oude telling) → (a) ROOD.
@@ -302,6 +303,7 @@ De leeskant (`durationType: 'ELAPSEDTIME'` zetten uit veld `DurationUnits`=181) 
 
 **Doel.** Alle banen samen, één hermeting, nieuwe baselines.
 **Stappen.** Banen mergen → `OPS_MPP_FIDELITY_REPORT=baseline` draaien → nieuwe pins committen → `npm run verify` → het resterende afwijkingsbeeld classificeren en aan T9/T15 doorgeven.
+**Extra stap (uit T2-afwijking 2026-08-15):** `tests/planning/harness.ts` (gedeelde infra) additief uitbreiden: `Cal`-type + de `addCalendar`/`setCalendar`-call-sites krijgen een `workingExceptions`-veld, en dan alsnog de drie CPM-end-to-end-cases (werkende zaterdag / eigen banden / precedentie boven feestdag) in `cases-kalenders.json` — met mutatiebewijs dat de case rood wordt wanneer `isWorkDay` workingExceptions negeert (anders test de JSON-case stil niets, zoals T2 constateerde).
 **Acceptatie.** `npm run verify` groen; elke baseline-wijziging in het commitbericht verantwoord met "welke taak, welk gemeten effect".
 **Afhankelijk van:** T2–T8, T10–T12.
 
