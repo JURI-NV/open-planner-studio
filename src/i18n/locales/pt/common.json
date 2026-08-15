@@ -18,7 +18,7 @@
     "relationCreated": "Relação criada: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Essa relação já existe",
     "relationAncestorEndpoint": "Não é permitida uma relação entre uma tarefa e a sua própria tarefa de resumo ancestral.",
-    "summaryRelationsDropped": "{{total}} relação(ões) não puderam ser incluídas no cálculo (conflito de ascendência ou estrutura incompleta)."
+    "summaryRelationsDropped": "{{total}} relação(ões) não puderam ser incluídas — consulte o painel de Relações para saber quais."
   },
   "yes": "Sim",
   "no": "Não",

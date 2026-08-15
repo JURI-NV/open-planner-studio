@@ -154,7 +154,7 @@
     "notCalculated": "주도 관계와 여유를 보려면 다시 계산(F5)하세요",
     "warnTruncatedLead": "선행 시간이 프로젝트 시작에서 잘렸습니다 — 겹침이 완전히 활용되지 않습니다",
     "warnLeadExceedsDuration": "선행 시간이 선행 작업의 기간보다 큽니다",
-    "warnDropped": "계산에 포함되지 않음: 조상 충돌 또는 불완전한 구조"
+    "warnDropped": "계산에 포함되지 않음"
   },
   "structure": {
     "title": "코드 및 필드",

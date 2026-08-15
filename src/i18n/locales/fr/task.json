@@ -154,7 +154,7 @@
     "notCalculated": "Recalculez (F5) pour voir les relations déterminantes et les marges",
     "warnTruncatedLead": "Avance tronquée au début du projet — le chevauchement n'est pas entièrement utilisé",
     "warnLeadExceedsDuration": "L'avance est supérieure à la durée du prédécesseur",
-    "warnDropped": "Non pris en compte : conflit d'ascendance ou structure incomplète"
+    "warnDropped": "Non pris en compte dans le calcul"
   },
   "structure": {
     "title": "Codes et champs",

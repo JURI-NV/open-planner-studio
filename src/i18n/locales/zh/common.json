@@ -18,7 +18,7 @@
     "relationCreated": "已创建关系：{{predecessor}} → {{successor}}",
     "relationDuplicate": "该关系已存在",
     "relationAncestorEndpoint": "不允许在任务与其自身的（上级）汇总任务之间建立关系。",
-    "summaryRelationsDropped": "{{total}} 个关系未能计入计算（祖先冲突或结构不完整）。"
+    "summaryRelationsDropped": "{{total}} 个关系未能计入计算——详情请查看关系面板。"
   },
   "yes": "是",
   "no": "否",

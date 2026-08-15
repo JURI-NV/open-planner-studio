@@ -18,7 +18,7 @@
     "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Diese Beziehung besteht bereits",
     "relationAncestorEndpoint": "Eine Beziehung zwischen einer Aufgabe und ihrer eigenen übergeordneten Sammelaufgabe ist nicht zulässig.",
-    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht in die Berechnung einbezogen werden (Abstammungskonflikt oder unvollständige Struktur)."
+    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht einbezogen werden — siehe das Beziehungen-Panel für Details."
   },
   "yes": "Ja",
   "no": "Nein",

@@ -154,7 +154,7 @@
     "notCalculated": "重新计算（F5）以查看驱动关系和浮动",
     "warnTruncatedLead": "提前量在项目开始处被截断——重叠未被完全利用",
     "warnLeadExceedsDuration": "提前量大于前置任务的工期",
-    "warnDropped": "未计入计算：祖先冲突或结构不完整"
+    "warnDropped": "未计入计算"
   },
   "structure": {
     "title": "代码与字段",

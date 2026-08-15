@@ -18,7 +18,7 @@
     "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Bu ilişki zaten var",
     "relationAncestorEndpoint": "Bir görev ile kendi üst özet görevi arasında ilişki kurulmasına izin verilmez.",
-    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi (atalık çakışması veya eksik yapı)."
+    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi — hangileri olduğunu görmek için İlişkiler panelini kontrol edin."
   },
   "yes": "Evet",
   "no": "Hayır",

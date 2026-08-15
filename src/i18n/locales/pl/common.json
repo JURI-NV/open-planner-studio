@@ -18,7 +18,7 @@
     "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Taka relacja już istnieje",
     "relationAncestorEndpoint": "Relacja między zadaniem a jego własnym nadrzędnym zadaniem sumarycznym jest niedozwolona.",
-    "summaryRelationsDropped": "Relacje, których nie udało się uwzględnić w obliczeniach (konflikt pokrewieństwa lub niepełna struktura): {{total}}."
+    "summaryRelationsDropped": "Relacje, których nie udało się uwzględnić w obliczeniach (zobacz panel Relacje, aby sprawdzić które): {{total}}."
   },
   "yes": "Tak",
   "no": "Nie",

@@ -18,7 +18,7 @@
     "relationCreated": "Relazione creata: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Questa relazione esiste già",
     "relationAncestorEndpoint": "Una relazione tra un'attività e la propria attività di riepilogo antenata non è consentita.",
-    "summaryRelationsDropped": "{{total}} relazione/i non hanno potuto essere incluse nel calcolo (conflitto di discendenza o struttura incompleta)."
+    "summaryRelationsDropped": "{{total}} relazione/i non hanno potuto essere incluse — vedi il pannello Relazioni per i dettagli."
   },
   "yes": "Sì",
   "no": "No",

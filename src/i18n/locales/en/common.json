@@ -18,7 +18,7 @@
     "relationCreated": "Relation created: {{predecessor}} → {{successor}}",
     "relationDuplicate": "That relation already exists",
     "relationAncestorEndpoint": "A relation between a task and its own (grand)parent summary task is not allowed.",
-    "summaryRelationsDropped": "{{total}} relation(s) could not be included in the calculation (ancestor conflict or incomplete structure)."
+    "summaryRelationsDropped": "{{total}} relation(s) could not be included in the calculation — see the Relations panel for which."
   },
   "yes": "Yes",
   "no": "No",

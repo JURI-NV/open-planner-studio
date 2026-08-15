@@ -18,7 +18,7 @@
     "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
     "relationDuplicate": "Cette relation existe déjà",
     "relationAncestorEndpoint": "Une relation entre une tâche et sa propre tâche récapitulative parente (ou ancêtre) n'est pas autorisée.",
-    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte dans le calcul (conflit d'ascendance ou structure incomplète)."
+    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte — voir le panneau Relations pour savoir lesquelles."
   },
   "yes": "Oui",
   "no": "Non",
