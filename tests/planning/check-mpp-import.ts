@@ -2389,6 +2389,312 @@ if (corpusPresent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T12 — Split-/leveling-detectie (§9/O1, "resource-gedreven planning"): het EXPLICIETE signaal
+// (LEVELING_DELAY ≠ 0) en het AFGELEIDE signaal (`spanGt`: het MSP-eigen venster tussen start en
+// finish, geteld in werkminuten op de effectieve kalender, is groter dan de MSP-eigen opgeslagen
+// duur). Synthetische fixture, onafhankelijk van het corpus — spiegelt de T11-fixtureopzet
+// (`buildMilestoneKindFixture` hierboven), maar met een ECHTE `TASK_FIELD_MAP`: alle basisvelden
+// op hun letterlijke `DEFAULT_TASK_FIELDS`-offset (de FixedData-layout blijft dus identiek aan de
+// andere fixtures in dit bestand), plus één NIEUWE entry voor LEVELING_DELAY@126 — dat veld heeft
+// bewust geen plek in de all-or-nothing-defaulttabel (zie mppReader.ts's toelichting bij
+// `TASK_FIELD_LEVELING_DELAY`), dus deze fixture moet 'm zelf meegeven via een data-gedreven map.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  const PASSWORD_FLAG_KEY = 893386752;
+  const PROJECT_START_DATE_KEY = 37748738;
+  const PROJECT_FINISH_DATE_KEY = 37748739;
+  const TITLE_KEY = 37748744;
+  const DEFAULT_CALENDAR_NAME_KEY = 37748750;
+  const PROPSKEY_TASK_FIELD_MAP_T12 = 131092;
+  const LEVELING_DELAY_TYPE_VALUE = 20; // TaskField.LEVELING_DELAY (FieldMap14.java)
+  const LEVELING_DELAY_OFFSET = 126; // vrij in de 130-byte FixedData-layout (ná Deadline@122)
+
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  interface T12TaskSpec {
+    name: string; uniqueId: number; id: number; durationRaw: number;
+    startTime: number; startDays: number; finishTime: number; finishDays: number;
+    levelingDelayRaw?: number;
+  }
+
+  /** Eén TBkndTask/FixedData-record (130 bytes, letterlijke `DEFAULT_TASK_FIELDS`-offsets, zie de
+   *  I4-/T11-toelichting elders in dit bestand), plus LEVELING_DELAY@126. Tijd-/duur-eenheid is
+   *  tienden-van-minuut (08:00 = 4800, 16:00 = 9600 — spiegelt `getTimestamp`). */
+  function buildT12TaskFixedDataRecord(t: T12TaskSpec): Uint8Array {
+    const out = new Uint8Array(130);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, t.uniqueId, true);
+    view.setInt32(4, t.id, true);
+    view.setInt16(40, 1, true); // outlineLevel = 1
+    view.setInt32(42, t.durationRaw, true);
+    view.setInt16(46, 7, true); // durationUnits = 7 ("days", WORKTIME — geen elapsed)
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setUint16(64, t.startTime, true);
+    view.setUint16(66, t.startDays, true);
+    view.setUint16(68, t.finishTime, true);
+    view.setUint16(70, t.finishDays, true);
+    view.setInt32(118, -1, true); // geen taak-kalender-override — gebruik de projectkalender
+    view.setInt32(LEVELING_DELAY_OFFSET, t.levelingDelayRaw ?? 0, true);
+    return out;
+  }
+
+  function buildT12TaskFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
+    const out = new Uint8Array(47);
+    const view = new DataView(out.buffer);
+    view.setInt32(4, offsetIntoFixedData, true);
+    return out; // geen mijlpalen nodig in deze fixture
+  }
+
+  function buildT12FixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  // Enkele band 08:00-16:00, ma-vr, za/zo vrij — dag 15000 = vrijdag 2025-01-24 (spiegelt de
+  // T11-fixture hierboven exact, inclusief de dagnummering: za 15001, zo 15002, ma 15003).
+  const T12_CAL_DAYS = [
+    { defaultFlag: 0 as const }, // zo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // ma — dag 15003
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // di
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // wo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // do
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // vr — dag 15000
+    { defaultFlag: 0 as const }, // za — dag 15001
+  ];
+
+  function buildT12Fixture(tasks: T12TaskSpec[]): Uint8Array {
+    const n = tasks.length;
+    const dummy = buildT12TaskFixedMetaRecord(0);
+    const metas = tasks.map((_t, i) => buildT12TaskFixedMetaRecord((3 + i) * 130));
+    const fixedMetaBlob = buildT12FixedMetaBlob([dummy, dummy, dummy, ...metas]);
+
+    const fixedDataBlob = new Uint8Array((3 + n) * 130);
+    tasks.forEach((t, i) => fixedDataBlob.set(buildT12TaskFixedDataRecord(t), (3 + i) * 130));
+
+    let nameOffset = 0;
+    const varMetaEntries: { uniqueId: number; type: number; offset: number }[] = [];
+    const namePayloads: { offset: number; payload: Uint8Array }[] = [];
+    for (const t of tasks) {
+      varMetaEntries.push({ uniqueId: t.uniqueId, type: TaskFieldId.Name, offset: nameOffset });
+      const payload = encodeUnicodeStringAscii(t.name);
+      namePayloads.push({ offset: nameOffset, payload });
+      nameOffset += 4 + payload.length;
+    }
+    const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
+    const taskVar2DataBuf = new Uint8Array(Math.max(nameOffset, 1));
+    const taskVar2View = new DataView(taskVar2DataBuf.buffer);
+    for (const { offset, payload } of namePayloads) {
+      taskVar2View.setInt32(offset, payload.length, true);
+      taskVar2DataBuf.set(payload, offset + 4);
+    }
+
+    const fieldMapBytes = buildFieldMapEntryBytes([
+      { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: TaskFieldId.Id, dataBlockOffset: 4, category: 3 },
+      { typeValue: TaskFieldId.OutlineLevel, dataBlockOffset: 40, category: 3 },
+      { typeValue: TaskFieldId.ScheduledDuration, dataBlockOffset: 42, category: 3 },
+      { typeValue: TaskFieldId.DurationUnits, dataBlockOffset: 46, category: 3 },
+      { typeValue: TaskFieldId.ConstraintType, dataBlockOffset: 56, category: 3 },
+      { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
+      { typeValue: TaskFieldId.ScheduledFinish, dataBlockOffset: 68, category: 3 },
+      { typeValue: TaskFieldId.ActualStart, dataBlockOffset: 72, category: 3 },
+      { typeValue: TaskFieldId.ActualFinish, dataBlockOffset: 76, category: 3 },
+      { typeValue: TaskFieldId.ConstraintDate, dataBlockOffset: 80, category: 3 },
+      { typeValue: TaskFieldId.PercentComplete, dataBlockOffset: 90, category: 3 },
+      { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
+      { typeValue: TaskFieldId.Deadline, dataBlockOffset: 122, category: 3 },
+      { typeValue: LEVELING_DELAY_TYPE_VALUE, dataBlockOffset: LEVELING_DELAY_OFFSET, category: 3 },
+      { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+    ]);
+
+    const calendarName = 'T12 span-fixture';
+    const hoursBlock = buildCalHoursBlock(T12_CAL_DAYS);
+    const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
+    const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
+    const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
+    const calVarMetaBytes = buildVarMetaBytes([
+      { uniqueId: 1, type: 1, offset: CAL_NAME_OFF },
+      { uniqueId: 1, type: 8, offset: CAL_DATA_OFF },
+    ]);
+    const calVar2DataBuf = new Uint8Array(700);
+    const calVar2View = new DataView(calVar2DataBuf.buffer);
+    const writeCalVar2 = (offset: number, payload: Uint8Array) => {
+      calVar2View.setInt32(offset, payload.length, true);
+      calVar2DataBuf.set(payload, offset + 4);
+    };
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii(calendarName));
+    writeCalVar2(CAL_DATA_OFF, hoursBlock);
+
+    const projectPropsBytes = encodePropsEntries([
+      { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
+      { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
+      { key: TITLE_KEY, data: encodeUnicodeStringAscii('T12-fixture') },
+      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii(calendarName) },
+      { key: PROPSKEY_TASK_FIELD_MAP_T12, data: fieldMapBytes },
+    ]);
+
+    const tree: Record<string, CfbTreeNode> = {
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+      Props14: { data: encodePropsSingleByteEntry(PASSWORD_FLAG_KEY, 0) },
+      '   114': {
+        children: {
+          Props: { data: projectPropsBytes },
+          TBkndTask: {
+            children: {
+              FixedMeta: { data: fixedMetaBlob },
+              FixedData: { data: fixedDataBlob },
+              VarMeta: { data: taskVarMetaBytes },
+              Var2Data: { data: taskVar2DataBuf },
+            },
+          },
+          TBkndCal: {
+            children: {
+              FixedMeta: { data: calFixedMetaBlob },
+              FixedData: { data: calFixedDataBlob },
+              VarMeta: { data: calVarMetaBytes },
+              Var2Data: { data: calVar2DataBuf },
+            },
+          },
+        },
+      },
+    };
+    return buildNestedCfb(tree);
+  }
+
+  const readT12 = (bytes: Uint8Array) => {
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    return { result, threw };
+  };
+
+  // ── Negatieve fixture: één schone taak (geen leveling delay, geen gat tussen venster en duur) —
+  // GEEN `sourceScheduleNotes` op het `ImportResult` (het veld ontbreekt volledig, niet `total: 0`
+  // — zie mppReader.ts's `readMPP`-toelichting). ────────────────────────────────────────────────
+  {
+    const { result, threw } = readT12(buildT12Fixture([
+      { name: 'Clean', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+    ]));
+    truthy(`[T12 schoon] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T12 schoon] 1 taak', result.tasks.length === 1);
+      truthy('[T12 schoon] GEEN sourceScheduleNotes (negatieve case)', result.sourceScheduleNotes === undefined);
+    }
+  }
+
+  // ── Expliciet signaal: LEVELING_DELAY ≠ 0, venster == duur (geen spanGt). ───────────────────────
+  {
+    const { result, threw } = readT12(buildT12Fixture([
+      { name: 'Leveled', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 100 },
+    ]));
+    truthy(`[T12 leveled] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy(
+        `[T12 leveled] sourceScheduleNotes === {total:1, leveled:1, spanGt:0} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1 && result.sourceScheduleNotes.spanGt === 0,
+      );
+    }
+  }
+
+  // ── Afgeleid signaal: venster (vr 08:00 → ma 16:00, over een weekend) > duur (8u), GEEN
+  // leveling delay. Bewijst dat `spanGt` op zichzelf al telt, los van het expliciete signaal. ─────
+  {
+    const { result, threw } = readT12(buildT12Fixture([
+      { name: 'SpanGt', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003 },
+    ]));
+    truthy(`[T12 spanGt] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy(
+        `[T12 spanGt] sourceScheduleNotes === {total:1, leveled:0, spanGt:1} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 0 && result.sourceScheduleNotes.spanGt === 1,
+      );
+    }
+  }
+
+  // ── Vereniging: één taak met BEIDE signalen (leveling delay ÉN een groter venster) telt in
+  // `total` maar ÉÉN keer, naast een schone taak die niet meetelt — bewijst dat `total` de
+  // VERENIGING is, geen som van `leveled + spanGt`. ───────────────────────────────────────────────
+  {
+    const { result, threw } = readT12(buildT12Fixture([
+      { name: 'Both', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003, levelingDelayRaw: 50 },
+      { name: 'Clean2', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+    ]));
+    truthy(`[T12 vereniging] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[T12 vereniging] 2 taken', result.tasks.length === 2);
+      truthy(
+        `[T12 vereniging] sourceScheduleNotes === {total:1, leveled:1, spanGt:1} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1 && result.sourceScheduleNotes.spanGt === 1,
+      );
+    }
+  }
+
+  // ── Corpus-leescases: gepinde detectie-aantallen per bestand (acceptatiepunt 5, plan-§T12).
+  // "Bijlage 13 Productieplanning.mpp" is tevens de door de orkestrator aangewezen NEGATIEVE case
+  // (acceptatiepunt 4): spanGt = 0, dus geen `sourceScheduleNotes` op een schoon bestand. ─────────
+  {
+    const T12_CORPUS = process.env.OPS_MPP_CORPUS
+      ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
+    const bijlage13 = join(T12_CORPUS, 'Bijlage 13 Productieplanning.mpp');
+    if (!existsSync(bijlage13)) {
+      console.log(`OK  mpp-import: T12 corpus-leescases (${T12_CORPUS}) niet aanwezig — overgeslagen`);
+    } else {
+      {
+        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage13)));
+        truthy(`[T12 Bijlage 13] readMPP gooit niet (${threw ?? ''})`, threw === null);
+        if (result) {
+          truthy(
+            '[T12 Bijlage 13] GEEN sourceScheduleNotes — negatieve case (acceptatiepunt 4, plan-§T12)',
+            result.sourceScheduleNotes === undefined,
+          );
+        }
+      }
+      // "Bijlage 20 productieplanning PKB.mpp" (gemeten, geen enkel signaal): ook hier GEEN
+      // `sourceScheduleNotes` — een tweede, groter (134 taken) negatief bewijs naast Bijlage 13.
+      const bijlage20 = join(T12_CORPUS, 'Bijlage 20 productieplanning PKB.mpp');
+      if (existsSync(bijlage20)) {
+        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage20)));
+        truthy(`[T12 Bijlage 20] readMPP gooit niet (${threw ?? ''})`, threw === null);
+        if (result) {
+          truthy(
+            '[T12 Bijlage 20] GEEN sourceScheduleNotes (gemeten: geen signaal op 134 taken)',
+            result.sourceScheduleNotes === undefined,
+          );
+        }
+      }
+      // "bijlage 7 Productie planning.mpp" (215 taken): het enige bestand van de drie met
+      // daadwerkelijk LEVELING_DELAY-data in het bronbestand — steekproef bevestigd tegen de
+      // taaknamen (productiehandelingen als "boren en tappen", "lassen", vertragingen van
+      // ~1000-1400 min, plausibel voor een resource-beperkte productieplanning).
+      const bijlage7 = join(T12_CORPUS, 'bijlage 7 Productie planning.mpp');
+      if (existsSync(bijlage7)) {
+        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage7)));
+        truthy(`[T12 bijlage 7] readMPP gooit niet (${threw ?? ''})`, threw === null);
+        if (result) {
+          truthy(
+            `[T12 bijlage 7] sourceScheduleNotes === {total:15, leveled:10, spanGt:5} (gepind, kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            result.sourceScheduleNotes?.total === 15 && result.sourceScheduleNotes.leveled === 10 && result.sourceScheduleNotes.spanGt === 5,
+          );
+        }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // T9-crawl — end-to-end door de VOLLEDIGE readMPP() over het brede corpus (49 `.mpp`, submappen
 // MSP2016_OzBuild/MSP2021_OzBuild): geen-crash-poort + gepind totaal-taakaantal +
 // spooktaak-plausibiliteitsassert + (etappe 1.5) gepind uurmodus-taakaantal
