@@ -8,7 +8,7 @@ import { readCSV } from '@/services/csv/csvReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { readP6XML } from '@/services/p6/p6xmlReader';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
-import type { FileFilter } from '@/services/fileAccess';
+import type { FileFilter, FileRef } from '@/services/fileAccess';
 
 /** Invoer voor een reader: tekstformaten krijgen `text`, binaire formaten `bytes`. */
 export interface FormatInput { name: string; text?: string; bytes?: Uint8Array }
@@ -19,6 +19,14 @@ export interface ReadFormat {
   kind: 'text' | 'binary';
   /** Dialoogfilterlabel — bewust hard-coded Engels (bestaande conventie: 'IFC Files'). */
   filterName: string;
+  /** Mag een geopend bestand van dit formaat het OPSLAGDOEL (filePath/fileHandle) van het document
+   *  worden? (T11, T8-kwaliteitsreview-agenda, stap 0-ter b.) Opslaan schrijft ALTIJD IFC-tekst
+   *  terug — dat is alleen correct als de bron zelf ook IFC was; élk ander bronformaat zou de
+   *  eerstvolgende Ctrl+S zijn eigen bronbestand met IFC-inhoud laten overschrijven. Ontbreekt
+   *  (`undefined`) ⇒ `false`, dus alleen de IFC-entry hoeft 'm expliciet op `true` te zetten.
+   *  Vervangt de eerdere `id === 'ifc'`/`format === 'IFC' && !isBinary`-vergelijkingen in
+   *  `fileSlice.ts` en `fileTools.ts` — één vlag, één plek. */
+  canBeSaveTarget?: boolean;
   read(input: FormatInput, labels?: ImportLabels): Promise<ImportResult>;
 }
 
@@ -41,7 +49,7 @@ function parseProjectXml(content: string): ImportResult {
  *  tot een runtime-crash maken); de entry staat bovendien nog steeds gewoon IN `READ_FORMATS`,
  *  dus herordenen wisselt 'm nooit stilzwijgend. */
 const IFC_FORMAT: ReadFormat = {
-  id: 'ifc', extensions: ['ifc'], kind: 'text', filterName: 'IFC Files',
+  id: 'ifc', extensions: ['ifc'], kind: 'text', filterName: 'IFC Files', canBeSaveTarget: true,
   read: async (i, labels) => readIFC(i.text ?? '', labels),
 };
 
@@ -78,8 +86,35 @@ export function binaryExtensions(): string[] {
   return READ_FORMATS.filter((f) => f.kind === 'binary').flatMap((f) => f.extensions);
 }
 
+/** Alle geregistreerde leesformaten (T11) — puur voor tests: `check-mpp-open-guard.ts` bewijst
+ *  hiermee dat exact één formaat `canBeSaveTarget` draagt, zonder de private `READ_FORMATS`-array
+ *  zelf te moeten exporteren. Geen productie-afnemer; introduceer er geen. */
+export function allReadFormats(): readonly ReadFormat[] {
+  return READ_FORMATS;
+}
+
 export function parseOpenedFile(input: FormatInput, labels?: ImportLabels): Promise<ImportResult> {
   return readFormatForFile(input.name).read(input, labels);
+}
+
+/** Opslagdoel-beslissing (T11, T8-kwaliteitsreview-agenda stap 0-ter b): één plek voor de
+ *  filePath/fileHandle-afleiding die `fileSlice.openFile` en `openRecentFile` allebei nodig
+ *  hebben — vóór deze helper stond die logica tweemaal, geformuleerd als `id === 'ifc'`. Een
+ *  bestand van een niet-`canBeSaveTarget`-formaat krijgt GEEN opslagdoel (opslaan wordt dan
+ *  opslaan-als); `ref` is de herbruikbare handle/pad van de open-actie (`null` bij de download-
+ *  terugval of een niet-herbruikbare bron), `name` de bestandsnaam als terugvalwaarde voor
+ *  `filePath` wanneer er geen pad-ref is (spiegelt het bestaande gedrag: Tauri levert een pad,
+ *  web-FSA een handle, de input-terugval geen van beide — dan blijft alleen de naam over). */
+export function saveTargetFor(
+  readFormat: ReadFormat,
+  ref: FileRef | null,
+  name: string,
+): { filePath: string | null; fileHandle: FileSystemFileHandle | null } {
+  if (!readFormat.canBeSaveTarget) return { filePath: null, fileHandle: null };
+  return {
+    filePath: ref?.kind === 'path' ? ref.path : name,
+    fileHandle: ref?.kind === 'handle' ? ref.handle : null,
+  };
 }
 
 /** Vertaalsleutel voor een mislukte open-actie. Duck-typed op `mppCode` zodat deze module de

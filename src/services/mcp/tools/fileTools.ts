@@ -340,14 +340,13 @@ export const fileTools: McpToolDef[] = [
       } catch (e) {
         return toolError(ctx, 'INTERNAL', `Kon het bronpad niet controleren: ${e instanceof Error ? e.message : String(e)}`);
       }
-      const isBinary = readFormatForFile(path).kind === 'binary';
-      // `content` blijft '' voor een binair formaat. Dit is NIET alleen voor logging: `formatOf`
-      // (verderop) sniffed op deze string om CSV/P6-XML/MSPDI-XML te onderscheiden, en het
-      // resultaat stuurt ook of het bestand het OPSLAGDOEL van het document wordt. Voor een
-      // binair formaat valt `formatOf` — zonder extra herkenning — terug op 'IFC' terwijl er geen
-      // IFC-tekst gelezen is; de opslagdoel-guard verderop compenseert dat expliciet met `isBinary`
-      // (nooit opslagdoel), want opslaan schrijft altijd IFC-TEKST — dat zou een binair bronbestand
-      // stil overschrijven met IFC-inhoud onder dezelfde naam.
+      const readFormat = readFormatForFile(path);
+      const isBinary = readFormat.kind === 'binary';
+      // `content` blijft '' voor een binair formaat — puur voor `formatOf` (verderop) se sniffen
+      // op CSV/P6-XML/MSPDI-XML-inhoud; het OPSLAGDOEL-besluit hangt sinds T11 niet meer af van
+      // `formatOf`'s AI-facing label maar rechtstreeks van `readFormat.canBeSaveTarget` (zie
+      // verderop) — dus geen risico meer dat een binair formaat via `formatOf`'s IFC-terugval per
+      // ongeluk als opslagdoel-waardig zou worden gelezen.
       let content = '';
       let bytes: Uint8Array | undefined;
       try {
@@ -373,18 +372,17 @@ export const fileTools: McpToolDef[] = [
       const reusedActiveTab = isActivePristine(store);
       if (!reusedActiveTab) store.newDocument();
       const format = formatOf(path, content);
-      // OPSLAGDOEL alleen bij een IFC-bron. Opslaan schrijft ALTIJD IFC; zou een geïmporteerd
-      // .csv-/.xml-pad het opslagdoel worden, dan overschrijft de eerstvolgende Ctrl+S van de user
-      // zijn eigen bronbestand met IFC-inhoud onder een .csv/.xml-naam. Zelfde motief als de genulde
-      // `filePath` van `duplicate_document`. Gevolg: na een CSV-/XML-import is het document
-      // "naamloos" en wordt opslaan een opslaan-als — precies wat je wilt.
-      // `&& !isBinary` (T8-spec-review F1): `formatOf` herkent `.mpp` inmiddels wél als `'MPP14'`
-      // (≠ `'IFC'`), dus deze extra `!isBinary`-voorwaarde is hier diepteverdediging, geen
-      // primaire poort — mocht `formatOf` ooit een binair formaat verkeerd classificeren (of een
-      // toekomstig binair formaat vóór `formatOf` bijgewerkt te hebben landen), dan valt de guard
-      // nog steeds niet stil terug op 'IFC': een binair bronbestand wordt nooit opslagdoel.
+      // OPSLAGDOEL alleen bij een formaat dat `canBeSaveTarget` draagt (T11 — vóór deze fix: `format
+      // === 'IFC' && !isBinary`, twee losse classificaties die uit elkaar konden lopen). Opslaan
+      // schrijft ALTIJD IFC; zou een geïmporteerd .csv-/.xml-/.mpp-pad het opslagdoel worden, dan
+      // overschrijft de eerstvolgende Ctrl+S van de user zijn eigen bronbestand met IFC-inhoud onder
+      // die naam. Zelfde motief als de genulde `filePath` van `duplicate_document`. Gevolg: na een
+      // CSV-/XML-/MPP-import is het document "naamloos" en wordt opslaan een opslaan-als — precies
+      // wat je wilt. `formatOf` blijft puur het AI-facing label (`format` hieronder, voor de respons
+      // en de notices) — de opslagdoel-beslissing leest voortaan uitsluitend `readFormat.
+      // canBeSaveTarget`, dezelfde registry-vlag als `fileSlice.ts`.
       useAppStore.getState().applyLoadedProject(parsed, {
-        filePath: format === 'IFC' && !isBinary ? path : null,
+        filePath: readFormat.canBeSaveTarget ? path : null,
         fileHandle: null,
         recompute: true,
         fit: true,

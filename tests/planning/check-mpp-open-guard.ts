@@ -80,7 +80,7 @@ g.document = {
 };
 
 const { useAppStore } = await import('@/state/appStore');
-const { readFormatForFile } = await import('@/services/formatRegistry');
+const { readFormatForFile, allReadFormats } = await import('@/services/formatRegistry');
 const { writeIFC } = await import('@/services/ifc/ifcWriter');
 const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
 const { writeCSV } = await import('@/services/csv/csvWriter');
@@ -104,6 +104,17 @@ eq('00 readFormatForFile: .mpp heeft id "mpp" (binair)', readFormatForFile('plan
 eq('00b readFormatForFile: .ifc heeft id "ifc"', readFormatForFile('plan.ifc').id, 'ifc');
 eq('00c readFormatForFile: .csv heeft id "csv" (niet "ifc")', readFormatForFile('plan.csv').id, 'csv');
 eq('00d readFormatForFile: .xml heeft id "xml" (niet "ifc")', readFormatForFile('plan.xml').id, 'xml');
+
+// ── T11 (stap 0-ter b): exact ÉÉN formaat draagt `canBeSaveTarget` — de vlag die `fileSlice.ts`
+// (via `saveTargetFor`) en `fileTools.ts` allebei rechtstreeks lezen i.p.v. een `id`/`format`-
+// vergelijking. Twee `true`-dragers zou betekenen dat een niet-IFC-open zijn eigen bronbestand
+// met IFC-tekst kan laten overschrijven; nul zou betekenen dat NIETS meer een opslagdoel krijgt
+// (ook niet IFC zelf) — beide zijn een stille regressie op de opslagdoel-guard. ─────────────────
+{
+  const saveTargets = allReadFormats().filter((f) => f.canBeSaveTarget === true);
+  eq('00e exact één formaat draagt canBeSaveTarget', saveTargets.length, 1);
+  eq('00f canBeSaveTarget staat op de IFC-entry', saveTargets[0]?.id, 'ifc');
+}
 
 // ── A. IFC door de open-route: opslagdoel WORDT gezet (contrast — de enige bron die dat mag) ──
 {

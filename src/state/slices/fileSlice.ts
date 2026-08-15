@@ -4,7 +4,7 @@ import { writeCSV } from '@/services/csv/csvWriter';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { openFileDialog, saveFileDialog, saveToRef, readFromRef, readBytesFromRef, type FileRef, type SaveOutcome } from '@/services/fileAccess';
-import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, type ExportFormat } from '@/services/formatRegistry';
+import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, saveTargetFor, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import type { AppSlice } from './types';
@@ -199,22 +199,19 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         // actieve tabblad alleen als dat nog leeg en ongewijzigd is.
         if (!isActivePristine(get())) get().newDocument();
 
-        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4): ALLEEN een IFC-bron wordt
-        // het opslagdoel. Opslaan schrijft altijd IFC-TEKST, dus élk ANDER bronformaat (csv/xml/
-        // mpp — niet uitsluitend binaire formaten) zou bij een naïeve toewijzing zijn eigen
-        // bronbestand met IFC-inhoud laten overschrijven door de eerstvolgende Ctrl+S. "Opslaan"
-        // wordt dan "opslaan-als". Zelfde regel als de MCP-kant (`fileTools.ts`: `format === 'IFC'
-        // && !isBinary` — voor het UI-pad is dat gelijk aan `id === 'ifc'`, want IFC is hier het
-        // enige tekstformaat dat ook zijn eigen opslagdoel mag zijn).
-        const isIfcSource = readFormatForFile(opened.name).id === 'ifc';
+        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4; T11: via `canBeSaveTarget` op
+        // de registry-entry i.p.v. een `id === 'ifc'`-vergelijking hier). Opslaan schrijft altijd
+        // IFC-TEKST, dus élk ANDER bronformaat (csv/xml/mpp — niet uitsluitend binaire formaten)
+        // zou bij een naïeve toewijzing zijn eigen bronbestand met IFC-inhoud laten overschrijven
+        // door de eerstvolgende Ctrl+S. "Opslaan" wordt dan "opslaan-als". Zelfde vlag als de
+        // MCP-kant (`fileTools.ts` leest óók `canBeSaveTarget`).
+        const target = saveTargetFor(readFormatForFile(opened.name), opened.ref, opened.name);
 
         // Gedeelde load-implementatie; open-pad-semantiek: identiteit + opslaan-doel zetten,
         // direct doorrekenen + fitten en de uur-melding evalueren.
         get().applyLoadedProject(parsed, {
-          // Identiteit: echt pad (Tauri) of bestandsnaam (web); handle alleen als web-opslaan-doel.
-          // Niet-IFC-bron ⇒ geen van beide (zie isIfcSource hierboven).
-          filePath: isIfcSource ? (opened.ref?.kind === 'path' ? opened.ref.path : opened.name) : null,
-          fileHandle: isIfcSource ? (opened.ref?.kind === 'handle' ? opened.ref.handle : null) : null,
+          filePath: target.filePath,
+          fileHandle: target.fileHandle,
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -227,7 +224,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
         // Recents: elke herbruikbare ref (Tauri-pad óf Chromium-handle) — óók bij een niet-IFC
         // bronformaat: heropenen via recents moet blijven werken, alleen het OPSLAGDOEL wordt niet
-        // gezet (zie isIfcSource hierboven).
+        // gezet (zie `target` hierboven).
         await pushRecent(opened.ref, opened.name);
       } catch (err) {
         console.error('Failed to open file:', err);
@@ -495,14 +492,14 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
         if (!isActivePristine(get())) get().newDocument();
 
-        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4) — zie openFile voor de
-        // volledige toelichting. `readFormat` is hierboven al opgezocht (F2).
-        const isIfcSource = readFormat.id === 'ifc';
+        // Opslagdoel-guard (T8, stap 5a; verbreed T8-spec-review F4; T11: `saveTargetFor` — zie
+        // openFile voor de volledige toelichting). `readFormat` is hierboven al opgezocht (F2).
+        const target = saveTargetFor(readFormat, entry.ref, entry.name);
 
         // Zelfde open-pad-semantiek als openFile (zie daar); loopt door de gedeelde implementatie.
         get().applyLoadedProject(parsed, {
-          filePath: isIfcSource ? (entry.ref.kind === 'path' ? entry.ref.path : entry.name) : null,
-          fileHandle: isIfcSource ? (entry.ref.kind === 'handle' ? entry.ref.handle : null) : null,
+          filePath: target.filePath,
+          fileHandle: target.fileHandle,
           recompute: true,
           fit: true,
           hourDataNotice: true,
@@ -513,7 +510,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         get().runOpenBoundary();
 
         // MRU verversen: het net-geopende bestand naar boven (óók bij een niet-IFC bronformaat —
-        // alleen het opslagdoel blijft leeg, zie isIfcSource hierboven).
+        // alleen het opslagdoel blijft leeg, zie `target` hierboven).
         await pushRecent(entry.ref, entry.name);
       } catch (err) {
         console.error('Failed to open recent file:', err);
