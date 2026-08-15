@@ -13,6 +13,7 @@ import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { readP6XML } from '@/services/p6/p6xmlReader';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
+import { MAX_TOTAL_HOLIDAY_SLOTS, MAX_RECURRENCE_DATES, MAX_CALENDAR_EXCEPTIONS } from '@/services/calendarRecurrence';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -441,6 +442,140 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
     eq('T4 milestoneKind: bandeinde (17:00) → FINISH', byName.get('MijlpaalFinish')?.milestoneKind, 'FINISH');
     eq('T4 milestoneKind: bandbegin (08:00) → START', byName.get('MijlpaalStart')?.milestoneKind, 'START');
     eq('T4 milestoneKind: gewone taak blijft ongezet', byName.get('GewoneTaak')?.milestoneKind, undefined);
+  }
+
+  // (e) SPEC-REVIEW-FIX (should-fix): Fixture-F-analogon (mppReader.ts/check-mpp-import.ts, T11-
+  //     reviewfix c0c2cd27) — een band die EXACT om middernacht eindigt (20:00-24:00, geen theoretisch
+  //     randgeval: `applyCalendarBody` bouwt zo'n band zonder clamp). Maandag draagt twee banden
+  //     (08:00-16:00 + 20:00-24:00 — discriminator (a) garandeert uurmodus via het niet-anker-anker
+  //     00:00 zelf), mijlpaal-anker op dinsdag 00:00 ⇒ moet 'FINISH' zijn (de wrap-staart van maandags
+  //     tweede band). Vóór de fix gaf de MSPDI-kant hier `undefined` (strikte `b.end > 1440` i.p.v.
+  //     mppReader.ts's `>= 1440`) — een pariteitsregressie tussen de twee MS-Project-lezers.
+  {
+    const xml = `<?xml version="1.0"?>
+<Project>
+  <StartDate>2026-01-01T00:00:00</StartDate>
+  <FinishDate>2026-12-31T00:00:00</FinishDate>
+  <Calendars>
+    <Calendar>
+      <UID>1</UID>
+      <Name>WrapMiddernacht</Name>
+      <WeekDays>
+        <WeekDay><DayType>2</DayType><DayWorking>1</DayWorking><WorkingTimes>
+          <WorkingTime><FromTime>08:00:00</FromTime><ToTime>16:00:00</ToTime></WorkingTime>
+          <WorkingTime><FromTime>20:00:00</FromTime><ToTime>24:00:00</ToTime></WorkingTime>
+        </WorkingTimes></WeekDay>
+      </WeekDays>
+    </Calendar>
+  </Calendars>
+  <Tasks>
+    <Task><UID>1</UID><Name>WrapMijlpaal</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone>
+      <Duration>PT0H0M0S</Duration><Start>2026-01-06T00:00:00</Start><Finish>2026-01-06T00:00:00</Finish></Task>
+  </Tasks>
+</Project>`;
+    // 2026-01-06 is een dinsdag; de wrap-staart van maandag (2026-01-05) 20:00-24:00 landt daar op 00:00.
+    const task = readMSPDI(xml).tasks.find((t) => t.name === 'WrapMijlpaal');
+    eq('T4 wrap-middernacht: anker di 00:00 na een ma 20:00-24:00-band ⇒ milestoneKind === FINISH', task?.milestoneKind, 'FINISH');
+  }
+
+  // (f) SPEC-REVIEW-FIX (blokkerend): budget-klem TIJDENS de opbouw (niet pas in resolveContributions
+  //     erna) — verkleinde versie van de reviewer-DoS-repro (445 KB XML → 5192 ms/478 MB vóór de fix).
+  //     `MAX_CALENDAR_EXCEPTIONS` (2000, de ECHTE per-kalender-bovengrens) NIET-OVERLAPPENDE WEEKLY-
+  //     alle-dagen-uitzonderingen, elk over een 11-jaars-venster (> MAX_RECURRENCE_DATES dagen) — elke
+  //     record expandeert dus tot PRECIES MAX_RECURRENCE_DATES (3660) datums, gegarandeerd door
+  //     `expandRecurrence`'s eigen per-record-klem. Met het gedeelde budget (`MAX_TOTAL_HOLIDAY_
+  //     SLOTS`, 100.000) passen daar `Math.floor(100000/3660)=27` VOLLE records in (98.820 dagen) + 1
+  //     gedeeltelijke record (100.000-98.820=1.180 dagen) = 28 records met output; de overige 1972
+  //     dragen NIETS bij. Niet-overlappend (elk venster staat ver genoeg uit elkaar) ⇒ EXACTE,
+  //     voorspelbare tellingen (spiegelt check-mpp-calendars.ts se precieze-telling-stijl), losstaand
+  //     van de latere precedentie-/overlap-mechaniek.
+  //
+  //     GROOTTE-KEUZE (gemeten, niet aangenomen): een eerdere, kleinere fixture (200 records) bleek
+  //     GEEN betrouwbare regressiewacht — `resolveContributions`'s EIGEN vaste basiskosten (~260ms
+  //     Date/string-werk voor de 100.000 (record,datum)-paren, ONAFHANKELIJK van hoeveel EXTRA records
+  //     `buildContributions` zou moeten negeren) domineerden bij 200 records zozeer dat de MUTATIE
+  //     hieronder (budget-klem-tijdens-opbouw genegeerd) 830ms gaf — nog steeds < 1000ms, dus GEEN rode
+  //     regel. Bij `MAX_CALENDAR_EXCEPTIONS` (2000, de werkelijke bestandsgrens — geen willekeurige
+  //     keuze) is het verschil overtuigend: FIXED 311ms, GEMUTEERD (budget genegeerd in
+  //     `buildContributions`, ongewijzigde `resolveContributions`) 2408ms — exact het "safe-maar-traag"
+  //     patroon van de reviewer-bevinding, ruim aan weerszijden van de 1s-grens.
+  {
+    const recordCount = MAX_CALENDAR_EXCEPTIONS;
+    const spacingYears = 11; // > 3660/365.25 ≈ 10,02 jaar — garandeert de MAX_RECURRENCE_DATES-klem per record
+    const excXml = Array.from({ length: recordCount }, (_, i) => {
+      const fromYear = 2000 + i * spacingYears;
+      const toYear = fromYear + spacingYears;
+      return `<Exception><DayWorking>0</DayWorking>` +
+        `<TimePeriod><FromDate>${fromYear}-01-01T00:00:00</FromDate><ToDate>${toYear}-01-01T00:00:00</ToDate></TimePeriod>` +
+        `<Type>6</Type><DaysOfWeek>127</DaysOfWeek><Period>1</Period></Exception>`;
+    }).join('');
+    const xml = `<?xml version="1.0"?>
+<Project>
+  <StartDate>2000-01-01T00:00:00</StartDate>
+  <FinishDate>2200-01-01T00:00:00</FinishDate>
+  <Calendars>
+    <Calendar>
+      <UID>1</UID>
+      <Name>BudgetKlem</Name>
+      <WeekDays>${[2, 3, 4, 5, 6].map((d) => `<WeekDay><DayType>${d}</DayType><DayWorking>1</DayWorking>` +
+        `<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>`).join('')}</WeekDays>
+      <Exceptions>${excXml}</Exceptions>
+    </Calendar>
+  </Calendars>
+</Project>`;
+
+    const fullRecords = Math.floor(MAX_TOTAL_HOLIDAY_SLOTS / MAX_RECURRENCE_DATES);
+    const remainderDays = MAX_TOTAL_HOLIDAY_SLOTS - fullRecords * MAX_RECURRENCE_DATES;
+    const expectedRecordsWithOutput = fullRecords + (remainderDays > 0 ? 1 : 0);
+
+    const start = Date.now();
+    const cal = readMSPDI(xml).calendar;
+    const elapsedMs = Date.now() - start;
+
+    assert(
+      cal.holidays.length === expectedRecordsWithOutput,
+      `T4 budget-klem-tijdens-opbouw: ${expectedRecordsWithOutput} holiday-bereiken (kreeg ${cal.holidays.length}) — ${recordCount - expectedRecordsWithOutput} records boven het budget droegen terecht niets bij`,
+    );
+    const totalDays = cal.holidays.reduce((sum, h) => {
+      const days = Math.round((new Date(h.endDate).getTime() - new Date(h.startDate).getTime()) / 86_400_000) + 1;
+      return sum + days;
+    }, 0);
+    assert(
+      totalDays === MAX_TOTAL_HOLIDAY_SLOTS,
+      `T4 budget-klem-tijdens-opbouw: totaal ${MAX_TOTAL_HOLIDAY_SLOTS} dagen gematerialiseerd (kreeg ${totalDays}) — het gedeelde HolidayBudget is exact opgebruikt, geen dag meer`,
+    );
+    assert(
+      elapsedMs < 1000,
+      `T4 budget-klem-tijdens-opbouw: readMSPDI(${recordCount} WEEKLY-records) < 1000ms (kreeg ${elapsedMs}ms) — de budget-klem moet TIJDENS de opbouw ingrijpen, niet pas erna (reviewer-DoS-repro: 445 KB XML → 5192 ms zonder deze klem)`,
+    );
+  }
+
+  // (g) SPEC-REVIEW-FIX (blokkerend, multiplier): bovengrens op het AANTAL `<Calendar>`-elementen
+  //     (`MAX_MSPDI_CALENDARS`) — spiegelt check-mpp-calendars.ts se stijl van exacte tellingen tegen
+  //     een hostile fixture. 1200 resource-kalenders (> MAX_MSPDI_CALENDARS=1024) → precies 1024
+  //     gematerialiseerd, de rest genegeerd, binnen een royale tijdslimiet.
+  {
+    const calCount = 1200;
+    const calsXml = Array.from({ length: calCount }, (_, i) =>
+      `<Calendar><UID>${i + 2}</UID><Name>Res${i}</Name></Calendar>`, // UID 1 = projectkalender, dus +2
+    ).join('');
+    const xml = `<?xml version="1.0"?>
+<Project>
+  <StartDate>2026-01-01T00:00:00</StartDate>
+  <FinishDate>2026-12-31T00:00:00</FinishDate>
+  <Calendars>
+    <Calendar><UID>1</UID><Name>Project</Name></Calendar>
+    ${calsXml}
+  </Calendars>
+</Project>`;
+    const start = Date.now();
+    const result = readMSPDI(xml);
+    const elapsedMs = Date.now() - start;
+    assert(
+      (result.resourceCalendars ?? []).length === 1024,
+      `T4 kalender-aantal-klem: 1024 resourcekalenders gematerialiseerd (kreeg ${(result.resourceCalendars ?? []).length}) van ${calCount} aangeboden`,
+    );
+    assert(elapsedMs < 1000, `T4 kalender-aantal-klem: readMSPDI(${calCount} <Calendar>-elementen) < 1000ms (kreeg ${elapsedMs}ms)`);
   }
 }
 
