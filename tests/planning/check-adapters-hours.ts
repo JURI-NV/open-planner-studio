@@ -97,6 +97,11 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
   eq(`${label} C.durationMinutes`, byName.get('Afbouw')?.time.durationMinutes, 600);
   const s1 = seq.find(s => tk.find(t => t.id === s.predecessorId)?.name === 'Metselen');
   eq(`${label} lag A→B lagMinutes`, s1?.lagMinutes, 240);
+  // Bugfix B1 (gebruikstest 2026-08): een minuut-precieze lag (240 min = 4u, geen heel aantal
+  // werkdagen) mag NOOIT via een uur→dag-afronding in `lagDays` lekken — dat gaf voorheen bij IFC
+  // `lagDays: 1` (ceil(4/8)) náást de correcte `lagMinutes: 240`, zichtbaar in de UI als misleidend
+  // "+1d" terwijl de CPM-datums (die lagMinutes gebruiken) gewoon klopten.
+  eq(`${label} lag A→B lagDays (geen uur→dag-afronding)`, s1?.lagDays, 0);
 }
 
 {

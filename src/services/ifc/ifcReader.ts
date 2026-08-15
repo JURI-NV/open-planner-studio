@@ -779,12 +779,21 @@ function extractSequences(
           // Ratio → procent; afronden tegen floating-point-ruis (0.33*100 = 33.000000000000004).
           lagPercent = Math.round(parseFloat(ratioMatch[1]) * 100 * 1e6) / 1e6;
         } else if (durMatch) {
-          lagDays = parseDurationDays(durMatch[1]);
+          // Bugfix B1 (gebruikstest 2026-08): EERST `lagMinutes` proberen (discriminator (c),
+          // subdayIo/mspdiReader-conventie "geen dag-afronding"). Een duur MET tijdcomponent
+          // (`PT2H0M0S`) is minuut-precies ⇒ `lagDays` blijft 0, nooit de grove uur→dag-ceil van
+          // `parseDurationDays` (die was bedoeld voor kale `PT8H`-duren van vóór fase 2.8b, zónder
+          // `lagMinutes`-veld — nu overbodig én fout: elke duur met een H/M/S-component parseert ook
+          // via `isoDurationToMinutes`, dus de ceil-tak werd altijd samen met een correcte
+          // `lagMinutes` geraakt en overschreef die stilzwijgend met een afgeronde dag (2u → +1d).
+          // Alleen een PUUR dag-duur (`P{d}D`, geen `T`) levert `isoDurationToMinutes === null` en
+          // valt terug op `parseDurationDays`.
           lagMinutes = isoDurationToMinutes(stripQuotes(durMatch[1])) ?? undefined;
+          lagDays = lagMinutes != null ? 0 : parseDurationDays(durMatch[1]);
         } else if (lagValue.startsWith("'")) {
-          // Ongetypte duur-string (soepel lezen van andermans bestanden).
-          lagDays = parseDurationDays(lagValue);
+          // Ongetypte duur-string (soepel lezen van andermans bestanden) — zelfde volgorde als hierboven.
           lagMinutes = isoDurationToMinutes(stripQuotes(lagValue)) ?? undefined;
+          lagDays = lagMinutes != null ? 0 : parseDurationDays(lagValue);
         } else {
           // Legacy-lay-out: de duur staat in arg 5.
           lagDays = parseDurationDays(lagEntity.args[4] || '');
@@ -1271,6 +1280,39 @@ function extractCalendarLibraryOrigin(
   return undefined;
 }
 
+/**
+ * Bugfix B2 (gebruikstest 2026-08) — expliciete `HoursPerDay` teruglezen uit het `OPS_Calendar`-
+ * pset (spiegel van `writeCalendarGenerationMeta`'s `needsHoursPerDayOverride`-tak). BEWUST
+ * losstaand van `extractCalendarGeneration`/`extractCalendarLibraryOrigin` — zelfde reden: een
+ * kalender met ALLEEN een `HoursPerDay`-afwijking (geen generation, geen libraryOrigin) mag 'm
+ * niet mislopen. Geen/corrupte property ⇒ `undefined` (fallback blijft de bestaande
+ * `workEndHour − workStartHour`-derivatie in `buildCalendarFromEntity`).
+ */
+function extractCalendarHoursPerDay(
+  calStepId: string,
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+): number | undefined {
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const objectRefs = parseRefs(rel.args[4] || '');
+    if (!objectRefs.includes(calStepId)) continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.Calendar) continue;
+
+    const props = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .filter((p): p is StepEntity => !!p && p.type === 'IFCPROPERTYSINGLEVALUE');
+
+    for (const prop of props) {
+      if (stripQuotes(prop.args[0] || '') !== 'HoursPerDay') continue;
+      const value = parseTypedValue(prop.args[2] || '');
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+    }
+  }
+  return undefined;
+}
+
 /** Bouwt een `WorkCalendar` uit een `IFCWORKCALENDAR`-entiteit: naam/omschrijving/feestdagen
  *  (bestaand), plus (fase 2.8a, §8.1) werkdagen/uren teruggelezen uit de
  *  `WorkingTimes`-keten (args[5] → IFCWORKTIME → RecurrencePattern-ref → IFCRECURRENCEPATTERN
@@ -1370,6 +1412,15 @@ function buildCalendarFromEntity(
   delete calendar.generation;
   calendar.generation = extractCalendarGeneration(cal.id, entities, entityMap);
   calendar.libraryOrigin = extractCalendarLibraryOrigin(cal.id, entities, entityMap);
+
+  // Bugfix B2 (gebruikstest 2026-08): expliciete `HoursPerDay` uit het `OPS_Calendar`-pset heeft
+  // voorrang boven de hierboven afgeleide `workEndHour − workStartHour` (die alleen een fallback
+  // is voor bestanden zonder deze pset-waarde — legacy/andere tools). Golden rule: ontbreekt de
+  // property, dan blijft de derivatie hierboven ongewijzigd staan. Voor uur-kalenders overschrijft
+  // de latere `promoteHourCalendar`-post-pass dit sowieso met de band-afgeleide waarde
+  // (`deriveHoursPerDay`), dus deze override raakt alleen dag-kalenders — precies de bedoeling.
+  const hpdOverride = extractCalendarHoursPerDay(cal.id, entities, entityMap);
+  if (hpdOverride != null) calendar.hoursPerDay = hpdOverride;
 
   return calendar;
 }

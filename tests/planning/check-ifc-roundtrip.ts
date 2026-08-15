@@ -57,7 +57,11 @@
 //   afwijking geven): ids regenereren (→ natuurlijke sleutels), project.calendarId→'cal-default',
 //   ASAP-constraint niet geschreven, shift FIRST→undefined,
 //   lagUnit WORKTIME→undefined, curve UNIFORM→undefined, progressMode RETAINED_LOGIC→undefined,
-//   completion→1 decimaal, dag-duren integer, hoursPerDay=eind−startuur, priority 500 niet geschreven.
+//   completion→1 decimaal, dag-duren integer, priority 500 niet geschreven.
+//   Bugfix B2 (gebruikstest 2026-08, GEDICHT): `hoursPerDay ≠ eind−startuur` (een impliciet
+//   lunchuur, zoals de echte standaard "Bouwkalender NL" 07-16/hoursPerDay 8) round-trippt nu via
+//   een `HoursPerDay`-property op het `OPS_Calendar`-pset i.p.v. stilzwijgend te normaliseren naar
+//   de afgeleide span — zie `projCal` hieronder (workEndHour 16, hoursPerDay 8: 16−7=9 ≠ 8).
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
@@ -87,9 +91,13 @@ function assert(cond: boolean, msg: string): void {
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
 // ── Kalenders ───────────────────────────────────────────────────────────────────────────────────
-// Dag-kalenders: hoursPerDay = workEndHour − workStartHour (anders normaliseert de reader het weg),
-// generation volledig (ruleSetId/region/breakChoice/jaren), niet-default shift, ≥1 holiday (anders
-// houdt de reader de default-NL-holidays van createDefaultCalendar).
+// Dag-kalenders: generation volledig (ruleSetId/region/breakChoice/jaren), niet-default shift,
+// ≥1 holiday (anders houdt de reader de default-NL-holidays van createDefaultCalendar).
+// `projCal` kiest BEWUST hoursPerDay 8 ≠ workEndHour−workStartHour (16−7=9, een impliciet lunchuur
+// — precies zoals de echte standaard "Bouwkalender NL") om bugfix B2 te bewaken: die afwijking
+// moet het `OPS_Calendar`-pset in (`HoursPerDay`) en round-trippen, niet stil normaliseren naar 9.
+// `libCal` blijft bewust GELIJK (8-8=... nee: 15−7=8, dus GEEN afwijking) om het byte-identieke
+// pad (geen extra pset-property nodig) mee te dekken.
 const PROJ_GEN: Required<CalendarGeneration> = {
   ruleSetId: 'NL', region: 'NB', breakChoice: 'zuid', generatedFromYear: 2025, generatedToYear: 2028,
 };
@@ -97,8 +105,8 @@ const LIB_GEN: Required<CalendarGeneration> = {
   ruleSetId: 'DE', region: 'BY', breakChoice: 'noord', generatedFromYear: 2024, generatedToYear: 2027,
 };
 const projCal = {
-  id: 'projcal', name: 'Projectkalender', description: 'Ma-vr 07-15 dag',
-  workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 15, hoursPerDay: 8,
+  id: 'projcal', name: 'Projectkalender', description: 'Ma-vr 07-16 dag (lunchuur)',
+  workDays: [1, 2, 3, 4, 5], workStartHour: 7, workEndHour: 16, hoursPerDay: 8,
   holidays: [
     { name: 'Kerst', startDate: '2026-12-25', endDate: '2026-12-26' },
     { name: 'Nieuwjaar', startDate: '2027-01-01', endDate: '2027-01-01' },

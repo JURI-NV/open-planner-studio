@@ -693,6 +693,15 @@ function writeCalendar(ctx: WriteContext, cal: WorkCalendar, ownerHistId: number
  * `OPS_StructureMeta`: `IFCPROPERTYSINGLEVALUE`s + `IFCRELDEFINESBYPROPERTIES`). Golden rule:
  * alleen geschreven wanneer `generation` bestaat — een letterlijke/legacy kalender (geen
  * `generation`) schrijft niets extra, dus bestaande bestanden blijven byte-identiek.
+ *
+ * Bugfix B2 (gebruikstest 2026-08): `HoursPerDay` idem golden-rule, alleen voor DAG-kalenders
+ * (`!cal.workTime` — uur-kalenders leiden hun `hoursPerDay` al correct af uit de banden, zie
+ * `deriveHoursPerDay`/`promoteHourCalendar` in `subdayIo.ts`, en die weg mag dit niet breken) en
+ * alleen wanneer de expliciete waarde AFWIJKT van wat de reader anders zou afleiden
+ * (`workEndHour − workStartHour`). Zonder die afwijking blijft de output ongewijzigd (byte-
+ * identiek); mét afwijking (bv. de standaard "Bouwkalender NL" 07-16 met een impliciet lunchuur,
+ * hoursPerDay 8 ≠ 16−7=9) overleeft de expliciete waarde nu de round-trip i.p.v. stilzwijgend te
+ * worden overschreven door de afgeleide span.
  */
 function writeCalendarGenerationMeta(
   ctx: WriteContext,
@@ -701,7 +710,9 @@ function writeCalendarGenerationMeta(
   ownerHistId: number,
 ): void {
   const gen = cal.generation;
-  if (!gen && !cal.libraryOrigin) return;
+  const derivedHoursPerDay = cal.workEndHour - cal.workStartHour;
+  const needsHoursPerDayOverride = !cal.workTime && cal.hoursPerDay !== derivedHoursPerDay;
+  if (!gen && !cal.libraryOrigin && !needsHoursPerDayOverride) return;
   const props: number[] = [];
   if (gen) {
     props.push(addLine(ctx, `_opscal_ruleset_${cal.id}`,
@@ -722,6 +733,10 @@ function writeCalendarGenerationMeta(
   if (cal.libraryOrigin) {
     props.push(addLine(ctx, `_opscal_lo_${cal.id}`,
       `IFCPROPERTYSINGLEVALUE('LibraryOrigin',$,IFCTEXT(${ifcStr(JSON.stringify(cal.libraryOrigin))}),$)`));
+  }
+  if (needsHoursPerDayOverride) {
+    props.push(addLine(ctx, `_opscal_hpd_${cal.id}`,
+      `IFCPROPERTYSINGLEVALUE('HoursPerDay',$,IFCREAL(${cal.hoursPerDay}),$)`));
   }
   const setId = addLine(ctx, `_pset_opscal_${cal.id}`,
     `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_opscal_' + cal.id))},#${ownerHistId},${ifcStr(PSET.Calendar)},$,(${props.map(i => `#${i}`).join(',')}))`);
