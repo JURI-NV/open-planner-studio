@@ -17,19 +17,26 @@ import {
   canonicalizeBands, clockToMinutes, getCalendarBands, hasNonAnchorTime, isSubDayMinutes,
   promoteHourCalendar, registerCalendarBands,
 } from '@/services/subdayIo';
-// T4 (MSPDI-uitzonderingssemantiek, spiegel van mppCalendars.ts's T3) — hergebruikt T3's
-// recurrentie-expansie (`expandRecurrence`) en precedentie-/invariant-motor (`resolveContributions`)
-// rechtstreeks i.p.v. een tweede expansie te bouwen (plan-§T4). `RECURRENCE_TYPES`/`RELATIVE_MAP`/
+// T4 (MSPDI-uitzonderingssemantiek, spiegel van T3) — hergebruikt T3's recurrentie-expansie
+// (`expandRecurrence`) en precedentie-/invariant-motor (`resolveContributions`) rechtstreeks i.p.v.
+// een tweede expansie te bouwen (plan-§T4). `RECURRENCE_TYPES`/`RELATIVE_MAP`/
 // `RECURRENCE_PRECEDENCE_ORDER` zijn LETTERLIJK dezelfde codetabellen als MSPDI's eigen
 // `<Type>`-element gebruikt (geverifieerd tegen `org.mpxj.mspdi.MSPDIReader`'s eigen
 // `RECURRENCE_TYPES`/`RELATIVE_MAP` — byte-voor-byte identiek aan de MPP-tabellen). `MAX_CALENDAR_
 // EXCEPTIONS`/`MAX_HOLIDAY_RANGE_DAYS` zijn dezelfde hardingsklemmen als de MPP-kant, hier hergebruikt
 // i.p.v. een eigen, mogelijk afwijkende marge te verzinnen.
+//
+// T3-CHUNK-GRENS-FIX (coördinatiepunt): dit importeert bewust rechtstreeks uit de FORMAAT-NEUTRALE
+// bladmodule `@/services/calendarRecurrence` — NIET uit de MPP-kalendermodule (die her-exporteert
+// dezelfde namen alleen nog backward-compatible voor bestaande callers, zie de toelichting daar). Een
+// statische import uit de MPP-lezermodule zou de hele MPP-parser (CFB + fieldmaps) de main-chunk in
+// trekken (zie `tests/planning/check-mpp-chunk-boundary.ts`, T11) — dat was precies deze module se
+// eerdere fout, hier gecorrigeerd.
 import {
   expandRecurrence, resolveContributions, newHolidayBudget, RECURRENCE_TYPES, RELATIVE_MAP,
   RECURRENCE_PRECEDENCE_ORDER, MAX_CALENDAR_EXCEPTIONS, MAX_HOLIDAY_RANGE_DAYS,
-} from '@/services/mpp/mppCalendars';
-import type { RecurrenceSpec, RecordContribution, HolidayBudget } from '@/services/mpp/mppCalendars';
+} from '@/services/calendarRecurrence';
+import type { RecurrenceSpec, RecordContribution, HolidayBudget } from '@/services/calendarRecurrence';
 
 /** Synthetisch anker dat de DAG-schrijver op date-only datetimes plakt (§7.3). */
 const MSP_TIME_ANCHOR = '08:00:00';
