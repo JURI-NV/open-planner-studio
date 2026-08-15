@@ -9,7 +9,8 @@ comes along, where the limits are, and what happens when you save a file like th
 
 - How to open a `.mpp` file, and which paths support it.
 - What exactly comes along: tasks, relations, calendars, resources and assignments.
-- A known limitation around yearly recurring holidays.
+- How accurate the imported start and finish dates are, and which tasks deliberately deviate.
+- Two known calendar limitations: yearly recurring holidays and work weeks.
 - What deliberately does not come along, and what you get for an unsupported file.
 - What happens when you save or re-export an opened `.mpp` file.
 
@@ -49,7 +50,29 @@ You open a `.mpp` file the exact same way as any other project file:
 The file lands in a **new document** — like any import — unless the active tab is still empty and
 unchanged.
 
-## Calendar exceptions: a known limitation
+## Date accuracy: what matches to the minute, and what doesn't
+
+Open Planner Studio schedules an opened `.mpp` file using the same calendar logic as MS Project
+itself (working days, working hours per day, days off, and — for an hour-based project — the exact
+clock time). For a regular task, you'll find the same start and finish date as in MS Project,
+down to the minute for an hour-based project.
+
+One group of tasks is a deliberate **exception**: tasks with a **split**, **leveled**, or otherwise
+**resource-driven** schedule (manual leveling, a "leveling delay", or resource contouring/work
+spread out over the task's span). MS Project can stretch such a task over a longer period than its
+duration alone would require — for example, a 3-day task that, with a pause in the middle, spans 5
+calendar days. Open Planner Studio doesn't yet distinguish this and schedules such a task as one
+**continuous** span: the duration is correct, but the window (and therefore possibly the finish
+date) can differ from what you see in MS Project.
+
+You'll notice this when opening: if the file contains such tasks, a one-time notification shows
+the count. If you need to know exactly which tasks are affected and how they're built up in MS
+Project (the breaks, the leveling delay), open the file in MS Project itself — that information
+isn't silently lost from the source file when reading it, Open Planner Studio simply ignores it
+when scheduling. Editable task splitting and resource leveling as a feature aren't part of this
+stage; the notification and this guide are where you can look this up.
+
+## Calendar exceptions and work weeks: two known limitations
 
 Concrete, one-off exception dates in a calendar (a specific day off on a fixed date) come along
 just fine. What does **not** come along are yearly recurring exceptions with a repeat rule — for
@@ -62,6 +85,13 @@ This isn't specific to the `.mpp` reader: the existing MSPDI import (MS Project 
 limitation. If you need the full calendar, check it after opening under
 **Planning → Calendar** and add any missing future holidays by hand if needed — see the guide
 [Calendars & hour planning](docs://gids-kalenders-uren).
+
+Open Planner Studio also doesn't read **work weeks** — MS Project's way of assigning an alternate
+weekly pattern to a calendar for a given date range (for example, "starting July 1st this team
+also works Saturdays"). Only the standard weekly pattern and the individual exception dates come
+along; a temporary alternate weekly pattern doesn't. In practice this affects few files — most MS
+Project calendars don't use work weeks — but if you know a calendar has one, double-check it after
+opening.
 
 ## What doesn't come along
 

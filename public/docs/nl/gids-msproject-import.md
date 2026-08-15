@@ -10,7 +10,8 @@ opslaat.
 
 - Hoe je een `.mpp`-bestand opent, en via welke wegen dat werkt.
 - Wat er precies meekomt: taken, relaties, kalenders, resources en toewijzingen.
-- Een bekende beperking bij jaarlijks terugkerende feestdagen.
+- Hoe nauwkeurig de ingelezen start- en einddatums zijn, en welke taken daar bewust van afwijken.
+- Twee bekende beperkingen bij kalenders: jaarlijks terugkerende feestdagen en werkweken.
 - Wat er bewust niet meekomt, en wat je krijgt bij een niet-ondersteund bestand.
 - Wat er gebeurt als je een geopend `.mpp`-bestand opslaat of terugexporteert.
 
@@ -49,7 +50,30 @@ Een `.mpp`-bestand open je op precies dezelfde manieren als elk ander projectbes
 Het bestand komt — net als bij elke import — in een **nieuw document** terecht, tenzij het actieve
 tabblad nog leeg en ongewijzigd is.
 
-## Kalenderuitzonderingen: een bekende beperking
+## Datumgetrouwheid: wat tot op de minuut overkomt, en wat niet
+
+Open Planner Studio rekent een geopend `.mpp`-bestand door met dezelfde kalenderlogica als MS
+Project zelf (werkdagen, werktijden per dag, vrije dagen, en — bij een urenproject — de precieze
+kloktijd). Voor een gewone taak vind je daardoor dezelfde start- en einddatum terug als in MS
+Project, tot op de minuut bij een urenproject.
+
+Eén groep taken is daar bewust een **uitzondering** op: taken met een **onderbroken**, **genivelleerde**
+of anderszins **resource-gestuurde** planning (handmatige nivellering, een "leveling delay", of
+resource-contouring/uitgesmeerd werk over de looptijd van de taak). MS Project kan zo'n taak over
+een langere periode uitsmeren dan de duur op zichzelf zou vragen — bijvoorbeeld een taak van 3 dagen
+die, met een pauze ertussen, over 5 kalenderdagen loopt. Open Planner Studio kent dit onderscheid
+nog niet en rekent zo'n taak **aaneengesloten** door: de duur klopt, maar het venster (en dus
+mogelijk de einddatum) kan afwijken van wat je in MS Project ziet.
+
+Je merkt dit bij het openen: bevat het bestand zulke taken, dan verschijnt er één keer een melding
+met het aantal. Wil je precies weten welke taken het betreft en hoe ze in MS Project zijn
+opgebouwd (de onderbrekingen, de nivelleringsvertraging), open het bestand dan in MS Project zelf —
+die informatie gaat bij het lezen niet stilzwijgend verloren uit het bronbestand, Open Planner
+Studio negeert 'm alleen bij het doorrekenen. Taak-splitsen en resource-nivellering als
+bewerkbare functie staan niet in deze etappe; zie de melding en deze gids als de plek waar je dat
+kunt navragen.
+
+## Kalenderuitzonderingen en werkweken: twee bekende beperkingen
 
 Concrete, eenmalige uitzonderingsdatums in een kalender (een specifieke vrije dag op een vaste
 datum) komen gewoon mee. Wat **niet** meekomt, zijn jaarlijks terugkerende uitzonderingen mét een
@@ -63,6 +87,13 @@ Dit is geen incident van de `.mpp`-lezer: de bestaande MSPDI-import (MS Project 
 beperking. Wil je zeker zijn van de volledige kalender, controleer die dan na het openen bij
 **Planning → Kalender** en vul ontbrekende toekomstige feestdagen zo nodig handmatig aan — zie de
 gids [Kalenders & uren-planning](docs://gids-kalenders-uren).
+
+Daarnaast leest Open Planner Studio geen **werkweken** — in MS Project een manier om voor een
+bepaald datumbereik een afwijkend weekpatroon aan een kalender toe te kennen (bijvoorbeeld "vanaf
+1 juli werkt dit team ook op zaterdag"). Alleen het standaard weekpatroon en de losse
+uitzonderingsdagen komen mee; een tijdelijk afwijkend weekpatroon niet. Dit raakt in de praktijk
+weinig bestanden — de meeste MS Project-kalenders gebruiken geen werkweken — maar controleer een
+kalender met een bekend afwijkend patroon voor de zekerheid na het openen.
 
 ## Wat niet meekomt
 
