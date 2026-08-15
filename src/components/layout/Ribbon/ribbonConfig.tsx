@@ -21,6 +21,7 @@ import {
   saveShowHistogram, saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
 } from '@/utils/settingsStore';
 import type { RibbonTab } from '@/state/slices/types';
+import { buildImportLabels } from '@/i18n/importLabels';
 import {
   BaselinesProgressGroupContent, MilestoneDropdown, TemplatesDropdown, RecentFilesDropdown,
   ExportDropdown, ResourceAssignDropdown, LayoutGroupContent, PresentationGroupContent,
@@ -261,7 +262,7 @@ const fileGroup: RibbonGroupSpec = {
           use: () => {
             const openFile = useAppStore(s => s.openFile);
             const { t: tCommon } = useTranslation('common');
-            return { onClick: () => { void openFile({ importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') }); } };
+            return { onClick: () => { void openFile(buildImportLabels(tCommon)); } };
           },
         },
       ],

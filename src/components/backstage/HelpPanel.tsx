@@ -11,6 +11,7 @@ import { LANGUAGE_LABELS } from '@/i18n/config';
 import { renderMiniMarkdown, extractHeadings } from '@/utils/miniMarkdown';
 import { fetchTextAsset } from '@/utils/textAsset';
 import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
+import { buildImportLabels } from '@/i18n/importLabels';
 import './HelpPanel.css';
 
 // De documentatietaal wordt persistent los van de UI-taal bewaard, zodat een gebruiker de docs in
@@ -170,7 +171,7 @@ export function HelpPanel() {
       const res = await fetch(`${import.meta.env.BASE_URL}examples/${file}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
-      openExampleFromString(content, file, { importedProject: tCommon('project.imported') });
+      openExampleFromString(content, file, buildImportLabels(tCommon));
       // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): zelfde
       // volgorde als Backstage → Voorbeelden (`ExamplesSection.handleOpen`). Deze aanroeper kent
       // alleen de bestandsnaam (geen manifest-`category`) — de showcase-bestanden dragen allemaal het

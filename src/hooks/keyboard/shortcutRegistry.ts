@@ -34,6 +34,7 @@ import { deleteTasksBulk } from '@/state/taskBulkActions';
 import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
 import { computeScrollToDate } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
+import { buildImportLabels } from '@/i18n/importLabels';
 import { saveShowHistogram } from '@/utils/settingsStore';
 
 export type ShortcutCategory = 'file' | 'edit' | 'structure' | 'view' | 'nav';
@@ -140,7 +141,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: 'o', mod: true },
     category: 'file',
     labelKey: 'menu:ribbon.open',
-    run: (store) => { void store.openFile({ importedProject: i18n.t('project.imported', { ns: 'common' }), unassignedResource: i18n.t('project.unassignedResource', { ns: 'common' }) }); },
+    run: (store) => { void store.openFile(buildImportLabels((key) => i18n.t(key, { ns: 'common' }))); },
   },
   {
     id: 'file.newProject',

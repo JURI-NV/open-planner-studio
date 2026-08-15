@@ -18,6 +18,8 @@ import type { ExtensionImporter } from '@/state/slices/extensionSlice';
 import { supportsHandles } from '@/services/fileAccess';
 import { fromExtImportResult } from '@/extensions/extMappers';
 import { applyDemoLibraryToShowcaseProject } from '@/state/demoLibraryShowcase';
+import { buildImportLabels } from '@/i18n/importLabels';
+import type { ImportLabels } from '@/services/importTypes';
 import './Backstage.css';
 
 export function Backstage() {
@@ -66,7 +68,7 @@ export function Backstage() {
 
         {/* Actie-items: triggeren actie en sluiten backstage */}
         <ActionItem icon={<FileText size={14} />} label={tMenu('ribbon.new')} onClick={() => { handleNewProject(); closeBackstage(); }} />
-        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(tCommon('project.imported'), tCommon('project.unassignedResource')); closeBackstage(); }} />
+        <ActionItem icon={<FolderOpen size={14} />} label={tMenu('ribbon.open')} onClick={() => { handleOpen(buildImportLabels(tCommon)); closeBackstage(); }} />
         <NavItem icon={<Clock size={14} />} label={tMenu('backstage.recent')} active={section === 'recent'} onClick={() => goTo('recent')} />
         {/* data-tour-anchor (fase 2.10, onderdeel 3, tourstap 6): voorbeelden-navitem. */}
         <NavItem icon={<BookOpen size={14} />} label={tMenu('backstage.examples')} active={section === 'examples'} onClick={() => goTo('examples')} tourAnchor="backstage-examples" />
@@ -166,9 +168,9 @@ function handleNewProject() {
   useAppStore.getState().setUI({ showNewProjectDialog: true });
 }
 
-// `importedProject`/`unassignedResource` — de store-laag heeft geen `t(...)`; zie ImportLabels.
-function handleOpen(importedProject: string, unassignedResource: string) {
-  void useAppStore.getState().openFile({ importedProject, unassignedResource });
+// `labels` — de store-laag heeft geen `t(...)`; zie ImportLabels/buildImportLabels.
+function handleOpen(labels: ImportLabels) {
+  void useAppStore.getState().openFile(labels);
 }
 
 function handleSave() {
@@ -205,7 +207,7 @@ function RecentSection() {
               key={e.id}
               className="backstage-recent-item"
               onClick={() => {
-                void openRecentFile(e.id, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
+                void openRecentFile(e.id, buildImportLabels(tCommon));
                 setUI({ activeRibbonTab: 'start' });
               }}
             >
@@ -265,7 +267,7 @@ function ExamplesSection() {
       const res = await fetch(`${import.meta.env.BASE_URL}examples/${ex.file}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const content = await res.text();
-      openExampleFromString(content, ex.name, { importedProject: tCommon('project.imported') });
+      openExampleFromString(content, ex.name, buildImportLabels(tCommon));
       // Showcase-voorbeelden delen één demo-resourcebibliotheek (issue #19, user-verzoek): NA het
       // laden (openExampleFromString laadt bewust LOS), VOOR runCPM.
       if (ex.category === 'showcase') applyDemoLibraryToShowcaseProject();

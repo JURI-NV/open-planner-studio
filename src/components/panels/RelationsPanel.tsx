@@ -9,6 +9,7 @@ import { SequenceLagInput } from '@/components/common/SequenceLagInput';
 import { ExternalLinkDialog } from '@/components/dialogs/ExternalLinkDialog';
 import { hasSummaryEndpoint } from '@/state/relationRules';
 import { AlertTriangle, Plus, Trash2, Zap, Link2, RefreshCw } from 'lucide-react';
+import { buildImportLabels } from '@/i18n/importLabels';
 
 type SortKey = 'predecessor' | 'successor' | 'type' | 'lag' | 'driving' | 'freeFloat';
 
@@ -152,7 +153,7 @@ export function RelationsPanel() {
           {hasExternal && (
             <button
               onClick={() => { void (async () => {
-                const r = await refreshAllExternalAnchors({ importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
+                const r = await refreshAllExternalAnchors(buildImportLabels(tCommon));
                 setExtStatus(r.sources === 0
                   ? t('externalLinks.noSourcesToast')
                   : t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
@@ -301,7 +302,7 @@ export function RelationsPanel() {
                   {link.sourceRef.filePath && (
                     <button title={t('externalLinks.refresh')} style={{ color: 'var(--theme-accent)' }}
                       onClick={() => { void (async () => {
-                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!, { importedProject: tCommon('project.imported'), unassignedResource: tCommon('project.unassignedResource') });
+                        const r = await refreshExternalAnchorsFrom(link.sourceRef.filePath!, buildImportLabels(tCommon));
                         if (r) setExtStatus(t('externalLinks.refreshedToast', { refreshed: r.refreshed, missing: r.missing }));
                         else setExtStatus(t('externalLinks.notAvailableWeb'));
                       })(); }}>
