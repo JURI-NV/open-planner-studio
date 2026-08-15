@@ -18,7 +18,7 @@ import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
-import { hasSummaryEndpoint } from '@/state/relationRules';
+import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
  *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad).
@@ -168,18 +168,26 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // IFCPanel-plakroute — anders blijven statusbalk/histogram leeg tot de gebruiker F5 drukt (A5).
       if (opts.recompute) get().runCPM();
       if (opts.fit) get().requestFitToProject(); // Issue #16: canvas op het HELE project passen.
-      // Spookrelaties uit het bestand (spec 2026-08-14): relaties met een verzameltaak als eindpunt
-      // worden door de solver weggegooid. Ze worden bewust NIET gefilterd — dat zou logica uit het
-      // bronbestand vernietigen bij open + opslaan — maar wel één keer gemeld, want anders merkt
-      // niemand die een P6/MSP-plan importeert dat er logica stilvalt.
-      const byId = new Map(parsed.tasks.map((t) => [t.id, t]));
-      const ineffective = parsed.sequences.filter((seq) => hasSummaryEndpoint((id) => byId.get(id), seq)).length;
-      if (ineffective > 0) {
+      // Relaties die de solver ECHT niet kon meerekenen (eigenaarsbesluit 2026-08-15): een
+      // verzameltaak-eindpunt op zich is sinds `expandSummaryRelations` GEEN reden meer om te
+      // melden — die relaties rekenen gewoon mee. Wat overblijft is de voorouder-guard (een taak
+      // gekoppeld aan zijn eigen (voor)ouder-samenvatting), een lege/kapotte tak, of de
+      // MAX_EXPANDED_RELATIONS-klem — stuk voor stuk gevallen waarin de relatie écht geen effect
+      // heeft. Rechtstreeks `expandSummaryRelations` aanroepen i.p.v. op `cpmResult.
+      // droppedSequenceIds` leunen: die is alleen gevuld ná `runCPM`, en `loadState` (extensie-
+      // imports, devBridge) draait die BEWUST NIET (`opts.recompute: false`, zie `loadState` in
+      // `projectSlice.ts`) — de pure expansiefunctie geeft hier hetzelfde antwoord, ongeacht of er
+      // straks nog wordt doorgerekend, en zonder de timing-afhankelijkheid van `cpmResult`. Bewust
+      // NIET gefilterd uit het document — dat zou logica uit het bronbestand vernietigen bij open +
+      // opslaan — maar wel één keer gemeld, want anders merkt niemand die een P6/MSP-plan importeert
+      // dat er logica stilvalt.
+      const dropped = expandSummaryRelations(parsed.tasks, parsed.sequences).droppedSequenceIds.length;
+      if (dropped > 0) {
         get().notify({
           severity: 'info',
-          messageKey: 'notifications.summaryRelationsIgnored',
-          params: { total: ineffective },
-          dedupeKey: 'summary-relations-ignored',
+          messageKey: 'notifications.summaryRelationsDropped',
+          params: { total: dropped },
+          dedupeKey: 'summary-relations-dropped',
         });
       }
       emitExtensionEvent(HOST_EVENTS.projectLoaded, {

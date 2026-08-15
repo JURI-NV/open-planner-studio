@@ -7,7 +7,6 @@ import { Sequence, SequenceType, SEQUENCE_TYPE_OPTIONS } from '@/types/sequence'
 import { resolveEffectiveLagDays } from '@/engine/scheduler/CPMSolver';
 import { SequenceLagInput } from '@/components/common/SequenceLagInput';
 import { ExternalLinkDialog } from '@/components/dialogs/ExternalLinkDialog';
-import { hasSummaryEndpoint } from '@/state/relationRules';
 import { AlertTriangle, Plus, Trash2, Zap, Link2, RefreshCw } from 'lucide-react';
 import { buildImportLabels } from '@/i18n/importLabels';
 
@@ -55,6 +54,17 @@ export function RelationsPanel() {
     () => new Set(hasCalc ? cpmResult!.truncatedLeadSequenceIds : []),
     [hasCalc, cpmResult],
   );
+  // Relaties die de solver ECHT niet kon meerekenen (voorouder-guard, lege/kapotte tak, of de
+  // MAX_EXPANDED_RELATIONS-klem in `expandSummaryRelations`) — `droppedSequenceIds` draagt al
+  // ORIGINELE relatie-ids (`foldSyntheticSequenceIds` in `solveProject` vouwt de synthetische
+  // `::exp-N`-ids terug vóórdat het resultaat de store bereikt), dus een rechtstreekse `seq.id`-
+  // vergelijking hier is correct. Vervangt de oude `hasSummaryEndpoint`-markering (elke relatie MET
+  // een verzameltaak-eindpunt), die sinds het eigenaarsbesluit van 2026-08-15 niet meer klopt: zo'n
+  // relatie rekent normaal mee, tenzij de solver hem daadwerkelijk moest droppen.
+  const droppedSet = useMemo(
+    () => new Set(hasCalc ? cpmResult!.droppedSequenceIds ?? [] : []),
+    [hasCalc, cpmResult],
+  );
 
   const label = (task: Task | undefined) =>
     task ? `${task.wbsCode ? task.wbsCode + ' ' : ''}${task.name}` : '?';
@@ -65,10 +75,9 @@ export function RelationsPanel() {
     const effLag = pred ? resolveEffectiveLagDays(seq, pred) : 0;
     const predDur = pred && !pred.isMilestone ? pred.time.scheduleDuration : 0;
     const warnings: string[] = [];
-    // Spookrelatie: de solver krijgt alleen bladtaken, dus een verzameltaak-eindpunt betekent dat
-    // deze relatie geen enkel effect heeft. Afgeleid en niet opgeslagen, zodat een bladtaak die
-    // later een kind krijgt vanzelf meegaat.
-    if (hasSummaryEndpoint((id) => taskById.get(id), seq)) warnings.push(t('relations.warnSummaryEndpoint'));
+    // Écht gedropt door de solver (voorouder-guard, lege/kapotte tak, of de budgetklem) — niet
+    // langer "elke relatie met een verzameltaak-eindpunt", zie `droppedSet` hierboven.
+    if (droppedSet.has(seq.id)) warnings.push(t('relations.warnDropped'));
     if (truncatedSet.has(seq.id)) warnings.push(t('relations.warnTruncatedLead'));
     if (effLag < 0 && Math.abs(effLag) > predDur) warnings.push(t('relations.warnLeadExceedsDuration'));
     return {

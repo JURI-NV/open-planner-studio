@@ -169,8 +169,8 @@ export type NotificationMessageKey =
   | 'notifications.templateSaved'
   | 'notifications.relationCreated'
   | 'notifications.relationDuplicate'
-  | 'notifications.relationSummaryEndpoint'
-  | 'notifications.summaryRelationsIgnored'
+  | 'notifications.relationAncestorEndpoint'
+  | 'notifications.summaryRelationsDropped'
   | 'notifications.mppLegacy'
   | 'notifications.mppEncrypted';
 

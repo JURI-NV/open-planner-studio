@@ -7,7 +7,10 @@ import type { AppSlice } from './types';
 export interface SequenceSlice {
   sequences: Sequence[];
   /** Retourneert het nieuwe id, of `null` wanneer de relatie geweigerd is (duplicaat, zelfrelatie,
-   *  onbekende taak, of een verzameltaak als eindpunt — zie `relationRules.ts`). */
+   *  onbekende taak, of een taak gekoppeld aan zijn eigen (voor)ouder-samenvatting — zie
+   *  `relationRules.ts`). Een gewoon verzameltaak-eindpunt is sinds 2026-08-15 GEEN weigergrond
+   *  meer: `runCPM`/`solveProject` rekenen zo'n relatie via `expandSummaryRelations` door naar de
+   *  onderliggende bladtaken. */
   addSequence: (seq: Omit<Sequence, 'id'>) => string | null;
   /** Wijzig type/lag van een bestaande relatie. Geeft false terug wanneer de wijziging een
    *  duplicaat (zelfde voorganger+opvolger+type) zou opleveren en daarom genegeerd is. */
