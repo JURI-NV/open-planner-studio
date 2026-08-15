@@ -90,7 +90,11 @@ for (const s of ['2d', '-1d', '3ed', '50%', '-25e%', '2u', '-1u', '3eu', '1.5u']
 const S = () => useAppStore.getState();
 const idA = S().addTask({ name: 'A' });
 const idB = S().addTask({ name: 'B' });
-const seqId = S().addSequence({ predecessorId: idA, successorId: idB, type: 'FINISH_START', lagDays: 0 });
+// `addSequence` kan sinds de verzameltaak-eindpunt-weigering (main, 2026-08) `null` retourneren;
+// een blad→blad-relatie mag nooit geweigerd worden, dus pin dat hier vóór de rest erop leunt.
+const seqIdOrNull = S().addSequence({ predecessorId: idA, successorId: idB, type: 'FINISH_START', lagDays: 0 });
+eq('27a addSequence levert een id voor blad→blad (geen weigering)', seqIdOrNull !== null, true);
+const seqId = seqIdOrNull!;
 
 const applied1 = S().updateSequence(seqId, parseLagInput('2u')!);
 eq('28 updateSequence("2u") retourneert true', applied1, true);

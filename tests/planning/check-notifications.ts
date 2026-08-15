@@ -269,67 +269,87 @@ createRelationWithFeedback(rA, rB);
 eq('72 herhaald duplicaat vouwt samen', N().length, 2);
 eq('73 en telt', N()[1]?.count, 2);
 
-// Verzameltaak-eindpunt (spec 2026-08-14): dezelfde weigeringsweg als het duplicaat hierboven,
-// maar met een ANDERE reden — `REJECTION_MESSAGE['summary-endpoint']` zou zonder deze check
-// onopgemerkt naar de duplicaat-sleutel kunnen wijzen en de gebruiker "relatie bestaat al" tonen
-// voor een relatie die de solver toch al als spookrelatie zou weggooien.
+// Verzameltaak-eindpunt (eigenaarsbesluit 2026-08-15): dit is het OMGEKEERDE regressie-anker van
+// vóór het besluit — toen weigerde `addSequence` dit stil (spec 2026-08-14). Sinds
+// `expandSummaryRelations` zulke relaties naar bladtaken doorrekent (MS Project-semantiek), MOET
+// dit gewoon slagen: de aanmaak-melding komt terug, geen weigering.
+// Mutatiebewijs (uitgevoerd): met de oude `relationVerdict` (die `summary-endpoint` nog weigerde)
+// gaf dit `rel3 === null` en `messageKey === 'notifications.relationSummaryEndpoint'` — precies het
+// omgekeerde van wat hieronder gepind staat. Zie ook `check-relation-rules.ts` voor de bladmodule-kant.
 clearAll();
 S().newProject();
 const rFase = S().addTask({ name: 'Fase' });
-S().addTask({ name: 'Kind', parentId: rFase });
+const rKind = S().addTask({ name: 'Kind', parentId: rFase });
 const rLos = S().addTask({ name: 'Los' });
 const rel3 = createRelationWithFeedback(rFase, rLos);
-eq('74 een verzameltaak-eindpunt levert geen id op', rel3, null);
-eq('75 en geen relatie erbij', S().sequences.length, 0);
-eq('76 maar wél een melding', N().length, 1);
-eq('77 met de verzameltaak-sleutel', N()[0]?.messageKey, 'notifications.relationSummaryEndpoint');
+truthy('74 een verzameltaak-eindpunt levert nu WEL een id op (2026-08-15 eigenaarsbesluit)',
+  !!rel3 && S().sequences.some(q => q.id === rel3));
+eq('75 en meldt zich als gewone aanmaak, geen weigering', N().length, 1);
+eq('76 met de aanmaak-sleutel', N()[0]?.messageKey, 'notifications.relationCreated');
 
-// ── 10. Laadmelding voor bestaande spookrelaties (spec 2026-08-14) ─────────
-// `applyLoadedProject` (fileSlice.ts) filtert een geladen bestand NIET op relaties met een
-// verzameltaak-eindpunt (dat zou logica uit het bronbestand vernietigen), maar meldt ze wél één
-// keer — dit is de HELE gebruikerzichtbare kant van "bestaande spookrelaties blijven behouden",
-// juist het verhaal voor iemand die een P6/MSP-plan importeert. Niets bewaakte dit vóór deze check
-// (`grep -rn summaryRelationsIgnored tests/` gaf nul treffers): een verplaatst notify-blok, een
-// verwisselde bron (`s.sequences` i.p.v. `parsed.sequences`) of een verkeerd getikte messageKey
-// zou de suite groen laten terwijl de importeur niets meer ziet.
+// Alleen een relatie tussen een taak en zijn EIGEN (voor)ouder-samenvatting blijft geweigerd — dat
+// zou `expandSummaryRelations` een directe cyclus laten genereren (A→B én B→A).
+clearAll();
+const rel4 = createRelationWithFeedback(rKind, rFase);
+eq('77 een voorouder-relatie levert geen id op', rel4, null);
+eq('78 en geen extra relatie erbij (nog steeds precies de ene van hierboven)', S().sequences.length, 1);
+eq('79 maar wél een melding', N().length, 1);
+eq('80 met de voorouder-sleutel', N()[0]?.messageKey, 'notifications.relationAncestorEndpoint');
+
+// ── 10. Laadmelding voor relaties die de solver écht moet droppen (eigenaarsbesluit 2026-08-15) ──
+// `applyLoadedProject` (fileSlice.ts) filtert een geladen bestand NIET op relaties die
+// `expandSummaryRelations` niet naar bladtaken kan doorrekenen (dat zou logica uit het bronbestand
+// vernietigen), maar meldt ze wél één keer. Een gewone verzameltaak-relatie hoort HIER niet meer in
+// mee te tellen (die rekent gewoon door) — alleen een ECHTE drop (hier: de voorouder-guard) telt.
+// Mutatiebewijs (uitgevoerd): met de oude `hasSummaryEndpoint`-scan telde `seq-summary-ok` hieronder
+// óók mee (total: 2 i.p.v. 1) — precies het verschil dat dit blok bewaakt.
 clearAll();
 S().newProject();
 const lFase = S().addTask({ name: 'Fase' });
-S().addTask({ name: 'Kind', parentId: lFase });
-const lLos = S().addTask({ name: 'Los' });
+const lKind = S().addTask({ name: 'Kind', parentId: lFase });
+const lOther = S().addTask({ name: 'Los A' });
+const lLos = S().addTask({ name: 'Los B' });
 const lProject = S().project;
 const lTasks = S().tasks;
 clearAll();
 // `loadState` is de in-place-load-route (geen open-pad) en loopt, net als de drie open-paden,
 // door `applyLoadedProject` — de gedeelde implementatie die de melding pusht (fileSlice.ts).
+// `loadState` draait BEWUST geen `runCPM` (`recompute: false`), dus deze melding mag niet op
+// `cpmResult` leunen — zie de toelichting bij `expandSummaryRelations` in fileSlice.ts.
 S().loadState({
   project: lProject,
   calendar: createDefaultCalendar(),
   tasks: lTasks,
-  // Eén spookrelatie (Fase heeft een kind, dus is een verzameltaak) + één gewone relatie, om te
-  // bewijzen dat de `total`-parameter TELT in plaats van alleen "is er één" te signaleren.
   sequences: [
-    { id: 'seq-spook', predecessorId: lFase, successorId: lLos, type: 'FINISH_START', lagDays: 0 } as Sequence,
+    // Écht gedropt: Kind is de EIGEN bladafstammeling van zijn ouder Fase — de voorouder-guard.
+    { id: 'seq-ancestor', predecessorId: lKind, successorId: lFase, type: 'FINISH_START', lagDays: 0 } as Sequence,
+    // NIET gedropt: een gewone verzameltaak-relatie (Fase als voorganger) rekent door naar Kind.
+    { id: 'seq-summary-ok', predecessorId: lFase, successorId: lLos, type: 'FINISH_START', lagDays: 0 } as Sequence,
+    // NIET gedropt: een doodgewone blad-naar-blad relatie.
+    { id: 'seq-normal', predecessorId: lOther, successorId: lLos, type: 'FINISH_START', lagDays: 0 } as Sequence,
   ],
   resources: [],
   assignments: [],
 });
-eq('78 loadState met een spookrelatie meldt zich precies één keer', N().length, 1);
-eq('79 als info (geen fout — het bestand blijft geldig)', N()[0]?.severity, 'info');
-eq('80 met de spookrelatie-laadsleutel', N()[0]?.messageKey, 'notifications.summaryRelationsIgnored');
-eq('81 met het aantal spookrelaties als parameter', N()[0]?.params, { total: 1 });
+eq('81 loadState met precies één écht gedropte relatie meldt zich precies één keer', N().length, 1);
+eq('82 als info (geen fout — het bestand blijft geldig)', N()[0]?.severity, 'info');
+eq('83 met de drop-laadsleutel', N()[0]?.messageKey, 'notifications.summaryRelationsDropped');
+eq('84 met het aantal ECHT gedropte relaties (niet de gewone verzameltaak-relatie)', N()[0]?.params, { total: 1 });
 
-// Geen enkele spookrelatie in het bestand ⇒ geen melding (geen ruis bij een gezond bestand).
+// Geen enkele écht gedropte relatie in het bestand ⇒ geen melding (geen ruis bij een gezond
+// bestand) — óók niet als het bestand wél een (nu legale) verzameltaak-relatie bevat.
 clearAll();
 S().loadState({
   project: lProject,
   calendar: createDefaultCalendar(),
   tasks: lTasks,
-  sequences: [],
+  sequences: [
+    { id: 'seq-summary-ok-2', predecessorId: lFase, successorId: lLos, type: 'FINISH_START', lagDays: 0 } as Sequence,
+  ],
   resources: [],
   assignments: [],
 });
-eq('82 loadState zonder spookrelaties meldt niets', N().length, 0);
+eq('85 loadState zonder écht gedropte relaties meldt niets', N().length, 0);
 
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {
