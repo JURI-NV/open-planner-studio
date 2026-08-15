@@ -536,7 +536,8 @@
       "capacity": "产能",
       "documents": "文档",
       "selectHint": "选择一个资源以查看直方图。"
-    }
+    },
+    "color": "颜色"
   },
   "calendar": {
     "library": {

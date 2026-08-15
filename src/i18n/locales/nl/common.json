@@ -544,7 +544,8 @@
       "capacity": "Capaciteit",
       "documents": "Documenten",
       "selectHint": "Selecteer een resource om het histogram te zien."
-    }
+    },
+    "color": "Kleur"
   },
   "calendar": {
     "library": {

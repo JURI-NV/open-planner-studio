@@ -544,7 +544,8 @@
       "capacity": "ظرفیت",
       "documents": "اسناد",
       "selectHint": "برای دیدن هیستوگرام یک منبع را انتخاب کنید."
-    }
+    },
+    "color": "رنگ"
   },
   "calendar": {
     "library": {

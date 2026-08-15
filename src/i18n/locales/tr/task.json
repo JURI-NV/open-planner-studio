@@ -141,7 +141,8 @@
       "remove": "Kaldır",
       "done": "Tamamlandı",
       "empty": "Henüz not yok."
-    }
+    },
+    "color": "Renk"
   },
   "relations": {
     "title": "İlişkiler",

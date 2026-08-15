@@ -544,7 +544,8 @@
       "capacity": "Capacity",
       "documents": "Documents",
       "selectHint": "Select a resource to see the histogram."
-    }
+    },
+    "color": "Color"
   },
   "calendar": {
     "library": {

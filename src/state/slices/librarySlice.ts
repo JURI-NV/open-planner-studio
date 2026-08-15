@@ -3,6 +3,7 @@ import type { AppSlice } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
+import { nextFreePaletteColor } from '@/engine/renderer/resourcePalette';
 import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
 import { beginUndoable, finishMutation, markScheduleStale } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
@@ -519,7 +520,11 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       if (!pool) return;
       const id = generateId('res');
       const { libraryOrigin: _o, parentId: _p, calendarId: _c, ...rest } = resource as import('@/types/resource').Resource;
-      pool.resources.push({ ...structuredClone(rest), id });
+      // #21 (B7): nieuwe bibliotheekresource krijgt automatisch de eerste vrije paletkleur
+      // (tenzij de aanroeper er een meegaf). Promoties vanuit het project doen dat bewust NIET —
+      // die kunnen al een gekozen kleur dragen.
+      const color = rest.color ?? nextFreePaletteColor(pool.resources);
+      pool.resources.push({ ...structuredClone(rest), id, color });
       s.pools[companyId] = bumpPool(pool);
       newId = id;
     });

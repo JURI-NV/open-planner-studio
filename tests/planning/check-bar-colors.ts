@@ -161,5 +161,24 @@ const mkAsg = (taskId: string, resourceId: string, unitsPerDay: number): Resourc
   ok(mtask.kind === 'solid' && mtask.fill === '#ABCDEF', 'mijlpaal task-modus met kleur → eigen kleur');
 }
 
+// 13. Store-integratie (#21, B7): addResource wijst automatisch de eerste vrije paletkleur toe;
+//     een expliciet meegegeven kleur blijft staan.
+{
+  const g = globalThis as unknown as Record<string, unknown>;
+  if (!g.getComputedStyle) g.getComputedStyle = () => ({ getPropertyValue: () => '' });
+  const { useAppStore } = await import('@/state/appStore');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  const id1 = S().addResource({ name: 'Eerste', type: 'LABOR', description: '', maxUnits: 1 });
+  const r1 = S().resources.find(r => r.id === id1)!;
+  ok(r1.color === nextFreePaletteColor([]), `addResource: eerste resource krijgt eerste vrije paletkleur (got ${r1.color})`);
+  const id2 = S().addResource({ name: 'Tweede', type: 'LABOR', description: '', maxUnits: 1, color: '#ABCDEF' });
+  const r2 = S().resources.find(r => r.id === id2)!;
+  ok(r2.color === '#ABCDEF', 'addResource: expliciete kleur wint (geen auto-override)');
+  const id3 = S().addResource({ name: 'Derde', type: 'LABOR', description: '', maxUnits: 1 });
+  const r3 = S().resources.find(r => r.id === id3)!;
+  ok(r3.color === nextFreePaletteColor([r1, r2]), `addResource: derde resource slaat de bezette kleuren over (got ${r3.color})`);
+}
+
 if (failures > 0) { console.log(`bar-colors: ${failures} faalregels`); process.exit(1); }
 console.log('bar-colors: alles groen');

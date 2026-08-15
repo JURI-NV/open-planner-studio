@@ -544,7 +544,8 @@
       "capacity": "Kapasite",
       "documents": "Belgeler",
       "selectHint": "Histogramı görmek için bir kaynak seçin."
-    }
+    },
+    "color": "Renk"
   },
   "calendar": {
     "library": {

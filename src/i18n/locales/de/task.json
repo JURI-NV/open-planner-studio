@@ -141,7 +141,8 @@
       "remove": "Entfernen",
       "done": "Erledigt",
       "empty": "Noch keine Notizen."
-    }
+    },
+    "color": "Farbe"
   },
   "relations": {
     "title": "Beziehungen",

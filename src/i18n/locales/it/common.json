@@ -552,7 +552,8 @@
       "capacity": "Capacità",
       "documents": "Documenti",
       "selectHint": "Seleziona una risorsa per vedere l'istogramma."
-    }
+    },
+    "color": "Colore"
   },
   "calendar": {
     "library": {

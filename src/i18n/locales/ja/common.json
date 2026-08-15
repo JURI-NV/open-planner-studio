@@ -536,7 +536,8 @@
       "capacity": "キャパシティ",
       "documents": "ドキュメント",
       "selectHint": "ヒストグラムを表示するにはリソースを選択してください。"
-    }
+    },
+    "color": "色"
   },
   "calendar": {
     "library": {

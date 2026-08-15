@@ -141,7 +141,8 @@
       "remove": "删除",
       "done": "已完成",
       "empty": "暂无备注。"
-    }
+    },
+    "color": "颜色"
   },
   "relations": {
     "title": "关系",

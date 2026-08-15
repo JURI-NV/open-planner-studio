@@ -576,7 +576,8 @@
       "capacity": "السعة",
       "documents": "المستندات",
       "selectHint": "اختر موردًا لعرض المدرج التكراري."
-    }
+    },
+    "color": "اللون"
   },
   "calendar": {
     "library": {

@@ -10,6 +10,7 @@ import { UnitsInput } from '@/components/common/UnitsInput';
 import { DateTextInput } from '@/components/common/DateTextInput';
 import { isResourceFieldLocked, matchByName, computeResourceHash, normalizeName } from '@/services/library/libraryOps';
 import { ResourceOccupancyView } from './ResourceOccupancyView';
+import { resourceDisplayColor, nextFreePaletteColor } from '@/engine/renderer/resourcePalette';
 import { useLiveGridNav } from './hooks/useLiveGridNav';
 import { controlKindOf, liveGridNavDirection } from '@/utils/gridNavigation';
 
@@ -37,6 +38,9 @@ type ResourceDraft = {
   costPerHour?: number;
   unitOfMeasure?: string;
   parentId?: string;
+  /** #21: bewust gekozen kleur uit de concept-rij. Ontbreekt ⇒ de store wijst automatisch de
+   *  eerste vrije paletkleur toe (addResource/addPoolResource). */
+  color?: string;
 };
 /** De waarden waarmee een nieuwe rij begint — zichtbaar in de rij zelf, niet verborgen in een default. */
 const freshDraft = (): ResourceDraft => ({ name: '', type: 'LABOR', maxUnits: 1 });
@@ -184,6 +188,7 @@ export function ResourcePanel() {
       costPerHour: draft.costPerHour,
       unitOfMeasure: draft.type === 'MATERIAL' ? draft.unitOfMeasure : undefined,
       parentId: draft.parentId,
+      color: draft.color,
     };
     let newId: string | null = null;
     if (variant === 'pool' && project.companyId) {
@@ -435,8 +440,10 @@ export function ResourcePanel() {
     showParentColumn: boolean,
     calendarOptions: { id: string; name: string }[],
     crewOptions: Resource[],
+    autoColor: string,
   ) => (
     <PendingNewRow
+      autoColor={autoColor}
       draft={pendingNew?.draft ?? freshDraft()}
       isPool={variant === 'pool'}
       showTotalColumn={showTotalColumn}
@@ -524,7 +531,10 @@ export function ResourcePanel() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="sticky top-0 z-10" style={{ background: 'var(--theme-surface-alt)' }}>
-                  <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ minWidth: 160 }}>{t('resource.name')}</th>
+                  <th className="border-b border-border px-1 py-1.5" style={{ width: 44 }} title={t('resource.color')} aria-label={t('resource.color')}>
+                  <span className="block h-2.5 w-full rounded-sm" style={{ background: 'var(--theme-border)' }} />
+                </th>
+                <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ minWidth: 160 }}>{t('resource.name')}</th>
                   <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 130 }}>{t('resource.typeLabel')}</th>
                   <th className="text-right px-2 py-1.5 font-semibold border-b border-border" style={{ width: 110 }}>{t('resource.maxUnits')}</th>
                   <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 160 }}>{t('resource.calendarId')}</th>
@@ -545,7 +555,7 @@ export function ResourcePanel() {
                       key={r.id}
                       resource={r}
                       variant="pool"
-                      colCount={poolShowParentColumn ? 8 : 7}
+                      colCount={poolShowParentColumn ? 9 : 8}
                       crews={poolCrews}
                       calendarOptions={pool.calendars}
                       stepsOpen={stepsOpen}
@@ -566,7 +576,7 @@ export function ResourcePanel() {
                     />
                   );
                 })}
-                {pendingNew?.variant === 'pool' && draftRow('pool', false, poolShowParentColumn, pool.calendars, poolCrews)}
+                {pendingNew?.variant === 'pool' && draftRow('pool', false, poolShowParentColumn, pool.calendars, poolCrews, nextFreePaletteColor(pool.resources))}
               </tbody>
             </table>
           )}
@@ -594,6 +604,9 @@ export function ResourcePanel() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="sticky top-0 z-10" style={{ background: 'var(--theme-surface-alt)' }}>
+                <th className="border-b border-border px-1 py-1.5" style={{ width: 44 }} title={t('resource.color')} aria-label={t('resource.color')}>
+                  <span className="block h-2.5 w-full rounded-sm" style={{ background: 'var(--theme-border)' }} />
+                </th>
                 <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ minWidth: 160 }}>{t('resource.name')}</th>
                 <th className="text-left px-2 py-1.5 font-semibold border-b border-border" style={{ width: 130 }}>{t('resource.typeLabel')}</th>
                 <th className="text-right px-2 py-1.5 font-semibold border-b border-border" style={{ width: 110 }}>{t('resource.maxUnits')}</th>
@@ -617,7 +630,7 @@ export function ResourcePanel() {
                     key={r.id}
                     resource={r}
                     variant="project"
-                    colCount={9}
+                    colCount={10}
                     crews={crews}
                     calendarOptions={resourceCalendars}
                     stepsOpen={stepsOpen}
@@ -640,7 +653,7 @@ export function ResourcePanel() {
                   />
                 );
               })}
-              {pendingNew?.variant === 'project' && draftRow('project', true, true, resourceCalendars, crews)}
+              {pendingNew?.variant === 'project' && draftRow('project', true, true, resourceCalendars, crews, nextFreePaletteColor(resources))}
             </tbody>
             {grandTotal !== undefined && (
               <tfoot>
@@ -780,6 +793,19 @@ function ResourceRow({
         data-ops-pool-resource-row={isPool ? true : undefined}
         {...rowProps(resource.id)}
       >
+        <td className="px-1 py-1">
+          {/* #21: kleurkolom — toont de EFFECTIEVE kleur (eigen keuze of hash-fallback), zodat de
+              cel nooit "leeg" oogt terwijl balken wél gekleurd zijn. Bewust zonder geërfd-gating:
+              kleur is geen bibliotheekafspraak (RESOURCE_DIFF_FIELDS) en mag overal gekozen worden. */}
+          <input
+            type="color"
+            aria-label={t('resource.color')}
+            title={t('resource.color')}
+            value={resourceDisplayColor(resource)}
+            onChange={e => onPatch({ color: e.target.value })}
+            className="block h-6 w-8 cursor-pointer rounded border border-border bg-transparent p-0"
+          />
+        </td>
         <td className="px-2 py-1">
           <div className="flex items-center gap-1 min-w-0">
             {isPool ? (
@@ -1111,9 +1137,12 @@ function ResourceRow({
  * cursor niet verplaatst.
  */
 function PendingNewRow({
-  draft, isPool, showTotalColumn, showParentColumn, calendarOptions, crews,
+  draft, isPool, showTotalColumn, showParentColumn, calendarOptions, crews, autoColor,
   onChange, onCommit, onCancel, onMove, onReveal,
 }: {
+  /** #21: preview-kleur voor de concept-rij — wat de store bij commit zal toewijzen als de
+   *  gebruiker zelf niets kiest (eerste vrije paletkleur op de betreffende verzameling). */
+  autoColor: string;
   draft: ResourceDraft;
   isPool: boolean;
   showTotalColumn: boolean;
@@ -1166,6 +1195,16 @@ function PendingNewRow({
       onBlur={onBlur}
       onFocus={onReveal}
     >
+      <td className="px-1 py-1">
+        <input
+          type="color"
+          aria-label={t('resource.color')}
+          title={t('resource.color')}
+          value={draft.color ?? autoColor}
+          onChange={e => onChange({ color: e.target.value })}
+          className="block h-6 w-8 cursor-pointer rounded border border-border bg-transparent p-0"
+        />
+      </td>
       <td className="px-2 py-1">
         <input
           value={draft.name}

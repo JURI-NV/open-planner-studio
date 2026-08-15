@@ -544,7 +544,8 @@
       "capacity": "Kapazität",
       "documents": "Dokumente",
       "selectHint": "Wählen Sie eine Ressource aus, um das Histogramm zu sehen."
-    }
+    },
+    "color": "Farbe"
   },
   "calendar": {
     "library": {

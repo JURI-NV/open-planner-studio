@@ -1,6 +1,7 @@
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { WorkCalendar } from '@/types/calendar';
 import { generateId } from '@/utils/id';
+import { nextFreePaletteColor } from '@/engine/renderer/resourcePalette';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { clearTimephasedWindow, clearTimephasedDurationWalks } from '@/utils/taskDefaults';
@@ -57,7 +58,11 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
     const id = generateId('res');
     set((s) => {
       beginUndoable(s);
-      s.resources.push({ ...res, id });
+      // #21: automatische kleur bij aanmaak (B7) — eerste vrije paletkleur, tenzij de aanroeper
+      // zelf al een kleur meegaf (de resource-editor kan dat). Kleurloze resources vallen in de
+      // weergave terug op de deterministische hash — dit veld is dus puur gemak, geen vereiste.
+      const color = res.color ?? nextFreePaletteColor(s.resources);
+      s.resources.push({ ...res, id, color });
       finishMutation(s);
     });
     // A6: pure resource-mutatie → histogram direct verversen (geen runCPM, datums onaangeroerd).

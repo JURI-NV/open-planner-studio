@@ -141,7 +141,8 @@
       "remove": "Remove",
       "done": "Done",
       "empty": "No notes yet."
-    }
+    },
+    "color": "Color"
   },
   "relations": {
     "title": "Relations",

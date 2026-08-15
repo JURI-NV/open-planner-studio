@@ -552,7 +552,8 @@
       "capacity": "Capacidade",
       "documents": "Documentos",
       "selectHint": "Selecione um recurso para ver o histograma."
-    }
+    },
+    "color": "Cor"
   },
   "calendar": {
     "library": {

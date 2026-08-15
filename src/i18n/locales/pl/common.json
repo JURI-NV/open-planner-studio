@@ -560,7 +560,8 @@
       "capacity": "Zdolność",
       "documents": "Dokumenty",
       "selectHint": "Wybierz zasób, aby zobaczyć histogram."
-    }
+    },
+    "color": "Kolor"
   },
   "calendar": {
     "library": {
