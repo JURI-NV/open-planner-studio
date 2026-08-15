@@ -18,7 +18,9 @@
     "relationCreated": "رابطه ایجاد شد: از {{predecessor}} به {{successor}}",
     "relationDuplicate": "این رابطه از قبل وجود دارد",
     "relationAncestorEndpoint": "رابطه بین یک وظیفه و وظیفه خلاصه نیای (والد) خودش مجاز نیست.",
-    "summaryRelationsDropped": "{{total}} رابطه نتوانست در محاسبه لحاظ شود — برای مشاهده اینکه کدام‌ها، پنل روابط را بررسی کنید."
+    "summaryRelationsDropped": "{{total}} رابطه نتوانست در محاسبه لحاظ شود — برای مشاهده اینکه کدام‌ها، پنل روابط را بررسی کنید.",
+    "mppSourceScheduleNotes_one": "این فایل MS Project شامل {{count}} وظیفه با زمان‌بندی شکسته‌شده، تراز‌شده یا منابع‌محور است. Open Planner Studio آن را به‌صورت یک بازه پیوسته محاسبه می‌کند؛ بنابراین تاریخ آن ممکن است با MS Project متفاوت باشد. راهنما را ببینید: درون‌ریزی MS Project.",
+    "mppSourceScheduleNotes_other": "این فایل MS Project شامل {{count}} وظیفه با زمان‌بندی شکسته‌شده، تراز‌شده یا منابع‌محور است. Open Planner Studio آن‌ها را به‌صورت یک بازه پیوسته محاسبه می‌کند؛ بنابراین تاریخ آن‌ها ممکن است با MS Project متفاوت باشد. راهنما را ببینید: درون‌ریزی MS Project."
   },
   "yes": "بله",
   "no": "خیر",

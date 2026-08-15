@@ -18,7 +18,9 @@
     "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Diese Beziehung besteht bereits",
     "relationAncestorEndpoint": "Eine Beziehung zwischen einer Aufgabe und ihrer eigenen übergeordneten Sammelaufgabe ist nicht zulässig.",
-    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht einbezogen werden — siehe das Beziehungen-Panel für Details."
+    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht einbezogen werden — siehe das Beziehungen-Panel für Details.",
+    "mppSourceScheduleNotes_one": "Diese MS-Project-Datei enthält {{count}} Vorgang mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Open Planner Studio plant ihn als durchgehenden Zeitraum; seine Termine können daher von MS Project abweichen. Siehe die Anleitung: MS-Project-Import.",
+    "mppSourceScheduleNotes_other": "Diese MS-Project-Datei enthält {{count}} Vorgänge mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Open Planner Studio plant sie als durchgehenden Zeitraum; ihre Termine können daher von MS Project abweichen. Siehe die Anleitung: MS-Project-Import."
   },
   "yes": "Ja",
   "no": "Nein",

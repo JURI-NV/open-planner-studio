@@ -18,7 +18,10 @@
     "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
     "relationDuplicate": "Cette relation existe déjà",
     "relationAncestorEndpoint": "Une relation entre une tâche et sa propre tâche récapitulative parente (ou ancêtre) n'est pas autorisée.",
-    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte — voir le panneau Relations pour savoir lesquelles."
+    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte — voir le panneau Relations pour savoir lesquelles.",
+    "mppSourceScheduleNotes_one": "Ce fichier MS Project contient {{count}} tâche à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio la planifie comme un bloc continu ; ses dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project.",
+    "mppSourceScheduleNotes_many": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio les planifie comme un bloc continu ; leurs dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project.",
+    "mppSourceScheduleNotes_other": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio les planifie comme un bloc continu ; leurs dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project."
   },
   "yes": "Oui",
   "no": "Non",

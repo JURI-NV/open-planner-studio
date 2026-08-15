@@ -18,7 +18,11 @@
     "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Taka relacja już istnieje",
     "relationAncestorEndpoint": "Relacja między zadaniem a jego własnym nadrzędnym zadaniem sumarycznym jest niedozwolona.",
-    "summaryRelationsDropped": "Relacje, których nie udało się uwzględnić w obliczeniach (zobacz panel Relacje, aby sprawdzić które): {{total}}."
+    "summaryRelationsDropped": "Relacje, których nie udało się uwzględnić w obliczeniach (zobacz panel Relacje, aby sprawdzić które): {{total}}.",
+    "mppSourceScheduleNotes_one": "Ten plik MS Project zawiera {{count}} zadanie z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Open Planner Studio planuje je jako nieprzerwany odcinek, więc jego terminy mogą różnić się od MS Project. Zobacz przewodnik: Import z MS Project.",
+    "mppSourceScheduleNotes_few": "Ten plik MS Project zawiera {{count}} zadania z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Open Planner Studio planuje je jako nieprzerwane odcinki, więc ich terminy mogą różnić się od MS Project. Zobacz przewodnik: Import z MS Project.",
+    "mppSourceScheduleNotes_many": "Ten plik MS Project zawiera {{count}} zadań z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Open Planner Studio planuje je jako nieprzerwane odcinki, więc ich terminy mogą różnić się od MS Project. Zobacz przewodnik: Import z MS Project.",
+    "mppSourceScheduleNotes_other": "Ten plik MS Project zawiera {{count}} zadania z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Open Planner Studio planuje je jako nieprzerwane odcinki, więc ich terminy mogą różnić się od MS Project. Zobacz przewodnik: Import z MS Project."
   },
   "yes": "Tak",
   "no": "Nie",

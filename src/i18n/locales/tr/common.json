@@ -18,7 +18,9 @@
     "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Bu ilişki zaten var",
     "relationAncestorEndpoint": "Bir görev ile kendi üst özet görevi arasında ilişki kurulmasına izin verilmez.",
-    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi — hangileri olduğunu görmek için İlişkiler panelini kontrol edin."
+    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi — hangileri olduğunu görmek için İlişkiler panelini kontrol edin.",
+    "mppSourceScheduleNotes_one": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış 1 görev içeriyor. Open Planner Studio bunu kesintisiz tek bir aralık olarak hesaplar; bu yüzden tarihi MS Project'ten farklı olabilir. Kılavuza bakın: MS Project içe aktarma.",
+    "mppSourceScheduleNotes_other": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış {{count}} görev içeriyor. Open Planner Studio bunları kesintisiz birer aralık olarak hesaplar; bu yüzden tarihleri MS Project'ten farklı olabilir. Kılavuza bakın: MS Project içe aktarma."
   },
   "yes": "Evet",
   "no": "Hayır",

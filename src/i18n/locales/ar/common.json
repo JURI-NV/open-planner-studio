@@ -18,7 +18,13 @@
     "relationCreated": "تم إنشاء العلاقة: من {{predecessor}} إلى {{successor}}",
     "relationDuplicate": "هذه العلاقة موجودة بالفعل",
     "relationAncestorEndpoint": "لا يُسمح بعلاقة بين مهمة ومهمتها الموجزة الأصلية (الأب أو الجد).",
-    "summaryRelationsDropped": "تعذر إدراج {{total}} علاقة (علاقات) في الحساب — راجع لوحة العلاقات لمعرفة أيها."
+    "summaryRelationsDropped": "تعذر إدراج {{total}} علاقة (علاقات) في الحساب — راجع لوحة العلاقات لمعرفة أيها.",
+    "mppSourceScheduleNotes_zero": "لا يحتوي ملف MS Project هذا على أي مهام ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. Open Planner Studio يجدولها كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
+    "mppSourceScheduleNotes_one": "يحتوي ملف MS Project هذا على مهمة واحدة ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد يختلف تاريخها عن MS Project. راجع الدليل: استيراد MS Project.",
+    "mppSourceScheduleNotes_two": "يحتوي ملف MS Project هذا على مهمتين ذواتَي جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولهما Open Planner Studio كفترة متواصلة، لذلك قد يختلف تاريخاهما عن MS Project. راجع الدليل: استيراد MS Project.",
+    "mppSourceScheduleNotes_few": "يحتوي ملف MS Project هذا على {{count}} مهام ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
+    "mppSourceScheduleNotes_many": "يحتوي ملف MS Project هذا على {{count}} مهمة ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
+    "mppSourceScheduleNotes_other": "يحتوي ملف MS Project هذا على {{count}} من المهام ذات الجدولة المجزأة أو المسواة أو الموجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project."
   },
   "yes": "نعم",
   "no": "لا",
