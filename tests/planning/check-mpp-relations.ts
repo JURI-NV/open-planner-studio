@@ -58,7 +58,8 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { CfbFile } from '@/services/mpp/cfb';
-import { readRelations, readResources, readAssignments, readMPP, type ReadResourcesResult } from '@/services/mpp/mppReader';
+import { readMPP } from '@/services/mpp/mppReader';
+import { readRelations, readResources, readAssignments, type ReadResourcesResult } from '@/services/mpp/mppEntities';
 import type { CalendarReadResult } from '@/services/mpp/mppCalendars';
 import { DEFAULT_RESOURCE_FIELDS, DEFAULT_ASSIGNMENT_FIELDS, type FieldMapTable } from '@/services/mpp/fieldMap14';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
