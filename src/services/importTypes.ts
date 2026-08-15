@@ -77,6 +77,12 @@ export interface ImportResult {
    * MSP-eigen venster tussen start en finish, geteld in werkminuten, is groter dan de MSP-eigen
    * opgeslagen duur — een onderbroken of uitgesmeerde balk). `total` is de VERENIGING van beide
    * (een taak die beide signalen draagt telt één keer) — dat is het getal dat de melding toont.
+   *
+   * BEKENDE BEPERKING (spec-review-fixronde, 2026-08-15): zuivere resource-contouring (werk
+   * herverdeeld BINNEN een overigens ongewijzigde span, geen langer venster, geen leveling delay)
+   * zit hier NIET in — het bronbestand-eigen contour-bit bleek, getoetst tegen MPXJ's eigen
+   * referentiebestand voor die functie, niet betrouwbaar leesbaar. Zie `mppReader.ts`'s
+   * moduleheader (punt 3 bij `TASK_FIELD_LEVELING_DELAY`) voor de volledige onderbouwing.
    */
   sourceScheduleNotes?: { total: number; leveled: number; spanGt: number };
 }

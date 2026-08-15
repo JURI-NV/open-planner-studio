@@ -54,8 +54,9 @@ tabblad nog leeg en ongewijzigd is.
 
 Open Planner Studio rekent een geopend `.mpp`-bestand door met dezelfde kalenderlogica als MS
 Project zelf (werkdagen, werktijden per dag, vrije dagen, en — bij een urenproject — de precieze
-kloktijd). Voor een gewone taak vind je daardoor dezelfde start- en einddatum terug als in MS
-Project, tot op de minuut bij een urenproject.
+kloktijd). Dat is erop gericht dat een gewone taak dezelfde start- en einddatum oplevert als in MS
+Project, tot op de minuut bij een urenproject; dit blijft een lopende etappe, en de uitzonderingen
+hieronder zijn daar een bewust onderdeel van.
 
 Eén groep taken is daar bewust een **uitzondering** op: taken met een **onderbroken**, **genivelleerde**
 of anderszins **resource-gestuurde** planning (handmatige nivellering, een "leveling delay", of
@@ -65,13 +66,18 @@ die, met een pauze ertussen, over 5 kalenderdagen loopt. Open Planner Studio ken
 nog niet en rekent zo'n taak **aaneengesloten** door: de duur klopt, maar het venster (en dus
 mogelijk de einddatum) kan afwijken van wat je in MS Project ziet.
 
-Je merkt dit bij het openen: bevat het bestand zulke taken, dan verschijnt er één keer een melding
-met het aantal. Wil je precies weten welke taken het betreft en hoe ze in MS Project zijn
-opgebouwd (de onderbrekingen, de nivelleringsvertraging), open het bestand dan in MS Project zelf —
-die informatie gaat bij het lezen niet stilzwijgend verloren uit het bronbestand, Open Planner
-Studio negeert 'm alleen bij het doorrekenen. Taak-splitsen en resource-nivellering als
-bewerkbare functie staan niet in deze etappe; zie de melding en deze gids als de plek waar je dat
-kunt navragen.
+Je merkt dit meestal bij het openen: bevat het bestand zulke taken, dan verschijnt er één keer een
+melding met het aantal. Twee van de drie oorzaken — nivellering met een leveling delay, en een
+onderbroken of over meerdere dagen uitgesmeerde taak — worden betrouwbaar herkend. **Zuivere
+resource-contouring** (het werk binnen een taak krijgt een oplopende/aflopende curve, zonder dat de
+start-einddatum zelf verandert) is een bekende, niet-gedichte uitzondering op die melding: de
+bronbestand-eigen contour-indicator bleek bij onderzoek niet betrouwbaar leesbaar, dus zo'n taak
+kan stil aaneengesloten worden doorgerekend zonder melding. Wil je precies weten welke taken het
+betreft en hoe ze in MS Project zijn opgebouwd (de onderbrekingen, de nivelleringsvertraging, een
+contour), open het bestand dan in MS Project zelf — die informatie gaat bij het lezen niet
+stilzwijgend verloren uit het bronbestand, Open Planner Studio negeert 'm alleen bij het
+doorrekenen. Taak-splitsen en resource-nivellering als bewerkbare functie staan niet in deze
+etappe; zie de melding en deze gids als de plek waar je dat kunt navragen.
 
 ## Kalenderuitzonderingen en werkweken: twee bekende beperkingen
 

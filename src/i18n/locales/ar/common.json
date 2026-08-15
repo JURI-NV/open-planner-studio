@@ -24,7 +24,13 @@
     "mppSourceScheduleNotes_two": "يحتوي ملف MS Project هذا على مهمتين ذواتَي جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولهما Open Planner Studio كفترة متواصلة، لذلك قد يختلف تاريخاهما عن MS Project. راجع الدليل: استيراد MS Project.",
     "mppSourceScheduleNotes_few": "يحتوي ملف MS Project هذا على {{count}} مهام ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
     "mppSourceScheduleNotes_many": "يحتوي ملف MS Project هذا على {{count}} مهمة ذات جدولة مجزأة أو مسواة أو موجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
-    "mppSourceScheduleNotes_other": "يحتوي ملف MS Project هذا على {{count}} من المهام ذات الجدولة المجزأة أو المسواة أو الموجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project."
+    "mppSourceScheduleNotes_other": "يحتوي ملف MS Project هذا على {{count}} من المهام ذات الجدولة المجزأة أو المسواة أو الموجهة بالموارد. يجدولها Open Planner Studio كفترة متواصلة، لذلك قد تختلف تواريخها عن MS Project. راجع الدليل: استيراد MS Project.",
+    "projectStartAnchorsClamped_zero": "لم يتم نقل أي مرساة مهمة إلى تاريخ بدء المشروع الجديد.",
+    "projectStartAnchorsClamped_one": "تغيّر تاريخ بدء المشروع: تم نقل مرساة مهمة واحدة بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
+    "projectStartAnchorsClamped_two": "تغيّر تاريخ بدء المشروع: تم نقل مرساتَي مهمة بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
+    "projectStartAnchorsClamped_few": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} مراسٍ لمهام بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
+    "projectStartAnchorsClamped_many": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} مرساة لمهام بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
+    "projectStartAnchorsClamped_other": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} من مراسي المهام بدون سابقة أو قيد إلى تاريخ البدء الجديد."
   },
   "yes": "نعم",
   "no": "لا",

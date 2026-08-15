@@ -20,7 +20,9 @@
     "relationAncestorEndpoint": "A relation between a task and its own (grand)parent summary task is not allowed.",
     "summaryRelationsDropped": "{{total}} relation(s) could not be included in the calculation — see the Relations panel for which.",
     "mppSourceScheduleNotes_one": "This MS Project file contains {{count}} task with a split, leveled, or resource-driven schedule. Open Planner Studio schedules it as one continuous span, so its dates may differ from MS Project. See the guide: MS Project import.",
-    "mppSourceScheduleNotes_other": "This MS Project file contains {{count}} tasks with a split, leveled, or resource-driven schedule. Open Planner Studio schedules them as one continuous span, so their dates may differ from MS Project. See the guide: MS Project import."
+    "mppSourceScheduleNotes_other": "This MS Project file contains {{count}} tasks with a split, leveled, or resource-driven schedule. Open Planner Studio schedules them as one continuous span, so their dates may differ from MS Project. See the guide: MS Project import.",
+    "projectStartAnchorsClamped_one": "Project start moved: {{count}} task anchor without a predecessor or constraint was shifted to the new start date.",
+    "projectStartAnchorsClamped_other": "Project start moved: {{count}} task anchors without a predecessor or constraint were shifted to the new start date."
   },
   "yes": "Yes",
   "no": "No",

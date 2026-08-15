@@ -20,7 +20,9 @@
     "relationAncestorEndpoint": "Een relatie tussen een taak en zijn eigen (voor)ouder-samenvattingstaak is niet toegestaan.",
     "summaryRelationsDropped": "{{total}} relatie(s) konden niet worden meegerekend — zie het Relaties-paneel voor welke.",
     "mppSourceScheduleNotes_one": "Dit MS Project-bestand bevat {{count}} taak met een onderbroken, genivelleerde of resource-gedreven planning. Open Planner Studio rekent die aaneengesloten door; de datums kunnen daardoor afwijken van MS Project. Zie de gids: MS Project-import.",
-    "mppSourceScheduleNotes_other": "Dit MS Project-bestand bevat {{count}} taken met een onderbroken, genivelleerde of resource-gedreven planning. Open Planner Studio rekent die aaneengesloten door; de datums kunnen daardoor afwijken van MS Project. Zie de gids: MS Project-import."
+    "mppSourceScheduleNotes_other": "Dit MS Project-bestand bevat {{count}} taken met een onderbroken, genivelleerde of resource-gedreven planning. Open Planner Studio rekent die aaneengesloten door; de datums kunnen daardoor afwijken van MS Project. Zie de gids: MS Project-import.",
+    "projectStartAnchorsClamped_one": "Projectstart verzet: {{count}} taakanker zonder voorganger of constraint is meegeschoven naar de nieuwe startdatum.",
+    "projectStartAnchorsClamped_other": "Projectstart verzet: {{count}} taakankers zonder voorganger of constraint zijn meegeschoven naar de nieuwe startdatum."
   },
   "yes": "Ja",
   "no": "Nee",

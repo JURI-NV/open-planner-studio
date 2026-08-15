@@ -511,9 +511,50 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
  *    werkminuten op de EFFECTIEVE kalender (`CalendarEngine.workMinutesBetween`, betrouwbaar sinds
  *    T3's kalenderexpansie — een gemiste feestdag/werkende uitzondering zou anders een vals
  *    positief geven), is STRIKT GROTER dan de MSP-eigen opgeslagen duur. Een onderbroken taak
- *    (split) of een taak die door nivellering/resource-contouring over een langere periode
- *    uitgesmeerd is, heeft een venster dat langer is dan het werk dat erin past — een aaneengesloten
- *    taak heeft venster == duur (op afrondingsmarge na, zie `SPAN_GT_TOLERANCE_MINUTES`).
+ *    (split) of een genivelleerde taak die over een langere periode uitgesmeerd is, heeft een
+ *    venster dat langer is dan het werk dat erin past — een aaneengesloten taak heeft venster == duur
+ *    (op afrondingsmarge na, zie `SPAN_GT_TOLERANCE_MINUTES`). LET OP (spec-review-fixronde,
+ *    2026-08-15, bevinding 1): dit vangt GEEN zuivere resource-contouring — een contour herverdeelt
+ *    het werk BINNEN de al berekende span (een bell-/trapeziumcurve i.p.v. vlak), zonder de span
+ *    zelf te verlengen; venster == duur blijft dus gewoon gelden. Zie hieronder waarom een derde,
+ *    EXPLICIETE contour-detectie niet is toegevoegd.
+ *
+ * 3. RESOURCE-CONTOURING, EXPLICIET ONDERZOCHT EN NIET BETROUWBAAR GEBLEKEN (spec-review-fixronde,
+ *    2026-08-15, bevinding 1) — MPXJ leest een contour-indicator op ASSIGNMENT-niveau
+ *    (`AssignmentField.WORK_CONTOUR`, een TWEEWAARDIGE FLAT/CONTOURED-vlag, niet de volledige
+ *    contourvorm) via een bit in de assignment se EIGEN `FixedMeta`-record (spiegelt hoe
+ *    `milestoneBitFlag` hierboven de mijlpaal-vlag uit de taak-FixedMeta leest) —
+ *    `ResourceAssignmentFactory.java`: `new MppBitFlag(AssignmentField.WORK_CONTOUR, 8,
+ *    0x00000010, WorkContour.FLAT, WorkContour.CONTOURED)` voor MPP14/Project≤2010,
+ *    `..., 8, 0x00040000, ...` voor MPP14/Project 2013+ (zelfde offset-8, alleen het masker
+ *    verschilt — zelfde `≤14 vs >14`-versiegrens als `milestoneBitFlag`). WORK_CONTOUR staat
+ *    NERGENS in `FieldMap14.java`'s generieke assignment-veldentabel (data-gedreven noch default)
+ *    — het is uitsluitend via dit bit-mechanisme leesbaar, nooit via de gewone field-map-offset-weg.
+ *
+ *    GETOETST tegen `mpxj/junit/data/mpp14resource.mpp` (MPXJ se EIGEN referentiebestand voor deze
+ *    functie, taak "Contoured Task", assignment-uniqueID 8, taskUniqueID 3, resourceUniqueID 1) —
+ *    ground truth bevestigd via het bijbehorende `mpxj/junit/data/mspdiresource.xml` (zelfde project,
+ *    zelfde taken/toewijzingen): `<Assignment><UID>8</UID><TaskUID>3</TaskUID><ResourceUID>1</
+ *    ResourceUID>…<WorkContour>7</WorkContour></Assignment>` (contourvorm 7 = niet-FLAT) tegenover
+ *    `<WorkContour>0</WorkContour>` op de drie overige assignments. Een VOLLEDIGE brute-force-scan
+ *    van de 34-byte assignment-FixedMeta-record van uniqueID 8 (élk 4-byte-uitgelijnd offset ×
+ *    élke macht-van-twee-masker tot en met bit 23 — dus ook de twee exacte Java-maskers 0x10/
+ *    0x40000 op offset 8) tegen de VIER overige assignments in hetzelfde bestand vond GEEN ENKELE
+ *    bitpositie die uniek waar is voor assignment 8 en onwaar voor de rest. Byte 8 van assignment 8
+ *    is letterlijk `0x01 30 d0 ff` — IDENTIEK aan twee van de drie vlakke assignments (5, 6) van
+ *    "Task A" — het bit dat MPXJ's eigen brontabel voor déze offset/dit masker documenteert staat
+ *    hier simpelweg niet aan, ondanks bevestigde ground truth dat de toewijzing wél gecontoureerd is.
+ *
+ *    CONCLUSIE: het bit-mechanisme dat MPXJ zelf documenteert voor WORK_CONTOUR is, GETOETST OP
+ *    MPXJ's EIGEN referentievoorbeeld voor precies deze functie, niet betrouwbaar — een implementatie
+ *    die het bit letterlijk overneemt zou de melding op dit bestand NIET laten vuren (want het bit
+ *    staat er niet), dus zou de regressie die deze fixronde signaleerde NIET oplossen. Vandaar
+ *    bewust NIET geïmplementeerd (plan-§T12's eigen uitwijkclausule: "lukt dat aantoonbaar niet
+ *    betrouwbaar… dan versmallen we de tekst"). KNOWN GAP: een taak die UITSLUITEND resource-
+ *    gecontoureerd is (geen leveling delay, geen venster-verlenging) — zoals `mpp14resource.mpp`'s
+ *    "Contoured Task" zelf — wordt momenteel NIET gemeld; zie de corpus-leescase in
+ *    `check-mpp-import.ts` die dit exact vastlegt, en de gids (§"Datumgetrouwheid") die dit als
+ *    bekende beperking benoemt in plaats van stilzwijgend te beloven.
  */
 const TASK_FIELD_LEVELING_DELAY = 20;
 

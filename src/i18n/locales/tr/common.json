@@ -20,7 +20,9 @@
     "relationAncestorEndpoint": "Bir görev ile kendi üst özet görevi arasında ilişki kurulmasına izin verilmez.",
     "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi — hangileri olduğunu görmek için İlişkiler panelini kontrol edin.",
     "mppSourceScheduleNotes_one": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış 1 görev içeriyor. Open Planner Studio bunu kesintisiz tek bir aralık olarak hesaplar; bu yüzden tarihi MS Project'ten farklı olabilir. Kılavuza bakın: MS Project içe aktarma.",
-    "mppSourceScheduleNotes_other": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış {{count}} görev içeriyor. Open Planner Studio bunları kesintisiz birer aralık olarak hesaplar; bu yüzden tarihleri MS Project'ten farklı olabilir. Kılavuza bakın: MS Project içe aktarma."
+    "mppSourceScheduleNotes_other": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış {{count}} görev içeriyor. Open Planner Studio bunları kesintisiz birer aralık olarak hesaplar; bu yüzden tarihleri MS Project'ten farklı olabilir. Kılavuza bakın: MS Project içe aktarma.",
+    "projectStartAnchorsClamped_one": "Proje başlangıcı taşındı: öncülü veya kısıtlaması olmayan {{count}} görev çıpası yeni başlangıç tarihine kaydırıldı.",
+    "projectStartAnchorsClamped_other": "Proje başlangıcı taşındı: öncülü veya kısıtlaması olmayan {{count}} görev çıpası yeni başlangıç tarihine kaydırıldı."
   },
   "yes": "Evet",
   "no": "Hayır",

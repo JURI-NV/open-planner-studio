@@ -2692,6 +2692,42 @@ if (corpusPresent) {
       }
     }
   }
+
+  // ── Corpus-leescase: `mpp14resource.mpp` (publieke MPXJ-junit-testdata — leesbare naam toegestaan,
+  // plan §6) — spec-review-fixronde 2026-08-15, bevinding 1. Dit is MPXJ's EIGEN referentiebestand
+  // voor resource-contouring ("Contoured Task", assignment-uniqueID 8): de moduleheader hierboven
+  // (punt 3 bij `TASK_FIELD_LEVELING_DELAY`) documenteert waarom het assignment-eigen WORK_CONTOUR-
+  // bit — GETOETST op precies dit bestand — niet betrouwbaar bleek en dus NIET geïmplementeerd is.
+  // Deze leescase pint het GEKOZEN (eerlijke) gedrag: "Contoured Task" heeft venster == duur (geen
+  // spanGt, geen leveling delay) en blijft dus ONGEMELD — een KNOWN GAP, geen stille belofte. ────
+  {
+    const RESOURCE_FIXTURE = process.env.OPS_MPP_RESOURCE_FIXTURE
+      ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14resource.mpp';
+    if (!existsSync(RESOURCE_FIXTURE)) {
+      console.log(`OK  mpp-import: T12 mpp14resource-leescase (${RESOURCE_FIXTURE}) niet aanwezig — overgeslagen`);
+    } else {
+      const { result, threw } = readT12(new Uint8Array(readFileSync(RESOURCE_FIXTURE)));
+      truthy(`[T12 mpp14resource] readMPP gooit niet (${threw ?? ''})`, threw === null);
+      if (result) {
+        truthy('[T12 mpp14resource] 3 taken (Task A, Contoured Task, Completed Task)', result.tasks.length === 3);
+        const contoured = result.tasks.find((t) => t.name === 'Contoured Task');
+        truthy('[T12 mpp14resource] "Contoured Task" gevonden', !!contoured);
+        if (contoured) {
+          // Reviewer-meting: venster == duur == 3428 min (7,1417 dagen @ 480 min/dag) — GEEN spanGt.
+          truthy(
+            `[T12 mpp14resource] "Contoured Task".scheduleDuration ≈ 3428 min (7,1417 dagen @ 480 min/dag, kreeg ${contoured.time.scheduleDuration})`,
+            Math.abs(contoured.time.scheduleDuration - 3428 / 480) < 0.01,
+          );
+        }
+        // KNOWN GAP, expliciet gepind (geen stille regressie mogen worden — zie de moduleheader):
+        // resource-contouring-ALLEEN triggert geen enkel huidig signaal, dus GEEN sourceScheduleNotes.
+        truthy(
+          `[T12 mpp14resource] GEEN sourceScheduleNotes ondanks resource-contouring — bekende, gedocumenteerde beperking (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+          result.sourceScheduleNotes === undefined,
+        );
+      }
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

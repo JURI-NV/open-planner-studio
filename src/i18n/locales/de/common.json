@@ -20,7 +20,9 @@
     "relationAncestorEndpoint": "Eine Beziehung zwischen einer Aufgabe und ihrer eigenen übergeordneten Sammelaufgabe ist nicht zulässig.",
     "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht einbezogen werden — siehe das Beziehungen-Panel für Details.",
     "mppSourceScheduleNotes_one": "Diese MS-Project-Datei enthält {{count}} Vorgang mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Open Planner Studio plant ihn als durchgehenden Zeitraum; seine Termine können daher von MS Project abweichen. Siehe die Anleitung: MS-Project-Import.",
-    "mppSourceScheduleNotes_other": "Diese MS-Project-Datei enthält {{count}} Vorgänge mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Open Planner Studio plant sie als durchgehenden Zeitraum; ihre Termine können daher von MS Project abweichen. Siehe die Anleitung: MS-Project-Import."
+    "mppSourceScheduleNotes_other": "Diese MS-Project-Datei enthält {{count}} Vorgänge mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Open Planner Studio plant sie als durchgehenden Zeitraum; ihre Termine können daher von MS Project abweichen. Siehe die Anleitung: MS-Project-Import.",
+    "projectStartAnchorsClamped_one": "Projektstart verschoben: {{count}} Vorgangsanker ohne Vorgänger oder Einschränkung wurde auf das neue Startdatum verschoben.",
+    "projectStartAnchorsClamped_other": "Projektstart verschoben: {{count}} Vorgangsanker ohne Vorgänger oder Einschränkung wurden auf das neue Startdatum verschoben."
   },
   "yes": "Ja",
   "no": "Nein",

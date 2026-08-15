@@ -21,7 +21,10 @@
     "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte — voir le panneau Relations pour savoir lesquelles.",
     "mppSourceScheduleNotes_one": "Ce fichier MS Project contient {{count}} tâche à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio la planifie comme un bloc continu ; ses dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project.",
     "mppSourceScheduleNotes_many": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio les planifie comme un bloc continu ; leurs dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project.",
-    "mppSourceScheduleNotes_other": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio les planifie comme un bloc continu ; leurs dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project."
+    "mppSourceScheduleNotes_other": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Open Planner Studio les planifie comme un bloc continu ; leurs dates peuvent donc différer de MS Project. Voir le guide : Importation MS Project.",
+    "projectStartAnchorsClamped_one": "Début de projet déplacé : {{count}} ancre de tâche sans prédécesseur ni contrainte a été déplacée vers la nouvelle date de début.",
+    "projectStartAnchorsClamped_many": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début.",
+    "projectStartAnchorsClamped_other": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début."
   },
   "yes": "Oui",
   "no": "Non",

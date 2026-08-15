@@ -54,8 +54,9 @@ unchanged.
 
 Open Planner Studio schedules an opened `.mpp` file using the same calendar logic as MS Project
 itself (working days, working hours per day, days off, and — for an hour-based project — the exact
-clock time). For a regular task, you'll find the same start and finish date as in MS Project,
-down to the minute for an hour-based project.
+clock time). This is aimed at a regular task ending up with the same start and finish date as in MS
+Project, down to the minute for an hour-based project; this remains an ongoing stage of work, and
+the exceptions below are a deliberate part of that.
 
 One group of tasks is a deliberate **exception**: tasks with a **split**, **leveled**, or otherwise
 **resource-driven** schedule (manual leveling, a "leveling delay", or resource contouring/work
@@ -65,12 +66,17 @@ calendar days. Open Planner Studio doesn't yet distinguish this and schedules su
 **continuous** span: the duration is correct, but the window (and therefore possibly the finish
 date) can differ from what you see in MS Project.
 
-You'll notice this when opening: if the file contains such tasks, a one-time notification shows
-the count. If you need to know exactly which tasks are affected and how they're built up in MS
-Project (the breaks, the leveling delay), open the file in MS Project itself — that information
-isn't silently lost from the source file when reading it, Open Planner Studio simply ignores it
-when scheduling. Editable task splitting and resource leveling as a feature aren't part of this
-stage; the notification and this guide are where you can look this up.
+You'll usually notice this when opening: if the file contains such tasks, a one-time notification
+shows the count. Two of the three causes — leveling with a leveling delay, and a split or
+multi-day-stretched task — are reliably detected. **Pure resource contouring** (work within a task
+gets a rising/falling curve, without the start/finish date itself changing) is a known, unclosed
+gap in that notification: the source file's own contour indicator turned out not to be reliably
+readable on investigation, so such a task can be scheduled as one continuous span silently, without
+a notification. If you need to know exactly which tasks are affected and how they're built up in MS
+Project (the breaks, the leveling delay, a contour), open the file in MS Project itself — that
+information isn't silently lost from the source file when reading it, Open Planner Studio simply
+ignores it when scheduling. Editable task splitting and resource leveling as a feature aren't part
+of this stage; the notification and this guide are where you can look this up.
 
 ## Calendar exceptions and work weeks: two known limitations
 
