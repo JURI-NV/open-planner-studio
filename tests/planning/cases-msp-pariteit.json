@@ -353,6 +353,146 @@
       }
     },
     {
+      "id": "msp-16-t8-review-h1-ff-elapsed-opvolger-dag",
+      "title": "T8-review H1 (repro): FF+0 dag-modus, WORKTIME-voorganger A(3d) -> ELAPSEDTIME-opvolger B(2 elapsed dagen). VOOR de fix rekende forwardDay's succBack in WERKdagen (se.addWorkingDaysSigned) i.p.v. B's eigen 24/7-klokduur: B.es kwam op 07-07 (1 werkdag terug vanaf A.ef) i.p.v. het correcte 07-06, met B.ef op 07-09 i.p.v. 07-08 — exact de reviewer-repro ('B.ef ná de driver'). FF+0 tekent B.ef GELIJK aan A.ef (kloktijd, ongeacht B's eigen duur); B.es volgt dan via B's eigen ELAPSEDTIME-terugstap (deps.startFromFinish, T8).",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 3 },
+        { "name": "B", "dur": 2, "durationType": "ELAPSEDTIME" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_FINISH" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-08", "tf": 0, "ff": 0, "crit": true },
+          "B": { "es": "2026-07-06", "ef": "2026-07-08", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A", "B"],
+        "projectEnd": "2026-07-08",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-17-t8-review-h1-ff-elapsed-opvolger-uur",
+      "title": "T8-review H1 (repro): FF+0 uur-modus, WORKTIME-voorganger A(8u, hele werkdag) -> ELAPSEDTIME-opvolger B(4 elapsed uur). VOOR de fix normaliseerde forwardHour's FF-tak de geëiste finish vooruit naar de eerstvolgende werk-instant (nextWorkInstant, want A.ef ligt exact OP een band-eind, dus [start,end)-conventie sluit 'm uit) vóórdat deze naar startFromFinish ging — dat schoof B.ef een hele nacht (16 klokuur) op naar de volgende dag, ruwweg de reviewer-repro ('2,5 dag mis' in een ander scenario). NA de fix (succElapsed onderdrukt die normalisatie, net als een eindmijlpaal al deed) landt B.ef exact op A.ef. Calendar = H8-band [480,960] (08:00-16:00, ma-vr).",
+      "anchor": "2026-07-06",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "tasks": [
+        { "name": "A", "dur": "8h" },
+        { "name": "B", "dur": "4h", "durationType": "ELAPSEDTIME" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_FINISH" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-06T16:00", "tf": 0, "ff": 0, "crit": true },
+          "B": { "es": "2026-07-06T12:00", "ef": "2026-07-06T16:00", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A", "B"],
+        "projectEnd": "2026-07-06T16:00",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-18-t8-review-h2-fs-elapsed-voorganger-dag",
+      "title": "T8-review H2 (repro): FS+0 dag-modus, ELAPSEDTIME-voorganger A(2 elapsed dagen, start vrijdag dus finish zondag) -> WORKTIME-opvolger B(1d). VOOR de fix kneep backwardDay's FS-tak (pe.prevWorkDayBefore) A's late finish onterecht terug naar vrijdag (A.tf=-2 — exact de reviewer-meting), ook al is zondag een volkomen legitieme finish voor een 24/7-taak. NA de fix (predElapsed slaat prevWorkDayBefore over, addCalendarDays(target,-1) is de juiste losse inverse) is A.lf=A.ef=zondag, tf=0. Invarianten: tf>=0 (geen late-constraint), ff<=tf, ls (07-10) niet vóór het eigen anker (07-10).",
+      "anchor": "2026-07-10",
+      "tasks": [
+        { "name": "A", "dur": 2, "durationType": "ELAPSEDTIME" },
+        { "name": "B", "dur": 1 }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-12", "ls": "2026-07-10", "lf": "2026-07-12", "tf": 0, "ff": 0, "crit": true },
+          "B": { "es": "2026-07-13", "ef": "2026-07-13", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A", "B"],
+        "projectEnd": "2026-07-13",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-19-t8-review-h2-fs-elapsed-voorganger-uur",
+      "title": "T8-review H2 (repro, uur-modus): FS+0, ELAPSEDTIME-voorganger A(40 elapsed uur vanaf vr 08:00, dus finish zo 00:00 — buiten elke werkband) -> WORKTIME-opvolger B(1u). VOOR de fix kneep backwardHour's FS-tak (pe.prevWorkInstant) A's late finish terug naar de vorige werk-instant (vrijdagband), een negatieve/te-krappe speling. NA de fix (predElapsed slaat prevWorkInstant over — nextWorkInstant is hier [start,end)-INCLUSIEF, dus de kale ongesnapte target is al de losse inverse, geen -1 nodig zoals in dag-modus) krijgt A een POSITIEVE speling (tf=32/24=1,333... dagen: het gat tussen zijn eigen vroege finish (zo 00:00) en de late finish die B's late-start toestaat (ma 08:00) — 32 klokuur). Invarianten: tf>=0, ff(0)<=tf, ls niet vóór het eigen anker (vr 08:00). Anker EXPLICIET op vrijdag gezet (geen root-taak zonder eigen `start` gebruikt anders de case-anchor rechtstreeks).",
+      "anchor": "2026-07-10",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "tasks": [
+        { "name": "A", "dur": "40h", "durationType": "ELAPSEDTIME" },
+        { "name": "B", "dur": "1h" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10T08:00", "ef": "2026-07-12T00:00", "ls": "2026-07-11T16:00", "lf": "2026-07-13T08:00", "tf": 1.3333333333333333, "ff": 0 },
+          "B": { "es": "2026-07-13T08:00", "ef": "2026-07-13T09:00", "tf": 0, "ff": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-13T09:00",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-20-t8-review-elapsed-keten",
+      "title": "T8-review, item 3 (elapsed->elapsed-keten): stress-test die H1 EN H2 in één keten combineert, dag-modus. A(3d WORKTIME) -FF+0-> B(2 elapsed dagen, H1: B is ELAPSEDTIME-opvolger) -FS+0-> C(1d WORKTIME, H2: B is ELAPSEDTIME-voorganger). Handmatig herleid: FF+0 tekent B.ef=A.ef=07-08(wo); B.es=B.ef-2 elapsed dagen=07-06(ma, via H1). C start de eerstvolgende werkdag ná B.ef=07-08(wo) => C.es=07-09(do). Terug: C is sink (tf=0) => C.ls=C.lf=07-09; H2-inverse (predElapsed op de B->C-relatie) geeft B.lf=addCalendarDays(07-09,-1)=07-08 — EXACT B's eigen ef => B.tf=0, en dat propageert door naar A.tf=0. Een volledig kritieke keten (tf=ff=0 overal) — bewijst dat de twee fixes elkaar niet tegenspreken wanneer dezelfde taak (B) tegelijk ELAPSEDTIME-opvolger (van A) én ELAPSEDTIME-voorganger (naar C) is.",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 3 },
+        { "name": "B", "dur": 2, "durationType": "ELAPSEDTIME" },
+        { "name": "C", "dur": 1 }
+      ],
+      "links": [
+        { "pred": "A", "succ": "B", "type": "FINISH_FINISH" },
+        { "pred": "B", "succ": "C", "type": "FINISH_START" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-08", "ls": "2026-07-06", "lf": "2026-07-08", "tf": 0, "ff": 0, "crit": true },
+          "B": { "es": "2026-07-06", "ef": "2026-07-08", "ls": "2026-07-06", "lf": "2026-07-08", "tf": 0, "ff": 0, "crit": true },
+          "C": { "es": "2026-07-09", "ef": "2026-07-09", "ls": "2026-07-09", "lf": "2026-07-09", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A", "B", "C"],
+        "projectEnd": "2026-07-09",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-21-t8-review-m1-eenheden-float",
+      "title": "T8-review M1 (eenhedenbesluit float, orkestratorbesluit — lokale MPXJ-bron `org.mpxj.cpm.MicrosoftSlackCalculator` ONTBRAK in de lokale checkout onder testdata-crawl/mpxj, dus geen uitsluitsel gevonden; TimeUnit.java bevestigt wél dat MPXJ's Duration-model native ELAPSED_DAYS/-HOURS/... kent, dus een per-taak-eenheid voor slack is een bestaand MPXJ-concept, geen verzinsel). Besluit: float van een ELAPSEDTIME-taak blijft in KALENDERdagen (signedElapsedSpan), ONGEMARKEERD naast WORKTIME-siblings die in WERKdagen rekenen — zelfde 'getal, andere eenheid'-patroon als scheduleDuration al kende vóór T8. Dit pint dat verschil DIRECT zichtbaar: A (ELAPSEDTIME, 1 dag, vr->za) en A2 (WORKTIME, 2 dagen, vr->ma) delen via FS+0 dezelfde sink C; A2 is de drijvende voorganger (tf=0, WERKdag-geteld) en C start dus dinsdag. A krijgt daardoor speling — maar UITGEDRUKT IN KALENDERdagen (tf=2: za->zo->ma), niet in werkdagen (dat zou hier tf=1 geven: alleen maandag is een werkdag in het za-zo-ma-venster). A.ff=1 is een ANDER getal dan A.tf=2 op DEZELFDE taak — dat is M2/L3's genoteerde beperking (de relatie-vrije-speling-berekening in scheduleAnalysis.ts is nog NIET elapsed-bewust) rechtstreeks zichtbaar, niet gefixt in deze ronde.",
+      "anchor": "2026-07-10",
+      "tasks": [
+        { "name": "A", "dur": 1, "durationType": "ELAPSEDTIME" },
+        { "name": "A2", "dur": 2 },
+        { "name": "C", "dur": 1 }
+      ],
+      "links": [
+        { "pred": "A", "succ": "C", "type": "FINISH_START" },
+        { "pred": "A2", "succ": "C", "type": "FINISH_START" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-11", "ls": "2026-07-12", "lf": "2026-07-13", "tf": 2, "ff": 1, "crit": false },
+          "A2": { "es": "2026-07-10", "ef": "2026-07-13", "ls": "2026-07-10", "lf": "2026-07-13", "tf": 0, "ff": 0, "crit": true },
+          "C": { "es": "2026-07-14", "ef": "2026-07-14", "ls": "2026-07-14", "lf": "2026-07-14", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A2", "C"],
+        "projectEnd": "2026-07-14",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-22-t8-review-m3-elapsed-klem-rode-pad",
+      "title": "T8-review M3 (rode-pad-fixture): een ELAPSEDTIME-taak met een absurde duur (dur=1e12 'dagen' — ongevalideerde invoer, bv. een tikfout via MCP `duration`) mag de solver NIET laten crashen. ZONDER klem zou elapsedMinutesOf 1e12x24x60=1,44e15 minuten teruggeven; x MS_PER_MIN(60000) = 8,64e19 ms — ver voorbij Date's representeerbare bereik (±8,64e15 ms). `new Date()` zelf gooit dan niet (levert stil een Invalid Date), maar de eerstvolgende `formatDate`/`toISOString()`-aanroep (overal in de solver/harness) gooit een ONGEVANGEN RangeError, die de harness als 'THREW: RangeError: Invalid time value' vangt — precies het mutatiebewijs in het commitbericht. MET de klem (MAX_ELAPSED_MINUTES=200.000 dagen, spiegelt CalendarEngine.MAX_DAYS) blijft de taak binnen bereik: A.ef landt exact 200.000 kalenderdagen na A.es (handmatig herleid: 2026-07-06 + 200.000 dagen = 2574-02-03, geverifieerd via Date.UTC-rekenkunde onafhankelijk van de solver).",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 1000000000000, "durationType": "ELAPSEDTIME" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2574-02-03" }
+        },
+        "projectEnd": "2574-02-03",
+        "error": false
+      }
+    },
+    {
       "id": "msp-13-l6-dagmodus-passthrough",
       "title": "L6.6: expliciete DAG-modus-locale — A(3d) -FS+0-> EINDmijlpaal M op een pure dag-kalender (geen `workTime`) — `forwardHour` wordt hier niet eens aangeroepen (`forwardConstraint` dispatcht naar `forwardDay`), dus de T6-machinerie is hier per constructie afwezig. Zusjes-case: mk-01c in cases-milestone-kinds.json (dezelfde combinatie, dat bestand pint 'm al sinds vóór T6); hier lokaal herhaald zodat de dagmodus-byte-identieke invariant rechtstreeks náást de uur-cases in dit bestand staat.",
       "anchor": "2026-07-06",

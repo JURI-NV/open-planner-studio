@@ -77,6 +77,21 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
     if (!cRaw || !succEarly || !succTask) continue;
     // Relatie-vrije-speling in de kalender van de OPVOLGER (diens vroegste start rekent daar, §5.2).
     // Uur-opvolger ⇒ fractionele-dag-float via `workMinutesBetween` (§5.5); dag ⇒ integer (byte-identiek).
+    //
+    // BEKENDE BEPERKING (T8-review M2/L3, niet gefixt in deze ronde): deze berekening is NIET
+    // durationType-bewust — ze rekent altijd in WERKtijd (`workMinutesBetween`/`workDaysBetween`),
+    // ook wanneer de VOORGANGER (waarvoor deze speling straks als `sequenceFreeFloat`/`ff` geldt)
+    // ELAPSEDTIME is. De reviewer kon dit niet triggeren via `cRaw`/`succEarly.es` zelf: `cRaw` komt
+    // uit `forwardConstraint` (T8-review H1/H2 al elapsed-bewust) en `succEarly.es` is de opvolger se
+    // EIGEN vroege start — voor een NIET-ELAPSEDTIME opvolger (het gebruikelijke geval, ook in de
+    // H1/H2-cases in `cases-msp-pariteit.json`) is die altijd al op een geldige werk-instant gesnapt,
+    // dus `workDaysBetween`/`workMinutesBetween` tellen daar toevallig correct — de fout zit dus
+    // UITSLUITEND in de eenheid van het RESULTAAT (werkdagen) wanneer de VOORGANGER elapsed is, niet
+    // in een verkeerd getal op zich. Zie `msp-21-t8-review-m1-eenheden-float`: díe case pint dit
+    // zichtbaar (A.ff=1, werkdag-geteld, naast A.tf=2, kalenderdag-geteld — `signedElapsedSpan`'s
+    // doc-commentaar in `duration.ts` bevat het volledige eenhedenbesluit). Een echte fix vergt een
+    // eigen ELAPSEDTIME-tak hier (`signedElapsedSpan`-stijl, gebaseerd op `reqStart`/`succEarly.es`
+    // i.p.v. werkdag-telling) — buiten de scope van deze fixronde.
     const succCal = calendarFor(succTask);
     const reqStart = snapOnOrAfter(succCal, cRaw);
     const relFloat = succCal.isHourMode

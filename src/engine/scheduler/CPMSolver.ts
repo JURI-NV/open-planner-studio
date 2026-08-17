@@ -1064,7 +1064,16 @@ export class CPMSolver {
 
   /** De harde-pin-START (§4.2), of null als de PRIMAIRE constraint geen harde MSO/MFO-pin is.
    *  MSO pint de START op de datum; MFO pint de FINISH ⇒ start = finish ⊖ duur. Modus-neutraal
-   *  (dag: bevroren dag-primitieven; uur: instant-vinders + minuut-aftrek via `durationMinutesOf`). */
+   *  (dag: bevroren dag-primitieven; uur: instant-vinders + minuut-aftrek via `durationMinutesOf`).
+   *
+   *  T8-REIKWIJDTE (L1, T8-review — correctie op de T8-commitboodschap, die "MSO/MFO-constraints"
+   *  noemde als afnemer van `finishFromStart`/`startFromFinish`): dat klopt alleen voor de
+   *  DUUR-terugstap hier (MFO ⇒ `startFromFinish`, hierbeneden MSO ⇒ `addDuration`) — dié is
+   *  ELAPSEDTIME-bewust sinds T8. De CONSTRAINT-SNAP zelf (`this.snapOnOrAfter(eng, d)` hierboven,
+   *  en `constraintInstant`/`snapOnOrBefore` in de soft-constraint-tegenhangers `forwardBoundOf`/
+   *  `backwardBoundOf` hieronder) is dat NIET: een MSO/MFO-datum op een taak snapt altijd naar een
+   *  WERK-instant, ook als die taak zelf ELAPSEDTIME is. Bewuste afbakening (niet gefixt in T8 of
+   *  deze reviewronde) — geen synthetische case dekt dit, dus geen mutatiebewijs voor deze regel. */
   private hardPinStart(task: Task, eng: CalendarEngine): Date | null {
     const c = task.constraint;
     if (!c?.hard || (c.type !== 'MSO' && c.type !== 'MFO')) return null;

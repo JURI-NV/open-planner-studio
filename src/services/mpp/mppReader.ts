@@ -822,16 +822,19 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // dag ⇒ het bestaande dag-pad, ONGEWIJZIGD op de PROJECT-brede `hoursPerDay` (niet `effHpd`) —
     // spiegelt exact het gedrag van vóór etappe 1.5, zodat een genuine dag-modus-bestand met een
     // taak-kalender-override (ander hoursPerDay dan het project) geen stille duurwijziging krijgt.
-    // SCOPING (T10-spec-review): dit `isHour`-pad zet `durationMinutes` op `raw.durationRaw / 10`
-    // ONGEACHT WORKTIME/ELAPSEDTIME — dat getal zelf is dus al klok-tijd-neutraal correct (een minuut
-    // is een minuut, zie de T10-corpuscase hieronder in check-mpp-import.ts). Wat hier NIET gebeurt
-    // — bewust, buiten T10's scope — is de SOLVER de uur-kalender 24/7 laten doorrekenen voor
-    // ELAPSEDTIME-taken: `CPMSolver` kent nog geen `durationType`-onderscheid en behandelt deze
-    // `durationMinutes` op een uur-kalender nu nog elapsed-naïef (als WERKtijd, dus begrensd door de
-    // kalenderbanden i.p.v. 24/7 doorlopend). Pas T8 (elapsed-duur rekent in kalendertijd) maakt de
-    // hier gelezen `scheduleDuration`/`durationMinutes` ook op een uur-kalender daadwerkelijk
-    // eind-tot-eind kloppend voor ELAPSEDTIME-taken — tot dan is dit uur-mode-pad alleen een correcte
-    // LEESKANT, geen correcte planning.
+    // SCOPING (T10-spec-review, BIJGEWERKT ná T8 — T8-review L1): dit `isHour`-pad zet
+    // `durationMinutes` op `raw.durationRaw / 10` ONGEACHT WORKTIME/ELAPSEDTIME — dat getal zelf is
+    // dus al klok-tijd-neutraal correct (een minuut is een minuut, zie de T10-corpuscase hieronder
+    // in check-mpp-import.ts). T10 zelf was uitsluitend een correcte LEESKANT — de SOLVER rekende
+    // deze `durationMinutes` op een uur-kalender toen nog elapsed-naïef (als WERKtijd, begrensd door
+    // de kalenderbanden i.p.v. 24/7 doorlopend). Sinds T8 (`CPMSolver.ts`'s
+    // `addDurationChecked`/`subDuration`/`finishFromStart`/`startFromFinish`, allen `durationType`-
+    // bewust via `duration.ts`'s `elapsedMinutesOf`/`addElapsedMinutes`/`subtractElapsedMinutes`)
+    // is dat hier gelezen `durationMinutes` ook op een uur-kalender daadwerkelijk eind-tot-eind
+    // kloppend voor ELAPSEDTIME-taken. T8-review-BEPERKING: dat geldt voor de duur-TOEPASSING zelf,
+    // niet (nog) voor MSO/MFO-constraint-snaps op een ELAPSEDTIME-taak (zie de T8-REIKWIJDTE-notitie
+    // bij `CPMSolver.hardPinStart`) en niet voor de relatie-vrije-speling-eenheid wanneer de
+    // VOORGANGER elapsed is (zie de M2/L3-notitie bij `scheduleAnalysis.ts`'s relFloat-berekening).
     const durationMinutes = isHour ? Math.round(raw.durationRaw / 10) : undefined;
     // T10-conversievalkuil (zie het plan bij DurationUnits): een ELAPSED-duur ligt in MPP al vast
     // in KLOK-minuten (spiegelt MPPUtility.getAdjustedDuration's ELAPSED_DAYS/-WEEKS/-MONTHS-takken —

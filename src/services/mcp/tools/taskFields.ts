@@ -15,7 +15,11 @@
 // (`time`) zijn nooit rechtstreeks zetbaar — `duration`/`durationType` worden hier vertaald naar een
 // veld-voor-veld `TaskTimePatch` die de draft-laag individueel toepast.
 //
-// DUUR-SEMANTIEK (dag-modus): `duration` is ALTIJD in hele werkdagen. `TaskTime.durationMinutes`
+// DUUR-SEMANTIEK (dag-modus): `duration` is ALTIJD in hele dagen — WERKdagen voor de default
+// `durationType: 'WORKTIME'`, KALENDERdagen (24/7, geen kalenderband-toetsing) voor
+// `durationType: 'ELAPSEDTIME'` (T8, T8-review L1-correctie: eerdere versies van deze regel
+// spraken uitsluitend van "werkdagen" zonder dat onderscheid — zie `duration.ts`'s
+// `elapsedMinutesOf` voor de bron van waarheid). `TaskTime.durationMinutes`
 // (uur-modus, fase 2.8b) is via de bridge NIET zetbaar; wél wordt hij bij elke duur-wijziging
 // GEWIST — precies zoals de dag-tak van `TaskDialog.handleSave` (`time.scheduleDuration = durDays;
 // delete time.durationMinutes`). Dat is geen detail maar een correctheidseis: op een uur-kalender is
@@ -107,9 +111,9 @@ export const TASK_FIELD_NAMES = [
 
 /** Gerichte hints voor sleutels die een agent redelijkerwijs probeert maar die hier niet horen. */
 const REJECT_HINTS: Record<string, string> = {
-  time: 'zet de duur met `duration` (hele werkdagen) en het duurtype met `durationType` — de `time`-tak zelf is niet zetbaar (dat zou CPM-datums, floats en actuals wissen)',
-  scheduleDuration: 'gebruik `duration` (hele werkdagen)',
-  durationMinutes: 'sub-dag-duur (uren) is via de bridge niet zetbaar; `duration` is in hele werkdagen',
+  time: 'zet de duur met `duration` (hele dagen — werkdagen bij WORKTIME, kalenderdagen bij ELAPSEDTIME) en het duurtype met `durationType` — de `time`-tak zelf is niet zetbaar (dat zou CPM-datums, floats en actuals wissen)',
+  scheduleDuration: 'gebruik `duration` (hele dagen — werkdagen bij WORKTIME, kalenderdagen bij ELAPSEDTIME)',
+  durationMinutes: 'sub-dag-duur (uren) is via de bridge niet zetbaar; `duration` is in hele dagen (werkdagen bij WORKTIME, kalenderdagen bij ELAPSEDTIME)',
   status: 'gebruik `progress` (voortgangspad), niet `fields.status`',
   completion: 'gebruik `progress.completion` (0–100)',
   actualStart: 'gebruik `progress.actualStart`',
@@ -218,7 +222,7 @@ export function parseTaskFields(raw: unknown, ctx: TaskFieldContext): TaskFieldR
   if ('duration' in raw) {
     const d = raw.duration;
     if (typeof d !== 'number' || !Number.isFinite(d) || d < 0) {
-      return { ok: false, reason: '`duration` moet een eindig getal ≥ 0 zijn (hele werkdagen)' };
+      return { ok: false, reason: '`duration` moet een eindig getal ≥ 0 zijn (hele dagen — werkdagen bij WORKTIME, kalenderdagen bij ELAPSEDTIME)' };
     }
     if (effMilestone && d > 0) {
       return { ok: false, reason: `een mijlpaal heeft per definitie duur 0; \`duration\`=${d} is niet toegestaan` };
@@ -427,7 +431,8 @@ export const TASK_FIELD_SCHEMA_PROPERTIES: Record<string, unknown> = {
 /** Eén regel voor in tool-beschrijvingen: welke velden er zijn en dat de rest hard weigert. */
 export const TASK_FIELDS_DOC =
   `Toegestane velden: ${TASK_FIELD_NAMES.join(', ')}. Elke andere sleutel wordt GEWEIGERD met een ` +
-  'reden (nooit stil genegeerd) en laat het hele item ongewijzigd. `duration` is in hele werkdagen ' +
-  'en mapt op de interne `time.scheduleDuration`; de `time`-tak zelf, `status`, `parentId` en ' +
+  'reden (nooit stil genegeerd) en laat het hele item ongewijzigd. `duration` is in hele dagen ' +
+  '(werkdagen bij WORKTIME, kalenderdagen bij ELAPSEDTIME) en mapt op de interne ' +
+  '`time.scheduleDuration`; de `time`-tak zelf, `status`, `parentId` en ' +
   '`resourceIds` zijn hier bewust niet zetbaar (gebruik `progress`, planner_move_task resp. ' +
   'planner_manage_assignments).';

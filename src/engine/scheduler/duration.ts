@@ -64,6 +64,25 @@ export function durationDaysOf(task: Task, effCal: DurationCalendar): number {
 // een blaadmodule zonder afhankelijkheid op relationMath — zie de moduleheader hierboven).
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 const MS_PER_MIN = 60_000;
+// T8-review M3 — zonder klem geeft een absurde ELAPSEDTIME-duur (via MCP `duration`, een corrupt
+// bestand, of gewoon een tikfout — een taak-duur is invoer, niet gevalideerd tot hier) een
+// `new Date(...)` buiten JS's representeerbare bereik (±8.64e15 ms rond epoch). `new Date()` zelf
+// gooit dan niet (levert stil een Invalid Date), maar élke `formatDate`/`formatInstant` erop
+// (`.toISOString()`, overal in deze solver) gooit een ONGEVANGEN RangeError — een crash diep in de
+// forward/backward-pass zonder duidelijke herkomst. `MAX_ELAPSED_MINUTES` spiegelt
+// `CalendarEngine.MAX_DAYS` (200.000 dagen ≈ 547 jaar, ruim boven elk plausibel bouwproject) × 24×60
+// — dezelfde beproefde bovengrens, geen derde losse magic number — en de klem-PLAATS spiegelt
+// `CalendarEngine.addWorkMinutes` (`Math.min(minutes, MAX_MINUTES)`, vlak vóór de Date-rekenkunde).
+const MAX_ELAPSED_MINUTES = 200_000 * 24 * 60;
+
+/** Klem `minutes` op `±MAX_ELAPSED_MINUTES`; NaN/Infinity (kapotte invoer) ⇒ 0 (no-op, nooit een
+ *  gecrashte Date i.p.v. een stille verkeerde). */
+function clampElapsedMinutes(minutes: number): number {
+  if (!Number.isFinite(minutes)) return 0;
+  if (minutes > MAX_ELAPSED_MINUTES) return MAX_ELAPSED_MINUTES;
+  if (minutes < -MAX_ELAPSED_MINUTES) return -MAX_ELAPSED_MINUTES;
+  return minutes;
+}
 
 /**
  * Duur van een ELAPSEDTIME-taak in KLOK-minuten (24/7).
@@ -85,19 +104,21 @@ export function elapsedMinutesOf(task: Task, effCal: DurationCalendar): number {
 }
 
 /** Tel `minutes` KLOK-minuten op bij `start` (24/7, geen kalenderband-toetsing) — de
- *  ELAPSEDTIME-tegenhanger van `CalendarEngine.addWorkMinutes`/`addWorkDaysChecked`. */
+ *  ELAPSEDTIME-tegenhanger van `CalendarEngine.addWorkMinutes`/`addWorkDaysChecked`. Geklemd
+ *  (M3, T8-review): zie `MAX_ELAPSED_MINUTES` hierboven. */
 export function addElapsedMinutes(start: Date, minutes: number): Date {
-  return new Date(start.getTime() + minutes * MS_PER_MIN);
+  return new Date(start.getTime() + clampElapsedMinutes(minutes) * MS_PER_MIN);
 }
 
 /** Trek `minutes` KLOK-minuten af van `end` (24/7, spiegel van `addElapsedMinutes`) — de
- *  ELAPSEDTIME-tegenhanger van `CalendarEngine.subtractWorkMinutes`/`subtractWorkDays`. */
+ *  ELAPSEDTIME-tegenhanger van `CalendarEngine.subtractWorkMinutes`/`subtractWorkDays`. Geklemd
+ *  (M3, T8-review): zie `MAX_ELAPSED_MINUTES` hierboven. */
 export function subtractElapsedMinutes(end: Date, minutes: number): Date {
-  return new Date(end.getTime() - minutes * MS_PER_MIN);
+  return new Date(end.getTime() - clampElapsedMinutes(minutes) * MS_PER_MIN);
 }
 
 /**
- * Getekend KLOK-span van `a` naar `b`, in eigen-kalender-DAGEN (fractioneel in uur-modus) — de
+ * Getekend KLOK-span van `a` naar `b`, in eigen-kalender-DAGEN (fractioneel mogelijk) — de
  * ELAPSEDTIME-tegenhanger van `CPMSolver.signedWorkDays`/`workMinutesBetween÷(hoursPerDay×60)`
  * voor float-rekenwerk (§5.5).
  *
@@ -109,9 +130,30 @@ export function subtractElapsedMinutes(end: Date, minutes: number): Date {
  * werkdag-telling) een niet-werkdag niet kan representeren. Deze functie rekent daarom met de
  * RUWE klok-ms-afstand — geen werkdag-telling, geen inclusieve −1-correctie (die correctie hoort
  * bij WORKTIMEs "dag 1 telt al mee"-conventie, niet bij een kale kloktijd-spanne) — zodat a===b
- * altijd exact 0 geeft, ongeacht welke dag van de week dat is.
+ * altijd exact 0 geeft, ongeacht welke dag van de week dat is. `effCal.isHourMode` doet hier NIET
+ * ter zake voor de rekenkunde zelf (§L2, T8-review): een klokdag is altijd 24×60×`MS_PER_MIN`,
+ * of de kalender nu uur- of dag-precisie kent — het `DurationCalendar`-argument staat er puur om
+ * dezelfde aanroepvorm te delen met `durationMinutesOf`/`durationDaysOf` (die dat verschil wél
+ * nodig hebben, via `hoursPerDay`).
+ *
+ * EENHEDENBESLUIT (T8-review M1, orkestratorbesluit — 2026-08-17): een ELAPSEDTIME-taak rapporteert
+ * `tf`/`ff` dus in KALENDERdagen, ONGEMARKEERD naast WORKTIME-taken in dezelfde `tf`/`ff`-velden
+ * (die in WERKdagen rekenen, `signedWorkDays`). Onderzocht vóór dit besluit: de lokale MPXJ-
+ * broncheckout onder `testdata-crawl/mpxj` mist `org.mpxj.cpm.MicrosoftSlackCalculator` (de klasse
+ * die MS Projects "Total Slack" daadwerkelijk berekent) — geen uitsluitsel over wélke eenheid MSP
+ * zelf toont voor een elapsed-taak. Wel bevestigd (`TimeUnit.java`): MPXJ's `Duration`-model kent
+ * native `ELAPSED_DAYS`/`ELAPSED_HOURS`/… als aparte eenheden náást `DAYS`/`HOURS` — een per-taak
+ * eenheid voor duur (en dus impliciet voor afgeleide velden als slack) is dus een bestaand MPXJ-
+ * concept, geen verzinsel van dit project. Bij ontbrekend uitsluitsel: per-taak-semantiek behouden
+ * (consistent met hoe `scheduleDuration` al vóór T8 werkte — ook daar bepaalt de taak zijn eigen
+ * eenheid). Gepind in `cases-msp-pariteit.json` (`msp-21-t8-review-m1-eenheden-float`): een
+ * ELAPSEDTIME-taak en een WORKTIME-sibling onder dezelfde FS-sink krijgen zichtbaar verschillende
+ * getallen (kalenderdagen resp. werkdagen) — en binnen ÉÉN taak wijkt `tf` (kalenderdagen, deze
+ * functie) zelfs af van `ff` (nog werkdag-geteld, zie M2/L3-beperking bij de relFloat-regel in
+ * `scheduleAnalysis.ts`). Toekomstig werk dat dit wil markeren (bv. een `floatUnit`-veld) is een
+ * plan-notitie, geen T8-scope.
  */
 export function signedElapsedSpan(a: Date, b: Date, effCal: DurationCalendar): number {
-  const ms = b.getTime() - a.getTime();
-  return effCal.isHourMode ? ms / MS_PER_MIN / (24 * 60) : ms / (24 * 60 * MS_PER_MIN);
+  void effCal;
+  return (b.getTime() - a.getTime()) / (24 * 60 * MS_PER_MIN);
 }

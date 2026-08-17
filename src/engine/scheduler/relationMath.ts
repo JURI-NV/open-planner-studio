@@ -148,9 +148,13 @@ function forwardDay(
   const pe = predEng;
   const se = succEng;
   const lagEng = LAG_CALENDAR === 'predecessor' ? predEng : succEng;
-  const succDur = successor.isMilestone ? 0 : successor.time.scheduleDuration;
-  // Aantal werkdagen tussen start en finish van de opvolger (duur 0/1 => 0).
-  const succBack = succDur > 0 ? succDur - 1 : 0;
+  // T8-review H1: FF/SF hieronder leidden de "werkdagen tussen start en finish van de opvolger"
+  // vroeger inline af (`succDur>0?succDur-1:0`) en stapten daarmee UNCONDITIONEEL in WERKdagen
+  // terug (`se.addWorkingDaysSigned`). Nu via `deps.startFromFinish` — dezelfde helper als T8's
+  // forward-duurtoepassing (GEEN tweede variant), die zelf de WORKTIME/ELAPSEDTIME-keuze maakt:
+  // voor een ELAPSEDTIME-opvolger (mijlpaal uitgesloten — die heeft geen eigen duur) 24/7
+  // kloktijd, voor WORKTIME byte-identiek aan de oude inline formule.
+  const succElapsed = !successor.isMilestone && successor.time.durationType === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
 
   switch (seq.type) {
@@ -167,24 +171,32 @@ function forwardDay(
     case 'FINISH_FINISH': {
       // Opvolger EINDIGT `lag` dagen na de finish van de voorganger → leid de bijbehorende
       // start af (finish − (duur−1)). De geëiste finish moet een werkdag zijn vóór de
-      // werkdag-aftrek, dus elapsed snapt hier wél (vooruit — ondergrens op de finish).
+      // werkdag-aftrek, dus elapsed snapt hier wél (vooruit — ondergrens op de finish) —
+      // BEHALVE voor een ELAPSEDTIME-opvolger (H1): die heeft geen werkdag-begrip, dus de
+      // geëiste finish blijft een kale kloktijd (geen `se.nextWorkDay`-snap).
       const reqFinish = elapsed
-        ? se.nextWorkDay(addCalendarDays(predResult.ef, lag))
+        ? (succElapsed ? addCalendarDays(predResult.ef, lag) : se.nextWorkDay(addCalendarDays(predResult.ef, lag)))
         : lagEng.addWorkingDaysSigned(predResult.ef, lag);
       // Een startmijlpaal-opvolger (dagbegin-anker) kan pas op de werkdag ná een
       // dag-eindgrens liggen; na een dagbegin-voorganger (start-/auto-mijlpaal) niet.
       if (succIsStartMs && !predEndsBeginOfDay) return se.nextWorkDayAfter(reqFinish);
-      return se.addWorkingDaysSigned(reqFinish, -succBack);
+      // H1: succBack rekent in WERKdagen (`se.addWorkingDaysSigned`) — voor een ELAPSEDTIME-
+      // opvolger moet de terugstap 24/7 klokdagen zijn. `deps.startFromFinish` is al
+      // durationType-bewust (T8) en voor een WORKTIME-opvolger byte-identiek aan de oude
+      // `se.addWorkingDaysSigned(reqFinish, -succBack)` (zelfde formule, ándere aanroeper).
+      return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'START_FINISH': {
       // Opvolger EINDIGT `lag` dagen na de START van de voorganger (zeldzaam).
       const reqFinish = elapsed
-        ? se.nextWorkDay(addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag))
+        ? (succElapsed
+            ? addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)
+            : se.nextWorkDay(addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)))
         : lagEng.addWorkingDaysSigned(
             predStartsNextDay ? pe.nextWorkDayAfter(predResult.es) : predResult.es,
             lag,
           );
-      return se.addWorkingDaysSigned(reqFinish, -succBack);
+      return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'FINISH_START':
     default: {
@@ -225,8 +237,13 @@ function backwardDay(
   const pe = predEng;
   const se = succEng;
   const lagEng = LAG_CALENDAR === 'predecessor' ? predEng : succEng;
-  const predDur = predTask.isMilestone ? 0 : predTask.time.scheduleDuration;
-  const predBack = predDur > 0 ? predDur - 1 : 0;
+  // T8-review H1/H2-spiegelpaar: SS/SF hieronder leidden "predLS → predLF" vroeger inline af
+  // (`predDur>0?predDur-1:0`, WERKdagen via `pe.addWorkingDaysSigned`). Nu via `deps.finishFromStart`
+  // — dezelfde helper als `startFromFinish` hierboven (H1) en al elders in deze solver (T8) — die
+  // voor een ELAPSEDTIME-voorganger (mijlpaal uitgesloten) 24/7 kloktijd toepast, WORKTIME
+  // byte-identiek aan de oude inline formule. Zie ook `predElapsed` bij de FINISH_START-tak
+  // hieronder (H2: de `prevWorkDayBefore`-inversie zelf, niet een duur-toepassing).
+  const predElapsed = !predTask.isMilestone && predTask.time.durationType === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
 
   switch (seq.type) {
@@ -238,7 +255,7 @@ function backwardDay(
         : predStartsNextDay
           ? pe.prevWorkDayBefore(lagEng.addWorkingDaysSigned(succResult.ls, -lag))
           : lagEng.addWorkingDaysSigned(succResult.ls, -lag);
-      return pe.addWorkingDaysSigned(predLS, predBack); // pred.lateFinish
+      return deps.finishFromStart(pe, predLS, predTask); // pred.lateFinish — H1/H2-spiegel, zie hierboven
     }
     case 'FINISH_FINISH': {
       // Forward: succ.finish = pred.finish + lag ⇒ pred.finish ≤ succ.lateFinish − lag.
@@ -257,7 +274,7 @@ function backwardDay(
         : predStartsNextDay
           ? pe.prevWorkDayBefore(lagEng.addWorkingDaysSigned(succResult.lf, -lag))
           : lagEng.addWorkingDaysSigned(succResult.lf, -lag);
-      return pe.addWorkingDaysSigned(predLS, predBack);
+      return deps.finishFromStart(pe, predLS, predTask); // H1/H2-spiegel, zie START_START hierboven
     }
     case 'FINISH_START':
     default: {
@@ -269,7 +286,17 @@ function backwardDay(
         return lagEng.prevWorkDay(addCalendarDays(succResult.ls, -plus));
       }
       const target = lagEng.addWorkingDaysSigned(succResult.ls, -lag);
-      return succIsFinishMs || predEndsBeginOfDay ? target : pe.prevWorkDayBefore(target);
+      if (succIsFinishMs || predEndsBeginOfDay) return target;
+      // H2: `prevWorkDayBefore` inverteert de forward-tak se `pe.nextWorkDayAfter` (die STRIKT
+      // vooruitstapt, ook vanaf een al-werkdag-geldige instant) — voor een ELAPSEDTIME-voorganger
+      // bestaat dat "werkdag ervoor"-begrip niet: zijn late finish mag op ELKE kalenderdag liggen,
+      // inclusief een niet-werkdag (bv. zondag). `prevWorkDayBefore` zou die legitieme zondag-EF
+      // onterecht een heel weekend terugknijpen (spook-negatieve-speling, T8-review H2). De juiste
+      // (LOSSTE, dus float-neutrale) inverse van de forward "+1 dag, dan volgende werkdag"-stap is
+      // hier kaal "−1 kalenderdag" — géén werkdag-zoektocht — zie het commitbericht voor de
+      // herleiding en msp-18 (`cases-msp-pariteit.json`) voor het mutatiebewijs.
+      if (predElapsed) return addCalendarDays(target, -1);
+      return pe.prevWorkDayBefore(target);
     }
   }
 }
@@ -294,6 +321,12 @@ function forwardHour(
   const elapsed = seq.lagUnit === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
   const elapsedMin = () => deps.resolveElapsedMinutes(seq, predTask) * MS_PER_MIN;
+  // T8-review H1: zie forwardDay se `succElapsed` — dezelfde definitie, hier voor de FF/SF-uurtak.
+  // De `succIsFinishMs`-kortsluitingen hieronder (T6/L1) golden tot nu toe alleen voor een
+  // EINDmijlpaal-opvolger; een ELAPSEDTIME-opvolger heeft PRECIES dezelfde behoefte (geen
+  // werk-instant-normalisatie op zijn geëiste finish, want 24/7), dus die kortsluitingen breiden
+  // hier uit naar `succIsFinishMs || succElapsed`.
+  const succElapsed = !successor.isMilestone && successor.time.durationType === 'ELAPSEDTIME';
 
   // MSP-pariteit (T6, §9/O6; her-herzien op Opus-review H1/L1/L2). Een EINDmijlpaal-opvolger
   // zonder échte lag landt op de RAUWE voorganger-instant (bv. di 17:00) i.p.v. de eerstvolgende
@@ -312,7 +345,12 @@ function forwardHour(
   // correct ogende dag met een spook-tijdscomponent erin — onzichtbaar in dag-geformatteerde
   // datums, maar `workDaysBetween`/`workMinutesBetween` tellen 'm wél mee, met een speling die één
   // werkdag te laag uitvalt (vóór deze fix gemeten: tf=2 waar de dag-referentie tf=3 geeft).
-  const landRawInstant = (raw: Date): Date => (se.isHourMode ? raw : se.nextWorkDay(deps.startOfDay(raw)));
+  // T8-review H1 (cross-modus-uitbreiding): voor een ELAPSEDTIME-opvolger op een DAG-kalender mag
+  // ook déze landing niet naar de eerstvolgende WERKdag schuiven (`se.nextWorkDay`) — een 24/7-
+  // opvolger accepteert elke kalenderdag. `elapsedLanding` selecteert per aanroep-site welke variant
+  // geldt (de kortsluitingen hieronder gebruiken 'm alleen wanneer `succElapsed` al vaststaat).
+  const landRawInstant = (raw: Date, elapsedLanding = false): Date =>
+    se.isHourMode ? raw : elapsedLanding ? deps.startOfDay(raw) : se.nextWorkDay(deps.startOfDay(raw));
 
   switch (seq.type) {
     case 'START_START': {
@@ -331,12 +369,14 @@ function forwardHour(
       // dagrand-normalisatie nodig zoals FS se `predDone`).
       let reqFinish: Date;
       if (elapsed) {
-        reqFinish = deps.snapOnOrAfter(se, new Date(predResult.ef.getTime() + elapsedMin()));
+        reqFinish = succElapsed
+          ? new Date(predResult.ef.getTime() + elapsedMin())
+          : deps.snapOnOrAfter(se, new Date(predResult.ef.getTime() + elapsedMin()));
       } else {
         const lagged = deps.shiftLagPred(pe, predResult.ef, seq, predTask, 1);
-        if (succIsFinishMs && pe.isHourMode
+        if ((succIsFinishMs || succElapsed) && pe.isHourMode
           && lagged.getTime() === pe.nextWorkInstant(predResult.ef).getTime()) {
-          reqFinish = landRawInstant(predResult.ef);
+          reqFinish = landRawInstant(predResult.ef, succElapsed);
         } else {
           reqFinish = lagged;
         }
@@ -351,12 +391,14 @@ function forwardHour(
       const startMoment = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
       let reqFinish: Date;
       if (elapsed) {
-        reqFinish = deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()));
+        reqFinish = succElapsed
+          ? new Date(startMoment.getTime() + elapsedMin())
+          : deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()));
       } else {
         const lagged = deps.shiftLagPred(pe, startMoment, seq, predTask, 1);
-        if (succIsFinishMs && pe.isHourMode
+        if ((succIsFinishMs || succElapsed) && pe.isHourMode
           && lagged.getTime() === pe.nextWorkInstant(startMoment).getTime()) {
-          reqFinish = landRawInstant(startMoment);
+          reqFinish = landRawInstant(startMoment, succElapsed);
         } else {
           reqFinish = lagged;
         }
@@ -443,6 +485,10 @@ function backwardHour(
   const elapsed = seq.lagUnit === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
   const elapsedMin = () => deps.resolveElapsedMinutes(seq, predTask) * MS_PER_MIN;
+  // T8-review H2: zie backwardDay se `predElapsed` — dezelfde definitie, hier voor de uur-FS-tak
+  // (`prevWorkInstant` hieronder is de uur-tegenhanger van `prevWorkDayBefore`, met dezelfde
+  // over-knijp-fout voor een ELAPSEDTIME-voorganger).
+  const predElapsed = !predTask.isMilestone && predTask.time.durationType === 'ELAPSEDTIME';
 
   switch (seq.type) {
     case 'START_START': {
@@ -500,6 +546,13 @@ function backwardHour(
         // Bij `succIsFinishMs` is de voorganger wél een echte taak met een echte finish; daar
         // blijft de normalisatie staan (de vlag onderdrukt alleen de band-gap, net als in dag-modus).
         if (predEndsBeginOfDay) return target;
+        // H2: `prevWorkInstant` is de uur-tegenhanger van `prevWorkDayBefore` (dag-modus) — zelfde
+        // over-knijp-fout voor een ELAPSEDTIME-voorganger (die geen werk-instant-begrip heeft, zijn
+        // late finish mag op elk klokmoment liggen). In tegenstelling tot de dag-tak (die een
+        // strikte "volgende WERKdag"-stap moet inverteren, vandaar −1 kalenderdag) is `nextWorkInstant`
+        // hier INCLUSIEF `[start,end)` — een al-geldige instant blijft zichzelf — dus de kale
+        // ongesnapte `target` IS al de juiste (losste) inverse, zonder verdere aftrek.
+        if (predElapsed) return target;
         return pe.prevWorkInstant(target);
       }
       if (pe.isHourMode && !se.isHourMode) {
@@ -511,10 +564,19 @@ function backwardHour(
         // leveren dus dezelfde instant; er is forward niets te onderdrukken en backward niets te
         // spiegelen. Vlaggen hier alsnog toevoegen zou werkend gedrag breken.
         const target = deps.shiftLagPred(pe, succDayStart(), seq, predTask, -1);
+        // H2 (cross-modus): zelfde `prevWorkInstant`-over-knijp als de hour-hour-arm hierboven.
+        if (predElapsed) return target;
         return pe.prevWorkInstant(target);
       }
       // (b) dag-voorganger, uur-opvolger: de grootste werkdag d waarvoor de forward-afleiding
       // se.nextWorkInstant( predDone(d) ⊕ lag ) ≤ succ.LS blijft (scenario 7 backward).
+      // T8-review H2, BEKENDE BEPERKING: deze scanlus doorzoekt uitsluitend WERKdagen van de
+      // dag-voorganger (`pe.isWorkDay(d)`) — voor een ELAPSEDTIME dag-voorganger is dat een te
+      // smalle zoekruimte (zijn late finish mag ook op een niet-werkdag liggen). Niet gefixt: dit
+      // vergt een ander algoritme (een kalenderdag-scan i.p.v. een werkdag-scan), geen kale
+      // parameterwissel zoals de overige H1/H2-fixes in dit bestand — buiten de scope van deze
+      // fixronde. Niet geraakt door de msp-16..21-cases hieronder (die dekken dag+dag en uur+uur,
+      // niet dit cross-modus-pad).
       // De grensvlaggen tellen hier WÉL — in tegenstelling tot arm (a) is `pe` dag-modus en levert
       // `predDoneAt(ef)` de dagrand `(ef+1 dag)@00:00`, die `forwardHour` bij een vlag onderdrukt
       // (`predDone = (succIsFinishMs || predEndsBeginOfDay) ? ef : pe.predDoneAt(ef)`). Vóór
