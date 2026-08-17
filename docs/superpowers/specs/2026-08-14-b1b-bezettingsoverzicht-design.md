@@ -171,6 +171,21 @@ niet: de solver draait al headless buiten de store (de benchmark doet `new CPMSo
 - **Cache:** de efemere solve valt onder dezelfde per-payload-cache als de load (§7) —
   één keer per payload-versie, niet per toetsaanslag.
 
+**Terugschrijven mét "Automatisch berekenen" (besluit eigenaar 2026-08-14, tweede ronde).**
+De eigenaar vond het weggooien van de efemere uitkomst onlogisch ("waarom zou je dan alsnog
+op F5 moeten drukken als het stiekem al berekend is") en heeft gekozen: staat
+`ui.autoCalcCPM` **aan**, dan worden verouderde documenten bij het openen van het overzicht
+**echt bijgewerkt** in plaats van alleen efemeer doorgerekend — het actieve document via het
+bestaande `useAutoCalcCPM`-pad (`runCPM`), slapende documenten via een nieuwe store-actie die
+per stale payload de gedeelde solve-kern draait en de uitkomst terugschrijft
+(taken/`cpmResult`/`scheduleStale: false`; `resourceLoadResult: null` — die wordt bij
+activering toch onvoorwaardelijk herrekend). Semantiek spiegelt `runCPM`: geen
+undo-snapshot, `isDirty` ongemoeid. Faalt de solve (cyclus), dan blijft de payload
+onaangeraakt en geldt het vangnet. Staat de instelling **uit**, dan blijft alles zoals
+hierboven: efemeer, nooit terugschrijvend — een leesvenster verandert de documenten van een
+handmatige rekenaar nooit (issue #63). De ⚠-markering verschijnt dus alleen nog in de
+handmatige modus.
+
 ### 4.3 Stale planning zonder efemere solve: zichtbaar maar NIET meegeteld (vangnetgedrag; herzien na critreview 2026-08-14)
 
 Scheduling is handmatig (`runCPM` draait niet reactief) en B1b mag geen cross-document solve
