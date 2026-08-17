@@ -216,6 +216,16 @@ export function writeP6XML(
     console.warn(`P6-export: ${noteCount} taak-aantekening(en) weggelaten — niet uitdrukbaar in P6-XML (§6).`);
   }
 
+  // H5 (eindreview T16c): P6 kent per activity geen "24/7, negeer de kalender"-duurtype (elke
+  // activity rekent tegen een kalender — geen ELAPSEDTIME-equivalent geverifieerd in het P6-XML-
+  // schema, zelfde UNVERIFIED-voorzichtigheid als de scheduling-opties hierboven); een taak met
+  // ELAPSEDTIME-duur (T8, bv. uit een `.mpp`-import) exporteert daarom stil als gewone werktijd-duur
+  // ⇒ weggelaten-met-warn, exact het hammock-/externalLinks-patroon hierboven.
+  const elapsedTaskCount = tasks.filter(t => t.time.durationType === 'ELAPSEDTIME').length;
+  if (elapsedTaskCount > 0) {
+    console.warn(`P6-export: ${elapsedTaskCount} taak/taken met ELAPSEDTIME-duur (24/7-klokrekenen) geëxporteerd als gewone werktijd-duur — geen P6-equivalent (§6).`);
+  }
+
   // T13 (§T2-afwijking, LAAG-7-afnemer): werkende uitzonderingen (fase 3.8, T2/T3) — zie de
   // uitgebreide toelichting bij `writeHolidayOrExceptions` hierboven voor WAAROM dit structureel
   // niet uitdrukbaar is in het P6-XML-schema (geen `DayWorking`-vlag op `<HolidayOrException>`).

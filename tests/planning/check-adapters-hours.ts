@@ -13,6 +13,8 @@ import { writeP6XML } from '@/services/p6/p6xmlWriter';
 import { readP6XML } from '@/services/p6/p6xmlReader';
 import { writeMSPDI } from '@/services/msproject/mspdiWriter';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
+import { writeCSV } from '@/services/csv/csvWriter';
+import { readCSV } from '@/services/csv/csvReader';
 import { MAX_TOTAL_HOLIDAY_SLOTS, MAX_RECURRENCE_DATES, MAX_CALENDAR_EXCEPTIONS } from '@/services/calendarRecurrence';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -649,6 +651,99 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
     );
     assert(!p6xml.includes('Werkende zaterdag'), 'T13 P6-workingExceptions-warn: de werkende uitzondering zelf komt niet als <HolidayOrException> in de XML (zou als holiday misgelezen worden)');
     assert(p6xml.includes('Feestdag'), 'T13 P6-workingExceptions-warn: de ECHTE holiday blijft gewoon staan');
+  }
+}
+
+// ── H5 (eindreview T16c): ELAPSEDTIME-taakduur-export — round-trip-bewijs voor de weggelaten-met-
+// warn-fallback op MSPDI/P6/CSV. Geen van de drie lezers begrijpt task-level "24/7"-duur (alleen
+// relatie-LAG kent al een elapsed-notatie), dus native schrijven zonder dat de lezer het teruglas
+// zou een `.mpp → export → herimport`-cyclus de 24/7-semantiek stil laten omklappen naar
+// werktijd-duur — de conservatieve keuze is dan ook weggelaten-met-warn i.p.v. een halve
+// round-trip die zich als vol voordoet. Deze case bewijst BEIDE kanten: (a) de warn vuurt met het
+// juiste aantal wanneer er een ELAPSEDTIME-taak in zit, en NIET wanneer alle taken WORKTIME zijn;
+// (b) de herimport laat zien dat de taak inderdaad als WORKTIME terugkomt (de eerlijke, gemeten
+// realiteit die de warn-tekst beschrijft — "geëxporteerd als gewone werktijd-duur").
+{
+  const projE: Project = {
+    id: 'p-elapsed', name: 'Elapsed', description: '', startDate: '2026-07-06', endDate: '2026-07-31',
+    calendarId: 'cal-h8', createdAt: '2026-07-06T00:00', modifiedAt: '2026-07-06T00:00', author: 'T', company: 'C',
+  };
+  const worktimeTask: Task = {
+    id: 'e-work', name: 'Gewone taak', description: '', wbsCode: '1', taskType: 'CONSTRUCTION',
+    status: 'NOT_STARTED', isMilestone: false, priority: 500, parentId: null, childIds: [],
+    time: {
+      durationType: 'WORKTIME', scheduleDuration: 2, durationMinutes: 960,
+      scheduleStart: '2026-07-06T08:00', scheduleFinish: '2026-07-07T16:00',
+      earlyStart: '2026-07-06T08:00', earlyFinish: '2026-07-07T16:00',
+      lateStart: '2026-07-06T08:00', lateFinish: '2026-07-07T16:00',
+      freeFloat: 0, totalFloat: 0, isCritical: false, completion: 0,
+    },
+    resourceIds: [],
+  };
+  const elapsedTask: Task = {
+    id: 'e-elapsed', name: 'Storttijd beton (24/7)', description: '', wbsCode: '2', taskType: 'CONSTRUCTION',
+    status: 'NOT_STARTED', isMilestone: false, priority: 500, parentId: null, childIds: [],
+    time: {
+      // 3 elapsed dagen = 3×1440 klok-minuten (T8-conventie, mppReader.ts's isElapsedDuration-tak).
+      durationType: 'ELAPSEDTIME', scheduleDuration: 3, durationMinutes: 4320,
+      scheduleStart: '2026-07-08T08:00', scheduleFinish: '2026-07-11T08:00',
+      earlyStart: '2026-07-08T08:00', earlyFinish: '2026-07-11T08:00',
+      lateStart: '2026-07-08T08:00', lateFinish: '2026-07-11T08:00',
+      freeFloat: 0, totalFloat: 0, isCritical: false, completion: 0,
+    },
+    resourceIds: [],
+  };
+
+  function withWarnings<T>(fn: () => T): { out: T; warns: string[] } {
+    const warns: string[] = [];
+    const orig = console.warn;
+    console.warn = (...a: unknown[]) => { warns.push(a.join(' ')); };
+    try { return { out: fn(), warns }; } finally { console.warn = orig; }
+  }
+
+  // (a) Contrast: alleen WORKTIME-taken ⇒ geen enkele ELAPSEDTIME-warn op de drie exporters.
+  {
+    const { warns: wM } = withWarnings(() => writeMSPDI(projE, H8, [worktimeTask], [], [], []));
+    const { warns: wP } = withWarnings(() => writeP6XML(projE, H8, [worktimeTask], [], [], [], []));
+    const { warns: wC } = withWarnings(() => writeCSV(projE, H8, [worktimeTask], [], [], []));
+    assert(!wM.some(w => w.includes('ELAPSEDTIME')), `H5-contrast MSPDI: geen ELAPSEDTIME-warn zonder elapsed-taak, kreeg [${wM.join(' | ')}]`);
+    assert(!wP.some(w => w.includes('ELAPSEDTIME')), `H5-contrast P6: geen ELAPSEDTIME-warn zonder elapsed-taak, kreeg [${wP.join(' | ')}]`);
+    assert(!wC.some(w => w.includes('ELAPSEDTIME')), `H5-contrast CSV: geen ELAPSEDTIME-warn zonder elapsed-taak, kreeg [${wC.join(' | ')}]`);
+  }
+
+  // (b) Eén ELAPSEDTIME-taak naast één WORKTIME-taak ⇒ precies 1 taak geteld in de warn, op alle
+  //     drie de exporters, en de herimport bewijst de daadwerkelijke (lossy) omklap naar WORKTIME.
+  const mixedTasks = [worktimeTask, elapsedTask];
+  {
+    const { out: mspdiXml, warns: wM } = withWarnings(() => writeMSPDI(projE, H8, mixedTasks, [], [], []));
+    assert(
+      wM.some(w => w.includes('MSPDI-export: 1 taak/taken met ELAPSEDTIME-duur')),
+      `H5 MSPDI-warn: verwacht "1 taak/taken met ELAPSEDTIME-duur", kreeg [${wM.join(' | ')}]`,
+    );
+    const backM = readMSPDI(mspdiXml);
+    const elapsedBackM = backM.tasks.find(t => t.name === 'Storttijd beton (24/7)');
+    assert(!!elapsedBackM, 'H5 MSPDI-round-trip: elapsed-taak komt terug (op naam)');
+    eq('H5 MSPDI-round-trip: durationType valt terug op WORKTIME (eerlijk, geen valse native-claim)', elapsedBackM?.time.durationType, 'WORKTIME');
+
+    const { out: p6Xml, warns: wP } = withWarnings(() => writeP6XML(projE, H8, mixedTasks, [], [], [], []));
+    assert(
+      wP.some(w => w.includes('P6-export: 1 taak/taken met ELAPSEDTIME-duur')),
+      `H5 P6-warn: verwacht "1 taak/taken met ELAPSEDTIME-duur", kreeg [${wP.join(' | ')}]`,
+    );
+    const backP = readP6XML(p6Xml);
+    const elapsedBackP = backP.tasks.find(t => t.name === 'Storttijd beton (24/7)');
+    assert(!!elapsedBackP, 'H5 P6-round-trip: elapsed-taak komt terug (op naam)');
+    eq('H5 P6-round-trip: durationType valt terug op WORKTIME', elapsedBackP?.time.durationType, 'WORKTIME');
+
+    const { out: csvText, warns: wC } = withWarnings(() => writeCSV(projE, H8, mixedTasks, [], [], []));
+    assert(
+      wC.some(w => w.includes('CSV-export: 1 taak/taken met ELAPSEDTIME-duur')),
+      `H5 CSV-warn: verwacht "1 taak/taken met ELAPSEDTIME-duur", kreeg [${wC.join(' | ')}]`,
+    );
+    const backC = readCSV(csvText);
+    const elapsedBackC = backC.tasks.find(t => t.name === 'Storttijd beton (24/7)');
+    assert(!!elapsedBackC, 'H5 CSV-round-trip: elapsed-taak komt terug (op naam)');
+    eq('H5 CSV-round-trip: durationType valt terug op WORKTIME', elapsedBackC?.time.durationType, 'WORKTIME');
   }
 }
 

@@ -261,6 +261,22 @@ export function writeMSPDI(
     console.warn(`MSPDI-export: ${noteCount} taak-aantekening(en) weggelaten — MSPDI's native <Notes>-element is bewust niet gebruikt (lossy voor de checklist-vorm, §6).`);
   }
 
+  // H5 (eindreview T16c): een taak met ELAPSEDTIME-duur (T8, 24/7-klokrekenen — bv. uit een `.mpp`-
+  // import) draagt hier BEWUST géén native `<DurationFormat>`-elapsed-code (4/6/8/10/12, dezelfde
+  // set als `ELAPSED_DURATION_FORMATS` voor lag in `mspdiReader.ts`): de LEZER kent diezelfde
+  // task-level `<DurationFormat>` nog niet — die parseert alleen `<Duration>` (de kale ISO-8601-
+  // string, géén eenheids-/format-info) en zet `durationType` nooit op basis daarvan. Native
+  // schrijven zónder dat de lezer het terugleest zou een `.mpp → MSPDI-export → herimport`-cyclus
+  // de 24/7-semantiek stil laten omklappen naar WERKtijd-duur (fout, niet alleen verlies) — erger
+  // dan het huidige gedrag (waar dezelfde omklap al gebeurt, maar zonder de suggestie dat het
+  // "native round-trippt"). Vandaar de conservatieve keuze: weggelaten-met-warn, exact hetzelfde
+  // patroon als `resumeFromActualElapsed` hierboven, tot de lezer ook task-level `<DurationFormat>`
+  // begrijpt (eigen vervolgtaak).
+  const elapsedTaskCount = tasks.filter(t => t.time.durationType === 'ELAPSEDTIME').length;
+  if (elapsedTaskCount > 0) {
+    console.warn(`MSPDI-export: ${elapsedTaskCount} taak/taken met ELAPSEDTIME-duur (24/7-klokrekenen) geëxporteerd als gewone werktijd-duur — MSPDI-lezer kent task-level <DurationFormat> nog niet (§6).`);
+  }
+
   // Fase 2.6 (§9.1): alleen de ACTIEVE baseline gaat naar MSPDI-slot 0 (Baseline Number 0).
   // De overige OPS-baselines verliezen we bewust (extra slots 1-10 = latere uitbreiding).
   const activeBaseline = baselines.find(b => b.id === activeBaselineId) ?? null;
