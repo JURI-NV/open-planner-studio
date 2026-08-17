@@ -10,7 +10,8 @@ comes along, where the limits are, and what happens when you save a file like th
 - How to open a `.mpp` file, and which paths support it.
 - What exactly comes along: tasks, relations, calendars, resources and assignments.
 - How accurate the imported start and finish dates are, and which tasks deliberately deviate.
-- Two known calendar limitations: yearly recurring holidays and work weeks.
+- What happens to progress: MS Project's own resumption convention for tasks in progress.
+- One known calendar limitation: work weeks (a temporary alternate weekly pattern).
 - What deliberately does not come along, and what you get for an unsupported file.
 - What happens when you save or re-export an opened `.mpp` file.
 
@@ -54,11 +55,19 @@ unchanged.
 
 Open Planner Studio schedules an opened `.mpp` file using the same calendar logic as MS Project
 itself (working days, working hours per day, days off, and — for an hour-based project — the exact
-clock time). This is aimed at a regular task ending up with the same start and finish date as in MS
-Project, down to the minute for an hour-based project; this remains an ongoing stage of work, and
-the exceptions below are a deliberate part of that.
+clock time). For **almost every task**, that results in the same start and finish date as in MS
+Project, down to the minute for an hour-based project. There are two categories of exceptions, both
+deliberate:
 
-One group of tasks is a deliberate **exception**: tasks with a **split**, **leveled**, or otherwise
+- Tasks with a **split**, **leveled**, or otherwise **resource-driven** schedule — a notification
+  appears for these when opening the file, see below.
+- A small number of isolated, rare edge cases in specific combinations of calendar type, relation
+  kind, or task progress, which aren't (yet) flagged automatically. These have been investigated
+  and documented internally, but in practice rarely affect an ordinary project — at most you'd
+  notice a single task in an unusual situation being off by a day or so from MS Project while the
+  rest of the schedule matches.
+
+The first category in detail: tasks with a **split**, **leveled**, or otherwise
 **resource-driven** schedule (manual leveling, a "leveling delay", or resource contouring/work
 spread out over the task's span). MS Project can stretch such a task over a longer period than its
 duration alone would require — for example, a 3-day task that, with a pause in the middle, spans 5
@@ -78,26 +87,35 @@ information isn't silently lost from the source file when reading it, Open Plann
 ignores it when scheduling. Editable task splitting and resource leveling as a feature aren't part
 of this stage; the notification and this guide are where you can look this up.
 
-## Calendar exceptions and work weeks: two known limitations
+## Progress: MS Project's own resumption convention
+
+For a task that's already **partly done** when you open the `.mpp` file, Open Planner Studio
+determines the resumption point of the remaining work the same way MS Project itself does: based
+on the actual start time plus the time already elapsed, rather than (as with a project from
+Primavera P6 or another format) based on the status date or the pressure from preceding tasks. You
+usually won't notice this — the two approaches land on the same result for most tasks — but it's
+why a `.mpp`-imported task can sometimes show a slightly different resumption point than an
+otherwise identical task sourced from P6 or MS Project XML. This setting is a permanent property of
+the project: it stays intact across **Save** (as IFC) and a later **Open**, with no toggle anywhere
+to see or change it.
+
+## Calendar exceptions and work weeks
 
 Concrete, one-off exception dates in a calendar (a specific day off on a fixed date) come along
-just fine. What does **not** come along are yearly recurring exceptions with a repeat rule — for
-example a holiday like Christmas that's set up in MS Project to recur automatically every year.
-Only the flattened, concrete dates are read; the repeat rule itself is lost. This is visible to
-you: a calendar built with a yearly repeat rule in MS Project comes out with fewer days off in
-Open Planner Studio than you'd expect for future years.
+just fine, and so do **yearly recurring** exceptions with a repeat rule — for example a holiday
+like Christmas that's set up in MS Project to recur automatically every year. Open Planner Studio
+expands such a repeat rule itself into the concrete dates within the project period; there's
+nothing you need to do for this. This applies both to ordinary days off and to **working
+exceptions** (a day that's normally off but explicitly marked as working in the calendar — for
+example a scheduled Saturday).
 
-This isn't specific to the `.mpp` reader: the existing MSPDI import (MS Project XML) has the same
-limitation. If you need the full calendar, check it after opening under
-**Planning → Calendar** and add any missing future holidays by hand if needed — see the guide
-[Calendars & hour planning](docs://gids-kalenders-uren).
-
-Open Planner Studio also doesn't read **work weeks** — MS Project's way of assigning an alternate
+What remains a known limitation are **work weeks** — MS Project's way of assigning an alternate
 weekly pattern to a calendar for a given date range (for example, "starting July 1st this team
 also works Saturdays"). Only the standard weekly pattern and the individual exception dates come
 along; a temporary alternate weekly pattern doesn't. In practice this affects few files — most MS
 Project calendars don't use work weeks — but if you know a calendar has one, double-check it after
-opening.
+opening, under **Planning → Calendar** — see the guide
+[Calendars & hour planning](docs://gids-kalenders-uren).
 
 ## What doesn't come along
 

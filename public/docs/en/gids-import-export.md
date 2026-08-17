@@ -81,6 +81,12 @@ The same kind of trade-off as MSPDI, with a few P6-specific quirks:
   hour-based lag — P6 has no separate lag unit per relation.
 - The **LATE_PEAK** loading curve has no P6 equivalent and is exported as the closest approximation
   ("Early Peak").
+- **Working calendar exceptions** (a day that's normally off but explicitly marked as working —
+  for example a scheduled Saturday) are dropped — P6 XML has no schema field to mark that per
+  date. P6 models a structurally different weekly pattern through a separate work-week setting
+  instead of individual dates, so an automatic translation would change the entire weekly pattern
+  rather than just the one date — that's deliberately not risked. The app warns (with the count)
+  whenever this affects a file.
 - Scheduling options (as with MSPDI) are not exported.
 
 These warnings aren't sloppiness — they're a deliberate, explicit choice: a visible warning per
@@ -100,6 +106,13 @@ A `.mpp` file (Microsoft Project's native format, Project 2010 through 2021) is 
 that import is **read-only** — there is no `.mpp` export, so exporting back to MS Project runs
 through MSPDI XML. See the guide [Opening MS Project (.mpp)](docs://gids-msproject-import) for
 what comes along and what the limitations are.
+
+A small, technical note for anyone importing a task with an **elapsed duration** (24/7 scheduling,
+ignoring days off) from a source that only provides a **date** without a time of day — CSV,
+Primavera P6, an IFC date field, or the AI assistant — where that task lands on an **hour-based
+calendar**: such a task then starts at midnight (00:00) on the given date, not at the day's first
+work instant. This is deliberate: an explicitly read time is never moved to a different calendar
+day. This doesn't come up with `.mpp` import, since that format always supplies a full time of day.
 
 ## Extension importers
 

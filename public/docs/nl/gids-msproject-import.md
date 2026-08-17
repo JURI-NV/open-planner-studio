@@ -11,7 +11,8 @@ opslaat.
 - Hoe je een `.mpp`-bestand opent, en via welke wegen dat werkt.
 - Wat er precies meekomt: taken, relaties, kalenders, resources en toewijzingen.
 - Hoe nauwkeurig de ingelezen start- en einddatums zijn, en welke taken daar bewust van afwijken.
-- Twee bekende beperkingen bij kalenders: jaarlijks terugkerende feestdagen en werkweken.
+- Wat er met voortgang gebeurt: MS Project se eigen hervattingsconventie voor lopende taken.
+- Eén bekende beperking bij kalenders: werkweken (een tijdelijk afwijkend weekpatroon).
 - Wat er bewust niet meekomt, en wat je krijgt bij een niet-ondersteund bestand.
 - Wat er gebeurt als je een geopend `.mpp`-bestand opslaat of terugexporteert.
 
@@ -54,11 +55,18 @@ tabblad nog leeg en ongewijzigd is.
 
 Open Planner Studio rekent een geopend `.mpp`-bestand door met dezelfde kalenderlogica als MS
 Project zelf (werkdagen, werktijden per dag, vrije dagen, en — bij een urenproject — de precieze
-kloktijd). Dat is erop gericht dat een gewone taak dezelfde start- en einddatum oplevert als in MS
-Project, tot op de minuut bij een urenproject; dit blijft een lopende etappe, en de uitzonderingen
-hieronder zijn daar een bewust onderdeel van.
+kloktijd). Voor **vrijwel elke taak** levert dat dezelfde start- en einddatum op als in MS Project,
+tot op de minuut bij een urenproject. Er zijn twee categorieën uitzonderingen, allebei bewust:
 
-Eén groep taken is daar bewust een **uitzondering** op: taken met een **onderbroken**, **genivelleerde**
+- Taken met een **onderbroken**, **genivelleerde** of anderszins **resource-gestuurde** planning —
+  hierover verschijnt een melding bij het openen, zie hieronder.
+- Een klein aantal losse, zeldzame randgevallen in specifieke combinaties van kalendertype,
+  relatiesoort of taakvoortgang, die (nog) niet automatisch gemeld worden. Die zijn intern
+  onderzocht en gedocumenteerd, maar raken in de praktijk zelden een gewoon project — je merkt ze
+  hoogstens als één taak in een ongebruikelijke situatie een dag of wat afwijkt van MS Project
+  terwijl de rest van de planning wel klopt.
+
+De eerste categorie in detail: een taak met een **onderbroken**, **genivelleerde**
 of anderszins **resource-gestuurde** planning (handmatige nivellering, een "leveling delay", of
 resource-contouring/uitgesmeerd werk over de looptijd van de taak). MS Project kan zo'n taak over
 een langere periode uitsmeren dan de duur op zichzelf zou vragen — bijvoorbeeld een taak van 3 dagen
@@ -79,27 +87,35 @@ stilzwijgend verloren uit het bronbestand, Open Planner Studio negeert 'm alleen
 doorrekenen. Taak-splitsen en resource-nivellering als bewerkbare functie staan niet in deze
 etappe; zie de melding en deze gids als de plek waar je dat kunt navragen.
 
-## Kalenderuitzonderingen en werkweken: twee bekende beperkingen
+## Voortgang: MS Project se eigen hervattingsconventie
+
+Voor een taak die al **gedeeltelijk is uitgevoerd** wanneer je het `.mpp`-bestand opent, bepaalt
+Open Planner Studio het hervattingspunt van het resterende werk op dezelfde manier als MS Project
+zelf: op basis van de werkelijke starttijd plus de reeds verstreken tijd, in plaats van (zoals bij
+een project uit Primavera P6 of een ander formaat) op basis van de statusdatum of de druk van
+voorgaande taken. Je merkt dit meestal niet — de twee benaderingen komen op de meeste taken op
+hetzelfde uit — maar het is de reden waarom een `.mpp`-geïmporteerde taak soms een net iets ander
+hervattingspunt toont dan een verder identieke taak die uit P6 of MS Project XML afkomstig is. Deze
+instelling is een permanente eigenschap van het project: ze blijft ook na **Opslaan** (als IFC) en
+een volgende **Openen** intact, zonder dat er ergens een schakelaar voor te vinden is.
+
+## Kalenderuitzonderingen en werkweken
 
 Concrete, eenmalige uitzonderingsdatums in een kalender (een specifieke vrije dag op een vaste
-datum) komen gewoon mee. Wat **niet** meekomt, zijn jaarlijks terugkerende uitzonderingen mét een
+datum) komen mee, en dat geldt ook voor **jaarlijks terugkerende** uitzonderingen mét een
 herhaalregel — bijvoorbeeld een feestdag als Kerst die in MS Project is ingesteld om elk jaar
-automatisch terug te komen. Alleen de afgevlakte, concrete datums worden gelezen; de herhaalregel
-zelf gaat verloren. Dit is gebruikerzichtbaar: een kalender die in MS Project met een
-jaarlijkse-herhaalregel is opgebouwd, komt er in Open Planner Studio met minder vrije dagen uit dan
-je zou verwachten voor toekomstige jaren.
+automatisch terug te komen. Open Planner Studio expandeert zo'n herhaalregel zelf naar de concrete
+datums binnen de projectperiode; je hoeft hier zelf niets voor te doen. Dit geldt zowel voor gewone
+vrije dagen als voor **werkende uitzonderingen** (een dag die normaal vrij is, maar in de kalender
+expliciet als werkend is aangemerkt — bijvoorbeeld een ingeroosterde zaterdag).
 
-Dit is geen incident van de `.mpp`-lezer: de bestaande MSPDI-import (MS Project XML) kent dezelfde
-beperking. Wil je zeker zijn van de volledige kalender, controleer die dan na het openen bij
-**Planning → Kalender** en vul ontbrekende toekomstige feestdagen zo nodig handmatig aan — zie de
-gids [Kalenders & uren-planning](docs://gids-kalenders-uren).
-
-Daarnaast leest Open Planner Studio geen **werkweken** — in MS Project een manier om voor een
+Wat wél een bekende beperking blijft, zijn **werkweken** — in MS Project een manier om voor een
 bepaald datumbereik een afwijkend weekpatroon aan een kalender toe te kennen (bijvoorbeeld "vanaf
 1 juli werkt dit team ook op zaterdag"). Alleen het standaard weekpatroon en de losse
 uitzonderingsdagen komen mee; een tijdelijk afwijkend weekpatroon niet. Dit raakt in de praktijk
 weinig bestanden — de meeste MS Project-kalenders gebruiken geen werkweken — maar controleer een
-kalender met een bekend afwijkend patroon voor de zekerheid na het openen.
+kalender met een bekend afwijkend patroon voor de zekerheid na het openen, bij **Planning →
+Kalender** — zie de gids [Kalenders & uren-planning](docs://gids-kalenders-uren).
 
 ## Wat niet meekomt
 

@@ -83,6 +83,12 @@ Dezelfde soort afweging als MSPDI, met een paar P6-specifieke eigenaardigheden:
   een gewone uren-lag — P6 heeft geen aparte lag-eenheid per relatie.
 - De **LATE_PEAK**-belastingscurve heeft geen P6-equivalent en wordt geëxporteerd als de dichtstbij
   liggende benadering ("Early Peak").
+- **Werkende kalenderuitzonderingen** (een dag die normaal vrij is maar expliciet als werkend is
+  aangemerkt, bijvoorbeeld een ingeroosterde zaterdag) worden weggelaten — P6-XML kent geen
+  schemaveld om zoiets per datum aan te geven. P6 modelleert een structureel afwijkend weekpatroon
+  zelf via een aparte werkweek-instelling, niet via losse datums, dus een automatische vertaling
+  zou het hele weekpatroon wijzigen in plaats van alleen de ene datum — dat wordt bewust niet
+  gegokt. De app waarschuwt (met het aantal) zodra dit een bestand raakt.
 - Planningsopties (net als bij MSPDI) worden niet geëxporteerd.
 
 Deze waarschuwingen zijn geen slordigheid — ze zijn een bewuste, expliciete keuze: liever een
@@ -103,6 +109,14 @@ Een `.mpp`-bestand (het native Microsoft Project-formaat, Project 2010 t/m 2021)
 route: die import is **alleen-lezen** — er bestaat geen `.mpp`-export, dus terugexporteren naar
 MS Project loopt via MSPDI-XML. Zie de gids [MS Project (.mpp) openen](docs://gids-msproject-import)
 voor wat er meekomt en wat de beperkingen zijn.
+
+Een kleine, technische kanttekening voor wie een taak met een **doorlooptijd-duur** ("elapsed",
+24/7-planning, negeert vrije dagen) importeert vanuit een bron die alleen een **datum** opgeeft
+zonder tijdstip — CSV, Primavera P6, een datumveld in IFC, of de AI-assistent — en die taak op een
+**uren-kalender** valt: zo'n taak start dan op middernacht (00:00) van de opgegeven datum, niet op
+het eerste werk-instant van die dag. Dit is bewust: een expliciet ingelezen tijdstip wordt nooit
+naar een andere kalenderdag verplaatst. Bij `.mpp`-import speelt dit niet, want dat formaat levert
+altijd een volledig tijdstip mee.
 
 ## Extensie-importers
 
