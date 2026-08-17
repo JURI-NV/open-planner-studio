@@ -83,15 +83,20 @@ Alleen de IFC-lezer krijgt dit. De vijf andere `ImportResult`-producenten (CSV, 
 
 ### 1. Wat "de opgeslagen datums" zijn
 
-Twee lagen, in deze volgorde:
+Twee lagen, **per taak in hun geheel gekozen** — niet per veld:
 
-| | bron | wanneer |
+| laag | bron | wanneer |
 |---|---|---|
-| **start/finish** | `earlyStart`/`earlyFinish` | wanneer `recordedFields` ze meldt |
-| | `scheduleStart`/`scheduleFinish` | anders — dit is het geval van issue #63 |
-| **speling & kritiek** | `totalFloat`/`freeFloat`/`isCritical`/`lateStart`/`lateFinish` | uitsluitend wanneer `recordedFields` ze meldt |
+| **early** | `earlyStart` + `earlyFinish` | wanneer `recordedFields` **beide** meldt |
+| **schedule** | `scheduleStart` + `scheduleFinish` | anders, mits `recordedFields` die meldt — dit is het geval van issue #63 |
+| *geen* | — | meldt `recordedFields` geen van beide paren, dan wordt de taak **overgeslagen** |
+| **speling & kritiek** | `totalFloat`/`freeFloat`/`isCritical`/`lateStart`/`lateFinish` | per veld, uitsluitend wanneer `recordedFields` het meldt |
 
 De terugval op `scheduleStart`/`scheduleFinish` is geen noodgreep maar de kern van de functie. De eigen issue-reactie beschrijft het al: *"de opgeslagen `ScheduleStart` is het anker waar de solver vanaf begint"* — voor een taak zónder voorgangers overleeft die datum, voor een taak mét voorgangers niet. "Datums zoals opgeslagen" betekent voor zo'n bestand dus precies: toon `scheduleStart`/`scheduleFinish` zoals ze er staan.
+
+**Waarom per paar en niet per veld** — correctie na de kwaliteitsreview van taak 2. Een taak waarvan het bestand alleen `EarlyStart` gaf zou anders `start` uit de early-laag en `finish` uit de schedule-laag krijgen: een datumpaar dat het bestand nooit heeft uitgesproken, in de praktijk zelfs een finish vóór de start. De balk die daaruit volgt is een verzinsel.
+
+**Waarom `scheduleStart`/`scheduleFinish` óók aanwezigheidsregistratie nodig hebben** — de tweede en ernstigere correctie. De eerste versie van §0 registreerde alleen de zeven rekenslots, met als redenering dat `schedule*` invoer is en dus altijd betekenisvol. Dat is onjuist: een `IFCTASK` **zonder** `IfcTaskTime` — samenvattings- en WBS-knopen, doodgewoon in elk bestand — krijgt van de lezer `createDefaultTaskTime(vandaag)`, en een `IfcTaskTime` mét `$` op ScheduleStart levert via `parseDateFromIFC` óók vandaag. Zonder registratie op die twee slots leest de terugvallaag dus dezelfde `$`⇒vandaag-val die deze hele functie moet vermijden — één laag lager, en met een opgeblazen noemer in de melding als gevolg. `RECORDED_SLOT_KEYS` krijgt daarom een tegenhanger voor de twee invoerslots.
 
 Ontbreekt de speling-laag, dan wordt die niet verzonnen — zie §4 voor wat dat per veld betekent.
 
