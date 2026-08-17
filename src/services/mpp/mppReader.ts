@@ -146,10 +146,10 @@ import {
 import {
   TaskFieldId,
   createAssignmentFieldMap, createResourceFieldMap, createTaskFieldMap,
-  fixedOffsetOf, varDataKeyOf, type FieldMapTable,
+  fixedOffsetOf, fixed2OffsetOf, varDataKeyOf, type FieldMapTable,
 } from './fieldMap14';
 import { readCalendars, promoteCalendarsForHourMode, type CalendarReadResult } from './mppCalendars';
-import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths } from './limits';
+import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTenths } from './limits';
 import { readRelations, readResources, readAssignments } from './mppEntities';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -162,6 +162,10 @@ const PROPS_KEY_MINUTES_PER_DAY = 37748765;
 
 /** TBkndTask/FixedMeta-itemgrootte (MPP14Reader.java r. 993: `new FixedMeta(..., 47)`). */
 const TASK_FIXED_META_ITEM_SIZE = 47;
+/** Z2 — TBkndTask/Fixed2Meta-itemgrootte-KANDIDATEN (MPP14Reader.java: `new FixedMeta(stream,
+ *  taskFixedData, 92, 93, 94, 95, 96)` — de heuristische variant, `FixedMeta.withHeuristicItemSize`,
+ *  al gebruikt door `mppEntities.ts`'s resource-Fixed2Meta; dit is het taak-precedent). */
+const TASK_FIXED2_META_ITEM_SIZES = [92, 93, 94, 95, 96];
 /** Fixed-data-blokken kleiner dan dit zijn "null-taak"-plaatshouders (verwijderde/vrijgemaakte
  *  unique-ID's die geen echte taak dragen) — MPP14Reader.java's `NULL_TASK_BLOCK_SIZE`. */
 const NULL_TASK_BLOCK_SIZE = 16;
@@ -246,11 +250,34 @@ export function clampOutlineLevel(raw: number): number {
  *  levert alle drie bestanden altijd een echte versie op ("Microsoft.Project 16.0"), dus dit pad
  *  raakt het corpus niet — het is puur voor MPXJ-trouw bij een onherkenbare/afwezige versiestring
  *  in een ander bestand. */
+/** Gedeelde 2010-vs-2013+-versiegrens (`applicationVersion <= PROJECT_2010(14)`), hergebruikt door
+ *  élke bit-flag-tabelkeuze in dit bestand — MPXJ's eigen `MPP14Reader` onderscheidt zelf drie
+ *  versies (2010/2013/2016) voor sommige tabellen, maar 2013 en 2016 delen voor élk bit-mechanisme
+ *  dat déze lezer gebruikt (milestone, TASK_MODE) letterlijk dezelfde offset/mask — zie
+ *  `milestoneBitFlag`'s eigen toelichting hierboven het "twee gevallen volstaan"-argument. Z2
+ *  (etappe "nul afwijkingen") tilt deze grens uit `milestoneBitFlag` naar een gedeelde helper zodat
+ *  `taskModeBitFlag` hieronder 'm hergebruikt i.p.v. een tweede, potentieel uit de pas lopende
+ *  `<= 14`-check te verzinnen (plan-§Z2: "hergebruik die logica, geen tweede grens"). */
+function isLegacyBitFlagVersion(applicationVersion: number | null): boolean {
+  return (applicationVersion ?? 0) <= 14; // MPXJ: NumberHelper.getInt(null) === 0
+}
+
 function milestoneBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
-  const version = applicationVersion ?? 0; // MPXJ: NumberHelper.getInt(null) === 0
-  return version <= 14
+  return isLegacyBitFlagVersion(applicationVersion)
     ? { offset: 8, mask: 0x20 } // PROJECT2010_TASK_META_DATA_BIT_FLAGS
     : { offset: 10, mask: 0x02 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA_BIT_FLAGS
+}
+
+/** Z2 — TASK_MODE-bit (MANUALLY_SCHEDULED vs. AUTO_SCHEDULED), gelezen uit `Fixed2Meta` (NIET
+ *  `FixedMeta` — een taak-eigen `Fixed2Meta`-record, zie `readTasks`). Referentie (verifieer op
+ *  inhoud, `MPP14Reader.java`): `PROJECT2010_TASK_META_DATA2_BIT_FLAGS` (offset 8, masker 0x08) vs.
+ *  `PROJECT2013_TASK_META_DATA2_BIT_FLAGS`/`PROJECT2016_TASK_META_DATA2_BIT_FLAGS` (beide offset 8,
+ *  masker 0x80 — identiek aan elkaar, dus dezelfde twee-gevallen-inperking als `milestoneBitFlag`
+ *  is hier ook zonder informatieverlies geldig). */
+function taskModeBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
+  return isLegacyBitFlagVersion(applicationVersion)
+    ? { offset: 8, mask: 0x08 } // PROJECT2010_TASK_META_DATA2_BIT_FLAGS
+    : { offset: 8, mask: 0x80 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA2_BIT_FLAGS
 }
 
 interface RawTaskRecord {
@@ -494,13 +521,16 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
  * 1. EXPLICIET — `TaskField.LEVELING_DELAY` (FieldMap14.java: `new FieldItem(TaskField.
  *    LEVELING_DELAY, FieldLocation.FIXED_DATA, 0, 58, 20, 0, 0)` — typeValue 20, corpus-offset 58,
  *    zelfde `(offset, typeValue)`-volgorde als elk ander veld hier, zie `TaskFieldId.UniqueId`
- *    e.a.) ≠ 0. Bewust GEEN toevoeging aan `fieldMap14.ts`'s `TaskFieldId`/`DEFAULT_TASK_FIELDS`
- *    (dat bestand valt buiten T12's bestandenlijst) — `fixedOffsetOf` leest de offset sowieso
- *    DATA-GEDREVEN uit het bestand se eigen field map (alle drie ground-truth-bestanden dragen een
- *    echte field map, zie fieldMap14.ts se moduleheader); alleen het zeldzame
- *    ALLES-ONTBREEKT-fallback-pad (`DEFAULT_TASK_FIELDS`) zou dit veld dan missen en degradeert
- *    netjes naar "geen detectie via dit signaal" voor zo'n bestand — geen bug, hetzelfde
- *    degradatiepatroon als elk ander veld dat niet in de fallback-tabel staat.
+ *    e.a.) ≠ 0. Z2 (etappe "nul afwijkingen"): de veld-id verhuisde naar `fieldMap14.ts`'s
+ *    `TaskFieldId.LevelingDelay` (T12 hield 'm nog als losse module-lokale constante, met als
+ *    reden dat `fieldMap14.ts` toen buiten T12's bestandenlijst viel — Z2 heropent dat bestand
+ *    voor de Fixed2-infrastructuur, dus de constante hoort nu structureel bij haar zusjes). Werkt
+ *    nog altijd hetzelfde: `fixedOffsetOf` leest de offset DATA-GEDREVEN uit het bestand se eigen
+ *    field map (alle drie ground-truth-bestanden dragen een echte field map, zie fieldMap14.ts se
+ *    moduleheader); alleen het zeldzame ALLES-ONTBREEKT-fallback-pad (`DEFAULT_TASK_FIELDS`, sinds
+ *    Z2 óók met een `LevelingDelay`-entry) zou dit veld dan missen en degradeert netjes naar "geen
+ *    detectie via dit signaal" voor zo'n bestand — geen bug, hetzelfde degradatiepatroon als elk
+ *    ander veld dat niet in de fallback-tabel staat.
  *
  * 2. AFGELEID (`spanGt`) — SPLITS ZELF (`Task.WORK_SPLITS` in MPXJ) bleek NIET via een simpel
  *    Var2Data-array leesbaar: `Task.java`'s `calculateWorkSplits()` is een BEREKEND veld
@@ -565,7 +595,6 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
  *    `check-mpp-import.ts` die dit exact vastlegt, en de gids (§"Datumgetrouwheid") die dit als
  *    bekende beperking benoemt in plaats van stilzwijgend te beloven.
  */
-const TASK_FIELD_LEVELING_DELAY = 20;
 
 /** Ruimte voor sub-minuut-afrondingsverschil tussen de rauwe tienden-van-minuut-duur en
  *  `CalendarEngine.workMinutesBetween`'s bandrekenwerk (beide zijn intern al minuut-precies, dus dit
@@ -579,8 +608,15 @@ const SPAN_GT_TOLERANCE_MINUTES = 1;
  *  ETAPPE 1.5: `calResult` (T6's kalenders, UNGEPROMOVEERD — zie mppCalendars.ts's moduleheader)
  *  komt er sinds etappe 1.5 bij; `readMPP` roept `readCalendars` daarom nu VÓÓR `readTasks` aan
  *  (omgekeerde volgorde t.o.v. vóór deze etappe) — spiegelt mspdiReader's eigen volgorde
- *  (`parseCalendar` vóór de taken-lus). */
-interface ReadTasksContext {
+ *  (`parseCalendar` vóór de taken-lus).
+ *
+ *  Z2 (etappe "nul afwijkingen"): geëxporteerd, samen met `readTasks`/`parseProjectProperties`
+ *  hieronder — zelfde testbaarheidsreden als `readRelations`/`readResources`/`readAssignments`
+ *  (T7): `check-mpp-import.ts`'s Z2-acceptatietests (block-1-offsetopzoeking, de rode-pad-
+ *  fixtures, de corpusbrede manual-taken-telling uit acceptatiepunt 5) hebben rechtstreekse
+ *  toegang tot `ReadTasksResult.rawScans` nodig zonder de rest van `readMPP`'s pijplijn
+ *  (relaties/resources/assignments) te hoeven optuigen. */
+export interface ReadTasksContext {
   cfb: CfbFile;
   taskFieldMap: FieldMapTable;
   hoursPerDay: number;
@@ -598,15 +634,23 @@ interface ReadTasksContext {
  *    toewijzing tijdens de taken-lus, dus een aparte post-hoc-koppelstap in `readMPP` is niet meer
  *    nodig): per taak of ze in UUR-modus is — T7's `readRelations` gebruikt dit voor de
  *    lag-eenheid-keuze, spiegelt mspdiReader's `taskHourById`. */
-interface ReadTasksResult {
+export interface ReadTasksResult {
   tasks: Task[];
   taskIdByUniqueId: Map<number, string>;
   taskHourById: Map<string, boolean>;
   /** T12 (§9/O1) — detectietelling voor de resource-gedreven-planning-uitzondering (zie de
-   *  moduleheader hierboven bij `TASK_FIELD_LEVELING_DELAY`). `total` is de VERENIGING van beide
+   *  moduleheader hierboven bij `TaskFieldId.LevelingDelay`). `total` is de VERENIGING van beide
    *  signalen (een taak die zowel `leveled` als `spanGt` draagt telt in `total` maar één keer) —
    *  dat is het getal dat de melding toont, zie `ImportResult.sourceScheduleNotes`. */
   scheduleNotes: { total: number; leveled: number; spanGt: number };
+  /** Z2 (etappe "nul afwijkingen") — TEST-/METINGSVELD: de rauwe Fase-A-scan van elke geldige taak,
+   *  inclusief de nieuwe Fixed2-velden (`taskMode`, `manualStartTs`/`manualFinishTs`,
+   *  `manualDurationRaw`/`manualDurationIsElapsed`, `levelingDelayUnits`). `readMPP` geeft dit NIET
+   *  door aan `ImportResult` (nog geen gedragswijziging, zie deze taak se acceptatiepunt 1) —
+   *  uitsluitend bedoeld voor `check-mpp-import.ts`'s Z2-acceptatietests (block-1-offsetopzoeking,
+   *  de twee rode-pad-fixtures, en de corpusbrede manual-taken-telling uit acceptatiepunt 5, naast
+   *  baan M's onafhankelijke `mppGroundTruth.ts`-telling). */
+  rawScans: readonly RawTaskScan[];
 }
 
 /** Fase A — rauwe scan: alle velden die `readTasks` nodig heeft, als getal/`Date`/string, NOG GEEN
@@ -614,7 +658,7 @@ interface ReadTasksResult {
  *  constraintdatum/deadline) staan hier als rauwe waarde; Fase C formatteert ze pas, ná Fase B's
  *  signaal-scan + promotie. `effCal` is de EFFECTIEVE kalender (taak-override, anders de
  *  projectkalender) — al hier bepaald zodat Fase B er direct het (c)-signaal aan kan toekennen. */
-interface RawTaskScan {
+export interface RawTaskScan {
   uniqueId: number;
   id: number;
   outlineLevel: number;
@@ -637,6 +681,32 @@ interface RawTaskScan {
    *  ≠ 0 relevant voor de detectie, geen eenheden-decodering nodig). `0` als het veld ontbreekt
    *  (oude/kapotte field map) — spiegelt de bestaande defaults elders in deze scan. */
   levelingDelayRaw: number;
+  /** Z2 — eenheid/elapsed-vlag-RUW (SHORT, veld-id 178, `TaskFieldId.LevelingDelayUnits`) bij
+   *  `levelingDelayRaw` hierboven. Bewust NOG NIET gedecodeerd tot een boolean/eenheid (spiegelt
+   *  `durationUnitsRaw`'s eigen rauwe tussenvorm vóór `isElapsedDuration`) — deze taak leest en
+   *  bewaart uitsluitend; de decodering is Z5-werk. `null` als het veld ontbreekt in de field map
+   *  of het record te kort is. */
+  levelingDelayUnits: number | null;
+  /** Z2 — TASK_MODE (Fixed2Meta-bit, zie `taskModeBitFlag`): MANUALLY_SCHEDULED vs. AUTO_SCHEDULED.
+   *  `'AUTO_SCHEDULED'` als het `Fixed2Meta`-record ontbreekt/te kort is óf de stream niet
+   *  aanwezig was — spiegelt het bestaande "veld ontbreekt ⇒ neutrale/bestaande default"-patroon
+   *  elders in deze scan (byte-identiek gedrag voor een bestand zonder Fixed2Meta). */
+  taskMode: MppTaskMode;
+  /** Z2 — MANUALLY_SCHEDULED-ankerpaar uit Fixed2Data blok 1 (`TaskFieldId.Start`/`Finish`,
+   *  1283/1284) — spiegelt `startTs`/`finishTs` hierboven qua vorm (rauwe `Date`, nog niet
+   *  geformatteerd), maar uit het ANDERE blok/veldpaar. `null` als de Fixed2-infrastructuur
+   *  ontbreekt, het veld niet in de field map staat, of het record te kort is voor deze offset. */
+  manualStartTs: Date | null;
+  manualFinishTs: Date | null;
+  /** Z2 — rauwe MANUAL_DURATION (Fixed2Data blok 1, offset 58, veld-id 1288, tienden-van-een-
+   *  minuut — zelfde vorm/klem-precedent als `durationRaw`/`remainingDurationRaw`, zie
+   *  `limits.ts`'s `clampManualDurationTenths`). `null` bij ontbrekend veld/te kort record. */
+  manualDurationRaw: number | null;
+  /** Z2 — eenheid van `manualDurationRaw` hierboven (`TaskFieldId.ManualDurationUnits`, 1289),
+   *  gedecodeerd tot "is dit een ELAPSED-eenheid" — spiegelt `isElapsedDuration`'s decodering
+   *  exact, alleen toegepast op het MANUAL_DURATION-veldpaar i.p.v. SCHEDULED_DURATION. `false`
+   *  als het eenhedenveld ontbreekt (zelfde WORKTIME-default als `isElapsedDuration`). */
+  manualDurationIsElapsed: boolean;
   isMilestone: boolean;
   constraintCode: number | null;
   constraintDateTs: Date | null;
@@ -651,7 +721,11 @@ interface RawTaskScan {
   calendarOverride: WorkCalendar | null;
 }
 
-function readTasks(ctx: ReadTasksContext): ReadTasksResult {
+/** Z2 — spiegelt MPXJ's `TaskMode`-enum (`AUTO_SCHEDULED`/`MANUALLY_SCHEDULED`) letterlijk, zodat
+ *  een latere consument (Z9a) geen eigen boolean-naar-string-vertaling hoeft te verzinnen. */
+type MppTaskMode = 'AUTO_SCHEDULED' | 'MANUALLY_SCHEDULED';
+
+export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const { cfb, taskFieldMap, hoursPerDay, statusDate, applicationVersion, calResult } = ctx;
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedMeta']);
   const fixedDataBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedData']);
@@ -665,6 +739,30 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const fixedData = FixedData.fromMeta(fixedMeta, fixedDataBytes, 0, 0, 'TBkndTask/FixedData');
   const varMeta = new VarMeta12(varMetaBytes, 'TBkndTask/VarMeta');
   const varData = new Var2Data(varMeta, var2DataBytes);
+
+  // Z2 (etappe "nul afwijkingen") — `Fixed2Meta`/`Fixed2Data` zijn BEIDE optioneel op storage-
+  // niveau, spiegelt `mppEntities.ts`'s B7-precedent voor `TBkndRsc/Fixed2Meta` exact (defensief:
+  // ontbreken/onleesbaar ⇒ blijven `null`, en élk nieuw `RawTaskScan`-veld hieronder blijft
+  // leeg/AUTO_SCHEDULED — huidig gedrag, byte-identiek, zie acceptatiepunt 1/3). `fixed2Meta` is
+  // heuristisch gedimensioneerd tegen `fixedData` (blok 0) se itemcount als ankerpunt — exact
+  // hetzelfde patroon als `FixedMeta.withHeuristicItemSize`'s resource-aanroep, alleen met de
+  // taak-eigen kandidaat-groottes (`TASK_FIXED2_META_ITEM_SIZES`). `fixed2Data` volgt daarna via
+  // `FixedData.fromMeta` (zelfde constructie als blok 0's `fixedData` hierboven, nu tegen
+  // `fixed2Meta`) — beide delen dus dezelfde item-INDEX als `fixedMeta`/`fixedData`: taak-index
+  // `index` verwijst voor alle vier blokken naar hetzelfde record.
+  const fixed2MetaBytes = cfb.getStream(['   114', 'TBkndTask', 'Fixed2Meta']);
+  const fixed2DataBytes = cfb.getStream(['   114', 'TBkndTask', 'Fixed2Data']);
+  let fixed2Meta: FixedMeta | null = null;
+  let fixed2Data: FixedData | null = null;
+  if (fixed2MetaBytes && fixed2DataBytes) {
+    try {
+      fixed2Meta = FixedMeta.withHeuristicItemSize(fixed2MetaBytes, fixedData, TASK_FIXED2_META_ITEM_SIZES, 'TBkndTask/Fixed2Meta');
+      fixed2Data = FixedData.fromMeta(fixed2Meta, fixed2DataBytes, 0, 0, 'TBkndTask/Fixed2Data');
+    } catch {
+      fixed2Meta = null;
+      fixed2Data = null;
+    }
+  }
 
   const uniqueIdOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.UniqueId);
   const idOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Id);
@@ -681,7 +779,14 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const actualStartOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualStart);
   const actualFinishOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualFinish);
   const calendarUniqueIdOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.CalendarUniqueId);
-  const levelingDelayOffset = fixedOffsetOf(taskFieldMap, TASK_FIELD_LEVELING_DELAY); // T12
+  const levelingDelayOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.LevelingDelay); // T12, veld-id verhuisd naar fieldMap14.ts in Z2
+  const levelingDelayUnitsOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.LevelingDelayUnits); // Z2
+  // Z2 — blok-1-offsets (Fixed2Data): `fixed2OffsetOf`, NIET `fixedOffsetOf` (zie fieldMap14.ts's
+  // `FieldEntry`-toelichting: blok 0 en blok 1 zijn fysiek gescheiden records).
+  const manualStartOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.Start);
+  const manualFinishOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.Finish);
+  const manualDurationOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.ManualDuration);
+  const manualDurationUnitsOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.ManualDurationUnits);
   const nameKey = varDataKeyOf(taskFieldMap, TaskFieldId.Name);
   const wbsKey = varDataKeyOf(taskFieldMap, TaskFieldId.Wbs);
 
@@ -696,6 +801,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
   const validIndices = collectValidTaskIndices(fixedMeta, fixedData, varMeta, uniqueIdOffset);
   const { offset: msOffset, mask: msMask } = milestoneBitFlag(applicationVersion);
+  const { offset: tmOffset, mask: tmMask } = taskModeBitFlag(applicationVersion); // Z2
 
   // ── Fase A: rauwe scan (zie moduleheader "UURMODUS" + `RawTaskScan`) — nog geen `Task`-object,
   // wél al de effectieve kalender per taak (nodig voor Fase B's signaal-scan). ────────────────────
@@ -755,9 +861,41 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const levelingDelayRaw = levelingDelayOffset !== null && data.length >= levelingDelayOffset + 4
       ? getInt(data, levelingDelayOffset, 'TBkndTask levelingDelay')
       : 0;
+    // Z2: LEVELING_DELAY_UNITS — rauw bewaard, decodering is Z5-werk (zie RawTaskScan se toelichting).
+    const levelingDelayUnits = levelingDelayUnitsOffset !== null && data.length >= levelingDelayUnitsOffset + 2
+      ? getShort(data, levelingDelayUnitsOffset, 'TBkndTask levelingDelayUnits')
+      : null;
 
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
+
+    // Z2 — TASK_MODE, uit het taak-EIGEN `Fixed2Meta`-record op DEZELFDE index als `metaItem`/`data`
+    // hierboven (zie de toelichting bij `fixed2Meta`'s constructie: alle vier blokken delen de
+    // taak-index). Ontbreekt de stream/is het record te kort ⇒ AUTO_SCHEDULED (huidig gedrag,
+    // byte-identiek — spiegelt `isFixed2MetaCostBit`'s defensieve stijl in `mppEntities.ts`).
+    const metaData2 = fixed2Meta?.getByteArrayValue(index) ?? null;
+    const taskMode: MppTaskMode = metaData2 && metaData2.length > tmOffset && (metaData2[tmOffset] & tmMask) !== 0
+      ? 'MANUALLY_SCHEDULED'
+      : 'AUTO_SCHEDULED';
+
+    // Z2 — MANUALLY_SCHEDULED-ankerpaar + handmatige duur, uit het taak-EIGEN `Fixed2Data`-record
+    // (blok 1, zelfde index-precedent als `metaData2` hierboven). `fixed2Record` is `null` als de
+    // Fixed2-infrastructuur ontbreekt óf dit specifieke record leeg is (`FixedData.getByteArrayValue`
+    // geeft dan `null`, net als bij het blok-0-equivalent `data`) — élk veld hieronder degradeert
+    // dan netjes naar zijn ontbrekend-default, spiegelt `readTimestampField`/de bestaande
+    // `data.length >= offset + N`-guards exact (acceptatiepunt 4: een te kort record geeft `null`,
+    // geen out-of-bounds-lees).
+    const fixed2Record = fixed2Data?.getByteArrayValue(index) ?? null;
+    const manualStartTs = fixed2Record ? readTimestampField(fixed2Record, manualStartOffset, 'TBkndTask/Fixed2Data manualStart') : null;
+    const manualFinishTs = fixed2Record ? readTimestampField(fixed2Record, manualFinishOffset, 'TBkndTask/Fixed2Data manualFinish') : null;
+    const manualDurationRaw = fixed2Record && manualDurationOffset !== null && fixed2Record.length >= manualDurationOffset + 4
+      ? clampManualDurationTenths(getInt(fixed2Record, manualDurationOffset, 'TBkndTask/Fixed2Data manualDuration'))
+      : null;
+    const manualDurationUnitsRaw = fixed2Record && manualDurationUnitsOffset !== null && fixed2Record.length >= manualDurationUnitsOffset + 2
+      ? getShort(fixed2Record, manualDurationUnitsOffset, 'TBkndTask/Fixed2Data manualDurationUnits')
+      : null;
+    const manualDurationIsElapsed = manualDurationUnitsRaw !== null
+      && getDurationTimeUnits(manualDurationUnitsRaw).startsWith('elapsed');
 
     const constraintCode = constraintTypeOffset !== null && data.length >= constraintTypeOffset + 2
       ? getShort(data, constraintTypeOffset, 'TBkndTask constraintType')
@@ -781,7 +919,8 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
     raws.push({
       uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
-      remainingDurationRaw, levelingDelayRaw, isMilestone, constraintCode, constraintDateTs, deadlineTs,
+      remainingDurationRaw, levelingDelayRaw, levelingDelayUnits, taskMode, manualStartTs, manualFinishTs,
+      manualDurationRaw, manualDurationIsElapsed, isMilestone, constraintCode, constraintDateTs, deadlineTs,
       percentComplete, actualStartTs, actualFinishTs, effCal, calendarOverride,
     });
   }
@@ -998,6 +1137,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   return {
     tasks, taskIdByUniqueId, taskHourById,
     scheduleNotes: { total: scheduleNoteTotal, leveled: scheduleNoteLeveled, spanGt: scheduleNoteSpanGt },
+    rawScans: raws, // Z2 — zie ReadTasksResult se toelichting; readMPP hieronder geeft dit NIET door
   };
 }
 
@@ -1006,8 +1146,11 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
  *  dat geval blijft de kalender se EIGEN, uit haar werktijd-banden afgeleide `hoursPerDay` staan
  *  (T6) i.p.v. die blind te overschrijven met de 8-uursdag-terugval die `hoursPerDay` zelf gebruikt
  *  voor de taakduur-afronding — spiegelt mspdiReader's `if (minutesPerDay > 0) calendar.hoursPerDay
- *  = ...` (alleen overschrijven als de projecteigenschap ECHT aanwezig was). */
-function parseProjectProperties(
+ *  = ...` (alleen overschrijven als de projecteigenschap ECHT aanwezig was).
+ *
+ *  Z2: geëxporteerd — zie `ReadTasksContext`'s toelichting over waarom `check-mpp-import.ts`
+ *  rechtstreeks toegang nodig heeft tot de `readTasks`-preambule. */
+export function parseProjectProperties(
   props: Props,
   labels: ImportLabels | undefined,
 ): { project: Project; hoursPerDay: number; calendarHoursPerDayOverride: number | null } {
