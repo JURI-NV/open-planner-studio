@@ -35,3 +35,45 @@ export function createDefaultTaskTime(
     completion: 0,
   };
 }
+
+/**
+ * T14b (gebruikstestbevinding, ernst hoog): `addTask` accepteert een meegegeven `partial.time` als
+ * TYPE `TaskTime` (volledig), maar callers buiten de TS-typechecker (de extensie-sandbox draait
+ * ongetypeerde `new Function`-code; MCP-tool-payloads worden alleen tegen JSON-schema gevalideerd,
+ * niet tegen deze interface) kunnen op RUNTIME best een onvolledig object opsturen. Vóór deze fix
+ * gebruikten `taskSlice.addTask` en `mcpTransaction.ts`'s `draft.addTask` domweg
+ * `partial.time || createDefaultTaskTime(...)` — een meegegeven-maar-onvolledig object werd
+ * ONGEWIJZIGD gebruikt, dus een ontbrekend `completion` bleef `undefined` tot de eerstvolgende
+ * `writeIFC` crashte op `time.completion.toFixed(1)` (`src/services/ifc/ifcTaskSlots.ts`) — dat trof
+ * auto-save, Opslaan/Opslaan-als én `planner_export_ifc` in één keer.
+ *
+ * `mergeTaskTime` vult ONTBREKENDE velden veld-voor-veld aan met de verse default (`completion` → 0,
+ * net als `createDefaultTaskTime`); expliciet meegegeven velden (incl. `false`/`0`, `??` i.p.v. `||`)
+ * blijven staan. Gedeeld door beide aanroeppaden zodat ze niet uit elkaar kunnen lopen.
+ */
+export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undefined): TaskTime {
+  if (!partial) return base;
+  return {
+    durationType: partial.durationType ?? base.durationType,
+    scheduleDuration: partial.scheduleDuration ?? base.scheduleDuration,
+    durationMinutes: partial.durationMinutes ?? base.durationMinutes,
+    scheduleStart: partial.scheduleStart ?? base.scheduleStart,
+    scheduleFinish: partial.scheduleFinish ?? base.scheduleFinish,
+    earlyStart: partial.earlyStart ?? base.earlyStart,
+    earlyFinish: partial.earlyFinish ?? base.earlyFinish,
+    lateStart: partial.lateStart ?? base.lateStart,
+    lateFinish: partial.lateFinish ?? base.lateFinish,
+    freeFloat: partial.freeFloat ?? base.freeFloat,
+    totalFloat: partial.totalFloat ?? base.totalFloat,
+    isCritical: partial.isCritical ?? base.isCritical,
+    interferingFloat: partial.interferingFloat ?? base.interferingFloat,
+    isNearCritical: partial.isNearCritical ?? base.isNearCritical,
+    floatPath: partial.floatPath ?? base.floatPath,
+    actualStart: partial.actualStart ?? base.actualStart,
+    actualFinish: partial.actualFinish ?? base.actualFinish,
+    actualDuration: partial.actualDuration ?? base.actualDuration,
+    remainingTime: partial.remainingTime ?? base.remainingTime,
+    remainingMinutes: partial.remainingMinutes ?? base.remainingMinutes,
+    completion: partial.completion ?? base.completion,
+  };
+}

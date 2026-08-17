@@ -164,7 +164,14 @@ export const IFC_TASKTIME_SLOTS: TaskTimeSlot[] = [
   },
   {
     key: 'completion',
-    write: (w) => w.task.time.completion.toFixed(1),
+    // T14b (gebruikstestbevinding, ernst hoog): vangnet — een writer mag nooit de HELE opslag laten
+    // crashen op één optioneel-in-de-praktijk veld. `completion` is verplicht op `TaskTime`, maar
+    // vóór deze fix kon een taak die buiten de TS-typechecker om is aangemaakt (extensie-sandbox,
+    // MCP-payload) hier alsnog `undefined` dragen — `undefined.toFixed(1)` gooide een TypeError die
+    // élke `writeIFC` liet crashen (auto-save, Opslaan/Opslaan-als, `planner_export_ifc`). De bronlaag
+    // (`taskSlice`/`mcpTransaction`/`extMappers`) is inmiddels gedicht; deze `?? 0` is de onafhankelijke
+    // derde verdedigingslinie voor elk pad dat die twee lagen zou weten te omzeilen.
+    write: (w) => (w.task.time.completion ?? 0).toFixed(1),
     read: (t, arg) => { t.completion = parseFloat(arg || '0') || 0; },
   },
 ];

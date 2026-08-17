@@ -4,7 +4,7 @@ import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
 import { relationVerdict } from './relationRules';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import { createDefaultTaskTime, mergeTaskTime } from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
 import type { DurationType, Task } from '@/types/task';
@@ -194,7 +194,10 @@ export const draft = {
         priority: partial.priority ?? 500,
         parentId,
         childIds: [],
-        time: partial.time || createDefaultTaskTime(now, partial.isMilestone ? 0 : 5),
+        // T14b (gebruikstestbevinding, ernst hoog — dataverlies): zie taskSlice.ts addTask — zelfde
+        // veld-voor-veld-merge, MCP-pad. Een ongemerged meegegeven `time` liet writeIFC crashen op
+        // een ontbrekend `completion` (`time.completion.toFixed(1)` in ifcTaskSlots.ts).
+        time: mergeTaskTime(createDefaultTaskTime(now, partial.isMilestone ? 0 : 5), partial.time),
         resourceIds: partial.resourceIds || [],
         color: partial.color,
         constraint: partial.constraint,

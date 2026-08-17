@@ -1,5 +1,5 @@
 import { Task, type ExternalLink } from '@/types/task';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import { createDefaultTaskTime, mergeTaskTime } from '@/utils/taskDefaults';
 import type { Sequence } from '@/types/sequence';
 import type { ResourceAssignment } from '@/types/resource';
 import { generateId } from '@/utils/id';
@@ -310,7 +310,11 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         priority: partial.priority ?? 500,
         parentId,
         childIds: [],
-        time: partial.time || createDefaultTaskTime(now, partial.isMilestone ? 0 : 5),
+        // T14b (gebruikstestbevinding, ernst hoog — dataverlies): een meegegeven `partial.time` wordt
+        // veld-voor-veld gemerged met de verse default i.p.v. ongewijzigd overgenomen — anders bleef
+        // een ontbrekend veld (bv. `completion`) `undefined` tot writeIFC crashte op
+        // `time.completion.toFixed(1)`. Zelfde regel in het MCP-pad: zie mcpTransaction.ts draft.addTask.
+        time: mergeTaskTime(createDefaultTaskTime(now, partial.isMilestone ? 0 : 5), partial.time),
         resourceIds: partial.resourceIds || [],
         color: partial.color,
         constraint: partial.constraint,

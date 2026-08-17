@@ -882,6 +882,159 @@ const rt2 = readIFC(writeIFC(rt1));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
+// (8) T14b (gebruikstestbevinding, ernst hoog — dataverlies): een taak met `time.completion ===
+//     undefined` liet ELKE `writeIFC` crashen (`TypeError` op `w.task.time.completion.toFixed(1)`,
+//     ifcTaskSlots.ts) — dat trof auto-save (faalt stil elke 10s), Opslaan/Opslaan-als, én
+//     `planner_export_ifc`. Drieledige verdediging, elk apart mutatie-bewezen:
+//       (8a) BRON — `taskSlice.addTask`: een meegegeven, onvolledig `time`-object wordt nu
+//            veld-voor-veld gemerged (`mergeTaskTime`) i.p.v. ongewijzigd overgenomen.
+//       (8b) BRON — `mcpTransaction.ts` `draft.addTask`: zelfde regel, MCP-pad.
+//       (8c) EXTENSIE-RAND — `extMappers.ts` `fromExtTaskTime`: een extensie draait ongetypeerd, dus
+//            de TS-`Required<>`-garantie van `ExtTaskTime` geldt niet op runtime; ontbrekende
+//            velden krijgen hier al een terugval, los van de bronlaag.
+//       (8d) VANGNET — `ifcTaskSlots.ts`: de writer crasht nooit meer op een ontbrekende
+//            `completion`, ONGEACHT hoe de taak tot stand kwam (rechtstreeks gevoede, kunstmatig-
+//            kapotte fixture — bronlaag en extensie-rand blijven hier bewust ongebruikt).
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// (8a) BRON — directe reproductie van de bugmelding via de ECHTE store: `addTask({..., time: {...
+//      zonder completion}})`. Bewijst taskSlice.ts' `mergeTaskTime`-toepassing.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  S().addTask({
+    name: 'T14b-bron-store',
+    time: { scheduleStart: '2026-08-10', scheduleDuration: 3, durationType: 'WORKTIME' } as TaskTime,
+  });
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(buildWriteIFCInput(S()));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(8a) writeIFC mag niet crashen na addTask zonder time.completion — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-bron-store');
+    assert(out?.time.completion === 0, `(8a) completion moet via de merge-default op 0 uitkomen — kreeg ${out?.time.completion}`);
+    // Het completion-vangnet in ifcTaskSlots.ts (8d) zou een crash hier ALSNOG voorkomen zelfs
+    // zonder de merge — deze regel isoleert dus specifiek de BRON-fix: freeFloat/totalFloat hebben
+    // géén eigen vangnet, dus een ongemergede (nog altijd `undefined`) waarde interpoleert letterlijk
+    // de string "undefined" in de STEP-uitvoer (geverifieerd: `'P0Y0MundefinedD'`).
+    assert(!ifcOut.includes('undefined'), `(8a) writeIFC-uitvoer mag nooit de tekst "undefined" bevatten — bewijst dat ALLE gemergede time-velden gevuld zijn, niet alleen completion`);
+  }
+  // Mutatiebewijs (uitgevoerd): `mergeTaskTime(createDefaultTaskTime(...), partial.time)` in
+  // taskSlice.ts `addTask` teruggezet naar `partial.time || createDefaultTaskTime(...)` maakt de
+  // laatste assertie hierboven ROOD (freeFloat/totalFloat blijven `undefined` → `'P0Y0MundefinedD'`
+  // in de STEP-tekst), óók al voorkomt het completion-vangnet in ifcTaskSlots.ts (8d) hier nog
+  // steeds een echte crash — precies het bewijs dat de bron-fix ONAFHANKELIJK meetelt.
+}
+
+// (8b) BRON — zelfde reproductie via het MCP-pad (`mcpTransaction.ts` `draft.addTask`, bypassed de
+//      extensie-mapper volledig). Bewijst dat de MCP-implementatie apart is gefixt.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
+  const { draft } = await import('@/state/mcpTransaction');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  draft.addTask({
+    name: 'T14b-bron-mcp',
+    time: { scheduleStart: '2026-08-11', scheduleDuration: 2, durationType: 'WORKTIME' } as TaskTime,
+  });
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(buildWriteIFCInput(S()));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(8b) writeIFC mag niet crashen na draft.addTask zonder time.completion — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-bron-mcp');
+    assert(out?.time.completion === 0, `(8b) completion moet via de merge-default op 0 uitkomen — kreeg ${out?.time.completion}`);
+    // Zelfde isolatie-redenering als (8a): freeFloat/totalFloat hebben geen eigen vangnet.
+    assert(!ifcOut.includes('undefined'), `(8b) writeIFC-uitvoer mag nooit de tekst "undefined" bevatten — bewijst dat ALLE gemergede time-velden gevuld zijn, niet alleen completion`);
+  }
+  // Mutatiebewijs (uitgevoerd): dezelfde terugdraai-mutatie in mcpTransaction.ts' `draft.addTask`
+  // maakt de laatste assertie hierboven ROOD, terwijl (8a) groen blijft — bewijst dat de twee
+  // bron-call-sites onafhankelijk gefixt zijn (geen gedeelde code die één mutatie allebei zou raken).
+}
+
+// (8c) EXTENSIE-RAND — `fromExtTaskTime` in isolatie: een `ExtTaskTime`-achtig object dat op
+//      RUNTIME niet aan zijn eigen `Required<>`-belofte voldoet (zoals een JS-extensie kan opsturen),
+//      moet toch een geldige `TaskTime` opleveren — geen crash, geen `undefined`-lek naar de bronlaag.
+{
+  const { fromExtTaskTime } = await import('@/extensions/extMappers');
+  const brokenExtTime = {
+    durationType: 'WORKTIME',
+    scheduleStart: '2026-08-12',
+    scheduleFinish: '2026-08-14',
+    // scheduleDuration/earlyStart/earlyFinish/lateStart/lateFinish/freeFloat/totalFloat/isCritical/
+    // completion bewust WEGGELATEN — `ExtTaskTime` typeert ze als verplicht, maar een ongetypeerde
+    // extensie kan ze gewoon weglaten.
+  } as unknown as Parameters<typeof fromExtTaskTime>[0];
+
+  const mapped = fromExtTaskTime(brokenExtTime);
+  assert(mapped.completion === 0, `(8c) fromExtTaskTime zonder completion moet op 0 terugvallen — kreeg ${mapped.completion}`);
+  assert(mapped.scheduleDuration === 0, `(8c) fromExtTaskTime zonder scheduleDuration moet op 0 terugvallen — kreeg ${mapped.scheduleDuration}`);
+  assert(mapped.isCritical === false, `(8c) fromExtTaskTime zonder isCritical moet op false terugvallen — kreeg ${mapped.isCritical}`);
+  assert(mapped.earlyStart === '2026-08-12' && mapped.lateStart === '2026-08-12',
+    `(8c) ontbrekende early/lateStart moeten op scheduleStart terugvallen — kreeg earlyStart=${mapped.earlyStart}, lateStart=${mapped.lateStart}`);
+  assert(mapped.earlyFinish === '2026-08-14' && mapped.lateFinish === '2026-08-14',
+    `(8c) ontbrekende early/lateFinish moeten op scheduleFinish terugvallen — kreeg earlyFinish=${mapped.earlyFinish}, lateFinish=${mapped.lateFinish}`);
+
+  // Bewijs dat het resultaat ook echt een GELDIGE taak oplevert (niet alleen "geen crash hier"):
+  // door writeIFC/readIFC heen, zoals een `api.data.addTask`-aanroep 'm verderop zou voeren.
+  const asTask: Task = {
+    id: 't-8c', name: 'T14b-mapper-rand', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [], time: mapped,
+  };
+  const rt8c = readIFC(writeIFC({ ...fixture, tasks: [...fixture.tasks, asTask] }));
+  const out8c = rt8c.tasks.find(t => t.name === 'T14b-mapper-rand');
+  assert(out8c?.time.completion === 0, `(8c) de gemapte taak moet ook door writeIFC/readIFC heen completion 0 houden — kreeg ${out8c?.time.completion}`);
+
+  // Mutatiebewijs (uitgevoerd): elke `?? <default>` in `fromExtTaskTime` teruggezet naar de kale
+  // doorgifte (`tt.completion`, `tt.scheduleDuration`, …) maakt de bijbehorende assertie hierboven
+  // ROOD (bv. `mapped.completion === 0` faalt met `undefined` i.p.v. `0`).
+}
+
+// (8d) VANGNET — een kunstmatig-kapotte taak wordt RECHTSTREEKS aan `writeIFC` gevoed, bronlaag en
+//      extensie-rand volledig omzeild (geen addTask, geen fromExtTaskTime). Bewijst dat de derde
+//      verdedigingslinie in ifcTaskSlots.ts onafhankelijk van de andere twee lagen werkt.
+{
+  const brokenTask: Task = {
+    id: 't-8d-vangnet', name: 'T14b-vangnet', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [],
+    time: { ...plainTime('2026-08-15', '2026-08-17', 2), completion: undefined as unknown as number },
+  };
+  const brokenFixture: ImportResult = { ...fixture, tasks: [...fixture.tasks, brokenTask] };
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(brokenFixture);
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(8d) writeIFC mag nooit crashen op een kunstmatig-kapotte time.completion — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-vangnet');
+    assert(out?.time.completion === 0, `(8d) completion moet via het vangnet op 0 terugkomen — kreeg ${out?.time.completion}`);
+  }
+  // Mutatiebewijs (uitgevoerd): `(w.task.time.completion ?? 0)` in ifcTaskSlots.ts teruggezet naar
+  // `w.task.time.completion` maakt precies déze twee asserties ROOD — ONAFHANKELIJK van (8a)/(8b)/
+  // (8c), die hier bewust ongebruikt blijven (de kapotte taak wordt buiten addTask/fromExtTaskTime om
+  // rechtstreeks in de fixture gezet).
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);
   process.exit(0);

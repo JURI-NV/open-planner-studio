@@ -15,6 +15,7 @@
  *       `fromExt*Input`/`fromExt*Updates`-paden, die per veld `if (x !== undefined)` doorgeven);
  *   (b) hernoem je een INTERN veld → dat duikt alléén hier op, nooit in extensie-code.
  */
+import { formatDate } from '@/utils/dateUtils';
 import type { Project } from '@/types/project';
 import type { WorkCalendar, Holiday, WorkTimeBands, WorkingException } from '@/types/calendar';
 import type { Task, TaskTime, TaskConstraint, ExternalLink } from '@/types/task';
@@ -242,20 +243,37 @@ export function toExtTaskTime(tt: TaskTime): ExtTaskTime {
   };
 }
 
+/**
+ * T14b (gebruikstestbevinding, ernst hoog — dataverlies): `ExtTaskTime` declareert `durationType`/
+ * `scheduleDuration`/`scheduleStart`/`scheduleFinish`/`earlyStart`/`earlyFinish`/`lateStart`/
+ * `lateFinish`/`freeFloat`/`totalFloat`/`isCritical`/`completion` als VERPLICHT — maar dat is alleen
+ * een TS-compileertijd-garantie. Een extensie draait ONGETYPEERD (`new Function`-sandbox, CommonJS);
+ * niets valideert op runtime dat een binnenkomend object die velden ook echt draagt. Vóór deze fix
+ * gaf een ontbrekend `completion` hier `undefined` door tot in `Task.time`, en de eerstvolgende
+ * `writeIFC` crashte op `time.completion.toFixed(1)` (`ifcTaskSlots.ts`) — bereikbaar via de publieke,
+ * gedocumenteerde `api.data.addTask`. Elk verplicht veld krijgt daarom een expliciete, niet-crashende
+ * terugval (`??`, dus `false`/`0` blijven staan): datumvelden vallen terug op `scheduleStart`/
+ * `-Finish` (zelf terugvallend op vandaag), getallen op 0, `isCritical` op `false`, `completion` op 0
+ * — dezelfde geest als `createDefaultTaskTime`. De bron-laag (`taskSlice`/`mcpTransaction`, zie hun
+ * `mergeTaskTime`) herstelt daarna evt. datum-samenhang tegen het echte projectanker; dit is de
+ * grensverdediging die voorkomt dat een onvolledig extensie-object hier al een writer-crash veroorzaakt.
+ */
 export function fromExtTaskTime(tt: ExtTaskTime): TaskTime {
+  const start = tt.scheduleStart ?? formatDate(new Date());
+  const finish = tt.scheduleFinish ?? start;
   return {
-    durationType: tt.durationType,
-    scheduleDuration: tt.scheduleDuration,
+    durationType: tt.durationType ?? 'WORKTIME',
+    scheduleDuration: tt.scheduleDuration ?? 0,
     durationMinutes: tt.durationMinutes,
-    scheduleStart: tt.scheduleStart,
-    scheduleFinish: tt.scheduleFinish,
-    earlyStart: tt.earlyStart,
-    earlyFinish: tt.earlyFinish,
-    lateStart: tt.lateStart,
-    lateFinish: tt.lateFinish,
-    freeFloat: tt.freeFloat,
-    totalFloat: tt.totalFloat,
-    isCritical: tt.isCritical,
+    scheduleStart: start,
+    scheduleFinish: finish,
+    earlyStart: tt.earlyStart ?? start,
+    earlyFinish: tt.earlyFinish ?? finish,
+    lateStart: tt.lateStart ?? start,
+    lateFinish: tt.lateFinish ?? finish,
+    freeFloat: tt.freeFloat ?? 0,
+    totalFloat: tt.totalFloat ?? 0,
+    isCritical: tt.isCritical ?? false,
     interferingFloat: tt.interferingFloat,
     isNearCritical: tt.isNearCritical,
     floatPath: tt.floatPath,
@@ -264,7 +282,7 @@ export function fromExtTaskTime(tt: ExtTaskTime): TaskTime {
     actualDuration: tt.actualDuration,
     remainingTime: tt.remainingTime,
     remainingMinutes: tt.remainingMinutes,
-    completion: tt.completion,
+    completion: tt.completion ?? 0,
   };
 }
 
