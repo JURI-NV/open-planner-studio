@@ -381,6 +381,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   EXTCONSENTCHECK="$DIR/.extconsent.mjs"
   if bundle_check "$DIR/check-ext-consent.ts" "$EXTCONSENTCHECK"; then node "$EXTCONSENTCHECK" || STATUS=1; fi
 
+  # Scherm <-> print (K-item 39). De afdruk beantwoordde drie vragen zelf die de renderer al
+  # beantwoordt — weeknummer, weekgrens en welke dagen vrij zijn — en was op alle drie afgedreven.
+  # Een project met zaterdag als werkdag of "week begint op zondag" kreeg op papier iets anders dan
+  # op het scherm.
+  PRINTPARCHECK="$DIR/.printparity.mjs"
+  if bundle_check "$DIR/check-print-screen-parity.ts" "$PRINTPARCHECK"; then node "$PRINTPARCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.

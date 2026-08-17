@@ -427,6 +427,17 @@ daar is de bron-assert de enige bewaking. Dat staat ook zo in de kop van die bat
       invoegen) daar echt binnen trekken.
 - [ ] De grens van 5000 publiceren zodra de bulk-paden ook goed zijn.
 
+### Klein — de tijdlijn-kopstrook van de afdruk is niet dezelfde als die van het scherm (2026-08-17)
+- [ ] **De afdruk tekent een vaste maand/week/dag-kopstrook; het scherm kiest zijn niveaus met
+      `pickTiers`/`TIER_CONFIG` uit `engine/renderer/timelineTiers.ts`.** K-item 39 noemt dat
+      expliciet als onderdeel, maar het is bij nader inzien géén "S": de gedeelde tier-logica
+      overnemen verandert de kopstrook van élk bestaand rapport (andere niveaus, andere labels,
+      andere dichtheid bij dezelfde zoom). Dat is een productbeslissing over hoe afdrukken eruitzien,
+      geen opruiming. De drie dingen die wél puur divergentie waren — weeknummer, weekgrens en welke
+      dagen vrij zijn — zijn in K-item 39 rechtgezet en met `check-print-screen-parity.ts` afgedekt.
+      *Eerst beslissen:* moet de afdruk meeschalen met de zoom zoals het scherm, of blijft de vaste
+      maand/week/dag-strook de bedoeling? Pas daarna bouwen.
+
 ### Klein — fit en contentbreedte zijn het oneens over een taak zonder finish (2026-08-17)
 - [ ] **`computeFitToProject` valt op de finish-keten terug op de start (`|| s`),
       `computeContentSpanDays` niet.** `ganttViewport.ts` doet
