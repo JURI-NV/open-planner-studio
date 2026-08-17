@@ -54,7 +54,7 @@ import type { ResourceType, ResourceCurve } from '@/types/resource';
 import type { LevelingResult } from '@/engine/scheduler/ResourceLeveler';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { parseDuration } from '@/utils/durationFormat';
-import type { WorkTimeBands } from '@/types/calendar';
+import type { WorkTimeBands, WorkingException } from '@/types/calendar';
 import { computeVariance } from '@/engine/variance';
 import {
   computeViewRows, isTreeMode, encodeBandKey, firstRowIndexByTask, NONE_RAWKEY,
@@ -77,6 +77,12 @@ type Cal = {
   workDays?: number[]; holidays?: { name: string; startDate: string; endDate: string }[];
   /** Fase 2.8b (§3.2/§8.1): werktijd-banden ⇒ UUR-kalender. Afwezig ⇒ dag-kalender (byte-identiek). */
   workTime?: WorkTimeBands; shift?: Shift;
+  /** Fase 3.8 (T2/T13, MSP-pariteit): dag-uitzonderingen die een dag WERKEND maken. ADDITIEF —
+   *  afwezig ⇒ byte-identiek gedrag met vóór T13 (geen enkele bestaande case zet dit veld, dus geen
+   *  bestaande verwachting kan hierdoor wijzigen). Zelfde vorm als `WorkCalendar.workingExceptions`
+   *  (T2's model, `src/types/calendar.ts`) — de harness geeft 'm ongewijzigd door aan
+   *  `setCalendar`/`addCalendar`. */
+  workingExceptions?: WorkingException[];
 };
 interface CaseResource {
   name: string; type?: ResourceType; maxUnits?: number;
@@ -124,7 +130,7 @@ interface Case {
   calendar?: Cal; anchor?: string;
   /** Benoemde bibliotheek-kalenders (fase 2.8a, §10.1): taken verwijzen ernaar via tasks[].calendar.
    *  Fase 2.8b: optioneel `workTime`/`shift` ⇒ uur-kalender (§8.1). */
-  calendars?: { name: string; workDays?: number[]; holidays?: Cal['holidays']; workTime?: WorkTimeBands; shift?: Shift }[];
+  calendars?: { name: string; workDays?: number[]; holidays?: Cal['holidays']; workTime?: WorkTimeBands; shift?: Shift; workingExceptions?: Cal['workingExceptions'] }[];
   resources?: CaseResource[];
   /** Activity-code-types + waarden (fase 2.7 view-cases). */
   codes?: { name: string; values: { code: string; description?: string }[] }[];
@@ -314,6 +320,9 @@ function buildAndSolve(c: Case): {
     // (dag-modus, byte-identiek voor de 290).
     ...(c.calendar?.workTime ? { workTime: c.calendar.workTime } : {}),
     ...(c.calendar?.shift ? { shift: c.calendar.shift } : {}),
+    // T13 (§T2-afwijking): alleen wanneer expliciet gegeven ⇒ werkende uitzonderingen. Afwezig ⇒ géén
+    // workingExceptions-sleutel — byte-identiek voor elke bestaande case (additief, zie Cal se doc).
+    ...(c.calendar?.workingExceptions ? { workingExceptions: c.calendar.workingExceptions } : {}),
   } as any);
   const anchor = c.anchor ?? '2026-06-01';
   S().setProject({ startDate: anchor });
@@ -331,6 +340,8 @@ function buildAndSolve(c: Case): {
       holidays: cal.holidays ?? [],
       ...(cal.workTime ? { workTime: cal.workTime } : {}),
       ...(cal.shift ? { shift: cal.shift } : {}),
+      // T13 (§T2-afwijking): zie de gelijknamige toevoeging bij setCalendar hierboven.
+      ...(cal.workingExceptions ? { workingExceptions: cal.workingExceptions } : {}),
     });
   }
 
