@@ -3,6 +3,7 @@ import type { Sequence, LagUnit } from '@/types/sequence';
 import type { CalendarEngine } from './CalendarEngine';
 import { LAG_CALENDAR } from './lagCalendar';
 import { addCalendarDays } from '@/utils/dateUtils';
+import { isZeroDurationMilestone } from './duration';
 
 /**
  * Relatie-wiskunde (FS/SS/FF/SF) — audit-pakket P15 (RelationResolver).
@@ -52,7 +53,14 @@ export interface RelationBoundaryFlags {
 
 /** Bereken de mijlpaal-grensvlaggen voor het (voorganger, opvolger)-paar (één bron van waarheid). */
 export function relationBoundaryFlags(predTask: Task, succTask: Task): RelationBoundaryFlags {
-  const predIsMilestone = predTask.isMilestone || predTask.time.scheduleDuration <= 0;
+  // H3 (Opus-review T15-iteratie-2): `predTask.isMilestone ||` verwijderd — voor ELKE bestaande
+  // ECHTE (0-duur) mijlpaal was `scheduleDuration <= 0` al waar, dus de kale vlag toevoegen was
+  // altijd redundant vóór T15 (mijlpaal-met-duur bestond toen nog niet). Ná T15 maakte diezelfde
+  // vlag een mijlpaal-MET-duur ten onrechte óók een dag-grens-predecessor (haar échte, meerdaagse
+  // finish zou dan als "dagbegin" behandeld worden). Wiskundig equivalent voor het hele bestaande
+  // corpus (`isZeroDurationMilestone(predTask)` impliceert altijd `scheduleDuration <= 0`, dus de
+  // OR was al overbodig), alleen de milestone-met-duur-combinatie krijgt nu terecht GEEN dag-grens.
+  const predIsMilestone = predTask.time.scheduleDuration <= 0;
   const predKind = predTask.isMilestone ? predTask.milestoneKind : undefined;
   return {
     predEndsBeginOfDay: predIsMilestone && predKind !== 'FINISH',
@@ -154,7 +162,11 @@ function forwardDay(
   // forward-duurtoepassing (GEEN tweede variant), die zelf de WORKTIME/ELAPSEDTIME-keuze maakt:
   // voor een ELAPSEDTIME-opvolger (mijlpaal uitgesloten — die heeft geen eigen duur) 24/7
   // kloktijd, voor WORKTIME byte-identiek aan de oude inline formule.
-  const succElapsed = !successor.isMilestone && successor.time.durationType === 'ELAPSEDTIME';
+  // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
+  // mijlpaal-met-duur (T15) die zelf ELAPSEDTIME is, is voor de PLANNING geen mijlpaal en moet dus
+  // wél de elapsed-tak volgen (msp-30-mutatiebewijs: zonder deze conversie bleef de kale vlag de
+  // elapsed-bypass stil uitsluiten, met een dag-verschoven resultaat als gevolg).
+  const succElapsed = !isZeroDurationMilestone(successor) && successor.time.durationType === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
 
   switch (seq.type) {
@@ -252,7 +264,9 @@ function backwardDay(
   // voor een ELAPSEDTIME-voorganger (mijlpaal uitgesloten) 24/7 kloktijd toepast, WORKTIME
   // byte-identiek aan de oude inline formule. Zie ook `predElapsed` bij de FINISH_START-tak
   // hieronder (H2: de `prevWorkDayBefore`-inversie zelf, niet een duur-toepassing).
-  const predElapsed = !predTask.isMilestone && predTask.time.durationType === 'ELAPSEDTIME';
+  // H3 (Opus-review T15-iteratie-2) — zelfde reden als `succElapsed` hierboven, nu voor de
+  // VOORGANGER-zijde van de relatie.
+  const predElapsed = !isZeroDurationMilestone(predTask) && predTask.time.durationType === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
 
   switch (seq.type) {
@@ -335,7 +349,11 @@ function forwardHour(
   // EINDmijlpaal-opvolger; een ELAPSEDTIME-opvolger heeft PRECIES dezelfde behoefte (geen
   // werk-instant-normalisatie op zijn geëiste finish, want 24/7), dus die kortsluitingen breiden
   // hier uit naar `succIsFinishMs || succElapsed`.
-  const succElapsed = !successor.isMilestone && successor.time.durationType === 'ELAPSEDTIME';
+  // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
+  // mijlpaal-met-duur (T15) die zelf ELAPSEDTIME is, is voor de PLANNING geen mijlpaal en moet dus
+  // wél de elapsed-tak volgen (msp-30-mutatiebewijs: zonder deze conversie bleef de kale vlag de
+  // elapsed-bypass stil uitsluiten, met een dag-verschoven resultaat als gevolg).
+  const succElapsed = !isZeroDurationMilestone(successor) && successor.time.durationType === 'ELAPSEDTIME';
 
   // MSP-pariteit (T6, §9/O6; her-herzien op Opus-review H1/L1/L2). Een EINDmijlpaal-opvolger
   // zonder échte lag landt op de RAUWE voorganger-instant (bv. di 17:00) i.p.v. de eerstvolgende
@@ -517,7 +535,9 @@ function backwardHour(
   // T8-review H2: zie backwardDay se `predElapsed` — dezelfde definitie, hier voor de uur-FS-tak
   // (`prevWorkInstant` hieronder is de uur-tegenhanger van `prevWorkDayBefore`, met dezelfde
   // over-knijp-fout voor een ELAPSEDTIME-voorganger).
-  const predElapsed = !predTask.isMilestone && predTask.time.durationType === 'ELAPSEDTIME';
+  // H3 (Opus-review T15-iteratie-2) — zelfde reden als `succElapsed` hierboven, nu voor de
+  // VOORGANGER-zijde van de relatie.
+  const predElapsed = !isZeroDurationMilestone(predTask) && predTask.time.durationType === 'ELAPSEDTIME';
 
   switch (seq.type) {
     case 'START_START': {

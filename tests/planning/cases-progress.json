@@ -129,7 +129,7 @@
     },
     {
       "id": "prog-no-statusdate-completed-pins",
-      "title": "T15 (c2, herzien 2026-08-17, was 'prog-no-statusdate-noop'): een VOLTOOIDE taak (completion===1, actualFinish gezet) blijft op haar actuals gepind ONGEACHT of het project een statusdatum heeft — de VOLTOOID-tak in CPMSolver gebruikt uitsluitend actualStart/actualFinish, nooit dataDate zelf, dus de dataDate-poort was daar een KUNSTMATIGE afhankelijkheid (bevinding: mpp14baseline.mpp/mpp14resource.mpp — twee publieke MPXJ-fixtures zonder statusDate, waar MSP's eigen 100%-taken toch op hun actuals staan). A pint nu op 07-06/07-07 i.p.v. door te lopen tot 07-10; B (IN PROGRESS, dus wél nog een no-op zonder statusdatum) start na A's ACTUELE finish (FS+0 vanaf 07-07 ⇒ 07-08, toevallig gelijk aan B's eigen actualStart) en loopt dan gewoon 5 dagen door (geen restwerk-herberekening zonder dataDate); C volgt via gewone FS. Zusjescase voor de NOG WEL bestaande no-op-status van een IN-PROGRESS-taak zonder statusdatum: prog-no-statusdate-inprogress-noop hieronder.",
+      "title": "T15 (c2, herzien 2026-08-17, was 'prog-no-statusdate-noop'; c/f M1-herziening 2026-08-17): een VOLTOOIDE taak (completion===1, actualFinish gezet) blijft op haar actuals gepind ONGEACHT of het project een statusdatum heeft — de VOLTOOID-tak in CPMSolver gebruikt uitsluitend actualStart/actualFinish, nooit dataDate zelf. A pint op 07-06/07-07 i.p.v. door te lopen tot 07-10; B (IN PROGRESS, M1: ES pint óók zonder statusdatum op haar eigen actualStart, restwerk vanaf dezelfde actualStart) start na A's ACTUELE finish (FS+0 vanaf 07-07 ⇒ 07-08, gelijk aan B's eigen actualStart) en haar restwerk (round(5×0.6)=3 werkdagen) loopt vanaf die actualStart, geen volle 5 dagen meer; C volgt via gewone FS. Discriminerende zustercase voor M1 (actualStart ≠ planstart): prog-t15-inprogress-actualstart-pin hieronder.",
       "anchor": "2026-07-06",
       "tasks": [
         { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 1, "actualStart": "2026-07-06", "actualFinish": "2026-07-07" },
@@ -143,10 +143,10 @@
       "expect": {
         "tasks": {
           "A": { "es": "2026-07-06", "ef": "2026-07-07" },
-          "B": { "es": "2026-07-08", "ef": "2026-07-14" },
-          "C": { "es": "2026-07-15", "ef": "2026-07-21" }
+          "B": { "es": "2026-07-08", "ef": "2026-07-10" },
+          "C": { "es": "2026-07-13", "ef": "2026-07-17" }
         },
-        "projectEnd": "2026-07-21",
+        "projectEnd": "2026-07-17",
         "outOfSequenceSet": [],
         "error": false
       }
@@ -169,16 +169,16 @@
       }
     },
     {
-      "id": "prog-no-statusdate-inprogress-noop",
-      "title": "T15 (c2, controle): een IN-PROGRESS-taak (completion 0<x<1, GEEN actualFinish) blijft WEL een no-op zonder statusdatum — alleen de VOLTOOID-tak (completion===1 + actualFinish) verloor haar dataDate-afhankelijkheid, de restwerk-herberekening (branch 2) heeft dataDate als vloer nodig en blijft er dus ook van afhankelijk. A (in progress, dur 5, completion 0.4, geen actualFinish) plant hier dus gewoon als plan (ASAP, geen enkele voortgangsinvloed), identiek aan vóór T15.",
+      "id": "prog-t15-inprogress-actualstart-pin",
+      "title": "T15 (M1, Opus-review-fixronde 2026-08-17, was 'prog-no-statusdate-inprogress-noop' — die case discrimineerde niet omdat actualStart==planstart, dus een echte no-op en een geslaagde pin zagen er toevallig identiek uit): een IN-PROGRESS-taak zónder statusdatum pint haar ES op haar EIGEN actualStart, óók als die van de geplande start afwijkt — zelfde MSP-redenering als de VOLTOOID-fix (H1/c2). A (dur 5, geplande start ma 2026-07-06, ECHT gestart op wo 2026-07-08, completion 0.4, geen statusdatum): es = actualStart (wo 07-08), NIET de geplande ma 07-06 (dat zou het oude, MSP-divergente no-op-gedrag zijn — hier bewust WEL discriminerend, want ES verschilt tussen beide lezingen ook al is de EF toevallig gelijk aan de kale-planning-EF). Restwerk round(5×0.6)=3 werkdagen vanaf actualStart ⇒ ef = wo+do+vr = 07-10.",
       "anchor": "2026-07-06",
       "tasks": [
-        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.4, "actualStart": "2026-07-06" }
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.4, "actualStart": "2026-07-08" }
       ],
       "links": [],
       "expect": {
         "tasks": {
-          "A": { "es": "2026-07-06", "ef": "2026-07-10" }
+          "A": { "es": "2026-07-08", "ef": "2026-07-10" }
         },
         "projectEnd": "2026-07-10",
         "outOfSequenceSet": [],
@@ -190,6 +190,17 @@
       "title": "Out-of-sequence FS: opvolger gestart terwijl voorganger niet voltooid ⇒ relatie in outOfSequenceSet.",
       "anchor": "2026-07-06",
       "statusDate": "2026-07-08",
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-06" },
+        { "name": "B", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-06" }
+      ],
+      "links": [ { "pred": "A", "succ": "B", "type": "FINISH_START" } ],
+      "expect": { "outOfSequenceSet": [ ["A", "B", "FINISH_START"] ], "error": false }
+    },
+    {
+      "id": "prog-m2-oos-fs-geen-statusdatum",
+      "title": "M2 (Opus-review T15-iteratie-2): out-of-sequence FS ZONDER statusdatum — mutant van prog-oos-fs, `statusDate` weggelaten. `detectOutOfSequence` gebruikt `dataDate` nergens inhoudelijk (uitsluitend `actualStart`/`actualFinish`/de al-berekende voorganger-EF), dus de vroegere `if (!dataDate) return []`-poort was kunstmatig — een relatie kan aantoonbaar out-of-sequence zijn ongeacht of het project een statusbrede statusdatum heeft. Vóór deze fix was `outOfSequenceSet: []` op zo'n zonder-statusdatum-case een TAUTOLOGIE (detectie draaide sowieso nooit); deze case is de eerste die daadwerkelijk een niet-lege outOfSequenceSet zonder statusdatum bewijst.",
+      "anchor": "2026-07-06",
       "tasks": [
         { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-06" },
         { "name": "B", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-06" }

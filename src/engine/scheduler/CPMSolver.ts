@@ -9,7 +9,7 @@ import {
 } from '@/utils/dateUtils';
 import {
   durationMinutesOf, durationDaysOf, elapsedMinutesOf, addElapsedMinutes, subtractElapsedMinutes,
-  signedElapsedSpan,
+  signedElapsedSpan, isZeroDurationMilestone,
 } from './duration';
 import { computeScheduleResults } from './scheduleAnalysis';
 import {
@@ -107,24 +107,6 @@ export interface CPMOptions {
  */
 export function snapWorkInstantOnOrAfter(eng: CalendarEngine, from: Date): Date {
   return eng.isHourMode ? eng.nextWorkInstant(from) : eng.nextWorkDay(from);
-}
-
-/**
- * T15 (mijlpaal-met-duur, §9/O1 — "géén uitzondering maar een solver-bug"). MS Projects
- * `isMilestone`-vlag is een WEERGAVEmarkering die onafhankelijk van de opgeslagen duur gezet kan
- * worden ("Markeer taak als mijlpaal" in Taakinformatie) — MSP's eigen rekenkern plant zo'n taak
- * gewoon volgens haar eigen duur, ze klapt NIET stil om naar 0. Bewijs: `mpp14task.mpp` +
- * `mpp14task-from2013.mpp` (MSO-taak, `isMilestone=true`, duur 5 dagen — MSP-finish =
- * start + 5 werkdagen, PAS ná de duur) en `taskFlags-mpp14Project2010.mpp` +
- * `taskFlags-mpp14Project2013.mpp` ("Milestone: Yes", duur 8 dagen, zelfde patroon) — vier publieke
- * MPXJ-testfixtures waar de vlag én een reële duur allebei aanwezig zijn. Alle bestaande
- * duur-collapse-plekken in dit bestand testten uitsluitend de rauwe vlag; deze helper voegt de
- * duur-check toe zodat ALLEEN een taak die zelf ook daadwerkelijk 0 dagen/minuten duurt als
- * mijlpaal voor de PLANNING telt. Voor elke bestaande 0-duur-mijlpaal is dit byte-identiek aan de
- * kale vlag (dat IS precies de invariant die de rest van het corpus ongemoeid laat).
- */
-function isZeroDurationMilestone(task: Task): boolean {
-  return task.isMilestone && task.time.scheduleDuration === 0;
 }
 
 /**
@@ -393,11 +375,15 @@ export class CPMSolver {
     // berekening draait, dus ook ná H1's al-correcte `deps.startFromFinish`-uitkomst) precies de
     // H1-schending één stap verderop: een FF+0 naar een elapsed-opvolger die op zaterdag moest
     // landen, werd hier alsnog naar de eerstvolgende werk-instant/-dag geduwd — de opvolger se EF
-    // schoof daardoor mee, ondanks dat forwardConstraint zelf al goed rekende. `task.isMilestone`
-    // blijft uitgesloten (een mijlpaal heeft geen eigen duur/durationType-semantiek; de bestaande
-    // FINISH-mijlpaal-tak hierboven regelt zijn eigen — orthogonale — landing).
-    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') return d;
-    if (eng.isHourMode && task.isMilestone && task.milestoneKind === 'FINISH') {
+    // schoof daardoor mee, ondanks dat forwardConstraint zelf al goed rekende. `isZeroDurationMilestone`
+    // (niet de kale `task.isMilestone`) blijft uitgesloten: een ECHTE (0-duur) mijlpaal heeft geen
+    // eigen duur/durationType-semantiek, de bestaande FINISH-mijlpaal-tak hieronder regelt zijn eigen
+    // — orthogonale — landing. H3 (Opus-review T15-iteratie-2): met de kale `task.isMilestone` sloot
+    // een MIJLPAAL-MET-DUUR (isMilestone=true, reële duur, T15) die ZELF ELAPSEDTIME is deze bypass
+    // stil uit — precies de H1-schending hierboven (FF-relatie-schending, opvolger op een
+    // zaterdag-einde geduwd) herleeft dan voor die taak, ook al is ze voor de PLANNING geen mijlpaal.
+    if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') return d;
+    if (eng.isHourMode && isZeroDurationMilestone(task) && task.milestoneKind === 'FINISH') {
       if (this.snapOnOrBefore(eng, d).getTime() === d.getTime()) return d;
     }
     return this.snapOnOrAfter(eng, d);
@@ -562,7 +548,11 @@ export class CPMSolver {
       }
       return eng.subtractWorkMinutes(finish, durationMinutesOf(task, eng));
     }
-    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
+    // H3 (Opus-review T15-iteratie-2, herbevestigd via msp-30-mutatiebewijs): `isZeroDurationMilestone`
+    // i.p.v. de kale vlag — anders viel een dag-modus mijlpaal-met-duur-ELAPSEDTIME-taak hier stil
+    // terug op de WORKTIME-tak (`addWorkingDaysSigned`, telt werkdagen, slaat weekend over) i.p.v.
+    // de kloktijd-aftrek — exact het patroon dat msp-30 (FF+0 naar zo'n taak) blootlegde.
+    if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
     }
     const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
@@ -580,7 +570,8 @@ export class CPMSolver {
       }
       return eng.addWorkMinutes(start, durationMinutesOf(task, eng));
     }
-    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
+    // H3 (Opus-review T15-iteratie-2) — zelfde reden als `startFromFinish` hierboven.
+    if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
     const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
@@ -790,7 +781,10 @@ export class CPMSolver {
     for (const t of this.tasks.values()) {
       if ((this.predecessors.get(t.id) || []).length > 0) continue;
       const eng = this.calendarFor(t);
-      const s = this.rootFloor(eng, t.time.scheduleStart, !t.isMilestone && t.time.durationType === 'ELAPSEDTIME');
+      // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
+      // mijlpaal-met-duur (T15) die zelf ELAPSEDTIME is, is voor de PLANNING geen mijlpaal en moet
+      // dus wél als "root-elapsed" behandeld worden (spiegelt `snapSuccessorEarlyStart` hierboven).
+      const s = this.rootFloor(eng, t.time.scheduleStart, !isZeroDurationMilestone(t) && t.time.durationType === 'ELAPSEDTIME');
       if (!projectStart || s < projectStart) projectStart = s;
     }
 
@@ -846,7 +840,9 @@ export class CPMSolver {
         // (`applyForwardConstraints`/`forwardBoundOf`) blijft bewust ONGEMOEID — dat is de al-
         // gedocumenteerde L1-afbakening (zie `hardPinStart`): een SNET/MSO-datum snapt nog steeds
         // naar een werk-instant, ook op een elapsed taak.
-        const rootElapsed = !task.isMilestone && task.time.durationType === 'ELAPSEDTIME';
+        // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — zelfde
+        // reden als de precompute-lus hierboven (regel ~797) en `snapSuccessorEarlyStart`.
+        const rootElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
         // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
         // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
         // MSO/MFO-pin (hieronder in `applyForwardConstraints`) wint hier nog steeds
@@ -932,7 +928,12 @@ export class CPMSolver {
           // (1) VOLTOOID: volledig gepind op actuals — geen forward-drift voorbij actualFinish.
           let es = this.parseIn(cal, t.actualStart ?? t.actualFinish);
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
-          let ef = task.isMilestone
+          // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
+          // VOLTOOIDE mijlpaal-met-duur (T15) is voor de PLANNING een gewone taak en hoort dus de
+          // NORMALE `snapOnOrBefore`-tak te volgen (haar `actualFinish` kan legitiem dagen ná haar
+          // `actualStart` liggen); met de kale vlag zou `snapOnOrAfter` haar EF stelselmatig vóór of
+          // op haar ES kunnen duwen — "ze eindigt ná haar eigen actualFinish" (reviewer-meting).
+          let ef = isZeroDurationMilestone(task)
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualFinish))
             : this.snapOnOrBefore(cal, this.parseIn(cal, t.actualFinish));
           // Inversie-randgeval: het HELE geregistreerde venster valt in onwerkbare tijd (weekend,
@@ -949,9 +950,15 @@ export class CPMSolver {
           results.set(taskId, { es, ef });
           continue;
         }
-        if (dataDate && (t.actualStart || t.completion > 0) && t.completion < 1) {
+        if ((t.actualStart || t.completion > 0) && t.completion < 1) {
           // (2) IN PROGRESS — actualStart (store-route) óf impliciete actualStart = de gewone
           //     forward-pass-earlyStart (2b, vangnet voor rauwe legacy/externe data).
+          // M1 (Opus-review T15-iteratie-2): niet langer achter `dataDate &&` — een taak die
+          // aantoonbaar gestart is (`actualStart`/`completion>0`) pint haar ES op die start, MET of
+          // ZONDER statusdatum (zelfde MSP-redenering als de VOLTOOID-fix, H1/c2). `remStart`
+          // hieronder valt zonder statusdatum terug op `actualES` zelf (de enige zinvolle "as of"-
+          // ondergrens die overblijft — RETAINED_LOGIC's `max(dataDate, voorganger-druk)`-formule
+          // blijft verder ONGEWIJZIGD, ze krijgt alleen een andere startwaarde vóór de max).
           const actualES = t.actualStart
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart))
             : earlyStart;
@@ -971,12 +978,14 @@ export class CPMSolver {
           // `raw.isElapsedDuration`-tak voor zowel `duration`/`durationMinutes` als
           // `remainingTime`/`remainingMinutes`); alleen de dag→minuut-omrekening ontbreekt nog voor
           // het dag-modus-pad — exact dezelfde stap als `elapsedMinutesOf`'s eigen dag-tak
-          // (`scheduleDuration × 24 × 60`). `isElapsedTask` sluit een mijlpaal uit (spiegelt de
-          // `!task.isMilestone && durationType === 'ELAPSEDTIME'`-guard die overal elders in dit
-          // bestand staat — een mijlpaal heeft geen eigen duur-/durationType-semantiek).
-          const isElapsedTask = !task.isMilestone && t.durationType === 'ELAPSEDTIME';
+          // (`scheduleDuration × 24 × 60`). `isElapsedTask` sluit een ECHTE (0-duur) mijlpaal uit
+          // (spiegelt de `!isZeroDurationMilestone(...) && durationType === 'ELAPSEDTIME'`-guard die
+          // overal elders in dit bestand staat) — H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone`
+          // i.p.v. de kale vlag, anders klapt het restwerk van een VOORTGANG-dragende mijlpaal-met-duur-
+          // ELAPSEDTIME-taak stil om naar WORKTIME-semantiek (zelfde bugklasse als msp-30).
+          const isElapsedTask = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
           const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
-          let remStart = dataDate;                                  // ondergrens: statusdatum
+          let remStart = dataDate ?? actualES;                      // ondergrens: statusdatum, anders de eigen actualStart (M1)
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
@@ -1144,11 +1153,16 @@ export class CPMSolver {
   /**
    * Out-of-sequence-detectie (fase 2.6, §4.4): relaties waarvan de opvolger progress/actuals heeft
    * die de voorganger-logica tegenspreekt. Waarschuwing, geen correctie — het gedrag volgt uit de
-   * die de voorganger-logica tegenspreekt. Waarschuwing, geen correctie — het gedrag volgt uit de
-   * gekozen progressMode. Zonder statusdatum: geen detectie (no-op, backwards-compat).
+   * gekozen progressMode.
+   *
+   * M2 (Opus-review T15-iteratie-2): de vroegere `if (!this.dataDate) return [];`-poort was
+   * KUNSTMATIG — de detectie hieronder gebruikt uitsluitend `earlyDates` (de al-berekende
+   * voorganger-EF) en elke taak se eigen `actualStart`/`actualFinish`, nooit `this.dataDate` zelf.
+   * Dezelfde soort poort als de VOLTOOID-/IN-PROGRESS-branches (H1/c2, M1) die T15 al wegsneed —
+   * een relatie kan aantoonbaar out-of-sequence zijn (opvolger-actuals tegenspreken de voorganger-
+   * logica) ongeacht of het project een statusbrede statusdatum heeft.
    */
   private detectOutOfSequence(earlyDates: Map<string, { es: Date; ef: Date }>): string[] {
-    if (!this.dataDate) return [];
     const out: string[] = [];
     for (const seq of this.sequences) {
       const pred = this.tasks.get(seq.predecessorId);

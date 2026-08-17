@@ -16,6 +16,30 @@ import type { Task } from '@/types/task';
  * object, en roept nog niemand hem aan (geen gedragswijziging in golf 0).
  */
 
+/**
+ * T15 (mijlpaal-met-duur, §9/O1) / H3 (Opus-review T15-iteratie-2, gedeeld getrokken uit
+ * CPMSolver.ts): MS Projects `isMilestone`-vlag is een WEERGAVEmarkering die onafhankelijk van de
+ * opgeslagen duur gezet kan worden ("Markeer taak als mijlpaal" in Taakinformatie) — MSP's eigen
+ * rekenkern plant zo'n taak gewoon volgens haar eigen duur, ze klapt NIET stil om naar 0. Bewijs:
+ * `mpp14task.mpp`/`mpp14task-from2013.mpp` (MSO-taak, `isMilestone=true`, duur 5 dagen — MSP-finish
+ * = start + 5 werkdagen) en `taskFlags-mpp14Project2010/2013.mpp` ("Milestone: Yes", duur 8 dagen,
+ * zelfde patroon) — vier publieke MPXJ-testfixtures. Alleen een taak met duur 0 is voor de PLANNING
+ * een echte mijlpaal.
+ *
+ * H3 verplaatste deze helper van `CPMSolver.ts` naar hier (in plaats van 'm daar te laten en
+ * `relationMath.ts` ernaar te laten importeren): `relationMath.ts` heeft ZIJN EIGEN kale
+ * `isMilestone`-checks (`succElapsed`/`predElapsed`/`predIsMilestone`/`succIsFinishMs`/
+ * `succIsStartMs`) die dezelfde bug droegen (msp-30/msp-31-mutatiebewijs: een ELAPSEDTIME-taak die
+ * ÓÓK `milestone:true` + een reële duur draagt, kreeg via `relationMath.ts` een dag verschoven
+ * resultaat t.o.v. de niet-mijlpaal-controlevariant) — maar `CPMSolver.ts` importeert zelf al UIT
+ * `relationMath.ts` (`forwardConstraint`/`backwardConstraint`), dus een import de andere kant op zou
+ * een cyclus zijn. `duration.ts` is voor beide bestanden al een blaadje (geen afhankelijkheid naar
+ * `CPMSolver`/`relationMath`), dus hier kan de EEN definitie zonder cyclus door beide gedeeld worden.
+ */
+export function isZeroDurationMilestone(task: Task): boolean {
+  return task.isMilestone && task.time.scheduleDuration === 0;
+}
+
 /** Minimaal contract dat een uur-bewuste kalender-engine vervult (golf 1). */
 export interface DurationCalendar {
   /** True ⇒ uur-kalender (`WorkCalendar.workTime` aanwezig); false ⇒ dag-kalender. */

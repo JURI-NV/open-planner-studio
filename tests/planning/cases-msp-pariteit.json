@@ -658,6 +658,58 @@
       }
     },
     {
+      "id": "msp-30-h3-mijlpaal-met-duur-elapsed-ff-weekend",
+      "title": "H3 (Opus-review T15-iteratie-2): mutant van msp-23 — B is nu ÓÓK `milestone: true` (met dezelfde reële duur/ELAPSEDTIME). Vóór H3 sloot de kale `task.isMilestone`-check in `snapSuccessorEarlyStart` de ELAPSEDTIME-bypass stil uit voor zo'n taak (want `!task.isMilestone` is dan `false`) — B.es zou dan alsnog van zaterdag naar maandag gesnapt worden (exact de T8-BLOCKER-regressie, nu via de mijlpaal-met-duur-combinatie). Verwachte uitkomst identiek aan msp-23 (B is voor de PLANNING geen mijlpaal, `isZeroDurationMilestone(B)===false`).",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "Z", "dur": 1, "start": "2026-06-01" },
+        { "name": "A", "dur": 5, "start": "2026-07-06" },
+        { "name": "B", "dur": 6, "durationType": "ELAPSEDTIME", "milestone": true }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_FINISH" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-10" },
+          "B": { "es": "2026-07-04", "ef": "2026-07-10" }
+        },
+        "projectEnd": "2026-07-10",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-31-h3-mijlpaal-met-duur-elapsed-wortel-weekend",
+      "title": "H3 (Opus-review T15-iteratie-2): mutant van msp-27 — A (wortel, ELAPSEDTIME, GEEN voorganger, eigen anker zaterdag) is nu ÓÓK `milestone: true` (met dezelfde reële duur). Vóór H3 sloten de kale `!task.isMilestone`-checks in de `rootFloor`-precompute (regel ~797) én de `rootElapsed`-tak (regel ~849) deze taak stil uit van de elapsed-bypass — haar EIGEN zaterdag-anker zou alsnog naar maandag gesnapt zijn (dezelfde T8-BLOCKER-regressie, nu op de wortel-taak-plek). Verwacht: A.es blijft zaterdag (identiek aan msp-27's A).",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 2, "durationType": "ELAPSEDTIME", "milestone": true, "start": "2026-07-11" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-11", "ef": "2026-07-13" }
+        },
+        "projectEnd": "2026-07-13",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-32-h3-voltooide-mijlpaal-met-duur-ef-snap",
+      "title": "H3 (Opus-review T15-iteratie-2): een VOLTOOIDE mijlpaal-met-duur (completion=1, actualFinish op een NIET-werkdag, dus snapOnOrAfter/snapOnOrBefore geven verschillende uitkomsten — een discriminerende opzet). Vóór H3 nam de kale `task.isMilestone`-check in de VOLTOOID-tak de MIJLPAAL-tak (`snapOnOrAfter`, vooruit) — 'ze eindigt ná haar eigen actualFinish' (reviewer-meting): za 07-11 zou dan naar ma 07-13 zijn gesnapt. Na de fix (`isZeroDurationMilestone(A)===false`, want dur=5) geldt de NORMALE `snapOnOrBefore`-tak: ef blijft op vr 07-10 (de laatste werkdag óp-of-vóór de zaterdag-actualFinish).",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 5, "milestone": true, "start": "2026-07-06", "completion": 1, "actualStart": "2026-07-06", "actualFinish": "2026-07-11" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-10" }
+        },
+        "projectEnd": "2026-07-10",
+        "outOfSequenceSet": [],
+        "error": false
+      }
+    },
+    {
       "id": "msp-13-l6-dagmodus-passthrough",
       "title": "L6.6: expliciete DAG-modus-locale — A(3d) -FS+0-> EINDmijlpaal M op een pure dag-kalender (geen `workTime`) — `forwardHour` wordt hier niet eens aangeroepen (`forwardConstraint` dispatcht naar `forwardDay`), dus de T6-machinerie is hier per constructie afwezig. Zusjes-case: mk-01c in cases-milestone-kinds.json (dezelfde combinatie, dat bestand pint 'm al sinds vóór T6); hier lokaal herhaald zodat de dagmodus-byte-identieke invariant rechtstreeks náást de uur-cases in dit bestand staat.",
       "anchor": "2026-07-06",
