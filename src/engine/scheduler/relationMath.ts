@@ -60,6 +60,18 @@ export function relationBoundaryFlags(predTask: Task, succTask: Task): RelationB
   // finish zou dan als "dagbegin" behandeld worden). Wiskundig equivalent voor het hele bestaande
   // corpus (`isZeroDurationMilestone(predTask)` impliceert altijd `scheduleDuration <= 0`, dus de
   // OR was al overbodig), alleen de milestone-met-duur-combinatie krijgt nu terecht GEEN dag-grens.
+  // B2-BEVINDING (Opus-her-check T15-fixronde): `predIsMilestone` hierboven is ONGEPIND voor de
+  // milestone-met-duur-combinatie (geen van de msp-29..34-cases gebruikt zo'n taak als VOORGANGER
+  // in een FS/FF-relatie) — corpus- en case-neutraal, wiskundig-equivalent-redenering blijft staan.
+  // `succIsFinishMs`/`succIsStartMs` hieronder staan nog LATENT op de kale `isMilestone`-vlag (niet
+  // via `isZeroDurationMilestone`) — dat is BEWUST onaangeroerd gebleven en volledig gemaskeerd
+  // (niet gefixt, niet getest): `milestoneKind` wordt in de lezers (mppReader.ts/mspdiReader.ts,
+  // H2) al uitsluitend gezet bij `duration===0`, dus voor elke taak die via die lezers binnenkomt
+  // is `succTask.milestoneKind` toch al `undefined` op een mijlpaal-met-duur — deze twee vlaggen
+  // worden dan nooit `true`, ongeacht welke vorm van `isMilestone`-check hier staat. Voor een taak
+  // die BUITEN die lezers om een `milestoneKind` krijgt (bv. rechtstreeks via de MCP-tools of een
+  // toekomstige adapter) blijft dit een LATENT gat — geregistreerd, niet binnen deze fixronde
+  // opgelost.
   const predIsMilestone = predTask.time.scheduleDuration <= 0;
   const predKind = predTask.isMilestone ? predTask.milestoneKind : undefined;
   return {
@@ -266,6 +278,17 @@ function backwardDay(
   // hieronder (H2: de `prevWorkDayBefore`-inversie zelf, niet een duur-toepassing).
   // H3 (Opus-review T15-iteratie-2) — zelfde reden als `succElapsed` hierboven, nu voor de
   // VOORGANGER-zijde van de relatie.
+  //
+  // B2-BEVINDING (Opus-her-check T15-fixronde): deze conversie is, in tegenstelling tot
+  // `succElapsed` in de forward-tak (zie msp-33/34, `cases-msp-pariteit.json` — die pinnen de
+  // forward-conversie WEL rechtstreeks), NIET met een eigen case gepind. `predElapsed` voedt hier
+  // uitsluitend de BACKWARD-pass (`lateFinish`/`totalFloat` van de voorganger); een discriminerende
+  // case zou een `lf`/`tf`-assertie op een mijlpaal-met-duur-ELAPSEDTIME-VOORGANGER vergen — niet
+  // geconstrueerd binnen deze fixronde. Corpus- en case-neutraal: geen gepind bestand en geen
+  // bestaande case raakt deze combinatie; meegeconverteerd voor consistentie met de forward-tak
+  // (dezelfde `isZeroDurationMilestone`-definitie hoort logisch op beide zijden van een relatie te
+  // gelden), gedekt via de CPMSolver-kant (`subDuration`/`finishFromStart` gebruiken de helper al
+  // wél mutatiebewezen) totdat een eigen backward-case dit rechtstreeks aantoont.
   const predElapsed = !isZeroDurationMilestone(predTask) && predTask.time.durationType === 'ELAPSEDTIME';
   const { predEndsBeginOfDay, predStartsNextDay, succIsFinishMs, succIsStartMs } = flags;
 
@@ -536,7 +559,8 @@ function backwardHour(
   // (`prevWorkInstant` hieronder is de uur-tegenhanger van `prevWorkDayBefore`, met dezelfde
   // over-knijp-fout voor een ELAPSEDTIME-voorganger).
   // H3 (Opus-review T15-iteratie-2) — zelfde reden als `succElapsed` hierboven, nu voor de
-  // VOORGANGER-zijde van de relatie.
+  // VOORGANGER-zijde van de relatie. B2-BEVINDING: zelfde ONGEPINDE status als backwardDay se
+  // `predElapsed` hierboven — corpus- en case-neutraal, meegeconverteerd voor consistentie.
   const predElapsed = !isZeroDurationMilestone(predTask) && predTask.time.durationType === 'ELAPSEDTIME';
 
   switch (seq.type) {
