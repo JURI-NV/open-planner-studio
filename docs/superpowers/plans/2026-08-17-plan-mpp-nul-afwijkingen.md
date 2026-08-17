@@ -357,6 +357,8 @@ Daarnaast bewust NIET segmentbewust: `addElapsedMinutes`/`subtractElapsedMinutes
 
 **Afhankelijk van:** Z1 (meetlat!), Z2 (leesbaarheid). **Blokkeert:** Z13. **Risico:** hoog — nieuwe planningsmodus. **Kwaliteitsreview op Opus.**
 
+> **Z1-reviewobservatie voor deze taak (2026-08-17):** `mpp14timephasedsegmentsmanual.mpp` (21 taken, na Z1 alle 21 sameday) draagt een **uniform −60 min**-verschil tussen 1283/1284 en 35/36 op álle taken, ook bij onregelmatige eindtijden (14:20→13:20, 10:17→09:17) — een pure translatie, geen herberekening. De motor moet daar na Z9a exact de 07:00-ankers reproduceren; lukt dat niet, dan is de Z1-veldkeuze voor dít bestand de verdachte, niet de motor (zie §6-procesrisico "meetlat-verschuiving").
+
 #### Z9b — Handmatig geplande taken: de randen
 
 **Doel.** Float, kritiek pad, ALAP en rollup gedragen zich correct rond een gepinde taak. Aparte taak omdat dit vier verschillende modules raakt en Z9a anders te groot wordt.
@@ -383,6 +385,8 @@ Daarnaast bewust NIET segmentbewust: `addElapsedMinutes`/`subtractElapsedMinutes
 **Acceptatie.** `mpp14relations.mpp` naar 0 afwijkingen; corpusloze case pint de MSP-semantiek; mutatie: draai de fix terug → case én corpusbestand ROOD; alle bestaande SF-cases (`cases-relations.json`, `cases-hours-relations.json`, `cases-lag-advanced.json`) groen **zonder aangepaste verwachtingen** — wijzigt er één, dan is dát het te motiveren feit.
 
 **Afhankelijk van:** niets (puur solver). **Risico:** hoog (gedeelde relatiewiskunde). **Kwaliteitsreview op Opus.**
+
+> **Orkestratorbesluit Z10 (2026-08-17, semantiekconflict).** De gevonden oorzaak: de SF-terugtelling (finish ⇒ start over de duur) is niet inverteerbaar wanneer ze exact een niet-werkperiode overspant; de voorwaartse herberekening `ES + duur` landde dan vóór het SF-anker. De fix (een aparte finish-ondergrens `reqFinish`, alleen voor START_FINISH) maakte `mpp14relations.mpp` exact met 0 corpusregressies over alle 216 bestanden, maar brak 4 oude synthetische cases (`rr-sf-h8-zero`, `rr-sf-hbreak-zero`, `rr-sf-pred-finishms`, `sf-hour`) die voor nacht/lunch-sessiegrenzen het voorwaarts-herberekende antwoord pinden. Die vier stammen van vóór het MSP-pariteitswerk en zijn nooit tegen MS Project geverifieerd. Besluit: **de uniforme SF-ankerregel wint** — één regel, gestaafd door MSP's eigen opgeslagen antwoord (weekendgeval) én corpus-consistent (0 regressies); een weekend/binnen-dag-discriminator zonder één meting zou verzonnen semantiek zijn. De vier verwachtingen worden bijgewerkt mét motiveringscommentaar dat expliciet zegt: binnen-dag-variant is MSP-ongemeten; duikt er ooit een corpusbestand op dat het tegenspreekt, dan wint dat bestand.
 
 #### Z11 — Dossier: kruis-kalender-FS-asymmetrie
 
