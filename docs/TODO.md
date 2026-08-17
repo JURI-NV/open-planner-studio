@@ -427,6 +427,27 @@ daar is de bron-assert de enige bewaking. Dat staat ook zo in de kop van die bat
       invoegen) daar echt binnen trekken.
 - [ ] De grens van 5000 publiceren zodra de bulk-paden ook goed zijn.
 
+### Store-factory: wat er ná K-item 41 nog tussen twee instanties gedeeld is (2026-08-17)
+
+`createAppStore()` bestaat, de singleton wordt eruit gebouwd, en twee instanties hebben elk hun eigen
+project, taken, resources, selectie en undo/redo-stacks. Wat er nog aan de singleton of aan
+module-state hangt — en dus GEDEELD is — staat vastgepind in `tests/planning/check-store-factory.ts`
+deel 4. In volgorde van hoe hard het split-view blokkeert:
+
+- [ ] **`withTransaction` importeert `useAppStore` rechtstreeks** (`batchTransaction.ts`). Een bulk op
+      instantie B neemt zijn snapshot op de SINGLETON. Zelfde verhaal voor `runInMcpTransaction`
+      (`mcpTransaction.ts`, tien aanroepen). Beide moeten de store als parameter krijgen.
+- [ ] **De batch-diepte, de undo-coalescing en de MCP-suppressie zijn module-variabelen**
+      (`transaction.ts`: `batchDepth`, `coalesce`, `undoSeq`, `mcpTransactionActive`). Twee
+      instanties delen die teller, dus een bulk op A onderdrukt de per-mutatie-snapshots van B. De
+      kop van die module beargumenteert waarom ze niet in het DOCUMENTCONTRACT horen — dat argument
+      staat nog, maar het sluit niet uit dat ze per STORE moeten leven.
+- [ ] **De app-globale registers** (extensies, MCP-server, SDK, bibliotheek-persistentie) kennen maar
+      één store. Deels bewust — een extensie hoort niet per venster te bestaan — maar er is niet
+      uitgezocht welk deel wél per instantie moet.
+- [ ] Pas als die drie opgelost zijn kan split-view met twee documenten hierop leunen. Haal dan de
+      vastpinningen in deel 4 van de batterij weg en werk de kop van `createAppStore` bij.
+
 ### Klein — de tijdlijn-kopstrook van de afdruk is niet dezelfde als die van het scherm (2026-08-17)
 - [ ] **De afdruk tekent een vaste maand/week/dag-kopstrook; het scherm kiest zijn niveaus met
       `pickTiers`/`TIER_CONFIG` uit `engine/renderer/timelineTiers.ts`.** K-item 39 noemt dat

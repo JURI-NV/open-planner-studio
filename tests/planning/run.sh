@@ -388,6 +388,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   PRINTPARCHECK="$DIR/.printparity.mjs"
   if bundle_check "$DIR/check-print-screen-parity.ts" "$PRINTPARCHECK"; then node "$PRINTPARCHECK" || STATUS=1; fi
 
+  # Store-factory (K-item 41). De store was één module-expressie; een tweede instantie was daarmee
+  # onmogelijk. De batterij toetst wat er nu ECHT onafhankelijk is (projectdata, undo/redo) en pint
+  # vast wat nog GEDEELD is (withTransaction en de batch-diepte hangen aan de singleton) — die
+  # pinningen horen rood te worden zodra iemand ze oplost.
+  SFCHECK="$DIR/.storefactory.mjs"
+  if bundle_check "$DIR/check-store-factory.ts" "$SFCHECK"; then node "$SFCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
