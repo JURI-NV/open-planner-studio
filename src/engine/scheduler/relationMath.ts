@@ -135,6 +135,83 @@ export function forwardConstraint(
 }
 
 /**
+ * Z10 (etappe "nul afwijkingen", dossier START_FINISH-semantiek, `mpp14relations.mpp`/"Task 5").
+ *
+ * `forwardConstraint`'s SF-tak berekent intern een `reqFinish` (de door de relatie geëiste
+ * opvolger-finish: voorganger-START + lag) en zet die DIRECT om naar een opvolger-ES-kandidaat via
+ * `deps.startFromFinish` (terugtellen over de duur) — `reqFinish` zelf verlaat de functie nooit.
+ * `CPMSolver.forwardPass` herberekent de opvolger-EF vervolgens UNIFORM voor ALLE relatietypes als
+ * `ES + duur` VOORWAARTS (`addDurationChecked`). Voor FS/SS is dat correct (die ankeren zelf al op
+ * de START-zijde, dus voorwaarts-vanaf-ES is precies de relatie-semantiek). Voor SF ankert de
+ * relatie op de FINISH-zijde — en zodra de terugtelling exact een hele niet-werkperiode overspant
+ * (bv. een weekend: de duur consumeert precies de laatste werkdag vóór het weekend en landt op
+ * diens BEGIN), is "terug over de duur, dan weer vooruit over de duur" GEEN inverteerbare
+ * bewerking: vooruit vanaf die ES-kandidaat eindigt op het BEGIN van de niet-werkperiode (bv.
+ * vrijdag 17:00), niet op `reqFinish` zelf (bv. maandag 08:00) — één werk-sessiegrens zoek.
+ *
+ * Gemeten tegen MPXJ-junit `mpp14relations.mpp`, taak "Task 5" (SF-opvolger van "Task 4", lag 0):
+ * MS Project se eigen opgeslagen Finish is `reqFinish` zelf (maandag 08:00) — niet de voorwaarts-
+ * herberekende waarde (vrijdag 17:00). Corpusloos gepind in `cases-msp-pariteit.json`
+ * (`msp-35-z10-sf-weekendgrens`, mutatiebewijs in de Z10-commitboodschap).
+ *
+ * Deze functie levert `reqFinish` als een APARTE ondergrens ("niet eerder dan…", net als de
+ * ES-kandidaat van elke relatie een ondergrens is) — `CPMSolver.forwardPass` neemt 'm mee als extra
+ * `max()`-term NAAST de gewone `ES + duur`-berekening, ZONDER de ES-berekening zelf aan te raken.
+ *
+ * WAAROM ALLEEN `START_FINISH` (`null` voor alle andere typen, nadrukkelijk óók niet voor
+ * `FINISH_FINISH` — Z10-fixronde 2, reviewbevinding 6, het ECHTE veiligheidsargument i.p.v. het
+ * eerdere "FF is niet getoetst"-argument). De vloer verschuift `earlyFinish` uitsluitend over een
+ * NUL-WERK-gat (het hele punt van de vloer is dat `ES + duur` daar precies op vastloopt) — binnen
+ * dat gat verandert geen enkele werkminuut, dus elke WERKMINUUT-gebaseerde grootheid (float, tf/ff,
+ * kritiek-pad) is INVARIANT onder de vloer, zelf als de vloer vuurt. Het verschil tussen SF en FF
+ * zit in WAAR `reqFinish` landt t.o.v. een bandgrens: SF ankert op `predResult.es`, en bij lag 0 is
+ * dat een bandSTART (het `(start,end)`-forward-anker) — `startFromFinish` (terug) gevolgd door
+ * `addDuration` (weer vooruit) is dan NIET inverteerbaar (zie het scenario hierboven: terug landt op
+ * de vorige werkdag-START, vooruit vanaf díe START landt op diens EIND, niet terug op `reqFinish`).
+ * FF ankert op `predResult.ef`, een bandEIND (het `(start,end]`-finish-anker) — daar ROND-TRIPT
+ * `startFromFinish`/`addDuration` WEL exact (het finish-anker is zelf al het punt waar de
+ * duur-optelling normaliter uitkomt), dus een FF-vloer zou daar sowieso nooit vuren: geen
+ * gedragswijziging, geen risico, maar ook geen enkele reden om 'm er toch bij te bouwen. De
+ * UITZONDERING die dit bewust doorbreekt is EXPLICIET geklemd, niet stilzwijgend: `CPMSolver.
+ * forwardPass` slaat de vloer over zodra de taak een HARDE finish-pin heeft (MFO/MSO hard,
+ * `hardPinFinish`) — dát pad belooft een EIGEN, hardere invariant (EF=LF=pin, tf=0) die vóór de
+ * vloer gaat (Z10-fixronde 2, reviewbevinding 3, `msp-36-z10-sf-hardpin-wint`).
+ *
+ * BEWUSTE SCOPE-GRENZEN (Z10-fixronde 2, reviewbevinding 5 — gedocumenteerd, niet binnen deze taak
+ * gefixt):
+ *  - **Taken met actuals.** `CPMSolver.forwardPass`s VOLTOOID-/IN-PROGRESS-takken (`t.actualFinish`/
+ *    `t.actualStart`/`t.completion>0`) `continue`n VÓÓR de vloer ooit toegepast wordt — een taak die
+ *    al (deels) is afgemeld pint op haar eigen feiten, nooit op een relatie-vereiste finish. De
+ *    vloer is voor zo'n taak dus principieel onbereikbaar, net zoals relatie-constraints in het
+ *    algemeen wijken voor geregistreerde actuals.
+ *  - **Hammocks.** `hammockEarlyFinish` (CPMSolver.ts) doet voor een SF/FF-voorganger nog steeds de
+ *    OUDE rondgang (`forwardConstraint` → start-equivalent → `finishFromStart`) — een hammock-EF
+ *    loopt niet door `sfFinishFloor`. Een SF-relatie naar een hammock-taak toont dus NOG STEEDS het
+ *    vóór-Z10-gedrag (mogelijk hetzelfde weekendgrens-symptoom). Geregistreerde, niet-gefixte
+ *    beperking — geen corpusbestand of case raakt vandaag een SF-naar-hammock-relatie.
+ *
+ * Losstaand van `forwardConstraint` gehouden (i.p.v. diens retourtype te verrijken) om de vier
+ * bestaande aanroepplekken van `forwardConstraint`/`backwardConstraint` — die zelf niets met een
+ * finish-vloer te maken hebben (hammock-ES, hammock-EF, ALAP-her-anker) — ongemoeid te laten.
+ */
+export function forwardFinishFloor(
+  deps: RelationDeps,
+  predResult: { es: Date; ef: Date },
+  predTask: Task,
+  seq: Sequence,
+  successor: Task,
+  predEng: CalendarEngine,
+  succEng: CalendarEngine,
+): Date | null {
+  if (seq.type !== 'START_FINISH') return null;
+  const flags = relationBoundaryFlags(predTask, successor);
+  if (predEng.isHourMode || succEng.isHourMode) {
+    return sfReqFinishHour(deps, predResult, predTask, seq, successor, predEng, succEng, flags);
+  }
+  return sfReqFinishDay(deps, predResult, predTask, seq, successor, predEng, succEng, flags);
+}
+
+/**
  * Backward-relatie-grens: geef de laatst toegestane FINISH van de voorganger (spiegel van
  * `forwardConstraint`). Dispatcht identiek op modus.
  */
@@ -230,15 +307,10 @@ function forwardDay(
       return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'START_FINISH': {
-      // Opvolger EINDIGT `lag` dagen na de START van de voorganger (zeldzaam).
-      const reqFinish = elapsed
-        ? (succElapsed
-            ? addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)
-            : se.nextWorkDay(addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)))
-        : lagEng.addWorkingDaysSigned(
-            predStartsNextDay ? pe.nextWorkDayAfter(predResult.es) : predResult.es,
-            lag,
-          );
+      // Opvolger EINDIGT `lag` dagen na de START van de voorganger (zeldzaam). `reqFinish` (de
+      // geëiste finish zelf) wordt gedeeld met `sfReqFinishDay` (Z10, `forwardFinishFloor`) — één
+      // bron, zie die functies moduleheader.
+      const reqFinish = sfReqFinishDay(deps, predResult, predTask, seq, successor, pe, se, flags);
       return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'FINISH_START':
@@ -259,6 +331,36 @@ function forwardDay(
       return lagEng.addWorkingDaysSigned(base, lag);
     }
   }
+}
+
+/** De door een SF-relatie geëiste opvolger-FINISH (dag-modus) — gedeeld tussen `forwardDay`'s
+ *  `START_FINISH`-tak en `forwardFinishFloor` (Z10), zodat er precies ÉÉN plek is die `reqFinish`
+ *  berekent. Zelfstandig aanroepbaar (leidt `lag`/`elapsed`/`succElapsed` zelf af uit `deps`/`seq`/
+ *  `predTask`/`successor`) — `forwardDay` zelf blijft byte-identiek, ze roept 'm nu gewoon aan i.p.v.
+ *  de formule inline te herhalen. */
+function sfReqFinishDay(
+  deps: RelationDeps,
+  predResult: { es: Date; ef: Date },
+  predTask: Task,
+  seq: Sequence,
+  successor: Task,
+  pe: CalendarEngine,
+  se: CalendarEngine,
+  flags: RelationBoundaryFlags,
+): Date {
+  const { days: lag, unit } = deps.resolveLag(seq, predTask, pe);
+  const elapsed = unit === 'ELAPSEDTIME';
+  const lagEng = LAG_CALENDAR === 'predecessor' ? pe : se;
+  const succElapsed = !isZeroDurationMilestone(successor) && successor.time.durationType === 'ELAPSEDTIME';
+  const { predStartsNextDay } = flags;
+  return elapsed
+    ? (succElapsed
+        ? addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)
+        : se.nextWorkDay(addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag)))
+    : lagEng.addWorkingDaysSigned(
+        predStartsNextDay ? pe.nextWorkDayAfter(predResult.es) : predResult.es,
+        lag,
+      );
 }
 
 function backwardDay(
@@ -468,21 +570,9 @@ function forwardHour(
       // MSP-pariteit (L1, Opus-review): zelfde redenering als FINISH_FINISH hierboven, maar het
       // rauwe anker is hier `startMoment` (de voorganger-START-zijde, incl. dagbegin-mijlpaal-
       // correctie) i.p.v. `predResult.ef` — SF ankert de opvolger-finish op de voorganger-START.
-      const startMoment = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
-      let reqFinish: Date;
-      if (elapsed) {
-        reqFinish = succElapsed
-          ? new Date(startMoment.getTime() + elapsedMin())
-          : deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()));
-      } else {
-        const lagged = deps.shiftLagPred(pe, startMoment, seq, predTask, 1);
-        if ((succIsFinishMs || succElapsed) && pe.isHourMode
-          && lagged.getTime() === pe.nextWorkInstant(startMoment).getTime()) {
-          reqFinish = landRawInstant(startMoment, succElapsed);
-        } else {
-          reqFinish = lagged;
-        }
-      }
+      // `reqFinish` (de geëiste finish zelf) wordt gedeeld met `sfReqFinishHour` (Z10,
+      // `forwardFinishFloor`) — één bron, zie die functies moduleheader.
+      const reqFinish = sfReqFinishHour(deps, predResult, predTask, seq, successor, pe, se, flags);
       return deps.startFromFinish(se, reqFinish, successor);
     }
     case 'FINISH_START':
@@ -551,6 +641,41 @@ function forwardHour(
       return se.availableStart(lagged);
     }
   }
+}
+
+/** De door een SF-relatie geëiste opvolger-FINISH (uur-modus) — gedeeld tussen `forwardHour`'s
+ *  `START_FINISH`-tak en `forwardFinishFloor` (Z10), zodat er precies ÉÉN plek is die `reqFinish`
+ *  berekent (spiegelt `sfReqFinishDay`). Zelfstandig aanroepbaar — `forwardHour` zelf blijft
+ *  byte-identiek, ze roept 'm nu gewoon aan i.p.v. de formule inline te herhalen. */
+function sfReqFinishHour(
+  deps: RelationDeps,
+  predResult: { es: Date; ef: Date },
+  predTask: Task,
+  seq: Sequence,
+  successor: Task,
+  pe: CalendarEngine,
+  se: CalendarEngine,
+  flags: RelationBoundaryFlags,
+): Date {
+  const elapsed = seq.lagUnit === 'ELAPSEDTIME';
+  const { predStartsNextDay, succIsFinishMs } = flags;
+  const elapsedMin = () => deps.resolveElapsedMinutes(seq, predTask) * MS_PER_MIN;
+  const succElapsed = !isZeroDurationMilestone(successor) && successor.time.durationType === 'ELAPSEDTIME';
+  const landRawInstant = (raw: Date, elapsedLanding = false): Date =>
+    se.isHourMode ? raw : elapsedLanding ? deps.startOfDay(raw) : se.nextWorkDay(deps.startOfDay(raw));
+
+  const startMoment = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
+  if (elapsed) {
+    return succElapsed
+      ? new Date(startMoment.getTime() + elapsedMin())
+      : deps.snapOnOrAfter(se, new Date(startMoment.getTime() + elapsedMin()));
+  }
+  const lagged = deps.shiftLagPred(pe, startMoment, seq, predTask, 1);
+  if ((succIsFinishMs || succElapsed) && pe.isHourMode
+    && lagged.getTime() === pe.nextWorkInstant(startMoment).getTime()) {
+    return landRawInstant(startMoment, succElapsed);
+  }
+  return lagged;
 }
 
 function backwardHour(

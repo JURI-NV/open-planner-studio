@@ -1366,10 +1366,9 @@
       "startExact": 5,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 4,
+      "finishExact": 5,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "dossier (c)3 — START_FINISH-relatiesemantiek (\"Task 5\"), geen eenduidig bewijs binnen deze iteratie"
+      "finishDiff": 0
     },
     "8f5efa9b44f49bb2": {
       "root": "crawl",
