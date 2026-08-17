@@ -220,6 +220,17 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 - [ ] **Wélke kalender de projectdefault is, kan de bridge niet wisselen** (de inhoud ervan wel, via
       het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
       of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
+- [ ] **P6-XML-export laat werkende kalenderuitzonderingen weg — schemabeperking, geen bug (fase
+      3.8 T13, 2026-08-17).** `WorkingException` (T2/T3: een dag-uitzondering die een dag WERKEND
+      maakt) is niet uit te drukken in P6-XML: `<HolidayOrException>` kent geen `DayWorking`-achtig
+      veld (alleen `Name`/`Date`/`FinishDate` — `p6xmlReader.ts`'s `parseP6HolidayOrExceptions` leest
+      elk element onvoorwaardelijk als NIET-werkend). P6 zelf modelleert een ingeroosterde extra
+      werkdag alleen via `<StandardWorkWeek>` (project-breed weekpatroon, geen per-datum-uitzondering)
+      — geen veilige automatische vertaling. `p6xmlWriter.ts`'s `writeHolidayOrExceptions` laat werkende
+      uitzonderingen daarom bewust weg, met `console.warn('P6-export: … werkende kalenderuitzondering(en)
+      weggelaten — niet uitdrukbaar in P6-XML …')`. Gidsvermelding (`docs/library.md` of het
+      P6-importartikel) volgt bij T16 van de MPP-datumgetrouwheidsetappe; tot dan is de console.warn
+      de enige gebruikersvoorlichting.
 
 ### Solver/presentatie — resterende punten (2026-07-20)
 
