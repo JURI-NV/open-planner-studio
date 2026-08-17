@@ -99,6 +99,12 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
     // waarde (bv. −1) i.p.v. een crash, maar wel degelijk fout. Voor een NIET-ELAPSEDTIME opvolger
     // (het gebruikelijke geval, ook in de meeste H1/H2-cases) blijft `succEarly.es` zelf al op een
     // geldige werk-instant staan (ongewijzigd gedrag), dus daar telt dit blok nog steeds correct.
+    // GEVOLG ELDERS (T8-hercheck 3, gemeten feit): een `relFloat` die door dit gat ONTERECHT ≠ 0
+    // uitkomt (bv. de −1 hierboven, ook al zou de relatie eigenlijk driving moeten zijn — een FF+0
+    // bijvoorbeeld) sluit die relatie ook uit `drivingSequenceIds` hieronder (`if (relFloat === 0)
+    // drivingSequenceIds.push(seq.id)`) — dat raakt niet alleen de driving-markering zelf, maar ook
+    // `floatPath` (fase 2.9 golf 3) en de `longestPath`-kritiek-modus, die beide op
+    // `drivingSequenceIds` leunen om de kritieke keten(s) op te bouwen.
     // Zie `msp-21-t8-review-m1-eenheden-float` voor het eenhedendeel van dit gat (A.ff=1 naast
     // A.tf=2 op dezelfde taak — `signedElapsedSpan`'s doc-commentaar in `duration.ts` bevat het
     // volledige eenhedenbesluit) en `msp-23`/`msp-24` in `cases-msp-pariteit.json` voor waar de
