@@ -31,6 +31,7 @@ import { AiServerGroup } from '@/components/ribbon/ai/AiServerGroup';
 import { AiConnectionGroup } from '@/components/ribbon/ai/AiConnectionGroup';
 import { AiSafetyGroup } from '@/components/ribbon/ai/AiSafetyGroup';
 import { AiActivityGroup } from '@/components/ribbon/ai/AiActivityGroup';
+import { ZOOM_STEP } from '@/utils/ganttViewport';
 
 /**
  * Declaratieve ribbon-config-registry (audit P18). Naar het model van ExtensionRibbonGroups:
@@ -359,11 +360,11 @@ const startTab: RibbonTabConfig = [
         kind: 'stack', id: 'zoomStack', items: [
           {
             kind: 'small', id: 'zoomIn', icon: <ZoomIn size={14} />, labelKey: 'menu:ribbon.zoomIn',
-            use: () => { const setZoom = useAppStore(s => s.setZoom); const zoom = useAppStore(s => s.view.zoom); return { onClick: () => setZoom(zoom + 10) }; },
+            use: () => { const setZoom = useAppStore(s => s.setZoom); const zoom = useAppStore(s => s.view.zoom); return { onClick: () => setZoom(zoom + ZOOM_STEP) }; },
           },
           {
             kind: 'small', id: 'zoomOut', icon: <ZoomOut size={14} />, labelKey: 'menu:ribbon.zoomOut',
-            use: () => { const setZoom = useAppStore(s => s.setZoom); const zoom = useAppStore(s => s.view.zoom); return { onClick: () => setZoom(zoom - 5) }; },
+            use: () => { const setZoom = useAppStore(s => s.setZoom); const zoom = useAppStore(s => s.view.zoom); return { onClick: () => setZoom(zoom - ZOOM_STEP) }; },
           },
         ],
       },

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/state/appStore';
-import { computeFitToProject } from '@/utils/ganttViewport';
+import { computeFitToProject, DEFAULT_ZOOM } from '@/utils/ganttViewport';
 
 interface UseZoomShortcutsOpts {
   zoomAt: (newZoom: number, anchorX: number) => void;
@@ -8,7 +8,6 @@ interface UseZoomShortcutsOpts {
   taskTableWidth: number;
 }
 
-const DEFAULT_ZOOM = 30;
 
 export function useZoomShortcuts({ zoomAt, containerRef, taskTableWidth }: UseZoomShortcutsOpts) {
   const setZoom = useAppStore(s => s.setZoom);

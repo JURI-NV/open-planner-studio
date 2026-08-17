@@ -32,7 +32,7 @@ import { isTreeMode } from '@/engine/view/visibleRows';
 // dezelfde functie draaien.
 import { deleteTasksBulk } from '@/state/taskBulkActions';
 import { insertTaskRelativeToScope } from '@/state/taskInsertActions';
-import { computeScrollToDate } from '@/utils/ganttViewport';
+import { computeScrollToDate, ZOOM_STEP } from '@/utils/ganttViewport';
 import i18n from '@/i18n/config';
 import { saveShowHistogram } from '@/utils/settingsStore';
 
@@ -402,14 +402,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     combo: { key: '=', mod: true },
     category: 'view',
     labelKey: 'menu:commands.zoomIn',
-    run: (store) => store.setZoom(store.view.zoom + 10),
+    run: (store) => store.setZoom(store.view.zoom + ZOOM_STEP),
   },
   {
     id: 'view.zoomOut',
     combo: { key: '-', mod: true },
     category: 'view',
     labelKey: 'menu:commands.zoomOut',
-    run: (store) => store.setZoom(store.view.zoom - 10),
+    run: (store) => store.setZoom(store.view.zoom - ZOOM_STEP),
   },
   {
     id: 'view.showShortcuts',

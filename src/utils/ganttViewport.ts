@@ -8,6 +8,23 @@
 import { parseDate, diffCalendarDays, addCalendarDays, formatDate } from '@/utils/dateUtils';
 import type { Task } from '@/types/task';
 
+/**
+ * Zoomstap van de IN-/UITZOOM-knoppen en -sneltoetsen (K-item 34). Additief, niet
+ * vermenigvuldigend — dat laatste is het wiel (×1.1), een bewust ander gebaar.
+ *
+ * Dit was DRIE losse waarden, en twee ervan waren fout: `ribbonConfig` en `ribbonWidgets` zoomden
+ * in met +10 maar uit met −5, terwijl de sneltoets beide op 10 had. Één keer in- en weer uitzoomen
+ * met de knoppen bracht je dus niet terug waar je begon, en herhaald klikken liet de zoom weglopen.
+ * Er stond geen enkele toelichting bij de −5; alles wijst op een typefout die nooit is opgevallen
+ * omdat er geen plek was waar de twee waarden naast elkaar stonden.
+ */
+export const ZOOM_STEP = 10;
+
+/** Zoomniveau waar "Zoom herstellen" (knop, Ctrl+0 en de kale 0-toets) naartoe gaat. Stond los
+ *  gedeclareerd in `GanttCanvas.tsx` én `useZoomShortcuts.ts`, plus als kaal getal in
+ *  `ribbonWidgets.tsx`. */
+export const DEFAULT_ZOOM = 30;
+
 /** Dagen links-padding die het canvas vóór de vroegste taak toevoegt: de renderer-origin op
  *  scrollX=0 is (effectiveViewStart − ORIGIN_PADDING_DAYS). Gedeeld door GanttCanvas (render),
  *  useZoomShortcuts (Ctrl+0-fit) en de open-fit (fileSlice.requestFitToProject → GanttCanvas). */
