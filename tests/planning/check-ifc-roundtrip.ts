@@ -57,7 +57,12 @@
 //   afwijking geven): ids regenereren (→ natuurlijke sleutels), project.calendarId→'cal-default',
 //   ASAP-constraint niet geschreven, shift FIRST→undefined,
 //   lagUnit WORKTIME→undefined, curve UNIFORM→undefined, progressMode RETAINED_LOGIC→undefined,
-//   completion→1 decimaal, dag-duren integer, priority 500 niet geschreven.
+//   dag-duren integer, priority 500 niet geschreven.
+//   M3 (eindreview T16c, GEDICHT): `completion` rondde vóór deze fix af op 1 decimaal (10%-stappen;
+//   ≥0,955 werd zelfs "1.0" = 100%, een stille VOLTOOID-gedragswisseling in CPMSolver.ts) — nu
+//   2 decimalen (1%-stappen, MSP se eigen PercentComplete-granulariteit). Deze fixture se eigen
+//   completion-waarden (0/1) waren toevallig al ongevoelig voor die afronding; zie blok (9)
+//   hieronder voor het gerichte precisie-bewijs met een niet-decielwaarde (0.38/0.955).
 //   Bugfix B2 (gebruikstest 2026-08, GEDICHT): `hoursPerDay ≠ eind−startuur` (een impliciet
 //   lunchuur, zoals de echte standaard "Bouwkalender NL" 07-16/hoursPerDay 8) round-trippt nu via
 //   een `HoursPerDay`-property op het `OPS_Calendar`-pset i.p.v. stilzwijgend te normaliseren naar
@@ -1411,6 +1416,43 @@ const rt2 = readIFC(writeIFC(rt1));
   // Mutatiebewijs (uitgevoerd): `(task.time.completion ?? 0)` in mspdiWriter.ts teruggezet naar de
   // kale `task.time.completion` maakt de eerste assertie hierboven ROOD (`PercentComplete>NaN<` komt
   // dan letterlijk in de uitvoer voor).
+}
+
+// (11) M3 (eindreview T16c): completion-precisie in IFC. `ifcTaskSlots.ts` schreef vóór deze fix
+//      `.toFixed(1)` (10%-stappen) — een taak op 38% werd bij elke IFC-save stil 40%, en ≥0,955
+//      rondde helemaal naar 100% (VOLTOOID-gedragswisseling in CPMSolver.ts: andere ES/EF-tak).
+{
+  const mkCompl = (id: string, completion: number): Task => ({
+    id, name: `M3-${id}`, description: '', wbsCode: '', taskType: 'CONSTRUCTION', status: 'NOT_STARTED',
+    isMilestone: false, priority: 500, parentId: null, childIds: [], resourceIds: [],
+    time: { ...plainTime('2026-08-15', '2026-08-17', 2), completion },
+  });
+  const t38 = mkCompl('m3-38pct', 0.38);
+  const t9955 = mkCompl('m3-9955pct', 0.955);
+  const ifcOut = writeIFC({ ...fixture, tasks: [...fixture.tasks, t38, t9955] });
+  const back = readIFC(ifcOut);
+  const back38 = back.tasks.find((t) => t.name === 'M3-m3-38pct');
+  const back9955 = back.tasks.find((t) => t.name === 'M3-m3-9955pct');
+  assert(back38?.time.completion === 0.38, `(11a) M3-precisie: 38% blijft 0,38 (niet 0,4 — de oude 10%-afrondbug), kreeg ${back38?.time.completion}`);
+  // (`(0.955).toFixed(2)` geeft "0.95", niet "0.96" — 0.955 heeft in IEEE-754-double geen exacte
+  // representatie en ligt in werkelijkheid net ónder 0,955, dus `toFixed` rondt naar beneden af.
+  // Dat is voor dit bewijs irrelevant: de kern is dat het NIET meer naar 1,0/100% afrondt.)
+  assert(back9955?.time.completion === 0.95, `(11b) M3-precisie: 95,5% wordt 0,95 op 2 decimalen (niet 1,0/100% — de VOLTOOID-gedragswisseling), kreeg ${back9955?.time.completion}`);
+  assert((back9955?.time.completion ?? 0) < 1, '(11c) M3-precisie: 95,5% mag NIET als 100% (completion===1, VOLTOOID-tak) terugkomen');
+
+  // Backward-compatibiliteit: een bestand geschreven met de OUDE 1-decimaal-precisie (bv. door een
+  // andere/oudere OPS-versie of een extern tool) leest nog steeds exact zo in als voorheen —
+  // `parseFloat` is formaat-onafhankelijk, geen enkele nieuwe klem raakt bestaande bestanden. De
+  // writer schrijft "0.38" (géén trailing nullen — `(0.38).toFixed(2)`), dus een kale
+  // string-vervanging naar het OUDE 1-decimaal-formaat ("0.4") volstaat om dat pad te simuleren.
+  assert(ifcOut.includes('0.38'), 'setup (11d): writer emitteert "0.38" letterlijk (geen trailing nullen)');
+  const legacyText = ifcOut.replace('0.38', '0.4');
+  const legacyBack = readIFC(legacyText);
+  const legacyTask = legacyBack.tasks.find((t) => t.name === 'M3-m3-38pct');
+  assert(legacyTask?.time.completion === 0.4, `(11d) M3-backward-compat: een 1-decimaal-bestand (extern/oud, "0.4") leest gewoon 0,4 — geen nieuwe leesklem, kreeg ${legacyTask?.time.completion}`);
+
+  // Mutatiebewijs (uitgevoerd): `.toFixed(2)` in ifcTaskSlots.ts teruggezet naar `.toFixed(1)` maakt
+  // (11a) en (11b)/(11c) ROOD — 0,38 wordt dan 0,4 en 0,955 wordt 1,0 (completion===1).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
