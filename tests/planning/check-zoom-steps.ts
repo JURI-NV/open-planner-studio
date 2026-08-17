@@ -32,8 +32,14 @@ const eq = (label: string, got: unknown, want: unknown) => {
 };
 
 // ── 1) Gedrag: in- en uitzoomen is elkaars omgekeerde. ───────────────────────
-// Dit is de check die de gevonden fout zou hebben gevangen: met +10/−5 komt de zoom hier op 35
-// uit in plaats van op 30.
+//
+// EERLIJK OVER WAT DIT MEET. Een eerdere versie beweerde hier "dit is de check die de gevonden
+// fout zou hebben gevangen". Dat was onwaar en een review wees het aan: deze checks gebruiken
+// DEZELFDE constante beide kanten op, dus asymmetrie is per constructie onmogelijk. De
+// historische bug terugzetten liet uitsluitend de BRON-checks hieronder omvallen, niet deze.
+// Wat 01–03 wél toetsen: dat `setZoom` lineair is en niet stilletjes klemt of afrondt — als dat
+// ooit verandert, klopt de aanname onder de knoppen niet meer. De bewaking op de asymmetrie zelf
+// zit in deel 2.
 S().setZoom(DEFAULT_ZOOM);
 const begin = S().view.zoom;
 S().setZoom(S().view.zoom + ZOOM_STEP);
@@ -67,13 +73,26 @@ eq('03 tien keer in/uit laat de zoom niet weglopen', S().view.zoom, begin);
       { encoding: 'utf8' },
     ).split('\n').filter(Boolean).map(l => relative(root, l));
 
-    // `zoom + 10` / `zoom - 5` en varianten: een getal waar de constante hoort.
-    eq('04 geen kale zoomstap meer in src/', scan(String.raw`zoom [+-] [0-9]`), []);
+    // FALEN-DICHT. De scans hieronder verwachten een LEGE lijst, en `|| true` slikt elke
+    // grep-fout — ontbreekt `grep`, of gaat er iets anders mis, dan zijn ze stil groen. Een
+    // review mat dat. Daarom eerst een positieve controle: de scan MOET de canonieke declaratie
+    // in ganttViewport.ts vinden. Vindt hij die niet, dan werkt het gereedschap niet en zeggen de
+    // drie checks eronder niets.
+    eq('03b de scan werkt (vindt de canonieke ZOOM_STEP-declaratie)',
+      scan(String.raw`export const ZOOM_STEP`), ['src/utils/ganttViewport.ts:21:export const ZOOM_STEP = 10;']);
+
+    // Een getal waar de constante hoort. `[ ]?` omdat dit project bewust geen stijlregels in
+    // ESLint heeft: niets dwingt de spaties rond de operator af, dus `zoom-5` moet ook vallen.
+    eq('04 geen kale zoomstap meer in src/', scan(String.raw`zoom ?[+-] ?[0-9]`), []);
     // `setZoom(30)` — de resetwaarde als kaal getal.
-    eq('05 geen kale zoomresetwaarde meer in src/', scan(String.raw`setZoom\([0-9]`), []);
-    // En geen tweede declaratie van de default naast die in ganttViewport.ts.
+    eq('05 geen kale zoomresetwaarde meer in src/', scan(String.raw`setZoom\( ?[0-9]`), []);
+    // En geen tweede declaratie van de default naast die in ganttViewport.ts. `(export )?` is
+    // nodig: de canonieke declaratie IS geëxporteerd, dus zonder dat matchte de regex alleen een
+    // niet-geëxporteerde kopie en was het filter eronder dode code (gemeten in een review).
     eq('06 DEFAULT_ZOOM wordt nergens opnieuw gedeclareerd',
-      scan(String.raw`^\s*(const|let) DEFAULT_ZOOM`).filter(l => !l.startsWith('src/utils/ganttViewport.ts')), []);
+      scan(String.raw`^\s*(export )?(const|let) DEFAULT_ZOOM`).filter(l => !l.startsWith('src/utils/ganttViewport.ts')), []);
+    eq('07 ZOOM_STEP wordt nergens opnieuw gedeclareerd',
+      scan(String.raw`^\s*(export )?(const|let) ZOOM_STEP`).filter(l => !l.startsWith('src/utils/ganttViewport.ts')), []);
   }
 }
 

@@ -9,9 +9,18 @@
 // `mcpTransaction.ts` en `wbsTemplates.ts`.
 //
 // Die kopieën zijn niet identiek gebleven, en dat is het punt: elk van die plekken kan een guard
-// missen die de andere wél heeft, zonder dat iets omvalt. Deze module maakt er één definitie van,
-// en omdat het pure functies zijn zijn ze headless te toetsen — precies wat de losse regels midden
-// in een Immer-producer niet waren.
+// missen die de andere wél heeft, zonder dat iets omvalt. Deze module is de gedeelde definitie, en
+// omdat het pure functies zijn zijn ze headless te toetsen — precies wat de losse regels midden in
+// een Immer-producer niet waren.
+//
+// STAND VAN DE CONSOLIDATIE (een eerdere versie van deze kop beweerde "maakt er één definitie
+// van"; dat was toen niet waar en twee reviews wezen het aan). Aangesloten: `taskSlice`
+// (`applyTaskPlacement`, `moveTask`, `deleteTask`, `copyTasks`, de bulk-move), `mcpTransaction`
+// (aanmaken + verwijderen) en `wbsTemplates`. NIET aangesloten, bewust: de detach/attach in
+// `mcpTransaction.ts` rond regel 320 en de sibling-hulpjes `siblingIdsOf` (`taskSlice.ts`) en de
+// variant in `dropTarget.ts` — die laatste twee werken op andere invoer dan `siblingIds` hier.
+// `tests/planning/check-task-tree.ts` bewaakt met een bron-assert dat de aangesloten plekken
+// aangesloten blijven.
 //
 // WERKT OP IMMER-DRAFTS. Deze functies MUTEREN de meegegeven array/objecten. Dat is opzet: ze
 // worden binnen `set((s) => ...)` aangeroepen, waar `s.tasks` een draft is. Ze doen bewust géén
@@ -101,14 +110,17 @@ export function collectSubtreeIds(tasks: Task[], rootId: string): string[] {
   return out;
 }
 
-/** De ids van de taken die dezelfde ouder hebben als `id`, in zichtbare volgorde (`childIds` voor
- *  een kind, de rauwe array-volgorde voor een root-taak). Inclusief `id` zelf. */
-export function siblingIds(tasks: Task[], id: string): string[] {
-  const task = tasks.find(t => t.id === id);
-  if (!task) return [];
-  if (task.parentId) {
-    const parent = tasks.find(t => t.id === task.parentId);
-    return parent ? [...parent.childIds] : [];
-  }
-  return tasks.filter(t => !t.parentId).map(t => t.id);
+/**
+ * De ids van de kinderen van `parentId`, in ZICHTBARE volgorde: `childIds` voor een echte ouder,
+ * de rauwe array-volgorde voor de root (`parentId === null`). Dat verschil is geen slordigheid —
+ * `visibleRows` leest voor niet-root-taken `childIds` en voor roots de array-volgorde.
+ *
+ * Neemt bewust een PARENT-id en niet een taak-id: dat is wat elke aanroeper nodig heeft (waar komt
+ * deze taak tussen zijn buren te staan), en het werkt ook voor een ouder waarvan het kind nog niet
+ * bestaat. Een eerdere versie nam een taak-id en had daardoor nul aanroepers — dode code die drie
+ * testchecks bezighield.
+ */
+export function siblingIds(tasks: Task[], parentId: string | null): string[] {
+  if (parentId === null) return tasks.filter(t => !t.parentId).map(t => t.id);
+  return tasks.find(t => t.id === parentId)?.childIds ?? [];
 }

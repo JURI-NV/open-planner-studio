@@ -53,13 +53,19 @@ export const ORIGIN_PADDING_DAYS = 14;
  * TWEE uitzonderingen, allebei gemeten — "byte-identiek" is dus te sterk:
  *  - Onder jaar 100 loopt de twee-cijferige-jaarafbeelding van `Date.UTC` ertussen
  *    (`0100-01-03` → `1999-12-20` in plaats van `0099-12-20`). Praktisch onbereikbaar.
- *  - Bij een ONPARSEERBARE `viewStartDate` (leeg, corrupte import) GOOIT deze functie
- *    `RangeError: Invalid time value` uit `formatDate`/`toISOString`, waar de oude inline-lussen
- *    een Invalid Date doorgaven en de aanroeper met NaN verder rekende. Zelfde val als beschreven
- *    in `taskDefaults.ts`. De aanroepers hier (`computeScrollToDate` → Ctrl/Cmd+Home,
- *    `GanttCanvas.revealTaskIfOffscreen`) hadden die throw eerder niet. Bewust niet afgevangen:
- *    de render-memo roept dezelfde `formatDate` al aan en sneuvelt dan hoe dan ook eerder, dus een
- *    guard hier zou een kapotte state alleen maskeren.
+ *  - Een ONPARSEERBARE datum (leeg, corrupte import) wordt afgevangen: `formatDate`/`toISOString`
+ *    zou dan `RangeError: Invalid time value` gooien, waar de oude inline-lussen een Invalid Date
+ *    doorgaven en de aanroeper met NaN verder rekende. Zelfde val als beschreven in
+ *    `taskDefaults.ts`.
+ *
+ *    Een eerdere versie liet die throw staan met als argument "de render-memo roept dezelfde
+ *    `formatDate` al aan en sneuvelt dus eerder". Dat argument is ONJUIST, en dat is met een
+ *    review vastgesteld: `App.tsx` zet `isFullPanel` op de tabbladen Tabel/Relaties/IFC/Rapport
+ *    (en bij een niet-gedockt resourcepaneel), en dan is `GanttCanvas` helemaal niet gemonteerd.
+ *    `useKeyboardShortcuts()` staat wél onvoorwaardelijk in `AppContent`, en `nav.scrollToToday`
+ *    (Ctrl/Cmd+Home) heeft geen `when`-guard. Daar loopt dus een pad naar deze functie zonder dat
+ *    er ooit een render-memo overheen is gegaan. Of een importer werkelijk zo'n datum kan
+ *    opleveren is niet vastgesteld — maar een guard van één regel is goedkoper dan dat uitzoeken.
  */
 export function computeEffectiveViewStart(tasks: Task[], viewStartDate: string): string {
   let earliest = parseDate(viewStartDate);
@@ -70,6 +76,10 @@ export function computeEffectiveViewStart(tasks: Task[], viewStartDate: string):
       if (d.getTime() < earliest.getTime()) earliest = d;
     }
   }
+  // Onparseerbaar (leeg, corrupte import): geef de invoer onveranderd terug in plaats van te
+  // gooien. De aanroeper rekent dan met een datum die net zo min klopt als zijn invoer, maar de
+  // app blijft staan — en dat was ook het gedrag vóór K-item 33.
+  if (Number.isNaN(earliest.getTime())) return viewStartDate;
   return formatDate(addCalendarDays(earliest, -ORIGIN_PADDING_DAYS));
 }
 

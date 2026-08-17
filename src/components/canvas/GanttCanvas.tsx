@@ -564,7 +564,7 @@ export function GanttCanvas() {
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -613,7 +613,10 @@ export function GanttCanvas() {
       durationSuffixes: undefined,
       // WEL vullen: dit is geen tabelveld. Het label wordt in de CHART getekend
       // (`drawTaskBars` -> `drawExternalGhosts`), dus zonder dit toonde dit pane het
-      // hardgecodeerde NL 'verouderd' ongeacht de ingestelde taal.
+      // hardgecodeerde NL 'verouderd' ongeacht de ingestelde taal. `tTask` staat daarom óók in de
+      // dep-array hieronder: hij ontbrak daar aanvankelijk en de taalwissel werkte alleen doordat
+      // `columnHeaders` (een TABELveld dat dit pane niet eens gebruikt) toevallig op `[tTask]`
+      // gememoized is. Haalt iemand dat inerte veld weg, dan bevriest de badge stil.
       externalStaleLabel: tTask('externalLinks.stale'),
       // Rand-slepen gebeurt alleen in de primaire pane.
       durationDrag: undefined,
@@ -630,7 +633,7 @@ export function GanttCanvas() {
     }));
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,

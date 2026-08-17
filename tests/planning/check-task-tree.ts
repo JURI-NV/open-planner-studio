@@ -141,9 +141,10 @@ const tree = (): Task[] => [
 // ── siblingIds ───────────────────────────────────────────────────────────────
 {
   const ts = tree();
-  eq('26 siblings van een kind: de childIds van de ouder', siblingIds(ts, 'a1'), ['a1', 'a2']);
-  eq('27 siblings van een root: de andere roots, in array-volgorde', siblingIds(ts, 'root1'), ['root1', 'root2']);
-  eq('28 siblings van een onbekend id: leeg', siblingIds(ts, 'weg'), []);
+  eq('26 kinderen van een ouder: de childIds in volgorde', siblingIds(ts, 'a'), ['a1', 'a2']);
+  eq('27 kinderen van de root: de root-taken in ARRAY-volgorde (niet childIds)', siblingIds(ts, null), ['root1', 'root2']);
+  eq('28 kinderen van een onbekende ouder: leeg', siblingIds(ts, 'weg'), []);
+  eq('29 kinderen van een kinderloze ouder: leeg', siblingIds(ts, 'b'), []);
 }
 
 // ── Integratie: de echte store-acties lopen nu over deze primitieven ────────
@@ -156,7 +157,7 @@ const tree = (): Task[] => [
   const p2 = S().addTask({ name: 'Ouder2' });
   const kind = S().addTask({ name: 'Kind', parentId: p1 });
   S().moveTask(kind, p2);
-  eq('29 store: childIds van de oude ouder is leeg', S().tasks.find(x => x.id === p1)?.childIds, []);
+  eq('30 store: childIds van de oude ouder is leeg', S().tasks.find(x => x.id === p1)?.childIds, []);
   eq('30 store: childIds van de nieuwe ouder bevat het kind', S().tasks.find(x => x.id === p2)?.childIds, [kind]);
   eq('31 store: parentId wijst naar de nieuwe ouder', S().tasks.find(x => x.id === kind)?.parentId, p2);
   // Cyklus: ouder onder zijn eigen kind — moet geweigerd worden, zonder halftoegepaste state.
@@ -164,6 +165,52 @@ const tree = (): Task[] => [
   S().moveTask(p2, kind);
   eq('32 store: een cyklische move wordt geweigerd, zonder halve mutatie',
     JSON.stringify(S().tasks.map(x => [x.id, x.parentId, x.childIds])), before);
+}
+
+// ── Bron-assert: de aangesloten plekken blijven aangesloten. ───────────────
+// Deze batterij had er als enige van de drie consolidatie-batterijen géén, en dat was precies de
+// batterij waar de consolidatie het minst compleet was: een review liet `attachToParent` een
+// complete no-op worden en `isSelfOrDescendant` altijd `false` teruggeven, en de integratiechecks
+// hierboven bleven groen — want `moveTask` had toen nog zijn eigen kopieën.
+{
+  const { readFileSync, existsSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { join, dirname } = await import('node:path');
+  let root = dirname(fileURLToPath(import.meta.url));
+  while (!existsSync(join(root, 'package.json')) && dirname(root) !== root) root = dirname(root);
+
+  const paden = {
+    taskSlice: join(root, 'src/state/slices/taskSlice.ts'),
+    wbsTemplates: join(root, 'src/utils/wbsTemplates.ts'),
+  };
+  checks++;
+  if (!existsSync(paden.taskSlice) || !existsSync(paden.wbsTemplates)) {
+    diffs.push('33 bron-assert overgeslagen: bronbestanden niet gevonden vanaf de bundelplek');
+  } else {
+    const taskSlice = readFileSync(paden.taskSlice, 'utf8');
+    const wbs = readFileSync(paden.wbsTemplates, 'utf8');
+
+    // `moveTask` had een VIJFDE handkopie van de cyklusguard plus een overgetypte klem-en-splice.
+    eq('33 taskSlice gebruikt de gedeelde cyklusguard', /isSelfOrDescendant\(/.test(taskSlice), true);
+    eq('34 taskSlice heeft geen eigen cyklus-walk meer',
+      /let cur: Task \| undefined/.test(taskSlice), false);
+    eq('35 taskSlice heeft geen overgetypte klem-en-splice meer',
+      /Math\.min\(position, [a-zA-Z]+\.childIds\.length\)/.test(taskSlice), false);
+    // De detach-MUTATIE (`x.childIds = x.childIds.filter(...)`). Bewust op de vorm en niet op de
+    // naam: een inline kopie gedraagt zich identiek, dus gedragschecks kunnen hem per definitie
+    // niet zien — alleen een bron-assert kan dat. Bewust ook op de TOEWIJZING en niet op de kale
+    // filter: `planTaskPlacement` LEEST met dezelfde vorm de siblinglijst-na-verwijdering om de
+    // invoegindex af te leiden, en dat is geen duplicaat maar een berekening.
+    eq('35b taskSlice detacht uitsluitend via de gedeelde functie',
+      /\w+\.childIds\s*=\s*\w+\.childIds\.filter\(/.test(taskSlice), false);
+    eq('35c taskSlice roept detachFromParent daadwerkelijk aan',
+      /detachFromParent\(/.test(taskSlice), true);
+    // wbsTemplates had de verzamelaar ZONDER bezocht-set — de hang die dit item zegt op te lossen.
+    eq('36 wbsTemplates gebruikt de gedeelde deelboom-verzamelaar',
+      /collectSubtreeIds\(/.test(wbs), true);
+    eq('37 wbsTemplates heeft geen eigen recursieve verzamelaar meer',
+      /for \(const childId of task\.childIds\) collect\(childId\)/.test(wbs), false);
+  }
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

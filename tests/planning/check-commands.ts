@@ -8,7 +8,10 @@
 //
 // Drie delen:
 //  1. GEDRAG — elk commando tegen de echte store: doet `run` wat het moet doen, en klopt
-//     `isEnabled` in beide richtingen (aan én uit)?
+//     `isEnabled` in beide richtingen (aan én uit)? UITZONDERING: `save`, `saveAs` en `open` doen
+//     bestands-I/O en worden hier alleen op hun DOORGIFTE getoetst (deel 5c), niet op hun effect —
+//     een echte dialoog openen kan headless niet. Dat gat stond eerder niet opgeschreven terwijl
+//     de kop "elk commando" beweerde.
 //  2. HET CONTRACT dat het `indent`-geval mogelijk maakt: `run` mag niet stil niets doen wanneer
 //     `isEnabled` false is. Het lint grijst de knop uit, maar de sneltoets vuurt wél en moet dan
 //     uitleggen waarom er niets gebeurt (issue #26).
@@ -140,6 +143,44 @@ eq('24 toggleHistogram: en weer terug', S().ui.showHistogram, histoBegin);
 eq('25 toggleHistogram: ook de teruggezette stand wordt weggeschreven',
   localStorage.getItem('ops-showHistogram'), JSON.stringify(histoBegin));
 
+// ── 5b) `useCommandBinding` — de lintkant van het contract. ─────────────────
+// Dit is het bestand dat de hele redenering draagt ("één imperatieve `isEnabled` levert beide
+// gezichten"), en het had nul dekking: hem tot een no-op maken liet de suite groen. Het is een
+// dunne functie rond `useAppStore.getState()`, dus de twee eigenschappen die ertoe doen zijn
+// headless na te bootsen — een echte hook-render kan hier niet, maar de vertaalregel wel.
+{
+  const binding = (cmd: Command) => ({
+    onClick: () => cmd.run(useAppStore.getState()),
+    disabled: !isCommandEnabled(cmd, S()),
+  });
+  S().newProject();
+  eq('26a binding: undo is uitgeschakeld op een lege undo-stack', binding(COMMANDS.undo).disabled, true);
+  const tmp = S().addTask({ name: 'Tijdelijk' });
+  eq('26b binding: undo is ingeschakeld zodra er iets te herroepen valt', binding(COMMANDS.undo).disabled, false);
+  eq('26c binding: een commando zonder isEnabled is nooit uitgeschakeld', binding(COMMANDS.save).disabled, false);
+  // En de klik voert het commando daadwerkelijk uit, op de VERSE store.
+  binding(COMMANDS.undo).onClick();
+  eq('26d binding: onClick voert run uit', S().tasks.some(t => t.id === tmp), false);
+}
+
+// ── 5c) save / saveAs / open — geen gedrag, wel doorgifte. ─────────────────
+// Deze drie openen een bestandsdialoog; headless valt er niets aan te observeren. Wat wél te
+// toetsen is: dat het commando de bijbehorende store-actie aanroept en niet een andere. Een
+// leeggehaalde `run` valt hier om.
+{
+  const geroepen: string[] = [];
+  const nep = {
+    ...S(),
+    saveFile: async () => { geroepen.push('saveFile'); },
+    saveFileAs: async () => { geroepen.push('saveFileAs'); },
+    openFile: async () => { geroepen.push('openFile'); },
+  } as unknown as Parameters<Command['run']>[0];
+  COMMANDS.save.run(nep);
+  COMMANDS.saveAs.run(nep);
+  COMMANDS.open.run(nep);
+  eq('26e save/saveAs/open roepen elk hun eigen store-actie aan', geroepen, ['saveFile', 'saveFileAs', 'openFile']);
+}
+
 // ── 6) De bewaker op deel 0: elke isEnabled is in beide standen gezien. ─────
 for (const cmd of Object.values(COMMANDS) as Command[]) {
   if (!cmd.isEnabled) continue;
@@ -150,7 +191,14 @@ for (const cmd of Object.values(COMMANDS) as Command[]) {
   }
 }
 
-// ── 7) Bron: geen tweede definitie meer in de twee registers. ───────────────
+// ── 7) Bron: elk commando wordt op BEIDE oppervlakken via het register aangeroepen. ────────
+//
+// Een eerdere versie deed hier `ribbon.includes('COMMANDS.' + id)`. Dat bewaakte niets: een
+// review liet undo en redo in het lint volledig kruisbedraden (beide namen staan er dan nog),
+// verving een `run` door `() => {}` met de naam alleen nog in commentaar, en de suite bleef groen.
+// Nu wordt commentaar gestript en per id de BINDINGSVORM geteld — `useCommandBinding(COMMANDS.x)`
+// in het lint, `run: COMMANDS.x.run` in de sneltoetsen — zodat de naam alleen meetelt op de plek
+// waar hij het commando ook echt uitvoert.
 {
   const { readFileSync, existsSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
@@ -162,20 +210,50 @@ for (const cmd of Object.values(COMMANDS) as Command[]) {
 
   checks++;
   if (!existsSync(ribbonPath) || !existsSync(shortcutPath)) {
-    diffs.push('25 bron-assert overgeslagen: registers niet gevonden vanaf de bundelplek');
+    diffs.push('27 bron-assert overgeslagen: registers niet gevonden vanaf de bundelplek');
   } else {
-    const ribbon = readFileSync(ribbonPath, 'utf8');
-    const shortcuts = readFileSync(shortcutPath, 'utf8');
+    const strip = (src: string): string => {
+      let out = ''; let mode: 'code' | 'line' | 'block' | '"' | "'" | '`' = 'code';
+      for (let i = 0; i < src.length; i++) {
+        const c = src[i], n = src[i + 1];
+        if (mode === 'code') {
+          if (c === '/' && n === '/') { mode = 'line'; i++; continue; }
+          if (c === '/' && n === '*') { mode = 'block'; i++; continue; }
+          if (c === '"' || c === "'" || c === '`') mode = c;
+          out += c;
+        } else if (mode === 'line') { if (c === '\n') { mode = 'code'; out += c; } }
+        else if (mode === 'block') { if (c === '*' && n === '/') { mode = 'code'; i++; } }
+        else { if (c === '\\') { out += c + (n ?? ''); i++; continue; } if (c === mode) mode = 'code'; out += c; }
+      }
+      return out;
+    };
+    const ribbon = strip(readFileSync(ribbonPath, 'utf8'));
+    const shortcuts = strip(readFileSync(shortcutPath, 'utf8'));
+    const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
 
-    // Elk gedeeld commando moet in BEIDE registers via COMMANDS lopen.
+    // Bewaker op de stripper zelf: hij moet iets weghalen én de code laten staan.
+    eq('27a de stripper haalt commentaar weg', ribbon.includes('K-item 34'), false);
+    eq('27b de stripper laat code staan', ribbon.includes('useCommandBinding'), true);
+
     for (const id of Object.keys(COMMANDS)) {
-      eq(`26.${id} het lint gebruikt COMMANDS.${id}`, ribbon.includes(`COMMANDS.${id}`), true);
-      eq(`27.${id} de sneltoetsen gebruiken COMMANDS.${id}`, shortcuts.includes(`COMMANDS.${id}`), true);
+      const inRibbon = count(ribbon, new RegExp(`useCommandBinding\\(COMMANDS\\.${id}\\b`, 'g'));
+      const inShortcuts = count(shortcuts, new RegExp(`COMMANDS\\.${id}\\.run\\b`, 'g'));
+      checks++;
+      if (inRibbon < 1) diffs.push(`28.${id} het lint bindt deze knop niet via useCommandBinding(COMMANDS.${id})`);
+      checks++;
+      if (inShortcuts < 1) diffs.push(`29.${id} geen enkele sneltoets voert COMMANDS.${id}.run uit`);
     }
 
-    // En de weggehaalde implementaties mogen niet terugkomen. Dit zijn de letterlijke fragmenten
-    // die er vóór K-item 34 stonden; ze staan hier zodat een teruggeplaatste kopie omvalt in
-    // plaats van stil naast het register te gaan leven.
+    // Elke lintknop die een commando bindt, moet dat via de gedeelde binding doen: evenveel
+    // `useCommandBinding(`-aanroepen als `COMMANDS.`-verwijzingen in code (geen losse verwijzing
+    // die ergens anders heen gaat).
+    eq('30 het lint gebruikt COMMANDS uitsluitend via useCommandBinding',
+      count(ribbon, /COMMANDS\./g), count(ribbon, /useCommandBinding\(COMMANDS\./g));
+    // Idem voor de sneltoetsen: elke COMMANDS-verwijzing is een `.run`-binding.
+    eq('31 de sneltoetsen gebruiken COMMANDS uitsluitend als .run-binding',
+      count(shortcuts, /COMMANDS\./g), count(shortcuts, /COMMANDS\.[a-zA-Z]+\.run\b/g));
+
+    // En de weggehaalde implementaties mogen niet terugkomen.
     const verdwenen: [string, string, string][] = [
       ['lint', 'onClick: () => undo()', ribbon],
       ['lint', 'onClick: () => redo()', ribbon],
@@ -190,7 +268,7 @@ for (const cmd of Object.values(COMMANDS) as Command[]) {
       ['sneltoets', 'store.setZoom(store.view.zoom', shortcuts],
     ];
     for (const [waar, fragment, bron] of verdwenen) {
-      eq(`28 ${waar}: geen eigen implementatie meer van "${fragment}"`, bron.includes(fragment), false);
+      eq(`32 ${waar}: geen eigen implementatie meer van "${fragment}"`, bron.includes(fragment), false);
     }
   }
 }

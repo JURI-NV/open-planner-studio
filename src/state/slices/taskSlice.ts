@@ -4,7 +4,7 @@ import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';
 import type { WbsTemplate } from '@/utils/wbsTemplates';
-import { detachFromParent, attachToParent, isSelfOrDescendant, collectSubtreeIds } from '@/state/taskTree';
+import { detachFromParent, attachToParent, isSelfOrDescendant, collectSubtreeIds, siblingIds } from '@/state/taskTree';
 import { beginUndoable, finishMutation } from '../transaction';
 import type { AppSlice, SiblingDirection } from './types';
 
@@ -204,11 +204,6 @@ function applyTaskPlacement(tasks: Task[], id: string, plan: TaskPlacement): voi
  * engine/view/dropTarget.ts). Gedeeld door `moveTasksTo`, dat na elke plaatsing opnieuw moet meten
  * waar een taak werkelijk geland is.
  */
-function siblingIdsOf(tasks: Task[], parentId: string | null): string[] {
-  if (parentId === null) return tasks.filter(t => !t.parentId).map(t => t.id);
-  return tasks.find(t => t.id === parentId)?.childIds ?? [];
-}
-
 /**
  * Voortgang-invarianten (§3.2), toegepast op een task-draft ná elke progress-mutatie:
  * actualFinish ⇒ completion 1 + actualStart + COMPLETED; completion 1 ⇒ actualFinish (default =
@@ -425,26 +420,17 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // die haalt parentId daarom uit de kale `updateTask`-patch en roept in plaats daarvan dit aan).
       // `position` verandert deze guards NIET: een geweigerde move blijft ook mét positie geweigerd.
       if (newParentId != null) {
-        // Review issue #21 pt. 1: visited-set voorkomt een oneindige lus (app-bevriezing) op
-        // corrupte parentId-cycli die id zelf niet bevatten (bereikbaar via een corrupt IFC —
-        // extractNesting zet parentId zonder cykelcheck). flattenOrder overleeft zo'n cyclus
-        // al met een seen-set; deze walk nu ook.
-        const bezocht = new Set<string>();
-        let cur: Task | undefined = newParentId === id ? task : s.tasks.find(t => t.id === newParentId);
-        while (cur && !bezocht.has(cur.id)) {
-          if (cur.id === id) return; // newParentId is id zelf, of een afstammeling van id
-          bezocht.add(cur.id);
-          cur = cur.parentId ? s.tasks.find(t => t.id === cur!.parentId) : undefined;
-        }
+        // Cyklusguard (review issue #21 pt. 1): de nieuwe ouder mag de taak zelf of een
+        // afstammeling ervan niet zijn — corrupte parentId-cycli zijn bereikbaar via een IFC
+        // waarin `extractNesting` de nesting zonder cyklusguard zet. Sinds K-item 35 de gedeelde
+        // functie; hier stond tot een review een vijfde handkopie inclusief eigen bezocht-set.
+        if (isSelfOrDescendant(s.tasks, newParentId, id)) return;
       }
 
       beginUndoable(s);
 
       // Remove from old parent
       detachFromParent(s.tasks, id);
-
-      // Add to new parent
-      task.parentId = newParentId;
 
       // Insert op `position` (T12), of — zonder positie — achteraan, volgens het dubbele-
       // volgorde-principe van de store-`addTask` met anker. WBS-nummering (flattenOrder) leest de
@@ -455,15 +441,9 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // achteraan verscheen: gerapporteerde 3.1/3.2/3.3-bug, taskDialog "parent wijzigen").
       //
       // (1) childIds van de nieuwe ouder — zichtbare volgorde voor niet-root taken.
-      if (newParentId) {
-        const newParent = s.tasks.find(t => t.id === newParentId);
-        if (newParent) {
-          const at = position === undefined
-            ? newParent.childIds.length
-            : Math.max(0, Math.min(position, newParent.childIds.length));
-          newParent.childIds.splice(at, 0, id);
-        }
-      }
+      // `attachToParent` zet parentId én voegt geklemd in — hier stond diezelfde klem-en-splice
+      // tot een review nog een keer overgetypt.
+      attachToParent(s.tasks, id, newParentId, position);
       // (2) rauwe s.tasks-array — root-volgorde + WBS. Haal de taak eruit en zet 'm terug zó dat
       // hij — gerekend over alléén zijn siblings (taken met dezelfde parentId, in array-volgorde)
       // — op index `position` (of, zonder positie, achteraan) staat. Nakomelingen blijven staan
@@ -584,7 +564,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
           // `id` er expliciet uit: `planTaskPlacement` klemt en telt tegen de siblinglijst ZÓNDER
           // de verplaatste taak (zie `siblingIdsAfterRemoval`). Meten we hier in de lijst MÉT `id`,
           // dan is de index één te hoog zodra `id` momenteel vóór de voorganger staat.
-          const siblingsZonderId = siblingIdsOf(s.tasks, target.parentId).filter(x => x !== id);
+          const siblingsZonderId = siblingIds(s.tasks, target.parentId).filter(x => x !== id);
           const vorigeIdx = siblingsZonderId.indexOf(vorigeId);
           // −1 kan alleen bij een kapotte boom: dan achteraan, net als de fallbacks elders.
           childIndex = vorigeIdx >= 0 ? vorigeIdx + 1 : siblingsZonderId.length;
@@ -600,7 +580,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         // Staat de taak al precies goed? Dan niets muteren (en dus ook geen undo-stap forceren),
         // maar wél als voorganger tellen — hij stáát immers op de doelpositie. `curIdx` (index MÉT
         // zichzelf) en `plan.index` (ZONDER zichzelf) zijn direct vergelijkbaar, zie guard 4.
-        const curIdx = siblingIdsOf(s.tasks, oudeOuder).indexOf(id);
+        const curIdx = siblingIds(s.tasks, oudeOuder).indexOf(id);
         if (plan.parentId !== oudeOuder || plan.index !== curIdx) {
           // Lazy snapshot: pas bij de EERSTE échte verplaatsing, één keer voor de hele groep.
           // Vóór enige draft-mutatie, zoals de conventie in state/transaction.ts voorschrijft.

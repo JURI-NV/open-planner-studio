@@ -47,7 +47,11 @@ function indexesFor(ctx: ViewContext): ViewIndexes {
     else assignmentsByTask.set(a.taskId, [a]);
   }
   const resourceById = new Map<string, Resource>();
-  for (const r of ctx.resources) resourceById.set(r.id, r);
+  // `!has` en niet kaal `set`: `Map.set` houdt bij een dubbele id de LAATSTE, terwijl de
+  // `find()` die dit verving de EERSTE koos. Onbereikbaar met de huidige id-generatie, maar deze
+  // wijziging hoort een pure prestatiewijziging te zijn en dan mag ook een onbereikbaar
+  // semantisch verschil er niet in sluipen.
+  for (const r of ctx.resources) if (!resourceById.has(r.id)) resourceById.set(r.id, r);
   const built = { assignmentsByTask, resourceById };
   indexCache.set(ctx, built);
   return built;

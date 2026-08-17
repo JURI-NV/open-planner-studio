@@ -670,9 +670,12 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   // Let op wat deze check WEL en NIET zegt. `grep -rl` geeft een BESTANDSlijst: hij bewaakt dat de
   // keten nergens buiten `ganttViewport.ts` opduikt, niet dat hij daarbinnen één keer voorkomt (dat
   // is hij ook niet — `computeFitToProject` heeft zijn eigen variant, zie de toelichting daar).
-  // Verder is hij regel-verankerd en filesystem-gebaseerd: een kopie die over twee regels is
-  // afgebroken ontsnapt, en een achtergebleven `.bak`/`.orig` in `src/` geeft een vals rood. Beide
-  // gemeten. Faalrichting is dus overtellen, niet ondertellen — ruis, geen gat.
+  // Verder is hij regel-verankerd en filesystem-gebaseerd. Een achtergebleven `.bak`/`.orig` in
+  // `src/` geeft een vals rood (gemeten) — hinderlijk, maar de veilige richting. Een kopie die
+  // over twee regels is afgebroken ontsnapt aan DEZE check; check 40 hieronder vangt hem dan
+  // alsnog, want die telt de aanroepen van de gedeelde functie. Een eerdere versie van dit
+  // commentaar beweerde beide dingen tegelijk ("ontsnapt" én "overtellen, geen gat"); dat kon
+  // niet allebei waar zijn.
   eq('39 de start-veldketen staat in geen enkel bestand buiten ganttViewport.ts',
     hits, ['src/utils/ganttViewport.ts']);
   eq('40 GanttCanvas gebruikt computeEffectiveViewStart op beide plekken (memo + reveal)',
