@@ -117,3 +117,53 @@ export function clampManualDurationTenths(raw: number): number {
   if (!Number.isFinite(raw)) return 0;
   return Math.min(Math.max(raw, 0), MAX_MANUAL_DURATION_TENTHS);
 }
+
+/**
+ * Z3 (etappe "nul afwijkingen") — klem op het aantal RECORDS in één timephased-blok (`Var2Data`
+ * van `TBkndAssn`, zie `mppTimephased.ts`'s moduleheader voor de blokindeling). Het header-veld
+ * dat dit aantal claimt is een ONGEVALIDEERDE bestandswaarde (SHORT, 0..65535); `mppTimephased.ts`
+ * klemt 'm EERST STRUCTUREEL (tegen wat de daadwerkelijke bloklengte kan dragen — spiegelt
+ * `FixedMeta`/`VarMeta12`'s `adjustedItemCount`-patroon, zie `mppPrimitives.ts`), en DAARNA tegen
+ * deze absolute bovengrens.
+ *
+ * MEETCOMMENTAAR: waarom een tweede, absolute klem nodig is bovenop de structurele — anders dan
+ * `FixedMeta`/`VarMeta12` (die tegen een storage-item van vaste grootte lezen) is `Var2Data` een
+ * ONGEBEGRENSDE variabele-lengte-byte-array (geen `MAX_VAR_TEXT_BYTES`-achtige klem bestaat daar
+ * al voor, zie `Var2Data.getByteArray` in `mppPrimitives.ts`): een geprepareerd bestand kan een
+ * timephased-var-data-entry van tientallen MB's claimen, en de STRUCTURELE klem alleen zou zo'n
+ * buffer volledig laten decoderen (elke record een `Date`-allocatie + array-push). Corpusbreed
+ * gemeten (`check-mpp-import.ts`'s Z3-corpustelling, 216 leesbare bestanden, 3298 toewijzingen met
+ * timephased-data over `voor claude/test bestanden voor file implementation` +
+ * `voor claude/testdata-crawl`): het langst waargenomen regelmatige blok droeg **5** periodes (352
+ * bytes — ruim onder één werkweek se dagelijkse granulariteit). 20.000 records (bij 20 bytes/record
+ * ≈ 390 KB, bovenop de 16-byte header) is dus ~4.000× de gemeten corpus-piek — dat is BEWUST veel
+ * hoger dan wat het corpus laat zien (een klem die precies op de gemeten waarde zit, zou een
+ * legitiem groter/fijnmaziger project onnodig afknijpen), maar begrenst een hostile bestand nog
+ * altijd hard op een paar honderd microseconden werk i.p.v. een onbegrensde decodeerlus.
+ */
+export const MAX_TIMEPHASED_REGULAR_RECORDS = 20_000;
+
+/** Klemt een rauwe regelmatige-timephased-recordcount (header-SHORT, al voor-geklemd tegen de
+ *  structurele bloklengte door de aanroeper) naar `[0, MAX_TIMEPHASED_REGULAR_RECORDS]`. */
+export function clampTimephasedRegularRecordCount(count: number): number {
+  if (!Number.isFinite(count)) return 0;
+  return Math.min(Math.max(count, 0), MAX_TIMEPHASED_REGULAR_RECORDS);
+}
+
+/**
+ * Z3 — zelfde redenering als `MAX_TIMEPHASED_REGULAR_RECORDS` hierboven, voor het IRREGULAR-blok
+ * (8-byte records i.p.v. 20-byte — zie `mppTimephased.ts`). MEETCOMMENTAAR: irregular-records zijn
+ * in dit corpus zeldzaam (ze bestaan alleen voor werk buiten standaard werktijd) — corpusbreed
+ * gemeten (dezelfde 216-bestand-run als hierboven) hoogstens **1** record per toewijzing (24 bytes).
+ * 5.000 records (8 bytes/record ≈ 40 KB) is ruim boven elke realistische hoeveelheid, met dezelfde
+ * structurele-klem-eerst-discipline als hierboven.
+ */
+export const MAX_TIMEPHASED_IRREGULAR_RECORDS = 5_000;
+
+/** Klemt een rauwe irregular-timephased-recordcount — spiegelt
+ *  `clampTimephasedRegularRecordCount` exact, eigen constante omdat de twee blokken
+ *  onafhankelijke, niet per se gelijke bovengrenzen kunnen krijgen. */
+export function clampTimephasedIrregularRecordCount(count: number): number {
+  if (!Number.isFinite(count)) return 0;
+  return Math.min(Math.max(count, 0), MAX_TIMEPHASED_IRREGULAR_RECORDS);
+}

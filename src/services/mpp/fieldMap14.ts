@@ -48,6 +48,12 @@
  * Geverifieerd (net als hierboven bij 29/35/36): geen van deze zes nieuwe id's (20, 178, 1283,
  * 1284, 1288, 1289) heeft een `mapMpp14`-override — de rest-clausule hierboven ("de rest heeft
  * sowieso geen override") dekt ze dus al.
+ *
+ * Z3 (etappe "nul afwijkingen"): `AssignmentFieldId` krijgt de vier timephased-var-data-
+ * categorieën (`RemainingRegularWork`/`ActualRegularWork`/`ActualOvertimeWork`/
+ * `ActualIrregularWork`, zie hun eigen toelichting hieronder) die `mppTimephased.ts`/
+ * `mppEntities.ts` nodig hebben — geen `mapMpp14`-override-zorg hier (ze zijn altijd VAR_DATA,
+ * geen FIXED_DATA-offset-vertaling van toepassing).
  */
 import { getInt, getShort } from './mppPrimitives';
 import type { Props } from './mppContainer';
@@ -291,6 +297,28 @@ export const AssignmentFieldId = {
   TaskUniqueId: 1,
   ResourceUniqueId: 2,
   Units: 7,
+  /** Z3 (etappe "nul afwijkingen") — timephased-categorieën, alle vier VAR_DATA (geen vaste
+   *  offset: `FieldMap14.java`'s `FieldLocation.VAR_DATA, block 0, dataBlockOffset 65535`).
+   *  Scope-begrenzing (plan-Z3, §"Scope-begrenzing"): UITSLUITEND deze vier — niet de 11
+   *  baseline-varianten, niet de kostcategorieën (die dragen niets bij aan datums). Var-data-
+   *  sleutel = de typewaarde zelf (`useTypeAsVarDataKey`, zie de moduleheader hierboven), dus
+   *  identiek aan de id hier — spiegelt `TaskFieldId.Wbs`/`Name`.
+   *  `RemainingRegularWork` (49) en `ActualRegularWork` (50) staan LETTERLIJK zo in
+   *  `FieldMap14.getDefaultAssignmentData()` (`new FieldItem(AssignmentField.
+   *  RAW_TIMEPHASED_REMAINING_REGULAR_WORK, VAR_DATA, 0, 65535, 49, 0, 0)` resp. `...50, 0, 0)`).
+   *  `ActualOvertimeWork` (51) en `ActualIrregularWork` (87) komen NIET in diezelfde default-
+   *  tabel voor (MPXJ's eigen omissie — geverifieerd: afwezig uit `getDefaultAssignmentData()`,
+   *  maar wél aanwezig in `org.mpxj.common.MPPAssignmentField`'s omgekeerde index, dat typewaarde
+   *  51→`RAW_TIMEPHASED_ACTUAL_OVERTIME_WORK` en 87→`TIMEPHASED_ACTUAL_IRREGULAR_WORK` bevestigt).
+   *  Onschadelijk hier: `useTypeAsVarDataKey` is altijd `true`, dus een data-gedreven field map
+   *  (het normale pad, elk bestand in dit corpus draagt er een) levert deze twee sowieso via
+   *  dezelfde `typeValue`-route als 49/50 — alleen de RUWE `DEFAULT_ASSIGNMENT_FIELDS`-terugval
+   *  hieronder (het zeldzame "Props mist de field-map-key volledig"-pad) had ze zonder deze
+   *  toevoeging gemist; nu symmetrisch met de andere twee. */
+  RemainingRegularWork: 49,
+  ActualRegularWork: 50,
+  ActualOvertimeWork: 51,
+  ActualIrregularWork: 87,
 } as const;
 
 /** T7-kwaliteitsreview (M6): geëxporteerd, zelfde reden als `DEFAULT_RESOURCE_FIELDS` hierboven. */
@@ -299,6 +327,10 @@ export const DEFAULT_ASSIGNMENT_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [AssignmentFieldId.TaskUniqueId]: { location: 'fixed', fixedOffset: 4 },
   [AssignmentFieldId.ResourceUniqueId]: { location: 'fixed', fixedOffset: 8 },
   [AssignmentFieldId.Units]: { location: 'fixed', fixedOffset: 46 },
+  [AssignmentFieldId.RemainingRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.RemainingRegularWork },
+  [AssignmentFieldId.ActualRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualRegularWork },
+  [AssignmentFieldId.ActualOvertimeWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualOvertimeWork },
+  [AssignmentFieldId.ActualIrregularWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualIrregularWork },
 };
 
 /** Poort van `FieldMap.createAssignmentFieldMap(Props)`. */

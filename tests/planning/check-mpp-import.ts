@@ -82,6 +82,13 @@ import {
   TaskFieldId, ResourceFieldId, AssignmentFieldId,
   fixedOffsetOf, fixed2OffsetOf, varDataKeyOf,
 } from '@/services/mpp/fieldMap14';
+import {
+  decodeRegularTimephasedWork, decodeIrregularTimephasedWork, hasAnyTimephasedData,
+  type TimephasedWork,
+} from '@/services/mpp/mppTimephased';
+import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -3408,6 +3415,364 @@ if (corpusPresent) {
       console.log(
         `OK  mpp-import: Z2 corpusbrede manual-taken-telling — ${filesScanned} bestand(en) gescand ` +
         `(${filesFailed} onleesbaar/overgeslagen), ${tasksScanned} taken totaal, ${manualTasks} MANUALLY_SCHEDULED via déze lezer`,
+      );
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z3 (etappe "nul afwijkingen") — timephased-decoder (`Var2Data` van `TBkndAssn`): een PURE
+// byte-decoder (`mppTimephased.ts`) + de bijbehorende opening/doorgifte in `mppEntities.ts`
+// (`readAssignmentTimephasedRaw`). Geen planningsgedrag, geen datum-effect — zie de moduleheader
+// van `mppTimephased.ts` voor de volledige byteformaat-toelichting en de bewuste vereenvoudiging
+// t.o.v. MPXJ's `TimephasedDataFactory.getCompleteWork` (irregulier/regulier NIET geweven).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  const Z3_REFERENCE_START = new Date('2026-01-05T08:00:00.000Z');
+
+  /** Bouwt een REGULIER timephased-blok: 16-byte header (recordcount@0) + een TOTAAL-record (dat
+   *  altijd wordt overgeslagen — `totalWorkMinutes`/`totalElapsedMinutes` hieronder zijn dus BEWUST
+   *  a-typische waarden, zodat mutatietest 2 een aantoonbaar andere eerste periode oplevert als het
+   *  overslaan zou wegvallen) + N periode-records (cumulatieve waarden, GEEN delta's). */
+  function buildRegularBlock(
+    periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[],
+    opts: { headerCountClaim?: number; totalWorkMinutes?: number; totalElapsedMinutes?: number } = {},
+  ): Uint8Array {
+    const headerCount = opts.headerCountClaim ?? periods.length;
+    const out = new Uint8Array(16 + 20 + periods.length * 20);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, headerCount, true);
+    // Totaal-record (fysiek record 0, bytes 16..36) — a-typische waarden (default 999 min werk/
+    // elapsed), zie de docblok-toelichting hierboven.
+    view.setFloat64(16, (opts.totalWorkMinutes ?? 999) * 1000, true);
+    view.setInt32(16 + 16, (opts.totalElapsedMinutes ?? 999) * 80, true);
+    periods.forEach((p, i) => {
+      const offset = 36 + i * 20;
+      view.setFloat64(offset, p.cumulativeWorkMinutes * 1000, true);
+      view.setInt32(offset + 16, p.cumulativeElapsedMinutes * 80, true);
+    });
+    return out;
+  }
+
+  /** Bouwt een IRREGULIER timephased-blok: 16-byte header (recordcount@0) + N × 8-byte records
+   *  (twee 4-byte MPP-timestamps, `timestampBytes`-encoding — zelfde helper als de bestaande
+   *  `getTimestamp`-eenheidstests hierboven). */
+  function buildIrregularBlock(records: { startTime: number; startDays: number; finishTime: number; finishDays: number }[], headerCountClaim?: number): Uint8Array {
+    const headerCount = headerCountClaim ?? records.length;
+    const out = new Uint8Array(16 + records.length * 8);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, headerCount, true);
+    records.forEach((r, i) => {
+      const offset = 16 + i * 8;
+      view.setUint16(offset, r.startTime, true);
+      view.setUint16(offset + 2, r.startDays, true);
+      view.setUint16(offset + 4, r.finishTime, true);
+      view.setUint16(offset + 6, r.finishDays, true);
+    });
+    return out;
+  }
+
+  // ── 1(a) — drie regelmatige records met bekende cumulatieve waarden → exact de verwachte lijst.
+  // Elke periode: 480 werk-minuten (één 8-uurs werkdag) over 480 verstreken minuten (geen gat). ──
+  {
+    const block = buildRegularBlock([
+      { cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 480 },
+      { cumulativeWorkMinutes: 960, cumulativeElapsedMinutes: 960 },
+      { cumulativeWorkMinutes: 1440, cumulativeElapsedMinutes: 1440 },
+    ]);
+    const result = decodeRegularTimephasedWork(block, Z3_REFERENCE_START, 'Z3-1a');
+    truthy('[Z3 1a] 3 periodes gedecodeerd', result.length === 3);
+    const expected = [
+      { startMin: 0, finishMin: 480, work: 480 },
+      { startMin: 480, finishMin: 960, work: 480 },
+      { startMin: 960, finishMin: 1440, work: 480 },
+    ];
+    expected.forEach((e, i) => {
+      const entry = result[i];
+      truthy(`[Z3 1a] periode ${i}: start`, !!entry && entry.start.getTime() === Z3_REFERENCE_START.getTime() + e.startMin * 60_000);
+      truthy(`[Z3 1a] periode ${i}: finish`, !!entry && entry.finish.getTime() === Z3_REFERENCE_START.getTime() + e.finishMin * 60_000);
+      truthy(`[Z3 1a] periode ${i}: workMinutes === ${e.work}`, !!entry && entry.workMinutes === e.work);
+    });
+  }
+
+  // ── 1(b) — blok met een nul-werk-record ertussen → dat record komt door als gat (workMinutes
+  // === 0), niet weggefilterd, want dát is precies het signaal dat Z4 straks als splitsegment
+  // herkent. Periode 1: 240min werk/240min elapsed. Periode 2 (GAT): 0min werk/120min elapsed
+  // (cumulatief blijft dus 240 werk, elapsed loopt door naar 360). Periode 3: 300min werk verder. ─
+  {
+    const block = buildRegularBlock([
+      { cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 240 },
+      { cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 360 },
+      { cumulativeWorkMinutes: 540, cumulativeElapsedMinutes: 660 },
+    ]);
+    const result = decodeRegularTimephasedWork(block, Z3_REFERENCE_START, 'Z3-1b');
+    truthy('[Z3 1b] 3 periodes gedecodeerd (gat NIET weggefilterd)', result.length === 3);
+    truthy('[Z3 1b] periode 0: workMinutes === 240', result[0]?.workMinutes === 240);
+    truthy('[Z3 1b] periode 1 (GAT): workMinutes === 0', result[1]?.workMinutes === 0);
+    truthy('[Z3 1b] periode 1 (GAT): toch een reële tijdspanne (120 min elapsed)', result[1] && result[1].finish.getTime() - result[1].start.getTime() === 120 * 60_000);
+    truthy('[Z3 1b] periode 2: workMinutes === 300', result[2]?.workMinutes === 300);
+  }
+
+  // ── 1(c) — irregulier blok: twee records, elk met een bekende start/eind-timestamp. workMinutes
+  // = de volledige tijdspanne (zie mppTimephased.ts se moduleheader voor de motivering — géén los
+  // amount-veld in dit blok). ─────────────────────────────────────────────────────────────────────
+  {
+    const rec1Start = getTimestamp(timestampBytes(0, 200), 0)!;
+    const rec1Finish = getTimestamp(timestampBytes(600, 200), 0)!; // +600×6000ms = +60 min
+    const rec2Start = getTimestamp(timestampBytes(0, 205), 0)!;
+    const rec2Finish = getTimestamp(timestampBytes(1200, 205), 0)!; // +1200×6000ms = +120 min
+    truthy('[Z3 1c] fixture-voorwaarde: beide timestamp-paren geldig (geen NA)', !!rec1Start && !!rec1Finish && !!rec2Start && !!rec2Finish);
+
+    const block = buildIrregularBlock([
+      { startTime: 0, startDays: 200, finishTime: 600, finishDays: 200 },
+      { startTime: 0, startDays: 205, finishTime: 1200, finishDays: 205 },
+    ]);
+    const result = decodeIrregularTimephasedWork(block, 'Z3-1c');
+    truthy('[Z3 1c] 2 irreguliere periodes gedecodeerd', result.length === 2);
+    truthy('[Z3 1c] periode 0: start/finish exact', !!result[0] && result[0].start.getTime() === rec1Start.getTime() && result[0].finish.getTime() === rec1Finish.getTime());
+    truthy('[Z3 1c] periode 0: workMinutes === 60 (volledige tijdspanne)', result[0]?.workMinutes === 60);
+    truthy('[Z3 1c] periode 1: start/finish exact', !!result[1] && result[1].start.getTime() === rec2Start.getTime() && result[1].finish.getTime() === rec2Finish.getTime());
+    truthy('[Z3 1c] periode 1: workMinutes === 120', result[1]?.workMinutes === 120);
+  }
+
+  // ── 1(d) — header-recordcount die niet strookt met de bloklengte → klemmen, geen crash, geen
+  // allocatie op basis van de ongevalideerde count. Regulier blok: header claimt 50.000 records,
+  // fysiek is er ruimte voor precies 2 (16+20+2×20=76 bytes) → structureel geklemd naar 2, geen
+  // exceptie, en snel (geen poging tot 50.000 iteraties). Irregulier blok: header claimt 40.000,
+  // fysiek ruimte voor 1 (16+8=24 bytes). ──────────────────────────────────────────────────────
+  {
+    const hostileRegular = buildRegularBlock(
+      [
+        { cumulativeWorkMinutes: 100, cumulativeElapsedMinutes: 100 },
+        { cumulativeWorkMinutes: 150, cumulativeElapsedMinutes: 150 },
+      ],
+      { headerCountClaim: 50_000 },
+    );
+    const start = Date.now();
+    let threwRegular = false;
+    let regularResult: TimephasedWork[] = [];
+    try {
+      regularResult = decodeRegularTimephasedWork(hostileRegular, Z3_REFERENCE_START, 'Z3-1d-regular');
+    } catch {
+      threwRegular = true;
+    }
+    const elapsedMs = Date.now() - start;
+    truthy('[Z3 1d] hostile regulier: geen exceptie', !threwRegular);
+    truthy('[Z3 1d] hostile regulier: geklemd naar de structureel mogelijke 2 records (niet 50.000)', regularResult.length === 2);
+    truthy(`[Z3 1d] hostile regulier: binnen tijdslimiet (${elapsedMs}ms) — geen poging tot 50.000 iteraties`, elapsedMs < 500);
+
+    const hostileIrregular = buildIrregularBlock(
+      [{ startTime: 0, startDays: 200, finishTime: 600, finishDays: 200 }],
+      40_000,
+    );
+    let threwIrregular = false;
+    let irregularResult: TimephasedWork[] = [];
+    try {
+      irregularResult = decodeIrregularTimephasedWork(hostileIrregular, 'Z3-1d-irregular');
+    } catch {
+      threwIrregular = true;
+    }
+    truthy('[Z3 1d] hostile irregulier: geen exceptie', !threwIrregular);
+    truthy('[Z3 1d] hostile irregulier: geklemd naar de structureel mogelijke 1 record (niet 40.000)', irregularResult.length === 1);
+  }
+
+  // ── Rode-pad-fixtures (hardening-checklist: elke nieuwe try/catch krijgt een eigen bewijs) ───
+  {
+    truthy('[Z3 rood] data === null (regulier) ⇒ lege lijst, geen exceptie', decodeRegularTimephasedWork(null, Z3_REFERENCE_START).length === 0);
+    truthy('[Z3 rood] data === null (irregulier) ⇒ lege lijst, geen exceptie', decodeIrregularTimephasedWork(null).length === 0);
+    truthy('[Z3 rood] data te kort voor zelfs het totaal-record (regulier) ⇒ lege lijst', decodeRegularTimephasedWork(new Uint8Array(20), Z3_REFERENCE_START).length === 0);
+    truthy('[Z3 rood] data te kort voor de header (irregulier) ⇒ lege lijst', decodeIrregularTimephasedWork(new Uint8Array(8)).length === 0);
+  }
+
+  // ── AssignmentTimephasedRaw / readAssignmentTimephasedRaw — synthetische CFB-fixture: één
+  // TBkndAssn/VarMeta+Var2Data-boom met twee toewijzingen (uid 10 draagt timephased-data via de
+  // vier categorieën, uid 20 draagt GEEN var-data van welke soort dan ook). Bewijst dat het openen
+  // van Var2Data optioneel is (ontbreken ⇒ huidig gedrag: lege map) én dat de vier veld-id's via
+  // de gewone data-gedreven field-map worden opgezocht (niet hardgecodeerd). ────────────────────
+  {
+    const asgFieldMapBytes = buildFieldMapEntryBytes([
+      { typeValue: AssignmentFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: AssignmentFieldId.ActualRegularWork, dataBlockOffset: 65535, category: 8 },
+      { typeValue: AssignmentFieldId.RemainingRegularWork, dataBlockOffset: 65535, category: 8 },
+      { typeValue: AssignmentFieldId.ActualOvertimeWork, dataBlockOffset: 65535, category: 8 },
+      { typeValue: AssignmentFieldId.ActualIrregularWork, dataBlockOffset: 65535, category: 8 },
+    ]);
+    const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'Z3-assignment-fieldmap');
+    const asgFieldMap = createAssignmentFieldMap(asgProps);
+
+    const actualRegularPayload = Uint8Array.of(1, 2, 3, 4);
+    const remainingRegularPayload = Uint8Array.of(5, 6);
+    const actualOvertimePayload = Uint8Array.of(7);
+    const actualIrregularPayload = buildIrregularBlock([{ startTime: 0, startDays: 200, finishTime: 600, finishDays: 200 }]);
+
+    const varMetaBytes = buildVarMetaBytes([
+      { uniqueId: 10, type: AssignmentFieldId.ActualRegularWork, offset: 0 },
+      { uniqueId: 10, type: AssignmentFieldId.RemainingRegularWork, offset: 4 + actualRegularPayload.length },
+      { uniqueId: 10, type: AssignmentFieldId.ActualOvertimeWork, offset: 4 + actualRegularPayload.length + 4 + remainingRegularPayload.length },
+      {
+        uniqueId: 10,
+        type: AssignmentFieldId.ActualIrregularWork,
+        offset: 4 + actualRegularPayload.length + 4 + remainingRegularPayload.length + 4 + actualOvertimePayload.length,
+      },
+    ]);
+    const var2DataBytes = buildVar2DataBytes(
+      [
+        { offset: 0, payload: actualRegularPayload },
+        { offset: 4 + actualRegularPayload.length, payload: remainingRegularPayload },
+        { offset: 4 + actualRegularPayload.length + 4 + remainingRegularPayload.length, payload: actualOvertimePayload },
+        {
+          offset: 4 + actualRegularPayload.length + 4 + remainingRegularPayload.length + 4 + actualOvertimePayload.length,
+          payload: actualIrregularPayload,
+        },
+      ],
+      4 + actualRegularPayload.length + 4 + remainingRegularPayload.length + 4 + actualOvertimePayload.length + 4 + actualIrregularPayload.length,
+    );
+
+    const cfb = new CfbFile(buildNestedCfb({
+      '   114': {
+        children: {
+          TBkndAssn: {
+            children: {
+              VarMeta: { data: varMetaBytes },
+              Var2Data: { data: var2DataBytes },
+            },
+          },
+        },
+      },
+    }));
+
+    const raw = readAssignmentTimephasedRaw(cfb, asgFieldMap);
+    truthy('[Z3 raw] uid 10 aanwezig', raw.has(10));
+    truthy('[Z3 raw] uid 20 (geen var-data) NIET aanwezig', !raw.has(20));
+    const uid10 = raw.get(10);
+    truthy('[Z3 raw] uid 10: actualRegularWork round-trip', !!uid10 && bytesEqual(uid10.actualRegularWork!, actualRegularPayload));
+    truthy('[Z3 raw] uid 10: remainingRegularWork round-trip', !!uid10 && bytesEqual(uid10.remainingRegularWork!, remainingRegularPayload));
+    truthy('[Z3 raw] uid 10: actualOvertimeWork round-trip', !!uid10 && bytesEqual(uid10.actualOvertimeWork!, actualOvertimePayload));
+    truthy('[Z3 raw] uid 10: actualIrregularWork round-trip', !!uid10 && bytesEqual(uid10.actualIrregularWork!, actualIrregularPayload));
+    truthy('[Z3 raw] uid 10: hasAnyTimephasedData === true', !!uid10 && hasAnyTimephasedData(uid10));
+
+    // Rode-pad: TBkndAssn/VarMeta ontbreekt volledig ⇒ lege map, geen exceptie (optioneel,
+    // ontbreken ⇒ huidig gedrag — precies wat de taakspecificatie eist).
+    const cfbMissing = new CfbFile(buildNestedCfb({ '   114': { children: {} } }));
+    const rawMissing = readAssignmentTimephasedRaw(cfbMissing, asgFieldMap);
+    truthy('[Z3 rood] TBkndAssn/VarMeta ontbreekt ⇒ lege map, geen exceptie', rawMissing.size === 0);
+
+    // Rode-pad: VarMeta aanwezig, Var2Data ontbreekt (legitiem — mppPrimitives.ts) ⇒ lege map.
+    const cfbNoVar2 = new CfbFile(buildNestedCfb({
+      '   114': { children: { TBkndAssn: { children: { VarMeta: { data: varMetaBytes } } } } },
+    }));
+    const rawNoVar2 = readAssignmentTimephasedRaw(cfbNoVar2, asgFieldMap);
+    truthy('[Z3 rood] Var2Data ontbreekt (VarMeta wel aanwezig) ⇒ lege map, geen exceptie', rawNoVar2.size === 0);
+
+    // Rode-pad: VarMeta-bytes te kort voor haar EIGEN header (5 bytes, VarMeta12 eist minimaal 24)
+    // ⇒ `new VarMeta12(...)` gooit ECHT — dit is de fixture die `readAssignmentTimephasedRaw`'s
+    // try/catch aantoonbaar door de catch-tak laat gaan (niet alleen de eerder-geretourneerde
+    // guard-clauses hierboven), spiegelt het bestaande `readXUnsafe`-precedent.
+    const cfbCorruptVarMeta = new CfbFile(buildNestedCfb({
+      '   114': { children: { TBkndAssn: { children: { VarMeta: { data: new Uint8Array(5) }, Var2Data: { data: var2DataBytes } } } } },
+    }));
+    const rawCorrupt = readAssignmentTimephasedRaw(cfbCorruptVarMeta, asgFieldMap);
+    truthy('[Z3 rood] VarMeta te kort voor haar eigen header ⇒ try/catch vangt, lege map, geen exceptie', rawCorrupt.size === 0);
+  }
+
+  // ── Acceptatiepunt 5 — corpusbrede telling + overlap-analyse tegen de 11 bekende timephased-
+  // bestanden uit plan-§1.2. GEEN hard gepind getal (dat is baan M's fidelity-baseline-domein) —
+  // deze sectie MEET en RAPPORTEERT, met dezelfde nette-skip-conventie als de rest van dit
+  // bestand, en TOETST de overlap-eis uit de taakspecificatie: elk bestand dat
+  // `mpp-fidelity-baseline.json` als "timephased/contour"-uitzondering pint, moet via déze
+  // onafhankelijke lezer ook daadwerkelijk timephased-data dragen — anders is er iets mis met de
+  // decoder of met de aanname, en moet dat gerapporteerd worden vóórdat verder gebouwd wordt. ────
+  {
+    const Z3_CORPUS = process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
+    const Z3_CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl';
+
+    function listMppFilesRecursiveZ3(dir: string): string[] {
+      const out: string[] = [];
+      const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...listMppFilesRecursiveZ3(full));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mpp')) out.push(full);
+      }
+      return out;
+    }
+
+    // Bekende timephased/contour-uitzonderingen uit de gepinde fidelity-baseline (baan M se
+    // bestand — hier ALLEEN gelezen, nooit gewijzigd). `reason` bevat "timephased" of "contour"
+    // voor exact de werkstroom-(3)-bestanden uit plan-§1.2 (11 gemeten, zie het commitbericht).
+    const knownTimephasedHashes = new Set<string>();
+    try {
+      // `import.meta.url`-relatief i.p.v. `process.cwd()` — zelfde conventie als
+      // `check-mpp-fidelity.ts`'s `HERE`/`BASELINE_PATH` (dit bestand draait via esbuild → ESM,
+      // geen CommonJS `__dirname` beschikbaar).
+      const here = fileURLToPath(new URL('.', import.meta.url));
+      const baseline = JSON.parse(readFileSync(join(here, 'mpp-fidelity-baseline.json'), 'utf8')) as {
+        files: Record<string, { reason?: string }>;
+      };
+      for (const [hash, entry] of Object.entries(baseline.files)) {
+        const reason = (entry.reason ?? '').toLowerCase();
+        if (reason.includes('timephased') || reason.includes('contour')) knownTimephasedHashes.add(hash);
+      }
+    } catch {
+      // baseline-bestand ontbreekt/onleesbaar ⇒ geen overlap-toetsing mogelijk, corpuslus hieronder
+      // rapporteert dan zonder de kruiscontrole (skip, geen faal — de fixture-tests hierboven zijn
+      // de harde poort).
+    }
+
+    let filesScanned = 0;
+    let filesFailed = 0;
+    let filesWithTimephasedData = 0;
+    let assignmentsWithTimephasedData = 0;
+    const foundHashes = new Set<string>();
+    for (const root of [Z3_CORPUS, Z3_CRAWL]) {
+      if (!existsSync(root)) continue;
+      for (const file of listMppFilesRecursiveZ3(root)) {
+        let bytes: Uint8Array;
+        try {
+          bytes = new Uint8Array(readFileSync(file));
+        } catch {
+          filesFailed++;
+          continue;
+        }
+        const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+        try {
+          const { cfb, projectProps } = openMppProject(bytes);
+          const assignmentFieldMap = createAssignmentFieldMap(projectProps);
+          const raw = readAssignmentTimephasedRaw(cfb, assignmentFieldMap);
+          filesScanned++;
+          let hasAny = false;
+          for (const entry of raw.values()) {
+            if (hasAnyTimephasedData(entry)) {
+              hasAny = true;
+              assignmentsWithTimephasedData++;
+            }
+          }
+          if (hasAny) {
+            filesWithTimephasedData++;
+            foundHashes.add(hash);
+          }
+        } catch {
+          filesFailed++; // niet-MPP14/legacy/versleuteld e.d. — zelfde skip-conventie als Z2/T9
+        }
+      }
+    }
+
+    if (filesScanned === 0) {
+      console.log(`OK  mpp-import: Z3 corpusbrede timephased-telling (${Z3_CORPUS} / ${Z3_CRAWL}) niet aanwezig — overgeslagen`);
+    } else {
+      truthy(`[Z3 corpustelling] minstens 1 bestand gescand (kreeg ${filesScanned})`, filesScanned > 0);
+      if (knownTimephasedHashes.size > 0) {
+        const missing = [...knownTimephasedHashes].filter((h) => !foundHashes.has(h));
+        truthy(
+          `[Z3 overlap] alle ${knownTimephasedHashes.size} bekende timephased/contour-bestanden uit de fidelity-baseline dragen via déze lezer ook timephased-data`
+          + (missing.length > 0 ? ` (${missing.length} MIST: ${missing.join(', ')})` : ''),
+          missing.length === 0,
+        );
+      }
+      console.log(
+        `OK  mpp-import: Z3 corpusbrede timephased-telling — ${filesScanned} bestand(en) gescand (${filesFailed} onleesbaar/overgeslagen), `
+        + `${filesWithTimephasedData} bestand(en) met ≥1 toewijzing met timephased-data (${assignmentsWithTimephasedData} toewijzingen totaal), `
+        + `${knownTimephasedHashes.size} bekend uit de fidelity-baseline (overlap hierboven getoetst)`,
       );
     }
   }

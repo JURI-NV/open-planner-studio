@@ -20,6 +20,12 @@
  * Pure verhuizing, geen gedragswijziging: alle bestaande baselines (taak-/kalender-/relatie-/
  * resource-/assignment-aantallen, per-veld-budgetten) blijven exact gelijk. Zie `mppReader.ts`'s
  * eigen moduleheader voor de bredere T5-T7-context (hiërarchie, WBS, outline-level-klem, enz.).
+ *
+ * Z3 (etappe "nul afwijkingen"): `readAssignmentTimephasedRaw` (onderaan) opent `Var2Data` van
+ * `TBkndAssn` voor de vier timephased-categorieën uit `mppTimephased.ts` — een BEWUST TWEEDE lus
+ * naast `readAssignments`, zie haar eigen sectiekop voor de volledige motivering (readAssignments'
+ * return-vorm mag niet wijzigen, dat zou `check-mpp-relations.ts` breken, buiten deze taak se
+ * bestandseigendom).
  */
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment, ResourceType } from '@/types/resource';
@@ -38,6 +44,7 @@ import {
 } from './fieldMap14';
 import type { CalendarReadResult } from './mppCalendars';
 import { MAX_VAR_TEXT_BYTES } from './limits';
+import type { AssignmentTimephasedRaw } from './mppTimephased';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // T7 — relaties (TBkndCons), resources (TBkndRsc) en assignments (TBkndAssn).
@@ -530,4 +537,78 @@ function readAssignmentsUnsafe(
     assignments.push({ id: generateId('asgn'), taskId, resourceId, unitsPerDay });
   }
   return assignments;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z3 (etappe "nul afwijkingen") — timephased-plumbing: opent `Var2Data` van `TBkndAssn` en geeft
+// de vier ruwe categoriebyteblokken (zie `mppTimephased.ts`'s `AssignmentTimephasedRaw`) door,
+// GEKEYD OP DE RUWE MPP-ASSIGNMENT-UNIQUEID — nadrukkelijk NIET op `ResourceAssignment.id`.
+//
+// BEWUST EEN TWEEDE, ONAFHANKELIJKE LUS (spiegelt Z1's `mppGroundTruth.ts`-precedent, dezelfde
+// motivering): `readAssignments`/`readAssignmentsUnsafe` hierboven is TEST-ONLY geëxporteerd en
+// wordt in `tests/planning/check-mpp-relations.ts` (buiten Z3's bestandseigendom, zie de
+// taakspecificatie) rechtstreeks aangeroepen met de aanname dat ze een kale `ResourceAssignment[]`
+// teruggeeft — die return-vorm wijzigen (bv. naar `{ assignments, timephasedByAssignmentId }`) zou
+// die tests laten falen op een bestand dat deze taak niet mag aanraken. Deze functie duplicaat
+// daarom bewust een KLEIN deel van het TBkndAssn-openpad (alleen VarMeta/Var2Data — geen
+// FixedMeta/FixedData nodig, want Var2Data is zelf al op uniqueId geïndexeerd via VarMeta12's
+// eigen tabel) i.p.v. readAssignments's contract aan te raken. Consequentie van "geen FixedMeta/
+// FixedData": de "verwijderd"-vlag (FixedMeta byte 0) wordt HIER niet getoetst — een verwijderde
+// toewijzing die toevallig nog var-data draagt, komt hier wél door terwijl readAssignments haar al
+// weglaat. Onschadelijk voor Z3 (puur-lezen, niets consumeert dit resultaat nog — zie
+// mppTimephased.ts's moduleheader), maar gedocumenteerd zodat Z4 (die dit WEL aan taken koppelt)
+// het weet.
+//
+// AANSLUITPUNT VOOR Z4: deze functie levert GEEN correlatie met `ResourceAssignment.id` (dat
+// gegenereerde ID bestaat pas ná `readAssignments`, en de twee lussen delen geen state). Z4 —
+// die zowel `mppTimephased.ts` als `mppReader.ts` in haar bestandenlijst heeft — moet zelf de
+// brug slaan tussen deze rauwe-uniqueId-sleutel en de taak/toewijzing die de motor kent (bv. door
+// `readAssignmentsUnsafe`'s eigen taskUid/resourceUid-resolutie te hergebruiken op dezelfde
+// FixedData-doorloop, of door `readAssignments`'s contract op dát moment alsnog uit te breiden).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Poort van `ResourceAssignmentFactory.process`'s eerste stappen (T7, stap 2 hierboven) — hier
+ *  UITSLUITEND de vier VAR_DATA-lookups die de timephased-categorieën nodig hebben. Geëxporteerd,
+ *  zelfde testbaarheidsreden als `readAssignments` hierboven. */
+export function readAssignmentTimephasedRaw(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+): Map<number, AssignmentTimephasedRaw> {
+  try {
+    return readAssignmentTimephasedRawUnsafe(cfb, assignmentFieldMap);
+  } catch {
+    return new Map();
+  }
+}
+
+function readAssignmentTimephasedRawUnsafe(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+): Map<number, AssignmentTimephasedRaw> {
+  const label = '"   114"/TBkndAssn';
+  const varMetaBytes = cfb.getStream(['   114', 'TBkndAssn', 'VarMeta']);
+  if (!varMetaBytes) return new Map(); // legitiem afwezig (bv. bestand zonder assignments)
+  const var2DataBytes = cfb.getStream(['   114', 'TBkndAssn', 'Var2Data']); // legitiem afwezig (mppPrimitives.ts)
+
+  const varMeta = new VarMeta12(varMetaBytes, `${label}/VarMeta`);
+  const varData = new Var2Data(varMeta, var2DataBytes);
+
+  const actualRegularKey = varDataKeyOf(assignmentFieldMap, AssignmentFieldId.ActualRegularWork);
+  const remainingRegularKey = varDataKeyOf(assignmentFieldMap, AssignmentFieldId.RemainingRegularWork);
+  const actualOvertimeKey = varDataKeyOf(assignmentFieldMap, AssignmentFieldId.ActualOvertimeWork);
+  const actualIrregularKey = varDataKeyOf(assignmentFieldMap, AssignmentFieldId.ActualIrregularWork);
+
+  const result = new Map<number, AssignmentTimephasedRaw>();
+  for (const uniqueId of varMeta.getUniqueIdentifierArray()) {
+    const raw: AssignmentTimephasedRaw = {
+      actualRegularWork: actualRegularKey === null ? null : varData.getByteArray(uniqueId, actualRegularKey),
+      remainingRegularWork: remainingRegularKey === null ? null : varData.getByteArray(uniqueId, remainingRegularKey),
+      actualOvertimeWork: actualOvertimeKey === null ? null : varData.getByteArray(uniqueId, actualOvertimeKey),
+      actualIrregularWork: actualIrregularKey === null ? null : varData.getByteArray(uniqueId, actualIrregularKey),
+    };
+    if (raw.actualRegularWork || raw.remainingRegularWork || raw.actualOvertimeWork || raw.actualIrregularWork) {
+      result.set(uniqueId, raw);
+    }
+  }
+  return result;
 }
