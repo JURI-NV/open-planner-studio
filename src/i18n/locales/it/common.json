@@ -696,6 +696,14 @@
     "notice": "Questo file contiene una pianificazione oraria.",
     "enable": "Attiva pianificazione oraria"
   },
+  "recordedDates": {
+    "offer_one": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "offer_many": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "offer_other": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "show": "Mostra le date registrate",
+    "active": "Stai visualizzando le date come registrate nel file. Non è stato eseguito alcun ricalcolo.",
+    "recalculate": "Ricalcola"
+  },
   "duration": {
     "suffixDay": "g",
     "suffixHour": "h",

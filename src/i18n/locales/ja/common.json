@@ -686,6 +686,12 @@
     "notice": "このファイルには時間単位の計画が含まれています。",
     "enable": "時間計画を有効にする"
   },
+  "recordedDates": {
+    "offer_other": "再計算により、{{total}} 件中 {{count}} 件のタスクがファイル内の日付からずれました。",
+    "show": "記録された日付を表示",
+    "active": "ファイルに記録されている日付をそのまま表示しています。再計算は行われていません。",
+    "recalculate": "再計算"
+  },
   "duration": {
     "suffixDay": "日",
     "suffixHour": "時",

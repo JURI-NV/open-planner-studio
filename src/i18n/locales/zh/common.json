@@ -686,6 +686,12 @@
     "notice": "此文件包含按小时的计划。",
     "enable": "启用小时计划"
   },
+  "recordedDates": {
+    "offer_other": "重新计算使 {{total}} 个任务中的 {{count}} 个偏离了文件中记录的日期。",
+    "show": "显示记录的日期",
+    "active": "你正在查看文件中记录的日期，尚未重新计算。",
+    "recalculate": "重新计算"
+  },
   "duration": {
     "suffixDay": "天",
     "suffixHour": "时",

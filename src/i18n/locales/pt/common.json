@@ -696,6 +696,14 @@
     "notice": "Este ficheiro contém planeamento por horas.",
     "enable": "Ativar planeamento por horas"
   },
+  "recordedDates": {
+    "offer_one": "O recálculo moveu {{count}} de {{total}} tarefas em relação às datas do ficheiro.",
+    "offer_many": "O recálculo moveu {{count}} de {{total}} tarefas em relação às datas do ficheiro.",
+    "offer_other": "O recálculo moveu {{count}} de {{total}} tarefas em relação às datas do ficheiro.",
+    "show": "Mostrar datas registadas",
+    "active": "Está a ver as datas tal como estão registadas no ficheiro. Não foi feito nenhum recálculo.",
+    "recalculate": "Recalcular"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "h",

@@ -691,6 +691,13 @@
     "notice": "Diese Datei enthält stundenbasierte Planung.",
     "enable": "Stundenplanung aktivieren"
   },
+  "recordedDates": {
+    "offer_one": "Die Neuberechnung hat {{count}} von {{total}} Vorgängen gegenüber den Terminen in der Datei verschoben.",
+    "offer_other": "Die Neuberechnung hat {{count}} von {{total}} Vorgängen gegenüber den Terminen in der Datei verschoben.",
+    "show": "Aufgezeichnete Termine anzeigen",
+    "active": "Sie sehen die Termine so, wie sie in der Datei aufgezeichnet sind. Es wurde nicht neu berechnet.",
+    "recalculate": "Neu berechnen"
+  },
   "duration": {
     "suffixDay": "T",
     "suffixHour": "Std",

@@ -701,6 +701,15 @@
     "notice": "Ten plik zawiera planowanie godzinowe.",
     "enable": "Włącz planowanie godzinowe"
   },
+  "recordedDates": {
+    "offer_one": "Ponowne przeliczenie przesunęło {{count}} z {{total}} zadań względem dat w pliku.",
+    "offer_few": "Ponowne przeliczenie przesunęło {{count}} z {{total}} zadań względem dat w pliku.",
+    "offer_many": "Ponowne przeliczenie przesunęło {{count}} z {{total}} zadań względem dat w pliku.",
+    "offer_other": "Ponowne przeliczenie przesunęło {{count}} z {{total}} zadań względem dat w pliku.",
+    "show": "Pokaż zapisane daty",
+    "active": "Widzisz daty takie, jak zostały zapisane w pliku. Nie wykonano ponownego przeliczenia.",
+    "recalculate": "Przelicz"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "g",

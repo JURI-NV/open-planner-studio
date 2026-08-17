@@ -696,6 +696,14 @@
     "notice": "Ce fichier contient une planification horaire.",
     "enable": "Activer la planification horaire"
   },
+  "recordedDates": {
+    "offer_one": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "offer_many": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "offer_other": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "show": "Afficher les dates enregistrées",
+    "active": "Vous voyez les dates telles qu'elles sont enregistrées dans le fichier. Aucun recalcul n'a été effectué.",
+    "recalculate": "Recalculer"
+  },
   "duration": {
     "suffixDay": "j",
     "suffixHour": "h",

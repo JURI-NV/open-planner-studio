@@ -691,6 +691,13 @@
     "notice": "Bu dosya saat bazlı planlama içeriyor.",
     "enable": "Saat planlamasını aç"
   },
+  "recordedDates": {
+    "offer_one": "Yeniden hesaplama, dosyadaki tarihlere göre {{total}} görevden {{count}} tanesini kaydırdı.",
+    "offer_other": "Yeniden hesaplama, dosyadaki tarihlere göre {{total}} görevden {{count}} tanesini kaydırdı.",
+    "show": "Kaydedilen tarihleri göster",
+    "active": "Tarihleri dosyada kaydedildiği şekilde görüntülüyorsunuz. Herhangi bir yeniden hesaplama yapılmadı.",
+    "recalculate": "Yeniden hesapla"
+  },
   "duration": {
     "suffixDay": "g",
     "suffixHour": "s",

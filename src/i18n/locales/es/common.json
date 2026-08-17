@@ -696,6 +696,14 @@
     "notice": "Este archivo contiene planificación por horas.",
     "enable": "Activar planificación por horas"
   },
+  "recordedDates": {
+    "offer_one": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "offer_many": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "offer_other": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "show": "Mostrar fechas registradas",
+    "active": "Estás viendo las fechas tal como están registradas en el archivo. No se ha recalculado nada.",
+    "recalculate": "Recalcular"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "h",

@@ -686,6 +686,12 @@
     "notice": "이 파일에는 시간 단위 계획이 포함되어 있습니다.",
     "enable": "시간 단위 계획 사용"
   },
+  "recordedDates": {
+    "offer_other": "다시 계산으로 인해 {{total}}개 작업 중 {{count}}개가 파일에 기록된 날짜에서 벗어났습니다.",
+    "show": "기록된 날짜 표시",
+    "active": "파일에 기록된 날짜를 그대로 보고 있습니다. 다시 계산되지 않았습니다.",
+    "recalculate": "다시 계산"
+  },
   "duration": {
     "suffixDay": "일",
     "suffixHour": "시",
