@@ -854,5 +854,26 @@
     "detailRender": "{{rows}} righe · {{w}}×{{h}}",
     "renderUnavailable": "rendering non disponibile (nessun contesto canvas 2D)",
     "largeWarning": "Pianificazione grande: potrebbe richiedere un po'; la barra di avanzamento può sembrare bloccata durante il calcolo."
+  },
+  "extConsent": {
+    "title": "Installare l'estensione?",
+    "author": "Autore",
+    "repository": "Repository",
+    "originHeading": "Provenienza",
+    "sourceCatalog": "Dal catalogo estensioni online",
+    "sourceZip": "Da un file ZIP su questo computer",
+    "sourceJs": "Da un file JavaScript su questo computer",
+    "verifiedChecksum": "Download verificato con il checksum del catalogo.",
+    "verifiedNone": "Il catalogo non fornisce un checksum: questo download non è stato verificato.",
+    "verifiedLocal": "Hai scelto tu questo file; non esiste una fonte esterna con cui verificarlo.",
+    "riskHeading": "A cosa stai dicendo di sì",
+    "riskBody": "Un'estensione è codice che viene eseguito con gli stessi diritti di Open Planner Studio. Nulla lo delimita. Installa solo estensioni di cui ti fidi dell'autore.",
+    "riskDesktop": "Nell'app desktop ciò comprende: leggere e scrivere file ovunque nella tua cartella utente, oltre all'accesso a progetti, impostazioni e appunti.",
+    "riskBrowser": "Nel browser significa: accesso ai progetti e alle impostazioni salvate, ai file per cui hai concesso l'accesso e alla rete.",
+    "declaredHeading": "Ciò che questa estensione dichiara di usare",
+    "declaredNote": "È la dichiarazione dell'autore, non una restrizione: il codice può comunque fare di più.",
+    "declaredNone": "Nulla di dichiarato.",
+    "cancel": "Non installare",
+    "confirm": "Installa"
   }
 }

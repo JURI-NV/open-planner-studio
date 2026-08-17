@@ -374,6 +374,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   EXTINTCHECK="$DIR/.extintegrity.mjs"
   if bundle_check "$DIR/check-ext-integrity.ts" "$EXTINTCHECK"; then node "$EXTINTCHECK" || STATUS=1; fi
 
+  # Toestemming bij extensie-installatie (K-item 38, laatste deel). De faalstand moet WEIGEREN zijn
+  # (geen dialoog geladen ⇒ niet installeren), elk installatiepad moet langs de poort, en die poort
+  # moet vóór de eerste schrijfactie staan — anders laat een weigering een half geïnstalleerde
+  # extensie achter, en dat is precies wat een headless test niet kan zien.
+  EXTCONSENTCHECK="$DIR/.extconsent.mjs"
+  if bundle_check "$DIR/check-ext-consent.ts" "$EXTCONSENTCHECK"; then node "$EXTCONSENTCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.

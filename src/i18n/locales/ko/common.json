@@ -834,5 +834,26 @@
     "detailRender": "{{rows}}개 행 · {{w}}×{{h}}",
     "renderUnavailable": "렌더링 불가 (2D 캔버스 컨텍스트 없음)",
     "largeWarning": "큰 일정: 시간이 걸릴 수 있으며, 계산 중에는 진행 표시줄이 멈춘 것처럼 보일 수 있습니다."
+  },
+  "extConsent": {
+    "title": "확장을 설치할까요?",
+    "author": "작성자",
+    "repository": "저장소",
+    "originHeading": "출처",
+    "sourceCatalog": "온라인 확장 카탈로그에서",
+    "sourceZip": "이 컴퓨터의 ZIP 파일에서",
+    "sourceJs": "이 컴퓨터의 JavaScript 파일에서",
+    "verifiedChecksum": "카탈로그의 체크섬으로 다운로드를 검증했습니다.",
+    "verifiedNone": "카탈로그에 체크섬이 없습니다 — 이 다운로드는 검증되지 않았습니다.",
+    "verifiedLocal": "이 파일은 직접 선택한 것으로, 대조할 외부 출처가 없습니다.",
+    "riskHeading": "무엇에 동의하는지",
+    "riskBody": "확장은 Open Planner Studio 자체와 동일한 권한으로 실행되는 코드이며, 이를 제한하는 장치는 없습니다. 작성자를 신뢰할 수 있는 확장만 설치하세요.",
+    "riskDesktop": "데스크톱 앱에서는 사용자 폴더 전체의 파일 읽기와 쓰기, 그리고 프로젝트·설정·클립보드 접근이 포함됩니다.",
+    "riskBrowser": "브라우저에서는 저장된 프로젝트와 설정, 접근을 허용한 파일, 그리고 네트워크에 대한 접근을 뜻합니다.",
+    "declaredHeading": "이 확장이 사용한다고 밝힌 항목",
+    "declaredNote": "작성자의 신고일 뿐 제한이 아닙니다 — 코드는 그보다 더 많은 일을 할 수 있습니다.",
+    "declaredNone": "신고된 항목 없음.",
+    "cancel": "설치 안 함",
+    "confirm": "설치"
   }
 }

@@ -27,6 +27,18 @@ export {
   installFromZipBlob,
   removeExtension,
   verifyCatalogDownload,
+  buildConsentRequest,
   sha256Hex,
   type DownloadVerdict,
+  type InstallOutcome,
+  type InstallOptions,
 } from './extensionService';
+export {
+  askExtensionConsent,
+  setConsentAsker,
+  resetConsentAsker,
+  type ExtensionConsentRequest,
+  type ConsentAsker,
+  type ConsentSource,
+  type ConsentVerification,
+} from './consent';

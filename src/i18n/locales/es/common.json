@@ -854,5 +854,26 @@
     "detailRender": "{{rows}} filas · {{w}}×{{h}}",
     "renderUnavailable": "renderizado no disponible (sin contexto de lienzo 2D)",
     "largeWarning": "Planificación grande: puede tardar un rato; la barra de progreso puede parecer congelada durante el cálculo."
+  },
+  "extConsent": {
+    "title": "¿Instalar la extensión?",
+    "author": "Autor",
+    "repository": "Repositorio",
+    "originHeading": "Origen",
+    "sourceCatalog": "Del catálogo de extensiones en línea",
+    "sourceZip": "De un archivo ZIP en este equipo",
+    "sourceJs": "De un archivo JavaScript en este equipo",
+    "verifiedChecksum": "Descarga verificada con la suma de comprobación del catálogo.",
+    "verifiedNone": "El catálogo no proporciona suma de comprobación: esta descarga no se ha verificado.",
+    "verifiedLocal": "Elegiste este archivo tú mismo; no hay una fuente externa con la que verificarlo.",
+    "riskHeading": "A qué estás diciendo que sí",
+    "riskBody": "Una extensión es código que se ejecuta con los mismos permisos que Open Planner Studio. Nada lo limita. Instala solo extensiones cuyo autor te merezca confianza.",
+    "riskDesktop": "En la aplicación de escritorio eso incluye: leer y escribir archivos en toda tu carpeta de usuario, además de acceso a tus proyectos, ajustes y portapapeles.",
+    "riskBrowser": "En el navegador significa: acceso a tus proyectos y ajustes guardados, a los archivos a los que diste acceso y a la red.",
+    "declaredHeading": "Lo que esta extensión declara usar",
+    "declaredNote": "Es la declaración del autor, no una restricción: el código puede hacer más de todos modos.",
+    "declaredNone": "No declara nada.",
+    "cancel": "No instalar",
+    "confirm": "Instalar"
   }
 }

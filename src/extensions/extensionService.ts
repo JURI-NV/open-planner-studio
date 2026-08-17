@@ -13,6 +13,8 @@ import {
 } from './extensionLoader';
 import { useAppStore } from '@/state/appStore';
 import { appLog } from '@/services/debug/appLog';
+import { askExtensionConsent, type ConsentSource, type ConsentVerification, type ExtensionConsentRequest } from './consent';
+import { isTauri } from '@/utils/platform';
 
 // ── Catalogus ──
 
@@ -49,7 +51,73 @@ export async function fetchCatalog(): Promise<void> {
 // Let op: dit downloadt en activeert externe code na een gebruikersklik.
 // Er is geen echte sandbox (zie executeExtensionCode in extensionLoader.ts);
 // de catalogus is een door de Foundation beheerde lijst.
-export async function installFromCatalog(entry: CatalogEntry): Promise<boolean> {
+/**
+ * Afloop van een installatiepoging. Een bewuste WEIGERING is nadrukkelijk geen fout: de UI hoort
+ * daar geen "installatie mislukt" op te tonen, en met een kale boolean was dat onderscheid er niet.
+ */
+export type InstallOutcome = 'installed' | 'declined' | 'failed';
+
+export interface InstallOptions {
+  /** Waar de bytes vandaan komen — bepaalt wat de toestemmingsvraag over herkomst kan zeggen. */
+  source?: ConsentSource;
+  /** Verificatiestand van die bytes (zie `verifyCatalogDownload`). */
+  verification?: ConsentVerification;
+  /**
+   * Sla de vertrouwensvraag over. UITSLUITEND voor de dev-bridge en geautomatiseerde zelftests: die
+   * testen extensie-GEDRAG en hebben geen mens die een dialoog kan wegklikken. Nooit vanuit een
+   * gebruikerspad meegeven — dat zou de enige stap die om vertrouwen vraagt stil overslaan.
+   * `check-ext-consent.ts` bewaakt met een bron-assert dat alleen `devBridge.ts` dit zet.
+   */
+  assumeConsent?: boolean;
+}
+
+/**
+ * Manifest + installatiecontext → de vraag die de gebruiker te zien krijgt.
+ *
+ * Apart en puur, zodat toetsbaar is dát de velden overkomen. Een vraag die de auteur of de
+ * declaratie kwijtraakt ziet er in de dialoog nog steeds compleet uit — er staat dan gewoon minder,
+ * en niemand die de dialoog nooit eerder zag merkt het verschil.
+ */
+export function buildConsentRequest(
+  manifest: ExtensionManifest,
+  id: string,
+  opts: InstallOptions,
+  desktop: boolean = isTauri(),
+): ExtensionConsentRequest {
+  return {
+    id,
+    name: manifest.name,
+    version: manifest.version,
+    author: manifest.author,
+    description: manifest.description,
+    declared: manifest.permissions ?? [],
+    repository: manifest.repository,
+    source: opts.source ?? 'zip',
+    verification: opts.verification ?? 'local',
+    isDesktop: desktop,
+  };
+}
+
+/**
+ * De vertrouwensvraag, op één plek voor élk installatiepad (K-item 38).
+ *
+ * Staat bewust VÓÓR elke schrijfactie: bij een weigering mag er niets in IndexedDB staan, niets in
+ * de store geregistreerd zijn, en een al geïnstalleerde vorige versie onaangeroerd blijven.
+ */
+async function gateConsent(
+  manifest: ExtensionManifest,
+  id: string,
+  opts: InstallOptions,
+): Promise<boolean> {
+  if (opts.assumeConsent) return true;
+  const granted = await askExtensionConsent(buildConsentRequest(manifest, id, opts));
+  if (!granted) {
+    appLog.emit('info', 'Extensies', `Installatie van "${id}" geannuleerd door de gebruiker.`);
+  }
+  return granted;
+}
+
+export async function installFromCatalog(entry: CatalogEntry): Promise<InstallOutcome> {
   try {
     const res = await fetch(entry.downloadUrl);
     if (!res.ok) throw new Error(`Download mislukt: HTTP ${res.status}`);
@@ -63,11 +131,14 @@ export async function installFromCatalog(entry: CatalogEntry): Promise<boolean> 
         `Catalogusentry "${entry.id}" heeft geen sha256; de download is niet geverifieerd.`);
     }
 
-    return await installFromZipBlob(new Blob([bytes as unknown as BlobPart]), entry.id);
+    return await installFromZipBlob(new Blob([bytes as unknown as BlobPart]), entry.id, {
+      source: 'catalog',
+      verification: oordeel.unverified ? 'unverified' : 'checksum',
+    });
   } catch (err) {
     console.error('[Extensies] Installeren vanuit catalogus mislukt:', err);
     appLog.emit('error', 'Extensies', err instanceof Error ? err.message : String(err));
-    return false;
+    return 'failed';
   }
 }
 
@@ -125,18 +196,18 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 // ── Installeren vanuit een lokaal ZIP-bestand ──
 
-export async function installFromFile(): Promise<boolean> {
+export async function installFromFile(): Promise<InstallOutcome> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.zip';
     input.style.display = 'none';
     document.body.appendChild(input);
-    input.addEventListener('cancel', () => { input.remove(); resolve(false); });
+    input.addEventListener('cancel', () => { input.remove(); resolve('declined'); });
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) { input.remove(); resolve(false); return; }
-      const result = await installFromZipBlob(file);
+      if (!file) { input.remove(); resolve('declined'); return; }
+      const result = await installFromZipBlob(file, undefined, { source: 'zip', verification: 'local' });
       input.remove();
       resolve(result);
     };
@@ -146,21 +217,28 @@ export async function installFromFile(): Promise<boolean> {
 
 // ── Installeren vanuit een los .js-bestand (simpele extensies) ──
 
-export async function installFromJsFile(): Promise<boolean> {
+export async function installFromJsFile(): Promise<InstallOutcome> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.js';
     input.style.display = 'none';
     document.body.appendChild(input);
-    input.addEventListener('cancel', () => { input.remove(); resolve(false); });
+    input.addEventListener('cancel', () => { input.remove(); resolve('declined'); });
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) { input.remove(); resolve(false); return; }
+      if (!file) { input.remove(); resolve('declined'); return; }
 
       try {
         const mainCode = await file.text();
         const manifest = extractManifestFromCode(mainCode, file.name);
+
+        // Vertrouwensvraag vóór élke schrijfactie — zie gateConsent.
+        if (!await gateConsent(manifest, manifest.id, { source: 'js', verification: 'local' })) {
+          input.remove();
+          resolve('declined');
+          return;
+        }
 
         await saveExtensionToDb({
           id: manifest.id,
@@ -178,11 +256,11 @@ export async function installFromJsFile(): Promise<boolean> {
         await enableExtension(manifest.id);
 
         input.remove();
-        resolve(true);
+        resolve('installed');
       } catch (err) {
         console.error('[Extensies] Installeren vanuit JS mislukt:', err);
         input.remove();
-        resolve(false);
+        resolve('failed');
       }
     };
     input.click();
@@ -231,7 +309,11 @@ const MAX_TOTAL_ASSET_BYTES = 48 * 1024 * 1024;
  * opslaan → activeren). Ook gebruikt door `installFromCatalog`/`installFromFile`; los geëxporteerd zodat
  * programmatische installatie (o.a. zelftests) hetzelfde pad kan aanroepen zonder bestandskiezer.
  */
-export async function installFromZipBlob(blob: Blob, overrideId?: string): Promise<boolean> {
+export async function installFromZipBlob(
+  blob: Blob,
+  overrideId?: string,
+  opts: InstallOptions = {},
+): Promise<InstallOutcome> {
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const files = await parseZipEntries(arrayBuffer);
@@ -275,6 +357,10 @@ export async function installFromZipBlob(blob: Blob, overrideId?: string): Promi
     }
     const hasAssets = Object.keys(assets).length > 0;
 
+    // Vertrouwensvraag — VÓÓR de eerste schrijfactie, en dus ook vóór het deactiveren van een
+    // eventuele vorige versie: een weigering mag niets achterlaten en niets kapotmaken.
+    if (!await gateConsent({ ...manifest, id }, id, opts)) return 'declined';
+
     // Al geïnstalleerd? Eerst deactiveren.
     if (getActivePlugins().has(id)) {
       await disableExtension(id);
@@ -297,10 +383,10 @@ export async function installFromZipBlob(blob: Blob, overrideId?: string): Promi
     useAppStore.getState().registerExtension(installed);
     await enableExtension(id);
 
-    return true;
+    return 'installed';
   } catch (err) {
     console.error('[Extensies] ZIP-installatie mislukt:', err);
-    return false;
+    return 'failed';
   }
 }
 

@@ -64,6 +64,26 @@ Twee dingen zijn hard, en het verschil is belangrijk:
 > **Installeer alleen extensies waarvan je de bron vertrouwt.** Een echte grens vergt uitvoering in
 > een Web Worker of iframe; dat staat op de roadmap.
 
+### Toestemming bij installeren
+
+Precies omdát er geen grens is, vraagt de app bij **installeren** om bevestiging — één keer, op het
+moment waarop je de maker vertrouwt, niet bij elke activering. Wat de dialoog toont:
+
+- **wie en wat**: naam, versie, auteur, omschrijving en repository uit het manifest;
+- **herkomst**: catalogus of lokaal bestand, en of de download tegen een checksum geverifieerd is;
+- **wat het concreet betekent** op dit platform (desktop of browser);
+- **de gedeclareerde permissies** — nadrukkelijk als *voorgenomen gebruik*, niet als beperking.
+
+Dat laatste is een bewuste keuze. Een afvinklijst in Android-stijl zou lezen als "de extensie is
+hiertoe beperkt", en dat is aantoonbaar onwaar; dan is de dialoog erger dan geen dialoog.
+
+Weigeren laat niets achter: geen record in de opslag, geen registratie, en een al geïnstalleerde
+vorige versie blijft draaien. Kan de vraag niet gesteld worden (geen dialoog beschikbaar), dan wordt
+er **niet** geïnstalleerd — de faalstand is weigeren, niet stil doorlaten.
+
+Zelftests slaan de vraag over via `window.__OPS__.extensions.installFromZip`; de dialoog zelf stuur
+je aan met `window.__OPS__.extensions.consent.set(fn)` / `.reset()` (dev-only).
+
 ### Twee versievelden, twee vragen
 
 `apiVersion` en `minAppVersion` lijken op elkaar maar beantwoorden verschillende vragen, en allebei
