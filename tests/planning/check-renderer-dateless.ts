@@ -87,7 +87,11 @@ const datelessMilestone = { ...stripDates(healthy, undefined), isMilestone: true
 // Gedateerde varianten voor de relatie-hittest: die moet mijlpalen WÉL accepteren (dat is de bug
 // die spec 2026-08-14 repareert) en sinds het eigenaarsbesluit van 2026-08-15 ook verzameltaken
 // (expandSummaryRelations rekent zo'n relatie door — geen spookrelatie meer).
-const datedMilestone = { ...healthy, id: 'ms-dated', isMilestone: true } as Task;
+// M3 (Opus-review T15-iteratie-2, regressie-anker): `scheduleDuration: 0` expliciet gezet — zonder
+// dat erft deze taak `healthy`'s reële duur (5), wat sinds T15/M3 een "mijlpaal-met-duur" is
+// (isZeroDurationMilestone===false, tekent als BALK, is WEL sleep-/resize-baar). Deze case test
+// bewust de ECHTE (0-duur) mijlpaal — "een ruit heeft geen duur om te resizen" hieronder.
+const datedMilestone = { ...healthy, id: 'ms-dated', isMilestone: true, time: { ...healthy.time, scheduleDuration: 0 } } as Task;
 const datedSummary = { ...healthy, id: 'sum-dated', childIds: ['kind-y'] } as Task;
 
 // Uur-mijlpaal (coördinator-nabespreking 2026-08-14): in UUR-modus voegt `barGeometry` géén

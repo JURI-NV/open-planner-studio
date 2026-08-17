@@ -285,6 +285,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   RDCHECK="$DIR/.renderer-dateless.mjs"
   if bundle_check "$DIR/check-renderer-dateless.ts" "$RDCHECK"; then node "$RDCHECK" || STATUS=1; fi
 
+  # M3 (Opus-review T15-iteratie-2, "UI-rimpel"): een mijlpaal-met-duur (T15) moet als gewone balk
+  # tekenen (drawTaskBar/roundRect, niet drawMilestone/ruit), haar eigen duurtekst tonen (niet "0d")
+  # en sleep-/resize-baar zijn — dezelfde discriminator als de solver (isZeroDurationMilestone).
+  MDCHECK="$DIR/.milestone-duration-render.mjs"
+  if bundle_check "$DIR/check-milestone-duration-render.ts" "$MDCHECK"; then node "$MDCHECK" || STATUS=1; fi
+
   RELRULES="$DIR/.relrules.mjs"
   if bundle_check "$DIR/check-relation-rules.ts" "$RELRULES"; then node "$RELRULES" || STATUS=1; fi
 
