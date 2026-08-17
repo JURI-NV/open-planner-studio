@@ -1791,7 +1791,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 21,
-      "finishDiff": 0
+      "finishDiff": 0,
+      "reason": "Z1-meetlatwissel (2026-08-17): 21 taken schuiven van exact naar sameday — uniform -60 min-translatie (SCHEDULED_START/FINISH vs. START/FINISH), geen nieuwe startDiff/finishDiff. Zie Z9a (manual-planningsmodus in de motor); dit is geen bewuste (c)-pin (hasDiff() blijft false) maar documenteert waarom deze teller verschoof."
     },
     "b745a438e2aa8bf6": {
       "root": "crawl",

@@ -225,6 +225,13 @@ eq('M1 classify: geen eigen waarde → missing', classify(undefined, '2026-01-05
     taskModeOffset?: number;
     taskModeMask?: number;
     fixed2DataTruncateTo?: number;
+    /** Fixronde-1-HOOG: `Fixed2Meta` blijft AANWEZIG (niet-`null`, dus de
+     *  `if (fixed2MetaBytes && fixed2DataBytes)`-guard in `scanGroundTruthTasks` laat de `try` in),
+     *  maar krijgt een ONGELDIG magic-getal — `FixedMeta.withItemSize` (aangeroepen door
+     *  `withHeuristicItemSize`) gooit daar altijd op, ongeacht gekozen itemSize. Dit is de enige
+     *  manier in deze fixture-bouwer om de `catch`-tak zelf (niet alleen de if-guard) daadwerkelijk
+     *  te bereiken — zie de fixture die deze vlag gebruikt in `check-mpp-fidelity.ts`. */
+    corruptFixed2Meta?: boolean;
   }): Uint8Array {
     const n = opts.tasks.length;
     const includeFixed2 = opts.includeFixed2Streams ?? true;
@@ -307,6 +314,7 @@ eq('M1 classify: geen eigen waarde → missing', classify(undefined, '2026-01-05
         data2Blob.set(rec, idx * Z1_BLOCK1_ITEM_SIZE);
       });
       if (opts.fixed2DataTruncateTo !== undefined) data2Blob = data2Blob.subarray(0, opts.fixed2DataTruncateTo);
+      if (opts.corruptFixed2Meta) mv.setUint32(0, 0, true); // ongeldig magic-getal ⇒ withItemSize gooit
       children.Fixed2Meta = { data: fixed2MetaBlob };
       children.Fixed2Data = { data: data2Blob };
     }
@@ -415,6 +423,38 @@ eq('M1 classify: geen eigen waarde → missing', classify(undefined, '2026-01-05
     }
   }
 
+  // ── Fixronde-1-HOOG: AANWEZIGE maar ONPARSEBARE Fixed2Meta (ongeldig magic-getal) — anders dan
+  // het acceptatiepunt hierboven (streams ONTBREKEN, dus de `if`-guard blijft dicht en de `try` in
+  // `scanGroundTruthTasks` wordt nooit betreden), gaat déze fixture WEL de `try` in en laat
+  // `FixedMeta.withHeuristicItemSize` (via `withItemSize`'s magic-controle) daadwerkelijk gooien —
+  // dus wordt de `catch`-tak zelf bereikt en geoefend, niet alleen de guard ervoor. Zonder deze
+  // fixture zou een kapotte `catch` (bv. per ongeluk een rethrow) door geen enkele bestaande case
+  // gevangen worden. Mutatiebewijs (uitgevoerd, zie het commitbericht): de `catch`-body in
+  // `mppGroundTruth.ts` tijdelijk vervangen door `throw err;` maakte UITSLUITEND de "geen
+  // exceptie"-assertie hieronder rood — alle andere Z1-fixtures (die nooit een corrupte stream
+  // hebben) bleven groen, wat bevestigt dat dit de enige fixture is die de `catch` echt raakt. ────
+  {
+    const corrupt: Z1TaskSpec = {
+      uniqueId: 501, id: 1, name: 'CorruptFixed2Meta', manual: true,
+      schedStart: { time: 4800, days: 15300 }, schedFinish: { time: 9600, days: 15300 },
+      rawStart: { time: 7200, days: 15302 }, rawFinish: { time: 9600, days: 15303 }, // moet GENEGEERD worden
+    };
+    const bytes = buildZ1Fixture({ tasks: [corrupt], corruptFixed2Meta: true });
+    let threw: string | null = null;
+    let raws: ReturnType<typeof scanGroundTruthTasks>['raws'] = [];
+    try {
+      ({ raws } = scanGroundTruthTasks(bytes));
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`Z1 onparsebare Fixed2Meta (ongeldig magic-getal): geen exceptie (${threw ?? ''})`, threw === null);
+    eq('Z1 onparsebare Fixed2Meta: 1 taak gelezen', raws.length, 1);
+    if (raws.length === 1) {
+      truthy('Z1 onparsebare Fixed2Meta: valt terug op SCHEDULED_START (rauwe TASK_MODE-bit onleesbaar)', raws[0].start?.getTime() === z1ExpectedDate(corrupt.schedStart).getTime());
+      truthy('Z1 onparsebare Fixed2Meta: valt terug op SCHEDULED_FINISH (rauwe TASK_MODE-bit onleesbaar)', raws[0].finish?.getTime() === z1ExpectedDate(corrupt.schedFinish).getTime());
+    }
+  }
+
   // ── Vijandige fixture (hardening-checklist §8): Fixed2Data ONTBREEKT niet, maar het item van de
   // taak zelf is korter dan de FINISH-offset (54+4=58) — moet netjes `null` geven i.p.v. een
   // out-of-bounds-crash, en de taak valt terug op SCHEDULED_START/FINISH (dezelfde
@@ -425,8 +465,12 @@ eq('M1 classify: geen eigen waarde → missing', classify(undefined, '2026-01-05
       schedStart: { time: 4800, days: 15200 }, schedFinish: { time: 9600, days: 15200 },
       rawStart: { time: 7200, days: 15202 }, rawFinish: { time: 9600, days: 15203 },
     };
-    // Eén taak op index 3 ⇒ itemOffset = 3 * 72 = 216; 30 bytes ná die offset dekt START (50) nog
-    // half, FINISH (54) helemaal niet — precies de grens die `data2.length >= offset + 4` bewaakt.
+    // Eén taak op index 3 ⇒ itemOffset = 3 * 72 = 216; het item krijgt daardoor een LOKALE lengte
+    // van 30 bytes (bytes.length − itemOffset, want dit is het laatste item) — dat dekt START
+    // (lokale offset 50, nodig: ≥54 bytes) NIET, en FINISH (lokale offset 54, nodig: ≥58 bytes)
+    // ook niet. Beide velden vallen dus terug op SCHEDULED_START/FINISH — precies de grens die
+    // `data2.length >= offset + 4` per veld bewaakt (T16-fixronde-correctie: een eerdere versie
+    // van dit commentaar beweerde ten onrechte dat START "nog half" gedekt zou zijn).
     const bytes = buildZ1Fixture({ tasks: [truncated], fixed2DataTruncateTo: 216 + 30 });
     let threw: string | null = null;
     let raws: ReturnType<typeof scanGroundTruthTasks>['raws'] = [];

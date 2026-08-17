@@ -111,6 +111,16 @@ const PROPS_KEY_TASK_FIELD_MAP = 131092; // PropsKey.java — zelfde waarde als 
 const PROPS_KEY_TASK_FIELD_MAP2 = 50331668; // gedupliceerd (niet geëxporteerd door dat bestand).
 const FIELD_MAP_ENTRY_SIZE = 28;
 const NO_FIXED_OFFSET = 65535;
+/** `fieldMap14.ts`'s `META_DATA_CATEGORIES` (FieldMap.java: category 0x0B/0x64 zijn boolean-
+ *  vlaggen in een apart meta-blok, geen FIXED_DATA/VAR_DATA-locatie) — hier gedupliceerd i.p.v.
+ *  geïmporteerd (dezelfde onafhankelijkheidsreden als de rest van dit bestand), zodat
+ *  `block1TaskStartFinishOffsets` hieronder de entries in dezelfde VOLGORDE overslaat als
+ *  `parseFieldMapBytes` (vóór de `dataBlockOffset`-boekhouding — een META_DATA-entry telt anders
+ *  onterecht mee in de blokindex-telling). Reviewbevinding (fixronde 1): eerder ontbrak dit
+ *  filter hier; corpusbreed gemeten op alle 216 leesbare bestanden gaf dat 0 divergentie t.o.v.
+ *  het gefilterde resultaat (START/FINISH lagen nooit in een META_DATA-categorie), maar het
+ *  docblok claimde ten onrechte een spiegeling die er niet was — nu wél echt. */
+const META_DATA_CATEGORIES = new Set([0x0b, 0x64]);
 
 /** Eigen, MINIMALE data-gedreven veldkaart-parser voor BLOK 1 (Fixed2Data) — bewust gedupliceerd
  *  t.o.v. `fieldMap14.ts`'s `parseFieldMapBytes`, die blok ≥1 bewust weggooit (block-1-lezen is
@@ -129,7 +139,9 @@ function block1TaskStartFinishOffsets(props: Props): { start: number; finish: nu
     for (let pos = 0; pos + FIELD_MAP_ENTRY_SIZE <= bytes.length; pos += FIELD_MAP_ENTRY_SIZE) {
       const dataBlockOffset = getShort(bytes, pos + 4, 'groundTruth fieldMap dataBlockOffset');
       const typeValue = getInt(bytes, pos + 12, 'groundTruth fieldMap typeValue');
+      const category = getShort(bytes, pos + 20, 'groundTruth fieldMap category');
       const index = typeValue & 0xffff;
+      if (META_DATA_CATEGORIES.has(category)) continue;
       if (dataBlockOffset === NO_FIXED_OFFSET) continue;
       if (dataBlockOffset < lastDataBlockOffset) dataBlockIndex++;
       lastDataBlockOffset = dataBlockOffset;
@@ -193,8 +205,12 @@ export function scanGroundTruthTasks(bytes: Uint8Array): { raws: RawTask[]; fiel
   // resource-precedent in `mppEntities.ts`'s `isFixed2MetaCostBit`/`readResourcesUnsafe` — een
   // ontbrekende of onparsebare stream ⇒ `fixed2Meta`/`fixed2Data` blijven `null`, en élke taak
   // valt dan terug op `SCHEDULED_START`/`FINISH` via `resolveScheduleField`'s `raw === null`-tak
-  // — geen exceptie, geen half-gelezen toestand. Acceptatiepunt 4 (vijandige fixture: stream
-  // ontbreekt volledig) bewijst dat in `check-mpp-fidelity.ts`.
+  // — geen exceptie, geen half-gelezen toestand. Twee APARTE fixtures in `check-mpp-fidelity.ts`
+  // bewijzen dat, elk een ander pad: acceptatiepunt 4 (stream ontbreekt volledig) bewijst de
+  // `if (fixed2MetaBytes && fixed2DataBytes)`-guard hieronder; een vijandige fixture met een
+  // AANWEZIGE maar onparsebare `Fixed2Meta` (ongeldig magic-getal) bewijst de `catch`-tak zelf
+  // (mutatiebewijs: de `catch`-body vervangen door een rethrow maakt precies díe fixture rood,
+  // de rest — die nooit door de `catch` gaat — blijft groen).
   const fixed2MetaBytes = cfb.getStream(['   114', 'TBkndTask', 'Fixed2Meta']);
   const fixed2DataBytes = cfb.getStream(['   114', 'TBkndTask', 'Fixed2Data']);
   let fixed2Meta: FixedMeta | null = null;
