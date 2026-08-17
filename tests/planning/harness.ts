@@ -254,10 +254,17 @@ interface TaskExpect {
    *  `durationMinutes` NA de solve — voor hammocks worden deze door de forward-pass HERSCHREVEN
    *  (afgeleide ES→EF-span, zie CPMSolver.ts), dus alleen dáár zinvol te pinnen. */
   scheduleDuration?: number; durationMinutes?: number;
-  /** Z0 (etappe "nul afwijkingen"): doorgifte-bewijs — `Task.manuallyScheduled` bereikt de taak via
-   *  de JSON-case-interpreter. Nog GEEN solver-gedrag (het veld is voorlopig ongebruikt); dit toetst
-   *  uitsluitend dat `buildAndSolve` de waarde daadwerkelijk doorgeeft aan `addTask`. */
+  /** Z0-fixronde (Opus-review, BEVINDING 1): doorgifte-bewijs voor de vier Z0-typecontractvelden op
+   *  `Task` — ze bereiken de taak via de JSON-case-interpreter. Nog GEEN solver-gedrag (alle vier
+   *  zijn voorlopig ongebruikt); dit toetst uitsluitend dat `buildAndSolve` de waarde daadwerkelijk
+   *  doorgeeft aan `addTask`. `splitGapCount` i.p.v. de rauwe `splitGaps`-array: de generieke
+   *  `gv !== wv`-vergelijking in `runCase` (verderop) is referentiegelijkheid en zou een array altijd
+   *  ongelijk vinden; de LENGTE is als scalar wél mutatie-bewijsbaar zonder die vergelijking aan te
+   *  passen. */
   manuallyScheduled?: boolean;
+  splitGapCount?: number;
+  levelingDelayMinutes?: number;
+  levelingDelayElapsed?: boolean;
 }
 
 interface CaseExpect {
@@ -484,7 +491,10 @@ function buildAndSolve(c: Case): {
       ...(t.deadline ? { deadline: t.deadline } : {}),
       // Z0 (etappe "nul afwijkingen"): typecontract-doorgifte — de solver leest deze velden nog
       // NERGENS (Task.splitGaps/manuallyScheduled/levelingDelayMinutes/levelingDelayElapsed bestaan
-      // alleen als type), dus dit blok bewijst uitsluitend dat de JSON-waarde de taak bereikt.
+      // alleen als type). Alle vier zijn per veld mutatie-bewezen doorgegeven aan `addTask`: de case
+      // "msp-14-z0-typecontract-passthrough" (cases-msp-pariteit.json) assert elk ervan via
+      // expect.tasks (manuallyScheduled/levelingDelayMinutes/levelingDelayElapsed rechtstreeks,
+      // splitGaps via de afgeleide `splitGapCount` in readTask — zie TaskExpect hierboven).
       ...(t.splitGaps ? { splitGaps: t.splitGaps } : {}),
       ...(t.manuallyScheduled !== undefined ? { manuallyScheduled: t.manuallyScheduled } : {}),
       ...(t.levelingDelayMinutes !== undefined ? { levelingDelayMinutes: t.levelingDelayMinutes } : {}),
@@ -775,8 +785,13 @@ function readTask(name: string, ids: Record<string, string>) {
     intf: t.time.interferingFloat, nearCrit: t.time.isNearCritical, floatPath: t.time.floatPath,
     // T8: rauw uitgelezen, geen KEYMAP-alias nodig (sleutelnaam == veldnaam).
     scheduleDuration: t.time.scheduleDuration, durationMinutes: t.time.durationMinutes,
-    // Z0: doorgifte-bewijs, zie TaskExpect.manuallyScheduled hierboven.
+    // Z0-fixronde: doorgifte-bewijs voor alle vier de nieuwe velden, zie TaskExpect hierboven.
+    // `splitGaps` zelf is een array (referentiegelijkheid onbruikbaar in de `!==`-vergelijking
+    // hieronder in `runCase`) — vandaar de LENGTE als scalar-observatie.
     manuallyScheduled: t.manuallyScheduled,
+    splitGapCount: t.splitGaps?.length ?? 0,
+    levelingDelayMinutes: t.levelingDelayMinutes,
+    levelingDelayElapsed: t.levelingDelayElapsed,
   };
 }
 
@@ -1239,7 +1254,8 @@ const TASK_EXPECT_KEYS = {
   tf: true, ff: true, intf: true,
   crit: true, nearCrit: true, floatPath: true,
   scheduleDuration: true, durationMinutes: true,
-  manuallyScheduled: true,
+  manuallyScheduled: true, splitGapCount: true,
+  levelingDelayMinutes: true, levelingDelayElapsed: true,
 } satisfies Record<keyof TaskExpect, true>;
 
 // Z0 (etappe "nul afwijkingen"): vóór deze taak had `Case['tasks'][number]` GEEN allowlist — een

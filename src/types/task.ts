@@ -85,8 +85,8 @@ export type DurationType = 'WORKTIME' | 'ELAPSEDTIME';
  * van de taak verschuift de gaten automatisch mee, absolute segmenten zouden bij elke herberekening
  * verouderen), geen INPUT/COMPUTED-dubbelrol (de gaten zijn brondata; de absolute segmenten die de
  * renderer/print tekenen zijn AFGELEID uit `earlyStart` + een kalenderwandeling), en een triviaal
- * `moveProject.ts`-verdict (er staat geen datum in, dus "keep" is aantoonbaar correct in plaats van
- * een handgeschreven shift).
+ * `moveProject.ts`-verdict (er staat geen datum in, dus "n/a" is aantoonbaar correct — zelfde
+ * taxonomie als `levelingDelay` — in plaats van een handgeschreven shift).
  */
 export interface TaskSplitGap { afterMinutes: number; gapMinutes: number }
 

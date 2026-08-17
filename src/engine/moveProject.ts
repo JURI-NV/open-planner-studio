@@ -79,10 +79,14 @@ const TASK_VERDICTS = {
   levelingDelay: 'n/a',           // vertraging in werkdagen (relatief)
   levelingDelayMinutes: 'n/a',    // Z0: subdag-precisie van levelingDelay, zelfde relatieve aard
   levelingDelayElapsed: 'n/a',    // Z0: vlag bij levelingDelayMinutes, geen datum
-  splitGaps: 'keep',              // Z0: offset-gebaseerd (afterMinutes/gapMinutes) — geen datums erin,
-                                   // dus niets om te verschuiven; blijft absoluut ongewijzigd staan
-  manuallyScheduled: 'keep',      // Z0: vlag, geen datum — de datums eronder (time.*) schuiven al
-                                   // normaal mee via TASK_TIME_VERDICTS
+  splitGaps: 'n/a',                // Z0-fixronde (orkestratorbesluit BEVINDING 2): offset-gebaseerd
+                                    // (afterMinutes/gapMinutes) — geen datum erin, dus dezelfde
+                                    // taxonomie als levelingDelay hierboven ('n/a', niet 'keep':
+                                    // 'keep' is voor velden met een datum die je BEWUST niet
+                                    // verschuift, splitGaps heeft er nooit een gehad)
+  manuallyScheduled: 'n/a',        // Z0-fixronde (orkestratorbesluit BEVINDING 2): vlag, geen datum —
+                                    // zelfde taxonomie als isHammock hierboven; de datums eronder
+                                    // (time.*) schuiven al normaal mee via TASK_TIME_VERDICTS
   parentId: 'n/a', childIds: 'n/a',
   time: 'shift',                  // zie TASK_TIME_VERDICTS
   resourceIds: 'n/a', color: 'n/a', activityCodes: 'n/a',

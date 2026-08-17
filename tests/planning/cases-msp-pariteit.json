@@ -766,20 +766,26 @@
     },
     {
       "id": "msp-14-z0-typecontract-passthrough",
-      "title": "Z0 (etappe \"nul afwijkingen\"): doorgifte-bewijs voor `Task.splitGaps`/`manuallyScheduled` — beide velden bereiken de taak via de JSON-case-interpreter (`buildAndSolve`'s `addTask`-spread) zonder enig solver-gedrag te veranderen (de solver leest ze nog nergens): A -FS+0-> M rekent BYTE-IDENTIEK aan de kale versie zonder deze velden. `manuallyScheduled` wordt hier ook geobserveerd via `expect.tasks` (readTask/TaskExpect) — dat is het mutatiebewijs dat de doorgifte-spread in harness.ts echt bestaat en niet stil wegvalt. `splitGaps` heeft geen expect-tegenhanger (offset-array, geen scalar); dat het bestand hier zonder foutmelding doorrekent is zélf het bewijs dat het de taak bereikt (een onbekende/foutieve sleutel zou door TASK_KEYS/validateCaseKeys hard falen, niet stil een ander scenario doorrekenen).",
+      "title": "Z0-fixronde (Opus-review BEVINDING 1): doorgifte-bewijs voor alle VIER Z0-typecontractvelden op `Task` — `splitGaps` (via de afgeleide `splitGapCount`), `manuallyScheduled`, `levelingDelayMinutes`, `levelingDelayElapsed` bereiken de taak via de JSON-case-interpreter (`buildAndSolve`'s `addTask`-spread) zonder enig solver-gedrag te veranderen (de solver leest ze nog nergens): A -FS+0-> M rekent BYTE-IDENTIEK aan de kale versie zonder deze velden. Elk van de vier is hier mutatie-bewezen (fixronde-verslag): de doorgifte-spread van dat ene veld weghalen uit `buildAndSolve` maakt de bijbehorende `expect.tasks.A`-cel ROOD, herstel maakt 'm weer groen — dat is het bewijs dat de doorgifte-spread in harness.ts echt bestaat en niet stil wegvalt.",
       "anchor": "2026-07-06",
       "tasks": [
         {
           "name": "A", "dur": 3,
           "splitGaps": [{ "afterMinutes": 120, "gapMinutes": 480 }],
-          "manuallyScheduled": true
+          "manuallyScheduled": true,
+          "levelingDelayMinutes": 45,
+          "levelingDelayElapsed": true
         },
         { "name": "M", "milestone": true, "milestoneKind": "FINISH" }
       ],
       "links": [{ "pred": "A", "succ": "M", "type": "FINISH_START" }],
       "expect": {
         "tasks": {
-          "A": { "es": "2026-07-06", "ef": "2026-07-08", "tf": 0, "crit": true, "manuallyScheduled": true },
+          "A": {
+            "es": "2026-07-06", "ef": "2026-07-08", "tf": 0, "crit": true,
+            "manuallyScheduled": true, "splitGapCount": 1,
+            "levelingDelayMinutes": 45, "levelingDelayElapsed": true
+          },
           "M": { "es": "2026-07-08", "ef": "2026-07-08", "tf": 0, "crit": true }
         },
         "projectEnd": "2026-07-08",
