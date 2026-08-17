@@ -11,7 +11,7 @@ import {
   type OccupancyDocInput,
   type OccupancyRow,
 } from '@/services/library/occupancy';
-import { documentTitle, untitledOrdinals, displayDocumentTitle, documentColor } from '@/utils/documents';
+import { documentTitle, untitledOrdinals, displayDocumentTitle, DOC_PALETTE } from '@/utils/documents';
 import { maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
 import { parseDate, formatDate, addCalendarDays, diffDays } from '@/utils/dateUtils';
 
@@ -125,7 +125,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   // referentie.
   const sliceCache = useMemo(() => new WeakMap<DocumentPayload, LibrarySlice>(), [companyId, pool]);
 
-  const { rows, anyUncountedStale, anyCountedStale } = useMemo(() => {
+  const { rows, anyUncountedStale, anyCountedStale, docColors } = useMemo(() => {
     const payloads = getOpenDocumentPayloads();
     // Zelfde titel-afleiding als de tabbladen: rauwe titels eerst, dan volgnummers voor naamloze
     // documenten, dan het vertaalde label eromheen (zie `getOpenDocuments`/`useDocumentCards`).
@@ -174,13 +174,20 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
     // hier niet fijnmazig genoeg voor die keuze.
     let anyUncountedStale = false;
     let anyCountedStale = false;
+    // Unieke documentkleuren (i.p.v. de hash-gebaseerde `documentColor`, die bij toeval kan
+    // botsen): één toewijzing per docId, op volgorde van eerste verschijnen in de zichtbare data
+    // (de gesorteerde rijen + hun docs). Zo blijft elke docId uniek zolang het palet reikt, en
+    // hergebruikt na uitputting — en de toewijzing is stabiel zolang dezelfde documenten in
+    // dezelfde volgorde zichtbaar blijven, want ze wordt puur uit `sorted` afgeleid.
+    const docColors = new Map<string, string>();
     for (const row of sorted) {
       for (const doc of row.docs) {
-        if (!doc.counted) anyUncountedStale = true;
-        else if (doc.scheduleStale) anyCountedStale = true;
+        if (!docColors.has(doc.docId)) {
+          docColors.set(doc.docId, DOC_PALETTE[docColors.size % DOC_PALETTE.length]);
+        }
       }
     }
-    return { rows: sorted, anyUncountedStale, anyCountedStale };
+    return { rows: sorted, anyUncountedStale, anyCountedStale, docColors };
   }, [
     getOpenDocumentPayloads, sliceCache, documents, pool, companyId, untitledLabel, i18n.language,
     activeProject, activeFilePath,
@@ -341,7 +348,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                             <div key={doc.docId} className="flex items-center gap-2 min-w-0">
                               <span
                                 className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                style={{ background: documentColor(doc.docId) }}
+                                style={{ background: docColors.get(doc.docId) }}
                                 aria-hidden
                               />
                               <span className="truncate font-medium">{doc.title || untitledLabel}</span>
@@ -404,7 +411,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                 {t('resource.occupancy.staleDoc')}
               </p>
             ) : (
-              <OccupancyHistogram row={selectedRow} poolItem={selectedPoolItem} untitledLabel={untitledLabel} />
+              <OccupancyHistogram row={selectedRow} poolItem={selectedPoolItem} untitledLabel={untitledLabel} docColors={docColors} />
             )
           ) : (
             <p className="text-text-secondary">{t('resource.occupancy.selectHint')}</p>
@@ -475,10 +482,12 @@ function expandDays(from: string, to: string): string[] {
  * omringende tabel en legenda volgen gewoon de documentrichting. SVG in de DOM; bewust niet de
  * canvas-`HistogramRenderer` (die hangt aan de tijdschaal van het actieve project).
  */
-function OccupancyHistogram({ row, poolItem, untitledLabel }: {
+function OccupancyHistogram({ row, poolItem, untitledLabel, docColors }: {
   row: OccupancyRow;
   poolItem: Resource;
   untitledLabel: string;
+  /** Unieke documentkleuren (§ zie boven) — dezelfde toewijzing als de tabel/legenda. */
+  docColors: Map<string, string>;
 }) {
   const { t } = useTranslation('common');
 
@@ -590,7 +599,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
             y: y1,
             w: Math.max(1, dayWidth - 1),
             h: Math.max(0.5, y0 - y1),
-            fill: documentColor(doc.docId),
+            fill: docColors.get(doc.docId) ?? DOC_PALETTE[0],
           });
         }
         // Capaciteits-traplijn: horizontaal over de dag, verticaal op elke knik.
@@ -630,7 +639,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
       capStartY: yOf(capStart),
       capStartValue: capStart,
     };
-  }, [row, poolItem]);
+  }, [row, poolItem, docColors]);
 
   if (chart === null) {
     // Kan alleen bij een rij zonder getelde boekingen — de aanroeper vangt dat al af (§5a).
@@ -711,7 +720,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-ops-occupancy-legend>
         {row.docs.map(doc => (
           <span key={doc.docId} className="inline-flex items-center gap-1.5 min-w-0">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: documentColor(doc.docId) }} aria-hidden />
+            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: docColors.get(doc.docId) }} aria-hidden />
             <span className="truncate text-[10px] text-text-secondary">{doc.title || untitledLabel}</span>
             {!doc.counted && (
               <AlertTriangle size={11} style={{ color: 'var(--theme-warning-text)' }} aria-label={t('resource.occupancy.staleDoc')} />
