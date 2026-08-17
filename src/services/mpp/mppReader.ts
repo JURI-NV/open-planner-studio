@@ -237,6 +237,18 @@ export function clampOutlineLevel(raw: number): number {
  * gebruiken.
  */
 
+/** Gedeelde 2010-vs-2013+-versiegrens (`applicationVersion <= PROJECT_2010(14)`), hergebruikt door
+ *  élke bit-flag-tabelkeuze in dit bestand — MPXJ's eigen `MPP14Reader` onderscheidt zelf drie
+ *  versies (2010/2013/2016) voor sommige tabellen, maar 2013 en 2016 delen voor élk bit-mechanisme
+ *  dat déze lezer gebruikt (milestone, TASK_MODE) letterlijk dezelfde offset/mask — zie
+ *  `milestoneBitFlag`'s eigen toelichting hieronder het "twee gevallen volstaan"-argument. Z2
+ *  (etappe "nul afwijkingen") tilt deze grens uit `milestoneBitFlag` naar een gedeelde helper zodat
+ *  `taskModeBitFlag` hieronder 'm hergebruikt i.p.v. een tweede, potentieel uit de pas lopende
+ *  `<= 14`-check te verzinnen (plan-§Z2: "hergebruik die logica, geen tweede grens"). */
+function isLegacyBitFlagVersion(applicationVersion: number | null): boolean {
+  return (applicationVersion ?? 0) <= 14; // MPXJ: NumberHelper.getInt(null) === 0
+}
+
 /** Milestone-vlag: `MppBitFlag(TaskField.MILESTONE, offset, mask, ...)` uit MPP14Reader.java's
  *  `PROJECT20xx_TASK_META_DATA_BIT_FLAGS`-tabellen. Voor déze lezer is alleen de MILESTONE-regel
  *  nodig (de rest van die tabellen — FLAG1..20, MARKED, ROLLUP, … — valt buiten T5's veldenlijst).
@@ -250,18 +262,6 @@ export function clampOutlineLevel(raw: number): number {
  *  levert alle drie bestanden altijd een echte versie op ("Microsoft.Project 16.0"), dus dit pad
  *  raakt het corpus niet — het is puur voor MPXJ-trouw bij een onherkenbare/afwezige versiestring
  *  in een ander bestand. */
-/** Gedeelde 2010-vs-2013+-versiegrens (`applicationVersion <= PROJECT_2010(14)`), hergebruikt door
- *  élke bit-flag-tabelkeuze in dit bestand — MPXJ's eigen `MPP14Reader` onderscheidt zelf drie
- *  versies (2010/2013/2016) voor sommige tabellen, maar 2013 en 2016 delen voor élk bit-mechanisme
- *  dat déze lezer gebruikt (milestone, TASK_MODE) letterlijk dezelfde offset/mask — zie
- *  `milestoneBitFlag`'s eigen toelichting hierboven het "twee gevallen volstaan"-argument. Z2
- *  (etappe "nul afwijkingen") tilt deze grens uit `milestoneBitFlag` naar een gedeelde helper zodat
- *  `taskModeBitFlag` hieronder 'm hergebruikt i.p.v. een tweede, potentieel uit de pas lopende
- *  `<= 14`-check te verzinnen (plan-§Z2: "hergebruik die logica, geen tweede grens"). */
-function isLegacyBitFlagVersion(applicationVersion: number | null): boolean {
-  return (applicationVersion ?? 0) <= 14; // MPXJ: NumberHelper.getInt(null) === 0
-}
-
 function milestoneBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
   return isLegacyBitFlagVersion(applicationVersion)
     ? { offset: 8, mask: 0x20 } // PROJECT2010_TASK_META_DATA_BIT_FLAGS

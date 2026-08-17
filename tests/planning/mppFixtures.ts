@@ -475,9 +475,21 @@ export function encodeAsciiWithTerminator(s: string): Uint8Array {
 
 /** Spiegelt CompObj.java: 28 filler-bytes, dan lengte-geprefixte ASCII-strings (elke lengte telt
  *  de null-terminator mee). We stoppen na `fileFormat` — de applicationID-lengte (0, dus
- *  "overslaan") sluit het blok consistent af. */
-export function encodeCompObjFileFormat(fileFormat: string): Uint8Array {
-  const nameBytes = encodeAsciiWithTerminator('OPS synthetic'); // willekeurig, mits ≠ "Microsoft Project 4.0"
+ *  "overslaan") sluit het blok consistent af.
+ *
+ *  `applicationName` (Z2-fixronde, optioneel — default `'OPS synthetic'`, dus BYTE-IDENTIEK voor
+ *  élke bestaande aanroeper die 'm niet meegeeft): `mppContainer.ts`'s `detectApplicationVersion`
+ *  leest dit veld en matcht 'm tegen `Microsoft.Project.(\d+).0` om Project-≤2010 vs. 2013+ te
+ *  onderscheiden (bit-vlag-tabellen voor milestone/TASK_MODE verschillen daartussen — zie
+ *  `mppReader.ts`'s `isLegacyBitFlagVersion`/`taskModeBitFlag`). Zonder deze parameter matcht de
+ *  vaste `'OPS synthetic'`-naam dat patroon nooit, dus `detectApplicationVersion` geeft altijd
+ *  `null` en élke fixture in dit project landde tot nu toe stilzwijgend op het 2010-legacy-pad —
+ *  onbedoeld, want het VOLLEDIGE corpus leest in werkelijkheid via het 2013+/moderne masker. Geef
+ *  bv. `'Microsoft.Project 16.0'` mee om een moderne-versie-fixture te bouwen (spiegelt de
+ *  corpus-geverifieerde vorm, zie `APPLICATION_VERSION_PATTERN`'s eigen toelichting — de punten
+ *  in het patroon zijn ongeëscapete regex-jokers en matchen dus ook de spatie). */
+export function encodeCompObjFileFormat(fileFormat: string, applicationName = 'OPS synthetic'): Uint8Array {
+  const nameBytes = encodeAsciiWithTerminator(applicationName); // willekeurig, mits ≠ "Microsoft Project 4.0"
   const fmtBytes = encodeAsciiWithTerminator(fileFormat);
   const out = new Uint8Array(28 + 4 + nameBytes.length + 4 + fmtBytes.length + 4);
   const view = new DataView(out.buffer);

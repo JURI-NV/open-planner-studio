@@ -2891,10 +2891,17 @@ if (corpusPresent) {
     durationRaw: number;
     startTime: number; startDays: number;
     finishTime: number; finishDays: number;
-    /** Zet de TASK_MODE-bit in het Fixed2Meta-record van deze taak (offset 8, masker 0x08 —
-     *  deze fixture zet nooit een `applicationVersion`-Props-sleutel, dus `detectApplicationVersion`
-     *  geeft `null` en `taskModeBitFlag` kiest het legacy-2010-masker). */
+    /** Zet de TASK_MODE-bit in het Fixed2Meta-record van deze taak via het LEGACY-masker (0x08) —
+     *  alleen zinvol zonder `opts.applicationName` (dan geeft `detectApplicationVersion` `null` en
+     *  kiest `taskModeBitFlag` het 2010-pad). Voor een 2013+-fixture: gebruik `manualMetaByte`
+     *  hieronder i.p.v. deze vlag (die schrijft altijd 0x08, nooit 0x80). */
     manual?: boolean;
+    /** Z2-fixronde (MEDIUM): overschrijft `manual` hierboven — schrijft DIT letterlijke byte op
+     *  Fixed2Meta-offset 8, ongeacht `manual`. Nodig om de 2013+/0x80-tak van `taskModeBitFlag`
+     *  te bewijzen (0x80 gezet ⇒ MANUALLY_SCHEDULED) én om aan te tonen dat het LEGACY-bit (0x08)
+     *  op een 2013+-bestand GEEN effect heeft (het moderne masker is 0x80, niet 0x08) — spiegelt
+     *  Z1's acceptatiepunt 3 ("gebruik het 2010-masker op een 2013-fixture ⇒ rood"). */
+    manualMetaByte?: number;
     manualStartTime?: number; manualStartDays?: number;
     manualFinishTime?: number; manualFinishDays?: number;
     manualDurationRaw?: number;
@@ -2937,11 +2944,13 @@ if (corpusPresent) {
     return out;
   }
 
-  function buildZ2Fixed2MetaRecord(offsetIntoFixed2Data: number, manual: boolean): Uint8Array {
+  function buildZ2Fixed2MetaRecord(offsetIntoFixed2Data: number, manual: boolean, metaByteOverride?: number): Uint8Array {
     const out = new Uint8Array(Z2_FIXED2_META_ITEM_SIZE);
     const view = new DataView(out.buffer);
     view.setInt32(4, offsetIntoFixed2Data, true);
-    out[8] = manual ? 0x08 : 0x00; // PROJECT2010_TASK_META_DATA2_BIT_FLAGS (geen applicationVersion ⇒ legacy-pad)
+    // `metaByteOverride` (Z2-fixronde) wint als gezet — laat een test het LETTERLIJKE byte op
+    // offset 8 kiezen (0x08 legacy vs. 0x80 modern), i.p.v. altijd het legacy-bit te schrijven.
+    out[8] = metaByteOverride !== undefined ? metaByteOverride : (manual ? 0x08 : 0x00);
     return out;
   }
 
@@ -2989,7 +2998,10 @@ if (corpusPresent) {
     { defaultFlag: 0 as const },
   ];
 
-  function buildZ2Fixture(tasks: Z2TaskSpec[], opts: { includeFixed2?: boolean; corruptFixed2Meta?: boolean } = {}): Uint8Array {
+  function buildZ2Fixture(
+    tasks: Z2TaskSpec[],
+    opts: { includeFixed2?: boolean; corruptFixed2Meta?: boolean; applicationName?: string } = {},
+  ): Uint8Array {
     const includeFixed2 = opts.includeFixed2 ?? true;
     const n = tasks.length;
     const dummyMeta = buildZ2TaskFixedMetaRecord(0);
@@ -3014,7 +3026,7 @@ if (corpusPresent) {
       fixed2Records.forEach((rec, i) => fixed2DataBlob!.set(rec, fixed2Offsets[i]));
 
       const dummyFixed2Meta = buildZ2Fixed2MetaRecord(0, false);
-      const fixed2Metas = tasks.map((t, i) => buildZ2Fixed2MetaRecord(fixed2Offsets[i], !!t.manual));
+      const fixed2Metas = tasks.map((t, i) => buildZ2Fixed2MetaRecord(fixed2Offsets[i], !!t.manual, t.manualMetaByte));
       fixed2MetaBlob = buildZ2Fixed2MetaBlob([dummyFixed2Meta, dummyFixed2Meta, dummyFixed2Meta, ...fixed2Metas]);
       // Test 3b (rode-pad-fixture voor de try/catch rond `FixedMeta.withHeuristicItemSize`/
       // `FixedData.fromMeta` in `readTasks`): STREAM AANWEZIG maar te klein voor zelfs de
@@ -3097,7 +3109,10 @@ if (corpusPresent) {
     }
 
     const tree: Record<string, CfbTreeNode> = {
-      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+      // `applicationName` (Z2-fixronde): OPTIONEEL — default `undefined` laat `encodeCompObjFileFormat`
+      // zijn eigen `'OPS synthetic'`-default gebruiken (2010-legacy-pad, byte-identiek aan vóór deze
+      // fixronde). Alleen de nieuwe 2013+-fixture hieronder geeft 'm expliciet mee.
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14', opts.applicationName) },
       Props14: { data: encodePropsSingleByteEntry(893386752, 0) },
       '   114': {
         children: {
@@ -3227,6 +3242,42 @@ if (corpusPresent) {
     truthy(
       `[Z2 clamp] manualDurationRaw geklemd op MAX_MANUAL_DURATION_TENTHS (kreeg ${raw?.manualDurationRaw})`,
       raw?.manualDurationRaw === MAX_MANUAL_DURATION_TENTHS,
+    );
+  }
+
+  // ── Test 2c/2d — Z2-fixronde (MEDIUM): de 2013+/0x80-tak van `taskModeBitFlag` had tot nu toe
+  // GEEN corpusloze fixture — alle fixtures hierboven laten `applicationName` weg, dus
+  // `detectApplicationVersion` gaf steeds `null` en elke case liep stilzwijgend over het
+  // 2010-LEGACY-pad (0x08), nooit over het pad dat het VOLLEDIGE corpus daadwerkelijk gebruikt
+  // (2013+/0x80). Twee cases, spiegelt Z1's acceptatiepunt 3 (2010-masker op een 2013-fixture
+  // ⇒ rood): (2c) een 2013+-fixture met het MODERNE bit (0x80) gezet ⇒ MANUALLY_SCHEDULED; (2d)
+  // DEZELFDE 2013+-fixture met uitsluitend het LEGACY-bit (0x08, GEEN 0x80) ⇒ AUTO_SCHEDULED —
+  // bewijst dat 0x08 op een moderne versie geen effect heeft, alleen 0x80 telt. ──────────────────
+  {
+    const bytes2c = buildZ2Fixture(
+      [{
+        name: 'Modern0x80', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manualMetaByte: 0x80,
+      }],
+      { applicationName: 'Microsoft.Project 16.0' },
+    );
+    const raw2c = findRaw(scanZ2(bytes2c), 10);
+    truthy(
+      `[Z2 modern 0x80] taskMode === MANUALLY_SCHEDULED op een 2013+-fixture (kreeg ${raw2c?.taskMode})`,
+      raw2c?.taskMode === 'MANUALLY_SCHEDULED',
+    );
+
+    const bytes2d = buildZ2Fixture(
+      [{
+        name: 'Modern0x08Only', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manualMetaByte: 0x08,
+      }],
+      { applicationName: 'Microsoft.Project 16.0' },
+    );
+    const raw2d = findRaw(scanZ2(bytes2d), 10);
+    truthy(
+      `[Z2 modern 0x08-only] taskMode === AUTO_SCHEDULED — het legacy-bit alléén telt niet op een 2013+-bestand (kreeg ${raw2d?.taskMode})`,
+      raw2d?.taskMode === 'AUTO_SCHEDULED',
     );
   }
 
