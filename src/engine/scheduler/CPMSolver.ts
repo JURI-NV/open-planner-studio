@@ -344,6 +344,23 @@ export class CPMSolver {
   private snapOnOrAfter(eng: CalendarEngine, d: Date): Date {
     return snapWorkInstantOnOrAfter(eng, d);
   }
+  /** B4 (Opus-her-check T15-fixronde): snap een geregistreerd FEIT (actualStart/actualFinish)
+   *  VOORWAARTS naar de eerstvolgende werk-instant, MAAR alleen als die instant op DEZELFDE
+   *  kalenderdag blijft — kruist de snap naar een andere dag, dan blijft het rauwe instant staan.
+   *  Reconcilieert twee tegenstrijdige corpusmetingen: `mpp14resource.mpp`'s "Completed Task"
+   *  (actualStart zaterdag, MSP-eigen SCHEDULED_START blijft zaterdag — GEEN dag-kruisende snap;
+   *  de aanleiding voor H1/c2's oorspronkelijke "nooit snappen"-aanname) tegenover
+   *  `mpp14timephasedsegmentsmanual.mpp`'s "Task Three"/"Task Four" (actualStart 07:00, buiten de
+   *  band maar op een GEWONE werkdag — MSP-eigen SCHEDULED_START snapt hier WEL door naar 08:00,
+   *  een BINNEN-dag-snap; gevonden via B4's eigen corpus-verificatie, die de kale "nooit snappen"-
+   *  variant op dit bestand van 100% exact naar 2 sameday-taken liet zakken). MSP normaliseert dus
+   *  een sub-dag-afwijking BINNEN dezelfde dag, maar verplaatst een geregistreerd feit nooit naar
+   *  een ANDERE kalenderdag — precies wat deze functie doet. Vervangt de kale `snapOnOrAfter`/
+   *  `parseIn`-keuze in zowel de VOLTOOID- als de IN-PROGRESS-branch van de voortgangstak. */
+  private snapActualForward(eng: CalendarEngine, d: Date): Date {
+    const snapped = this.snapOnOrAfter(eng, d);
+    return this.startOfDay(snapped).getTime() === this.startOfDay(d).getTime() ? snapped : d;
+  }
   /** Snap op-of-vóór (achterwaarts): dag ⇒ `prevWorkDay`, uur ⇒ `prevWorkInstant`. */
   private snapOnOrBefore(eng: CalendarEngine, d: Date): Date {
     return eng.isHourMode ? eng.prevWorkInstant(d) : eng.prevWorkDay(d);
@@ -926,7 +943,11 @@ export class CPMSolver {
         const t = task.time;
         if (t.actualFinish && t.completion >= 1) {
           // (1) VOLTOOID: volledig gepind op actuals — geen forward-drift voorbij actualFinish.
-          let es = this.parseIn(cal, t.actualStart ?? t.actualFinish);
+          // B4 (Opus-her-check T15-fixronde): `snapActualForward` i.p.v. een kale parse — snapt
+          // BINNEN dezelfde dag (bv. 07:00 → 08:00), maar verplaatst nooit naar een andere dag (bv.
+          // zaterdag → maandag). Zie die functie se docblock voor de twee tegenstrijdige
+          // corpusmetingen die dit reconcilieert.
+          let es = this.snapActualForward(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
           // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
           // VOLTOOIDE mijlpaal-met-duur (T15) is voor de PLANNING een gewone taak en hoort dus de
@@ -959,9 +980,14 @@ export class CPMSolver {
           // hieronder valt zonder statusdatum terug op `actualES` zelf (de enige zinvolle "as of"-
           // ondergrens die overblijft — RETAINED_LOGIC's `max(dataDate, voorganger-druk)`-formule
           // blijft verder ONGEWIJZIGD, ze krijgt alleen een andere startwaarde vóór de max).
-          const actualES = t.actualStart
-            ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart))
-            : earlyStart;
+          // B4 (Opus-her-check T15-fixronde): `snapActualForward` i.p.v. een kale parse — dezelfde
+          // dag-behoudende-snap-redenering als de VOLTOOID-branch hierboven (zie
+          // `snapActualForward`'s docblock voor de twee tegenstrijdige corpusmetingen die dit
+          // reconcilieert: dag-kruisend blijft ongesnapt, binnen-dag snapt wél). Vóór deze fix
+          // snapte een IN-PROGRESS-taak se weekend-actualStart altijd naar de eerstvolgende werkdag
+          // terwijl een VOLTOOIDE taak se weekend-actualStart dat niet deed — dezelfde soort taak
+          // kreeg zo een ANDER antwoord al naargelang completion toevallig <1 of ===1 stond.
+          const actualES = t.actualStart ? this.snapActualForward(cal, this.parseIn(cal, t.actualStart)) : earlyStart;
           // Restwerk: uur ⇒ `remainingMinutes ?? durationMinutes × (1−completion)`; dag ⇒ werkdagen (§5.3).
           const totalSpan = cal.isHourMode ? durationMinutesOf(task, cal) : t.scheduleDuration;
           const remaining = cal.isHourMode
