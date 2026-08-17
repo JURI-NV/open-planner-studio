@@ -30,6 +30,10 @@ export interface ScheduleSlice {
    *  mutator van `datesAsRecorded` doet dat), maar zet bewust géén `isDirty` — de state komt hiermee
    *  dichter bij het bestand te liggen, niet verder. No-op zonder `recordedDates`. */
   showRecordedDates: () => void;
+  /** Aanbod afslaan: de strook verdwijnt en de gebruiker werkt normaal verder met de herberekende
+   *  planning. Géén undo-snapshot — er verandert niets aan de projectdata, alleen een aanbod
+   *  verdwijnt. */
+  dismissRecordedDates: () => void;
   runCPM: () => void;
   /** Herbereken ALLEEN de resource-belasting op de bestaande CPM-datums (A6): pure resource-
    *  mutaties (toewijzen, capaciteit, kalender) verversen zo het histogram direct, ZONDER runCPM en
@@ -182,6 +186,24 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       // BEWUST GEEN finishMutation: er is niets gewijzigd t.o.v. het bestand.
     });
     get().recomputeViewRows();
+  },
+
+  dismissRecordedDates: () => {
+    // Géén beginUndoable/finishMutation: dit vuurt alleen in de AANBOD-stand (recordedDates gezet,
+    // datesAsRecorded nog false) en raakt geen projectdata (tasks/cpmResult) of `datesAsRecorded`
+    // aan — alleen het aanbod zelf verdwijnt. Dat lijkt in te gaan tegen de snapshot.ts-invariant
+    // ("élke mutator van een 'ref'-snapshotveld pusht een snapshot"), maar die invariant bewaakt
+    // DATA-consistentie: dat een undo nooit een half-oude/half-nieuwe combinatie van velden kan
+    // opleveren (bug-klasse B3, bv. wbsAutoNumber). Hier is er geen combinatie om uit elkaar te
+    // laten lopen — `recordedDates` bepaalt alleen of de strook een aanbod tóónt, en elke ECHTE
+    // mutator (showRecordedDates, runCPM) pusht zijn EIGEN snapshot mét de op-dat-moment geldende
+    // waarde van dit veld erin, dus die snapshots blijven intern consistent ongeacht wat dismiss
+    // deed. Precedent: `recomputeResourceLoad` muteert `resourceLoadResult` (ook 'ref') net zo
+    // zonder snapshot, om dezelfde reden — een zuiver afgeleid/advies-veld, geen brondata.
+    // Effect van het ontbreken van een snapshot: een latere undo die vóór deze dismiss terugspoelt
+    // laat het aanbod correct herverschijnen (het bestond toen echt), in plaats van dat "dismiss"
+    // een eigen ongedaan-te-maken stap wordt — precies de bedoeling voor een wegklikbare melding.
+    set((s) => { s.recordedDates = null; });
   },
 
   levelResources: (options) => {

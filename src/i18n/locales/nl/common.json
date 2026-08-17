@@ -691,6 +691,13 @@
     "notice": "Dit bestand bevat urenplanning.",
     "enable": "Urenplanning aanzetten"
   },
+  "recordedDates": {
+    "offer_one": "Herberekening verschoof {{count}} van de {{total}} taken t.o.v. de datums in het bestand.",
+    "offer_other": "Herberekening verschoof {{count}} van de {{total}} taken t.o.v. de datums in het bestand.",
+    "show": "Opgeslagen datums tonen",
+    "active": "Je ziet de datums zoals ze in het bestand staan. Er is niet herberekend.",
+    "recalculate": "Herberekenen"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "u",

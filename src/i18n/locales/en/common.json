@@ -691,6 +691,13 @@
     "notice": "This file contains hour-based planning.",
     "enable": "Enable hour planning"
   },
+  "recordedDates": {
+    "offer_one": "Recalculating shifted {{count}} of {{total}} tasks from the dates in the file.",
+    "offer_other": "Recalculating shifted {{count}} of {{total}} tasks from the dates in the file.",
+    "show": "Show recorded dates",
+    "active": "You're viewing the dates as recorded in the file. Nothing has been recalculated.",
+    "recalculate": "Recalculate"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "h",
