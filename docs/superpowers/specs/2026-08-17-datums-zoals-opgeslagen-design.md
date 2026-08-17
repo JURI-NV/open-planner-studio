@@ -17,7 +17,7 @@ De modus is **niet** een instelling en **niet** permanent: hij wordt alleen aang
 - **Geen read-only-bewerkingsslot.** Bewerken blijft gewoon toegestaan; het verlaat de modus. Een echte read-only-staat zou door de hele bewerklaag heen moeten (tabel, canvas-drag, contextmenu, MCP) en dat weegt niet op tegen de winst.
 - **Geen vergelijkweergave** ("opgeslagen naast herberekend", verschilkolommen, afwijkingsrapport). Dat vraagt een `displayStart()`/`displayFinish()`-extractie over 86 callsites in 23 bestanden en is een eigen project. Baselines dekken de vergelijkbehoefte al deels.
 - **Geen ondersteuning voor CSV/MSPDI/P6-import.** Die readers kopiëren `schedule*` naar `early*` ([`csvReader.ts:242`](../../../src/services/csv/csvReader.ts), [`mspdiReader.ts:335`](../../../src/services/msproject/mspdiReader.ts), [`p6xmlReader.ts:465`](../../../src/services/p6/p6xmlReader.ts)); er is dus geen onafhankelijk opgeslagen rekenresultaat om tegen te vergelijken. Alleen IFC doet mee.
-- **Geen herstel van `OPS_Analysis` in de writer.** Zie *Aanvaarde gevolgen*.
+- **Geen wijziging aan de IFC-writer.** `OPS_Analysis` blijft ongeschreven; die keuze staat los van deze functie en blijft geldig (zie *Wat er buiten de modus géén gevolgen heeft*).
 
 ## Huidige situatie
 
@@ -191,11 +191,12 @@ Store-actie `showRecordedDates()`:
 
 1. `beginUndoable(s)` — snapshot met de herberekende toestand.
 2. Schrijf `recordedTimes` terug in `task.time` — per taak de start/finish uit §1, plus de speling-laag voor zover het bestand die kende.
-3. `s.cpmResult = cpmResultFromRecorded(...)`, `s.resourceLoadResult` opnieuw berekenen.
-4. `s.datesAsRecorded = true`.
-5. `s.scheduleStale = false` — de weergave is consistent met wat er getoond wordt.
-6. Géén `isDirty`: er is niets gewijzigd t.o.v. het bestand. Sterker nog, de state komt hiermee dichter bij het bestand te liggen dan ervoor.
-7. `recomputeViewRows()`.
+3. Wis `task.time.interferingFloat`, `isNearCritical` en `floatPath`. Die komen uit de zojuist weggegooide solve en zouden anders een planning beschrijven die niet meer op het scherm staat. `applyCpmResult` hanteert dezelfde regel al voor uitgezette opties — *"afwezig ⇒ het veld wordt gewist (zodat een uitgezette optie geen stale markering laat staan)"* ([`applyCpmResult.ts:41-43`](../../../src/engine/scheduler/applyCpmResult.ts)).
+4. `s.cpmResult = cpmResultFromRecorded(...)`, `s.resourceLoadResult` opnieuw berekenen.
+5. `s.datesAsRecorded = true`.
+6. `s.scheduleStale = false` — de weergave is consistent met wat er getoond wordt.
+7. Géén `isDirty`: er is niets gewijzigd t.o.v. het bestand. Sterker nog, de state komt hiermee dichter bij het bestand te liggen dan ervoor.
+8. `recomputeViewRows()`.
 
 ### 7. Verlaten
 
@@ -211,23 +212,21 @@ Dat een MCP-tool die in de modus `runCPM` triggert nu een undo-stap oplevert, is
 
 **Route C — documentwissel.** Modus en `recordedTimes` zijn documentvelden en reizen dus mee in de payload. Een document dat in de modus staat, staat er na terugkeren nog steeds in. Geen extra werk.
 
-## Aanvaarde gevolgen
+## Wat er buiten de modus géén gevolgen heeft
 
-Drie punten waar dit ontwerp bewust iets opgeeft.
+Dit ontwerp raakt de app **alleen zolang de modus aan staat**. Zodra de gebruiker bewerkt of berekent, is de state in elk opzicht die van vóór deze functie. Twee punten die er in een eerdere versie van deze spec ten onrechte als blijvende kosten in stonden:
 
-### 1. Opslaan in de modus schrijft de opgeslagen datums terug
+**De writer-invariant blijft intact.** [`ifcWriter.ts:519-529`](../../../src/services/ifc/ifcWriter.ts) schrijft `OPS_Analysis` (`interferingFloat`/`isNearCritical`/`floatPath`) bewust niet meer, met als motivatie dat *"alle laadpaden gaan via `applyLoadedProject` met `recompute: true` ⇒ `runCPM()`"*. Die aanname wordt **niet** gebroken: het laadpad blijft onvoorwaardelijk herberekenen — dat ís de detectie uit §2 — en de modus wordt pas ná het laden betreden, door een expliciete klik. Een bestand dat in de modus is opgeslagen en later heropend wordt, krijgt gewoon weer een volledige solve die de drie velden regenereert. Geen wijziging aan de writer, geen wijziging aan de comment.
 
-Dat is het punt van de functie: wie een geïmporteerd plan opent, bekijkt en opslaat, mag niet stilzwijgend de herberekende datums in het bestand krijgen. Omdat de opgeslagen waarden gewoon in `task.time` staan, gebeurt dit automatisch — geen aparte writer-route.
+**Opslaan in de modus schrijft de opgeslagen datums terug**, en dat is precies de bedoeling: wie een geïmporteerd plan opent, bekijkt en opslaat, mag niet stilzwijgend herberekende datums in zijn bestand krijgen. Omdat de opgeslagen waarden gewoon in `task.time` staan, gebeurt dat automatisch — geen aparte writer-route.
 
-Gevolg: `interferingFloat`, `isNearCritical` en `floatPath` blijven leeg. Die worden sinds [`ifcWriter.ts:519-529`](../../../src/services/ifc/ifcWriter.ts) sowieso niet meer geschreven, met als motivatie: *"alle laadpaden gaan via `applyLoadedProject` met `recompute: true`"*. **Die aanname breken we.** De comment moet worden gecorrigeerd. Het `OPS_Analysis`-pset herstellen is geen optie: dat kost +157 kB over de voorbeeldset en +21 % per auto-save, voor drie afgeleide velden die na één F5 terug zijn.
+**Crashherstel bewaart de modus niet.** `restoreDocuments` ([`documentSlice.ts:395`](../../../src/state/slices/documentSlice.ts)) draait `runCPM` op het actieve document. Na een crash is "herberekend" de eerlijke staat: de auto-save-snapshot is een momentopname van een bewerksessie, niet van het bronbestand. Dit is een scope-afbakening, geen prijs — wie de opgeslagen datums terug wil, opent het bestand opnieuw.
 
-### 2. Crashherstel bewaart de modus niet
+## De enige aanvaarde beperking
 
-`restoreDocuments` ([`documentSlice.ts:395`](../../../src/state/slices/documentSlice.ts)) draait `runCPM` op het actieve document en zet inactieve documenten op `scheduleStale: true`. Na een crash is "herberekend" de eerlijke staat: de auto-save-snapshot is een momentopname van een bewerksessie, niet van het bronbestand. De modus wordt dus niet hersteld en `recordedTimes` gaat verloren. Wie de opgeslagen datums opnieuw wil zien, opent het bestand opnieuw.
+**`recordedTimes` wordt gewist bij het verlaten en is daarna niet meer op te roepen.** Dit is het enige punt dat de modus overleeft: heb je eenmaal bewerkt of berekend, dan kom je alleen nog terug via Ctrl+Z of door het bestand opnieuw te openen. Er is geen knop "toon opnieuw de opgeslagen datums".
 
-### 3. `recordedTimes` wordt gewist bij het verlaten, niet bewaard
-
-Het veld leeft alleen in het venster tussen laden en de eerste bewerking of berekening. Dat houdt de geheugenkosten begrensd (zeven velden × taken × open documenten) en voorkomt de vraag wat het veld nog betekent nadat taken zijn toegevoegd of verwijderd. Undo brengt het terug binnen dat venster; daarbuiten is opnieuw openen het antwoord.
+De afweging: het veld levend houden voor de hele documentlevensduur roept de vraag op wat het nog betekent nadat taken zijn toegevoegd, verwijderd of hernoemd, en het kost geheugen per open document (tot zeven waarden × taken). Opnieuw openen is goedkoop en ondubbelzinnig. Blijkt in de praktijk dat mensen herhaaldelijk heen en weer willen, dan is de opvolging een expliciete bewaar-beslissing — bewust buiten deze scope.
 
 ## Raakvlakken die géén wijziging nodig hebben
 
@@ -240,12 +239,13 @@ Voor de duidelijkheid, want ze zagen er bij de verkenning uit alsof ze zouden br
 | export-guards [`fileSlice.ts:340,396`](../../../src/state/slices/fileSlice.ts), [`ReportPanel.tsx:428`](../../../src/components/panels/ReportPanel.tsx) | checken `scheduleStale` ⇒ exporteren de opgeslagen datums; gewenst |
 | renderer, `TableEditor`, printPreview, exporters | lezen `earlyStart \|\| scheduleStart` ⇒ tonen vanzelf het juiste |
 | `applyCpmResult` uur-modus-normalisatie ([`:58-62`](../../../src/engine/scheduler/applyCpmResult.ts)) | draait niet in de modus; na verlaten weer wel |
+| [`ifcWriter.ts:519-529`](../../../src/services/ifc/ifcWriter.ts) | het laadpad blijft onvoorwaardelijk herberekenen ⇒ de `OPS_Analysis`-motivatie blijft waar |
 
 ## Tests
 
 | suite | wat |
 |---|---|
-| `tests/planning/check-recorded-dates.ts` *(nieuw)* | detectietelling (0 verschil ⇒ geen aanbod; N verschil ⇒ aanbod met N); de §1-tweelagenkeuze (early\* aanwezig ⇒ early\*; alleen schedule\* ⇒ schedule\*); `cpmResultFromRecorded` vult de altijd-velden, laat `criticalPath` leeg zonder `IsCritical`, en laat de tien onmogelijke velden leeg; betreden herstelt de opgeslagen waarden exact; verlaten via bewerking én via F5; Ctrl+Z herstelt modus + datums + `cpmResult` in één stap; een OPS-eigen bestand levert nooit een aanbod op |
+| `tests/planning/check-recorded-dates.ts` *(nieuw)* | detectietelling (0 verschil ⇒ geen aanbod; N verschil ⇒ aanbod met N); de §1-tweelagenkeuze (early\* aanwezig ⇒ early\*; alleen schedule\* ⇒ schedule\*); `cpmResultFromRecorded` vult de altijd-velden, laat `criticalPath` leeg zonder `IsCritical`, en laat de tien onmogelijke velden leeg; betreden herstelt de opgeslagen waarden exact én wist `interferingFloat`/`isNearCritical`/`floatPath`; verlaten via bewerking én via F5; Ctrl+Z herstelt modus + datums + `cpmResult` in één stap; een OPS-eigen bestand levert nooit een aanbod op |
 | `tests/planning/check-ifc-roundtrip.ts` *(uitbreiding)* | **de scherpste regressie**: een `IfcTaskTime` met `$` op EarlyStart/EarlyFinish levert géén `recordedFields`-melding voor die slots — de `$` ⇒ vandaag-val uit *Huidige situatie* mag nooit als opgeslagen datum doorgaan |
 | `tests/planning/check-document-contract.ts` | twee nieuwe velden in `DOCUMENT_FIELDS`, met hun `snapshot`-rol; capture/hydrate/fresh-rondgang |
 | `tests/planning/check-export-guard.ts` | export in de modus schrijft de opgeslagen datums, niet de herberekende |
