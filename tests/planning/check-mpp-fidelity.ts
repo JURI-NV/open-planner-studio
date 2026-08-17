@@ -1,9 +1,18 @@
 // MPP-datumgetrouwheid (fase 3.8, etappe "MSP-pariteit", plandocument T1) — de regressietest-
 // helft van het gedeelde meetscript (§5). De meetkern zelf staat in `mppFidelity.ts`
 // (`measureFidelity`, roept `readMPP` + `solveProject` — de ECHTE `runCPM`-keten — aan tegen de
-// ONAFHANKELIJKE grondwaarheid uit `mppGroundTruth.ts`). Dit bestand is de CI-poort eromheen:
+// ONAFHANKELIJKE grondwaarheid uit `mppGroundTruth.ts`). Dit bestand is de poort eromheen:
 // corpus-/crawl-iteratie, per-bestand-per-veld-pinning tegen `mpp-fidelity-baseline.json`, en de
 // drie rapportagemodi.
+//
+// LOW (eindreview T16c): dit is GEEN CI-poort — `OPS_MPP_CORPUS`/`OPS_MPP_CRAWL` bestaan niet in
+// CI (bedrijfsbestanden resp. extern crawl-materiaal, bewust nooit in de repo, zie het
+// baselinebeleid hieronder), dus in CI/op elke andere machine zonder die mappen draait dit bestand
+// wél mee in `npm run verify`/`run.sh` maar slaat de hele corpus-/crawl-lus over ("OK ...
+// overgeslagen") — geen enkele echte assertie. De poort werkt uitsluitend LOKAAL (of via een
+// gerichte pre-push-hook op een machine met de mappen gemount); "geregistreerd in run.sh" is dus
+// wél waar (het draait overal mee, ook in CI), maar "CI-poort" beweert ten onrechte dat CI 'm
+// daadwerkelijk afdwingt.
 //
 // TWEE LEVENS, ÉÉN ARTEFACT (plan §5): tijdens de etappe draaien implementers/reviewers dit exact
 // zo (`OPS_MPP_FIDELITY_REPORT=detail`) om voor→na-cijfers te zien; als regressietest (default-

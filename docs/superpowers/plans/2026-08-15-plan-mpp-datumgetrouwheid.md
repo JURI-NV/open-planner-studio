@@ -448,6 +448,18 @@ Een narrow fix (lag===0 ⇒ de grens-snap rechtstreeks in de OPVOLGER-kalender, 
 
 **Poorten (T16-deel-a):** `npm run verify` exit 0 (incl. `verify:docs`/`verify:i18n`); alle gedragsfixes (punten 1 en 6) met mutatiebewijs daadwerkelijk gedraaid, niet alleen beschreven; documentatie-only punten (2, 3, 4, 5, 7-deel-2, 8, 9) zonder mutatie zoals de opdracht toestaat. Negen deelcommits, Nederlands, `Co-Authored-By: Claude Fable 5`.
 
+**Eindstand in goal-eenheden (LOW, eindreview T16c, gemeten na de B1-fix hierboven — `mpp-fidelity-baseline.json`, 216 gepinde bestanden / 3413 taken).** De goal-tekst (§1) eist minuut-exacte start-/einddatums voor het volledige corpus, met als enige toegestane uitzondering aantoonbaar gesplitste/resource-genivelleerde taken. Gemeten eindstand:
+
+| meting | waarde |
+|---|---|
+| bestanden 100% exact (0 afwijkingen) | **196/216** (90,7%) |
+| bestanden met ≥1 afwijking | 20/216 — allemaal (c)-geregistreerd met `reason` (LOW, hierboven) of §1.4/O1-uitzondering |
+| taken, startdatum exact | 3341/3413 = **97,9%** |
+| taken, einddatum exact | 3285/3413 = **96,2%** |
+| totaal aantal afwijkingen (startDiff+finishDiff, som over alle bestanden) | **193** |
+
+Ter vergelijking, de uitgangspositie vóór deze hele etappe (§1.1, gepind op `97368f7d`): start 90,7% exact, finish 86,1% exact, 483 afwijkende taken over 74 bestanden. Categorie (c) (§T15's uitgangscriterium: "leeg, of expliciet door de eigenaar geaccordeerd") bevat na deze fixronde nog 6 posten zonder melding (§H1/H2) plus de overige 14 als toegestane resource-gedreven-uitzondering (§1.4/O1, elk met een `reason`-verwijzing in de baseline) — geen enkele post staat er zonder geschreven, gemeten reden.
+
 ---
 
 ## 3. Parallelliseringsschema
