@@ -797,6 +797,28 @@ const rt2 = readIFC(writeIFC(rt1));
   const wantVol = ['earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'totalFloat', 'isCritical', 'scheduleStart', 'scheduleFinish'];
   assert(JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id]) === JSON.stringify(wantVol),
     `9r gevulde reken- én invoerslots wél gemeld — kreeg ${JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id])}`);
+
+  // De kritieke bevinding zelf, expliciet vastgelegd (hercontrole kwaliteitsreview): een IfcTaskTime
+  // MET `$` op ScheduleStart (maar ScheduleFinish gevuld) mag ScheduleStart NIET als aanwezig melden.
+  // `recordedSlotsOf` gebruikt één lus over alle negen sleutels met dezelfde `arg && arg !== '$'`-
+  // check per slot; zonder deze assertie zou een latere "vereenvoudiging" die de `$`-check op de twee
+  // invoerslots overslaat (want "invoer is er toch altijd") zowel TT_LEEG als TT_VOL hierboven groen
+  // laten staan — precies de regressie die deze hele taak moest voorkomen.
+  const TT_HALF_SCHEDULE = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    // ScheduleStart op `$`, ScheduleFinish gevuld; alle rekenslots ook `$`.
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,$,'2026-03-06',$,$,$,$,$,$,$,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Half schedule',$,$,'1.3',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtHalf = readIFC(TT_HALF_SCHEDULE);
+  assert(rtHalf.tasks.length === 1, `9r HALF-fixture moet precies één taak opleveren — kreeg ${rtHalf.tasks.length}`);
+  const halfId = rtHalf.tasks[0].id;
+  assert(JSON.stringify(rtHalf.recordedFields?.[halfId]) === JSON.stringify(['scheduleFinish']),
+    `9r $-ScheduleStart telt niet mee als aanwezig, ScheduleFinish wel — kreeg ${JSON.stringify(rtHalf.recordedFields?.[halfId])}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

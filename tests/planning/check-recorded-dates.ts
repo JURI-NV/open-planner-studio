@@ -99,6 +99,17 @@ const halfEarly = captureRecordedDates(
 eq('1p half early-paar ⇒ hele taak op schedule-laag (start)', halfEarly.times['a'].start, '2026-03-02');
 eq('1q half early-paar ⇒ hele taak op schedule-laag (finish)', halfEarly.times['a'].finish, '2026-03-06');
 
+// Het NORMALE pad voor élk eigen OPS-bestand (hercontrole kwaliteitsreview): een door OPS zelf
+// geschreven bestand vult altijd alle negen slots (zie check-ifc-roundtrip.ts (1b)), dus "beide paren
+// compleet, early wint" is niet een randgeval maar de standaardsituatie voor elk eigen bestand — en
+// rustte tot nu toe alleen op de ongeteste if/else-if.
+const beideCompleet = captureRecordedDates(
+  [mk('a', { earlyStart: '2026-04-01', earlyFinish: '2026-04-08' })], // scheduleStart/-Finish blijven de mk-default 2026-03-02/-06
+  { a: ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish'] },
+);
+eq('1v beide paren compleet ⇒ early wint (start)', beideCompleet.times['a'].start, '2026-04-01');
+eq('1w beide paren compleet ⇒ early wint (finish)', beideCompleet.times['a'].finish, '2026-04-08');
+
 // MOET 1 + MOET 4: geen van beide paren compleet ⇒ geen uitspraak, taak wordt overgeslagen.
 const geenPaarCompleet = captureRecordedDates([mk('a', { earlyStart: '2026-04-01' })], { a: ['earlyStart'] });
 eq('1r geen compleet paar ⇒ taak niet vastgelegd', Object.keys(geenPaarCompleet.times), []);
@@ -229,6 +240,26 @@ const capHour = captureRecordedDates(
 );
 const recHour = cpmResultFromRecorded(capHour.times, [mk('a')], cal);
 eq('5a projectDuration TZ-onafhankelijk (uur-modus, ma t/m vr)', recHour.projectDuration, 5);
+
+// ── (6) Mijlpaal-alleen-uitzondering (hercontrole kwaliteitsreview, volgend op GRAAG-6) ──────────
+// `cpmResultFromRecorded` deelt sinds de vorige ronde `projectDurationOf` met de solver, INCLUSIEF de
+// mijlpaal-alleen-uitzondering. Dat is een echte gedragswijziging (was voorheen bewust wég-
+// gedocumenteerd als "afwijking 1") en stond tot nu toe zonder assertie.
+const mijlpaalOpEenDag = mk('a', { earlyStart: '2026-03-02', earlyFinish: '2026-03-02' }, { isMilestone: true });
+const recMijlpaal = cpmResultFromRecorded(
+  captureRecordedDates([mijlpaalOpEenDag], { a: ['earlyStart', 'earlyFinish'] }).times,
+  [mijlpaalOpEenDag], cal,
+);
+eq('6a uitsluitend mijlpaal op één dag ⇒ projectDuration 0', recMijlpaal.projectDuration, 0);
+
+// Tegenhanger: een echte werk-taak (geen mijlpaal, scheduleDuration > 0 — de `mk`-default is 5) op
+// één dag ⇒ wél 1: de uitzondering slaat NIET toe zodra er écht werk in de set zit.
+const werkOpEenDag = mk('b', { earlyStart: '2026-03-02', earlyFinish: '2026-03-02' });
+const recWerk = cpmResultFromRecorded(
+  captureRecordedDates([werkOpEenDag], { b: ['earlyStart', 'earlyFinish'] }).times,
+  [werkOpEenDag], cal,
+);
+eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDuration, 1);
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

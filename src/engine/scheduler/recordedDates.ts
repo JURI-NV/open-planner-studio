@@ -163,6 +163,21 @@ export function countShiftedTasks(tasks: Task[], times: Record<string, RecordedT
  * valt zonder échte werk-taken krijgt duur 0). Vóór deze extractie week de reconstructie hier
  * stilzwijgend af (eerder gedocumenteerd als "afwijking 1"); die afwijking bestaat nu niet meer.
  *
+ * RANDGEVAL VAN DIE UITZONDERING (hercontrole kwaliteitsreview, bewust NIET afgedekt): "échte werk-
+ * taak" wordt door `projectDurationOf` bepaald via `!t.isMilestone && t.time.scheduleDuration > 0`,
+ * gelezen van het LEVENDE `Task`-object (`recorded`, dus de `tasks`-parameter van deze functie) — NIET
+ * uit de vastlegging (`RecordedTime`). Deze module registreert bewust GEEN aanwezigheid voor
+ * `scheduleDuration` (alleen `scheduleStart`/`scheduleFinish` zijn invoerslots met een presence-
+ * registratie, zie `RECORDED_INPUT_SLOT_KEYS`). Een niet-mijlpaal-taak waarvan het bestand geen
+ * `ScheduleDuration` gaf, leest via `parseDurationDays('$') → 0` dus scheduleDuration=0 — en telt
+ * daarmee in `projectDurationOf` mee als "geen echt werk". Gevolg: een écht één-dags werkproject zónder
+ * opgeslagen duur krijgt hier `projectDuration` 0 in plaats van 1, terwijl `scheduleAnalysis.ts`
+ * hetzelfde risico in theorie deelt maar het na een solve nooit raakt (de solver vult
+ * `scheduleDuration` altijd, want die IS de rekeninvoer). Lage impact (vereist: uur-precisie
+ * projectgrootte van exact één dag, én een bewust weggelaten ScheduleDuration in een verder geldig
+ * bestand) en hier bewust niet gedicht — dichten vraagt een derde presence-registratie
+ * (`scheduleDuration`) die deze module tot nu toe niet nodig had.
+ *
  * ÉÉN OVERGEBLEVEN, SCHERP AFGEBAKENDE AFWIJKING van `scheduleAnalysis.ts` (GRAAG-7,
  * kwaliteitsreview): `missedDeadlineTaskIds` vergelijkt hier met simpele stringvergelijking
  * (`rec.finish > task.deadline`); de solver rekent i.p.v. daarvan met instants en met
