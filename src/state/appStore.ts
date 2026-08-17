@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
 import { createProjectSlice, type ProjectSlice } from './slices/projectSlice';
 import { createTaskSlice, type TaskSlice } from './slices/taskSlice';
+import { createSelectionSlice, type SelectionSlice } from './slices/selectionSlice';
 import { createSequenceSlice, type SequenceSlice } from './slices/sequenceSlice';
 import { createResourceSlice, type ResourceSlice } from './slices/resourceSlice';
 import { createScheduleSlice, type ScheduleSlice } from './slices/scheduleSlice';
@@ -28,6 +29,7 @@ enableMapSet();
  */
 export type AppState = ProjectSlice &
   TaskSlice &
+  SelectionSlice &
   SequenceSlice &
   ResourceSlice &
   ScheduleSlice &
@@ -45,6 +47,7 @@ export const useAppStore = create<AppState>()(
   immer((...a) => ({
     ...createProjectSlice(...a),
     ...createTaskSlice(...a),
+    ...createSelectionSlice(...a),
     ...createSequenceSlice(...a),
     ...createResourceSlice(...a),
     ...createScheduleSlice(...a),
