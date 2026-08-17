@@ -59,6 +59,15 @@ export interface RecordedDates {
   total: number;
 }
 
+/** Wat de store bewaart: de vastlegging plus de ná de solve gemeten verschuiving. Bewust alleen een
+ *  TYPE — `captureRecordedDates` levert `shifted` niet, want die waarde bestaat op dat moment nog
+ *  niet (zie de docstring van `RecordedDates` hierboven). De aanroeper (`documentContract.ts`/
+ *  detectiecode, taak 4) bouwt zelf `{ ...captureRecordedDates(...), shifted: countShiftedTasks(...) }`. */
+export interface RecordedDatesState extends RecordedDates {
+  /** Aantal taken waarvan de herberekening de datums verschoof — de teller in de melding. */
+  shifted: number;
+}
+
 /**
  * Leg vast wat het bestand zei. ROEP DIT AAN VÓÓR `runCPM`: de store deelt de taak-objecten met het
  * parse-resultaat, dus na de solve zijn de oorspronkelijke waarden overschreven.

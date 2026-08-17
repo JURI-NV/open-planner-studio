@@ -18,8 +18,10 @@ import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
  *    customFieldDefs, baselines
  *  IN (afgeleid/scalar, 'ref' — per referentie; runCPM/recomputeResourceLoad vervangt ze als geheel,
  *      muteert nooit in-place, dus delen is veilig). Zonder cpmResult/resourceLoadResult zou undo van
- *      bv. applyLeveling de taken wél maar statusbalk/histogram NIET terugdraaien (A5):
- *    cpmResult, resourceLoadResult, scheduleStale, activeBaselineId
+ *      bv. applyLeveling de taken wél maar statusbalk/histogram NIET terugdraaien (A5). recordedDates/
+ *      datesAsRecorded (issue #63) horen om dezelfde reden hier: samen met `tasks` ('clone') draait
+ *      één undo de datums én de modus terug:
+ *    cpmResult, resourceLoadResult, scheduleStale, activeBaselineId, recordedDates, datesAsRecorded
  *  UIT ('none' — undo mag deze bewust NIET aanraken):
  *    selectedTaskIds, view, collapsedTaskIds, undoStack, redoStack, filePath, fileHandle,
  *    isDirty (undo/redo zet isDirty altijd op true).
@@ -43,7 +45,7 @@ export type Snapshot = Pick<
   DocumentPayload,
   | 'project' | 'calendar' | 'tasks' | 'sequences' | 'resources' | 'assignments' | 'calendars'
   | 'activityCodeTypes' | 'customFieldDefs' | 'cpmResult' | 'resourceLoadResult'
-  | 'scheduleStale' | 'baselines' | 'activeBaselineId'
+  | 'scheduleStale' | 'baselines' | 'activeBaselineId' | 'recordedDates' | 'datesAsRecorded'
 >;
 
 // Compile-time koppeling tussen de Pick hierboven en de `snapshot`-rollen in DOCUMENT_FIELDS
@@ -98,6 +100,10 @@ export function migrateSnapshot(raw: Snapshot): Snapshot {
     // `null` ("geen actieve baseline") is een legitieme waarde die een undo moet kunnen terugzetten;
     // alleen een ontbrekend veld (undefined) valt terug op null.
     activeBaselineId: raw.activeBaselineId !== undefined ? raw.activeBaselineId : null,
+    // Issue #63 — zelfde `null`/`undefined`-onderscheid als activeBaselineId: `null` ("geen
+    // vastlegging (meer)") is legitiem, alleen een ontbrekend veld (pre-#63-snapshot) valt terug.
+    recordedDates: raw.recordedDates !== undefined ? raw.recordedDates : null,
+    datesAsRecorded: raw.datesAsRecorded ?? false,
     // Bewuste default voor snapshots zonder VOLLEDIG project (pakket H). Pre-H-snapshots droegen
     // alleen de nauwe B3-projectie `{ wbsAutoNumber }`; die herken je aan het ontbreken van `id`.
     // We vervangen zo'n halve projectie niet door een leeg project maar vullen hem AAN met een verse

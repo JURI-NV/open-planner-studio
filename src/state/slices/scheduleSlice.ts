@@ -1,4 +1,5 @@
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
+import type { RecordedDatesState } from '@/engine/scheduler/recordedDates';
 import { solveProject } from '@/engine/scheduler/solveProject';
 import { computeResourceLoad, type ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import {
@@ -18,6 +19,12 @@ export interface ScheduleSlice {
   /** "Verouderd"-vlag (A6): gezet door datum-rakende mutaties (taak-/relatie-/projectkalender-
    *  wijzigingen), gewist door `runCPM`. Voedt een subtiele "herbereken (F5)"-hint. */
   scheduleStale: boolean;
+  /** "Datums zoals opgeslagen" (issue #63) — wat het geopende bestand vastlegde, plus de teller
+   *  voor de melding. Niet-null ⇒ herberekening verschoof datums en de strook biedt de modus aan.
+   *  Bestaat alleen tussen het laden en de eerste bewerking/berekening. */
+  recordedDates: RecordedDatesState | null;
+  /** Staat de modus aan: toont de app de opgeslagen datums in plaats van de herberekende? */
+  datesAsRecorded: boolean;
   runCPM: () => void;
   /** Herbereken ALLEEN de resource-belasting op de bestaande CPM-datums (A6): pure resource-
    *  mutaties (toewijzen, capaciteit, kalender) verversen zo het histogram direct, ZONDER runCPM en
@@ -40,6 +47,8 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
   cpmResult: null,
   resourceLoadResult: null,
   scheduleStale: false,
+  recordedDates: null,
+  datesAsRecorded: false,
 
   recomputeResourceLoad: () => {
     set((s) => {

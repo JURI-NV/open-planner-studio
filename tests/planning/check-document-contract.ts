@@ -76,6 +76,12 @@ S().selectTask(t1);                     // selectedTaskIds
 S().toggleCollapse(t1);                 // collapsedTaskIds (woont in ui — de contract-uitzondering)
 S().setZoom(42);                        // view
 S().setFilePath('/tmp/doc1.ifc');       // filePath (+ isDirty al true door de mutaties)
+// recordedDates + datesAsRecorded (issue #63) — direct gezet; de detectie loopt via een echte
+// bestandsload en hoort niet in deze contracttest thuis.
+useAppStore.setState((s) => {
+  s.recordedDates = { times: { x: { start: '2026-03-02', finish: '2026-03-06' } }, shifted: 1, total: 1 };
+  s.datesAsRecorded = true;
+});
 
 // Momentopname van document 1 zoals het NU op top-level staat.
 const expected = flat(capturePayload(S()));
@@ -86,7 +92,8 @@ const doc2 = flat(capturePayload(S()));
 
 // (a1) Geen lek naar document 2: elk veld dat we in doc1 afwijkend zetten, mag in doc2 niet opduiken.
 for (const key of ['tasks', 'resources', 'assignments', 'activityCodeTypes', 'customFieldDefs',
-  'selectedTaskIds', 'collapsedTaskIds', 'baselines', 'cpmResult', 'filePath', 'calendars'] as const) {
+  'selectedTaskIds', 'collapsedTaskIds', 'baselines', 'cpmResult', 'filePath', 'calendars',
+  'recordedDates', 'datesAsRecorded'] as const) {
   ne(`a1 geen lek naar doc2: ${key}`, doc2[key], expected[key]);
 }
 truthy('a1 doc2 verse tasks leeg', S().tasks.length === 0);
@@ -129,6 +136,8 @@ const valuesA: Record<string, unknown> = {
   scheduleStale: false,
   baselines: [],
   activeBaselineId: null,
+  recordedDates: { times: { a: { start: '2026-01-01', finish: '2026-01-05' } }, shifted: 1, total: 1 },
+  datesAsRecorded: true,
 };
 const valuesB: Record<string, unknown> = {
   project: projB,
@@ -145,6 +154,8 @@ const valuesB: Record<string, unknown> = {
   scheduleStale: true,
   baselines: [{ id: 'blb', name: 'BL', createdAt: '2030-01-01', tasks: [] }],
   activeBaselineId: 'blb',
+  recordedDates: null,
+  datesAsRecorded: false,
 };
 const setSnapshotFields = (vals: Record<string, unknown>) => {
   useAppStore.setState((s) => {

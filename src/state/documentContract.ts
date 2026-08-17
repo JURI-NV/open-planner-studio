@@ -5,6 +5,7 @@ import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
+import type { RecordedDatesState } from '@/engine/scheduler/recordedDates';
 import type { ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import type { Baseline } from '@/types/baseline';
 import type { ImportResult } from '@/services/importTypes';
@@ -56,6 +57,10 @@ export interface DocumentPayload {
   resourceLoadResult: ResourceLoadResult | null;
   /** "Verouderd"-vlag per document (A6) — leekt anders tussen documenten. */
   scheduleStale: boolean;
+  /** "Datums zoals opgeslagen" (issue #63) — zie `ScheduleSlice.recordedDates`. */
+  recordedDates: RecordedDatesState | null;
+  /** "Datums zoals opgeslagen" (issue #63) — zie `ScheduleSlice.datesAsRecorded`. */
+  datesAsRecorded: boolean;
   /** Baselines per document (fase 2.6). `statusDate`/`progressMode` rijden mee in `project`. */
   baselines: Baseline[];
   activeBaselineId: string | null;
@@ -188,6 +193,12 @@ export const DOCUMENT_FIELDS = [
   field({ key: 'cpmResult', get: (s) => s.cpmResult, set: (s, v) => { s.cpmResult = v; }, fresh: () => null, snapshot: 'ref' }),
   field({ key: 'resourceLoadResult', get: (s) => s.resourceLoadResult, set: (s, v) => { s.resourceLoadResult = v; }, fresh: () => null, snapshot: 'ref', fromPayload: (p) => p.resourceLoadResult ?? null }),
   field({ key: 'scheduleStale', get: (s) => s.scheduleStale, set: (s, v) => { s.scheduleStale = v; }, fresh: () => false, snapshot: 'ref', fromPayload: (p) => p.scheduleStale ?? false }),
+  // "Datums zoals opgeslagen" (issue #63). `snapshot: 'ref'` net als cpmResult/scheduleStale: beide
+  // worden altijd als geheel vervangen, nooit in-place gemuteerd. Dat is precies wat Ctrl+Z nodig
+  // heeft — samen met `tasks` ('clone') draait één undo de datums én de modus terug.
+  // De invariant uit snapshot.ts geldt: élke mutator van deze velden pusht een snapshot.
+  field({ key: 'recordedDates', get: (s) => s.recordedDates, set: (s, v) => { s.recordedDates = v; }, fresh: () => null, snapshot: 'ref', fromPayload: (p) => p.recordedDates ?? null }),
+  field({ key: 'datesAsRecorded', get: (s) => s.datesAsRecorded, set: (s, v) => { s.datesAsRecorded = v; }, fresh: () => false, snapshot: 'ref', fromPayload: (p) => p.datesAsRecorded ?? false }),
   field({ key: 'baselines', get: (s) => s.baselines, set: (s, v) => { s.baselines = v; }, fresh: () => [], snapshot: 'clone', fromPayload: (p) => p.baselines ?? [] }),
   field({ key: 'activeBaselineId', get: (s) => s.activeBaselineId, set: (s, v) => { s.activeBaselineId = v; }, fresh: () => null, snapshot: 'ref', fromPayload: (p) => p.activeBaselineId ?? null }),
   field({ key: 'view', get: (s) => s.view, set: (s, v) => { s.view = v; }, fresh: createDefaultView, snapshot: 'none', fromPayload: (p) => normalizeView(p.view) }),

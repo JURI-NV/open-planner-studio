@@ -215,6 +215,10 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       cpmResult: src.cpmResult,
       resourceLoadResult: src.resourceLoadResult,
       scheduleStale: src.scheduleStale,
+      // Issue #63 — 'ref' net als cpmResult/scheduleStale hierboven: een kopie deelt de bron-
+      // vastlegging/modus tot de kopie zelf een bewerking of berekening krijgt.
+      recordedDates: src.recordedDates,
+      datesAsRecorded: src.datesAsRecorded,
       selectedTaskIds: [],
       view: deepClone(src.view),
       collapsedTaskIds: deepClone(src.collapsedTaskIds),
