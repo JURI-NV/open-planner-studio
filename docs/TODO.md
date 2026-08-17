@@ -346,8 +346,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       ("ontworpen tot N taken"), en dat is een productbeslissing.** De mechanische kant is deels
       gedaan: `flattenOrder` was al gede-kwadrateerd, en de resource-join in `filterEval.ts` heeft
       sinds K-item 36 een index (gemeten op 800 taken × 60 resources, 20× `recomputeViewRows`:
-      532 ms → 31 ms). Nog open aan de mechanische kant: `workDaysBetween`/`isWorkDay` naar een
-      werkdag-prefixsom per kalender, en het cullen van de pijlenlaag. *Voor de eigenaar:* bepaal
+      532 ms → 31 ms). **De mechanische kant is daarmee af, en de lijst in het rapport blijkt op
+      drie van de vier punten verouderd** — nagemeten op 2026-08-17:
+      `flattenOrder` (`utils/wbs.ts`) is al gede-kwadrateerd (ouder→kinderen-map, O(n));
+      `workDaysBetween`/`isWorkDay` (`CalendarEngine`) zijn al O(1) via een weekdagmasker plus
+      volledige-weken-rekenwerk en een binary-search-telling op feestdagen (pakket A1/A2);
+      en de pijlenlaag heeft al een verticale offscreen-cull met een afgeleide marge
+      (`GanttRenderer.drawDependencyArrows`, issue #41). Een HORIZONTALE cull ontbreekt nog, maar
+      die is weinig waard: hij kan pas ná `parseDate`/`dateToX` beslissen, en juist dát is het dure
+      deel dat de verticale cull nu overslaat — er zou alleen het padtekenen mee bespaard worden.
+      *Voor de eigenaar:* bepaal
       tot welke projectomvang de app ondersteund is en publiceer dat; zonder die grens is elke
       volgende optimalisatie een open einde. Zie ook het openstaande punt over de tweede
       kwadratische factor bij bulk-mutaties hierboven.
