@@ -189,6 +189,12 @@ interface BaselineEntry {
   finishExact: number;
   finishSameday: number;
   finishDiff: number;
+  /** LOW (§T15-eis, eindreview T16c): VERPLICHT voor elk bewust-gepind bestand met ≥1 start-/
+   *  finish-afwijking (`hasDiff` hieronder) — een korte, geschreven reden mét dossierverwijzing
+   *  (§H1/H2 "6 bestanden zonder melding", of het relevante (c)-dossier/§1.4-uitzondering in
+   *  het plandocument). Afwezig bij een 100%-exact bestand (niets te verantwoorden). Bewaakt door
+   *  `assertPinnedDiffsHaveReason` hieronder — géén stille (c)-pin meer zonder geschreven reden. */
+  reason?: string;
 }
 interface Baseline {
   files: Record<string, BaselineEntry>;
@@ -203,12 +209,23 @@ function hasDiff(e: Pick<BaselineEntry, 'startDiff' | 'finishDiff'>): boolean {
 
 const BASELINE_PATH = join(HERE, 'mpp-fidelity-baseline.json');
 let baseline: Baseline = { files: {} };
+// LOW (eindreview T16c): ook in `baseline`-modus (herpinnen) wordt de HUIDIGE baseline gelezen —
+// uitsluitend om een bestaand `reason`-veld per hash te kunnen doorgeven aan de nieuwe pin (zie de
+// `reason`-overname hieronder). Een absent/kapot bestand is in déze modus geen fout (het eerste-
+// keer-pinnen-scenario): geen `checks`/`diffs`-vervuiling, gewoon een lege startbaseline.
 if (REPORT !== 'baseline') {
   try {
     baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')) as Baseline;
   } catch (err) {
     checks++;
     diffs.push(`mpp-fidelity-baseline.json kon niet gelezen/geparsed worden: ${err instanceof Error ? err.message : String(err)}`);
+  }
+} else {
+  try {
+    baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8')) as Baseline;
+  } catch {
+    // Stil: eerste-keer-pinnen of een kapot bestand — regeneratie gaat gewoon door zonder
+    // `reason`-overname. Zie de toelichting hierboven.
   }
 }
 
@@ -284,12 +301,20 @@ function processFile(path: string, bytes: Uint8Array, root: RootName, label: str
   if (REPORT === 'detail') printDetail(tag, row);
 
   if (REPORT === 'baseline') {
+    // LOW (eindreview T16c): `reason` overnemen uit de HUIDIGE pin voor dit hash (zie de laad-
+    // toelichting hierboven) — een herpin zonder gedragswijziging op een al-verantwoord bestand
+    // mag de geschreven reden niet stilzwijgend laten vallen. Bij een NIEUW afwijkend bestand
+    // (geen bestaande pin, of de bestaande pin was 100% exact) blijft `reason` afwezig — de mens
+    // die herpint moet 'm dan zelf toevoegen (zie `assertPinnedDiffsHaveReason` se poort hieronder,
+    // die ná het plakken van deze uitvoer weer aanslaat als de reden ontbreekt).
+    const existingReason = baseline.files[hash]?.reason;
     reportEntries[hash] = {
       root,
       ...(label ? { label } : {}),
       tasks: row.tasks,
       startExact: row.startExact, startSameday: row.startSameday, startDiff: row.startDiff,
       finishExact: row.finishExact, finishSameday: row.finishSameday, finishDiff: row.finishDiff,
+      ...(existingReason ? { reason: existingReason } : {}),
     };
     return;
   }
@@ -308,6 +333,18 @@ function processFile(path: string, bytes: Uint8Array, root: RootName, label: str
   eq(`[${tag}] finishExact`, row.finishExact, pin.finishExact);
   eq(`[${tag}] finishSameday`, row.finishSameday, pin.finishSameday);
   eq(`[${tag}] finishDiff`, row.finishDiff, pin.finishDiff);
+
+  // LOW (§T15-eis, eindreview T16c): een bewust-gepind bestand met ≥1 afwijking moet een
+  // geschreven `reason` dragen — "pinnen mag alleen met een geschreven, gemeten reden" (§T15
+  // Uitgangscriterium). Dit is een POORT, niet documentatie: een nieuw afwijkend bestand dat
+  // zonder reden gepind wordt (of een bestaand bestand waarvan de reden per ongeluk verdwijnt bij
+  // een herpin) faalt hier expliciet, i.p.v. stilzwijgend als "gewoon een pin" door te glippen.
+  if (hasDiff(pin)) {
+    checks++;
+    if (!pin.reason || pin.reason.trim().length === 0) {
+      diffs.push(`[${tag}] gepind MET afwijking maar ZONDER "reason" — §T15 eist een geschreven, gemeten reden (dossierverwijzing) bij elke bewuste (c)-pin`);
+    }
+  }
 
   // Delta-slotregel-boekhouding (zie de toelichting bij de accumulatoren) — puur informatief.
   const before = pin.startDiff + pin.finishDiff;

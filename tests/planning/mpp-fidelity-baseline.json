@@ -9,7 +9,8 @@
       "startDiff": 9,
       "finishExact": 5,
       "finishSameday": 0,
-      "finishDiff": 13
+      "finishDiff": 13,
+      "reason": "dossier (c)1 — out-of-sequence-driehoek (\"Validate Technical Specification\"-keten); root-cause propageert naar downstream-taken (§T15-iteratie-2, M5-correctie)"
     },
     "02fc12267d47c19e": {
       "root": "crawl",
@@ -42,7 +43,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "08f0bdf693d813bd": {
       "root": "crawl",
@@ -130,7 +132,8 @@
       "startDiff": 0,
       "finishExact": 10,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
     },
     "101e31fc1537a0f0": {
       "root": "crawl",
@@ -262,7 +265,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "1c7871038e3c71e0": {
       "root": "crawl",
@@ -306,7 +310,8 @@
       "startDiff": 0,
       "finishExact": 19,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "23139f2c67531473": {
       "root": "crawl",
@@ -438,7 +443,8 @@
       "startDiff": 9,
       "finishExact": 5,
       "finishSameday": 0,
-      "finishDiff": 13
+      "finishDiff": 13,
+      "reason": "dossier (c)1 — out-of-sequence-driehoek (zelfde keten als 00f24c6bf0cdfce3, ander bestand)"
     },
     "2b709d5aefa1769d": {
       "root": "crawl",
@@ -570,7 +576,8 @@
       "startDiff": 2,
       "finishExact": 16,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "dossier T16c-M1 — kruis-kalender-FS-asymmetrie, onderzocht en NIET gefixt (relationMath.ts snapt bij lag=0 in de voorganger- i.p.v. opvolger-kalender; spant tegen een bestaande guard-test, zie het plan)"
     },
     "3c3ddd9e595154ed": {
       "root": "crawl",
@@ -603,7 +610,8 @@
       "startDiff": 1,
       "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "resource-contouring-detectiegrens (§9/O1, T15) — bronbestand-eigen contour-indicator niet betrouwbaar leesbaar, dus geen melding mogelijk"
     },
     "42a45696c7b142bd": {
       "root": "crawl",
@@ -724,7 +732,8 @@
       "startDiff": 9,
       "finishExact": 7,
       "finishSameday": 0,
-      "finishDiff": 11
+      "finishDiff": 11,
+      "reason": "leveling-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
     },
     "520c52e729736320": {
       "root": "crawl",
@@ -757,7 +766,8 @@
       "startDiff": 1,
       "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "dossier (c)5-addendum (M2, eindreview T16c) — rauw bandgrens-anker (…T17:00) zonder constraint/voorganger, verbreedt (c)5s scope"
     },
     "5633d197a9244e9e": {
       "root": "crawl",
@@ -845,7 +855,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "607c9d04f29a1681": {
       "root": "crawl",
@@ -1054,7 +1065,8 @@
       "startDiff": 6,
       "finishExact": 10,
       "finishSameday": 0,
-      "finishDiff": 8
+      "finishDiff": 8,
+      "reason": "leveling-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
     },
     "75070a3239a0bccc": {
       "root": "crawl",
@@ -1087,7 +1099,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "split-taak-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
     },
     "764dc972df9b73d5": {
       "root": "crawl",
@@ -1349,7 +1362,8 @@
       "startDiff": 0,
       "finishExact": 4,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "dossier (c)3 — START_FINISH-relatiesemantiek (\"Task 5\"), geen eenduidig bewijs binnen deze iteratie"
     },
     "8f5efa9b44f49bb2": {
       "root": "crawl",
@@ -1448,7 +1462,8 @@
       "startDiff": 4,
       "finishExact": 19,
       "finishSameday": 4,
-      "finishDiff": 17
+      "finishDiff": 17,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=12), toegestaan"
     },
     "98c8a0fb569be058": {
       "root": "crawl",
@@ -1514,7 +1529,8 @@
       "startDiff": 0,
       "finishExact": 7,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=3), toegestaan"
     },
     "9e8eb3f00269bdb1": {
       "root": "crawl",
@@ -1623,7 +1639,8 @@
       "startDiff": 29,
       "finishExact": 173,
       "finishSameday": 1,
-      "finishDiff": 41
+      "finishDiff": 41,
+      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak dossier (c)5 (SNET/MSO-constraint buiten de werkband, ongemeld — zie §H1/H2 tabel)"
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
@@ -1777,7 +1794,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "b939cef759f68056": {
       "root": "crawl",
@@ -1843,7 +1861,8 @@
       "startDiff": 0,
       "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 2,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "c0a00d897a905488": {
       "root": "crawl",
@@ -2085,7 +2104,8 @@
       "startDiff": 0,
       "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 1,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=1), toegestaan"
     },
     "d62998a5e3502fbd": {
       "root": "crawl",
