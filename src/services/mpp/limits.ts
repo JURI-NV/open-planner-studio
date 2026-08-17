@@ -49,3 +49,40 @@ export const MAX_VAR_TEXT_BYTES = 65_536;
  * meer bereikt worden).
  */
 export const MAX_EXCEPTION_BAND_PERIODS = 5;
+
+/**
+ * T9 (Opus-review N3, MSP-pariteit) — klem op de RAUWE `REMAINING_DURATION` (fixed-offset 52, INT32,
+ * tienden-van-een-minuut — zelfde vorm als `SCHEDULED_DURATION`, zie `fieldMap14.ts`), vóór hij in
+ * `mppReader.ts` naar `time.remainingMinutes`/`time.remainingTime` omgerekend wordt en van daaruit in
+ * datum-arithmetiek (`CalendarEngine.addWorkMinutes`/`addWorkDaysChecked`, `duration.ts`'s
+ * `addElapsedMinutes`) terechtkomt.
+ *
+ * MEETCOMMENTAAR: het veld is een SIGNED INT32 — structureel al begrensd tot ±2.147.483.647 tienden
+ * (≈ ±408 jaar), dus een hostile bestand kan hier nooit een echte overflow forceren. Zonder EIGEN
+ * klem zou het corpuscoderingspad niettemin tot ~400 jaar aan (elapsed-)minuten kunnen doorrekenen
+ * vóórdat `CalendarEngine`s eigen `MAX_DAYS`/`MAX_MINUTES` (200.000 dagen, ~547 jaar) of
+ * `duration.ts`s `MAX_ELAPSED_MINUTES` alsnog capt — die dieper liggende klemmen VANGEN het geval
+ * altijd (geen crash-risico), maar precies zoals `MAX_EXCEPTION_BAND_PERIODS`/`MAX_VAR_TEXT_BYTES`
+ * hierboven hoort een uit het bestand gelezen getal een EIGEN, hier gedocumenteerde bovengrens te
+ * dragen i.p.v. stil te vertrouwen op een klem die toevallig verderop in de keten ook bestaat. 100
+ * jaar (`100 × 365,25 × 24 × 60 × 10 ≈ 525.960.000` tienden) is ruim boven elke realistische
+ * restduur van een bouwproject (het corpus se langste gemeten taakduur ligt in de orde van maanden),
+ * en blijft ruim binnen het structurele INT32-bereik.
+ *
+ * PRE-EXISTING, BEWUST ONGEWIJZIGD (buiten T9-scope): `SCHEDULED_DURATION`s rauwe `durationRaw` in
+ * `mppReader.ts` draagt DEZELFDE klem-leemte (geen eigen bovengrens, alleen de dieper liggende
+ * `CalendarEngine`/`duration.ts`-klemmen) — dit bestand voegt hier alleen de klem voor het NIEUWE
+ * `remainingDurationRaw`-veld toe; `durationRaw` zelf blijft ongemoeid (gemeld voor een latere taak,
+ * zelfde conventie als `MAX_DAY_HOUR_PERIODS`'s PRE-EXISTING-notitie hierboven).
+ */
+export const MAX_REMAINING_DURATION_TENTHS = 525_960_000;
+
+/** Klemt een rauwe `REMAINING_DURATION`-waarde (tienden-van-een-minuut, mogelijk negatief bij een
+ *  kapot/hostile bestand) naar `[0, MAX_REMAINING_DURATION_TENTHS]` — zie de toelichting hierboven.
+ *  Een negatieve restduur is nooit zinvol (spiegelt de bestaande `Math.max(0, …)`-klem op
+ *  `remaining` in `CPMSolver.ts`), dus deze functie klemt ook de ondergrens op 0, niet alleen de
+ *  bovengrens. */
+export function clampRemainingDurationTenths(raw: number): number {
+  if (!Number.isFinite(raw)) return 0;
+  return Math.min(Math.max(raw, 0), MAX_REMAINING_DURATION_TENTHS);
+}

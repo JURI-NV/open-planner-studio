@@ -319,6 +319,11 @@ export function writeMSPDI(
     if (so.makeOpenEndedCritical) lost.push('makeOpenEndedCritical');
     if (so.nearCriticalThreshold != null) lost.push('nearCriticalThreshold');
     if (so.floatPaths?.enabled) lost.push('floatPaths');
+    // T9 (Opus-review N1): geen MSPDI-equivalent voor deze MPP-eigen hervattingsconventie (zie
+    // `SchedulingOptions.resumeFromActualElapsed`, `CPMSolver.ts`) — zonder deze warn zou
+    // .mpp → MSPDI-export → herimport het veld geruisloos laten vallen en de gefixte datums van T9
+    // stil weer laten verschuiven bij die herimport.
+    if (so.resumeFromActualElapsed) lost.push('resumeFromActualElapsed');
     if (lost.length > 0) {
       console.warn(`MSPDI-export: scheduling-opties ${lost.join('/')} niet native uitdrukbaar — weggelaten, alleen via IFC OPS_SchedulingOptions (§6).`);
     }

@@ -660,7 +660,11 @@ export class CPMSolver {
     });
     // Zachte WP7-waarschuwing: alleen bij een echt onwerkbaar venster het veld zetten, zodat een
     // normale solve byte-identiek blijft (veld afwezig ⇒ geen wijziging aan bestaande consumenten).
-    if (this.cappedTaskIds.length > 0) result.cappedTaskIds = [...this.cappedTaskIds];
+    // N4 (Opus-review, T9): `Set`-dedupe — sinds T9's voortgangstak TWEE aparte checked-aanroepen
+    // per taak kan doen (de `elapsedAnchor`-hervattingspunt-berekening én de `ef`-restwerk-optelling
+    // erna), kan dezelfde `taskId` twee keer gepusht worden als BEIDE tegen de onwerkbaar-venster-cap
+    // lopen — vóór T9 kon een taak hoogstens via één pad hier terechtkomen, dus dit kon niet.
+    if (this.cappedTaskIds.length > 0) result.cappedTaskIds = [...new Set(this.cappedTaskIds)];
     // T8-rooktest: idem voor relaties die een niet-bladtaak raakten en al bij de constructie
     // genegeerd zijn (zie de guard in de constructor) — byte-identiek default zolang dat niet gebeurt.
     if (this.droppedSequenceIds.length > 0) result.droppedSequenceIds = [...this.droppedSequenceIds];
@@ -938,6 +942,22 @@ export class CPMSolver {
           const remaining = cal.isHourMode
             ? Math.max(0, t.remainingMinutes ?? Math.round(totalSpan * (1 - t.completion)))
             : Math.max(0, t.remainingTime ?? Math.round(totalSpan * (1 - t.completion)));
+          // M2 (Opus-review, 2026-08-17): ELAPSEDTIME-bewustheid — T8 maakte de rest van de solver
+          // elapsed-bewust (`addDurationChecked` hierboven: `addElapsedMinutes(start,
+          // elapsedMinutesOf(task, eng))`, GEEN kalenderband-toetsing); deze voortgangstak rekende
+          // tot nu toe ONVOORWAARDELIJK met `cal.addWorkMinutes`/`cal.addWorkDaysChecked` (WERKtijd),
+          // dus een ELAPSEDTIME-taak met `completion > 0` klapte stil om naar WORKTIME-semantiek —
+          // precies het gat dat T8 elders dichtte. `totalSpan`/`remaining` hierboven staan al in de
+          // "eigen eenheid" van de taak (minuten in uur-modus, dagen in dag-modus — BEIDE al
+          // elapsed-klok-consistent gevuld voor een ELAPSEDTIME-taak, zie `mppReader.ts`'s
+          // `raw.isElapsedDuration`-tak voor zowel `duration`/`durationMinutes` als
+          // `remainingTime`/`remainingMinutes`); alleen de dag→minuut-omrekening ontbreekt nog voor
+          // het dag-modus-pad — exact dezelfde stap als `elapsedMinutesOf`'s eigen dag-tak
+          // (`scheduleDuration × 24 × 60`). `isElapsedTask` sluit een mijlpaal uit (spiegelt de
+          // `!task.isMilestone && durationType === 'ELAPSEDTIME'`-guard die overal elders in dit
+          // bestand staat — een mijlpaal heeft geen eigen duur-/durationType-semantiek).
+          const isElapsedTask = !task.isMilestone && t.durationType === 'ELAPSEDTIME';
+          const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
           let remStart = dataDate;                                  // ondergrens: statusdatum
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
@@ -967,32 +987,56 @@ export class CPMSolver {
             // no-op (byte-identiek aan vóór T9), UITSLUITEND `true` voor `.mpp`-imports
             // (`mppReader.ts` zet 'm project-breed — élke MPP-taak toont dit gedrag, corpusbreed
             // gemeten, geen per-taak-signaal nodig).
-            const elapsed = this.options.schedulingOptions?.resumeFromActualElapsed
+            // M1 (Opus-review, 2026-08-17): deze vloer is UITSLUITEND geldig als er nog restwerk
+            // ná het "verstreken" venster geplaatst moet worden (`remaining > 0`) — het is per
+            // constructie de hervattingsPUNT voor dat restwerk, geen op-zichzelf-staande finish. De
+            // `elapsed + 1`-telescopie hierboven (dag ÉÉN NA het verstreken venster) is correct
+            // WANNEER `remaining ≥ 1` daarna nog aangevuld wordt (het `+1` en het `−1`-effect van
+            // `remaining` heffen elkaar precies op: dag `elapsed+1` + `(remaining−1)` verder =
+            // dag `elapsed+remaining` = dag `totalSpan` vanaf `actualES` — exact de natuurlijke
+            // finish). Bij `remaining === 0` (bv. `RemainingDuration=0` terwijl `PercentComplete<100`
+            // — inconsistente brondata, of een taak die precies aan haar volledige duur zit) valt
+            // die opheffing weg: `addWorkDaysChecked(remStart, 0)`/`addWorkMinutes(remStart, 0)`
+            // hieronder geven `remStart` ONGEWIJZIGD terug (geen "dag −1"-tegenhanger), dus de finish
+            // zou dan blijven staan op de HERVATTINGSpunt-instant zelf — één werkdag/bandgat VOORBIJ
+            // de natuurlijke finish (gemeten: uur ma 16:00 → di 08:00; dag vr 10-07 → ma 13-07).
+            // Bij `remaining === 0` treedt deze vloer daarom NIET in werking — `remStart` blijft op
+            // de bestaande `max(dataDate, voorganger-druk)`-waarde (byte-identiek aan vóór T9 voor
+            // dit randgeval), zie `cases-progress.json`'s `prog-T9-remaining-nul-natuurlijke-finish`.
+            const elapsed = this.options.schedulingOptions?.resumeFromActualElapsed && remaining > 0
               ? Math.max(0, totalSpan - remaining)
               : 0;
             if (elapsed > 0) {
-              // Uur: `addWorkMinutes` is een echte klok-optelling (kan exact op een bandgrens
-              // landen, bv. vr 17:00) — `snapOnOrAfter` duwt zo'n grensinstant door naar de
-              // eerstvolgende geldige werk-instant (ma 08:00), precies zoals elders in deze functie
-              // (`actualES`) een opgeslagen datum snapt. Dag: `addWorkDaysChecked(actualES, N)` is
-              // INCLUSIEF (dag 1 = `actualES` zelf, de "hoeveelste-werkdag-vanaf-hier"-conventie die
-              // ook `remaining`/`ef` verderop gebruikt) — de dag ÉÉN NA de `elapsed`-ste werkdag is
-              // dus dag `elapsed + 1`, niet dag `elapsed` (anders zou elapsed=1 op `actualES` zelf
-              // blijven staan i.p.v. doorschuiven naar de eerstvolgende werkdag — geverifieerd tegen
-              // `CalendarEngine.addWorkDaysChecked`: dag 1 vanaf een vrijdag = die vrijdag zelf, dag
-              // 2 = de eerstvolgende maandag).
-              const elapsedAnchor = cal.isHourMode
-                ? this.snapOnOrAfter(cal, cal.addWorkMinutes(actualES, elapsed))
-                : (() => {
-                    const r = cal.addWorkDaysChecked(actualES, elapsed + 1);
-                    if (r.capped) this.cappedTaskIds.push(taskId);
-                    return r.date;
-                  })();
+              // M2: ELAPSEDTIME rekent hier 24/7 in klok-minuten (`addElapsedMinutes`, T8-precedent)
+              // — GEEN `snapOnOrAfter` (die zou een legitiem weekend-/nachtinstant, precies het punt
+              // van ELAPSEDTIME, alsnog naar de eerstvolgende werkband duwen) en GEEN dag-inclusieve
+              // `+1`-telescopie (die hoort bij `addWorkDaysChecked`s "hoeveelste-werkdag"-conventie,
+              // niet bij een kale klok-optelling). Uur (WORKTIME): `addWorkMinutes` is een echte
+              // klok-optelling (kan exact op een bandgrens landen, bv. vr 17:00) — `snapOnOrAfter`
+              // duwt zo'n grensinstant door naar de eerstvolgende geldige werk-instant (ma 08:00),
+              // precies zoals elders in deze functie (`actualES`) een opgeslagen datum snapt. Dag
+              // (WORKTIME): `addWorkDaysChecked(actualES, N)` is INCLUSIEF (dag 1 = `actualES` zelf,
+              // de "hoeveelste-werkdag-vanaf-hier"-conventie die ook `remaining`/`ef` verderop
+              // gebruikt) — de dag ÉÉN NA de `elapsed`-ste werkdag is dus dag `elapsed + 1`, niet dag
+              // `elapsed` (anders zou elapsed=1 op `actualES` zelf blijven staan i.p.v. doorschuiven
+              // naar de eerstvolgende werkdag — geverifieerd tegen `CalendarEngine.addWorkDaysChecked`:
+              // dag 1 vanaf een vrijdag = die vrijdag zelf, dag 2 = de eerstvolgende maandag).
+              const elapsedAnchor = isElapsedTask
+                ? addElapsedMinutes(actualES, cal.isHourMode ? elapsed : elapsed * 24 * 60)
+                : cal.isHourMode
+                  ? this.snapOnOrAfter(cal, cal.addWorkMinutes(actualES, elapsed))
+                  : (() => {
+                      const r = cal.addWorkDaysChecked(actualES, elapsed + 1);
+                      if (r.capped) this.cappedTaskIds.push(taskId);
+                      return r.date;
+                    })();
               if (elapsedAnchor > remStart) remStart = elapsedAnchor;
             }
           }
           let ef: Date;
-          if (cal.isHourMode) {
+          if (isElapsedTask) {
+            ef = addElapsedMinutes(remStart, remainingElapsedMinutes);
+          } else if (cal.isHourMode) {
             ef = cal.addWorkMinutes(remStart, remaining);
           } else {
             // WP7: ook het rest-werk-pad kan tegen de onwerkbaar-venster-cap lopen ⇒ checked-variant.

@@ -388,6 +388,54 @@
         "projectEnd": "2026-07-15",
         "error": false
       }
+    },
+    {
+      "id": "prog-T9-remaining-nul-natuurlijke-finish",
+      "title": "T9-M1 (Opus-review, vijandige case): remainingMinutes=0 terwijl completion<1 (inconsistente/afgeronde brondata) — de resumeFromActualElapsed-vloer mag hier NIET inslaan (die is per constructie de hervattingsPUNT voor restwerk, en er is geen restwerk). ZONDER de remaining>0-guard zou de finish één bandgat VOORBIJ de natuurlijke instant belanden (ma16:00 → di08:00, gemeten door de reviewer); MET de guard blijft de finish op het bestaande max(statusdatum, voorganger-druk)-punt (byte-identiek aan vóór T9 voor dit randgeval) — hier ma 08:00 (actualStart, geen voortgang van de klok).",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-06",
+      "schedulingOptions": { "resumeFromActualElapsed": true },
+      "calendar": {
+        "workTime": {
+          "byWeekday": {
+            "1": [{ "start": 480, "end": 960 }],
+            "2": [{ "start": 480, "end": 960 }],
+            "3": [{ "start": 480, "end": 960 }],
+            "4": [{ "start": 480, "end": 960 }],
+            "5": [{ "start": 480, "end": 960 }],
+            "6": [],
+            "7": []
+          }
+        }
+      },
+      "tasks": [
+        { "name": "A", "dur": "8u", "completion": 0.5, "actualStart": "2026-07-06T08:00", "remainingMinutes": 0 }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-06T08:00" }
+        },
+        "projectEnd": "2026-07-06T08:00",
+        "error": false
+      }
+    },
+    {
+      "id": "prog-T9-elapsed-restwerk-24-7",
+      "title": "T9-M2 (Opus-review): ELAPSEDTIME + voortgang moet 24/7-klokrekenen blijven (T8-precedent, addElapsedMinutes), NIET stil omklappen naar WORKTIME-werkdagen. A(6 elapsed dagen, ELAPSEDTIME) start vr 10-07, completion 50% ⇒ remaining 3 elapsed dagen ⇒ EF = vr 10-07 + 3 KALENDERdagen = ma 13-07 (NIET het weekend overslaand naar di 14-07, wat de WORKTIME-arithmetiek zou geven — 3 WERKdagen vanaf vrijdag: vr,ma,di). Geen resumeFromActualElapsed nodig — dit isoleert puur de reken-functiekeuze (addElapsedMinutes vs addWorkDaysChecked) in de voortgangstak zelf.",
+      "anchor": "2026-07-10",
+      "statusDate": "2026-07-10",
+      "tasks": [
+        { "name": "A", "dur": 6, "durationType": "ELAPSEDTIME", "start": "2026-07-10", "completion": 0.5, "actualStart": "2026-07-10" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-13" }
+        },
+        "projectEnd": "2026-07-13",
+        "error": false
+      }
     }
   ]
 }

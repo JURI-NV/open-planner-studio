@@ -2072,24 +2072,26 @@ if (corpusPresent) {
 // minuut/dag af, terwijl MSP's eigen `RemainingDuration` exact is — bij een niet-ronde
 // voltooiingsbreuk (bv. 38%) geeft de afgeleide vorm een klokstand die MS Project zelf nooit toont.
 //
-// Corpus-leescase tegen `OzBuild Workshop 18 After Papa 08.mpp` (publiek MSP2016-workshopmateriaal,
+// Corpus-leescase tegen `OzBuild Workshop 14 After Para 26.mpp` (publiek MSP2016-workshopmateriaal,
 // crawl-wortel — mag met naam genoemd worden, zelfde OPS_MPP_*-conventie als de T10-sectie
-// hierboven): taak "Technical Specification" — completion 38% van 6240 durationMinutes. De AFGELEIDE
-// vorm zou `Math.round(6240 × 0.62) = 3869` geven; MSP's eigen opgeslagen restduur is **3840**
-// (8 werkdagen × 480 min/dag) — de twee vormen wijken hier expliciet af, dus deze taak bewijst dat
-// de lezer daadwerkelijk het MPP-veld gebruikt en niet stil op de afgeleide vorm terugvalt (die zou
-// toevallig ook een geldig getal zijn, alleen het VERKEERDE). Taak "Create Technical Specification"
-// (20% van 2400 min) corroboreert erbij (1920 min) — bij deze taak vallen afgeleide en opgeslagen
-// vorm toevallig samen (2400×0.8 = 1920 exact), dus die alléén zou de mutatie niet vangen.
+// hierboven): taak "Identify Supplier Components" — een BLAD (`childIds.length === 0`), BEWUST
+// GEEN samenvattingstaak (Opus-review M3: een eerdere versie van deze case verankerde op "Technical
+// Specification", die 5 kinderen heeft — `remainingMinutes` op zo'n rollup-taak bereikt de solver
+// NOOIT, exact dezelfde valkuil als de T13-attributiefout die dit hele plan aanzette. Alleen een
+// BLAD-taak se `remainingMinutes` doet daadwerkelijk iets in `CPMSolver`'s voortgangstak). Completion
+// 33% van 2880 durationMinutes. De AFGELEIDE vorm zou `Math.round(2880 × 0.67) = 1930` geven; MSP's
+// eigen opgeslagen restduur is **1920** (4 werkdagen × 480 min/dag) — de twee vormen wijken hier
+// expliciet af, dus deze taak bewijst dat de lezer daadwerkelijk het MPP-veld gebruikt en niet stil
+// op de afgeleide vorm terugvalt (die zou toevallig ook een geldig getal zijn, alleen het VERKEERDE).
 //
 // Mutatiebewijs (zie het implementatierapport voor de exacte rode regel): `remainingDurationOffset`/
 // het `remainingMinutes`/`remainingTime`-zetten in `mppReader.ts` weglaten laat
-// `[T9-voortgangsafronding]`-assert "Technical Specification.remainingMinutes === 3840" ROOD
-// uitslaan (het veld wordt dan `undefined`, niet toevallig 3869 — dus geen vals-groene mutatie).
+// `[T9-voortgangsafronding]`-assert "Identify Supplier Components.remainingMinutes === 1920" ROOD
+// uitslaan (het veld wordt dan `undefined`, niet toevallig 1930 — dus geen vals-groene mutatie).
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 {
   const REMAINING_FIXTURE = process.env.OPS_MPP_REMAINING_FIXTURE
-    ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18 After Papa 08.mpp';
+    ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 14 After Para 26.mpp';
   if (!existsSync(REMAINING_FIXTURE)) {
     console.log(`OK  mpp-import: T9-voortgangsafronding-leescase (${REMAINING_FIXTURE}) niet aanwezig — overgeslagen`);
   } else {
@@ -2103,20 +2105,16 @@ if (corpusPresent) {
     truthy(`[T9-voortgangsafronding] readMPP gooit niet (${threw ?? ''})`, threw === null);
     if (result) {
       const byName = new Map(result.tasks.map((t) => [t.name, t]));
-      const techSpec = byName.get('Technical Specification');
-      truthy('[T9-voortgangsafronding] "Technical Specification" gevonden', !!techSpec);
-      if (techSpec) {
-        truthy('[T9-voortgangsafronding] Technical Specification.completion === 0.38', Math.abs(techSpec.time.completion - 0.38) < 1e-9);
-        truthy('[T9-voortgangsafronding] Technical Specification.durationMinutes === 6240', techSpec.time.durationMinutes === 6240);
+      const identifySupplier = byName.get('Identify Supplier Components');
+      truthy('[T9-voortgangsafronding] "Identify Supplier Components" gevonden', !!identifySupplier);
+      if (identifySupplier) {
+        truthy('[T9-voortgangsafronding] Identify Supplier Components is een BLAD (childIds.length === 0)', identifySupplier.childIds.length === 0);
+        truthy('[T9-voortgangsafronding] Identify Supplier Components.completion === 0.33', Math.abs(identifySupplier.time.completion - 0.33) < 1e-9);
+        truthy('[T9-voortgangsafronding] Identify Supplier Components.durationMinutes === 2880', identifySupplier.time.durationMinutes === 2880);
         truthy(
-          `[T9-voortgangsafronding] Technical Specification.remainingMinutes === 3840 (MSP's eigen restduur — de afgeleide vorm zou 3869 geven, kreeg ${techSpec.time.remainingMinutes})`,
-          techSpec.time.remainingMinutes === 3840,
+          `[T9-voortgangsafronding] Identify Supplier Components.remainingMinutes === 1920 (MSP's eigen restduur — de afgeleide vorm zou 1930 geven, kreeg ${identifySupplier.time.remainingMinutes})`,
+          identifySupplier.time.remainingMinutes === 1920,
         );
-      }
-      const createTechSpec = byName.get('Create Technical Specification');
-      truthy('[T9-voortgangsafronding] "Create Technical Specification" gevonden', !!createTechSpec);
-      if (createTechSpec) {
-        truthy('[T9-voortgangsafronding] Create Technical Specification.remainingMinutes === 1920', createTechSpec.time.remainingMinutes === 1920);
       }
       console.log(`   . [T9-voortgangsafronding] REMAINING_DURATION correct gelezen (${result.tasks.length} taken totaal)`);
     }

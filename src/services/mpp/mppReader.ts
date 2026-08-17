@@ -140,7 +140,7 @@ import {
   fixedOffsetOf, varDataKeyOf, type FieldMapTable,
 } from './fieldMap14';
 import { readCalendars, promoteCalendarsForHourMode, type CalendarReadResult } from './mppCalendars';
-import { MAX_VAR_TEXT_BYTES } from './limits';
+import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths } from './limits';
 import { readRelations, readResources, readAssignments } from './mppEntities';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -733,8 +733,12 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // T9: REMAINING_DURATION — zelfde INT-vorm/eenheid als SCHEDULED_DURATION (zie
     // `fieldMap14.ts`'s toelichting bij `TaskFieldId.RemainingDuration`). `null` bij ontbrekend
     // veld/te kort record — Fase C valt dan terug op het bestaande fractionele-uit-`completion`-pad.
+    // N3 (Opus-review, hardening-§7): `clampRemainingDurationTenths` (limits.ts) begrenst de rauwe
+    // waarde vóórdat hij verderop in datum-arithmetiek terechtkomt — zie de klem se meetcommentaar
+    // voor het waarom (structureel INT32-begrensd, maar met een eigen, gedocumenteerde bovengrens
+    // i.p.v. stil te vertrouwen op de dieper liggende CalendarEngine-/duration.ts-klemmen).
     const remainingDurationRaw = remainingDurationOffset !== null && data.length >= remainingDurationOffset + 4
-      ? getInt(data, remainingDurationOffset, 'TBkndTask remainingDuration')
+      ? clampRemainingDurationTenths(getInt(data, remainingDurationOffset, 'TBkndTask remainingDuration'))
       : null;
 
     // T12: LEVELING_DELAY — zelfde INT-vorm als SCHEDULED_DURATION (tienden van een minuut), alleen
