@@ -24,6 +24,8 @@
 | `src/services/ifc/ifcReader.ts` | **wijzig** — aanwezigheid per taak vastleggen, meegeven in `readIFC` |
 | `src/services/importTypes.ts` | **wijzig** — optioneel `recordedFields` op `ImportResult` |
 | `src/engine/scheduler/recordedDates.ts` | **nieuw** — types + `captureRecordedDates` + `countShiftedTasks` + `cpmResultFromRecorded` |
+| `src/engine/scheduler/projectDuration.ts` | **nieuw** (tijdens de bouw toegevoegd) — `projectDurationOf`, gedeeld met de solver |
+| `src/engine/scheduler/scheduleAnalysis.ts` | **wijzig** (tijdens de bouw toegevoegd) — projectduur-staart geëxtraheerd; gedragsbehoudend geverifieerd |
 | `src/state/documentContract.ts` | **wijzig** — twee contractvelden + `payloadFromImport`-allowlist |
 | `src/state/slices/scheduleSlice.ts` | **wijzig** — velden, `showRecordedDates`, F5-uitgang |
 | `src/state/transaction.ts` | **wijzig** — modus uitzetten in `finishMutation` |

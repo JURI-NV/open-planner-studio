@@ -144,7 +144,7 @@ Bouwt een `CPMResult` uit `recordedTimes` plus de taken en de kalender:
 |---|---|
 | `tasks` | `recordedTimes` — `CPMTaskResult` is exact de zeven IFC-velden, dus vrijwel een identiteitsafbeelding |
 | `projectEnd` | max opgeslagen finish |
-| `projectDuration` | werkdagen tussen projectstart en `projectEnd` via `CalendarEngine` — telwerk, geen solve |
+| `projectDuration` | werkdagen tussen projectstart en `projectEnd` via de gedeelde `projectDurationOf` — telwerk, geen solve |
 | `missedDeadlineTaskIds` | opgeslagen finish > `deadline`, per taak |
 | `criticalPaths` | `[criticalPath]` — het contract eist lengte ≥ 1 met `criticalPaths[0] === criticalPath` |
 
@@ -161,6 +161,10 @@ Bouwt een `CPMResult` uit `recordedTimes` plus de taken en de kalender:
 `drivingSequenceIds` (de solver-docstring zegt expliciet: *"wordt bewust niet gepersisteerd (ook niet in IFC)"*), `sequenceFreeFloat`, `truncatedLeadSequenceIds`, `violatedConstraintTaskIds`, `outOfSequenceSequenceIds`, `hammockNoFinishDriverTaskIds`, `nearCriticalTaskIds`, `floatPathByTask`, `cappedTaskIds`, `error`.
 
 Gevolg voor de UI: de statusbalk toont projectduur, projecteinde en gemiste deadlines, plus de kritieke-pad-telling wanneer het bestand die kent. Geschonden constraints en out-of-sequence blijven leeg; relatietabel en driving-markering tonen geen driving-informatie. Dat is eerlijk — die informatie stáát niet in het bestand — en het is te plaatsen omdat de strook de hele tijd zegt dat er niet herberekend is.
+
+**Gedeeld met de solver.** `projectDuration` liep aanvankelijk via een eigen telling in deze module, wat een zichtbare afwijking opleverde: een project van één dag met alleen mijlpalen gaf 1 in de reconstructie en 0 in de solver. Twee weergaven van hetzelfde project die verschillend rekenen is voor een gebruiker een bug, geen nuance. De mijlpaal-alleen-uitzondering uit [`scheduleAnalysis.ts`](../../../src/engine/scheduler/scheduleAnalysis.ts) is daarom geëxtraheerd naar `src/engine/scheduler/projectDurationOf` en wordt nu door beide paden aangeroepen.
+
+Dat is een **afwijking van de scope-regel "geen wijziging aan de solver"** bovenaan dit document, bewust genomen tijdens de bouw. De extractie is een letterlijke transliteratie en is als gedragsbehoudend geverifieerd met een differentiële probe over 4992 combinaties van kalenders, spans en taaksets (nul afwijkingen). Wat wél verandert is het reconstructiepad — dat krijgt de uitzondering er nu bij, en dat is precies de bedoeling.
 
 **Nulwaarden zijn hier het enige echte compromis.** `CPMTaskResult.totalFloat`/`freeFloat` zijn verplichte getallen, dus een bestand zonder speling krijgt nullen die eruitzien als "kritiek". Optioneel maken zou door de hele consumentenketen rimpelen en weegt niet op tegen de winst; de strook is het tegengif. Als dit in de praktijk verwart, is de opvolging `criticalPath` leeghouden (al zo ontworpen) en de speling-kolommen in de tabel leeg tonen in de modus — bewust buiten deze scope.
 
