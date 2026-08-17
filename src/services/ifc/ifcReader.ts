@@ -19,8 +19,8 @@ import {
 } from './ifcConstants';
 import { PSET, PER_TASK_PSET_BY_NAME } from './ifcPsets';
 import {
-  IFC_TASKTIME_SLOTS, RECORDED_SLOT_KEYS, TASK_SLOT, TASKTIME_SLOT,
-  type RecordedSlotKey, type TaskTimeReadHelpers,
+  IFC_TASKTIME_SLOTS, ALL_RECORDED_SLOT_KEYS, TASK_SLOT, TASKTIME_SLOT,
+  type RecordedFieldKey, type TaskTimeReadHelpers,
 } from './ifcTaskSlots';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import {
@@ -631,15 +631,19 @@ function applyHourModeIFC(
 }
 
 /**
- * Welke rekenslots vulde dit IfcTaskTime écht? `$`, leeg en afwezig tellen NIET mee.
+ * Welke slots vulde dit IfcTaskTime écht? `$`, leeg en afwezig tellen NIET mee. Rekenslots
+ * (`RECORDED_SLOT_KEYS`) én de twee invoerslots ScheduleStart/ScheduleFinish
+ * (`RECORDED_INPUT_SLOT_KEYS`) tellen allebei mee — de tweelagenkeuze in "datums zoals opgeslagen"
+ * heeft de aanwezigheid van BEIDE nodig (kwaliteitsreview MOET 1): zonder de invoerslots hier kon de
+ * terugvallaag een `$`-ScheduleStart niet onderscheiden van een écht geëxporteerde datum.
  *
  * Bewust hier en niet in de slot-`read`-descriptors: `read` krijgt de rauwe arg al binnen, maar zijn
  * contract (`read?(t, arg, p)`) zou voor alle twintig slots moeten wijzigen om deze ene uitkomst
  * naar buiten te krijgen. De arg-index staat via `TASKTIME_SLOT` toch al ter beschikking.
  */
-function recordedSlotsOf(e: StepEntity): RecordedSlotKey[] {
-  const out: RecordedSlotKey[] = [];
-  for (const key of RECORDED_SLOT_KEYS) {
+function recordedSlotsOf(e: StepEntity): RecordedFieldKey[] {
+  const out: RecordedFieldKey[] = [];
+  for (const key of ALL_RECORDED_SLOT_KEYS) {
     const arg = e.args[TASKTIME_SLOT[key]];
     if (arg && arg !== '$') out.push(key);
   }
@@ -650,7 +654,7 @@ function extractTasks(
   entities: StepEntity[],
   entityMap: Map<string, StepEntity>,
   baselineTaskStepIds: Set<string> = new Set(),
-): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity>; recordedFields: Record<string, RecordedSlotKey[]> } {
+): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity>; recordedFields: Record<string, RecordedFieldKey[]> } {
   const taskEntities = entities.filter(e => e.type === 'IFCTASK' && !baselineTaskStepIds.has(e.id));
   const tasks: Task[] = [];
   const taskStepIdMap = new Map<string, string>(); // STEP #id -> our task id
@@ -660,7 +664,7 @@ function extractTasks(
   // Aanwezigheidsregistratie voor "datums zoals opgeslagen": per taak-id de rekenslots die het
   // bestand echt vulde. Een taak ZONDER IfcTaskTime krijgt een lege lijst (niet: ontbrekend) —
   // "geen enkel slot gevuld" is een uitspraak, "onbekend" niet.
-  const recordedFields: Record<string, RecordedSlotKey[]> = {};
+  const recordedFields: Record<string, RecordedFieldKey[]> = {};
 
   for (const te of taskEntities) {
     const id = generateId('task');

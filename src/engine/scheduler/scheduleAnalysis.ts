@@ -3,8 +3,9 @@ import type { SchedulingOptions } from '@/types/project';
 import type { Sequence } from '@/types/sequence';
 import type { CalendarEngine } from './CalendarEngine';
 import type { CPMResult, CPMTaskResult } from './CPMSolver';
-import { parseDate, formatDate, formatInstant, type DateMode } from '@/utils/dateUtils';
+import { parseDate, formatInstant, type DateMode } from '@/utils/dateUtils';
 import { traceFrom } from './graphWalk';
+import { projectDurationOf } from './projectDuration';
 
 /**
  * Invoer voor de resultaat-post-pass (`computeScheduleResults`). Puur data + een handvol
@@ -254,25 +255,16 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
   // degradatiepaden teruggeeft: leeg einde, duur 0.
   const hasSchedule = earlyDates.size > 0;
 
-  // Projectduur = werkdag-spanne van de vroegste start tot de laatste finish. Een project dat
-  // op één moment valt (uitsluitend mijlpalen, geen echt werk) heeft duur 0 i.p.v. de 1 die de
-  // inclusieve telling anders zou geven.
+  // Projectduur = werkdag-spanne van de vroegste start tot de laatste finish, MET de
+  // mijlpaal-alleen-uitzondering — gedeeld met de "datums zoals opgeslagen"-reconstructie via
+  // `projectDurationOf` (`projectDuration.ts`), zodat beide callsites dezelfde regel toepassen.
   // `projStart` blijft null bij nul early-resultaten (⟺ !hasSchedule) — dan is er niets te meten
   // en blijft de duur 0, i.p.v. de spanne "vandaag → epoch" die de oude terugval opleverde.
-  let projectDuration = 0;
   let projStart: Date | null = null;
   for (const { es } of earlyDates.values()) {
     if (!projStart || es < projStart) projStart = es;
   }
-  if (projStart) {
-    projectDuration = projectEngine.workDaysBetween(projStart, projectEnd);
-    if (formatDate(projStart) === formatDate(projectEnd)) {
-      const anyRealWork = [...tasks.values()].some(
-        (t) => !t.isMilestone && t.time.scheduleDuration > 0,
-      );
-      if (!anyRealWork) projectDuration = 0;
-    }
-  }
+  const projectDuration = projectDurationOf(projectEngine, projStart, projectEnd, tasks.values());
 
   // ── Fase 2.9 golf 3 (§4.6) — multiple float paths (POST-PASS op het VASTE resultaat) ──────────
   // De vroege datums veranderen NIET door het peelen: dit is een goedkope graaf-peel resp.

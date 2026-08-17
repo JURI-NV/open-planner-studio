@@ -1,4 +1,4 @@
-import type { Task, TaskTime, TaskTimeComputed } from '@/types/task';
+import type { Task, TaskTime, TaskTimeComputed, TaskTimeInput } from '@/types/task';
 import { ifcStr, ifcBool } from './ifcPsets';
 import { DEFAULT_PRIORITY } from './ifcConstants';
 
@@ -199,6 +199,36 @@ type _Expect<T extends true> = T;
 type _IsNever<T> = [T] extends [never] ? true : false;
 const _assertAlleRekenslots: _Expect<_IsNever<Exclude<keyof TaskTimeComputed, RecordedSlotKey>>> = true;
 void _assertAlleRekenslots;
+
+/**
+ * De TWEE invoerslots die "datums zoals opgeslagen" (issue #63, taak 2) nodig heeft als terugval
+ * wanneer de rekenslots leeg zijn: `scheduleStart`/`scheduleFinish` zijn INVOER (het anker waarop de
+ * forward pass snapt), geen rekenresultaat — vandaar terecht niet in `RECORDED_SLOT_KEYS` hierboven.
+ *
+ * Zonder aanwezigheidsregistratie voor DEZE twee kon de terugvallaag niet onderscheiden of een taak
+ * écht een geëxporteerde ScheduleStart/-Finish droeg, dan wel de "vandaag"-fallback van
+ * `createDefaultTaskTime`/`parseDateFromIFC` (een IFCTASK zonder IfcTaskTime, of een IfcTaskTime met
+ * `$` op ScheduleStart) — precies het gat dat de kritieke bevinding van de kwaliteitsreview blootlegde.
+ *
+ * Bewust een SUBSET van `TaskTimeInput` (niet alle vijf velden): `durationType`/`scheduleDuration`/
+ * `durationMinutes` zijn geen datum-aanwezigheidsvraag — de writer schrijft duur altijd een waarde,
+ * dus "was er een duur" is geen zinvolle vraag zoals "was er een startdatum". Daarom GEEN
+ * volledigheids-assert zoals `_assertAlleRekenslots` hierboven (die zou alle vijf `TaskTimeInput`-
+ * velden eisen, wat hier niet de bedoeling is) — de `satisfies`-clausule hieronder geeft al de
+ * typo-bescherming die voor deze twee sleutels nodig is.
+ */
+export const RECORDED_INPUT_SLOT_KEYS = ['scheduleStart', 'scheduleFinish'] as const satisfies readonly (keyof TaskTimeInput)[];
+
+export type RecordedInputSlotKey = typeof RECORDED_INPUT_SLOT_KEYS[number];
+
+/** Alle sleutels die in één `recordedFields[taskId]`-lijst kunnen voorkomen: de zeven rekenslots
+ *  (`RecordedSlotKey`) plus de twee invoerslots (`RecordedInputSlotKey`). */
+export type RecordedFieldKey = RecordedSlotKey | RecordedInputSlotKey;
+
+/** Eén geordende lijst van alle negen bewaakte sleutels — gedeeld door `recordedSlotsOf` (ifcReader)
+ *  zodat de combinatie niet op elke aanroep opnieuw wordt samengesteld, en herbruikbaar door tests
+ *  die "alle negen aanwezig" willen verifiëren zonder de twee bronlijsten zelf te moeten optellen. */
+export const ALL_RECORDED_SLOT_KEYS: readonly RecordedFieldKey[] = [...RECORDED_SLOT_KEYS, ...RECORDED_INPUT_SLOT_KEYS];
 
 // ── IFCTASK ─────────────────────────────────────────────────────────────────────────────────────
 
