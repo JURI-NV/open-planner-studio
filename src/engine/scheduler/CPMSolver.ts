@@ -1148,12 +1148,24 @@ export class CPMSolver {
 
       const { date: earlyFinishRaw, capped } = this.addDurationChecked(cal, earlyStart, task);
       if (capped) this.cappedTaskIds.push(taskId); // WP7: onwerkbaar venster ⇒ zachte waarschuwing
+      // Z10-fixronde 2 (reviewbevinding 3, BESLUIT: de harde pin wint): een taak met een harde
+      // MFO/MSO-finish-pin belooft een eigen contract — EF = LF = de pin, tf = 0 (`hardPinFinish`/
+      // `applyBackwardBound`). Zonder deze wacht overrulede de SF-vloer dat contract zodra dezelfde
+      // taak óók een SF-opvolger is: de vloer duwde EF ná de pin, terwijl LF op de pin bleef staan
+      // (backward pass kent de vloer niet) ⇒ EF > LF ⇒ negatieve tf, het pin-contract geschonden.
+      // De bestaande `hardPinViolatedIds`-detectie (§4.2, `applyForwardConstraints`) blijft het
+      // signaal voor zo'n conflict — deze wacht verandert daar niets aan, ze voorkomt alleen dat de
+      // vloer een EIGEN, tweede schending introduceert bovenop een taak die al hard gepind is.
+      // `hardPinFinish` afwezig (geen harde pin, verreweg het gebruikelijke geval) ⇒ byte-identiek.
+      const hardFinishPin = this.hardPinFinish(task, cal);
       // Z10: de SF-vereiste-finish is een ondergrens op de early finish (zie `sfFinishFloor`s
       // declaratie hierboven) — vuurt alleen als de gewone `ES + duur`-herberekening er daadwerkelijk
       // ONDER blijft (het normale, niet-grensoverschrijdende geval reproduceert `sfFinishFloor` toch
       // al exact, dus deze `max` is dan een no-op). `sfFinishFloor === null` (geen SF-voorganger,
       // verreweg het gebruikelijke geval) ⇒ byte-identiek aan vóór Z10.
-      const earlyFinish = sfFinishFloor && sfFinishFloor > earlyFinishRaw ? sfFinishFloor : earlyFinishRaw;
+      const earlyFinish = !hardFinishPin && sfFinishFloor && sfFinishFloor > earlyFinishRaw
+        ? sfFinishFloor
+        : earlyFinishRaw;
 
       results.set(taskId, { es: earlyStart, ef: earlyFinish });
     }
