@@ -29,7 +29,7 @@ import { handleMcpMessage } from '@/services/mcp/dispatcher';
 import { createSnapshot } from '@/state/snapshot';
 import { shiftIso } from '@/engine/moveProject';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
-import { parseDate, diffCalendarDays } from '@/utils/dateUtils';
+import { parseDate, addCalendarDays, formatDate } from '@/utils/dateUtils';
 
 const store = useAppStore;
 
@@ -514,19 +514,26 @@ test('update_project: statusdatum landt; startDate is GEEN volledige Δ-verschui
   // werk-instant OP/NÁ die datum (`snapWorkInstantOnOrAfter`) — exact zoals de solver zelf snapt.
   // Een `assertEq(..., nieuweStart, ...)` was dus een datum-afhankelijke flake: groen zolang
   // "vandaag + 40" toevallig op een werkdag viel, rood zodra dat een weekend was (2026-08-17 + 40 =
-  // 2026-09-26, een zaterdag — precies zo'n geval). Vervangen door een PROPERTY-gebaseerde toets die
-  // de gedocumenteerde snap-semantiek verifieert zonder een specifieke kalenderdag vast te pinnen
-  // (en zonder dezelfde snap-functie te hergebruiken — dat zou de test tautologisch maken tegen de
-  // implementatie i.p.v. tegen de specificatie).
+  // 2026-09-26, een zaterdag — precies zo'n geval).
+  //
+  // L2 (Opus-eindreview 2026-08-17): de eerste fix verving `assertEq` door een LOSSE band ("op/ná
+  // de nieuwe startDate, een echte werkdag, binnen 4 kalenderdagen speling") — dat verbergt een
+  // klem die bv. één dag te ver snapt net zo goed als een correcte klem, want beide vallen binnen
+  // de band. Scherper zonder de flake terug te halen: reken de EXACTE verwachte werkdag zelf uit,
+  // dag-voor-dag vanaf `nieuweStart`, met de ONAFHANKELIJKE `CalendarEngine.isWorkDay` (niet
+  // `snapWorkInstantOnOrAfter` zelf — dat zou de test weer tautologisch maken tegen de
+  // implementatie i.p.v. tegen de specificatie), en toets daar `assertEq` tegen. Nog steeds
+  // datum-onafhankelijk (geen hardgecodeerde kalenderdatum — werkt voor elke "vandaag"), maar een
+  // klem die één dag te ver snapt geeft nu een exacte rode regel i.p.v. een groene "binnen de band".
   const aStartAfter = store.getState().tasks.find((t) => t.id === a)!.time.scheduleStart;
   assert(aStartAfter !== aStartBefore, 'de wortel-taak zonder voorganger/constraint IS meegeklemd (anker gewijzigd)');
-  assert(parseDate(aStartAfter).getTime() >= parseDate(nieuweStart).getTime(),
-    'de wortel-taak klemt NIET vóór de nieuwe startDate (de snap gaat altijd vooruit, nooit terug)');
   const clampEngine = new CalendarEngine(store.getState().calendar);
-  assert(clampEngine.isWorkDay(parseDate(aStartAfter)), 'het geklemde anker landt op een echte werkdag (de snap-semantiek uit projectStartAnchorClamp.ts)');
-  const clampSlackDays = diffCalendarDays(parseDate(nieuweStart), parseDate(aStartAfter));
-  assert(clampSlackDays >= 0 && clampSlackDays <= 4,
-    `het geklemde anker ligt binnen 4 kalenderdagen van de nieuwe startDate (kreeg ${clampSlackDays} dagen — een weekend+eventuele feestdag verklaart maximaal dat venster, niet meer)`);
+  let expectedAnchor = parseDate(nieuweStart);
+  while (!clampEngine.isWorkDay(expectedAnchor)) {
+    expectedAnchor = addCalendarDays(expectedAnchor, 1);
+  }
+  assertEq(aStartAfter, formatDate(expectedAnchor),
+    'de wortel-taak klemt naar de EERSTE werkdag op/ná de nieuwe startDate (onafhankelijk dag-voor-dag berekend via CalendarEngine.isWorkDay, niet via snapWorkInstantOnOrAfter)');
   assertEq(data.anchorsClamped, 1, 'de respons meldt het geklemde aantal');
   // GEEN volledige Δ-verschuiving (dat blijft move_project): de OPVOLGER (heeft een voorganger, dus
   // geen wortel-anker) blijft op zijn eigen, relatief bepaalde anker staan — startDate verschuift

@@ -769,9 +769,17 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
 // Date-allocatie minder per doorloop in de cursor-reset, zie `getMonthlyRelativeDates`) — hier
 // bewezen met exact dat ergste geval: 2000 records, elk gedegenereerd. Gemeten op deze machine:
 // ~1,1s (was 46,3s, een 42× verbetering — ruimer dan de ~27× die de theoretische
-// iteratie-reductie alleen voorspelt, dankzij de allocatie-nevenoptimalisatie). Geklemd op 2s
-// i.p.v. letterlijk 1s: ruime marge voor een tragere CI-machine, terwijl de verbetering
-// onmiskenbaar (>20×) blijft aangetoond. ─────────────────────────────────────────────────────────
+// iteratie-reductie alleen voorspelt, dankzij de allocatie-nevenoptimalisatie).
+//
+// MARGE-HERZIENING (M3, Opus-eindreview 2026-08-17, precedent: check-adapters-hours.ts se
+// T4-marge-herziening): 2s was ASYMMETRISCH krap. Lokaal herhaald gemeten: 1161-1224 ms — dat is
+// maar ~1,65× speling t.o.v. de 2000ms-klem, en deze check draait via de tijdzone-matrix 5× per
+// run op gedeelde CI-runners (18 kansen per `npm run verify`-aanroep, ubuntu/windows/macos ×3)
+// waar een 3-4× tragere machine niet uitzonderlijk is — dat vals-rode risico weegt zwaarder dan de
+// mutatiedetectie verzwakken. 5000ms herstelt de marge (~4× t.o.v. de gemeten 1,2s) terwijl de
+// regressie die de klem moet vangen (46,3s) er nog altijd ruim >9× overheen zit — de klem blijft
+// dus net zo hard bewijs tegen een teruggekeerde stilstaande-cursor-bug, alleen niet meer krap
+// tegen een normale, correcte run aan. ───────────────────────────────────────────────────────────
 {
   const raw: RawException[] = Array.from({ length: 2000 }, () => ({
     fromDate: new Date(Date.UTC(2021, 4, 1)),
@@ -791,8 +799,8 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
   const elapsedMs = Date.now() - start;
   const totalDates = contributions.reduce((sum, c) => sum + c.ownDates.length, 0);
   truthy(
-    `MIDDEN-A 2000 gedegenereerde MONTHLY-relatief-records: aantoonbaar snel (${elapsedMs}ms, geklemd op 2s) — was 46,3s vóór MAX_RECURRENCE_ITERATIONS=MAX_RECURRENCE_DATES+16 (gemeten ~1,1s op de implementatiemachine, ruime marge voor een tragere CI-machine)`,
-    elapsedMs < 2000,
+    `MIDDEN-A 2000 gedegenereerde MONTHLY-relatief-records: aantoonbaar snel (${elapsedMs}ms, geklemd op 5s) — was 46,3s vóór MAX_RECURRENCE_ITERATIONS=MAX_RECURRENCE_DATES+16 (gemeten ~1,1-1,2s op de implementatiemachine, ruime marge voor een tragere CI-machine)`,
+    elapsedMs < 5000,
   );
   truthy('MIDDEN-A: 0 datums over alle 2000 records (allemaal gedegenereerd, geen enkele draagt bij)', totalDates === 0);
 }

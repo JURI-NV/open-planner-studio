@@ -28,9 +28,16 @@
 // meldingen niet zelf al schoon zijn; dat is dáár gefixt, niet hier. `OPS_MPP_FIDELITY_REPORT=
 // detail` (`printDetail()` hieronder) is een APARTE, BEWUST BREDERE categorie: die print per
 // afwijkende taak de MSP-naam, kalender-id, constraint en voorgangernamen — CORPUSINHOUD, niet
-// alleen een identificerende tag. Detail-modus is bedoeld voor lokaal, interactief gebruik tijdens
-// de etappe (plan §5); de uitvoer ervan hoort NOOIT in een commit, PR-beschrijving of CI-log
-// geplakt te worden — dat is precies zo gevoelig als het corpusbestand zelf.
+// alleen een identificerende tag. L3 (Opus-eindreview, 2026-08-17): dat privacyrisico is NIET
+// voor beide wortels gelijk, en dit moet expliciet staan i.p.v. impliciet uit §6/O4 afgeleid
+// worden. Voor `OPS_MPP_CORPUS`-bestanden (bedrijfsdata) hoort deze uitvoer NOOIT in een commit,
+// PR-beschrijving of CI-log geplakt te worden — dat is precies zo gevoelig als het corpusbestand
+// zelf. Voor `OPS_MPP_CRAWL`-bestanden (publieke MPXJ-junit-data en OzBuild-workshopmateriaal) is
+// de brontekst zélf al publiek: taak-/voorgangernamen uit die bestanden plakken is dezelfde,
+// toegestane blootstelling als het leesbare `label` dat §6/O4 voor crawl-bestanden al toestaat in
+// de baseline. Detail-modus blijft niettemin bedoeld voor lokaal, interactief gebruik tijdens de
+// etappe (plan §5) — plak in de praktijk niet meer dan nodig, en behandel een regel bij twijfel
+// over corpus-versus-crawl als corpus.
 //
 // PINNING (plan §5, "geen somtotalen"): per bestand, met `===` — `tasks`, `startExact`,
 // `startSameday`, `startDiff`, `finishExact`, `finishSameday`, `finishDiff`. Plus twee globale
@@ -225,7 +232,7 @@ let firstUsableFile: { path: string; bytes: Uint8Array; root: RootName; hash: st
 // een veld dat echt slechter werd. Dat is precies wat T13's hermeting op één bestand liet zien
 // ("OzBuild Workshop 14 After Para 28": startDiff 8→1, finishDiff 11→14 — som 19→15, dus
 // "verbeterd", terwijl finishDiff wél steeg). Om dat niet stil te laten wegvallen achter de
-// som-regel telt `fieldRegressedFiles` PER VELD (elk van de zes tellers apart, niet de som): een
+// som-regel telt `fieldRegressedTags` PER VELD (`startDiff`/`finishDiff`, niet de som): een
 // bestand telt hier zodra ook maar ÉÉN teller t.o.v. de pin steeg — onafhankelijk van wat de
 // andere tellers van hetzelfde bestand doen. Dit is, net als de som-regel, GEEN poort (de
 // per-bestand-per-veld-pins hierboven blijven de enige echte poort) — puur een tweede, eerlijkere
