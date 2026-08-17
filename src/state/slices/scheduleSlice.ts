@@ -1,5 +1,5 @@
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
-import type { RecordedDatesState } from '@/engine/scheduler/recordedDates';
+import { cpmResultFromRecorded, type RecordedDatesState } from '@/engine/scheduler/recordedDates';
 import { solveProject } from '@/engine/scheduler/solveProject';
 import { computeResourceLoad, type ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import {
@@ -25,6 +25,11 @@ export interface ScheduleSlice {
   recordedDates: RecordedDatesState | null;
   /** Staat de modus aan: toont de app de opgeslagen datums in plaats van de herberekende? */
   datesAsRecorded: boolean;
+  /** Zet de app in "datums zoals opgeslagen": herstel wat het bestand vastlegde en reconstrueer
+   *  `cpmResult` daaruit, zonder te solven. Pusht een undo-snapshot (contract-invariant: élke
+   *  mutator van `datesAsRecorded` doet dat), maar zet bewust géén `isDirty` — de state komt hiermee
+   *  dichter bij het bestand te liggen, niet verder. No-op zonder `recordedDates`. */
+  showRecordedDates: () => void;
   runCPM: () => void;
   /** Herbereken ALLEEN de resource-belasting op de bestaande CPM-datums (A6): pure resource-
    *  mutaties (toewijzen, capaciteit, kalender) verversen zo het histogram direct, ZONDER runCPM en
@@ -115,6 +120,42 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       error: cpm?.error ?? null,
       criticalTasks: get().tasks.filter((t) => t.time.isCritical).length,
     });
+  },
+
+  showRecordedDates: () => {
+    set((s) => {
+      const info = s.recordedDates;
+      if (!info || s.datesAsRecorded) return; // no-op ⇒ géén snapshot (transaction.ts-patroon)
+      beginUndoable(s);
+
+      for (const task of s.tasks) {
+        const rec = info.times[task.id];
+        if (!rec) continue;
+        task.time.earlyStart = rec.start;
+        task.time.earlyFinish = rec.finish;
+        task.time.lateStart = rec.lateStart ?? rec.start;
+        task.time.lateFinish = rec.lateFinish ?? rec.finish;
+        task.time.totalFloat = rec.totalFloat ?? 0;
+        task.time.freeFloat = rec.freeFloat ?? 0;
+        task.time.isCritical = rec.isCritical ?? false;
+        // De analyse-afleidingen komen uit de zojuist weggegooide solve en zouden een planning
+        // beschrijven die niet meer op het scherm staat. `applyCpmResult` hanteert dezelfde regel
+        // voor uitgezette opties: afwezig ⇒ het veld wordt gewist.
+        task.time.interferingFloat = undefined;
+        task.time.isNearCritical = undefined;
+        task.time.floatPath = undefined;
+      }
+
+      s.cpmResult = cpmResultFromRecorded(info.times, s.tasks, s.calendar);
+      s.resourceLoadResult = computeResourceLoad(
+        s.resources, s.assignments, s.tasks, s.calendar, s.calendars,
+      );
+      s.datesAsRecorded = true;
+      // De weergave is consistent met wat er getoond wordt — niet verouderd.
+      s.scheduleStale = false;
+      // BEWUST GEEN finishMutation: er is niets gewijzigd t.o.v. het bestand.
+    });
+    get().recomputeViewRows();
   },
 
   levelResources: (options) => {

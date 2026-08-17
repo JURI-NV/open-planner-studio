@@ -367,6 +367,119 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
   eq('7k eigen bestand geeft geen aanbod: recordedDates blijft null', S().recordedDates, null);
 }
 
+// ── (8) showRecordedDates — de modus betreden (Taak 5) ────────────────────────
+// Zelfde soort fixture als (7): één FS-relatie waarvan de opgeslagen datums niet uit de logica
+// volgen (b staat vast op 2026-03-16, ver ná a's werkelijke opvolgdatum 2026-03-09), zodat er
+// na de echte solve écht iets "terug te tonen" is. Lokaal opnieuw opgebouwd (niet het `EXTERN`
+// hierboven hergebruikt, want dat zit in een eigen blok-scope) — zelfde patroon: STEP-argumenten
+// via IFC_TASKTIME_SLOTS/TASKTIME_SLOT op naam, niet op geteld positienummer.
+{
+  const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
+    const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
+    a[TASKTIME_SLOT.name] = "'T'";
+    a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
+    a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
+    a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
+    a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
+    a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
+    a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
+    a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
+    return a.join(',');
+  };
+  const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
+    const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
+    a[TASK_SLOT.globalId] = `'${o.guid}'`;
+    a[TASK_SLOT.name] = `'${o.name}'`;
+    a[TASK_SLOT.identification] = `'${o.wbs}'`;
+    a[TASK_SLOT.isMilestone] = '.F.';
+    a[TASK_SLOT.taskTime] = o.taskTimeRef;
+    a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
+    return a.join(',');
+  };
+
+  const EXTERN2 = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern2',$,$,$,$,$,$);",
+    `#9=IFCTASKTIME(${ttArgs({
+      scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
+      earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
+    })});`,
+    `#2=IFCTASK(${taskArgs({ guid: 'gTaskA2', name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
+    `#10=IFCTASKTIME(${ttArgs({
+      scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
+      earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
+    })});`,
+    `#3=IFCTASK(${taskArgs({ guid: 'gTaskB2', name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
+    "#4=IFCRELSEQUENCE('gSeq2',$,$,$,#2,#3,$,.FINISH_START.,$);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+
+  S().newProject();
+  S().applyLoadedProject(readIFC(EXTERN2), { filePath: null, recompute: true });
+  truthy('8a voorwaarde: recordedDates is gezet (b verschoof)', S().recordedDates !== null);
+
+  const aId = S().tasks.find((t) => t.wbsCode === '1.1')!.id;
+  const bId = S().tasks.find((t) => t.wbsCode === '1.2')!.id;
+
+  // Zet near-critical/float-paths AAN buiten een actie om (directe draft-mutatie, geen undo/isDirty-
+  // bijwerking), zodat de aansluitende runCPM écht een waarde in interferingFloat/isNearCritical/
+  // floatPath schrijft — zonder dit blijven isNearCritical/floatPath toch al `undefined` (de
+  // projectdefaults staan uit) en zou de wis-assertie hieronder niets bewijzen.
+  useAppStore.setState((s) => {
+    s.project.schedulingOptions = {
+      nearCriticalThreshold: 5,
+      floatPaths: { enabled: true, method: 'TOTAL_FLOAT', maxPaths: 5 },
+    };
+  });
+  S().runCPM();
+  truthy('8b voorwaarde: interferingFloat staat vóór het betreden op een waarde',
+    S().tasks.find((t) => t.id === aId)!.time.interferingFloat !== undefined);
+  truthy('8c voorwaarde: isNearCritical staat vóór het betreden op een waarde',
+    S().tasks.find((t) => t.id === aId)!.time.isNearCritical !== undefined);
+  truthy('8d voorwaarde: floatPath staat vóór het betreden op een waarde',
+    S().tasks.find((t) => t.id === aId)!.time.floatPath !== undefined);
+  eq('8e voorwaarde: isDirty nog steeds false (setState/runCPM zijn geen acties)', S().isDirty, false);
+
+  // Zet scheduleStale ook expres AAN (direct, geen actie): zonder dit staat hij door de zojuist
+  // gedraaide runCPM al op false, en zou de assertie "scheduleStale is false" hieronder een mutatie
+  // die de eigen `s.scheduleStale = false`-regel weghaalt niet vangen (was al false vóór de aanroep).
+  useAppStore.setState((s) => { s.scheduleStale = true; });
+  truthy('8e2 voorwaarde: scheduleStale staat vóór het betreden op waar', S().scheduleStale);
+
+  const undoDepthBefore = S().undoStack.length;
+  S().showRecordedDates();
+
+  eq('8f modus staat aan', S().datesAsRecorded, true);
+  eq('8g verschoven taak toont weer opgeslagen earlyStart', S().tasks.find((t) => t.id === bId)!.time.earlyStart, '2026-03-16');
+  eq('8h verschoven taak toont weer opgeslagen earlyFinish', S().tasks.find((t) => t.id === bId)!.time.earlyFinish, '2026-03-20');
+  eq('8i scheduleStale is false', S().scheduleStale, false);
+  eq('8j isDirty blijft false — openen en bekijken maakt niet vies', S().isDirty, false);
+  truthy('8k cpmResult is niet null', S().cpmResult !== null);
+  eq('8l projectEnd komt uit het bestand', S().cpmResult?.projectEnd, '2026-03-20');
+  eq('8m drivingSequenceIds is leeg (niet in IFC)', S().cpmResult?.drivingSequenceIds, []);
+  eq('8n precies één undo-stap erbij', S().undoStack.length, undoDepthBefore + 1);
+  eq('8o interferingFloat gewist', S().tasks.find((t) => t.id === aId)!.time.interferingFloat, undefined);
+  eq('8p isNearCritical gewist', S().tasks.find((t) => t.id === aId)!.time.isNearCritical, undefined);
+  eq('8q floatPath gewist', S().tasks.find((t) => t.id === aId)!.time.floatPath, undefined);
+
+  // Tweede aanroep: no-op (géén tweede undo-stap, geen wijziging).
+  const undoDepthAfterFirst = S().undoStack.length;
+  S().showRecordedDates();
+  eq('8r tweede aanroep pusht geen undo-stap', S().undoStack.length, undoDepthAfterFirst);
+  eq('8s tweede aanroep laat de modus aan staan', S().datesAsRecorded, true);
+  eq('8t tweede aanroep laat de opgeslagen datum met rust', S().tasks.find((t) => t.id === bId)!.time.earlyStart, '2026-03-16');
+
+  // Zonder recordedDates (bv. na newProject()) doet de actie niets.
+  S().newProject();
+  eq('8u voorwaarde: newProject geeft geen recordedDates', S().recordedDates, null);
+  const undoDepthZonder = S().undoStack.length;
+  S().showRecordedDates();
+  eq('8v zonder recordedDates blijft de modus uit', S().datesAsRecorded, false);
+  eq('8w zonder recordedDates geen undo-stap', S().undoStack.length, undoDepthZonder);
+}
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  recorded-dates: alle checks groen (${checks})`);
