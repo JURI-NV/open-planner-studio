@@ -41,17 +41,32 @@
  * Poort-bronnen: FieldMap.java (`createFieldMap`, `createTaskFieldMap`/`createResourceFieldMap`/
  * `createAssignmentFieldMap`), FieldMap14.java (`getDefaultTaskData`/`getDefaultResourceData`/
  * `getDefaultAssignmentData`, MPP14-veld-id's), PropsKey.java (FIELD_MAP-sleutels).
+ *
+ * Z2 (etappe "nul afwijkingen"): `parseFieldMapBytes` registreert sinds deze taak ook BLOK-1-
+ * entries (`Fixed2Data` — `location: 'fixed2'`, zie `FieldEntry`), nodig voor het MANUALLY_
+ * SCHEDULED-veldpaar (`TaskFieldId.Start`/`Finish`, 1283/1284) en de handmatige duur (1288/1289).
+ * Geverifieerd (net als hierboven bij 29/35/36): geen van deze zes nieuwe id's (20, 178, 1283,
+ * 1284, 1288, 1289) heeft een `mapMpp14`-override — de rest-clausule hierboven ("de rest heeft
+ * sowieso geen override") dekt ze dus al.
  */
 import { getInt, getShort } from './mppPrimitives';
 import type { Props } from './mppContainer';
 
-/** Waar een veld leeft binnen de FixedData/Var2Data-blokken van een backend-storage
- *  (TBkndTask/TBkndRsc/TBkndAssn) — spiegelt `FieldMap.FieldItem`, alleen de twee locaties die
- *  deze lezer daadwerkelijk gebruikt (META_DATA/UNKNOWN worden genegeerd, zie moduleheader). */
+/** Waar een veld leeft binnen de FixedData/Fixed2Data/Var2Data-blokken van een backend-storage
+ *  (TBkndTask/TBkndRsc/TBkndAssn) — spiegelt `FieldMap.FieldItem`, alleen de drie locaties die
+ *  deze lezer daadwerkelijk gebruikt (META_DATA/UNKNOWN worden genegeerd, zie moduleheader).
+ *
+ *  Z2 (etappe "nul afwijkingen"): vóór deze taak was `'fixed'` altijd blok 0 (FixedData) — block ≥1
+ *  (Fixed2Data) werd domweg overgeslagen (zie `parseFieldMapBytes`'s oude commentaar). MANUALLY_
+ *  SCHEDULED-taken ankeren echter op een veldpaar (START/FINISH, 1283/1284) dat uitsluitend in
+ *  BLOK 1 leeft (`FieldMap14.java`: `dataBlockIndex=1`), dus dat blok is nu een EIGEN locatie
+ *  (`'fixed2'`) i.p.v. stilzwijgend te blijven negeren. Blok ≥2 blijft wél genegeerd (geen van de
+ *  velden die deze lezer nodig heeft leeft daar, corpus-geverifieerd). */
 export interface FieldEntry {
-  location: 'fixed' | 'var';
-  /** Alleen bij `location === 'fixed'` — byte-offset in het FixedData-item (blok 0; geen van de
-   *  velden die deze lezer gebruikt leeft in Fixed2Data, corpus-geverifieerd). */
+  location: 'fixed' | 'fixed2' | 'var';
+  /** Bij `location === 'fixed'` of `'fixed2'` — byte-offset in het betreffende FixedData-item
+   *  (blok 0 resp. blok 1 — twee FYSIEK GESCHEIDEN records per taak/resource/assignment, geen
+   *  doorlopende adressering: offset 50 in blok 1 is dus een ANDERE byte dan offset 50 in blok 0). */
   fixedOffset?: number;
   /** Alleen bij `location === 'var'` — sleutel voor `Var2Data.getByteArray`/`getUnicodeString`. */
   varDataKey?: number;
@@ -100,11 +115,13 @@ function parseFieldMapBytes(bytes: Uint8Array): Map<number, FieldEntry> {
     if (dataBlockOffset !== NO_FIXED_OFFSET) {
       if (dataBlockOffset < lastDataBlockOffset) dataBlockIndex++;
       lastDataBlockOffset = dataBlockOffset;
-      // Alleen blok 0 is relevant hier (zie moduleheader) — blok ≥1 (Fixed2Data) wordt niet
-      // geparst door deze lezer, dus zulke entries blijven bewust ongebruikt in de tabel i.p.v.
-      // een verkeerde offset tegen het verkeerde blok te suggereren.
+      // Z2: blok 0 (FixedData) én blok 1 (Fixed2Data) zijn beide relevant (zie moduleheader) — blok
+      // ≥2 blijft genegeerd, dus zulke entries blijven bewust ongebruikt in de tabel i.p.v. een
+      // verkeerde offset tegen het verkeerde blok te suggereren.
       if (dataBlockIndex === 0) {
         entries.set(index, { location: 'fixed', fixedOffset: dataBlockOffset });
+      } else if (dataBlockIndex === 1) {
+        entries.set(index, { location: 'fixed2', fixedOffset: dataBlockOffset });
       }
     } else if (index !== 0) {
       entries.set(index, { location: 'var', varDataKey: index });
@@ -178,11 +195,42 @@ export const TaskFieldId = {
   /** Alleen de rauwe kalender-uniqueID; T6 vertaalt dit naar een echte `WorkCalendar`-referentie.
    *  T5 leest 'm nog niet uit (er is nog geen kalenderlaag om naar te verwijzen). */
   CalendarUniqueId: 401,
+  /** T12, VERHUISD naar hier in Z2 (was een losse `TASK_FIELD_LEVELING_DELAY`-constante in
+   *  `mppReader.ts` — die had bewust geen plek in deze tabel omdat `fieldMap14.ts` toen buiten
+   *  T12's bestandenlijst viel; Z2 heropent dit bestand voor de Fixed2-infrastructuur, dus de
+   *  constante hoort nu structureel hier, bij haar zusjes). Blok 0, offset 58
+   *  (`FieldMap14.java`: `new FieldItem(TaskField.LEVELING_DELAY, FIXED_DATA, 0, 58, 20, 0, 0)`). */
+  LevelingDelay: 20,
+  /** Z2 — eenheid/elapsed-vlag bij `LevelingDelay` hierboven (zelfde SHORT-vorm als `DurationUnits`).
+   *  Blok 0, offset 62 (`FieldMap14.java`: `..., FIXED_DATA, 0, 62, 178, 0, 0`). Nog UITSLUITEND
+   *  gelezen en opgeslagen in `RawTaskScan` door deze taak — de decodering tot een echte
+   *  eenheden-/elapsed-beslissing is Z5-werk (spiegelt `DurationUnits`'s eigen decodeerpad). */
+  LevelingDelayUnits: 178,
+  /** Z2 — MANUALLY_SCHEDULED-taken ankeren hierop i.p.v. `ScheduledStart`/`ScheduledFinish` (zie
+   *  `mppReader.ts`'s moduleheader-toelichting bij TASK_MODE). BLOK 1 (Fixed2Data), offset 50
+   *  (`FieldMap14.java`: `new FieldItem(TaskField.START, FIXED_DATA, 1, 50, 1283, 0, 0)`). */
+  Start: 1283,
+  /** Z2 — spiegelt `Start` hierboven. Blok 1, offset 54 (`FieldMap14.java`: `..., 1, 54, 1284, 0,
+   *  0)`). */
+  Finish: 1284,
+  /** Z2 — MSP's EIGEN opgeslagen duur voor een MANUALLY_SCHEDULED-taak (los van `ScheduledDuration`).
+   *  Blok 1, offset 58 (`FieldMap14.java`: `..., 1, 58, 1288, 0, 0)`). */
+  ManualDuration: 1288,
+  /** Z2 — eenheid/elapsed-vlag bij `ManualDuration` hierboven. Blok 1, offset 62 (`FieldMap14.java`:
+   *  `..., 1, 62, 1289, 0, 0)`). */
+  ManualDurationUnits: 1289,
 } as const;
 
 /** Letterlijk uit `FieldMap14.getDefaultTaskData()` — alleen de entries voor `TaskFieldId`
  *  hierboven. Terugval voor het (zeldzame) geval dat `TASK_FIELD_MAP`/`TASK_FIELD_MAP2` in
- *  `Props` beide ontbreken. */
+ *  `Props` beide ontbreken.
+ *
+ *  Z2: `LevelingDelay`/`LevelingDelayUnits` (blok 0) en `Start`/`Finish`/`ManualDuration`/
+ *  `ManualDurationUnits` (blok 1, `location: 'fixed2'`) toegevoegd — net als elke andere entry
+ *  hier zijn dit de LETTERLIJKE offsets uit `FieldMap14.getDefaultTaskData()` (zie de
+ *  `TaskFieldId`-toelichtingen hierboven), dus geen nieuwe/afwijkende laag t.o.v. I3's alles-of-
+ *  niets-contract: deze tabel blijft in zijn geheel de default-layout, alleen nu voor twee blokken
+ *  i.p.v. één. */
 const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [TaskFieldId.UniqueId]: { location: 'fixed', fixedOffset: 0 },
   [TaskFieldId.Id]: { location: 'fixed', fixedOffset: 4 },
@@ -191,6 +239,8 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [TaskFieldId.DurationUnits]: { location: 'fixed', fixedOffset: 46 },
   [TaskFieldId.RemainingDuration]: { location: 'fixed', fixedOffset: 52 },
   [TaskFieldId.ConstraintType]: { location: 'fixed', fixedOffset: 56 },
+  [TaskFieldId.LevelingDelay]: { location: 'fixed', fixedOffset: 58 },
+  [TaskFieldId.LevelingDelayUnits]: { location: 'fixed', fixedOffset: 62 },
   [TaskFieldId.ScheduledStart]: { location: 'fixed', fixedOffset: 64 },
   [TaskFieldId.ScheduledFinish]: { location: 'fixed', fixedOffset: 68 },
   [TaskFieldId.ActualStart]: { location: 'fixed', fixedOffset: 72 },
@@ -201,6 +251,10 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [TaskFieldId.Deadline]: { location: 'fixed', fixedOffset: 122 },
   [TaskFieldId.Wbs]: { location: 'var', varDataKey: TaskFieldId.Wbs },
   [TaskFieldId.Name]: { location: 'var', varDataKey: TaskFieldId.Name },
+  [TaskFieldId.Start]: { location: 'fixed2', fixedOffset: 50 },
+  [TaskFieldId.Finish]: { location: 'fixed2', fixedOffset: 54 },
+  [TaskFieldId.ManualDuration]: { location: 'fixed2', fixedOffset: 58 },
+  [TaskFieldId.ManualDurationUnits]: { location: 'fixed2', fixedOffset: 62 },
 };
 
 /** Poort van `FieldMap.createTaskFieldMap(Props)`. */
@@ -255,11 +309,23 @@ export function createAssignmentFieldMap(props: Props): FieldMapTable {
 
 // ── Accessors ─────────────────────────────────────────────────────────────────────────────────
 
-/** Fixed-data-byte-offset voor `fieldId`, of `null` als het veld niet in FIXED_DATA leeft (of
- *  helemaal niet in de tabel voorkomt). */
+/** Fixed-data-byte-offset (BLOK 0) voor `fieldId`, of `null` als het veld niet in FIXED_DATA leeft
+ *  (of helemaal niet in de tabel voorkomt). */
 export function fixedOffsetOf(map: FieldMapTable, fieldId: number): number | null {
   const entry = map.get(fieldId);
   return entry && entry.location === 'fixed' && entry.fixedOffset !== undefined ? entry.fixedOffset : null;
+}
+
+/** Z2 — Fixed2Data-byte-offset (BLOK 1) voor `fieldId`, of `null` als het veld niet in BLOK 1 leeft
+ *  (of helemaal niet in de tabel voorkomt). Spiegelt `fixedOffsetOf` hierboven exact, alleen voor
+ *  de andere locatie — zie `FieldEntry`'s toelichting voor waarom dit een aparte accessor is
+ *  i.p.v. één functie met een blok-parameter (`'fixed'`/`'fixed2'` zijn twee fysiek gescheiden
+ *  records, een verwarde aanroep tussen de twee accessors kan dus nooit per ongeluk de verkeerde
+ *  offset tegen het verkeerde blok opleveren — een typefout zou een compile-fout geven, geen
+ *  stille misslag). */
+export function fixed2OffsetOf(map: FieldMapTable, fieldId: number): number | null {
+  const entry = map.get(fieldId);
+  return entry && entry.location === 'fixed2' && entry.fixedOffset !== undefined ? entry.fixedOffset : null;
 }
 
 /** Var-data-sleutel voor `fieldId`, of `null` als het veld niet in VAR_DATA leeft. */

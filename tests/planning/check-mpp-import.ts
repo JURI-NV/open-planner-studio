@@ -65,16 +65,22 @@ import {
   buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock,
   type CfbTreeNode,
 } from './mppFixtures';
-import { readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL } from '@/services/mpp/mppReader';
-import { MAX_VAR_TEXT_BYTES } from '@/services/mpp/limits';
+import {
+  readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
+  openMppProject, parseProjectProperties, readTasks,
+  type ReadTasksResult, type RawTaskScan,
+} from '@/services/mpp/mppReader';
+import { readCalendars } from '@/services/mpp/mppCalendars';
+import { MAX_VAR_TEXT_BYTES, MAX_MANUAL_DURATION_TENTHS } from '@/services/mpp/limits';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
+import { formatInstant } from '@/utils/dateUtils';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
 import type { Task } from '@/types/task';
 import {
   createTaskFieldMap, createResourceFieldMap, createAssignmentFieldMap,
   TaskFieldId, ResourceFieldId, AssignmentFieldId,
-  fixedOffsetOf, varDataKeyOf,
+  fixedOffsetOf, fixed2OffsetOf, varDataKeyOf,
 } from '@/services/mpp/fieldMap14';
 
 const diffs: string[] = [];
@@ -2799,6 +2805,610 @@ if (corpusPresent) {
           result.sourceScheduleNotes === undefined,
         );
       }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z2 (etappe "nul afwijkingen") — Fixed2-infrastructuur in de lezer: block-1-veldmapentries
+// (Start 1283/offset 50, Finish 1284/offset 54, ManualDuration 1288/offset 58,
+// ManualDurationUnits 1289/offset 62) + `TBkndTask/Fixed2Meta` (TASK_MODE-bit, offset 8, masker
+// 0x08 legacy/0x08 2010/0x80 2013+) + `TBkndTask/Fixed2Data` (blok 1). Deze taak wijzigt
+// UITSLUITEND wat de lezer INLEEST en op `RawTaskScan` bewaart — de gebouwde `Task`-objecten/
+// datums blijven ONGEWIJZIGD (acceptatiepunt 1: de corpusbrede fidelity-baseline in
+// `mpp-fidelity-baseline.json` blijft byte-voor-byte 0 verbeterd/0 verslechterd/216 ongewijzigd,
+// gemeten via `check-mpp-fidelity.ts` vóór en ná deze taak — zie het rapport bij deze commit).
+//
+// `readTasks`/`parseProjectProperties`/`ReadTasksResult.rawScans` zijn TEST-ONLY geëxporteerd
+// vanuit `mppReader.ts` — zelfde testbaarheidsreden als `readRelations`/`readResources`/
+// `readAssignments` (T7): `readMPP` zelf geeft deze rauwe velden NIET door aan `ImportResult`.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  const PROJECT_START_DATE_KEY = 37748738;
+  const PROJECT_FINISH_DATE_KEY = 37748739;
+  const TITLE_KEY = 37748744;
+  const DEFAULT_CALENDAR_NAME_KEY = 37748750;
+  const PROPSKEY_TASK_FIELD_MAP_Z2 = 131092;
+
+  // ── Test 1 — directe veldmap-eenheidstest (acceptatiepunt 2, deel a): geen CFB nodig, alleen
+  // `Props` + de field-map-bytes. Bewijst dat `parseFieldMapBytes` blok-1-entries (Start/Finish/
+  // ManualDuration/ManualDurationUnits) registreert MET de juiste offset, dat blok-0-entries
+  // (incl. LevelingDelay/LevelingDelayUnits op DEZELFDE numerieke offsets 58/62 als hun blok-1-
+  // buren) apart blijven, en dat `fixedOffsetOf`/`fixed2OffsetOf` elkaars blok nooit lekken. ─────
+  {
+    const fieldMapBytes = buildFieldMapEntryBytes([
+      { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: TaskFieldId.Id, dataBlockOffset: 4, category: 3 },
+      { typeValue: TaskFieldId.OutlineLevel, dataBlockOffset: 40, category: 3 },
+      { typeValue: TaskFieldId.ScheduledDuration, dataBlockOffset: 42, category: 3 },
+      { typeValue: TaskFieldId.DurationUnits, dataBlockOffset: 46, category: 3 },
+      { typeValue: TaskFieldId.ConstraintType, dataBlockOffset: 56, category: 3 },
+      { typeValue: TaskFieldId.LevelingDelay, dataBlockOffset: 58, category: 3 }, // blok 0
+      { typeValue: TaskFieldId.LevelingDelayUnits, dataBlockOffset: 62, category: 3 }, // blok 0
+      { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
+      { typeValue: TaskFieldId.ScheduledFinish, dataBlockOffset: 68, category: 3 },
+      { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
+      // offset zakt terug van 118 naar 50 ⇒ `parseFieldMapBytes` detecteert de blok-overgang.
+      { typeValue: TaskFieldId.Start, dataBlockOffset: 50, category: 3 }, // blok 1
+      { typeValue: TaskFieldId.Finish, dataBlockOffset: 54, category: 3 }, // blok 1
+      { typeValue: TaskFieldId.ManualDuration, dataBlockOffset: 58, category: 3 }, // blok 1
+      { typeValue: TaskFieldId.ManualDurationUnits, dataBlockOffset: 62, category: 3 }, // blok 1
+      { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+    ]);
+    const props = new Props(encodePropsEntries([{ key: PROPSKEY_TASK_FIELD_MAP_Z2, data: fieldMapBytes }]), 'Z2-fieldmap-block1');
+    const map = createTaskFieldMap(props);
+
+    truthy('[Z2 veldmap] Start (1283) → fixed2@50', fixed2OffsetOf(map, TaskFieldId.Start) === 50);
+    truthy('[Z2 veldmap] Finish (1284) → fixed2@54', fixed2OffsetOf(map, TaskFieldId.Finish) === 54);
+    truthy('[Z2 veldmap] ManualDuration (1288) → fixed2@58', fixed2OffsetOf(map, TaskFieldId.ManualDuration) === 58);
+    truthy('[Z2 veldmap] ManualDurationUnits (1289) → fixed2@62', fixed2OffsetOf(map, TaskFieldId.ManualDurationUnits) === 62);
+    truthy('[Z2 veldmap] LevelingDelay (20) → fixed@58 (blok 0, NIET blok 1)', fixedOffsetOf(map, TaskFieldId.LevelingDelay) === 58);
+    truthy('[Z2 veldmap] LevelingDelayUnits (178) → fixed@62 (blok 0)', fixedOffsetOf(map, TaskFieldId.LevelingDelayUnits) === 62);
+    truthy('[Z2 veldmap] ScheduledStart (35) blijft blok 0 @64', fixedOffsetOf(map, TaskFieldId.ScheduledStart) === 64);
+    // Kruiscontrole: de twee accessors lekken NIET tussen elkaars blok, ook al zijn de numerieke
+    // offsets (58/62) toevallig gelijk tussen blok 0 (LevelingDelay*) en blok 1 (ManualDuration*).
+    truthy('[Z2 veldmap] Start (1283) NIET via fixedOffsetOf (blok 0)', fixedOffsetOf(map, TaskFieldId.Start) === null);
+    truthy('[Z2 veldmap] ManualDuration (1288) NIET via fixedOffsetOf (blok 0)', fixedOffsetOf(map, TaskFieldId.ManualDuration) === null);
+    truthy('[Z2 veldmap] LevelingDelay (20) NIET via fixed2OffsetOf (blok 1)', fixed2OffsetOf(map, TaskFieldId.LevelingDelay) === null);
+  }
+
+  // ── Fixture-infrastructuur voor de end-to-end-tests (2 t/m 4) hieronder — spiegelt T12's
+  // fixtureopzet (`buildT12Fixture`), uitgebreid met `TBkndTask/Fixed2Meta`/`Fixed2Data`. ─────────
+  const Z2_TASK_FIXED_DATA_SIZE = 130; // zelfde DEFAULT_TASK_FIELDS-layout als de T11/T12-fixtures
+  const Z2_FIXED2_META_ITEM_SIZE = 92; // één van TASK_FIXED2_META_ITEM_SIZES's kandidaten
+
+  interface Z2TaskSpec {
+    name: string;
+    uniqueId: number;
+    id: number;
+    durationRaw: number;
+    startTime: number; startDays: number;
+    finishTime: number; finishDays: number;
+    /** Zet de TASK_MODE-bit in het Fixed2Meta-record van deze taak via het LEGACY-masker (0x08) —
+     *  alleen zinvol zonder `opts.applicationName` (dan geeft `detectApplicationVersion` `null` en
+     *  kiest `taskModeBitFlag` het 2010-pad). Voor een 2013+-fixture: gebruik `manualMetaByte`
+     *  hieronder i.p.v. deze vlag (die schrijft altijd 0x08, nooit 0x80). */
+    manual?: boolean;
+    /** Z2-fixronde (MEDIUM): overschrijft `manual` hierboven — schrijft DIT letterlijke byte op
+     *  Fixed2Meta-offset 8, ongeacht `manual`. Nodig om de 2013+/0x80-tak van `taskModeBitFlag`
+     *  te bewijzen (0x80 gezet ⇒ MANUALLY_SCHEDULED) én om aan te tonen dat het LEGACY-bit (0x08)
+     *  op een 2013+-bestand GEEN effect heeft (het moderne masker is 0x80, niet 0x08) — spiegelt
+     *  Z1's acceptatiepunt 3 ("gebruik het 2010-masker op een 2013-fixture ⇒ rood"). */
+    manualMetaByte?: number;
+    manualStartTime?: number; manualStartDays?: number;
+    manualFinishTime?: number; manualFinishDays?: number;
+    manualDurationRaw?: number;
+    manualDurationUnitsRaw?: number; // 7=days (WORKTIME), 8=elapsedDays (getDurationTimeUnits)
+    /** Vijandige-fixture-knop (acceptatiepunt 4): overschrijft de lengte van dít taak-eigen
+     *  Fixed2Data-record — alleen zinvol als deze taak de LAATSTE in de lijst is (`FixedData.
+     *  fromMeta` leidt de laatste-item-lengte af uit "rest van het blok"). */
+    fixed2DataLength?: number;
+  }
+
+  function buildZ2TaskFixedDataRecord(t: Z2TaskSpec): Uint8Array {
+    const out = new Uint8Array(Z2_TASK_FIXED_DATA_SIZE);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, t.uniqueId, true);
+    view.setInt32(4, t.id, true);
+    view.setInt16(40, 1, true); // outlineLevel = 1
+    view.setInt32(42, t.durationRaw, true);
+    view.setInt16(46, 7, true); // durationUnits = 7 ("days", WORKTIME)
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setUint16(64, t.startTime, true);
+    view.setUint16(66, t.startDays, true);
+    view.setUint16(68, t.finishTime, true);
+    view.setUint16(70, t.finishDays, true);
+    view.setInt32(118, -1, true); // geen taak-kalender-override
+    return out;
+  }
+
+  function buildZ2TaskFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
+    const out = new Uint8Array(47);
+    new DataView(out.buffer).setInt32(4, offsetIntoFixedData, true);
+    return out;
+  }
+
+  function buildZ2FixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  function buildZ2Fixed2MetaRecord(offsetIntoFixed2Data: number, manual: boolean, metaByteOverride?: number): Uint8Array {
+    const out = new Uint8Array(Z2_FIXED2_META_ITEM_SIZE);
+    const view = new DataView(out.buffer);
+    view.setInt32(4, offsetIntoFixed2Data, true);
+    // `metaByteOverride` (Z2-fixronde) wint als gezet — laat een test het LETTERLIJKE byte op
+    // offset 8 kiezen (0x08 legacy vs. 0x80 modern), i.p.v. altijd het legacy-bit te schrijven.
+    out[8] = metaByteOverride !== undefined ? metaByteOverride : (manual ? 0x08 : 0x00);
+    return out;
+  }
+
+  function buildZ2Fixed2MetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * Z2_FIXED2_META_ITEM_SIZE);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * Z2_FIXED2_META_ITEM_SIZE));
+    return out;
+  }
+
+  /** Fixed2Data-record (blok 1): Start@50(4)/Finish@54(4)/ManualDuration@58(4)/
+   *  ManualDurationUnits@62(2) — alleen geschreven als het veld gezet is ÉN de (mogelijk
+   *  vijandig-verkorte) recordlengte de schrijfpositie toelaat. */
+  function buildZ2Fixed2DataRecord(t: Z2TaskSpec): Uint8Array {
+    const length = t.fixed2DataLength ?? 70;
+    const out = new Uint8Array(length);
+    const view = new DataView(out.buffer);
+    if (t.manualStartTime !== undefined && length >= 54) {
+      view.setUint16(50, t.manualStartTime, true);
+      view.setUint16(52, t.manualStartDays ?? 0, true);
+    }
+    if (t.manualFinishTime !== undefined && length >= 58) {
+      view.setUint16(54, t.manualFinishTime, true);
+      view.setUint16(56, t.manualFinishDays ?? 0, true);
+    }
+    if (t.manualDurationRaw !== undefined && length >= 62) {
+      view.setInt32(58, t.manualDurationRaw, true);
+    }
+    if (t.manualDurationUnitsRaw !== undefined && length >= 64) {
+      view.setInt16(62, t.manualDurationUnitsRaw, true);
+    }
+    return out;
+  }
+
+  // Enkele band 08:00-16:00, ma-vr — spiegelt de T11/T12-fixtures exact.
+  const Z2_CAL_DAYS = [
+    { defaultFlag: 0 as const },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] },
+    { defaultFlag: 0 as const },
+  ];
+
+  function buildZ2Fixture(
+    tasks: Z2TaskSpec[],
+    opts: { includeFixed2?: boolean; corruptFixed2Meta?: boolean; applicationName?: string } = {},
+  ): Uint8Array {
+    const includeFixed2 = opts.includeFixed2 ?? true;
+    const n = tasks.length;
+    const dummyMeta = buildZ2TaskFixedMetaRecord(0);
+    const metas = tasks.map((_t, i) => buildZ2TaskFixedMetaRecord((3 + i) * Z2_TASK_FIXED_DATA_SIZE));
+    const fixedMetaBlob = buildZ2FixedMetaBlob([dummyMeta, dummyMeta, dummyMeta, ...metas]);
+
+    const fixedDataBlob = new Uint8Array((3 + n) * Z2_TASK_FIXED_DATA_SIZE);
+    tasks.forEach((t, i) => fixedDataBlob.set(buildZ2TaskFixedDataRecord(t), (3 + i) * Z2_TASK_FIXED_DATA_SIZE));
+
+    let fixed2MetaBlob: Uint8Array | undefined;
+    let fixed2DataBlob: Uint8Array | undefined;
+    if (includeFixed2) {
+      const dummyFixed2Data = new Uint8Array(8);
+      const fixed2Records = tasks.map((t) => buildZ2Fixed2DataRecord(t));
+      const fixed2Offsets: number[] = [];
+      let offset = 24; // 3 dummy-plaatshouders × 8 bytes
+      for (const rec of fixed2Records) { fixed2Offsets.push(offset); offset += rec.length; }
+      fixed2DataBlob = new Uint8Array(offset);
+      fixed2DataBlob.set(dummyFixed2Data, 0);
+      fixed2DataBlob.set(dummyFixed2Data, 8);
+      fixed2DataBlob.set(dummyFixed2Data, 16);
+      fixed2Records.forEach((rec, i) => fixed2DataBlob!.set(rec, fixed2Offsets[i]));
+
+      const dummyFixed2Meta = buildZ2Fixed2MetaRecord(0, false);
+      const fixed2Metas = tasks.map((t, i) => buildZ2Fixed2MetaRecord(fixed2Offsets[i], !!t.manual, t.manualMetaByte));
+      fixed2MetaBlob = buildZ2Fixed2MetaBlob([dummyFixed2Meta, dummyFixed2Meta, dummyFixed2Meta, ...fixed2Metas]);
+      // Test 3b (rode-pad-fixture voor de try/catch rond `FixedMeta.withHeuristicItemSize`/
+      // `FixedData.fromMeta` in `readTasks`): STREAM AANWEZIG maar te klein voor zelfs de
+      // 16-byte FixedMeta-header ⇒ `withHeuristicItemSize` gooit ("te klein voor header"), de
+      // catch vangt 'm op en `fixed2Meta`/`fixed2Data` blijven `null` — spiegelt precies het
+      // "streams afwezig"-gedrag van Test 3, maar bewijst nu de ANDERE tak (`catch`, niet de
+      // `if`-guard).
+      if (opts.corruptFixed2Meta) fixed2MetaBlob = new Uint8Array(4);
+    }
+
+    let nameOffset = 0;
+    const varMetaEntries: { uniqueId: number; type: number; offset: number }[] = [];
+    const namePayloads: { offset: number; payload: Uint8Array }[] = [];
+    for (const t of tasks) {
+      varMetaEntries.push({ uniqueId: t.uniqueId, type: TaskFieldId.Name, offset: nameOffset });
+      const payload = encodeUnicodeStringAscii(t.name);
+      namePayloads.push({ offset: nameOffset, payload });
+      nameOffset += 4 + payload.length;
+    }
+    const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
+    const taskVar2DataBuf = new Uint8Array(Math.max(nameOffset, 1));
+    const taskVar2View = new DataView(taskVar2DataBuf.buffer);
+    for (const { offset, payload } of namePayloads) {
+      taskVar2View.setInt32(offset, payload.length, true);
+      taskVar2DataBuf.set(payload, offset + 4);
+    }
+
+    const fieldMapBytes = buildFieldMapEntryBytes([
+      { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: TaskFieldId.Id, dataBlockOffset: 4, category: 3 },
+      { typeValue: TaskFieldId.OutlineLevel, dataBlockOffset: 40, category: 3 },
+      { typeValue: TaskFieldId.ScheduledDuration, dataBlockOffset: 42, category: 3 },
+      { typeValue: TaskFieldId.DurationUnits, dataBlockOffset: 46, category: 3 },
+      { typeValue: TaskFieldId.ConstraintType, dataBlockOffset: 56, category: 3 },
+      { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
+      { typeValue: TaskFieldId.ScheduledFinish, dataBlockOffset: 68, category: 3 },
+      { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
+      { typeValue: TaskFieldId.Start, dataBlockOffset: 50, category: 3 },
+      { typeValue: TaskFieldId.Finish, dataBlockOffset: 54, category: 3 },
+      { typeValue: TaskFieldId.ManualDuration, dataBlockOffset: 58, category: 3 },
+      { typeValue: TaskFieldId.ManualDurationUnits, dataBlockOffset: 62, category: 3 },
+      { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+    ]);
+
+    const calendarName = 'Z2 fixture-kalender';
+    const hoursBlock = buildCalHoursBlock(Z2_CAL_DAYS);
+    const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
+    const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
+    const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
+    const calVarMetaBytes = buildVarMetaBytes([
+      { uniqueId: 1, type: 1, offset: CAL_NAME_OFF },
+      { uniqueId: 1, type: 8, offset: CAL_DATA_OFF },
+    ]);
+    const calVar2DataBuf = new Uint8Array(700);
+    const calVar2View = new DataView(calVar2DataBuf.buffer);
+    const writeCalVar2 = (offset: number, payload: Uint8Array) => {
+      calVar2View.setInt32(offset, payload.length, true);
+      calVar2DataBuf.set(payload, offset + 4);
+    };
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii(calendarName));
+    writeCalVar2(CAL_DATA_OFF, hoursBlock);
+
+    const projectPropsBytes = encodePropsEntries([
+      { key: PROJECT_START_DATE_KEY, data: timestampBytes(0, 15000) },
+      { key: PROJECT_FINISH_DATE_KEY, data: timestampBytes(0, 15010) },
+      { key: TITLE_KEY, data: encodeUnicodeStringAscii('Z2-fixture') },
+      { key: DEFAULT_CALENDAR_NAME_KEY, data: encodeUnicodeStringAscii(calendarName) },
+      { key: PROPSKEY_TASK_FIELD_MAP_Z2, data: fieldMapBytes },
+    ]);
+
+    const taskChildren: Record<string, CfbTreeNode> = {
+      FixedMeta: { data: fixedMetaBlob },
+      FixedData: { data: fixedDataBlob },
+      VarMeta: { data: taskVarMetaBytes },
+      Var2Data: { data: taskVar2DataBuf },
+    };
+    if (fixed2MetaBlob && fixed2DataBlob) {
+      taskChildren.Fixed2Meta = { data: fixed2MetaBlob };
+      taskChildren.Fixed2Data = { data: fixed2DataBlob };
+    }
+
+    const tree: Record<string, CfbTreeNode> = {
+      // `applicationName` (Z2-fixronde): OPTIONEEL — default `undefined` laat `encodeCompObjFileFormat`
+      // zijn eigen `'OPS synthetic'`-default gebruiken (2010-legacy-pad, byte-identiek aan vóór deze
+      // fixronde). Alleen de nieuwe 2013+-fixture hieronder geeft 'm expliciet mee.
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14', opts.applicationName) },
+      Props14: { data: encodePropsSingleByteEntry(893386752, 0) },
+      '   114': {
+        children: {
+          Props: { data: projectPropsBytes },
+          TBkndTask: { children: taskChildren },
+          TBkndCal: {
+            children: {
+              FixedMeta: { data: calFixedMetaBlob },
+              FixedData: { data: calFixedDataBlob },
+              VarMeta: { data: calVarMetaBytes },
+              Var2Data: { data: calVar2DataBuf },
+            },
+          },
+        },
+      },
+    };
+    return buildNestedCfb(tree);
+  }
+
+  /** Bouwt de volledige `ReadTasksContext` en roept `readTasks` aan — dezelfde preambule als
+   *  `readMPP`, maar zonder relaties/resources/assignments te hoeven optuigen (T7-testbaarheids-
+   *  precedent). Vangt niets: een gooiende `readTasks` moet de aanroeper expliciet zien. */
+  function scanZ2(bytes: Uint8Array): ReadTasksResult {
+    const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
+    const { project, hoursPerDay, calendarHoursPerDayOverride } = parseProjectProperties(projectProps, undefined);
+    const taskFieldMap = createTaskFieldMap(projectProps);
+    const calResult = readCalendars(cfb, projectProps, applicationVersion, calendarHoursPerDayOverride);
+    return readTasks({ cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion, calResult });
+  }
+
+  function findRaw(result: ReadTasksResult, uniqueId: number): RawTaskScan | undefined {
+    return result.rawScans.find((r) => r.uniqueId === uniqueId);
+  }
+
+  /** Rekent een verwachte timestamp uit via `getTimestamp`/`timestampBytes` zelf (geen aparte
+   *  epoch-formule hier gedupliceerd — `timestampBytes` is de bestaande I4-testhelper hierboven
+   *  in dit bestand) — dezelfde 4-byte time(2)/days(2)-vorm als de fixture-records hierboven. */
+  function expectedTimestamp(time: number, days: number): Date | null {
+    return getTimestamp(timestampBytes(time, days), 0, 'Z2 expected timestamp');
+  }
+
+  // ── Test 2 — end-to-end: één AUTO- en één MANUALLY_SCHEDULED-taak, mét block-1-veldmap-entries
+  // (acceptatiepunt 2, deel b). Bewijst zowel de offsetopzoeking als de daadwerkelijke decodering
+  // (TASK_MODE-bit, manual start/finish/duur, elapsed-vlag), ÉN dat de gebouwde `Task.time`-datums
+  // uitsluitend uit SCHEDULED_START/FINISH komen — nooit uit het manual-veldpaar (acceptatiepunt 1
+  // op unit-niveau: dit is een leesuitbreiding, geen gedragswijziging). ────────────────────────────
+  {
+    const bytes = buildZ2Fixture([
+      { name: 'Auto', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+      {
+        name: 'Manual', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manual: true,
+        manualStartTime: 4800, manualStartDays: 15003, manualFinishTime: 9600, manualFinishDays: 15005,
+        manualDurationRaw: 28800, manualDurationUnitsRaw: 8, // 8 = elapsedDays
+      },
+    ]);
+    let result: ReadTasksResult | null = null;
+    let threw: string | null = null;
+    try { result = scanZ2(bytes); } catch (err) { threw = err instanceof Error ? err.message : String(err); }
+    truthy(`[Z2 end-to-end] readTasks gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy('[Z2 end-to-end] 2 taken', result.rawScans.length === 2);
+      const auto = findRaw(result, 10);
+      const manual = findRaw(result, 11);
+      truthy('[Z2 end-to-end] Auto-taak gevonden', !!auto);
+      truthy('[Z2 end-to-end] Manual-taak gevonden', !!manual);
+      if (auto) {
+        truthy('[Z2 end-to-end] Auto: taskMode === AUTO_SCHEDULED', auto.taskMode === 'AUTO_SCHEDULED');
+        // De Auto-taak se Fixed2Data-record BESTAAT (elke taak krijgt er hier één, spiegelt een
+        // echt bestand waar block 1 uniform aanwezig is) maar is ONGESCHREVEN gebleven — Start/
+        // Finish lezen dan `null` via `getTimestamp`'s eigen "days ≤ 1 ⇒ N/A"-conventie (dagwaarde
+        // 0), terwijl MANUAL_DURATION geen zo'n NA-sentinel kent: rauwe nullen lezen daar terug als
+        // een geldige (weliswaar betekenisloze) duur van 0 — geen `null`. Dat is exact wat "alleen
+        // lezen, geen interpretatie" betekent: deze taak trekt geen conclusie over of een AUTO-taak
+        // se blok-1-bytes al dan niet betekenisvol zijn.
+        truthy('[Z2 end-to-end] Auto: manualStartTs === null (dagwaarde 0 ⇒ NA-conventie)', auto.manualStartTs === null);
+        truthy('[Z2 end-to-end] Auto: manualFinishTs === null', auto.manualFinishTs === null);
+        truthy('[Z2 end-to-end] Auto: manualDurationRaw === 0 (ongeschreven bytes, geen NA-sentinel voor duur)', auto.manualDurationRaw === 0);
+        truthy('[Z2 end-to-end] Auto: manualDurationIsElapsed === false', auto.manualDurationIsElapsed === false);
+      }
+      if (manual) {
+        truthy('[Z2 end-to-end] Manual: taskMode === MANUALLY_SCHEDULED', manual.taskMode === 'MANUALLY_SCHEDULED');
+        const expStart = expectedTimestamp(4800, 15003);
+        const expFinish = expectedTimestamp(9600, 15005);
+        truthy(
+          `[Z2 end-to-end] Manual: manualStartTs klopt (kreeg ${manual.manualStartTs?.toISOString()})`,
+          !!manual.manualStartTs && !!expStart && manual.manualStartTs.getTime() === expStart.getTime(),
+        );
+        truthy(
+          `[Z2 end-to-end] Manual: manualFinishTs klopt (kreeg ${manual.manualFinishTs?.toISOString()})`,
+          !!manual.manualFinishTs && !!expFinish && manual.manualFinishTs.getTime() === expFinish.getTime(),
+        );
+        truthy(`[Z2 end-to-end] Manual: manualDurationRaw === 28800 (kreeg ${manual.manualDurationRaw})`, manual.manualDurationRaw === 28800);
+        truthy('[Z2 end-to-end] Manual: manualDurationIsElapsed === true (code 8 = elapsedDays)', manual.manualDurationIsElapsed === true);
+      }
+      // Acceptatiepunt 1 (unit-niveau): de MANUAL-taak se GEBOUWDE Task.time komt nog steeds
+      // uitsluitend uit SCHEDULED_START/FINISH — geen enkel manual-veld raakt de datums in déze taak.
+      const manualTask = result.tasks.find((t) => t.name === 'Manual');
+      truthy('[Z2 end-to-end] gebouwde Manual-taak gevonden', !!manualTask);
+      if (manualTask) {
+        // Deze fixture belandt in UUR-MODUS (de kalender se vaste anchor is altijd 08:00, de
+        // finish-tijd 16:00 wijkt daarvan af — het bestaande (c)-signaal uit de moduleheader van
+        // `mppReader.ts`, ONGEWIJZIGD door deze taak) — `formatField` gebruikt dan `formatInstant`
+        // i.p.v. `formatDate`. De vorm is hier niet het punt: het punt is dat de WAARDE uit
+        // SCHEDULED_START (08:00 op dag 15000) komt, niet uit manualStart (08:00 op dag 15003).
+        truthy(
+          `[Z2 end-to-end] Task.time.scheduleStart komt uit SCHEDULED_START, NIET uit manualStart (kreeg ${manualTask.time.scheduleStart})`,
+          manualTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15000)!, 'hour'),
+        );
+      }
+    }
+  }
+
+  // ── Test 2b — clamp-bewijs: `manualDurationRaw` wordt geklemd via `clampManualDurationTenths`
+  // (limits.ts) vóórdat hij op `RawTaskScan` landt — een hostile INT32-waarde ver boven de
+  // 100-jaargrens komt geklemd terug, niet rauw. ───────────────────────────────────────────────────
+  {
+    const HOSTILE_RAW = 2_000_000_000; // > MAX_MANUAL_DURATION_TENTHS, ruim binnen INT32
+    const bytes = buildZ2Fixture([
+      {
+        name: 'HostileDuration', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manual: true, manualDurationRaw: HOSTILE_RAW, manualDurationUnitsRaw: 7,
+      },
+    ]);
+    const result = scanZ2(bytes);
+    const raw = findRaw(result, 10);
+    truthy(
+      `[Z2 clamp] manualDurationRaw geklemd op MAX_MANUAL_DURATION_TENTHS (kreeg ${raw?.manualDurationRaw})`,
+      raw?.manualDurationRaw === MAX_MANUAL_DURATION_TENTHS,
+    );
+  }
+
+  // ── Test 2c/2d — Z2-fixronde (MEDIUM): de 2013+/0x80-tak van `taskModeBitFlag` had tot nu toe
+  // GEEN corpusloze fixture — alle fixtures hierboven laten `applicationName` weg, dus
+  // `detectApplicationVersion` gaf steeds `null` en elke case liep stilzwijgend over het
+  // 2010-LEGACY-pad (0x08), nooit over het pad dat het VOLLEDIGE corpus daadwerkelijk gebruikt
+  // (2013+/0x80). Twee cases, spiegelt Z1's acceptatiepunt 3 (2010-masker op een 2013-fixture
+  // ⇒ rood): (2c) een 2013+-fixture met het MODERNE bit (0x80) gezet ⇒ MANUALLY_SCHEDULED; (2d)
+  // DEZELFDE 2013+-fixture met uitsluitend het LEGACY-bit (0x08, GEEN 0x80) ⇒ AUTO_SCHEDULED —
+  // bewijst dat 0x08 op een moderne versie geen effect heeft, alleen 0x80 telt. ──────────────────
+  {
+    const bytes2c = buildZ2Fixture(
+      [{
+        name: 'Modern0x80', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manualMetaByte: 0x80,
+      }],
+      { applicationName: 'Microsoft.Project 16.0' },
+    );
+    const raw2c = findRaw(scanZ2(bytes2c), 10);
+    truthy(
+      `[Z2 modern 0x80] taskMode === MANUALLY_SCHEDULED op een 2013+-fixture (kreeg ${raw2c?.taskMode})`,
+      raw2c?.taskMode === 'MANUALLY_SCHEDULED',
+    );
+
+    const bytes2d = buildZ2Fixture(
+      [{
+        name: 'Modern0x08Only', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manualMetaByte: 0x08,
+      }],
+      { applicationName: 'Microsoft.Project 16.0' },
+    );
+    const raw2d = findRaw(scanZ2(bytes2d), 10);
+    truthy(
+      `[Z2 modern 0x08-only] taskMode === AUTO_SCHEDULED — het legacy-bit alléén telt niet op een 2013+-bestand (kreeg ${raw2d?.taskMode})`,
+      raw2d?.taskMode === 'AUTO_SCHEDULED',
+    );
+  }
+
+  // ── Test 3 — Fixed2Meta/Fixed2Data-streams AFWEZIG (acceptatiepunt 3): alle nieuwe velden
+  // blijven leeg/AUTO_SCHEDULED, geen exceptie, de rest van de lezing (naam/SCHEDULED_START) blijft
+  // ongewijzigd — rode-pad-fixture voor de `if (fixed2MetaBytes && fixed2DataBytes)`-guard. ────────
+  {
+    const bytes = buildZ2Fixture(
+      [{ name: 'GeenFixed2', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 }],
+      { includeFixed2: false },
+    );
+    let result: ReadTasksResult | null = null;
+    let threw: string | null = null;
+    try { result = scanZ2(bytes); } catch (err) { threw = err instanceof Error ? err.message : String(err); }
+    truthy(`[Z2 geen-Fixed2] readTasks gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      const raw = findRaw(result, 10);
+      truthy('[Z2 geen-Fixed2] taak gevonden', !!raw);
+      if (raw) {
+        truthy('[Z2 geen-Fixed2] taskMode === AUTO_SCHEDULED (default zonder Fixed2Meta)', raw.taskMode === 'AUTO_SCHEDULED');
+        truthy('[Z2 geen-Fixed2] manualStartTs === null', raw.manualStartTs === null);
+        truthy('[Z2 geen-Fixed2] manualFinishTs === null', raw.manualFinishTs === null);
+        truthy('[Z2 geen-Fixed2] manualDurationRaw === null', raw.manualDurationRaw === null);
+        truthy('[Z2 geen-Fixed2] manualDurationIsElapsed === false', raw.manualDurationIsElapsed === false);
+        truthy('[Z2 geen-Fixed2] naam ongewijzigd gelezen', raw.name === 'GeenFixed2');
+        truthy('[Z2 geen-Fixed2] SCHEDULED_START ongewijzigd gelezen', raw.startTs?.getTime() === expectedTimestamp(4800, 15000)?.getTime());
+      }
+    }
+  }
+
+  // ── Test 3b — Fixed2Meta-stream AANWEZIG maar CORRUPT (te klein voor de FixedMeta-header):
+  // andere rode-pad-fixture dan Test 3 hierboven — die bewijst de `if (fixed2MetaBytes &&
+  // fixed2DataBytes)`-guard (streams AFWEZIG), dit bewijst de `try`/`catch` ERBINNEN (streams
+  // AANWEZIG, constructie gooit). Beide takken moeten onafhankelijk aantoonbaar zijn (§8-checklist:
+  // "elke nieuwe try/catch-wrapper krijgt een eigen rode-pad-fixture"). ─────────────────────────────
+  {
+    const bytes = buildZ2Fixture(
+      [{ name: 'CorruptFixed2Meta', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 }],
+      { corruptFixed2Meta: true },
+    );
+    let result: ReadTasksResult | null = null;
+    let threw: string | null = null;
+    try { result = scanZ2(bytes); } catch (err) { threw = err instanceof Error ? err.message : String(err); }
+    truthy(`[Z2 corrupt-Fixed2Meta] readTasks gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      const raw = findRaw(result, 10);
+      truthy('[Z2 corrupt-Fixed2Meta] taak gevonden', !!raw);
+      if (raw) {
+        truthy('[Z2 corrupt-Fixed2Meta] taskMode === AUTO_SCHEDULED (catch ⇒ fixed2Meta blijft null)', raw.taskMode === 'AUTO_SCHEDULED');
+        truthy('[Z2 corrupt-Fixed2Meta] manualStartTs === null', raw.manualStartTs === null);
+        truthy('[Z2 corrupt-Fixed2Meta] manualDurationRaw === null', raw.manualDurationRaw === null);
+        truthy('[Z2 corrupt-Fixed2Meta] naam ongewijzigd gelezen', raw.name === 'CorruptFixed2Meta');
+      }
+    }
+  }
+
+  // ── Test 4 — vijandige fixture: Fixed2Data-record KORTER dan offset 54 (acceptatiepunt 4). De
+  // taak is wél MANUALLY_SCHEDULED (Fixed2Meta-record is het volle 92 bytes, ongemoeid) — alleen
+  // haar Fixed2Data-record is verkort tot 52 bytes (< Finish@54, én < Start@50+4=54), dus zowel
+  // Start als Finish als de duur-velden moeten netjes `null` geven, GEEN out-of-bounds-exceptie. ───
+  {
+    const bytes = buildZ2Fixture([
+      {
+        name: 'KortFixed2Data', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manual: true,
+        manualStartTime: 4800, manualStartDays: 15003, manualFinishTime: 9600, manualFinishDays: 15005,
+        manualDurationRaw: 28800, manualDurationUnitsRaw: 7,
+        fixed2DataLength: 52, // < 54 (Finish@54) én < 50+4=54 (Start)
+      },
+    ]);
+    let result: ReadTasksResult | null = null;
+    let threw: string | null = null;
+    try { result = scanZ2(bytes); } catch (err) { threw = err instanceof Error ? err.message : String(err); }
+    truthy(`[Z2 vijandig] readTasks gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      const raw = findRaw(result, 10);
+      truthy('[Z2 vijandig] taak gevonden', !!raw);
+      if (raw) {
+        truthy('[Z2 vijandig] taskMode === MANUALLY_SCHEDULED (Fixed2Meta zelf ongemoeid)', raw.taskMode === 'MANUALLY_SCHEDULED');
+        truthy('[Z2 vijandig] manualStartTs === null (record te kort voor offset 50)', raw.manualStartTs === null);
+        truthy('[Z2 vijandig] manualFinishTs === null (record te kort voor offset 54)', raw.manualFinishTs === null);
+        truthy('[Z2 vijandig] manualDurationRaw === null (record te kort voor offset 58)', raw.manualDurationRaw === null);
+        truthy('[Z2 vijandig] manualDurationIsElapsed === false (record te kort voor offset 62)', raw.manualDurationIsElapsed === false);
+      }
+    }
+  }
+
+  // ── Test 5 — corpusbrede telling van manual-taken via déze lezer (acceptatiepunt 5). Geen
+  // hard-gepind getal (dat is de kruiscontrole van de orkestrator tegen baan M's onafhankelijke
+  // `mppGroundTruth.ts`-telling, plan-§3(a)) — deze sectie MEET en RAPPORTEERT, met dezelfde
+  // nette-skip-conventie als de andere corpus-/crawl-secties in dit bestand. ─────────────────────
+  {
+    const Z2_CORPUS = process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
+    const Z2_CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl';
+
+    function listMppFilesRecursiveZ2(dir: string): string[] {
+      const out: string[] = [];
+      const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...listMppFilesRecursiveZ2(full));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mpp')) out.push(full);
+      }
+      return out;
+    }
+
+    let filesScanned = 0;
+    let filesFailed = 0;
+    let tasksScanned = 0;
+    let manualTasks = 0;
+    for (const root of [Z2_CORPUS, Z2_CRAWL]) {
+      if (!existsSync(root)) continue;
+      for (const file of listMppFilesRecursiveZ2(root)) {
+        try {
+          const result = scanZ2(new Uint8Array(readFileSync(file)));
+          filesScanned++;
+          tasksScanned += result.rawScans.length;
+          manualTasks += result.rawScans.filter((r) => r.taskMode === 'MANUALLY_SCHEDULED').length;
+        } catch {
+          filesFailed++; // niet-.mpp14-bestanden of andere onleesbare varianten in de crawl-boom
+        }
+      }
+    }
+    if (filesScanned === 0) {
+      console.log(`OK  mpp-import: Z2 corpusbrede manual-taken-telling (${Z2_CORPUS} / ${Z2_CRAWL}) niet aanwezig — overgeslagen`);
+    } else {
+      truthy(`[Z2 corpustelling] minstens 1 bestand gescand (kreeg ${filesScanned})`, filesScanned > 0);
+      console.log(
+        `OK  mpp-import: Z2 corpusbrede manual-taken-telling — ${filesScanned} bestand(en) gescand ` +
+        `(${filesFailed} onleesbaar/overgeslagen), ${tasksScanned} taken totaal, ${manualTasks} MANUALLY_SCHEDULED via déze lezer`,
+      );
     }
   }
 }

@@ -88,3 +88,32 @@ export function clampRemainingDurationTenths(raw: number): number {
   if (!Number.isFinite(raw)) return 0;
   return Math.min(Math.max(raw, 0), MAX_REMAINING_DURATION_TENTHS);
 }
+
+/**
+ * Z2 (etappe "nul afwijkingen") — klem op de RAUWE `MANUAL_DURATION` (Fixed2Data blok 1, offset
+ * 58, INT32, tienden-van-een-minuut — zelfde vorm als `SCHEDULED_DURATION`/`REMAINING_DURATION`,
+ * zie `fieldMap14.ts`'s `TaskFieldId.ManualDuration`). Deze taak doet zelf NOG GEEN
+ * datum-arithmetiek met dit veld (het wordt uitsluitend gelezen en op `RawTaskScan` opgeslagen,
+ * zie `mppReader.ts`'s Z2-sectie) — de klem staat er toch al bij het lezen, zodat een latere
+ * consument (Z9a, handmatig-plannen-toepassing) nooit een ongeklemde waarde overneemt en de
+ * hardingsdiscipline niet per-veld opnieuw hoeft te worden uitgevonden.
+ *
+ * MEETCOMMENTAAR: zelfde redenering als `MAX_REMAINING_DURATION_TENTHS` hierboven — het veld is
+ * een SIGNED INT32 (structureel al begrensd tot ±2.147.483.647 tienden, ≈ ±408 jaar), dus geen
+ * hostile-overflow-risico, maar wél een eigen, gedocumenteerde bovengrens i.p.v. stil op een
+ * dieper liggende klem te vertrouwen. Dezelfde 100-jaargrens (`100 × 365,25 × 24 × 60 × 10 ≈
+ * 525.960.000` tienden) — een handmatig geplande taak se eigen duur ligt in de praktijk in
+ * dezelfde orde van grootte als elke andere taakduur in het corpus (dagen tot maanden), dus er is
+ * geen aanleiding voor een andere bovengrens dan haar `REMAINING_DURATION`-buurveld.
+ */
+export const MAX_MANUAL_DURATION_TENTHS = 525_960_000;
+
+/** Klemt een rauwe `MANUAL_DURATION`-waarde (tienden-van-een-minuut, mogelijk negatief bij een
+ *  kapot/hostile bestand) naar `[0, MAX_MANUAL_DURATION_TENTHS]` — zie de toelichting hierboven.
+ *  Spiegelt `clampRemainingDurationTenths` exact (eigen naam/constante i.p.v. hergebruik, want de
+ *  twee velden zijn semantisch onafhankelijk — een gedeelde klem zou een toekomstige, voor één van
+ *  de twee velden andere bovengrens onnodig aan de andere opdringen). */
+export function clampManualDurationTenths(raw: number): number {
+  if (!Number.isFinite(raw)) return 0;
+  return Math.min(Math.max(raw, 0), MAX_MANUAL_DURATION_TENTHS);
+}
