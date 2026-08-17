@@ -74,10 +74,20 @@ import type { ActivityCodeType, ActivityCodeValue, CustomFieldDef } from '@/type
 import type { Baseline, BaselineTask } from '@/types/baseline';
 import type { ImportResult } from '@/services/importTypes';
 import type { ExtTaskTime } from '@/extensions/extTypes';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // tests/ valt buiten de hoofd-tsconfig; process is niet via @types/node beschikbaar in de
 // dedicated round-trip-tsconfig (types:[]). Minimale, botsingvrije declaratie.
 declare const process: { exit(code: number): never };
+
+// `import.meta.url`-relatief i.p.v. `process.cwd()` (zelfde conventie/reviewbevinding als
+// check-adapters-hours.ts): dit bestand draait via `bash tests/planning/run.sh`, dat NOOIT naar de
+// repo-root `cd`'t — de child-`node`'s cwd is die van de AANROEPER, niet gegarandeerd de repo-root.
+// De bundel wordt door `run.sh` altijd in `tests/planning/` zelf geschreven, dus `HERE` is
+// cwd-onafhankelijk stabiel op die map.
+const HERE = fileURLToPath(new URL('.', import.meta.url));
 
 let checks = 0;
 let fails = 0;
@@ -1184,6 +1194,222 @@ const rt2 = readIFC(writeIFC(rt1));
   // Mutatiebewijs (uitgevoerd): `fromExtTaskTimePatch` in `fromExtTaskUpdates` teruggezet naar
   // `fromExtTaskTime` maakt alle drie de laatste asserties hierboven ROOD (completion/isCritical/
   // freeFloat worden dan 0/false/0 gefabriceerd i.p.v. ontbrekend te blijven).
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// (10) T14b-spec-review-fixronde (2026-08-17): blok (9) sloot het gat voor de 12 VERPLICHTE velden,
+//      maar voor de 9 OPTIONELE velden bewees de reviewer dat de toenmalige "1-op-1 uit partial,
+//      geen terugval"-vorm hetzelfde soort dataverlies gaf — een partiële `api.data.updateTask`-
+//      aanroep die alleen `scheduleStart` noemde, wiste stil `durationMinutes`/`actualStart`/
+//      `actualFinish`/`remainingTime`/`remainingMinutes`. `mergeTaskTime` gebruikt voor die 9 velden
+//      nu de SLEUTEL-AANWEZIGHEID-conventie (`'veld' in partial ? partial.veld : base.veld`) i.p.v.
+//      een waarde-check — dat is de enige vorm die "bewust gewist" (sleutel aanwezig, `undefined`)
+//      kan onderscheiden van "nooit genoemd" (sleutel afwezig). `TaskDialog.tsx` is aangepast van
+//      `delete time.durationMinutes` naar `time.durationMinutes = undefined`, want een `delete` laat
+//      de sleutel weer verdwijnen vóórdat de merge 'm ziet.
+//        (10a) `mergeTaskTime` in isolatie — alle 9 optionele velden, beide scenario's.
+//        (10b) het reviewer-scenario op alle drie de update-paden (taskSlice/draft/api.data).
+//        (10c) de clear-conventie op store-niveau (TaskDialog-stijl payload).
+//        (10d) TaskDialog.tsx-bronguard — dit repo heeft geen React-rendertest-harnas (CLAUDE.md:
+//              "Er is geen vitest/jest"), dus dit is een bewuste, lichte bronvorm-check: bewijst dat
+//              de daadwerkelijke `delete`→`= undefined`-mutatie in TaskDialog.tsx zelf is doorgevoerd.
+//        (10e) mspdiWriter.ts-vangnet (spec-review-bevinding): `Math.round(completion * 100)` gaf
+//              `NaN` in de MSPDI-export bij een undefined completion — zelfde diepteverdediging als
+//              de IFC-writer.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// (10a) mergeTaskTime in isolatie: sleutel-aanwezigheid voor alle 9 optionele velden.
+{
+  const { mergeTaskTime, createDefaultTaskTime } = await import('@/utils/taskDefaults');
+  const base: TaskTime = {
+    ...createDefaultTaskTime('2026-08-01', 5),
+    completion: 0.4,
+    durationMinutes: 240,
+    interferingFloat: 1.5,
+    isNearCritical: true,
+    floatPath: 2,
+    actualStart: '2026-08-01',
+    actualFinish: '2026-08-03',
+    actualDuration: 2,
+    remainingTime: 1,
+    remainingMinutes: 60,
+  };
+
+  // Scenario 1: partial noemt GEEN van de 9 optionele velden (alleen scheduleStart) ⇒ allemaal behouden.
+  const notMentioned = mergeTaskTime(base, { scheduleStart: '2026-08-10' });
+  assert(notMentioned.durationMinutes === 240, `(10a) ontbrekende sleutel moet durationMinutes behouden — kreeg ${notMentioned.durationMinutes}`);
+  assert(notMentioned.interferingFloat === 1.5, `(10a) ontbrekende sleutel moet interferingFloat behouden — kreeg ${notMentioned.interferingFloat}`);
+  assert(notMentioned.isNearCritical === true, `(10a) ontbrekende sleutel moet isNearCritical behouden — kreeg ${notMentioned.isNearCritical}`);
+  assert(notMentioned.floatPath === 2, `(10a) ontbrekende sleutel moet floatPath behouden — kreeg ${notMentioned.floatPath}`);
+  assert(notMentioned.actualStart === '2026-08-01', `(10a) ontbrekende sleutel moet actualStart behouden — kreeg ${notMentioned.actualStart}`);
+  assert(notMentioned.actualFinish === '2026-08-03', `(10a) ontbrekende sleutel moet actualFinish behouden — kreeg ${notMentioned.actualFinish}`);
+  assert(notMentioned.actualDuration === 2, `(10a) ontbrekende sleutel moet actualDuration behouden — kreeg ${notMentioned.actualDuration}`);
+  assert(notMentioned.remainingTime === 1, `(10a) ontbrekende sleutel moet remainingTime behouden — kreeg ${notMentioned.remainingTime}`);
+  assert(notMentioned.remainingMinutes === 60, `(10a) ontbrekende sleutel moet remainingMinutes behouden — kreeg ${notMentioned.remainingMinutes}`);
+
+  // Scenario 2: partial noemt ALLE 9 optionele velden EXPLICIET als `undefined` (bewuste clear) ⇒ allemaal gewist.
+  const explicitlyCleared = mergeTaskTime(base, {
+    scheduleStart: '2026-08-10',
+    durationMinutes: undefined,
+    interferingFloat: undefined,
+    isNearCritical: undefined,
+    floatPath: undefined,
+    actualStart: undefined,
+    actualFinish: undefined,
+    actualDuration: undefined,
+    remainingTime: undefined,
+    remainingMinutes: undefined,
+  });
+  assert(explicitlyCleared.durationMinutes === undefined, `(10a) expliciete undefined-sleutel moet durationMinutes wissen — kreeg ${explicitlyCleared.durationMinutes}`);
+  assert(explicitlyCleared.interferingFloat === undefined, `(10a) expliciete undefined-sleutel moet interferingFloat wissen — kreeg ${explicitlyCleared.interferingFloat}`);
+  assert(explicitlyCleared.isNearCritical === undefined, `(10a) expliciete undefined-sleutel moet isNearCritical wissen — kreeg ${explicitlyCleared.isNearCritical}`);
+  assert(explicitlyCleared.floatPath === undefined, `(10a) expliciete undefined-sleutel moet floatPath wissen — kreeg ${explicitlyCleared.floatPath}`);
+  assert(explicitlyCleared.actualStart === undefined, `(10a) expliciete undefined-sleutel moet actualStart wissen — kreeg ${explicitlyCleared.actualStart}`);
+  assert(explicitlyCleared.actualFinish === undefined, `(10a) expliciete undefined-sleutel moet actualFinish wissen — kreeg ${explicitlyCleared.actualFinish}`);
+  assert(explicitlyCleared.actualDuration === undefined, `(10a) expliciete undefined-sleutel moet actualDuration wissen — kreeg ${explicitlyCleared.actualDuration}`);
+  assert(explicitlyCleared.remainingTime === undefined, `(10a) expliciete undefined-sleutel moet remainingTime wissen — kreeg ${explicitlyCleared.remainingTime}`);
+  assert(explicitlyCleared.remainingMinutes === undefined, `(10a) expliciete undefined-sleutel moet remainingMinutes wissen — kreeg ${explicitlyCleared.remainingMinutes}`);
+  // Required velden blijven ondertussen ongemoeid door beide scenario's (regressiebewijs op de T9-fix).
+  assert(notMentioned.completion === 0.4 && explicitlyCleared.completion === 0.4, '(10a) completion (verplicht veld) mag door dit blok niet geraakt worden');
+
+  // Mutatiebewijs (uitgevoerd): elk `'veld' in partial ? partial.veld : base.veld` teruggezet naar de
+  // vorige `partial.veld` (kale doorgifte, geen terugval) maakt ALLE 9 `notMentioned.*`-asserties ROOD
+  // (kreeg `undefined` i.p.v. de bestaande waarde), terwijl de `explicitlyCleared.*`-asserties GROEN
+  // bleven (kale doorgifte geeft toevallig ook `undefined` terug voor het clear-scenario) — precies
+  // hoe de reviewer het gat vond: alleen het "niet genoemd"-scenario was stuk.
+}
+
+// (10b) Reviewer-scenario, op alle drie de update-paden: een partiële time-update die ALLEEN
+//       scheduleStart noemt, mag durationMinutes/completion/actualStart/actualFinish/remainingTime/
+//       remainingMinutes niet wissen.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const S = () => useAppStore.getState();
+
+  const setFullProgress = (id: string) => {
+    const full = S().tasks.find(t => t.id === id)!.time;
+    S().updateTask(id, {
+      time: {
+        ...full,
+        completion: 0.4,
+        durationMinutes: 240,
+        actualStart: '2026-08-01',
+        actualFinish: '2026-08-03',
+        remainingTime: 1,
+        remainingMinutes: 60,
+      },
+    });
+  };
+  const assertPreserved = (label: string, id: string) => {
+    const t = S().tasks.find(x => x.id === id)!.time;
+    assert(t.completion === 0.4, `${label} completion moet 0.4 blijven — kreeg ${t.completion}`);
+    assert(t.durationMinutes === 240, `${label} durationMinutes moet 240 blijven — kreeg ${t.durationMinutes}`);
+    assert(t.actualStart === '2026-08-01', `${label} actualStart moet blijven — kreeg ${t.actualStart}`);
+    assert(t.actualFinish === '2026-08-03', `${label} actualFinish moet blijven — kreeg ${t.actualFinish}`);
+    assert(t.remainingTime === 1, `${label} remainingTime moet blijven — kreeg ${t.remainingTime}`);
+    assert(t.remainingMinutes === 60, `${label} remainingMinutes moet blijven — kreeg ${t.remainingMinutes}`);
+  };
+
+  // Pad 1: taskSlice.updateTask rechtstreeks.
+  S().newProject();
+  const id1 = S().addTask({ name: 'T14b-10b-taskslice' });
+  setFullProgress(id1);
+  S().updateTask(id1, { time: { scheduleStart: '2026-09-10', scheduleDuration: 4, durationType: 'WORKTIME' } as TaskTime });
+  assertPreserved('(10b/taskSlice)', id1);
+
+  // Pad 2: mcpTransaction.draft.updateTaskFields.
+  const { draft } = await import('@/state/mcpTransaction');
+  const id2 = draft.addTask({ name: 'T14b-10b-mcp' });
+  setFullProgress(id2);
+  draft.updateTaskFields(id2, { time: { scheduleStart: '2026-09-11', scheduleDuration: 3, durationType: 'WORKTIME' } as TaskTime });
+  assertPreserved('(10b/draft.updateTaskFields)', id2);
+
+  // Pad 3: het volledige api.data.updateTask-pad (fromExtTaskUpdates + store-updateTask).
+  const { fromExtTaskUpdates } = await import('@/extensions/extMappers');
+  const id3 = S().addTask({ name: 'T14b-10b-ext' });
+  setFullProgress(id3);
+  S().updateTask(id3, fromExtTaskUpdates({ time: { scheduleStart: '2026-09-12' } as unknown as ExtTaskTime }));
+  assertPreserved('(10b/api.data.updateTask)', id3);
+
+  // Mutatiebewijs (uitgevoerd): elk `'veld' in partial ? partial.veld : base.veld` in `mergeTaskTime`
+  // teruggezet naar de kale `partial.veld` maakt ALLE DRIE de paden hierboven ROOD (elk 6 asserties) —
+  // exact het reviewer-scenario, nu structureel gedekt.
+  //
+  // Tweede, apart uitgevoerd mutatiebewijs (bevinding TIJDENS deze fixronde, niet door de reviewer
+  // gemeld maar wél door dit blok gevangen): `fromExtTaskTimePatch` (extMappers.ts) teruggezet van
+  // de `'veld' in tt`-vorm naar een object-LITERAL met elke sleutel expliciet genoemd (`{
+  // durationMinutes: tt.durationMinutes, ... }`) maakt UITSLUITEND pad 3 ((10b/api.data.updateTask),
+  // 5 asserties) ROOD — pad 1/2 blijven groen, want die gaan niet door `fromExtTaskTimePatch`. Een
+  // object-literal zet een sleutel altijd als eigen property, ook met een `undefined`-waarde; dat
+  // liet élk optioneel veld dat de aanroeper niet noemde alsnog als "bewust gewist" overkomen.
+}
+
+// (10c) Clear-conventie op store-niveau: een TaskDialog-stijl update (expliciete `undefined`-sleutel,
+//       niet weggelaten) moet het veld daadwerkelijk wissen.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  const id = S().addTask({ name: 'T14b-10c-clear' });
+  const full = S().tasks.find(t => t.id === id)!.time;
+  S().updateTask(id, { time: { ...full, durationMinutes: 240 } });
+  assert(S().tasks.find(t => t.id === id)!.time.durationMinutes === 240, '(10c) opzet: durationMinutes moet eerst gezet zijn');
+
+  // Exact het TaskDialog-patroon: spread de bestaande tijd, zet de te wissen sleutel EXPLICIET op
+  // `undefined` (geen `delete`).
+  const current = S().tasks.find(t => t.id === id)!.time;
+  const cleared = { ...current, durationMinutes: undefined };
+  S().updateTask(id, { time: cleared });
+
+  assert(S().tasks.find(t => t.id === id)!.time.durationMinutes === undefined,
+    `(10c) een expliciete undefined-sleutel moet durationMinutes daadwerkelijk wissen — kreeg ${S().tasks.find(t => t.id === id)!.time.durationMinutes}`);
+
+  // Mutatiebewijs: dit blok blijft groen onder ZOWEL de oude ("1-op-1 uit partial") als de nieuwe
+  // ("sleutel-aanwezigheid") vorm van mergeTaskTime — het bewijst dus specifiek de CONVENTIE die
+  // TaskDialog.tsx nu volgt (`= undefined`), niet de (10a/10b)-fix zelf. Zie (10d) voor het
+  // mutatiebewijs op TaskDialog.tsx's eigen bronregels.
+}
+
+// (10d) TaskDialog.tsx-bronguard: geen `delete time.durationMinutes` meer, wél de twee `=
+//       undefined`-toewijzingen (mijlpaal-tak + dag-modus-tak). Dit repo heeft geen React-
+//       rendertest-harnas, dus dit is een bewuste, lichte bronvorm-check i.p.v. een component-test.
+{
+  const taskDialogPath = join(HERE, '..', '..', 'src', 'components', 'dialogs', 'TaskDialog.tsx');
+  const src = readFileSync(taskDialogPath, 'utf8');
+  assert(!src.includes('delete time.durationMinutes'),
+    '(10d) TaskDialog.tsx mag geen `delete time.durationMinutes` meer bevatten (zou de merge-sleutel weer laten verdwijnen)');
+  const assignCount = (src.match(/time\.durationMinutes = undefined;/g) ?? []).length;
+  assert(assignCount === 2,
+    `(10d) TaskDialog.tsx moet precies 2× \`time.durationMinutes = undefined;\` bevatten (mijlpaal-tak + dag-modus-tak) — kreeg ${assignCount}`);
+
+  // Mutatiebewijs (uitgevoerd): één van de twee `time.durationMinutes = undefined;`-regels in
+  // TaskDialog.tsx tijdelijk teruggezet naar `delete time.durationMinutes;` maakte BEIDE asserties
+  // hierboven ROOD (de `delete`-check ziet 'm weer, de telling zakt naar 1).
+}
+
+// (10e) mspdiWriter.ts-vangnet: een kunstmatig-kapotte `time.completion` mag geen "NaN" in de
+//       MSPDI-export opleveren.
+{
+  const { writeMSPDI } = await import('@/services/msproject/mspdiWriter');
+  const brokenTask: Task = {
+    id: 't-10e-mspdi-vangnet', name: 'T14b-mspdi-vangnet', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [],
+    time: { ...plainTime('2026-09-05', '2026-09-07', 2), completion: undefined as unknown as number },
+  };
+  const xmlOut = writeMSPDI(
+    fixture.project, fixture.calendar, [...fixture.tasks, brokenTask], fixture.sequences,
+    fixture.resources, fixture.assignments, fixture.resourceCalendars, fixture.baselines,
+    fixture.activeBaselineId ?? null,
+  );
+  assert(!xmlOut.includes('NaN'), '(10e) writeMSPDI-uitvoer mag nooit de tekst "NaN" bevatten (ongeguarde completion × 100)');
+  const afterName = xmlOut.slice(xmlOut.indexOf('T14b-mspdi-vangnet'));
+  const m = /<PercentComplete>(-?\d+)<\/PercentComplete>/.exec(afterName);
+  assert(!!m && m[1] === '0', `(10e) PercentComplete moet via het vangnet 0 zijn — kreeg ${m?.[1] ?? 'GEEN MATCH'}`);
+
+  // Mutatiebewijs (uitgevoerd): `(task.time.completion ?? 0)` in mspdiWriter.ts teruggezet naar de
+  // kale `task.time.completion` maakt de eerste assertie hierboven ROOD (`PercentComplete>NaN<` komt
+  // dan letterlijk in de uitvoer voor).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

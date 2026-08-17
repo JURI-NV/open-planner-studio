@@ -395,31 +395,42 @@ export function fromExtTaskInput(
  * completion/floats/etc. niet meer terugvinden. Deze functie kopieert daarom VELD-VOOR-VELD zonder
  * enige fallback-fabricage (ontbrekend blijft ontbrekend); `taskSlice.updateTask`'s `mergeTaskTime`
  * (basis = de bestaande taaktijd) vult het ontbrekende aan tegen de ECHTE waarden.
+ *
+ * SPEC-REVIEW-FIXRONDE (2026-08-17): een object-LITERAL met elke sleutel expliciet genoemd
+ * (`{ durationMinutes: tt.durationMinutes, ... }`) zet die sleutel ALTIJD als eigen property, ook al
+ * is `tt.durationMinutes` `undefined` omdat de sleutel op `tt` zelf gewoon nooit voorkwam. Dat verslikt
+ * zich in `mergeTaskTime`'s sleutel-aanwezigheid-conventie: élk optioneel veld leek dan "expliciet
+ * gewist", ook velden die de aanroeper nooit noemde — een partiële `api.data.updateTask({time:
+ * {scheduleStart:...}})` wiste zo alsnog `durationMinutes`/`actualStart`/`actualFinish`/
+ * `remainingTime`/`remainingMinutes` (bewezen in blok (10b) van check-ifc-roundtrip.ts, pad 3). Elk
+ * optioneel veld wordt daarom pas op `out` gezet als de sleutel ook ECHT op `tt` aanwezig is
+ * (`'veld' in tt`, NIET `tt.veld !== undefined` — dat laatste zou een BEWUSTE clear via een
+ * expliciete `undefined`-waarde weer verkeerd als "niet genoemd" lezen, het spiegelbeeld-gat).
  */
 function fromExtTaskTimePatch(tt: Partial<ExtTaskTime>): Partial<TaskTime> {
-  return {
-    durationType: tt.durationType,
-    scheduleDuration: tt.scheduleDuration,
-    durationMinutes: tt.durationMinutes,
-    scheduleStart: tt.scheduleStart,
-    scheduleFinish: tt.scheduleFinish,
-    earlyStart: tt.earlyStart,
-    earlyFinish: tt.earlyFinish,
-    lateStart: tt.lateStart,
-    lateFinish: tt.lateFinish,
-    freeFloat: tt.freeFloat,
-    totalFloat: tt.totalFloat,
-    isCritical: tt.isCritical,
-    interferingFloat: tt.interferingFloat,
-    isNearCritical: tt.isNearCritical,
-    floatPath: tt.floatPath,
-    actualStart: tt.actualStart,
-    actualFinish: tt.actualFinish,
-    actualDuration: tt.actualDuration,
-    remainingTime: tt.remainingTime,
-    remainingMinutes: tt.remainingMinutes,
-    completion: tt.completion,
-  };
+  const out: Partial<TaskTime> = {};
+  if ('durationType' in tt) out.durationType = tt.durationType;
+  if ('scheduleDuration' in tt) out.scheduleDuration = tt.scheduleDuration;
+  if ('durationMinutes' in tt) out.durationMinutes = tt.durationMinutes;
+  if ('scheduleStart' in tt) out.scheduleStart = tt.scheduleStart;
+  if ('scheduleFinish' in tt) out.scheduleFinish = tt.scheduleFinish;
+  if ('earlyStart' in tt) out.earlyStart = tt.earlyStart;
+  if ('earlyFinish' in tt) out.earlyFinish = tt.earlyFinish;
+  if ('lateStart' in tt) out.lateStart = tt.lateStart;
+  if ('lateFinish' in tt) out.lateFinish = tt.lateFinish;
+  if ('freeFloat' in tt) out.freeFloat = tt.freeFloat;
+  if ('totalFloat' in tt) out.totalFloat = tt.totalFloat;
+  if ('isCritical' in tt) out.isCritical = tt.isCritical;
+  if ('interferingFloat' in tt) out.interferingFloat = tt.interferingFloat;
+  if ('isNearCritical' in tt) out.isNearCritical = tt.isNearCritical;
+  if ('floatPath' in tt) out.floatPath = tt.floatPath;
+  if ('actualStart' in tt) out.actualStart = tt.actualStart;
+  if ('actualFinish' in tt) out.actualFinish = tt.actualFinish;
+  if ('actualDuration' in tt) out.actualDuration = tt.actualDuration;
+  if ('remainingTime' in tt) out.remainingTime = tt.remainingTime;
+  if ('remainingMinutes' in tt) out.remainingMinutes = tt.remainingMinutes;
+  if ('completion' in tt) out.completion = tt.completion;
+  return out;
 }
 
 /** Ext-taakWIJZIGINGEN voor `api.data.updateTask` → interne `Partial<Task>`. */

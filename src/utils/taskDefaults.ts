@@ -64,16 +64,25 @@ export function createDefaultTaskTime(
  * krijgen de terugval-merge (`??`, dus expliciete `false`/`0` blijven staan).
  *
  * **Optionele velden** (durationMinutes/interferingFloat/isNearCritical/floatPath/actualStart/
- * -Finish/actualDuration/remainingTime/-Minutes) krijgen BEWUST GEEN terugval — ze komen 1-op-1 uit
- * `partial` (ontbrekend ⇒ ontbrekend in het resultaat, exact zoals de vroegere volledige-vervanging
- * al deed). Reden: sommige aanroepers wissen een optioneel veld bewust met `delete
- * time.durationMinutes` (`TaskDialog.tsx`, dag/uur-modus- en mijlpaal-wissel) — een terugval-merge zou
- * zo'n bewuste clear stil ongedaan maken, want JS kan "expliciet gewist" niet onderscheiden van
- * "nooit genoemd" zodra je alleen naar de resulterende sleutel kijkt. Voor ADD is dit gedragsgelijk
- * aan de oude code (de default zet deze velden nooit, dus terugval zou toch altijd `undefined`
- * opleveren); voor UPDATE is dit de veilige keuze tussen twee onverenigbare wensen (bestaande
- * optionele waarden behouden vs. een bewuste clear laten staan) — ALLEEN de verplichte velden krijgen
- * dus bescherming tegen "stil `undefined` worden", precies de klasse die de writer liet crashen.
+ * -Finish/actualDuration/remainingTime/-Minutes) krijgen de SLEUTEL-AANWEZIGHEID-conventie
+ * (spec-review-fixronde 2026-08-17 — de eerdere "altijd 1-op-1 uit `partial`" bleek zelf een gat: een
+ * partiële update die alleen `scheduleStart` noemde, wiste zo alsnog `durationMinutes`/`actualStart`/
+ * `remainingTime`/etc., want die stonden simpelweg niet in `partial` — exact dezelfde schadeklasse als
+ * de bug die deze hele helper moest dichten):
+ *   - `'veld' in partial` **false** (de sleutel komt niet voor in het object) ⇒ AANROEPER NOEMDE HET
+ *     NIET ⇒ behoud `base.veld` (de bestaande waarde bij UPDATE; bij ADD toch altijd `undefined`, want
+ *     de verse default zet deze velden nooit).
+ *   - `'veld' in partial` **true**, ook als de waarde `undefined` is ⇒ BEWUSTE CLEAR ⇒ neem
+ *     `partial.veld` over (dus `undefined`). Dit is de vorm die `TaskDialog.tsx` nu gebruikt
+ *     (`time.durationMinutes = undefined`, NIET `delete time.durationMinutes` — een `delete` verwijdert
+ *     de sleutel weer en zou hier ONDERWEG naar `updateTask` alsnog als "niet genoemd" gelezen worden).
+ * Dit is de enige manier waarop JS/TS "bewust gewist" van "nooit genoemd" kán onderscheiden — beide
+ * zien er identiek uit zodra je alleen naar de WAARDE kijkt (`??`), dus de eerdere `??`-vorm voor
+ * optionele velden kon de twee wensen fundamenteel niet uit elkaar houden. Voor ADD is dit
+ * gedragsgelijk aan de vorige versie (de default zet deze velden nooit, dus `base.veld` is toch altijd
+ * `undefined`); voor UPDATE is dit nu de correcte oplossing voor BEIDE wensen tegelijk (bestaande
+ * optionele waarden overleven een partiële update, én een bewuste clear via `= undefined` werkt nog
+ * steeds) — de eerdere docstring noemde dit ten onrechte "onverenigbaar".
  */
 export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undefined): TaskTime {
   if (!partial) return base;
@@ -90,15 +99,15 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
     totalFloat: partial.totalFloat ?? base.totalFloat,
     isCritical: partial.isCritical ?? base.isCritical,
     completion: partial.completion ?? base.completion,
-    // Optioneel — geen terugval, zie docstring hierboven.
-    durationMinutes: partial.durationMinutes,
-    interferingFloat: partial.interferingFloat,
-    isNearCritical: partial.isNearCritical,
-    floatPath: partial.floatPath,
-    actualStart: partial.actualStart,
-    actualFinish: partial.actualFinish,
-    actualDuration: partial.actualDuration,
-    remainingTime: partial.remainingTime,
-    remainingMinutes: partial.remainingMinutes,
+    // Optioneel — sleutel-aanwezigheid, zie docstring hierboven ('in' i.p.v. '??').
+    durationMinutes: 'durationMinutes' in partial ? partial.durationMinutes : base.durationMinutes,
+    interferingFloat: 'interferingFloat' in partial ? partial.interferingFloat : base.interferingFloat,
+    isNearCritical: 'isNearCritical' in partial ? partial.isNearCritical : base.isNearCritical,
+    floatPath: 'floatPath' in partial ? partial.floatPath : base.floatPath,
+    actualStart: 'actualStart' in partial ? partial.actualStart : base.actualStart,
+    actualFinish: 'actualFinish' in partial ? partial.actualFinish : base.actualFinish,
+    actualDuration: 'actualDuration' in partial ? partial.actualDuration : base.actualDuration,
+    remainingTime: 'remainingTime' in partial ? partial.remainingTime : base.remainingTime,
+    remainingMinutes: 'remainingMinutes' in partial ? partial.remainingMinutes : base.remainingMinutes,
   };
 }

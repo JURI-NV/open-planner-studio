@@ -396,7 +396,11 @@ export function writeMSPDI(
     lines.push(`${indent(3)}<OutlineLevel>${getOutlineLevel(task.wbsCode)}</OutlineLevel>`);
     lines.push(`${indent(3)}<Summary>${isSummary ? 1 : 0}</Summary>`);
     lines.push(`${indent(3)}<Milestone>${isMilestone ? 1 : 0}</Milestone>`);
-    lines.push(`${indent(3)}<PercentComplete>${Math.round(task.time.completion * 100)}</PercentComplete>`);
+    // T14b-vervolg (spec-review-bevinding): `completion` ongeguard vermenigvuldigen gaf `NaN` in de
+    // export zodra een taak (buiten de TS-typechecker om, extensie-/MCP-rand) toch met een
+    // `undefined` completion binnenkwam — dezelfde diepteverdediging als de IFC-writer
+    // (`ifcTaskSlots.ts`, `(w.task.time.completion ?? 0).toFixed(1)`), hier voor MSPDI.
+    lines.push(`${indent(3)}<PercentComplete>${Math.round((task.time.completion ?? 0) * 100)}</PercentComplete>`);
     // Actuals (fase 2.6, §9.1) — alleen wanneer gezet (golden rule). RemainingDuration afgeleid.
     if (task.time.actualStart) {
       lines.push(`${indent(3)}<ActualStart>${formatMSPDateTime(task.time.actualStart)}</ActualStart>`);
