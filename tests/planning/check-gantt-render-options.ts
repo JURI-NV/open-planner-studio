@@ -620,6 +620,16 @@ for (const field of ['rows', 'sequences', 'calendar', 'selectedTaskIds', 'collap
   const viewport = stripComments(readFileSync(viewportPath, 'utf8'));
   eq('41 computeScrollToDate hergebruikt de gedeelde oorsprongsfunctie',
     /computeScrollToDate[\s\S]{0,400}computeEffectiveViewStart\(/.test(viewport), true);
+
+  // BEIDE panes moeten het vertaalde "verouderd"-label meegeven. Dat is geen tabelveld: de badge
+  // wordt in de CHART getekend (`drawTaskBars` → `drawExternalGhosts`), dus een pane dat het
+  // weglaat valt terug op de hardgecodeerde NL-tekst in de renderer — zichtbaar voor elke
+  // niet-Nederlandse gebruiker met een externe koppeling in split view. Precies de fout die de
+  // secundaire pane had.
+  eq('42 beide panes geven het vertaalde "verouderd"-label mee',
+    (src.match(/externalStaleLabel:\s*tTask\(/g) ?? []).length, 2);
+  eq('43 geen pane laat externalStaleLabel leeg',
+    /externalStaleLabel:\s*undefined/.test(src), false);
   }
 }
 

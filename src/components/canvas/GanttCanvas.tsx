@@ -613,9 +613,10 @@ export function GanttCanvas() {
       enableHourPlanning: undefined,
       durationDisplay: undefined,
       durationSuffixes: undefined,
-      // TODO(#33): dit hoort WEL gevuld te worden — het label wordt in de chart getekend, niet in
-      // de tabel, dus dit pane toont nu het hardgecodeerde NL 'verouderd'. Apart gerepareerd.
-      externalStaleLabel: undefined,
+      // WEL vullen: dit is geen tabelveld. Het label wordt in de CHART getekend
+      // (`drawTaskBars` -> `drawExternalGhosts`), dus zonder dit toonde dit pane het
+      // hardgecodeerde NL 'verouderd' ongeacht de ingestelde taal.
+      externalStaleLabel: tTask('externalLinks.stale'),
       // Rand-slepen gebeurt alleen in de primaire pane.
       durationDrag: undefined,
       highContrast: uiTheme === 'high-contrast',
