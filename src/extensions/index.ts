@@ -9,6 +9,7 @@ export {
   type HostEventName,
 } from './eventBus';
 export { getExtensionSdk, installExtensionSdk, type PlannerStudioSdk } from './sdk';
+export { EXTENSION_API_VERSION, checkApiCompatibility, type ApiCompatibility } from './apiVersion';
 export {
   enableExtension,
   disableExtension,

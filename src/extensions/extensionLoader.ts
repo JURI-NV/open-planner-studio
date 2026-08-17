@@ -8,7 +8,9 @@ import type { ExtensionManifest, ExtensionPlugin, InstalledExtension } from './t
 import { createExtensionApi } from './extensionApi';
 import { getExtensionSdk, installExtensionSdk } from './sdk';
 import { sanitizeManifestPermissions } from './permissions';
+import { checkApiCompatibility, EXTENSION_API_VERSION } from './apiVersion';
 import { useAppStore } from '@/state/appStore';
+import { appLog } from '@/services/debug/appLog';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 
@@ -159,12 +161,26 @@ export async function enableExtension(id: string): Promise<void> {
     const stored = await getExtensionFromDb(id);
     if (!stored) throw new Error(`Extensie "${id}" niet gevonden in opslag`);
 
-    // Versie-gate: weiger te activeren als de app ouder is dan minAppVersion.
+    // Poort 1 — APP-versie (features): weiger als de app ouder is dan minAppVersion.
     const minVersion = stored.manifest.minAppVersion;
     if (minVersion && compareVersions(APP_VERSION, minVersion) < 0) {
       throw new Error(
         `Vereist Open Planner Studio ≥ ${minVersion} (huidige versie: ${APP_VERSION})`,
       );
+    }
+
+    // Poort 2 — CONTRACT-versie (K-item 37). Los van poort 1: CalVer draagt geen
+    // breaking-change-signaal, dus zonder deze poort laadt een extensie voor een ander
+    // API-contract gewoon en klapt hij pas halverwege `onLoad` op een verdwenen methode.
+    // Een manifest zonder `apiVersion` (alles van vóór dit item) blijft laden — weigeren zou elke
+    // geïnstalleerde extensie in één update slopen — maar wordt wél zichtbaar gelogd.
+    const compat = checkApiCompatibility(stored.manifest.apiVersion);
+    if (!compat.ok) {
+      throw new Error(`${compat.reason} (extensie-API van deze app: ${EXTENSION_API_VERSION})`);
+    }
+    if (compat.legacy) {
+      appLog.emit('warn', 'Extensies',
+        `"${id}" declareert geen apiVersion; aangenomen dat hij past bij extensie-API ${EXTENSION_API_VERSION}.`);
     }
 
     // Zorg dat de host-SDK op window staat vóór extensie-code draait.

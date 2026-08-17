@@ -143,6 +143,9 @@ function extractManifestFromCode(code: string, fileName: string): ExtensionManif
     id,
     name: fileName.replace(/\.js$/, ''),
     version: '1.0.0',
+    // Bewust GEEN apiVersion: een los .js-bestand zonder manifest weten we niets van, en een
+    // gegokte waarde zou de contract-poort in extensionLoader een garantie laten uitspreken die
+    // niemand gegeven heeft. Afwezig ⇒ legacy-pad (laden mag, met een warn).
     minAppVersion: '0.0.0',
     author: 'Onbekend',
     description: `Extensie geladen uit ${fileName}`,

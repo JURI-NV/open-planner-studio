@@ -23,6 +23,7 @@ import { createDefaultProject } from '@/state/slices/projectSlice';
 import { generateId } from '@/utils/id';
 import { formatDate, parseDate, addBusinessDays } from '@/utils/dateUtils';
 import { toExtProject, toExtCalendar, toExtTask, toExtTaskTime, fromExtTaskInput } from './extMappers';
+import { EXTENSION_API_VERSION } from './apiVersion';
 
 const CATEGORIES: readonly ExtensionCategory[] = [
   'Import/Export',
@@ -38,6 +39,9 @@ const PERMISSIONS: readonly ExtensionPermission[] = KNOWN_PERMISSIONS;
 export interface PlannerStudioSdk {
   /** App-versie (calendar-versioning, bv. '2026.4.0'). Vergelijk met manifest.minAppVersion. */
   readonly version: string;
+  /** Semver van het EXTENSIE-CONTRACT dat deze host biedt (bv. '1.0.0'). Vergelijk met
+   *  manifest.apiVersion — zie extensions/apiVersion.ts voor het verschil met `version`. */
+  readonly apiVersion: string;
   /** Geldige manifest-categorieën. */
   readonly categories: readonly ExtensionCategory[];
   /** Geldige manifest-permissies. */
@@ -109,6 +113,7 @@ export function getExtensionSdk(): PlannerStudioSdk {
   if (sdk) return sdk;
   sdk = {
     version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0',
+    apiVersion: EXTENSION_API_VERSION,
     categories: CATEGORIES,
     permissions: PERMISSIONS,
     hostEvents: HOST_EVENTS,

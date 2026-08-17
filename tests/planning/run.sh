@@ -358,6 +358,15 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   DATEFMTCHECK="$DIR/.datefmt.mjs"
   if bundle_check "$DIR/check-date-format.ts" "$DATEFMTCHECK"; then node "$DATEFMTCHECK" || STATUS=1; fi
 
+  # Publiek extensie-contract (K-item 37). De mappers tussen het interne domeinmodel en de
+  # Ext*-DTO's hadden geen compile-afdwinging op VOLLEDIGHEID: een optioneel veld vergeten is legaal
+  # TypeScript, dus het veld bestond simpelweg niet voor extensies. Deze batterij klinkt de
+  # sleutellijsten compile-time vast aan de types, controleert beide mapperrichtingen op een
+  # maximale fixture, legt vast welke interne velden BEWUST niet oversteken, en dekt de
+  # apiVersion-poort (contractversie, los van de CalVer-app-versie).
+  EXTCHECK="$DIR/.extcontract.mjs"
+  if bundle_check "$DIR/check-ext-contract.ts" "$EXTCHECK"; then node "$EXTCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
