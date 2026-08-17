@@ -225,6 +225,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ZOOMCHECK="$DIR/.zoom-steps.mjs"
   if bundle_check "$DIR/check-zoom-steps.ts" "$ZOOMCHECK"; then node "$ZOOMCHECK" || STATUS=1; fi
 
+  # Commandoregister (K-item 34): de elf acties die het lint en het toetsenbord delen, stonden twee
+  # keer los gedefinieerd. Toetst het gedrag van elk commando tegen de echte store, het contract dat
+  # `run` niet stil niets doet als `isEnabled` false is (issue #26), en dat geen van beide registers
+  # nog een eigen implementatie heeft.
+  CMDCHECK="$DIR/.commands.mjs"
+  if bundle_check "$DIR/check-commands.ts" "$CMDCHECK"; then node "$CMDCHECK" || STATUS=1; fi
+
   # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
   # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
   # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:
