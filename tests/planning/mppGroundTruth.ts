@@ -19,18 +19,28 @@
 // veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar
 // `readTasks` zelf.
 //
-// BEKENDE BEPERKING (reviewbevinding L5, afgezwakt naar het bewijsbare — her-review): `SCHEDULED_
-// START`/`SCHEDULED_FINISH` zijn de door MS Project herberekende datums voor AUTO_SCHEDULED-taken.
-// Een HANDMATIG geplande taak (MSP "Manually Scheduled") ankert op een ander veld-paar; deze scan
-// leest dat paar niet apart, dus zo'n taak zou hier een spookafwijking geven t.o.v. onze eigen
-// (altijd automatisch herberekende) datums. GEEN CLAIM DAT DE T1-ATTRIBUUT-EMMERS (`mppFidelity.ts`'s
-// `diffBuckets`: `storedVoorProjectstart`/`heeftVoortgang`/`samenvattingstaak`/`heeftConstraint`/
-// `wijLater`/`wijVroeger`) dit zouden hebben opgemerkt — die emmers dragen GEEN signaal voor
-// "handmatig gepland" en zouden een dergelijke afwijking gewoon in de generieke `wijLater`/
-// `wijVroeger`-telling laten vallen, niet apart herkenbaar maken. Er is dus geen gerichte controle
-// op dit scenario geweest, alleen de afwezigheid van een onverklaard restpatroon in de bestaande
-// emmers — dat is zwakker bewijs dan "niet waargenomen" suggereert. Niet uitgesloten voor
-// toekomstige corpusuitbreiding — zie T15's residu-iteratie.
+// BEKENDE BEPERKING (reviewbevinding L5 — L2, T15-fixronde-iteratie-2, WAARGENOMEN IN HET HUIDIGE
+// CORPUS, niet langer alleen theoretisch): `SCHEDULED_START`/`SCHEDULED_FINISH` zijn de door MS
+// Project herberekende datums voor AUTO_SCHEDULED-taken. Een HANDMATIG geplande taak (MPXJ
+// `TaskMode.MANUALLY_SCHEDULED`, gelezen als bit-flag in `Fixed2Meta` —
+// `PROJECT2010_TASK_META_DATA2_BIT_FLAGS`: offset 8 masker `0x08`; PROJECT2013/2016: offset 8
+// masker `0x80`, zie `MPP14Reader.java`) ankert bij MSP op een ANDER veld-paar (`TaskField.START`/
+// `FINISH`, veld-id 1283/1284): `MPP14Reader.java` schrijft `SCHEDULED_START` alléén naar
+// `task.getStart()` als die nog leeg is, óf de taak AUTO_SCHEDULED is (regel ~1162–1176) — voor een
+// manually-scheduled taak met een reeds gezet `Start`-veld blijft het rauwe, ONGESNAPTE `Start`
+// dus staan. Deze scan leest dat paar niet apart, dus zo'n taak geeft hier een spookafwijking
+// t.o.v. onze eigen (altijd automatisch herberekende) datums.
+//
+// CORPUSMETING (T15-fixronde-iteratie-2, 2026-08-17): corpusbrede probe op SNET/MSO-constraint-
+// instanten buiten de werkband, op ROOT-taken (geen predecessor — de constraint is dan aantoonbaar
+// de enige driver): **1 taak** waar MSP het rauwe constraint-instant behoudt (RAW) tegen **5**
+// waar MSP wél naar de eerstvolgende werk-instant snapt (SNAPPED, incl. het publieke MPXJ-fixture
+// `mpp14recurring.mpp`) — de RAW-uitzondering deelt kalender/band/constraint-tijdstip met een
+// SNAPPED-geval, dus het snap-vs-raw-onderscheid zelf hangt af van TASK_MODE, niet van de
+// constraint-semantiek. Zie `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`
+// (§T15, dossier (c)5) voor de volledige meting en de reden dat dit NIET binnen T15 is
+// geïmplementeerd (eigen Fixed2Meta-taakrecordlezer + een nieuw scheduling-mode-concept in de
+// solver — een feature, geen kleine tweak). Nog niet uitgesloten voor toekomstige corpusuitbreiding.
 //
 // Overgenomen (nagenoeg letterlijk) uit het scratchpad-audit-harnas (`measure.ts`'s `rawScan()`,
 // gepind op snapshot 97368f7d — zie het plandocument §5 "Het gedeelde meetscript"). Het filter voor
