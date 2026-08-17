@@ -353,6 +353,41 @@
         "projectEnd": "2026-08-05",
         "error": false
       }
+    },
+    {
+      "id": "prog-T9-hervattingspunt-resumeFromActualElapsed",
+      "title": "T9 (mechanisme ii, MSP-pariteit): met resumeFromActualElapsed hervat het restwerk op actualStart + reeds-verstreken-duur (1 werkdag), doorgesnapt naar ma — NIET op de statusdatum/actualStart zelf. A(5d,20%) actualStart=statusDate=vr 10-07 ⇒ verstreken 1d ⇒ hervat ma 13-07 ⇒ EF do 16-07 (4 restdagen vanaf ma). Reconstructie uit het OzBuild-corpus (\"Create Technical Specification\": 20% van 5d, actualStart=statusDate, MSP EF exact 1 werkdag later dan de kale statusdatum-vloer) — zie CPMSolver.ts's resumeFromActualElapsed-toelichting voor de volledige afleiding.",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-10",
+      "schedulingOptions": { "resumeFromActualElapsed": true },
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-10" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-16" }
+        },
+        "projectEnd": "2026-07-16",
+        "error": false
+      }
+    },
+    {
+      "id": "prog-T9-hervattingspunt-default-uit",
+      "title": "T9-contrast (mechanisme ii UIT per default): zelfde taakvorm als hierboven, GEEN resumeFromActualElapsed ⇒ het bestaande P6-getrouwe gedrag (max(statusdatum, voorganger-druk), Scenario A/B/C-semantiek) blijft byte-identiek — EF 1 werkdag VROEGER (wo 15-07) dan met de vlag. Bewaakt dat de nieuwe vloer een opt-in blijft en nooit stilzwijgend voor niet-MPP-bronnen aanslaat.",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-10",
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-10" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-15" }
+        },
+        "projectEnd": "2026-07-15",
+        "error": false
+      }
     }
   ]
 }

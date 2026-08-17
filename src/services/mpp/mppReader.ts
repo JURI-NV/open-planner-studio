@@ -619,6 +619,11 @@ interface RawTaskScan {
    *  gedecodeerd tot "is dit een ELAPSED-eenheid" (elapsedMinutes/Hours/Days/Weeks/Months/Percent).
    *  Ontbreekt het veld (oude/kapotte field map) dan `false` — spiegelt de bestaande WORKTIME-default. */
   isElapsedDuration: boolean;
+  /** T9: rauwe REMAINING_DURATION (tienden van een minuut, zelfde eenheid + eenhedenbron als
+   *  `durationRaw` — beide delen ACTUAL_DURATION_UNITS, zie `fieldMap14.ts`). `null` als het veld
+   *  ontbreekt in de field map of het record te kort is — Fase C laat `remainingMinutes`/
+   *  `remainingTime` dan ongezet (huidig fractioneel-uit-`completion`-gedrag, backwards-compat). */
+  remainingDurationRaw: number | null;
   /** T12 — rauwe LEVELING_DELAY (tienden van een minuut, zelfde eenheid als `durationRaw`; alleen
    *  ≠ 0 relevant voor de detectie, geen eenheden-decodering nodig). `0` als het veld ontbreekt
    *  (oude/kapotte field map) — spiegelt de bestaande defaults elders in deze scan. */
@@ -659,6 +664,7 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const scheduledFinishOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ScheduledFinish);
   const durationOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ScheduledDuration);
   const durationUnitsOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.DurationUnits);
+  const remainingDurationOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.RemainingDuration); // T9
   const constraintTypeOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ConstraintType);
   const constraintDateOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ConstraintDate);
   const deadlineOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Deadline);
@@ -724,6 +730,13 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const isElapsedDuration = durationUnitsRaw !== null
       && getDurationTimeUnits(durationUnitsRaw).startsWith('elapsed');
 
+    // T9: REMAINING_DURATION — zelfde INT-vorm/eenheid als SCHEDULED_DURATION (zie
+    // `fieldMap14.ts`'s toelichting bij `TaskFieldId.RemainingDuration`). `null` bij ontbrekend
+    // veld/te kort record — Fase C valt dan terug op het bestaande fractionele-uit-`completion`-pad.
+    const remainingDurationRaw = remainingDurationOffset !== null && data.length >= remainingDurationOffset + 4
+      ? getInt(data, remainingDurationOffset, 'TBkndTask remainingDuration')
+      : null;
+
     // T12: LEVELING_DELAY — zelfde INT-vorm als SCHEDULED_DURATION (tienden van een minuut), alleen
     // de ≠0-vraag is relevant hier, dus geen eenheden-decodering nodig (zie de moduleheader).
     const levelingDelayRaw = levelingDelayOffset !== null && data.length >= levelingDelayOffset + 4
@@ -755,8 +768,8 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
     raws.push({
       uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
-      levelingDelayRaw, isMilestone, constraintCode, constraintDateTs, deadlineTs, percentComplete,
-      actualStartTs, actualFinishTs, effCal, calendarOverride,
+      remainingDurationRaw, levelingDelayRaw, isMilestone, constraintCode, constraintDateTs, deadlineTs,
+      percentComplete, actualStartTs, actualFinishTs, effCal, calendarOverride,
     });
   }
 
@@ -854,6 +867,27 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
         ? raw.durationRaw / (24 * 60 * 10)
         : tenthsOfMinutesToDays(raw.durationRaw, hoursPerDay);
 
+    // T9 (voortgangsafronding, MEET-EERST): REMAINING_DURATION rechtstreeks meenemen — zelfde
+    // eenheden-/elapsed-conversie als `duration` hierboven, alleen op `remainingDurationRaw`
+    // toegepast. `null` (veld ontbreekt/record te kort) ⇒ beide ongezet, CPMSolver valt dan terug
+    // op de fractionele afleiding uit `completion` (bestaand gedrag, ongewijzigd). Doel: MSP's EIGEN
+    // restduur is EXACT (bv. 4 werkdagen = 1920 minuten), terwijl `completion` afgerond is opgeslagen
+    // (bv. 33% i.p.v. het werkelijke 33,33…%) — `(1 − 0,33) × scheduleDuration` geeft dan een
+    // fractionele restduur (1929,6 min) die op een klokstand landt die MS Project zelf nooit toont
+    // (bv. 08:10 i.p.v. een bandgrens). Zie de moduleheader-verwijzing naar `normalizeImportedProgress`
+    // (§9.4-noot, BESLIST): voor DAG-modus overschrijft die de hier gezette `remainingTime` nog steeds
+    // met de afgeleide waarde — dat blijft zo (ongewijzigd besluit); alleen `remainingMinutes`
+    // (UUR-modus) wordt door die functie NOOIT aangeraakt, en dat is precies het corpuspad waar dit
+    // T9-mechanisme optreedt (vrijwel elk bestand leest al in uur-modus, zie de moduleheader).
+    const remainingMinutes = isHour && raw.remainingDurationRaw !== null
+      ? Math.round(raw.remainingDurationRaw / 10)
+      : undefined;
+    const remainingTime = !isHour && raw.remainingDurationRaw !== null
+      ? (raw.isElapsedDuration
+        ? raw.remainingDurationRaw / (24 * 60 * 10)
+        : tenthsOfMinutesToDays(raw.remainingDurationRaw, hoursPerDay))
+      : undefined;
+
     const formatField = (ts: Date | null): string | undefined =>
       ts ? (isHour ? formatInstant(ts, 'hour') : formatDate(ts)) : undefined;
     const start = formatField(raw.startTs) ?? formatDate(new Date());
@@ -917,6 +951,8 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
         isCritical: false,
         actualStart,
         actualFinish,
+        ...(remainingTime != null ? { remainingTime } : {}),
+        ...(remainingMinutes != null ? { remainingMinutes } : {}),
         completion: raw.percentComplete / 100,
       },
       resourceIds: [],
@@ -980,6 +1016,12 @@ function parseProjectProperties(
     modifiedAt: new Date().toISOString(),
     author: '',
     company: '',
+    // T9 (voortgangsafronding, MSP-pariteit): élke `.mpp`-import toont MSP's eigen restwerk-
+    // hervattingsconventie (`actualStart + reeds-verstreken-duur`, zie `CPMSolver.ts`'s
+    // `resumeFromActualElapsed`-toelichting) — corpusbreed gemeten, geen per-taak-signaal, dus hier
+    // project-breed gezet in plaats van per taak afgeleid. Byte-identiek voor bestanden zonder
+    // statusdatum/voortgang (de hele tak in `CPMSolver.ts` is dan toch een no-op).
+    schedulingOptions: { resumeFromActualElapsed: true },
   };
 
   const statusBytes = props.getByteArray(PROPS_KEY_STATUS_DATE);

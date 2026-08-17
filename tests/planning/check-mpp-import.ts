@@ -2063,6 +2063,67 @@ if (corpusPresent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// T9-VOORTGANGSAFRONDING (MSP-pariteit-plan, 2026-08-15 — LET OP: niet te verwarren met de oudere
+// "T9-crawl"-sectie verderop in dit bestand, die uit fase 3.8 etappe 1's eigen taaknummering komt
+// en een ander onderwerp dekt). REMAINING_DURATION (fieldMap14.ts's `TaskFieldId.RemainingDuration`,
+// veld-id 31, fixed-offset 52 — zelfde INT-vorm/eenhedenbron als SCHEDULED_DURATION) wordt nu
+// rechtstreeks gelezen i.p.v. MSP's eigen restduur terug te rekenen uit het AFGERONDE opgeslagen
+// `PercentComplete`. Bewijs waarom dat verschil telt: `(1 − completion) × totalDuration` rondt op de
+// minuut/dag af, terwijl MSP's eigen `RemainingDuration` exact is — bij een niet-ronde
+// voltooiingsbreuk (bv. 38%) geeft de afgeleide vorm een klokstand die MS Project zelf nooit toont.
+//
+// Corpus-leescase tegen `OzBuild Workshop 18 After Papa 08.mpp` (publiek MSP2016-workshopmateriaal,
+// crawl-wortel — mag met naam genoemd worden, zelfde OPS_MPP_*-conventie als de T10-sectie
+// hierboven): taak "Technical Specification" — completion 38% van 6240 durationMinutes. De AFGELEIDE
+// vorm zou `Math.round(6240 × 0.62) = 3869` geven; MSP's eigen opgeslagen restduur is **3840**
+// (8 werkdagen × 480 min/dag) — de twee vormen wijken hier expliciet af, dus deze taak bewijst dat
+// de lezer daadwerkelijk het MPP-veld gebruikt en niet stil op de afgeleide vorm terugvalt (die zou
+// toevallig ook een geldig getal zijn, alleen het VERKEERDE). Taak "Create Technical Specification"
+// (20% van 2400 min) corroboreert erbij (1920 min) — bij deze taak vallen afgeleide en opgeslagen
+// vorm toevallig samen (2400×0.8 = 1920 exact), dus die alléén zou de mutatie niet vangen.
+//
+// Mutatiebewijs (zie het implementatierapport voor de exacte rode regel): `remainingDurationOffset`/
+// het `remainingMinutes`/`remainingTime`-zetten in `mppReader.ts` weglaten laat
+// `[T9-voortgangsafronding]`-assert "Technical Specification.remainingMinutes === 3840" ROOD
+// uitslaan (het veld wordt dan `undefined`, niet toevallig 3869 — dus geen vals-groene mutatie).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  const REMAINING_FIXTURE = process.env.OPS_MPP_REMAINING_FIXTURE
+    ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18 After Papa 08.mpp';
+  if (!existsSync(REMAINING_FIXTURE)) {
+    console.log(`OK  mpp-import: T9-voortgangsafronding-leescase (${REMAINING_FIXTURE}) niet aanwezig — overgeslagen`);
+  } else {
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(new Uint8Array(readFileSync(REMAINING_FIXTURE)));
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[T9-voortgangsafronding] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      const byName = new Map(result.tasks.map((t) => [t.name, t]));
+      const techSpec = byName.get('Technical Specification');
+      truthy('[T9-voortgangsafronding] "Technical Specification" gevonden', !!techSpec);
+      if (techSpec) {
+        truthy('[T9-voortgangsafronding] Technical Specification.completion === 0.38', Math.abs(techSpec.time.completion - 0.38) < 1e-9);
+        truthy('[T9-voortgangsafronding] Technical Specification.durationMinutes === 6240', techSpec.time.durationMinutes === 6240);
+        truthy(
+          `[T9-voortgangsafronding] Technical Specification.remainingMinutes === 3840 (MSP's eigen restduur — de afgeleide vorm zou 3869 geven, kreeg ${techSpec.time.remainingMinutes})`,
+          techSpec.time.remainingMinutes === 3840,
+        );
+      }
+      const createTechSpec = byName.get('Create Technical Specification');
+      truthy('[T9-voortgangsafronding] "Create Technical Specification" gevonden', !!createTechSpec);
+      if (createTechSpec) {
+        truthy('[T9-voortgangsafronding] Create Technical Specification.remainingMinutes === 1920', createTechSpec.time.remainingMinutes === 1920);
+      }
+      console.log(`   . [T9-voortgangsafronding] REMAINING_DURATION correct gelezen (${result.tasks.length} taken totaal)`);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // T11 — `milestoneKind` afleiden bij import (§9/O6-vervolg): alleen voor `isMilestone`-taken in
 // UUR-modus krijgt een anker dat EXACT op een bandeinde van de effectieve kalender ligt
 // `milestoneKind: 'FINISH'`; exact op een bandbegin `'START'`; overal elders — incl. dag-modus en

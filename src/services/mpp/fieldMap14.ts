@@ -163,6 +163,12 @@ export const TaskFieldId = {
   /** ACTUAL_DURATION_UNITS — dient als eenheden-bron voor SCHEDULED_DURATION (TaskField.java:
    *  `SCHEDULED_DURATION(DataType.DURATION, TaskField.ACTUAL_DURATION_UNITS)`). */
   DurationUnits: 181,
+  /** REMAINING_DURATION (TaskField.java: `REMAINING_DURATION(DataType.DURATION,
+   *  TaskField.ACTUAL_DURATION_UNITS)`) — deelt dus dezelfde eenhedenbron als SCHEDULED_DURATION
+   *  (`DurationUnits` hierboven). T9: MSP's EIGEN opgeslagen restduur, rechtstreeks gebruikt in
+   *  plaats van teruggerekend uit het afgeronde `PercentComplete` (zie de moduleheader van
+   *  `mppReader.ts`'s voortgangs-tak). */
+  RemainingDuration: 31,
   ConstraintType: 17,
   ConstraintDate: 18,
   Deadline: 437,
@@ -183,6 +189,7 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [TaskFieldId.OutlineLevel]: { location: 'fixed', fixedOffset: 40 },
   [TaskFieldId.ScheduledDuration]: { location: 'fixed', fixedOffset: 42 },
   [TaskFieldId.DurationUnits]: { location: 'fixed', fixedOffset: 46 },
+  [TaskFieldId.RemainingDuration]: { location: 'fixed', fixedOffset: 52 },
   [TaskFieldId.ConstraintType]: { location: 'fixed', fixedOffset: 56 },
   [TaskFieldId.ScheduledStart]: { location: 'fixed', fixedOffset: 64 },
   [TaskFieldId.ScheduledFinish]: { location: 'fixed', fixedOffset: 68 },

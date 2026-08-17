@@ -934,13 +934,62 @@ export class CPMSolver {
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart))
             : earlyStart;
           // Restwerk: uur ⇒ `remainingMinutes ?? durationMinutes × (1−completion)`; dag ⇒ werkdagen (§5.3).
+          const totalSpan = cal.isHourMode ? durationMinutesOf(task, cal) : t.scheduleDuration;
           const remaining = cal.isHourMode
-            ? Math.max(0, t.remainingMinutes ?? Math.round(durationMinutesOf(task, cal) * (1 - t.completion)))
-            : Math.max(0, t.remainingTime ?? Math.round(t.scheduleDuration * (1 - t.completion)));
+            ? Math.max(0, t.remainingMinutes ?? Math.round(totalSpan * (1 - t.completion)))
+            : Math.max(0, t.remainingTime ?? Math.round(totalSpan * (1 - t.completion)));
           let remStart = dataDate;                                  // ondergrens: statusdatum
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
+            // T9 (voortgangsafronding, MEET-EERST-bevinding): MS Project hervat het restwerk NIET
+            // op de statusdatum zelf, maar op `actualStart + reeds-verstreken-duur` (het reeds
+            // AFGEWERKTE deel, `totalSpan − remaining`, vanaf de eigen `actualES`), doorgesnapt via
+            // dezelfde werk-optelling als het restwerk zelf. Bewijs (corpusreconstructie, OzBuild
+            // "Create Technical Specification": completion 20%, scheduleDuration 5d, remainingTime
+            // (nu EXACT uit MSP, zie mppReader.ts) 4d ⇒ verstreken 1d; actualStart vr 07-12 08:00 +
+            // 1 werkdag = za 08-12 → doorgesnapt naar ma 10-12 08:00; + 4 werkdagen restwerk = MSP's
+            // eigen opgeslagen finish woe 12-12 17:00 EXACT. De statusdatum-vloer (`dataDate`) alléén
+            // gaf hier vr 07-12 (te vroeg — MSP's eigen "reeds verstreken" venster loopt door tot in
+            // het weekend, dat P6-achtige RETAINED_LOGIC-model kent dat venster niet).
+            //
+            // NIET UNIVERSEEL: dit is AANTOONBAAR MSP-eigen gedrag, geen (her)ontdekte P6-regel —
+            // P6's eigen, gedocumenteerde RETAINED_LOGIC ("max(dataDate, voorganger-druk)", zónder
+            // een derde "verstreken-vanaf-actualStart"-vloer) staat letterlijk getest in
+            // `cases-progress.json`'s Scenario A/B/C (§3.3-ontwerp, uit een P6-bronvergelijking).
+            // Die scenario's zetten `actualStart` BEWUST los van "wat %complete impliceert" om
+            // precies de voorganger-druk/statusdatum-interactie te isoleren — met deze vloer
+            // ONVOORWAARDELIJK aan zou Scenario A-taak B (dur 5, completion 0.4, actualStart ==
+            // statusDate ⇒ elapsed 2 dagen ná een actualStart die zelf al op de statusdatum ligt)
+            // stilzwijgend 2 werkdagen later landen — een BESLIST, expliciet geciteerd P6-gedrag
+            // breken zonder eigen meting. Vandaar de `resumeFromActualElapsed`-vlag
+            // (`SchedulingOptions`, project.ts): default `undefined`/`false` ⇒ deze hele tak is een
+            // no-op (byte-identiek aan vóór T9), UITSLUITEND `true` voor `.mpp`-imports
+            // (`mppReader.ts` zet 'm project-breed — élke MPP-taak toont dit gedrag, corpusbreed
+            // gemeten, geen per-taak-signaal nodig).
+            const elapsed = this.options.schedulingOptions?.resumeFromActualElapsed
+              ? Math.max(0, totalSpan - remaining)
+              : 0;
+            if (elapsed > 0) {
+              // Uur: `addWorkMinutes` is een echte klok-optelling (kan exact op een bandgrens
+              // landen, bv. vr 17:00) — `snapOnOrAfter` duwt zo'n grensinstant door naar de
+              // eerstvolgende geldige werk-instant (ma 08:00), precies zoals elders in deze functie
+              // (`actualES`) een opgeslagen datum snapt. Dag: `addWorkDaysChecked(actualES, N)` is
+              // INCLUSIEF (dag 1 = `actualES` zelf, de "hoeveelste-werkdag-vanaf-hier"-conventie die
+              // ook `remaining`/`ef` verderop gebruikt) — de dag ÉÉN NA de `elapsed`-ste werkdag is
+              // dus dag `elapsed + 1`, niet dag `elapsed` (anders zou elapsed=1 op `actualES` zelf
+              // blijven staan i.p.v. doorschuiven naar de eerstvolgende werkdag — geverifieerd tegen
+              // `CalendarEngine.addWorkDaysChecked`: dag 1 vanaf een vrijdag = die vrijdag zelf, dag
+              // 2 = de eerstvolgende maandag).
+              const elapsedAnchor = cal.isHourMode
+                ? this.snapOnOrAfter(cal, cal.addWorkMinutes(actualES, elapsed))
+                : (() => {
+                    const r = cal.addWorkDaysChecked(actualES, elapsed + 1);
+                    if (r.capped) this.cappedTaskIds.push(taskId);
+                    return r.date;
+                  })();
+              if (elapsedAnchor > remStart) remStart = elapsedAnchor;
+            }
           }
           let ef: Date;
           if (cal.isHourMode) {
