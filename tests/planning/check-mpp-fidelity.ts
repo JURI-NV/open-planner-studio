@@ -219,7 +219,19 @@ let firstUsableFile: { path: string; bytes: Uint8Array; root: RootName; hash: st
 // gelijk is, zodat een andere baan in één regel ziet welke KANT een rode run op wijst — zonder de
 // per-bestand-per-veld-pins hierboven te vervangen (dit is een SOM, en §5 waarschuwt expliciet dat
 // een som compenserende wijzigingen verdoezelt; die pins blijven dus de echte poort).
+//
+// T13-B-FIX: "verslechterd" hieronder is EXPLICIET "op de som" — een gemengd bestand
+// (bv. −7 start-afwijkingen/+3 finish-afwijkingen) telt op de som als VERBETERD, ook al is er
+// een veld dat echt slechter werd. Dat is precies wat T13's hermeting op één bestand liet zien
+// ("OzBuild Workshop 14 After Para 28": startDiff 8→1, finishDiff 11→14 — som 19→15, dus
+// "verbeterd", terwijl finishDiff wél steeg). Om dat niet stil te laten wegvallen achter de
+// som-regel telt `fieldRegressedFiles` PER VELD (elk van de zes tellers apart, niet de som): een
+// bestand telt hier zodra ook maar ÉÉN teller t.o.v. de pin steeg — onafhankelijk van wat de
+// andere tellers van hetzelfde bestand doen. Dit is, net als de som-regel, GEEN poort (de
+// per-bestand-per-veld-pins hierboven blijven de enige echte poort) — puur een tweede, eerlijkere
+// leesbare regel naast de eerste.
 let improvedFiles = 0, regressedFiles = 0, unchangedFiles = 0, netDiffDelta = 0;
+const fieldRegressedTags: string[] = [];
 
 /** OPS_MPP_FIDELITY_REPORT=detail: print CORPUSINHOUD (taaknamen, kalender-id's, voorgangernamen)
  *  — niet alleen een identificerende tag zoals `tagFor()`. Bedoeld voor lokaal, interactief gebruik
@@ -296,7 +308,16 @@ function processFile(path: string, bytes: Uint8Array, root: RootName, label: str
   if (after < before) improvedFiles++;
   else if (after > before) regressedFiles++;
   else unchangedFiles++;
-  netDiffDelta += before - after; // positief = netto verbetering t.o.v. de pin
+  netDiffDelta += before - after; // positief = netto verbetering t.o.v. de pin (OP DE SOM)
+
+  // T13-B-FIX: per-veld regressie, onafhankelijk van de som hierboven (zie de moduleheader-uitleg
+  // bij `fieldRegressedTags`). Bewust smal, symmetrisch met `hasDiff()`/de globale pins hierboven:
+  // alleen `startDiff`/`finishDiff` zelf, NIET een verschuiving tussen `Exact`↔`Sameday` (dat is
+  // een precisieverlies binnen "matcht", geen nieuwe afwijking) — anders zou deze regel ruis geven
+  // op elke sameday↔exact-schommeling die niets met de "som verdoezelt een veld"-zorg te maken heeft.
+  if (row.startDiff > pin.startDiff || row.finishDiff > pin.finishDiff) {
+    fieldRegressedTags.push(tag);
+  }
 }
 
 // ── OPS_MPP_CORPUS — geen label (bedrijfsbestanden, plan §6) ────────────────────────────────
@@ -376,13 +397,23 @@ if (crawlScanned) assertRootPins('crawl');
 
 // Delta-slotregel: één leesbare regel voor welke KANT een rode/groene run op wijst t.o.v. de
 // gepinde baseline — geen assert, alleen een samenvatting bovenop de per-bestand-pins hierboven.
+// T13-B-FIX: "verslechterd" hier is EXPLICIET "(op de som)" — zie `fieldRegressedTags` hierboven
+// voor de eerlijkere, per-veld tegenhanger die een gemengd bestand (som verbeterd, één veld toch
+// slechter) niet laat wegvallen.
 if (improvedFiles + regressedFiles + unchangedFiles > 0) {
   const richting = netDiffDelta > 0 ? 'netto verbeterd' : netDiffDelta < 0 ? 'netto VERSLECHTERD' : 'netto ongewijzigd';
   console.log(
-    `   . delta t.o.v. mpp-fidelity-baseline.json: ${improvedFiles} bestand(en) verbeterd, `
-    + `${regressedFiles} verslechterd, ${unchangedFiles} ongewijzigd — ${richting} `
+    `   . delta t.o.v. mpp-fidelity-baseline.json: ${improvedFiles} bestand(en) verbeterd (op de som), `
+    + `${regressedFiles} verslechterd (op de som), ${unchangedFiles} ongewijzigd — ${richting} `
     + `(${netDiffDelta >= 0 ? '-' : '+'}${Math.abs(netDiffDelta)} start+finish-afwijkingen)`,
   );
+  if (fieldRegressedTags.length > 0) {
+    console.log(
+      `   . waarschuwing: ${fieldRegressedTags.length} bestand(en) hebben startDiff of finishDiff ZIEN STIJGEN `
+      + `t.o.v. de pin, ook al is de SOM voor dat bestand gelijk of beter — dus NIET per se in de `
+      + `"verslechterd (op de som)"-telling hierboven: [${fieldRegressedTags.join(', ')}]`,
+    );
+  }
 }
 
 // ── T1-acceptatie: pad-pariteitscase — de ECHTE store (applyLoadedProject+runCPM, patroon

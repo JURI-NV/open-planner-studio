@@ -4,12 +4,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 14 After Para 26.mpp",
       "tasks": 18,
-      "startExact": 14,
+      "startExact": 9,
       "startSameday": 0,
-      "startDiff": 4,
-      "finishExact": 10,
+      "startDiff": 9,
+      "finishExact": 4,
       "finishSameday": 0,
-      "finishDiff": 8
+      "finishDiff": 14
     },
     "02fc12267d47c19e": {
       "root": "crawl",
@@ -26,12 +26,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 15.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "0620fd2d68437305": {
       "root": "crawl",
@@ -70,12 +70,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 06.mpp",
       "tasks": 18,
-      "startExact": 10,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 8,
-      "finishExact": 6,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 12
+      "finishDiff": 0
     },
     "0beddd24b8a54200": {
       "root": "crawl",
@@ -92,12 +92,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14baseline.mpp",
       "tasks": 14,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 10,
+      "startDiff": 2,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 4
+      "finishDiff": 2
     },
     "0e4d59ca154d096b": {
       "root": "crawl",
@@ -180,23 +180,23 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2013-mpp14.mpp",
       "tasks": 3,
-      "startExact": 1,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 1,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "169e509afa527747": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 12.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "16a705fa35d1abca": {
       "root": "crawl",
@@ -213,12 +213,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/calendar-exception-precedence-yearly.mpp",
       "tasks": 1,
-      "startExact": 0,
+      "startExact": 1,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "17ee998df7ff8a41": {
       "root": "crawl",
@@ -249,9 +249,9 @@
       "startExact": 10,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 7,
+      "finishExact": 10,
       "finishSameday": 0,
-      "finishDiff": 3
+      "finishDiff": 0
     },
     "1c29274f3deafacc": {
       "root": "crawl",
@@ -304,20 +304,20 @@
       "startExact": 20,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 18,
+      "finishExact": 19,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 1
     },
     "23139f2c67531473": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 10.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "2404e395f17d5358": {
       "root": "crawl",
@@ -379,22 +379,22 @@
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 18.mpp",
       "tasks": 18,
       "startExact": 5,
-      "startSameday": 1,
-      "startDiff": 12,
+      "startSameday": 0,
+      "startDiff": 13,
       "finishExact": 2,
-      "finishSameday": 3,
-      "finishDiff": 13
+      "finishSameday": 0,
+      "finishDiff": 16
     },
     "26a82a4b4666cfd5": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 14.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
-      "finishSameday": 1,
-      "finishDiff": 8
+      "startDiff": 6,
+      "finishExact": 12,
+      "finishSameday": 6,
+      "finishDiff": 0
     },
     "276f26a3e8fbfc54": {
       "root": "crawl",
@@ -422,12 +422,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 13.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "29866ca943faa1d7": {
       "root": "crawl",
@@ -477,12 +477,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 07.mpp",
       "tasks": 18,
-      "startExact": 10,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 8,
-      "finishExact": 6,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 12
+      "finishDiff": 0
     },
     "2e715b9732df3a75": {
       "root": "crawl",
@@ -544,11 +544,11 @@
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 20.mpp",
       "tasks": 18,
       "startExact": 5,
-      "startSameday": 1,
-      "startDiff": 12,
+      "startSameday": 0,
+      "startDiff": 13,
       "finishExact": 2,
-      "finishSameday": 3,
-      "finishDiff": 13
+      "finishSameday": 0,
+      "finishDiff": 16
     },
     "333a26fa936aa522": {
       "root": "crawl",
@@ -566,8 +566,8 @@
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 29.mpp",
       "tasks": 18,
       "startExact": 9,
-      "startSameday": 0,
-      "startDiff": 9,
+      "startSameday": 6,
+      "startDiff": 3,
       "finishExact": 4,
       "finishSameday": 0,
       "finishDiff": 14
@@ -587,12 +587,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 11.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "3fc8d51a7e1270c8": {
       "root": "crawl",
@@ -620,12 +620,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 16 Old.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "454e64f9be22b0f0": {
       "root": "crawl",
@@ -653,12 +653,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/data-links/data-links-project2010-mpp14.mpp",
       "tasks": 3,
-      "startExact": 0,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 3
+      "finishDiff": 0
     },
     "49cb1061d883277a": {
       "root": "crawl",
@@ -687,11 +687,11 @@
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 14 After Para 28.mpp",
       "tasks": 18,
       "startExact": 9,
-      "startSameday": 1,
-      "startDiff": 8,
+      "startSameday": 8,
+      "startDiff": 1,
       "finishExact": 4,
-      "finishSameday": 3,
-      "finishDiff": 11
+      "finishSameday": 0,
+      "finishDiff": 14
     },
     "4d5706656231ae80": {
       "root": "crawl",
@@ -719,12 +719,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 17.mpp",
       "tasks": 18,
-      "startExact": 7,
+      "startExact": 9,
       "startSameday": 0,
-      "startDiff": 11,
-      "finishExact": 4,
+      "startDiff": 9,
+      "finishExact": 7,
       "finishSameday": 0,
-      "finishDiff": 14
+      "finishDiff": 11
     },
     "520c52e729736320": {
       "root": "crawl",
@@ -785,12 +785,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 12.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "57d7d478a987efef": {
       "root": "crawl",
@@ -829,12 +829,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 12.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "5d4bce3e0c7b65d2": {
       "root": "crawl",
@@ -906,12 +906,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/calendar-exception-precedence-monthly.mpp",
       "tasks": 1,
-      "startExact": 0,
+      "startExact": 1,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "6214651e024f06d9": {
       "root": "crawl",
@@ -1050,11 +1050,11 @@
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 17 Leveling.mpp",
       "tasks": 18,
       "startExact": 12,
-      "startSameday": 1,
-      "startDiff": 5,
-      "finishExact": 9,
-      "finishSameday": 3,
-      "finishDiff": 6
+      "startSameday": 0,
+      "startDiff": 6,
+      "finishExact": 10,
+      "finishSameday": 0,
+      "finishDiff": 8
     },
     "75070a3239a0bccc": {
       "root": "crawl",
@@ -1104,23 +1104,23 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 10.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "781dfabc482502b5": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 15.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "787efb968ae72fe4": {
       "root": "corpus",
@@ -1136,12 +1136,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 16.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
-      "finishSameday": 1,
-      "finishDiff": 8
+      "startDiff": 6,
+      "finishExact": 12,
+      "finishSameday": 6,
+      "finishDiff": 0
     },
     "7be87e089502b7d7": {
       "root": "crawl",
@@ -1191,23 +1191,23 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop With Resources.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "80c9e5106e7d0511": {
       "root": "crawl",
       "label": "mpxj/junit/data/calendar-exception-precedence-daily.mpp",
       "tasks": 1,
-      "startExact": 0,
+      "startExact": 1,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "8216b7ccc1dca48a": {
       "root": "crawl",
@@ -1235,12 +1235,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 16.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "86b664cc50b7de6c": {
       "root": "crawl",
@@ -1289,12 +1289,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18 After Papa 12.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
-      "finishSameday": 4,
-      "finishDiff": 5
+      "startDiff": 6,
+      "finishExact": 12,
+      "finishSameday": 6,
+      "finishDiff": 0
     },
     "8af6a8a98912e3ee": {
       "root": "crawl",
@@ -1333,12 +1333,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 07.mpp",
       "tasks": 18,
-      "startExact": 9,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 9,
-      "finishExact": 4,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 14
+      "finishDiff": 0
     },
     "8f33cdb774aa090b": {
       "root": "crawl",
@@ -1366,12 +1366,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 18.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "92c539136cd67d7b": {
       "root": "crawl",
@@ -1421,12 +1421,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 14 After Para 16.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "976e25dd4c815d24": {
       "root": "crawl",
@@ -1487,12 +1487,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop With Resources.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "9c2db86ca0245e66": {
       "root": "crawl",
@@ -1542,12 +1542,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2016-mpp14.mpp",
       "tasks": 3,
-      "startExact": 1,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 1,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "a2df0d81e463689f": {
       "root": "crawl",
@@ -1597,12 +1597,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 10.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "a68a235a9dd6c301": {
       "root": "crawl",
@@ -1618,12 +1618,12 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 180,
+      "startExact": 184,
       "startSameday": 2,
-      "startDiff": 33,
-      "finishExact": 171,
+      "startDiff": 29,
+      "finishExact": 173,
       "finishSameday": 1,
-      "finishDiff": 43
+      "finishDiff": 41
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
@@ -1706,12 +1706,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/data-links/data-links-project2013-mpp14.mpp",
       "tasks": 3,
-      "startExact": 0,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 3
+      "finishDiff": 0
     },
     "b1e7854321c09f2a": {
       "root": "crawl",
@@ -1764,9 +1764,9 @@
       "startExact": 21,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 20,
+      "finishExact": 21,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "b745a438e2aa8bf6": {
       "root": "crawl",
@@ -1783,12 +1783,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18 After Papa 16.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "bd468e3eab7aba94": {
       "root": "crawl",
@@ -1849,12 +1849,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18 After Papa 08.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "c342a6dd81d5ab6e": {
       "root": "crawl",
@@ -1882,12 +1882,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 17.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
-      "finishSameday": 1,
-      "finishDiff": 8
+      "startDiff": 6,
+      "finishExact": 12,
+      "finishSameday": 6,
+      "finishDiff": 0
     },
     "c6d0250931ec8617": {
       "root": "crawl",
@@ -1915,12 +1915,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 09.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "c81dda328fdbc8b6": {
       "root": "crawl",
@@ -1948,12 +1948,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 09.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "cab63197887e7c2c": {
       "root": "crawl",
@@ -1981,12 +1981,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/data-links/data-links-project2016-mpp14.mpp",
       "tasks": 3,
-      "startExact": 0,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 3
+      "finishDiff": 0
     },
     "cf1c4e62daeee7db": {
       "root": "crawl",
@@ -2003,12 +2003,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 11.mpp",
       "tasks": 18,
-      "startExact": 13,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 5,
-      "finishExact": 11,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 7
+      "finishDiff": 0
     },
     "d0fbd3f6b3dda0dc": {
       "root": "crawl",
@@ -2058,23 +2058,23 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2019-mpp14.mpp",
       "tasks": 3,
-      "startExact": 1,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 1,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "d5c967023968446a": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 18.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "d5fbe9af23eef3a0": {
       "root": "crawl",
@@ -2212,12 +2212,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 09.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "e76d2f3070038f98": {
       "root": "crawl",
@@ -2267,12 +2267,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2010-mpp14.mpp",
       "tasks": 3,
-      "startExact": 1,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 1,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "eeb4c750aa58dd96": {
       "root": "crawl",
@@ -2300,34 +2300,34 @@
       "root": "crawl",
       "label": "mpxj/junit/data/calendar-exception-precedence-weekly.mpp",
       "tasks": 1,
-      "startExact": 0,
+      "startExact": 1,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "f30b93d48766d32f": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 18 End Para 12.mpp",
       "tasks": 18,
-      "startExact": 11,
+      "startExact": 12,
       "startSameday": 0,
-      "startDiff": 7,
-      "finishExact": 9,
+      "startDiff": 6,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 9
+      "finishDiff": 6
     },
     "f689def6ef8ffa61": {
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 11.mpp",
       "tasks": 18,
-      "startExact": 15,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 3,
-      "finishExact": 13,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 5
+      "finishDiff": 0
     },
     "f7378f8b416d2f1b": {
       "root": "crawl",
