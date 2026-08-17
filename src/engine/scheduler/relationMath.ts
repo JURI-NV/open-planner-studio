@@ -92,6 +92,47 @@ export function relationBoundaryFlags(predTask: Task, succTask: Task): RelationB
   };
 }
 
+/**
+ * Z11 (etappe "nul afwijkingen", dossier kruis-kalender-FS-asymmetrie). De discriminator voor de
+ * FS+0-grens-snap hieronder: *voorganger-eerst, TENZIJ de twee kalenders op hun GEDEELDE werkdagen
+ * identieke banden hebben — dan opvolger-eerst.* "Gedeelde werkdag" = een weekdag waarop BEIDE
+ * kalenders minstens één band dragen (`weekdayBands(wd).length > 0`); een weekdag die maar één van
+ * de twee kent (bv. zaterdag bij een 6-dagen-opvolger van een 5-dagen-voorganger) telt niet mee —
+ * dat IS precies de "extra werkdag"-asymmetrie die opvolger-eerst moet herstellen, geen verschil om
+ * op te struikelen.
+ *
+ * Reconstructie (Z11, vóór implementatie getoetst — beide kanten):
+ *  - CORPUSGEVAL (OzBuild Workshop 14 End Para 29.mpp, dag-modus): voorganger "Standard" (ma-vr) en
+ *    opvolger "6 Day Week" (ma-za) delen IDENTIEKE ma-vr-banden (dag-modus draagt geen bandtijden —
+ *    `weekdayBands` geeft dan `[]` voor élke weekdag op BEIDE kalenders, dus geen enkele weekdag
+ *    wordt als "gedeeld" met een bandverschil gezien) ⇒ discriminator geeft `true` (identiek) ⇒
+ *    opvolger-eerst. Met opvolger-eerst snapt de FS-grens direct in "6 Day Week", die zaterdag WEL
+ *    kent — de MSP-datum (zaterdag) komt daarmee binnen bereik i.p.v. de voorganger-eerst-snap die
+ *    'm over het hele weekend naar maandag duwt.
+ *  - GUARD-CASE (msp-04-m2-guard1-alleen-crosscalendar, uur-modus): P (ma-vr 08:00-17:00) en Q
+ *    (ma-vr 09:00-18:00) delen dezelfde WEEKDAGEN maar niet dezelfde BANDTIJDEN (480≠540 resp.
+ *    1020≠1080) ⇒ discriminator geeft `false` (verschillend) ⇒ voorganger-eerst blijft behouden —
+ *    exact het bestaande, doelbewust geteste gedrag (A eindigt di17:00 in P; P.nextWorkInstant snapt
+ *    naar wo08:00 — vóórdat Q ooit gezien wordt — en Q normaliseert die wo08:00 daarna verder naar
+ *    wo09:00; een opvolger-eerst-snap zou hier `di17:00` ONVERANDERD laten staan, want 17:00 valt
+ *    toevallig BINNEN Q's eigen band `[09:00,18:00)` — precies de fout die de guard-case vastlegt).
+ *  Beide reconstructies zijn met de CalendarEngine-band-conventies (`[start,end)`) met de hand
+ *  nagerekend vóór er één regel van de discriminator zelf geschreven werd — de kandidaat
+ *  discrimineert dus aantoonbaar tussen de twee gevallen.
+ */
+export function calendarsAgreeOnSharedWorkdayBands(a: CalendarEngine, b: CalendarEngine): boolean {
+  for (let wd = 1; wd <= 7; wd++) {
+    const aBands = a.weekdayBands(wd as 1 | 2 | 3 | 4 | 5 | 6 | 7);
+    const bBands = b.weekdayBands(wd as 1 | 2 | 3 | 4 | 5 | 6 | 7);
+    if (aBands.length === 0 || bBands.length === 0) continue; // geen GEDEELDE werkdag — negeren
+    if (aBands.length !== bBands.length) return false;
+    for (let i = 0; i < aBands.length; i++) {
+      if (aBands[i].start !== bBands[i].start || aBands[i].end !== bBands[i].end) return false;
+    }
+  }
+  return true;
+}
+
 /** De mode-bewuste primitieven die de relatie-wiskunde nodig heeft. Blijven in `CPMSolver`
  *  gedefinieerd (ze delen daar de dag↔uur-reductie met de rest van de solver) en worden hier
  *  geïnjecteerd, zodat de relatie-wiskunde puur en op één plek staat zonder de helpers te dupliceren. */
@@ -324,6 +365,21 @@ function forwardDay(
       if (elapsed) {
         const plus = succIsFinishMs || predEndsBeginOfDay ? lag : lag + 1;
         return addCalendarDays(predResult.ef, plus);
+      }
+      // Z11 (kruis-kalender-FS-asymmetrie, corpusgeval OzBuild Workshop 14 End Para 29.mpp):
+      // bij lag=0 met een IDENTIEKE gedeelde-werkdag-bandstructuur (dag-modus: altijd, want dag-
+      // modus draagt geen bandtijden om op te verschillen) snapt de grens rechtstreeks in de
+      // OPVOLGER-kalender i.p.v. eerst in de voorganger — anders duwt `pe.nextWorkDayAfter` een
+      // extra werkdag van de opvolger (bv. zaterdag bij een 6-dagen-opvolger van een 5-dagen-
+      // voorganger) al weg vóórdat `se` ooit gezien wordt. `!succIsFinishMs && !predEndsBeginOfDay`
+      // houdt de bestaande mijlpaal-grens-takken (die `predResult.ef` al ONGESNAPT gebruiken)
+      // volledig buiten schot — dit raakt uitsluitend het "twee gewone taken"-pad dat de discriminator
+      // hierboven (`calendarsAgreeOnSharedWorkdayBands`) reconstrueert. Géén `lagEng`-naspel: dat zou
+      // via `pe.addWorkingDaysSigned(saturday, 0)` = `pe.nextWorkDay(saturday)` de net vermeden
+      // voorganger-snap alsnog achteraf toepassen (pe kent zaterdag niet ⇒ terug naar maandag).
+      if (!succIsFinishMs && !predEndsBeginOfDay && lag === 0
+        && calendarsAgreeOnSharedWorkdayBands(pe, se)) {
+        return se.nextWorkDayAfter(predResult.ef);
       }
       const base = succIsFinishMs || predEndsBeginOfDay
         ? predResult.ef
@@ -601,6 +657,28 @@ function forwardHour(
         ? predResult.ef                       // mijlpaal-grens: geen dag-boundary-+1 (dag-conceptueel)
         : pe.predDoneAt(predResult.ef);
       const lagged = deps.shiftLagPred(pe, predDone, seq, predTask, 1);
+      // `lagIsZero` (T6, hieronder al gebruikt vóór Z11): "de geshifte waarde == wat een kale
+      // nul-lag-normalisatie in de VOORGANGER zou geven" ⇒ er is geen échte lag toegepast. Vereist
+      // `pe.isHourMode`: `nextWorkInstant` is een uur-modus-primitief (non-null assertion op
+      // `workTime`) — bij een DAG-voorganger (cross-modus) crasht de aanroep, vandaar de wacht.
+      const lagIsZero = pe.isHourMode && lagged.getTime() === pe.nextWorkInstant(predDone).getTime();
+      // Z11 (kruis-kalender-FS-asymmetrie, uur-analoog van de dag-fix in `forwardDay` hierboven in
+      // dit bestand): bij lag=0 met IDENTIEKE gedeelde-werkdag-banden (de discriminator hierboven,
+      // `calendarsAgreeOnSharedWorkdayBands`) snapt de grens rechtstreeks in de OPVOLGER-kalender
+      // i.p.v. eerst in de voorganger — anders duwt `pe.nextWorkInstant` (via `shiftLagPred`, hier al
+      // toegepast in `lagged`) een extra werkdag van de opvolger (bv. een werkende zaterdag) al weg
+      // vóórdat `se` ooit gezien wordt (het uur-modus-analoog van T16c-M1's OzBuild-corpusgeval,
+      // corpusloos gepind: msp-38/msp-39 in cases-msp-pariteit.json). Beperkt tot hour-hour
+      // (`se.isHourMode`, naast `lagIsZero`s eigen `pe.isHourMode`-wacht): een cross-modus-combinatie
+      // is hier niet gereconstrueerd of getoetst. `!succIsFinishMs && !predEndsBeginOfDay` laat de
+      // bestaande mijlpaal-grens-tak (eigen, al geteste kortsluiting, hieronder) volledig met rust —
+      // dit raakt uitsluitend het "twee gewone taken"-pad. Zónder de discriminator (bandgrenzen die
+      // ZELF verschillen, zoals de guard-case) blijft het bestaande voorganger-eerst-gedrag staan:
+      // de `if` hieronder faalt dan gewoon en de functie valt door naar `se.availableStart(lagged)`.
+      if (!succIsFinishMs && !predEndsBeginOfDay && se.isHourMode && lagIsZero
+        && calendarsAgreeOnSharedWorkdayBands(pe, se)) {
+        return se.availableStart(predDone);
+      }
       // MSP-pariteit (T6, §9/O6): een EINDmijlpaal-opvolger zonder lag landt op de RAUWE
       // voorganger-finish-instant (bv. di 17:00) — niet op de eerstvolgende werk-instant erna.
       // `shiftLagPred`/`availableStart` normaliseren via `nextWorkInstant` (rand `[start,end)`),
@@ -629,15 +707,12 @@ function forwardHour(
       // in de FS-tak: het verwijderen van de exclusie is dus een BEWUSTE verbreding van de MSP-
       // conventie naar dat geval, geen no-op — mutatiebewezen door de tweelingcase msp-06b (idem,
       // maar FS i.p.v. SF): `!predEndsBeginOfDay` teruggezet ⇒ msp-06b alleen ROOD.
-      // `pe.isHourMode`-wacht is VERPLICHT: `nextWorkInstant` is een uur-modus-primitief
-      // (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder guard) — bij een DAG-
-      // voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`) zou de aanroep
-      // crashen op de non-null assertion. Die combinatie werkt al correct via de bestaande
-      // dag-lag-tak van `shiftLagPred` + `availableStart` en blijft dus ongemoeid.
-      if (succIsFinishMs && pe.isHourMode) {
-        const lagIsZero = lagged.getTime() === pe.nextWorkInstant(predDone).getTime();
-        if (lagIsZero) return landRawInstant(predDone);
-      }
+      // `pe.isHourMode`-wacht is VERPLICHT (nu binnen `lagIsZero` hierboven): `nextWorkInstant` is
+      // een uur-modus-primitief (`bandsStartingOn` leest `calendar.workTime!.byWeekday` zonder
+      // guard) — bij een DAG-voorganger (cross-modus, bv. `rr-fs-crossmode-daypred-hourfinishms`)
+      // zou de aanroep crashen op de non-null assertion. Die combinatie werkt al correct via de
+      // bestaande dag-lag-tak van `shiftLagPred` + `availableStart` en blijft dus ongemoeid.
+      if (succIsFinishMs && lagIsZero) return landRawInstant(predDone);
       return se.availableStart(lagged);
     }
   }

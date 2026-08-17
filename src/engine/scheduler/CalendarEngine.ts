@@ -451,6 +451,15 @@ export class CalendarEngine {
     return this.mode === 'hour';
   }
 
+  /** De rauwe weekdag-banden van DEZE kalender (§4.1), `undefined` in dag-modus. Alleen voor
+   *  read-only VERGELIJKING tussen twee kalenders (Z11, `calendarsAgreeOnSharedWorkdayBands` in
+   *  `relationMath.ts`) — geen enkele bestaande dag-/uur-lus leest hierlangs, dit is puur de
+   *  discriminator-input. Geeft de banden-array voor `wd` terug (leeg = die weekdag is voor DEZE
+   *  kalender geen werkdag), niet een kopie van de hele kalender. */
+  weekdayBands(wd: 1 | 2 | 3 | 4 | 5 | 6 | 7): { start: number; end: number }[] {
+    return this.calendar.workTime?.byWeekday[wd] ?? [];
+  }
+
   /** Afgeleide `hoursPerDay` voor een uur-kalender (§3.2, Bevinding 8): de MODALE band-som over de
    *  werk-weekdagen (meest voorkomende dagsom in uren), bij gelijkspel de HOOGSTE.
    *
