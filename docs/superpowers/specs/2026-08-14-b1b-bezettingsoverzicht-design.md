@@ -160,7 +160,11 @@ niet: de solver draait al headless buiten de store (de benchmark doet `new CPMSo
 - **De ⚠ verandert van betekenis:** een doorgerekend-stale document telt gewoon mee
   (`counted: true`) maar draagt een informatieve markering — "dit document zelf is nog niet
   doorgerekend; het overzicht rekent alvast met de actuele invoer (F5 in het document om het
-  daar ook te zien)". De banner idem.
+  daar ook te zien)". De banner idem. Beide teksten verwijzen ook naar de bestaande instelling
+  **"Automatisch berekenen"** (`ui.autoCalcCPM`): staat die aan, dan herrekent een document
+  zichzelf zodra het verouderd raakt (ook direct bij activeren) en verdwijnt de markering
+  vanzelf. De handmatige modus blijft de default — kernontwerp "manual, not reactive",
+  relevant voor geïmporteerde planningen (issue #63).
 - **Vangnet:** faalt de efemere solve (bijv. een relatiecyclus of een solverfout), dan valt
   dát document terug op het 4.3-gedrag hieronder: zichtbaar maar niet meegeteld, met de
   niet-meegeteld-⚠. De fantoomrij-guards blijven onverkort gelden.
@@ -259,8 +263,10 @@ vorm om overbezetting in de tijd te zien, zoals het bestaande histogram dat binn
 is. De vorm blijft goedkoop en raakt de canvas-renderer niet:
 
 - **Selectie van een hoofdrij** toont onder (of naast) de tabel een histogram voor dát poolitem:
-  per ISO-dag de **gestapelde** bijdrage per document (vaste kleurtoewijzing per document, met
-  legenda = de documenttitels uit de uitklap), de **capaciteitslijn** van het poolitem
+  per ISO-dag de **gestapelde** bijdrage per document (kleurtoewijzing per document, **uniek
+  binnen het overzicht** — op volgorde van eerste verschijnen, niet op id-hash, zodat twee
+  documenten nooit dezelfde kleur delen zolang het palet reikt (correctie eigenaar
+  2026-08-14); legenda = de documenttitels uit de uitklap), de **capaciteitslijn** van het poolitem
   (`maxUnitsOn` per dag, dus `availabilitySteps`-knikken zichtbaar) eroverheen, en dagen waar de
   som boven de lijn uitkomt **rood** gemarkeerd — dezelfde conflictdefinitie als §6, geen tweede
   berekening.
