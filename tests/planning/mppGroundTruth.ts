@@ -1,5 +1,13 @@
 // Onafhankelijke her-implementatie van de TBkndTask-scan (fase 3.8, etappe "MSP-pariteit", T1).
 //
+// T16-VEEGLIJST (herkomstvermelding aangevuld): net als `mppReader.ts`/`mppCalendars.ts`/
+// `limits.ts` is de veldkennis in dit bestand (TaskField-id's, `Fixed2Meta`-bit-flags,
+// `MPP14Reader.java`-leesvolgorde) afgeleid van de MPXJ-broncode
+// (https://github.com/joniles/mpxj, © Jon Iles e.a., LGPL-2.1) — geport naar TypeScript voor
+// Open Planner Studio (LGPL-3.0). Test-only (`tests/planning/`), maar wél een EIGEN, tweede poort
+// van die veldkennis (zie "BEWUST EEN TWEEDE LUS" hieronder), dus draagt zijn eigen vermelding
+// i.p.v. stilzwijgend op de src/-vermelding te leunen.
+//
 // BEWUST EEN TWEEDE LUS, GEEN HERGEBRUIK VAN `readTasks`. Dit bestand bestaat om `mppFidelity.ts`
 // een grondwaarheid te geven die NIET via dezelfde code loopt als de lezer die getoetst wordt
 // (`src/services/mpp/mppReader.ts`'s `readTasks`) — een bug in `readTasks` (bv. een verkeerd

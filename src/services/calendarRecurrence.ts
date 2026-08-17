@@ -1,6 +1,13 @@
 /**
  * Formaat-neutrale kalenderuitzondering-recurrentie/-precedentie-kern (fase 3.8, MSP-pariteit T3,
  * uitgetild uit `services/mpp/mppCalendars.ts` op Opus-review-eis — chunk-grens-coördinatiepunt).
+ *
+ * T16-VEEGLIJST (herkomstvermelding aangevuld — ontbrak, ondanks de expliciete "poort van drie
+ * MPXJ-bronnen" hieronder): afgeleid van de MPXJ-broncode (https://github.com/joniles/mpxj,
+ * © Jon Iles e.a., LGPL-2.1) — structuurkennis/datumgeneratie-algoritmes geport naar TypeScript
+ * voor Open Planner Studio (LGPL-3.0), zelfde vermelding als `services/mpp/mppReader.ts`/
+ * `mppCalendars.ts`/`limits.ts`.
+ *
  * Poort van drie MPXJ-bronnen (verifieer op INHOUD, niet op regelnummer):
  *  - `AbstractCalendarAndExceptionFactory.readRecurringData` (org.mpxj.mpp) — het RecurrenceSpec-
  *    veldenmodel (niet de byte-lezing zelf; die blijft formaat-specifiek, zie `mppCalendars.ts`'s
