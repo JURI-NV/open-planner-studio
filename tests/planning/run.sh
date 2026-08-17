@@ -344,6 +344,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MUTCHECK="$DIR/.mutation-cost.mjs"
   if bundle_check "$DIR/check-mutation-cost.ts" "$MUTCHECK"; then node "$MUTCHECK" || STATUS=1; fi
 
+  # Benchmark-generator (Instellingen -> Benchmark). De gegenereerde planning moet een ECHT netwerk
+  # zijn: elke taak die de solver als leaf ziet hoort minstens een relatie te hebben, anders meet je
+  # losse taken op de projectstart. Plus: het instelbare aantal resources mag de structuur van de
+  # planning niet veranderen, want dan zijn twee metingen niet meer vergelijkbaar.
+  BMGENCHECK="$DIR/.bmgen.mjs"
+  if bundle_check "$DIR/check-benchmark-generator.ts" "$BMGENCHECK"; then node "$BMGENCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
