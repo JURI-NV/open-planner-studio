@@ -220,7 +220,16 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 - [ ] **Wélke kalender de projectdefault is, kan de bridge niet wisselen** (de inhoud ervan wel, via
       het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
       of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
-- [ ] **P6-XML-export laat werkende kalenderuitzonderingen weg — schemabeperking, geen bug (fase
+
+### MPP/MSP-import (fase 3.8, MSP-pariteit) — bekende beperkingen (2026-08-17)
+
+> Verzameld tijdens de MPP-datumgetrouwheidsetappe (T13-T16, zie
+> `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`). Alle drie zijn **beschreven**
+> (console.warn, code-toelichting, of een gepinde test-case) en met bewijs vastgepind, dus niets
+> gebeurt stil. Het P6-item stond eerder onder "IFC-kalenderbibliotheek" — hierheen verhuisd, het
+> gaat over een export-schemabeperking, niet over de IFC-kalenderbibliotheek (B1.1).
+
+- [x] **P6-XML-export laat werkende kalenderuitzonderingen weg — schemabeperking, geen bug (fase
       3.8 T13, 2026-08-17).** `WorkingException` (T2/T3: een dag-uitzondering die een dag WERKEND
       maakt) is niet uit te drukken in P6-XML: `<HolidayOrException>` kent geen `DayWorking`-achtig
       veld (alleen `Name`/`Date`/`FinishDate` — `p6xmlReader.ts`'s `parseP6HolidayOrExceptions` leest
@@ -228,9 +237,34 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       werkdag alleen via `<StandardWorkWeek>` (project-breed weekpatroon, geen per-datum-uitzondering)
       — geen veilige automatische vertaling. `p6xmlWriter.ts`'s `writeHolidayOrExceptions` laat werkende
       uitzonderingen daarom bewust weg, met `console.warn('P6-export: … werkende kalenderuitzondering(en)
-      weggelaten — niet uitdrukbaar in P6-XML …')`. Gidsvermelding (`docs/library.md` of het
-      P6-importartikel) volgt bij T16 van de MPP-datumgetrouwheidsetappe; tot dan is de console.warn
-      de enige gebruikersvoorlichting.
+      weggelaten — niet uitdrukbaar in P6-XML …')`. **T16: gidsvermelding toegevoegd**
+      (`gids-import-export.md`, nl+en) — de console.warn blijft de enige gebruikersvoorlichting bij
+      het exportmoment zelf.
+- [ ] **Zuivere resource-contouring is niet betrouwbaar detecteerbaar — de contouring-detectiegrens
+      (T12-fixronde 2026-08-15, opnieuw genoteerd T16).** De split-/leveling-melding (fase 3.8 T12)
+      herkent nivellering-met-leveling-delay en een onderbroken/over-meerdere-dagen-uitgesmeerde taak
+      betrouwbaar, maar niet een taak die UITSLUITEND resource-contouring draagt (een oplopende/
+      aflopende werkcurve zonder dat start/finish zelf verschuift): het WORK_CONTOUR-FixedMeta-bit uit
+      de MPXJ-bron bleek op MPXJ's eigen referentiebestand (`mpp14resource.mpp`) géén discriminator
+      (brute-force-scan, 0 treffers). Zo'n taak wordt dus stil aaneengesloten doorgerekend zonder
+      melding — gedocumenteerd in de gids (`gids-msproject-import.md`) en in de moduleheader/
+      KNOWN-GAP-leescase van `mppReader.ts`. Vervolgstap (T15 liet dit liggen, her-onderzoek mag): een
+      ander signaal proberen, bv. de aanwezigheid van timephased-datablokken.
+- [ ] **TASK_MODE (Manually Scheduled vs. Automatically Scheduled) — hypothese, nooit gemeten,
+      vermoedelijk de grootste resterende SNET/MSO-afwijkingscluster (T15-dossier (c)5, B3-correctie
+      2026-08-17).** Corpusbrede probe op ROOT-taken (SNET/MSO-constraint buiten de werkband, geen
+      voorganger): 1 RAW-instant tegen 5 SNAPPED — de twee gevallen delen kalender/band/constraint-
+      tijdstip maar verschillen toch in uitkomst. MPXJ's `MPP14Reader.java` toont een TASK_MODE-
+      mechanisme met precies dit effect (`Fixed2Meta`-bit-flag, `TaskField.TASK_MODE`; een MANUALLY
+      SCHEDULED taak gebruikt zijn eigen `START`/`FINISH`-veldpaar i.p.v. `SCHEDULED_START`/
+      `SCHEDULED_FINISH`) — de BEST ONDERBOUWDE hypothese voor de discriminator, maar de bit is in
+      deze etappe NOOIT daadwerkelijk uitgelezen; er is dus geen bevestiging, alleen een gat met een
+      plausibele verklaring. Fix vergt een eigen `Fixed2Meta`-taakrecordlezer (mirrort het bestaande
+      resource-patroon in `mppEntities.ts`), het aparte START/FINISH-veldpaar lezen, én een nieuw
+      scheduling-mode-concept in de solver — een eigen feature, geen kleine tweak. Eerste vervolgstap:
+      de bit daadwerkelijk uitlezen en de hypothese bevestigen of weerleggen vóórdat er een feature op
+      gebouwd wordt. Gedocumenteerd als GAT (niet als gemeten oorzaak) in `mppReader.ts` en
+      `mppGroundTruth.ts`.
 
 ### Solver/presentatie — resterende punten (2026-07-20)
 
@@ -800,12 +834,14 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
     `FieldMap14.java`; onze data-gedreven veldmap-parser (`fieldMap14.ts`) hoeft alleen extra
     veld-ids te leren. Meest haalbare uitbreiding; ground truth voor baselines ligt klaar in
     `mpxj/junit/data/generated/task-baselines/`.
-  - [ ] **Recurrente kalenderuitzonderingen materialiseren** (jaarlijks Kerst e.d. mét
-    herhaalregel) — de recurrence-records worden al herkend maar overgeslagen
-    (`mppCalendars.ts`); materialiseren = de RecurringData-varianten van
-    `AbstractCalendarAndExceptionFactory.java` porten en per regel concrete datums genereren
-    binnen de projecthorizon. Levert méér dan MSPDI-pariteit op (de XML-import kan dit ook niet —
-    die zou het er dan bij kunnen krijgen).
+  - [x] **Recurrente kalenderuitzonderingen materialiseren** *(afgerond fase 3.8, MSP-pariteit T3/T4,
+    2026-08-17)* (jaarlijks Kerst e.d. mét herhaalregel) — alle vier recurrentietypes (WEEKLY/
+    MONTHLY/YEARLY/DAILY × absoluut/relatief) worden nu geëxpandeerd naar concrete datums binnen de
+    projecthorizon, in zowel `.mpp` (`mppCalendars.ts`) als MSPDI (`mspdiReader.ts`) — inclusief
+    werkende uitzonderingen en de precedentieregels tussen overlappende recurrente reeksen. Werkweken
+    (`processWorkWeeks`, alternatieve weekpatronen per datumbereik) blijven een apart, bewust
+    ongebouwd gat (O5-orkestratorbesluit: de probe verklaarde geen afwijkingen) — gedocumenteerd als
+    bekende beperking in `gids-msproject-import.md` (nl+en), geen los TODO-item.
   - [ ] **MPP9/12 native lezen** (Project 2000-2007) — zelfde containerformaat, andere veldmaps:
     `MPP9Reader.java`/`MPP12Reader.java` + `FieldMap9/12` porten op de bestaande
     CFB/primitieven-laag; de XOR-decodering uit `DocumentInputStreamFactory.java` (simpel:
