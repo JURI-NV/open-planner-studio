@@ -926,11 +926,11 @@ export class CPMSolver {
       // Voortgang (fase 2.6): actual-pinning + data-date-vloer. dataDate === null ⇒ elke tak is
       // een no-op (backwards-compat). `earlyStart` is hier al de retained-logic voorganger-druk.
       const dataDate = this.dataDate;
-      if (dataDate) {
+      {
         const t = task.time;
         if (t.actualFinish && t.completion >= 1) {
           // (1) VOLTOOID: volledig gepind op actuals — geen forward-drift voorbij actualFinish.
-          let es = this.snapOnOrAfter(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
+          let es = this.parseIn(cal, t.actualStart ?? t.actualFinish);
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
           let ef = task.isMilestone
             ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualFinish))
@@ -949,7 +949,7 @@ export class CPMSolver {
           results.set(taskId, { es, ef });
           continue;
         }
-        if ((t.actualStart || t.completion > 0) && t.completion < 1) {
+        if (dataDate && (t.actualStart || t.completion > 0) && t.completion < 1) {
           // (2) IN PROGRESS — actualStart (store-route) óf impliciete actualStart = de gewone
           //     forward-pass-earlyStart (2b, vangnet voor rauwe legacy/externe data).
           const actualES = t.actualStart
@@ -1065,7 +1065,7 @@ export class CPMSolver {
           results.set(taskId, { es: actualES, ef });
           continue;
         }
-        if (t.completion === 0 && earlyStart < dataDate) {
+        if (dataDate && t.completion === 0 && earlyStart < dataDate) {
           // (3) NIET GESTART: statusdatum als ondergrens (remaining werk nooit in het verleden).
           earlyStart = dataDate;
         }

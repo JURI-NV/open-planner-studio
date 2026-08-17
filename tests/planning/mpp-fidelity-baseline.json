@@ -92,12 +92,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14baseline.mpp",
       "tasks": 14,
-      "startExact": 12,
+      "startExact": 14,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 12,
+      "startDiff": 0,
+      "finishExact": 14,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "0e4d59ca154d096b": {
       "root": "crawl",
@@ -598,9 +598,9 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14resource.mpp",
       "tasks": 3,
-      "startExact": 1,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 2,
+      "startDiff": 1,
       "finishExact": 1,
       "finishSameday": 0,
       "finishDiff": 2
@@ -1443,12 +1443,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14timephased.mpp",
       "tasks": 40,
-      "startExact": 32,
+      "startExact": 34,
       "startSameday": 0,
-      "startDiff": 8,
-      "finishExact": 15,
-      "finishSameday": 5,
-      "finishDiff": 20
+      "startDiff": 6,
+      "finishExact": 19,
+      "finishSameday": 4,
+      "finishDiff": 17
     },
     "98c8a0fb569be058": {
       "root": "crawl",
@@ -1512,9 +1512,9 @@
       "startExact": 9,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 6,
+      "finishExact": 7,
       "finishSameday": 0,
-      "finishDiff": 3
+      "finishDiff": 2
     },
     "9e8eb3f00269bdb1": {
       "root": "crawl",
