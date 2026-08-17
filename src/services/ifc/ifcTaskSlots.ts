@@ -220,6 +220,19 @@ function indexMap(slots: { key: string }[]): Record<string, number> {
 /** Naam→arg-index voor de IFCTASKTIME-slots (spec-lay-out). Gebruikt door `applyHourModeIFC`. */
 export const TASKTIME_SLOT = indexMap(IFC_TASKTIME_SLOTS);
 
+/**
+ * De IfcTaskTime-slots die een REKENRESULTAAT dragen in plaats van gebruikersinvoer.
+ *
+ * Gebruikt door de "datums zoals opgeslagen"-functie: alleen voor deze slots is het relevant of het
+ * bestand ze daadwerkelijk vulde. `scheduleStart`/`scheduleFinish` staan er bewust NIET in — die zijn
+ * invoer (het anker waarop de forward pass snapt) en worden apart behandeld.
+ */
+export const RECORDED_SLOT_KEYS = [
+  'earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'freeFloat', 'totalFloat', 'isCritical',
+] as const;
+
+export type RecordedSlotKey = typeof RECORDED_SLOT_KEYS[number];
+
 /** Naam→arg-index voor de IFCTASK-slots (spec-lay-out). `extractTasks` verschuift de post-WorkMethod-
  *  slots met een OFFSET voor de 12-arg-legacy-lay-out. */
 export const TASK_SLOT = indexMap(IFC_TASK_SLOTS);

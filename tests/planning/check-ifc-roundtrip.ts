@@ -731,6 +731,48 @@ const rt2 = readIFC(writeIFC(rt1));
     'zonder TaskGuids-map (oud bestand) moet de remap terugvallen op het herberekenen van de hash');
 }
 
+// ── (9r) Aanwezigheidsregistratie: `$`-rekenslots tellen NIET als opgeslagen datum ────────────────
+// parseDateFromIFC maakt van `$` de datum van VANDAAG. Zonder aanwezigheidsregistratie zou een
+// extern geëxporteerd bestand (alleen ScheduleStart/ScheduleFinish gevuld) er uitzien alsof het
+// early-datums draagt, en zou "datums zoals opgeslagen" het hele project op vandaag zetten.
+{
+  const TT_LEEG = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    // IfcTaskTime met alleen ScheduleStart/ScheduleFinish; alle rekenslots (EarlyStart t/m
+    // IsCritical) op `$`.
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,'2026-03-02','2026-03-06',$,$,$,$,$,$,$,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Extern A',$,$,'1.1',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtLeeg = readIFC(TT_LEEG);
+  assert(rtLeeg.tasks.length === 1, `9r fixture moet precies één taak opleveren — kreeg ${rtLeeg.tasks.length}`);
+  const leegId = rtLeeg.tasks[0].id;
+  assert(JSON.stringify(rtLeeg.recordedFields?.[leegId]) === JSON.stringify([]),
+    `9r geen rekenslot als aanwezig gemeld — kreeg ${JSON.stringify(rtLeeg.recordedFields?.[leegId])}`);
+  assert(rtLeeg.tasks[0].time.scheduleStart === '2026-03-02',
+    `9r scheduleStart moet gewoon gelezen worden — kreeg ${rtLeeg.tasks[0].time.scheduleStart}`);
+
+  // Tegenproef: mét gevulde rekenslots worden ze WEL gemeld (freeFloat blijft bewust `$`, dus die
+  // hoort NIET in de lijst — bewijst dat het per-slot en niet per-IfcTaskTime wordt geregistreerd).
+  const TT_VOL = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,'2026-03-02','2026-03-06','2026-03-02','2026-03-06','2026-03-04','2026-03-10',$,'P2D',.T.,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Extern A',$,$,'1.1',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtVol = readIFC(TT_VOL);
+  assert(rtVol.tasks.length === 1, `9r VOL-fixture moet precies één taak opleveren — kreeg ${rtVol.tasks.length}`);
+  const wantVol = ['earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'totalFloat', 'isCritical'];
+  assert(JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id]) === JSON.stringify(wantVol),
+    `9r gevulde rekenslots wél gemeld — kreeg ${JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id])}`);
+}
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);

@@ -57,4 +57,9 @@ export interface ImportResult {
   /** OPTIONEEL — een pool-bestand (spec B1, §4) draagt zijn autoritatieve pool-JSON in het
    *  OPS_Library-pset; een gewoon projectbestand niet. Afwezig ⇒ geen pool-bestand. */
   libraryPool?: CompanyPool;
+  /** OPTIONEEL — per taak-id welke IfcTaskTime-REKENSLOTS het bestand daadwerkelijk vulde
+   *  (`RECORDED_SLOT_KEYS`). Alleen `readIFC` levert dit; CSV/MSPDI/P6/extensie-import kennen geen
+   *  IfcTaskTime-slots en laten het weg. Nodig omdat `parseDateFromIFC` een `$`-slot als "vandaag"
+   *  inleest — na het parsen is een leeg slot niet meer van een echte datum te onderscheiden. */
+  recordedFields?: Record<string, string[]>;
 }

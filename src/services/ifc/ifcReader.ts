@@ -19,7 +19,7 @@ import {
 } from './ifcConstants';
 import { PSET, PER_TASK_PSET_BY_NAME } from './ifcPsets';
 import {
-  IFC_TASKTIME_SLOTS, TASK_SLOT, TASKTIME_SLOT, type TaskTimeReadHelpers,
+  IFC_TASKTIME_SLOTS, RECORDED_SLOT_KEYS, TASK_SLOT, TASKTIME_SLOT, type TaskTimeReadHelpers,
 } from './ifcTaskSlots';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import {
@@ -107,7 +107,7 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   // Taken die aan een `.BASELINE.`-IfcWorkSchedule hangen zijn baseline-snapshots, geen live
   // taken (fase 2.6, §8.3) — sla ze over (robuust tegen externe tools; OPS zelf hangt er geen op).
   const baselineTaskStepIds = collectBaselineTaskStepIds(entities);
-  const { tasks, taskStepIdMap, taskTimeEntities } = extractTasks(entities, entityMap, baselineTaskStepIds);
+  const { tasks, taskStepIdMap, taskTimeEntities, recordedFields } = extractTasks(entities, entityMap, baselineTaskStepIds);
   const sequences = extractSequences(entities, entityMap, taskStepIdMap);
   extractNesting(entities, entityMap, tasks, taskStepIdMap);
   const { resources, resourceStepIdMap, resourceGuidMap } = extractResources(entities, entityMap);
@@ -150,6 +150,7 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
     activityCodeTypes, customFieldDefs, resourceCalendars,
     baselines, activeBaselineId,
     libraryPool: libraryPoolOut.value,
+    recordedFields,
   };
 }
 
@@ -628,17 +629,37 @@ function applyHourModeIFC(
   }
 }
 
+/**
+ * Welke rekenslots vulde dit IfcTaskTime écht? `$`, leeg en afwezig tellen NIET mee.
+ *
+ * Bewust hier en niet in de slot-`read`-descriptors: `read` krijgt de rauwe arg al binnen, maar zijn
+ * contract (`read?(t, arg, p)`) zou voor alle twintig slots moeten wijzigen om deze ene uitkomst
+ * naar buiten te krijgen. De arg-index staat via `TASKTIME_SLOT` toch al ter beschikking.
+ */
+function recordedSlotsOf(e: StepEntity): string[] {
+  const out: string[] = [];
+  for (const key of RECORDED_SLOT_KEYS) {
+    const arg = e.args[TASKTIME_SLOT[key]];
+    if (arg && arg !== '$') out.push(key);
+  }
+  return out;
+}
+
 function extractTasks(
   entities: StepEntity[],
   entityMap: Map<string, StepEntity>,
   baselineTaskStepIds: Set<string> = new Set(),
-): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity> } {
+): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity>; recordedFields: Record<string, string[]> } {
   const taskEntities = entities.filter(e => e.type === 'IFCTASK' && !baselineTaskStepIds.has(e.id));
   const tasks: Task[] = [];
   const taskStepIdMap = new Map<string, string>(); // STEP #id -> our task id
   // Fase 2.8b (§7.1): onze taak-id → IFCTASKTIME-entiteit, zodat de uur-modus-post-pass de rauwe
   // duur-/datetime-strings kan herlezen zodra de effectieve kalender bekend is.
   const taskTimeEntities = new Map<string, StepEntity>();
+  // Aanwezigheidsregistratie voor "datums zoals opgeslagen": per taak-id de rekenslots die het
+  // bestand echt vulde. Een taak ZONDER IfcTaskTime krijgt een lege lijst (niet: ontbrekend) —
+  // "geen enkel slot gevuld" is een uitspraak, "onbekend" niet.
+  const recordedFields: Record<string, string[]> = {};
 
   for (const te of taskEntities) {
     const id = generateId('task');
@@ -665,9 +686,15 @@ function extractTasks(
     if (taskTimeRef) {
       const ttEntity = entityMap.get(taskTimeRef);
       time = ttEntity ? parseTaskTime(ttEntity) : createDefaultTaskTime(formatDate(new Date()), 5);
-      if (ttEntity) taskTimeEntities.set(id, ttEntity);
+      if (ttEntity) {
+        taskTimeEntities.set(id, ttEntity);
+        recordedFields[id] = recordedSlotsOf(ttEntity);
+      } else {
+        recordedFields[id] = [];
+      }
     } else {
       time = createDefaultTaskTime(formatDate(new Date()), 5);
+      recordedFields[id] = [];
     }
 
     const isMilestone = te.args[isMilestoneIdx]?.includes('T') || false;
@@ -701,7 +728,7 @@ function extractTasks(
     });
   }
 
-  return { tasks, taskStepIdMap, taskTimeEntities };
+  return { tasks, taskStepIdMap, taskTimeEntities, recordedFields };
 }
 
 /** Optionele datum/duur uit een IfcTaskTime-slot: `$`/leeg ⇒ undefined (geen "vandaag"-fallback,
