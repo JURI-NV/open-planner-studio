@@ -52,6 +52,12 @@ import { readMPP, openMppProject } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
 import { formatDate } from '@/utils/dateUtils';
+// B2 (eindreview T16c): het echte "readMPP → solveProject → writeIFC → readIFC → solveProject"-pad
+// voor de "0-feestdagen-blijft-0-feestdagen"-end-to-end-case — dezelfde rekenkern als
+// `mppFidelity.ts` (`solveProject`, niet een losse `CPMSolver`), en de echte IFC-lezer/-schrijver.
+import { solveProject } from '@/engine/scheduler/solveProject';
+import { writeIFC, type WriteIFCInput } from '@/services/ifc/ifcWriter';
+import { readIFC } from '@/services/ifc/ifcReader';
 import {
   buildNestedCfb, encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock, buildCalExceptionsTail, concatBytes,
@@ -113,8 +119,20 @@ function mppDayToIso(raw: number): string {
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // I4/T6 — end-to-end readMPP: één taak + TBkndCal (basis + afgeleide kalender + holiday), bewijst
 // de taak→kalender-koppeling ÉN de kalenderlezer in dezelfde aanroep.
+//
+// De fixture zit sinds de eindreview-fixronde (T16c/B2) in een eigen functie
+// (`buildI4T6FixtureBytes`) — niet meer inline in dit blok — zodat de B2-round-tripcase
+// hieronder (`ifcReader.ts`'s "lege holidays telt als afwezig"-bugfix) DEZELFDE bytes hergebruikt
+// i.p.v. een tweede, kunnen-afdrijven kopie te bouwen. Deze fixture se PROJECTKALENDER (calId=1,
+// "Standaard fixture") draagt bewust GEEN enkele exception — `baseHours` concateneert geen
+// `buildCalExceptionsTail(...)` — en is dus zelf al de "`.mpp` met 0 feestdagen"-casus die B2 nodig
+// heeft; alleen de afgeleide resource-kalender (calId=5) draagt de ene holiday hieronder.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-{
+// Module-scope zodat zowel `buildI4T6FixtureBytes` (die de holiday materialiseert) als de
+// I4/T6-assertieblok hieronder (die de gematerialiseerde datum controleert) 'm zien.
+const HOLIDAY_FROM_DAY = 15005;
+
+function buildI4T6FixtureBytes(): Uint8Array {
   // ── Taak (minimaal — alleen om calendarUniqueId=5 te dragen). FixedData op de LETTERLIJKE
   // default-offsets uit fieldMap14.ts (geen TASK_FIELD_MAP meegegeven, spiegelt check-mpp-import.ts
   // se I4-fixture). Index 0-2 zijn dummy (FIRST_TASK_INDEX=3 in mppReader.ts se readTasks). ────────
@@ -160,7 +178,6 @@ function mppDayToIso(raw: number): string {
   // ── Kalenders: calId=1 (basis, ma/wo/vr 08:00-17:00) + calId=5 (afgeleid, ALLE dagen
   // defaultFlag=1 ⇒ volledig geërfd, plus één eigen holiday) — calId=5 matcht de taak se
   // calendarUniqueId hierboven, zodat dit tegelijk de koppeling bewijst. ─────────────────────────
-  const HOLIDAY_FROM_DAY = 15005;
   const baseHours = buildCalHoursBlock([
     { defaultFlag: 0 },
     { defaultFlag: 0, bands: [{ startMinutes: 480, durationMinutes: 540 }] },
@@ -233,10 +250,14 @@ function mppDayToIso(raw: number): string {
     },
   };
 
+  return buildNestedCfb(tree);
+}
+
+{
   let result: ReturnType<typeof readMPP> | null = null;
   let threw: string | null = null;
   try {
-    result = readMPP(buildNestedCfb(tree));
+    result = readMPP(buildI4T6FixtureBytes());
   } catch (err) {
     threw = err instanceof Error ? err.message : String(err);
   }
@@ -267,6 +288,59 @@ function mppDayToIso(raw: number): string {
       const task = result.tasks[0];
       truthy('I4/T6 end-to-end readMPP: Task1.calendarId === de afgeleide kalender (calendarUniqueId=5)', !!task && task.calendarId === derived.id);
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// B2 (eindreview T16c) — de daadwerkelijke ".mpp met 0 feestdagen"-end-to-end-regressie die
+// T14-scenario-4 had moeten zijn: readMPP (projectkalender ZONDER exceptions, zie boven) →
+// solveProject (echte rekenkern, `runCPM`'s exacte keten, `mppFidelity.ts`'s precedent) →
+// writeIFC → readIFC → solveProject nogmaals. De bug (`ifcReader.ts` `buildCalendarFromEntity`,
+// `if (holidays.length > 0) calendar.holidays = holidays`) liet een lege ExceptionTimes-lijst de
+// `createDefaultCalendar()`-bouwmodus-defaults (29 NL-feestdagen) laten staan — deze case bewijst
+// zowel "0 feestdagen blijft 0 feestdagen" als "de datums blijven identiek" in één keten, met
+// mutatiebewijs (zie de opdrachtrapportage: de oude guard teruggezet levert hier 29 feestdagen op).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  const before = readMPP(buildI4T6FixtureBytes());
+  truthy('B2 vóór save: projectkalender 0 feestdagen (voorwaarde van deze case)', before.calendar.holidays.length === 0);
+
+  const solveInputBefore = {
+    tasks: before.tasks, sequences: before.sequences, calendar: before.calendar,
+    calendars: before.resourceCalendars ?? [], dataDate: before.project.statusDate,
+    progressMode: before.project.progressMode, schedulingOptions: before.project.schedulingOptions,
+    projectStartDate: before.project.startDate,
+  };
+  const cpmBefore = solveProject(solveInputBefore);
+  truthy(`B2 vóór save: solveProject faalt niet (${cpmBefore.error ?? ''})`, !cpmBefore.error);
+  const taskBefore = before.tasks[0];
+  const esBefore = taskBefore?.time.earlyStart;
+  const efBefore = taskBefore?.time.earlyFinish;
+  truthy('B2 vóór save: taak heeft een earlyStart/earlyFinish', !!esBefore && !!efBefore);
+
+  const ifcText = writeIFC(before as WriteIFCInput);
+  const after = readIFC(ifcText);
+  truthy('B2 ná save+heropenen: projectkalender NOG STEEDS 0 feestdagen (het bewijs van de fix)', after.calendar.holidays.length === 0);
+
+  const solveInputAfter = {
+    tasks: after.tasks, sequences: after.sequences, calendar: after.calendar,
+    calendars: after.resourceCalendars ?? [], dataDate: after.project.statusDate,
+    progressMode: after.project.progressMode, schedulingOptions: after.project.schedulingOptions,
+    projectStartDate: after.project.startDate,
+  };
+  const cpmAfter = solveProject(solveInputAfter);
+  truthy(`B2 ná save+heropenen: solveProject faalt niet (${cpmAfter.error ?? ''})`, !cpmAfter.error);
+  const taskAfter = after.tasks.find(t => t.name === taskBefore?.name);
+  truthy('B2 ná save+heropenen: taak teruggevonden op naam', !!taskAfter);
+  if (taskAfter) {
+    truthy(
+      `B2 ná save+heropenen: earlyStart identiek (${esBefore} vs ${taskAfter.time.earlyStart})`,
+      taskAfter.time.earlyStart === esBefore,
+    );
+    truthy(
+      `B2 ná save+heropenen: earlyFinish identiek (${efBefore} vs ${taskAfter.time.earlyFinish})`,
+      taskAfter.time.earlyFinish === efBefore,
+    );
   }
 }
 

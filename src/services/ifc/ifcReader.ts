@@ -1542,7 +1542,20 @@ function buildCalendarFromEntity(
       ...(bands.length > 0 ? { bands } : {}),
     });
   }
-  if (holidays.length > 0) calendar.holidays = holidays;
+  // Bugfix B2 (eindreview T16c, gemeten: 204/213 crawl + 3/3 bedrijfsbestanden geraakt, ook
+  // auto-save): `calendar.holidays` is een VERPLICHT veld (`WorkCalendar.holidays: Holiday[]`,
+  // geen `?`) — een lege lijst is een geldige, betekenisvolle waarde ("deze kalender heeft geen
+  // feestdagen"), geen "veld ontbrak". Omdat deze functie uitsluitend wordt aangeroepen wanneer de
+  // `IFCWORKCALENDAR`-ENTITEIT zelf bestaat (`extractCalendar`/`extractCalendarLibrary` vallen pas
+  // op `createDefaultCalendar()` terug als de entiteit zelf ontbreekt), is de hierboven uit
+  // `ExceptionTimes` gelezen `holidays`-lijst de volledige waarheid voor dít bestand — ook als hij
+  // leeg is. De oude `if (holidays.length > 0)`-guard liet een lege lijst stil de
+  // `createDefaultCalendar()`-bouwmodus-defaults (29 NL-feestdagen) laten staan: een `.mpp` met 0
+  // feestdagen kreeg ze er bij de eerste IFC-save alsnog bij. `workingExceptions` blijft WEL
+  // conditioneel: dat veld is optioneel (`?:`) en elke lezer in de codebase (`mspdiReader.ts`,
+  // `mppCalendars.ts`, `extMappers.ts`) houdt "geen uitzonderingen" bewust op `undefined` i.p.v.
+  // een expliciete lege array — beide zijn overal `?? []`-equivalent, dus geen gedragsverschil.
+  calendar.holidays = holidays;
   if (workingExceptions.length > 0) calendar.workingExceptions = workingExceptions;
 
   // §4.3/§8.2 golden rule: createDefaultCalendar() zet altijd `generation` (nieuwe projecten zijn
