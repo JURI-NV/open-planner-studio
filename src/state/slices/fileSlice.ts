@@ -146,20 +146,6 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
   return {
     applyLoadedProject: (parsed, opts) => {
-      // "Datums zoals opgeslagen" (issue #63): leg VÓÓR de solve vast wat het bestand zei. Dat moet
-      // binnen de set(): `s.tasks` deelt zijn objecten met `parsed.tasks` (payloadFromImport geeft ze
-      // per referentie door), en `runCPM` muteert `s.tasks` in-place — na de solve zijn de gelezen
-      // waarden dus ook in `parsed` overschreven, dus vastleggen kan alleen ná hydratePayload en vóór
-      // de recompute hieronder.
-      //
-      // Waarom een `{ value }`-doosje en geen kale `let`: TypeScript verliest de niet-`null`-narrowing
-      // van een herschreven `let` zodra de herschrijving alleen binnen een geneste closure zichtbaar is
-      // (het kan niet bewijzen dat `set(...)` synchroon loopt) — na de closure bleef `recorded` hier op
-      // het declaratie-type `null` staan, wat de latere `if (recorded && …)`-tak tot `never` versmalde
-      // (compile-fout, geen valse groene build). Een property-lezing op een mutable object narrowt
-      // TypeScript nooit voortijdig, dus `capture.value` komt er na de closure gewoon als het volle
-      // `RecordedDates | null` uit.
-      const capture: { value: ReturnType<typeof captureRecordedDates> | null } = { value: null };
       set((s) => {
         // string = nieuw pad, null = naamloos, undefined = laat filePath ongemoeid (loadState-semantiek).
         const filePath = opts.filePath !== undefined ? opts.filePath : s.filePath;
@@ -190,18 +176,19 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
         if (opts.hourDataNotice) {
           s.ui.hourDataNotice = !s.ui.enableHourPlanning && fileHasHourData(s.tasks, [s.calendar, ...s.calendars]);
         }
-        // Vastlegging binnen DEZE set(): `s.tasks` bestaat nu (net gehydrateerd) en is nog ongemoeid
-        // door een solve — precies het moment vóór de aliasing-val hierboven toeslaat.
-        if (opts.recompute) capture.value = captureRecordedDates(s.tasks, parsed.recordedFields);
       });
+      // "Datums zoals opgeslagen" (issue #63): leg VÓÓR de solve vast wat het bestand zei. `set()`
+      // hierboven is synchroon en er zit niets tussenin, dus `get().tasks` hier is nog exact wat
+      // `hydratePayload` er net neerzette. Dat moet vóór de recompute hieronder: `payloadFromImport`
+      // geeft `parsed.tasks` per referentie door, dus `s.tasks`/`get().tasks` en `parsed.tasks` zijn
+      // dezelfde objecten — `runCPM` muteert ze in-place, dus na de solve zijn de gelezen waarden ook
+      // in `parsed` alweer overschreven.
+      const recorded = opts.recompute ? captureRecordedDates(get().tasks, parsed.recordedFields) : null;
       // Na een IFC-load meteen doorrekenen (CLAUDE.md "after an IFC load"), consistent met de
       // IFCPanel-plakroute — anders blijven statusbalk/histogram leeg tot de gebruiker F5 drukt (A5).
       if (opts.recompute) get().runCPM();
-      // …en pas dán vergelijken (issue #63): een `const`-alias van `capture.value`, zodat de
-      // non-null-narrowing hieronder de tweede `set()`-closure in overleeft (zie de uitleg hierboven —
-      // dat werkt wél voor een `const`). Nul verschil ⇒ niets in de state; de strook blijft dan
-      // onzichtbaar, precies zoals bedoeld.
-      const recorded = capture.value;
+      // …en pas dán vergelijken. Nul verschil ⇒ niets in de state; de strook blijft dan onzichtbaar,
+      // precies zoals bedoeld.
       if (recorded && recorded.total > 0) {
         const shifted = countShiftedTasks(get().tasks, recorded.times);
         if (shifted > 0) set((s) => { s.recordedDates = { ...recorded, shifted }; });

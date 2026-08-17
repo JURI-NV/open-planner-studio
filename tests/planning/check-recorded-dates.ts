@@ -275,11 +275,9 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
   // Bouw de IFCTASKTIME-/IFCTASK-argumentreeksen via de gedeelde slot-registry (ifcTaskSlots.ts) —
   // niet met de hand geteld. `new Array(IFC_TASKTIME_SLOTS.length)` legt de arraylengte vast aan
   // dezelfde bron als de reader/writer, en de posities komen uit `TASKTIME_SLOT`/`TASK_SLOT`
-  // (naam→index-maps, afgeleid van diezelfde registry) — een verschoven index zoals eerder (de
-  // taskTime-ref op index 8 i.p.v. 11) kan zo niet meer onopgemerkt insluipen: fout de key, dan
-  // landt de waarde gewoon op de verkeerde plek in EEN array die de test zelf ook weer met dezelfde
-  // maps zou moeten uitlezen om te falen — maar hier bewijst de assertie op recordedFields verderop
-  // (§9r-stijl) dat de posities kloppen, niet alleen dat de fixture "iets" oplevert.
+  // (naam→index-maps, afgeleid van diezelfde registry) — zo kan een verschoven index (zoals eerder
+  // de taskTime-ref op index 8 i.p.v. 11) hier niet meer onopgemerkt insluipen. De assertie op
+  // `recordedFields` verderop (§9r-stijl) bewijst dat de posities ook echt kloppen.
   const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
     const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
     a[TASKTIME_SLOT.name] = "'T'";
@@ -340,17 +338,17 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
   // dat de aanwezigheidsregistratie per slot werkt, niet "alles of niets" per IfcTaskTime.
   eq('7f a meldt precies het early- en schedule-paar als aanwezig',
     rtExtern.recordedFields?.[aId], ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish']);
-  eq('7f2 b meldt hetzelfde', rtExtern.recordedFields?.[bId], ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish']);
+  eq('7g b meldt hetzelfde', rtExtern.recordedFields?.[bId], ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish']);
 
   // Nu door de ECHTE store en het ECHTE laadpad (fileSlice.applyLoadedProject), niet de pure laag
   // los aangeroepen — dit is precies het pad dat Taak 4 bouwt.
   S().newProject();
   S().applyLoadedProject(readIFC(EXTERN), { filePath: null, recompute: true });
 
-  truthy('7g afwijking gedetecteerd: recordedDates is gezet', S().recordedDates !== null);
-  eq('7h shifted telt de verschoven taak (b)', S().recordedDates?.shifted, 1);
-  eq('7i total telt alle vastgelegde taken (a + b)', S().recordedDates?.total, 2);
-  eq('7j detectie zet de modus niet aan', S().datesAsRecorded, false);
+  truthy('7h afwijking gedetecteerd: recordedDates is gezet', S().recordedDates !== null);
+  eq('7i shifted telt de verschoven taak (b)', S().recordedDates?.shifted, 1);
+  eq('7j total telt alle vastgelegde taken (a + b)', S().recordedDates?.total, 2);
+  eq('7k detectie zet de modus niet aan', S().datesAsRecorded, false);
 
   // Tegenproef: een bestand dat de app ZELF schreef, levert geen aanbod op — de writer vult altijd
   // alle negen slots (zie check-ifc-roundtrip.ts (1b)) én runCPM heeft de datums al sluitend gemaakt
@@ -364,7 +362,59 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
 
   S().newProject();
   S().applyLoadedProject(readIFC(ownIfc), { filePath: null, recompute: true });
-  eq('7k eigen bestand geeft geen aanbod: recordedDates blijft null', S().recordedDates, null);
+  eq('7l eigen bestand geeft geen aanbod: recordedDates blijft null', S().recordedDates, null);
+
+  // MOET (reviewronde): de kop-usecase van issue #63 zelf staat nog niet end-to-end getest. `EXTERN`
+  // hierboven vult zowel early- als schedule-slots, dus daar loopt alleen de EARLY-laag door het
+  // echte laadpad. Een P6-export vult typisch UITSLUITEND ScheduleStart/ScheduleFinish en laat alle
+  // zeven rekenslots op `$` — precies het bestand waar `captureRecordedDates` de schedule-laag voor
+  // heeft (de laagkeuze in recordedDates.ts, MOET 1/MOET 4). Zonder deze fixture bewijst niets dat
+  // die laagkeuze het ook echt redt door het volledige laadpad heen, i.p.v. alleen in de pure-laag-
+  // battery (sectie 1) hierboven.
+  const ttArgsScheduleOnly = (o: { scheduleStart: string; scheduleFinish: string; duration: string }) => {
+    const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
+    a[TASKTIME_SLOT.name] = "'T'";
+    a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
+    a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
+    a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
+    a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
+    a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
+    // Alle zeven rekenslots (earlyStart t/m isCritical) blijven `$` — dit IS het punt van de fixture.
+    return a.join(',');
+  };
+  const EXTERN_SCHEDULE_ONLY = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'ExternSchedule',$,$,$,$,$,$);",
+    `#9=IFCTASKTIME(${ttArgsScheduleOnly({ scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06', duration: 'P5D' })});`,
+    `#2=IFCTASK(${taskArgs({ guid: 'gTaskAS', name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
+    `#10=IFCTASKTIME(${ttArgsScheduleOnly({ scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20', duration: 'P5D' })});`,
+    `#3=IFCTASK(${taskArgs({ guid: 'gTaskBS', name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
+    "#4=IFCRELSEQUENCE('gSeqS',$,$,$,#2,#3,$,.FINISH_START.,$);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+
+  // Tussentijdse controle: bewijs dat déze fixture — anders dan EXTERN — alléén het schedule-paar
+  // meldt, niet het early-paar, vóórdat de rest van de test daarop leunt.
+  const rtScheduleOnly = readIFC(EXTERN_SCHEDULE_ONLY);
+  eq('7m fixture geeft twee taken', rtScheduleOnly.tasks.length, 2);
+  const aIdS = rtScheduleOnly.tasks.find(t => t.wbsCode === '1.1')!.id;
+  const bIdS = rtScheduleOnly.tasks.find(t => t.wbsCode === '1.2')!.id;
+  eq('7n a meldt uitsluitend het schedule-paar (geen early-slots)', rtScheduleOnly.recordedFields?.[aIdS], ['scheduleStart', 'scheduleFinish']);
+  eq('7o b meldt uitsluitend het schedule-paar', rtScheduleOnly.recordedFields?.[bIdS], ['scheduleStart', 'scheduleFinish']);
+
+  // Door de ECHTE store: detectie moet aanslaan ÉN de vastgelegde start/finish moeten uit de
+  // SCHEDULE-laag komen (er is geen early-laag om op terug te vallen).
+  S().newProject();
+  S().applyLoadedProject(readIFC(EXTERN_SCHEDULE_ONLY), { filePath: null, recompute: true });
+
+  truthy('7p schedule-only: afwijking gedetecteerd', S().recordedDates !== null);
+  eq('7q schedule-only: shifted telt de verschoven taak (b)', S().recordedDates?.shifted, 1);
+  eq('7r schedule-only: total telt alle vastgelegde taken (a + b)', S().recordedDates?.total, 2);
+  const bIdSAfterLoad = S().tasks.find(t => t.wbsCode === '1.2')!.id;
+  eq('7s schedule-only: vastgelegde start van b komt uit de schedule-laag', S().recordedDates?.times[bIdSAfterLoad]?.start, '2026-03-16');
+  eq('7t schedule-only: vastgelegde finish van b komt uit de schedule-laag', S().recordedDates?.times[bIdSAfterLoad]?.finish, '2026-03-20');
 }
 
 // ── (8) showRecordedDates — de modus betreden (Taak 5) ────────────────────────
