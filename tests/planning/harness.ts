@@ -10,6 +10,9 @@
 //   anchor?: "YYYY-MM-DD"   // startdatum voor wortel-taken (default 2026-06-01)
 //   tasks: [{ name, dur?, start?, milestone?, constraint?, constraint2?, hammock?, deadline? }]
 //     dur in werkdagen (default 1); milestone => duur 0
+//     durationType: WORKTIME (default) | ELAPSEDTIME (T8, MSP-pariteit) — ELAPSEDTIME rekent de
+//              taakduur zelf 24/7 in klokTIJD (precedent: lagUnit ELAPSEDTIME hierboven, zelfde
+//              semantiek toegepast op duur i.p.v. lag); afwezig => WORKTIME (byte-identiek)
 //     hammock: true => LOE/hammock (fase 2.9 §4.4); afgeleide span-duur (SS/FS=start-driver, FF/SF=finish-driver),
 //              eigen duur genegeerd, nooit kritiek, tf=ff=0
 //     constraint: { type: ASAP|ALAP|SNET|SNLT|FNET|FNLT|MSO|MFO, date? } (P6-soft; MSO/MFO = Start/Finish On)
@@ -144,6 +147,11 @@ interface Case {
      *  `parseDuration`) ⇒ `durationMinutes` op de taak; een getal ⇒ werkdagen (dag-modus, ongewijzigd). */
     name: string; dur?: number | string; start?: string; milestone?: boolean; milestoneKind?: 'START' | 'FINISH';
     mandatory?: boolean; parent?: string; deadline?: string;
+    /** T8 (MSP-pariteit, plan §BAAN S): WORKTIME (default, afwezig ⇒ byte-identiek) | ELAPSEDTIME —
+     *  de taakduur zelf loopt dan 24/7 in klokTIJD i.p.v. over werkdagen/-uren (zie `duration.ts`'s
+     *  `elapsedMinutesOf`/`addElapsedMinutes`/`subtractElapsedMinutes`, hergebruik van het
+     *  `resolveElapsedMinutes`-precedent voor relatie-lags). */
+    durationType?: 'WORKTIME' | 'ELAPSEDTIME';
     /** Fase 2.9 (§4.1/§4.2): `hard` op de PRIMAIRE constraint ⇒ logica-brekende Mandatory-pin
      *  (alleen zinvol op MSO/MFO). `date` mag een datetime zijn op een uur-taak (§4.1, S13). */
     constraint?: { type: string; date?: string; hard?: boolean };
@@ -222,6 +230,10 @@ interface TaskExpect {
   tf?: number; ff?: number; intf?: number;
   crit?: boolean; nearCrit?: boolean;
   floatPath?: number;
+  /** T8 (uurmodus-hammock-scheduleDuration-pin, T10-reviewtoevoeging): `task.time.scheduleDuration`/
+   *  `durationMinutes` NA de solve — voor hammocks worden deze door de forward-pass HERSCHREVEN
+   *  (afgeleide ES→EF-span, zie CPMSolver.ts), dus alleen dáár zinvol te pinnen. */
+  scheduleDuration?: number; durationMinutes?: number;
 }
 
 interface CaseExpect {
@@ -410,6 +422,8 @@ function buildAndSolve(c: Case): {
     if (durMinutes !== undefined) time.durationMinutes = durMinutes;
     // Rauwe override (§8.3-invariant): zet `durationMinutes` los van `scheduleDuration`.
     if (t.durationMinutesRaw !== undefined) time.durationMinutes = t.durationMinutesRaw;
+    // T8: afwezig => `createDefaultTaskTime`s default 'WORKTIME' blijft staan (byte-identiek).
+    if (t.durationType !== undefined) time.durationType = t.durationType;
     const id = S().addTask({
       name: t.name,
       isMilestone: !!t.milestone,
@@ -722,6 +736,8 @@ function readTask(name: string, ids: Record<string, string>) {
     tf: t.time.totalFloat, ff: t.time.freeFloat, crit: t.time.isCritical,
     // Fase 2.9 golf 2 (§4.6): interfererende speling (altijd), near-critical + float-path (optie-gated).
     intf: t.time.interferingFloat, nearCrit: t.time.isNearCritical, floatPath: t.time.floatPath,
+    // T8: rauw uitgelezen, geen KEYMAP-alias nodig (sleutelnaam == veldnaam).
+    scheduleDuration: t.time.scheduleDuration, durationMinutes: t.time.durationMinutes,
   };
 }
 
@@ -1183,6 +1199,7 @@ const TASK_EXPECT_KEYS = {
   es: true, ef: true, ls: true, lf: true,
   tf: true, ff: true, intf: true,
   crit: true, nearCrit: true, floatPath: true,
+  scheduleDuration: true, durationMinutes: true,
 } satisfies Record<keyof TaskExpect, true>;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

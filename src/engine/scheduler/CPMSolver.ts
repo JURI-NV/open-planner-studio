@@ -7,10 +7,13 @@ import { resolveCalendar } from './resolveCalendar';
 import {
   parseDate, formatDate, parseInstant, type DateMode,
 } from '@/utils/dateUtils';
-import { durationMinutesOf, durationDaysOf } from './duration';
+import {
+  durationMinutesOf, durationDaysOf, elapsedMinutesOf, addElapsedMinutes, subtractElapsedMinutes,
+  signedElapsedSpan,
+} from './duration';
 import { computeScheduleResults } from './scheduleAnalysis';
 import {
-  forwardConstraint, backwardConstraint, type RelationDeps,
+  forwardConstraint, backwardConstraint, MS_PER_MIN, MS_PER_DAY, type RelationDeps,
 } from './relationMath';
 
 export interface CPMResult {
@@ -439,24 +442,33 @@ export class CPMSolver {
     startOfDay: (d) => this.startOfDay(d),
   };
 
-  /** Vroege finish = start ⊕ duur (§5.1). Mijlpaal ⇒ 0; uur ⇒ `addWorkMinutes(durationMinutesOf)`;
-   *  dag ⇒ `addWorkDays(durationDaysOf)` — LETTERLIJK de huidige regel (`durationDaysOf` levert op een
-   *  dag-kalender altijd de integer `scheduleDuration`, nooit een fractionele dag, Bevinding 2). */
+  /** Vroege finish = start ⊕ duur (§5.1). Mijlpaal ⇒ 0; ELAPSEDTIME ⇒ kale 24/7-klokoptelling
+   *  (T8, precedent `resolveElapsedMinutes`/`relationMath.ts`, GEEN kalenderband-toetsing); uur
+   *  (WORKTIME) ⇒ `addWorkMinutes(durationMinutesOf)`; dag (WORKTIME) ⇒ `addWorkDays(durationDaysOf)`
+   *  — LETTERLIJK de huidige regel (`durationDaysOf` levert op een dag-kalender altijd de integer
+   *  `scheduleDuration`, nooit een fractionele dag, Bevinding 2). */
   private addDuration(eng: CalendarEngine, start: Date, task: Task): Date {
     return this.addDurationChecked(eng, start, task).date;
   }
   /** `addDuration` mét CAP-signaal (WP7): identieke datum-uitkomst, plus `capped` uit de dag-modus-
    *  `addWorkDaysChecked` — een onwerkbaar taakvenster (holiday-blok) dat de earlyFinish tegen de
-   *  MAX_SCAN/MAX_DAYS-grens duwt. Mijlpaal en uur-modus cappen hier nooit (`false`): een mijlpaal
-   *  heeft geen duur, en de minuut-lussen hebben hun eigen best-effort-terugval buiten dit signaal. */
+   *  MAX_SCAN/MAX_DAYS-grens duwt. Mijlpaal, ELAPSEDTIME en uur-modus cappen hier nooit (`false`):
+   *  een mijlpaal heeft geen duur, ELAPSEDTIME kent geen onwerkbaar-venster-begrip (24/7), en de
+   *  minuut-lussen hebben hun eigen best-effort-terugval buiten dit signaal. */
   private addDurationChecked(eng: CalendarEngine, start: Date, task: Task): { date: Date; capped: boolean } {
     if (task.isMilestone) return { date: new Date(start.getTime()), capped: false };
+    if (task.time.durationType === 'ELAPSEDTIME') {
+      return { date: addElapsedMinutes(start, elapsedMinutesOf(task, eng)), capped: false };
+    }
     if (eng.isHourMode) return { date: eng.addWorkMinutes(start, durationMinutesOf(task, eng)), capped: false };
     return eng.addWorkDaysChecked(start, durationDaysOf(task, eng));
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
     if (task.isMilestone) return new Date(end.getTime());
+    if (task.time.durationType === 'ELAPSEDTIME') {
+      return subtractElapsedMinutes(end, elapsedMinutesOf(task, eng));
+    }
     return eng.isHourMode
       ? eng.subtractWorkMinutes(end, durationMinutesOf(task, eng))
       : eng.subtractWorkDays(end, durationDaysOf(task, eng));
@@ -494,29 +506,53 @@ export class CPMSolver {
     );
   }
 
-  /** Leid de opvolger-START af uit zijn geëiste FINISH (FF/SF, §5.2): uur ⇒ `subtractWorkMinutes`;
-   *  dag ⇒ `addWorkingDaysSigned(−(dur−1))` — de bestaande inclusieve-dag-aftrek. */
+  /** Leid de opvolger-START af uit zijn geëiste FINISH (FF/SF, §5.2): ELAPSEDTIME ⇒ kale 24/7-
+   *  klokaftrek (T8, vóór de hour/day-splitsing — geen kalenderband-toetsing, dus modus-onafhankelijk);
+   *  uur (WORKTIME) ⇒ `subtractWorkMinutes`; dag (WORKTIME) ⇒ `addWorkingDaysSigned(−(dur−1))` — de
+   *  bestaande inclusieve-dag-aftrek. Mijlpaal-afhandeling ONGEWIJZIGD per tak (Bevinding, T8-review:
+   *  de dag-tak snapt een mijlpaal via `addWorkingDaysSigned(finish, 0)` = `nextWorkDay`, de uur-tak
+   *  geeft de rauwe finish terug ongesnapt — niet symmetrisch, dus niet naar bóven de modus-split
+   *  te hijsen zonder dat gedrag te veranderen). */
   private startFromFinish(eng: CalendarEngine, finish: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (task.isMilestone) return new Date(finish.getTime());
+      if (task.time.durationType === 'ELAPSEDTIME') {
+        return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
+      }
       return eng.subtractWorkMinutes(finish, durationMinutesOf(task, eng));
+    }
+    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
+      return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
     }
     const dur = task.isMilestone ? 0 : task.time.scheduleDuration;
     return eng.addWorkingDaysSigned(finish, -(dur > 0 ? dur - 1 : 0));
   }
   /** Leid de voorganger-FINISH af uit zijn late START (SS/SF backward, §5.2, spiegel van
-   *  `startFromFinish`): uur ⇒ `addWorkMinutes`; dag ⇒ `addWorkingDaysSigned(dur−1)`. */
+   *  `startFromFinish`): ELAPSEDTIME ⇒ kale 24/7-klokoptelling (T8); uur (WORKTIME) ⇒ `addWorkMinutes`;
+   *  dag (WORKTIME) ⇒ `addWorkingDaysSigned(dur−1)`. Zelfde mijlpaal-asymmetrie-voorbehoud als
+   *  `startFromFinish` hierboven. */
   private finishFromStart(eng: CalendarEngine, start: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (task.isMilestone) return new Date(start.getTime());
+      if (task.time.durationType === 'ELAPSEDTIME') {
+        return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
+      }
       return eng.addWorkMinutes(start, durationMinutesOf(task, eng));
+    }
+    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
+      return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
     const dur = task.isMilestone ? 0 : task.time.scheduleDuration;
     return eng.addWorkingDaysSigned(start, dur > 0 ? dur - 1 : 0);
   }
   /** Getekende float in eigen-kalender-WERKDAGEN (§5.5, Bevinding 1): uur ⇒ fractioneel
-   *  `workMinutesBetween / (hoursPerDay × 60)`; dag ⇒ de bestaande integer `signedWorkDays`. */
-  private signedFloat(a: Date, b: Date, eng: CalendarEngine): number {
+   *  `workMinutesBetween / (hoursPerDay × 60)`; dag ⇒ de bestaande integer `signedWorkDays`.
+   *  ELAPSEDTIME (T8, msp-14-mutatiebewijs): `a`/`b` mogen op een niet-werkdag liggen (24/7-taak) —
+   *  `workDaysBetween`/`signedWorkDays` gaan daar stuk (spook-tf, zie `signedElapsedSpan`'s
+   *  moduleheader in `duration.ts`), dus een ELAPSEDTIME-taak krijgt de kale klok-span i.p.v.
+   *  werkdag-telling. `task` optioneel: afwezig (of WORKTIME) ⇒ exact de oude twee takken. */
+  private signedFloat(a: Date, b: Date, eng: CalendarEngine, task?: Task): number {
+    if (task?.time.durationType === 'ELAPSEDTIME') return signedElapsedSpan(a, b, eng);
     if (eng.isHourMode) return eng.workMinutesBetween(a, b) / (eng.hoursPerDay * 60);
     return this.signedWorkDays(a, b, eng);
   }
@@ -593,7 +629,7 @@ export class CPMSolver {
       hammockNoFinishDriverIds: this.hammockNoFinishDriverIds,
       projectEngine: this.projectEngine,
       calendarFor: (t) => this.calendarFor(t),
-      signedFloat: (a, b, eng) => this.signedFloat(a, b, eng),
+      signedFloat: (a, b, eng, task) => this.signedFloat(a, b, eng, task),
       constraintInstant: (c, eng) => this.constraintInstant(c, eng),
       snapOnOrAfter: (eng, d) => this.snapOnOrAfter(eng, d),
       snapOnOrBefore: (eng, d) => this.snapOnOrBefore(eng, d),
@@ -728,7 +764,21 @@ export class CPMSolver {
         const es = this.hammockEarlyStart(task, preds, results, projectStart, cal);
         const { ef, hasFinishDriver } = this.hammockEarlyFinish(task, preds, results, es, cal);
         if (!hasFinishDriver) this.hammockNoFinishDriverIds.push(taskId);
-        if (cal.isHourMode) {
+        // T8 (T10-reviewtoevoeging): een ELAPSEDTIME-hammock drukt zijn afgeleide span uit in KLOK-
+        // tijd, niet in WERKtijd — `cal.workMinutesBetween`/`workDaysBetween` tellen alleen tijd
+        // binnen kalenderbanden, wat voor een 24/7-taak een te korte duur zou geven. De
+        // uur-omrekening deelt daarbij door de VASTE klokdag (24 × 60), NOOIT door `cal.hoursPerDay`
+        // — dat zou dezelfde dubbele-deling-valkuil zijn die T10 in de lezer fixte, hier toegepast
+        // op de duur-herberekening i.p.v. op de leeskant.
+        if (task.time.durationType === 'ELAPSEDTIME') {
+          if (cal.isHourMode) {
+            const mins = Math.round((ef.getTime() - es.getTime()) / MS_PER_MIN);
+            task.time.durationMinutes = mins;
+            task.time.scheduleDuration = mins / (24 * 60);
+          } else {
+            task.time.scheduleDuration = (ef.getTime() - es.getTime()) / MS_PER_DAY;
+          }
+        } else if (cal.isHourMode) {
           const mins = cal.workMinutesBetween(es, ef);
           task.time.durationMinutes = mins;
           task.time.scheduleDuration = mins / (cal.hoursPerDay * 60);

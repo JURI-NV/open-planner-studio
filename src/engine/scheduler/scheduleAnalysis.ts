@@ -34,7 +34,9 @@ export interface ScheduleAnalysisInput {
   projectEngine: CalendarEngine;
   // ── Aan de solver gebonden, stateless kalender-helpers (modus-bewust, §5) ──
   calendarFor: (task: Task) => CalendarEngine;
-  signedFloat: (a: Date, b: Date, eng: CalendarEngine) => number;
+  /** `task` optioneel (T8): ELAPSEDTIME ⇒ kale klok-span i.p.v. werkdag-telling, zie
+   *  `CPMSolver.signedFloat`/`duration.ts`'s `signedElapsedSpan`. */
+  signedFloat: (a: Date, b: Date, eng: CalendarEngine, task?: Task) => number;
   constraintInstant: (c: TaskConstraint | undefined, eng: CalendarEngine) => Date | null;
   snapOnOrAfter: (eng: CalendarEngine, d: Date) => Date;
   snapOnOrBefore: (eng: CalendarEngine, d: Date) => Date;
@@ -135,7 +137,7 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
       // Eindtaak: vrije speling = totale-speling-equivalent (finish kan opschuiven tot
       // lateFinish) — getekend: een deadline/late-zijde-constraint kan hem negatief maken.
       // Uur-taak ⇒ fractionele-dag-float (§5.5); dag ⇒ integer (byte-identiek).
-      freeFloat = signedFloat(early.ef, late.lf, cal);
+      freeFloat = signedFloat(early.ef, late.lf, cal, taskObj);
     } else {
       for (const seq of succs) {
         const ff = sequenceFreeFloat[seq.id];
@@ -152,8 +154,8 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
     // betekenisloos (de ES is een actual in het verleden) ⇒ alleen finish-zijde (LF−EF).
     const hasProgress = !!dataDate && (!!tt.actualStart || tt.completion > 0);
     const completed = !!dataDate && tt.completion >= 1;
-    const finishFloat = signedFloat(early.ef, late.lf, cal);
-    const startFloat = signedFloat(early.es, late.ls, cal);
+    const finishFloat = signedFloat(early.ef, late.lf, cal, taskObj);
+    const startFloat = signedFloat(early.es, late.ls, cal, taskObj);
     // TF-berekeningswijze (§3.4): default 'smallest' = min(finish,start) ⇒ byte-identiek. Een taak
     // met voortgang houdt zijn finish-zijde-float (bestaande invariant, §4.5), ongeacht de modus.
     let tf = hasProgress

@@ -312,6 +312,47 @@
       }
     },
     {
+      "id": "msp-14-t8-elapsed-duur-klokdagen",
+      "title": "T8 (BAAN S, plan §T8): durationType ELAPSEDTIME rekent de taakduur zelf 24/7 in KLOKtijd — precedent resolveElapsedMinutes/de lagUnit===ELAPSEDTIME-takken in relationMath.ts, hier toegepast op DUUR i.p.v. lag. Taak van 2 elapsed dagen die vrijdag start eindigt zondag (48 kalenderuur later) — NIET maandag (de werkdag-stap zou het weekend overslaan). tf/ff=0 bewijst ook de T8-signedFloat-fix: A.es==A.ls en A.ef==A.lf, maar beide liggen op zondag (geen werkdag) — de oude workDaysBetween-1-telling gaf daar spook-tf=-1 (zie duration.ts's signedElapsedSpan).",
+      "anchor": "2026-07-10",
+      "tasks": [
+        { "name": "A", "dur": 2, "durationType": "ELAPSEDTIME" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10", "ef": "2026-07-12", "ls": "2026-07-10", "lf": "2026-07-12", "tf": 0, "ff": 0, "crit": true }
+        },
+        "criticalPathSet": ["A"],
+        "projectEnd": "2026-07-12",
+        "error": false
+      }
+    },
+    {
+      "id": "msp-15-t8-uurmodus-elapsed-hammock-scheduleduration",
+      "title": "T8-reviewtoevoeging: een ELAPSEDTIME-hammock in UUR-modus herberekent scheduleDuration/durationMinutes KLOK-consistent. H spant vr 10 juli 08:00 -> ma 13 juli 08:00 (72 klokuur = 4320 min = 3,0 dagen). Twee alternatieve valkuilen die deze pin allebei vangt: (1) cal.workMinutesBetween(es,ef) i.p.v. de rauwe klok-ms-aftrek zou het weekend NIET meetellen -> 480 werkminuten = 1,0 dag (helemaal geen elapsed-onderscheid); (2) de T10-dubbele-deling-valkuil hier toegepast op de duur-herberekening i.p.v. de leeskant: 4320 klok-minuten gedeeld door hoursPerDay×60 i.p.v. de vaste klokdag 24×60 zou 9,0 dagen geven. Calendar = H8-band [480,960] (08:00-16:00, ma-vr, hoursPerDay=8) — zelfde kalender als hammock-hour-h8 in cases-advanced-cpm.json, dat de WORKTIME-tegenhanger van deze recompute pint. A = start-driver (SS, dur irrelevant — eigen duur-invoer wordt genegeerd), B = finish-driver-mijlpaal (FF) met een expliciete start exact op een volgende-week-maandag-bandbegin, zodat de span het weekend overspant.",
+      "anchor": "2026-07-10",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "tasks": [
+        { "name": "A", "dur": "2h" },
+        { "name": "B", "milestone": true, "start": "2026-07-13T08:00" },
+        { "name": "H", "dur": "8h", "hammock": true, "durationType": "ELAPSEDTIME" }
+      ],
+      "links": [
+        { "pred": "A", "succ": "H", "type": "START_START" },
+        { "pred": "B", "succ": "H", "type": "FINISH_FINISH" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-10T08:00", "ef": "2026-07-10T10:00" },
+          "B": { "es": "2026-07-13T08:00", "ef": "2026-07-13T08:00" },
+          "H": { "es": "2026-07-10T08:00", "ef": "2026-07-13T08:00", "crit": false, "scheduleDuration": 3, "durationMinutes": 4320 }
+        },
+        "hammockNoFinishDriversSet": [],
+        "projectEnd": "2026-07-13T08:00",
+        "error": false
+      }
+    },
+    {
       "id": "msp-13-l6-dagmodus-passthrough",
       "title": "L6.6: expliciete DAG-modus-locale — A(3d) -FS+0-> EINDmijlpaal M op een pure dag-kalender (geen `workTime`) — `forwardHour` wordt hier niet eens aangeroepen (`forwardConstraint` dispatcht naar `forwardDay`), dus de T6-machinerie is hier per constructie afwezig. Zusjes-case: mk-01c in cases-milestone-kinds.json (dezelfde combinatie, dat bestand pint 'm al sinds vóór T6); hier lokaal herhaald zodat de dagmodus-byte-identieke invariant rechtstreeks náást de uur-cases in dit bestand staat.",
       "anchor": "2026-07-06",
