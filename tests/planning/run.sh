@@ -351,6 +351,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   BMGENCHECK="$DIR/.bmgen.mjs"
   if bundle_check "$DIR/check-benchmark-generator.ts" "$BMGENCHECK"; then node "$BMGENCHECK" || STATUS=1; fi
 
+  # formatDate tegen zijn eigen vorige implementatie (characterization). De functie draait per DAG
+  # per taak in de solver en de resourcebelasting, dus de allocaties van toISOString().split() telden
+  # echt op; de herschrijving moet byte-identiek zijn, óók buiten jaar 0-9999 en bij een Invalid
+  # Date. Let op: dat hij UTC-getters gebruikt bewijst pas de tijdzone-matrix onderaan dit script.
+  DATEFMTCHECK="$DIR/.datefmt.mjs"
+  if bundle_check "$DIR/check-date-format.ts" "$DATEFMTCHECK"; then node "$DATEFMTCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.

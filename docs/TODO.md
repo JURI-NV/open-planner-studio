@@ -389,17 +389,36 @@ En over de hele linie, met `withTransaction` om de opbouw heen:
 
 Vóór dit werk rondden N=2500 en N=5000 niet eens af binnen tien minuten.
 
+**En wat een gebruiker daadwerkelijk doet, bij 5000 taken / 5000 toewijzingen** (na de snellere
+`formatDate`, zie hieronder):
+
+| handeling | tijd |
+|---|---|
+| bestand opslaan (`writeIFC`, 3,9 MB) | 201 ms |
+| bestand openen (`readIFC`) | 447 ms |
+| berekenen (`runCPM`, expliciet via F5) | 604 ms |
+| rijen herberekenen | 9 ms |
+| taak toevoegen / hernoemen / ongedaan maken | 18 / 14 / 10 ms |
+| **resource toewijzen** | **106 ms** |
+
+`formatDate` was `d.toISOString().split('T')[0]` en draait per DAG per taak in de solver en de
+resourcebelasting; handmatig opbouwen scheelde `runCPM` 677 → 604 ms, `recomputeResourceLoad`
+126 → 90 ms en `assignResource` 133 → 106 ms. Bewaakt door `tests/planning/check-date-format.ts`,
+met de oude implementatie als orakel.
+
 De poort staat in `tests/planning/check-mutation-cost.ts`. Let op wat die wél en niet kan: twee van
 de drie wijzigingen hebben géén waarneembaar gedragsverschil (plain lezen is puur goedkoper), dus
 daar is de bron-assert de enige bewaking. Dat staat ook zo in de kop van die batterij.
 
 *Wat nog open staat, in deze volgorde:*
-- [ ] **`assignResource` is met 138 ms bij 5000 taken het enige interactieve pad dat nog knelt.** Het
-      draait `computeResourceLoad` over ÁLLE toewijzingen bij elke toewijzing; per toewijzing wordt
-      de werkdagenreeks van de taak opnieuw uitgelopen (`formatDate`/`parseDate`/`addCalendarDays`
-      staan samen op ~50% van het profiel). Incrementeel bijwerken is de voor de hand liggende
-      oplossing, maar dat is een echte herontwerp-stap: de huidige functie is één bron van waarheid
-      voor histogram én leveler en dat moet zo blijven.
+- [ ] **`assignResource` is bij 5000 taken het enige interactieve pad dat nog knelt: 106 ms** (was
+      133 ms vóór de snellere `formatDate`). Vrijwel alles daarvan is `computeResourceLoad`, dat bij
+      élke toewijzing over ÁLLE toewijzingen loopt en per toewijzing de werkdagenreeks van de taak
+      opnieuw uitloopt. Incrementeel bijwerken is de voor de hand liggende oplossing, maar dat is
+      een echte herontwerp-stap: de huidige functie is één bron van waarheid voor histogram én
+      leveler en dat moet zo blijven. Een goedkopere tussenstap die nog openstaat: de
+      werkdagen-enumeratie per taak memoïseren binnen één aanroep (taken met twee toewijzingen
+      rekenen hem nu twee keer).
 - [ ] **De bulk-paden.** Binnen een lopende `withTransaction` draaien de hernummering en de
       rijen-/belastingherberekening nog steeds per mutatie. Uitstellen tot het einde van de batch
       maakt de opbouw lineair. LET OP: code BÍNNEN de batch ziet dan verouderde `wbsCode`/`viewRows`
