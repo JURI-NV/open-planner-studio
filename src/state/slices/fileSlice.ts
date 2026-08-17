@@ -17,7 +17,7 @@ import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
 import { captureRecordedDates, countShiftedTasks } from '@/engine/scheduler/recordedDates';
 import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
-import { finishMutation } from '../transaction';
+import { beginUndoable, finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
@@ -463,8 +463,17 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       const result = refreshExternalAnchors(get().tasks, source);
       if (result.changed) {
         set((s) => {
+          // Wél een snapshot (issue #63, review taak 6). Dit was de énige
+          // `finishMutation({ stale: true })` zónder `beginUndoable` — een bewuste asymmetrie
+          // ("externe-anker-verversing is niet undoable") die niet houdbaar is zodra de modus
+          // "datums zoals opgeslagen" bestaat: `finishMutation` verlaat die modus, en zonder
+          // snapshot is het aanbod dan onherstelbaar weg (laden → aanbod → ankers verversen →
+          // weg, zonder weg terug). Erger nog, het breekt de invariant van `snapshot.ts`: een
+          // undo van een OUDERE bewerking zou `datesAsRecorded: true` terugzetten terwijl de
+          // ankers al ververst zijn. Deze verversing verandert taakdatums en draait meteen
+          // `runCPM` — een gewone, zichtbare datamutatie dus, en die hoort ongedaan te kunnen.
+          beginUndoable(s);
           s.tasks = result.tasks;
-          // Flag-only (bewuste asymmetrie): externe-anker-verversing is niet undoable.
           finishMutation(s, { stale: true });
         });
         get().recomputeViewRows();

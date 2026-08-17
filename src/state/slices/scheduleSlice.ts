@@ -70,13 +70,20 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       // intact waar `staleGuard.ts` (ensureFreshSchedule) en `batchTool.ts` (recomputeMidBatch) op
       // leunen: "runCPM zet géén isDirty en pusht géén undo-snapshot". Binnen de modus is
       // doorrekenen wél een datawijziging — de opgeslagen datums worden overschreven — en die hoort
-      // ongedaan te kunnen. Staat vóór élke draft-mutatie hieronder, zoals `beginUndoable` vereist.
+      // ongedaan te kunnen.
       //
-      // Dit is ook het pad waarlangs de datum-rakende mutaties die bewust géén `scheduleStale`
-      // zetten omdat ze zélf herrekenen (setProjectStartDate, applyLeveling, clearLeveling) de modus
-      // verlaten. Die laten dan twee undo-stappen achter — hun eigen, plus deze — omdat ze allebei
-      // een echte tussentoestand dekken; zeldzaam genoeg (nivelleren/projectverschuiving vanuit de
-      // modus) om het niet met extra coalescing-machinerie te bestrijden.
+      // Positie: bovenaan de producer uit hygiëne (de huisconventie "guards; beginUndoable;
+      // mutatie"), NIET omdat het moet — `beginUndoable` kloont uit `original(s)`, de
+      // pre-producer-basisstaat, dus de plek binnen deze producer verandert de snapshot niet.
+      //
+      // Binnen een MCP- of bulk-transactie zwijgt `beginUndoable`; de transactie nam haar ene
+      // snapshot al vóór de eerste mutatie (dus mét de modus aan) en dekt dit mee — zie
+      // `mcpTransaction.ts` stap 5 en `batchTool.ts` (recomputeMidBatch).
+      //
+      // Dit is een BACKSTOP-pad, geen hoofdpad: de datum-rakende mutaties die zélf herrekenen
+      // (moveProject, applyLeveling, clearLeveling) verlaten de modus sinds de review van taak 6
+      // in hun eigen producer, via `finishMutation({ stale: true })`. Zo blijft het bij één
+      // undo-stap in plaats van twee, met een tussentoestand die de gebruiker nooit gezien heeft.
       if (s.datesAsRecorded) {
         beginUndoable(s);
         s.datesAsRecorded = false;
@@ -205,8 +212,11 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
         const d = result.delays[task.id];
         task.levelingDelay = d !== undefined && d > 0 ? d : undefined;
       }
-      // Géén stale-vlag: de aansluitende runCPM zet scheduleStale zelf op false.
-      finishMutation(s);
+      // Wél de stale-vlag (issue #63): dit is een datum-rakende mutatie, en `stale` is het signaal
+      // waarop `finishMutation` de modus "datums zoals opgeslagen" verlaat — in dezelfde producer
+      // die de snapshot hierboven al nam, dus in één undo-stap i.p.v. twee (zie moveProject).
+      // De aansluitende runCPM zet `scheduleStale` meteen weer op false.
+      finishMutation(s, { stale: true });
     });
     get().runCPM();
   },
@@ -217,7 +227,7 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       if (!s.tasks.some((t) => t.levelingDelay !== undefined)) return; // niets te wissen, geen snapshot
       beginUndoable(s);
       for (const task of s.tasks) task.levelingDelay = undefined;
-      finishMutation(s); // stale wordt door de aansluitende runCPM gewist.
+      finishMutation(s, { stale: true }); // zie applyLeveling; de aansluitende runCPM wist de vlag.
       changed = true;
     });
     if (changed) get().runCPM();

@@ -26,7 +26,10 @@ import type { AppState } from './appStore';
  *     zit nu in de snapshot en dat mag alleen zolang élke project-mutator een snapshot pusht
  *     (invariant, zie de kop van `snapshot.ts`).
  *   - "undo zonder stale" (WBS-nummering, structuur-CRUD, baselines): `finishMutation(s)` zonder
- *     `stale` laat `scheduleStale` bewust met rust.
+ *     `stale` laat `scheduleStale` bewust met rust. LET OP: `stale` betekent "datum-rakend", niet
+ *     "de vlag moet blijven staan" — acties die zélf `runCPM` aanroepen (moveProject, applyLeveling,
+ *     clearLeveling) zetten hem tóch, want `finishMutation` hangt er meer aan dan alleen de vlag
+ *     (het verlaten van "datums zoals opgeslagen", issue #63).
  *
  * De trailing recomputes (`recomputeViewRows`/`recomputeResourceLoad`) blijven per actie expliciet
  * ná de `set()` staan: hun aanwezigheid, volgorde en conditie (bv. alleen bij `moved`) verschillen
@@ -190,10 +193,44 @@ export function finishMutation(s: AppState, opts?: { stale?: boolean }): void {
   // structuur-CRUD, baselines) raken geen datums, dus wat er op het scherm staat is nog steeds
   // exact wat het bestand zei. De modus daar verlaten zou het aanbod stil weggooien én de getoonde
   // datums onverklaard achterlaten — er is dan immers geen `scheduleStale` die een herberekening
-  // uitlokt. Datum-rakende mutaties die bewust géén `stale` zetten omdat ze zélf `runCPM` aanroepen
-  // (setProjectStartDate, applyLeveling, clearLeveling) verlaten de modus via route B.
+  // uitlokt. `stale` is daarmee de eerlijke lezing van "datum-rakend"; de drie acties die zélf
+  // herrekenen (moveProject, applyLeveling, clearLeveling) zetten de vlag sinds de review van taak 6
+  // dan ook gewoon, ook al wist hun eigen `runCPM` hem meteen weer — anders zouden ze de modus pas
+  // via die `runCPM` verlaten, in een tweede undo-stap met een tussentoestand die niemand zag.
   if (opts?.stale && s.datesAsRecorded) {
     s.datesAsRecorded = false;
     s.recordedDates = null;
   }
+}
+
+/**
+ * Zet de "verouderd"-vlag voor de handvol paden die BUITEN het `finishMutation`-ritueel om de
+ * INVOER van een toekomstige berekening veranderen: de niet-undoable bibliotheek-verversingen
+ * (`refreshBehindItems`, `resolveDeviation`, `refreshAllDocumentsFromPool`). Die zetten bewust géén
+ * snapshot en géén `isDirty` — ze veranderen kalenderwaarden, niet de getoonde datums.
+ *
+ * ZE MOGEN DE MODUS "DATUMS ZOALS OPGESLAGEN" DAAROM NIET VERLATEN (issue #63): zonder snapshot zou
+ * dat de invariant van `snapshot.ts` breken — een latere undo zou `datesAsRecorded: true` uit een
+ * oudere snapshot terugzetten terwijl de datums dat niet meer zijn (bug-klasse B3). Maar ze mogen de
+ * modus ook niet als "verouderd" bestempelen, en dát is wat deze helper regelt.
+ *
+ * Waarom: in de modus staat op het scherm wat het BESTAND zei, niet een berekening. "Verouderd" is
+ * een uitspraak over de berekening, dus `showRecordedDates` houdt `scheduleStale` daar al bewust op
+ * `false`. Een kalenderverversing verandert wat een toekomstige berekening zou opleveren, niet wat er
+ * nu staat — de weergave blijft dus waar.
+ *
+ * Er gaat niets verloren: de modus verlaten rekent altijd door. Route A (`finishMutation`) zet
+ * `scheduleStale` zelf en `useExitRecordedDates` rekent; route B (F5) ís de berekening. Beide werken
+ * dan met de zojuist ververste kalenders.
+ *
+ * En het sluit de enige toestand af waarin een STILLE herberekening de modus zonder undo-stap kon
+ * verlaten: zowel `ensureFreshSchedule` (AI-leestools) als `recalculateStaleSleepingDocuments`
+ * sturen op `scheduleStale`. Met deze regel is "modus aan én verouderd" onbereikbaar.
+ *
+ * Structureel getypeerd, want hij wordt zowel op een `AppState`-draft als op een `DocumentPayload`
+ * van een SLAPEND document toegepast.
+ */
+export function markScheduleStale(s: { scheduleStale: boolean; datesAsRecorded: boolean }): void {
+  if (s.datesAsRecorded) return;
+  s.scheduleStale = true;
 }

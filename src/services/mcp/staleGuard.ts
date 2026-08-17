@@ -6,9 +6,16 @@
 // De invariant die dit veilig maakt: `runCPM` pusht geen undo-snapshot (het schrijft alleen
 // berekende velden terug via Immer; zie scheduleSlice.runCPM en transaction.ts — géén
 // `beginUndoable`). Daarom kan deze helper stil herrekenen zonder de undo-stack te raken.
-// ÉÉN UITZONDERING (issue #63): staat het document in "datums zoals opgeslagen"
+// ÉÉN UITZONDERING OP DIE INVARIANT (issue #63): staat het document in "datums zoals opgeslagen"
 // (`datesAsRecorded`), dan verlaat `runCPM` die modus en pusht daarvoor wél één snapshot — dan
 // overschrijft de herberekening immers de opgeslagen datums, en dat hoort ongedaan te kunnen.
+//
+// DEZE HELPER RAAKT DIE UITZONDERING NIET, en dat is afgedwongen in plaats van gehoopt: hij doet
+// alleen iets bij `scheduleStale` of `cpmResult === null`, en in de modus is `scheduleStale` altijd
+// `false` (`showRecordedDates` zet hem zo, `markScheduleStale` in transaction.ts houdt hem zo) én
+// `cpmResult` altijd gevuld (de reconstructie uit het bestand). "Modus aan én verouderd" is dus
+// onbereikbaar — vastgelegd in tests/planning/check-recorded-dates.ts (10.B/10.C). Dat is precies
+// wat `readOnlyHint: true` op `get_resource_histogram` overeind houdt.
 import { useAppStore } from '@/state/appStore';
 
 /** Uitkomst van `ensureFreshSchedule`. */
@@ -38,8 +45,8 @@ export interface FreshResult {
  * meet. Vandaar de extra `cpmResult`-voorwaarde. `runCPM` op een leeg/klein document is goedkoop en
  * zet `isDirty` niet, dus dit kost hooguit rekenwerk.
  *
- * Pusht geen undo-snapshot (runCPM-invariant) — behalve wanneer het document in "datums zoals
- * opgeslagen" staat; die modus verlaten kost per ontwerp één undo-stap (zie de kop hierboven).
+ * Pusht geen undo-snapshot: de ene uitzondering op de runCPM-invariant (het verlaten van "datums
+ * zoals opgeslagen") is via deze helper onbereikbaar — zie de kop hierboven.
  */
 export function ensureFreshSchedule(): FreshResult {
   const state = useAppStore.getState();

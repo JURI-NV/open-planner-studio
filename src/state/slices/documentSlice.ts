@@ -439,7 +439,23 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
         // `switchDocument` bij activering tóch onvoorwaardelijk `recomputeResourceLoad()` draait —
         // een hier berekende belasting zou dubbel werk zijn dat alleen kan verouderen.
         // `undoStack`/`redoStack`/`isDirty` blijven letterlijk staan: geen bewerking, geen snapshot.
-        next = { ...payload, tasks, cpmResult: result, scheduleStale: false, resourceLoadResult: null };
+        //
+        // `datesAsRecorded`/`recordedDates` MOETEN hier mee gewist worden (issue #63): de spread
+        // draagt ze anders ongewijzigd mee, waarna dit document belooft "dit zijn de datums zoals
+        // opgeslagen" terwijl de zojuist berekende datums op het scherm staan zodra je het
+        // activeert — precies de mengvorm die de modus moet voorkomen. Dat er geen undo-stap
+        // tegenover staat is hier consistent: deze functie herschrijft `tasks`/`cpmResult` óók
+        // zonder snapshot, en de undo-stack van het slapende document blijft als geheel bij zijn
+        // eigen, oudere toestand horen.
+        //
+        // BACKSTOP, geen dagelijks pad: `markScheduleStale` (transaction.ts) houdt `scheduleStale`
+        // uit zolang de modus aanstaat, dus een payload met modus-aan hoort hier niet eens langs te
+        // komen. Deze twee velden staan er voor het geval een toekomstige schrijver die regel mist —
+        // stil herberekenen mét de modus aan is de duurste manier om daarachter te komen.
+        next = {
+          ...payload, tasks, cpmResult: result, scheduleStale: false, resourceLoadResult: null,
+          datesAsRecorded: false, recordedDates: null,
+        };
       } catch {
         continue; // net als de efemere solve in het overzicht: nooit de hele actie laten omvallen.
       }

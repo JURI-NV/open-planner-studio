@@ -31,9 +31,11 @@ let mcpTransactionInProgress = false;
  *      redo-stack wissen), in een eigen `set()`-producer;
  *   2. zet de suppressie-vlag aan zodat elke `beginUndoable` binnen de callback een no-op is;
  *   3. draait `fn()` — die mag meerdere `set()`-producers doen (draft-primitieven, T2);
- *   4. zet de vlag weer uit (in een `finally`, dus óók bij een throw);
- *   5. draait ÉÉNMAAL de eindherberekening: `runCPM` (pusht per invariant a nooit een snapshot),
- *      `recomputeViewRows`, `recomputeResourceLoad`;
+ *   5. draait ÉÉNMAAL de eindherberekening: `runCPM`, `recomputeViewRows`, `recomputeResourceLoad` —
+ *      nog BINNEN de suppressie, zodat ook de ene plek waar `runCPM` zélf een snapshot zou pushen
+ *      (het verlaten van "datums zoals opgeslagen", issue #63) hier zwijgt en de transactie op één
+ *      undo-stap blijft;
+ *   4./6b. zet de vlag weer uit (in een `finally`, dus óók bij een throw of een vroege return);
  *   6. bij een throw in `fn` óf een `cpmResult.error` ná stap 5: VOLLEDIGE rollback — de vooraf
  *      genomen snapshot terugzetten (`restoreSnapshot` herstelt óók `cpmResult`/kalenders/baselines,
  *      dus geen achterblijvende error-banner), de gepushte snapshot poppen, de redo-stack herstellen
@@ -87,28 +89,38 @@ export function runInMcpTransaction(fn: () => void): { ok: true } | { ok: false;
     s.redoStack = [];
   });
 
-  // Stap 2-4: reentrancy-wachter + suppressie aan, callback draaien, beide ALTIJD weer uit (finally,
-  // óók bij een throw). De cpm-error-check en de rollback daarop staan bewust ná het finally.
+  // Stap 2-6: reentrancy-wachter + suppressie aan, callback draaien, eindherberekening, cpm-check —
+  // en beide vlaggen ALTIJD weer uit (finally, óók bij een throw of een vroege return).
+  //
+  // STAP 5 STAAT BEWUST BÍNNEN DE SUPPRESSIE (issue #63). Stond hij erbuiten, dan pusht `runCPM`
+  // zijn modus-verlaat-snapshot (scheduleSlice) alsnog: op een document in "datums zoals opgeslagen"
+  // leverde dat 2 undo-stappen voor één transactie (de belofte is er precies één) én een rollback
+  // die er maar één van popt — een fantoom-undo-stap na een GEWEIGERDE AI-actie. Binnen de
+  // suppressie zwijgt `beginUndoable` en dekt de vooraf genomen transactie-snapshot het
+  // modusverlies gewoon mee: die is immers vóór de eerste mutatie genomen, dus mét de modus aan.
+  // Zelfde redenering als bij `recomputeMidBatch` (batchTool.ts).
   mcpTransactionInProgress = true;
   setMcpTransactionActive(true);
   try {
-    fn();
-  } catch (e) {
-    return rollback(e instanceof Error ? e.message : String(e));
+    try {
+      fn();
+    } catch (e) {
+      return rollback(e instanceof Error ? e.message : String(e));
+    }
+
+    // Stap 5: één eindherberekening.
+    useAppStore.getState().runCPM();
+    useAppStore.getState().recomputeViewRows();
+    useAppStore.getState().recomputeResourceLoad();
+
+    // Stap 6: een kringverwijzing (of andere solver-fout) ⇒ volledige rollback.
+    const cpm = useAppStore.getState().cpmResult;
+    if (cpm?.error) {
+      return rollback(cpm.error);
+    }
   } finally {
     mcpTransactionInProgress = false;
     setMcpTransactionActive(false);
-  }
-
-  // Stap 5: één eindherberekening (ná het finally: de suppressie-vlag staat nu uit).
-  useAppStore.getState().runCPM();
-  useAppStore.getState().recomputeViewRows();
-  useAppStore.getState().recomputeResourceLoad();
-
-  // Stap 6: een kringverwijzing (of andere solver-fout) ⇒ volledige rollback.
-  const cpm = useAppStore.getState().cpmResult;
-  if (cpm?.error) {
-    return rollback(cpm.error);
   }
 
   // Stap 7: geslaagd — coalesce-marker resetten (de handmatige push wijzigde de stackdiepte).

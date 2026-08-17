@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
 import { useAppStore } from '@/state/appStore';
+import {
+  leftRecordedDatesMode,
+  needsExitRecompute,
+  type RecordedDatesObservation,
+} from '@/state/recordedDatesExit';
 
 /**
  * Rekent één keer door zodra "datums zoals opgeslagen" via een BEWERKING is verlaten (issue #63).
@@ -13,31 +18,47 @@ import { useAppStore } from '@/state/appStore';
  *
  * De F5-route heeft dit niet nodig: die roept `runCPM` al aan.
  *
- * DOCUMENTWISSEL. `datesAsRecorded` is documentdata (het staat in `DOCUMENT_FIELDS`), dus hij
- * verandert óók bij `switchDocument`/`closeDocument`/een load — zonder dat er iets bewerkt is. Een
- * overstap van een document mét de modus naar een document zonder ziet er in deze subscriber
- * precies zo uit als "de modus is zojuist verlaten", en zou dan de planning van dat ándere document
- * ongevraagd doorrekenen (`runCPM` maakt niet vies, maar het is wel een stille F5 op werk waar de
- * gebruiker niets aan deed). Vandaar dat de overgang alleen telt bínnen hetzelfde document: bij een
- * documentwissel wordt de vorige waarde alleen overgenomen, niet als overgang gelezen.
- *
- * Geen debounce (anders dan `useAutoCalcCPM`): dit is één discrete overgang per bewerking, geen
- * reeks die tot één run gecoalesceerd moet worden.
+ * Het BESLUIT staat in `@/state/recordedDatesExit` (pure functies, headless getoetst); deze hook
+ * neemt alleen waar en voert uit. De uitgestelde uitvoering (`setTimeout` 0) is géén
+ * prestatie-truc maar een correctheidseis — zie `needsExitRecompute` voor de vier gevallen die
+ * hem nodig hebben (bulk-transacties, zelf-herrekenende acties, undo, documentwissel).
  */
 export function useExitRecordedDates(): void {
   useEffect(() => {
-    const init = useAppStore.getState();
-    let wasInMode = init.datesAsRecorded;
-    let docId = init.activeDocumentId;
-    return useAppStore.subscribe(() => {
+    const observe = (): RecordedDatesObservation => {
       const s = useAppStore.getState();
-      const sameDoc = s.activeDocumentId === docId;
-      const left = sameDoc && wasInMode && !s.datesAsRecorded;
-      // Anker vóór de eventuele `runCPM` bijwerken: die roept deze subscriber opnieuw aan en zonder
-      // dit zou de overgang een tweede keer als "zojuist verlaten" gelezen worden.
-      wasInMode = s.datesAsRecorded;
-      docId = s.activeDocumentId;
-      if (left && s.scheduleStale) s.runCPM();
+      return {
+        documentId: s.activeDocumentId,
+        inMode: s.datesAsRecorded,
+        scheduleStale: s.scheduleStale,
+      };
+    };
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let scheduledFor: string | null = null;
+    let prev = observe();
+
+    const unsub = useAppStore.subscribe(() => {
+      const next = observe();
+      const left = leftRecordedDatesMode(prev, next);
+      prev = next;
+      if (!left) return;
+      scheduledFor = next.documentId;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        const doc = scheduledFor;
+        scheduledFor = null;
+        if (doc === null) return;
+        const s = useAppStore.getState();
+        if (!needsExitRecompute(doc, observe())) return;
+        s.runCPM();
+      }, 0);
     });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsub();
+    };
   }, []);
 }

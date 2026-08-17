@@ -25,7 +25,15 @@ import { useAppStore } from '@/state/appStore';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { buildWriteIFCInput } from '@/state/ifcSaveInput';
-import { IFC_TASKTIME_SLOTS, IFC_TASK_SLOTS, TASKTIME_SLOT, TASK_SLOT } from '@/services/ifc/ifcTaskSlots';
+import { IFC_TASKTIME_SLOTS, TASKTIME_SLOT } from '@/services/ifc/ifcTaskSlots';
+import { externIfc, taskArgs } from '../fixtures/recordedDatesIfc';
+import {
+  leftRecordedDatesMode,
+  needsExitRecompute,
+  type RecordedDatesObservation,
+} from '@/state/recordedDatesExit';
+import { markScheduleStale } from '@/state/transaction';
+import { ensureFreshSchedule } from '@/services/mcp/staleGuard';
 
 const S = () => useAppStore.getState();
 
@@ -268,59 +276,9 @@ const recWerk = cpmResultFromRecorded(
 );
 eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDuration, 1);
 
-// ── Gedeelde IFC-fixturebouwers (secties 7 t/m 9) ────────────────────────────────────────────────
-// Bouw de IFCTASKTIME-/IFCTASK-argumentreeksen via de gedeelde slot-registry (ifcTaskSlots.ts) —
-// niet met de hand geteld. `new Array(IFC_TASKTIME_SLOTS.length)` legt de arraylengte vast aan
-// dezelfde bron als de reader/writer, en de posities komen uit `TASKTIME_SLOT`/`TASK_SLOT`
-// (naam→index-maps, afgeleid van diezelfde registry) — zo kan een verschoven index (zoals eerder
-// de taskTime-ref op index 8 i.p.v. 11) hier niet meer onopgemerkt insluipen. De assertie op
-// `recordedFields` in (7) bewijst dat de posities ook echt kloppen.
-const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
-  const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
-  a[TASKTIME_SLOT.name] = "'T'";
-  a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
-  a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
-  a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
-  a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
-  a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
-  a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
-  a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
-  return a.join(',');
-};
-const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
-  const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
-  a[TASK_SLOT.globalId] = `'${o.guid}'`;
-  a[TASK_SLOT.name] = `'${o.name}'`;
-  a[TASK_SLOT.identification] = `'${o.wbs}'`;
-  a[TASK_SLOT.isMilestone] = '.F.';
-  a[TASK_SLOT.taskTime] = o.taskTimeRef;
-  a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
-  return a.join(',');
-};
-
-/** Dé fixture van issue #63: taak a (2026-03-02 t/m -06, P5D) met FS-opvolger b die in het bestand
- *  vaststaat op 2026-03-16 — ver ná zijn werkelijke opvolgdatum (2026-03-09, de eerstvolgende
- *  werkdag na a's finish op vrijdag 2026-03-06). Herberekenen verschuift b dus gegarandeerd, en
- *  precies dat verschil is wat de modus aanbiedt. `tag` houdt project-naam en GUID's per sectie
- *  uniek, zodat opeenvolgende ladingen niet op elkaars identiteiten lijken te steunen. */
-const externIfc = (tag: string) => [
-  'ISO-10303-21;', 'HEADER;',
-  "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
-  'ENDSEC;', 'DATA;',
-  `#1=IFCPROJECT('g1${tag}',$,'Extern${tag}',$,$,$,$,$,$);`,
-  `#9=IFCTASKTIME(${ttArgs({
-    scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
-    earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
-  })});`,
-  `#2=IFCTASK(${taskArgs({ guid: `gTaskA${tag}`, name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
-  `#10=IFCTASKTIME(${ttArgs({
-    scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
-    earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
-  })});`,
-  `#3=IFCTASK(${taskArgs({ guid: `gTaskB${tag}`, name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
-  `#4=IFCRELSEQUENCE('gSeq${tag}',$,$,$,#2,#3,$,.FINISH_START.,$);`,
-  'ENDSEC;', 'END-ISO-10303-21;',
-].join('\n');
+// ── Gedeelde helpers voor de store-secties (7 t/m 9) ─────────────────────────────────────────────
+// De IFC-fixture zelf staat in `tests/fixtures/recordedDatesIfc.ts` — gedeeld met tests/mcp, zodat
+// beide suites over exact hetzelfde "geval van issue #63" praten.
 
 /** Id van de taak met deze WBS-code in de LEVENDE store — na een load, dus niet het parse-resultaat. */
 const idOfWbs = (wbs: string) => S().tasks.find((t) => t.wbsCode === wbs)!.id;
@@ -512,43 +470,43 @@ const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.ea
   const aId = idOfWbs('1.1');
   const bId = idOfWbs('1.2');
 
-  truthy('9a voorwaarde: recordedDates gezet (b verschoof)', S().recordedDates !== null);
-  eq('9b voorwaarde: de solve zette b op zijn logische datum', earlyStartOf(bId), '2026-03-09');
+  truthy('9A-1 voorwaarde: recordedDates gezet (b verschoof)', S().recordedDates !== null);
+  eq('9A-2 voorwaarde: de solve zette b op zijn logische datum', earlyStartOf(bId), '2026-03-09');
   S().showRecordedDates();
-  eq('9c voorwaarde: modus staat aan', S().datesAsRecorded, true);
-  eq('9d voorwaarde: b toont weer de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
-  eq('9e voorwaarde: planning geldt als vers vóór de bewerking', S().scheduleStale, false);
+  eq('9A-3 voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('9A-4 voorwaarde: b toont weer de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9A-5 voorwaarde: planning geldt als vers vóór de bewerking', S().scheduleStale, false);
 
   const undoVoorA = S().undoStack.length;
   const aTime = S().tasks.find((t) => t.id === aId)!.time;
   // Duur van a van 5 naar 3 werkdagen: een datum-rakende bewerking (`finishMutation({ stale: true })`).
   S().updateTask(aId, { time: { ...aTime, scheduleDuration: 3 } });
 
-  eq('9f een datum-rakende bewerking verlaat de modus', S().datesAsRecorded, false);
-  eq('9g …en wist de vastlegging', S().recordedDates, null);
-  eq('9h …en zet de planning op verouderd', S().scheduleStale, true);
-  eq('9i …in precies één undo-stap', S().undoStack.length, undoVoorA + 1);
+  eq('9A-6 een datum-rakende bewerking verlaat de modus', S().datesAsRecorded, false);
+  eq('9A-7 …en wist de vastlegging', S().recordedDates, null);
+  eq('9A-8 …en zet de planning op verouderd', S().scheduleStale, true);
+  eq('9A-9 …in precies één undo-stap', S().undoStack.length, undoVoorA + 1);
 
   // Wat `useExitRecordedDates` in de app doet (de hook is React en draait hier niet): één keer
   // doorrekenen. Tegelijk de invariant op deze route — de modus stond al uit, dus déze runCPM mag
   // géén tweede undo-stap opleveren.
   S().runCPM();
-  eq('9j herrekenen ná het verlaten pusht geen extra undo-stap', S().undoStack.length, undoVoorA + 1);
-  eq('9k b staat na het herrekenen op de nieuwe logische datum', earlyStartOf(bId), '2026-03-05');
+  eq('9A-10 herrekenen ná het verlaten pusht geen extra undo-stap', S().undoStack.length, undoVoorA + 1);
+  eq('9A-11 b staat na het herrekenen op de nieuwe logische datum', earlyStartOf(bId), '2026-03-05');
 
   S().undo();
-  eq('9l undo herstelt de modus', S().datesAsRecorded, true);
-  eq('9m undo herstelt de opgeslagen datum van de verschoven taak', earlyStartOf(bId), '2026-03-16');
-  truthy('9n undo herstelt de vastlegging', S().recordedDates !== null);
-  eq('9o undo herstelt de teller in de vastlegging', S().recordedDates?.shifted, 1);
-  eq('9p undo herstelt de vastgelegde start van b', S().recordedDates?.times[bId]?.start, '2026-03-16');
-  eq('9q undo herstelt het uit het bestand gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
-  eq('9r undo herstelt de bewerkte duur van a', S().tasks.find((t) => t.id === aId)!.time.scheduleDuration, 5);
+  eq('9A-12 undo herstelt de modus', S().datesAsRecorded, true);
+  eq('9A-13 undo herstelt de opgeslagen datum van de verschoven taak', earlyStartOf(bId), '2026-03-16');
+  truthy('9A-14 undo herstelt de vastlegging', S().recordedDates !== null);
+  eq('9A-15 undo herstelt de teller in de vastlegging', S().recordedDates?.shifted, 1);
+  eq('9A-16 undo herstelt de vastgelegde start van b', S().recordedDates?.times[bId]?.start, '2026-03-16');
+  eq('9A-17 undo herstelt het uit het bestand gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
+  eq('9A-18 undo herstelt de bewerkte duur van a', S().tasks.find((t) => t.id === aId)!.time.scheduleDuration, 5);
 
   S().redo();
-  eq('9s redo verlaat de modus opnieuw', S().datesAsRecorded, false);
-  eq('9t redo wist de vastlegging opnieuw', S().recordedDates, null);
-  eq('9u redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-05');
+  eq('9A-19 redo verlaat de modus opnieuw', S().datesAsRecorded, false);
+  eq('9A-20 redo wist de vastlegging opnieuw', S().recordedDates, null);
+  eq('9A-21 redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-05');
 }
 
 // (9.B) Route B — F5/"Bereken" verlaat de modus, mét een werkende Ctrl+Z.
@@ -558,27 +516,27 @@ const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.ea
   const bId = idOfWbs('1.2');
 
   S().showRecordedDates();
-  eq('9v voorwaarde: modus staat aan', S().datesAsRecorded, true);
-  eq('9w voorwaarde: b toont de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
-  eq('9x voorwaarde: isDirty is nog false (betreden maakt niet vies)', S().isDirty, false);
+  eq('9B-1 voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('9B-2 voorwaarde: b toont de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9B-3 voorwaarde: isDirty is nog false (betreden maakt niet vies)', S().isDirty, false);
 
   const undoVoorB = S().undoStack.length;
   S().runCPM();
 
-  eq('9y F5 verlaat de modus', S().datesAsRecorded, false);
-  eq('9z …en wist de vastlegging', S().recordedDates, null);
-  eq('9aa …en rekent door: b staat weer op zijn logische datum', earlyStartOf(bId), '2026-03-09');
-  eq('9ab …in precies één undo-stap', S().undoStack.length, undoVoorB + 1);
+  eq('9B-4 F5 verlaat de modus', S().datesAsRecorded, false);
+  eq('9B-5 …en wist de vastlegging', S().recordedDates, null);
+  eq('9B-6 …en rekent door: b staat weer op zijn logische datum', earlyStartOf(bId), '2026-03-09');
+  eq('9B-7 …in precies één undo-stap', S().undoStack.length, undoVoorB + 1);
 
   S().undo();
-  eq('9ac undo na F5 herstelt de modus', S().datesAsRecorded, true);
-  eq('9ad undo na F5 herstelt de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
-  eq('9ae undo na F5 herstelt de vastlegging', S().recordedDates?.times[bId]?.start, '2026-03-16');
-  eq('9af undo na F5 herstelt het gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
+  eq('9B-8 undo na F5 herstelt de modus', S().datesAsRecorded, true);
+  eq('9B-9 undo na F5 herstelt de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9B-10 undo na F5 herstelt de vastlegging', S().recordedDates?.times[bId]?.start, '2026-03-16');
+  eq('9B-11 undo na F5 herstelt het gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
 
   S().redo();
-  eq('9ag redo verlaat de modus opnieuw', S().datesAsRecorded, false);
-  eq('9ah redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-09');
+  eq('9B-12 redo verlaat de modus opnieuw', S().datesAsRecorded, false);
+  eq('9B-13 redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-09');
 }
 
 // (9.C) DE INVARIANT BUITEN DE MODUS. `staleGuard.ts` (ensureFreshSchedule) en `batchTool.ts`
@@ -588,17 +546,17 @@ const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.ea
 {
   S().newProject();
   S().applyLoadedProject(readIFC(externIfc('9c')), { filePath: null, recompute: true });
-  eq('9ai voorwaarde: de modus staat UIT (detectie zet hem niet aan)', S().datesAsRecorded, false);
-  truthy('9aj voorwaarde: er is wél iets aan te bieden (anders meet dit een vacuüm)', S().recordedDates !== null);
+  eq('9C-1 voorwaarde: de modus staat UIT (detectie zet hem niet aan)', S().datesAsRecorded, false);
+  truthy('9C-2 voorwaarde: er is wél iets aan te bieden (anders meet dit een vacuüm)', S().recordedDates !== null);
   // Zet `scheduleStale` expres aan (direct, geen actie): zonder dit zou runCPM hooguit "niets te
   // doen" bevestigen, terwijl de assertie moet bewijzen dat een ECHTE herberekening niets pusht.
   useAppStore.setState((s) => { s.scheduleStale = true; });
 
   const undoVoorC = S().undoStack.length;
   S().runCPM();
-  eq('9ak runCPM buiten de modus pusht GEEN undo-snapshot', S().undoStack.length, undoVoorC);
-  truthy('9al runCPM buiten de modus laat de vastlegging staan', S().recordedDates !== null);
-  eq('9am runCPM buiten de modus zet geen isDirty', S().isDirty, false);
+  eq('9C-3 runCPM buiten de modus pusht GEEN undo-snapshot', S().undoStack.length, undoVoorC);
+  truthy('9C-4 runCPM buiten de modus laat de vastlegging staan', S().recordedDates !== null);
+  eq('9C-5 runCPM buiten de modus zet geen isDirty', S().isDirty, false);
 }
 
 // (9.D) De bewuste asymmetrie: een bewerking die GÉÉN datums raakt (`finishMutation` zonder
@@ -610,13 +568,147 @@ const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.ea
   S().applyLoadedProject(readIFC(externIfc('9d')), { filePath: null, recompute: true });
   const bId = idOfWbs('1.2');
   S().showRecordedDates();
-  eq('9an voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('9D-1 voorwaarde: modus staat aan', S().datesAsRecorded, true);
 
   S().renumberWbs();
-  eq('9ao een niet-datum-rakende bewerking laat de modus staan', S().datesAsRecorded, true);
-  truthy('9ap …en laat de vastlegging staan', S().recordedDates !== null);
-  eq('9aq …en zet de planning niet op verouderd', S().scheduleStale, false);
-  eq('9ar …en laat de getoonde opgeslagen datum met rust', earlyStartOf(bId), '2026-03-16');
+  eq('9D-2 een niet-datum-rakende bewerking laat de modus staan', S().datesAsRecorded, true);
+  truthy('9D-3 …en laat de vastlegging staan', S().recordedDates !== null);
+  eq('9D-4 …en zet de planning niet op verouderd', S().scheduleStale, false);
+  eq('9D-5 …en laat de getoonde opgeslagen datum met rust', earlyStartOf(bId), '2026-03-16');
+}
+
+// ── (10) De tweede ring: élk ánder pad dat herrekent (review taak 6) ─────────
+// Routes A en B dekken de twee uitgangen die de gebruiker zelf bedient. Daarnaast rekent de app op
+// nog drie plekken door zonder dat er een bewerking aan te pas komt. Die mogen de modus niet stil
+// achterlaten (of stil verlaten) — dat is wat deze sectie vastlegt.
+
+// (10.A) K3 — een SLAPEND document dat op de achtergrond wordt doorgerekend.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('10a')), { filePath: null, recompute: true });
+  S().showRecordedDates();
+  const slapendId = S().activeDocumentId;
+  const bId = idOfWbs('1.2');
+  eq('10A-1 voorwaarde: modus staat aan in het straks-slapende document', S().datesAsRecorded, true);
+
+  S().newDocument(); // het vorige document wordt hiermee een slapende payload
+  const payloadVan = () => S().documents.find((d) => d.id === slapendId)?.payload ?? null;
+  eq('10A-2 voorwaarde: de slapende payload draagt de modus mee', payloadVan()?.datesAsRecorded, true);
+  eq('10A-3 voorwaarde: de slapende payload toont de opgeslagen datum',
+    payloadVan()?.tasks.find((t) => t.id === bId)?.time.earlyStart, '2026-03-16');
+  eq('10A-4 voorwaarde: de slapende payload staat op NIET-verouderd', payloadVan()?.scheduleStale, false);
+
+  // Forceer `scheduleStale` op de slapende payload. Dit is precies de toestand die `markScheduleStale`
+  // onbereikbaar maakt (zie 10.B) — hier met de hand gezet, zodat de BACKSTOP in
+  // `recalculateStaleSleepingDocuments` daadwerkelijk getest wordt in plaats van dat de vroege
+  // `if (!payload.scheduleStale) continue` de hele assertie tot een vacuüm maakt.
+  useAppStore.setState((s) => {
+    const entry = s.documents.find((d) => d.id === slapendId);
+    if (entry?.payload) entry.payload.scheduleStale = true;
+  });
+
+  const herrekend = S().recalculateStaleSleepingDocuments();
+  eq('10A-5 voorwaarde: er is écht één slapend document doorgerekend', herrekend, 1);
+  eq('10A-6 doorrekenen verlaat de modus op de slapende payload', payloadVan()?.datesAsRecorded, false);
+  eq('10A-7 …en wist daar de vastlegging', payloadVan()?.recordedDates, null);
+  eq('10A-8 …en de payload toont nu de herberekende datum',
+    payloadVan()?.tasks.find((t) => t.id === bId)?.time.earlyStart, '2026-03-09');
+}
+
+// (10.B) De regel die "modus aan én verouderd" onbereikbaar maakt. De niet-undoable bibliotheek-
+// verversingen zetten `scheduleStale` buiten `finishMutation` om; zonder deze regel ontstaat de
+// enige toestand waarin `ensureFreshSchedule` (AI-leestools) en `recalculateStaleSleepingDocuments`
+// binnen de modus zouden vuren.
+{
+  const buiten = { scheduleStale: false, datesAsRecorded: false };
+  markScheduleStale(buiten);
+  eq('10B-1 buiten de modus zet de vlag gewoon', buiten.scheduleStale, true);
+
+  const binnen = { scheduleStale: false, datesAsRecorded: true };
+  markScheduleStale(binnen);
+  eq('10B-2 binnen de modus blijft de vlag uit', binnen.scheduleStale, false);
+  eq('10B-3 …en blijft de modus zelf onaangeroerd (géén verlaten zonder snapshot)', binnen.datesAsRecorded, true);
+}
+
+// (10.C) Het gevolg daarvan, gemeten op de echte store: in de modus is `ensureFreshSchedule` een
+// no-op, dus de alleen-lezen AI-leestool (`get_resource_histogram`, `readOnlyHint: true`) kan de
+// modus niet weggooien en de undo-stack niet raken.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('10c')), { filePath: null, recompute: true });
+  S().showRecordedDates();
+  eq('10C-1 voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('10C-2 in de modus geldt de planning als vers', S().scheduleStale, false);
+  truthy('10C-3 in de modus is cpmResult gevuld (de reconstructie)', S().cpmResult !== null);
+
+  const undoVoor = S().undoStack.length;
+  const bId = idOfWbs('1.2');
+  const res = ensureFreshSchedule();
+  eq('10C-4 ensureFreshSchedule herrekent niet in de modus', res.recomputed, false);
+  eq('10C-5 …raakt de undo-stack niet', S().undoStack.length, undoVoor);
+  eq('10C-6 …laat de modus staan', S().datesAsRecorded, true);
+  eq('10C-7 …en laat de opgeslagen datum staan', earlyStartOf(bId), '2026-03-16');
+}
+
+// (10.D) B3 — acties die datums verschuiven én zélf herrekenen (`moveProject`, `applyLeveling`,
+// `clearLeveling`) verlaten de modus in HUN EIGEN producer. Zonder dat deed de aansluitende `runCPM`
+// het, in een tweede undo-stap met een tussentoestand die de gebruiker nooit gezien heeft.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('10d')), { filePath: null, recompute: true });
+  S().showRecordedDates();
+  const bId = idOfWbs('1.2');
+  const startVoor = S().project.startDate;
+  eq('10D-1 voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('10D-2 voorwaarde: b toont de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+
+  const undoVoor = S().undoStack.length;
+  const res = S().moveProject('2027-01-04');
+  truthy('10D-3 voorwaarde: de verschuiving is écht uitgevoerd', res.moved);
+
+  eq('10D-4 moveProject verlaat de modus', S().datesAsRecorded, false);
+  eq('10D-5 …en wist de vastlegging', S().recordedDates, null);
+  eq('10D-6 …in precies ÉÉN undo-stap (niet twee)', S().undoStack.length, undoVoor + 1);
+
+  S().undo();
+  eq('10D-7 één undo herstelt de modus', S().datesAsRecorded, true);
+  eq('10D-8 …de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('10D-9 …het gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
+  eq('10D-10 …én de projectstartdatum — geen halve tussentoestand', S().project.startDate, startVoor);
+}
+
+// (10.E) Het besluit van `useExitRecordedDates` als pure functies. De hook zelf is React en draait
+// niet in deze batterij; het predicaat is daarom uit de subscriber-closure gehaald zodat de twee
+// subtiliteiten die het gedrag bepalen — documentwissel en uitgestelde uitvoering — hier wél
+// getoetst worden.
+{
+  const obs = (o: Partial<RecordedDatesObservation> = {}): RecordedDatesObservation =>
+    ({ documentId: 'doc-1', inMode: false, scheduleStale: false, ...o });
+
+  truthy('10E-1 modus verlaten binnen hetzelfde document ⇒ inplannen',
+    leftRecordedDatesMode(obs({ inMode: true }), obs({ inMode: false })));
+  truthy('10E-2 modus staat nog aan ⇒ niets in te plannen',
+    !leftRecordedDatesMode(obs({ inMode: true }), obs({ inMode: true })));
+  truthy('10E-3 modus stond al uit ⇒ niets in te plannen',
+    !leftRecordedDatesMode(obs({ inMode: false }), obs({ inMode: false })));
+  // De documentwissel-subtiliteit: van een document MÉT de modus naar een document zonder ziet er
+  // in een naïeve subscriber uit als "verlaten", en zou dan een stille F5 op het andere document
+  // afvuren.
+  truthy('10E-4 documentwissel telt niet als verlaten',
+    !leftRecordedDatesMode(obs({ inMode: true }), obs({ documentId: 'doc-2', inMode: false })));
+
+  truthy('10E-5 bij uitvoeren: verouderd en modus uit ⇒ rekenen',
+    needsExitRecompute('doc-1', obs({ scheduleStale: true })));
+  // Een actie die zélf herrekende (moveProject/applyLeveling/de MCP-transactie) of een bulk die
+  // alsnog vers eindigde: niets meer te doen.
+  truthy('10E-6 bij uitvoeren: niet meer verouderd ⇒ niet rekenen',
+    !needsExitRecompute('doc-1', obs({ scheduleStale: false })));
+  // Een Ctrl+Z vlak ná de bewerking: rekenen zou de zojuist herstelde opgeslagen datums meteen
+  // weer overschrijven.
+  truthy('10E-7 bij uitvoeren: modus opnieuw aan (undo) ⇒ niet rekenen',
+    !needsExitRecompute('doc-1', obs({ inMode: true, scheduleStale: true })));
+  truthy('10E-8 bij uitvoeren: intussen van document gewisseld ⇒ niet rekenen',
+    !needsExitRecompute('doc-1', obs({ documentId: 'doc-2', scheduleStale: true })));
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

@@ -10,10 +10,17 @@
 // `ToolError`-code teruggeven (VALIDATION bij een onbekend id / ontbrekende baseline) i.p.v. de
 // generieke INTERNAL die een kale throw zou opleveren.
 //
-// `get_resource_histogram` roept `ensureFreshSchedule` aan (herrekent ALLEEN als stale; pusht nooit
-// een undo-snapshot — staleGuard-invariant) en meldt in de data of het (her)berekend is; dat is de
-// enige leestool die de store-cache raakt, en dat is een versheids-refresh, geen mutatie — de
-// annotatie blijft `readOnlyHint:true` (spec: readOnlyHint op ALLE leestools).
+// `get_resource_histogram` roept `ensureFreshSchedule` aan (herrekent ALLEEN als stale of nog nooit
+// gerekend) en meldt in de data of het (her)berekend is; dat is de enige leestool die de store-cache
+// raakt, en dat is een versheids-refresh, geen mutatie — de annotatie blijft `readOnlyHint:true`
+// (spec: readOnlyHint op ALLE leestools).
+//
+// SINDS ISSUE #63 pusht `runCPM` in één geval wél een undo-snapshot: het verlaten van "datums zoals
+// opgeslagen". Dat raakt deze leestool NIET, en dat is geen toeval maar een afgedwongen eigenschap:
+// `ensureFreshSchedule` doet alleen iets bij `scheduleStale` of `cpmResult === null`, en in de modus
+// is `scheduleStale` altijd `false` (`showRecordedDates` zet hem zo, `markScheduleStale` houdt hem
+// zo) én `cpmResult` altijd gevuld (de reconstructie). "Modus aan én verouderd" is dus onbereikbaar
+// — vastgelegd in check-recorded-dates.ts (10.C). Daarmee blijft `readOnlyHint:true` verdedigbaar.
 
 import { useAppStore } from '@/state/appStore';
 import type { AppState } from '@/state/appStore';
@@ -686,9 +693,9 @@ function getResourceHistogram(args: HistogramArgs) {
     resourceIds = args.resourceIds as string[];
   }
 
-  // Vers herrekenen wanneer stale of nog nooit gerekend — pusht nooit een undo-snapshot
-  // (staleGuard-invariant). Dit is de enige leestool die de cache raakt; het is een
-  // versheids-refresh, geen mutatie.
+  // Vers herrekenen wanneer stale of nog nooit gerekend. Dit is de enige leestool die de cache
+  // raakt; het is een versheids-refresh, geen mutatie — en hij kan de undo-stack niet raken, want
+  // "datums zoals opgeslagen" is onbereikbaar in combinatie met stale/nooit-gerekend (zie de kop).
   const fresh = ensureFreshSchedule();
   const s = useAppStore.getState(); // verse state ná een eventuele recompute
 

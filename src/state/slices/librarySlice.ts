@@ -4,7 +4,7 @@ import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
 import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
-import { beginUndoable, finishMutation } from '../transaction';
+import { beginUndoable, finishMutation, markScheduleStale } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
 
@@ -799,7 +799,8 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         // als de projectkalender hier niet bij zat.
         s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
         // Review-fix (spec §3): kalenderverversing raakt datums ⇒ scheduleStale (geen isDirty, geen runCPM).
-        if (calChanged > 0) s.scheduleStale = true;
+        // Via `markScheduleStale`: in "datums zoals opgeslagen" (issue #63) blijft de vlag uit — zie daar.
+        if (calChanged > 0) markScheduleStale(s);
       }
     });
     if (changed > 0) {
@@ -866,7 +867,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
           if (cals.calChanged > 0) s.calendars = cals.items;
           if (ress.resChanged > 0) s.resources = ress.items;
           s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
-          if (cals.calChanged > 0) s.scheduleStale = true; // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
+          if (cals.calChanged > 0) markScheduleStale(s); // kalenderwijziging raakt datums (geen isDirty, geen runCPM)
           changed += docChanged;
         }
       }
@@ -895,7 +896,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
             payload.calendar = payload.calendars.find((c) => c.id === payload.project.calendarId) ?? payload.calendar;
           }
           if (ress.resChanged > 0) payload.resources = ress.items;
-          if (cals.calChanged > 0) payload.scheduleStale = true; // zichtbaar bij switchDocument/activering
+          if (cals.calChanged > 0) markScheduleStale(payload); // zichtbaar bij switchDocument/activering
           changed += docChanged;
         }
       }
@@ -1062,7 +1063,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
           s.calendars[idx] = applyCalendarUpdate(current(s.calendars[idx]), pool);
           s.calendar = s.calendars.find((c) => c.id === s.project.calendarId) ?? s.calendar;
           // Review-fix (spec §3): kalenderwaarden gewijzigd ⇒ scheduleStale (geen isDirty, geen runCPM).
-          s.scheduleStale = true;
+          markScheduleStale(s);
         }
         s.redoStack = [];
       });

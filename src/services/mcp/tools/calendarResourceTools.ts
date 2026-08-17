@@ -1287,7 +1287,7 @@ const manageAssignments: BatchStepTool = {
 // planner_level_resources (spec §level_resources-contract)
 //
 // Volgorde: guards → `ensureFreshSchedule` (WP8-patroon: een stale planning maakt de before/after-
-// delta's onzin; `runCPM` pusht per invariant nooit een undo-snapshot, dus dit kost geen undo-stap)
+// delta's onzin; `runCPM` pusht binnen de transactie geen undo-snapshot, dus dit kost geen undo-stap)
 // → preview → optioneel commit. `dryRun` gaat NIET door een transactie: er valt niets te backuppen
 // of terug te rollen (`levelResources` is een pure preview-berekening op de store).
 // De respons draagt ALTIJD het volledige LevelingResult.
@@ -1380,7 +1380,7 @@ function parseLeveling(args: unknown): { options: LevelingOptions; constrainToFl
 
 /**
  * Synchrone, transactie-vrije kern van `level_resources`. Draait ZELF `ensureFreshSchedule` (nodig
- * voor kloppende before/after-delta\'s; `runCPM` pusht geen undo-snapshot). Dat overlapt met de
+ * voor kloppende before/after-delta\'s; `runCPM` pusht binnen de transactie geen undo-snapshot). Dat overlapt met de
  * `recomputeMidBatch` die `planner_batch` vóór een levelingstap doet — bewust: de kern moet ook
  * kloppen als de leveling de EERSTE stap van de batch is en de store al stale de batch in ging.
  */
@@ -1762,7 +1762,8 @@ const updateProject: BatchStepTool = {
 // `requestFitToProject`), en `runInMcpTransaction` draait aan het eind nóg een keer `runCPM`. Dat is
 // één overbodige herberekening. Het alternatief — de verschuif-logica hier nabouwen zonder de
 // trailing recompute — zou de enige bron van waarheid dupliceren en bij elke wijziging in
-// `moveProject` stil uit de pas gaan lopen. `runCPM` is idempotent en pusht geen undo-snapshot
+// `moveProject` stil uit de pas gaan lopen. `runCPM` is idempotent en pusht binnen de transactie
+// geen undo-snapshot
 // (invariant a), dus de dubbele run is puur rekenwerk, geen semantisch verschil.
 // =================================================================================================
 /** Vormvalidatie van `move_project`; string = foutboodschap. */
@@ -1903,7 +1904,8 @@ const saveBaseline: McpToolDef = {
     const g = guardNonTransactional(ctx);
     if (g) return g;
 
-    // WP8: eerst herrekenen bij een stale planning (runCPM pusht geen undo-snapshot).
+    // WP8: eerst herrekenen bij een stale planning (runCPM pusht hier geen undo-snapshot: "modus
+    // aan én stale" is onbereikbaar, zie de kop van readTools.ts).
     const fresh = ensureFreshSchedule();
     if (fresh.error) {
       return toolError(ctx, 'VALIDATION', `planning kon niet worden herrekend vóór de baseline: ${fresh.error}`);
