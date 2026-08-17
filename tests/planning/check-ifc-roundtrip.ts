@@ -70,7 +70,7 @@
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
-import type { Task, TaskTime, ExternalLink } from '@/types/task';
+import type { Task, TaskTime, ExternalLink, TaskSplitGap } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { Project, SchedulingOptions } from '@/types/project';
@@ -212,7 +212,14 @@ const TP: Task = {
 const TM = {
   id: 't-m', name: 'Oplevering', description: 'Contractuele opleverdatum', wbsCode: '1.1',
   taskType: 'INSTALLATION', status: 'COMPLETED', isMilestone: true, milestoneKind: 'FINISH',
-  mandatory: true, priority: 700, levelingDelay: 3, parentId: 't-p', childIds: [],
+  mandatory: true, priority: 700, levelingDelay: 3,
+  // Z0 (etappe "nul afwijkingen"): typecontract-velden, nog ONGEBRUIKT door reader/writer — vandaar
+  // de `skip`-cellen in TASK_CANON hieronder i.p.v. een echte round-trip-vergelijking. Z14 maakt
+  // hier echte round-trip-cellen van zodra de writer/reader ze daadwerkelijk schrijft/leest.
+  levelingDelayMinutes: 45, levelingDelayElapsed: false,
+  splitGaps: [{ afterMinutes: 120, gapMinutes: 60 } satisfies TaskSplitGap],
+  manuallyScheduled: true,
+  parentId: 't-p', childIds: [],
   resourceIds: [], // milestone zonder assignments ⇒ afgeleide resourceIds is leeg (H2-fix)
   color: '#abcdef', // round-trippt via OPS_TaskAppearance (H2-fix)
   isHammock: true,
@@ -294,7 +301,11 @@ const RSub: Resource = { id: 'r-sub', name: 'Installateur BV', type: 'SUBCONTRAC
 const resources: Resource[] = [RCrew, RMember, REquip, RMat, RSub];
 
 // ── Toewijzingen: incl. twee assignments van DEZELFDE resource op één taak (M3-uniciteit) + curve ─
-const A1 = { id: 'a1', taskId: 't-x', resourceId: 'r-mem', unitsPerDay: 2, curve: 'BELL' } satisfies Required<ResourceAssignment>;
+const A1 = {
+  id: 'a1', taskId: 't-x', resourceId: 'r-mem', unitsPerDay: 2, curve: 'BELL',
+  // Z0: typecontract-veld, nog ONGEBRUIKT — zie de `skip`-cel in ASSIGNMENT_CANON hieronder.
+  workWindowStart: '2026-07-06', workWindowFinish: '2026-07-08',
+} satisfies Required<ResourceAssignment>;
 const assignments: ResourceAssignment[] = [
   A1,
   { id: 'a2', taskId: 't-x', resourceId: 'r-mem', unitsPerDay: 1, curve: 'LATE_PEAK' },
@@ -465,6 +476,13 @@ const TASK_CANON = {
   id: { skip: 'regenereert bij inlezen; wbsCode is de natuurlijke sleutel (Keys.task)' },
   name: KEEP, description: KEEP, wbsCode: KEEP, taskType: KEEP, status: KEEP,
   isMilestone: KEEP, milestoneKind: KEEP, mandatory: KEEP, priority: KEEP, levelingDelay: KEEP,
+  // Z0 (etappe "nul afwijkingen"): typecontract-velden, nog ONGEBRUIKT — geen enkele lezer/schrijver
+  // raakt ze aan, dus er is nog niets om écht round-trip te vergelijken. Z14 maakt dit een echte
+  // round-trip-cel zodra de writer/reader ze daadwerkelijk schrijft/leest.
+  levelingDelayMinutes: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  levelingDelayElapsed: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  splitGaps: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  manuallyScheduled: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
   parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
   childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
   time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },
@@ -510,6 +528,9 @@ const ASSIGNMENT_CANON = {
   taskId: { as: 'task', get: (a: ResourceAssignment, k: Keys) => k.task(a.taskId) },
   resourceId: { as: 'resource', get: (a: ResourceAssignment, k: Keys) => k.res(a.resourceId) },
   unitsPerDay: KEEP, curve: KEEP,
+  // Z0: typecontract-veld, nog ONGEBRUIKT — zie de gelijknamige toelichting bij TASK_CANON.
+  workWindowStart: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  workWindowFinish: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
 } satisfies CanonSpec<ResourceAssignment>;
 
 const PROJECT_CANON = {

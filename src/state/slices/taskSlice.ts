@@ -372,6 +372,14 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         // QA-fix (fase 2.10, onderdeel 2, bevinding 4): notes werd hier vergeten — de andere
         // optionele velden (constraint2/isHammock/externalLinks/...) volgen wél al dit patroon.
         notes: partial.notes,
+        // Z0 (etappe "nul afwijkingen"): typecontract-doorgifte, nog ONGEBRUIKT door de solver —
+        // zelfde patroon als isHammock/externalLinks hierboven. Afwezig ⇒ undefined ⇒
+        // byte-identiek default-document. (`levelingDelay` zelf staat hier bewust NIET: dat veld
+        // wordt uitsluitend door de nivelleerder gezet, nooit via addTask.)
+        splitGaps: partial.splitGaps,
+        manuallyScheduled: partial.manuallyScheduled,
+        levelingDelayMinutes: partial.levelingDelayMinutes,
+        levelingDelayElapsed: partial.levelingDelayElapsed,
       };
 
       // Zonder `position` (of een onbekende anker): exact het bestaande gedrag — achteraan.

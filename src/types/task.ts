@@ -77,6 +77,20 @@ export interface ExternalLink {
 export type DurationType = 'WORKTIME' | 'ELAPSEDTIME';
 
 /**
+ * Eén werkonderbreking in een gesplitste taak (MS Project: "split") — etappe "nul afwijkingen"
+ * (Z0), voorlopig ONGEBRUIKT (geen enkele lezer/solver/renderer raadpleegt dit veld nog).
+ * OFFSET-GEBASEERD, niet absoluut: `afterMinutes` werkMINUTEN ná de taakstart begint een gat van
+ * `gapMinutes` werkminuten waarin niet gewerkt wordt (het restwerk hervat daarna). Offsets in
+ * plaats van absolute datumparen om drie redenen: shift-invariant (een herberekening/verplaatsing
+ * van de taak verschuift de gaten automatisch mee, absolute segmenten zouden bij elke herberekening
+ * verouderen), geen INPUT/COMPUTED-dubbelrol (de gaten zijn brondata; de absolute segmenten die de
+ * renderer/print tekenen zijn AFGELEID uit `earlyStart` + een kalenderwandeling), en een triviaal
+ * `moveProject.ts`-verdict (er staat geen datum in, dus "keep" is aantoonbaar correct in plaats van
+ * een handgeschreven shift).
+ */
+export interface TaskSplitGap { afterMinutes: number; gapMinutes: number }
+
+/**
  * Soort mijlpaal (fase 2.4, P6 Start/Finish Milestone). Dag-granulair grens-model:
  * START ankert op een dagbegin, FINISH op een dageinde (einde werkdag F = begin
  * eerstvolgende werkdag). undefined = automatisch: het anker volgt de bindende
@@ -224,6 +238,27 @@ export interface Task {
    *  nivelleerder (fase 2.5, nog niet gebouwd). undefined = geen nivellering toegepast.
    *  "Nivellering wissen" zet dit overal terug naar undefined. */
   levelingDelay?: number;
+  /** OPTIONEEL — subdag-precisie voor `levelingDelay` (etappe "nul afwijkingen", Z0, voorlopig
+   *  ONGEBRUIKT). MSP levert de nivelleervertraging in tienden-van-een-minuut; `levelingDelay`
+   *  (hele werkdagen) kan dat niet exact dragen. Zelfde precedent als `durationMinutes` naast
+   *  `scheduleDuration`: AANWEZIG ⇒ bron van waarheid, AFWEZIG ⇒ `levelingDelay` (werkdagen) blijft
+   *  de bron (byte-identiek). Nog door geen enkele solver-stap gelezen. */
+  levelingDelayMinutes?: number;
+  /** OPTIONEEL — begeleidt `levelingDelayMinutes` (Z0, voorlopig ONGEBRUIKT). MSP's
+   *  `LevelingDelayFormat` kent een ELAPSED-variant (kloktijd i.p.v. werktijd), net als
+   *  `durationType`/MSPDI's elapsed-vlag op een duur. Afwezig ⇒ WORKTIME (byte-identiek). Alleen
+   *  betekenisvol wanneer `levelingDelayMinutes` ook gezet is. */
+  levelingDelayElapsed?: boolean;
+  /** OPTIONEEL — werkonderbrekingen (MS Project "split"), zie `TaskSplitGap` (Z0, voorlopig
+   *  ONGEBRUIKT: geen lezer vult dit, geen solver-stap of renderer raadpleegt het). Afwezig ⇒ geen
+   *  splits (byte-identiek). */
+  splitGaps?: TaskSplitGap[];
+  /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
+   *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het
+   *  SIGNAAL dat de solver ze straks RAUW moet respecteren (geen kalendersnap, geen relatiedruk,
+   *  geen constraint-afdwinging) in plaats van te herrekenen; nog door geen enkele solver-stap
+   *  gelezen. Afwezig/false ⇒ normale (auto-geplande) taak, byte-identiek. */
+  manuallyScheduled?: boolean;
   parentId: string | null; // WBS parent
   childIds: string[];      // WBS children
   time: TaskTime;

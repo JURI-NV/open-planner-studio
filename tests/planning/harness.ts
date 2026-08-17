@@ -194,6 +194,18 @@ interface Case {
     code?: Record<string, string>;
     /** Custom-field-waarde: veldnaam → waarde (fase 2.7 view-cases). */
     field?: Record<string, string | number | boolean>;
+    /** Z0 (etappe "nul afwijkingen"): typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie
+     *  `Task.splitGaps`/`TaskSplitGap` (`src/types/task.ts`). Afwezig ⇒ geen splits (byte-identiek). */
+    splitGaps?: { afterMinutes: number; gapMinutes: number }[];
+    /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.manuallyScheduled`.
+     *  Afwezig ⇒ normale (auto-geplande) taak (byte-identiek). */
+    manuallyScheduled?: boolean;
+    /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.levelingDelayMinutes`.
+     *  Afwezig ⇒ `levelingDelay` (werkdagen) blijft de bron (byte-identiek). */
+    levelingDelayMinutes?: number;
+    /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.levelingDelayElapsed`.
+     *  Afwezig ⇒ WORKTIME (byte-identiek). */
+    levelingDelayElapsed?: boolean;
   }[];
   /** Fase 2.8b (§8.1): `lag` mag een string zijn — "4h"/"90m"/"2d" (via `parseDuration` in de
    *  VOORGANGER-kalender) ⇒ `lagMinutes`; een getal ⇒ `lagDays` (dag-modus, ongewijzigd). `lagMinutes`
@@ -242,6 +254,10 @@ interface TaskExpect {
    *  `durationMinutes` NA de solve — voor hammocks worden deze door de forward-pass HERSCHREVEN
    *  (afgeleide ES→EF-span, zie CPMSolver.ts), dus alleen dáár zinvol te pinnen. */
   scheduleDuration?: number; durationMinutes?: number;
+  /** Z0 (etappe "nul afwijkingen"): doorgifte-bewijs — `Task.manuallyScheduled` bereikt de taak via
+   *  de JSON-case-interpreter. Nog GEEN solver-gedrag (het veld is voorlopig ongebruikt); dit toetst
+   *  uitsluitend dat `buildAndSolve` de waarde daadwerkelijk doorgeeft aan `addTask`. */
+  manuallyScheduled?: boolean;
 }
 
 interface CaseExpect {
@@ -466,6 +482,13 @@ function buildAndSolve(c: Case): {
         })),
       } : {}),
       ...(t.deadline ? { deadline: t.deadline } : {}),
+      // Z0 (etappe "nul afwijkingen"): typecontract-doorgifte — de solver leest deze velden nog
+      // NERGENS (Task.splitGaps/manuallyScheduled/levelingDelayMinutes/levelingDelayElapsed bestaan
+      // alleen als type), dus dit blok bewijst uitsluitend dat de JSON-waarde de taak bereikt.
+      ...(t.splitGaps ? { splitGaps: t.splitGaps } : {}),
+      ...(t.manuallyScheduled !== undefined ? { manuallyScheduled: t.manuallyScheduled } : {}),
+      ...(t.levelingDelayMinutes !== undefined ? { levelingDelayMinutes: t.levelingDelayMinutes } : {}),
+      ...(t.levelingDelayElapsed !== undefined ? { levelingDelayElapsed: t.levelingDelayElapsed } : {}),
     });
     ids[t.name] = id;
     if (t.calendar !== undefined) {
@@ -752,6 +775,8 @@ function readTask(name: string, ids: Record<string, string>) {
     intf: t.time.interferingFloat, nearCrit: t.time.isNearCritical, floatPath: t.time.floatPath,
     // T8: rauw uitgelezen, geen KEYMAP-alias nodig (sleutelnaam == veldnaam).
     scheduleDuration: t.time.scheduleDuration, durationMinutes: t.time.durationMinutes,
+    // Z0: doorgifte-bewijs, zie TaskExpect.manuallyScheduled hierboven.
+    manuallyScheduled: t.manuallyScheduled,
   };
 }
 
@@ -1214,7 +1239,23 @@ const TASK_EXPECT_KEYS = {
   tf: true, ff: true, intf: true,
   crit: true, nearCrit: true, floatPath: true,
   scheduleDuration: true, durationMinutes: true,
+  manuallyScheduled: true,
 } satisfies Record<keyof TaskExpect, true>;
+
+// Z0 (etappe "nul afwijkingen"): vóór deze taak had `Case['tasks'][number]` GEEN allowlist — een
+// typefout in een taaksleutel (bv. "manualyScheduled") viel stil weg via de `...(t.x ? {...} : {})`
+// -spreads in `buildAndSolve` en de casus draaide gewoon door tegen het defaultgedrag, zonder ooit
+// het bedoelde veld te zetten. Zelfde bugklasse als K10b (`CASE_KEYS`/`EXPECT_KEYS`/
+// `TASK_EXPECT_KEYS` hierboven), nu voor de taak-INVOER i.p.v. de taak-VERWACHTING.
+const TASK_KEYS = {
+  name: true, dur: true, start: true, milestone: true, milestoneKind: true,
+  mandatory: true, parent: true, deadline: true, durationType: true,
+  constraint: true, constraint2: true, hammock: true, externalLinks: true,
+  priority: true, durationMinutesRaw: true, remainingMinutes: true, calendar: true,
+  assign: true, completion: true, actualStart: true, actualFinish: true, rawCompletion: true,
+  code: true, field: true,
+  splitGaps: true, manuallyScheduled: true, levelingDelayMinutes: true, levelingDelayElapsed: true,
+} satisfies Record<keyof Case['tasks'][number], true>;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -1231,6 +1272,21 @@ function validateCaseKeys(file: string, raw: unknown, index: number): string[] {
 
   for (const k of Object.keys(raw)) {
     if (!known(CASE_KEYS, k)) errs.push(`${where}: onbekende sleutel "${k}" op casus-niveau`);
+  }
+
+  // Z0: taak-INVOER-sleutels tegen TASK_KEYS — zie de toelichting bij TASK_KEYS hierboven.
+  const rawTasks = raw.tasks;
+  if (rawTasks !== undefined) {
+    if (!Array.isArray(rawTasks)) {
+      errs.push(`${where}: "tasks" is geen array`);
+    } else {
+      rawTasks.forEach((t: unknown, ti: number) => {
+        if (!isPlainObject(t)) { errs.push(`${where}: tasks[${ti}] is geen object`); return; }
+        for (const k of Object.keys(t)) {
+          if (!known(TASK_KEYS, k)) errs.push(`${where}: onbekende sleutel "${k}" in tasks[${ti}]`);
+        }
+      });
+    }
   }
 
   const exp = raw.expect;
