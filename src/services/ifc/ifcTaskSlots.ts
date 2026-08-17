@@ -1,4 +1,4 @@
-import type { Task, TaskTime } from '@/types/task';
+import type { Task, TaskTime, TaskTimeComputed } from '@/types/task';
 import { ifcStr, ifcBool } from './ifcPsets';
 import { DEFAULT_PRIORITY } from './ifcConstants';
 
@@ -169,6 +169,37 @@ export const IFC_TASKTIME_SLOTS: TaskTimeSlot[] = [
   },
 ];
 
+// ── Aanwezigheidsregistratie ────────────────────────────────────────────────────────────────────
+
+/**
+ * De IfcTaskTime-slots die een REKENRESULTAAT dragen in plaats van gebruikersinvoer.
+ *
+ * Gebruikt door de "datums zoals opgeslagen"-functie: alleen voor deze slots is het relevant of het
+ * bestand ze daadwerkelijk vulde. `scheduleStart`/`scheduleFinish` staan er bewust NIET in — die zijn
+ * invoer (het anker waarop de forward pass snapt) en worden apart behandeld. Let op: de writer schrijft
+ * `freeFloat`/`totalFloat`/`isCritical` ALTIJD een waarde (`ifcDuration`/`ifcBool` geven nooit `$`),
+ * dus die drie melden ook "aanwezig" in een bestand waarin nooit gerekend is (0/0/false) — alleen de
+ * vier datumslots kennen een echte lege stand (`ifcDateTime('') → '$'`).
+ *
+ * `satisfies readonly (keyof TaskTimeComputed)[]` koppelt deze lijst compile-time aan de CPM-rol-
+ * partitie in `@/types/task` — dezelfde zeven sleutels als `TaskTimeComputed`, niet toevallig gelijk.
+ * De assert eronder dwingt de andere kant af: mist deze lijst een sleutel die `TaskTimeComputed` wél
+ * heeft (een nieuw CPM-veld), dan faalt de build — anders zou zo'n veld stilzwijgend buiten de
+ * aanwezigheidsregistratie vallen (geen buildfout, alleen een slot dat nooit meer "aanwezig" meldt).
+ */
+export const RECORDED_SLOT_KEYS = [
+  'earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'freeFloat', 'totalFloat', 'isCritical',
+] as const satisfies readonly (keyof TaskTimeComputed)[];
+
+export type RecordedSlotKey = typeof RECORDED_SLOT_KEYS[number];
+
+// Compile-assert (huisstijl src/types/task.ts): een NIEUW CPM-veld moet ook hier landen, anders valt
+// het stil buiten de aanwezigheidsregistratie — geen buildfout, alleen een slot dat nooit meer meldt.
+type _Expect<T extends true> = T;
+type _IsNever<T> = [T] extends [never] ? true : false;
+const _assertAlleRekenslots: _Expect<_IsNever<Exclude<keyof TaskTimeComputed, RecordedSlotKey>>> = true;
+void _assertAlleRekenslots;
+
 // ── IFCTASK ─────────────────────────────────────────────────────────────────────────────────────
 
 /** Vooraf-berekende invoer voor de IFCTASK-write-slots. `guidArg` (ifcStr(ifcGuid(task.id))) en de
@@ -219,19 +250,6 @@ function indexMap(slots: { key: string }[]): Record<string, number> {
 
 /** Naam→arg-index voor de IFCTASKTIME-slots (spec-lay-out). Gebruikt door `applyHourModeIFC`. */
 export const TASKTIME_SLOT = indexMap(IFC_TASKTIME_SLOTS);
-
-/**
- * De IfcTaskTime-slots die een REKENRESULTAAT dragen in plaats van gebruikersinvoer.
- *
- * Gebruikt door de "datums zoals opgeslagen"-functie: alleen voor deze slots is het relevant of het
- * bestand ze daadwerkelijk vulde. `scheduleStart`/`scheduleFinish` staan er bewust NIET in — die zijn
- * invoer (het anker waarop de forward pass snapt) en worden apart behandeld.
- */
-export const RECORDED_SLOT_KEYS = [
-  'earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'freeFloat', 'totalFloat', 'isCritical',
-] as const;
-
-export type RecordedSlotKey = typeof RECORDED_SLOT_KEYS[number];
 
 /** Naam→arg-index voor de IFCTASK-slots (spec-lay-out). `extractTasks` verschuift de post-WorkMethod-
  *  slots met een OFFSET voor de 12-arg-legacy-lay-out. */

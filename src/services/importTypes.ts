@@ -6,6 +6,7 @@ import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { Baseline } from '@/types/baseline';
 import type { CompanyPool } from '@/types/library';
+import type { RecordedSlotKey } from '@/services/ifc/ifcTaskSlots';
 
 /**
  * Eén gedeelde payload-vorm voor een ingelezen project (audit P1). De vier readers (`readIFC`,
@@ -61,5 +62,5 @@ export interface ImportResult {
    *  (`RECORDED_SLOT_KEYS`). Alleen `readIFC` levert dit; CSV/MSPDI/P6/extensie-import kennen geen
    *  IfcTaskTime-slots en laten het weg. Nodig omdat `parseDateFromIFC` een `$`-slot als "vandaag"
    *  inleest — na het parsen is een leeg slot niet meer van een echte datum te onderscheiden. */
-  recordedFields?: Record<string, string[]>;
+  recordedFields?: Record<string, RecordedSlotKey[]>;
 }

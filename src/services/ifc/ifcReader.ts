@@ -19,7 +19,8 @@ import {
 } from './ifcConstants';
 import { PSET, PER_TASK_PSET_BY_NAME } from './ifcPsets';
 import {
-  IFC_TASKTIME_SLOTS, RECORDED_SLOT_KEYS, TASK_SLOT, TASKTIME_SLOT, type TaskTimeReadHelpers,
+  IFC_TASKTIME_SLOTS, RECORDED_SLOT_KEYS, TASK_SLOT, TASKTIME_SLOT,
+  type RecordedSlotKey, type TaskTimeReadHelpers,
 } from './ifcTaskSlots';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import {
@@ -636,8 +637,8 @@ function applyHourModeIFC(
  * contract (`read?(t, arg, p)`) zou voor alle twintig slots moeten wijzigen om deze ene uitkomst
  * naar buiten te krijgen. De arg-index staat via `TASKTIME_SLOT` toch al ter beschikking.
  */
-function recordedSlotsOf(e: StepEntity): string[] {
-  const out: string[] = [];
+function recordedSlotsOf(e: StepEntity): RecordedSlotKey[] {
+  const out: RecordedSlotKey[] = [];
   for (const key of RECORDED_SLOT_KEYS) {
     const arg = e.args[TASKTIME_SLOT[key]];
     if (arg && arg !== '$') out.push(key);
@@ -649,7 +650,7 @@ function extractTasks(
   entities: StepEntity[],
   entityMap: Map<string, StepEntity>,
   baselineTaskStepIds: Set<string> = new Set(),
-): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity>; recordedFields: Record<string, string[]> } {
+): { tasks: Task[]; taskStepIdMap: Map<string, string>; taskTimeEntities: Map<string, StepEntity>; recordedFields: Record<string, RecordedSlotKey[]> } {
   const taskEntities = entities.filter(e => e.type === 'IFCTASK' && !baselineTaskStepIds.has(e.id));
   const tasks: Task[] = [];
   const taskStepIdMap = new Map<string, string>(); // STEP #id -> our task id
@@ -659,7 +660,7 @@ function extractTasks(
   // Aanwezigheidsregistratie voor "datums zoals opgeslagen": per taak-id de rekenslots die het
   // bestand echt vulde. Een taak ZONDER IfcTaskTime krijgt een lege lijst (niet: ontbrekend) —
   // "geen enkel slot gevuld" is een uitspraak, "onbekend" niet.
-  const recordedFields: Record<string, string[]> = {};
+  const recordedFields: Record<string, RecordedSlotKey[]> = {};
 
   for (const te of taskEntities) {
     const id = generateId('task');
@@ -682,20 +683,10 @@ function extractTasks(
 
     // Parse IfcTaskTime reference
     const taskTimeRef = parseRef(te.args[taskTimeIdx] || '');
-    let time: TaskTime;
-    if (taskTimeRef) {
-      const ttEntity = entityMap.get(taskTimeRef);
-      time = ttEntity ? parseTaskTime(ttEntity) : createDefaultTaskTime(formatDate(new Date()), 5);
-      if (ttEntity) {
-        taskTimeEntities.set(id, ttEntity);
-        recordedFields[id] = recordedSlotsOf(ttEntity);
-      } else {
-        recordedFields[id] = [];
-      }
-    } else {
-      time = createDefaultTaskTime(formatDate(new Date()), 5);
-      recordedFields[id] = [];
-    }
+    const ttEntity = taskTimeRef ? entityMap.get(taskTimeRef) : undefined;
+    const time = ttEntity ? parseTaskTime(ttEntity) : createDefaultTaskTime(formatDate(new Date()), 5);
+    if (ttEntity) taskTimeEntities.set(id, ttEntity);
+    recordedFields[id] = ttEntity ? recordedSlotsOf(ttEntity) : [];
 
     const isMilestone = te.args[isMilestoneIdx]?.includes('T') || false;
     if (isMilestone) time.scheduleDuration = 0;

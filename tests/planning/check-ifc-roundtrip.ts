@@ -61,6 +61,7 @@
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
+import { RECORDED_SLOT_KEYS } from '@/services/ifc/ifcTaskSlots';
 import type { Task, TaskTime, ExternalLink } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
@@ -591,6 +592,13 @@ const rt2 = readIFC(writeIFC(rt1));
   const diffs: string[] = [];
   collectDiffs('', canon(expectedInput), canon(rt1), diffs);
   assert(diffs.length === 0, `round-trip-afwijkingen (${diffs.length}):\n${diffs.map(d => `        - ${d}`).join('\n')}`);
+
+  // (1b) De aanwezigheidsregistratie (§9r) rust op de writer-conventie "altijd een waarde, nooit
+  // `$`" voor de rekenslots. Een door OPS zelf geschreven bestand moet dus ALLE zeven rekenslots
+  // als aanwezig melden — schrijft de writer later ooit "alleen wat gezet is" over deze slots heen,
+  // dan zakt "datums zoals opgeslagen" stil terug op herberekenen, met een verder groene suite.
+  assert(rt1.tasks.every(t => (rt1.recordedFields?.[t.id] ?? []).length === RECORDED_SLOT_KEYS.length),
+    '(1b) een door OPS zelf geschreven bestand moet ALLE rekenslots als aanwezig melden');
 }
 
 // (2) Idempotentie: tweede round-trip byte-stabiel t.o.v. de eerste (normalisatie is stabiel).
@@ -731,10 +739,11 @@ const rt2 = readIFC(writeIFC(rt1));
     'zonder TaskGuids-map (oud bestand) moet de remap terugvallen op het herberekenen van de hash');
 }
 
-// ── (9r) Aanwezigheidsregistratie: `$`-rekenslots tellen NIET als opgeslagen datum ────────────────
-// parseDateFromIFC maakt van `$` de datum van VANDAAG. Zonder aanwezigheidsregistratie zou een
-// extern geëxporteerd bestand (alleen ScheduleStart/ScheduleFinish gevuld) er uitzien alsof het
-// early-datums draagt, en zou "datums zoals opgeslagen" het hele project op vandaag zetten.
+// (6) Aanwezigheidsregistratie (issue #63, taak 1: "Aanwezigheid van rekenslots vastleggen in de
+// IFC-lezer"): `$`-rekenslots tellen NIET als opgeslagen datum. parseDateFromIFC maakt van `$` de
+// datum van VANDAAG — zonder aanwezigheidsregistratie zou een extern geëxporteerd bestand (alleen
+// ScheduleStart/ScheduleFinish gevuld) er uitzien alsof het early-datums draagt, en zou "datums
+// zoals opgeslagen" het hele project op vandaag zetten.
 {
   const TT_LEEG = [
     'ISO-10303-21;', 'HEADER;',
@@ -745,15 +754,21 @@ const rt2 = readIFC(writeIFC(rt1));
     // IsCritical) op `$`.
     "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,'2026-03-02','2026-03-06',$,$,$,$,$,$,$,$,$,$,$,$,$);",
     "#2=IFCTASK('g2',$,'Extern A',$,$,'1.1',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    // Taak ZONDER IfcTaskTime-referentie (taskTime-slot op `$`) — moet ook een lege lijst geven,
+    // niet een ontbrekende entry (het contract in extractTasks: "geen slot gevuld" ≠ "onbekend").
+    "#3=IFCTASK('g3',$,'Zonder tijd',$,$,'1.2',$,$,$,.F.,$,$,.CONSTRUCTION.);",
     'ENDSEC;', 'END-ISO-10303-21;',
   ].join('\n');
   const rtLeeg = readIFC(TT_LEEG);
-  assert(rtLeeg.tasks.length === 1, `9r fixture moet precies één taak opleveren — kreeg ${rtLeeg.tasks.length}`);
-  const leegId = rtLeeg.tasks[0].id;
+  assert(rtLeeg.tasks.length === 2, `9r fixture moet precies twee taken opleveren — kreeg ${rtLeeg.tasks.length}`);
+  const leegId = rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.id;
   assert(JSON.stringify(rtLeeg.recordedFields?.[leegId]) === JSON.stringify([]),
     `9r geen rekenslot als aanwezig gemeld — kreeg ${JSON.stringify(rtLeeg.recordedFields?.[leegId])}`);
-  assert(rtLeeg.tasks[0].time.scheduleStart === '2026-03-02',
-    `9r scheduleStart moet gewoon gelezen worden — kreeg ${rtLeeg.tasks[0].time.scheduleStart}`);
+  assert(rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.time.scheduleStart === '2026-03-02',
+    `9r scheduleStart moet gewoon gelezen worden — kreeg ${rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.time.scheduleStart}`);
+  const zonderTijdId = rtLeeg.tasks.find(t => t.wbsCode === '1.2')!.id;
+  assert(JSON.stringify(rtLeeg.recordedFields?.[zonderTijdId]) === JSON.stringify([]),
+    `9r taak zonder IfcTaskTime moet ook een lege lijst geven (niet ontbrekend) — kreeg ${JSON.stringify(rtLeeg.recordedFields?.[zonderTijdId])}`);
 
   // Tegenproef: mét gevulde rekenslots worden ze WEL gemeld (freeFloat blijft bewust `$`, dus die
   // hoort NIET in de lijst — bewijst dat het per-slot en niet per-IfcTaskTime wordt geregistreerd).
