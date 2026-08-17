@@ -46,6 +46,12 @@ dezelfde regel:
   zoals je die op het scherm ziet — niet midden in de selectie, en het maakt niet uit in welke
   volgorde je ze hebt aangeklikt.
 
+Heeft de nieuwe taak daarbij een bovenliggende taak (via selectie, of doordat je **Subtaak
+toevoegen** gebruikt), dan neemt ze ook het **Type** van die ouder over in plaats van de gewone
+standaardwaarde — een nieuwe taak binnen "2. Fundering & ruwbouw" krijgt dus meteen dezelfde
+balkkleur als de rest van die fase. Dat gebeurt alleen op het moment van aanmaken; een bestaande
+taak later inspringen of verslepen laat haar Type met rust.
+
 Dat geldt voor de knop **Taak** en het keuzemenu **Mijlpaal** in de lintgroep **Taken**, en voor
 **Nieuwe taak** in het contextmenu. Die lintgroep staat op het tabblad **Start** én op het tabblad
 **Tabel**, met dezelfde drie knoppen (**Taak**, **Mijlpaal**, **Relatie**), zodat je voor het
