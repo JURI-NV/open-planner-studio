@@ -239,6 +239,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   TTCHECK="$DIR/.task-tree.mjs"
   if bundle_check "$DIR/check-task-tree.ts" "$TTCHECK"; then node "$TTCHECK" || STATUS=1; fi
 
+  # Resource-join-index (K-item 36): `resourceNames` deed twee volledige scans per taak op het pad
+  # dat na iedere mutatie opnieuw loopt. De index die dat oplost introduceert een CACHE, en die
+  # nieuwe faalmodus (verouderde index) is hier het eigenlijke onderwerp.
+  VICHECK="$DIR/.view-index.mjs"
+  if bundle_check "$DIR/check-view-index.ts" "$VICHECK"; then node "$VICHECK" || STATUS=1; fi
+
   # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
   # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
   # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:

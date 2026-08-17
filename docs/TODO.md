@@ -341,6 +341,17 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
 
+### Prestatiegrens publiceren — productbeslissing (2026-08-17)
+- [ ] **Item 36 uit het onderhoudbaarheidsrapport vraagt om een EXPLICIETE grens
+      ("ontworpen tot N taken"), en dat is een productbeslissing.** De mechanische kant is deels
+      gedaan: `flattenOrder` was al gede-kwadrateerd, en de resource-join in `filterEval.ts` heeft
+      sinds K-item 36 een index (gemeten op 800 taken × 60 resources, 20× `recomputeViewRows`:
+      532 ms → 31 ms). Nog open aan de mechanische kant: `workDaysBetween`/`isWorkDay` naar een
+      werkdag-prefixsom per kalender, en het cullen van de pijlenlaag. *Voor de eigenaar:* bepaal
+      tot welke projectomvang de app ondersteund is en publiceer dat; zonder die grens is elke
+      volgende optimalisatie een open einde. Zie ook het openstaande punt over de tweede
+      kwadratische factor bij bulk-mutaties hierboven.
+
 ### Klein — fit en contentbreedte zijn het oneens over een taak zonder finish (2026-08-17)
 - [ ] **`computeFitToProject` valt op de finish-keten terug op de start (`|| s`),
       `computeContentSpanDays` niet.** `ganttViewport.ts` doet
