@@ -83,8 +83,8 @@ import {
   fixedOffsetOf, fixed2OffsetOf, varDataKeyOf,
 } from '@/services/mpp/fieldMap14';
 import {
-  decodeRegularTimephasedWork, decodeIrregularTimephasedWork, hasAnyTimephasedData,
-  type TimephasedWork,
+  decodeRegularTimephasedWork, decodeIrregularTimephasedWork, decodePlannedRegularTimephasedWork, hasAnyTimephasedData,
+  type TimephasedWorkPeriod, type TimephasedIrregularPeriod,
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
 import { createHash } from 'node:crypto';
@@ -3424,33 +3424,86 @@ if (corpusPresent) {
 // Z3 (etappe "nul afwijkingen") — timephased-decoder (`Var2Data` van `TBkndAssn`): een PURE
 // byte-decoder (`mppTimephased.ts`) + de bijbehorende opening/doorgifte in `mppEntities.ts`
 // (`readAssignmentTimephasedRaw`). Geen planningsgedrag, geen datum-effect — zie de moduleheader
-// van `mppTimephased.ts` voor de volledige byteformaat-toelichting en de bewuste vereenvoudiging
-// t.o.v. MPXJ's `TimephasedDataFactory.getCompleteWork` (irregulier/regulier NIET geweven).
+// van `mppTimephased.ts` voor de volledige byteformaat-toelichting (TWEE aparte formaten, Z3-
+// fixronde F1) en de bewuste vereenvoudiging t.o.v. MPXJ (irregulier/regulier NIET geweven,
+// werkminuten i.p.v. kalenderinstants — Z3-fixronde F2).
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 {
   const Z3_REFERENCE_START = new Date('2026-01-05T08:00:00.000Z');
 
-  /** Bouwt een REGULIER timephased-blok: 16-byte header (recordcount@0) + een TOTAAL-record (dat
-   *  altijd wordt overgeslagen — `totalWorkMinutes`/`totalElapsedMinutes` hieronder zijn dus BEWUST
-   *  a-typische waarden, zodat mutatietest 2 een aantoonbaar andere eerste periode oplevert als het
-   *  overslaan zou wegvallen) + N periode-records (cumulatieve waarden, GEEN delta's). */
+  /** Bouwt een REGULIER (Format A) timephased-blok: 16-byte header (recordcount@0) + een TOTAAL-
+   *  record (dat altijd wordt overgeslagen — `totalWorkMinutes`/`totalElapsedMinutes` hieronder
+   *  zijn dus BEWUST a-typische waarden, zodat mutatietest 2 een aantoonbaar andere eerste periode
+   *  oplevert als het overslaan zou wegvallen) + N periode-records (cumulatieve waarden, GEEN
+   *  delta's). `finishTimeRaw` (Z3-fixronde F3(1)) is het RUWE plafond op absolute offset 24 —
+   *  standaard een ruime sentinel (2 miljard) zodat "gewone" fixtures nooit per ongeluk de guard
+   *  raken; de F3(1)-hostile-fixture zet 'm bewust laag. */
   function buildRegularBlock(
-    periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[],
-    opts: { headerCountClaim?: number; totalWorkMinutes?: number; totalElapsedMinutes?: number } = {},
+    periods: { cumulativeWorkRaw: number; cumulativeElapsedRaw: number }[],
+    opts: { headerCountClaim?: number; totalWorkMinutes?: number; totalElapsedMinutes?: number; finishTimeRaw?: number } = {},
   ): Uint8Array {
     const headerCount = opts.headerCountClaim ?? periods.length;
     const out = new Uint8Array(16 + 20 + periods.length * 20);
     const view = new DataView(out.buffer);
     view.setUint16(0, headerCount, true);
     // Totaal-record (fysiek record 0, bytes 16..36) — a-typische waarden (default 999 min werk/
-    // elapsed), zie de docblok-toelichting hierboven.
+    // elapsed), zie de docblok-toelichting hierboven. Offset 24 (binnen dit record, absoluut) is
+    // het F3(1)-finishTime-plafond — RUWE (niet-door-80-gedeelde) eenheid, spiegelt MPXJ's
+    // `getInt(regularData, 24)`.
     view.setFloat64(16, (opts.totalWorkMinutes ?? 999) * 1000, true);
+    view.setInt32(24, opts.finishTimeRaw ?? 2_000_000_000, true);
     view.setInt32(16 + 16, (opts.totalElapsedMinutes ?? 999) * 80, true);
     periods.forEach((p, i) => {
       const offset = 36 + i * 20;
-      view.setFloat64(offset, p.cumulativeWorkMinutes * 1000, true);
-      view.setInt32(offset + 16, p.cumulativeElapsedMinutes * 80, true);
+      view.setFloat64(offset, p.cumulativeWorkRaw, true);
+      view.setInt32(offset + 16, p.cumulativeElapsedRaw, true);
     });
+    return out;
+  }
+
+  /** Gemaksvariant van `buildRegularBlock` voor de "normale" fixtures — werkt in MINUTEN (niet
+   *  ruwe eenheden), spaart de `×1000`/`×80`-omrekening op elke aanroepplek uit. */
+  function buildRegularBlockMinutes(
+    periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[],
+    opts: { headerCountClaim?: number } = {},
+  ): Uint8Array {
+    return buildRegularBlock(
+      periods.map((p) => ({ cumulativeWorkRaw: p.cumulativeWorkMinutes * 1000, cumulativeElapsedRaw: p.cumulativeElapsedMinutes * 80 })),
+      opts,
+    );
+  }
+
+  /** Bouwt een PLANNED/REMAINING (Format B) timephased-blok voor het `blockCount ≥ 1`-geval:
+   *  16-byte header (blockCount@0) + een 28-byte summary-blok (overgeslagen, a-typische waarden
+   *  net als hierboven) + N periode-blokken van 28 bytes (cumulatief werk @0, elapsed @24 — LET OP
+   *  de andere offset dan Format A). */
+  function buildPlannedBlock(
+    periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[],
+    opts: { headerCountClaim?: number } = {},
+  ): Uint8Array {
+    const headerCount = opts.headerCountClaim ?? periods.length;
+    const out = new Uint8Array(16 + 28 + periods.length * 28);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, headerCount, true);
+    // Summary-blok (fysiek blok 0, bytes 16..44) — a-typische waarden zodat een "vergeet het
+    // summary-blok over te slaan"-fout een aantoonbaar andere eerste periode zou geven.
+    view.setFloat64(16, 999 * 1000, true);
+    view.setInt32(16 + 24, 999 * 80, true);
+    periods.forEach((p, i) => {
+      const offset = 44 + i * 28;
+      view.setFloat64(offset, p.cumulativeWorkMinutes * 1000, true);
+      view.setInt32(offset + 24, p.cumulativeElapsedMinutes * 80, true);
+    });
+    return out;
+  }
+
+  /** Bouwt een PLANNED/REMAINING-blok voor het `blockCount === 0`-speciale geval: 16-byte header
+   *  (blockCount=0@0) + 8-byte cumulatief-werkveld@16 (totale werk voor de hele toewijzing). */
+  function buildPlannedSummaryOnlyBlock(totalWorkMinutes: number): Uint8Array {
+    const out = new Uint8Array(24);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, 0, true);
+    view.setFloat64(16, totalWorkMinutes * 1000, true);
     return out;
   }
 
@@ -3473,9 +3526,11 @@ if (corpusPresent) {
   }
 
   // ── 1(a) — drie regelmatige records met bekende cumulatieve waarden → exact de verwachte lijst.
-  // Elke periode: 480 werk-minuten (één 8-uurs werkdag) over 480 verstreken minuten (geen gat). ──
+  // Elke periode: 480 werk-minuten (één 8-uurs werkdag) over 480 verstreken werkminuten (geen gat).
+  // `elapsedWorkMinutesStart`/`End` zijn het PRIMAIRE veld (Z3-fixronde F2) — `approxStart`/
+  // `approxFinish` de 24/7-klokprojectie, hier apart getoetst zodat beide velden gedekt zijn. ────
   {
-    const block = buildRegularBlock([
+    const block = buildRegularBlockMinutes([
       { cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 480 },
       { cumulativeWorkMinutes: 960, cumulativeElapsedMinutes: 960 },
       { cumulativeWorkMinutes: 1440, cumulativeElapsedMinutes: 1440 },
@@ -3489,9 +3544,11 @@ if (corpusPresent) {
     ];
     expected.forEach((e, i) => {
       const entry = result[i];
-      truthy(`[Z3 1a] periode ${i}: start`, !!entry && entry.start.getTime() === Z3_REFERENCE_START.getTime() + e.startMin * 60_000);
-      truthy(`[Z3 1a] periode ${i}: finish`, !!entry && entry.finish.getTime() === Z3_REFERENCE_START.getTime() + e.finishMin * 60_000);
+      truthy(`[Z3 1a] periode ${i}: elapsedWorkMinutesStart`, !!entry && entry.elapsedWorkMinutesStart === e.startMin);
+      truthy(`[Z3 1a] periode ${i}: elapsedWorkMinutesEnd`, !!entry && entry.elapsedWorkMinutesEnd === e.finishMin);
       truthy(`[Z3 1a] periode ${i}: workMinutes === ${e.work}`, !!entry && entry.workMinutes === e.work);
+      truthy(`[Z3 1a] periode ${i}: approxStart`, !!entry && entry.approxStart.getTime() === Z3_REFERENCE_START.getTime() + e.startMin * 60_000);
+      truthy(`[Z3 1a] periode ${i}: approxFinish`, !!entry && entry.approxFinish.getTime() === Z3_REFERENCE_START.getTime() + e.finishMin * 60_000);
     });
   }
 
@@ -3500,7 +3557,7 @@ if (corpusPresent) {
   // herkent. Periode 1: 240min werk/240min elapsed. Periode 2 (GAT): 0min werk/120min elapsed
   // (cumulatief blijft dus 240 werk, elapsed loopt door naar 360). Periode 3: 300min werk verder. ─
   {
-    const block = buildRegularBlock([
+    const block = buildRegularBlockMinutes([
       { cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 240 },
       { cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 360 },
       { cumulativeWorkMinutes: 540, cumulativeElapsedMinutes: 660 },
@@ -3509,8 +3566,123 @@ if (corpusPresent) {
     truthy('[Z3 1b] 3 periodes gedecodeerd (gat NIET weggefilterd)', result.length === 3);
     truthy('[Z3 1b] periode 0: workMinutes === 240', result[0]?.workMinutes === 240);
     truthy('[Z3 1b] periode 1 (GAT): workMinutes === 0', result[1]?.workMinutes === 0);
-    truthy('[Z3 1b] periode 1 (GAT): toch een reële tijdspanne (120 min elapsed)', result[1] && result[1].finish.getTime() - result[1].start.getTime() === 120 * 60_000);
+    truthy(
+      '[Z3 1b] periode 1 (GAT): toch een reële werktijdspanne (120 min elapsed)',
+      !!result[1] && result[1].elapsedWorkMinutesEnd - result[1].elapsedWorkMinutesStart === 120,
+    );
     truthy('[Z3 1b] periode 2: workMinutes === 300', result[2]?.workMinutes === 300);
+  }
+
+  // ── F3(2) — werk-afronding (truncatie ván het verschil + secondenafronding, letterlijk uit
+  // MPXJ's `getCompleteWork`). TWEE ONAFHANKELIJKE mechanismen, elk met een EIGEN, mutatie-
+  // onderscheidend bewijs (mutatietesten in de fixronde bevestigden dat één fixture ze niet allebei
+  // kan bewijzen — een residu klein genoeg om alleen door afronding gemaskeerd te worden, wordt
+  // NOOIT door truncatie geraakt, en omgekeerd): ──────────────────────────────────────────────────
+  {
+    // (i) TRUNCATIE bewijsbaar apart van afronding: de RUWE cumulatieve-werk-DOUBLE wordt eerst
+    // met `Math.trunc` afgekapt VÓÓRDAT het verschil met de vorige periode genomen wordt. Gekozen
+    // zodat het GETRUNCEERDE verschil (9 − 0 = 9 → 0,54s → rondt naar BOVEN naar 1s) een ANDERE
+    // afgeronde seconde geeft dan het ONGETRUNCEERDE verschil (9,32 − 0,99 = 8,33 → 0,4998s →
+    // rondt naar BENEDEN naar 0s) — puur afronden zonder truncatie zou dus een ANDER resultaat
+    // geven, mutatiebewijs in het commitbericht.
+    const truncationBlock = buildRegularBlock([
+      { cumulativeWorkRaw: 0.99, cumulativeElapsedRaw: 100 * 80 },
+      { cumulativeWorkRaw: 9.32, cumulativeElapsedRaw: 200 * 80 },
+    ]);
+    const truncationResult = decodeRegularTimephasedWork(truncationBlock, Z3_REFERENCE_START, 'Z3-F3b-truncation');
+    truthy(
+      '[Z3 F3b] truncatie: workMinutes === 1/60 (getrunceerd verschil 9−0=9 → 0,54s → naar boven afgerond), NIET 0 (het ongetrunceerde verschil 8,33 zou naar beneden afronden)',
+      truncationResult[1]?.workMinutes === 1 / 60,
+    );
+
+    // (ii) SECONDENAFRONDING bewijsbaar apart van truncatie: een RESIDU dat na truncatie nog
+    // steeds een reëel (niet-nul) verschil geeft, maar te klein is voor een halve seconde (< 8,33
+    // in 1000sten), moet als EXACT 0 uitkomen — dat is precies Z4's gat-detectiegrens
+    // (`workMinutes === 0`). Verschil hier: 8004 − 8000 = 4 (in 1000sten) = 0,004 min = 0,24s →
+    // rondt naar 0s. Zónder afronding zou dit een piepklein POSITIEF getal blijven (0,004 min),
+    // wat Z4's exacte `=== 0`-vergelijk zou missen.
+    const roundingNearZeroBlock = buildRegularBlock([
+      { cumulativeWorkRaw: 8000, cumulativeElapsedRaw: 100 * 80 },
+      { cumulativeWorkRaw: 8004, cumulativeElapsedRaw: 200 * 80 },
+    ]);
+    const roundingNearZeroResult = decodeRegularTimephasedWork(roundingNearZeroBlock, Z3_REFERENCE_START, 'Z3-F3b-rounding-nearzero');
+    truthy(
+      '[Z3 F3b] secondenafronding: klein reëel residu (0,004 min = 0,24s) komt uit als EXACT workMinutes === 0, niet als 0,004 (Z4 s gat-detectie hangt op exacte 0)',
+      roundingNearZeroResult[1]?.workMinutes === 0,
+    );
+
+    // Rondingspariteit (algemene correctheid, onafhankelijk geformuleerd): een niet-geheel-getal
+    // delta wordt afgerond op de dichtstbijzijnde SECONDE — spiegelt MPXJ's `roundMinutesToSeconds`
+    // (dezelfde formule hier onafhankelijk toegepast op de RUWE delta om het testresultaat te
+    // bepalen, geen circulaire aanname: het bewijst dat de decoder exact déze formule gebruikt).
+    const rawDelta = 480030; // 480,03 minuten vóór afronding
+    const expectedWorkMinutes = Math.round((rawDelta / 1000) * 60) / 60;
+    const roundingBlock = buildRegularBlock([
+      { cumulativeWorkRaw: 0, cumulativeElapsedRaw: 100 * 80 },
+      { cumulativeWorkRaw: rawDelta, cumulativeElapsedRaw: 200 * 80 },
+    ]);
+    const roundingResult = decodeRegularTimephasedWork(roundingBlock, Z3_REFERENCE_START, 'Z3-F3b-rounding');
+    truthy(
+      `[Z3 F3b] rondingspariteit: workMinutes === ${expectedWorkMinutes} (afgerond op de seconde, niet ${rawDelta / 1000})`,
+      roundingResult[1]?.workMinutes === expectedWorkMinutes,
+    );
+  }
+
+  // ── F3(1) — finishTime-sanity-plafond: een RUWE elapsed-waarde die absurd groter is dan het
+  // plafond (`finishTimeRaw`) wordt op 0 gezet i.p.v. gedeeld door 80 (spiegelt MPXJ's `elapsed
+  // < 0 || elapsed > finishTime ⇒ 0`-guard). Periode 0: normale 240 werkminuten (binnen het
+  // plafond van 240×80=19200). Periode 1: RUWE elapsed 2 miljard (absurd, corrupt record) tegen
+  // een plafond van slechts 19200 — de guard zet 'm op 0, waardoor periode 1's WERKtijdspanne
+  // (0 − 240 = −240) ontaard/negatief wordt en dus wordt overgeslagen (geen absurde 47-jarige
+  // periode) — zónder de guard zou periode 1 een elapsed van 2.000.000.000/80 = 25.000.000
+  // minuten (~47,5 jaar) opleveren. ───────────────────────────────────────────────────────────
+  {
+    const block = buildRegularBlock(
+      [
+        { cumulativeWorkRaw: 240_000, cumulativeElapsedRaw: 240 * 80 },
+        { cumulativeWorkRaw: 300_000, cumulativeElapsedRaw: 2_000_000_000 },
+      ],
+      { finishTimeRaw: 240 * 80 },
+    );
+    const result = decodeRegularTimephasedWork(block, Z3_REFERENCE_START, 'Z3-F3a-finishtime');
+    truthy('[Z3 F3a] periode 0 (binnen het plafond) blijft normaal: 1 periode gedecodeerd (periode 1 door de guard ontaard/overgeslagen)', result.length === 1);
+    truthy('[Z3 F3a] periode 0: workMinutes === 240', result[0]?.workMinutes === 240);
+    truthy('[Z3 F3a] periode 0: elapsedWorkMinutesEnd === 240 (niet 25.000.000 — de guard ving de corrupte periode 1 af)', result[0]?.elapsedWorkMinutesEnd === 240);
+  }
+
+  // ── F1 — PLANNED/REMAINING-decoder (Format B, 28-byte, `blockCount ≥ 1`): drie periodes met
+  // bekende cumulatieve waarden → exact de verwachte lijst. Zelfde structuur als 1(a) maar op het
+  // ANDERE formaat (28-byte records, elapsed op offset 24 i.p.v. 16, geen finishTime-guard, geen
+  // `(long)`-truncatie op het werkveld — zie mppTimephased.ts se moduleheader). ──────────────────
+  {
+    const block = buildPlannedBlock([
+      { cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 480 },
+      { cumulativeWorkMinutes: 960, cumulativeElapsedMinutes: 960 },
+      { cumulativeWorkMinutes: 1440, cumulativeElapsedMinutes: 1440 },
+    ]);
+    const result = decodePlannedRegularTimephasedWork(block, Z3_REFERENCE_START, undefined, 'Z3-F1-planned');
+    truthy('[Z3 F1] 3 periodes gedecodeerd (28-byte-model)', result.length === 3);
+    const expected = [
+      { startMin: 0, finishMin: 480, work: 480 },
+      { startMin: 480, finishMin: 960, work: 480 },
+      { startMin: 960, finishMin: 1440, work: 480 },
+    ];
+    expected.forEach((e, i) => {
+      const entry = result[i];
+      truthy(`[Z3 F1] periode ${i}: elapsedWorkMinutesStart`, !!entry && entry.elapsedWorkMinutesStart === e.startMin);
+      truthy(`[Z3 F1] periode ${i}: elapsedWorkMinutesEnd`, !!entry && entry.elapsedWorkMinutesEnd === e.finishMin);
+      truthy(`[Z3 F1] periode ${i}: workMinutes === ${e.work}`, !!entry && entry.workMinutes === e.work);
+    });
+
+    // blockCount===0-geval: één samenvattend record, alleen decodeerbaar mét referenceFinish.
+    const summaryOnly = buildPlannedSummaryOnlyBlock(600);
+    const referenceFinish = new Date(Z3_REFERENCE_START.getTime() + 600 * 60_000);
+    const withoutFinish = decodePlannedRegularTimephasedWork(summaryOnly, Z3_REFERENCE_START, undefined, 'Z3-F1-blockcount0-no-finish');
+    truthy('[Z3 F1] blockCount===0 ZONDER referenceFinish ⇒ lege lijst (gedocumenteerde beperking, geen aanname)', withoutFinish.length === 0);
+    const withFinish = decodePlannedRegularTimephasedWork(summaryOnly, Z3_REFERENCE_START, referenceFinish, 'Z3-F1-blockcount0-finish');
+    truthy('[Z3 F1] blockCount===0 MET referenceFinish ⇒ 1 samenvattend record', withFinish.length === 1);
+    truthy('[Z3 F1] blockCount===0: workMinutes === 600 (het totale werk)', withFinish[0]?.workMinutes === 600);
+    truthy('[Z3 F1] blockCount===0: approxStart === referenceStart, approxFinish === referenceFinish', withFinish[0]?.approxStart.getTime() === Z3_REFERENCE_START.getTime() && withFinish[0]?.approxFinish.getTime() === referenceFinish.getTime());
   }
 
   // ── 1(c) — irregulier blok: twee records, elk met een bekende start/eind-timestamp. workMinutes
@@ -3539,9 +3711,10 @@ if (corpusPresent) {
   // allocatie op basis van de ongevalideerde count. Regulier blok: header claimt 50.000 records,
   // fysiek is er ruimte voor precies 2 (16+20+2×20=76 bytes) → structureel geklemd naar 2, geen
   // exceptie, en snel (geen poging tot 50.000 iteraties). Irregulier blok: header claimt 40.000,
-  // fysiek ruimte voor 1 (16+8=24 bytes). ──────────────────────────────────────────────────────
+  // fysiek ruimte voor 1 (16+8=24 bytes). Planned blok: header claimt 40.000 blocks, fysiek ruimte
+  // voor 2 (16+28+2×28=100 bytes). ────────────────────────────────────────────────────────────
   {
-    const hostileRegular = buildRegularBlock(
+    const hostileRegular = buildRegularBlockMinutes(
       [
         { cumulativeWorkMinutes: 100, cumulativeElapsedMinutes: 100 },
         { cumulativeWorkMinutes: 150, cumulativeElapsedMinutes: 150 },
@@ -3550,7 +3723,7 @@ if (corpusPresent) {
     );
     const start = Date.now();
     let threwRegular = false;
-    let regularResult: TimephasedWork[] = [];
+    let regularResult: TimephasedWorkPeriod[] = [];
     try {
       regularResult = decodeRegularTimephasedWork(hostileRegular, Z3_REFERENCE_START, 'Z3-1d-regular');
     } catch {
@@ -3566,7 +3739,7 @@ if (corpusPresent) {
       40_000,
     );
     let threwIrregular = false;
-    let irregularResult: TimephasedWork[] = [];
+    let irregularResult: TimephasedIrregularPeriod[] = [];
     try {
       irregularResult = decodeIrregularTimephasedWork(hostileIrregular, 'Z3-1d-irregular');
     } catch {
@@ -3574,14 +3747,33 @@ if (corpusPresent) {
     }
     truthy('[Z3 1d] hostile irregulier: geen exceptie', !threwIrregular);
     truthy('[Z3 1d] hostile irregulier: geklemd naar de structureel mogelijke 1 record (niet 40.000)', irregularResult.length === 1);
+
+    const hostilePlanned = buildPlannedBlock(
+      [
+        { cumulativeWorkMinutes: 100, cumulativeElapsedMinutes: 100 },
+        { cumulativeWorkMinutes: 150, cumulativeElapsedMinutes: 150 },
+      ],
+      { headerCountClaim: 40_000 },
+    );
+    let threwPlanned = false;
+    let plannedResult: TimephasedWorkPeriod[] = [];
+    try {
+      plannedResult = decodePlannedRegularTimephasedWork(hostilePlanned, Z3_REFERENCE_START, undefined, 'Z3-1d-planned');
+    } catch {
+      threwPlanned = true;
+    }
+    truthy('[Z3 1d] hostile planned: geen exceptie', !threwPlanned);
+    truthy('[Z3 1d] hostile planned: geklemd naar de structureel mogelijke 2 records (niet 40.000)', plannedResult.length === 2);
   }
 
   // ── Rode-pad-fixtures (hardening-checklist: elke nieuwe try/catch krijgt een eigen bewijs) ───
   {
     truthy('[Z3 rood] data === null (regulier) ⇒ lege lijst, geen exceptie', decodeRegularTimephasedWork(null, Z3_REFERENCE_START).length === 0);
     truthy('[Z3 rood] data === null (irregulier) ⇒ lege lijst, geen exceptie', decodeIrregularTimephasedWork(null).length === 0);
+    truthy('[Z3 rood] data === null (planned) ⇒ lege lijst, geen exceptie', decodePlannedRegularTimephasedWork(null, Z3_REFERENCE_START).length === 0);
     truthy('[Z3 rood] data te kort voor zelfs het totaal-record (regulier) ⇒ lege lijst', decodeRegularTimephasedWork(new Uint8Array(20), Z3_REFERENCE_START).length === 0);
     truthy('[Z3 rood] data te kort voor de header (irregulier) ⇒ lege lijst', decodeIrregularTimephasedWork(new Uint8Array(8)).length === 0);
+    truthy('[Z3 rood] data te kort voor het summary-werkveld (planned) ⇒ lege lijst', decodePlannedRegularTimephasedWork(new Uint8Array(20), Z3_REFERENCE_START).length === 0);
   }
 
   // ── AssignmentTimephasedRaw / readAssignmentTimephasedRaw — synthetische CFB-fixture: één
@@ -3724,6 +3916,17 @@ if (corpusPresent) {
     let filesWithTimephasedData = 0;
     let assignmentsWithTimephasedData = 0;
     const foundHashes = new Set<string>();
+    // Z3-fixronde (F4): per-CATEGORIE telling — de vier categorieën hebben verschillende
+    // byteformaten (F1) en dus verschillende maxima; ze in één getal mengen suggereert een gedeeld
+    // formaat dat niet bestaat. `decodedNonEmpty` bewijst dat de F1-fix `remainingRegularWork`
+    // daadwerkelijk decodeert i.p.v. stil `[]` (de kern van de fixronde-bevinding).
+    const perCategory = {
+      actualRegularWork: { present: 0, decodedNonEmpty: 0 },
+      actualOvertimeWork: { present: 0, decodedNonEmpty: 0 },
+      actualIrregularWork: { present: 0, decodedNonEmpty: 0 },
+      remainingRegularWork: { present: 0, decodedNonEmpty: 0 },
+    };
+    const decodeRef = new Date('2026-01-01T00:00:00.000Z');
     for (const root of [Z3_CORPUS, Z3_CRAWL]) {
       if (!existsSync(root)) continue;
       for (const file of listMppFilesRecursiveZ3(root)) {
@@ -3742,9 +3945,29 @@ if (corpusPresent) {
           filesScanned++;
           let hasAny = false;
           for (const entry of raw.values()) {
-            if (hasAnyTimephasedData(entry)) {
-              hasAny = true;
-              assignmentsWithTimephasedData++;
+            if (!hasAnyTimephasedData(entry)) continue;
+            hasAny = true;
+            assignmentsWithTimephasedData++;
+            if (entry.actualRegularWork) {
+              perCategory.actualRegularWork.present++;
+              if (decodeRegularTimephasedWork(entry.actualRegularWork, decodeRef).length > 0) perCategory.actualRegularWork.decodedNonEmpty++;
+            }
+            if (entry.actualOvertimeWork) {
+              perCategory.actualOvertimeWork.present++;
+              if (decodeRegularTimephasedWork(entry.actualOvertimeWork, decodeRef).length > 0) perCategory.actualOvertimeWork.decodedNonEmpty++;
+            }
+            if (entry.actualIrregularWork) {
+              perCategory.actualIrregularWork.present++;
+              if (decodeIrregularTimephasedWork(entry.actualIrregularWork).length > 0) perCategory.actualIrregularWork.decodedNonEmpty++;
+            }
+            if (entry.remainingRegularWork) {
+              perCategory.remainingRegularWork.present++;
+              // referenceFinish altijd meegeven (blockCount===0 domineert dit corpus — 3218/3298
+              // gemeten, zie limits.ts's meetcommentaar) zodat deze telling het REALISTISCHE
+              // Z4/Z8-gebruikspatroon meet (beide ankerpunten beschikbaar), niet het kunstmatig
+              // pessimistische "zonder referenceFinish"-pad.
+              const dummyFinish = new Date(decodeRef.getTime() + 60 * 60_000);
+              if (decodePlannedRegularTimephasedWork(entry.remainingRegularWork, decodeRef, dummyFinish).length > 0) perCategory.remainingRegularWork.decodedNonEmpty++;
             }
           }
           if (hasAny) {
@@ -3761,6 +3984,13 @@ if (corpusPresent) {
       console.log(`OK  mpp-import: Z3 corpusbrede timephased-telling (${Z3_CORPUS} / ${Z3_CRAWL}) niet aanwezig — overgeslagen`);
     } else {
       truthy(`[Z3 corpustelling] minstens 1 bestand gescand (kreeg ${filesScanned})`, filesScanned > 0);
+      // F1-regressiepoort: vóór de fixronde gaf `remainingRegularWork` altijd `[]` (20-byte-model
+      // op 28-byte-data) — deze assert bewaakt dat de meerderheid nu daadwerkelijk decodeert.
+      truthy(
+        `[Z3 F1-poort] remainingRegularWork decodeert nu ECHTE records voor de meerderheid (${perCategory.remainingRegularWork.decodedNonEmpty}/${perCategory.remainingRegularWork.present})`,
+        perCategory.remainingRegularWork.present > 0
+          && perCategory.remainingRegularWork.decodedNonEmpty / perCategory.remainingRegularWork.present > 0.5,
+      );
       if (knownTimephasedHashes.size > 0) {
         const missing = [...knownTimephasedHashes].filter((h) => !foundHashes.has(h));
         truthy(
@@ -3773,6 +4003,13 @@ if (corpusPresent) {
         `OK  mpp-import: Z3 corpusbrede timephased-telling — ${filesScanned} bestand(en) gescand (${filesFailed} onleesbaar/overgeslagen), `
         + `${filesWithTimephasedData} bestand(en) met ≥1 toewijzing met timephased-data (${assignmentsWithTimephasedData} toewijzingen totaal), `
         + `${knownTimephasedHashes.size} bekend uit de fidelity-baseline (overlap hierboven getoetst)`,
+      );
+      console.log(
+        '   . [Z3 per-categorie] '
+        + `actualRegularWork ${perCategory.actualRegularWork.present} aanwezig/${perCategory.actualRegularWork.decodedNonEmpty} gedecodeerd, `
+        + `actualOvertimeWork ${perCategory.actualOvertimeWork.present}/${perCategory.actualOvertimeWork.decodedNonEmpty}, `
+        + `actualIrregularWork ${perCategory.actualIrregularWork.present}/${perCategory.actualIrregularWork.decodedNonEmpty}, `
+        + `remainingRegularWork ${perCategory.remainingRegularWork.present}/${perCategory.remainingRegularWork.decodedNonEmpty} (Format B, F1-fix)`,
       );
     }
   }
