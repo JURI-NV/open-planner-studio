@@ -259,10 +259,13 @@ function siblingIdsOf(tasks: Task[], parentId: string | null): string[] {
  * al-berekende finish (`earlyFinish` — bij een verse taak byte-identiek aan `scheduleFinish`, ná een
  * `runCPM` de laatst getoonde Gantt-datum): dat is precies wat MS Project zelf doet ("Mark on Track"/
  * 100%-invullen zonder statusdatum kopieert de GEPLANDE datums naar de actuals, nooit de kalenderdag
- * van vandaag). Zie `check-task-slice.ts`'s `prog-h1-geen-teleport-naar-vandaag`-case voor het
- * mutatiebewijs (terugzetten naar `formatDate(new Date())` laat die case rood uitslaan — behalve
- * toevallig op de dag dat de test draait, vandaar dat de case een DATUM VER IN HET VERLEDEN gebruikt
- * die nooit met "vandaag" kan samenvallen).
+ * van vandaag). Zie `check-task-slice.ts`'s `prog-h1-geen-teleport-naar-vandaag`-case (B1, Opus-
+ * her-check) voor het mutatiebewijs: een taak-anker in 2015 (ver vóór elke plausibele testdatum),
+ * zodat de vandaag-fallback nooit toevallig met de verwachting kan samenvallen. Terugzetten naar
+ * `formatDate(new Date())` laat die case rood uitslaan; dezelfde bundel pint ook dat `scheduleStale`
+ * altijd gezet wordt (`prog-h1-stale-zonder-statusdatum`) — de `stale: !!s.project.statusDate`-poort
+ * terugzetten in `setTaskProgress`/`setActualStart`/`setActualFinish` laat exact díé asserts rood
+ * uitslaan.
  */
 export function applyProgressInvariants(task: Task, statusDate: string | undefined): void {
   const time = task.time;
@@ -1142,6 +1145,17 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       if (!task) return;
       // Actuals liggen nooit ná de statusdatum: weigeren i.p.v. stil klemmen (§3.2, BESLIST).
       // Weigering pusht GÉÉN snapshot (return vóór beginUndoable) — ongewijzigd gedrag.
+      //
+      // BEKENDE BEPERKING (B4-nasleep, Opus-her-check T15-fixronde, gevonden maar NIET gefixt): dit
+      // vergelijkt RUWE ISO-strings, niet geparste instanten. Een uur-precieze `date` (bv.
+      // "2026-07-06T08:00") is dan lexicografisch altijd "groter" dan een datumloze `statusDate` op
+      // DEZELFDE dag (bv. "2026-07-06") — de langere string wint altijd, ongeacht de klokstand —
+      // dus zo'n actualStart/actualFinish wordt hier STIL geweigerd, ook als de klokstand ruim vóór
+      // de (impliciete middernacht-)statusdatum ligt. Vóór T15/B4 was dit onzichtbaar: de daardoor
+      // terugvallende, datumloze actualStart (via `setTaskProgress`'s `completion>0`-fallback) werd
+      // door `CPMSolver`'s `snapOnOrAfter` toch weer naar een plausibele werk-instant gesnapt —
+      // dezelfde soort maskering als B2 bij `relationMath.ts`. Eigen taak: vergelijk
+      // `parseInstant(date)`/`parseInstant(statusDate)` i.p.v. de rauwe strings.
       if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualStart = date || undefined;
@@ -1158,6 +1172,9 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
+      // Zelfde BEKENDE BEPERKING als `setActualStart` hierboven (B4-nasleep, Opus-her-check
+      // T15-fixronde): rauwe-string-vergelijking, geen geparste instanten — een uur-precieze `date`
+      // op dezelfde dag als een datumloze `statusDate` wordt hier ten onrechte geweigerd.
       if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualFinish = date || undefined;

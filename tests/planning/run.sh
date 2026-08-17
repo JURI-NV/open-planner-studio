@@ -243,6 +243,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MTCHECK="$DIR/.move-task-check.mjs"
   if bundle_check "$DIR/check-move-task.ts" "$MTCHECK"; then node "$MTCHECK" || STATUS=1; fi
 
+  # H1 (Opus-review T15-fixronde, B1-BLOKKER): store-niveau-bewijs dat `applyProgressInvariants`
+  # (taskSlice.ts) een 100%-taak zonder statusdatum op haar EIGEN geplande finish pint, niet op
+  # "vandaag" — en dat scheduleStale altijd gezet wordt, ook zonder statusdatum.
+  TSCHECK="$DIR/.task-slice-check.mjs"
+  if bundle_check "$DIR/check-task-slice.ts" "$TSCHECK"; then node "$TSCHECK" || STATUS=1; fi
+
   # Documentcontract-checks (audit P10, F1/F3 — key-gedreven capture/hydrate/reset, Snapshot-subset,
   # B3-regressie, recovery-round-trip; headless tegen de echte store, los van de CPM-cases).
   DCCHECK="$DIR/.document-contract-check.mjs"
