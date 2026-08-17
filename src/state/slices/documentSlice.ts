@@ -13,6 +13,7 @@ import {
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import { resetUndoCoalescing } from '../transaction';
 import { documentTitle, untitledOrdinals } from '@/utils/documents';
+import { solveProject, cloneTasksForSolve } from '@/engine/scheduler/solveProject';
 
 // Het documentcontract (payload-vorm + capture/hydrate/fresh) woont nu in `../documentContract`
 // (audit P10). Hier blijft alleen de multi-document back-end (registry, switchen, sluiten,
@@ -96,6 +97,19 @@ export interface DocumentSlice {
   getOpenDocumentPayloads: () => { id: string; payload: DocumentPayload }[];
   /** Herstel meerdere documenten na een crash; vervangt de huidige set volledig. */
   restoreDocuments: (docs: RecoveryDocInput[], activeId: string | null) => void;
+  /** Reken elk NIET-ACTIEF geopend document met een verouderde planning (`payload.scheduleStale`)
+   *  écht door en schrijf de uitkomst in zijn payload terug — het terugschrijfbesluit van B1b
+   *  §4.3b. Geeft het aantal bijgewerkte documenten terug (0 ⇒ er is niets gemuteerd).
+   *
+   *  Wordt uitsluitend aangeroepen wanneer de gebruiker "Automatisch berekenen"
+   *  (`ui.autoCalcCPM`) aan heeft staan: dan mag een leesvenster zijn documenten bijwerken. In de
+   *  handmatige modus (de default, kernontwerp "manual, not reactive") blijft het bezettings-
+   *  overzicht efemeer doorrekenen en raakt het geen enkele payload aan.
+   *
+   *  Semantiek spiegelt `runCPM`: géén undo-snapshot en `isDirty` blijft ongemoeid (een
+   *  doorrekening is afgeleide data, geen bewerking). Het ACTIEVE document valt hier bewust buiten
+   *  — dat heeft zijn eigen pad (`useAutoCalcCPM` → `runCPM`, ~100 ms). */
+  recalculateStaleSleepingDocuments: () => number;
 }
 
 /**
@@ -384,5 +398,61 @@ export const createDocumentSlice: AppSlice<DocumentSlice> = (set, get) => ({
       sequences: active.sequences.length,
       resources: active.resources.length,
     });
+  },
+
+  recalculateStaleSleepingDocuments: () => {
+    const state = get();
+    // Fase 1 — rekenen BUITEN de producer. `solveProject` muteert de takenlijst die het krijgt, dus
+    // het rekent op een KLOON van de payload-taken (`cloneTasksForSolve` kopieert precies het
+    // `time`-blok dat solver en `applyCpmResult` schrijven). Die kloon is ook wat we straks
+    // terugschrijven: de payload-taken zelf blijven tot dat moment onaangeraakt, zodat een mislukte
+    // solve niets halfs achterlaat.
+    const updates: { id: string; payload: DocumentPayload }[] = [];
+    for (const entry of state.documents) {
+      if (entry.id === state.activeDocumentId) continue; // eigen pad (useAutoCalcCPM → runCPM).
+      const payload = entry.payload;
+      if (!payload || !payload.scheduleStale) continue;
+
+      let next: DocumentPayload;
+      try {
+        const tasks = cloneTasksForSolve(payload.tasks);
+        // Exact dezelfde reken-kern (en dezelfde opties) die `runCPM` op het actieve document
+        // draait — pariteit by construction, geen tweede implementatie (A3/M3).
+        const result = solveProject({
+          tasks,
+          sequences: payload.sequences,
+          calendar: payload.calendar,
+          calendars: payload.calendars,
+          dataDate: payload.project.statusDate,
+          progressMode: payload.project.progressMode,
+          schedulingOptions: payload.project.schedulingOptions,
+        });
+        // Cyclus/solverfout: dit document volledig ONAANGERAAKT laten (het vangnet van §4.3 blijft
+        // dan gelden — het overzicht toont zijn boeking ongeteld met de ⚠) en doorgaan met de rest.
+        if (result.error) continue;
+        // Spread over het volledige contract: elk (ook toekomstig) payload-veld rijdt automatisch
+        // mee, alleen de vier doorrekenvelden worden vervangen. `resourceLoadResult: null` omdat
+        // `switchDocument` bij activering tóch onvoorwaardelijk `recomputeResourceLoad()` draait —
+        // een hier berekende belasting zou dubbel werk zijn dat alleen kan verouderen.
+        // `undoStack`/`redoStack`/`isDirty` blijven letterlijk staan: geen bewerking, geen snapshot.
+        next = { ...payload, tasks, cpmResult: result, scheduleStale: false, resourceLoadResult: null };
+      } catch {
+        continue; // net als de efemere solve in het overzicht: nooit de hele actie laten omvallen.
+      }
+      updates.push({ id: entry.id, payload: next });
+    }
+
+    // Fase 2 — pas muteren als er écht iets te schrijven is. Die vroege uitgang is wat de
+    // aanroepende weergave-effect-lus dooft: zonder wijziging geen nieuwe `documents`-referentie,
+    // dus geen nieuwe render en geen herhaalde aanroep.
+    if (updates.length === 0) return 0;
+    set((s) => {
+      for (const u of updates) {
+        const entry = s.documents.find((d) => d.id === u.id);
+        if (!entry || entry.payload === null) continue; // tussentijds gesloten/geactiveerd.
+        entry.payload = u.payload;
+      }
+    });
+    return updates.length;
   },
 });

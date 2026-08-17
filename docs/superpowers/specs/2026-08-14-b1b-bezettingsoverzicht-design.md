@@ -160,12 +160,31 @@ niet: de solver draait al headless buiten de store (de benchmark doet `new CPMSo
 - **De ⚠ verandert van betekenis:** een doorgerekend-stale document telt gewoon mee
   (`counted: true`) maar draagt een informatieve markering — "dit document zelf is nog niet
   doorgerekend; het overzicht rekent alvast met de actuele invoer (F5 in het document om het
-  daar ook te zien)". De banner idem.
+  daar ook te zien)". De banner idem. Beide teksten verwijzen ook naar de bestaande instelling
+  **"Automatisch berekenen"** (`ui.autoCalcCPM`): staat die aan, dan herrekent een document
+  zichzelf zodra het verouderd raakt (ook direct bij activeren) en verdwijnt de markering
+  vanzelf. De handmatige modus blijft de default — kernontwerp "manual, not reactive",
+  relevant voor geïmporteerde planningen (issue #63).
 - **Vangnet:** faalt de efemere solve (bijv. een relatiecyclus of een solverfout), dan valt
   dát document terug op het 4.3-gedrag hieronder: zichtbaar maar niet meegeteld, met de
   niet-meegeteld-⚠. De fantoomrij-guards blijven onverkort gelden.
 - **Cache:** de efemere solve valt onder dezelfde per-payload-cache als de load (§7) —
   één keer per payload-versie, niet per toetsaanslag.
+
+**Terugschrijven mét "Automatisch berekenen" (besluit eigenaar 2026-08-14, tweede ronde).**
+De eigenaar vond het weggooien van de efemere uitkomst onlogisch ("waarom zou je dan alsnog
+op F5 moeten drukken als het stiekem al berekend is") en heeft gekozen: staat
+`ui.autoCalcCPM` **aan**, dan worden verouderde documenten bij het openen van het overzicht
+**echt bijgewerkt** in plaats van alleen efemeer doorgerekend — het actieve document via het
+bestaande `useAutoCalcCPM`-pad (`runCPM`), slapende documenten via een nieuwe store-actie die
+per stale payload de gedeelde solve-kern draait en de uitkomst terugschrijft
+(taken/`cpmResult`/`scheduleStale: false`; `resourceLoadResult: null` — die wordt bij
+activering toch onvoorwaardelijk herrekend). Semantiek spiegelt `runCPM`: geen
+undo-snapshot, `isDirty` ongemoeid. Faalt de solve (cyclus), dan blijft de payload
+onaangeraakt en geldt het vangnet. Staat de instelling **uit**, dan blijft alles zoals
+hierboven: efemeer, nooit terugschrijvend — een leesvenster verandert de documenten van een
+handmatige rekenaar nooit (issue #63). De ⚠-markering verschijnt dus alleen nog in de
+handmatige modus.
 
 ### 4.3 Stale planning zonder efemere solve: zichtbaar maar NIET meegeteld (vangnetgedrag; herzien na critreview 2026-08-14)
 
@@ -259,8 +278,10 @@ vorm om overbezetting in de tijd te zien, zoals het bestaande histogram dat binn
 is. De vorm blijft goedkoop en raakt de canvas-renderer niet:
 
 - **Selectie van een hoofdrij** toont onder (of naast) de tabel een histogram voor dát poolitem:
-  per ISO-dag de **gestapelde** bijdrage per document (vaste kleurtoewijzing per document, met
-  legenda = de documenttitels uit de uitklap), de **capaciteitslijn** van het poolitem
+  per ISO-dag de **gestapelde** bijdrage per document (kleurtoewijzing per document, **uniek
+  binnen het overzicht** — op volgorde van eerste verschijnen, niet op id-hash, zodat twee
+  documenten nooit dezelfde kleur delen zolang het palet reikt (correctie eigenaar
+  2026-08-14); legenda = de documenttitels uit de uitklap), de **capaciteitslijn** van het poolitem
   (`maxUnitsOn` per dag, dus `availabilitySteps`-knikken zichtbaar) eroverheen, en dagen waar de
   som boven de lijn uitkomt **rood** gemarkeerd — dezelfde conflictdefinitie als §6, geen tweede
   berekening.

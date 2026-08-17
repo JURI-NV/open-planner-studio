@@ -73,7 +73,7 @@ The Gantt chart is drawn imperatively to a `<canvas>` via `src/engine/renderer/`
 
 Multi-document is **single-active**: het actieve document leeft op top-level (project/tasks/sequences/… zoals altijd), zodat alle slices, componenten en de renderer single-document blijven. `documentSlice` bewaart de overige geopende documenten als losse `DocumentPayload`-snapshots en swapt top-level ↔ payload bij `switchDocument`/`newDocument`/`closeDocument`. Per-document: project, kalender, taken/relaties/resources/toewijzingen, selectie, `cpmResult`, `view`, `collapsedTaskIds`, undo/redo-stacks, `filePath`, `isDirty`. App-globaal (niet geswapt): de rest van `ui` en `taskClipboard` (zo werkt kopiëren/plakken tussen documenten). Er is altijd minstens één document; het laatste sluiten reset naar een leeg document. De document-chrome-UI staat in `src/components/layout/DocumentChrome/`: `DocumentTabBar`, `ProjectRail` en `SwitcherPill` zijn drie instelbare stijlen (`ui.documentChromeStyle` ∈ `'tabs' | 'rail' | 'switcher'`, persistent), plus een `ProjectOverview`-overlay en `CloseDocumentDialog` met 3-weg sluitbevestiging (opslaan/niet opslaan/annuleren); Ctrl/⌘ 1–9 springt naar het n-de document. `openFile`/`openRecentFile` openen in een **nieuw** document tenzij het actieve tabblad nog leeg en ongewijzigd is (`isActivePristine` in `fileSlice`); "Nieuw" opent de projectwizard (`ProjectInfoDialog` met kalender-presets en faseringssjablonen, via `ui.showNewProjectDialog`) in plaats van een kaal `newProject()`.
 
-Scheduling is **manual, not reactive**: the `runCPM` action instantiates `CalendarEngine` + `CPMSolver` (`src/engine/scheduler/`) inline and writes computed fields (early/late dates, total float, critical-path flag) straight back via Immer — it does not re-run on every edit. It is triggered explicitly by F5, the ribbon **Calculate** button, the menu, and after an IFC load. Editing tasks without calling `runCPM` leaves the schedule stale, so call it after mutating tasks/sequences/calendar.
+Scheduling is **manual, not reactive**: the actual solve — leaf-filter → `CPMSolver` (which owns `CalendarEngine`) → write computed fields (early/late dates, total float, critical-path flag) back onto the tasks — lives in `solveProject()` (`src/engine/scheduler/solveProject.ts`), extracted from `runCPM` in A3/M3 so it has exactly one implementation. The `runCPM` action (`scheduleSlice.ts`) is a thin wrapper: it calls `solveProject` directly on the Immer draft (`s.tasks` mutated in place), then sets `cpmResult`/`resourceLoadResult` and clears `scheduleStale`. It does not re-run on every edit — triggered explicitly by F5, the ribbon **Calculate** button, the menu, and after an IFC load. Editing tasks without calling `runCPM` leaves the schedule stale, so call it after mutating tasks/sequences/calendar. The same `solveProject` also powers the resource-occupancy overview (see *Resourcebibliotheken* below): opening the overview runs it there on a **clone** (`cloneTasksForSolve`) of a stale, non-active document's tasks — ephemeral, no write-back. Is **Automatisch berekenen** aan, dan gebeurt dat efemere doorrekenen nog steeds, en draait `documentSlice`'s `recalculateStaleSleepingDocuments()` er **daarnaast** overheen: die rekent óók op een kloon van de payload-taken en schrijft juist díé kloon terug (no undo snapshot, mirroring `runCPM`'s semantics). Die kloon is geen detail maar de atomiciteitsgarantie — de payload blijft onaangeraakt tot de solve slaagt, zodat een cyclus niets halfs achterlaat. Het actieve document blijft buiten die actie en houdt zijn eigen pad via `useAutoCalcCPM`.
 
 **Het documentcontract — lees dit vóór je een veld aan de state toevoegt.** Naast de slices staan er in `src/state/` vier modules die samen bepalen wat een "document" ís. Ze bestaan omdat deze afspraken eerder ~50× met de hand herhaald werden en dan stilzwijgend uit elkaar liepen:
 
@@ -163,6 +163,18 @@ Bibliotheek- en een Projectweergave, met markeringen voor *wijkt af* / *niet mee
 en een gedeelde `LibraryLinkDialog` voor koppelen en afwijkingen. Let op de terminologie: code en
 IFC gebruiken nog `companyId`/`companyName`, de **gebruikersterm is "resourcebibliotheek"** —
 "bedrijf" alleen waar het echt over de organisatie gaat. Zie `docs/library.md`.
+
+Een derde weergave op de Resources-tab (B1b) is **Bezetting**: per bibliotheekitem de boeking over
+**alle geopende documenten** die aan dezelfde bibliotheek gekoppeld zijn, met de bedrijfscapaciteit
+als grens — dubbelbezetting tussen projecten, die geen los project kan zien. De kern is
+`computeLibraryOccupancy` (`src/services/library/occupancy.ts`), puur en headless getest
+(`tests/library/check-occupancy.ts`); de weergave is `src/components/panels/ResourceOccupancyView.tsx`.
+Een niet-actief geopend document met een stale planning wordt **efemeer** doorgerekend — `solveProject`
+op een kloon van zijn taken, alleen voor deze weergave, zonder de payload aan te raken — tenzij
+**Automatisch berekenen** aanstaat, in welk geval het overzicht die documenten meteen écht bijwerkt
+(zie *State* hierboven). De weergave ziet uitsluitend documenten die in déze app-instantie open staan;
+geen sync tussen machines of vensters (zie `docs/library.md` en de in-app gids
+`public/docs/{nl,en}/gids-bezettingsoverzicht.md`).
 
 ### In-app documentatie & wiki
 
