@@ -109,6 +109,31 @@
       }
     },
     {
+      "id": "prog-B1-unstarted-ignores-statusdate",
+      "title": "B1 (eindreview T16c, dossier (c)4-herdiagnose): MSP-pad — zelfde taakvorm als prog-datadate-floor, maar met unstartedIgnoresStatusDate ⇒ MS Project verschuift een niet-gestarte taak NIET automatisch naar de statusdatum. es blijft op de eigen anker (2026-07-06), NIET op de statusdatum (2026-07-08). Reconstructie van de reviewer-meting op calendar-exception-precedence.mpp (publiek MPXJ-fixture): zonder deze vlag klemde de solver een taak met eigen anker 2015-10-01 en statusdatum 2023-05-01 ~8 jaar vooruit; mét de vlag is het resultaat minuut-exact tegen MSP's eigen opgeslagen Start/Finish.",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-08",
+      "schedulingOptions": { "unstartedIgnoresStatusDate": true },
+      "tasks": [ { "name": "X", "dur": 3, "start": "2026-07-06" } ],
+      "expect": {
+        "tasks": { "X": { "es": "2026-07-06", "ef": "2026-07-08" } },
+        "projectEnd": "2026-07-08",
+        "error": false
+      }
+    },
+    {
+      "id": "prog-B1-p6-pad-behoudt-vloer",
+      "title": "B1-contrast (default UIT): zelfde taakvorm als prog-B1-unstarted-ignores-statusdate maar ZONDER de vlag ⇒ de bestaande P6-getrouwe vloer blijft byte-identiek (es op statusdatum) — bewaakt dat de nieuwe uitzondering een opt-in blijft en het P6-pad (MSPDI/P6/CSV/IFC-bronnen, statusdatum-gedreven planningen) de vloer behoudt.",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-08",
+      "tasks": [ { "name": "X", "dur": 3, "start": "2026-07-06" } ],
+      "expect": {
+        "tasks": { "X": { "es": "2026-07-08", "ef": "2026-07-10" } },
+        "projectEnd": "2026-07-10",
+        "error": false
+      }
+    },
+    {
       "id": "prog-completed-pins-successor",
       "title": "Voltooide taak pint volledig: opvolger start ná de actualFinish (di 7), niet ná een verschoven plan-datum.",
       "anchor": "2026-07-06",

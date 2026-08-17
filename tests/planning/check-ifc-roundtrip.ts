@@ -305,6 +305,7 @@ const SCHED_OPTS = {
   nearCriticalThreshold: 3,
   floatPaths: { enabled: true, method: 'TOTAL_FLOAT', maxPaths: 5 },
   resumeFromActualElapsed: true, // T9 (voortgangsafronding): rondt lossless mee als deel van het JSON-blob
+  unstartedIgnoresStatusDate: true, // B1 (dossier (c)4-herdiagnose): idem, rondt mee als deel van het JSON-blob
 } satisfies Required<SchedulingOptions>;
 const project = {
   id: 'proj-1', name: 'Nieuwbouw Testtoren', description: 'Beschrijving X', // description: (a) gap

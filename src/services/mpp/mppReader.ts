@@ -1034,7 +1034,11 @@ function parseProjectProperties(
     // `resumeFromActualElapsed`-toelichting) — corpusbreed gemeten, geen per-taak-signaal, dus hier
     // project-breed gezet in plaats van per taak afgeleid. Byte-identiek voor bestanden zonder
     // statusdatum/voortgang (de hele tak in `CPMSolver.ts` is dan toch een no-op).
-    schedulingOptions: { resumeFromActualElapsed: true },
+    // B1 (eindreview T16c, dossier (c)4-herdiagnose): idem voor NIET-gestarte taken — MS Project
+    // verschuift die niet automatisch naar op-of-ná de statusdatum (P6-eigen RETAINED_LOGIC-vloer,
+    // zie `unstartedIgnoresStatusDate`'s docblock in `src/types/project.ts`). Zelfde reikwijdte-
+    // redenering: élke `.mpp`-import, project-breed, byte-identiek zonder statusdatum.
+    schedulingOptions: { resumeFromActualElapsed: true, unstartedIgnoresStatusDate: true },
   };
 
   const statusBytes = props.getByteArray(PROPS_KEY_STATUS_DATE);

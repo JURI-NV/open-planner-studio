@@ -1300,12 +1300,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/calendar-exception-precedence.mpp",
       "tasks": 1,
-      "startExact": 0,
+      "startExact": 1,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 0,
+      "startDiff": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "8c7a98076fb15cf9": {
       "root": "crawl",

@@ -1111,7 +1111,19 @@ export class CPMSolver {
           results.set(taskId, { es: actualES, ef });
           continue;
         }
-        if (dataDate && t.completion === 0 && earlyStart < dataDate) {
+        // B1 (eindreview T16c, dossier (c)4-herdiagnose): deze vloer is P6-eigen RETAINED_LOGIC-
+        // semantiek ("remaining werk nooit in het verleden") — MS Project verschuift een niet-
+        // gestarte taak NIET automatisch naar op-of-ná de statusdatum (reviewer-meting:
+        // `calendar-exception-precedence.mpp`, zonder de vloer minuut-exact tegen MSP's eigen
+        // opgeslagen Start/Finish; mét de vloer ~8 jaar afwijkend, want de taak se eigen anker
+        // 2015-10-01 ligt ver vóór de statusdatum 2023-05-01). `unstartedIgnoresStatusDate` is
+        // uitsluitend `true` voor `.mpp`-imports (`mppReader.ts`); P6-brongegevens (progressMode-
+        // gedreven, ook via MSPDI/CSV/IFC) behouden deze vloer bewust — zie het veld se docblock in
+        // `src/types/project.ts` voor de volledige motivatie.
+        if (
+          dataDate && t.completion === 0 && earlyStart < dataDate
+          && !this.options.schedulingOptions?.unstartedIgnoresStatusDate
+        ) {
           // (3) NIET GESTART: statusdatum als ondergrens (remaining werk nooit in het verleden).
           earlyStart = dataDate;
         }

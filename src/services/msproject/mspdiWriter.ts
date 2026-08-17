@@ -324,6 +324,11 @@ export function writeMSPDI(
     // .mpp → MSPDI-export → herimport het veld geruisloos laten vallen en de gefixte datums van T9
     // stil weer laten verschuiven bij die herimport.
     if (so.resumeFromActualElapsed) lost.push('resumeFromActualElapsed');
+    // B1 (eindreview T16c, dossier (c)4-herdiagnose): idem — geen MSPDI-equivalent voor de
+    // niet-gestart-vloer-uitzondering (`SchedulingOptions.unstartedIgnoresStatusDate`); zonder deze
+    // warn zou dezelfde .mpp → MSPDI-export → herimport-route de niet-gestarte taken van een
+    // statusdatum-project weer stil ~jaren vooruit klemmen.
+    if (so.unstartedIgnoresStatusDate) lost.push('unstartedIgnoresStatusDate');
     if (lost.length > 0) {
       console.warn(`MSPDI-export: scheduling-opties ${lost.join('/')} niet native uitdrukbaar — weggelaten, alleen via IFC OPS_SchedulingOptions (§6).`);
     }
