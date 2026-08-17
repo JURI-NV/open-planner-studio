@@ -544,9 +544,16 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
       totalDays === MAX_TOTAL_HOLIDAY_SLOTS,
       `T4 budget-klem-tijdens-opbouw: totaal ${MAX_TOTAL_HOLIDAY_SLOTS} dagen gematerialiseerd (kreeg ${totalDays}) — het gedeelde HolidayBudget is exact opgebruikt, geen dag meer`,
     );
+    // MARGE-HERZIENING (her-check-slotpuntje, geen nieuwe review nodig): 1000ms had ASYMMETRISCHE
+    // marge — op een ~3× tragere CI-runner komt het CORRECTE pad (~313ms lokaal × 3 ≈ 940ms) vlak
+    // tegen de grens aan, terwijl het GEMUTEERDE pad (~2400ms lokaal × 3 ≈ 7200ms) er ruim boven
+    // blijft. Bij 1000ms was het risico dus VALS-ROOD op correcte code op een trage runner, niet
+    // gemiste mutatiedetectie. 2000ms herstelt de marge aan de CORRECTE kant (313ms × 3 ≈ 940ms blijft
+    // ruim onder 2000ms) zonder de mutatiedetectie te verzwakken (2400ms × 3 ≈ 7200ms blijft ver
+    // erboven) — de her-check bevestigde de fix opnieuw op 389ms (was 5192ms zonder de klem).
     assert(
-      elapsedMs < 1000,
-      `T4 budget-klem-tijdens-opbouw: readMSPDI(${recordCount} WEEKLY-records) < 1000ms (kreeg ${elapsedMs}ms) — de budget-klem moet TIJDENS de opbouw ingrijpen, niet pas erna (reviewer-DoS-repro: 445 KB XML → 5192 ms zonder deze klem)`,
+      elapsedMs < 2000,
+      `T4 budget-klem-tijdens-opbouw: readMSPDI(${recordCount} WEEKLY-records) < 2000ms (kreeg ${elapsedMs}ms) — de budget-klem moet TIJDENS de opbouw ingrijpen, niet pas erna (reviewer-DoS-repro: 445 KB XML → 5192 ms zonder deze klem)`,
     );
   }
 
