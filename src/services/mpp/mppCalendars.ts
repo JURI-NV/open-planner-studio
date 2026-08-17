@@ -135,14 +135,23 @@ const MAX_CALENDAR_TEXT_BYTES = MAX_VAR_TEXT_BYTES;
  *  een lus die per periode 2+4 bytes leest op een RUW, bestandsgestuurde offset — ongeklemd zou een
  *  geprepareerd bestand hier tot 65535 pogen te lezen, ver voorbij het 60-byte-dagblok, wat op een
  *  kort Var2Data-record al snel een `MPP:`-grensfout van de onderliggende primitief zou gooien en
- *  zo de HELE kalenderlezing (en dus `readMPP`) laat crashen — niet alleen dit ene veld. Geklemd op
- *  de STRUCTURELE capaciteit van het 60-byte-dagblok zelf (T6-kwaliteitsreview, minor M2 — was 24,
- *  een willekeurig ruime marge zonder onderbouwing): startoffset `8+i*2` en duuroffset `20+i*4` — de
- *  duurslot is de knellende grens, dat past hoogstens 10× (`20+10*4=60`, het volgende dagblok begint
- *  dan pas) binnen de 60 bytes vóór het OVERLOOPT in de buurdag se eigen data. MS Project staat de
- *  gebruiker zelf hooguit 5 periodes per dag toe (de UI kent geen 6e rij) — 10 is dus al de volledige
- *  FYSIEKE bovengrens van het formaat, niet een los gekozen marge. */
-const MAX_DAY_HOUR_PERIODS = 10;
+ *  zo de HELE kalenderlezing (en dus `readMPP`) laat crashen — niet alleen dit ene veld.
+ *
+ *  T16-VEEGLIJST-FIX (was 10, PRE-EXISTING sinds T6-kwaliteitsreview M2 — dezelfde start/duur-
+ *  overlapfout als `MAX_EXCEPTION_BAND_PERIODS` (`limits.ts`) vóór diens LAAG-3-FIX): de vorige
+ *  toelichting analyseerde alléén de DUUR-array (`20+i*4`, past 10× vóór de 60-byte-grens) en
+ *  NEGEERDE dat de START-array (`8+i*2`, 2-byte-stride) een KNELLENDERE grens is — start-slot `i`
+ *  staat op `8+2i`, wat exact BOTST met duur-slot 0 (op `+20`) zodra `8+2i>=20`, dus `i>=6`.
+ *  Structureel passen er dus hoogstens 6 NIET-OVERLAPPENDE periodes (`i=0..5`) vóór start-slot 6 al
+ *  in duur-slot 0 se bytes leest (exact hetzelfde `i>=6`-omslagpunt als het 92-byte-uitzonderingsblok,
+ *  toevallig dezelfde offset-afstand: 20 t.o.v. 8, 32 t.o.v. 20). Geklemd op 5 (niet de structurele
+ *  6-slot-bovengrens): MS Project se eigen UI staat de gebruiker hooguit 5 werktijdperiodes per dag
+ *  toe (de UI kent geen 6e rij, al vóór deze fix in de toelichting hierboven geciteerd) — 5 is dus
+ *  zowel de STRUCTURELE (5<6, geen overlap-risico) als de PRODUCT-grens, en dus de motiveerbaarste
+ *  keuze — zie `check-mpp-calendars.ts`'s "T16-veeglijst: MAX_DAY_HOUR_PERIODS-overlapfout" voor het
+ *  mutatiebewijs (periodCount=7 met een niet-geklemde grens materialiseert een fantoomband uit
+ *  buurdag-slot-0 se eigen duur-bytes; geklemd op 5 verdwijnt die band). */
+const MAX_DAY_HOUR_PERIODS = 5;
 
 /** C1 (kritiek, T6-kwaliteitsreview) — bovengrens op het AANTAL kalenders dat `readCalendars` uit
  *  één `"   114"/TBkndCal`-storage materialiseert. Zonder deze klem kapt alleen `MAX_CALENDAR_

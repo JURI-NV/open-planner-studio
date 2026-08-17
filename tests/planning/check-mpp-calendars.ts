@@ -358,6 +358,82 @@ function mppDayToIso(raw: number): string {
   );
 }
 
+// ── T16-veeglijst: MAX_DAY_HOUR_PERIODS-overlapfout (`mppCalendars.ts`, was 10, nu 5) — bewijst de
+// fantoomband die de oude, te ruime klem toeliet. Maandag krijgt 5 ECHTE periodes (via
+// `writeCalDayBlock`, dus `periodCount` staat na het bouwen op 5, veilig binnen i=0..4) plus een
+// HANDMATIGE patch: `periodCount` naar 7, en start-slot 6 (`8+6*2=20`) is BYTE-IDENTIEK aan
+// duur-slot 0 (`20+0*4=20`) — die bytes dragen al band 0 se eigen duur (600 tienden = 60 min),
+// dus band 6 se "start" wordt `mppTimeToMinutes(600)=60` (01:00) zodra hij gelezen wordt. Duur-slot
+// 6 (`20+6*4=44`) is fysiek ONGEBRUIKT door de 5 echte periodes (die gebruiken 20/24/28/32/36) —
+// een patch daar (450 tienden = 45 min) simuleert restbytes die een geprepareerd bestand daar kan
+// achterlaten. Geklemd op 5 (huidig, gefixt): band 6 wordt nooit gelezen, Maandag blijft op 5
+// banden. MUTATIEBEWIJS (reviewer-repro, handmatig teruggezet naar 10 en herdraaid): met de oude
+// klem van 10 leest de lus i=0..6, Maandag krijgt een 6e band (01:00-01:45) — exact de
+// "fantoomband" die deze klem moet voorkomen. ──────────────────────────────────────────────────────
+{
+  const hoursBlock = buildCalHoursBlock([
+    { defaultFlag: 0 }, // zo
+    {
+      defaultFlag: 0,
+      bands: [
+        { startMinutes: 360, durationMinutes: 60 }, // i=0: 06:00-07:00 (duur-slot 0 @+20 = 600 tienden)
+        { startMinutes: 480, durationMinutes: 60 }, // i=1: 08:00-09:00
+        { startMinutes: 600, durationMinutes: 30 }, // i=2: 10:00-10:30
+        { startMinutes: 780, durationMinutes: 60 }, // i=3: 13:00-14:00
+        { startMinutes: 900, durationMinutes: 60 }, // i=4: 15:00-16:00
+      ],
+    }, // ma
+    { defaultFlag: 0 }, { defaultFlag: 0 }, { defaultFlag: 0 }, { defaultFlag: 0 }, { defaultFlag: 0 },
+  ]);
+  const hoursView = new DataView(hoursBlock.buffer);
+  const MONDAY_OFFSET = 60; // dagIndex 1 = maandag, 60 bytes/dag
+  hoursView.setInt16(MONDAY_OFFSET + 2, 7, true); // periodCount: 5 (echt) → 7 (geclaimd, buiten de klem)
+  hoursView.setInt16(MONDAY_OFFSET + 44, 450, true); // duur-slot 6 (@20+6*4): fysiek ongebruikt door i=0..4
+
+  const fixedMeta = buildCalFixedMetaBlob([0, 12]);
+  const fixedData = buildCalFixedDataRecord(1, -1, -1);
+  const varMeta = buildVarMetaBytes([
+    { uniqueId: 1, type: 1, offset: 0 },
+    { uniqueId: 1, type: 8, offset: 40 },
+  ]);
+  const namePayload = encodeUnicodeStringAscii('T16-fantoomband');
+  const var2Data = new Uint8Array(40 + 4 + hoursBlock.length);
+  const var2View = new DataView(var2Data.buffer);
+  var2View.setInt32(0, namePayload.length, true);
+  var2Data.set(namePayload, 4);
+  var2View.setInt32(40, hoursBlock.length, true);
+  var2Data.set(hoursBlock, 44);
+
+  const projectProps = new Props(encodePropsEntries([]), 'T16-hostile-dayblock-overlap');
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': {
+      children: {
+        TBkndCal: {
+          children: {
+            FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData },
+            VarMeta: { data: varMeta }, Var2Data: { data: var2Data },
+          },
+        },
+      },
+    },
+  }));
+  const result = readCalendars(cfb, projectProps, null);
+  const cal = result.calendarByUniqueId.get(1);
+  truthy('T16-veeglijst dagblok-overlap: kalender gematerialiseerd', !!cal);
+  if (cal) {
+    promoteCalendarsForHourMode(result.calendarByUniqueId, new Set());
+    const mondayBands = cal.workTime?.byWeekday[1] ?? [];
+    truthy(
+      `T16-veeglijst dagblok-overlap: Maandag heeft precies 5 banden, geen fantoomband (${mondayBands.length})`,
+      mondayBands.length === 5,
+    );
+    truthy(
+      'T16-veeglijst dagblok-overlap: geen band start om 01:00 (het fantoombandsymptoom)',
+      !mondayBands.some((b) => b.start === 60),
+    );
+  }
+}
+
 // ── Extreem exception-aantal: MAX_CALENDAR_EXCEPTIONS klemt, ongeacht hoeveel geldige records de
 // buffer daadwerkelijk aanbiedt. ───────────────────────────────────────────────────────────────────
 {

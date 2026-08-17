@@ -40,8 +40,9 @@ export const MAX_VAR_TEXT_BYTES = 65_536;
  * UI staat de gebruiker hooguit 5 werktijdperiodes per uitzondering toe (dezelfde autoritatieve
  * grens als `MAX_DAY_HOUR_PERIODS`'s eigen toelichting citeert voor het 60-byte-dagblok) — 5 is dus
  * zowel de STRUCTURELE (5<6, geen overlap-risico) als de PRODUCT-grens, en dus de motiveerbaarste
- * keuze. (`MAX_DAY_HOUR_PERIODS` hierboven draagt dezelfde start/duur-overlapfout — dat is
- * PRE-EXISTING buiten deze taak se scope, gemeld voor een latere T-taak, hier bewust ongewijzigd.)
+ * keuze. (`MAX_DAY_HOUR_PERIODS` in `mppCalendars.ts` droeg dezelfde start/duur-overlapfout — dat
+ * was PRE-EXISTING buiten deze taak se scope, gemeld voor een latere T-taak, en is bij die latere
+ * T16-veeglijst-fix met exact dezelfde `i>=6`-analyse gecorrigeerd naar 5.)
  * Een ongeklemde `periodCount` (SHORT, 0..65535) zou zonder deze klem tot 65535 iteraties per
  * uitzondering kunnen forceren; bij `MAX_CALENDAR_EXCEPTIONS` (2000) uitzonderingen per kalender is
  * dat tot 131 miljoen ongebruikte lus-iteraties (elke iteratie ná i=5 leest al buiten de bedoelde
@@ -73,7 +74,8 @@ export const MAX_EXCEPTION_BAND_PERIODS = 5;
  * `mppReader.ts` draagt DEZELFDE klem-leemte (geen eigen bovengrens, alleen de dieper liggende
  * `CalendarEngine`/`duration.ts`-klemmen) — dit bestand voegt hier alleen de klem voor het NIEUWE
  * `remainingDurationRaw`-veld toe; `durationRaw` zelf blijft ongemoeid (gemeld voor een latere taak,
- * zelfde conventie als `MAX_DAY_HOUR_PERIODS`'s PRE-EXISTING-notitie hierboven).
+ * zelfde conventie als `MAX_EXCEPTION_BAND_PERIODS`'s PRE-EXISTING-notitie hierboven — `durationRaw`
+ * is zelf géén overlapfout, alleen een klem-leemte, dus die T16-veeglijst-fix raakte hem niet).
  */
 export const MAX_REMAINING_DURATION_TENTHS = 525_960_000;
 
