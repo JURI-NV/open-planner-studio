@@ -451,6 +451,27 @@ export class CalendarEngine {
     return this.mode === 'hour';
   }
 
+  /** De EFFECTIEVE banden (minuut-van-de-dag, `[start,end)`) die op de KALENDERDAG van `d` gelden —
+   *  via hetzelfde `bandsStartingOn`-pad dat de solver zelf voor elke snap/telling gebruikt, dus
+   *  INCLUSIEF werkende uitzonderingen en holidays. Alleen voor read-only VERGELIJKING tussen twee
+   *  kalenders OP EEN SPECIFIEKE DATUM (Z11-fixronde punt 1, `calendarsAgreeOnSharedWorkdayBands` in
+   *  `relationMath.ts`) — geen enkele bestaande dag-/uur-lus leest hierlangs. Een eerdere versie van
+   *  deze getter vergeleek de STATISCHE weekdagtabel (`workTime.byWeekday`) zonder datumcontext; die
+   *  ziet uitzonderingen/holidays niet — twee kalenders met een identiek WEEKPATROON maar een
+   *  afwijkende werkende uitzondering op precies de landingsdag zagen er zo ten onrechte "identiek"
+   *  uit (reviewer-probe, exact de msp-04-foutvorm, latent). Geeft een LEGE array terug (nooit
+   *  `undefined`) in dag-modus — dag-modus draagt geen bandtijden, dat is een leeg antwoord, geen
+   *  onbekend antwoord — en op elke dag die voor deze kalender niet werkt (holiday, geen band).
+   *  Geeft altijd een VERSE kopie terug, nooit de gememoizede cache-array van `bandsStartingOn` zelf. */
+  effectiveBandsOn(d: Date): ReadonlyArray<Readonly<{ start: number; end: number }>> {
+    if (this.mode !== 'hour') return [];
+    const dayMs = this.dayStartMsOf(d.getTime());
+    return this.bandsStartingOn(dayMs).map((b) => ({
+      start: (b.start - dayMs) / CalendarEngine.MS_PER_MIN,
+      end: (b.end - dayMs) / CalendarEngine.MS_PER_MIN,
+    }));
+  }
+
   /** Afgeleide `hoursPerDay` voor een uur-kalender (§3.2, Bevinding 8): de MODALE band-som over de
    *  werk-weekdagen (meest voorkomende dagsom in uren), bij gelijkspel de HOOGSTE.
    *

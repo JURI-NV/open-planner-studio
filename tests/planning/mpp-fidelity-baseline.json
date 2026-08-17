@@ -574,13 +574,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 29.mpp",
       "tasks": 18,
-      "startExact": 16,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 2,
-      "finishExact": 16,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 2,
-      "reason": "dossier T16c-M1 — kruis-kalender-FS-asymmetrie, onderzocht en NIET gefixt (relationMath.ts snapt bij lag=0 in de voorganger- i.p.v. opvolger-kalender; spant tegen een bestaande guard-test, zie het plan)"
+      "finishDiff": 0
     },
     "3c3ddd9e595154ed": {
       "root": "crawl",
