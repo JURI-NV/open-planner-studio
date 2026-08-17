@@ -19,11 +19,10 @@
 // veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar
 // `readTasks` zelf.
 //
-// BEKENDE BEPERKING (reviewbevinding L5 — L2, T15-fixronde-iteratie-2, WAARGENOMEN IN HET HUIDIGE
-// CORPUS, niet langer alleen theoretisch): `SCHEDULED_START`/`SCHEDULED_FINISH` zijn de door MS
-// Project herberekende datums voor AUTO_SCHEDULED-taken. Een HANDMATIG geplande taak (MPXJ
-// `TaskMode.MANUALLY_SCHEDULED`, gelezen als bit-flag in `Fixed2Meta` —
-// `PROJECT2010_TASK_META_DATA2_BIT_FLAGS`: offset 8 masker `0x08`; PROJECT2013/2016: offset 8
+// BEKENDE BEPERKING (reviewbevinding L5 — L2/B3, T15-fixronde-iteratie-2): `SCHEDULED_START`/
+// `SCHEDULED_FINISH` zijn de door MS Project herberekende datums voor AUTO_SCHEDULED-taken. Een
+// HANDMATIG geplande taak (MPXJ `TaskMode.MANUALLY_SCHEDULED`, gelezen als bit-flag in `Fixed2Meta`
+// — `PROJECT2010_TASK_META_DATA2_BIT_FLAGS`: offset 8 masker `0x08`; PROJECT2013/2016: offset 8
 // masker `0x80`, zie `MPP14Reader.java`) ankert bij MSP op een ANDER veld-paar (`TaskField.START`/
 // `FINISH`, veld-id 1283/1284): `MPP14Reader.java` schrijft `SCHEDULED_START` alléén naar
 // `task.getStart()` als die nog leeg is, óf de taak AUTO_SCHEDULED is (regel ~1162–1176) — voor een
@@ -31,16 +30,22 @@
 // dus staan. Deze scan leest dat paar niet apart, dus zo'n taak geeft hier een spookafwijking
 // t.o.v. onze eigen (altijd automatisch herberekende) datums.
 //
-// CORPUSMETING (T15-fixronde-iteratie-2, 2026-08-17): corpusbrede probe op SNET/MSO-constraint-
-// instanten buiten de werkband, op ROOT-taken (geen predecessor — de constraint is dan aantoonbaar
-// de enige driver): **1 taak** waar MSP het rauwe constraint-instant behoudt (RAW) tegen **5**
-// waar MSP wél naar de eerstvolgende werk-instant snapt (SNAPPED, incl. het publieke MPXJ-fixture
-// `mpp14recurring.mpp`) — de RAW-uitzondering deelt kalender/band/constraint-tijdstip met een
-// SNAPPED-geval, dus het snap-vs-raw-onderscheid zelf hangt af van TASK_MODE, niet van de
-// constraint-semantiek. Zie `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`
-// (§T15, dossier (c)5) voor de volledige meting en de reden dat dit NIET binnen T15 is
+// CORPUSMETING (T15-fixronde-iteratie-2, 2026-08-17) — dit IS een meting, TASK_MODE-ZELF NIET
+// (B3-correctie: eerdere formulering suggereerde ten onrechte dat de bit gelezen was). Corpusbrede
+// probe op SNET/MSO-constraint-instanten buiten de werkband, op ROOT-taken (geen predecessor — de
+// constraint is dan aantoonbaar de enige driver): **1 taak** waar MSP het rauwe constraint-instant
+// behoudt (RAW) tegen **5** waar MSP wél naar de eerstvolgende werk-instant snapt (SNAPPED, incl.
+// het publieke MPXJ-fixture `mpp14recurring.mpp`) — de RAW-uitzondering deelt kalender/band/
+// constraint-tijdstip met een SNAPPED-geval, dus het snap-vs-raw-onderscheid zelf is GEEN
+// constraint-semantiek. TASK_MODE (hierboven) is de BEST ONDERBOUWDE HYPOTHESE voor die
+// discriminator — bekend byte-level mechanisme, juiste richting van het effect — maar de
+// `Fixed2Meta`-bit is voor deze specifieke taken NOOIT daadwerkelijk uitgelezen; er is geen
+// bevestiging dat de RAW-taak echt manually-scheduled is. Zie
+// `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md` (§T15, dossier (c)5) voor de
+// volledige meting, de hypothese-vs-meting-precisie, en de reden dat dit NIET binnen T15 is
 // geïmplementeerd (eigen Fixed2Meta-taakrecordlezer + een nieuw scheduling-mode-concept in de
-// solver — een feature, geen kleine tweak). Nog niet uitgesloten voor toekomstige corpusuitbreiding.
+// solver — een feature, geen kleine tweak, en bovendien op een ongeverifieerde hypothese). Nog niet
+// uitgesloten voor toekomstige corpusuitbreiding; eerste vervolgstap is de bit daadwerkelijk lezen.
 //
 // Overgenomen (nagenoeg letterlijk) uit het scratchpad-audit-harnas (`measure.ts`'s `rawScan()`,
 // gepind op snapshot 97368f7d — zie het plandocument §5 "Het gedeelde meetscript"). Het filter voor
