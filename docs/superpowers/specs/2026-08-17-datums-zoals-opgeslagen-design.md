@@ -69,13 +69,17 @@ De docstring van `DependencyModeNotice` legt de regel vast die wij overnemen:
 
 ### 0. Aanwezigheid bijhouden in de lezer
 
-De slots weten wél of het bestand een waarde gaf — `read` krijgt het rauwe STEP-argument binnen. Die kennis wordt nu alleen weggegooid.
+De informatie bestaat nog op precies één moment: het rauwe STEP-argument. Zodra `parseDate(arg)` heeft gedraaid is `$` niet meer te onderscheiden van een echte datum van vandaag, en na `parseDur(arg)` niet van een echte 0.
 
-Wijziging in [`ifcTaskSlots.ts`](../../../src/services/ifc/ifcTaskSlots.ts) + [`ifcReader.ts`](../../../src/services/ifc/ifcReader.ts): de zeven rekenslots (`earlyStart`, `earlyFinish`, `lateStart`, `lateFinish`, `freeFloat`, `totalFloat`, `isCritical`) melden per taak of hun argument iets anders was dan `$`/leeg. Resultaat: een `recordedFields: Map<taskId, Set<slotKey>>` naast de taken in het parse-resultaat.
+**Het `read?(t, arg, p)`-contract blijft ongemoeid.** De aanwezigheid wordt afgeleid buiten de descriptors om, in `extractTasks` ([`ifcReader.ts:631-700`](../../../src/services/ifc/ifcReader.ts)) — daar zijn de interne taak-id én de `IfcTaskTime`-entiteit al beschikbaar op het moment dat `parseTaskTime` wordt aangeroepen, en `TASKTIME_SLOT` ([`ifcTaskSlots.ts:221`](../../../src/services/ifc/ifcTaskSlots.ts)) geeft de naam→index-map. Eén controle op `args[idx]` per rekenslot volstaat; geen enkele slot-implementatie hoeft te wijzigen.
 
-Dit blijft binnen de registry-filosofie: de aanwezigheidsregel staat één keer per slot, niet verspreid over de reader. Het is puur additief — bestaand leesgedrag verandert niet, en `parseDateFromIFC` blijft ongemoeid (de `$` ⇒ vandaag-semantiek is elders vastgelegd gedrag en mag niet verschuiven).
+`extractTasks` bouwt al exact dit patroon voor `taskTimeEntities: Map<taskId, StepEntity>`. De nieuwe `recordedFields: Map<taskId, Set<slotKey>>` rijdt in hetzelfde return-object mee.
 
-Alleen de IFC-lezer krijgt dit. Voor CSV/MSPDI/P6 blijft `recordedFields` leeg, wat ze automatisch buiten de functie houdt (zie *Niet-doelen*).
+Puur additief: bestaand leesgedrag verandert niet en `parseDateFromIFC` blijft ongemoeid — de `$` ⇒ vandaag-semantiek is vastgelegd gedrag dat elders op leunt en mag niet verschuiven.
+
+**Twee valkuilen bij het doorgeven.** `ImportResult` ([`importTypes.ts:43`](../../../src/services/importTypes.ts)) wordt hergebruikt als `WriteIFCInput` ([`ifcWriter.ts:128`](../../../src/services/ifc/ifcWriter.ts)) en uitgebreid door `GeneratedProject`, dus het veld moet **optioneel** zijn — anders breken alle writer-callers en de benchmark. En `payloadFromImport` ([`documentContract.ts:333`](../../../src/state/documentContract.ts)) is een **allowlist, geen spread**: een nieuw `ImportResult`-veld komt daar niet vanzelf doorheen.
+
+Alleen de IFC-lezer krijgt dit. De vijf andere `ImportResult`-producenten (CSV, MSPDI, P6, extensie-import, benchmark) laten het veld gewoon weg, wat ze automatisch buiten de functie houdt (zie *Niet-doelen*).
 
 ### 1. Wat "de opgeslagen datums" zijn
 
