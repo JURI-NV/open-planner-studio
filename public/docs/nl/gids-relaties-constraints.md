@@ -24,9 +24,10 @@ Elke relatie heeft een **Voorganger** en een **Opvolger**, en een van vier types
 
 Herken je deze drie eerste types graag in een echt voorbeeld? De showcase "Verbouwing & Aanbouw Eengezinswoning" bevat een FS-keten tussen de hoofdfasen, een SS-overlap tussen wand- en dakwerk, en een FF-koppeling tussen tegel- en schilderwerk.
 
-Je kunt zo'n relatie leggen tussen alle gewone taken en tussen mijlpalen. Een mijlpaal heeft duur 0,
-maar gedraagt zich verder als elke andere taak: hij kan voorganger én opvolger zijn, en hij kan op
-het kritieke pad liggen. Je kunt een relatie ook rechtstreeks op een **samenvattingstaak** leggen —
+Je kunt zo'n relatie leggen tussen alle gewone taken en tussen mijlpalen. Een mijlpaal heeft normaal
+gesproken duur 0 (heeft hij zelf een duur groter dan 0 gekregen — bijvoorbeeld via een import — dan
+plant hij gewoon met die duur), maar gedraagt zich verder als elke andere taak: hij kan voorganger
+én opvolger zijn, en hij kan op het kritieke pad liggen. Je kunt een relatie ook rechtstreeks op een **samenvattingstaak** leggen —
 een taak die zelf subtaken heeft: zie de sectie hieronder ("Relaties op samenvattingstaken") voor hoe
 Open Planner Studio zo'n relatie doorrekent naar de onderliggende taken.
 

@@ -96,7 +96,7 @@ vraagt de app dat eerst na in plaats van stilzwijgend een taak te plaatsen die j
 
 ## Mijlpaal-soorten
 
-Een mijlpaal is een taak zonder duur die een moment markeert — een start, een oplevering, een keuring. Open Planner Studio kent drie manieren om een mijlpaal toe te voegen, allemaal via de lintgroep **Taken** op het pijltje naast de knop **Mijlpaal**:
+Een mijlpaal markeert een moment — een start, een oplevering, een keuring — en heeft normaal gesproken duur 0; heeft een mijlpaal zelf een duur groter dan 0 gekregen (bijvoorbeeld via een import), dan plant Open Planner Studio 'm gewoon als een taak met die duur, met het vinkje **Mijlpaal** nog aan. Open Planner Studio kent drie manieren om een mijlpaal toe te voegen, allemaal via de lintgroep **Taken** op het pijltje naast de knop **Mijlpaal**:
 
 - **Startmijlpaal** — markeert het begin van een fase of het project.
 - **Eindmijlpaal** — markeert een afronding, bijvoorbeeld een oplevering.

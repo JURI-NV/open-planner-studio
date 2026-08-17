@@ -63,9 +63,9 @@ deliberate:
   appears for these when opening the file, see below.
 - A small number of specific combinations of relation kind, calendar type, or task progress that
   aren't (yet) flagged automatically. These have been investigated and documented internally, and
-  in practice rarely affect an ordinary project — across the full test corpus (well over 650
-  files, from Microsoft's own test material to real-world projects) this comes down to a handful
-  of files. Unlike the first category above, **no** notification appears here: you'd only notice
+  in practice rarely affect an ordinary project — across the full test corpus (well over 200
+  scheduled files, from public MPXJ and OzBuild test material to real-world projects) this comes
+  down to a handful of files. Unlike the first category above, **no** notification appears here: you'd only notice
   such a case by comparing the dates in the table with MS Project itself. Usually it stays limited
   to one or a few tasks that are off by a noticeable amount; in a rare, unusual file (for example
   one where a task was updated outside its own scheduling logic) the deviation can also carry
@@ -81,7 +81,10 @@ calendar days. Open Planner Studio doesn't yet distinguish this and schedules su
 date) can differ from what you see in MS Project.
 
 You'll usually notice this when opening: if the file contains such tasks, a one-time notification
-shows the count. Two of the three causes — leveling with a leveling delay, and a split or
+shows the count. That count is the directly recognized tasks themselves; if a deviation carries
+forward to tasks that depend on it (through a relation, for example), the notification doesn't
+count that knock-on effect — the real impact on the table can be larger than the reported count.
+Two of the three causes — leveling with a leveling delay, and a split or
 multi-day-stretched task — are reliably detected. **Pure resource contouring** (work within a task
 gets a rising/falling curve, without the start/finish date itself changing) is a known, unclosed
 gap in that notification: the source file's own contour indicator turned out not to be reliably
@@ -92,18 +95,26 @@ information isn't silently lost from the source file when reading it, Open Plann
 ignores it when scheduling. Editable task splitting and resource leveling as a feature aren't part
 of this stage; the notification and this guide are where you can look this up.
 
-## Milestones in hour mode: MS Project's own clock-time convention
+## Milestones: MS Project's own finish-boundary convention for finish milestones
 
-With an **hour-based calendar** (see above), a milestone linked to a predecessor via a
-finish-to-start relation lands on the **exact finish clock time** of that predecessor — for
-example Tuesday 17:00, if the predecessor finishes then — rather than on the next working moment
-(Wednesday 08:00). That's MS Project's own convention, and Open Planner Studio now follows it
-wherever an hour-based calendar is used for scheduling, not just for a `.mpp` import: a milestone
-in a manually created project with an hour-based calendar behaves the same way since this change.
-An ordinary task (with its own duration) after that same predecessor still starts on the next
-working moment as usual — this convention applies to milestones only. Day mode has no such
-distinction: everything there revolves around whole days, so there's no separate clock time to
-land on.
+A milestone whose **Milestone kind** field is set to **Finish milestone** (see the guide
+[Planning & WBS](docs://gids-plannen-wbs), Milestone kinds section) that's linked to a predecessor
+via a finish-to-start relation lands on that predecessor's finish boundary itself, rather than on
+the next working moment after it. With an **hour-based calendar** (see above) that means the
+**exact finish clock time** of the predecessor — for example Tuesday 17:00, if the predecessor
+finishes then — instead of Wednesday 08:00. In **day mode** the same distinction exists, just at
+day granularity: the finish milestone lands on the same working day the predecessor finishes,
+instead of the next working day. That's MS Project's own convention for finish milestones, and
+Open Planner Studio follows it wherever this kind of milestone occurs, not just for a `.mpp`
+import — a finish milestone in a manually created project behaves the same way. The default value
+for **Milestone kind** is **Automatic**: such a milestone (and an explicit **Start milestone**)
+simply lands on the next working moment, like an ordinary task — this convention applies only to a
+milestone you've explicitly set to **Finish milestone**. An ordinary task (with its own duration)
+after that same predecessor always starts on the next working moment regardless.
+
+If a milestone in the source file itself carries a duration greater than 0, the **Milestone**
+checkbox stays on, but Open Planner Studio simply schedules it as a task with that duration — see
+the guide [Planning & WBS](docs://gids-plannen-wbs), Milestone kinds section.
 
 ## Progress: MS Project's own resumption convention
 

@@ -94,7 +94,7 @@ placing a task you can't see.
 
 ## Milestone kinds
 
-A milestone is a task with no duration that marks a moment — a start, a handover, an inspection. Open Planner Studio has three ways to add a milestone, all via the **Tasks** ribbon group, using the arrow next to the **Milestone** button:
+A milestone marks a moment — a start, a handover, an inspection — and normally has zero duration; if a milestone has been given a duration greater than 0 itself (via an import, for example), Open Planner Studio simply schedules it as a task with that duration, with the **Milestone** checkbox still on. Open Planner Studio has three ways to add a milestone, all via the **Tasks** ribbon group, using the arrow next to the **Milestone** button:
 
 - **Start milestone** — marks the beginning of a phase or the project.
 - **Finish milestone** — marks a completion, for example a handover.

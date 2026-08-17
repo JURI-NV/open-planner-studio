@@ -24,9 +24,10 @@ Every relation has a **Predecessor** and a **Successor**, and one of four types:
 
 Want to recognise these first three types in a real example? The "Verbouwing & Aanbouw Eengezinswoning" example contains an FS chain between the main phases, an SS overlap between the wall and roof work, and an FF link between the tiling and painting work.
 
-You can create such a relation between ordinary tasks and between milestones. A milestone has zero
-duration, but otherwise behaves like any other task: it can be a predecessor or a successor, and it
-can sit on the critical path. You can also put a relation directly on a **summary task** — a task
+You can create such a relation between ordinary tasks and between milestones. A milestone normally
+has zero duration (if it's been given a duration greater than 0 itself — via an import, for
+example — it simply schedules with that duration), but otherwise behaves like any other task: it
+can be a predecessor or a successor, and it can sit on the critical path. You can also put a relation directly on a **summary task** — a task
 that has subtasks of its own: see the section below ("Relations on summary tasks") for how Open
 Planner Studio works such a relation through to the underlying tasks.
 

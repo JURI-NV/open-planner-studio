@@ -62,8 +62,9 @@ tot op de minuut bij een urenproject. Er zijn twee categorieën uitzonderingen, 
   hierover verschijnt een melding bij het openen, zie hieronder.
 - Een klein aantal specifieke combinaties van relatiesoort, kalendertype of taakvoortgang die
   (nog) niet automatisch gemeld worden. Die zijn intern onderzocht en gedocumenteerd, en raken in
-  de praktijk zelden een gewoon project — over het volledige testcorpus (ruim 650 bestanden, van
-  Microsoft se eigen testmateriaal tot praktijkprojecten) gaat het om een handvol bestanden. Anders
+  de praktijk zelden een gewoon project — over het volledige testcorpus (ruim 200 doorgerekende
+  bestanden, van publiek MPXJ- en OzBuild-testmateriaal tot praktijkprojecten) gaat het om een
+  handvol bestanden. Anders
   dan de eerste categorie hierboven verschijnt hier **geen** melding: je merkt zo'n geval alleen
   door de datums in de tabel te vergelijken met MS Project zelf. Meestal blijft het bij één of
   enkele taken die een stuk afwijken; in een enkel, ongebruikelijk bestand (bijvoorbeeld met een
@@ -80,7 +81,10 @@ nog niet en rekent zo'n taak **aaneengesloten** door: de duur klopt, maar het ve
 mogelijk de einddatum) kan afwijken van wat je in MS Project ziet.
 
 Je merkt dit meestal bij het openen: bevat het bestand zulke taken, dan verschijnt er één keer een
-melding met het aantal. Twee van de drie oorzaken — nivellering met een leveling delay, en een
+melding met het aantal. Dat aantal telt de direct herkende taken zelf; werkt een afwijking door naar
+taken die ervan afhangen (bijvoorbeeld via een relatie), dan telt de melding die doorwerking niet
+mee — de werkelijke impact op de tabel kan dus groter zijn dan het gemelde aantal. Twee van de drie
+oorzaken — nivellering met een leveling delay, en een
 onderbroken of over meerdere dagen uitgesmeerde taak — worden betrouwbaar herkend. **Zuivere
 resource-contouring** (het werk binnen een taak krijgt een oplopende/aflopende curve, zonder dat de
 start-einddatum zelf verandert) is een bekende, niet-gedichte uitzondering op die melding: de
@@ -92,17 +96,26 @@ stilzwijgend verloren uit het bronbestand, Open Planner Studio negeert 'm alleen
 doorrekenen. Taak-splitsen en resource-nivellering als bewerkbare functie staan niet in deze
 etappe; zie de melding en deze gids als de plek waar je dat kunt navragen.
 
-## Mijlpalen in urenmodus: MS Project se eigen kloktijd-conventie
+## Mijlpalen: MS Project se eigen finish-grens-conventie voor eindmijlpalen
 
-Bij een **urenkalender** (zie hierboven) landt een mijlpaal die via een eind-start-relatie aan een
-voorganger hangt op de **exacte eindklokstand** van die voorganger — bijvoorbeeld dinsdag 17:00, als
-de voorganger dan eindigt — en niet op het eerstvolgende werkmoment (woensdag 08:00). Dat is MS
-Project se eigen conventie, en Open Planner Studio volgt 'm nu overal waar met een urenkalender
-wordt gerekend, niet alleen bij een `.mpp`-import: een mijlpaal in een handmatig aangemaakt project
-met een urenkalender gedraagt zich sindsdien hetzelfde. Een gewone taak (met een eigen duur) ná
-diezelfde voorganger start wél gewoon op het eerstvolgende werkmoment — deze conventie geldt
-uitsluitend voor mijlpalen. In dagmodus bestaat dit onderscheid niet: daar draait alles om hele
-dagen, dus is er geen aparte klokstand om op te landen.
+Een mijlpaal waarvan het veld **Soort mijlpaal** op **Eindmijlpaal** staat (zie de gids [Plannen &
+WBS](docs://gids-plannen-wbs), sectie Mijlpaal-soorten) en die via een eind-start-relatie
+aan een voorganger hangt, ankert op de finish-grens van die voorganger zélf, in plaats van op het
+eerstvolgende werkmoment erna. Bij een **urenkalender** (zie hierboven) betekent dat de **exacte
+eindklokstand** van de voorganger — bijvoorbeeld dinsdag 17:00, als de voorganger dan eindigt — in
+plaats van woensdag 08:00. In **dagmodus** bestaat hetzelfde onderscheid, alleen dag-granulair: de
+eindmijlpaal landt op dezelfde werkdag als de voorganger eindigt, in plaats van op de eerstvolgende
+werkdag. Dat is MS Project se eigen conventie voor eindmijlpalen, en Open Planner Studio volgt 'm
+overal waar dit type mijlpaal voorkomt, niet alleen bij een `.mpp`-import — ook een eindmijlpaal in
+een handmatig aangemaakt project gedraagt zich zo. De standaardwaarde van **Soort mijlpaal** is
+**Automatisch**: zo'n mijlpaal (en een expliciete **Startmijlpaal**) landt gewoon op het
+eerstvolgende werkmoment, net als een gewone taak — deze conventie geldt uitsluitend voor een
+mijlpaal die je zelf op **Eindmijlpaal** hebt gezet. Een gewone taak (met een eigen duur) ná
+diezelfde voorganger start sowieso altijd op het eerstvolgende werkmoment.
+
+Heeft een mijlpaal in het bronbestand zelf een duur groter dan 0, dan blijft het vinkje **Mijlpaal**
+aan staan, maar plant Open Planner Studio 'm gewoon als een taak met die duur — zie de gids
+[Plannen & WBS](docs://gids-plannen-wbs), sectie Mijlpaal-soorten.
 
 ## Voortgang: MS Project se eigen hervattingsconventie
 
