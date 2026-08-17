@@ -849,8 +849,10 @@ const T3_NO_BANDS_HOURS = buildCalHoursBlock(Array.from({ length: 7 }, () => ({ 
 //
 // MARGE-HERZIENING (M3, Opus-eindreview 2026-08-17, precedent: check-adapters-hours.ts se
 // T4-marge-herziening): 2s was ASYMMETRISCH krap. Lokaal herhaald gemeten: 1161-1224 ms — dat is
-// maar ~1,65× speling t.o.v. de 2000ms-klem, en deze check draait via de tijdzone-matrix 5× per
-// run op gedeelde CI-runners (18 kansen per `npm run verify`-aanroep, ubuntu/windows/macos ×3)
+// maar ~1,65× speling t.o.v. de 2000ms-klem, en deze check draait 6× per `npm run verify`-aanroep
+// (T16-veeglijst-correctie: 1× via run.sh se normale RUN_HOLIDAYS-blok + 5× opnieuw in de
+// tijdzone-matrix — zie run.sh se `for TZONE in UTC America/New_York Pacific/Midway …` — dus 18
+// kansen op gedeelde CI-runners, niet 15: ubuntu/windows/macos ×3 × 6, niet ×5)
 // waar een 3-4× tragere machine niet uitzonderlijk is — dat vals-rode risico weegt zwaarder dan de
 // mutatiedetectie verzwakken. 5000ms herstelt de marge (~4× t.o.v. de gemeten 1,2s) terwijl de
 // regressie die de klem moet vangen (46,3s) er nog altijd ruim >9× overheen zit — de klem blijft
