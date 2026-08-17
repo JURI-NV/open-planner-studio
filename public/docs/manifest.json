@@ -211,6 +211,14 @@
       "cluster": "import-export"
     },
     {
+      "id": "datums-zoals-opgeslagen",
+      "title": {
+        "nl": "Datums zoals opgeslagen",
+        "en": "Dates as recorded"
+      },
+      "layer": "gidsen"
+    },
+    {
       "id": "gids-ai-mcp",
       "title": {
         "nl": "AI-assistent koppelen (MCP)",
