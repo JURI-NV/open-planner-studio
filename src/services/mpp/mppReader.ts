@@ -100,9 +100,18 @@
  * `task.getStart()`/`getFinish()` in MPP14Reader kan, voor HANDMATIG-geplande taken, afwijken van
  * `SCHEDULED_START`/`SCHEDULED_FINISH` (het veld dat déze lezer gebruikt) — MPXJ leest beide
  * (`TaskField.START` op een apart veld-id, 1283/1284) en kiest per taak op basis van de taakmodus
- * (auto/handmatig, een boolean die zelf weer in Fixed2Meta zit — buiten T5's veldenlijst). Voor
- * auto-geplande taken (de meerderheid in normale bestanden) is SCHEDULED_START/-FINISH exact de
- * datum die ook in de UI staat, dus dit blijft een bewuste, beperkte vereenvoudiging.
+ * (auto/handmatig, `TaskMode`/`TASK_MODE`, een bit-flag die zelf in `Fixed2Meta` zit — buiten T5's
+ * veldenlijst). M5-correctie (eindreview T16c): "de meerderheid in normale bestanden is
+ * auto-geplande, dus bewuste beperkte vereenvoudiging" was hier eerder als vaststaand feit
+ * geformuleerd — dat is NIET gemeten. De `Fixed2Meta`-bit is nooit daadwerkelijk uitgelezen (geen
+ * code decodeert `TaskField.TASK_MODE`); er bestaat dus geen bevestiging van de aandeel-claim.
+ * T15's corpusbrede probe (zie dossier (c)5 in
+ * `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`) noemt dit "vermoedelijk de
+ * grootste resterende afwijkingscluster" — het tegenovergestelde van "een beperkte
+ * vereenvoudiging". TASK_MODE is de best onderbouwde HYPOTHESE voor de discriminator (bekend
+ * byte-level mechanisme, juiste richting van het effect), geen geverifieerde verklaring en geen
+ * gemeten omvang — zie `tests/planning/mppGroundTruth.ts`'s moduleheader voor de volledige,
+ * hypothese-vs-meting-precieze versie.
  *
  * Twee VERDER niet-geporte MPXJ-kwaliteitsfilters (T5-spec-review, 4c) — bewuste, gedocumenteerde
  * vereenvoudiging, geen bug: MPP14Reader's `createTaskMap` accepteert een taakrecord alleen als
