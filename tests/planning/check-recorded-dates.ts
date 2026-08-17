@@ -21,6 +21,13 @@ import {
 } from '@/engine/scheduler/recordedDates';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
 import type { Task } from '@/types/task';
+import { useAppStore } from '@/state/appStore';
+import { readIFC } from '@/services/ifc/ifcReader';
+import { writeIFC } from '@/services/ifc/ifcWriter';
+import { buildWriteIFCInput } from '@/state/ifcSaveInput';
+import { IFC_TASKTIME_SLOTS, IFC_TASK_SLOTS, TASKTIME_SLOT, TASK_SLOT } from '@/services/ifc/ifcTaskSlots';
+
+const S = () => useAppStore.getState();
 
 const diffs: string[] = [];
 let checks = 0;
@@ -260,6 +267,105 @@ const recWerk = cpmResultFromRecorded(
   [werkOpEenDag], cal,
 );
 eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDuration, 1);
+
+// ── (7) Detectie bij het laden ───────────────────────────────────────────────
+// Bestand met vastgelegde datums die NIET uit de logica volgen: b staat vast op 2026-03-16 terwijl
+// de FS-relatie hem direct ná a (finish 2026-03-06) zou plaatsen.
+{
+  // Bouw de IFCTASKTIME-/IFCTASK-argumentreeksen via de gedeelde slot-registry (ifcTaskSlots.ts) —
+  // niet met de hand geteld. `new Array(IFC_TASKTIME_SLOTS.length)` legt de arraylengte vast aan
+  // dezelfde bron als de reader/writer, en de posities komen uit `TASKTIME_SLOT`/`TASK_SLOT`
+  // (naam→index-maps, afgeleid van diezelfde registry) — een verschoven index zoals eerder (de
+  // taskTime-ref op index 8 i.p.v. 11) kan zo niet meer onopgemerkt insluipen: fout de key, dan
+  // landt de waarde gewoon op de verkeerde plek in EEN array die de test zelf ook weer met dezelfde
+  // maps zou moeten uitlezen om te falen — maar hier bewijst de assertie op recordedFields verderop
+  // (§9r-stijl) dat de posities kloppen, niet alleen dat de fixture "iets" oplevert.
+  const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
+    const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
+    a[TASKTIME_SLOT.name] = "'T'";
+    a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
+    a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
+    a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
+    a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
+    a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
+    a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
+    a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
+    return a.join(',');
+  };
+  const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
+    const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
+    a[TASK_SLOT.globalId] = `'${o.guid}'`;
+    a[TASK_SLOT.name] = `'${o.name}'`;
+    a[TASK_SLOT.identification] = `'${o.wbs}'`;
+    a[TASK_SLOT.isMilestone] = '.F.';
+    a[TASK_SLOT.taskTime] = o.taskTimeRef;
+    a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
+    return a.join(',');
+  };
+
+  const EXTERN = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    `#9=IFCTASKTIME(${ttArgs({
+      scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
+      earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
+    })});`,
+    `#2=IFCTASK(${taskArgs({ guid: 'gTaskA', name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
+    // b staat in het bestand ver ná a's werkelijke opvolgdatum (2026-03-09, de eerstvolgende werkdag
+    // na a's finish op vrijdag 2026-03-06) — precies het geval van issue #63.
+    `#10=IFCTASKTIME(${ttArgs({
+      scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
+      earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
+    })});`,
+    `#3=IFCTASK(${taskArgs({ guid: 'gTaskB', name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
+    "#4=IFCRELSEQUENCE('gSeq',$,$,$,#2,#3,$,.FINISH_START.,$);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+
+  // Tussentijdse controle (plan-eis): bewijs dat de fixture ECHT twee taken mét taaktijd en een
+  // werkende FS-relatie oplevert, los van wat de store ermee doet — anders test de rest hieronder
+  // een vacuüm (de eerdere fout: de taskTime-ref stond op de verkeerde arg-index en de fixture gaf
+  // dan gewoon "geen taaktijd" i.p.v. een fout).
+  const rtExtern = readIFC(EXTERN);
+  eq('7a fixture geeft twee taken', rtExtern.tasks.length, 2);
+  eq('7b fixture geeft één FS-relatie', rtExtern.sequences.length, 1);
+  const aId = rtExtern.tasks.find(t => t.wbsCode === '1.1')!.id;
+  const bId = rtExtern.tasks.find(t => t.wbsCode === '1.2')!.id;
+  truthy('7c a heeft écht een taaktijd (scheduleStart uit het bestand)', rtExtern.tasks.find(t => t.id === aId)!.time.scheduleStart === '2026-03-02');
+  truthy('7d b heeft écht een taaktijd (scheduleStart uit het bestand)', rtExtern.tasks.find(t => t.id === bId)!.time.scheduleStart === '2026-03-16');
+  truthy('7e de relatie loopt van a naar b', rtExtern.sequences[0].predecessorId === aId && rtExtern.sequences[0].successorId === bId);
+  // Vier van de negen bewaakte slots gevuld (early- én schedule-paar), de rest ($) niet — bewijst
+  // dat de aanwezigheidsregistratie per slot werkt, niet "alles of niets" per IfcTaskTime.
+  eq('7f a meldt precies het early- en schedule-paar als aanwezig',
+    rtExtern.recordedFields?.[aId], ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish']);
+  eq('7f2 b meldt hetzelfde', rtExtern.recordedFields?.[bId], ['earlyStart', 'earlyFinish', 'scheduleStart', 'scheduleFinish']);
+
+  // Nu door de ECHTE store en het ECHTE laadpad (fileSlice.applyLoadedProject), niet de pure laag
+  // los aangeroepen — dit is precies het pad dat Taak 4 bouwt.
+  S().newProject();
+  S().applyLoadedProject(readIFC(EXTERN), { filePath: null, recompute: true });
+
+  truthy('7g afwijking gedetecteerd: recordedDates is gezet', S().recordedDates !== null);
+  eq('7h shifted telt de verschoven taak (b)', S().recordedDates?.shifted, 1);
+  eq('7i total telt alle vastgelegde taken (a + b)', S().recordedDates?.total, 2);
+  eq('7j detectie zet de modus niet aan', S().datesAsRecorded, false);
+
+  // Tegenproef: een bestand dat de app ZELF schreef, levert geen aanbod op — de writer vult altijd
+  // alle negen slots (zie check-ifc-roundtrip.ts (1b)) én runCPM heeft de datums al sluitend gemaakt
+  // vóórdat er wordt opgeslagen, dus na het herladen kan er geen verschil zijn.
+  S().newProject();
+  const ownA = S().addTask({ name: 'Eigen A' });
+  const ownB = S().addTask({ name: 'Eigen B' });
+  S().addSequence({ predecessorId: ownA, successorId: ownB, type: 'FINISH_START', lagDays: 0 });
+  S().runCPM();
+  const ownIfc = writeIFC(buildWriteIFCInput(S()));
+
+  S().newProject();
+  S().applyLoadedProject(readIFC(ownIfc), { filePath: null, recompute: true });
+  eq('7k eigen bestand geeft geen aanbod: recordedDates blijft null', S().recordedDates, null);
+}
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {

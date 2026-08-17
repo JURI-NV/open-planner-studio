@@ -61,8 +61,9 @@ export interface RecordedDates {
 
 /** Wat de store bewaart: de vastlegging plus de ná de solve gemeten verschuiving. Bewust alleen een
  *  TYPE — `captureRecordedDates` levert `shifted` niet, want die waarde bestaat op dat moment nog
- *  niet (zie de docstring van `RecordedDates` hierboven). De aanroeper (`documentContract.ts`/
- *  detectiecode, taak 4) bouwt zelf `{ ...captureRecordedDates(...), shifted: countShiftedTasks(...) }`. */
+ *  niet (zie de docstring van `RecordedDates` hierboven). De aanroeper (`fileSlice.applyLoadedProject`,
+ *  taak 4) bouwt zelf `{ ...captureRecordedDates(...), shifted: countShiftedTasks(...) }` —
+ *  `documentContract.ts` draagt alleen het type in `DOCUMENT_FIELDS`, niet de samenstelling ervan. */
 export interface RecordedDatesState extends RecordedDates {
   /** Aantal taken waarvan de herberekening de datums verschoof — de teller in de melding. */
   shifted: number;
