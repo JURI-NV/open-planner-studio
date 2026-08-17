@@ -359,6 +359,7 @@ De leeskant (`durationType: 'ELAPSEDTIME'` zetten uit veld `DurationUnits`=181) 
 #### T16 — Eindreview, `verify`, documentatie bijwerken
 
 `npm run verify` groen; `docs/TODO.md` bijgewerkt; MPXJ-attributie in nieuwe/gewijzigde bestanden intact (LGPL-2.1-herkomst); hyperkritische eindreview (Opus) op de volledige diff van de etappe.
+**T9-registraties (Opus-review 2026-08-17):** `resumeFromActualElapsed` is bewust onzichtbare, permanente projectsemantiek — een project dat één keer door `.mpp` ging houdt de MSP-hervattingsconventie, ook door IFC heen, zonder UI-zichtbaarheid; T16 neemt een gidsregel op (en overweegt tonen in CalcOptionsSection als read-only). De klokstand-heuristiek-telling in eerdere notities ("20→0") was los zand; de juiste meting is 126 voorkomens/80 taakregels/9 bestanden → 0, geen nieuwe klasse (reviewer-gemeten).
 **T16-veeglijst (verzameld tijdens de etappe):** MAX_DAY_HOUR_PERIODS-rekenfout (pre-existent, T3-review); dode isHoliday-API/workingExceptionSet (T2-review LAAG-5); computeStandardWorkdayBands-vs-hoursPerDay-spanning bij zelf-tegenstrijdige kalenders (T2-eindcheck); gidsclaim "tot op de minuut" aanscherpen zodra T15 klaar is + date-only-ankersemantiek elapsed/uurmodus in de gids (T8); P6-workingexceptions-beperking in de gids (T13-M2); drie T13-nits: T3-ontmaskeringszin terug in de attributie-alinea, 5×/18-rekensom in het klem-commentaar, TODO-rubriek van het P6-item.
 
 ---
