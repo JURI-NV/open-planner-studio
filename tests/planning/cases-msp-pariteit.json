@@ -897,7 +897,7 @@
     },
     {
       "id": "msp-38-z11-kruiskalender-identieke-banden-extra-werkdag",
-      "title": "Z11 (dossier kruis-kalender-FS-asymmetrie) — de discriminator-kant 'identieke gedeelde banden ⇒ opvolger-eerst', uur-modus. P38 (ma-vr 08:00-17:00) en Q38 delen IDENTIEKE ma-vr-banden maar Q38 werkt óók zaterdag (08:00-17:00) — het uur-analoog van het OzBuild-corpusgeval (T16c-M1), corpusloos gereconstrueerd.",
+      "title": "Z11 (dossier kruis-kalender-FS-asymmetrie) — de discriminator-kant 'identieke gedeelde banden ⇒ opvolger-eerst', uur-modus. P38 (ma-vr 08:00-17:00) en Q38 delen IDENTIEKE ma-vr-banden maar Q38 werkt óók zaterdag (08:00-17:00) — extrapolatie naar uur-modus van het byte-onderbouwde DAG-modus-corpusgeval (T16c-M1, OzBuild), corpusloos gereconstrueerd. MSP-ONGEMETEN voor uur-modus zelf: geen corpusbestand bevat deze exacte combinatie in uur-modus — een toekomstig corpusbestand dat dit tegenspreekt wint (zie het Z10-precedent, msp-37).",
       "note": "Handberekening: A(45u, P38) vanaf ma08:00 verbruikt precies 5×9u (elke dag exact één band) ⇒ A.ef=vr17:00. B (FS+0, Q38): vóór Z11 snapte de grens EERST in P38 (die zaterdag niet kent) ⇒ P38.nextWorkInstant(vr17:00)=ma-erna 08:00 ⇒ B.es=ma-erna 08:00 (FOUT, de bug). NA Z11 (calendarsAgreeOnSharedWorkdayBands(P38,Q38)=true, want de enige weekdag waarop ze verschillen — zaterdag — is voor P38 geen werkdag en telt dus niet mee) snapt de grens rechtstreeks in Q38: Q38.nextWorkInstant(vr17:00) — vr17:00 valt niet in [08:00,17:00) maar Q38 se zaterdag-band bestaat WEL ⇒ B.es=za08:00. Mutatiebewijs: de nieuwe discriminator-tak in `forwardDay`/`forwardHour` (relationMath.ts) terugdraaien (gedwongen voorganger-eerst) → deze case ROOD op B.es/B.ef (za08:00/za17:00 → ma-erna 08:00/17:00); herstel → groen.",
       "anchor": "2026-07-06",
       "calendars": [
@@ -919,7 +919,7 @@
     },
     {
       "id": "msp-39-z11-kruiskalender-verschillende-bandgrenzen",
-      "title": "Z11 (dossier kruis-kalender-FS-asymmetrie) — de discriminator-kant 'verschillende bandgrenzen ⇒ voorganger-eerst', uur-modus. R39 (ma-vr 08:00-17:00) en S39 (ma-vr 08:30-17:30, ZELFDE weekdagen maar ANDERE band-tijden) — een TWEEDE, van de guard-case (msp-04) los staande instantie van hetzelfde principe, met S39's band zó gekozen dat 'm het voorganger-finish-instant (vr17:00) toevallig BEVAT — precies de constructie die een opvolger-eerst-snap onterecht zou laten staan.",
+      "title": "Z11 (dossier kruis-kalender-FS-asymmetrie) — de discriminator-kant 'verschillende bandgrenzen ⇒ voorganger-eerst', uur-modus. R39 (ma-vr 08:00-17:00) en S39 (ma-vr 08:30-17:30, ZELFDE weekdagen maar ANDERE band-tijden) — een TWEEDE, van de guard-case (msp-04) los staande instantie van hetzelfde principe, met S39's band zó gekozen dat 'm het voorganger-finish-instant (vr17:00) toevallig BEVAT — precies de constructie die een opvolger-eerst-snap onterecht zou laten staan. MSP-ONGEMETEN: dit is een interne-consistentietoets tegen msp-04 (guard-case), geen MSP-meting op zich — de guard-case zelf leunt op ProjectLibre-semantiek/interne redenering, niet op een corpusbestand (zie §9); een toekomstig corpusbestand dat dit tegenspreekt wint.",
       "note": "Handberekening: C(9u, R39) vanaf ma08:00 vult exact R39's ma-band (08:00-17:00) ⇒ C.ef=ma17:00. D (FS+0, S39), MET de discriminator (bandgrenzen verschillen: 480≠510, 1020≠1050 ⇒ calendarsAgreeOnSharedWorkdayBands=false ⇒ voorganger-eerst blijft staan): R39.nextWorkInstant(ma17:00) — ma17:00(=1020) valt niet in R39's band [480,1020) (rand-exclusief) ⇒ snapt naar di08:00 (R39 kent geen zaterdag/zondag) ⇒ S39.nextWorkInstant(di08:00) — di08:00(=480) valt vóór S39's band [510,1050) ⇒ snapt naar di08:30 ⇒ D.es=di08:30. Zónder de discriminator (opvolger-eerst geforceerd) zou S39.nextWorkInstant(ma17:00) rechtstreeks getoetst worden: ma17:00(=1020) valt WEL binnen S39's band [510,1050) (1020<1050) ⇒ blijft ma17:00 — D.es zou dan ma17:00 zijn, een heel andere (foute) dag. Mutatiebewijs: de discriminator geforceerd op 'opvolger-eerst' (calendarsAgreeOnSharedWorkdayBands altijd `true` laten teruggeven) → deze case ROOD op D.es/D.ef (ma17:00/ma18:00 i.p.v. di08:30/di09:30); msp-04 (guard-case) ROOD op dezelfde mutatie; herstel → beide groen.",
       "anchor": "2026-07-06",
       "calendars": [
@@ -957,6 +957,130 @@
         "tasks": {
           "E": { "es": "2026-07-06", "ef": "2026-07-10" },
           "F": { "es": "2026-07-11", "ef": "2026-07-11" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-41-z11-punt2-startmijlpaal-uitgesloten",
+      "title": "Z11-fixronde (Opus-review, punt 2, MIDDEN/verplicht) — een STARTmijlpaal-opvolger valt NIET door de nieuwe discriminator-tak, ook al zouden P41/Q41 'm anders (net als msp-38) triggeren. M (milestoneKind START) op Q41, FS+0 van A op P41 (identieke gedeelde banden + Q41 werkt óók zaterdag) — vóór Z11 had de FS-default-tak geen eigen kortsluiting voor een startmijlpaal-opvolger; die loopt gewoon door de generieke voorganger-eerst-weg. Pint dat Z11 die weg ONGEWIJZIGD laat.",
+      "note": "Handberekening: A(45u, P41) ⇒ A.ef=vr17:00 (identiek aan msp-38). M is `succIsStartMs` ⇒ de nieuwe `!succIsStartMs`-uitsluiting in `forwardHour`'s FS-tak (relationMath.ts) blokkeert de discriminator-tak, dus M loopt via de OUDE weg: `lagged=P41.nextWorkInstant(vr17:00)`=ma-erna 08:00 (P41 kent geen zaterdag) ⇒ M.es=Q41.availableStart(ma-erna 08:00)=ma-erna 08:00 (al geldig). M is 0-duur ⇒ M.ef=M.es. Zónder de uitsluiting zou M.es=za08:00 zijn geweest (dezelfde discriminator-shortcut als msp-38). Mutatiebewijs: `!succIsStartMs` weghalen uit de guard → deze case ROOD op M.es/M.ef (ma-erna 08:00 → za08:00); msp-38 blijft ONGEWIJZIGD (die raakt de uitsluiting niet, B is geen mijlpaal); herstel → groen.",
+      "anchor": "2026-07-06",
+      "calendars": [
+        { "name": "P41", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+        { "name": "Q41", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [{ "start": 480, "end": 1020 }], "7": [] } } }
+      ],
+      "tasks": [
+        { "name": "A", "dur": "45u", "calendar": "P41" },
+        { "name": "M", "milestone": true, "milestoneKind": "START", "calendar": "Q41" }
+      ],
+      "links": [{ "pred": "A", "succ": "M", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-10T17:00" },
+          "M": { "es": "2026-07-13T08:00", "ef": "2026-07-13T08:00" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-42-z11-punt2-elapsed-opvolger-uitgesloten",
+      "title": "Z11-fixronde (Opus-review, punt 2, MIDDEN/verplicht) — een ELAPSEDTIME-DUUR-opvolger (`succElapsed`, de opvolger se EIGEN duurtype — niet de lag-eenheid) valt NIET door de nieuwe discriminator-tak. E (durationType ELAPSEDTIME) op Q42, FS+0 (WORKTIME-lag, lag=0) van A op P42 (identieke gedeelde banden + Q42 werkt óók zaterdag) — vóór Z11 liep zo'n opvolger door dezelfde generieke voorganger-eerst-weg als een gewone taak; pint dat Z11 die weg ONGEWIJZIGD laat.",
+      "note": "Handberekening: A(45u, P42) ⇒ A.ef=vr17:00 (identiek aan msp-38). E is `succElapsed` ⇒ de nieuwe `!succElapsed`-uitsluiting blokkeert de discriminator-tak: `lagged=P42.nextWorkInstant(vr17:00)`=ma-erna 08:00 ⇒ E.es=Q42.availableStart(ma-erna 08:00)=ma-erna 08:00. E (2u elapsed) ⇒ E.ef=E.es+2u=ma-erna 10:00. Zónder de uitsluiting zou E.es=za08:00 zijn geweest. Mutatiebewijs: `!succElapsed` weghalen uit de guard → deze case ROOD op E.es/E.ef (ma-erna 08:00/10:00 → za08:00/10:00); herstel → groen.",
+      "anchor": "2026-07-06",
+      "calendars": [
+        { "name": "P42", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+        { "name": "Q42", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [{ "start": 480, "end": 1020 }], "7": [] } } }
+      ],
+      "tasks": [
+        { "name": "A", "dur": "45u", "calendar": "P42" },
+        { "name": "E", "dur": "2u", "durationType": "ELAPSEDTIME", "calendar": "Q42" }
+      ],
+      "links": [{ "pred": "A", "succ": "E", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-10T17:00" },
+          "E": { "es": "2026-07-13T08:00", "ef": "2026-07-13T10:00" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-43-z11-punt4-bandvolgorde-ongevoelig",
+      "title": "Z11-fixronde (Opus-review, punt 4, LAAG) — een kalender met meerdere banden per dag (gesplitste dienst) hoeft ze niet in chronologische volgorde op te slaan. P43 en Q43 dragen op ma-vr DEZELFDE twee banden (08:00-12:00, 13:00-17:00) maar Q43 slaat ze in OMGEKEERDE volgorde op; Q43 werkt daarnaast óók zaterdag. De discriminator moet de banden vóór vergelijking sorteren, anders ziet een positionele vergelijking een verzonnen verschil.",
+      "note": "Handberekening: A(40u, P43) vanaf ma08:00 verbruikt 2×240min/dag (twee gelijke banden) × 5 dagen = 2400min=40u exact ⇒ A.ef=vr17:00 (het eind van de TWEEDE band die dag). B (FS+0, Q43): `calendarsAgreeOnSharedWorkdayBands` sorteert Q43's (omgekeerde) vr-banden vóór vergelijking naar `[[08:00,12:00],[13:00,17:00]]` — identiek aan P43's ⇒ `true` ⇒ opvolger-eerst: Q43.nextWorkInstant(vr17:00) — 17:00 valt niet in [13:00,17:00) ⇒ snapt naar za se eerste band 08:00 ⇒ B.es=za08:00. B (4u) vult exact za se eerste band ⇒ B.ef=za12:00. Mutatiebewijs (sort weglaten in `calendarsAgreeOnSharedWorkdayBands`): de OMGEKEERDE Q43-array vergelijkt dan positioneel tegen P43's array en ziet een vals verschil (`{13:00-17:00}` op index 0 vs `{08:00-12:00}`) ⇒ discriminator ten onrechte `false` ⇒ voorganger-eerst ⇒ B.es zou ma-erna 08:00 worden (P43 kent geen zaterdag) — deze case ROOD op B.es/B.ef; herstel (sort terug) → groen.",
+      "anchor": "2026-07-06",
+      "calendars": [
+        { "name": "P43", "workTime": { "byWeekday": {
+          "1": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }],
+          "2": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }],
+          "3": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }],
+          "4": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }],
+          "5": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }],
+          "6": [], "7": []
+        } } },
+        { "name": "Q43", "workTime": { "byWeekday": {
+          "1": [{ "start": 780, "end": 1020 }, { "start": 480, "end": 720 }],
+          "2": [{ "start": 780, "end": 1020 }, { "start": 480, "end": 720 }],
+          "3": [{ "start": 780, "end": 1020 }, { "start": 480, "end": 720 }],
+          "4": [{ "start": 780, "end": 1020 }, { "start": 480, "end": 720 }],
+          "5": [{ "start": 780, "end": 1020 }, { "start": 480, "end": 720 }],
+          "6": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "7": []
+        } } }
+      ],
+      "tasks": [
+        { "name": "A", "dur": "40u", "calendar": "P43" },
+        { "name": "B", "dur": "4u", "calendar": "Q43" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-10T17:00" },
+          "B": { "es": "2026-07-11T08:00", "ef": "2026-07-11T12:00" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-44-z11-punt5-holiday-landingsdag",
+      "title": "Z11-fixronde (Opus-review, punt 5, LAAG) — een holiday bij de OPVOLGER op precies de landingsdag houdt voorganger-eerst in stand, ook al zou de opvolger's eigen `nextWorkInstant` daarna toevallig op de opvolger se 'extra werkdag' uitkomen. P44/Q44 zijn verder identiek aan msp-38 (P38/Q38, incl. Q44's extra zaterdag), maar Q44 heeft een holiday op precies de landingsdag (vrijdag 2026-07-10).",
+      "note": "Handberekening: A(45u, P44) ⇒ A.ef=vr17:00 (identiek aan msp-38, P44 heeft geen holiday). B (FS+0, Q44): `effectiveBandsOn(Q44, vr07-10)`=`[]` (holiday onderdrukt die dag) tegenover `effectiveBandsOn(P44, vr07-10)`=`[08:00,17:00)` — ASYMMETRISCH leeg ⇒ `calendarsAgreeOnSharedWorkdayBands`=`false` ⇒ voorganger-eerst blijft staan: `P44.nextWorkInstant(vr17:00)`=ma-erna 08:00 (P44 kent geen zaterdag) ⇒ B.es=Q44.availableStart(ma-erna 08:00)=ma-erna 08:00. Zonder de asymmetrie-wacht (bv. 'één kant leeg ⇒ toch `true`') zou de discriminator ten onrechte opvolger-eerst kiezen: `Q44.nextWorkInstant(vr17:00)` slaat de holiday-vrijdag over maar vindt Q44's WEL-werkende zaterdag ⇒ B.es zou za08:00 zijn geworden — exact de msp-04-foutvorm, nu via een holiday i.p.v. een structureel andere kalender. Mutatiebewijs: de asymmetrie-wacht in `calendarsAgreeOnSharedWorkdayBands` vervangen door 'één kant leeg ⇒ `true`' → deze case ROOD op B.es/B.ef (ma-erna 08:00/17:00 → za08:00/17:00); msp-38 ONGEWIJZIGD (daar is nergens een holiday, dus de wacht wordt daar nooit geraakt); herstel → groen.",
+      "anchor": "2026-07-06",
+      "calendars": [
+        { "name": "P44", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+        { "name": "Q44", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [{ "start": 480, "end": 1020 }], "7": [] } }, "holidays": [{ "name": "Q44-only landingsdag-feestdag", "startDate": "2026-07-10", "endDate": "2026-07-10" }] }
+      ],
+      "tasks": [
+        { "name": "A", "dur": "45u", "calendar": "P44" },
+        { "name": "B", "dur": "9u", "calendar": "Q44" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-10T17:00" },
+          "B": { "es": "2026-07-13T08:00", "ef": "2026-07-13T17:00" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-45-z11-punt1-workingexception-landingsdag",
+      "title": "Z11-fixronde (Opus-review, punt 1, MIDDEN/verplicht) — de reviewer-probe: P45/Q45 delen een IDENTIEK STATISCH weekpatroon (ma-vr 08:00-17:00), maar Q45 draagt een werkende uitzondering op precies de landingsdag (vrijdag 2026-07-10) die de band DIE DAG verbreedt naar 08:00-18:00. Een discriminator die alleen de statische weekdagtabel vergelijkt ziet 'identiek' (geen exceptie in `workTime.byWeekday`) en zou ten onrechte opvolger-eerst kiezen — exact de msp-04-foutvorm, nu latent via een uitzondering i.p.v. een structureel andere kalender.",
+      "note": "Handberekening: A(45u, P45) ⇒ A.ef=vr17:00 (identiek aan msp-38, P45 heeft geen uitzondering). B (FS+0, Q45): `effectiveBandsOn(Q45, vr07-10)`=`[08:00,18:00)` (MET de uitzondering) tegenover `effectiveBandsOn(P45, vr07-10)`=`[08:00,17:00)` — VERSCHILLEND (1020≠1080) ⇒ `calendarsAgreeOnSharedWorkdayBands`=`false` ⇒ voorganger-eerst blijft staan: `P45.nextWorkInstant(vr17:00)`=ma-erna 08:00 (P45 kent geen zaterdag/uitzondering) ⇒ B.es=Q45.availableStart(ma-erna 08:00)=ma-erna 08:00. Zónder punt-1-fix (statische tabel i.p.v. `effectiveBandsOn`) zou de discriminator 'identiek' zeggen (P45/Q45's `workTime.byWeekday` is voor beide gelijk) ⇒ opvolger-eerst ⇒ `Q45.nextWorkInstant(vr17:00)` — vr17:00(=1020) valt WEL binnen Q45's VERBREDE band [08:00,18:00)=[480,1080) ⇒ blijft vr17:00 ONVERANDERD ⇒ B.es zou vr17:00 zijn geworden. Mutatiebewijs: `calendarsAgreeOnSharedWorkdayBands` terugzetten op de statische-weekdagtabel-vergelijking (zonder `onDate`/`effectiveBandsOn`) → deze case ROOD op B.es/B.ef (ma-erna 08:00/09:00 → vr17:00/18:00); msp-04/msp-38/msp-39 blijven ONGEWIJZIGD (geen van drieën gebruikt workingExceptions); herstel → groen.",
+      "anchor": "2026-07-06",
+      "calendars": [
+        { "name": "P45", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+        { "name": "Q45", "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } }, "workingExceptions": [{ "name": "Verlengde vrijdag (landingsdag-uitzondering)", "startDate": "2026-07-10", "endDate": "2026-07-10", "bands": [{ "start": 480, "end": 1080 }] }] }
+      ],
+      "tasks": [
+        { "name": "A", "dur": "45u", "calendar": "P45" },
+        { "name": "B", "dur": "1u", "calendar": "Q45" }
+      ],
+      "links": [{ "pred": "A", "succ": "B", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06T08:00", "ef": "2026-07-10T17:00" },
+          "B": { "es": "2026-07-13T08:00", "ef": "2026-07-13T09:00" }
         },
         "error": false
       }
