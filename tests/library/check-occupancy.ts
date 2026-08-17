@@ -1,14 +1,23 @@
 // B1b-bezettingskern (spec 2026-08-14-b1b-bezettingsoverzicht-design.md §4/§6/§10). Headless
 // batterij over de pure `computeLibraryOccupancy`: handgebouwde `OccupancyDocInput`-fixtures +
-// een minimale `CompanyPool` — geen store, geen I/O. Exitcode is de poort (XX-regels tonen
-// afwijkingen). Cases 1–13 dekken het VANGNETpad (§4.3): hun stale-fixtures dragen bewust géén
-// `solveInput`, dus de default-solve geeft `null` terug en het document blijft zichtbaar-ongeteld.
-// Cases 14–16 dekken de efemere solve van §4.3b (doorrekenen i.p.v. uitsluiten). Case 10 dekt
-// daarnaast de `OccupancyDocBooking.dailyLoad`-uitbreiding (histogramvoeding, som-invariant).
+// een minimale `CompanyPool`. Exitcode is de poort (XX-regels tonen afwijkingen). Cases 1–13 dekken
+// het VANGNETpad (§4.3): hun stale-fixtures dragen bewust géén `solveInput`, dus de default-solve
+// geeft `null` terug en het document blijft zichtbaar-ongeteld. Cases 14–16 dekken de efemere solve
+// van §4.3b (doorrekenen i.p.v. uitsluiten). Case 10 dekt daarnaast de
+// `OccupancyDocBooking.dailyLoad`-uitbreiding (histogramvoeding, som-invariant).
+//
+// Cases 17–20 zijn de enige die de ECHTE Zustand-store aanraken (patroon: check-library-slice.ts /
+// tests/planning/check-move-assignment.ts): het TERUGSCHRIJFBESLUIT van §4.3b woont in een
+// store-actie (`recalculateStaleSleepingDocuments` in `documentSlice`) en die is alleen zinvol te
+// testen tegen echte payloads in de documentregistry. Cases 1–16 blijven puur.
 import { computeLibraryOccupancy, ephemeralSolve } from '@/services/library/occupancy';
 import type { OccupancyDocInput, OccupancyEphemeralSolve } from '@/services/library/occupancy';
 import { computeResourceLoad, maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
 import { solveProject, cloneTasksForSolve } from '@/engine/scheduler/solveProject';
+import { useAppStore } from '@/state/appStore';
+import { createDefaultProject } from '@/state/defaults';
+import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
+import type { DocumentPayload, RecoveryDocInput } from '@/state/documentContract';
 import type { CompanyPool } from '@/types/library';
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Task } from '@/types/task';
@@ -608,6 +617,122 @@ function pool(resources: Resource[]): CompanyPool {
     rows.length === 1 && rows[0].docs[0].counted === true && rows[0].docs[0].firstDay === '2026-08-03',
     `case 16 sanity: de solve is écht gedraaid (kreeg counted ${rows[0]?.docs[0]?.counted}, firstDay ${rows[0]?.docs[0]?.firstDay})`,
   );
+}
+
+// ══ Terugschrijven mét "Automatisch berekenen" (§4.3b, tweede ronde) ════════════════════════════
+// `recalculateStaleSleepingDocuments()` in `documentSlice`: elk NIET-actief document met een
+// verouderde planning wordt écht doorgerekend en teruggeschreven (taken/`cpmResult`/
+// `scheduleStale: false`/`resourceLoadResult: null`), zónder undo-snapshot en zónder `isDirty` te
+// raken. Tegen de echte store, want het gaat precies om de payloads in de documentregistry.
+
+const S = () => useAppStore.getState();
+/** De (slapende) payload van document `id` uit de registry. */
+const sleeping = (id: string): DocumentPayload | null => S().documents.find(d => d.id === id)?.payload ?? null;
+
+// ── Case 17: een stale SLAPENDE payload wordt echt bijgewerkt (en de actie meldt er precies één) ──
+let parkedId = '';
+let afterPayload: DocumentPayload | null = null;
+{
+  // Bouw het document met ECHTE store-acties, zodat de payload ook een echte undo-historie krijgt en
+  // de stale-vlag op de gewone manier gezet is (addTask/addSequence ⇒ finishMutation({stale: true})).
+  const t1 = S().addTask({ name: 'A1' });
+  const t2 = S().addTask({ name: 'A2' });
+  const seqId = S().addSequence({ predecessorId: t1, successorId: t2, type: 'FINISH_START', lagDays: 0 });
+  assert(seqId !== null, 'case 17 setup: de FS-relatie is geaccepteerd');
+  assert(S().scheduleStale === true, 'case 17 setup: de bewerkingen zetten scheduleStale');
+
+  parkedId = S().activeDocumentId;
+  S().newDocument(); // parkeert het bewerkte document als slapende payload en maakt een leeg tabblad actief.
+
+  const before = sleeping(parkedId);
+  assert(before !== null && before.scheduleStale === true, 'case 17 setup: de geparkeerde payload is stale');
+  const undoBefore = JSON.stringify(before?.undoStack);
+  const dirtyBefore = before?.isDirty;
+  assert((before?.undoStack.length ?? 0) > 0, 'case 17 setup: de geparkeerde payload draagt een undo-historie');
+  const startBefore = before?.tasks.map(t => t.time.earlyStart) ?? [];
+  assert(
+    startBefore.length === 2 && startBefore[0] === startBefore[1],
+    `case 17 setup: vóór de doorrekening starten beide taken op dezelfde dag (kreeg ${JSON.stringify(startBefore)})`,
+  );
+
+  const n = S().recalculateStaleSleepingDocuments();
+  assert(n === 1, `case 17: precies één document bijgewerkt (kreeg ${n})`);
+
+  afterPayload = sleeping(parkedId);
+  assert(afterPayload?.scheduleStale === false, 'case 17: scheduleStale staat op false');
+  assert(afterPayload?.cpmResult !== null && afterPayload?.cpmResult?.error === undefined, 'case 17: cpmResult is gezet en foutloos');
+  assert(afterPayload?.resourceLoadResult === null, 'case 17: resourceLoadResult is genuld (switchDocument herrekent hem toch)');
+  const a1 = afterPayload?.tasks.find(t => t.id === t1);
+  const a2 = afterPayload?.tasks.find(t => t.id === t2);
+  assert(
+    !!a1?.time.earlyStart && !!a1?.time.earlyFinish && !!a2?.time.earlyStart,
+    'case 17: de taken dragen doorgerekende datums',
+  );
+  assert(
+    !!a1 && !!a2 && a2.time.earlyStart > a1.time.earlyFinish,
+    `case 17: de FS-relatie is écht doorgerekend (A2 start ná A1 klaar; kreeg ${a1?.time.earlyFinish} → ${a2?.time.earlyStart})`,
+  );
+  // Semantiek spiegelt runCPM: geen undo-snapshot, isDirty ongemoeid.
+  assert(JSON.stringify(afterPayload?.undoStack) === undoBefore, 'case 17: de undo-stack van de payload is ongewijzigd');
+  assert(afterPayload?.redoStack.length === 0, 'case 17: de redo-stack blijft leeg (geen bewerking)');
+  assert(afterPayload?.isDirty === dirtyBefore, 'case 17: isDirty is ongemoeid');
+}
+
+// ── Case 18: no-op voor niet-stale payloads (zelfs de payload-REFERENTIE blijft staan) ───────────
+{
+  const n = S().recalculateStaleSleepingDocuments();
+  assert(n === 0, `case 18: niets stale ⇒ 0 bijgewerkte documenten (kreeg ${n})`);
+  assert(sleeping(parkedId) === afterPayload, 'case 18: de payload-referentie is niet vervangen (geen store-mutatie)');
+}
+
+// ── Cases 19/20: een relatiecyclus blijft onaangeraakt, de rest wordt gewoon bijgewerkt ─────────
+{
+  // `restoreDocuments` is het enige pad dat een SLAPENDE payload met een cyclische relatiegraaf kan
+  // opleveren (addSequence weigert dat via relationRules): precies het crashherstel-geval, waar elke
+  // niet-actieve payload per definitie `scheduleStale: true` draagt.
+  const recoveryDoc = (id: string, tasks: Task[], sequences: Sequence[]): RecoveryDocInput => ({
+    id, filePath: null, isDirty: false,
+    project: { ...createDefaultProject(), name: id },
+    calendar: createDefaultCalendar(),
+    tasks, sequences, resources: [], assignments: [],
+  });
+  const cycTasks = [task('c1', '2026-08-03', '2026-08-05', 3), task('c2', '2026-08-03', '2026-08-05', 3)];
+  const cycSeqs: Sequence[] = [
+    { id: 'cs1', predecessorId: 'c1', successorId: 'c2', type: 'FINISH_START', lagDays: 0 },
+    { id: 'cs2', predecessorId: 'c2', successorId: 'c1', type: 'FINISH_START', lagDays: 0 },
+  ];
+  const okTasks = [task('o1', '2026-08-03', '2026-08-05', 3), task('o2', '2026-08-03', '2026-08-05', 3)];
+  const okSeqs: Sequence[] = [
+    { id: 'os1', predecessorId: 'o1', successorId: 'o2', type: 'FINISH_START', lagDays: 0 },
+  ];
+  S().restoreDocuments([
+    recoveryDoc('doc-actief', [task('x1', '2026-08-03', '2026-08-05', 3)], []),
+    recoveryDoc('doc-cyclus', cycTasks, cycSeqs),
+    recoveryDoc('doc-gezond', okTasks, okSeqs),
+  ], 'doc-actief');
+
+  const cycBefore = sleeping('doc-cyclus');
+  const cycBeforeJson = JSON.stringify(cycBefore);
+  assert(cycBefore?.scheduleStale === true && sleeping('doc-gezond')?.scheduleStale === true,
+    'case 19 setup: beide slapende payloads zijn stale (crashherstel)');
+
+  const n = S().recalculateStaleSleepingDocuments();
+  assert(n === 1, `case 19: alleen het gezonde document telt mee in de uitkomst (kreeg ${n})`);
+
+  // 19: de cyclus-payload is volledig onaangeraakt — zelfde referentie én byte-gelijk.
+  assert(sleeping('doc-cyclus') === cycBefore, 'case 19: de payload-referentie van het cyclische document is niet vervangen');
+  assert(JSON.stringify(sleeping('doc-cyclus')) === cycBeforeJson, 'case 19: de cyclus-payload is byte-gelijk aan ervoor');
+  assert(sleeping('doc-cyclus')?.scheduleStale === true, 'case 19: het cyclische document blijft stale (vangnet §4.3 blijft gelden)');
+  assert(sleeping('doc-cyclus')?.cpmResult === null, 'case 19: er is geen (fout-)cpmResult in de cyclus-payload geschreven');
+
+  // 20: het gezonde document ernaast is wél doorgerekend — één falend document blokkeert de rest niet.
+  const okAfter = sleeping('doc-gezond');
+  assert(okAfter?.scheduleStale === false, 'case 20: het gezonde document is bijgewerkt');
+  assert(okAfter?.cpmResult?.error === undefined, 'case 20: foutloos cpmResult');
+  const o1 = okAfter?.tasks.find(t => t.id === 'o1');
+  const o2 = okAfter?.tasks.find(t => t.id === 'o2');
+  assert(!!o1 && !!o2 && o2.time.earlyStart > o1.time.earlyFinish, 'case 20: de relatie is doorgerekend (o2 ná o1)');
+  assert(okAfter?.undoStack.length === 0 && okAfter?.isDirty === false, 'case 20: geen undo-snapshot, isDirty ongemoeid');
 }
 
 console.log(`occupancy: ${checks - fails}/${checks} groen`);

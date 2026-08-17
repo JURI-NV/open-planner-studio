@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -117,6 +117,13 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   const activeScheduleStale = useAppStore(s => s.scheduleStale);
   const getOpenDocumentPayloads = useAppStore(s => s.getOpenDocumentPayloads);
 
+  // §4.3b terugschrijfbesluit: staat "Automatisch berekenen" aan, dan worden verouderde SLAPENDE
+  // documenten hier écht bijgewerkt in plaats van alleen efemeer doorgerekend (het actieve document
+  // heeft zijn eigen pad, `useAutoCalcCPM`). Zie het effect verderop.
+  const autoCalcCPM = useAppStore(s => s.ui.autoCalcCPM);
+  const activeDocumentId = useAppStore(s => s.activeDocumentId);
+  const recalculateStaleSleepingDocuments = useAppStore(s => s.recalculateStaleSleepingDocuments);
+
   const untitledLabel = t('project.untitled');
 
   // §7-cache: één `WeakMap` per (bibliotheek × poolsamenstelling) — de gecachte snit hangt van
@@ -124,6 +131,40 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   // van een handmatige invalidatie. `pool` is een Immer-object: elke poolmutatie vervangt de
   // referentie.
   const sliceCache = useMemo(() => new WeakMap<DocumentPayload, LibrarySlice>(), [companyId, pool]);
+
+  // Hoeveel SLAPENDE documenten een verouderde planning dragen. Goedkoop (een scan over de
+  // registry-entries, geen engine-werk) en het is de enige trigger die het effect hieronder nodig
+  // heeft: de bijgewerkte payloads laten de teller vanzelf naar 0 lopen.
+  const staleSleepingCount = useMemo(
+    () => documents.reduce(
+      (n, d) => n + (d.id !== activeDocumentId && d.payload?.scheduleStale === true ? 1 : 0),
+      0,
+    ),
+    [documents, activeDocumentId],
+  );
+
+  // §4.3b, terugschrijven mét "Automatisch berekenen" (besluit eigenaar 2026-08-14, tweede ronde).
+  // Staat de instelling AAN, dan is het onlogisch dat de gebruiker alsnog F5 moet drukken in een
+  // document dat dit overzicht al heeft doorgerekend: de slapende stale documenten worden hier écht
+  // bijgewerkt (taken/`cpmResult`/`scheduleStale: false`) en hun ⚠ verdwijnt. Staat hij UIT, dan
+  // gebeurt er niets — dan blijft het overzicht een leesvenster dat efemeer rekent en nooit
+  // terugschrijft (issue #63, handmatige rekenaars).
+  //
+  // Geen oneindige lus: de actie zet `scheduleStale` op false, dus `staleSleepingCount` daalt naar 0
+  // en de conditie dooft. Blijft er een document over dat niet kan rekenen (relatiecyclus), dan
+  // muteert de actie helemaal niets — geen nieuwe `documents`-referentie, dus ook geen nieuwe render
+  // die dit effect opnieuw zou starten. De ref is de expliciete her-entree-garantie: de actie is
+  // synchroon, maar hij muteert de store waarop dit component zelf geabonneerd is.
+  const recalcRunning = useRef(false);
+  useEffect(() => {
+    if (!autoCalcCPM || staleSleepingCount === 0 || recalcRunning.current) return;
+    recalcRunning.current = true;
+    try {
+      recalculateStaleSleepingDocuments();
+    } finally {
+      recalcRunning.current = false;
+    }
+  }, [autoCalcCPM, staleSleepingCount, recalculateStaleSleepingDocuments]);
 
   const { rows, anyUncountedStale, anyCountedStale, docColors } = useMemo(() => {
     const payloads = getOpenDocumentPayloads();
@@ -182,6 +223,8 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
     const docColors = new Map<string, string>();
     for (const row of sorted) {
       for (const doc of row.docs) {
+        if (!doc.counted) anyUncountedStale = true;
+        else if (doc.scheduleStale) anyCountedStale = true;
         if (!docColors.has(doc.docId)) {
           docColors.set(doc.docId, DOC_PALETTE[docColors.size % DOC_PALETTE.length]);
         }
