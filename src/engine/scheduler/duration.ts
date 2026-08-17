@@ -136,12 +136,15 @@ export function subtractElapsedMinutes(end: Date, minutes: number): Date {
  * dezelfde aanroepvorm te delen met `durationMinutesOf`/`durationDaysOf` (die dat verschil wél
  * nodig hebben, via `hoursPerDay`).
  *
- * EENHEDENBESLUIT (T8-review M1, orkestratorbesluit — 2026-08-17): een ELAPSEDTIME-taak rapporteert
- * `tf`/`ff` dus in KALENDERdagen, ONGEMARKEERD naast WORKTIME-taken in dezelfde `tf`/`ff`-velden
- * (die in WERKdagen rekenen, `signedWorkDays`). Onderzocht vóór dit besluit: de lokale MPXJ-
- * broncheckout onder `testdata-crawl/mpxj` mist `org.mpxj.cpm.MicrosoftSlackCalculator` (de klasse
- * die MS Projects "Total Slack" daadwerkelijk berekent) — geen uitsluitsel over wélke eenheid MSP
- * zelf toont voor een elapsed-taak. Wel bevestigd (`TimeUnit.java`): MPXJ's `Duration`-model kent
+ * EENHEDENBESLUIT (T8-review M1, orkestratorbesluit — 2026-08-17, herformulering T8-hercheck 2):
+ * een ELAPSEDTIME-taak rapporteert `tf`/`ff` dus in KALENDERdagen, ONGEMARKEERD naast WORKTIME-
+ * taken in dezelfde `tf`/`ff`-velden (die in WERKdagen rekenen, `signedWorkDays`). Onderzocht vóór
+ * dit besluit: de lokale MPXJ-broncheckout onder `testdata-crawl/mpxj` bevat alleen de
+ * `SlackCalculator`-INTERFACE (`org.mpxj.SlackCalculator`), zonder een MSP-implementatie (`org.
+ * mpxj.cpm.MicrosoftSlackCalculator` — de klasse die MS Projects "Total Slack" daadwerkelijk
+ * berekent — bestaat niet in deze checkout; wel aanwezig: Primavera-slackcode) — geen uitsluitsel
+ * over wélke eenheid MSP zelf toont voor een elapsed-taak. Wel bevestigd (`TimeUnit.java`): MPXJ's
+ * `Duration`-model kent
  * native `ELAPSED_DAYS`/`ELAPSED_HOURS`/… als aparte eenheden náást `DAYS`/`HOURS` — een per-taak
  * eenheid voor duur (en dus impliciet voor afgeleide velden als slack) is dus een bestaand MPXJ-
  * concept, geen verzinsel van dit project. Bij ontbrekend uitsluitsel: per-taak-semantiek behouden

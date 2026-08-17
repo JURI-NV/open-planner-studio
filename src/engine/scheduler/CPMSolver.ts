@@ -367,6 +367,18 @@ export class CPMSolver {
    *  waarmee `finishFromStart` een `ef` bouwt; bij een niet-milestone of een dag-kalender reduceert
    *  dit byte-identiek tot de kale `snapOnOrAfter`. */
   private snapSuccessorEarlyStart(eng: CalendarEngine, d: Date, task: Task): Date {
+    // T8-review-BLOCKER (Opus-hercheck 72486257): een ELAPSEDTIME-opvolger krijgt hier GEEN
+    // werk-instant-snap. Orkestratorbesluit op de semantische vraag ("mag een 24/7-taak op een
+    // niet-werk-instant starten?"): JA — MS Project plant elapsed-taken puur in kalendertijd, de
+    // werkkalender is er per definitie niet op van toepassing (dat IS het punt van ELAPSEDTIME).
+    // Zonder deze bypass herintroduceerde deze generieke her-snap (die na ELKE forward-constraint-
+    // berekening draait, dus ook ná H1's al-correcte `deps.startFromFinish`-uitkomst) precies de
+    // H1-schending één stap verderop: een FF+0 naar een elapsed-opvolger die op zaterdag moest
+    // landen, werd hier alsnog naar de eerstvolgende werk-instant/-dag geduwd — de opvolger se EF
+    // schoof daardoor mee, ondanks dat forwardConstraint zelf al goed rekende. `task.isMilestone`
+    // blijft uitgesloten (een mijlpaal heeft geen eigen duur/durationType-semantiek; de bestaande
+    // FINISH-mijlpaal-tak hierboven regelt zijn eigen — orthogonale — landing).
+    if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') return d;
     if (eng.isHourMode && task.isMilestone && task.milestoneKind === 'FINISH') {
       if (this.snapOnOrBefore(eng, d).getTime() === d.getTime()) return d;
     }
@@ -402,9 +414,20 @@ export class CPMSolver {
    * T7 leverde deze functie ook dié waarde, wat 25 taken in 12 corpusbestanden vooruit duwde
    * t.o.v. hun eigen, in het bronbestand opgeslagen anker (11 met een expliciete SNET vóór
    * projectstart, 14 zonder enige constraint) — minuut-exactheid eist dat het eigen anker wint.
-   */
-  private rootFloor(eng: CalendarEngine, scheduleStart: string): Date {
-    const own = this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
+   *
+   * T8-review-BLOCKER (Opus-hercheck 72486257, uitgebreid — derde gevonden hersnap-plek): `own`
+   * snapte tot nu toe ALTIJD naar een werk-instant, ook voor een ELAPSEDTIME wortel-taak. Zo'n
+   * taak levert de `projectStart`-vloer (het MINIMUM over alle wortel-taken hieronder) — een
+   * elapsed wortel-taak met bv. een zaterdag-anker duwde die vloer dan naar maandag, wat via de
+   * vloer óók niet-wortel-taken (SS/FS/…) onterecht dichttrok, ook al is de EIGEN ES van die
+   * elapsed taak zelf al correct (`ownAnchor`, hierboven bewust ongesnapt). `elapsedTask`: geef
+   * de rauwe `own` terug, ONGESNAPT — de `projectStartRaw`-vergelijking (een EXPLICIET door de
+   * gebruiker gezette ondergrens) blijft wél gesnapt, net als een constraint (L1-afbakening: een
+   * opgelegde grens is geen relatie-afgeleide instant). */
+  private rootFloor(eng: CalendarEngine, scheduleStart: string, elapsedTask: boolean): Date {
+    const own = elapsedTask
+      ? this.parseIn(eng, scheduleStart)
+      : this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
     if (!this.projectStartRaw) return own;
     const floor = this.snapOnOrAfter(eng, this.projectStartRaw);
     return floor > own ? floor : own;
@@ -745,7 +768,7 @@ export class CPMSolver {
     for (const t of this.tasks.values()) {
       if ((this.predecessors.get(t.id) || []).length > 0) continue;
       const eng = this.calendarFor(t);
-      const s = this.rootFloor(eng, t.time.scheduleStart);
+      const s = this.rootFloor(eng, t.time.scheduleStart, !t.isMilestone && t.time.durationType === 'ELAPSEDTIME');
       if (!projectStart || s < projectStart) projectStart = s;
     }
 
@@ -792,12 +815,24 @@ export class CPMSolver {
       let earlyStart: Date;
 
       if (preds.length === 0) {
+        // T8-review-BLOCKER (Opus-hercheck 72486257, uitgebreid): dezelfde bypass als
+        // `snapSuccessorEarlyStart` hieronder — hier voor de WORTEL-taak-tegenhanger. Zonder wacht
+        // duwde `ownAnchor`s `snapOnOrAfter` een elapsed-taak met een op zichzelf staand weekend-
+        // anker (bv. ingelezen scheduleStart = zaterdag, geen voorganger) alsnog naar maandag —
+        // dezelfde H1-schending, maar op de EIGEN-anker-plek i.p.v. de relatie-plek (gevonden bij het
+        // doorzoeken van alle hersnap-plekken die de reviewer vroeg). Het constraint-PAD
+        // (`applyForwardConstraints`/`forwardBoundOf`) blijft bewust ONGEMOEID — dat is de al-
+        // gedocumenteerde L1-afbakening (zie `hardPinStart`): een SNET/MSO-datum snapt nog steeds
+        // naar een werk-instant, ook op een elapsed taak.
+        const rootElapsed = !task.isMilestone && task.time.durationType === 'ELAPSEDTIME';
         // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
         // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
         // MSO/MFO-pin (hieronder in `applyForwardConstraints`) wint hier nog steeds
         // onvoorwaardelijk: die controleert `hardPinStart` EERST en retourneert dan meteen, vóór
         // deze waarde ooit gezien wordt.
-        earlyStart = this.ownAnchor(cal, task.time.scheduleStart);
+        earlyStart = rootElapsed
+          ? this.parseIn(cal, task.time.scheduleStart)
+          : this.ownAnchor(cal, task.time.scheduleStart);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
         // Fase 2.8b (golf 3): her-snap ná de constraint — spiegelt de voorganger-tak (regel 466).
@@ -807,7 +842,10 @@ export class CPMSolver {
         // i.p.v. de bandstart (de `earlyFinish` rekent al vanaf de bandstart ⇒ interne inconsistentie).
         // Idempotent in dag-modus (`nextWorkDay` van een werkdag = diezelfde werkdag) en bij een
         // niet-bindende constraint (ES al gesnapt op regel 429) ⇒ byte-identiek voor de 290.
-        earlyStart = this.snapOnOrAfter(cal, earlyStart);
+        // `rootElapsed` slaat deze her-snap over (zelfde MSP-pariteitsgrond als hierboven) — een
+        // ONgeconstrainde elapsed wortel-taak had hier toch al niets te her-snappen; alleen mét een
+        // (werk-instant-snappende) constraint kan deze tak ooit iets anders dan het rauwe anker geven.
+        earlyStart = rootElapsed ? earlyStart : this.snapOnOrAfter(cal, earlyStart);
       } else {
         // Early start = max van alle voorganger-constraints, met de projectstart als ondergrens.
         // Die ondergrens is correct vóór ÉLKE relatie: relatie-constraints (FS/SS/FF/SF) zijn

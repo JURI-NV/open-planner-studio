@@ -78,20 +78,34 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
     // Relatie-vrije-speling in de kalender van de OPVOLGER (diens vroegste start rekent daar, §5.2).
     // Uur-opvolger ⇒ fractionele-dag-float via `workMinutesBetween` (§5.5); dag ⇒ integer (byte-identiek).
     //
-    // BEKENDE BEPERKING (T8-review M2/L3, niet gefixt in deze ronde): deze berekening is NIET
-    // durationType-bewust — ze rekent altijd in WERKtijd (`workMinutesBetween`/`workDaysBetween`),
-    // ook wanneer de VOORGANGER (waarvoor deze speling straks als `sequenceFreeFloat`/`ff` geldt)
-    // ELAPSEDTIME is. De reviewer kon dit niet triggeren via `cRaw`/`succEarly.es` zelf: `cRaw` komt
-    // uit `forwardConstraint` (T8-review H1/H2 al elapsed-bewust) en `succEarly.es` is de opvolger se
-    // EIGEN vroege start — voor een NIET-ELAPSEDTIME opvolger (het gebruikelijke geval, ook in de
-    // H1/H2-cases in `cases-msp-pariteit.json`) is die altijd al op een geldige werk-instant gesnapt,
-    // dus `workDaysBetween`/`workMinutesBetween` tellen daar toevallig correct — de fout zit dus
-    // UITSLUITEND in de eenheid van het RESULTAAT (werkdagen) wanneer de VOORGANGER elapsed is, niet
-    // in een verkeerd getal op zich. Zie `msp-21-t8-review-m1-eenheden-float`: díe case pint dit
-    // zichtbaar (A.ff=1, werkdag-geteld, naast A.tf=2, kalenderdag-geteld — `signedElapsedSpan`'s
-    // doc-commentaar in `duration.ts` bevat het volledige eenhedenbesluit). Een echte fix vergt een
-    // eigen ELAPSEDTIME-tak hier (`signedElapsedSpan`-stijl, gebaseerd op `reqStart`/`succEarly.es`
-    // i.p.v. werkdag-telling) — buiten de scope van deze fixronde.
+    // BEKENDE BEPERKING (T8-review M2/L3, herformulering T8-hercheck 2 — niet gefixt): deze
+    // berekening is NIET durationType-bewust — ze rekent altijd in WERKtijd
+    // (`workMinutesBetween`/`workDaysBetween`), ook wanneer de OPVOLGER van deze relatie (`succTask`
+    // hierboven — het is dié taak se eigen vroege start, `succEarly.es`, die hier tegen `reqStart`
+    // wordt afgezet) ELAPSEDTIME is.
+    //
+    // CORRECTIE (T8-hercheck 2): eerdere lezingen van dit blok suggereerden dat het probleem zat in
+    // "een NIET-elapsed opvolger wordt wél gesnapt, een elapsed opvolger niet" — dat is precies
+    // ANDERSOM. Sinds de T8-hercheck-BLOCKER-fix (`CPMSolver.snapSuccessorEarlyStart`/`ownAnchor`/
+    // `rootFloor`) is het juist zo dat `succEarly.es` voor een ELAPSEDTIME opvolger BEWUST NIET meer
+    // gesnapt wordt (die taak mag op een niet-werk-instant staan — dat is het hele punt van
+    // ELAPSEDTIME) — terwijl `reqStart` hier op de regel eronder (`snapOnOrAfter(succCal, cRaw)`)
+    // ONVOORWAARDELIJK wél snapt, ongeacht `succTask`'s durationType. Voor een ELAPSEDTIME opvolger
+    // vergelijkt deze berekening dus een GESNAPTE grens (`reqStart`) met een ONGESNAPTE waarde
+    // (`succEarly.es`) — geverifieerd (niet gegist, msp-23's probe-voorloper): dat geeft niet alleen
+    // een verkeerde EENHEID maar kan `reqStart > succEarly.es` opleveren (de grens ligt dan NÁ de
+    // taak se eigen vroege start), waarop `workDaysBetween`/`workMinutesBetween` hun eigen
+    // "endMs<startMs ⇒ 0"-vangnet raken — het resultaat is dan een STILLE, niet-voor-de-hand-liggende
+    // waarde (bv. −1) i.p.v. een crash, maar wel degelijk fout. Voor een NIET-ELAPSEDTIME opvolger
+    // (het gebruikelijke geval, ook in de meeste H1/H2-cases) blijft `succEarly.es` zelf al op een
+    // geldige werk-instant staan (ongewijzigd gedrag), dus daar telt dit blok nog steeds correct.
+    // Zie `msp-21-t8-review-m1-eenheden-float` voor het eenhedendeel van dit gat (A.ff=1 naast
+    // A.tf=2 op dezelfde taak — `signedElapsedSpan`'s doc-commentaar in `duration.ts` bevat het
+    // volledige eenhedenbesluit) en `msp-23`/`msp-24` in `cases-msp-pariteit.json` voor waar de
+    // gesnapt/ongesnapt-mismatch zelf optreedt (daar bewust NIET op `ff` geasserteerd, om dit gat
+    // niet te verwarren met wat die cases wél bewijzen). Een echte fix vergt een eigen ELAPSEDTIME-
+    // tak hier (`signedElapsedSpan`-stijl, gebaseerd op de ONgesnapte `cRaw`/`succEarly.es` i.p.v.
+    // werkdag-telling) — buiten de scope van deze fixronde; orkestrator registreert voor T13/T15.
     const succCal = calendarFor(succTask);
     const reqStart = snapOnOrAfter(succCal, cRaw);
     const relFloat = succCal.isHourMode

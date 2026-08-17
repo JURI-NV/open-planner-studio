@@ -159,13 +159,22 @@ function forwardDay(
 
   switch (seq.type) {
     case 'START_START': {
-      // Opvolger start `lag` dagen na de start van de voorganger. Een ruwe elapsed-datum op
-      // een weekend hoeft hier niet gesnapt: forwardPass eindigt met nextWorkDay op de max.
-      // Het "start"-moment van een eindmijlpaal is zijn dag-eindgrens ⇒ werkdag erna.
+      // Opvolger start `lag` dagen na de start van de voorganger. Een ruwe elapsed-datum op een
+      // weekend hoeft hier niet gesnapt vóór een WORKTIME-opvolger: `CPMSolver.forwardPass`
+      // eindigt met `nextWorkDay` op de max (BIJGEWERKT, T8-review-BLOCKER: dat geldt sinds die
+      // fix uitdrukkelijk NIET meer voor een ELAPSEDTIME-opvolger — `snapSuccessorEarlyStart`/
+      // `ownAnchor` slaan die her-snap dan juist bewust over). Het "start"-moment van een
+      // eindmijlpaal is zijn dag-eindgrens ⇒ werkdag erna.
       if (elapsed) {
         return addCalendarDays(predResult.es, predStartsNextDay ? lag + 1 : lag);
       }
       const base = predStartsNextDay ? pe.nextWorkDayAfter(predResult.es) : predResult.es;
+      // T8-review-BLOCKER (vervolg op H1): `addWorkingDaysSigned` snapt zijn EIGEN invoer altijd
+      // eerst naar een werkdag (`nextWorkDay`, ook bij lag=0) — voor een ELAPSEDTIME-opvolger is
+      // dat dezelfde ongeoorloofde werk-instant-eis als bij FF/SF. `addCalendarDays` is hier de
+      // kale klok-tegenhanger (geen tweede variant: dezelfde helper als de `elapsed`(LAG)-tak
+      // hierboven gebruikt).
+      if (succElapsed) return addCalendarDays(base, lag);
       return lagEng.addWorkingDaysSigned(base, lag);
     }
     case 'FINISH_FINISH': {
@@ -355,10 +364,30 @@ function forwardHour(
   switch (seq.type) {
     case 'START_START': {
       const base = predStartsNextDay ? deps.snapStrictAfter(pe, predResult.es) : predResult.es;
+      // T8-review-BLOCKER (vervolg op H1, uur-analoog van forwardDay's SS hierboven): de
+      // `deps.snapOnOrAfter(se, …)`-omhulling forceert een werk-instant van de OPVOLGER-kalender —
+      // voor een ELAPSEDTIME-opvolger juist niet gewenst (de `shiftLagPred`/`elapsedMin`-uitkomst
+      // zelf blijft ongemoeid: die interpreteert de LAG in de VOORGANGER-kalender, een orthogonale
+      // vraag). `succElapsed`: geef de ongesnapte waarde terug.
       if (elapsed) {
-        return deps.snapOnOrAfter(se, new Date(base.getTime() + elapsedMin()));
+        const raw = new Date(base.getTime() + elapsedMin());
+        return succElapsed ? raw : deps.snapOnOrAfter(se, raw);
       }
-      return deps.snapOnOrAfter(se, deps.shiftLagPred(pe, base, seq, predTask, 1));
+      // BEKENDE BEPERKING (gevonden tijdens de T8-hercheck-BLOCKER "nóg zulke hersnap-plekken"-
+      // controle, NIET gefixt): `deps.shiftLagPred` normaliseert bij lag=0 zelf óók via
+      // `nextWorkInstant(base)`, in de VOORGANGER-engine — vóór de `succElapsed`-check hieronder
+      // ooit gezien wordt. Is `predTask` zelf ELAPSEDTIME mét een rauwe, niet-op-band liggende
+      // `base` (mogelijk sinds de blocker-fix hierboven), dan snapt deze regel `base` alsnog naar
+      // de eerstvolgende werk-instant van de VOORGANGER — dezelfde klasse fout als de blocker, maar
+      // nu via de voorganger-zijde van `shiftLagPred` i.p.v. de opvolger-zijde. FF/SF hierboven/
+      // hieronder ontsnappen hieraan via hun eigen `lagIsZero`-detectie-en-vervang-mechanisme
+      // (`landRawInstant`); SS heeft dat mechanisme niet. Niet gefixt: `shiftLagPred` is een gedeeld
+      // CalendarEngine-pad met 9 aanroepplekken in dit bestand — een blinde aanpassing daar raakt
+      // FF/SF se al zorgvuldig afgestemde gedrag potentieel mee. Smal genoeg (vereist een ELAPSEDTIME
+      // voorganger MET een volledig buiten-band liggende eigen positie, bv. een heel weekend zonder
+      // enige band) om als apart, gedocumenteerd gat te laten staan i.p.v. in deze fixronde te lossen.
+      const lagged = deps.shiftLagPred(pe, base, seq, predTask, 1);
+      return succElapsed ? lagged : deps.snapOnOrAfter(se, lagged);
     }
     case 'FINISH_FINISH': {
       // MSP-pariteit (L1, Opus-review): `startFromFinish` geeft voor een mijlpaal-opvolger
@@ -570,13 +599,20 @@ function backwardHour(
       }
       // (b) dag-voorganger, uur-opvolger: de grootste werkdag d waarvoor de forward-afleiding
       // se.nextWorkInstant( predDone(d) ⊕ lag ) ≤ succ.LS blijft (scenario 7 backward).
-      // T8-review H2, BEKENDE BEPERKING: deze scanlus doorzoekt uitsluitend WERKdagen van de
-      // dag-voorganger (`pe.isWorkDay(d)`) — voor een ELAPSEDTIME dag-voorganger is dat een te
-      // smalle zoekruimte (zijn late finish mag ook op een niet-werkdag liggen). Niet gefixt: dit
-      // vergt een ander algoritme (een kalenderdag-scan i.p.v. een werkdag-scan), geen kale
-      // parameterwissel zoals de overige H1/H2-fixes in dit bestand — buiten de scope van deze
-      // fixronde. Niet geraakt door de msp-16..21-cases hieronder (die dekken dag+dag en uur+uur,
-      // niet dit cross-modus-pad).
+      // T8-review H2, BEKENDE BEPERKING (herbevestigd, T8-hercheck 2 — msp-26 pint 'm expliciet):
+      // deze scanlus doorzoekt uitsluitend WERKdagen van de dag-voorganger (`pe.isWorkDay(d)`) —
+      // voor een ELAPSEDTIME dag-voorganger is dat een te smalle zoekruimte (zijn late finish mag
+      // ook op een niet-werkdag liggen). GEVOLG, concreet (msp-26, geverifieerd, niet gegist): de
+      // scanlus vindt de eerstvolgende WERKdag terug vanaf `succ.LS`, in plaats van de eerstvolgende
+      // KALENDERdag — dat is te STRENG (levert een te vroege late-finish), met drie zichtbare
+      // symptomen op de elapsed voorganger: (1) `ls` VÓÓR zijn eigen vroege anker (`es`), (2)
+      // `tf` NEGATIEF zonder dat er ook maar één constraint/deadline in het spel is, (3) de
+      // invariant `ff ≤ tf` GEBROKEN (`ff` blijft 0 — de relatie-vrije-speling-berekening zit
+      // bovendien al vast aan het M2/L3-eenhedengat — terwijl `tf` negatief wordt: 0 ≤ negatief is
+      // onwaar). Niet gefixt: dit vergt een ander algoritme (een kalenderdag-scan i.p.v. een
+      // werkdag-scan), geen kale parameterwissel zoals de overige H1/H2-fixes in dit bestand —
+      // buiten de scope van deze fixronde (orkestrator registreert 'm voor T13/T15). Niet geraakt
+      // door msp-16..25 hieronder (die dekken dag+dag en uur+uur, niet dit cross-modus-pad).
       // De grensvlaggen tellen hier WÉL — in tegenstelling tot arm (a) is `pe` dag-modus en levert
       // `predDoneAt(ef)` de dagrand `(ef+1 dag)@00:00`, die `forwardHour` bij een vlag onderdrukt
       // (`predDone = (succIsFinishMs || predEndsBeginOfDay) ? ef : pe.predDoneAt(ef)`). Vóór
