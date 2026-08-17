@@ -341,24 +341,49 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
 
-### Prestatiegrens publiceren — productbeslissing (2026-08-17)
-- [ ] **Item 36 uit het onderhoudbaarheidsrapport vraagt om een EXPLICIETE grens
-      ("ontworpen tot N taken"), en dat is een productbeslissing.** De mechanische kant is deels
-      gedaan: `flattenOrder` was al gede-kwadrateerd, en de resource-join in `filterEval.ts` heeft
-      sinds K-item 36 een index (gemeten op 800 taken × 60 resources, 20× `recomputeViewRows`:
-      532 ms → 31 ms). **De mechanische kant is daarmee af, en de lijst in het rapport blijkt op
-      drie van de vier punten verouderd** — nagemeten op 2026-08-17:
-      `flattenOrder` (`utils/wbs.ts`) is al gede-kwadrateerd (ouder→kinderen-map, O(n));
-      `workDaysBetween`/`isWorkDay` (`CalendarEngine`) zijn al O(1) via een weekdagmasker plus
-      volledige-weken-rekenwerk en een binary-search-telling op feestdagen (pakket A1/A2);
-      en de pijlenlaag heeft al een verticale offscreen-cull met een afgeleide marge
-      (`GanttRenderer.drawDependencyArrows`, issue #41). Een HORIZONTALE cull ontbreekt nog, maar
-      die is weinig waard: hij kan pas ná `parseDate`/`dateToX` beslissen, en juist dát is het dure
-      deel dat de verticale cull nu overslaat — er zou alleen het padtekenen mee bespaard worden.
-      *Voor de eigenaar:* bepaal
-      tot welke projectomvang de app ondersteund is en publiceer dat; zonder die grens is elke
-      volgende optimalisatie een open einde. Zie ook het openstaande punt over de tweede
-      kwadratische factor bij bulk-mutaties hierboven.
+### Prestatiedoel: 5000 taken moet werken — BESLIST (2026-08-17)
+
+De eigenaar heeft de grens uit item 36 vastgesteld: **de app moet 5000 taken aankunnen.** Dat is
+geen documentatieklus meer maar echt werk, want de gemeten stand haalt dat bij lange na niet.
+
+**Meting (2026-08-17, headless Node, script in de scratchpad `bench5k.ts`).** Bij N=1000 taken,
+80 resources, een FS-ketting en één toewijzing per taak:
+
+| pad | N=1000 |
+|---|---|
+| `addTask` × N | **14.9 s** |
+| `addSequence` × N | **24 s** |
+| `assignResource` × N | **62 s** |
+| `runCPM` (één keer) | 193 ms |
+| `recomputeViewRows` (5×) | 18 ms |
+| **één losse `addTask` op een project van 1000** | **37 ms** |
+
+N=2500 en N=5000 zijn niet afgerond binnen tien minuten.
+
+**Waar het NIET aan ligt.** De solver en de rijenberekening zijn gezond: `runCPM` doet 1000 taken
+in 193 ms en vijf volledige `recomputeViewRows` kosten samen 18 ms (dat laatste dankzij de
+resource-index uit K-item 36). Die twee schalen prima.
+
+**Waar het wél aan ligt: de kosten PER MUTATIE.** Elke `addTask`/`addSequence`/`assignResource`
+doet O(n) werk — undo-snapshot, `applyWbsNumbering`, `recomputeViewRows` — dus n mutaties zijn
+O(n²). Dat is dezelfde tweede kwadratische factor als in het punt hierboven over bulk-mutaties,
+maar nu met een getal erbij dat laat zien hoe hard het bijt.
+
+De 37 ms voor één losse `addTask` is het belangrijkste cijfer: dat is geen bulk-probleem maar het
+INTERACTIEVE pad. Bij 5000 taken wordt dat naar verwachting ~5× zo veel, en dan is één taak
+toevoegen merkbaar traag. `assignResource` is met 62 s bovendien vier keer duurder dan `addTask`
+en verdient apart onderzoek — daar zit vermoedelijk nog een herberekening in die per toewijzing
+over alles loopt.
+
+*Aanpak (nog te doen, in deze volgorde):*
+- [ ] Meet eerst per mutatie WAAR de tijd heen gaat (snapshot / WBS / viewRows / resource-load),
+      in plaats van te gokken. Zonder die uitsplitsing is elke optimalisatie een schot in het duister.
+- [ ] `assignResource` apart: waarom 4× duurder dan `addTask`?
+- [ ] Binnen een lopende `withTransaction`-batch de hernummering en de rijenherberekening uitstellen
+      tot het einde. LET OP: code BÍNNEN de batch ziet dan verouderde `wbsCode`/`viewRows` — dat is
+      een gedragswijziging, geen pure optimalisatie, en hoort dus met een eigen test.
+- [ ] Pas als het interactieve pad goed is: de bulk-paden (import, plakken, sjabloon invoegen).
+- [ ] Daarna de grens van 5000 vastleggen in een test die bij regressie rood wordt, én publiceren.
 
 ### Klein — fit en contentbreedte zijn het oneens over een taak zonder finish (2026-08-17)
 - [ ] **`computeFitToProject` valt op de finish-keten terug op de start (`|| s`),
