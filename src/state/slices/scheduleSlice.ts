@@ -42,11 +42,15 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
   scheduleStale: false,
 
   recomputeResourceLoad: () => {
-    set((s) => {
-      s.resourceLoadResult = computeResourceLoad(
-        s.resources, s.assignments, s.tasks, s.calendar, s.calendars,
-      );
-    });
+    // Rekenen BUITEN de producer, alleen het resultaat erin — zelfde vorm als `recomputeViewRows`.
+    // `computeResourceLoad` leest élke resource, toewijzing en taak; deed het dat op de draft, dan
+    // maakte Immer voor stuk voor stuk een proxy die het aan het eind van de producer weer moet
+    // finaliseren en bevriezen. Dat was zichtbaar duur: bij 1.000 taken/toewijzingen ging ~16% van
+    // één `assignResource` op aan Immer-proxywerk waar nul mutaties tegenover stonden. `get()` levert
+    // dezelfde (bevroren, dus veilig te lezen) staat plain.
+    const s = get();
+    const result = computeResourceLoad(s.resources, s.assignments, s.tasks, s.calendar, s.calendars);
+    set((st) => { st.resourceLoadResult = result; });
   },
 
   runCPM: () => {

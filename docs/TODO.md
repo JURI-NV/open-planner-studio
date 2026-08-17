@@ -341,49 +341,72 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
 
-### Prestatiedoel: 5000 taken moet werken — BESLIST (2026-08-17)
+### Prestatiedoel: 5000 taken moet werken — interactieve pad AF, bulk nog niet (2026-08-17)
 
-De eigenaar heeft de grens uit item 36 vastgesteld: **de app moet 5000 taken aankunnen.** Dat is
-geen documentatieklus meer maar echt werk, want de gemeten stand haalt dat bij lange na niet.
+De eigenaar heeft de grens uit item 36 vastgesteld: **de app moet 5000 taken aankunnen.**
 
-**Meting (2026-08-17, headless Node, script in de scratchpad `bench5k.ts`).** Bij N=1000 taken,
-80 resources, een FS-ketting en één toewijzing per taak:
+**Wat er mis was.** De rekenkern was nooit het probleem: `runCPM` doet 5000 taken in 0,9 s en vijf
+volledige `recomputeViewRows` kosten samen 47 ms. Het zat in de kosten **per mutatie**. Drie
+plekken deden O(n) werk over de hele takenlijst bij élke bewerking, dus n bewerkingen waren O(n²):
 
-| pad | N=1000 |
-|---|---|
-| `addTask` × N | **14.9 s** |
-| `addSequence` × N | **24 s** |
-| `assignResource` × N | **62 s** |
-| `runCPM` (één keer) | 193 ms |
-| `recomputeViewRows` (5×) | 18 ms |
-| **één losse `addTask` op een project van 1000** | **37 ms** |
+1. `createSnapshot` deep-cloonde de projectdata met `JSON.parse(JSON.stringify(...))`. Duurder dan
+   het lijkt: bovenop de kloon zelf moest Immer alle vers gekloonde objecten ook nog diepvriezen
+   (~26% respectievelijk ~45% van één mutatie in het CPU-profiel).
+2. `applyWbsNumbering` las én beschreef élke taak via de Immer-draft, ook waar de code gelijk bleef.
+   Elke aanraking maakt een proxy die aan het eind van de producer gefinaliseerd moet worden.
+3. `recomputeResourceLoad` las resources, toewijzingen én taken óók via de draft, terwijl het niets
+   muteert — `recomputeViewRows` deed dat al goed, deze niet.
 
-N=2500 en N=5000 zijn niet afgerond binnen tien minuten.
+**Wat er gedaan is.** De snapshot deelt nu per referentie in plaats van te klonen; dat mag omdat
+Immer de state na elke producer diep bevriest en zelf nooit de basis muteert (de onderbouwing staat
+in de kop van `src/state/snapshot.ts`). De nummering leest de draft plain via `current()` en schrijft
+alleen waar de code echt verandert. De belastingberekening draait buiten de producer. De rollen in
+het documentcontract heten daardoor niet langer `'clone'`/`'ref'` maar `'data'`/`'derived'` — ze
+worden allebei per referentie bewaard en de oude naam loog.
 
-**Waar het NIET aan ligt.** De solver en de rijenberekening zijn gezond: `runCPM` doet 1000 taken
-in 193 ms en vijf volledige `recomputeViewRows` kosten samen 18 ms (dat laatste dankzij de
-resource-index uit K-item 36). Die twee schalen prima.
+**Gemeten, één `addTask` / `updateTask` op 5000 taken:**
 
-**Waar het wél aan ligt: de kosten PER MUTATIE.** Elke `addTask`/`addSequence`/`assignResource`
-doet O(n) werk — undo-snapshot, `applyWbsNumbering`, `recomputeViewRows` — dus n mutaties zijn
-O(n²). Dat is dezelfde tweede kwadratische factor als in het punt hierboven over bulk-mutaties,
-maar nu met een getal erbij dat laat zien hoe hard het bijt.
+| stand | addTask | updateTask |
+|---|---|---|
+| zoals het was | 132 ms | 97 ms |
+| alleen de snapshot goedkoper | 59 ms | 11 ms |
+| alleen de nummering goedkoper | 105 ms | 97 ms |
+| **beide (huidig)** | **18 ms** | **11 ms** |
 
-De 37 ms voor één losse `addTask` is het belangrijkste cijfer: dat is geen bulk-probleem maar het
-INTERACTIEVE pad. Bij 5000 taken wordt dat naar verwachting ~5× zo veel, en dan is één taak
-toevoegen merkbaar traag. `assignResource` is met 62 s bovendien vier keer duurder dan `addTask`
-en verdient apart onderzoek — daar zit vermoedelijk nog een herberekening in die per toewijzing
-over alles loopt.
+En over de hele linie, met `withTransaction` om de opbouw heen:
 
-*Aanpak (nog te doen, in deze volgorde):*
-- [ ] Meet eerst per mutatie WAAR de tijd heen gaat (snapshot / WBS / viewRows / resource-load),
-      in plaats van te gokken. Zonder die uitsplitsing is elke optimalisatie een schot in het duister.
-- [ ] `assignResource` apart: waarom 4× duurder dan `addTask`?
-- [ ] Binnen een lopende `withTransaction`-batch de hernummering en de rijenherberekening uitstellen
-      tot het einde. LET OP: code BÍNNEN de batch ziet dan verouderde `wbsCode`/`viewRows` — dat is
-      een gedragswijziging, geen pure optimalisatie, en hoort dus met een eigen test.
-- [ ] Pas als het interactieve pad goed is: de bulk-paden (import, plakken, sjabloon invoegen).
-- [ ] Daarna de grens van 5000 vastleggen in een test die bij regressie rood wordt, én publiceren.
+| pad | N=1000 | N=2500 | N=5000 |
+|---|---|---|---|
+| 1 `addTask` | 4 ms | 7 ms | 20 ms |
+| 1 `updateTask` | 2 ms | 4 ms | 10 ms |
+| 1 `undo` | 2 ms | 4 ms | 11 ms |
+| 1 `assignResource` | 41 ms | 69 ms | **138 ms** |
+| `runCPM` | 174 ms | 406 ms | 907 ms |
+| 5× `recomputeViewRows` | 7 ms | 20 ms | 47 ms |
+| opbouw: N taken | 1,7 s | 9,6 s | **40 s** |
+| opbouw: N relaties | 1,7 s | 11 s | **46 s** |
+| opbouw: N toewijzingen | 18 s | 82 s | **302 s** |
+
+Vóór dit werk rondden N=2500 en N=5000 niet eens af binnen tien minuten.
+
+De poort staat in `tests/planning/check-mutation-cost.ts`. Let op wat die wél en niet kan: twee van
+de drie wijzigingen hebben géén waarneembaar gedragsverschil (plain lezen is puur goedkoper), dus
+daar is de bron-assert de enige bewaking. Dat staat ook zo in de kop van die batterij.
+
+*Wat nog open staat, in deze volgorde:*
+- [ ] **`assignResource` is met 138 ms bij 5000 taken het enige interactieve pad dat nog knelt.** Het
+      draait `computeResourceLoad` over ÁLLE toewijzingen bij elke toewijzing; per toewijzing wordt
+      de werkdagenreeks van de taak opnieuw uitgelopen (`formatDate`/`parseDate`/`addCalendarDays`
+      staan samen op ~50% van het profiel). Incrementeel bijwerken is de voor de hand liggende
+      oplossing, maar dat is een echte herontwerp-stap: de huidige functie is één bron van waarheid
+      voor histogram én leveler en dat moet zo blijven.
+- [ ] **De bulk-paden.** Binnen een lopende `withTransaction` draaien de hernummering en de
+      rijen-/belastingherberekening nog steeds per mutatie. Uitstellen tot het einde van de batch
+      maakt de opbouw lineair. LET OP: code BÍNNEN de batch ziet dan verouderde `wbsCode`/`viewRows`
+      — dat is een gedragswijziging, geen pure optimalisatie, en hoort dus met een eigen test.
+- [ ] Daarna de aanroepers die nog buiten `withTransaction` bulk doen (import, plakken, sjabloon
+      invoegen) daar echt binnen trekken.
+- [ ] De grens van 5000 publiceren zodra de bulk-paden ook goed zijn.
 
 ### Klein — fit en contentbreedte zijn het oneens over een taak zonder finish (2026-08-17)
 - [ ] **`computeFitToProject` valt op de finish-keten terug op de start (`|| s`),

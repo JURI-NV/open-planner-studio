@@ -1,4 +1,3 @@
-import { original } from 'immer';
 import { createSnapshot } from './snapshot';
 import type { AppState } from './appStore';
 
@@ -52,11 +51,19 @@ import type { AppState } from './appStore';
 let coalesce: { key: string; seq: number; docId: string } | null = null;
 
 /**
- * Bovengrens op de undo-historie. `createSnapshot` deep-cloont de 'clone'-velden bij ELKE
- * bewerking; de eigen prestatie-audit meet ~4,95 MB per snapshot bij 5.000 taken. Zwaarder weegt
- * dat `undoStack`/`redoStack` ÍN het documentcontract zitten: élk inactief geopend document houdt
- * zijn volledige historie vast, dus het geheugen schaalt als bewerkingen × projectgrootte × open
- * documenten. Zonder grens groeit dat onbeperkt.
+ * Bovengrens op de undo-historie.
+ *
+ * De oorspronkelijke aanleiding was geheugen: `createSnapshot` deep-cloonde toen élke bewerking
+ * (~4,95 MB per snapshot bij 5.000 taken), en omdat `undoStack`/`redoStack` ÍN het documentcontract
+ * zitten hield élk geopend document zijn volledige historie vast — geheugen ≈ bewerkingen ×
+ * projectgrootte × open documenten. Sinds de snapshot per referentie deelt (zie `snapshot.ts`) is
+ * dat argument grotendeels weg: opeenvolgende snapshots delen alles wat niet veranderde, dus een
+ * stap kost nog ongeveer de objecten die die ene bewerking aanraakte.
+ *
+ * De grens blijft staan, nu om de andere reden die er altijd al onder lag: een ONBEGRENSDE historie
+ * houdt élke tussentoestand levend, dus ook de volledige takenlijst van vóór een grote verwijdering
+ * of import. Honderd stappen is ruim genoeg voor de bewerkingssessie die een gebruiker in zijn hoofd
+ * heeft en houdt de bovengrens eindig.
  */
 export const MAX_UNDO = 100;
 
@@ -98,10 +105,11 @@ export function setMcpTransactionActive(active: boolean): void {
 /**
  * Diepteteller voor bulk-transacties (K-item 32).
  *
- * Zonder dit pusht élke mutator zijn eigen deep-clone-snapshot. Een lus van n toevoegingen kloont
- * dus 1 + 2 + … + n taken — kwadratisch. Dat gebeurt echt: `api.data.addTask` is de enige manier
- * waarop een extensie taken kan aanmaken, dus een importer die duizend taken toevoegt betaalt
- * duizend snapshots én laat duizend undo-stappen achter voor wat de gebruiker als één handeling ziet.
+ * Zonder dit pusht élke mutator zijn eigen snapshot. Dat gebeurt echt: `api.data.addTask` is de
+ * enige manier waarop een extensie taken kan aanmaken, dus een importer die duizend taken toevoegt
+ * laat duizend undo-stappen achter voor wat de gebruiker als één handeling ziet. Toen de snapshot
+ * nog deep-cloonde was het bovendien kwadratisch in tijd én geheugen (1 + 2 + … + n taken gekloond);
+ * dat deel is weg sinds hij per referentie deelt, de undo-stap-vervuiling niet.
  *
  * Een TELLER en geen boolean, zodat een geneste `withTransaction` de buitenste niet voortijdig
  * opheft. Module-state, net als de coalesce-marker en de MCP-vlag: een uitvoerings-"venster",
@@ -149,15 +157,11 @@ export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): voi
     if (s.redoStack.length) s.redoStack = [];
     return;
   }
-  // B1 (prestatie): kloon de snapshot van de PLAIN pre-mutatie-basisstaat via Immer's `original()`,
-  // niet van de draft `s`. `createSnapshot` deep-cloont de 'clone'-velden met JSON; op een draft
-  // proxy't die kloon élk bezocht object (gemeten ~145 ms @5000 taken), op plain state niet (~19 ms).
-  // Byte-identiek zolang `beginUndoable` VÓÓR enige draft-mutatie in zijn producer wordt aangeroepen
-  // (de conventie "guards; beginUndoable; mutatie"): dan is `original(s)` inhoudelijk gelijk aan de
-  // draft op dit punt — dezelfde kloon-inhoud, alleen plain i.p.v. proxied. `?? s` is een defensieve
-  // terugval (zou `original` ooit undefined geven), die alleen de oude, tragere vorm herstelt.
-  const base = (original(s) as AppState | undefined) ?? s;
-  pushUndoSnapshot(s, base);
+  // De snapshot moet de PLAIN pre-mutatie-basisstaat vastleggen, niet de draft `s` — `createSnapshot`
+  // normaliseert dat zelf via `original()` (zie de kop van snapshot.ts, incl. waarom dat klopt zolang
+  // de conventie "guards; beginUndoable; mutatie" wordt aangehouden). Hier stond diezelfde
+  // normalisatie ook nog een keer; één definitie is genoeg.
+  pushUndoSnapshot(s);
   s.redoStack = [];
   coalesce = key ? { key, seq: undoSeq, docId: s.activeDocumentId } : null;
 }

@@ -336,6 +336,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   UNDOCHECK="$DIR/.undo-bound.mjs"
   if bundle_check "$DIR/check-undo-bound.ts" "$UNDOCHECK"; then node "$UNDOCHECK" || STATUS=1; fi
 
+  # Mutatiekosten (prestatiedoel "5000 taken moet werken"). Eén mutatie deed O(n) werk over de hele
+  # takenlijst — deep-clone-snapshot, nummering via de draft, belastingberekening via de draft — dus
+  # n mutaties waren O(n2). Deze batterij bewaakt de eigenschappen waar de oplossing op rust: de
+  # snapshot deelt per referentie (en dat mag omdat Immer de state diep bevriest), en een mutatie
+  # vervangt geen taakobjecten die niet veranderen.
+  MUTCHECK="$DIR/.mutation-cost.mjs"
+  if bundle_check "$DIR/check-mutation-cost.ts" "$MUTCHECK"; then node "$MUTCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
