@@ -6,6 +6,7 @@ import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';
 import type { WbsTemplate } from '@/utils/wbsTemplates';
+import { detachFromParent, attachToParent, isSelfOrDescendant, collectSubtreeIds } from '@/state/taskTree';
 import { beginUndoable, finishMutation } from '../transaction';
 import type { AppSlice, SiblingDirection } from './types';
 
@@ -158,16 +159,8 @@ function planTaskPlacement(
   const newParentId = target.parentId;
   if (newParentId !== null && !tasks.some(t => t.id === newParentId)) return null;
 
-  // Guard 3: cykel.
-  if (newParentId !== null) {
-    const bezocht = new Set<string>();
-    let cur: Task | undefined = newParentId === id ? task : tasks.find(t => t.id === newParentId);
-    while (cur && !bezocht.has(cur.id)) {
-      if (cur.id === id) return null; // newParentId is id zelf, of een afstammeling van id
-      bezocht.add(cur.id);
-      cur = cur.parentId ? tasks.find(t => t.id === cur!.parentId) : undefined;
-    }
-  }
+  // Guard 3: cykel — de nieuwe ouder is de taak zelf of een afstammeling ervan.
+  if (newParentId !== null && isSelfOrDescendant(tasks, newParentId, id)) return null;
 
   const oldParentId = task.parentId;
   const oldParent = oldParentId ? tasks.find(t => t.id === oldParentId) : undefined;
@@ -204,13 +197,11 @@ function planTaskPlacement(
 function applyTaskPlacement(tasks: Task[], id: string, plan: TaskPlacement): void {
   const task = tasks.find(t => t.id === id);
   if (!task) return; // kan niet: guard 1 van planTaskPlacement dekt dit al (defensief).
-  const oldParent = task.parentId ? tasks.find(t => t.id === task.parentId) : undefined;
-  const newParent = plan.parentId ? tasks.find(t => t.id === plan.parentId) : undefined;
-
   // childIds (display-bron, zie visibleRows.ts): verwijderen uit oude ouder, invoegen in nieuwe.
-  if (oldParent) oldParent.childIds = oldParent.childIds.filter(cid => cid !== id);
-  task.parentId = plan.parentId;
-  if (newParent) newParent.childIds.splice(plan.index, 0, id);
+  // Eerst detach en dán attach — bij een verplaatsing BINNEN dezelfde ouder zou de omgekeerde
+  // volgorde de taak twee keer in de lijst zetten.
+  detachFromParent(tasks, id);
+  attachToParent(tasks, id, plan.parentId, plan.index);
 
   // Rauwe tasks-array (WBS/flatten + root-volgorde, zie utils/wbs.ts flattenOrder).
   const rawIdx = tasks.findIndex(t => t.id === id);
@@ -432,21 +423,10 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       beginUndoable(s);
 
       // Remove from parent
-      if (task.parentId) {
-        const parent = s.tasks.find(t => t.id === task.parentId);
-        if (parent) {
-          parent.childIds = parent.childIds.filter(cid => cid !== id);
-        }
-      }
+      detachFromParent(s.tasks, id);
 
       // Remove child tasks recursively
-      const removeIds = new Set<string>();
-      const collectChildren = (taskId: string) => {
-        removeIds.add(taskId);
-        const t = s.tasks.find(tt => tt.id === taskId);
-        if (t) t.childIds.forEach(collectChildren);
-      };
-      collectChildren(id);
+      const removeIds = new Set(collectSubtreeIds(s.tasks, id));
 
       s.tasks = s.tasks.filter(t => !removeIds.has(t.id));
       s.sequences = s.sequences.filter(
@@ -488,12 +468,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       beginUndoable(s);
 
       // Remove from old parent
-      if (task.parentId) {
-        const oldParent = s.tasks.find(t => t.id === task.parentId);
-        if (oldParent) {
-          oldParent.childIds = oldParent.childIds.filter(c => c !== id);
-        }
-      }
+      detachFromParent(s.tasks, id);
 
       // Add to new parent
       task.parentId = newParentId;
@@ -708,13 +683,8 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
           beginUndoable(s);
           snapshotPushed = true;
         }
-        if (task.parentId) {
-          const oldParent = s.tasks.find(t => t.id === task.parentId);
-          if (oldParent) oldParent.childIds = oldParent.childIds.filter(c => c !== id);
-        }
-        task.parentId = newParentId;
-        const newParent = s.tasks.find(t => t.id === newParentId);
-        if (newParent) newParent.childIds.push(id);
+        detachFromParent(s.tasks, id);
+        attachToParent(s.tasks, id, newParentId);
         changed = true;
       }
       if (!changed) return;
@@ -906,14 +876,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       if (sourceIds.length === 0) return;
 
       // Selectie uitbreiden met alle (klein)kinderen, net als bij verwijderen.
-      const idSet = new Set<string>();
-      const collect = (taskId: string) => {
-        if (idSet.has(taskId)) return;
-        idSet.add(taskId);
-        const t = s.tasks.find(tt => tt.id === taskId);
-        if (t) t.childIds.forEach(collect);
-      };
-      sourceIds.forEach(collect);
+      const idSet = new Set<string>(sourceIds.flatMap(sid => collectSubtreeIds(s.tasks, sid)));
 
       const tasks = s.tasks.filter(t => idSet.has(t.id));
       if (tasks.length === 0) return;
