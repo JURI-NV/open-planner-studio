@@ -383,7 +383,15 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       const idx = s.tasks.findIndex(t => t.id === id);
       if (idx < 0) return; // onbekend id: geen snapshot, geen loze undo-stap (R3).
       beginUndoable(s, opts); // snapshot pas ná de guard, vóór de mutatie; `opts` = coalesceKey (bv. balk-sleep = 1 stap).
-      Object.assign(s.tasks[idx], updates);
+      // T14b-vervolg (gebruikstestbevinding): `updates.time` (indien meegegeven) apart mergen tegen
+      // de BESTAANDE tijd van de taak i.p.v. 'm via Object.assign in zijn geheel te laten vervangen —
+      // anders wist een PARTIEEL time-object (bv. via de publieke `api.data.updateTask`, waar de
+      // `ExtTaskTime`-volledigheid niet op runtime wordt afgedwongen) stil bestaande verplichte velden
+      // (completion/floats/…) tot een lege plek diezelfde writeIFC-crash weer opende. Zie
+      // `mergeTaskTime` in taskDefaults.ts voor de ADD-vs-UPDATE-basissemantiek.
+      const { time, ...rest } = updates;
+      Object.assign(s.tasks[idx], rest);
+      if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });
     });

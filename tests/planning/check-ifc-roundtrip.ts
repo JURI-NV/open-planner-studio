@@ -73,6 +73,7 @@ import type { WorkCalendar, CalendarGeneration, Holiday, WorkingException } from
 import type { ActivityCodeType, ActivityCodeValue, CustomFieldDef } from '@/types/structure';
 import type { Baseline, BaselineTask } from '@/types/baseline';
 import type { ImportResult } from '@/services/importTypes';
+import type { ExtTaskTime } from '@/extensions/extTypes';
 
 // tests/ valt buiten de hoofd-tsconfig; process is niet via @types/node beschikbaar in de
 // dedicated round-trip-tsconfig (types:[]). Minimale, botsingvrije declaratie.
@@ -1032,6 +1033,157 @@ const rt2 = readIFC(writeIFC(rt1));
   // `w.task.time.completion` maakt precies déze twee asserties ROOD — ONAFHANKELIJK van (8a)/(8b)/
   // (8c), die hier bewust ongebruikt blijven (de kapotte taak wordt buiten addTask/fromExtTaskTime om
   // rechtstreeks in de fixture gezet).
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// (9) T14b-vervolg (buiten-scope-vondst uit de eerste T14b-ronde, alsnog gedicht): `updateTask` deed
+//     `Object.assign(task, updates)` — een meegegeven `updates.time` verving de HELE `time`-tak in
+//     plaats van 'm aan te vullen. Een PARTIËLE time-update (bv. alleen `scheduleStart`, via de
+//     publieke `api.data.updateTask`) wiste zo stil `completion`/floats/etc. — dezelfde schadeklasse
+//     als (8), nu via UPDATE i.p.v. ADD, en zonder crash: de waarden verdwenen gewoon.
+//       (9a) BRON — `taskSlice.updateTask`: `mergeTaskTime` met de BESTAANDE taaktijd als basis
+//            (nooit een verse default — zie de docstring bij `mergeTaskTime`).
+//       (9b) BRON — `mcpTransaction.ts` `draft.updateTaskFields`: zelfde regel op de MCP-vangrail.
+//       (9c) EXTENSIE-RAND — het volledige `api.data.updateTask`-pad: `fromExtTaskUpdates` gebruikt
+//            nu `fromExtTaskTimePatch` (geen fallback-fabricage) zodat (9a)'s merge de ECHTE
+//            bestaande waarden kan terugvinden i.p.v. gefabriceerde generieke defaults.
+//       (9d) `fromExtTaskUpdates` in isolatie: bewijst dat er NIET meer gefabriceerd wordt.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// (9a) BRON — taskSlice.updateTask: een partiële time-update mag completion niet wissen.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  const id = S().addTask({ name: 'T14b-update-store' });
+  const full = S().tasks.find(t => t.id === id)!.time;
+  S().updateTask(id, { time: { ...full, completion: 0.4 } }); // volledige update: de VEILIGE weg, zet completion.
+
+  // De KWETSBARE aanroep: een partiële time-update die completion niet meestuurt.
+  S().updateTask(id, {
+    time: { scheduleStart: '2026-09-01', scheduleDuration: 4, durationType: 'WORKTIME' } as TaskTime,
+  });
+
+  const afterPartial = S().tasks.find(t => t.id === id)!.time;
+  assert(afterPartial.completion === 0.4, `(9a) een partiële time-update mag completion niet wissen — kreeg ${afterPartial.completion}`);
+  assert(afterPartial.scheduleStart === '2026-09-01', `(9a) de daadwerkelijk opgegeven scheduleStart moet wél doorkomen — kreeg ${afterPartial.scheduleStart}`);
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(buildWriteIFCInput(S()));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(9a) writeIFC mag niet crashen na een partiële time-update — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-update-store');
+    assert(out?.time.completion === 0.4, `(9a) completion moet 0.4 blijven ná writeIFC/readIFC — kreeg ${out?.time.completion}`);
+  }
+  // Mutatiebewijs (uitgevoerd): `mergeTaskTime(s.tasks[idx].time, time)` in taskSlice.ts `updateTask`
+  // teruggezet naar de kale `Object.assign(s.tasks[idx], updates)` (`time` dus wholesale vervangen)
+  // maakt de EERSTE assertie hierboven al ROOD, vóór writeIFC zelfs aan bod komt (`afterPartial.
+  // completion` wordt dan `undefined`, niet 0.4) — de meest directe, in-memory bewezen mutatie.
+}
+
+// (9b) BRON — mcpTransaction.ts draft.updateTaskFields: zelfde regel, MCP-vangrail.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
+  const { draft } = await import('@/state/mcpTransaction');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  const id = draft.addTask({ name: 'T14b-update-mcp' });
+  const full = S().tasks.find(t => t.id === id)!.time;
+  draft.updateTaskFields(id, { time: { ...full, completion: 0.4 } });
+
+  // `completion` hier bewust als EXPLICIETE `undefined`-sleutel (niet gewoon weggelaten): dat is
+  // precies het residuele gat dat een kale `Object.assign(task.time, partial)` niet dekte — een
+  // ONTBREKENDE sleutel liet `Object.assign` de bestaande waarde met rust, maar een AANWEZIGE sleutel
+  // met waarde `undefined` (zoals een ongetypeerde aanroeper kan opsturen) werd alsnog gekopieerd en
+  // wiste zo de bestaande completion. `mergeTaskTime`s `??` behandelt beide gevallen gelijk.
+  draft.updateTaskFields(id, {
+    time: { scheduleStart: '2026-09-02', scheduleDuration: 3, durationType: 'WORKTIME', completion: undefined } as unknown as TaskTime,
+  });
+
+  const afterPartial = S().tasks.find(t => t.id === id)!.time;
+  assert(afterPartial.completion === 0.4, `(9b) draft.updateTaskFields mag completion niet wissen bij een partiële time-update — kreeg ${afterPartial.completion}`);
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(buildWriteIFCInput(S()));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(9b) writeIFC mag niet crashen na een partiële time-update via draft.updateTaskFields — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-update-mcp');
+    assert(out?.time.completion === 0.4, `(9b) completion moet 0.4 blijven ná writeIFC/readIFC — kreeg ${out?.time.completion}`);
+  }
+  // Mutatiebewijs (uitgevoerd): `mergeTaskTime(s.tasks[idx].time, time)` in mcpTransaction.ts' `draft.
+  // updateTaskFields` teruggezet naar de kale `Object.assign(s.tasks[idx].time, time)` maakt de
+  // completion-assertie hierboven ROOD — specifiek dankzij de EXPLICIETE `completion: undefined` in de
+  // partial hierboven (een kale `Object.assign` liet een simpelweg ONTBREKENDE sleutel al met rust;
+  // dit isoleert het residuele gat dat `mergeTaskTime`s `??` daarbovenop dicht). (9a) blijft groen —
+  // bewijst dat de twee update-call-sites onafhankelijk gefixt zijn.
+}
+
+// (9c) EXTENSIE-RAND — het volledige `api.data.updateTask`-pad: fromExtTaskUpdates + de
+//      store-updateTask-merge samen. Een extensie die alleen `scheduleStart` opgeeft, mag de rest
+//      van de taak-tijd niet fabriceren/wissen.
+{
+  const { useAppStore } = await import('@/state/appStore');
+  const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
+  const { fromExtTaskUpdates } = await import('@/extensions/extMappers');
+  const S = () => useAppStore.getState();
+  S().newProject();
+  const id = S().addTask({ name: 'T14b-update-ext' });
+  const full = S().tasks.find(t => t.id === id)!.time;
+  S().updateTask(id, { time: { ...full, completion: 0.4 } });
+
+  // Exact het `api.data.updateTask`-pad: een ONVOLLEDIG ExtTaskTime (zoals een ongetypeerde extensie
+  // op runtime kan opsturen), enkel scheduleStart.
+  S().updateTask(id, fromExtTaskUpdates({
+    time: { scheduleStart: '2026-09-03' } as unknown as ExtTaskTime,
+  }));
+
+  const afterExt = S().tasks.find(t => t.id === id)!.time;
+  assert(afterExt.completion === 0.4, `(9c) api.data.updateTask-pad mag completion niet wissen bij een partiële time-update — kreeg ${afterExt.completion}`);
+  assert(afterExt.scheduleStart === '2026-09-03', `(9c) de daadwerkelijk opgegeven scheduleStart moet wél doorkomen — kreeg ${afterExt.scheduleStart}`);
+
+  let threw: unknown;
+  let ifcOut = '';
+  try {
+    ifcOut = writeIFC(buildWriteIFCInput(S()));
+  } catch (e) {
+    threw = e;
+  }
+  assert(!threw, `(9c) writeIFC mag niet crashen ná het volledige api.data.updateTask-pad — kreeg: ${threw instanceof Error ? threw.message : String(threw)}`);
+  if (!threw) {
+    const out = readIFC(ifcOut).tasks.find(t => t.name === 'T14b-update-ext');
+    assert(out?.time.completion === 0.4, `(9c) completion moet 0.4 blijven ná writeIFC/readIFC — kreeg ${out?.time.completion}`);
+  }
+  // Mutatiebewijs (uitgevoerd): `fromExtTaskTimePatch` in `fromExtTaskUpdates` teruggezet naar
+  // `fromExtTaskTime` (de fabricerende ADD-variant) maakt de completion-assertie hierboven ROOD —
+  // ONAFHANKELIJK van (9a): taskSlice.updateTask's merge blijft daarbij ongewijzigd gefixt, maar
+  // krijgt dan een reeds-VOLLEDIG (met generieke defaults gefabriceerd) object aangeleverd en kan de
+  // echte 0.4 niet meer terugvinden.
+}
+
+// (9d) fromExtTaskUpdates in isolatie: bewijst dat er GEEN fallback-fabricage meer gebeurt voor een
+//      veld dat de aanroeper niet opgaf (dat zou (9c)'s merge om de tuin leiden).
+{
+  const { fromExtTaskUpdates } = await import('@/extensions/extMappers');
+  const patch = fromExtTaskUpdates({ time: { scheduleStart: '2026-09-04' } as unknown as ExtTaskTime });
+  assert(patch.time?.scheduleStart === '2026-09-04', `(9d) fromExtTaskUpdates moet de opgegeven scheduleStart doorgeven — kreeg ${patch.time?.scheduleStart}`);
+  assert(patch.time?.completion === undefined, `(9d) fromExtTaskUpdates mag GEEN completion fabriceren voor een niet-opgegeven veld — kreeg ${patch.time?.completion}`);
+  assert(patch.time?.isCritical === undefined, `(9d) fromExtTaskUpdates mag GEEN isCritical fabriceren voor een niet-opgegeven veld — kreeg ${patch.time?.isCritical}`);
+  assert(patch.time?.freeFloat === undefined, `(9d) fromExtTaskUpdates mag GEEN freeFloat fabriceren voor een niet-opgegeven veld — kreeg ${patch.time?.freeFloat}`);
+  // Mutatiebewijs (uitgevoerd): `fromExtTaskTimePatch` in `fromExtTaskUpdates` teruggezet naar
+  // `fromExtTaskTime` maakt alle drie de laatste asserties hierboven ROOD (completion/isCritical/
+  // freeFloat worden dan 0/false/0 gefabriceerd i.p.v. ontbrekend te blijven).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

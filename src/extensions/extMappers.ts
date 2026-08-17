@@ -385,6 +385,43 @@ export function fromExtTaskInput(
   return out;
 }
 
+/**
+ * T14b-vervolg (extensie-rand, UPDATE-pad): `fromExtTaskTime` (hierboven) is bedoeld voor `addTask` —
+ * een ontbrekend verplicht veld krijgt daar een GENERIEKE default (vandaag/0/false), want er is nog
+ * geen bestaande taak om uit te putten. Voor `api.data.updateTask` is dat verkeerd: zou
+ * `fromExtTaskUpdates` hier ook `fromExtTaskTime` gebruiken, dan fabriceert die al een VOLLEDIG
+ * `TaskTime`-object mét generieke defaults vóórdat `taskSlice.updateTask`'s `mergeTaskTime` er ooit
+ * aan te pas komt — de merge ziet dan een reeds-compleet object en kan de ECHTE bestaande
+ * completion/floats/etc. niet meer terugvinden. Deze functie kopieert daarom VELD-VOOR-VELD zonder
+ * enige fallback-fabricage (ontbrekend blijft ontbrekend); `taskSlice.updateTask`'s `mergeTaskTime`
+ * (basis = de bestaande taaktijd) vult het ontbrekende aan tegen de ECHTE waarden.
+ */
+function fromExtTaskTimePatch(tt: Partial<ExtTaskTime>): Partial<TaskTime> {
+  return {
+    durationType: tt.durationType,
+    scheduleDuration: tt.scheduleDuration,
+    durationMinutes: tt.durationMinutes,
+    scheduleStart: tt.scheduleStart,
+    scheduleFinish: tt.scheduleFinish,
+    earlyStart: tt.earlyStart,
+    earlyFinish: tt.earlyFinish,
+    lateStart: tt.lateStart,
+    lateFinish: tt.lateFinish,
+    freeFloat: tt.freeFloat,
+    totalFloat: tt.totalFloat,
+    isCritical: tt.isCritical,
+    interferingFloat: tt.interferingFloat,
+    isNearCritical: tt.isNearCritical,
+    floatPath: tt.floatPath,
+    actualStart: tt.actualStart,
+    actualFinish: tt.actualFinish,
+    actualDuration: tt.actualDuration,
+    remainingTime: tt.remainingTime,
+    remainingMinutes: tt.remainingMinutes,
+    completion: tt.completion,
+  };
+}
+
 /** Ext-taakWIJZIGINGEN voor `api.data.updateTask` → interne `Partial<Task>`. */
 export function fromExtTaskUpdates(updates: Partial<ExtTask>): Partial<Task> {
   const out: Partial<Task> = {};
@@ -400,7 +437,11 @@ export function fromExtTaskUpdates(updates: Partial<ExtTask>): Partial<Task> {
   if (updates.levelingDelay !== undefined) out.levelingDelay = updates.levelingDelay;
   if (updates.parentId !== undefined) out.parentId = updates.parentId;
   if (updates.childIds !== undefined) out.childIds = [...updates.childIds];
-  if (updates.time !== undefined) out.time = fromExtTaskTime(updates.time);
+  // T14b-vervolg: `fromExtTaskTimePatch`, NIET `fromExtTaskTime` — zie de docstring daarboven. `out.time`
+  // is hier op TS-niveau een volledige `TaskTime`, maar dat is dezelfde bewuste afwijking als
+  // `addTask`'s `partial.time`: de echte volledigheid wordt pas door `taskSlice.updateTask`'s
+  // `mergeTaskTime` (tegen de bestaande taaktijd) gegarandeerd, niet hier.
+  if (updates.time !== undefined) out.time = fromExtTaskTimePatch(updates.time) as TaskTime;
   if (updates.resourceIds !== undefined) out.resourceIds = [...updates.resourceIds];
   if (updates.color !== undefined) out.color = updates.color;
   if (updates.activityCodes !== undefined) out.activityCodes = { ...updates.activityCodes };

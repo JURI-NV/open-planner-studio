@@ -396,11 +396,13 @@ export const draft = {
    * lopen in T4 via de dedicated invariant-setters. Onbekend id ⇒ stille no-op (zoals de store-
    * `updateTask`); geen throw, want een leeg-effect-merge is geen structurele fout.
    *
-   * `time` wordt bewust SHALLOW GEMERGED in plaats van vervangen: een `Object.assign` van de hele
-   * `time`-tak wiste anders in één klap de CPM-datums, floats, actuals en completion van elke sleutel
-   * die de aanroeper niet toevallig meestuurde. De MCP-toollaag zet `time` sowieso niet meer
-   * rechtstreeks (zie `patchTaskFields` + `taskFields.ts`); deze merge is de vangrail voor elke
-   * andere aanroeper.
+   * `time` wordt bewust GEMERGED in plaats van vervangen: een `Object.assign` van de hele `time`-tak
+   * wiste anders in één klap de CPM-datums, floats, actuals en completion van elke sleutel die de
+   * aanroeper niet toevallig meestuurde. De MCP-toollaag zet `time` sowieso niet meer rechtstreeks
+   * (zie `patchTaskFields` + `taskFields.ts`); deze merge is de vangrail voor elke andere aanroeper.
+   * T14b-vervolg: `mergeTaskTime` (basis = de BESTAANDE tijd, zie de docstring daar) i.p.v. een kale
+   * `Object.assign` — die liet een expliciet-`undefined`-sleutel (bv. van een ongetypeerde aanroeper)
+   * nog steeds een verplicht veld overschrijven; `mergeTaskTime` beschermt die klasse expliciet.
    */
   updateTaskFields(id: string, updates: Partial<Task>): void {
     useAppStore.setState((s) => {
@@ -408,7 +410,7 @@ export const draft = {
       if (idx < 0) return;
       const { time, ...rest } = updates;
       Object.assign(s.tasks[idx], rest);
-      if (time) Object.assign(s.tasks[idx].time, time);
+      if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
       s.isDirty = true;
     });
   },

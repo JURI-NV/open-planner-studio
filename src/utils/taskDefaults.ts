@@ -47,16 +47,39 @@ export function createDefaultTaskTime(
  * `writeIFC` crashte op `time.completion.toFixed(1)` (`src/services/ifc/ifcTaskSlots.ts`) — dat trof
  * auto-save, Opslaan/Opslaan-als én `planner_export_ifc` in één keer.
  *
- * `mergeTaskTime` vult ONTBREKENDE velden veld-voor-veld aan met de verse default (`completion` → 0,
- * net als `createDefaultTaskTime`); expliciet meegegeven velden (incl. `false`/`0`, `??` i.p.v. `||`)
- * blijven staan. Gedeeld door beide aanroeppaden zodat ze niet uit elkaar kunnen lopen.
+ * **Twee aanroepsituaties, één functie — de `base` bepaalt het verschil:**
+ *  - ADD (`taskSlice.addTask`, `mcpTransaction.draft.addTask`): `base` = een VERSE
+ *    `createDefaultTaskTime(...)`. Er is nog geen bestaande taak, dus "ontbrekend ⇒ default" is
+ *    ondubbelzinnig juist.
+ *  - UPDATE (`taskSlice.updateTask`, T14b-vervolg — gebruikstestbevinding "partiële time-update wist
+ *    bestaande waarden"): `base` = de BESTAANDE `time` van de taak, NOOIT een verse default. Een
+ *    `Object.assign(task, { time: partial })` verving voorheen de HELE `time`-tak: een aanroeper die
+ *    alleen `scheduleStart` wilde bijwerken (bv. via de publieke `api.data.updateTask`, waar
+ *    `ExtTaskTime` z'n eigen `Required<>`-belofte op runtime niet afdwingt) wiste zo stil
+ *    `completion`/`freeFloat`/`totalFloat`/etc. — dezelfde schadeklasse als de ADD-bug, alleen ipv.
+ *    een crash een STILLE dataverlies.
+ *
+ * **Verplichte velden** (nooit `undefined` op `TaskTime`: durationType/scheduleDuration/
+ * scheduleStart/scheduleFinish/early-/lateStart/-Finish/freeFloat/totalFloat/isCritical/completion)
+ * krijgen de terugval-merge (`??`, dus expliciete `false`/`0` blijven staan).
+ *
+ * **Optionele velden** (durationMinutes/interferingFloat/isNearCritical/floatPath/actualStart/
+ * -Finish/actualDuration/remainingTime/-Minutes) krijgen BEWUST GEEN terugval — ze komen 1-op-1 uit
+ * `partial` (ontbrekend ⇒ ontbrekend in het resultaat, exact zoals de vroegere volledige-vervanging
+ * al deed). Reden: sommige aanroepers wissen een optioneel veld bewust met `delete
+ * time.durationMinutes` (`TaskDialog.tsx`, dag/uur-modus- en mijlpaal-wissel) — een terugval-merge zou
+ * zo'n bewuste clear stil ongedaan maken, want JS kan "expliciet gewist" niet onderscheiden van
+ * "nooit genoemd" zodra je alleen naar de resulterende sleutel kijkt. Voor ADD is dit gedragsgelijk
+ * aan de oude code (de default zet deze velden nooit, dus terugval zou toch altijd `undefined`
+ * opleveren); voor UPDATE is dit de veilige keuze tussen twee onverenigbare wensen (bestaande
+ * optionele waarden behouden vs. een bewuste clear laten staan) — ALLEEN de verplichte velden krijgen
+ * dus bescherming tegen "stil `undefined` worden", precies de klasse die de writer liet crashen.
  */
 export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undefined): TaskTime {
   if (!partial) return base;
   return {
     durationType: partial.durationType ?? base.durationType,
     scheduleDuration: partial.scheduleDuration ?? base.scheduleDuration,
-    durationMinutes: partial.durationMinutes ?? base.durationMinutes,
     scheduleStart: partial.scheduleStart ?? base.scheduleStart,
     scheduleFinish: partial.scheduleFinish ?? base.scheduleFinish,
     earlyStart: partial.earlyStart ?? base.earlyStart,
@@ -66,14 +89,16 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
     freeFloat: partial.freeFloat ?? base.freeFloat,
     totalFloat: partial.totalFloat ?? base.totalFloat,
     isCritical: partial.isCritical ?? base.isCritical,
-    interferingFloat: partial.interferingFloat ?? base.interferingFloat,
-    isNearCritical: partial.isNearCritical ?? base.isNearCritical,
-    floatPath: partial.floatPath ?? base.floatPath,
-    actualStart: partial.actualStart ?? base.actualStart,
-    actualFinish: partial.actualFinish ?? base.actualFinish,
-    actualDuration: partial.actualDuration ?? base.actualDuration,
-    remainingTime: partial.remainingTime ?? base.remainingTime,
-    remainingMinutes: partial.remainingMinutes ?? base.remainingMinutes,
     completion: partial.completion ?? base.completion,
+    // Optioneel — geen terugval, zie docstring hierboven.
+    durationMinutes: partial.durationMinutes,
+    interferingFloat: partial.interferingFloat,
+    isNearCritical: partial.isNearCritical,
+    floatPath: partial.floatPath,
+    actualStart: partial.actualStart,
+    actualFinish: partial.actualFinish,
+    actualDuration: partial.actualDuration,
+    remainingTime: partial.remainingTime,
+    remainingMinutes: partial.remainingMinutes,
   };
 }
