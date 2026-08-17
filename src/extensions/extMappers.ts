@@ -406,6 +406,20 @@ export function fromExtTaskInput(
  * optioneel veld wordt daarom pas op `out` gezet als de sleutel ook ECHT op `tt` aanwezig is
  * (`'veld' in tt`, NIET `tt.veld !== undefined` — dat laatste zou een BEWUSTE clear via een
  * expliciete `undefined`-waarde weer verkeerd als "niet genoemd" lezen, het spiegelbeeld-gat).
+ *
+ * T16-VEEGLIJST (theoretische fractionele-remaining-kier, becommentarieerd — bewust niet dichtgetimmerd):
+ * `remainingTime`/`remainingMinutes` gaan hier ONGEVALIDEERD door naar `TaskTime`, ZONDER de
+ * consistentiecheck tegen `completion` die T9 voor de MPP-lezer bouwde (die leest een bestandseigen,
+ * al-MSP-getrouw-afgeronde `RemainingDuration` i.p.v. hem uit `completion` af te leiden — precies om
+ * de "klokstanden die MSP nooit toont"-fout te voorkomen). De MCP-tools (`planner_*`) SLUITEN dit gat
+ * al af: `taskFields.ts`'s `PROGRESS_REJECT_HINTS` weigert `remaining`/`remainingTime` expliciet bij
+ * naam ("de resterende duur wordt afgeleid uit `completion`"). Extensies hebben dat hek niet — een
+ * extensie die `completion` en een daarmee INCONSISTENTE `remainingTime` in dezelfde
+ * `api.data.updateTask`-aanroep zet, kan dus in principe dezelfde niet-ronde klokstand produceren die
+ * T9 voor MPP-import wegnam. Bewust ongefixt: dit vergt een schrijvende, kwaadwillige of onzorgvuldige
+ * extensie (geen bereikbaar pad via import/UI/MCP), en directe veldtoegang is precies het contract dat
+ * de extensie-API voor `TaskTime` biedt — een consistentiecheck hier zou legitiem gebruik (een
+ * extensie die zelf een precieze restduur bijhoudt) net zo goed blokkeren als het misbruikgeval.
  */
 function fromExtTaskTimePatch(tt: Partial<ExtTaskTime>): Partial<TaskTime> {
   const out: Partial<TaskTime> = {};

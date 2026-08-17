@@ -1066,7 +1066,7 @@ export class CPMSolver {
             // de natuurlijke finish (gemeten: uur ma 16:00 → di 08:00; dag vr 10-07 → ma 13-07).
             // Bij `remaining === 0` treedt deze vloer daarom NIET in werking — `remStart` blijft op
             // de bestaande `max(dataDate, voorganger-druk)`-waarde (byte-identiek aan vóór T9 voor
-            // dit randgeval), zie `cases-progress.json`'s `prog-T9-remaining-nul-natuurlijke-finish`.
+            // dit randgeval), zie `cases-progress.json`'s `prog-T9-remaining-nul-hervattingspunt-onaangeroerd`.
             const elapsed = this.options.schedulingOptions?.resumeFromActualElapsed && remaining > 0
               ? Math.max(0, totalSpan - remaining)
               : 0;
