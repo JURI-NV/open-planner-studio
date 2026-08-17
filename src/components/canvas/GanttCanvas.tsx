@@ -32,7 +32,7 @@ import { saveLeftPanelWidth, saveHistogramHeight, TASK_TABLE_MIN_WIDTH, TASK_TAB
 // bewust in dit component staan (zie de kop van dat bestand voor waarom).
 import {
   buildBaselineOverlay, buildTrace, computeEffectiveViewStart, buildSharedAxis,
-  computeContentSpanDays, contentWidthFor as computeContentWidth,
+  computeContentSpanDays, computeContentWidth,
   buildHistogramPicker, buildHistogramSeries, buildGanttRenderOptions,
 } from './ganttRenderOptions';
 import { useCanvasLayer } from './hooks/useCanvasLayer';
@@ -550,6 +550,10 @@ export function GanttCanvas() {
       // Issue #51: live duur-pilletje bij een lopende rand-sleep (undefined ⇒ niets extra's).
       durationDrag,
       highContrast: uiTheme === 'high-contrast',
+      // Audit C5/P17: de renderer leest zijn palet zelf uit de DOM zolang we er geen injecteren.
+      // Expliciet opschrijven, want het invoertype is afgeleid van `GanttRenderOptions` — een
+      // weggelaten veld is hier een compilefout, geen stilte.
+      palette: undefined,
       // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
       compressNonWorkdays,
       axis: sharedAxis,
@@ -615,6 +619,7 @@ export function GanttCanvas() {
       // Rand-slepen gebeurt alleen in de primaire pane.
       durationDrag: undefined,
       highContrast: uiTheme === 'high-contrast',
+      palette: undefined,
       // Issue #21 punt 5 (fase 2): geen `axis` meegegeven — de secundaire split-view-pane heeft
       // eigen zoom/scrollX, dus bouwt de renderer zelf een consistente as via `compressNonWorkdays`.
       compressNonWorkdays,

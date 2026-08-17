@@ -20,13 +20,10 @@
 import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
-import type { ViewState, BarSplitMode, DurationDisplay } from '@/types/view';
 import type { Resource } from '@/types/resource';
 import type { Baseline } from '@/types/baseline';
-import type { DurationSuffixes } from '@/utils/durationFormat';
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 import type { ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
-import type { ViewRow } from '@/engine/view/visibleRows';
 import type { GanttAxis } from '@/engine/renderer/timeAxis';
 import type { GanttRenderOptions } from '@/engine/renderer/GanttRenderer';
 import type { HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
@@ -34,13 +31,13 @@ import type { TraceMode } from '@/state/slices/types';
 import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { resolveGanttAxis } from '@/engine/renderer/workdayAxis';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
-import { diffDays, formatDate, parseDate, addCalendarDays } from '@/utils/dateUtils';
-import { ORIGIN_PADDING_DAYS } from '@/utils/ganttViewport';
+import { diffDays, parseDate } from '@/utils/dateUtils';
+import { computeEffectiveViewStart } from '@/utils/ganttViewport';
 
 /** Overlay-datums uit de actieve baseline, keyed op Task.id. */
 export type BaselineOverlay = NonNullable<GanttRenderOptions['baselineOverlay']>;
 /** Path-tracing-bundel zoals de renderer hem verwacht. */
-export type GanttTrace = NonNullable<NonNullable<GanttRenderOptions['trace']>>;
+export type GanttTrace = NonNullable<GanttRenderOptions['trace']>;
 
 /**
  * Overlay-map uit de actieve baseline. `undefined` (geen actieve baseline, of een id dat niet meer
@@ -85,24 +82,11 @@ export function buildTrace(
   };
 }
 
-/**
- * Effectieve tijdas-oorsprong (de datum die op scrollX = 0 valt). De opgeslagen `viewStartDate`
- * staat standaard op "vandaag" en houdt geen rekening met taken die eerder beginnen; omdat de
- * horizontale scrollbar (en de `setScroll`-klem) alleen scrollX >= 0 toestaan, is alles links van
- * de oorsprong onbereikbaar. Pin de oorsprong daarom op de vroegste taakstart (of vandaag, wat
- * eerder is) minus een kleine marge, zodat taken in het verleden in beeld te scrollen zijn.
- */
-export function computeEffectiveViewStart(tasks: Task[], viewStartDate: string): string {
-  let earliest = parseDate(viewStartDate);
-  for (const task of tasks) {
-    const start = task.time.earlyStart || task.time.scheduleStart || task.time.lateStart;
-    if (start) {
-      const d = parseDate(start);
-      if (d.getTime() < earliest.getTime()) earliest = d;
-    }
-  }
-  return formatDate(addCalendarDays(earliest, -ORIGIN_PADDING_DAYS));
-}
+// De tijdas-oorsprong woont in `ganttViewport.ts`, bij `ORIGIN_PADDING_DAYS` en bij zijn twee
+// andere gebruikers (`computeScrollToDate`, de fit-berekening). Hier alleen doorgegeven zodat de
+// Gantt-kant één importpad houdt — zou hij hiér wonen, dan kon `ganttViewport` hem niet hergebruiken
+// (circulaire import) en bleef daar een derde handkopie van de lus staan. Zie de uitleg daar.
+export { computeEffectiveViewStart };
 
 export interface SharedAxisInput {
   calendar: WorkCalendar;
@@ -165,7 +149,7 @@ export function computeContentSpanDays(
 }
 
 /** Contentbreedte (px) van een tijdvenster met de gegeven zoom en tabelbreedte. */
-export function contentWidthFor(
+export function computeContentWidth(
   contentSpanDays: number | null,
   zoom: number,
   tableWidth: number,
@@ -229,61 +213,42 @@ export function buildHistogramSeries(
   return { load: aggLoad, capacity: aggCap, overSet };
 }
 
+/** De drie velden die deze bouwer zélf afleidt (uit `cpmResult`) in plaats van door te geven. */
+type DerivedFromCpm = 'drivingSequenceIds' | 'violatedConstraintTaskIds' | 'missedDeadlineTaskIds';
+
 /**
- * Invoer voor `buildGanttRenderOptions`. **Alle velden zijn verplicht**, ook de velden die de
- * renderer zelf optioneel houdt. Dat is opzet: de twee panes (primair en de split-view-pane)
- * verschilden vóór deze extractie in twee met de hand bijgehouden objectliteralen, en een veld dat
- * aan één kant vergeten werd viel nergens om. Nu breekt een nieuw veld BEIDE aanroepplekken op
- * compileertijd, precies zoals `DOCUMENT_FIELDS` dat voor het documentcontract doet — wie een veld
- * bewust wil weglaten schrijft `undefined` op, zichtbaar in de diff en met een reden erbij.
+ * Maakt elk veld VERPLICHT te noemen, maar houdt `undefined` een toegestane waarde.
+ *
+ * Waarom niet gewoon `Required<T>` of `[K in keyof T]-?`: die modifier haalt `undefined` óók uit
+ * het WAARDEtype weg, dus dan kun je een veld dat de renderer bewust mag missen niet meer op
+ * `undefined` zetten. Door over `keyof Required<T>` te mappen (die heeft geen optionele sleutels)
+ * maar de waarde als `T[K]` op het ORIGINEEL op te zoeken, blijft elke sleutel verplicht te noemen
+ * terwijl een optioneel renderer-veld nog steeds `undefined` mag zijn — mits je dat opschrijft.
  */
-export interface GanttRenderOptionsInput {
-  rows: ViewRow[];
-  sequences: Sequence[];
-  calendar: WorkCalendar;
-  /** Het tijdvenster van DEZE pane (primair: `effectiveView`; secundair: idem met eigen zoom/scrollX). */
-  view: ViewState;
-  selectedTaskIds: string[];
-  collapsedTaskIds: string[];
-  /** Rauw resultaat; de driving/violated/missed-lijsten worden hier één keer uitgepakt. */
-  cpmResult: CPMResult | null | undefined;
-  statusDate: string | undefined;
-  showStatusDateLine: boolean;
-  showProgressLine: boolean;
-  showBaselineOverlay: boolean;
-  baselineOverlay: BaselineOverlay | undefined;
-  trace: GanttTrace | undefined;
-  canvasWidth: number;
-  canvasHeight: number;
-  /** 0 voor de secundaire pane — die tekent geen taaktabel. */
-  taskTableWidth: number;
-  rowHeight: number;
-  headerHeight: number;
-  localizedMonths: string[];
-  localizedWeekdays: string[];
-  columnHeaders: { wbs: string; taskName: string; duration: string };
-  weekStartDay: 'monday' | 'sunday';
-  enableQuarterHourZoom: boolean;
-  effectiveCalById: Map<string, WorkCalendar>;
-  barSplitMode: BarSplitMode;
-  /** Alleen gelezen in `drawTaskTable` (die bij `taskTableWidth <= 0` meteen terugkeert) en in het
-   *  sleep-pilletje. De secundaire pane heeft geen van beide en geeft daarom `undefined` mee. */
-  enableHourPlanning: boolean | undefined;
-  durationDisplay: DurationDisplay | undefined;
-  durationSuffixes: DurationSuffixes | undefined;
-  /** Vertaald "verouderd"-badgelabel op een externe ghost-balk. Dit is GEEN tabelveld: het wordt in
-   *  de CHART getekend (`drawTaskBars` → `drawExternalGhosts`), dus een pane die het weglaat valt
-   *  terug op de hardgecodeerde NL-tekst in de renderer. */
-  externalStaleLabel: string | undefined;
-  /** `undefined` zolang er geen rand-sleep loopt (of in een pane die geen sleep toont). */
-  durationDrag: { taskId: string; edge: 'left' | 'right' } | undefined;
-  highContrast: boolean;
-  compressNonWorkdays: boolean;
-  /** `undefined` ⇒ de renderer bouwt zelf een as uit `calendar`+`compressNonWorkdays`+`view`. */
-  axis: GanttAxis | undefined;
-  fontFamily: string;
-  fontScale: number;
-}
+type ExplicitlyRequired<T> = { [K in keyof Required<T>]: T[K] };
+
+/**
+ * Invoer voor `buildGanttRenderOptions` — AFGELEID uit `GanttRenderOptions`, niet er los naast
+ * geschreven.
+ *
+ * Dat afleiden is de hele truc. De twee panes (primair en de split-view-pane) waren vóór K-item 33
+ * twee met de hand bijgehouden objectliteralen; een veld dat aan één kant vergeten werd viel nergens
+ * om. Een handgeschreven invoertype zou dat maar half oplossen: het breekt dan wél op een nieuw veld
+ * in dit bestand, maar niet op een nieuw veld in `GanttRenderOptions` — en dat is nu juist de
+ * realistische route (iemand bouwt een renderer-feature en de bouwer geeft de optie nooit door).
+ * Door hem af te leiden breekt élke toevoeging aan de renderer-opties BEIDE aanroepplekken op
+ * compileertijd, ook een optionele. Dat is dezelfde eigenschap als `DOCUMENT_FIELDS` bij het
+ * documentcontract: de compilefout valt op de BRON, niet op een kopie ervan.
+ *
+ * Wie een veld bewust wil weglaten schrijft `undefined` op — zichtbaar in de diff, met een reden
+ * erbij, in plaats van een stille omissie.
+ */
+export type GanttRenderOptionsInput =
+  ExplicitlyRequired<Omit<GanttRenderOptions, DerivedFromCpm>>
+  & {
+    /** Rauw resultaat; de driving/violated/missed-lijsten worden hier één keer uitgepakt. */
+    cpmResult: CPMResult | null | undefined;
+  };
 
 /**
  * Zet de invoer om in het `GanttRenderOptions`-object dat `GanttRenderer` verwacht. Puur — geen
@@ -328,6 +293,7 @@ export function buildGanttRenderOptions(input: GanttRenderOptionsInput): GanttRe
     externalStaleLabel: input.externalStaleLabel,
     durationDrag: input.durationDrag,
     highContrast: input.highContrast,
+    palette: input.palette,
     compressNonWorkdays: input.compressNonWorkdays,
     axis: input.axis,
     fontFamily: input.fontFamily,

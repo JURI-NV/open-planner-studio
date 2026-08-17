@@ -13,6 +13,40 @@ import type { Task } from '@/types/task';
  *  useZoomShortcuts (Ctrl+0-fit) en de open-fit (fileSlice.requestFitToProject → GanttCanvas). */
 export const ORIGIN_PADDING_DAYS = 14;
 
+/**
+ * Effectieve tijdas-oorsprong (de datum die op scrollX = 0 valt) — DE ene bron voor die formule.
+ *
+ * De opgeslagen `viewStartDate` staat standaard op "vandaag" en houdt geen rekening met taken die
+ * eerder beginnen; omdat de horizontale scrollbar (en de `setScroll`-klem) alleen scrollX >= 0
+ * toestaan, is alles links van de oorsprong onbereikbaar. Vandaar: pin de oorsprong op de vroegste
+ * taakstart (of `viewStartDate`, wat eerder is) minus {@link ORIGIN_PADDING_DAYS}.
+ *
+ * Deze functie woont HIER, en niet bij de renderopties, om een reden: hij hoort bij
+ * `ORIGIN_PADDING_DAYS` en bij zijn twee andere gebruikers ({@link computeScrollToDate} hieronder,
+ * en indirect de fit-berekening). Tot K-item 33 stond de lus drie keer los in de codebase — in de
+ * render-memo, in `GanttCanvas.revealTaskIfOffscreen` en hier — alleen bij elkaar gehouden door
+ * commentaarregels die pariteit beloofden. Zet hem dus niet in een module die `ganttViewport`
+ * importeert: dat maakt hergebruik hier onmogelijk (circulaire import) en de derde kopie
+ * onvermijdelijk.
+ *
+ * Verliesvrij t.o.v. de rauwe `Date`-variant voor elke geldige ISO-datum vanaf jaar 100:
+ * `parseDate` kapt altijd naar UTC-middernacht en `addCalendarDays` houdt die vast, dus de
+ * format/parse-heenweg voegt niets toe en haalt niets weg. (Onder jaar 100 loopt de
+ * twee-cijferige-jaarafbeelding van `Date.UTC` ertussen — praktisch onbereikbaar, maar het is geen
+ * absolute garantie.)
+ */
+export function computeEffectiveViewStart(tasks: Task[], viewStartDate: string): string {
+  let earliest = parseDate(viewStartDate);
+  for (const task of tasks) {
+    const start = task.time.earlyStart || task.time.scheduleStart || task.time.lateStart;
+    if (start) {
+      const d = parseDate(start);
+      if (d.getTime() < earliest.getTime()) earliest = d;
+    }
+  }
+  return formatDate(addCalendarDays(earliest, -ORIGIN_PADDING_DAYS));
+}
+
 /** Resultaat van {@link computeFitToProject}: de zoom + scroll waarmee het HELE project
  *  (vroegste start … laatste finish) edge-to-edge in het chart-gedeelte past. */
 export interface FitToProject {
@@ -72,23 +106,14 @@ export interface ScrollToDateState {
 /**
  * Bereken de `scrollX` zodat `date` (default: `project.statusDate`, anders vandaag) links met een
  * kleine marge in het chart-gedeelte in beeld komt. Zoom en `view.viewStartDate` blijven
- * onaangeroerd. Gebruikt exact dezelfde `effectiveViewStart`-formule als `GanttCanvas`
- * (vroegste taakstart, of `view.viewStartDate` als niets vroeger is, min `ORIGIN_PADDING_DAYS`)
- * zodat de gesprongen positie 1-op-1 klopt met wat de renderer tekent. Gebruikt door
- * `Ctrl/Cmd+Home` (sneltoets-register, fase 2.10 golf 1).
+ * onaangeroerd. Deelt sinds K-item 33 LETTERLIJK {@link computeEffectiveViewStart} met de renderer
+ * in plaats van een eigen kopie van die lus, zodat de gesprongen positie 1-op-1 klopt met wat er
+ * getekend wordt — die pariteit werd hiervóór alleen door deze commentaarregel beloofd. Gebruikt
+ * door `Ctrl/Cmd+Home` (sneltoets-register, fase 2.10 golf 1).
  */
 export function computeScrollToDate(date: string | undefined, state: ScrollToDateState): number {
   const target = date || state.project.statusDate || formatDate(new Date());
-
-  let earliest = parseDate(state.view.viewStartDate);
-  for (const task of state.tasks) {
-    const s = task.time.earlyStart || task.time.scheduleStart || task.time.lateStart;
-    if (s) {
-      const d = parseDate(s);
-      if (d.getTime() < earliest.getTime()) earliest = d;
-    }
-  }
-  const effectiveViewStart = addCalendarDays(earliest, -ORIGIN_PADDING_DAYS);
+  const effectiveViewStart = parseDate(computeEffectiveViewStart(state.tasks, state.view.viewStartDate));
 
   const days = diffCalendarDays(effectiveViewStart, parseDate(target));
   return Math.max(0, (days - SCROLL_TO_DATE_MARGIN_DAYS) * state.view.zoom);
