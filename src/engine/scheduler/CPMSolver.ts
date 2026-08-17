@@ -13,7 +13,7 @@ import {
 } from './duration';
 import { computeScheduleResults } from './scheduleAnalysis';
 import {
-  forwardConstraint, backwardConstraint, MS_PER_MIN, MS_PER_DAY, type RelationDeps,
+  forwardConstraint, forwardFinishFloor, backwardConstraint, MS_PER_MIN, MS_PER_DAY, type RelationDeps,
 } from './relationMath';
 
 export interface CPMResult {
@@ -857,6 +857,16 @@ export class CPMSolver {
       }
 
       let earlyStart: Date;
+      // Z10 (dossier START_FINISH-semantiek, `mpp14relations.mpp`/"Task 5"): een SF-vereiste-finish
+      // ("niet eerder dan pred.START + lag") is een APARTE ondergrens op de EARLY FINISH, naast de
+      // gewone `earlyStart`-druk die `forwardConstraint` hierboven al levert — zie
+      // `forwardFinishFloor`'s moduleheader in `relationMath.ts` voor de volledige diagnose (het
+      // symptoom: `earlyFinish` hieronder wordt UNIFORM als `ES + duur` VOORWAARTS herberekend, wat
+      // voor SF de vereiste finish verliest zodra de terugtelling exact een niet-werkperiode
+      // overspant). `null` ⇒ geen SF-voorganger ⇒ byte-identiek (de `if` bij de toepassing hieronder
+      // is dan een no-op). Blijft `null` bij `preds.length === 0` (een wortel-taak heeft geen
+      // voorganger-relatie om een finish te eisen).
+      let sfFinishFloor: Date | null = null;
 
       if (preds.length === 0) {
         // T8-review-BLOCKER (Opus-hercheck 72486257, uitgebreid): dezelfde bypass als
@@ -912,6 +922,13 @@ export class CPMSolver {
           if (constraintDate > earlyStart) {
             earlyStart = constraintDate;
           }
+          // Z10: SF-vereiste-finish als aparte ondergrens (zie de toelichting bij `sfFinishFloor`s
+          // declaratie hierboven) — `null` voor alle andere relatietypes, dus deze regel is een
+          // no-op zonder SF-voorganger.
+          const finishFloor = forwardFinishFloor(
+            this.relDeps, predResult, predTask, seq, task, this.calendarFor(predTask), cal,
+          );
+          if (finishFloor && (!sfFinishFloor || finishFloor > sfFinishFloor)) sfFinishFloor = finishFloor;
         }
         // Vloer-afkap: wilde óók de strengste relatie de taak nog vóór het projectbegin trekken,
         // markeer dan de bindende lead(s) als afgekapt — de gebruiker moet kunnen zien dat een
@@ -1129,8 +1146,14 @@ export class CPMSolver {
         }
       }
 
-      const { date: earlyFinish, capped } = this.addDurationChecked(cal, earlyStart, task);
+      const { date: earlyFinishRaw, capped } = this.addDurationChecked(cal, earlyStart, task);
       if (capped) this.cappedTaskIds.push(taskId); // WP7: onwerkbaar venster ⇒ zachte waarschuwing
+      // Z10: de SF-vereiste-finish is een ondergrens op de early finish (zie `sfFinishFloor`s
+      // declaratie hierboven) — vuurt alleen als de gewone `ES + duur`-herberekening er daadwerkelijk
+      // ONDER blijft (het normale, niet-grensoverschrijdende geval reproduceert `sfFinishFloor` toch
+      // al exact, dus deze `max` is dan een no-op). `sfFinishFloor === null` (geen SF-voorganger,
+      // verreweg het gebruikelijke geval) ⇒ byte-identiek aan vóór Z10.
+      const earlyFinish = sfFinishFloor && sfFinishFloor > earlyFinishRaw ? sfFinishFloor : earlyFinishRaw;
 
       results.set(taskId, { es: earlyStart, ef: earlyFinish });
     }
