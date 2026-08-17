@@ -183,12 +183,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2013-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "169e509afa527747": {
       "root": "crawl",
@@ -494,12 +495,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2016-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "30ad90c9e3140560": {
       "root": "crawl",
@@ -560,12 +562,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2013-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "3bedc77e9a2ac3f6": {
       "root": "crawl",
@@ -639,12 +642,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2019-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "4747d2e75d838bc2": {
       "root": "crawl",
@@ -716,12 +720,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2016-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "516a72751771d5fc": {
       "root": "crawl",
@@ -806,12 +811,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2013-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "58c5f8dd40c012c3": {
       "root": "crawl",
@@ -1558,12 +1564,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2016-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "a2df0d81e463689f": {
       "root": "crawl",
@@ -1634,13 +1641,13 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 184,
-      "startSameday": 2,
-      "startDiff": 29,
-      "finishExact": 173,
-      "finishSameday": 1,
-      "finishDiff": 41,
-      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak dossier (c)5 (SNET/MSO-constraint buiten de werkband, ongemeld — zie §H1/H2 tabel)"
+      "startExact": 174,
+      "startSameday": 10,
+      "startDiff": 31,
+      "finishExact": 163,
+      "finishSameday": 10,
+      "finishDiff": 42,
+      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak dossier (c)5 (SNET/MSO-constraint buiten de werkband, ongemeld — zie §H1/H2 tabel) | Z1 (2026-08-17): TASK_MODE-bit nu gelezen (was dossier (c)5-hypothese) — 11 manually-scheduled taken in dit bestand krijgen nu START/FINISH (1283/1284) als grondwaarheid i.p.v. SCHEDULED_START/FINISH (35/36); startDiff 29→31, finishDiff 41→42 (motor rekent manual-modus nog niet, Z9a). Tijdelijke attributie, verdwijnt bij Z9a."
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
@@ -1679,12 +1686,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2019-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "ad1288338a88766e": {
       "root": "crawl",
@@ -1778,11 +1786,11 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14timephasedsegmentsmanual.mpp",
       "tasks": 21,
-      "startExact": 21,
-      "startSameday": 0,
+      "startExact": 0,
+      "startSameday": 21,
       "startDiff": 0,
-      "finishExact": 21,
-      "finishSameday": 0,
+      "finishExact": 0,
+      "finishSameday": 21,
       "finishDiff": 0
     },
     "b745a438e2aa8bf6": {
@@ -1989,12 +1997,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2010-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "ce3ffb971f3b1ab1": {
       "root": "crawl",
@@ -2077,12 +2086,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2019-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "d5c967023968446a": {
       "root": "crawl",
@@ -2188,12 +2198,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2010-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "e2bd82bd5b91e046": {
       "root": "crawl",
@@ -2287,12 +2298,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2010-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     },
     "eeb4c750aa58dd96": {
       "root": "crawl",
@@ -2386,12 +2398,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14timephasedsegmentsmanualoffsets.mpp",
       "tasks": 25,
-      "startExact": 25,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 25,
+      "startDiff": 25,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 22,
+      "reason": "Z1 (2026-08-17, plan-§3a-uitzondering): TASK_MODE-bit (Fixed2Meta offset 8, masker 0x08/0x80 naar applicationVersion) nu gelezen — taak/taken blijken MANUALLY_SCHEDULED met START/FINISH (veld 1283/1284, Fixed2Data blok 1) ≠ SCHEDULED_START/FINISH (veld 35/36); grondwaarheid verschoven, motor rekent manual-modus nog niet (Z9a). Tijdelijke pin, verdwijnt bij Z9a."
     }
   }
 }
