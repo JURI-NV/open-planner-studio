@@ -10,6 +10,7 @@ import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
 import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 import { snapToChoice } from '@/utils/numberChoice';
+import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
 // tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
@@ -499,16 +500,16 @@ export function renderReport(
   const canvasWidth = m.tableWidth + chartWidth;
   const canvasHeight = m.totalHeaderHeight + flatTasks.length * m.rowHeight + m.footerHeight;
 
-  // Build holiday set
-  const holidaySet = new Set<string>();
-  for (const h of calendar.holidays) {
-    const start = parseDate(h.startDate);
-    const end = parseDate(h.endDate);
-    const days = diffCalendarDays(start, end);
-    for (let i = 0; i <= days; i++) {
-      holidaySet.add(formatDate(addCalendarDays(start, i)));
-    }
-  }
+  // T13 (§T2-afwijking, LAAG-7-afnemer): vóór deze taak bouwde deze functie een EIGEN holidaySet
+  // en gebruikte ze `dow === 6 || dow === 7` als hardcoded weekend-check — beide genegeerd
+  // `calendar.workingExceptions` volledig, dus een werkende zaterdag/uitzondering printte gewoon
+  // als vrij. Eén `CalendarEngine`-instantie (dezelfde bron van waarheid als de solver/renderer)
+  // vervangt beide: `isWorkDay` kent de volledige precedentie (workingExceptions > holidays >
+  // workDays), en `isHoliday` blijft apart om holiday- en weekend-shading visueel te onderscheiden
+  // (rood vs. grijs, ongewijzigd t.o.v. vóór deze taak). Byte-identiek zonder workingExceptions:
+  // `isWorkDay`/`isHoliday` herberekenen exact dezelfde holidaySet/workDays-uitkomst als de oude
+  // ad-hoc logica hierboven.
+  const calEngine = new CalendarEngine(calendar);
 
   // Verkrijg de Draw2D-backend zodra de logische afmetingen bekend zijn (canvas-backend neemt de
   // dpr-scale + maat-setup over; vector-backend werkt 1:1 in logische px).
@@ -538,15 +539,17 @@ export function renderReport(
 
   // ---- GANTT CHART AREA ----
 
-  // Grid background - weekend/holiday shading
+  // Grid background - weekend/holiday shading. T13: via CalendarEngine (zie de moduleuitleg
+  // hierboven bij `calEngine`) — een werkende uitzondering (bv. een ingeroosterde zaterdag) is
+  // hierdoor géén van beide meer en print dus ongeschaduwd, zoals elke gewone werkdag.
   if (options.showWeekends) {
     for (let i = 0; i < totalDays; i++) {
       const date = addCalendarDays(minDate, i);
       const x = dateToX(date);
-      const dow = isoDayOfWeek(date);
       const dateStr = formatDate(date);
-      const isHoliday = holidaySet.has(dateStr);
-      const isWeekend = dow === 6 || dow === 7;
+      const isWorkDay = calEngine.isWorkDay(date);
+      const isHoliday = !isWorkDay && calEngine.isHoliday(dateStr);
+      const isWeekend = !isWorkDay && !isHoliday;
 
       if (isHoliday) {
         d2d.fillStyle = PRINT_COLORS.gridHoliday;

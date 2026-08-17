@@ -166,7 +166,14 @@ function writeCalendarBlock(
 
   lines.push(`${indent(3)}</WeekDays>`);
 
-  if (cal.holidays.length > 0) {
+  // T13 (§T2-afwijking, LAAG-7-afnemer): vóór deze taak schreef alleen `cal.holidays` naar
+  // `<Exceptions>` — `cal.workingExceptions` (T2/T3) verdween stil bij export, ook al kan
+  // `mspdiReader.ts` (T4) ze prima terug inlezen (`readRawMspdiExceptions`, `DayWorking=1` +
+  // `<WorkingTimes>`). Spiegelt die lezer exact: `DayWorking=1`, banden als `<WorkingTime>`-blokken
+  // wanneer aanwezig (afwezig/leeg ⇒ geen `<WorkingTimes>`-element — de lezer se banden-optioneel-
+  // fallback-keten (`types/calendar.ts`'s `WorkingException.bands`-doc) vangt dat dan zelf op).
+  const workingExceptions = cal.workingExceptions ?? [];
+  if (cal.holidays.length > 0 || workingExceptions.length > 0) {
     lines.push(`${indent(3)}<Exceptions>`);
     for (const h of cal.holidays) {
       lines.push(`${indent(4)}<Exception>`);
@@ -178,6 +185,28 @@ function writeCalendarBlock(
       lines.push(`${indent(5)}<Name>${escapeXML(h.name)}</Name>`);
       lines.push(`${indent(5)}<Type>1</Type>`);
       lines.push(`${indent(5)}<DayWorking>0</DayWorking>`);
+      lines.push(`${indent(4)}</Exception>`);
+    }
+    for (const we of workingExceptions) {
+      lines.push(`${indent(4)}<Exception>`);
+      lines.push(`${indent(5)}<EnteredByOccurrences>0</EnteredByOccurrences>`);
+      lines.push(`${indent(5)}<TimePeriod>`);
+      lines.push(`${indent(6)}<FromDate>${formatMSPDateTime(we.startDate)}</FromDate>`);
+      lines.push(`${indent(6)}<ToDate>${formatMSPDateTime(we.endDate)}</ToDate>`);
+      lines.push(`${indent(5)}</TimePeriod>`);
+      lines.push(`${indent(5)}<Name>${escapeXML(we.name)}</Name>`);
+      lines.push(`${indent(5)}<Type>1</Type>`);
+      lines.push(`${indent(5)}<DayWorking>1</DayWorking>`);
+      if (we.bands && we.bands.length > 0) {
+        lines.push(`${indent(5)}<WorkingTimes>`);
+        for (const b of we.bands) {
+          lines.push(`${indent(6)}<WorkingTime>`);
+          lines.push(`${indent(7)}<FromTime>${minutesToClock(b.start)}</FromTime>`);
+          lines.push(`${indent(7)}<ToTime>${minutesToClock(b.end)}</ToTime>`);
+          lines.push(`${indent(6)}</WorkingTime>`);
+        }
+        lines.push(`${indent(5)}</WorkingTimes>`);
+      }
       lines.push(`${indent(4)}</Exception>`);
     }
     lines.push(`${indent(3)}</Exceptions>`);

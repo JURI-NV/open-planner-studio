@@ -344,6 +344,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   TODAYCHECK="$DIR/.today-label.mjs"
   if bundle_check "$DIR/check-today-label.ts" "$TODAYCHECK"; then node "$TODAYCHECK" || STATUS=1; fi
 
+  # Print-voorbeeld × werkende uitzonderingen (fase 3.8, T13 — §T2-afwijking LAAG-7-afnemer):
+  # printPreview.ts bouwde vóór T13 een eigen holidaySet + hardgecodeerde dow===6||7-weekend-check,
+  # die `calendar.workingExceptions` (T2) volledig negeerden — een ingeroosterde werkende zaterdag
+  # printte alsnog als weekend, terwijl de Gantt-canvas 'm al correct als werkdag toonde. Deze check
+  # bewaakt de fix (één CalendarEngine-instantie i.p.v. de ad-hoc logica) via een opnemende Draw2D.
+  PRINTWECHECK="$DIR/.print-working-exceptions.mjs"
+  if bundle_check "$DIR/check-print-working-exceptions.ts" "$PRINTWECHECK"; then node "$PRINTWECHECK" || STATUS=1; fi
+
   # Relatielijn-stijl in het geëxporteerde rapport (issue #56). De printlaag zette één vaste grijze
   # kleur BUITEN de lus, riep `setLineDash` nooit aan en las `seq.type` niet — de export gooide dus
   # de P6-betekenis weg (doorgetrokken = bepalend, rood = kritiek) en tekende élke relatie als FS,
@@ -360,6 +368,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # De parse-stap zelf valt hier buiten: Node heeft geen DOMParser (zie de kop van het script).
   SVGCHECK="$DIR/.svg-sanitizer.mjs"
   if bundle_check "$DIR/check-svg-sanitizer.ts" "$SVGCHECK"; then node "$SVGCHECK" || STATUS=1; fi
+
+  # Extensie-kalendermapper × werkende uitzonderingen (fase 3.8, T13 — §T2-afwijking LAAG-7-
+  # afnemer): ExtCalendar (het publieke extensiecontract) miste `workingExceptions` — een extensie
+  # die een kalender via toExtCalendar/fromExtCalendar round-trippet (lezen, iets anders wijzigen,
+  # terugschrijven) wiste zo stilzwijgend elke werkende uitzondering. Bewaakt round-trip + het
+  # byte-identiek-anker (geen workingExceptions ⇒ blijft undefined) + de kopie-losstaandheid.
+  EXTCALCHECK="$DIR/.ext-calendar-mapper.mjs"
+  if bundle_check "$DIR/check-ext-calendar-mapper.ts" "$EXTCALCHECK"; then node "$EXTCALCHECK" || STATUS=1; fi
 
   # Undo-grens + coalescing (prioriteitsitem 8). De undo-stack is begrensd op MAX_UNDO; die grens
   # maakt `undoStack.length` als coalescing-identiteit onbruikbaar (constant bij een volle stack),

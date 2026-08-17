@@ -341,10 +341,12 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
 // mspdiReader.ts leest sinds T4 dezelfde uitzonderingssemantiek uit <Exception> als mppCalendars.ts
 // (T3) uit het 92-byte MPP-blok: DayWorking=1 + <WorkingTimes> → WorkingException met banden;
 // <Type> (recurrent) wordt geëxpandeerd via T3's `expandRecurrence`/`resolveContributions`
-// (rechtstreeks hergebruikt, geen tweede expansie). writeMSPDI schrijft dit nog niet (buiten T4's
-// scope, alleen de READER), dus deze fixtures zijn hand-gebouwde MSPDI-XML-strings — niet via
-// writeMSPDI geproduceerd, wél binnen het schema zoals MSPDIWriter.java het daadwerkelijk emitteert
-// (geverifieerd tegen de MPXJ-bron, zie mspdiReader.ts's importtoelichting).
+// (rechtstreeks hergebruikt, geen tweede expansie). writeMSPDI schreef dit tot en met T12 niet
+// (alleen de READER, buiten T4's scope) — T13 (§T2-afwijking, LAAG-7-afnemer) haalt dat in, zie
+// sectie (h) hieronder. Fixtures (a)-(g) zijn hand-gebouwde MSPDI-XML-strings (lazen dus altijd al
+// via de echte lezer, maar niet via writeMSPDI geproduceerd) — wél binnen het schema zoals
+// MSPDIWriter.java het daadwerkelijk emitteert (geverifieerd tegen de MPXJ-bron, zie mspdiReader.ts's
+// importtoelichting); (h) draait wél de ECHTE writeMSPDI+readMSPDI-round-trip.
 {
   const weekdayXml = (dayType: number): string => `<WeekDay><DayType>${dayType}</DayType><DayWorking>1</DayWorking>` +
     `<WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>`;
@@ -583,6 +585,54 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
       `T4 kalender-aantal-klem: 1024 resourcekalenders gematerialiseerd (kreeg ${(result.resourceCalendars ?? []).length}) van ${calCount} aangeboden`,
     );
     assert(elapsedMs < 1000, `T4 kalender-aantal-klem: readMSPDI(${calCount} <Calendar>-elementen) < 1000ms (kreeg ${elapsedMs}ms)`);
+  }
+
+  // (h) T13 (§T2-afwijking, LAAG-7-afnemer): writeMSPDI schreef workingExceptions vóór deze taak
+  //     STIL NIET mee (alleen `cal.holidays` ging naar `<Exceptions>`) — de "writeMSPDI schrijft dit
+  //     nog niet"-opmerking in de moduleheader hierboven gold dus tot T13. Round-trip via de ECHTE
+  //     schrijver+lezer (i.p.v. hand-gebouwde XML zoals (a)-(g)): workingExceptions met eigen banden
+  //     én een band-loze workingException moeten allebei exact terugkomen; holidays blijven intact.
+  {
+    const calWithExc: WorkCalendar = {
+      ...H8,
+      id: 'cal-h8-exc', name: 'H8-met-uitzonderingen',
+      holidays: [{ name: 'Feestdag', startDate: '2026-07-09', endDate: '2026-07-09' }],
+      workingExceptions: [
+        { name: 'Werkende zaterdag', startDate: '2026-07-11', endDate: '2026-07-11', bands: [{ start: 360, end: 720 }] },
+        { name: 'Band-loze werkende zondag', startDate: '2026-07-12', endDate: '2026-07-12' },
+      ],
+    };
+    const p = readMSPDI(writeMSPDI(project, calWithExc, tasks, sequences, resources, assignments, []));
+    const cal = p.calendar;
+    eq('T13 MSPDI-workingExceptions-roundtrip: holidays intact', cal.holidays.map((h) => h.startDate), ['2026-07-09']);
+    const byDate = new Map((cal.workingExceptions ?? []).map((w) => [w.startDate, w]));
+    assert(byDate.size === 2, `T13 MSPDI-workingExceptions-roundtrip: 2 workingExceptions terug (kreeg ${byDate.size})`);
+    eq('T13 MSPDI-workingExceptions-roundtrip: banden van de werkende zaterdag', byDate.get('2026-07-11')?.bands, [{ start: 360, end: 720 }]);
+    // Band-loze uitzondering: de schrijver laat <WorkingTimes> weg (geen banden om te schrijven); de
+    // lezer se fallback-keten (types/calendar.ts's WorkingException.bands-doc) levert dan `undefined`
+    // of een lege array terug — beide zijn "geen eigen banden", dus vergelijk op falsy/leeg i.p.v. op
+    // een specifieke vorm (dat zou een implementatiedetail van de lezer vastpinnen, niet het contract).
+    const sundayBands = byDate.get('2026-07-12')?.bands;
+    assert(!sundayBands || sundayBands.length === 0, `T13 MSPDI-workingExceptions-roundtrip: band-loze uitzondering blijft band-loos (kreeg ${JSON.stringify(sundayBands)})`);
+
+    // (i) T13 (zelfde afwijking): P6-XML kent structureel GEEN DayWorking-vlag op HolidayOrException
+    //     (geverifieerd tegen p6xmlReader.ts's parseP6HolidayOrExceptions — leest elk element
+    //     onvoorwaardelijk als niet-werkend) — workingExceptions kunnen daar dus niet veilig heen.
+    //     writeP6XML moet dat NIET stilzwijgend laten liggen: één console.warn met het juiste aantal,
+    //     en geen enkel <HolidayOrException>-element voor de werkende uitzonderingen zelf (die zouden
+    //     bij re-import als HOLIDAY (niet-werkend) misgelezen worden — erger dan weglaten).
+    const warns: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...a: unknown[]) => { warns.push(a.join(' ')); };
+    let p6xml: string;
+    try { p6xml = writeP6XML(project, calWithExc, tasks, sequences, resources, assignments, []); }
+    finally { console.warn = origWarn; }
+    assert(
+      warns.some((w) => w.includes('2 werkende kalenderuitzondering')),
+      `T13 P6-workingExceptions-warn: verwacht een warn met "2 werkende kalenderuitzondering", kreeg [${warns.join(' | ')}]`,
+    );
+    assert(!p6xml.includes('Werkende zaterdag'), 'T13 P6-workingExceptions-warn: de werkende uitzondering zelf komt niet als <HolidayOrException> in de XML (zou als holiday misgelezen worden)');
+    assert(p6xml.includes('Feestdag'), 'T13 P6-workingExceptions-warn: de ECHTE holiday blijft gewoon staan');
   }
 }
 

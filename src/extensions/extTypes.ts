@@ -66,6 +66,19 @@ export interface ExtHoliday {
   endDate: string;   // ISO date
 }
 
+/** Eén dag-uitzondering die een dag WERKEND maakt (fase 3.8, T2; MS Project: "werkende
+ *  uitzondering"). Spiegelt `WorkingException`. T13 (§T2-afwijking, LAAG-7-afnemer): vóór deze
+ *  taak ontbrak dit veld op `ExtCalendar` volledig — een extensie die een kalender via
+ *  `toExtCalendar`/`fromExtCalendar` round-trippede (lezen, iets anders wijzigen, terugschrijven)
+ *  wiste zo stilzwijgend elke workingException. */
+export interface ExtWorkingException {
+  name: string;
+  startDate: string; // ISO date
+  endDate: string;   // ISO date
+  /** Banden in minuten-vanaf-middernacht. Leeg/afwezig ⇒ de weekdag-standaardbanden gelden. */
+  bands?: { start: number; end: number }[];
+}
+
 /** Ext-facing werkkalender. Spiegelt {@link import('@/types/calendar').WorkCalendar}. */
 export interface ExtCalendar {
   id: string;
@@ -82,6 +95,8 @@ export interface ExtCalendar {
   workTime?: ExtWorkTimeBands;
   /** Ploeg-classificatie. undefined ⇒ FIRST. */
   shift?: 'FIRST' | 'SECOND' | 'THIRD' | 'USERDEFINED';
+  /** Dag-uitzonderingen die een dag WERKEND maken (fase 3.8, T2/T13). Afwezig ⇒ geen. */
+  workingExceptions?: ExtWorkingException[];
 }
 
 // ── Taak ──

@@ -149,7 +149,19 @@ function writeStandardWorkWeek(lines: string[], indent: (level: number) => strin
 }
 
 /** Feestdagen/exceptions (fase 2.8a, §8.3): `<HolidayOrExceptions>` — golden rule: geen
- *  feestdagen ⇒ geen element. */
+ *  feestdagen ⇒ geen element.
+ *
+ *  T13 (§T2-afwijking, LAAG-7-afnemer): `cal.workingExceptions` (fase 3.8, T2/T3 — dag-uitzonderingen
+ *  die een dag WERKEND maken) wordt hier bewust NIET geschreven. `<HolidayOrException>` heeft in het
+ *  P6-XML-schema geen `DayWorking`-achtig veld (alleen `Name`/`Date`/`FinishDate`, geverifieerd tegen
+ *  `p6xmlReader.ts`'s `parseP6HolidayOrExceptions` — die leest elk element onvoorwaardelijk als
+ *  NIET-werkend, er is geen tegenhanger van MSPDI's `DayWorking=1`-vlag). Een P6-conforme "werkende
+ *  uitzondering" bestaat structureel niet in dit schema; P6 zelf modelleert een ingeroosterde
+ *  extra werkdag door de datum aan `<StandardWorkWeek>` toe te voegen (een project-brede
+ *  weekpatroon-wijziging, geen per-datum-uitzondering) — dat is een fundamenteel ander model dan
+ *  `WorkingException` en NIET veilig automatisch te vertalen (het zou het hele weekpatroon voor
+ *  ALLE datums wijzigen, niet alleen de ene). Zie de `console.warn` in `writeP6XML` hieronder en
+ *  `docs/library.md`/T16 (gidsupdate) voor de gebruikersvoorlichting. */
 function writeHolidayOrExceptions(lines: string[], indent: (level: number) => string, cal: WorkCalendar): void {
   if (cal.holidays.length === 0) return;
   lines.push(`${indent(2)}<HolidayOrExceptions>`);
@@ -202,6 +214,15 @@ export function writeP6XML(
   const noteCount = tasks.reduce((n, t) => n + (t.notes?.length ?? 0), 0);
   if (noteCount > 0) {
     console.warn(`P6-export: ${noteCount} taak-aantekening(en) weggelaten — niet uitdrukbaar in P6-XML (§6).`);
+  }
+
+  // T13 (§T2-afwijking, LAAG-7-afnemer): werkende uitzonderingen (fase 3.8, T2/T3) — zie de
+  // uitgebreide toelichting bij `writeHolidayOrExceptions` hierboven voor WAAROM dit structureel
+  // niet uitdrukbaar is in het P6-XML-schema (geen `DayWorking`-vlag op `<HolidayOrException>`).
+  // Geteld over de projectkalender ÉN alle bibliotheekkalenders die daadwerkelijk geschreven worden.
+  const workingExcCount = [calendar, ...resourceCalendars].reduce((n, c) => n + (c.workingExceptions?.length ?? 0), 0);
+  if (workingExcCount > 0) {
+    console.warn(`P6-export: ${workingExcCount} werkende kalenderuitzondering(en) weggelaten — niet uitdrukbaar in P6-XML (geen DayWorking-vlag op HolidayOrException, §6).`);
   }
 
   lines.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');

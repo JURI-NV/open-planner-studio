@@ -16,7 +16,7 @@
  *   (b) hernoem je een INTERN veld → dat duikt alléén hier op, nooit in extensie-code.
  */
 import type { Project } from '@/types/project';
-import type { WorkCalendar, Holiday, WorkTimeBands } from '@/types/calendar';
+import type { WorkCalendar, Holiday, WorkTimeBands, WorkingException } from '@/types/calendar';
 import type { Task, TaskTime, TaskConstraint, ExternalLink } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment, AvailabilityStep } from '@/types/resource';
@@ -26,6 +26,7 @@ import type {
   ExtSchedulingOptions,
   ExtCalendar,
   ExtHoliday,
+  ExtWorkingException,
   ExtWorkTimeBands,
   ExtTask,
   ExtTaskTime,
@@ -123,6 +124,15 @@ function toIntHoliday(h: ExtHoliday): Holiday {
   return { name: h.name, startDate: h.startDate, endDate: h.endDate };
 }
 
+/** T13 (§T2-afwijking): `bands` mee-kopiëren (niet spreaden) — een kale spread zou anders het
+ *  bevroren store-array-object doorgeven (zelfde reviewbevinding als `copySchedulingOptions`). */
+function copyWorkingException(w: WorkingException): ExtWorkingException {
+  return { name: w.name, startDate: w.startDate, endDate: w.endDate, ...(w.bands ? { bands: w.bands.map((b) => ({ start: b.start, end: b.end })) } : {}) };
+}
+function toIntWorkingException(w: ExtWorkingException): WorkingException {
+  return { name: w.name, startDate: w.startDate, endDate: w.endDate, ...(w.bands ? { bands: w.bands.map((b) => ({ start: b.start, end: b.end })) } : {}) };
+}
+
 function copyAvailStep(s: AvailabilityStep): ExtAvailabilityStep {
   return { from: s.from, maxUnits: s.maxUnits };
 }
@@ -184,6 +194,7 @@ export function toExtCalendar(c: WorkCalendar): ExtCalendar {
     holidays: c.holidays.map(copyHoliday),
     workTime: c.workTime ? copyWorkTime(c.workTime) : undefined,
     shift: c.shift,
+    workingExceptions: c.workingExceptions ? c.workingExceptions.map(copyWorkingException) : undefined,
   };
 }
 
@@ -199,6 +210,7 @@ export function fromExtCalendar(c: ExtCalendar): WorkCalendar {
     holidays: c.holidays.map(toIntHoliday),
     workTime: c.workTime ? toIntWorkTime(c.workTime) : undefined,
     shift: c.shift,
+    workingExceptions: c.workingExceptions ? c.workingExceptions.map(toIntWorkingException) : undefined,
   };
 }
 
