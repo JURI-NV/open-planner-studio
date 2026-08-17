@@ -16,6 +16,7 @@ export {
   loadAllExtensions,
   saveExtensionToDb,
   getActivePlugins,
+  executeExtensionCode,
   type StoredExtension,
 } from './extensionLoader';
 export {
@@ -25,4 +26,7 @@ export {
   installFromJsFile,
   installFromZipBlob,
   removeExtension,
+  verifyCatalogDownload,
+  sha256Hex,
+  type DownloadVerdict,
 } from './extensionService';

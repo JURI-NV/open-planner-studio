@@ -228,5 +228,15 @@ export interface CatalogEntry {
   minAppVersion: string;
   repository: string;
   downloadUrl: string;        // wijst naar een release-ZIP
+  /**
+   * Hex-gecodeerde SHA-256 van de ZIP achter `downloadUrl` (K-item 38). Aanwezig ⇒ de installatie
+   * VERIFIEERT de download en weigert bij een verschil; afwezig ⇒ installeren mag, met een
+   * waarschuwing in de debug-terminal.
+   *
+   * Waarom optioneel: de catalogus is een extern bestand (`open-planner-studio-extensions`) dat
+   * niet met deze app meebeweegt. Het hard eisen zou elke bestaande entry onbruikbaar maken; het
+   * doel is dat een entry MET hash niet meer stil vervangen kan worden.
+   */
+  sha256?: string;
   icon?: string;
 }

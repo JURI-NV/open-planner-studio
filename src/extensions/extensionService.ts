@@ -12,6 +12,7 @@ import {
   getActivePlugins,
 } from './extensionLoader';
 import { useAppStore } from '@/state/appStore';
+import { appLog } from '@/services/debug/appLog';
 
 // ── Catalogus ──
 
@@ -53,12 +54,73 @@ export async function installFromCatalog(entry: CatalogEntry): Promise<boolean> 
     const res = await fetch(entry.downloadUrl);
     if (!res.ok) throw new Error(`Download mislukt: HTTP ${res.status}`);
 
-    const blob = await res.blob();
-    return await installFromZipBlob(blob, entry.id);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+
+    const oordeel = await verifyCatalogDownload(entry, bytes);
+    if (!oordeel.ok) throw new Error(oordeel.reason);
+    if (oordeel.unverified) {
+      appLog.emit('warn', 'Extensies',
+        `Catalogusentry "${entry.id}" heeft geen sha256; de download is niet geverifieerd.`);
+    }
+
+    return await installFromZipBlob(new Blob([bytes as unknown as BlobPart]), entry.id);
   } catch (err) {
     console.error('[Extensies] Installeren vanuit catalogus mislukt:', err);
+    appLog.emit('error', 'Extensies', err instanceof Error ? err.message : String(err));
     return false;
   }
+}
+
+export interface DownloadVerdict {
+  ok: boolean;
+  /** Gevuld wanneer `ok` onwaar is — gaat rechtstreeks naar de gebruiker/het log. */
+  reason?: string;
+  /** True wanneer de entry geen `sha256` draagt: geïnstalleerd, maar ONgeverifieerd. */
+  unverified?: boolean;
+}
+
+/**
+ * Mag deze download geïnstalleerd worden (K-item 38)?
+ *
+ * De catalogus is een extern JSON-bestand en `downloadUrl` wijst naar een release-asset; zonder
+ * hash zijn "wat de catalogus beschrijft" en "wat je installeert" alleen door TLS aan elkaar
+ * geknoopt, en een vervangen asset is onzichtbaar. Mét hash faalt de installatie bij het kleinste
+ * verschil.
+ *
+ * Bewust een aparte, pure functie: de installatie zelf heeft IndexedDB en `DecompressionStream`
+ * nodig en is daarmee niet headless te draaien; deze beslissing wél
+ * (`tests/planning/check-ext-integrity.ts`).
+ *
+ * Een aanwezige maar ONLEESBARE hash is een weigering, geen "dan maar overslaan": dat laatste zou
+ * een typefout in de catalogus stilzwijgend in "niet verifiëren" laten omslaan — precies de
+ * degradatie die de controle waardeloos maakt.
+ */
+export async function verifyCatalogDownload(
+  entry: Pick<CatalogEntry, 'id' | 'sha256'>,
+  bytes: Uint8Array,
+): Promise<DownloadVerdict> {
+  const verwacht = entry.sha256?.trim().toLowerCase();
+  if (!verwacht) return { ok: true, unverified: true };
+  if (!/^[0-9a-f]{64}$/.test(verwacht)) {
+    return { ok: false, reason: `Catalogusentry "${entry.id}" heeft een ongeldige sha256 ("${entry.sha256}") — verwacht 64 hex-tekens.` };
+  }
+  const werkelijk = await sha256Hex(bytes);
+  if (werkelijk !== verwacht) {
+    return {
+      ok: false,
+      reason: `Checksum komt niet overeen voor "${entry.id}" — verwacht ${verwacht}, kreeg ${werkelijk}. De download is niet geïnstalleerd.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Hex-gecodeerde SHA-256 van een byte-reeks, via Web Crypto (beschikbaar in de browser, de
+ * Tauri-webview én Node ≥ 18 — dus ook headless toetsbaar).
+ */
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', bytes as unknown as ArrayBuffer);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ── Installeren vanuit een lokaal ZIP-bestand ──

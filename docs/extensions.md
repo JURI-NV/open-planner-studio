@@ -45,6 +45,25 @@ Gebruik `currentColor` voor `fill`/`stroke` zodat het icoon met het thema meekle
 
 De afdwinging is gecentraliseerd in `src/extensions/permissions.ts` (één tabel pad → permissie).
 
+### Wat de app wél en niet afdwingt
+
+Twee dingen zijn hard, en het verschil is belangrijk:
+
+- **Integriteit van een catalogus-installatie.** Draagt een catalogusentry een `sha256` van de
+  release-ZIP, dan wordt de download geverifieerd en bij het kleinste verschil geweigerd. Draagt hij
+  er geen, dan installeert de app wel maar meldt hij in de debug-terminal dat de download
+  ongeverifieerd is. Een aanwezige maar onleesbare hash is een weigering, niet een stille terugval.
+- **Afscherming van de rauwe host-globals.** `__TAURI_INTERNALS__`, `__TAURI__` en `__OPS__` zijn
+  binnen extensie-code geschaduwd op `undefined`. Alles wat een extensie legitiem nodig heeft loopt
+  via `require('open-planner-studio')` en de `api` die `onLoad` krijgt.
+
+> **Dit is geen sandbox.** Extensie-code draait in dezelfde realm als de app. `globalThis.__TAURI_INTERNALS__`
+> en `Function('return this')()` komen er nog steeds bij, en `filesystem`/`network` zijn dan ook
+> informatieve permissies zonder technische grens. Wat de afscherming oplevert is dat de
+> gedachteloze route dicht zit: wie er alsnog omheen gaat, doet dat aantoonbaar met opzet.
+> **Installeer alleen extensies waarvan je de bron vertrouwt.** Een echte grens vergt uitvoering in
+> een Web Worker of iframe; dat staat op de roadmap.
+
 ### Twee versievelden, twee vragen
 
 `apiVersion` en `minAppVersion` lijken op elkaar maar beantwoorden verschillende vragen, en allebei

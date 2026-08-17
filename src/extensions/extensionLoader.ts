@@ -117,7 +117,7 @@ export async function getExtensionFromDb(id: string): Promise<StoredExtension | 
 /** Voer extensie-code uit in een minimale CommonJS-sandbox.
  *  Let op: dit is GEEN echte isolatie — extensie-code heeft gewoon toegang tot
  *  window, document, fetch e.d.; permissies zijn een conventie, geen harde grens. */
-function executeExtensionCode(mainCode: string): ExtensionPlugin {
+export function executeExtensionCode(mainCode: string): ExtensionPlugin {
   const moduleExports: Record<string, unknown> = {};
   const moduleObj = { exports: moduleExports as Record<string, unknown> };
 
@@ -131,8 +131,21 @@ function executeExtensionCode(mainCode: string): ExtensionPlugin {
   };
 
   try {
-    const fn = new Function('module', 'exports', 'require', mainCode);
-    fn(moduleObj, moduleExports, requireFn);
+    // AFSCHERMING (K-item 38). De namen hieronder worden als functieparameter meegegeven en dus
+    // BINNEN de extensie-scope geschaduwd op `undefined`. Ze hebben geen legitiem gebruik in
+    // extensie-code — `__TAURI_INTERNALS__` is de rauwe Tauri-invoke-brug (dus bestandssysteem,
+    // shell, updater, buiten élke plugin-scope om), `__OPS__` is de dev-bridge met de kale store,
+    // en `__TAURI__` is de oude plugin-namespace. Alles wat een extensie legitiem nodig heeft loopt
+    // via `require('open-planner-studio')` en de `api` die `onLoad` krijgt.
+    //
+    // DIT IS GEEN SANDBOX, en het is belangrijk dat niemand dat denkt. De code draait in dezelfde
+    // realm, dus `globalThis.__TAURI_INTERNALS__`, `window[...]` of `Function('return this')()`
+    // komen er nog steeds bij. Wat dit wél doet: het weghalen van de KANSLOZE route (een
+    // kale identifier), zodat wie er alsnog bij komt dat aantoonbaar met opzet deed. De echte
+    // grens is een Web Worker of een iframe; zie docs/extensions.md en het rapport-item.
+    const AFGESCHERMD = ['__TAURI_INTERNALS__', '__TAURI__', '__OPS__'] as const;
+    const fn = new Function('module', 'exports', 'require', ...AFGESCHERMD, mainCode);
+    fn(moduleObj, moduleExports, requireFn, ...AFGESCHERMD.map(() => undefined));
   } catch (err) {
     throw new Error(`Uitvoeren van extensie-code mislukt: ${err}`);
   }

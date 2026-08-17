@@ -367,6 +367,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   EXTCHECK="$DIR/.extcontract.mjs"
   if bundle_check "$DIR/check-ext-contract.ts" "$EXTCHECK"; then node "$EXTCHECK" || STATUS=1; fi
 
+  # Extensie-integriteit en -afscherming (K-item 38, pragmatische helft). Een catalogusentry met
+  # sha256 wordt geverifieerd en bij verschil geweigerd; de rauwe host-globals worden in de
+  # extensie-scope geschaduwd. De batterij toont OOK expliciet aan dat dat laatste geen sandbox is —
+  # ontsnappen via globalThis kan nog steeds, en dat hoort zichtbaar te zijn in plaats van beloofd.
+  EXTINTCHECK="$DIR/.extintegrity.mjs"
+  if bundle_check "$DIR/check-ext-integrity.ts" "$EXTINTCHECK"; then node "$EXTINTCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
