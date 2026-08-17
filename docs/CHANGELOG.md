@@ -49,13 +49,14 @@ library — plus a round of relation-correctness fixes around milestones and sum
 - **New tasks now inherit `taskType` from their parent** instead of always falling back to the
   construction-mode-wide default, on both the UI path (`addTask`) and the AI/MCP path
   (`draft.addTask`, including inside nested `draft.addTasks` batches).
-- **Resource sets for the remaining bundled example projects.** Of the 24 bundled examples, 22 had
-  no resources or assignments at all, so opening them showed an empty Resources tab and histogram.
-  Six base examples (canal house restoration, N279 bridge replacement, Wassenaar villa, offshore
+- **Resource sets for the example projects.** Across the 24 example topologies in `examples/` —
+  eight of which ship with the app via `public/examples/manifest.json` — almost none carried
+  resources or assignments, so opening one showed an empty Resources tab and histogram. Eight
+  examples now carry realistic resource pools and assignments, all measured overallocation-free:
+  six base examples (canal house restoration, N279 bridge replacement, Wassenaar villa, offshore
   wind turbine, Agriport data centre, Almere housing estate) and, in a follow-up pass, the two
-  remaining examples from the public five-example selection (03 Kantoorgebouw Zuidas, 08
-  Zorgcentrum De Linde) now carry realistic resource pools and assignments, all measured
-  overallocation-free. A new generator module, `scripts/example-resources.ts`, maps task names to
+  remaining bundled ones (03 Kantoorgebouw Zuidas, 08 Zorgcentrum De Linde). The entry-level
+  showcase (verbouwing eengezinswoning) is deliberately left without resources. A new generator module, `scripts/example-resources.ts`, maps task names to
   resources/assignments per example slug, feeding `topologyToSpec` alongside the existing pure
   topology data.
 
@@ -126,7 +127,7 @@ library — plus a round of relation-correctness fixes around milestones and sum
   and on summary tasks**, using the established user-facing term "summary task" rather than the
   internal Dutch code term `verzameltaak`.
 - **The two newest in-app guides — "Connecting an AI assistant (MCP)" and resource libraries — were
-  translated into the remaining twelve locales**, and seven other guides (quick start, WBS planning,
+  translated into the remaining twelve locales**, and six other guides (quick start, WBS planning,
   reports/printing, resource histogram, keyboard shortcuts, settings reference) were brought back in
   line with an nl/en source that had grown ahead of them, including the "resource dock" renaming.
 - Nine items confirmed fixed and removed from `docs/TODO.md`, each individually re-verified against
