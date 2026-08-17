@@ -93,6 +93,14 @@ module.exports = {
 | `api.assets` | `get(name)` — rauwe bytes van een mee-verpakt (niet-`main`/`manifest`) ZIP-bestand, of `undefined` (kern-API) |
 | `api.pdfFonts` | `register(provider)` (permissie `pdf-fonts`) — font-provider voor de vector-PDF-export; automatisch uitgeschreven bij disable |
 
+`addSequence` retourneert `string | null`: het nieuwe relatie-id, of **`null`** wanneer de relatie
+geweigerd is — een duplicaat (zelfde voorganger + opvolger + type), een zelfrelatie, een onbekende
+taak, of een **samenvattingstaak** (een taak met subtaken) als voorganger of opvolger. Controleer
+het resultaat dus op `null` in plaats van aan te nemen dat elke aanroep slaagt. Dit retourtype is
+strikt correcter dan het oude gedrag: bij een geweigerd duplicaat gaf `addSequence` voorheen ook al
+gewoon een `string` terug — een id dat nergens naar verwees, omdat de relatie zelf nooit is
+toegevoegd.
+
 Belangrijk: na het muteren van taken/relaties zelf `api.data.recalculate()` aanroepen — het schema wordt niet reactief herberekend. `loadProject()` doet dat automatisch.
 
 **Muteer je meer dan een handvol dingen in een lus, wikkel dat dan in `api.data.batch()`.** Elke

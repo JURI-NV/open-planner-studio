@@ -153,7 +153,8 @@
     "empty": "아직 관계가 없습니다. 간트 차트에서 Shift를 누른 채 막대 사이를 드래그하거나, 두 작업을 선택한 뒤 위의 버튼을 사용하세요.",
     "notCalculated": "주도 관계와 여유를 보려면 다시 계산(F5)하세요",
     "warnTruncatedLead": "선행 시간이 프로젝트 시작에서 잘렸습니다 — 겹침이 완전히 활용되지 않습니다",
-    "warnLeadExceedsDuration": "선행 시간이 선행 작업의 기간보다 큽니다"
+    "warnLeadExceedsDuration": "선행 시간이 선행 작업의 기간보다 큽니다",
+    "warnSummaryEndpoint": "효과 없음: 끝점이 요약 작업"
   },
   "structure": {
     "title": "코드 및 필드",

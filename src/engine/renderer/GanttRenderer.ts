@@ -2063,4 +2063,44 @@ export class GanttRenderer {
     }
     return null;
   }
+
+  /**
+   * Hit test: mag hier een RELATIE-sleep starten?
+   *
+   * Bewust een aparte methode náást `getTaskBarBounds` en géén versoepeling daarvan. Die functie
+   * armt slepen én resizen, en weigert mijlpalen en verzamelbalken om goede redenen: een ruit heeft
+   * geen duur om te resizen, en de datums van een verzamelbalk zijn afgeleid uit de kinderen.
+   * Sinds issue #40 armt dezelfde functie óók de relatie-sleep, en dáár slaat de mijlpaal-clausule
+   * nergens op: een mijlpaal is een bladtaak met duur 0 die de solver volledig ondersteunt als
+   * voorganger én opvolger. Dat was de bug.
+   *
+   * Verzameltaken blijven hier wél geweerd: de solver krijgt alleen bladtaken, dus zo'n relatie
+   * zou een spookrelatie zijn (zie `state/relationRules.ts`). Vroeg weigeren — door de sleep niet
+   * te armen — is prettiger dan hem na afloop afwijzen.
+   *
+   * De check hieronder is `task.childIds.length > 0` inline, geen import van `isSummaryTask` uit
+   * `state/relationRules.ts` — deze renderer importeert bewust niets uit `@/state`. Dat maakt
+   * `relationRules.ts` de enige bron van de RÉGEL, niet letterlijk de enige plek waar hij staat:
+   * de conditie zelf is hier gedupliceerd, en moet in lockstep blijven met `isSummaryTask` als die
+   * regel ooit verandert.
+   */
+  getRelationSourceAt(canvasX: number, canvasY: number): Task | null {
+    if (canvasX < this.opts.taskTableWidth) return null;
+    const task = this.getTaskAtY(canvasY);
+    if (!task || task.childIds.length > 0) return null;
+    // Zelfde datumloos-guard als getTaskBarBounds: een taak zonder datums heeft alleen een
+    // terugval-stub op de viewstart en dus geen betekenisvolle positie om vanaf te slepen.
+    if (!(task.time.earlyStart || task.time.scheduleStart) || !(task.time.earlyFinish || task.time.scheduleFinish)) {
+      return null;
+    }
+
+    const { x1, x2 } = this.barGeometry(task);
+    // Marge van 6px. In DAG-modus is dit niet strikt nodig — `barGeometry` geeft een mijlpaal
+    // x2 = x1 + zoom, dus de zone beslaat al een volle dagcel en de ruit valt er bij elke
+    // milestoneKind (START/AUTO/FINISH, anchor 0..zoom) binnen. In UUR-modus geldt x1 === x2
+    // exact en ankert de ruit op x1; dáár is deze marge het enige dat 'm grijpbaar maakt.
+    // 6 is dezelfde waarde die `buildRowObstacles` als mijlpaal-`pad` aanhoudt.
+    const grab = 6;
+    return canvasX >= x1 - grab && canvasX <= x2 + grab ? task : null;
+  }
 }

@@ -5,6 +5,7 @@ Tasks that stand on their own don't shift when the schedule changes. Relations r
 ## What you'll learn here
 
 - The four relation types (FS/SS/FF/SF) and when to use each.
+- Where a relation can and can't attach — milestones can, summary tasks can't.
 - Lag and lead, including percentage lag and elapsed-time lag (for example for concrete curing).
 - Adding relations three ways: dragging, selection, and the relations table.
 - All eight constraint types, plus the hard pin (P6 Mandatory) and the secondary constraint.
@@ -22,6 +23,20 @@ Every relation has a **Predecessor** and a **Successor**, and one of four types:
 - **SF — Start-Finish**: the predecessor must start before the successor is allowed to finish. By far the least common type in construction practice — reserve it for edge cases where a finishing task may only stop once another task has started (for example a shift handover).
 
 Want to recognise these first three types in a real example? The "Verbouwing & Aanbouw Eengezinswoning" example contains an FS chain between the main phases, an SS overlap between the wall and roof work, and an FF link between the tiling and painting work.
+
+You can create such a relation between ordinary tasks and between milestones. A milestone has zero
+duration, but otherwise behaves like any other task: it can be a predecessor or a successor, and it
+can sit on the critical path. What you *can't* do is attach a relation to a **summary task** — a
+task that has subtasks of its own. The scheduling engine only calculates tasks without subtasks; a
+summary task's dates are then derived from its children afterwards. A relation to a summary task
+would show up, but it would have no effect at all on the schedule. If you want to link two phases
+together, connect the tasks themselves instead: the last task of one phase to the first task of the
+next — a milestone at the end of a phase works well for this.
+
+If an opened file already contains a relation with a summary task as endpoint anyway — for example
+from Primavera P6 or MS Project, which do allow it — that relation is preserved and carried through
+unchanged on save. The Relations panel flags it as *no effect*, so you can see the schedule isn't
+calculating with it.
 
 ## Lag and lead
 

@@ -5,6 +5,7 @@ Taken die los van elkaar staan, verschuiven niet mee als de planning verandert. 
 ## Wat je hier leert
 
 - De vier relatietypes (FS/SS/FF/SF) en wanneer je welke gebruikt.
+- Waar je een relatie wel en niet aan mag hangen — mijlpalen wel, samenvattingstaken niet.
 - Lag en lead, inclusief procentuele lag en doorlooptijd-lag (bijvoorbeeld voor uitharding van beton).
 - Relaties leggen op drie manieren: slepen, selectie, en de relatietabel.
 - Alle acht constraint-types, plus de harde pin (P6 Mandatory) en de secundaire constraint.
@@ -22,6 +23,20 @@ Elke relatie heeft een **Voorganger** en een **Opvolger**, en een van vier types
 - **SF — Start-Finish**: de voorganger moet starten voordat de opvolger mag eindigen. Dit is in de bouwpraktijk verreweg het minst voorkomende type — bewaar het voor uitzonderingsgevallen waarin een aflopende taak pas mag stoppen zodra een andere taak is opgestart (bijvoorbeeld bij ploegenoverdracht).
 
 Herken je deze drie eerste types graag in een echt voorbeeld? De showcase "Verbouwing & Aanbouw Eengezinswoning" bevat een FS-keten tussen de hoofdfasen, een SS-overlap tussen wand- en dakwerk, en een FF-koppeling tussen tegel- en schilderwerk.
+
+Je kunt zo'n relatie leggen tussen alle gewone taken en tussen mijlpalen. Een mijlpaal heeft duur 0,
+maar gedraagt zich verder als elke andere taak: hij kan voorganger én opvolger zijn, en hij kan op
+het kritieke pad liggen. Wat *niet* kan is een relatie aan een **samenvattingstaak** hangen — een
+taak die zelf subtaken heeft. De planningsmotor rekent alleen met taken zonder subtaken; de datums
+van een samenvattingstaak worden daarna afgeleid uit haar kinderen. Een relatie naar zo'n taak zou
+dus wel zichtbaar zijn, maar geen enkel effect hebben op de planning. Wil je twee fasen aan elkaar
+koppelen, leg de relatie dan tussen de taken zelf: de laatste taak van de ene fase naar de eerste
+taak van de volgende — een mijlpaal aan het eind van een fase werkt daar goed voor.
+
+Bevat een geopend bestand toch een relatie met een samenvattingstaak als eindpunt — bijvoorbeeld uit
+Primavera P6 of MS Project, die dat wél toestaan — dan blijft die relatie bewaard en gaat hij bij het
+opslaan gewoon weer mee. In het Relaties-paneel staat hij gemarkeerd als *zonder effect*, zodat je
+ziet dat de planning er niet mee rekent.
 
 ## Lag en lead
 

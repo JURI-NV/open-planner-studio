@@ -153,7 +153,8 @@
     "empty": "尚无关系。在甘特图中按住 Shift 在任务条之间拖动，或选择两个任务后使用上方按钮。",
     "notCalculated": "重新计算（F5）以查看驱动关系和浮动",
     "warnTruncatedLead": "提前量在项目开始处被截断——重叠未被完全利用",
-    "warnLeadExceedsDuration": "提前量大于前置任务的工期"
+    "warnLeadExceedsDuration": "提前量大于前置任务的工期",
+    "warnSummaryEndpoint": "无影响：摘要任务作为端点"
   },
   "structure": {
     "title": "代码与字段",

@@ -23,6 +23,7 @@ g.getComputedStyle = () => ({ getPropertyValue: () => '' });
 
 import { useAppStore } from '@/state/appStore';
 import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
+import { parseInstant } from '@/utils/dateUtils';
 import type { Task } from '@/types/task';
 import type { ViewRow } from '@/engine/view/visibleRows';
 
@@ -83,12 +84,36 @@ const datelessLeafEmpty = stripDates(healthy, '');
 const datelessSummary = { ...stripDates(healthy, undefined), childIds: ['kind-x'] } as Task;
 const datelessMilestone = { ...stripDates(healthy, undefined), isMilestone: true } as Task;
 
+// Gedateerde varianten voor de relatie-hittest: die moet mijlpalen WÉL accepteren (dat is de bug
+// die spec 2026-08-14 repareert) en verzameltaken NIET (spookrelatie).
+const datedMilestone = { ...healthy, id: 'ms-dated', isMilestone: true } as Task;
+const datedSummary = { ...healthy, id: 'sum-dated', childIds: ['kind-y'] } as Task;
+
+// Uur-mijlpaal (coördinator-nabespreking 2026-08-14): in UUR-modus voegt `barGeometry` géén
+// `+ zoom` toe aan x2, dus met start === finish geldt daar x1 === x2 exact — anders dan de
+// dag-mijlpaal hierboven, waar de greep al een volle dagcel beslaat. Precies dít pad hangt dus
+// echt van de ±6px-marge af. `T08:00` maakt hem ondubbelzinnig een uur-instant (`.includes('T')`).
+const hourInstant = `${(healthy.time.earlyStart || healthy.time.scheduleStart || '').slice(0, 10)}T08:00`;
+const hourMilestone: Task = {
+  ...healthy,
+  id: 'ms-hour',
+  isMilestone: true,
+  time: {
+    ...healthy.time,
+    earlyStart: hourInstant, earlyFinish: hourInstant,
+    scheduleStart: hourInstant, scheduleFinish: hourInstant,
+  },
+} as Task;
+
 const rows: ViewRow[] = [
   { kind: 'task', task: healthy, depth: 0, dimmed: false },
   { kind: 'task', task: datelessLeaf, depth: 0, dimmed: false },
   { kind: 'task', task: datelessLeafEmpty, depth: 0, dimmed: false },
   { kind: 'task', task: datelessSummary, depth: 0, dimmed: false },
   { kind: 'task', task: datelessMilestone, depth: 0, dimmed: false },
+  { kind: 'task', task: datedMilestone, depth: 0, dimmed: false },
+  { kind: 'task', task: datedSummary, depth: 0, dimmed: false },
+  { kind: 'task', task: hourMilestone, depth: 0, dimmed: false },
 ];
 
 const W = 1200, H = 600, TTW = 300, ROWH = 28, HDRH = 60;
@@ -161,6 +186,49 @@ if (renderError === null) {
     const bar = healthyBars[0];
     const healthyHit = renderer.getTaskBarBounds(bar.x + bar.w / 2, rowMidY(0));
     ok('getTaskBarBounds vindt de gezonde balk niet meer (guard te breed)', healthyHit !== null);
+  }
+
+  // 5. Relatie-hittest (spec 2026-08-14). Bewust een ÁNDERE functie dan getTaskBarBounds: die
+  //    laatste armt slepen/resizen en moet mijlpalen blijven weigeren (een ruit heeft geen duur
+  //    om te resizen, een verzamelbalk heeft afgeleide datums).
+  if (healthyBars.length > 0) {
+    const bar = healthyBars[0];
+    const midX = bar.x + bar.w / 2;
+
+    ok('getRelationSourceAt vindt de gezonde bladtaak niet',
+      renderer.getRelationSourceAt(midX, rowMidY(0))?.id === healthy.id);
+
+    // De mijlpaal deelt de datums van `healthy`, dus zijn barGeometry-x1 valt op bar.x (dag-modus:
+    // x2 = x1 + zoom, dus de greep beslaat sowieso een volle dagcel — zie check 6 hieronder voor
+    // het uur-pad, waar de ±6px-marge wél het enige is dat de ruit grijpbaar maakt).
+    ok('getRelationSourceAt weigert een MIJLPAAL (dit is de bug die we repareren)',
+      renderer.getRelationSourceAt(bar.x, rowMidY(5))?.id === 'ms-dated');
+
+    ok('getRelationSourceAt accepteert een VERZAMELTAAK (zou een spookrelatie worden)',
+      renderer.getRelationSourceAt(midX, rowMidY(6)) === null);
+
+    ok('getRelationSourceAt accepteert een datumloze taak',
+      renderer.getRelationSourceAt(TTW + 5, rowMidY(1)) === null);
+
+    // Regressie-anker de andere kant op: de sleep/resize-hittest is NIET versoepeld.
+    ok('getTaskBarBounds armt nu wél drag op een mijlpaal (mag niet)',
+      renderer.getTaskBarBounds(bar.x, rowMidY(5)) === null);
+    ok('getTaskBarBounds armt nu wél drag op een verzamelbalk (mag niet)',
+      renderer.getTaskBarBounds(midX, rowMidY(6)) === null);
+
+    // 6. Uur-mijlpaal: x1 === x2 exact (barGeometry voegt in uur-modus géén +zoom toe), en de ruit
+    //    ankert op x1 (milestoneKind onbekend ⇒ hier niet relevant, want de hittest kijkt niet naar
+    //    de ruit maar naar barGeometry zelf). Dit is het pad waar de ±6px-marge lastdragend is.
+    const hourX1 = renderer.dateToX(parseInstant(hourInstant));
+    ok('getRelationSourceAt vindt de UUR-mijlpaal niet op zijn exacte x1',
+      renderer.getRelationSourceAt(hourX1, rowMidY(7))?.id === 'ms-hour');
+    // Bewust NIET exact op x1: met x1 === x2 raakt de inclusieve `>=`/`<=`-grens daar toch precies,
+    // ook bij grab=0 (geverifieerd via mutatietest) — die check alléén bewijst dus niet dat de marge
+    // iets doet. Dit punt (binnen de marge, 4px van x1) is het lastdragende bewijs.
+    ok('getRelationSourceAt vindt de UUR-mijlpaal niet binnen de marge (x1+4)',
+      renderer.getRelationSourceAt(hourX1 + 4, rowMidY(7))?.id === 'ms-hour');
+    ok('getRelationSourceAt accepteert de UUR-mijlpaal ruim buiten de marge (bewijst dat de marge iets doet)',
+      renderer.getRelationSourceAt(hourX1 + 20, rowMidY(7)) === null);
   }
 }
 

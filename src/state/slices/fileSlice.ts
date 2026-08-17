@@ -20,6 +20,7 @@ import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
+import { hasSummaryEndpoint } from '@/state/relationRules';
 
 /** Een vers, ongewijzigd, leeg document — dan mag de open-actie het hergebruiken
  *  i.p.v. een nieuw tabblad te openen (anders krijg je een leeg eerste tabblad).
@@ -179,6 +180,20 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       // IFCPanel-plakroute — anders blijven statusbalk/histogram leeg tot de gebruiker F5 drukt (A5).
       if (opts.recompute) get().runCPM();
       if (opts.fit) get().requestFitToProject(); // Issue #16: canvas op het HELE project passen.
+      // Spookrelaties uit het bestand (spec 2026-08-14): relaties met een verzameltaak als eindpunt
+      // worden door de solver weggegooid. Ze worden bewust NIET gefilterd — dat zou logica uit het
+      // bronbestand vernietigen bij open + opslaan — maar wel één keer gemeld, want anders merkt
+      // niemand die een P6/MSP-plan importeert dat er logica stilvalt.
+      const byId = new Map(parsed.tasks.map((t) => [t.id, t]));
+      const ineffective = parsed.sequences.filter((seq) => hasSummaryEndpoint((id) => byId.get(id), seq)).length;
+      if (ineffective > 0) {
+        get().notify({
+          severity: 'info',
+          messageKey: 'notifications.summaryRelationsIgnored',
+          params: { total: ineffective },
+          dedupeKey: 'summary-relations-ignored',
+        });
+      }
       emitExtensionEvent(HOST_EVENTS.projectLoaded, {
         tasks: parsed.tasks.length,
         sequences: parsed.sequences.length,

@@ -310,6 +310,12 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       Restpunt: `public/examples/*.ifc` zijn niet geregenereerd en bevatten de nieuwe
       pset-properties dus nog niet — onschadelijk (ze lezen via de WORKPLAN-terugval), maar bij een
       volgende `gen:examples`-run komen ze er vanzelf bij.
+- [ ] **Mijlpaal horizontaal verslepen om de datum te wijzigen.** Nu geblokkeerd door dezelfde
+      `getTaskBarBounds`-null die het relatie-tekenen blokkeerde (opgelost in spec 2026-08-14). Raakt
+      `barDrag`: bij een 0-duurtaak mag alleen een body-sleep armen, nooit een resize-greep, en
+      snapping/undo/uur-modus moeten kloppen.
+- [ ] **`useDependencyDraw.ts` toetst de drop-x tegen `ui.leftPanelWidth`, terwijl de overige
+      canvas-hittests `taskTableWidth` gebruiken.** Uitzoeken of dat een bug is.
 ### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
 - [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
       (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van
@@ -334,6 +340,23 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       *Aanpak (keuze nodig):* de zes uitschakelen met een tooltip zolang de Gantt niet zichtbaar is,
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
+
+### Klein — de indirecte route naar een spookrelatie is volledig stil (2026-08-14)
+- [ ] **Structuurmutaties kunnen een bladtaak-met-relaties tot verzameltaak maken zonder enig
+      signaal.** De mijlpaal-relaties-tak (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-
+      design.md`, §5a) blokkeert alleen het *directe* pad — een relatie rechtstreeks naar een
+      verzameltaak leggen — met een leesbare weigering. Het *indirecte* pad via `indentTasks`,
+      `moveTaskTo`, `addTask({ parentId })` en `insertWbsTemplate` is stil: een project met A→B
+      waar de gebruiker C onder B inspringt, maakt A→B met terugwerkende kracht tot spookrelatie.
+      De Gantt tekent de pijl identiek, er komt geen melding, en F5 verschuift de planning zonder
+      uitleg. De enige aanwijzing is het waarschuwingsdriehoekje in het Relaties-paneel (niet
+      standaard open, visueel niet te onderscheiden van de bestaande lead-waarschuwingen daar).
+      MCP meldt hier ook niets: `planner_add_tasks` met een `parentId` maakt de spookrelaties
+      zonder een woord, en de leestools melden per relatie nergens "zonder effect".
+      *Kandidaat-aanpak:* dezelfde samenvattende melding als na het laden (`notifications.
+      summaryRelationsIgnored`) afvuren wanneer een structuurmutatie relaties zonder effect maakt,
+      óf de spookpijl in de Gantt gestippeld/gedimd tekenen zodra `hasSummaryEndpoint` waar is.
+      Gevonden bij de eindreview op die tak.
 
 ### Distributie & Release
 

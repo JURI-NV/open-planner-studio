@@ -14,7 +14,9 @@
     "ifcParseFailed": "خواندن IFC ناموفق بود",
     "templateSaved": "شاخه به عنوان الگوی «{{name}}» ذخیره شد",
     "relationCreated": "رابطه ایجاد شد: از {{predecessor}} به {{successor}}",
-    "relationDuplicate": "این رابطه از قبل وجود دارد"
+    "relationDuplicate": "این رابطه از قبل وجود دارد",
+    "relationSummaryEndpoint": "وظیفه خلاصه به عنوان نقطه پایانی تأثیری بر زمان‌بندی ندارد. به وظیفه‌ای بدون زیروظیفه پیوند دهید.",
+    "summaryRelationsIgnored": "{{total}} رابطه روی وظایف خلاصه بر زمان‌بندی تأثیری ندارد."
   },
   "yes": "بله",
   "no": "خیر",

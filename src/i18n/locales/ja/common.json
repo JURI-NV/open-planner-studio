@@ -14,7 +14,9 @@
     "ifcParseFailed": "IFC を読み込めませんでした",
     "templateSaved": "ブランチをテンプレート「{{name}}」として保存しました",
     "relationCreated": "関係を作成しました: {{predecessor}} → {{successor}}",
-    "relationDuplicate": "この関係はすでに存在します"
+    "relationDuplicate": "この関係はすでに存在します",
+    "relationSummaryEndpoint": "サマリータスクを端点にしてもスケジュールには影響しません。サブタスクのないタスクにリンクしてください。",
+    "summaryRelationsIgnored": "サマリータスク上の {{total}} 件の関係はスケジュールに影響しません。"
   },
   "yes": "はい",
   "no": "いいえ",

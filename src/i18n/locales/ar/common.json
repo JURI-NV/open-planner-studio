@@ -14,7 +14,9 @@
     "ifcParseFailed": "تعذّرت قراءة IFC",
     "templateSaved": "تم حفظ الفرع كقالب '{{name}}'",
     "relationCreated": "تم إنشاء العلاقة: من {{predecessor}} إلى {{successor}}",
-    "relationDuplicate": "هذه العلاقة موجودة بالفعل"
+    "relationDuplicate": "هذه العلاقة موجودة بالفعل",
+    "relationSummaryEndpoint": "المهمة الموجزة كنقطة نهاية لا تؤثر في الجدول الزمني. اربطها بمهمة بدون مهام فرعية.",
+    "summaryRelationsIgnored": "عدد العلاقات المرتبطة بمهام موجزة والتي لا تؤثر في الجدول الزمني: {{total}}."
   },
   "yes": "نعم",
   "no": "لا",

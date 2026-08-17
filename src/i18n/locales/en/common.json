@@ -14,7 +14,9 @@
     "ifcParseFailed": "IFC could not be read",
     "templateSaved": "Branch saved as template '{{name}}'",
     "relationCreated": "Relation created: {{predecessor}} → {{successor}}",
-    "relationDuplicate": "That relation already exists"
+    "relationDuplicate": "That relation already exists",
+    "relationSummaryEndpoint": "A summary task as endpoint has no effect on the schedule. Link to a task without subtasks.",
+    "summaryRelationsIgnored": "{{total}} relation(s) on summary tasks have no effect on the schedule."
   },
   "yes": "Yes",
   "no": "No",

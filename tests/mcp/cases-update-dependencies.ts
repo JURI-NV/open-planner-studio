@@ -14,12 +14,16 @@
 //   7. duplicaat (zelfde voorganger+opvolger+type) ⇒ zachte weigering die de botsende relatie noemt;
 //   8. een item dat niets verandert ⇒ zachte weigering, nooit een `ok` zonder effect;
 //   9. het VOOR/NA-verschil per gewijzigde relatie klopt met de store;
-//  10. alles ook via `planner_batch` (de batch-stap omzeilt de dispatcher, dus apart bewijzen).
+//  10. alles ook via `planner_batch` (de batch-stap omzeilt de dispatcher, dus apart bewijzen);
+//  11. `planner_add_dependencies` weigert een verzameltaak-eindpunt (relationRules.ts, T4) — anders
+//      geeft de solver de relatie zonder effect terug: opgeslagen, getekend, geëxporteerd, geen
+//      invloed op de planning. Mijlpalen blijven expliciet toegestaan als voorganger/opvolger.
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import { getTool, registerAllTools } from '@/services/mcp/toolRegistry';
 import { handleMcpMessage } from '@/services/mcp/dispatcher';
 import { createSnapshot } from '@/state/snapshot';
 import type { McpContext, McpToolOk, McpToolResult } from '@/services/mcp/contracts';
+import type { Sequence } from '@/types/sequence';
 
 const store = useAppStore;
 registerAllTools();
@@ -62,14 +66,24 @@ function rejections(res: McpToolResult): { id: string; reason: string }[] {
 
 const seqById = (id: string) => store.getState().sequences.find((s) => s.id === id)!;
 
+/** `addSequence` retourneert sinds de relatieregels `string | null`. In deze fixtures zijn de
+ *  eindpunten aantoonbaar geldige bladtaken, dus een `null` betekent dat er iets stuk is — dan
+ *  willen we dát zien, niet een vage vervolgfout op een undefined id. */
+function addSeq(seq: Omit<Sequence, 'id'>): string {
+  const id = store.getState().addSequence(seq);
+  if (id === null) throw new Error(`fixture: addSequence geweigerd voor ${seq.predecessorId}->${seq.successorId}`);
+  return id;
+}
+
 /** Verse basis: drie taken A→B→C met twee relaties. Retourneert de id's. */
 function threeChain(): { a: string; b: string; c: string; s1: string; s2: string } {
   store.getState().newProject();
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
   const c = store.getState().addTask({ name: 'C' });
-  const s1 = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
-  const s2 = store.getState().addSequence({ predecessorId: b, successorId: c, type: 'FINISH_START', lagDays: 0 });
+  // A/B/C zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd (zie addSeq).
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+  const s2 = addSeq({ predecessorId: b, successorId: c, type: 'FINISH_START', lagDays: 0 });
   return { a, b, c, s1, s2 };
 }
 
@@ -142,7 +156,8 @@ test('een achtergebleven lagMinutes wordt gewist EN gemeld (anders is de dag-lag
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
   // Zoals een IFC-/P6-import hem oplevert: dag-lag 0 met een minuut-precieze lag als bron van waarheid.
-  const s = store.getState().addSequence({
+  // A/B zijn bladtaken zonder kinderen, deze relatie wordt nooit geweigerd (zie addSeq).
+  const s = addSeq({
     predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0, lagMinutes: 240,
   });
   const res = await call('planner_update_dependencies', { updates: [{ seqId: s, lag: 2 }] });
@@ -281,8 +296,9 @@ test('duplicaat: een type-wijziging die een BESTAANDE relatie dubbelt ⇒ zachte
   store.getState().newProject();
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
-  const fs = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
-  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
+  // A/B zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd (zie addSeq).
+  const fs = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+  const ss = addSeq({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
   const res = await call('planner_update_dependencies', { updates: [{ seqId: ss, type: 'FS' }] });
   assertEq(okData(res).updated, [], 'niets gewijzigd');
   assertEq(seqById(ss).type, 'START_START', 'de relatie is ongemoeid (store-updateSequence zou dit STIL negeren)');
@@ -295,8 +311,9 @@ test('duplicaat BINNEN dezelfde call ⇒ het tweede item wordt geweigerd', async
   store.getState().newProject();
   const a = store.getState().addTask({ name: 'A' });
   const b = store.getState().addTask({ name: 'B' });
-  const ss = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
-  const ff = store.getState().addSequence({ predecessorId: a, successorId: b, type: 'FINISH_FINISH', lagDays: 0 });
+  // A/B zijn bladtaken zonder kinderen, deze relaties worden nooit geweigerd (zie addSeq).
+  const ss = addSeq({ predecessorId: a, successorId: b, type: 'START_START', lagDays: 0 });
+  const ff = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_FINISH', lagDays: 0 });
   const res = await call('planner_update_dependencies', {
     updates: [{ seqId: ss, type: 'SF' }, { seqId: ff, type: 'SF' }],
   });
@@ -466,6 +483,136 @@ test('één call = één undo-stap; undo herstelt de oude relatie exact', async 
   store.getState().undo();
   assertEq(seqById(s1).type, 'FINISH_START', 'undo herstelt het type');
   assertEq(seqById(s1).lagDays, 0, 'undo herstelt de lag');
+});
+
+// =================================================================================================
+// 11) planner_add_dependencies weigert een verzameltaak-eindpunt (spookrelatie-regressie)
+// =================================================================================================
+test('add_dependencies: een verzameltaak-eindpunt wordt zacht geweigerd; mijlpaal blijft toegestaan', async () => {
+  store.getState().newProject();
+  const fase = store.getState().addTask({ name: 'Fase' });
+  const kind = store.getState().addTask({ name: 'Kind', parentId: fase }); // maakt Fase een verzameltaak
+  const los = store.getState().addTask({ name: 'Los' });
+  const mp = store.getState().addTask({ name: 'MP', isMilestone: true });
+  assert(
+    store.getState().tasks.find((t) => t.id === fase)!.childIds.length > 0,
+    'voorwaarde: Fase is echt een verzameltaak (heeft een kind)',
+  );
+
+  const res = await call('planner_add_dependencies', {
+    dependencies: [
+      { predecessorId: fase, successorId: los, type: 'FINISH_START' }, // verzameltaak ⇒ geweigerd
+      { predecessorId: mp, successorId: los, type: 'FINISH_START' }, // mijlpaal ⇒ toegestaan (regressie-anker)
+      { predecessorId: kind, successorId: los, type: 'FINISH_START' }, // bladtaak ⇒ toegestaan
+    ],
+  });
+  const data = okData(res);
+
+  // Regressie-anker: als MP→Los hier ooit uitvalt, is de oorspronkelijke mijlpaal-bug terug.
+  assertEq(data.added.length, 2, 'exact twee relaties toegevoegd (MP→Los en Kind→Los)');
+  const addedSeqs = data.added.map((id: string) => seqById(id));
+  assert(
+    addedSeqs.some((s: Sequence) => s.predecessorId === mp && s.successorId === los),
+    'MP→Los is echt aangemaakt (mijlpaal-anker)',
+  );
+  assert(
+    addedSeqs.some((s: Sequence) => s.predecessorId === kind && s.successorId === los),
+    'Kind→Los is echt aangemaakt',
+  );
+
+  const rej = rejections(res);
+  assertEq(rej.length, 1, 'precies één zachte weigering');
+  assertEq(rej[0].id, `${fase}->${los}`, 'de weigering noemt Fase→Los');
+  assert(/verzameltaak/.test(rej[0].reason), `de reden noemt "verzameltaak": ${rej[0].reason}`);
+
+  // Een weigering schrijft ook echt niets: geen relatie met Fase als voorganger in de store.
+  assert(
+    !store.getState().sequences.some((s) => s.predecessorId === fase),
+    'er staat geen relatie met Fase als voorganger in de store',
+  );
+});
+
+// =================================================================================================
+// 12) planner_update_dependencies weigert een verzameltaak-eindpunt bij het VERHANGEN van een
+//     relatie. Dit pad schrijft seq.predecessorId/successorId rechtstreeks op de draft en gaat dus
+//     langs addSequence heen — anders dan bij het aanmaken zit er hier GEEN tweede laag onder, dus
+//     dit is de enige plek waar het kan worden tegengehouden.
+// =================================================================================================
+test('update_dependencies: voorganger verhangen naar een verzameltaak wordt zacht geweigerd, relatie ongemoeid', async () => {
+  store.getState().newProject();
+  const fase = store.getState().addTask({ name: 'Fase' });
+  store.getState().addTask({ name: 'Kind', parentId: fase }); // maakt Fase een verzameltaak
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, predecessorId: fase }] });
+  assertEq(okData(res).updated, [], 'niets gewijzigd');
+  const reason = rejections(res)[0].reason;
+  assert(/verzameltaak/.test(reason), `de reden noemt "verzameltaak": ${reason}`);
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid');
+  assertEq(seqById(s1).successorId, b, 'de opvolger is ongemoeid');
+});
+
+test('update_dependencies: opvolger verhangen naar een verzameltaak wordt zacht geweigerd, relatie ongemoeid', async () => {
+  store.getState().newProject();
+  const fase = store.getState().addTask({ name: 'Fase' });
+  store.getState().addTask({ name: 'Kind', parentId: fase }); // maakt Fase een verzameltaak
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, successorId: fase }] });
+  assertEq(okData(res).updated, [], 'niets gewijzigd');
+  const reason = rejections(res)[0].reason;
+  assert(/verzameltaak/.test(reason), `de reden noemt "verzameltaak": ${reason}`);
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid');
+  assertEq(seqById(s1).successorId, b, 'de opvolger is ongemoeid');
+});
+
+test('update_dependencies: opvolger verhangen naar een MIJLPAAL slaagt (regressie-anker)', async () => {
+  store.getState().newProject();
+  const a = store.getState().addTask({ name: 'A' });
+  const b = store.getState().addTask({ name: 'B' });
+  const mp = store.getState().addTask({ name: 'MP', isMilestone: true });
+  const s1 = addSeq({ predecessorId: a, successorId: b, type: 'FINISH_START', lagDays: 0 });
+
+  const res = await call('planner_update_dependencies', { updates: [{ seqId: s1, successorId: mp }] });
+  const data = okData(res);
+  assertEq(data.updated.length, 1, 'de wijziging naar de mijlpaal slaagt');
+  assertEq(seqById(s1).successorId, mp, 'de opvolger hangt nu echt aan de mijlpaal');
+});
+
+// K5 (reviewbevinding op T4): een BESTAANDE relatie kan een verzameltaak-eindpunt hebben zonder dat
+// deze call dat eindpunt aanraakt — een taak die later een kind kreeg (retroactief, zoals een P6-
+// import kan opleveren) of, hier, gewoon een sibling-taak die na de relatie een kind kreeg. Zo'n
+// relatie moet nog op type/lag te wijzigen zijn: alleen een NIEUW eindpunt wordt geweigerd, niet een
+// bestaand. Vóór de B1-fix weigerde dit met "verzameltaak" terwijl geen van beide eindpunten werd
+// aangeraakt — een agent die "zet de lag van alle FS-relaties op 0" uitvoert op een geïmporteerd plan
+// zou hier blijven hangen op onbruikbare feedback.
+test('update_dependencies: alleen type/lag wijzigen op een relatie met een BESTAAND verzameltaak-eindpunt slaagt', async () => {
+  store.getState().newProject();
+  const a = store.getState().addTask({ name: 'A' });
+  const los = store.getState().addTask({ name: 'Los' });
+  const s1 = addSeq({ predecessorId: a, successorId: los, type: 'FINISH_START', lagDays: 0 });
+  // A krijgt PAS NA het aanmaken van de relatie een kind — A is nu retroactief een verzameltaak,
+  // en s1 (A→Los) is een bestaande relatie met een verzameltaak-eindpunt.
+  store.getState().addTask({ name: 'Kind', parentId: a });
+  assert(
+    store.getState().tasks.find((t) => t.id === a)!.childIds.length > 0,
+    'voorwaarde: A is nu echt een verzameltaak (heeft een kind)',
+  );
+
+  const resType = await call('planner_update_dependencies', { updates: [{ seqId: s1, type: 'SS' }] });
+  const dataType = okData(resType);
+  assertEq(dataType.updated.length, 1, 'type-only wijziging slaagt ondanks het bestaande verzameltaak-eindpunt');
+  assertEq(seqById(s1).type, 'START_START', 'het type is echt gewijzigd');
+  assertEq(seqById(s1).predecessorId, a, 'de voorganger is ongemoeid (nog steeds de verzameltaak)');
+
+  const resLag = await call('planner_update_dependencies', { updates: [{ seqId: s1, lag: 2 }] });
+  const dataLag = okData(resLag);
+  assertEq(dataLag.updated.length, 1, 'lag-only wijziging slaagt ondanks het bestaande verzameltaak-eindpunt');
+  assertEq(seqById(s1).lagDays, 2, 'de lag is echt gewijzigd');
 });
 
 await run();
