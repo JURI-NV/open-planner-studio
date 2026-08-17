@@ -692,8 +692,8 @@
     "enable": "Enable hour planning"
   },
   "recordedDates": {
-    "offer_one": "Recalculating shifted {{count}} of {{total}} tasks from the dates in the file.",
-    "offer_other": "Recalculating shifted {{count}} of {{total}} tasks from the dates in the file.",
+    "offer_one": "Recalculation moved {{count}} of {{total}} tasks away from the dates in the file.",
+    "offer_other": "Recalculation moved {{count}} of {{total}} tasks away from the dates in the file.",
     "show": "Show recorded dates",
     "active": "You're viewing the dates as recorded in the file. Nothing has been recalculated.",
     "recalculate": "Recalculate"
