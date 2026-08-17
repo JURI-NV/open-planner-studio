@@ -211,6 +211,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GFCHECK="$DIR/.gantt-float-cull.mjs"
   if bundle_check "$DIR/check-gantt-float-cull.ts" "$GFCHECK"; then node "$GFCHECK" || STATUS=1; fi
 
+  # Gantt-renderopties (K-item 33): de pure afleidingen die BEPALEN wat er in `GanttRenderOptions`
+  # komt (tijdas-oorsprong, contentspan, baseline-overlay, trace, histogramreeks). De andere
+  # renderer-batterijen bouwen die opties met de hand op en staan dus stroomafwaarts van dit
+  # rekenwerk — een fout hierin gaf geen rode suite maar een scheve Gantt. Bevat een
+  # karakteriseringsdeel: verbatim kopieën van de pre-extractie-code als orakel.
+  GROCHECK="$DIR/.gantt-render-options.mjs"
+  if bundle_check "$DIR/check-gantt-render-options.ts" "$GROCHECK"; then node "$GROCHECK" || STATUS=1; fi
+
   # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
   # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
   # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:
