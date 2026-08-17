@@ -7,7 +7,7 @@
  * onderscheidbaar óók in grijswaarden: elke paletkleur moet een eigen lichtheidscel hebben.
  */
 import {
-  RESOURCE_PALETTE, resourceDisplayColor, paletteColorForId, nextFreePaletteColor,
+  RESOURCE_PALETTE, resourceDisplayColor, paletteColorForId, nextFreePaletteColor, ensureThemeVisible,
 } from '@/engine/renderer/resourcePalette';
 
 let failures = 0;
@@ -159,6 +159,28 @@ const mkAsg = (taskId: string, resourceId: string, unitsPerDay: number): Resourc
   ok(mauto.kind === 'solid' && mauto.fill === paletteColorForId('t14b'), 'mijlpaal auto-modus → hash-kleur');
   const mtask = computeBarColors(mkTask('t14c', { isMilestone: true, color: '#ABCDEF' }), [], [], 'task', PAL);
   ok(mtask.kind === 'solid' && mtask.fill === '#ABCDEF', 'mijlpaal task-modus met kleur → eigen kleur');
+}
+
+// 12b. ensureThemeVisible (#21 user-bevinding: donker palet onzichtbaar op donker scherm).
+{
+  const lum = (hex: string): number => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  // Licht thema: identiteit (palet is op papier/licht ontworpen).
+  ok(ensureThemeVisible('#1E293B', false) === '#1E293B', 'themazichtbaar: licht thema = identiteit');
+  // Donker thema, al licht genoeg: identiteit.
+  ok(ensureThemeVisible('#FBBF24', true) === '#FBBF24', 'themazichtbaar: lichte kleur ongewijzigd');
+  // Donker thema, te donker: verlicht naar >= 0.34, hue blijft herkenbaar (niet-grijs blijft verzadigd),
+  // en deterministisch.
+  const lifted = ensureThemeVisible('#1E293B', true);
+  ok(lum(lifted) >= 0.33, `themazichtbaar: verlicht boven de minimum-lichtheid (got ${lifted} l=${lum(lifted).toFixed(2)})`);
+  ok(lifted !== '#1E293B', 'themazichtbaar: donkere kleur wordt daadwerkelijk aangepast');
+  ok(ensureThemeVisible('#1E293B', true) === lifted, 'themazichtbaar: deterministisch');
+  // Alle paletkleuren zijn in het donkere thema zichtbaar (>= 0.33): geen enkel accent valt meer weg.
+  ok(RESOURCE_PALETTE.every(c => lum(ensureThemeVisible(c, true)) >= 0.33), 'themazichtbaar: heel het palet zichtbaar op donker');
 }
 
 // 13. Store-integratie (#21, B7): addResource wijst automatisch de eerste vrije paletkleur toe;

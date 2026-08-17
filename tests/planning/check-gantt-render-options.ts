@@ -460,6 +460,7 @@ const baseInput: GanttRenderOptionsInput = {
   externalStaleLabel: 'verouderd (NL-test)',
   durationDrag: { taskId: idA, edge: 'right' },
   highContrast: false,
+  darkTheme: true,
   // NIET `undefined`: met undefined is `palette: input.palette` niet te onderscheiden van
   // `palette: undefined` en overleeft een bouwer die het veld laat vallen (gemeten). De waarde
   // wordt hier alleen doorgegeven, nooit getekend, dus een herkenbare stand-in volstaat.
@@ -524,6 +525,7 @@ const passthrough: [string, unknown, unknown][] = [
   ['externalStaleLabel', optsOk.externalStaleLabel, baseInput.externalStaleLabel],
   ['durationDrag', optsOk.durationDrag, baseInput.durationDrag],
   ['highContrast', optsOk.highContrast, baseInput.highContrast],
+  ['darkTheme', optsOk.darkTheme, baseInput.darkTheme],
   ['palette', optsOk.palette, baseInput.palette],
   ['compressNonWorkdays', optsOk.compressNonWorkdays, baseInput.compressNonWorkdays],
   ['fontFamily', optsOk.fontFamily, baseInput.fontFamily],

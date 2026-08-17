@@ -30,18 +30,24 @@ const ok = (cond: boolean, msg: string) => { if (!cond) fail(msg); };
 
 // ── Opnemende 2D-context-stub (fillRects zijn het accent; roundRects de balken) ──────────────────
 interface Rect { x: number; y: number; w: number; h: number; color: string; }
-function makeCtx(): { ctx: CanvasRenderingContext2D; fillRects: Rect[] } {
+interface RoundShape { x: number; y: number; w: number; h: number; fill: string; stroke: string; }
+function makeCtx(): { ctx: CanvasRenderingContext2D; fillRects: Rect[]; shapes: RoundShape[] } {
+  // shapes: roundRect-aanroepen mét de fill/stroke-stijl die op dat moment gold (renderer zet
+  // fillStyle vóór roundRect+fill, strokeStyle vóór roundRect+stroke — dus lezen op roundRect-tijd klopt).
   const fillRects: Rect[] = [];
-  const st = { fillStyle: '' };
+  const shapes: RoundShape[] = [];
+  const st = { fillStyle: '', strokeStyle: '' };
   const noop = () => {};
   const ctx = {
-    strokeStyle: '', lineWidth: 1, font: '', textAlign: '', textBaseline: '',
+    lineWidth: 1, font: '', textAlign: '', textBaseline: '',
     globalAlpha: 1, lineCap: '', lineJoin: '', shadowBlur: 0, shadowColor: '',
     set fillStyle(v: string) { st.fillStyle = v; }, get fillStyle() { return st.fillStyle; },
+    set strokeStyle(v: string) { st.strokeStyle = v; }, get strokeStyle() { return st.strokeStyle; },
     fillRect: (x: number, y: number, w: number, h: number) => { fillRects.push({ x, y, w, h, color: st.fillStyle }); },
     strokeRect: noop, clearRect: noop, beginPath: noop, closePath: noop,
     moveTo: noop, lineTo: noop, arc: noop, arcTo: noop, ellipse: noop, rect: noop,
-    roundRect: noop, fill: noop, stroke: noop, save: noop, restore: noop, clip: noop,
+    roundRect: (x: number, y: number, w: number, h: number) => { shapes.push({ x, y, w, h, fill: st.fillStyle, stroke: st.strokeStyle }); },
+    fill: noop, stroke: noop, save: noop, restore: noop, clip: noop,
     translate: noop, scale: noop, rotate: noop,
     setLineDash: noop, getLineDash: () => [], fillText: noop, strokeText: noop,
     measureText: (t: string) => ({ width: String(t).length * 6 }),
@@ -49,7 +55,7 @@ function makeCtx(): { ctx: CanvasRenderingContext2D; fillRects: Rect[] } {
     createPattern: () => null,
     quadraticCurveTo: noop, bezierCurveTo: noop, drawImage: noop,
   };
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fillRects };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, fillRects, shapes };
 }
 
 // ── Fixture: echte store-taak (geldige CPM-datums) + resources 1:3 ──────────────────────────────
@@ -68,11 +74,12 @@ const ASG: ResourceAssignment[] = [
 const rows: ViewRow[] = [{ kind: 'task', task, depth: 0, dimmed: false }];
 const W = 1200, H = 200, TTW = 300, ROWH = 28, HDRH = 60;
 
-function render(showResourceAccent: boolean) {
+function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task } = {}) {
   const st = S();
-  const { ctx, fillRects } = makeCtx();
+  const { ctx, fillRects, shapes } = makeCtx();
+  const row = over.task ? { kind: 'task' as const, task: over.task, depth: 0, dimmed: false } : rows[0];
   const renderer = new GanttRenderer(ctx, {
-    rows,
+    rows: [row],
     sequences: [],
     calendar: st.calendar,
     view: { ...st.view, scrollX: 0, scrollY: 0 },
@@ -80,11 +87,12 @@ function render(showResourceAccent: boolean) {
     collapsedTaskIds: [],
     canvasWidth: W, canvasHeight: H, taskTableWidth: TTW, rowHeight: ROWH, headerHeight: HDRH,
     showResourceAccent,
+    darkTheme: over.darkTheme,
     resources: [R1, R2],
     assignments: ASG,
   });
   renderer.render();
-  return fillRects;
+  return { fillRects, shapes };
 }
 
 // De balk zelf: rowH 28, barH ≈ 0.55×28 ≈ 15; balk-y ≈ hdrH + (rowH−barH)/2 ≈ 60 + 6.5 = 66.5.
@@ -95,7 +103,7 @@ function render(showResourceAccent: boolean) {
 const accents = (rects: Rect[]) => rects.filter(r => r.h === 3 && r.y > HDRH);
 
 {
-  const on = render(true);
+  const { fillRects: on } = render(true);
   const a = accents(on);
   ok(a.length === 2, `accent aan: twee segmenten (1:3-verhouding), got ${a.length}`);
   if (a.length === 2) {
@@ -106,8 +114,39 @@ const accents = (rects: Rect[]) => rects.filter(r => r.h === 3 && r.y > HDRH);
   }
 }
 {
-  const off = render(false);
+  const { fillRects: off } = render(false);
   ok(accents(off).length === 0, 'accent uit: geen streepjes');
+}
+
+// ── Donker thema: te donkere resourcekleuren verlicht (#21 user-bevinding) ──────────────────────
+// Slate-achtige accenten waren op de donkere werkruimte onzichtbaar — het accent tekent nu de
+// verlichte variant; de EXPORT blijft de exacte kleur gebruiken (die zit in barColors/print).
+{
+  const { fillRects: dark } = render(true, { darkTheme: true });
+  const a = accents(dark);
+  ok(a.length === 2, `donker thema: accentsegmenten aanwezig (got ${a.length})`);
+  const lum = (hex: string): number => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  ok(a.every(x => lum(x.color) >= 0.33), `donker thema: elk segment boven zichtbaarheidsdrempel (got ${a.map(x => x.color + ':' + lum(x.color).toFixed(2)).join(', ')})`);
+  ok(a[0].color !== '#111111', 'donker thema: donkere resourcekleur daadwerkelijk verlicht');
+}
+
+// ── Expliciete taakkleur wint op het scherm (#21 user-bevinding) ────────────────────────────────
+// Een kritieke taak met expliciete kleur: vulling = die kleur (niet kritiek-rood), plus een rode
+// rand zodat het kritieke pad leesbaar blijft. Zonder expliciete kleur: gewoon kritiek-rood.
+{
+  const colored = { ...task, id: task.id + '-kleur', color: '#00FF00' } as Task;
+  const { shapes } = render(false, { task: colored });
+  const bars = shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
+  ok(bars.some(b => b.fill === '#00FF00'), `taakkleur: kritieke taak met kleur vult met die kleur (got fills: ${[...new Set(bars.map(b => b.fill))].join(', ')})`);
+  ok(bars.some(b => b.stroke === '#DC2626'), 'taakkleur: rode rand om de gekleurde kritieke taak');
+  const plain = render(false);
+  const plainBars = plain.shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
+  ok(plainBars.every(b => b.fill !== '#00FF00'), 'zonder taakkleur: geen kleurlek');
 }
 
 if (failures > 0) { console.log(`resource-accent: ${failures} faalregels`); process.exit(1); }

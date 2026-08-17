@@ -557,6 +557,7 @@ export function GanttCanvas() {
       // Expliciet opschrijven, want het invoertype is afgeleid van `GanttRenderOptions` — een
       // weggelaten veld is hier een compilefout, geen stilte.
       palette: undefined,
+      darkTheme: uiTheme === 'dark',
       // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
       compressNonWorkdays,
       axis: sharedAxis,
@@ -630,6 +631,7 @@ export function GanttCanvas() {
       durationDrag: undefined,
       highContrast: uiTheme === 'high-contrast',
       palette: undefined,
+      darkTheme: uiTheme === 'dark',
       // Issue #21 punt 5 (fase 2): geen `axis` meegegeven — de secundaire split-view-pane heeft
       // eigen zoom/scrollX, dus bouwt de renderer zelf een consistente as via `compressNonWorkdays`.
       compressNonWorkdays,

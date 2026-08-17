@@ -12,6 +12,7 @@ import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
 // #21: resource-accent — dezelfde pure toewijzings-module als de printlaag (één definitie van
 // "welke resources kleuren welke taak"), geen tweede implementatie in de renderer.
 import { assignmentsFor } from '@/services/print/barColors';
+import { ensureThemeVisible } from '@/engine/renderer/resourcePalette';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
 import { readGanttPalette, type GanttPalette } from './themePalette';
 import { xToDayOffset, type GanttAxis } from './timeAxis';
@@ -53,6 +54,10 @@ export interface GanttRenderOptions {
   /** #21: dun streepje resourcekleur ónder elke bladbalk (gesegmenteerd bij meerdere resources).
    *  Supplement, geen vervanging: de balkvulling blijft kritiek-pad-gekleurd. */
   showResourceAccent?: boolean;                          // UI-toggle
+  /** Donker schermthema: het resource-accent verlicht te donkere kleuren naar een minimale
+   *  zichtbaarheid (#21 — gemeten: slate-achtige tinten vielen weg op de donkere werkruimte).
+   *  De EXPORT past dit NIET toe: papier is licht, daar staat de exacte kleur. */
+  darkTheme?: boolean;
   /** Voor het accent: resources + toewijzingen (de renderer leeft buiten de store). */
   resources?: import('@/types/resource').Resource[];
   assignments?: import('@/types/resource').ResourceAssignment[];
@@ -257,6 +262,12 @@ export class GanttRenderer {
    *  byte-identiek (`isNearCritical`/`floatPath` afwezig). */
   private barColor(task: Task, overrideColor?: string): string {
     if (overrideColor) return overrideColor;
+    // #21: een EXPLICIET gekozen taakkleur wint — ook boven kritiek-rood (user-bevinding: een
+    // gekozen kleur die op kritieke taken onzichtbaar blijft voelt kapot). Het kritieke pad blijft
+    // leesbaar via de rode rand in `drawTaskBar` (spiegel van de rapport-modi 'task'/'resource').
+    // Donker thema: te donkere gekozen kleuren verlichten, anders vallen ze op de werkruimte weg
+    // (zelfde ensureThemeVisible als het resource-accent; de export blijft de exacte kleur).
+    if (task.color) return ensureThemeVisible(task.color, this.opts.darkTheme === true);
     if (task.time.isCritical) return this.colors.critical;
     if (task.time.isNearCritical) return this.colors.nearCritical;
     const fp = task.time.floatPath;
@@ -264,7 +275,7 @@ export class GanttRenderer {
       const tints = this.colors.floatPathTints;
       return tints[(fp - 2) % tints.length];
     }
-    return task.color || this.colors.normal;
+    return this.colors.normal;
   }
 
   /**
@@ -1073,6 +1084,17 @@ export class GanttRenderer {
       }
     }
 
+    // #21: kritieke taak mét expliciete kleur → rode rand om de balk (de kleur is de vulling;
+    // zonder deze rand zou het kritieke pad onleesbaar worden). Omvat de volle [x1,x2]-extent,
+    // óók bij gesplitste segmenten — zelfde regel als de selectie-highlight hieronder.
+    if (task.color && task.time.isCritical) {
+      ctx.strokeStyle = this.colors.critical;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(x1 - 0.75, y - 0.75, width + 1.5, height + 1.5, 3);
+      ctx.stroke();
+    }
+
     // High-contrast-thema (fase 2.9 §5.4, BINDEND): kleur alléén is onvoldoende, dus de drie
     // toestanden krijgen een texture-onderscheid — kritiek=massief (ongewijzigd), near-critical=
     // GEBLOKT (gememoized diagonaal-blok-patroon bovenop de amber), normaal=OMLIJND (rand). In
@@ -1130,7 +1152,9 @@ export class GanttRenderer {
         rows.forEach((r, i) => {
           const isLast = i === rows.length - 1;
           const w = isLast ? x2 - ax : (x2 - x1) * (r.unitsPerDay / total);
-          ctx.fillStyle = r.color;
+          // Donker thema: te donkere resourcekleuren verlichten — anders is het streepje onzichtbaar
+          // tegen de donkere werkruimte (hue/verzadiging intact, dus nog steeds herkenbaar dezelfde).
+          ctx.fillStyle = ensureThemeVisible(r.color, this.opts.darkTheme === true);
           ctx.fillRect(ax, accentY, Math.max(w, 1), accentH);
           ax += w;
         });

@@ -27,7 +27,7 @@ PDF-export (vector) draaien op hetzelfde `Draw2D`-interface, dus één wijziging
 | # | Besluit |
 |---|---------|
 | B1 | Resource krijgt een **kleurveld** (`Resource.color?: string`, hex), automatisch toegekend bij aanmaak, door de gebruiker wijzigbaar in de resource-editor. |
-| B2 | Kleuren gelden **voor de export**; op het scherm komt alléén een klein kleuraccentje (dun streepje op de taakbalk in de resourcekleur, achter een eigen Beeld-toggle). |
+| B2 | Kleuren gelden **voor de export**; op het scherm komt alléén een klein kleuraccentje (dun streepje op de taakbalk in de resourcekleur, achter een eigen Beeld-toggle). **Herzien na user-test (2026-08-17):** een EXPLICIET gekozen `Task.color` wint óók op het scherm — ook boven kritiek-rood, dat als rode rand om de balk leesbaar blijft (spiegel van de rapportmodi); en het scherm-accent verlicht te donkere resourcekleuren in het donkere thema (`ensureThemeVisible`, hue behouden — de export blijft de exacte kleur). |
 | B3 | Statuslijn in het rapportpaneel als **letterlijke 3-opties-dropdown**: Geen / Statusdatumlijn / Voortgangslijn. |
 | B4 | "Volg weergave" = **volledige WYSIWYG**: de export tekent exact de `viewRows` van het scherm (filter, groepering, sortering én inklapstatus). Print-tabel behoudt zijn eigen vaste kolommen. |
 | B5 | In resource-modus: **resourcekleur als vulling + rode rand om kritieke taken**; taak zonder resource valt terug op neutraal blauw. |
