@@ -452,7 +452,20 @@ export class CalendarEngine {
   }
 
   /** Afgeleide `hoursPerDay` voor een uur-kalender (§3.2, Bevinding 8): de MODALE band-som over de
-   *  werk-weekdagen (meest voorkomende dagsom in uren), bij gelijkspel de HOOGSTE. */
+   *  werk-weekdagen (meest voorkomende dagsom in uren), bij gelijkspel de HOOGSTE.
+   *
+   *  T16-VEEGLIJST (bekende beperking, gedocumenteerd, niet gefixt): deze functie telt een weekdag
+   *  mee zodra hij BANDEN draagt (`bands.length===0`-check), ongeacht `workDayMask`/`calendar.
+   *  workDays` — `computeStandardWorkdayBands` hieronder telt een weekdag alleen mee als hij ZOWEL
+   *  in `workDayMask` staat ALS banden draagt. Op een INTERN CONSISTENTE kalender (elke `workDays`-
+   *  dag heeft banden, elke bandloze dag staat niet in `workDays`) maken beide filters exact
+   *  dezelfde weekdagenset mee, dus is dit onderscheid onzichtbaar. Op een ZELF-TEGENSTRIJDIGE
+   *  kalender (bv. `workDays` bevat zaterdag NIET, maar `workTime.byWeekday[6]` draagt toch banden
+   *  — een vorm die geen van de lezers (`mppReader.ts`/`mspdiReader.ts`/`p6xmlReader.ts`) produceert,
+   *  parser-invariant net als de `holidays`/`workingExceptions`-exclusiviteit hierboven) kunnen deze
+   *  functie en `computeStandardWorkdayBands` een ANDERE weekdag als "modaal" aanwijzen, en dus een
+   *  `hoursPerDay` teruggeven die niet bij `standardWorkdayBands`'s minutensom past. Geen corpus-
+   *  of synthetische case raakt dit (de parsers garanderen de consistentie), dus bewust ongefixt. */
   private computeDerivedHoursPerDay(): number {
     const byWeekday = this.calendar.workTime!.byWeekday;
     const sums: number[] = [];
@@ -493,7 +506,13 @@ export class CalendarEngine {
    *  modale som halen de EERSTE (laagste ISO-weekdagnummer) — deterministisch, ook als twee weekdagen
    *  dezelfde som maar een andere bandvorm hebben. Degenererende kalender (geen `workDays`-weekdag
    *  heeft banden) ⇒ val terug op de eerste niet-lege weekdag ongeacht `workDays`; blijft dat leeg,
-   *  dan `[]` (de bestaande MAX_SCAN/geen-werk-paden vangen dat al af). */
+   *  dan `[]` (de bestaande MAX_SCAN/geen-werk-paden vangen dat al af).
+   *
+   *  T16-VEEGLIJST (bekende beperking, gedocumenteerd, niet gefixt): het eerste filter hierboven
+   *  eist zowel `workDayMask[wd]` ALS banden — `computeDerivedHoursPerDay` eist alleen banden. Zie
+   *  de toelichting daar voor de volledige analyse; op een zelf-tegenstrijdige kalender (`workDays`
+   *  en `workTime.byWeekday` niet in overeenstemming, een vorm die geen lezer produceert) kunnen
+   *  beide functies een andere weekdag als "modaal" aanwijzen. */
   private computeStandardWorkdayBands(): { start: number; end: number }[] {
     const byWeekday = this.calendar.workTime!.byWeekday;
     const sums: { wd: 1 | 2 | 3 | 4 | 5 | 6 | 7; minutes: number }[] = [];
