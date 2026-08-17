@@ -31,9 +31,18 @@ export const ORIGIN_PADDING_DAYS = 14;
  *
  * Verliesvrij t.o.v. de rauwe `Date`-variant voor elke geldige ISO-datum vanaf jaar 100:
  * `parseDate` kapt altijd naar UTC-middernacht en `addCalendarDays` houdt die vast, dus de
- * format/parse-heenweg voegt niets toe en haalt niets weg. (Onder jaar 100 loopt de
- * twee-cijferige-jaarafbeelding van `Date.UTC` ertussen — praktisch onbereikbaar, maar het is geen
- * absolute garantie.)
+ * format/parse-heenweg voegt niets toe en haalt niets weg.
+ *
+ * TWEE uitzonderingen, allebei gemeten — "byte-identiek" is dus te sterk:
+ *  - Onder jaar 100 loopt de twee-cijferige-jaarafbeelding van `Date.UTC` ertussen
+ *    (`0100-01-03` → `1999-12-20` in plaats van `0099-12-20`). Praktisch onbereikbaar.
+ *  - Bij een ONPARSEERBARE `viewStartDate` (leeg, corrupte import) GOOIT deze functie
+ *    `RangeError: Invalid time value` uit `formatDate`/`toISOString`, waar de oude inline-lussen
+ *    een Invalid Date doorgaven en de aanroeper met NaN verder rekende. Zelfde val als beschreven
+ *    in `taskDefaults.ts`. De aanroepers hier (`computeScrollToDate` → Ctrl/Cmd+Home,
+ *    `GanttCanvas.revealTaskIfOffscreen`) hadden die throw eerder niet. Bewust niet afgevangen:
+ *    de render-memo roept dezelfde `formatDate` al aan en sneuvelt dan hoe dan ook eerder, dus een
+ *    guard hier zou een kapotte state alleen maskeren.
  */
 export function computeEffectiveViewStart(tasks: Task[], viewStartDate: string): string {
   let earliest = parseDate(viewStartDate);
@@ -74,6 +83,13 @@ export function computeFitToProject(
   let minStart: string | null = null;
   let maxFinish: string | null = null;
   for (const task of tasks) {
+    // LET OP de `|| s` op de finish-keten: die staat hier WEL en in `computeContentSpanDays`
+    // (ganttRenderOptions.ts) NIET. Een taak met alleen een start telt dus mee voor de Ctrl+0-fit
+    // maar niet voor de contentbreedte, en kan daardoor buiten `maxScrollX` vallen terwijl de fit
+    // er wel naartoe zoomt. Bestaand verschil, niet door K-item 33 ontstaan, en met de huidige
+    // `createDefaultTaskTime` (die altijd een `scheduleFinish` zet) alleen bereikbaar via een
+    // corrupte import of een externe adapter. Genoteerd als open punt in docs/TODO.md; deze regel
+    // staat er zodat de volgende lezer niet denkt dat het een slordigheid is.
     const s = task.time.earlyStart || task.time.scheduleStart || task.time.lateStart;
     const f = task.time.earlyFinish || task.time.scheduleFinish || task.time.lateFinish || s;
     if (s && (!minStart || s < minStart)) minStart = s;

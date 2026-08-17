@@ -32,7 +32,6 @@ import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { resolveGanttAxis } from '@/engine/renderer/workdayAxis';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { diffDays, parseDate } from '@/utils/dateUtils';
-import { computeEffectiveViewStart } from '@/utils/ganttViewport';
 
 /** Overlay-datums uit de actieve baseline, keyed op Task.id. */
 export type BaselineOverlay = NonNullable<GanttRenderOptions['baselineOverlay']>;
@@ -81,12 +80,6 @@ export function buildTrace(
     drivenSuccessors: traceMode !== 'predecessors' ? [...tr.drivenSuccessors] : [],
   };
 }
-
-// De tijdas-oorsprong woont in `ganttViewport.ts`, bij `ORIGIN_PADDING_DAYS` en bij zijn twee
-// andere gebruikers (`computeScrollToDate`, de fit-berekening). Hier alleen doorgegeven zodat de
-// Gantt-kant één importpad houdt — zou hij hiér wonen, dan kon `ganttViewport` hem niet hergebruiken
-// (circulaire import) en bleef daar een derde handkopie van de lus staan. Zie de uitleg daar.
-export { computeEffectiveViewStart };
 
 export interface SharedAxisInput {
   calendar: WorkCalendar;
@@ -255,48 +248,24 @@ export type GanttRenderOptionsInput =
  * store, geen DOM — en daarom headless assertbaar (`tests/planning/check-gantt-render-options.ts`).
  */
 export function buildGanttRenderOptions(input: GanttRenderOptionsInput): GanttRenderOptions {
-  // Eén plek waar het CPM-resultaat wordt uitgepakt. Een resultaat MET fout telt als "nog niets
-  // berekend": de drie lijsten gaan dan op undefined, zodat de renderer neutraal tekent in plaats
-  // van markeringen uit een mislukte berekening te tonen.
-  const cpm = input.cpmResult && !input.cpmResult.error ? input.cpmResult : undefined;
+  // Doorgeven gebeurt met een SPREAD, niet met een overgetypte veldenlijst — en dat is geen
+  // luiheid maar het hele punt. Met een handmatige lijst geldt: `GanttRenderOptions` heeft
+  // optionele velden, dus een veld dat je hier vergeet is GEEN compilefout. Het invoertype dwingt
+  // dan wel af dat je het op de aanroepplek opschrijft, maar de waarde verdampt vervolgens stil in
+  // deze functie. Dat is erger dan de situatie vóór deze extractie, waar de twee objectliteralen
+  // rechtstreeks naar de renderer gingen: "vergeten door te geven" was daar luidruchtig, hier zou
+  // het onhoorbaar worden. Met de spread is doorgeven totaal per constructie.
+  //
+  // `cpmResult` is het enige veld dat NIET doorgaat: het wordt hier uitgepakt in de drie lijsten
+  // eronder. Een resultaat MET fout telt als "nog niets berekend" — dan gaan die lijsten op
+  // undefined, zodat de renderer neutraal tekent in plaats van markeringen uit een mislukte
+  // berekening te tonen.
+  const { cpmResult, ...rest } = input;
+  const cpm = cpmResult && !cpmResult.error ? cpmResult : undefined;
   return {
-    rows: input.rows,
-    sequences: input.sequences,
-    calendar: input.calendar,
-    view: input.view,
-    selectedTaskIds: input.selectedTaskIds,
-    collapsedTaskIds: input.collapsedTaskIds,
+    ...rest,
     drivingSequenceIds: cpm?.drivingSequenceIds,
     violatedConstraintTaskIds: cpm?.violatedConstraintTaskIds,
     missedDeadlineTaskIds: cpm?.missedDeadlineTaskIds,
-    statusDate: input.statusDate,
-    showStatusDateLine: input.showStatusDateLine,
-    showProgressLine: input.showProgressLine,
-    showBaselineOverlay: input.showBaselineOverlay,
-    baselineOverlay: input.baselineOverlay,
-    trace: input.trace,
-    canvasWidth: input.canvasWidth,
-    canvasHeight: input.canvasHeight,
-    taskTableWidth: input.taskTableWidth,
-    rowHeight: input.rowHeight,
-    headerHeight: input.headerHeight,
-    localizedMonths: input.localizedMonths,
-    localizedWeekdays: input.localizedWeekdays,
-    columnHeaders: input.columnHeaders,
-    weekStartDay: input.weekStartDay,
-    enableQuarterHourZoom: input.enableQuarterHourZoom,
-    effectiveCalById: input.effectiveCalById,
-    barSplitMode: input.barSplitMode,
-    enableHourPlanning: input.enableHourPlanning,
-    durationDisplay: input.durationDisplay,
-    durationSuffixes: input.durationSuffixes,
-    externalStaleLabel: input.externalStaleLabel,
-    durationDrag: input.durationDrag,
-    highContrast: input.highContrast,
-    palette: input.palette,
-    compressNonWorkdays: input.compressNonWorkdays,
-    axis: input.axis,
-    fontFamily: input.fontFamily,
-    fontScale: input.fontScale,
   };
 }

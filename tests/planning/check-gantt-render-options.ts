@@ -26,7 +26,7 @@
 // Draait via run.sh. Exit 0 = alles groen.
 import { useAppStore } from '@/state/appStore';
 import {
-  buildBaselineOverlay, buildTrace, computeEffectiveViewStart, buildSharedAxis,
+  buildBaselineOverlay, buildTrace, buildSharedAxis,
   computeContentSpanDays, computeContentWidth, buildHistogramPicker, buildHistogramSeries,
   buildGanttRenderOptions, type GanttRenderOptionsInput,
 } from '@/components/canvas/ganttRenderOptions';
@@ -34,7 +34,7 @@ import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { resolveGanttAxis } from '@/engine/renderer/workdayAxis';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { diffDays, formatDate, parseDate, addCalendarDays } from '@/utils/dateUtils';
-import { ORIGIN_PADDING_DAYS } from '@/utils/ganttViewport';
+import { ORIGIN_PADDING_DAYS, computeEffectiveViewStart } from '@/utils/ganttViewport';
 import type { Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource } from '@/types/resource';
@@ -196,6 +196,12 @@ S().updateTask(idB, { time: { ...S().tasks.find(t => t.id === idB)!.time, schedu
 const idC = S().addTask({ name: 'Vooronderzoek' });
 S().updateTask(idC, { time: { ...S().tasks.find(t => t.id === idC)!.time, scheduleStart: '2026-11-04', scheduleFinish: '2026-11-20', scheduleDuration: 12 } });
 S().addSequence({ predecessorId: idA, successorId: idB, type: 'FINISH_START', lagDays: 0 });
+// Een OPVOLGER van de trace-focus (idB). Zonder deze zijn `successors`/`drivenSuccessors` in
+// `buildTrace` structureel leeg en kun je die halve functie hardcoderen zonder dat de suite rood
+// wordt (gemeten). Bewust een nieuwe taak en niet idC: die begint vóór de opgeslagen viewStartDate
+// en dat is precies waarvoor hij in deze fixture zit — een FS-relatie zou hem naar achteren duwen.
+const idD = S().addTask({ name: 'Afbouw' });
+S().addSequence({ predecessorId: idB, successorId: idD, type: 'FINISH_START', lagDays: 0 });
 S().runCPM();
 
 const tasks = S().tasks;
@@ -214,24 +220,40 @@ const chained = (over: Partial<Task['time']>): Task => ({
   id: `chain-${JSON.stringify(over)}`,
   time: { ...chainBase.time, earlyStart: '', scheduleStart: '', lateStart: '', earlyFinish: '', scheduleFinish: '', lateFinish: '', ...over },
 });
+//
+// LET OP hoe de extrema verdeeld zijn. Een eerdere versie legde het minimum/maximum steeds op de
+// LAATSTE schakel; dan domineert die de min/max en meet de middelste schakel niets — je kon
+// `earlyX || scheduleX || lateX` inkorten tot `earlyX || lateX`, of de hele keten omkeren, en de
+// suite bleef groen (gemeten). Hier ligt het extremum juist op de MIDDELSTE schakel
+// (`scheduleStart` 2019 is de vroegste, `scheduleFinish` 2038 de laatste), zodat het weglaten van
+// die schakel meteen omvalt.
 const chainTasks: Task[] = [
-  chained({ earlyStart: '2025-05-20', earlyFinish: '2031-01-02' }),   // 1e schakel
-  chained({ scheduleStart: '2024-02-29', scheduleFinish: '2032-07-11' }), // 2e schakel (schrikkeldag)
-  chained({ lateStart: '2023-08-08', lateFinish: '2033-12-24' }),      // 3e schakel
-  chained({}),                                                        // geen datums: mag niets bijdragen
+  chained({ earlyStart: '2025-05-20', earlyFinish: '2031-01-02' }),        // 1e schakel
+  chained({ scheduleStart: '2019-02-28', scheduleFinish: '2038-07-11' }),  // 2e schakel — het extremum
+  chained({ lateStart: '2023-08-08', lateFinish: '2033-12-24' }),          // 3e schakel
+  chained({}),                                                            // geen datums: draagt niets bij
 ];
+// PRECEDENTIE. Bovenstaande taken zetten elk één schakel, dus ze tonen wel dat elke schakel
+// meedoet maar niet in welke VOLGORDE. Deze taak zet ze alle drie tegelijk met ver uiteenliggende
+// waarden: alleen de eerste schakel mag tellen. Keer de keten om en dit valt om.
+const precedenceTasks: Task[] = [chained({
+  earlyStart: '2029-06-01', scheduleStart: '2021-01-01', lateStart: '2017-03-03',
+  earlyFinish: '2029-07-01', scheduleFinish: '2040-01-01', lateFinish: '2045-01-01',
+})];
 
 // 1 — effectiveViewStart, over vier tijdvenster-oorsprongen én de veldketen.
 for (const [i, vsd] of ['2027-03-01', '2026-01-01', '2028-12-31', '2026-11-04'].entries()) {
   eq(`01.${i} effectiveViewStart identiek aan het orakel (viewStartDate=${vsd})`,
     computeEffectiveViewStart(tasks, vsd), oldEffectiveViewStart(tasks, vsd));
 }
-eq('01b effectiveViewStart volgt de hele start-veldketen (early → schedule → late)',
+eq('01b effectiveViewStart volgt elke schakel van de start-veldketen (early → schedule → late)',
   computeEffectiveViewStart(chainTasks, '2030-01-01'), oldEffectiveViewStart(chainTasks, '2030-01-01'));
-// En hard gepind, zodat deze check ook zonder het orakel iets betekent: de vroegste van de drie
-// schakels is `lateStart` (2023-08-08), min 14 dagen marge.
-eq('01c effectiveViewStart: vroegste schakel wint, min de marge van 14 dagen',
-  computeEffectiveViewStart(chainTasks, '2030-01-01'), '2023-07-25');
+eq('01d effectiveViewStart: bij drie gezette schakels wint de EERSTE (earlyStart)',
+  computeEffectiveViewStart(precedenceTasks, '2035-01-01'), '2029-05-18');
+// Hard gepind zodat 01b ook zonder het orakel iets zegt: de vroegste schakel over de vier
+// ketting-taken is `scheduleStart` (2019-02-28), min de marge van 14 dagen.
+eq('01c effectiveViewStart: de vroegste schakel wint, min de marge van 14 dagen',
+  computeEffectiveViewStart(chainTasks, '2030-01-01'), '2019-02-14');
 eq('02 effectiveViewStart: leeg takenlijst valt terug op viewStartDate − marge',
   computeEffectiveViewStart([], '2027-03-01'), oldEffectiveViewStart([], '2027-03-01'));
 
@@ -267,9 +289,12 @@ for (const compress of [false, true]) {
   const span = computeContentSpanDays(tasks, evs, compress, axis0);
   if (span === null || span <= 365) diffs.push(`05b.${compress} fixture te kort: contentSpanDays bleef op de 365-bodem (${span}) — de check is dan vacuüm`);
   // De finish-veldketen (early → schedule → late), om dezelfde reden als bij de start hierboven.
-  eq(`05c.${compress} contentSpanDays volgt de hele finish-veldketen`,
+  eq(`05c.${compress} contentSpanDays volgt elke schakel van de finish-veldketen`,
     computeContentSpanDays(chainTasks, '2023-07-25', compress, axis0),
     oldContentSpanDays(chainTasks, '2023-07-25', compress, axis0));
+  eq(`05e.${compress} contentSpanDays: bij drie gezette schakels wint de EERSTE (earlyFinish)`,
+    computeContentSpanDays(precedenceTasks, '2029-01-01', compress, axis0),
+    oldContentSpanDays(precedenceTasks, '2029-01-01', compress, axis0));
   // Én de 365-bodem zelf: een kort project mag níét lager uitkomen.
   eq(`05d.${compress} contentSpanDays: kort project blijft op de bodem van 365`,
     computeContentSpanDays([chained({ earlyStart: '2027-01-01', earlyFinish: '2027-02-01' })], '2027-01-01', compress, axis0),
@@ -285,11 +310,23 @@ eq('08 computeContentWidth: korte span blijft op de 2000px-bodem', computeConten
 eq('09 computeContentWidth: lange span schaalt met zoom en tabelbreedte',
   computeContentWidth(500, 30, 300), Math.max(2000, (500 * 1.2) * 30 + 300));
 
-// 10 — trace, over alle vier de standen.
+// 10 — trace, over alle vier de standen. De focus is `idB`, die zowel een VOORGANGER (idA) als een
+// OPVOLGER (idC) heeft. Dat tweede is niet cosmetisch: met alleen een voorganger zijn
+// `successors`/`drivenSuccessors` structureel leeg, en dan kun je die twee takken hardcoderen op
+// `[]` — of de hele predecessors/successors-conditie omdraaien — zonder dat de suite rood wordt
+// (gemeten). De helft van `buildTrace` was zo ongetoetst.
 const traceModes: TraceMode[] = ['off', 'predecessors', 'successors', 'both'];
 for (const mode of traceModes) {
   eqDeep(`10.${mode} trace identiek aan het orakel`,
     buildTrace(mode, [idB], sequences, cpm), oldTrace(mode, [idB], sequences, cpm));
+}
+// Bewaker op de fixture zelf: heeft de focus wel iets aan béíde kanten om te traceren?
+{
+  const tr = buildTrace('both', [idB], sequences, cpm)!;
+  checks++;
+  if (tr.predecessors.length === 0) diffs.push('10z fixture: focus heeft geen voorgangers — de trace-checks zijn dan half vacuüm');
+  checks++;
+  if (tr.successors.length === 0) diffs.push('10z fixture: focus heeft geen opvolgers — de trace-checks zijn dan half vacuüm');
 }
 eq('11 trace: lege selectie ⇒ undefined', buildTrace('both', [], sequences, cpm), undefined);
 // Een CPM-resultaat MET fout telt als "nog niets berekend": geen driving-tinten.
@@ -376,11 +413,18 @@ const cpmDistinct = {
   missedDeadlineTaskIds: ['taak-deadline-gemist'],
 } as CPMResult;
 
-// LET OP — geen enkele waarde hieronder mag samenvallen met de default die de renderer zelf
-// hanteert wanneer het veld ontbreekt. Anders is de passthrough-check `x` vs `x` en overleeft een
+// LET OP — twee regels voor deze fixture.
+//
+// (1) Geen enkele waarde mag samenvallen met de default die de renderer zelf hanteert wanneer het
+// veld ontbreekt. Anders is de passthrough-check `x` vs `x` en overleeft een
 // bouwer die het veld hardcodeert. Dat gold eerder voor weekStartDay ('monday'), barSplitMode
 // ('selection'), showProgressLine/enableQuarterHourZoom/highContrast (false), collapsedTaskIds
 // ([]) en fontScale (1) — zeven vacuüme checks, alle gemeten met een negatieve controle.
+//
+// (2) De booleans mogen ook niet allemaal DEZELFDE waarde hebben. Stonden ze alle zes op `true`,
+// dan zijn ze onderling niet te onderscheiden en overleeft een kruisbedrading
+// (`showStatusDateLine: input.showProgressLine`) — de meest waarschijnlijke fout bij overtypen.
+// Gemeten: drie van zulke verwisselingen bleven groen. Vandaar drie op `false` en drie op `true`.
 const baseInput: GanttRenderOptionsInput = {
   rows: S().viewRows,
   sequences,
@@ -390,7 +434,7 @@ const baseInput: GanttRenderOptionsInput = {
   collapsedTaskIds: [idA],
   cpmResult: cpmDistinct,
   statusDate: '2027-04-01',
-  showStatusDateLine: true,
+  showStatusDateLine: false,
   showProgressLine: true,
   showBaselineOverlay: true,
   baselineOverlay: buildBaselineOverlay(baselines, 'bl1'),
@@ -407,12 +451,12 @@ const baseInput: GanttRenderOptionsInput = {
   enableQuarterHourZoom: true,
   effectiveCalById: new Map(),
   barSplitMode: 'always',
-  enableHourPlanning: true,
+  enableHourPlanning: false,
   durationDisplay: 'auto',
   durationSuffixes: { day: 'd', hour: 'u', minute: 'm' },
   externalStaleLabel: 'verouderd (NL-test)',
   durationDrag: { taskId: idA, edge: 'right' },
-  highContrast: true,
+  highContrast: false,
   // NIET `undefined`: met undefined is `palette: input.palette` niet te onderscheiden van
   // `palette: undefined` en overleeft een bouwer die het veld laat vallen (gemeten). De waarde
   // wordt hier alleen doorgegeven, nooit getekend, dus een herkenbare stand-in volstaat.
@@ -505,11 +549,13 @@ eq('32 secundair: geen taaktabel', optsSecondary.taskTableWidth, 0);
 eq('33 secundair: geen sleep-pilletje', optsSecondary.durationDrag, undefined);
 eq('34 secundair: eigen zoom', optsSecondary.view.zoom, 12);
 eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
-for (const field of ['rows', 'sequences', 'calendar', 'selectedTaskIds', 'collapsedTaskIds',
-  'localizedMonths', 'localizedWeekdays', 'weekStartDay', 'barSplitMode', 'compressNonWorkdays',
-  'fontFamily', 'fontScale', 'highContrast', 'statusDate'] as const) {
-  eqDeep(`36.${field} secundair deelt dit veld met de primaire pane`, optsSecondary[field], optsOk[field]);
-}
+// GESCHRAPT: hier stonden veertien checks `36.<veld> secundair deelt dit veld met de primaire pane`.
+// Ze maten niets. Beide kanten komen uit DEZELFDE bouwer met DEZELFDE waarde (`optsSecondary` is
+// `{...baseInput, <overrides>}` en geen van die veertien velden zat in de overrides), dus elke
+// mutatie van de bouwer verschoof beide kanten even hard — gemeten: `statusDate` hardcoderen liet
+// 29.statusDate omvallen en 36.statusDate groen. De eigenschap die dat label beschreef — dat de
+// twee AANROEPPLEKKEN in GanttCanvas dezelfde waarde meegeven — woont in het component en is hier
+// per constructie niet te zien. Veertien regels die het totaal opbliezen en niets bewaakten.
 
 // ════════════════════════════════════════════════════════════════════════════
 // DEEL 3 — Bron-assert op `GanttCanvas.tsx`.
@@ -547,6 +593,12 @@ for (const field of ['rows', 'sequences', 'calendar', 'selectedTaskIds', 'collap
   // toelichting), dus een kale `includes` zou op de uitleg matchen in plaats van op code — een
   // permanent rode check die niets meet. Toestandsmachientje omdat een regel-gebaseerde aanpak
   // struikelt over `//` binnen een string.
+  // BEPERKING, expliciet: dit machientje kent geen JSX en geen regexliterals. Een apostrof in
+  // JSX-tekst (`<p>z'n Gantt</p>`) of in een karakterklasse (`/['"]/`) zet 'm in string-modus,
+  // waardoor een daaropvolgend `//`-commentaar blijft staan. Gemeten, en met gewone Nederlandse
+  // tekst ("z'n", "'s ochtends", "API's") makkelijk te raken. De faalrichting is OVERtellen: er
+  // blijft commentaar staan, dus een assert hieronder kan vals ROOD worden — nooit vals groen.
+  // Daarom acceptabel, maar reken er niet op dat commentaar gegarandeerd weg is.
   const stripComments = (s: string): string => {
     let out = '';
     let mode: 'code' | 'line' | 'block' | '"' | "'" | '`' = 'code';
@@ -580,6 +632,11 @@ for (const field of ['rows', 'sequences', 'calendar', 'selectedTaskIds', 'collap
   eq('36c stripComments laat een string met // intact', stripComments("const u = 'https://x'; // weg"), "const u = 'https://x'; ");
   eq('36d stripComments laat een template met // intact', stripComments('const t = `a//b`; /* weg */'), 'const t = `a//b`; ');
   eq('36e stripComments laat een ontsnapt aanhalingsteken heel', stripComments("const s = 'a\\'b'; // weg"), "const s = 'a\\'b'; ");
+  // De bekende beperking, hier vastgelegd in plaats van weggemoffeld: op een JSX-apostrof loopt het
+  // machientje vast en blijft het commentaar staan. Valt deze check ooit om omdat de uitkomst wél
+  // gestript is, dan is de beperking verholpen en mag de waarschuwing hierboven weg.
+  eq('36h stripComments is NIET sluitend op een JSX-apostrof (bekende beperking)',
+    stripComments("return <p>Don't</p>; // BLIJFT STAAN"), "return <p>Don't</p>; // BLIJFT STAAN");
   // En op het echte bestand: commentaar eruit, code erin.
   eq('36f stripComments haalt commentaar uit het echte bestand', src.includes('K-item 33: de pure afleidingen'), false);
   eq('36g stripComments laat de code van het echte bestand staan', src.includes('export function GanttCanvas()'), true);
@@ -610,7 +667,13 @@ for (const field of ['rows', 'sequences', 'calendar', 'selectedTaskIds', 'collap
     `grep -rlE ${JSON.stringify(chain)} ${JSON.stringify(join(root, 'src'))} || true`,
     { encoding: 'utf8' },
   ).split('\n').filter(Boolean).map(f => relative(root, f)).sort();
-  eq('39 de start-veldketen staat nog op precies één plek in src/ (de gedeelde functie)',
+  // Let op wat deze check WEL en NIET zegt. `grep -rl` geeft een BESTANDSlijst: hij bewaakt dat de
+  // keten nergens buiten `ganttViewport.ts` opduikt, niet dat hij daarbinnen één keer voorkomt (dat
+  // is hij ook niet — `computeFitToProject` heeft zijn eigen variant, zie de toelichting daar).
+  // Verder is hij regel-verankerd en filesystem-gebaseerd: een kopie die over twee regels is
+  // afgebroken ontsnapt, en een achtergebleven `.bak`/`.orig` in `src/` geeft een vals rood. Beide
+  // gemeten. Faalrichting is dus overtellen, niet ondertellen — ruis, geen gat.
+  eq('39 de start-veldketen staat in geen enkel bestand buiten ganttViewport.ts',
     hits, ['src/utils/ganttViewport.ts']);
   eq('40 GanttCanvas gebruikt computeEffectiveViewStart op beide plekken (memo + reveal)',
     (src.match(/computeEffectiveViewStart\(/g) ?? []).length, 2);

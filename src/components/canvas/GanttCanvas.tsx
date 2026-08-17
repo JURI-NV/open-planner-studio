@@ -5,7 +5,7 @@ import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRender
 import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
-import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeFitToProject } from '@/utils/ganttViewport';
+import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeFitToProject, computeEffectiveViewStart } from '@/utils/ganttViewport';
 import { resolveWheelFunction } from '@/utils/ganttWheel';
 import { MiniMap } from './MiniMap';
 import { parseDate, parseInstant } from '@/utils/dateUtils';
@@ -31,7 +31,7 @@ import { saveLeftPanelWidth, saveHistogramHeight, TASK_TABLE_MIN_WIDTH, TASK_TAB
 // hierheen verhuisd zodat ze headless te controleren zijn; de `useMemo`-aanroepen hieronder blijven
 // bewust in dit component staan (zie de kop van dat bestand voor waarom).
 import {
-  buildBaselineOverlay, buildTrace, computeEffectiveViewStart, buildSharedAxis,
+  buildBaselineOverlay, buildTrace, buildSharedAxis,
   computeContentSpanDays, computeContentWidth,
   buildHistogramPicker, buildHistogramSeries, buildGanttRenderOptions,
 } from './ganttRenderOptions';
@@ -836,9 +836,11 @@ export function GanttCanvas() {
     if (usable <= 0) return;
 
     // effectiveViewStart: sinds K-item 33 LETTERLIJK dezelfde functie als de render-memo, niet meer
-    // een tweede kopie die met de hand in de pas gehouden moest worden. De format/parse-heenweg is
-    // verliesvrij (`parseDate` kapt altijd naar UTC-middernacht, `addCalendarDays` houdt die vast),
-    // dus dit is byte-identiek aan de vorige inline-lus.
+    // een tweede kopie die met de hand in de pas gehouden moest worden. Identiek aan de vorige
+    // inline-lus voor elke geldige ISO-datum vanaf jaar 100 (`parseDate` kapt naar UTC-middernacht,
+    // `addCalendarDays` houdt die vast, dus de format/parse-heenweg is verliesvrij). Twee
+    // uitzonderingen staan bij de functie zelf beschreven: jaren onder 100, en een onparseerbare
+    // `viewStartDate` — die gaf hier vroeger NaN en gooit nu.
     const evs = parseDate(computeEffectiveViewStart(st.tasks, v.viewStartDate));
 
     // Balk-uiteinden in content-x (dateToX zonder de −scrollX-term, dus `scrollX=0`), zelfde
