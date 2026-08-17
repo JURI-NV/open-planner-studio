@@ -166,9 +166,34 @@ export function beginUndoable(s: AppState, opts?: { coalesceKey?: string }): voi
  * Sluit een mutatie af: markeer het document als gewijzigd (`isDirty`) en — indien de mutatie
  * datum-beïnvloedend was (`stale: true`, A6) — de planning als verouderd. `stale` default `false`,
  * zodat puur niet-datum-rakende mutaties (WBS-nummering, structuur-CRUD, baselines) `scheduleStale`
- * bewust NIET zetten (gedocumenteerde asymmetrie).
+ * bewust NIET zetten (gedocumenteerde asymmetrie). Datum-beïnvloedende mutaties verlaten daarnaast
+ * de modus "datums zoals opgeslagen" (issue #63) — zie de onderbouwing in de body hieronder.
  */
 export function finishMutation(s: AppState, opts?: { stale?: boolean }): void {
   s.isDirty = true;
   if (opts?.stale) s.scheduleStale = true;
+  // "Datums zoals opgeslagen" (issue #63): élke datum-rakende bewerking verlaat de modus. Eén regel
+  // op één plek, zodat alle muterende callsites het erven i.p.v. het per actie te herhalen.
+  //
+  // De snapshot is op dit punt al door `beginUndoable` gepusht MÉT de modus aan, dus Ctrl+Z herstelt
+  // modus, datums en cpmResult in één stap — daarmee vervult deze uitgang zijn kant van de
+  // contract-invariant (zie de kop van `snapshot.ts`: een veld mag in de snapshot staan dan en
+  // slechts dan als élke mutator ervan een snapshot pusht). Binnen een MCP- of bulk-transactie
+  // zwijgt `beginUndoable`, maar dan heeft de omvattende transactie zijn ene snapshot al vóór de
+  // eerste mutatie genomen — óók met de modus aan; de keten klopt daar dus net zo goed.
+  //
+  // Zonder dit zou een half-opgeslagen/half-bewerkte planning ontstaan zonder dat iets aangeeft
+  // welke datum welke is. Herrekenen doet deze functie bewust NIET (ze draait binnen een
+  // Immer-producer); dat is het werk van `useExitRecordedDates` (of van F5, route B).
+  //
+  // Waarom `opts?.stale` als voorwaarde: de "undo zonder stale"-gevallen hierboven (WBS-nummering,
+  // structuur-CRUD, baselines) raken geen datums, dus wat er op het scherm staat is nog steeds
+  // exact wat het bestand zei. De modus daar verlaten zou het aanbod stil weggooien én de getoonde
+  // datums onverklaard achterlaten — er is dan immers geen `scheduleStale` die een herberekening
+  // uitlokt. Datum-rakende mutaties die bewust géén `stale` zetten omdat ze zélf `runCPM` aanroepen
+  // (setProjectStartDate, applyLeveling, clearLeveling) verlaten de modus via route B.
+  if (opts?.stale && s.datesAsRecorded) {
+    s.datesAsRecorded = false;
+    s.recordedDates = null;
+  }
 }

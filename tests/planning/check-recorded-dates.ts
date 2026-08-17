@@ -268,59 +268,70 @@ const recWerk = cpmResultFromRecorded(
 );
 eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDuration, 1);
 
+// ── Gedeelde IFC-fixturebouwers (secties 7 t/m 9) ────────────────────────────────────────────────
+// Bouw de IFCTASKTIME-/IFCTASK-argumentreeksen via de gedeelde slot-registry (ifcTaskSlots.ts) —
+// niet met de hand geteld. `new Array(IFC_TASKTIME_SLOTS.length)` legt de arraylengte vast aan
+// dezelfde bron als de reader/writer, en de posities komen uit `TASKTIME_SLOT`/`TASK_SLOT`
+// (naam→index-maps, afgeleid van diezelfde registry) — zo kan een verschoven index (zoals eerder
+// de taskTime-ref op index 8 i.p.v. 11) hier niet meer onopgemerkt insluipen. De assertie op
+// `recordedFields` in (7) bewijst dat de posities ook echt kloppen.
+const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
+  const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
+  a[TASKTIME_SLOT.name] = "'T'";
+  a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
+  a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
+  a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
+  a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
+  a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
+  a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
+  a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
+  return a.join(',');
+};
+const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
+  const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
+  a[TASK_SLOT.globalId] = `'${o.guid}'`;
+  a[TASK_SLOT.name] = `'${o.name}'`;
+  a[TASK_SLOT.identification] = `'${o.wbs}'`;
+  a[TASK_SLOT.isMilestone] = '.F.';
+  a[TASK_SLOT.taskTime] = o.taskTimeRef;
+  a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
+  return a.join(',');
+};
+
+/** Dé fixture van issue #63: taak a (2026-03-02 t/m -06, P5D) met FS-opvolger b die in het bestand
+ *  vaststaat op 2026-03-16 — ver ná zijn werkelijke opvolgdatum (2026-03-09, de eerstvolgende
+ *  werkdag na a's finish op vrijdag 2026-03-06). Herberekenen verschuift b dus gegarandeerd, en
+ *  precies dat verschil is wat de modus aanbiedt. `tag` houdt project-naam en GUID's per sectie
+ *  uniek, zodat opeenvolgende ladingen niet op elkaars identiteiten lijken te steunen. */
+const externIfc = (tag: string) => [
+  'ISO-10303-21;', 'HEADER;',
+  "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+  'ENDSEC;', 'DATA;',
+  `#1=IFCPROJECT('g1${tag}',$,'Extern${tag}',$,$,$,$,$,$);`,
+  `#9=IFCTASKTIME(${ttArgs({
+    scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
+    earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
+  })});`,
+  `#2=IFCTASK(${taskArgs({ guid: `gTaskA${tag}`, name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
+  `#10=IFCTASKTIME(${ttArgs({
+    scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
+    earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
+  })});`,
+  `#3=IFCTASK(${taskArgs({ guid: `gTaskB${tag}`, name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
+  `#4=IFCRELSEQUENCE('gSeq${tag}',$,$,$,#2,#3,$,.FINISH_START.,$);`,
+  'ENDSEC;', 'END-ISO-10303-21;',
+].join('\n');
+
+/** Id van de taak met deze WBS-code in de LEVENDE store — na een load, dus niet het parse-resultaat. */
+const idOfWbs = (wbs: string) => S().tasks.find((t) => t.wbsCode === wbs)!.id;
+/** `earlyStart` van een taak in de levende store. */
+const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.earlyStart;
+
 // ── (7) Detectie bij het laden ───────────────────────────────────────────────
 // Bestand met vastgelegde datums die NIET uit de logica volgen: b staat vast op 2026-03-16 terwijl
 // de FS-relatie hem direct ná a (finish 2026-03-06) zou plaatsen.
 {
-  // Bouw de IFCTASKTIME-/IFCTASK-argumentreeksen via de gedeelde slot-registry (ifcTaskSlots.ts) —
-  // niet met de hand geteld. `new Array(IFC_TASKTIME_SLOTS.length)` legt de arraylengte vast aan
-  // dezelfde bron als de reader/writer, en de posities komen uit `TASKTIME_SLOT`/`TASK_SLOT`
-  // (naam→index-maps, afgeleid van diezelfde registry) — zo kan een verschoven index (zoals eerder
-  // de taskTime-ref op index 8 i.p.v. 11) hier niet meer onopgemerkt insluipen. De assertie op
-  // `recordedFields` verderop (§9r-stijl) bewijst dat de posities ook echt kloppen.
-  const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
-    const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
-    a[TASKTIME_SLOT.name] = "'T'";
-    a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
-    a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
-    a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
-    a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
-    a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
-    a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
-    a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
-    return a.join(',');
-  };
-  const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
-    const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
-    a[TASK_SLOT.globalId] = `'${o.guid}'`;
-    a[TASK_SLOT.name] = `'${o.name}'`;
-    a[TASK_SLOT.identification] = `'${o.wbs}'`;
-    a[TASK_SLOT.isMilestone] = '.F.';
-    a[TASK_SLOT.taskTime] = o.taskTimeRef;
-    a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
-    return a.join(',');
-  };
-
-  const EXTERN = [
-    'ISO-10303-21;', 'HEADER;',
-    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
-    'ENDSEC;', 'DATA;',
-    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
-    `#9=IFCTASKTIME(${ttArgs({
-      scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
-      earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
-    })});`,
-    `#2=IFCTASK(${taskArgs({ guid: 'gTaskA', name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
-    // b staat in het bestand ver ná a's werkelijke opvolgdatum (2026-03-09, de eerstvolgende werkdag
-    // na a's finish op vrijdag 2026-03-06) — precies het geval van issue #63.
-    `#10=IFCTASKTIME(${ttArgs({
-      scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
-      earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
-    })});`,
-    `#3=IFCTASK(${taskArgs({ guid: 'gTaskB', name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
-    "#4=IFCRELSEQUENCE('gSeq',$,$,$,#2,#3,$,.FINISH_START.,$);",
-    'ENDSEC;', 'END-ISO-10303-21;',
-  ].join('\n');
+  const EXTERN = externIfc('');
 
   // Tussentijdse controle (plan-eis): bewijs dat de fixture ECHT twee taken mét taaktijd en een
   // werkende FS-relatie oplevert, los van wat de store ermee doet — anders test de rest hieronder
@@ -418,60 +429,16 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
 }
 
 // ── (8) showRecordedDates — de modus betreden (Taak 5) ────────────────────────
-// Zelfde soort fixture als (7): één FS-relatie waarvan de opgeslagen datums niet uit de logica
-// volgen (b staat vast op 2026-03-16, ver ná a's werkelijke opvolgdatum 2026-03-09), zodat er
-// na de echte solve écht iets "terug te tonen" is. Lokaal opnieuw opgebouwd (niet het `EXTERN`
-// hierboven hergebruikt, want dat zit in een eigen blok-scope) — zelfde patroon: STEP-argumenten
-// via IFC_TASKTIME_SLOTS/TASKTIME_SLOT op naam, niet op geteld positienummer.
+// Zelfde fixture als (7): één FS-relatie waarvan de opgeslagen datums niet uit de logica volgen
+// (b staat vast op 2026-03-16, ver ná a's werkelijke opvolgdatum 2026-03-09), zodat er na de echte
+// solve écht iets "terug te tonen" is.
 {
-  const ttArgs = (o: { scheduleStart: string; scheduleFinish: string; earlyStart: string; earlyFinish: string; duration: string }) => {
-    const a: string[] = new Array(IFC_TASKTIME_SLOTS.length).fill('$');
-    a[TASKTIME_SLOT.name] = "'T'";
-    a[TASKTIME_SLOT.dataOrigin] = '.PREDICTED.';
-    a[TASKTIME_SLOT.durationType] = '.WORKTIME.';
-    a[TASKTIME_SLOT.scheduleDuration] = `'${o.duration}'`;
-    a[TASKTIME_SLOT.scheduleStart] = `'${o.scheduleStart}'`;
-    a[TASKTIME_SLOT.scheduleFinish] = `'${o.scheduleFinish}'`;
-    a[TASKTIME_SLOT.earlyStart] = `'${o.earlyStart}'`;
-    a[TASKTIME_SLOT.earlyFinish] = `'${o.earlyFinish}'`;
-    return a.join(',');
-  };
-  const taskArgs = (o: { guid: string; name: string; wbs: string; taskTimeRef: string }) => {
-    const a: string[] = new Array(IFC_TASK_SLOTS.length).fill('$');
-    a[TASK_SLOT.globalId] = `'${o.guid}'`;
-    a[TASK_SLOT.name] = `'${o.name}'`;
-    a[TASK_SLOT.identification] = `'${o.wbs}'`;
-    a[TASK_SLOT.isMilestone] = '.F.';
-    a[TASK_SLOT.taskTime] = o.taskTimeRef;
-    a[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
-    return a.join(',');
-  };
-
-  const EXTERN2 = [
-    'ISO-10303-21;', 'HEADER;',
-    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
-    'ENDSEC;', 'DATA;',
-    "#1=IFCPROJECT('g1',$,'Extern2',$,$,$,$,$,$);",
-    `#9=IFCTASKTIME(${ttArgs({
-      scheduleStart: '2026-03-02', scheduleFinish: '2026-03-06',
-      earlyStart: '2026-03-02', earlyFinish: '2026-03-06', duration: 'P5D',
-    })});`,
-    `#2=IFCTASK(${taskArgs({ guid: 'gTaskA2', name: 'A', wbs: '1.1', taskTimeRef: '#9' })});`,
-    `#10=IFCTASKTIME(${ttArgs({
-      scheduleStart: '2026-03-16', scheduleFinish: '2026-03-20',
-      earlyStart: '2026-03-16', earlyFinish: '2026-03-20', duration: 'P5D',
-    })});`,
-    `#3=IFCTASK(${taskArgs({ guid: 'gTaskB2', name: 'B', wbs: '1.2', taskTimeRef: '#10' })});`,
-    "#4=IFCRELSEQUENCE('gSeq2',$,$,$,#2,#3,$,.FINISH_START.,$);",
-    'ENDSEC;', 'END-ISO-10303-21;',
-  ].join('\n');
-
   S().newProject();
-  S().applyLoadedProject(readIFC(EXTERN2), { filePath: null, recompute: true });
+  S().applyLoadedProject(readIFC(externIfc('2')), { filePath: null, recompute: true });
   truthy('8a voorwaarde: recordedDates is gezet (b verschoof)', S().recordedDates !== null);
 
-  const aId = S().tasks.find((t) => t.wbsCode === '1.1')!.id;
-  const bId = S().tasks.find((t) => t.wbsCode === '1.2')!.id;
+  const aId = idOfWbs('1.1');
+  const bId = idOfWbs('1.2');
 
   // Zet near-critical/float-paths AAN buiten een actie om (directe draft-mutatie, geen undo/isDirty-
   // bijwerking), zodat de aansluitende runCPM écht een waarde in interferingFloat/isNearCritical/
@@ -528,6 +495,128 @@ eq('6b echte werk-taak op één dag ⇒ projectDuration 1', recWerk.projectDurat
   S().showRecordedDates();
   eq('8v zonder recordedDates blijft de modus uit', S().datesAsRecorded, false);
   eq('8w zonder recordedDates geen undo-stap', S().undoStack.length, undoDepthZonder);
+}
+
+// ── (9) De modus verlaten (Taak 6) ───────────────────────────────────────────
+// Twee uitgangen, allebei met een werkende Ctrl+Z:
+//   A. een datum-rakende BEWERKING — `finishMutation({ stale: true })` zet de modus uit; de snapshot
+//      is dan al door `beginUndoable` gepusht MÉT de modus aan, dus één undo herstelt alles.
+//   B. F5/"Bereken" — `runCPM` pusht dan (en ALLEEN dan) zelf een undo-snapshot.
+// Plus twee bewakingen: de invariant BUITEN de modus (`runCPM` pusht géén snapshot — daar leunen
+// `staleGuard.ts` en `batchTool.ts` op) en de bewuste asymmetrie van "undo zonder stale".
+
+// (9.A) Route A — bewerken verlaat de modus, Ctrl+Z draait modus én datums in één stap terug.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('9a')), { filePath: null, recompute: true });
+  const aId = idOfWbs('1.1');
+  const bId = idOfWbs('1.2');
+
+  truthy('9a voorwaarde: recordedDates gezet (b verschoof)', S().recordedDates !== null);
+  eq('9b voorwaarde: de solve zette b op zijn logische datum', earlyStartOf(bId), '2026-03-09');
+  S().showRecordedDates();
+  eq('9c voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('9d voorwaarde: b toont weer de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9e voorwaarde: planning geldt als vers vóór de bewerking', S().scheduleStale, false);
+
+  const undoVoorA = S().undoStack.length;
+  const aTime = S().tasks.find((t) => t.id === aId)!.time;
+  // Duur van a van 5 naar 3 werkdagen: een datum-rakende bewerking (`finishMutation({ stale: true })`).
+  S().updateTask(aId, { time: { ...aTime, scheduleDuration: 3 } });
+
+  eq('9f een datum-rakende bewerking verlaat de modus', S().datesAsRecorded, false);
+  eq('9g …en wist de vastlegging', S().recordedDates, null);
+  eq('9h …en zet de planning op verouderd', S().scheduleStale, true);
+  eq('9i …in precies één undo-stap', S().undoStack.length, undoVoorA + 1);
+
+  // Wat `useExitRecordedDates` in de app doet (de hook is React en draait hier niet): één keer
+  // doorrekenen. Tegelijk de invariant op deze route — de modus stond al uit, dus déze runCPM mag
+  // géén tweede undo-stap opleveren.
+  S().runCPM();
+  eq('9j herrekenen ná het verlaten pusht geen extra undo-stap', S().undoStack.length, undoVoorA + 1);
+  eq('9k b staat na het herrekenen op de nieuwe logische datum', earlyStartOf(bId), '2026-03-05');
+
+  S().undo();
+  eq('9l undo herstelt de modus', S().datesAsRecorded, true);
+  eq('9m undo herstelt de opgeslagen datum van de verschoven taak', earlyStartOf(bId), '2026-03-16');
+  truthy('9n undo herstelt de vastlegging', S().recordedDates !== null);
+  eq('9o undo herstelt de teller in de vastlegging', S().recordedDates?.shifted, 1);
+  eq('9p undo herstelt de vastgelegde start van b', S().recordedDates?.times[bId]?.start, '2026-03-16');
+  eq('9q undo herstelt het uit het bestand gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
+  eq('9r undo herstelt de bewerkte duur van a', S().tasks.find((t) => t.id === aId)!.time.scheduleDuration, 5);
+
+  S().redo();
+  eq('9s redo verlaat de modus opnieuw', S().datesAsRecorded, false);
+  eq('9t redo wist de vastlegging opnieuw', S().recordedDates, null);
+  eq('9u redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-05');
+}
+
+// (9.B) Route B — F5/"Bereken" verlaat de modus, mét een werkende Ctrl+Z.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('9b')), { filePath: null, recompute: true });
+  const bId = idOfWbs('1.2');
+
+  S().showRecordedDates();
+  eq('9v voorwaarde: modus staat aan', S().datesAsRecorded, true);
+  eq('9w voorwaarde: b toont de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9x voorwaarde: isDirty is nog false (betreden maakt niet vies)', S().isDirty, false);
+
+  const undoVoorB = S().undoStack.length;
+  S().runCPM();
+
+  eq('9y F5 verlaat de modus', S().datesAsRecorded, false);
+  eq('9z …en wist de vastlegging', S().recordedDates, null);
+  eq('9aa …en rekent door: b staat weer op zijn logische datum', earlyStartOf(bId), '2026-03-09');
+  eq('9ab …in precies één undo-stap', S().undoStack.length, undoVoorB + 1);
+
+  S().undo();
+  eq('9ac undo na F5 herstelt de modus', S().datesAsRecorded, true);
+  eq('9ad undo na F5 herstelt de opgeslagen datum', earlyStartOf(bId), '2026-03-16');
+  eq('9ae undo na F5 herstelt de vastlegging', S().recordedDates?.times[bId]?.start, '2026-03-16');
+  eq('9af undo na F5 herstelt het gereconstrueerde projecteinde', S().cpmResult?.projectEnd, '2026-03-20');
+
+  S().redo();
+  eq('9ag redo verlaat de modus opnieuw', S().datesAsRecorded, false);
+  eq('9ah redo herstelt de herberekende datum', earlyStartOf(bId), '2026-03-09');
+}
+
+// (9.C) DE INVARIANT BUITEN DE MODUS. `staleGuard.ts` (ensureFreshSchedule) en `batchTool.ts`
+// (recomputeMidBatch) rekenen stil door in de veronderstelling dat `runCPM` de undo-stack niet
+// raakt. De modus-uitgang is daar de enige uitzondering op — deze assertie bewaakt dat die
+// uitzondering niet stilletjes het algemene geval wordt.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('9c')), { filePath: null, recompute: true });
+  eq('9ai voorwaarde: de modus staat UIT (detectie zet hem niet aan)', S().datesAsRecorded, false);
+  truthy('9aj voorwaarde: er is wél iets aan te bieden (anders meet dit een vacuüm)', S().recordedDates !== null);
+  // Zet `scheduleStale` expres aan (direct, geen actie): zonder dit zou runCPM hooguit "niets te
+  // doen" bevestigen, terwijl de assertie moet bewijzen dat een ECHTE herberekening niets pusht.
+  useAppStore.setState((s) => { s.scheduleStale = true; });
+
+  const undoVoorC = S().undoStack.length;
+  S().runCPM();
+  eq('9ak runCPM buiten de modus pusht GEEN undo-snapshot', S().undoStack.length, undoVoorC);
+  truthy('9al runCPM buiten de modus laat de vastlegging staan', S().recordedDates !== null);
+  eq('9am runCPM buiten de modus zet geen isDirty', S().isDirty, false);
+}
+
+// (9.D) De bewuste asymmetrie: een bewerking die GÉÉN datums raakt (`finishMutation` zonder
+// `stale`) laat de modus staan. Zou élke `finishMutation` de modus verlaten, dan zou een
+// hernummering het aanbod stil weggooien — en er is dan niets dat de weergegeven datums nog
+// herrekent, want `scheduleStale` blijft uit. Precies de mengvorm die de modus moet voorkomen.
+{
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('9d')), { filePath: null, recompute: true });
+  const bId = idOfWbs('1.2');
+  S().showRecordedDates();
+  eq('9an voorwaarde: modus staat aan', S().datesAsRecorded, true);
+
+  S().renumberWbs();
+  eq('9ao een niet-datum-rakende bewerking laat de modus staan', S().datesAsRecorded, true);
+  truthy('9ap …en laat de vastlegging staan', S().recordedDates !== null);
+  eq('9aq …en zet de planning niet op verouderd', S().scheduleStale, false);
+  eq('9ar …en laat de getoonde opgeslagen datum met rust', earlyStartOf(bId), '2026-03-16');
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

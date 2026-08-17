@@ -65,6 +65,23 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
 
   runCPM: () => {
     set((s) => {
+      // "Datums zoals opgeslagen" (issue #63): dit is de ENIGE situatie waarin `runCPM` een undo-
+      // snapshot pusht. Buiten de modus blijft het gedrag byte-identiek en blijft de invariant
+      // intact waar `staleGuard.ts` (ensureFreshSchedule) en `batchTool.ts` (recomputeMidBatch) op
+      // leunen: "runCPM zet géén isDirty en pusht géén undo-snapshot". Binnen de modus is
+      // doorrekenen wél een datawijziging — de opgeslagen datums worden overschreven — en die hoort
+      // ongedaan te kunnen. Staat vóór élke draft-mutatie hieronder, zoals `beginUndoable` vereist.
+      //
+      // Dit is ook het pad waarlangs de datum-rakende mutaties die bewust géén `scheduleStale`
+      // zetten omdat ze zélf herrekenen (setProjectStartDate, applyLeveling, clearLeveling) de modus
+      // verlaten. Die laten dan twee undo-stappen achter — hun eigen, plus deze — omdat ze allebei
+      // een echte tussentoestand dekken; zeldzaam genoeg (nivelleren/projectverschuiving vanuit de
+      // modus) om het niet met extra coalescing-machinerie te bestrijden.
+      if (s.datesAsRecorded) {
+        beginUndoable(s);
+        s.datesAsRecorded = false;
+        s.recordedDates = null;
+      }
       s.scheduleStale = false; // F5/Bereken gedraaid — schema is (voor deze taken/relaties) vers.
       // De reken-kern (leaf-filter → solve → terugschrijven/rollup) staat sinds A3/M3 in
       // `solveProject` en draait rechtstreeks op de Immer-draft: `s.tasks` wordt in-place gemuteerd,
