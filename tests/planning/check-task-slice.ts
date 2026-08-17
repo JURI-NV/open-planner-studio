@@ -85,6 +85,51 @@ ok(
   S().scheduleStale === true,
 );
 
+// ── T16-veeglijst: setActualStart/setActualFinish tegen een DATUMLOZE statusdatum — het gefixte
+// "uur-precieze actual op de statusdatum-dag" gat (was: RUWE-ISO-string-vergelijking, lexicografisch
+// "2026-...T08:00" > "2026-..." ongeacht klokstand). Ankerdatum losstaand van de bovenste scenario's
+// (2026-07-06, een maandag), zodat deze sectie op zichzelf leesbaar blijft. ────────────────────────
+S().runCPM();
+const idC = S().addTask({ name: 'C', time: createDefaultTaskTime('2026-07-06', 3) });
+S().setStatusDate('2026-07-06'); // datumloze statusdatum
+S().runCPM();
+
+// Bewering 1 (het gefixte gat): een uur-precieze actualStart OP de statusdatum-dag zelf wordt
+// geaccepteerd, niet stil geweigerd.
+const acceptedSameDayHour = S().setActualStart(idC, '2026-07-06T08:00');
+ok(
+  `t16-actual-statusdate-zelfde-dag-uur (setActualStart): geaccepteerd (kreeg: ${acceptedSameDayHour})`,
+  acceptedSameDayHour === true,
+);
+ok(
+  `t16-actual-statusdate-zelfde-dag-uur: actualStart daadwerkelijk gezet (kreeg: ${task(idC)?.time.actualStart})`,
+  task(idC)?.time.actualStart === '2026-07-06T08:00',
+);
+
+// Bewering 2 (blijft geweigerd): een actualStart op een dag NÁ de statusdatum, ongeacht precisie.
+const rejectedNextDay = S().setActualStart(idC, '2026-07-07T00:01');
+ok(
+  `t16-actual-statusdate-latere-dag (setActualStart): geweigerd (kreeg: ${rejectedNextDay})`,
+  rejectedNextDay === false,
+);
+ok(
+  `t16-actual-statusdate-latere-dag: actualStart blijft ongewijzigd (kreeg: ${task(idC)?.time.actualStart})`,
+  task(idC)?.time.actualStart === '2026-07-06T08:00',
+);
+
+// Bewering 3: zelfde uur-precieze-op-dezelfde-dag-acceptatie voor setActualFinish.
+const acceptedFinishSameDayHour = S().setActualFinish(idC, '2026-07-06T17:00');
+ok(
+  `t16-actual-statusdate-zelfde-dag-uur (setActualFinish): geaccepteerd (kreeg: ${acceptedFinishSameDayHour})`,
+  acceptedFinishSameDayHour === true,
+);
+
+// Mutatiebewijs (reviewer-repro, daadwerkelijk gedraaid): `isActualPastStatusDate` teruggezet naar
+// de kale RUWE-ISO-stringvergelijking (`return dateIso > statusDateIso;`) en de suite herdraaid —
+// 4 van de 16 checks sloegen rood uit ("2026-07-06T08:00" > "2026-07-06" is lexicografisch waar, de
+// langere string wint), exact de beweringen 1/2/3 hierboven (het gefixte gat). Teruggezet naar de
+// fix: weer 16/16 groen.
+
 if (diffs.length === 0) {
   console.log(`OK  task-slice-check: alle checks groen (${checks})`);
   process.exit(0);

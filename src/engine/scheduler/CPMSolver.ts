@@ -356,7 +356,18 @@ export class CPMSolver {
    *  variant op dit bestand van 100% exact naar 2 sameday-taken liet zakken). MSP normaliseert dus
    *  een sub-dag-afwijking BINNEN dezelfde dag, maar verplaatst een geregistreerd feit nooit naar
    *  een ANDERE kalenderdag — precies wat deze functie doet. Vervangt de kale `snapOnOrAfter`/
-   *  `parseIn`-keuze in zowel de VOLTOOID- als de IN-PROGRESS-branch van de voortgangstak. */
+   *  `parseIn`-keuze in zowel de VOLTOOID- als de IN-PROGRESS-branch van de voortgangstak.
+   *
+   *  T16-VEEGLIJST (ná-band-uitkomst, expliciet uitgesproken): `d` NÁ de laatste band van zijn EIGEN
+   *  kalenderdag (bv. 20:00 op een werkdag waarvan de laatste band om 17:00 eindigt) laat
+   *  `snapOnOrAfter` naar de EERSTVOLGENDE werk-instant snappen — die valt per definitie op een
+   *  ANDERE kalenderdag (`nextWorkInstant` heeft op de eigen dag niets meer te vinden). De
+   *  `startOfDay`-gelijkheidstoets hierboven verwerpt die snap dan ook, en de functie geeft het
+   *  RAUWE `d` terug (20:00 blijft 20:00) — géén werk-instant, maar wél de dag die MSP zelf opsloeg.
+   *  Dit is een CONSERVATIEVE, maar ONGETOETSTE extrapolatie van dezelfde dag-behoudende regel die
+   *  B4 wél corpusbreed verifieerde (geen gemeten corpusbestand draagt een `actualStart`/
+   *  `actualFinish` ná de laatste band van zijn eigen dag) — bewust zo gelaten i.p.v. gegokt op een
+   *  derde snapregel zonder bewijs. */
   private snapActualForward(eng: CalendarEngine, d: Date): Date {
     const snapped = this.snapOnOrAfter(eng, d);
     return this.startOfDay(snapped).getTime() === this.startOfDay(d).getTime() ? snapped : d;

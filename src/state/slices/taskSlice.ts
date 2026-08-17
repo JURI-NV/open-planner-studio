@@ -3,7 +3,7 @@ import { createDefaultTaskTime, mergeTaskTime } from '@/utils/taskDefaults';
 import type { Sequence } from '@/types/sequence';
 import type { ResourceAssignment } from '@/types/resource';
 import { generateId } from '@/utils/id';
-import { formatDate } from '@/utils/dateUtils';
+import { formatDate, parseDate, parseInstant } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';
 import type { WbsTemplate } from '@/utils/wbsTemplates';
 import { beginUndoable, finishMutation } from '../transaction';
@@ -241,6 +241,28 @@ function applyTaskPlacement(tasks: Task[], id: string, plan: TaskPlacement): voi
 function siblingIdsOf(tasks: Task[], parentId: string | null): string[] {
   if (parentId === null) return tasks.filter(t => !t.parentId).map(t => t.id);
   return tasks.find(t => t.id === parentId)?.childIds ?? [];
+}
+
+/**
+ * T16-veeglijst-fix (B4-nasleep, Opus-her-check T15-fixronde — gepind als BEKENDE BEPERKING, hier
+ * gefixt): `setActualStart`/`setActualFinish` vergeleken tot deze fix een RUWE actual-ISO-string
+ * lexicografisch met `project.statusDate`. Dat werkt alleen zolang beide dezelfde precisie dragen
+ * (twee date-only strings, of twee datetime-strings) — een uur-precieze `date` (`"2026-07-06T08:00"`)
+ * is lexicografisch altijd "groter" dan een datumloze `statusDate` op DEZELFDE dag (`"2026-07-06"`),
+ * dus zo'n actual werd stil geweigerd ongeacht de klokstand.
+ *
+ * Fix: bij een DATUMLOZE `statusDate` (`project.statusDate` bevat geen `T` — het gebruikelijke
+ * dag-modus-geval, §3.4) wordt alleen de KALENDERDAG vergeleken (`parseDate`, tijd-component
+ * genegeerd): elke klokstand OP de statusdatum-dag zelf is toegestaan, alleen een latere dag wordt
+ * geweigerd — precies de bedoelde "geen actuals ná de statusdatum"-regel, zonder de precisiemismatch.
+ * Draagt `statusDate` zelf al een tijd-component (uur-modus, §3.4), dan blijft de vergelijking op
+ * volle instant-precisie (`parseInstant`) — dat geval was vóór deze fix al correct (gelijke precisie
+ * aan weerszijden) en blijft dat, byte-identiek. */
+function isActualPastStatusDate(dateIso: string, statusDateIso: string): boolean {
+  if (!statusDateIso.includes('T')) {
+    return parseDate(dateIso).getTime() > parseDate(statusDateIso).getTime();
+  }
+  return parseInstant(dateIso).getTime() > parseInstant(statusDateIso).getTime();
 }
 
 /**
@@ -1146,17 +1168,10 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // Actuals liggen nooit ná de statusdatum: weigeren i.p.v. stil klemmen (§3.2, BESLIST).
       // Weigering pusht GÉÉN snapshot (return vóór beginUndoable) — ongewijzigd gedrag.
       //
-      // BEKENDE BEPERKING (B4-nasleep, Opus-her-check T15-fixronde, gevonden maar NIET gefixt): dit
-      // vergelijkt RUWE ISO-strings, niet geparste instanten. Een uur-precieze `date` (bv.
-      // "2026-07-06T08:00") is dan lexicografisch altijd "groter" dan een datumloze `statusDate` op
-      // DEZELFDE dag (bv. "2026-07-06") — de langere string wint altijd, ongeacht de klokstand —
-      // dus zo'n actualStart/actualFinish wordt hier STIL geweigerd, ook als de klokstand ruim vóór
-      // de (impliciete middernacht-)statusdatum ligt. Vóór T15/B4 was dit onzichtbaar: de daardoor
-      // terugvallende, datumloze actualStart (via `setTaskProgress`'s `completion>0`-fallback) werd
-      // door `CPMSolver`'s `snapOnOrAfter` toch weer naar een plausibele werk-instant gesnapt —
-      // dezelfde soort maskering als B2 bij `relationMath.ts`. Eigen taak: vergelijk
-      // `parseInstant(date)`/`parseInstant(statusDate)` i.p.v. de rauwe strings.
-      if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
+      // T16-veeglijst-fix (was: BEKENDE BEPERKING, B4-nasleep, Opus-her-check T15-fixronde) —
+      // `isActualPastStatusDate` vergelijkt nu geparste instanten i.p.v. rauwe ISO-strings, zie die
+      // functie se toelichting voor de volledige analyse (het uur-precies-op-de-statusdatum-dag-gat).
+      if (date && s.project.statusDate && isActualPastStatusDate(date, s.project.statusDate)) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualStart = date || undefined;
       applyProgressInvariants(task, s.project.statusDate);
@@ -1172,10 +1187,9 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
-      // Zelfde BEKENDE BEPERKING als `setActualStart` hierboven (B4-nasleep, Opus-her-check
-      // T15-fixronde): rauwe-string-vergelijking, geen geparste instanten — een uur-precieze `date`
-      // op dezelfde dag als een datumloze `statusDate` wordt hier ten onrechte geweigerd.
-      if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
+      // T16-veeglijst-fix — zie `isActualPastStatusDate` se toelichting (zelfde functie als
+      // `setActualStart` hierboven, geen tweede, potentieel afdrijvende implementatie).
+      if (date && s.project.statusDate && isActualPastStatusDate(date, s.project.statusDate)) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualFinish = date || undefined;
       // Finish wissen terwijl de taak op 100% stond ⇒ terug naar in-uitvoering (anders re-default

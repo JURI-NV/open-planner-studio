@@ -72,6 +72,16 @@ export function relationBoundaryFlags(predTask: Task, succTask: Task): RelationB
   // die BUITEN die lezers om een `milestoneKind` krijgt (bv. rechtstreeks via de MCP-tools of een
   // toekomstige adapter) blijft dit een LATENT gat — geregistreerd, niet binnen deze fixronde
   // opgelost.
+  //
+  // T16-VEEGLIJST — een CONCRETE, vandaag al reikbare ontsnappingsroute (naast MCP/toekomstige
+  // adapters): de IFC-round-trip. `ifcPsets.ts`'s Milestone-pset schrijft/leest `MilestoneKind`
+  // onvoorwaardelijk zodra `task.isMilestone` waar is — géén `duration===0`-poort, in tegenstelling
+  // tot de lezers hierboven. Een 0-duur mijlpaal met `milestoneKind='FINISH'` die naar IFC opgeslagen
+  // wordt en waarvan de gebruiker vervolgens (in dezelfde of een latere sessie, vóór/ná herladen) de
+  // duur wijzigt — `isMilestone` blijft `true`, T15's mijlpaal-met-duur-ondersteuning staat dat toe —
+  // behoudt zijn `milestoneKind`: precies de mijlpaal-met-duur-plus-`milestoneKind`-combinatie die
+  // hierboven als "nooit bereikt via de lezers" wordt aangenomen. Nog steeds niet gefixt (geen
+  // corpus-/synthetische case raakt dit), maar niet langer alleen een hypothetisch MCP-pad.
   const predIsMilestone = predTask.time.scheduleDuration <= 0;
   const predKind = predTask.isMilestone ? predTask.milestoneKind : undefined;
   return {
