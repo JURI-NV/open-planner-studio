@@ -9,7 +9,9 @@
 //   calendar?: { workDays?: number[], holidays?: {name,startDate,endDate}[] }  // default: SCHOON (ma-vr, geen feestdagen)
 //   anchor?: "YYYY-MM-DD"   // startdatum voor wortel-taken (default 2026-06-01)
 //   tasks: [{ name, dur?, start?, milestone?, constraint?, constraint2?, hammock?, deadline? }]
-//     dur in werkdagen (default 1); milestone => duur 0
+//     dur in werkdagen (default 1); milestone => duur 0, TENZIJ `dur` expliciet meegegeven is
+//              (T15, "mijlpaal-met-duur" — MSP staat `isMilestone=true` mét een reële duur toe en
+//              plant dan gewoon volgens die duur, zie CPMSolver.ts's `isZeroDurationMilestone`)
 //     durationType: WORKTIME (default) | ELAPSEDTIME (T8, MSP-pariteit) — ELAPSEDTIME rekent de
 //              taakduur zelf 24/7 in klokTIJD (precedent: lagUnit ELAPSEDTIME hierboven, zelfde
 //              semantiek toegepast op duur i.p.v. lag); afwezig => WORKTIME (byte-identiek)
@@ -418,7 +420,8 @@ function buildAndSolve(c: Case): {
     // afgeleide `scheduleDuration = minuten/(effHpd×60)`; een getal ⇒ werkdagen (dag-modus, ongewijzigd).
     let durDays: number;
     let durMinutes: number | undefined;
-    if (t.milestone) {
+    if (t.milestone && t.dur === undefined) {
+      // T15: het gebruikelijke pad — een mijlpaal ZONDER expliciete `dur` blijft byte-identiek 0.
       durDays = 0;
     } else if (typeof t.dur === 'string') {
       const effHpd = effHoursPerDayFor(t.calendar);

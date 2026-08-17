@@ -403,9 +403,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "27a0a718b9648123": {
       "root": "crawl",
@@ -1041,9 +1041,9 @@
       "startExact": 71,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 69,
+      "finishExact": 71,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "7442f84331b5a44f": {
       "root": "crawl",
@@ -1632,9 +1632,9 @@
       "startExact": 71,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 69,
+      "finishExact": 71,
       "finishSameday": 0,
-      "finishDiff": 2
+      "finishDiff": 0
     },
     "aa243629e24ea21f": {
       "root": "crawl",
@@ -1654,9 +1654,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1
+      "finishDiff": 0
     },
     "ab462a16f801450c": {
       "root": "crawl",

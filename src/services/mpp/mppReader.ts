@@ -923,8 +923,17 @@ function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // finish (nooit in de praktijk, wel theoretisch mogelijk bij een kapot record) dan valt terug op
     // start. `deriveMilestoneKind` retourneert `undefined` — geen veld gezet, huidig gedrag — zowel
     // buiten uur-modus als wanneer het anker niet exact op een bandgrens ligt.
+    //
+    // T15 (mijlpaal-met-duur, §9/O1): `raw.isMilestone` alléén is niet genoeg — MSP staat de vlag
+    // toe op een taak met een reële duur (`isMilestone=true` + `durationRaw>0`, bewezen op
+    // `mpp14task.mpp`/`mpp14task-from2013.mpp`/`taskFlags-mpp14Project2010/2013.mpp`, vier publieke
+    // MPXJ-fixtures). Zo'n taak is voor de PLANNING geen mijlpaal (`CPMSolver.isZeroDurationMilestone`
+    // spiegelt deze zelfde eis); zonder de `durationRaw === 0`-guard hier zou `milestoneKind` alsnog
+    // een FINISH-instant-landing afleiden voor een taak die de solver terecht als gewone taak
+    // behandelt — een mismatch die `snapSuccessorEarlyStart` (CPMSolver.ts) op de VERKEERDE taak zou
+    // toepassen.
     const milestoneAnchor = raw.finishTs ?? raw.startTs;
-    const milestoneKind = raw.isMilestone && isHour && milestoneAnchor
+    const milestoneKind = raw.isMilestone && raw.durationRaw === 0 && isHour && milestoneAnchor
       ? deriveMilestoneKind(cal, milestoneAnchor)
       : undefined;
 

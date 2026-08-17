@@ -2314,6 +2314,14 @@ if (corpusPresent) {
       { name: 'MilestoneBandStart', uniqueId: 11, id: 2, milestone: true, durationRaw: 0, startTime: 4800, startDays: 15000, finishTime: 4800, finishDays: 15000 },
       { name: 'MilestoneMidBand', uniqueId: 12, id: 3, milestone: true, durationRaw: 0, startTime: 7200, startDays: 15000, finishTime: 7200, finishDays: 15000 },
       { name: 'NonMilestoneBandEnd', uniqueId: 13, id: 4, milestone: false, durationRaw: 0, startTime: 9600, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+      // T15 (mijlpaal-met-duur, §9/O1): MSP staat `isMilestone=true` mét een reële duur toe
+      // (bewezen op mpp14task.mpp/taskFlags-mpp14Project2010/2013.mpp) — de vlag blijft dan
+      // een WEERGAVEmarkering, geen scheduling-signaal. Zelfde anker als MilestoneBandEnd
+      // (bandeinde 16:00) maar met `durationRaw = 4800` (480 minuten = 8u = één volle werkdag
+      // op deze kalender): `milestoneKind` mag NIET afgeleid worden — anders zou een latere
+      // opvolger via `snapSuccessorEarlyStart` de FINISH-mijlpaal-landing toepassen op een taak
+      // die voor de planning helemaal geen mijlpaal is.
+      { name: 'MilestoneWithDurationBandEnd', uniqueId: 14, id: 5, milestone: true, durationRaw: 4800, startTime: 9600, startDays: 15000, finishTime: 9600, finishDays: 15000 },
     ]);
     let result: ReturnType<typeof readMPP> | null = null;
     let threw: string | null = null;
@@ -2324,20 +2332,26 @@ if (corpusPresent) {
     }
     truthy(`[T11 synthetisch] readMPP gooit niet (${threw ?? ''})`, threw === null);
     if (result) {
-      truthy('[T11 synthetisch] 4 taken', result.tasks.length === 4);
+      truthy('[T11 synthetisch] 5 taken', result.tasks.length === 5);
       truthy('[T11 synthetisch] projectkalender in uur-modus (workTime gezet)', !!result.calendar.workTime);
       const byName = new Map(result.tasks.map((t) => [t.name, t]));
       const bandEnd = byName.get('MilestoneBandEnd');
       const bandStart = byName.get('MilestoneBandStart');
       const midBand = byName.get('MilestoneMidBand');
       const nonMilestone = byName.get('NonMilestoneBandEnd');
-      truthy('[T11 synthetisch] alle vier taken gevonden', !!bandEnd && !!bandStart && !!midBand && !!nonMilestone);
+      const msWithDuration = byName.get('MilestoneWithDurationBandEnd');
+      truthy('[T11 synthetisch] alle vijf taken gevonden', !!bandEnd && !!bandStart && !!midBand && !!nonMilestone && !!msWithDuration);
       if (bandEnd) truthy('[T11 synthetisch] anker exact op bandeinde (16:00) ⇒ milestoneKind === FINISH', bandEnd.milestoneKind === 'FINISH');
       if (bandStart) truthy('[T11 synthetisch] anker exact op bandbegin (08:00) ⇒ milestoneKind === START', bandStart.milestoneKind === 'START');
       if (midBand) truthy('[T11 synthetisch] anker midden in de band (12:00) ⇒ GEEN milestoneKind ("elders")', midBand.milestoneKind === undefined);
       if (nonMilestone) {
         truthy('[T11 synthetisch] niet-mijlpaal blijft isMilestone === false', nonMilestone.isMilestone === false);
         truthy('[T11 synthetisch] niet-mijlpaal krijgt NOOIT een milestoneKind, ook op een bandeinde', nonMilestone.milestoneKind === undefined);
+      }
+      if (msWithDuration) {
+        truthy('[T15 synthetisch] mijlpaal-met-duur blijft isMilestone === true (weergavevlag, MSP-getrouw)', msWithDuration.isMilestone === true);
+        truthy('[T15 synthetisch] mijlpaal-met-duur krijgt GEEN milestoneKind, ondanks bandeinde-anker (durationRaw ≠ 0)', msWithDuration.milestoneKind === undefined);
+        truthy('[T15 synthetisch] mijlpaal-met-duur behoudt haar eigen duur (8u ⇒ scheduleDuration 1)', Math.abs(msWithDuration.time.scheduleDuration - 1) < 1e-9);
       }
     }
   }

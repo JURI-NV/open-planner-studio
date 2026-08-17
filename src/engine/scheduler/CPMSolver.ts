@@ -110,6 +110,24 @@ export function snapWorkInstantOnOrAfter(eng: CalendarEngine, from: Date): Date 
 }
 
 /**
+ * T15 (mijlpaal-met-duur, §9/O1 — "géén uitzondering maar een solver-bug"). MS Projects
+ * `isMilestone`-vlag is een WEERGAVEmarkering die onafhankelijk van de opgeslagen duur gezet kan
+ * worden ("Markeer taak als mijlpaal" in Taakinformatie) — MSP's eigen rekenkern plant zo'n taak
+ * gewoon volgens haar eigen duur, ze klapt NIET stil om naar 0. Bewijs: `mpp14task.mpp` +
+ * `mpp14task-from2013.mpp` (MSO-taak, `isMilestone=true`, duur 5 dagen — MSP-finish =
+ * start + 5 werkdagen, PAS ná de duur) en `taskFlags-mpp14Project2010.mpp` +
+ * `taskFlags-mpp14Project2013.mpp` ("Milestone: Yes", duur 8 dagen, zelfde patroon) — vier publieke
+ * MPXJ-testfixtures waar de vlag én een reële duur allebei aanwezig zijn. Alle bestaande
+ * duur-collapse-plekken in dit bestand testten uitsluitend de rauwe vlag; deze helper voegt de
+ * duur-check toe zodat ALLEEN een taak die zelf ook daadwerkelijk 0 dagen/minuten duurt als
+ * mijlpaal voor de PLANNING telt. Voor elke bestaande 0-duur-mijlpaal is dit byte-identiek aan de
+ * kale vlag (dat IS precies de invariant die de rest van het corpus ongemoeid laat).
+ */
+function isZeroDurationMilestone(task: Task): boolean {
+  return task.isMilestone && task.time.scheduleDuration === 0;
+}
+
+/**
  * Effectieve lag in dagen van een relatie: procent-lag wordt uit de ACTUELE voorgangerduur
  * opgelost (MSP-semantiek, afgerond op hele dagen), anders geldt lagDays. Gedeeld met de UI
  * (relatietabel-waarschuwingen) zodat er één definitie bestaat.
@@ -121,7 +139,7 @@ export function snapWorkInstantOnOrAfter(eng: CalendarEngine, from: Date): Date 
  */
 export function resolveEffectiveLagDays(seq: Sequence, predTask: Task, hoursPerDay?: number): number {
   if (typeof seq.lagPercent === 'number' && Number.isFinite(seq.lagPercent)) {
-    const predDur = predTask.isMilestone ? 0 : predTask.time.scheduleDuration;
+    const predDur = isZeroDurationMilestone(predTask) ? 0 : predTask.time.scheduleDuration;
     return Math.round((predDur * seq.lagPercent) / 100);
   }
   const days = Number.isFinite(seq.lagDays) ? seq.lagDays : 0;
@@ -479,7 +497,7 @@ export class CPMSolver {
    *  een mijlpaal heeft geen duur, ELAPSEDTIME kent geen onwerkbaar-venster-begrip (24/7), en de
    *  minuut-lussen hebben hun eigen best-effort-terugval buiten dit signaal. */
   private addDurationChecked(eng: CalendarEngine, start: Date, task: Task): { date: Date; capped: boolean } {
-    if (task.isMilestone) return { date: new Date(start.getTime()), capped: false };
+    if (isZeroDurationMilestone(task)) return { date: new Date(start.getTime()), capped: false };
     if (task.time.durationType === 'ELAPSEDTIME') {
       return { date: addElapsedMinutes(start, elapsedMinutesOf(task, eng)), capped: false };
     }
@@ -488,7 +506,7 @@ export class CPMSolver {
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
-    if (task.isMilestone) return new Date(end.getTime());
+    if (isZeroDurationMilestone(task)) return new Date(end.getTime());
     if (task.time.durationType === 'ELAPSEDTIME') {
       return subtractElapsedMinutes(end, elapsedMinutesOf(task, eng));
     }
@@ -501,7 +519,7 @@ export class CPMSolver {
    *  `lagMinutes` ⇒ bron; anders `lagDays × pred-hoursPerDay × 60` (naakt getal = werkdagen). */
   private resolveLagMinutes(seq: Sequence, predTask: Task, predEng: CalendarEngine): number {
     if (typeof seq.lagPercent === 'number' && Number.isFinite(seq.lagPercent)) {
-      const predMin = predTask.isMilestone ? 0 : durationMinutesOf(predTask, predEng);
+      const predMin = isZeroDurationMilestone(predTask) ? 0 : durationMinutesOf(predTask, predEng);
       return Math.round((predMin * seq.lagPercent) / 100);
     }
     if (typeof seq.lagMinutes === 'number' && Number.isFinite(seq.lagMinutes)) return seq.lagMinutes;
@@ -538,7 +556,7 @@ export class CPMSolver {
    *  te hijsen zonder dat gedrag te veranderen). */
   private startFromFinish(eng: CalendarEngine, finish: Date, task: Task): Date {
     if (eng.isHourMode) {
-      if (task.isMilestone) return new Date(finish.getTime());
+      if (isZeroDurationMilestone(task)) return new Date(finish.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
       }
@@ -547,7 +565,7 @@ export class CPMSolver {
     if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
       return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
     }
-    const dur = task.isMilestone ? 0 : task.time.scheduleDuration;
+    const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
     return eng.addWorkingDaysSigned(finish, -(dur > 0 ? dur - 1 : 0));
   }
   /** Leid de voorganger-FINISH af uit zijn late START (SS/SF backward, §5.2, spiegel van
@@ -556,7 +574,7 @@ export class CPMSolver {
    *  `startFromFinish` hierboven. */
   private finishFromStart(eng: CalendarEngine, start: Date, task: Task): Date {
     if (eng.isHourMode) {
-      if (task.isMilestone) return new Date(start.getTime());
+      if (isZeroDurationMilestone(task)) return new Date(start.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
       }
@@ -565,7 +583,7 @@ export class CPMSolver {
     if (!task.isMilestone && task.time.durationType === 'ELAPSEDTIME') {
       return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
-    const dur = task.isMilestone ? 0 : task.time.scheduleDuration;
+    const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
     return eng.addWorkingDaysSigned(start, dur > 0 ? dur - 1 : 0);
   }
   /** Getekende float in eigen-kalender-WERKDAGEN (§5.5, Bevinding 1): uur ⇒ fractioneel
