@@ -2,6 +2,7 @@ import type { Task } from '@/types/task';
 import type { WorkCalendar } from '@/types/calendar';
 import type { CPMResult, CPMTaskResult } from './CPMSolver';
 import { CalendarEngine } from './CalendarEngine';
+import { parseInstant } from '@/utils/dateUtils';
 
 /**
  * "Datums zoals opgeslagen" (issue #63) — de pure laag.
@@ -101,6 +102,22 @@ export function countShiftedTasks(tasks: Task[], times: Record<string, RecordedT
  * `totalFloat`/`freeFloat` zijn in `CPMTaskResult` verplichte getallen; ontbreken ze in het bestand,
  * dan wordt het 0. Dat is het enige punt waar deze module een getal noemt dat het bestand niet gaf —
  * de blijvende modus-strook is daar het tegengif.
+ *
+ * TWEE BEWUSTE SEMANTISCHE AFWIJKINGEN van `scheduleAnalysis.ts` (zichtbaar voor de gebruiker bij
+ * het wisselen tussen "berekend" en "zoals opgeslagen" — hier gedocumenteerd i.p.v. gladgestreken,
+ * want dichttrekken kost meer dan een paar regels):
+ *  1. `projectDuration` mist de mijlpaal-alleen-uitzondering (`scheduleAnalysis.ts` rond de
+ *     "anyRealWork"-check): een project dat op één dag valt zonder echt werk (uitsluitend
+ *     mijlpalen) geeft daar bewust duur 0; deze reconstructie geeft in dat geval 1 (de inclusieve
+ *     telling van `workDaysBetween` over een span van één dag). Zeldzaam (een IFC-bestand met
+ *     uitsluitend mijlpalen en gelijke early*-datums), maar niet uitgesloten.
+ *  2. `missedDeadlineTaskIds` vergelijkt hier met simpele stringvergelijking (`rec.finish >
+ *     task.deadline`); de solver rekent i.p.v. daarvan met instants en met
+ *     `cal.prevWorkDay(deadline)`, over de KALENDER VAN DIE TAAK (`calendarFor(task)` — niet per se
+ *     de projectkalender die deze functie als enige parameter krijgt). Bij een deadline die zelf op
+ *     een niet-werkdag valt kunnen de twee dus uiteenlopen; dichttrekken vraagt per-taak-kalenders
+ *     die deze pure functie niet heeft (en niet zou moeten krijgen, want ze reconstrueert — ze
+ *     solvet niet).
  */
 export function cpmResultFromRecorded(
   info: RecordedDatesInfo,
@@ -113,11 +130,12 @@ export function cpmResultFromRecorded(
   let projectEnd = '';
   let projectStart = '';
 
-  const ordered = tasks
-    .filter((t) => info.times[t.id])
-    .sort((a, b) => info.times[a.id].start.localeCompare(info.times[b.id].start));
+  // Geen sortering: niets stroomafwaarts (deze functie, noch een consument) leunt op de volgorde
+  // van `out`/`criticalPath` — de invoervolgorde van `tasks` is dus prima. `projectStart`/`projectEnd`
+  // worden hieronder toch met min/max bepaald, ongeacht iteratievolgorde.
+  const recorded = tasks.filter((t) => info.times[t.id]);
 
-  for (const task of ordered) {
+  for (const task of recorded) {
     const rec = info.times[task.id];
     out.set(task.id, {
       earlyStart: rec.start,
@@ -140,7 +158,14 @@ export function cpmResultFromRecorded(
   if (projectStart && projectEnd) {
     // CalendarEngine neemt precies één kalender (zie zijn constructor) — de projectkalender.
     const engine = new CalendarEngine(calendar);
-    projectDuration = engine.workDaysBetween(new Date(projectStart), new Date(projectEnd));
+    // `parseInstant`, NIET `new Date(...)`: in uur-modus zijn earlyStart/earlyFinish van de vorm
+    // "YYYY-MM-DDTHH:mm" ZONDER tijdzone. `new Date(...)` leest zo'n string per ES2015 als
+    // LOKALE tijd, terwijl de hele engine hem als UTC leest (zie `parseInstant`-docstring in
+    // dateUtils.ts) — bij een positieve offset (bv. Pacific/Auckland, UTC+12/13) verschuift de
+    // dag-index en telt `workDaysBetween` een werkdag te weinig of te veel. `parseInstant`
+    // deelt de UTC-aanname met de rest van de engine (date-only blijft byte-identiek: die tak
+    // delegeert intern gewoon aan `parseDate`, dus ook de bestaande cases veranderen niet).
+    projectDuration = engine.workDaysBetween(parseInstant(projectStart), parseInstant(projectEnd));
   }
 
   return {
