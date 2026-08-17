@@ -446,6 +446,22 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
     eq('T4 milestoneKind: gewone taak blijft ongezet', byName.get('GewoneTaak')?.milestoneKind, undefined);
   }
 
+  // (d2) H2 (Opus-review T15-iteratie-2) — MSPDI-spiegel van de mppReader.ts-guard: een taak met
+  //      `Milestone=1` ÉN een reële duur (MSP-legitiem, "mijlpaal-met-duur", zie
+  //      `CPMSolver.isZeroDurationMilestone`) krijgt GEEN `milestoneKind`, ook al landt haar anker
+  //      exact op een bandgrens — anders zou een latere opvolger via `snapSuccessorEarlyStart` de
+  //      FINISH-mijlpaal-landing toepassen op een taak die voor de planning geen mijlpaal is.
+  {
+    const tasksXml = `<Tasks>
+      <Task><UID>1</UID><Name>MijlpaalMetDuur</Name><OutlineLevel>1</OutlineLevel><Milestone>1</Milestone>
+        <Duration>PT8H0M0S</Duration><Start>2026-01-06T17:00:00</Start><Finish>2026-01-07T17:00:00</Finish></Task>
+    </Tasks>`;
+    const xml = mkDoc('', tasksXml);
+    const task = readMSPDI(xml).tasks.find((t) => t.name === 'MijlpaalMetDuur');
+    eq('H2 MSPDI: mijlpaal-met-duur (PT8H) blijft isMilestone===true', task?.isMilestone, true);
+    eq('H2 MSPDI: mijlpaal-met-duur krijgt GEEN milestoneKind ondanks bandeinde-anker (17:00)', task?.milestoneKind, undefined);
+  }
+
   // (e) SPEC-REVIEW-FIX (should-fix): Fixture-F-analogon (mppReader.ts/check-mpp-import.ts, T11-
   //     reviewfix c0c2cd27) — een band die EXACT om middernacht eindigt (20:00-24:00, geen theoretisch
   //     randgeval: `applyCalendarBody` bouwt zo'n band zonder clamp). Maandag draagt twee banden

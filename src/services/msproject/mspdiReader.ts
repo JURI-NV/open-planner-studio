@@ -366,13 +366,21 @@ export function readMSPDI(content: string): ImportResult {
     // her-reviewfix `c0c2cd27`, niet geëxporteerd daar, dus hier lokaal herhaald in
     // `deriveMspdiMilestoneKind`, zie die functie se docblock voor de exacte-middernacht-nuance):
     // een UUR-modus-mijlpaal krijgt `milestoneKind` wanneer het opgeslagen anker (finish, of start als
-    // finish ontbreekt — bij een echte mijlpaal, duur 0, zijn beide gelijk) exact op een bandgrens van
-    // de EFFECTIEVE (gepromoveerde) kalender ligt. `finish`/`start` zijn al de juiste, per-taakmodus
-    // geparste waarden (isHour ⇒ `parseMSPInstant`-string, minuutprecisie) — hergebruikt i.p.v. een
-    // tweede DOM-lookup, zodat dit nooit een ANDER Finish-element kan raken dan waar `time.
-    // scheduleFinish` al op gebaseerd is.
+    // finish ontbreekt, exact op een bandgrens van de EFFECTIEVE (gepromoveerde) kalender ligt.
+    // `finish`/`start` zijn al de juiste, per-taakmodus geparste waarden (isHour ⇒
+    // `parseMSPInstant`-string, minuutprecisie) — hergebruikt i.p.v. een tweede DOM-lookup, zodat dit
+    // nooit een ANDER Finish-element kan raken dan waar `time.scheduleFinish` al op gebaseerd is.
+    //
+    // H2 (Opus-review T15-iteratie-2): de eerdere formulering hier ("bij een echte mijlpaal, duur 0,
+    // zijn beide gelijk") ging er stilzwijgend van uit dat `isMilestone` ALTIJD duur 0 impliceert —
+    // exact de aanname die T15's mijlpaal-met-duur-bevinding weerlegde (`isMilestone=true` mét een
+    // reële duur is MSP-legitiem, zie `CPMSolver.isZeroDurationMilestone`'s toelichting). Spiegelt nu
+    // de `mppReader.ts`-guard (`raw.durationRaw === 0`): `durationMinutes` is hier al de kant-en-klare
+    // uur-modus-duur (regel ~360, `0` bij een echte mijlpaal) — zónder de `=== 0`-guard zou een taak
+    // met `Milestone=1` én een reële duur alsnog een `milestoneKind` krijgen die haar opvolger via
+    // `snapSuccessorEarlyStart` (CPMSolver.ts) verkeerd zou landen, exact de mppReader-bug vóór T15.
     const effCalForMilestone = calById.get(effCalId);
-    const milestoneKind = isMilestone && isHour && effCalForMilestone
+    const milestoneKind = isMilestone && isHour && durationMinutes === 0 && effCalForMilestone
       ? deriveMspdiMilestoneKind(effCalForMilestone, parseInstant(finish || start))
       : undefined;
     const percentComplete = getElementInt(te, 'PercentComplete');
