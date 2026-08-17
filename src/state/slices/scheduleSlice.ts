@@ -73,8 +73,10 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       // ongedaan te kunnen.
       //
       // Positie: bovenaan de producer uit hygiëne (de huisconventie "guards; beginUndoable;
-      // mutatie"), NIET omdat het moet — `beginUndoable` kloont uit `original(s)`, de
-      // pre-producer-basisstaat, dus de plek binnen deze producer verandert de snapshot niet.
+      // mutatie"). Op het normale pad maakt het niets uit — `beginUndoable` kloont uit
+      // `original(s)`, de pre-producer-basisstaat, dus de plek binnen deze producer verandert de
+      // snapshot niet. Op de defensieve `?? s`-terugval in transaction.ts (mocht `original` ooit
+      // undefined geven) kloont hij wél de draft, en dán telt de positie alsnog. Laat 'm dus staan.
       //
       // Binnen een MCP- of bulk-transactie zwijgt `beginUndoable`; de transactie nam haar ene
       // snapshot al vóór de eerste mutatie (dus mét de modus aan) en dekt dit mee — zie

@@ -490,14 +490,49 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           if (link.sourceRef.filePath) paths.add(link.sourceRef.filePath);
         }
       }
+
+      // ÉÉN GEBAAR = ÉÉN UNDO-STAP (review taak 6). Deze actie lustte eerder over
+      // `refreshExternalAnchorsFrom`, dat sinds issue #63 zelf een snapshot pusht — bij twee
+      // gewijzigde bronnen kostte de knop "Alles verversen" dan twee keer Ctrl+Z.
+      //
+      // De oplossing is NIET `withTransaction`/`enterBatch` om de lus heen: er zit een `await` in
+      // (bestanden inlezen), en de bulk-suppressie is module-state. Alles wat de gebruiker tijdens
+      // dat inlezen doet zou dan zijn eigen undo-stap verliezen en in deze stap opgaan.
+      //
+      // Daarom in twee fasen: eerst ALLE bronnen async inlezen zonder iets te muteren, dan de pure
+      // `refreshExternalAnchors` (die muteert niets in-place) over de takenlijst KETENEN, en pas
+      // daarna één keer schrijven. Levert meteen één `runCPM` in plaats van N.
+      const sourceDocs: ExternalSourceDoc[] = [];
+      for (const p of paths) {
+        const src = await get().parseExternalSource(p, labels);
+        if (!src) continue; // onleesbaar/geen Tauri ⇒ deze bron telt niet mee (ongewijzigd gedrag)
+        sourceDocs.push({
+          projectId: src.projectId, filePath: src.filePath, projectName: src.projectName, tasks: src.tasks,
+        });
+      }
+
+      let tasks = get().tasks;
       let refreshed = 0;
       let missing = 0;
-      let sources = 0;
-      for (const p of paths) {
-        const r = await get().refreshExternalAnchorsFrom(p, labels);
-        if (r) { refreshed += r.refreshed; missing += r.missing; sources++; }
+      let anyChanged = false;
+      for (const source of sourceDocs) {
+        const result = refreshExternalAnchors(tasks, source);
+        tasks = result.tasks; // ketenen: elke bron ververst zijn eigen links op het vorige resultaat
+        refreshed += result.refreshed;
+        missing += result.missing;
+        if (result.changed) anyChanged = true;
       }
-      return { refreshed, missing, sources };
+
+      if (anyChanged) {
+        set((s) => {
+          beginUndoable(s);
+          s.tasks = tasks;
+          finishMutation(s, { stale: true });
+        });
+        get().recomputeViewRows();
+        get().runCPM();
+      }
+      return { refreshed, missing, sources: sourceDocs.length };
     },
 
     openRecentFile: async (id: string, labels) => {

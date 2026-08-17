@@ -31,11 +31,11 @@ let mcpTransactionInProgress = false;
  *      redo-stack wissen), in een eigen `set()`-producer;
  *   2. zet de suppressie-vlag aan zodat elke `beginUndoable` binnen de callback een no-op is;
  *   3. draait `fn()` — die mag meerdere `set()`-producers doen (draft-primitieven, T2);
- *   5. draait ÉÉNMAAL de eindherberekening: `runCPM`, `recomputeViewRows`, `recomputeResourceLoad` —
+ *   4. draait ÉÉNMAAL de eindherberekening: `runCPM`, `recomputeViewRows`, `recomputeResourceLoad` —
  *      nog BINNEN de suppressie, zodat ook de ene plek waar `runCPM` zélf een snapshot zou pushen
  *      (het verlaten van "datums zoals opgeslagen", issue #63) hier zwijgt en de transactie op één
  *      undo-stap blijft;
- *   4./6b. zet de vlag weer uit (in een `finally`, dus óók bij een throw of een vroege return);
+ *   5. zet de suppressie weer uit (in een `finally`, dus óók bij een throw of een vroege return);
  *   6. bij een throw in `fn` óf een `cpmResult.error` ná stap 5: VOLLEDIGE rollback — de vooraf
  *      genomen snapshot terugzetten (`restoreSnapshot` herstelt óók `cpmResult`/kalenders/baselines,
  *      dus geen achterblijvende error-banner), de gepushte snapshot poppen, de redo-stack herstellen

@@ -34,6 +34,10 @@ import {
 } from '@/state/recordedDatesExit';
 import { markScheduleStale } from '@/state/transaction';
 import { ensureFreshSchedule } from '@/services/mcp/staleGuard';
+import type { ExternalLink } from '@/types/task';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join as joinPath, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const S = () => useAppStore.getState();
 
@@ -709,6 +713,124 @@ const earlyStartOf = (id: string) => S().tasks.find((t) => t.id === id)!.time.ea
     !needsExitRecompute('doc-1', obs({ inMode: true, scheduleStale: true })));
   truthy('10E-8 bij uitvoeren: intussen van document gewisseld ⇒ niet rekenen',
     !needsExitRecompute('doc-1', obs({ documentId: 'doc-2', scheduleStale: true })));
+}
+
+// ── (11) De invariant "modus ⇒ niet verouderd" automatisch bewaakt ───────────
+// Deze invariant draagt inmiddels drie dingen: de één-undo-stap-belofte van de MCP-transactie, het
+// stil doorrekenen van slapende documenten, en de `readOnlyHint: true`-annotatie van
+// `get_resource_histogram` (een tool die aan een externe AI-client hangt). Hij werd tot nu toe
+// alleen door commentaar beschermd, terwijl één regel `s.scheduleStale = true` hem stil heropent —
+// en dat is precies wat een ontwikkelaar hier natuurlijk schrijft: de commit die deze regel
+// invoerde moest er VIER uit `librarySlice.ts` verwijderen.
+{
+  // Broncode-check, naar het voorbeeld van de synchroniciteits-assert in tests/mcp/cases-batch.ts.
+  // Wortel via twee kandidaten, want dit script draait zowel gebundeld in tests/planning/ als
+  // los vanuit een andere map; wordt `src/` niet gevonden, dan MOET dit rood zijn — een bewaking
+  // die zichzelf stil overslaat is geen bewaking.
+  const kandidaten = [
+    fileURLToPath(new URL('../../src/', import.meta.url).href),
+    resolvePath(process.cwd(), 'src'),
+  ];
+  const srcRoot = kandidaten.find((p) => existsSync(p)) ?? null;
+  truthy(`11a de broncontrole vindt src/ (geprobeerd: ${kandidaten.join(', ')})`, srcRoot !== null);
+
+  if (srcRoot) {
+    const bestanden: string[] = [];
+    const loop = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = joinPath(dir, entry.name);
+        if (entry.isDirectory()) loop(full);
+        else if (/\.tsx?$/.test(entry.name)) bestanden.push(full);
+      }
+    };
+    loop(srcRoot);
+    truthy('11b de broncontrole leest een plausibel aantal bronbestanden', bestanden.length > 100);
+
+    // Alleen `transaction.ts` mag de vlag rechtstreeks zetten; de rest gaat via `finishMutation`
+    // (datum-rakende bewerkingen) of `markScheduleStale` (de niet-undoable verversingen). Beide
+    // laten de vlag uit zolang "datums zoals opgeslagen" aanstaat.
+    const toegestaan = joinPath(srcRoot, 'state', 'transaction.ts');
+    const overtreders = bestanden.filter((f) =>
+      f !== toegestaan && /\.scheduleStale\s*=\s*true/.test(readFileSync(f, 'utf8')));
+    eq(
+      '11c `.scheduleStale = true` staat UITSLUITEND in state/transaction.ts — issue #63: buiten '
+      + '`finishMutation`/`markScheduleStale` om de vlag zetten maakt "modus aan én verouderd" weer '
+      + 'bereikbaar, en dáármee kan een herberekening de modus stil verlaten zonder undo-stap '
+      + '(MCP-transactie, slapende documenten, en de readOnlyHint van get_resource_histogram). '
+      + 'Gebruik `markScheduleStale(s)` of `finishMutation(s, { stale: true })`',
+      overtreders.map((f) => f.slice(srcRoot.length + 1)), [],
+    );
+  }
+}
+
+// (11.2) De omgekeerde assertie, op de echte store: de twee vlaggen mogen nooit tegelijk aanstaan.
+// Goedkoop, dus meteen over álle documenten (actief + slapend).
+{
+  const geenModusEnStale = (label: string) => {
+    const s = S();
+    truthy(`${label}: actief document is nooit modus-aan én verouderd`, !(s.datesAsRecorded && s.scheduleStale));
+    for (const doc of s.documents) {
+      const p = doc.payload;
+      truthy(`${label}: slapend document is nooit modus-aan én verouderd`,
+        !p || !(p.datesAsRecorded && p.scheduleStale));
+    }
+  };
+
+  S().newProject();
+  S().applyLoadedProject(readIFC(externIfc('11')), { filePath: null, recompute: true });
+  geenModusEnStale('11d na laden');
+  S().showRecordedDates();
+  geenModusEnStale('11e in de modus');
+  const aId = idOfWbs('1.1');
+  const aTime = S().tasks.find((t) => t.id === aId)!.time;
+  S().updateTask(aId, { time: { ...aTime, scheduleDuration: 3 } });
+  geenModusEnStale('11f na een bewerking (modus uit, wél verouderd)');
+  S().undo();
+  geenModusEnStale('11g na undo (modus terug aan, niet verouderd)');
+}
+
+// ── (12) "Alles verversen" blijft één undo-stap (review taak 6, B2) ──────────
+// `refreshExternalAnchorsFrom` pusht sinds issue #63 een snapshot. De projectbrede knop lustte daar
+// overheen, dus bij twee gewijzigde bronnen kostte één gebaar twee keer Ctrl+Z. De lus leest nu
+// eerst álle bronnen in en schrijft daarna één keer.
+{
+  S().newProject();
+  const t1 = S().addTask({ name: 'Met link naar bron A' });
+  const t2 = S().addTask({ name: 'Met link naar bron B' });
+  const link = (id: string, filePath: string): ExternalLink => ({
+    id, direction: 'predecessor', relType: 'FS', anchorDate: '2020-01-01',
+    sourceRef: { projectId: '', taskId: 'X', filePath }, sourceMissing: false,
+  });
+  S().updateTask(t1, { externalLinks: [link('l1', '/bron-a.ifc')] });
+  S().updateTask(t2, { externalLinks: [link('l2', '/bron-b.ifc')] });
+
+  // `parseExternalSource` leest een echt bestand via de Tauri-fs; hier vervangen we die ene actie
+  // door een stub, zodat de LUS eromheen (het onderwerp van deze test) headless te meten is.
+  const brontaak = mk('X', { earlyStart: '2026-05-04', earlyFinish: '2026-05-08' });
+  useAppStore.setState({
+    parseExternalSource: async (filePath: string) => ({
+      projectId: `proj${filePath}`, projectName: 'Bron', filePath, tasks: [brontaak],
+    }),
+  });
+
+  const undoVoor = S().undoStack.length;
+  const res = await S().refreshAllExternalAnchors();
+
+  eq('12a beide bronnen zijn ingelezen', res.sources, 2);
+  eq('12b beide links zijn ververst', res.refreshed, 2);
+  eq('12c "Alles verversen" kost precies ÉÉN undo-stap, ongeacht het aantal bronnen',
+    S().undoStack.length, undoVoor + 1);
+  eq('12d de link van bron A draagt het verse anker',
+    S().tasks.find((t) => t.id === t1)!.externalLinks![0].anchorDate, '2026-05-08');
+  eq('12e de link van bron B draagt het verse anker — het ketenen verliest de eerste bron niet',
+    S().tasks.find((t) => t.id === t2)!.externalLinks![0].anchorDate, '2026-05-08');
+
+  // Eén undo draait het hele gebaar terug.
+  S().undo();
+  eq('12f één undo herstelt het anker van bron A',
+    S().tasks.find((t) => t.id === t1)!.externalLinks![0].anchorDate, '2020-01-01');
+  eq('12g één undo herstelt het anker van bron B',
+    S().tasks.find((t) => t.id === t2)!.externalLinks![0].anchorDate, '2020-01-01');
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

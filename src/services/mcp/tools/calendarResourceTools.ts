@@ -1287,7 +1287,11 @@ const manageAssignments: BatchStepTool = {
 // planner_level_resources (spec §level_resources-contract)
 //
 // Volgorde: guards → `ensureFreshSchedule` (WP8-patroon: een stale planning maakt de before/after-
-// delta's onzin; `runCPM` pusht binnen de transactie geen undo-snapshot, dus dit kost geen undo-stap)
+// delta's onzin). Dat kost geen undo-stap, en de reden is NIET "we zitten in een transactie" — deze
+// `ensureFreshSchedule` draait juist BUITEN elke transactie, vóór `runMutateTool`. De reden is die
+// van `save_baseline` hieronder: `runCPM` raakt de undo-stack alleen bij het verlaten van "datums
+// zoals opgeslagen" (issue #63), en modus-aan-én-stale is onbereikbaar (zie staleGuard.ts).
+// Daarop rust ook de belofte "er ontstaat geen ongedaan-maak-stap" in de `dryRun`-beschrijving.
 // → preview → optioneel commit. `dryRun` gaat NIET door een transactie: er valt niets te backuppen
 // of terug te rollen (`levelResources` is een pure preview-berekening op de store).
 // De respons draagt ALTIJD het volledige LevelingResult.
@@ -1380,7 +1384,8 @@ function parseLeveling(args: unknown): { options: LevelingOptions; constrainToFl
 
 /**
  * Synchrone, transactie-vrije kern van `level_resources`. Draait ZELF `ensureFreshSchedule` (nodig
- * voor kloppende before/after-delta\'s; `runCPM` pusht binnen de transactie geen undo-snapshot). Dat overlapt met de
+ * voor kloppende before/after-delta\'s; kost geen undo-stap omdat modus-aan-én-stale onbereikbaar is —
+ * zie de kop van deze tool en staleGuard.ts, NIET omdat er een transactie omheen zou staan). Dat overlapt met de
  * `recomputeMidBatch` die `planner_batch` vóór een levelingstap doet — bewust: de kern moet ook
  * kloppen als de leveling de EERSTE stap van de batch is en de store al stale de batch in ging.
  */
