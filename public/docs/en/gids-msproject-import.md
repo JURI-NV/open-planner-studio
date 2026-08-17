@@ -61,11 +61,16 @@ deliberate:
 
 - Tasks with a **split**, **leveled**, or otherwise **resource-driven** schedule — a notification
   appears for these when opening the file, see below.
-- A small number of isolated, rare edge cases in specific combinations of calendar type, relation
-  kind, or task progress, which aren't (yet) flagged automatically. These have been investigated
-  and documented internally, but in practice rarely affect an ordinary project — at most you'd
-  notice a single task in an unusual situation being off by a day or so from MS Project while the
-  rest of the schedule matches.
+- A small number of specific combinations of relation kind, calendar type, or task progress that
+  aren't (yet) flagged automatically. These have been investigated and documented internally, and
+  in practice rarely affect an ordinary project — across the full test corpus (well over 650
+  files, from Microsoft's own test material to real-world projects) this comes down to a handful
+  of files. Unlike the first category above, **no** notification appears here: you'd only notice
+  such a case by comparing the dates in the table with MS Project itself. Usually it stays limited
+  to one or a few tasks that are off by a noticeable amount; in a rare, unusual file (for example
+  one where a task was updated outside its own scheduling logic) the deviation can also carry
+  forward to the tasks that follow it. If you're unsure about a specific file, check the critical
+  tasks against MS Project after opening it.
 
 The first category in detail: tasks with a **split**, **leveled**, or otherwise
 **resource-driven** schedule (manual leveling, a "leveling delay", or resource contouring/work
@@ -86,6 +91,19 @@ Project (the breaks, the leveling delay, a contour), open the file in MS Project
 information isn't silently lost from the source file when reading it, Open Planner Studio simply
 ignores it when scheduling. Editable task splitting and resource leveling as a feature aren't part
 of this stage; the notification and this guide are where you can look this up.
+
+## Milestones in hour mode: MS Project's own clock-time convention
+
+With an **hour-based calendar** (see above), a milestone linked to a predecessor via a
+finish-to-start relation lands on the **exact finish clock time** of that predecessor — for
+example Tuesday 17:00, if the predecessor finishes then — rather than on the next working moment
+(Wednesday 08:00). That's MS Project's own convention, and Open Planner Studio now follows it
+wherever an hour-based calendar is used for scheduling, not just for a `.mpp` import: a milestone
+in a manually created project with an hour-based calendar behaves the same way since this change.
+An ordinary task (with its own duration) after that same predecessor still starts on the next
+working moment as usual — this convention applies to milestones only. Day mode has no such
+distinction: everything there revolves around whole days, so there's no separate clock time to
+land on.
 
 ## Progress: MS Project's own resumption convention
 

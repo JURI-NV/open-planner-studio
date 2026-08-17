@@ -60,11 +60,16 @@ tot op de minuut bij een urenproject. Er zijn twee categorieën uitzonderingen, 
 
 - Taken met een **onderbroken**, **genivelleerde** of anderszins **resource-gestuurde** planning —
   hierover verschijnt een melding bij het openen, zie hieronder.
-- Een klein aantal losse, zeldzame randgevallen in specifieke combinaties van kalendertype,
-  relatiesoort of taakvoortgang, die (nog) niet automatisch gemeld worden. Die zijn intern
-  onderzocht en gedocumenteerd, maar raken in de praktijk zelden een gewoon project — je merkt ze
-  hoogstens als één taak in een ongebruikelijke situatie een dag of wat afwijkt van MS Project
-  terwijl de rest van de planning wel klopt.
+- Een klein aantal specifieke combinaties van relatiesoort, kalendertype of taakvoortgang die
+  (nog) niet automatisch gemeld worden. Die zijn intern onderzocht en gedocumenteerd, en raken in
+  de praktijk zelden een gewoon project — over het volledige testcorpus (ruim 650 bestanden, van
+  Microsoft se eigen testmateriaal tot praktijkprojecten) gaat het om een handvol bestanden. Anders
+  dan de eerste categorie hierboven verschijnt hier **geen** melding: je merkt zo'n geval alleen
+  door de datums in de tabel te vergelijken met MS Project zelf. Meestal blijft het bij één of
+  enkele taken die een stuk afwijken; in een enkel, ongebruikelijk bestand (bijvoorbeeld met een
+  taak die al buiten de eigen planninglogica om is bijgewerkt) kan de afwijking zich ook doorzetten
+  naar de taken die erna komen. Twijfel je bij een specifiek bestand, controleer dan de kritieke
+  taken tegen MS Project na het openen.
 
 De eerste categorie in detail: een taak met een **onderbroken**, **genivelleerde**
 of anderszins **resource-gestuurde** planning (handmatige nivellering, een "leveling delay", of
@@ -86,6 +91,18 @@ contour), open het bestand dan in MS Project zelf — die informatie gaat bij he
 stilzwijgend verloren uit het bronbestand, Open Planner Studio negeert 'm alleen bij het
 doorrekenen. Taak-splitsen en resource-nivellering als bewerkbare functie staan niet in deze
 etappe; zie de melding en deze gids als de plek waar je dat kunt navragen.
+
+## Mijlpalen in urenmodus: MS Project se eigen kloktijd-conventie
+
+Bij een **urenkalender** (zie hierboven) landt een mijlpaal die via een eind-start-relatie aan een
+voorganger hangt op de **exacte eindklokstand** van die voorganger — bijvoorbeeld dinsdag 17:00, als
+de voorganger dan eindigt — en niet op het eerstvolgende werkmoment (woensdag 08:00). Dat is MS
+Project se eigen conventie, en Open Planner Studio volgt 'm nu overal waar met een urenkalender
+wordt gerekend, niet alleen bij een `.mpp`-import: een mijlpaal in een handmatig aangemaakt project
+met een urenkalender gedraagt zich sindsdien hetzelfde. Een gewone taak (met een eigen duur) ná
+diezelfde voorganger start wél gewoon op het eerstvolgende werkmoment — deze conventie geldt
+uitsluitend voor mijlpalen. In dagmodus bestaat dit onderscheid niet: daar draait alles om hele
+dagen, dus is er geen aparte klokstand om op te landen.
 
 ## Voortgang: MS Project se eigen hervattingsconventie
 
