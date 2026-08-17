@@ -246,8 +246,23 @@ function siblingIdsOf(tasks: Task[], parentId: string | null): string[] {
 /**
  * Voortgang-invarianten (§3.2), toegepast op een task-draft ná elke progress-mutatie:
  * actualFinish ⇒ completion 1 + actualStart + COMPLETED; completion 1 ⇒ actualFinish (default =
- * statusdatum of vandaag); actualStart zonder finish ⇒ STARTED; niets ⇒ NOT_STARTED;
- * remainingTime = round(scheduleDuration × (1 − completion)).
+ * statusdatum, anders de taak se EIGEN geplande finish — MSP-semantiek: afvinken op 100% zonder
+ * expliciete datum maakt de geplande datums de actuals, NOOIT "vandaag"); actualStart zonder
+ * finish ⇒ STARTED; niets ⇒ NOT_STARTED; remainingTime = round(scheduleDuration × (1 − completion)).
+ *
+ * H1 (Opus-review T15-iteratie-2, app-brede regressie): vóór deze fix viel de `completion===1`-tak
+ * zónder statusdatum terug op `formatDate(new Date())` ("vandaag"). Zolang `CPMSolver`'s VOLTOOID-
+ * branch zelf ook een statusdatum vereiste was dat onschadelijk (de solver negeerde `actualFinish`
+ * toch); sinds T15 (c2, `7a40a5ab`) is die branch UNCONDITIONEEL — een taak zonder statusdatum die
+ * de gebruiker op 100% zet, teleporteerde daardoor letterlijk naar de dag van vandaag (en sleepte
+ * haar opvolgers mee via de gewone FS-relatiewiskunde). De juiste terugval is de taak se EIGEN,
+ * al-berekende finish (`earlyFinish` — bij een verse taak byte-identiek aan `scheduleFinish`, ná een
+ * `runCPM` de laatst getoonde Gantt-datum): dat is precies wat MS Project zelf doet ("Mark on Track"/
+ * 100%-invullen zonder statusdatum kopieert de GEPLANDE datums naar de actuals, nooit de kalenderdag
+ * van vandaag). Zie `check-task-slice.ts`'s `prog-h1-geen-teleport-naar-vandaag`-case voor het
+ * mutatiebewijs (terugzetten naar `formatDate(new Date())` laat die case rood uitslaan — behalve
+ * toevallig op de dag dat de test draait, vandaar dat de case een DATUM VER IN HET VERLEDEN gebruikt
+ * die nooit met "vandaag" kan samenvallen).
  */
 export function applyProgressInvariants(task: Task, statusDate: string | undefined): void {
   const time = task.time;
@@ -256,7 +271,7 @@ export function applyProgressInvariants(task: Task, statusDate: string | undefin
     if (!time.actualStart) time.actualStart = time.actualFinish;
     task.status = 'COMPLETED';
   } else if (time.completion >= 1) {
-    time.actualFinish = statusDate || formatDate(new Date());
+    time.actualFinish = statusDate || time.earlyFinish || time.scheduleFinish;
     if (!time.actualStart) time.actualStart = time.actualFinish;
     task.status = 'COMPLETED';
   } else if (time.actualStart) {
@@ -1110,8 +1125,12 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // Voortgang teruggedraaid onder 100% ⇒ een verouderd actualFinish laten vallen.
       if (completion < 1) task.time.actualFinish = undefined;
       applyProgressInvariants(task, s.project.statusDate);
-      // alleen datum-beïnvloedend mét statusdatum.
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2): ALTIJD stale — sinds `applyProgressInvariants`'s
+      // completion===1-tak niet meer op een statusdatum leunt (die pint nu altijd op actuals/eigen
+      // finish, zie de toelichting daar) én de IN-PROGRESS-tak in CPMSolver (M1) evenmin, is elke
+      // voortgangsmutatie datum-beïnvloedend, met of zonder statusdatum. Het oude commentaar
+      // ("alleen datum-beïnvloedend mét statusdatum") was juist tot vóór die fixes.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
   },
@@ -1127,7 +1146,8 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualStart = date || undefined;
       applyProgressInvariants(task, s.project.statusDate);
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2) — zie de toelichting bij `setTaskProgress` hierboven.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
     return accepted;
@@ -1145,7 +1165,8 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // de invariant meteen een nieuw actualFinish en is wissen onmogelijk).
       if (!date && task.time.completion >= 1) task.time.completion = 0;
       applyProgressInvariants(task, s.project.statusDate);
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2) — zie de toelichting bij `setTaskProgress` hierboven.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
     return accepted;
