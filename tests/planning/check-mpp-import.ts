@@ -4978,6 +4978,74 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
       !windowsSame.has('task-v'),
     );
   }
+
+  // ── Z19-L — LAAG 4, HOLIDAY-ONLY verschil op completion===0 (dossier: `timephased-budget*.mpp` +
+  // `mpp14timephased2.mpp`'s "Planned task with resource holiday") ───────────────────────────────
+  // Vóór deze fixronde gebruikte de completion===0-tak `calendarBandsDiffer` (bands-only): een
+  // resourcekalender met IDENTIEKE weekbanden maar een EXTRA `holidays`-entry (geen bandverschil,
+  // dus `calendarBandsDiffer` === false) activeerde laag 4 dus NIET, ook al droeg de toewijzing een
+  // vlak, single-resource 100%-werkrecord (`z8FlatBlock`) — precies de corpusvorm die de
+  // `timephased-budget*.mpp`-familie bleek te zijn (zie mppReader.ts's `calendarDiffersIncludingExceptions`-
+  // docblok voor de volledige hermeting). Deze fixture reproduceert dat corpusgeval corpusloos: een
+  // resourcekalender met dezelfde banden als `Z4_CALENDAR` maar één extra holiday.
+  {
+    const holidayCal: WorkCalendar = {
+      ...Z4_CALENDAR, id: 'z8-holiday-cal',
+      holidays: [{ name: 'Test Holiday', startDate: '2026-01-06', endDate: '2026-01-06' }],
+    };
+    // Bands-only-vergelijk moet hier triviaal GELIJK zijn (mutatiebewijs-voorwaarde) — anders bewijst
+    // deze fixture niets over de holiday-tak specifiek.
+    truthy(
+      '[Z19-L voorwaarde] holidayCal se banden zijn STRUCTUREEL GELIJK aan Z4_CALENDAR (fixture test alleen de holiday-tak)',
+      JSON.stringify(holidayCal.workTime?.byWeekday) === JSON.stringify(Z4_CALENDAR.workTime?.byWeekday),
+    );
+    const calResultWithHoliday: CalendarReadResult = { ...Z4_CAL_RESULT, resourceCalendars: [holidayCal] };
+    const holidayResource: Resource = { id: 'r-holiday', name: 'Holiday Resource', calendarId: 'z8-holiday-cal' } as Resource;
+
+    const metaBytesH = z8MetaBytes([{ deleted: false, offset: 0 }]);
+    const dataBytesH = z8DataRecord(60, 306, 7, MONDAY_0800, undefined);
+    const varMetaBytesH = buildVarMetaBytes([{ uniqueId: 60, type: AssignmentFieldId.RemainingRegularWork, offset: 0 }]);
+    const flatPayloadH = z8FlatBlock(480);
+    const var2DataBytesH = buildVar2DataBytes([{ offset: 0, payload: flatPayloadH }], 4 + flatPayloadH.length);
+    const cfbH = new CfbFile(buildNestedCfb({
+      '   114': {
+        children: {
+          TBkndAssn: {
+            children: {
+              FixedMeta: { data: metaBytesH }, FixedData: { data: dataBytesH },
+              VarMeta: { data: varMetaBytesH }, Var2Data: { data: var2DataBytesH },
+            },
+          },
+        },
+      },
+    }));
+    const taskHoliday = z4MakeTask('task-holiday', MONDAY_0800); // completion 0 (default createDefaultTaskTime)
+    const windowsHoliday = deriveTimephasedWindowsForTasks(
+      cfbH, asgFieldMap, new Map([[306, 'task-holiday']]), [taskHoliday], calResultWithHoliday,
+      new Map([[7, 'r-holiday']]), [holidayResource],
+    );
+    truthy(
+      '[Z19-L laag 4, holiday-only] task-holiday AANWEZIG (completion===0, bands gelijk, alleen holidays wijken af)',
+      windowsHoliday.has('task-holiday'),
+    );
+    truthy(
+      '[Z19-L laag 4, holiday-only] task-holiday draagt precies 1 durationWalks-item met de holiday-kalender-id',
+      windowsHoliday.get('task-holiday')?.durationWalks.length === 1
+      && windowsHoliday.get('task-holiday')?.durationWalks[0]?.resourceCalendarId === 'z8-holiday-cal',
+    );
+
+    // Mutatiebewijs (regel eruit → rood): de OUDE completion===0-poort (`calendarBandsDiffer`,
+    // bands-only) zou op DEZELFDE fixture NIET activeren — bands zijn identiek, alleen `holidays`
+    // wijkt af. Reproduceer die oude regel hier lokaal (geen productiecode gemuteerd, spiegelt het
+    // bestaande mutatiebewijs-patroon in dit bestand): JSON-vergelijk van uitsluitend `workTime.
+    // byWeekday`, exact wat `calendarBandsDiffer` in mppReader.ts doet.
+    const oldBandsOnlyWouldActivate =
+      JSON.stringify(holidayCal.workTime?.byWeekday) !== JSON.stringify(Z4_CALENDAR.workTime?.byWeekday);
+    truthy(
+      '[Z19-L mutatiebewijs] de OUDE bands-only-poort zou HIER niet geactiveerd hebben (bewijst dat de holiday-uitbreiding de doorslag geeft, niet de bands)',
+      oldBandsOnlyWouldActivate === false,
+    );
+  }
 }
 
 // ── `deriveSplitGapsForTasks` — de volledige Z4-fixronde-ketting (punten 1, 2, 3, 4), rechtstreeks

@@ -40,10 +40,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "08f0bdf693d813bd": {
       "root": "crawl",
@@ -261,10 +260,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "1c7871038e3c71e0": {
       "root": "crawl",
@@ -846,10 +844,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "607c9d04f29a1681": {
       "root": "crawl",
@@ -1517,10 +1514,9 @@
       "startExact": 9,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 8,
+      "finishExact": 9,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Planned task with resource holiday' (completion 0%) regresseert: haar resourcekalender wijkt UITSLUITEND af via een holiday-uitzondering, niet via de weekbanden. Voor completion===0 gebruikt de laag-4-poort bewust `calendarBandsDiffer` (bands-only, NIET calendarDiffersIncludingExceptions) — een corpusproef tijdens de vorige fixronde liet zien dat uitzonderingen mee laten tellen op de completion===0-populatie valse activering geeft op elders al-exacte taken (mpp14timephasedsegmentsmanual.mpp's 'Task Seven'/'Task Eight', zie calendarDiffersIncludingExceptions se docblok in mppReader.ts). Deze taak valt dus terecht buiten de huidige poort — een holiday-bewuste 0%-poort is een aparte ontwerpvraag (afweging opnieuw maken), geen vergeten regel. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "9e8eb3f00269bdb1": {
       "root": "crawl",
@@ -1782,10 +1778,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "b939cef759f68056": {
       "root": "crawl",
@@ -2092,10 +2087,9 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 1,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "d62998a5e3502fbd": {
       "root": "crawl",

@@ -1770,15 +1770,21 @@ export function deriveTimephasedContoursForTasks(
 //      `START` rechtstreeks gelezen (GEEN kalenderwandeling — corpusbewijs: 0 afwijkingen op de
 //      genuine-contour-taken, zie de Z8-herwerkronde-rapportage voor de volledige meting).
 //   4. Vlak (geen echte periode) MAAR de toewijzing draagt een NIET-STANDAARD resourcekalender
-//      (structureel verschillende banden dan de taak se eigen effectieve kalender — corpusbewijs:
-//      de "Night Shift"/"24 Hours"-families, en `mpp14resource.mpp`'s "Task A", waar één van de
-//      drie toewijzingen een sterk afwijkende kalender draagt) ⇒ `timephasedDurationWalks`: GEEN
-//      gelezen antwoord, een VERSE herberekening — `CPMSolver.ts` wandelt `task.time.
+//      (structureel verschillende banden DAN of GEMATERIALISEERDE uitzonderingen anders dan de
+//      taak se eigen effectieve kalender, zie `calendarDiffersIncludingExceptions` — Z19-L: sinds
+//      deze fixronde UNIFORM voor elke completion-staat, was vóór deze fixronde voor completion===0
+//      bands-only — corpusbewijs: de "Night Shift"/"24 Hours"-families, `mpp14resource.mpp`'s
+//      "Task A" (bandverschil), en sinds Z19-L ook `mpp14timephased2.mpp`'s "Planned task with
+//      resource holiday" + de volledige `timephased-budget*.mpp`-familie (5 bestanden, allemaal
+//      een HOLIDAY-only verschil op een single-resource 100%-toewijzing) ⇒ `timephasedDurationWalks`:
+//      GEEN gelezen antwoord, een VERSE herberekening — `CPMSolver.ts` wandelt `task.time.
 //      durationMinutes` (edit-live) door de toewijzings-eigen resourcekalender (nu promoveerbaar,
 //      zie `subdayIo.ts`'s (b2)-instrumentfix) en neemt het MAXIMUM over de toewijzingen. Geen
 //      invalidatie nodig: een duur-edit stroomt vanzelf mee, want de wandeling gebeurt bij ELKE
 //      `runCPM` opnieuw. Corpusbewijs: 9/9 (mpp14timephased2.mpp), 20/20 (mpp14timephasedsegments
-//      .mpp), en de volledige 0%-populatie van mpp14timephased.mpp.
+//      .mpp), en de volledige 0%-populatie van mpp14timephased.mpp (de Task 6-familie, completion
+//      60%, blijft BUITEN dit punt — hun resourcekalender is geverifieerd IDENTIEK aan de
+//      projectkalender, zie het Z19-L-dossier voor die familie).
 //   5. Anders ⇒ geen van beide velden gezet, de gewone duurberekening blijft ongewijzigd.
 // Lagen 3 en 4 zijn MUTUEEL EXCLUSIEF per taak (nooit beide gezet) — lagen 1/2 sluiten een taak
 // hier VOLLEDIG uit (geen enkel Z8-veld gezet), dus `CPMSolver.ts`'s VOLTOOID-/IN-PROGRESS-takken
@@ -1820,12 +1826,26 @@ function calendarBandsDiffer(a: WorkCalendar, b: WorkCalendar): boolean {
  *  `workingExceptions`): een resource kan dezelfde weekbanden hebben als de taakkalender maar een
  *  extra vrije dag ("resource holiday") — een even echte afwijking als een andere weekband
  *  (corpusbevinding: mpp14timephased2.mpp, "Partially complete task with resource holiday",
- *  completion 10%). BEWUST ALLEEN gebruikt voor de completion>0-populatie (lagen 1/2, de "laag
- *  1/2-gat"-sluiting) — voor completion===0 blijft de poort bands-only (`calendarBandsDiffer`):
- *  een corpusproef liet zien dat uitzonderingen daar valse activering geven op taken die zonder
- *  laag 4 al exact waren (mpp14timephasedsegmentsmanual.mpp, "Task Seven"/"Task Eight"), omdat de
- *  wandelformule voor dát bestand een systematisch 1-uur-precisieverschil met MSP's segment-antwoord
- *  heeft — de gelezen terugval was daar al exact en mag niet verdrongen worden. */
+ *  completion 10%; en de Z19-L-budget-dossierfamilie hieronder, allemaal completion 0%).
+ *
+ *  Z19-L HERMETING (2026-08-18) — de eerdere completion===0-uitsluiting hier is VERVALLEN. Vóór
+ *  deze fixronde gebruikte de aanroeper voor completion===0 bewust `calendarBandsDiffer` (bands-
+ *  only), met als reden een corpusproef uit een eerdere fixronde: uitzonderingen meetellen zou op
+ *  `mpp14timephasedsegmentsmanual.mpp`'s "Task Seven"/"Task Eight" een valse activering geven
+ *  (hun wandelformule had toen een systematisch 1-uur-precisieverschil met MSP's segment-antwoord).
+ *  HERGEMETEN voor deze etappe (blast-radius over de volledige 216-bestand-baseline +
+ *  658-bestand-crawl, `OPS_MPP_FIDELITY_REPORT=baseline`): met deze functie UNIFORM voor beide
+ *  completion-staten blijven "Task Seven"/"Task Eight" BEIDE byte-voor-byte ongewijzigd (exact/
+ *  sameday/diff-tellingen identiek aan vóór de wijziging — geen nieuwe activering, want hun
+ *  resourcekalender-vergelijking valt nu net zo uit als toen), terwijl 6 bestanden die eerder
+ *  vlak (`layer 5`) bleven — de 5 `timephased-budget*.mpp`-bestanden (single-resource, 100%-
+ *  toewijzing, completion 0%, resourcekalender wijkt UITSLUITEND via een holiday-uitzondering af)
+ *  en `mpp14timephased2.mpp`'s "Planned task with resource holiday" — naar 0/0 gaan. Nul
+ *  regressies over de volledige scan (`nieuw/onverwacht afwijkend: []`). De eerdere
+ *  "Task Seven"-uitsluiting bleek dus GEEN blijvende eigenschap van deze vergelijkingsfunctie zelf
+ *  — vermoedelijk loste een latere, onafhankelijke fixronde (Z9a/Z13/Z14b) het toenmalige
+ *  wandelformule-precisieprobleem al op. `calendarBandsDiffer` blijft als losse, kleinere
+ *  bouwsteen bestaan (intern hergebruikt hieronder) — geen dode code. */
 function calendarDiffersIncludingExceptions(a: WorkCalendar, b: WorkCalendar): boolean {
   if (calendarBandsDiffer(a, b)) return true;
   if (!a.workTime || !b.workTime) return false;
@@ -1920,11 +1940,11 @@ export function deriveTimephasedWindowsForTasks(
       : null;
     if (!resCal) continue;
     const taskCal = taskCalendar(task, calResult);
-    // completion===0: bands-only poort (bewezen, byte-stabiel gedrag). completion>0: ook
-    // uitzonderingen tellen mee (laag 1/2-gat) — zie `calendarDiffersIncludingExceptions`-docblok.
-    const activates = completion > 0
-      ? calendarDiffersIncludingExceptions(resCal, taskCal)
-      : calendarBandsDiffer(resCal, taskCal);
+    // Z19-L (2026-08-18): UNIFORM voor elke completion-staat — bands ÉN gematerialiseerde
+    // uitzonderingen (holidays/workingExceptions) tellen mee. Zie `calendarDiffersIncludingExceptions`'s
+    // eigen docblok voor de hermeting die de vroegere completion===0-bands-only-uitsluiting hier
+    // heeft opgeheven (blast-radius: 6 bestanden naar 0/0, 0 regressies).
+    const activates = calendarDiffersIncludingExceptions(resCal, taskCal);
     if (activates) layer4ActivatedTasks.add(link.taskId);
     const walkList = durationWalksByTask.get(link.taskId) ?? [];
     walkList.push({ anchor: link.assignmentStart, resourceCalendarId: resCal.id });
