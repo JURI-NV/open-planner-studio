@@ -1592,8 +1592,8 @@
     },
     {
       "id": "z13-root-anchor-band-eind-rauw",
-      "title": "Z13 (dossier 'rauw anker zonder constraint', corpusbewijs `mpxj/junit/data/timephased-prorated-cost-resource.mpp` taak 'No Progress - Actual Cost'): een WORTEL-taak (geen voorganger, geen constraint, niet handmatig) wier eigen `scheduleStart` EXACT op een band-EIND ligt (ma 16:00 op een 08:00-16:00-band) behoudt dat rauwe instant als `es` — MSP snapt zo'n gedegenereerd anker NIET naar de eerstvolgende werkbandstart (`ownAnchor`s nieuwe `isExactBandEnd`-vrijstelling). De DUUR-optelling (`addDurationChecked`) rekent daarbij vanaf de EERSTE band van diezelfde kalenderdag (08:00) i.p.v. vanaf het band-eind zelf, anders verliest de eigen kalenderdag van het anker een volledige werkdag in `addWorkMinutes`s minuut-lus — zie de tweelingcase 'z13-root-anchor-band-begin-controle' hieronder: BEIDE taken (band-eind- resp. band-begin-anker, identieke duur) landen op dezelfde `ef`, precies zoals de twee corpustaken 'No Progress - Actual Cost'/'No Progress - No Actual Cost' dat ook doen.",
-      "note": "Mutatiebewijs 1 (regel terug): `isExactBandEnd`-kortsluiting in `ownAnchor` verwijderen (CPMSolver.ts) → Z.es verwacht ma 2026-07-06T16:00, wordt di 2026-07-07T08:00 (het rauwe anker gesnapt naar de volgende werkbandstart) — deze case ROOD, en het echte corpusbestand (hash 552a5519b49ae682) valt terug naar 1 start-afwijking. Mutatiebewijs 2 (dag-eerste-band-wacht terug): `totalMinutes > 0 && this.isExactBandEnd(...)`-guard in `addDurationChecked` verwijderen (laat `walkStart` altijd `start` blijven) → Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 (één werkdag te laat) — deze case ROOD, corpusbestand valt terug naar 1 finish-afwijking.",
+      "title": "Z13 (dossier 'rauw anker zonder constraint', corpusbewijs `mpxj/junit/data/timephased-prorated-cost-resource.mpp` taak 'No Progress - Actual Cost'): een WORTEL-taak (geen voorganger, geen constraint, niet handmatig) wier eigen `scheduleStart` EXACT op het LAATSTE band-eind van zijn kalenderdag ligt (ma 16:00 op een 08:00-16:00-band) behoudt dat rauwe instant als `es` — MSP snapt zo'n gedegenereerd anker NIET naar de eerstvolgende werkbandstart (`ownAnchor`s nieuwe `isExactBandEnd`-vrijstelling). De DUUR-optelling (`addDurationChecked`) rekent daarbij vanaf de EERSTE band van diezelfde kalenderdag (08:00) i.p.v. vanaf het band-eind zelf, anders verliest de eigen kalenderdag van het anker een volledige werkdag in `addWorkMinutes`s minuut-lus.",
+      "note": "Mutatiebewijs 1 (gemeten, reviewer-fixronde): `isExactBandEnd`-kortsluiting in `ownAnchor` verwijderen (CPMSolver.ts) → Z.es verwacht ma 2026-07-06T16:00, wordt di 2026-07-07T08:00 (het rauwe anker gesnapt naar de volgende werkbandstart), Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 (de gesnapte, dus niet meer band-eind-zijnde `es` triggert ook `addDurationChecked`s eigen band-eind-wacht niet meer) — DEZE case, 'z13-root-anchor-band-eind-timephased-override-genegeerd' ÉN 'z13-root-anchor-band-eind-speling' (alle drie delen dezelfde band-eind-anchor via `ownAnchor`) ROOD (gemeten: `advanced-cpm 68/71`), en het echte corpusbestand (hash 552a5519b49ae682) valt terug naar 1 start- + 1 finish-afwijking (de oorspronkelijke dossierstand — de laag-3-negatie zelf blijft correct werken, maar levert dan geen bruikbaar alternatief meer omdat `ownAnchor` niet langer het rauwe anker teruggeeft). Mutatiebewijs 2 (dag-eerste-band-wacht terug): `totalMinutes > 0 && this.isExactBandEnd(...)`-guard in `addDurationChecked` verwijderen (laat `walkStart` altijd `start` blijven) → Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 (één werkdag te laat) — dezelfde drie cases ROOD (`addDurationChecked` is de gedeelde EF-berekening), corpusbestand valt terug naar 1 finish-afwijking.",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
       "anchor": "2026-07-06",
       "tasks": [
@@ -1609,32 +1609,70 @@
       }
     },
     {
-      "id": "z13-root-anchor-band-begin-controle",
-      "title": "Z13-controle (tweelingcase van 'z13-root-anchor-band-eind-rauw', BLAST-RADIUS-BEWIJS): dezelfde kalender/duur, maar Z start op de band-BEGIN (08:00) i.p.v. het band-eind — de normale, veruit meest voorkomende situatie. `isExactBandEnd` moet hier `false` leveren, dus `ownAnchor`/`addDurationChecked` blijven byte-identiek aan vóór Z13. Bewijst de gemeten corpus-blast-radius (precies 1 taak in 216 bestanden): een normaal band-begin-anker verandert NIET van gedrag, en landt — zoals de corpus-tweelingtaken — op dezelfde `ef` als het band-eind-geval hierboven.",
-      "note": "Mutatiebewijs: dit is de bestaande (`isExactBandEnd`-ONgevoelige) tak — een regressie die `isExactBandEnd` per ongeluk óók op een band-begin-instant laat vuren (bv. de `!eng.isWorkInstant(d)`-voorwaarde eruit halen) maakt deze case ROOD (Z.es zou dan blijven staan i.p.v. — hier toevallig gelijk — maar de `walkStart`-aanpassing zou een AL-geldig anker verplaatsen als de instant-conditie ooit los raakt van 'niet-werk-instant'; primair dient deze case als ongewijzigd-gedrag-anker naast de band-eind-case).",
+      "id": "z13-root-anchor-band-interieur-controle",
+      "title": "Z13-controle (fixronde ná Opus-afkeuring 6f4c903f, punt B2 — was 'band-begin-controle' op 08:00, EXACT band-begin, en bleek NIET discriminerend): dezelfde kalender/duur als 'z13-root-anchor-band-eind-rauw', maar Z start op een band-INTERIEUR instant (10:00, midden op de dag) i.p.v. het band-eind — de normale, veruit meest voorkomende situatie. `isExactBandEnd` moet hier `false` leveren, dus `ownAnchor`/`addDurationChecked` blijven byte-identiek aan vóór Z13: de duur-optelling loopt gewoon vanaf 10:00 zelf, GEEN dag-eerste-band-krediet.",
+      "note": "Mutatiebewijs (gemeten, reviewer-fixronde — de vorige versie van deze case, start 08:00 EXACT band-begin, ving de bedoelde mutatie NIET: op de (start,end]-conventie valt een exact band-begin altijd terug op het VORIGE band-eind, dus een lek in `isExactBandEnd` dat alleen normale werk-instanten raakt vuurt daar nooit op — 10:00, midden op de dag, wél): `isExactBandEnd`s slotregel (`return d.getTime() === lastBandEndMs`) vervangen door `return true` (elk hour-mode-instant met ≥1 band die dag telt dan als 'band-eind') → Z.ef verwacht 2026-07-09T10:00, wordt 2026-07-08T16:00 (te vroeg — `addDurationChecked` verlegt `walkStart` dan ten onrechte naar 08:00, dag-eerste-band-krediet terwijl er niets te crediteren valt) — deze case (en 'z13-root-anchor-tussen-band-eind-controle' hieronder, zelfde mutatie) ROOD; geïsoleerd geverifieerd tegen alleen de vijf `z13-*`-cases: 3/5 groen, precies deze twee rood.",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
       "anchor": "2026-07-06",
       "tasks": [
-        { "name": "Z", "start": "2026-07-06T08:00", "dur": "24u" }
+        { "name": "Z", "start": "2026-07-06T10:00", "dur": "24u" }
       ],
       "links": [],
       "expect": {
         "tasks": {
-          "Z": { "es": "2026-07-06T08:00", "ef": "2026-07-08T16:00", "tf": 0, "crit": true }
+          "Z": { "es": "2026-07-06T10:00", "ef": "2026-07-09T10:00", "tf": 0, "crit": true }
         },
-        "projectEnd": "2026-07-08T16:00",
+        "projectEnd": "2026-07-09T10:00",
+        "error": false
+      }
+    },
+    {
+      "id": "z13-root-anchor-tussen-band-eind-controle",
+      "title": "Z13-controle (fixronde ná Opus-afkeuring 6f4c903f, punt B4 — de blast-radius-versmalling naar het LAATSTE band-eind van de dag): een wortel-taak op een 08:00-12:00/13:00-17:00-kalender (lunchpauze) met een anker EXACT op het TUSSEN-band-eind (12:00, het einde van de OCHTEND-band) — niet het laatste band-eind van de dag (dat is 17:00). `isExactBandEnd` moet hier `false` leveren (corpusincidentie op een tussen-band-eind: 0), dus dit blijft het BESTAANDE, ongewijzigde snap-gedrag: 12:00 snapt door naar de eerstvolgende bandstart (13:00, dezelfde dag).",
+      "note": "Mutatiebewijs (gemeten, reviewer-fixronde): `isExactBandEnd`s slotregel vervangen door `return true` (dezelfde mutatie als 'z13-root-anchor-band-interieur-controle' hierboven — beide cases toetsen dezelfde slotvergelijking, elk vanuit een andere hoek) → Z.es verwacht 2026-07-06T13:00, wordt 2026-07-06T12:00 (het tussen-band-eind blijft dan ten onrechte rauw), Z.ef verwacht 2026-07-07T12:00, wordt 2026-07-06T17:00 — deze case ROOD; geïsoleerd geverifieerd tegen alleen de vijf `z13-*`-cases: 3/5 groen, precies deze en de band-interieur-case rood.",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "2": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "3": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "4": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "5": [{ "start": 480, "end": 720 }, { "start": 780, "end": 1020 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "Z", "start": "2026-07-06T12:00", "dur": "8u" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "Z": { "es": "2026-07-06T13:00", "ef": "2026-07-07T12:00", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-07T12:00",
+        "error": false
+      }
+    },
+    {
+      "id": "z13-root-anchor-band-eind-speling",
+      "title": "Z13-float-spiegel (fixronde ná Opus-afkeuring 6f4c903f, punt B3): dezelfde band-eind-wortel-taak Z als 'z13-root-anchor-band-eind-rauw', maar nu NAAST een langere, ONGERELATEERDE taak LONG (Maandag 08:00, 5 werkdagen) die het projecteinde — en dus Z's `lateFinish` — 2 werkdagen ná Z's eigen `ef` duwt. `subDuration`s band-eind-spiegel moet die speling CALENDAR-bewust doorgeven: `lf-ef` (2 werkdagen: do+vr) moet gelijk zijn aan `ls-es` (2 werkdagen: di+wo), niet — zoals vóór de B3-fix — één werkdag te weinig.",
+      "note": "Mutatiebewijs: de algemene `dayFirstBandStart(natural)===natural`-toets in `subDuration` vervangen door de oude, alleen-nul-speling-toets (`dayFirstBandStart(rawOwn)===natural`) → Z.ls verwacht 2026-07-08T16:00, wordt 2026-07-08T08:00 (LS 8 uur te vroeg — de mirror-tak vuurt dan niet en `subtractWorkMinutes` levert het KALE resultaat, `natural` ongewijzigd terug), dus `tf` verwacht 2, wordt 2 dagen min 8 uur — deze case ROOD.",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "Z", "start": "2026-07-06T16:00", "dur": "24u" },
+        { "name": "LONG", "start": "2026-07-06T08:00", "dur": "40u" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "Z": { "es": "2026-07-06T16:00", "ef": "2026-07-08T16:00", "ls": "2026-07-08T16:00", "lf": "2026-07-10T16:00", "tf": 2, "crit": false },
+          "LONG": { "es": "2026-07-06T08:00", "ef": "2026-07-10T16:00", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-10T16:00",
         "error": false
       }
     },
     {
       "id": "z13-root-anchor-band-eind-timephased-override-genegeerd",
-      "title": "Z13 (FINISH-tegenhanger van het corpusgeval): dezelfde band-eind-wortel-taak als 'z13-root-anchor-band-eind-rauw', maar nu MET `timephasedStartAnchor`/`timephasedFinishFloor` gezet op EXACT de waarden die een NAÏEVE (vóór-Z13) mechanische her-snap van hetzelfde rauwe anker zou opleveren (`timephasedStartAnchor`=di 2026-07-07T08:00 = `snapOnOrAfter` van Z's eigen band-eind-anker; `timephasedFinishFloor`=do 2026-07-09T16:00 = de NAÏEVE duur-optelling vanaf dát gesnapte anker) — precies het patroon dat het echte corpusbestand liet zien: een MATERIAL-toewijzing se `AssignmentField.START`/`FINISH` bleek zelf een mechanische afgeleide van het taak-eigen rauwe anker, geen onafhankelijk gelezen antwoord. `timephasedAnchorIsDegenerateResnap`/`timephasedFinishFloorIsDegenerateResnap` (CPMSolver.ts) herkennen dat en NEGEREN de laag-3-velden in dat ene geval — Z landt dus op DEZELFDE `es`/`ef` als 'z13-root-anchor-band-eind-rauw', niet op de (foutieve) laag-3-waarden.",
-      "note": "Mutatiebewijs: `timephasedAnchorIsDegenerateResnap`/`timephasedFinishFloorIsDegenerateResnap` op `false` vastzetten (of de `timephasedAnchor`/`tf`-toewijzingen die ze gaten NIET conditioneel maken) → Z.es verwacht 2026-07-06T16:00, wordt 2026-07-07T08:00; Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 — deze case ROOD, en het echte corpusbestand valt terug naar 1 start- + 1 finish-afwijking (de oorspronkelijke dossierstand).",
+      "title": "Z13 (FINISH-tegenhanger van het corpusgeval; fixronde ná Opus-afkeuring 6f4c903f, punt B1 — de discriminator is versimpeld naar een INVOER-conditie): dezelfde band-eind-wortel-taak als 'z13-root-anchor-band-eind-rauw', maar nu MET `timephasedStartAnchor`/`timephasedFinishFloor` gezet op WILLEKEURIGE waarden (niet gerelateerd aan enige her-snap van Z's eigen anker) — de regel is: een wortel-taak met een gedegenereerd band-eind-anker negeert laag 3 ALTIJD, ongeacht wat laag 3 concreet draagt (de vorige versie discrimineerde op een bytegelijkheid met onze eigen vóór-Z13-berekening — gemeten overbodig, geschrapt; zie CPMSolver.ts). Z landt dus op DEZELFDE `es`/`ef` als 'z13-root-anchor-band-eind-rauw', niet op de laag-3-waarden.",
+      "note": "Mutatiebewijs: `timephasedAnchorIsDegenerateResnap`/`timephasedFinishFloorIsDegenerateResnap` op `false` vastzetten (of de `timephasedAnchor`/`tf`-toewijzingen die ze gaten NIET conditioneel maken) → Z.es verwacht 2026-07-06T16:00, wordt 2026-07-10T09:00; Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-11T09:00 — DEZE case (als enige — de overige `z13-*`-cases dragen geen `timephasedStartAnchor`/`timephasedFinishFloor`, dus die mutatie raakt ze niet) ROOD, en het echte corpusbestand valt terug naar 1 start- + 1 finish-afwijking (de oorspronkelijke dossierstand).",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
       "anchor": "2026-07-06",
       "tasks": [
         { "name": "Z", "start": "2026-07-06T16:00", "dur": "24u",
-          "timephasedStartAnchor": "2026-07-07T08:00", "timephasedFinishFloor": "2026-07-09T16:00" }
+          "timephasedStartAnchor": "2026-07-10T09:00", "timephasedFinishFloor": "2026-07-11T09:00" }
       ],
       "links": [],
       "expect": {
