@@ -3069,6 +3069,63 @@ if (corpusPresent) {
   }
 }
 
+// ── Z19-L (reviewronde, P5) — `sourceScheduleNotes` GEPIND op de twee `mpp14timephasedsegments*`-
+// crawlbestanden waar de laag-4-holiday-verbreding hierboven (`calendarDiffersIncludingExceptions`
+// uniform voor elke completion-staat) een NIEUWE activering geeft ("Task Seven"/"Task Eight",
+// beide bestanden) — vóór deze taak was dat onbewaakt: een volgende poortwijziging kon de
+// meldingstelling stil laten verschuiven zonder dat een test het opmerkt. Waarden gemeten via een
+// vóór/ná-census (`OPS_MPP_FIDELITY_REPORT`-onafhankelijk, rechtstreeks op `readMPP`s
+// `sourceScheduleNotes.total`): segments 9→11, segmentsmanual 10→12 — beide ONVERANDERD in
+// `mpp-fidelity-baseline.json` (0/0, geen `reason`), want de nieuwe activering is bij de
+// OPGESLAGEN duur bewezen byte-identiek (zie `calendarDiffersIncludingExceptions`'s eigen docblok
+// in mppReader.ts voor de volledige "waarom toch geen regressie"-toelichting). ─────────────────
+{
+  const SEGMENTS_FIXTURES: readonly [envVar: string, defaultPath: string, expectedTotal: number][] = [
+    [
+      'OPS_MPP_SEGMENTS_FIXTURE',
+      '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14timephasedsegments.mpp',
+      11,
+    ],
+    [
+      'OPS_MPP_SEGMENTSMANUAL_FIXTURE',
+      '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14timephasedsegmentsmanual.mpp',
+      12,
+    ],
+  ];
+  for (const [envVar, defaultPath, expectedTotal] of SEGMENTS_FIXTURES) {
+    const path = process.env[envVar] ?? defaultPath;
+    const label = path.split('/').pop();
+    if (!existsSync(path)) {
+      console.log(`OK  mpp-import: Z19-L segments-leescase (${label}) niet aanwezig — overgeslagen`);
+      continue;
+    }
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(new Uint8Array(readFileSync(path)));
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[Z19-L ${label}] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy(
+        `[Z19-L ${label}] sourceScheduleNotes.total === ${expectedTotal} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === expectedTotal,
+      );
+      const seven = result.tasks.find((t) => t.name === 'Task Seven');
+      const eight = result.tasks.find((t) => t.name === 'Task Eight');
+      truthy(
+        `[Z19-L ${label}] "Task Seven" draagt timephasedDurationWalks (laag 4, holiday-only-activering)`,
+        !!seven?.timephasedDurationWalks && seven.timephasedDurationWalks.length === 1,
+      );
+      truthy(
+        `[Z19-L ${label}] "Task Eight" draagt timephasedDurationWalks (laag 4, holiday-only-activering op de EIGEN taakkalender-override)`,
+        !!eight?.timephasedDurationWalks && eight.timephasedDurationWalks.length === 1,
+      );
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Z2 (etappe "nul afwijkingen") — Fixed2-infrastructuur in de lezer: block-1-veldmapentries
 // (Start 1283/offset 50, Finish 1284/offset 54, ManualDuration 1288/offset 58,
@@ -5034,16 +5091,31 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
       && windowsHoliday.get('task-holiday')?.durationWalks[0]?.resourceCalendarId === 'z8-holiday-cal',
     );
 
-    // Mutatiebewijs (regel eruit → rood): de OUDE completion===0-poort (`calendarBandsDiffer`,
-    // bands-only) zou op DEZELFDE fixture NIET activeren — bands zijn identiek, alleen `holidays`
-    // wijkt af. Reproduceer die oude regel hier lokaal (geen productiecode gemuteerd, spiegelt het
-    // bestaande mutatiebewijs-patroon in dit bestand): JSON-vergelijk van uitsluitend `workTime.
-    // byWeekday`, exact wat `calendarBandsDiffer` in mppReader.ts doet.
-    const oldBandsOnlyWouldActivate =
-      JSON.stringify(holidayCal.workTime?.byWeekday) !== JSON.stringify(Z4_CALENDAR.workTime?.byWeekday);
+    // Mutatiebewijs (Z19-L-reviewronde, reviewersuggestie — vervangt een eerdere versie die een
+    // HANDGESCHREVEN kopie van `calendarBandsDiffer` herberekende: dat was een tautologie die onder
+    // de mutatie groen bléék, want ze toetste de eigen kopie, niet de productiepoort). Roep
+    // `deriveTimephasedWindowsForTasks` een TWEEDE keer aan, met dezelfde byte-fixture maar een
+    // resourcekalender wiens `holidays` ÓÓK gelijk is aan de taakkalender (leeg, spiegelt
+    // `Z4_CALENDAR`) — dus GEEN enkel verschil meer, bands ÉN holidays identiek. Als de holiday-
+    // uitbreiding hierboven werkelijk de doorslag gaf (en niet een toevallige bug die altijd
+    // activeert), moet de taak nu AFWEZIG zijn uit het resultaat — precies zoals de "structureel
+    // GELIJKE resourcekalender"-mutatieproef verderop in laag 4 hierboven, maar dan op de
+    // HOLIDAY-as i.p.v. de bands-as.
+    const matchingHolidayCal: WorkCalendar = { ...Z4_CALENDAR, id: 'z8-matching-holiday-cal', holidays: [] };
     truthy(
-      '[Z19-L mutatiebewijs] de OUDE bands-only-poort zou HIER niet geactiveerd hebben (bewijst dat de holiday-uitbreiding de doorslag geeft, niet de bands)',
-      oldBandsOnlyWouldActivate === false,
+      '[Z19-L voorwaarde 2] matchingHolidayCal is VOLLEDIG gelijk aan Z4_CALENDAR (bands ÉN holidays) — de negatieve mutatieproef test dus zuiver de holiday-tak',
+      JSON.stringify(matchingHolidayCal.workTime?.byWeekday) === JSON.stringify(Z4_CALENDAR.workTime?.byWeekday)
+      && JSON.stringify(matchingHolidayCal.holidays) === JSON.stringify(Z4_CALENDAR.holidays),
+    );
+    const calResultWithMatchingHoliday: CalendarReadResult = { ...Z4_CAL_RESULT, resourceCalendars: [matchingHolidayCal] };
+    const matchingHolidayResource: Resource = { id: 'r-matching-holiday', name: 'Matching Holiday Resource', calendarId: 'z8-matching-holiday-cal' } as Resource;
+    const windowsMatchingHoliday = deriveTimephasedWindowsForTasks(
+      cfbH, asgFieldMap, new Map([[306, 'task-holiday']]), [z4MakeTask('task-holiday', MONDAY_0800)], calResultWithMatchingHoliday,
+      new Map([[7, 'r-matching-holiday']]), [matchingHolidayResource],
+    );
+    truthy(
+      '[Z19-L mutatiebewijs, via productiecode] met een resourcekalender wiens holidays ÓÓK gelijk zijn (geen enkel verschil meer) activeert laag 4 NIET — task-holiday afwezig',
+      !windowsMatchingHoliday.has('task-holiday'),
     );
   }
 }

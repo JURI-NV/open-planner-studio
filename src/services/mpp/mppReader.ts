@@ -1774,9 +1774,14 @@ export function deriveTimephasedContoursForTasks(
 //      taak se eigen effectieve kalender, zie `calendarDiffersIncludingExceptions` — Z19-L: sinds
 //      deze fixronde UNIFORM voor elke completion-staat, was vóór deze fixronde voor completion===0
 //      bands-only — corpusbewijs: de "Night Shift"/"24 Hours"-families, `mpp14resource.mpp`'s
-//      "Task A" (bandverschil), en sinds Z19-L ook `mpp14timephased2.mpp`'s "Planned task with
-//      resource holiday" + de volledige `timephased-budget*.mpp`-familie (5 bestanden, allemaal
-//      een HOLIDAY-only verschil op een single-resource 100%-toewijzing) ⇒ `timephasedDurationWalks`:
+//      "Task A" (bandverschil), en sinds Z19-L (op state-niveau gemeten, niet alleen op de fidelity-
+//      diff-tellingen — zie `calendarDiffersIncludingExceptions`'s eigen docblok voor de volledige
+//      8-bestand/10-taak-blast-radius) ook `mpp14timephased2.mpp`'s "Planned task with resource
+//      holiday", de volledige `timephased-budget*.mpp`-familie (5 bestanden, HOLIDAY-only verschil
+//      op een single-resource 100%-toewijzing), én "Task Seven"/"Task Eight" in zowel `mpp14
+//      timephasedsegments.mpp` als `mpp14timephasedsegmentsmanual.mpp` (holiday+working-exception-
+//      verschil die bij de OPGESLAGEN duur netto nul uitwerkt — zie datzelfde docblok voor waarom
+//      dat GEEN reden is om de activering uit te sluiten) ⇒ `timephasedDurationWalks`:
 //      GEEN gelezen antwoord, een VERSE herberekening — `CPMSolver.ts` wandelt `task.time.
 //      durationMinutes` (edit-live) door de toewijzings-eigen resourcekalender (nu promoveerbaar,
 //      zie `subdayIo.ts`'s (b2)-instrumentfix) en neemt het MAXIMUM over de toewijzingen. Geen
@@ -1833,19 +1838,55 @@ function calendarBandsDiffer(a: WorkCalendar, b: WorkCalendar): boolean {
  *  only), met als reden een corpusproef uit een eerdere fixronde: uitzonderingen meetellen zou op
  *  `mpp14timephasedsegmentsmanual.mpp`'s "Task Seven"/"Task Eight" een valse activering geven
  *  (hun wandelformule had toen een systematisch 1-uur-precisieverschil met MSP's segment-antwoord).
- *  HERGEMETEN voor deze etappe (blast-radius over de volledige 216-bestand-baseline +
- *  658-bestand-crawl, `OPS_MPP_FIDELITY_REPORT=baseline`): met deze functie UNIFORM voor beide
- *  completion-staten blijven "Task Seven"/"Task Eight" BEIDE byte-voor-byte ongewijzigd (exact/
- *  sameday/diff-tellingen identiek aan vóór de wijziging — geen nieuwe activering, want hun
- *  resourcekalender-vergelijking valt nu net zo uit als toen), terwijl 6 bestanden die eerder
- *  vlak (`layer 5`) bleven — de 5 `timephased-budget*.mpp`-bestanden (single-resource, 100%-
- *  toewijzing, completion 0%, resourcekalender wijkt UITSLUITEND via een holiday-uitzondering af)
- *  en `mpp14timephased2.mpp`'s "Planned task with resource holiday" — naar 0/0 gaan. Nul
- *  regressies over de volledige scan (`nieuw/onverwacht afwijkend: []`). De eerdere
- *  "Task Seven"-uitsluiting bleek dus GEEN blijvende eigenschap van deze vergelijkingsfunctie zelf
- *  — vermoedelijk loste een latere, onafhankelijke fixronde (Z9a/Z13/Z14b) het toenmalige
- *  wandelformule-precisieprobleem al op. `calendarBandsDiffer` blijft als losse, kleinere
- *  bouwsteen bestaan (intern hergebruikt hieronder) — geen dode code. */
+ *
+ *  BLAST-RADIUS, OP STATE-NIVEAU GEMETEN (niet alleen op de fidelity-diff-tellingen — die verbergen
+ *  een nieuwe-maar-toevallig-gelijke activering): een taakniveau-census van `timephasedDurationWalks`
+ *  vóór/ná deze wijziging (216-bestand-baseline + 658-bestand-crawl) laat **8 bestanden / 10 taken**
+ *  zien met een NIEUWE laag-4-activering: de 5 `timephased-budget*.mpp`-bestanden ("Task 1", elk 1
+ *  taak), `mpp14timephased2.mpp`'s "Planned task with resource holiday", ÉN — dit is de correctie op
+ *  een eerdere versie van dit docblok, die beweerde dat er hier NIETS veranderde — `mpp14
+ *  timephasedsegmentsmanual.mpp`'s "Task Seven"/"Task Eight" EN dezelfde twee taken in het verwante
+ *  `mpp14timephasedsegments.mpp` (niet eerder genoemd in dit docblok, wél in dezelfde populatie).
+ *  `sourceScheduleNotes.total` verschuift dienovereenkomstig in 8 bestanden: 5× budget 0→1,
+ *  `mpp14timephased2.mpp` 2→3, `mpp14timephasedsegments.mpp` 9→11, `mpp14timephasedsegmentsmanual
+ *  .mpp` 10→12 (`mpp14timephased.mpp` — de Task 6-familie, zie mpp-fidelity-baseline.json se eigen
+ *  reason — en `mpp14timephasedsegmentsmanualoffsets.mpp` blijven ONGEWIJZIGD: 31 resp. 23).
+ *
+ *  WAAROM "Task Seven"/"Task Eight" TÓCH BYTE-IDENTIEK bleven ondanks de nieuwe activering (een
+ *  aanwijsbaar mechanisme, maar afhankelijk van déze duur — en GEEN weerlegging van de corpusproef — de eerdere versie van dit
+ *  docblok speculeerde ten onrechte dat een latere fixronde het precisieprobleem al had opgelost;
+ *  dat is NIET gemeten en dus geschrapt): op BEIDE bestanden, bij de OPGESLAGEN taakduur (4800 min,
+ *  10 werkdagen), HEFFEN de gematerialiseerde uitzonderingen elkaar binnen het wandelvenster netto
+ *  op. "Task Seven": de RESOURCEKALENDER (niet de taakkalender, die is hier leeg) draagt een holiday
+ *  op 2011-02-08 (−1 werkdag) én een working exception op 2011-02-12 (+1 werkdag) — netto 0 t.o.v.
+ *  de vlakke taakkalender-wandeling. "Task Eight": hier is het net andersom — de TAAKKALENDER draagt
+ *  een eigen override (`Task.calendarId` gezet, niet de projectkalender) met holidays op 2011-02-08
+ *  ÉN 2011-02-10 (−2 werkdagen) plus een working exception op 2011-02-12/13 (+2 werkdagen, ÉÉN
+ *  tweedaags record) — netto ook 0; de RESOURCEKALENDER zelf is hier juist "schoon" (geen holidays/
+ *  workingExceptions), dus vóór deze fixronde activeerde de bands-only-poort niet op "Task Eight"
+ *  (haar resourcekalender wéék immers niet af in bands), en de holiday-inclusieve poort
+ *  activeert nu WEL (de resourcekalender wijkt af van de taak se EIGEN, override-kalender) — met
+ *  dezelfde toevallige netto-nul-uitkomst bij déze specifieke duur.
+ *
+ *  DIT IS GEEN REDEN OM DE ACTIVERING UIT TE SLUITEN (orkestratorrichting, Z19-L-reviewronde): de
+ *  regel "toewijzingswerk wandelt op de EIGEN resourcekalender (inclusief haar uitzonderingen), niet
+ *  op de taakkalender" is MSP's eigen semantiek — het is het invoerfeit dat de discriminerende
+ *  dossiers van deze etappe (budget-familie, mpp14timephased2) onafhankelijk bevestigen — de twee
+ *  segments-fixtures discrimineren hier per constructie niet (beide wandelingen landen bij de
+ *  opgeslagen duur op hetzelfde instant) en tellen dus niet als bevestiging mee. Activering
+ *  op "Task Seven"/"Task Eight" is dus PRINCIPIEEL juist, niet een ongelukkig neveneffect om te
+ *  vermijden. Wat WEL blijft staan, als bewust geaccepteerde LATENTE divergentie: bij de opgeslagen
+ *  duur (4800 min) is de wandeling bewezen byte-identiek (fidelity, hierboven), maar bij een ANDERE
+ *  duur zou de netto-nul-uitkomst NIET meer gelden (bv. 960 min = 2 of 1920 min = 4 werkdagen — te
+ *  kort om zowel de holiday als de working-exception-band te passeren, dus de "annulering" werkt dan
+ *  niet meer symmetrisch en divergeert de finish 1–2 werkdagen). Die divergentie is REËEL maar met het huidige harnas ONVERIFIEERBAAR: de
+ *  fidelity-suite meet uitsluitend tegen MSP's EIGEN opgeslagen duur/antwoord — voor een zelf-
+ *  bedachte, bewerkte duur BESTAAT er simpelweg geen grondwaarheid in het bestand — en dit
+ *  project heeft geen "bewerk deze taak en vergelijk met MSP's herberekening"-testinstrument — dat
+ *  is de duurste, nog niet gebouwde post in de taaktypes-spec (bewerkgedrag-fidelity). Deze afweging
+ *  is bewust doorgegeven aan de orkestrator (Z19-L-eindrapport, reviewronde) i.p.v. zelf een tweede,
+ *  ongeteste "correctie" te bouwen. `calendarBandsDiffer` blijft als losse, kleinere bouwsteen
+ *  bestaan (intern hergebruikt hieronder) — geen dode code. */
 function calendarDiffersIncludingExceptions(a: WorkCalendar, b: WorkCalendar): boolean {
   if (calendarBandsDiffer(a, b)) return true;
   if (!a.workTime || !b.workTime) return false;
@@ -1943,7 +1984,9 @@ export function deriveTimephasedWindowsForTasks(
     // Z19-L (2026-08-18): UNIFORM voor elke completion-staat — bands ÉN gematerialiseerde
     // uitzonderingen (holidays/workingExceptions) tellen mee. Zie `calendarDiffersIncludingExceptions`'s
     // eigen docblok voor de hermeting die de vroegere completion===0-bands-only-uitsluiting hier
-    // heeft opgeheven (blast-radius: 6 bestanden naar 0/0, 0 regressies).
+    // heeft opgeheven — de VOLLEDIGE op-state-niveau gemeten blast-radius (8 bestanden/10 taken
+    // nieuwe activering, 6 daarvan met een fidelity-verbetering naar 0/0, 0 regressies) staat daar,
+    // niet hier herhaald om drift tussen twee kopieën van hetzelfde getal te voorkomen.
     const activates = calendarDiffersIncludingExceptions(resCal, taskCal);
     if (activates) layer4ActivatedTasks.add(link.taskId);
     const walkList = durationWalksByTask.get(link.taskId) ?? [];
