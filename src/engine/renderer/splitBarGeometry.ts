@@ -46,7 +46,10 @@ export interface SplitSegmentBounds {
  * `Z6`/`levelingDelay` in `CPMSolver.forwardPass` voor precies dit doel al gebruikt. Een gat
  * kleiner dan een halve werkdag rondt af naar 0 werkdagen en levert dus geen zichtbaar segment op
  * in dag-modus — een gedocumenteerde precisiegrens (de bar-x-as heeft daar geen sub-dag-resolutie
- * om zo'n gat sowieso te tonen), geen bug.
+ * om zo'n gat sowieso te tonen), geen bug. De spiegelkant geldt óók: een gat van een halve werkdag
+ * of net erboven rondt OP naar één hele werkdag en tekent dus breder dan het werkelijke gat —
+ * dezelfde half-rondt-van-nul-af-conventie als `CPMSolver.resolveEffectiveLagDays` voor lags in
+ * dag-modus.
  *
  * ELKE grens (behalve de allereerste `taskStart` en de allerlaatste `taskEnd`) is EXCLUSIEF: het
  * startpunt van het volgende segment — net als de bestaande uur-modus-necking
