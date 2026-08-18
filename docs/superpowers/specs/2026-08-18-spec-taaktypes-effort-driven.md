@@ -153,6 +153,14 @@ dagbelastingen schuiven in plaats van met formule-schattingen — waarbij het
 verschuiven van een gecontourde taak de verdeling mee moet nemen. De
 verdeelfunctie blijft bestaan, maar zakt van "de waarheid" naar "de terugval".
 
+Eén grensregel daarbij, vastgelegd om een botsing met issue #21 punt 7 te
+voorkomen: de hele-eenheden-afronding (geheel tempo ⇒ hele eenheden per dag,
+grootste-rest) bestaat om een *artefact van de formule* te onderdrukken — een
+gladde curve die 0,67 kraan op een dag laat vallen. Ze hoort dus uitsluitend bij
+het formule-/terugvalpad en raakt opgeslagen dagwaarden nooit: een fractie in een
+contour (2 uur van een monteur op maandag, uit een .mpp of met de hand ingevoerd)
+is bedoelde data, geen rekenresidu, en wordt getoond zoals hij is.
+
 Wat níét bestaat en de duurste post wordt: de **bewerken-meetlat**. Alles wat nu
 bewijsbaar is gaat over openen; "bewerking X geeft MS Projects uitkomst Z" heeft
 eigen testinfrastructuur nodig die niet uit het corpus te oogsten valt. Daar zal
