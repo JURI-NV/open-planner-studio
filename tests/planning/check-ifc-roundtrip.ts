@@ -1545,6 +1545,77 @@ const rt2 = readIFC(writeIFC(rt1));
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
+// (13) Z14-spec-review-fixronde (§8-punt): rode-pad-fixture voor de `try { JSON.parse } catch` in de
+//      OPS_TaskSplits-descriptor (ifcPsets.ts) — TM draagt in de fixture een ECHTE 'Splits'-property
+//      (op een GELDIGE OPS_TaskSplits-pset), die we corrumperen naar onparseerbare tekst. Verwacht:
+//      geen crash, geen fantoom-splitGaps (de catch doet niets, `task.splitGaps` blijft ongezet —
+//      exact het WorkingExceptionIds-precedent uit blok (7a), maar dan voor Splits).
+{
+  const ifc13 = writeIFC(fixture);
+  const lines13 = ifc13.split('\n');
+  const splitsIdx = lines13.findIndex(l => l.includes("IFCPROPERTYSINGLEVALUE('Splits',"));
+  assert(splitsIdx >= 0, 'kon de Splits-property niet vinden (verwacht op TM, die heeft splitGaps)');
+  const corruptedSplitsLine = lines13[splitsIdx].replace(/IFCTEXT\('[^']*'\)/, "IFCTEXT('{niet geldige json')");
+  assert(corruptedSplitsLine !== lines13[splitsIdx], 'kon de Splits-waarde niet corrumperen');
+  lines13[splitsIdx] = corruptedSplitsLine;
+
+  let rt13: ImportResult | undefined;
+  let threw13: unknown;
+  try {
+    rt13 = readIFC(lines13.join('\n'));
+  } catch (e) {
+    threw13 = e;
+  }
+  assert(!threw13, `corrupte Splits-JSON mag niet crashen — kreeg: ${threw13 instanceof Error ? threw13.message : String(threw13)}`);
+  const tm13 = rt13?.tasks.find(t => t.wbsCode === '1.1'); // TM
+  assert(!!tm13, 'kon TM niet terugvinden ná de corrupte-Splits-fallback');
+  assert(tm13?.splitGaps === undefined,
+    `corrupte Splits-JSON moet terugvallen op "geen splits" (geen fantoomdata) — kreeg ${JSON.stringify(tm13?.splitGaps)}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { /* corrupte JSON: negeren ... */ }`
+  // in de OPS_TaskSplits-descriptor (ifcPsets.ts) tijdelijk laten rethrowen ⇒ deze case ROOD op
+  // `assert(!threw13, ...)` hierboven (een echte crash i.p.v. de bedoelde terugval).
+}
+
+// (14) Z14-spec-review-fixronde (§8-punt): rode-pad-fixture voor de `try { parsed = JSON.parse(raw) }
+//      catch { continue }` in de OPS_Timephased-extractie (ifcReader.ts, extractAssignments) — A1
+//      draagt in de fixture een ECHTE 'Windows'-property (op een GELDIGE OPS_Timephased-pset), die
+//      we corrumperen naar onparseerbare tekst. Verwacht: geen crash, geen fantoom-workWindow (de
+//      catch/continue slaat de hele pset over, `workWindowStart`/`workWindowFinish` blijven ongezet).
+{
+  const ifc14 = writeIFC(fixture);
+  const lines14 = ifc14.split('\n');
+  const windowsIdx = lines14.findIndex(l => l.includes("IFCPROPERTYSINGLEVALUE('Windows',"));
+  assert(windowsIdx >= 0, 'kon de Windows-property niet vinden (verwacht op t-x, A1 heeft een workWindow)');
+  const corruptedWindowsLine = lines14[windowsIdx].replace(/IFCTEXT\('[^']*'\)/, "IFCTEXT('{niet geldige json')");
+  assert(corruptedWindowsLine !== lines14[windowsIdx], 'kon de Windows-waarde niet corrumperen');
+  lines14[windowsIdx] = corruptedWindowsLine;
+
+  let rt14: ImportResult | undefined;
+  let threw14: unknown;
+  try {
+    rt14 = readIFC(lines14.join('\n'));
+  } catch (e) {
+    threw14 = e;
+  }
+  assert(!threw14, `corrupte Windows-JSON mag niet crashen — kreeg: ${threw14 instanceof Error ? threw14.message : String(threw14)}`);
+  // A1: taak t-x (TX, wbsCode 1.2), resource r-mem ('Timmerman Jan'), unitsPerDay 2 (curve BELL) —
+  // de meest-specifieke sleutel om de juiste assignment terug te vinden (t-x/r-mem komt twee keer voor).
+  const a1Back = rt14?.assignments.find(a => {
+    const t = rt14!.tasks.find(tt => tt.id === a.taskId);
+    const r = rt14!.resources.find(rr => rr.id === a.resourceId);
+    return t?.wbsCode === '1.2' && r?.name === 'Timmerman Jan' && a.unitsPerDay === 2;
+  });
+  assert(!!a1Back, 'kon A1 (t-x/r-mem, unitsPerDay 2) niet terugvinden ná de corrupte-Windows-fallback');
+  assert(a1Back?.workWindowStart === undefined && a1Back?.workWindowFinish === undefined,
+    `corrupte Windows-JSON moet terugvallen op "geen venster" (geen fantoomdata) — kreeg start=${a1Back?.workWindowStart} finish=${a1Back?.workWindowFinish}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { continue }` in de OPS_Timephased-
+  // extractie (ifcReader.ts) tijdelijk laten rethrowen ⇒ deze case ROOD op `assert(!threw14, ...)`
+  // hierboven (een echte crash i.p.v. de bedoelde terugval).
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
 if (fails === 0) {
   console.log(`OK  ifc-roundtrip: alle checks groen (${checks})`);
   process.exit(0);
