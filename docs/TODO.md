@@ -260,6 +260,9 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       geland. Corpusbreed effect gemeten: 14 bestanden naar 0/0/0/0, startDiff 211→5, finishDiff 225→19.
 
 ### MPP/MSP-import (fase 3.8, etappe "nul afwijkingen") — bewust laten liggen (2026-08-19)
+- [ ] `CPMSolver.ts` leveling-takvolgorde: een taak met zowel `levelingDelay` (dagen) als `levelingDelayMinutes` zou aan de ankerregel ontsnappen (vandaag onmogelijk — lezer zet alleen minuten, nivelleerder alleen dagen); precedentie-commentaar benoemt dat geval niet (Z6-veeglijst).
+- [ ] `CPMSolver.ts` M1-bandsnap-float-nuance: de bandsnap kan de ES verder duwen dan de kale leveling-delay terwijl de backward-doorgifte alleen de kale delay terugrekent — float-nuance op elapsed-delay-WORKTIME-taken, geen datumeffect (Z6-veeglijst).
+- [ ] `CPMSolver.ts` `isExactBandEnd`/`dayFirstBandStart`/`dayLastBandEnd` leunen stilzwijgend op de engine-brede oplopend-gesorteerde-banden-aanname (`effectiveBandsOn` sorteert niet) — docblok-vermelding zoals `nextBandStartStrictAfter` die wel heeft (Z13-veeglijst R3).
 
 > Uit de Z20-eindronde: dingen die deze etappe bewust NIET meenam, met de reden erbij — zodat het
 > geen verrassing is als iemand er later tegenaan loopt.

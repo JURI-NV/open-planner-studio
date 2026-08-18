@@ -1786,7 +1786,7 @@ if (!corpusPresent) {
 // `.mpp`-unique-ID's in 870d339f60603f71 (51 taken) komen zelfs helemaal niet voor in die
 // XML-reeks; taken zijn verplaatst (een cut/paste-handtekening, geen enkel-veld-drift); en de
 // projectstartdatum van a69fec157074d056 (215 taken) verschilt ronduit tussen de twee bestanden
-// (`.mpp` 2025-12-19 vs. `.mpp.xml` 2025-12-08). Dat is een brongegeven van dít corpus — geen enkele lezer, MPXJ incluis, kan een
+// (`.mpp` en `.mpp.xml` liggen elf dagen uit elkaar; exacte datums hash-only, §2/§8). Dat is een brongegeven van dít corpus — geen enkele lezer, MPXJ incluis, kan een
 // document tegen een andere revisie van zichzelf 1-op-1 positioneel matchen.
 //
 // ⚠️ T7-WAARSCHUWING: om dezelfde reden zijn de link-/resource-/assignmentaantallen in de

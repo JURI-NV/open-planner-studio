@@ -995,7 +995,13 @@ if (!corpusPresent) {
       + `resources=${mpp.resources.length} (${resMatched} niet-plaatshouder naam-ok, ${maxUnitsOk} maxUnits-ok, ${typeMismatches}/${typeBudget} type-afwijkingen) `
       + `assignments=${mpp.assignments.length} (${asgnMatched} gematcht, ${unitsOk} units-ok):`,
     );
-    for (const d of [...relDiag, ...resDiag, ...asgnDiag]) console.log(`      · ${d}`);
+    // F5 (eindreview): deze detailregels bevatten corpus-resourcenamen/-waarden — alleen op
+    // expliciet verzoek naar stdout (CI-logs en transcripts zijn publiek oppervlak, §2/§8).
+    if (process.env.OPS_MPP_DIAG === 'detail') {
+      for (const d of [...relDiag, ...resDiag, ...asgnDiag]) console.log(`      · ${d}`);
+    } else if (relDiag.length + resDiag.length + asgnDiag.length > 0) {
+      console.log(`      · ${relDiag.length + resDiag.length + asgnDiag.length} detailregel(s) verborgen — zet OPS_MPP_DIAG=detail om ze te tonen (corpusinhoud)`);
+    }
   }
 }
 

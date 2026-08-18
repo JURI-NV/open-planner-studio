@@ -189,10 +189,15 @@ if (!path) {
         try {
           installDOMParser();
           const xmlResult = readMSPDI(readFileSync(xmlPath, 'utf-8'));
-          console.log(
-            `    Ground-truth-vergelijking (voorbehoud: andere documentversie, zie header): ` +
-            `onze projectEnd=${cpm.projectEnd}, MSPDI project.endDate=${xmlResult.project.endDate || '(leeg)'}.`,
-          );
+          // F5 (eindreview): projectEnd/endDate zijn corpusdatums — alleen op expliciet verzoek.
+          if (process.env.OPS_MPP_DIAG === 'detail') {
+            console.log(
+              `    Ground-truth-vergelijking (voorbehoud: andere documentversie, zie header): ` +
+              `onze projectEnd=${cpm.projectEnd}, MSPDI project.endDate=${xmlResult.project.endDate || '(leeg)'}.`,
+            );
+          } else {
+            console.log('    Ground-truth-vergelijking gedaan (datums verborgen — OPS_MPP_DIAG=detail toont ze; corpusinhoud)');
+          }
         } catch (err) {
           console.log(`    Ground-truth-vergelijking overgeslagen (readMSPDI faalde: ${err instanceof Error ? err.message : String(err)})`);
         }
@@ -201,8 +206,10 @@ if (!path) {
       console.log(
         `    ${TARGET_HASH}: ${leafTasks.length} bladtaken, ${sequences.length} relaties, ` +
         `${expandedSequences.length} bladtaak-relaties na expansie ` +
-        `(${totalDropped.length} gedropt, was 28 vóór de propagatie), ` +
-        `projectEnd=${cpm.projectEnd}, projectDuration=${cpm.projectDuration} werkdagen`,
+        `(${totalDropped.length} gedropt, was 28 vóór de propagatie)` +
+        (process.env.OPS_MPP_DIAG === 'detail'
+          ? `, projectEnd=${cpm.projectEnd}, projectDuration=${cpm.projectDuration} werkdagen`
+          : ', projectEnd/duur verborgen (OPS_MPP_DIAG=detail; corpusinhoud)'),
       );
     }
   }

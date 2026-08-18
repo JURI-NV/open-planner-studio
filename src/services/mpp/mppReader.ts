@@ -94,8 +94,8 @@
  * na jaren editen nooit toevallig weer 1..N op een rij) — 27 van de 51 `.mpp`-unique-ID's in
  * 870d339f60603f71 (hash-only §8) komen zelfs helemaal niet voor in die getallenreeks; taken zijn
  * verplaatst (een cut/paste-handtekening, niet een los "vergeten te herberekenen"-veld); en de
- * projectstartdatum van a69fec157074d056 verschilt ronduit tussen de twee bestanden (`.mpp` 2025-12-19 vs. `.mpp.xml`
- * 2025-12-08). Dat is een brongegeven van het corpus, niet iets een lezer kan overbruggen — zie de
+ * projectstartdatum van a69fec157074d056 verschilt ronduit tussen de twee bestanden (`.mpp` en
+ * `.mpp.xml` liggen elf dagen uit elkaar; exacte datums hash-only, §2/§8). Dat is een brongegeven van het corpus, niet iets een lezer kan overbruggen — zie de
  * per-veld-budgetten in `check-mpp-import.ts` voor de gemeten omvang per bestand.
  *
  * `task.getStart()`/`getFinish()` in MPP14Reader kan, voor HANDMATIG-geplande taken, afwijken van

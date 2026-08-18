@@ -780,6 +780,16 @@ if (GOAL_ZERO_DEVIATIONS) {
       );
     }
     checks++;
+    if (entry.startExact !== entry.tasks || entry.finishExact !== entry.tasks) {
+      diffs.push(
+        `[GOAL_ZERO_DEVIATIONS ${tag}] exact-tellers dekken niet alle taken (tasks=${entry.tasks}, `
+        + `startExact=${entry.startExact}, finishExact=${entry.finishExact}) — een 'missing'-`
+        + 'classificatie (taak zonder grondwaarheid) telt in geen van de vier nul-tellers mee en '
+        + 'zou anders stil door de corpusloze poort glippen (eindreview-bevinding F1; plan §1.1 '
+        + 'eist tasks === startExact === finishExact)',
+      );
+    }
+    checks++;
     if ('reason' in entry) {
       diffs.push(
         `[GOAL_ZERO_DEVIATIONS ${tag}] draagt nog een "reason"-sleutel — met nul afwijkingen als doel `
