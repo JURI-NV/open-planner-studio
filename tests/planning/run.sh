@@ -225,6 +225,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ZOOMCHECK="$DIR/.zoom-steps.mjs"
   if bundle_check "$DIR/check-zoom-steps.ts" "$ZOOMCHECK"; then node "$ZOOMCHECK" || STATUS=1; fi
 
+  # "Spring naar taak"-geometrie (issue #65, WBS-sprongknop bij afhankelijkheden): het zoomniveau
+  # en de verticale/horizontale scroll klemmen op de juiste boven-/ondergrenzen i.p.v. een taak van
+  # jaren tot een streepje te laten verschrompelen of een milestone tot in het oneindige in te
+  # zoomen.
+  FOCUSCHECK="$DIR/.focus-task.mjs"
+  if bundle_check "$DIR/check-focus-task.ts" "$FOCUSCHECK"; then node "$FOCUSCHECK" || STATUS=1; fi
+
   # Commandoregister (K-item 34): de elf acties die het lint en het toetsenbord delen, stonden twee
   # keer los gedefinieerd. Toetst het gedrag van elk commando tegen de echte store, het contract dat
   # `run` niet stil niets doet als `isEnabled` false is (issue #26), en dat geen van beide registers

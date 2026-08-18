@@ -79,7 +79,7 @@ eq('03 tien keer in/uit laat de zoom niet weglopen', S().view.zoom, begin);
     // in ganttViewport.ts vinden. Vindt hij die niet, dan werkt het gereedschap niet en zeggen de
     // drie checks eronder niets.
     eq('03b de scan werkt (vindt de canonieke ZOOM_STEP-declaratie)',
-      scan(String.raw`export const ZOOM_STEP`), ['src/utils/ganttViewport.ts:21:export const ZOOM_STEP = 10;']);
+      scan(String.raw`export const ZOOM_STEP`), ['src/utils/ganttViewport.ts:22:export const ZOOM_STEP = 10;']);
 
     // Een getal waar de constante hoort. `[ ]?` omdat dit project bewust geen stijlregels in
     // ESLint heeft: niets dwingt de spaties rond de operator af, dus `zoom-5` moet ook vallen.

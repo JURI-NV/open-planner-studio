@@ -7,6 +7,7 @@
 
 import { parseDate, diffCalendarDays, addCalendarDays, formatDate } from '@/utils/dateUtils';
 import type { Task } from '@/types/task';
+import { TIMESCALE_ZOOM } from '@/engine/renderer/timelineTiers';
 
 /**
  * Zoomstap van de IN-/UITZOOM-knoppen en -sneltoetsen (K-item 34). Additief, niet
@@ -207,4 +208,60 @@ export function clampGanttScroll(x: number, y: number): { x: number; y: number }
  */
 export function getGanttScrollBounds(): { maxScrollX: number | null; maxScrollY: number | null } {
   return { maxScrollX, maxScrollY };
+}
+
+/** Aandeel van de bruikbare breedte dat de taakbalk zelf inneemt bij "spring naar taak" (issue
+ *  #65): hoog genoeg voor duidelijke context ervoor/erna, laag genoeg om niet edge-to-edge te
+ *  ogen zoals `computeFitToProject`. */
+const FOCUS_TASK_WIDTH_FRACTION = 0.2;
+
+/** Onder-/bovengrens van het zoomniveau bij "spring naar taak": zonder grens verschrompelt een
+ *  taak van maanden tot een streepje, en zoomt een milestone zo ver in dat alle context
+ *  verdwijnt. Geankerd aan de bestaande tijdschaal-presets (kwartaal…dag) zodat het resultaat
+ *  nooit een willekeurig getal is maar altijd een niveau dat de gebruiker ook via het lint kan
+ *  kiezen. */
+export const FOCUS_TASK_MIN_ZOOM = TIMESCALE_ZOOM.quarter;
+export const FOCUS_TASK_MAX_ZOOM = TIMESCALE_ZOOM.day;
+
+export interface FocusTaskHorizontal {
+  zoom: number;
+  scrollX: number;
+}
+
+/**
+ * Zoom + horizontale scroll voor "spring naar taak" (issue #65, WBS-sprongknop bij afhankelijk-
+ * heden): de taakbalk krijgt een vast aandeel van de bruikbare breedte en wordt gecentreerd —
+ * bewust anders dan `computeFitToProject` (heel project, edge-to-edge) en `computeScrollToDate`/
+ * `GanttCanvas.revealTaskIfOffscreen` (scroll-only, tegen de linkerrand, zoom ongewijzigd).
+ *
+ * `durationDays`/`midDayOffset` zijn al opgeloste dageenheden (fracties toegestaan, voor
+ * uur-taken) — de aanroeper kent de datums/hour-mode-logica al (dezelfde conventie als
+ * `revealTaskIfOffscreen`), dus dit blijft een pure functie zonder Date-parsing.
+ */
+export function computeFocusTaskHorizontal(
+  durationDays: number,
+  midDayOffset: number,
+  usableWidth: number,
+): FocusTaskHorizontal {
+  const duration = Math.max(1, durationDays);
+  const rawZoom = (usableWidth * FOCUS_TASK_WIDTH_FRACTION) / duration;
+  const zoom = Math.max(FOCUS_TASK_MIN_ZOOM, Math.min(FOCUS_TASK_MAX_ZOOM, rawZoom));
+  const scrollX = Math.max(0, midDayOffset * zoom - usableWidth / 2);
+  return { zoom, scrollX };
+}
+
+/**
+ * Verticale scroll voor "spring naar taak": centreert rij `rowIndex` (0-based, index in
+ * `viewRows`) in de zichtbare canvas-hoogte. Zelfde `rowToY`-formule als `GanttRenderer`
+ * (`headerHeight + rowIndex * rowHeight - scrollY`, zie `GanttRenderer.ts:295`), hier omgekeerd
+ * opgelost naar `scrollY`.
+ */
+export function computeFocusTaskScrollY(
+  rowIndex: number,
+  rowHeight: number,
+  headerHeight: number,
+  canvasHeight: number,
+): number {
+  const visibleHeight = canvasHeight - headerHeight;
+  return Math.max(0, rowIndex * rowHeight + rowHeight / 2 - visibleHeight / 2);
 }
