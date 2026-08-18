@@ -343,8 +343,14 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
     const s = get();
     const taskMap = new Map(s.tasks.map((t) => [t.id, t]));
     const toExpand: string[] = [];
+    // Bezocht-bewaking naar het patroon van `isSelfOrDescendant`/`taskTree.ts`: een corrupte
+    // `parentId`-cyclus is bereikbaar via IFC-import (`extractNesting` zet 'm zonder cyklusguard),
+    // en zonder deze wacht deze lus dan oneindig i.p.v. de vier andere oudersketen-wandelingen in
+    // dit project die er wél tegen bewaken.
+    const bezocht = new Set<string>();
     let parentId = taskMap.get(taskId)?.parentId ?? null;
-    while (parentId) {
+    while (parentId && !bezocht.has(parentId)) {
+      bezocht.add(parentId);
       if (s.ui.collapsedTaskIds.includes(parentId)) toExpand.push(parentId);
       parentId = taskMap.get(parentId)?.parentId ?? null;
     }
