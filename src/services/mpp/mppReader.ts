@@ -718,6 +718,16 @@ export interface RawTaskScan {
   percentComplete: number;
   actualStartTs: Date | null;
   actualFinishTs: Date | null;
+  /** Z12-herwerk (dossier out-of-sequence-actuals) — `TaskField.RESUME`/`STOP` (veld-id 99/100,
+   *  beide `DataType.DATE`, blok 0). MSP's EIGEN opgeslagen hervattingsinstant/afgewerkt-grens
+   *  voor een IN-PROGRESS-taak — spiegelt `actualStartTs`/`actualFinishTs` hierboven qua vorm
+   *  (rauwe `Date`, nog niet geformatteerd). `null` bij ontbrekend veld/te kort record — spiegelt
+   *  het bestaande "veld ontbreekt ⇒ ongezet"-patroon. `stopTs` wordt momenteel door geen enkele
+   *  solverberekening gelezen (de `finish = addWork(resume, remaining)`-formule had 'm niet nodig,
+   *  corpusmeting fase 1: 17/17 exact zonder), maar rondt wel mee als rauw feit voor een latere
+   *  taak (splits/actual-grens-rendering). */
+  resumeTs: Date | null;
+  stopTs: Date | null;
   effCal: WorkCalendar;
   /** Alleen gezet als de taak een ECHTE, gevonden kalender-override droeg (spiegelt de oude
    *  `calendarUniqueIdByTaskId`-guard: `calendarUniqueIdRaw >= 0` ÉN de referentie wees naar een
@@ -782,6 +792,8 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const percentCompleteOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.PercentComplete);
   const actualStartOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualStart);
   const actualFinishOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.ActualFinish);
+  const resumeOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Resume); // Z12-herwerk
+  const stopOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Stop); // Z12-herwerk
   const calendarUniqueIdOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.CalendarUniqueId);
   const levelingDelayOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.LevelingDelay); // T12, veld-id verhuisd naar fieldMap14.ts in Z2
   const levelingDelayUnitsOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.LevelingDelayUnits); // Z2
@@ -909,6 +921,9 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const percentComplete = readPercentComplete(data, percentCompleteOffset);
     const actualStartTs = readTimestampField(data, actualStartOffset, 'TBkndTask actualStart');
     const actualFinishTs = readTimestampField(data, actualFinishOffset, 'TBkndTask actualFinish');
+    // Z12-herwerk — RESUME/STOP, zelfde vorm/guard als actualStart/actualFinish hierboven.
+    const resumeTs = readTimestampField(data, resumeOffset, 'TBkndTask resume');
+    const stopTs = readTimestampField(data, stopOffset, 'TBkndTask stop');
 
     // CALENDAR_UNIQUE_ID: -1 (of ontbrekend veld) = geen taak-kalender-override, spiegelt
     // MPP14Reader.java's `calendarID.intValue() == -1 ⇒ task.setCalendarUniqueID(null)`. `effCal` =
@@ -925,7 +940,7 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
       remainingDurationRaw, levelingDelayRaw, levelingDelayUnits, taskMode, manualStartTs, manualFinishTs,
       manualDurationRaw, manualDurationIsElapsed, isMilestone, constraintCode, constraintDateTs, deadlineTs,
-      percentComplete, actualStartTs, actualFinishTs, effCal, calendarOverride,
+      percentComplete, actualStartTs, actualFinishTs, resumeTs, stopTs, effCal, calendarOverride,
     });
   }
 
@@ -1050,6 +1065,9 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const finish = formatField(raw.finishTs) ?? start;
     const actualStart = formatField(raw.actualStartTs);
     const actualFinish = formatField(raw.actualFinishTs);
+    // Z12-herwerk — RESUME/STOP, zelfde format-/dag-of-uur-modus-keuze als actualStart/actualFinish.
+    const resume = formatField(raw.resumeTs);
+    const stop = formatField(raw.stopTs);
 
     let constraint: TaskConstraint | undefined;
     if (raw.constraintCode !== null) {
@@ -1116,6 +1134,8 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
         isCritical: false,
         actualStart,
         actualFinish,
+        ...(resume != null ? { resume } : {}),
+        ...(stop != null ? { stop } : {}),
         ...(remainingTime != null ? { remainingTime } : {}),
         ...(remainingMinutes != null ? { remainingMinutes } : {}),
         completion: raw.percentComplete / 100,
@@ -1194,7 +1214,15 @@ export function parseProjectProperties(
     // verschuift die niet automatisch naar op-of-ná de statusdatum (P6-eigen RETAINED_LOGIC-vloer,
     // zie `unstartedIgnoresStatusDate`'s docblock in `src/types/project.ts`). Zelfde reikwijdte-
     // redenering: élke `.mpp`-import, project-breed, byte-identiek zonder statusdatum.
-    schedulingOptions: { resumeFromActualElapsed: true, unstartedIgnoresStatusDate: true },
+    // Z12-herwerk (dossier out-of-sequence-actuals): GEEN eigen vlag meer hier — het Opus-
+    // weerlegde ankerontwerp (project-breed, vlag-gedreven) is vervangen door een veldgedreven
+    // formule (`CPMSolver.ts` leest `task.time.resume`, hierboven al per taak gelezen uit MPP-
+    // veld-id 99). De AANWEZIGHEID van `resume` op een taak ís het signaal; er is dus niets meer
+    // project-breed te zetten (spiegelt hoe `actualStart` ook geen eigen vlag nodig heeft).
+    schedulingOptions: {
+      resumeFromActualElapsed: true,
+      unstartedIgnoresStatusDate: true,
+    },
   };
 
   const statusBytes = props.getByteArray(PROPS_KEY_STATUS_DATE);

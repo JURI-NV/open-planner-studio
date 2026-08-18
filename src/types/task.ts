@@ -111,6 +111,22 @@ export interface TaskTime {
   durationMinutes?: number;
   scheduleStart: string;    // ISO 8601 — date-only in dag-modus, datetime in uur-modus
   scheduleFinish: string;   // ISO 8601 — date-only in dag-modus, datetime in uur-modus
+  /** OPTIONEEL — MSP's EIGEN opgeslagen hervattingsinstant voor een IN-PROGRESS-taak (`.mpp`-
+   *  veld-id 99, `TaskField.RESUME`, `DataType.DATE`; Z12-herwerk, dossier out-of-sequence-
+   *  actuals). Geen afgeleide/herberekende waarde — de invoer staat letterlijk in het bestand,
+   *  net als `scheduleStart`/`scheduleFinish` hierboven (vandaar dezelfde rol, `TaskTimeInput`,
+   *  i.p.v. `TaskTimeTracking` waar `actualStart`/`actualFinish` in zitten). `CPMSolver.ts` leest
+   *  dit veld voor een aantoonbaar out-of-sequence FINISH_START-opvolger (`isOutOfSequenceFsPredecessor`):
+   *  `finish = addWork(resume, remaining)` op de taak-EIGEN kalender — corpusmeting (fase 1):
+   *  17/17 exact op alle out-of-sequence-in-progress-bladtaken, 4/4 op de gemeten OzBuild-
+   *  snapshots minuut-exact. Afwezig (niet-`.mpp`-bronnen, of een `.mpp`-bestand waarvan de field
+   *  map veld 99 mist) ⇒ het bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-pad, ongewijzigd. */
+  resume?: string;
+  /** OPTIONEEL — spiegelt `resume` hierboven (`.mpp`-veld-id 100, `TaskField.STOP`): MSP's eigen
+   *  grens van het reeds-afgewerkte deel. Door GEEN enkele solverberekening gelezen (de
+   *  `finish = addWork(resume, remaining)`-formule haalde 17/17 zonder `stop`) — hier alleen
+   *  meegenomen als rauw, ongebruikt feit voor een latere taak (splits-/actual-grens-rendering). */
+  stop?: string;
 
   // CPM-computed
   earlyStart: string;
@@ -156,6 +172,7 @@ export interface TaskTime {
 export type TaskTimeInput = Pick<
   TaskTime,
   'durationType' | 'scheduleDuration' | 'durationMinutes' | 'scheduleStart' | 'scheduleFinish'
+  | 'resume' | 'stop'
 >;
 
 /** CPM-COMPUTED — geschreven door `runCPM` (CPMSolver). Normaliter niet handmatig muteren; de

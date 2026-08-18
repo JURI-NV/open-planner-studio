@@ -4,13 +4,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 14 After Para 26.mpp",
       "tasks": 18,
-      "startExact": 9,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 9,
-      "finishExact": 5,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 13,
-      "reason": "dossier (c)1 — out-of-sequence-driehoek (\"Validate Technical Specification\"-keten); root-cause propageert naar downstream-taken (§T15-iteratie-2, M5-correctie)"
+      "finishDiff": 0
     },
     "02fc12267d47c19e": {
       "root": "crawl",
@@ -439,13 +438,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 14 End Para 25.mpp",
       "tasks": 18,
-      "startExact": 9,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 9,
-      "finishExact": 5,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 13,
-      "reason": "dossier (c)1 — out-of-sequence-driehoek (zelfde keten als 00f24c6bf0cdfce3, ander bestand)"
+      "finishDiff": 0
     },
     "2b709d5aefa1769d": {
       "root": "crawl",

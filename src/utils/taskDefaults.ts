@@ -64,7 +64,7 @@ export function createDefaultTaskTime(
  * krijgen de terugval-merge (`??`, dus expliciete `false`/`0` blijven staan).
  *
  * **Optionele velden** (durationMinutes/interferingFloat/isNearCritical/floatPath/actualStart/
- * -Finish/actualDuration/remainingTime/-Minutes) krijgen de SLEUTEL-AANWEZIGHEID-conventie
+ * -Finish/actualDuration/remainingTime/-Minutes/resume/stop) krijgen de SLEUTEL-AANWEZIGHEID-conventie
  * (spec-review-fixronde 2026-08-17 — de eerdere "altijd 1-op-1 uit `partial`" bleek zelf een gat: een
  * partiële update die alleen `scheduleStart` noemde, wiste zo alsnog `durationMinutes`/`actualStart`/
  * `remainingTime`/etc., want die stonden simpelweg niet in `partial` — exact dezelfde schadeklasse als
@@ -109,5 +109,12 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
     actualDuration: 'actualDuration' in partial ? partial.actualDuration : base.actualDuration,
     remainingTime: 'remainingTime' in partial ? partial.remainingTime : base.remainingTime,
     remainingMinutes: 'remainingMinutes' in partial ? partial.remainingMinutes : base.remainingMinutes,
+    // Z12-herwerk — resume/stop, zelfde sleutel-aanwezigheid-conventie als actualStart/actualFinish
+    // hierboven. Gevonden tijdens fase-2-implementatie (T14b-achtige bugklasse): deze functie
+    // somt elk TaskTime-veld EXPLICIET op (geen spread), dus een nieuw optioneel veld dat hier niet
+    // genoemd wordt, wordt STIL gedropt bij elke `updateTask({ time: {...} })`-aanroep — `tsc` ziet
+    // dat niet (het returntype `TaskTime` staat een object toe dat een optioneel veld weglaat).
+    resume: 'resume' in partial ? partial.resume : base.resume,
+    stop: 'stop' in partial ? partial.stop : base.stop,
   };
 }

@@ -1040,7 +1040,43 @@ export class CPMSolver {
           const isElapsedTask = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
           const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
           let remStart = dataDate ?? actualES;                      // ondergrens: statusdatum, anders de eigen actualStart (M1)
+          // Z12-herwerk (dossier out-of-sequence-actuals): `true` zodra `remStart` hieronder uit het
+          // RESUME-veld komt i.p.v. de gewone voorganger-druk/elapsed-vloer — stuurt de ef<es-
+          // inversiecorrectie ná de gedeelde ef-berekening (zie die toelichting verderop).
+          let usedResumeOverride = false;
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
+            // Z12-herwerk (dossier out-of-sequence-actuals, ná Opus-weerlegging van het eerdere
+            // anker-ontwerp): MSP slaat het hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK
+            // op in het bestand — MPP-veld-id 99 (`TaskField.RESUME`, `DataType.DATE`,
+            // `FieldMap14.java` blok 0 offset 20), gelezen door `mppReader.ts` naar
+            // `task.time.resume`. Dit is dus GEEN afgeleide/herberekende waarde en GEEN historie-
+            // afhankelijke aanname — de invoer staat gewoon in het bestand. Corpusmeting (fase 1,
+            // scratchpad-lezer op de bestaande veldkaart-infra): `finish = addWork(resume,
+            // remaining)` op de taak-EIGEN kalender is 17/17 EXACT op alle out-of-sequence-in-
+            // progress-BLADtaken corpusbreed (`childIds.length === 0`, tegen `task.time.
+            // scheduleFinish` — MSP's eigen SCHEDULED_FINISH, vóór enige `applyCpmResult`-mutatie),
+            // en 4/4 minuut-exact op de gemeten OzBuild-snapshots (de root-cause-taak "Validate
+            // Technical Specification" én haar eigen voorganger "Create Technical Specification",
+            // in alle vier de bestanden — inclusief "After Para 28"/"End Para 29", die het eerdere
+            // anker-ontwerp brak). De 5 missers op de bredere (niet-out-of-sequence) in-progress-
+            // populatie zitten allemaal in reeds-gepinde resource-gedreven/timephased-uitzonderingen
+            // (`mpp14timephased.mpp`/`mpp14timephased2.mpp`, bestaande "toegestaan"-reason in
+            // `mpp-fidelity-baseline.json`) — buiten Z12-scope, geen tweede regel nodig.
+            //
+            // Vervangt de gewone voorganger-druk (`earlyStart`) VOLLEDIG voor een AANTOONBAAR
+            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde
+            // detectie als `detectOutOfSequence`'s eigen FINISH_START-tak) — mits `t.resume`
+            // daadwerkelijk aanwezig is. GEEN opt-in-vlag meer nodig: de AANWEZIGHEID van `resume`
+            // ís het signaal (spiegelt hoe `actualStart` ook zonder vlag werkt) — een niet-`.mpp`-
+            // bron (MSPDI/P6/CSV/IFC) heeft dit veld domweg niet, dus valt automatisch terug op de
+            // bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-vloer hieronder, byte-identiek.
+            const resumeOverride = t.resume && this.isOutOfSequenceFsPredecessor(task, preds, results)
+              ? this.parseIn(cal, t.resume)
+              : null;
+            if (resumeOverride && !isNaN(resumeOverride.getTime())) {
+              remStart = resumeOverride;
+              usedResumeOverride = true;
+            } else {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
             // T9 (voortgangsafronding, MEET-EERST-bevinding): MS Project hervat het restwerk NIET
@@ -1113,6 +1149,7 @@ export class CPMSolver {
                     })();
               if (elapsedAnchor > remStart) remStart = elapsedAnchor;
             }
+            }
           }
           let ef: Date;
           if (isElapsedTask) {
@@ -1125,6 +1162,17 @@ export class CPMSolver {
             ef = r.date;
             if (r.capped) this.cappedTaskIds.push(taskId);
           }
+          // Z12-herwerk, reviewbevinding L1: de VOLTOOID-tak (hierboven, `if (ef < es) es = ef`)
+          // bewaakt al dat een taak nooit "eindigt vóór ze begint"; het eerdere anker-ontwerp op
+          // DEZE tak had die wacht niet. `remStart` (dus ook `ef = addWork(remStart, remaining)`)
+          // komt bij `usedResumeOverride` rechtstreeks uit het RESUME-veld — een bestand met
+          // inconsistente RESUME/ActualStart-velden (RESUME vóór de eigen `actualStart`, corrupt of
+          // hostile) zou anders een `ef` vóór `actualES` kunnen opleveren terwijl `es` hieronder
+          // altijd `actualES` blijft. Klem `ef` dan op `actualES` (nooit `es` verlagen: `actualES`
+          // is hier, anders dan in de VOLTOOID-tak, een AANTOONBAAR feit, geen uit hetzelfde
+          // mechanisme afgeleide waarde). Normale niet-override-pad: `remStart` is per constructie
+          // altijd ≥ `actualES`, dus deze wacht is daar een no-op.
+          if (usedResumeOverride && ef < actualES) ef = actualES;
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -1246,6 +1294,37 @@ export class CPMSolver {
    * een relatie kan aantoonbaar out-of-sequence zijn (opvolger-actuals tegenspreken de voorganger-
    * logica) ongeacht of het project een statusbrede statusdatum heeft.
    */
+  /** Z12: is `task` aantoonbaar out-of-sequence met minstens één van haar FINISH_START-voorgangers
+   *  — de LIVE tegenhanger van `detectOutOfSequence`'s eigen FINISH_START-tak (identieke conditie:
+   *  `!predAF || (prefEF && succAS < prefEF)`), maar opgeroepen TIJDENS de forward-pas zelf (met de
+   *  tot-nu-toe gevulde `results`) i.p.v. erna (met de complete `earlyDates`). Door de topologische
+   *  volgorde (`order`, `topologicalSort`) staat een voorganger altijd vóór haar opvolger, dus
+   *  `results.get(predecessorId)` is op dit punt al gezet en identiek aan wat `earlyDates` er ná
+   *  afloop voor dezelfde relatie uit zou geven — geen tweede, potentieel afwijkende berekening.
+   *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
+   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor de `resume`-veld-override
+   *  (zie de aanroepplek hierboven) geen gemeten scenario, dus geen ongeverifieerde aanname erbij
+   *  (`Task.time.resume`'s docblok in `src/types/task.ts`). */
+  private isOutOfSequenceFsPredecessor(
+    task: Task,
+    preds: Sequence[],
+    results: Map<string, { es: Date; ef: Date }>,
+  ): boolean {
+    if (!task.time.actualStart) return false;
+    const succAS = this.parseIn(this.calendarFor(task), task.time.actualStart);
+    for (const seq of preds) {
+      if (seq.type !== 'FINISH_START') continue;
+      const predTask = this.tasks.get(seq.predecessorId);
+      if (!predTask) continue;
+      const predEng = this.calendarFor(predTask);
+      const predAF = predTask.time.actualFinish ? this.parseIn(predEng, predTask.time.actualFinish) : null;
+      const predEF = results.get(seq.predecessorId)?.ef ?? null;
+      const prefEF = predAF ?? predEF;
+      if (!predAF || (prefEF && succAS < prefEF)) return true;
+    }
+    return false;
+  }
+
   private detectOutOfSequence(earlyDates: Map<string, { es: Date; ef: Date }>): string[] {
     const out: string[] = [];
     for (const seq of this.sequences) {

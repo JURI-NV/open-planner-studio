@@ -190,6 +190,12 @@ interface Case {
     // actualStart/actualFinish via de dedicated acties; rawCompletion zet time.completion
     // RAUW (import-simulatie, geen invarianten) om het solver-vangnet (§4.2 tak 2b) te testen.
     completion?: number; actualStart?: string; actualFinish?: string; rawCompletion?: number;
+    /** Z12-herwerk (dossier out-of-sequence-actuals): rauw op `time.resume`/`time.stop` gezet, net
+     *  als `remainingMinutes` hierboven (import-simulatie — geen dedicated store-actie voor deze
+     *  twee, spiegelt `mppReader.ts`'s rechtstreekse veld-99/100-lezing). `resume` is het signaal
+     *  dat `CPMSolver.ts`'s out-of-sequence-tak activeert; `stop` rondt alleen mee, wordt door geen
+     *  enkele solverberekening gelezen. */
+    resume?: string; stop?: string;
     /** Activity-code-toewijzing: typenaam → code (fase 2.7 view-cases). */
     code?: Record<string, string>;
     /** Custom-field-waarde: veldnaam → waarde (fase 2.7 view-cases). */
@@ -589,6 +595,15 @@ function buildAndSolve(c: Case): {
     if (t.remainingMinutes !== undefined) {
       const task = S().tasks.find((x) => x.id === id)!;
       S().updateTask(id, { time: { ...task.time, remainingMinutes: t.remainingMinutes } });
+    }
+    // Z12-herwerk — resume/stop, zelfde rauwe-override-vorm als remainingMinutes hierboven.
+    if (t.resume !== undefined) {
+      const task = S().tasks.find((x) => x.id === id)!;
+      S().updateTask(id, { time: { ...task.time, resume: t.resume } });
+    }
+    if (t.stop !== undefined) {
+      const task = S().tasks.find((x) => x.id === id)!;
+      S().updateTask(id, { time: { ...task.time, stop: t.stop } });
     }
   }
 
@@ -1271,6 +1286,7 @@ const TASK_KEYS = {
   assign: true, completion: true, actualStart: true, actualFinish: true, rawCompletion: true,
   code: true, field: true,
   splitGaps: true, manuallyScheduled: true, levelingDelayMinutes: true, levelingDelayElapsed: true,
+  resume: true, stop: true,
 } satisfies Record<keyof Case['tasks'][number], true>;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
