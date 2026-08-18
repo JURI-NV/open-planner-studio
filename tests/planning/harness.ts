@@ -206,11 +206,12 @@ interface Case {
     /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.manuallyScheduled`.
      *  Afwezig ⇒ normale (auto-geplande) taak (byte-identiek). */
     manuallyScheduled?: boolean;
-    /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.levelingDelayMinutes`.
-     *  Afwezig ⇒ `levelingDelay` (werkdagen) blijft de bron (byte-identiek). */
+    /** Z6: door `CPMSolver.forwardPass` toegepast (uur-/minuutprecisie, wint van `levelingDelay`
+     *  hieronder wanneer aanwezig) — zie `Task.levelingDelayMinutes`. Afwezig ⇒ `levelingDelay`
+     *  (werkdagen) blijft de bron (byte-identiek). */
     levelingDelayMinutes?: number;
-    /** Z0: typecontract-doorgifte, nog ONGEBRUIKT door de solver — zie `Task.levelingDelayElapsed`.
-     *  Afwezig ⇒ WORKTIME (byte-identiek). */
+    /** Z6: door `CPMSolver.forwardPass` toegepast — zie `Task.levelingDelayElapsed`. Afwezig ⇒
+     *  WORKTIME (byte-identiek). */
     levelingDelayElapsed?: boolean;
   }[];
   /** Fase 2.8b (§8.1): `lag` mag een string zijn — "4h"/"90m"/"2d" (via `parseDuration` in de
@@ -312,6 +313,15 @@ type AfterOp =
   | { runCPM: true }
   | { undo: true }
   | { applyLevel: { constrainToFloat?: boolean; resources?: string[] } }
+  /** Z6-testtoevoeging: zet `Task.levelingDelay` (hele WERKdagen) rechtstreeks — dat veld wordt in
+   *  de echte app UITSLUITEND door `ResourceLeveler` gezet (`taskSlice.addTask` sluit het bewust
+   *  uit, zie de toelichting daar), maar de Z6-cases moeten de hele-dagen-terugval en de
+   *  ELAPSEDTIME-invariant-case (§"Invariant-waarschuwing", nul-afwijkingen-plan) corpusloos bouwen
+   *  ZONDER de volledige leveler (resources/toewijzingen) op te tuigen. `updateTask` accepteert
+   *  elk `Partial<Task>`-veld (geen allowlist zoals `addTask`), dus dit is geen omweg om een
+   *  productie-guard te omzeilen — puur een testgemak. Zet GEEN `scheduleStale`/`runCPM` zelf; een
+   *  navolgende `{ runCPM: true }` is vereist om het effect te zien. */
+  | { setLevelingDelay: { task: string; days: number } }
   /** Undo-orphan-regressie (fase 2.8a QA, fix 1): voeg een nieuwe bibliotheek-kalender toe EN
    *  zet hem meteen als projectdefault (spiegelt CalendarDialog "Als projectdefault") — precies
    *  de twee acties die de bug triggerde (addCalendar pusht een undo-snapshot, setProjectCalendar
@@ -706,6 +716,10 @@ function buildAndSolve(c: Case): {
       void _cid;
       const newId = S().addCalendar({ ...calBase, name: op.addCalendarAsDefault.name });
       S().setProjectCalendar(newId);
+    } else if ('setLevelingDelay' in op) {
+      const tid = ids[op.setLevelingDelay.task];
+      if (!tid) throw new Error(`afterCPM.setLevelingDelay: onbekende taak "${op.setLevelingDelay.task}"`);
+      S().updateTask(tid, { levelingDelay: op.setLevelingDelay.days });
     }
   }
 

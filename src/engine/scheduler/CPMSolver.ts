@@ -518,7 +518,11 @@ export class CPMSolver {
     if (eng.isHourMode) return { date: eng.addWorkMinutes(start, durationMinutesOf(task, eng)), capped: false };
     return eng.addWorkDaysChecked(start, durationDaysOf(task, eng));
   }
-  /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). */
+  /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). BEWUST GEEN
+   *  `levelingDelay`/`levelingDelayMinutes`-aftrek hier (Z6-besluit, "geen-phantom-float"-fix —
+   *  zie de uitgebreide toelichting bij de vertraging-toepassing in `forwardPass`): `end` (=
+   *  `lateFinish`) komt hier al onafhankelijk van deze taak se eigen `earlyStart` binnen, dus een
+   *  aftrek zou de vertraging DUBBEL verrekenen in `totalFloat`. */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
     if (isZeroDurationMilestone(task)) return new Date(end.getTime());
     if (task.time.durationType === 'ELAPSEDTIME') {
@@ -953,15 +957,62 @@ export class CPMSolver {
         earlyStart = this.snapSuccessorEarlyStart(cal, earlyStart, task);
       }
 
-      // Nivelleer-vertraging (fase 2.5, §5.6): schuif de zojuist bepaalde — al werkdag-gesnapte,
-      // constraint-toegepaste — early start met de door de leveler gezette `levelingDelay` op.
-      // Beide takken hierboven (geen-voorgangers én met-voorgangers) eindigen met een werkdag,
-      // dus addWorkingDaysSigned krijgt gegarandeerd een werkdag (invariant). Zo lopen de
-      // verschoven datums gewoon door de backward pass -> float wordt eerlijk herrekend (geen
-      // phantom float, §10-P2). `levelingDelay` undefined of 0 => exacte no-op (alle bestaande
-      // cases blijven ongewijzigd).
-      if (task.levelingDelay) {
-        earlyStart = cal.addWorkingDaysSigned(earlyStart, task.levelingDelay);
+      // Nivelleer-vertraging (fase 2.5, §5.6; Z6 — uur-/minuutprecisie + elapsed-bewustheid).
+      // Schuift de zojuist bepaalde — al werkdag-gesnapte, constraint-toegepaste — early start met
+      // de door de leveler (of, sinds Z5, `.mpp`'s eigen LEVELING_DELAY-veld) gezette vertraging op.
+      //
+      // AANWEZIG ⇒ bron van waarheid (`levelingDelayMinutes`' Z0-precedent, spiegelt
+      // `durationMinutes` t.o.v. `scheduleDuration`): `levelingDelayMinutes` wint van het hele-
+      // dagen-pad (`levelingDelay`, gezet door `ResourceLeveler`); AFWEZIG ⇒ het hele-dagen-pad
+      // blijft de terugval, byte-identiek aan vóór Z6.
+      //
+      // `levelingDelayElapsed` (MSP's `LevelingDelayFormat` "Elapsed…", alleen betekenisvol náást
+      // `levelingDelayMinutes`, zie het veld se docblock in `src/types/task.ts`) ⇒ de VERTRAGING
+      // ZELF is klok-tijd, geen werktijd ⇒ `addElapsedMinutes` (T8-precedent, `duration.ts`,
+      // 24/7, GEEN kalenderband-toetsing), nooit `addWorkingMinutesSigned`.
+      //
+      // `taskElapsed` (spiegelt `rootElapsed` hierboven en `snapSuccessorEarlyStart`s eigen bypass,
+      // beide T8): is de TAAK zelf ELAPSEDTIME, dan mag de vertraging ZELF ook geen kalenderband-
+      // snap veroorzaken, ONGEACHT `levelingDelayElapsed`. Reden (Z6-invariant-waarschuwing):
+      // `addWorkingDaysSigned`/`addWorkingMinutesSigned` normaliseren hun EERSTE argument allebei
+      // vóór alles naar de eerstvolgende WERK-dag/-instant (`nextWorkDay`/`nextWorkInstant`) — voor
+      // een elapsed taak die legitiem op een niet-werk-instant staat (T8: "elapsed mag op een
+      // weekend/buiten-de-band starten", `rootElapsed`/`succElapsed`-bypasses) zou dat de ELAPSED-
+      // invariant stilzwijgend breken door het anker alsnog de werkband in te duwen. Gepind in
+      // `msp-50-z6-invariant-elapsed-wortel-hele-dagen-delay`/`msp-51-z6-invariant-elapsed-opvolger-
+      // hele-dagen-delay` (`cases-msp-pariteit.json`).
+      //
+      // Backward-spiegel — EXPLICIET besluit (Z6, met bewijs): GEEN aftrek van de vertraging in
+      // `backwardPass`/`subDuration`. Dit is GEEN omissie maar de bewuste "geen-phantom-float"-fix
+      // uit het B1-ontwerpdoc (`docs/superpowers/specs/2026-07-03-resources-design.md`, §5.6,
+      // PMBOK-valkuil "A resource-leveled activity can delay the project and still indicate
+      // positive total float"): `lateStart`/`lateFinish` worden in de backward pass UITSLUITEND uit
+      // OPVOLGER-druk/`projectEnd` en de TAAKduur afgeleid — nooit uit de eigen `earlyStart` van de
+      // taak — dus onafhankelijk van `levelingDelay`. Omdat `earlyStart` hier wél met de vertraging
+      // schuift, daalt `totalFloat = lateStart − earlyStart` daardoor STRUCTUREEL en EXACT met het
+      // vertragingsbedrag (de taak heeft precies dat deel van haar eigen speling opgesoupeerd) —
+      // wiskundig gegarandeerd door de structuur van de backward pass, niet toevallig. EEN aftrek
+      // ván de vertraging TOEVOEGEN in `subDuration` zou dat bedrag DUBBEL tellen (`float − 2×delay`
+      // i.p.v. `float − delay`) — aantoonbaar fout, mutatie-bewezen tegen `cases-msp-pariteit.json`
+      // (`msp-46-z6-uur-precisie-plus-float`/`msp-49-z6-volgorde-dependency-constraint-delay-plus-
+      // float`: tijdelijk een aftrek toegevoegd aan `subDuration` tijdens implementatie ⇒ beide
+      // float-asserties ROOD (4.222…→3.889… i.p.v. →4.056… op msp-46; 3.556…→3.444… op msp-49);
+      // teruggedraaid ⇒ groen). Geen corpusbestand spreekt dit tegen (de twee zuivere leveling-
+      // bestanden en het gemengde bestand meten Start/Finish, niet MSP's eigen Total-Slack-veld —
+      // dat wordt nergens gelezen, zie `mppGroundTruth.ts`); de wiskundige garantie hierboven staat
+      // dus op zichzelf.
+      //
+      // `levelingDelay`/`levelingDelayMinutes` beide afwezig/0 ⇒ exacte no-op (alle bestaande cases
+      // blijven ongewijzigd, byte-identiek aan vóór Z6).
+      const taskElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
+      if (task.levelingDelayMinutes) {
+        earlyStart = (taskElapsed || task.levelingDelayElapsed)
+          ? addElapsedMinutes(earlyStart, task.levelingDelayMinutes)
+          : cal.addWorkingMinutesSigned(earlyStart, task.levelingDelayMinutes);
+      } else if (task.levelingDelay) {
+        earlyStart = taskElapsed
+          ? addElapsedMinutes(earlyStart, task.levelingDelay * 24 * 60)
+          : cal.addWorkingDaysSigned(earlyStart, task.levelingDelay);
       }
 
       // Voortgang (fase 2.6): actual-pinning + data-date-vloer. dataDate === null ⇒ elke tak is
@@ -1299,8 +1350,18 @@ export class CPMSolver {
    *  `!predAF || (prefEF && succAS < prefEF)`), maar opgeroepen TIJDENS de forward-pas zelf (met de
    *  tot-nu-toe gevulde `results`) i.p.v. erna (met de complete `earlyDates`). Door de topologische
    *  volgorde (`order`, `topologicalSort`) staat een voorganger altijd vóór haar opvolger, dus
-   *  `results.get(predecessorId)` is op dit punt al gezet en identiek aan wat `earlyDates` er ná
-   *  afloop voor dezelfde relatie uit zou geven — geen tweede, potentieel afwijkende berekening.
+   *  `results.get(predecessorId)` is op dit punt al gezet.
+   *
+   *  L2 (Z12-her-check, Opus-hercheck, correctie op een eerdere — onware — claim hier): dat is NIET
+   *  in alle gevallen identiek aan wat `earlyDates` er ná afloop voor dezelfde relatie uit zou
+   *  geven. `runCPM` roept `applyAlap(order, earlyDates, lateDates)` aan ná `backwardPass` maar
+   *  VÓÓR `detectOutOfSequence(earlyDates)` — en `applyAlap` muteert `early.es`/`early.ef` IN-PLACE
+   *  op diezelfde `earlyDates`-Map (regel ~1718 e.v.) voor elke ALAP-geconstrainde taak. Is de
+   *  VOORGANGER van deze relatie zelf ALAP, dan ziet `detectOutOfSequence` (post-`applyAlap`) een
+   *  ANDERE (later geschoven) `predEF` dan wat `results.get(predecessorId)` hier tijdens de forward-
+   *  pas nog opleverde (vóór de ALAP-schuif). Voor déze functie zelf verandert dat niets — ze wordt
+   *  UITSLUITEND tijdens de forward-pas gebruikt (de `resume`-veld-override hierboven), nooit ná
+   *  `applyAlap` — dus geen gedragswijziging, alleen een onware "identiek"-claim gecorrigeerd.
    *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
    *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor de `resume`-veld-override
    *  (zie de aanroepplek hierboven) geen gemeten scenario, dus geen ongeverifieerde aanname erbij

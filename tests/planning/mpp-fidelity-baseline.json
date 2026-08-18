@@ -729,13 +729,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2021_OzBuild/OzBuild Workshop 17.mpp",
       "tasks": 18,
-      "startExact": 9,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 9,
-      "finishExact": 7,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 11,
-      "reason": "leveling-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
+      "finishDiff": 0
     },
     "520c52e729736320": {
       "root": "crawl",
@@ -1063,13 +1062,12 @@
       "root": "crawl",
       "label": "crawl-mpp/MSP2016_OzBuild/OzBuild Workshop 17 Leveling.mpp",
       "tasks": 18,
-      "startExact": 12,
+      "startExact": 18,
       "startSameday": 0,
-      "startDiff": 6,
-      "finishExact": 10,
+      "startDiff": 0,
+      "finishExact": 18,
       "finishSameday": 0,
-      "finishDiff": 8,
-      "reason": "leveling-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
+      "finishDiff": 0
     },
     "75070a3239a0bccc": {
       "root": "crawl",
@@ -1637,13 +1635,13 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 174,
-      "startSameday": 10,
-      "startDiff": 31,
-      "finishExact": 163,
-      "finishSameday": 10,
-      "finishDiff": 42,
-      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak dossier (c)5 (SNET/MSO-constraint buiten de werkband, ongemeld — zie §H1/H2 tabel) | Z1 (2026-08-17): TASK_MODE-bit nu gelezen (was dossier (c)5-hypothese) — 11 manually-scheduled taken in dit bestand krijgen nu START/FINISH (1283/1284) als grondwaarheid i.p.v. SCHEDULED_START/FINISH (35/36); startDiff 29→31, finishDiff 41→42 (motor rekent manual-modus nog niet, Z9a). Tijdelijke attributie, verdwijnt bij Z9a."
+      "startExact": 192,
+      "startSameday": 20,
+      "startDiff": 3,
+      "finishExact": 192,
+      "finishSameday": 17,
+      "finishDiff": 6,
+      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak dossier (c)5 (SNET/MSO-constraint buiten de werkband, ongemeld — zie §H1/H2 tabel) | Z1 (2026-08-17): TASK_MODE-bit nu gelezen (was dossier (c)5-hypothese) — 11 manually-scheduled taken in dit bestand krijgen nu START/FINISH (1283/1284) als grondwaarheid i.p.v. SCHEDULED_START/FINISH (35/36); startDiff 29→31, finishDiff 41→42 (motor rekent manual-modus nog niet, Z9a). Tijdelijke attributie, verdwijnt bij Z9a. | Z6 (2026-08-18): levelingDelayMinutes/levelingDelayElapsed nu toegepast in forwardPass (uur-/minuutprecisie + elapsed-bewustheid) — het leveling-deel van dit gemengde bestand verbetert aantoonbaar: startDiff 31→3, finishDiff 42→6 (van 20/23 sameday-afwijkingen naar exact; van 10/10 naar 20/17 sameday, rest naar exact). De resterende 3 start-/6 finish-afwijkingen zijn NIET leveling-gerelateerd — ze vallen samen met de 11 TASK_MODE/manually-scheduled taken uit de Z1-regel hierboven (Z9a-domein) plus het dossier-(c)5-geval; geen van de resterende afwijkende taken draagt nog een ongeconsumeerde levelingDelay. Tijdelijke attributie voor het manual-scheduling-restant, verdwijnt bij Z9a."
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
