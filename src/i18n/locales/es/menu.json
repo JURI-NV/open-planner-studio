@@ -181,7 +181,13 @@
     "taskHintAppend": "Nueva tarea al final de la lista",
     "columnsHintTable": "Elegir las columnas de la vista Tabla",
     "columnsHintGoToTable": "Elegir las columnas de la vista Tabla: se ven en la pestaña Tabla",
-    "toggleResourceAccent": "Acento de recurso"
+    "toggleResourceAccent": "Acento de recurso",
+    "screenColors": "Colores de barras",
+    "screenColors_critical": "Ruta crítica",
+    "screenColors_task": "Por tarea — color propio",
+    "screenColors_auto": "Por tarea — automático",
+    "screenColors_resource": "Por recurso",
+    "screenColorsHint": "En los tres últimos modos, un contorno rojo marca la ruta crítica."
   },
   "ifc": {
     "title": "Editor IFC",

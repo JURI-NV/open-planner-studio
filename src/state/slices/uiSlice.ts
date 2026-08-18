@@ -120,6 +120,7 @@ export function createDefaultUI(): UIState {
     showProgressLine: true,
     showStatusDateLine: true,
     showResourceAccent: false,   // #21: schermbeeld verandert eerst niet — expliciet aanzetten
+    screenBarColorMode: 'critical', // #21: klassieke kritiek-pad-kleuren; modi zijn een expliciete keuze
     presentationMode: false,
     showMiniMap: false,
     showColumnsDialog: false,

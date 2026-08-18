@@ -181,7 +181,13 @@
     "taskHintAppend": "在列表末尾添加新任务",
     "columnsHintTable": "选择“表格”视图的列",
     "columnsHintGoToTable": "选择“表格”视图的列 — 在“表格”选项卡中显示",
-    "toggleResourceAccent": "资源强调色"
+    "toggleResourceAccent": "资源强调色",
+    "screenColors": "条形图颜色",
+    "screenColors_critical": "关键路径",
+    "screenColors_task": "按任务 — 自定义颜色",
+    "screenColors_auto": "按任务 — 自动",
+    "screenColors_resource": "按资源",
+    "screenColorsHint": "在后三种模式下，红色边框标示关键路径。"
   },
   "ifc": {
     "title": "IFC 编辑器",

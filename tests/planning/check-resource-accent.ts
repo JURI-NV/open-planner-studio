@@ -11,6 +11,7 @@
  * stub; het accent is een fillRect (geen roundRect), dus de stub registreert fillRects.
  */
 import { useAppStore } from '@/state/appStore';
+import { paletteColorForId } from '@/engine/renderer/resourcePalette';
 import { GanttRenderer } from '@/engine/renderer/GanttRenderer';
 import type { Task } from '@/types/task';
 import type { ViewRow } from '@/engine/view/visibleRows';
@@ -74,7 +75,7 @@ const ASG: ResourceAssignment[] = [
 const rows: ViewRow[] = [{ kind: 'task', task, depth: 0, dimmed: false }];
 const W = 1200, H = 200, TTW = 300, ROWH = 28, HDRH = 60;
 
-function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task } = {}) {
+function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?: Task; barColorMode?: 'critical' | 'task' | 'auto' | 'resource' } = {}) {
   const st = S();
   const { ctx, fillRects, shapes } = makeCtx();
   const row = over.task ? { kind: 'task' as const, task: over.task, depth: 0, dimmed: false } : rows[0];
@@ -88,6 +89,7 @@ function render(showResourceAccent: boolean, over: { darkTheme?: boolean; task?:
     canvasWidth: W, canvasHeight: H, taskTableWidth: TTW, rowHeight: ROWH, headerHeight: HDRH,
     showResourceAccent,
     darkTheme: over.darkTheme,
+    barColorMode: over.barColorMode,
     resources: [R1, R2],
     assignments: ASG,
   });
@@ -147,6 +149,57 @@ const accents = (rects: Rect[]) => rects.filter(r => r.h === 3 && r.y > HDRH);
   const plain = render(false);
   const plainBars = plain.shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
   ok(plainBars.every(b => b.fill !== '#00FF00'), 'zonder taakkleur: geen kleurlek');
+}
+
+// ── Scherm-kleurmodi (#21 user-wens): zelfde vier standen als de rapport-export ─────────────────
+// Balken herkenbaar als roundRect-shapes met bar-hoogte (≈15px) in de chartzone.
+const barShapes = (shapes: RoundShape[]) => shapes.filter(sh => sh.h > 10 && sh.h < 20 && sh.w > 3 && sh.x > TTW - 5);
+{
+  // resource: 1:3-toewijzing ⇒ twee segmentvullingen, aaneengesloten, in de resourcekleuren.
+  const { shapes } = render(false, { barColorMode: 'resource' });
+  const bars = barShapes(shapes);
+  const seg1 = bars.find(b => b.fill === '#111111');
+  const seg2 = bars.find(b => b.fill === '#222222');
+  ok(!!seg1 && !!seg2, `scherm resource-modus: beide segmenten getekend (fills: ${[...new Set(bars.map(b => b.fill))].join(', ')})`);
+  if (seg1 && seg2) {
+    const total = seg1.w + seg2.w;
+    ok(Math.abs(seg1.w / total - 0.25) < 0.03, `scherm resource-modus: verhouding ≈ 25/75 (got ${(seg1.w / total * 100).toFixed(1)}%)`);
+    ok(Math.abs(seg2.x - (seg1.x + seg1.w)) < 1.5, 'scherm resource-modus: segmenten aaneengesloten');
+  }
+  // Kritieke taak zonder expliciete moduskleur → rode rand.
+  ok(bars.some(b => b.stroke === '#DC2626'), 'scherm resource-modus: rode rand om kritieke taak');
+}
+{
+  // auto: vulling = palet-hash op taak-id (licht thema ⇒ exacte kleur).
+  const { shapes } = render(false, { barColorMode: 'auto' });
+  const bars = barShapes(shapes);
+  ok(bars.some(b => b.fill === paletteColorForId(task.id)), `scherm auto-modus: balk in hash-kleur (fills: ${[...new Set(bars.map(b => b.fill))].join(', ')})`);
+}
+{
+  // task: expliciete Task.color wint; kritiek → rode rand.
+  const colored = { ...task, id: task.id + '-mode', color: '#00FF00' } as Task;
+  const { shapes } = render(false, { task: colored, barColorMode: 'task' });
+  const bars = barShapes(shapes);
+  ok(bars.some(b => b.fill === '#00FF00'), 'scherm task-modus: Task.color is de vulling');
+  ok(bars.some(b => b.stroke === '#DC2626'), 'scherm task-modus: rode rand om kritieke taak');
+}
+{
+  // donker thema + resource-modus: segmentkleuren verlicht boven de zichtbaarheidsdrempel.
+  const { shapes } = render(false, { barColorMode: 'resource', darkTheme: true });
+  const bars = barShapes(shapes);
+  const lum = (hex: string): number => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  ok(bars.filter(b => b.stroke === '').every(b => lum(b.fill) >= 0.33), `scherm resource-modus donker: elke vulling zichtbaar (fills: ${[...new Set(bars.filter(b => b.stroke === '').map(b => b.fill))].join(', ')})`);
+}
+{
+  // Zonder modus (default critical): géén paletkleuren in de balken — klassieke beeld.
+  const { shapes } = render(false);
+  const bars = barShapes(shapes);
+  ok(!bars.some(b => b.fill === paletteColorForId(task.id) && b.stroke === ''), 'default: geen moduskleuren');
 }
 
 if (failures > 0) { console.log(`resource-accent: ${failures} faalregels`); process.exit(1); }

@@ -181,7 +181,13 @@
     "taskHintAppend": "Neuer Vorgang am Ende der Liste",
     "columnsHintTable": "Spalten der Tabellenansicht wählen",
     "columnsHintGoToTable": "Spalten der Tabellenansicht wählen — sichtbar im Register Tabelle",
-    "toggleResourceAccent": "Ressourcen-Akzent"
+    "toggleResourceAccent": "Ressourcen-Akzent",
+    "screenColors": "Balkenfarben",
+    "screenColors_critical": "Kritischer Pfad",
+    "screenColors_task": "Pro Aufgabe — eigene Farbe",
+    "screenColors_auto": "Pro Aufgabe — automatisch",
+    "screenColors_resource": "Pro Ressource",
+    "screenColorsHint": "In den letzten drei Modi markiert ein roter Rand den kritischen Pfad."
   },
   "ifc": {
     "title": "IFC-Editor",

@@ -6,13 +6,14 @@ import {
   Diamond, ZoomIn, ZoomOut, Trash2, Eye,
   History, Download, Puzzle,
   LayoutTemplate, UserPlus, Flag, GitCompareArrows, CalendarClock, X,
-  Columns3, Filter, Layers, ArrowUpDown, Maximize2, Minimize2, SplitSquareHorizontal,
+  Columns3, Filter, Layers, ArrowUpDown, Maximize2, Minimize2, SplitSquareHorizontal, Palette,
   Map as MapIcon, AlertTriangle, Save, RefreshCw, Settings2,
 } from 'lucide-react';
 import { listWbsTemplates, deleteWbsTemplate, type WbsTemplate } from '@/utils/wbsTemplates';
 import { scaleFromZoom } from '@/engine/renderer/timelineTiers';
 import {
   saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
+  saveScreenBarColorMode,
 } from '@/utils/settingsStore';
 import { ExportFormat } from '@/state/appStore';
 import { EXPORT_FORMATS } from '@/services/formatRegistry';
@@ -545,6 +546,54 @@ export function ResourceAssignDropdown() {
  * eiste de richting-select 100% van de rij en hield het veld-dropdown (`flex-1`, dus
  * flex-basis 0) ~12px over: een sliver zonder leesbare tekst. Zelfde valkuil als issue #46.
  */
+/**
+ * #21 (user-wens): scherm-kleurmodi — dezelfde vier standen als de Balkkleuren-dropdown in het
+ * Rapport-tab, maar dan voor de Gantt op het scherm. 'critical' is het klassieke beeld; de andere
+ * standen kleuren de balken (moduskleuren worden in het donkere thema automatisch verlicht) met
+ * het kritieke pad als rode rand. App-globaal + persistent via `ops-screenBarColorMode`.
+ */
+export function ScreenColorsPopoverButton() {
+  const { t: tMenu } = useTranslation('menu');
+  const mode = useAppStore(s => s.ui.screenBarColorMode);
+  const setUI = useAppStore(s => s.setUI);
+  const [open, setOpen] = useState(false);
+  const OPTIONS = ['critical', 'task', 'auto', 'resource'] as const;
+
+  return (
+    <Popover
+      open={open}
+      onClose={() => setOpen(false)}
+      panelStyle={{
+        marginTop: 2, zIndex: 9999, minWidth: 230, padding: 8,
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}
+      trigger={
+        <button
+          className={`ribbon-btn small${mode !== 'critical' ? ' active' : ''}`}
+          title={tMenu('ribbon.screenColors')}
+          aria-label={tMenu('ribbon.screenColors')}
+          onClick={() => setOpen(o => !o)}
+        >
+          <span className="ribbon-btn-icon"><Palette size={14} /></span>
+          <span className="ribbon-btn-label">{tMenu('ribbon.screenColors')}</span>
+        </button>
+      }
+    >
+      <span className="ribbon-info" style={{ fontWeight: 600 }}>{tMenu('ribbon.screenColors')}</span>
+      {OPTIONS.map(m => (
+        <button
+          key={m}
+          className={`ribbon-btn small w-full justify-start${mode === m ? ' active' : ''}`}
+          onClick={() => { setUI({ screenBarColorMode: m }); void saveScreenBarColorMode(m); setOpen(false); }}
+        >
+          <span className="ribbon-btn-label">{tMenu(`ribbon.screenColors_${m}`)}</span>
+        </button>
+      ))}
+      <span className="ribbon-info">{tMenu('ribbon.screenColorsHint')}</span>
+    </Popover>
+  );
+}
+
 export function GroupPopoverButton() {
   const { t: tMenu } = useTranslation('menu');
   const { t: tCommon } = useTranslation('common');

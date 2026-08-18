@@ -181,7 +181,13 @@
     "taskHintAppend": "リストの末尾に新しいタスクを追加します",
     "columnsHintTable": "テーブル ビューの列を選択",
     "columnsHintGoToTable": "テーブル ビューの列を選択 — テーブル タブに表示されます",
-    "toggleResourceAccent": "リソースアクセント"
+    "toggleResourceAccent": "リソースアクセント",
+    "screenColors": "バーの色",
+    "screenColors_critical": "クリティカルパス",
+    "screenColors_task": "タスクごと — 独自の色",
+    "screenColors_auto": "タスクごと — 自動",
+    "screenColors_resource": "リソースごと",
+    "screenColorsHint": "後の3つのモードでは、赤い枠線がクリティカルパスを示します。"
   },
   "ifc": {
     "title": "IFC エディタ",

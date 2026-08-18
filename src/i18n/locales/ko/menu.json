@@ -181,7 +181,13 @@
     "taskHintAppend": "목록 맨 아래에 새 작업 추가",
     "columnsHintTable": "테이블 보기의 열 선택",
     "columnsHintGoToTable": "테이블 보기의 열 선택 — 테이블 탭에 표시됩니다",
-    "toggleResourceAccent": "리소스 강조"
+    "toggleResourceAccent": "리소스 강조",
+    "screenColors": "막대 색상",
+    "screenColors_critical": "임계 경로",
+    "screenColors_task": "작업별 — 사용자 지정 색",
+    "screenColors_auto": "작업별 — 자동",
+    "screenColors_resource": "리소스별",
+    "screenColorsHint": "마지막 세 가지 모드에서 빨간 테두리가 임계 경로를 표시합니다."
   },
   "ifc": {
     "title": "IFC 편집기",

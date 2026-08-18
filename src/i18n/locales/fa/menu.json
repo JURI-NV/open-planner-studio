@@ -181,7 +181,13 @@
     "taskHintAppend": "وظیفه جدید در انتهای فهرست",
     "columnsHintTable": "انتخاب ستون‌های نمای جدول",
     "columnsHintGoToTable": "انتخاب ستون‌های نمای جدول — در زبانه جدول دیده می‌شود",
-    "toggleResourceAccent": "تأکید منبع"
+    "toggleResourceAccent": "تأکید منبع",
+    "screenColors": "رنگ میله‌ها",
+    "screenColors_critical": "مسیر بحرانی",
+    "screenColors_task": "به ازای هر کار — رنگ دلخواه",
+    "screenColors_auto": "به ازای هر کار — خودکار",
+    "screenColors_resource": "به ازای هر منبع",
+    "screenColorsHint": "در سه حالت آخر، حاشیه قرمز مسیر بحرانی را نشان می‌دهد."
   },
   "ifc": {
     "title": "ویرایشگر IFC",

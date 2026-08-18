@@ -181,7 +181,13 @@
     "taskHintAppend": "مهمة جديدة في نهاية القائمة",
     "columnsHintTable": "اختيار أعمدة عرض الجدول",
     "columnsHintGoToTable": "اختيار أعمدة عرض الجدول — تظهر في علامة التبويب الجدول",
-    "toggleResourceAccent": "لمسة المورد"
+    "toggleResourceAccent": "لمسة المورد",
+    "screenColors": "ألوان الأعمدة",
+    "screenColors_critical": "المسار الحرج",
+    "screenColors_task": "لكل مهمة — لون مخصص",
+    "screenColors_auto": "لكل مهمة — تلقائي",
+    "screenColors_resource": "لكل مورد",
+    "screenColorsHint": "في الأوضاع الثلاثة الأخيرة يؤطر خط أحمر المسار الحرج."
   },
   "ifc": {
     "title": "محرر IFC",

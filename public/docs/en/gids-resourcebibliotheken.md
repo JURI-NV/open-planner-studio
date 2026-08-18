@@ -48,7 +48,11 @@ In the project view you'll encounter three kinds of rows:
 Every row starts with a small color swatch: the **resource color**. New resources automatically get
 a free color from a fixed palette, and you can always pick your own here. The color is purely
 presentational — it colors the bars in the report export (Report → Bar colors → *Per resource*) and
-the on-screen accent on the View tab, but it never counts as a deviation between library and project.
+on screen, but it never counts as a deviation between library and project. On screen you have two
+levels: **View → Bar colors** colors the whole bar (segmented when multiple parties work on a task,
+with the critical path as a red outline), and the separate **Resource accent** toggle
+(View → Baselines & progress) keeps the classic coloring and only adds a thin stripe in the
+resource color under the bar.
 
 ## What follows the library — and what doesn't
 

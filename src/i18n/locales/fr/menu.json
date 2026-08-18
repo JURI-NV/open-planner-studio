@@ -181,7 +181,13 @@
     "taskHintAppend": "Nouvelle tâche en bas de la liste",
     "columnsHintTable": "Choisir les colonnes de la vue Tableau",
     "columnsHintGoToTable": "Choisir les colonnes de la vue Tableau — visibles sous l’onglet Tableau",
-    "toggleResourceAccent": "Accent ressource"
+    "toggleResourceAccent": "Accent ressource",
+    "screenColors": "Couleurs des barres",
+    "screenColors_critical": "Chemin critique",
+    "screenColors_task": "Par tâche — couleur propre",
+    "screenColors_auto": "Par tâche — automatique",
+    "screenColors_resource": "Par ressource",
+    "screenColorsHint": "Dans les trois derniers modes, un contour rouge marque le chemin critique."
   },
   "ifc": {
     "title": "Éditeur IFC",

@@ -11,7 +11,7 @@ import { isZeroDurationMilestone } from '@/engine/scheduler/duration';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
 // #21: resource-accent — dezelfde pure toewijzings-module als de printlaag (één definitie van
 // "welke resources kleuren welke taak"), geen tweede implementatie in de renderer.
-import { assignmentsFor } from '@/services/print/barColors';
+import { assignmentsFor, computeBarColors, type BarColorMode, type BarPalette } from '@/services/print/barColors';
 import { ensureThemeVisible } from '@/engine/renderer/resourcePalette';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
 import { readGanttPalette, type GanttPalette } from './themePalette';
@@ -58,6 +58,9 @@ export interface GanttRenderOptions {
    *  zichtbaarheid (#21 — gemeten: slate-achtige tinten vielen weg op de donkere werkruimte).
    *  De EXPORT past dit NIET toe: papier is licht, daar staat de exacte kleur. */
   darkTheme?: boolean;
+  /** #21 (user-wens): scherm-kleurmodi — zelfde vier standen als de rapport-export. Ontbreekt of
+   *  'critical' = het klassieke kritiek-pad-beeld (incl. de expliciete-taakkleur-regel). */
+  barColorMode?: import('@/services/print/barColors').BarColorMode;
   /** Voor het accent: resources + toewijzingen (de renderer leeft buiten de store). */
   resources?: import('@/types/resource').Resource[];
   assignments?: import('@/types/resource').ResourceAssignment[];
@@ -1016,8 +1019,47 @@ export class GanttRenderer {
     if (x2 + floatWidth < this.opts.taskTableWidth || x1 > this.opts.canvasWidth) return;
 
     const width = Math.max(x2 - x1, 4);
-    const color = this.barColor(task, overrideColor);
-    const progressColor = task.time.isCritical ? this.colors.criticalLight : this.colors.normalLight;
+    // Scherm-kleurmodi (#21): zelfde adviesmodule als de rapport-export, met het SCHERMpalet als
+    // kleurbron en themazichtbaarheid voor de modus-kleuren (palet/palet-hash zijn op papier
+    // ontworpen; op donker moeten ze verlicht, zoals het accent). 'critical' (default) houdt de
+    // klassieke barColor-route, inclusief de expliciete-taakkleur-regel.
+    const screenMode: BarColorMode = this.opts.barColorMode ?? 'critical';
+    const dark = this.opts.darkTheme === true;
+    const modeAdvies = screenMode === 'critical'
+      ? null
+      : computeBarColors(
+          task,
+          this.opts.resources ?? [],
+          this.opts.assignments ?? [],
+          screenMode,
+          {
+            critical: this.colors.critical, normal: this.colors.normal,
+            nearCritical: this.colors.nearCritical, milestone: this.colors.milestone,
+          } satisfies BarPalette,
+          width,
+        );
+    const modeColor = modeAdvies && modeAdvies.kind === 'solid'
+      ? ensureThemeVisible(modeAdvies.fill, dark)
+      : null;
+    // Resource-segmenten als x-intervallen over [x1,x2] — buiten de uur-split-lus voorbereid, zodat
+    // elk werkblok-segment zijn deel van de kleursegmenten tekent (gaten blijven gaten).
+    const modeSegments: { cx1: number; cx2: number; color: string }[] = [];
+    if (modeAdvies && modeAdvies.kind === 'segments') {
+      let cx = x1;
+      modeAdvies.segments.forEach((seg, si) => {
+        const isLast = si === modeAdvies.segments.length - 1;
+        const w = isLast ? x2 - cx : (x2 - x1) * seg.weight;
+        modeSegments.push({ cx1: cx, cx2: cx + w, color: ensureThemeVisible(seg.color, dark) });
+        cx += w;
+      });
+    }
+
+    const color = modeColor ?? this.barColor(task, overrideColor);
+    // Voortgangsvulling: in de modi ligt er geen bijpassende "licht"-variant van een willekeurige
+    // moduskleur — dan de vaste semi-transparante donkere laag (zelfde keuze als de printlaag).
+    const progressColor = screenMode !== 'critical'
+      ? 'rgba(0, 0, 0, 0.25)'
+      : task.time.isCritical ? this.colors.criticalLight : this.colors.normalLight;
 
     // Fase 2.8b (§6.9): een uur-taak splitst in werkblok-segmenten (pauzes/nachten vallen als gaten
     // weg) volgens de instelling; dag-taken en niet-gesplitste uur-taken zijn één doorlopend segment.
@@ -1067,11 +1109,26 @@ export class GanttRenderer {
     const progressEnd = x1 + width * task.time.completion;
     for (const s of segs) {
       const sw = Math.max(s.x2 - s.x1, split ? 2 : 4);
-      // Segment-achtergrond
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.roundRect(s.x1, y, sw, height, 3);
-      ctx.fill();
+      if (modeSegments.length > 0) {
+        // Resource-modus: kleursegmenten binnen dít werkblok (overlap van elk kleurinterval met
+        // [s.x1, s.x2]) — uur-split-gaten blijven zo gaten, precies als bij een enkele kleur.
+        for (let mi = 0; mi < modeSegments.length; mi++) {
+          const ms = modeSegments[mi];
+          const ox1 = Math.max(ms.cx1, s.x1);
+          const ox2 = Math.min(ms.cx2, s.x2);
+          if (ox2 - ox1 < 0.5) continue;
+          ctx.fillStyle = ms.color;
+          ctx.beginPath();
+          ctx.roundRect(ox1, y, ox2 - ox1, height, mi === 0 ? 3 : 0);
+          ctx.fill();
+        }
+      } else {
+        // Segment-achtergrond
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(s.x1, y, sw, height, 3);
+        ctx.fill();
+      }
       // Voortgangsvulling: het deel van dit segment links van de globale voortgangsgrens.
       if (task.time.completion > 0 && progressEnd > s.x1) {
         const pw = Math.min(s.x1 + sw, progressEnd) - s.x1;
@@ -1084,11 +1141,13 @@ export class GanttRenderer {
       }
     }
 
-    // #21: kritieke taak mét expliciete kleur → rode rand om de balk (de kleur is de vulling;
-    // zonder deze rand zou het kritieke pad onleesbaar worden). Omvat de volle [x1,x2]-extent,
-    // óók bij gesplitste segmenten — zelfde regel als de selectie-highlight hieronder.
-    if (task.color && task.time.isCritical) {
-      ctx.strokeStyle = this.colors.critical;
+    // #21: rode rand om kritieke taken — in de scherm-kleurmodi uit het modusadvies (spiegel van
+    // de rapportmodi), in 'critical' bij een expliciete taakkleur (de kleur is dan de vulling;
+    // zonder rand zou het kritieke pad onleesbaar worden). Volle [x1,x2]-extent, ook bij splits.
+    const outlineColor = modeAdvies?.outline
+      ?? (screenMode === 'critical' && task.color && task.time.isCritical ? this.colors.critical : null);
+    if (outlineColor) {
+      ctx.strokeStyle = outlineColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.roundRect(x1 - 0.75, y - 0.75, width + 1.5, height + 1.5, 3);

@@ -181,7 +181,13 @@
     "taskHintAppend": "Nuova attività in fondo all’elenco",
     "columnsHintTable": "Scegli le colonne della vista Tabella",
     "columnsHintGoToTable": "Scegli le colonne della vista Tabella — visibili nella scheda Tabella",
-    "toggleResourceAccent": "Accento risorsa"
+    "toggleResourceAccent": "Accento risorsa",
+    "screenColors": "Colori barre",
+    "screenColors_critical": "Percorso critico",
+    "screenColors_task": "Per attività — colore proprio",
+    "screenColors_auto": "Per attività — automatico",
+    "screenColors_resource": "Per risorsa",
+    "screenColorsHint": "Nelle ultime tre modalità un contorno rosso segna il percorso critico."
   },
   "ifc": {
     "title": "Editor IFC",

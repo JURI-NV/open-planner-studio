@@ -181,7 +181,13 @@
     "taskHintAppend": "Nieuwe taak onderaan de lijst",
     "columnsHintTable": "Kolommen van de Tabel-weergave kiezen",
     "columnsHintGoToTable": "Kolommen van de Tabel-weergave kiezen — te zien op het tabblad Tabel",
-    "toggleResourceAccent": "Resource-accent"
+    "toggleResourceAccent": "Resource-accent",
+    "screenColors": "Balkkleuren",
+    "screenColors_critical": "Kritiek pad",
+    "screenColors_task": "Per taak — eigen kleur",
+    "screenColors_auto": "Per taak — automatisch",
+    "screenColors_resource": "Per resource",
+    "screenColorsHint": "In de laatste drie standen markeert een rode rand het kritieke pad."
   },
   "ifc": {
     "title": "IFC-editor",

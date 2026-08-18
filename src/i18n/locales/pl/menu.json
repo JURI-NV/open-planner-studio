@@ -181,7 +181,13 @@
     "taskHintAppend": "Nowe zadanie na końcu listy",
     "columnsHintTable": "Wybierz kolumny widoku Tabela",
     "columnsHintGoToTable": "Wybierz kolumny widoku Tabela — widoczne na karcie Tabela",
-    "toggleResourceAccent": "Akcent zasobu"
+    "toggleResourceAccent": "Akcent zasobu",
+    "screenColors": "Kolory słupków",
+    "screenColors_critical": "Ścieżka krytyczna",
+    "screenColors_task": "Na zadanie — własny kolor",
+    "screenColors_auto": "Na zadanie — automatycznie",
+    "screenColors_resource": "Na zasób",
+    "screenColorsHint": "W trzech ostatnich trybach czerwony obrys oznacza ścieżkę krytyczną."
   },
   "ifc": {
     "title": "Edytor IFC",

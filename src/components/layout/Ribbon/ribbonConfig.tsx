@@ -24,6 +24,7 @@ import {
 import type { RibbonTab } from '@/state/slices/types';
 import {
   BaselinesProgressGroupContent, MilestoneDropdown, TemplatesDropdown, RecentFilesDropdown,
+  ScreenColorsPopoverButton,
   ExportDropdown, ResourceAssignDropdown, LayoutGroupContent, PresentationGroupContent,
   TimeScaleGroupContent, DisplayGroupContent, OverallocationIndicator, IfcInfo,
   useColumnsButtonBinding,
@@ -728,6 +729,7 @@ const beeldTab: RibbonTabConfig = [
     items: [
       {
         kind: 'stack', id: 'overlaysStack', items: [
+          { kind: 'component', id: 'screenColors', Component: ScreenColorsPopoverButton },
           {
             kind: 'small', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={14} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
             use: () => {
