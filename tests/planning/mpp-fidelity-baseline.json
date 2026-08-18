@@ -755,13 +755,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/timephased-prorated-cost-resource.mpp",
       "tasks": 4,
-      "startExact": 3,
+      "startExact": 4,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 3,
+      "startDiff": 0,
+      "finishExact": 4,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "dossier (c)5-addendum (M2, eindreview T16c) — rauw bandgrens-anker (…T17:00) zonder constraint/voorganger, verbreedt (c)5s scope"
+      "finishDiff": 0
     },
     "5633d197a9244e9e": {
       "root": "crawl",

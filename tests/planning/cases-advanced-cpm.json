@@ -1589,6 +1589,61 @@
         "projectEnd": "2034-06-29T10:39",
         "error": false
       }
+    },
+    {
+      "id": "z13-root-anchor-band-eind-rauw",
+      "title": "Z13 (dossier 'rauw anker zonder constraint', corpusbewijs `mpxj/junit/data/timephased-prorated-cost-resource.mpp` taak 'No Progress - Actual Cost'): een WORTEL-taak (geen voorganger, geen constraint, niet handmatig) wier eigen `scheduleStart` EXACT op een band-EIND ligt (ma 16:00 op een 08:00-16:00-band) behoudt dat rauwe instant als `es` — MSP snapt zo'n gedegenereerd anker NIET naar de eerstvolgende werkbandstart (`ownAnchor`s nieuwe `isExactBandEnd`-vrijstelling). De DUUR-optelling (`addDurationChecked`) rekent daarbij vanaf de EERSTE band van diezelfde kalenderdag (08:00) i.p.v. vanaf het band-eind zelf, anders verliest de eigen kalenderdag van het anker een volledige werkdag in `addWorkMinutes`s minuut-lus — zie de tweelingcase 'z13-root-anchor-band-begin-controle' hieronder: BEIDE taken (band-eind- resp. band-begin-anker, identieke duur) landen op dezelfde `ef`, precies zoals de twee corpustaken 'No Progress - Actual Cost'/'No Progress - No Actual Cost' dat ook doen.",
+      "note": "Mutatiebewijs 1 (regel terug): `isExactBandEnd`-kortsluiting in `ownAnchor` verwijderen (CPMSolver.ts) → Z.es verwacht ma 2026-07-06T16:00, wordt di 2026-07-07T08:00 (het rauwe anker gesnapt naar de volgende werkbandstart) — deze case ROOD, en het echte corpusbestand (hash 552a5519b49ae682) valt terug naar 1 start-afwijking. Mutatiebewijs 2 (dag-eerste-band-wacht terug): `totalMinutes > 0 && this.isExactBandEnd(...)`-guard in `addDurationChecked` verwijderen (laat `walkStart` altijd `start` blijven) → Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 (één werkdag te laat) — deze case ROOD, corpusbestand valt terug naar 1 finish-afwijking.",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "Z", "start": "2026-07-06T16:00", "dur": "24u" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "Z": { "es": "2026-07-06T16:00", "ef": "2026-07-08T16:00", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-08T16:00",
+        "error": false
+      }
+    },
+    {
+      "id": "z13-root-anchor-band-begin-controle",
+      "title": "Z13-controle (tweelingcase van 'z13-root-anchor-band-eind-rauw', BLAST-RADIUS-BEWIJS): dezelfde kalender/duur, maar Z start op de band-BEGIN (08:00) i.p.v. het band-eind — de normale, veruit meest voorkomende situatie. `isExactBandEnd` moet hier `false` leveren, dus `ownAnchor`/`addDurationChecked` blijven byte-identiek aan vóór Z13. Bewijst de gemeten corpus-blast-radius (precies 1 taak in 216 bestanden): een normaal band-begin-anker verandert NIET van gedrag, en landt — zoals de corpus-tweelingtaken — op dezelfde `ef` als het band-eind-geval hierboven.",
+      "note": "Mutatiebewijs: dit is de bestaande (`isExactBandEnd`-ONgevoelige) tak — een regressie die `isExactBandEnd` per ongeluk óók op een band-begin-instant laat vuren (bv. de `!eng.isWorkInstant(d)`-voorwaarde eruit halen) maakt deze case ROOD (Z.es zou dan blijven staan i.p.v. — hier toevallig gelijk — maar de `walkStart`-aanpassing zou een AL-geldig anker verplaatsen als de instant-conditie ooit los raakt van 'niet-werk-instant'; primair dient deze case als ongewijzigd-gedrag-anker naast de band-eind-case).",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "Z", "start": "2026-07-06T08:00", "dur": "24u" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "Z": { "es": "2026-07-06T08:00", "ef": "2026-07-08T16:00", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-08T16:00",
+        "error": false
+      }
+    },
+    {
+      "id": "z13-root-anchor-band-eind-timephased-override-genegeerd",
+      "title": "Z13 (FINISH-tegenhanger van het corpusgeval): dezelfde band-eind-wortel-taak als 'z13-root-anchor-band-eind-rauw', maar nu MET `timephasedStartAnchor`/`timephasedFinishFloor` gezet op EXACT de waarden die een NAÏEVE (vóór-Z13) mechanische her-snap van hetzelfde rauwe anker zou opleveren (`timephasedStartAnchor`=di 2026-07-07T08:00 = `snapOnOrAfter` van Z's eigen band-eind-anker; `timephasedFinishFloor`=do 2026-07-09T16:00 = de NAÏEVE duur-optelling vanaf dát gesnapte anker) — precies het patroon dat het echte corpusbestand liet zien: een MATERIAL-toewijzing se `AssignmentField.START`/`FINISH` bleek zelf een mechanische afgeleide van het taak-eigen rauwe anker, geen onafhankelijk gelezen antwoord. `timephasedAnchorIsDegenerateResnap`/`timephasedFinishFloorIsDegenerateResnap` (CPMSolver.ts) herkennen dat en NEGEREN de laag-3-velden in dat ene geval — Z landt dus op DEZELFDE `es`/`ef` als 'z13-root-anchor-band-eind-rauw', niet op de (foutieve) laag-3-waarden.",
+      "note": "Mutatiebewijs: `timephasedAnchorIsDegenerateResnap`/`timephasedFinishFloorIsDegenerateResnap` op `false` vastzetten (of de `timephasedAnchor`/`tf`-toewijzingen die ze gaten NIET conditioneel maken) → Z.es verwacht 2026-07-06T16:00, wordt 2026-07-07T08:00; Z.ef verwacht 2026-07-08T16:00, wordt 2026-07-09T16:00 — deze case ROOD, en het echte corpusbestand valt terug naar 1 start- + 1 finish-afwijking (de oorspronkelijke dossierstand).",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "Z", "start": "2026-07-06T16:00", "dur": "24u",
+          "timephasedStartAnchor": "2026-07-07T08:00", "timephasedFinishFloor": "2026-07-09T16:00" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "Z": { "es": "2026-07-06T16:00", "ef": "2026-07-08T16:00", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-08T16:00",
+        "error": false
+      }
     }
   ]
 }

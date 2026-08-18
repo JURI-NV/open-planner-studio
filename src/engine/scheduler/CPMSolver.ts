@@ -474,9 +474,50 @@ export class CPMSolver {
    * geldt breder dan alleen relatie-leads). Een taak zónder voorganger én zónder relatie kan dus vanaf nu vóór de
    * projectstart staan als het eigen anker dat zegt — exact de MS Project-semantiek die de
    * fidelity-audit meet.
+   *
+   * Z13 (etappe "nul afwijkingen", dossier "rauw anker zonder constraint"): een instant exact op
+   * een BAND-EIND (bv. `…T17:00` op een 08:00–17:00-band) is een gedegenereerd geval — er valt
+   * niets te snappen, het eerstvolgende werk-instant ÍS de volgende bandstart, maar MSP bewaart
+   * het instant zelf (corpusbewijs: `mpxj/junit/data/timephased-prorated-cost-resource.mpp`,
+   * taak "No Progress - Actual Cost" — MSP's eigen SCHEDULED_START blijft `2026-01-29T17:00`, onze
+   * `snapOnOrAfter` duwde 'm vóór deze fix naar `2026-01-30T08:00`). `snapOnOrBefore(eng, d) === d`
+   * (uur-modus: `prevWorkInstant`) is precies de test "`d` is al een geldige `(start,end]`-instant"
+   * — band-interieur ÓF band-eind — dezelfde idioom als `snapSuccessorEarlyStart`'s bestaande
+   * FINISH-mijlpaal-uitzondering hierboven, hier ONVOORWAARDELIJK (niet tot mijlpalen beperkt):
+   * anders dan een OPVOLGER-early-start (waar alleen een FINISH-mijlpaal deze (start,end]-vrijheid
+   * krijgt) is een WORTEL-anker per definitie ALTIJD een gelezen waarde, nooit een CPM-berekende
+   * — dezelfde grond die `ownAnchor` hierboven al ONGEKLEMD tegen de projectstart houdt. Voor een
+   * band-INTERIEUR instant is dit byte-identiek (`snapOnOrAfter` was daar toch al een no-op).
+   * Corpusbreed gemeten (216 leesbare bestanden corpus+crawl, wortel-taken zonder manual-vlag/
+   * constraint met een uur-kalender): PRECIES 1 taak in de HELE populatie heeft een raw anker exact
+   * op een bandgrens — de hierboven genoemde. Geen enkel ander bestand raakt deze tak dus ooit;
+   * `cases-advanced-cpm.json` pint zowel dit geval als het bestaande band-INTERIEUR-gedrag
+   * (mutatiebewijs: de guard eruit halen maakt beide cases rood/rood-verschillend).
    */
   private ownAnchor(eng: CalendarEngine, scheduleStart: string): Date {
-    return this.snapOnOrAfter(eng, this.parseIn(eng, scheduleStart));
+    const raw = this.parseIn(eng, scheduleStart);
+    if (this.isExactBandEnd(eng, raw)) return raw;
+    return this.snapOnOrAfter(eng, raw);
+  }
+
+  /** `d` valt EXACT op een band-eind (uur-modus): niet zelf een werk-instant (`[start,end)`) maar
+   *  wél al een geldige `(start,end]`-instant — het gedegenereerde randgeval dat `ownAnchor`
+   *  hierboven en `addDurationChecked` hieronder allebei apart moeten herkennen (Z13). Dag-modus
+   *  kent geen bandgrenzen ⇒ altijd `false`. */
+  private isExactBandEnd(eng: CalendarEngine, d: Date): boolean {
+    return eng.isHourMode && !eng.isWorkInstant(d) && this.snapOnOrBefore(eng, d).getTime() === d.getTime();
+  }
+
+  /** Het EERSTE band-begin op `d`'s eigen kalenderdag (Z13, uitsluitend gebruikt door
+   *  `addDurationChecked`'s band-eind-wacht hierboven) — `effectiveBandsOn` levert de banden al
+   *  MET geldende werkende uitzonderingen/holidays voor die specifieke dag, dus dit volgt dezelfde
+   *  bron als elke andere band-vergelijking in dit bestand. `null` bij een dag zonder enige band
+   *  (kapotte/holiday-kalender op een dag die toch een band-eind-instant droeg — theoretisch, geen
+   *  corpusgeval) — de aanroeper valt dan terug op het ongewijzigde `start`. */
+  private dayFirstBandStart(eng: CalendarEngine, d: Date): Date | null {
+    const bands = eng.effectiveBandsOn(d);
+    if (bands.length === 0) return null;
+    return new Date(this.startOfDay(d).getTime() + bands[0].start * MS_PER_MIN);
   }
 
   /** De mode-bewuste primitieven die de relatie-wiskunde (`relationMath.ts`, audit P15) injectief
@@ -527,7 +568,30 @@ export class CPMSolver {
     }
     if (eng.isHourMode) {
       const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
-      return { date: eng.addWorkMinutes(start, totalMinutes), capped: false };
+      // Z13 (dossier "rauw anker zonder constraint"): `start` exact op een band-eind (`ownAnchor`
+      // hierboven laat zo'n wortel-anker sinds deze fix bewust RAUW) heeft in `addWorkMinutes`
+      // ZELF geen enkele werkminuut meer beschikbaar — de eerste stap daar snapt onvoorwaardelijk
+      // naar `nextWorkInstant`, dus de eigen kalenderdag van het anker telt in de minuut-lus NOOIT
+      // mee. MSP's eigen `SCHEDULED_FINISH` telt 'm wél mee (corpusbewijs, hetzelfde bestand: de
+      // taak "No Progress - No Actual Cost" heeft een IDENTIEKE duur/kalender maar start om
+      // `08:00` — band-BEGIN, dezelfde kalenderdag — en komt op exact dezelfde MSP-finish uit als
+      // "No Progress - Actual Cost" zou moeten geven; onze rekenkern zonder deze wacht geeft de
+      // laatste taak één werkdag TE LAAT). Reken de duur daarom vanaf de EERSTE band van diezelfde
+      // kalenderdag i.p.v. vanaf het band-eind-instant zelf — de GERAPPORTEERDE `earlyStart` blijft
+      // ongewijzigd het rauwe band-eind-anker, dit raakt uitsluitend het interne rekenpunt voor de
+      // duur-optelling. `totalMinutes > 0`-wacht (reviewbevinding, `msp-06`/`msp-06b` her-check):
+      // ZONDER die wacht verlegde deze aanpassing ook de RETURN van een NUL-duur, niet-mijlpaal-
+      // taak (`isZeroDurationMilestone` sluit die niet uit — vereist óók `task.isMilestone`) van
+      // `addWorkMinutes`'s eigen `minutes ≤ 0`-kortsluiting (die geeft `startInstant` ONGEWIJZIGD
+      // terug) naar de band-begin-waarde — exact de dataDate-vloer-cases `msp-06`/`msp-06b` (Z's
+      // `ef` verschoof van 17:00 naar 08:00, want Z heeft `dur:0` zonder `milestone:true`). Met
+      // `totalMinutes > 0` raakt deze wacht uitsluitend een taak die ECHT werk-minuten optelt.
+      // Band-INTERIEUR/normale starts ⇒ `isExactBandEnd` levert `false` ⇒ byte-identiek aan vóór
+      // Z13.
+      const walkStart = totalMinutes > 0 && this.isExactBandEnd(eng, start)
+        ? this.dayFirstBandStart(eng, start) ?? start
+        : start;
+      return { date: eng.addWorkMinutes(walkStart, totalMinutes), capped: false };
     }
     const totalDays = splitTotalSpanDays(task, eng);
     return eng.addWorkDaysChecked(start, totalDays);
@@ -553,7 +617,28 @@ export class CPMSolver {
     }
     if (eng.isHourMode) {
       const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
-      return eng.subtractWorkMinutes(end, totalMinutes);
+      const natural = eng.subtractWorkMinutes(end, totalMinutes);
+      // Z13 (backward-spiegel van `addDurationChecked`s band-eind-wacht): voor een WORTEL-taak
+      // (geen voorganger) wier eigen `ownAnchor` het rauwe band-eind-anker behoudt (zie die
+      // functie), telt `addDurationChecked` de EIGEN kalenderdag van dat anker mee als volledig
+      // verbruikt (`dayFirstBandStart`) — `es` blijft desondanks het RAUWE, latere band-eind-
+      // instant. Zonder deze spiegel weet de backward-pass daar niets van: `subtractWorkMinutes`
+      // hierboven wandelt vanaf `end` gewoon terug tot de NATUURLIJKE bandstart van diezelfde
+      // eigen dag (hier: de dagstart, ná exact hetzelfde aantal minuten) — een `lateStart` vóór
+      // `es` (negatieve `tf` op een taak die door NIETS anders begrensd wordt, een innerlijke
+      // tegenstrijdigheid, geen MSP-gedrag). Komt de natuurlijke landing exact overeen met de
+      // EERSTE band van `task`'s eigen ankerdag, dan geeft deze wacht het RAUWE anker terug i.p.v.
+      // die bandstart — spiegelt `ownAnchor`s rapportagekeuze, alleen backward. `preds.length===0`
+      // (alleen wortel-taken hebben deze `ownAnchor`-tak) + `isExactBandEnd` + de exacte
+      // instant-gelijkheid maken dit ondubbelzinnig: voor élke andere taak (voorganger-gedreven,
+      // of een niet-band-eind-anker) is dit `false` ⇒ byte-identiek aan vóór Z13.
+      if (totalMinutes > 0 && (this.predecessors.get(task.id) ?? []).length === 0 && task.time.scheduleStart) {
+        const rawOwn = this.parseIn(eng, task.time.scheduleStart);
+        if (this.isExactBandEnd(eng, rawOwn) && this.dayFirstBandStart(eng, rawOwn)?.getTime() === natural.getTime()) {
+          return rawOwn;
+        }
+      }
+      return natural;
     }
     const totalDays = splitTotalSpanDays(task, eng);
     return eng.subtractWorkDays(end, totalDays);
@@ -1001,6 +1086,11 @@ export class CPMSolver {
       // is dan een no-op). Blijft `null` bij `preds.length === 0` (een wortel-taak heeft geen
       // voorganger-relatie om een finish te eisen).
       let sfFinishFloor: Date | null = null;
+      // Z13: gezet in de `noPreds`-tak hieronder wanneer `task.timephasedFinishFloor` een MECHANISCHE
+      // afleiding blijkt van hetzelfde gedegenereerde band-eind-anker als `timephasedAnchor` (zie de
+      // toelichting bij `timephasedAnchorIsDegenerateResnap`) — `timephasedFinish()` gebruikt deze
+      // vlag om `task.timephasedFinishFloor` in dat ene geval over te slaan, spiegelt de START-kant.
+      let timephasedFinishFloorIsDegenerateResnap = false;
 
       // Z6-fixronde (ANKERREGEL): `preds.length === 0` bepaalt hieronder al welke tak `earlyStart`
       // levert (eigen anker vs. voorganger-gedreven herrekening) — hergebruikt verderop om de
@@ -1042,7 +1132,40 @@ export class CPMSolver {
         // doen (die zou bij verwijdering GEEN verschil maken t.o.v. de toch-al-juiste motoruitkomst) —
         // het bewijst dat `task.time.scheduleStart` hier daadwerkelijk MINDER PRECIES is dan het
         // toewijzingsniveau-veld, niet dat deze tak de motorberekening omzeilt. Blijft dus staan.
-        const timephasedAnchor = task.timephasedStartAnchor;
+        // Z13 (dossier "rauw anker zonder constraint", `timephased-prorated-cost-resource.mpp`,
+        // taak "No Progress - Actual Cost"): `timephasedAnchor` hierboven is normaal een PRECIEZER
+        // gelezen anker dan `ownAnchor` (zie de toelichting hierboven) — maar in dit ene corpusgeval
+        // is de taak-eigen `scheduleStart` een gedegenereerd BAND-EIND-anker (`ownAnchor`s eigen
+        // vrijstelling hierboven), en blijkt `timephasedAnchor` daar NIET onafhankelijk van te zijn:
+        // hij is bytegelijk aan `snapOnOrAfter` van datzelfde rauwe anker — dus zelf een MECHANISCH
+        // afgeleide/gesnapte waarde (elders geschreven, vermoedelijk door MSP's eigen kosten-
+        // proratie-berekening voor deze MATERIAL-toewijzing), geen onafhankelijk gelezen antwoord.
+        // MSP's EIGEN `SCHEDULED_START` (de fidelity-grondwaarheid) houdt hier het rauwe band-eind
+        // aan — `timephasedAnchor` zou die vrijstelling dus stilzwijgend ongedaan maken. Dit raakt
+        // UITSLUITEND de band-eind-degeneratie: voor elke andere taak (inclusief elke taak waar
+        // `timephasedAnchor` een ECHT ander instant draagt dan `snapOnOrAfter(scheduleStart)`, zoals
+        // de bestaande "Night Shift"-populatie) is de vergelijking hieronder `false` en blijft
+        // `timephasedAnchor` byte-identiek de voorkeur houden.
+        const rawOwnAnchor = this.parseIn(cal, task.time.scheduleStart);
+        const timephasedAnchorIsDegenerateResnap = !!task.timephasedStartAnchor
+          && this.isExactBandEnd(cal, rawOwnAnchor)
+          && parseInstant(task.timephasedStartAnchor).getTime() === this.snapOnOrAfter(cal, rawOwnAnchor).getTime();
+        const timephasedAnchor = timephasedAnchorIsDegenerateResnap ? undefined : task.timephasedStartAnchor;
+        // Z13, FINISH-tegenhanger van de vlag hierboven: `task.timephasedFinishFloor` (laag 3) komt
+        // van DEZELFDE toewijzing als `timephasedStartAnchor` en blijkt in dit ene corpusgeval óók
+        // een MECHANISCHE afleiding — bytegelijk aan wat een NAÏEVE (vóór-Z13) duur-optelling vanaf
+        // het gesnapte (niet-rauwe) anker zou geven. `timephasedFinish()` leest deze vlag verderop
+        // om `task.timephasedFinishFloor` in dat geval over te slaan, zodat `addDurationChecked`s
+        // eigen band-eind-correctie (zie die functie) het laatste woord houdt — anders zou laag 3
+        // die correctie hier alsnog ongedaan maken. Voor elke andere taak (geen band-eind-anker, of
+        // een `timephasedFinishFloor` die een ECHTE andere waarde draagt) is dit `false` ⇒
+        // byte-identiek.
+        timephasedFinishFloorIsDegenerateResnap = !!task.timephasedFinishFloor
+          && this.isExactBandEnd(cal, rawOwnAnchor)
+          && parseInstant(task.timephasedFinishFloor).getTime() === cal.addWorkMinutes(
+            this.snapOnOrAfter(cal, rawOwnAnchor),
+            splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, cal)),
+          ).getTime();
         // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
         // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
         // MSO/MFO-pin (hieronder in `applyForwardConstraints`) wint hier nog steeds
@@ -1054,7 +1177,18 @@ export class CPMSolver {
             ? parseInstant(timephasedAnchor)
             : this.ownAnchor(cal, task.time.scheduleStart);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
+        const beforeConstraint = earlyStart;
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
+        // Z13: heeft de constraint-toepassing hierboven `earlyStart` daadwerkelijk VERPLAATST (een
+        // bindende constraint-grens)? Zo niet — geen constraint, of wel een constraint maar niet
+        // bindend — dan is `earlyStart` nog altijd exact `ownAnchor`s eigen resultaat, en heeft de
+        // her-snap hieronder NIETS te doen: `ownAnchor` heeft de band-eind-vrijstelling (zie haar
+        // docblok) al zelf correct toegepast. Vóór Z13 was die her-snap voor een ongeconstrainde
+        // taak sowieso al een no-op (ownAnchor snapte toen onvoorwaardelijk) — deze wacht maakt dat
+        // nu EXPLICIET i.p.v. impliciet-toevallig, want zonder wacht zou de her-snap de nieuwe
+        // band-eind-vrijstelling meteen weer ongedaan maken (`snapOnOrAfter` behandelt een band-eind
+        // instant nog steeds als "niet-werk", precies het gedrag dat `ownAnchor` net vermeed).
+        const constraintMoved = earlyStart.getTime() !== beforeConstraint.getTime();
         // Fase 2.8b (golf 3): her-snap ná de constraint — spiegelt de voorganger-tak (regel 466).
         // `applyForwardConstraint` levert een DAG-conceptuele grens (`nextWorkDay`/
         // `addWorkingDaysSigned`, §5.2), in uur-modus een middernacht-instant die NIET op een
@@ -1062,11 +1196,12 @@ export class CPMSolver {
         // i.p.v. de bandstart (de `earlyFinish` rekent al vanaf de bandstart ⇒ interne inconsistentie).
         // Idempotent in dag-modus (`nextWorkDay` van een werkdag = diezelfde werkdag) en bij een
         // niet-bindende constraint (ES al gesnapt op regel 429) ⇒ byte-identiek voor de 290.
-        // `rootElapsed`/`timephasedAnchor` slaan deze her-snap over (zelfde MSP-pariteitsgrond als
-        // hierboven) — een ONgeconstrainde taak met zo'n raw anker had hier toch al niets te
-        // her-snappen; alleen mét een (werk-instant-snappende) constraint kan deze tak ooit iets
-        // anders dan het rauwe anker geven.
-        earlyStart = (rootElapsed || timephasedAnchor) ? earlyStart : this.snapOnOrAfter(cal, earlyStart);
+        // `rootElapsed`/`timephasedAnchor`/`!constraintMoved` slaan deze her-snap over (zelfde
+        // MSP-pariteitsgrond als hierboven) — een ONgeconstrainde taak (of een niet-bindende
+        // constraint) met zo'n raw anker had hier toch al niets te her-snappen; alleen mét een
+        // WERKELIJK bindende (werk-instant-snappende) constraint kan deze tak ooit iets anders dan
+        // het rauwe anker geven.
+        earlyStart = (rootElapsed || timephasedAnchor || !constraintMoved) ? earlyStart : this.snapOnOrAfter(cal, earlyStart);
       } else {
         // Early start = max van alle voorganger-constraints, met de projectstart als ondergrens.
         // Die ondergrens is correct vóór ÉLKE relatie: relatie-constraints (FS/SS/FF/SF) zijn
@@ -1634,7 +1769,7 @@ export class CPMSolver {
       // taken heeft geen timephased-toewijzingen). Veldnaam ("Floor") bewust ongewijzigd gelaten
       // ondanks dat het gedrag een override is, geen vloer — hernoemen zou Task/mppReader/
       // moveProject/check-ifc-roundtrip opnieuw raken voor een zuiver cosmetische reden.
-      const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
+      const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor, timephasedFinishFloorIsDegenerateResnap);
       if (tf) earlyFinish = tf;
       // Herwerkronde-slotronde (reviewer-eis 4): dezelfde EF<ES-inversiewacht als de VOLTOOID-tak
       // (`if (ef < es) es = ef`) en de IN-PROGRESS-tak (`if (usedResumeOverride && ef < actualES) ef
@@ -1894,10 +2029,15 @@ export class CPMSolver {
    */
   private timephasedFinish(
     task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
+    finishFloorIsDegenerateResnap = false,
   ): Date | null {
     if (hardFinishPin) return null;
     let windowValue: Date | null = null;
-    if (cal.isHourMode && task.timephasedFinishFloor) {
+    // Z13: `finishFloorIsDegenerateResnap` (gezet in de `noPreds`-tak, zie de toelichting daar) —
+    // sla laag 3 in dat ene band-eind-corpusgeval over, zodat `addDurationChecked`s eigen correctie
+    // (aangeroepen om `earlyFinishRaw` te leveren, hierboven in `forwardPass`) het laatste woord
+    // houdt. Elders (`false`, verreweg de meerderheid) byte-identiek.
+    if (cal.isHourMode && task.timephasedFinishFloor && !finishFloorIsDegenerateResnap) {
       windowValue = parseInstant(task.timephasedFinishFloor);
     } else if (task.timephasedDurationWalks && task.timephasedDurationWalks.length > 0) {
       const durMin = task.time.durationMinutes;
