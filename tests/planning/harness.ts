@@ -221,6 +221,13 @@ interface Case {
     /** Z6: door `CPMSolver.forwardPass` toegepast — zie `Task.levelingDelayElapsed`. Afwezig ⇒
      *  WORKTIME (byte-identiek). */
     levelingDelayElapsed?: boolean;
+    /** Z13 (etappe "nul afwijkingen"): typecontract-doorgifte naar `Task.timephasedStartAnchor`/
+     *  `timephasedFinishFloor` — normaal UITSLUITEND door `mppReader.ts`'s Z8-laag-3 gezet, hier
+     *  rechtstreeks instelbaar om `CPMSolver.ts`'s `timephasedAnchorIsDegenerateResnap`/
+     *  `timephasedFinishFloorIsDegenerateResnap`-wacht corpusloos te reproduceren (zie die
+     *  toelichting in `forwardPass`). Afwezig ⇒ byte-identiek (geen laag-3-signaal). */
+    timephasedStartAnchor?: string;
+    timephasedFinishFloor?: string;
   }[];
   /** Fase 2.8b (§8.1): `lag` mag een string zijn — "4h"/"90m"/"2d" (via `parseDuration` in de
    *  VOORGANGER-kalender) ⇒ `lagMinutes`; een getal ⇒ `lagDays` (dag-modus, ongewijzigd). `lagMinutes`
@@ -625,6 +632,18 @@ function buildAndSolve(c: Case): {
     if (t.stop !== undefined) {
       const task = S().tasks.find((x) => x.id === id)!;
       S().updateTask(id, { time: { ...task.time, stop: t.stop } });
+    }
+    // Z13: `timephasedStartAnchor`/`timephasedFinishFloor` zijn TOP-LEVEL `Task`-velden (geen
+    // `time`-subveld) — `updateTask`'s `Object.assign(s.tasks[idx], rest)` (taskSlice.ts) zet ze
+    // dus rechtstreeks, ANDERS dan `resume`/`stop` hierboven die via `time` moeten. `addTask` zelf
+    // (buiten dit bestand se eigendom) kent deze twee velden niet — vandaar de post-patch hier,
+    // net als `levelingDelay` elders in dit bestand (regel ~743) al voor een ander top-level veld
+    // doet.
+    if (t.timephasedStartAnchor !== undefined) {
+      S().updateTask(id, { timephasedStartAnchor: t.timephasedStartAnchor });
+    }
+    if (t.timephasedFinishFloor !== undefined) {
+      S().updateTask(id, { timephasedFinishFloor: t.timephasedFinishFloor });
     }
   }
 
@@ -1312,6 +1331,7 @@ const TASK_KEYS = {
   code: true, field: true,
   splitGaps: true, manuallyScheduled: true, levelingDelayMinutes: true, levelingDelayElapsed: true,
   resume: true, stop: true,
+  timephasedStartAnchor: true, timephasedFinishFloor: true,
 } satisfies Record<keyof Case['tasks'][number], true>;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
