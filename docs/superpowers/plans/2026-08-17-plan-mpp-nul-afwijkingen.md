@@ -427,6 +427,8 @@ MSP ligt tussen beide bestaande modi in. Sterke aanwijzing uit de vorige ronde: 
 
 **Afhankelijk van:** niets (raakt wel dezelfde voortgangstak als Z7's aangrijpingspunt 2 — coördineer binnen baan S, één taak tegelijk). **Risico:** hoog. **Kwaliteitsreview op Opus.**
 
+> **Orkestratorbesluit Z12-herwerk (2026-08-18).** De eerste oplevering koos een retentie-anker op `scheduleFinish` op basis van de claim dat MSP's beslissing history-afhankelijk is. De Opus-review WEERLEGDE die claim met eigen meting: de discriminerende invoer staat in het bestand — veld-id **99 ("resume")** en **100 ("stop")** in de data-gedreven veldkaart, ongelezen in `fieldMap14.ts` — en `addWork(resume, remaining)` reproduceert MSP's opgeslagen finish-dag op alle vier de workshop-snapshots. Het anker had bovendien drie kritieke gebreken (cirkelmeting: 15 blinde vlekken; bevriezing ná import, zelfvoedend via `applyCpmResult`; docblok verwees naar een niet-bestaande MSPDI-warn). Besluit: **anker eruit, veldgedreven stop/resume-formule ervoor in de plaats**, mits de corpusbrede meting (met juiste taakkalenders) hem draagt; de vlag `outOfSequenceIgnoresPredecessorPressure` vervalt vermoedelijk mee. Fase 1 = meten (scratchpad-only, want baan L bewerkt `mppReader.ts` parallel); fase 2 = implementatie ná de eerstvolgende baan-L-merge. De leeskant (99/100 → `RawTaskScan`) is dan een geoorloofde, gemelde uitzondering op de bestandseigendom, net als de eerdere éne-optieregel.
+
 #### Z13 — Dossier: rauw anker zonder constraint
 
 **Doel.** Een wortel-taak met een opgeslagen anker exact op een bandgrens (`…T17:00`) behoudt dat instant, zoals MSP.
