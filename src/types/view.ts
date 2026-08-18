@@ -119,4 +119,8 @@ export interface ViewState {
    *  GanttCanvas voert dan de fit-to-project uit (het kent de viewport-breedte, de store niet) en
    *  wist het meteen weer. Transient — bewust GEEN undo/redo (view zit niet in de snapshot). */
   pendingFit?: boolean;
+  /** "Spring naar taak"-signaal (issue #65): `focusOnTask` zet dit op de doel-taak-id; GanttCanvas
+   *  voert de zoom-/scrollberekening uit (kent de canvas-afmetingen, de store niet) en wist het
+   *  meteen weer. Transient — zelfde precedent als `pendingFit`. */
+  pendingFocusTaskId?: string;
 }
