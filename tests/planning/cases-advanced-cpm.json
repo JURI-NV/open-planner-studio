@@ -1313,6 +1313,110 @@
         "projectEnd": "2026-06-09",
         "error": false
       }
+    },
+    {
+      "id": "z7-split-a-single-gap",
+      "title": "Z7 (plan-§Z7, acceptatiepunt (a)) — aangrijpingspunt 1 (`addDurationChecked`): taak 5d met één gat van 2 werkdagen (na 2 dagen werk, offset 960 werkminuten) ⇒ EF 7 werkdagen na start (5+2), NIET 5. `afterMinutes:960` = 2×8u×60 (na dag 2), `gapMinutes:960` = 2×8u×60 (2 volle werkdagen gat). Mon 2026-06-01 + 7 werkdagen = di 2026-06-09 (week1 vol + 2 dagen week2).",
+      "tasks": [
+        { "name": "A", "dur": 5, "splitGaps": [{ "afterMinutes": 960, "gapMinutes": 960 }] }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-06-01", "ef": "2026-06-09", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-06-09",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-split-b-two-gaps",
+      "title": "Z7 (acceptatiepunt (b)) — twee gaten op TAAKSTART-relatieve offsets (niet cumulatief t.o.v. elkaar): taak 10d, gat 1 (1 dag) na dag 2, gat 2 (1 dag) na dag 6 ⇒ EF 12 werkdagen na start (10+1+1). Mon 2026-06-01 + 12 werkdagen = ma 2026-06-16 (twee volle weken + 2 dagen).",
+      "tasks": [
+        { "name": "B", "dur": 10, "splitGaps": [
+          { "afterMinutes": 960, "gapMinutes": 480 },
+          { "afterMinutes": 2880, "gapMinutes": 480 }
+        ] }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "B": { "es": "2026-06-01", "ef": "2026-06-16", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-06-16",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-split-c-gap-adjacent-to-weekend",
+      "title": "Z7 (acceptatiepunt (c)) — 'gat dat op/nabij een weekend valt telt niet dubbel': ZELFDE totaal als z7-split-a (5d + gat 2d = 7 werkdagen), maar het gat begint hier na dag 3 (offset 1440 min, einde woensdag) i.p.v. na dag 2 — het gat overspant dus donderdag+vrijdag, RECHT tegen het weekend aan. Positie-onafhankelijkheid is de kern van de Z7-canonieke regel (`duration.ts`'s moduleheader: addWorkDaysChecked/addWorkMinutes zijn zuivere tel-functies, het AANTAL bepaalt de aankomst, niet de interne opbouw) — de EF moet BYTE-IDENTIEK zijn aan z7-split-a (2026-06-09), ondanks de andere gat-positie. Was de weekend-overgang per ongeluk dubbel meegeteld (bv. door het gat als kale kalenderdagen i.p.v. werkdagen te tellen), dan zou dit EEN ANDERE EF geven dan z7-split-a.",
+      "tasks": [
+        { "name": "C", "dur": 5, "splitGaps": [{ "afterMinutes": 1440, "gapMinutes": 960 }] }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "C": { "es": "2026-06-01", "ef": "2026-06-09", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-06-09",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-split-d-in-progress",
+      "title": "Z7 (acceptatiepunt (d), DE KERNCASE — raakt aangrijpingspunt 2, de IN-PROGRESS-tak in forwardPass, die EEN EIGEN duur-optelling heeft en NIET door addDurationChecked loopt) — taak 10d, completion 30% (⇒ remaining=7d, reeds-afgewerkt=3d=1440 werkminuten), actualStart = eigen start (2026-06-01, geen statusdatum). Gat van 2 werkdagen (960 min) op offset 1920 (na dag 4 — dus VOLLEDIG in het restwerkvenster [1440,4800), niet in het reeds-afgewerkte deel) ⇒ restwerk 7+2=9 werkdagen vanaf remStart (=actualStart, want geen statusdatum en geen voorganger-druk). EF = 2026-06-01 + 9 werkdagen = do 2026-06-11. Mutatiebewijs (verplicht, plan-§Z7 punt 3): de gaten-optelling ALLEEN uit deze IN-PROGRESS-tak weghalen (CPMSolver.ts, `remainingWithGaps`-blok) maakt DEZE case ROOD (EF terug naar 2026-06-08, 7 werkdagen zonder het gat) TERWIJL z7-split-a/z7-split-b groen BLIJVEN (die lopen niet door de IN-PROGRESS-tak) — dat is het bewijs dat aangrijpingspunt 2 een EIGEN, apart geraakte plek is, geen gratis neveneffect van aangrijpingspunt 1.",
+      "tasks": [
+        { "name": "D", "dur": 10, "completion": 0.3, "actualStart": "2026-06-01",
+          "splitGaps": [{ "afterMinutes": 1920, "gapMinutes": 960 }] }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "D": { "es": "2026-06-01", "ef": "2026-06-11" }
+        },
+        "projectEnd": "2026-06-11",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-split-e-ff-successor-startfromfinish",
+      "title": "Z7 (acceptatiepunt (e)) — aangrijpingspunt 4 (`startFromFinish`/`finishFromStart`, gebruikt door de FF/SF-armen in relationMath.ts): R(3d, geen gaten) --FF+0--> S(2d + gat 1d = 3d totaal). De FF-forward-arm (relationMath.ts, case FINISH_FINISH) berekent S.ES via `deps.startFromFinish(se, reqFinish=R.ef, S)` — die functie moet S se EIGEN gat meetellen, anders trekt ze maar 2 (i.p.v. 3) werkdagen terug vanaf reqFinish en landt S.ES te LAAT. R.ef = 2026-06-03 (Mon+3wd). S se totale duur (2+1 gat) = 3wd, dus S.ES = R.ef terug-3-werkdagen = 2026-06-01 (exact R se eigen start — geen toeval: R en S hebben nu dezelfde effectieve lengte). S.EF = addDurationChecked(S.ES, S) = 2026-06-01 + 3wd = 2026-06-03 (aangrijpingspunt 1, bevestigt hetzelfde venster). Mutatiebewijs (handmatig geverifieerd tijdens implementatie, niet in deze suite herhaald): de gaten-optelling ALLEEN uit `startFromFinish` weghalen (met `addDurationChecked` ongewijzigd) geeft S.ES=2026-06-02 (1 dag te laat, want maar 2wd teruggeteld) en S.EF=2026-06-04 (idem 1 dag te laat) — beide velden wijken dan af van deze pin.",
+      "tasks": [
+        { "name": "R", "dur": 3 },
+        { "name": "S", "dur": 2, "splitGaps": [{ "afterMinutes": 480, "gapMinutes": 480 }] }
+      ],
+      "links": [{ "pred": "R", "succ": "S", "type": "FINISH_FINISH" }],
+      "expect": {
+        "tasks": {
+          "R": { "es": "2026-06-01", "ef": "2026-06-03" },
+          "S": { "es": "2026-06-01", "ef": "2026-06-03" }
+        },
+        "projectEnd": "2026-06-03",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-split-f-float-subduration-mirror",
+      "title": "Z7 (acceptatiepunt (f)) — aangrijpingspunt 3 (`subDuration`, backward LF⊖duur⇒LS, spiegel van `addDurationChecked`): LONG(10d, geen gaten) en SPLIT(5d + gat 2d = 7d totaal) zijn twee parallelle FS-voorgangers van mijlpaal END; LONG is kritiek (langste pad) en dwingt END.lf=2026-06-12 af, dat via de gewone FS-backward-spiegel ALLE voorgangers (dus ook SPLIT) hun lateFinish=2026-06-12 geeft. SPLIT.ls = subDuration(2026-06-12, SPLIT) MOET de 7d totaal aftrekken (niet 5d) ⇒ 2026-06-04 (7 werkdagen terug vanaf 12 juni, over het weekend heen). tf(SPLIT) = 3 werkdagen (ES 06-01 → LS 06-04). Mutatiebewijs (handmatig geverifieerd tijdens implementatie): `subDuration` ONGEWIJZIGD laten (alleen `addDurationChecked` gat-bewust) geeft SPLIT.ls=2026-06-08 (5d terug i.p.v. 7d, spookfloat tf=5 i.p.v. 3) — LS-ES klopt dan niet meer met LF-EF, exact de 'spookfloat' die het docblok bij `subDuration` beschrijft.",
+      "tasks": [
+        { "name": "LONG", "dur": 10 },
+        { "name": "SPLIT", "dur": 5, "splitGaps": [{ "afterMinutes": 960, "gapMinutes": 960 }] },
+        { "name": "END", "milestone": true, "milestoneKind": "FINISH" }
+      ],
+      "links": [
+        { "pred": "LONG", "succ": "END", "type": "FINISH_START" },
+        { "pred": "SPLIT", "succ": "END", "type": "FINISH_START" }
+      ],
+      "expect": {
+        "tasks": {
+          "LONG": { "es": "2026-06-01", "ef": "2026-06-12", "ls": "2026-06-01", "lf": "2026-06-12", "tf": 0, "crit": true },
+          "SPLIT": { "es": "2026-06-01", "ef": "2026-06-09", "ls": "2026-06-04", "lf": "2026-06-12", "tf": 3, "crit": false },
+          "END": { "es": "2026-06-12", "ef": "2026-06-12", "tf": 0, "crit": true }
+        },
+        "criticalPathSet": ["LONG", "END"],
+        "projectEnd": "2026-06-12",
+        "error": false
+      }
     }
   ]
 }

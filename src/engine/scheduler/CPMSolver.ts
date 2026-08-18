@@ -9,7 +9,7 @@ import {
 } from '@/utils/dateUtils';
 import {
   durationMinutesOf, durationDaysOf, elapsedMinutesOf, addElapsedMinutes, subtractElapsedMinutes,
-  signedElapsedSpan, isZeroDurationMilestone,
+  signedElapsedSpan, isZeroDurationMilestone, splitGapMinutesInWindow, splitGapDaysInWindow,
 } from './duration';
 import { computeScheduleResults } from './scheduleAnalysis';
 import {
@@ -501,7 +501,17 @@ export class CPMSolver {
    *  (T8, precedent `resolveElapsedMinutes`/`relationMath.ts`, GEEN kalenderband-toetsing); uur
    *  (WORKTIME) ⇒ `addWorkMinutes(durationMinutesOf)`; dag (WORKTIME) ⇒ `addWorkDays(durationDaysOf)`
    *  — LETTERLIJK de huidige regel (`durationDaysOf` levert op een dag-kalender altijd de integer
-   *  `scheduleDuration`, nooit een fractionele dag, Bevinding 2). */
+   *  `scheduleDuration`, nooit een fractionele dag, Bevinding 2).
+   *
+   *  Z7 (aangrijpingspunt 1, splits): `task.splitGaps` telt hier mee als EXTRA werkminuten/-dagen
+   *  bovenop de gewone duur — `duration.ts`'s moduleheader legt uit waarom een kale som volstaat
+   *  (`addWorkMinutes`/`addWorkDaysChecked` zijn positie-onafhankelijke tel-functies: het AANTAL
+   *  geconsumeerde werk-eenheden bepaalt de aankomst, niet de interne opbouw). Venster
+   *  `[0, totale duur)` — de VOLLEDIGE taak, alle gaten tellen (in tegenstelling tot het
+   *  IN-PROGRESS-restwerkvenster in `forwardPass`, dat een SMALLER venster gebruikt). ELAPSEDTIME
+   *  blijft bewust ONGEMOEID — splits zijn een WERK-tijd-concept (24/7 kent geen "gat", zie
+   *  `duration.ts`'s "Bewust NIET segmentbewust"-noot in het plan). `task.splitGaps` afwezig ⇒
+   *  `splitGapMinutesInWindow`/`splitGapDaysInWindow` geven 0 terug ⇒ byte-identiek aan vóór Z7. */
   private addDuration(eng: CalendarEngine, start: Date, task: Task): Date {
     return this.addDurationChecked(eng, start, task).date;
   }
@@ -515,8 +525,14 @@ export class CPMSolver {
     if (task.time.durationType === 'ELAPSEDTIME') {
       return { date: addElapsedMinutes(start, elapsedMinutesOf(task, eng)), capped: false };
     }
-    if (eng.isHourMode) return { date: eng.addWorkMinutes(start, durationMinutesOf(task, eng)), capped: false };
-    return eng.addWorkDaysChecked(start, durationDaysOf(task, eng));
+    if (eng.isHourMode) {
+      const minutes = durationMinutesOf(task, eng);
+      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
+      return { date: eng.addWorkMinutes(start, minutes + gapMinutes), capped: false };
+    }
+    const days = durationDaysOf(task, eng);
+    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
+    return eng.addWorkDaysChecked(start, days + gapDays);
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). BEWUST GEEN
    *  `levelingDelay`/`levelingDelayMinutes`-aftrek hier (Z6-besluit, ongewijzigd na de Z6-
@@ -525,15 +541,26 @@ export class CPMSolver {
    *  `totalFloat`. Dat is een ander mechanisme dan de backward-DOORGIFTE-spiegel in
    *  `backwardPass` (Z6-fixronde B2, `shiftByLevelingDelay`s aanroep daar): die corrigeert wat
    *  een VOORGANGER van deze taak als late-zijde-druk ziet, niet wat déze taak zelf met haar
-   *  eigen duur doet — de twee plekken lossen verschillende problemen op en bijten elkaar niet. */
+   *  eigen duur doet — de twee plekken lossen verschillende problemen op en bijten elkaar niet.
+   *
+   *  Z7 (aangrijpingspunt 3, splits — spiegel van `addDurationChecked` hierboven, "anders
+   *  spookfloat", plan-§Z7): zónder deze spiegel zou de backward-pass een LS berekenen die niet
+   *  bij de gaten-bewuste EF van dezelfde taak hoort — LF-EF zou dan systematisch afwijken van
+   *  LS-ES, wat via `totalFloat`/`freeFloat` een spook-speling introduceert op elke gesplitste
+   *  taak. Zelfde venster `[0, totale duur)`, zelfde ELAPSEDTIME-uitsluiting. */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
     if (isZeroDurationMilestone(task)) return new Date(end.getTime());
     if (task.time.durationType === 'ELAPSEDTIME') {
       return subtractElapsedMinutes(end, elapsedMinutesOf(task, eng));
     }
-    return eng.isHourMode
-      ? eng.subtractWorkMinutes(end, durationMinutesOf(task, eng))
-      : eng.subtractWorkDays(end, durationDaysOf(task, eng));
+    if (eng.isHourMode) {
+      const minutes = durationMinutesOf(task, eng);
+      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
+      return eng.subtractWorkMinutes(end, minutes + gapMinutes);
+    }
+    const days = durationDaysOf(task, eng);
+    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
+    return eng.subtractWorkDays(end, days + gapDays);
   }
 
   /** Verschuift `date` met de nivelleer-vertraging van `task` (fase 2.5 §5.6; Z6 uur-/minuut-
@@ -595,14 +622,21 @@ export class CPMSolver {
    *  bestaande inclusieve-dag-aftrek. Mijlpaal-afhandeling ONGEWIJZIGD per tak (Bevinding, T8-review:
    *  de dag-tak snapt een mijlpaal via `addWorkingDaysSigned(finish, 0)` = `nextWorkDay`, de uur-tak
    *  geeft de rauwe finish terug ongesnapt — niet symmetrisch, dus niet naar bóven de modus-split
-   *  te hijsen zonder dat gedrag te veranderen). */
+   *  te hijsen zonder dat gedrag te veranderen).
+   *
+   *  Z7 (aangrijpingspunt 4, splits): gebruikt door de FF/SF-armen in `relationMath.ts` en door
+   *  `forwardBoundOf`/`backwardBoundOf`/`hardPinStart`/`hardPinFinish` — een gesplitste taak als
+   *  FF-voorganger zou zonder deze gaten-optelling een START teruggeven die haar EIGEN duur negeert.
+   *  Zelfde venster `[0, totale duur)`/zelfde ELAPSEDTIME-uitsluiting als `addDurationChecked`. */
   private startFromFinish(eng: CalendarEngine, finish: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (isZeroDurationMilestone(task)) return new Date(finish.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
       }
-      return eng.subtractWorkMinutes(finish, durationMinutesOf(task, eng));
+      const minutes = durationMinutesOf(task, eng);
+      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
+      return eng.subtractWorkMinutes(finish, minutes + gapMinutes);
     }
     // H3 (Opus-review T15-iteratie-2, herbevestigd via msp-30-mutatiebewijs): `isZeroDurationMilestone`
     // i.p.v. de kale vlag — anders viel een dag-modus mijlpaal-met-duur-ELAPSEDTIME-taak hier stil
@@ -612,26 +646,35 @@ export class CPMSolver {
       return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
     }
     const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
-    return eng.addWorkingDaysSigned(finish, -(dur > 0 ? dur - 1 : 0));
+    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
+    const totalDur = dur + gapDays;
+    return eng.addWorkingDaysSigned(finish, -(totalDur > 0 ? totalDur - 1 : 0));
   }
   /** Leid de voorganger-FINISH af uit zijn late START (SS/SF backward, §5.2, spiegel van
    *  `startFromFinish`): ELAPSEDTIME ⇒ kale 24/7-klokoptelling (T8); uur (WORKTIME) ⇒ `addWorkMinutes`;
    *  dag (WORKTIME) ⇒ `addWorkingDaysSigned(dur−1)`. Zelfde mijlpaal-asymmetrie-voorbehoud als
-   *  `startFromFinish` hierboven. */
+   *  `startFromFinish` hierboven.
+   *
+   *  Z7 (aangrijpingspunt 4, splits) — zelfde gaten-optelling, spiegel van `startFromFinish`
+   *  hierboven (vandaar hetzelfde venster `[0, totale duur)`). */
   private finishFromStart(eng: CalendarEngine, start: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (isZeroDurationMilestone(task)) return new Date(start.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
       }
-      return eng.addWorkMinutes(start, durationMinutesOf(task, eng));
+      const minutes = durationMinutesOf(task, eng);
+      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
+      return eng.addWorkMinutes(start, minutes + gapMinutes);
     }
     // H3 (Opus-review T15-iteratie-2) — zelfde reden als `startFromFinish` hierboven.
     if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
     const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
-    return eng.addWorkingDaysSigned(start, dur > 0 ? dur - 1 : 0);
+    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
+    const totalDur = dur + gapDays;
+    return eng.addWorkingDaysSigned(start, totalDur > 0 ? totalDur - 1 : 0);
   }
   /** Getekende float in eigen-kalender-WERKDAGEN (§5.5, Bevinding 1): uur ⇒ fractioneel
    *  `workMinutesBetween / (hoursPerDay × 60)`; dag ⇒ de bestaande integer `signedWorkDays`.
@@ -1245,14 +1288,101 @@ export class CPMSolver {
             }
             }
           }
+          // Z7 (aangrijpingspunt 2, splits — DE reden deze taak "de heetste motorlus" van de
+          // etappe heet, plan-§Z7): deze IN-PROGRESS-tak heeft haar EIGEN duur-optelling
+          // (`addWorkMinutes`/`addWorkDaysChecked` op `remStart` hierboven/hieronder) en loopt
+          // NIET door `addDurationChecked` — een split-implementatie die de gaten-optelling
+          // uitsluitend dáár toevoegt, werkt aantoonbaar niet voor een taak MET voortgang (dat is
+          // nu juist de populatie waar `splitGaps` uit MPP's timephased-data vandaan komt, zie
+          // `mppTimephased.ts`). Mutatiebewijs (`cases-advanced-cpm.json`, `z7-split-*`-cases,
+          // acceptatiepunt 3): de gaten-optelling ALLEEN uit deze tak weglaten laat geval (d) ROOD
+          // terwijl (a)/(b)
+          // (buiten deze tak) groen blijven — precies het bewijs dat dit een EIGEN aangrijpingspunt
+          // is, geen gratis neveneffect van punt 1.
+          //
+          // VENSTER: ANDERS dan de vier "volledige-duur"-aangrijpingspunten hierboven/hieronder
+          // (`addDurationChecked`/`subDuration`/`finishFromStart`/`startFromFinish`, die altijd
+          // `[0, totale duur)` gebruiken) telt hier alleen het RESTWERK-venster
+          // `[reeds-afgewerkt, totale duur)` mee — `TaskSplitGap.afterMinutes` is relatief aan de
+          // TAAKSTART (niet aan `remStart`), dus een gat dat vóór het reeds-afgewerkte deel ligt is
+          // al voorbij: dat is GEEN extra restwerk, het zit al in de historie die `actualStart`/
+          // `remStart` vertegenwoordigt. Nogmaals optellen zou de finish onterecht verder optrekken
+          // dan MSP's eigen opgeslagen antwoord.
+          //
+          // CORPUSVRAAG (plan-§Z7, verplicht gemeten i.p.v. gegokt): "blijft het voltooide segment
+          // staan terwijl het restwerk schuift, of schuift de hele taak?" ProjectLibre kiest expliciet
+          // het eerste (`Assignment.java`'s `shift()` verplaatst alleen restwerk, met een zelf-erkende
+          // `//TODO integrate split - still needed?` op precies die plek — alleen als HYPOTHESE
+          // gebruikt, zie §9). ONZE keuze volgt daar onafhankelijk uit het VENSTER-ontwerp hierboven,
+          // niet uit die referentie overgenomen: `remStart`/`actualES` (het al-afgewerkte anker)
+          // wordt door GEEN van de twee `if`-takken hierboven aangeraakt — een gat kan uitsluitend het
+          // RESTWERK-venster `[completedSpan, totalSpan)` verlengen, nooit `es`/`remStart` zelf
+          // verschuiven. Dat IS "voltooid blijft staan, restwerk schuift" — zonder dat er een
+          // aparte aftakking voor nodig was.
+          //
+          // `mpp14splittask.mpp` (de VERPLICHTE meetreferentie, zie `mppTimephased.ts`'s moduleheader)
+          // kan deze vraag NIET beantwoorden: beide taken staan op 0% voltooid, geen voortgang om te
+          // meten — ongewijzigd sinds Z4. BREDERE CORPUSMETING (dit punt, wegwerpscript op de bestaande
+          // `readMPP`-infra tegen corpus+crawl): het OzBuild-materiaal draagt GEEN enkele taak met
+          // zowel `splitGaps` als voortgang — de enige gevonden combinaties zitten in twee publieke
+          // MPXJ-crawlbestanden, `mpp14timephased.mpp` (10 taken) en `timephased-actual-overtime-
+          // work.mpp` (2 taken). In ALLE 12 gemeten taken geldt `resume === stop` EXACT (bv. Task 6:
+          // resume/stop beide 2008-12-02T15:00) — MSP's eigen "hervattingsinstant" en "stop-instant"
+          // vallen dus in dit corpus altijd samen, geen enkel geval van een écht UITEENLOPEND
+          // resume/stop-paar naast `splitGaps` is gevonden.
+          //
+          // VOORRANGSREGEL (uit deze meting, niet aangenomen): `resume`/`splitGaps` zeggen in de
+          // gemeten populatie HETZELFDE, maar over VERSCHILLENDE assen — `resume` (Z12) is het
+          // CALENDER-anker van het restwerk-startpunt (waar `remStart` op landt, via de
+          // `isOutOfSequenceFsPredecessor`-override of de gewone RETAINED_LOGIC-vloer hierboven);
+          // `splitGaps` (Z7) leeft op de WERK-as (hoeveel werk is al gedaan, `completedSpan`) en is
+          // BLIND voor welk kalenderanker `remStart` daadwerkelijk kreeg. Er ontstaat dus GEEN
+          // conflict om een voorrangsregel voor nodig te hebben: het venster
+          // `[completedSpan, totalSpan)` wordt vóór — en onafhankelijk van — de resume/dataDate/
+          // earlyStart-keuze voor `remStart` berekend, en toegepast op `remaining` (niet op
+          // `remStart`). Áls een bestand ooit `resume ≠ stop` mét `splitGaps` zou dragen, blijft dat
+          // ONGEWIJZIGD gedrag: dezelfde werk-as-vensterlogica, gewoon tegen een ANDER `remStart`-
+          // anker (de resume-override raakt uitsluitend WAAR `remStart` landt, nooit HOEVEEL restwerk
+          // — die twee blijven orthogonaal per ontwerp, niet toevallig).
+          //
+          // RESTERENDE `timephased-actual-overtime-work.mpp`-afwijking (2 taken, `mpp-fidelity-
+          // baseline.json`, ongewijzigd door Z7): BEIDE gevonden taken behielden hun bestaande
+          // afwijking na deze fix — de oorzaak is Z8-scope (timephased-vénster bepaalt de taakdatums,
+          // nog niet gebouwd), niet een Z7/splits-tekort: dit bestand blijft `reason`-gepind als
+          // "resource-gedreven/timephased-uitzondering", dezelfde categorie als `mpp14timephased.mpp`
+          // (dat WEL verbeterde door Z7 — 3 taken minder afwijkend — omdat een deel van DIE taken
+          // puur op de splits-fix wachtte, een ander deel nog op Z8). Twee features die uit dezelfde
+          // timephased-decoder (Z3/Z4) putten, raken dus soms dezelfde taken zonder dat de een de
+          // ander vervangt — verwacht, zie plan-§3(c).
+          //
+          // `totalSpan`/`remaining` staan al in de "eigen eenheid" van de taak (minuten uur-modus,
+          // dagen dag-modus, zie de toelichting bij `totalSpan` hierboven) — omgerekend naar
+          // werkMINUTEN (`TaskSplitGap`s eigen eenheid, `duration.ts`) vóór de vensterberekening,
+          // en de uitkomst weer terug. `!isElapsedTask`-guard: ELAPSEDTIME blijft bewust ONGEMOEID
+          // (24/7 kent geen "gat"-begrip, zelfde reden als overal elders in dit bestand — splits
+          // zijn een WERKtijd-concept, zie `duration.ts`'s moduleheader bij deze functies).
+          let remainingWithGaps = remaining;
+          if (!isElapsedTask && task.splitGaps && task.splitGaps.length > 0) {
+            const totalSpanMinutes = cal.isHourMode ? totalSpan : totalSpan * cal.hoursPerDay * 60;
+            const remainingMinutesUnits = cal.isHourMode ? remaining : remaining * cal.hoursPerDay * 60;
+            const completedSpanMinutes = totalSpanMinutes - remainingMinutesUnits;
+            const gapMinutesInRemaining = splitGapMinutesInWindow(
+              task.splitGaps, completedSpanMinutes, totalSpanMinutes,
+            );
+            if (gapMinutesInRemaining > 0) {
+              remainingWithGaps = cal.isHourMode
+                ? remaining + gapMinutesInRemaining
+                : remaining + gapMinutesInRemaining / (cal.hoursPerDay * 60);
+            }
+          }
           let ef: Date;
           if (isElapsedTask) {
             ef = addElapsedMinutes(remStart, remainingElapsedMinutes);
           } else if (cal.isHourMode) {
-            ef = cal.addWorkMinutes(remStart, remaining);
+            ef = cal.addWorkMinutes(remStart, remainingWithGaps);
           } else {
             // WP7: ook het rest-werk-pad kan tegen de onwerkbaar-venster-cap lopen ⇒ checked-variant.
-            const r = cal.addWorkDaysChecked(remStart, remaining);
+            const r = cal.addWorkDaysChecked(remStart, remainingWithGaps);
             ef = r.date;
             if (r.capped) this.cappedTaskIds.push(taskId);
           }

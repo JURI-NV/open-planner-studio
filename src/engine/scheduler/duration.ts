@@ -1,4 +1,4 @@
-import type { Task } from '@/types/task';
+import type { Task, TaskSplitGap } from '@/types/task';
 
 /**
  * Gedeelde duur-resolutie-helpers (fase 2.8b, ontwerpdoc §3.1).
@@ -183,4 +183,71 @@ export function subtractElapsedMinutes(end: Date, minutes: number): Date {
 export function signedElapsedSpan(a: Date, b: Date, effCal: DurationCalendar): number {
   void effCal;
   return (b.getTime() - a.getTime()) / (24 * 60 * MS_PER_MIN);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// Z7 (etappe "nul afwijkingen") — SPLITGAPS in de duur-optelling. Canonieke regel (plan-§Z7,
+// letterlijk): "de finish is de start plus de duur, waarbij elk gat als extra niet-werktijd telt
+// op zijn eigen offset" — een UITBREIDING van de duur-optelling, GEEN tweede algoritme.
+//
+// WAAROM EEN FLAT SOM VOLSTAAT (bewezen, niet aangenomen): `mppTimephased.ts`'s moduleheader
+// documenteert de VERPLICHTE meetstap op `mpxj/junit/data/mpp14splittask.mpp` (Z4/Z0) —
+// `CalendarEngine.addWorkMinutes(start, duur + Σgat.gapMinutes)` reproduceert MSP's eigen
+// opgeslagen FINISH byte-exact voor beide taken in dat bestand (1 resp. 2 gaten, uur-modus).
+// `addWorkMinutes`/`addWorkDaysChecked` zijn zuivere TEL-functies over een vaste startdatum: het
+// AANTAL geconsumeerde werk-eenheden bepaalt de aankomstdatum, niet hoe dat aantal is opgebouwd
+// (segment-voor-segment vs. in één keer) — vandaar dat CPMSolver.ts's vier aangrijpingspunten
+// nergens een tweede, positie-wandelende algoritme nodig hebben: één extra term bovenop de
+// bestaande duur-optelling volstaat overal.
+//
+// WAAROM TOCH EEN VENSTER (en geen kale `task.splitGaps`-som): de positie doet er wél toe zodra
+// niet de VOLLEDIGE duur wordt geteld — het IN-PROGRESS-restwerk (CPMSolver.ts's tweede
+// aangrijpingspunt) telt alleen het venster ná het reeds-afgewerkte deel. Een gat dat vóór dat
+// punt ligt (in het voltooide deel) hoort niet nog eens bij het restwerk opgeteld te worden — dat
+// zou de finish onterecht verder optrekken. `splitGapMinutesInWindow` is daarom de ENE gedeelde
+// vensterfunctie die alle vier aangrijpingspunten aanroepen: voor de volledige-duur-aanroepen is
+// het venster `[0, totale duur)` (alle gaten tellen), voor het restwerk `[reeds-afgewerkt, totale
+// duur)`.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Som van de `TaskSplitGap`-werkminuten die overlappen met het halfopen werkminuten-venster
+ * `[windowStartMinutes, windowEndMinutes)`. Offsets zijn ALTIJD relatief aan de TAAKSTART
+ * (`TaskSplitGap.afterMinutes`s eigen contract, zie `src/types/task.ts`) — nooit aan
+ * `windowStartMinutes` zelf; "elk gat telt op zijn eigen offset" (plan-§Z7).
+ *
+ * Overlap i.p.v. een kale `afterMinutes >= windowStart`-filter: een gat kan in theorie een
+ * venstergrens middenin overlappen (de afgewerkt/restwerk-grens valt binnen een gat) — dan telt
+ * alleen het deel ná die grens mee voor het restwerk-venster.
+ *
+ * Defensief geklemd (`splitGaps` is afgeleide data, geen rechtstreeks-uit-bytes-gelezen veld met
+ * een eigen klem elders — maar een corrupt of hostiel document, bv. via MCP of een handgemaakte
+ * IFC/JSON-import, kan in theorie een niet-eindig of negatief-lengte gat dragen): NaN/Infinity of
+ * `gapMinutes <= 0` draagt nooit bij, nooit een negatieve of oneindige bijdrage aan de duur.
+ */
+export function splitGapMinutesInWindow(
+  gaps: readonly TaskSplitGap[] | undefined, windowStartMinutes: number, windowEndMinutes: number,
+): number {
+  if (!gaps || gaps.length === 0) return 0;
+  if (!(windowEndMinutes > windowStartMinutes)) return 0;
+  let total = 0;
+  for (const g of gaps) {
+    if (!Number.isFinite(g.afterMinutes) || !Number.isFinite(g.gapMinutes) || g.gapMinutes <= 0) continue;
+    const gapStart = g.afterMinutes;
+    const gapEnd = g.afterMinutes + g.gapMinutes;
+    const overlapStart = Math.max(gapStart, windowStartMinutes);
+    const overlapEnd = Math.min(gapEnd, windowEndMinutes);
+    if (overlapEnd > overlapStart) total += overlapEnd - overlapStart;
+  }
+  return total;
+}
+
+/** `splitGapMinutesInWindow` omgerekend naar eigen-kalender-WERKDAGEN (dag-modus-aanroepers) —
+ *  dezelfde `minuten / (hoursPerDay×60)`-omrekening als `durationDaysOf`/`elapsedMinutesOf`
+ *  hierboven, zodat er geen tweede eenhedenconventie ontstaat. */
+export function splitGapDaysInWindow(
+  gaps: readonly TaskSplitGap[] | undefined, windowStartMinutes: number, windowEndMinutes: number,
+  effCal: DurationCalendar,
+): number {
+  return splitGapMinutesInWindow(gaps, windowStartMinutes, windowEndMinutes) / (effCal.hoursPerDay * 60);
 }

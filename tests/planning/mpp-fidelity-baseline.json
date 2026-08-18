@@ -129,10 +129,9 @@
       "startExact": 12,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 10,
+      "finishExact": 12,
       "finishSameday": 0,
-      "finishDiff": 2,
-      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
+      "finishDiff": 0
     },
     "101e31fc1537a0f0": {
       "root": "crawl",
@@ -1098,10 +1097,9 @@
       "startExact": 2,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 0,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 2,
-      "reason": "split-taak-uitzondering (§1.4/O1, sourceScheduleNotes.total=2), toegestaan"
+      "finishDiff": 0
     },
     "764dc972df9b73d5": {
       "root": "crawl",
@@ -1460,10 +1458,10 @@
       "startExact": 36,
       "startSameday": 0,
       "startDiff": 4,
-      "finishExact": 19,
-      "finishSameday": 4,
-      "finishDiff": 17,
-      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=12), toegestaan"
+      "finishExact": 22,
+      "finishSameday": 5,
+      "finishDiff": 13,
+      "reason": "resource-gedreven/timephased-uitzondering (§1.4/O1, sourceScheduleNotes.total=12), toegestaan — Z7 (splits) verbeterde dit bestand van finishExact 19/finishDiff 17 naar 22/13 als neveneffect (dezelfde toewijzingen dragen zowel splits als timephased-venster-data); de resterende afwijkingen zijn Z8-scope (timephased-venster bepaalt taakdatums), niet langer splits"
     },
     "98c8a0fb569be058": {
       "root": "crawl",
