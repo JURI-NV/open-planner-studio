@@ -382,9 +382,10 @@ export interface Task {
    *  lijst: `CPMSolver.ts` wandelt dan `task.time.durationMinutes` (de volle taakduur, edit-live).
    *  Corpusbewijs: 9/9 (mpp14timephased2.mpp) en 20/20 (mpp14timephasedsegments.mpp) op de volledige
    *  populatie, en de 0%-populatie van mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). AANWEZIG
-   *  bij >1 item — meerdere GELIJKTIJDIGE toewijzingen DELEN het werk, dus wandelt elke toewijzing
-   *  alleen haar EIGEN, per-toewijzing gedecodeerde werk-aandeel (`decodeAssignmentWorkMinutes`,
-   *  `mppReader.ts`) i.p.v. de volle duur (die aanname is BEWEZEN onjuist bij >1 toewijzing —
+   *  bij >1 item — bij meerdere GELIJKTIJDIGE toewijzingen wandelt geen enkele toewijzing de volle
+   *  taakduur; elke toewijzing wandelt alleen haar EIGEN, per-toewijzing gedecodeerde werk-aandeel
+   *  (`decodeAssignmentWorkMinutes`, `mppReader.ts`), en de LANGSTE wandeling bepaalt de finish
+   *  (die volle-duur-aanname is BEWEZEN onjuist bij >1 toewijzing —
    *  `mpp14resource.mpp`'s "Task A", drie toewijzingen, gaf zonder apportionering een ~2× te late
    *  datum). Afwezig ⇒ byte-identiek. Round-tript sinds Z14b via `OPS_TimephasedWindow`
    *  (`ifcPsets.ts`), maar wordt (anders dan `timephasedFinishFloor`/`timephasedStartAnchor`) NOOIT

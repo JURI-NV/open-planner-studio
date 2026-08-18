@@ -1618,13 +1618,12 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 205,
-      "startSameday": 9,
-      "startDiff": 1,
-      "finishExact": 203,
-      "finishSameday": 8,
-      "finishDiff": 4,
-      "reason": "Z9b (2026-08-18): manual-verzameltaak-rollup gefixt (applyCpmResult.updateSummary — een manual samenvattingstaak rolt niet meer op uit haar kinderen, ze houdt haar eigen scheduleStart/scheduleFinish). GEMETEN (before/after diff op de detailrapportage): alle 11 MANUALLY_SCHEDULED-verzameltaken (childIds 2..28) verdwijnen uit de afwijkingenlijst — 194/18/3/192/17/6 → 205/9/1/203/8/4. Restant ná Z9b: 11 bladtaken + 1 verzameltaak die louter hun rollup is. Geen daarvan is manual of leveling-/resource-gedreven — gemeten: 0 van de 12 draagt levelingDelay(Minutes), 0 draagt een toewijzing, terwijl de 10 taken die wél een levelingDelay dragen exact zijn. Alle 11 bladtaken zijn sub-dag uurmodus-taken met een SNET-constraint waar onze ES/EF op één na (die +45 min later ligt) systematisch vóór MSP ligt. OPEN residu, doorgegeven aan Z19; geen geaccepteerde uitzondering."
+      "startExact": 215,
+      "startSameday": 0,
+      "startDiff": 0,
+      "finishExact": 215,
+      "finishSameday": 0,
+      "finishDiff": 0
     },
     "a76cce3394fdec2d": {
       "root": "crawl",

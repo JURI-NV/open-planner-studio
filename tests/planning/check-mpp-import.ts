@@ -69,7 +69,7 @@ import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks, countScheduleNotes,
   buildAssignmentUidLinks, deriveSplitGapsForTasks, deriveTimephasedWindowsForTasks,
-  deriveTimephasedContoursForTasks, mspTaskTypeFromRaw,
+  deriveTimephasedContoursForTasks, mspTaskTypeFromRaw, decodeAssignmentWorkMinutes,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
 import { readCalendars, type CalendarReadResult } from '@/services/mpp/mppCalendars';
@@ -2923,16 +2923,24 @@ if (corpusPresent) {
           );
         }
       }
-      // "Bijlage 20 productieplanning PKB.mpp" (gemeten, geen enkel signaal): ook hier GEEN
-      // `sourceScheduleNotes` — een tweede, groter (134 taken) negatief bewijs naast Bijlage 13.
+      // "Bijlage 20 productieplanning PKB.mpp" (134 taken): vóór het klokdossier-dossier (Z19,
+      // residu-iteratie "nul afwijkingen") GEEN enkel signaal — de negatieve case gold toen.
+      // NIEUW SINDS DIE FIXRONDE: 12 taken activeren nu laag 4's werkVERDELING-tak (>1
+      // tijdgefaseerd-dragende, niet-MATERIAL toewijzing, ONGEACHT of hun resourcekalender ook nog
+      // verschilt — zie `deriveTimephasedWindowsForTasks`'s eigen docblok in mppReader.ts). Dit is
+      // GEEN datumregressie: de corpusbrede fidelity-check (`check-mpp-fidelity.ts`) blijft dit
+      // bestand exact tonen (byte-voor-byte, ongewijzigd t.o.v. vóór de activeringsverbreding) —
+      // het is uitsluitend de MELDING (Z16, "N taken resource-gedreven") die nu correcter telt,
+      // omdat deze taken daadwerkelijk `timephasedDurationWalks` dragen.
       const bijlage20 = join(T12_CORPUS, 'Bijlage 20 productieplanning PKB.mpp');
       if (existsSync(bijlage20)) {
         const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage20)));
         truthy(`[T12 Bijlage 20] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            '[T12 Bijlage 20] GEEN sourceScheduleNotes (gemeten: geen signaal op 134 taken)',
-            result.sourceScheduleNotes === undefined,
+            `[T12/Z19 Bijlage 20] sourceScheduleNotes === {total:12, leveled:0, split:0, timephased:12} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            result.sourceScheduleNotes?.total === 12 && result.sourceScheduleNotes.leveled === 0
+              && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 12,
           );
         }
       }
@@ -2944,19 +2952,24 @@ if (corpusPresent) {
       // Z16-DELTA t.o.v. de T12-pin: was `{total:15, leveled:10, spanGt:5}` — de vijf `spanGt`-
       // taken waren de proxy se vals-positieven (venster > duur zonder een echte split of
       // gedecodeerde timephased-periode; gemeten met de nieuwe, echte tellers hieronder: geen van
-      // de 215 taken draagt `splitGaps` of een `timephasedFinishFloor`/`timephasedDurationWalks`).
+      // de 215 taken droeg toen `splitGaps` of een `timephasedFinishFloor`/`timephasedDurationWalks`).
       // `leveled` blijft ONGEWIJZIGD 10 — dat signaal was en blijft een rechtstreekse veldlezing,
-      // geen proxy. `total` daalt dus mee naar 10: exact wat de echte signalen op dit bestand
-      // dragen, niet meer, niet minder.
+      // geen proxy.
+      //
+      // Z19-DELTA (klokdossier-activeringsverbreding, residu-iteratie "nul afwijkingen"): `total`
+      // stijgt van 10 naar 16 — 6 taken activeren nu laag 4's werkVERDELING-tak (>1 tijdgefaseerd-
+      // dragende, niet-MATERIAL toewijzing, ONGEACHT kalenderverschil, zie
+      // `deriveTimephasedWindowsForTasks`'s docblok in mppReader.ts). Geen datumregressie: de
+      // corpusbrede fidelity-check blijft dit bestand exact tonen, byte-voor-byte ongewijzigd.
       const bijlage7 = join(T12_CORPUS, 'bijlage 7 Productie planning.mpp');
       if (existsSync(bijlage7)) {
         const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage7)));
         truthy(`[T12 bijlage 7] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[Z16 bijlage 7] sourceScheduleNotes === {total:10, leveled:10, split:0, timephased:0} (gepind, kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-            result.sourceScheduleNotes?.total === 10 && result.sourceScheduleNotes.leveled === 10
-              && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 0,
+            `[Z16/Z19 bijlage 7] sourceScheduleNotes === {total:16, leveled:10, split:0, timephased:6} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            result.sourceScheduleNotes?.total === 16 && result.sourceScheduleNotes.leveled === 10
+              && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 6,
           );
         }
       }
@@ -2978,8 +2991,9 @@ if (corpusPresent) {
   // toewijzingen, verschillende resourcekalenders) een tijdlang als BEKENDE, GEPINDE afwijking — de
   // volledige-taakduur-per-toewijzing-wandeling (laag 4) was tot PRECIES 1 toewijzing beperkt, want
   // ELKE toewijzing de VOLLE taakduur laten wandelen geeft bij >1 toewijzing een absurde datum
-  // (resources DELEN het werk, ze doen niet elk het geheel). Z19 lost dit op met werkVERDELING: elke
-  // toewijzing wandelt nu alleen haar eigen, per-toewijzing gedecodeerde werk-aandeel
+  // (geen partitie van de taakduur — elke toewijzing draagt haar EIGEN, onafhankelijk opgeslagen
+  // werk-hoeveelheid). Z19 lost dit op met werkVERDELING: elke toewijzing wandelt nu alleen haar
+  // eigen, per-toewijzing gedecodeerde werk-aandeel
   // (`decodeAssignmentWorkMinutes`, `mppReader.ts`) — corpusmeting: Wade Golden en Jon Iles (elk
   // 1440 gedecodeerde werkminuten = 3 werkdagen, standaardkalender) landen beiden op
   // 2006-08-29T17:00; Brian Leach (zelfde 1440 minuten, een sterk afwijkende "Night Shift"-kalender)
@@ -3041,17 +3055,28 @@ if (corpusPresent) {
         const taskA = result.tasks.find((t) => t.name === 'Task A');
         truthy('[T12 mpp14resource, Z8] "Task A" gevonden', !!taskA);
         if (taskA) {
-          // Z19 — multi-toewijzing (3) ⇒ laag 4 activeert MET werkVERDELING: elk item draagt een
-          // eigen `workMinutes` (geen enkele meer `undefined`, anders dan de PRECIES-1-toewijzing-
-          // vorm elders in dit bestand).
+          // Z19 (Opus-review L2-correctie): NIET "toewijzingen delen het werk" (dat zou een
+          // PARTITIE van de taakduur suggereren — klopt niet letterlijk: taakduur 2880 min,
+          // 3×1440 gedecodeerd werk = 4320, geen partitie). De ware regel: ELKE toewijzing wandelt
+          // haar EIGEN gedecodeerde werk-aandeel, de LANGSTE bepaalt de finish. Van de drie
+          // toewijzingen zijn er in DIT bestand twee (Wade Golden, Jon Iles) toevallig MATERIAL
+          // getypeerd — de MATERIAL-uitsluiting (klokdossier-fixronde, zie
+          // `deriveTimephasedWindowsForTasks`'s docblok) filtert die uit de wandeling, dus
+          // `timephasedDurationWalks` draagt hier PRECIES 1 item (Brian Leach, LABOR, de "Night
+          // Shift"-kalender die de max bepaalde) — `startAnchor` blijft wél over alle drie gaan
+          // (Task A se eigen START komt uit Wade/Jon se vroegere anker, niet uit Brian se latere).
           truthy(
-            `[T12 mpp14resource, Z19] "Task A" krijgt timephasedDurationWalks met 3 items, elk met workMinutes (kreeg ${JSON.stringify(taskA.timephasedDurationWalks)})`,
-            Array.isArray(taskA.timephasedDurationWalks) && taskA.timephasedDurationWalks.length === 3
+            `[T12 mpp14resource, Z19] "Task A" krijgt timephasedDurationWalks met 1 item (na MATERIAL-uitsluiting), met workMinutes (kreeg ${JSON.stringify(taskA.timephasedDurationWalks)})`,
+            Array.isArray(taskA.timephasedDurationWalks) && taskA.timephasedDurationWalks.length === 1
               && taskA.timephasedDurationWalks.every((w) => typeof w.workMinutes === 'number' && w.workMinutes > 0),
           );
           truthy(
-            `[T12 mpp14resource, Z19] "Task A".scheduleFinish === MSP's eigen 2006-08-30T08:00 (werkVERDELING over 3 toewijzingen, kreeg ${taskA.time.scheduleFinish})`,
+            `[T12 mpp14resource, Z19] "Task A".scheduleFinish === MSP's eigen 2006-08-30T08:00 (werkVERDELING, kreeg ${taskA.time.scheduleFinish})`,
             taskA.time.scheduleFinish === '2006-08-30T08:00',
+          );
+          truthy(
+            `[T12 mpp14resource, Z19] "Task A".scheduleStart === MSP's eigen 2006-08-25T08:00 (startAnchor blijft over ALLE toewijzingen gaan, ook de uitgesloten MATERIAL-toewijzingen — kreeg ${taskA.time.scheduleStart})`,
+            taskA.time.scheduleStart === '2006-08-25T08:00',
           );
           // Mutatiebewijs (Z19-acceptatiepunt, "negeer de apportionering ⇒ ROOD"): reproduceer de
           // OUDE, bewezen-onjuiste volledige-taakduur-per-toewijzing-wandeling door `workMinutes` uit
@@ -3146,6 +3171,60 @@ if (corpusPresent) {
       );
     }
   }
+}
+
+// ── Z19 (reviewbevinding L3) — corpusloze eenheidstest voor `decodeAssignmentWorkMinutes`s
+// `assignmentFinish ?? new Date(taskStart.getTime() + 60_000)`-terugval (mppReader.ts). Deze tak is
+// GEEN dode code: `AssignmentUidLink.assignmentFinish` kan `null` zijn (het veld ontbreekt in
+// sommige bestanden se field map, of het record is te kort — zie haar eigen docblok), en dat komt
+// rechtstreeks door in de enige aanroepplek (`link.assignmentFinish`). Deze test bewijst BEIDE
+// helften van het docblok se eigen claim: (a) de terugval wordt echt gebruikt bij `null` (geen
+// vroege lege-return zoals de `blockCount===0`-tak ZONDER enig ankerpunt zou geven), en (b) de
+// teruggegeven `workMinutes` is ONGEWIJZIGD ongeacht WELK niet-`null` ankerpunt binnenkomt (het
+// ankerpunt voedt uitsluitend `elapsedWorkMinutesEnd`/`approxFinish`, nooit het werk-getal zelf). ──
+{
+  // Minimale, lokale kopie van `buildPlannedSummaryOnlyBlock` (Z3-sectie hierboven, functie-lokaal
+  // en dus hier niet direct herbruikbaar — spiegelt de bestaande duplicatie-conventie in dit
+  // bestand): Format B, `blockCount===0`, 24-byte samenvattend record, totaalwerk op offset 16.
+  function buildPlannedSummaryOnlyBlockL3(totalWorkMinutes: number): Uint8Array {
+    const out = new Uint8Array(24);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, 0, true);
+    view.setFloat64(16, totalWorkMinutes * 1000, true);
+    return out;
+  }
+
+  const taskStart = new Date('2026-08-18T08:00:00.000Z');
+  const raw = {
+    actualRegularWork: null,
+    remainingRegularWork: buildPlannedSummaryOnlyBlockL3(1440),
+    actualOvertimeWork: null,
+    actualIrregularWork: null,
+  };
+
+  const withNullFinish = decodeAssignmentWorkMinutes(raw, taskStart, null);
+  truthy(
+    `[Z19 L3] assignmentFinish===null gebruikt de terugval (60s na taskStart) i.p.v. leeg terug te geven — workMinutes===1440 (kreeg ${withNullFinish})`,
+    withNullFinish === 1440,
+  );
+
+  const withArbitraryFinish = decodeAssignmentWorkMinutes(raw, taskStart, new Date('2099-01-01T00:00:00.000Z'));
+  truthy(
+    `[Z19 L3] workMinutes is ONAFHANKELIJK van welk (niet-null) ankerpunt wordt doorgegeven — zelfde 1440 met een willekeurig ver ankerpunt (kreeg ${withArbitraryFinish})`,
+    withArbitraryFinish === 1440,
+  );
+
+  const zeroWork = decodeAssignmentWorkMinutes(
+    { actualRegularWork: null, remainingRegularWork: buildPlannedSummaryOnlyBlockL3(0), actualOvertimeWork: null, actualIrregularWork: null },
+    taskStart, null,
+  );
+  truthy('[Z19 L3] 0 gedecodeerd werk ⇒ null (niet apportioneerbaar), ook via de null-terugvaltak', zeroWork === null);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): `assignmentFinish ?? new Date(...)` tijdelijk
+  // vervangen door kaal `assignmentFinish` (zonder terugval) ⇒ `withNullFinish` hierboven zou dan
+  // `null` worden (de `blockCount===0`-tak in `decodePlannedRegularTimephasedWork` geeft zonder
+  // `referenceFinish` een lege lijst, zie mppTimephased.ts) — deze case gaat dan ROOD op de eerste
+  // assertie hierboven.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

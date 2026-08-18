@@ -224,7 +224,14 @@ const TM = {
   // Z14b: het Z8-venster round-trippt nu écht via `OPS_TimephasedWindow` (zie TASK_CANON hieronder
   // — echte KEEP-vergelijking i.p.v. de vroegere skip-cellen).
   timephasedFinishFloor: '2026-07-24T17:00', timephasedStartAnchor: '2026-07-24T08:00',
-  timephasedDurationWalks: [{ anchor: '2026-07-24T08:00', resourceCalendarId: 'libcal' }],
+  // Z19-reviewbevinding M1: het EERSTE item (geen `workMinutes`) dekt de bestaande PRECIES-1-
+  // toewijzing-vorm (byte-identiek, ongewijzigd sinds Z14b); het TWEEDE item draagt WEL
+  // `workMinutes` (Z19-apportionering, mpp14resource-dossier) — beide vormen moeten in ÉÉN taak
+  // door de round-trip komen, anders bewijst dit alleen de helft.
+  timephasedDurationWalks: [
+    { anchor: '2026-07-24T08:00', resourceCalendarId: 'libcal' },
+    { anchor: '2026-07-24T09:00', resourceCalendarId: 'libcal', workMinutes: 1440 },
+  ],
   // Z14b — rauwe contourperiodes (`OPS_TimephasedContours`), eigenaarsprincipe-voedingsdata.
   // Twee toewijzingen om te bewijzen dat de per-toewijzing-groepering ook echt meerdere entries
   // draagt (niet gedegenereerd tot één samengevoegde lijst).
@@ -513,9 +520,12 @@ const TASK_CANON = {
   // `resourceCalendarId` is een KALENDER-VERWIJZING (regenereert bij inlezen) — spiegelt
   // `calendarId` hieronder: via `k.cal(...)` naar de natuurlijke sleutel (kalendernaam) herschreven,
   // net als elke andere cross-object-verwijzing in dit bestand.
+  // Z19-reviewbevinding M1: `workMinutes` MOET meevergelijken — vóór deze correctie ontbrak het
+  // hier volledig, waardoor een writer/reader-bug op precies dit veld nooit rood zou gaan (de
+  // vergelijking zag alleen `anchor`/`resourceCalendarId`, altijd gelijk gebleven).
   timephasedDurationWalks: {
     get: (t: Task, k: Keys) => (t.timephasedDurationWalks ?? []).map(w => ({
-      anchor: w.anchor, resourceCalendarId: k.cal(w.resourceCalendarId),
+      anchor: w.anchor, resourceCalendarId: k.cal(w.resourceCalendarId), workMinutes: w.workMinutes ?? null,
     })),
   },
   // Z14b — rauwe contourperiodes (`OPS_TimephasedContours`): `resourceUid` is een MSP-eigen rauw
@@ -1683,6 +1693,42 @@ const rt2 = readIFC(writeIFC(rt1));
   // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { continue }` in de OPS_Timephased-
   // extractie (ifcReader.ts) tijdelijk laten rethrowen ⇒ deze case ROOD op `assert(!threw14, ...)`
   // hierboven (een echte crash i.p.v. de bedoelde terugval).
+}
+
+// (15) Z19-reviewbevinding M1 — vijandige fixture voor de `workMinutes`-typebewaking in
+//      `extractTimephasedDurationWalksMeta`s `isValidWalk` (ifcReader.ts): ANDERS dan case (14)
+//      hierboven is dit GEEN onparseerbare JSON (die crasht niet, valt terug op "niets") — dit is
+//      GELDIGE JSON met een SEMANTISCH fout getypeerd veld (`workMinutes` als string i.p.v. getal)
+//      op ÉÉN van de TWEE items in TM se `timephasedDurationWalks`-array. `isValidWalk` toetst élk
+//      item; `parsed.every(isValidWalk)` faalt dus op de HELE array, niet alleen het ene corrupte
+//      item — verwacht gedrag (gepind, niet aangenomen): de VOLLEDIGE walks-lijst valt weg,
+//      INCLUSIEF het andere, verder perfect geldige item (geen "gedeeltelijk redden").
+{
+  const ifc15 = writeIFC(fixture);
+  const lines15 = ifc15.split('\n');
+  const walksIdx = lines15.findIndex(l => l.includes("IFCPROPERTYSINGLEVALUE('DurationWalks',"));
+  assert(walksIdx >= 0, 'kon de DurationWalks-property niet vinden (verwacht op t-m)');
+  const corruptedWalksLine = lines15[walksIdx].replace('"workMinutes":1440', '"workMinutes":"oops"');
+  assert(corruptedWalksLine !== lines15[walksIdx], 'kon de workMinutes-waarde niet corrumperen (verwacht letterlijk "workMinutes":1440 in de geschreven JSON)');
+  lines15[walksIdx] = corruptedWalksLine;
+
+  let rt15: ImportResult | undefined;
+  let threw15: unknown;
+  try {
+    rt15 = readIFC(lines15.join('\n'));
+  } catch (e) {
+    threw15 = e;
+  }
+  assert(!threw15, `semantisch-corrupte DurationWalks-JSON mag niet crashen — kreeg: ${threw15 instanceof Error ? threw15.message : String(threw15)}`);
+  const tm15 = rt15?.tasks.find(t => t.name === 'Oplevering');
+  assert(!!tm15, 'kon TM (Oplevering) niet terugvinden ná de corrupte-workMinutes-fallback');
+  assert(tm15?.timephasedDurationWalks === undefined,
+    `semantisch-corrupte workMinutes op ÉÉN item laat de HELE walks-lijst wegvallen (geen gedeeltelijke redding) — kreeg ${JSON.stringify(tm15?.timephasedDurationWalks)}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): `typeof (w as {workMinutes?:unknown}).workMinutes
+  // === 'number'` in `isValidWalk` (ifcReader.ts) tijdelijk verzwakken tot "waarde is aanwezig"
+  // (zonder typetoets) ⇒ deze case ROOD op `assert(tm15?.timephasedDurationWalks === undefined, ...)`
+  // hierboven (de array zou dan gewoon met de string-waarde intact doorkomen).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
