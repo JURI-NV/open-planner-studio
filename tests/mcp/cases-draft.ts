@@ -375,6 +375,56 @@ test('draft assignment-kwartet: assign/move/unassign wissen OOK timephasedDurati
     'unassignResource hoort t2.timephasedDurationWalks te wissen');
 });
 
+// N2 (Opus-her-check, tweede ronde): `updateTaskFields`/`patchTaskFields` (de mcpTransaction-
+// tweeling van taskSlice.ts's `updateTask`) moeten OOK laag 4 wissen zodra een walk-item een
+// bevroren `workMinutes` draagt — anders negeert een MCP-duurwijziging de F2-apportioneringstak
+// stilzwijgend (`CPMSolver.ts`'s `timephasedFinish`: `walk.workMinutes ?? durMin` wint altijd zodra
+// `workMinutes` gezet is). Zonder `workMinutes` (walks===1-vorm) blijft de lijst terecht ongemoeid —
+// zie de controle-assertie onderaan.
+test('draft.updateTaskFields: een duur-trigger wist OOK timephasedDurationWalks als workMinutes gezet is (N2)', () => {
+  const id = store.getState().addTask({ name: 'n2-utf-frozen', time: createDefaultTaskTime('2026-08-03', 5) });
+  const walksFrozen = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal', workMinutes: 1440 }];
+  store.getState().updateTask(id, { timephasedDurationWalks: walksFrozen });
+  const before = store.getState().tasks.find((t) => t.id === id)!;
+
+  const res = runInMcpTransaction(() => {
+    draft.updateTaskFields(id, { time: { ...before.time, scheduleDuration: 8 } });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedDurationWalks, undefined, 'timephasedDurationWalks hoort gewist te zijn (workMinutes was gezet)');
+});
+
+test('draft.updateTaskFields controle: een duur-trigger laat timephasedDurationWalks ONGEMOEID zonder workMinutes', () => {
+  const id = store.getState().addTask({ name: 'n2-utf-plain', time: createDefaultTaskTime('2026-08-03', 5) });
+  const walksPlain = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal' }];
+  store.getState().updateTask(id, { timephasedDurationWalks: walksPlain });
+  const before = store.getState().tasks.find((t) => t.id === id)!;
+
+  const res = runInMcpTransaction(() => {
+    draft.updateTaskFields(id, { time: { ...before.time, scheduleDuration: 8 } });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedDurationWalks?.length, 1, 'timephasedDurationWalks hoort ongemoeid te blijven (geen workMinutes, laag 4 stroomt al live mee)');
+});
+
+test('draft.patchTaskFields: een timePatch-duur wist OOK timephasedDurationWalks als workMinutes gezet is (N2)', () => {
+  const id = store.getState().addTask({ name: 'n2-ptf-frozen' });
+  const walksFrozen = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal', workMinutes: 1440 }];
+  store.getState().updateTask(id, { timephasedDurationWalks: walksFrozen });
+
+  const res = runInMcpTransaction(() => {
+    draft.patchTaskFields(id, {}, { scheduleDuration: 9 });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedDurationWalks, undefined, 'timephasedDurationWalks hoort gewist te zijn (workMinutes was gezet)');
+});
+
 // --- 8) setProject --------------------------------------------------------------------------------
 test('draft.setProject wijzigt projectvelden binnen één transactie', () => {
   const before = store.getState().undoStack.length;

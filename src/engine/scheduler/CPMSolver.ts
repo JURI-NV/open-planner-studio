@@ -2125,8 +2125,10 @@ export class CPMSolver {
    * wandelt alleen haar eigen werk-aandeel (geen partitie: de som over de toewijzingen hoeft niet
    * gelijk te zijn aan de taakduur), niet de volle taakduur (die aanname bleek BEWEZEN onjuist —
    * `mpp14resource.mpp`'s "Task A", drie toewijzingen, gaf zonder apportionering een ~2× te late
-   * datum). Bij PRECIES 1 item ontbreekt `workMinutes` altijd (byte-identiek bewezen gedrag, zie
-   * `mppReader.ts`'s eigen corpusbewijs voor die tak).
+   * datum). LET OP: leid uit een lijst van lengte 1 NIET af dat `workMinutes` ontbreekt — 19
+   * corpustaken dragen een lengte-1-lijst mét `workMinutes` (de MATERIAL-gefilterde >1-tak in
+   * `mppReader.ts`); de garantie zit op de producerende tak, dus dit pad toetst per item
+   * `walk.workMinutes ?? durMin` en nooit de lengte.
    */
   private timephasedFinish(
     task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
@@ -2231,10 +2233,23 @@ export class CPMSolver {
     // en `msp-56-z9a-manual-anchor-raw-no-snap`/dag-modus in `cases-msp-pariteit.json` gingen ROOD
     // op een eerdere, te brede versie zonder deze guard). Dag-modus (`!eng.isHourMode`) blijft
     // hoe dan ook ONGEWIJZIGD (`isExactBandEnd`-precedent: geen corpusmeting op dag-modus gedaan).
-    if (isZeroDurationMilestone(task) && eng.isHourMode && c.date?.includes('T')) return d;
-    if (c.type === 'SNET' || c.type === 'MSO') return this.snapOnOrAfter(eng, d);
+    //
+    // N1 (Opus-her-check, blokkerende fout in de eerdere versie): de `noSnap`-guard stond hier als
+    // een VROEGE `return d;` VÓÓR de type-switch — dat gaf `d` ALTIJD terug zodra een 0-duurmijlpaal
+    // matchte, ONGEACHT `c.type`. FNLT/SNLT hebben in DEZE functie GEEN forward-effect (ze horen
+    // `null` te geven — `backwardBoundOf` hierboven is hun kant) — met de vroege return kreeg een
+    // FNLT-DEADLINE op een mijlpaal plotseling een FORWARD-ondergrens gelijk aan de deadline zelf,
+    // en duwde de mijlpaal naar de deadline toe (of erover heen) i.p.v. 'm als bovengrens te laten
+    // functioneren. Corpusloos gereproduceerd (`cases-hours.json`,
+    // `z19-milestone-fnlt-no-forward-push`): een FNLT-deadline een week ná een ma 09:00-mijlpaal
+    // duwde de mijlpaal daadwerkelijk naar de week erna. De 41 corpus-FNLT-bandeind-mijlpalen vingen
+    // dit niet (hun relatie-instant valt daar toevallig samen met de FNLT-datum, dus de bug bleef
+    // onzichtbaar in de fidelity-cijfers). Fix: de guard ÍN de SNET/MSO- en FNET/MFO-takken zetten,
+    // zodat de FNLT/SNLT-tak (die toch al op `return null` uitkomt) 'm nooit ziet.
+    const noSnap = isZeroDurationMilestone(task) && eng.isHourMode && c.date?.includes('T');
+    if (c.type === 'SNET' || c.type === 'MSO') return noSnap ? d : this.snapOnOrAfter(eng, d);
     if (c.type === 'FNET' || c.type === 'MFO') {
-      return this.startFromFinish(eng, this.snapOnOrAfter(eng, d), task);
+      return this.startFromFinish(eng, noSnap ? d : this.snapOnOrAfter(eng, d), task);
     }
     return null;
   }

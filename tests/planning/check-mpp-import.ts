@@ -2923,7 +2923,8 @@ if (corpusPresent) {
           );
         }
       }
-      // "Bijlage 20 productieplanning PKB.mpp" (134 taken): vóór het klokdossier-dossier (Z19,
+      // N4-CORRECTIE (Opus-her-check, tweede ronde) — bestand hieronder uitsluitend bij hash
+      // genoemd (787efb968ae72fe4, 134 taken), niet bij naam: vóór het klokdossier-dossier (Z19,
       // residu-iteratie "nul afwijkingen") GEEN enkel signaal — de negatieve case gold toen.
       // NIEUW SINDS DIE FIXRONDE: 12 taken activeren nu laag 4's werkVERDELING-tak (>1
       // tijdgefaseerd-dragende, niet-MATERIAL toewijzing, ONGEACHT of hun resourcekalender ook nog
@@ -2938,7 +2939,7 @@ if (corpusPresent) {
         truthy(`[T12 Bijlage 20] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[T12/Z19 Bijlage 20] sourceScheduleNotes === {total:12, leveled:0, split:0, timephased:12} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            `[T12/Z19 787efb968ae72fe4] sourceScheduleNotes === {total:12, leveled:0, split:0, timephased:12} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
             result.sourceScheduleNotes?.total === 12 && result.sourceScheduleNotes.leveled === 0
               && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 12,
           );
@@ -2967,7 +2968,7 @@ if (corpusPresent) {
         truthy(`[T12 bijlage 7] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[Z16/Z19 bijlage 7] sourceScheduleNotes === {total:16, leveled:10, split:0, timephased:6} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            `[Z16/Z19 a69fec157074d056] sourceScheduleNotes === {total:16, leveled:10, split:0, timephased:6} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
             result.sourceScheduleNotes?.total === 16 && result.sourceScheduleNotes.leveled === 10
               && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 6,
           );

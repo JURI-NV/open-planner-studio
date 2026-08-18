@@ -6,7 +6,7 @@ import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import {
   createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
-  clearTimephasedDurationWalks,
+  clearTimephasedDurationWalks, timephasedDurationWalksHaveFrozenWork,
 } from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
@@ -430,6 +430,8 @@ export const draft = {
       // `updateTask`: zelfde triggerset/uitleg in `taskDefaults.ts`.
       if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
         clearTimephasedWindow(s.tasks[idx]);
+        // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als taskSlice.ts's `updateTask`.
+        if (timephasedDurationWalksHaveFrozenWork(s.tasks[idx])) clearTimephasedDurationWalks(s.tasks[idx]);
       }
       s.isDirty = true;
     });
@@ -467,7 +469,11 @@ export const draft = {
       // `taskDefaults.ts`. `timePatch` heeft een eigen, smallere vorm (allowlist-gedreven) dan een
       // volledige `Partial<TaskTime>`, dus hier direct de sleutel-aanwezigheid bijhouden i.p.v.
       // `timeUpdateTouchesTimephasedWindow` (die verwacht de bredere `TaskTime`-vorm).
-      if (('calendarId' in top) || timeTouched) clearTimephasedWindow(task);
+      if (('calendarId' in top) || timeTouched) {
+        clearTimephasedWindow(task);
+        // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als `updateTaskFields` hierboven.
+        if (timephasedDurationWalksHaveFrozenWork(task)) clearTimephasedDurationWalks(task);
+      }
       s.isDirty = true;
     });
   },
