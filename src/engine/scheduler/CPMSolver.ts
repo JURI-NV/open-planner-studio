@@ -944,6 +944,52 @@ export class CPMSolver {
         continue;
       }
 
+      // ── Handmatig gepland (Z9a, etappe "nul afwijkingen") ──────────────────────────────────
+      // MS Project "Manually Scheduled": een `manuallyScheduled`-taak houdt haar EIGEN opgeslagen
+      // `time.scheduleStart`/`scheduleFinish` RAUW aan — geen kalendersnap (`ownAnchor`/
+      // `snapOnOrAfter` bewust NIET aangeroepen: dát is precies het punt, MSP snapt een manual-
+      // anker nooit naar de werkband), geen relatiedruk (voorganger-`earlyStart`/`rawMax` wordt
+      // hieronder voor deze taak nooit berekend — haar OPVOLGERS lezen gewoon `results` en
+      // rekenen normaal door, `forwardConstraint` kent geen bijzonder manual-geval nodig) en geen
+      // constraint-afdwinging. `mppReader.ts`'s `resolveScheduleField` (zie haar docblok) zorgt
+      // dat `scheduleStart`/`scheduleFinish` voor een `.mpp`-import al het JUISTE veldpaar dragen
+      // (1283/1284 i.p.v. 35/36) — deze tak hoeft dus geen tweede veldkeuze te maken, ze
+      // respecteert gewoon wat er ligt (ook voor MSPDI/P6/CSV/IFC-bronnen, waar `scheduleStart`/
+      // `scheduleFinish` per definitie al "het" antwoord zijn).
+      //
+      // BESLUIT (constraint vs. manual, plan-§Z9a): MANUAL WINT. `applyForwardConstraints`/
+      // `hardPinStart`/`hardPinFinish` worden voor deze taak NOOIT aangeroepen, ook niet bij een
+      // harde MSO/MFO-pin — MS Project plant een manual taak op haar getypte datum, een
+      // gelijktijdige constraint is dan een dode letter (gepind: `msp-58-z9a-manual-wint-van-
+      // constraint` in cases-msp-pariteit.json — `violatedConstraintsSet` blijft daar leeg).
+      //
+      // PRECEDENTIE t.o.v. Z12 (resume-override)/Z8 (progressCal/timephased-venster)/Z6
+      // (leveling-delay-ankerregel): deze tak MOET vóór al die takken staan (topologisch de EERSTE
+      // afvangst in de niet-hammock-tak) — een manual taak met voortgang/venster/delay behoudt
+      // nog steeds haar eigen rauwe anker, niet de door die takken herberekende waarde.
+      // GEMETEN, niet aangenomen (Z9a-probe, wegwerpscript, 2026-08-18): 10 van de 1659
+      // corpusbrede manual-taken dragen ÓÓK voortgang (`percentComplete`/`actualStart`) en een
+      // `resume`-veld — `mpp14timephasedsegmentsmanual.mpp`'s "Task Three"/"Task Four" (pct 50,
+      // actualStart/manualStart 07:00, scheduledStart 08:00 — exact de −60min-translatie uit de
+      // Z1-reviewobservatie) en de vier `assignment-assignments-*`-varianten se "Task 2"/"Task 3".
+      // Voor "Task Three"/"Task Four" is de rauwe manual-start (07:00) MSP's EIGEN opgeslagen
+      // antwoord (START, veld 1283, geverifieerd via de fidelity-meetlat) — niet de via
+      // resume/restwerk herberekende waarde die de IN-PROGRESS-tak verderop zou geven. Geen enkele
+      // gemeten manual-taak draagt `levelingDelayMinutes` (0/1659) — die interactie blijft dus
+      // ONGETOETST tegen een echt samenvallend geval, maar kan de precedentie per constructie niet
+      // schenden (deze tak `continue`t vóór de leveling-toepassing wordt bereikt).
+      //
+      // Spiegelt de VOLTOOID-tak (voortgangsblok verderop) qua vorm: `parseIn` (dag ⇒ `parseDate`,
+      // uur ⇒ `parseInstant`, GEEN snap) + dezelfde ef<es-inversiecorrectie voor het randgeval
+      // waarin een bestand een finish vóór de start opslaat.
+      if (task.manuallyScheduled) {
+        let es = this.parseIn(cal, task.time.scheduleStart);
+        const ef = this.parseIn(cal, task.time.scheduleFinish);
+        if (ef < es) es = ef;
+        results.set(taskId, { es, ef });
+        continue;
+      }
+
       let earlyStart: Date;
       // Z10 (dossier START_FINISH-semantiek, `mpp14relations.mpp`/"Task 5"): een SF-vereiste-finish
       // ("niet eerder dan pred.START + lag") is een APARTE ondergrens op de EARLY FINISH, naast de
@@ -2161,6 +2207,39 @@ export class CPMSolver {
       // definitie `LS = ES` en `LF = EF` (⇒ tf=ff=0, kritiek-neutraal — geforceerd in computeResults).
       // De gewone min-combinatie wordt overgeslagen.
       if (task.isHammock) {
+        const ed = earlyDates.get(taskId)!;
+        results.set(taskId, { ls: new Date(ed.es.getTime()), lf: new Date(ed.ef.getTime()) });
+        continue;
+      }
+
+      // Handmatig gepland (Z9a): VERPLICHTE early-return, zelfde vorm als de hammock-tak
+      // hierboven — `LS = ES`, `LF = EF`. Zonder deze return zou de gewone backward-combinatie
+      // hieronder (`applyBackwardBound` + `subDuration(predCal, lateFinish, task)`) een
+      // `lateFinish`/`lateStart` herrekenen die NIETS met de gepinde `earlyStart`/`earlyFinish`
+      // te maken heeft (`subDuration` trekt de TAAKDUUR van `lateFinish` af — voor een manual
+      // taak is die afgeleide duur toevallig, geen contract) ⇒ spookfloat (mutatiebewijs: deze
+      // return weghalen laat de `A`-cel in `msp-57-z9a-manual-pin-forward` ROOD, zie cases-msp-
+      // pariteit.json — `A` erft dan `B`'s slack via de FS-backward-bound).
+      //
+      // NIET geforceerd door DEZE tak: `totalFloat`/`isCritical` in `scheduleAnalysis.
+      // computeScheduleResults` (die blijft ONGEMOEID — bestandseigendom hoort bij Z9b) leest
+      // `LS=ES`/`LF=EF` gewoon via de generieke `signedFloat`-formule. Vallen ES/EF toevallig op
+      // gewone werk-instanten (het `msp-57`-geval: A op ma/di), dan geeft dat tf=0 en telt A dus
+      // óók mee als kritiek — géén hammock-achtige `isCritical=false`-uitsluiting, want die
+      // bestaat hier niet. Valt het rauwe anker BUITEN de werkband (het `msp-56`-geval: A op
+      // zaterdag), dan kan diezelfde werkdag-tellende formule op EEN identiek es/ls-paar een
+      // niet-nul waarde geven (gemeten: tf=-1) — een bekende eigenschap van een werkdag-tellende
+      // floatformule toegepast op een niet-werk-instant referentiepunt, NIET een Z9a-regressie.
+      // Het drie-voudig `isHammock`-precedent in `scheduleAnalysis.ts` (tf/ff geforceerd op 0,
+      // `isCritical` geforceerd `false`) is precies wat Z9b voor een manual taak moet SPIEGELEN
+      // ("de isCritical-bepaling... spiegel de drie bestaande isHammock-uitsluitingen", plan-§Z9b)
+      // — bewust hier niet vooruitgegrepen zonder eigen corpus-/casebewijs voor DIE beslissing.
+      // ANDERS dan de hammock-tak wordt hier BEWUST GEEN opvolger-uitsluiting toegevoegd
+      // (`succTask.isHammock`-achtige skip in de lus hieronder) — een manual taak is, in
+      // tegenstelling tot een hammock, een ECHT anker en mag legitiem backward-druk op haar eigen
+      // voorgangers leggen; ook dat is Z9b-scope (float/kritiek-pad rond een manual taak), hier
+      // bewust niet vooruitgegrepen zonder corpus-/casebewijs.
+      if (task.manuallyScheduled) {
         const ed = earlyDates.get(taskId)!;
         results.set(taskId, { ls: new Date(ed.es.getTime()), lf: new Date(ed.ef.getTime()) });
         continue;

@@ -1799,7 +1799,17 @@ if (corpusPresent) {
     // T5-moduleheader) — de grovere dag-afgeronde vergelijking maskeerde een deel daarvan.
     'Bijlage 13 Productieplanning.mpp': { start: 12, finish: 12, duration: 8, outlineDepth: 5, constraintDate: 0 },
     'Bijlage 20 productieplanning PKB.mpp': { start: 95, finish: 96, duration: 14, outlineDepth: 2, constraintDate: 0 },
-    'bijlage 7 Productie planning.mpp': { start: 53, finish: 53, duration: 28, outlineDepth: 5, constraintDate: 2 },
+    // Z9a (2026-08-18, mppReader.ts se veldketen-fix): start 53→55, finish 53→54 — GEMETEN, geen
+    // gok. Dit bestand draagt 11 MANUALLY_SCHEDULED-taken (alle WBS-samenvattingstaken, zie de
+    // `a69fec157074d056`-pin in `mpp-fidelity-baseline.json` — hetzelfde 215-taken-bestand). Vóór
+    // Z9a las `readTasks` voor ELKE taak SCHEDULED_START/FINISH (35/36); sinds `resolveScheduleField`
+    // lezen die 11 taken hun eigen MANUAL-anker (1283/1284, byte-voor-byte MSP's overschrijfregel).
+    // Dat raakt déze T5-vergelijking (rechtstreeks tegen de MSPDI-XML-ground-truth, ONAFHANKELIJK
+    // van de CPM-solver — een samenvattingstaak wordt hier dus niet via de solver-rollup afgeschermd
+    // zoals in de fidelity-baseline) en verschuift een klein deel van die 11 taken se dag-prefix
+    // t.o.v. de andere documentrevisie. Geen regressie: het is precies de bedoelde, gemeten
+    // consequentie van "lees het veldpaar dat MSP zelf voor déze taak gebruikt".
+    'bijlage 7 Productie planning.mpp': { start: 55, finish: 54, duration: 28, outlineDepth: 5, constraintDate: 2 },
   };
 
   /** Vorm-check voor een outline-genereerde WBS-code ("1", "1.2", "1.2.3", …) — zie de toelichting
@@ -3295,9 +3305,13 @@ if (corpusPresent) {
 
   // ── Test 2 — end-to-end: één AUTO- en één MANUALLY_SCHEDULED-taak, mét block-1-veldmap-entries
   // (acceptatiepunt 2, deel b). Bewijst zowel de offsetopzoeking als de daadwerkelijke decodering
-  // (TASK_MODE-bit, manual start/finish/duur, elapsed-vlag), ÉN dat de gebouwde `Task.time`-datums
-  // uitsluitend uit SCHEDULED_START/FINISH komen — nooit uit het manual-veldpaar (acceptatiepunt 1
-  // op unit-niveau: dit is een leesuitbreiding, geen gedragswijziging). ────────────────────────────
+  // (TASK_MODE-bit, manual start/finish/duur, elapsed-vlag). BIJGEWERKT (Z9a, veldketen-fix): vóór
+  // Z9a kwam de gebouwde `Task.time` altijd uit SCHEDULED_START/FINISH, ongeacht taskMode — sinds
+  // Z9a's `resolveScheduleField` (spiegelt `MPP14Reader.java`'s overschrijfregel, zie het docblok
+  // in `mppReader.ts`) wint het MANUAL-veldpaar (1283/1284) zodra de taak MANUALLY_SCHEDULED is
+  // ÉN dat paar gevuld is — precies wat deze "Manual"-taak hieronder heeft (manualStart dag 15003
+  // ≠ scheduled dag 15000). De twee overige takken van diezelfde regel (MANUAL zonder eigen anker
+  // ⇒ terugval; AUTO met toevallig gevulde manual-bytes ⇒ genegeerd) staan in Test 2e hieronder. ──
   {
     const bytes = buildZ2Fixture([
       { name: 'Auto', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
@@ -3347,21 +3361,94 @@ if (corpusPresent) {
         truthy(`[Z2 end-to-end] Manual: manualDurationRaw === 28800 (kreeg ${manual.manualDurationRaw})`, manual.manualDurationRaw === 28800);
         truthy('[Z2 end-to-end] Manual: manualDurationIsElapsed === true (code 8 = elapsedDays)', manual.manualDurationIsElapsed === true);
       }
-      // Acceptatiepunt 1 (unit-niveau): de MANUAL-taak se GEBOUWDE Task.time komt nog steeds
-      // uitsluitend uit SCHEDULED_START/FINISH — geen enkel manual-veld raakt de datums in déze taak.
+      // Z9a: de MANUAL-taak se GEBOUWDE Task.time komt uit het MANUAL-veldpaar (1283/1284) —
+      // `resolveScheduleField` wint dat paar zodra de taak MANUALLY_SCHEDULED is én het paar
+      // gevuld is (mutatiebewijs: `isManual`-guard in `mppReader.ts` weghalen, of de override-
+      // voorwaarde omdraaien, laat deze cel terugvallen op dag 15000 ⇒ ROOD). De AUTO-taak blijft
+      // op SCHEDULED_START/FINISH (dag 15000) — ONGEWIJZIGD t.o.v. vóór Z9a — en draagt geen
+      // `manuallyScheduled`-vlag; de MANUAL-taak wel (de doorzetregel `raw.taskMode` →
+      // `Task.manuallyScheduled`, geaccordeerde Z9a-scope-uitbreiding).
       const manualTask = result.tasks.find((t) => t.name === 'Manual');
+      const autoTask = result.tasks.find((t) => t.name === 'Auto');
       truthy('[Z2 end-to-end] gebouwde Manual-taak gevonden', !!manualTask);
+      truthy('[Z2 end-to-end] gebouwde Auto-taak gevonden', !!autoTask);
       if (manualTask) {
         // Deze fixture belandt in UUR-MODUS (de kalender se vaste anchor is altijd 08:00, de
         // finish-tijd 16:00 wijkt daarvan af — het bestaande (c)-signaal uit de moduleheader van
         // `mppReader.ts`, ONGEWIJZIGD door deze taak) — `formatField` gebruikt dan `formatInstant`
-        // i.p.v. `formatDate`. De vorm is hier niet het punt: het punt is dat de WAARDE uit
-        // SCHEDULED_START (08:00 op dag 15000) komt, niet uit manualStart (08:00 op dag 15003).
+        // i.p.v. `formatDate`.
         truthy(
-          `[Z2 end-to-end] Task.time.scheduleStart komt uit SCHEDULED_START, NIET uit manualStart (kreeg ${manualTask.time.scheduleStart})`,
-          manualTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15000)!, 'hour'),
+          `[Z2 end-to-end] Manual: Task.time.scheduleStart komt uit MANUAL_START (dag 15003), NIET uit SCHEDULED_START (kreeg ${manualTask.time.scheduleStart})`,
+          manualTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15003)!, 'hour'),
         );
+        truthy(
+          `[Z2 end-to-end] Manual: Task.time.scheduleFinish komt uit MANUAL_FINISH (dag 15005), NIET uit SCHEDULED_FINISH (kreeg ${manualTask.time.scheduleFinish})`,
+          manualTask.time.scheduleFinish === formatInstant(expectedTimestamp(9600, 15005)!, 'hour'),
+        );
+        truthy('[Z2 end-to-end] Manual: Task.manuallyScheduled === true (doorzetregel)', manualTask.manuallyScheduled === true);
       }
+      if (autoTask) {
+        truthy(
+          `[Z2 end-to-end] Auto: Task.time.scheduleStart blijft SCHEDULED_START (dag 15000, ongewijzigd t.o.v. vóór Z9a) (kreeg ${autoTask.time.scheduleStart})`,
+          autoTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15000)!, 'hour'),
+        );
+        truthy('[Z2 end-to-end] Auto: Task.manuallyScheduled is falsy', !autoTask.manuallyScheduled);
+      }
+    }
+  }
+
+  // ── Test 2e — Z9a-fixronde: de twee OVERIGE takken van `resolveScheduleField` (het veldketen-
+  // deel van de geaccordeerde scope-uitbreiding), corpusloos mutatie-bewezen naast Test 2 hierboven
+  // (die bewijst "MANUAL met afwijkend 1283/1284 ⇒ manual-waarden"). (a) een MANUALLY_SCHEDULED-taak
+  // ZONDER eigen manual-anker (manualStart/-Finish ongezet ⇒ `raw.manualStartTs`/`manualFinishTs`
+  // blijven `null`) valt terug op SCHEDULED_START/FINISH — exact `resolveScheduleField`'s
+  // `manual === null`-tak. (b) een AUTO_SCHEDULED-taak met TOEVALLIG gevulde manual-bytes (het
+  // bestand kan zulke bytes dragen als restant van een eerdere manual-periode van de taak) negeert
+  // ze — `isManual === false` forceert `overrideWithScheduled` ongeacht `manual`. Mutatiebewijs:
+  // `resolveScheduleField`'s `overrideWithScheduled`-voorwaarde vervangen door een kale
+  // `manual === null` (de `!isManual`-disjunct weghalen) laat (b) terugvallen op de manual-bytes
+  // (dag 15010) ⇒ ROOD. ──────────────────────────────────────────────────────────────────────────
+  {
+    const bytes = buildZ2Fixture([
+      {
+        name: 'ManualNoOwnAnchor', uniqueId: 20, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        manual: true, // manualStartTime/-Days, manualFinishTime/-Days bewust ONGEZET (blijven undefined)
+      },
+      {
+        name: 'AutoWithStaleManualBytes', uniqueId: 21, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        // manual: false (default) — TASK_MODE-bit blijft AUTO_SCHEDULED, maar het Fixed2Data-
+        // record draagt wél een manual-anker (dag 15010), alsof de taak ooit manual was.
+        manualStartTime: 4800, manualStartDays: 15010, manualFinishTime: 9600, manualFinishDays: 15012,
+      },
+    ]);
+    const result = scanZ2(bytes);
+    const noAnchor = result.rawScans.find((r) => r.uniqueId === 20);
+    const staleAuto = result.rawScans.find((r) => r.uniqueId === 21);
+    truthy('[Z2e terugval] ManualNoOwnAnchor: taskMode === MANUALLY_SCHEDULED', noAnchor?.taskMode === 'MANUALLY_SCHEDULED');
+    truthy('[Z2e terugval] ManualNoOwnAnchor: manualStartTs === null (ongezet)', noAnchor?.manualStartTs === null);
+    truthy('[Z2e terugval] AutoWithStaleManualBytes: taskMode === AUTO_SCHEDULED', staleAuto?.taskMode === 'AUTO_SCHEDULED');
+    truthy(
+      '[Z2e terugval] AutoWithStaleManualBytes: manualStartTs toch gelezen (dag 15010, ongeacht taskMode)',
+      !!staleAuto?.manualStartTs && staleAuto.manualStartTs.getTime() === expectedTimestamp(4800, 15010)!.getTime(),
+    );
+
+    const noAnchorTask = result.tasks.find((t) => t.name === 'ManualNoOwnAnchor');
+    const staleAutoTask = result.tasks.find((t) => t.name === 'AutoWithStaleManualBytes');
+    truthy('[Z2e terugval] gebouwde ManualNoOwnAnchor-taak gevonden', !!noAnchorTask);
+    truthy('[Z2e terugval] gebouwde AutoWithStaleManualBytes-taak gevonden', !!staleAutoTask);
+    if (noAnchorTask) {
+      truthy(
+        `[Z2e terugval] MANUAL zonder eigen anker: scheduleStart valt terug op SCHEDULED_START (dag 15000) (kreeg ${noAnchorTask.time.scheduleStart})`,
+        noAnchorTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15000)!, 'hour'),
+      );
+      truthy('[Z2e terugval] MANUAL zonder eigen anker: Task.manuallyScheduled === true', noAnchorTask.manuallyScheduled === true);
+    }
+    if (staleAutoTask) {
+      truthy(
+        `[Z2e terugval] AUTO met toevallige manual-bytes: scheduleStart blijft SCHEDULED_START (dag 15000), manual-bytes genegeerd (kreeg ${staleAutoTask.time.scheduleStart})`,
+        staleAutoTask.time.scheduleStart === formatInstant(expectedTimestamp(4800, 15000)!, 'hour'),
+      );
+      truthy('[Z2e terugval] AUTO met toevallige manual-bytes: Task.manuallyScheduled is falsy', !staleAutoTask.manuallyScheduled);
     }
   }
 
