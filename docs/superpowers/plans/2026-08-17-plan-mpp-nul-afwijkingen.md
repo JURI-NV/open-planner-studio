@@ -339,6 +339,8 @@ Daarnaast bewust NIET segmentbewust: `addElapsedMinutes`/`subtractElapsedMinutes
 
 **Afhankelijk van:** Z0, Z3. **Risico:** hoog (nieuwe planningsdriver). **Kwaliteitsreview op Opus.**
 
+> **Orkestratorbesluit Z8-herwerk (2026-08-18).** De eerste oplevering (per-toewijzing FINISH-veld als brede forward-floor) is door de Opus-review blokkerend afgekeurd: de floor vuurde op 91% van álle taken (3102/3103 gelijk aan het gemeten taakveld — vrijwel volledige cirkelmeting met 2812 blinde vlekken), bevroor de motor na import (170/216 bestanden inert; 0,2% van de finishes reageert nog op bewerkingen), en introduceerde een EF<ES-inversie die al in het ongemuteerde corpus staat. De "kalenderwandeling onmogelijk"-conclusie rustte op een kapot instrument (de 24-uurs-resourcekalender promoveert niet naar uur-modus — een echte lezer-bug). Besluit: herwerk naar het Z12-model — eerst instrument repareren en de échte formule meten (per-toewijzing kalenderwandeling: START + restwerk + units door de toewijzings-eigen resourcekalender) op de werkelijke doelpopulatie (79 finish-taken / 13 bestanden + de startanker-populatie); een eventueel restant leest alleen met een strakke gate (echte timephased-records) en zonder bevriezing van bewerkingen ná import.
+
 #### Z9a — Handmatig geplande taken: pin + doorwerking
 
 **Doel.** Een `manuallyScheduled`-taak houdt haar eigen opgeslagen start/finish (rauw, ongesnapt, zonder constraint- of relatiedruk); haar opvolgers rekenen er wél normaal vanaf.
