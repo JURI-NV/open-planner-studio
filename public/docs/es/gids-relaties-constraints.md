@@ -46,7 +46,7 @@ La columna **Determinante** muestra, tras un cálculo, qué relación determina 
 
 ## Saltar a una tarea vinculada
 
-En el panel de propiedades, cada fila de dependencia muestra también el número WBS de la tarea vinculada junto a la flecha de dirección, como botón en el que se puede hacer clic. Pase el cursor sobre él para ver los mismos detalles que al pasar el cursor sobre una barra de tarea en el diagrama de Gantt (nombre, WBS, duración, inicio/fin, estado, ruta crítica, holgura total). Haga clic para seleccionar esa tarea: el diagrama de Gantt hace zoom y se desplaza hasta ella, y expande automáticamente cualquier tarea principal contraída que la ocultaba.
+En el panel de propiedades, cada fila de dependencia muestra también el número WBS de la tarea vinculada como botón en el que se puede hacer clic. Pase el cursor sobre él para ver los mismos detalles que al pasar el cursor sobre una barra de tarea en el diagrama de Gantt (nombre, WBS, duración, inicio/fin, estado, ruta crítica, holgura total). Haga clic para seleccionar esa tarea: el diagrama de Gantt hace zoom y se desplaza hasta ella, y expande automáticamente cualquier tarea principal contraída que la ocultaba.
 
 ## Tipos de restricción
 

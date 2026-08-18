@@ -46,7 +46,7 @@ A coluna **Determinante** mostra, após um cálculo, qual relação determina ef
 
 ## Saltar para uma tarefa associada
 
-No painel de propriedades, cada linha de dependência mostra também o número WBS da tarefa associada junto à seta de direção, como botão clicável. Passe o cursor sobre ele para ver os mesmos detalhes que ao passar o cursor sobre uma barra de tarefa no diagrama de Gantt (nome, WBS, duração, início/fim, estado, caminho crítico, folga total). Clique nele para selecionar essa tarefa: o diagrama de Gantt aproxima e desloca-se até ela, e expande automaticamente qualquer tarefa-mãe recolhida que a escondesse.
+No painel de propriedades, cada linha de dependência mostra também o número WBS da tarefa associada como botão clicável. Passe o cursor sobre ele para ver os mesmos detalhes que ao passar o cursor sobre uma barra de tarefa no diagrama de Gantt (nome, WBS, duração, início/fim, estado, caminho crítico, folga total). Clique nele para selecionar essa tarefa: o diagrama de Gantt aproxima e desloca-se até ela, e expande automaticamente qualquer tarefa-mãe recolhida que a escondesse.
 
 ## Tipos de restrição
 

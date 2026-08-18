@@ -61,8 +61,8 @@ The **Driving** column shows, after a calculation, which relation actually deter
 
 ## Jumping to a linked task
 
-In the properties panel, every dependency row shows the WBS number of the linked task next to the
-direction arrow, as a clickable button. Hover over it to see the same details as hovering over a
+In the properties panel, every dependency row shows the WBS number of the linked task as a
+clickable button. Hover over it to see the same details as hovering over a
 task bar in the Gantt chart (name, WBS, duration, start/finish, status, critical path, total
 float). Click it to select that task: the Gantt chart zooms and scrolls to it, automatically
 expanding any collapsed parent task that was hiding it.

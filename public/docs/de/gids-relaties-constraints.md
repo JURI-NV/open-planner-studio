@@ -46,7 +46,7 @@ Die Spalte **Maßgebend** zeigt nach einer Berechnung, welche Beziehung den Anfa
 
 ## Zu einer verknüpften Aufgabe springen
 
-Im Eigenschaftenbereich zeigt jede Abhängigkeitszeile neben dem Richtungspfeil auch die WBS-Nummer der verknüpften Aufgabe als klickbare Schaltfläche. Fahren Sie mit der Maus darüber, um dieselben Details wie beim Überfahren eines Balkens im Gantt-Diagramm zu sehen (Name, WBS, Dauer, Anfang/Ende, Status, kritischer Pfad, Gesamtpuffer). Klicken Sie darauf, um diese Aufgabe auszuwählen: Das Gantt-Diagramm zoomt und scrollt dorthin und klappt automatisch jede eingeklappte übergeordnete Aufgabe aus, die sie verborgen hat.
+Im Eigenschaftenbereich zeigt jede Abhängigkeitszeile die WBS-Nummer der verknüpften Aufgabe als klickbare Schaltfläche. Fahren Sie mit der Maus darüber, um dieselben Details wie beim Überfahren eines Balkens im Gantt-Diagramm zu sehen (Name, WBS, Dauer, Anfang/Ende, Status, kritischer Pfad, Gesamtpuffer). Klicken Sie darauf, um diese Aufgabe auszuwählen: Das Gantt-Diagramm zoomt und scrollt dorthin und klappt automatisch jede eingeklappte übergeordnete Aufgabe aus, die sie verborgen hat.
 
 ## Einschränkungstypen
 

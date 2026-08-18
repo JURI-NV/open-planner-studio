@@ -46,7 +46,7 @@ Zaten çalıştığınız yere bağlı olarak bir ilişki oluşturmanın üç yo
 
 ## Bağlı bir göreve atlama
 
-Özellikler panelinde, her bağımlılık satırı yön okunun yanında bağlı görevin WBS numarasını da tıklanabilir bir düğme olarak gösterir. Aynı ayrıntıları görmek için üzerine gelin — Gantt şemasındaki bir görev çubuğunun üzerine gelmekle aynı bilgiler (ad, WBS, süre, başlangıç/bitiş, durum, kritik yol, toplam bolluk). O görevi seçmek için tıklayın: Gantt şeması ona yakınlaşır ve kaydırılır, onu gizleyen daraltılmış her üst görevi otomatik olarak genişletir.
+Özellikler panelinde, her bağımlılık satırı bağlı görevin WBS numarasını tıklanabilir bir düğme olarak gösterir. Aynı ayrıntıları görmek için üzerine gelin — Gantt şemasındaki bir görev çubuğunun üzerine gelmekle aynı bilgiler (ad, WBS, süre, başlangıç/bitiş, durum, kritik yol, toplam bolluk). O görevi seçmek için tıklayın: Gantt şeması ona yakınlaşır ve kaydırılır, onu gizleyen daraltılmış her üst görevi otomatik olarak genişletir.
 
 ## Kısıtlama türleri
 

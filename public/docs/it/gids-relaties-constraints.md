@@ -46,7 +46,7 @@ La colonna **Determinante** mostra, dopo un calcolo, quale relazione determina e
 
 ## Passare a un'attività collegata
 
-Nel pannello delle proprietà, ogni riga di dipendenza mostra anche il numero WBS dell'attività collegata accanto alla freccia di direzione, come pulsante cliccabile. Passa il mouse sopra per vedere gli stessi dettagli che si vedono passando il mouse su una barra attività nel diagramma di Gantt (nome, WBS, durata, inizio/fine, stato, percorso critico, margine totale). Fai clic per selezionare quell'attività: il diagramma di Gantt esegue lo zoom e scorre fino a essa, ed espande automaticamente ogni attività madre compressa che la nascondeva.
+Nel pannello delle proprietà, ogni riga di dipendenza mostra anche il numero WBS dell'attività collegata come pulsante cliccabile. Passa il mouse sopra per vedere gli stessi dettagli che si vedono passando il mouse su una barra attività nel diagramma di Gantt (nome, WBS, durata, inizio/fine, stato, percorso critico, margine totale). Fai clic per selezionare quell'attività: il diagramma di Gantt esegue lo zoom e scorre fino a essa, ed espande automaticamente ogni attività madre compressa che la nascondeva.
 
 ## Tipi di vincolo
 

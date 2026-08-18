@@ -61,8 +61,8 @@ De kolom **Bepalend** (driving) laat na een berekening zien welke relatie daadwe
 
 ## Naar een gekoppelde taak springen
 
-In het eigenschappenpaneel toont elke afhankelijkheidsregel naast de richtingspijl ook het
-WBS-nummer van de gekoppelde taak, als klikbare knop. Hover erover voor dezelfde details als bij
+In het eigenschappenpaneel toont elke afhankelijkheidsregel het WBS-nummer van de gekoppelde taak
+als klikbare knop. Hover erover voor dezelfde details als bij
 het hoveren over een taakbalk in het Gantt-diagram (naam, WBS, duur, start/finish, status, kritiek
 pad, total float). Klik erop om die taak te selecteren: het Gantt-diagram zoomt en scrolt ernaartoe,
 en klapt automatisch elke ingeklapte oudertaak uit als de gekoppelde taak daardoor verborgen was.

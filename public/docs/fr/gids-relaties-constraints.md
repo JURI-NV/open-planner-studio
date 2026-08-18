@@ -46,7 +46,7 @@ La colonne **Déterminante** indique, après un calcul, quelle relation détermi
 
 ## Aller à une tâche liée
 
-Dans le panneau des propriétés, chaque ligne de dépendance affiche aussi le numéro WBS de la tâche liée à côté de la flèche de direction, sous forme de bouton cliquable. Survolez-le pour voir les mêmes détails qu'en survolant une barre de tâche dans le diagramme de Gantt (nom, WBS, durée, début/fin, statut, chemin critique, marge totale). Cliquez dessus pour sélectionner cette tâche : le diagramme de Gantt zoome et défile jusqu'à elle, et développe automatiquement toute tâche parente repliée qui la cachait.
+Dans le panneau des propriétés, chaque ligne de dépendance affiche aussi le numéro WBS de la tâche liée sous forme de bouton cliquable. Survolez-le pour voir les mêmes détails qu'en survolant une barre de tâche dans le diagramme de Gantt (nom, WBS, durée, début/fin, statut, chemin critique, marge totale). Cliquez dessus pour sélectionner cette tâche : le diagramme de Gantt zoome et défile jusqu'à elle, et développe automatiquement toute tâche parente repliée qui la cachait.
 
 ## Types de contrainte
 
