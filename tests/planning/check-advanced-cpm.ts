@@ -783,6 +783,100 @@ eq('186 detector-gate CONTROLE: geen actuals + structureel te laat ⇒ violation
   eq('203 T8: normale relatie blijft ongemoeid — B start ná A (FS)', result.tasks.get('T8-B')?.earlyStart, '2026-06-04');
 }
 
+// ── Z8-herwerkronde-fixronde-2 ("laag 1/2-gat"): progressCal-substitutie ────────────────────────
+// Corpusloze motor-case (coordinator-eis 3, herwerkronde): een IN-PROGRESS-taak wier ENIGE
+// toewijzing een écht afwijkende, uur-modus resourcekalender draagt moet haar restwerk door DIE
+// kalender wandelen, niet door de taak-/projectkalender. RCAL biedt slechts 2u/dag (08:00-10:00)
+// tegenover H8's 8u/dag (08:00-16:00) — bij 240 resterende minuten (calendar-agnostische eenheid)
+// geven de twee kalenders AANTOONBAAR verschillende antwoorden, dus dit is geen toevalstreffer.
+const RCAL: WorkCalendar = {
+  id: 'rcal', name: 'rcal', description: 'rcal (2u/dag, corpusloos — Z8-fixronde-2)',
+  workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 10, hoursPerDay: 2, holidays: [],
+  workTime: { byWeekday: { 1: [{ start: 480, end: 600 }], 2: [{ start: 480, end: 600 }], 3: [{ start: 480, end: 600 }], 4: [{ start: 480, end: 600 }], 5: [{ start: 480, end: 600 }], 6: [], 7: [] } },
+} as unknown as WorkCalendar;
+function mkProg(id: string, extra: Partial<Task> = {}): Task {
+  const t = mkTask(id, 1, extra);
+  t.time = createDefaultTaskTime('2026-07-06', 1); // 2026-07-06 = ma
+  t.time.durationMinutes = 480;
+  t.time.completion = 0.5;
+  t.time.actualStart = '2026-07-06T08:00';
+  t.time.remainingMinutes = 240;
+  return t;
+}
+// IP1: WEL geactiveerd (walks.length===1, resourcekalender = RCAL, isHourMode) ⇒ progressCal=RCAL.
+const ip1 = mkProg('IP1', { timephasedDurationWalks: [{ anchor: '2026-07-06T08:00', resourceCalendarId: 'rcal' }] });
+const rIp1 = new CPMSolver([ip1], [], H8, [RCAL], {}).solve();
+const ip1r = rIp1.tasks.get('IP1')!;
+eq('204 Z8-fix2: progressCal=RCAL (2u/dag) ⇒ 240min restwerk loopt over 2 dagen', ip1r.earlyFinish, '2026-07-07T10:00');
+// IP2: GEEN walks (mutatie-equivalent van "terug naar de taakkalender") ⇒ progressCal=H8 blijft
+// staan — ZELFDE taak, ALLEEN het wandelkandidaat-veld ontbreekt. Ander antwoord bewijst dat IP1's
+// resultaat NIET toevallig met H8 samenvalt (d.w.z. dat `timephasedDurationWalks` daadwerkelijk het
+// verschil maakt). Dit IS de coordinator-geëiste mutatieproef, automatisch gepind: handmatig de
+// `progressCal`-substitutie in `CPMSolver.ts` tijdelijk uitschakelen (terug naar `let progressCal =
+// cal` zonder de `if`-tak) laat check 204 rood gaan (H8 geeft 12:00 i.p.v. RCAL se 10:00 twee dagen
+// later) — geverifieerd tijdens deze fixronde, ONGEWIJZIGD teruggezet ná verificatie.
+const ip2 = mkProg('IP2');
+const rIp2 = new CPMSolver([ip2], [], H8, [RCAL], {}).solve();
+const ip2r = rIp2.tasks.get('IP2')!;
+eq('205 Z8-fix2: zonder walk ⇒ progressCal blijft H8 (8u/dag) ⇒ zelfde dag klaar', ip2r.earlyFinish, '2026-07-06T12:00');
+eq('206 Z8-fix2: IP1 (RCAL) en IP2 (H8) geven AANTOONBAAR verschillende antwoorden', ip1r.earlyFinish !== ip2r.earlyFinish, true);
+
+// IP3: EF<ES-inversiewacht op het NIEUWE progressCal-getriggerde resumeOverride-pad (coordinator-eis
+// 4b). Een hostiel/inconsistent `resume`-veld (vóór de eigen `actualStart`) zou zonder de bestaande
+// `if (usedResumeOverride && ef < actualES) ef = actualES`-wacht een EF opleveren die vóór de ES
+// ligt. `progressCal !== cal` (RCAL i.p.v. H8) is hier de trigger — dus dit is specifiek het NIEUWE
+// pad uit deze fixronde, niet Z12's oorspronkelijke out-of-sequence-trigger.
+const ip3 = mkProg('IP3', {
+  timephasedDurationWalks: [{ anchor: '2026-07-06T08:00', resourceCalendarId: 'rcal' }],
+});
+ip3.time.resume = '2026-07-01T08:00'; // wo vóór actualStart (ma) — hostiel
+ip3.time.remainingMinutes = 60;
+const rIp3 = new CPMSolver([ip3], [], H8, [RCAL], {}).solve();
+const ip3r = rIp3.tasks.get('IP3')!;
+// Zonder de wacht zou ef = RCAL.addWorkMinutes(2026-07-01T08:00, 60) = 2026-07-01T09:00 zijn —
+// vóór actualES (2026-07-06T08:00). MET de wacht wordt ef geklemd op actualES.
+eq('207 Z8-fix2: EF<ES-wacht klemt ef op actualES (hostiel resume vóór actualStart)', ip3r.earlyFinish, '2026-07-06T08:00');
+eq('208 Z8-fix2: es blijft actualES, geen inversie', ip3r.earlyStart <= ip3r.earlyFinish, true);
+// Mutatiebewijs (uitgevoerd, ongewijzigd teruggezet): de `if (usedResumeOverride && ef < actualES)
+// ef = actualES;`-regel tijdelijk verwijderen laat check 207 rood gaan (ef = 2026-07-01T09:00 i.p.v.
+// 2026-07-06T08:00), en check 208 blijft toevallig groen (want dat zou dan es>ef zijn — 208 test dus
+// bewust de VOLLE inversie, niet alleen de exacte waarde).
+
+// ── Z8-herwerkronde: laag-3-venster beweegt mee met échte SF-druk (deferred item, vorige ronde) ──
+// H2-zorg (oorspronkelijke Opus-blokkade): een gelezen venster (laag 3, `timephasedFinishFloor`) mag
+// nooit een taak "bevriezen" tegen een LATERE, legitieme SF-vereiste-finish van een voorganger — de
+// bestaande `sfFinishFloor`-vergelijking in `timephasedFinish()` (`sfFinishFloor && sfFinishFloor >
+// windowValue ? sfFinishFloor : windowValue`) is precies daarvoor gebouwd. Deze case pint 'm: SF1
+// (langere duur) drukt via een START_FINISH-relatie een venster-gelezen taak SF2 later dan haar eigen
+// (gefixeerde) venster — earlyFinish moet meebewegen met SF1's duur, niet bevroren blijven op het
+// venster.
+// START_FINISH is START-gedreven (SF1's EIGEN duur beïnvloedt haar start niet — SF1 heeft geen
+// voorganger); de "+10 werkdagen"-druk moet dus via een keten vóór SF1 komen (PRE →FS→ SF1 →SF→
+// SF2), niet via SF1's eigen duur — anders is `sfFinishFloor` triggerloos (geverifieerd: SF1's
+// eigen duur variëren liet de floor ONVERANDERD, exact omdat SF alleen naar SF1's START kijkt).
+function sfChain(preDur: number) {
+  const pre = mkTask('SF-PRE', preDur);
+  const sf1 = mkTask('SF1', 1);
+  const sf2 = mkTask('SF2', 1, { timephasedFinishFloor: '2026-06-01T16:00' }); // uur-modus, laag 3
+  const seqs = [fs('sfp', 'SF-PRE', 'SF1'), lk('sf1', 'SF1', 'SF2', 'START_FINISH')];
+  return new CPMSolver([pre, sf1, sf2], seqs, H8, [], {}).solve().tasks.get('SF2')!;
+}
+const sf2aR = sfChain(1);
+// PRE dur1 (H8, 8u/dag) ⇒ SF1 start 2026-06-02T08:00 ⇒ SF-vereiste-finish voor SF2 = diezelfde
+// datum, al LATER dan het venster (2026-06-01T16:00) ⇒ sfFinishFloor wint (`meebewegen`).
+eq('209 Z8-deferred: SF-druk laat het venster winnen (niet bevroren)', sf2aR.earlyFinish, '2026-06-02T08:00');
+const sf2bR = sfChain(11); // +10 werkdagen op de keten vóór SF1
+eq('210 Z8-deferred: +10 werkdagen vóór SF1 ⇒ earlyFinish beweegt mee (niet bevroren op het venster)', sf2bR.earlyFinish !== sf2aR.earlyFinish, true);
+eq('211 Z8-deferred: SF-druk wint nu van het venster, ook 10 werkdagen verder', sf2bR.earlyFinish > '2026-06-01T16:00', true);
+// BEKENDE, NIET-GEBOUWDE RESTBEPERKING (buiten bestandseigendom `src/engine/scheduler/**`, gemeld
+// i.p.v. zelf gebouwd): dit dekt "meebewegen" via een ECHTE SF-relatiedruk — het bestaande, reeds
+// vóór deze fixronde gebouwde mechanisme. Een DIRECTE duur-mutatie op DEZELFDE taak (SF2 zelf 10
+// werkdagen langer maken, geen voorganger-relatie) laat `timephasedFinishFloor` ONGEWIJZIGD (het is
+// een letterlijk gelezen datum, geen afgeleide) — noch CPMSolver.ts, noch moveProject.ts (die
+// SHIFT't 'm alleen bij een volledige taak-VERPLAATSING, `shiftTask`) wist/valideert het veld bij
+// een losstaande duur-edit. Die invalidatie hoort thuis in de task-edit-actie (`taskSlice.ts`,
+// buiten mijn bestandseigendom) — genoemd als vervolgpunt in het eindrapport, niet hier gebouwd.
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  advanced-cpm-check: alle checks groen (${checks})`);
