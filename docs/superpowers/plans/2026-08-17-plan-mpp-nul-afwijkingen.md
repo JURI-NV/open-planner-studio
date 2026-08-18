@@ -771,6 +771,17 @@ gat — import is exact, maar ná een gebruikersbewerking valt een gecontourde t
 berekening omdat OPS geen contour-engine heeft. Voor P6 speelt hetzelfde t.z.t. met resource-curves,
 zij het lichter (curves sturen daar vooral de resourceverdeling, minder de activiteitsdatums).
 
+**Eigenaarsbesluit 2026-08-18 — task types / effort-driven:**
+1. **Nataak in deze of direct na deze etappe (klein, alleen data):** MSP's task-type- en
+   effort-driven-velden bij .mpp-import lezen en bewaren (Task-velden + OPS-pset-round-trip,
+   géén rekengedrag) — zodat de data niet weggegooid wordt. Zelfde stramien als de andere
+   leestaken: veld-id's uit de MPXJ-referentie, corpusloze fixtures, byte-identiek bij afwezig veld.
+2. **Aparte sessie/etappe (niet hier):** opgeslagen werk als eerste-klas grootheid, task type als
+   projecteigenschap-met-per-taak-keuze, een bewerken-zoals-MSP-meetlat, en de contour-engine —
+   inclusief de UX-vraag hoe je toont welke hoek vastligt zonder MSP's verwarring te importeren.
+   De eigenaar wil default het huidige gedrag (bouwdefault) houden en dit opt-in ontsluiten;
+   semantiek hoort dan in het document, niet in een app-instelling.
+
 ### Orkestratorbesluiten op O1–O6 (2026-08-17)
 
 - **O1 — besloten: werkhouding "nul, punt uit".** De §6-stap-4-uitsluiting wordt níét vooraf als vangnet geautoriseerd. Doet het geval zich voor (correcte implementatie + byte-bewijs dat de bron zelf inconsistent is), dan gaat het als expliciet beslispunt naar de eigenaar op dat moment, mét de meting. Tot die tijd geldt: de etappe is niet af zolang er een niet-nul-teller bestaat.
