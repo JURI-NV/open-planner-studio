@@ -5,6 +5,7 @@
 import { useAppStore, test, assert, assertEq, run } from './harness';
 import { runInMcpTransaction, draft } from '@/state/mcpTransaction';
 import { createSnapshot } from '@/state/snapshot';
+import { createDefaultTaskTime } from '@/utils/taskDefaults';
 
 const store = useAppStore;
 
@@ -245,6 +246,107 @@ test('draft.applyLeveling zet delays; de eind-runCPM verwerkt ze precies één k
   const t2 = store.getState().tasks.find((x) => x.id === id);
   assertEq(t2?.levelingDelay, undefined, 'levelingDelay hoort gewist te zijn');
   assertEq(t2?.time.earlyStart, baseStart, 'earlyStart hoort terug op de baseline te staan');
+});
+
+// --- 9) Z14b — edit-time-invalidatie van het GELEZEN Z8-venster (eigenaarsprincipe 2026-08-18) ----
+// Gedocumenteerde tweeling van taskSlice.ts's `updateTask`/`setTaskCalendar` (zie
+// `taskDefaults.ts`'s `clearTimephasedWindow`/`timeUpdateTouchesTimephasedWindow`): een
+// inhoudelijke bewerking (duur/datums/kalender/toewijzingen) wist `timephasedFinishFloor`/
+// `timephasedStartAnchor`, maar NOOIT de rauwe bron `timephasedContours`.
+const seedWindow = (id: string) => {
+  store.getState().updateTask(id, {
+    timephasedFinishFloor: '2026-08-10T17:00',
+    timephasedStartAnchor: '2026-08-03T08:00',
+    timephasedContours: [{ resourceUid: 7, periods: [{ afterMinutes: 0, minutes: 120, workMinutes: 120, kind: 'actual' }] }],
+  });
+};
+
+test('draft.updateTaskFields: een duur-trigger wist het venster, de rauwe contouren blijven', () => {
+  const id = store.getState().addTask({ name: 'z14b-utf', time: createDefaultTaskTime('2026-08-03', 5) });
+  seedWindow(id);
+  const before = store.getState().tasks.find((t) => t.id === id)!;
+
+  const res = runInMcpTransaction(() => {
+    draft.updateTaskFields(id, { time: { ...before.time, scheduleDuration: 8 } });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedFinishFloor, undefined, 'timephasedFinishFloor hoort gewist te zijn');
+  assertEq(t?.timephasedStartAnchor, undefined, 'timephasedStartAnchor hoort gewist te zijn');
+  assertEq(t?.timephasedContours?.length, 1, 'de rauwe contouren horen te blijven staan (eigenaarsprincipe)');
+});
+
+test('draft.updateTaskFields: een niet-trigger-veld (naam) laat het venster ongemoeid', () => {
+  const id = store.getState().addTask({ name: 'z14b-utf-neg' });
+  seedWindow(id);
+
+  const res = runInMcpTransaction(() => {
+    draft.updateTaskFields(id, { name: 'z14b-utf-neg (hernoemd)' });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedFinishFloor, '2026-08-10T17:00', 'timephasedFinishFloor hoort ongemoeid te blijven');
+  assertEq(t?.timephasedStartAnchor, '2026-08-03T08:00', 'timephasedStartAnchor hoort ongemoeid te blijven');
+});
+
+test('draft.patchTaskFields: een timePatch-duur wist het venster', () => {
+  const id = store.getState().addTask({ name: 'z14b-ptf' });
+  seedWindow(id);
+
+  const res = runInMcpTransaction(() => {
+    draft.patchTaskFields(id, {}, { scheduleDuration: 9 });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedFinishFloor, undefined, 'timephasedFinishFloor hoort gewist te zijn');
+  assertEq(t?.timephasedStartAnchor, undefined, 'timephasedStartAnchor hoort gewist te zijn');
+  assertEq(t?.timephasedContours?.length, 1, 'de rauwe contouren horen te blijven staan');
+});
+
+test('draft.patchTaskFields: een calendarId-top-level-wijziging wist het venster', () => {
+  const id = store.getState().addTask({ name: 'z14b-ptf-cal' });
+  seedWindow(id);
+  let newCalId = '';
+  runInMcpTransaction(() => { newCalId = draft.addCalendar({ ...store.getState().calendar, name: 'z14b-ptf-cal-kalender' }); });
+
+  const res = runInMcpTransaction(() => {
+    draft.patchTaskFields(id, { calendarId: newCalId });
+  });
+
+  assert(res.ok, 'transactie hoort te slagen');
+  const t = store.getState().tasks.find((x) => x.id === id);
+  assertEq(t?.timephasedFinishFloor, undefined, 'timephasedFinishFloor hoort gewist te zijn');
+  assertEq(t?.timephasedStartAnchor, undefined, 'timephasedStartAnchor hoort gewist te zijn');
+});
+
+test('draft assignment-kwartet: assign/move/unassign wissen het venster op de betrokken taken', () => {
+  const t1 = store.getState().addTask({ name: 'z14b-asn-t1' });
+  const t2 = store.getState().addTask({ name: 'z14b-asn-t2' });
+  const resId = store.getState().addResource({ name: 'z14b-asn-res', type: 'LABOR', description: '', maxUnits: 1 });
+  seedWindow(t1);
+  seedWindow(t2);
+
+  // assign op t1 ⇒ t1's venster wist.
+  let aid = '';
+  runInMcpTransaction(() => { aid = draft.assignResource(t1, resId, 1); });
+  let t1After = store.getState().tasks.find((t) => t.id === t1);
+  assertEq(t1After?.timephasedFinishFloor, undefined, 'assignResource hoort t1.timephasedFinishFloor te wissen');
+  assertEq(t1After?.timephasedContours?.length, 1, 'de rauwe contouren van t1 blijven staan');
+
+  // move naar t2 ⇒ ZOWEL t1 als t2's venster wist (t2 had het nog staan).
+  runInMcpTransaction(() => { draft.moveAssignment(aid, t2); });
+  let t2After = store.getState().tasks.find((t) => t.id === t2);
+  assertEq(t2After?.timephasedFinishFloor, undefined, 'moveAssignment hoort t2.timephasedFinishFloor te wissen');
+  assertEq(t2After?.timephasedContours?.length, 1, 'de rauwe contouren van t2 blijven staan');
+
+  // opnieuw seeden en unassign ⇒ venster wist.
+  seedWindow(t2);
+  runInMcpTransaction(() => { draft.unassignResource(aid); });
+  t2After = store.getState().tasks.find((t) => t.id === t2);
+  assertEq(t2After?.timephasedFinishFloor, undefined, 'unassignResource hoort t2.timephasedFinishFloor te wissen');
 });
 
 // --- 8) setProject --------------------------------------------------------------------------------

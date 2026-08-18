@@ -4,7 +4,9 @@ import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
 import { relationVerdict } from './relationRules';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
-import { createDefaultTaskTime, mergeTaskTime } from '@/utils/taskDefaults';
+import {
+  createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+} from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
 import type { DurationType, Task } from '@/types/task';
@@ -423,6 +425,11 @@ export const draft = {
       const { time, ...rest } = updates;
       Object.assign(s.tasks[idx], rest);
       if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
+      // Z14b (eigenaarsprincipe 2026-08-18) — gedocumenteerde tweeling van taskSlice.ts's
+      // `updateTask`: zelfde triggerset/uitleg in `taskDefaults.ts`.
+      if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
+        clearTimephasedWindow(s.tasks[idx]);
+      }
       s.isDirty = true;
     });
   },
@@ -449,11 +456,17 @@ export const draft = {
       if (idx < 0) return;
       const task = s.tasks[idx];
       Object.assign(task, top);
+      let timeTouched = false;
       if (timePatch) {
-        if (timePatch.scheduleDuration !== undefined) task.time.scheduleDuration = timePatch.scheduleDuration;
-        if (timePatch.durationType !== undefined) task.time.durationType = timePatch.durationType;
-        if (timePatch.clearDurationMinutes) delete task.time.durationMinutes;
+        if (timePatch.scheduleDuration !== undefined) { task.time.scheduleDuration = timePatch.scheduleDuration; timeTouched = true; }
+        if (timePatch.durationType !== undefined) { task.time.durationType = timePatch.durationType; timeTouched = true; }
+        if (timePatch.clearDurationMinutes) { delete task.time.durationMinutes; timeTouched = true; }
       }
+      // Z14b (eigenaarsprincipe 2026-08-18) — zelfde triggerset als `updateTaskFields`, zie
+      // `taskDefaults.ts`. `timePatch` heeft een eigen, smallere vorm (allowlist-gedreven) dan een
+      // volledige `Partial<TaskTime>`, dus hier direct de sleutel-aanwezigheid bijhouden i.p.v.
+      // `timeUpdateTouchesTimephasedWindow` (die verwacht de bredere `TaskTime`-vorm).
+      if (('calendarId' in top) || timeTouched) clearTimephasedWindow(task);
       s.isDirty = true;
     });
   },
@@ -627,6 +640,10 @@ export const draft = {
       }
       s.assignments.push({ id, taskId, resourceId, unitsPerDay, curve });
       if (!task.resourceIds.includes(resourceId)) task.resourceIds.push(resourceId);
+      // Z14b (eigenaarsprincipe 2026-08-18) — "toewijzingen" is expliciet onderdeel van de
+      // triggerset (plan: "duur, datums, kalender, toewijzingen"): een andere resource kan een
+      // andere resourcekalender betekenen, precies de Z8-laag-4-discriminator. Zie taskDefaults.ts.
+      clearTimephasedWindow(task);
       s.isDirty = true;
     });
     return id;
@@ -688,6 +705,10 @@ export const draft = {
       if (!newTask.resourceIds.includes(assignment.resourceId)) {
         newTask.resourceIds.push(assignment.resourceId);
       }
+      // Z14b — "toewijzingen"-trigger raakt BEIDE taken (zie assignResource hierboven).
+      const oldTask = s.tasks.find((t) => t.id === oldTaskId);
+      if (oldTask) clearTimephasedWindow(oldTask);
+      clearTimephasedWindow(newTask);
       s.isDirty = true;
     });
   },
@@ -710,6 +731,9 @@ export const draft = {
         const idx = task?.resourceIds.indexOf(removed.resourceId) ?? -1;
         if (task && idx >= 0) task.resourceIds.splice(idx, 1);
       }
+      // Z14b — "toewijzingen"-trigger (zie assignResource hierboven).
+      const removedTask = s.tasks.find((t) => t.id === removed.taskId);
+      if (removedTask) clearTimephasedWindow(removedTask);
       s.isDirty = true;
     });
   },

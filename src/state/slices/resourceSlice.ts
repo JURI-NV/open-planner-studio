@@ -3,6 +3,7 @@ import type { WorkCalendar } from '@/types/calendar';
 import { generateId } from '@/utils/id';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
+import { clearTimephasedWindow } from '@/utils/taskDefaults';
 import type { AppSlice } from './types';
 
 /** Puur leesbaarheids-alias: `WorkCalendar` heeft al `id`/`name`, dus geen aparte intersectie
@@ -125,6 +126,11 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       if (!task.resourceIds.includes(resourceId)) {
         task.resourceIds.push(resourceId);
       }
+      // Z14b (eigenaarsprincipe 2026-08-18) — "toewijzingen" is expliciet onderdeel van de
+      // edit-time-invalidatie-triggerset (zie `taskDefaults.ts`'s `clearTimephasedWindow`): een
+      // andere resource kan een andere resourcekalender betekenen, precies de Z8-laag-4-
+      // discriminator. `mcpTransaction.ts`'s `assignResource` is de gedocumenteerde tweeling.
+      clearTimephasedWindow(task);
       finishMutation(s);
     });
     get().recomputeResourceLoad();
@@ -169,6 +175,9 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         const idx = task?.resourceIds.indexOf(removed.resourceId) ?? -1;
         if (task && idx >= 0) task.resourceIds.splice(idx, 1);
       }
+      // Z14b — "toewijzingen"-trigger (zie assignResource hierboven).
+      const removedTask = s.tasks.find(t => t.id === removed.taskId);
+      if (removedTask) clearTimephasedWindow(removedTask);
       finishMutation(s);
     });
     get().recomputeResourceLoad();
@@ -209,6 +218,10 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       if (!newTask.resourceIds.includes(assignment.resourceId)) {
         newTask.resourceIds.push(assignment.resourceId);
       }
+      // Z14b — "toewijzingen"-trigger raakt BEIDE taken (zie assignResource hierboven).
+      const oldTaskForWindow = s.tasks.find(t => t.id === oldTaskId);
+      if (oldTaskForWindow) clearTimephasedWindow(oldTaskForWindow);
+      clearTimephasedWindow(newTask);
       finishMutation(s);
       moved = true;
     });

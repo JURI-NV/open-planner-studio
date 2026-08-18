@@ -277,6 +277,10 @@ S().updateTask(kT1, {
   manuallyScheduled: true,
   levelingDelayMinutes: 15,
   levelingDelayElapsed: true,
+  // Z14b — de drie NIEUWE velden van deze taak (geen van drieën is een invalidatie-trigger, dus deze
+  // ene `updateTask`-aanroep laat ze ongemoeid staan naast de bestaande Z14-velden hierboven).
+  mspTaskType: 'FIXED_DURATION', effortDriven: true,
+  timephasedContours: [{ resourceUid: 12, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }],
   time: { ...kt1Before.time, resume: '2031-03-05', stop: '2031-03-06' },
 });
 S().runCPM();
@@ -324,6 +328,12 @@ eq('d K3 keten: levelingDelayMinutes overleeft', kT1After?.levelingDelayMinutes,
 eq('d K3 keten: levelingDelayElapsed overleeft', kT1After?.levelingDelayElapsed, true);
 eq('d K3 keten: time.resume overleeft', kT1After?.time.resume, '2031-03-05');
 eq('d K3 keten: time.stop overleeft', kT1After?.time.stop, '2031-03-06');
+// Z14b — de drie NIEUWE velden overleven dezelfde keten (bewijst de "tasks"-clone-snapshot-rol
+// écht draagt wat er verder in de plan-toelichting over beweerd wordt, geen aanname).
+eq('d K3 keten: mspTaskType overleeft', kT1After?.mspTaskType, 'FIXED_DURATION');
+eq('d K3 keten: effortDriven overleeft', kT1After?.effortDriven, true);
+eq('d K3 keten: timephasedContours overleeft', kT1After?.timephasedContours,
+  [{ resourceUid: 12, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }]);
 
 // Contract-eenheidscheck op de tweede helft van de mapping: baselines uit de recovery-invoer
 // moeten ook in de document-payload landen (vangt een regressie IN `payloadFromInput`).
@@ -331,6 +341,48 @@ const kPayload = payloadFromInput(kInput);
 eq('d K3 payloadFromInput: baselines doorgezet', kPayload.baselines.length, 1);
 eq('d K3 payloadFromInput: activeBaselineId doorgezet', kPayload.activeBaselineId, kActiveBefore);
 truthy('d K3 payloadFromInput: baseline-inhoud doorgezet', (kPayload.baselines[0]?.tasks.length ?? 0) === 2);
+
+// ── (d-Z14b) EIGENAARSPRINCIPE-POORT: de rauwe contourperiodes overleven een IFC-write ná een
+// bewerking die het Z8-venster INVALIDEERT (2026-08-18: "er gaat nooit stilzwijgend broninformatie
+// verloren, ook niet ná bewerken"). Scenario: een taak draagt zowel het GELEZEN venster
+// (`timephasedFinishFloor`/`timephasedStartAnchor`, alsof net uit een .mpp geïmporteerd) als de
+// RAUWE contouren; een inhoudelijke bewerking (duur) wist het venster via `taskSlice.ts`'s
+// `updateTask` (zie taskDefaults.ts) — de bewering is dat `writeIFC`/`readIFC` daarna nog steeds de
+// contouren draagt, terwijl het venster afwezig blijft (niet stilzwijgend "hersteld" via de oude
+// IFC-inhoud, en niet stilzwijgend verdwenen). ──────────────────────────────────────────────────
+S().newProject();
+const eT1 = S().addTask({ name: 'Eigenaarsprincipe A' });
+const eT1Before = S().tasks.find(t => t.id === eT1)!;
+S().updateTask(eT1, {
+  timephasedFinishFloor: '2026-08-10T17:00',
+  timephasedStartAnchor: '2026-08-03T08:00',
+  timephasedContours: [{ resourceUid: 99, periods: [{ afterMinutes: 0, minutes: 480, workMinutes: 480, kind: 'actual' }] }],
+});
+truthy('d eigenaarsprincipe setup: venster + contouren staan vóór de bewerking',
+  S().tasks.find(t => t.id === eT1)?.timephasedFinishFloor === '2026-08-10T17:00');
+
+// De inhoudelijke bewerking: duur wijzigen (een trigger, zie taskDefaults.ts). Dit wist het venster
+// IN DE STORE — de poort hieronder bewijst dat die invalidatie ook door writeIFC/readIFC heen komt
+// (niet stilzwijgend teruggehaald uit een of andere cache) én dat de rauwe contouren het overleven.
+S().updateTask(eT1, { time: { ...eT1Before.time, scheduleDuration: 9 } });
+const eT1AfterEdit = S().tasks.find(t => t.id === eT1);
+eq('d eigenaarsprincipe: venster IN DE STORE gewist ná de bewerking', eT1AfterEdit?.timephasedFinishFloor, undefined);
+eq('d eigenaarsprincipe: contouren IN DE STORE blijven staan ná de bewerking',
+  eT1AfterEdit?.timephasedContours?.length, 1);
+
+const eIfc = writeIFC(buildWriteIFCInput(S()));
+const eParsed = readIFC(eIfc);
+const eT1Read = eParsed.tasks.find(t => t.name === 'Eigenaarsprincipe A');
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt GEEN timephasedFinishFloor (echt gewist, niet alleen in-memory)',
+  eT1Read?.timephasedFinishFloor, undefined);
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt GEEN timephasedStartAnchor',
+  eT1Read?.timephasedStartAnchor, undefined);
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt de RAUWE contouren nog steeds — dit is de kern van het principe',
+  eT1Read?.timephasedContours, [{ resourceUid: 99, periods: [{ afterMinutes: 0, minutes: 480, workMinutes: 480, kind: 'actual' }] }]);
+
+// Mutatiebewijs (daadwerkelijk uitgevoerd — zie de rapportage): `clearTimephasedWindow` tijdelijk
+// uit `taskSlice.ts`'s `updateTask` verwijderd ⇒ de eerste twee asserties hierboven sloegen rood uit
+// (het venster stond nog in het geschreven IFC); teruggezet ⇒ weer groen.
 
 // Snapshot-vorm sanity: undoStack draagt `Snapshot`-objecten met het VOLLEDIGE project (pakket H).
 S().newProject();

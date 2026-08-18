@@ -1,5 +1,5 @@
 import { parseDate, formatDate, addBusinessDays } from '@/utils/dateUtils';
-import type { TaskTime } from '@/types/task';
+import type { Task, TaskTime } from '@/types/task';
 
 /**
  * Fabrieksfunctie voor een verse {@link TaskTime}. Leeft in de utils-laag (niet in `src/types/`)
@@ -117,4 +117,64 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
     resume: 'resume' in partial ? partial.resume : base.resume,
     stop: 'stop' in partial ? partial.stop : base.stop,
   };
+}
+
+/**
+ * Z14b — edit-time-invalidatie van het GELEZEN Z8-venster (plan-Z14, "Nataken vóór Z17" punt 1;
+ * EIGENAARSPRINCIPE 2026-08-18: "er gaat nooit stilzwijgend broninformatie verloren, ook niet ná
+ * bewerken"). Wanneer een gebruiker een taak inhoudelijk bewerkt, mag de gelezen venster-sturing de
+ * motor niet langer ankeren — maar de RAUWE bron (`Task.timephasedContours`) blijft ALTIJD staan,
+ * ook ná die bewerking; alleen de AFGELEIDE sturing wordt uitgeschakeld. Deze twee functies zijn de
+ * ENIGE plek die dat doet, aangeroepen vanuit `taskSlice.ts` (`updateTask`/`setTaskCalendar`),
+ * `mcpTransaction.ts` (`updateTaskFields`/`patchTaskFields`/`assignResource`/`unassignResource`/
+ * `moveAssignment`) en `resourceSlice.ts` (`assignResource`/`unassignResource`/`moveAssignment`) —
+ * de gedocumenteerde tweeling-paden, zodat ze niet uit de pas kunnen lopen.
+ *
+ * SCOPE — waarom dit UITSLUITEND `timephasedFinishFloor`/`timephasedStartAnchor` raakt:
+ *  - `timephasedFinishFloor` — LAAG 3, een GELEZEN, bevroren MSP-antwoord (`CPMSolver.ts`'s
+ *    `timephasedFinish`, `cal.isHourMode && task.timephasedFinishFloor`-tak) — de klassieke
+ *    "bevroren venster reageert niet op latere edits"-categorie. MOET invalideren.
+ *  - `timephasedStartAnchor` — gebruikt door `CPMSolver.ts`'s `forwardPass` als rauw wortel-anker
+ *    (`preds.length===0`-tak, `task.timephasedStartAnchor`) — ZELFDE categorie: een GELEZEN anker
+ *    dat niet reageert op een latere duur-/datum-/kalenderwijziging. MOET invalideren.
+ *  - `timephasedDurationWalks` — LAAG 4, expliciet GEEN gelezen antwoord: `CPMSolver.ts` wandelt
+ *    `task.time.durationMinutes` (een gewoon, edit-live veld) door elke toewijzing se EIGEN
+ *    resourcekalender bij ELKE `runCPM`, dus een latere bewerking stroomt AL vanzelf mee — een
+ *    tweede invalidatie-pad zou geen enkel waarneembaar verschil maken (zie het veld se eigen
+ *    docblok in `task.ts`, "GEEN invalidatie nodig"). NIET aanraken.
+ *  - `splitGaps`/`timephasedContours` — de RAUWE bron/reeds-geconsumeerde CPM-invoer, geen "gelezen
+ *    venster dat de motor ankert" in dezelfde bevroren zin; het eigenaarsprincipe eist juist dat
+ *    déze blijven staan. NOOIT hier wissen.
+ *
+ * TRIGGERSET (plan: "duur, datums, kalender, toewijzingen") — bepaald en hier vastgelegd:
+ *  - duur/datums: `time.scheduleDuration`/`durationMinutes`/`scheduleStart`/`scheduleFinish`/
+ *    `durationType` — elke sleutel die de solver rechtstreeks voor de LAAG-3/4-berekening gebruikt
+ *    (`durationType` telt mee omdat WORKTIME↔ELAPSEDTIME de hele kalenderwandeling omslaat).
+ *  - kalender: `Task.calendarId` (bepaalt de kalender waarin het venster ooit berekend werd).
+ *  - toewijzingen: resource-assign/unassign/verplaatsen (aparte aanroepplekken, zie hierboven — een
+ *    ANDERE resource kan een ANDERE resourcekalender betekenen, precies de laag-4-discriminator).
+ *  GEEN trigger: alles wat de solver zelf terugschrijft (earlyStart/earlyFinish/floats/…, zie
+ *  `TaskTimeComputed`/`TaskTimeAnalysis` in task.ts) — F5/`runCPM`/documentwissel gaan nooit via
+ *  `updateTask`/`updateTaskFields`/`patchTaskFields` (ze muteren de Immer-draft rechtstreeks), dus
+ *  dat onderscheid hoeft hier niet apart bewaakt te worden.
+ */
+const TIMEPHASED_WINDOW_TIME_TRIGGERS = new Set<keyof TaskTime>([
+  'scheduleDuration', 'durationMinutes', 'scheduleStart', 'scheduleFinish', 'durationType',
+]);
+
+/** `true` als `timeUpdate` minstens één trigger-sleutel NOEMT (sleutel-aanwezigheid, spiegelt
+ *  `mergeTaskTime`'s `'veld' in partial`-conventie hierboven) — de WAARDE hoeft niet te wijzigen;
+ *  een aanroeper die de volledige bestaande `time` spreadt telt dus ook mee (consistent met hoe de
+ *  rest van deze module "genoemd" interpreteert, geen aparte diff-tracking). */
+export function timeUpdateTouchesTimephasedWindow(timeUpdate: Partial<TaskTime> | undefined): boolean {
+  if (!timeUpdate) return false;
+  return Object.keys(timeUpdate).some((k) => TIMEPHASED_WINDOW_TIME_TRIGGERS.has(k as keyof TaskTime));
+}
+
+/** Wist `timephasedFinishFloor`/`timephasedStartAnchor` als ze gezet zijn — idempotent, geen effect
+ *  op een taak zonder Z8-venster. Muteert `task` in-place (Immer-draft-stijl, spiegelt de rest van
+ *  taskSlice.ts/mcpTransaction.ts). */
+export function clearTimephasedWindow(task: Task): void {
+  if (task.timephasedFinishFloor !== undefined) delete task.timephasedFinishFloor;
+  if (task.timephasedStartAnchor !== undefined) delete task.timephasedStartAnchor;
 }

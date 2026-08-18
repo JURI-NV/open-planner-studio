@@ -69,6 +69,7 @@ import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks, countScheduleNotes,
   buildAssignmentUidLinks, deriveSplitGapsForTasks, deriveTimephasedWindowsForTasks,
+  deriveTimephasedContoursForTasks, mspTaskTypeFromRaw,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
 import { readCalendars, type CalendarReadResult } from '@/services/mpp/mppCalendars';
@@ -3164,6 +3165,13 @@ if (corpusPresent) {
      *  Fixed2Data-record — alleen zinvol als deze taak de LAATSTE in de lijst is (`FixedData.
      *  fromMeta` leidt de laatste-item-lengte af uit "rest van het blok"). */
     fixed2DataLength?: number;
+    /** Z14b — rauwe `TaskField.TYPE` (SHORT, blok 0 offset 94): 0/1/2 → FIXED_UNITS/-DURATION/-WORK,
+     *  ontbrekend ⇒ geen `mspTaskTypeRaw` geschreven (byte-identiek precedent). */
+    mspTaskTypeRaw?: number;
+    /** Z14b — EFFORT_DRIVEN-bit (`TBkndTask/FixedMeta`, LEGACY offset 11/masker 0x10 — deze fixture
+     *  draait altijd zonder `opts.applicationName`, dus `effortDrivenBitFlag(null)` kiest het
+     *  2010-legacy-pad, spiegelt `manual`'s eigen legacy-toelichting hierboven). */
+    effortDriven?: boolean;
   }
 
   function buildZ2TaskFixedDataRecord(t: Z2TaskSpec): Uint8Array {
@@ -3180,12 +3188,15 @@ if (corpusPresent) {
     view.setUint16(68, t.finishTime, true);
     view.setUint16(70, t.finishDays, true);
     view.setInt32(118, -1, true); // geen taak-kalender-override
+    if (t.mspTaskTypeRaw !== undefined) view.setInt16(94, t.mspTaskTypeRaw, true); // Z14b
     return out;
   }
 
-  function buildZ2TaskFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
+  function buildZ2TaskFixedMetaRecord(offsetIntoFixedData: number, effortDriven?: boolean): Uint8Array {
     const out = new Uint8Array(47);
     new DataView(out.buffer).setInt32(4, offsetIntoFixedData, true);
+    // Z14b — EFFORT_DRIVEN, legacy tabel (offset 11, masker 0x10) — zie Z2TaskSpec.effortDriven.
+    if (effortDriven) out[11] = 0x10;
     return out;
   }
 
@@ -3259,7 +3270,7 @@ if (corpusPresent) {
     const includeFixed2 = opts.includeFixed2 ?? true;
     const n = tasks.length;
     const dummyMeta = buildZ2TaskFixedMetaRecord(0);
-    const metas = tasks.map((_t, i) => buildZ2TaskFixedMetaRecord((3 + i) * Z2_TASK_FIXED_DATA_SIZE));
+    const metas = tasks.map((t, i) => buildZ2TaskFixedMetaRecord((3 + i) * Z2_TASK_FIXED_DATA_SIZE, t.effortDriven));
     const fixedMetaBlob = buildZ2FixedMetaBlob([dummyMeta, dummyMeta, dummyMeta, ...metas]);
 
     const fixedDataBlob = new Uint8Array((3 + n) * Z2_TASK_FIXED_DATA_SIZE);
@@ -3317,6 +3328,7 @@ if (corpusPresent) {
       { typeValue: TaskFieldId.ConstraintType, dataBlockOffset: 56, category: 3 },
       { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
       { typeValue: TaskFieldId.ScheduledFinish, dataBlockOffset: 68, category: 3 },
+      { typeValue: TaskFieldId.Type, dataBlockOffset: 94, category: 3 }, // Z14b
       { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
       { typeValue: TaskFieldId.Start, dataBlockOffset: 50, category: 3 },
       { typeValue: TaskFieldId.Finish, dataBlockOffset: 54, category: 3 },
@@ -3610,6 +3622,72 @@ if (corpusPresent) {
       `[Z2 modern 0x08-only] taskMode === AUTO_SCHEDULED — het legacy-bit alléén telt niet op een 2013+-bestand (kreeg ${raw2d?.taskMode})`,
       raw2d?.taskMode === 'AUTO_SCHEDULED',
     );
+  }
+
+  // ── Test 2f — Z14b (eigenaarsbesluit 2026-08-18, punt 1): MSP's Task Type (`TaskField.TYPE`,
+  // blok 0 offset 94) + EFFORT_DRIVEN-bit (FixedMeta legacy offset 11/masker 0x10). Eén fixture MET
+  // de TYPE-veldmap-entry (drie taken): (a) TYPE=1 (FIXED_DURATION) + effortDriven ⇒ beide velden
+  // gezet; (b) TYPE=99 (buiten bereik) ⇒ MPXJ's eigen FIXED_WORK-terugval (`TaskTypeHelper.
+  // getInstance`); (c) TYPE=0 (FIXED_UNITS) zonder effortDriven ⇒ `effortDriven` blijft ONGEZET
+  // (nooit `false`, spiegelt isHammock/manuallyScheduled). Een TWEEDE, aparte fixture ZONDER de
+  // TYPE-veldmap-entry bewijst het "veld ontbreekt in de field map"-geval (mspTaskTypeOffset===null)
+  // — dat kan NIET in dezelfde fixture als (a)-(c) getest worden: alle taken in één CFB delen
+  // dezelfde field map, dus "geen override" op een taak binnen een field map DIE het veld wél kent
+  // leest gewoon de zero-initialized byte (raw=0=FIXED_UNITS), niet "onbekend". ───────────────────
+  {
+    const bytesTT = buildZ2Fixture([
+      {
+        name: 'TypeDurationEffort', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        mspTaskTypeRaw: 1, effortDriven: true,
+      },
+      {
+        name: 'TypeOutOfRange', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        mspTaskTypeRaw: 99,
+      },
+      {
+        name: 'TypeUnitsNoEffort', uniqueId: 13, id: 4, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000,
+        mspTaskTypeRaw: 0,
+      },
+    ]);
+    const resultTT = scanZ2(bytesTT);
+    const rawA = findRaw(resultTT, 10);
+    const rawB = findRaw(resultTT, 11);
+    truthy('[Z14b type] rauwe mspTaskTypeRaw === 1', rawA?.mspTaskTypeRaw === 1);
+    truthy('[Z14b type] rauwe effortDrivenRaw === true', rawA?.effortDrivenRaw === true);
+
+    const taskA = resultTT.tasks.find((t) => t.name === 'TypeDurationEffort');
+    const taskB = resultTT.tasks.find((t) => t.name === 'TypeOutOfRange');
+    const taskD = resultTT.tasks.find((t) => t.name === 'TypeUnitsNoEffort');
+    truthy(`[Z14b type] TYPE=1 ⇒ Task.mspTaskType === 'FIXED_DURATION' (kreeg ${taskA?.mspTaskType})`, taskA?.mspTaskType === 'FIXED_DURATION');
+    truthy(`[Z14b type] effortDriven-bit gezet ⇒ Task.effortDriven === true (kreeg ${taskA?.effortDriven})`, taskA?.effortDriven === true);
+    truthy(`[Z14b type] TYPE=99 (buiten bereik) ⇒ MPXJ-terugval FIXED_WORK (kreeg ${taskB?.mspTaskType})`, taskB?.mspTaskType === 'FIXED_WORK');
+    truthy('[Z14b type] rawB.mspTaskTypeRaw === 99 (de rauwe, ongeldige waarde blijft zichtbaar)', rawB?.mspTaskTypeRaw === 99);
+    truthy(`[Z14b type] TYPE=0 ⇒ Task.mspTaskType === 'FIXED_UNITS' (kreeg ${taskD?.mspTaskType})`, taskD?.mspTaskType === 'FIXED_UNITS');
+    truthy(`[Z14b type] geen effortDriven-bit ⇒ Task.effortDriven blijft ONGEZET, nooit false (kreeg ${taskD?.effortDriven})`, taskD?.effortDriven === undefined);
+  }
+
+  // ── Test 2g — Z14b: TYPE ontbreekt UIT DE FIELD MAP zelf (niet: het bestaande record heeft
+  // toevallig geen override) ⇒ `mspTaskTypeOffset === null`, waarna `readTasks`'s bestaande
+  // `data.length >= mspTaskTypeOffset + 2`-guard sowieso nooit bereikt wordt — hetzelfde
+  // "afwezig-in-de-veldmap ⇒ null"-mechanisme dat elk ander optioneel veld in dit bestand al deelt
+  // (spiegelt Test 1's directe veldmap-eenheidstest hierboven: geen CFB nodig, `fixedOffsetOf` is
+  // zelf al de volledige, voldoende bewijslast — een end-to-end CFB zonder de TYPE-entry zou
+  // exact dezelfde `fixedOffsetOf`-uitkomst hertesten via een omweg). ─────────────────────────────
+  {
+    const fieldMapNoType = buildFieldMapEntryBytes([
+      { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
+      { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
+      { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+    ]);
+    const propsNoType = new Props(
+      encodePropsEntries([{ key: PROPSKEY_TASK_FIELD_MAP_Z2, data: fieldMapNoType }]),
+      'Z14b-fieldmap-no-type',
+    );
+    truthy('[Z14b type] veldmap zonder TYPE-entry ⇒ fixedOffsetOf(Type) === null',
+      fixedOffsetOf(createTaskFieldMap(propsNoType), TaskFieldId.Type) === null);
+    truthy('[Z14b type] mspTaskTypeFromRaw(null) === undefined (het "afwezig"-onderscheid t.o.v. TYPE=99)',
+      mspTaskTypeFromRaw(null) === undefined);
   }
 
   // ── Test 3 — Fixed2Meta/Fixed2Data-streams AFWEZIG (acceptatiepunt 3): alle nieuwe velden
@@ -5000,6 +5078,33 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     '[Z4 punt4] taak-D (samenvattingstaak, childIds.length>0): GEEN splitGaps-item, ondanks IDENTIEKE bytes als taak-A',
     !result.has('task-D'),
   );
+
+  // ── Z14b — dezelfde fixture bewijst dat `deriveTimephasedContoursForTasks` de RAUWE periodes
+  // bewaart die `deriveSplitGapsForTasks` hierboven al voor `splitGaps` afleidde (gedeelde
+  // `computeShiftedAssignmentPeriods`-basis, zie mppReader.ts). Taak-A: 3 actual-periodes, GEEN
+  // remaining-periode (`blockA_remaining` is het vlakke `blockCount===0`-samenvattingsrecord van
+  // Test 1 hierboven — telt NIET mee, spiegelt splitGaps' eigen filter exact). Taak-C: wél een
+  // ECHTE remaining-periode (`blockC_remaining`, `blockCount>=1`) — bewijst dat de `kind: 'remaining'`
+  // -tak ook echt gevuld wordt, niet alleen 'actual'. Taak-D blijft uitgesloten (samenvattingstaak),
+  // ondanks identieke bytes als taak-A. ────────────────────────────────────────────────────────────
+  const contours = deriveTimephasedContoursForTasks(cfb, asgFieldMap, taskIdByUniqueId, tasks, Z4_CAL_RESULT);
+  const contourA = contours.get('task-A');
+  const contourC = contours.get('task-C');
+  truthy('[Z14b contours] taak-A heeft precies één toewijzings-contour', contourA?.length === 1);
+  truthy('[Z14b contours] taak-A: 3 actual-periodes, 0 remaining-periodes (vlak samenvattingsrecord telt niet mee)',
+    contourA?.[0]?.periods.filter(p => p.kind === 'actual').length === 3
+    && contourA?.[0]?.periods.filter(p => p.kind === 'remaining').length === 0);
+  truthy('[Z14b contours] taak-A: het ECHTE gat (workMinutes===0) staat in de rauwe periodes',
+    !!contourA?.[0]?.periods.some(p => p.kind === 'actual' && p.afterMinutes === 480 && p.minutes === 480 && p.workMinutes === 0));
+  truthy('[Z14b contours] taak-C heeft precies één toewijzings-contour', contourC?.length === 1);
+  truthy('[Z14b contours] taak-C: minstens één ECHTE remaining-periode (blockCount>=1, geen vlak record)',
+    !!contourC?.[0]?.periods.some(p => p.kind === 'remaining'));
+  truthy('[Z14b contours] taak-D (samenvattingstaak): GEEN contour-item, spiegelt splitGaps', !contours.has('task-D'));
+  // resourceUid rondt mee als PUUR herkomstgegeven (niet bewerkt/vertaald) — `AssignmentFieldId.
+  // ResourceUniqueId` ontbreekt in déze fixture se veldmap (`asgFieldMap`, zie de Z4-fixture-opzet
+  // hierboven), dus `link.resourceUid` is `null` — hetzelfde "veld ontbreekt ⇒ null"-contract als elders.
+  truthy('[Z14b contours] resourceUid === null (deze fixture se veldmap draagt geen ResourceUniqueId)',
+    contourA?.[0]?.resourceUid === null);
 
   // ── Vergelijkende bugbewijzen (geen mppReader.ts-mutatie nodig: de OUDE paden zijn zelf nog
   // bereikbaar via de geëxporteerde pure functies, dus "wat als de fix er niet was" is rechtstreeks

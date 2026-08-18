@@ -131,6 +131,10 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   const { activityCodeTypes, customFieldDefs } = extractStructure(
     entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
   );
+  // Z14b (Z8-nataak) — LAAG-4-kalenderwandelingen, eigen pset (zie de functie se moduleheader voor
+  // waarom dit niet via de PER_TASK_PSETS-registry loopt): kalenderNAAM→id-vertaling, dus pas NA
+  // extractCalendarLibrary hierboven.
+  extractTimephasedDurationWalksMeta(entities, entityMap, tasks, taskStepIdMap, calendar, resourceCalendars);
   // Fase 3 (P11): OPS_Leveling wordt nu binnen extractStructure via de per-taak-registry gedispatcht
   // (samen met de andere zeven per-taak-psets) — geen losse extractLevelingMeta-aanroep meer.
 
@@ -1962,6 +1966,58 @@ function extractBaselines(
   }
 
   return { baselines, activeBaselineId };
+}
+
+/**
+ * Z14b (Z8-nataak, eigenaarsbesluit 2026-08-18) — `OPS_TimephasedDurationWalks` teruglezen (spiegel
+ * van `ifcWriter.writeTimephasedDurationWalksMeta`): PER TAAK via `IFCRELDEFINESBYPROPERTIES` (niet
+ * globaal zoals `extractBaselines` — dit is taak-eigen data, geen projectbrede lijst), met
+ * kalendernaam→id-vertaling via de al-gelezen kalenderbibliotheek (`calendar`/`resourceCalendars`
+ * — vandaar dat deze functie NA `extractCalendarLibrary` draait, zie `readIFC`). Een onbekende/
+ * verweesde kalendernaam (zeldzaam: het bestand droeg een kalender die niet meer bestaat) laat
+ * `resourceCalendarId` de RUWE naam behouden — spiegelt het bestaande "dangling verwijzing ⇒
+ * `resolveCalendar` valt terug op de projectkalender"-precedent (`resolveCalendar.ts`) in plaats
+ * van de hele walk-entry te laten vallen.
+ */
+function extractTimephasedDurationWalksMeta(
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+  tasks: Task[],
+  taskStepIdMap: Map<string, string>,
+  calendar: WorkCalendar,
+  resourceCalendars: WorkCalendar[],
+): void {
+  const calendarIdByName = new Map<string, string>([calendar, ...resourceCalendars].map(c => [c.name, c.id]));
+  const taskById = new Map(tasks.map(t => [t.id, t]));
+
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.DurationWalks) continue;
+    const prop = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .find((p): p is StepEntity =>
+        !!p && p.type === 'IFCPROPERTYSINGLEVALUE' && stripQuotes(p.args[0] || '') === 'DurationWalks');
+    const raw = prop ? parseTypedValue(prop.args[2] || '') : undefined;
+    if (typeof raw !== 'string' || !raw) continue;
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { continue; }
+    if (!Array.isArray(parsed)) continue;
+    const isValidWalk = (w: unknown): w is { anchor: string; resourceCalendarName: string } =>
+      !!w && typeof w === 'object'
+      && typeof (w as { anchor?: unknown }).anchor === 'string'
+      && typeof (w as { resourceCalendarName?: unknown }).resourceCalendarName === 'string';
+    if (parsed.length === 0 || !parsed.every(isValidWalk)) continue;
+    const walks = (parsed as { anchor: string; resourceCalendarName: string }[]).map(w => ({
+      anchor: w.anchor,
+      resourceCalendarId: calendarIdByName.get(w.resourceCalendarName) ?? w.resourceCalendarName,
+    }));
+    for (const objRef of parseRefs(rel.args[4] || '')) {
+      const taskId = taskStepIdMap.get(objRef);
+      const task = taskId ? taskById.get(taskId) : undefined;
+      if (task) task.timephasedDurationWalks = walks;
+    }
+  }
 }
 
 /**

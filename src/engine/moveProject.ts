@@ -102,6 +102,10 @@ const TASK_VERDICTS = {
                                     // zelfde motivering als `externalLinks` hieronder (array met een
                                     // shiftbaar subveld); `resourceCalendarId` is een verwijzing,
                                     // schuift niet mee
+  timephasedContours: 'n/a',       // Z14b: offset-gebaseerd (afterMinutes/minutes/workMinutes),
+                                    // geen datum erin — zelfde taxonomie als splitGaps hierboven
+  mspTaskType: 'n/a',              // Z14b: MSP-eigen enum, geen datum
+  effortDriven: 'n/a',             // Z14b: vlag, geen datum
   parentId: 'n/a', childIds: 'n/a',
   time: 'shift',                  // zie TASK_TIME_VERDICTS
   resourceIds: 'n/a', color: 'n/a', activityCodes: 'n/a',
