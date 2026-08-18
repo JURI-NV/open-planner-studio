@@ -67,7 +67,7 @@ import {
 } from './mppFixtures';
 import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
-  openMppProject, parseProjectProperties, readTasks,
+  openMppProject, parseProjectProperties, readTasks, countScheduleNotes,
   buildAssignmentUidLinks, deriveSplitGapsForTasks, deriveTimephasedWindowsForTasks,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
@@ -2558,15 +2558,28 @@ if (corpusPresent) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// T12 — Split-/leveling-detectie (§9/O1, "resource-gedreven planning"): het EXPLICIETE signaal
-// (LEVELING_DELAY ≠ 0) en het AFGELEIDE signaal (`spanGt`: het MSP-eigen venster tussen start en
-// finish, geteld in werkminuten op de effectieve kalender, is groter dan de MSP-eigen opgeslagen
-// duur). Synthetische fixture, onafhankelijk van het corpus — spiegelt de T11-fixtureopzet
-// (`buildMilestoneKindFixture` hierboven), maar met een ECHTE `TASK_FIELD_MAP`: alle basisvelden
-// op hun letterlijke `DEFAULT_TASK_FIELDS`-offset (de FixedData-layout blijft dus identiek aan de
-// andere fixtures in dit bestand), plus één NIEUWE entry voor LEVELING_DELAY@126 — dat veld heeft
-// bewust geen plek in de all-or-nothing-defaulttabel (zie mppReader.ts's toelichting bij
-// `TASK_FIELD_LEVELING_DELAY`), dus deze fixture moet 'm zelf meegeven via een data-gedreven map.
+// T12/Z16 — melding-detectie voor "onderbroken/genivelleerde/resource-gedreven planning"
+// (§9/O1, telling herzien door Z16 — etappe "nul afwijkingen"). Twee lagen:
+//
+//  (1) `countScheduleNotes` zelf (mppReader.ts) — een PURE functie over reeds-gevulde
+//      `Task`-objecten (`levelingDelayMinutes`/`splitGaps`/`timephasedFinishFloor`/
+//      `timephasedDurationWalks`), hier met plain in-memory `Task`-fixtures getoetst — GEEN
+//      CFB-bytes nodig, want de functie leest zelf geen bytes (zie haar eigen docblok voor
+//      waarom dat geen corpusloze byte-fixture vereist: de onderliggende decoders
+//      `deriveSplitGapsForTasks`/`deriveTimephasedWindowsForTasks` hebben hun eigen volledige
+//      corpusloze fixture-dekking al in de Z4/Z8-secties van dit bestand).
+//  (2) de EXPLICIETE signaalbron (LEVELING_DELAY) end-to-end door `readMPP`, met de
+//      T12-CFB-fixture-infrastructuur hieronder (ONGEWIJZIGD gebleven — synthetische fixture,
+//      onafhankelijk van het corpus, spiegelt de T11-fixtureopzet met een ECHTE `TASK_FIELD_MAP`:
+//      alle basisvelden op hun letterlijke `DEFAULT_TASK_FIELDS`-offset, plus één NIEUWE entry
+//      voor LEVELING_DELAY@126 — dat veld heeft bewust geen plek in de all-or-nothing-
+//      defaulttabel, dus deze fixture geeft 'm zelf mee via een data-gedreven map).
+//
+// VERVALLEN: de vroegere `spanGt`-proxy (het MSP-eigen venster tussen start en finish, geteld in
+// werkminuten, groter dan de opgeslagen duur) en haar fixture-tests. Die proxy was T12's uitwijk
+// zolang splits/timephased-vensters niet zelf leesbaar waren — sinds Z4/Z8 zijn ze dat wél, dus
+// meet `countScheduleNotes` de ECHTE velden in plaats van een calendar-window-schatting. Zie
+// `mppReader.ts`'s moduleheader (bij `countScheduleNotes`) voor de volledige onderbouwing.
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 {
   const PASSWORD_FLAG_KEY = 893386752;
@@ -2764,7 +2777,7 @@ if (corpusPresent) {
     }
   }
 
-  // ── Expliciet signaal: LEVELING_DELAY ≠ 0, venster == duur (geen spanGt). ───────────────────────
+  // ── Expliciet signaal: LEVELING_DELAY ≠ 0 (end-to-end door `readMPP`, byte-fixture). ──────────
   {
     const { result, threw } = readT12(buildT12Fixture([
       { name: 'Leveled', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 100 },
@@ -2772,61 +2785,134 @@ if (corpusPresent) {
     truthy(`[T12 leveled] readMPP gooit niet (${threw ?? ''})`, threw === null);
     if (result) {
       truthy(
-        `[T12 leveled] sourceScheduleNotes === {total:1, leveled:1, spanGt:0} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1 && result.sourceScheduleNotes.spanGt === 0,
+        `[T12 leveled] sourceScheduleNotes === {total:1, leveled:1, split:0, timephased:0} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1
+          && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 0,
       );
     }
   }
 
-  // ── Afgeleid signaal: venster (vr 08:00 → ma 16:00, over een weekend) > duur (8u), GEEN
-  // leveling delay. Bewijst dat `spanGt` op zichzelf al telt, los van het expliciete signaal. ─────
+  // ── Vereniging over meerdere taken (end-to-end, byte-fixture): twee genivelleerde taken plus
+  // één schone taak ⇒ `total` telt precies de twee gemarkeerde, geen som-drift over het bestand. ──
   {
     const { result, threw } = readT12(buildT12Fixture([
-      { name: 'SpanGt', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003 },
+      { name: 'Leveled1', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 50 },
+      { name: 'Leveled2', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 30 },
+      { name: 'Clean2', uniqueId: 12, id: 3, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
     ]));
-    truthy(`[T12 spanGt] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    truthy(`[T12 meerdere taken] readMPP gooit niet (${threw ?? ''})`, threw === null);
     if (result) {
+      truthy('[T12 meerdere taken] 3 taken', result.tasks.length === 3);
       truthy(
-        `[T12 spanGt] sourceScheduleNotes === {total:1, leveled:0, spanGt:1} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 0 && result.sourceScheduleNotes.spanGt === 1,
+        `[T12 meerdere taken] sourceScheduleNotes === {total:2, leveled:2, split:0, timephased:0} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes?.total === 2 && result.sourceScheduleNotes.leveled === 2
+          && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 0,
       );
     }
   }
 
-  // ── Vereniging: één taak met BEIDE signalen (leveling delay ÉN een groter venster) telt in
-  // `total` maar ÉÉN keer, naast een schone taak die niet meetelt — bewijst dat `total` de
-  // VERENIGING is, geen som van `leveled + spanGt`. ───────────────────────────────────────────────
+  // ── Laag 1: `countScheduleNotes` zelf — plain-object `Task`-fixtures, GEEN CFB-bytes (zie de
+  // sectieheader hierboven voor waarom dat hier volstaat). ──────────────────────────────────────
+  function z16MakeTask(id: string, opts: {
+    levelingDelayMinutes?: number;
+    splitGaps?: TaskSplitGap[];
+    timephasedFinishFloor?: string;
+    timephasedDurationWalks?: { anchor: string; resourceCalendarId: string }[];
+  } = {}): Task {
+    return {
+      id, name: id, description: '', wbsCode: '', taskType: 'USERDEFINED', status: 'NOT_STARTED',
+      isMilestone: false, priority: 500, parentId: null, childIds: [], resourceIds: [],
+      time: { ...createDefaultTaskTime('2026-01-01T08:00', 5) },
+      ...(opts.levelingDelayMinutes != null ? { levelingDelayMinutes: opts.levelingDelayMinutes } : {}),
+      ...(opts.splitGaps ? { splitGaps: opts.splitGaps } : {}),
+      ...(opts.timephasedFinishFloor ? { timephasedFinishFloor: opts.timephasedFinishFloor } : {}),
+      ...(opts.timephasedDurationWalks ? { timephasedDurationWalks: opts.timephasedDurationWalks } : {}),
+    };
+  }
   {
-    const { result, threw } = readT12(buildT12Fixture([
-      { name: 'Both', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003, levelingDelayRaw: 50 },
-      { name: 'Clean2', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
-    ]));
-    truthy(`[T12 vereniging] readMPP gooit niet (${threw ?? ''})`, threw === null);
-    if (result) {
-      truthy('[T12 vereniging] 2 taken', result.tasks.length === 2);
-      truthy(
-        `[T12 vereniging] sourceScheduleNotes === {total:1, leveled:1, spanGt:1} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-        result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1 && result.sourceScheduleNotes.spanGt === 1,
-      );
-    }
+    // (a) leveled-only.
+    const onlyLeveled = countScheduleNotes([z16MakeTask('t1', { levelingDelayMinutes: 30 })]);
+    truthy(
+      '[Z16 pure a] leveled-only ⇒ {total:1,leveled:1,split:0,timephased:0}',
+      onlyLeveled.total === 1 && onlyLeveled.leveled === 1 && onlyLeveled.split === 0 && onlyLeveled.timephased === 0,
+    );
+
+    // (b) split-only (`Task.splitGaps` niet-leeg, Z4).
+    const onlySplit = countScheduleNotes([z16MakeTask('t1', { splitGaps: [{ afterMinutes: 240, gapMinutes: 120 }] })]);
+    truthy(
+      '[Z16 pure b] split-only ⇒ {total:1,leveled:0,split:1,timephased:0}',
+      onlySplit.total === 1 && onlySplit.leveled === 0 && onlySplit.split === 1 && onlySplit.timephased === 0,
+    );
+
+    // (c) timephased-only, laag 3 (`timephasedFinishFloor`, een GELEZEN venster).
+    const onlyTimephasedFloor = countScheduleNotes([z16MakeTask('t1', { timephasedFinishFloor: '2026-01-05T17:00' })]);
+    truthy(
+      '[Z16 pure c] timephased-only (laag 3, finishFloor) ⇒ timephased:1, de andere twee 0',
+      onlyTimephasedFloor.total === 1 && onlyTimephasedFloor.timephased === 1
+        && onlyTimephasedFloor.leveled === 0 && onlyTimephasedFloor.split === 0,
+    );
+
+    // (c, vervolg) timephased-only, laag 4 (`timephasedDurationWalks`, een VERSE herberekening —
+    // geen `timephasedFinishFloor` nodig, de twee zijn mutueel exclusief per taak, zie Z8).
+    const onlyTimephasedWalks = countScheduleNotes([
+      z16MakeTask('t1', { timephasedDurationWalks: [{ anchor: '2026-01-01T23:00', resourceCalendarId: 'cal-1' }] }),
+    ]);
+    truthy(
+      '[Z16 pure c2] timephased-only (laag 4, durationWalks) ⇒ timephased:1',
+      onlyTimephasedWalks.timephased === 1 && onlyTimephasedWalks.total === 1,
+    );
+
+    // (d) alle drie signalen op ÉÉN taak ⇒ `total` telt 'm maar één keer — de VERENIGING, geen som.
+    const allThree = countScheduleNotes([z16MakeTask('t1', {
+      levelingDelayMinutes: 10,
+      splitGaps: [{ afterMinutes: 60, gapMinutes: 30 }],
+      timephasedFinishFloor: '2026-01-05T17:00',
+    })]);
+    truthy(
+      '[Z16 pure d] drie signalen op 1 taak ⇒ total:1 (VERENIGING, geen som van 3)',
+      allThree.total === 1 && allThree.leveled === 1 && allThree.split === 1 && allThree.timephased === 1,
+    );
+
+    // (e) meerdere taken, gemengde signalen plus een schone taak ⇒ `total` telt alleen de
+    // gemarkeerde taken.
+    const mixed = countScheduleNotes([
+      z16MakeTask('t1', { levelingDelayMinutes: 10 }),
+      z16MakeTask('t2', { splitGaps: [{ afterMinutes: 60, gapMinutes: 30 }] }),
+      z16MakeTask('t3'), // schoon
+    ]);
+    truthy('[Z16 pure e] 2 van 3 taken gemarkeerd ⇒ total:2', mixed.total === 2 && mixed.leveled === 1 && mixed.split === 1 && mixed.timephased === 0);
+
+    // (f) negatieve case: volledig schoon ⇒ {total:0,...}, geen crash op een lege signalenset.
+    const clean = countScheduleNotes([z16MakeTask('t1'), z16MakeTask('t2')]);
+    truthy(
+      '[Z16 pure f] geen signalen ⇒ {total:0,leveled:0,split:0,timephased:0}',
+      clean.total === 0 && clean.leveled === 0 && clean.split === 0 && clean.timephased === 0,
+    );
+
+    // (g) mutatiebewijs-stijl: `splitGaps: []` (een LEGE array, geen `undefined`) telt NIET als
+    // split. Zou `countScheduleNotes` `task.splitGaps != null` gebruiken i.p.v.
+    // `(task.splitGaps?.length ?? 0) > 0`, dan zou dit ROOD gaan.
+    const emptyGaps = countScheduleNotes([z16MakeTask('t1', { splitGaps: [] })]);
+    truthy('[Z16 pure g] splitGaps:[] (leeg, niet undefined) telt NIET als split', emptyGaps.total === 0 && emptyGaps.split === 0);
   }
 
-  // ── Corpus-leescases: gepinde detectie-aantallen per bestand (acceptatiepunt 5, plan-§T12).
-  // "Bijlage 13 Productieplanning.mpp" is tevens de door de orkestrator aangewezen NEGATIEVE case
-  // (acceptatiepunt 4): spanGt = 0, dus geen `sourceScheduleNotes` op een schoon bestand. ─────────
+  // ── Corpus-leescases: gepinde detectie-aantallen per bestand (Z16-acceptatiepunt 5, en de
+  // T12-oorsprong daarvan §Corpus). "Bijlage 13 Productieplanning.mpp" is tevens de door de
+  // orkestrator aangewezen NEGATIEVE case (acceptatiepunt 4): geen enkel van de drie signalen,
+  // dus geen `sourceScheduleNotes` op een schoon bestand. ────────────────────────────────────────
   {
     const T12_CORPUS = process.env.OPS_MPP_CORPUS
       ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
     const bijlage13 = join(T12_CORPUS, 'Bijlage 13 Productieplanning.mpp');
     if (!existsSync(bijlage13)) {
-      console.log(`OK  mpp-import: T12 corpus-leescases (${T12_CORPUS}) niet aanwezig — overgeslagen`);
+      console.log(`OK  mpp-import: T12/Z16 corpus-leescases (${T12_CORPUS}) niet aanwezig — overgeslagen`);
     } else {
       {
         const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage13)));
         truthy(`[T12 Bijlage 13] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            '[T12 Bijlage 13] GEEN sourceScheduleNotes — negatieve case (acceptatiepunt 4, plan-§T12)',
+            '[T12 Bijlage 13] GEEN sourceScheduleNotes — negatieve case (acceptatiepunt 4, plan-§Z16)',
             result.sourceScheduleNotes === undefined,
           );
         }
@@ -2848,14 +2934,23 @@ if (corpusPresent) {
       // daadwerkelijk LEVELING_DELAY-data in het bronbestand — steekproef bevestigd tegen de
       // taaknamen (productiehandelingen als "boren en tappen", "lassen", vertragingen van
       // ~1000-1400 min, plausibel voor een resource-beperkte productieplanning).
+      //
+      // Z16-DELTA t.o.v. de T12-pin: was `{total:15, leveled:10, spanGt:5}` — de vijf `spanGt`-
+      // taken waren de proxy se vals-positieven (venster > duur zonder een echte split of
+      // gedecodeerde timephased-periode; gemeten met de nieuwe, echte tellers hieronder: geen van
+      // de 215 taken draagt `splitGaps` of een `timephasedFinishFloor`/`timephasedDurationWalks`).
+      // `leveled` blijft ONGEWIJZIGD 10 — dat signaal was en blijft een rechtstreekse veldlezing,
+      // geen proxy. `total` daalt dus mee naar 10: exact wat de echte signalen op dit bestand
+      // dragen, niet meer, niet minder.
       const bijlage7 = join(T12_CORPUS, 'bijlage 7 Productie planning.mpp');
       if (existsSync(bijlage7)) {
         const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage7)));
         truthy(`[T12 bijlage 7] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[T12 bijlage 7] sourceScheduleNotes === {total:15, leveled:10, spanGt:5} (gepind, kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-            result.sourceScheduleNotes?.total === 15 && result.sourceScheduleNotes.leveled === 10 && result.sourceScheduleNotes.spanGt === 5,
+            `[Z16 bijlage 7] sourceScheduleNotes === {total:10, leveled:10, split:0, timephased:0} (gepind, kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            result.sourceScheduleNotes?.total === 10 && result.sourceScheduleNotes.leveled === 10
+              && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 0,
           );
         }
       }
@@ -2879,8 +2974,13 @@ if (corpusPresent) {
   // wandeling geeft een absurde datum) — zie `mpp-fidelity-baseline.json`'s hash `3fc8d51a7e1270c8`
   // voor de volledige reden. "Contoured Task" heeft precies 1 toewijzing en IS single-assignment-
   // geactiveerd — die reproduceert MSP's eigen finish nog steeds exact, ONAFHANKELIJK van "Task A"'s
-  // afwijking (haar eigen laag-4-wandeling raakt niet aan Task A se resultaat). De MELDING
-  // (`sourceScheduleNotes`) blijft een apart, ONGEMOEID signaal (buiten Z8-scope).
+  // afwijking (haar eigen laag-4-wandeling raakt niet aan Task A se resultaat).
+  //
+  // Z16-DELTA: de MELDING (`sourceScheduleNotes`) was tot Z16 een apart, ONGEMOEID signaal (buiten
+  // Z8-scope) — de T12-KNOWN-GAP hieronder gold dus nog. Sinds Z16 loopt de detectie via
+  // `countScheduleNotes` (mppReader.ts), die het ECHTE `timephasedFinishFloor`-veld leest (laag 3,
+  // door Z8 op "Contoured Task" gezet) in plaats van het onbetrouwbare WORK_CONTOUR-bit — de
+  // beperking is daarmee OPGELOST voor deze taak, zie de assertie hieronder.
   {
     const RESOURCE_FIXTURE = process.env.OPS_MPP_RESOURCE_FIXTURE
       ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14resource.mpp';
@@ -2894,18 +2994,23 @@ if (corpusPresent) {
         const contoured = result.tasks.find((t) => t.name === 'Contoured Task');
         truthy('[T12 mpp14resource] "Contoured Task" gevonden', !!contoured);
         if (contoured) {
-          // Reviewer-meting: venster == duur == 3428 min (7,1417 dagen @ 480 min/dag) — GEEN spanGt.
+          // Reviewer-meting: venster == duur == 3428 min (7,1417 dagen @ 480 min/dag) — GEEN
+          // venster-verlenging (de vroegere `spanGt`-proxy zou dit dus NIET gevangen hebben).
           truthy(
             `[T12 mpp14resource] "Contoured Task".scheduleDuration ≈ 3428 min (7,1417 dagen @ 480 min/dag, kreeg ${contoured.time.scheduleDuration})`,
             Math.abs(contoured.time.scheduleDuration - 3428 / 480) < 0.01,
           );
         }
-        // KNOWN GAP, expliciet gepind (geen stille regressie mogen worden — zie de moduleheader):
-        // resource-contouring-ALLEEN triggert geen enkel huidig signaal, dus GEEN sourceScheduleNotes.
-        // Dit blijft ONGEWIJZIGD door Z8 — de melding is een apart signaal, zie de sectie-toelichting.
+        // Z16: de vroegere T12-KNOWN-GAP ("resource-contouring-ALLEEN triggert geen enkel signaal")
+        // is HIER OPGELOST — `timephased:1` komt van "Contoured Task"'s ECHTE, gedecodeerde
+        // timephased-periode (laag 3, `timephasedFinishFloor`), niet van het onbetrouwbare
+        // WORK_CONTOUR-bit. "Task A" (multi-toewijzing, geen laag-3/4-signaal — zie hierboven) en
+        // "Completed Task" (100% voltooid, buiten laag 3/4's `completion===0`-scope) dragen geen van
+        // beide een signaal, dus `total` blijft op 1.
         truthy(
-          `[T12 mpp14resource] GEEN sourceScheduleNotes ondanks resource-contouring — bekende, gedocumenteerde beperking (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
-          result.sourceScheduleNotes === undefined,
+          `[Z16 mpp14resource] sourceScheduleNotes === {total:1, leveled:0, split:0, timephased:1} — de vroegere KNOWN GAP is opgelost (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+          result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 0
+            && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 1,
         );
 
         // Z8-HERWERKRONDE-SLOTRONDE — reken de ECHTE keten door (readMPP + solveProject, dezelfde die

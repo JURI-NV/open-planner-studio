@@ -91,6 +91,8 @@ MSO and MFO can additionally be made **hard** via the **Mandatory (pin logic)** 
 
 So only use a hard pin when a date genuinely isn't negotiable and stands apart from the schedule's logic — for example a legally fixed handover date that stands regardless of progress. Do **not** use it as a rule of thumb for "I want this task to sit on that date": in that case a soft constraint (SNET/FNLT/etc.) or simply a well-planned chain of relations is almost always the better choice. A hard pin can squeeze the whole network upstream: if the preceding tasks want to run through the pin, negative float appears and propagates through the entire chain before the pinned task — a sign the schedule conflicts, not that the pin solved the problem.
 
+A **manually scheduled** task (that flag arises from a `.mpp` import) wins even over a hard pin: such a task keeps its own stored date regardless, and any constraint set on it at the same time — soft or hard — is ignored. That's not a bug but the same behavior MS Project itself has.
+
 ### Secondary constraint
 
 For a non-hard constraint (so not ASAP/ALAP and not a hard MSO/MFO), you can add a **secondary constraint**: a second boundary from the same four soft types (SNET/FNET/SNLT/FNLT), which may not bound the same side as the primary one. That lets you set, for example, both a lower and an upper bound on the start date at the same time. Open Planner Studio validates the combination live and shows an error as soon as the combination is invalid — for example a secondary constraint next to a hard pin, which isn't allowed.

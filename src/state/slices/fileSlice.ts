@@ -190,12 +190,16 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           dedupeKey: 'summary-relations-dropped',
         });
       }
-      // T12 (§9/O1, mpp-datumgetrouwheid): een `.mpp`-bestand met aantoonbaar onderbroken,
-      // genivelleerde of resource-gedreven (nivellering/leveling delay/resource-contouring) taken —
-      // wij rekenen die aaneengesloten door, dus hun datums kunnen van MS Project afwijken. Alleen
-      // `readMPP` vult `sourceScheduleNotes` (ander formaat ⇒ `undefined` ⇒ geen melding). Zelfde
-      // patroon als `summaryRelationsDropped` hierboven: info, één keer per open, gededupliceerd op
-      // dedupeKey. Géén taakveld (§9/O3) — puur een import-tijd-telling voor deze melding.
+      // T12 (§9/O1, mpp-datumgetrouwheid), HERSCHREVEN door Z16 (etappe "nul afwijkingen"): een
+      // `.mpp`-bestand met aantoonbaar onderbroken, genivelleerde of resource-gedreven
+      // (nivellering/splits/timephased-vensters) taken. VÓÓR Z16 was dit een excuus voor mogelijk
+      // afwijkende datums ("wij rekenen aaneengesloten door") — sinds Z1-Z15 rekent de motor die
+      // taken echt door zoals MS Project (zie `CPMSolver.ts`, `mppReader.ts`'s `countScheduleNotes`),
+      // dus de melding is nu uitsluitend INFORMATIEF: ze vertelt dát het bestand zulke taken bevat,
+      // niet dat de datums onbetrouwbaar zouden zijn. Alleen `readMPP` vult `sourceScheduleNotes`
+      // (ander formaat ⇒ `undefined` ⇒ geen melding). Zelfde patroon als `summaryRelationsDropped`
+      // hierboven: info, één keer per open, gededupliceerd op dedupeKey. Géén taakveld (§9/O3) —
+      // puur een import-tijd-telling voor deze melding.
       const scheduleNotesTotal = parsed.sourceScheduleNotes?.total ?? 0;
       if (scheduleNotesTotal > 0) {
         get().notify({

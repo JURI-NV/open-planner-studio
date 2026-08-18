@@ -546,56 +546,56 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
 }
 
 /**
- * T12 (§9/O1) — detectie van de "toegestane uitzondering" op de datumgetrouwheid-goal:
- * resource-gedreven planning (nivellering, leveling delay, resource-contouring/timephased werk).
- * Wij rekenen zulke taken aaneengesloten door; hun datums kunnen daardoor afwijken van MS Project.
- * Geen taakveld (§9/O3, geen documentcontract-impact) — alleen een telling op `ImportResult` en een
- * eenmalige melding bij openen (`fileSlice.ts`).
+ * Z16 (etappe "nul afwijkingen") — detectie voor de eenmalige openings-melding ("dit bestand bevat
+ * N taken met een onderbroken, genivelleerde of resource-gedreven planning", `fileSlice.ts`).
+ * Vervangt de T12-detectie (§9/O1, vorige etappe) volledig: sinds Z1–Z15 rekenen we zulke taken
+ * WÉL door zoals MS Project (splits, nivellering, timephased-vensters, handmatige planning zijn
+ * allemaal echt geïmplementeerd) — de melding is dus geen excuus meer voor afwijkende datums,
+ * uitsluitend een informatieve mededeling over WAT er in het bestand zit. Geen taakveld (§9/O3,
+ * geen documentcontract-impact) — alleen een telling op `ImportResult`. Zie `countScheduleNotes`
+ * (hieronder, buiten deze moduleheader) voor de implementatie.
  *
- * Twee bronnen, in volgorde van bewijskracht:
+ * DRIE ECHTE SIGNALEN, één per woord in de meldingstekst — geen enkele is nog een schatting:
  *
- * 1. EXPLICIET — `TaskField.LEVELING_DELAY` (FieldMap14.java: `new FieldItem(TaskField.
- *    LEVELING_DELAY, FieldLocation.FIXED_DATA, 0, 58, 20, 0, 0)` — typeValue 20, corpus-offset 58,
- *    zelfde `(offset, typeValue)`-volgorde als elk ander veld hier, zie `TaskFieldId.UniqueId`
- *    e.a.) ≠ 0. Z2 (etappe "nul afwijkingen"): de veld-id verhuisde naar `fieldMap14.ts`'s
- *    `TaskFieldId.LevelingDelay` (T12 hield 'm nog als losse module-lokale constante, met als
- *    reden dat `fieldMap14.ts` toen buiten T12's bestandenlijst viel — Z2 heropent dat bestand
- *    voor de Fixed2-infrastructuur, dus de constante hoort nu structureel bij haar zusjes). Werkt
- *    nog altijd hetzelfde: `fixedOffsetOf` leest de offset DATA-GEDREVEN uit het bestand se eigen
- *    field map (alle drie ground-truth-bestanden dragen een echte field map, zie fieldMap14.ts se
- *    moduleheader); alleen het zeldzame ALLES-ONTBREEKT-fallback-pad (`DEFAULT_TASK_FIELDS`, sinds
- *    Z2 óók met een `LevelingDelay`-entry) zou dit veld dan missen en degradeert netjes naar "geen
- *    detectie via dit signaal" voor zo'n bestand — geen bug, hetzelfde degradatiepatroon als elk
- *    ander veld dat niet in de fallback-tabel staat.
+ * 1. `leveled` — `Task.levelingDelayMinutes` gezet. Bron: `TaskField.LEVELING_DELAY` (FieldMap14.
+ *    java: `new FieldItem(TaskField.LEVELING_DELAY, FieldLocation.FIXED_DATA, 0, 58, 20, 0, 0)` —
+ *    typeValue 20, corpus-offset 58) ≠ 0, sinds Z5 ECHT gedecodeerd tot een duur (tienden van een
+ *    minuut) in plaats van alleen een ≠0-signaal. Veld-id zit sinds Z2 bij haar zusjes in
+ *    `fieldMap14.ts`'s `TaskFieldId.LevelingDelay` (T12 hield 'm nog als losse module-lokale
+ *    constante — dat kon toen niet anders, `fieldMap14.ts` viel buiten T12's bestandenlijst).
+ * 2. `split` — `Task.splitGaps` niet-leeg. Bron: Z4's `deriveSplitGapsForTasks`
+ *    (`mppTimephased.ts`), afgeleid uit de timephased-werksegmenten van de toewijzingen van deze
+ *    taak — precies het `Task.WORK_SPLITS`-mechanisme dat MPXJ zelf gebruikt
+ *    (`ResourceAssignment.getWorkSplits()`), onafhankelijk geherimplementeerd.
+ * 3. `timephased` — `Task.timephasedFinishFloor` of `Task.timephasedDurationWalks` gezet. Bron:
+ *    Z8's `deriveTimephasedWindowsForTasks` — een gecontoureerde/resource-gedreven toewijzing met
+ *    een ECHT gedecodeerde timephased-periode bepaalt het venster (laag 3) of de herberekening
+ *    (laag 4) van de taak.
  *
- * 2. AFGELEID (`spanGt`) — SPLITS ZELF (`Task.WORK_SPLITS` in MPXJ) bleek NIET via een simpel
- *    Var2Data-array leesbaar: `Task.java`'s `calculateWorkSplits()` is een BEREKEND veld
- *    (`CALCULATED_FIELD_MAP`), afgeleid uit `ResourceAssignment.getWorkSplits()` — dat leest
- *    TIMEPHASED assignment-data (variabele-lengte werksegmenten per resource-toewijzing in
- *    `TBkndAssn`), niet een taakeigen Var2Data-sleutel. Een `grep` op `setSplits`/`SPLITS` in de
- *    MPXJ-bron (`voor claude/testdata-crawl/mpxj/src/main/java/org/mpxj/mpp/`) bevestigt dit: GEEN
- *    van de MPP-lezers (`MPP9Reader`/`MPP12Reader`/`MPP14Reader`) zet ooit een taakeigen
- *    splits-array — `setSplits`/`SPLITS` komt uitsluitend voor in `TaskField.java` (het veld-enum
- *    zelf), `Task.java` (de berekening), `MSPDIWriter.java` (schrijft de BEREKENDE splits terug
- *    naar XML) en de P3-lezer (ander formaat). Timephased-assignmentdata volledig porten voor
- *    uitsluitend een detectie-telling staat niet in verhouding tot deze taak se scope — vandaar de
- *    afgeleide proxy hieronder, precies zoals het plan voorziet ("lukt de splits-bytes niet
- *    betrouwbaar, dan…").
+ * WAAROM DE T12-PROXY (`spanGt`) WEG MAG. Vóór Z4/Z8 was geen van deze drie velden leesbaar; T12
+ * gebruikte daarom een AFGELEIDE proxy: het MSP-eigen venster tussen start en finish, geteld in
+ * werkminuten op de effectieve kalender, groter dan de MSP-eigen opgeslagen duur (met een
+ * afrondingstolerantie voor drijvendekomma-restjes). Dat was T12's eigen expliciete UITWIJK ("lukt
+ * de splits-bytes niet betrouwbaar, dan…"), geen ontwerp — een schatting die zowel vals-positief
+ * (elke echte sub-dag-afwijking > de tolerantie) als vals-negatief kon zijn (zie het contour-onderzoek hieronder:
+ * een gecontoureerde taak zonder venster-verlenging mist de proxy per definitie). Nu de drie
+ * onderliggende velden zelf leesbaar zijn, is er geen enkele reden meer om via een
+ * kalendervenster-schatting te meten wat al rechtstreeks op de taak staat: de proxy en haar
+ * tolerantieconstante zijn VERWIJDERD, niet vervangen door een striktere versie.
  *
- *    De proxy: het MSP-EIGEN venster tussen `SCHEDULED_START` en `SCHEDULED_FINISH`, geteld in
- *    werkminuten op de EFFECTIEVE kalender (`CalendarEngine.workMinutesBetween`, betrouwbaar sinds
- *    T3's kalenderexpansie — een gemiste feestdag/werkende uitzondering zou anders een vals
- *    positief geven), is STRIKT GROTER dan de MSP-eigen opgeslagen duur. Een onderbroken taak
- *    (split) of een genivelleerde taak die over een langere periode uitgesmeerd is, heeft een
- *    venster dat langer is dan het werk dat erin past — een aaneengesloten taak heeft venster == duur
- *    (op afrondingsmarge na, zie `SPAN_GT_TOLERANCE_MINUTES`). LET OP (spec-review-fixronde,
- *    2026-08-15, bevinding 1): dit vangt GEEN zuivere resource-contouring — een contour herverdeelt
- *    het werk BINNEN de al berekende span (een bell-/trapeziumcurve i.p.v. vlak), zonder de span
- *    zelf te verlengen; venster == duur blijft dus gewoon gelden. Zie hieronder waarom een derde,
- *    EXPLICIETE contour-detectie niet is toegevoegd.
+ * GEVOLG VOOR DE BEKENDE BEPERKING HIERONDER (spec-review-fixronde, 2026-08-15) — de meting in dat
+ * onderzoek blijft historisch geldig, maar de CONCLUSIE ("dus niet detecteerbaar, dus niet melden") niet
+ * meer: `timephased` hierboven mist het gat van de oude proxy niet. Elke toewijzing met een ÉCHT
+ * gedecodeerde timephased-periode (contourvorm of niet) zet `Task.timephasedFinishFloor`/
+ * `timephasedDurationWalks`, ongeacht of het venster groter is dan de kale duur — het bit-
+ * mechanisme (`AssignmentField.WORK_CONTOUR`) hoeft dus niet meer betrouwbaar te zijn, want de
+ * detectieroute loopt niet meer via dat bit. Getoetst op MPXJ's eigen referentiebestand voor deze
+ * functie (`mpp14resource.mpp`, taak "Contoured Task"): die telt nu WÉL mee in `timephased` (zie de
+ * leescase in `check-mpp-import.ts`) — de beperking is voor elke taak met een echt gedecodeerde
+ * periode opgelost, zonder ooit het bit zelf te hoeven lezen.
  *
- * 3. RESOURCE-CONTOURING, EXPLICIET ONDERZOCHT EN NIET BETROUWBAAR GEBLEKEN (spec-review-fixronde,
- *    2026-08-15, bevinding 1) — MPXJ leest een contour-indicator op ASSIGNMENT-niveau
+ * HET CONTOUR-ONDERZOEK — RESOURCE-CONTOURING, EXPLICIET ONDERZOCHT EN NIET BETROUWBAAR GEBLEKEN
+ *    (spec-review-fixronde, 2026-08-15, bevinding 1; was "punt 3" in de T12-nummering) — MPXJ leest een contour-indicator op ASSIGNMENT-niveau
  *    (`AssignmentField.WORK_CONTOUR`, een TWEEWAARDIGE FLAT/CONTOURED-vlag, niet de volledige
  *    contourvorm) via een bit in de assignment se EIGEN `FixedMeta`-record (spiegelt hoe
  *    `milestoneBitFlag` hierboven de mijlpaal-vlag uit de taak-FixedMeta leest) —
@@ -621,22 +621,38 @@ function deriveMilestoneKind(cal: WorkCalendar, anchor: Date): MilestoneKind | u
  *    hier simpelweg niet aan, ondanks bevestigde ground truth dat de toewijzing wél gecontoureerd is.
  *
  *    CONCLUSIE: het bit-mechanisme dat MPXJ zelf documenteert voor WORK_CONTOUR is, GETOETST OP
- *    MPXJ's EIGEN referentievoorbeeld voor precies deze functie, niet betrouwbaar — een implementatie
- *    die het bit letterlijk overneemt zou de melding op dit bestand NIET laten vuren (want het bit
- *    staat er niet), dus zou de regressie die deze fixronde signaleerde NIET oplossen. Vandaar
- *    bewust NIET geïmplementeerd (plan-§T12's eigen uitwijkclausule: "lukt dat aantoonbaar niet
- *    betrouwbaar… dan versmallen we de tekst"). KNOWN GAP: een taak die UITSLUITEND resource-
- *    gecontoureerd is (geen leveling delay, geen venster-verlenging) — zoals `mpp14resource.mpp`'s
- *    "Contoured Task" zelf — wordt momenteel NIET gemeld; zie de corpus-leescase in
- *    `check-mpp-import.ts` die dit exact vastlegt, en de gids (§"Datumgetrouwheid") die dit als
- *    bekende beperking benoemt in plaats van stilzwijgend te beloven.
+ *    MPXJ's EIGEN referentievoorbeeld voor precies deze functie, niet betrouwbaar. Dat bleef zo
+ *    (deze meting is nooit weerlegd, en het bit is nog steeds niet geïmplementeerd) — maar de
+ *    GEVOLGTREKKING eraan (T12: "dus melden we resource-contouring niet") is met Z16's `timephased`-
+ *    signaal hierboven ACHTERHAALD: die detecteert via de ECHT gedecodeerde timephased-periode,
+ *    nooit via dit bit, en vangt "Contoured Task" daardoor alsnog — zie de corpus-leescase in
+ *    `check-mpp-import.ts` die dat nu vastlegt, en de gids (§"Datumgetrouwheid") die dit niet meer
+ *    als open beperking benoemt.
  */
 
-/** Ruimte voor sub-minuut-afrondingsverschil tussen de rauwe tienden-van-minuut-duur en
- *  `CalendarEngine.workMinutesBetween`'s bandrekenwerk (beide zijn intern al minuut-precies, dus dit
- *  vangt uitsluitend drijvendekomma-restjes — NIET bedoeld om een echte, kleine onderbreking te
- *  maskeren: de kleinste gemeten `spanGt`-taak in het corpus wijkt uren tot dagen af, geen minuten). */
-const SPAN_GT_TOLERANCE_MINUTES = 1;
+/** Z16 — de drie ECHTE signalen (zie de moduleheader hierboven) op de per-taak-velden die Z4/Z5/Z8
+ *  al vullen, verenigd tot de telling die `readMPP` op `ImportResult.sourceScheduleNotes` zet. Pure
+ *  functie over reeds-gevulde `Task`-objecten — GEEN eigen byte-lezing, dus geen synthetische
+ *  CFB-fixture nodig (de hardening-checklist se "corpusloze fixture naast elke corpuspin"-eis geldt
+ *  voor byte-lezers; deze functie leest uitsluitend al-gevalideerde `Task`-velden). Draait in
+ *  `readMPP` NÁ zowel de `splitGaps`- als de `timephasedFinishFloor`/`timephasedDurationWalks`-
+ *  toewijzingslus (beide muteren `tasks` in-place) — vóór die twee lussen zouden `split`/`timephased`
+ *  altijd 0 zijn, ongeacht het bronbestand. */
+export function countScheduleNotes(
+  tasks: readonly Task[],
+): { total: number; leveled: number; split: number; timephased: number } {
+  let leveled = 0, split = 0, timephased = 0, total = 0;
+  for (const task of tasks) {
+    const isLeveled = task.levelingDelayMinutes != null;
+    const isSplit = (task.splitGaps?.length ?? 0) > 0;
+    const isTimephased = task.timephasedFinishFloor != null || task.timephasedDurationWalks != null;
+    if (isLeveled) leveled++;
+    if (isSplit) split++;
+    if (isTimephased) timephased++;
+    if (isLeveled || isSplit || isTimephased) total++;
+  }
+  return { total, leveled, split, timephased };
+}
 
 /** I2 (T5-kwaliteitsreview) — vervangt de vijf losse positionele parameters die `readTasks` eerst
  *  had; T6/T7 breiden dit uit i.p.v. de parameterlijst nog verder te laten groeien.
@@ -674,11 +690,6 @@ export interface ReadTasksResult {
   tasks: Task[];
   taskIdByUniqueId: Map<number, string>;
   taskHourById: Map<string, boolean>;
-  /** T12 (§9/O1) — detectietelling voor de resource-gedreven-planning-uitzondering (zie de
-   *  moduleheader hierboven bij `TaskFieldId.LevelingDelay`). `total` is de VERENIGING van beide
-   *  signalen (een taak die zowel `leveled` als `spanGt` draagt telt in `total` maar één keer) —
-   *  dat is het getal dat de melding toont, zie `ImportResult.sourceScheduleNotes`. */
-  scheduleNotes: { total: number; leveled: number; spanGt: number };
   /** Z2 (etappe "nul afwijkingen") — TEST-/METINGSVELD: de rauwe Fase-A-scan van elke geldige taak,
    *  inclusief de nieuwe Fixed2-velden (`taskMode`, `manualStartTs`/`manualFinishTs`,
    *  `manualDurationRaw`/`manualDurationIsElapsed`, `levelingDelayUnits`). `readMPP` geeft dit NIET
@@ -1002,40 +1013,10 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const taskIdByUniqueId = new Map<number, string>();
   const taskHourById = new Map<string, boolean>();
   const records: RawTaskRecord[] = [];
-  // T12 — één `CalendarEngine` per kalender-object, gedeeld over alle taken die 'm gebruiken
-  // (spiegelt `bandCacheRegistry`'s per-object-memoization in CalendarEngine.ts zelf): de
-  // bandopbouw is de dure stap, en meerdere taken op dezelfde (project- of override-)kalender
-  // zouden 'm anders elk apart betalen.
-  const spanEngineByCal = new Map<WorkCalendar, CalendarEngine>();
-  const spanEngineFor = (c: WorkCalendar): CalendarEngine => {
-    let engine = spanEngineByCal.get(c);
-    if (!engine) { engine = new CalendarEngine(c); spanEngineByCal.set(c, engine); }
-    return engine;
-  };
-  let scheduleNoteLeveled = 0;
-  let scheduleNoteSpanGt = 0;
-  let scheduleNoteTotal = 0;
   for (const raw of raws) {
     const cal = raw.effCal;
     const isHour = hourModeCals.has(cal);
     const effHpd = cal.hoursPerDay;
-
-    // T12 (§9/O1) — detectie, ná de kalender-promotie zodat de effectieve kalender hier al zijn
-    // definitieve (dag- of uur-)vorm heeft. Zie de moduleheader bij `TASK_FIELD_LEVELING_DELAY`
-    // voor de twee signalen. `spanGt` UITSLUITEND in UUR-MODUS (`isHour`): `workMinutesBetween`
-    // rekent via `CalendarEngine.bandsStartingOn`, dat ongeclausuleerd `calendar.workTime!`
-    // dereferentieert — een dag-modus-kalender heeft `workTime` nooit gezet (alleen
-    // `promoteCalendarsForHourMode` vult dat), dus een blinde aanroep crasht daar. Dezelfde guard
-    // staat overal elders in de engine (`CPMSolver.ts`: `eng.isHourMode ? workMinutesBetween(...) :
-    // …`) — spiegelt dat patroon exact, in plaats van zelf dag-modus-vensterrekenwerk uit te vinden.
-    // Kost niets op het echte corpus: T9-crawl mat dat vrijwel elk bestand toch al in uur-modus
-    // leest (de vrijwel-universele MS Project-standaardkalender heeft al een lunchpauze-splitsing).
-    const leveled = raw.levelingDelayRaw !== 0;
-    const spanGt = isHour && raw.startTs != null && raw.finishTs != null
-      && spanEngineFor(cal).workMinutesBetween(raw.startTs, raw.finishTs) > raw.durationRaw / 10 + SPAN_GT_TOLERANCE_MINUTES;
-    if (leveled) scheduleNoteLeveled++;
-    if (spanGt) scheduleNoteSpanGt++;
-    if (leveled || spanGt) scheduleNoteTotal++;
 
     // Duur: uur ⇒ minuten (bron van waarheid, geen dag-afronding — spiegelt mspdiReader's §7.3-pad);
     // dag ⇒ het bestaande dag-pad, ONGEWIJZIGD op de PROJECT-brede `hoursPerDay` (niet `effHpd`) —
@@ -1237,7 +1218,6 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   normalizeImportedProgress(tasks, statusDate);
   return {
     tasks, taskIdByUniqueId, taskHourById,
-    scheduleNotes: { total: scheduleNoteTotal, leveled: scheduleNoteLeveled, spanGt: scheduleNoteSpanGt },
     rawScans: raws, // Z2 — zie ReadTasksResult se toelichting; readMPP hieronder geeft dit NIET door
   };
 }
@@ -1573,8 +1553,8 @@ export function deriveSplitGapsForTasks(
     // `engine.isHourMode`-guard (Z4-fixronde-BEVINDING, tijdens het testen ontdekt):
     // `workMinutesBetween` is een ZUIVERE uur-modus-primitief — ze dereferentieert
     // `calendar.workTime!`/`this.bandCache` onvoorwaardelijk en GOOIT op een dag-modus-kalender
-    // (geen `workTime`). Zelfde guard staat al elders in dit bestand (`scheduleNoteSpanGt` hierboven,
-    // met dezelfde `CPMSolver.ts`-verwijzing) — spiegelt dat patroon exact i.p.v. zelf dag-modus-
+    // (geen `workTime`). Zelfde guard staat al elders in de engine (`CPMSolver.ts`: `eng.isHourMode
+    // ? workMinutesBetween(...) : …`) — spiegelt dat patroon exact i.p.v. zelf dag-modus-
     // vensterrekenwerk uit te vinden. DAG-modus-taken krijgen dus shift 0 (byte-identiek t.o.v. vóór
     // deze fixronde) — geen gegokte dag-granulaire formule zonder corpusmeting.
     const assignmentStartShift = engine.isHourMode && link.assignmentStart
@@ -1855,7 +1835,7 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   // mspdiReader's `taskCalendarId`-toewijzing tijdens de taken-lus) — de oude post-hoc-koppelstap
   // (`calendarUniqueIdByTaskId` → `calResult.calendarByUniqueId`-lookup ná `readTasks`) is dus
   // vervallen; `taskHourById` voedt T7's relaties (lag-eenheid-keuze, spiegelt mspdiReader).
-  const { tasks, taskIdByUniqueId, taskHourById, scheduleNotes } = readTasks({
+  const { tasks, taskIdByUniqueId, taskHourById } = readTasks({
     cfb, taskFieldMap, hoursPerDay, statusDate: project.statusDate, applicationVersion, calResult,
   });
 
@@ -1915,6 +1895,12 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     }
   }
 
+  // Z16 (etappe "nul afwijkingen") — de meldingstelling draait HIER, ná beide mutatielussen
+  // hierboven: `task.splitGaps` (Z4) en `task.timephasedFinishFloor`/`timephasedDurationWalks` (Z8)
+  // staan pas op dit punt op de taak. Zie `countScheduleNotes`'s eigen docblok voor waarom dit geen
+  // eigen byte-lezing is en dus geen synthetische fixture nodig heeft.
+  const scheduleNotes = countScheduleNotes(tasks);
+
   return {
     project,
     calendar,
@@ -1923,9 +1909,10 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     resources,
     assignments,
     resourceCalendars: calResult.resourceCalendars,
-    // T12 (§9/O1): alleen gezet als er daadwerkelijk ≥1 taak een signaal draagt — `undefined` bij
-    // een schoon bestand, zodat `fileSlice.ts` met `parsed.sourceScheduleNotes?.total` kan volstaan
-    // en geen aparte "0 gevonden"-staat hoeft te onderscheiden.
+    // T12 (§9/O1), telling sinds Z16 herzien: alleen gezet als er daadwerkelijk ≥1 taak een signaal
+    // draagt — `undefined` bij een schoon bestand, zodat `fileSlice.ts` met
+    // `parsed.sourceScheduleNotes?.total` kan volstaan en geen aparte "0 gevonden"-staat hoeft te
+    // onderscheiden.
     ...(scheduleNotes.total > 0 ? { sourceScheduleNotes: scheduleNotes } : {}),
   };
 }

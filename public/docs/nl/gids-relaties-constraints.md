@@ -91,6 +91,8 @@ MSO en MFO kunnen bovendien **hard** gemaakt worden via het vinkje **Verplicht (
 
 Gebruik een harde pin dus alleen wanneer een datum werkelijk niet onderhandelbaar is en losstaat van de logica van de planning — bijvoorbeeld een wettelijk vastgelegde opleverdatum die vaststaat ongeacht voortgang. Gebruik hem **niet** als vuistregel voor "ik wil dat deze taak op die datum staat": in dat geval is een zachte constraint (SNET/FNLT/etc.) of gewoon een goed geplande keten van relaties vrijwel altijd de betere keuze. Een harde pin kan het hele netwerk stroomopwaarts knellen: als de voorgaande taken door de pin heen willen lopen, ontstaat er negatieve speling die zich door de hele keten vóór de gepinde taak voortplant — een teken dat de planning conflicteert, niet dat de pin het probleem oplost.
 
+Een **handmatig geplande** taak (die vlag ontstaat bij een `.mpp`-import) wint zelfs van een harde pin: zo'n taak houdt hoe dan ook haar eigen opgeslagen datum, en een tegelijk ingestelde constraint — zacht of hard — wordt genegeerd. Dat is geen bug maar hetzelfde gedrag als in MS Project zelf.
+
 ### Secundaire constraint
 
 Bij een niet-harde constraint (dus geen ASAP/ALAP en geen harde MSO/MFO) kun je een **secundaire constraint** toevoegen: een tweede grens uit dezelfde vier zachte types (SNET/FNET/SNLT/FNLT), die niet dezelfde zijde mag begrenzen als de primaire. Zo kun je bijvoorbeeld tegelijk een ondergrens én een bovengrens op de startdatum zetten. Open Planner Studio valideert de combinatie live en toont een foutmelding zodra de combinatie ongeldig is — bijvoorbeeld een secundaire constraint naast een harde pin, wat niet is toegestaan.
