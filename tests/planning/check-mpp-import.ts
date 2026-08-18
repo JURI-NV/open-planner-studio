@@ -68,7 +68,7 @@ import {
 import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks,
-  buildAssignmentUidLinks, deriveSplitGapsForTasks,
+  buildAssignmentUidLinks, deriveSplitGapsForTasks, deriveTimephasedWindowsForTasks,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
 import { readCalendars, type CalendarReadResult } from '@/services/mpp/mppCalendars';
@@ -78,6 +78,7 @@ import { formatInstant } from '@/utils/dateUtils';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
 import type { Task, TaskSplitGap } from '@/types/task';
+import type { Resource } from '@/types/resource';
 import type { WorkCalendar } from '@/types/calendar';
 import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import {
@@ -91,6 +92,8 @@ import {
   type TimephasedWorkPeriod, type TimephasedIrregularPeriod,
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
+import { solveProject } from '@/engine/scheduler/solveProject';
+import { canonicalizeBands, promoteHourCalendar } from '@/services/subdayIo';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -130,6 +133,72 @@ let softChecksTotal = 0;
   truthy(
     '00c tenthsOfMinutesToDays(16100, 460/60) === 4 (niet-dyadische hoursPerDay, halve-dag-grens)',
     tenthsOfMinutesToDays(16100, 460 / 60) === 4,
+  );
+}
+
+// ── Z8-herwerkronde (2026-08-18) — INSTRUMENTFIX: `canonicalizeBands`/`promoteHourCalendar`
+// (`src/services/subdayIo.ts`, buiten baan S se gewone bestandseigendom — coördinator autoriseerde
+// deze ÉNE gerichte lezer-fix). Corpusmeting (mpp14timephased.mpp): MSP's ingebouwde "24 Hours"-
+// basiskalender en elke resource-kalender die 'm kopieert coderen een werkdag als ÉÉN band
+// `{start:0, end:1440}` — geen tweede band (discriminator a), geen middernacht-wrap (b, `end`
+// (1440) is niet `> 1440`). Zonder de nieuwe (b2)-discriminator (`end − start ≥ 1440`) bleef
+// `deviates` op zo'n kalender `false` en promoveerde ze NOOIT naar uur-modus tenzij een taak
+// toevallig een eigen (c)-signaal droeg — een resource-kalender die alleen via een TOEWIJZING
+// gebruikt wordt (nooit via `task.calendarId`) krijgt dat signaal nooit. Gevolg: `CalendarEngine.
+// isHourMode` gaf stil `false` op zo'n kalender — een lezer-defect, geen bewijs dat een
+// kalenderwandeling-formule op resource-kalenders niet zou werken (zie het Z8-herwerkrapport). ──
+{
+  const fullDayBands = canonicalizeBands({ 1: [{ start: 0, end: 1440 }], 2: [{ start: 0, end: 1440 }] });
+  truthy(
+    '[Z8 instrumentfix 1] volledige-dag-band (0..1440) ⇒ deviates === true (was false vóór de (b2)-fix)',
+    fullDayBands.deviates === true,
+  );
+  truthy(
+    '[Z8 instrumentfix 1] bandinhoud blijft ongewijzigd (0..1440, geen dubbele/verlengde band)',
+    fullDayBands.bands.byWeekday[1].length === 1
+    && fullDayBands.bands.byWeekday[1][0].start === 0 && fullDayBands.bands.byWeekday[1][0].end === 1440,
+  );
+
+  // Rode-pad/regressie-guard: een GEWONE 8-uurskalender (08:00-16:00, ÉÉN band, geen wrap, geen
+  // volledige dag) blijft `deviates === false` — de (b2)-fix mag GEEN normale kalender raken.
+  const normalBands = canonicalizeBands({ 1: [{ start: 480, end: 960 }] });
+  truthy(
+    '[Z8 instrumentfix 1, regressie-guard] normale 8u-band (08:00-16:00) ⇒ deviates blijft false',
+    normalBands.deviates === false,
+  );
+
+  // Grensgeval: een band van 1439 minuten (net ONDER een volledige dag) mag NIET meetellen — (b2)
+  // is bewust `≥ 1440`, niet `> 1439` of losser, om geen bijna-volledige-maar-normale banden te raken.
+  const almostFullDay = canonicalizeBands({ 1: [{ start: 0, end: 1439 }] });
+  truthy(
+    '[Z8 instrumentfix 1, grensgeval] band van 1439 min (net onder een volledige dag) ⇒ deviates blijft false',
+    almostFullDay.deviates === false,
+  );
+
+  // Integratie: `promoteHourCalendar` promoveert zo'n kalender nu daadwerkelijk (workTime gezet,
+  // hoursPerDay afgeleid op 24) — ZONDER dat er een taak-signaal (`signaled`) nodig is, precies het
+  // scenario dat een resource-only "24 Hours"-kalender in de praktijk treft.
+  const cal24: WorkCalendar = {
+    id: 'cal-24h-test', name: '24 Hours', description: '',
+    workDays: [1, 2, 3, 4, 5, 6, 7], workStartHour: 0, workEndHour: 24, hoursPerDay: 8, holidays: [],
+  };
+  const promoted = promoteHourCalendar(cal24, { canonical: fullDayBands.bands, deviates: fullDayBands.deviates }, false, false);
+  truthy('[Z8 instrumentfix 1, integratie] promoteHourCalendar retourneert true zonder taak-signaal', promoted === true);
+  truthy('[Z8 instrumentfix 1, integratie] cal.workTime gezet', !!cal24.workTime);
+  truthy(`[Z8 instrumentfix 1, integratie] cal.hoursPerDay afgeleid op 24 (kreeg ${cal24.hoursPerDay})`, cal24.hoursPerDay === 24);
+
+  // Mutatiebewijs: de OUDE discriminator (alleen a/b, geen b2) op dezelfde banden geeft `deviates
+  // === false` en dus GEEN promotie zonder taak-signaal — reproduceer dat expliciet (niet de
+  // productiecode gemuteerd, want dat zou de rest van de suite verstoren) om aan te tonen dat de
+  // assertie hierboven de (b2)-fix ECHT test, niet toevallig hetzelfde antwoord geeft.
+  function oldDiscriminatorDeviates(start: number, end: number): boolean {
+    let e = end;
+    if (e <= start) e += 1440;
+    return e > 1440; // (a) wordt hier niet getoetst — enkele band, dus (a) is toch al false
+  }
+  truthy(
+    '[Z8 instrumentfix 1, mutatiebewijs] de OUDE (a)/(b)-discriminator alleen zou deviates=false geven voor 0..1440 (bewijst dat (b2) de doorslag geeft)',
+    oldDiscriminatorDeviates(0, 1440) === false,
   );
 }
 
@@ -2788,8 +2857,20 @@ if (corpusPresent) {
   // voor resource-contouring ("Contoured Task", assignment-uniqueID 8): de moduleheader hierboven
   // (punt 3 bij `TASK_FIELD_LEVELING_DELAY`) documenteert waarom het assignment-eigen WORK_CONTOUR-
   // bit — GETOETST op precies dit bestand — niet betrouwbaar bleek en dus NIET geïmplementeerd is.
-  // Deze leescase pint het GEKOZEN (eerlijke) gedrag: "Contoured Task" heeft venster == duur (geen
-  // spanGt, geen leveling delay) en blijft dus ONGEMELD — een KNOWN GAP, geen stille belofte. ────
+  //
+  // Z8-OMZETTING (2026-08-18, plan-§Z8) → Z8-HERWERKRONDE-SLOTRONDE (2026-08-18, herzien): de
+  // eerdere versie van deze sectie claimde 0/0/0 over alle zes velden voor dit bestand — dat kwam uit
+  // de vlakke/null-resource-finish-terugval die de reviewer afkeurde als fee9ecb4's onvoorwaardelijke
+  // override in een nieuw jasje (zij las voor "Task A" gewoon `AssignmentField.FINISH` terug in
+  // plaats van onafhankelijk te herberekenen). Die terugval is VERWIJDERD. Het EERLIJKE beeld: "Task
+  // A" (drie toewijzingen, verschillende resourcekalenders) blijft een BEKENDE, GEPINDE afwijking —
+  // de volledige-taakduur-per-toewijzing-wandeling (laag 4) is bewust tot PRECIES 1 toewijzing
+  // beperkt (bij >1 toewijzing delen de resources het werk, een naïeve "elk doet het geheel"-
+  // wandeling geeft een absurde datum) — zie `mpp-fidelity-baseline.json`'s hash `3fc8d51a7e1270c8`
+  // voor de volledige reden. "Contoured Task" heeft precies 1 toewijzing en IS single-assignment-
+  // geactiveerd — die reproduceert MSP's eigen finish nog steeds exact, ONAFHANKELIJK van "Task A"'s
+  // afwijking (haar eigen laag-4-wandeling raakt niet aan Task A se resultaat). De MELDING
+  // (`sourceScheduleNotes`) blijft een apart, ONGEMOEID signaal (buiten Z8-scope).
   {
     const RESOURCE_FIXTURE = process.env.OPS_MPP_RESOURCE_FIXTURE
       ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14resource.mpp';
@@ -2811,10 +2892,57 @@ if (corpusPresent) {
         }
         // KNOWN GAP, expliciet gepind (geen stille regressie mogen worden — zie de moduleheader):
         // resource-contouring-ALLEEN triggert geen enkel huidig signaal, dus GEEN sourceScheduleNotes.
+        // Dit blijft ONGEWIJZIGD door Z8 — de melding is een apart signaal, zie de sectie-toelichting.
         truthy(
           `[T12 mpp14resource] GEEN sourceScheduleNotes ondanks resource-contouring — bekende, gedocumenteerde beperking (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
           result.sourceScheduleNotes === undefined,
         );
+
+        // Z8-HERWERKRONDE-SLOTRONDE — reken de ECHTE keten door (readMPP + solveProject, dezelfde die
+        // runCPM draait) en toets tegen MSP's eigen opgeslagen antwoord (gemeten, `mppGroundTruth.ts`-
+        // stijl — hier als letterlijke, publieke MPXJ-crawldatums, toegestaan per plan-§6/§8). "Task
+        // A" heeft GEEN contour maar WEL drie toewijzingen met verschillende resourcekalenders (de
+        // multi-toewijzing-populatie, buiten laag 4's scope — zie hierboven); "Contoured Task" is de
+        // ECHTE contourtaak met PRECIES 1 toewijzing en volgt op "Task A" (FS+0).
+        const cpm = solveProject({
+          tasks: result.tasks, sequences: result.sequences, calendar: result.calendar,
+          calendars: result.resourceCalendars ?? [],
+        });
+        truthy('[T12 mpp14resource, Z8] solveProject zonder cyclus-fout', !cpm.error);
+        const taskA = result.tasks.find((t) => t.name === 'Task A');
+        truthy('[T12 mpp14resource, Z8] "Task A" gevonden', !!taskA);
+        if (taskA) {
+          // Multi-toewijzing ⇒ laag 4 activeert bewust NIET (walks.length !== 1) ⇒ geen Z8-mechanisme
+          // op deze taak — de kale duur-gebaseerde berekening beslist, GEEN gelezen terugval meer.
+          truthy(
+            '[T12 mpp14resource, Z8] "Task A" krijgt GEEN timephasedDurationWalks (multi-toewijzing, laag 4 vereist precies 1)',
+            taskA.timephasedDurationWalks === undefined,
+          );
+          truthy(
+            `[T12 mpp14resource, Z8] "Task A".scheduleFinish wijkt (bekend, gepind — multi-toewijzing buiten laag-4-scope) af van MSP's 2006-08-30T08:00 (kreeg ${taskA.time.scheduleFinish})`,
+            taskA.time.scheduleFinish !== '2006-08-30T08:00',
+          );
+        }
+        if (contoured) {
+          truthy(
+            `[T12 mpp14resource, Z8] "Contoured Task".scheduleFinish === MSP's eigen 2006-09-08T09:08 (laag 3, gelezen venster uit een échte contour-periode, ONAFHANKELIJK van "Task A"'s afwijking, kreeg ${contoured.time.scheduleFinish})`,
+            contoured.time.scheduleFinish === '2006-09-08T09:08',
+          );
+          // Mutatiebewijs (acceptatiepunt 2, "negeer het venster ⇒ ROOD"): met
+          // `timephasedFinishFloor` verwijderd VÓÓR het rekenen zou "Contoured Task" terugvallen op de
+          // kale duur-gebaseerde berekening — reproduceer dat expliciet i.p.v. de productiecode te
+          // muteren.
+          const withoutWindow = { ...contoured, time: { ...contoured.time }, timephasedFinishFloor: undefined };
+          const cpmNaive = solveProject({
+            tasks: [withoutWindow, ...result.tasks.filter((t) => t.id !== contoured.id)],
+            sequences: result.sequences, calendar: result.calendar, calendars: result.resourceCalendars ?? [],
+          });
+          const naiveFinish = cpmNaive.tasks.get(contoured.id)?.earlyFinish;
+          truthy(
+            `[T12 mpp14resource, Z8 mutatiebewijs] ZONDER timephasedFinishFloor wijkt "Contoured Task".scheduleFinish af van MSP's antwoord (bewijst dat het venster de bepalende factor is, kreeg ${naiveFinish})`,
+            naiveFinish !== '2006-09-08T09:08',
+          );
+        }
       }
     }
   }
@@ -4269,6 +4397,237 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     '[Z4 verdedigingsdiepte] negatieve fixedOffset ⇒ dat veld wordt null, de rest van de link blijft intact',
     linksHostileOffset.get(7)?.taskId === 'task-a' && linksHostileOffset.get(7)?.assignmentStart === null,
   );
+}
+
+// ── Z8-HERWERKRONDE — `deriveTimephasedWindowsForTasks` (mppReader.ts): de gelaagde beslistabel
+// (laag 1/2 completion-uitsluiting, laag 3 gelezen venster bij ≥1 échte periode, laag 4 verse
+// resourcekalender-wandeling bij een vlakke-maar-afwijkende toewijzing, laag 5 = niets) rechtstreeks
+// getoetst met synthetische `TBkndAssn`-fixtures. Mutatiebewijs bij elk laag-criterium. ──────────
+{
+  const THURSDAY_0800 = new Date('2026-01-08T08:00:00.000Z');
+
+  function z8MetaBytes(records: { deleted: boolean; offset: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + records.length * 34);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, records.length, true);
+    records.forEach((r, i) => {
+      const pos = 16 + i * 34;
+      view.setUint8(pos, r.deleted ? 1 : 0);
+      view.setInt32(pos + 4, r.offset, true);
+    });
+    return out;
+  }
+  // uid@0, taskUid@4, resourceUid@8, start@12, finish@16 — spiegelt `FieldMap14.java`'s
+  // block-0-offsets exact (zie `fieldMap14.ts`'s `AssignmentFieldId.Finish`-docblok).
+  function z8DataRecord(uid: number, taskUid: number, resourceUid: number, start?: Date, finish?: Date): Uint8Array {
+    const out = new Uint8Array(110);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, uid, true);
+    view.setInt32(4, taskUid, true);
+    view.setInt32(8, resourceUid, true);
+    if (start) {
+      const p = z4TimestampParts(start);
+      view.setUint16(12, p.time, true);
+      view.setUint16(14, p.days, true);
+    }
+    if (finish) {
+      const p = z4TimestampParts(finish);
+      view.setUint16(16, p.time, true);
+      view.setUint16(18, p.days, true);
+    }
+    return out;
+  }
+  /** Format A (actual), ÉÉN echte periode — genoeg om laag 3 se signaalcriterium (≥1 gedecodeerde
+   *  periode) te halen. Spiegelt Z3's eigen fixture-vorm (16-byte header + totaal-record + N echte
+   *  records). */
+  function z8RegularBlockOnePeriod(cumulativeWorkMinutes: number, cumulativeElapsedMinutes: number): Uint8Array {
+    const out = new Uint8Array(16 + 20 + 20);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, 1, true);
+    view.setInt32(24, 2_000_000_000, true); // finishTime-sanity-plafond, ruim boven elk testgetal
+    const offset = 36;
+    view.setFloat64(offset, cumulativeWorkMinutes * 1000, true);
+    view.setInt32(offset + 16, cumulativeElapsedMinutes * 80, true);
+    return out;
+  }
+  /** Format B, `blockCount===0`-vlak geval — GEEN echte periode (laag-3-signaal blijft leeg). */
+  function z8FlatBlock(totalWorkMinutes: number): Uint8Array {
+    const out = new Uint8Array(24);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, 0, true);
+    view.setFloat64(16, totalWorkMinutes * 1000, true);
+    return out;
+  }
+
+  const asgFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: AssignmentFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+    { typeValue: AssignmentFieldId.TaskUniqueId, dataBlockOffset: 4, category: 3 },
+    { typeValue: AssignmentFieldId.ResourceUniqueId, dataBlockOffset: 8, category: 3 },
+    { typeValue: AssignmentFieldId.Start, dataBlockOffset: 12, category: 3 },
+    { typeValue: AssignmentFieldId.Finish, dataBlockOffset: 16, category: 3 },
+    { typeValue: AssignmentFieldId.ActualRegularWork, dataBlockOffset: 65535, category: 8 },
+    { typeValue: AssignmentFieldId.RemainingRegularWork, dataBlockOffset: 65535, category: 8 },
+  ]);
+  const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'Z8-assignment-fieldmap');
+  const asgFieldMap = createAssignmentFieldMap(asgProps);
+
+  // taak-x (taskUid 301): LAAG 3 — twee toewijzingen, BEIDE met ≥1 échte periode (uid 30/31),
+  // verschillende vensters ⇒ MAX-finish/MIN-start. uid 32 draagt GEEN var-data (signaalloos) met
+  // een LATERE finish (THURSDAY) ⇒ moet uitgesloten blijven.
+  // taak-y (taskUid 302): samenvattingstaak ⇒ uitgesloten ondanks een echte periode.
+  // taak-z (taskUid 303): geen enkel timephased-signaal ⇒ afwezig uit de resultaat-map.
+  // taak-w (taskUid 304): LAAG 1/2-uitsluiting — completion=0.6 (in-progress) MET een echte periode
+  //   (uid 34) ⇒ moet TOCH afwezig zijn (lagen 1/2 winnen vóór laag 3 ooit bereikt wordt).
+  const metaBytes = z8MetaBytes([
+    { deleted: false, offset: 0 }, { deleted: false, offset: 110 },
+    { deleted: false, offset: 220 }, { deleted: false, offset: 330 }, { deleted: false, offset: 440 },
+  ]);
+  const dataBytes = concatBytes(
+    z8DataRecord(30, 301, 1, TUESDAY_0800, TUESDAY_0800),
+    z8DataRecord(31, 301, 2, MONDAY_0800, WEDNESDAY_0800),
+    z8DataRecord(32, 301, 3, TUESDAY_0800, THURSDAY_0800), // geen var-data ⇒ signaalloos
+    z8DataRecord(40, 302, 4, MONDAY_0800, THURSDAY_0800),  // samenvattingstaak
+    z8DataRecord(34, 304, 5, MONDAY_0800, THURSDAY_0800),  // in-progress-taak, laag 1/2
+  );
+
+  const actualPayload = z8RegularBlockOnePeriod(480, 480); // 480 min werk, 480 min verstreken
+  const actualSlot = 4 + actualPayload.length; // 4-byte lengte-prefix + payload (buildVar2DataBytes)
+  const varMetaBytes = buildVarMetaBytes([
+    { uniqueId: 30, type: AssignmentFieldId.ActualRegularWork, offset: 0 },
+    { uniqueId: 31, type: AssignmentFieldId.ActualRegularWork, offset: actualSlot },
+    { uniqueId: 34, type: AssignmentFieldId.ActualRegularWork, offset: 2 * actualSlot },
+  ]);
+  const var2DataBytes = buildVar2DataBytes(
+    [
+      { offset: 0, payload: actualPayload },
+      { offset: actualSlot, payload: actualPayload },
+      { offset: 2 * actualSlot, payload: actualPayload },
+    ],
+    3 * actualSlot,
+  );
+
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': {
+      children: {
+        TBkndAssn: {
+          children: {
+            FixedMeta: { data: metaBytes }, FixedData: { data: dataBytes },
+            VarMeta: { data: varMetaBytes }, Var2Data: { data: var2DataBytes },
+          },
+        },
+      },
+    },
+  }));
+  const taskIdByUniqueId = new Map<number, string>([
+    [301, 'task-x'], [302, 'task-y'], [303, 'task-z'], [304, 'task-w'],
+  ]);
+  const taskW = z4MakeTask('task-w', MONDAY_0800);
+  taskW.time.completion = 0.6;
+  const tasks: Task[] = [
+    z4MakeTask('task-x', MONDAY_0800),
+    z4MakeTask('task-y', MONDAY_0800, ['task-y-child']), // samenvattingstaak
+    z4MakeTask('task-z', MONDAY_0800),
+    taskW,
+  ];
+  const noResources: Resource[] = [];
+  const noResourceIds = new Map<number, string>();
+
+  const windows = deriveTimephasedWindowsForTasks(
+    cfb, asgFieldMap, taskIdByUniqueId, tasks, Z4_CAL_RESULT, noResourceIds, noResources,
+  );
+
+  truthy('[Z8 laag 3] task-x aanwezig', windows.has('task-x'));
+  truthy(
+    '[Z8 laag 3] task-x finishFloor === MAX(TUESDAY, WEDNESDAY) = WEDNESDAY (uid 32 se latere THURSDAY genegeerd — geen signaal)',
+    windows.get('task-x')?.finishFloor?.getTime() === WEDNESDAY_0800.getTime(),
+  );
+  truthy(
+    '[Z8 laag 3] task-x startAnchor === MIN(TUESDAY, MONDAY) = MONDAY',
+    windows.get('task-x')?.startAnchor?.getTime() === MONDAY_0800.getTime(),
+  );
+  truthy('[Z8] task-y (samenvattingstaak) NIET in de resultaat-map, ondanks echte periode', !windows.has('task-y'));
+  truthy('[Z8] task-z (geen enkel timephased-signaal) NIET in de resultaat-map — byte-identiek', !windows.has('task-z'));
+  truthy('[Z8 laag 1/2] task-w (in-progress, completion=0.6) NIET in de resultaat-map ondanks echte periode', !windows.has('task-w'));
+  truthy('[Z8] exact 1 taak in de resultaat-map (task-x)', windows.size === 1);
+
+  // Mutatiebewijs 1 (laag 3-aggregatie): een implementatie die per ongeluk MIN i.p.v. MAX voor de
+  // finish zou nemen, geeft TUESDAY i.p.v. WEDNESDAY. Losse berekening (productiecode ongemuteerd):
+  const wrongMin = Math.min(TUESDAY_0800.getTime(), WEDNESDAY_0800.getTime());
+  truthy(
+    '[Z8 mutatiebewijs] MIN i.p.v. MAX zou WEDNESDAY missen (bewijst dat de MAX-assertie hierboven echt onderscheidend is)',
+    wrongMin !== windows.get('task-x')?.finishFloor?.getTime(),
+  );
+
+  // Mutatiebewijs 2 (signaalcriterium laag 3, herwerkronde: "≥1 ÉCHTE periode", niet kale
+  // byte-aanwezigheid): uid 32 (geen var-data, latere finish THURSDAY) zou zonder het periode-
+  // criterium meetellen — de productie-uitkomst bewijst dat de guard echt vuurt.
+  truthy(
+    '[Z8 mutatiebewijs] zonder periodecriterium zou finishFloor op THURSDAY liggen — productie-uitkomst is dat NIET',
+    windows.get('task-x')?.finishFloor?.getTime() !== THURSDAY_0800.getTime(),
+  );
+
+  // ── LAAG 4 — vlakke toewijzing, niet-standaard resourcekalender ⇒ verse duur-wandeling ────────
+  {
+    const nightCal: WorkCalendar = {
+      id: 'z8-night-cal', name: 'Night Shift test', description: '',
+      workDays: [1, 2, 3, 4, 5], workStartHour: 23, workEndHour: 7, hoursPerDay: 8, holidays: [],
+      workTime: { byWeekday: { 1: [{ start: 1380, end: 1860 }], 2: [{ start: 1380, end: 1860 }], 3: [], 4: [], 5: [], 6: [], 7: [] } },
+    };
+    const calResultWithNight: CalendarReadResult = { ...Z4_CAL_RESULT, resourceCalendars: [nightCal] };
+    const nightResource: Resource = {
+      id: 'r-night', name: 'Night Resource', calendarId: 'z8-night-cal',
+    } as Resource;
+
+    const metaBytes4 = z8MetaBytes([{ deleted: false, offset: 0 }]);
+    const dataBytes4 = z8DataRecord(50, 305, 6, MONDAY_0800, undefined); // geen Finish-veld nodig
+    const varMetaBytes4 = buildVarMetaBytes([{ uniqueId: 50, type: AssignmentFieldId.RemainingRegularWork, offset: 0 }]);
+    const flatPayload = z8FlatBlock(480);
+    const var2DataBytes4 = buildVar2DataBytes([{ offset: 0, payload: flatPayload }], 4 + flatPayload.length);
+    const cfb4 = new CfbFile(buildNestedCfb({
+      '   114': {
+        children: {
+          TBkndAssn: {
+            children: {
+              FixedMeta: { data: metaBytes4 }, FixedData: { data: dataBytes4 },
+              VarMeta: { data: varMetaBytes4 }, Var2Data: { data: var2DataBytes4 },
+            },
+          },
+        },
+      },
+    }));
+    const taskV = z4MakeTask('task-v', MONDAY_0800);
+    const windows4 = deriveTimephasedWindowsForTasks(
+      cfb4, asgFieldMap, new Map([[305, 'task-v']]), [taskV], calResultWithNight,
+      new Map([[6, 'r-night']]), [nightResource],
+    );
+    truthy('[Z8 laag 4] task-v aanwezig (vlak record, afwijkende resourcekalender)', windows4.has('task-v'));
+    truthy('[Z8 laag 4] task-v draagt GEEN finishFloor (geen gelezen antwoord, laag 3 vuurde niet)', windows4.get('task-v')?.finishFloor == null);
+    truthy(
+      '[Z8 laag 4] task-v draagt precies 1 durationWalks-item met de Night-kalender-id',
+      windows4.get('task-v')?.durationWalks.length === 1
+      && windows4.get('task-v')?.durationWalks[0]?.resourceCalendarId === 'z8-night-cal',
+    );
+    truthy(
+      '[Z8 laag 4] anchor === MONDAY (AssignmentField.START)',
+      windows4.get('task-v')?.durationWalks[0]?.anchor.getTime() === MONDAY_0800.getTime(),
+    );
+
+    // Mutatiebewijs (activeringscriterium): dezelfde toewijzing maar met een resourcekalender die
+    // STRUCTUREEL GELIJK is aan de taak-kalender (`Z4_CALENDAR`'s eigen banden) mag laag 4 NIET
+    // activeren — reproduceer dat als losse aanroep i.p.v. de fixture te herbouwen.
+    const sameAsTaskCal: WorkCalendar = { ...Z4_CALENDAR, id: 'z8-same-as-task' };
+    const calResultSame: CalendarReadResult = { ...Z4_CAL_RESULT, resourceCalendars: [sameAsTaskCal] };
+    const sameResource: Resource = { id: 'r-same', name: 'Same Resource', calendarId: 'z8-same-as-task' } as Resource;
+    const windowsSame = deriveTimephasedWindowsForTasks(
+      cfb4, asgFieldMap, new Map([[305, 'task-v']]), [z4MakeTask('task-v', MONDAY_0800)], calResultSame,
+      new Map([[6, 'r-same']]), [sameResource],
+    );
+    truthy(
+      '[Z8 mutatiebewijs laag 4] structureel GELIJKE resourcekalender activeert laag 4 NIET (task-v afwezig)',
+      !windowsSame.has('task-v'),
+    );
+  }
 }
 
 // ── `deriveSplitGapsForTasks` — de volledige Z4-fixronde-ketting (punten 1, 2, 3, 4), rechtstreeks

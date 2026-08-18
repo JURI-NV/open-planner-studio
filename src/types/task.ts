@@ -293,6 +293,51 @@ export interface Task {
    *  renderer tekent sinds Z15 al een onderbroken balk in Gantt/print/PDF. Afwezig ⇒ geen splits
    *  (byte-identiek). */
   splitGaps?: TaskSplitGap[];
+  /** OPTIONEEL — GELAAGDE BESLISKOLOM (Z8-herwerkronde, etappe "nul afwijkingen"). Drie van de vijf
+   *  lagen raken taakvelden; deze eerste, `timephasedFinishFloor`, is LAAG 3: het MAXIMUM van
+   *  `AssignmentField.FINISH` over de toewijzingen van deze taak die ≥1 ÉCHTE gedecodeerde
+   *  timephased-periode droegen (Format A/B, `mppTimephased.ts` — NIET het kale "een `TBkndAssn`-
+   *  record bestaat"-signaal, dat bleek een vrijwel volledige cirkelmeting, zie de Z8-herwerkronde-
+   *  rapportage). Alleen gezet op taken met `time.completion === 0` (lagen 1/2 — voltooid resp.
+   *  in-progress — plannen op hun bestaande actuals-/resume-paden, GEEN venster, zie
+   *  `CPMSolver.ts`). MSP's EIGEN al berekende antwoord — geen eigen kalenderwandeling nodig.
+   *  `CPMSolver.ts`'s `forwardPass` past 'm toe op dezelfde plek als `sfFinishFloor` (die blijft een
+   *  onbreekbare `Math.max`-ondergrens; het venster zelf overschrijft de kale duur-gebaseerde
+   *  berekening volledig), nooit bij een harde MFO/MSO-pin, alleen in uur-modus. ISO-instant,
+   *  minuutprecisie (`formatInstant(d,'hour')`). Mutueel exclusief met `timephasedDurationWalks`
+   *  (LAAG 4, zie die docstring) — `mppReader.ts` zet nooit beide op dezelfde taak. Afwezig ⇒ geen
+   *  echte periode-data op deze taak, byte-identiek. GEEN eigen IFC-pset (buiten Z8's bestands-
+   *  eigendom — round-trip is een benoemde baan-D-nataak, zie het Z8-commitbericht). */
+  timephasedFinishFloor?: string;
+  /** OPTIONEEL — RAUW startanker (Z8-herwerkronde), gebruikt door zowel LAAG 3 als LAAG 4: het
+   *  MINIMUM van `AssignmentField.START` over de LAAG-3-toewijzingen (bij `timephasedFinishFloor`)
+   *  resp. de eerste/vroegste ankerdatum van de LAAG-4-toewijzingen (bij `timephasedDurationWalks`
+   *  — daar puur het startpunt van de wandeling, de LAAG-4-finish zelf komt uit die wandeling, niet
+   *  uit dit veld). Uitsluitend gebruikt voor een taak ZONDER voorganger (`CPMSolver.ts`'s
+   *  `forwardPass`, `preds.length===0`-tak) wier eigen `time.scheduleStart` buiten de taak-
+   *  kalender-band ligt maar de toewijzing wél binnen haar EIGEN resourcekalender (corpusvoorbeeld:
+   *  een "Night Shift"-resource op 23:00, buiten de taak se "Standard"-band) — MSP snapt zo'n
+   *  anker niet, de gewone `ownAnchor`-snap deed dat vóór Z8 wél. Afwezig ⇒ byte-identiek. Zelfde
+   *  IFC-kanttekening als `timephasedFinishFloor`. */
+  timephasedStartAnchor?: string;
+  /** OPTIONEEL — LAAG 4 van de Z8-herwerkronde-beslistabel: taken met een VLAK timephased-record
+   *  (`blockCount===0`, GEEN echte periode — dus `timephasedFinishFloor` blijft hier afwezig) MAAR
+   *  wier toewijzing(en) een NIET-STANDAARD resourcekalender dragen (corpusbewijs: de "Night Shift"/
+   *  "24 Hours"-families in `mpp14timephased.mpp`, en `mpp14resource.mpp`'s "Task A" — een gemengde
+   *  toewijzingsset waar één van de drie resources een sterk afwijkende kalender draagt). Anders dan
+   *  `timephasedFinishFloor` (een GELEZEN, bevroren MSP-antwoord) is dit een VERSE HERBEREKENING:
+   *  `CPMSolver.ts` wandelt `task.time.durationMinutes` (een gewoon, edit-live veld) door ELKE
+   *  toewijzing se EIGEN resourcekalender vanaf haar `anchor`, en neemt het MAXIMUM over de lijst
+   *  (dezelfde "langste toewijzing bepaalt de finish"-regel als laag 3, hier alleen zonder gelezen
+   *  eindantwoord) — GEEN invalidatie nodig, een latere duur-bewerking stroomt vanzelf mee omdat de
+   *  wandeling bij ELKE `runCPM` opnieuw gebeurt. `resourceCalendarId` verwijst in de gedeelde
+   *  kalenderbibliotheek (`CPMSolver`'s `registry`, `resolveCalendar`); een taak zonder voorganger
+   *  gebruikt bovendien het VROEGSTE `anchor` uit deze lijst als `timephasedStartAnchor` (zie
+   *  hierboven). Mutueel exclusief met `timephasedFinishFloor`. Corpusbewijs: 9/9 (mpp14timephased2
+   *  .mpp) en 20/20 (mpp14timephasedsegments.mpp) op de volledige populatie, en de 0%-populatie van
+   *  mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). Afwezig ⇒ byte-identiek. Zelfde IFC-
+   *  kanttekening als `timephasedFinishFloor`. */
+  timephasedDurationWalks?: { anchor: string; resourceCalendarId: string }[];
   /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
    *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het
    *  SIGNAAL dat de solver ze straks RAUW moet respecteren (geen kalendersnap, geen relatiedruk,

@@ -92,6 +92,16 @@ const TASK_VERDICTS = {
   manuallyScheduled: 'n/a',        // Z0-fixronde (orkestratorbesluit BEVINDING 2): vlag, geen datum —
                                     // zelfde taxonomie als isHammock hierboven; de datums eronder
                                     // (time.*) schuiven al normaal mee via TASK_TIME_VERDICTS
+  timephasedFinishFloor: 'shift',  // Z8 (gemelde uitzondering op de bestandseigendom, zie het
+                                    // commitbericht): absoluut ISO-instant, zelfde aard als deadline
+                                    // hieronder — een projectverschuiving moet de vensterondergrens
+                                    // meeschuiven, anders klemt een verouderde floor de herberekende
+                                    // finish vast op de OUDE datum
+  timephasedStartAnchor: 'shift',  // Z8, idem — het RAUWE startanker-tegenhanger
+  timephasedDurationWalks: 'shift', // Z8-herwerkronde: array met een `anchor`-datum per item —
+                                    // zelfde motivering als `externalLinks` hieronder (array met een
+                                    // shiftbaar subveld); `resourceCalendarId` is een verwijzing,
+                                    // schuift niet mee
   parentId: 'n/a', childIds: 'n/a',
   time: 'shift',                  // zie TASK_TIME_VERDICTS
   resourceIds: 'n/a', color: 'n/a', activityCodes: 'n/a',
@@ -249,6 +259,21 @@ export function shiftTask(task: Task, delta: number): Task {
   if (task.constraint) next.constraint = shiftConstraint(task.constraint, delta);
   if (task.constraint2) next.constraint2 = shiftConstraint(task.constraint2, delta);
   if (task.deadline !== undefined) next.deadline = shiftIso(task.deadline, delta);
+  // Z8 (gemelde uitzondering op de bestandseigendom): de verdicts hierboven markeren deze twee als
+  // 'shift' — dat is puur documentatie zonder DEZE regels, zie de moduleheader-waarschuwing bij
+  // TASK_VERDICTS ("'keep'-voorschrift... betekent dat je de shift ook echt met de hand moet
+  // implementeren").
+  if (task.timephasedFinishFloor !== undefined) {
+    next.timephasedFinishFloor = shiftIso(task.timephasedFinishFloor, delta);
+  }
+  if (task.timephasedStartAnchor !== undefined) {
+    next.timephasedStartAnchor = shiftIso(task.timephasedStartAnchor, delta);
+  }
+  if (task.timephasedDurationWalks) {
+    next.timephasedDurationWalks = task.timephasedDurationWalks.map((w) => ({
+      ...w, anchor: shiftIso(w.anchor, delta),
+    }));
+  }
   if (task.externalLinks) {
     next.externalLinks = task.externalLinks.map((l) => ({
       ...l,
