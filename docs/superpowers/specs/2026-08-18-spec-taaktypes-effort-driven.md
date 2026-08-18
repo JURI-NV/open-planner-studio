@@ -117,6 +117,48 @@ rekengedrag) — een kleine leestaak in het bestaande stramien, geregistreerd al
 nataak van de nul-afwijkingen-etappe. Daarmee gooit de import niets weg en vindt
 deze etappe zijn voedingsdata straks kant-en-klaar.
 
+## Impact op het bestaande werk
+
+De schade aan wat er nu ligt is klein en zit precies waar hij is ingecalculeerd.
+Het fidelity-harnas, de corpus-pins, manual scheduling, leveling en de
+relatiedossiers blijven onaangeraakt — met één harde ontwerpvoorwaarde:
+taaktype-semantiek werkt op *bewerkingen*, nooit op het herberekenen van een vers
+geopend bestand, anders verschuiven de gepinde importdatums en begint het
+hermeten opnieuw. Het documentcontract en de IFC-psets zijn additief uit te
+breiden volgens het bestaande stramien.
+
+Drie plekken worden wél echt geraakt. De **splits-machinerie** rekent op de
+werk-as met een vaste duur; zodra werk opgeslagen is en een duurwijziging het
+werk niet meer meeschaalt, is er een regel nodig voor wat een bewerking met de
+gaten doet — dat ís de contour-herschalingsvraag, en de reden dat de
+contour-engine in deze etappe hoort. Het **gelezen timephased-venster** (de
+smalle populatie die nu MSP's opgeslagen venster volgt) is bewust
+wegwerpmateriaal: de contour-engine vervangt het door echt herrekenen, en de
+bijbehorende invalidatie-nataak vervalt dan grotendeels mee.
+
+Het derde raakvlak, **histogram en nivelleerder**, verdient meer woorden. Vandaag
+is de dagbelasting van een resource een *formule*: de verdeelfunctie neemt
+load × duur, smeert dat totaal volgens de curvevorm over de werkdagen van de
+taak uit, en zowel het histogram (belasting, capaciteit, overallocatie per dag)
+als de nivelleerder (die conflicten zoekt en taken opschuift) rekenen met die
+formule-uitkomst. Er bestaat geen opgeslagen dagverdeling; de curve is een vorm,
+geen data. Met deze etappe draait dat om: de dagverdeling wordt échte data — uit
+een contour, uit een handbewerking, of uit een geïmporteerd .mpp — en de formule
+wordt de terugval voor taken zonder eigen verdeling. Dat betekent concreet: het
+histogram moet opgeslagen dagwaarden tonen in plaats van ze uit te rekenen (en
+toont daarmee voor het eerst ook de verdeling van geïmporteerde
+MSP-contourtaken, die er nu vlak in staan), de overallocatie-detectie moet op
+die echte dagwaarden toetsen, en de nivelleerder moet met werkelijke
+dagbelastingen schuiven in plaats van met formule-schattingen — waarbij het
+verschuiven van een gecontourde taak de verdeling mee moet nemen. De
+verdeelfunctie blijft bestaan, maar zakt van "de waarheid" naar "de terugval".
+
+Wat níét bestaat en de duurste post wordt: de **bewerken-meetlat**. Alles wat nu
+bewijsbaar is gaat over openen; "bewerking X geeft MS Projects uitkomst Z" heeft
+eigen testinfrastructuur nodig die niet uit het corpus te oogsten valt. Daar zal
+deze etappe zijn tijd aan kwijt zijn — niet aan het overhoop halen van wat er
+al staat.
+
 ## Wat dit voorstel níét zegt
 
 Het zegt niet *wanneer*. Er is op dit moment geen gebruikersvraag naar taaktypes;
