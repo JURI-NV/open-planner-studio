@@ -224,6 +224,7 @@ const TM = {
   // Z8: geen eigen IFC-pset (zie TASK_CANON hieronder, skip-cellen) — de waarden hier bestaan
   // uitsluitend om `Required<Task>` compleet te houden, niet om een round-trip te bewijzen.
   timephasedFinishFloor: '2026-07-24T17:00', timephasedStartAnchor: '2026-07-24T08:00',
+  timephasedDurationWalks: [{ anchor: '2026-07-24T08:00', resourceCalendarId: 'libcal' }],
   parentId: 't-p', childIds: [],
   resourceIds: [], // milestone zonder assignments ⇒ afgeleide resourceIds is leeg (H2-fix)
   color: '#abcdef', // round-trippt via OPS_TaskAppearance (H2-fix)
@@ -498,6 +499,7 @@ const TASK_CANON = {
   // Round-trip is een openstaand vervolgpunt (zie het Z8-commitbericht) — tot dan skip, geen KEEP.
   timephasedFinishFloor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
   timephasedStartAnchor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
+  timephasedDurationWalks: { skip: 'Z8-herwerkronde: nog geen eigen IFC-pset, zie het commitbericht' },
   parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
   childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
   time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },

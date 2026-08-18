@@ -1161,24 +1161,14 @@ export class CPMSolver {
           // `actualFinish` en start de opvolger op de eerste werkdag daarna — precies waar het feit
           // hem zet. Buiten dit randgeval (ef ≥ es) verandert er niets.
           if (ef < es) es = ef;
-          // Z8-fixronde (VERPLICHT ook in de VOLTOOID-tak, niet alleen IN-PROGRESS/AUTO): een
-          // VOLTOOIDE taak pint hier op `t.actualFinish` — een TAAK-eigen geregistreerd feit, GEEN
-          // toewijzings-eigen veld. Gemeten (mpp14timephased.mpp, de drie resterende afwijkingen ná
-          // de IN-PROGRESS-fix, allemaal completionPct=100): voor de Night-Shift/24-Hour-contour-
-          // families draagt `t.actualFinish` DEZELFDE taak-kalender-vs-resourcekalender-discrepantie
-          // als de niet-voltooide broertjes hierboven hadden — MSP's eigen `AssignmentField.FINISH`
-          // (de bron van `task.timephasedFinishFloor`, via `timephasedFinish()`) is ook hier het
-          // gezaghebbende antwoord. Zelfde gating/precedentie als de andere twee toepassingsplekken
-          // (geen SF-voorganger op een wortel-/VOLTOOIDE taak ⇒ `sfFinishFloor` is hier toch al
-          // `null`, dus deze aanroep is voor DEZE tak een kale venster-toepassing).
-          const voltooidElapsed = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
-          if (!isZeroDurationMilestone(task) && !voltooidElapsed) {
-            const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
-            if (tf) {
-              ef = tf;
-              if (ef < es) es = ef; // zelfde inversie-wacht als hierboven
-            }
-          }
+          // Z8-HERWERKRONDE (LAAG 1 van de gelaagde beslistabel, zie `mppReader.ts`'s
+          // `deriveTimephasedWindowsForTasks`-moduleheader): een VOLTOOIDE taak plant onvoorwaardelijk
+          // op `t.actualFinish` — GEEN Z8-venster-raadpleging hier. De EERSTE Z8-versie deed dat nog
+          // wél (via `timephasedFinish()`, hier verwijderd) — de Opus-review wees aan dat dat een
+          // vrijwel volledige cirkelmeting was; `mppReader.ts` zet sinds de herwerkronde
+          // `timephasedFinishFloor`/`timephasedDurationWalks` NOOIT meer op een taak met
+          // `completion >= 1`, dus een raadpleging hier zou toch altijd `null` opleveren — bewust
+          // weggelaten in plaats van dode code te laten staan.
           results.set(taskId, { es, ef });
           continue;
         }
@@ -1493,20 +1483,11 @@ export class CPMSolver {
           // mechanisme afgeleide waarde). Normale niet-override-pad: `remStart` is per constructie
           // altijd ≥ `actualES`, dus deze wacht is daar een no-op.
           if (usedResumeOverride && ef < actualES) ef = actualES;
-          // Z8-fixronde (VERPLICHT hier ook, niet alleen in de AUTO-tak verderop): deze IN-PROGRESS-
-          // tak berekent `ef` zelf en `continue`t vóór het punt waar de gewone timephased-finish-
-          // override staat — zonder deze regel hier bleven precies de taken MET voortgang (Task 4/6/
-          // 7/8 en hun contourfamilies in `mpp14timephased.mpp`, completionPct 50/60/100) op hun
-          // naïeve `ef` hangen, ondanks een correct gevuld `task.timephasedFinishFloor` (gemeten,
-          // Z8-fixronde: 9 resterende finishDiff + 1 sameday, ALLEMAAL taken met completionPct > 0).
-          // Zelfde precedentie/gating als verderop (`timephasedFinish()`, zie diens docblok voor de
-          // Z8-fixronde-correctie: het venster wint van `earlyFinishRaw`, maar NOOIT van een echte
-          // SF-vereiste-finish `sfFinishFloor`) — hier bovendien niet op een ELAPSEDTIME-taak (24/7
-          // kent geen resourcekalender-onderscheid, ongemeten).
-          if (!isElapsedTask) {
-            const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
-            if (tf) ef = tf;
-          }
+          // Z8-HERWERKRONDE (LAAG 2 van de gelaagde beslistabel): een IN-PROGRESS-taak plant op haar
+          // bestaande resume-/actuals-pad hierboven — GEEN Z8-venster-raadpleging. De EERSTE Z8-versie
+          // deed dat nog wél; de herwerkronde liet die aanroep hier bewust vervallen (spiegelt de
+          // VOLTOOID-tak hierboven) — `mppReader.ts` zet de Z8-velden nooit meer op een taak met
+          // `0 < completion < 1`, dus de aanroep zou toch altijd `null` opleveren.
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -1778,31 +1759,53 @@ export class CPMSolver {
   }
 
   /**
-   * Z8 (etappe "nul afwijkingen", fixronde): het timephased-vensterantwoord (`task.
-   * timephasedFinishFloor`, gevuld door `mppReader.ts` uit `AssignmentField.FINISH` — zie diens
-   * moduleheader voor het volledige corpusbewijs), of `null` als het niet van toepassing is.
+   * Z8-HERWERKRONDE (etappe "nul afwijkingen") — de gelaagde beslistabel, LAAG 3 en LAAG 4 (zie
+   * `mppReader.ts`'s `deriveTimephasedWindowsForTasks`-moduleheader voor de VOLLEDIGE toelichting,
+   * inclusief de weerlegde eerdere hypotheses). Mutueel exclusief per taak (`mppReader.ts` zet
+   * nooit beide velden op dezelfde taak) — `timephasedFinishFloor` afwezig ⇒ laag-4-tak geprobeerd,
+   * ook die afwezig ⇒ `null` (laag 5, geen Z8-bemoeienis). Lagen 1/2 (VOLTOOID/IN-PROGRESS) worden
+   * hier NOOIT bereikt: `mppReader.ts` zet deze velden uitsluitend op `completion === 0`-taken, dus
+   * de twee call sites in die branches zijn bewust VERWIJDERD (zie hun eigen toelichting).
    *
+   * LAAG 3 — gelezen venster (`timephasedFinishFloor`, MSP's eigen `AssignmentField.FINISH`).
    * FIXRONDE-CORRECTIE (regressie gevonden op `mpp14relations.mpp`'s "Task 5", de Z10-dossier-
    * taak — START_FINISH-opvolger): een EERSTE versie liet dit venster de hele `earlyFinish`
    * ONVOORWAARDELIJK overschrijven. MSP's per-toewijzing `FINISH`-veld blijkt echter NIET altijd
    * al de volledige relatiewiskunde te verrekenen — voor Task 5 droeg het de NAÏEVE `ES+duur`-
-   * datum (2006-09-22T17:00), niet de SF-aangepaste datum (2006-09-25T08:00) die `sfFinishFloor`
-   * (Z10) al correct berekent. Tegelijk WEERLEGD (Z8-fixronde 1): een `sfFinishFloor`-achtige
-   * `Math.max` tegen de KALE `earlyFinishRaw` werkt niet — de "24 Hour"-contourfamilie
-   * (`mpp14timephased.mpp`) en "Task A" (`mpp14resource.mpp`, drie verschillende resource-
-   * kalenders) finishen aantoonbaar EERDER dan wat een kalenderwandeling op de TAAK-kalender geeft
-   * (het venster is dus geen ondergrens op de naïeve duur, wél op een echte SF-vereiste-finish).
-   * Conclusie: het venster wint van `earlyFinishRaw` (dat wordt hier niet eens meer geraadpleegd),
-   * maar NOOIT van een echte SF-vereiste (`sfFinishFloor`, alleen gezet bij een SF-voorganger) —
-   * die blijft een `Math.max`-ondergrens, exact zoals ze dat voor `earlyFinishRaw` al was.
-   * `sfFinishFloor === null` (geen SF-voorganger, verreweg het gebruikelijke geval) ⇒ het venster
-   * geldt kaal, byte-identiek aan de eerste versie voor die populatie.
+   * datum, niet de SF-aangepaste datum die `sfFinishFloor` (Z10) al correct berekent. Conclusie:
+   * het venster wint van `earlyFinishRaw` (hier niet eens meer geraadpleegd), maar NOOIT van een
+   * echte SF-vereiste (`sfFinishFloor`) — die blijft een `Math.max`-ondergrens.
+   *
+   * LAAG 4 — VERSE herberekening (`timephasedDurationWalks`): GEEN gelezen antwoord, dus GEEN
+   * cirkelmeting-risico — `task.time.durationMinutes` is een gewoon, edit-live veld. Voor ELK item
+   * in de lijst: wandel die duur door de toewijzings-eigen resourcekalender vanaf haar `anchor`, en
+   * neem het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish", corpusbewijs "Task A" —
+   * mpp14resource.mpp, drie toewijzingen, één met een sterk afwijkende kalender die de max wint).
+   * Zelfde `sfFinishFloor`-precedentie als laag 3. Een item wiens resourcekalender NIET naar
+   * uur-modus promoveert (dag-modus-kalender) draagt geen bruikbare `addWorkMinutes` en wordt
+   * overgeslagen — ontbreken ALLE items dan (zeldzaam; `mppReader.ts` activeert laag 4 alleen als
+   * er minstens één structureel afwijkende, dus doorgaans al gepromoveerde, kalender is) ⇒ `null`.
    */
   private timephasedFinish(
     task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
   ): Date | null {
-    if (hardFinishPin || !cal.isHourMode || !task.timephasedFinishFloor) return null;
-    const windowValue = parseInstant(task.timephasedFinishFloor);
+    if (hardFinishPin) return null;
+    let windowValue: Date | null = null;
+    if (cal.isHourMode && task.timephasedFinishFloor) {
+      windowValue = parseInstant(task.timephasedFinishFloor);
+    } else if (task.timephasedDurationWalks && task.timephasedDurationWalks.length > 0) {
+      const durMin = task.time.durationMinutes;
+      if (durMin != null) {
+        for (const walk of task.timephasedDurationWalks) {
+          const resCal = resolveCalendar(walk.resourceCalendarId, this.registry, this.projectCal);
+          const resEng = this.engineForCal(resCal);
+          if (!resEng.isHourMode) continue;
+          const candidate = resEng.addWorkMinutes(parseInstant(walk.anchor), durMin);
+          if (!windowValue || candidate > windowValue) windowValue = candidate;
+        }
+      }
+    }
+    if (!windowValue) return null;
     return sfFinishFloor && sfFinishFloor > windowValue ? sfFinishFloor : windowValue;
   }
 

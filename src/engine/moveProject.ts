@@ -98,6 +98,10 @@ const TASK_VERDICTS = {
                                     // meeschuiven, anders klemt een verouderde floor de herberekende
                                     // finish vast op de OUDE datum
   timephasedStartAnchor: 'shift',  // Z8, idem — het RAUWE startanker-tegenhanger
+  timephasedDurationWalks: 'shift', // Z8-herwerkronde: array met een `anchor`-datum per item —
+                                    // zelfde motivering als `externalLinks` hieronder (array met een
+                                    // shiftbaar subveld); `resourceCalendarId` is een verwijzing,
+                                    // schuift niet mee
   parentId: 'n/a', childIds: 'n/a',
   time: 'shift',                  // zie TASK_TIME_VERDICTS
   resourceIds: 'n/a', color: 'n/a', activityCodes: 'n/a',
@@ -264,6 +268,11 @@ export function shiftTask(task: Task, delta: number): Task {
   }
   if (task.timephasedStartAnchor !== undefined) {
     next.timephasedStartAnchor = shiftIso(task.timephasedStartAnchor, delta);
+  }
+  if (task.timephasedDurationWalks) {
+    next.timephasedDurationWalks = task.timephasedDurationWalks.map((w) => ({
+      ...w, anchor: shiftIso(w.anchor, delta),
+    }));
   }
   if (task.externalLinks) {
     next.externalLinks = task.externalLinks.map((l) => ({
