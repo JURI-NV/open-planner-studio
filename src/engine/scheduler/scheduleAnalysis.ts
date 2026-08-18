@@ -135,6 +135,16 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
   // vanaf de taak/taken met de grootste EF; bij ties (meerdere eindtaken met dezelfde grootste EF)
   // is de UNIE van alle peels kritiek. tf speelt in deze modus geen rol. Alleen opgebouwd in
   // longestPath-modus (anders leeg ⇒ geen effect). Hammocks worden pas in golf 4 speciaal behandeld.
+  // Handmatig gepland (Z9b): BEWUST GEEN `manuallyScheduled`-tegenhanger van de hammock-uitsluiting
+  // hierboven/hieronder. Een hammock is "een gevolg, geen oorzaak" (§4.4) — hij mag nooit als
+  // keten-EINDPUNT gelden, want zijn EF is zelf al een AFGELEIDE van zijn eigen finish-drivers. Een
+  // manual taak is het omgekeerde: haar EF is een ECHT, rechtstreeks anker (geen afleiding) — als
+  // dat toevallig de grootste EF van het project is, IS ze legitiem het eindpunt van het langste
+  // pad. `drivingSet`/`traceFrom` blijven hier vanzelf correct: `seqConstraint` wordt voor een
+  // relatie die een manual taak als OPVOLGER heeft nooit gezet (`CPMSolver.forwardPass`s manual-tak
+  // slaat de voorganger-lus over; `applyAlap` sluit haar sinds Z9b expliciet uit, zie de
+  // moduleheader daar) — zo'n relatie kan dus nooit in `drivingSequenceIds` belanden en `traceFrom`
+  // kan nooit "doorheen" een manual taak terugtracen via een relatie die ze feitelijk negeert.
   const longestPathCritical = new Set<string>();
   if (useLongestPath) {
     let maxEf = -Infinity;
@@ -212,9 +222,31 @@ export function computeScheduleResults(input: ScheduleAnalysisInput): CPMResult 
       tf = 0;
       freeFloat = 0;
     }
+    // Handmatig gepland (Z9b, etappe "nul afwijkingen"): `CPMSolver.backwardPass` geeft een manual
+    // taak DEFINITORISCH `ls=es`/`lf=ef` (verplichte early-return, zelfde vorm als de hammock-tak
+    // — zie het docblock daar). tf/ff zouden op zo'n IDENTIEK es/ls-paar dus ALTIJD 0 moeten zijn,
+    // ongeacht welke dag het is — maar de generieke `signedFloat` hierboven is een WERKDAG-tellende
+    // formule, gebouwd om een venster tussen twee (potentieel verschillende) werk-instanten te
+    // meten, niet om "0" te garanderen op een paar identieke, mogelijk NIET-werk-instanten. Op een
+    // manual taak met een rauw anker BUITEN de werkband (bv. een zaterdag-mijlpaal) geeft die
+    // formule daardoor een ARTEFACT: gemeten tf=-1 (`msp-56-z9a-manual-anchor-raw-no-snap`, vóór
+    // deze fix bewust zonder tf/crit-assert gelaten — zie de note daar). Force tf=ff=0: dat is geen
+    // hammock-achtige "geen kritiek-signaal"-forcing (zie hieronder — `isCritical` wordt voor een
+    // manual taak NIET geforceerd), maar een correctie van de FORMULE-INVOER op een paar dat door
+    // constructie al identiek is. Op een werkdag-anker (het gewone geval, `msp-57`) gaf de formule
+    // toch al 0 — deze forcing is daar een no-op, geen gedragswijziging.
+    if (taskObj.manuallyScheduled) {
+      tf = 0;
+      freeFloat = 0;
+    }
     // Kritiek-definitie (§4.6): hammock ⇒ NOOIT kritiek (P6: LOE is een gevolg, geen oorzaak);
     // voltooid ⇒ nooit kritiek (P6, opvolgers wél); longestPath ⇒ op een driving-keten naar de
     // laatste finish (tf-onafhankelijk); anders tf ≤ drempel (default 0 = het huidige tf≤0).
+    // Handmatig gepland: BEWUST GEEN eigen forceringstak (in tegenstelling tot hammock) — "MS
+    // Project toont voor manual taken gewoon float" (plan-§Z9b): met tf hierboven al op 0 gezet,
+    // geeft de gewone `tf ≤ drempel`-regel het juiste (kritiek) antwoord vanzelf, zónder een
+    // hammock-achtige "nooit kritiek"-blindering. Een manual taak IS immers een echt anker (geen
+    // afgeleid gevolg zoals een hammock) en kan dus legitiem op het kritieke pad staan.
     const isCritical = isHammock
       ? false
       : completed

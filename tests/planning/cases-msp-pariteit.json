@@ -1268,8 +1268,8 @@
     },
     {
       "id": "msp-56-z9a-manual-anchor-raw-no-snap",
-      "title": "Z9a-acceptatiepunt (a): een `manuallyScheduled`-mijlpaal geankerd op een NIET-werkdag (zaterdag 2026-06-06) houdt haar rauwe `scheduleStart`/`scheduleFinish` ONGESNAPT aan — de forwardPass-tak leest `task.time.scheduleStart` rechtstreeks via `parseIn` (GEEN `snapOnOrAfter`). Contrast: `B` is dezelfde mijlpaal op dezelfde datum ZONDER `manuallyScheduled` (AUTO) — díé volgt wél het gewone wortel-taak-pad (`ownAnchor`), dat een niet-werk-instant altijd naar de eerstvolgende werk-instant snapt (maandag 2026-06-08). Twee onafhankelijke wortel-taken, geen relatie ertussen — puur het ankerverschil.",
-      "note": "Mutatiebewijs (uitgevoerd, teruggedraaid): de manual-tak in `CPMSolver.forwardPass` tijdelijk zowel `es` ALS `ef` laten snappen (`this.snapOnOrAfter(cal, this.parseIn(...))` i.p.v. de rauwe `parseIn`, voor beide) laat `A.es`/`A.ef` verschuiven naar 2026-06-08 — identiek aan `B` — en deze case ROOD (63/64, alleen `msp-56` faalt — geen collaterale schade elders). Alléén `es` snappen is GEEN geldige mutatie op déze mijlpaal-case: de bestaande `ef<es`-inversiecorrectie (`if (ef < es) es = ef`) herstelt een gesnapte `es` (maandag) stil terug naar de rauwe `ef` (zaterdag, want een mijlpaal se `ef` blijft ongesnapt) zodra alleen `es` snapt — dat maskeert de mutatie volledig. GEEN `tf`-assert op `A`: `ls=es`/`lf=ef` is hier ONGELIJK aan `tf=0` — `scheduleAnalysis.ts`'s generieke werkdag-tellende `signedFloat` geeft op een es/ls-paar dat zelf op een niet-werkdag ligt gemeten -1 (geen Z9a-regressie; `isCritical`/`totalFloat`-forcing voor een manual taak, analoog aan de drie `isHammock`-uitsluitingen, is expliciet Z9b-scope — zie de toelichting bij de backward-early-return in `CPMSolver.ts`).",
+      "title": "Z9a-acceptatiepunt (a) + Z9b-acceptatiepunt (tf/kritiek-forcing): een `manuallyScheduled`-mijlpaal geankerd op een NIET-werkdag (zaterdag 2026-06-06) houdt haar rauwe `scheduleStart`/`scheduleFinish` ONGESNAPT aan — de forwardPass-tak leest `task.time.scheduleStart` rechtstreeks via `parseIn` (GEEN `snapOnOrAfter`). Contrast: `B` is dezelfde mijlpaal op dezelfde datum ZONDER `manuallyScheduled` (AUTO) — díé volgt wél het gewone wortel-taak-pad (`ownAnchor`), dat een niet-werk-instant altijd naar de eerstvolgende werk-instant snapt (maandag 2026-06-08). Twee onafhankelijke wortel-taken, geen relatie ertussen — puur het ankerverschil. SINDS Z9b draagt `A` ook `tf`/`crit`-asserts: `ls=es`/`lf=ef` (backward-early-return) is hier op een NIET-werkdag-ankerpaar — precies het geval waarop de generieke werkdag-tellende `signedFloat` zonder forcing een artefact gaf (gemeten tf=-1, zie de Z9b-toelichting bij de manual-forcing in `scheduleAnalysis.ts`).",
+      "note": "Mutatiebewijs 1 (uitgevoerd, teruggedraaid): de manual-tak in `CPMSolver.forwardPass` tijdelijk zowel `es` ALS `ef` laten snappen (`this.snapOnOrAfter(cal, this.parseIn(...))` i.p.v. de rauwe `parseIn`, voor beide) laat `A.es`/`A.ef` verschuiven naar 2026-06-08 — identiek aan `B` — en deze case ROOD. Alléén `es` snappen is GEEN geldige mutatie op déze mijlpaal-case: de bestaande `ef<es`-inversiecorrectie (`if (ef < es) es = ef`) herstelt een gesnapte `es` (maandag) stil terug naar de rauwe `ef` (zaterdag, want een mijlpaal se `ef` blijft ongesnapt) zodra alleen `es` snapt — dat maskeert de mutatie volledig. Mutatiebewijs 2 (Z9b, uitgevoerd, teruggedraaid): de `if (taskObj.manuallyScheduled) { tf = 0; freeFloat = 0; }`-forcing in `scheduleAnalysis.computeScheduleResults` weghalen laat `A.tf` verschuiven van 0 naar -1 (het gemeten artefact van de werkdag-tellende `signedFloat` op een es/ls-paar dat zelf op een niet-werkdag ligt) — deze case ROOD op `A.tf`. GECORRIGEERD (Z9b-fixronde, was hier fout gedocumenteerd): `A.crit` blijft `true`, ook zonder de forcing — `isCritical = tf <= critThreshold` met drempel 0 slaagt op tf=-1 net zo goed als op tf=0 (-1≤0). De forcing repareert dus uitsluitend het `tf`-artefact, niet de kritiek-markering (die was hier toevallig al correct); zie de titel hierboven voor waarom de forcing desondanks nodig is (tf=-1 is zelf al fout, ongeacht wat `isCritical` ervan afleidt).",
       "anchor": "2026-06-01",
       "tasks": [
         { "name": "A", "milestone": true, "start": "2026-06-06", "manuallyScheduled": true },
@@ -1277,7 +1277,7 @@
       ],
       "expect": {
         "tasks": {
-          "A": { "es": "2026-06-06", "ef": "2026-06-06" },
+          "A": { "es": "2026-06-06", "ef": "2026-06-06", "tf": 0, "crit": true },
           "B": { "es": "2026-06-08", "ef": "2026-06-08", "tf": 0, "crit": true }
         },
         "error": false
@@ -1286,7 +1286,7 @@
     {
       "id": "msp-57-z9a-manual-pin-forward",
       "title": "Z9a-acceptatiepunt (b) + mutatiepunt 3 (backward-early-return): `A` is `manuallyScheduled` (dur 2, ma 2026-06-01 ⇒ rauwe ef di 2026-06-02, ONGESNAPT). Haar AUTO-opvolger `B` (FS+0) rekent gewoon door vanaf die rauwe finish — normale FS-regel (opvolger start de eerstvolgende werkdag ná de voorganger-finish, `rel-fs-01-longshort`-precedent): B start wo 2026-06-03, ef do 2026-06-04. `C` is een ONGERELATEERDE, langere parallelle taak (dur 10, zelfde anker) die het projecteinde (vr 2026-06-12) bepaalt — dat geeft `B` (en dus, via de FS-relatie, backward-druk op `A`) ruime speling: zonder de verplichte manual-early-return in `backwardPass` zou de gewone backward-combinatie díé speling op `A` projecteren (`ls`/`lf` ver ná haar eigen rauwe anker) — de gepinde taak MOET juist `ls=es`/`lf=ef`/`tf=0` houden, ongeacht hoeveel speling haar opvolger heeft.",
-      "note": "Mutatiebewijs (uitgevoerd, teruggedraaid — `if (false && task.manuallyScheduled)` in `CPMSolver.backwardPass`): `A` erft dan de gewone FS-backward-bound van `B` (`B.ls` ligt ver na `B.es` dankzij `C`'s speling) — GEMETEN: `A.ls` 2026-06-01→2026-06-09, `A.lf` 2026-06-02→2026-06-10, `A.tf` 0→6, `A.crit` true→false, `criticalPathSet` {A,C}→{C} — deze case ROOD (61/64; ook `msp-14`/`msp-58` kleuren mee, want de mutatie schakelt de early-return voor ELKE manual taak uit, niet alleen deze). `A` staat WEL in `criticalPathSet` in de ONGEMUTEERDE (correcte) uitkomst: haar `es`/`ef` vallen op gewone werkdagen (ma/di), dus `ls=es`/`lf=ef` geeft hier tf=0 via de generieke `signedFloat`-formule — er is (nog) géén hammock-achtige `isCritical=false`-uitsluiting voor een manual taak (Z9b-scope, zie CPMSolver.ts).",
+      "note": "Mutatiebewijs (uitgevoerd, teruggedraaid — `if (false && task.manuallyScheduled)` in `CPMSolver.backwardPass`): `A` erft dan de gewone FS-backward-bound van `B` (`B.ls` ligt ver na `B.es` dankzij `C`'s speling) — GEMETEN: `A.ls` 2026-06-01→2026-06-09, `A.lf` 2026-06-02→2026-06-10, `A.tf` 0→6, `A.crit` true→false, `criticalPathSet` {A,C}→{C} — deze case ROOD (61/64; ook `msp-14`/`msp-58` kleuren mee, want de mutatie schakelt de early-return voor ELKE manual taak uit, niet alleen deze). `A` staat WEL in `criticalPathSet` in de ONGEMUTEERDE (correcte) uitkomst: haar `es`/`ef` vallen op gewone werkdagen (ma/di), dus `ls=es`/`lf=ef` geeft hier tf=0 via de generieke `signedFloat`-formule al vóór enige forcing. Z9b VOEGDE later een expliciete `tf=ff=0`-forcing toe voor een manual taak (analoog aan de hammock-forcing, zie `scheduleAnalysis.ts`) — voor DEZE case (werkdag-anker) is dat een no-op (byte-identiek, tf was al 0); de non-triviale forcing zit in `msp-56` (niet-werkdag-anker). Er is BEWUST GEEN hammock-achtige `isCritical=false`-uitsluiting voor een manual taak toegevoegd — een manual taak is een echt anker en kan legitiem kritiek zijn, precies wat `A: crit=true` hier pint.",
       "anchor": "2026-06-01",
       "tasks": [
         { "name": "A", "dur": 2, "start": "2026-06-01", "manuallyScheduled": true },
@@ -1317,6 +1317,30 @@
           "A": { "es": "2026-06-01", "ef": "2026-06-02", "tf": 0 }
         },
         "violatedConstraintsSet": [],
+        "error": false
+      }
+    },
+    {
+      "id": "msp-59-z9b-alap-mag-manual-niet-duwen",
+      "title": "Z9b-acceptatiepunt (1, `applyAlap`): een `manuallyScheduled` taak MET een (legacy/geïmporteerd) `constraint.type === 'ALAP'`-veld wordt door `applyAlap` NIET vooruitgeschoven. `A` is manual, rauw anker 2026-06-01/06-02 (ma/di), FS-opvolger `B`. `C` is een ONGERELATEERDE, veel langere parallelle taak (dur 20, zelfde anker, ef vr 2026-06-26) die ook naar `B` een FS-relatie legt — dus `B` wordt in werkelijkheid door `C` gedreven (B start ma 2026-06-29), en de A→B-relatie heeft daardoor volop 'speling' t.o.v. A's eigen rauwe finish. Zonder de `manuallyScheduled`-uitsluiting in `applyAlap` zou de ALAP-tak die speling op `A` ZELF projecteren (`cal.addWorkingDaysSigned(early.es, ff)`) — de gepinde taak MOET juist op haar rauwe anker blijven staan, ongeacht of ze toevallig een ALAP-constraint meedraagt.",
+      "note": "Mutatiebewijs (uitgevoerd, teruggedraaid): de `if (task.manuallyScheduled) continue;`-regel in `CPMSolver.applyAlap` weghalen laat `A.es`/`A.ef` verschuiven van 2026-06-01/06-02 naar GEMETEN 2026-06-25/06-26 (niet 06-08/06-09, zoals hier eerder foutief stond — de ALAP-push volgt de volledige speling van de A→B-relatie, waarbij B zélf door C gedreven wordt; C's finish valt op 2026-06-26, dus A schuift mee tot vlak dáárvóór, niet tot B's eigen datum). `drivingSet` verschuift daarbij óók: de gemuteerde run toont zowel A|B|FINISH_START als C|B|FINISH_START als driving (A wordt door de mutatie zélf een tweede driver naar B) — deze case ROOD.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "A", "dur": 2, "start": "2026-06-01", "manuallyScheduled": true, "constraint": { "type": "ALAP" } },
+        { "name": "B", "dur": 2 },
+        { "name": "C", "dur": 20, "start": "2026-06-01" }
+      ],
+      "links": [
+        { "pred": "A", "succ": "B", "type": "FINISH_START" },
+        { "pred": "C", "succ": "B", "type": "FINISH_START" }
+      ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-06-01", "ef": "2026-06-02" },
+          "B": { "es": "2026-06-29", "ef": "2026-06-30" },
+          "C": { "es": "2026-06-01", "ef": "2026-06-26" }
+        },
+        "drivingSet": [["C", "B", "FINISH_START"]],
         "error": false
       }
     }
