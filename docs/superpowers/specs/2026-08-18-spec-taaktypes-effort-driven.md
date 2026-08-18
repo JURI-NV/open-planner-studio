@@ -95,9 +95,19 @@ omdat het idee slecht is, maar omdat MSP verbergt welke hoek vastligt, zodat de
 gebruiker het pas merkt als zijn planning onverwacht verschuift. De UX-opgave van
 deze etappe is dus niet "het menu kopiëren" maar "de bescherming zichtbaar maken":
 in één oogopslag zien welke hoek van de driehoek vastligt, vóórdat je ergens aan
-draait. Een taaktype-kolom in de vernieuwde tabelweergaven (zie de
-tabel-weergave-revisie in de vault) is daarvoor een natuurlijke plek. Dit
-onderzoek hoort ín de ontwerpronde van de etappe, niet ervoor.
+draait.
+
+Twee plekken staan vast. **Het eigenschappenpaneel krijgt sowieso een
+taaktype-instelling** — dat is de plek waar per-taak-keuzes thuishoren, en hij
+werkt onafhankelijk van welke tabelweergave er bestaat. Daarnaast is een
+**taaktype-kolom** de natuurlijke tweede plek — maar let op: die veronderstelt de
+tabel-weergave-revisie (zie de vault), en die is nog niet gebouwd. Is de revisie
+er tegen die tijd, dan liftt de kolom mee op het nieuwe kolommensysteem; is hij
+er niet, dan is het eigenschappenpaneel de enige plek en mag de kolom geen
+verkapte afhankelijkheid worden die deze etappe aan de tabelrevisie vastketent.
+De rest van het onderzoek (hoe je de beschermde hoek visueel markeert, wat er
+gebeurt bij het omzetten van een type) hoort ín de ontwerpronde van de etappe,
+niet ervoor.
 
 ## Wat er nu al gebeurt
 
