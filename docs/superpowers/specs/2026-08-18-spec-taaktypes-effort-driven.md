@@ -23,9 +23,10 @@ verdedigbare keuze; het wordt pas een beperking wanneer iemand een MS
 Project-bestand met fixed-work-taken importeert en er daarna in wil doorwerken, of
 wanneer een gebruiker zelf effort-driven wil plannen.
 
-De eigenaar heeft besloten dat die volledige motor er komt. Dit voorstel beschrijft
-hoe — en vooral: in welke vorm en volgorde, zodat het tussenstation (de hybride met
-een opt-in) geen valse beloftes bouwt.
+De eigenaar heeft besloten dat die volledige motor er komt, en wil hem opt-in
+aanbieden: standaard blijft alles zoals het nu is, en de gebruiker die het nodig
+heeft kan de keuze ontsluiten. Dit voorstel beschrijft hoe — en vooral: in welke
+vorm en volgorde die opt-in veilig te bouwen is.
 
 ## De kern van het voorstel
 
