@@ -59,6 +59,14 @@ There are three ways to create a relation, depending on where you're already wor
 
 The **Driving** column shows, after a calculation, which relation actually determines the successor's start or finish date — for a task with multiple predecessors, that isn't necessarily the relation you created most recently, but the one with the latest (driving) date.
 
+## Jumping to a linked task
+
+In the properties panel, every dependency row shows the WBS number of the linked task next to the
+direction arrow, as a clickable button. Hover over it to see the same details as hovering over a
+task bar in the Gantt chart (name, WBS, duration, start/finish, status, critical path, total
+float). Click it to select that task: the Gantt chart zooms and scrolls to it, automatically
+expanding any collapsed parent task that was hiding it.
+
 ## Constraint types
 
 A constraint imposes a date boundary on a task, independent of its relations. Open Planner Studio has eight types, set via the **Constraint** field in the properties panel:

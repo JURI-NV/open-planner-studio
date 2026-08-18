@@ -44,6 +44,10 @@ Istnieją trzy sposoby utworzenia relacji, w zależności od tego, gdzie akurat 
 
 Kolumna **Wiodąca** pokazuje, po obliczeniu, która relacja rzeczywiście decyduje o dacie początku lub końca następnika — dla zadania z wieloma poprzednikami niekoniecznie jest to relacja utworzona najniedawniej, lecz ta z najpóźniejszą (wiodącą) datą.
 
+## Przechodzenie do powiązanego zadania
+
+W panelu właściwości każdy wiersz zależności pokazuje obok strzałki kierunku także numer WBS powiązanego zadania, jako klikalny przycisk. Najedź na niego kursorem, aby zobaczyć te same szczegóły co przy najechaniu na pasek zadania na wykresie Gantta (nazwa, WBS, czas trwania, początek/koniec, status, ścieżka krytyczna, zapas całkowity). Kliknij, aby zaznaczyć to zadanie: wykres Gantta przybliża się i przewija do niego, automatycznie rozwijając każde zwinięte zadanie nadrzędne, które je ukrywało.
+
 ## Typy ograniczeń
 
 Ograniczenie narzuca granicę daty na zadanie, niezależnie od jego relacji. Open Planner Studio ma osiem typów, ustawianych przez pole **Ograniczenie** w panelu właściwości:

@@ -44,6 +44,10 @@ Hay tres formas de crear una relación, según en qué parte ya esté trabajando
 
 La columna **Determinante** muestra, tras un cálculo, qué relación determina realmente la fecha de inicio o de fin de la sucesora — para una tarea con varias predecesoras, esa no es necesariamente la relación que creó más recientemente, sino la que tiene la fecha más tardía (determinante).
 
+## Saltar a una tarea vinculada
+
+En el panel de propiedades, cada fila de dependencia muestra también el número WBS de la tarea vinculada junto a la flecha de dirección, como botón en el que se puede hacer clic. Pase el cursor sobre él para ver los mismos detalles que al pasar el cursor sobre una barra de tarea en el diagrama de Gantt (nombre, WBS, duración, inicio/fin, estado, ruta crítica, holgura total). Haga clic para seleccionar esa tarea: el diagrama de Gantt hace zoom y se desplaza hasta ella, y expande automáticamente cualquier tarea principal contraída que la ocultaba.
+
 ## Tipos de restricción
 
 Una restricción impone un límite de fecha a una tarea, con independencia de sus relaciones. Open Planner Studio tiene ocho tipos, que se establecen mediante el campo **Restricción** en el panel de propiedades:

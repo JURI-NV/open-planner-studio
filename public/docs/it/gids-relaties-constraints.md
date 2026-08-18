@@ -44,6 +44,10 @@ Ci sono tre modi per creare una relazione, a seconda di dove stai già lavorando
 
 La colonna **Determinante** mostra, dopo un calcolo, quale relazione determina effettivamente la data di inizio o di fine del successore — per un'attività con più predecessori, non è necessariamente la relazione creata più di recente, ma quella con la data (determinante) più tardiva.
 
+## Passare a un'attività collegata
+
+Nel pannello delle proprietà, ogni riga di dipendenza mostra anche il numero WBS dell'attività collegata accanto alla freccia di direzione, come pulsante cliccabile. Passa il mouse sopra per vedere gli stessi dettagli che si vedono passando il mouse su una barra attività nel diagramma di Gantt (nome, WBS, durata, inizio/fine, stato, percorso critico, margine totale). Fai clic per selezionare quell'attività: il diagramma di Gantt esegue lo zoom e scorre fino a essa, ed espande automaticamente ogni attività madre compressa che la nascondeva.
+
 ## Tipi di vincolo
 
 Un vincolo impone un limite di data su un'attività, indipendentemente dalle sue relazioni. Open Planner Studio ha otto tipi, impostati tramite il campo **Vincolo** nel pannello delle proprietà:

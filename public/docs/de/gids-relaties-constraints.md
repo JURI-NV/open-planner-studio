@@ -44,6 +44,10 @@ Es gibt drei Möglichkeiten, eine Beziehung zu erstellen, je nachdem, wo Sie ber
 
 Die Spalte **Maßgebend** zeigt nach einer Berechnung, welche Beziehung den Anfangs- oder Endtermin des Nachfolgers tatsächlich bestimmt — bei einer Aufgabe mit mehreren Vorgängern ist das nicht zwingend die Beziehung, die Sie zuletzt erstellt haben, sondern die mit dem spätesten (maßgebenden) Datum.
 
+## Zu einer verknüpften Aufgabe springen
+
+Im Eigenschaftenbereich zeigt jede Abhängigkeitszeile neben dem Richtungspfeil auch die WBS-Nummer der verknüpften Aufgabe als klickbare Schaltfläche. Fahren Sie mit der Maus darüber, um dieselben Details wie beim Überfahren eines Balkens im Gantt-Diagramm zu sehen (Name, WBS, Dauer, Anfang/Ende, Status, kritischer Pfad, Gesamtpuffer). Klicken Sie darauf, um diese Aufgabe auszuwählen: Das Gantt-Diagramm zoomt und scrollt dorthin und klappt automatisch jede eingeklappte übergeordnete Aufgabe aus, die sie verborgen hat.
+
 ## Einschränkungstypen
 
 Eine Einschränkung legt eine Datumsgrenze für eine Aufgabe fest, unabhängig von ihren Beziehungen. Open Planner Studio hat acht Typen, eingestellt über das Feld **Einschränkung** im Eigenschaftenbereich:

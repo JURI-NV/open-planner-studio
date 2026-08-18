@@ -44,6 +44,10 @@ Il existe trois façons de créer une relation, selon l'endroit où vous travail
 
 La colonne **Déterminante** indique, après un calcul, quelle relation détermine réellement la date de début ou de fin du successeur — pour une tâche avec plusieurs prédécesseurs, ce n'est pas nécessairement la relation que vous avez créée le plus récemment, mais celle dont la date (déterminante) est la plus tardive.
 
+## Aller à une tâche liée
+
+Dans le panneau des propriétés, chaque ligne de dépendance affiche aussi le numéro WBS de la tâche liée à côté de la flèche de direction, sous forme de bouton cliquable. Survolez-le pour voir les mêmes détails qu'en survolant une barre de tâche dans le diagramme de Gantt (nom, WBS, durée, début/fin, statut, chemin critique, marge totale). Cliquez dessus pour sélectionner cette tâche : le diagramme de Gantt zoome et défile jusqu'à elle, et développe automatiquement toute tâche parente repliée qui la cachait.
+
 ## Types de contrainte
 
 Une contrainte impose une limite de date à une tâche, indépendamment de ses relations. Open Planner Studio propose huit types, définis via le champ **Contrainte** du panneau des propriétés :

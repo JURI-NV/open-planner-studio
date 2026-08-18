@@ -44,6 +44,10 @@ Zaten çalıştığınız yere bağlı olarak bir ilişki oluşturmanın üç yo
 
 **Belirleyici** sütunu, bir hesaplamadan sonra, hangi ilişkinin ardılın başlangıç veya bitiş tarihini gerçekte belirlediğini gösterir — birden fazla öncülü olan bir görev için bu, mutlaka en son oluşturduğunuz ilişki değildir, en geç (belirleyici) tarihe sahip olandır.
 
+## Bağlı bir göreve atlama
+
+Özellikler panelinde, her bağımlılık satırı yön okunun yanında bağlı görevin WBS numarasını da tıklanabilir bir düğme olarak gösterir. Aynı ayrıntıları görmek için üzerine gelin — Gantt şemasındaki bir görev çubuğunun üzerine gelmekle aynı bilgiler (ad, WBS, süre, başlangıç/bitiş, durum, kritik yol, toplam bolluk). O görevi seçmek için tıklayın: Gantt şeması ona yakınlaşır ve kaydırılır, onu gizleyen daraltılmış her üst görevi otomatik olarak genişletir.
+
 ## Kısıtlama türleri
 
 Bir kısıtlama, ilişkilerinden bağımsız olarak bir göreve bir tarih sınırı dayatır. Open Planner Studio'nun, özellikler panelindeki **Kısıtlama** alanı üzerinden ayarlanan sekiz türü vardır:

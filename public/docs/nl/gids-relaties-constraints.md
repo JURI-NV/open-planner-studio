@@ -59,6 +59,14 @@ Er zijn drie manieren om een relatie aan te maken, afhankelijk van waar je toch 
 
 De kolom **Bepalend** (driving) laat na een berekening zien welke relatie daadwerkelijk de start- of einddatum van de opvolger bepaalt — bij een taak met meerdere voorgangers is dat niet per se de relatie die je het laatst hebt aangemaakt, maar degene met de laatste (bepalende) datum.
 
+## Naar een gekoppelde taak springen
+
+In het eigenschappenpaneel toont elke afhankelijkheidsregel naast de richtingspijl ook het
+WBS-nummer van de gekoppelde taak, als klikbare knop. Hover erover voor dezelfde details als bij
+het hoveren over een taakbalk in het Gantt-diagram (naam, WBS, duur, start/finish, status, kritiek
+pad, total float). Klik erop om die taak te selecteren: het Gantt-diagram zoomt en scrolt ernaartoe,
+en klapt automatisch elke ingeklapte oudertaak uit als de gekoppelde taak daardoor verborgen was.
+
 ## Constraint-types
 
 Een constraint legt een datumgrens op een taak, los van zijn relaties. Open Planner Studio kent acht types, in te stellen via het veld **Constraint** in het eigenschappenpaneel:
