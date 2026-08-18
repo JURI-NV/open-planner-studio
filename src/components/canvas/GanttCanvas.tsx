@@ -5,7 +5,7 @@ import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRender
 import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
-import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, computeFocusTaskHorizontal, computeFocusTaskScrollY, DEFAULT_ZOOM } from '@/utils/ganttViewport';
+import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, computeFocusTaskHorizontal, computeFocusTaskScrollY, DEFAULT_ZOOM } from '@/utils/ganttViewport';
 import { resolveWheelFunction } from '@/utils/ganttWheel';
 import { MiniMap } from './MiniMap';
 import { parseDate, parseInstant } from '@/utils/dateUtils';
@@ -510,10 +510,9 @@ export function GanttCanvas() {
     // `setScroll` (viewSlice) nooit voorbij de content kan klemmen — de vorige versie klemde
     // alleen naar 0, zonder bovengrens, waardoor een verticale overscroll (of horizontaal ná een
     // extreme zoom-uit/-in-cyclus) de taakbalken-laag permanent buiten beeld kon duwen.
-    setGanttScrollBounds({
-      maxScrollX: Math.max(0, totalContentWidth - width),
-      maxScrollY: Math.max(0, viewRows.length * rowHeight - (height - headerHeight)),
-    });
+    setGanttScrollBounds(
+      computeGanttScrollBounds(totalContentWidth, viewRows.length, rowHeight, headerHeight, width, height),
+    );
 
     const opts: GanttRenderOptions = buildGanttRenderOptions({
       rows: viewRows,
@@ -786,17 +785,22 @@ export function GanttCanvas() {
   // ganttViewport.ts) en wissen het signaal. Zelfde start/finish- en hour-mode-conventie als
   // `revealTaskIfOffscreen` hierboven — bewust een aparte effect, want die functie scrollt alleen
   // (zoom ongewijzigd, tegen de linkerrand), dit zoomt juist wél en centreert.
+  //
+  // Meet `containerRef`, niet `canvasRef` (hyperkritische review issue #65): de canvas-attributen
+  // worden pas in de rAF-paint van `useCanvasLayer` gezet, dus `canvasRef` kan vlak na een
+  // resize/splitter-sleep nog de vorige (of zelfs de HTML-default 300×150) afmeting hebben terwijl
+  // `containerRef` — CSS-layout, geen canvas-attribuut — al klopt. Zelfde keuze als `pendingFit`.
   useEffect(() => {
     if (!pendingFocusTaskId) return;
     const clearPendingFocusTask = useAppStore.getState().clearPendingFocusTask;
-    const canvas = canvasRef.current;
+    const container = containerRef.current;
     const task = tasks.find(t => t.id === pendingFocusTaskId);
-    if (!canvas || !task) { clearPendingFocusTask(); return; }
+    if (!container || !task) { clearPendingFocusTask(); return; }
     const startStr = task.time.earlyStart || task.time.scheduleStart;
     const endStr = task.time.earlyFinish || task.time.scheduleFinish;
     if (!startStr || !endStr) { clearPendingFocusTask(); return; }
 
-    const rect = canvas.getBoundingClientRect();
+    const rect = container.getBoundingClientRect();
     const usable = rect.width - taskTableWidth;
     if (usable <= 0) { clearPendingFocusTask(); return; }
 
@@ -816,10 +820,24 @@ export function GanttCanvas() {
       ? computeFocusTaskScrollY(rowIndex, rowHeight, headerHeight, rect.height)
       : st.view.scrollY; // niet gevonden (bv. weggefilterd) — verticaal onaangeroerd
 
+    // Verouderde klem (hyperkritische review issue #65): `setScroll` klemt tegen `maxScrollX`/
+    // `maxScrollY`, en die twee worden UITSLUITEND in `drawPrimary` gezet — pas in de eerstvolgende
+    // rAF-paint, dus ná deze regel. Zonder correctie klemt `setScroll` hieronder tegen de grenzen
+    // van de VORIGE zoom/rijtelling (bv. bijna nul vlak na een open-fit, of exact nul zolang alles
+    // nog ingeklapt stond), en landt de sprong niet op de taak. Herbereken de grenzen daarom hier
+    // zelf, met dezelfde formule als `drawPrimary` (`contentWidthFor` is dezelfde memoized functie,
+    // geen kopie) en de NIEUWE zoom/rijtelling, vóór `setScroll` ze leest.
+    setGanttScrollBounds(
+      computeGanttScrollBounds(
+        contentWidthFor(zoom, taskTableWidth), viewRows.length, rowHeight, headerHeight,
+        rect.width, rect.height,
+      ),
+    );
+
     clearPendingFocusTask();
     st.setZoom(zoom);
     st.setScroll(scrollX, scrollY);
-  }, [pendingFocusTaskId, tasks, viewRows, taskTableWidth, rowHeight, headerHeight]);
+  }, [pendingFocusTaskId, tasks, viewRows, taskTableWidth, rowHeight, headerHeight, contentWidthFor]);
 
   // Sync horizontal scrollbar with canvas scrollX (also re-sync after zoom changes)
   useEffect(() => {

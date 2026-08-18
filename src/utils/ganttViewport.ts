@@ -187,6 +187,29 @@ export function getGanttChartWidth(): number | null {
 let maxScrollX: number | null = null;
 let maxScrollY: number | null = null;
 
+/**
+ * Pure formule voor de scrolbare grenzen (fase 2.8a QA, fix 2) — DE ene bron voor `drawPrimary`
+ * (`GanttCanvas.tsx`, elke render) én de "spring naar taak"-sprong (issue #65). Die laatste zet
+ * zelf een NIEUWE zoom/rijtelling en moet de grenzen dus VOORUIT berekenen in plaats van de
+ * grenzen van de vorige render te lezen (die staan pas ná de eerstvolgende rAF-paint klaar) —
+ * zonder deze gedeelde functie was dat een tweede kopie van dezelfde twee regels geweest, en
+ * precies dat patroon (een formule die twee keer los staat) is al drie keer in dit bestand de
+ * bron van een regressie gebleken (zie `ZOOM_STEP`/`computeEffectiveViewStart` hierboven).
+ */
+export function computeGanttScrollBounds(
+  contentWidth: number,
+  viewRowCount: number,
+  rowHeight: number,
+  headerHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+): { maxScrollX: number; maxScrollY: number } {
+  return {
+    maxScrollX: Math.max(0, contentWidth - canvasWidth),
+    maxScrollY: Math.max(0, viewRowCount * rowHeight - (canvasHeight - headerHeight)),
+  };
+}
+
 export function setGanttScrollBounds(bounds: { maxScrollX: number; maxScrollY: number }): void {
   maxScrollX = Number.isFinite(bounds.maxScrollX) ? Math.max(0, bounds.maxScrollX) : null;
   maxScrollY = Number.isFinite(bounds.maxScrollY) ? Math.max(0, bounds.maxScrollY) : null;
