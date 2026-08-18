@@ -1535,13 +1535,30 @@ export class CPMSolver {
             // waarin ze `true` gaf had ook ≤1 toewijzing) en is daarom verwijderd i.p.v. als dode
             // code te laten staan.
             //
-            // BLAST-RADIUS (Z19-probe, wegwerpscript, corpus+crawl 216 bestanden, completion∈(0,1)-
-            // populatie met `t.resume` gezet): de bredere regel verandert UITSLUITEND de vijf hierboven
-            // genoemde taken — geen enkele andere `t.resume`-dragende taak in het corpus heeft >1
-            // toewijzing (`mpp14assignmentfields.mpp`'s "Task One" is de ENIGE, en blijft met de
-            // ≤1-toewijzing-guard ONGEWIJZIGD op de RETAINED_LOGIC-vloer). `cases-progress.json`'s
-            // P6-RETAINED_LOGIC-scenario's dragen `resume` per constructie NOOIT (mpp-exclusief) en
-            // blijven dus byte-identiek; hun `resourceIds` staat bovendien op de default `[]` (≤1).
+            // BLAST-RADIUS (Z19-probe, wegwerpscript, corpus+crawl 216 bestanden): 137 bladtaken
+            // dragen `t.resume`, 23 daarvan hebben >1 toewijzing. Van die 23 zijn er 8 VOLTOOID
+            // (completion 1 — bereiken deze IN-PROGRESS-tak sowieso nooit, ongeacht de gate) en 15
+            // IN-PROGRESS: `mpp14assignmentfields.mpp`'s "Task One" (het dossier hierboven) plus 8×
+            // "Create Technical Specification" (de OzBuild-"After/End Para"-familie — Z12/T9's eigen
+            // canonieke voorbeeldtaak) en "Some Progress"/"Task 2" (timephased-end-cost-resource.mpp/
+            // timephased-material-resource.mpp). GEEN van die laatste 14 (naast "Task One") viel ooit
+            // onder de TWEE OUDE sub-condities: geverifieerd per taak dat `isOutOfSequenceFsPredecessor`
+            // vóór deze wijziging `false` gaf (ofwel geen FINISH_START-voorganger, ofwel de voorganger
+            // is zelf voltooid en de opvolger start NÁ diens finish — geen out-of-sequence-feit) en dat
+            // `progressCal === cal` bleef (`task.timephasedDurationWalks` staat op al deze 14 op
+            // `undefined` — hun resourcekalender activeert laag 4 niet). Ze stonden dus AL vóór deze
+            // wijziging op de RETAINED_LOGIC/`resumeFromActualElapsed`-vloer (bevestigd: "Create
+            // Technical Specification" IS letterlijk T9's eigen bewijstaak voor die vloer, zie haar
+            // toelichting hierboven) en de ≤1-toewijzing-guard verandert daar dus NIETS aan — een
+            // populatie "oude gate ⇒ wel, nieuwe gate ⇒ niet" bestaat in dit corpus niet. Blijft zo'n
+            // taak ooit gevonden worden (out-of-sequence FS-voorganger MÉT >1 toewijzing), dan zou ze
+            // met deze regel op de RETAINED_LOGIC-vloer belanden i.p.v. resumeOverride — hetzelfde
+            // conservatieve gedrag als "Task One" krijgt, geen crash of stille foutieve aanname.
+            // `cases-progress.json`'s P6-RETAINED_LOGIC-scenario's dragen `resume` per constructie
+            // NOOIT (mpp-exclusief) en blijven dus byte-identiek; hun `resourceIds` staat bovendien op
+            // de default `[]` (≤1). De `resumeFromActualElapsed`-vlag (default UIT) en haar hele
+            // RETAINED_LOGIC-vloer (de `else`-tak hieronder) zijn door deze wijziging GEEN letter
+            // geraakt — alleen de `resumeOverride`-voorwaarde zelf kreeg de extra `&&`-clausule.
             const resumeOverride = t.resume && task.resourceIds.length <= 1 ? this.parseIn(progressCal, t.resume) : null;
             if (resumeOverride && !isNaN(resumeOverride.getTime())) {
               remStart = resumeOverride;
