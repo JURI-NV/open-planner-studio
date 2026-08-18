@@ -522,6 +522,67 @@
         "projectEnd": "2026-07-13",
         "error": false
       }
+    },
+    {
+      "id": "prog-Z12-oos-flag-off-byte-identiek",
+      "title": "Z12 (dossier out-of-sequence-actuals, retained logic) — vlag AFWEZIG: A (voltooid, actualFinish vr 07-10) → B (out-of-sequence: actualStart ma 07-06, vóór A's actualFinish). Zonder `outOfSequenceIgnoresPredecessorPressure` blijft de bestaande RETAINED_LOGIC-vloer ongewijzigd (voorganger-druk wint): B hervat op de eerste werkdag ná A's finish (ma 07-13) + 3 resterende werkdagen = wo 07-15. Zusje van prog-Z12-oos-flag-on-hieronder, EXACT dezelfde topologie — het enige verschil is de vlag, om aan te tonen dat afwezig ⇒ byte-identiek aan vóór Z12.",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 1, "actualStart": "2026-07-06", "actualFinish": "2026-07-10" },
+        { "name": "B", "dur": 4, "start": "2026-07-06", "completion": 0.25, "actualStart": "2026-07-06" }
+      ],
+      "links": [ { "pred": "A", "succ": "B", "type": "FINISH_START" } ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-10" },
+          "B": { "es": "2026-07-06", "ef": "2026-07-15" }
+        },
+        "projectEnd": "2026-07-15",
+        "outOfSequenceSet": [ ["A", "B", "FINISH_START"] ],
+        "error": false
+      }
+    },
+    {
+      "id": "prog-Z12-oos-flag-on-anchors-stored-finish",
+      "title": "Z12 (dossier out-of-sequence-actuals, retained logic) — vlag AAN, EXACT dezelfde topologie als prog-Z12-oos-flag-off-byte-identiek hierboven (A voltooid vr 07-10; B out-of-sequence, actualStart ma 07-06 vóór A's finish). Met `outOfSequenceIgnoresPredecessorPressure: true` vervalt de voorganger-druk (ma 07-13) VOLLEDIG voor B — de solver ankert op B's reeds-ingelezen `scheduleFinish` (hier: het naïeve start+duur-getal dat de harness vóór elke CPM-run zet, do 07-09, spiegelend hoe MSP's eigen SCHEDULED_FINISH in een .mpp-bestand als anker dient — zie SchedulingOptions.outOfSequenceIgnoresPredecessorPressure's docblock in project.ts voor de volledige diagnose incl. waarom een formule dit niet kan, alleen het anker). Mutatiebewijs (samen met de zustercase): vlag UIT geeft wo 07-15, vlag AAN geeft do 07-09 — twee verschillende antwoorden op DEZELFDE input bewijst dat de vlag daadwerkelijk iets doet EN dat 'afwezig' de oude vloer intact laat.",
+      "anchor": "2026-07-06",
+      "schedulingOptions": { "outOfSequenceIgnoresPredecessorPressure": true },
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 1, "actualStart": "2026-07-06", "actualFinish": "2026-07-10" },
+        { "name": "B", "dur": 4, "start": "2026-07-06", "completion": 0.25, "actualStart": "2026-07-06" }
+      ],
+      "links": [ { "pred": "A", "succ": "B", "type": "FINISH_START" } ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-10" },
+          "B": { "es": "2026-07-06", "ef": "2026-07-09" }
+        },
+        "projectEnd": "2026-07-10",
+        "outOfSequenceSet": [ ["A", "B", "FINISH_START"] ],
+        "error": false
+      }
+    },
+    {
+      "id": "prog-Z12-p6-contrast-flag-forced-on",
+      "title": "Z12 mutatiebewijs (P6-contrastcase, §akkoord O6): EXACT de topologie van prog-B-oos-retained (cases-progress.json) — een P6-BRON hoort een out-of-sequence-taak gewoon achter haar voorganger te laten wachten (RETAINED_LOGIC's hele doel, correct antwoord daar: B ef = do 07-16). Deze case forceert `outOfSequenceIgnoresPredecessorPressure: true` OP DIEZELFDE P6-scenario (progressMode RETAINED_LOGIC, GEEN .mpp-herkomst) en verwacht het GEANKERDE, VAN-DE-P6-WAARHEID-AFWIJKENDE antwoord (B ef = vr 07-10, B's eigen naïeve start+duur-getal — A's voorganger-druk wordt hier ONTERECHT genegeerd). Dat de twee antwoorden (07-16 vs 07-10) uiteenlopen is precies het mutatiebewijs uit de opdracht: 'vlag geforceerd aan → de P6-contrastcase ROOD' — deze vlag hoort UITSLUITEND door `mppReader.ts` gezet te worden, nooit op P6-brondata (progressMode-gedreven), en dít is waarom.",
+      "anchor": "2026-07-06",
+      "statusDate": "2026-07-08",
+      "scheduleOptions": { "progressMode": "RETAINED_LOGIC" },
+      "schedulingOptions": { "outOfSequenceIgnoresPredecessorPressure": true },
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 0.2, "actualStart": "2026-07-06" },
+        { "name": "B", "dur": 5, "start": "2026-07-06", "completion": 0.4, "actualStart": "2026-07-06" }
+      ],
+      "links": [ { "pred": "A", "succ": "B", "type": "FINISH_START" } ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-13" },
+          "B": { "es": "2026-07-06", "ef": "2026-07-10" }
+        },
+        "projectEnd": "2026-07-13",
+        "outOfSequenceSet": [ ["A", "B", "FINISH_START"] ],
+        "error": false
+      }
     }
   ]
 }

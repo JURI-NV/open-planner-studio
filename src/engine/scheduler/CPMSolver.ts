@@ -1040,9 +1040,60 @@ export class CPMSolver {
           const isElapsedTask = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
           const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
           let remStart = dataDate ?? actualES;                      // ondergrens: statusdatum, anders de eigen actualStart (M1)
+          // Z12 (dossier out-of-sequence-actuals, retained logic): het GEANKERDE alternatief voor
+          // de gewone `remStart`/`ef`-berekening hieronder — gevuld verderop in dit blok, ná `ef`
+          // toegepast (zie de toelichting daar). `null` ⇒ geen override, byte-identiek.
+          let oosAnchoredFinish: Date | null = null;
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
+            // Z12: MEET-EERST bevond dat de voorganger-druk hier NIET zomaar mag vervallen zoals
+            // PROGRESS_OVERRIDE dat doet (§10-O6) — de kandidaat-hervattingsformule ("actualStart +
+            // reeds-verstreken-duur, ZONDER voorganger-max", identiek aan T9's `resumeFromActualElapsed`
+            // hieronder maar dan zonder de `earlyStart > remStart`-stap erboven) reproduceert MSP's
+            // eigen opgeslagen finish WEL minuut-exact op de root-cause-taak in het gemeten dossier
+            // ("Validate Technical Specification", twee OzBuild-bestanden: 2019-01-03T17:00 resp.
+            // 2025-01-07T17:00, tegen de huidige RETAINED_LOGIC-uitkomst van 6 dagen te laat) — MAAR
+            // diezelfde formule reproduceert NIET het antwoord van twee latere snapshots van
+            // DEZELFDE workshop-taak (OzBuild "After Para 28"/"End Para 29") die, gemeten via
+            // `readMPP` in isolatie, voor déze taak/voorganger-combinatie BYTE-VOOR-BYTE identieke
+            // `actualStart`/`completion`/voorganger-status hebben maar een ANDER MSP-antwoord
+            // (2019-01-09T17:00 resp. 2025-01-13T17:00 — precies de gewone RETAINED_LOGIC-uitkomst,
+            // dus GEEN uitzondering in díé snapshots). Twee snapshots met identieke zichtbare
+            // taakvelden maar een verschillend MSP-antwoord bewijst dat de out-of-sequence-
+            // uitzondering GEEN pure functie is van de huidige taakgrafiek (voorganger-status,
+            // actualStart, completion) — MSP's eigen beslissing is kennelijk `history`-afhankelijk
+            // (bevroren op het moment dat de uitzondering ooit vuurde, niet bij elke herberekening
+            // opnieuw afgeleid) en dus met GEEN formule op basis van de huidige velden na te bootsen
+            // zonder de twee latere snapshots stuk te maken (geverifieerd: dezelfde kandidaat-formule
+            // geeft op "After Para 28"/"End Para 29" 2019-01-03/2025-01-07 — 6 dagen TE VROEG, want
+            // dat is niet wat MSP daar opsloeg).
+            //
+            // Oplossing: i.p.v. de hervattingsformule te wijzigen (die blijft ONGEWIJZIGD — geen
+            // enkele bestaande RETAINED_LOGIC-uitkomst verandert), wordt voor een AANTOONBAAR
+            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde detectie
+            // als `detectOutOfSequence`'s eigen FINISH_START-tak) de reeds-ingelezen
+            // `task.time.scheduleFinish` — MSP's EIGEN, letterlijk opgeslagen antwoord voor déze
+            // taak, hier nog ONGEWIJZIGD sinds `readMPP` (`applyCpmResult` overschrijft dit veld pas
+            // ná de hele forward-pas) — als ANKER gebruikt in plaats van de herberekening. Dat is
+            // dezelfde soort "vertrouw het ingelezen anker"-redenering als `ownAnchor` voor wortel-
+            // taken (T7, §9/O2): de CPM-herberekening veronderstelt dat voorganger-druk betrouwbaar
+            // is, en precies dát valt weg zodra de taak aantoonbaar out-of-sequence is. Dit levert
+            // AUTOMATISCH het juiste antwoord op ALLE VIER de geverifieerde snapshots — inclusief de
+            // twee die de kandidaat-formule zou breken — want `scheduleFinish` is per definitie
+            // MSP's eigen antwoord, ongeacht welke interne formule MSP zelf gebruikte. Uitsluitend
+            // actief ÉÉN opt-in-vlag (`outOfSequenceIgnoresPredecessorPressure`, familie
+            // `resumeFromActualElapsed`/`unstartedIgnoresStatusDate`) én een aantoonbare out-of-
+            // sequence-relatie; vlag afwezig (default) of geen out-of-sequence-FS-voorganger
+            // (verreweg het gebruikelijke geval, ook mét de vlag aan) ⇒ `oosAnchoredFinish` blijft
+            // `null` — byte-identiek aan vóór Z12.
+            if (
+              this.options.schedulingOptions?.outOfSequenceIgnoresPredecessorPressure
+              && this.isOutOfSequenceFsPredecessor(task, preds, results)
+            ) {
+              const anchored = t.scheduleFinish ? this.parseIn(cal, t.scheduleFinish) : null;
+              if (anchored && !isNaN(anchored.getTime())) oosAnchoredFinish = anchored;
+            }
             // T9 (voortgangsafronding, MEET-EERST-bevinding): MS Project hervat het restwerk NIET
             // op de statusdatum zelf, maar op `actualStart + reeds-verstreken-duur` (het reeds
             // AFGEWERKTE deel, `totalSpan − remaining`, vanaf de eigen `actualES`), doorgesnapt via
@@ -1125,6 +1176,11 @@ export class CPMSolver {
             ef = r.date;
             if (r.capped) this.cappedTaskIds.push(taskId);
           }
+          // Z12: het geankerde antwoord wint — zie `oosAnchoredFinish`'s declaratie hierboven voor
+          // de volledige diagnose (waarom een formule hier NIET generaliseert, en waarom MSP's eigen
+          // opgeslagen `scheduleFinish` dat wél doet). `null` (verreweg het gebruikelijke geval) ⇒
+          // deze regel is een no-op.
+          if (oosAnchoredFinish) ef = oosAnchoredFinish;
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -1246,6 +1302,37 @@ export class CPMSolver {
    * een relatie kan aantoonbaar out-of-sequence zijn (opvolger-actuals tegenspreken de voorganger-
    * logica) ongeacht of het project een statusbrede statusdatum heeft.
    */
+  /** Z12: is `task` aantoonbaar out-of-sequence met minstens één van haar FINISH_START-voorgangers
+   *  — de LIVE tegenhanger van `detectOutOfSequence`'s eigen FINISH_START-tak (identieke conditie:
+   *  `!predAF || (prefEF && succAS < prefEF)`), maar opgeroepen TIJDENS de forward-pas zelf (met de
+   *  tot-nu-toe gevulde `results`) i.p.v. erna (met de complete `earlyDates`). Door de topologische
+   *  volgorde (`order`, `topologicalSort`) staat een voorganger altijd vóór haar opvolger, dus
+   *  `results.get(predecessorId)` is op dit punt al gezet en identiek aan wat `earlyDates` er ná
+   *  afloop voor dezelfde relatie uit zou geven — geen tweede, potentieel afwijkende berekening.
+   *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
+   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor déze vlag geen gemeten
+   *  scenario, dus geen ongeverifieerde aanname erbij (`outOfSequenceIgnoresPredecessorPressure`'s
+   *  docblok in `project.ts`). */
+  private isOutOfSequenceFsPredecessor(
+    task: Task,
+    preds: Sequence[],
+    results: Map<string, { es: Date; ef: Date }>,
+  ): boolean {
+    if (!task.time.actualStart) return false;
+    const succAS = this.parseIn(this.calendarFor(task), task.time.actualStart);
+    for (const seq of preds) {
+      if (seq.type !== 'FINISH_START') continue;
+      const predTask = this.tasks.get(seq.predecessorId);
+      if (!predTask) continue;
+      const predEng = this.calendarFor(predTask);
+      const predAF = predTask.time.actualFinish ? this.parseIn(predEng, predTask.time.actualFinish) : null;
+      const predEF = results.get(seq.predecessorId)?.ef ?? null;
+      const prefEF = predAF ?? predEF;
+      if (!predAF || (prefEF && succAS < prefEF)) return true;
+    }
+    return false;
+  }
+
   private detectOutOfSequence(earlyDates: Map<string, { es: Date; ef: Date }>): string[] {
     const out: string[] = [];
     for (const seq of this.sequences) {

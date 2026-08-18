@@ -1190,7 +1190,16 @@ export function parseProjectProperties(
     // verschuift die niet automatisch naar op-of-ná de statusdatum (P6-eigen RETAINED_LOGIC-vloer,
     // zie `unstartedIgnoresStatusDate`'s docblock in `src/types/project.ts`). Zelfde reikwijdte-
     // redenering: élke `.mpp`-import, project-breed, byte-identiek zonder statusdatum.
-    schedulingOptions: { resumeFromActualElapsed: true, unstartedIgnoresStatusDate: true },
+    // Z12 (dossier out-of-sequence-actuals, retained logic): idem voor een taak die aantoonbaar
+    // out-of-sequence is met haar FINISH_START-voorganger — MS Project laat de voorganger-druk dan
+    // volledig vallen (zie `outOfSequenceIgnoresPredecessorPressure`'s docblock in
+    // `src/types/project.ts`). Zelfde reikwijdte-redenering: élke `.mpp`-import, project-breed,
+    // byte-identiek zonder een aantoonbaar out-of-sequence FS-relatie.
+    schedulingOptions: {
+      resumeFromActualElapsed: true,
+      unstartedIgnoresStatusDate: true,
+      outOfSequenceIgnoresPredecessorPressure: true,
+    },
   };
 
   const statusBytes = props.getByteArray(PROPS_KEY_STATUS_DATE);
