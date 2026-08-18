@@ -52,7 +52,7 @@ export function TaskDependenciesSection({ taskId }: { taskId: string }) {
             {other ? (
               <button
                 type="button"
-                className="flex items-center gap-1 flex-1 truncate"
+                className="flex items-center gap-1 shrink-0 max-w-[45%] truncate"
                 style={{ color: 'var(--theme-accent)' }}
                 aria-label={t('properties.jumpToTask', { wbs: other.wbsCode || other.name })}
                 onMouseMove={e => setHover({ x: e.clientX, y: e.clientY, task: other })}
