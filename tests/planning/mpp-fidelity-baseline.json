@@ -40,9 +40,10 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "08f0bdf693d813bd": {
       "root": "crawl",
@@ -180,12 +181,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2013-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "169e509afa527747": {
       "root": "crawl",
@@ -260,9 +262,10 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "1c7871038e3c71e0": {
       "root": "crawl",
@@ -488,12 +491,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2016-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "30ad90c9e3140560": {
       "root": "crawl",
@@ -554,12 +558,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2013-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "3bedc77e9a2ac3f6": {
       "root": "crawl",
@@ -598,12 +603,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14resource.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval is verwijderd (reviewer: fee9ecb4 in een nieuw jasje). 'Task A' (3 toewijzingen, waaronder Brian Leach se 1u/dag-kalender) en 'Contoured Task' regresseren — DIT IS de al eerder gediagnosticeerde multi-toewijzing-populatie: de volledige-taakduur-per-toewijzing-wandeling (laag 4's kernformule) is BEWEZEN ONJUIST bij >1 toewijzing (ze delen het werk, wandelen ze elk 'alleen' geeft een absurde datum) — laag 4 is daarom bewust tot PRECIES 1 toewijzing beperkt. Een correcte oplossing vereist werkVERDELING over gelijktijdige toewijzingen (elke toewijzing doet een DEEL van het werk, niet het geheel) — dat is een nieuw, nog niet gebouwd aangrijpingspunt, geen resourcekalender-kwestie. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "42a45696c7b142bd": {
       "root": "crawl",
@@ -631,12 +637,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2019-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "4747d2e75d838bc2": {
       "root": "crawl",
@@ -708,12 +715,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2016-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "516a72751771d5fc": {
       "root": "crawl",
@@ -797,12 +805,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2013-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "58c5f8dd40c012c3": {
       "root": "crawl",
@@ -844,9 +853,10 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "607c9d04f29a1681": {
       "root": "crawl",
@@ -1514,9 +1524,10 @@
       "startExact": 9,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 9,
+      "finishExact": 8,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Planned task with resource holiday' (completion 0%) regresseert: haar resourcekalender wijkt UITSLUITEND af via een holiday-uitzondering, niet via de weekbanden. Voor completion===0 gebruikt de laag-4-poort bewust `calendarBandsDiffer` (bands-only, NIET calendarDiffersIncludingExceptions) — een corpusproef tijdens de vorige fixronde liet zien dat uitzonderingen mee laten tellen op de completion===0-populatie valse activering geeft op elders al-exacte taken (mpp14timephasedsegmentsmanual.mpp's 'Task Seven'/'Task Eight', zie calendarDiffersIncludingExceptions se docblok in mppReader.ts). Deze taak valt dus terecht buiten de huidige poort — een holiday-bewuste 0%-poort is een aparte ontwerpvraag (afweging opnieuw maken), geen vergeten regel. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "9e8eb3f00269bdb1": {
       "root": "crawl",
@@ -1544,12 +1555,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2016-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "a2df0d81e463689f": {
       "root": "crawl",
@@ -1620,13 +1632,13 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 203,
-      "startSameday": 10,
-      "startDiff": 2,
-      "finishExact": 204,
-      "finishSameday": 9,
-      "finishDiff": 2,
-      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + 1 taak manual-scheduling (Z1/Z9a-scope). Z8 (2026-08-18): timephased-venster-fix verbeterde dit bestand als neveneffect (startDiff 3→2, finishDiff 6→2, startSameday 18→10, finishSameday 17→9) — dezelfde toewijzingen dragen kennelijk zowel leveling- als timephased-signalen. Resterende afwijkingen blijven Z6 (leveling)/Z9a (manual) scope, niet Z8."
+      "startExact": 194,
+      "startSameday": 18,
+      "startDiff": 3,
+      "finishExact": 192,
+      "finishSameday": 17,
+      "finishDiff": 6,
+      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + manual-scheduling (Z1/Z9a-scope). Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd (reviewer: fee9ecb4 in een nieuw jasje) — de cijfers zijn hersteld naar het EERLIJKE beeld (startDiff 2→3, finishDiff 2→6, startSameday 10→18, finishSameday 9→17). Resterende afwijkingen blijven Z6 (leveling)/Z9a (manual) scope, niet Z8."
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
@@ -1665,12 +1677,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2019-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "ad1288338a88766e": {
       "root": "crawl",
@@ -1764,13 +1777,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14timephasedsegmentsmanual.mpp",
       "tasks": 21,
-      "startExact": 19,
-      "startSameday": 2,
+      "startExact": 10,
+      "startSameday": 11,
       "startDiff": 0,
-      "finishExact": 19,
-      "finishSameday": 2,
+      "finishExact": 10,
+      "finishSameday": 11,
       "finishDiff": 0,
-      "reason": "Z8-herwerkronde-fixronde-2 (2026-08-18): de eerdere pin (finishExact 21/21) kwam uit de INMIDDELS AFGEKEURDE fee9ecb4-implementatie (Opus-review H1: circulaire meting) en was dus niet houdbaar — de gelaagde herbouw haalt op dit bestand 19/21 finishExact, 2 finishSameday op 'Task Three'/'Task Four' (beide completion 50%). Root cause: een systematisch 1-uur-precisieverschil tussen de duur-wandelformule (laag 4) en MSP's eigen segment-antwoord — NIET een resourcekalender-verschil (bands/holidays/workingExceptions structureel gelijk aan de taakkalender, dus de laag-4-poort activeert hier terecht niet); 'Task Seven'/'Task Eight' (completion 0%) blijven exact via de bestaande vlakke-terugval. Onveranderd: de 2 startSameday, toe te schrijven aan Z1's TASK_MODE-grondwaarheidsverschuiving (plan-§3a-uitzondering) — verdwijnt bij Z9a, niet Z8-scope."
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "b745a438e2aa8bf6": {
       "root": "crawl",
@@ -1779,9 +1792,10 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "b939cef759f68056": {
       "root": "crawl",
@@ -1975,12 +1989,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-flags/assignment-flags-project2010-mpp14.mpp",
       "tasks": 20,
-      "startExact": 20,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 20,
+      "startDiff": 20,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 20,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "ce3ffb971f3b1ab1": {
       "root": "crawl",
@@ -2063,12 +2078,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2019-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "d5c967023968446a": {
       "root": "crawl",
@@ -2088,9 +2104,10 @@
       "startExact": 1,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke terugval is verwijderd. 'Task 1' (completion 0%, geen resolvebare/afwijkende resourcekalender) regresseert — deze budget-werktracking-familie (ACWP/BCWS-achtige velden) draagt kennelijk een eigen, door Z3 NIET gedecodeerde invloed op MSP's duurberekening (al eerder genoteerd als 'buiten Z3's scope' vóór deze fixronde). Geen resourcekalender-kwestie — een aparte, nog niet gebouwde budget-werk-decodering. Eerlijk timephased-restant, geen Z9a-scope."
     },
     "d62998a5e3502fbd": {
       "root": "crawl",
@@ -2173,12 +2190,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-text/assignment-text-project2010-mpp14.mpp",
       "tasks": 30,
-      "startExact": 30,
+      "startExact": 0,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 30,
+      "startDiff": 30,
+      "finishExact": 0,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 30,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "e2bd82bd5b91e046": {
       "root": "crawl",
@@ -2272,12 +2290,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/generated/assignment-assignments/assignment-assignments-project2010-mpp14.mpp",
       "tasks": 3,
-      "startExact": 3,
+      "startExact": 2,
       "startSameday": 0,
-      "startDiff": 0,
-      "finishExact": 3,
+      "startDiff": 1,
+      "finishExact": 2,
       "finishSameday": 0,
-      "finishDiff": 0
+      "finishDiff": 1,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     },
     "eeb4c750aa58dd96": {
       "root": "crawl",
@@ -2371,13 +2390,13 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14timephasedsegmentsmanualoffsets.mpp",
       "tasks": 25,
-      "startExact": 24,
+      "startExact": 22,
       "startSameday": 1,
-      "startDiff": 0,
-      "finishExact": 25,
+      "startDiff": 2,
+      "finishExact": 23,
       "finishSameday": 0,
-      "finishDiff": 0,
-      "reason": "Z8 (2026-08-18): timephased-venster-fix loste startDiff (25→0) en finishDiff (22→0) volledig op (AssignmentField.FINISH/START als vensterondergrens, zie CPMSolver.ts/mppReader.ts). Resteert: 1 startSameday, toe te schrijven aan Z1's TASK_MODE-grondwaarheidsverschuiving (plan-§3a-uitzondering) — verdwijnt bij Z9a, niet Z8-scope."
+      "finishDiff": 2,
+      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval in deriveTimephasedWindowsForTasks (mppReader.ts) is VERWIJDERD — de reviewer keurde 'm af als fee9ecb4's onvoorwaardelijke override in een nieuw jasje (2896 taken in 156 bestanden lazen daar nog het opgeslagen AssignmentField.FINISH rechtstreeks terug). Deze taken zijn ALLEMAAL MANUALLY_SCHEDULED (taskMode, geverifieerd via readTasks se rawScans) — onze motor rekent handmatig-geplande taken nog niet (Z9a, nog te bouwen); de verwijderde terugval loste dit toevallig op door de facto ook het handmatige antwoord terug te lezen. Eerlijke terugval: verdwijnt bij Z9a, niet Z8-scope."
     }
   }
 }

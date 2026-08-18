@@ -2858,16 +2858,19 @@ if (corpusPresent) {
   // (punt 3 bij `TASK_FIELD_LEVELING_DELAY`) documenteert waarom het assignment-eigen WORK_CONTOUR-
   // bit — GETOETST op precies dit bestand — niet betrouwbaar bleek en dus NIET geïmplementeerd is.
   //
-  // Z8-OMZETTING (2026-08-18, plan-§Z8: "de aanwezigheid van timephased datablokken is zelf het
-  // signaal, en het venster is bovendien direct bruikbaar in plaats van alleen 'iets is anders'.
-  // Werkt dat, dan mag de KNOWN-GAP-leescase omgezet worden van 'wordt niet gemeld' naar 'wordt
-  // correct gepland'"): dat werkt — `mpp-fidelity-baseline.json` pint dit bestand sinds Z8 op 0/0/0
-  // over alle zes velden (was 1 startDiff + 2 finishDiff, `reason` "resource-contouring-
-  // detectiegrens"; de `reason` is bij Z8 VERVALLEN, niet alleen bijgewerkt). De MELDING
-  // (`sourceScheduleNotes`) blijft wél een KNOWN GAP — dat is een apart, ONGEMOEID signaal (buiten
-  // Z8-scope: de melding detecteert contouring zelf, niet het venster dat eruit voortvloeit) — maar
-  // de PLANNING is niet langer stil fout: de asserties hieronder bewijzen dat met de ECHTE keten
-  // (`readMPP` + `solveProject`, dezelfde als `runCPM`), niet alleen met de rauwe ingelezen datums. ─
+  // Z8-OMZETTING (2026-08-18, plan-§Z8) → Z8-HERWERKRONDE-SLOTRONDE (2026-08-18, herzien): de
+  // eerdere versie van deze sectie claimde 0/0/0 over alle zes velden voor dit bestand — dat kwam uit
+  // de vlakke/null-resource-finish-terugval die de reviewer afkeurde als fee9ecb4's onvoorwaardelijke
+  // override in een nieuw jasje (zij las voor "Task A" gewoon `AssignmentField.FINISH` terug in
+  // plaats van onafhankelijk te herberekenen). Die terugval is VERWIJDERD. Het EERLIJKE beeld: "Task
+  // A" (drie toewijzingen, verschillende resourcekalenders) blijft een BEKENDE, GEPINDE afwijking —
+  // de volledige-taakduur-per-toewijzing-wandeling (laag 4) is bewust tot PRECIES 1 toewijzing
+  // beperkt (bij >1 toewijzing delen de resources het werk, een naïeve "elk doet het geheel"-
+  // wandeling geeft een absurde datum) — zie `mpp-fidelity-baseline.json`'s hash `3fc8d51a7e1270c8`
+  // voor de volledige reden. "Contoured Task" heeft precies 1 toewijzing en IS single-assignment-
+  // geactiveerd — die reproduceert MSP's eigen finish nog steeds exact, ONAFHANKELIJK van "Task A"'s
+  // afwijking (haar eigen laag-4-wandeling raakt niet aan Task A se resultaat). De MELDING
+  // (`sourceScheduleNotes`) blijft een apart, ONGEMOEID signaal (buiten Z8-scope).
   {
     const RESOURCE_FIXTURE = process.env.OPS_MPP_RESOURCE_FIXTURE
       ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14resource.mpp';
@@ -2895,12 +2898,12 @@ if (corpusPresent) {
           result.sourceScheduleNotes === undefined,
         );
 
-        // Z8-OMZETTING — "wordt correct gepland": reken de ECHTE keten door (readMPP + solveProject,
-        // dezelfde die runCPM draait) en toets tegen MSP's eigen opgeslagen antwoord (gemeten,
-        // `mppGroundTruth.ts`-stijl — hier als letterlijke, publieke MPXJ-crawldatums, toegestaan
-        // per plan-§6/§8). "Task A" heeft GEEN contour maar WEL drie toewijzingen met verschillende
-        // resourcekalenders (de aggregatieregel-referentie voor acceptatiepunt 1b — zie CPMSolver.ts/
-        // mppReader.ts); "Contoured Task" is de ECHTE contourtaak en volgt op "Task A" (FS+0).
+        // Z8-HERWERKRONDE-SLOTRONDE — reken de ECHTE keten door (readMPP + solveProject, dezelfde die
+        // runCPM draait) en toets tegen MSP's eigen opgeslagen antwoord (gemeten, `mppGroundTruth.ts`-
+        // stijl — hier als letterlijke, publieke MPXJ-crawldatums, toegestaan per plan-§6/§8). "Task
+        // A" heeft GEEN contour maar WEL drie toewijzingen met verschillende resourcekalenders (de
+        // multi-toewijzing-populatie, buiten laag 4's scope — zie hierboven); "Contoured Task" is de
+        // ECHTE contourtaak met PRECIES 1 toewijzing en volgt op "Task A" (FS+0).
         const cpm = solveProject({
           tasks: result.tasks, sequences: result.sequences, calendar: result.calendar,
           calendars: result.resourceCalendars ?? [],
@@ -2909,30 +2912,35 @@ if (corpusPresent) {
         const taskA = result.tasks.find((t) => t.name === 'Task A');
         truthy('[T12 mpp14resource, Z8] "Task A" gevonden', !!taskA);
         if (taskA) {
+          // Multi-toewijzing ⇒ laag 4 activeert bewust NIET (walks.length !== 1) ⇒ geen Z8-mechanisme
+          // op deze taak — de kale duur-gebaseerde berekening beslist, GEEN gelezen terugval meer.
           truthy(
-            `[T12 mpp14resource, Z8] "Task A".scheduleFinish === MSP's eigen 2006-08-30T08:00 (drie toewijzingen, verschillende resourcekalenders — MAX-aggregatie, kreeg ${taskA.time.scheduleFinish})`,
-            taskA.time.scheduleFinish === '2006-08-30T08:00',
+            '[T12 mpp14resource, Z8] "Task A" krijgt GEEN timephasedDurationWalks (multi-toewijzing, laag 4 vereist precies 1)',
+            taskA.timephasedDurationWalks === undefined,
+          );
+          truthy(
+            `[T12 mpp14resource, Z8] "Task A".scheduleFinish wijkt (bekend, gepind — multi-toewijzing buiten laag-4-scope) af van MSP's 2006-08-30T08:00 (kreeg ${taskA.time.scheduleFinish})`,
+            taskA.time.scheduleFinish !== '2006-08-30T08:00',
           );
         }
         if (contoured) {
           truthy(
-            `[T12 mpp14resource, Z8] "Contoured Task".scheduleFinish === MSP's eigen 2006-09-08T09:08 (echte contour + FS-voorganger "Task A", kreeg ${contoured.time.scheduleFinish})`,
+            `[T12 mpp14resource, Z8] "Contoured Task".scheduleFinish === MSP's eigen 2006-09-08T09:08 (laag 3, gelezen venster uit een échte contour-periode, ONAFHANKELIJK van "Task A"'s afwijking, kreeg ${contoured.time.scheduleFinish})`,
             contoured.time.scheduleFinish === '2006-09-08T09:08',
           );
-        }
-        // Mutatiebewijs (acceptatiepunt 2, "negeer het venster ⇒ ROOD"): met `task.
-        // timephasedFinishFloor` verwijderd VÓÓR het rekenen zou "Task A" terugvallen op de kale
-        // duur-gebaseerde berekening — reproduceer dat expliciet i.p.v. de productiecode te muteren.
-        if (taskA) {
-          const withoutWindow = { ...taskA, time: { ...taskA.time }, timephasedFinishFloor: undefined };
+          // Mutatiebewijs (acceptatiepunt 2, "negeer het venster ⇒ ROOD"): met
+          // `timephasedFinishFloor` verwijderd VÓÓR het rekenen zou "Contoured Task" terugvallen op de
+          // kale duur-gebaseerde berekening — reproduceer dat expliciet i.p.v. de productiecode te
+          // muteren.
+          const withoutWindow = { ...contoured, time: { ...contoured.time }, timephasedFinishFloor: undefined };
           const cpmNaive = solveProject({
-            tasks: [withoutWindow, ...result.tasks.filter((t) => t.id !== taskA.id)],
+            tasks: [withoutWindow, ...result.tasks.filter((t) => t.id !== contoured.id)],
             sequences: result.sequences, calendar: result.calendar, calendars: result.resourceCalendars ?? [],
           });
-          const naiveFinish = cpmNaive.tasks.get(taskA.id)?.earlyFinish;
+          const naiveFinish = cpmNaive.tasks.get(contoured.id)?.earlyFinish;
           truthy(
-            `[T12 mpp14resource, Z8 mutatiebewijs] ZONDER timephasedFinishFloor wijkt "Task A".scheduleFinish af van MSP's antwoord (bewijst dat het venster de bepalende factor is, kreeg ${naiveFinish})`,
-            naiveFinish !== '2006-08-30T08:00',
+            `[T12 mpp14resource, Z8 mutatiebewijs] ZONDER timephasedFinishFloor wijkt "Contoured Task".scheduleFinish af van MSP's antwoord (bewijst dat het venster de bepalende factor is, kreeg ${naiveFinish})`,
+            naiveFinish !== '2006-09-08T09:08',
           );
         }
       }

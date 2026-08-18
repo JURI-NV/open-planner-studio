@@ -877,6 +877,21 @@ eq('211 Z8-deferred: SF-druk wint nu van het venster, ook 10 werkdagen verder', 
 // een losstaande duur-edit. Die invalidatie hoort thuis in de task-edit-actie (`taskSlice.ts`,
 // buiten mijn bestandseigendom) — genoemd als vervolgpunt in het eindrapport, niet hier gebouwd.
 
+// ── Z8-herwerkronde-slotronde: EF<ES-inversiewacht op de AUTO-tak (reviewer-eis 4) ──────────────
+// Een taak zonder voortgang met een STALE laag-3-venster (vóór haar eigen, door een voorganger-
+// druk ná dat venster geduwde `earlyStart`) mocht zonder wacht "eindigen vóór ze begint". PRE(dur5)
+// →FS→ INV(dur1, timephasedFinishFloor ver in het verleden): INV se earlyStart komt via de gewone
+// FS-druk ná het venster te liggen.
+const invPre = mkTask('INV-PRE', 5);
+const inv = mkTask('INV', 1, { timephasedFinishFloor: '2026-06-01T10:00' }); // ver vóór INV se eigen FS-druk
+const rInv = new CPMSolver([invPre, inv], [fs('invfs', 'INV-PRE', 'INV')], H8, [], {}).solve();
+const invR = rInv.tasks.get('INV')!;
+eq('212 Z8-slotronde: AUTO-tak EF<ES-wacht — ef geklemd op es (stale venster vóór voorganger-druk)', invR.earlyFinish, invR.earlyStart);
+eq('213 Z8-slotronde: es blijft de voorganger-gedreven 2026-06-08T08:00, niet het stale venster', invR.earlyStart, '2026-06-08T08:00');
+// Mutatiebewijs (uitgevoerd, ongewijzigd teruggezet): `if (tf && earlyFinish < earlyStart) earlyFinish
+// = earlyStart;` in CPMSolver.ts tijdelijk verwijderen laat check 212 rood gaan (ef zou het stale
+// venster 2026-06-01T10:00 blijven, vóór es 2026-06-08T08:00 — een echte inversie).
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  advanced-cpm-check: alle checks groen (${checks})`);
