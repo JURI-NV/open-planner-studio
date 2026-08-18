@@ -1040,60 +1040,45 @@ export class CPMSolver {
           const isElapsedTask = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
           const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
           let remStart = dataDate ?? actualES;                      // ondergrens: statusdatum, anders de eigen actualStart (M1)
-          // Z12 (dossier out-of-sequence-actuals, retained logic): het GEANKERDE alternatief voor
-          // de gewone `remStart`/`ef`-berekening hieronder — gevuld verderop in dit blok, ná `ef`
-          // toegepast (zie de toelichting daar). `null` ⇒ geen override, byte-identiek.
-          let oosAnchoredFinish: Date | null = null;
+          // Z12-herwerk (dossier out-of-sequence-actuals): `true` zodra `remStart` hieronder uit het
+          // RESUME-veld komt i.p.v. de gewone voorganger-druk/elapsed-vloer — stuurt de ef<es-
+          // inversiecorrectie ná de gedeelde ef-berekening (zie die toelichting verderop).
+          let usedResumeOverride = false;
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
+            // Z12-herwerk (dossier out-of-sequence-actuals, ná Opus-weerlegging van het eerdere
+            // anker-ontwerp): MSP slaat het hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK
+            // op in het bestand — MPP-veld-id 99 (`TaskField.RESUME`, `DataType.DATE`,
+            // `FieldMap14.java` blok 0 offset 20), gelezen door `mppReader.ts` naar
+            // `task.time.resume`. Dit is dus GEEN afgeleide/herberekende waarde en GEEN historie-
+            // afhankelijke aanname — de invoer staat gewoon in het bestand. Corpusmeting (fase 1,
+            // scratchpad-lezer op de bestaande veldkaart-infra): `finish = addWork(resume,
+            // remaining)` op de taak-EIGEN kalender is 17/17 EXACT op alle out-of-sequence-in-
+            // progress-BLADtaken corpusbreed (`childIds.length === 0`, tegen `task.time.
+            // scheduleFinish` — MSP's eigen SCHEDULED_FINISH, vóór enige `applyCpmResult`-mutatie),
+            // en 4/4 minuut-exact op de gemeten OzBuild-snapshots (de root-cause-taak "Validate
+            // Technical Specification" én haar eigen voorganger "Create Technical Specification",
+            // in alle vier de bestanden — inclusief "After Para 28"/"End Para 29", die het eerdere
+            // anker-ontwerp brak). De 5 missers op de bredere (niet-out-of-sequence) in-progress-
+            // populatie zitten allemaal in reeds-gepinde resource-gedreven/timephased-uitzonderingen
+            // (`mpp14timephased.mpp`/`mpp14timephased2.mpp`, bestaande "toegestaan"-reason in
+            // `mpp-fidelity-baseline.json`) — buiten Z12-scope, geen tweede regel nodig.
+            //
+            // Vervangt de gewone voorganger-druk (`earlyStart`) VOLLEDIG voor een AANTOONBAAR
+            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde
+            // detectie als `detectOutOfSequence`'s eigen FINISH_START-tak) — mits `t.resume`
+            // daadwerkelijk aanwezig is. GEEN opt-in-vlag meer nodig: de AANWEZIGHEID van `resume`
+            // ís het signaal (spiegelt hoe `actualStart` ook zonder vlag werkt) — een niet-`.mpp`-
+            // bron (MSPDI/P6/CSV/IFC) heeft dit veld domweg niet, dus valt automatisch terug op de
+            // bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-vloer hieronder, byte-identiek.
+            const resumeOverride = t.resume && this.isOutOfSequenceFsPredecessor(task, preds, results)
+              ? this.parseIn(cal, t.resume)
+              : null;
+            if (resumeOverride && !isNaN(resumeOverride.getTime())) {
+              remStart = resumeOverride;
+              usedResumeOverride = true;
+            } else {
             // RETAINED_LOGIC: remaining respecteert óók de voorganger-druk (earlyStart).
             if (earlyStart > remStart) remStart = earlyStart;
-            // Z12: MEET-EERST bevond dat de voorganger-druk hier NIET zomaar mag vervallen zoals
-            // PROGRESS_OVERRIDE dat doet (§10-O6) — de kandidaat-hervattingsformule ("actualStart +
-            // reeds-verstreken-duur, ZONDER voorganger-max", identiek aan T9's `resumeFromActualElapsed`
-            // hieronder maar dan zonder de `earlyStart > remStart`-stap erboven) reproduceert MSP's
-            // eigen opgeslagen finish WEL minuut-exact op de root-cause-taak in het gemeten dossier
-            // ("Validate Technical Specification", twee OzBuild-bestanden: 2019-01-03T17:00 resp.
-            // 2025-01-07T17:00, tegen de huidige RETAINED_LOGIC-uitkomst van 6 dagen te laat) — MAAR
-            // diezelfde formule reproduceert NIET het antwoord van twee latere snapshots van
-            // DEZELFDE workshop-taak (OzBuild "After Para 28"/"End Para 29") die, gemeten via
-            // `readMPP` in isolatie, voor déze taak/voorganger-combinatie BYTE-VOOR-BYTE identieke
-            // `actualStart`/`completion`/voorganger-status hebben maar een ANDER MSP-antwoord
-            // (2019-01-09T17:00 resp. 2025-01-13T17:00 — precies de gewone RETAINED_LOGIC-uitkomst,
-            // dus GEEN uitzondering in díé snapshots). Twee snapshots met identieke zichtbare
-            // taakvelden maar een verschillend MSP-antwoord bewijst dat de out-of-sequence-
-            // uitzondering GEEN pure functie is van de huidige taakgrafiek (voorganger-status,
-            // actualStart, completion) — MSP's eigen beslissing is kennelijk `history`-afhankelijk
-            // (bevroren op het moment dat de uitzondering ooit vuurde, niet bij elke herberekening
-            // opnieuw afgeleid) en dus met GEEN formule op basis van de huidige velden na te bootsen
-            // zonder de twee latere snapshots stuk te maken (geverifieerd: dezelfde kandidaat-formule
-            // geeft op "After Para 28"/"End Para 29" 2019-01-03/2025-01-07 — 6 dagen TE VROEG, want
-            // dat is niet wat MSP daar opsloeg).
-            //
-            // Oplossing: i.p.v. de hervattingsformule te wijzigen (die blijft ONGEWIJZIGD — geen
-            // enkele bestaande RETAINED_LOGIC-uitkomst verandert), wordt voor een AANTOONBAAR
-            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde detectie
-            // als `detectOutOfSequence`'s eigen FINISH_START-tak) de reeds-ingelezen
-            // `task.time.scheduleFinish` — MSP's EIGEN, letterlijk opgeslagen antwoord voor déze
-            // taak, hier nog ONGEWIJZIGD sinds `readMPP` (`applyCpmResult` overschrijft dit veld pas
-            // ná de hele forward-pas) — als ANKER gebruikt in plaats van de herberekening. Dat is
-            // dezelfde soort "vertrouw het ingelezen anker"-redenering als `ownAnchor` voor wortel-
-            // taken (T7, §9/O2): de CPM-herberekening veronderstelt dat voorganger-druk betrouwbaar
-            // is, en precies dát valt weg zodra de taak aantoonbaar out-of-sequence is. Dit levert
-            // AUTOMATISCH het juiste antwoord op ALLE VIER de geverifieerde snapshots — inclusief de
-            // twee die de kandidaat-formule zou breken — want `scheduleFinish` is per definitie
-            // MSP's eigen antwoord, ongeacht welke interne formule MSP zelf gebruikte. Uitsluitend
-            // actief ÉÉN opt-in-vlag (`outOfSequenceIgnoresPredecessorPressure`, familie
-            // `resumeFromActualElapsed`/`unstartedIgnoresStatusDate`) én een aantoonbare out-of-
-            // sequence-relatie; vlag afwezig (default) of geen out-of-sequence-FS-voorganger
-            // (verreweg het gebruikelijke geval, ook mét de vlag aan) ⇒ `oosAnchoredFinish` blijft
-            // `null` — byte-identiek aan vóór Z12.
-            if (
-              this.options.schedulingOptions?.outOfSequenceIgnoresPredecessorPressure
-              && this.isOutOfSequenceFsPredecessor(task, preds, results)
-            ) {
-              const anchored = t.scheduleFinish ? this.parseIn(cal, t.scheduleFinish) : null;
-              if (anchored && !isNaN(anchored.getTime())) oosAnchoredFinish = anchored;
-            }
             // T9 (voortgangsafronding, MEET-EERST-bevinding): MS Project hervat het restwerk NIET
             // op de statusdatum zelf, maar op `actualStart + reeds-verstreken-duur` (het reeds
             // AFGEWERKTE deel, `totalSpan − remaining`, vanaf de eigen `actualES`), doorgesnapt via
@@ -1164,6 +1149,7 @@ export class CPMSolver {
                     })();
               if (elapsedAnchor > remStart) remStart = elapsedAnchor;
             }
+            }
           }
           let ef: Date;
           if (isElapsedTask) {
@@ -1176,11 +1162,17 @@ export class CPMSolver {
             ef = r.date;
             if (r.capped) this.cappedTaskIds.push(taskId);
           }
-          // Z12: het geankerde antwoord wint — zie `oosAnchoredFinish`'s declaratie hierboven voor
-          // de volledige diagnose (waarom een formule hier NIET generaliseert, en waarom MSP's eigen
-          // opgeslagen `scheduleFinish` dat wél doet). `null` (verreweg het gebruikelijke geval) ⇒
-          // deze regel is een no-op.
-          if (oosAnchoredFinish) ef = oosAnchoredFinish;
+          // Z12-herwerk, reviewbevinding L1: de VOLTOOID-tak (hierboven, `if (ef < es) es = ef`)
+          // bewaakt al dat een taak nooit "eindigt vóór ze begint"; het eerdere anker-ontwerp op
+          // DEZE tak had die wacht niet. `remStart` (dus ook `ef = addWork(remStart, remaining)`)
+          // komt bij `usedResumeOverride` rechtstreeks uit het RESUME-veld — een bestand met
+          // inconsistente RESUME/ActualStart-velden (RESUME vóór de eigen `actualStart`, corrupt of
+          // hostile) zou anders een `ef` vóór `actualES` kunnen opleveren terwijl `es` hieronder
+          // altijd `actualES` blijft. Klem `ef` dan op `actualES` (nooit `es` verlagen: `actualES`
+          // is hier, anders dan in de VOLTOOID-tak, een AANTOONBAAR feit, geen uit hetzelfde
+          // mechanisme afgeleide waarde). Normale niet-override-pad: `remStart` is per constructie
+          // altijd ≥ `actualES`, dus deze wacht is daar een no-op.
+          if (usedResumeOverride && ef < actualES) ef = actualES;
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -1310,9 +1302,9 @@ export class CPMSolver {
    *  `results.get(predecessorId)` is op dit punt al gezet en identiek aan wat `earlyDates` er ná
    *  afloop voor dezelfde relatie uit zou geven — geen tweede, potentieel afwijkende berekening.
    *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
-   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor déze vlag geen gemeten
-   *  scenario, dus geen ongeverifieerde aanname erbij (`outOfSequenceIgnoresPredecessorPressure`'s
-   *  docblok in `project.ts`). */
+   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor de `resume`-veld-override
+   *  (zie de aanroepplek hierboven) geen gemeten scenario, dus geen ongeverifieerde aanname erbij
+   *  (`Task.time.resume`'s docblok in `src/types/task.ts`). */
   private isOutOfSequenceFsPredecessor(
     task: Task,
     preds: Sequence[],

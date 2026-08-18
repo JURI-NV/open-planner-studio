@@ -50,51 +50,6 @@ export interface SchedulingOptions {
    *  het P6-pad (`progressMode`/statusdatum-gedreven planningen) behoudt de vloer bewust: dat is
    *  precies de RETAINED_LOGIC-conventie die P6 zélf documenteert. */
   unstartedIgnoresStatusDate?: boolean;
-  /** Z12 (dossier out-of-sequence-actuals, retained logic): voor een taak die AANTOONBAAR
-   *  out-of-sequence is met een FINISH_START-voorganger (`actualStart` vóór de herberekende — of,
-   *  als bekend, de EIGEN opgeslagen — voorgangerfinish; dezelfde detectie als
-   *  `CPMResult.outOfSequenceSequenceIds`, hier bewust beperkt tot FINISH_START, spiegelend het
-   *  gemeten dossier) wordt de gewone RETAINED_LOGIC-herberekening ("max(dataDate, voorganger-druk)"
-   *  + de `resumeFromActualElapsed`-vloer, `CPMSolver.ts`'s voortgangstak, BEIDE ONVERANDERD door
-   *  deze vlag) vervangen door het reeds-ingelezen `task.time.scheduleFinish` — MSP's EIGEN,
-   *  letterlijk opgeslagen finish voor die taak (nog ongewijzigd op het moment dat de forward-pas
-   *  'm leest; `applyCpmResult` overschrijft dit veld pas ná afloop).
-   *
-   *  MEET-EERST-bevinding (twee kandidaat-formules eerst getoetst, geen van beide gekozen — zie
-   *  hieronder waarom): op de root-cause-taak van het gemeten dossier ("Validate Technical
-   *  Specification", twee OzBuild-bestanden, completion 8%/10%) geeft de bestaande RETAINED_LOGIC-
-   *  vloer 6 dagen te laat t.o.v. MSP's eigen opgeslagen finish; PROGRESS_OVERRIDE (die de
-   *  voorganger-druk óók laat vallen, maar daarbij ook de `resumeFromActualElapsed`-vloer overslaat)
-   *  geeft 1 dag te vroeg. Een DERDE kandidaat — hervatting op `actualStart + reeds-verstreken-duur`
-   *  (T9's `resumeFromActualElapsed`-mechanisme), MAAR ZONDER de voorganger-max — reproduceert MSP's
-   *  eigen opgeslagen finish MINUUT-exact op beide bestanden (2019-01-03T17:00 resp.
-   *  2025-01-07T17:00). Die formule bleek echter NIET te generaliseren: twee LATERE snapshots van
-   *  exact dezelfde workshop-taak (OzBuild "After Para 28"/"End Para 29") hebben — geïsoleerd
-   *  ingelezen — BYTE-VOOR-BYTE identieke `actualStart`/`completion`/voorganger-status voor deze
-   *  taak/voorganger-combinatie, maar MSP's eigen opgeslagen finish is daar 2019-01-09T17:00 resp.
-   *  2025-01-13T17:00 — precies de GEWONE RETAINED_LOGIC-uitkomst, dus GEEN uitzondering in díé
-   *  snapshots. Twee bestanden met identieke zichtbare taakvelden maar een verschillend MSP-antwoord
-   *  bewijst dat de out-of-sequence-uitzondering GEEN pure functie is van de huidige taakgrafiek —
-   *  MSP's beslissing is kennelijk history-afhankelijk (bevroren op het moment dat de uitzondering
-   *  ooit vuurde, niet bij elke herberekening opnieuw afgeleid uit actualStart/completion/voorganger-
-   *  status) en dus met GEEN formule op basis van de huidige velden na te bootsen zonder de twee
-   *  latere snapshots stuk te maken (geverifieerd: dezelfde derde-kandidaat-formule geeft daar 6
-   *  dagen TE VROEG). Vandaar de ANKER-aanpak i.p.v. een vierde formule: `scheduleFinish` is per
-   *  definitie MSP's eigen antwoord, ongeacht welke interne formule MSP zelf gebruikte, en levert zo
-   *  op ALLE VIER de geverifieerde snapshots het juiste antwoord — ook op de twee die de
-   *  geverifieerde formule zou breken. Zelfde soort "vertrouw het ingelezen anker"-redenering als
-   *  `ownAnchor` voor wortel-taken (T7, §9/O2): de CPM-herberekening veronderstelt dat voorganger-
-   *  druk betrouwbaar is, en precies dát valt weg zodra de taak aantoonbaar out-of-sequence is.
-   *
-   *  Default `undefined`/`false` ⇒ het bestaande, P6-getrouwe gedrag, byte-identiek (bewaakt door
-   *  dezelfde `cases-progress.json`-scenario's als `resumeFromActualElapsed`/
-   *  `unstartedIgnoresStatusDate`, met name Scenario B's `prog-B-oos-retained`/`prog-oos-fs`-familie
-   *  — een P6-bron behoort een out-of-sequence-taak gewoon achter haar voorganger te laten wachten,
-   *  dat is RETAINED_LOGIC's hele doel). Uitsluitend `true` gezet door `mppReader.ts` (élke
-   *  `.mpp`-import, naast `unstartedIgnoresStatusDate`); MSPDI/P6/CSV/IFC blijven op de bestaande
-   *  P6-semantiek — een `.mpp → MSPDI → herimport`-cyclus verliest deze vlag dus stil zodra MSPDI-
-   *  export 'm niet meeschrijft (zie de `mspdiWriter.ts`-warn-registratie, Z14/O4). */
-  outOfSequenceIgnoresPredecessorPressure?: boolean;
 }
 
 export interface Project {

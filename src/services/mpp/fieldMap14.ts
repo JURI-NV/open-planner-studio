@@ -237,6 +237,21 @@ export const TaskFieldId = {
   /** Z2 — eenheid/elapsed-vlag bij `ManualDuration` hierboven. Blok 1, offset 62 (`FieldMap14.java`:
    *  `..., 1, 62, 1289, 0, 0)`). */
   ManualDurationUnits: 1289,
+  /** Z12-herwerk (dossier out-of-sequence-actuals) — `TaskField.RESUME` (`DataType.DATE`). MSP's
+   *  EIGEN opgeslagen hervattingsinstant voor een IN-PROGRESS-taak — géén afgeleide/herberekende
+   *  waarde, de invoer staat letterlijk in het bestand. Blok 0, offset 20 (`FieldMap14.java`:
+   *  `new FieldItem(TaskField.RESUME, FIELD_LOCATION.FIXED_DATA, 0, 20, 99, 0, 0)`). Corpusmeting
+   *  (fase 1, scratchpad): `finish = addWork(resume, remaining)` op de taak-EIGEN kalender is
+   *  17/17 exact op alle out-of-sequence-in-progress-bladtaken corpusbreed, 4/4 op de gemeten
+   *  OzBuild-snapshots minuut-exact. Niet te verwarren met `AssignmentFieldId.Resume` (24) —
+   *  andere veldkaart (TBkndAssn, Z4), toevallig dezelfde Engelse naam. */
+  Resume: 99,
+  /** Z12-herwerk — `TaskField.STOP` (`DataType.DATE`), MSP's eigen grens van het reeds-afgewerkte
+   *  deel. Blok 0, offset 16 (`FieldMap14.java`: `..., FIXED_DATA, 0, 16, 100, 0, 0`). Corpusmeting:
+   *  niet nodig gebleken voor de `finish = addWork(resume, remaining)`-formule (die haalde 17/17
+   *  zonder `stop`) — hier alleen MEEGENOMEN als rauw, ongebruikt veld voor een latere taak
+   *  (splits/actual-grens-rendering); geen enkele solverberekening leest 'm momenteel. */
+  Stop: 100,
 } as const;
 
 /** Letterlijk uit `FieldMap14.getDefaultTaskData()` — alleen de entries voor `TaskFieldId`
@@ -273,6 +288,10 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [TaskFieldId.Finish]: { location: 'fixed2', fixedOffset: 54 },
   [TaskFieldId.ManualDuration]: { location: 'fixed2', fixedOffset: 58 },
   [TaskFieldId.ManualDurationUnits]: { location: 'fixed2', fixedOffset: 62 },
+  // Z12-herwerk — letterlijke offsets uit `FieldMap14.getDefaultTaskData()`, zie de
+  // `TaskFieldId.Resume`/`.Stop`-toelichtingen hierboven.
+  [TaskFieldId.Resume]: { location: 'fixed', fixedOffset: 20 },
+  [TaskFieldId.Stop]: { location: 'fixed', fixedOffset: 16 },
 };
 
 /** Poort van `FieldMap.createTaskFieldMap(Props)`. */

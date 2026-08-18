@@ -251,6 +251,7 @@ const TM = {
     actualStart: '2026-07-24', actualFinish: '2026-07-24', actualDuration: 0,
     remainingTime: 0, remainingMinutes: 0, // remainingMinutes: (b) uur-modus-gap
     completion: 1,
+    resume: '2026-07-24', stop: '2026-07-24', // Z12-herwerk: typecontract-gap, zie TIME_CANON
   },
 } satisfies Required<Task> & { time: Required<TaskTime> };
 
@@ -322,7 +323,6 @@ const SCHED_OPTS = {
   floatPaths: { enabled: true, method: 'TOTAL_FLOAT', maxPaths: 5 },
   resumeFromActualElapsed: true, // T9 (voortgangsafronding): rondt lossless mee als deel van het JSON-blob
   unstartedIgnoresStatusDate: true, // B1 (dossier (c)4-herdiagnose): idem, rondt mee als deel van het JSON-blob
-  outOfSequenceIgnoresPredecessorPressure: true, // Z12 (out-of-sequence-actuals): idem, rondt mee als deel van het JSON-blob
 } satisfies Required<SchedulingOptions>;
 const project = {
   id: 'proj-1', name: 'Nieuwbouw Testtoren', description: 'Beschrijving X', // description: (a) gap
@@ -471,6 +471,13 @@ const TIME_CANON = {
   actualStart: KEEP, actualFinish: KEEP, actualDuration: KEEP, remainingTime: KEEP,
   remainingMinutes: { skip: '(b) UUR-modus-veld, n.v.t. in dag-modus (zie durationMinutes)' },
   completion: KEEP,
+  // Z12-herwerk — typecontract-velden (rol TaskTimeInput), nog ONGESCHREVEN/ONGELEZEN door
+  // ifcWriter/ifcReader — geen enkele lezer/schrijver raakt ze aan, dus er is nog niets om écht
+  // round-trip te vergelijken. Z14 maakt dit een echte round-trip-cel zodra de writer/reader ze
+  // daadwerkelijk schrijft/leest (zie ook de mspdiWriter-melding voor Z14: resume/stop niet
+  // native geschreven, of native <Resume>/<Stop> — Z14 weegt dat).
+  resume: { skip: 'Z12-herwerk — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  stop: { skip: 'Z12-herwerk — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
 } satisfies CanonSpec<TaskTime>;
 
 const TASK_CANON = {

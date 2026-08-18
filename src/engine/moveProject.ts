@@ -67,6 +67,11 @@ const TASK_TIME_VERDICTS = {
   floatPath: 'derived',
   actualStart: 'shift',           // R5 — schuift mee mét de statusdatum, zodat de voortgangs-vloer klopt
   actualFinish: 'shift',          // R5
+  resume: 'shift',                // Z12-herwerk — MSP's eigen hervattingsinstant, zelfde aard als
+                                   // actualStart/actualFinish (absoluut, kalender-geankerd feit uit
+                                   // het bestand); schuift mee, anders wijst een verplaatst project
+                                   // naar een RESUME-datum uit het verleden.
+  stop: 'shift',                  // Z12-herwerk — spiegelt resume hierboven.
   actualDuration: 'n/a',          // duur
   remainingTime: 'n/a',           // duur
   remainingMinutes: 'n/a',        // duur
@@ -237,6 +242,8 @@ export function shiftTask(task: Task, delta: number): Task {
       scheduleFinish: shiftIso(t.scheduleFinish, delta),
       actualStart: shiftIso(t.actualStart, delta),
       actualFinish: shiftIso(t.actualFinish, delta),
+      resume: shiftIso(t.resume, delta),
+      stop: shiftIso(t.stop, delta),
     },
   };
   if (task.constraint) next.constraint = shiftConstraint(task.constraint, delta);
