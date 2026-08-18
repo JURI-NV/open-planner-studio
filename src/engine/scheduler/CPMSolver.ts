@@ -1494,44 +1494,55 @@ export class CPMSolver {
           let usedResumeOverride = false;
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // Z12-herwerk (dossier out-of-sequence-actuals, ná Opus-weerlegging van het eerdere
-            // anker-ontwerp): MSP slaat het hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK
-            // op in het bestand — MPP-veld-id 99 (`TaskField.RESUME`, `DataType.DATE`,
-            // `FieldMap14.java` blok 0 offset 20), gelezen door `mppReader.ts` naar
-            // `task.time.resume`. Dit is dus GEEN afgeleide/herberekende waarde en GEEN historie-
-            // afhankelijke aanname — de invoer staat gewoon in het bestand. Corpusmeting (fase 1,
-            // scratchpad-lezer op de bestaande veldkaart-infra): `finish = addWork(resume,
-            // remaining)` op de taak-EIGEN kalender is 17/17 EXACT op alle out-of-sequence-in-
-            // progress-BLADtaken corpusbreed (`childIds.length === 0`, tegen `task.time.
-            // scheduleFinish` — MSP's eigen SCHEDULED_FINISH, vóór enige `applyCpmResult`-mutatie),
-            // en 4/4 minuut-exact op de gemeten OzBuild-snapshots (de root-cause-taak "Validate
-            // Technical Specification" én haar eigen voorganger "Create Technical Specification",
-            // in alle vier de bestanden — inclusief "After Para 28"/"End Para 29", die het eerdere
-            // anker-ontwerp brak). De 5 missers op de bredere (niet-out-of-sequence) in-progress-
-            // populatie zitten allemaal in reeds-gepinde resource-gedreven/timephased-uitzonderingen
-            // (`mpp14timephased.mpp`/`mpp14timephased2.mpp`, bestaande "toegestaan"-reason in
-            // `mpp-fidelity-baseline.json`) — buiten Z12-scope, geen tweede regel nodig.
+            // anker-ontwerp) → Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat") → Z19 (residu-iteratie
+            // "nul afwijkingen", dossier "resumeOverride-gate-verbreding"): MSP slaat het
+            // hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK op in het bestand — MPP-veld-id
+            // 99 (`TaskField.RESUME`, `DataType.DATE`, `FieldMap14.java` blok 0 offset 20), gelezen
+            // door `mppReader.ts` naar `task.time.resume`. Dit is dus GEEN afgeleide/herberekende
+            // waarde en GEEN historie-afhankelijke aanname — de invoer staat gewoon in het bestand.
+            // Corpusmeting (fase 1, Z12): `finish = addWork(resume, remaining)` op de taak-EIGEN
+            // kalender is 17/17 EXACT op alle out-of-sequence-in-progress-BLADtaken corpusbreed en
+            // 4/4 minuut-exact op de gemeten OzBuild-snapshots.
             //
-            // Vervangt de gewone voorganger-druk (`earlyStart`) VOLLEDIG voor een AANTOONBAAR
-            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde
-            // detectie als `detectOutOfSequence`'s eigen FINISH_START-tak) — mits `t.resume`
-            // daadwerkelijk aanwezig is. GEEN opt-in-vlag meer nodig: de AANWEZIGHEID van `resume`
-            // ís het signaal (spiegelt hoe `actualStart` ook zonder vlag werkt) — een niet-`.mpp`-
-            // bron (MSPDI/P6/CSV/IFC) heeft dit veld domweg niet, dus valt automatisch terug op de
-            // bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-vloer hieronder, byte-identiek.
-            // Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat", tweede iteratie): naast Z12's eigen
-            // out-of-sequence-trigger geldt de resumeOverride ook zodra `progressCal` afwijkt van
-            // `cal` (de resourcekalender-gate hierboven vuurde) — gemeten (Task 6-familie,
-            // mpp14timephased.mpp): de "RETAINED_LOGIC"-vloer hieronder leidt het hervattingspunt AF
-            // uit `elapsed = totalSpan − remaining` gewandeld via `progressCal`, en die AFLEIDING
-            // reproduceert MSP's eigen opgeslagen `Resume`-veld NIET voor deze populatie (bevestigd
-            // tegen het MSPDI-orakel: Task 6 se `<Resume>2008-12-02T15:00</Resume>` wijkt af van de
-            // elapsed-afgeleide waarde). `t.resume` is hier, exact als in Z12's eigen dossier, een
-            // ECHT ingelezen bestandsveld (geen aanname) — dus dezelfde precedentie-regel: AANWEZIG
-            // ⇒ gebruik het rechtstreeks, in plaats van het af te leiden.
-            const resumeOverride = t.resume
-              && (progressCal !== cal || this.isOutOfSequenceFsPredecessor(task, preds, results))
-              ? this.parseIn(progressCal, t.resume)
-              : null;
+            // TWEE EERDERE, SMALLERE POGINGEN (Z12: AANTOONBAAR out-of-sequence FS-voorganger via
+            // het inmiddels VERWIJDERDE `isOutOfSequenceFsPredecessor`; Z8-fixronde-2: afwijkende
+            // resourcekalender) bleken geen eigen semantische regel — dossier-voor-dossier ontdekte
+            // DEELVERZAMELINGEN. Vijf resterende taken (Task 6/Task 6 - 50%/Task 6 - 150% in
+            // mpp14timephased.mpp, Task 2/Task 3 in timephased-actual-overtime-work.mpp) zijn
+            // WORTELTAKEN (geen voorgangers) met een STRUCTUREEL IDENTIEKE resourcekalender — beide
+            // sub-condities bleven dicht, dus viel de solver terug op de RETAINED_LOGIC-afleiding
+            // (`elapsed = totalSpan − remaining`, hieronder). Gemeten (Z19-probe): die afgeleide
+            // `elapsed` wijkt structureel af van het ware kalender-werkminuten-verschil tussen
+            // `actualStart` en `t.resume` — er bestaat wiskundig geen `remaining`-waarde die beide
+            // feiten tegelijk reproduceert, want hervattingsanker en restwerk zijn in MSP's data
+            // ONAFHANKELIJKE, apart opgeslagen feiten.
+            //
+            // EEN DERDE POGING, "AANWEZIGHEID ALLEEN IS AL HET SIGNAAL" (`t.resume` is UITSLUITEND
+            // door `mppReader.ts` gezet — een niet-`.mpp`-bron draagt dit veld domweg nooit, zie
+            // `cases-progress.json`'s `prog-Z12-p6-contrast-resume-forced-present`), bleek ZELF TE
+            // BREED: `mpp14assignmentfields.mpp`'s "Task One" (2 toewijzingen, units [1, 0.25],
+            // completion 6%) heeft óók `t.resume` gezet, maar `finish = addWork(resume, remaining)`
+            // wijkt daar ~4,5 uur af van MSP's eigen antwoord — de RETAINED_LOGIC-afleiding was daar
+            // AL exact. Dezelfde les als de "mpp14resource-apportionering"-dossier (Z19, elders in
+            // deze etappe): bij >1 GELIJKTIJDIGE toewijzing is het TAAK-brede `remaining`/`resume`-
+            // paar niet zomaar één rechtlijnige kalenderwandeling — de toewijzingen DELEN het werk.
+            // Discriminator (gemeten, niet aangenomen): ALLE 17 Z12-referentietaken én de 5 hierboven
+            // genoemde dragen PRECIES 0 of 1 toewijzing; "Task One" draagt er 2. `task.resourceIds`
+            // (Z19: sinds deze taak ook door `mppReader.ts` gevuld — spiegelt `ifcReader.ts`'s
+            // `reconstructResourceIds`, was voorheen voor MPP-taken altijd `[]`) geeft die telling.
+            // AANWEZIG ⇒ gebruik het rechtstreeks, MAAR ALLEEN bij ≤1 toewijzing.
+            // `isOutOfSequenceFsPredecessor` is met deze regel overbodig geworden (elke situatie
+            // waarin ze `true` gaf had ook ≤1 toewijzing) en is daarom verwijderd i.p.v. als dode
+            // code te laten staan.
+            //
+            // BLAST-RADIUS (Z19-probe, wegwerpscript, corpus+crawl 216 bestanden, completion∈(0,1)-
+            // populatie met `t.resume` gezet): de bredere regel verandert UITSLUITEND de vijf hierboven
+            // genoemde taken — geen enkele andere `t.resume`-dragende taak in het corpus heeft >1
+            // toewijzing (`mpp14assignmentfields.mpp`'s "Task One" is de ENIGE, en blijft met de
+            // ≤1-toewijzing-guard ONGEWIJZIGD op de RETAINED_LOGIC-vloer). `cases-progress.json`'s
+            // P6-RETAINED_LOGIC-scenario's dragen `resume` per constructie NOOIT (mpp-exclusief) en
+            // blijven dus byte-identiek; hun `resourceIds` staat bovendien op de default `[]` (≤1).
+            const resumeOverride = t.resume && task.resourceIds.length <= 1 ? this.parseIn(progressCal, t.resume) : null;
             if (resumeOverride && !isNaN(resumeOverride.getTime())) {
               remStart = resumeOverride;
               usedResumeOverride = true;
@@ -1654,9 +1665,9 @@ export class CPMSolver {
           // resume/stop-paar naast `splitGaps` is gevonden.
           //
           // VOORRANGSREGEL (uit deze meting, niet aangenomen): `resume`/`splitGaps` zeggen in de
-          // gemeten populatie HETZELFDE, maar over VERSCHILLENDE assen — `resume` (Z12) is het
+          // gemeten populatie HETZELFDE, maar over VERSCHILLENDE assen — `resume` (Z12, Z19) is het
           // CALENDER-anker van het restwerk-startpunt (waar `remStart` op landt, via de
-          // `isOutOfSequenceFsPredecessor`-override of de gewone RETAINED_LOGIC-vloer hierboven);
+          // `resumeOverride`-tak of de gewone RETAINED_LOGIC-vloer hierboven);
           // `splitGaps` (Z7) leeft op de WERK-as (hoeveel werk is al gedaan, `completedSpan`) en is
           // BLIND voor welk kalenderanker `remStart` daadwerkelijk kreeg. Er ontstaat dus GEEN
           // conflict om een voorrangsregel voor nodig te hebben: het venster
@@ -1920,46 +1931,14 @@ export class CPMSolver {
    * een relatie kan aantoonbaar out-of-sequence zijn (opvolger-actuals tegenspreken de voorganger-
    * logica) ongeacht of het project een statusbrede statusdatum heeft.
    */
-  /** Z12: is `task` aantoonbaar out-of-sequence met minstens één van haar FINISH_START-voorgangers
-   *  — de LIVE tegenhanger van `detectOutOfSequence`'s eigen FINISH_START-tak (identieke conditie:
-   *  `!predAF || (prefEF && succAS < prefEF)`), maar opgeroepen TIJDENS de forward-pas zelf (met de
-   *  tot-nu-toe gevulde `results`) i.p.v. erna (met de complete `earlyDates`). Door de topologische
-   *  volgorde (`order`, `topologicalSort`) staat een voorganger altijd vóór haar opvolger, dus
-   *  `results.get(predecessorId)` is op dit punt al gezet.
-   *
-   *  L2 (Z12-her-check, Opus-hercheck, correctie op een eerdere — onware — claim hier): dat is NIET
-   *  in alle gevallen identiek aan wat `earlyDates` er ná afloop voor dezelfde relatie uit zou
-   *  geven. `runCPM` roept `applyAlap(order, earlyDates, lateDates)` aan ná `backwardPass` maar
-   *  VÓÓR `detectOutOfSequence(earlyDates)` — en `applyAlap` muteert `early.es`/`early.ef` IN-PLACE
-   *  op diezelfde `earlyDates`-Map (regel ~1718 e.v.) voor elke ALAP-geconstrainde taak. Is de
-   *  VOORGANGER van deze relatie zelf ALAP, dan ziet `detectOutOfSequence` (post-`applyAlap`) een
-   *  ANDERE (later geschoven) `predEF` dan wat `results.get(predecessorId)` hier tijdens de forward-
-   *  pas nog opleverde (vóór de ALAP-schuif). Voor déze functie zelf verandert dat niets — ze wordt
-   *  UITSLUITEND tijdens de forward-pas gebruikt (de `resume`-veld-override hierboven), nooit ná
-   *  `applyAlap` — dus geen gedragswijziging, alleen een onware "identiek"-claim gecorrigeerd.
-   *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
-   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor de `resume`-veld-override
-   *  (zie de aanroepplek hierboven) geen gemeten scenario, dus geen ongeverifieerde aanname erbij
-   *  (`Task.time.resume`'s docblok in `src/types/task.ts`). */
-  private isOutOfSequenceFsPredecessor(
-    task: Task,
-    preds: Sequence[],
-    results: Map<string, { es: Date; ef: Date }>,
-  ): boolean {
-    if (!task.time.actualStart) return false;
-    const succAS = this.parseIn(this.calendarFor(task), task.time.actualStart);
-    for (const seq of preds) {
-      if (seq.type !== 'FINISH_START') continue;
-      const predTask = this.tasks.get(seq.predecessorId);
-      if (!predTask) continue;
-      const predEng = this.calendarFor(predTask);
-      const predAF = predTask.time.actualFinish ? this.parseIn(predEng, predTask.time.actualFinish) : null;
-      const predEF = results.get(seq.predecessorId)?.ef ?? null;
-      const prefEF = predAF ?? predEF;
-      if (!predAF || (prefEF && succAS < prefEF)) return true;
-    }
-    return false;
-  }
+  // Z19 (residu-iteratie "nul afwijkingen", dossier "resumeOverride-gate-verbreding"): de vroegere
+  // `isOutOfSequenceFsPredecessor` (Z12) — de LIVE, tijdens-de-forward-pas-tegenhanger van
+  // `detectOutOfSequence`'s eigen FINISH_START-tak, gebruikt om de `resumeOverride`-gate hierboven
+  // te openen — is VERWIJDERD: de gate is vereenvoudigd tot "AANWEZIG `t.resume` ⇒ gebruik het
+  // rechtstreeks" (zie de `resumeOverride`-toelichting in de forward-pas hierboven), waarmee elke
+  // situatie die deze functie ooit `true` liet geven nu al via die bredere regel afgehandeld wordt.
+  // `detectOutOfSequence` hieronder is een ANDERE, ONGEWIJZIGDE functie (de post-hoc WAARSCHUWING
+  // over out-of-sequence-relaties, geen gate) — niet te verwarren met de verwijderde functie.
 
   private detectOutOfSequence(earlyDates: Map<string, { es: Date; ef: Date }>): string[] {
     const out: string[] = [];

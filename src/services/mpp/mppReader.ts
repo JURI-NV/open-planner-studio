@@ -2072,6 +2072,28 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   const assignmentFieldMap = createAssignmentFieldMap(projectProps);
   const assignments = readAssignments(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
 
+  // Z19 (residu-iteratie "nul afwijkingen", dossier "resumeOverride-gate-verbreding") — `task.
+  // resourceIds` vullen uit de zojuist gelezen `assignments`. Vóór deze taak liet `readMPP` dit veld
+  // altijd `[]` (nooit gezet) — spiegelt letterlijk `ifcReader.ts`'s `reconstructResourceIds` (Fase
+  // 3/H2, "resourceIds is een afgeleide projectie [van assignments] en wordt niet los bewaard, dus
+  // reconstrueren i.p.v. lezen"): dezelfde eerste-zien-volgorde-met-deduplicatie, dezelfde
+  // motivering (assignments zijn de bron, resourceIds is puur een projectie). Puur boekhouding, geen
+  // timephased-decodering — geen enkele solverstap las dit veld voordien voor MPP-taken (byte-
+  // identiek voor alle bestaande callers die het negeerden), UITSLUITEND `CPMSolver.ts`'s
+  // `resumeOverride`-gate hieronder raadpleegt het vanaf nu.
+  {
+    const resourceIdsByTaskId = new Map<string, string[]>();
+    for (const a of assignments) {
+      let list = resourceIdsByTaskId.get(a.taskId);
+      if (!list) { list = []; resourceIdsByTaskId.set(a.taskId, list); }
+      if (!list.includes(a.resourceId)) list.push(a.resourceId);
+    }
+    for (const task of tasks) {
+      const ids = resourceIdsByTaskId.get(task.id);
+      if (ids) task.resourceIds = ids;
+    }
+  }
+
   // Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak (zie de functies hierboven
   // en mppTimephased.ts's moduleheader voor de volledige afleiding). Nog GEEN gedragswijziging aan
   // datums: geen solver-stap raadpleegt `Task.splitGaps` in deze etappe-fase (dat is Z7).

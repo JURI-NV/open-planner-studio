@@ -1449,10 +1449,9 @@
       "startExact": 40,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 37,
+      "finishExact": 40,
       "finishSameday": 0,
-      "finishDiff": 3,
-      "reason": "Z8-herwerkronde-fixronde-2 (2026-08-18): het laag-4-'afwijkende resourcekalender'-gat (VOLTOOID/IN-PROGRESS via progressCal/resumeOverride, CPMSolver.ts) sluit 7 van de 10 eerdere afwijkingen — resteert de 'Task 6'-familie (base/50%/150%, completion 60%). Geverifieerd via directe kalenderinspectie: hun resourcekalender is STRUCTUREEL IDENTIEK aan de projectkalender (zelfde banden {480-720,780-1020} ma-vr, geen holiday-/workingException-verschil) — de laag-4-poort activeert dus terecht NIET. De resterende afwijking is een APARTE, vóór deze fixronde al genoteerde restwerk-hoeveelheid-anomalie op deze taakfamilie, geen resourcekalender-kwestie — buiten scope van deze poort."
+      "finishDiff": 0
     },
     "98c8a0fb569be058": {
       "root": "crawl",
@@ -1848,10 +1847,9 @@
       "startExact": 3,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2,
-      "reason": "Z8-herwerkronde-fixronde-2 (2026-08-18): de eerdere pin (finishExact 3/3) kwam uit de INMIDDELS AFGEKEURDE fee9ecb4-implementatie (Opus-review H1: circulaire meting) en was niet houdbaar. 'Task 2'/'Task 3' (completion 24%/50%) dragen `actualOvertimeWork`-data — een categorie die Z3 bewust buiten decodeerscope liet (zie mppTimephased.ts) en die de huidige duur-wandelformule/genuine-period-detectie niet meeneemt. Dit is GEEN resourcekalender-kwestie (de laag-4-poort is hier niet het aangrijpingspunt) maar een aparte, nog niet gebouwde restwerk-hoeveelheid-correctie voor overwerk — buiten scope van deze fixronde."
+      "finishDiff": 0
     },
     "c0a00d897a905488": {
       "root": "crawl",
