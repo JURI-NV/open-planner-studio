@@ -277,6 +277,9 @@ export function writeIFC(input: WriteIFCInput): string {
   // Resource assignments
   writeAssignments(ctx, assignments, ownerHistId);
   writeAssignmentMeta(ctx, tasks, assignments, ownerHistId);
+  // Z14 (etappe "nul afwijkingen") — timephased-venster (`workWindowStart`/`Finish`, Z0-veld) als
+  // eigen OPS_Timephased-JSON-pset, NAAST (niet in) het OPS_Assignments-pipe-formaat hierboven.
+  writeTimephasedMeta(ctx, tasks, assignments, ownerHistId);
 
   // Tasks -> WorkSchedule control
   if (tasks.length > 0) {
@@ -1082,5 +1085,51 @@ function writeAssignmentMeta(
       `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_asgn_' + task.id))},#${ownerHistId},${ifcStr(PSET.Assignments)},$,(${props.join(',')}))`);
     addLine(ctx, `_rel_asgn_${task.id}`,
       `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_asgn_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
+  }
+}
+
+/**
+ * Z14 (etappe "nul afwijkingen") — `OPS_Timephased`-pset op de `IFCTASK`: het timephased-venster
+ * (`ResourceAssignment.workWindowStart`/`workWindowFinish`, Z0-veld, MS Project "contouring")
+ * van elke toewijzing van deze taak, als één autoritatief JSON-blob (`writeBaselineMeta`-vorm) —
+ * NIET het `OPS_Assignments`-pipe-formaat hierboven uitbreiden (dat zou de legacy-parse-symmetrie
+ * van dat formaat breken). Property-sleutel = EXACT dezelfde `"<resource-GUID>#<volgnummer>"` als
+ * `writeAssignmentMeta` gebruikt (zelfde `byTask`-groepering, zelfde resource-bestaans-filter, dus
+ * zelfde volgnummer) — dat is hoe de reader een venster weer aan de juiste toewijzing koppelt zonder
+ * het pipe-formaat zelf aan te raken. Golden rule: geen enkele toewijzing van de taak draagt een
+ * venster ⇒ geen pset (byte-identiek).
+ */
+function writeTimephasedMeta(
+  ctx: WriteContext,
+  tasks: Task[],
+  assignments: ResourceAssignment[],
+  ownerHistId: number,
+): void {
+  const byTask = new Map<string, ResourceAssignment[]>();
+  for (const a of assignments) {
+    if (!byTask.has(a.taskId)) byTask.set(a.taskId, []);
+    byTask.get(a.taskId)!.push(a);
+  }
+  for (const task of tasks) {
+    // Zelfde defensie/filter als writeAssignmentMeta hierboven — bepaalt hetzelfde `#index`.
+    const list = byTask.get(task.id)?.filter(a => ref(ctx, `res_${a.resourceId}`) !== '#0');
+    if (!list || list.length === 0) continue;
+    const windows: Record<string, { workWindowStart?: string; workWindowFinish?: string }> = {};
+    list.forEach((a, index) => {
+      if (a.workWindowStart === undefined && a.workWindowFinish === undefined) return;
+      const resGuid = guidOf(ctx, a.resourceId);
+      const propName = `${resGuid}#${index}`;
+      windows[propName] = {
+        ...(a.workWindowStart !== undefined ? { workWindowStart: a.workWindowStart } : {}),
+        ...(a.workWindowFinish !== undefined ? { workWindowFinish: a.workWindowFinish } : {}),
+      };
+    });
+    if (Object.keys(windows).length === 0) continue;
+    const propId = addLine(ctx, `_ps_tp_${task.id}`,
+      `IFCPROPERTYSINGLEVALUE('Windows',$,IFCTEXT(${ifcStr(JSON.stringify(windows))}),$)`);
+    const setId = addLine(ctx, `_pset_tp_${task.id}`,
+      `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_tp_' + task.id))},#${ownerHistId},${ifcStr(PSET.Timephased)},$,(#${propId}))`);
+    addLine(ctx, `_rel_tp_${task.id}`,
+      `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_tp_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
   }
 }

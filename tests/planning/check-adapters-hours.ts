@@ -747,6 +747,93 @@ function roundTrip(label: string, tk: Task[], seq: Sequence[], cal: WorkCalendar
   }
 }
 
+// ── Z14 (etappe "nul afwijkingen") — de vier nieuwe exportrand-warns (manuallyScheduled,
+// levelingDelayMinutes, splits+timephased-venster, resume/stop) op MSPDI/P6, exact het H5-
+// ELAPSEDTIME-patroon hierboven: (a) contrast — geen enkele van de vier warns zonder de
+// bijbehorende data; (b) precies het juiste aantal wanneer de data er wél is. CSV kent geen warn
+// (vaste 14-koloms `headers`, zie csvWriter.ts) — hier bewezen: de header blijft ONGEWIJZIGD, ook
+// met een taak die alle nieuwe velden draagt (geen 15e kolom, geen warn-concept van toepassing).
+{
+  // Lokale herhaling van de `withWarnings`-helper hierboven (blok-scoped `function`-declaratie in
+  // het H5-blok, hier niet zichtbaar) — zelfde vorm, geen gedeelde toestand nodig.
+  function withWarnings<T>(fn: () => T): { out: T; warns: string[] } {
+    const warns: string[] = [];
+    const orig = console.warn;
+    console.warn = (...a: unknown[]) => { warns.push(a.join(' ')); };
+    try { return { out: fn(), warns }; } finally { console.warn = orig; }
+  }
+
+  const projZ: Project = {
+    id: 'p-z14', name: 'Z14-export', description: '', startDate: '2026-07-06', endDate: '2026-07-31',
+    calendarId: 'cal-h8', createdAt: '2026-07-06T00:00', modifiedAt: '2026-07-06T00:00', author: 'T', company: 'C',
+  };
+  const plainTask: Task = {
+    id: 'z-plain', name: 'Gewone taak', description: '', wbsCode: '1', taskType: 'CONSTRUCTION',
+    status: 'NOT_STARTED', isMilestone: false, priority: 500, parentId: null, childIds: [],
+    time: {
+      durationType: 'WORKTIME', scheduleDuration: 2,
+      scheduleStart: '2026-07-06', scheduleFinish: '2026-07-07',
+      earlyStart: '2026-07-06', earlyFinish: '2026-07-07',
+      lateStart: '2026-07-06', lateFinish: '2026-07-07',
+      freeFloat: 0, totalFloat: 0, isCritical: false, completion: 0,
+    },
+    resourceIds: [],
+  };
+  const richTask: Task = {
+    id: 'z-rich', name: 'Rijke taak', description: '', wbsCode: '2', taskType: 'CONSTRUCTION',
+    status: 'NOT_STARTED', isMilestone: false, priority: 500, parentId: null, childIds: [],
+    manuallyScheduled: true,
+    levelingDelayMinutes: 30,
+    splitGaps: [{ afterMinutes: 60, gapMinutes: 30 }],
+    time: {
+      durationType: 'WORKTIME', scheduleDuration: 2,
+      scheduleStart: '2026-07-08', scheduleFinish: '2026-07-09',
+      earlyStart: '2026-07-08', earlyFinish: '2026-07-09',
+      lateStart: '2026-07-08', lateFinish: '2026-07-09',
+      freeFloat: 0, totalFloat: 0, isCritical: false, completion: 0,
+      resume: '2026-07-08', stop: '2026-07-08',
+    },
+    resourceIds: [],
+  };
+  const zAssignments: ResourceAssignment[] = [
+    { id: 'z-a1', taskId: 'z-rich', resourceId: 'r-none', unitsPerDay: 1, workWindowStart: '2026-07-08', workWindowFinish: '2026-07-08' },
+  ];
+
+  // (a) Contrast: alleen de gewone taak, geen assignments ⇒ geen van de vier nieuwe warns.
+  {
+    const { warns: wM } = withWarnings(() => writeMSPDI(projZ, H8, [plainTask], [], [], []));
+    const { warns: wP } = withWarnings(() => writeP6XML(projZ, H8, [plainTask], [], [], [], []));
+    for (const [label, warns] of [['MSPDI', wM], ['P6', wP]] as const) {
+      assert(!warns.some(w => w.includes('handmatig gepland')), `Z14-contrast ${label}: geen manuallyScheduled-warn zonder data, kreeg [${warns.join(' | ')}]`);
+      assert(!warns.some(w => w.includes('sub-dag-nivelleervertraging')), `Z14-contrast ${label}: geen levelingDelayMinutes-warn zonder data, kreeg [${warns.join(' | ')}]`);
+      assert(!warns.some(w => w.includes('TimephasedData') || w.includes('gesplitste taak')), `Z14-contrast ${label}: geen splits/timephased-warn zonder data, kreeg [${warns.join(' | ')}]`);
+      assert(!warns.some(w => w.includes('resume/stop')), `Z14-contrast ${label}: geen resume/stop-warn zonder data, kreeg [${warns.join(' | ')}]`);
+    }
+  }
+
+  // (b) De rijke taak + gecontoureerde toewijzing ⇒ alle vier warns vuren met het juiste aantal.
+  {
+    const zTasks = [plainTask, richTask];
+    const { warns: wM } = withWarnings(() => writeMSPDI(projZ, H8, zTasks, [], [], zAssignments));
+    assert(wM.some(w => w.includes('MSPDI-export: 1 handmatig geplande taak/taken')), `Z14 MSPDI manuallyScheduled-warn: kreeg [${wM.join(' | ')}]`);
+    assert(wM.some(w => w.includes('MSPDI-export: 1 taak/taken met sub-dag-nivelleervertraging')), `Z14 MSPDI levelingDelayMinutes-warn: kreeg [${wM.join(' | ')}]`);
+    assert(wM.some(w => w.includes('MSPDI-export: 1 gesplitste taak/taken en 1 gecontoureerde toewijzing')), `Z14 MSPDI splits/timephased-warn: kreeg [${wM.join(' | ')}]`);
+    assert(wM.some(w => w.includes('MSPDI-export: 1 taak/taken met resume/stop')), `Z14 MSPDI resume/stop-warn: kreeg [${wM.join(' | ')}]`);
+
+    const { warns: wP } = withWarnings(() => writeP6XML(projZ, H8, zTasks, [], [], zAssignments, []));
+    assert(wP.some(w => w.includes('P6-export: 1 handmatig geplande taak/taken')), `Z14 P6 manuallyScheduled-warn: kreeg [${wP.join(' | ')}]`);
+    assert(wP.some(w => w.includes('P6-export: 1 taak/taken met sub-dag-nivelleervertraging')), `Z14 P6 levelingDelayMinutes-warn: kreeg [${wP.join(' | ')}]`);
+    assert(wP.some(w => w.includes('P6-export: 1 gesplitste taak/taken en 1 gecontoureerde toewijzing')), `Z14 P6 splits/timephased-warn: kreeg [${wP.join(' | ')}]`);
+    assert(wP.some(w => w.includes('P6-export: 1 taak/taken met resume/stop')), `Z14 P6 resume/stop-warn: kreeg [${wP.join(' | ')}]`);
+
+    // CSV: vaste 14 kolommen, geen warn — de rijke taak mag de kolomstructuur niet veranderen.
+    const { out: csvText, warns: wC } = withWarnings(() => writeCSV(projZ, H8, zTasks, [], [], zAssignments));
+    assert(wC.length === 0, `Z14 CSV: geen enkele warn voor de nieuwe velden, kreeg [${wC.join(' | ')}]`);
+    const header = csvText.replace(/^﻿/, '').split('\r\n')[0];
+    assert(header.split(';').length === 14, `Z14 CSV: header blijft 14 kolommen, kreeg ${header.split(';').length} (${header})`);
+  }
+}
+
 if (fails === 0) {
   console.log(`OK  adapters-hours: alle checks groen (${checks})`);
   process.exit(0);

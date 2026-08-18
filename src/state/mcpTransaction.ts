@@ -207,6 +207,18 @@ export const draft = {
         deadline: partial.deadline,
         calendarId: partial.calendarId,
         notes: partial.notes,
+        // Z14 (etappe "nul afwijkingen", checklist-aanvulling): de vier Z0-typecontractvelden
+        // ontbraken hier bewust (ongebruikt + MCP-zetbaarheid was nog geen besluit) — zie
+        // taskSlice.ts addTask voor dezelfde regel. Nu round-trippen ze door IFC (ifcPsets.ts), dus
+        // deze functie is weer de VOLLEDIGE veld-voor-veld-tweeling van de store-`addTask`. Geen van
+        // de vier is via `taskFields.ts`'s allowlist zetbaar (REJECT_HINTS) — dit vult alleen aan
+        // voor aanroepers die een `Partial<Task>` rechtstreeks doorgeven (bv. `draft.addTasks`-items
+        // met velden buiten de allowlist om, of toekomstig intern gebruik), zodat deze twee functies
+        // niet stil uit elkaar drijven (Z0-reviewbevinding 3).
+        splitGaps: partial.splitGaps,
+        manuallyScheduled: partial.manuallyScheduled,
+        levelingDelayMinutes: partial.levelingDelayMinutes,
+        levelingDelayElapsed: partial.levelingDelayElapsed,
       };
 
       s.tasks.push(task);

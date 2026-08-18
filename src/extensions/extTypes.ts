@@ -132,6 +132,11 @@ export interface ExtTaskTime {
   remainingMinutes?: number;
   /** 0.0 – 1.0. */
   completion: number;
+  /** Z14 (Z12-herwerk) — MSP's eigen hervattingsinstant voor een out-of-sequence-taak. Spiegelt
+   *  {@link import('@/types/task').TaskTime}.resume. */
+  resume?: string;
+  /** Z14 (Z12-herwerk) — spiegelt `resume`. Spiegelt {@link import('@/types/task').TaskTime}.stop. */
+  stop?: string;
 }
 
 /** Datum-constraint. Spiegelt {@link import('@/types/task').TaskConstraint}. */
@@ -183,6 +188,17 @@ export interface ExtTask {
   /** Leveling-prioriteit (0–1000, default 500). */
   priority: number;
   levelingDelay?: number;
+  /** Z0/Z14 — subdag-precisie van `levelingDelay` (MSP-tienden-van-minuut, hier hele minuten).
+   *  Aanwezig ⇒ bron van waarheid; afwezig ⇒ `levelingDelay` (hele werkdagen) blijft de bron. */
+  levelingDelayMinutes?: number;
+  /** Z0/Z14 — begeleidt `levelingDelayMinutes`: true = kloktijd (ELAPSED) i.p.v. werktijd. */
+  levelingDelayElapsed?: boolean;
+  /** Z0/Z14 — werkonderbrekingen (MS Project "split"), offset-gebaseerd t.o.v. de taakstart.
+   *  Spiegelt {@link import('@/types/task').TaskSplitGap}. */
+  splitGaps?: { afterMinutes: number; gapMinutes: number }[];
+  /** Z0/Z14 — handmatig geplande taak (MS Project "Manually Scheduled"): de solver respecteert
+   *  `time.scheduleStart`/`scheduleFinish` dan RAUW (geen kalendersnap/relatiedruk/constraints). */
+  manuallyScheduled?: boolean;
   /** WBS-ouder; null = top-level. */
   parentId: string | null;
   /** WBS-kinderen. */
