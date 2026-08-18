@@ -329,18 +329,31 @@ export const AssignmentFieldId = {
   ResourceUniqueId: 2,
   Units: 7,
   /** Z4-fixronde — `AssignmentField.START` (`ResourceAssignmentFactory`/`FieldMap14.java`, blok 0
-   *  offset 12). Ankerpunt van `getCompleteWork`/de gatenloze tak van `getPlannedWork` (zie de
-   *  moduleheader). Heeft een hardcoded default (hieronder in `DEFAULT_ASSIGNMENT_FIELDS`). */
+   *  offset 12 in de DEFAULT-tabel hieronder). Ankerpunt van `getCompleteWork`/de gatenloze tak van
+   *  `getPlannedWork` (zie de moduleheader). L2-correctie (Z8-herwerkronde, Opus-review): dit is
+   *  UITSLUITEND de hardcoded `DEFAULT_ASSIGNMENT_FIELDS`-terugval — de werkelijke, DATA-GEDREVEN
+   *  veldkaart (`createAssignmentFieldMap`, uit de Props van het bestand zelf) plaatst dit veld op
+   *  136 van de gemeten bestanden op een ANDERE offset (52, niet 12) — de field-map-parser volgt die
+   *  correct (`fixedOffsetOf` leest de PER-BESTAND offset, nooit de default, zolang de Props-key
+   *  aanwezig is), dus dit is GEEN gedragsfout, maar de eerdere docblok-claim "blok 0 offset 12" als
+   *  ALGEMENE waarheid was dat wél. */
   Start: 20,
   /** Z4-fixronde — `AssignmentField.RESUME` (id 24). GEEN default-entry in de Java-bron (zie de
    *  moduleheader) — bewust GEEN vermelding in `DEFAULT_ASSIGNMENT_FIELDS` hieronder. */
   Resume: 24,
-  /** Z8 (etappe "nul afwijkingen") — `AssignmentField.FINISH` (`FieldMap14.java`, blok 0 offset 16,
-   *  id 21 — pal naast `Start`, zelfde recordindeling). MSP's EIGEN al berekende afsluitdatum voor
-   *  déze toewijzing (rekening houdend met haar contour/restwerk EN haar eigen resourcekalender —
-   *  zie `mppReader.ts`'s Z8-toelichting voor het corpusbewijs: 0 afwijkingen op alle 11 gemeten
-   *  timephased-bestanden door dit veld rechtstreeks te lezen, GEEN eigen kalenderwandeling nodig).
-   *  Heeft, net als `Start`, een hardcoded default (hieronder in `DEFAULT_ASSIGNMENT_FIELDS`). */
+  /** Z8 (etappe "nul afwijkingen") — `AssignmentField.FINISH` (`FieldMap14.java`, blok 0 offset 16
+   *  in de DEFAULT-tabel hieronder, id 21 — pal naast `Start`, zelfde recordindeling). L2-correctie
+   *  (Z8-herwerkronde): zelfde kanttekening als `Start` hierboven — 136 gemeten bestanden dragen dit
+   *  veld data-gedreven op offset 56, niet 16; de field-map-parser vangt dat al op, alleen deze
+   *  docblok-claim was te absoluut. MSP's EIGEN al berekende afsluitdatum voor déze toewijzing
+   *  (rekening houdend met haar contour/restwerk EN haar eigen resourcekalender — zie
+   *  `mppReader.ts`'s Z8-toelichting voor het corpusbewijs). LET OP (Z8-herwerkronde, Opus-review,
+   *  blokkerend): rechtstreeks lezen van dit veld als CPM-antwoord bleek een vrijwel volledige
+   *  cirkelmeting (91% van de taken, 3102/3103 gelijk aan de rauwe import) plus een bevroren motor
+   *  ná import (geen invalidatie bij latere edits) — de herwerkronde onderzoekt een kalenderwandeling-
+   *  formule (AssignmentField.START + restwerk door de toewijzings-eigen resourcekalender) als
+   *  vervanging; zie het Z8-herwerkrapport voor de matchgraad-metingen. Heeft, net als `Start`, een
+   *  hardcoded default (hieronder in `DEFAULT_ASSIGNMENT_FIELDS`). */
   Finish: 21,
   /** Z3 (etappe "nul afwijkingen") — timephased-categorieën, alle vier VAR_DATA (geen vaste
    *  offset: `FieldMap14.java`'s `FieldLocation.VAR_DATA, block 0, dataBlockOffset 65535`).
