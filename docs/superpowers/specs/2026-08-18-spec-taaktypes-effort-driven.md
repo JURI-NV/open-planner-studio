@@ -41,10 +41,19 @@ knop nooit heeft aangeraakt. De knop bepaalt alleen of de gebruiker de
 bijbehorende bedieningselementen ziet en zelf types kan zetten. Daarmee rekent
 hetzelfde bestand bij iedereen hetzelfde, wat de harde les van de
 nul-afwijkingen-etappe is: rekensemantiek hoort in het document, nooit in een
-lokale app-instelling. Een geïmporteerd .mpp met effort-driven-taken werkt dus
-gewoon correct, ongeacht de knop; open ontwerpvraag voor de etappe is alleen of
-zo'n bestand de weergave automatisch ontsluit (met een melding) of verborgen
-correct blijft rekenen.
+lokale app-instelling.
+
+**Besloten (eigenaar, 2026-08-18): een bestand dat deze functionaliteit al bevat,
+ontsluit de weergave automatisch.** Open je een project met effort-driven- of
+taaktype-data (bijvoorbeeld een geïmporteerd .mpp), dan gaat de taaktype-weergave
+voor dát project aan, met een informatieve melding bij het openen — in lijn met
+hoe de .mpp-import bijzonderheden nu al meldt. De knop blijft een keuze voor
+nieuwe of schone projecten. Het alternatief — verborgen correct blijven rekenen —
+is verworpen: dan verandert de inzet "vanzelf" bij een duurwijziging zonder dat
+de gebruiker kan zien waarom, en dat is precies de MS Project-verwarring die deze
+etappe juist moet vermijden. Terugvallen op de standaardregel voor zulke bestanden
+kan sowieso niet: dan zou hetzelfde bestand andere datums geven afhankelijk van
+een lokale instelling.
 
 ## Wat er onder de motorkap nodig is
 
