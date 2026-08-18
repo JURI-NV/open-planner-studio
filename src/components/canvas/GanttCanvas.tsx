@@ -11,7 +11,6 @@ import { MiniMap } from './MiniMap';
 import { parseDate, parseInstant } from '@/utils/dateUtils';
 import { effectiveCalendarByTask } from '@/services/subdayIo';
 import { durationSuffixesFrom } from '@/utils/taskDuration';
-import { useDisplayDate } from '@/hooks/displayDate';
 import { Task } from '@/types/task';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { ContextMenu } from './ContextMenu';
@@ -21,6 +20,7 @@ import { contextMenuOutlineScope, contextMenuBulk } from './contextMenuScope';
 import { RelationTypePopover } from './RelationTypePopover';
 // Issue #58: hover-tooltip die zichzelf binnen het venster houdt (nodig zodra de titel wrapt).
 import { HoverTooltip } from './HoverTooltip';
+import { TaskTooltipContent } from './TaskTooltipContent';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 import { useGanttZoom } from '@/hooks/useGanttZoom';
@@ -93,7 +93,6 @@ export function GanttCanvas() {
   const { t: tTask, i18n } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
   const { t: tMenu } = useTranslation('menu');
-  const dd = useDisplayDate();
 
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
@@ -1277,10 +1276,6 @@ export function GanttCanvas() {
   }, [setScroll]);
 
 
-  // Format date for tooltip display
-  // Tooltip-datums volgen de datumnotatie-instelling (taak #53); leeg → '-'.
-  const formatTooltipDate = (dateStr: string) => (dateStr ? dd.date(dateStr) : '-');
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Pane-rij (§10). De scrollbalken zijn ZWEVENDE overlays binnen deze rij en binnen de panes
@@ -1407,41 +1402,12 @@ export function GanttCanvas() {
           );
         })()}
 
-        {/* Tooltip — issue #58: de titel wrapt nu (CSS) en `HoverTooltip` houdt de doos binnen het
-            venster; die twee horen bij elkaar, want een wrappende titel maakt hem hoger. */}
+        {/* Tooltip — issue #58: HoverTooltip houdt de doos binnen het venster. Issue #65: de
+            content zit sinds de extractie in TaskTooltipContent, gedeeld met de WBS-sprongknop
+            in het eigenschappenpaneel. */}
         {tooltip && (
           <HoverTooltip left={tooltip.x + 16} top={tooltip.y - 10}>
-            <div className="tooltip-title">{tooltip.task.name}</div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.wbs')}:</span>
-              <span className="tooltip-value">{tooltip.task.wbsCode || '-'}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.duration')}:</span>
-              <span className="tooltip-value">{tooltip.task.time.scheduleDuration}d</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.start')}:</span>
-              <span className="tooltip-value">{formatTooltipDate(tooltip.task.time.earlyStart || tooltip.task.time.scheduleStart)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.finish')}:</span>
-              <span className="tooltip-value">{formatTooltipDate(tooltip.task.time.earlyFinish || tooltip.task.time.scheduleFinish)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('tooltip.status')}:</span>
-              <span className="tooltip-value">{tooltip.task.status}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.critical')}:</span>
-              <span className={tooltip.task.time.isCritical ? 'tooltip-critical-yes' : 'tooltip-value'}>
-                {tooltip.task.time.isCritical ? tCommon('yes') : tCommon('no')}
-              </span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('properties.totalFloat')}</span>
-              <span className="tooltip-value">{tooltip.task.time.totalFloat}d</span>
-            </div>
+            <TaskTooltipContent task={tooltip.task} />
           </HoverTooltip>
         )}
 
