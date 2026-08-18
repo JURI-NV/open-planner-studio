@@ -545,6 +545,9 @@ MSP ligt tussen beide bestaande modi in. Sterke aanwijzing uit de vorige ronde: 
 **Acceptatie.** Bevindingen als losse, benoemde items terug naar de orkestrator; blokkerende bevindingen worden taken vóór Z19.
 **Valkuil uit de vorige etappe:** een meegeleverde `.mpp.xml`-sidecar is **geen** betrouwbare grondwaarheid (kan een andere bewerkstatus hebben) — verifieer tegen de binaire scan.
 
+> **Z8-restdossiers voor Z19 (2026-08-18, eerlijk herpind ná het afgekeurde cirkel-ontwerp):**
+> (a) mpp14timephased.mpp 3 finishDiff — "Task 6"-familie: resourcekalender structureel identiek aan de taakkalender, aparte restwerk-anomalie; (b) mpp14timephasedsegmentsmanual.mpp 2 finishSameday — 1-uur-precisieverschil in de wandelformule; (c) timephased-actual-overtime-work.mpp 2 finishDiff — overtime-wandelpad. Plus **nataak vóór Z17 (state-kant)**: een dírecte duurbewerking op een taak met een laag-3-venster wist dat venster nog nergens — de edit-time-invalidatie hoort in `taskSlice.ts`/`mcpTransaction.ts` (gemeld door Z8, bewust niet daar gebouwd wegens bestandseigendom).
+
 #### Z19 — Residu-iteratie tot nul
 
 **Doel.** Van "vrijwel nul" naar **nul**. Dit is de taak waar de goal gehaald of gemist wordt.
