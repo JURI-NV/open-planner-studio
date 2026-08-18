@@ -285,6 +285,37 @@ function taskModeBitFlag(applicationVersion: number | null): { offset: number; m
     : { offset: 8, mask: 0x80 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA2_BIT_FLAGS
 }
 
+/** Z9a (etappe "nul afwijkingen") — MPXJ's `MPP14Reader.java`-overschrijfregel (r. ~1162–1176):
+ *  `SCHEDULED_START`/`SCHEDULED_FINISH` (35/36) gaan alléén naar het opgeslagen `START`/`FINISH`
+ *  (1283/1284) als dat manual-veldpaar leeg is, óf de taak AUTO_SCHEDULED is. `Task.time.
+ *  scheduleStart`/`scheduleFinish` — dat Z9a's forwardPass-tak straks RAUW gebruikt voor een
+ *  MANUALLY_SCHEDULED-taak — moet dus zelf al het JUISTE veldpaar dragen; vóór deze fixronde
+ *  gebruikte `start`/`finish` hieronder ALTIJD 35/36 (`scheduledStartOffset`/`scheduledFinishOffset`,
+ *  ongeacht `taskMode`), dus het manual-ankerpaar (`manualStartTs`/`manualFinishTs`, al sinds Z2
+ *  gelezen maar tot deze fixronde nooit gebruikt) bereikte de taak nooit.
+ *
+ *  SPIEGELT `tests/planning/mppGroundTruth.ts`'s `resolveScheduleField` LETTERLIJK — bewust
+ *  GEDUPLICEERD, geen import: die module is de ONAFHANKELIJKE meetlat-tegenhanger (zie haar eigen
+ *  "BEWUST EEN TWEEDE LUS"-moduleheader) en moet een bug hier juist kunnen ONTMASKEREN, niet delen.
+ *  Kiezen lezer en meetlat elk hun eigen randgeval, dan meet de fidelity-check ruis in plaats van
+ *  juistheid — vandaar dat de parametervolgorde/-naam en de exacte boolean-uitdrukking hier
+ *  bewust identiek zijn aan het origineel, tot en met de operator-precedentie.
+ *
+ *  CORPUSMETING (Z9a-probe, wegwerpscript, 2026-08-18): 216 leesbare bestanden, 70 met minstens
+ *  één MANUALLY_SCHEDULED-taak (1659 manual-taken totaal). Bij 261 van die taken, verspreid over
+ *  15 bestanden, verschilt 1283/1284 daadwerkelijk van 35/36 — en dat zijn EXACT de 14 uit Z8's
+ *  slotronde `reason`-gepinde Z9a-bestanden (alle vier `assignment-assignments`/`-flags`/
+ *  `-text`-crawlvarianten × 2010/2013/2016/2019, plus `mpp14timephasedsegmentsmanual(offsets).mpp`)
+ *  plus het gemengde corpusbestand (hash a69fec157074d056). De overige 55 manual-dragende bestanden
+ *  hebben 1283/1284 === 35/36 exact — daar was deze fix dus onzichtbaar geweest (`start`/`finish`
+ *  droegen toevallig al de juiste waarde), maar voor precies de Z9a-doelpopulatie was hij dat niet:
+ *  zonder deze fix zou de forwardPass-tak (die `scheduleStart`/`scheduleFinish` rauw respecteert)
+ *  op alle 14 bestanden het VERKEERDE anker rauw bevriezen. */
+function resolveScheduleField(manual: Date | null, scheduled: Date | null, isManual: boolean): Date | null {
+  const overrideWithScheduled = manual === null || (scheduled !== null && !isManual);
+  return overrideWithScheduled ? scheduled : manual;
+}
+
 interface RawTaskRecord {
   uniqueId: number;
   id: number;
@@ -1065,8 +1096,18 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
     const formatField = (ts: Date | null): string | undefined =>
       ts ? (isHour ? formatInstant(ts, 'hour') : formatDate(ts)) : undefined;
-    const start = formatField(raw.startTs) ?? formatDate(new Date());
-    const finish = formatField(raw.finishTs) ?? start;
+    // Z9a — `Task.time.scheduleStart`/`scheduleFinish` dragen het veldpaar dat MSP ZELF voor déze
+    // taak gebruikt (`resolveScheduleField`, zie haar docblok hierboven voor de corpusmeting): het
+    // manual-ankerpaar (1283/1284) voor een MANUALLY_SCHEDULED-taak met een gevuld anker, anders
+    // (AUTO, of manual zonder eigen anker) het bestaande SCHEDULED_START/FINISH-paar (35/36) —
+    // ONGEWIJZIGD gedrag voor elke AUTO-taak (`isManual === false` ⇒ `resolveScheduleField` geeft
+    // altijd `scheduled` terug zolang die niet leeg is, exact `raw.startTs`/`finishTs` van vóór
+    // deze fixronde) en voor de 55 manual-bestanden waar beide velden toch al samenvielen.
+    const isManual = raw.taskMode === 'MANUALLY_SCHEDULED';
+    const resolvedStartTs = resolveScheduleField(raw.manualStartTs, raw.startTs, isManual);
+    const resolvedFinishTs = resolveScheduleField(raw.manualFinishTs, raw.finishTs, isManual);
+    const start = formatField(resolvedStartTs) ?? formatDate(new Date());
+    const finish = formatField(resolvedFinishTs) ?? start;
     const actualStart = formatField(raw.actualStartTs);
     const actualFinish = formatField(raw.actualFinishTs);
     // Z12-herwerk — RESUME/STOP, zelfde format-/dag-of-uur-modus-keuze als actualStart/actualFinish.
@@ -1175,6 +1216,11 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       ...(raw.calendarOverride ? { calendarId: raw.calendarOverride.id } : {}),
       ...(levelingDelayMinutes != null ? { levelingDelayMinutes } : {}),
       ...(levelingDelayElapsed ? { levelingDelayElapsed } : {}),
+      // Z9a — de éne doorzetregel (gemeld, plan-§Z9a): `raw.taskMode` wordt sinds Z2 gelezen maar
+      // bereikte `Task.manuallyScheduled` nooit. `isManual` hierboven (Phase C) is exact dezelfde
+      // waarde — hergebruikt, geen tweede taskMode-vergelijking. Afwezig/false ⇒ byte-identiek
+      // (ongewijzigd AUTO-gedrag, ook voor élke niet-.mpp-bron).
+      ...(isManual ? { manuallyScheduled: true } : {}),
     };
     records.push({ uniqueId: raw.uniqueId, id: raw.id, outlineLevel: raw.outlineLevel, storedWbs: raw.storedWbs, task });
     taskIdByUniqueId.set(raw.uniqueId, task.id);
