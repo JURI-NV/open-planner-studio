@@ -62,12 +62,13 @@ import {
   buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb, buildNestedCfb,
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   expectCfbError, expectMppError, bytesEqual, buildVarMetaBytes,
-  buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock,
+  buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock, concatBytes,
   type CfbTreeNode,
 } from './mppFixtures';
 import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks,
+  buildAssignmentUidToTaskId,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
 import { readCalendars } from '@/services/mpp/mppCalendars';
@@ -76,7 +77,7 @@ import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { formatInstant } from '@/utils/dateUtils';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
-import type { Task } from '@/types/task';
+import type { Task, TaskSplitGap } from '@/types/task';
 import {
   createTaskFieldMap, createResourceFieldMap, createAssignmentFieldMap,
   TaskFieldId, ResourceFieldId, AssignmentFieldId,
@@ -84,6 +85,7 @@ import {
 } from '@/services/mpp/fieldMap14';
 import {
   decodeRegularTimephasedWork, decodeIrregularTimephasedWork, decodePlannedRegularTimephasedWork, hasAnyTimephasedData,
+  deriveSplitGapsFromPeriods, deriveTaskSplitGaps,
   type TimephasedWorkPeriod, type TimephasedIrregularPeriod,
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
@@ -4012,6 +4014,173 @@ if (corpusPresent) {
         + `remainingRegularWork ${perCategory.remainingRegularWork.present}/${perCategory.remainingRegularWork.decodedNonEmpty} (Format B, F1-fix)`,
       );
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z4 (etappe "nul afwijkingen") — splitsegmenten afleiden. Zie `mppTimephased.ts`'s moduleheader
+// ("── Z4 ──"-paragraaf) voor de VERPLICHTE meetstap (`mpp14splittask.mpp` reproduceert MSP's
+// eigen finish exact uit start+duur+gat in WERKminuten — Z0's offsetvorm bevestigd), het
+// algoritme-ontwerp (filter nul-werk + strikte paarsgewijze-boundary-vergelijking) en de
+// aggregatieregel (doorsnede over toewijzingen). Dit blok is uitsluitend de test-tegenhanger.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Lokale fixture-helper: één `TimephasedWorkPeriod` met dummy `approxStart`/`approxFinish` —
+ *  `deriveSplitGapsFromPeriods`/`deriveTaskSplitGaps` gebruiken uitsluitend de
+ *  `elapsedWorkMinutes*`/`workMinutes`-velden (zie mppTimephased.ts's moduleheader), dus de
+ *  approx-Dates zijn hier betekenisloos maar wel verplicht door het type. */
+function z4Period(elapsedStart: number, elapsedEnd: number, workMinutes: number): TimephasedWorkPeriod {
+  const base = new Date('2026-01-05T08:00:00.000Z');
+  return {
+    elapsedWorkMinutesStart: elapsedStart,
+    elapsedWorkMinutesEnd: elapsedEnd,
+    workMinutes,
+    approxStart: new Date(base.getTime() + elapsedStart * 60_000),
+    approxFinish: new Date(base.getTime() + elapsedEnd * 60_000),
+  };
+}
+
+function z4GapsEqual(actual: readonly TaskSplitGap[], expected: readonly TaskSplitGap[]): boolean {
+  if (actual.length !== expected.length) return false;
+  return actual.every((g, i) => g.afterMinutes === expected[i].afterMinutes && g.gapMinutes === expected[i].gapMinutes);
+}
+
+// ── Acceptatiepunt 1 — corpusloze fixtures op de pure afleidingsfunctie ─────────────────────────
+{
+  // (a) twee werksegmenten met één gat ertussen ⇒ exact één TaskSplitGap.
+  const a = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 960, 0), z4Period(960, 1440, 480)]);
+  truthy('[Z4 1a] twee segmenten met een gat ⇒ 1 TaskSplitGap', a.length === 1);
+  truthy('[Z4 1a] afterMinutes/gapMinutes exact', z4GapsEqual(a, [{ afterMinutes: 480, gapMinutes: 480 }]));
+
+  // (b) drie segmenten, twee gaten.
+  const b = deriveSplitGapsFromPeriods([
+    z4Period(0, 240, 240), z4Period(240, 360, 0),
+    z4Period(360, 600, 240), z4Period(600, 780, 0),
+    z4Period(780, 1020, 240),
+  ]);
+  truthy('[Z4 1b] drie segmenten, twee gaten', z4GapsEqual(b, [
+    { afterMinutes: 240, gapMinutes: 120 },
+    { afterMinutes: 600, gapMinutes: 180 },
+  ]));
+
+  // (c) twee aangrenzende WERKsegmenten (verschillende hoeveelheid werk, bv. omdat ze uit
+  // "actual" resp. "remaining" komen) zonder enig gat-record ertussen ⇒ LEGE lijst — geen
+  // fantoom-split op de naad. Mutatiebewijs (punt 4) hieronder in het commitbericht: de strikte
+  // `>`-vergelijking in `deriveSplitGapsFromPeriods` vervangen door "altijd pushen" liet dit
+  // exact fixture-scenario een `{afterMinutes:480, gapMinutes:0}`-fantoomgat opleveren — met de
+  // `>`-check erin blijft de lijst leeg.
+  const c = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 900, 420)]);
+  truthy('[Z4 1c] aangrenzende werksegmenten zonder gat ⇒ lege lijst (geen fantoom-split)', c.length === 0);
+
+  // (d) twee toewijzingen met VERSCHILLENDE gaten op dezelfde taak — de aggregatieregel is de
+  // DOORSNEDE (zie mppTimephased.ts's moduleheader voor de volledige motivering: een taak toont
+  // pas "stil" waar ALLE toewijzingen tegelijk stilliggen). Toewijzing 1 stil [480,600),
+  // toewijzing 2 stil [500,600) ⇒ doorsnede [500,600).
+  const gapsAssignment1 = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 600, 0), z4Period(600, 1000, 400)]);
+  const gapsAssignment2 = deriveSplitGapsFromPeriods([z4Period(0, 500, 500), z4Period(500, 600, 0), z4Period(600, 1000, 400)]);
+  const taskGaps = deriveTaskSplitGaps([gapsAssignment1, gapsAssignment2]);
+  truthy('[Z4 1d] doorsnede van twee verschillende toewijzingsgaten', z4GapsEqual(taskGaps, [{ afterMinutes: 500, gapMinutes: 100 }]));
+
+  // (d, vervolg) — één toewijzing die GEEN gaten heeft (volledig doorwerkt) forceert de
+  // doorsnede naar leeg, ongeacht wat de andere toewijzing meldt: bewijst dat "geen gaten"
+  // (een toewijzing MET data die gewoon niets meldt) iets anders is dan "geen data" (uitgesloten,
+  // zie de moduleheader-motivering) — de eerste drukt de doorsnede terecht naar leeg.
+  const gapsNoGaps = deriveSplitGapsFromPeriods([z4Period(0, 1000, 1000)]);
+  truthy(
+    '[Z4 1d] een volledig-doorwerkende toewijzing forceert de taakdoorsnede naar leeg',
+    deriveTaskSplitGaps([gapsAssignment1, gapsNoGaps]).length === 0,
+  );
+
+  // Enkele toewijzing (de meerderheid, incl. `mpp14splittask.mpp` hieronder): triviaal identiek.
+  truthy('[Z4 1] enkele toewijzing ⇒ triviaal identiek aan haar eigen gaten', z4GapsEqual(deriveTaskSplitGaps([gapsAssignment1]), gapsAssignment1));
+  truthy('[Z4 1] geen toewijzingen ⇒ lege lijst', deriveTaskSplitGaps([]).length === 0);
+}
+
+// ── `buildAssignmentUidToTaskId` — uid→taskId-brug (mppReader.ts), rechtstreeks getoetst met een
+// kleine synthetische TBkndAssn/FixedMeta+FixedData-fixture (zie mppTimephased.ts's moduleheader
+// "VONDST VOOR Z8"-paragraaf voor waarom deze brug NIET via `ResourceAssignment.id` loopt) ───────
+{
+  const asgProps = new Props(encodePropsEntries([]), 'Z4-assignment-fieldmap-default');
+  const asgFieldMap = createAssignmentFieldMap(asgProps); // geen override ⇒ DEFAULT_ASSIGNMENT_FIELDS (uid@0, taskUid@4)
+
+  function buildAssignmentMetaBytes(records: { deleted: boolean; offset: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + records.length * 34);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true); // BLOCK_MAGIC — spiegelt mppFixtures.ts's CAL_FIXED_META_MAGIC
+    view.setInt32(8, records.length, true);
+    records.forEach((r, i) => {
+      const pos = 16 + i * 34;
+      view.setUint8(pos, r.deleted ? 1 : 0);
+      view.setInt32(pos + 4, r.offset, true);
+    });
+    return out;
+  }
+  function buildAssignmentDataRecord(uid: number, taskUid: number): Uint8Array {
+    const out = new Uint8Array(110);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, uid, true);
+    view.setInt32(4, taskUid, true);
+    return out;
+  }
+
+  const metaBytes = buildAssignmentMetaBytes([{ deleted: false, offset: 0 }, { deleted: false, offset: 110 }, { deleted: true, offset: 220 }]);
+  const dataBytes = concatBytes(buildAssignmentDataRecord(7, 101), buildAssignmentDataRecord(8, 102), buildAssignmentDataRecord(9, 103));
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: metaBytes }, FixedData: { data: dataBytes } } } } },
+  }));
+  const taskIdByUniqueId = new Map<number, string>([[101, 'task-a'], [102, 'task-b']]); // 103 (verwijderd record) bewust NIET erin
+
+  const links = buildAssignmentUidToTaskId(cfb, asgFieldMap, taskIdByUniqueId);
+  truthy('[Z4 brug] uid 7 → task-a', links.get(7) === 'task-a');
+  truthy('[Z4 brug] uid 8 → task-b', links.get(8) === 'task-b');
+  truthy('[Z4 brug] verwijderd record (uid 9) NIET meegenomen', !links.has(9));
+  truthy('[Z4 brug] exact 2 links', links.size === 2);
+
+  // Rode-pad-fixture (hardening-checklist): TBkndAssn/FixedMeta te kort voor haar eigen header
+  // (5 bytes, `FixedMeta.withItemSize` eist minimaal 16) ⇒ `buildAssignmentUidToTaskIdUnsafe`
+  // gooit ECHT — dit bewijst dat de try/catch-wrapper daadwerkelijk door de catch-tak gaat, niet
+  // alleen de eerder-geretourneerde guard-clauses hierboven.
+  const cfbCorrupt = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: new Uint8Array(5) }, FixedData: { data: dataBytes } } } } },
+  }));
+  const linksCorrupt = buildAssignmentUidToTaskId(cfbCorrupt, asgFieldMap, taskIdByUniqueId);
+  truthy('[Z4 rood] FixedMeta te kort voor haar eigen header ⇒ lege map, geen exceptie', linksCorrupt.size === 0);
+
+  // Rode-pad: TBkndAssn/FixedMeta ontbreekt volledig ⇒ lege map (guard-clause, geen exceptie).
+  const cfbMissing = new CfbFile(buildNestedCfb({ '   114': { children: {} } }));
+  truthy('[Z4 rood] TBkndAssn ontbreekt volledig ⇒ lege map', buildAssignmentUidToTaskId(cfbMissing, asgFieldMap, taskIdByUniqueId).size === 0);
+}
+
+// ── Acceptatiepunt 2 — mpp14splittask.mpp (MPXJ-crawl, PUBLIEKE naam — plan-§2 staat dat toe)
+// levert de gemeten gaten exact (aantal + posities), via de VOLLEDIGE `readMPP()` — bewijst ook
+// dat `Task.splitGaps` daadwerkelijk op het juiste taakobject landt (koppeling via
+// `taskIdByUniqueId`, geen index-toeval). Cijfers: zie de VERPLICHTE meetstap in mppTimephased
+// .ts's moduleheader — hier alleen gepind, niet opnieuw hergeleid. ─────────────────────────────
+{
+  const SPLITTASK_PATH = (process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl')
+    + '/mpxj/junit/data/mpp14splittask.mpp';
+  if (!existsSync(SPLITTASK_PATH)) {
+    console.log(`OK  mpp-import: Z4 mpp14splittask.mpp niet aanwezig (${SPLITTASK_PATH}) — overgeslagen`);
+  } else {
+    const result = readMPP(new Uint8Array(readFileSync(SPLITTASK_PATH)));
+    const task1 = result.tasks.find((t) => t.name === 'Split Task 1');
+    const task2 = result.tasks.find((t) => t.name === 'Split Task 2');
+    truthy('[Z4 corpus] beide taken gevonden', !!task1 && !!task2);
+    truthy(
+      '[Z4 corpus] "Split Task 1": exact 1 gat, {afterMinutes:1920, gapMinutes:1440}',
+      !!task1 && z4GapsEqual(task1.splitGaps ?? [], [{ afterMinutes: 1920, gapMinutes: 1440 }]),
+    );
+    truthy(
+      '[Z4 corpus] "Split Task 2": exact 2 gaten, {1440,960} en {4800,1440}',
+      !!task2 && z4GapsEqual(task2.splitGaps ?? [], [
+        { afterMinutes: 1440, gapMinutes: 960 },
+        { afterMinutes: 4800, gapMinutes: 1440 },
+      ]),
+    );
+    // Negatieve controle: een taak zonder timephased-signaal krijgt GEEN `splitGaps` (afwezig,
+    // niet een lege array) — byte-identiek-precedent (zie mppReader.ts's Z4-koppelcode).
+    const others = result.tasks.filter((t) => t !== task1 && t !== task2);
+    truthy('[Z4 corpus] geen andere taken in dit bestand (2 taken totaal)', others.length === 0);
   }
 }
 

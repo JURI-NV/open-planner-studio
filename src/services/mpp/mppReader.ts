@@ -127,11 +127,11 @@
  * alsnog te porten — tot dan is dit een bewust uitgestelde uitbreiding, geen gat.
  */
 import type { Project } from '@/types/project';
-import type { Task, TaskConstraint, MilestoneKind } from '@/types/task';
+import type { Task, TaskConstraint, MilestoneKind, TaskSplitGap } from '@/types/task';
 import type { WorkCalendar } from '@/types/calendar';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
-import { formatDate, formatInstant, isoDayOfWeek } from '@/utils/dateUtils';
+import { formatDate, formatInstant, isoDayOfWeek, parseInstant } from '@/utils/dateUtils';
 import { normalizeImportedProgress } from '@/services/importNormalize';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { mspCodeToConstraint } from '@/services/msproject/mspdiReader';
@@ -144,13 +144,17 @@ import {
   getInt, getShort, getTimestamp, getUnicodeString, getDurationTimeUnits,
 } from './mppPrimitives';
 import {
-  TaskFieldId,
+  TaskFieldId, AssignmentFieldId,
   createAssignmentFieldMap, createResourceFieldMap, createTaskFieldMap,
   fixedOffsetOf, fixed2OffsetOf, varDataKeyOf, type FieldMapTable,
 } from './fieldMap14';
 import { readCalendars, promoteCalendarsForHourMode, type CalendarReadResult } from './mppCalendars';
 import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTenths } from './limits';
-import { readRelations, readResources, readAssignments } from './mppEntities';
+import { readRelations, readResources, readAssignments, readAssignmentTimephasedRaw } from './mppEntities';
+import {
+  decodeRegularTimephasedWork, decodePlannedRegularTimephasedWork,
+  deriveSplitGapsFromPeriods, deriveTaskSplitGaps,
+} from './mppTimephased';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
 // NIET uit de root-`Props14`-stream — die draagt alleen de wachtwoordvlag, zie mppContainer.ts). ──
@@ -1235,6 +1239,160 @@ export function openMppProject(bytes: Uint8Array): OpenMppProject {
   return { cfb, projectProps, applicationVersion };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak. Het AFLEIDEN van
+// `TaskSplitGap[]` uit periodes is `mppTimephased.ts`'s werk (`deriveSplitGapsFromPeriods`/
+// `deriveTaskSplitGaps` — zie diens moduleheader voor de meetstap/het algoritme/de
+// aggregatieregel); hier gebeurt uitsluitend de KOPPELING: welke RUWE `TBkndAssn`-uniqueId
+// (Z3's `readAssignmentTimephasedRaw`-sleutel) hoort bij welke `Task`.
+//
+// UID→TAAK, NIET UID→`ResourceAssignment.id` (bewuste afwijking van het oorspronkelijk
+// voorgestelde aansluitpunt in `mppTimephased.ts`'s Z3-moduleheader — zie de "VONDST VOOR Z8"-
+// paragraaf daar voor de volledige meting): `readAssignments` (mppEntities.ts) sluit een
+// `TBkndAssn`-record ZONDER echte resource (`resourceUid === -65535`, MPXJ's
+// `ASSIGNMENT_NULL_RESOURCE_ID`-sentinel) bewust uit van `ResourceAssignment[]` — en de VERPLICHTE
+// meetreferentie `mpp14splittask.mpp` draagt PRECIES zulke records (beide taken zijn onbemand,
+// `readAssignments` geeft `[]` voor dit bestand). Een brug die matcht tegen `ResourceAssignment[]`
+// zou dus voor de verplichte referentie zelf leeg blijven. Deze functie leest daarom RECHTSTREEKS
+// uid→taskUid uit `TBkndAssn/FixedMeta`+`FixedData` (negeert `resourceUid` volledig — Z4 hoeft
+// alleen te weten BIJ WELKE TAAK een set periodes hoort, niet via welke resource).
+//
+// BEWUST EEN DERDE, ONAFHANKELIJKE LUS over hetzelfde `TBkndAssn`-storage (spiegelt Z1/Z3's
+// precedent — zie hun eigen moduleheaders voor dezelfde motivering): `readAssignmentsUnsafe`
+// (mppEntities.ts) is TEST-ONLY geëxporteerd met een vast contract (`ResourceAssignment[]`) dat
+// `check-mpp-relations.ts` rechtstreeks aanroept — dat bestand valt buiten Z4's bestandseigendom
+// (zie de taakspecificatie), dus die returnvorm mag niet wijzigen. `ASSIGNMENT_FIXED_META_ITEM_SIZE`/
+// `ASSIGNMENT_FIXED_DATA_ITEM_SIZE` zijn daarom BEWUST HERHAALD (34/110 — `ResourceAssignmentFactory
+// .java`) i.p.v. geïmporteerd: mppEntities.ts's eigen constanten zijn niet geëxporteerd, en dat
+// blijft zo — deze duplicatie is het gedocumenteerde alternatief, geen orde-uitglijder.
+const Z4_ASSIGNMENT_FIXED_META_ITEM_SIZE = 34;
+const Z4_ASSIGNMENT_FIXED_DATA_ITEM_SIZE = 110;
+
+/** Geëxporteerd, zelfde testbaarheidsreden als `readAssignments`/`readAssignmentTimephasedRaw`
+ *  (mppEntities.ts): `check-mpp-import.ts`'s Z4-sectie roept 'm rechtstreeks aan met een kleine
+ *  synthetische `TBkndAssn`-fixture i.p.v. via de volledige `readMPP`. */
+export function buildAssignmentUidToTaskId(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+): Map<number, string> {
+  try {
+    return buildAssignmentUidToTaskIdUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId);
+  } catch {
+    return new Map();
+  }
+}
+
+function buildAssignmentUidToTaskIdUnsafe(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+): Map<number, string> {
+  const label = '"   114"/TBkndAssn';
+  const fixedMetaBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedMeta']);
+  const fixedDataBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedData']);
+  if (!fixedMetaBytes || !fixedDataBytes) return new Map(); // legitiem afwezig (bv. geen assignments)
+
+  const fixedMeta = FixedMeta.withItemSize(fixedMetaBytes, Z4_ASSIGNMENT_FIXED_META_ITEM_SIZE, `${label}/FixedMeta`);
+  const fixedData = FixedData.withoutMeta(Z4_ASSIGNMENT_FIXED_DATA_ITEM_SIZE, fixedDataBytes, `${label}/FixedData`);
+
+  const uniqueIdOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.UniqueId);
+  const taskUidOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.TaskUniqueId);
+  if (uniqueIdOffset === null || taskUidOffset === null) return new Map();
+
+  const result = new Map<number, string>();
+  // GEKLEMD via FixedMeta.getItemCount() — zelfde primitief (en dezelfde al-bestaande hardening,
+  // I1) als readAssignmentsUnsafe hierboven gebruikt voor hetzelfde storage.
+  const itemCount = fixedMeta.getItemCount();
+  for (let index = 0; index < itemCount; index++) {
+    const meta = fixedMeta.getByteArrayValue(index);
+    // Verwijderd-vlag: spiegelt readAssignmentsUnsafe letterlijk (BYTE, niet SHORT).
+    if (!meta || meta.length < 8 || meta[0] !== 0) continue;
+    const offset = getInt(meta, 4, `${label}/FixedMeta offset`);
+    const dataIndex = fixedData.getIndexFromOffset(offset);
+    if (dataIndex === -1) continue;
+    const data = fixedData.getByteArrayValue(dataIndex);
+    if (!data || data.length < Math.max(uniqueIdOffset, taskUidOffset) + 4) continue;
+    const uid = getInt(data, uniqueIdOffset, `${label}/FixedData uniqueId`);
+    const taskUid = getInt(data, taskUidOffset, `${label}/FixedData taskUid`);
+    const taskId = taskIdByUniqueId.get(taskUid);
+    if (taskId) result.set(uid, taskId); // onvindbare taak ⇒ overslaan, spiegelt readAssignmentsUnsafe
+  }
+  return result;
+}
+
+/** Decodeert + leidt `TaskSplitGap[]` per taak af — de volledige Z4-ketting: `readAssignmentTimephasedRaw`
+ *  (Z3) → uid→taskId (hierboven) → per-toewijzing decodering (`decodeRegularTimephasedWork`/
+ *  `decodePlannedRegularTimephasedWork`) → per-toewijzing afleiding (`deriveSplitGapsFromPeriods`)
+ *  → taakniveau-aggregatie (`deriveTaskSplitGaps`). ALTIJD-vangende wrapper (spiegelt het
+ *  `readXUnsafe`-precedent): een corrupt/onverwacht bestand mag `readMPP` niet laten falen — taken
+ *  zijn dan al gelezen en blijven bruikbaar, alleen zonder splitsegmenten. */
+function deriveSplitGapsForTasks(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  tasks: readonly Task[],
+): Map<string, TaskSplitGap[]> {
+  try {
+    return deriveSplitGapsForTasksUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId, tasks);
+  } catch {
+    return new Map();
+  }
+}
+
+function deriveSplitGapsForTasksUnsafe(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  tasks: readonly Task[],
+): Map<string, TaskSplitGap[]> {
+  const rawByUid = readAssignmentTimephasedRaw(cfb, assignmentFieldMap); // Z3, zelf al try/catch-veilig
+  if (rawByUid.size === 0) return new Map();
+
+  const taskIdByAssignmentUid = buildAssignmentUidToTaskId(cfb, assignmentFieldMap, taskIdByUniqueId);
+  if (taskIdByAssignmentUid.size === 0) return new Map();
+
+  const taskById = new Map(tasks.map((t) => [t.id, t] as const));
+  // Per taak: één TaskSplitGap[]-item PER toewijzing die daadwerkelijk periodes decodeerde — de
+  // vorm die `deriveTaskSplitGaps` als invoer verwacht (zie mppTimephased.ts's moduleheader: een
+  // toewijzing ZONDER data wordt hier uitgesloten, niet als "altijd stil" meegeteld).
+  const gapsByAssignmentPerTask = new Map<string, TaskSplitGap[][]>();
+
+  for (const [uid, raw] of rawByUid) {
+    const taskId = taskIdByAssignmentUid.get(uid);
+    if (!taskId) continue;
+    const task = taskById.get(taskId);
+    if (!task?.time?.scheduleStart) continue;
+
+    // `referenceStart`/`referenceFinish` voeden uitsluitend de decoder se (voor Z4 ONGEBRUIKTE)
+    // `approxStart`/`approxFinish`-velden en `decodePlannedRegularTimephasedWork`'s blockCount===0-
+    // speciale geval — de afgeleide `afterMinutes`/`gapMinutes` zijn WERKminuten-offsets en
+    // onafhankelijk van welk instant hier gekozen wordt (zie mppTimephased.ts's moduleheader-meting).
+    const referenceStart = parseInstant(task.time.scheduleStart);
+    const referenceFinish = task.time.scheduleFinish ? parseInstant(task.time.scheduleFinish) : undefined;
+
+    const actualPeriods = raw.actualRegularWork
+      ? decodeRegularTimephasedWork(raw.actualRegularWork, referenceStart)
+      : [];
+    const remainingPeriods = raw.remainingRegularWork
+      ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, referenceStart, referenceFinish)
+      : [];
+    if (actualPeriods.length === 0 && remainingPeriods.length === 0) continue; // geen data ⇒ uitsluiten (zie hierboven)
+
+    const gaps = deriveSplitGapsFromPeriods([...actualPeriods, ...remainingPeriods]);
+    const list = gapsByAssignmentPerTask.get(taskId) ?? [];
+    list.push(gaps);
+    gapsByAssignmentPerTask.set(taskId, list);
+  }
+
+  const result = new Map<string, TaskSplitGap[]>();
+  for (const [taskId, gapsByAssignment] of gapsByAssignmentPerTask) {
+    const combined = deriveTaskSplitGaps(gapsByAssignment);
+    if (combined.length > 0) result.set(taskId, combined); // leeg ⇒ veld niet zetten (byte-identiek precedent)
+  }
+  return result;
+}
+
 export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult {
   const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
 
@@ -1274,6 +1432,15 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
 
   const assignmentFieldMap = createAssignmentFieldMap(projectProps);
   const assignments = readAssignments(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
+
+  // Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak (zie de functies hierboven
+  // en mppTimephased.ts's moduleheader voor de volledige afleiding). Nog GEEN gedragswijziging aan
+  // datums: geen solver-stap raadpleegt `Task.splitGaps` in deze etappe-fase (dat is Z7).
+  const splitGapsByTaskId = deriveSplitGapsForTasks(cfb, assignmentFieldMap, taskIdByUniqueId, tasks);
+  for (const task of tasks) {
+    const gaps = splitGapsByTaskId.get(task.id);
+    if (gaps) task.splitGaps = gaps;
+  }
 
   return {
     project,
