@@ -529,7 +529,7 @@ export class CPMSolver {
       const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
       return { date: eng.addWorkMinutes(start, totalMinutes), capped: false };
     }
-    const totalDays = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    const totalDays = splitTotalSpanDays(task, eng);
     return eng.addWorkDaysChecked(start, totalDays);
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). BEWUST GEEN
@@ -555,7 +555,7 @@ export class CPMSolver {
       const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
       return eng.subtractWorkMinutes(end, totalMinutes);
     }
-    const totalDays = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    const totalDays = splitTotalSpanDays(task, eng);
     return eng.subtractWorkDays(end, totalDays);
   }
 
@@ -660,7 +660,7 @@ export class CPMSolver {
     }
     // `splitTotalSpanDays` geeft bij `dur===0` zelf al 0 terug (`splitTotalSpanMinutes`s
     // `workMinutes<=0`-kortsluiting, spiegelt `addWorkMinutes`) — geen aparte `dur>0`-wacht nodig.
-    const totalDur = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    const totalDur = splitTotalSpanDays(task, eng);
     return eng.addWorkingDaysSigned(finish, -(totalDur > 0 ? totalDur - 1 : 0));
   }
   /** Leid de voorganger-FINISH af uit zijn late START (SS/SF backward, §5.2, spiegel van
@@ -683,7 +683,7 @@ export class CPMSolver {
     if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
-    const totalDur = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    const totalDur = splitTotalSpanDays(task, eng);
     return eng.addWorkingDaysSigned(start, totalDur > 0 ? totalDur - 1 : 0);
   }
   /** Getekende float in eigen-kalender-WERKDAGEN (§5.5, Bevinding 1): uur ⇒ fractioneel
@@ -1404,6 +1404,25 @@ export class CPMSolver {
           // zónder deze klem werd `completedSpanMinutes` negatief en viel de wandeling stil terug op
           // "alle gaten meetellen" (elk gat ligt dan per definitie "ná" een negatief doel). Rode-pad-
           // mutatiebewijs: `z7-split-h-hostile-remaining-boven-totalspan` (cases-advanced-cpm.json).
+          //
+          // Z7-FIXRONDE-2 (LAAG 2, klem-ASYMMETRIE — bewust, niet vergeten): deze klem raakt
+          // UITSLUITEND de gaten-tak. Een GATLOZE taak met datzelfde hostiele `remainingMinutes`
+          // (bv. 999999) loopt de tak hieronder NIET binnen — `remainingWithGaps` blijft dan de
+          // rauwe `remaining` en gaat ONGEKLEMD naar `addWorkMinutes`/`addWorkDaysChecked`, wat een
+          // even absurd-ver-in-de-toekomst (maar EINDIG, niet-crashend) antwoord geeft. Dat is GEEN
+          // vergeten symmetrie-fix — het is een BEWUSTE scope-grens: de klem hierboven bestrijdt een
+          // kwalitatief ANDERE faalmodus (een NEGATIEF tussendoel dat de as-wandeling semantisch laat
+          // ontsporen, "alle gaten tellen mee" i.p.v. "te veel restwerk") — niet "een groot getal
+          // geeft een ver-weg-datum" (dat is voor ELKE `remaining`-waarde, met of zonder gaten,
+          // altijd al zo geweest, ook vóór Z7; `remainingMinutes` heeft in het datamodel geen
+          // bovengrens t.o.v. de eigen duur, en dat blijft zo). Een taak MET gaten krijgt hierdoor
+          // als NEVENEFFECT wel een BEGRENSD resultaat bij zo'n hostiele invoer (de wandeling valt
+          // terug op "volledige duur+gaten, als 0% voltooid", zie de klem hierboven) — dat is een
+          // toevallig gunstig neveneffect van de negatief-doel-klem, geen doelbewust ontworpen
+          // bovengrens-klem op `remaining` zelf. Symmetrisch maken (`remaining` ook in de gatloze
+          // tak klemmen op de eigen duur) zou progress-tracking-gedrag BUITEN Z7-scope wijzigen
+          // (elke taak, niet alleen gesplitste) zonder corpus- of casebewijs dat dat gewenst is —
+          // bewust NIET gedaan.
           let remainingWithGaps = remaining;
           if (!isElapsedTask && task.splitGaps && task.splitGaps.length > 0) {
             const totalSpanMinutes = cal.isHourMode ? totalSpan : totalSpan * cal.hoursPerDay * 60;

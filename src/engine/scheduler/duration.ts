@@ -284,13 +284,37 @@ export function splitTotalSpanMinutes(gaps: readonly TaskSplitGap[] | undefined,
   return axisPos + (workMinutes - workDone);
 }
 
-/** `splitTotalSpanMinutes` omgerekend naar eigen-kalender-WERKDAGEN (dag-modus-aanroepers) —
- *  dezelfde `minuten / (hoursPerDay×60)`-omrekening als `durationDaysOf`/`elapsedMinutesOf`
- *  hierboven, zodat er geen tweede eenhedenconventie ontstaat. `workMinutes` blijft in MINUTEN
- *  (de as-wandeling zelf gebeurt altijd in minuten, ongeacht dag/uur-modus van de aanroeper —
- *  alleen de UITKOMST wordt voor een dag-kalender naar dagen omgerekend). */
-export function splitTotalSpanDays(
-  gaps: readonly TaskSplitGap[] | undefined, workMinutes: number, effCal: DurationCalendar,
-): number {
-  return splitTotalSpanMinutes(gaps, workMinutes) / (effCal.hoursPerDay * 60);
+/**
+ * `splitTotalSpanMinutes` omgerekend naar eigen-kalender-WERKDAGEN (dag-modus-aanroepers).
+ *
+ * Z7-FIXRONDE-2 (MIDDEN, WORTELFIX — dag-modus-regressie op een NIET-GEHELE `hoursPerDay`,
+ * reviewbevinding): de eerste versie deed onvoorwaardelijk `splitTotalSpanMinutes(gaps,
+ * workMinutes) / (hoursPerDay×60)` — voor een GATLOZE taak is dat `(scheduleDuration×hoursPerDay
+ * ×60) / (hoursPerDay×60)`, een vermenigvuldig-dan-delen-rondje door DEZELFDE factor dat bij een
+ * niet-representeerbare `hoursPerDay` (bv. 8,4 — vrij invoerbaar via Projectinfo, en aanwezig in
+ * `.mpp`-kalenders; corpus mist dit toevallig omdat alles daar op hpd 8 staat, exact in binair)
+ * GEEN exacte 3 teruggeeft maar 3.0000000000000004. `addWorkDaysChecked`s lus (`remaining =
+ * workDays−1`, `while(remaining>0){…; remaining--;}`) ziet die epsilon als "nog niet klaar" en
+ * doet er ÉÉN werkdag te veel bij — een gatloze 3-daagse taak landde zo een dag te laat.
+ *
+ * FIX (reviewer-voorstel, letterlijk gevolgd): houd de EXACTE integer-basis — `durationDaysOf`
+ * leest voor een dag-kalender `scheduleDuration` RAUW terug, geen vermenigvuldiging, dus geen
+ * rondingsrisico — en tel ALLEEN de gat-TOESLAG er fractioneel bij op. Voor een gatloze taak is
+ * die toeslag `splitTotalSpanMinutes(undefined, workMinutes) − workMinutes = 0` EXACT (de
+ * kortsluiting in `splitTotalSpanMinutes` hierboven geeft `workMinutes` ongewijzigd terug), dus
+ * `totalDays = durationDaysOf(task, eng) + 0` — BYTE-IDENTIEK aan het pad van vóór Z7. Voor een
+ * taak MET gaten blijft de toeslag zelf een deling door `hoursPerDay×60` (onvermijdelijk, want
+ * `TaskSplitGap` leeft in minuten) — dat rondingsrisico was er al vóór deze fixronde en verandert
+ * niet; de fix schrapt uitsluitend het EXTRA, VERMIJDBARE rondje voor de gatloze meerderheid.
+ *
+ * Signatuur gewijzigd naar `(task, eng)` i.p.v. `(gaps, workMinutes, effCal)` — de aanroeper mag
+ * `durationMinutesOf(task, eng)` niet meer VOORAF berekenen (dat was precies de bron van de extra
+ * afronding); deze functie beslist zelf, per taak, of de minuten-omweg nodig is.
+ */
+export function splitTotalSpanDays(task: Task, eng: DurationCalendar): number {
+  const base = durationDaysOf(task, eng);
+  if (!task.splitGaps || task.splitGaps.length === 0) return base;
+  const workMinutes = durationMinutesOf(task, eng);
+  const extraMinutes = splitTotalSpanMinutes(task.splitGaps, workMinutes) - workMinutes;
+  return base + extraMinutes / (eng.hoursPerDay * 60);
 }

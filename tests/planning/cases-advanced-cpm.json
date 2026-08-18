@@ -1540,6 +1540,55 @@
         "projectEnd": "2026-06-09",
         "error": false
       }
+    },
+    {
+      "id": "z7-fixronde2-midden-hpd-niet-geheel-gapless",
+      "title": "Z7-fixronde-2 (MIDDEN, WORTELFIX — dag-modus-regressie, reviewbevinding) — de vier aangrijpingspunten gebruikten `splitTotalSpanDays` ONVOORWAARDELIJK, óók zonder `splitGaps`: `(scheduleDuration×hoursPerDay×60)/(hoursPerDay×60)` is bij een NIET-GEHELE `hoursPerDay` (hier 8,4 — vrij invoerbaar via Projectinfo, en aanwezig in `.mpp`-kalenders; corpus mist dit toevallig want daar staat alles op hpd 8, exact in binair) GEEN exacte 3 maar 3.0000000000000004 — `addWorkDaysChecked`s `while(remaining>0){…;remaining--;}` ziet die epsilon als 'nog niet klaar' en doet er één werkdag te veel bij. Taak A (3d, GEEN gaten) op een hpd-8,4-kalender: correcte EF is 2026-06-03 (woe, 3 werkdagen vanaf ma 06-01) — NIET 06-04. Fix (reviewer-voorstel, letterlijk gevolgd): `splitTotalSpanDays` houdt nu de EXACTE integer-basis (`durationDaysOf`, rauw `scheduleDuration` terug, geen vermenigvuldiging) aan en telt alleen de gat-TOESLAG (hier nul, want geen gaten) er fractioneel bij op — gatloze taken lopen daardoor weer BYTE-IDENTIEK het pad van vóór Z7. Mutatiebewijs (handmatig uitgevoerd tijdens de fixronde, code ná meting hersteld): de vorige, onvoorwaardelijke `splitTotalSpanMinutes(...)/(hoursPerDay×60)`-vorm teruggezet gaf EF 2026-06-04 (één werkdag te laat) voor PRECIES deze case — dus deze case was daaronder ROOD.",
+      "calendar": { "hoursPerDay": 8.4 },
+      "tasks": [
+        { "name": "A", "dur": 3 }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-06-01", "ef": "2026-06-03", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-06-03",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-fixronde2-laag1-gat-veel-langer-dan-duur",
+      "title": "Z7-fixronde-2 (LAAG 1, reviewer-suggestie) — een gat VEEL langer dan de taak se eigen duur (10d taak + 15 werkdagen gat, ver voorbij de 1-minuut-randcases van fixronde 1) — vangt een toekomstige klem-/venster-regressie harder dan de precisie-randgevallen: als er ooit weer een `[0, duur)`-achtig venster sluipt, trunceert dat een gat van deze grootte drastisch zichtbaar (niet slechts 1 minuut). Taak D (10d, dag-kalender hpd 8) met gat `{afterMinutes: 1440 (na dag 3), gapMinutes: 7200 (15 werkdagen)}` ⇒ totaal 10+15=25 werkdagen. Mon 2026-06-01 + 25 werkdagen (5 volle weken) = vr 2026-07-03.",
+      "tasks": [
+        { "name": "D", "dur": 10, "splitGaps": [{ "afterMinutes": 1440, "gapMinutes": 7200 }] }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "D": { "es": "2026-06-01", "ef": "2026-07-03", "tf": 0, "crit": true }
+        },
+        "projectEnd": "2026-07-03",
+        "error": false
+      }
+    },
+    {
+      "id": "z7-fixronde2-laag2-gapless-hostile-remaining-ongeklemd",
+      "title": "Z7-fixronde-2 (LAAG 2, klem-ASYMMETRIE — bewust gedocumenteerd, niet symmetrisch gemaakt; zie het commentaar bij `remainingWithGaps` in CPMSolver.ts voor de volledige motivering) — deze case PINT het bewuste verschil: een taak MET gaten klemt `completedSpanMinutes` op 0 bij een hostiel te grote `remainingMinutes` (valt terug op 'volledige duur+gaten, als 0% voltooid', zie `z7-split-h-hostile-remaining-boven-totalspan`); een GATLOZE taak met datzelfde hostiele `remainingMinutes` heeft geen analoge `completedSpan`-berekening en gaat dus ONGEKLEMD naar `addWorkMinutes` — een EINDIGE maar bewust-ver-in-de-toekomst datum, exact het pre-Z7-gedrag voor `remainingMinutes` (geen bovengrens t.o.v. de eigen duur in het datamodel, dat symmetrisch 'fixen' zou progress-tracking buiten Z7-scope wijzigen zonder bewijs dat dat gewenst is). Taak GAPLESS_HOSTILE (uur-kalender H8, 5d/2400min, completion 50%, `remainingMinutes:999999`, GEEN `splitGaps`) ⇒ EF 2034-06-29T10:39 (999999 werkminuten vanaf 2026-07-06T08:00, ONGEWIJZIGD gedrag — deze case verandert niet van waarde als de klem-asymmetrie ooit gedocumenteerd blijft; ze zou wél rood worden als iemand de gatloze tak alsnog stilzwijgend gaat klemmen).",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 960 }], "2": [{ "start": 480, "end": 960 }], "3": [{ "start": 480, "end": 960 }], "4": [{ "start": 480, "end": 960 }], "5": [{ "start": 480, "end": 960 }], "6": [], "7": [] } } },
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "GAPLESS_HOSTILE", "dur": "2400m", "completion": 0.5, "actualStart": "2026-07-06T08:00",
+          "remainingMinutes": 999999 }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "GAPLESS_HOSTILE": { "es": "2026-07-06T08:00", "ef": "2034-06-29T10:39" }
+        },
+        "projectEnd": "2034-06-29T10:39",
+        "error": false
+      }
     }
   ]
 }

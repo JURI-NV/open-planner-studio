@@ -85,6 +85,14 @@ type Cal = {
    *  (T2's model, `src/types/calendar.ts`) — de harness geeft 'm ongewijzigd door aan
    *  `setCalendar`/`addCalendar`. */
   workingExceptions?: WorkingException[];
+  /** Z7-fixronde-2 (MIDDEN): expliciete `hoursPerDay`-override voor een DAG-kalender (bij `workTime`
+   *  aanwezig wordt `hoursPerDay` toch AFGELEID uit de banden, zie `CalendarEngine.
+   *  computeDerivedHoursPerDay` — deze override is dus alleen zinvol zonder `workTime`). Afwezig ⇒
+   *  de default van `S().calendar` (8, byte-identiek voor elke bestaande case — geen enkele zet dit
+   *  veld). Nodig om een NIET-GEHELE `hoursPerDay` (bv. 8,4 — vrij invoerbaar via Projectinfo) op een
+   *  dag-kalender corpusloos te reproduceren; zonder deze knop is dat via de bestaande `Cal`-vorm niet
+   *  te zetten (`workTime` zou de taak juist naar de uur-modus-tak duwen, een ANDER codepad). */
+  hoursPerDay?: number;
 };
 interface CaseResource {
   name: string; type?: ResourceType; maxUnits?: number;
@@ -364,6 +372,9 @@ function buildAndSolve(c: Case): {
     // T13 (§T2-afwijking): alleen wanneer expliciet gegeven ⇒ werkende uitzonderingen. Afwezig ⇒ géén
     // workingExceptions-sleutel — byte-identiek voor elke bestaande case (additief, zie Cal se doc).
     ...(c.calendar?.workingExceptions ? { workingExceptions: c.calendar.workingExceptions } : {}),
+    // Z7-fixronde-2 (MIDDEN): alleen wanneer expliciet gegeven ⇒ hoursPerDay-override. Afwezig ⇒
+    // de default van `base` (8) — byte-identiek voor elke bestaande case (additief, zie Cal se doc).
+    ...(c.calendar?.hoursPerDay != null ? { hoursPerDay: c.calendar.hoursPerDay } : {}),
   } as any);
   const anchor = c.anchor ?? '2026-06-01';
   S().setProject({ startDate: anchor });
