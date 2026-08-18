@@ -78,15 +78,32 @@ export type DurationType = 'WORKTIME' | 'ELAPSEDTIME';
 
 /**
  * Eén werkonderbreking in een gesplitste taak (MS Project: "split") — etappe "nul afwijkingen"
- * (Z0), voorlopig ONGEBRUIKT (geen enkele lezer/solver/renderer raadpleegt dit veld nog).
- * OFFSET-GEBASEERD, niet absoluut: `afterMinutes` werkMINUTEN ná de taakstart begint een gat van
- * `gapMinutes` werkminuten waarin niet gewerkt wordt (het restwerk hervat daarna). Offsets in
- * plaats van absolute datumparen om drie redenen: shift-invariant (een herberekening/verplaatsing
- * van de taak verschuift de gaten automatisch mee, absolute segmenten zouden bij elke herberekening
- * verouderen), geen INPUT/COMPUTED-dubbelrol (de gaten zijn brondata; de absolute segmenten die de
- * renderer/print tekenen zijn AFGELEID uit `earlyStart` + een kalenderwandeling), en een triviaal
- * `moveProject.ts`-verdict (er staat geen datum in, dus "n/a" is aantoonbaar correct — zelfde
- * taxonomie als `levelingDelay` — in plaats van een handgeschreven shift).
+ * (Z0/Z4 leidden dit af, Z7 consumeert het in de CPM: `CPMSolver.ts`/`duration.ts`'s
+ * `splitTotalSpanMinutes`).
+ *
+ * OFFSET-GEBASEERD, niet absoluut, in MINUTEN — MAAR (Z7-fixronde-H1, WORTELFIX: as-verwarring
+ * gecorrigeerd) NIET op de "zuivere werkduur"-as (`TaskTime.durationMinutes`s eenheid, die per
+ * definitie GEEN gaten telt). `afterMinutes`/`gapMinutes` staan op MPXJ/MSP's eigen cumulatieve
+ * `elapsedWorkMinutes`-as (zie `mppTimephased.ts`'s `TimephasedWorkPeriod`, de bron van deze
+ * afleiding, `Z4`-paragraaf in de moduleheader): die as loopt CUMULATIEF door de tijdgefaseerde
+ * periodes en telt daarbij ELKE periode mee — óók een periode met `workMinutes===0` (een gat telt
+ * dus zelf ook mee in hoeveel de as voor een VOLGEND gat al is opgeschoven). Voor een taak met twee
+ * of meer gaten is `afterMinutes` van het TWEEDE (en latere) gat dus NIET gelijk aan "zuivere
+ * werktijd sinds taakstart" — het incorporeert de voorgaande gaten al. Consumenten mogen `afterMinutes`
+ * daarom NOOIT rechtstreeks tegen een zuivere-werkduur-getal (`durationMinutesOf`/`scheduleDuration`)
+ * vergelijken of tegen een vast venster klemmen — dat trunceerde eerder legitieme gaten (reviewer-
+ * bewijs: `mpxj/junit/data/mpp14timephased.mpp`s "Task 5 - 24 Hour", `afterMinutes:1440`/
+ * `gapMinutes:5760`, MSP's eigen finish reproduceert alleen via de ONGEKLEMDE as-wandeling
+ * `splitTotalSpanMinutes` in `duration.ts`, niet via een `[0, duur)`-venster). "Het restwerk hervat
+ * daarna" blijft de betekenis: elk gat is een periode waarin niet gewerkt wordt, op de eigen positie
+ * langs deze as — zie `duration.ts`'s moduleheader voor het volledige as-wandelalgoritme.
+ *
+ * Offsets in plaats van absolute datumparen om drie redenen: shift-invariant (een herberekening/
+ * verplaatsing van de taak verschuift de gaten automatisch mee, absolute segmenten zouden bij elke
+ * herberekening verouderen), geen INPUT/COMPUTED-dubbelrol (de gaten zijn brondata; de absolute
+ * segmenten die de renderer/print tekenen zijn AFGELEID uit `earlyStart` + een kalenderwandeling),
+ * en een triviaal `moveProject.ts`-verdict (er staat geen datum in, dus "n/a" is aantoonbaar
+ * correct — zelfde taxonomie als `levelingDelay` — in plaats van een handgeschreven shift).
  */
 export interface TaskSplitGap { afterMinutes: number; gapMinutes: number }
 
@@ -266,12 +283,15 @@ export interface Task {
    *  `durationType`/MSPDI's elapsed-vlag op een duur. Afwezig ⇒ WORKTIME (byte-identiek). Alleen
    *  betekenisvol wanneer `levelingDelayMinutes` ook gezet is. */
   levelingDelayElapsed?: boolean;
-  /** OPTIONEEL — werkonderbrekingen (MS Project "split"), zie `TaskSplitGap`. Sinds Z4 ECHT gevuld:
-   *  `mppReader.ts` leidt dit af uit de timephased-werksegmenten van een `.mpp`-import
+  /** OPTIONEEL — werkonderbrekingen (MS Project "split"), zie `TaskSplitGap` (die interface se
+   *  eigen docblok draagt de as-definitie — lees die vóórdat je dit veld raadpleegt). Sinds Z4 ECHT
+   *  gevuld: `mppReader.ts` leidt dit af uit de timephased-werksegmenten van een `.mpp`-import
    *  (`deriveSplitGapsForTasks`, `mppTimephased.ts`), en round-trippt sinds Z14 door IFC
-   *  (`OPS_TaskSplits`-pset, `ifcPsets.ts`). Nog wél ONGEBRUIKT aan de CONSUMPTIEKANT: geen
-   *  solver-stap raadpleegt dit (dat is Z7) en de renderer tekent nog geen onderbroken balk (Z15).
-   *  Afwezig ⇒ geen splits (byte-identiek). */
+   *  (`OPS_TaskSplits`-pset, `ifcPsets.ts`). Sinds Z7 ECHT geconsumeerd door de CPM: `CPMSolver.ts`'s
+   *  vier aangrijpingspunten (`addDurationChecked`/`subDuration`/`finishFromStart`/`startFromFinish`
+   *  + de IN-PROGRESS-restwerktak) wandelen dit via `duration.ts`'s `splitTotalSpanMinutes`. De
+   *  renderer tekent sinds Z15 al een onderbroken balk in Gantt/print/PDF. Afwezig ⇒ geen splits
+   *  (byte-identiek). */
   splitGaps?: TaskSplitGap[];
   /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
    *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het

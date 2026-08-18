@@ -8,8 +8,8 @@ import {
   parseDate, formatDate, parseInstant, type DateMode,
 } from '@/utils/dateUtils';
 import {
-  durationMinutesOf, durationDaysOf, elapsedMinutesOf, addElapsedMinutes, subtractElapsedMinutes,
-  signedElapsedSpan, isZeroDurationMilestone, splitGapMinutesInWindow, splitGapDaysInWindow,
+  durationMinutesOf, elapsedMinutesOf, addElapsedMinutes, subtractElapsedMinutes,
+  signedElapsedSpan, isZeroDurationMilestone, splitTotalSpanMinutes, splitTotalSpanDays,
 } from './duration';
 import { computeScheduleResults } from './scheduleAnalysis';
 import {
@@ -504,14 +504,14 @@ export class CPMSolver {
    *  `scheduleDuration`, nooit een fractionele dag, Bevinding 2).
    *
    *  Z7 (aangrijpingspunt 1, splits): `task.splitGaps` telt hier mee als EXTRA werkminuten/-dagen
-   *  bovenop de gewone duur — `duration.ts`'s moduleheader legt uit waarom een kale som volstaat
-   *  (`addWorkMinutes`/`addWorkDaysChecked` zijn positie-onafhankelijke tel-functies: het AANTAL
-   *  geconsumeerde werk-eenheden bepaalt de aankomst, niet de interne opbouw). Venster
-   *  `[0, totale duur)` — de VOLLEDIGE taak, alle gaten tellen (in tegenstelling tot het
-   *  IN-PROGRESS-restwerkvenster in `forwardPass`, dat een SMALLER venster gebruikt). ELAPSEDTIME
-   *  blijft bewust ONGEMOEID — splits zijn een WERK-tijd-concept (24/7 kent geen "gat", zie
-   *  `duration.ts`'s "Bewust NIET segmentbewust"-noot in het plan). `task.splitGaps` afwezig ⇒
-   *  `splitGapMinutesInWindow`/`splitGapDaysInWindow` geven 0 terug ⇒ byte-identiek aan vóór Z7. */
+   *  bovenop de gewone duur, via `splitTotalSpanMinutes`/`splitTotalSpanDays` (`duration.ts` —
+   *  wandelt de synthetische gaten-as i.p.v. een vast venster te klemmen, Z7-fixronde-H1: de
+   *  vroegere venster-vorm trunceerde een gat dat over de `durationMinutesOf`-grens heen liep,
+   *  omdat `TaskSplitGap.afterMinutes` NIET op de zuivere-werkduur-as staat maar op MSP's eigen
+   *  cumulatieve `elapsedWorkMinutes`-as, die voorgaande gaten al meetelt). ELAPSEDTIME blijft
+   *  bewust ONGEMOEID — splits zijn een WERK-tijd-concept (24/7 kent geen "gat", zie `duration.ts`'s
+   *  moduleheader bij deze functies). `task.splitGaps` afwezig ⇒ `splitTotalSpanMinutes`/
+   *  `splitTotalSpanDays` geven de kale duur ongewijzigd terug ⇒ byte-identiek aan vóór Z7. */
   private addDuration(eng: CalendarEngine, start: Date, task: Task): Date {
     return this.addDurationChecked(eng, start, task).date;
   }
@@ -526,13 +526,11 @@ export class CPMSolver {
       return { date: addElapsedMinutes(start, elapsedMinutesOf(task, eng)), capped: false };
     }
     if (eng.isHourMode) {
-      const minutes = durationMinutesOf(task, eng);
-      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
-      return { date: eng.addWorkMinutes(start, minutes + gapMinutes), capped: false };
+      const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
+      return { date: eng.addWorkMinutes(start, totalMinutes), capped: false };
     }
-    const days = durationDaysOf(task, eng);
-    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
-    return eng.addWorkDaysChecked(start, days + gapDays);
+    const totalDays = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    return eng.addWorkDaysChecked(start, totalDays);
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). BEWUST GEEN
    *  `levelingDelay`/`levelingDelayMinutes`-aftrek hier (Z6-besluit, ongewijzigd na de Z6-
@@ -554,13 +552,11 @@ export class CPMSolver {
       return subtractElapsedMinutes(end, elapsedMinutesOf(task, eng));
     }
     if (eng.isHourMode) {
-      const minutes = durationMinutesOf(task, eng);
-      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
-      return eng.subtractWorkMinutes(end, minutes + gapMinutes);
+      const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
+      return eng.subtractWorkMinutes(end, totalMinutes);
     }
-    const days = durationDaysOf(task, eng);
-    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
-    return eng.subtractWorkDays(end, days + gapDays);
+    const totalDays = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
+    return eng.subtractWorkDays(end, totalDays);
   }
 
   /** Verschuift `date` met de nivelleer-vertraging van `task` (fase 2.5 §5.6; Z6 uur-/minuut-
@@ -568,13 +564,30 @@ export class CPMSolver {
    *  start van `task` zelf) of `sign=-1` (backward-DOORGIFTE, `backwardPass`s constraint-druk
    *  die `task` als OPVOLGER op haar voorganger legt — Z6-fixronde B2, zie de toelichting bij de
    *  aanroepplek in `backwardPass`). Geen delay ingesteld ⇒ `date` ongewijzigd (no-op, byte-
-   *  identiek), ongeacht `sign`. */
+   *  identiek), ongeacht `sign`.
+   *
+   *  Z7-fixronde (EXTRA, reviewbevinding — crash los van splits): `eng.addWorkingMinutesSigned` is
+   *  een UUR-modus-primitief — `CalendarEngine`'s `bandCache` bestaat uitsluitend wanneer de
+   *  kalender `workTime` draagt (constructor, `this.mode==='hour'`-tak); op een DAG-kalender blijft
+   *  `bandCache` `undefined` en crasht `bandsStartingOn`'s `this.bandCache!`-assertion. `mppReader.ts`
+   *  zet `levelingDelayMinutes` op `raw.levelingDelayRaw !== 0`, ONGEACHT het kalender-type van het
+   *  project — een `.mpp`-bestand met nivelleervertraging op een gewone DAG-kalender bereikte deze
+   *  tak dus altijd al, en crashte. Terugval-conventie: identiek aan `durationDaysOf`s "sub-dag-duur
+   *  bestaat niet op een dag-kalender"-precedent en `resolveEffectiveLagDays`s minuten→dagen-
+   *  omrekening (`Math.sign(raw) * Math.round(Math.abs(raw))`, half rondt van nul af) — reken de
+   *  minuten om naar HELE werkdagen en gebruik `addWorkingDaysSigned` (de dag-modus-tegenhanger). */
   private shiftByLevelingDelay(eng: CalendarEngine, task: Task, date: Date, sign: 1 | -1): Date {
     const taskElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
     if (task.levelingDelayMinutes) {
-      return (taskElapsed || task.levelingDelayElapsed)
-        ? addElapsedMinutes(date, sign * task.levelingDelayMinutes)
-        : eng.addWorkingMinutesSigned(date, sign * task.levelingDelayMinutes);
+      if (taskElapsed || task.levelingDelayElapsed) {
+        return addElapsedMinutes(date, sign * task.levelingDelayMinutes);
+      }
+      if (!eng.isHourMode) {
+        const raw = task.levelingDelayMinutes / (eng.hoursPerDay * 60);
+        const days = Math.sign(raw) * Math.round(Math.abs(raw));
+        return eng.addWorkingDaysSigned(date, sign * days);
+      }
+      return eng.addWorkingMinutesSigned(date, sign * task.levelingDelayMinutes);
     }
     if (task.levelingDelay) {
       return taskElapsed
@@ -627,16 +640,16 @@ export class CPMSolver {
    *  Z7 (aangrijpingspunt 4, splits): gebruikt door de FF/SF-armen in `relationMath.ts` en door
    *  `forwardBoundOf`/`backwardBoundOf`/`hardPinStart`/`hardPinFinish` — een gesplitste taak als
    *  FF-voorganger zou zonder deze gaten-optelling een START teruggeven die haar EIGEN duur negeert.
-   *  Zelfde venster `[0, totale duur)`/zelfde ELAPSEDTIME-uitsluiting als `addDurationChecked`. */
+   *  Zelfde as-wandeling/ELAPSEDTIME-uitsluiting als `addDurationChecked` (`splitTotalSpanMinutes`/
+   *  `splitTotalSpanDays`, `duration.ts` — Z7-fixronde-H1). */
   private startFromFinish(eng: CalendarEngine, finish: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (isZeroDurationMilestone(task)) return new Date(finish.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
       }
-      const minutes = durationMinutesOf(task, eng);
-      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
-      return eng.subtractWorkMinutes(finish, minutes + gapMinutes);
+      const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
+      return eng.subtractWorkMinutes(finish, totalMinutes);
     }
     // H3 (Opus-review T15-iteratie-2, herbevestigd via msp-30-mutatiebewijs): `isZeroDurationMilestone`
     // i.p.v. de kale vlag — anders viel een dag-modus mijlpaal-met-duur-ELAPSEDTIME-taak hier stil
@@ -645,9 +658,9 @@ export class CPMSolver {
     if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return subtractElapsedMinutes(finish, elapsedMinutesOf(task, eng));
     }
-    const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
-    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
-    const totalDur = dur + gapDays;
+    // `splitTotalSpanDays` geeft bij `dur===0` zelf al 0 terug (`splitTotalSpanMinutes`s
+    // `workMinutes<=0`-kortsluiting, spiegelt `addWorkMinutes`) — geen aparte `dur>0`-wacht nodig.
+    const totalDur = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
     return eng.addWorkingDaysSigned(finish, -(totalDur > 0 ? totalDur - 1 : 0));
   }
   /** Leid de voorganger-FINISH af uit zijn late START (SS/SF backward, §5.2, spiegel van
@@ -655,25 +668,22 @@ export class CPMSolver {
    *  dag (WORKTIME) ⇒ `addWorkingDaysSigned(dur−1)`. Zelfde mijlpaal-asymmetrie-voorbehoud als
    *  `startFromFinish` hierboven.
    *
-   *  Z7 (aangrijpingspunt 4, splits) — zelfde gaten-optelling, spiegel van `startFromFinish`
-   *  hierboven (vandaar hetzelfde venster `[0, totale duur)`). */
+   *  Z7 (aangrijpingspunt 4, splits) — zelfde as-wandeling, spiegel van `startFromFinish`
+   *  hierboven (Z7-fixronde-H1). */
   private finishFromStart(eng: CalendarEngine, start: Date, task: Task): Date {
     if (eng.isHourMode) {
       if (isZeroDurationMilestone(task)) return new Date(start.getTime());
       if (task.time.durationType === 'ELAPSEDTIME') {
         return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
       }
-      const minutes = durationMinutesOf(task, eng);
-      const gapMinutes = splitGapMinutesInWindow(task.splitGaps, 0, minutes);
-      return eng.addWorkMinutes(start, minutes + gapMinutes);
+      const totalMinutes = splitTotalSpanMinutes(task.splitGaps, durationMinutesOf(task, eng));
+      return eng.addWorkMinutes(start, totalMinutes);
     }
     // H3 (Opus-review T15-iteratie-2) — zelfde reden als `startFromFinish` hierboven.
     if (!isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME') {
       return addElapsedMinutes(start, elapsedMinutesOf(task, eng));
     }
-    const dur = isZeroDurationMilestone(task) ? 0 : task.time.scheduleDuration;
-    const gapDays = splitGapDaysInWindow(task.splitGaps, 0, durationMinutesOf(task, eng), eng);
-    const totalDur = dur + gapDays;
+    const totalDur = splitTotalSpanDays(task.splitGaps, durationMinutesOf(task, eng), eng);
     return eng.addWorkingDaysSigned(start, totalDur > 0 ? totalDur - 1 : 0);
   }
   /** Getekende float in eigen-kalender-WERKDAGEN (§5.5, Bevinding 1): uur ⇒ fractioneel
@@ -1355,25 +1365,56 @@ export class CPMSolver {
           // timephased-decoder (Z3/Z4) putten, raken dus soms dezelfde taken zonder dat de een de
           // ander vervangt — verwacht, zie plan-§3(c).
           //
+          // Z7-FIXRONDE (H1-VERIFICATIE, expliciet gecontroleerd i.p.v. aangenomen): de reviewer-
+          // hypothese "`mpp14timephased.mpp`'s 'Task 5 - 24 Hour' klopt met een ONGEKLEMDE
+          // KLOKTIJD-som (4500+5760 minuten als 24/7-klokminuten ≈ 7,125 dag = MSP's 2008-11-27T12:00)"
+          // is GECONTROLEERD en WEERLEGD als universele regel: diezelfde taak se kalender is
+          // BYTE-IDENTIEK aan `mpp14splittask.mpp`s "Standard"-kalender (8u/dag ma-vr, twee banden
+          // 08-12/13-17) — en DIE taken reproduceren MSP's eigen finish uitsluitend via de
+          // KALENDERBEWUSTE WERKMINUTEN-wandeling (`CalendarEngine.addWorkMinutes`, Z4's eigen
+          // byte-bewijs: 6240 werkminuten = 13 werkdagen × 480 min/dag = precies 2006-10-09, geverifieerd
+          // tot op de minuut). Een universele kloktijd-regel zou die al-bewezen referentie BREKEN.
+          // Conclusie: "Task 5 - 24 Hour" (en de rest van de Night-Shift/24-Hour/50%/150%-familie in
+          // dit bestand) draagt een resource-eigen werkpatroon dat NIET via de nominale taakkalender
+          // loopt — MSP plant die kennelijk via timephased/resource-contourdata (Z8-domein), en de
+          // kloktijd-som klopt daar toevallig mee, niet omdat kloktijd de juiste as is. De
+          // werkminuten-wandeling (dit bestand, H1-fix) blijft daarom de canonieke regel; de
+          // resterende afwijking in deze familie is Z8-scope, geen Z7-tekort — zie de bijgewerkte
+          // `reason` bij deze hash in `mpp-fidelity-baseline.json` voor de volledige hermeting.
+          //
           // `totalSpan`/`remaining` staan al in de "eigen eenheid" van de taak (minuten uur-modus,
           // dagen dag-modus, zie de toelichting bij `totalSpan` hierboven) — omgerekend naar
-          // werkMINUTEN (`TaskSplitGap`s eigen eenheid, `duration.ts`) vóór de vensterberekening,
-          // en de uitkomst weer terug. `!isElapsedTask`-guard: ELAPSEDTIME blijft bewust ONGEMOEID
-          // (24/7 kent geen "gat"-begrip, zelfde reden als overal elders in dit bestand — splits
-          // zijn een WERKtijd-concept, zie `duration.ts`'s moduleheader bij deze functies).
+          // werkMINUTEN (`TaskSplitGap`s eigen eenheid, `duration.ts`) vóór de as-wandeling, en de
+          // uitkomst weer terug. `!isElapsedTask`-guard: ELAPSEDTIME blijft bewust ONGEMOEID (24/7
+          // kent geen "gat"-begrip, zelfde reden als overal elders in dit bestand — splits zijn een
+          // WERKtijd-concept, zie `duration.ts`'s moduleheader bij deze functies).
+          //
+          // Z7-FIXRONDE (H2, WORTELFIX MEE — reviewbevinding): de EERSTE versie vergeleek
+          // `completedSpanMinutes` (een ZUIVERE werk-hoeveelheid) rechtstreeks tegen `afterMinutes`
+          // (een AS-POSITIE die voorgaande gaten al meetelt, zie H1 hierboven) — bij ≥2 gaten waarvan
+          // er één al gepasseerd was liepen die twee assen uiteen en kon een gepasseerd gat dubbel
+          // meetellen. Fix: DEZELFDE `splitTotalSpanMinutes`-wandeling als de vier volledige-duur-
+          // aangrijpingspunten, tweemaal aangeroepen (voor de TOTALE en de REEDS-AFGEWERKTE
+          // werkhoeveelheid) — het VERSCHIL is de restwerk-as-lengte. Omdat de wandeling monotoon/
+          // prefix-consistent is (twee wandelingen vanaf 0 delen exact hetzelfde begin-traject), heft
+          // een gat dat VOLLEDIG vóór het reeds-afgewerkte doel ligt zichzelf in dat verschil precies
+          // op (nul netto bijdrage — geen dubbeltelling meer); een gat (deels) ná dat doel telt voluit
+          // mee. `Math.max(0, …)` op `completedSpanMinutes` klemt tegen hostiele/inconsistente
+          // invoer (`t.remainingMinutes`/`remainingTime` > de eigen totale duur, bv. via MCP gezet) —
+          // zónder deze klem werd `completedSpanMinutes` negatief en viel de wandeling stil terug op
+          // "alle gaten meetellen" (elk gat ligt dan per definitie "ná" een negatief doel). Rode-pad-
+          // mutatiebewijs: `z7-split-h-hostile-remaining-boven-totalspan` (cases-advanced-cpm.json).
           let remainingWithGaps = remaining;
           if (!isElapsedTask && task.splitGaps && task.splitGaps.length > 0) {
             const totalSpanMinutes = cal.isHourMode ? totalSpan : totalSpan * cal.hoursPerDay * 60;
             const remainingMinutesUnits = cal.isHourMode ? remaining : remaining * cal.hoursPerDay * 60;
-            const completedSpanMinutes = totalSpanMinutes - remainingMinutesUnits;
-            const gapMinutesInRemaining = splitGapMinutesInWindow(
-              task.splitGaps, completedSpanMinutes, totalSpanMinutes,
-            );
-            if (gapMinutesInRemaining > 0) {
-              remainingWithGaps = cal.isHourMode
-                ? remaining + gapMinutesInRemaining
-                : remaining + gapMinutesInRemaining / (cal.hoursPerDay * 60);
-            }
+            const completedSpanMinutes = Math.max(0, totalSpanMinutes - remainingMinutesUnits);
+            const totalAxisMinutes = splitTotalSpanMinutes(task.splitGaps, totalSpanMinutes);
+            const completedAxisMinutes = splitTotalSpanMinutes(task.splitGaps, completedSpanMinutes);
+            const remainingAxisMinutes = Math.max(0, totalAxisMinutes - completedAxisMinutes);
+            remainingWithGaps = cal.isHourMode
+              ? remainingAxisMinutes
+              : remainingAxisMinutes / (cal.hoursPerDay * 60);
           }
           let ef: Date;
           if (isElapsedTask) {
