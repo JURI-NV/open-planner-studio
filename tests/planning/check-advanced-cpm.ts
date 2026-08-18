@@ -948,22 +948,30 @@ eq('213 Z8-slotronde: es blijft de voorganger-gedreven 2026-06-08T08:00, niet he
 {
   const mkid1 = mkTask('Z9B3-kid1', 5, { parentId: 'Z9B3-sum' });
   const mkid2 = mkTask('Z9B3-kid2', 3, { parentId: 'Z9B3-sum' });
+  // Derde kind met datums NÁ de eigen finish van de manual samenvatting (2026-08-xx > 2026-07-03)
+  // — de andere richting dan kid1/kid2 (die vóór de samenvatting liggen). Een onvolledige fix zou
+  // bv. alleen het VROEGSTE-kind-geval (earlyStart) afdekken en een later kind alsnog via `max()`
+  // laten doorschieten in earlyFinish; dat is hier apart geasserteerd, niet impliciet door de
+  // eerdere checks (die kid1/kid2 gebruiken, allebei vóór de samenvatting).
+  const mkid3 = mkTask('Z9B3-kid3', 5, { parentId: 'Z9B3-sum' });
   // Eigen, van de kinderen VOLLEDIG losstaande datums — geen enkel kind-veld valt hier toevallig
   // mee samen, zodat een sluipende terugval naar de rollup meteen zichtbaar zou zijn.
   const msum = mkTask('Z9B3-sum', 0, {
-    childIds: ['Z9B3-kid1', 'Z9B3-kid2'],
+    childIds: ['Z9B3-kid1', 'Z9B3-kid2', 'Z9B3-kid3'],
     manuallyScheduled: true,
     time: { ...createDefaultTaskTime('2026-07-01', 3), scheduleStart: '2026-07-01', scheduleFinish: '2026-07-03' },
   });
-  const tasks = [msum, mkid1, mkid2];
+  const tasks = [msum, mkid1, mkid2, mkid3];
   const result = {
     tasks: new Map([
       ['Z9B3-kid1', { earlyStart: '2026-06-01', earlyFinish: '2026-06-05', lateStart: '2026-06-03',
         lateFinish: '2026-06-07', totalFloat: 2, freeFloat: 1, isCritical: true, interferingFloat: 1 }],
       ['Z9B3-kid2', { earlyStart: '2026-06-02', earlyFinish: '2026-06-04', lateStart: '2026-06-08',
         lateFinish: '2026-06-10', totalFloat: 4, freeFloat: 3, isCritical: false, interferingFloat: 1 }],
+      ['Z9B3-kid3', { earlyStart: '2026-08-01', earlyFinish: '2026-08-05', lateStart: '2026-08-03',
+        lateFinish: '2026-08-07', totalFloat: 2, freeFloat: 1, isCritical: false, interferingFloat: 1 }],
     ]),
-    projectStart: '2026-06-01', projectEnd: '2026-06-05', criticalPath: ['Z9B3-kid1'],
+    projectStart: '2026-06-01', projectEnd: '2026-08-05', criticalPath: ['Z9B3-kid1'],
   } as unknown as Parameters<typeof applyCpmResult>[1];
 
   applyCpmResult(tasks, result, { projectCalendar: CAL, calendars: [CAL] });
@@ -979,6 +987,9 @@ eq('213 Z8-slotronde: es blijft de voorganger-gedreven 2026-06-08T08:00, niet he
   eq('226 Z9b/manual-rollup: isCritical blijft van de kinderen afgeleid', msum.time.isCritical, true);
   // Contrast: het blad zelf blijft ongemoeid door deze tak.
   eq('227 Z9b/manual-rollup-contrast: kid1 zelf blijft ongewijzigd', mkid1.time.earlyStart, '2026-06-01');
+  // De andere richting: kid3 ligt NÁ de eigen finish van de samenvatting (2026-08-05 > 2026-07-03)
+  // — earlyFinish blijft toch de EIGEN datum, schiet niet door naar het latere kind.
+  eq('228 Z9b/manual-rollup-richting: een LATER kind (2026-08-05) duwt earlyFinish niet voorbij de eigen 2026-07-03', msum.time.earlyFinish, '2026-07-03');
 }
 // Mutatiebewijs (uitgevoerd, teruggedraaid): het `if (task.manuallyScheduled && children.length > 0)
 // {...; return;}`-blok in `applyCpmResult.updateSummary` weghalen laat checks 219/220 ROOD gaan

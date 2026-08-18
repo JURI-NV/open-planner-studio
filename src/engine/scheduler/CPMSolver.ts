@@ -2246,24 +2246,33 @@ export class CPMSolver {
       // return weghalen laat de `A`-cel in `msp-57-z9a-manual-pin-forward` ROOD, zie cases-msp-
       // pariteit.json — `A` erft dan `B`'s slack via de FS-backward-bound).
       //
-      // NIET geforceerd door DEZE tak: `totalFloat`/`isCritical` in `scheduleAnalysis.
-      // computeScheduleResults` (die blijft ONGEMOEID — bestandseigendom hoort bij Z9b) leest
-      // `LS=ES`/`LF=EF` gewoon via de generieke `signedFloat`-formule. Vallen ES/EF toevallig op
-      // gewone werk-instanten (het `msp-57`-geval: A op ma/di), dan geeft dat tf=0 en telt A dus
-      // óók mee als kritiek — géén hammock-achtige `isCritical=false`-uitsluiting, want die
-      // bestaat hier niet. Valt het rauwe anker BUITEN de werkband (het `msp-56`-geval: A op
-      // zaterdag), dan kan diezelfde werkdag-tellende formule op EEN identiek es/ls-paar een
-      // niet-nul waarde geven (gemeten: tf=-1) — een bekende eigenschap van een werkdag-tellende
-      // floatformule toegepast op een niet-werk-instant referentiepunt, NIET een Z9a-regressie.
-      // Het drie-voudig `isHammock`-precedent in `scheduleAnalysis.ts` (tf/ff geforceerd op 0,
-      // `isCritical` geforceerd `false`) is precies wat Z9b voor een manual taak moet SPIEGELEN
-      // ("de isCritical-bepaling... spiegel de drie bestaande isHammock-uitsluitingen", plan-§Z9b)
-      // — bewust hier niet vooruitgegrepen zonder eigen corpus-/casebewijs voor DIE beslissing.
-      // ANDERS dan de hammock-tak wordt hier BEWUST GEEN opvolger-uitsluiting toegevoegd
-      // (`succTask.isHammock`-achtige skip in de lus hieronder) — een manual taak is, in
-      // tegenstelling tot een hammock, een ECHT anker en mag legitiem backward-druk op haar eigen
-      // voorgangers leggen; ook dat is Z9b-scope (float/kritiek-pad rond een manual taak), hier
-      // bewust niet vooruitgegrepen zonder corpus-/casebewijs.
+      // Z9b (UITKOMST — deze paragraaf was hier eerder een vooruitwijzing naar nog te maken werk;
+      // bijgewerkt naar het daadwerkelijke besluit): `totalFloat`/`freeFloat` worden in
+      // `scheduleAnalysis.computeScheduleResults` DEFINITORISCH op 0 geforceerd voor een manual
+      // taak (`ls=es`/`lf=ef` ligt hier vast door CONSTRUCTIE, niet door berekening — elke afwijking
+      // van 0 die de generieke werkdag-tellende `signedFloat`-formule daarop teruggeeft is een
+      // FORMULE-ARTEFACT, geen echte speling; gemeten op het `msp-56`-geval, A op zaterdag: tf=-1
+      // zónder de forcing). `isCritical` wordt DAARENTEGEN BEWUST NIET geforceerd (géén
+      // hammock-achtige `isHammock ? false : ...`-tak) — met tf op 0 geeft de gewone
+      // `tf ≤ drempel`-regel vanzelf het juiste antwoord, en een manual taak is, anders dan een
+      // hammock, een ECHT anker dat legitiem kritiek kan zijn. Zie `scheduleAnalysis.ts` voor de
+      // forcing zelf en `msp-56`/`msp-57` in cases-msp-pariteit.json voor het mutatiebewijs
+      // (resp. het niet-werkdag- en het werkdag-ankergeval).
+      //
+      // BACKWARDDRUK-BESLUIT (Z9b, expliciet vastgelegd — was hier eerder "Z9b-scope, nog niet
+      // vooruitgegrepen"): ANDERS dan de hammock-tak hierboven krijgt een manual taak GEEN
+      // opvolger-uitsluiting (`succTask.isHammock`-achtige skip in de lus hieronder) — BEHOUDEN
+      // ZOALS HET IS, geen open punt. Motivering: de `ls`/`lf` die een manual taak via de lus
+      // hieronder (`delayShiftedSuccResult`/`backwardConstraint`) aan haar EIGEN voorgangers
+      // doorgeeft zijn NIET afgeleid (zoals bij een hammock, wiens LS/LF een kunstmatige "geen
+      // kritiek-signaal"-waarde is) — ze zijn IDENTIEK aan haar eigen, rauw gelezen ES/EF (dezelfde
+      // `ed.es`/`ed.ef` die twee regels hierboven worden teruggegeven). Een voorganger die via deze
+      // route backward-druk van een manual opvolger ontvangt, ontvangt dus een ECHT, MSP-getrouw
+      // finish-punt — precies het gedrag dat je van elke andere (auto) opvolger ook zou verwachten.
+      // Dat kan in theorie negatieve float op een voorganger geven wanneer de manual opvolger
+      // vroeger ligt dan de voorganger "zou willen" — dat is inhoudelijk correct MSP-gedrag (een
+      // gepinde datum kan een reëel logicaprobleem blootleggen), geen motor-bug. Geen corpusgeval
+      // gevonden dat dit raakt; bij een toekomstig tegenvoorbeeld wint dat corpusgeval.
       if (task.manuallyScheduled) {
         const ed = earlyDates.get(taskId)!;
         results.set(taskId, { ls: new Date(ed.es.getTime()), lf: new Date(ed.ef.getTime()) });
