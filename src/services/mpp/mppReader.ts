@@ -693,6 +693,13 @@ export interface RawTaskScan {
    *  LEVELING_DELAY-veldpaar). `null` als het veld ontbreekt in de field map of het record te kort
    *  is — Fase C laat `levelingDelayElapsed` dan ongezet (WORKTIME-default, byte-identiek). */
   levelingDelayUnits: number | null;
+  /** Z6 (lezerszijde-poort) — AANWEZIGHEID van PRELEVELED_START/FINISH (var-data, veld-id
+   *  369/370, `TaskFieldId.PreleveledStart`/`.PreleveledFinish` in fieldMap14.ts) — puur een
+   *  `!== null`-signaal, GEEN gedecodeerde datum. `true` ⇒ MSP heeft voor deze taak ooit een
+   *  pré-nivelleer-anker weggeschreven (een ECHTE "Level Now" verschoof haar); Fase C gebruikt dit
+   *  als voorwaarde om `Task.levelingDelayMinutes`/`.levelingDelayElapsed` daadwerkelijk te
+   *  emitteren — zie die toelichting voor de volledige corpusmeting/motivatie. */
+  preleveledPresent: boolean;
   /** Z2 — TASK_MODE (Fixed2Meta-bit, zie `taskModeBitFlag`): MANUALLY_SCHEDULED vs. AUTO_SCHEDULED.
    *  `'AUTO_SCHEDULED'` als het `Fixed2Meta`-record ontbreekt/te kort is óf de stream niet
    *  aanwezig was — spiegelt het bestaande "veld ontbreekt ⇒ neutrale/bestaande default"-patroon
@@ -807,6 +814,11 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const manualDurationUnitsOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.ManualDurationUnits);
   const nameKey = varDataKeyOf(taskFieldMap, TaskFieldId.Name);
   const wbsKey = varDataKeyOf(taskFieldMap, TaskFieldId.Wbs);
+  // Z6 (lezerszijde-poort, orkestratorbesluit 2026-08-18) — zie `TaskFieldId.PreleveledStart`'s
+  // docblok in fieldMap14.ts voor de volledige herkomst/meting. Alleen de var-data-SLEUTEL hier;
+  // de AANWEZIGHEID wordt per taak bepaald verderop (`preleveledPresent`).
+  const preleveledStartKey = varDataKeyOf(taskFieldMap, TaskFieldId.PreleveledStart);
+  const preleveledFinishKey = varDataKeyOf(taskFieldMap, TaskFieldId.PreleveledFinish);
 
   // Harde veldmap-check (T5-kwaliteitsreview-minor): UNIQUE_ID/ID alleen was te zwak — een
   // taaklijst zonder NAME (var-data) of zonder SCHEDULED_START/FINISH (fixed-data) is geen
@@ -884,6 +896,14 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const levelingDelayUnits = levelingDelayUnitsOffset !== null && data.length >= levelingDelayUnitsOffset + 2
       ? getShort(data, levelingDelayUnitsOffset, 'TBkndTask levelingDelayUnits')
       : null;
+    // Z6 — AANWEZIGHEID van PRELEVELED_START/FINISH (var-data, veld-id 369/370): puur een
+    // `!== null`-check op de rauwe byte-array, GEEN datumdecodering (`getTimestamp`) — de waarden
+    // zelf zijn hier niet nodig, alleen "heeft MSP ooit een pré-nivelleer-anker voor deze taak
+    // weggeschreven". `preleveledStartKey`/`preleveledFinishKey` afwezig (veld niet in de
+    // data-gedreven field map) ⇒ `false`, spiegelt het bestaande "veld ontbreekt ⇒ ongezet"-patroon.
+    const preleveledPresent =
+      (preleveledStartKey !== null && varData.getByteArray(uniqueId, preleveledStartKey) !== null)
+      || (preleveledFinishKey !== null && varData.getByteArray(uniqueId, preleveledFinishKey) !== null);
 
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
@@ -941,7 +961,7 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
 
     raws.push({
       uniqueId, id, outlineLevel, storedWbs, name, startTs, finishTs, durationRaw, isElapsedDuration,
-      remainingDurationRaw, levelingDelayRaw, levelingDelayUnits, taskMode, manualStartTs, manualFinishTs,
+      remainingDurationRaw, levelingDelayRaw, levelingDelayUnits, preleveledPresent, taskMode, manualStartTs, manualFinishTs,
       manualDurationRaw, manualDurationIsElapsed, isMilestone, constraintCode, constraintDateTs, deadlineTs,
       percentComplete, actualStartTs, actualFinishTs, resumeTs, stopTs, effCal, calendarOverride,
     });
@@ -998,7 +1018,14 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // …`) — spiegelt dat patroon exact, in plaats van zelf dag-modus-vensterrekenwerk uit te vinden.
     // Kost niets op het echte corpus: T9-crawl mat dat vrijwel elk bestand toch al in uur-modus
     // leest (de vrijwel-universele MS Project-standaardkalender heeft al een lunchpauze-splitsing).
-    const leveled = raw.levelingDelayRaw !== 0;
+    // Z6 (orkestratorbesluit 2026-08-18): `leveled` vereist NAAST `levelingDelayRaw !== 0` ook
+    // `preleveledPresent` — een taak waarvan MSP de vertraging nooit zelf consumeerde (geen
+    // PRELEVELED-anker) hoort niet als "genivelleerd" te melden, want wij passen 'm ook niet toe
+    // (zie Fase C's `levelingDelayMinutes`/`levelingDelayElapsed`-gate hieronder, dezelfde
+    // voorwaarde). Vóór Z6 was dit uitsluitend `levelingDelayRaw !== 0`; de telling kan dus dalen
+    // op een bestand met zo'n "stale"/nooit-toegepast LEVELING_DELAY-veld — gemeten en gemotiveerd
+    // in het Z6-commitbericht, geen aanname.
+    const leveled = raw.levelingDelayRaw !== 0 && raw.preleveledPresent;
     const spanGt = isHour && raw.startTs != null && raw.finishTs != null
       && spanEngineFor(cal).workMinutesBetween(raw.startTs, raw.finishTs) > raw.durationRaw / 10 + SPAN_GT_TOLERANCE_MINUTES;
     if (leveled) scheduleNoteLeveled++;
@@ -1121,18 +1148,33 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     // hierboven (T10).
     //
     // AANWEZIG ⇒ bron van waarheid (`Task.levelingDelayMinutes`' Z0-precedent, spiegelt
-    // `durationMinutes`); AFWEZIG (raw===0) ⇒ GEEN van beide velden gezet — byte-identiek aan vóór
-    // Z5 (acceptatiepunt 3). Het BESTAANDE `Task.levelingDelay` (hele werkdagen, gezet door de
-    // nivelleerder, fase 2.5) blijft hier BEWUST ONGEMOEID: `CPMSolver.forwardPass` past dat veld
-    // al ONGECLAUSULEERD toe (`if (task.levelingDelay) earlyStart = cal.addWorkingDaysSigned(...)`),
-    // dus 'm hier ook vullen zou de fidelity-meting VERANDEREN vóórdat Z6 er de uur-precisie- en
-    // backward-spiegel bij heeft — expliciet verboden door Z5-acceptatiepunt 4 ("fidelity
-    // ongewijzigd, toepassing is Z6-werk: de motorkant"). Z6 is de motorkant die
-    // `levelingDelayMinutes`/`levelingDelayElapsed` daadwerkelijk gaat toepassen.
-    const levelingDelayMinutes = raw.levelingDelayRaw !== 0
+    // `durationMinutes`); AFWEZIG (raw===0) ⇒ GEEN van beide velden gezet. Het BESTAANDE
+    // `Task.levelingDelay` (hele werkdagen, gezet door de nivelleerder, fase 2.5) blijft hier
+    // BEWUST ONGEMOEID (spiegelt `CPMSolver.forwardPass`'s eigen scheiding tussen dat pad en de
+    // twee velden hieronder).
+    //
+    // Z6-lezerszijde-poort (orkestratorbesluit 2026-08-18, geoorloofde, gemelde uitzondering op
+    // baan-L-bestandseigendom — spiegelt het Z12-precedent voor `resume`/`stop`; baan L werkte hier
+    // op moment van schrijven niet aan): `raw.preleveledPresent` is een TWEEDE, VERPLICHTE
+    // voorwaarde náást `levelingDelayRaw !== 0`. Zonder deze poort emitteerde Z5 de twee velden op
+    // ELKE non-zero LEVELING_DELAY, ongeacht of MSP die vertraging ooit daadwerkelijk in het
+    // schema verwerkte — corpusmeting (scratchpad, PRELEVELED_START/FINISH-aanwezigheid, zie
+    // `TaskFieldId.PreleveledStart`'s docblok in fieldMap14.ts): 12/12 taken met een GENUINE, door
+    // MS Project toegepaste vertraging (OzBuild Workshop 17.mpp/…17 Leveling.mpp + het gemengde
+    // corpusbestand, hash a69fec157074d056) dragen een afwijkende PRELEVELED-entry; 0/5 bij
+    // `mpp14barstyle.mpp` (publiek MPXJ-testbestand: LEVELING_DELAY non-zero op 6 taken, maar
+    // SCHEDULED_START/FINISH toont geen spoor van enige vertraging — MSP consumeerde het veld daar
+    // nooit). Zonder deze poort regresseerde `mpp14barstyle.mpp` van 0 naar 6 start-/finish-
+    // afwijkingen zodra `CPMSolver.forwardPass` (Z6-motorwerk) de twee velden ging toepassen.
+    // EERLIJKE KANTTEKENING: een taak waarvan een gebruiker `LEVELING_DELAY` INTERACTIEF zette
+    // (Taakinformatie-dialoog) ZONDER ooit "Level Now" te draaien, zou dezelfde afwezige
+    // PRELEVELED-entry dragen en dus OOK genegeerd worden door deze poort — corpus is het orakel
+    // en kent daar geen tegenvoorbeeld (elk gemeten non-zero-delay-geval was óf genuine-Level-Now
+    // óf aantoonbaar nooit geconsumeerd); een toekomstig corpusbestand dat dit weerlegt wint.
+    const levelingDelayMinutes = raw.levelingDelayRaw !== 0 && raw.preleveledPresent
       ? Math.round(raw.levelingDelayRaw / 10)
       : undefined;
-    const levelingDelayElapsed = raw.levelingDelayRaw !== 0 && raw.levelingDelayUnits !== null
+    const levelingDelayElapsed = raw.levelingDelayRaw !== 0 && raw.preleveledPresent && raw.levelingDelayUnits !== null
       && getDurationTimeUnits(raw.levelingDelayUnits).startsWith('elapsed');
 
     const task: Task = {

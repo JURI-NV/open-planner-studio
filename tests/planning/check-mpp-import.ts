@@ -2510,6 +2510,14 @@ if (corpusPresent) {
     name: string; uniqueId: number; id: number; durationRaw: number;
     startTime: number; startDays: number; finishTime: number; finishDays: number;
     levelingDelayRaw?: number;
+    /** Z6 (lezerszijde-poort) — schrijft een PRELEVELED_START-var-data-entry (veld-id 369) voor
+     *  deze taak; alleen AANWEZIGHEID telt voor `preleveledPresent`, de 4-byte payload is een
+     *  dummy (mppReader.ts leest 'm nooit als datum, zie de toelichting daar). De T12-fixtures
+     *  representeren GENUINE, door MSP toegepaste leveling, dus `preleveled: true` op elke taak
+     *  met `levelingDelayRaw` — spiegelt het gemeten corpusfeit (12/12 genuine-delay-taken dragen
+     *  een PRELEVELED-entry) i.p.v. het T12-detectiesignaal per ongeluk te laten samenvallen met
+     *  de Z6-negatieve (stale-delay) fixture hieronder. */
+    preleveled?: boolean;
   }
 
   /** Eén TBkndTask/FixedData-record (130 bytes, letterlijke `DEFAULT_TASK_FIELDS`-offsets, zie de
@@ -2578,6 +2586,13 @@ if (corpusPresent) {
       const payload = encodeUnicodeStringAscii(t.name);
       namePayloads.push({ offset: nameOffset, payload });
       nameOffset += 4 + payload.length;
+      // Z6 — PRELEVELED_START-aanwezigheid (zie T12TaskSpec.preleveled se toelichting); de
+      // 4-byte payload zelf is een dummy, `mppReader.ts` decodeert 'm nooit tot een datum.
+      if (t.preleveled) {
+        varMetaEntries.push({ uniqueId: t.uniqueId, type: TaskFieldId.PreleveledStart, offset: nameOffset });
+        namePayloads.push({ offset: nameOffset, payload: new Uint8Array(4) });
+        nameOffset += 4 + 4;
+      }
     }
     const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
     const taskVar2DataBuf = new Uint8Array(Math.max(nameOffset, 1));
@@ -2604,6 +2619,12 @@ if (corpusPresent) {
       { typeValue: TaskFieldId.Deadline, dataBlockOffset: 122, category: 3 },
       { typeValue: LEVELING_DELAY_TYPE_VALUE, dataBlockOffset: LEVELING_DELAY_OFFSET, category: 3 },
       { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+      // Z6 — PRELEVELED_START altijd IN de veldkaart gedeclareerd (spiegelt élk echt MPP14-
+      // bestand, ook mpp14barstyle.mpp zelf: het veld ontbreekt nergens in de field map, alleen
+      // de PER-TAAK var-data-entry ontbreekt bij een nooit-geconsumeerde delay). De negatieve
+      // Z6-fixture hieronder test dus terecht "veld gedeclareerd, entry afwezig" — niet "veld
+      // helemaal niet gemapt" (dat zou een ander, minder representatief scenario zijn).
+      { typeValue: TaskFieldId.PreleveledStart, dataBlockOffset: 65535, category: 8 },
     ]);
 
     const calendarName = 'T12 span-fixture';
@@ -2688,7 +2709,7 @@ if (corpusPresent) {
   // ── Expliciet signaal: LEVELING_DELAY ≠ 0, venster == duur (geen spanGt). ───────────────────────
   {
     const { result, threw } = readT12(buildT12Fixture([
-      { name: 'Leveled', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 100 },
+      { name: 'Leveled', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 100, preleveled: true },
     ]));
     truthy(`[T12 leveled] readMPP gooit niet (${threw ?? ''})`, threw === null);
     if (result) {
@@ -2719,7 +2740,7 @@ if (corpusPresent) {
   // VERENIGING is, geen som van `leveled + spanGt`. ───────────────────────────────────────────────
   {
     const { result, threw } = readT12(buildT12Fixture([
-      { name: 'Both', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003, levelingDelayRaw: 50 },
+      { name: 'Both', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15003, levelingDelayRaw: 50, preleveled: true },
       { name: 'Clean2', uniqueId: 11, id: 2, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
     ]));
     truthy(`[T12 vereniging] readMPP gooit niet (${threw ?? ''})`, threw === null);
@@ -2729,6 +2750,28 @@ if (corpusPresent) {
         `[T12 vereniging] sourceScheduleNotes === {total:1, leveled:1, spanGt:1} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
         result.sourceScheduleNotes?.total === 1 && result.sourceScheduleNotes.leveled === 1 && result.sourceScheduleNotes.spanGt === 1,
       );
+    }
+  }
+
+  // ── Z6 (lezerszijde-poort, orkestratorbesluit 2026-08-18) — LEVELING_DELAY non-zero MAAR GEEN
+  // PRELEVELED-entry (`preleveled` niet gezet): spiegelt exact het gemeten `mpp14barstyle.mpp`-
+  // patroon (het veld staat gedeclareerd in de field map, maar MSP schreef nooit een pré-
+  // nivelleer-anker voor déze taak — dus nooit door "Level Now" geconsumeerd). `leveled` moet
+  // op `0` blijven staan (niet `1`) — de melding hoort deze taak NIET als genivelleerd te tonen,
+  // want de motor past 'm ook niet toe. ────────────────────────────────────────────────────────
+  {
+    const { result, threw } = readT12(buildT12Fixture([
+      { name: 'StaleDelay', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 100 },
+    ]));
+    truthy(`[Z6 stale-delay] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    if (result) {
+      truthy(
+        `[Z6 stale-delay] GEEN sourceScheduleNotes (leveled=0, geen preleveled-entry) (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+        result.sourceScheduleNotes === undefined,
+      );
+      const task = result.tasks.find((t) => t.name === 'StaleDelay');
+      truthy('[Z6 stale-delay] levelingDelayMinutes AFWEZIG (poort houdt tegen)', task?.levelingDelayMinutes === undefined);
+      truthy('[Z6 stale-delay] levelingDelayElapsed AFWEZIG', task?.levelingDelayElapsed === undefined);
     }
   }
 
@@ -4563,6 +4606,10 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     name: string; uniqueId: number; id: number; durationRaw: number;
     startTime: number; startDays: number; finishTime: number; finishDays: number;
     levelingDelayRaw?: number; levelingDelayUnits?: number;
+    /** Z6 (lezerszijde-poort) — zie `T12TaskSpec.preleveled`'s toelichting; zelfde betekenis,
+     *  hier op de Z5-fixture zodat de minuten-/elapsed-decodeercases blijven representeren wat ze
+     *  altijd bedoelden (genuine, door MSP geconsumeerde delay). */
+    preleveled?: boolean;
   }
 
   /** Eén TBkndTask/FixedData-record (130 bytes) — spiegelt `buildT12TaskFixedDataRecord` (T12,
@@ -4630,6 +4677,12 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
       const payload = encodeUnicodeStringAscii(t.name);
       namePayloads.push({ offset: nameOffset, payload });
       nameOffset += 4 + payload.length;
+      // Z6 — PRELEVELED_START-aanwezigheid, spiegelt `buildT12Fixture`'s zusje-toevoeging exact.
+      if (t.preleveled) {
+        varMetaEntries.push({ uniqueId: t.uniqueId, type: TaskFieldId.PreleveledStart, offset: nameOffset });
+        namePayloads.push({ offset: nameOffset, payload: new Uint8Array(4) });
+        nameOffset += 4 + 4;
+      }
     }
     const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
     const taskVar2DataBuf = new Uint8Array(Math.max(nameOffset, 1));
@@ -4652,6 +4705,8 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
       { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
       { typeValue: LEVELING_DELAY_TYPE_VALUE, dataBlockOffset: LEVELING_DELAY_OFFSET, category: 3 },
       { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+      // Z6 — altijd gedeclareerd (zie `buildT12Fixture`'s zelfde toevoeging voor de motivatie).
+      { typeValue: TaskFieldId.PreleveledStart, dataBlockOffset: 65535, category: 8 },
     ]);
 
     const calendarName = 'Z5 leveling-fixture';
@@ -4720,10 +4775,12 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
   };
 
   // ── Acceptatiepunt 1a — bekende rauwe waarde → verwachte minuten (WORKTIME, geen elapsed-vlag).
-  // 900 tienden-van-een-minuut = 90 minuten (spiegelt `durationMinutes`'s `Math.round(raw/10)`). ──
+  // 900 tienden-van-een-minuut = 90 minuten (spiegelt `durationMinutes`'s `Math.round(raw/10)`).
+  // `preleveled: true` — deze fixture representeert GENUINE leveling (zie Z6-toelichting bij
+  // `Z5TaskSpec.preleveled`); de negatieve Z6-gate-case staat los, hieronder. ────────────────────
   {
     const { result, threw } = readZ5(buildZ5Fixture([
-      { name: 'Delayed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 900, levelingDelayUnits: 7 /* days, WORKTIME */ },
+      { name: 'Delayed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 900, levelingDelayUnits: 7 /* days, WORKTIME */, preleveled: true },
     ]));
     truthy(`[Z5 1a] readMPP gooit niet (${threw ?? ''})`, threw === null);
     const task = result?.tasks.find((t) => t.name === 'Delayed');
@@ -4734,10 +4791,10 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
   }
 
   // ── Acceptatiepunt 1b — elapsed-variant: `levelingDelayUnits` = 8 (elapsedDays) → de elapsed-vlag
-  // wordt gezet, naast dezelfde minuten-omrekening. ──────────────────────────────────────────────
+  // wordt gezet, naast dezelfde minuten-omrekening. `preleveled: true`, zelfde reden als 1a. ────────
   {
     const { result, threw } = readZ5(buildZ5Fixture([
-      { name: 'DelayedElapsed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 300, levelingDelayUnits: 8 /* elapsedDays */ },
+      { name: 'DelayedElapsed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 300, levelingDelayUnits: 8 /* elapsedDays */, preleveled: true },
     ]));
     truthy(`[Z5 1b] readMPP gooit niet (${threw ?? ''})`, threw === null);
     const task = result?.tasks.find((t) => t.name === 'DelayedElapsed');
@@ -4756,6 +4813,24 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     truthy('[Z5 3] levelingDelayMinutes AFWEZIG', task?.levelingDelayMinutes === undefined);
     truthy('[Z5 3] levelingDelayElapsed AFWEZIG', task?.levelingDelayElapsed === undefined);
     truthy('[Z5 3] GEEN sourceScheduleNotes (T12-detectie ongewijzigd: leveled=0)', result?.sourceScheduleNotes === undefined);
+  }
+
+  // ── Z6 (lezerszijde-poort, orkestratorbesluit 2026-08-18) — mutatiebewijs op de MINUTEN-precisie-
+  // route zelf: dezelfde rauwe waarde als [Z5 1a] (900 tienden-van-een-minuut, WORKTIME), maar
+  // ZONDER `preleveled` ⇒ `levelingDelayMinutes` moet AFWEZIG blijven — spiegelt exact het
+  // gemeten `mpp14barstyle.mpp`-patroon (LEVELING_DELAY gedeclareerd én non-zero, maar nooit
+  // door MSP geconsumeerd in SCHEDULED_START/FINISH). Poort weghalen (`raw.preleveledPresent`
+  // uit de `&&`-guard in mppReader.ts's Fase C) maakt deze case ROOD (levelingDelayMinutes zou
+  // dan weer 90 zijn) — mutatiebewijs geleverd tijdens implementatie, zie het commitbericht. ────
+  {
+    const { result, threw } = readZ5(buildZ5Fixture([
+      { name: 'StaleDelayMinutes', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 900, levelingDelayUnits: 7 },
+    ]));
+    truthy(`[Z6 stale-delay-minuten] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    const task = result?.tasks.find((t) => t.name === 'StaleDelayMinutes');
+    truthy('[Z6 stale-delay-minuten] levelingDelayMinutes AFWEZIG (poort houdt tegen)', task?.levelingDelayMinutes === undefined);
+    truthy('[Z6 stale-delay-minuten] levelingDelayElapsed AFWEZIG', task?.levelingDelayElapsed === undefined);
+    truthy('[Z6 stale-delay-minuten] GEEN sourceScheduleNotes (leveled=0)', result?.sourceScheduleNotes === undefined);
   }
 }
 

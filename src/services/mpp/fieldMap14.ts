@@ -252,6 +252,22 @@ export const TaskFieldId = {
    *  zonder `stop`) — hier alleen MEEGENOMEN als rauw, ongebruikt veld voor een latere taak
    *  (splits/actual-grens-rendering); geen enkele solverberekening leest 'm momenteel. */
   Stop: 100,
+  /** Z6 (etappe "nul afwijkingen", lezerszijde-poort) — `TaskField.PRELEVELED_START`
+   *  (`DataType.DATE`). MPXJ (`TaskField.java`): `PRELEVELED_START(DataType.DATE)`,
+   *  `PRELEVELED_FINISH(DataType.DATE)`; `FieldMap14.java`: `new FieldItem(TaskField.
+   *  PRELEVELED_START, FieldLocation.VAR_DATA, 0, 65535, 369, 0, 0)` (369; 370 voor FINISH) —
+   *  VAR_DATA, dus geen vaste offset: het veld-id zelf is de var-data-sleutel (spiegelt `Name`/
+   *  `Wbs` hieronder). MSP's EIGEN bewaarde pré-nivelleer-anker: alleen geschreven wanneer een
+   *  ECHTE "Level Now" deze taak daadwerkelijk verschoof. Hier UITSLUITEND als
+   *  AANWEZIGHEIDSSIGNAAL gebruikt (`RawTaskScan.preleveledPresent` in `mppReader.ts`) — de
+   *  datumwaarden zelf landen niet op `Task`. Corpusmeting (scratchpad; zie mppReader.ts's Z6-
+   *  sectie voor de volledige toelichting): 12/12 taken met een genuine, door MS Project
+   *  toegepaste `LEVELING_DELAY` dragen ook een afwijkende PRELEVELED-entry; 0/5 bij een publiek
+   *  MPXJ-testbestand waarvan `LEVELING_DELAY` non-zero is maar NOOIT door MSP's eigen schema
+   *  geconsumeerd werd (SCHEDULED_START/FINISH toont geen spoor van de vertraging). */
+  PreleveledStart: 369,
+  /** Z6 — spiegelt `PreleveledStart` hierboven, `TaskField.PRELEVELED_FINISH` (veld-id 370). */
+  PreleveledFinish: 370,
 } as const;
 
 /** Letterlijk uit `FieldMap14.getDefaultTaskData()` — alleen de entries voor `TaskFieldId`
@@ -292,6 +308,10 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   // `TaskFieldId.Resume`/`.Stop`-toelichtingen hierboven.
   [TaskFieldId.Resume]: { location: 'fixed', fixedOffset: 20 },
   [TaskFieldId.Stop]: { location: 'fixed', fixedOffset: 16 },
+  // Z6 — letterlijk uit `FieldMap14.getDefaultTaskData()`, zie de `TaskFieldId.PreleveledStart`/
+  // `.PreleveledFinish`-toelichting hierboven.
+  [TaskFieldId.PreleveledStart]: { location: 'var', varDataKey: TaskFieldId.PreleveledStart },
+  [TaskFieldId.PreleveledFinish]: { location: 'var', varDataKey: TaskFieldId.PreleveledFinish },
 };
 
 /** Poort van `FieldMap.createTaskFieldMap(Props)`. */
