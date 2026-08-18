@@ -545,8 +545,17 @@ MSP ligt tussen beide bestaande modi in. Sterke aanwijzing uit de vorige ronde: 
 **Acceptatie.** Bevindingen als losse, benoemde items terug naar de orkestrator; blokkerende bevindingen worden taken vóór Z19.
 **Valkuil uit de vorige etappe:** een meegeleverde `.mpp.xml`-sidecar is **geen** betrouwbare grondwaarheid (kan een andere bewerkstatus hebben) — verifieer tegen de binaire scan.
 
-> **Z8-restdossiers voor Z19 (2026-08-18, eerlijk herpind ná het afgekeurde cirkel-ontwerp):**
-> (a) mpp14timephased.mpp 3 finishDiff — "Task 6"-familie: resourcekalender structureel identiek aan de taakkalender, aparte restwerk-anomalie; (b) mpp14timephasedsegmentsmanual.mpp 2 finishSameday — 1-uur-precisieverschil in de wandelformule; (c) timephased-actual-overtime-work.mpp 2 finishDiff — overtime-wandelpad. Plus **nataak vóór Z17 (state-kant)**: een dírecte duurbewerking op een taak met een laag-3-venster wist dat venster nog nergens — de edit-time-invalidatie hoort in `taskSlice.ts`/`mcpTransaction.ts` (gemeld door Z8, bewust niet daar gebouwd wegens bestandseigendom).
+> **Z8-restdossiers voor Z19 (eindstand ná de goedgekeurde slotronde, 2026-08-18):** de vlakke
+> lees-terugval is volledig geschrapt; het gelezen venster raakt nog 69 taken in 13 bestanden.
+> (a) **14 bestanden 100% handmatig-gepland** (bladniveau via taskMode geverifieerd, steekproef door de
+> reviewer bevestigd) — Z9a-pins, verdwijnen daar; (b) **7 bestanden met een eigen gemeten
+> timephased-reden**: multi-toewijzing-apportionering (mpp14resource "Task A"), holiday-only-0%-poortgrens
+> (mpp14timephased2), 5× budget-werktracking buiten decoder-scope; plus de eerdere drie (Task 6-familie-
+> restwerk-anomalie, segmentsmanual-uurprecisie, overtime-wandelpad) voor zover nog aanwezig in de pins.
+> **Nataken vóór Z17**: (1) edit-time-invalidatie van het gelezen venster in `taskSlice.ts`/
+> `mcpTransaction.ts` (raakt nu nog 69 taken — door de reviewer als legitieme nataak beoordeeld);
+> (2) docblok-nit startanker: rechtvaardiging herformuleren naar "MSP slaat hier een ongesnapt instant
+> op", niet "verwijderen verslechtert" (dat suggereert een bewijs dat de meting niet kan leveren).
 
 #### Z19 — Residu-iteratie tot nul
 
