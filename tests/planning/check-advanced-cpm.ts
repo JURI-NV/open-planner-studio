@@ -892,6 +892,99 @@ eq('213 Z8-slotronde: es blijft de voorganger-gedreven 2026-06-08T08:00, niet he
 // = earlyStart;` in CPMSolver.ts tijdelijk verwijderen laat check 212 rood gaan (ef zou het stale
 // venster 2026-06-01T10:00 blijven, vóór es 2026-06-08T08:00 — een echte inversie).
 
+// ── Z9b, acceptatiepunt (2): `applyAlap` mag `seqConstraint` niet vullen voor een MANUAL
+// opvolger — dat lekt anders een betekenisloze `sequenceFreeFloat`-invoer voor die relatie ──────
+// `CPMSolver.forwardPass` zet `seqConstraint` sowieso nooit voor een relatie die een manual taak
+// als opvolger heeft (haar eigen voorganger-lus wordt door de manual-`continue` nooit bereikt) —
+// dat laat de relatie in `scheduleAnalysis.computeScheduleResults` terecht ONGEZIEN (dezelfde
+// precedentie als een hammock-relatie). `applyAlap` draait ÁLTIJD op zijn ALAP-taak z'n VOLLEDIGE
+// successor-lijst (ongeacht wat voor taak elke opvolger is) zodra er OOK maar één andere opvolger
+// een geldige, eindige vrije speling geeft — zonder de Z9b-uitsluiting zou die laatste lus dan
+// óók voor de manual opvolger een `seqConstraint` schrijven, gebaseerd op de (eventueel ALAP-
+// verschoven) `early` van de VOORGANGER, terwijl de manual opvolger daar nooit op reageert.
+//
+// Opzet (spiegelt `cst-alap-with-succ` in cases-constraints.json, met een TWEEDE, manual opvolger
+// erbij): X (dur 6, drijft het project) en P (dur 2, ALAP) voeden allebei Q (dur 2) — dat geeft P
+// volop vrije speling op de P→Q-relatie, dus `applyAlap` schuift P daadwerkelijk op (P heeft dus
+// een eindige, positieve `ff` en bereikt de seqConstraint-herschrijflus). P heeft DAARNAAST een
+// tweede FS-opvolger M (manual, eigen rauw anker, geen relatie tot P of Q) — exact de situatie
+// waarin de lek kan optreden.
+{
+  const X = mkTask('Z9B2-X', 6);
+  const P = mkTask('Z9B2-P', 2, { constraint: { type: 'ALAP' } });
+  const Q = mkTask('Z9B2-Q', 2);
+  const M = mkTask('Z9B2-M', 2, { manuallyScheduled: true });
+  const seqPQ = fs('z9b2-pq', 'Z9B2-P', 'Z9B2-Q');
+  const seqXQ = fs('z9b2-xq', 'Z9B2-X', 'Z9B2-Q');
+  const seqPM = fs('z9b2-pm', 'Z9B2-P', 'Z9B2-M');
+  const r = solve([X, P, Q, M], [seqPQ, seqXQ, seqPM]);
+  // Precondition: P kreeg ECHT een ALAP-push (anders bereikt de seqConstraint-herschrijflus nooit
+  // haar manual-tegenhanger en test dit niets — een `ff<=0`/oneindige speling zou de hele lus
+  // overslaan, zie applyAlap se `if (!Number.isFinite(ff) || ff <= 0) continue;`).
+  eq('214 Z9b/applyAlap-precondition: P werd daadwerkelijk ALAP-opgeschoven (niet op haar vroegste anker)', r.tasks.get('Z9B2-P')!.earlyStart !== '2026-06-01', true);
+  // M's EIGEN datums zijn hoe dan ook ongemoeid (haar forwardPass-tak leest nooit een relatie) —
+  // dit bewijst NIET de fix, alleen dat de opzet verder klopt.
+  eq('215 Z9b/applyAlap: M houdt haar rauwe anker ongeacht P se ALAP-push', r.tasks.get('Z9B2-M')!.earlyStart, '2026-06-01');
+  // De kern van de fix: P->M draagt GEEN sequenceFreeFloat-invoer (de relatie blijft, net als een
+  // hammock-relatie, buiten de driving-/float-analyse — een AANWEZIGE maar betekenisloze invoer,
+  // ongeacht het teken, is het lek).
+  eq('216 Z9b/applyAlap: P->M krijgt GEEN sequenceFreeFloat-invoer (blijft ongezien, als een hammock-relatie)', Object.prototype.hasOwnProperty.call(r.sequenceFreeFloat, seqPM.id), false);
+  eq('217 Z9b/applyAlap: P->M staat niet in drivingSequenceIds', r.drivingSequenceIds.includes(seqPM.id), false);
+  // Contrast: P->Q (auto opvolger) draagt WEL een sequenceFreeFloat-invoer — de uitsluiting raakt
+  // dus specifiek de manual-opvolger-tak, niet de seqConstraint-herschrijving in het algemeen.
+  eq('218 Z9b/applyAlap-contrast: P->Q (auto) draagt WEL een sequenceFreeFloat-invoer', Object.prototype.hasOwnProperty.call(r.sequenceFreeFloat, seqPQ.id), true);
+}
+// Mutatiebewijs (uitgevoerd, teruggedraaid): de `if (succTask.manuallyScheduled) continue;`-regel
+// in de seqConstraint-herschrijflus van `CPMSolver.applyAlap` weghalen laat check 216 ROOD gaan
+// (P->M krijgt dan wél een `sequenceFreeFloat`-invoer, zie de toelichting bij `applyAlap`s
+// moduleheader in CPMSolver.ts).
+
+// ── Z9b, acceptatiepunt (3): `applyCpmResult.updateSummary` rolt een MANUAL samenvattingstaak
+// NIET op — ze houdt haar eigen `scheduleStart`/`scheduleFinish` ─────────────────────────────
+// Spiegelt de bestaande "187-195 rollup"-checks hierboven (K-item 30), maar nu met de
+// samenvattingstaak zelf `manuallyScheduled`. CORPUSBEWIJS (plan-§Z9b): het gemengde
+// corpusbestand droeg elf manual-verzameltaken wier berekende earlyStart/earlyFinish via de
+// onvoorwaardelijke min/max-rollup kwamen i.p.v. hun eigen datums.
+{
+  const mkid1 = mkTask('Z9B3-kid1', 5, { parentId: 'Z9B3-sum' });
+  const mkid2 = mkTask('Z9B3-kid2', 3, { parentId: 'Z9B3-sum' });
+  // Eigen, van de kinderen VOLLEDIG losstaande datums — geen enkel kind-veld valt hier toevallig
+  // mee samen, zodat een sluipende terugval naar de rollup meteen zichtbaar zou zijn.
+  const msum = mkTask('Z9B3-sum', 0, {
+    childIds: ['Z9B3-kid1', 'Z9B3-kid2'],
+    manuallyScheduled: true,
+    time: { ...createDefaultTaskTime('2026-07-01', 3), scheduleStart: '2026-07-01', scheduleFinish: '2026-07-03' },
+  });
+  const tasks = [msum, mkid1, mkid2];
+  const result = {
+    tasks: new Map([
+      ['Z9B3-kid1', { earlyStart: '2026-06-01', earlyFinish: '2026-06-05', lateStart: '2026-06-03',
+        lateFinish: '2026-06-07', totalFloat: 2, freeFloat: 1, isCritical: true, interferingFloat: 1 }],
+      ['Z9B3-kid2', { earlyStart: '2026-06-02', earlyFinish: '2026-06-04', lateStart: '2026-06-08',
+        lateFinish: '2026-06-10', totalFloat: 4, freeFloat: 3, isCritical: false, interferingFloat: 1 }],
+    ]),
+    projectStart: '2026-06-01', projectEnd: '2026-06-05', criticalPath: ['Z9B3-kid1'],
+  } as unknown as Parameters<typeof applyCpmResult>[1];
+
+  applyCpmResult(tasks, result, { projectCalendar: CAL, calendars: [CAL] });
+
+  eq('219 Z9b/manual-rollup: earlyStart = eigen scheduleStart, NIET het vroegste kind', msum.time.earlyStart, '2026-07-01');
+  eq('220 Z9b/manual-rollup: earlyFinish = eigen scheduleFinish, NIET het laatste kind', msum.time.earlyFinish, '2026-07-03');
+  eq('221 Z9b/manual-rollup: lateStart = earlyStart (definitorisch, mirrort de manual-bladtaak-conventie)', msum.time.lateStart, '2026-07-01');
+  eq('222 Z9b/manual-rollup: lateFinish = earlyFinish', msum.time.lateFinish, '2026-07-03');
+  eq('223 Z9b/manual-rollup: totalFloat = 0 (definitorisch, niet het min-over-kinderen)', msum.time.totalFloat, 0);
+  eq('224 Z9b/manual-rollup: freeFloat = 0', msum.time.freeFloat, 0);
+  eq('225 Z9b/manual-rollup: interferingFloat = 0', msum.time.interferingFloat, 0);
+  // isCritical blijft WEL van de kinderen afgeleid (kid1 is critical).
+  eq('226 Z9b/manual-rollup: isCritical blijft van de kinderen afgeleid', msum.time.isCritical, true);
+  // Contrast: het blad zelf blijft ongemoeid door deze tak.
+  eq('227 Z9b/manual-rollup-contrast: kid1 zelf blijft ongewijzigd', mkid1.time.earlyStart, '2026-06-01');
+}
+// Mutatiebewijs (uitgevoerd, teruggedraaid): het `if (task.manuallyScheduled && children.length > 0)
+// {...; return;}`-blok in `applyCpmResult.updateSummary` weghalen laat checks 219/220 ROOD gaan
+// (earlyStart/earlyFinish rollen dan weer op uit de kinderen: '2026-06-01'/'2026-06-05' i.p.v. de
+// eigen '2026-07-01'/'2026-07-03').
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  advanced-cpm-check: alle checks groen (${checks})`);

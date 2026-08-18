@@ -1625,13 +1625,13 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 194,
-      "startSameday": 18,
-      "startDiff": 3,
-      "finishExact": 192,
-      "finishSameday": 17,
-      "finishDiff": 6,
-      "reason": "leveling/resource-gedreven-uitzondering (§1.4/O1, sourceScheduleNotes.total=15, toegestaan) + manual-scheduling-restant (Z9b-scope, niet Z9a). Z9a (2026-08-18): geïmplementeerd en corpusbreed geverifieerd (14 andere Z9a-doelbestanden naar 0/0/0/0) — DIT bestand blijft ONGEWIJZIGD (194/18/3/192/17/6, byte-identiek aan de Z8-slotronde-pin), want gemeten (readTasks().tasks.filter(t=>t.manuallyScheduled)): alle 11 MANUALLY_SCHEDULED-taken in dit bestand zijn WBS-SAMENVATTINGSTAKEN (childIds.length>0) — Z9a se forwardPass-tak raakt uitsluitend bladtaken (CPMSolver rekent nooit op samenvattingstaken, applyCpmResult.updateSummary rolt hun datums onvoorwaardelijk op uit de kinderen). Het TASK_MODE-restant van dit bestand is dus geen Z9a-tekort maar precies het geval dat Z9b moet oplossen (\"een handmatig geplande samenvattingstaak rolt in MS Project NIET op\") — zie het plan-§Z9b-werkitem \"applyCpmResult.updateSummary\"."
+      "startExact": 205,
+      "startSameday": 9,
+      "startDiff": 1,
+      "finishExact": 203,
+      "finishSameday": 8,
+      "finishDiff": 4,
+      "reason": "Z9b (2026-08-18): manual-verzameltaak-rollup gefixt (applyCpmResult.updateSummary — een manual samenvattingstaak rolt niet meer op uit haar kinderen, ze houdt haar eigen scheduleStart/scheduleFinish). GEMETEN (before/after diff op de detailrapportage, OPS_MPP_FIDELITY_REPORT=detail): alle 11 MANUALLY_SCHEDULED-verzameltaken (childIds 2..28) verdwijnen uit de afwijkingenlijst — 194/18/3/192/17/6 → 205/9/1/203/8/4, precies een verschil van 11 op zowel start als finish; de 'samenvattingstaak'-attribuutemmer (childIds.length>0 bij een 'diff'-classificatie) is na de fix helemaal uit de detailrapportage verdwenen. Het TASK_MODE-restant is daarmee volledig opgelost — DIT IS NIET DE VERWACHTE 0/0/0/0: er blijven 12 bladtaak-afwijkingen over die GEEN van alle manuallyScheduled of childIds.length>0 zijn (geverifieerd via dezelfde detailrapportage/attribuutemmers) en dus buiten Z9b-scope vallen. Ze dragen stuk voor stuk een SNET-constraint en matchen qua vorm de reeds ván vóór deze etappe gedocumenteerde 'toegestane' leveling/resource-gedreven-uitzondering (§1.4/O1 uit het 2026-08-15-plan, sourceScheduleNotes.total=15, hetzelfde bestand) — die categorie is in DEZE etappe (\"nul afwijkingen\") echter geen geaccepteerde uitzondering meer (§1, geen reason-pins toegestaan als einddoel) en dus kennelijk nog niet (volledig) door Z6/Z8 gedicht voor dit specifieke bestand. Buiten de vier Z9b-werkitems (plan-§Z9b) — orkestrator-actie nodig om dit restant aan een werkstroom toe te wijzen, zie de Z9b-implementerrapportage."
     },
     "a76cce3394fdec2d": {
       "root": "crawl",

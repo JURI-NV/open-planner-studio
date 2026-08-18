@@ -2130,6 +2130,29 @@ export class CPMSolver {
    * hun eigen vrije speling — opvolgers bewegen per definitie niet. Draait ná de backward
    * pass; de constraint-cache van uitgaande relaties wordt geactualiseerd zodat de
    * relatie-floats en driving-markering daarna kloppen (de relatie wordt precies bindend).
+   *
+   * Handmatig gepland (Z9b, etappe "nul afwijkingen") — TWEE aparte uitsluitingen, niet één:
+   * (1) een manual taak ZELF wordt NOOIT vooruitgeschoven, ook niet als ze toevallig
+   *     `constraint.type === 'ALAP'` draagt (een geïmporteerd/legacy-veld dat een manual taak
+   *     evengoed kan meedragen) — MS Project plant een manual taak op haar getypte datum, ALAP
+   *     is daar een dode letter, precies zoals de bestaande MSO/MFO-precedentie in `forwardPass`
+   *     (`msp-58-z9a-manual-wint-van-constraint`). Zonder deze uitsluiting zou deze functie de
+   *     rauwe `early.es`/`early.ef` die `forwardPass` voor een manual taak zette, alsnog met
+   *     `addWorkingDaysSigned` opschuiven — de manual-pin zou dan hier, ná de forward pass, alsnog
+   *     verbroken worden.
+   * (2) een manual taak als OPVOLGER van een (niet-manual) ALAP-taak krijgt GEEN bijgewerkte
+   *     `seqConstraint`-invoer voor die relatie. `forwardPass` zet `seqConstraint` voor een manual
+   *     opvolger sowieso nooit (haar eigen voorganger-lus in `forwardPass` wordt door de manual-
+   *     `continue` nooit bereikt, zie de toelichting daar) — dat laat de relatie in
+   *     `scheduleAnalysis.computeScheduleResults` terecht ONGEZIEN (`seqConstraint.get(seq.id)` is
+   *     dan `undefined` ⇒ de relatie doet niet mee aan `sequenceFreeFloat`/`drivingSequenceIds`,
+   *     precies de bestaande hammock-precedentie in `hammockEarlyStart`/`hammockEarlyFinish`: "de
+   *     hammock-relaties blijven buiten de driving-/float-path-analyse"). ZONDER deze uitsluiting
+   *     zou déze functie die relatie alsnog een `seqConstraint` geven — gebaseerd op de (eventueel
+   *     ALAP-verschoven) `early` van de VOORGANGER, niet op iets waar de manual opvolger ooit op
+   *     reageert (haar `earlyStart`/`earlyFinish` blijven haar eigen rauwe anker) — een relFloat
+   *     die daarna in `sequenceFreeFloat` verschijnt zonder enige betekenis, in plaats van
+   *     terecht afwezig te blijven.
    */
   private applyAlap(
     order: string[],
@@ -2139,6 +2162,7 @@ export class CPMSolver {
     for (const taskId of order) {
       const task = this.tasks.get(taskId);
       if (task?.constraint?.type !== 'ALAP') continue;
+      if (task.manuallyScheduled) continue;   // Z9b, uitsluiting (1) — zie moduleheader hierboven.
       const early = earlyDates.get(taskId);
       const late = lateDates.get(taskId);
       if (!early || !late) continue;
@@ -2166,6 +2190,7 @@ export class CPMSolver {
       for (const seq of succs) {
         const succTask = this.tasks.get(seq.successorId);
         if (!succTask) continue;
+        if (succTask.manuallyScheduled) continue;   // Z9b, uitsluiting (2) — zie moduleheader hierboven.
         this.seqConstraint.set(
           seq.id,
           forwardConstraint(this.relDeps, early, task, seq, succTask, cal, this.calendarFor(succTask)),
