@@ -62,21 +62,24 @@ import {
   buildSyntheticCfb, buildDuplicateSiblingCfb, buildTwoRootStreamsCfb, buildNestedCfb,
   encodeCompObjFileFormat, encodePropsEntries, encodePropsSingleByteEntry,
   expectCfbError, expectMppError, bytesEqual, buildVarMetaBytes,
-  buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock,
+  buildCalFixedMetaBlob, buildCalFixedDataRecord, buildCalHoursBlock, concatBytes,
   type CfbTreeNode,
 } from './mppFixtures';
 import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks,
+  buildAssignmentUidLinks, deriveSplitGapsForTasks,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
-import { readCalendars } from '@/services/mpp/mppCalendars';
+import { readCalendars, type CalendarReadResult } from '@/services/mpp/mppCalendars';
 import { MAX_VAR_TEXT_BYTES, MAX_MANUAL_DURATION_TENTHS } from '@/services/mpp/limits';
 import { tenthsOfMinutesToDays } from '@/services/importDurations';
 import { formatInstant } from '@/utils/dateUtils';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { installDOMParser } from './xmldom-shim';
-import type { Task } from '@/types/task';
+import type { Task, TaskSplitGap } from '@/types/task';
+import type { WorkCalendar } from '@/types/calendar';
+import { createDefaultTaskTime } from '@/utils/taskDefaults';
 import {
   createTaskFieldMap, createResourceFieldMap, createAssignmentFieldMap,
   TaskFieldId, ResourceFieldId, AssignmentFieldId,
@@ -84,6 +87,7 @@ import {
 } from '@/services/mpp/fieldMap14';
 import {
   decodeRegularTimephasedWork, decodeIrregularTimephasedWork, decodePlannedRegularTimephasedWork, hasAnyTimephasedData,
+  deriveSplitGapsFromPeriods, deriveTaskSplitGaps, shiftPeriods,
   type TimephasedWorkPeriod, type TimephasedIrregularPeriod,
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
@@ -4012,6 +4016,497 @@ if (corpusPresent) {
         + `remainingRegularWork ${perCategory.remainingRegularWork.present}/${perCategory.remainingRegularWork.decodedNonEmpty} (Format B, F1-fix)`,
       );
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z4 (etappe "nul afwijkingen") — splitsegmenten afleiden. Zie `mppTimephased.ts`'s moduleheader
+// ("── Z4 ──"-paragraaf) voor de VERPLICHTE meetstap (`mpp14splittask.mpp` reproduceert MSP's
+// eigen finish exact uit start+duur+gat in WERKminuten — Z0's offsetvorm bevestigd), het
+// algoritme-ontwerp (filter nul-werk + strikte paarsgewijze-boundary-vergelijking) en de
+// aggregatieregel (doorsnede over toewijzingen). Dit blok is uitsluitend de test-tegenhanger.
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Lokale fixture-helper: één `TimephasedWorkPeriod` met dummy `approxStart`/`approxFinish` —
+ *  `deriveSplitGapsFromPeriods`/`deriveTaskSplitGaps` gebruiken uitsluitend de
+ *  `elapsedWorkMinutes*`/`workMinutes`-velden (zie mppTimephased.ts's moduleheader), dus de
+ *  approx-Dates zijn hier betekenisloos maar wel verplicht door het type. */
+function z4Period(elapsedStart: number, elapsedEnd: number, workMinutes: number): TimephasedWorkPeriod {
+  const base = new Date('2026-01-05T08:00:00.000Z');
+  return {
+    elapsedWorkMinutesStart: elapsedStart,
+    elapsedWorkMinutesEnd: elapsedEnd,
+    workMinutes,
+    approxStart: new Date(base.getTime() + elapsedStart * 60_000),
+    approxFinish: new Date(base.getTime() + elapsedEnd * 60_000),
+  };
+}
+
+function z4GapsEqual(actual: readonly TaskSplitGap[], expected: readonly TaskSplitGap[]): boolean {
+  if (actual.length !== expected.length) return false;
+  return actual.every((g, i) => g.afterMinutes === expected[i].afterMinutes && g.gapMinutes === expected[i].gapMinutes);
+}
+
+/** MPP-timestamp-encoding (`timestampBytes`'s tegenhanger, zie de I4-sectie hierboven voor de
+ *  decoderende `getTimestamp`-eenheidstests): `time` = 6-secondeticks sinds middernacht, `days` =
+ *  dagen sinds het MPP-epoch (1983-12-31 UTC) — spiegelt `mppPrimitives.ts`'s `MPP_EPOCH_UTC_MS`/
+ *  `MS_PER_DAY` (niet geïmporteerd: die twee zijn interne, niet-geëxporteerde implementatiedetails
+ *  van dat bestand — hier bewust herhaald, zelfde precedent als de PropsKey-constanten hierboven). */
+function z4TimestampParts(date: Date): { time: number; days: number } {
+  const MPP_EPOCH_UTC_MS = Date.UTC(1983, 11, 31);
+  const MS_PER_DAY = 86_400_000;
+  const diffMs = date.getTime() - MPP_EPOCH_UTC_MS;
+  const days = Math.floor(diffMs / MS_PER_DAY);
+  const time = Math.round((diffMs - days * MS_PER_DAY) / 6000);
+  return { time, days };
+}
+
+// Drie opeenvolgende werkdagen 08:00 (ma/di/wo — 2026-01-05 is een maandag, zelfde ankerdatum als
+// de bestaande Z3-referentie hierboven) — gedeeld tussen de brug- en de integratietests hieronder
+// zodat `workMinutesBetween` voorspelbare, met de hand na te rekenen uitkomsten geeft op de
+// eenvoudige ma-vr-8u-testkalender (`Z4_CALENDAR` hieronder, GEEN feestdagen).
+const MONDAY_0800 = new Date('2026-01-05T08:00:00.000Z');
+const TUESDAY_0800 = new Date('2026-01-06T08:00:00.000Z');
+const WEDNESDAY_0800 = new Date('2026-01-07T08:00:00.000Z');
+
+/** Minimale, volledig deterministische testkalender (ma-vr 08:00-16:00, 8u/dag, GEEN feestdagen)
+ *  — bewust NIET `createDefaultCalendar()` (die leest `loadConstructionMode()` uit `localStorage`,
+ *  niet beschikbaar/deterministisch in deze node-esbuild-testomgeving en zou NL-feestdagen kunnen
+ *  meenemen die de handmatige `workMinutesBetween`-rekensommen hieronder zouden verstoren).
+ *
+ *  MET `workTime`-banden (UUR-modus) — Z4-fixronde-bevinding tijdens het testen: `CalendarEngine
+ *  .workMinutesBetween` (nodig voor de assignment-start/resume-verschuiving, punt 2+3) is een
+ *  ZUIVERE uur-modus-primitief — ze dereferentieert `this.bandCache`/`calendar.workTime` ONVOOR-
+ *  WAARDELIJK en GOOIT (`Cannot read properties of undefined`) op een dag-kalender zonder
+ *  `workTime`. `mppReader.ts`'s koppelcode bewaakt dit daarom met `engine.isHourMode` (zie de
+ *  toelichting daar) — DAG-modus-taken krijgen shift 0 (byte-identiek, geen gegokte dag-granulaire
+ *  formule). Deze testkalender moet dus zelf UUR-modus zijn om de shift-logica daadwerkelijk te
+ *  raken; anders zou ELKE test hieronder triviaal shift=0 zien en niets bewijzen. */
+const Z4_CALENDAR: WorkCalendar = {
+  id: 'z4-test-cal', name: 'Z4 testkalender', description: '',
+  workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 16, hoursPerDay: 8, holidays: [],
+  workTime: {
+    byWeekday: {
+      1: [{ start: 480, end: 960 }], 2: [{ start: 480, end: 960 }], 3: [{ start: 480, end: 960 }],
+      4: [{ start: 480, end: 960 }], 5: [{ start: 480, end: 960 }], 6: [], 7: [],
+    },
+  },
+};
+
+const Z4_CAL_RESULT: CalendarReadResult = {
+  calendarByUniqueId: new Map(),
+  projectCalendar: Z4_CALENDAR,
+  resourceCalendars: [],
+  resourceCalendarUniqueIdByResourceUniqueId: new Map(),
+  ownHolidayCountByUniqueId: new Map(),
+};
+
+/** Minimale, geldige `Task` voor de `deriveSplitGapsForTasks`-integratietests hieronder — alleen
+ *  de velden die die functie daadwerkelijk leest (`id`, `time.scheduleStart`, `childIds`,
+ *  `calendarId`) zijn betekenisvol, de rest is een geldige, onbetekenende default. */
+function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): Task {
+  return {
+    id, name: id, description: '', wbsCode: '', taskType: 'USERDEFINED', status: 'NOT_STARTED',
+    isMilestone: false, priority: 500, parentId: null, childIds, resourceIds: [],
+    time: { ...createDefaultTaskTime(scheduleStart.toISOString().slice(0, 16), 5) },
+  };
+}
+
+// ── Acceptatiepunt 1 — corpusloze fixtures op de pure afleidingsfunctie ─────────────────────────
+{
+  // (a) twee werksegmenten met één gat ertussen ⇒ exact één TaskSplitGap.
+  const a = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 960, 0), z4Period(960, 1440, 480)]);
+  truthy('[Z4 1a] twee segmenten met een gat ⇒ 1 TaskSplitGap', a.length === 1);
+  truthy('[Z4 1a] afterMinutes/gapMinutes exact', z4GapsEqual(a, [{ afterMinutes: 480, gapMinutes: 480 }]));
+
+  // (b) drie segmenten, twee gaten.
+  const b = deriveSplitGapsFromPeriods([
+    z4Period(0, 240, 240), z4Period(240, 360, 0),
+    z4Period(360, 600, 240), z4Period(600, 780, 0),
+    z4Period(780, 1020, 240),
+  ]);
+  truthy('[Z4 1b] drie segmenten, twee gaten', z4GapsEqual(b, [
+    { afterMinutes: 240, gapMinutes: 120 },
+    { afterMinutes: 600, gapMinutes: 180 },
+  ]));
+
+  // (c) twee aangrenzende WERKsegmenten (verschillende hoeveelheid werk, bv. omdat ze uit
+  // "actual" resp. "remaining" komen) zonder enig gat-record ertussen ⇒ LEGE lijst — geen
+  // fantoom-split op de naad. Mutatiebewijs (punt 4) hieronder in het commitbericht: de strikte
+  // `>`-vergelijking in `deriveSplitGapsFromPeriods` vervangen door "altijd pushen" liet dit
+  // exact fixture-scenario een `{afterMinutes:480, gapMinutes:0}`-fantoomgat opleveren — met de
+  // `>`-check erin blijft de lijst leeg.
+  const c = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 900, 420)]);
+  truthy('[Z4 1c] aangrenzende werksegmenten zonder gat ⇒ lege lijst (geen fantoom-split)', c.length === 0);
+
+  // (d) twee toewijzingen met VERSCHILLENDE gaten op dezelfde taak — de aggregatieregel is de
+  // DOORSNEDE (zie mppTimephased.ts's moduleheader voor de volledige motivering: een taak toont
+  // pas "stil" waar ALLE toewijzingen tegelijk stilliggen). Toewijzing 1 stil [480,600),
+  // toewijzing 2 stil [500,600) ⇒ doorsnede [500,600).
+  const gapsAssignment1 = deriveSplitGapsFromPeriods([z4Period(0, 480, 480), z4Period(480, 600, 0), z4Period(600, 1000, 400)]);
+  const gapsAssignment2 = deriveSplitGapsFromPeriods([z4Period(0, 500, 500), z4Period(500, 600, 0), z4Period(600, 1000, 400)]);
+  const taskGaps = deriveTaskSplitGaps([gapsAssignment1, gapsAssignment2]);
+  truthy('[Z4 1d] doorsnede van twee verschillende toewijzingsgaten', z4GapsEqual(taskGaps, [{ afterMinutes: 500, gapMinutes: 100 }]));
+
+  // (d, vervolg) — één toewijzing die GEEN gaten heeft (volledig doorwerkt) forceert de
+  // doorsnede naar leeg, ongeacht wat de andere toewijzing meldt: bewijst dat "geen gaten"
+  // (een toewijzing MET data die gewoon niets meldt) iets anders is dan "geen data" (uitgesloten,
+  // zie de moduleheader-motivering) — de eerste drukt de doorsnede terecht naar leeg.
+  const gapsNoGaps = deriveSplitGapsFromPeriods([z4Period(0, 1000, 1000)]);
+  truthy(
+    '[Z4 1d] een volledig-doorwerkende toewijzing forceert de taakdoorsnede naar leeg',
+    deriveTaskSplitGaps([gapsAssignment1, gapsNoGaps]).length === 0,
+  );
+
+  // Enkele toewijzing (de meerderheid, incl. `mpp14splittask.mpp` hieronder): triviaal identiek.
+  truthy('[Z4 1] enkele toewijzing ⇒ triviaal identiek aan haar eigen gaten', z4GapsEqual(deriveTaskSplitGaps([gapsAssignment1]), gapsAssignment1));
+  truthy('[Z4 1] geen toewijzingen ⇒ lege lijst', deriveTaskSplitGaps([]).length === 0);
+}
+
+// ── `shiftPeriods` (Z4-fixronde, punt 2+3) — pure verschuiving, corpusloos ─────────────────────
+{
+  const periods = [z4Period(0, 480, 480), z4Period(480, 600, 0)];
+  const unshifted = shiftPeriods(periods, 0);
+  truthy('[Z4 shift] shiftMinutes=0 ⇒ dezelfde array-referentie (geen onnodige kopie)', unshifted === periods);
+
+  const shifted = shiftPeriods(periods, 100);
+  truthy('[Z4 shift] elapsedWorkMinutesStart/End verschoven', shifted[0].elapsedWorkMinutesStart === 100 && shifted[0].elapsedWorkMinutesEnd === 580);
+  truthy('[Z4 shift] tweede periode ook verschoven', shifted[1].elapsedWorkMinutesStart === 580 && shifted[1].elapsedWorkMinutesEnd === 700);
+  truthy('[Z4 shift] workMinutes ONgewijzigd', shifted[0].workMinutes === 480 && shifted[1].workMinutes === 0);
+  truthy('[Z4 shift] approxStart/Finish ONgewijzigd (blijft een BENADERING vanaf het oude anker)', shifted[0].approxStart.getTime() === periods[0].approxStart.getTime());
+}
+
+// ── `buildAssignmentUidLinks` — uid→(taak, start, resume)-brug (mppReader.ts), rechtstreeks
+// getoetst met een kleine synthetische TBkndAssn/FixedMeta+FixedData-fixture (zie
+// mppTimephased.ts's moduleheader "VONDST VOOR Z8"-paragraaf voor waarom deze brug NIET via
+// `ResourceAssignment.id` loopt, en de "TAAK-AS, NIET TOEWIJZINGS-AS"-paragraaf voor waarom ze
+// óók `AssignmentField.START`/`RESUME` draagt — Z4-fixronde punt 2+3) ──────────────────────────
+{
+  function buildAssignmentMetaBytes(records: { deleted: boolean; offset: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + records.length * 34);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true); // BLOCK_MAGIC — spiegelt mppFixtures.ts's CAL_FIXED_META_MAGIC
+    view.setInt32(8, records.length, true);
+    records.forEach((r, i) => {
+      const pos = 16 + i * 34;
+      view.setUint8(pos, r.deleted ? 1 : 0);
+      view.setInt32(pos + 4, r.offset, true);
+    });
+    return out;
+  }
+  // uid@0, taskUid@4, start@12 (spiegelt MPXJ's eigen default-offset), resume@30 (vrije plek).
+  function buildAssignmentDataRecord(uid: number, taskUid: number, start?: Date, resume?: Date): Uint8Array {
+    const out = new Uint8Array(110);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, uid, true);
+    view.setInt32(4, taskUid, true);
+    if (start) {
+      const { time, days } = z4TimestampParts(start);
+      view.setUint16(12, time, true);
+      view.setUint16(14, days, true);
+    }
+    if (resume) {
+      const { time, days } = z4TimestampParts(resume);
+      view.setUint16(30, time, true);
+      view.setUint16(32, days, true);
+    }
+    return out;
+  }
+
+  const asgFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: AssignmentFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+    { typeValue: AssignmentFieldId.TaskUniqueId, dataBlockOffset: 4, category: 3 },
+    { typeValue: AssignmentFieldId.Start, dataBlockOffset: 12, category: 3 },
+    { typeValue: AssignmentFieldId.Resume, dataBlockOffset: 30, category: 3 },
+  ]);
+  const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'Z4-assignment-fieldmap');
+  const asgFieldMap = createAssignmentFieldMap(asgProps);
+
+  const metaBytes = buildAssignmentMetaBytes([{ deleted: false, offset: 0 }, { deleted: false, offset: 110 }, { deleted: true, offset: 220 }]);
+  const dataBytes = concatBytes(
+    buildAssignmentDataRecord(7, 101, MONDAY_0800, WEDNESDAY_0800), // uid 7: start + resume beide aanwezig
+    buildAssignmentDataRecord(8, 102), // uid 8: geen start/resume (ontbrekend veld ⇒ null, shift 0)
+    buildAssignmentDataRecord(9, 103, MONDAY_0800), // uid 9 (verwijderd record — moet NIET meekomen)
+  );
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: metaBytes }, FixedData: { data: dataBytes } } } } },
+  }));
+  const taskIdByUniqueId = new Map<number, string>([[101, 'task-a'], [102, 'task-b']]); // 103 (verwijderd record) bewust NIET erin
+
+  const links = buildAssignmentUidLinks(cfb, asgFieldMap, taskIdByUniqueId);
+  truthy('[Z4 brug] uid 7 → task-a', links.get(7)?.taskId === 'task-a');
+  truthy('[Z4 brug] uid 7: assignmentStart round-trip', links.get(7)?.assignmentStart?.getTime() === MONDAY_0800.getTime());
+  truthy('[Z4 brug] uid 7: assignmentResume round-trip', links.get(7)?.assignmentResume?.getTime() === WEDNESDAY_0800.getTime());
+  truthy('[Z4 brug] uid 8 → task-b', links.get(8)?.taskId === 'task-b');
+  truthy('[Z4 brug] uid 8: geen start/resume-veld ⇒ null (byte-identiek precedent)', links.get(8)?.assignmentStart === null && links.get(8)?.assignmentResume === null);
+  truthy('[Z4 brug] verwijderd record (uid 9) NIET meegenomen', !links.has(9));
+  truthy('[Z4 brug] exact 2 links', links.size === 2);
+
+  // Rode-pad-fixture (hardening-checklist): TBkndAssn/FixedMeta te kort voor haar eigen header
+  // (5 bytes, `FixedMeta.withItemSize` eist minimaal 16) ⇒ `buildAssignmentUidLinksUnsafe` gooit
+  // ECHT — bewijst dat de try/catch-wrapper daadwerkelijk door de catch-tak gaat, niet alleen de
+  // eerder-geretourneerde guard-clauses hierboven.
+  const cfbCorrupt = new CfbFile(buildNestedCfb({
+    '   114': { children: { TBkndAssn: { children: { FixedMeta: { data: new Uint8Array(5) }, FixedData: { data: dataBytes } } } } },
+  }));
+  const linksCorrupt = buildAssignmentUidLinks(cfbCorrupt, asgFieldMap, taskIdByUniqueId);
+  truthy('[Z4 rood] FixedMeta te kort voor haar eigen header ⇒ lege map, geen exceptie', linksCorrupt.size === 0);
+
+  // Rode-pad: TBkndAssn/FixedMeta ontbreekt volledig ⇒ lege map (guard-clause, geen exceptie).
+  const cfbMissing = new CfbFile(buildNestedCfb({ '   114': { children: {} } }));
+  truthy('[Z4 rood] TBkndAssn ontbreekt volledig ⇒ lege map', buildAssignmentUidLinks(cfbMissing, asgFieldMap, taskIdByUniqueId).size === 0);
+
+  // Verdedigingsdiepte (hardening): een NEGATIEVE `fixedOffset` (nooit bereikbaar via de echte,
+  // data-gedreven field-map-parser — `parseFieldMapBytes` leest `dataBlockOffset` als UNSIGNED
+  // SHORT, dus 0..65535 — maar het `FieldMapTable`-TYPE staat het toe) zou zonder de `offset >= 0`-
+  // klem `data.length >= offset + 4` triviaal laten slagen en dan intern op `getShort`'s eigen
+  // `offset<0`-guard knallen. Bewijst dat de klem dat per-veld afvangt (start/resume worden `null`)
+  // i.p.v. de HELE functie te laten mislukken via de buitenste try/catch.
+  const hostileFieldMap = new Map(asgFieldMap);
+  hostileFieldMap.set(AssignmentFieldId.Start, { location: 'fixed', fixedOffset: -1000000 });
+  const linksHostileOffset = buildAssignmentUidLinks(cfb, hostileFieldMap, taskIdByUniqueId);
+  truthy(
+    '[Z4 verdedigingsdiepte] negatieve fixedOffset ⇒ dat veld wordt null, de rest van de link blijft intact',
+    linksHostileOffset.get(7)?.taskId === 'task-a' && linksHostileOffset.get(7)?.assignmentStart === null,
+  );
+}
+
+// ── `deriveSplitGapsForTasks` — de volledige Z4-fixronde-ketting (punten 1, 2, 3, 4), rechtstreeks
+// getoetst met hand-gebouwde `Task[]` (geen volledige synthetische TBkndTask nodig — de functie
+// neemt `tasks` als gewoon argument) + één gedeelde TBkndAssn-fixture met vier toewijzingen ──────
+{
+  function buildAssignmentMetaBytes(count: number): Uint8Array {
+    const out = new Uint8Array(16 + count * 34);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, count, true);
+    for (let i = 0; i < count; i++) {
+      view.setUint8(16 + i * 34, 0); // niet-verwijderd
+      view.setInt32(16 + i * 34 + 4, i * 110, true); // offset in FixedData
+    }
+    return out;
+  }
+  function buildAssignmentDataRecord(uid: number, taskUid: number, start?: Date, resume?: Date): Uint8Array {
+    const out = new Uint8Array(110);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, uid, true);
+    view.setInt32(4, taskUid, true);
+    if (start) {
+      const { time, days } = z4TimestampParts(start);
+      view.setUint16(12, time, true);
+      view.setUint16(14, days, true);
+    }
+    if (resume) {
+      const { time, days } = z4TimestampParts(resume);
+      view.setUint16(30, time, true);
+      view.setUint16(32, days, true);
+    }
+    return out;
+  }
+  /** Format A (regulier): 16-byte header + a-typisch totaal-record (overgeslagen) + N cumulatieve
+   *  periode-records — spiegelt de Z3-sectie se `buildRegularBlockMinutes` (los herhaald: die
+   *  helper is block-scoped bij Z3, hier niet bereikbaar). */
+  function buildRegularBlockMinutes(periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + 20 + periods.length * 20);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, periods.length, true);
+    view.setFloat64(16, 999_000, true);
+    view.setInt32(24, 2_000_000_000, true);
+    view.setInt32(16 + 16, 999 * 80, true);
+    periods.forEach((p, i) => {
+      const offset = 36 + i * 20;
+      view.setFloat64(offset, p.cumulativeWorkMinutes * 1000, true);
+      view.setInt32(offset + 16, p.cumulativeElapsedMinutes * 80, true);
+    });
+    return out;
+  }
+  /** Format B (planned/remaining), `blockCount >= 1`-pad: 16-byte header + a-typisch summary-blok
+   *  (overgeslagen) + N cumulatieve 28-byte periode-blokken. */
+  function buildPlannedBlock(periods: { cumulativeWorkMinutes: number; cumulativeElapsedMinutes: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + 28 + periods.length * 28);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, periods.length, true);
+    view.setFloat64(16, 999_000, true);
+    view.setInt32(16 + 24, 999 * 80, true);
+    periods.forEach((p, i) => {
+      const offset = 44 + i * 28;
+      view.setFloat64(offset, p.cumulativeWorkMinutes * 1000, true);
+      view.setInt32(offset + 24, p.cumulativeElapsedMinutes * 80, true);
+    });
+    return out;
+  }
+  /** Format B, `blockCount === 0`-speciale geval: 16-byte header (blockCount=0) + 8-byte
+   *  cumulatief-werkveld@16 — het "ongedeelde samenvattingsrecord" uit Z4-fixronde punt 1. */
+  function buildPlannedSummaryOnlyBlock(totalWorkMinutes: number): Uint8Array {
+    const out = new Uint8Array(24);
+    const view = new DataView(out.buffer);
+    view.setUint16(0, 0, true);
+    view.setFloat64(16, totalWorkMinutes * 1000, true);
+    return out;
+  }
+
+  const asgFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: AssignmentFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+    { typeValue: AssignmentFieldId.TaskUniqueId, dataBlockOffset: 4, category: 3 },
+    { typeValue: AssignmentFieldId.Start, dataBlockOffset: 12, category: 3 },
+    { typeValue: AssignmentFieldId.Resume, dataBlockOffset: 30, category: 3 },
+    { typeValue: AssignmentFieldId.ActualRegularWork, dataBlockOffset: 65535, category: 8 },
+    { typeValue: AssignmentFieldId.RemainingRegularWork, dataBlockOffset: 65535, category: 8 },
+  ]);
+  const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'Z4-integration-fieldmap');
+  const asgFieldMap = createAssignmentFieldMap(asgProps);
+
+  // uid 1 (taak-A, punt 1): ECHT gat IN `actualRegularWork` zelf; `remainingRegularWork` is een
+  // ONGEDEELD `blockCount===0`-samenvattingsrecord (nonzero totaalwerk) — precies de vorm die de
+  // OUDE code (mét `referenceFinish`) had kunnen gebruiken om het echte gat te overbruggen.
+  const blockA_actual = buildRegularBlockMinutes([{ cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 480 }, { cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 960 }, { cumulativeWorkMinutes: 960, cumulativeElapsedMinutes: 1440 }]);
+  const blockA_remaining = buildPlannedSummaryOnlyBlock(600);
+
+  // uid 2 (taak-B, punt 3): toewijzing start ÉÉN werkdag NA de taak (`TUESDAY_0800`) — het gat in
+  // `actualRegularWork` zit op de TOEWIJZINGS-as op [240,480), en moet na verschuiving op de
+  // TAAK-as op [720,960) landen (720 = 240 + 480 werkminuten-verschil taakstart→assignmentStart).
+  const blockB_actual = buildRegularBlockMinutes([{ cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 240 }, { cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 480 }, { cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 720 }]);
+
+  // uid 3 (taak-C, punt 2): toewijzing start GELIJK aan de taak (shift 0, isoleert de resume-
+  // dimensie); `resume` ligt TWEE werkdagen later (`WEDNESDAY_0800`, 960 werkminuten). `actual` is
+  // volledig doorgewerkt (geen intern gat); `remaining` is ÉÉN blok van 240 minuten dat, zonder de
+  // resume-verschuiving, naïef op [0,240) zou landen (overlappend met `actual`) i.p.v. op het
+  // ECHTE rustpunt [960,1200).
+  const blockC_actual = buildRegularBlockMinutes([{ cumulativeWorkMinutes: 480, cumulativeElapsedMinutes: 480 }]);
+  const blockC_remaining = buildPlannedBlock([{ cumulativeWorkMinutes: 240, cumulativeElapsedMinutes: 240 }]);
+
+  const metaBytes = buildAssignmentMetaBytes(4);
+  const dataBytes = concatBytes(
+    buildAssignmentDataRecord(1, 101), // taak-A: geen start/resume ⇒ shift 0
+    buildAssignmentDataRecord(2, 102, TUESDAY_0800), // taak-B: start-shift, geen resume nodig
+    buildAssignmentDataRecord(3, 103, MONDAY_0800, WEDNESDAY_0800), // taak-C: start=taakstart, resume 2 dagen later
+    buildAssignmentDataRecord(4, 104), // taak-D (SAMENVATTINGSTAAK): identieke bytes als uid 1
+  );
+  const varMetaBytes = buildVarMetaBytes([
+    { uniqueId: 1, type: AssignmentFieldId.ActualRegularWork, offset: 0 },
+    { uniqueId: 1, type: AssignmentFieldId.RemainingRegularWork, offset: 4 + blockA_actual.length },
+    { uniqueId: 2, type: AssignmentFieldId.ActualRegularWork, offset: 4 + blockA_actual.length + 4 + blockA_remaining.length },
+    { uniqueId: 3, type: AssignmentFieldId.ActualRegularWork, offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length },
+    { uniqueId: 3, type: AssignmentFieldId.RemainingRegularWork, offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length },
+    { uniqueId: 4, type: AssignmentFieldId.ActualRegularWork, offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length + 4 + blockC_remaining.length },
+    {
+      uniqueId: 4,
+      type: AssignmentFieldId.RemainingRegularWork,
+      offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length + 4 + blockC_remaining.length + 4 + blockA_actual.length,
+    },
+  ]);
+  const totalVar2Len = 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length
+    + 4 + blockC_actual.length + 4 + blockC_remaining.length + 4 + blockA_actual.length + 4 + blockA_remaining.length;
+  const var2DataBytes = buildVar2DataBytes([
+    { offset: 0, payload: blockA_actual },
+    { offset: 4 + blockA_actual.length, payload: blockA_remaining },
+    { offset: 4 + blockA_actual.length + 4 + blockA_remaining.length, payload: blockB_actual },
+    { offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length, payload: blockC_actual },
+    { offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length, payload: blockC_remaining },
+    { offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length + 4 + blockC_remaining.length, payload: blockA_actual },
+    {
+      offset: 4 + blockA_actual.length + 4 + blockA_remaining.length + 4 + blockB_actual.length + 4 + blockC_actual.length + 4 + blockC_remaining.length + 4 + blockA_actual.length,
+      payload: blockA_remaining,
+    },
+  ], totalVar2Len);
+
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': {
+      children: {
+        TBkndAssn: {
+          children: {
+            FixedMeta: { data: metaBytes }, FixedData: { data: dataBytes },
+            VarMeta: { data: varMetaBytes }, Var2Data: { data: var2DataBytes },
+          },
+        },
+      },
+    },
+  }));
+
+  const taskIdByUniqueId = new Map<number, string>([[101, 'task-A'], [102, 'task-B'], [103, 'task-C'], [104, 'task-D']]);
+  const tasks: Task[] = [
+    z4MakeTask('task-A', MONDAY_0800),
+    z4MakeTask('task-B', MONDAY_0800),
+    z4MakeTask('task-C', MONDAY_0800),
+    z4MakeTask('task-D', MONDAY_0800, ['child-x']), // SAMENVATTINGSTAAK — punt 4
+  ];
+
+  const result = deriveSplitGapsForTasks(cfb, asgFieldMap, taskIdByUniqueId, tasks, Z4_CAL_RESULT);
+
+  truthy(
+    '[Z4 punt1] taak-A: het ECHTE gat in `actual` overleeft — het ongedeelde blockCount===0-blok bridget het niet',
+    z4GapsEqual(result.get('task-A') ?? [], [{ afterMinutes: 480, gapMinutes: 480 }]),
+  );
+  truthy(
+    '[Z4 punt3] taak-B: het gat is verschoven van de toewijzings-as (240) naar de taak-as (720 = 240+480)',
+    z4GapsEqual(result.get('task-B') ?? [], [{ afterMinutes: 720, gapMinutes: 240 }]),
+  );
+  truthy(
+    '[Z4 punt2] taak-C: `remaining` ankert op `assignmentResume` (960), niet op `assignmentStart` (0) — het rustgat tussen actual-eind (480) en resume (960) verschijnt',
+    z4GapsEqual(result.get('task-C') ?? [], [{ afterMinutes: 480, gapMinutes: 480 }]),
+  );
+  truthy(
+    '[Z4 punt4] taak-D (samenvattingstaak, childIds.length>0): GEEN splitGaps-item, ondanks IDENTIEKE bytes als taak-A',
+    !result.has('task-D'),
+  );
+
+  // ── Vergelijkende bugbewijzen (geen mppReader.ts-mutatie nodig: de OUDE paden zijn zelf nog
+  // bereikbaar via de geëxporteerde pure functies, dus "wat als de fix er niet was" is rechtstreeks
+  // aan te tonen) ──────────────────────────────────────────────────────────────────────────────
+  {
+    // Punt 1: MET referenceFinish (het oude pad) levert het samenvattingsrecord WEL een item —
+    // en dat item verandert de afgeleide gatenlijst t.o.v. de fix (zonder referenceFinish).
+    const withoutFinish = decodePlannedRegularTimephasedWork(blockA_remaining, MONDAY_0800);
+    const withFinishBug = decodePlannedRegularTimephasedWork(blockA_remaining, MONDAY_0800, new Date(MONDAY_0800.getTime() + 3000 * 60_000));
+    truthy('[Z4 punt1-bewijs] zonder referenceFinish (de fix): blockCount===0 levert niets', withoutFinish.length === 0);
+    truthy('[Z4 punt1-bewijs] MET referenceFinish (het oude pad): blockCount===0 levert wél een record', withFinishBug.length === 1 && withFinishBug[0].workMinutes === 600);
+    const actualPeriodsA = decodeRegularTimephasedWork(blockA_actual, MONDAY_0800);
+    const buggyGapsA = deriveSplitGapsFromPeriods([...actualPeriodsA, ...withFinishBug]);
+    const fixedGapsA = deriveSplitGapsFromPeriods([...actualPeriodsA, ...withoutFinish]);
+    truthy('[Z4 punt1-bewijs] het oude pad verandert de gatenlijst t.o.v. de fix (het brug-effect)', JSON.stringify(buggyGapsA) !== JSON.stringify(fixedGapsA));
+
+    // Punt 2: zonder resume-verschuiving (naïeve concatenatie op hetzelfde nulpunt) verschijnt het
+    // rustgat NIET — met de verschuiving (`shiftPeriods`, wat `deriveSplitGapsForTasks` intern doet)
+    // wél.
+    const actualPeriodsC = decodeRegularTimephasedWork(blockC_actual, MONDAY_0800);
+    const remainingPeriodsRawC = decodePlannedRegularTimephasedWork(blockC_remaining, MONDAY_0800);
+    const naiveGapsC = deriveSplitGapsFromPeriods([...actualPeriodsC, ...remainingPeriodsRawC]);
+    const fixedGapsC = deriveSplitGapsFromPeriods([...actualPeriodsC, ...shiftPeriods(remainingPeriodsRawC, 960)]);
+    truthy('[Z4 punt2-bewijs] naïeve concatenatie (geen resume-verschuiving) mist het rustgat', !z4GapsEqual(naiveGapsC, [{ afterMinutes: 480, gapMinutes: 480 }]));
+    truthy('[Z4 punt2-bewijs] MET resume-verschuiving verschijnt het echte rustgat', z4GapsEqual(fixedGapsC, [{ afterMinutes: 480, gapMinutes: 480 }]));
+  }
+}
+
+// ── Acceptatiepunt 2 — mpp14splittask.mpp (MPXJ-crawl, PUBLIEKE naam — plan-§2 staat dat toe)
+// levert de gemeten gaten exact (aantal + posities), via de VOLLEDIGE `readMPP()` — bewijst ook
+// dat `Task.splitGaps` daadwerkelijk op het juiste taakobject landt (koppeling via
+// `taskIdByUniqueId`, geen index-toeval). Cijfers: zie de VERPLICHTE meetstap in mppTimephased
+// .ts's moduleheader — hier alleen gepind, niet opnieuw hergeleid. ─────────────────────────────
+{
+  const SPLITTASK_PATH = (process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl')
+    + '/mpxj/junit/data/mpp14splittask.mpp';
+  if (!existsSync(SPLITTASK_PATH)) {
+    console.log(`OK  mpp-import: Z4 mpp14splittask.mpp niet aanwezig (${SPLITTASK_PATH}) — overgeslagen`);
+  } else {
+    const result = readMPP(new Uint8Array(readFileSync(SPLITTASK_PATH)));
+    const task1 = result.tasks.find((t) => t.name === 'Split Task 1');
+    const task2 = result.tasks.find((t) => t.name === 'Split Task 2');
+    truthy('[Z4 corpus] beide taken gevonden', !!task1 && !!task2);
+    truthy(
+      '[Z4 corpus] "Split Task 1": exact 1 gat, {afterMinutes:1920, gapMinutes:1440}',
+      !!task1 && z4GapsEqual(task1.splitGaps ?? [], [{ afterMinutes: 1920, gapMinutes: 1440 }]),
+    );
+    truthy(
+      '[Z4 corpus] "Split Task 2": exact 2 gaten, {1440,960} en {4800,1440}',
+      !!task2 && z4GapsEqual(task2.splitGaps ?? [], [
+        { afterMinutes: 1440, gapMinutes: 960 },
+        { afterMinutes: 4800, gapMinutes: 1440 },
+      ]),
+    );
+    // Negatieve controle: een taak zonder timephased-signaal krijgt GEEN `splitGaps` (afwezig,
+    // niet een lege array) — byte-identiek-precedent (zie mppReader.ts's Z4-koppelcode).
+    const others = result.tasks.filter((t) => t !== task1 && t !== task2);
+    truthy('[Z4 corpus] geen andere taken in dit bestand (2 taken totaal)', others.length === 0);
   }
 }
 
