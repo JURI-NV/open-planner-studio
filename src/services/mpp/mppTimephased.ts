@@ -97,7 +97,148 @@
  * CORRIGEREN); deze decoder rekent daarom het volledige tijdvak als werk, een OPS-eigen keuze.
  * Consequentie: Z4/Z8 krijgen een RUWE, ongeweven momentopname per blok — dat is precies wat Z3
  * vraagt ("de timephased werksegmenten... leesbaar", "pure decoder, geen planningsgedrag").
+ *
+ * ── Z4 (etappe "nul afwijkingen") — splitsegmenten afleiden ─────────────────────────────────────
+ *
+ * VERPLICHTE MEETSTAP (plan-§1.3/Z0, "meet-afhankelijke keuze" — vóór implementatie uitgevoerd,
+ * wegwerpscript, niet gecommit): `mpxj/junit/data/mpp14splittask.mpp` (MPXJ-crawl, 2 taken, elk
+ * ÉÉN gat) reproduceert MSP's EIGEN opgeslagen `FINISH` exact uit `start + duur + gat`, MITS het
+ * gat in WERKMINUTEN telt — Z0's offsetvorm is dus BEVESTIGD, geen afwijking, geen escalatie nodig:
+ *   - Taak "Split Task 1": start 2006-09-21T08:00, duur 4800 min (10 werkdagen), gat
+ *     {afterMinutes: 1920, gapMinutes: 1440} (1440 min ÷ 480 min/werkdag = 3 WERKDAGEN — Z4-
+ *     fixronde-correctie: een eerdere versie van deze regel beweerde "1 werkdag+2u", een rekenfout
+ *     — spiegelt exact het gedecodeerde `remainingRegularWork`-record met `workMinutes===0`).
+ *     `addWorkMinutes(start, 4800+1440)` (de
+ *     CalendarEngine-primitief die T5/T7 al gebruiken) geeft PRECIES de opgeslagen finish
+ *     (2006-10-09T17:00) — byte-exact, geen afronding nodig.
+ *   - Taak "Split Task 2": start 2006-09-21T08:00, duur 7200 min (15 werkdagen), TWEE gaten
+ *     ({afterMinutes:1440, gapMinutes:960}, {afterMinutes:4800, gapMinutes:1440}). Zelfde formule
+ *     (`addWorkMinutes(start, 7200+960+1440)`) geeft PRECIES de opgeslagen finish (2006-10-18T17:00).
+ *   - Ter vergelijking: de KALENDERMINUTEN-hypothese (het gat als 24/7-wandkloktijd optellen i.p.v.
+ *     als extra werkminuten) geeft voor beide taken een ANDERE, VERKEERDE finish (respectievelijk
+ *     4 en 2 dagen te vroeg in deze meting) — WEERLEGD.
+ *   - "Blijft het voltooide segment staan terwijl restwerk schuift?" — NIET waarneembaar aan dit
+ *     bestand: beide taken staan op 0% voltooid (`percentComplete: 0`, `actualStartTs`/
+ *     `actualFinishTs`: null, `actualRegularWork` decodeert leeg) — er ís geen voltooid segment om
+ *     te meten. Dat is een EERLIJKE meetbeperking, geen aanname: deze vraag hoort expliciet bij Z7
+ *     (die "de splitsende taken in het OzBuild-materiaal" als aanvullend bewijs moet meten, plan-
+ *     §Z7) en wordt hier NIET beantwoord.
+ *
+ * ALGORITME (`deriveSplitGapsFromPeriods`) — poort van MPXJ's `ResourceAssignment.getWorkSplits()`
+ * in eigen woorden: filter EERST alle periodes met `workMinutes === 0` weg (die dragen geen andere
+ * informatie dan "de klok liep door zonder werk" — dat IS precies het gat, geen apart object) en
+ * sorteer de OVERGEBLEVEN (werkende) periodes op `elapsedWorkMinutesStart`; vergelijk dan elk
+ * opeenvolgend PAAR: een STRIKTE discontinuïteit (`volgende.elapsedWorkMinutesStart >
+ * vorige.elapsedWorkMinutesEnd`) is een gat van dat verschil, op offset `vorige.elapsedWorkMinutesEnd`.
+ * Twee AANGRENZENDE werkperiodes (gelijk, geen `>`) leveren GEEN kandidaat. Dit ontwerp poort
+ * MPXJ's "segment met totalAmount==0 is een gat; aangrenzende werksegmenten mergen" letterlijk:
+ * de filter+paarsgewijze-vergelijking MERGET automatisch N opeenvolgende nul-werk-records tot ÉÉN
+ * gat (het paar vóór/ná die hele nul-werk-run) zonder een aparte merge-stap, en de STRIKTE `>`
+ * voorkomt een fantoom-gat van 0 minuten op de naad tussen twee aangrenzende werksegmenten (bv. de
+ * grens tussen een "actual"- en een "remaining"-record die toevallig precies aansluiten) — zie
+ * `check-mpp-import.ts`'s Z4-sectie voor de twee bijbehorende mutatiebewijzen (nul-werk-detectie
+ * weg ⇒ elke discontinuïteit verdwijnt want de nul-periode zelf overbrugt de naad; strikte `>`
+ * vervangen door "altijd pushen" ⇒ fantoom-gat van 0 minuten op elke aangrenzende naad).
+ *
+ * SCOPE (spiegelt Z3's eigen scope-begrenzing, zelfde motivering): alleen `actualRegularWork` +
+ * `remainingRegularWork` voeden de gat-afleiding. NIET `actualOvertimeWork` (overuren gebeuren
+ * PARALLEL aan reguliere uren op dezelfde WERKminuten-as — "extra werk tijdens een gat" zou het
+ * per definitie GEEN gat meer maken, maar dit corpusbestand draagt sowieso geen overurendata om die
+ * interactie te verifiëren; uitgesteld, geen aanname). NIET `actualIrregularWork` (die periodes
+ * dragen ABSOLUTE MPP-instants, geen `elapsedWorkMinutes`-offset — structureel incompatibel met
+ * deze offset-gebaseerde afleiding zonder een kalenderwandeling, die hier expliciet buiten scope is).
+ *
+ * AGGREGATIEREGEL (`deriveTaskSplitGaps`, acceptatiepunt (d)) — DOORSNEDE (intersectie) van de
+ * gat-intervallen over alle toewijzingen van een taak. REFERENTIE-BEVESTIGD (Z4-fixronde, was
+ * eerder "ongeverifieerd" — nu geverifieerd tegen de MPXJ-bron): `Task.java`'s `calculateWorkSplits`
+ * doet `getResourceAssignments().stream().map(ResourceAssignment::getWorkSplits).reduce(this::
+ * reduceWorkSplits)` — d.w.z. MPXJ berekent taakniveau-splits als de VERENIGING van elke toewijzing
+ * se eigen WERK-bereiken (`reduceWorkSplits`/`addWorkSplit`: overlappende of aangrenzende
+ * werkbereiken van verschillende toewijzingen worden gemerged tot één breder bereik). Met De
+ * Morgan is "vereniging van werkbereiken" wiskundig identiek aan "doorsnede van de complementen"
+ * — en de complementen van de werkbereiken ZIJN precies de gaten. Onze eigen motivering (MSP's
+ * Gantt-balk toont "bezig" zodra ÉÉN toegewezen resource werkt; een split hoort alleen te
+ * verschijnen waar ALLE toewijzingen tegelijk stilliggen) is dus niet alleen intuïtief maar de
+ * LETTERLIJKE MPXJ-semantiek, op een detail na: MPXJ werkt op ECHTE kalenderinstants (`LocalDateTime
+ * Range`, met een kalender-bewuste aaneengesloten-check, `calendar.getWork(...) == 0`), deze module
+ * op WERKminuten-offsets zonder kalenderwandeling (zie de moduleheader hierboven) — voor twee
+ * toewijzingen op DEZELFDE taak-as (zie de "TAAK-AS, NIET TOEWIJZINGS-AS"-paragraaf hieronder) zijn
+ * beide vormen equivalent, omdat de kalenderwandeling zelf niet meer nodig is: de intervallen liggen
+ * al in dezelfde eenheid. Een toewijzing ZONDER timephased-data draagt geen signaal en wordt
+ * UITGESLOTEN van de doorsnede (niet als "altijd stil" behandeld — dat zou elders een fantoomgat
+ * forceren); de aanroeper (`mppReader.ts`) geeft daarom alleen toewijzingen door die daadwerkelijk
+ * periodes decodeerden. Bij één toewijzing (de meerderheid, incl. beide corpustaken hierboven) is
+ * dit triviaal identiek aan die ene lijst.
+ *
+ * SAMENVATTINGSTAKEN (Z4-fixronde, punt 4 — gratis geborgd uit de MPXJ-bron): `Task.java`'s
+ * `calculateWorkSplits` begint met `if (getSummary()) return Collections.emptyList();` — "In MS
+ * Project, summary tasks do not show splits" (letterlijke code-commentaar, hier vertaald, niet
+ * gekopieerd). `mppReader.ts`'s koppelcode filtert daarom `task.childIds.length > 0` uit vóórdat ze
+ * `Task.splitGaps` zet — spiegelt exact deze MPXJ-regel, niet een eigen aanname.
+ *
+ * TAAK-AS, NIET TOEWIJZINGS-AS (Z4-fixronde, punt 2+3 — CORRECTIE): een eerdere versie van deze
+ * module concateneerde `actualRegularWork`/`remainingRegularWork` alsof BEIDE tracks, over ALLE
+ * toewijzingen van een taak, op DEZELFDE `elapsedWorkMinutesStart=0` beginnen. Dat is WEERLEGD door
+ * `TimephasedDataFactory.java` (in eigen woorden):
+ *   - `getCompleteWork` (actual): `LocalDateTime calendarPeriodStart = resourceAssignment.getStart()`
+ *     — ALTIJD de toewijzing se EIGEN start, niet de taakstart. Die twee vallen samen zolang een
+ *     toewijzing niet vertraagd is; bij een vertraagde/later-toegevoegde toewijzing NIET.
+ *   - `getPlannedWork` (remaining): `LocalDateTime start = timephasedComplete.isEmpty() ?
+ *     assignment.getStart() : assignment.getResume()` — zónder al verricht werk hetzelfde
+ *     ankerpunt als actual (dus SAMENVALLEND, en precies waarom de VERPLICHTE meetreferentie
+ *     hierboven — 0% voltooid op beide taken — dit gat nooit blootlegde); MÉT al verricht werk
+ *     ankert de REMAINING-track op `assignment.getResume()` — een APART, LATER punt dan waar
+ *     `actualRegularWork` eindigt, dus NIET simpelweg "actual se eigen laatste `elapsedWorkMinutes
+ *     End`" (die twee tellers hebben elk hun EIGEN nulpunt uit de ruwe bytes, en simpelweg
+ *     concateneren telt twee nulpunten op elkaar i.p.v. ze in dezelfde as te zetten).
+ *   `mppReader.ts` (de koppellaag, niet deze pure module) leest daarom `AssignmentField.START`
+ *   (`fieldMap14.ts`'s `AssignmentFieldId.Start`) en `AssignmentField.RESUME` (`...Resume`) — BEIDE
+ *   ECHTE MPP-timestampvelden, geen afleiding — en verschuift (`shiftPeriods` hieronder, PUUR,
+ *   geen kalenderwandeling zelf) de gedecodeerde periodes met de WERKMINUTEN-afstand
+ *   taakstart→ankerdatum (via `CalendarEngine.workMinutesBetween`, ÉÉN keer per toewijzing, in de
+ *   koppellaag — de kalenderwandeling blijft dus daar, deze module blijft calendar-vrij). Ontbreekt
+ *   `AssignmentField.RESUME` in het bestand (MPXJ heeft er zelf geen default-terugval voor, zie
+ *   `fieldMap14.ts`), dan valt `mppReader.ts` terug op een BENADERING (actual se eigen laatste
+ *   `elapsedWorkMinutesEnd`, verschoven) — gedocumenteerd als terugval, niet als de primaire regel.
+ *   Consequentie voor de DOORSNEDE hierboven: nu ALLE toewijzingen van een taak op dezelfde
+ *   TAAK-relatieve as staan, is een cross-toewijzing-vergelijking pas betekenisvol — vóór deze
+ *   correctie kon de doorsnede twee ONVERGELIJKBARE assen naast elkaar leggen.
+ *   UUR-MODUS-ALLEEN (tijdens het testen ontdekt, geen aparte plan-vondst): de kalenderwandeling
+ *   die deze verschuiving uitrekent (`CalendarEngine.workMinutesBetween`) is een zuivere uur-
+ *   modus-primitief — ze GOOIT op een dag-modus-kalender (geen `workTime`). `mppReader.ts` bewaakt
+ *   dat met `engine.isHourMode` (spiegelt hetzelfde patroon dat elders in dat bestand al staat,
+ *   `CPMSolver.ts`'s eigen conventie): DAG-modus-taken krijgen shift 0, byte-identiek t.o.v. vóór
+ *   deze fixronde — geen gegokte dag-granulaire formule zonder corpusmeting.
+ *
+ * ONGEDEELD SAMENVATTINGSRECORD TOONT PER DEFINITIE GEEN GAT (Z4-fixronde, punt 1 — CORRECTIE):
+ * Format B se `blockCount === 0`-geval (zie hierboven) levert ÉÉN record dat het VOLLEDIGE
+ * resterende venster als niet-nul werk claimt (`getPlannedWork`: `if (totalWorkInMinutes != 0.0)`)
+ * — een blok zonder interne verdeling kan per constructie geen gat binnen zichzelf tonen, en het
+ * gebruiken van `referenceFinish` om zo'n record te reconstrueren (zoals een eerdere versie van
+ * `mppReader.ts` deed) overbrugt zo een gat dat WEL in het gedetailleerde (`blockCount>=1`)-pad
+ * zichtbaar zou zijn geweest, met een spuriale KLOKminuten-lengte op de WERKminuten-as. `mppReader
+ * .ts`'s splits-koppelcode geeft daarom BEWUST géén `referenceFinish` mee aan
+ * `decodePlannedRegularTimephasedWork` — `blockCount===0` levert dan `[]` (het gedocumenteerde,
+ * al-bestaande gedrag zónder `referenceFinish`, zie hierboven), in plaats van een record dat een
+ * gat zou kunnen wegpoetsen. Z8 (die WEL de volledige taakdatum nodig heeft, niet alleen gaten) mag
+ * `referenceFinish` wél meegeven — dat is een ANDER gebruik met een ANDERE afweging.
+ *
+ * VONDST VOOR Z8 (mppReader.ts's uid→taak-brug, zie de toelichting daar): een taak ZONDER
+ * toegewezen resource draagt in dit bestand tóch een `TBkndAssn`-record met timephased-data — MSP
+ * gebruikt de assignment-tabel ook als "drager" voor een taak se eigen tijdgefaseerde profiel
+ * wanneer er geen echte resource is (`resourceUid === -65535`, MPXJ's `ASSIGNMENT_NULL_RESOURCE_ID`
+ * -sentinel — zie `mppEntities.ts`'s eigen commentaar bij die sentinel). `readAssignments`
+ * (mppEntities.ts) sluit zulke records BEWUST uit van `ResourceAssignment[]` (geen resource ⇒ geen
+ * toewijzing) — dus een brug die uitsluitend via `ResourceAssignment.id` loopt, mist PRECIES de
+ * twee toewijzingen die `mpp14splittask.mpp` (de VERPLICHTE referentie hierboven) draagt. Z4's
+ * brug in `mppReader.ts` gaat daarom rechtstreeks via `taskId` (niet via `ResourceAssignment.id`) —
+ * zie de toelichting daar. Z8 (die `ResourceAssignment.workWindowStart`/`Finish` moet VULLEN, dus
+ * wél een echt toewijzingsobject nodig heeft) loopt tegen DEZELFDE `-65535`-populatie aan en moet
+ * zelf beslissen hoe ze een venster op een niet-bestaande toewijzing vastlegt (bv. op de taak zelf,
+ * of door een synthetische toewijzing te materialiseren) — dit is hier NIET opgelost, alleen gemeten
+ * en doorgegeven zodat Z8 niet opnieuw hoeft te ontdekken waarom haar brug leeg blijft.
  */
+import type { TaskSplitGap } from '@/types/task';
 import { getShort, getInt, getDouble, getTimestamp } from './mppPrimitives';
 import {
   clampTimephasedRegularRecordCount, clampTimephasedIrregularRecordCount, clampTimephasedPlannedRecordCount,
@@ -330,4 +471,103 @@ export interface AssignmentTimephasedRaw {
 export function hasAnyTimephasedData(raw: AssignmentTimephasedRaw): boolean {
   return raw.actualRegularWork !== null || raw.remainingRegularWork !== null
     || raw.actualOvertimeWork !== null || raw.actualIrregularWork !== null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z4 — splitsegmenten afleiden (zie de "── Z4 ──"-paragraaf in de moduleheader voor de meetstap,
+// het algoritme-ontwerp en de aggregatieregel — dit blok is uitsluitend de implementatie).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Verschuift een periodelijst met een constant aantal WERKminuten (Z4-fixronde, punt 2+3 — zie de
+ * moduleheader se "TAAK-AS, NIET TOEWIJZINGS-AS"-paragraaf). PUUR: verschuift uitsluitend
+ * `elapsedWorkMinutesStart`/`End` (de velden die `deriveSplitGapsFromPeriods` daadwerkelijk
+ * gebruikt); `workMinutes`/`approxStart`/`approxFinish` blijven ONGEWIJZIGD (de laatste twee zijn
+ * toch al een BENADERING vanaf een ander ankerpunt, zie de decoders hierboven — deze functie voegt
+ * daar geen nieuwe garantie aan toe). `shiftMinutes === 0` ⇒ dezelfde array-referentie terug (geen
+ * onnodige kopie — het overgrote deel van de toewijzingen heeft geen assignment-start-offset).
+ */
+export function shiftPeriods(periods: readonly TimephasedWorkPeriod[], shiftMinutes: number): readonly TimephasedWorkPeriod[] {
+  if (shiftMinutes === 0) return periods;
+  return periods.map((p) => ({
+    ...p,
+    elapsedWorkMinutesStart: p.elapsedWorkMinutesStart + shiftMinutes,
+    elapsedWorkMinutesEnd: p.elapsedWorkMinutesEnd + shiftMinutes,
+  }));
+}
+
+/**
+ * Leidt de `TaskSplitGap[]` van ÉÉN toewijzing af uit haar WERKminuten-periodes (typisch de
+ * concatenatie van `decodeRegularTimephasedWork`(actual) + `decodePlannedRegularTimephasedWork`
+ * (remaining) voor diezelfde toewijzing — zie moduleheader voor de scope-begrenzing). Puur, geen
+ * bestandstoegang, geen kalender — precies wat Z4 als "pure afleidingsfunctie" vraagt
+ * (acceptatiepunt 1).
+ *
+ * Algoritme (moduleheader): filter periodes MET werk (`workMinutes !== 0`), sorteer op
+ * `elapsedWorkMinutesStart`, en meld voor elk opeenvolgend paar een gat wanneer er een STRIKTE
+ * discontinuïteit is. `periods` hoeft NIET vooraf gesorteerd te zijn (de sort hieronder is
+ * defensief — de aanroeper concateneert doorgaans twee al-gesorteerde bronnen, maar deze functie
+ * mag daar niet blindelings op vertrouwen).
+ */
+export function deriveSplitGapsFromPeriods(periods: readonly TimephasedWorkPeriod[]): TaskSplitGap[] {
+  // NUL-WERK-DETECTIE (mutatiebewijs `check-mpp-import.ts`'s Z4-sectie, punt 3): alleen periodes
+  // MET werk blijven over. Een periode met `workMinutes === 0` draagt geen extra informatie t.o.v.
+  // het GAT tussen haar buren — ze zelf overbrugt juist de discontinuïteit die anders zichtbaar zou
+  // zijn, dus laat deze filter weg en elk gat verdwijnt (de nul-periode "vult" de naad op).
+  const worked = periods
+    .filter((p) => p.workMinutes !== 0)
+    .slice()
+    .sort((a, b) => a.elapsedWorkMinutesStart - b.elapsedWorkMinutesStart);
+
+  const gaps: TaskSplitGap[] = [];
+  for (let i = 1; i < worked.length; i++) {
+    const prevEnd = worked[i - 1].elapsedWorkMinutesEnd;
+    const nextStart = worked[i].elapsedWorkMinutesStart;
+    // MERGE-CHECK (mutatiebewijs, punt 4): STRIKT `>` — twee AANGRENZENDE werkperiodes
+    // (`nextStart === prevEnd`, bv. de naad tussen een "actual"- en een "remaining"-record die
+    // toevallig precies aansluiten) leveren GEEN kandidaat. Vervang dit door `>=` (of onvoorwaardelijk
+    // pushen) en elke aangrenzende naad levert een fantoom-`TaskSplitGap` van 0 minuten op.
+    if (nextStart > prevEnd) {
+      gaps.push({ afterMinutes: prevEnd, gapMinutes: nextStart - prevEnd });
+    }
+  }
+  return gaps;
+}
+
+/** Eén interval `[start, end)` — lokale hulpvorm voor de doorsnede hieronder, geen publiek type. */
+function intersectGapIntervals(a: readonly TaskSplitGap[], b: readonly TaskSplitGap[]): TaskSplitGap[] {
+  const result: TaskSplitGap[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    const aStart = a[i].afterMinutes;
+    const aEnd = aStart + a[i].gapMinutes;
+    const bStart = b[j].afterMinutes;
+    const bEnd = bStart + b[j].gapMinutes;
+    const start = Math.max(aStart, bStart);
+    const end = Math.min(aEnd, bEnd);
+    if (start < end) result.push({ afterMinutes: start, gapMinutes: end - start });
+    if (aEnd < bEnd) i++; else j++;
+  }
+  return result;
+}
+
+/**
+ * Taakniveau-aggregatie over meerdere toewijzingen van DEZELFDE taak (acceptatiepunt (d)) —
+ * DOORSNEDE van de per-toewijzing gat-intervallen, zie moduleheader voor de volledige motivering
+ * (MSP's Gantt-balk toont "bezig" zodra één toewijzing werkt; een split hoort alleen te
+ * verschijnen waar ALLE toewijzingen tegelijk stilliggen).
+ *
+ * `gapsByAssignment`: één `TaskSplitGap[]` per toewijzing die DAADWERKELIJK timephased-data droeg
+ * (de aanroeper — `mppReader.ts` — sluit toewijzingen zonder enige gedecodeerde periode vooraf uit;
+ * een LEGE lijst hier betekent dus "deze toewijzing had wél data, maar nul gaten" en drukt de
+ * doorsnede terecht naar leeg, in tegenstelling tot "geen data" dat de toewijzing had moeten
+ * uitsluiten — zie moduleheader).
+ */
+export function deriveTaskSplitGaps(gapsByAssignment: readonly (readonly TaskSplitGap[])[]): TaskSplitGap[] {
+  if (gapsByAssignment.length === 0) return [];
+  return gapsByAssignment.slice(1).reduce<TaskSplitGap[]>(
+    (acc, gaps) => intersectGapIntervals(acc, gaps),
+    [...gapsByAssignment[0]],
+  );
 }
