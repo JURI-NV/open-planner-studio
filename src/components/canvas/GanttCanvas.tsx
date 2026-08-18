@@ -5,7 +5,7 @@ import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRender
 import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
-import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, DEFAULT_ZOOM } from '@/utils/ganttViewport';
+import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, computeFocusTaskHorizontal, computeFocusTaskScrollY, DEFAULT_ZOOM } from '@/utils/ganttViewport';
 import { resolveWheelFunction } from '@/utils/ganttWheel';
 import { MiniMap } from './MiniMap';
 import { parseDate, parseInstant } from '@/utils/dateUtils';
@@ -22,7 +22,7 @@ import { RelationTypePopover } from './RelationTypePopover';
 import { HoverTooltip } from './HoverTooltip';
 import { TaskTooltipContent } from './TaskTooltipContent';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
-import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
+import { dateToX as axisDateToX, MS_PER_DAY } from '@/engine/renderer/timeAxis';
 import { useGanttZoom } from '@/hooks/useGanttZoom';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
 import { useSplitter } from '@/hooks/useSplitter';
@@ -105,6 +105,7 @@ export function GanttCanvas() {
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const view = useAppStore(s => s.view);
   const pendingFit = useAppStore(s => s.view.pendingFit);
+  const pendingFocusTaskId = useAppStore(s => s.view.pendingFocusTaskId);
   const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
   const collapsedTaskIds = useAppStore(s => s.ui.collapsedTaskIds);
   const selectTask = useAppStore(s => s.selectTask);
@@ -777,6 +778,48 @@ export function GanttCanvas() {
     st.setViewStartDate(fit.viewStartDate);
     st.setScroll(fit.scrollX, 0);
   }, [pendingFit, tasks, taskTableWidth, enableQuarterHourZoom]);
+
+  // "Spring naar taak" (issue #65): `focusOnTask` (aangeroepen vanuit de WBS-sprongknop bij een
+  // afhankelijkheid) klapt eerst de oudersketen uit en selecteert de taak, en zet dit signaal —
+  // hier, waar de canvas-afmetingen én de al-bijgewerkte `viewRows` bekend zijn, kiezen we het
+  // zoomniveau + de scroll (computeFocusTaskHorizontal/computeFocusTaskScrollY in
+  // ganttViewport.ts) en wissen het signaal. Zelfde start/finish- en hour-mode-conventie als
+  // `revealTaskIfOffscreen` hierboven — bewust een aparte effect, want die functie scrollt alleen
+  // (zoom ongewijzigd, tegen de linkerrand), dit zoomt juist wél en centreert.
+  useEffect(() => {
+    if (!pendingFocusTaskId) return;
+    const clearPendingFocusTask = useAppStore.getState().clearPendingFocusTask;
+    const canvas = canvasRef.current;
+    const task = tasks.find(t => t.id === pendingFocusTaskId);
+    if (!canvas || !task) { clearPendingFocusTask(); return; }
+    const startStr = task.time.earlyStart || task.time.scheduleStart;
+    const endStr = task.time.earlyFinish || task.time.scheduleFinish;
+    if (!startStr || !endStr) { clearPendingFocusTask(); return; }
+
+    const rect = canvas.getBoundingClientRect();
+    const usable = rect.width - taskTableWidth;
+    if (usable <= 0) { clearPendingFocusTask(); return; }
+
+    const st = useAppStore.getState();
+    const evs = parseDate(computeEffectiveViewStart(st.tasks, st.view.viewStartDate));
+    const hourMode = startStr.includes('T') || endStr.includes('T');
+    const start = hourMode ? parseInstant(startStr) : parseDate(startStr);
+    const endRaw = hourMode ? parseInstant(endStr) : parseDate(endStr);
+    const endMs = endRaw.getTime() + (hourMode ? 0 : MS_PER_DAY);
+    const durationDays = (endMs - start.getTime()) / MS_PER_DAY;
+    const midDayOffset = ((start.getTime() + endMs) / 2 - evs.getTime()) / MS_PER_DAY;
+
+    const { zoom, scrollX } = computeFocusTaskHorizontal(durationDays, midDayOffset, usable);
+
+    const rowIndex = viewRows.findIndex(r => r.kind === 'task' && r.task.id === pendingFocusTaskId);
+    const scrollY = rowIndex >= 0
+      ? computeFocusTaskScrollY(rowIndex, rowHeight, headerHeight, rect.height)
+      : st.view.scrollY; // niet gevonden (bv. weggefilterd) — verticaal onaangeroerd
+
+    clearPendingFocusTask();
+    st.setZoom(zoom);
+    st.setScroll(scrollX, scrollY);
+  }, [pendingFocusTaskId, tasks, viewRows, taskTableWidth, rowHeight, headerHeight]);
 
   // Sync horizontal scrollbar with canvas scrollX (also re-sync after zoom changes)
   useEffect(() => {
