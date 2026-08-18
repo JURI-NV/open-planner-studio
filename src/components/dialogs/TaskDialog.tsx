@@ -407,7 +407,11 @@ export function TaskDialog() {
           {editingTask && (
             <>
               <TaskCpmResultSection taskId={editingTask.id} />
-              <TaskDependenciesSection taskId={editingTask.id} />
+              {/* interactive=false (hyperkritische review issue #65): de dialoog kan op elk
+                  tabblad open staan (F2), dus zonder gegarandeerd gemonte GanttCanvas kan het
+                  "spring naar taak"-signaal nooit worden opgepikt — de sprongknop hoort daarom
+                  alleen in het eigenschappenpaneel. */}
+              <TaskDependenciesSection taskId={editingTask.id} interactive={false} />
               <TaskAssignmentsSection taskId={editingTask.id} />
               <TaskCodesFieldsSection taskId={editingTask.id} />
             </>
