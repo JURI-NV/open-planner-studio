@@ -4475,6 +4475,30 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     truthy('[Z4 punt2-bewijs] naïeve concatenatie (geen resume-verschuiving) mist het rustgat', !z4GapsEqual(naiveGapsC, [{ afterMinutes: 480, gapMinutes: 480 }]));
     truthy('[Z4 punt2-bewijs] MET resume-verschuiving verschijnt het echte rustgat', z4GapsEqual(fixedGapsC, [{ afterMinutes: 480, gapMinutes: 480 }]));
   }
+
+  // ── Mini-opdracht A (Z4-her-check, sonnet-z5-leveling): DAG-MODUS-regressiepin voor de
+  // `engine.isHourMode`-guard hierboven (mppReader.ts) — tot nu toe alleen de WARE tak (Z4_CALENDAR,
+  // uur-modus) gedekt; deze case dekt de FALSE-tak. Zelfde toewijzing (taak-B, timephased+START op
+  // een ANDERE dag dan de taakstart) tegen een DAG-MODUS-kalender (geen `workTime`, dus
+  // `CalendarEngine.isHourMode === false`): de guard moet shift 0 opleveren, GEEN exceptie —
+  // mutatiebewijs: de guard weghalen (`engine.isHourMode && ...` → onvoorwaardelijk
+  // `workMinutesBetween(...)`) laat deze case gooien op `Cannot read properties of undefined`
+  // (`calendar.workTime` ontbreekt), want `workMinutesBetween` is een zuivere uur-modus-primitief. ──
+  {
+    const dayModeCalResult: CalendarReadResult = { ...Z4_CAL_RESULT, projectCalendar: { ...Z4_CALENDAR, workTime: undefined } };
+    let threw: string | null = null;
+    let dayModeResult: Map<string, TaskSplitGap[]> | null = null;
+    try {
+      dayModeResult = deriveSplitGapsForTasks(cfb, asgFieldMap, taskIdByUniqueId, tasks, dayModeCalResult);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    truthy(`[Z4-her-check A] dag-modus gooit niet (${threw ?? ''})`, threw === null);
+    truthy(
+      '[Z4-her-check A] dag-modus: taak-B krijgt shift 0 (ONgeschoven gat op 240, niet 720 zoals in de uur-modus-variant)',
+      z4GapsEqual(dayModeResult?.get('task-B') ?? [], [{ afterMinutes: 240, gapMinutes: 240 }]),
+    );
+  }
 }
 
 // ── Acceptatiepunt 2 — mpp14splittask.mpp (MPXJ-crawl, PUBLIEKE naam — plan-§2 staat dat toe)
@@ -4507,6 +4531,231 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
     // niet een lege array) — byte-identiek-precedent (zie mppReader.ts's Z4-koppelcode).
     const others = result.tasks.filter((t) => t !== task1 && t !== task2);
     truthy('[Z4 corpus] geen andere taken in dit bestand (2 taken totaal)', others.length === 0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z5 (etappe "nul afwijkingen") — leveling delay lezen en decoderen: `levelingDelayRaw` (T12/Z2,
+// tienden-van-een-minuut, zie mppReader.ts's Z5-sectie) wordt hier een ECHTE duur
+// (`Task.levelingDelayMinutes`) + elapsed-vlag (`Task.levelingDelayElapsed`, via
+// `LEVELING_DELAY_UNITS`/veld-id 178) — niet langer alleen het `≠0`-detectiesignaal dat T12 al
+// dekt. Synthetische fixture, spiegelt T12's opzet (echte data-gedreven `TASK_FIELD_MAP`), met
+// ÉÉN extra veld: `LevelingDelayUnits`@62 (SHORT, ruimte binnen de bestaande 130-byte
+// FixedData-layout, botst niet met T12's velden). GEEN `Task.levelingDelay` (hele werkdagen) hier
+// getoetst — die blijft in Z5 BEWUST ongezet (zie mppReader.ts's Z5-toelichting: dat veld wordt al
+// ongeclausuleerd door `CPMSolver.forwardPass` toegepast, dus 'm hier vullen zou de fidelity-meting
+// veranderen vóór Z6's motorwerk — acceptatiepunt 4).
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+{
+  function encodeUnicodeStringAscii(s: string): Uint8Array {
+    const out = new Uint8Array(s.length * 2);
+    const view = new DataView(out.buffer);
+    for (let i = 0; i < s.length; i++) view.setUint16(i * 2, s.charCodeAt(i), true);
+    return out;
+  }
+
+  const LEVELING_DELAY_TYPE_VALUE = 20; // TaskField.LEVELING_DELAY (FieldMap14.java)
+  const LEVELING_DELAY_UNITS_TYPE_VALUE = 178; // TaskField.LEVELING_DELAY_UNITS
+  const LEVELING_DELAY_OFFSET = 126; // vrij in de 130-byte FixedData-layout (spiegelt T12)
+  const LEVELING_DELAY_UNITS_OFFSET = 62; // vrij (tussen ConstraintType@56 en Start@64)
+
+  interface Z5TaskSpec {
+    name: string; uniqueId: number; id: number; durationRaw: number;
+    startTime: number; startDays: number; finishTime: number; finishDays: number;
+    levelingDelayRaw?: number; levelingDelayUnits?: number;
+  }
+
+  /** Eén TBkndTask/FixedData-record (130 bytes) — spiegelt `buildT12TaskFixedDataRecord` (T12,
+   *  block-scoped daar, hier lokaal herhaald), plus `LEVELING_DELAY_UNITS`@62. */
+  function buildZ5TaskFixedDataRecord(t: Z5TaskSpec): Uint8Array {
+    const out = new Uint8Array(130);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, t.uniqueId, true);
+    view.setInt32(4, t.id, true);
+    view.setInt16(40, 1, true); // outlineLevel = 1
+    view.setInt32(42, t.durationRaw, true);
+    view.setInt16(46, 7, true); // durationUnits = 7 ("days", WORKTIME — geen elapsed)
+    view.setInt16(56, 0, true); // constraintType = 0 (ASAP)
+    view.setInt16(LEVELING_DELAY_UNITS_OFFSET, t.levelingDelayUnits ?? 7, true); // default: dagen, WORKTIME
+    view.setUint16(64, t.startTime, true);
+    view.setUint16(66, t.startDays, true);
+    view.setUint16(68, t.finishTime, true);
+    view.setUint16(70, t.finishDays, true);
+    view.setInt32(118, -1, true); // geen taak-kalender-override — gebruik de projectkalender
+    view.setInt32(LEVELING_DELAY_OFFSET, t.levelingDelayRaw ?? 0, true);
+    return out;
+  }
+
+  function buildZ5TaskFixedMetaRecord(offsetIntoFixedData: number): Uint8Array {
+    const out = new Uint8Array(47);
+    const view = new DataView(out.buffer);
+    view.setInt32(4, offsetIntoFixedData, true);
+    return out; // geen mijlpalen nodig in deze fixture
+  }
+
+  function buildZ5FixedMetaBlob(items: Uint8Array[]): Uint8Array {
+    const out = new Uint8Array(16 + items.length * 47);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, items.length, true);
+    items.forEach((item, i) => out.set(item, 16 + i * 47));
+    return out;
+  }
+
+  // Enkele band 08:00-16:00, ma-vr, za/zo vrij — dag 15000 = vrijdag (spiegelt T12's testkalender).
+  const Z5_CAL_DAYS = [
+    { defaultFlag: 0 as const }, // zo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // ma
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // di
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // wo
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // do
+    { defaultFlag: 0 as const, bands: [{ startMinutes: 480, durationMinutes: 480 }] }, // vr — dag 15000
+    { defaultFlag: 0 as const }, // za
+  ];
+
+  function buildZ5Fixture(tasks: Z5TaskSpec[]): Uint8Array {
+    const n = tasks.length;
+    const dummy = buildZ5TaskFixedMetaRecord(0);
+    const metas = tasks.map((_t, i) => buildZ5TaskFixedMetaRecord((3 + i) * 130));
+    const fixedMetaBlob = buildZ5FixedMetaBlob([dummy, dummy, dummy, ...metas]);
+
+    const fixedDataBlob = new Uint8Array((3 + n) * 130);
+    tasks.forEach((t, i) => fixedDataBlob.set(buildZ5TaskFixedDataRecord(t), (3 + i) * 130));
+
+    let nameOffset = 0;
+    const varMetaEntries: { uniqueId: number; type: number; offset: number }[] = [];
+    const namePayloads: { offset: number; payload: Uint8Array }[] = [];
+    for (const t of tasks) {
+      varMetaEntries.push({ uniqueId: t.uniqueId, type: TaskFieldId.Name, offset: nameOffset });
+      const payload = encodeUnicodeStringAscii(t.name);
+      namePayloads.push({ offset: nameOffset, payload });
+      nameOffset += 4 + payload.length;
+    }
+    const taskVarMetaBytes = buildVarMetaBytes(varMetaEntries);
+    const taskVar2DataBuf = new Uint8Array(Math.max(nameOffset, 1));
+    const taskVar2View = new DataView(taskVar2DataBuf.buffer);
+    for (const { offset, payload } of namePayloads) {
+      taskVar2View.setInt32(offset, payload.length, true);
+      taskVar2DataBuf.set(payload, offset + 4);
+    }
+
+    const fieldMapBytes = buildFieldMapEntryBytes([
+      { typeValue: TaskFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+      { typeValue: TaskFieldId.Id, dataBlockOffset: 4, category: 3 },
+      { typeValue: TaskFieldId.OutlineLevel, dataBlockOffset: 40, category: 3 },
+      { typeValue: TaskFieldId.ScheduledDuration, dataBlockOffset: 42, category: 3 },
+      { typeValue: TaskFieldId.DurationUnits, dataBlockOffset: 46, category: 3 },
+      { typeValue: TaskFieldId.ConstraintType, dataBlockOffset: 56, category: 3 },
+      { typeValue: LEVELING_DELAY_UNITS_TYPE_VALUE, dataBlockOffset: LEVELING_DELAY_UNITS_OFFSET, category: 3 },
+      { typeValue: TaskFieldId.ScheduledStart, dataBlockOffset: 64, category: 3 },
+      { typeValue: TaskFieldId.ScheduledFinish, dataBlockOffset: 68, category: 3 },
+      { typeValue: TaskFieldId.CalendarUniqueId, dataBlockOffset: 118, category: 3 },
+      { typeValue: LEVELING_DELAY_TYPE_VALUE, dataBlockOffset: LEVELING_DELAY_OFFSET, category: 3 },
+      { typeValue: TaskFieldId.Name, dataBlockOffset: 65535, category: 8 },
+    ]);
+
+    const calendarName = 'Z5 leveling-fixture';
+    const hoursBlock = buildCalHoursBlock(Z5_CAL_DAYS);
+    const calFixedMetaBlob = buildCalFixedMetaBlob([0]);
+    const calFixedDataBlob = buildCalFixedDataRecord(1, 1, -1);
+    const CAL_NAME_OFF = 0, CAL_DATA_OFF = 100;
+    const calVarMetaBytes = buildVarMetaBytes([
+      { uniqueId: 1, type: 1, offset: CAL_NAME_OFF },
+      { uniqueId: 1, type: 8, offset: CAL_DATA_OFF },
+    ]);
+    const calVar2DataBuf = new Uint8Array(700);
+    const calVar2View = new DataView(calVar2DataBuf.buffer);
+    const writeCalVar2 = (offset: number, payload: Uint8Array) => {
+      calVar2View.setInt32(offset, payload.length, true);
+      calVar2DataBuf.set(payload, offset + 4);
+    };
+    writeCalVar2(CAL_NAME_OFF, encodeUnicodeStringAscii(calendarName));
+    writeCalVar2(CAL_DATA_OFF, hoursBlock);
+
+    const projectPropsBytes = encodePropsEntries([
+      { key: 37748738 /* PROJECT_START_DATE */, data: timestampBytes(0, 15000) },
+      { key: 37748739 /* PROJECT_FINISH_DATE */, data: timestampBytes(0, 15010) },
+      { key: 37748744 /* TITLE */, data: encodeUnicodeStringAscii('Z5-fixture') },
+      { key: 37748750 /* DEFAULT_CALENDAR_NAME */, data: encodeUnicodeStringAscii(calendarName) },
+      { key: PROPSKEY_TASK_FIELD_MAP, data: fieldMapBytes },
+    ]);
+
+    const tree: Record<string, CfbTreeNode> = {
+      '\x01CompObj': { data: encodeCompObjFileFormat('MSProject.MPP14') },
+      Props14: { data: encodePropsSingleByteEntry(893386752 /* PASSWORD_FLAG */, 0) },
+      '   114': {
+        children: {
+          Props: { data: projectPropsBytes },
+          TBkndTask: {
+            children: {
+              FixedMeta: { data: fixedMetaBlob },
+              FixedData: { data: fixedDataBlob },
+              VarMeta: { data: taskVarMetaBytes },
+              Var2Data: { data: taskVar2DataBuf },
+            },
+          },
+          TBkndCal: {
+            children: {
+              FixedMeta: { data: calFixedMetaBlob },
+              FixedData: { data: calFixedDataBlob },
+              VarMeta: { data: calVarMetaBytes },
+              Var2Data: { data: calVar2DataBuf },
+            },
+          },
+        },
+      },
+    };
+    return buildNestedCfb(tree);
+  }
+
+  const readZ5 = (bytes: Uint8Array) => {
+    let result: ReturnType<typeof readMPP> | null = null;
+    let threw: string | null = null;
+    try {
+      result = readMPP(bytes);
+    } catch (err) {
+      threw = err instanceof Error ? err.message : String(err);
+    }
+    return { result, threw };
+  };
+
+  // ── Acceptatiepunt 1a — bekende rauwe waarde → verwachte minuten (WORKTIME, geen elapsed-vlag).
+  // 900 tienden-van-een-minuut = 90 minuten (spiegelt `durationMinutes`'s `Math.round(raw/10)`). ──
+  {
+    const { result, threw } = readZ5(buildZ5Fixture([
+      { name: 'Delayed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 900, levelingDelayUnits: 7 /* days, WORKTIME */ },
+    ]));
+    truthy(`[Z5 1a] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    const task = result?.tasks.find((t) => t.name === 'Delayed');
+    truthy('[Z5 1a] taak gevonden', !!task);
+    truthy(`[Z5 1a] levelingDelayMinutes === 90 (kreeg ${task?.levelingDelayMinutes})`, task?.levelingDelayMinutes === 90);
+    truthy('[Z5 1a] levelingDelayElapsed NIET gezet (WORKTIME)', task?.levelingDelayElapsed === undefined);
+    truthy('[Z5 1a] Task.levelingDelay (hele dagen) blijft ONGEZET — Z6-motorwerk, niet Z5', task?.levelingDelay === undefined);
+  }
+
+  // ── Acceptatiepunt 1b — elapsed-variant: `levelingDelayUnits` = 8 (elapsedDays) → de elapsed-vlag
+  // wordt gezet, naast dezelfde minuten-omrekening. ──────────────────────────────────────────────
+  {
+    const { result, threw } = readZ5(buildZ5Fixture([
+      { name: 'DelayedElapsed', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000, levelingDelayRaw: 300, levelingDelayUnits: 8 /* elapsedDays */ },
+    ]));
+    truthy(`[Z5 1b] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    const task = result?.tasks.find((t) => t.name === 'DelayedElapsed');
+    truthy(`[Z5 1b] levelingDelayMinutes === 30 (kreeg ${task?.levelingDelayMinutes})`, task?.levelingDelayMinutes === 30);
+    truthy('[Z5 1b] levelingDelayElapsed === true', task?.levelingDelayElapsed === true);
+  }
+
+  // ── Acceptatiepunt 3 — levelingDelayRaw === 0 ⇒ beide nieuwe velden AFWEZIG (niet `0`/`false`) —
+  // byte-identiek aan vóór Z5. Neemt ook de T12-detectie (`leveled`) mee: die blijft exact gelijk. ──
+  {
+    const { result, threw } = readZ5(buildZ5Fixture([
+      { name: 'Clean', uniqueId: 10, id: 1, durationRaw: 4800, startTime: 4800, startDays: 15000, finishTime: 9600, finishDays: 15000 },
+    ]));
+    truthy(`[Z5 3] readMPP gooit niet (${threw ?? ''})`, threw === null);
+    const task = result?.tasks.find((t) => t.name === 'Clean');
+    truthy('[Z5 3] levelingDelayMinutes AFWEZIG', task?.levelingDelayMinutes === undefined);
+    truthy('[Z5 3] levelingDelayElapsed AFWEZIG', task?.levelingDelayElapsed === undefined);
+    truthy('[Z5 3] GEEN sourceScheduleNotes (T12-detectie ongewijzigd: leveled=0)', result?.sourceScheduleNotes === undefined);
   }
 }
 

@@ -222,6 +222,17 @@
  * al-bestaande gedrag zónder `referenceFinish`, zie hierboven), in plaats van een record dat een
  * gat zou kunnen wegpoetsen. Z8 (die WEL de volledige taakdatum nodig heeft, niet alleen gaten) mag
  * `referenceFinish` wél meegeven — dat is een ANDER gebruik met een ANDERE afweging.
+ * REIKWIJDTE VAN HET MUTATIEBEWIJS (Z4-her-check, verzachting — de vorige versie van deze alinea
+ * suggereerde meer dan bewezen): het mutatiebewijs voor "MET referenceFinish verandert de
+ * gatenlijst" (`check-mpp-import.ts`'s "Vergelijkende bugbewijzen") roept
+ * `decodePlannedRegularTimephasedWork` RECHTSTREEKS aan, met en zonder `referenceFinish` — dat is
+ * DECODER-niveau. Dat `mppReader.ts`'s splits-koppelcode zelf bewust géén `referenceFinish`
+ * doorgeeft is een CALLSITE-ONTWERPKEUZE, geverifieerd door een aparte, POSITIEVE
+ * callsite-integratietest (`[Z4 punt1]`, via `deriveSplitGapsForTasks`) — er is geen aparte
+ * CALLSITE-mutatietest die die koppelcode zelf muteert (bv. terug `referenceFinish` laten
+ * doorgeven) en de volledige `readMPP`/`deriveSplitGapsForTasks`-keten rood laat zien. De
+ * invariant zelf staat dus vast; alleen het NIVEAU van het mutatiebewijs was hierboven te sterk
+ * geformuleerd.
  *
  * VONDST VOOR Z8 (mppReader.ts's uid→taak-brug, zie de toelichting daar): een taak ZONDER
  * toegewezen resource draagt in dit bestand tóch een `TBkndAssn`-record met timephased-data — MSP

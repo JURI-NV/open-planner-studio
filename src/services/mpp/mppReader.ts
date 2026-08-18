@@ -149,7 +149,7 @@ import {
   fixedOffsetOf, fixed2OffsetOf, varDataKeyOf, type FieldMapTable,
 } from './fieldMap14';
 import { readCalendars, promoteCalendarsForHourMode, type CalendarReadResult } from './mppCalendars';
-import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTenths } from './limits';
+import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTenths, clampLevelingDelayTenths } from './limits';
 import { readRelations, readResources, readAssignments, readAssignmentTimephasedRaw } from './mppEntities';
 import {
   decodeRegularTimephasedWork, decodePlannedRegularTimephasedWork,
@@ -681,15 +681,17 @@ export interface RawTaskScan {
    *  ontbreekt in de field map of het record te kort is — Fase C laat `remainingMinutes`/
    *  `remainingTime` dan ongezet (huidig fractioneel-uit-`completion`-gedrag, backwards-compat). */
   remainingDurationRaw: number | null;
-  /** T12 — rauwe LEVELING_DELAY (tienden van een minuut, zelfde eenheid als `durationRaw`; alleen
-   *  ≠ 0 relevant voor de detectie, geen eenheden-decodering nodig). `0` als het veld ontbreekt
-   *  (oude/kapotte field map) — spiegelt de bestaande defaults elders in deze scan. */
+  /** T12 — rauwe LEVELING_DELAY (tienden van een minuut, zelfde eenheid als `durationRaw`), sinds
+   *  Z5 GEKLEMD (`clampLevelingDelayTenths`, limits.ts) omdat het getal nu ook daadwerkelijk als
+   *  duur gedecodeerd wordt (`Task.levelingDelayMinutes`, Fase C) i.p.v. alleen op `≠ 0` getoetst.
+   *  `0` als het veld ontbreekt (oude/kapotte field map) — spiegelt de bestaande defaults elders in
+   *  deze scan. */
   levelingDelayRaw: number;
   /** Z2 — eenheid/elapsed-vlag-RUW (SHORT, veld-id 178, `TaskFieldId.LevelingDelayUnits`) bij
-   *  `levelingDelayRaw` hierboven. Bewust NOG NIET gedecodeerd tot een boolean/eenheid (spiegelt
-   *  `durationUnitsRaw`'s eigen rauwe tussenvorm vóór `isElapsedDuration`) — deze taak leest en
-   *  bewaart uitsluitend; de decodering is Z5-werk. `null` als het veld ontbreekt in de field map
-   *  of het record te kort is. */
+   *  `levelingDelayRaw` hierboven. Z5 decodeert dit in Fase C tot `Task.levelingDelayElapsed`
+   *  (spiegelt `durationUnitsRaw` → `isElapsedDuration` hierboven exact, alleen toegepast op het
+   *  LEVELING_DELAY-veldpaar). `null` als het veld ontbreekt in de field map of het record te kort
+   *  is — Fase C laat `levelingDelayElapsed` dan ongezet (WORKTIME-default, byte-identiek). */
   levelingDelayUnits: number | null;
   /** Z2 — TASK_MODE (Fixed2Meta-bit, zie `taskModeBitFlag`): MANUALLY_SCHEDULED vs. AUTO_SCHEDULED.
    *  `'AUTO_SCHEDULED'` als het `Fixed2Meta`-record ontbreekt/te kort is óf de stream niet
@@ -860,10 +862,11 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       ? clampRemainingDurationTenths(getInt(data, remainingDurationOffset, 'TBkndTask remainingDuration'))
       : null;
 
-    // T12: LEVELING_DELAY — zelfde INT-vorm als SCHEDULED_DURATION (tienden van een minuut), alleen
-    // de ≠0-vraag is relevant hier, dus geen eenheden-decodering nodig (zie de moduleheader).
+    // T12: LEVELING_DELAY — zelfde INT-vorm als SCHEDULED_DURATION (tienden van een minuut). Z5:
+    // GEKLEMD (`clampLevelingDelayTenths`, limits.ts) — zie die klem se meetcommentaar voor het
+    // waarom (spiegelt `clampRemainingDurationTenths`/`clampManualDurationTenths` op hun buurvelden).
     const levelingDelayRaw = levelingDelayOffset !== null && data.length >= levelingDelayOffset + 4
-      ? getInt(data, levelingDelayOffset, 'TBkndTask levelingDelay')
+      ? clampLevelingDelayTenths(getInt(data, levelingDelayOffset, 'TBkndTask levelingDelay'))
       : 0;
     // Z2: LEVELING_DELAY_UNITS — rauw bewaard, decodering is Z5-werk (zie RawTaskScan se toelichting).
     const levelingDelayUnits = levelingDelayUnitsOffset !== null && data.length >= levelingDelayUnitsOffset + 2
@@ -1089,6 +1092,31 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       ? deriveMilestoneKind(cal, milestoneAnchor)
       : undefined;
 
+    // Z5 (etappe "nul afwijkingen"): LEVELING_DELAY wordt hier een ECHTE duur — niet langer alleen
+    // het `≠0`-detectiesignaal hierboven (`leveled`). Hergebruikt het bestaande `durationRaw`-pad
+    // ("tienden van een minuut", zelfde `Math.round(raw/10)`-omrekening als `durationMinutes`
+    // hierboven) — MPPUtility.getDuration draagt letterlijk "Value is given in 1/10 of minute"; de
+    // "tienduizendsten van een minuut"-hypothese uit de vorige planronde is daarmee WEERLEGD (zie
+    // Z5 in het nul-afwijkingen-plan, met MPXJ's eigen bron als bewijs — geen tweede conversie
+    // verzonnen). `levelingDelayUnits` (LEVELING_DELAY_UNITS, veld-id 178) levert de elapsed-vlag
+    // via dezelfde `getDurationTimeUnits`/`isElapsedDuration`-conventie als `durationUnitsRaw`
+    // hierboven (T10).
+    //
+    // AANWEZIG ⇒ bron van waarheid (`Task.levelingDelayMinutes`' Z0-precedent, spiegelt
+    // `durationMinutes`); AFWEZIG (raw===0) ⇒ GEEN van beide velden gezet — byte-identiek aan vóór
+    // Z5 (acceptatiepunt 3). Het BESTAANDE `Task.levelingDelay` (hele werkdagen, gezet door de
+    // nivelleerder, fase 2.5) blijft hier BEWUST ONGEMOEID: `CPMSolver.forwardPass` past dat veld
+    // al ONGECLAUSULEERD toe (`if (task.levelingDelay) earlyStart = cal.addWorkingDaysSigned(...)`),
+    // dus 'm hier ook vullen zou de fidelity-meting VERANDEREN vóórdat Z6 er de uur-precisie- en
+    // backward-spiegel bij heeft — expliciet verboden door Z5-acceptatiepunt 4 ("fidelity
+    // ongewijzigd, toepassing is Z6-werk: de motorkant"). Z6 is de motorkant die
+    // `levelingDelayMinutes`/`levelingDelayElapsed` daadwerkelijk gaat toepassen.
+    const levelingDelayMinutes = raw.levelingDelayRaw !== 0
+      ? Math.round(raw.levelingDelayRaw / 10)
+      : undefined;
+    const levelingDelayElapsed = raw.levelingDelayRaw !== 0 && raw.levelingDelayUnits !== null
+      && getDurationTimeUnits(raw.levelingDelayUnits).startsWith('elapsed');
+
     const task: Task = {
       id: generateId('task'),
       name: raw.name,
@@ -1124,6 +1152,8 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       ...(constraint ? { constraint } : {}),
       ...(deadline ? { deadline } : {}),
       ...(raw.calendarOverride ? { calendarId: raw.calendarOverride.id } : {}),
+      ...(levelingDelayMinutes != null ? { levelingDelayMinutes } : {}),
+      ...(levelingDelayElapsed ? { levelingDelayElapsed } : {}),
     };
     records.push({ uniqueId: raw.uniqueId, id: raw.id, outlineLevel: raw.outlineLevel, storedWbs: raw.storedWbs, task });
     taskIdByUniqueId.set(raw.uniqueId, task.id);
