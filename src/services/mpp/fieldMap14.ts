@@ -54,6 +54,18 @@
  * `ActualIrregularWork`, zie hun eigen toelichting hieronder) die `mppTimephased.ts`/
  * `mppEntities.ts` nodig hebben — geen `mapMpp14`-override-zorg hier (ze zijn altijd VAR_DATA,
  * geen FIXED_DATA-offset-vertaling van toepassing).
+ *
+ * Z4-fixronde (etappe "nul afwijkingen"): `AssignmentFieldId.Start`/`Resume` toegevoegd
+ * (`ResourceAssignment.java`/`TimephasedDataFactory.getPlannedWork`: `getCompleteWork` ankert
+ * ALTIJD op `resourceAssignment.getStart()`, `getPlannedWork` ankert op `assignment.getStart()`
+ * ZONDER complete work, op `assignment.getResume()` MET complete work) — `mppReader.ts` heeft ze
+ * nodig om timephased-periodes van de ASSIGNMENT-as naar de TAAK-as te verschuiven (zie
+ * `mppTimephased.ts`'s moduleheader). `Start` (id 20) heeft een `mapMpp14`-vrije default in
+ * `FieldMap14.java` (`new FieldItem(AssignmentField.START, FIXED_DATA, 0, 12, 20, 0, 0)`) — hier
+ * overgenomen in `DEFAULT_ASSIGNMENT_FIELDS`. `Resume` (id 24) heeft GEEN default-entry in de
+ * Java-bron (MPXJ's `getDefaultAssignmentData()` bevat 'm niet) — dus ook hier bewust GEEN
+ * hardcoded terugval: `fixedOffsetOf` levert `null` tenzij het BESTAND zelf een field-map-entry
+ * voor id 24 draagt (het bestaande "aanwezig ⇒ data-gedreven"-contract, ongewijzigd toegepast).
  */
 import { getInt, getShort } from './mppPrimitives';
 import type { Props } from './mppContainer';
@@ -297,6 +309,13 @@ export const AssignmentFieldId = {
   TaskUniqueId: 1,
   ResourceUniqueId: 2,
   Units: 7,
+  /** Z4-fixronde — `AssignmentField.START` (`ResourceAssignmentFactory`/`FieldMap14.java`, blok 0
+   *  offset 12). Ankerpunt van `getCompleteWork`/de gatenloze tak van `getPlannedWork` (zie de
+   *  moduleheader). Heeft een hardcoded default (hieronder in `DEFAULT_ASSIGNMENT_FIELDS`). */
+  Start: 20,
+  /** Z4-fixronde — `AssignmentField.RESUME` (id 24). GEEN default-entry in de Java-bron (zie de
+   *  moduleheader) — bewust GEEN vermelding in `DEFAULT_ASSIGNMENT_FIELDS` hieronder. */
+  Resume: 24,
   /** Z3 (etappe "nul afwijkingen") — timephased-categorieën, alle vier VAR_DATA (geen vaste
    *  offset: `FieldMap14.java`'s `FieldLocation.VAR_DATA, block 0, dataBlockOffset 65535`).
    *  Scope-begrenzing (plan-Z3, §"Scope-begrenzing"): UITSLUITEND deze vier — niet de 11
@@ -327,6 +346,7 @@ export const DEFAULT_ASSIGNMENT_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [AssignmentFieldId.TaskUniqueId]: { location: 'fixed', fixedOffset: 4 },
   [AssignmentFieldId.ResourceUniqueId]: { location: 'fixed', fixedOffset: 8 },
   [AssignmentFieldId.Units]: { location: 'fixed', fixedOffset: 46 },
+  [AssignmentFieldId.Start]: { location: 'fixed', fixedOffset: 12 },
   [AssignmentFieldId.RemainingRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.RemainingRegularWork },
   [AssignmentFieldId.ActualRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualRegularWork },
   [AssignmentFieldId.ActualOvertimeWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualOvertimeWork },

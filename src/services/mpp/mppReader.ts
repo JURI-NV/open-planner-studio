@@ -153,7 +153,7 @@ import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTe
 import { readRelations, readResources, readAssignments, readAssignmentTimephasedRaw } from './mppEntities';
 import {
   decodeRegularTimephasedWork, decodePlannedRegularTimephasedWork,
-  deriveSplitGapsFromPeriods, deriveTaskSplitGaps,
+  deriveSplitGapsFromPeriods, deriveTaskSplitGaps, shiftPeriods,
 } from './mppTimephased';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -1242,9 +1242,13 @@ export function openMppProject(bytes: Uint8Array): OpenMppProject {
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak. Het AFLEIDEN van
 // `TaskSplitGap[]` uit periodes is `mppTimephased.ts`'s werk (`deriveSplitGapsFromPeriods`/
-// `deriveTaskSplitGaps` — zie diens moduleheader voor de meetstap/het algoritme/de
-// aggregatieregel); hier gebeurt uitsluitend de KOPPELING: welke RUWE `TBkndAssn`-uniqueId
-// (Z3's `readAssignmentTimephasedRaw`-sleutel) hoort bij welke `Task`.
+// `deriveTaskSplitGaps`/`shiftPeriods` — zie diens moduleheader voor de meetstap/het algoritme/de
+// aggregatieregel/de taak-as-correctie); hier gebeurt de KOPPELING (welke RUWE `TBkndAssn`-
+// uniqueId — Z3's `readAssignmentTimephasedRaw`-sleutel — hoort bij welke `Task`, met welk
+// ankerpunt) én de ENIGE kalenderwandeling die Z4 nodig heeft (assignment-start/resume →
+// taak-relatieve werkminuten, via `CalendarEngine.workMinutesBetween` — zie mppTimephased.ts's
+// "TAAK-AS, NIET TOEWIJZINGS-AS"-paragraaf voor waarom die wandeling HIER hoort en niet in de
+// calendar-vrije decoder-module).
 //
 // UID→TAAK, NIET UID→`ResourceAssignment.id` (bewuste afwijking van het oorspronkelijk
 // voorgestelde aansluitpunt in `mppTimephased.ts`'s Z3-moduleheader — zie de "VONDST VOOR Z8"-
@@ -1254,8 +1258,17 @@ export function openMppProject(bytes: Uint8Array): OpenMppProject {
 // meetreferentie `mpp14splittask.mpp` draagt PRECIES zulke records (beide taken zijn onbemand,
 // `readAssignments` geeft `[]` voor dit bestand). Een brug die matcht tegen `ResourceAssignment[]`
 // zou dus voor de verplichte referentie zelf leeg blijven. Deze functie leest daarom RECHTSTREEKS
-// uid→taskUid uit `TBkndAssn/FixedMeta`+`FixedData` (negeert `resourceUid` volledig — Z4 hoeft
-// alleen te weten BIJ WELKE TAAK een set periodes hoort, niet via welke resource).
+// taskUid/start/resume uit `TBkndAssn/FixedMeta`+`FixedData` (negeert `resourceUid` volledig — Z4
+// hoeft alleen te weten BIJ WELKE TAAK een set periodes hoort, niet via welke resource).
+//
+// ASYMMETRIE t.o.v. `readAssignmentsUnsafe` (Z4-fixronde, punt 5 — bewust, niet vergeten): die
+// functie toetst óók `varMeta.containsKey(uid)` (spiegelt `assnVarMeta.getUniqueIdentifierSet()
+// .contains(varDataId)`) vóórdat ze een record accepteert; deze brug opent VarMeta niet en doet
+// die toets dus NIET. Onschadelijk: de AANROEPER (`deriveSplitGapsForTasksUnsafe` hieronder)
+// itereert over `readAssignmentTimephasedRaw`'s uid-sleutels — die komen ZELF al uit VarMeta se
+// eigen `getUniqueIdentifierArray()` (Z3) — en zoekt vervolgens in DEZE brug op; een extra uid die
+// deze brug WEL bevat maar readAssignmentTimephasedRaw niet, wordt simpelweg nooit opgevraagd. Een
+// bredere (superset-)brug is hier dus geen correctheidsrisico, alleen een niet-herhaalde toets.
 //
 // BEWUST EEN DERDE, ONAFHANKELIJKE LUS over hetzelfde `TBkndAssn`-storage (spiegelt Z1/Z3's
 // precedent — zie hun eigen moduleheaders voor dezelfde motivering): `readAssignmentsUnsafe`
@@ -1268,26 +1281,37 @@ export function openMppProject(bytes: Uint8Array): OpenMppProject {
 const Z4_ASSIGNMENT_FIXED_META_ITEM_SIZE = 34;
 const Z4_ASSIGNMENT_FIXED_DATA_ITEM_SIZE = 110;
 
+/** Eén `TBkndAssn`-record se koppelinformatie: bij welke taak hoort ze, en (optioneel) haar EIGEN
+ *  `AssignmentField.START`/`RESUME` — de twee ankerpunten die `TimephasedDataFactory.java` gebruikt
+ *  (zie mppTimephased.ts's moduleheader). `null` ⇒ het veld staat niet in dit bestand se field map,
+ *  óf het record is te kort voor die offset — de aanroeper valt dan terug op taakstart (shift 0),
+ *  spiegelt MPXJ's eigen `calculateStart()`-terugval (`ResourceAssignment.java`). */
+interface AssignmentUidLink {
+  taskId: string;
+  assignmentStart: Date | null;
+  assignmentResume: Date | null;
+}
+
 /** Geëxporteerd, zelfde testbaarheidsreden als `readAssignments`/`readAssignmentTimephasedRaw`
  *  (mppEntities.ts): `check-mpp-import.ts`'s Z4-sectie roept 'm rechtstreeks aan met een kleine
  *  synthetische `TBkndAssn`-fixture i.p.v. via de volledige `readMPP`. */
-export function buildAssignmentUidToTaskId(
+export function buildAssignmentUidLinks(
   cfb: CfbFile,
   assignmentFieldMap: FieldMapTable,
   taskIdByUniqueId: ReadonlyMap<number, string>,
-): Map<number, string> {
+): Map<number, AssignmentUidLink> {
   try {
-    return buildAssignmentUidToTaskIdUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId);
+    return buildAssignmentUidLinksUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId);
   } catch {
     return new Map();
   }
 }
 
-function buildAssignmentUidToTaskIdUnsafe(
+function buildAssignmentUidLinksUnsafe(
   cfb: CfbFile,
   assignmentFieldMap: FieldMapTable,
   taskIdByUniqueId: ReadonlyMap<number, string>,
-): Map<number, string> {
+): Map<number, AssignmentUidLink> {
   const label = '"   114"/TBkndAssn';
   const fixedMetaBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedMeta']);
   const fixedDataBytes = cfb.getStream(['   114', 'TBkndAssn', 'FixedData']);
@@ -1299,8 +1323,13 @@ function buildAssignmentUidToTaskIdUnsafe(
   const uniqueIdOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.UniqueId);
   const taskUidOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.TaskUniqueId);
   if (uniqueIdOffset === null || taskUidOffset === null) return new Map();
+  // Start/Resume: OPTIONEEL — een bestand zonder deze veldmap-entries levert overal `null` (shift
+  // 0, byte-identiek t.o.v. vóór de Z4-fixronde). `null`-offset i.p.v. een geklemde 0 (I3-precedent
+  // elders in dit bestand: aanwezig ⇒ uitsluitend data-gedreven, geen stille default-offset).
+  const startOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Start);
+  const resumeOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Resume);
 
-  const result = new Map<number, string>();
+  const result = new Map<number, AssignmentUidLink>();
   // GEKLEMD via FixedMeta.getItemCount() — zelfde primitief (en dezelfde al-bestaande hardening,
   // I1) als readAssignmentsUnsafe hierboven gebruikt voor hetzelfde storage.
   const itemCount = fixedMeta.getItemCount();
@@ -1316,73 +1345,146 @@ function buildAssignmentUidToTaskIdUnsafe(
     const uid = getInt(data, uniqueIdOffset, `${label}/FixedData uniqueId`);
     const taskUid = getInt(data, taskUidOffset, `${label}/FixedData taskUid`);
     const taskId = taskIdByUniqueId.get(taskUid);
-    if (taskId) result.set(uid, taskId); // onvindbare taak ⇒ overslaan, spiegelt readAssignmentsUnsafe
+    if (!taskId) continue; // onvindbare taak ⇒ overslaan, spiegelt readAssignmentsUnsafe
+    // Per-veld-grens (NIET alleen `data.length`, ook `offset >= 0`): een corrupt/vijandig
+    // field-map-record kan een NEGATIEVE offset claimen, waar `data.length >= offset + 4` triviaal
+    // waar is — `getTimestamp`/`getShort` zouden dat pas intern vangen (en de hele functie via de
+    // buitenste try/catch laten mislukken, dus ALLE al-verzamelde links weggooien). Deze klem
+    // voorkomt dat: één corrupt Start/Resume-veld kost hoogstens die twee velden, nooit de rest.
+    const assignmentStart = startOffset !== null && startOffset >= 0 && data.length >= startOffset + 4
+      ? getTimestamp(data, startOffset, `${label}/FixedData start`)
+      : null;
+    const assignmentResume = resumeOffset !== null && resumeOffset >= 0 && data.length >= resumeOffset + 4
+      ? getTimestamp(data, resumeOffset, `${label}/FixedData resume`)
+      : null;
+    result.set(uid, { taskId, assignmentStart, assignmentResume });
   }
   return result;
 }
 
-/** Decodeert + leidt `TaskSplitGap[]` per taak af — de volledige Z4-ketting: `readAssignmentTimephasedRaw`
- *  (Z3) → uid→taskId (hierboven) → per-toewijzing decodering (`decodeRegularTimephasedWork`/
- *  `decodePlannedRegularTimephasedWork`) → per-toewijzing afleiding (`deriveSplitGapsFromPeriods`)
- *  → taakniveau-aggregatie (`deriveTaskSplitGaps`). ALTIJD-vangende wrapper (spiegelt het
- *  `readXUnsafe`-precedent): een corrupt/onverwacht bestand mag `readMPP` niet laten falen — taken
- *  zijn dan al gelezen en blijven bruikbaar, alleen zonder splitsegmenten. */
-function deriveSplitGapsForTasks(
-  cfb: CfbFile,
-  assignmentFieldMap: FieldMapTable,
-  taskIdByUniqueId: ReadonlyMap<number, string>,
-  tasks: readonly Task[],
-): Map<string, TaskSplitGap[]> {
-  try {
-    return deriveSplitGapsForTasksUnsafe(cfb, assignmentFieldMap, taskIdByUniqueId, tasks);
-  } catch {
-    return new Map();
-  }
+/** Kalender voor `task`'s EIGEN veld/kalender-override (spiegelt `readTasks`'s Fase-C `effCal`-
+ *  keuze, hier ná afloop opnieuw opgezocht via `Task.calendarId` — `calResult.resourceCalendars`
+ *  bevat "alle overige kalenders" per haar eigen docblok, dus ELKE task-kalender-override zit
+ *  daarin, niet uitsluitend resource-eigen kalenders). Terugval: de projectkalender. */
+function taskCalendar(task: Task, calResult: CalendarReadResult): WorkCalendar {
+  if (!task.calendarId || task.calendarId === calResult.projectCalendar.id) return calResult.projectCalendar;
+  return calResult.resourceCalendars.find((c) => c.id === task.calendarId) ?? calResult.projectCalendar;
 }
 
-function deriveSplitGapsForTasksUnsafe(
+/** Decodeert + leidt `TaskSplitGap[]` per taak af — de volledige Z4-ketting:
+ *  `readAssignmentTimephasedRaw` (Z3) → uid→taak-koppeling + ankerdatums (hierboven) →
+ *  per-toewijzing decodering (`decodeRegularTimephasedWork`/`decodePlannedRegularTimephasedWork`,
+ *  ZONDER `referenceFinish` — Z4-fixronde punt 1, zie mppTimephased.ts) → verschuiving naar de
+ *  TAAK-as (`shiftPeriods`, Z4-fixronde punt 2+3) → per-toewijzing afleiding
+ *  (`deriveSplitGapsFromPeriods`) → taakniveau-aggregatie (`deriveTaskSplitGaps`, filtert
+ *  samenvattingstaken — Z4-fixronde punt 4).
+ *
+ *  GEEN try/catch-wrapper (Z4-fixronde, punt 6 — §8 eist een geteste catch of géén catch): elke
+ *  sub-aanroep hierin is zelf al vangend (`readAssignmentTimephasedRaw`, `buildAssignmentUidLinks`)
+ *  óf aantoonbaar niet-werpend (`CalendarEngine.ts` bevat GEEN enkele `throw`-instructie, geverifieerd
+ *  via een volledige grep — de pure `deriveSplitGapsFromPeriods`/`deriveTaskSplitGaps`/`shiftPeriods`
+ *  werpen evenmin). Dit is GEEN ongeteste aanname: het testen van deze functie legde WEL een echte
+ *  crash bloot (`workMinutesBetween` op een dag-modus-testkalender — zie de `isHourMode`-guard
+ *  hieronder), die is OPGELOST bij de bron (de guard) in plaats van weggewerkt achter een catch —
+ *  spiegelt de rest van dit bestand, dat crashes structureel voorkomt, niet opvangt en verstopt. Een
+ *  ongeteste catch is een stille faalmodus (§8) — geen catch toevoegen die haar eigen bestaansrecht
+ *  niet kan bewijzen.
+ *
+ *  Geëxporteerd, zelfde testbaarheidsreden als `buildAssignmentUidLinks`: `check-mpp-import.ts`'s
+ *  Z4-fixronde-sectie roept 'm rechtstreeks aan met hand-gebouwde `Task[]` (geen synthetische
+ *  TBkndTask nodig — `tasks` is een gewoon argument, geen CFB-gelezen waarde). */
+export function deriveSplitGapsForTasks(
   cfb: CfbFile,
   assignmentFieldMap: FieldMapTable,
   taskIdByUniqueId: ReadonlyMap<number, string>,
   tasks: readonly Task[],
+  calResult: CalendarReadResult,
 ): Map<string, TaskSplitGap[]> {
   const rawByUid = readAssignmentTimephasedRaw(cfb, assignmentFieldMap); // Z3, zelf al try/catch-veilig
   if (rawByUid.size === 0) return new Map();
 
-  const taskIdByAssignmentUid = buildAssignmentUidToTaskId(cfb, assignmentFieldMap, taskIdByUniqueId);
-  if (taskIdByAssignmentUid.size === 0) return new Map();
+  const linkByUid = buildAssignmentUidLinks(cfb, assignmentFieldMap, taskIdByUniqueId);
+  if (linkByUid.size === 0) return new Map();
 
   const taskById = new Map(tasks.map((t) => [t.id, t] as const));
   // Per taak: één TaskSplitGap[]-item PER toewijzing die daadwerkelijk periodes decodeerde — de
   // vorm die `deriveTaskSplitGaps` als invoer verwacht (zie mppTimephased.ts's moduleheader: een
   // toewijzing ZONDER data wordt hier uitgesloten, niet als "altijd stil" meegeteld).
   const gapsByAssignmentPerTask = new Map<string, TaskSplitGap[][]>();
+  // Lokale cache (GEEN module-level singleton — hardening-checklist): meerdere toewijzingen op
+  // dezelfde taak(kalender) hoeven niet elk hun eigen `CalendarEngine` te bouwen.
+  const engineByCalendarId = new Map<string, CalendarEngine>();
+  const engineFor = (cal: WorkCalendar): CalendarEngine => {
+    let engine = engineByCalendarId.get(cal.id);
+    if (!engine) {
+      engine = new CalendarEngine(cal);
+      engineByCalendarId.set(cal.id, engine);
+    }
+    return engine;
+  };
 
   for (const [uid, raw] of rawByUid) {
-    const taskId = taskIdByAssignmentUid.get(uid);
-    if (!taskId) continue;
-    const task = taskById.get(taskId);
+    const link = linkByUid.get(uid);
+    if (!link) continue;
+    const task = taskById.get(link.taskId);
     if (!task?.time?.scheduleStart) continue;
+    // Z4-fixronde punt 4: MPXJ toont nooit splits op een samenvattingstaak
+    // (`Task.calculateWorkSplits`: `if (getSummary()) return emptyList()`) — spiegelt dat exact.
+    if (task.childIds.length > 0) continue;
 
-    // `referenceStart`/`referenceFinish` voeden uitsluitend de decoder se (voor Z4 ONGEBRUIKTE)
-    // `approxStart`/`approxFinish`-velden en `decodePlannedRegularTimephasedWork`'s blockCount===0-
-    // speciale geval — de afgeleide `afterMinutes`/`gapMinutes` zijn WERKminuten-offsets en
-    // onafhankelijk van welk instant hier gekozen wordt (zie mppTimephased.ts's moduleheader-meting).
-    const referenceStart = parseInstant(task.time.scheduleStart);
-    const referenceFinish = task.time.scheduleFinish ? parseInstant(task.time.scheduleFinish) : undefined;
+    const taskStart = parseInstant(task.time.scheduleStart);
+    const engine = engineFor(taskCalendar(task, calResult));
 
-    const actualPeriods = raw.actualRegularWork
-      ? decodeRegularTimephasedWork(raw.actualRegularWork, referenceStart)
+    // Z4-fixronde punt 3: BEIDE decoders ankeren op de TOEWIJZING se eigen `AssignmentField.START`
+    // (`getCompleteWork` altijd; `getPlannedWork` zónder al verricht werk) — NIET op taakstart.
+    // Verschuiving = werkminuten-afstand taakstart→assignmentStart (0 als het veld ontbreekt of
+    // samenvalt — spiegelt MPXJ's `calculateStart()`-terugval naar `task.getStart()`).
+    //
+    // `engine.isHourMode`-guard (Z4-fixronde-BEVINDING, tijdens het testen ontdekt):
+    // `workMinutesBetween` is een ZUIVERE uur-modus-primitief — ze dereferentieert
+    // `calendar.workTime!`/`this.bandCache` onvoorwaardelijk en GOOIT op een dag-modus-kalender
+    // (geen `workTime`). Zelfde guard staat al elders in dit bestand (`scheduleNoteSpanGt` hierboven,
+    // met dezelfde `CPMSolver.ts`-verwijzing) — spiegelt dat patroon exact i.p.v. zelf dag-modus-
+    // vensterrekenwerk uit te vinden. DAG-modus-taken krijgen dus shift 0 (byte-identiek t.o.v. vóór
+    // deze fixronde) — geen gegokte dag-granulaire formule zonder corpusmeting.
+    const assignmentStartShift = engine.isHourMode && link.assignmentStart
+      ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentStart))
+      : 0;
+
+    // Referentie-instant voor de decoder se (voor Z4 ONGEBRUIKTE) `approxStart`/`approxFinish`-
+    // velden — betekenisloos voor de WERKminuten-afgeleide `afterMinutes`/`gapMinutes` zelf, zie
+    // mppTimephased.ts's moduleheader-meting. GEEN `referenceFinish` (Z4-fixronde punt 1): een
+    // ongedeeld `blockCount===0`-samenvattingsrecord kan per definitie geen gat tonen, en zou hier
+    // met een klokminuten-lengte op de werkminuten-as een écht gat kunnen overbruggen.
+    const actualPeriodsRaw = raw.actualRegularWork
+      ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart)
       : [];
-    const remainingPeriods = raw.remainingRegularWork
-      ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, referenceStart, referenceFinish)
+    const remainingPeriodsRaw = raw.remainingRegularWork
+      ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart)
       : [];
-    if (actualPeriods.length === 0 && remainingPeriods.length === 0) continue; // geen data ⇒ uitsluiten (zie hierboven)
+    if (actualPeriodsRaw.length === 0 && remainingPeriodsRaw.length === 0) continue; // geen data ⇒ uitsluiten (zie hierboven)
+
+    const actualPeriods = shiftPeriods(actualPeriodsRaw, assignmentStartShift);
+
+    // Z4-fixronde punt 2: de REMAINING-track ankert op `assignment.getResume()` ZODRA er al
+    // complete work is (`getPlannedWork`: `timephasedComplete.isEmpty() ? getStart() : getResume()`)
+    // — een APART, LATER punt dan waar `actualRegularWork` eindigt. Voorkeur: het ECHTE RESUME-veld
+    // (indien het bestand het draagt); zonder dat veld valt terug op de benadering "taakstart-
+    // verschoven actual se eigen laatste `elapsedWorkMinutesEnd`" (gedocumenteerde terugval, geen
+    // MPXJ-garantie — `AssignmentField.RESUME` heeft immers geen `mapMpp14`-default, zie
+    // fieldMap14.ts, dus niet elk bestand draagt het).
+    let remainingShift = assignmentStartShift;
+    if (actualPeriods.length > 0) {
+      remainingShift = engine.isHourMode && link.assignmentResume
+        ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentResume))
+        : Math.max(...actualPeriods.map((p) => p.elapsedWorkMinutesEnd));
+    }
+    const remainingPeriods = shiftPeriods(remainingPeriodsRaw, remainingShift);
 
     const gaps = deriveSplitGapsFromPeriods([...actualPeriods, ...remainingPeriods]);
-    const list = gapsByAssignmentPerTask.get(taskId) ?? [];
+    const list = gapsByAssignmentPerTask.get(link.taskId) ?? [];
     list.push(gaps);
-    gapsByAssignmentPerTask.set(taskId, list);
+    gapsByAssignmentPerTask.set(link.taskId, list);
   }
 
   const result = new Map<string, TaskSplitGap[]>();
@@ -1436,7 +1538,7 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   // Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak (zie de functies hierboven
   // en mppTimephased.ts's moduleheader voor de volledige afleiding). Nog GEEN gedragswijziging aan
   // datums: geen solver-stap raadpleegt `Task.splitGaps` in deze etappe-fase (dat is Z7).
-  const splitGapsByTaskId = deriveSplitGapsForTasks(cfb, assignmentFieldMap, taskIdByUniqueId, tasks);
+  const splitGapsByTaskId = deriveSplitGapsForTasks(cfb, assignmentFieldMap, taskIdByUniqueId, tasks, calResult);
   for (const task of tasks) {
     const gaps = splitGapsByTaskId.get(task.id);
     if (gaps) task.splitGaps = gaps;
