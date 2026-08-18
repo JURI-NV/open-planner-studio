@@ -1679,11 +1679,6 @@ export function deriveTimephasedWindowsForTasks(
   const finishesByTask = new Map<string, Date[]>();
   const startsByTask = new Map<string, Date[]>();
   const durationWalksByTask = new Map<string, { anchor: Date; resourceCalendarId: string }[]>();
-  // Laag-4-kandidaten se GELEZEN `AssignmentField.FINISH`/`START`, apart bijgehouden voor twee
-  // terugvallen hieronder (multi-toewijzing, en "vlak maar niet structureel afwijkend") — GEEN
-  // laag-3-signaal (die taken hebben immers geen echte periode), puur een reserve-antwoord.
-  const flatFinishesByTask = new Map<string, Date[]>();
-  const flatStartsByTask = new Map<string, Date[]>();
   // Laag 4 is een taak-brede activering (≥1 toewijzing met een écht afwijkende resourcekalender)
   // die vervolgens ALLE vlakke toewijzingen van die taak meeneemt in de MAX-wandeling (ook een
   // toewijzing die zelf niet afwijkt — haar bijdrage wordt dan gedomineerd, spiegelt "Task A" waar
@@ -1733,26 +1728,15 @@ export function deriveTimephasedWindowsForTasks(
     }
 
     // Vlak, dus geen laag-3-signaal — maar mogelijk WEL een laag-4-wandelkandidaat (bij een
-    // resolvebare, afwijkende resourcekalender) EN/OF een gelezen terugval-antwoord (zie de twee
-    // terugvallen in de resultaat-opbouw hieronder). De GELEZEN terugval blijft, net als laag 3,
-    // UITSLUITEND voor `completion === 0` (cirkelmeting-risico); de KALENDERREFERENTIE zelf
-    // (`durationWalksByTask`/`layer4ActivatedTasks`) is GEEN gelezen datum — herwerkronde-fixronde 2
-    // ("laag 1/2-gat"): CPMSolver.ts gebruikt 'm ook voor completion>0-taken (resume-anker/actuals-
-    // hervatting door de resourcekalender in plaats van de taakkalender), dus die verzameling loopt
-    // hier bewust voor ELKE completion-staat door.
+    // resolvebare, afwijkende resourcekalender). GEEN gelezen terugval meer (herwerkronde-slotronde:
+    // de reviewer wees de eerdere "vlak/null-resource"-terugval af als fee9ecb4's onvoorwaardelijke
+    // override in een nieuw jasje — 2896 taken in 156 bestanden lazen daar nog altijd het opgeslagen
+    // `AssignmentField.FINISH` rechtstreeks terug, zonder onafhankelijke herberekening). De
+    // KALENDERREFERENTIE zelf (`durationWalksByTask`/`layer4ActivatedTasks`) is GEEN gelezen datum —
+    // herwerkronde-fixronde 2 ("laag 1/2-gat"): CPMSolver.ts gebruikt 'm ook voor completion>0-taken
+    // (resume-anker/actuals-hervatting door de resourcekalender i.p.v. de taakkalender), dus die
+    // verzameling loopt hier bewust voor ELKE completion-staat door.
     if (!hasAnyTimephasedData(raw)) continue; // geen enkel timephased-signaal ⇒ laag 5, niets doen
-    if (completion === 0) {
-      if (link.assignmentFinish) {
-        const list = flatFinishesByTask.get(link.taskId) ?? [];
-        list.push(link.assignmentFinish);
-        flatFinishesByTask.set(link.taskId, list);
-      }
-      if (link.assignmentStart) {
-        const list = flatStartsByTask.get(link.taskId) ?? [];
-        list.push(link.assignmentStart);
-        flatStartsByTask.set(link.taskId, list);
-      }
-    }
     if (!link.assignmentStart || link.resourceUid === null) continue;
     const resourceId = resourceIdByUniqueId.get(link.resourceUid);
     const resource = resourceId ? resourceById.get(resourceId) : null;
@@ -1779,51 +1763,17 @@ export function deriveTimephasedWindowsForTasks(
     const startAnchor = starts ? new Date(Math.min(...starts.map((d) => d.getTime()))) : null;
     result.set(taskId, { finishFloor, startAnchor, durationWalks: [] });
   }
-  // Unie van beide vlakke-signaal-bronnen: een taak kan een wandelkandidaat hebben (resolvebare
-  // resourcekalender), een gelezen terugval-antwoord (altijd, ook zonder resource — dekt de
-  // null-resource-populatie), of beide.
-  const flatTaskIds = new Set<string>([...durationWalksByTask.keys(), ...flatFinishesByTask.keys()]);
-  for (const taskId of flatTaskIds) {
+  // Herwerkronde-slotronde: GEEN gelezen terugval meer (fee9ecb4 in een nieuw jasje, afgekeurd door
+  // de reviewer — zie de toelichting hierboven bij `hasAnyTimephasedData`). Laag 4 (`durationWalksByTask`)
+  // is dus de ENIGE resterende bron hier, en UITSLUITEND betrouwbaar bij PRECIES 1 toewijzing (de
+  // "elke toewijzing doet het volledige taakwerk alleen"-aanname, `mpp14resource.mpp`'s "Task A" met
+  // 3 toewijzingen toonde dat een MAX-wandeling over >1 toewijzing absurde datums geeft) — geen
+  // multi-toewijzing-vangnet meer: die taken vallen nu bewust op laag 5 terug (niets gezet, de
+  // kale duur-gebaseerde motorberekening beslist), in plaats van een NOG minder betrouwbare wandeling
+  // te forceren.
+  for (const [taskId, walks] of durationWalksByTask) {
     if (result.has(taskId)) continue; // laag 3 heeft deze taak al (mutueel exclusief per taak)
-    const walks = durationWalksByTask.get(taskId);
-    const flatFinishes = flatFinishesByTask.get(taskId);
-    const flatStarts = flatStartsByTask.get(taskId);
-    // MULTI-TOEWIJZING-TERUGVAL (corpusbevinding, `mpp14resource.mpp`'s "Task A" — drie vlakke
-    // toewijzingen, waarvan er één een écht afwijkende kalender draagt): `task.time.durationMinutes`
-    // gewandeld door ELKE toewijzing se EIGEN kalender (laag 4's kern-formule) neemt STILZWIJGEND
-    // aan dat elke toewijzing het VOLLEDIGE taakwerk alleen doet — voor Brian Leach se 1u/dag-
-    // kalender in "Task A" geeft dat een absurd late datum, want de drie toewijzingen delen het werk
-    // in werkelijkheid. Bij ÉÉN toewijzing is die aanname onschadelijk (ze IS de enige die het werk
-    // doet — vandaar de 9/9- en 20/20-corpusbevestiging op single-assignment-bestanden).
-    //
-    // "VLAK-MAAR-NIET-AFWIJKEND"/NULL-RESOURCE-TERUGVAL (herwerkronde-fixronde, corpusbevinding):
-    // de `timephased-budget*.mpp`-familie (budget-werktracking, buiten Z3's scope) draagt een vlak
-    // record ZONDER dat de resourcekalender structureel afwijkt (of zelfs zonder resolvebare
-    // resource, de null-resource-populatie) — en toch wijkt de kale duurberekening af van MSP's
-    // eigen antwoord. Het GELEZEN `AssignmentField.FINISH` reproduceert 'm exact, dus geldt dezelfde
-    // terugval: geen wandelkandidaat (`walks`) nodig zolang er een gelezen antwoord is.
-    // `layer4ActivatedTasks`/`walks` zijn dus GEEN harde poort voor dit pad — alleen de MAX-
-    // wandeling zelf (het ALTERNATIEF hieronder) vereist een écht afwijkende kalender én precies 1
-    // toewijzing om betrouwbaar te zijn.
-    // PRIORITEIT: wandeling (laag 4) WINT van het gelezen antwoord zodra ze betrouwbaar toepasbaar
-    // is (precies 1 toewijzing, geactiveerd) — dat is het BEWEZEN 9/9-/20/20-pad; het gelezen
-    // antwoord is uitsluitend de terugval voor wat de wandeling niet aankan (multi-toewijzing, geen
-    // activering, geen resolvebare kalender).
-    const useWalk = walks && walks.length === 1 && layer4ActivatedTasks.has(taskId);
-    if (useWalk) {
-      const startAnchor = new Date(Math.min(...walks.map((w) => w.anchor.getTime())));
-      result.set(taskId, { finishFloor: null, startAnchor, durationWalks: walks });
-    } else if (flatFinishes && flatFinishes.length > 0) {
-      const finishFloor = new Date(Math.max(...flatFinishes.map((d) => d.getTime())));
-      const startAnchor = flatStarts
-        ? new Date(Math.min(...flatStarts.map((d) => d.getTime())))
-        : (walks ? new Date(Math.min(...walks.map((w) => w.anchor.getTime()))) : null);
-      result.set(taskId, { finishFloor, startAnchor, durationWalks: [] });
-    } else if (walks && walks.length > 0 && layer4ActivatedTasks.has(taskId)) {
-      // Wandelkandidaat aanwezig en geactiveerd, maar GEEN gelezen terugval beschikbaar (zeldzaam —
-      // `assignmentFinish` ontbrak in het bestand) ⇒ toch de wandeling proberen, ook bij >1 item
-      // (beter een mogelijk-onnauwkeurige MAX dan niets; de MULTI-toewijzing-onnauwkeurigheid
-      // hierboven is dan de bekende, geaccepteerde restfout).
+    if (walks.length === 1 && layer4ActivatedTasks.has(taskId)) {
       const startAnchor = new Date(Math.min(...walks.map((w) => w.anchor.getTime())));
       result.set(taskId, { finishFloor: null, startAnchor, durationWalks: walks });
     }

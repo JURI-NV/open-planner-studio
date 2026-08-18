@@ -981,6 +981,21 @@ export class CPMSolver {
         // al RAUW, precies zoals `rootElapsed` hieronder — MSP snapt dat niet naar de eerstvolgende
         // taak-kalender-werk-instant, onze `ownAnchor`-snap deed dat vóór deze fixronde wél. Afwezig
         // ⇒ byte-identiek (de `ownAnchor`-tak hieronder draait ongewijzigd).
+        //
+        // HERWERKRONDE-SLOTRONDE (reviewer-eis: "meet wat het is" — dezelfde scrutiny als de
+        // afgekeurde vlakke-finish-terugval): dit is NIET dezelfde categorie als die terugval. Bij
+        // een WORTEL-taak (geen voorganger) is de start per definitie ALTIJD een gelezen anker — nooit
+        // een CPM-berekende waarde — dat is precies `ownAnchor` (`task.time.scheduleStart`, al sinds
+        // etappe 1 geaccepteerd, ONGEWIJZIGD hier). `timephasedAnchor` (`task.timephasedStartAnchor`,
+        // `AssignmentField.START`) is dus geen ALTERNATIEF soort mechanisme t.o.v. ownAnchor — het is
+        // een PRECIEZER gelezen anker uit een ANDERE bronlocatie (toewijzingsniveau i.p.v. taakniveau),
+        // beide even "gelezen". Mutatieproef uitgevoerd (tijdelijk uitgeschakeld, altijd ownAnchor):
+        // corpusbreed VERSLECHTERT dat meetbaar — mpp14timephased.mpp krijgt 4 nieuwe startDiff op
+        // wortel-taken, mpp14timephasedsegmentsmanual(offsets).mpp verliest ALLE startExact-treffers
+        // (naar sameday/diff). Dat is het tegenovergestelde van wat een puur-circulaire terugval zou
+        // doen (die zou bij verwijdering GEEN verschil maken t.o.v. de toch-al-juiste motoruitkomst) —
+        // het bewijst dat `task.time.scheduleStart` hier daadwerkelijk MINDER PRECIES is dan het
+        // toewijzingsniveau-veld, niet dat deze tak de motorberekening omzeilt. Blijft dus staan.
         const timephasedAnchor = task.timephasedStartAnchor;
         // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
         // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
@@ -1575,6 +1590,18 @@ export class CPMSolver {
       // moveProject/check-ifc-roundtrip opnieuw raken voor een zuiver cosmetische reden.
       const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
       if (tf) earlyFinish = tf;
+      // Herwerkronde-slotronde (reviewer-eis 4): dezelfde EF<ES-inversiewacht als de VOLTOOID-tak
+      // (`if (ef < es) es = ef`) en de IN-PROGRESS-tak (`if (usedResumeOverride && ef < actualES) ef
+      // = actualES`) ontbrak hier. `tf` (laag 3, een LETTERLIJK gelezen venster) kan in theorie vóór
+      // `earlyStart` liggen wanneer een voorganger-push (of een SNET/MSO-constraint) `earlyStart` ná
+      // het geïmporteerde venster duwt — een bestand-inconsistentie die zonder wacht een taak zou
+      // laten "eindigen vóór ze begint". ANDERS dan de VOLTOOID-tak (waar `es` mag zakken naar `ef`,
+      // want `actualFinish` is daar het hardere feit) is hier `earlyStart` het hardere feit (voorganger-
+      // druk/constraint, niet zelf een gelezen "antwoord") — dus klem `earlyFinish` omhoog naar
+      // `earlyStart`, spiegelt de IN-PROGRESS-tak se klemrichting. Corpusbreed (3105 bladtaken,
+      // corpus+crawl) BLEEF dit vóór de wacht al 0/0 — de wacht is dus verdedigend (defense-in-depth
+      // tegen een nog niet waargenomen bestand-vorm), corpusloos mutatiebewijs in cases-advanced-cpm.json.
+      if (tf && earlyFinish < earlyStart) earlyFinish = earlyStart;
 
       results.set(taskId, { es: earlyStart, ef: earlyFinish });
     }
