@@ -25,10 +25,24 @@ positioneerder zonder canvas-koppeling.
 
 Trek de content-JSX (regels 1417-1447) over naar een nieuw component
 `src/components/canvas/TaskTooltipContent.tsx` met signatuur `{ task: Task }`. `GanttCanvas`
-gebruikt 'm dan als children van zijn bestaande `HoverTooltip`-aanroep — puur een verplaatsing,
-geen gedragswijziging. `TaskDependenciesSection` gebruikt straks dezelfde combinatie
-(`HoverTooltip` + `TaskTooltipContent`) voor zijn eigen hover, zodat de twee tooltips per
-definitie gelijk blijven.
+gebruikt 'm dan als children van zijn bestaande `HoverTooltip`-aanroep. `TaskDependenciesSection`
+gebruikt straks dezelfde combinatie (`HoverTooltip` + `TaskTooltipContent`) voor zijn eigen hover,
+zodat de twee tooltips per definitie gelijk blijven.
+
+**Correctie t.o.v. de eerste opzet:** `HoverTooltip` positioneert nu `position: absolute` binnen
+zijn dichtstbijzijnde gepositioneerde voorouder, met een clip-berekening die expliciet rekening
+houdt met een `overflow: hidden`-ouder (zie de docstring in `HoverTooltip.tsx` over de Gantt-pane).
+Het eigenschappenpaneel scrolt zelf (`overflow-y-auto`, `TaskPropertiesPanel.tsx:85`) — exact het
+scenario waarvoor deze app al een oplossing heeft: `Popover.tsx` en `Tooltip.tsx` renderen via
+`createPortal` naar `document.body` met `position: fixed`, precies om dit soort clipping te
+ontsnappen. `HoverTooltip` wordt daarom aangepast naar diezelfde portal-aanpak (`position: fixed`,
+`left`/`top` in viewport-coördinaten, clamp alleen tegen het venster — de "positionerende
+ouder"-clip vervalt want een portal zit niet meer in die boom). Zijn twee huidige aanroepers in
+`GanttCanvas` (de taak-tooltip én de histogram-overallocatie-tooltip) gaan dan simpelweg
+`x + offset` / `y - 10` (viewport-coördinaten) doorgeven in plaats van de container-relatieve
+berekening van nu. Zichtbaar gedrag en uiterlijk blijven ongewijzigd — alleen de
+positioneringstechniek wordt robuuster, en `TaskDependenciesSection` kan 'm zo zonder aanpassing
+hergebruiken.
 
 ## 2. Het knopje in de dependency-rij
 
