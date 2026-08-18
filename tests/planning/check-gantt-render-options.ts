@@ -678,8 +678,11 @@ eq('35 secundair: eigen scrollX', optsSecondary.view.scrollX, 400);
   // niet allebei waar zijn.
   eq('39 de start-veldketen staat in geen enkel bestand buiten ganttViewport.ts',
     hits, ['src/utils/ganttViewport.ts']);
-  eq('40 GanttCanvas gebruikt computeEffectiveViewStart op beide plekken (memo + reveal)',
-    (src.match(/computeEffectiveViewStart\(/g) ?? []).length, 2);
+  // Issue #65 voegde een DERDE plek toe: het "spring naar taak"-effect (pendingFocusTaskId) rekent
+  // met dezelfde effectieve oorsprong als de render-memo en `revealTaskIfOffscreen`, om exact
+  // dezelfde reden — anders zou de gesprongen positie niet 1-op-1 kloppen met wat er getekend wordt.
+  eq('40 GanttCanvas gebruikt computeEffectiveViewStart op drie plekken (memo + reveal + spring-naar-taak)',
+    (src.match(/computeEffectiveViewStart\(/g) ?? []).length, 3);
 
   // En de gedeelde functie moet daadwerkelijk gedeeld zijn: `computeScrollToDate` had een eigen
   // kopie, alleen door een commentaarregel aan de render-memo gekoppeld.
