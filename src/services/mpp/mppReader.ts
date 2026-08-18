@@ -1630,9 +1630,33 @@ export interface TimephasedWindowResult {
  *  in dit corpus krijgt ELKE resource haar EIGEN kalender-object, ook als de inhoud identiek is aan
  *  de taak-kalender, dus id-ongelijkheid alleen zou laag 4 op vrijwel elke toewijzing laten vuren).
  *  `undefined`/ontbrekend `workTime` ⇒ geen zinvolle vergelijking mogelijk (dag-modus) ⇒ `false`. */
+function sortedRanges(list: readonly { startDate: string; endDate: string }[] | undefined): string {
+  if (!list || list.length === 0) return '[]';
+  const sorted = [...list].sort((x, y) => x.startDate.localeCompare(y.startDate) || x.endDate.localeCompare(y.endDate));
+  return JSON.stringify(sorted.map((h) => [h.startDate, h.endDate]));
+}
+
 function calendarBandsDiffer(a: WorkCalendar, b: WorkCalendar): boolean {
   if (!a.workTime || !b.workTime) return false;
   return JSON.stringify(a.workTime.byWeekday) !== JSON.stringify(b.workTime.byWeekday);
+}
+
+/** Uitbreiding van `calendarBandsDiffer` met GEMATERIALISEERDE uitzonderingen (`holidays`/
+ *  `workingExceptions`): een resource kan dezelfde weekbanden hebben als de taakkalender maar een
+ *  extra vrije dag ("resource holiday") — een even echte afwijking als een andere weekband
+ *  (corpusbevinding: mpp14timephased2.mpp, "Partially complete task with resource holiday",
+ *  completion 10%). BEWUST ALLEEN gebruikt voor de completion>0-populatie (lagen 1/2, de "laag
+ *  1/2-gat"-sluiting) — voor completion===0 blijft de poort bands-only (`calendarBandsDiffer`):
+ *  een corpusproef liet zien dat uitzonderingen daar valse activering geven op taken die zonder
+ *  laag 4 al exact waren (mpp14timephasedsegmentsmanual.mpp, "Task Seven"/"Task Eight"), omdat de
+ *  wandelformule voor dát bestand een systematisch 1-uur-precisieverschil met MSP's segment-antwoord
+ *  heeft — de gelezen terugval was daar al exact en mag niet verdrongen worden. */
+function calendarDiffersIncludingExceptions(a: WorkCalendar, b: WorkCalendar): boolean {
+  if (calendarBandsDiffer(a, b)) return true;
+  if (!a.workTime || !b.workTime) return false;
+  if (sortedRanges(a.holidays) !== sortedRanges(b.holidays)) return true;
+  if (sortedRanges(a.workingExceptions) !== sortedRanges(b.workingExceptions)) return true;
+  return false;
 }
 
 export function deriveTimephasedWindowsForTasks(
@@ -1671,51 +1695,63 @@ export function deriveTimephasedWindowsForTasks(
     if (!link) continue;
     const task = taskById.get(link.taskId);
     if (!task || task.childIds.length > 0) continue; // samenvattingstaak: zelfde uitsluiting als Z4
-    // Lagen 1/2: VOLTOOID/IN-PROGRESS plannen op hun eigen paden, geen Z8-veld op deze taak.
-    if ((task.time.completion ?? 0) > 0) continue;
     if (!task.time.scheduleStart) continue;
+    const completion = task.time.completion ?? 0;
 
-    const taskStart = parseInstant(task.time.scheduleStart);
-    const actualPeriods = raw.actualRegularWork
-      ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart)
-      : [];
-    // GEEN referenceFinish (Z4-conventie) — het vlakke `blockCount===0`-geval telt hier bewust NIET
-    // als "echte periode", zie de moduleheader-toelichting hierboven.
-    const remainingPeriods = raw.remainingRegularWork
-      ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart)
-      : [];
-    const hasGenuinePeriod = actualPeriods.length > 0 || remainingPeriods.length > 0;
+    // Lagen 1/2 (VOLTOOID/IN-PROGRESS, completion > 0): GEEN gelezen venster (laag 3, cirkelmeting-
+    // risico — zie de moduleheader) — maar de laag-4-KALENDERKEUZE (welke resourcekalender, GEEN
+    // gelezen datum) is een gewoon, edit-live gegeven en mag WEL voor elke completion-staat bepaald
+    // worden; `CPMSolver.ts` consumeert 'm daar apart (herwerkronde-fixronde 2, "laag 1/2-gat").
+    // Laag 3 se signaaldetectie (`hasGenuinePeriod`/`finishesByTask`/`startsByTask`) blijft daarom
+    // UITSLUITEND voor `completion === 0` — dat is de enige plek waar deze `continue` nog staat.
+    if (completion === 0) {
+      const taskStart = parseInstant(task.time.scheduleStart);
+      const actualPeriods = raw.actualRegularWork
+        ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart)
+        : [];
+      // GEEN referenceFinish (Z4-conventie) — het vlakke `blockCount===0`-geval telt hier bewust
+      // NIET als "echte periode", zie de moduleheader-toelichting hierboven.
+      const remainingPeriods = raw.remainingRegularWork
+        ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart)
+        : [];
+      const hasGenuinePeriod = actualPeriods.length > 0 || remainingPeriods.length > 0;
 
-    if (hasGenuinePeriod) {
-      // LAAG 3: gelezen venster.
-      if (link.assignmentFinish) {
-        const list = finishesByTask.get(link.taskId) ?? [];
-        list.push(link.assignmentFinish);
-        finishesByTask.set(link.taskId, list);
+      if (hasGenuinePeriod) {
+        // LAAG 3: gelezen venster.
+        if (link.assignmentFinish) {
+          const list = finishesByTask.get(link.taskId) ?? [];
+          list.push(link.assignmentFinish);
+          finishesByTask.set(link.taskId, list);
+        }
+        if (link.assignmentStart) {
+          const list = startsByTask.get(link.taskId) ?? [];
+          list.push(link.assignmentStart);
+          startsByTask.set(link.taskId, list);
+        }
+        continue;
       }
-      if (link.assignmentStart) {
-        const list = startsByTask.get(link.taskId) ?? [];
-        list.push(link.assignmentStart);
-        startsByTask.set(link.taskId, list);
-      }
-      continue;
     }
 
     // Vlak, dus geen laag-3-signaal — maar mogelijk WEL een laag-4-wandelkandidaat (bij een
     // resolvebare, afwijkende resourcekalender) EN/OF een gelezen terugval-antwoord (zie de twee
-    // terugvallen in de resultaat-opbouw hieronder). Beide onafhankelijk van elkaar verzameld: de
-    // gelezen terugval heeft GEEN resourcekalender nodig (dekt ook de null-resource-populatie, zie
-    // `mppTimephased.ts`'s "VONDST VOOR Z8"), de wandelkandidaat wél.
+    // terugvallen in de resultaat-opbouw hieronder). De GELEZEN terugval blijft, net als laag 3,
+    // UITSLUITEND voor `completion === 0` (cirkelmeting-risico); de KALENDERREFERENTIE zelf
+    // (`durationWalksByTask`/`layer4ActivatedTasks`) is GEEN gelezen datum — herwerkronde-fixronde 2
+    // ("laag 1/2-gat"): CPMSolver.ts gebruikt 'm ook voor completion>0-taken (resume-anker/actuals-
+    // hervatting door de resourcekalender in plaats van de taakkalender), dus die verzameling loopt
+    // hier bewust voor ELKE completion-staat door.
     if (!hasAnyTimephasedData(raw)) continue; // geen enkel timephased-signaal ⇒ laag 5, niets doen
-    if (link.assignmentFinish) {
-      const list = flatFinishesByTask.get(link.taskId) ?? [];
-      list.push(link.assignmentFinish);
-      flatFinishesByTask.set(link.taskId, list);
-    }
-    if (link.assignmentStart) {
-      const list = flatStartsByTask.get(link.taskId) ?? [];
-      list.push(link.assignmentStart);
-      flatStartsByTask.set(link.taskId, list);
+    if (completion === 0) {
+      if (link.assignmentFinish) {
+        const list = flatFinishesByTask.get(link.taskId) ?? [];
+        list.push(link.assignmentFinish);
+        flatFinishesByTask.set(link.taskId, list);
+      }
+      if (link.assignmentStart) {
+        const list = flatStartsByTask.get(link.taskId) ?? [];
+        list.push(link.assignmentStart);
+        flatStartsByTask.set(link.taskId, list);
+      }
     }
     if (!link.assignmentStart || link.resourceUid === null) continue;
     const resourceId = resourceIdByUniqueId.get(link.resourceUid);
@@ -1725,7 +1761,12 @@ export function deriveTimephasedWindowsForTasks(
       : null;
     if (!resCal) continue;
     const taskCal = taskCalendar(task, calResult);
-    if (calendarBandsDiffer(resCal, taskCal)) layer4ActivatedTasks.add(link.taskId);
+    // completion===0: bands-only poort (bewezen, byte-stabiel gedrag). completion>0: ook
+    // uitzonderingen tellen mee (laag 1/2-gat) — zie `calendarDiffersIncludingExceptions`-docblok.
+    const activates = completion > 0
+      ? calendarDiffersIncludingExceptions(resCal, taskCal)
+      : calendarBandsDiffer(resCal, taskCal);
+    if (activates) layer4ActivatedTasks.add(link.taskId);
     const walkList = durationWalksByTask.get(link.taskId) ?? [];
     walkList.push({ anchor: link.assignmentStart, resourceCalendarId: resCal.id });
     durationWalksByTask.set(link.taskId, walkList);

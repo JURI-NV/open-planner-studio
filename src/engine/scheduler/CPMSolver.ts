@@ -1132,6 +1132,28 @@ export class CPMSolver {
       // Voortgang (fase 2.6): actual-pinning + data-date-vloer. dataDate === null ⇒ elke tak is
       // een no-op (backwards-compat). `earlyStart` is hier al de retained-logic voorganger-druk.
       const dataDate = this.dataDate;
+      // Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat"): de VOLTOOID-/IN-PROGRESS-tak hieronder rekende
+      // altijd in `cal` (de TAAK-eigen kalender) — voor een taak wier ENIGE toewijzing een écht
+      // afwijkende resourcekalender draagt (`mppReader.ts`'s laag-4-activeringscriterium, HIER
+      // ONGEWIJZIGD gebruikt, GEEN aparte tweede gate) geeft dat een verkeerd antwoord, óók als de
+      // taak allang gestart/voltooid is — exact de 10 resterende afwijkingen ná de eerste
+      // herwerkronde-commit (fee9ecb4→087721bf). `task.timephasedDurationWalks` (mppReader.ts zet
+      // 'm sinds deze fixronde OOK op completion>0-taken, uitsluitend als kalenderREFERENTIE — GEEN
+      // gelezen datum, dus GEEN cirkelmeting-risico) draagt bij precies 1 item de te gebruiken
+      // resourcekalender-id. `progressCal` vervangt `cal` voor de VOLLEDIGE VOLTOOID-/IN-PROGRESS-
+      // tak (niet alleen de eind-`ef`): `remStart`/`actualES`/Z7-splits/Z12-resume rekenen anders
+      // half in de taak- en half in de resourcekalender, een interne inconsistentie die de
+      // "Task A"-multi-toewijzing-bugronde (mppReader.ts) al aantoonde bij een vergelijkbare
+      // gedeeltelijke wandeling. Afwezig/niet-activeerbaar (>1 toewijzing, dag-modus-resourcekalender,
+      // geen echte afwijking) ⇒ `progressCal = cal`, BYTE-IDENTIEK — dat is de overgrote meerderheid
+      // van alle taken, inclusief de volledige Z12-/Z6-/Z7-populaties (regressiewacht hieronder).
+      let progressCal = cal;
+      if (task.timephasedDurationWalks && task.timephasedDurationWalks.length === 1) {
+        const candidate = this.engineForCal(
+          resolveCalendar(task.timephasedDurationWalks[0].resourceCalendarId, this.registry, this.projectCal),
+        );
+        if (candidate.isHourMode) progressCal = candidate;
+      }
       {
         const t = task.time;
         if (t.actualFinish && t.completion >= 1) {
@@ -1140,7 +1162,7 @@ export class CPMSolver {
           // BINNEN dezelfde dag (bv. 07:00 → 08:00), maar verplaatst nooit naar een andere dag (bv.
           // zaterdag → maandag). Zie die functie se docblock voor de twee tegenstrijdige
           // corpusmetingen die dit reconcilieert.
-          let es = this.snapActualForward(cal, this.parseIn(cal, t.actualStart ?? t.actualFinish));
+          let es = this.snapActualForward(progressCal, this.parseIn(progressCal, t.actualStart ?? t.actualFinish));
           // Milestone: start én finish landen op dezelfde werk(dag)-grens (snap op-of-ná, niet -vóór).
           // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
           // VOLTOOIDE mijlpaal-met-duur (T15) is voor de PLANNING een gewone taak en hoort dus de
@@ -1148,8 +1170,8 @@ export class CPMSolver {
           // `actualStart` liggen); met de kale vlag zou `snapOnOrAfter` haar EF stelselmatig vóór of
           // op haar ES kunnen duwen — "ze eindigt ná haar eigen actualFinish" (reviewer-meting).
           let ef = isZeroDurationMilestone(task)
-            ? this.snapOnOrAfter(cal, this.parseIn(cal, t.actualFinish))
-            : this.snapOnOrBefore(cal, this.parseIn(cal, t.actualFinish));
+            ? this.snapOnOrAfter(progressCal, this.parseIn(progressCal, t.actualFinish))
+            : this.snapOnOrBefore(progressCal, this.parseIn(progressCal, t.actualFinish));
           // Inversie-randgeval: het HELE geregistreerde venster valt in onwerkbare tijd (weekend,
           // bouwvak, feestdagenblok) — dan snapt de start vóóruit tot ná de finish, die achteruit
           // snapte. Er bestaat dan geen werkdag binnen het feit, dus één van beide moet wijken.
@@ -1188,16 +1210,16 @@ export class CPMSolver {
           // snapte een IN-PROGRESS-taak se weekend-actualStart altijd naar de eerstvolgende werkdag
           // terwijl een VOLTOOIDE taak se weekend-actualStart dat niet deed — dezelfde soort taak
           // kreeg zo een ANDER antwoord al naargelang completion toevallig <1 of ===1 stond.
-          const actualES = t.actualStart ? this.snapActualForward(cal, this.parseIn(cal, t.actualStart)) : earlyStart;
+          const actualES = t.actualStart ? this.snapActualForward(progressCal, this.parseIn(progressCal, t.actualStart)) : earlyStart;
           // Restwerk: uur ⇒ `remainingMinutes ?? durationMinutes × (1−completion)`; dag ⇒ werkdagen (§5.3).
-          const totalSpan = cal.isHourMode ? durationMinutesOf(task, cal) : t.scheduleDuration;
-          const remaining = cal.isHourMode
+          const totalSpan = progressCal.isHourMode ? durationMinutesOf(task, progressCal) : t.scheduleDuration;
+          const remaining = progressCal.isHourMode
             ? Math.max(0, t.remainingMinutes ?? Math.round(totalSpan * (1 - t.completion)))
             : Math.max(0, t.remainingTime ?? Math.round(totalSpan * (1 - t.completion)));
           // M2 (Opus-review, 2026-08-17): ELAPSEDTIME-bewustheid — T8 maakte de rest van de solver
           // elapsed-bewust (`addDurationChecked` hierboven: `addElapsedMinutes(start,
           // elapsedMinutesOf(task, eng))`, GEEN kalenderband-toetsing); deze voortgangstak rekende
-          // tot nu toe ONVOORWAARDELIJK met `cal.addWorkMinutes`/`cal.addWorkDaysChecked` (WERKtijd),
+          // tot nu toe ONVOORWAARDELIJK met `progressCal.addWorkMinutes`/`progressCal.addWorkDaysChecked` (WERKtijd),
           // dus een ELAPSEDTIME-taak met `completion > 0` klapte stil om naar WORKTIME-semantiek —
           // precies het gat dat T8 elders dichtte. `totalSpan`/`remaining` hierboven staan al in de
           // "eigen eenheid" van de taak (minuten in uur-modus, dagen in dag-modus — BEIDE al
@@ -1211,7 +1233,7 @@ export class CPMSolver {
           // i.p.v. de kale vlag, anders klapt het restwerk van een VOORTGANG-dragende mijlpaal-met-duur-
           // ELAPSEDTIME-taak stil om naar WORKTIME-semantiek (zelfde bugklasse als msp-30).
           const isElapsedTask = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
-          const remainingElapsedMinutes = isElapsedTask ? (cal.isHourMode ? remaining : remaining * 24 * 60) : 0;
+          const remainingElapsedMinutes = isElapsedTask ? (progressCal.isHourMode ? remaining : remaining * 24 * 60) : 0;
           let remStart = dataDate ?? actualES;                      // ondergrens: statusdatum, anders de eigen actualStart (M1)
           // Z12-herwerk (dossier out-of-sequence-actuals): `true` zodra `remStart` hieronder uit het
           // RESUME-veld komt i.p.v. de gewone voorganger-druk/elapsed-vloer — stuurt de ef<es-
@@ -1243,8 +1265,19 @@ export class CPMSolver {
             // ís het signaal (spiegelt hoe `actualStart` ook zonder vlag werkt) — een niet-`.mpp`-
             // bron (MSPDI/P6/CSV/IFC) heeft dit veld domweg niet, dus valt automatisch terug op de
             // bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-vloer hieronder, byte-identiek.
-            const resumeOverride = t.resume && this.isOutOfSequenceFsPredecessor(task, preds, results)
-              ? this.parseIn(cal, t.resume)
+            // Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat", tweede iteratie): naast Z12's eigen
+            // out-of-sequence-trigger geldt de resumeOverride ook zodra `progressCal` afwijkt van
+            // `cal` (de resourcekalender-gate hierboven vuurde) — gemeten (Task 6-familie,
+            // mpp14timephased.mpp): de "RETAINED_LOGIC"-vloer hieronder leidt het hervattingspunt AF
+            // uit `elapsed = totalSpan − remaining` gewandeld via `progressCal`, en die AFLEIDING
+            // reproduceert MSP's eigen opgeslagen `Resume`-veld NIET voor deze populatie (bevestigd
+            // tegen het MSPDI-orakel: Task 6 se `<Resume>2008-12-02T15:00</Resume>` wijkt af van de
+            // elapsed-afgeleide waarde). `t.resume` is hier, exact als in Z12's eigen dossier, een
+            // ECHT ingelezen bestandsveld (geen aanname) — dus dezelfde precedentie-regel: AANWEZIG
+            // ⇒ gebruik het rechtstreeks, in plaats van het af te leiden.
+            const resumeOverride = t.resume
+              && (progressCal !== cal || this.isOutOfSequenceFsPredecessor(task, preds, results))
+              ? this.parseIn(progressCal, t.resume)
               : null;
             if (resumeOverride && !isNaN(resumeOverride.getTime())) {
               remStart = resumeOverride;
@@ -1312,11 +1345,11 @@ export class CPMSolver {
               // naar de eerstvolgende werkdag — geverifieerd tegen `CalendarEngine.addWorkDaysChecked`:
               // dag 1 vanaf een vrijdag = die vrijdag zelf, dag 2 = de eerstvolgende maandag).
               const elapsedAnchor = isElapsedTask
-                ? addElapsedMinutes(actualES, cal.isHourMode ? elapsed : elapsed * 24 * 60)
-                : cal.isHourMode
-                  ? this.snapOnOrAfter(cal, cal.addWorkMinutes(actualES, elapsed))
+                ? addElapsedMinutes(actualES, progressCal.isHourMode ? elapsed : elapsed * 24 * 60)
+                : progressCal.isHourMode
+                  ? this.snapOnOrAfter(progressCal, progressCal.addWorkMinutes(actualES, elapsed))
                   : (() => {
-                      const r = cal.addWorkDaysChecked(actualES, elapsed + 1);
+                      const r = progressCal.addWorkDaysChecked(actualES, elapsed + 1);
                       if (r.capped) this.cappedTaskIds.push(taskId);
                       return r.date;
                     })();
@@ -1451,24 +1484,24 @@ export class CPMSolver {
           // bewust NIET gedaan.
           let remainingWithGaps = remaining;
           if (!isElapsedTask && task.splitGaps && task.splitGaps.length > 0) {
-            const totalSpanMinutes = cal.isHourMode ? totalSpan : totalSpan * cal.hoursPerDay * 60;
-            const remainingMinutesUnits = cal.isHourMode ? remaining : remaining * cal.hoursPerDay * 60;
+            const totalSpanMinutes = progressCal.isHourMode ? totalSpan : totalSpan * progressCal.hoursPerDay * 60;
+            const remainingMinutesUnits = progressCal.isHourMode ? remaining : remaining * progressCal.hoursPerDay * 60;
             const completedSpanMinutes = Math.max(0, totalSpanMinutes - remainingMinutesUnits);
             const totalAxisMinutes = splitTotalSpanMinutes(task.splitGaps, totalSpanMinutes);
             const completedAxisMinutes = splitTotalSpanMinutes(task.splitGaps, completedSpanMinutes);
             const remainingAxisMinutes = Math.max(0, totalAxisMinutes - completedAxisMinutes);
-            remainingWithGaps = cal.isHourMode
+            remainingWithGaps = progressCal.isHourMode
               ? remainingAxisMinutes
-              : remainingAxisMinutes / (cal.hoursPerDay * 60);
+              : remainingAxisMinutes / (progressCal.hoursPerDay * 60);
           }
           let ef: Date;
           if (isElapsedTask) {
             ef = addElapsedMinutes(remStart, remainingElapsedMinutes);
-          } else if (cal.isHourMode) {
-            ef = cal.addWorkMinutes(remStart, remainingWithGaps);
+          } else if (progressCal.isHourMode) {
+            ef = progressCal.addWorkMinutes(remStart, remainingWithGaps);
           } else {
             // WP7: ook het rest-werk-pad kan tegen de onwerkbaar-venster-cap lopen ⇒ checked-variant.
-            const r = cal.addWorkDaysChecked(remStart, remainingWithGaps);
+            const r = progressCal.addWorkDaysChecked(remStart, remainingWithGaps);
             ef = r.date;
             if (r.capped) this.cappedTaskIds.push(taskId);
           }
