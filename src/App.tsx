@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setNoneLabelValue } from '@/utils/noneLabel';
 import { appLog } from '@/services/debug/appLog';
+import { installConsentDialogAsker } from '@/extensions/consentBridge';
 import { TitleBar } from '@/components/layout/TitleBar/TitleBar';
 import '@/components/layout/TitleBar/TitleBar.css';
 import { Ribbon } from '@/components/layout/Ribbon/Ribbon';
@@ -51,6 +52,7 @@ const CalendarDialog = lazy(() => import('@/components/dialogs/CalendarDialog').
 const StructureDialog = lazy(() => import('@/components/dialogs/StructureDialog').then(m => ({ default: m.StructureDialog })));
 const UpdateDialog = lazy(() => import('@/components/dialogs/UpdateDialog').then(m => ({ default: m.UpdateDialog })));
 const JustUpdatedDialog = lazy(() => import('@/components/dialogs/JustUpdatedDialog').then(m => ({ default: m.JustUpdatedDialog })));
+const ExtensionConsentDialog = lazy(() => import('@/components/dialogs/ExtensionConsentDialog').then(m => ({ default: m.ExtensionConsentDialog })));
 const FeedbackDialog = lazy(() => import('@/components/dialogs/FeedbackDialog').then(m => ({ default: m.FeedbackDialog })));
 const LevelingDialog = lazy(() => import('@/components/dialogs/LevelingDialog').then(m => ({ default: m.LevelingDialog })));
 const BaselineDialog = lazy(() => import('@/components/dialogs/BaselineDialog').then(m => ({ default: m.BaselineDialog })));
@@ -107,6 +109,11 @@ function AppContent() {
   // Settings-bootstrap: hydrateert ~20 instellingen + extensies bij mount, en toont de
   // welkomstdialoog zodra de recovery-flow is afgehandeld.
   useSettingsBootstrap(recoveryResolved, recovery);
+
+  // Toestemmingsvraag bij extensie-installatie bedraden (K-item 38). MOET eager en vroeg: de
+  // faalstand van `askExtensionConsent` is WEIGEREN, dus zonder deze registratie zou een installatie
+  // stilzwijgend afketsen. De dialoog zelf blijft lazy; alleen de bedrading is eager.
+  useEffect(() => { installConsentDialogAsker(); }, []);
 
   // Bedrijfsbibliotheek laden bij opstarten (B1): zet de opgeslagen bibliotheek in de store en
   // hijst `libraryLoaded`, zodat latere mutaties persisteren (vóór dit punt is persist een no-op).
@@ -332,6 +339,7 @@ function AppContent() {
         {showTourOverlay && <TourOverlay />}
         <UpdateDialog />
         <PoolImportDialog />
+        <ExtensionConsentDialog />
         <LibraryLinkDialog />
         {recovery && (
           <RecoveryDialog

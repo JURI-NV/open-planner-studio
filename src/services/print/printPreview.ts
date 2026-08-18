@@ -1,7 +1,8 @@
 import { Task } from '@/types/task';
 import { Sequence } from '@/types/sequence';
 import { WorkCalendar } from '@/types/calendar';
-import { parseDate, formatDate, addCalendarDays, getWeekNumber, diffCalendarDays, isoDayOfWeek } from '@/utils/dateUtils';
+import { parseDate, formatDate, addCalendarDays, getWeekNumberFor, diffCalendarDays, isoDayOfWeek } from '@/utils/dateUtils';
+import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import type { DateNotation } from '@/types/view';
 import type { Draw2D } from '@/services/pdf/draw2d';
 import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
@@ -198,6 +199,17 @@ export interface PrintOptions {
   projectAuthor?: string;
   /** Datumnotatie (taak #53) voor de header- en tabel-datums; ontbreekt ⇒ dd-mm-jjjj. */
   dateNotation?: DateNotation;
+  /**
+   * Eerste dag van de week (K-item 39). Bepaalt drie dingen die het scherm al zo doet: het
+   * WEEKNUMMER (`getWeekNumberFor`), op welke dag het weeklabel in de kopstrook staat, en op welke
+   * dag de zwaardere verticale rasterlijn valt. Ontbreekt ⇒ `'monday'`, exact het oude gedrag.
+   *
+   * Hier stond dit veld NIET, terwijl `ui.weekStartDay` een gewone instelling is die de Gantt op het
+   * scherm wél volgt. Een gebruiker met "week begint op zondag" kreeg dus ISO-weeknummers op maandag
+   * in de afdruk en Amerikaanse weeknummers op zondag op het scherm — hetzelfde project, twee
+   * antwoorden.
+   */
+  weekStartDay?: 'monday' | 'sunday';
   /**
    * Aantal paginabreedtes waarover de tijdlijn in de export uitgesmeerd wordt (issue #25 punt 5).
    * Beïnvloedt alleen de auto-fit-zoom hieronder (bij een handmatige zoom bepaalt de gebruiker de
@@ -499,6 +511,10 @@ export function renderReport(
   const canvasWidth = m.tableWidth + chartWidth;
   const canvasHeight = m.totalHeaderHeight + flatTasks.length * m.rowHeight + m.footerHeight;
 
+  // Kalendermotor voor de niet-werkdag-arcering (K-item 39) — dezelfde klasse die de Gantt op het
+  // scherm gebruikt, zodat "welke dag is vrij" op één plek beantwoord wordt.
+  const printEngine = new CalendarEngine(calendar);
+
   // Build holiday set
   const holidaySet = new Set<string>();
   for (const h of calendar.holidays) {
@@ -538,20 +554,24 @@ export function renderReport(
 
   // ---- GANTT CHART AREA ----
 
-  // Grid background - weekend/holiday shading
+  // Niet-werkdag-arcering (K-item 39). De PROJECTKALENDER is de enige waarheid — precies zoals de
+  // Gantt op het scherm het sinds B2 doet (`GanttRenderer`: "geen hardcoded za/zo"). Hier stond wél
+  // een harde `dow === 6 || dow === 7`, dus een project met een afwijkende werkweek (za werkdag, of
+  // een ploegenrooster) kreeg op papier andere vrije dagen gearceerd dan op het scherm.
+  //
+  // De feestdag-tak blijft ervóór staan: `isWorkDay` dekt feestdagen óók, maar die krijgen een eigen
+  // kleur en dat onderscheid moet blijven.
   if (options.showWeekends) {
     for (let i = 0; i < totalDays; i++) {
       const date = addCalendarDays(minDate, i);
       const x = dateToX(date);
-      const dow = isoDayOfWeek(date);
       const dateStr = formatDate(date);
       const isHoliday = holidaySet.has(dateStr);
-      const isWeekend = dow === 6 || dow === 7;
 
       if (isHoliday) {
         d2d.fillStyle = PRINT_COLORS.gridHoliday;
         d2d.fillRect(x, chartTop, zoom, chartBottom - chartTop);
-      } else if (isWeekend) {
+      } else if (!printEngine.isWorkDay(date)) {
         d2d.fillStyle = PRINT_COLORS.gridWeekend;
         d2d.fillRect(x, chartTop, zoom, chartBottom - chartTop);
       }
@@ -573,7 +593,9 @@ export function renderReport(
     const dow = isoDayOfWeek(date);
 
     d2d.strokeStyle = PRINT_COLORS.grid;
-    d2d.lineWidth = dow === 1 ? 0.8 : 0.2;
+    // K-item 39: de zwaardere weeklijn valt op de INGESTELDE eerste dag van de week, net als op het
+    // scherm (`GanttRenderer`: `dayOfWeek === (weekStartDay === 'sunday' ? 7 : 1)`).
+    d2d.lineWidth = dow === (options.weekStartDay === 'sunday' ? 7 : 1) ? 0.8 : 0.2;
     d2d.beginPath();
     d2d.moveTo(x, chartTop);
     d2d.lineTo(x, chartBottom);
@@ -977,6 +999,11 @@ function drawTimelineHeader(
 
   const months = options.localizedMonths ?? ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 
+  // K-item 39: dezelfde weekdefinitie als het scherm. `weekStartDay` bepaalt zowel het NUMMER
+  // (ISO wanneer maandag, Amerikaans wanneer zondag) als de dag waarop het label begint.
+  const wsd = options.weekStartDay ?? 'monday';
+  const weekStartDow = wsd === 'sunday' ? 7 : 1;
+
   let lastMonth = -1;
   let lastWeek = -1;
   // Rechterrand (x) van het laatst getekende maand-/weeklabel, om overlap te vermijden (klacht 7).
@@ -987,7 +1014,7 @@ function drawTimelineHeader(
     const date = addCalendarDays(minDate, i);
     const x = dateToX(date);
     const month = date.getUTCMonth();
-    const weekNum = getWeekNumber(date);
+    const weekNum = getWeekNumberFor(date, wsd);
     const dow = isoDayOfWeek(date);
 
     // Month headers (capitalize first letter)
@@ -1020,7 +1047,7 @@ function drawTimelineHeader(
     }
 
     // Week headers
-    if (dow === 1 && weekNum !== lastWeek) {
+    if (dow === weekStartDow && weekNum !== lastWeek) {
       lastWeek = weekNum;
 
       // Vertical separator

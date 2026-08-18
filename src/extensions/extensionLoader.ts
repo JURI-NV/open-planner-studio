@@ -8,7 +8,9 @@ import type { ExtensionManifest, ExtensionPlugin, InstalledExtension } from './t
 import { createExtensionApi } from './extensionApi';
 import { getExtensionSdk, installExtensionSdk } from './sdk';
 import { sanitizeManifestPermissions } from './permissions';
+import { checkApiCompatibility, EXTENSION_API_VERSION } from './apiVersion';
 import { useAppStore } from '@/state/appStore';
+import { appLog } from '@/services/debug/appLog';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
 
@@ -115,7 +117,7 @@ export async function getExtensionFromDb(id: string): Promise<StoredExtension | 
 /** Voer extensie-code uit in een minimale CommonJS-sandbox.
  *  Let op: dit is GEEN echte isolatie — extensie-code heeft gewoon toegang tot
  *  window, document, fetch e.d.; permissies zijn een conventie, geen harde grens. */
-function executeExtensionCode(mainCode: string): ExtensionPlugin {
+export function executeExtensionCode(mainCode: string): ExtensionPlugin {
   const moduleExports: Record<string, unknown> = {};
   const moduleObj = { exports: moduleExports as Record<string, unknown> };
 
@@ -129,8 +131,21 @@ function executeExtensionCode(mainCode: string): ExtensionPlugin {
   };
 
   try {
-    const fn = new Function('module', 'exports', 'require', mainCode);
-    fn(moduleObj, moduleExports, requireFn);
+    // AFSCHERMING (K-item 38). De namen hieronder worden als functieparameter meegegeven en dus
+    // BINNEN de extensie-scope geschaduwd op `undefined`. Ze hebben geen legitiem gebruik in
+    // extensie-code — `__TAURI_INTERNALS__` is de rauwe Tauri-invoke-brug (dus bestandssysteem,
+    // shell, updater, buiten élke plugin-scope om), `__OPS__` is de dev-bridge met de kale store,
+    // en `__TAURI__` is de oude plugin-namespace. Alles wat een extensie legitiem nodig heeft loopt
+    // via `require('open-planner-studio')` en de `api` die `onLoad` krijgt.
+    //
+    // DIT IS GEEN SANDBOX, en het is belangrijk dat niemand dat denkt. De code draait in dezelfde
+    // realm, dus `globalThis.__TAURI_INTERNALS__`, `window[...]` of `Function('return this')()`
+    // komen er nog steeds bij. Wat dit wél doet: het weghalen van de KANSLOZE route (een
+    // kale identifier), zodat wie er alsnog bij komt dat aantoonbaar met opzet deed. De echte
+    // grens is een Web Worker of een iframe; zie docs/extensions.md en het rapport-item.
+    const AFGESCHERMD = ['__TAURI_INTERNALS__', '__TAURI__', '__OPS__'] as const;
+    const fn = new Function('module', 'exports', 'require', ...AFGESCHERMD, mainCode);
+    fn(moduleObj, moduleExports, requireFn, ...AFGESCHERMD.map(() => undefined));
   } catch (err) {
     throw new Error(`Uitvoeren van extensie-code mislukt: ${err}`);
   }
@@ -159,12 +174,26 @@ export async function enableExtension(id: string): Promise<void> {
     const stored = await getExtensionFromDb(id);
     if (!stored) throw new Error(`Extensie "${id}" niet gevonden in opslag`);
 
-    // Versie-gate: weiger te activeren als de app ouder is dan minAppVersion.
+    // Poort 1 — APP-versie (features): weiger als de app ouder is dan minAppVersion.
     const minVersion = stored.manifest.minAppVersion;
     if (minVersion && compareVersions(APP_VERSION, minVersion) < 0) {
       throw new Error(
         `Vereist Open Planner Studio ≥ ${minVersion} (huidige versie: ${APP_VERSION})`,
       );
+    }
+
+    // Poort 2 — CONTRACT-versie (K-item 37). Los van poort 1: CalVer draagt geen
+    // breaking-change-signaal, dus zonder deze poort laadt een extensie voor een ander
+    // API-contract gewoon en klapt hij pas halverwege `onLoad` op een verdwenen methode.
+    // Een manifest zonder `apiVersion` (alles van vóór dit item) blijft laden — weigeren zou elke
+    // geïnstalleerde extensie in één update slopen — maar wordt wél zichtbaar gelogd.
+    const compat = checkApiCompatibility(stored.manifest.apiVersion);
+    if (!compat.ok) {
+      throw new Error(`${compat.reason} (extensie-API van deze app: ${EXTENSION_API_VERSION})`);
+    }
+    if (compat.legacy) {
+      appLog.emit('warn', 'Extensies',
+        `"${id}" declareert geen apiVersion; aangenomen dat hij past bij extensie-API ${EXTENSION_API_VERSION}.`);
     }
 
     // Zorg dat de host-SDK op window staat vóór extensie-code draait.

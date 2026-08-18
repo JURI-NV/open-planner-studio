@@ -28,8 +28,8 @@ export function withTransaction<T>(fn: () => T): T {
   // een datumveld op déze snapshot willen doorbouwen.
   resetUndoCoalescing();
 
-  // De snapshot van de PLAIN pre-transactie-staat, niet van een draft (zie beginUndoable/B1: op een
-  // draft proxy't de JSON-kloon élk bezocht object — gemeten ~145 ms bij 5.000 taken tegen ~19 ms).
+  // De snapshot van de PLAIN pre-transactie-staat, niet van een draft. `createSnapshot` normaliseert
+  // een draft zelf via `original()`, maar hier is de plain staat sowieso al bij de hand.
   const base = useAppStore.getState();
   useAppStore.setState((s) => {
     pushUndoSnapshot(s, base);

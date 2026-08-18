@@ -236,9 +236,11 @@ function CatalogCard({ entry, isInstalled }: { entry: CatalogEntry; isInstalled:
   const handleInstall = useCallback(async () => {
     setInstalling(true);
     setFailed(false);
-    const ok = await installFromCatalog(entry);
+    const uitkomst = await installFromCatalog(entry);
     setInstalling(false);
-    if (!ok) setFailed(true);
+    // Alleen 'failed' is een fout. Een 'declined' is de gebruiker die de vertrouwensvraag met nee
+    // beantwoordde (K-item 38) — daar hoort geen "installatie mislukt" bij.
+    if (uitkomst === 'failed') setFailed(true);
   }, [entry]);
 
   return (
