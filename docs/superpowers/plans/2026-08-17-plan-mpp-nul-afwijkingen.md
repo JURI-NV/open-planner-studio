@@ -555,9 +555,11 @@ MSP ligt tussen beide bestaande modi in. Sterke aanwijzing uit de vorige ronde: 
 > (mpp14timephased2), 5× budget-werktracking buiten decoder-scope; plus de eerdere drie (Task 6-familie-
 > restwerk-anomalie, segmentsmanual-uurprecisie, overtime-wandelpad) voor zover nog aanwezig in de pins.
 > **Nataken vóór Z17**: (1) edit-time-invalidatie van het gelezen venster in `taskSlice.ts`/
-> `mcpTransaction.ts` (raakt nu nog 69 taken — door de reviewer als legitieme nataak beoordeeld);
+> `mcpTransaction.ts` (raakt nu nog 69 taken — door de reviewer als legitieme nataak beoordeeld) —
+> *afgehandeld in Z14b (incl. `resourceSlice.ts` en laag 4 bij toewijzingswijzigingen)*;
 > (2) docblok-nit startanker: rechtvaardiging herformuleren naar "MSP slaat hier een ongesnapt instant
-> op", niet "verwijderen verslechtert" (dat suggereert een bewijs dat de meting niet kan leveren).
+> op", niet "verwijderen verslechtert" (dat suggereert een bewijs dat de meting niet kan leveren) —
+> *afgehandeld direct na de Z14b-merge (mutatieproef alleen nog als niet-circulariteitscontrole)*.
 
 #### Z19 — Residu-iteratie tot nul
 

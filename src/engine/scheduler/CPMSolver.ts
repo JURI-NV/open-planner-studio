@@ -1186,13 +1186,15 @@ export class CPMSolver {
         // etappe 1 geaccepteerd, ONGEWIJZIGD hier). `timephasedAnchor` (`task.timephasedStartAnchor`,
         // `AssignmentField.START`) is dus geen ALTERNATIEF soort mechanisme t.o.v. ownAnchor — het is
         // een PRECIEZER gelezen anker uit een ANDERE bronlocatie (toewijzingsniveau i.p.v. taakniveau),
-        // beide even "gelezen". Mutatieproef uitgevoerd (tijdelijk uitgeschakeld, altijd ownAnchor):
-        // corpusbreed VERSLECHTERT dat meetbaar — mpp14timephased.mpp krijgt 4 nieuwe startDiff op
-        // wortel-taken, mpp14timephasedsegmentsmanual(offsets).mpp verliest ALLE startExact-treffers
-        // (naar sameday/diff). Dat is het tegenovergestelde van wat een puur-circulaire terugval zou
-        // doen (die zou bij verwijdering GEEN verschil maken t.o.v. de toch-al-juiste motoruitkomst) —
-        // het bewijst dat `task.time.scheduleStart` hier daadwerkelijk MINDER PRECIES is dan het
-        // toewijzingsniveau-veld, niet dat deze tak de motorberekening omzeilt. Blijft dus staan.
+        // beide even "gelezen". De rechtvaardiging is het INVOERFEIT: MSP bewaart op toewijzings-
+        // niveau een ONGESNAPT instant (`AssignmentField.START` ligt in het corpusvoorbeeld buiten
+        // de taak-kalenderband en binnen de resourcekalender) — het toewijzingsveld draagt dus
+        // broninformatie die het taakveld mist, en die lezen we, net als `ownAnchor`, als anker.
+        // De mutatieproef (tijdelijk uitgeschakeld, altijd ownAnchor) dient uitsluitend als
+        // niet-circulariteitscontrole: een teruggelezen antwoord zou bij verwijdering GEEN verschil
+        // maken t.o.v. de toch-al-juiste motoruitkomst, terwijl deze tak dan meetbaar ander gedrag
+        // toont (o.a. mpp14timephased.mpp en mpp14timephasedsegmentsmanual(offsets).mpp op hun
+        // wortel-taken). Blijft dus staan.
         // Z13 (dossier "rauw anker zonder constraint", `timephased-prorated-cost-resource.mpp`,
         // taak "No Progress - Actual Cost"): `timephasedAnchor` hierboven is normaal een PRECIEZER
         // gelezen anker dan `ownAnchor` (zie de toelichting hierboven) — maar in dit ene corpusgeval
