@@ -16,14 +16,15 @@ interface HoverState { x: number; y: number; task: Task; }
  * `removeSequence` rechtstreeks aan, identiek in paneel én dialoog (dialoog heeft altijd een
  * bestaand `task.id` — zie ontwerp-doc-vondst).
  *
- * Issue #65: de richtingspijl + het WBS-nummer van de gekoppelde taak vormen samen een knop.
+ * Issue #65: het WBS-nummer van de gekoppelde taak is een knop — de eerdere richtingspijl (→/←)
+ * ervoor is weg (eigenaarsbesluit 2026-08-18: alleen het nummer, geen pijltje).
  * Hover toont dezelfde `TaskTooltipContent` als het canvas (via de gedeelde, portal-gebaseerde
  * `HoverTooltip`); klik roept `focusOnTask` aan — selecteert de taak, klapt een ingeklapte
  * oudersketen uit, en laat GanttCanvas ernaartoe zoomen/scrollen. Dat laatste heeft een gemonte
  * `GanttCanvas` nodig om het `pendingFocusTaskId`-signaal ooit op te pikken en te wissen — die
  * garantie geldt alleen in het eigenschappenpaneel (`!isFullPanel`, App.tsx), niet in `TaskDialog`
  * (opent op elk tabblad via F2). `interactive=false` (hyperkritische review issue #65) valt daarom
- * terug op de oude platte pijl+naam-weergave, zonder knop/hover/klik.
+ * terug op platte tekst (taaknaam), zonder knop/hover/klik.
  */
 export function TaskDependenciesSection({ taskId, interactive = true }: { taskId: string; interactive?: boolean }) {
   const { t } = useTranslation('task');
@@ -57,20 +58,16 @@ export function TaskDependenciesSection({ taskId, interactive = true }: { taskId
         const other = seq.predecessorId === taskId
           ? tasks.find(t => t.id === seq.successorId)
           : tasks.find(t => t.id === seq.predecessorId);
-        const role = seq.predecessorId === taskId ? '→' : '←';
         const isDriving = !!cpmResult && !cpmResult.error
           && cpmResult.drivingSequenceIds.includes(seq.id);
         return (
           <div key={seq.id} className="flex items-center gap-1 text-[10px]">
             {!interactive ? (
-              <>
-                <span>{role}</span>
-                <span className="flex-1 truncate">{other?.name || '?'}</span>
-              </>
+              <span className="flex-1 truncate">{other?.name || '?'}</span>
             ) : other ? (
               <button
                 type="button"
-                className="flex items-center gap-1 shrink-0 max-w-[45%] truncate"
+                className="shrink-0 max-w-[45%] truncate"
                 style={{ color: 'var(--theme-accent)' }}
                 title={other.name}
                 aria-label={t('properties.jumpToTask', { wbs: other.wbsCode || other.name })}
@@ -83,14 +80,10 @@ export function TaskDependenciesSection({ taskId, interactive = true }: { taskId
                 onBlur={() => setHover(null)}
                 onClick={() => { setHover(null); focusOnTask(other.id); }}
               >
-                <span>{role}</span>
-                <span className="truncate">{other.wbsCode || other.name}</span>
+                {other.wbsCode || other.name}
               </button>
             ) : (
-              <>
-                <span>{role}</span>
-                <span className="flex-1 truncate">?</span>
-              </>
+              <span className="flex-1 truncate">?</span>
             )}
             {isDriving && (
               <span title={t('properties.driving')} style={{ color: 'var(--theme-accent)' }}>
