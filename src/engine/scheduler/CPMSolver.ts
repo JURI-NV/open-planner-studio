@@ -248,7 +248,7 @@ export class CPMSolver {
   ) {
     this.tasks = new Map(tasks.map(t => [t.id, t]));
 
-    // Guard (T8-rooktest, Bijlage 13): de aanroepers (`runCPM`/`levelResources` in
+    // Guard (T8-rooktest, 870d339f60603f71 — hash-only §8): de aanroepers (`runCPM`/`levelResources` in
     // `scheduleSlice.ts`, de leveler in `ResourceLeveler.ts`, `benchmark/runner.ts`) geven hier
     // opzettelijk alleen BLADTAKEN aan mee (`childIds.length === 0`) — een samenvattingstaak krijgt
     // zijn datums via de rollup in `applyCpmResult`, niet als eigen CPM-knoop. `sequences` komt

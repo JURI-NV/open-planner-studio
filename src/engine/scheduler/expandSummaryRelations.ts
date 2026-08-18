@@ -7,7 +7,7 @@ import type { CPMResult } from './CPMSolver';
  * bladtaken (`childIds.length === 0`) als knopen; een relatie die een WBS-samenvattingstaak raakt
  * kan de solver dus niet zelf verwerken. 489a9ef2 loste de crash op door zulke relaties te droppen
  * (`CPMResult.droppedSequenceIds`) — een bewuste tussenoplossing die op een echt corpusbestand
- * (Bijlage 13 Productieplanning.mpp) 28 van de 105 relaties liet vallen: een kwart van de logica.
+ * (870d339f60603f71, hash-only §8) 28 van de 105 relaties liet vallen: een kwart van de logica.
  *
  * MS Project-semantiek (referentie: de MSPDI-export van datzelfde bestand, die MS Project's eigen
  * berekende datums bevat) past een relatie op een samenvattingstaak toe op ELK onderliggend
@@ -45,7 +45,7 @@ import type { CPMResult } from './CPMSolver';
  *     zelf al ontmoedigt/verbiedt. Het dwingt ELK kind (ook een kind dat allang klaar zou zijn) om
  *     te voldoen aan een constraint die eigenlijk alleen voor de SAMENVATTING als geheel (het LAATST
  *     afgeronde kind) zou moeten gelden — een vroeg kind kan hierdoor onnodig later worden gepland.
- * Corpusincidentie (Bijlage 13, T8/deze etappe): 0 — geen van de 28 samenvatting-relaties in dat
+ * Corpusincidentie (870d339f60603f71, T8/deze etappe): 0 — geen van de 28 samenvatting-relaties in dat
  * bestand is SS/SF-voorganger of FF/SF-opvolger, dus dit is een gedocumenteerde grens, geen gemeten
  * regressie. Vier regressiecases pinnen het huidige (conservatieve) gedrag, zie
  * `cases-edge.json` ("wbs-summary-relation-conservative-*").
@@ -56,7 +56,7 @@ import type { CPMResult } from './CPMSolver';
  * expansie) — niet tegen de duur/omvang van de samenvatting als geheel. Bij kinderen met sterk
  * uiteenlopende duren geeft dat per gegenereerde bladrelatie een andere absolute lag, terwijl MS
  * Project vermoedelijk één samenvattings-brede duur als basis neemt. Corpusincidentie: 0 (geen van
- * de samenvatting-relaties in Bijlage 13 heeft `lagPercent`).
+ * de samenvatting-relaties in 870d339f60603f71 heeft `lagPercent`).
  *
  * Lag/type van de oorspronkelijke relatie blijft op elke gegenereerde bladrelatie staan (spread);
  * alleen `id`/`predecessorId`/`successorId` wijzigen. Synthetische ids zijn afleidbaar van het
@@ -287,7 +287,7 @@ function dedupOriginal(ids: string[]): string[] {
  * `expandSummaryRelations`, dan bevatten de vier relatie-gekeyde velden synthetische ids die geen
  * van de consumenten (RelationsPanel, StatusBar, ReportPanel, TaskDependenciesSection, GanttCanvas,
  * de MCP-leestools) herkent — die kennen alleen `s.sequences`, met de originele ids. Gemeten op
- * Bijlage 13 vóór deze fold: 114 van de 167 `drivingSequenceIds` synthetisch (dus onvindbaar in
+ * 870d339f60603f71 vóór deze fold: 114 van de 167 `drivingSequenceIds` synthetisch (dus onvindbaar in
  * `s.sequences` ⇒ stil uit elke driving-weergave gevallen), 261 van de 338 `sequenceFreeFloat`-
  * sleutels synthetisch (dus `sequenceFreeFloat[seq.id]` gaf `undefined` voor die relaties). Op dit
  * corpusbestand raakt `outOfSequenceSequenceIds`/`truncatedLeadSequenceIds` toevallig leeg (geen

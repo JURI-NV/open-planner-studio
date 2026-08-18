@@ -737,8 +737,8 @@ eq('186 detector-gate CONTROLE: geen actuals + structureel te laat ⇒ violation
 // taak-id dat niet in `tasks` zit. Vóór de guard in de CPMSolver-constructor duwde
 // `topologicalSort` dat fantoom-id de volgorde in (hij telt `inDegree` onvoorwaardelijk voor élke
 // `successorId`) en crashte de forward pass op een `this.tasks.get(id)!`-aanname zodra dat
-// fantoom-id in `order` viel (T8-rooktest, Bijlage 13: het bestand opende, maar de planning bleef
-// stil onberekend doordat `openFile`s catch de crash opslokte). Nu wordt de relatie genegeerd
+// fantoom-id in `order` viel (T8-rooktest, 870d339f60603f71 — hash-only §8: het bestand opende,
+// maar de planning bleef stil onberekend doordat `openFile`s catch de crash opslokte). Nu wordt de relatie genegeerd
 // i.p.v. de solver te laten crashen — de samenvattingstaak zelf blijft correct via de bestaande
 // rollup (`applyCpmResult`), alleen déze relatie legt geen dwang meer op.
 {

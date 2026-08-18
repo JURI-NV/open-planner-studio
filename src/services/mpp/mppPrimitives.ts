@@ -441,9 +441,9 @@ export class VarMeta12 {
 // vervangt die dans functioneel identiek — zelfde resultaat, zonder de stream-boekhouding.
 //
 // Context (T3/T4-les, bevestigd op het corpus): een backend-storage kan legitiem ZONDER
-// Var2Data-stream zitten (bijlage 7 mist 'm voor TBkndCons) — vandaar `bytes: Uint8Array | null`
-// hier, in tegenstelling tot VarMeta12 hierboven. Afwezig ⇒ lege variabele-veldenset, nooit een
-// harde eis.
+// Var2Data-stream zitten (het 215-takenbestand uit `check-mpp-fidelity.ts`'s corpuspins mist 'm
+// voor TBkndCons, hash-only §8) — vandaar `bytes: Uint8Array | null` hier, in tegenstelling tot
+// VarMeta12 hierboven. Afwezig ⇒ lege variabele-veldenset, nooit een harde eis.
 
 export class Var2Data {
   private readonly meta: VarMeta12;

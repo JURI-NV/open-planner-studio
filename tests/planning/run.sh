@@ -169,7 +169,7 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPPRELCHECK="$DIR/.mpp-relations.mjs"
   if bundle_check "$DIR/check-mpp-relations.ts" "$MPPRELCHECK"; then node "$MPPRELCHECK" || STATUS=1; fi
 
-  # T8-rooktest: "Bijlage 13 Productieplanning.mpp" end-to-end (readMPP -> leaf-only CPMSolver,
+  # T8-rooktest: 870d339f60603f71 (hash-only, §8) end-to-end (readMPP -> leaf-only CPMSolver,
   # exact het runCPM-pad) — bevat relaties op WBS-samenvattingstaken (in MS Project legaal) die
   # vóór de fix de forward pass lieten crashen. Zelfde nette-skip-conventie zonder corpus.
   MPPSUMCHECK="$DIR/.mpp-summary-relations.mjs"

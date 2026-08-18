@@ -1619,6 +1619,35 @@ const CORPUS =
 const corpusPresent = existsSync(CORPUS);
 const corpusFiles = corpusPresent ? readdirSync(CORPUS).filter((f) => f.toLowerCase().endsWith('.mpp')) : [];
 
+/** SHA-256, eerste 16 hex-tekens — zelfde afspraak als `check-mpp-fidelity.ts`'s `hashOf`. */
+function hashOf(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+}
+
+// Z20 hash-only-veeg (§8, Z16-review-bevinding): de ENIGE plek in dit bestand die een `OPS_MPP_
+// CORPUS`-bestandsnaam nog leest van de schijf — elke sectie hieronder die eerder een letterlijke
+// bedrijfsbestandsnaam bevatte (T4-structuurcheck, T5, uurmodus, T12) identificeert een bestand nu
+// uitsluitend via zijn hash en resolvet het pad-op-schijf hiermee, at-runtime. Corpusinhoud/-namen
+// staan dus nergens meer in de broncode — alleen hashes (net als `mpp-fidelity-baseline.json`).
+// Crawl-bestanden (OPS_MPP_CRAWL, publiek MPXJ-junit-/OzBuild-materiaal) vallen NIET onder deze
+// regel (plan §6/§8 staat leesbare crawl-namen expliciet toe) en blijven dus bij naam elders in dit
+// bestand.
+const corpusHashToFile = new Map<string, string>();
+for (const file of corpusFiles) {
+  try {
+    corpusHashToFile.set(hashOf(new Uint8Array(readFileSync(join(CORPUS, file)))), file);
+  } catch {
+    // Onleesbaar bestand — genegeerd hier; de T4-structuurcheck hieronder rapporteert zijn eigen
+    // leesfout per (hash-getagd) bestand zodra hij dat bestand daadwerkelijk probeert te openen.
+  }
+}
+/** Resolvet een bekende hash naar het bestandspad zoals het NU op schijf staat — `null` als dit
+ *  corpus dat bestand niet (meer) bevat. De enige plaats waar een hash weer een leesbare naam
+ *  wordt is `join(CORPUS, ...)` hieronder, nooit in een diagnoseregel. */
+function resolveCorpusFileByHash(hash: string): string | null {
+  return corpusHashToFile.get(hash) ?? null;
+}
+
 if (!corpusPresent) {
   console.log('OK  mpp-import: corpus niet aanwezig (OPS_MPP_CORPUS) — corpuslus overgeslagen');
 } else if (corpusFiles.length === 0) {
@@ -1627,88 +1656,104 @@ if (!corpusPresent) {
   const BACKEND_STORAGES = ['TBkndTask', 'TBkndRsc', 'TBkndAssn', 'TBkndCons', 'TBkndCal'];
   // Var2Data draagt variabele-lengte velden per record en zit daarom NIET gegarandeerd overal:
   // een storage zonder variabele inhoud (bv. TBkndCons zonder notities/tekst op relaties) heeft
-  // een lege VarMeta en geen Var2Data-stream. Geverifieerd op het corpus: 'bijlage 7 Productie
-  // planning.mpp' mist 'm voor TBkndCons, terwijl de andere twee bestanden 'm daar wél hebben —
-  // dus hard vereisen zou hier op legitieme data falen. FixedMeta/FixedData/VarMeta zijn wél
-  // altijd aanwezig in de drie corpusbestanden en blijven hard vereist.
+  // een lege VarMeta en geen Var2Data-stream. Geverifieerd op het corpus (hash-only, §8): het
+  // 215-takenbestand (a69fec157074d056, zie de T5-/T12-secties verderop) mist 'm voor TBkndCons,
+  // terwijl de andere twee bestanden 'm daar wél hebben — dus hard vereisen zou hier op legitieme
+  // data falen. FixedMeta/FixedData/VarMeta zijn wél altijd aanwezig in de drie corpusbestanden en
+  // blijven hard vereist.
   const REQUIRED_STREAMS = ['FixedMeta', 'FixedData', 'VarMeta'];
 
   for (const file of corpusFiles) {
     const path = join(CORPUS, file);
-    let cfb: CfbFile;
+    // Hash-only (§8): élke diagnoseregel in deze lus gebruikt `tag`, nooit `file` zelf — ook niet
+    // via een debug-`label` die in een geworpen foutmelding terecht kan komen (zie de
+    // `FixedMeta.withItemSize`-aanroep verderop).
+    let bytes: Uint8Array;
+    let tag: string;
     try {
-      cfb = new CfbFile(new Uint8Array(readFileSync(path)));
+      bytes = new Uint8Array(readFileSync(path));
+      tag = hashOf(bytes);
     } catch (err) {
       checks++;
-      diffs.push(`[${file}] CFB-parse mislukte: ${err instanceof Error ? err.message : String(err)}`);
+      diffs.push(`[corpusbestand onleesbaar] ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+    let cfb: CfbFile;
+    try {
+      cfb = new CfbFile(bytes);
+    } catch (err) {
+      checks++;
+      diffs.push(`[${tag}] CFB-parse mislukte: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
 
-    truthy(`[${file}] root heeft \\x01CompObj`, cfb.root.children.has('\x01CompObj'));
+    truthy(`[${tag}] root heeft \\x01CompObj`, cfb.root.children.has('\x01CompObj'));
 
     const props114 = cfb.getStorage(['   114']);
-    truthy(`[${file}] storage '   114' bestaat`, props114 !== null);
+    truthy(`[${tag}] storage '   114' bestaat`, props114 !== null);
     if (!props114) continue;
 
     const propsStream = cfb.getStream(['   114', 'Props']);
-    truthy(`[${file}] '   114'/Props is een stream`, propsStream !== null);
-    truthy(`[${file}] '   114'/Props heeft inhoud`, (propsStream?.length ?? 0) > 0);
+    truthy(`[${tag}] '   114'/Props is een stream`, propsStream !== null);
+    truthy(`[${tag}] '   114'/Props heeft inhoud`, (propsStream?.length ?? 0) > 0);
 
     for (const storageName of BACKEND_STORAGES) {
       const storage = cfb.getStorage(['   114', storageName]);
-      truthy(`[${file}] '   114'/${storageName} bestaat als storage`, storage !== null);
+      truthy(`[${tag}] '   114'/${storageName} bestaat als storage`, storage !== null);
       if (!storage) continue;
       for (const streamName of REQUIRED_STREAMS) {
         const has = storage.children.get(streamName)?.type === 'stream';
-        truthy(`[${file}] '   114'/${storageName}/${streamName} bestaat als stream`, has);
+        truthy(`[${tag}] '   114'/${storageName}/${streamName} bestaat als stream`, has);
       }
       // Informatief (niet hard vereist — zie toelichting bij REQUIRED_STREAMS hierboven).
       const hasVar2Data = storage.children.get('Var2Data')?.type === 'stream';
       console.log(
-        `   . [${file}] '   114'/${storageName}/Var2Data: ${hasVar2Data ? 'aanwezig' : 'afwezig (geen variabele velden)'}`,
+        `   . [${tag}] '   114'/${storageName}/Var2Data: ${hasVar2Data ? 'aanwezig' : 'afwezig (geen variabele velden)'}`,
       );
     }
 
     const taskFixedData = cfb.getStream(['   114', 'TBkndTask', 'FixedData']);
-    truthy(`[${file}] TBkndTask/FixedData levert bytes`, (taskFixedData?.length ?? 0) > 0);
+    truthy(`[${tag}] TBkndTask/FixedData levert bytes`, (taskFixedData?.length ?? 0) > 0);
 
     // Onbekend pad ⇒ null, geen throw (bewijst dat het pad-lookup-contract standhoudt).
-    truthy(`[${file}] onbekend pad geeft null`, cfb.getStream(['does-not-exist']) === null);
+    truthy(`[${tag}] onbekend pad geeft null`, cfb.getStream(['does-not-exist']) === null);
 
     // ── T4: MPP-containerlaag tegen de echte corpusbestanden ──────────────────────────────────
     try {
       const variant = detectMppVariant(cfb);
-      truthy(`[${file}] detectMppVariant === 'MPP14'`, variant === 'MPP14');
+      truthy(`[${tag}] detectMppVariant === 'MPP14'`, variant === 'MPP14');
     } catch (err) {
       checks++;
-      diffs.push(`[${file}] detectMppVariant gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      diffs.push(`[${tag}] detectMppVariant gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     try {
       assertReadable(cfb);
-      truthy(`[${file}] assertReadable gooit niet (onversleuteld MPP14)`, true);
+      truthy(`[${tag}] assertReadable gooit niet (onversleuteld MPP14)`, true);
     } catch (err) {
-      truthy(`[${file}] assertReadable gooit niet (onversleuteld MPP14)`, false);
-      diffs.push(`[${file}] assertReadable gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      truthy(`[${tag}] assertReadable gooit niet (onversleuteld MPP14)`, false);
+      diffs.push(`[${tag}] assertReadable gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     const taskFixedMetaBytes = cfb.getStream(['   114', 'TBkndTask', 'FixedMeta']);
     if (taskFixedMetaBytes && taskFixedData) {
       try {
-        // itemSize=47, zoals MPP14Reader.java r. 993 voor TBkndTask/FixedMeta.
-        const taskFixedMeta = FixedMeta.withItemSize(taskFixedMetaBytes, 47, `${file}/TBkndTask/FixedMeta`);
-        const taskFixedDataParsed = FixedData.fromMeta(taskFixedMeta, taskFixedData, 0, 0, `${file}/TBkndTask/FixedData`);
+        // itemSize=47, zoals MPP14Reader.java r. 993 voor TBkndTask/FixedMeta. Het derde argument
+        // is uitsluitend een debuglabel dat `mppPrimitives.ts` in een eventuele foutmelding
+        // weeft — hash-only dus ook hier, nooit `file`.
+        const taskFixedMeta = FixedMeta.withItemSize(taskFixedMetaBytes, 47, `${tag}/TBkndTask/FixedMeta`);
+        const taskFixedDataParsed = FixedData.fromMeta(taskFixedMeta, taskFixedData, 0, 0, `${tag}/TBkndTask/FixedData`);
         truthy(
-          `[${file}] TBkndTask FixedData.getItemCount() > 0`,
+          `[${tag}] TBkndTask FixedData.getItemCount() > 0`,
           taskFixedDataParsed.getItemCount() > 0,
         );
       } catch (err) {
         checks++;
-        diffs.push(`[${file}] TBkndTask FixedMeta/FixedData parse mislukte: ${err instanceof Error ? err.message : String(err)}`);
+        diffs.push(`[${tag}] TBkndTask FixedMeta/FixedData parse mislukte: ${err instanceof Error ? err.message : String(err)}`);
       }
     } else {
       checks++;
-      diffs.push(`[${file}] TBkndTask/FixedMeta of TBkndTask/FixedData ontbreekt`);
+      diffs.push(`[${tag}] TBkndTask/FixedMeta of TBkndTask/FixedData ontbreekt`);
     }
   }
 }
@@ -1717,9 +1762,10 @@ if (!corpusPresent) {
 // T5 — readMPP vs. de MSPDI-ground-truth (per corpuspaar: taakaantal + veld-voor-veld)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
-// Ground-truth-taakaantallen (plan §Corpus): Bijlage 13 = 51, Bijlage 20 PKB = 134, bijlage 7 =
-// 215. `installDOMParser` (xmldom-shim) geeft `readMSPDI` een browser-`DOMParser`-vervanger in
-// Node — hetzelfde patroon als `check-mspdi-baseline-export.ts`.
+// Ground-truth-taakaantallen (plan §Corpus, hash-only §8): 870d339f60603f71 = 51,
+// 787efb968ae72fe4 = 134, a69fec157074d056 = 215. `installDOMParser` (xmldom-shim) geeft
+// `readMSPDI` een browser-`DOMParser`-vervanger in Node — hetzelfde patroon als
+// `check-mspdi-baseline-export.ts`.
 //
 // BEVINDING, GECORRIGEERD (T5-spec-review, 2026-08-14): een strikte POSITIONELE vergelijking
 // ("taak i in de .mpp-volgorde ⇔ taak i in de MSPDI-volgorde") is voor dit corpus NIET haalbaar —
@@ -1737,10 +1783,10 @@ if (!corpusPresent) {
 // bijbehorende `.mpp`'s, geen export van precies dezelfde staat. Bewijs: alle drie XML's hebben
 // compact herNUMMERDE UID==ID 1..N (een echte export van dezelfde live state behoudt bestaande
 // unique-ID's — die zijn na jaren editen nooit toevallig weer 1..N op een rij); 27 van de 51
-// `.mpp`-unique-ID's in Bijlage 13 komen zelfs helemaal niet voor in die XML-reeks; taken zijn
-// verplaatst (een cut/paste-handtekening, geen enkel-veld-drift); en de projectstartdatum van
-// bijlage 7 verschilt ronduit tussen de twee bestanden (`.mpp` 2025-12-19 vs. `.mpp.xml`
-// 2025-12-08). Dat is een brongegeven van dít corpus — geen enkele lezer, MPXJ incluis, kan een
+// `.mpp`-unique-ID's in 870d339f60603f71 (51 taken) komen zelfs helemaal niet voor in die
+// XML-reeks; taken zijn verplaatst (een cut/paste-handtekening, geen enkel-veld-drift); en de
+// projectstartdatum van a69fec157074d056 (215 taken) verschilt ronduit tussen de twee bestanden
+// (`.mpp` 2025-12-19 vs. `.mpp.xml` 2025-12-08). Dat is een brongegeven van dít corpus — geen enkele lezer, MPXJ incluis, kan een
 // document tegen een andere revisie van zichzelf 1-op-1 positioneel matchen.
 //
 // ⚠️ T7-WAARSCHUWING: om dezelfde reden zijn de link-/resource-/assignmentaantallen in de
@@ -1768,18 +1814,21 @@ if (!corpusPresent) {
 // 357 veldafwijkingen (≈90%) zijn start/finish-dagprefixverschillen, rechtstreeks toe te schrijven
 // aan het documentversieverschil hierboven (verplaatste taken/andere projectstart) — GEEN
 // uur-modus-artefact. Het duur-budget (22) is gemengd: een deel volgt uit datzelfde
-// versieverschil, een deel uit het feit dat de MSPDI-ground-truth voor Bijlage 20/bijlage 7
-// stellenwijs URE-MODUS is (fractionele dagduren, tijd-component in Finish — `mspdiReader`'s
+// versieverschil, een deel uit het feit dat de MSPDI-ground-truth voor 787efb968ae72fe4/
+// a69fec157074d056 stellenwijs URE-MODUS is (fractionele dagduren, tijd-component in Finish — `mspdiReader`'s
 // `promoteHourCalendar`, bv. "6.40625" dagen) terwijl deze lezer in etappe 1 uitsluitend
 // DAG-modus kent (taakopdracht T5, expliciet) — de duurvergelijking rondt daarom af op hele dagen
 // vóór vergelijken. Outline-diepte (12) en constraintdatum (2) volgen ook uit het versieverschil
 // (verplaatste taken krijgen een andere boomdiepte/constraint-context in de andere revisie).
 if (corpusPresent) {
   installDOMParser();
+  // Hash-only (§8, Z16-review-bevinding, Z20-veeg): sleutels zijn SHA-256-hashes (16 hex, zelfde
+  // afspraak als `mpp-fidelity-baseline.json`), geen bedrijfsbestandsnamen meer. `resolveCorpus
+  // FileByHash` (module-top) vertaalt een hash terug naar het pad-op-schijf van DIT corpus.
   const EXPECTED_TASK_COUNTS: Record<string, number> = {
-    'Bijlage 13 Productieplanning.mpp': 51,
-    'Bijlage 20 productieplanning PKB.mpp': 134,
-    'bijlage 7 Productie planning.mpp': 215,
+    '870d339f60603f71': 51,
+    '787efb968ae72fe4': 134,
+    'a69fec157074d056': 215,
   };
 
   interface FieldDiffBudget {
@@ -1803,19 +1852,20 @@ if (corpusPresent) {
     // 5/7/10, nu 8/14/28) — bij minuut-precieze vergelijking (bothHour) is de duur-afwijking GEEN
     // afrondingsartefact meer maar een rechtstreekse meting van het documentversieverschil (zie de
     // T5-moduleheader) — de grovere dag-afgeronde vergelijking maskeerde een deel daarvan.
-    'Bijlage 13 Productieplanning.mpp': { start: 12, finish: 12, duration: 8, outlineDepth: 5, constraintDate: 0 },
-    'Bijlage 20 productieplanning PKB.mpp': { start: 95, finish: 96, duration: 14, outlineDepth: 2, constraintDate: 0 },
+    '870d339f60603f71': { start: 12, finish: 12, duration: 8, outlineDepth: 5, constraintDate: 0 },
+    '787efb968ae72fe4': { start: 95, finish: 96, duration: 14, outlineDepth: 2, constraintDate: 0 },
     // Z9a (2026-08-18, mppReader.ts se veldketen-fix): start 53→55, finish 53→54 — GEMETEN, geen
-    // gok. Dit bestand draagt 11 MANUALLY_SCHEDULED-taken (alle WBS-samenvattingstaken, zie de
-    // `a69fec157074d056`-pin in `mpp-fidelity-baseline.json` — hetzelfde 215-taken-bestand). Vóór
-    // Z9a las `readTasks` voor ELKE taak SCHEDULED_START/FINISH (35/36); sinds `resolveScheduleField`
-    // lezen die 11 taken hun eigen MANUAL-anker (1283/1284, byte-voor-byte MSP's overschrijfregel).
-    // Dat raakt déze T5-vergelijking (rechtstreeks tegen de MSPDI-XML-ground-truth, ONAFHANKELIJK
-    // van de CPM-solver — een samenvattingstaak wordt hier dus niet via de solver-rollup afgeschermd
-    // zoals in de fidelity-baseline) en verschuift een klein deel van die 11 taken se dag-prefix
-    // t.o.v. de andere documentrevisie. Geen regressie: het is precies de bedoelde, gemeten
-    // consequentie van "lees het veldpaar dat MSP zelf voor déze taak gebruikt".
-    'bijlage 7 Productie planning.mpp': { start: 55, finish: 54, duration: 28, outlineDepth: 5, constraintDate: 2 },
+    // gok. Dit bestand (a69fec157074d056, hetzelfde 215-taken-bestand als de
+    // `mpp-fidelity-baseline.json`-pin) draagt 11 MANUALLY_SCHEDULED-taken (alle
+    // WBS-samenvattingstaken). Vóór Z9a las `readTasks` voor ELKE taak SCHEDULED_START/FINISH
+    // (35/36); sinds `resolveScheduleField` lezen die 11 taken hun eigen MANUAL-anker (1283/1284,
+    // byte-voor-byte MSP's overschrijfregel). Dat raakt déze T5-vergelijking (rechtstreeks tegen de
+    // MSPDI-XML-ground-truth, ONAFHANKELIJK van de CPM-solver — een samenvattingstaak wordt hier dus
+    // niet via de solver-rollup afgeschermd zoals in de fidelity-baseline) en verschuift een klein
+    // deel van die 11 taken se dag-prefix t.o.v. de andere documentrevisie. Geen regressie: het is
+    // precies de bedoelde, gemeten consequentie van "lees het veldpaar dat MSP zelf voor déze taak
+    // gebruikt".
+    'a69fec157074d056': { start: 55, finish: 54, duration: 28, outlineDepth: 5, constraintDate: 2 },
   };
 
   /** Vorm-check voor een outline-genereerde WBS-code ("1", "1.2", "1.2.3", …) — zie de toelichting
@@ -1839,22 +1889,24 @@ if (corpusPresent) {
     return depth;
   }
 
-  for (const [file, expectedCount] of Object.entries(EXPECTED_TASK_COUNTS)) {
-    // I5 (T5-kwaliteitsreview): deze lus itereert over HARDGECODEERDE bestandsnamen (de drie
-    // ground-truth-paren) — wie `OPS_MPP_CORPUS` naar een eigen map met ANDERE `.mpp`-bestanden
-    // wijst, mag daar geen rode poort van krijgen. Een naam die niet in `corpusFiles` voorkomt
-    // (de dynamische `readdirSync`-listing hierboven) wordt dus netjes overgeslagen — alleen een
-    // bestand dat WEL in `corpusFiles` staat maar zonder bijbehorende `.mpp.xml` is een echte,
-    // hard te melden diff (dat IS een gat in het aangeboden corpus, geen ander-corpus-scenario).
-    if (!corpusFiles.includes(file)) {
-      console.log(`OK  mpp-import: T5 ${file} niet in dit corpus (${CORPUS}) — overgeslagen`);
+  for (const [hash, expectedCount] of Object.entries(EXPECTED_TASK_COUNTS)) {
+    // I5 (T5-kwaliteitsreview) + Z20-veeg (hash-only, §8): deze lus itereert over HASHES van de
+    // drie ground-truth-paren — wie `OPS_MPP_CORPUS` naar een eigen map met ANDERE `.mpp`-bestanden
+    // wijst, mag daar geen rode poort van krijgen. Een hash die niet in dit corpus voorkomt
+    // (`resolveCorpusFileByHash`, module-top — gebouwd over `corpusFiles`, de dynamische
+    // `readdirSync`-listing hierboven) wordt dus netjes overgeslagen — alleen een bestand dat WEL
+    // aanwezig is maar zonder bijbehorende `.mpp.xml` is een echte, hard te melden diff (dat IS een
+    // gat in het aangeboden corpus, geen ander-corpus-scenario).
+    const file = resolveCorpusFileByHash(hash);
+    if (!file) {
+      console.log(`OK  mpp-import: T5 ${hash} niet in dit corpus (${CORPUS}) — overgeslagen`);
       continue;
     }
     const mppPath = join(CORPUS, file);
     const xmlPath = `${mppPath}.xml`;
     if (!existsSync(xmlPath)) {
       checks++;
-      diffs.push(`[T5 ${file}] .mpp aanwezig maar .mpp.xml ontbreekt`);
+      diffs.push(`[T5 ${hash}] .mpp aanwezig maar .mpp.xml ontbreekt`);
       continue;
     }
 
@@ -1864,7 +1916,7 @@ if (corpusPresent) {
       mppTasks = result.tasks;
     } catch (err) {
       checks++;
-      diffs.push(`[T5 ${file}] readMPP gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      diffs.push(`[T5 ${hash}] readMPP gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
 
@@ -1874,21 +1926,21 @@ if (corpusPresent) {
       xmlTasks = xmlResult.tasks;
     } catch (err) {
       checks++;
-      diffs.push(`[T5 ${file}] readMSPDI (ground truth) gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      diffs.push(`[T5 ${hash}] readMSPDI (ground truth) gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
 
     // ── Harde poorten: taakaantal + 100% naam-matchbaarheid (volgorde-onafhankelijk) ────────────
-    truthy(`[T5 ${file}] taakaantal === ${expectedCount}`, mppTasks.length === expectedCount);
-    truthy(`[T5 ${file}] taakaantal mpp === taakaantal MSPDI-ground-truth`, mppTasks.length === xmlTasks.length);
+    truthy(`[T5 ${hash}] taakaantal === ${expectedCount}`, mppTasks.length === expectedCount);
+    truthy(`[T5 ${hash}] taakaantal mpp === taakaantal MSPDI-ground-truth`, mppTasks.length === xmlTasks.length);
 
     const mppById = new Map(mppTasks.map((t) => [t.id, t]));
     const xmlById = new Map(xmlTasks.map((t) => [t.id, t]));
 
     // Naam → wachtrij van xml-taken met die naam, in documentvolgorde (FIFO-verbruik hieronder).
-    // Matchsleutel is GETRIMD (bevinding, corpus-onderzoek deze taak): bijlage 7 bevat tientallen
-    // taken waar de MPP-var-data een trailing spatie draagt ("zagen ") die in de MSPDI-ground-
-    // truth ontbreekt ("zagen") — vermoedelijk trimt MS Project's eigen "Save As XML" bij export,
+    // Matchsleutel is GETRIMD (bevinding, corpus-onderzoek deze taak): het 215-takenbestand
+    // (a69fec157074d056) bevat tientallen taken waar de MPP-var-data een trailing spatie draagt
+    // die in de MSPDI-ground-truth ontbreekt — vermoedelijk trimt MS Project's eigen "Save As XML" bij export,
     // terwijl de binaire opslag de exacte gebruikersinvoer bewaart. Deze lezer trimt de
     // OPGESLAGEN `task.name` zelf NIET (spiegelt mspdiReader: brondata blijft exact) — alleen de
     // MATCH-sleutel hier, zodat zo'n triviale export-eigenaardigheid de taak-voor-taak-vergelijking
@@ -1908,7 +1960,7 @@ if (corpusPresent) {
       const queue = xmlByName.get(mppTask.name.trim());
       const xmlTask = queue && queue.length > 0 ? queue.shift() : undefined;
       if (!xmlTask) {
-        diffs.push(`[T5 ${file}] taak "${mppTask.name}": geen gelijknamige taak in de MSPDI-ground-truth gevonden`);
+        diffs.push(`[T5 ${hash}] taak "${mppTask.name}": geen gelijknamige taak in de MSPDI-ground-truth gevonden`);
         checks++;
         continue;
       }
@@ -1961,30 +2013,30 @@ if (corpusPresent) {
       }
 
       // Hard (0 afwijkingen gemeten over alle drie bestanden — zie moduleheader).
-      truthy(`[T5 ${file}] ${label}: milestone-vlag`, mppTask.isMilestone === xmlTask.isMilestone);
-      truthy(`[T5 ${file}] ${label}: constrainttype`, mppConstraintType === xmlConstraintType);
+      truthy(`[T5 ${hash}] ${label}: milestone-vlag`, mppTask.isMilestone === xmlTask.isMilestone);
+      truthy(`[T5 ${hash}] ${label}: constrainttype`, mppConstraintType === xmlConstraintType);
       truthy(
-        `[T5 ${file}] ${label}: deadline (dag-prefix)`,
+        `[T5 ${hash}] ${label}: deadline (dag-prefix)`,
         (mppTask.deadline?.slice(0, 10) ?? '') === (xmlTask.deadline?.slice(0, 10) ?? ''),
       );
       // WBS: VORM-check + zelf-consistentie met outline-diepte (géén ground-truth-gelijkheid —
       // zie moduleheader). Hard: dit hangt niet af van welke documentrevisie, alleen van of
       // `mppReader.ts`'s outline-nummering intern klopt.
-      truthy(`[T5 ${file}] ${label}: wbsCode heeft de vorm "1" / "1.2" / "1.2.3.4"`, WBS_SHAPE.test(mppTask.wbsCode));
+      truthy(`[T5 ${hash}] ${label}: wbsCode heeft de vorm "1" / "1.2" / "1.2.3.4"`, WBS_SHAPE.test(mppTask.wbsCode));
       truthy(
-        `[T5 ${file}] ${label}: wbsCode-segmentaantal === outline-diepte`,
+        `[T5 ${hash}] ${label}: wbsCode-segmentaantal === outline-diepte`,
         mppTask.wbsCode.split('.').length === outlineDepth(mppById, mppTask),
       );
       // Completion in hele procenten vergelijken — voorkomt drijvende-kommaruis (0.5 vs 0.4999…9).
       truthy(
-        `[T5 ${file}] ${label}: completion`,
+        `[T5 ${hash}] ${label}: completion`,
         Math.round(mppTask.time.completion * 100) === Math.round(xmlTask.time.completion * 100),
       );
     }
 
-    truthy(`[T5 ${file}] alle taken op naam gematcht met de ground truth (${matched}/${mppTasks.length})`, matched === mppTasks.length);
+    truthy(`[T5 ${hash}] alle taken op naam gematcht met de ground truth (${matched}/${mppTasks.length})`, matched === mppTasks.length);
 
-    const budget: FieldDiffBudget = FIELD_DIFF_BUDGET[file] ?? { start: 0, finish: 0, duration: 0, outlineDepth: 0, constraintDate: 0 };
+    const budget: FieldDiffBudget = FIELD_DIFF_BUDGET[hash] ?? { start: 0, finish: 0, duration: 0, outlineDepth: 0, constraintDate: 0 };
     const budgetLabels: [keyof FieldDiffBudget, string][] = [
       ['start', 'start (dag-prefix)'],
       ['finish', 'finish (dag-prefix)'],
@@ -1994,20 +2046,20 @@ if (corpusPresent) {
     ];
     for (const [category, categoryLabel] of budgetLabels) {
       truthy(
-        `[T5 ${file}] veldafwijkingen "${categoryLabel}" binnen bekende basislijn (${fieldDiffCount[category]}/${budget[category]}, documentversieverschil — zie moduleheader)`,
+        `[T5 ${hash}] veldafwijkingen "${categoryLabel}" binnen bekende basislijn (${fieldDiffCount[category]}/${budget[category]}, documentversieverschil — zie moduleheader)`,
         fieldDiffCount[category] <= budget[category],
       );
     }
 
     const totalFieldDiffs = fieldDiffCount.start + fieldDiffCount.finish + fieldDiffCount.duration + fieldDiffCount.outlineDepth + fieldDiffCount.constraintDate;
-    console.log(`   . [T5 ${file}] ${matched}/${mppTasks.length} taken op naam gematcht; ${totalFieldDiffs} bekende veldafwijking(en) — start=${fieldDiffCount.start}/${budget.start} finish=${fieldDiffCount.finish}/${budget.finish} duur=${fieldDiffCount.duration}/${budget.duration} outline-diepte=${fieldDiffCount.outlineDepth}/${budget.outlineDepth} constraintdatum=${fieldDiffCount.constraintDate}/${budget.constraintDate}:`);
+    console.log(`   . [T5 ${hash}] ${matched}/${mppTasks.length} taken op naam gematcht; ${totalFieldDiffs} bekende veldafwijking(en) — start=${fieldDiffCount.start}/${budget.start} finish=${fieldDiffCount.finish}/${budget.finish} duur=${fieldDiffCount.duration}/${budget.duration} outline-diepte=${fieldDiffCount.outlineDepth}/${budget.outlineDepth} constraintdatum=${fieldDiffCount.constraintDate}/${budget.constraintDate}:`);
     for (const d of fieldDiagnostics) console.log(`      · ${d}`);
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // UURMODUS (etappe 1.5) — gerichte discriminator-/durationMinutes-/workTime-assert voor
-// "bijlage 7 Productie planning.mpp"
+// a69fec157074d056 (hash-only, §8)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 //
 // De T5-sectie hierboven bewijst al dat de VELDWAARDEN (start/finish/duur) binnen een gemeten
@@ -2016,25 +2068,27 @@ if (corpusPresent) {
 // MSPDI-export ná import: zelfde discriminator-uitkomst, zelfde velden gevuld"). Gemeten
 // (2026-08-15, dit corpus): alle DRIE bestanden lezen op BEIDE kanten (readMPP ÉN readMSPDI van de
 // bijbehorende `.mpp.xml`) 100% van hun taken in uur-modus (`durationMinutes` gezet) en hun
-// projectkalender met `workTime` gezet — Bijlage 13 incluis, wat de oorspronkelijke aanname
-// "Bijlage 13 blijft dag-modus" WEERLEGT (zie de moduleheader van `mppReader.ts`, "UURMODUS"):
-// zelfs de bestaande, ONGEWIJZIGDE `readMSPDI` leest Bijlage 13's eigen MSPDI-ground-truth al als
-// 51/51 taken in uur-modus — deze lezer moet dat spiegelen, niet tegenwerken. bijlage 7 is hier
-// gekozen als de expliciet gevraagde gerichte case (grootste bestand, 215 taken).
+// projectkalender met `workTime` gezet — 870d339f60603f71 incluis, wat de oorspronkelijke aanname
+// "dat bestand blijft dag-modus" WEERLEGT (zie de moduleheader van `mppReader.ts`, "UURMODUS"):
+// zelfs de bestaande, ONGEWIJZIGDE `readMSPDI` leest 870d339f60603f71's eigen MSPDI-ground-truth
+// al als 51/51 taken in uur-modus — deze lezer moet dat spiegelen, niet tegenwerken.
+// a69fec157074d056 is hier gekozen als de expliciet gevraagde gerichte case (grootste bestand,
+// 215 taken).
 if (corpusPresent) {
-  const file = 'bijlage 7 Productie planning.mpp';
-  if (corpusFiles.includes(file) && existsSync(join(CORPUS, `${file}.xml`))) {
+  const A69FEC_HASH = 'a69fec157074d056';
+  const file = resolveCorpusFileByHash(A69FEC_HASH);
+  if (file && existsSync(join(CORPUS, `${file}.xml`))) {
     const mppResult = readMPP(new Uint8Array(readFileSync(join(CORPUS, file))));
     const xmlResult = readMSPDI(readFileSync(join(CORPUS, `${file}.xml`), 'utf-8'));
 
-    truthy(`[uurmodus ${file}] mpp projectkalender.workTime gezet`, !!mppResult.calendar.workTime);
-    truthy(`[uurmodus ${file}] MSPDI-ground-truth projectkalender.workTime gezet`, !!xmlResult.calendar.workTime);
+    truthy(`[uurmodus ${A69FEC_HASH}] mpp projectkalender.workTime gezet`, !!mppResult.calendar.workTime);
+    truthy(`[uurmodus ${A69FEC_HASH}] MSPDI-ground-truth projectkalender.workTime gezet`, !!xmlResult.calendar.workTime);
 
     const mppHourCount = mppResult.tasks.filter((t) => t.time.durationMinutes != null).length;
     const xmlHourCount = xmlResult.tasks.filter((t) => t.time.durationMinutes != null).length;
     // Gemeten basislijn (2026-08-15): 215/215 op BEIDE kanten — EXACT (`===`).
     //
-    // DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1): bijlage 7's
+    // DRIFT-PIN, GEEN signaal-regressiepoort (uurmodus-review-correctie, R1): dit bestand se
     // projectkalender deviëert al via discriminator (a)/(b) (eigen banden, lunchpauze-splitsing —
     // net als de crawl-corpuskalenders, zie `check-mpp-calendars.ts`'s T6-crawl-drift-pin), dus ELKE
     // taak op die kalender komt hier al in uur-modus terecht ONGEACHT het taak-(c)-signaal. Een
@@ -2047,8 +2101,8 @@ if (corpusPresent) {
     // niet de (c)-signaal-implementatie
     // zelf — zie de synthetische fixtures verderop ("UURMODUS (etappe 1.5) — synthetische/corpusloze
     // end-to-end fixtures") voor een corpus-onafhankelijke, wél gerichte test van dat signaal.
-    truthy(`[uurmodus ${file}] mpp: alle taken in uur-modus (${mppHourCount}/${mppResult.tasks.length})`, mppHourCount === mppResult.tasks.length);
-    truthy(`[uurmodus ${file}] MSPDI-ground-truth: alle taken in uur-modus (${xmlHourCount}/${xmlResult.tasks.length})`, xmlHourCount === xmlResult.tasks.length);
+    truthy(`[uurmodus ${A69FEC_HASH}] mpp: alle taken in uur-modus (${mppHourCount}/${mppResult.tasks.length})`, mppHourCount === mppResult.tasks.length);
+    truthy(`[uurmodus ${A69FEC_HASH}] MSPDI-ground-truth: alle taken in uur-modus (${xmlHourCount}/${xmlResult.tasks.length})`, xmlHourCount === xmlResult.tasks.length);
 
     // Naam-gematchte vergelijking van durationMinutes (zelfde veld, zelfde discriminator-uitkomst
     // aan beide kanten) — budget-gedekt, spiegelt de T5-sectie's "duur in minuten"-budget (28,
@@ -2074,12 +2128,12 @@ if (corpusPresent) {
     // verschil, zie de T5-moduleheader) ⇒ budget 28 afwijkingen, spiegelt FIELD_DIFF_BUDGET.duration.
     const DURATION_MINUTES_DIFF_BUDGET = 28;
     truthy(
-      `[uurmodus ${file}] durationMinutes naam-gematcht binnen budget (${durationMinutesCompared - durationMinutesMatches}/${DURATION_MINUTES_DIFF_BUDGET} afwijkingen op ${durationMinutesCompared} vergeleken)`,
+      `[uurmodus ${A69FEC_HASH}] durationMinutes naam-gematcht binnen budget (${durationMinutesCompared - durationMinutesMatches}/${DURATION_MINUTES_DIFF_BUDGET} afwijkingen op ${durationMinutesCompared} vergeleken)`,
       durationMinutesCompared - durationMinutesMatches <= DURATION_MINUTES_DIFF_BUDGET,
     );
-    console.log(`   . [uurmodus ${file}] mpp ${mppHourCount}/${mppResult.tasks.length} uur-modus, xml ${xmlHourCount}/${xmlResult.tasks.length} uur-modus, durationMinutes ${durationMinutesMatches}/${durationMinutesCompared} exact gelijk`);
+    console.log(`   . [uurmodus ${A69FEC_HASH}] mpp ${mppHourCount}/${mppResult.tasks.length} uur-modus, xml ${xmlHourCount}/${xmlResult.tasks.length} uur-modus, durationMinutes ${durationMinutesMatches}/${durationMinutesCompared} exact gelijk`);
   } else {
-    console.log(`OK  mpp-import: uurmodus-sectie (${file}) niet in dit corpus — overgeslagen`);
+    console.log(`OK  mpp-import: uurmodus-sectie (${A69FEC_HASH}) niet in dit corpus — overgeslagen`);
   }
 }
 
@@ -2903,22 +2957,21 @@ if (corpusPresent) {
   }
 
   // ── Corpus-leescases: gepinde detectie-aantallen per bestand (Z16-acceptatiepunt 5, en de
-  // T12-oorsprong daarvan §Corpus). "Bijlage 13 Productieplanning.mpp" is tevens de door de
-  // orkestrator aangewezen NEGATIEVE case (acceptatiepunt 4): geen enkel van de drie signalen,
+  // T12-oorsprong daarvan §Corpus). Hash-only (§8, Z20-veeg) — 870d339f60603f71 is tevens de door
+  // de orkestrator aangewezen NEGATIEVE case (acceptatiepunt 4): geen enkel van de drie signalen,
   // dus geen `sourceScheduleNotes` op een schoon bestand. ────────────────────────────────────────
   {
-    const T12_CORPUS = process.env.OPS_MPP_CORPUS
-      ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
-    const bijlage13 = join(T12_CORPUS, 'Bijlage 13 Productieplanning.mpp');
-    if (!existsSync(bijlage13)) {
-      console.log(`OK  mpp-import: T12/Z16 corpus-leescases (${T12_CORPUS}) niet aanwezig — overgeslagen`);
+    const T12_870D339F_HASH = '870d339f60603f71';
+    const file870d339f = resolveCorpusFileByHash(T12_870D339F_HASH);
+    if (!file870d339f) {
+      console.log(`OK  mpp-import: T12/Z16 corpus-leescases (${T12_870D339F_HASH}) niet aanwezig — overgeslagen`);
     } else {
       {
-        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage13)));
-        truthy(`[T12 Bijlage 13] readMPP gooit niet (${threw ?? ''})`, threw === null);
+        const { result, threw } = readT12(new Uint8Array(readFileSync(join(CORPUS, file870d339f))));
+        truthy(`[T12 ${T12_870D339F_HASH}] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            '[T12 Bijlage 13] GEEN sourceScheduleNotes — negatieve case (acceptatiepunt 4, plan-§Z16)',
+            `[T12 ${T12_870D339F_HASH}] GEEN sourceScheduleNotes — negatieve case (acceptatiepunt 4, plan-§Z16)`,
             result.sourceScheduleNotes === undefined,
           );
         }
@@ -2933,22 +2986,23 @@ if (corpusPresent) {
       // bestand exact tonen (byte-voor-byte, ongewijzigd t.o.v. vóór de activeringsverbreding) —
       // het is uitsluitend de MELDING (Z16, "N taken resource-gedreven") die nu correcter telt,
       // omdat deze taken daadwerkelijk `timephasedDurationWalks` dragen.
-      const bijlage20 = join(T12_CORPUS, 'Bijlage 20 productieplanning PKB.mpp');
-      if (existsSync(bijlage20)) {
-        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage20)));
-        truthy(`[T12 Bijlage 20] readMPP gooit niet (${threw ?? ''})`, threw === null);
+      const T12_787EFB_HASH = '787efb968ae72fe4';
+      const file787efb = resolveCorpusFileByHash(T12_787EFB_HASH);
+      if (file787efb) {
+        const { result, threw } = readT12(new Uint8Array(readFileSync(join(CORPUS, file787efb))));
+        truthy(`[T12 ${T12_787EFB_HASH}] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[T12/Z19 787efb968ae72fe4] sourceScheduleNotes === {total:12, leveled:0, split:0, timephased:12} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            `[T12/Z19 ${T12_787EFB_HASH}] sourceScheduleNotes === {total:12, leveled:0, split:0, timephased:12} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
             result.sourceScheduleNotes?.total === 12 && result.sourceScheduleNotes.leveled === 0
               && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 12,
           );
         }
       }
-      // "bijlage 7 Productie planning.mpp" (215 taken): het enige bestand van de drie met
-      // daadwerkelijk LEVELING_DELAY-data in het bronbestand — steekproef bevestigd tegen de
-      // taaknamen (productiehandelingen als "boren en tappen", "lassen", vertragingen van
-      // ~1000-1400 min, plausibel voor een resource-beperkte productieplanning).
+      // a69fec157074d056 (215 taken): het enige bestand van de drie met daadwerkelijk
+      // LEVELING_DELAY-data in het bronbestand — steekproef bevestigd tegen de taaknamen
+      // (productiehandelingen, vertragingen van ~1000-1400 min, plausibel voor een
+      // resource-beperkte productieplanning).
       //
       // Z16-DELTA t.o.v. de T12-pin: was `{total:15, leveled:10, spanGt:5}` — de vijf `spanGt`-
       // taken waren de proxy se vals-positieven (venster > duur zonder een echte split of
@@ -2962,13 +3016,14 @@ if (corpusPresent) {
       // dragende, niet-MATERIAL toewijzing, ONGEACHT kalenderverschil, zie
       // `deriveTimephasedWindowsForTasks`'s docblok in mppReader.ts). Geen datumregressie: de
       // corpusbrede fidelity-check blijft dit bestand exact tonen, byte-voor-byte ongewijzigd.
-      const bijlage7 = join(T12_CORPUS, 'bijlage 7 Productie planning.mpp');
-      if (existsSync(bijlage7)) {
-        const { result, threw } = readT12(new Uint8Array(readFileSync(bijlage7)));
-        truthy(`[T12 bijlage 7] readMPP gooit niet (${threw ?? ''})`, threw === null);
+      const T12_A69FEC_HASH = 'a69fec157074d056';
+      const fileA69fec = resolveCorpusFileByHash(T12_A69FEC_HASH);
+      if (fileA69fec) {
+        const { result, threw } = readT12(new Uint8Array(readFileSync(join(CORPUS, fileA69fec))));
+        truthy(`[T12 ${T12_A69FEC_HASH}] readMPP gooit niet (${threw ?? ''})`, threw === null);
         if (result) {
           truthy(
-            `[Z16/Z19 a69fec157074d056] sourceScheduleNotes === {total:16, leveled:10, split:0, timephased:6} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
+            `[Z16/Z19 ${T12_A69FEC_HASH}] sourceScheduleNotes === {total:16, leveled:10, split:0, timephased:6} (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
             result.sourceScheduleNotes?.total === 16 && result.sourceScheduleNotes.leveled === 10
               && result.sourceScheduleNotes.split === 0 && result.sourceScheduleNotes.timephased === 6,
           );
@@ -5754,8 +5809,8 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
 // gold. Elk project dat die kalender ongewijzigd laat staan (verreweg de meeste, ook trainings-
 // bestanden die nooit expliciet "uren-modus" claimen) wordt hierdoor als "uur-project" gelezen —
 // exact dezelfde uitkomst als de ONGEWIJZIGDE `readMSPDI` al geeft voor een MSPDI-export van
-// diezelfde kalender (zie ook de T5-sectie hierboven: Bijlage 13's eigen ground-truth leest al
-// 51/51 taken in uur-modus). Dit weerlegt de oorspronkelijke aanname dat "dag-modus-bestanden"
+// diezelfde kalender (zie ook de T5-sectie hierboven: 870d339f60603f71's eigen ground-truth leest
+// al 51/51 taken in uur-modus). Dit weerlegt de oorspronkelijke aanname dat "dag-modus-bestanden"
 // een aparte, veelvoorkomende categorie zouden zijn — in de praktijk (dit corpus) is een écht
 // dag-modus-bestand (een kalender ZONDER lunchpauze-splitsing) de uitzondering, niet de regel.
 // T6-crawl (check-mpp-calendars.ts, holidays) en T7-crawl (check-mpp-relations.ts, relaties/
