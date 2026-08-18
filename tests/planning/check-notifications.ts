@@ -351,11 +351,14 @@ S().loadState({
 });
 eq('85 loadState zonder écht gedropte relaties meldt niets', N().length, 0);
 
-// ── 11. T12: MS Project-bestand met resource-gedreven planning (§9/O1) — melding bij openen ─────
-// `applyLoadedProject` (fileSlice.ts, niet `loadState` — dat laatste heeft een eigen, smaller
-// parametertype zonder `sourceScheduleNotes`) is de gedeelde implementatie die zowel de open-paden
-// als `loadState` voedt; hier direct aangeroepen zodat het `ImportResult`-veld `sourceScheduleNotes`
-// (alleen door `readMPP` gevuld) rechtstreeks getest kan worden zonder een echt `.mpp`-bestand.
+// ── 11. T12/Z16: MS Project-bestand met een onderbroken, genivelleerde of resource-gedreven
+// planning (§9/O1, herzien door Z16, etappe "nul afwijkingen") — melding bij openen. `applyLoadedProject`
+// (fileSlice.ts, niet `loadState` — dat laatste heeft een eigen, smaller parametertype zonder
+// `sourceScheduleNotes`) is de gedeelde implementatie die zowel de open-paden als `loadState` voedt;
+// hier direct aangeroepen zodat het `ImportResult`-veld `sourceScheduleNotes` (alleen door `readMPP`
+// gevuld, sinds Z16 met drie ECHTE tellingen — `leveled`/`split`/`timephased`, zie
+// `mppReader.ts`'s `countScheduleNotes` — in plaats van de vroegere `spanGt`-proxy) rechtstreeks
+// getest kan worden zonder een echt `.mpp`-bestand.
 clearAll();
 S().newProject();
 const t12Project = S().project;
@@ -369,12 +372,12 @@ S().applyLoadedProject({
   sequences: [],
   resources: [],
   assignments: [],
-  sourceScheduleNotes: { total: 3, leveled: 1, spanGt: 2 },
+  sourceScheduleNotes: { total: 3, leveled: 1, split: 1, timephased: 1 },
 }, {});
 eq('86 sourceScheduleNotes.total > 0 meldt zich precies één keer', N().length, 1);
 eq('87 als info (geen fout — het bestand blijft geldig)', N()[0]?.severity, 'info');
 eq('88 met de mpp-detectie-sleutel', N()[0]?.messageKey, 'notifications.mppSourceScheduleNotes');
-eq('89 met het VERENIGDE aantal (total, niet leveled/spanGt los)', N()[0]?.params, { count: 3 });
+eq('89 met het VERENIGDE aantal (total, niet leveled/split/timephased los)', N()[0]?.params, { count: 3 });
 eq('90 met de dedupe-sleutel mpp-split-leveled', N()[0]?.dedupeKey, 'mpp-split-leveled');
 
 // Geen `sourceScheduleNotes` (ander bronformaat dan `.mpp`, of een schoon `.mpp`-bestand —

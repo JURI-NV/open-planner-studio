@@ -9,7 +9,8 @@ comes along, where the limits are, and what happens when you save a file like th
 
 - How to open a `.mpp` file, and which paths support it.
 - What exactly comes along: tasks, relations, calendars, resources and assignments.
-- How accurate the imported start and finish dates are, and which tasks deliberately deviate.
+- How accurate the imported start and finish dates are, and how splitting, leveling, manual
+  scheduling and resource contouring are accounted for.
 - What happens to progress: MS Project's own resumption convention for tasks in progress.
 - One known calendar limitation: work weeks (a temporary alternate weekly pattern).
 - What deliberately does not come along, and what you get for an unsupported file.
@@ -51,49 +52,69 @@ You open a `.mpp` file the exact same way as any other project file:
 The file lands in a **new document** — like any import — unless the active tab is still empty and
 unchanged.
 
-## Date accuracy: what matches to the minute, and what doesn't
+## Date accuracy
 
 Open Planner Studio schedules an opened `.mpp` file using the same calendar logic as MS Project
 itself (working days, working hours per day, days off, and — for an hour-based project — the exact
-clock time). For **almost every task**, that results in the same start and finish date as in MS
-Project, down to the minute for an hour-based project. There are two categories of exceptions, both
-deliberate:
+clock time). Split tasks, leveling, manually scheduled tasks and contoured (resource-driven)
+assignments are no longer treated as a deviating exception here — they're fully implemented
+behavior, see the four sections below for what that means in practice. Across the test corpus (216
+readable files, from public MPXJ and OzBuild test material to real-world projects), the start and
+finish date match MS Project exactly for the large majority, down to the minute for an hour-based
+project; a small number of specific, still-under-investigation combinations still show a remaining
+deviation, which is being actively closed rather than accepted as a lasting limitation. If you're
+unsure about a specific file, check the critical tasks against MS Project after opening it.
 
-- Tasks with a **split**, **leveled**, or otherwise **resource-driven** schedule — a notification
-  appears for these when opening the file, see below.
-- A small number of specific combinations of relation kind, calendar type, or task progress that
-  aren't (yet) flagged automatically. These have been investigated and documented internally, and
-  in practice rarely affect an ordinary project — across the full test corpus (well over 200
-  scheduled files, from public MPXJ and OzBuild test material to real-world projects) this comes
-  down to a handful of files. Unlike the first category above, **no** notification appears here: you'd only notice
-  such a case by comparing the dates in the table with MS Project itself. Usually it stays limited
-  to one or a few tasks that are off by a noticeable amount; in a rare, unusual file (for example
-  one where a task was updated outside its own scheduling logic) the deviation can also carry
-  forward to the tasks that follow it. If you're unsure about a specific file, check the critical
-  tasks against MS Project after opening it.
+If the file contains tasks with a split, leveled, or resource-driven schedule, a one-time
+informational notification appears when opening it — not a warning, since those tasks are simply
+scheduled correctly; the notification only tells you the file contains them.
 
-The first category in detail: tasks with a **split**, **leveled**, or otherwise
-**resource-driven** schedule (manual leveling, a "leveling delay", or resource contouring/work
-spread out over the task's span). MS Project can stretch such a task over a longer period than its
-duration alone would require — for example, a 3-day task that, with a pause in the middle, spans 5
-calendar days. Open Planner Studio doesn't yet distinguish this and schedules such a task as one
-**continuous** span: the duration is correct, but the window (and therefore possibly the finish
-date) can differ from what you see in MS Project.
+### Split tasks
 
-You'll usually notice this when opening: if the file contains such tasks, a one-time notification
-shows the count. That count is the directly recognized tasks themselves; if a deviation carries
-forward to tasks that depend on it (through a relation, for example), the notification doesn't
-count that knock-on effect — the real impact on the table can be larger than the reported count.
-Two of the three causes — leveling with a leveling delay, and a split or
-multi-day-stretched task — are reliably detected. **Pure resource contouring** (work within a task
-gets a rising/falling curve, without the start/finish date itself changing) is a known, unclosed
-gap in that notification: the source file's own contour indicator turned out not to be reliably
-readable on investigation, so such a task can be scheduled as one continuous span silently, without
-a notification. If you need to know exactly which tasks are affected and how they're built up in MS
-Project (the breaks, the leveling delay, a contour), open the file in MS Project itself — that
-information isn't silently lost from the source file when reading it, Open Planner Studio simply
-ignores it when scheduling. Editable task splitting and resource leveling as a feature aren't part
-of this stage; the notification and this guide are where you can look this up.
+A task that MS Project split into work interruptions (say, 3 days of work, a 2-day pause, then more
+work) is read by Open Planner Studio as such: the breaks come from the file, and the Gantt bar shows
+them as separate blocks joined by a thin connector line — **always visible**, regardless of the
+**Task bars at interruptions** setting (Settings tab, ⚙ popup, or Backstage → Settings). A work
+interruption is data, not a display preference; that setting only controls whether tasks *without*
+their own splits are drawn broken up on non-working days (calendar necking). The print and PDF
+preview show the same broken bars. Scheduling is segment-aware: remaining work keeps counting past
+each gap, even for a task that's already partly done.
+
+### Manually scheduled tasks
+
+A task that was set to **Manually Scheduled** in MS Project keeps its own stored start and finish
+date in Open Planner Studio — raw, with no calendar snap and with no relation or constraint moving
+it; even a hard Must-Start/Finish-On pin on such a task is then a dead letter. Its successors
+compute normally from those dates, following the ordinary relation rules (see the guide
+[Relations & constraints](docs://gids-relaties-constraints)). Such tasks therefore have zero float
+by construction (total and free float 0) and count as critical under the default setting — they
+don't show ordinary float the way an automatically scheduled task does. Recalculating (**F5**)
+changes nothing about a manually scheduled task: that's the whole point.
+
+### Leveling
+
+If MS Project gave a task a leveling delay, Open Planner Studio counts it as a real shift of the
+early start — down to the minute for an hour-based project, including any elapsed-time delay (which
+counts around the clock, not just during working hours). The delay is applied on both sides of the
+calculation, so the float of the task (and of tasks waiting on it) still comes out right after
+leveling.
+
+### Contoured assignments
+
+If a resource assignment in MS Project got its own work window that deviates from a flat, even
+distribution (resource contouring, or a task spread out over a longer period than its duration
+alone would require), Open Planner Studio follows that window on opening: the dates come from MS
+Project's own stored answer, not from a plain duration calculation. What doesn't come along is the
+shape of that distribution itself — the rising or falling load per day within the window. Open
+Planner Studio doesn't yet have a contour calculation engine: a task's resource load is always
+spread evenly across its working days, even for an imported contoured task.
+
+If you then edit such a task yourself (say, its duration), the shown window isn't guaranteed to
+move with it: for some of these tasks, the window captured at import stays unchanged even after
+recalculating (**F5**); for others, the app does recalculate, but as an ordinary continuous span
+without the original contour shape. This is a known, registered limitation, not a silent gap: the
+source file loses nothing on read — Open Planner Studio simply doesn't (yet) reapply the contour
+shape after your own edit.
 
 ## Milestones: MS Project's own finish-boundary convention for finish milestones
 

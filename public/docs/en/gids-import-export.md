@@ -47,7 +47,12 @@ predecessors (as a text code, e.g. `2.1FS+3d`), task type, status, completion (%
 start/finish, critical (yes/no), total float and description. **Resources, assignments, calendars
 and baselines are deliberately left out** — CSV is purely a task table for anyone who wants to view
 or edit the schedule in a spreadsheet, not a full-fidelity project exchange. When you **import** a
-CSV file back in, baselines therefore stay empty (there was nothing to read them from).
+CSV file back in, baselines therefore stay empty (there was nothing to read them from). Also
+disappearing without any warning: the flag that a task is **manually scheduled**, the sub-minute
+precision of a **leveling delay**, **task splits**, and **resume/stop** resumption data from a
+`.mpp` import — CSV only has room for Start/Finish as plain dates, so that extra information simply
+doesn't fit. The raw Start/Finish dates of a manually scheduled task do stay put; only the fact
+that they're manual is lost.
 
 ### MS Project XML (MSPDI)
 
@@ -65,6 +70,15 @@ number of affected items:
   has no native hammock/LOE type.
 - **Task notes** are deliberately **not** exported, even though MSPDI has a `<Notes>` field: our
   notes are a checklist-with-checkboxes form that doesn't translate cleanly to plain text.
+- **Manually scheduled tasks** (`.mpp` import) are exported without the native `<Manual>` element — the dates themselves do come along (they're
+  already in Start/Finish), only the fact that MS Project would show them as "Manually Scheduled"
+  doesn't.
+- The **sub-minute precision** of a leveling delay is lost — MSPDI has no native
+  `<LevelingDelay>`/`<LevelingDelayFormat>` element for our minute-accurate value.
+- **Split tasks** and **contoured assignments** are exported without the native `<TimephasedData>`
+  element — the computed dates themselves do come along, the segment/window information doesn't.
+- **Resume/stop** (a task resumed outside the ordinary progress logic) has no native
+  `<Resume>`/`<Stop>` element.
 - The **critical-path definition** (near-critical mode/threshold) and other scheduling options aren't
   natively expressible in MSPDI and are therefore lost — those are only preserved via IFC.
 
@@ -87,6 +101,13 @@ The same kind of trade-off as MSPDI, with a few P6-specific quirks:
   instead of individual dates, so an automatic translation would change the entire weekly pattern
   rather than just the one date — that's deliberately not risked. The app warns (with the count)
   whenever this affects a file.
+- **Manually scheduled tasks** (`.mpp` import) go further than with MSPDI: P6 has no concept of
+  "manually scheduled" at all, so such a task exports as an ordinary task with computed dates —
+  unlike MSPDI, the raw stored dates themselves aren't guaranteed to stick around here.
+- The **sub-minute precision** of a leveling delay is lost — not expressible in P6 XML.
+- **Split tasks** and **contoured assignments** are dropped — not expressible in P6 XML.
+- **Resume/stop** (a task resumed outside the ordinary progress logic) is dropped — not expressible
+  in P6 XML.
 - Scheduling options (as with MSPDI) are not exported.
 
 These warnings aren't sloppiness — they're a deliberate, explicit choice: a visible warning per

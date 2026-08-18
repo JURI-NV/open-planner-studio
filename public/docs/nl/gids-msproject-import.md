@@ -10,7 +10,8 @@ opslaat.
 
 - Hoe je een `.mpp`-bestand opent, en via welke wegen dat werkt.
 - Wat er precies meekomt: taken, relaties, kalenders, resources en toewijzingen.
-- Hoe nauwkeurig de ingelezen start- en einddatums zijn, en welke taken daar bewust van afwijken.
+- Hoe nauwkeurig de ingelezen start- en einddatums zijn, en hoe splitsen, nivellering, handmatig
+  plannen en resource-contouring daarbij worden meegerekend.
 - Wat er met voortgang gebeurt: MS Project se eigen hervattingsconventie voor lopende taken.
 - Eén bekende beperking bij kalenders: werkweken (een tijdelijk afwijkend weekpatroon).
 - Wat er bewust niet meekomt, en wat je krijgt bij een niet-ondersteund bestand.
@@ -51,50 +52,72 @@ Een `.mpp`-bestand open je op precies dezelfde manieren als elk ander projectbes
 Het bestand komt — net als bij elke import — in een **nieuw document** terecht, tenzij het actieve
 tabblad nog leeg en ongewijzigd is.
 
-## Datumgetrouwheid: wat tot op de minuut overkomt, en wat niet
+## Datumgetrouwheid
 
 Open Planner Studio rekent een geopend `.mpp`-bestand door met dezelfde kalenderlogica als MS
 Project zelf (werkdagen, werktijden per dag, vrije dagen, en — bij een urenproject — de precieze
-kloktijd). Voor **vrijwel elke taak** levert dat dezelfde start- en einddatum op als in MS Project,
-tot op de minuut bij een urenproject. Er zijn twee categorieën uitzonderingen, allebei bewust:
+kloktijd). Onderbroken taken, nivellering, handmatig geplande taken en gecontoureerde
+(resource-gedreven) toewijzingen worden daarbij niet als afwijkende uitzondering behandeld, maar
+als volwaardig geïmplementeerd gedrag — zie de vier secties hieronder voor wat dat concreet
+betekent. Over het testcorpus (216 leesbare bestanden, van publiek MPXJ- en OzBuild-testmateriaal
+tot praktijkprojecten) komt de start- en einddatum voor het overgrote deel exact overeen met MS
+Project, tot op de minuut bij een urenproject; voor een klein aantal specifieke, nog onderzochte
+combinaties staat een resterende afwijking open, die actief wordt teruggebracht in plaats van als
+blijvende beperking geaccepteerd. Twijfel je bij een specifiek bestand, controleer dan de kritieke
+taken tegen MS Project na het openen.
 
-- Taken met een **onderbroken**, **genivelleerde** of anderszins **resource-gestuurde** planning —
-  hierover verschijnt een melding bij het openen, zie hieronder.
-- Een klein aantal specifieke combinaties van relatiesoort, kalendertype of taakvoortgang die
-  (nog) niet automatisch gemeld worden. Die zijn intern onderzocht en gedocumenteerd, en raken in
-  de praktijk zelden een gewoon project — over het volledige testcorpus (ruim 200 doorgerekende
-  bestanden, van publiek MPXJ- en OzBuild-testmateriaal tot praktijkprojecten) gaat het om een
-  handvol bestanden. Anders
-  dan de eerste categorie hierboven verschijnt hier **geen** melding: je merkt zo'n geval alleen
-  door de datums in de tabel te vergelijken met MS Project zelf. Meestal blijft het bij één of
-  enkele taken die een stuk afwijken; in een enkel, ongebruikelijk bestand (bijvoorbeeld met een
-  taak die al buiten de eigen planninglogica om is bijgewerkt) kan de afwijking zich ook doorzetten
-  naar de taken die erna komen. Twijfel je bij een specifiek bestand, controleer dan de kritieke
-  taken tegen MS Project na het openen.
+Bevat het bestand taken met een onderbroken, genivelleerde of resource-gedreven planning, dan
+verschijnt daarover eenmalig een informatieve melding bij het openen — geen waarschuwing, want die
+taken worden gewoon correct doorgerekend; de melding vertelt alleen dát het bestand ze bevat.
 
-De eerste categorie in detail: een taak met een **onderbroken**, **genivelleerde**
-of anderszins **resource-gestuurde** planning (handmatige nivellering, een "leveling delay", of
-resource-contouring/uitgesmeerd werk over de looptijd van de taak). MS Project kan zo'n taak over
-een langere periode uitsmeren dan de duur op zichzelf zou vragen — bijvoorbeeld een taak van 3 dagen
-die, met een pauze ertussen, over 5 kalenderdagen loopt. Open Planner Studio kent dit onderscheid
-nog niet en rekent zo'n taak **aaneengesloten** door: de duur klopt, maar het venster (en dus
-mogelijk de einddatum) kan afwijken van wat je in MS Project ziet.
+### Gesplitste taken
 
-Je merkt dit meestal bij het openen: bevat het bestand zulke taken, dan verschijnt er één keer een
-melding met het aantal. Dat aantal telt de direct herkende taken zelf; werkt een afwijking door naar
-taken die ervan afhangen (bijvoorbeeld via een relatie), dan telt de melding die doorwerking niet
-mee — de werkelijke impact op de tabel kan dus groter zijn dan het gemelde aantal. Twee van de drie
-oorzaken — nivellering met een leveling delay, en een
-onderbroken of over meerdere dagen uitgesmeerde taak — worden betrouwbaar herkend. **Zuivere
-resource-contouring** (het werk binnen een taak krijgt een oplopende/aflopende curve, zonder dat de
-start-einddatum zelf verandert) is een bekende, niet-gedichte uitzondering op die melding: de
-bronbestand-eigen contour-indicator bleek bij onderzoek niet betrouwbaar leesbaar, dus zo'n taak
-kan stil aaneengesloten worden doorgerekend zonder melding. Wil je precies weten welke taken het
-betreft en hoe ze in MS Project zijn opgebouwd (de onderbrekingen, de nivelleringsvertraging, een
-contour), open het bestand dan in MS Project zelf — die informatie gaat bij het lezen niet
-stilzwijgend verloren uit het bronbestand, Open Planner Studio negeert 'm alleen bij het
-doorrekenen. Taak-splitsen en resource-nivellering als bewerkbare functie staan niet in deze
-etappe; zie de melding en deze gids als de plek waar je dat kunt navragen.
+Een taak die MS Project heeft opgesplitst in werkonderbrekingen (bijvoorbeeld 3 dagen werk, een
+pauze van 2 dagen ertussen, dan verder) leest Open Planner Studio als zodanig: de onderbrekingen
+komen uit het bestand, en de Gantt-balk toont ze als losse blokken met een dun verbindingslijntje —
+**altijd zichtbaar**, ongeacht de instelling **Taakbalken bij onderbrekingen** (Instellingen-tab,
+⚙-popup of Backstage → Instellingen). Een werkonderbreking is data, geen weergavevoorkeur; die
+instelling stuurt uitsluitend of taken zónder eigen splits toch al opgeknipt getekend worden op
+niet-werkdagen (kalender-necking). Print- en pdf-voorbeeld tonen dezelfde onderbroken balken. Rekenen gebeurt
+segment-bewust: het restwerk telt door na elk gat, ook bij een taak die al gedeeltelijk is
+uitgevoerd.
+
+### Handmatig geplande taken
+
+Een taak die in MS Project op **Handmatig gepland** stond, houdt in Open Planner Studio haar eigen
+opgeslagen start- en einddatum — rauw, zonder kalendersnap en zonder dat een relatie of constraint
+ze verschuift; ook een harde Moet-starten/eindigen-op-pin op zo'n taak is dan een dode letter. Haar
+opvolgers rekenen gewoon normaal door vanaf die datums, via de gewone relatie-regels (zie de gids
+[Relaties & constraints](docs://gids-relaties-constraints)). Zulke taken hebben daardoor per
+constructie geen speling (totale en vrije speling 0) en gelden in de standaardinstelling als
+kritiek — ze tonen dus geen normale speling zoals een automatisch geplande taak dat wel doet.
+Herberekenen (**F5**) verandert niets aan een handmatig geplande taak: dat is precies het punt.
+
+### Nivellering
+
+Heeft MS Project een taak een nivelleervertraging ("leveling delay") gegeven, dan telt Open Planner
+Studio die mee als een echte verschuiving van de vroege start — tot op de minuut bij een
+urenproject, inclusief een eventuele doorlooptijd-vertraging (die telt 24/7 door, niet alleen op
+werktijd). De vertraging werkt door in beide richtingen van de berekening, dus de speling van de
+taak (en van taken die erop wachten) blijft na een nivellering kloppen.
+
+### Gecontoureerde toewijzingen
+
+Heeft een resource-toewijzing in MS Project een eigen werkvenster gekregen dat afwijkt van een
+platte, gelijkmatige verdeling (resource-contouring, of een taak die over een langere periode is
+uitgesmeerd dan haar duur op zichzelf zou vragen), dan volgt Open Planner Studio dat venster bij
+het openen: de datums komen uit MS Project se eigen opgeslagen antwoord, niet uit een kale
+duur-optelling. Wat er niet meekomt, is de vorm van die verdeling zelf — de oplopende of aflopende
+belasting per dag binnen het venster. Open Planner Studio heeft nog geen contour-rekenmodule: de
+resource-belasting van een taak wordt altijd gelijkmatig over haar werkdagen verdeeld, ook voor een
+geïmporteerde contourtaak.
+
+Bewerk je zo'n taak vervolgens zelf (bijvoorbeeld de duur), dan is niet gegarandeerd dat het
+getoonde venster meebeweegt: bij een deel van deze taken blijft het bij import vastgelegde venster
+ongewijzigd staan, ook na herberekenen (**F5**); bij een ander deel herberekent de app wél, maar dan
+als een gewone, doorlopende duur zonder de oorspronkelijke contourvorm. Dit is een bekende,
+geregistreerde beperking, geen stilzwijgend gat: het bronbestand verliest bij het lezen niets, Open
+Planner Studio past de contourvorm alleen (nog) niet toe ná een eigen bewerking.
 
 ## Mijlpalen: MS Project se eigen finish-grens-conventie voor eindmijlpalen
 

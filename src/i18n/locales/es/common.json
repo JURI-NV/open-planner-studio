@@ -19,9 +19,9 @@
     "relationDuplicate": "Esa relación ya existe",
     "relationAncestorEndpoint": "No se permite una relación entre una tarea y su propia tarea de resumen antecesora.",
     "summaryRelationsDropped": "{{total}} relación(es) no se pudieron incluir en el cálculo — consulte el panel de relaciones para ver cuáles.",
-    "mppSourceScheduleNotes_one": "Este archivo de MS Project contiene {{count}} tarea con una planificación dividida, nivelada o determinada por recursos. Open Planner Studio la planifica como un tramo continuo, por lo que su fecha puede diferir de MS Project. Consulta la guía: Importación de MS Project.",
-    "mppSourceScheduleNotes_many": "Este archivo de MS Project contiene {{count}} tareas con una planificación dividida, nivelada o determinada por recursos. Open Planner Studio las planifica como un tramo continuo, por lo que sus fechas pueden diferir de MS Project. Consulta la guía: Importación de MS Project.",
-    "mppSourceScheduleNotes_other": "Este archivo de MS Project contiene {{count}} tareas con una planificación dividida, nivelada o determinada por recursos. Open Planner Studio las planifica como un tramo continuo, por lo que sus fechas pueden diferir de MS Project. Consulta la guía: Importación de MS Project.",
+    "mppSourceScheduleNotes_one": "Este archivo de MS Project contiene {{count}} tarea con una planificación dividida, nivelada o determinada por recursos. Se importa y se muestra tal cual.",
+    "mppSourceScheduleNotes_many": "Este archivo de MS Project contiene {{count}} tareas con una planificación dividida, nivelada o determinada por recursos. Se importan y se muestran tal cual.",
+    "mppSourceScheduleNotes_other": "Este archivo de MS Project contiene {{count}} tareas con una planificación dividida, nivelada o determinada por recursos. Se importan y se muestran tal cual.",
     "projectStartAnchorsClamped_one": "Inicio del proyecto movido: se desplazó {{count}} ancla de tarea sin predecesora ni restricción a la nueva fecha de inicio.",
     "projectStartAnchorsClamped_many": "Inicio del proyecto movido: se desplazaron {{count}} anclas de tarea sin predecesora ni restricción a la nueva fecha de inicio.",
     "projectStartAnchorsClamped_other": "Inicio del proyecto movido: se desplazaron {{count}} anclas de tarea sin predecesora ni restricción a la nueva fecha de inicio."
