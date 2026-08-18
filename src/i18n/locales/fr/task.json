@@ -89,6 +89,7 @@
     "freeFloat": "Marge libre :",
     "criticalPath": "Chemin critique :",
     "dependencies": "Dépendances",
+    "jumpToTask": "Aller à la tâche {{wbs}}",
     "relationPopoverTitle": "Type de relation",
     "driving": "Relation déterminante (driving)",
     "lag": "Décalage (p. ex. 2d, 3ed, 50%, -25e%)",

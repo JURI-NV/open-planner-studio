@@ -54,7 +54,7 @@ export function TaskDependenciesSection({ taskId }: { taskId: string }) {
                 type="button"
                 className="flex items-center gap-1 flex-1 truncate"
                 style={{ color: 'var(--theme-accent)' }}
-                aria-label={t('properties.jumpToTask' as any, { wbs: other.wbsCode || other.name })}
+                aria-label={t('properties.jumpToTask', { wbs: other.wbsCode || other.name })}
                 onMouseMove={e => setHover({ x: e.clientX, y: e.clientY, task: other })}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => { setHover(null); focusOnTask(other.id); }}

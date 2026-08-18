@@ -89,6 +89,7 @@
     "freeFloat": "Freier Puffer:",
     "criticalPath": "Kritischer Pfad:",
     "dependencies": "Abhängigkeiten",
+    "jumpToTask": "Zur Aufgabe {{wbs}} springen",
     "relationPopoverTitle": "Beziehungstyp",
     "driving": "Maßgebende Beziehung (driving)",
     "lag": "Verzögerung (z.B. 2d, 3ed, 50%, -25e%)",

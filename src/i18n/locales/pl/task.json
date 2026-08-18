@@ -89,6 +89,7 @@
     "freeFloat": "Zapas swobodny:",
     "criticalPath": "Ścieżka krytyczna:",
     "dependencies": "Zależności",
+    "jumpToTask": "Przejdź do zadania {{wbs}}",
     "relationPopoverTitle": "Typ relacji",
     "driving": "Relacja wiodąca (driving)",
     "lag": "Zwłoka (np. 2d, 3ed, 50%, -25e%)",
