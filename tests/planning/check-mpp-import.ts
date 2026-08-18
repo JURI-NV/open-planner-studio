@@ -92,6 +92,7 @@ import {
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
 import { solveProject } from '@/engine/scheduler/solveProject';
+import { canonicalizeBands, promoteHourCalendar } from '@/services/subdayIo';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -131,6 +132,72 @@ let softChecksTotal = 0;
   truthy(
     '00c tenthsOfMinutesToDays(16100, 460/60) === 4 (niet-dyadische hoursPerDay, halve-dag-grens)',
     tenthsOfMinutesToDays(16100, 460 / 60) === 4,
+  );
+}
+
+// ── Z8-herwerkronde (2026-08-18) — INSTRUMENTFIX: `canonicalizeBands`/`promoteHourCalendar`
+// (`src/services/subdayIo.ts`, buiten baan S se gewone bestandseigendom — coördinator autoriseerde
+// deze ÉNE gerichte lezer-fix). Corpusmeting (mpp14timephased.mpp): MSP's ingebouwde "24 Hours"-
+// basiskalender en elke resource-kalender die 'm kopieert coderen een werkdag als ÉÉN band
+// `{start:0, end:1440}` — geen tweede band (discriminator a), geen middernacht-wrap (b, `end`
+// (1440) is niet `> 1440`). Zonder de nieuwe (b2)-discriminator (`end − start ≥ 1440`) bleef
+// `deviates` op zo'n kalender `false` en promoveerde ze NOOIT naar uur-modus tenzij een taak
+// toevallig een eigen (c)-signaal droeg — een resource-kalender die alleen via een TOEWIJZING
+// gebruikt wordt (nooit via `task.calendarId`) krijgt dat signaal nooit. Gevolg: `CalendarEngine.
+// isHourMode` gaf stil `false` op zo'n kalender — een lezer-defect, geen bewijs dat een
+// kalenderwandeling-formule op resource-kalenders niet zou werken (zie het Z8-herwerkrapport). ──
+{
+  const fullDayBands = canonicalizeBands({ 1: [{ start: 0, end: 1440 }], 2: [{ start: 0, end: 1440 }] });
+  truthy(
+    '[Z8 instrumentfix 1] volledige-dag-band (0..1440) ⇒ deviates === true (was false vóór de (b2)-fix)',
+    fullDayBands.deviates === true,
+  );
+  truthy(
+    '[Z8 instrumentfix 1] bandinhoud blijft ongewijzigd (0..1440, geen dubbele/verlengde band)',
+    fullDayBands.bands.byWeekday[1].length === 1
+    && fullDayBands.bands.byWeekday[1][0].start === 0 && fullDayBands.bands.byWeekday[1][0].end === 1440,
+  );
+
+  // Rode-pad/regressie-guard: een GEWONE 8-uurskalender (08:00-16:00, ÉÉN band, geen wrap, geen
+  // volledige dag) blijft `deviates === false` — de (b2)-fix mag GEEN normale kalender raken.
+  const normalBands = canonicalizeBands({ 1: [{ start: 480, end: 960 }] });
+  truthy(
+    '[Z8 instrumentfix 1, regressie-guard] normale 8u-band (08:00-16:00) ⇒ deviates blijft false',
+    normalBands.deviates === false,
+  );
+
+  // Grensgeval: een band van 1439 minuten (net ONDER een volledige dag) mag NIET meetellen — (b2)
+  // is bewust `≥ 1440`, niet `> 1439` of losser, om geen bijna-volledige-maar-normale banden te raken.
+  const almostFullDay = canonicalizeBands({ 1: [{ start: 0, end: 1439 }] });
+  truthy(
+    '[Z8 instrumentfix 1, grensgeval] band van 1439 min (net onder een volledige dag) ⇒ deviates blijft false',
+    almostFullDay.deviates === false,
+  );
+
+  // Integratie: `promoteHourCalendar` promoveert zo'n kalender nu daadwerkelijk (workTime gezet,
+  // hoursPerDay afgeleid op 24) — ZONDER dat er een taak-signaal (`signaled`) nodig is, precies het
+  // scenario dat een resource-only "24 Hours"-kalender in de praktijk treft.
+  const cal24: WorkCalendar = {
+    id: 'cal-24h-test', name: '24 Hours', description: '',
+    workDays: [1, 2, 3, 4, 5, 6, 7], workStartHour: 0, workEndHour: 24, hoursPerDay: 8, holidays: [],
+  };
+  const promoted = promoteHourCalendar(cal24, { canonical: fullDayBands.bands, deviates: fullDayBands.deviates }, false, false);
+  truthy('[Z8 instrumentfix 1, integratie] promoteHourCalendar retourneert true zonder taak-signaal', promoted === true);
+  truthy('[Z8 instrumentfix 1, integratie] cal.workTime gezet', !!cal24.workTime);
+  truthy(`[Z8 instrumentfix 1, integratie] cal.hoursPerDay afgeleid op 24 (kreeg ${cal24.hoursPerDay})`, cal24.hoursPerDay === 24);
+
+  // Mutatiebewijs: de OUDE discriminator (alleen a/b, geen b2) op dezelfde banden geeft `deviates
+  // === false` en dus GEEN promotie zonder taak-signaal — reproduceer dat expliciet (niet de
+  // productiecode gemuteerd, want dat zou de rest van de suite verstoren) om aan te tonen dat de
+  // assertie hierboven de (b2)-fix ECHT test, niet toevallig hetzelfde antwoord geeft.
+  function oldDiscriminatorDeviates(start: number, end: number): boolean {
+    let e = end;
+    if (e <= start) e += 1440;
+    return e > 1440; // (a) wordt hier niet getoetst — enkele band, dus (a) is toch al false
+  }
+  truthy(
+    '[Z8 instrumentfix 1, mutatiebewijs] de OUDE (a)/(b)-discriminator alleen zou deviates=false geven voor 0..1440 (bewijst dat (b2) de doorslag geeft)',
+    oldDiscriminatorDeviates(0, 1440) === false,
   );
 }
 
