@@ -100,6 +100,9 @@ function buildViewRows(data: GeneratedProject): ViewRow[] {
 export interface RunOptions {
   size: number;
   version: string;
+  /** Aantal resources in de gegenereerde planning (zie `generateProject.ts`). Weglaten ⇒ de
+   *  standaard van de generator, zodat eerdere meetreeksen vergelijkbaar blijven. */
+  resourceCount?: number;
   onProgress?: (u: ProgressUpdate) => void;
 }
 
@@ -107,7 +110,7 @@ export interface RunOptions {
  * Draai de volledige benchmark voor één grootte. Asynchroon met yields, zodat de dialoog de
  * voortgang kan tonen en de UI niet blokkeert.
  */
-export async function runBenchmark({ size, version, onProgress }: RunOptions): Promise<BenchmarkResult> {
+export async function runBenchmark({ size, version, resourceCount, onProgress }: RunOptions): Promise<BenchmarkResult> {
   const phases: PhaseResult[] = [];
   const totalPhases = PHASE_ORDER.length;
 
@@ -121,7 +124,7 @@ export async function runBenchmark({ size, version, onProgress }: RunOptions): P
   for (let i = 0; i < genIters; i++) {
     report('generate', 0, i + 1, genIters);
     const t0 = performance.now();
-    data = generateBenchmarkProject(size);
+    data = generateBenchmarkProject(size, { resourceCount });
     genSamples.push(performance.now() - t0);
     await yieldToUi();
   }

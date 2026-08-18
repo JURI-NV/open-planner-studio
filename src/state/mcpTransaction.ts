@@ -1,4 +1,5 @@
 import { useAppStore } from './appStore';
+import { attachToParent, detachFromParent, collectSubtreeIds } from '@/state/taskTree';
 import { createSnapshot, restoreSnapshot, type Snapshot } from './snapshot';
 import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
 import { relationVerdict } from './relationRules';
@@ -206,10 +207,7 @@ export const draft = {
       };
 
       s.tasks.push(task);
-      if (parentId) {
-        const parent = s.tasks.find((t) => t.id === parentId);
-        if (parent) parent.childIds.push(id);
-      }
+      if (parentId) attachToParent(s.tasks, id, parentId);
 
       // WBS: auto-nummering ⇒ hele boom; anders alleen deze taak een afgeleide code geven wanneer de
       // aanroeper er geen meegaf (lege codes breken de CSV/MSP-koppeling).
@@ -450,18 +448,9 @@ export const draft = {
       const task = s.tasks.find((t) => t.id === id);
       if (!task) return;
 
-      if (task.parentId) {
-        const parent = s.tasks.find((t) => t.id === task.parentId);
-        if (parent) parent.childIds = parent.childIds.filter((cid) => cid !== id);
-      }
+      detachFromParent(s.tasks, id);
 
-      const removeIds = new Set<string>();
-      const collectChildren = (taskId: string) => {
-        removeIds.add(taskId);
-        const t = s.tasks.find((tt) => tt.id === taskId);
-        if (t) t.childIds.forEach(collectChildren);
-      };
-      collectChildren(id);
+      const removeIds = new Set(collectSubtreeIds(s.tasks, id));
 
       s.tasks = s.tasks.filter((t) => !removeIds.has(t.id));
       s.sequences = s.sequences.filter(

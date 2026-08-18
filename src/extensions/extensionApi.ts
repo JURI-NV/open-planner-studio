@@ -11,11 +11,11 @@ import type {
   ImporterDefinition,
   RibbonButtonRegistration,
 } from './types';
-import type { ExtImportResult } from './extTypes';
+import type { ExtImportResult, ExtFontProvider } from './extTypes';
 import { useAppStore } from '@/state/appStore';
 import { withTransaction } from '@/state/batchTransaction';
 import { appLog } from '@/services/debug/appLog';
-import { registerCjkFontProvider, type CjkFontProvider } from '@/services/pdf/fontRegistry';
+import { registerCjkFontProvider } from '@/services/pdf/fontRegistry';
 import {
   subscribeExtensionEvent,
   unsubscribeExtensionEvent,
@@ -34,6 +34,8 @@ import {
   fromExtTaskUpdates,
   fromExtSequenceInput,
   fromExtImportResult,
+  fromExtRibbonTab,
+  fromExtFontProvider,
 } from './extMappers';
 
 // Re-export zodat bestaande importers (index.ts) ongewijzigd blijven werken.
@@ -104,7 +106,12 @@ export function createExtensionApi(
 
     ui: {
       addRibbonButton(reg: RibbonButtonRegistration) {
-        useAppStore.getState().addExtensionRibbonButton({ ...reg, extensionId });
+        // Grensvertaling: ext-facing tabblad-id → intern tabblad-id (zie extMappers).
+        useAppStore.getState().addExtensionRibbonButton({
+          ...reg,
+          tab: fromExtRibbonTab(reg.tab),
+          extensionId,
+        });
         cleanupFns.push(() => {
           useAppStore.getState().removeExtensionRibbonButton(extensionId, reg.label);
         });
@@ -133,7 +140,7 @@ export function createExtensionApi(
     },
 
     pdfFonts: {
-      register(provider: CjkFontProvider) {
+      register(provider: ExtFontProvider) {
         // Valideer de provider-vorm vóór registratie — een extensie-fout mag de export-registry
         // niet met een half object vervuilen.
         if (!provider || typeof provider !== 'object') {
@@ -153,7 +160,8 @@ export function createExtensionApi(
         }
         // registerCjkFontProvider geeft een uitschrijf-functie terug; hang 'm aan cleanupFns zodat
         // disable/unload de provider automatisch verwijdert (net als importers/ribbon-knoppen).
-        const unregister = registerCjkFontProvider(provider);
+        // Grensvertaling: ext-facing provider → interne provider (zie extMappers).
+        const unregister = registerCjkFontProvider(fromExtFontProvider(provider));
         cleanupFns.push(unregister);
       },
     },

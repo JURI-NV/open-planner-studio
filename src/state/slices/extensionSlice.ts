@@ -5,9 +5,20 @@ import type {
   RibbonButtonRegistration,
   ImporterDefinition,
 } from '@/extensions/types';
-import type { AppSlice } from './types';
+import type { AppSlice, RibbonTab } from './types';
 
-export interface ExtensionRibbonButton extends RibbonButtonRegistration {
+/**
+ * Een door een extensie geregistreerde lintknop, zoals de STORE hem bewaart.
+ *
+ * `tab` wordt hier bewust versmald naar het INTERNE `RibbonTab`: de registratie komt binnen als
+ * `ExtRibbonTab` (het publieke contract) en wordt op de API-grens vertaald door
+ * `extMappers.fromExtRibbonTab`. Zou de store het ext-type bewaren, dan zou het publieke contract
+ * alsnog tot in de renderlaag doorlopen en was de vertaallaag decoratief. Vandaag zijn de twee
+ * unies identiek, dus dit compileert zonder ceremonie — het punt is dat een toekomstige divergentie
+ * hier stukloopt en niet stilzwijgend doorschiet.
+ */
+export interface ExtensionRibbonButton extends Omit<RibbonButtonRegistration, 'tab'> {
+  tab: RibbonTab;
   extensionId: string;
 }
 

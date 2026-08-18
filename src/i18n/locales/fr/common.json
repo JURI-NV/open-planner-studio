@@ -817,6 +817,10 @@
     "intro": "Générez un planning de test et mesurez les phases principales. Cela n'affecte pas votre projet ouvert.",
     "sizeLabel": "Taille du planning",
     "tasksCount": "{{count}} tâches",
+    "resourceLabel": "Nombre de ressources",
+    "resourcesNone": "Aucune ressource",
+    "resourcesCount": "{{count}} ressources",
+    "networkHint": "Chaque tâche sans sous-tâches reçoit au moins une relation ; les tâches récapitulatives restent un cumul de leurs enfants.",
     "run": "Exécuter",
     "running": "En cours…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -850,5 +854,26 @@
     "detailRender": "{{rows}} lignes · {{w}}×{{h}}",
     "renderUnavailable": "rendu indisponible (pas de contexte canvas 2D)",
     "largeWarning": "Grand planning : cela peut prendre un moment ; la barre de progression peut sembler figée pendant le calcul."
+  },
+  "extConsent": {
+    "title": "Installer l'extension ?",
+    "author": "Auteur",
+    "repository": "Dépôt",
+    "originHeading": "Origine",
+    "sourceCatalog": "Depuis le catalogue d'extensions en ligne",
+    "sourceZip": "Depuis un fichier ZIP sur cet ordinateur",
+    "sourceJs": "Depuis un fichier JavaScript sur cet ordinateur",
+    "verifiedChecksum": "Téléchargement vérifié avec la somme de contrôle du catalogue.",
+    "verifiedNone": "Le catalogue ne fournit aucune somme de contrôle — ce téléchargement n'a pas été vérifié.",
+    "verifiedLocal": "Vous avez choisi ce fichier vous-même ; il n'existe aucune source externe pour le vérifier.",
+    "riskHeading": "Ce que vous acceptez",
+    "riskBody": "Une extension est du code qui s'exécute avec les mêmes droits qu'Open Planner Studio lui-même. Rien ne le limite. N'installez que des extensions dont vous faites confiance à l'auteur.",
+    "riskDesktop": "Dans l'application de bureau, cela comprend : lire et écrire des fichiers partout dans votre dossier utilisateur, ainsi que l'accès à vos projets, réglages et presse-papiers.",
+    "riskBrowser": "Dans le navigateur, cela signifie : l'accès à vos projets et réglages enregistrés, aux fichiers auxquels vous avez donné accès, et au réseau.",
+    "declaredHeading": "Ce que cette extension déclare utiliser",
+    "declaredNote": "C'est la déclaration de l'auteur, pas une restriction — le code peut faire davantage.",
+    "declaredNone": "Rien de déclaré.",
+    "cancel": "Ne pas installer",
+    "confirm": "Installer"
   }
 }

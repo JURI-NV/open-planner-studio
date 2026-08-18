@@ -130,6 +130,7 @@ export function createDefaultUI(): UIState {
     structureLockedNotice: 0,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
+    pendingExtensionConsent: null,
     showPoolImportDialog: false,
     poolImportCompanyId: null,
     showLibraryLinkDialog: false,

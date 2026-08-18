@@ -5,7 +5,9 @@ import { buildWriteIFCInput } from '@/state/ifcSaveInput';
 import { readIFC } from '@/services/ifc/ifcReader';
 import { readCSV } from '@/services/csv/csvReader';
 import { enableExtension, disableExtension, removeExtension, saveExtensionToDb, installFromZipBlob } from '@/extensions';
+import type { InstallOutcome } from '@/extensions';
 import type { ExtensionManifest, InstalledExtension } from '@/extensions/types';
+import { setConsentAsker, resetConsentAsker, type ConsentAsker } from '@/extensions';
 import { copyScreenshotToClipboard } from '@/services/feedback/feedbackService';
 import { isTauri } from '@/utils/platform';
 
@@ -214,8 +216,16 @@ export interface OpsDevBridge {
   /** Dev-only extensie-haken voor zelftests. */
   extensions: {
     installFromCode: typeof installExtensionFromCode;
-    /** Installeer via het echte ZIP-pad (parse → assets → opslaan → activeren). */
-    installFromZip: typeof installFromZipBlob;
+    /** Installeer via het echte ZIP-pad (parse → assets → opslaan → activeren), MET de
+     *  vertrouwensvraag overgeslagen — een zelftest heeft geen mens die een dialoog wegklikt.
+     *  De dialoog zelf test je via `__OPS__.extensions.consent`. */
+    installFromZip: (blob: Blob, overrideId?: string) => Promise<InstallOutcome>;
+    /** Haken op de toestemmingsvraag (K-item 38), zodat een zelftest zowel het toestaan- als het
+     *  weigeren-pad kan aansturen zonder de echte dialoog. */
+    consent: {
+      set: (fn: (req: unknown) => Promise<boolean>) => void;
+      reset: () => void;
+    };
     enable: typeof enableExtension;
     disable: typeof disableExtension;
     remove: typeof removeExtension;
@@ -248,7 +258,12 @@ export function installDevBridge(): void {
     openFromPath,
     extensions: {
       installFromCode: installExtensionFromCode,
-      installFromZip: installFromZipBlob,
+      installFromZip: (blob: Blob, overrideId?: string) =>
+        installFromZipBlob(blob, overrideId, { assumeConsent: true }),
+      consent: {
+        set: (fn) => setConsentAsker(fn as unknown as ConsentAsker),
+        reset: resetConsentAsker,
+      },
       enable: enableExtension,
       disable: disableExtension,
       remove: removeExtension,

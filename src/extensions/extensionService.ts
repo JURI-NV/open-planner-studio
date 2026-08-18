@@ -12,6 +12,9 @@ import {
   getActivePlugins,
 } from './extensionLoader';
 import { useAppStore } from '@/state/appStore';
+import { appLog } from '@/services/debug/appLog';
+import { askExtensionConsent, type ConsentSource, type ConsentVerification, type ExtensionConsentRequest } from './consent';
+import { isTauri } from '@/utils/platform';
 
 // ── Catalogus ──
 
@@ -48,33 +51,163 @@ export async function fetchCatalog(): Promise<void> {
 // Let op: dit downloadt en activeert externe code na een gebruikersklik.
 // Er is geen echte sandbox (zie executeExtensionCode in extensionLoader.ts);
 // de catalogus is een door de Foundation beheerde lijst.
-export async function installFromCatalog(entry: CatalogEntry): Promise<boolean> {
+/**
+ * Afloop van een installatiepoging. Een bewuste WEIGERING is nadrukkelijk geen fout: de UI hoort
+ * daar geen "installatie mislukt" op te tonen, en met een kale boolean was dat onderscheid er niet.
+ */
+export type InstallOutcome = 'installed' | 'declined' | 'failed';
+
+export interface InstallOptions {
+  /** Waar de bytes vandaan komen — bepaalt wat de toestemmingsvraag over herkomst kan zeggen. */
+  source?: ConsentSource;
+  /** Verificatiestand van die bytes (zie `verifyCatalogDownload`). */
+  verification?: ConsentVerification;
+  /**
+   * Sla de vertrouwensvraag over. UITSLUITEND voor de dev-bridge en geautomatiseerde zelftests: die
+   * testen extensie-GEDRAG en hebben geen mens die een dialoog kan wegklikken. Nooit vanuit een
+   * gebruikerspad meegeven — dat zou de enige stap die om vertrouwen vraagt stil overslaan.
+   * `check-ext-consent.ts` bewaakt met een bron-assert dat alleen `devBridge.ts` dit zet.
+   */
+  assumeConsent?: boolean;
+}
+
+/**
+ * Manifest + installatiecontext → de vraag die de gebruiker te zien krijgt.
+ *
+ * Apart en puur, zodat toetsbaar is dát de velden overkomen. Een vraag die de auteur of de
+ * declaratie kwijtraakt ziet er in de dialoog nog steeds compleet uit — er staat dan gewoon minder,
+ * en niemand die de dialoog nooit eerder zag merkt het verschil.
+ */
+export function buildConsentRequest(
+  manifest: ExtensionManifest,
+  id: string,
+  opts: InstallOptions,
+  desktop: boolean = isTauri(),
+): ExtensionConsentRequest {
+  return {
+    id,
+    name: manifest.name,
+    version: manifest.version,
+    author: manifest.author,
+    description: manifest.description,
+    declared: manifest.permissions ?? [],
+    repository: manifest.repository,
+    source: opts.source ?? 'zip',
+    verification: opts.verification ?? 'local',
+    isDesktop: desktop,
+  };
+}
+
+/**
+ * De vertrouwensvraag, op één plek voor élk installatiepad (K-item 38).
+ *
+ * Staat bewust VÓÓR elke schrijfactie: bij een weigering mag er niets in IndexedDB staan, niets in
+ * de store geregistreerd zijn, en een al geïnstalleerde vorige versie onaangeroerd blijven.
+ */
+async function gateConsent(
+  manifest: ExtensionManifest,
+  id: string,
+  opts: InstallOptions,
+): Promise<boolean> {
+  if (opts.assumeConsent) return true;
+  const granted = await askExtensionConsent(buildConsentRequest(manifest, id, opts));
+  if (!granted) {
+    appLog.emit('info', 'Extensies', `Installatie van "${id}" geannuleerd door de gebruiker.`);
+  }
+  return granted;
+}
+
+export async function installFromCatalog(entry: CatalogEntry): Promise<InstallOutcome> {
   try {
     const res = await fetch(entry.downloadUrl);
     if (!res.ok) throw new Error(`Download mislukt: HTTP ${res.status}`);
 
-    const blob = await res.blob();
-    return await installFromZipBlob(blob, entry.id);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+
+    const oordeel = await verifyCatalogDownload(entry, bytes);
+    if (!oordeel.ok) throw new Error(oordeel.reason);
+    if (oordeel.unverified) {
+      appLog.emit('warn', 'Extensies',
+        `Catalogusentry "${entry.id}" heeft geen sha256; de download is niet geverifieerd.`);
+    }
+
+    return await installFromZipBlob(new Blob([bytes as unknown as BlobPart]), entry.id, {
+      source: 'catalog',
+      verification: oordeel.unverified ? 'unverified' : 'checksum',
+    });
   } catch (err) {
     console.error('[Extensies] Installeren vanuit catalogus mislukt:', err);
-    return false;
+    appLog.emit('error', 'Extensies', err instanceof Error ? err.message : String(err));
+    return 'failed';
   }
+}
+
+export interface DownloadVerdict {
+  ok: boolean;
+  /** Gevuld wanneer `ok` onwaar is — gaat rechtstreeks naar de gebruiker/het log. */
+  reason?: string;
+  /** True wanneer de entry geen `sha256` draagt: geïnstalleerd, maar ONgeverifieerd. */
+  unverified?: boolean;
+}
+
+/**
+ * Mag deze download geïnstalleerd worden (K-item 38)?
+ *
+ * De catalogus is een extern JSON-bestand en `downloadUrl` wijst naar een release-asset; zonder
+ * hash zijn "wat de catalogus beschrijft" en "wat je installeert" alleen door TLS aan elkaar
+ * geknoopt, en een vervangen asset is onzichtbaar. Mét hash faalt de installatie bij het kleinste
+ * verschil.
+ *
+ * Bewust een aparte, pure functie: de installatie zelf heeft IndexedDB en `DecompressionStream`
+ * nodig en is daarmee niet headless te draaien; deze beslissing wél
+ * (`tests/planning/check-ext-integrity.ts`).
+ *
+ * Een aanwezige maar ONLEESBARE hash is een weigering, geen "dan maar overslaan": dat laatste zou
+ * een typefout in de catalogus stilzwijgend in "niet verifiëren" laten omslaan — precies de
+ * degradatie die de controle waardeloos maakt.
+ */
+export async function verifyCatalogDownload(
+  entry: Pick<CatalogEntry, 'id' | 'sha256'>,
+  bytes: Uint8Array,
+): Promise<DownloadVerdict> {
+  const verwacht = entry.sha256?.trim().toLowerCase();
+  if (!verwacht) return { ok: true, unverified: true };
+  if (!/^[0-9a-f]{64}$/.test(verwacht)) {
+    return { ok: false, reason: `Catalogusentry "${entry.id}" heeft een ongeldige sha256 ("${entry.sha256}") — verwacht 64 hex-tekens.` };
+  }
+  const werkelijk = await sha256Hex(bytes);
+  if (werkelijk !== verwacht) {
+    return {
+      ok: false,
+      reason: `Checksum komt niet overeen voor "${entry.id}" — verwacht ${verwacht}, kreeg ${werkelijk}. De download is niet geïnstalleerd.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Hex-gecodeerde SHA-256 van een byte-reeks, via Web Crypto (beschikbaar in de browser, de
+ * Tauri-webview én Node ≥ 18 — dus ook headless toetsbaar).
+ */
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', bytes as unknown as ArrayBuffer);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ── Installeren vanuit een lokaal ZIP-bestand ──
 
-export async function installFromFile(): Promise<boolean> {
+export async function installFromFile(): Promise<InstallOutcome> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.zip';
     input.style.display = 'none';
     document.body.appendChild(input);
-    input.addEventListener('cancel', () => { input.remove(); resolve(false); });
+    input.addEventListener('cancel', () => { input.remove(); resolve('declined'); });
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) { input.remove(); resolve(false); return; }
-      const result = await installFromZipBlob(file);
+      if (!file) { input.remove(); resolve('declined'); return; }
+      const result = await installFromZipBlob(file, undefined, { source: 'zip', verification: 'local' });
       input.remove();
       resolve(result);
     };
@@ -84,21 +217,28 @@ export async function installFromFile(): Promise<boolean> {
 
 // ── Installeren vanuit een los .js-bestand (simpele extensies) ──
 
-export async function installFromJsFile(): Promise<boolean> {
+export async function installFromJsFile(): Promise<InstallOutcome> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.js';
     input.style.display = 'none';
     document.body.appendChild(input);
-    input.addEventListener('cancel', () => { input.remove(); resolve(false); });
+    input.addEventListener('cancel', () => { input.remove(); resolve('declined'); });
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) { input.remove(); resolve(false); return; }
+      if (!file) { input.remove(); resolve('declined'); return; }
 
       try {
         const mainCode = await file.text();
         const manifest = extractManifestFromCode(mainCode, file.name);
+
+        // Vertrouwensvraag vóór élke schrijfactie — zie gateConsent.
+        if (!await gateConsent(manifest, manifest.id, { source: 'js', verification: 'local' })) {
+          input.remove();
+          resolve('declined');
+          return;
+        }
 
         await saveExtensionToDb({
           id: manifest.id,
@@ -116,11 +256,11 @@ export async function installFromJsFile(): Promise<boolean> {
         await enableExtension(manifest.id);
 
         input.remove();
-        resolve(true);
+        resolve('installed');
       } catch (err) {
         console.error('[Extensies] Installeren vanuit JS mislukt:', err);
         input.remove();
-        resolve(false);
+        resolve('failed');
       }
     };
     input.click();
@@ -143,6 +283,9 @@ function extractManifestFromCode(code: string, fileName: string): ExtensionManif
     id,
     name: fileName.replace(/\.js$/, ''),
     version: '1.0.0',
+    // Bewust GEEN apiVersion: een los .js-bestand zonder manifest weten we niets van, en een
+    // gegokte waarde zou de contract-poort in extensionLoader een garantie laten uitspreken die
+    // niemand gegeven heeft. Afwezig ⇒ legacy-pad (laden mag, met een warn).
     minAppVersion: '0.0.0',
     author: 'Onbekend',
     description: `Extensie geladen uit ${fileName}`,
@@ -166,7 +309,11 @@ const MAX_TOTAL_ASSET_BYTES = 48 * 1024 * 1024;
  * opslaan → activeren). Ook gebruikt door `installFromCatalog`/`installFromFile`; los geëxporteerd zodat
  * programmatische installatie (o.a. zelftests) hetzelfde pad kan aanroepen zonder bestandskiezer.
  */
-export async function installFromZipBlob(blob: Blob, overrideId?: string): Promise<boolean> {
+export async function installFromZipBlob(
+  blob: Blob,
+  overrideId?: string,
+  opts: InstallOptions = {},
+): Promise<InstallOutcome> {
   try {
     const arrayBuffer = await blob.arrayBuffer();
     const files = await parseZipEntries(arrayBuffer);
@@ -210,6 +357,10 @@ export async function installFromZipBlob(blob: Blob, overrideId?: string): Promi
     }
     const hasAssets = Object.keys(assets).length > 0;
 
+    // Vertrouwensvraag — VÓÓR de eerste schrijfactie, en dus ook vóór het deactiveren van een
+    // eventuele vorige versie: een weigering mag niets achterlaten en niets kapotmaken.
+    if (!await gateConsent({ ...manifest, id }, id, opts)) return 'declined';
+
     // Al geïnstalleerd? Eerst deactiveren.
     if (getActivePlugins().has(id)) {
       await disableExtension(id);
@@ -232,10 +383,10 @@ export async function installFromZipBlob(blob: Blob, overrideId?: string): Promi
     useAppStore.getState().registerExtension(installed);
     await enableExtension(id);
 
-    return true;
+    return 'installed';
   } catch (err) {
     console.error('[Extensies] ZIP-installatie mislukt:', err);
-    return false;
+    return 'failed';
   }
 }
 

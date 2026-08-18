@@ -827,6 +827,10 @@
     "intro": "Wygeneruj testowy harmonogram i zmierz główne fazy. Nie wpływa to na otwarty projekt.",
     "sizeLabel": "Rozmiar harmonogramu",
     "tasksCount": "{{count}} zadań",
+    "resourceLabel": "Liczba zasobów",
+    "resourcesNone": "Brak zasobów",
+    "resourcesCount": "{{count}} zasobów",
+    "networkHint": "Każde zadanie bez podzadań otrzymuje co najmniej jedno powiązanie; zadania sumaryczne pozostają zestawieniem swoich podzadań.",
     "run": "Uruchom",
     "running": "Trwa…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -860,5 +864,26 @@
     "detailRender": "{{rows}} wierszy · {{w}}×{{h}}",
     "renderUnavailable": "renderowanie niedostępne (brak kontekstu canvas 2D)",
     "largeWarning": "Duży harmonogram: może to chwilę potrwać; pasek postępu może wydawać się zatrzymany podczas obliczeń."
+  },
+  "extConsent": {
+    "title": "Zainstalować rozszerzenie?",
+    "author": "Autor",
+    "repository": "Repozytorium",
+    "originHeading": "Pochodzenie",
+    "sourceCatalog": "Z internetowego katalogu rozszerzeń",
+    "sourceZip": "Z pliku ZIP na tym komputerze",
+    "sourceJs": "Z pliku JavaScript na tym komputerze",
+    "verifiedChecksum": "Pobranie zweryfikowano sumą kontrolną z katalogu.",
+    "verifiedNone": "Katalog nie podaje sumy kontrolnej — tego pobrania nie zweryfikowano.",
+    "verifiedLocal": "Ten plik wybrałeś samodzielnie; nie ma zewnętrznego źródła do weryfikacji.",
+    "riskHeading": "Na co się zgadzasz",
+    "riskBody": "Rozszerzenie to kod, który działa z tymi samymi uprawnieniami co sam Open Planner Studio. Nic go nie ogranicza. Instaluj tylko rozszerzenia, których autorowi ufasz.",
+    "riskDesktop": "W aplikacji desktopowej obejmuje to: odczyt i zapis plików w całym folderze użytkownika oraz dostęp do projektów, ustawień i schowka.",
+    "riskBrowser": "W przeglądarce oznacza to: dostęp do zapisanych projektów i ustawień, do plików, na które udzielono dostępu, oraz do sieci.",
+    "declaredHeading": "Co to rozszerzenie deklaruje",
+    "declaredNote": "To deklaracja autora, a nie ograniczenie — kod i tak może więcej.",
+    "declaredNone": "Nic nie zadeklarowano.",
+    "cancel": "Nie instaluj",
+    "confirm": "Zainstaluj"
   }
 }

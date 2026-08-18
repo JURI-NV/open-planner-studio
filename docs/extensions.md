@@ -9,6 +9,7 @@ Een extensie is een ZIP-bestand met twee bestanden — of een los `.js`-bestand 
   "id": "mijn-extensie",
   "name": "Mijn Extensie",
   "version": "1.0.0",
+  "apiVersion": "1.0",
   "minAppVersion": "2026.4.0",
   "author": "Jouw Naam",
   "description": "Wat de extensie doet.",
@@ -43,7 +44,71 @@ Gebruik `currentColor` voor `fill`/`stroke` zodat het icoon met het thema meekle
 `data.*`, `settings.*`, `assets.*` en `ui.showNotification` zijn **kern-API**: altijd beschikbaar, geen permissie nodig.
 
 De afdwinging is gecentraliseerd in `src/extensions/permissions.ts` (één tabel pad → permissie).
-`minAppVersion` wordt óók afgedwongen: is de app ouder, dan weigert de extensie te activeren (status `error`).
+
+### Wat de app wél en niet afdwingt
+
+Twee dingen zijn hard, en het verschil is belangrijk:
+
+- **Integriteit van een catalogus-installatie.** Draagt een catalogusentry een `sha256` van de
+  release-ZIP, dan wordt de download geverifieerd en bij het kleinste verschil geweigerd. Draagt hij
+  er geen, dan installeert de app wel maar meldt hij in de debug-terminal dat de download
+  ongeverifieerd is. Een aanwezige maar onleesbare hash is een weigering, niet een stille terugval.
+- **Afscherming van de rauwe host-globals.** `__TAURI_INTERNALS__`, `__TAURI__` en `__OPS__` zijn
+  binnen extensie-code geschaduwd op `undefined`. Alles wat een extensie legitiem nodig heeft loopt
+  via `require('open-planner-studio')` en de `api` die `onLoad` krijgt.
+
+> **Dit is geen sandbox.** Extensie-code draait in dezelfde realm als de app. `globalThis.__TAURI_INTERNALS__`
+> en `Function('return this')()` komen er nog steeds bij, en `filesystem`/`network` zijn dan ook
+> informatieve permissies zonder technische grens. Wat de afscherming oplevert is dat de
+> gedachteloze route dicht zit: wie er alsnog omheen gaat, doet dat aantoonbaar met opzet.
+> **Installeer alleen extensies waarvan je de bron vertrouwt.** Een echte grens vergt uitvoering in
+> een Web Worker of iframe; dat staat op de roadmap.
+
+### Toestemming bij installeren
+
+Precies omdát er geen grens is, vraagt de app bij **installeren** om bevestiging — één keer, op het
+moment waarop je de maker vertrouwt, niet bij elke activering. Wat de dialoog toont:
+
+- **wie en wat**: naam, versie, auteur, omschrijving en repository uit het manifest;
+- **herkomst**: catalogus of lokaal bestand, en of de download tegen een checksum geverifieerd is;
+- **wat het concreet betekent** op dit platform (desktop of browser);
+- **de gedeclareerde permissies** — nadrukkelijk als *voorgenomen gebruik*, niet als beperking.
+
+Dat laatste is een bewuste keuze. Een afvinklijst in Android-stijl zou lezen als "de extensie is
+hiertoe beperkt", en dat is aantoonbaar onwaar; dan is de dialoog erger dan geen dialoog.
+
+Weigeren laat niets achter: geen record in de opslag, geen registratie, en een al geïnstalleerde
+vorige versie blijft draaien. Kan de vraag niet gesteld worden (geen dialoog beschikbaar), dan wordt
+er **niet** geïnstalleerd — de faalstand is weigeren, niet stil doorlaten.
+
+Zelftests slaan de vraag over via `window.__OPS__.extensions.installFromZip`; de dialoog zelf stuur
+je aan met `window.__OPS__.extensions.consent.set(fn)` / `.reset()` (dev-only).
+
+### Twee versievelden, twee vragen
+
+`apiVersion` en `minAppVersion` lijken op elkaar maar beantwoorden verschillende vragen, en allebei
+worden ze bij het activeren afgedwongen (weigering ⇒ status `error` met de reden erbij).
+
+| veld | vraag | vorm |
+|---|---|---|
+| `minAppVersion` | *Welke app-FEATURES heb ik nodig?* | CalVer, bv. `2026.4.0` |
+| `apiVersion` | *Tegen welk extensie-CONTRACT ben ik gebouwd?* | semver, bv. `1.0` |
+
+De app-versie is CalVer en zegt alleen wanneer een build gemaakt is — daar valt geen brekende
+wijziging uit af te lezen. `apiVersion` doet dat wel:
+
+- **major** verschilt ⇒ geweigerd, in beide richtingen. Een andere major betekent dat `ExtensionApi`
+  of een `Ext*`-vorm brekend gewijzigd is.
+- **minor** hoger dan de host ⇒ geweigerd (je rekent op iets dat deze app nog niet heeft). Lager of
+  gelijk ⇒ prima: toevoegingen zijn achterwaarts compatibel.
+- **patch** speelt geen rol.
+
+`apiVersion` is **optioneel**. Laat je hem weg, dan laadt de extensie gewoon (manifesten van vóór dit
+veld blijven werken) maar logt de app een waarschuwing in de debug-terminal. Zet hem in nieuwe
+extensies wél: zonder dat veld merk je een contractwijziging pas als je code halverwege `onLoad`
+klapt. Een onleesbare waarde (`"v1.0"`, `"1.x"`) wordt geweigerd in plaats van als `0.0.0` gelezen.
+
+De huidige contractversie leest je uit met `require('open-planner-studio').apiVersion`.
 
 > **Migratie (audit P16):**
 > - De permissie `commands` is verwijderd — die had nooit een API-oppervlak. Manifesten die haar (of een andere onbekende waarde) noemen, blijven werken: onbekende permissies worden bij het activeren stil weggefilterd met een waarschuwing in de debug-terminal.
@@ -221,7 +286,7 @@ Bestand → Extensies → **ZIP** of **JS** (lokaal bestand), of via de **Blader
 Bij een los `.js`-bestand mag het manifest als commentaarblok bovenaan:
 
 ````js
-/** @manifest { "id": "mijn-extensie", "name": "Mijn Extensie", "version": "1.0.0", "minAppVersion": "0.0.0", "author": "Ik", "description": "…", "category": "Utility", "main": "main.js", "permissions": [] } */
+/** @manifest { "id": "mijn-extensie", "name": "Mijn Extensie", "version": "1.0.0", "apiVersion": "1.0", "minAppVersion": "0.0.0", "author": "Ik", "description": "…", "category": "Utility", "main": "main.js", "permissions": [] } */
 ````
 
 ## Beperkingen

@@ -4,8 +4,6 @@
  * een extensie = manifest.json + main.js (CommonJS, exporteert onLoad/onUnload),
  * verpakt als ZIP of los .js-bestand, opgeslagen in IndexedDB.
  */
-import type { RibbonTab } from '@/state/slices/types';
-import type { CjkFontProvider } from '@/services/pdf/fontRegistry';
 import type {
   ExtProject,
   ExtCalendar,
@@ -14,6 +12,8 @@ import type {
   ExtResource,
   ExtAssignment,
   ExtImportResult,
+  ExtRibbonTab,
+  ExtFontProvider,
 } from './extTypes';
 
 // ── Categorieën & permissies ──
@@ -57,6 +57,13 @@ export interface ExtensionManifest {
   id: string;
   name: string;
   version: string;
+  /**
+   * Semver van het EXTENSIE-CONTRACT waartegen deze extensie gebouwd is (bv. `"1.0"`), los van
+   * `minAppVersion`. Zie `apiVersion.ts` voor waarom die twee verschillende vragen beantwoorden.
+   * Optioneel: manifesten van vóór K-item 37 missen hem en blijven gewoon laden (met een warn).
+   */
+  apiVersion?: string;
+  /** Minimale APP-versie (CalVer) — een uitspraak over features, niet over het contract. */
   minAppVersion: string;
   author: string;
   description: string;
@@ -100,7 +107,7 @@ export interface ImporterDefinition {
 // ── Ribbon-registratie ──
 
 export interface RibbonButtonRegistration {
-  tab: RibbonTab;             // bv. 'start' of 'planning'
+  tab: ExtRibbonTab;          // bv. 'start' of 'planning' — ext-facing unie, zie extTypes.ts
   group: string;              // groepslabel in de ribbon
   label: string;
   icon?: string;              // inline SVG-string
@@ -182,7 +189,7 @@ export interface ExtensionApi {
    * disable/unload automatisch weer uitgeschreven (net als importers/ribbon-knoppen).
    */
   pdfFonts: {
-    register(provider: CjkFontProvider): void;
+    register(provider: ExtFontProvider): void;
   };
 
   /**
@@ -215,8 +222,21 @@ export interface CatalogEntry {
   description: string;
   category: ExtensionCategory;
   tags: string[];
+  /** Zie `ExtensionManifest.apiVersion`. Afwezig ⇒ onbekend; de catalogus toont dan geen
+   *  contract-compatibiliteit. */
+  apiVersion?: string;
   minAppVersion: string;
   repository: string;
   downloadUrl: string;        // wijst naar een release-ZIP
+  /**
+   * Hex-gecodeerde SHA-256 van de ZIP achter `downloadUrl` (K-item 38). Aanwezig ⇒ de installatie
+   * VERIFIEERT de download en weigert bij een verschil; afwezig ⇒ installeren mag, met een
+   * waarschuwing in de debug-terminal.
+   *
+   * Waarom optioneel: de catalogus is een extern bestand (`open-planner-studio-extensions`) dat
+   * niet met deze app meebeweegt. Het hard eisen zou elke bestaande entry onbruikbaar maken; het
+   * doel is dat een entry MET hash niet meer stil vervangen kan worden.
+   */
+  sha256?: string;
   icon?: string;
 }
