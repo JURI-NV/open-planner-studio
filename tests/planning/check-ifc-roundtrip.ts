@@ -70,7 +70,7 @@
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
-import type { Task, TaskTime, ExternalLink, TaskSplitGap } from '@/types/task';
+import type { Task, TaskTime, ExternalLink, TaskSplitGap, TaskTimephasedContour } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { Project, SchedulingOptions } from '@/types/project';
@@ -221,10 +221,24 @@ const TM = {
   levelingDelayMinutes: 45, levelingDelayElapsed: true,
   splitGaps: [{ afterMinutes: 120, gapMinutes: 60 } satisfies TaskSplitGap],
   manuallyScheduled: true,
-  // Z8: geen eigen IFC-pset (zie TASK_CANON hieronder, skip-cellen) — de waarden hier bestaan
-  // uitsluitend om `Required<Task>` compleet te houden, niet om een round-trip te bewijzen.
+  // Z14b: het Z8-venster round-trippt nu écht via `OPS_TimephasedWindow` (zie TASK_CANON hieronder
+  // — echte KEEP-vergelijking i.p.v. de vroegere skip-cellen).
   timephasedFinishFloor: '2026-07-24T17:00', timephasedStartAnchor: '2026-07-24T08:00',
   timephasedDurationWalks: [{ anchor: '2026-07-24T08:00', resourceCalendarId: 'libcal' }],
+  // Z14b — rauwe contourperiodes (`OPS_TimephasedContours`), eigenaarsprincipe-voedingsdata.
+  // Twee toewijzingen om te bewijzen dat de per-toewijzing-groepering ook echt meerdere entries
+  // draagt (niet gedegenereerd tot één samengevoegde lijst).
+  timephasedContours: [
+    { resourceUid: 501, periods: [
+      { afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' },
+      { afterMinutes: 240, minutes: 60, workMinutes: 0, kind: 'actual' }, // het gat
+    ] },
+    { resourceUid: null, periods: [
+      { afterMinutes: 300, minutes: 180, workMinutes: 180, kind: 'remaining' },
+    ] },
+  ] satisfies TaskTimephasedContour[],
+  // Z14b — MSP's eigen task-type/effort-driven-vlag (eigenaarsbesluit 2026-08-18, punt 1).
+  mspTaskType: 'FIXED_WORK', effortDriven: true,
   parentId: 't-p', childIds: [],
   resourceIds: [], // milestone zonder assignments ⇒ afgeleide resourceIds is leeg (H2-fix)
   color: '#abcdef', // round-trippt via OPS_TaskAppearance (H2-fix)
@@ -493,13 +507,23 @@ const TASK_CANON = {
   // uitgebreid met LevelingDelayMinutes/-Elapsed, `OPS_TaskSplits` en `OPS_ManualScheduling` nieuw)
   // — echte KEEP-vergelijking i.p.v. de vroegere skip-cellen.
   levelingDelayMinutes: KEEP, levelingDelayElapsed: KEEP, splitGaps: KEEP, manuallyScheduled: KEEP,
-  // Z8 (etappe "nul afwijkingen", implementer-gemelde uitzondering — buiten baan S se
-  // bestandseigendom valt `ifcPsets.ts`/`ifcWriter.ts`/`ifcReader.ts` zelf aanpassen): deze twee
-  // zijn per-import afgeleide CPM-invoer (zoals `splitGaps` vóór Z14), nog GEEN eigen IFC-pset.
-  // Round-trip is een openstaand vervolgpunt (zie het Z8-commitbericht) — tot dan skip, geen KEEP.
-  timephasedFinishFloor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
-  timephasedStartAnchor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
-  timephasedDurationWalks: { skip: 'Z8-herwerkronde: nog geen eigen IFC-pset, zie het commitbericht' },
+  // Z14b — het Z8-venster round-trippt nu écht via `OPS_TimephasedWindow` (ifcPsets.ts): echte
+  // KEEP/get-vergelijking i.p.v. de vroegere skip-cellen (Z8-nataak, plan-Z14 regel ~464).
+  timephasedFinishFloor: KEEP, timephasedStartAnchor: KEEP,
+  // `resourceCalendarId` is een KALENDER-VERWIJZING (regenereert bij inlezen) — spiegelt
+  // `calendarId` hieronder: via `k.cal(...)` naar de natuurlijke sleutel (kalendernaam) herschreven,
+  // net als elke andere cross-object-verwijzing in dit bestand.
+  timephasedDurationWalks: {
+    get: (t: Task, k: Keys) => (t.timephasedDurationWalks ?? []).map(w => ({
+      anchor: w.anchor, resourceCalendarId: k.cal(w.resourceCalendarId),
+    })),
+  },
+  // Z14b — rauwe contourperiodes (`OPS_TimephasedContours`): `resourceUid` is een MSP-eigen rauw
+  // getal, GEEN verwijzing naar iets in deze fixture-graaf (zie `TaskTimephasedContour`'s eigen
+  // docblok — puur herkomst/traceability) — dus geen `Keys`-vertaling nodig, plain KEEP volstaat.
+  timephasedContours: KEEP,
+  // Z14b — MSP's eigen task-type/effort-driven-vlag (`OPS_MspTaskType`), puur data, geen verwijzing.
+  mspTaskType: KEEP, effortDriven: KEEP,
   parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
   childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
   time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },
@@ -1088,6 +1112,41 @@ const rt2 = readIFC(writeIFC(rt1));
   // `w.task.time.completion` maakt precies déze twee asserties ROOD — ONAFHANKELIJK van (8a)/(8b)/
   // (8c), die hier bewust ongebruikt blijven (de kapotte taak wordt buiten addTask/fromExtTaskTime om
   // rechtstreeks in de fixture gezet).
+}
+
+// (8e) F5 (spec-review-fixronde op 526af9f9, plan-Z14 regel ~470) — `toExtTask` moet de drie NIEUWE
+//      Z14b-leeskant-velden (mspTaskType/effortDriven/timephasedContours) doorgeven, en ZWIJGEN als
+//      ze niet gezet zijn (compact-optioneel, spiegelt hoe de rest van `toExtTask` met
+//      `manuallyScheduled`/`splitGaps` omgaat).
+{
+  const { toExtTask } = await import('@/extensions/extMappers');
+  const withFields: Task = {
+    id: 't-8e', name: '(8e)-met-velden', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [], time: plainTime('2026-08-18', '2026-08-20', 2),
+    mspTaskType: 'FIXED_DURATION', effortDriven: true,
+    timephasedContours: [{ resourceUid: 3, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }],
+  };
+  const mapped8e = toExtTask(withFields);
+  assert(mapped8e.mspTaskType === 'FIXED_DURATION', `(8e) toExtTask moet mspTaskType doorgeven — kreeg ${mapped8e.mspTaskType}`);
+  assert(mapped8e.effortDriven === true, `(8e) toExtTask moet effortDriven doorgeven — kreeg ${mapped8e.effortDriven}`);
+  assert(
+    JSON.stringify(mapped8e.timephasedContours) === JSON.stringify(withFields.timephasedContours),
+    `(8e) toExtTask moet timephasedContours doorgeven — kreeg ${JSON.stringify(mapped8e.timephasedContours)}`,
+  );
+
+  const withoutFields: Task = {
+    id: 't-8e-neg', name: '(8e)-zonder-velden', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [], time: plainTime('2026-08-18', '2026-08-20', 2),
+  };
+  const mapped8eNeg = toExtTask(withoutFields);
+  assert(mapped8eNeg.mspTaskType === undefined, `(8e) zonder mspTaskType blijft toExtTask.mspTaskType undefined — kreeg ${mapped8eNeg.mspTaskType}`);
+  assert(mapped8eNeg.effortDriven === undefined, `(8e) zonder effortDriven blijft toExtTask.effortDriven undefined — kreeg ${mapped8eNeg.effortDriven}`);
+  assert(mapped8eNeg.timephasedContours === undefined, `(8e) zonder timephasedContours blijft toExtTask.timephasedContours undefined — kreeg ${mapped8eNeg.timephasedContours}`);
+
+  // Mutatiebewijs (uitgevoerd): de drie nieuwe regels in `toExtTask` tijdelijk verwijderd maakt de
+  // eerste drie asserties hierboven ROOD (undefined i.p.v. de gezette waarde).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

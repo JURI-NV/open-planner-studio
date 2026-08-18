@@ -207,6 +207,45 @@ test('get_task: detail incl. assignments (resource/units/curve) + voorganger/opv
   assertEq(data.calendar.isProjectDefault, true, 'kalender is projectdefault');
 });
 
+// F5 (spec-review-fixronde op 526af9f9, plan-Z14 regel ~470) — leeskant-rand: .mpp-importvelden
+// moeten via de MCP-bridge leesbaar zijn. `manuallyScheduled`/`splitGaps`/`levelingDelayMinutes`
+// bestonden al als Task-veld maar ontbraken in `planner_get_task`; `mspTaskType`/`effortDriven`/
+// `timephasedContours` zijn Z14b-nieuw. Compact-optioneel: gezet ⇒ aanwezig, ongezet ⇒ afwezig.
+test('get_task: .mpp-importvelden (manuallyScheduled/splitGaps/levelingDelayMinutes/mspTaskType/effortDriven/timephasedContours)', () => {
+  cleanProject();
+  const c = S().addTask({ name: 'C', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 5) });
+  S().updateTask(c, {
+    manuallyScheduled: true,
+    splitGaps: [{ afterMinutes: 60, gapMinutes: 30 }],
+    levelingDelayMinutes: 15,
+    mspTaskType: 'FIXED_DURATION',
+    effortDriven: true,
+    timephasedContours: [{ resourceUid: 7, periods: [{ afterMinutes: 0, minutes: 120, workMinutes: 120, kind: 'actual' }] }],
+  });
+  S().runCPM();
+
+  const data = callOk('planner_get_task', { taskId: c });
+  assertEq(data.manuallyScheduled, true, 'manuallyScheduled aanwezig en juist');
+  assertEq(data.splitGaps, [{ afterMinutes: 60, gapMinutes: 30 }], 'splitGaps aanwezig en juist');
+  assertEq(data.levelingDelayMinutes, 15, 'levelingDelayMinutes aanwezig en juist');
+  assertEq(data.mspTaskType, 'FIXED_DURATION', 'mspTaskType aanwezig en juist');
+  assertEq(data.effortDriven, true, 'effortDriven aanwezig en juist');
+  assertEq(data.timephasedContours, [{ resourceUid: 7, periods: [{ afterMinutes: 0, minutes: 120, workMinutes: 120, kind: 'actual' }] }],
+    'timephasedContours aanwezig en juist');
+
+  // Negatieve zijde: een taak ZONDER deze velden draagt ze niet (compact-optioneel, geen `false`/
+  // lege-array-ruis in de payload).
+  const d = S().addTask({ name: 'D', isMilestone: false, parentId: null, time: createDefaultTaskTime('2026-06-01', 3) });
+  S().runCPM();
+  const dataD = callOk('planner_get_task', { taskId: d });
+  assert(!('manuallyScheduled' in dataD), 'D: manuallyScheduled afwezig');
+  assert(!('splitGaps' in dataD), 'D: splitGaps afwezig');
+  assert(!('levelingDelayMinutes' in dataD), 'D: levelingDelayMinutes afwezig');
+  assert(!('mspTaskType' in dataD), 'D: mspTaskType afwezig');
+  assert(!('effortDriven' in dataD), 'D: effortDriven afwezig');
+  assert(!('timephasedContours' in dataD), 'D: timephasedContours afwezig');
+});
+
 test('get_task: onbekend id ⇒ nette NOT_FOUND', () => {
   cleanProject();
   const res = callErr('planner_get_task', { taskId: 'bestaat-niet' });

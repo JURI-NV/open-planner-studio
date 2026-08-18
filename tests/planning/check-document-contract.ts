@@ -277,6 +277,10 @@ S().updateTask(kT1, {
   manuallyScheduled: true,
   levelingDelayMinutes: 15,
   levelingDelayElapsed: true,
+  // Z14b — de drie NIEUWE velden van deze taak (geen van drieën is een invalidatie-trigger, dus deze
+  // ene `updateTask`-aanroep laat ze ongemoeid staan naast de bestaande Z14-velden hierboven).
+  mspTaskType: 'FIXED_DURATION', effortDriven: true,
+  timephasedContours: [{ resourceUid: 12, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }],
   time: { ...kt1Before.time, resume: '2031-03-05', stop: '2031-03-06' },
 });
 S().runCPM();
@@ -324,6 +328,12 @@ eq('d K3 keten: levelingDelayMinutes overleeft', kT1After?.levelingDelayMinutes,
 eq('d K3 keten: levelingDelayElapsed overleeft', kT1After?.levelingDelayElapsed, true);
 eq('d K3 keten: time.resume overleeft', kT1After?.time.resume, '2031-03-05');
 eq('d K3 keten: time.stop overleeft', kT1After?.time.stop, '2031-03-06');
+// Z14b — de drie NIEUWE velden overleven dezelfde keten (bewijst de "tasks"-clone-snapshot-rol
+// écht draagt wat er verder in de plan-toelichting over beweerd wordt, geen aanname).
+eq('d K3 keten: mspTaskType overleeft', kT1After?.mspTaskType, 'FIXED_DURATION');
+eq('d K3 keten: effortDriven overleeft', kT1After?.effortDriven, true);
+eq('d K3 keten: timephasedContours overleeft', kT1After?.timephasedContours,
+  [{ resourceUid: 12, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }]);
 
 // Contract-eenheidscheck op de tweede helft van de mapping: baselines uit de recovery-invoer
 // moeten ook in de document-payload landen (vangt een regressie IN `payloadFromInput`).
@@ -331,6 +341,48 @@ const kPayload = payloadFromInput(kInput);
 eq('d K3 payloadFromInput: baselines doorgezet', kPayload.baselines.length, 1);
 eq('d K3 payloadFromInput: activeBaselineId doorgezet', kPayload.activeBaselineId, kActiveBefore);
 truthy('d K3 payloadFromInput: baseline-inhoud doorgezet', (kPayload.baselines[0]?.tasks.length ?? 0) === 2);
+
+// ── (d-Z14b) EIGENAARSPRINCIPE-POORT: de rauwe contourperiodes overleven een IFC-write ná een
+// bewerking die het Z8-venster INVALIDEERT (2026-08-18: "er gaat nooit stilzwijgend broninformatie
+// verloren, ook niet ná bewerken"). Scenario: een taak draagt zowel het GELEZEN venster
+// (`timephasedFinishFloor`/`timephasedStartAnchor`, alsof net uit een .mpp geïmporteerd) als de
+// RAUWE contouren; een inhoudelijke bewerking (duur) wist het venster via `taskSlice.ts`'s
+// `updateTask` (zie taskDefaults.ts) — de bewering is dat `writeIFC`/`readIFC` daarna nog steeds de
+// contouren draagt, terwijl het venster afwezig blijft (niet stilzwijgend "hersteld" via de oude
+// IFC-inhoud, en niet stilzwijgend verdwenen). ──────────────────────────────────────────────────
+S().newProject();
+const eT1 = S().addTask({ name: 'Eigenaarsprincipe A' });
+const eT1Before = S().tasks.find(t => t.id === eT1)!;
+S().updateTask(eT1, {
+  timephasedFinishFloor: '2026-08-10T17:00',
+  timephasedStartAnchor: '2026-08-03T08:00',
+  timephasedContours: [{ resourceUid: 99, periods: [{ afterMinutes: 0, minutes: 480, workMinutes: 480, kind: 'actual' }] }],
+});
+truthy('d eigenaarsprincipe setup: venster + contouren staan vóór de bewerking',
+  S().tasks.find(t => t.id === eT1)?.timephasedFinishFloor === '2026-08-10T17:00');
+
+// De inhoudelijke bewerking: duur wijzigen (een trigger, zie taskDefaults.ts). Dit wist het venster
+// IN DE STORE — de poort hieronder bewijst dat die invalidatie ook door writeIFC/readIFC heen komt
+// (niet stilzwijgend teruggehaald uit een of andere cache) én dat de rauwe contouren het overleven.
+S().updateTask(eT1, { time: { ...eT1Before.time, scheduleDuration: 9 } });
+const eT1AfterEdit = S().tasks.find(t => t.id === eT1);
+eq('d eigenaarsprincipe: venster IN DE STORE gewist ná de bewerking', eT1AfterEdit?.timephasedFinishFloor, undefined);
+eq('d eigenaarsprincipe: contouren IN DE STORE blijven staan ná de bewerking',
+  eT1AfterEdit?.timephasedContours?.length, 1);
+
+const eIfc = writeIFC(buildWriteIFCInput(S()));
+const eParsed = readIFC(eIfc);
+const eT1Read = eParsed.tasks.find(t => t.name === 'Eigenaarsprincipe A');
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt GEEN timephasedFinishFloor (echt gewist, niet alleen in-memory)',
+  eT1Read?.timephasedFinishFloor, undefined);
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt GEEN timephasedStartAnchor',
+  eT1Read?.timephasedStartAnchor, undefined);
+eq('d eigenaarsprincipe-poort: het GESCHREVEN IFC draagt de RAUWE contouren nog steeds — dit is de kern van het principe',
+  eT1Read?.timephasedContours, [{ resourceUid: 99, periods: [{ afterMinutes: 0, minutes: 480, workMinutes: 480, kind: 'actual' }] }]);
+
+// Mutatiebewijs (daadwerkelijk uitgevoerd — zie de rapportage): `clearTimephasedWindow` tijdelijk
+// uit `taskSlice.ts`'s `updateTask` verwijderd ⇒ de eerste twee asserties hierboven sloegen rood uit
+// (het venster stond nog in het geschreven IFC); teruggezet ⇒ weer groen.
 
 // Snapshot-vorm sanity: undoStack draagt `Snapshot`-objecten met het VOLLEDIGE project (pakket H).
 S().newProject();
@@ -734,6 +786,59 @@ eq('i mutatie na undo wist de redo-stack', S().redoStack.length, 0);
   S().closeDocument(jDocToClose);
   eq('j closeDocument wist editingTaskId', S().ui.editingTaskId, null);
   eq('j closeDocument sluit de taakdialoog', S().ui.showTaskDialog, false);
+}
+
+// ── (F1-fixronde, spec-review op 526af9f9) — kalendernaam-collisie mag GEEN stille datacorruptie
+// geven bij het teruglezen van `Task.timephasedDurationWalks[].resourceCalendarId`. De app dwingt
+// kalendernaam-uniciteit nergens af; twee kalenders met dezelfde naam is dus een geldige toestand.
+// Vóór de fix vertaalde `extractTimephasedDurationWalksMeta` via een naam→id-Map die op naam
+// dedupliceerde — beide taken hieronder zouden dan naar DEZELFDE (voor één van de twee VERKEERDE)
+// kalender resolven. Ná de fix (GUID-gebaseerde vertaling, `calendarIdByGuid`) moet elke taak naar
+// haar EIGEN kalender blijven wijzen, onderscheiden via een kalendereigenschap (workStartHour) die
+// verder niets met de naam te maken heeft. ──────────────────────────────────────────────────────
+{
+  S().newProject();
+  const fCalA = S().addCalendar({
+    name: 'DupName', description: 'kalender A', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  const fCalB = S().addCalendar({
+    name: 'DupName', description: 'kalender B', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 9, workEndHour: 17, hoursPerDay: 8, holidays: [],
+  });
+  truthy('f1 setup: twee kalenders met IDENTIEKE naam, verschillende workStartHour',
+    fCalA !== fCalB
+    && S().calendars.filter(c => c.name === 'DupName').length === 2
+    && S().calendars.find(c => c.id === fCalA)?.workStartHour === 7
+    && S().calendars.find(c => c.id === fCalB)?.workStartHour === 9);
+
+  const fT1 = S().addTask({ name: 'F1-taak-A' });
+  const fT2 = S().addTask({ name: 'F1-taak-B' });
+  S().updateTask(fT1, {
+    timephasedDurationWalks: [{ anchor: '2026-08-03T08:00', resourceCalendarId: fCalA }],
+  });
+  S().updateTask(fT2, {
+    timephasedDurationWalks: [{ anchor: '2026-08-03T08:00', resourceCalendarId: fCalB }],
+  });
+
+  const fIfc = writeIFC(buildWriteIFCInput(S()));
+  const fParsed = readIFC(fIfc);
+  const fT1Read = fParsed.tasks.find(t => t.name === 'F1-taak-A');
+  const fT2Read = fParsed.tasks.find(t => t.name === 'F1-taak-B');
+  const fCalById = new Map(fParsed.resourceCalendars?.map(c => [c.id, c] as const) ?? []);
+  const fT1Cal = fCalById.get(fT1Read?.timephasedDurationWalks?.[0]?.resourceCalendarId ?? '');
+  const fT2Cal = fCalById.get(fT2Read?.timephasedDurationWalks?.[0]?.resourceCalendarId ?? '');
+
+  eq('f1 taak-A wijst na round-trip naar HAAR EIGEN kalender (workStartHour 7)', fT1Cal?.workStartHour, 7);
+  eq('f1 taak-B wijst na round-trip naar HAAR EIGEN kalender (workStartHour 9)', fT2Cal?.workStartHour, 9);
+  truthy('f1: de twee walks wijzen NIET naar dezelfde kalender-id (geen naam-collisie-verwarring)',
+    fT1Read?.timephasedDurationWalks?.[0]?.resourceCalendarId !== fT2Read?.timephasedDurationWalks?.[0]?.resourceCalendarId);
+
+  // Mutatiebewijs (daadwerkelijk uitgevoerd — zie de rapportage): `writeTimephasedDurationWalksMeta`/
+  // `extractTimephasedDurationWalksMeta` tijdelijk teruggezet naar de OUDE naam-gebaseerde vertaling
+  // (calendarNameById/calendarIdByName) en deze suite herdraaid ⇒ f1 taak-B's kalender resolvede
+  // naar workStartHour 7 (kalender A, fout) i.p.v. 9 — exact de voorspelde stille corruptie.
+  // Teruggezet naar de GUID-fix: weer correct/groen.
 }
 
 // ── Uitslag ──────────────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 import { Task, type ExternalLink } from '@/types/task';
-import { createDefaultTaskTime, mergeTaskTime } from '@/utils/taskDefaults';
+import {
+  createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+} from '@/utils/taskDefaults';
 import type { Sequence } from '@/types/sequence';
 import type { ResourceAssignment } from '@/types/resource';
 import { generateId } from '@/utils/id';
@@ -440,6 +442,13 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       const { time, ...rest } = updates;
       Object.assign(s.tasks[idx], rest);
       if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
+      // Z14b (eigenaarsprincipe 2026-08-18) — een inhoudelijke bewerking (duur/datums/kalender)
+      // ontkoppelt het GELEZEN Z8-venster van de motor; de rauwe bron (`timephasedContours`) blijft
+      // staan. Zie `taskDefaults.ts`'s `clearTimephasedWindow`/`timeUpdateTouchesTimephasedWindow`
+      // voor de volledige triggerset-toelichting.
+      if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
+        clearTimephasedWindow(s.tasks[idx]);
+      }
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });
     });
@@ -453,6 +462,7 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       if (task.calendarId === calendarId) return; // no-op: geen snapshot, geen stale
       beginUndoable(s);
       task.calendarId = calendarId; // undefined = projectkalender
+      clearTimephasedWindow(task); // Z14b — kalenderwissel is een trigger, zie taskDefaults.ts
       finishMutation(s, { stale: true }); // taak-kalender-toewijzing is datum-beïnvloedend (§5.4).
     });
     get().recomputeViewRows();

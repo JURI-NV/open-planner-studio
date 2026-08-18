@@ -130,6 +130,163 @@ ok(
 // langere string wint), exact de beweringen 1/2/3 hierboven (het gefixte gat). Teruggezet naar de
 // fix: weer 16/16 groen.
 
+// ── Z14b (eigenaarsprincipe 2026-08-18) — edit-time-invalidatie van het GELEZEN Z8-venster.
+// `timephasedFinishFloor`/`timephasedStartAnchor` moeten wijken zodra een gebruiker duur/datums of
+// kalender wijzigt (`updateTask`/`setTaskCalendar`); de RAUWE bron (`timephasedContours`) blijft
+// altijd staan — dat is precies wat het eigenaarsprincipe eist. Zie `taskDefaults.ts`'s
+// `clearTimephasedWindow`/`timeUpdateTouchesTimephasedWindow` voor de volledige triggerset-uitleg.
+{
+  S().runCPM();
+  const idW = S().addTask({ name: 'Z14b-venster', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().runCPM();
+
+  const seedWindow = () => {
+    S().updateTask(idW, {
+      timephasedFinishFloor: '2026-08-10T17:00',
+      timephasedStartAnchor: '2026-08-03T08:00',
+      timephasedContours: [{ resourceUid: 42, periods: [{ afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' }] }],
+    });
+  };
+
+  // Bewering 1: een NIET-trigger-update (naam) raakt het venster niet — bewijst dat de triggerset
+  // écht gescoped is, niet "elke updateTask wist alles".
+  seedWindow();
+  S().updateTask(idW, { name: 'Z14b-venster (hernoemd)' });
+  const afterRename = task(idW);
+  ok('z14b-venster: een naamswijziging (geen trigger) laat het venster ongemoeid',
+    afterRename?.timephasedFinishFloor === '2026-08-10T17:00' && afterRename?.timephasedStartAnchor === '2026-08-03T08:00');
+  ok('z14b-venster: de rauwe contouren blijven sowieso staan (geen trigger geraakt)',
+    (afterRename?.timephasedContours?.length ?? 0) === 1);
+
+  // Bewering 2: een DUUR-wijziging (time.scheduleDuration in de patch) wist het venster.
+  seedWindow();
+  const beforeDur = task(idW)!;
+  S().updateTask(idW, { time: { ...beforeDur.time, scheduleDuration: 7 } });
+  const afterDur = task(idW);
+  ok(`z14b-venster (duur-trigger): timephasedFinishFloor gewist (kreeg: ${afterDur?.timephasedFinishFloor})`,
+    afterDur?.timephasedFinishFloor === undefined);
+  ok(`z14b-venster (duur-trigger): timephasedStartAnchor gewist (kreeg: ${afterDur?.timephasedStartAnchor})`,
+    afterDur?.timephasedStartAnchor === undefined);
+  ok('z14b-venster (duur-trigger): de RAUWE contouren blijven staan — eigenaarsprincipe',
+    (afterDur?.timephasedContours?.length ?? 0) === 1);
+
+  // Bewering 3: setTaskCalendar (kalender-trigger) wist het venster.
+  seedWindow();
+  S().addCalendar({ name: 'Z14b-kalender', description: '', workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 17, hoursPerDay: 8, holidays: [] });
+  const newCalId = S().calendars.find((c) => c.name === 'Z14b-kalender')!.id;
+  S().setTaskCalendar(idW, newCalId);
+  const afterCal = task(idW);
+  ok(`z14b-venster (kalender-trigger): timephasedFinishFloor gewist (kreeg: ${afterCal?.timephasedFinishFloor})`,
+    afterCal?.timephasedFinishFloor === undefined);
+  ok(`z14b-venster (kalender-trigger): timephasedStartAnchor gewist (kreeg: ${afterCal?.timephasedStartAnchor})`,
+    afterCal?.timephasedStartAnchor === undefined);
+  ok('z14b-venster (kalender-trigger): de RAUWE contouren blijven staan',
+    (afterCal?.timephasedContours?.length ?? 0) === 1);
+
+  // Mutatiebewijs (daadwerkelijk uitgevoerd — zie de rapportage): de `clearTimephasedWindow`-aanroep
+  // in `taskSlice.ts`'s `updateTask` tijdelijk verwijderd en deze suite herdraaid ⇒ Bewering 2 sloeg
+  // rood uit (timephasedFinishFloor/StartAnchor bleven onterecht staan); teruggezet ⇒ weer groen.
+
+  // Bewering 4/5/6: de "toewijzingen"-trigger — `resourceSlice.ts`'s `assignResource`/
+  // `moveAssignment`/`unassignResource` (de PLAIN store-acties, niet de mcpTransaction-tweeling die
+  // `tests/mcp/cases-draft.ts` al dekt). Een andere resource kan een andere resourcekalender
+  // betekenen (de Z8-laag-4-discriminator), dus ook dit is een geldige trigger. Drie VERSE taken,
+  // één per verb, zodat de drie beweringen elkaar niet via gedeelde assignment-state raken.
+  const resId = S().addResource({ name: 'Z14b-resource', type: 'LABOR', description: '', maxUnits: 1 });
+
+  const idAssign = S().addTask({ name: 'Z14b-venster-assign', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idAssign, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  S().assignResource(idAssign, resId, 1);
+  ok(`z14b-venster (assignResource-trigger): timephasedFinishFloor gewist (kreeg: ${task(idAssign)?.timephasedFinishFloor})`,
+    task(idAssign)?.timephasedFinishFloor === undefined);
+
+  const idMoveFrom = S().addTask({ name: 'Z14b-venster-move-van', time: createDefaultTaskTime('2026-08-03', 5) });
+  const idMoveTo = S().addTask({ name: 'Z14b-venster-move-naar', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().assignResource(idMoveFrom, resId, 1);
+  const moveAsnId = S().assignments.find((a) => a.taskId === idMoveFrom && a.resourceId === resId)!.id;
+  S().updateTask(idMoveFrom, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  S().updateTask(idMoveTo, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  S().moveAssignment(moveAsnId, idMoveTo);
+  ok('z14b-venster (moveAssignment-trigger): bronTaak venster gewist', task(idMoveFrom)?.timephasedFinishFloor === undefined);
+  ok('z14b-venster (moveAssignment-trigger): doelTaak venster gewist', task(idMoveTo)?.timephasedFinishFloor === undefined);
+
+  const idUnassign = S().addTask({ name: 'Z14b-venster-unassign', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().assignResource(idUnassign, resId, 1);
+  const unassignAsnId = S().assignments.find((a) => a.taskId === idUnassign && a.resourceId === resId)!.id;
+  S().updateTask(idUnassign, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  S().unassignResource(unassignAsnId);
+  ok('z14b-venster (unassignResource-trigger): venster gewist', task(idUnassign)?.timephasedFinishFloor === undefined);
+
+  // ── F2 (spec-review-fixronde op 526af9f9): de "toewijzingen"-trigger moet OOK laag 4
+  // (`timephasedDurationWalks`) wissen — een bevroren import-snapshot per toewijzing die stale
+  // wordt zodra de toewijzingenset verandert (andere resource ⇒ mogelijk andere resourcekalender,
+  // de laag-4-activeringsvoorwaarde). Drie VERSE taken, zelfde opzet als hierboven. ────────────────
+  const walkSeed = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal' }];
+  const idAssignW = S().addTask({ name: 'Z14b-walks-assign', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idAssignW, { timephasedDurationWalks: walkSeed });
+  S().assignResource(idAssignW, resId, 1);
+  ok(`f2 (assignResource-trigger): timephasedDurationWalks gewist (kreeg: ${JSON.stringify(task(idAssignW)?.timephasedDurationWalks)})`,
+    task(idAssignW)?.timephasedDurationWalks === undefined);
+
+  const idMoveFromW = S().addTask({ name: 'Z14b-walks-move-van', time: createDefaultTaskTime('2026-08-03', 5) });
+  const idMoveToW = S().addTask({ name: 'Z14b-walks-move-naar', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().assignResource(idMoveFromW, resId, 1);
+  const moveAsnIdW = S().assignments.find((a) => a.taskId === idMoveFromW && a.resourceId === resId)!.id;
+  S().updateTask(idMoveFromW, { timephasedDurationWalks: walkSeed });
+  S().updateTask(idMoveToW, { timephasedDurationWalks: walkSeed });
+  S().moveAssignment(moveAsnIdW, idMoveToW);
+  ok('f2 (moveAssignment-trigger): bronTaak timephasedDurationWalks gewist', task(idMoveFromW)?.timephasedDurationWalks === undefined);
+  ok('f2 (moveAssignment-trigger): doelTaak timephasedDurationWalks gewist', task(idMoveToW)?.timephasedDurationWalks === undefined);
+
+  const idUnassignW = S().addTask({ name: 'Z14b-walks-unassign', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().assignResource(idUnassignW, resId, 1);
+  const unassignAsnIdW = S().assignments.find((a) => a.taskId === idUnassignW && a.resourceId === resId)!.id;
+  S().updateTask(idUnassignW, { timephasedDurationWalks: walkSeed });
+  S().unassignResource(unassignAsnIdW);
+  ok('f2 (unassignResource-trigger): timephasedDurationWalks gewist', task(idUnassignW)?.timephasedDurationWalks === undefined);
+
+  // Controle: een duur-trigger (geen toewijzing) laat timephasedDurationWalks ONGEMOEID — de
+  // laag stroomt daar al live mee (task.ts se eigen docblok), dus GEEN dubbele invalidatie nodig.
+  const idDurationW = S().addTask({ name: 'Z14b-walks-duur', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idDurationW, { timephasedDurationWalks: walkSeed });
+  const beforeDurW = task(idDurationW)!;
+  S().updateTask(idDurationW, { time: { ...beforeDurW.time, scheduleDuration: 8 } });
+  ok('f2 controle: een duur-trigger laat timephasedDurationWalks ONGEMOEID (geen dubbele invalidatie)',
+    task(idDurationW)?.timephasedDurationWalks?.length === 1);
+
+  // ── F3 (spec-review-fixronde op 526af9f9): `resourceSlice.removeCalendar`/`commitCalendarLibrary`
+  // zetten `t.calendarId = undefined` rechtstreeks, buiten `setTaskCalendar` om — ook daar moet het
+  // Z8-venster wijken. ──────────────────────────────────────────────────────────────────────────
+  const idRemoveCal = S().addTask({ name: 'Z14b-removeCalendar', time: createDefaultTaskTime('2026-08-03', 5) });
+  const removeCalId = S().addCalendar({
+    name: 'Z14b-te-verwijderen', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 17, hoursPerDay: 8, holidays: [],
+  });
+  S().setTaskCalendar(idRemoveCal, removeCalId);
+  S().updateTask(idRemoveCal, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  S().removeCalendar(removeCalId);
+  ok(`f3 (removeCalendar): timephasedFinishFloor gewist (kreeg: ${task(idRemoveCal)?.timephasedFinishFloor})`,
+    task(idRemoveCal)?.timephasedFinishFloor === undefined);
+  ok('f3 (removeCalendar): taak.calendarId inderdaad terugveld naar projectkalender (voorwaarde)',
+    task(idRemoveCal)?.calendarId === undefined);
+
+  const idCommitCal = S().addTask({ name: 'Z14b-commitCalendarLibrary', time: createDefaultTaskTime('2026-08-03', 5) });
+  const commitCalId = S().addCalendar({
+    name: 'Z14b-commit-weggehaald', description: '', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 8, workEndHour: 17, hoursPerDay: 8, holidays: [],
+  });
+  S().setTaskCalendar(idCommitCal, commitCalId);
+  S().updateTask(idCommitCal, { timephasedFinishFloor: '2026-08-10T17:00', timephasedStartAnchor: '2026-08-03T08:00' });
+  // Commit een bibliotheek ZONDER `commitCalId` (spiegelt de kalenderdialoog die de kalender liet
+  // vallen) — de resterende kalenders + de huidige projectkalender blijven staan.
+  const remainingCalendars = S().calendars.filter((c) => c.id !== commitCalId);
+  S().commitCalendarLibrary(remainingCalendars, S().project.calendarId!);
+  ok(`f3 (commitCalendarLibrary): timephasedFinishFloor gewist (kreeg: ${task(idCommitCal)?.timephasedFinishFloor})`,
+    task(idCommitCal)?.timephasedFinishFloor === undefined);
+  ok('f3 (commitCalendarLibrary): taak.calendarId inderdaad terugveld naar projectkalender (voorwaarde)',
+    task(idCommitCal)?.calendarId === undefined);
+}
+
 if (diffs.length === 0) {
   console.log(`OK  task-slice-check: alle checks groen (${checks})`);
   process.exit(0);

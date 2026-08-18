@@ -127,7 +127,9 @@
  * alsnog te porten — tot dan is dit een bewust uitgestelde uitbreiding, geen gat.
  */
 import type { Project } from '@/types/project';
-import type { Task, TaskConstraint, MilestoneKind, TaskSplitGap } from '@/types/task';
+import type {
+  Task, TaskConstraint, MilestoneKind, TaskSplitGap, MspTaskType, TaskTimephasedContour, TimephasedContourPeriod,
+} from '@/types/task';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource } from '@/types/resource';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
@@ -155,6 +157,7 @@ import { readRelations, readResources, readAssignments, readAssignmentTimephased
 import {
   decodeRegularTimephasedWork, decodePlannedRegularTimephasedWork,
   deriveSplitGapsFromPeriods, deriveTaskSplitGaps, shiftPeriods, hasAnyTimephasedData,
+  type AssignmentTimephasedRaw, type TimephasedWorkPeriod,
 } from './mppTimephased';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -283,6 +286,38 @@ function taskModeBitFlag(applicationVersion: number | null): { offset: number; m
   return isLegacyBitFlagVersion(applicationVersion)
     ? { offset: 8, mask: 0x08 } // PROJECT2010_TASK_META_DATA2_BIT_FLAGS
     : { offset: 8, mask: 0x80 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA2_BIT_FLAGS
+}
+
+/** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — EFFORT_DRIVEN-bit ("Effort Driven"-vlag), zelfde
+ *  FixedMeta-tabel/-mechanisme als `milestoneBitFlag` hierboven (`PROJECT20xx_TASK_META_DATA_BIT_
+ *  FLAGS` — NIET de `_META_DATA2_`-tabel van `taskModeBitFlag`, dat is een ander blok). Referentie
+ *  (`MPP14Reader.java`): `new MppBitFlag(TaskField.EFFORT_DRIVEN, 11, 0x10, ...)` op de 2010-tabel,
+ *  `(..., 13, 0x08, ...)` op zowel de 2013- als de 2016-tabel (identiek aan elkaar, dus dezelfde
+ *  twee-gevallen-inperking als `milestoneBitFlag`). Puur data: geen enkele solverstap leest dit
+ *  veld (`Task.effortDriven`). */
+function effortDrivenBitFlag(applicationVersion: number | null): { offset: number; mask: number } {
+  return isLegacyBitFlagVersion(applicationVersion)
+    ? { offset: 11, mask: 0x10 } // PROJECT2010_TASK_META_DATA_BIT_FLAGS
+    : { offset: 13, mask: 0x08 }; // PROJECT2013_/PROJECT2016_TASK_META_DATA_BIT_FLAGS
+}
+
+/** Z14b — spiegelt MPXJ's `TaskTypeHelper.getInstance(int)` (`org.mpxj.mpp.TaskTypeHelper`): 0/1/2
+ *  → FIXED_UNITS/FIXED_DURATION/FIXED_WORK, elke andere waarde (negatief, of ≥3 — inclusief MPXJ's
+ *  eigen `FIXED_DURATION_AND_UNITS`-ordinal 3, die in de .mpp-BYTE-laag nooit voorkomt: MPXJ leest
+ *  die waarde alleen via MSPDI/PMXML, niet via deze offset) → FIXED_WORK (MPXJ's eigen terugval).
+ *  `raw === null` is een APARTE staat (veld ontbreekt in de field map, of het record was te kort
+ *  voor deze offset) ⇒ GEEN Task-veld gezet — spiegelt het "afwezig ⇒ byte-identiek"-precedent van
+ *  elk ander optioneel MPP-veld in dit bestand; MPXJ's FIXED_WORK-terugval geldt alleen voor een
+ *  ECHT AANWEZIGE maar ongeldige waarde, niet voor een ontbrekend veld.
+ *
+ *  Geëxporteerd, zelfde testbaarheidsreden als `readTasks`/`buildAssignmentUidLinks`:
+ *  `check-mpp-import.ts`'s Z14b-sectie roept 'm rechtstreeks aan om het "afwezig" (`null`) vs.
+ *  "aanwezig maar ongeldig" (bv. 99) onderscheid te bewijzen zonder een tweede CFB-fixture nodig
+ *  te hebben (`fixedOffsetOf` bewijst het "afwezig-in-de-veldmap"-geval al op zichzelf). */
+const MSP_TASK_TYPE_VALUES: readonly MspTaskType[] = ['FIXED_UNITS', 'FIXED_DURATION', 'FIXED_WORK'];
+export function mspTaskTypeFromRaw(raw: number | null): MspTaskType | undefined {
+  if (raw === null) return undefined;
+  return MSP_TASK_TYPE_VALUES[raw] ?? 'FIXED_WORK';
 }
 
 /** Z9a (etappe "nul afwijkingen") — MPXJ's `MPP14Reader.java`-overschrijfregel (r. ~1162–1176):
@@ -778,6 +813,12 @@ export interface RawTaskScan {
    *  `calendarUniqueIdByTaskId`-guard: `calendarUniqueIdRaw >= 0` ÉN de referentie wees naar een
    *  daadwerkelijk gelezen kalender) — bepaalt of Fase C `Task.calendarId` zet. */
   calendarOverride: WorkCalendar | null;
+  /** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — rauwe `TaskField.TYPE` (SHORT), `null` bij
+   *  ontbrekend veld/te kort record. Fase C decodeert dit via `mspTaskTypeFromRaw`. */
+  mspTaskTypeRaw: number | null;
+  /** Z14b — rauwe EFFORT_DRIVEN-bit, al gedecodeerd tot boolean (spiegelt `isMilestone` hierboven —
+   *  geen apart rauw/gedecodeerd onderscheid nodig voor een enkel bit). */
+  effortDrivenRaw: boolean;
 }
 
 /** Z2 — spiegelt MPXJ's `TaskMode`-enum (`AUTO_SCHEDULED`/`MANUALLY_SCHEDULED`) letterlijk, zodat
@@ -850,6 +891,7 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const manualDurationUnitsOffset = fixed2OffsetOf(taskFieldMap, TaskFieldId.ManualDurationUnits);
   const nameKey = varDataKeyOf(taskFieldMap, TaskFieldId.Name);
   const wbsKey = varDataKeyOf(taskFieldMap, TaskFieldId.Wbs);
+  const mspTaskTypeOffset = fixedOffsetOf(taskFieldMap, TaskFieldId.Type); // Z14b
 
   // Harde veldmap-check (T5-kwaliteitsreview-minor): UNIQUE_ID/ID alleen was te zwak — een
   // taaklijst zonder NAME (var-data) of zonder SCHEDULED_START/FINISH (fixed-data) is geen
@@ -863,6 +905,7 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
   const validIndices = collectValidTaskIndices(fixedMeta, fixedData, varMeta, uniqueIdOffset);
   const { offset: msOffset, mask: msMask } = milestoneBitFlag(applicationVersion);
   const { offset: tmOffset, mask: tmMask } = taskModeBitFlag(applicationVersion); // Z2
+  const { offset: edOffset, mask: edMask } = effortDrivenBitFlag(applicationVersion); // Z14b
 
   // ── Fase A: rauwe scan (zie moduleheader "UURMODUS" + `RawTaskScan`) — nog geen `Task`-object,
   // wél al de effectieve kalender per taak (nodig voor Fase B's signaal-scan). ────────────────────
@@ -931,6 +974,16 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const isMilestone = !!metaItem && metaItem.length >= msOffset + 4
       && (getInt(metaItem, msOffset, 'TBkndTask milestone-flag') & msMask) !== 0;
 
+    // Z14b — EFFORT_DRIVEN, zelfde metaItem/FixedMeta-record als isMilestone hierboven (andere
+    // regel binnen dezelfde bit-flag-tabel, zie effortDrivenBitFlag).
+    const effortDrivenRaw = !!metaItem && metaItem.length >= edOffset + 4
+      && (getInt(metaItem, edOffset, 'TBkndTask effortDriven-flag') & edMask) !== 0;
+    // Z14b — TYPE (MSP's Task Type), FixedData blok 0, SHORT. `null` bij ontbrekend veld/te kort
+    // record — zie mspTaskTypeFromRaw voor het onderscheid "onbekend" vs. "aanwezig maar ongeldig".
+    const mspTaskTypeRaw = mspTaskTypeOffset !== null && data.length >= mspTaskTypeOffset + 2
+      ? getShort(data, mspTaskTypeOffset, 'TBkndTask type')
+      : null;
+
     // Z2 — TASK_MODE, uit het taak-EIGEN `Fixed2Meta`-record op DEZELFDE index als `metaItem`/`data`
     // hierboven (zie de toelichting bij `fixed2Meta`'s constructie: alle vier blokken delen de
     // taak-index). Ontbreekt de stream/is het record te kort ⇒ AUTO_SCHEDULED (huidig gedrag,
@@ -987,6 +1040,7 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       remainingDurationRaw, levelingDelayRaw, levelingDelayUnits, taskMode, manualStartTs, manualFinishTs,
       manualDurationRaw, manualDurationIsElapsed, isMilestone, constraintCode, constraintDateTs, deadlineTs,
       percentComplete, actualStartTs, actualFinishTs, resumeTs, stopTs, effCal, calendarOverride,
+      mspTaskTypeRaw, effortDrivenRaw,
     });
   }
 
@@ -1158,6 +1212,9 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
     const levelingDelayElapsed = raw.levelingDelayRaw !== 0 && raw.levelingDelayUnits !== null
       && getDurationTimeUnits(raw.levelingDelayUnits).startsWith('elapsed');
 
+    // Z14b — zie mspTaskTypeFromRaw hierboven voor de decoderingsregel.
+    const mspTaskType = mspTaskTypeFromRaw(raw.mspTaskTypeRaw);
+
     const task: Task = {
       id: generateId('task'),
       name: raw.name,
@@ -1202,6 +1259,10 @@ export function readTasks(ctx: ReadTasksContext): ReadTasksResult {
       // waarde — hergebruikt, geen tweede taskMode-vergelijking. Afwezig/false ⇒ byte-identiek
       // (ongewijzigd AUTO-gedrag, ook voor élke niet-.mpp-bron).
       ...(isManual ? { manuallyScheduled: true } : {}),
+      // Z14b (eigenaarsbesluit 2026-08-18, punt 1) — puur data, geen rekengedrag (zie
+      // mspTaskTypeFromRaw/effortDrivenBitFlag hierboven voor de veldherkomst).
+      ...(mspTaskType ? { mspTaskType } : {}),
+      ...(raw.effortDrivenRaw ? { effortDriven: true } : {}),
     };
     records.push({ uniqueId: raw.uniqueId, id: raw.id, outlineLevel: raw.outlineLevel, storedWbs: raw.storedWbs, task });
     taskIdByUniqueId.set(raw.uniqueId, task.id);
@@ -1503,6 +1564,68 @@ function taskCalendar(task: Task, calResult: CalendarReadResult): WorkCalendar {
  *  Geëxporteerd, zelfde testbaarheidsreden als `buildAssignmentUidLinks`: `check-mpp-import.ts`'s
  *  Z4-fixronde-sectie roept 'm rechtstreeks aan met hand-gebouwde `Task[]` (geen synthetische
  *  TBkndTask nodig — `tasks` is een gewoon argument, geen CFB-gelezen waarde). */
+/** Z14b — de per-toewijzing decodeer-/verschuifstap uit `deriveSplitGapsForTasks` GEËXTRAHEERD
+ *  (mechanische verhuizing, geen gedragswijziging — elke regel hieronder stond letterlijk al in die
+ *  functie) zodat `deriveTimephasedContoursForTasks` hieronder dezelfde as/verschuiving deelt in
+ *  plaats van een tweede, potentieel uit de pas lopende kopie te onderhouden — anders zou een
+ *  toekomstige fix aan de shift-formule (bv. een nieuw resume-precedent) stil op maar één van de
+ *  twee consumenten landen. Retourneert `null` bij "geen data" (spiegelt de oude `continue` op die
+ *  plek exact). */
+function computeShiftedAssignmentPeriods(
+  raw: AssignmentTimephasedRaw,
+  link: AssignmentUidLink,
+  engine: CalendarEngine,
+  taskStart: Date,
+): { actualPeriods: readonly TimephasedWorkPeriod[]; remainingPeriods: readonly TimephasedWorkPeriod[] } | null {
+  // Z4-fixronde punt 3: BEIDE decoders ankeren op de TOEWIJZING se eigen `AssignmentField.START`
+  // (`getCompleteWork` altijd; `getPlannedWork` zónder al verricht werk) — NIET op taakstart.
+  // Verschuiving = werkminuten-afstand taakstart→assignmentStart (0 als het veld ontbreekt of
+  // samenvalt — spiegelt MPXJ's `calculateStart()`-terugval naar `task.getStart()`).
+  //
+  // `engine.isHourMode`-guard (Z4-fixronde-BEVINDING, tijdens het testen ontdekt):
+  // `workMinutesBetween` is een ZUIVERE uur-modus-primitief — ze dereferentieert
+  // `calendar.workTime!`/`this.bandCache` onvoorwaardelijk en GOOIT op een dag-modus-kalender
+  // (geen `workTime`). Zelfde guard staat al elders in de engine (`CPMSolver.ts`: `eng.isHourMode
+  // ? workMinutesBetween(...) : …`) — spiegelt dat patroon exact i.p.v. zelf dag-modus-
+  // vensterrekenwerk uit te vinden. DAG-modus-taken krijgen dus shift 0 (byte-identiek t.o.v. vóór
+  // deze fixronde) — geen gegokte dag-granulaire formule zonder corpusmeting.
+  const assignmentStartShift = engine.isHourMode && link.assignmentStart
+    ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentStart))
+    : 0;
+
+  // Referentie-instant voor de decoder se (voor Z4 ONGEBRUIKTE) `approxStart`/`approxFinish`-
+  // velden — betekenisloos voor de WERKminuten-afgeleide `afterMinutes`/`gapMinutes` zelf, zie
+  // mppTimephased.ts's moduleheader-meting. GEEN `referenceFinish` (Z4-fixronde punt 1): een
+  // ongedeeld `blockCount===0`-samenvattingsrecord kan per definitie geen gat tonen, en zou hier
+  // met een klokminuten-lengte op de werkminuten-as een écht gat kunnen overbruggen.
+  const actualPeriodsRaw = raw.actualRegularWork
+    ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart)
+    : [];
+  const remainingPeriodsRaw = raw.remainingRegularWork
+    ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart)
+    : [];
+  if (actualPeriodsRaw.length === 0 && remainingPeriodsRaw.length === 0) return null; // geen data ⇒ uitsluiten (zie hierboven)
+
+  const actualPeriods = shiftPeriods(actualPeriodsRaw, assignmentStartShift);
+
+  // Z4-fixronde punt 2: de REMAINING-track ankert op `assignment.getResume()` ZODRA er al
+  // complete work is (`getPlannedWork`: `timephasedComplete.isEmpty() ? getStart() : getResume()`)
+  // — een APART, LATER punt dan waar `actualRegularWork` eindigt. Voorkeur: het ECHTE RESUME-veld
+  // (indien het bestand het draagt); zonder dat veld valt terug op de benadering "taakstart-
+  // verschoven actual se eigen laatste `elapsedWorkMinutesEnd`" (gedocumenteerde terugval, geen
+  // MPXJ-garantie — `AssignmentField.RESUME` heeft immers geen `mapMpp14`-default, zie
+  // fieldMap14.ts, dus niet elk bestand draagt het).
+  let remainingShift = assignmentStartShift;
+  if (actualPeriods.length > 0) {
+    remainingShift = engine.isHourMode && link.assignmentResume
+      ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentResume))
+      : Math.max(...actualPeriods.map((p) => p.elapsedWorkMinutesEnd));
+  }
+  const remainingPeriods = shiftPeriods(remainingPeriodsRaw, remainingShift);
+
+  return { actualPeriods, remainingPeriods };
+}
+
 export function deriveSplitGapsForTasks(
   cfb: CfbFile,
   assignmentFieldMap: FieldMapTable,
@@ -1545,51 +1668,9 @@ export function deriveSplitGapsForTasks(
     const taskStart = parseInstant(task.time.scheduleStart);
     const engine = engineFor(taskCalendar(task, calResult));
 
-    // Z4-fixronde punt 3: BEIDE decoders ankeren op de TOEWIJZING se eigen `AssignmentField.START`
-    // (`getCompleteWork` altijd; `getPlannedWork` zónder al verricht werk) — NIET op taakstart.
-    // Verschuiving = werkminuten-afstand taakstart→assignmentStart (0 als het veld ontbreekt of
-    // samenvalt — spiegelt MPXJ's `calculateStart()`-terugval naar `task.getStart()`).
-    //
-    // `engine.isHourMode`-guard (Z4-fixronde-BEVINDING, tijdens het testen ontdekt):
-    // `workMinutesBetween` is een ZUIVERE uur-modus-primitief — ze dereferentieert
-    // `calendar.workTime!`/`this.bandCache` onvoorwaardelijk en GOOIT op een dag-modus-kalender
-    // (geen `workTime`). Zelfde guard staat al elders in de engine (`CPMSolver.ts`: `eng.isHourMode
-    // ? workMinutesBetween(...) : …`) — spiegelt dat patroon exact i.p.v. zelf dag-modus-
-    // vensterrekenwerk uit te vinden. DAG-modus-taken krijgen dus shift 0 (byte-identiek t.o.v. vóór
-    // deze fixronde) — geen gegokte dag-granulaire formule zonder corpusmeting.
-    const assignmentStartShift = engine.isHourMode && link.assignmentStart
-      ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentStart))
-      : 0;
-
-    // Referentie-instant voor de decoder se (voor Z4 ONGEBRUIKTE) `approxStart`/`approxFinish`-
-    // velden — betekenisloos voor de WERKminuten-afgeleide `afterMinutes`/`gapMinutes` zelf, zie
-    // mppTimephased.ts's moduleheader-meting. GEEN `referenceFinish` (Z4-fixronde punt 1): een
-    // ongedeeld `blockCount===0`-samenvattingsrecord kan per definitie geen gat tonen, en zou hier
-    // met een klokminuten-lengte op de werkminuten-as een écht gat kunnen overbruggen.
-    const actualPeriodsRaw = raw.actualRegularWork
-      ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart)
-      : [];
-    const remainingPeriodsRaw = raw.remainingRegularWork
-      ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart)
-      : [];
-    if (actualPeriodsRaw.length === 0 && remainingPeriodsRaw.length === 0) continue; // geen data ⇒ uitsluiten (zie hierboven)
-
-    const actualPeriods = shiftPeriods(actualPeriodsRaw, assignmentStartShift);
-
-    // Z4-fixronde punt 2: de REMAINING-track ankert op `assignment.getResume()` ZODRA er al
-    // complete work is (`getPlannedWork`: `timephasedComplete.isEmpty() ? getStart() : getResume()`)
-    // — een APART, LATER punt dan waar `actualRegularWork` eindigt. Voorkeur: het ECHTE RESUME-veld
-    // (indien het bestand het draagt); zonder dat veld valt terug op de benadering "taakstart-
-    // verschoven actual se eigen laatste `elapsedWorkMinutesEnd`" (gedocumenteerde terugval, geen
-    // MPXJ-garantie — `AssignmentField.RESUME` heeft immers geen `mapMpp14`-default, zie
-    // fieldMap14.ts, dus niet elk bestand draagt het).
-    let remainingShift = assignmentStartShift;
-    if (actualPeriods.length > 0) {
-      remainingShift = engine.isHourMode && link.assignmentResume
-        ? Math.max(0, engine.workMinutesBetween(taskStart, link.assignmentResume))
-        : Math.max(...actualPeriods.map((p) => p.elapsedWorkMinutesEnd));
-    }
-    const remainingPeriods = shiftPeriods(remainingPeriodsRaw, remainingShift);
+    const shifted = computeShiftedAssignmentPeriods(raw, link, engine, taskStart);
+    if (!shifted) continue;
+    const { actualPeriods, remainingPeriods } = shifted;
 
     const gaps = deriveSplitGapsFromPeriods([...actualPeriods, ...remainingPeriods]);
     const list = gapsByAssignmentPerTask.get(link.taskId) ?? [];
@@ -1603,6 +1684,74 @@ export function deriveSplitGapsForTasks(
     if (combined.length > 0) result.set(taskId, combined); // leeg ⇒ veld niet zetten (byte-identiek precedent)
   }
   return result;
+}
+
+/** Z14b (eigenaarsbesluit 2026-08-18, punt 1 van het bindende eigenaarsprincipe: "er gaat nooit
+ *  stilzwijgend broninformatie verloren, ook niet ná bewerken") — bewaart de RAUWE, gedecodeerde
+ *  timephased-periodes per taak, ONGEACHT of ze tot een `TaskSplitGap` leiden. Deelt de exacte
+ *  decodeer-/verschuifstap met `deriveSplitGapsForTasks` (`computeShiftedAssignmentPeriods`
+ *  hierboven) en dezelfde filters (samenvattingstaken uitgesloten, vlakke `blockCount===0`-
+ *  summary-records tellen niet mee — zie die functie se eigen toelichting) zodat de rauwe periodes
+ *  hier PRECIES de toewijzingen dekken die ook `splitGaps` voedden, geen bredere of smallere
+ *  populatie. Puur data — geen enkele solverstap leest dit veld. */
+export function deriveTimephasedContoursForTasks(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  tasks: readonly Task[],
+  calResult: CalendarReadResult,
+): Map<string, TaskTimephasedContour[]> {
+  const rawByUid = readAssignmentTimephasedRaw(cfb, assignmentFieldMap);
+  if (rawByUid.size === 0) return new Map();
+
+  const linkByUid = buildAssignmentUidLinks(cfb, assignmentFieldMap, taskIdByUniqueId);
+  if (linkByUid.size === 0) return new Map();
+
+  const taskById = new Map(tasks.map((t) => [t.id, t] as const));
+  const contoursByTask = new Map<string, TaskTimephasedContour[]>();
+  const engineByCalendarId = new Map<string, CalendarEngine>();
+  const engineFor = (cal: WorkCalendar): CalendarEngine => {
+    let engine = engineByCalendarId.get(cal.id);
+    if (!engine) {
+      engine = new CalendarEngine(cal);
+      engineByCalendarId.set(cal.id, engine);
+    }
+    return engine;
+  };
+
+  const toContourPeriods = (
+    periods: readonly TimephasedWorkPeriod[],
+    kind: 'actual' | 'remaining',
+  ): TimephasedContourPeriod[] => periods.map((p) => ({
+    afterMinutes: p.elapsedWorkMinutesStart,
+    minutes: p.elapsedWorkMinutesEnd - p.elapsedWorkMinutesStart,
+    workMinutes: p.workMinutes,
+    kind,
+  }));
+
+  for (const [uid, raw] of rawByUid) {
+    const link = linkByUid.get(uid);
+    if (!link) continue;
+    const task = taskById.get(link.taskId);
+    if (!task?.time?.scheduleStart) continue;
+    if (task.childIds.length > 0) continue; // spiegelt deriveSplitGapsForTasks
+
+    const taskStart = parseInstant(task.time.scheduleStart);
+    const engine = engineFor(taskCalendar(task, calResult));
+
+    const shifted = computeShiftedAssignmentPeriods(raw, link, engine, taskStart);
+    if (!shifted) continue;
+    const { actualPeriods, remainingPeriods } = shifted;
+
+    const periods: TimephasedContourPeriod[] = [
+      ...toContourPeriods(actualPeriods, 'actual'),
+      ...toContourPeriods(remainingPeriods, 'remaining'),
+    ];
+    const list = contoursByTask.get(link.taskId) ?? [];
+    list.push({ resourceUid: link.resourceUid, periods });
+    contoursByTask.set(link.taskId, list);
+  }
+  return contoursByTask;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -1855,6 +2004,16 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   for (const task of tasks) {
     const gaps = splitGapsByTaskId.get(task.id);
     if (gaps) task.splitGaps = gaps;
+  }
+
+  // Z14b (eigenaarsbesluit 2026-08-18, punt 1 van het bindende eigenaarsprincipe) — de RAUWE
+  // contourperiodes bewaren, los van (en NAAST) `splitGaps` hierboven: dit is de bron die een
+  // latere edit-time-invalidatie van `splitGaps`/het Z8-venster (taskSlice.ts/mcpTransaction.ts)
+  // NOOIT wist. Zie `deriveTimephasedContoursForTasks`'s eigen moduleheader.
+  const contoursByTaskId = deriveTimephasedContoursForTasks(cfb, assignmentFieldMap, taskIdByUniqueId, tasks, calResult);
+  for (const task of tasks) {
+    const contours = contoursByTaskId.get(task.id);
+    if (contours && contours.length > 0) task.timephasedContours = contours;
   }
 
   // Z8-herwerkronde (etappe "nul afwijkingen") — gelaagde beslistabel voor timephased-venster vs.

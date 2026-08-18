@@ -280,6 +280,9 @@ export function writeIFC(input: WriteIFCInput): string {
   // Z14 (etappe "nul afwijkingen") — timephased-venster (`workWindowStart`/`Finish`, Z0-veld) als
   // eigen OPS_Timephased-JSON-pset, NAAST (niet in) het OPS_Assignments-pipe-formaat hierboven.
   writeTimephasedMeta(ctx, tasks, assignments, ownerHistId);
+  // Z14b (Z8-nataak) — LAAG-4-kalenderwandelingen, eigen pset (kalendernaam-vertaling, zie de
+  // functie se eigen moduleheader voor waarom dit niet via PER_TASK_PSETS kan).
+  writeTimephasedDurationWalksMeta(ctx, tasks, ownerHistId);
 
   // Tasks -> WorkSchedule control
   if (tasks.length > 0) {
@@ -1131,5 +1134,42 @@ function writeTimephasedMeta(
       `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_tp_' + task.id))},#${ownerHistId},${ifcStr(PSET.Timephased)},$,(#${propId}))`);
     addLine(ctx, `_rel_tp_${task.id}`,
       `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_tp_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
+  }
+}
+
+/**
+ * Z14b (eigenaarsbesluit 2026-08-18, Z8-nataak) — `Task.timephasedDurationWalks` (LAAG 4) als
+ * eigen `OPS_TimephasedDurationWalks`-JSON-pset. NIET via `ifcPsets.PER_TASK_PSETS` (zie de
+ * `PSET.DurationWalks`-toelichting daar): `resourceCalendarId` is een app-interne
+ * kalenderverwijzing die bij inlezen een NIEUW, regenererend id krijgt.
+ *
+ * F1-FIXRONDE (spec-review op 526af9f9): de EERSTE versie vertaalde naar de kalenderNAAM — de
+ * reviewer bewees empirisch dat dat stille datacorruptie geeft zodra twee kalenders dezelfde naam
+ * dragen (de app dwingt naam-uniciteit nergens af). Fix: `resourceCalendarGuid` — dezelfde
+ * `guidOf(ctx, cal.id)` die de kalender se eigen `IFCWORKCALENDAR.GlobalId` bepaalt (per-constructie
+ * uniek, `guidOf`'s eigen botsingsdetectie garandeert dat). Omdat `guidOf` per `ctx` gememoïseerd is
+ * en élke kalender (project + bibliotheek) al vóór deze aanroep geschreven is (zie de aanroepvolgorde
+ * in `writeIFC`), levert een hernieuwde `guidOf`-aanroep hier BYTE-IDENTIEK dezelfde GUID als de
+ * bijbehorende `IFCWORKCALENDAR`-entiteit — spiegelt zo `writeBaselineMeta`'s taskId-GUID-remap-
+ * precedent exact, nu voor kalenders. Golden rule: geen taak met `timephasedDurationWalks` ⇒ geen pset.
+ */
+function writeTimephasedDurationWalksMeta(
+  ctx: WriteContext,
+  tasks: Task[],
+  ownerHistId: number,
+): void {
+  for (const task of tasks) {
+    const walks = task.timephasedDurationWalks;
+    if (!walks || walks.length === 0) continue;
+    const json = walks.map(w => ({
+      anchor: w.anchor,
+      resourceCalendarGuid: guidOf(ctx, w.resourceCalendarId),
+    }));
+    const propId = addLine(ctx, `_ps_tpdw_${task.id}`,
+      `IFCPROPERTYSINGLEVALUE('DurationWalks',$,IFCTEXT(${ifcStr(JSON.stringify(json))}),$)`);
+    const setId = addLine(ctx, `_pset_tpdw_${task.id}`,
+      `IFCPROPERTYSET(${ifcStr(guidOf(ctx, 'pset_tpdw_' + task.id))},#${ownerHistId},${ifcStr(PSET.DurationWalks)},$,(#${propId}))`);
+    addLine(ctx, `_rel_tpdw_${task.id}`,
+      `IFCRELDEFINESBYPROPERTIES(${ifcStr(guidOf(ctx, 'rel_tpdw_' + task.id))},#${ownerHistId},$,$,(${ref(ctx, `task_${task.id}`)}),#${setId})`);
   }
 }

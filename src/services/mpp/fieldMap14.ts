@@ -252,6 +252,12 @@ export const TaskFieldId = {
    *  zonder `stop`) — hier alleen MEEGENOMEN als rauw, ongebruikt veld voor een latere taak
    *  (splits/actual-grens-rendering); geen enkele solverberekening leest 'm momenteel. */
   Stop: 100,
+  /** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — `TaskField.TYPE` (`DataType.TASK_TYPE`, SHORT).
+   *  MSP's eigen Task Type (Fixed Units/Fixed Duration/Fixed Work). Blok 0, offset 94
+   *  (`FieldMap14.java`: `new FieldItem(TaskField.TYPE, FIXED_DATA, 0, 94, 128, 0, 0)`). Puur data —
+   *  geen `mapMpp14`-override (zelfde "de rest heeft sowieso geen override"-clausule als de andere
+   *  velden hier, corpus-geverifieerd: geen van de gemeten bestanden wijkt af van deze offset). */
+  Type: 128,
 } as const;
 
 /** Letterlijk uit `FieldMap14.getDefaultTaskData()` — alleen de entries voor `TaskFieldId`
@@ -292,6 +298,9 @@ const DEFAULT_TASK_FIELDS: Readonly<Record<number, FieldEntry>> = {
   // `TaskFieldId.Resume`/`.Stop`-toelichtingen hierboven.
   [TaskFieldId.Resume]: { location: 'fixed', fixedOffset: 20 },
   [TaskFieldId.Stop]: { location: 'fixed', fixedOffset: 16 },
+  // Z14b — letterlijke offset uit `FieldMap14.getDefaultTaskData()`, zie `TaskFieldId.Type`'s
+  // toelichting hierboven.
+  [TaskFieldId.Type]: { location: 'fixed', fixedOffset: 94 },
 };
 
 /** Poort van `FieldMap.createTaskFieldMap(Props)`. */

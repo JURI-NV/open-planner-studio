@@ -108,6 +108,45 @@ export type DurationType = 'WORKTIME' | 'ELAPSEDTIME';
 export interface TaskSplitGap { afterMinutes: number; gapMinutes: number }
 
 /**
+ * Eén rauwe periode uit een gedecodeerd .mpp-timephased-blok (Z14b — zie `Task.timephasedContours`
+ * se docblok voor de volledige rol/eigenaarsprincipe-toelichting). `afterMinutes`/`minutes` liggen
+ * op DEZELFDE cumulatieve-werkminuten-as als `TaskSplitGap.afterMinutes`/`gapMinutes` (taak-as, niet
+ * toewijzings-as — zie die interface se docblok); `minutes` is de periodelengte op die as
+ * (`elapsedWorkMinutesEnd − elapsedWorkMinutesStart` in `mppTimephased.ts`'s `TimephasedWorkPeriod`).
+ * `workMinutes` kan 0 zijn (een periode met verstreken werkminuten maar zonder werk — het gat dat
+ * `deriveSplitGapsFromPeriods` als split herkent). `kind` onderscheidt reeds-verricht werk
+ * (`'actual'`, MPXJ `getCompleteWork`) van resterend/gepland werk (`'remaining'`, MPXJ
+ * `getPlannedWork`) — dezelfde twee tracks die `deriveSplitGapsForTasks` al combineert.
+ */
+export interface TimephasedContourPeriod {
+  afterMinutes: number;
+  minutes: number;
+  workMinutes: number;
+  kind: 'actual' | 'remaining';
+}
+
+/** Alle rauwe contourperiodes van ÉÉN toewijzing van de taak (zie `Task.timephasedContours`). */
+export interface TaskTimephasedContour {
+  /** MSP's eigen resource-uniqueId (`AssignmentField.RESOURCE_UNIQUE_ID`) — PUUR herkomst/
+   *  traceability, geen live-resource-referentie (deze toewijzing is mogelijk allang gewijzigd of
+   *  verdwenen in het app-model; de rauwe periode blijft desondanks staan, eigenaarsprincipe).
+   *  `null` wanneer de toewijzing geen (vindbare) resource droeg. */
+  resourceUid: number | null;
+  periods: TimephasedContourPeriod[];
+}
+
+/**
+ * MSP's eigen "Task Type" (Fixed Units/Fixed Duration/Fixed Work — `TaskField.TYPE`, `DataType.
+ * TASK_TYPE`). NIET te verwarren met `Task.taskType` hierboven (dat is een OPS-eigen domeinclassi-
+ * ficatie — CONSTRUCTION/INSTALLATION/…, een ander concept met toevallig een gelijkende naam).
+ * Eigenaarsbesluit 2026-08-18 (plan §10, punt 1): puur data, bewaard zodat een .mpp-import 'm niet
+ * weggooit — GEEN rekengedrag; geen enkele solverstap leest `Task.mspTaskType`. Task type als
+ * projecteigenschap-met-per-taak-keuze (en het bijbehorende bewerkgedrag) is een latere, aparte
+ * etappe (zelfde besluit, punt 2).
+ */
+export type MspTaskType = 'FIXED_UNITS' | 'FIXED_DURATION' | 'FIXED_WORK';
+
+/**
  * Soort mijlpaal (fase 2.4, P6 Start/Finish Milestone). Dag-granulair grens-model:
  * START ankert op een dagbegin, FINISH op een dageinde (einde werkdag F = begin
  * eerstvolgende werkdag). undefined = automatisch: het anker volgt de bindende
@@ -306,8 +345,12 @@ export interface Task {
    *  berekening volledig), nooit bij een harde MFO/MSO-pin, alleen in uur-modus. ISO-instant,
    *  minuutprecisie (`formatInstant(d,'hour')`). Mutueel exclusief met `timephasedDurationWalks`
    *  (LAAG 4, zie die docstring) — `mppReader.ts` zet nooit beide op dezelfde taak. Afwezig ⇒ geen
-   *  echte periode-data op deze taak, byte-identiek. GEEN eigen IFC-pset (buiten Z8's bestands-
-   *  eigendom — round-trip is een benoemde baan-D-nataak, zie het Z8-commitbericht). */
+   *  echte periode-data op deze taak, byte-identiek. Round-tript sinds Z14b via `OPS_TimephasedWindow`
+   *  (`ifcPsets.ts`). EIGENAARSPRINCIPE (2026-08-18) — dit veld is AFGELEIDE sturing: een
+   *  inhoudelijke bewerking (duur/datums/kalender/toewijzingen) wist dit veld weer (zie
+   *  `taskDefaults.ts`'s `clearTimephasedWindow`, aangeroepen vanuit `taskSlice.ts`/
+   *  `mcpTransaction.ts`/`resourceSlice.ts`) — de RAUWE bron blijft dan in `timephasedContours`
+   *  staan, dat wordt nooit gewist door een edit. */
   timephasedFinishFloor?: string;
   /** OPTIONEEL — RAUW startanker (Z8-herwerkronde), gebruikt door zowel LAAG 3 als LAAG 4: het
    *  MINIMUM van `AssignmentField.START` over de LAAG-3-toewijzingen (bij `timephasedFinishFloor`)
@@ -318,7 +361,7 @@ export interface Task {
    *  kalender-band ligt maar de toewijzing wél binnen haar EIGEN resourcekalender (corpusvoorbeeld:
    *  een "Night Shift"-resource op 23:00, buiten de taak se "Standard"-band) — MSP snapt zo'n
    *  anker niet, de gewone `ownAnchor`-snap deed dat vóór Z8 wél. Afwezig ⇒ byte-identiek. Zelfde
-   *  IFC-kanttekening als `timephasedFinishFloor`. */
+   *  IFC-round-trip/eigenaarsprincipe-kanttekening als `timephasedFinishFloor`. */
   timephasedStartAnchor?: string;
   /** OPTIONEEL — LAAG 4 van de Z8-herwerkronde-beslistabel: taken met een VLAK timephased-record
    *  (`blockCount===0`, GEEN echte periode — dus `timephasedFinishFloor` blijft hier afwezig) MAAR
@@ -335,15 +378,43 @@ export interface Task {
    *  gebruikt bovendien het VROEGSTE `anchor` uit deze lijst als `timephasedStartAnchor` (zie
    *  hierboven). Mutueel exclusief met `timephasedFinishFloor`. Corpusbewijs: 9/9 (mpp14timephased2
    *  .mpp) en 20/20 (mpp14timephasedsegments.mpp) op de volledige populatie, en de 0%-populatie van
-   *  mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). Afwezig ⇒ byte-identiek. Zelfde IFC-
-   *  kanttekening als `timephasedFinishFloor`. */
+   *  mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). Afwezig ⇒ byte-identiek. Round-tript
+   *  sinds Z14b via `OPS_TimephasedWindow` (`ifcPsets.ts`), maar wordt (anders dan `timephasedFinish
+   *  Floor`/`timephasedStartAnchor`) NOOIT door `clearTimephasedWindow` gewist — zie deze docstring
+   *  se eigen "GEEN invalidatie nodig"-uitleg hierboven: een bewerking stroomt vanzelf mee. */
   timephasedDurationWalks?: { anchor: string; resourceCalendarId: string }[];
+  /** OPTIONEEL — RAUWE, gedecodeerde .mpp-timephased-contourperiodes (Z14b, eigenaarsprincipe
+   *  2026-08-18: "er gaat nooit stilzwijgend broninformatie verloren, ook niet ná bewerken"). Dit is
+   *  de bron ONDER `splitGaps`/`timephasedFinishFloor`/`timephasedStartAnchor` — die drie zijn
+   *  AFGELEIDE sturing (splitGaps voedt de CPM rechtstreeks, de twee venstervelden worden bij een
+   *  inhoudelijke bewerking ontkoppeld, zie `clearTimephasedWindow` in `taskDefaults.ts`) — dit veld
+   *  blijft ALTIJD staan, ook ná zo'n bewerking: geen enkele actie in deze etappe wist het. Eén
+   *  entry per toewijzing van deze taak die daadwerkelijk een ECHTE dagverdeling droeg (vlakke
+   *  samenvattingsrecords — MPXJ's `blockCount===0`-speciale geval — tellen niet mee, zelfde filter
+   *  als `mppReader.ts`'s `deriveSplitGapsForTasks` al toepast op `splitGaps`). Periodes liggen op
+   *  DEZELFDE as als `TaskSplitGap` (cumulatieve werkminuten sinds taakstart — zie die interface se
+   *  eigen "TAAK-AS, NIET TOEWIJZINGS-AS"-docblok voor de volledige as-definitie). Puur data: geen
+   *  enkele solverstap leest dit veld — voedingsdata voor de latere contour-engine (eigenaarsbesluit
+   *  2026-08-18, plan §10). Round-tript via `OPS_TimephasedContours` (`ifcPsets.ts`). Afwezig ⇒ geen
+   *  echte periode-data op deze taak (byte-identiek). */
+  timephasedContours?: TaskTimephasedContour[];
   /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
    *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het
    *  SIGNAAL dat de solver ze straks RAUW moet respecteren (geen kalendersnap, geen relatiedruk,
    *  geen constraint-afdwinging) in plaats van te herrekenen; nog door geen enkele solver-stap
    *  gelezen. Afwezig/false ⇒ normale (auto-geplande) taak, byte-identiek. */
   manuallyScheduled?: boolean;
+  /** OPTIONEEL — MSP's eigen Task Type bij .mpp-import (zie `MspTaskType`). Puur data (eigenaars-
+   *  besluit 2026-08-18): geen enkele solverstap leest dit veld. Afwezig ⇒ veld niet gelezen/niet
+   *  van toepassing (byte-identiek), NIET hetzelfde als "FIXED_UNITS" (MSP's eigen stille default
+   *  voor een nieuwe taak) — een afwezig veld is hier "onbekend", geen aanname. Round-tript via
+   *  `OPS_MspTaskType` (`ifcPsets.ts`). */
+  mspTaskType?: MspTaskType;
+  /** OPTIONEEL — MSP's "Effort Driven"-vlag bij .mpp-import (`TaskField.EFFORT_DRIVEN`). Puur data,
+   *  zelfde eigenaarsbesluit als `mspTaskType` hierboven — geen enkele solverstap leest dit veld.
+   *  Afwezig/false ⇒ byte-identiek. Round-tript via `OPS_MspTaskType` (`ifcPsets.ts`, zelfde pset
+   *  als `mspTaskType` — het is hetzelfde MSP-taaktypeconcept-paar). */
+  effortDriven?: boolean;
   parentId: string | null; // WBS parent
   childIds: string[];      // WBS children
   time: TaskTime;

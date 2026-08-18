@@ -1,4 +1,6 @@
-import type { Task, ConstraintType, TaskSplitGap } from '@/types/task';
+import type {
+  Task, ConstraintType, TaskSplitGap, TaskTimephasedContour, TimephasedContourPeriod, MspTaskType,
+} from '@/types/task';
 
 /**
  * IFC-pset-registry (fase 3, tweede helft van P11 uit docs/superpowers/modulariteit-audit.md,
@@ -43,6 +45,24 @@ export const PSET = {
   Manual: 'OPS_ManualScheduling',
   /** MSP's eigen resume/stop-instanten (`TaskTime.resume`/`stop`, Z12) — losse getypte props. */
   Resume: 'OPS_Resume',
+  // Z14b (eigenaarsbesluit/-principe 2026-08-18) — drie NIEUWE per-taak-psets, zelfde registry-patroon.
+  /** Het Z8-venster (`Task.timephasedFinishFloor`/`timephasedStartAnchor`/`timephasedDurationWalks`)
+   *  — AFGELEIDE sturing, wordt bij een inhoudelijke bewerking weer ontkoppeld (zie
+   *  `taskDefaults.ts`'s `clearTimephasedWindow`). NIET hetzelfde pset als `Timephased` hierboven
+   *  (dat draagt het PER-ASSIGNMENT `workWindowStart`/`Finish`-paar, een ander veld). */
+  Window: 'OPS_TimephasedWindow',
+  /** `Task.timephasedDurationWalks` (LAAG 4) — AFWIJKENDE vorm (alleen naam gedeeld, geen
+   *  `PerTaskPset`-descriptor): `resourceCalendarId` is een kalender-verwijzing die bij inlezen een
+   *  NIEUW id krijgt, dus write/read hebben allebei toegang tot de kalender-bibliotheek nodig — die
+   *  heeft de generieke `PerTaskPset`-vorm niet. Zie `ifcWriter.writeTimephasedDurationWalksMeta`/
+   *  `ifcReader.extractTimephasedDurationWalksMeta`. */
+  DurationWalks: 'OPS_TimephasedDurationWalks',
+  /** De RAUWE, gedecodeerde .mpp-contourperiodes (`Task.timephasedContours`) — de bron ONDER het
+   *  Z8-venster; wordt NOOIT door een bewerking gewist (eigenaarsprincipe). */
+  Contours: 'OPS_TimephasedContours',
+  /** MSP's eigen Task Type + Effort-Driven-vlag (`Task.mspTaskType`/`effortDriven`) — puur data,
+   *  geen rekengedrag (eigenaarsbesluit 2026-08-18, punt 1). */
+  MspTaskType: 'OPS_MspTaskType',
   // Structuur/waarden op project- of taak-niveau (afwijkende vorm — alleen naam gedeeld).
   ProjectSettings: 'OPS_ProjectSettings',
   StructureMeta: 'OPS_StructureMeta',
@@ -340,6 +360,86 @@ export const PER_TASK_PSETS: PerTaskPset[] = [
       for (const { name, value } of props) {
         if (name === 'Resume' && typeof value === 'string' && value) task.time.resume = value;
         else if (name === 'Stop' && typeof value === 'string' && value) task.time.stop = value;
+      }
+    },
+  },
+  // 12. Z14b — het Z8-venster, ALLEEN `timephasedFinishFloor`/`timephasedStartAnchor` (twee platte
+  //     ISO-strings, geen cross-object-verwijzing). AFGELEIDE sturing (eigenaarsprincipe):
+  //     `taskDefaults.ts`'s `clearTimephasedWindow` wist ze bij een inhoudelijke bewerking, dus een
+  //     bewerkt-en-opnieuw-opgeslagen taak schrijft dan geen (of minder) props hier — dat is het
+  //     bedoelde gedrag, niet een gat. `timephasedDurationWalks` NIET hier: dat veld draagt
+  //     `resourceCalendarId`, een APP-INTERNE kalender-verwijzing die bij inlezen een NIEUW,
+  //     regenererend id krijgt — een generieke `PerTaskPset` heeft geen toegang tot de kalender-
+  //     bibliotheek om die verwijzing (via de kalendernaam, de natuurlijke sleutel) te vertalen.
+  //     Zie `writeTimephasedDurationWalksMeta`/`extractTimephasedDurationWalksMeta` (eigen, kleine
+  //     JSON-pset `OPS_TimephasedDurationWalks`, spiegelt `OPS_Baselines`' taskId-GUID-remap-precedent).
+  {
+    name: PSET.Window, psetSeed: 'pset_win_', relSeed: 'rel_win_',
+    write(task) {
+      const props: PropSpec[] = [];
+      if (task.timephasedFinishFloor) props.push({ name: 'FinishFloor', value: `IFCTEXT(${ifcStr(task.timephasedFinishFloor)})` });
+      if (task.timephasedStartAnchor) props.push({ name: 'StartAnchor', value: `IFCTEXT(${ifcStr(task.timephasedStartAnchor)})` });
+      return props.length > 0 ? props : null;
+    },
+    apply(task, props) {
+      for (const { name, value } of props) {
+        if (name === 'FinishFloor' && typeof value === 'string' && value) task.timephasedFinishFloor = value;
+        else if (name === 'StartAnchor' && typeof value === 'string' && value) task.timephasedStartAnchor = value;
+      }
+    },
+  },
+  // 13. Z14b (eigenaarsprincipe 2026-08-18) — de RAUWE, gedecodeerde contourperiodes
+  //     (`Task.timephasedContours`). Eén autoritatief JSON-veld, ExternalLink/TaskNotes/Splits-
+  //     patroon — NOOIT gewist door een edit (dat is precies waarom dit een APART pset is van
+  //     `Window` hierboven, dat wél kan leeglopen).
+  {
+    name: PSET.Contours, psetSeed: 'pset_contours_', relSeed: 'rel_contours_',
+    write(task) {
+      const contours = task.timephasedContours;
+      if (!contours || contours.length === 0) return null;
+      return [{ name: 'Contours', value: `IFCTEXT(${ifcStr(JSON.stringify(contours))})` }];
+    },
+    apply(task, props) {
+      const isValidPeriod = (p: unknown): p is TimephasedContourPeriod =>
+        !!p && typeof p === 'object'
+        && typeof (p as TimephasedContourPeriod).afterMinutes === 'number'
+        && typeof (p as TimephasedContourPeriod).minutes === 'number'
+        && typeof (p as TimephasedContourPeriod).workMinutes === 'number'
+        && ((p as TimephasedContourPeriod).kind === 'actual' || (p as TimephasedContourPeriod).kind === 'remaining');
+      const isValidContour = (c: unknown): c is TaskTimephasedContour =>
+        !!c && typeof c === 'object'
+        && (typeof (c as TaskTimephasedContour).resourceUid === 'number' || (c as TaskTimephasedContour).resourceUid === null)
+        && Array.isArray((c as TaskTimephasedContour).periods)
+        && (c as TaskTimephasedContour).periods.every(isValidPeriod);
+      for (const { name, value } of props) {
+        if (name !== 'Contours' || typeof value !== 'string' || !value) continue;
+        try {
+          const parsed: unknown = JSON.parse(value);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(isValidContour)) {
+            task.timephasedContours = parsed;
+          }
+        } catch { /* corrupte JSON: negeren i.p.v. de load te breken. */ }
+      }
+    },
+  },
+  // 14. Z14b (eigenaarsbesluit 2026-08-18, punt 1) — MSP's Task Type + Effort-Driven-vlag. Losse
+  //     getypte props, zelfde vorm als PSET.Manual (boolean-guard vóór de string-guard, precedent:
+  //     `Hard` in PSET.Constraints).
+  {
+    name: PSET.MspTaskType, psetSeed: 'pset_mtt_', relSeed: 'rel_mtt_',
+    write(task) {
+      const props: PropSpec[] = [];
+      if (task.mspTaskType) props.push({ name: 'MspTaskType', value: `IFCLABEL(${ifcStr(task.mspTaskType)})` });
+      if (task.effortDriven) props.push({ name: 'EffortDriven', value: 'IFCBOOLEAN(.T.)' });
+      return props.length > 0 ? props : null;
+    },
+    apply(task, props) {
+      const valid: readonly MspTaskType[] = ['FIXED_UNITS', 'FIXED_DURATION', 'FIXED_WORK'];
+      for (const { name, value } of props) {
+        if (name === 'EffortDriven') { if (value === true) task.effortDriven = true; continue; }
+        if (name === 'MspTaskType' && typeof value === 'string' && (valid as readonly string[]).includes(value)) {
+          task.mspTaskType = value as MspTaskType;
+        }
       }
     },
   },

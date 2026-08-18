@@ -3,6 +3,7 @@ import type { WorkCalendar } from '@/types/calendar';
 import { generateId } from '@/utils/id';
 import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
+import { clearTimephasedWindow, clearTimephasedDurationWalks } from '@/utils/taskDefaults';
 import type { AppSlice } from './types';
 
 /** Puur leesbaarheids-alias: `WorkCalendar` heeft al `id`/`name`, dus geen aparte intersectie
@@ -125,6 +126,13 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       if (!task.resourceIds.includes(resourceId)) {
         task.resourceIds.push(resourceId);
       }
+      // Z14b (eigenaarsprincipe 2026-08-18, F2-fixronde) — "toewijzingen" is expliciet onderdeel
+      // van de edit-time-invalidatie-triggerset (zie `taskDefaults.ts`'s `clearTimephasedWindow`/
+      // `clearTimephasedDurationWalks`): een andere resource kan een andere resourcekalender
+      // betekenen, precies de Z8-laag-4-discriminator — dus BEIDE lagen wissen, niet alleen het
+      // laag-3-venster. `mcpTransaction.ts`'s `assignResource` is de gedocumenteerde tweeling.
+      clearTimephasedWindow(task);
+      clearTimephasedDurationWalks(task);
       finishMutation(s);
     });
     get().recomputeResourceLoad();
@@ -169,6 +177,9 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         const idx = task?.resourceIds.indexOf(removed.resourceId) ?? -1;
         if (task && idx >= 0) task.resourceIds.splice(idx, 1);
       }
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger, beide lagen (zie assignResource hierboven).
+      const removedTask = s.tasks.find(t => t.id === removed.taskId);
+      if (removedTask) { clearTimephasedWindow(removedTask); clearTimephasedDurationWalks(removedTask); }
       finishMutation(s);
     });
     get().recomputeResourceLoad();
@@ -209,6 +220,12 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       if (!newTask.resourceIds.includes(assignment.resourceId)) {
         newTask.resourceIds.push(assignment.resourceId);
       }
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger raakt BEIDE taken, BEIDE lagen (zie
+      // assignResource hierboven).
+      const oldTaskForWindow = s.tasks.find(t => t.id === oldTaskId);
+      if (oldTaskForWindow) { clearTimephasedWindow(oldTaskForWindow); clearTimephasedDurationWalks(oldTaskForWindow); }
+      clearTimephasedWindow(newTask);
+      clearTimephasedDurationWalks(newTask);
       finishMutation(s);
       moved = true;
     });
@@ -255,7 +272,13 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         if (r.calendarId === id) r.calendarId = undefined;
       }
       for (const t of s.tasks) {
-        if (t.calendarId === id) t.calendarId = undefined;
+        if (t.calendarId === id) {
+          t.calendarId = undefined;
+          // Z14b (F3-fixronde) — dit is dezelfde "kalender"-trigger als `setTaskCalendar`, alleen
+          // via een ander pad (rechtstreekse mutatie i.p.v. de dedicated actie). Zonder deze
+          // aanroep bleef een bevroren Z8-venster staan terwijl de taak-kalender onder 'm wegviel.
+          clearTimephasedWindow(t);
+        }
       }
       // Was dit de projectdefault, dan de projectkalender op een fallback zetten (§9.2).
       if (s.project.calendarId === id) {
@@ -283,7 +306,10 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         if (r.calendarId && !ids.has(r.calendarId)) r.calendarId = undefined;
       }
       for (const t of s.tasks) {
-        if (t.calendarId && !ids.has(t.calendarId)) t.calendarId = undefined;
+        if (t.calendarId && !ids.has(t.calendarId)) {
+          t.calendarId = undefined;
+          clearTimephasedWindow(t); // Z14b (F3-fixronde) — zelfde reden als removeCalendar hierboven.
+        }
       }
       // Projectdefault: het meegegeven id als het (nog) bestaat, anders de eerste entry (§9.2).
       if (ids.has(projectCalendarId)) {

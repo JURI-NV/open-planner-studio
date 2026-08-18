@@ -113,9 +113,16 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   const { resources, resourceStepIdMap, resourceGuidMap } = extractResources(entities, entityMap);
   extractResourceMeta(entities, entityMap, resources, resourceStepIdMap, resourceGuidMap);
   extractCrewNesting(entities, resources, resourceStepIdMap);
-  const resourceCalendars = extractCalendarLibrary(
+  const { calendars: resourceCalendars, idByGuid: calendarIdByGuid } = extractCalendarLibrary(
     entities, entityMap, resources, resourceStepIdMap, tasks, taskStepIdMap,
   );
+  // Z14b (F1) — de PROJECTkalender zit niet in `extractCalendarLibrary`'s bibliotheek-lus (die sluit
+  // 'm expliciet uit); haar GUID→id hoort wel in dezelfde vertaaltabel. Zelfde "eerste IFCWORKCALENDAR
+  // in het bestand"-conventie als `extractCalendar`/`extractCalendarLibrary` zelf hanteren.
+  const projectCalendarEntityForGuid = entities.find(e => e.type === 'IFCWORKCALENDAR');
+  if (projectCalendarEntityForGuid) {
+    calendarIdByGuid.set(stripQuotes(projectCalendarEntityForGuid.args[0] || ''), calendar.id);
+  }
   // Fase 2.8b (§7.1, golf 4): uur-modus-post-pass. Ná extractCalendarLibrary zodat elke
   // `task.calendarId` (en dus de effectieve kalender) is geresolved. Zet `workTime` op kalenders
   // die afwijken van het dag-patroon (discriminator a/b/c) en herinterpreteert de duren/datetimes
@@ -131,6 +138,10 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   const { activityCodeTypes, customFieldDefs } = extractStructure(
     entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
   );
+  // Z14b (Z8-nataak, F1-fixronde) — LAAG-4-kalenderwandelingen, eigen pset (zie de functie se
+  // moduleheader voor waarom dit niet via de PER_TASK_PSETS-registry loopt): GUID→id-vertaling, dus
+  // pas NA extractCalendarLibrary hierboven (die tabel levert `calendarIdByGuid`).
+  extractTimephasedDurationWalksMeta(entities, entityMap, tasks, taskStepIdMap, calendarIdByGuid);
   // Fase 3 (P11): OPS_Leveling wordt nu binnen extractStructure via de per-taak-registry gedispatcht
   // (samen met de andere zeven per-taak-psets) — geen losse extractLevelingMeta-aanroep meer.
 
@@ -1589,6 +1600,13 @@ function buildCalendarFromEntity(
  * dus elke rel resolvet hier via precies één van de twee maps. Eén kalender kan zo door zowel een
  * resource- als een taak-rel worden aangewezen — de STEP-id van het `IFCWORKCALENDAR` dedupt de
  * kalender zelf (`calByStepId`) zodat hij maar één keer in de bibliotheek terechtkomt.
+ *
+ * Z14b-fixronde (F1) — retourneert sinds deze fix ook `idByGuid` (`IFCWORKCALENDAR.GlobalId` →
+ * onze verse `WorkCalendar.id`): de STABIELE, per-constructie-unieke sleutel die
+ * `extractTimephasedDurationWalksMeta` nodig heeft om `resourceCalendarId` te vertalen. GEEN
+ * naam-gebaseerde vertaling (zie de F1-toelichting bij `extractTimephasedDurationWalksMeta`): twee
+ * kalenders met dezelfde naam zijn een geldige, niet-afgedwongen toestand (de app kent geen
+ * naam-uniciteitseis) en zouden op naam stilzwijgend naar elkaars kalender resolven.
  */
 function extractCalendarLibrary(
   entities: StepEntity[],
@@ -1597,12 +1615,13 @@ function extractCalendarLibrary(
   resourceStepIdMap: Map<string, string>,
   tasks: Task[],
   taskStepIdMap: Map<string, string>,
-): WorkCalendar[] {
+): { calendars: WorkCalendar[]; idByGuid: Map<string, string> } {
   const projectCalendarEntity = entities.find(e => e.type === 'IFCWORKCALENDAR');
   const resourceById = new Map(resources.map(r => [r.id, r]));
   const taskById = new Map(tasks.map(t => [t.id, t]));
   const calendars: WorkCalendar[] = [];
   const calByStepId = new Map<string, WorkCalendar>(); // IFCWORKCALENDAR STEP-id -> onze kalender
+  const idByGuid = new Map<string, string>(); // Z14b (F1) — IFCWORKCALENDAR.GlobalId -> onze kalender-id
 
   for (const ce of entities) {
     if (ce.type !== 'IFCRELASSIGNSTOCONTROL') continue;
@@ -1618,6 +1637,7 @@ function extractCalendarLibrary(
       cal.id = generateId('rescal');
       calByStepId.set(controlRef, cal);
       calendars.push(cal);
+      idByGuid.set(stripQuotes(controlEntity.args[0] || ''), cal.id); // Z14b (F1)
     }
 
     const relatedRefs = parseRefs(ce.args[4] || '');
@@ -1651,9 +1671,10 @@ function extractCalendarLibrary(
     cal.id = generateId('rescal');
     calByStepId.set(ce.id, cal);
     calendars.push(cal);
+    idByGuid.set(stripQuotes(ce.args[0] || ''), cal.id); // Z14b (F1)
   }
 
-  return calendars;
+  return { calendars, idByGuid };
 }
 
 interface AssignmentMeta {
@@ -1962,6 +1983,66 @@ function extractBaselines(
   }
 
   return { baselines, activeBaselineId };
+}
+
+/**
+ * Z14b (Z8-nataak, eigenaarsbesluit 2026-08-18) — `OPS_TimephasedDurationWalks` teruglezen (spiegel
+ * van `ifcWriter.writeTimephasedDurationWalksMeta`): PER TAAK via `IFCRELDEFINESBYPROPERTIES` (niet
+ * globaal zoals `extractBaselines` — dit is taak-eigen data, geen projectbrede lijst).
+ *
+ * F1-FIXRONDE (spec-review op 526af9f9): de EERSTE versie vertaalde `resourceCalendarId` via de
+ * kalenderNAAM. De reviewer bewees empirisch dat dat stille datacorruptie geeft — de app dwingt
+ * kalendernaam-uniciteit NERGENS af, dus twee kalenders met dezelfde naam dedupliceerden op de
+ * naam→id-Map en beide taken resolven na round-trip naar dezelfde, voor minstens één van de twee
+ * VERKEERDE kalender, zonder waarschuwing. Fix: `resourceCalendarGuid` (de `IFCWORKCALENDAR.
+ * GlobalId`, per-constructie uniek — `guidOf`'s eigen botsingsdetectie garandeert dat, zie
+ * ifcWriter.ts) i.p.v. de naam, vertaald via `calendarIdByGuid` (`extractCalendarLibrary`'s nieuwe
+ * `idByGuid`-uitvoer + de projectkalender-toevoeging in `readIFC` — vandaar dat deze functie NA
+ * `extractCalendarLibrary` draait). Spiegelt zo `OPS_Baselines`' taskId-GUID-remap-precedent
+ * exact, alleen voor kalenders i.p.v. taken.
+ *
+ * Een GUID die niet in `calendarIdByGuid` voorkomt (dangling: de kalender bestaat niet meer, of een
+ * extern-geschreven bestand droeg een andere GUID-vorm) laat die ENE walk-entry VALLEN — spiegelt
+ * het eigenaarsprincipe (liever geen afgeleide sturing dan een onbetrouwbare) i.p.v. een rauwe GUID
+ * als kalender-id te laten doorsijpelen naar `resolveCalendar`.
+ */
+function extractTimephasedDurationWalksMeta(
+  entities: StepEntity[],
+  entityMap: Map<string, StepEntity>,
+  tasks: Task[],
+  taskStepIdMap: Map<string, string>,
+  calendarIdByGuid: ReadonlyMap<string, string>,
+): void {
+  const taskById = new Map(tasks.map(t => [t.id, t]));
+
+  for (const rel of entities) {
+    if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
+    const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
+    if (!pset || pset.type !== 'IFCPROPERTYSET' || stripQuotes(pset.args[2] || '') !== PSET.DurationWalks) continue;
+    const prop = parseRefs(pset.args[4] || '')
+      .map(r => entityMap.get(r))
+      .find((p): p is StepEntity =>
+        !!p && p.type === 'IFCPROPERTYSINGLEVALUE' && stripQuotes(p.args[0] || '') === 'DurationWalks');
+    const raw = prop ? parseTypedValue(prop.args[2] || '') : undefined;
+    if (typeof raw !== 'string' || !raw) continue;
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { continue; }
+    if (!Array.isArray(parsed)) continue;
+    const isValidWalk = (w: unknown): w is { anchor: string; resourceCalendarGuid: string } =>
+      !!w && typeof w === 'object'
+      && typeof (w as { anchor?: unknown }).anchor === 'string'
+      && typeof (w as { resourceCalendarGuid?: unknown }).resourceCalendarGuid === 'string';
+    if (parsed.length === 0 || !parsed.every(isValidWalk)) continue;
+    const walks = (parsed as { anchor: string; resourceCalendarGuid: string }[])
+      .map(w => ({ anchor: w.anchor, resourceCalendarId: calendarIdByGuid.get(w.resourceCalendarGuid) }))
+      .filter((w): w is { anchor: string; resourceCalendarId: string } => w.resourceCalendarId !== undefined);
+    if (walks.length === 0) continue;
+    for (const objRef of parseRefs(rel.args[4] || '')) {
+      const taskId = taskStepIdMap.get(objRef);
+      const task = taskId ? taskById.get(taskId) : undefined;
+      if (task) task.timephasedDurationWalks = walks;
+    }
+  }
 }
 
 /**
