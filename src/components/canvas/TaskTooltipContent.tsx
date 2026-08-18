@@ -13,6 +13,7 @@ export function TaskTooltipContent({ task }: { task: Task }) {
   const { t: tTask } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
   const dd = useDisplayDate();
+  // Tooltip-datums volgen de datumnotatie-instelling (taak #53); leeg → '-'.
   const formatTooltipDate = (dateStr: string) => (dateStr ? dd.date(dateStr) : '-');
 
   return (
