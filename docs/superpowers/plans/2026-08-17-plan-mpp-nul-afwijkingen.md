@@ -735,6 +735,33 @@ De modelnaam hoort in de agentnaam (`sonnet-z7-splits-cpm`, `opus-review-z7`) é
 - **O5 — `barSplitMode`.** Z15 stelt voor dat echte splits **altijd** gesplitst tekenen, ongeacht de weergave-instelling (die blijft alleen de kalender-necking sturen). Akkoord?
 - **O6 — Reikwijdte van Z12's fix.** Opt-in-vlag (`.mpp`-only, familie T9/B1) of universele correctie (familie O8/O9)? Dit plan stelt opt-in voor omdat de bestaande P6-RETAINED_LOGIC-semantiek een bewuste keuze is.
 
+### Aandachtspunten voor etappe 2 (XER/P6) — vastgelegd 2026-08-18, op eigenaarsverzoek
+
+Deze etappe maakte drie soorten wijzigingen met verschillende draagwijdte; de derde soort moet bij
+de start van de XER-etappe expliciet op de agenda:
+
+1. **Opt-in-vlaggen** (`unstartedIgnoresStatusDate`, `resumeFromActualElapsed`) — uitsluitend door
+   `mppReader.ts` gezet, default uit. Veilig voor andere bronnen; patroon herbruikbaar.
+2. **Veldgedreven gedrag** (splitGaps, levelingDelayMinutes, resume/stop, manuallyScheduled,
+   timephased) — afwezig veld ⇒ byte-identiek. MAAR: **veld-aanwezigheid ís hier het
+   semantiek-signaal** ("taak heeft resume ⇒ MSP-hervattingsconventie"). Zodra de XER-lezer
+   dezelfde velden gaat vullen met P6-betekenis, erft hij stilzwijgend MSP-gedrag. Regel voor
+   etappe 2: elke nieuwe lezer kiest per veld bewust of hij het zet, en elke afwijkende semantiek
+   wordt een bron-vlag — nooit stil hetzelfde veld met andere betekenis.
+3. **Universele semantiekwijzigingen op MSP als enige geverifieerde orakel**: de SF-ankerregel
+   (Z10), de kruis-kalender-FS-discriminator (Z11), de leveling-backward-doorgifte (Z6) en de
+   kalenderpromotie-fix. De oude gedragingen waren nergens tegen geverifieerd, dus dit was de
+   juiste keuze — maar P6 heeft op precies deze punten aantoonbaar eigen semantiek (de
+   lag-kalender is in P6 een projectínstelling: voorganger/opvolger/project/24-uurs; retained
+   logic vs. progress override is er een expliciete rekenoptie). Verwacht dat het XER-corpus
+   sommige van deze universele regels alsnog naar een bron-instelling dwingt; plan die
+   flag-isatie in als kandidaat-taak, niet als verrassing.
+
+Daarnaast geldt: "lezen wint van herrekenen" (timephased laag 3) is een gedocumenteerd functioneel
+gat — import is exact, maar ná een gebruikersbewerking valt een gecontourde taak terug op vlakke
+berekening omdat OPS geen contour-engine heeft. Voor P6 speelt hetzelfde t.z.t. met resource-curves,
+zij het lichter (curves sturen daar vooral de resourceverdeling, minder de activiteitsdatums).
+
 ### Orkestratorbesluiten op O1–O6 (2026-08-17)
 
 - **O1 — besloten: werkhouding "nul, punt uit".** De §6-stap-4-uitsluiting wordt níét vooraf als vangnet geautoriseerd. Doet het geval zich voor (correcte implementatie + byte-bewijs dat de bron zelf inconsistent is), dan gaat het als expliciet beslispunt naar de eigenaar op dat moment, mét de meting. Tot die tijd geldt: de etappe is niet af zolang er een niet-nul-teller bestaat.
