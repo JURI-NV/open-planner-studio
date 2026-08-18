@@ -1410,10 +1410,7 @@ export function GanttCanvas() {
         {/* Tooltip — issue #58: de titel wrapt nu (CSS) en `HoverTooltip` houdt de doos binnen het
             venster; die twee horen bij elkaar, want een wrappende titel maakt hem hoger. */}
         {tooltip && (
-          <HoverTooltip
-            left={tooltip.x - (containerRef.current?.getBoundingClientRect().left || 0) + 16}
-            top={tooltip.y - (containerRef.current?.getBoundingClientRect().top || 0) - 10}
-          >
+          <HoverTooltip left={tooltip.x + 16} top={tooltip.y - 10}>
             <div className="tooltip-title">{tooltip.task.name}</div>
             <div className="tooltip-row">
               <span className="tooltip-label">{tTask('table.wbs')}:</span>
@@ -1560,10 +1557,7 @@ export function GanttCanvas() {
               </div>
             )}
             {histoTooltip && (
-              <HoverTooltip
-                left={histoTooltip.x - (histogramContainerRef.current?.getBoundingClientRect().left || 0) + 14}
-                top={histoTooltip.y - (histogramContainerRef.current?.getBoundingClientRect().top || 0) - 10}
-              >
+              <HoverTooltip left={histoTooltip.x + 14} top={histoTooltip.y - 10}>
                 {/* Issue #58 geldt hier net zo goed: dit zijn resourcenamen, tot 9 regels. */}
                 {histoTooltip.lines.map((l, i) => (
                   <div key={i} className={i === 0 ? 'tooltip-title' : 'tooltip-row'}>{l}</div>
