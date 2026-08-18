@@ -92,7 +92,9 @@ const HARD_CONSTRAINTS: ConstraintType[] = ['MSO', 'MFO'];
  * `constraint2` (P6-combinatieregels die de bridge niet valideert), `isHammock` (maakt de duur
  * AFGELEID en zou duur-invoer opnieuw stil laten verdampen), `wbsCode`/`childIds`/`id`
  * (afgeleid/structureel), en de vrije-vorm-bakken `notes`/`color`/`activityCodes`/`customFields`/
- * `externalLinks`/`levelingDelay` (geen validatie mogelijk, geen leestool-tegenhanger).
+ * `externalLinks`/`levelingDelay` (geen validatie mogelijk, geen leestool-tegenhanger). Z14 voegde
+ * daar vier Z0-typecontractvelden aan toe, zelfde behandeling: `splitGaps`/`levelingDelayMinutes`/
+ * `levelingDelayElapsed` (vrije-vorm/geen leestool) en `manuallyScheduled` (isHammock-patroon).
  */
 export const TASK_FIELD_NAMES = [
   'name',
@@ -126,6 +128,16 @@ const REJECT_HINTS: Record<string, string> = {
   constraint2: 'een secundaire constraint is via de bridge niet zetbaar (P6-combinatieregels worden hier niet gevalideerd)',
   isHammock: 'hammock/LOE is via de bridge niet zetbaar (de duur wordt dan afgeleid en negeert `duration`)',
   notes: 'taak-aantekeningen zijn via de bridge niet zetbaar',
+  // Z14 (etappe "nul afwijkingen"): vier Z0-typecontractvelden, expliciet NIET zetbaar via de
+  // bridge (O3-besluit voor manuallyScheduled: "MCP-kant volgt Z14's allowlist-besluit; conform het
+  // bestaande isHammock-patroon" — d.w.z. leesbaar via de leestools, maar hier geweigerd, net als
+  // isHammock hierboven). splitGaps/levelingDelayMinutes/levelingDelayElapsed volgen dezelfde
+  // "vrije-vorm-bak, geen leestool-tegenhanger"-redenering als levelingDelay (zie de klasse-toelichting
+  // bovenaan dit bestand).
+  splitGaps: 'werkonderbrekingen (splits) zijn via de bridge niet zetbaar (offset-gebaseerd, afgeleid uit een .mpp-import, geen agent-invoervorm)',
+  manuallyScheduled: 'handmatig plannen is via de bridge niet zetbaar (de datums blijven dan RAUW staan, ongeacht kalender/relaties/`duration`)',
+  levelingDelayMinutes: 'sub-dag-nivelleervertraging is via de bridge niet zetbaar (geen leestool-tegenhanger, zie `levelingDelay`)',
+  levelingDelayElapsed: 'sub-dag-nivelleervertraging is via de bridge niet zetbaar (geen leestool-tegenhanger, zie `levelingDelay`)',
 };
 
 /** Uitkomst van de veldvalidatie. */

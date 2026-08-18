@@ -277,6 +277,34 @@ export function writeMSPDI(
     console.warn(`MSPDI-export: ${elapsedTaskCount} taak/taken met ELAPSEDTIME-duur (24/7-klokrekenen) geëxporteerd als gewone werktijd-duur — MSPDI-lezer kent task-level <DurationFormat> nog niet (§6).`);
   }
 
+  // Z14 (etappe "nul afwijkingen"): MSPDI kent native <Manual>, <LevelingDelay>/<LevelingDelayFormat>
+  // en <TimephasedData>, maar onze LEZER leest geen van drieën. Exact hetzelfde ELAPSEDTIME/
+  // <DurationFormat>-precedent hierboven: native schrijven zonder terug te lezen is een stille
+  // semantiek-omklap en dus erger dan verlies — hier dus BEWUST alleen warnen, geen elementen
+  // schrijven. Native MSPDI-ondersteuning voor deze drie is een TODO voor een latere taak.
+  const manualCount = tasks.filter(t => t.manuallyScheduled).length;
+  if (manualCount > 0) {
+    console.warn(`MSPDI-export: ${manualCount} handmatig geplande taak/taken geëxporteerd zonder native <Manual> — MSPDI-lezer kent dat element nog niet (§6).`);
+  }
+  const levelingPrecisionCount = tasks.filter(t => t.levelingDelayMinutes != null).length;
+  if (levelingPrecisionCount > 0) {
+    console.warn(`MSPDI-export: ${levelingPrecisionCount} taak/taken met sub-dag-nivelleervertraging (levelingDelayMinutes) geëxporteerd zonder native <LevelingDelay>/<LevelingDelayFormat> — MSPDI-lezer kent die elementen nog niet (§6).`);
+  }
+  // Splits (Task.splitGaps, Z4) en gecontoureerde toewijzingen (ResourceAssignment.workWindowStart/
+  // Finish, Z0/Z14) zijn beide afgeleid uit hetzelfde timephased-mechanisme (§3(c) van het
+  // nul-afwijkingen-plan) — één warn voor <TimephasedData> dekt beide.
+  const splitTaskCount = tasks.filter(t => t.splitGaps && t.splitGaps.length > 0).length;
+  const contouredAssignmentCount = assignments.filter(a => a.workWindowStart || a.workWindowFinish).length;
+  if (splitTaskCount > 0 || contouredAssignmentCount > 0) {
+    console.warn(`MSPDI-export: ${splitTaskCount} gesplitste taak/taken en ${contouredAssignmentCount} gecontoureerde toewijzing(en) geëxporteerd zonder native <TimephasedData> — MSPDI-lezer kent dat element nog niet (§6).`);
+  }
+  // Z12-herwerk/Z14: MSP's eigen resume/stop-instanten (uit-volgorde-hervatting). MSPDI kent native
+  // <Resume>/<Stop>, maar onze lezer leest ze (nog) niet terug — zelfde conservatieve keuze.
+  const resumeStopCount = tasks.filter(t => t.time.resume || t.time.stop).length;
+  if (resumeStopCount > 0) {
+    console.warn(`MSPDI-export: ${resumeStopCount} taak/taken met resume/stop (uit-volgorde-hervatting) geëxporteerd zonder native <Resume>/<Stop> — MSPDI-lezer kent die elementen nog niet (§6).`);
+  }
+
   // Fase 2.6 (§9.1): alleen de ACTIEVE baseline gaat naar MSPDI-slot 0 (Baseline Number 0).
   // De overige OPS-baselines verliezen we bewust (extra slots 1-10 = latere uitbreiding).
   const activeBaseline = baselines.find(b => b.id === activeBaselineId) ?? null;

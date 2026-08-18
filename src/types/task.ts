@@ -266,9 +266,12 @@ export interface Task {
    *  `durationType`/MSPDI's elapsed-vlag op een duur. Afwezig ⇒ WORKTIME (byte-identiek). Alleen
    *  betekenisvol wanneer `levelingDelayMinutes` ook gezet is. */
   levelingDelayElapsed?: boolean;
-  /** OPTIONEEL — werkonderbrekingen (MS Project "split"), zie `TaskSplitGap` (Z0, voorlopig
-   *  ONGEBRUIKT: geen lezer vult dit, geen solver-stap of renderer raadpleegt het). Afwezig ⇒ geen
-   *  splits (byte-identiek). */
+  /** OPTIONEEL — werkonderbrekingen (MS Project "split"), zie `TaskSplitGap`. Sinds Z4 ECHT gevuld:
+   *  `mppReader.ts` leidt dit af uit de timephased-werksegmenten van een `.mpp`-import
+   *  (`deriveSplitGapsForTasks`, `mppTimephased.ts`), en round-trippt sinds Z14 door IFC
+   *  (`OPS_TaskSplits`-pset, `ifcPsets.ts`). Nog wél ONGEBRUIKT aan de CONSUMPTIEKANT: geen
+   *  solver-stap raadpleegt dit (dat is Z7) en de renderer tekent nog geen onderbroken balk (Z15).
+   *  Afwezig ⇒ geen splits (byte-identiek). */
   splitGaps?: TaskSplitGap[];
   /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
    *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het

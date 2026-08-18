@@ -213,10 +213,12 @@ const TM = {
   id: 't-m', name: 'Oplevering', description: 'Contractuele opleverdatum', wbsCode: '1.1',
   taskType: 'INSTALLATION', status: 'COMPLETED', isMilestone: true, milestoneKind: 'FINISH',
   mandatory: true, priority: 700, levelingDelay: 3,
-  // Z0 (etappe "nul afwijkingen"): typecontract-velden, nog ONGEBRUIKT door reader/writer — vandaar
-  // de `skip`-cellen in TASK_CANON hieronder i.p.v. een echte round-trip-vergelijking. Z14 maakt
-  // hier echte round-trip-cellen van zodra de writer/reader ze daadwerkelijk schrijft/leest.
-  levelingDelayMinutes: 45, levelingDelayElapsed: false,
+  // Z14: de vier Z0-typecontractvelden round-trippen nu écht via ifcPsets.ts (zie TASK_CANON
+  // hieronder). `levelingDelayElapsed` staat hier BEWUST op `true` (niet `false`): de writer
+  // schrijft `LevelingDelayElapsed` alleen bij een truthy waarde (golden rule, byte-identiek voor
+  // bestaande bestanden) — `false` zou dus stil normaliseren naar `undefined` terug en deze cel
+  // niets bewijzen (dezelfde valkuil als `shift: 'FIRST'`/ASAP-constraint hierboven in het bestand).
+  levelingDelayMinutes: 45, levelingDelayElapsed: true,
   splitGaps: [{ afterMinutes: 120, gapMinutes: 60 } satisfies TaskSplitGap],
   manuallyScheduled: true,
   parentId: 't-p', childIds: [],
@@ -251,7 +253,7 @@ const TM = {
     actualStart: '2026-07-24', actualFinish: '2026-07-24', actualDuration: 0,
     remainingTime: 0, remainingMinutes: 0, // remainingMinutes: (b) uur-modus-gap
     completion: 1,
-    resume: '2026-07-24', stop: '2026-07-24', // Z12-herwerk: typecontract-gap, zie TIME_CANON
+    resume: '2026-07-24', stop: '2026-07-24', // Z14: round-tript sinds OPS_Resume, zie TIME_CANON
   },
 } satisfies Required<Task> & { time: Required<TaskTime> };
 
@@ -304,7 +306,8 @@ const resources: Resource[] = [RCrew, RMember, REquip, RMat, RSub];
 // ── Toewijzingen: incl. twee assignments van DEZELFDE resource op één taak (M3-uniciteit) + curve ─
 const A1 = {
   id: 'a1', taskId: 't-x', resourceId: 'r-mem', unitsPerDay: 2, curve: 'BELL',
-  // Z0: typecontract-veld, nog ONGEBRUIKT — zie de `skip`-cel in ASSIGNMENT_CANON hieronder.
+  // Z14: round-tript sinds OPS_Timephased — zie de KEEP-cel in ASSIGNMENT_CANON hieronder. Nog
+  // ONGEVULD door de mpp-lezer (Z8, aparte taak); dit test alleen de opslag-/round-trip-laag.
   workWindowStart: '2026-07-06', workWindowFinish: '2026-07-08',
 } satisfies Required<ResourceAssignment>;
 const assignments: ResourceAssignment[] = [
@@ -471,26 +474,21 @@ const TIME_CANON = {
   actualStart: KEEP, actualFinish: KEEP, actualDuration: KEEP, remainingTime: KEEP,
   remainingMinutes: { skip: '(b) UUR-modus-veld, n.v.t. in dag-modus (zie durationMinutes)' },
   completion: KEEP,
-  // Z12-herwerk — typecontract-velden (rol TaskTimeInput), nog ONGESCHREVEN/ONGELEZEN door
-  // ifcWriter/ifcReader — geen enkele lezer/schrijver raakt ze aan, dus er is nog niets om écht
-  // round-trip te vergelijken. Z14 maakt dit een echte round-trip-cel zodra de writer/reader ze
-  // daadwerkelijk schrijft/leest (zie ook de mspdiWriter-melding voor Z14: resume/stop niet
-  // native geschreven, of native <Resume>/<Stop> — Z14 weegt dat).
-  resume: { skip: 'Z12-herwerk — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
-  stop: { skip: 'Z12-herwerk — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  // Z14 (Z12-herwerk-signaal): resume/stop round-trippen sinds Z14 via het `OPS_Resume`-pset
+  // (ifcPsets.ts) — echte KEEP-vergelijking i.p.v. de vroegere skip-cel. MSPDI/P6-export blijven
+  // ze WEL warnen-en-weglaten (native `<Resume>`/`<Stop>` zonder terugleesbaarheid, zelfde
+  // ELAPSEDTIME-precedent) — dat is een aparte, bewuste exportrand, geen IFC-gat.
+  resume: KEEP, stop: KEEP,
 } satisfies CanonSpec<TaskTime>;
 
 const TASK_CANON = {
   id: { skip: 'regenereert bij inlezen; wbsCode is de natuurlijke sleutel (Keys.task)' },
   name: KEEP, description: KEEP, wbsCode: KEEP, taskType: KEEP, status: KEEP,
   isMilestone: KEEP, milestoneKind: KEEP, mandatory: KEEP, priority: KEEP, levelingDelay: KEEP,
-  // Z0 (etappe "nul afwijkingen"): typecontract-velden, nog ONGEBRUIKT — geen enkele lezer/schrijver
-  // raakt ze aan, dus er is nog niets om écht round-trip te vergelijken. Z14 maakt dit een echte
-  // round-trip-cel zodra de writer/reader ze daadwerkelijk schrijft/leest.
-  levelingDelayMinutes: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
-  levelingDelayElapsed: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
-  splitGaps: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
-  manuallyScheduled: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  // Z14: de vier Z0-typecontractvelden round-trippen nu écht (ifcPsets.ts: `OPS_Leveling`
+  // uitgebreid met LevelingDelayMinutes/-Elapsed, `OPS_TaskSplits` en `OPS_ManualScheduling` nieuw)
+  // — echte KEEP-vergelijking i.p.v. de vroegere skip-cellen.
+  levelingDelayMinutes: KEEP, levelingDelayElapsed: KEEP, splitGaps: KEEP, manuallyScheduled: KEEP,
   parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
   childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
   time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },
@@ -536,9 +534,10 @@ const ASSIGNMENT_CANON = {
   taskId: { as: 'task', get: (a: ResourceAssignment, k: Keys) => k.task(a.taskId) },
   resourceId: { as: 'resource', get: (a: ResourceAssignment, k: Keys) => k.res(a.resourceId) },
   unitsPerDay: KEEP, curve: KEEP,
-  // Z0: typecontract-veld, nog ONGEBRUIKT — zie de gelijknamige toelichting bij TASK_CANON.
-  workWindowStart: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
-  workWindowFinish: { skip: 'Z0 — typecontract-veld, nog niet geschreven/gelezen door ifcWriter/ifcReader; Z14 maakt dit een echte round-trip-cel' },
+  // Z14: het timephased-venster round-trippt nu écht via het nieuwe `OPS_Timephased`-JSON-pset
+  // (ifcWriter.writeTimephasedMeta / ifcReader.extractAssignments) — echte KEEP-vergelijking.
+  // Nog ONGEVULD door de mpp-lezer (Z8, aparte taak) — dit is puur de opslag-/round-trip-laag.
+  workWindowStart: KEEP, workWindowFinish: KEEP,
 } satisfies CanonSpec<ResourceAssignment>;
 
 const PROJECT_CANON = {
@@ -1332,6 +1331,12 @@ const rt2 = readIFC(writeIFC(rt1));
         actualFinish: '2026-08-03',
         remainingTime: 1,
         remainingMinutes: 60,
+        // Z14 (sleutel-conventie-testgat, Z12-her-check L1): resume/stop volgen dezelfde
+        // sleutel-aanwezigheid-conventie in mergeTaskTime als actualStart/actualFinish hierboven —
+        // vóór deze twee regels was dat ONGETEST (mutatie `resume: partial.resume` i.p.v. de
+        // `'resume' in partial`-guard bleef hier stil groen).
+        resume: '2026-08-02',
+        stop: '2026-08-02',
       },
     });
   };
@@ -1343,6 +1348,9 @@ const rt2 = readIFC(writeIFC(rt1));
     assert(t.actualFinish === '2026-08-03', `${label} actualFinish moet blijven — kreeg ${t.actualFinish}`);
     assert(t.remainingTime === 1, `${label} remainingTime moet blijven — kreeg ${t.remainingTime}`);
     assert(t.remainingMinutes === 60, `${label} remainingMinutes moet blijven — kreeg ${t.remainingMinutes}`);
+    // Z14 — de twee nieuwe cases (zie setFullProgress hierboven).
+    assert(t.resume === '2026-08-02', `${label} resume moet blijven — kreeg ${t.resume}`);
+    assert(t.stop === '2026-08-02', `${label} stop moet blijven — kreeg ${t.stop}`);
   };
 
   // Pad 1: taskSlice.updateTask rechtstreeks.
@@ -1482,6 +1490,129 @@ const rt2 = readIFC(writeIFC(rt1));
 
   // Mutatiebewijs (uitgevoerd): `.toFixed(2)` in ifcTaskSlots.ts teruggezet naar `.toFixed(1)` maakt
   // (11a) en (11b)/(11c) ROOD — 0,38 wordt dan 0,4 en 0,955 wordt 1,0 (completion===1).
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// (12) Z14 (acceptatie 4, spiegelt het T5-precedent uit blok (6)): extern-stijl IFC zonder de
+//      OPS-markering leest CONSERVATIEF — geen fantoom-splits/-manual/-resume/-timephased. Anders
+//      dan T5 (een discriminator die een gevulde-maar-neutrale ref verkeerd kon lezen) is de
+//      bescherming hier structureel: `PER_TASK_PSET_BY_NAME`/`extractAssignments` dispatchen strikt
+//      op EXACTE pset-naam (`OPS_TaskSplits`/`OPS_ManualScheduling`/`OPS_Resume`/`OPS_Timephased`),
+//      dus een extern pset met een andere naam — óók als de INHOUD toevallig een geldige
+//      splits-JSON-array bevat — wordt nooit als OPS-data gelezen. Bewezen door de writer-uitvoer
+//      te patchen (geen losse hand-geschreven STEP-file), zelfde methode als blok (6).
+{
+  const ifc12 = writeIFC(fixture);
+  // TX draagt geen splitGaps in de fixture (alleen TM, de kitchen-sink-taak, wel) — bevestig eerst
+  // dat TX zónder patch ook geen splitGaps heeft (golden rule: de writer emitteert OPS_TaskSplits
+  // alleen voor TM, niet voor TX — de patch hieronder koppelt het nep-fragment expliciet aan TX).
+  const rt12setup = readIFC(ifc12);
+  const tx12setup = rt12setup.tasks.find(t => t.wbsCode === '1.2'); // TX
+  assert(tx12setup?.splitGaps === undefined, 'setup (12): TX heeft geen splitGaps vóór de patch');
+
+  // Patch: een extern-stijl pset met een ANDERE naam ('EXT_FakeSplits', geen OPS_-prefix) maar
+  // met een INHOUD die — als de dispatch op inhoud i.p.v. naam zou letten — als geldige splits
+  // gelezen zou worden. Dezelfde IFCPROPERTYSET/IFCRELDEFINESBYPROPERTIES-vorm als een echte
+  // OPS_TaskSplits-pset, gekoppeld aan TX (task_t-x).
+  const lines12 = ifc12.split('\n');
+  const ids12 = lines12.map(l => { const m = /^#(\d+)=/.exec(l); return m ? parseInt(m[1], 10) : 0; });
+  const propId = Math.max(...ids12) + 1;
+  const setId = propId + 1;
+  const relId = setId + 1;
+  const dataEndIdx12 = lines12.lastIndexOf('ENDSEC;');
+  assert(dataEndIdx12 > 0, 'kon de sluitende ENDSEC; van de DATA-sectie niet vinden (blok 12)');
+  // Vind de STEP-#id van task_t-x via zijn IFCTASK-regel (naam 'Ruwbouw', TX se naam in de fixture).
+  const txLine = lines12.find(l => /=IFCTASK\(/.test(l) && l.includes("'Ruwbouw'"));
+  assert(!!txLine, 'kon de IFCTASK-regel van TX (Ruwbouw) niet vinden');
+  const txId = parseInt(/^#(\d+)=/.exec(txLine!)![1], 10);
+  const fakeGaps = JSON.stringify([{ afterMinutes: 999, gapMinutes: 999 }]);
+  lines12.splice(dataEndIdx12, 0,
+    `#${propId}=IFCPROPERTYSINGLEVALUE('Splits',$,IFCTEXT('${fakeGaps}'),$);`,
+    `#${setId}=IFCPROPERTYSET('2z14fakesplitspset0000001',#1,'EXT_FakeSplits',$,(#${propId}));`,
+    `#${relId}=IFCRELDEFINESBYPROPERTIES('2z14fakesplitsrel00000001',#1,$,$,(#${txId}),#${setId});`,
+  );
+
+  const rt12 = readIFC(lines12.join('\n'));
+  const tx12 = rt12.tasks.find(t => t.wbsCode === '1.2'); // TX
+  assert(tx12?.splitGaps === undefined,
+    `(12) extern-fragment: een pset met een NIET-OPS-naam ('EXT_FakeSplits') die toevallig geldige splits-JSON draagt, mag NIET als splitGaps gelezen worden — kreeg ${JSON.stringify(tx12?.splitGaps)}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): `PER_TASK_PSET_BY_NAME.get(psetName)` in
+  // ifcReader.ts tijdelijk vervangen door `PER_TASK_PSET_BY_NAME.get(psetName) ?? (psetName.includes('Splits')
+  // ? PER_TASK_PSET_BY_NAME.get('OPS_TaskSplits') : undefined)` (een fuzzy substring-match op 'Splits'
+  // i.p.v. de exacte naamsgelijkheid) maakt precies deze assertie ROOD — `EXT_FakeSplits` matcht de
+  // substring, de fantoom-splits worden dan wél gelezen.
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// (13) Z14-spec-review-fixronde (§8-punt): rode-pad-fixture voor de `try { JSON.parse } catch` in de
+//      OPS_TaskSplits-descriptor (ifcPsets.ts) — TM draagt in de fixture een ECHTE 'Splits'-property
+//      (op een GELDIGE OPS_TaskSplits-pset), die we corrumperen naar onparseerbare tekst. Verwacht:
+//      geen crash, geen fantoom-splitGaps (de catch doet niets, `task.splitGaps` blijft ongezet —
+//      exact het WorkingExceptionIds-precedent uit blok (7a), maar dan voor Splits).
+{
+  const ifc13 = writeIFC(fixture);
+  const lines13 = ifc13.split('\n');
+  const splitsIdx = lines13.findIndex(l => l.includes("IFCPROPERTYSINGLEVALUE('Splits',"));
+  assert(splitsIdx >= 0, 'kon de Splits-property niet vinden (verwacht op TM, die heeft splitGaps)');
+  const corruptedSplitsLine = lines13[splitsIdx].replace(/IFCTEXT\('[^']*'\)/, "IFCTEXT('{niet geldige json')");
+  assert(corruptedSplitsLine !== lines13[splitsIdx], 'kon de Splits-waarde niet corrumperen');
+  lines13[splitsIdx] = corruptedSplitsLine;
+
+  let rt13: ImportResult | undefined;
+  let threw13: unknown;
+  try {
+    rt13 = readIFC(lines13.join('\n'));
+  } catch (e) {
+    threw13 = e;
+  }
+  assert(!threw13, `corrupte Splits-JSON mag niet crashen — kreeg: ${threw13 instanceof Error ? threw13.message : String(threw13)}`);
+  const tm13 = rt13?.tasks.find(t => t.wbsCode === '1.1'); // TM
+  assert(!!tm13, 'kon TM niet terugvinden ná de corrupte-Splits-fallback');
+  assert(tm13?.splitGaps === undefined,
+    `corrupte Splits-JSON moet terugvallen op "geen splits" (geen fantoomdata) — kreeg ${JSON.stringify(tm13?.splitGaps)}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { /* corrupte JSON: negeren ... */ }`
+  // in de OPS_TaskSplits-descriptor (ifcPsets.ts) tijdelijk laten rethrowen ⇒ deze case ROOD op
+  // `assert(!threw13, ...)` hierboven (een echte crash i.p.v. de bedoelde terugval).
+}
+
+// (14) Z14-spec-review-fixronde (§8-punt): rode-pad-fixture voor de `try { parsed = JSON.parse(raw) }
+//      catch { continue }` in de OPS_Timephased-extractie (ifcReader.ts, extractAssignments) — A1
+//      draagt in de fixture een ECHTE 'Windows'-property (op een GELDIGE OPS_Timephased-pset), die
+//      we corrumperen naar onparseerbare tekst. Verwacht: geen crash, geen fantoom-workWindow (de
+//      catch/continue slaat de hele pset over, `workWindowStart`/`workWindowFinish` blijven ongezet).
+{
+  const ifc14 = writeIFC(fixture);
+  const lines14 = ifc14.split('\n');
+  const windowsIdx = lines14.findIndex(l => l.includes("IFCPROPERTYSINGLEVALUE('Windows',"));
+  assert(windowsIdx >= 0, 'kon de Windows-property niet vinden (verwacht op t-x, A1 heeft een workWindow)');
+  const corruptedWindowsLine = lines14[windowsIdx].replace(/IFCTEXT\('[^']*'\)/, "IFCTEXT('{niet geldige json')");
+  assert(corruptedWindowsLine !== lines14[windowsIdx], 'kon de Windows-waarde niet corrumperen');
+  lines14[windowsIdx] = corruptedWindowsLine;
+
+  let rt14: ImportResult | undefined;
+  let threw14: unknown;
+  try {
+    rt14 = readIFC(lines14.join('\n'));
+  } catch (e) {
+    threw14 = e;
+  }
+  assert(!threw14, `corrupte Windows-JSON mag niet crashen — kreeg: ${threw14 instanceof Error ? threw14.message : String(threw14)}`);
+  // A1: taak t-x (TX, wbsCode 1.2), resource r-mem ('Timmerman Jan'), unitsPerDay 2 (curve BELL) —
+  // de meest-specifieke sleutel om de juiste assignment terug te vinden (t-x/r-mem komt twee keer voor).
+  const a1Back = rt14?.assignments.find(a => {
+    const t = rt14!.tasks.find(tt => tt.id === a.taskId);
+    const r = rt14!.resources.find(rr => rr.id === a.resourceId);
+    return t?.wbsCode === '1.2' && r?.name === 'Timmerman Jan' && a.unitsPerDay === 2;
+  });
+  assert(!!a1Back, 'kon A1 (t-x/r-mem, unitsPerDay 2) niet terugvinden ná de corrupte-Windows-fallback');
+  assert(a1Back?.workWindowStart === undefined && a1Back?.workWindowFinish === undefined,
+    `corrupte Windows-JSON moet terugvallen op "geen venster" (geen fantoomdata) — kreeg start=${a1Back?.workWindowStart} finish=${a1Back?.workWindowFinish}`);
+
+  // Mutatiebewijs (uitgevoerd, zie commitbericht): de `catch { continue }` in de OPS_Timephased-
+  // extractie (ifcReader.ts) tijdelijk laten rethrowen ⇒ deze case ROOD op `assert(!threw14, ...)`
+  // hierboven (een echte crash i.p.v. de bedoelde terugval).
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

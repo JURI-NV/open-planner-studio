@@ -240,6 +240,10 @@ export function toExtTaskTime(tt: TaskTime): ExtTaskTime {
     remainingTime: tt.remainingTime,
     remainingMinutes: tt.remainingMinutes,
     completion: tt.completion,
+    // Z14 (Z12-herwerk): resume/stop, zelfde onvoorwaardelijke doorgifte als de andere optionele
+    // tracking-velden hierboven (`undefined` blijft `undefined`).
+    resume: tt.resume,
+    stop: tt.stop,
   };
 }
 
@@ -283,6 +287,10 @@ export function fromExtTaskTime(tt: ExtTaskTime): TaskTime {
     remainingTime: tt.remainingTime,
     remainingMinutes: tt.remainingMinutes,
     completion: tt.completion ?? 0,
+    // Z14 (Z12-herwerk): resume/stop hebben geen zinvolle generieke fallback (net als
+    // actualStart/actualFinish hierboven) — afwezig blijft afwezig.
+    resume: tt.resume,
+    stop: tt.stop,
   };
 }
 
@@ -301,6 +309,11 @@ export function toExtTask(t: Task): ExtTask {
     mandatory: t.mandatory,
     priority: t.priority,
     levelingDelay: t.levelingDelay,
+    // Z14: vier Z0-typecontractvelden — zelfde onvoorwaardelijke doorgifte als levelingDelay hierboven.
+    levelingDelayMinutes: t.levelingDelayMinutes,
+    levelingDelayElapsed: t.levelingDelayElapsed,
+    splitGaps: t.splitGaps ? t.splitGaps.map(g => ({ ...g })) : undefined,
+    manuallyScheduled: t.manuallyScheduled,
     parentId: t.parentId,
     childIds: [...t.childIds],
     time: toExtTaskTime(t.time),
@@ -332,6 +345,11 @@ export function fromExtTask(t: ExtTask): Task {
     mandatory: t.mandatory,
     priority: t.priority,
     levelingDelay: t.levelingDelay,
+    // Z14: vier Z0-typecontractvelden — zelfde onvoorwaardelijke doorgifte als levelingDelay hierboven.
+    levelingDelayMinutes: t.levelingDelayMinutes,
+    levelingDelayElapsed: t.levelingDelayElapsed,
+    splitGaps: t.splitGaps ? t.splitGaps.map(g => ({ ...g })) : undefined,
+    manuallyScheduled: t.manuallyScheduled,
     parentId: t.parentId,
     childIds: [...t.childIds],
     time: fromExtTaskTime(t.time),
@@ -368,6 +386,11 @@ export function fromExtTaskInput(
   if (input.mandatory !== undefined) out.mandatory = input.mandatory;
   if (input.priority !== undefined) out.priority = input.priority;
   if (input.levelingDelay !== undefined) out.levelingDelay = input.levelingDelay;
+  // Z14: vier Z0-typecontractvelden — zelfde "alleen-als-gezet"-vorm als levelingDelay hierboven.
+  if (input.levelingDelayMinutes !== undefined) out.levelingDelayMinutes = input.levelingDelayMinutes;
+  if (input.levelingDelayElapsed !== undefined) out.levelingDelayElapsed = input.levelingDelayElapsed;
+  if (input.splitGaps !== undefined) out.splitGaps = input.splitGaps.map(g => ({ ...g }));
+  if (input.manuallyScheduled !== undefined) out.manuallyScheduled = input.manuallyScheduled;
   if (input.parentId !== undefined) out.parentId = input.parentId;
   if (input.childIds !== undefined) out.childIds = [...input.childIds];
   if (input.time !== undefined) out.time = fromExtTaskTime(input.time);
@@ -444,6 +467,11 @@ function fromExtTaskTimePatch(tt: Partial<ExtTaskTime>): Partial<TaskTime> {
   if ('remainingTime' in tt) out.remainingTime = tt.remainingTime;
   if ('remainingMinutes' in tt) out.remainingMinutes = tt.remainingMinutes;
   if ('completion' in tt) out.completion = tt.completion;
+  // Z14 (Z12-herwerk): resume/stop volgen dezelfde sleutel-aanwezigheid-conventie als de andere
+  // optionele velden hierboven — cruciaal voor dezelfde reden (zie de docstring boven deze functie):
+  // `mergeTaskTime` (taskDefaults.ts) onderscheidt "niet genoemd" van "bewust gewist" via `in`.
+  if ('resume' in tt) out.resume = tt.resume;
+  if ('stop' in tt) out.stop = tt.stop;
   return out;
 }
 
@@ -460,6 +488,11 @@ export function fromExtTaskUpdates(updates: Partial<ExtTask>): Partial<Task> {
   if (updates.mandatory !== undefined) out.mandatory = updates.mandatory;
   if (updates.priority !== undefined) out.priority = updates.priority;
   if (updates.levelingDelay !== undefined) out.levelingDelay = updates.levelingDelay;
+  // Z14: vier Z0-typecontractvelden — zelfde "alleen-als-gezet"-vorm als levelingDelay hierboven.
+  if (updates.levelingDelayMinutes !== undefined) out.levelingDelayMinutes = updates.levelingDelayMinutes;
+  if (updates.levelingDelayElapsed !== undefined) out.levelingDelayElapsed = updates.levelingDelayElapsed;
+  if (updates.splitGaps !== undefined) out.splitGaps = updates.splitGaps.map(g => ({ ...g }));
+  if (updates.manuallyScheduled !== undefined) out.manuallyScheduled = updates.manuallyScheduled;
   if (updates.parentId !== undefined) out.parentId = updates.parentId;
   if (updates.childIds !== undefined) out.childIds = [...updates.childIds];
   // T14b-vervolg: `fromExtTaskTimePatch`, NIET `fromExtTaskTime` — zie de docstring daarboven. `out.time`

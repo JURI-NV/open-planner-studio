@@ -1661,6 +1661,12 @@ interface AssignmentMeta {
   curve?: ResourceCurve;
 }
 
+/** Z14 — één gelezen timephased-venster (`OPS_Timephased`, spiegel van `writeTimephasedMeta`). */
+interface WindowMeta {
+  workWindowStart?: string;
+  workWindowFinish?: string;
+}
+
 /** Per-taak verzamelde OPS_Assignments-meta: nieuw formaat (`GUID#N`-propnamen) als
  *  geordende wachtrij per resource-GUID, oud formaat (kale GUID) als één meta per GUID. */
 interface TaskAssignmentMeta {
@@ -1682,6 +1688,11 @@ interface TaskAssignmentMeta {
  * last-wins-dedupen) óf de kale resource-GUID (legacy, pre-M3-bestanden); waarde =
  * `"unitsPerDay|curve"`. Ontbreekt de pset-entry (legacy bestand) dan geldt de bestaande
  * fallback `unitsPerDay: 1, curve: undefined`.
+ *
+ * Z14 (etappe "nul afwijkingen"): leest in dezelfde sweep ook `OPS_Timephased` — het
+ * timephased-venster (`workWindowStart`/`workWindowFinish`) per assignment, spiegel van
+ * `writeTimephasedMeta`. Aparte pset, zelfde `GUID#N`-sleutelconventie, geen wijziging aan het
+ * `OPS_Assignments`-pipe-formaat hierboven.
  */
 function extractAssignments(
   entities: StepEntity[],
@@ -1691,11 +1702,52 @@ function extractAssignments(
 ): ResourceAssignment[] {
   // 1. OPS_Assignments-psets per taak verzamelen: taskStepRef -> TaskAssignmentMeta.
   const metaByTask = new Map<string, TaskAssignmentMeta>();
+  // Z14 — OPS_Timephased-psets per taak verzamelen: taskStepRef -> resource-GUID -> wachtrij
+  // van WindowMeta (zelfde `GUID#N`-volgnummer-conventie als de queues hierboven, maar dan uit
+  // één JSON-blob-property ('Windows') i.p.v. losse IFCPROPERTYSINGLEVALUE's per assignment).
+  const windowsByTask = new Map<string, Map<string, WindowMeta[]>>();
   for (const rel of entities) {
     if (rel.type !== 'IFCRELDEFINESBYPROPERTIES') continue;
     const pset = entityMap.get(parseRef(rel.args[5] || '') || '');
     if (!pset || pset.type !== 'IFCPROPERTYSET') continue;
-    if (stripQuotes(pset.args[2] || '') !== PSET.Assignments) continue;
+    const psetName = stripQuotes(pset.args[2] || '');
+
+    if (psetName === PSET.Timephased) {
+      const windowProp = parseRefs(pset.args[4] || '')
+        .map(r => entityMap.get(r))
+        .find((p): p is StepEntity =>
+          !!p && p.type === 'IFCPROPERTYSINGLEVALUE' && stripQuotes(p.args[0] || '') === 'Windows');
+      const raw = windowProp ? parseTypedValue(windowProp.args[2] || '') : undefined;
+      if (typeof raw !== 'string' || !raw) continue;
+      let parsed: unknown;
+      try { parsed = JSON.parse(raw); } catch { continue; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue;
+      const indexed: { guid: string; index: number; meta: WindowMeta }[] = [];
+      for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+        const m = key.match(/^(.+)#(\d+)$/);
+        if (!m || !val || typeof val !== 'object') continue;
+        const vv = val as Record<string, unknown>;
+        const meta: WindowMeta = {
+          ...(typeof vv.workWindowStart === 'string' ? { workWindowStart: vv.workWindowStart } : {}),
+          ...(typeof vv.workWindowFinish === 'string' ? { workWindowFinish: vv.workWindowFinish } : {}),
+        };
+        if (meta.workWindowStart === undefined && meta.workWindowFinish === undefined) continue;
+        indexed.push({ guid: m[1], index: parseInt(m[2], 10), meta });
+      }
+      indexed.sort((a, b) => a.index - b.index);
+      for (const objRef of parseRefs(rel.args[4] || '')) {
+        let taskWindows = windowsByTask.get(objRef);
+        if (!taskWindows) { taskWindows = new Map(); windowsByTask.set(objRef, taskWindows); }
+        for (const { guid, meta } of indexed) {
+          let queue = taskWindows.get(guid);
+          if (!queue) { queue = []; taskWindows.set(guid, queue); }
+          queue.push(meta);
+        }
+      }
+      continue;
+    }
+
+    if (psetName !== PSET.Assignments) continue;
 
     const props = parseRefs(pset.args[4] || '')
       .map(r => entityMap.get(r))
@@ -1759,6 +1811,9 @@ function extractAssignments(
       // (elke herhaling van dezelfde resource in RelatedObjects is een eigen assignment);
       // val terug op de legacy kale-GUID-meta voor pre-M3-bestanden.
       const meta = taskMeta?.queues.get(resGuid)?.shift() ?? taskMeta?.legacy.get(resGuid);
+      // Z14 — timephased-venster, zelfde wachtrij-consumptie als `meta` hierboven (geen legacy-tak:
+      // OPS_Timephased is nieuw, er bestaan geen pre-Z14-bestanden die het al schreven).
+      const window = windowsByTask.get(taskRef)?.get(resGuid)?.shift();
 
       // 'UNIFORM' is de writer-default (a.curve ?? 'UNIFORM') — canonicaliseer terug naar
       // undefined zodat undefined en 'UNIFORM' round-trippen naar dezelfde waarde
@@ -1769,6 +1824,8 @@ function extractAssignments(
         resourceId: resId,
         unitsPerDay: meta?.unitsPerDay ?? 1,
         ...(meta?.curve && meta.curve !== 'UNIFORM' ? { curve: meta.curve } : {}),
+        ...(window?.workWindowStart !== undefined ? { workWindowStart: window.workWindowStart } : {}),
+        ...(window?.workWindowFinish !== undefined ? { workWindowFinish: window.workWindowFinish } : {}),
       });
     }
   }

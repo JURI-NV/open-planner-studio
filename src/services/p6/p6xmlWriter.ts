@@ -235,6 +235,29 @@ export function writeP6XML(
     console.warn(`P6-export: ${workingExcCount} werkende kalenderuitzondering(en) weggelaten — niet uitdrukbaar in P6-XML (geen DayWorking-vlag op HolidayOrException, §6).`);
   }
 
+  // Z14 (etappe "nul afwijkingen") — vier nieuwe velden zonder geverifieerde P6-representatie:
+  // exact het hammock-/externalLinks-patroon hierboven (weglaten-met-warn i.p.v. gokken op een
+  // UNVERIFIED P6-veldnaam).
+  const manualCount = tasks.filter(t => t.manuallyScheduled).length;
+  if (manualCount > 0) {
+    console.warn(`P6-export: ${manualCount} handmatig geplande taak/taken geëxporteerd als gewone taak met berekende datums — geen geverifieerd P6-equivalent (§6).`);
+  }
+  const levelingPrecisionCount = tasks.filter(t => t.levelingDelayMinutes != null).length;
+  if (levelingPrecisionCount > 0) {
+    console.warn(`P6-export: ${levelingPrecisionCount} taak/taken met sub-dag-nivelleervertraging (levelingDelayMinutes) weggelaten — niet uitdrukbaar in P6-XML (§6).`);
+  }
+  // Splits en gecontoureerde toewijzingen delen dezelfde timephased-oorsprong (§3(c) van het
+  // nul-afwijkingen-plan, zelfde redenering als de MSPDI-warn) — één gecombineerde warn.
+  const splitTaskCount = tasks.filter(t => t.splitGaps && t.splitGaps.length > 0).length;
+  const contouredAssignmentCount = assignments.filter(a => a.workWindowStart || a.workWindowFinish).length;
+  if (splitTaskCount > 0 || contouredAssignmentCount > 0) {
+    console.warn(`P6-export: ${splitTaskCount} gesplitste taak/taken en ${contouredAssignmentCount} gecontoureerde toewijzing(en) weggelaten — niet uitdrukbaar in P6-XML (§6).`);
+  }
+  const resumeStopCount = tasks.filter(t => t.time.resume || t.time.stop).length;
+  if (resumeStopCount > 0) {
+    console.warn(`P6-export: ${resumeStopCount} taak/taken met resume/stop (uit-volgorde-hervatting) weggelaten — niet uitdrukbaar in P6-XML (§6).`);
+  }
+
   lines.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
   lines.push('<APIBusinessObjects xmlns="http://xmlns.oracle.com/Primavera/P6/V23.12/API/BusinessObjects" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">');
 

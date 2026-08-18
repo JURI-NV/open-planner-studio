@@ -267,6 +267,18 @@ S().setProject({ name: 'K3-project', startDate: '2031-03-03' });
 const kT1 = S().addTask({ name: 'K3 A' });
 const kT2 = S().addTask({ name: 'K3 B' });
 S().addSequence({ predecessorId: kT1, successorId: kT2, type: 'FINISH_START', lagDays: 0 });
+// Z14 (etappe "nul afwijkingen"): de vier Z0-typecontractvelden + resume/stop moeten dezelfde
+// keten overleven — ze rijden mee via `tasks`' `clone`-snapshot-rol (geen apart contract-veld
+// nodig, zie de "wat NIET hoeft"-toelichting in het etappeplan), maar de ECHTE bewijslast is deze
+// write→read→restore-keten (IFC-psets), niet het documentcontract zelf.
+const kt1Before = S().tasks.find(t => t.id === kT1)!;
+S().updateTask(kT1, {
+  splitGaps: [{ afterMinutes: 60, gapMinutes: 30 }],
+  manuallyScheduled: true,
+  levelingDelayMinutes: 15,
+  levelingDelayElapsed: true,
+  time: { ...kt1Before.time, resume: '2031-03-05', stop: '2031-03-06' },
+});
 S().runCPM();
 S().saveBaseline('K3-nulmeting');
 // Momentopname vóór de round-trip; taak-id's worden bij het inlezen opnieuw gegenereerd (en de
@@ -302,6 +314,16 @@ truthy('d K3 keten: baseline-taakdatums zijn echt gevuld (geen lege strings)',
 truthy('d K3 keten: baseline-taskId\'s zijn geremapt naar de HERSTELDE taken',
   kTasksAfter.length > 0 && kTasksAfter.every(bt => S().tasks.some(t => t.id === bt.taskId)));
 eq('d K3 keten: projectDuration van de baseline overleeft', kBlAfter?.projectDuration, kBlBefore.projectDuration);
+
+// Z14: dezelfde restore — de vier Z0-typecontractvelden + resume/stop op 'K3 A' (taak-id
+// regenereert, dus opzoeken op naam, zoals de rest van dit bestand met natuurlijke sleutels werkt).
+const kT1After = S().tasks.find(t => t.name === 'K3 A');
+eq('d K3 keten: splitGaps overleeft', kT1After?.splitGaps, [{ afterMinutes: 60, gapMinutes: 30 }]);
+eq('d K3 keten: manuallyScheduled overleeft', kT1After?.manuallyScheduled, true);
+eq('d K3 keten: levelingDelayMinutes overleeft', kT1After?.levelingDelayMinutes, 15);
+eq('d K3 keten: levelingDelayElapsed overleeft', kT1After?.levelingDelayElapsed, true);
+eq('d K3 keten: time.resume overleeft', kT1After?.time.resume, '2031-03-05');
+eq('d K3 keten: time.stop overleeft', kT1After?.time.stop, '2031-03-06');
 
 // Contract-eenheidscheck op de tweede helft van de mapping: baselines uit de recovery-invoer
 // moeten ook in de document-payload landen (vangt een regressie IN `payloadFromInput`).
