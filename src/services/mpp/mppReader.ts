@@ -153,7 +153,7 @@ import { MAX_VAR_TEXT_BYTES, clampRemainingDurationTenths, clampManualDurationTe
 import { readRelations, readResources, readAssignments, readAssignmentTimephasedRaw } from './mppEntities';
 import {
   decodeRegularTimephasedWork, decodePlannedRegularTimephasedWork,
-  deriveSplitGapsFromPeriods, deriveTaskSplitGaps, shiftPeriods,
+  deriveSplitGapsFromPeriods, deriveTaskSplitGaps, shiftPeriods, hasAnyTimephasedData,
 } from './mppTimephased';
 
 // ── PropsKey-sleutels voor projecteigenschappen (PropsKey.java; gelezen uit `"   114"/Props`,
@@ -1348,6 +1348,12 @@ interface AssignmentUidLink {
   taskId: string;
   assignmentStart: Date | null;
   assignmentResume: Date | null;
+  /** Z8 (etappe "nul afwijkingen") — `AssignmentField.FINISH` (id 21, blok 0 offset 16, pal naast
+   *  `Start`). MSP's EIGEN al berekende afsluitdatum van déze toewijzing — zie
+   *  `deriveTimephasedWindowsForTasks`'s moduleheader voor het corpusbewijs. `null` ⇒ het veld
+   *  ontbreekt in dit bestand se field map, óf het record is te kort voor die offset (zelfde
+   *  terugvalcontract als `assignmentStart`/`assignmentResume`). */
+  assignmentFinish: Date | null;
 }
 
 /** Geëxporteerd, zelfde testbaarheidsreden als `readAssignments`/`readAssignmentTimephasedRaw`
@@ -1386,6 +1392,9 @@ function buildAssignmentUidLinksUnsafe(
   // elders in dit bestand: aanwezig ⇒ uitsluitend data-gedreven, geen stille default-offset).
   const startOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Start);
   const resumeOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Resume);
+  // Z8: zelfde optionele-veld-contract als Start/Resume hierboven (ontbreekt de veldmap-entry, dan
+  // levert dit overal `null` — geen exceptie, geen stille default-offset).
+  const finishOffset = fixedOffsetOf(assignmentFieldMap, AssignmentFieldId.Finish);
 
   const result = new Map<number, AssignmentUidLink>();
   // GEKLEMD via FixedMeta.getItemCount() — zelfde primitief (en dezelfde al-bestaande hardening,
@@ -1415,7 +1424,10 @@ function buildAssignmentUidLinksUnsafe(
     const assignmentResume = resumeOffset !== null && resumeOffset >= 0 && data.length >= resumeOffset + 4
       ? getTimestamp(data, resumeOffset, `${label}/FixedData resume`)
       : null;
-    result.set(uid, { taskId, assignmentStart, assignmentResume });
+    const assignmentFinish = finishOffset !== null && finishOffset >= 0 && data.length >= finishOffset + 4
+      ? getTimestamp(data, finishOffset, `${label}/FixedData finish`)
+      : null;
+    result.set(uid, { taskId, assignmentStart, assignmentResume, assignmentFinish });
   }
   return result;
 }
@@ -1553,6 +1565,113 @@ export function deriveSplitGapsForTasks(
   return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Z8 (etappe "nul afwijkingen") — timephased-venster bepaalt de taakdatums. GEEN kalenderwandeling
+// nodig — in tegenstelling tot Z4's splitsegmenten, die de RUWE werkminuten-periodes zelf moeten
+// wandelen, draagt de toewijzing (`TBkndAssn`) naast haar `Start` (Z4, id 20) ook haar EIGEN al
+// berekende `Finish` (id 21, blok 0 offset 16, pal naast Start) — MSP's antwoord ná toepassing van
+// zowel het contour/restwerk-venster ALS de resourcekalender van die toewijzing.
+//
+// VERPLICHTE MEETSTAP (plan-§Z8, "concreet uit te meten": max over toewijzingen vs. laatste venster
+// vs. eigen kalenderwandeling) — wegwerpscript tegen 21 crawl-bestanden (11 pin-relevante + 10
+// controle) plus het volledige `mpp14timephased.mpp`-corpus (40 taken, 5 contour-families):
+//   - `AssignmentField.FINISH` rechtstreeks gelezen (GEEN eigen kalenderwandeling): 40/40 exact op
+//     `mpp14timephased.mpp`, en 0 mismatches op alle overige 19 crawl-timephased-bestanden BEHALVE
+//     `timephased-prorated-cost-resource.mpp`'s "No Progress - Actual Cost" — dat is het reeds
+//     gepinde Z13-dossier (rauw anker zonder constraint): zelfs MSP's EIGEN assignment.FINISH wijkt
+//     daar één dag af van de taak se eigen FINISH (intern inconsistent bronbestand, zie plan-§6 stap
+//     3) — GEEN Z8-regressie, buiten deze taak se scope, ongewijzigd aan Z13 gelaten.
+//   - Een eigen kalenderwandeling (taak-kalender óf resource-kalender, `elapsedWorkMinutesEnd` vanaf
+//     de gedecodeerde periodes) WEERLEGD als algemene regel: voor de "24 Hour"-contourfamilie
+//     (Resource-kalender "24 Hours", GEEN eigen taakkalender — de naam suggereert dat, maar de taak
+//     zelf staat gewoon op de projectkalender) gaf de resource-kalender-wandeling `null` (de
+//     kalender bleek in dit bestand niet als uur-modus gepromoveerd) en de taak-kalender-wandeling
+//     een verkeerde datum; alleen een RUWE 24/7-kloktijd-optelling matchte toevallig — maar diezelfde
+//     kloktijd-optelling zou `mpp14splittask.mpp` (Z4's referentie) breken. Voor de "Task 4"/"Task 6"-
+//     contourfamilie (Front/Back-Loaded-achtige vorm) draagt `RAW_TIMEPHASED_REMAINING_REGULAR_WORK`
+//     het `blockCount===0`-samenvattingsgeval (`mppTimephased.ts`'s moduleheader): zónder
+//     `referenceFinish` levert dat een LEGE periodelijst, dus een op-periodes-gebaseerde wandeling
+//     zag voor die twee taken maar de HELFT van het venster (2250 i.p.v. 4500 werkminuten,
+//     precies de helft) — `AssignmentField.FINISH` heeft dat probleem niet, het is een apart,
+//     rechtstreeks veld, geen afgeleide van de periodes.
+//   ⇒ GEMETEN REGEL: lees `AssignmentField.FINISH`/`START` rechtstreeks, geen kalenderwandeling.
+//
+// AGGREGATIEREGEL (gemeten, ProjectLibre-hypothese bevestigd — `NormalTask.calcOffsetFrom()` ter
+// hypothesevorming, niet overgenomen): MAXIMUM van `AssignmentField.FINISH` over de toewijzingen
+// van een taak die daadwerkelijk timephased-data droegen (corpusbewijs: "Task A" in
+// `mpp14resource.mpp`, DRIE toewijzingen — de enige gemeten multi-toewijzing-taak in het corpus —
+// reproduceert exact via het maximum). Een toewijzing ZONDER timephased-data draagt geen signaal
+// (spiegelt Z4's aggregatieregel-motivering hierboven) en wordt uitgesloten van de aggregatie.
+//
+// STARTANKER (idem, MINIMUM van `AssignmentField.START`): uitsluitend gemeten als nodig voor
+// WORTEL-taken (`preds.length===0`, `CPMSolver.ts`'s `forwardPass`) wier eigen anker buiten de
+// TAAK-kalenderband ligt maar binnen de RESOURCE-kalenderband (corpusbewijs: de "Night Shift"-
+// contourfamilie in `mpp14timephased.mpp`, vier onbegonnen taken — de gewone `ownAnchor`-snap duwde
+// 23:00 naar de volgende werkdag 08:00 omdat de taak se eigen "Standard"-kalender geen 23:00 kent;
+// MSP snapt niet, want het resource-eigen "Night Shift"-schema wél). NIET gemeten voor niet-wortel-
+// taken (elke corpuscase met een voorganger kreeg z'n START al goed via de gewone relatiewiskunde
+// zodra de FINISH-kant van haar voorganger klopte) — `CPMSolver.ts` consumeert dit veld daarom
+// uitsluitend in de `preds.length===0`-tak, geen bredere claim dan het corpus draagt.
+//
+// SAMENVATTINGSTAKEN: zelfde uitsluiting als Z4 (`task.childIds.length > 0`) — MSP toont geen
+// contour-eigen venster op een WBS-samenvattingstaak, haar datums komen uit de kinderrollup.
+export function deriveTimephasedWindowsForTasks(
+  cfb: CfbFile,
+  assignmentFieldMap: FieldMapTable,
+  taskIdByUniqueId: ReadonlyMap<number, string>,
+  tasks: readonly Task[],
+): Map<string, { finishFloor: Date; startAnchor: Date | null }> {
+  const rawByUid = readAssignmentTimephasedRaw(cfb, assignmentFieldMap); // Z3, zelf al try/catch-veilig
+  if (rawByUid.size === 0) return new Map();
+
+  const linkByUid = buildAssignmentUidLinks(cfb, assignmentFieldMap, taskIdByUniqueId);
+  if (linkByUid.size === 0) return new Map();
+
+  const taskById = new Map(tasks.map((t) => [t.id, t] as const));
+  const finishesByTask = new Map<string, Date[]>();
+  const startsByTask = new Map<string, Date[]>();
+
+  for (const [uid, raw] of rawByUid) {
+    if (!hasAnyTimephasedData(raw)) continue; // geen signaal ⇒ uitgesloten van de aggregatie
+    const link = linkByUid.get(uid);
+    if (!link) continue;
+    const task = taskById.get(link.taskId);
+    if (!task || task.childIds.length > 0) continue; // samenvattingstaak: zelfde uitsluiting als Z4
+    // Z8-fixronde (regressie GEVONDEN en GEFIXT, ANDERS dan hier eerst geprobeerd — zie het
+    // commitbericht): een poging om hier op "≥1 ECHTE gedecodeerde periode" te filteren (contour
+    // vs. het vlakke `blockCount===0`-samenvattingsrecord, zie `mppTimephased.ts`'s moduleheader)
+    // bleek ZELF een regressie te introduceren op `mpp14resource.mpp`'s "Task A" (3 toewijzingen,
+    // ALLE DRIE vlak/0-periodes, maar de `AssignmentField.FINISH`-max over die drie IS wél MSP's
+    // juiste antwoord — géén contour nodig, gewoon drie VERSCHILLENDE resourcekalenders) en op de
+    // "Night Shift"/"24 Hour"-familie se eigen "Task 1" (idem: vlak, maar toch resourcekalender-
+    // gedreven). "Genuine contour" is dus NIET de juiste discriminator — de fix zit bij de
+    // AANROEPER (`CPMSolver.ts`'s `forwardPass`): het venster wint NOOIT van een echte SF-vereiste-
+    // finish (`sfFinishFloor` blijft een `Math.max`-ondergrens, ook als het venster aanwezig is),
+    // maar wint WEL van de kale duur-gebaseerde `earlyFinishRaw` — zie CPMSolver.ts voor de
+    // volledige toelichting en het mutatiebewijs. Hier blijft dus gewoon de brede
+    // byte-aanwezigheidstoets, zoals vóór deze fixronde.
+    if (link.assignmentFinish) {
+      const list = finishesByTask.get(link.taskId) ?? [];
+      list.push(link.assignmentFinish);
+      finishesByTask.set(link.taskId, list);
+    }
+    if (link.assignmentStart) {
+      const list = startsByTask.get(link.taskId) ?? [];
+      list.push(link.assignmentStart);
+      startsByTask.set(link.taskId, list);
+    }
+  }
+
+  const result = new Map<string, { finishFloor: Date; startAnchor: Date | null }>();
+  for (const [taskId, finishes] of finishesByTask) {
+    const finishFloor = new Date(Math.max(...finishes.map((d) => d.getTime())));
+    const starts = startsByTask.get(taskId);
+    const startAnchor = starts ? new Date(Math.min(...starts.map((d) => d.getTime()))) : null;
+    result.set(taskId, { finishFloor, startAnchor });
+  }
+  return result;
+}
+
 export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult {
   const { cfb, projectProps, applicationVersion } = openMppProject(bytes);
 
@@ -1600,6 +1719,34 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   for (const task of tasks) {
     const gaps = splitGapsByTaskId.get(task.id);
     if (gaps) task.splitGaps = gaps;
+  }
+
+  // Z8 (etappe "nul afwijkingen") — timephased-venster bepaalt de taakdatums (zie de functie se
+  // eigen moduleheader hierboven voor het volledige corpusbewijs). `finishFloor` altijd gezet
+  // (gedekt door de `finishesByTask`-sleutel), `startAnchor` alleen wanneer minstens één
+  // signaal-dragende toewijzing ook een `AssignmentField.START` droeg.
+  const timephasedWindowByTaskId = deriveTimephasedWindowsForTasks(cfb, assignmentFieldMap, taskIdByUniqueId, tasks);
+  for (const task of tasks) {
+    const window = timephasedWindowByTaskId.get(task.id);
+    if (!window) continue;
+    task.timephasedFinishFloor = formatInstant(window.finishFloor, 'hour');
+    if (window.startAnchor) task.timephasedStartAnchor = formatInstant(window.startAnchor, 'hour');
+    // `ResourceAssignment.workWindowStart`/`workWindowFinish` (Z0-velden, ronden al door IFC via
+    // Z14's `OPS_Timephased`-pset) — vullen vanuit dezelfde afleiding, best-effort: `readAssignments`
+    // (mppEntities.ts) genereert een VERS `id` per toewijzing (`generateId('asgn')`, geen relatie met
+    // de ruwe MPP-uid) en sluit bovendien de null-resource-toewijzingen uit (zie
+    // `mppTimephased.ts`'s "VONDST VOOR Z8"-paragraaf) — een exacte per-toewijzing terugkoppeling zou
+    // een VIERDE onafhankelijke `TBkndAssn`-lus vergen voor een zuiver informatief veld (P6-/MSPDI-
+    // exportmeldingen tellen alleen de AANWEZIGHEID, zie `p6xmlWriter.ts`/`mspdiWriter.ts`). Daarom
+    // hier de taak-brede aggregaten op ELKE resourced toewijzing van deze taak — exact voor het
+    // overgrote-meerderheid-geval (één toewijzing per taak, alle gemeten corpusbestanden), een
+    // gedocumenteerde vereenvoudiging voor het multi-toewijzing-geval (bv. "Task A" in
+    // mpp14resource.mpp): elke toewijzing draagt dan hetzelfde taak-brede venster i.p.v. haar eigen.
+    for (const assignment of assignments) {
+      if (assignment.taskId !== task.id) continue;
+      assignment.workWindowFinish = task.timephasedFinishFloor;
+      if (task.timephasedStartAnchor) assignment.workWindowStart = task.timephasedStartAnchor;
+    }
   }
 
   return {

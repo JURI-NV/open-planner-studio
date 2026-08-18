@@ -901,6 +901,13 @@ export class CPMSolver {
       const task = this.tasks.get(taskId)!;
       const cal = this.calendarFor(task);
       const preds = this.predecessors.get(taskId) || [];
+      // Z8-fixronde (VERPLAATST naar hier, was verderop in deze functie): de IN-PROGRESS-tak
+      // hieronder (`if (usedResumeOverride...) { ... results.set(...); continue; }`) heeft haar
+      // EIGEN `ef`-berekening en `continue`t VÓÓR het punt waar dit vroeger stond — de
+      // timephased-finish-override (zie verderop) moet dus ook DÁÁR al gelden, niet alleen in de
+      // gewone AUTO-tak. `hardPinFinish` is een pure functie van `task`/`cal` (geen loop-state),
+      // dus vervroegen is veilig — één berekening, twee toepassingsplekken, geen dubbel werk.
+      const hardFinishPin = this.hardPinFinish(task, cal);
 
       // ── Hammock / Level of Effort (§4.4) ───────────────────────────────────
       // Een hammock loopt mee in topologische volgorde (drivers staan er per definitie vóór). ES =
@@ -967,6 +974,14 @@ export class CPMSolver {
         // H3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — zelfde
         // reden als de precompute-lus hierboven (regel ~797) en `snapSuccessorEarlyStart`.
         const rootElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
+        // Z8 (etappe "nul afwijkingen", gemeten — zie `mppReader.ts`'s `deriveTimephasedWindowsFor
+        // Tasks`-moduleheader voor het corpusbewijs): een wortel-taak met een timephased-toewijzing
+        // wier eigen `AssignmentField.START` buiten de TAAK-kalenderband ligt maar binnen haar EIGEN
+        // resourcekalender (corpusvoorbeeld: een "Night Shift"-resource om 23:00) draagt dat instant
+        // al RAUW, precies zoals `rootElapsed` hieronder — MSP snapt dat niet naar de eerstvolgende
+        // taak-kalender-werk-instant, onze `ownAnchor`-snap deed dat vóór deze fixronde wél. Afwezig
+        // ⇒ byte-identiek (de `ownAnchor`-tak hieronder draait ongewijzigd).
+        const timephasedAnchor = task.timephasedStartAnchor;
         // Geen voorganger: de eigen geplande start, ONGEKLEMD tegen de projectstart (T7, §9/O2 —
         // "een ingelezen anker wordt nooit door de vloer overruled"; zie `ownAnchor`). Een harde
         // MSO/MFO-pin (hieronder in `applyForwardConstraints`) wint hier nog steeds
@@ -974,7 +989,9 @@ export class CPMSolver {
         // deze waarde ooit gezien wordt.
         earlyStart = rootElapsed
           ? this.parseIn(cal, task.time.scheduleStart)
-          : this.ownAnchor(cal, task.time.scheduleStart);
+          : timephasedAnchor
+            ? parseInstant(timephasedAnchor)
+            : this.ownAnchor(cal, task.time.scheduleStart);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
         // Fase 2.8b (golf 3): her-snap ná de constraint — spiegelt de voorganger-tak (regel 466).
@@ -984,10 +1001,11 @@ export class CPMSolver {
         // i.p.v. de bandstart (de `earlyFinish` rekent al vanaf de bandstart ⇒ interne inconsistentie).
         // Idempotent in dag-modus (`nextWorkDay` van een werkdag = diezelfde werkdag) en bij een
         // niet-bindende constraint (ES al gesnapt op regel 429) ⇒ byte-identiek voor de 290.
-        // `rootElapsed` slaat deze her-snap over (zelfde MSP-pariteitsgrond als hierboven) — een
-        // ONgeconstrainde elapsed wortel-taak had hier toch al niets te her-snappen; alleen mét een
-        // (werk-instant-snappende) constraint kan deze tak ooit iets anders dan het rauwe anker geven.
-        earlyStart = rootElapsed ? earlyStart : this.snapOnOrAfter(cal, earlyStart);
+        // `rootElapsed`/`timephasedAnchor` slaan deze her-snap over (zelfde MSP-pariteitsgrond als
+        // hierboven) — een ONgeconstrainde taak met zo'n raw anker had hier toch al niets te
+        // her-snappen; alleen mét een (werk-instant-snappende) constraint kan deze tak ooit iets
+        // anders dan het rauwe anker geven.
+        earlyStart = (rootElapsed || timephasedAnchor) ? earlyStart : this.snapOnOrAfter(cal, earlyStart);
       } else {
         // Early start = max van alle voorganger-constraints, met de projectstart als ondergrens.
         // Die ondergrens is correct vóór ÉLKE relatie: relatie-constraints (FS/SS/FF/SF) zijn
@@ -1143,6 +1161,24 @@ export class CPMSolver {
           // `actualFinish` en start de opvolger op de eerste werkdag daarna — precies waar het feit
           // hem zet. Buiten dit randgeval (ef ≥ es) verandert er niets.
           if (ef < es) es = ef;
+          // Z8-fixronde (VERPLICHT ook in de VOLTOOID-tak, niet alleen IN-PROGRESS/AUTO): een
+          // VOLTOOIDE taak pint hier op `t.actualFinish` — een TAAK-eigen geregistreerd feit, GEEN
+          // toewijzings-eigen veld. Gemeten (mpp14timephased.mpp, de drie resterende afwijkingen ná
+          // de IN-PROGRESS-fix, allemaal completionPct=100): voor de Night-Shift/24-Hour-contour-
+          // families draagt `t.actualFinish` DEZELFDE taak-kalender-vs-resourcekalender-discrepantie
+          // als de niet-voltooide broertjes hierboven hadden — MSP's eigen `AssignmentField.FINISH`
+          // (de bron van `task.timephasedFinishFloor`, via `timephasedFinish()`) is ook hier het
+          // gezaghebbende antwoord. Zelfde gating/precedentie als de andere twee toepassingsplekken
+          // (geen SF-voorganger op een wortel-/VOLTOOIDE taak ⇒ `sfFinishFloor` is hier toch al
+          // `null`, dus deze aanroep is voor DEZE tak een kale venster-toepassing).
+          const voltooidElapsed = !isZeroDurationMilestone(task) && t.durationType === 'ELAPSEDTIME';
+          if (!isZeroDurationMilestone(task) && !voltooidElapsed) {
+            const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
+            if (tf) {
+              ef = tf;
+              if (ef < es) es = ef; // zelfde inversie-wacht als hierboven
+            }
+          }
           results.set(taskId, { es, ef });
           continue;
         }
@@ -1457,6 +1493,20 @@ export class CPMSolver {
           // mechanisme afgeleide waarde). Normale niet-override-pad: `remStart` is per constructie
           // altijd ≥ `actualES`, dus deze wacht is daar een no-op.
           if (usedResumeOverride && ef < actualES) ef = actualES;
+          // Z8-fixronde (VERPLICHT hier ook, niet alleen in de AUTO-tak verderop): deze IN-PROGRESS-
+          // tak berekent `ef` zelf en `continue`t vóór het punt waar de gewone timephased-finish-
+          // override staat — zonder deze regel hier bleven precies de taken MET voortgang (Task 4/6/
+          // 7/8 en hun contourfamilies in `mpp14timephased.mpp`, completionPct 50/60/100) op hun
+          // naïeve `ef` hangen, ondanks een correct gevuld `task.timephasedFinishFloor` (gemeten,
+          // Z8-fixronde: 9 resterende finishDiff + 1 sameday, ALLEMAAL taken met completionPct > 0).
+          // Zelfde precedentie/gating als verderop (`timephasedFinish()`, zie diens docblok voor de
+          // Z8-fixronde-correctie: het venster wint van `earlyFinishRaw`, maar NOOIT van een echte
+          // SF-vereiste-finish `sfFinishFloor`) — hier bovendien niet op een ELAPSEDTIME-taak (24/7
+          // kent geen resourcekalender-onderscheid, ongemeten).
+          if (!isElapsedTask) {
+            const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
+            if (tf) ef = tf;
+          }
           results.set(taskId, { es: actualES, ef });
           continue;
         }
@@ -1489,15 +1539,28 @@ export class CPMSolver {
       // signaal voor zo'n conflict — deze wacht verandert daar niets aan, ze voorkomt alleen dat de
       // vloer een EIGEN, tweede schending introduceert bovenop een taak die al hard gepind is.
       // `hardPinFinish` afwezig (geen harde pin, verreweg het gebruikelijke geval) ⇒ byte-identiek.
-      const hardFinishPin = this.hardPinFinish(task, cal);
+      // (`hardFinishPin` zelf is vooraan deze functie al berekend — Z8-fixronde, zie die toelichting.)
       // Z10: de SF-vereiste-finish is een ondergrens op de early finish (zie `sfFinishFloor`s
       // declaratie hierboven) — vuurt alleen als de gewone `ES + duur`-herberekening er daadwerkelijk
       // ONDER blijft (het normale, niet-grensoverschrijdende geval reproduceert `sfFinishFloor` toch
       // al exact, dus deze `max` is dan een no-op). `sfFinishFloor === null` (geen SF-voorganger,
       // verreweg het gebruikelijke geval) ⇒ byte-identiek aan vóór Z10.
-      const earlyFinish = !hardFinishPin && sfFinishFloor && sfFinishFloor > earlyFinishRaw
+      let earlyFinish = !hardFinishPin && sfFinishFloor && sfFinishFloor > earlyFinishRaw
         ? sfFinishFloor
         : earlyFinishRaw;
+      // Z8 (etappe "nul afwijkingen", gemeten — zie `mppReader.ts`'s `deriveTimephasedWindowsFor
+      // Tasks`-moduleheader voor het corpusbewijs, en `timephasedFinish()`'s eigen docblok voor de
+      // fixronde-correctie op de precedentie t.o.v. `sfFinishFloor`): het timephased-venster wint
+      // van de kale duur-gebaseerde `earlyFinishRaw`/`sfFinishFloor`-combinatie hierboven (dus ook
+      // als dat een LATERE datum was — `earlyFinishRaw` wordt hier niet meer geraadpleegd), maar
+      // nooit van een harde MFO/MSO-pin en nooit van een échte SF-vereiste-finish (die blijft zijn
+      // eigen `Math.max`-ondergrens, verrekend in `timephasedFinish()` zelf). `task.
+      // timephasedFinishFloor` afwezig ⇒ `tf === null` ⇒ byte-identiek (het overgrote deel van de
+      // taken heeft geen timephased-toewijzingen). Veldnaam ("Floor") bewust ongewijzigd gelaten
+      // ondanks dat het gedrag een override is, geen vloer — hernoemen zou Task/mppReader/
+      // moveProject/check-ifc-roundtrip opnieuw raken voor een zuiver cosmetische reden.
+      const tf = this.timephasedFinish(task, cal, hardFinishPin, sfFinishFloor);
+      if (tf) earlyFinish = tf;
 
       results.set(taskId, { es: earlyStart, ef: earlyFinish });
     }
@@ -1712,6 +1775,35 @@ export class CPMSolver {
     if (!d) return null;
     const snapped = this.snapOnOrAfter(eng, d);
     return c.type === 'MFO' ? snapped : this.addDuration(eng, snapped, task);
+  }
+
+  /**
+   * Z8 (etappe "nul afwijkingen", fixronde): het timephased-vensterantwoord (`task.
+   * timephasedFinishFloor`, gevuld door `mppReader.ts` uit `AssignmentField.FINISH` — zie diens
+   * moduleheader voor het volledige corpusbewijs), of `null` als het niet van toepassing is.
+   *
+   * FIXRONDE-CORRECTIE (regressie gevonden op `mpp14relations.mpp`'s "Task 5", de Z10-dossier-
+   * taak — START_FINISH-opvolger): een EERSTE versie liet dit venster de hele `earlyFinish`
+   * ONVOORWAARDELIJK overschrijven. MSP's per-toewijzing `FINISH`-veld blijkt echter NIET altijd
+   * al de volledige relatiewiskunde te verrekenen — voor Task 5 droeg het de NAÏEVE `ES+duur`-
+   * datum (2006-09-22T17:00), niet de SF-aangepaste datum (2006-09-25T08:00) die `sfFinishFloor`
+   * (Z10) al correct berekent. Tegelijk WEERLEGD (Z8-fixronde 1): een `sfFinishFloor`-achtige
+   * `Math.max` tegen de KALE `earlyFinishRaw` werkt niet — de "24 Hour"-contourfamilie
+   * (`mpp14timephased.mpp`) en "Task A" (`mpp14resource.mpp`, drie verschillende resource-
+   * kalenders) finishen aantoonbaar EERDER dan wat een kalenderwandeling op de TAAK-kalender geeft
+   * (het venster is dus geen ondergrens op de naïeve duur, wél op een echte SF-vereiste-finish).
+   * Conclusie: het venster wint van `earlyFinishRaw` (dat wordt hier niet eens meer geraadpleegd),
+   * maar NOOIT van een echte SF-vereiste (`sfFinishFloor`, alleen gezet bij een SF-voorganger) —
+   * die blijft een `Math.max`-ondergrens, exact zoals ze dat voor `earlyFinishRaw` al was.
+   * `sfFinishFloor === null` (geen SF-voorganger, verreweg het gebruikelijke geval) ⇒ het venster
+   * geldt kaal, byte-identiek aan de eerste versie voor die populatie.
+   */
+  private timephasedFinish(
+    task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
+  ): Date | null {
+    if (hardFinishPin || !cal.isHourMode || !task.timephasedFinishFloor) return null;
+    const windowValue = parseInstant(task.timephasedFinishFloor);
+    return sfFinishFloor && sfFinishFloor > windowValue ? sfFinishFloor : windowValue;
   }
 
   /**

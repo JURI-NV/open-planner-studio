@@ -335,6 +335,13 @@ export const AssignmentFieldId = {
   /** Z4-fixronde — `AssignmentField.RESUME` (id 24). GEEN default-entry in de Java-bron (zie de
    *  moduleheader) — bewust GEEN vermelding in `DEFAULT_ASSIGNMENT_FIELDS` hieronder. */
   Resume: 24,
+  /** Z8 (etappe "nul afwijkingen") — `AssignmentField.FINISH` (`FieldMap14.java`, blok 0 offset 16,
+   *  id 21 — pal naast `Start`, zelfde recordindeling). MSP's EIGEN al berekende afsluitdatum voor
+   *  déze toewijzing (rekening houdend met haar contour/restwerk EN haar eigen resourcekalender —
+   *  zie `mppReader.ts`'s Z8-toelichting voor het corpusbewijs: 0 afwijkingen op alle 11 gemeten
+   *  timephased-bestanden door dit veld rechtstreeks te lezen, GEEN eigen kalenderwandeling nodig).
+   *  Heeft, net als `Start`, een hardcoded default (hieronder in `DEFAULT_ASSIGNMENT_FIELDS`). */
+  Finish: 21,
   /** Z3 (etappe "nul afwijkingen") — timephased-categorieën, alle vier VAR_DATA (geen vaste
    *  offset: `FieldMap14.java`'s `FieldLocation.VAR_DATA, block 0, dataBlockOffset 65535`).
    *  Scope-begrenzing (plan-Z3, §"Scope-begrenzing"): UITSLUITEND deze vier — niet de 11
@@ -366,6 +373,7 @@ export const DEFAULT_ASSIGNMENT_FIELDS: Readonly<Record<number, FieldEntry>> = {
   [AssignmentFieldId.ResourceUniqueId]: { location: 'fixed', fixedOffset: 8 },
   [AssignmentFieldId.Units]: { location: 'fixed', fixedOffset: 46 },
   [AssignmentFieldId.Start]: { location: 'fixed', fixedOffset: 12 },
+  [AssignmentFieldId.Finish]: { location: 'fixed', fixedOffset: 16 },
   [AssignmentFieldId.RemainingRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.RemainingRegularWork },
   [AssignmentFieldId.ActualRegularWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualRegularWork },
   [AssignmentFieldId.ActualOvertimeWork]: { location: 'var', varDataKey: AssignmentFieldId.ActualOvertimeWork },

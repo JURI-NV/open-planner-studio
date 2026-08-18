@@ -221,6 +221,9 @@ const TM = {
   levelingDelayMinutes: 45, levelingDelayElapsed: true,
   splitGaps: [{ afterMinutes: 120, gapMinutes: 60 } satisfies TaskSplitGap],
   manuallyScheduled: true,
+  // Z8: geen eigen IFC-pset (zie TASK_CANON hieronder, skip-cellen) — de waarden hier bestaan
+  // uitsluitend om `Required<Task>` compleet te houden, niet om een round-trip te bewijzen.
+  timephasedFinishFloor: '2026-07-24T17:00', timephasedStartAnchor: '2026-07-24T08:00',
   parentId: 't-p', childIds: [],
   resourceIds: [], // milestone zonder assignments ⇒ afgeleide resourceIds is leeg (H2-fix)
   color: '#abcdef', // round-trippt via OPS_TaskAppearance (H2-fix)
@@ -489,6 +492,12 @@ const TASK_CANON = {
   // uitgebreid met LevelingDelayMinutes/-Elapsed, `OPS_TaskSplits` en `OPS_ManualScheduling` nieuw)
   // — echte KEEP-vergelijking i.p.v. de vroegere skip-cellen.
   levelingDelayMinutes: KEEP, levelingDelayElapsed: KEEP, splitGaps: KEEP, manuallyScheduled: KEEP,
+  // Z8 (etappe "nul afwijkingen", implementer-gemelde uitzondering — buiten baan S se
+  // bestandseigendom valt `ifcPsets.ts`/`ifcWriter.ts`/`ifcReader.ts` zelf aanpassen): deze twee
+  // zijn per-import afgeleide CPM-invoer (zoals `splitGaps` vóór Z14), nog GEEN eigen IFC-pset.
+  // Round-trip is een openstaand vervolgpunt (zie het Z8-commitbericht) — tot dan skip, geen KEEP.
+  timephasedFinishFloor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
+  timephasedStartAnchor: { skip: 'Z8: nog geen eigen IFC-pset, zie het Z8-commitbericht' },
   parentId: { as: 'parent', get: (t: Task, k: Keys) => (t.parentId ? k.task(t.parentId) : null) },
   childIds: { as: 'children', get: (t: Task, k: Keys) => t.childIds.map(c => k.task(c)).sort() },
   time: { get: (t: Task, k: Keys) => canonize(TIME_CANON, t.time, k) },

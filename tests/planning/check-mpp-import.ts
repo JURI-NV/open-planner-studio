@@ -68,7 +68,7 @@ import {
 import {
   readMPP, assignHierarchyAndWbs, clampOutlineLevel, MAX_OUTLINE_LEVEL,
   openMppProject, parseProjectProperties, readTasks,
-  buildAssignmentUidLinks, deriveSplitGapsForTasks,
+  buildAssignmentUidLinks, deriveSplitGapsForTasks, deriveTimephasedWindowsForTasks,
   type ReadTasksResult, type RawTaskScan,
 } from '@/services/mpp/mppReader';
 import { readCalendars, type CalendarReadResult } from '@/services/mpp/mppCalendars';
@@ -91,6 +91,7 @@ import {
   type TimephasedWorkPeriod, type TimephasedIrregularPeriod,
 } from '@/services/mpp/mppTimephased';
 import { readAssignmentTimephasedRaw } from '@/services/mpp/mppEntities';
+import { solveProject } from '@/engine/scheduler/solveProject';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
@@ -2788,8 +2789,17 @@ if (corpusPresent) {
   // voor resource-contouring ("Contoured Task", assignment-uniqueID 8): de moduleheader hierboven
   // (punt 3 bij `TASK_FIELD_LEVELING_DELAY`) documenteert waarom het assignment-eigen WORK_CONTOUR-
   // bit — GETOETST op precies dit bestand — niet betrouwbaar bleek en dus NIET geïmplementeerd is.
-  // Deze leescase pint het GEKOZEN (eerlijke) gedrag: "Contoured Task" heeft venster == duur (geen
-  // spanGt, geen leveling delay) en blijft dus ONGEMELD — een KNOWN GAP, geen stille belofte. ────
+  //
+  // Z8-OMZETTING (2026-08-18, plan-§Z8: "de aanwezigheid van timephased datablokken is zelf het
+  // signaal, en het venster is bovendien direct bruikbaar in plaats van alleen 'iets is anders'.
+  // Werkt dat, dan mag de KNOWN-GAP-leescase omgezet worden van 'wordt niet gemeld' naar 'wordt
+  // correct gepland'"): dat werkt — `mpp-fidelity-baseline.json` pint dit bestand sinds Z8 op 0/0/0
+  // over alle zes velden (was 1 startDiff + 2 finishDiff, `reason` "resource-contouring-
+  // detectiegrens"; de `reason` is bij Z8 VERVALLEN, niet alleen bijgewerkt). De MELDING
+  // (`sourceScheduleNotes`) blijft wél een KNOWN GAP — dat is een apart, ONGEMOEID signaal (buiten
+  // Z8-scope: de melding detecteert contouring zelf, niet het venster dat eruit voortvloeit) — maar
+  // de PLANNING is niet langer stil fout: de asserties hieronder bewijzen dat met de ECHTE keten
+  // (`readMPP` + `solveProject`, dezelfde als `runCPM`), niet alleen met de rauwe ingelezen datums. ─
   {
     const RESOURCE_FIXTURE = process.env.OPS_MPP_RESOURCE_FIXTURE
       ?? '/home/nozzit/open-aec/voor claude/testdata-crawl/mpxj/junit/data/mpp14resource.mpp';
@@ -2811,10 +2821,52 @@ if (corpusPresent) {
         }
         // KNOWN GAP, expliciet gepind (geen stille regressie mogen worden — zie de moduleheader):
         // resource-contouring-ALLEEN triggert geen enkel huidig signaal, dus GEEN sourceScheduleNotes.
+        // Dit blijft ONGEWIJZIGD door Z8 — de melding is een apart signaal, zie de sectie-toelichting.
         truthy(
           `[T12 mpp14resource] GEEN sourceScheduleNotes ondanks resource-contouring — bekende, gedocumenteerde beperking (kreeg ${JSON.stringify(result.sourceScheduleNotes)})`,
           result.sourceScheduleNotes === undefined,
         );
+
+        // Z8-OMZETTING — "wordt correct gepland": reken de ECHTE keten door (readMPP + solveProject,
+        // dezelfde die runCPM draait) en toets tegen MSP's eigen opgeslagen antwoord (gemeten,
+        // `mppGroundTruth.ts`-stijl — hier als letterlijke, publieke MPXJ-crawldatums, toegestaan
+        // per plan-§6/§8). "Task A" heeft GEEN contour maar WEL drie toewijzingen met verschillende
+        // resourcekalenders (de aggregatieregel-referentie voor acceptatiepunt 1b — zie CPMSolver.ts/
+        // mppReader.ts); "Contoured Task" is de ECHTE contourtaak en volgt op "Task A" (FS+0).
+        const cpm = solveProject({
+          tasks: result.tasks, sequences: result.sequences, calendar: result.calendar,
+          calendars: result.resourceCalendars ?? [],
+        });
+        truthy('[T12 mpp14resource, Z8] solveProject zonder cyclus-fout', !cpm.error);
+        const taskA = result.tasks.find((t) => t.name === 'Task A');
+        truthy('[T12 mpp14resource, Z8] "Task A" gevonden', !!taskA);
+        if (taskA) {
+          truthy(
+            `[T12 mpp14resource, Z8] "Task A".scheduleFinish === MSP's eigen 2006-08-30T08:00 (drie toewijzingen, verschillende resourcekalenders — MAX-aggregatie, kreeg ${taskA.time.scheduleFinish})`,
+            taskA.time.scheduleFinish === '2006-08-30T08:00',
+          );
+        }
+        if (contoured) {
+          truthy(
+            `[T12 mpp14resource, Z8] "Contoured Task".scheduleFinish === MSP's eigen 2006-09-08T09:08 (echte contour + FS-voorganger "Task A", kreeg ${contoured.time.scheduleFinish})`,
+            contoured.time.scheduleFinish === '2006-09-08T09:08',
+          );
+        }
+        // Mutatiebewijs (acceptatiepunt 2, "negeer het venster ⇒ ROOD"): met `task.
+        // timephasedFinishFloor` verwijderd VÓÓR het rekenen zou "Task A" terugvallen op de kale
+        // duur-gebaseerde berekening — reproduceer dat expliciet i.p.v. de productiecode te muteren.
+        if (taskA) {
+          const withoutWindow = { ...taskA, time: { ...taskA.time }, timephasedFinishFloor: undefined };
+          const cpmNaive = solveProject({
+            tasks: [withoutWindow, ...result.tasks.filter((t) => t.id !== taskA.id)],
+            sequences: result.sequences, calendar: result.calendar, calendars: result.resourceCalendars ?? [],
+          });
+          const naiveFinish = cpmNaive.tasks.get(taskA.id)?.earlyFinish;
+          truthy(
+            `[T12 mpp14resource, Z8 mutatiebewijs] ZONDER timephasedFinishFloor wijkt "Task A".scheduleFinish af van MSP's antwoord (bewijst dat het venster de bepalende factor is, kreeg ${naiveFinish})`,
+            naiveFinish !== '2006-08-30T08:00',
+          );
+        }
       }
     }
   }
@@ -4268,6 +4320,152 @@ function z4MakeTask(id: string, scheduleStart: Date, childIds: string[] = []): T
   truthy(
     '[Z4 verdedigingsdiepte] negatieve fixedOffset ⇒ dat veld wordt null, de rest van de link blijft intact',
     linksHostileOffset.get(7)?.taskId === 'task-a' && linksHostileOffset.get(7)?.assignmentStart === null,
+  );
+}
+
+// ── Z8 — `deriveTimephasedWindowsForTasks` (mppReader.ts): de venster-aggregatie (MAX van
+// `AssignmentField.FINISH`, MIN van `AssignmentField.START`, over toewijzingen mét timephased-
+// signaal) rechtstreeks getoetst met een synthetische `TBkndAssn`-fixture (spiegelt de
+// `buildAssignmentUidLinks`-fixture hierboven, aangevuld met VarMeta/Var2Data zodat het
+// signaalcriterium — `hasAnyTimephasedData`, zie de Z8-fixronde-toelichting bij deze functie in
+// mppReader.ts — daadwerkelijk getoetst wordt). Plan-§Z8 acceptatiepunt 1: (a)/(b)/(c) hieronder;
+// mutatiebewijs bij elk. ──────────────────────────────────────────────────────────────────────
+{
+  const THURSDAY_0800 = new Date('2026-01-08T08:00:00.000Z');
+
+  function z8MetaBytes(records: { deleted: boolean; offset: number }[]): Uint8Array {
+    const out = new Uint8Array(16 + records.length * 34);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, 0xfadfadba, true);
+    view.setInt32(8, records.length, true);
+    records.forEach((r, i) => {
+      const pos = 16 + i * 34;
+      view.setUint8(pos, r.deleted ? 1 : 0);
+      view.setInt32(pos + 4, r.offset, true);
+    });
+    return out;
+  }
+  // uid@0, taskUid@4, start@12, finish@16 — spiegelt `FieldMap14.java`'s block-0-offsets exact
+  // (zie `fieldMap14.ts`'s `AssignmentFieldId.Finish`-docblok).
+  function z8DataRecord(uid: number, taskUid: number, start?: Date, finish?: Date): Uint8Array {
+    const out = new Uint8Array(110);
+    const view = new DataView(out.buffer);
+    view.setInt32(0, uid, true);
+    view.setInt32(4, taskUid, true);
+    if (start) {
+      const p = z4TimestampParts(start);
+      view.setUint16(12, p.time, true);
+      view.setUint16(14, p.days, true);
+    }
+    if (finish) {
+      const p = z4TimestampParts(finish);
+      view.setUint16(16, p.time, true);
+      view.setUint16(18, p.days, true);
+    }
+    return out;
+  }
+
+  const asgFieldMapBytes = buildFieldMapEntryBytes([
+    { typeValue: AssignmentFieldId.UniqueId, dataBlockOffset: 0, category: 3 },
+    { typeValue: AssignmentFieldId.TaskUniqueId, dataBlockOffset: 4, category: 3 },
+    { typeValue: AssignmentFieldId.Start, dataBlockOffset: 12, category: 3 },
+    { typeValue: AssignmentFieldId.Finish, dataBlockOffset: 16, category: 3 },
+    { typeValue: AssignmentFieldId.ActualRegularWork, dataBlockOffset: 65535, category: 8 },
+  ]);
+  const asgProps = new Props(encodePropsEntries([{ key: PROPSKEY_ASSIGNMENT_FIELD_MAP, data: asgFieldMapBytes }]), 'Z8-assignment-fieldmap');
+  const asgFieldMap = createAssignmentFieldMap(asgProps);
+
+  // uid 30/31: taak-x (taskUid 301) — TWEE toewijzingen met verschillende vensters, BEIDE met
+  // timephased-signaal (acceptatiepunt 1b: "twee toewijzingen met verschillende vensters ⇒ de
+  // GEMETEN regel", hier MAX-finish/MIN-start). uid 30 (korter: start=TUESDAY, finish=TUESDAY),
+  // uid 31 (langer: start=MONDAY — EERDER — finish=WEDNESDAY — LATER).
+  // uid 32: taak-x, EVEN LATERE finish (THURSDAY) maar GEEN timephased-var-data ⇒ moet uitgesloten
+  // blijven van de aggregatie (bewijst het signaalcriterium — zonder de `hasAnyTimephasedData`-
+  // guard zou finishFloor op THURSDAY landen i.p.v. de correcte WEDNESDAY).
+  // uid 40: taak-y (taskUid 302, samenvattingstaak — childIds niet leeg) — timephased-signaal
+  // aanwezig, moet toch UITGESLOTEN blijven (spiegelt Z4's samenvattingstaak-uitsluiting).
+  // taak-z (taskUid 303): GEEN enkele toewijzing met timephased-data ⇒ acceptatiepunt 1c
+  // ("taak zonder timephased data ⇒ byte-identiek" — hier: afwezig uit de resultaat-map).
+  const metaBytes = z8MetaBytes([
+    { deleted: false, offset: 0 }, { deleted: false, offset: 110 },
+    { deleted: false, offset: 220 }, { deleted: false, offset: 330 },
+  ]);
+  const dataBytes = concatBytes(
+    z8DataRecord(30, 301, TUESDAY_0800, TUESDAY_0800),
+    z8DataRecord(31, 301, MONDAY_0800, WEDNESDAY_0800),
+    z8DataRecord(32, 301, TUESDAY_0800, THURSDAY_0800), // GEEN var-data hieronder ⇒ signaal-loos
+    z8DataRecord(40, 302, MONDAY_0800, THURSDAY_0800),  // samenvattingstaak
+  );
+
+  // Var2Data draagt timephased-signaal voor uid 30/31/40 (niet 32 — zie hierboven). De payload-
+  // inhoud is betekenisloos voor deze functie (ze decodeert geen periodes, alleen `hasAnyTimephasedData`
+  // telt, zie de Z8-fixronde-toelichting bij `deriveTimephasedWindowsForTasks` in mppReader.ts).
+  const payload = Uint8Array.of(1, 2, 3, 4);
+  const varMetaBytes = buildVarMetaBytes([
+    { uniqueId: 30, type: AssignmentFieldId.ActualRegularWork, offset: 0 },
+    { uniqueId: 31, type: AssignmentFieldId.ActualRegularWork, offset: 4 + payload.length },
+    { uniqueId: 40, type: AssignmentFieldId.ActualRegularWork, offset: 2 * (4 + payload.length) },
+  ]);
+  const var2DataBytes = buildVar2DataBytes(
+    [
+      { offset: 0, payload },
+      { offset: 4 + payload.length, payload },
+      { offset: 2 * (4 + payload.length), payload },
+    ],
+    3 * (4 + payload.length),
+  );
+
+  const cfb = new CfbFile(buildNestedCfb({
+    '   114': {
+      children: {
+        TBkndAssn: {
+          children: {
+            FixedMeta: { data: metaBytes }, FixedData: { data: dataBytes },
+            VarMeta: { data: varMetaBytes }, Var2Data: { data: var2DataBytes },
+          },
+        },
+      },
+    },
+  }));
+  const taskIdByUniqueId = new Map<number, string>([[301, 'task-x'], [302, 'task-y'], [303, 'task-z']]);
+  const tasks: Task[] = [
+    z4MakeTask('task-x', MONDAY_0800),
+    z4MakeTask('task-y', MONDAY_0800, ['task-y-child']), // samenvattingstaak
+    z4MakeTask('task-z', MONDAY_0800),
+  ];
+
+  const windows = deriveTimephasedWindowsForTasks(cfb, asgFieldMap, taskIdByUniqueId, tasks);
+
+  truthy('[Z8 1a/1b] task-x aanwezig', windows.has('task-x'));
+  truthy(
+    '[Z8 1b] task-x finishFloor === MAX(TUESDAY, WEDNESDAY) = WEDNESDAY (uid 32 se latere THURSDAY genegeerd — geen signaal)',
+    windows.get('task-x')?.finishFloor.getTime() === WEDNESDAY_0800.getTime(),
+  );
+  truthy(
+    '[Z8 1b] task-x startAnchor === MIN(TUESDAY, MONDAY) = MONDAY',
+    windows.get('task-x')?.startAnchor?.getTime() === MONDAY_0800.getTime(),
+  );
+  truthy('[Z8] task-y (samenvattingstaak) NIET in de resultaat-map, ondanks timephased-signaal', !windows.has('task-y'));
+  truthy('[Z8 1c] task-z (geen enkele toewijzing met timephased-data) NIET in de resultaat-map — "byte-identiek"', !windows.has('task-z'));
+  truthy('[Z8] exact 1 taak in de resultaat-map (task-x)', windows.size === 1);
+
+  // Mutatiebewijs 1 (acceptatiepunt 2, "negeer het venster ⇒ (a)/(b) ROOD"): dit IS de aggregatie-
+  // functie zelf — een implementatie die per ongeluk MIN i.p.v. MAX voor de finish zou nemen, geeft
+  // hier TUESDAY i.p.v. WEDNESDAY. Uitgevoerd als losse berekening (niet de productiecode gemuteerd,
+  // die blijft ongewijzigd) om aan te tonen dat de bovenstaande assertie DIE fout ook echt vangt:
+  const wrongMin = Math.min(TUESDAY_0800.getTime(), WEDNESDAY_0800.getTime());
+  truthy(
+    '[Z8 mutatiebewijs] MIN i.p.v. MAX zou WEDNESDAY missen (bewijst dat de MAX-assertie hierboven echt onderscheidend is)',
+    wrongMin !== windows.get('task-x')?.finishFloor.getTime(),
+  );
+
+  // Mutatiebewijs 2 (het signaalcriterium): zonder de `hasAnyTimephasedData`-guard zou uid 32 (GEEN
+  // var-data, maar wel de LATERE finish THURSDAY) meetellen — reproduceer die fout hier expliciet
+  // door de guard-conditie los te evalueren, en bewijs dat de PRODUCTIE-uitkomst daar NIET mee
+  // overeenkomt (dus de guard daadwerkelijk vuurt, niet toevallig hetzelfde antwoord geeft).
+  truthy(
+    '[Z8 mutatiebewijs] zonder signaalfilter zou finishFloor op THURSDAY liggen — productie-uitkomst is dat NIET',
+    windows.get('task-x')?.finishFloor.getTime() !== THURSDAY_0800.getTime(),
   );
 }
 

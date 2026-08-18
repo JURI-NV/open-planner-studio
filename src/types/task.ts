@@ -293,6 +293,27 @@ export interface Task {
    *  renderer tekent sinds Z15 al een onderbroken balk in Gantt/print/PDF. Afwezig ⇒ geen splits
    *  (byte-identiek). */
   splitGaps?: TaskSplitGap[];
+  /** OPTIONEEL — ondergrens voor de vroege finish (Z8, etappe "nul afwijkingen"), afgeleid uit het
+   *  timephased-werkvenster van de toewijzingen van deze taak (MS Project "contouring"/restwerk).
+   *  Gevuld door `mppReader.ts` als het MAXIMUM van `AssignmentField.FINISH` over de toewijzingen
+   *  van deze taak die daadwerkelijk timephased-data droegen — MSP's EIGEN al berekende antwoord
+   *  (rekening houdend met haar contour ÉN haar eigen resourcekalender), geen eigen kalender-
+   *  wandeling nodig. Corpusbewijs: 0 afwijkingen op alle 11 gemeten timephased-bestanden door dit
+   *  veld rechtstreeks te lezen (zie `mppReader.ts`'s Z8-toelichting). `CPMSolver.ts`'s `forwardPass`
+   *  past 'm toe op DEZELFDE plek als `sfFinishFloor` (`Math.max`, wint niet van een harde MFO/MSO-
+   *  pin, alleen in uur-modus — dag-modus-taken negeren dit veld). ISO-instant, minuutprecisie
+   *  (`formatInstant(d,'hour')`). Afwezig ⇒ geen timephased-toewijzingen op deze taak, byte-
+   *  identiek. GEEN eigen IFC-pset (buiten Z8's bestandseigendom — round-trip is een openstaand
+   *  vervolgpunt, zie het Z8-commitbericht). */
+  timephasedFinishFloor?: string;
+  /** OPTIONEEL — RAUW startanker (Z8), het MINIMUM van `AssignmentField.START` over dezelfde
+   *  toewijzingen als `timephasedFinishFloor`. Uitsluitend gebruikt voor een taak ZONDER voorganger
+   *  (`CPMSolver.ts`'s `forwardPass`, `preds.length===0`-tak) wier eigen `time.scheduleStart` buiten
+   *  de taak-kalender-band ligt maar de toewijzing wél binnen haar EIGEN resourcekalender (corpus-
+   *  voorbeeld: een "Night Shift"-resource op 23:00, buiten de taak se "Standard"-band) — MSP snapt
+   *  zo'n anker niet, de gewone `ownAnchor`-snap deed dat vóór Z8 wél. Afwezig ⇒ byte-identiek.
+   *  Zelfde IFC-kanttekening als `timephasedFinishFloor`. */
+  timephasedStartAnchor?: string;
   /** OPTIONEEL — handmatig geplande taak (MS Project "Manually Scheduled", Z0, voorlopig
    *  ONGEBRUIKT). De datums zelf blijven `time.scheduleStart`/`scheduleFinish` — dit is puur het
    *  SIGNAAL dat de solver ze straks RAUW moet respecteren (geen kalendersnap, geen relatiedruk,
