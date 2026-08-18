@@ -600,13 +600,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14resource.mpp",
       "tasks": 3,
-      "startExact": 2,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 2,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval is verwijderd (reviewer: fee9ecb4 in een nieuw jasje). 'Task A' (3 toewijzingen, waaronder Brian Leach se 1u/dag-kalender) en 'Contoured Task' regresseren — DIT IS de al eerder gediagnosticeerde multi-toewijzing-populatie: de volledige-taakduur-per-toewijzing-wandeling (laag 4's kernformule) is BEWEZEN ONJUIST bij >1 toewijzing (ze delen het werk, wandelen ze elk 'alleen' geeft een absurde datum) — laag 4 is daarom bewust tot PRECIES 1 toewijzing beperkt. Een correcte oplossing vereist werkVERDELING over gelijktijdige toewijzingen (elke toewijzing doet een DEEL van het werk, niet het geheel) — dat is een nieuw, nog niet gebouwd aangrijpingspunt, geen resourcekalender-kwestie. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "42a45696c7b142bd": {
       "root": "crawl",

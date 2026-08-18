@@ -2076,13 +2076,21 @@ export class CPMSolver {
    *
    * LAAG 4 — VERSE herberekening (`timephasedDurationWalks`): GEEN gelezen antwoord, dus GEEN
    * cirkelmeting-risico — `task.time.durationMinutes` is een gewoon, edit-live veld. Voor ELK item
-   * in de lijst: wandel die duur door de toewijzings-eigen resourcekalender vanaf haar `anchor`, en
-   * neem het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish", corpusbewijs "Task A" —
-   * mpp14resource.mpp, drie toewijzingen, één met een sterk afwijkende kalender die de max wint).
-   * Zelfde `sfFinishFloor`-precedentie als laag 3. Een item wiens resourcekalender NIET naar
-   * uur-modus promoveert (dag-modus-kalender) draagt geen bruikbare `addWorkMinutes` en wordt
-   * overgeslagen — ontbreken ALLE items dan (zeldzaam; `mppReader.ts` activeert laag 4 alleen als
-   * er minstens één structureel afwijkende, dus doorgaans al gepromoveerde, kalender is) ⇒ `null`.
+   * in de lijst: wandel een duur door de toewijzings-eigen resourcekalender vanaf haar `anchor`, en
+   * neem het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish"). Zelfde
+   * `sfFinishFloor`-precedentie als laag 3. Een item wiens resourcekalender NIET naar uur-modus
+   * promoveert (dag-modus-kalender) draagt geen bruikbare `addWorkMinutes` en wordt overgeslagen —
+   * ontbreken ALLE items dan (zeldzaam; `mppReader.ts` activeert laag 4 alleen als er minstens één
+   * structureel afwijkende, dus doorgaans al gepromoveerde, kalender is) ⇒ `null`.
+   *
+   * WELKE duur per item (Z19, residu-iteratie "nul afwijkingen") — `walk.workMinutes` als die
+   * gezet is, anders de VOLLE `task.time.durationMinutes`. `mppReader.ts` zet `workMinutes`
+   * UITSLUITEND bij >1 toewijzing (`deriveTimephasedWindowsForTasks`'s finalisatielus): meerdere
+   * GELIJKTIJDIGE toewijzingen delen het werk, dus wandelt elke toewijzing alleen haar eigen
+   * werk-aandeel, niet de volle taakduur (die aanname bleek BEWEZEN onjuist bij >1 toewijzing —
+   * `mpp14resource.mpp`'s "Task A", drie toewijzingen, gaf zonder apportionering een ~2× te late
+   * datum). Bij PRECIES 1 item ontbreekt `workMinutes` altijd (byte-identiek bewezen gedrag, zie
+   * `mppReader.ts`'s eigen corpusbewijs voor die tak).
    */
   private timephasedFinish(
     task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
@@ -2103,7 +2111,10 @@ export class CPMSolver {
           const resCal = resolveCalendar(walk.resourceCalendarId, this.registry, this.projectCal);
           const resEng = this.engineForCal(resCal);
           if (!resEng.isHourMode) continue;
-          const candidate = resEng.addWorkMinutes(parseInstant(walk.anchor), durMin);
+          // Z19-apportionering: `workMinutes` (alleen gezet bij >1 toewijzing) wint van de volle
+          // taakduur — zie het docblok hierboven.
+          const walkMinutes = walk.workMinutes ?? durMin;
+          const candidate = resEng.addWorkMinutes(parseInstant(walk.anchor), walkMinutes);
           if (!windowValue || candidate > windowValue) windowValue = candidate;
         }
       }
