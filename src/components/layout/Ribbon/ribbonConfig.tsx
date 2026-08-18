@@ -729,7 +729,6 @@ const beeldTab: RibbonTabConfig = [
     items: [
       {
         kind: 'stack', id: 'overlaysStack', items: [
-          { kind: 'component', id: 'screenColors', Component: ScreenColorsPopoverButton },
           {
             kind: 'small', id: 'toggleBaselineOverlay', icon: <LayoutGrid size={14} />, labelKey: 'menu:ribbon.toggleBaselineOverlay',
             use: () => {
@@ -754,17 +753,22 @@ const beeldTab: RibbonTabConfig = [
               return { active: showStatusDateLine, onClick: () => { const next = !showStatusDateLine; setUI({ showStatusDateLine: next }); void saveShowStatusDateLine(next); } };
             },
           },
-          {
-            // #21: scherm-accent — dun streepje resourcekleur onder de balken (kleurmodi zelf
-            // zitten in Rapport → Balkkleuren; dit is het compacte schermsignaal).
-            kind: 'small', id: 'toggleResourceAccent', icon: <Palette size={14} />, labelKey: 'menu:ribbon.toggleResourceAccent',
-            use: () => {
-              const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
-              const setUI = useAppStore(s => s.setUI);
-              return { active: showResourceAccent, onClick: () => { const next = !showResourceAccent; setUI({ showResourceAccent: next }); void saveShowResourceAccent(next); } };
-            },
-          },
         ],
+      },
+      // #21 (user-wens): Balkkleuren + Resource-accent RECHTS van de overlay-stack.
+      { kind: 'component', id: 'screenColors', Component: ScreenColorsPopoverButton },
+      // #21 (user-wens): Balkkleuren + Resource-accent NAAST (rechts van) de overlay-stack —
+      // binnen de stack paste de popover-knop niet boven de toggles. De groep legt items
+      // horizontaal neer, dus dit zet beide knoppen als eigen kolom rechts van de toggles.
+      {
+        // scherm-accent — dun streepje resourcekleur onder de balken; compact schermsignaal
+        // naast de kleurmodi (die zitten in de Balkkleuren-popover links).
+        kind: 'small', id: 'toggleResourceAccent', icon: <Palette size={14} />, labelKey: 'menu:ribbon.toggleResourceAccent',
+        use: () => {
+          const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
+          const setUI = useAppStore(s => s.setUI);
+          return { active: showResourceAccent, onClick: () => { const next = !showResourceAccent; setUI({ showResourceAccent: next }); void saveShowResourceAccent(next); } };
+        },
       },
     ],
   },
