@@ -32,7 +32,11 @@ export type BuiltinFieldKey =
   | 'name' | 'wbsCode' | 'duration' | 'start' | 'finish'
   | 'totalFloat' | 'isCritical' | 'completion' | 'taskType' | 'isMilestone'
   // Fase 2.9 (§3.5): additieve analyse-velden — raken geen bestaand veld.
-  | 'freeFloat' | 'interferingFloat' | 'isNearCritical' | 'floatPath';
+  | 'freeFloat' | 'interferingFloat' | 'isNearCritical' | 'floatPath'
+  // Synthetisch filter-only veld (issue-discussie #32): "actief tussen" toetst start ÉN finish
+  // tegelijk tegen een periode (interval-overlap), dus geen sorteer-/groepeerbaar scalar-veld —
+  // zie FILTER_ONLY_BUILTIN_KEYS in fieldCatalog.ts.
+  | 'activeDuring';
 
 export type FieldRef =
   | { src: 'builtin'; key: BuiltinFieldKey }

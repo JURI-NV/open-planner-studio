@@ -16,7 +16,8 @@
     "freeFloat": "Freier Puffer",
     "interferingFloat": "Interferierender Puffer",
     "isNearCritical": "Beinahe kritisch",
-    "floatPath": "Pufferpfad"
+    "floatPath": "Pufferpfad",
+    "activeDuring": "In Bearbeitung"
   },
   "taskType": {
     "CONSTRUCTION": "Bau",

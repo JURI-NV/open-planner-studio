@@ -16,7 +16,8 @@
     "completion": "Progress",
     "milestone": "Milestone",
     "hoursPerDayTip": "h/day",
-    "mixedWarning": "Mixed calendars — hours/day per calendar: {{list}}. Duration is shown per task in its own unit."
+    "mixedWarning": "Mixed calendars — hours/day per calendar: {{list}}. Duration is shown per task in its own unit.",
+    "activeDuring": "In progress"
   },
   "taskType": {
     "CONSTRUCTION": "Construction",

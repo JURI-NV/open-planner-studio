@@ -16,7 +16,8 @@
     "freeFloat": "Marge libre",
     "interferingFloat": "Marge interférente",
     "isNearCritical": "Quasi critique",
-    "floatPath": "Chemin de marge"
+    "floatPath": "Chemin de marge",
+    "activeDuring": "En cours"
   },
   "taskType": {
     "CONSTRUCTION": "Construction",

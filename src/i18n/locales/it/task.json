@@ -16,7 +16,8 @@
     "freeFloat": "Margine libero",
     "interferingFloat": "Margine interferente",
     "isNearCritical": "Quasi critica",
-    "floatPath": "Percorso di margine"
+    "floatPath": "Percorso di margine",
+    "activeDuring": "In corso"
   },
   "taskType": {
     "CONSTRUCTION": "Costruzione",

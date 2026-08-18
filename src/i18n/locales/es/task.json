@@ -16,7 +16,8 @@
     "freeFloat": "Holgura libre",
     "interferingFloat": "Holgura interferente",
     "isNearCritical": "Casi crítica",
-    "floatPath": "Ruta de holgura"
+    "floatPath": "Ruta de holgura",
+    "activeDuring": "En curso"
   },
   "taskType": {
     "CONSTRUCTION": "Construcción",

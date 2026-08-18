@@ -16,7 +16,8 @@
     "freeFloat": "자유 여유",
     "interferingFloat": "간섭 여유",
     "isNearCritical": "준임계",
-    "floatPath": "여유 경로"
+    "floatPath": "여유 경로",
+    "activeDuring": "진행 중"
   },
   "taskType": {
     "CONSTRUCTION": "건설",

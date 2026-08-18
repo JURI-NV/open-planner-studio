@@ -186,6 +186,22 @@ export function applyOperator(
 }
 
 /**
+ * "Actief tussen"-synthetisch filterveld (issue-discussie #32): een taak is actief in [van, tot]
+ * wanneer haar eigen interval [start, finish] dát overlapt — de klassieke interval-overlaptest
+ * (start ≤ tot ÉN finish ≥ van). Dit past niet in de generieke resolver: die levert per veld één
+ * scalar die de operator tegen `value`/`value2` legt, terwijl deze check start ÉN finish
+ * tegelijk nodig heeft. Vandaar de special-case hier in plaats van een uitbreiding van
+ * `resolveField`/`applyOperator`. ISO-datums vergelijken lexicografisch correct (zie `cmp`).
+ */
+function evaluateActiveDuring(task: Task, value?: string | number | boolean | string[], value2?: string | number): boolean {
+  if (typeof value !== 'string' || typeof value2 !== 'string') return false;
+  const start = task.time.earlyStart || task.time.scheduleStart;
+  const finish = task.time.earlyFinish || task.time.scheduleFinish;
+  if (!start || !finish) return false;
+  return start <= value2 && finish >= value;
+}
+
+/**
  * Evalueer een filterknoop op één taak (§6.2). Een lege groep matcht alles (neutraal element).
  */
 export function evaluate(node: FilterNode, task: Task, ctx: ViewContext): boolean {
@@ -194,6 +210,9 @@ export function evaluate(node: FilterNode, task: Task, ctx: ViewContext): boolea
     return node.op === 'AND'
       ? node.children.every(c => evaluate(c, task, ctx))
       : node.children.some(c => evaluate(c, task, ctx));
+  }
+  if (node.field.src === 'builtin' && node.field.key === 'activeDuring') {
+    return evaluateActiveDuring(task, node.value, node.value2);
   }
   const v = resolveField(node.field, task, ctx);
   return applyOperator(node.operator, v, node.value, node.value2);

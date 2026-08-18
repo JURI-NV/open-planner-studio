@@ -16,7 +16,8 @@
     "freeFloat": "Folga livre",
     "interferingFloat": "Folga interferente",
     "isNearCritical": "Quase crítica",
-    "floatPath": "Caminho de folga"
+    "floatPath": "Caminho de folga",
+    "activeDuring": "Em andamento"
   },
   "taskType": {
     "CONSTRUCTION": "Construção",

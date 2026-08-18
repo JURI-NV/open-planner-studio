@@ -16,7 +16,8 @@
     "freeFloat": "شناوری آزاد",
     "interferingFloat": "شناوری مداخله‌گر",
     "isNearCritical": "نزدیک به بحرانی",
-    "floatPath": "مسیر شناوری"
+    "floatPath": "مسیر شناوری",
+    "activeDuring": "در حال انجام"
   },
   "taskType": {
     "CONSTRUCTION": "ساخت",

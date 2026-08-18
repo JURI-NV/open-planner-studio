@@ -16,7 +16,8 @@
     "freeFloat": "الفائض الحر",
     "interferingFloat": "الفائض المتداخل",
     "isNearCritical": "شبه حرج",
-    "floatPath": "مسار الفائض"
+    "floatPath": "مسار الفائض",
+    "activeDuring": "قيد التنفيذ"
   },
   "taskType": {
     "CONSTRUCTION": "بناء",

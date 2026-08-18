@@ -16,7 +16,8 @@
     "freeFloat": "自由浮动",
     "interferingFloat": "干扰浮动",
     "isNearCritical": "接近关键",
-    "floatPath": "浮动路径"
+    "floatPath": "浮动路径",
+    "activeDuring": "进行中"
   },
   "taskType": {
     "CONSTRUCTION": "施工",

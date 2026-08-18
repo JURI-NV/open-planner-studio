@@ -16,7 +16,8 @@
     "freeFloat": "Serbest bolluk",
     "interferingFloat": "Müdahale bolluğu",
     "isNearCritical": "Kritiğe yakın",
-    "floatPath": "Bolluk yolu"
+    "floatPath": "Bolluk yolu",
+    "activeDuring": "Devam ediyor"
   },
   "taskType": {
     "CONSTRUCTION": "İnşaat",

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/common/Dialog';
 import {
-  fullFieldList, fieldOptions, fieldKind, operatorsForKind, selectOptions,
+  filterFieldList, fieldOptions, fieldKind, operatorsForKind, selectOptions,
   type FieldCatalogCtx,
 } from '@/components/viewControls/fieldCatalog';
 import { useFieldCatalogCtx } from '@/components/viewControls/useFieldCatalogCtx';
@@ -113,7 +113,7 @@ function RuleValueEditor({
     );
   }
 
-  if (kind === 'date') {
+  if (kind === 'date' || kind === 'activePeriod') {
     if (rule.operator === 'between') {
       return (
         <div className="flex items-center gap-1">
@@ -296,7 +296,7 @@ export function FilterDialog() {
   );
 
   const ctx: FieldCatalogCtx = useFieldCatalogCtx();
-  const fields = useMemo(() => fullFieldList(ctx), [ctx]);
+  const fields = useMemo(() => filterFieldList(ctx), [ctx]);
 
   const apply = () => {
     setFilter(root.children.length === 0 ? null : root);
