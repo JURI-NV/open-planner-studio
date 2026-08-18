@@ -119,6 +119,39 @@ export function clampManualDurationTenths(raw: number): number {
 }
 
 /**
+ * Z5 (etappe "nul afwijkingen") — klem op de RAUWE `LEVELING_DELAY` (FixedData blok 0, offset 58,
+ * veld-id 20, INT32, tienden-van-een-minuut — zelfde vorm/klem-precedent als
+ * `REMAINING_DURATION`/`MANUAL_DURATION` hierboven, zie `fieldMap14.ts`'s `TaskFieldId.LevelingDelay`).
+ * T12/Z2 lazen dit veld al RUW (alleen de `≠0`-detectie was relevant); Z5 maakt er een ECHTE duur
+ * van (`Task.levelingDelayMinutes`) — vanaf hier komt het getal dus voor het eerst in
+ * arithmetiek/opslag terecht, en verdient het dezelfde eigen bovengrens als haar twee buurvelden
+ * i.p.v. stil op een dieper liggende klem te vertrouwen.
+ *
+ * MEETCOMMENTAAR: zelfde redenering als `MAX_REMAINING_DURATION_TENTHS`/`MAX_MANUAL_DURATION_TENTHS`
+ * hierboven — het veld is een SIGNED INT32 (structureel al begrensd tot ±2.147.483.647 tienden,
+ * ≈ ±408 jaar), dus geen hostile-overflow-risico, maar wél een eigen, gedocumenteerde bovengrens.
+ * Een leveling-vertraging in de praktijk is een schuif van hooguit enkele weken tot maanden (het
+ * corpus se twee zuivere leveling-bestanden, zie het nul-afwijkingen-plan bij Z6, meten in de orde
+ * van uren tot dagen) — ruim binnen dezelfde 100-jaargrens (`100 × 365,25 × 24 × 60 × 10 ≈
+ * 525.960.000` tienden) als haar buurvelden; een aparte, kleinere grens zou geen aantoonbaar
+ * corpusvoordeel geven en breekt de gedeelde-motivering-consistentie tussen de drie duurvelden.
+ * Net als `MANUAL_DURATION` klemt dit ook de ondergrens op 0 — de bestaande consumenten (`Resource
+ * Leveler.ts`, `CPMSolver.ts`) behandelen een leveling delay altijd als niet-negatief
+ * (`delay > 0 ? delay : undefined`), dus een negatieve rauwe waarde (kapot/hostile bestand) hoort
+ * hier al op 0 te landen, niet pas bij een latere consument.
+ */
+export const MAX_LEVELING_DELAY_TENTHS = 525_960_000;
+
+/** Klemt een rauwe `LEVELING_DELAY`-waarde (tienden-van-een-minuut, mogelijk negatief bij een
+ *  kapot/hostile bestand) naar `[0, MAX_LEVELING_DELAY_TENTHS]` — zie de toelichting hierboven.
+ *  Spiegelt `clampRemainingDurationTenths`/`clampManualDurationTenths` exact (eigen naam/constante
+ *  i.p.v. hergebruik — drie semantisch onafhankelijke velden). */
+export function clampLevelingDelayTenths(raw: number): number {
+  if (!Number.isFinite(raw)) return 0;
+  return Math.min(Math.max(raw, 0), MAX_LEVELING_DELAY_TENTHS);
+}
+
+/**
  * Z3 (etappe "nul afwijkingen") — klem op het aantal RECORDS in één timephased-blok (`Var2Data`
  * van `TBkndAssn`, zie `mppTimephased.ts`'s moduleheader voor de blokindeling). Het header-veld
  * dat dit aantal claimt is een ONGEVALIDEERDE bestandswaarde (SHORT, 0..65535); `mppTimephased.ts`
