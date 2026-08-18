@@ -41,9 +41,10 @@
  * ook vult. Dag-modus-bestanden (geen enkel (a)/(b)/(c)-signaal op geen enkele kalender) doorlopen
  * dezelfde code maar met `isHour=false` overal, en blijven dus BYTE-VOOR-BYTE hetzelfde resultaat
  * opleveren als vóór etappe 1.5 — zie `check-mpp-import.ts`'s nieuwe uurmodus-sectie voor de
- * corpusmeting die dat bevestigt (inclusief de bevinding dat het corpusbestand "Bijlage 13" zelf,
- * ondanks de oorspronkelijke aanname, óók sub-dag-signaal draagt — de MSPDI-ground-truth van dát
- * bestand leest via de bestaande, ongewijzigde `readMSPDI` al 51/51 taken in uur-modus).
+ * corpusmeting die dat bevestigt (inclusief de bevinding dat het corpusbestand 870d339f60603f71
+ * zelf, hash-only §8, ondanks de oorspronkelijke aanname, óók sub-dag-signaal draagt — de
+ * MSPDI-ground-truth van dát bestand leest via de bestaande, ongewijzigde `readMSPDI` al 51/51
+ * taken in uur-modus).
  *
  * PARITEITSCLAIM, GEKWALIFICEERD (uurmodus-review, R3): "identiek aan zijn MSPDI-export" geldt
  * PRECIES wanneer de effectieve kalender se `workStartHour === 8` — MSPDI's eigen anker is een
@@ -91,10 +92,10 @@
  * export van exact dezelfde staat. Signalen: alle drie XML's hebben compact herNUMMERDE UID==ID
  * 1..N (een echte MSPDI-export van dezelfde live state behoudt de bestaande unique-ID's, die zijn
  * na jaren editen nooit toevallig weer 1..N op een rij) — 27 van de 51 `.mpp`-unique-ID's in
- * bijlage 13 komen zelfs helemaal niet voor in die getallenreeks; taken zijn verplaatst (een
- * cut/paste-handtekening, niet een los "vergeten te herberekenen"-veld); en de projectstartdatum
- * van bijlage 7 verschilt ronduit tussen de twee bestanden (`.mpp` 2025-12-19 vs. `.mpp.xml`
- * 2025-12-08). Dat is een brongegeven van het corpus, niet iets een lezer kan overbruggen — zie de
+ * 870d339f60603f71 (hash-only §8) komen zelfs helemaal niet voor in die getallenreeks; taken zijn
+ * verplaatst (een cut/paste-handtekening, niet een los "vergeten te herberekenen"-veld); en de
+ * projectstartdatum van a69fec157074d056 verschilt ronduit tussen de twee bestanden (`.mpp` en
+ * `.mpp.xml` liggen elf dagen uit elkaar; exacte datums hash-only, §2/§8). Dat is een brongegeven van het corpus, niet iets een lezer kan overbruggen — zie de
  * per-veld-budgetten in `check-mpp-import.ts` voor de gemeten omvang per bestand.
  *
  * `task.getStart()`/`getFinish()` in MPP14Reader kan, voor HANDMATIG-geplande taken, afwijken van
@@ -444,8 +445,8 @@ function collectValidTaskIndices(fixedMeta: FixedMeta, fixedData: FixedData, var
     // ID/unique-ID uit de 16 bytes) — puur om ID-CONTINUÏTEIT te bewaren voor latere taken in
     // dezelfde iteratie (bookkeeping, zie `m_nullTaskOrder`). Zo'n plaatshouder is nooit zichtbaar
     // in de UI en dus ook nooit in een native XML-export, dus deze lezer slaat 'm bewust over i.p.v.
-    // 'm als onzichtbare taak te materialiseren. VERKLAART wél de ID-gaten die je in bijlage 7 kunt
-    // tegenkomen als je ruw door TBkndTask/FixedData loopt (T5-spec-review, 4b) — dat zijn geen
+    // 'm als onzichtbare taak te materialiseren. VERKLAART wél de ID-gaten die je in a69fec157074d056
+    // (hash-only §8) kunt tegenkomen als je ruw door TBkndTask/FixedData loopt (T5-spec-review, 4b) — dat zijn geen
     // ontbrekende/foutief-uitgesloten taken, maar precies deze plaatshouders.
     if (data.length === NULL_TASK_BLOCK_SIZE) continue;
 

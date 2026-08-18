@@ -1,4 +1,4 @@
-// T8-rooktest, vervolg — end-to-end regressie: "Bijlage 13 Productieplanning.mpp" bevat relaties
+// T8-rooktest, vervolg — end-to-end regressie: 870d339f60603f71 (hash-only, §8) bevat relaties
 // die WBS-samenvattingstaken raken (in MS Project legaal). 489a9ef2 loste de CPMSolver-crash op
 // door zulke relaties te DROPPEN (`CPMResult.droppedSequenceIds`) — een bewuste tussenoplossing die
 // op dit bestand 28 van de 105 relaties liet vallen (~27% van de logica). Deze check bewaakt sinds
@@ -24,12 +24,13 @@
 // Draait via run.sh (binnen het RUN_HOLIDAYS-blok).
 //
 // DEKKINGSKAART (T9 — dit bestand toetst GEEN mpp-domeindata op zichzelf, alleen de CPM-solver-
-// propagatie op één specifiek corpusbestand): CORPUS (1 bestand, `Bijlage 13`) — géén synthetische
+// propagatie op één specifiek corpusbestand): CORPUS (1 bestand, hash-only 870d339f60603f71) — géén synthetische
 // laag, géén crawl-sectie (dit is een scheduling-regressietest, geen lezer-breedtecheck). Zie
 // check-mpp-import.ts, check-mpp-calendars.ts en check-mpp-relations.ts voor de dekkingskaarten
 // van de mpp-lezer zelf.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { readMPP } from '@/services/mpp/mppReader';
 import { readMSPDI } from '@/services/msproject/mspdiReader';
 import { CPMSolver } from '@/engine/scheduler/CPMSolver';
@@ -46,11 +47,27 @@ const truthy = (label: string, cond: boolean) => {
 const CORPUS =
   process.env.OPS_MPP_CORPUS ??
   '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
-const FILE = 'Bijlage 13 Productieplanning.mpp';
-const path = join(CORPUS, FILE);
+// Hash-only (§8, Z20-veeg): dit bestand wordt uitsluitend via zijn SHA-256-hash (16 hex, zelfde
+// afspraak als `mpp-fidelity-baseline.json`) geïdentificeerd — geen bedrijfsbestandsnaam meer in
+// de broncode. `resolveByHash` scant `CORPUS` en resolvet het pad-op-schijf at-runtime.
+const TARGET_HASH = '870d339f60603f71'; // 51 taken — zie de moduleheader.
+function resolveByHash(dir: string, hash: string): string | null {
+  if (!existsSync(dir)) return null;
+  for (const name of readdirSync(dir)) {
+    if (!name.toLowerCase().endsWith('.mpp')) continue;
+    const full = join(dir, name);
+    try {
+      if (createHash('sha256').update(readFileSync(full)).digest('hex').slice(0, 16) === hash) return full;
+    } catch {
+      // Onleesbaar bestand — negeren, dit is puur identificatie.
+    }
+  }
+  return null;
+}
+const path = resolveByHash(CORPUS, TARGET_HASH);
 
-if (!existsSync(path)) {
-  console.log(`OK  mpp-summary-relations: corpusbestand niet aanwezig (${path}) — check overgeslagen`);
+if (!path) {
+  console.log(`OK  mpp-summary-relations: corpusbestand niet aanwezig (${TARGET_HASH}) — check overgeslagen`);
 } else {
   let importResult: ReturnType<typeof readMPP> | null = null;
   let readErr: unknown = null;
@@ -60,7 +77,7 @@ if (!existsSync(path)) {
     readErr = err;
   }
   truthy(
-    `readMPP op "${FILE}" gooit niet (${readErr instanceof Error ? readErr.message : String(readErr ?? '')})`,
+    `readMPP op "${TARGET_HASH}" gooit niet (${readErr instanceof Error ? readErr.message : String(readErr ?? '')})`,
     readErr === null && importResult !== null,
   );
 
@@ -106,7 +123,7 @@ if (!existsSync(path)) {
       solveThrew = err;
     }
     truthy(
-      `CPMSolver.solve() op "${FILE}" crasht niet (${solveThrew instanceof Error ? solveThrew.stack ?? solveThrew.message : String(solveThrew ?? '')})`,
+      `CPMSolver.solve() op "${TARGET_HASH}" crasht niet (${solveThrew instanceof Error ? solveThrew.stack ?? solveThrew.message : String(solveThrew ?? '')})`,
       solveThrew === null && cpm !== null,
     );
 
@@ -172,20 +189,27 @@ if (!existsSync(path)) {
         try {
           installDOMParser();
           const xmlResult = readMSPDI(readFileSync(xmlPath, 'utf-8'));
-          console.log(
-            `    Ground-truth-vergelijking (voorbehoud: andere documentversie, zie header): ` +
-            `onze projectEnd=${cpm.projectEnd}, MSPDI project.endDate=${xmlResult.project.endDate || '(leeg)'}.`,
-          );
+          // F5 (eindreview): projectEnd/endDate zijn corpusdatums — alleen op expliciet verzoek.
+          if (process.env.OPS_MPP_DIAG === 'detail') {
+            console.log(
+              `    Ground-truth-vergelijking (voorbehoud: andere documentversie, zie header): ` +
+              `onze projectEnd=${cpm.projectEnd}, MSPDI project.endDate=${xmlResult.project.endDate || '(leeg)'}.`,
+            );
+          } else {
+            console.log('    Ground-truth-vergelijking gedaan (datums verborgen — OPS_MPP_DIAG=detail toont ze; corpusinhoud)');
+          }
         } catch (err) {
           console.log(`    Ground-truth-vergelijking overgeslagen (readMSPDI faalde: ${err instanceof Error ? err.message : String(err)})`);
         }
       }
 
       console.log(
-        `    Bijlage 13: ${leafTasks.length} bladtaken, ${sequences.length} relaties, ` +
+        `    ${TARGET_HASH}: ${leafTasks.length} bladtaken, ${sequences.length} relaties, ` +
         `${expandedSequences.length} bladtaak-relaties na expansie ` +
-        `(${totalDropped.length} gedropt, was 28 vóór de propagatie), ` +
-        `projectEnd=${cpm.projectEnd}, projectDuration=${cpm.projectDuration} werkdagen`,
+        `(${totalDropped.length} gedropt, was 28 vóór de propagatie)` +
+        (process.env.OPS_MPP_DIAG === 'detail'
+          ? `, projectEnd=${cpm.projectEnd}, projectDuration=${cpm.projectDuration} werkdagen`
+          : ', projectEnd/duur verborgen (OPS_MPP_DIAG=detail; corpusinhoud)'),
       );
     }
   }

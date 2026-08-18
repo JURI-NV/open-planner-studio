@@ -31,6 +31,7 @@
 // domeinen.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { CfbFile } from '@/services/mpp/cfb';
 import { Props } from '@/services/mpp/mppContainer';
 import { getDate } from '@/services/mpp/mppPrimitives';
@@ -1310,21 +1311,31 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
     console.log(`OK  mpp-calendars: corpusmap aanwezig maar geen .mpp-bestanden erin (${CORPUS}) — corpuslus overgeslagen`);
   } else {
     installDOMParser();
-    const EXPECTED_FILES = [
-      'Bijlage 13 Productieplanning.mpp',
-      'Bijlage 20 productieplanning PKB.mpp',
-      'bijlage 7 Productie planning.mpp',
-    ];
-    for (const file of EXPECTED_FILES) {
-      if (!corpusFiles.includes(file)) {
-        console.log(`OK  mpp-calendars: T6 ${file} niet in dit corpus (${CORPUS}) — overgeslagen`);
+    // Hash-only (§8, Z20-veeg): zelfde patroon als check-mpp-import.ts/-relations.ts — geen
+    // bedrijfsbestandsnamen in de broncode, alleen hun SHA-256-hash (16 hex).
+    const corpusHashToFileT6 = new Map<string, string>();
+    for (const f of corpusFiles) {
+      try {
+        corpusHashToFileT6.set(
+          createHash('sha256').update(readFileSync(join(CORPUS, f))).digest('hex').slice(0, 16),
+          f,
+        );
+      } catch {
+        // Onleesbaar bestand — genegeerd; het bestand komt dan simpelweg niet in de index.
+      }
+    }
+    const EXPECTED_HASHES = ['870d339f60603f71', '787efb968ae72fe4', 'a69fec157074d056'];
+    for (const hash of EXPECTED_HASHES) {
+      const file = corpusHashToFileT6.get(hash);
+      if (!file) {
+        console.log(`OK  mpp-calendars: T6 ${hash} niet in dit corpus (${CORPUS}) — overgeslagen`);
         continue;
       }
       const mppPath = join(CORPUS, file);
       const xmlPath = `${mppPath}.xml`;
       if (!existsSync(xmlPath)) {
         checks++;
-        diffs.push(`[T6 ${file}] .mpp aanwezig maar .mpp.xml ontbreekt`);
+        diffs.push(`[T6 ${hash}] .mpp aanwezig maar .mpp.xml ontbreekt`);
         continue;
       }
 
@@ -1335,25 +1346,25 @@ if (existsSync(process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
         xmlResult = readMSPDI(readFileSync(xmlPath, 'utf-8'));
       } catch (err) {
         checks++;
-        diffs.push(`[T6 ${file}] readMPP/readMSPDI gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+        diffs.push(`[T6 ${hash}] readMPP/readMSPDI gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
         continue;
       }
 
       const mppCalCount = 1 + (mppResult.resourceCalendars?.length ?? 0);
-      truthy(`[T6 ${file}] ≥1 kalender gelezen (projectkalender + resourceCalendars)`, mppCalCount >= 1);
-      truthy(`[T6 ${file}] projectkalender heeft ≥1 werkdag`, mppResult.calendar.workDays.length >= 1);
+      truthy(`[T6 ${hash}] ≥1 kalender gelezen (projectkalender + resourceCalendars)`, mppCalCount >= 1);
+      truthy(`[T6 ${hash}] projectkalender heeft ≥1 werkdag`, mppResult.calendar.workDays.length >= 1);
       truthy(
-        `[T6 ${file}] projectkalender workDays === MSPDI-ground-truth workDays`,
+        `[T6 ${hash}] projectkalender workDays === MSPDI-ground-truth workDays`,
         JSON.stringify([...mppResult.calendar.workDays].sort((a, b) => a - b)) === JSON.stringify([...xmlResult.calendar.workDays].sort((a, b) => a - b)),
       );
       // I2-fix: hard `=== 0` i.p.v. een budget tegen de besmette XML-"29" — zie de sectietoelichting.
       truthy(
-        `[T6 ${file}] projectkalender heeft 0 holidays (.mpp draagt zelf geen enkele uitzondering, byte-voor-byte bevestigd — zie de sectietoelichting)`,
+        `[T6 ${hash}] projectkalender heeft 0 holidays (.mpp draagt zelf geen enkele uitzondering, byte-voor-byte bevestigd — zie de sectietoelichting)`,
         mppResult.calendar.holidays.length === 0,
       );
 
       console.log(
-        `   . [T6 ${file}] kalenders=${mppCalCount} (aantal NIET gezaghebbend, zie moduleheader) `
+        `   . [T6 ${hash}] kalenders=${mppCalCount} (aantal NIET gezaghebbend, zie moduleheader) `
         + `projectkalender="${mppResult.calendar.name}" workDays=${JSON.stringify(mppResult.calendar.workDays)} holidays=${mppResult.calendar.holidays.length}:`,
       );
     }

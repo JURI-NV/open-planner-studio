@@ -757,6 +757,48 @@ if (REPORT === 'baseline') {
   process.exit(0);
 }
 
+// ── Z20 — GOAL_ZERO_DEVIATIONS: de eindpoort (plan §1.1/§Z20, uitgangscriterium van Z19). ──────
+// Werkt UITSLUITEND op het GELADEN baselinebestand zelf (`baseline.files`) — niet op de live
+// corpus-/crawlscan — en draait dus ook op een machine zonder corpus/crawl (CI incluis, want
+// `mpp-fidelity-baseline.json` zit wél in de repo). Dat is precies het punt: een teruggezette
+// `reason`-pin of een niet-nul-teller in het GECOMMITTE bestand maakt de suite overal rood, niet
+// alleen op de ene machine die toevallig het corpus mount. Overvleugelt de bestaande "reason bij
+// afwijking"-poort hierboven (§T15/`hasDiff(pin)`-blok in `processFile`) zonder die weg te halen:
+// die poort blijft de wacht tijdens de etappe (een afwijking zonder reden was al fout), maar met
+// nul afwijkingen als doel is een reason-pin per definitie fout, ongeacht of hij geschreven en
+// gemeten is — vandaar een aparte, strengere poort in plaats van de bestaande te verzwakken.
+const GOAL_ZERO_DEVIATIONS = true;
+if (GOAL_ZERO_DEVIATIONS) {
+  for (const [hash, entry] of Object.entries(baseline.files)) {
+    const tag = tagFor(entry.root, hash, entry.label);
+    checks++;
+    if (entry.startDiff !== 0 || entry.startSameday !== 0 || entry.finishDiff !== 0 || entry.finishSameday !== 0) {
+      diffs.push(
+        `[GOAL_ZERO_DEVIATIONS ${tag}] niet-nul teller in de baseline (startDiff=${entry.startDiff}, `
+        + `startSameday=${entry.startSameday}, finishDiff=${entry.finishDiff}, finishSameday=${entry.finishSameday}) `
+        + '— de etappedoelstelling is "nul, punt uit" (plan §1.1, orkestratorbesluit O1)',
+      );
+    }
+    checks++;
+    if (entry.startExact !== entry.tasks || entry.finishExact !== entry.tasks) {
+      diffs.push(
+        `[GOAL_ZERO_DEVIATIONS ${tag}] exact-tellers dekken niet alle taken (tasks=${entry.tasks}, `
+        + `startExact=${entry.startExact}, finishExact=${entry.finishExact}) — een 'missing'-`
+        + 'classificatie (taak zonder grondwaarheid) telt in geen van de vier nul-tellers mee en '
+        + 'zou anders stil door de corpusloze poort glippen (eindreview-bevinding F1; plan §1.1 '
+        + 'eist tasks === startExact === finishExact)',
+      );
+    }
+    checks++;
+    if ('reason' in entry) {
+      diffs.push(
+        `[GOAL_ZERO_DEVIATIONS ${tag}] draagt nog een "reason"-sleutel — met nul afwijkingen als doel `
+        + 'is er niets meer te verantwoorden; "pinnen met reden" bestaat niet meer als uitweg (plan §1.1/Z19)',
+      );
+    }
+  }
+}
+
 // ── Globale pins, PER WORTEL (reviewbevinding H1) ───────────────────────────────────────────
 // Alleen zinvol (en alleen uitgevoerd) voor een wortel die dit keer DAADWERKELIJK gescand is —
 // anders zou een afwezig/leeg corpus of crawl (de normale situatie voor wie niet op deze ene

@@ -22,10 +22,12 @@
 // een CFB-bestand te openen zonder 'm te herschrijven, en een bug dáár zou toch al als een
 // leesfout naar voren komen (niet als een stille datumafwijking). Wat WEL onafhankelijk blijft —
 // en waar de garantie van deze module om draait — is de TAAK-SCAN zelf: de `FixedMeta`/
-// `FixedData`/`VarMeta`/`Var2Data`-lus over `TBkndTask`, de veld-offset-opzoeking en de
-// waardedecodering. Deelt UITSLUITEND de laagste-niveau-primitieven (`mppPrimitives.ts`) en de
-// veldkaart-opzoeker (`fieldMap14.ts`'s `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar
-// `readTasks` zelf.
+// `FixedData`/`VarMeta`/`Var2Data`-lus over `TBkndTask` en de waardedecodering. Deelt UITSLUITEND
+// de laagste-niveau-primitieven (`mppPrimitives.ts`) en de veldkaart-opzoeker (`fieldMap14.ts`'s
+// `fixedOffsetOf`/`varDataKeyOf`) — geen enkele aanroep naar `readTasks` zelf. LET OP (eindreview
+// F7): die gedeelde veldkaart is daarmee common-mode voor meetlat én lezer — een fout offset zou
+// beide identiek raken en is voor deze scheiding onzichtbaar; dat gat wordt afgedekt door de
+// synthetische Z1-fixtures en de MPXJ-referentie-offsets, niet door deze module.
 //
 // TASK_MODE-BEWUST SINDS Z1 (etappe "nul afwijkingen", 2026-08-17 — vervangt de vorige
 // "BEKENDE BEPERKING (L5)"-alinea, die de discrepantie hieronder alleen als HYPOTHESE

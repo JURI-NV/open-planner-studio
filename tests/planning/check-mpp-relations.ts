@@ -57,6 +57,7 @@
 // andere domeinen.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { CfbFile } from '@/services/mpp/cfb';
 import { readMPP } from '@/services/mpp/mppReader';
 import { readRelations, readResources, readAssignments, type ReadResourcesResult } from '@/services/mpp/mppEntities';
@@ -531,7 +532,7 @@ const ASSIGNMENT_DEFAULT_FIELD_MAP: FieldMapTable = new Map(Object.entries(DEFAU
   const fixedData = buildRscFixedDataRecord({ uniqueId: 7, maxUnitsRaw: 10000 });
   const varMeta = buildVarMetaBytes([{ uniqueId: 7, type: 1, offset: 0 }]); // VarMeta claimt een naam-entry...
   // ...maar GEEN Var2Data-stream in de tree hieronder (bewust weggelaten, niet leeg — spiegelt het
-  // corpusgeval "bijlage 7 mist Var2Data voor TBkndCons", hier toegepast op TBkndRsc).
+  // corpusgeval "a69fec157074d056 mist Var2Data voor TBkndCons" (hash-only §8), hier toegepast op TBkndRsc).
   const cfb = new CfbFile(buildNestedCfb({
     '   114': { children: { TBkndRsc: { children: { FixedMeta: { data: fixedMeta }, FixedData: { data: fixedData }, VarMeta: { data: varMeta } } } } },
   }));
@@ -769,6 +770,23 @@ const CORPUS = process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/
 const corpusPresent = existsSync(CORPUS);
 const corpusFiles = corpusPresent ? readdirSync(CORPUS).filter((f) => f.toLowerCase().endsWith('.mpp')) : [];
 
+// Hash-only (§8, Z20-veeg): zelfde patroon als `check-mpp-fidelity.ts`/`check-mpp-import.ts` —
+// bedrijfsbestanden identificeer je uitsluitend via hun SHA-256-hash (16 hex), nooit hun naam.
+function hashOfT7(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+}
+const corpusHashToFileT7 = new Map<string, string>();
+for (const file of corpusFiles) {
+  try {
+    corpusHashToFileT7.set(hashOfT7(new Uint8Array(readFileSync(join(CORPUS, file)))), file);
+  } catch {
+    // Onleesbaar bestand — genegeerd; het corpuslus hieronder rapporteert zijn eigen leesfout.
+  }
+}
+function resolveT7FileByHash(hash: string): string | null {
+  return corpusHashToFileT7.get(hash) ?? null;
+}
+
 if (!corpusPresent) {
   console.log('OK  mpp-relations: corpus niet aanwezig (OPS_MPP_CORPUS) — corpuslus overgeslagen');
 } else if (corpusFiles.length === 0) {
@@ -780,26 +798,27 @@ if (!corpusPresent) {
    *  (104/111/225 links, 9/7/5 resources, 51/146/221 assignments): die zijn voor een andere
    *  documentrevisie, zie de moduleheader. Toevallig komen de resource-/assignmentaantallen hier wél
    *  overeen met de tabel — dat is een gemeten uitkomst, geen aanname. */
+  // Hash-only (§8, Z20-veeg): sleutels zijn de bekende corpushashes, geen bedrijfsbestandsnamen.
   const EXPECTED_COUNTS: Record<string, { relations: number; resources: number; assignments: number }> = {
-    'Bijlage 13 Productieplanning.mpp': { relations: 105, resources: 9, assignments: 32 },
-    'Bijlage 20 productieplanning PKB.mpp': { relations: 120, resources: 7, assignments: 125 },
-    'bijlage 7 Productie planning.mpp': { relations: 239, resources: 5, assignments: 173 },
+    '870d339f60603f71': { relations: 105, resources: 9, assignments: 32 },
+    '787efb968ae72fe4': { relations: 120, resources: 7, assignments: 125 },
+    'a69fec157074d056': { relations: 239, resources: 5, assignments: 173 },
   };
 
   /** T7-spec-review (B5) — gemeten resourcetype-mismatchbasislijn PER BESTAND (mpp `type` vs. XML
    *  Work/Material, per naam-gematcht paar, UITSLUITEND de niet-plaatshouderresources — zie
    *  `RESOURCE_TYPE_MISMATCH_BUDGET`'s gebruik hieronder). Gemeten NÁ de B7-Fixed2Meta-COST-bit-
-   *  port: Bijlage 20 en bijlage 7 zijn nu 100% gelijk aan de ground truth (0 afwijkingen — vóór de
-   *  B7-port waren dat allebei foute MATERIAL-indelingen). Bijlage 13 blijft 6 van de 8 niet-
-   *  plaatshouderresources MATERIAL waar de XML ze als Work (LABOR) toont — matcht MPXJ's eigen
-   *  bit-voor-bit-uitkomst exact (dit is dus geen bug in de poort), en volgt hetzelfde
-   *  documentversieverschil-patroon als de taak-/kalendervergelijkingen elders in dit bestand
-   *  (check-mpp-import.ts se T5-sectie, check-mpp-calendars.ts se T6-sectie): de XML is een andere
-   *  documentrevisie, dus een afwijking hier is geen bewijs van een leesfout. */
+   *  port: 787efb968ae72fe4 en a69fec157074d056 zijn nu 100% gelijk aan de ground truth (0
+   *  afwijkingen — vóór de B7-port waren dat allebei foute MATERIAL-indelingen). 870d339f60603f71
+   *  blijft 6 van de 8 niet-plaatshouderresources MATERIAL waar de XML ze als Work (LABOR) toont —
+   *  matcht MPXJ's eigen bit-voor-bit-uitkomst exact (dit is dus geen bug in de poort), en volgt
+   *  hetzelfde documentversieverschil-patroon als de taak-/kalendervergelijkingen elders in dit
+   *  bestand (check-mpp-import.ts se T5-sectie, check-mpp-calendars.ts se T6-sectie): de XML is een
+   *  andere documentrevisie, dus een afwijking hier is geen bewijs van een leesfout. */
   const RESOURCE_TYPE_MISMATCH_BUDGET: Record<string, number> = {
-    'Bijlage 13 Productieplanning.mpp': 6,
-    'Bijlage 20 productieplanning PKB.mpp': 0,
-    'bijlage 7 Productie planning.mpp': 0,
+    '870d339f60603f71': 6,
+    '787efb968ae72fe4': 0,
+    'a69fec157074d056': 0,
   };
 
   function taskNameById(tasks: Task[]): Map<string, string> {
@@ -809,16 +828,17 @@ if (!corpusPresent) {
     return new Map(resources.map((r) => [r.id, r.name.trim()]));
   }
 
-  for (const [file, expected] of Object.entries(EXPECTED_COUNTS)) {
-    if (!corpusFiles.includes(file)) {
-      console.log(`OK  mpp-relations: T7 ${file} niet in dit corpus (${CORPUS}) — overgeslagen`);
+  for (const [hash, expected] of Object.entries(EXPECTED_COUNTS)) {
+    const file = resolveT7FileByHash(hash);
+    if (!file) {
+      console.log(`OK  mpp-relations: T7 ${hash} niet in dit corpus (${CORPUS}) — overgeslagen`);
       continue;
     }
     const mppPath = join(CORPUS, file);
     const xmlPath = `${mppPath}.xml`;
     if (!existsSync(xmlPath)) {
       checks++;
-      diffs.push(`[T7 ${file}] .mpp aanwezig maar .mpp.xml ontbreekt`);
+      diffs.push(`[T7 ${hash}] .mpp aanwezig maar .mpp.xml ontbreekt`);
       continue;
     }
 
@@ -829,7 +849,7 @@ if (!corpusPresent) {
       xml = readMSPDI(readFileSync(xmlPath, 'utf-8'));
     } catch (err) {
       checks++;
-      diffs.push(`[T7 ${file}] readMPP/readMSPDI gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
+      diffs.push(`[T7 ${hash}] readMPP/readMSPDI gooide onverwacht: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
 
@@ -841,9 +861,9 @@ if (!corpusPresent) {
     // regressie. Resources/assignments: `===` — deze twee tellingen zijn in dit corpus STABIEL
     // (deterministisch gemeten, geen documentversie-gevoelige filterstap zoals bij relaties), dus een
     // exacte match is hier de juiste, striktere poort. ─────────────────────────────────────────────
-    truthy(`[T7 ${file}] relatie-aantal >= gemeten basislijn (${mpp.sequences.length}/${expected.relations})`, mpp.sequences.length >= expected.relations);
-    truthy(`[T7 ${file}] resource-aantal === gemeten basislijn (${mpp.resources.length}/${expected.resources})`, mpp.resources.length === expected.resources);
-    truthy(`[T7 ${file}] assignment-aantal === gemeten basislijn (${mpp.assignments.length}/${expected.assignments})`, mpp.assignments.length === expected.assignments);
+    truthy(`[T7 ${hash}] relatie-aantal >= gemeten basislijn (${mpp.sequences.length}/${expected.relations})`, mpp.sequences.length >= expected.relations);
+    truthy(`[T7 ${hash}] resource-aantal === gemeten basislijn (${mpp.resources.length}/${expected.resources})`, mpp.resources.length === expected.resources);
+    truthy(`[T7 ${hash}] assignment-aantal === gemeten basislijn (${mpp.assignments.length}/${expected.assignments})`, mpp.assignments.length === expected.assignments);
 
     // ── Relaties: naam-gematchte vergelijking (voorganger+opvolger-taaknaam), type+lag per gematcht
     // paar — HARD op wat het corpus daadwerkelijk aanbiedt (100% gemeten, T7-onderzoek 2026-08-14).
@@ -881,8 +901,8 @@ if (!corpusPresent) {
       if (lagOk) relLagOk++;
       else relDiag.push(`${k}: lag mpp=(${seq.lagDays},${seq.lagUnit ?? 'WORKTIME'}) xml=(${xseq.lagDays},${xseq.lagUnit ?? 'WORKTIME'})`);
     }
-    truthy(`[T7 ${file}] relaties: alle op naam gematchte paren hebben gelijk type (${relTypeOk}/${relMatched})`, relTypeOk === relMatched);
-    truthy(`[T7 ${file}] relaties: alle op naam gematchte paren hebben gelijke lag (${relLagOk}/${relMatched})`, relLagOk === relMatched);
+    truthy(`[T7 ${hash}] relaties: alle op naam gematchte paren hebben gelijk type (${relTypeOk}/${relMatched})`, relTypeOk === relMatched);
+    truthy(`[T7 ${hash}] relaties: alle op naam gematchte paren hebben gelijke lag (${relLagOk}/${relMatched})`, relLagOk === relMatched);
 
     // ── Resources (T7-spec-review, B3/B4/B5): de uniqueID-0-plaatshouder wordt EXPLICIET op
     // uniqueID gepaard (niet op naam — MSPDI toont 'm gelokaliseerd als "Niet toegekend", deze lezer
@@ -893,18 +913,18 @@ if (!corpusPresent) {
     const ourUnassigned = mpp.resources[0];
     const isOurUnassignedSentinel = !!ourUnassigned
       && ourUnassigned.name === 'Unassigned' && ourUnassigned.type === 'LABOR' && ourUnassigned.maxUnits === 1;
-    truthy(`[T7 ${file}] uid-0-plaatshouderresource materialiseert als de vaste sentinelvorm (mpp.resources[0])`, isOurUnassignedSentinel);
+    truthy(`[T7 ${hash}] uid-0-plaatshouderresource materialiseert als de vaste sentinelvorm (mpp.resources[0])`, isOurUnassignedSentinel);
     const xmlUnassigned = xml.resources.find((r) => r.name.trim() === 'Niet toegekend');
-    truthy(`[T7 ${file}] MSPDI-ground-truth draagt zelf ook een "Niet toegekend"-plaatshouder`, !!xmlUnassigned);
+    truthy(`[T7 ${hash}] MSPDI-ground-truth draagt zelf ook een "Niet toegekend"-plaatshouder`, !!xmlUnassigned);
     if (isOurUnassignedSentinel && xmlUnassigned && ourUnassigned) {
-      truthy(`[T7 ${file}] uid-0-plaatshouder: type gelijk aan XML se "Niet toegekend"`, ourUnassigned.type === xmlUnassigned.type);
-      truthy(`[T7 ${file}] uid-0-plaatshouder: maxUnits gelijk aan XML se "Niet toegekend"`, ourUnassigned.maxUnits === xmlUnassigned.maxUnits);
+      truthy(`[T7 ${hash}] uid-0-plaatshouder: type gelijk aan XML se "Niet toegekend"`, ourUnassigned.type === xmlUnassigned.type);
+      truthy(`[T7 ${hash}] uid-0-plaatshouder: maxUnits gelijk aan XML se "Niet toegekend"`, ourUnassigned.maxUnits === xmlUnassigned.maxUnits);
     }
 
     // Overige (niet-plaatshouder) resources: 1:1 naam-matching + HARDE maxUnits-assert (B4 —
     // vervangt de eerdere naam-only-vergelijking die de dubbele-/100-schaalfout niet had kunnen
     // vangen, zie de T7-spec-review-toelichting) + een PER-BESTAND GEMETEN type-mismatchbudget (B5,
-    // `RESOURCE_TYPE_MISMATCH_BUDGET` hierboven — Bijlage 13 wijkt af, documentversieverschil).
+    // `RESOURCE_TYPE_MISMATCH_BUDGET` hierboven — 870d339f60603f71 wijkt af, documentversieverschil).
     const restMppResources = isOurUnassignedSentinel ? mpp.resources.slice(1) : mpp.resources;
     const xmlResourcesByName = new Map(xml.resources.filter((r) => r.name.trim() !== 'Niet toegekend').map((r) => [r.name.trim(), r]));
     let resMatched = 0, maxUnitsOk = 0, typeMismatches = 0;
@@ -925,11 +945,11 @@ if (!corpusPresent) {
         resDiag.push(`resource "${r.name}": type mpp=${r.type} xml=${xr.type}`);
       }
     }
-    truthy(`[T7 ${file}] resources: alle niet-plaatshouder-resources op naam gematcht (${resMatched}/${restMppResources.length})`, resMatched === restMppResources.length);
-    truthy(`[T7 ${file}] resources: maxUnits gelijk voor alle gematchte paren (${maxUnitsOk}/${resMatched})`, maxUnitsOk === resMatched);
-    const typeBudget = RESOURCE_TYPE_MISMATCH_BUDGET[file] ?? 0;
+    truthy(`[T7 ${hash}] resources: alle niet-plaatshouder-resources op naam gematcht (${resMatched}/${restMppResources.length})`, resMatched === restMppResources.length);
+    truthy(`[T7 ${hash}] resources: maxUnits gelijk voor alle gematchte paren (${maxUnitsOk}/${resMatched})`, maxUnitsOk === resMatched);
+    const typeBudget = RESOURCE_TYPE_MISMATCH_BUDGET[hash] ?? 0;
     truthy(
-      `[T7 ${file}] resources: type-afwijkingen binnen de gemeten basislijn (${typeMismatches}/${typeBudget}, documentversieverschil — zie B5-toelichting)`,
+      `[T7 ${hash}] resources: type-afwijkingen binnen de gemeten basislijn (${typeMismatches}/${typeBudget}, documentversieverschil — zie B5-toelichting)`,
       typeMismatches <= typeBudget,
     );
 
@@ -964,18 +984,24 @@ if (!corpusPresent) {
       if (Math.abs(a.unitsPerDay - xa.unitsPerDay) < 0.001) unitsOk++;
       else asgnDiag.push(`${k}: units mpp=${a.unitsPerDay} xml=${xa.unitsPerDay}`);
     }
-    truthy(`[T7 ${file}] assignments: alle op naam gematchte paren hebben gelijke units (${unitsOk}/${asgnMatched})`, unitsOk === asgnMatched);
-    truthy(`[T7 ${file}] assignments: alle assignments zijn op naam gematcht (${asgnMatched}/${mpp.assignments.length})`, asgnMatched === mpp.assignments.length);
+    truthy(`[T7 ${hash}] assignments: alle op naam gematchte paren hebben gelijke units (${unitsOk}/${asgnMatched})`, unitsOk === asgnMatched);
+    truthy(`[T7 ${hash}] assignments: alle assignments zijn op naam gematcht (${asgnMatched}/${mpp.assignments.length})`, asgnMatched === mpp.assignments.length);
 
     softChecksRelationsTotal += relMatched * 2; // type-ok + lag-ok, elk relMatched-tellingen
     softChecksResourcesTotal += resMatched + maxUnitsOk; // naam-ok + maxUnits-ok
     softChecksAssignmentsTotal += unitsOk;
     console.log(
-      `   . [T7 ${file}] relaties=${mpp.sequences.length} (${relMatched} gematcht, ${relTypeOk} type-ok, ${relLagOk} lag-ok) `
+      `   . [T7 ${hash}] relaties=${mpp.sequences.length} (${relMatched} gematcht, ${relTypeOk} type-ok, ${relLagOk} lag-ok) `
       + `resources=${mpp.resources.length} (${resMatched} niet-plaatshouder naam-ok, ${maxUnitsOk} maxUnits-ok, ${typeMismatches}/${typeBudget} type-afwijkingen) `
       + `assignments=${mpp.assignments.length} (${asgnMatched} gematcht, ${unitsOk} units-ok):`,
     );
-    for (const d of [...relDiag, ...resDiag, ...asgnDiag]) console.log(`      · ${d}`);
+    // F5 (eindreview): deze detailregels bevatten corpus-resourcenamen/-waarden — alleen op
+    // expliciet verzoek naar stdout (CI-logs en transcripts zijn publiek oppervlak, §2/§8).
+    if (process.env.OPS_MPP_DIAG === 'detail') {
+      for (const d of [...relDiag, ...resDiag, ...asgnDiag]) console.log(`      · ${d}`);
+    } else if (relDiag.length + resDiag.length + asgnDiag.length > 0) {
+      console.log(`      · ${relDiag.length + resDiag.length + asgnDiag.length} detailregel(s) verborgen — zet OPS_MPP_DIAG=detail om ze te tonen (corpusinhoud)`);
+    }
   }
 }
 

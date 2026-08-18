@@ -663,7 +663,8 @@ function readCalendarsUnsafe(
   // resource ID attached to them... As long as the resource ID isn't already linked..."); afgeleide
   // kalenders (r. 174-176) linken ONVOORWAARDELIJK — geen `>0`-check, geen containsKey-check, altijd
   // een kale `resourceMap.put(resourceID, cal)`, ook bij resource-ID 0. Resource-uniqueID 0 is een
-  // GELDIGE id (corpus: Bijlage 13's afgeleide kalenders dragen resource-ID's 0,1,2,3,4,5,7,8,9) —
+  // GELDIGE id (corpus, hash-only §8: 870d339f60603f71's afgeleide kalenders dragen resource-ID's
+  // 0,1,2,3,4,5,7,8,9) —
   // een eerdere versie gebruikte hier ÉÉN gedeelde, altijd-`>0`-geguarde `linkResource`-functie voor
   // beide fases, wat resource-ID 0 op een afgeleide kalender stil liet vallen.
   const linkBaseResource = (rec: RawCalendarEntry): void => {

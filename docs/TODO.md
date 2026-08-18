@@ -224,10 +224,12 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 ### MPP/MSP-import (fase 3.8, MSP-pariteit) — bekende beperkingen (2026-08-17)
 
 > Verzameld tijdens de MPP-datumgetrouwheidsetappe (T13-T16, zie
-> `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`). Alle drie zijn **beschreven**
-> (console.warn, code-toelichting, of een gepinde test-case) en met bewijs vastgepind, dus niets
-> gebeurt stil. Het P6-item stond eerder onder "IFC-kalenderbibliotheek" — hierheen verhuisd, het
-> gaat over een export-schemabeperking, niet over de IFC-kalenderbibliotheek (B1.1).
+> `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`). Twee van de drie
+> (contouring-detectiegrens, TASK_MODE-hypothese) zijn sinds de etappe "nul afwijkingen" (Z9a/Z16,
+> 2026-08-18) daadwerkelijk opgelost — hieronder afgevinkt met verwijzing. Het P6-item blijft een
+> echte, blijvende schemabeperking (niet stilzwijgend: console.warn, code-toelichting en de gids
+> dekken 'm) en stond eerder onder "IFC-kalenderbibliotheek" — hierheen verhuisd, het gaat over een
+> export-schemabeperking, niet over de IFC-kalenderbibliotheek (B1.1).
 
 - [x] **P6-XML-export laat werkende kalenderuitzonderingen weg — schemabeperking, geen bug (fase
       3.8 T13, 2026-08-17).** `WorkingException` (T2/T3: een dag-uitzondering die een dag WERKEND
@@ -240,31 +242,54 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       weggelaten — niet uitdrukbaar in P6-XML …')`. **T16: gidsvermelding toegevoegd**
       (`gids-import-export.md`, nl+en) — de console.warn blijft de enige gebruikersvoorlichting bij
       het exportmoment zelf.
-- [ ] **Zuivere resource-contouring is niet betrouwbaar detecteerbaar — de contouring-detectiegrens
-      (T12-fixronde 2026-08-15, opnieuw genoteerd T16).** De split-/leveling-melding (fase 3.8 T12)
-      herkent nivellering-met-leveling-delay en een onderbroken/over-meerdere-dagen-uitgesmeerde taak
-      betrouwbaar, maar niet een taak die UITSLUITEND resource-contouring draagt (een oplopende/
-      aflopende werkcurve zonder dat start/finish zelf verschuift): het WORK_CONTOUR-FixedMeta-bit uit
-      de MPXJ-bron bleek op MPXJ's eigen referentiebestand (`mpp14resource.mpp`) géén discriminator
-      (brute-force-scan, 0 treffers). Zo'n taak wordt dus stil aaneengesloten doorgerekend zonder
-      melding — gedocumenteerd in de gids (`gids-msproject-import.md`) en in de moduleheader/
-      KNOWN-GAP-leescase van `mppReader.ts`. Vervolgstap (T15 liet dit liggen, her-onderzoek mag): een
-      ander signaal proberen, bv. de aanwezigheid van timephased-datablokken.
-- [ ] **TASK_MODE (Manually Scheduled vs. Automatically Scheduled) — hypothese, nooit gemeten,
-      vermoedelijk de grootste resterende SNET/MSO-afwijkingscluster (T15-dossier (c)5, B3-correctie
-      2026-08-17).** Corpusbrede probe op ROOT-taken (SNET/MSO-constraint buiten de werkband, geen
-      voorganger): 1 RAW-instant tegen 5 SNAPPED — de twee gevallen delen kalender/band/constraint-
-      tijdstip maar verschillen toch in uitkomst. MPXJ's `MPP14Reader.java` toont een TASK_MODE-
-      mechanisme met precies dit effect (`Fixed2Meta`-bit-flag, `TaskField.TASK_MODE`; een MANUALLY
-      SCHEDULED taak gebruikt zijn eigen `START`/`FINISH`-veldpaar i.p.v. `SCHEDULED_START`/
-      `SCHEDULED_FINISH`) — de BEST ONDERBOUWDE hypothese voor de discriminator, maar de bit is in
-      deze etappe NOOIT daadwerkelijk uitgelezen; er is dus geen bevestiging, alleen een gat met een
-      plausibele verklaring. Fix vergt een eigen `Fixed2Meta`-taakrecordlezer (mirrort het bestaande
-      resource-patroon in `mppEntities.ts`), het aparte START/FINISH-veldpaar lezen, én een nieuw
-      scheduling-mode-concept in de solver — een eigen feature, geen kleine tweak. Eerste vervolgstap:
-      de bit daadwerkelijk uitlezen en de hypothese bevestigen of weerleggen vóórdat er een feature op
-      gebouwd wordt. Gedocumenteerd als GAT (niet als gemeten oorzaak) in `mppReader.ts` en
-      `mppGroundTruth.ts`.
+- [x] **Zuivere resource-contouring is niet betrouwbaar detecteerbaar — de contouring-detectiegrens
+      opgelost (Z16, fase 3.8 etappe "nul afwijkingen", 2026-08-18).** De oude `spanGt`-proxy (venster
+      > duur, een schatting) is vervangen door `countScheduleNotes`, dat drie ECHTE signalen telt
+      (`Task.levelingDelayMinutes`/`.splitGaps`/`.timephasedFinishFloor`|`.timephasedDurationWalks`).
+      Bijvangst: MPXJ's eigen referentiebestand voor resource-contouring (`mpp14resource.mpp`,
+      "Contoured Task") wordt daarmee nu wél herkend — de oude WORK_CONTOUR-FixedMeta-bit-aanpak bleef
+      ongebruikt (0 treffers op datzelfde bestand), maar de echte timephased-telling raakt dezelfde
+      taak via een ander pad. Zie `mppReader.ts` (`countScheduleNotes`) en `gids-msproject-import.md`.
+- [x] **TASK_MODE (Manually Scheduled vs. Automatically Scheduled) — hypothese bevestigd en
+      geïmplementeerd (Z9a, fase 3.8 etappe "nul afwijkingen", 2026-08-18).** De bit is daadwerkelijk
+      uitgelezen (`Fixed2Meta`-bit-flag, offset 8, masker 0x08/0x80 al naar applicationVersion) en
+      bevestigd: een MANUALLY_SCHEDULED taak gebruikt inderdaad zijn eigen `START`/`FINISH`-veldpaar
+      (1283/1284, `Fixed2Data` blok 1) i.p.v. `SCHEDULED_START`/`SCHEDULED_FINISH` (35/36). Reader
+      (`mppReader.ts`/`mppGroundTruth.ts`, byte-gelijk gespiegeld tussen lezer en grondwaarheid) en
+      solver (rauw anker, geen snap, backward-early-return, manual wint van constraints) beide
+      geland. Corpusbreed effect gemeten: 14 bestanden naar 0/0/0/0, startDiff 211→5, finishDiff 225→19.
+
+### MPP/MSP-import (fase 3.8, etappe "nul afwijkingen") — bewust laten liggen (2026-08-19)
+- [ ] `CPMSolver.ts` leveling-takvolgorde: een taak met zowel `levelingDelay` (dagen) als `levelingDelayMinutes` zou aan de ankerregel ontsnappen (vandaag onmogelijk — lezer zet alleen minuten, nivelleerder alleen dagen); precedentie-commentaar benoemt dat geval niet (Z6-veeglijst).
+- [ ] `CPMSolver.ts` M1-bandsnap-float-nuance: de bandsnap kan de ES verder duwen dan de kale leveling-delay terwijl de backward-doorgifte alleen de kale delay terugrekent — float-nuance op elapsed-delay-WORKTIME-taken, geen datumeffect (Z6-veeglijst).
+- [ ] `CPMSolver.ts` `isExactBandEnd`/`dayFirstBandStart`/`dayLastBandEnd` leunen stilzwijgend op de engine-brede oplopend-gesorteerde-banden-aanname (`effectiveBandsOn` sorteert niet) — docblok-vermelding zoals `nextBandStartStrictAfter` die wel heeft (Z13-veeglijst R3).
+
+> Uit de Z20-eindronde: dingen die deze etappe bewust NIET meenam, met de reden erbij — zodat het
+> geen verrassing is als iemand er later tegenaan loopt.
+
+- [ ] **Native MSPDI-`<Manual>`/`<LevelingDelay>`/`<TimephasedData>` lezen en schrijven.**
+      Orkestratorbesluit O4 (2026-08-17): native schrijven zonder terugleeslezen zou een stille
+      semantiek-omklap zijn (hetzelfde precedent als `ELAPSEDTIME`) — de MSPDI-export waarschuwt
+      daarom bewust in plaats van deze drie elementen te schrijven. Native lezen+schrijven is een
+      eigen, kleine vervolg-etappe.
+- [ ] **Splitsen/handmatig plannen als bewerkfunctie (UI).** Deze etappe levert lezen, rekenen,
+      tekenen en round-trip; slepen om te splitsen, split-handles in de Gantt en split ongedaan maken
+      zijn een aparte etappe (plan §1.4/O2, orkestratorbesluit akkoord 2026-08-17).
+- [ ] **Float-spiegel onvolledig bij deeldag-duren (Z13-hercheck R2).** `subDuration`s band-eind-
+      float-spiegel klopt voor hele-dag-duren maar niet voor een deeldag-duur op een deeldag-kalender
+      (12u-taak op een 8u-dag: gemeten `tf` 1,5 waar `LF−EF` 2,5 hoort — één werkdag te weinig).
+      Corpusincidentie 0, wel app-zichtbaar bij een taakstart aan het eind van de werkdag. Structurele
+      plek voor een fix: de float-laag (`scheduleAnalysis.computeScheduleResults`, die formule-invoer
+      al corrigeert voor hammock/manual — zelfde behandeling voor een gedegenereerd band-eind-anker).
+- [ ] **Dangling `resourceCalendarId` in timephased walks na `removeCalendar` (Z19-hercheck R4).** Een
+      `timephasedDurationWalks`-item dat naar een inmiddels verwijderde resourcekalender verwijst
+      valt stil terug op de projectkalender — pre-existing `resolveCalendar`-semantiek, geen
+      regressie van deze etappe, maar onopgemerkt zolang `removeCalendar` niet zelf valideert/opschoont.
+- [ ] **Bewerkgedrag-meetlat (taaktypes-spec) als voorwaarde voor de Z19-L-segments-afweging.** Of de
+      holiday-bewuste laag-4-activering op de `mpp14timephasedsegments*`-fixtures bij een ANDERE duur
+      dan de opgeslagen klopt, is met het huidige harnas onverifieerbaar — bewerkgedrag-fidelity heeft
+      nog geen meetlat. Wacht op de bewerken-zoals-MSP-meetlat uit de taaktypes-etappe
+      (eigenaarsbesluit 2026-08-18: task type/effort-driven als aparte etappe, niet hier).
 
 ### Solver/presentatie — resterende punten (2026-07-20)
 

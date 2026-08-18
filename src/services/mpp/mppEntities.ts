@@ -385,7 +385,7 @@ function readResourcesUnsafe(
   const resourceIdByUniqueId = new Map<number, string>();
   // Iterate op VarMeta se echte unique-ID's (spiegelt `rscVarMeta.getUniqueIdentifierArray()`) —
   // uniqueID 0 is een GELDIGE resource-id (plan-waarschuwing, geverifieerd via mppCalendars.ts's
-  // T6-spec-review-fix-toelichting: bijlage 13 se afgeleide kalenders dragen resource-ID's t/m 0),
+  // T6-spec-review-fix-toelichting: 870d339f60603f71 se afgeleide kalenders dragen resource-ID's t/m 0),
   // dus GEEN uid===0-skip zoals bij taken (waar 0 de projectsamenvattingstaak is).
   for (const uniqueId of varMeta.getUniqueIdentifierArray()) {
     const index = indexByShortUid.get(uniqueId);
@@ -404,7 +404,7 @@ function readResourcesUnsafe(
     // om een geldige naam/MAX_UNITS/type uit te lezen — vandaar hieronder de VASTE vorm i.p.v. de
     // normale per-veld-afleiding). `isUnassignedPlaceholder` overschrijft UITSLUITEND naam/type/
     // maxUnits — calendarId-koppeling (verderop) blijft de normale afleiding volgen: T6 heeft al
-    // vastgesteld dat resource-uniqueID 0 een geldig kalender-koppelpunt kan zijn (bijlage 13's
+    // vastgesteld dat resource-uniqueID 0 een geldig kalender-koppelpunt kan zijn (870d339f60603f71's
     // afgeleide kalenders dragen resource-ID's t/m 0), dat blijft ongewijzigd. Zie
     // `check-mpp-relations.ts`'s moduleheader voor deze bewuste MPXJ-divergentie (9/7/5 vs. 8/6/4).
     const isUnassignedPlaceholder = uniqueId === 0;

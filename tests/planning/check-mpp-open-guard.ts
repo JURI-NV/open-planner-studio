@@ -41,6 +41,7 @@
 // relaties/resources/assignments).
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { installDOMParser } from './xmldom-shim';
 
 // ── Headless browser-stubs (vóór de eerste store-import) ─────────────────────────────────────
@@ -188,9 +189,8 @@ installDOMParser(); // readMSPDI (via parseProjectXml) gebruikt de browser-DOMPa
 // `runCPM` de taakinvoer zelf op leaf-taken). Die fix is geland (04909f36: samenvattingsrelaties
 // propageren naar leaf-taken; 130e7750: voorouder-guard + terugvouwing) en gereviewd — het
 // `findSafeCorpusFile`-filter dat om die crash heen koos is nu dood gewicht. Alle drie
-// ground-truth-bestanden lopen hieronder door de ECHTE open-route (incl. 'Bijlage 13
-// Productieplanning.mpp', die wél zo'n relatie draagt), net als check-mpp-import.ts/-relations.ts
-// al deden.
+// ground-truth-bestanden lopen hieronder door de ECHTE open-route (incl. 870d339f60603f71,
+// hash-only §8, die wél zo'n relatie draagt), net als check-mpp-import.ts/-relations.ts al deden.
 const CORPUS =
   process.env.OPS_MPP_CORPUS ??
   '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
@@ -203,17 +203,21 @@ if (!corpusPresent || corpusFiles.length === 0) {
   for (const name of corpusFiles) {
     const mppPath = join(CORPUS, name);
     const bytes = new Uint8Array(readFileSync(mppPath));
+    // Hash-only (§8, Z20-veeg): `name` blijft nodig als functionele invoer (simuleert de echte
+    // `File.name` die de app krijgt), maar élke DIAGNOSEREGEL hieronder gebruikt `tag` (de hash),
+    // nooit `name` zelf.
+    const tag = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
 
     S().newProject(); // vers, ongewijzigd actief tabblad
     nextFile = makeFakeFile(name, { bytes });
     await S().openFile();
 
-    truthy(`09 [${name}] MPP-open: taken geladen`, S().tasks.length > 0);
-    truthy(`10 [${name}] MPP-open: kalender gezet (id aanwezig)`, !!S().calendar?.id);
-    truthy(`11 [${name}] MPP-open: planning herberekend (cpmResult aanwezig, geen crash)`, S().cpmResult !== null);
-    eq(`12 [${name}] MPP-open: GEEN filePath (opslagdoel-guard, T8-stap 5a/F4)`, S().filePath, null);
-    eq(`13 [${name}] MPP-open: GEEN fileHandle`, S().fileHandle, null);
-    eq(`14 [${name}] MPP-open: document blijft "ongewijzigd naamloos" — isDirty volgt de normale open-semantiek`, S().isDirty, false);
+    truthy(`09 [${tag}] MPP-open: taken geladen`, S().tasks.length > 0);
+    truthy(`10 [${tag}] MPP-open: kalender gezet (id aanwezig)`, !!S().calendar?.id);
+    truthy(`11 [${tag}] MPP-open: planning herberekend (cpmResult aanwezig, geen crash)`, S().cpmResult !== null);
+    eq(`12 [${tag}] MPP-open: GEEN filePath (opslagdoel-guard, T8-stap 5a/F4)`, S().filePath, null);
+    eq(`13 [${tag}] MPP-open: GEEN fileHandle`, S().fileHandle, null);
+    eq(`14 [${tag}] MPP-open: document blijft "ongewijzigd naamloos" — isDirty volgt de normale open-semantiek`, S().isDirty, false);
   }
 }
 
@@ -257,15 +261,18 @@ function makeFakeHandle(file: unknown): FileSystemFileHandle {
     const name = corpusFiles[0];
     const bytes = new Uint8Array(readFileSync(join(CORPUS, name)));
     const handle = makeFakeHandle(makeFakeFile(name, { bytes }));
+    // Hash-only (§8): `name` blijft functionele invoer (echte `File.name`/recent-entry-naam),
+    // diagnoseregels gebruiken `tag`.
+    const tag = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
 
     S().newProject(); // vers, ongewijzigd actief tabblad
     useAppStore.setState({ recentFiles: [{ id: 'recent-test-mpp', name, ref: { kind: 'handle', handle }, addedAt: Date.now() }] });
     await S().openRecentFile('recent-test-mpp');
 
-    truthy(`15 [${name}] openRecentFile(.mpp): taken geladen`, S().tasks.length > 0);
-    eq(`16 [${name}] openRecentFile(.mpp): GEEN filePath (saveTargetFor: canBeSaveTarget=false)`, S().filePath, null);
-    eq(`17 [${name}] openRecentFile(.mpp): GEEN fileHandle`, S().fileHandle, null);
-    eq(`18 [${name}] openRecentFile(.mpp): entry blijft in recents (verplaatst, niet verwijderd)`, S().recentFiles.length, 1);
+    truthy(`15 [${tag}] openRecentFile(.mpp): taken geladen`, S().tasks.length > 0);
+    eq(`16 [${tag}] openRecentFile(.mpp): GEEN filePath (saveTargetFor: canBeSaveTarget=false)`, S().filePath, null);
+    eq(`17 [${tag}] openRecentFile(.mpp): GEEN fileHandle`, S().fileHandle, null);
+    eq(`18 [${tag}] openRecentFile(.mpp): entry blijft in recents (verplaatst, niet verwijderd)`, S().recentFiles.length, 1);
   }
 }
 
