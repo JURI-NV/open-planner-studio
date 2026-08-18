@@ -519,10 +519,13 @@ export class CPMSolver {
     return eng.addWorkDaysChecked(start, durationDaysOf(task, eng));
   }
   /** Late start = late finish ⊖ duur (§5.1, spiegel van `addDuration`). BEWUST GEEN
-   *  `levelingDelay`/`levelingDelayMinutes`-aftrek hier (Z6-besluit, "geen-phantom-float"-fix —
-   *  zie de uitgebreide toelichting bij de vertraging-toepassing in `forwardPass`): `end` (=
-   *  `lateFinish`) komt hier al onafhankelijk van deze taak se eigen `earlyStart` binnen, dus een
-   *  aftrek zou de vertraging DUBBEL verrekenen in `totalFloat`. */
+   *  `levelingDelay`/`levelingDelayMinutes`-aftrek hier (Z6-besluit, ongewijzigd na de Z6-
+   *  fixronde): `end` (= `lateFinish`) komt hier al onafhankelijk van deze taak se eigen
+   *  `earlyStart` binnen, dus een aftrek HIER zou de vertraging DUBBEL verrekenen in
+   *  `totalFloat`. Dat is een ander mechanisme dan de backward-DOORGIFTE-spiegel in
+   *  `backwardPass` (Z6-fixronde B2, `shiftByLevelingDelay`s aanroep daar): die corrigeert wat
+   *  een VOORGANGER van deze taak als late-zijde-druk ziet, niet wat déze taak zelf met haar
+   *  eigen duur doet — de twee plekken lossen verschillende problemen op en bijten elkaar niet. */
   private subDuration(eng: CalendarEngine, end: Date, task: Task): Date {
     if (isZeroDurationMilestone(task)) return new Date(end.getTime());
     if (task.time.durationType === 'ELAPSEDTIME') {
@@ -531,6 +534,27 @@ export class CPMSolver {
     return eng.isHourMode
       ? eng.subtractWorkMinutes(end, durationMinutesOf(task, eng))
       : eng.subtractWorkDays(end, durationDaysOf(task, eng));
+  }
+
+  /** Verschuift `date` met de nivelleer-vertraging van `task` (fase 2.5 §5.6; Z6 uur-/minuut-
+   *  precisie + elapsed-bewustheid; Z6-fixronde). `sign=1` (forward, `forwardPass`s eigen early
+   *  start van `task` zelf) of `sign=-1` (backward-DOORGIFTE, `backwardPass`s constraint-druk
+   *  die `task` als OPVOLGER op haar voorganger legt — Z6-fixronde B2, zie de toelichting bij de
+   *  aanroepplek in `backwardPass`). Geen delay ingesteld ⇒ `date` ongewijzigd (no-op, byte-
+   *  identiek), ongeacht `sign`. */
+  private shiftByLevelingDelay(eng: CalendarEngine, task: Task, date: Date, sign: 1 | -1): Date {
+    const taskElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
+    if (task.levelingDelayMinutes) {
+      return (taskElapsed || task.levelingDelayElapsed)
+        ? addElapsedMinutes(date, sign * task.levelingDelayMinutes)
+        : eng.addWorkingMinutesSigned(date, sign * task.levelingDelayMinutes);
+    }
+    if (task.levelingDelay) {
+      return taskElapsed
+        ? addElapsedMinutes(date, sign * task.levelingDelay * 24 * 60)
+        : eng.addWorkingDaysSigned(date, sign * task.levelingDelay);
+    }
+    return date;
   }
 
   /** WORKTIME-lag in MINUTEN in de voorganger-kalender (§5.2): procent ⇒ uit `durationMinutesOf(pred)`;
@@ -872,7 +896,12 @@ export class CPMSolver {
       // voorganger-relatie om een finish te eisen).
       let sfFinishFloor: Date | null = null;
 
-      if (preds.length === 0) {
+      // Z6-fixronde (ANKERREGEL): `preds.length === 0` bepaalt hieronder al welke tak `earlyStart`
+      // levert (eigen anker vs. voorganger-gedreven herrekening) — hergebruikt verderop om de
+      // nivelleer-vertraging te clausuleren (zie de toelichting daar). Eén boolean, geen tweede
+      // `preds.length`-check die uit de pas zou kunnen lopen met de branch-keuze hieronder.
+      const noPreds = preds.length === 0;
+      if (noPreds) {
         // T8-review-BLOCKER (Opus-hercheck 72486257, uitgebreid): dezelfde bypass als
         // `snapSuccessorEarlyStart` hieronder — hier voor de WORTEL-taak-tegenhanger. Zonder wacht
         // duwde `ownAnchor`s `snapOnOrAfter` een elapsed-taak met een op zichzelf staand weekend-
@@ -957,62 +986,76 @@ export class CPMSolver {
         earlyStart = this.snapSuccessorEarlyStart(cal, earlyStart, task);
       }
 
-      // Nivelleer-vertraging (fase 2.5, §5.6; Z6 — uur-/minuutprecisie + elapsed-bewustheid).
-      // Schuift de zojuist bepaalde — al werkdag-gesnapte, constraint-toegepaste — early start met
-      // de door de leveler (of, sinds Z5, `.mpp`'s eigen LEVELING_DELAY-veld) gezette vertraging op.
+      // Nivelleer-vertraging (fase 2.5, §5.6; Z6 — uur-/minuutprecisie + elapsed-bewustheid;
+      // Z6-fixronde — de ANKERREGEL). TWEE APARTE BRONNEN, TWEE APARTE REGELS — zie de
+      // "aanwezig ⇒ bron van waarheid"-precedentie in `shiftByLevelingDelay`s docblok:
       //
-      // AANWEZIG ⇒ bron van waarheid (`levelingDelayMinutes`' Z0-precedent, spiegelt
-      // `durationMinutes` t.o.v. `scheduleDuration`): `levelingDelayMinutes` wint van het hele-
-      // dagen-pad (`levelingDelay`, gezet door `ResourceLeveler`); AFWEZIG ⇒ het hele-dagen-pad
-      // blijft de terugval, byte-identiek aan vóór Z6.
+      // (1) `task.levelingDelay` (hele WERKdagen) — UITSLUITEND door `ResourceLeveler` gezet (nooit
+      //     door `mppReader.ts`, zie de moduleheader-toelichting daar). Blijft ONGECLAUSULEERD
+      //     toegepast, exact zoals vóór Z6 en vóór de ankerregel: `task.time.scheduleStart` reflecteert
+      //     hier NOOIT de nivellering (`ResourceLeveler` herschrijft dat veld niet, alleen
+      //     `levelingDelay` zelf, vóór de volgende `runCPM`) — of de taak nu een wortel-taak is of
+      //     voorganger-gedreven, de opgeslagen anker weet in BEIDE gevallen niets van de delay, dus
+      //     de ankerregel hieronder is hier niet van toepassing. Mutatiebewijs (deze fixronde): de
+      //     ankerregel per ongeluk óók op dit pad toepassen brak `cases-resource-leveling.json`
+      //     (11/25 i.p.v. 25/25 — genivelleerde WORTEL-taken zoals `lvl-basic-conflict`s "B" bleven
+      //     ongenivelleerd) en `kal-leveler-apply`/`kal-leveler-preview-puur`; teruggedraaid naar
+      //     ongeclausuleerd ⇒ weer groen.
+      // (2) `task.levelingDelayMinutes`/`.levelingDelayElapsed` (uur-/minuutprecisie) — UITSLUITEND
+      //     door `mppReader.ts` gezet uit `.mpp`'s eigen LEVELING_DELAY-veld. HIER geldt de
+      //     ANKERREGEL wél: toegepast UITSLUITEND wanneer `earlyStart` hierboven VOORGANGER-GEDREVEN
+      //     herrekend is (`!noPreds`) — NOOIT wanneer ze uit het eigen opgeslagen anker komt
+      //     (`noPreds`, de `preds.length === 0`/`ownAnchor`-tak). Reden: voor een `.mpp`-geïmporteerde
+      //     wortel-taak IS `task.time.scheduleStart` MSP's EIGEN, AL-berekende eindantwoord
+      //     (inclusief eventueel toegepaste nivellering) — letterlijk wat MSP zelf naar
+      //     SCHEDULED_START schreef, geen tussenstap. Onze vertraging DAAR ook nog eens toepassen zou
+      //     'm dubbel tellen (de eerste Z6-oplevering deed dit ongeclausuleerd en regresseerde
+      //     `mpp14barstyle.mpp` van 0 naar 6 afwijkingen — een PRELEVELED-poort maskeerde dat
+      //     eerst, zie de revert-commit, vóórdat deze ankerregel het onderliggende motorprobleem
+      //     repareerde). Voor een voorganger-gedreven taak berekent `forwardPass` de early start VERS
+      //     uit de relatiewiskunde, zonder ooit de opgeslagen `scheduleStart` te raadplegen — die
+      //     verse berekening kent de vertraging nog niet, dus die ÉÉN keer toepassen is hier wél
+      //     correct (spiegelt MSP's eigen leveler: precedence-feasible-start + delay).
       //
-      // `levelingDelayElapsed` (MSP's `LevelingDelayFormat` "Elapsed…", alleen betekenisvol náást
-      // `levelingDelayMinutes`, zie het veld se docblock in `src/types/task.ts`) ⇒ de VERTRAGING
-      // ZELF is klok-tijd, geen werktijd ⇒ `addElapsedMinutes` (T8-precedent, `duration.ts`,
-      // 24/7, GEEN kalenderband-toetsing), nooit `addWorkingMinutesSigned`.
+      // Corpusmeting (scratchpad, 19 `.mpp`-taken met non-zero `levelingDelayMinutes` over
+      // corpus+crawl): 14/19 hebben een voorganger, 5/19 niet — en die 5 zijn EXACT
+      // `mpp14barstyle.mpp`'s taken (LEVELING_DELAY nooit door MSP geconsumeerd in SCHEDULED_START).
+      // De 14 voorganger-gedreven taken (OzBuild Workshop 17.mpp/…17 Leveling.mpp + het gemengde
+      // corpusbestand a69fec157074d056) zijn stuk voor stuk GENUINE, door MSP toegepaste nivellering.
       //
-      // `taskElapsed` (spiegelt `rootElapsed` hierboven en `snapSuccessorEarlyStart`s eigen bypass,
-      // beide T8): is de TAAK zelf ELAPSEDTIME, dan mag de vertraging ZELF ook geen kalenderband-
-      // snap veroorzaken, ONGEACHT `levelingDelayElapsed`. Reden (Z6-invariant-waarschuwing):
-      // `addWorkingDaysSigned`/`addWorkingMinutesSigned` normaliseren hun EERSTE argument allebei
-      // vóór alles naar de eerstvolgende WERK-dag/-instant (`nextWorkDay`/`nextWorkInstant`) — voor
-      // een elapsed taak die legitiem op een niet-werk-instant staat (T8: "elapsed mag op een
-      // weekend/buiten-de-band starten", `rootElapsed`/`succElapsed`-bypasses) zou dat de ELAPSED-
-      // invariant stilzwijgend breken door het anker alsnog de werkband in te duwen. Gepind in
-      // `msp-50-z6-invariant-elapsed-wortel-hele-dagen-delay`/`msp-51-z6-invariant-elapsed-opvolger-
-      // hele-dagen-delay` (`cases-msp-pariteit.json`).
+      // CONSTRAINT-GEVAL (expliciet gemeten, niet aangenomen): van de 19 delay-taken dragen er 11
+      // óók een SNET/MSO-achtige constraint — ALLE 11 hebben een voorganger (0 wortel-taken met
+      // zowel een constraint als een delay in het gemeten corpus+crawl). Het wortel-plus-constraint-
+      // geval is dus ONGEMETEN voor `levelingDelayMinutes`; deze regel behandelt het net als het kale
+      // wortel-geval (nog steeds de `noPreds`-tak, ongeacht of een constraint dat anker verder
+      // beïnvloedt) — gepind met een synthetische case
+      // (`msp-53-z6-anker-regel-wortel-met-constraint`) i.p.v. stilzwijgend aangenomen.
       //
-      // Backward-spiegel — EXPLICIET besluit (Z6, met bewijs): GEEN aftrek van de vertraging in
-      // `backwardPass`/`subDuration`. Dit is GEEN omissie maar de bewuste "geen-phantom-float"-fix
-      // uit het B1-ontwerpdoc (`docs/superpowers/specs/2026-07-03-resources-design.md`, §5.6,
-      // PMBOK-valkuil "A resource-leveled activity can delay the project and still indicate
-      // positive total float"): `lateStart`/`lateFinish` worden in de backward pass UITSLUITEND uit
-      // OPVOLGER-druk/`projectEnd` en de TAAKduur afgeleid — nooit uit de eigen `earlyStart` van de
-      // taak — dus onafhankelijk van `levelingDelay`. Omdat `earlyStart` hier wél met de vertraging
-      // schuift, daalt `totalFloat = lateStart − earlyStart` daardoor STRUCTUREEL en EXACT met het
-      // vertragingsbedrag (de taak heeft precies dat deel van haar eigen speling opgesoupeerd) —
-      // wiskundig gegarandeerd door de structuur van de backward pass, niet toevallig. EEN aftrek
-      // ván de vertraging TOEVOEGEN in `subDuration` zou dat bedrag DUBBEL tellen (`float − 2×delay`
-      // i.p.v. `float − delay`) — aantoonbaar fout, mutatie-bewezen tegen `cases-msp-pariteit.json`
-      // (`msp-46-z6-uur-precisie-plus-float`/`msp-49-z6-volgorde-dependency-constraint-delay-plus-
-      // float`: tijdelijk een aftrek toegevoegd aan `subDuration` tijdens implementatie ⇒ beide
-      // float-asserties ROOD (4.222…→3.889… i.p.v. →4.056… op msp-46; 3.556…→3.444… op msp-49);
-      // teruggedraaid ⇒ groen). Geen corpusbestand spreekt dit tegen (de twee zuivere leveling-
-      // bestanden en het gemengde bestand meten Start/Finish, niet MSP's eigen Total-Slack-veld —
-      // dat wordt nergens gelezen, zie `mppGroundTruth.ts`); de wiskundige garantie hierboven staat
-      // dus op zichzelf.
+      // Backward-spiegel — ONGEWIJZIGD besluit: GEEN aftrek van de vertraging in `subDuration` zelf
+      // (zie die functie se docblok). Voor de DOORGIFTE naar de voorganger in `backwardPass` geldt
+      // een ANDER, wél noodzakelijk mechanisme (BEIDE bronnen, `shiftByLevelingDelay` maakt zelf geen
+      // onderscheid) — zie de toelichting bij de aanroepplek in `backwardPass` (Z6-fixronde B2).
       //
-      // `levelingDelay`/`levelingDelayMinutes` beide afwezig/0 ⇒ exacte no-op (alle bestaande cases
-      // blijven ongewijzigd, byte-identiek aan vóór Z6).
-      const taskElapsed = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
-      if (task.levelingDelayMinutes) {
-        earlyStart = (taskElapsed || task.levelingDelayElapsed)
-          ? addElapsedMinutes(earlyStart, task.levelingDelayMinutes)
-          : cal.addWorkingMinutesSigned(earlyStart, task.levelingDelayMinutes);
-      } else if (task.levelingDelay) {
-        earlyStart = taskElapsed
-          ? addElapsedMinutes(earlyStart, task.levelingDelay * 24 * 60)
-          : cal.addWorkingDaysSigned(earlyStart, task.levelingDelay);
+      // `levelingDelay`/`levelingDelayMinutes` beide afwezig/0 ⇒ exacte no-op in beide takken —
+      // byte-identiek aan vóór Z6.
+      if (task.levelingDelay) {
+        earlyStart = this.shiftByLevelingDelay(cal, task, earlyStart, 1);
+      } else if (!noPreds && task.levelingDelayMinutes) {
+        earlyStart = this.shiftByLevelingDelay(cal, task, earlyStart, 1);
+        // M1 (Z6-fixronde, mixed-corpus-probefix): een ELAPSED-FORMAAT vertraging
+        // (`levelingDelayElapsed`) op een NIET-elapsed taak is een kale kloktijd-optelling die het
+        // anker buiten de werkband kan duwen — de taak zelf blijft WORKTIME en moet dus alsnog op
+        // een geldig werk-instant landen (`snapOnOrAfter`, dezelfde functie die de gewone
+        // constraint-snap elders gebruikt). Een ELAPSEDTIME-taak zelf blijft bewust ONGESNAPT — die
+        // mag legitiem buiten de band staan (T8/Z6-invariant,
+        // `msp-51-z6-invariant-elapsed-opvolger-hele-dagen-delay`). Mutatiebewijs: het gemengde
+        // corpusbestand (hash a69fec157074d056) had zonder deze snap 2 sameday-afwijkingen (onze
+        // ES 04:49/03:39 tegen MSP's 08:00 op twee WORKTIME-taken met een elapsed-vertraging); met
+        // de snap exact. `msp-48-z6-elapsed-delay` pint dit corpusloos.
+        const taskElapsedForSnap = !isZeroDurationMilestone(task) && task.time.durationType === 'ELAPSEDTIME';
+        if (!taskElapsedForSnap && task.levelingDelayElapsed) {
+          earlyStart = this.snapOnOrAfter(cal, earlyStart);
+        }
       }
 
       // Voortgang (fase 2.6): actual-pinning + data-date-vloer. dataDate === null ⇒ elke tak is
@@ -1793,8 +1836,32 @@ export class CPMSolver {
         // negatieve float op de start-/finish-driver leggen — de driver ziet alleen zijn eigen
         // (niet-hammock) opvolgers.
         if (succTask.isHammock) continue;
+        // Z6-fixronde B2 (backward-DOORGIFTE-spiegel, Opus-review-probe P→A(delay)→S): `succTask`
+        // heeft hier per constructie minstens één voorganger (`task`, via déze `seq`), dus de
+        // ANKERREGEL hierboven in `forwardPass` heeft haar eigen `levelingDelay` al toegepast op
+        // haar early start (mits ingesteld). `succResult.ls`/`.lf` zelf blijven daar bewust
+        // ONAFHANKELIJK van (§`subDuration`s docblok, "geen-phantom-float" voor `succTask` zelf) —
+        // maar DAARDOOR kent de late-zijde-druk die `succTask` op HAAR EIGEN voorganger (`task`,
+        // hier) legt de vertraging nog niet: zonder correctie zou `task`s berekende `lateFinish`
+        // een vaste `delay`-hoeveelheid speling tonen die ze feitelijk niet heeft (mutatiebewijs:
+        // een P→A(delay)→S-keten gaf P.tf=`delay` i.p.v. 0, en P kwam ten onrechte niet-kritiek uit
+        // — terwijl elke verschuiving van P via A's vaste delay 1-op-1 doorwerkt naar S en dus naar
+        // `projectEnd`). Spiegelt exact hoe `shiftLagPred` een GEWONE relatie-lag al symmetrisch
+        // forward/backward toepast — `levelingDelay` is hier gewoon een lag die NÁ de relatiewiskunde
+        // wordt opgeteld i.p.v. erin verwerkt, dus de spiegel moet ervóór (backward) plaatsvinden.
+        // EERLIJKE KANTTEKENING: dit repareert de doorgifte VIA de relatie-keten; het herstelt NIET
+        // vanzelf een `projectEnd`-vertekening als de genivelleerde taak zelf (indirect, via een
+        // langere keten) `projectEnd = max(EF)` bepaalt — dat blijft correct omdat `projectEnd`
+        // hierboven al UIT `earlyDates` komt (dus al inclusief elke toegepaste delay), niet omdat
+        // deze spiegel dat apart zou garanderen; de twee mechanismen werken hier los van elkaar
+        // samen, niet omdat het één het ander bewijst.
+        const succCal = this.calendarFor(succTask);
+        const delayShiftedSuccResult = {
+          ls: this.shiftByLevelingDelay(succCal, succTask, succResult.ls, -1),
+          lf: this.shiftByLevelingDelay(succCal, succTask, succResult.lf, -1),
+        };
         const constraintDate = backwardConstraint(
-          this.relDeps, succResult, seq, task, succTask, predCal, this.calendarFor(succTask),
+          this.relDeps, delayShiftedSuccResult, seq, task, succTask, predCal, succCal,
         );
         if (constraintDate < lateFinish) {
           lateFinish = constraintDate;

@@ -1087,15 +1087,17 @@
     },
     {
       "id": "msp-46-z6-uur-precisie-plus-float",
-      "title": "Z6 acceptatiepunt 1a — uur-kalender, delay 90 min, geen voorganger: ES exact 90 werkminuten later, plus float-context (`Long` levert speling; `Short` verliest daar exact 90/540 werkdag van via de delay t.o.v. `ShortNoDelay`).",
-      "note": "Handberekening: band 08:00-17:00 (540 werkmin/dag). A start 2026-06-01 (ma) 08:00, geen voorganger ⇒ earlyStart vóór delay = 08:00; `levelingDelayMinutes=90` ⇒ `cal.addWorkingMinutesSigned(08:00, 90)`=09:30 (binnen dezelfde band, geen bandgrens overschreden) ⇒ ES=09:30, EF=09:30+2u=11:30. Float: `Long` (40u) bepaalt het projecteinde; `Short`/`ShortNoDelay` (beide 2u, `Short` met de 90-min-delay) delen dezelfde `lateFinish` (backward hangt niet af van de eigen earlyStart, Z6-besluit) ⇒ `tf` daalt voor `Short` met EXACT 90/540=1/6 werkdag t.o.v. `ShortNoDelay` (4.222222… → 4.055555…, mutatie-bewezen tijdens implementatie: zie het commitbericht/CPMSolver.ts-docblok bij `subDuration`).",
+      "title": "Z6 acceptatiepunt 1a — uur-kalender, delay 90 min, VOORGANGER-gedreven (ankerregel): ES exact 90 werkminuten na het voorganger-anker, plus float-context (`Long` levert speling; `Short` verliest daar exact 90/540 werkdag van via de delay t.o.v. `ShortNoDelay`).",
+      "note": "Z6-fixronde (ANKERREGEL): `Short` heeft nu een voorganger `P0` (0-duur mijlpaal op 08:00) — zonder voorganger zou de vertraging NOOIT toegepast worden (het eigen anker is dan de bron van waarheid, zie CPMSolver.ts). Handberekening: band 08:00-17:00 (540 werkmin/dag). `Short.es` vóór delay = `P0`s finish = 08:00 (FS+0); `levelingDelayMinutes=90` ⇒ `cal.addWorkingMinutesSigned(08:00, 90)`=09:30 (binnen dezelfde band) ⇒ ES=09:30, EF=09:30+2u=11:30. Float: `Long` (40u, wortel, geen delay — de ankerregel raakt haar niet) bepaalt het projecteinde; `Short`/`ShortNoDelay` (beide 2u, `Short` met de 90-min-delay) delen dezelfde `lateFinish` (backward-DOORGIFTE is hier een no-op: geen van beiden heeft zelf een opvolger met een delay) ⇒ `tf` daalt voor `Short` met EXACT 90/540=1/6 werkdag t.o.v. `ShortNoDelay` (4.222222… → 4.055555…, mutatiebewezen: zie het commitbericht/CPMSolver.ts-docblok bij `subDuration`).",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
       "anchor": "2026-06-01",
       "tasks": [
         { "name": "Long", "dur": "40u" },
+        { "name": "P0", "milestone": true, "start": "2026-06-01T08:00" },
         { "name": "Short", "dur": "2u", "levelingDelayMinutes": 90 },
         { "name": "ShortNoDelay", "dur": "2u" }
       ],
+      "links": [{ "pred": "P0", "succ": "Short", "type": "FINISH_START" }],
       "expect": {
         "tasks": {
           "Short": { "es": "2026-06-01T09:30", "ef": "2026-06-01T11:30", "tf": 4.055555555555555 },
@@ -1105,14 +1107,48 @@
       }
     },
     {
-      "id": "msp-47-z6-delay-over-weekend",
-      "title": "Z6 acceptatiepunt 1b — delay over een weekend: werktijd telt, kalendertijd niet.",
-      "note": "A start vrijdag 2026-06-05 15:00 (binnen de band 08:00-17:00). `levelingDelayMinutes=300` (5 werkuur): vrijdag resteert 15:00-17:00=120 werkmin, dus 300-120=180 werkmin schuiven door naar de eerstvolgende werkdag (maandag 2026-06-08, weekend telt niet mee) ⇒ 08:00+180min=11:00. ES=2026-06-08T11:00 — NIET vrijdag 20:00 (dat zou 300 kalenderminuten zijn, de ELAPSED-uitkomst van msp-48 hieronder).",
+      "id": "msp-52-z6-ankerregel-wortel-genegeerd",
+      "title": "Z6-fixronde (ANKERREGEL, negatieve spiegel van msp-46) — dezelfde 90-min-delay op een WORTEL-taak (geen voorganger) wordt NIET toegepast: ES/EF byte-identiek aan een taak zonder delay.",
+      "note": "`A` is een wortel-taak (geen voorganger) met dezelfde `levelingDelayMinutes=90` als msp-46's `Short`, maar zonder de `P0`-voorganger. Ankerregel: `task.time.scheduleStart` is voor een `.mpp`-geïmporteerde wortel-taak MSP's EIGEN, al-berekende eindantwoord — onze delay daar nogmaals op toepassen zou 'm dubbel tellen (het bewezen mechanisme achter `mpp14barstyle.mpp`s regressie in de eerste Z6-oplevering). ES blijft dus op het rauwe anker (08:00), NIET 09:30. Mutatiebewijs: `!noPreds`-guard weghalen (delay ongeclausuleerd toepassen, zoals de eerste Z6-oplevering deed) → deze case ROOD (ES zou 09:30 worden) én `AControl` (identieke taak zonder delay) blijft toevallig hetzelfde (dus het contrast met `AControl` is het bewijs, niet de kale ES-waarde alleen).",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
       "anchor": "2026-06-01",
       "tasks": [
-        { "name": "A", "dur": "2u", "start": "2026-06-05T15:00", "levelingDelayMinutes": 300 }
+        { "name": "A", "dur": "2u", "levelingDelayMinutes": 90 },
+        { "name": "AControl", "dur": "2u" }
       ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-06-01T08:00", "ef": "2026-06-01T10:00" },
+          "AControl": { "es": "2026-06-01T08:00", "ef": "2026-06-01T10:00" }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-53-z6-anker-regel-wortel-met-constraint",
+      "title": "Z6-fixronde (ANKERREGEL, ongemeten constraint-geval, expliciet gepind) — wortel-taak MET SNET-constraint EN delay: de ankerregel blijft gelden (nog steeds de `noPreds`-tak), de delay wordt genegeerd — ONGEMETEN in het corpus (0 van 19 delay-taken combineren wortel + constraint), dus hier expliciet vastgelegd i.p.v. aangenomen.",
+      "note": "`A` is een wortel-taak met een SNET-constraint op 10:00 (later dan haar eigen anker 08:00, dus bindend) ÉN `levelingDelayMinutes=90`. Gekozen regel: de `noPreds`-tak (wortel/eigen-anker) is de discriminator, ONGEACHT of een constraint dat anker vervolgens optilt — A.es blijft dus op de constraint-gesnapte 10:00, de 90-min-delay wordt NIET nog eens toegepast (zou 11:30 worden). Corpusmeting (CPMSolver.ts-docblok): van de 19 corpus/crawl-taken met een delay dragen er 11 een SNET/MSO-achtige constraint, en ALLE 11 hebben ook een voorganger — dit exacte scenario (wortel + constraint + delay) komt in het gemeten corpus niet voor.",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "A", "dur": "2u", "constraint": { "type": "SNET", "date": "2026-06-01T10:00" }, "levelingDelayMinutes": 90 }
+      ],
+      "expect": {
+        "tasks": { "A": { "es": "2026-06-01T10:00", "ef": "2026-06-01T12:00" } },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-47-z6-delay-over-weekend",
+      "title": "Z6 acceptatiepunt 1b — delay over een weekend: werktijd telt, kalendertijd niet (voorganger-gedreven, ankerregel).",
+      "note": "Z6-fixronde: `A` heeft nu voorganger `P0` (0-duur mijlpaal op vrijdag 2026-06-05 15:00, binnen de band 08:00-17:00) i.p.v. een eigen ongebruikt anker — de ankerregel zou de delay anders genegeerd hebben. `A.es` vóór delay = `P0`s finish = vr 15:00 (FS+0). `levelingDelayMinutes=300` (5 werkuur): vrijdag resteert 15:00-17:00=120 werkmin, dus 300-120=180 werkmin schuiven door naar de eerstvolgende werkdag (maandag 2026-06-08, weekend telt niet mee) ⇒ 08:00+180min=11:00. ES=2026-06-08T11:00 — NIET vrijdag 20:00 (dat zou 300 kalenderminuten zijn, de ELAPSED-uitkomst van msp-48 hieronder).",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "P0", "milestone": true, "start": "2026-06-05T15:00" },
+        { "name": "A", "dur": "2u", "levelingDelayMinutes": 300 }
+      ],
+      "links": [{ "pred": "P0", "succ": "A", "type": "FINISH_START" }],
       "expect": {
         "tasks": { "A": { "es": "2026-06-08T11:00", "ef": "2026-06-08T13:00" } },
         "error": false
@@ -1120,15 +1156,17 @@
     },
     {
       "id": "msp-48-z6-elapsed-delay",
-      "title": "Z6 acceptatiepunt 1c — `levelingDelayElapsed` rekent 24/7 via `addElapsedMinutes`, niet via de kalender (contrast met msp-47: zelfde start, zelfde 300 minuten, ANDERE uitkomst).",
-      "note": "A start vrijdag 2026-06-05 15:00. `levelingDelayMinutes=300` + `levelingDelayElapsed=true` ⇒ kale kloktijd-optelling (T8-precedent `addElapsedMinutes`, GEEN kalenderband-toetsing): 15:00 + 5u = 20:00, ZELFDE dag (het weekend erna doet er niet toe voor de delay zelf). ES=2026-06-05T20:00 — de taak zelf blijft WORKTIME (alleen de VERTRAGING is elapsed), dus haar EIGEN duur (2u) rekent weer gewoon in werktijd vanaf dat elapsed-geland anker: 20:00 valt buiten de band, dus EF snapt via de normale WORKTIME-duuroptelling.",
+      "title": "Z6 acceptatiepunt 1c — `levelingDelayElapsed` rekent 24/7 via `addElapsedMinutes`, niet via de kalender, MAAR het resultaat wordt terug de werkband ingesnapt (M1, Z6-fixronde): de taak zelf blijft WORKTIME.",
+      "note": "Z6-fixronde M1: de eerste oplevering pinde hier een OFF-BAND ES (vr 20:00) als 'correct' — het gemengde corpusbestand (a69fec157074d056) weerlegde dat: MSP's eigen SCHEDULED_START snapt zo'n geval terug naar het eerstvolgende geldige werk-instant (08:00), niet naar het kale kloktijd-resultaat. `A` heeft nu voorganger `P0` (0-duur mijlpaal vrijdag 2026-06-05 15:00). `A.es` vóór delay = vr 15:00. `levelingDelayMinutes=300` + `levelingDelayElapsed=true` ⇒ kale kloktijd-optelling (T8-precedent `addElapsedMinutes`): 15:00+5u=20:00 (zelfde dag) — DAARNA `snapOnOrAfter` (de taak zelf is WORKTIME, dus moet op een werk-instant landen): 20:00 valt na de vrijdagband (17:00) en er is geen latere band die dag ⇒ eerstvolgende werkdag = maandag 08:00. ES=2026-06-08T08:00, EF=+2u=10:00. Mutatiebewijs: `snapOnOrAfter`-stap weglaten → deze case ROOD (ES zou vr 20:00 blijven) én het gemengde corpusbestand kreeg zonder deze snap 2 sameday-afwijkingen (onze 04:49/03:39 tegen MSP's 08:00).",
       "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
       "anchor": "2026-06-01",
       "tasks": [
-        { "name": "A", "dur": "2u", "start": "2026-06-05T15:00", "levelingDelayMinutes": 300, "levelingDelayElapsed": true }
+        { "name": "P0", "milestone": true, "start": "2026-06-05T15:00" },
+        { "name": "A", "dur": "2u", "levelingDelayMinutes": 300, "levelingDelayElapsed": true }
       ],
+      "links": [{ "pred": "P0", "succ": "A", "type": "FINISH_START" }],
       "expect": {
-        "tasks": { "A": { "es": "2026-06-05T20:00", "ef": "2026-06-08T10:00" } },
+        "tasks": { "A": { "es": "2026-06-08T08:00", "ef": "2026-06-08T10:00" } },
         "error": false
       }
     },
@@ -1182,6 +1220,49 @@
       ],
       "expect": {
         "tasks": { "A": { "es": "2026-06-06", "ef": "2026-06-08" } },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-54-z6-backward-doorgifte-spiegel",
+      "title": "Z6-fixronde B2 — backward-DOORGIFTE-spiegel: P→A(delay)→S. Zonder de spiegel krijgt P spookfloat (tf=delay, niet-kritiek) terwijl elke verschuiving van P via A's vaste delay 1-op-1 doorwerkt naar S/projectEnd — P hoort dus kritiek te zijn.",
+      "note": "P→A→S, alle FS+0, elk 2 werkdagen, geen delay. Ná de eerste `runCPM` krijgt A een `levelingDelay=2` (hele werkdagen, spiegelt hoe `ResourceLeveler` het zet) via `afterCPM.setLevelingDelay`, gevolgd door een herbereking. A's eigen ES/EF schuiven 2 werkdagen op (voorganger-gedreven, dus de delay wordt toegepast); S (laatste taak, bepaalt `projectEnd`) schuift daardoor evenveel mee ⇒ S blijft kritiek (tf=0) en A blijft kritiek (tf=0, ONGEWIJZIGD Z6-besluit: geen aftrek in `subDuration` zelf). ZONDER de backward-doorgifte-spiegel (B2) zou P's berekende `lateFinish` (via `backwardConstraint` op A's ONGESHIFTE late datums) een vaste 2 werkdagen speling tonen die ze niet heeft — mutatiebewezen (tijdelijk teruggedraaid): P.tf werd dan 2 i.p.v. 0, P.crit `false` i.p.v. `true`. Met de spiegel: P.tf=0, P kritiek — exact zoals verwacht, want P's eigen verschuiving zou 1-op-1 doorwerken naar S en dus naar `projectEnd`.",
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "P", "dur": 2 },
+        { "name": "A", "dur": 2 },
+        { "name": "S", "dur": 2 }
+      ],
+      "links": [
+        { "pred": "P", "succ": "A", "type": "FINISH_START" },
+        { "pred": "A", "succ": "S", "type": "FINISH_START" }
+      ],
+      "afterCPM": [
+        { "setLevelingDelay": { "task": "A", "days": 2 } },
+        { "runCPM": true }
+      ],
+      "expect": {
+        "tasks": {
+          "P": { "es": "2026-06-01", "ef": "2026-06-02", "ls": "2026-06-01", "lf": "2026-06-02", "tf": 0, "crit": true },
+          "A": { "es": "2026-06-05", "ef": "2026-06-08", "tf": 0, "crit": true },
+          "S": { "es": "2026-06-09", "ef": "2026-06-10", "tf": 0, "crit": true }
+        },
+        "error": false
+      }
+    },
+    {
+      "id": "msp-55-z6-coverage-taskelapsed-zonder-delayelapsed-vlag",
+      "title": "Z6-fixronde (dekkingsgat) — `taskElapsed && levelingDelayMinutes && !levelingDelayElapsed`: de TAAK zelf is ELAPSEDTIME maar de VERTRAGING draagt zelf geen elapsed-vlag — `shiftByLevelingDelay`s `(taskElapsed || task.levelingDelayElapsed)`-guard moet toch de elapsed-tak (`addElapsedMinutes`) kiezen, puur op basis van de taak se eigen aard.",
+      "note": "`A` (ELAPSEDTIME, voorganger-gedreven via `P0`) draagt `levelingDelayMinutes=900` ZONDER `levelingDelayElapsed`. Handberekening: `P0`s finish (mijlpaal 2026-06-05T17:00, WORKTIME-eigen kalenderband-snap duwt 'm naar de eerstvolgende werk-instant, maandag 2026-06-08T08:00 — 17:00 valt zelf buiten de halfopen band [08:00,17:00)) is A's pre-delay ES (elapsed-opvolger-bypass, `snapSuccessorEarlyStart`, geeft dat instant ONGEWIJZIGD door). +900 elapsed minuten (15u, `addElapsedMinutes`, GEEN kalenderband-toetsing want `taskElapsed`) = 2026-06-08T08:00 + 15u = 2026-06-08T23:00. Mutatiebewijs (tijdelijk toegepast, teruggedraaid): de `taskElapsed`-helft van de guard uitschakelen (`false && taskElapsed || task.levelingDelayElapsed`) laat de VERTRAGING dan als WORKTIME rekenen (`addWorkingMinutesSigned`, kalenderband-bewust) ⇒ ES verschuift naar 2026-06-09T14:00 — een ANDER instant, dus deze case discrimineert daadwerkelijk tussen de twee paden.",
+      "calendar": { "workTime": { "byWeekday": { "1": [{ "start": 480, "end": 1020 }], "2": [{ "start": 480, "end": 1020 }], "3": [{ "start": 480, "end": 1020 }], "4": [{ "start": 480, "end": 1020 }], "5": [{ "start": 480, "end": 1020 }], "6": [], "7": [] } } },
+      "anchor": "2026-06-01",
+      "tasks": [
+        { "name": "P0", "milestone": true, "start": "2026-06-05T17:00" },
+        { "name": "A", "dur": 2, "durationType": "ELAPSEDTIME", "levelingDelayMinutes": 900 }
+      ],
+      "links": [{ "pred": "P0", "succ": "A", "type": "FINISH_START" }],
+      "expect": {
+        "tasks": { "A": { "es": "2026-06-08T23:00", "ef": "2026-06-10T23:00" } },
         "error": false
       }
     }
