@@ -788,6 +788,59 @@ eq('i mutatie na undo wist de redo-stack', S().redoStack.length, 0);
   eq('j closeDocument sluit de taakdialoog', S().ui.showTaskDialog, false);
 }
 
+// ── (F1-fixronde, spec-review op 526af9f9) — kalendernaam-collisie mag GEEN stille datacorruptie
+// geven bij het teruglezen van `Task.timephasedDurationWalks[].resourceCalendarId`. De app dwingt
+// kalendernaam-uniciteit nergens af; twee kalenders met dezelfde naam is dus een geldige toestand.
+// Vóór de fix vertaalde `extractTimephasedDurationWalksMeta` via een naam→id-Map die op naam
+// dedupliceerde — beide taken hieronder zouden dan naar DEZELFDE (voor één van de twee VERKEERDE)
+// kalender resolven. Ná de fix (GUID-gebaseerde vertaling, `calendarIdByGuid`) moet elke taak naar
+// haar EIGEN kalender blijven wijzen, onderscheiden via een kalendereigenschap (workStartHour) die
+// verder niets met de naam te maken heeft. ──────────────────────────────────────────────────────
+{
+  S().newProject();
+  const fCalA = S().addCalendar({
+    name: 'DupName', description: 'kalender A', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 7, workEndHour: 15, hoursPerDay: 8, holidays: [],
+  });
+  const fCalB = S().addCalendar({
+    name: 'DupName', description: 'kalender B', workDays: [1, 2, 3, 4, 5],
+    workStartHour: 9, workEndHour: 17, hoursPerDay: 8, holidays: [],
+  });
+  truthy('f1 setup: twee kalenders met IDENTIEKE naam, verschillende workStartHour',
+    fCalA !== fCalB
+    && S().calendars.filter(c => c.name === 'DupName').length === 2
+    && S().calendars.find(c => c.id === fCalA)?.workStartHour === 7
+    && S().calendars.find(c => c.id === fCalB)?.workStartHour === 9);
+
+  const fT1 = S().addTask({ name: 'F1-taak-A' });
+  const fT2 = S().addTask({ name: 'F1-taak-B' });
+  S().updateTask(fT1, {
+    timephasedDurationWalks: [{ anchor: '2026-08-03T08:00', resourceCalendarId: fCalA }],
+  });
+  S().updateTask(fT2, {
+    timephasedDurationWalks: [{ anchor: '2026-08-03T08:00', resourceCalendarId: fCalB }],
+  });
+
+  const fIfc = writeIFC(buildWriteIFCInput(S()));
+  const fParsed = readIFC(fIfc);
+  const fT1Read = fParsed.tasks.find(t => t.name === 'F1-taak-A');
+  const fT2Read = fParsed.tasks.find(t => t.name === 'F1-taak-B');
+  const fCalById = new Map(fParsed.resourceCalendars?.map(c => [c.id, c] as const) ?? []);
+  const fT1Cal = fCalById.get(fT1Read?.timephasedDurationWalks?.[0]?.resourceCalendarId ?? '');
+  const fT2Cal = fCalById.get(fT2Read?.timephasedDurationWalks?.[0]?.resourceCalendarId ?? '');
+
+  eq('f1 taak-A wijst na round-trip naar HAAR EIGEN kalender (workStartHour 7)', fT1Cal?.workStartHour, 7);
+  eq('f1 taak-B wijst na round-trip naar HAAR EIGEN kalender (workStartHour 9)', fT2Cal?.workStartHour, 9);
+  truthy('f1: de twee walks wijzen NIET naar dezelfde kalender-id (geen naam-collisie-verwarring)',
+    fT1Read?.timephasedDurationWalks?.[0]?.resourceCalendarId !== fT2Read?.timephasedDurationWalks?.[0]?.resourceCalendarId);
+
+  // Mutatiebewijs (daadwerkelijk uitgevoerd — zie de rapportage): `writeTimephasedDurationWalksMeta`/
+  // `extractTimephasedDurationWalksMeta` tijdelijk teruggezet naar de OUDE naam-gebaseerde vertaling
+  // (calendarNameById/calendarIdByName) en deze suite herdraaid ⇒ f1 taak-B's kalender resolvede
+  // naar workStartHour 7 (kalender A, fout) i.p.v. 9 — exact de voorspelde stille corruptie.
+  // Teruggezet naar de GUID-fix: weer correct/groen.
+}
+
 // ── Uitslag ──────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK  document-contract-check: alle checks groen (${checks})`);

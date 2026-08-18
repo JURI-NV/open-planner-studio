@@ -314,6 +314,12 @@ export function toExtTask(t: Task): ExtTask {
     levelingDelayElapsed: t.levelingDelayElapsed,
     splitGaps: t.splitGaps ? t.splitGaps.map(g => ({ ...g })) : undefined,
     manuallyScheduled: t.manuallyScheduled,
+    // Z14b (F5-fixronde spec-review op 526af9f9, plan-Z14 regel ~470) — drie NIEUWE LEESKANT-ALLEEN
+    // velden: `fromExtTask`/de create-/update-pad zetten deze BEWUST niet terug (zie `ExtTask`'s
+    // eigen docblok hierboven en `taskFields.ts`'s `REJECT_HINTS`) — puur .mpp-importdata.
+    mspTaskType: t.mspTaskType,
+    effortDriven: t.effortDriven,
+    timephasedContours: t.timephasedContours ? t.timephasedContours.map(c => ({ resourceUid: c.resourceUid, periods: c.periods.map(p => ({ ...p })) })) : undefined,
     parentId: t.parentId,
     childIds: [...t.childIds],
     time: toExtTaskTime(t.time),

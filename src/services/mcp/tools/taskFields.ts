@@ -138,6 +138,12 @@ const REJECT_HINTS: Record<string, string> = {
   manuallyScheduled: 'handmatig plannen is via de bridge niet zetbaar (de datums blijven dan RAUW staan, ongeacht kalender/relaties/`duration`)',
   levelingDelayMinutes: 'sub-dag-nivelleervertraging is via de bridge niet zetbaar (geen leestool-tegenhanger, zie `levelingDelay`)',
   levelingDelayElapsed: 'sub-dag-nivelleervertraging is via de bridge niet zetbaar (geen leestool-tegenhanger, zie `levelingDelay`)',
+  // Z14b (eigenaarsbesluit 2026-08-18 punt 1, F5-fixronde spec-review op 526af9f9): drie NIEUWE
+  // .mpp-import-velden, puur data — zelfde "read-only, geen agent-invoervorm"-redenering als
+  // splitGaps hierboven, geen van drieën heeft een schrijf-workflow om te valideren.
+  mspTaskType: 'MSP\'s eigen Task Type is via de bridge niet zetbaar (puur .mpp-importdata, geen rekengedrag — zie planner_get_task)',
+  effortDriven: 'MSP\'s "Effort Driven"-vlag is via de bridge niet zetbaar (puur .mpp-importdata, geen rekengedrag — zie planner_get_task)',
+  timephasedContours: 'de rauwe contourperiodes zijn via de bridge niet zetbaar (afgeleid uit een .mpp-import, geen agent-invoervorm — zie planner_get_task)',
 };
 
 /** Uitkomst van de veldvalidatie. */

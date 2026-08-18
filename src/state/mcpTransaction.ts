@@ -6,6 +6,7 @@ import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
 import {
   createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+  clearTimephasedDurationWalks,
 } from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
@@ -640,10 +641,12 @@ export const draft = {
       }
       s.assignments.push({ id, taskId, resourceId, unitsPerDay, curve });
       if (!task.resourceIds.includes(resourceId)) task.resourceIds.push(resourceId);
-      // Z14b (eigenaarsprincipe 2026-08-18) — "toewijzingen" is expliciet onderdeel van de
-      // triggerset (plan: "duur, datums, kalender, toewijzingen"): een andere resource kan een
-      // andere resourcekalender betekenen, precies de Z8-laag-4-discriminator. Zie taskDefaults.ts.
+      // Z14b (eigenaarsprincipe 2026-08-18, F2-fixronde) — "toewijzingen" is expliciet onderdeel
+      // van de triggerset (plan: "duur, datums, kalender, toewijzingen"): een andere resource kan
+      // een andere resourcekalender betekenen, precies de Z8-laag-4-discriminator — dus BEIDE
+      // lagen wissen. Zie taskDefaults.ts.
       clearTimephasedWindow(task);
+      clearTimephasedDurationWalks(task);
       s.isDirty = true;
     });
     return id;
@@ -705,10 +708,12 @@ export const draft = {
       if (!newTask.resourceIds.includes(assignment.resourceId)) {
         newTask.resourceIds.push(assignment.resourceId);
       }
-      // Z14b — "toewijzingen"-trigger raakt BEIDE taken (zie assignResource hierboven).
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger raakt BEIDE taken, BEIDE lagen (zie
+      // assignResource hierboven).
       const oldTask = s.tasks.find((t) => t.id === oldTaskId);
-      if (oldTask) clearTimephasedWindow(oldTask);
+      if (oldTask) { clearTimephasedWindow(oldTask); clearTimephasedDurationWalks(oldTask); }
       clearTimephasedWindow(newTask);
+      clearTimephasedDurationWalks(newTask);
       s.isDirty = true;
     });
   },
@@ -731,9 +736,9 @@ export const draft = {
         const idx = task?.resourceIds.indexOf(removed.resourceId) ?? -1;
         if (task && idx >= 0) task.resourceIds.splice(idx, 1);
       }
-      // Z14b — "toewijzingen"-trigger (zie assignResource hierboven).
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger, beide lagen (zie assignResource hierboven).
       const removedTask = s.tasks.find((t) => t.id === removed.taskId);
-      if (removedTask) clearTimephasedWindow(removedTask);
+      if (removedTask) { clearTimephasedWindow(removedTask); clearTimephasedDurationWalks(removedTask); }
       s.isDirty = true;
     });
   },

@@ -1114,6 +1114,41 @@ const rt2 = readIFC(writeIFC(rt1));
   // rechtstreeks in de fixture gezet).
 }
 
+// (8e) F5 (spec-review-fixronde op 526af9f9, plan-Z14 regel ~470) — `toExtTask` moet de drie NIEUWE
+//      Z14b-leeskant-velden (mspTaskType/effortDriven/timephasedContours) doorgeven, en ZWIJGEN als
+//      ze niet gezet zijn (compact-optioneel, spiegelt hoe de rest van `toExtTask` met
+//      `manuallyScheduled`/`splitGaps` omgaat).
+{
+  const { toExtTask } = await import('@/extensions/extMappers');
+  const withFields: Task = {
+    id: 't-8e', name: '(8e)-met-velden', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [], time: plainTime('2026-08-18', '2026-08-20', 2),
+    mspTaskType: 'FIXED_DURATION', effortDriven: true,
+    timephasedContours: [{ resourceUid: 3, periods: [{ afterMinutes: 0, minutes: 60, workMinutes: 60, kind: 'actual' }] }],
+  };
+  const mapped8e = toExtTask(withFields);
+  assert(mapped8e.mspTaskType === 'FIXED_DURATION', `(8e) toExtTask moet mspTaskType doorgeven — kreeg ${mapped8e.mspTaskType}`);
+  assert(mapped8e.effortDriven === true, `(8e) toExtTask moet effortDriven doorgeven — kreeg ${mapped8e.effortDriven}`);
+  assert(
+    JSON.stringify(mapped8e.timephasedContours) === JSON.stringify(withFields.timephasedContours),
+    `(8e) toExtTask moet timephasedContours doorgeven — kreeg ${JSON.stringify(mapped8e.timephasedContours)}`,
+  );
+
+  const withoutFields: Task = {
+    id: 't-8e-neg', name: '(8e)-zonder-velden', description: '', wbsCode: '',
+    taskType: 'CONSTRUCTION', status: 'NOT_STARTED', isMilestone: false, priority: 500,
+    parentId: null, childIds: [], resourceIds: [], time: plainTime('2026-08-18', '2026-08-20', 2),
+  };
+  const mapped8eNeg = toExtTask(withoutFields);
+  assert(mapped8eNeg.mspTaskType === undefined, `(8e) zonder mspTaskType blijft toExtTask.mspTaskType undefined — kreeg ${mapped8eNeg.mspTaskType}`);
+  assert(mapped8eNeg.effortDriven === undefined, `(8e) zonder effortDriven blijft toExtTask.effortDriven undefined — kreeg ${mapped8eNeg.effortDriven}`);
+  assert(mapped8eNeg.timephasedContours === undefined, `(8e) zonder timephasedContours blijft toExtTask.timephasedContours undefined — kreeg ${mapped8eNeg.timephasedContours}`);
+
+  // Mutatiebewijs (uitgevoerd): de drie nieuwe regels in `toExtTask` tijdelijk verwijderd maakt de
+  // eerste drie asserties hierboven ROOD (undefined i.p.v. de gezette waarde).
+}
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // (9) T14b-vervolg (buiten-scope-vondst uit de eerste T14b-ronde, alsnog gedicht): `updateTask` deed
 //     `Object.assign(task, updates)` — een meegegeven `updates.time` verving de HELE `time`-tak in

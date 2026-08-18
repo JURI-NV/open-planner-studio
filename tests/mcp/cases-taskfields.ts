@@ -182,6 +182,32 @@ test('update_tasks: onbekend veld ⇒ zachte weigering en GEEN enkele mutatie', 
   assertEq(okData(res).updated, [], 'niets als toegepast gerapporteerd');
 });
 
+// F5 (spec-review-fixronde op 526af9f9, plan-Z14 regel ~470) — de drie NIEUWE Z14b-velden
+// (mspTaskType/effortDriven/timephasedContours) zijn puur .mpp-importdata en horen dus, net als
+// isHammock/manuallyScheduled, met een GERICHTE `REJECT_HINTS`-reden geweigerd te worden — niet als
+// kaal "onbekend veld" (dat zou een agent niets leren over WAAROM).
+test('update_tasks: mspTaskType/effortDriven/timephasedContours zijn read-only (gerichte REJECT_HINTS, geen mutatie)', async () => {
+  reset();
+  const id = seedTask('Fundering', 5);
+
+  const res1 = await call('planner_update_tasks', { updates: [{ id, fields: { mspTaskType: 'FIXED_WORK' } }] });
+  assert(rejections(res1)[0].reason.includes("onbekend veld 'mspTaskType'"), `gerichte hint: ${rejections(res1)[0].reason}`);
+  assert(/importdata|\.mpp/.test(rejections(res1)[0].reason), `de reden legt uit WAAROM: ${rejections(res1)[0].reason}`);
+
+  const res2 = await call('planner_update_tasks', { updates: [{ id, fields: { effortDriven: true } }] });
+  assert(rejections(res2)[0].reason.includes("onbekend veld 'effortDriven'"), `gerichte hint: ${rejections(res2)[0].reason}`);
+
+  const res3 = await call('planner_update_tasks', {
+    updates: [{ id, fields: { timephasedContours: [{ resourceUid: 1, periods: [] }] } }],
+  });
+  assert(rejections(res3)[0].reason.includes("onbekend veld 'timephasedContours'"), `gerichte hint: ${rejections(res3)[0].reason}`);
+
+  const t = taskById(id)!;
+  assert(t.mspTaskType === undefined, 'mspTaskType niet gezet');
+  assert(t.effortDriven === undefined, 'effortDriven niet gezet');
+  assert(t.timephasedContours === undefined, 'timephasedContours niet gezet');
+});
+
 test('update_tasks: fields.time wordt geweigerd en laat de hele time-tak intact', async () => {
   reset();
   withStatusDate();

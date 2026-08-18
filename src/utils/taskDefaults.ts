@@ -130,29 +130,38 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
  * `moveAssignment`) en `resourceSlice.ts` (`assignResource`/`unassignResource`/`moveAssignment`) —
  * de gedocumenteerde tweeling-paden, zodat ze niet uit de pas kunnen lopen.
  *
- * SCOPE — waarom dit UITSLUITEND `timephasedFinishFloor`/`timephasedStartAnchor` raakt:
- *  - `timephasedFinishFloor` — LAAG 3, een GELEZEN, bevroren MSP-antwoord (`CPMSolver.ts`'s
- *    `timephasedFinish`, `cal.isHourMode && task.timephasedFinishFloor`-tak) — de klassieke
- *    "bevroren venster reageert niet op latere edits"-categorie. MOET invalideren.
- *  - `timephasedStartAnchor` — gebruikt door `CPMSolver.ts`'s `forwardPass` als rauw wortel-anker
- *    (`preds.length===0`-tak, `task.timephasedStartAnchor`) — ZELFDE categorie: een GELEZEN anker
- *    dat niet reageert op een latere duur-/datum-/kalenderwijziging. MOET invalideren.
- *  - `timephasedDurationWalks` — LAAG 4, expliciet GEEN gelezen antwoord: `CPMSolver.ts` wandelt
- *    `task.time.durationMinutes` (een gewoon, edit-live veld) door elke toewijzing se EIGEN
- *    resourcekalender bij ELKE `runCPM`, dus een latere bewerking stroomt AL vanzelf mee — een
- *    tweede invalidatie-pad zou geen enkel waarneembaar verschil maken (zie het veld se eigen
- *    docblok in `task.ts`, "GEEN invalidatie nodig"). NIET aanraken.
+ * SCOPE — twee aparte wis-functies, want de twee lagen hebben ANDERE stale-voorwaarden:
+ *  - `clearTimephasedWindow` — LAAG 3 (`timephasedFinishFloor`, een GELEZEN, bevroren MSP-antwoord;
+ *    `CPMSolver.ts`'s `timephasedFinish`) + het RAUWE wortel-anker (`timephasedStartAnchor`,
+ *    `forwardPass`'s `preds.length===0`-tak). Beide zijn GELEZEN waarden die niet reageren op een
+ *    latere duur-/datum-/kalenderwijziging — MOET dus bij die triggerset invalideren.
+ *  - `clearTimephasedDurationWalks` — LAAG 4 (`timephasedDurationWalks`). GEEN gelezen antwoord op
+ *    ZICHZELF: `CPMSolver.ts` wandelt `task.time.durationMinutes` (edit-live) door elke toewijzing
+ *    se EIGEN resourcekalender bij ELKE `runCPM`, dus een duur-/datum-/kalenderwijziging stroomt AL
+ *    vanzelf mee (zie het veld se eigen docblok in `task.ts`) — GEEN aanroep bij díe triggers.
+ *    MAAR (F2-fixronde, spec-review op 526af9f9): elk item in de `walks`-lijst is zelf een BEVROREN
+ *    import-snapshot PER TOEWIJZING (`{ anchor, resourceCalendarId }`, `mppReader.ts`'s
+ *    `deriveTimephasedWindowsForTasks`) — verandert de TOEWIJZINGENSET (een andere resource, dus
+ *    mogelijk een andere resourcekalender: precies de laag-4-activeringsvoorwaarde,
+ *    `calendarBandsDiffer`/`calendarDiffersIncludingExceptions`), dan is die bevroren lijst stale.
+ *    Vandaar WEL een aanroep bij de toewijzingen-trigger.
  *  - `splitGaps`/`timephasedContours` — de RAUWE bron/reeds-geconsumeerde CPM-invoer, geen "gelezen
  *    venster dat de motor ankert" in dezelfde bevroren zin; het eigenaarsprincipe eist juist dat
- *    déze blijven staan. NOOIT hier wissen.
+ *    déze blijven staan. NOOIT hier wissen, in GEEN van beide functies.
  *
  * TRIGGERSET (plan: "duur, datums, kalender, toewijzingen") — bepaald en hier vastgelegd:
  *  - duur/datums: `time.scheduleDuration`/`durationMinutes`/`scheduleStart`/`scheduleFinish`/
  *    `durationType` — elke sleutel die de solver rechtstreeks voor de LAAG-3/4-berekening gebruikt
  *    (`durationType` telt mee omdat WORKTIME↔ELAPSEDTIME de hele kalenderwandeling omslaat).
+ *    Raakt UITSLUITEND laag 3 (`clearTimephasedWindow`) — laag 4 stroomt hier al live mee.
  *  - kalender: `Task.calendarId` (bepaalt de kalender waarin het venster ooit berekend werd).
- *  - toewijzingen: resource-assign/unassign/verplaatsen (aparte aanroepplekken, zie hierboven — een
- *    ANDERE resource kan een ANDERE resourcekalender betekenen, precies de laag-4-discriminator).
+ *    Raakt UITSLUITEND laag 3 — zelfde reden.
+ *  - toewijzingen: resource-assign/unassign/verplaatsen (aparte aanroepplekken, zie hierboven) —
+ *    raakt BEIDE lagen (`clearTimephasedWindow` ÉN `clearTimephasedDurationWalks`): een andere
+ *    resource kan een andere resourcekalender betekenen, en dat is exact de laag-4-discriminator
+ *    (F2). Ook `resourceSlice.removeCalendar`/`commitCalendarLibrary` (F3): die zetten
+ *    `t.calendarId = undefined` rechtstreeks, buiten `setTaskCalendar` om, dus die twee roepen
+ *    `clearTimephasedWindow` zelf aan voor elke geraakte taak.
  *  GEEN trigger: alles wat de solver zelf terugschrijft (earlyStart/earlyFinish/floats/…, zie
  *  `TaskTimeComputed`/`TaskTimeAnalysis` in task.ts) — F5/`runCPM`/documentwissel gaan nooit via
  *  `updateTask`/`updateTaskFields`/`patchTaskFields` (ze muteren de Immer-draft rechtstreeks), dus
@@ -177,4 +186,14 @@ export function timeUpdateTouchesTimephasedWindow(timeUpdate: Partial<TaskTime> 
 export function clearTimephasedWindow(task: Task): void {
   if (task.timephasedFinishFloor !== undefined) delete task.timephasedFinishFloor;
   if (task.timephasedStartAnchor !== undefined) delete task.timephasedStartAnchor;
+}
+
+/** F2 (spec-review-fixronde op 526af9f9) — wist `timephasedDurationWalks` (LAAG 4) als gezet.
+ *  UITSLUITEND aanroepen bij een toewijzingswijziging (assign/unassign/move) — NIET bij een
+ *  duur-/datum-/kalenderwijziging (die stroomt al live mee, zie deze module se docblok hierboven).
+ *  Elk item in de lijst is een bevroren `{ anchor, resourceCalendarId }`-snapshot per toewijzing
+ *  uit de .mpp-import; een andere resource kan een andere resourcekalender betekenen (de
+ *  laag-4-activeringsvoorwaarde), dus die lijst is stale zodra de toewijzingenset verandert. */
+export function clearTimephasedDurationWalks(task: Task): void {
+  if (task.timephasedDurationWalks !== undefined) delete task.timephasedDurationWalks;
 }

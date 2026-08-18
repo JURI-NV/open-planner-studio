@@ -909,6 +909,11 @@ const PROPSKEY_ASSIGNMENT_FIELD_MAP = 131095;
   truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (Id@4)', fixedOffsetOf(table, TaskFieldId.Id) === 4);
   truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (OutlineLevel@40)', fixedOffsetOf(table, TaskFieldId.OutlineLevel) === 40);
   truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (Name var@14)', varDataKeyOf(table, TaskFieldId.Name) === TaskFieldId.Name);
+  // F4 (spec-review-fixronde op 526af9f9) — DEFAULT_TASK_FIELDS' Type-entry (94) wordt door GEEN
+  // corpusbestand geraakt (elk corpusbestand draagt zijn eigen, data-gedreven field map) — dus de
+  // enige plek die een verkeerde DEFAULT-offset (bv. 94→96) kan betrappen is DEZE directe
+  // eenheidstoets tegen de defaulttabel zelf, spiegelt de assertie hierboven voor OutlineLevel/Name.
+  truthy('I4/I3 fieldMap: ontbrekende sleutel ⇒ defaulttabel (Type@94)', fixedOffsetOf(table, TaskFieldId.Type) === 94);
 }
 
 // ── C1: clampOutlineLevel — triviale aritmetiek, los van het stack-algoritme hieronder. ─────────
@@ -3688,6 +3693,81 @@ if (corpusPresent) {
       fixedOffsetOf(createTaskFieldMap(propsNoType), TaskFieldId.Type) === null);
     truthy('[Z14b type] mspTaskTypeFromRaw(null) === undefined (het "afwezig"-onderscheid t.o.v. TYPE=99)',
       mspTaskTypeFromRaw(null) === undefined);
+  }
+
+  // ── Test 2h — F4 (spec-review-fixronde op 526af9f9): corpusbrede telling van TYPE/EFFORT_DRIVEN
+  // via déze lezer, MET EEN GEPIND GETAL (anders dan Z2/Z3's ongepinde tellingen hierboven/-onder) —
+  // de reviewer bewees dat de synthetische Test-2f/2g-fixture ZELFREFERENTIEEL is: ze bouwt haar
+  // eigen field-map-bytes met dezelfde `TaskFieldId.Type`-constante die de lezer gebruikt om ze
+  // terug op te zoeken, dus een verkeerde offset (94→96) of veld-id (128→129) verandert BEIDE kanten
+  // tegelijk en blijft onopgemerkt. Corpusbestanden dragen hun EIGEN, al-bestaande field-map-bytes
+  // (niet door test-code opgebouwd) — een verkeerde `TaskFieldId.Type`-waarde laat de lezer daar een
+  // ANDER (of geen) veld opzoeken, wat het gemeten aantal verandert. Hash-only (§8): geen bestands-
+  // namen in de uitvoer, alleen tellingen. ─────────────────────────────────────────────────────────
+  {
+    const F4_CORPUS = process.env.OPS_MPP_CORPUS ?? '/home/nozzit/open-aec/voor claude/test bestanden voor file implementation';
+    const F4_CRAWL = process.env.OPS_MPP_CRAWL ?? '/home/nozzit/open-aec/voor claude/testdata-crawl';
+
+    function listMppFilesRecursiveF4(dir: string): string[] {
+      const out: string[] = [];
+      const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      for (const entry of entries) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...listMppFilesRecursiveF4(full));
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mpp')) out.push(full);
+      }
+      return out;
+    }
+
+    let filesScanned = 0;
+    let filesFailed = 0;
+    let tasksScanned = 0;
+    let typeFieldPresent = 0; // mspTaskTypeRaw !== null (het veld staat in dit bestand se field map)
+    let fixedUnits = 0, fixedDuration = 0, fixedWork = 0; // gedecodeerd via mspTaskTypeFromRaw
+    let effortDrivenCount = 0;
+    for (const root of [F4_CORPUS, F4_CRAWL]) {
+      if (!existsSync(root)) continue;
+      for (const file of listMppFilesRecursiveF4(root)) {
+        try {
+          const result = scanZ2(new Uint8Array(readFileSync(file)));
+          filesScanned++;
+          for (const raw of result.rawScans) {
+            tasksScanned++;
+            if (raw.mspTaskTypeRaw !== null) {
+              typeFieldPresent++;
+              const decoded = mspTaskTypeFromRaw(raw.mspTaskTypeRaw);
+              if (decoded === 'FIXED_UNITS') fixedUnits++;
+              else if (decoded === 'FIXED_DURATION') fixedDuration++;
+              else if (decoded === 'FIXED_WORK') fixedWork++;
+            }
+            if (raw.effortDrivenRaw) effortDrivenCount++;
+          }
+        } catch {
+          filesFailed++; // niet-.mpp14-bestanden of andere onleesbare varianten in de crawl-boom
+        }
+      }
+    }
+    if (filesScanned === 0) {
+      console.log(`OK  mpp-import: F4 corpusbrede task-type/effort-driven-telling (${F4_CORPUS} / ${F4_CRAWL}) niet aanwezig — overgeslagen`);
+    } else {
+      truthy(`[F4 corpustelling] minstens 1 bestand gescand (kreeg ${filesScanned})`, filesScanned > 0);
+      // GEPIND (F4, in tegenstelling tot Z2/Z3's ongepinde tellingen) — gemeten op 2026-08-18 tegen
+      // het volledige corpus. Verandert dit getal bij een onschuldige toekomstige wijziging
+      // (nieuwe corpusbestanden, een echte bugfix elders), dan hoort de pin opnieuw gemeten en
+      // hier bijgewerkt te worden — net zoals `mpp-fidelity-baseline.json`.
+      truthy(`[F4 corpustelling] bestanden gescand === 216 (kreeg ${filesScanned})`, filesScanned === 216);
+      truthy(`[F4 corpustelling] taken totaal === 3413 (kreeg ${tasksScanned})`, tasksScanned === 3413);
+      truthy(`[F4 corpustelling] taken met TYPE-veld aanwezig === 3413 (kreeg ${typeFieldPresent})`, typeFieldPresent === 3413);
+      truthy(`[F4 corpustelling] FIXED_UNITS === 3109 (kreeg ${fixedUnits})`, fixedUnits === 3109);
+      truthy(`[F4 corpustelling] FIXED_DURATION === 303 (kreeg ${fixedDuration})`, fixedDuration === 303);
+      truthy(`[F4 corpustelling] FIXED_WORK === 1 (kreeg ${fixedWork})`, fixedWork === 1);
+      truthy(`[F4 corpustelling] EFFORT_DRIVEN === 216 (kreeg ${effortDrivenCount})`, effortDrivenCount === 216);
+      console.log(
+        `OK  mpp-import: F4 corpusbrede task-type/effort-driven-telling — ${filesScanned} bestand(en) gescand ` +
+        `(${filesFailed} onleesbaar/overgeslagen), ${tasksScanned} taken totaal, ${typeFieldPresent} met TYPE-veld ` +
+        `(${fixedUnits} FIXED_UNITS / ${fixedDuration} FIXED_DURATION / ${fixedWork} FIXED_WORK), ${effortDrivenCount} EFFORT_DRIVEN`,
+      );
+    }
   }
 
   // ── Test 3 — Fixed2Meta/Fixed2Data-streams AFWEZIG (acceptatiepunt 3): alle nieuwe velden

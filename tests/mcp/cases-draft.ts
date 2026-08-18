@@ -349,6 +349,32 @@ test('draft assignment-kwartet: assign/move/unassign wissen het venster op de be
   assertEq(t2After?.timephasedFinishFloor, undefined, 'unassignResource hoort t2.timephasedFinishFloor te wissen');
 });
 
+// F2 (spec-review-fixronde op 526af9f9): de "toewijzingen"-trigger moet OOK laag 4
+// (`timephasedDurationWalks`) wissen — een bevroren import-snapshot per toewijzing dat stale wordt
+// zodra de toewijzingenset verandert.
+test('draft assignment-kwartet: assign/move/unassign wissen OOK timephasedDurationWalks (F2)', () => {
+  const t1 = store.getState().addTask({ name: 'f2-asn-t1' });
+  const t2 = store.getState().addTask({ name: 'f2-asn-t2' });
+  const resId = store.getState().addResource({ name: 'f2-asn-res', type: 'LABOR', description: '', maxUnits: 1 });
+  const walks = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal' }];
+  store.getState().updateTask(t1, { timephasedDurationWalks: walks });
+  store.getState().updateTask(t2, { timephasedDurationWalks: walks });
+
+  let aid = '';
+  runInMcpTransaction(() => { aid = draft.assignResource(t1, resId, 1); });
+  assertEq(store.getState().tasks.find((t) => t.id === t1)?.timephasedDurationWalks, undefined,
+    'assignResource hoort t1.timephasedDurationWalks te wissen');
+
+  runInMcpTransaction(() => { draft.moveAssignment(aid, t2); });
+  assertEq(store.getState().tasks.find((t) => t.id === t2)?.timephasedDurationWalks, undefined,
+    'moveAssignment hoort t2.timephasedDurationWalks te wissen');
+
+  store.getState().updateTask(t2, { timephasedDurationWalks: walks });
+  runInMcpTransaction(() => { draft.unassignResource(aid); });
+  assertEq(store.getState().tasks.find((t) => t.id === t2)?.timephasedDurationWalks, undefined,
+    'unassignResource hoort t2.timephasedDurationWalks te wissen');
+});
+
 // --- 8) setProject --------------------------------------------------------------------------------
 test('draft.setProject wijzigt projectvelden binnen één transactie', () => {
   const before = store.getState().undoStack.length;
