@@ -766,7 +766,7 @@
     },
     {
       "id": "msp-14-z0-typecontract-passthrough",
-      "title": "Z0-fixronde (Opus-review BEVINDING 1): doorgifte-bewijs voor alle VIER Z0-typecontractvelden op `Task` — `splitGaps` (via de afgeleide `splitGapCount`), `manuallyScheduled`, `levelingDelayMinutes`, `levelingDelayElapsed` bereiken de taak via de JSON-case-interpreter (`buildAndSolve`'s `addTask`-spread) zonder enig solver-gedrag te veranderen (de solver leest ze nog nergens): A -FS+0-> M rekent BYTE-IDENTIEK aan de kale versie zonder deze velden. Elk van de vier is hier mutatie-bewezen (fixronde-verslag): de doorgifte-spread van dat ene veld weghalen uit `buildAndSolve` maakt de bijbehorende `expect.tasks.A`-cel ROOD, herstel maakt 'm weer groen — dat is het bewijs dat de doorgifte-spread in harness.ts echt bestaat en niet stil wegvalt.",
+      "title": "Z0-fixronde (Opus-review BEVINDING 1): doorgifte-bewijs voor de VIER Z0-typecontractvelden op `Task` — `splitGaps` (via de afgeleide `splitGapCount`), `manuallyScheduled`, `levelingDelayMinutes`, `levelingDelayElapsed` bereiken de taak via de JSON-case-interpreter (`buildAndSolve`'s `addTask`-spread). BIJGEWERKT (Z7, splits-in-de-CPM): op Z0-moment las de solver GEEN van de vier — inmiddels lezen ZOWEL `levelingDelayMinutes`/`levelingDelayElapsed` (Z6) ALS `splitGaps` (Z7) wél degelijk. Deze case blijft niettemin het doorgiftebewijs voor alle vier velden (dat verandert nooit), maar is GEEN \"byte-identiek aan de kale versie\"-bewijs meer voor `splitGaps` — A is hier bewust een WORTELtaak (`noPreds`) waarvoor `levelingDelayMinutes` een eigen, ongewijzigde no-op-guard heeft (Z6: `!noPreds && task.levelingDelayMinutes`, zie CPMSolver.ts) — dát stuk blijft dus wél byte-identiek aantoonbaar, `splitGaps` niet. `manuallyScheduled` blijft inert (Z9a nog niet gebouwd). Mutatiebewijs ONGEWIJZIGD voor de drie nog-inerte velden: de doorgifte-spread van dat veld weghalen uit `buildAndSolve` maakt de bijbehorende `expect.tasks.A`-cel ROOD. Voor `splitGaps` is het mutatiebewijs nu ANDERSOM: `splitGaps` LEEG maken (of de gaten-optelling terugdraaien, zie de `z7-split-*`-cases in `cases-advanced-cpm.json`) maakt A.ef/M.es/M.ef/projectEnd ROOD — precies omdat het veld nu ACTIEF is.",
       "anchor": "2026-07-06",
       "tasks": [
         {
@@ -782,13 +782,13 @@
       "expect": {
         "tasks": {
           "A": {
-            "es": "2026-07-06", "ef": "2026-07-08", "tf": 0, "crit": true,
+            "es": "2026-07-06", "ef": "2026-07-09", "tf": 0, "crit": true,
             "manuallyScheduled": true, "splitGapCount": 1,
             "levelingDelayMinutes": 45, "levelingDelayElapsed": true
           },
-          "M": { "es": "2026-07-08", "ef": "2026-07-08", "tf": 0, "crit": true }
+          "M": { "es": "2026-07-09", "ef": "2026-07-09", "tf": 0, "crit": true }
         },
-        "projectEnd": "2026-07-08",
+        "projectEnd": "2026-07-09",
         "error": false
       }
     },

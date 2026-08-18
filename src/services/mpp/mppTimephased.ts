@@ -519,6 +519,19 @@ export function shiftPeriods(periods: readonly TimephasedWorkPeriod[], shiftMinu
  * discontinuïteit is. `periods` hoeft NIET vooraf gesorteerd te zijn (de sort hieronder is
  * defensief — de aanroeper concateneert doorgaans twee al-gesorteerde bronnen, maar deze functie
  * mag daar niet blindelings op vertrouwen).
+ *
+ * AS-CONTRACT VOOR CONSUMENTEN (Z7-fixronde-H1, gemeld ná een reviewbevinding tegen `CPMSolver.ts`):
+ * de teruggegeven `TaskSplitGap.afterMinutes`/`gapMinutes` staan op `elapsedWorkMinutesStart/End`s
+ * EIGEN as — CUMULATIEF, dus een gat telt zelf ook mee in de positie van een VOLGEND gat (zie
+ * `TimephasedWorkPeriod`s docblock hierboven: een periode zonder werk draagt tóch verstreken
+ * werkminuten). Voor een taak met ≥2 gaten is `afterMinutes` van het tweede gat dus GEEN "zuivere
+ * werktijd sinds taakstart" meer. Consumenten (`src/engine/scheduler/duration.ts`'s
+ * `splitTotalSpanMinutes`) moeten deze as daarom WANDELEN i.p.v. tegen een vast `[0, duur)`-venster
+ * te klemmen — een eerdere consumentversie deed dat wél en trunceerde legitieme gaten (`mpp14
+ * timephased.mpp`'s "Task 5 - 24 Hour": `{afterMinutes:1440, gapMinutes:5760}` werd afgekapt).
+ * Deze module zelf blijft ONGEWIJZIGD (de as-interpretatie hoort bij de consument, niet bij de
+ * decoder/afleiding hier — "kleinste-oppervlak"-keuze, zie `CPMSolver.ts`/`duration.ts`'s Z7-
+ * fixronde-commentaar voor de volledige motivering).
  */
 export function deriveSplitGapsFromPeriods(periods: readonly TimephasedWorkPeriod[]): TaskSplitGap[] {
   // NUL-WERK-DETECTIE (mutatiebewijs `check-mpp-import.ts`'s Z4-sectie, punt 3): alleen periodes

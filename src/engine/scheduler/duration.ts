@@ -1,4 +1,4 @@
-import type { Task } from '@/types/task';
+import type { Task, TaskSplitGap } from '@/types/task';
 
 /**
  * Gedeelde duur-resolutie-helpers (fase 2.8b, ontwerpdoc §3.1).
@@ -183,4 +183,138 @@ export function subtractElapsedMinutes(end: Date, minutes: number): Date {
 export function signedElapsedSpan(a: Date, b: Date, effCal: DurationCalendar): number {
   void effCal;
   return (b.getTime() - a.getTime()) / (24 * 60 * MS_PER_MIN);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// Z7 (etappe "nul afwijkingen") — SPLITGAPS in de duur-optelling. Canonieke regel (plan-§Z7,
+// letterlijk): "de finish is de start plus de duur, waarbij elk gat als extra niet-werktijd telt
+// op zijn eigen offset" — een UITBREIDING van de duur-optelling, GEEN tweede algoritme.
+//
+// Z7-FIXRONDE (H1, WORTELFIX — AS-VERWARRING gecorrigeerd, reviewbevinding): de EERSTE versie van
+// dit blok telde gaten binnen een `[windowStart, windowEnd)`-venster met een KALE overlap-
+// vergelijking tegen `windowEnd = totale duur in minuten` (`durationMinutesOf`) — dat klemde/
+// trunceerde elk gat waarvan `afterMinutes + gapMinutes` boven die grens uitkwam. Reviewer-bewijs
+// dat dit FOUT was: `mpxj/junit/data/mpp14timephased.mpp`s "Task 5 - 24 Hour" — de ONGEKLEMDE som
+// `4500 (duur) + 5760 (gat) minuten` vanaf `2008-11-20T09:00` reproduceert MSP's eigen opgeslagen
+// finish EXACT; de geklemde versie sneed het gat af en gaf een finish >9 werkdagen te vroeg.
+//
+// DE ECHTE OORZAAK: `TaskSplitGap.afterMinutes`/`gapMinutes` staan NIET op de "kale werkduur"-as
+// (`durationMinutesOf`s eenheid, die per definitie GEEN gaten bevat) — ze staan op MPXJ/MSP's eigen
+// `elapsedWorkMinutes`-as (`mppTimephased.ts`'s `TimephasedWorkPeriod`), die CUMULATIEF door de
+// tijdgefaseerde periodes loopt en daarbij ELKE periode meetelt, ook een periode met `workMinutes
+// === 0` (een gat telt dus ZELF ook mee in hoeveel de as voor het VOLGENDE gat al is opgeschoven).
+// Voor een taak met twee of meer gaten is deze as dus NIET gelijk aan "zuivere werktijd sinds
+// taakstart" — elk volgend gat se `afterMinutes` incorporeert de voorgaande gaten al. Vergelijken
+// tegen `durationMinutesOf` (dat wél zuivere werktijd is) was daarom een appels-met-peren-vergelijking.
+//
+// DE FIX: geen vast venster meer, maar een WANDELING over de gaten-as — exact de tegenhanger van
+// hoe `CalendarEngine.addWorkMinutes`/`addWorkDaysChecked` een ECHTE kalender wandelen (werksegment
+// verbruiken, bij een niet-werk-blok overspringen, herhalen). `splitTotalSpanMinutes` hieronder doet
+// dat op de SYNTHETISCHE gaten-as i.p.v. op echte kalenderbanden: gegeven een hoeveelheid ZUIVERE
+// werk-minuten die verzet moet worden, loopt ze de (gesorteerde) gaten langs en telt élk gat waarvan
+// de eigen voorafgaande werksegment nog niet genoeg is om de gevraagde hoeveelheid te dekken volledig
+// mee — "duur + alle VOORAFGAANDE gaten" (letterlijk de tweede oplossingsvorm die de fixronde
+// aanreikte), zonder dat de LEZER (`mppTimephased.ts`, baan L) de as hoeft om te rekenen: de
+// consument (hier) interpreteert `afterMinutes` voortaan correct als een AS-POSITIE, niet als een
+// zuiver-werk-hoeveelheid — dat is de "kleinste-oppervlak"-keuze (blijft binnen `src/engine/
+// scheduler/**`, geen wijziging aan de byte-decoder of de vorm van `TaskSplitGap` zelf).
+//
+// Bijkomend, gratis effect (H3, randgedrag): "offset ≥ duur ⇒ genegeerd" volgt nu VANZELF uit de
+// wandeling (een gat waarvan het voorafgaande werksegment de gevraagde hoeveelheid al haalt/evenaart
+// wordt nooit overgestoken) — geen aparte trunceer-regel meer nodig.
+//
+// AANGRIJPINGSPUNTEN 1/3/4 (volledige duur): `splitTotalSpanMinutes(gaps, durationMinutesOf(...))`
+// geeft de TOTALE as-lengte (duur + alle geraakte gaten) — rechtstreeks door te geven aan
+// `addWorkMinutes`/`addWorkDaysChecked`/`subtractWork*`/`addWorkingDaysSigned`, GEEN losse optelling
+// meer nodig.
+//
+// AANGRIJPINGSPUNT 2 (IN-PROGRESS-restwerk, H2): het restwerkvenster is nu een VERSCHIL van twee
+// wandelingen — `splitTotalSpanMinutes(gaps, totaleWerkMinuten) − splitTotalSpanMinutes(gaps,
+// reedsAfgewerkteWerkMinuten)` — beide op DEZELFDE as-wandeling, dus consistent met elkaar (in
+// tegenstelling tot de oude bug: `completedSpan` was een zuivere-werk-hoeveelheid die rechtstreeks
+// tegen de as-gepositioneerde `afterMinutes` vergeleken werd — bij ≥2 gaten waarvan er één al
+// gepasseerd was, liep dat uiteen en werd een gepasseerd gat soms dubbel meegeteld). Omdat de
+// wandelfunctie monotoon/prefix-consistent is (twee keer wandelen vanaf 0 met een groter en een
+// kleiner doel deelt exact hetzelfde begin-traject), is dit verschil altijd correct: gaten die
+// VOLLEDIG vóór het reeds-afgewerkte doel liggen heffen elkaar in het verschil precies op (nul
+// netto bijdrage), gaten die (deels) ná dat doel liggen tellen voluit mee in het restwerk.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Totale as-lengte (in werkMINUTEN, `TaskSplitGap`s eigen eenheid) die nodig is om `workMinutes`
+ * aan ZUIVERE werk te verzetten, gegeven `gaps` — een wandeling over de synthetische gaten-as
+ * (spiegelt `CalendarEngine.addWorkMinutes`s band-voor-band-wandeling, maar op gaten i.p.v. echte
+ * kalenderbanden). `gaps` hoeft niet vooraf gesorteerd te zijn (defensief gesorteerd op
+ * `afterMinutes`, zelfde "nooit blindelings vertrouwen op aanroeper-volgorde"-conventie als
+ * `deriveSplitGapsFromPeriods` in `mppTimephased.ts`).
+ *
+ * ALGORITME: loop de (gesorteerde) gaten langs; per gat is `segment = gat.afterMinutes − axisPos`
+ * het ZUIVERE werksegment vóór dat gat (geen ander gat kan er middenin zitten, want gesorteerd en
+ * `axisPos` schuift alleen over reeds-verwerkte gaten heen). Haalt `workDone + segment` het doel
+ * (`workMinutes`), dan ligt de aankomst BINNEN dat segment — `axisPos + (workMinutes − workDone)`,
+ * het gat wordt NIET overgestoken (dekt zowel "doel vóór het gat" als "doel exact op de gat-start"
+ * — H3: "gat dat exact op de grens begint telt niet mee vóór die grens", spiegelbeeld van "telt wél
+ * mee ná die grens" in de verschil-vorm hierboven). Anders: `workDone += segment`, `axisPos` springt
+ * over het HELE gat heen (`gat.afterMinutes + gat.gapMinutes`) en de wandeling gaat door. Geen gaten
+ * meer (of geen enkel gat gehaald) ⇒ het restant is zuiver werk: `axisPos + (workMinutes − workDone)`.
+ *
+ * Defensief (`splitGaps` is afgeleide data — een corrupt/hostiel document, bv. via MCP of een
+ * handgemaakte IFC/JSON-import, kan in theorie een niet-eindig, negatief-lengte, of terugspringend
+ * gat dragen): NaN/Infinity/`gapMinutes<=0` wordt overgeslagen; `gapStart` wordt geklemd op
+ * `axisPos` (nooit terug de tijd in) zodat een overlappend/uit-volgorde gat de wandeling niet kan
+ * laten teruglopen. `workMinutes<=0` ⇒ 0 (spiegelt `addWorkMinutes`s `minutes<=0`-kortsluiting).
+ */
+export function splitTotalSpanMinutes(gaps: readonly TaskSplitGap[] | undefined, workMinutes: number): number {
+  if (!gaps || gaps.length === 0 || !(workMinutes > 0)) return Math.max(0, workMinutes || 0);
+  const sorted = [...gaps].sort((a, b) => a.afterMinutes - b.afterMinutes);
+  let axisPos = 0;
+  let workDone = 0;
+  for (const g of sorted) {
+    if (!Number.isFinite(g.afterMinutes) || !Number.isFinite(g.gapMinutes) || g.gapMinutes <= 0) continue;
+    const gapStart = Math.max(g.afterMinutes, axisPos);
+    const gapEnd = g.afterMinutes + g.gapMinutes;
+    if (gapEnd <= gapStart) continue; // volledig al ingehaald/ontaard — geen bijdrage
+    const segment = gapStart - axisPos;
+    if (workDone + segment >= workMinutes) {
+      return axisPos + (workMinutes - workDone);
+    }
+    workDone += segment;
+    axisPos = gapEnd;
+  }
+  return axisPos + (workMinutes - workDone);
+}
+
+/**
+ * `splitTotalSpanMinutes` omgerekend naar eigen-kalender-WERKDAGEN (dag-modus-aanroepers).
+ *
+ * Z7-FIXRONDE-2 (MIDDEN, WORTELFIX — dag-modus-regressie op een NIET-GEHELE `hoursPerDay`,
+ * reviewbevinding): de eerste versie deed onvoorwaardelijk `splitTotalSpanMinutes(gaps,
+ * workMinutes) / (hoursPerDay×60)` — voor een GATLOZE taak is dat `(scheduleDuration×hoursPerDay
+ * ×60) / (hoursPerDay×60)`, een vermenigvuldig-dan-delen-rondje door DEZELFDE factor dat bij een
+ * niet-representeerbare `hoursPerDay` (bv. 8,4 — vrij invoerbaar via Projectinfo, en aanwezig in
+ * `.mpp`-kalenders; corpus mist dit toevallig omdat alles daar op hpd 8 staat, exact in binair)
+ * GEEN exacte 3 teruggeeft maar 3.0000000000000004. `addWorkDaysChecked`s lus (`remaining =
+ * workDays−1`, `while(remaining>0){…; remaining--;}`) ziet die epsilon als "nog niet klaar" en
+ * doet er ÉÉN werkdag te veel bij — een gatloze 3-daagse taak landde zo een dag te laat.
+ *
+ * FIX (reviewer-voorstel, letterlijk gevolgd): houd de EXACTE integer-basis — `durationDaysOf`
+ * leest voor een dag-kalender `scheduleDuration` RAUW terug, geen vermenigvuldiging, dus geen
+ * rondingsrisico — en tel ALLEEN de gat-TOESLAG er fractioneel bij op. Voor een gatloze taak is
+ * die toeslag `splitTotalSpanMinutes(undefined, workMinutes) − workMinutes = 0` EXACT (de
+ * kortsluiting in `splitTotalSpanMinutes` hierboven geeft `workMinutes` ongewijzigd terug), dus
+ * `totalDays = durationDaysOf(task, eng) + 0` — BYTE-IDENTIEK aan het pad van vóór Z7. Voor een
+ * taak MET gaten blijft de toeslag zelf een deling door `hoursPerDay×60` (onvermijdelijk, want
+ * `TaskSplitGap` leeft in minuten) — dat rondingsrisico was er al vóór deze fixronde en verandert
+ * niet; de fix schrapt uitsluitend het EXTRA, VERMIJDBARE rondje voor de gatloze meerderheid.
+ *
+ * Signatuur gewijzigd naar `(task, eng)` i.p.v. `(gaps, workMinutes, effCal)` — de aanroeper mag
+ * `durationMinutesOf(task, eng)` niet meer VOORAF berekenen (dat was precies de bron van de extra
+ * afronding); deze functie beslist zelf, per taak, of de minuten-omweg nodig is.
+ */
+export function splitTotalSpanDays(task: Task, eng: DurationCalendar): number {
+  const base = durationDaysOf(task, eng);
+  if (!task.splitGaps || task.splitGaps.length === 0) return base;
+  const workMinutes = durationMinutesOf(task, eng);
+  const extraMinutes = splitTotalSpanMinutes(task.splitGaps, workMinutes) - workMinutes;
+  return base + extraMinutes / (eng.hoursPerDay * 60);
 }
