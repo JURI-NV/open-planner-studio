@@ -297,6 +297,12 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MDCHECK="$DIR/.milestone-duration-render.mjs"
   if bundle_check "$DIR/check-milestone-duration-render.ts" "$MDCHECK"; then node "$MDCHECK" || STATUS=1; fi
 
+  # Z15 (etappe "nul afwijkingen", baan D): onderbroken balken (Task.splitGaps) in de Gantt-canvas
+  # ÉN print/PDF — gatentelling ⇒ segmentaantal + necking-connector, O5 (splitGaps ALTIJD gesplitst,
+  # ongeacht barSplitMode), globale voortgangsvulling over de segmenten heen, dag-/uur-modus.
+  SPLITBARCHECK="$DIR/.split-bar-render.mjs"
+  if bundle_check "$DIR/check-split-bar-render.ts" "$SPLITBARCHECK"; then node "$SPLITBARCHECK" || STATUS=1; fi
+
   RELRULES="$DIR/.relrules.mjs"
   if bundle_check "$DIR/check-relation-rules.ts" "$RELRULES"; then node "$RELRULES" || STATUS=1; fi
 

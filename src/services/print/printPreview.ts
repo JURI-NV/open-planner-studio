@@ -9,6 +9,7 @@ import { CanvasDraw2D } from '@/services/pdf/canvasDraw2d';
 // `PRINT_COLORS` blijft behouden zodat de teken-aanroepen ongewijzigd zijn; waarden zijn identiek.
 import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
+import { computeSplitSegments } from '@/engine/renderer/splitBarGeometry';
 import { snapToChoice } from '@/utils/numberChoice';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 
@@ -704,17 +705,64 @@ export function renderReport(
       const isCritical = task.time.isCritical && options.showCritical;
       const color = isCritical ? PRINT_COLORS.critical : PRINT_COLORS.normal;
 
-      // Main bar with rounded corners
-      d2d.fillStyle = color;
-      d2d.roundRect(x1, y, width, barHeight, 3);
-      d2d.fill();
+      // Z15 (O5-besluit, plan-§10): een ECHTE split (`Task.splitGaps`) tekent ALTIJD gesplitst —
+      // geen weergave-instelling betrokken hier (printPreview kent `barSplitMode`/kalender-necking
+      // sowieso niet, dat is puur een GanttRenderer-ding). `computeSplitSegments` (gedeeld met
+      // GanttRenderer, `splitBarGeometry.ts`) wandelt met `calEngine`; printPreview kent geen
+      // uur-modus (zie de moduleuitleg bij het `parseDate`-gebruik hierboven — alle datums hier
+      // komen uit `parseDate`, nooit `parseInstant`), dus `hourMode=false` altijd.
+      const segments = task.splitGaps && task.splitGaps.length > 0
+        ? computeSplitSegments(task.splitGaps, start, end, false, calEngine)
+        : [{ start, end }];
+      // Eerste/laatste grens hergebruikt de AL BEKENDE volle-extent `x1`/`x2` (dragen de "+zoom voor
+      // de inclusieve laatste dag"-correctie al); tussengrenzen zijn EXCLUSIEF (zie
+      // `computeSplitSegments`), dus zuiver `dateToX(...)` — zelfde redenering als GanttRenderer.
+      const segs = segments.map((s, i) => ({
+        x1: i === 0 ? x1 : dateToX(s.start),
+        x2: i === segments.length - 1 ? x2 : dateToX(s.end),
+      }));
+      const split = segs.length > 1;
 
-      // Completion overlay (darker shade)
-      if (options.showCompletion && task.time.completion > 0) {
-        const progressWidth = width * task.time.completion;
-        d2d.fillStyle = isCritical ? PRINT_COLORS.criticalDark : PRINT_COLORS.normalDark;
-        d2d.roundRect(x1, y, progressWidth, barHeight, 3);
+      // Necking-connector door de gaten (dunne lijn op halve hoogte) — puur weergave, zelfde
+      // conventie als GanttRenderer's necking-connector. Draw2D kent geen `globalAlpha`
+      // (canvas-only), dus de "halftransparant"-indruk komt hier uit een hex-alpha-suffix op de
+      // kleur (`+'80'`, zelfde patroon als de float-indicator hierboven met `+'40'`), niet uit een
+      // stateful alpha-property.
+      if (split) {
+        d2d.strokeStyle = color + '80';
+        d2d.lineWidth = 1;
+        d2d.beginPath();
+        d2d.moveTo(segs[0].x2, y + barHeight / 2);
+        d2d.lineTo(segs[segs.length - 1].x1, y + barHeight / 2);
+        d2d.stroke();
+      }
+
+      // Main bar with rounded corners — per segment (één segment ⇒ ongesplitst, ongewijzigd gedrag).
+      for (const s of segs) {
+        const sw = Math.max(s.x2 - s.x1, split ? 2 : 3);
+        d2d.fillStyle = color;
+        d2d.beginPath();
+        d2d.roundRect(s.x1, y, sw, barHeight, 3);
         d2d.fill();
+      }
+
+      // Completion overlay (darker shade) — GLOBALE voortgangsgrens (`progressEnd`, over de volle
+      // `[x1,x2]`-breedte berekend, ná de eventuele split), niet per segment opnieuw: zelfde
+      // continuïteitsregel als GanttRenderer.drawTaskBar (Z15-acceptatiepunt 4).
+      if (options.showCompletion && task.time.completion > 0) {
+        const progressEnd = x1 + width * task.time.completion;
+        d2d.fillStyle = isCritical ? PRINT_COLORS.criticalDark : PRINT_COLORS.normalDark;
+        for (const s of segs) {
+          const sw = Math.max(s.x2 - s.x1, split ? 2 : 3);
+          if (progressEnd > s.x1) {
+            const pw = Math.min(s.x1 + sw, progressEnd) - s.x1;
+            if (pw > 0) {
+              d2d.beginPath();
+              d2d.roundRect(s.x1, y, pw, barHeight, 3);
+              d2d.fill();
+            }
+          }
+        }
       }
 
       // Float indicator
