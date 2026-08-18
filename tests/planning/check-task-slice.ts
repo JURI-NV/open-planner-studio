@@ -245,14 +245,47 @@ ok(
   S().unassignResource(unassignAsnIdW);
   ok('f2 (unassignResource-trigger): timephasedDurationWalks gewist', task(idUnassignW)?.timephasedDurationWalks === undefined);
 
-  // Controle: een duur-trigger (geen toewijzing) laat timephasedDurationWalks ONGEMOEID — de
-  // laag stroomt daar al live mee (task.ts se eigen docblok), dus GEEN dubbele invalidatie nodig.
+  // Controle: een duur-trigger (geen toewijzing) laat timephasedDurationWalks ONGEMOEID zolang GEEN
+  // enkel item `workMinutes` draagt — die tak wandelt `task.time.durationMinutes` edit-live (task.ts
+  // se eigen docblok), dus GEEN dubbele invalidatie nodig. `walkSeed` (hierboven) heeft bewust geen
+  // `workMinutes`, precies de PRECIES-1-toewijzing-vorm die dit dekt.
   const idDurationW = S().addTask({ name: 'Z14b-walks-duur', time: createDefaultTaskTime('2026-08-03', 5) });
   S().updateTask(idDurationW, { timephasedDurationWalks: walkSeed });
   const beforeDurW = task(idDurationW)!;
   S().updateTask(idDurationW, { time: { ...beforeDurW.time, scheduleDuration: 8 } });
-  ok('f2 controle: een duur-trigger laat timephasedDurationWalks ONGEMOEID (geen dubbele invalidatie)',
+  ok('f2 controle: een duur-trigger laat timephasedDurationWalks ONGEMOEID zonder workMinutes (geen dubbele invalidatie)',
     task(idDurationW)?.timephasedDurationWalks?.length === 1);
+
+  // ── N2 (Opus-her-check, tweede ronde): het TEGENOVERGESTELDE geval — een walk-item MET bevroren
+  // `workMinutes` (de F2-apportioneringstak, >1 toewijzing) negeert een latere duur-/datum-wijziging
+  // VOLLEDIG tenzij de lijst wordt gewist (`CPMSolver.ts`'s `timephasedFinish`: `walk.workMinutes ??
+  // durMin` — de bevroren waarde wint altijd zodra ze gezet is). Twee sub-bewijzen: duur-trigger en
+  // datum-trigger (scheduleStart) moeten de lijst nu wél wissen. GEEN kalender-sub-bewijs hier: een
+  // `setTaskCalendar` kan de laag-4-uitkomst niet beïnvloeden (zie `taskDefaults.ts`'s bijgewerkte
+  // "kalender"-paragraaf voor het waarom), dus dat blijft terecht ONGEMOEID — geen N2-scope. ───────
+  const walkSeedFrozen = [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal', workMinutes: 1440 }];
+
+  const idDurationWF = S().addTask({ name: 'Z14b-walks-duur-frozen', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idDurationWF, { timephasedDurationWalks: walkSeedFrozen });
+  const beforeDurWF = task(idDurationWF)!;
+  S().updateTask(idDurationWF, { time: { ...beforeDurWF.time, scheduleDuration: 8 } });
+  ok(`n2 (duur-trigger, workMinutes gezet): timephasedDurationWalks GEWIST (kreeg: ${JSON.stringify(task(idDurationWF)?.timephasedDurationWalks)})`,
+    task(idDurationWF)?.timephasedDurationWalks === undefined);
+
+  const idDateWF = S().addTask({ name: 'Z14b-walks-datum-frozen', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idDateWF, { timephasedDurationWalks: walkSeedFrozen });
+  const beforeDateWF = task(idDateWF)!;
+  S().updateTask(idDateWF, { time: { ...beforeDateWF.time, scheduleStart: '2026-08-04' } });
+  ok(`n2 (datum-trigger, workMinutes gezet): timephasedDurationWalks GEWIST (kreeg: ${JSON.stringify(task(idDateWF)?.timephasedDurationWalks)})`,
+    task(idDateWF)?.timephasedDurationWalks === undefined);
+
+  const idCalWF = S().addTask({ name: 'Z14b-walks-kalender-frozen', time: createDefaultTaskTime('2026-08-03', 5) });
+  S().updateTask(idCalWF, { timephasedDurationWalks: walkSeedFrozen });
+  S().addCalendar({ name: 'Z14b-walks-kalender-frozen-cal', description: '', workDays: [1, 2, 3, 4, 5], workStartHour: 8, workEndHour: 17, hoursPerDay: 8, holidays: [] });
+  const walkFrozenCalId = S().calendars.find((c) => c.name === 'Z14b-walks-kalender-frozen-cal')!.id;
+  S().setTaskCalendar(idCalWF, walkFrozenCalId);
+  ok(`n2 controle: een kalender-trigger laat timephasedDurationWalks ONGEMOEID óók mét workMinutes (buiten N2-scope, zie boven) (kreeg: ${JSON.stringify(task(idCalWF)?.timephasedDurationWalks)})`,
+    task(idCalWF)?.timephasedDurationWalks?.length === 1);
 
   // ── F3 (spec-review-fixronde op 526af9f9): `resourceSlice.removeCalendar`/`commitCalendarLibrary`
   // zetten `t.calendarId = undefined` rechtstreeks, buiten `setTaskCalendar` om — ook daar moet het

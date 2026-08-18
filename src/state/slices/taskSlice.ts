@@ -1,6 +1,7 @@
 import { Task, type ExternalLink } from '@/types/task';
 import {
   createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+  clearTimephasedDurationWalks, timephasedDurationWalksHaveFrozenWork,
 } from '@/utils/taskDefaults';
 import type { Sequence } from '@/types/sequence';
 import type { ResourceAssignment } from '@/types/resource';
@@ -448,6 +449,10 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // voor de volledige triggerset-toelichting.
       if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
         clearTimephasedWindow(s.tasks[idx]);
+        // N2 (Opus-her-check, tweede ronde) — laag 4 stroomt NIET altijd live mee (zie
+        // `taskDefaults.ts`'s bijgewerkte docblok): een walk met bevroren `workMinutes` negeert een
+        // duur-/datum-/kalenderwijziging anders stilzwijgend.
+        if (timephasedDurationWalksHaveFrozenWork(s.tasks[idx])) clearTimephasedDurationWalks(s.tasks[idx]);
       }
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });

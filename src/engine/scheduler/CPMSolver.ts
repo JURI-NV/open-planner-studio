@@ -494,9 +494,17 @@ export class CPMSolver {
    * (geen enkel corpusgeval op een tussen-band-eind). Geen enkel ander bestand raakt deze tak dus
    * ooit; `cases-advanced-cpm.json` pint zowel dit geval, het band-interieur-gedrag als het
    * tussen-band-eind-gedrag (mutatiebewijs: zie de case-notities daar).
-   */
-  private ownAnchor(eng: CalendarEngine, scheduleStart: string): Date {
+   *
+   * Z19 (residu-iteratie "nul afwijkingen", klokdossier-mijlpaaldossier): EEN 0-DUURMIJLPAAL SNAPT
+   * NOOIT — zelfde regel als `forwardBoundOf`'s eigen Z19-toelichting (die de T6-her-review-aanname
+   * met een corpusfeit weerlegt) — MAAR uitsluitend bij een ECHT datetime-anker (`scheduleStart`
+   * draagt een tijdcomponent) in uur-modus, zelfde "S13"-conventie/mutatiebewijs als daar (een
+   * date-only-anker is dag-verankerd en blijft naar het eerste werk-instant van de dag snappen).
+   * `isExactBandEnd`-check hierboven blijft ONVOORWAARDELIJK bestaan voor taken MET duur en voor
+   * date-only-geankerde mijlpalen. */
+  private ownAnchor(eng: CalendarEngine, scheduleStart: string, task: Task): Date {
     const raw = this.parseIn(eng, scheduleStart);
+    if (isZeroDurationMilestone(task) && eng.isHourMode && scheduleStart.includes('T')) return raw;
     if (this.isExactBandEnd(eng, raw)) return raw;
     return this.snapOnOrAfter(eng, raw);
   }
@@ -1232,7 +1240,7 @@ export class CPMSolver {
           ? this.parseIn(cal, task.time.scheduleStart)
           : timephasedAnchor
             ? parseInstant(timephasedAnchor)
-            : this.ownAnchor(cal, task.time.scheduleStart);
+            : this.ownAnchor(cal, task.time.scheduleStart, task);
         // Geen voorganger-druk ⇒ rawMax null ⇒ een (root-)pin kan de logica niet breken (§4.2).
         const beforeConstraint = earlyStart;
         earlyStart = this.applyForwardConstraints(task, earlyStart, null, cal);
@@ -1494,44 +1502,102 @@ export class CPMSolver {
           let usedResumeOverride = false;
           if (this.options.progressMode !== 'PROGRESS_OVERRIDE') {
             // Z12-herwerk (dossier out-of-sequence-actuals, ná Opus-weerlegging van het eerdere
-            // anker-ontwerp): MSP slaat het hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK
-            // op in het bestand — MPP-veld-id 99 (`TaskField.RESUME`, `DataType.DATE`,
-            // `FieldMap14.java` blok 0 offset 20), gelezen door `mppReader.ts` naar
-            // `task.time.resume`. Dit is dus GEEN afgeleide/herberekende waarde en GEEN historie-
-            // afhankelijke aanname — de invoer staat gewoon in het bestand. Corpusmeting (fase 1,
-            // scratchpad-lezer op de bestaande veldkaart-infra): `finish = addWork(resume,
-            // remaining)` op de taak-EIGEN kalender is 17/17 EXACT op alle out-of-sequence-in-
-            // progress-BLADtaken corpusbreed (`childIds.length === 0`, tegen `task.time.
-            // scheduleFinish` — MSP's eigen SCHEDULED_FINISH, vóór enige `applyCpmResult`-mutatie),
-            // en 4/4 minuut-exact op de gemeten OzBuild-snapshots (de root-cause-taak "Validate
-            // Technical Specification" én haar eigen voorganger "Create Technical Specification",
-            // in alle vier de bestanden — inclusief "After Para 28"/"End Para 29", die het eerdere
-            // anker-ontwerp brak). De 5 missers op de bredere (niet-out-of-sequence) in-progress-
-            // populatie zitten allemaal in reeds-gepinde resource-gedreven/timephased-uitzonderingen
-            // (`mpp14timephased.mpp`/`mpp14timephased2.mpp`, bestaande "toegestaan"-reason in
-            // `mpp-fidelity-baseline.json`) — buiten Z12-scope, geen tweede regel nodig.
+            // anker-ontwerp) → Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat") → Z19 (residu-iteratie
+            // "nul afwijkingen", dossier "resumeOverride-gate-verbreding"): MSP slaat het
+            // hervattingsinstant voor een IN-PROGRESS-taak LETTERLIJK op in het bestand — MPP-veld-id
+            // 99 (`TaskField.RESUME`, `DataType.DATE`, `FieldMap14.java` blok 0 offset 20), gelezen
+            // door `mppReader.ts` naar `task.time.resume`. Dit is dus GEEN afgeleide/herberekende
+            // waarde en GEEN historie-afhankelijke aanname — de invoer staat gewoon in het bestand.
+            // Corpusmeting (fase 1, Z12): `finish = addWork(resume, remaining)` op de taak-EIGEN
+            // kalender is 17/17 EXACT op alle out-of-sequence-in-progress-BLADtaken corpusbreed en
+            // 4/4 minuut-exact op de gemeten OzBuild-snapshots.
             //
-            // Vervangt de gewone voorganger-druk (`earlyStart`) VOLLEDIG voor een AANTOONBAAR
-            // out-of-sequence FINISH_START-relatie (`isOutOfSequenceFsPredecessor`, dezelfde
-            // detectie als `detectOutOfSequence`'s eigen FINISH_START-tak) — mits `t.resume`
-            // daadwerkelijk aanwezig is. GEEN opt-in-vlag meer nodig: de AANWEZIGHEID van `resume`
-            // ís het signaal (spiegelt hoe `actualStart` ook zonder vlag werkt) — een niet-`.mpp`-
-            // bron (MSPDI/P6/CSV/IFC) heeft dit veld domweg niet, dus valt automatisch terug op de
-            // bestaande RETAINED_LOGIC/`resumeFromActualElapsed`-vloer hieronder, byte-identiek.
-            // Z8-HERWERKRONDE-FIXRONDE 2 ("laag 1/2-gat", tweede iteratie): naast Z12's eigen
-            // out-of-sequence-trigger geldt de resumeOverride ook zodra `progressCal` afwijkt van
-            // `cal` (de resourcekalender-gate hierboven vuurde) — gemeten (Task 6-familie,
-            // mpp14timephased.mpp): de "RETAINED_LOGIC"-vloer hieronder leidt het hervattingspunt AF
-            // uit `elapsed = totalSpan − remaining` gewandeld via `progressCal`, en die AFLEIDING
-            // reproduceert MSP's eigen opgeslagen `Resume`-veld NIET voor deze populatie (bevestigd
-            // tegen het MSPDI-orakel: Task 6 se `<Resume>2008-12-02T15:00</Resume>` wijkt af van de
-            // elapsed-afgeleide waarde). `t.resume` is hier, exact als in Z12's eigen dossier, een
-            // ECHT ingelezen bestandsveld (geen aanname) — dus dezelfde precedentie-regel: AANWEZIG
-            // ⇒ gebruik het rechtstreeks, in plaats van het af te leiden.
-            const resumeOverride = t.resume
-              && (progressCal !== cal || this.isOutOfSequenceFsPredecessor(task, preds, results))
-              ? this.parseIn(progressCal, t.resume)
-              : null;
+            // TWEE EERDERE, SMALLERE POGINGEN (Z12: AANTOONBAAR out-of-sequence FS-voorganger via
+            // het inmiddels VERWIJDERDE `isOutOfSequenceFsPredecessor`; Z8-fixronde-2: afwijkende
+            // resourcekalender) bleken geen eigen semantische regel — dossier-voor-dossier ontdekte
+            // DEELVERZAMELINGEN. Vijf resterende taken (Task 6/Task 6 - 50%/Task 6 - 150% in
+            // mpp14timephased.mpp, Task 2/Task 3 in timephased-actual-overtime-work.mpp) zijn
+            // WORTELTAKEN (geen voorgangers) met een STRUCTUREEL IDENTIEKE resourcekalender — beide
+            // sub-condities bleven dicht, dus viel de solver terug op de RETAINED_LOGIC-afleiding
+            // (`elapsed = totalSpan − remaining`, hieronder). Gemeten (Z19-probe): die afgeleide
+            // `elapsed` wijkt structureel af van het ware kalender-werkminuten-verschil tussen
+            // `actualStart` en `t.resume` — er bestaat wiskundig geen `remaining`-waarde die beide
+            // feiten tegelijk reproduceert, want hervattingsanker en restwerk zijn in MSP's data
+            // ONAFHANKELIJKE, apart opgeslagen feiten.
+            //
+            // EEN DERDE POGING, "AANWEZIGHEID ALLEEN IS AL HET SIGNAAL" (`t.resume` is UITSLUITEND
+            // door `mppReader.ts` gezet — een niet-`.mpp`-bron draagt dit veld domweg nooit, zie
+            // `cases-progress.json`'s `prog-Z12-p6-contrast-resume-forced-present`), bleek ZELF TE
+            // BREED: `mpp14assignmentfields.mpp`'s "Task One" (2 toewijzingen, units [1, 0.25],
+            // completion 6%) heeft óók `t.resume` gezet, maar `finish = addWork(resume, remaining)`
+            // wijkt daar ~4,5 uur af van MSP's eigen antwoord — de RETAINED_LOGIC-afleiding was daar
+            // AL exact. Dezelfde les als de "mpp14resource-apportionering"-dossier (Z19, elders in
+            // deze etappe): bij >1 GELIJKTIJDIGE toewijzing is het TAAK-brede `remaining`/`resume`-
+            // paar niet zomaar één rechtlijnige kalenderwandeling — elke toewijzing wandelt haar
+            // EIGEN werk, geen partitie van de taakduur (L2-correctie, zie mppReader.ts's
+            // `decodeAssignmentWorkMinutes`-docblok voor de volledige toelichting).
+            // Discriminator (gemeten, niet aangenomen): ALLE 17 Z12-referentietaken én de 5 hierboven
+            // genoemde dragen PRECIES 0 of 1 toewijzing; "Task One" draagt er 2. `task.resourceIds`
+            // (Z19: sinds deze taak ook door `mppReader.ts` gevuld — spiegelt `ifcReader.ts`'s
+            // `reconstructResourceIds`, was voorheen voor MPP-taken altijd `[]`) geeft die telling.
+            // AANWEZIG ⇒ gebruik het rechtstreeks, MAAR ALLEEN bij ≤1 toewijzing.
+            // `isOutOfSequenceFsPredecessor` is met deze regel overbodig geworden (elke situatie
+            // waarin ze `true` gaf had ook ≤1 toewijzing) en is daarom verwijderd i.p.v. als dode
+            // code te laten staan.
+            //
+            // BLAST-RADIUS >1-TOEWIJZING (Z19-probe, wegwerpscript, corpus+crawl 216 bestanden,
+            // GECORRIGEERD ná Opus-reviewbevinding B1 — de eerdere versie van deze toelichting
+            // beweerde "geen van de 14 viel ooit onder de oude gate", dat was ONWAAR): 137
+            // bladtaken dragen `t.resume`, 23 daarvan hebben >1 toewijzing — 10 VOLTOOID (completion
+            // 1, bereiken deze IN-PROGRESS-tak sowieso nooit) en 13 IN-PROGRESS: `mpp14assignmentfields
+            // .mpp`'s "Task One" (het dossier hierboven), "Some Progress"/"Task 2"
+            // (timephased-end-cost-resource.mpp/timephased-material-resource.mpp), en 10×
+            // "Create Technical Specification" (de OzBuild-"After/End Para"-familie — Z12/T9's eigen
+            // canonieke voorbeeldtaak, over TIEN bestandsvarianten). Van die 10 "Create Technical
+            // Specification"-instanties zijn er 7 (After Papa 12/16, End Para 14/16/17/18/20)
+            // WÉL aantoonbaar out-of-sequence (hun FS-voorganger "Determine Installation
+            // Requirements" is voltooid, maar haar `actualFinish` ligt NÁ déze taak se eigen
+            // `actualStart`) — voor die 7 was de OUDE gate dus WEL open (`isOutOfSequenceFsPredecessor`
+            // gaf `true`), en sluit de NIEUWE ≤1-toewijzing-guard 'm nu juist. Ze WISSELEN dus van
+            // route (resumeOverride → RETAINED_LOGIC), geen "route al vóór deze wijziging
+            // ongewijzigd"-geval zoals eerder beweerd. Per taak nagerekend (Z19-probe): voor ALLE
+            // ZEVEN geeft `addWork(resume, remaining)` [de oude, nu-verlaten route] HETZELFDE
+            // antwoord als de RETAINED_LOGIC/`resumeFromActualElapsed`-afleiding [de nieuwe route] —
+            // en beide zijn gelijk aan MSP's eigen opgeslagen finish (bevestigd via de corpusbrede
+            // fidelity-pin op deze bestanden, die byte-identiek blijft t.o.v. vóór deze wijziging).
+            // De overige 3 ("Create Technical Specification" op After Papa 08/End Para 11/12, plus
+            // "Task One"/"Some Progress"/"Task 2") waren NOOIT out-of-sequence EN droegen geen
+            // afwijkende resourcekalender (`task.timephasedDurationWalks === undefined`) — die
+            // stonden al vóór deze wijziging op de RETAINED_LOGIC-vloer en blijven daar,
+            // ONGEWIJZIGD, via dezelfde ≤1-toewijzing-guard.
+            //
+            // BLAST-RADIUS ≤1-TOEWIJZING (reviewbevinding B2 — eerlijk vastleggen, niet verbloemen
+            // achter de >1-toewijzing-analyse hierboven): van de 137 `t.resume`-dragende bladtaken
+            // hebben 114 ≤1 toewijzing; 56 daarvan zijn IN-PROGRESS (dezelfde `(actualStart ||
+            // completion>0) && completion<1`-poort als de forward-pas zelf). Van die 56 stond de
+            // OUDE gate bij 15 al open (out-of-sequence FS-voorganger of afwijkende resourcekalender)
+            // — ONGEWIJZIGD. Bij de overige 41 was de oude gate DICHT — dit IS de eigenlijke
+            // verruiming van deze fixronde, niet een randgeval: 41 taken krijgen nu structureel de
+            // resumeOverride-route waar ze voorheen op RETAINED_LOGIC zaten. Corpusbreed blijft de
+            // fidelity-pin op ELK van deze 216 bestanden byte-identiek (0 regressies, per-bestand
+            // geverifieerd tegen `mpp-fidelity-baseline.json`) — van de 41 verbeteren dit dossier se
+            // eigen 5 target-taken (Task 6-familie/Task 2/3) van fout naar exact; de overige 36
+            // komen op dezelfde datum uit als RETAINED_LOGIC al gaf (coïncidentie, geen bewijs dat de
+            // twee routes ALGEMEEN equivalent zijn — buiten dít corpus is die aanname niet getoetst).
+            // `isOutOfSequenceFsPredecessor` is met deze regel overbodig geworden (elke situatie
+            // waarin ze `true` gaf had ook ≤1 toewijzing) en is daarom verwijderd i.p.v. als dode
+            // code te laten staan.
+            //
+            // `cases-progress.json`'s P6-RETAINED_LOGIC-scenario's dragen `resume` per constructie
+            // NOOIT (mpp-exclusief) en blijven dus byte-identiek; hun `resourceIds` staat bovendien op
+            // de default `[]` (≤1). Nieuw corpusloos mutatiebewijs (reviewbevinding B3):
+            // `prog-Z19-resume-root-no-predecessor` dekt een WORTELtaak zonder enige voorganger — alle
+            // eerdere `resume`-cases hadden een FS-topologie, terwijl dit dossier se eigen vijf
+            // target-taken PRECIES zulke voorgangerloze wortels zijn. De `resumeFromActualElapsed`-
+            // vlag (default UIT) en haar hele RETAINED_LOGIC-vloer (de `else`-tak hieronder) zijn door
+            // deze wijziging GEEN letter geraakt — alleen de `resumeOverride`-voorwaarde zelf kreeg de
+            // extra `&&`-clausule.
+            const resumeOverride = t.resume && task.resourceIds.length <= 1 ? this.parseIn(progressCal, t.resume) : null;
             if (resumeOverride && !isNaN(resumeOverride.getTime())) {
               remStart = resumeOverride;
               usedResumeOverride = true;
@@ -1654,9 +1720,9 @@ export class CPMSolver {
           // resume/stop-paar naast `splitGaps` is gevonden.
           //
           // VOORRANGSREGEL (uit deze meting, niet aangenomen): `resume`/`splitGaps` zeggen in de
-          // gemeten populatie HETZELFDE, maar over VERSCHILLENDE assen — `resume` (Z12) is het
+          // gemeten populatie HETZELFDE, maar over VERSCHILLENDE assen — `resume` (Z12, Z19) is het
           // CALENDER-anker van het restwerk-startpunt (waar `remStart` op landt, via de
-          // `isOutOfSequenceFsPredecessor`-override of de gewone RETAINED_LOGIC-vloer hierboven);
+          // `resumeOverride`-tak of de gewone RETAINED_LOGIC-vloer hierboven);
           // `splitGaps` (Z7) leeft op de WERK-as (hoeveel werk is al gedaan, `completedSpan`) en is
           // BLIND voor welk kalenderanker `remStart` daadwerkelijk kreeg. Er ontstaat dus GEEN
           // conflict om een voorrangsregel voor nodig te hebben: het venster
@@ -1908,6 +1974,16 @@ export class CPMSolver {
     return { ef: earlyFinish, hasFinishDriver };
   }
 
+  // Z19 (residu-iteratie "nul afwijkingen", dossier "resumeOverride-gate-verbreding", L4-
+  // reviewcorrectie — dit was eerder abusievelijk TUSSEN `detectOutOfSequence`'s eigen docblok en
+  // haar functiesignatuur gezet): de vroegere `isOutOfSequenceFsPredecessor` (Z12) — de LIVE,
+  // tijdens-de-forward-pas-tegenhanger van `detectOutOfSequence`'s eigen FINISH_START-tak, gebruikt
+  // om de `resumeOverride`-gate hierboven te openen — is VERWIJDERD: de gate is vereenvoudigd tot
+  // "AANWEZIG `t.resume` (bij ≤1 toewijzing) ⇒ gebruik het rechtstreeks" (zie de
+  // `resumeOverride`-toelichting in de forward-pas hierboven), waarmee elke situatie die deze
+  // functie ooit `true` liet geven nu al via die bredere regel afgehandeld wordt.
+  // `detectOutOfSequence` hieronder is een ANDERE, ONGEWIJZIGDE functie (de post-hoc WAARSCHUWING
+  // over out-of-sequence-relaties, geen gate) — niet te verwarren met de verwijderde functie.
   /**
    * Out-of-sequence-detectie (fase 2.6, §4.4): relaties waarvan de opvolger progress/actuals heeft
    * die de voorganger-logica tegenspreekt. Waarschuwing, geen correctie — het gedrag volgt uit de
@@ -1920,47 +1996,6 @@ export class CPMSolver {
    * een relatie kan aantoonbaar out-of-sequence zijn (opvolger-actuals tegenspreken de voorganger-
    * logica) ongeacht of het project een statusbrede statusdatum heeft.
    */
-  /** Z12: is `task` aantoonbaar out-of-sequence met minstens één van haar FINISH_START-voorgangers
-   *  — de LIVE tegenhanger van `detectOutOfSequence`'s eigen FINISH_START-tak (identieke conditie:
-   *  `!predAF || (prefEF && succAS < prefEF)`), maar opgeroepen TIJDENS de forward-pas zelf (met de
-   *  tot-nu-toe gevulde `results`) i.p.v. erna (met de complete `earlyDates`). Door de topologische
-   *  volgorde (`order`, `topologicalSort`) staat een voorganger altijd vóór haar opvolger, dus
-   *  `results.get(predecessorId)` is op dit punt al gezet.
-   *
-   *  L2 (Z12-her-check, Opus-hercheck, correctie op een eerdere — onware — claim hier): dat is NIET
-   *  in alle gevallen identiek aan wat `earlyDates` er ná afloop voor dezelfde relatie uit zou
-   *  geven. `runCPM` roept `applyAlap(order, earlyDates, lateDates)` aan ná `backwardPass` maar
-   *  VÓÓR `detectOutOfSequence(earlyDates)` — en `applyAlap` muteert `early.es`/`early.ef` IN-PLACE
-   *  op diezelfde `earlyDates`-Map (regel ~1718 e.v.) voor elke ALAP-geconstrainde taak. Is de
-   *  VOORGANGER van deze relatie zelf ALAP, dan ziet `detectOutOfSequence` (post-`applyAlap`) een
-   *  ANDERE (later geschoven) `predEF` dan wat `results.get(predecessorId)` hier tijdens de forward-
-   *  pas nog opleverde (vóór de ALAP-schuif). Voor déze functie zelf verandert dat niets — ze wordt
-   *  UITSLUITEND tijdens de forward-pas gebruikt (de `resume`-veld-override hierboven), nooit ná
-   *  `applyAlap` — dus geen gedragswijziging, alleen een onware "identiek"-claim gecorrigeerd.
-   *  Bewust beperkt tot FINISH_START (spiegelt het gemeten Z12-dossier, "actualStart vóór de
-   *  herberekende voorgangerfinish"): SS/FF/SF-out-of-sequence is voor de `resume`-veld-override
-   *  (zie de aanroepplek hierboven) geen gemeten scenario, dus geen ongeverifieerde aanname erbij
-   *  (`Task.time.resume`'s docblok in `src/types/task.ts`). */
-  private isOutOfSequenceFsPredecessor(
-    task: Task,
-    preds: Sequence[],
-    results: Map<string, { es: Date; ef: Date }>,
-  ): boolean {
-    if (!task.time.actualStart) return false;
-    const succAS = this.parseIn(this.calendarFor(task), task.time.actualStart);
-    for (const seq of preds) {
-      if (seq.type !== 'FINISH_START') continue;
-      const predTask = this.tasks.get(seq.predecessorId);
-      if (!predTask) continue;
-      const predEng = this.calendarFor(predTask);
-      const predAF = predTask.time.actualFinish ? this.parseIn(predEng, predTask.time.actualFinish) : null;
-      const predEF = results.get(seq.predecessorId)?.ef ?? null;
-      const prefEF = predAF ?? predEF;
-      if (!predAF || (prefEF && succAS < prefEF)) return true;
-    }
-    return false;
-  }
-
   private detectOutOfSequence(earlyDates: Map<string, { es: Date; ef: Date }>): string[] {
     const out: string[] = [];
     for (const seq of this.sequences) {
@@ -2076,13 +2111,24 @@ export class CPMSolver {
    *
    * LAAG 4 — VERSE herberekening (`timephasedDurationWalks`): GEEN gelezen antwoord, dus GEEN
    * cirkelmeting-risico — `task.time.durationMinutes` is een gewoon, edit-live veld. Voor ELK item
-   * in de lijst: wandel die duur door de toewijzings-eigen resourcekalender vanaf haar `anchor`, en
-   * neem het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish", corpusbewijs "Task A" —
-   * mpp14resource.mpp, drie toewijzingen, één met een sterk afwijkende kalender die de max wint).
-   * Zelfde `sfFinishFloor`-precedentie als laag 3. Een item wiens resourcekalender NIET naar
-   * uur-modus promoveert (dag-modus-kalender) draagt geen bruikbare `addWorkMinutes` en wordt
-   * overgeslagen — ontbreken ALLE items dan (zeldzaam; `mppReader.ts` activeert laag 4 alleen als
-   * er minstens één structureel afwijkende, dus doorgaans al gepromoveerde, kalender is) ⇒ `null`.
+   * in de lijst: wandel een duur door de toewijzings-eigen resourcekalender vanaf haar `anchor`, en
+   * neem het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish"). Zelfde
+   * `sfFinishFloor`-precedentie als laag 3. Een item wiens resourcekalender NIET naar uur-modus
+   * promoveert (dag-modus-kalender) draagt geen bruikbare `addWorkMinutes` en wordt overgeslagen —
+   * ontbreken ALLE items dan (zeldzaam; `mppReader.ts` activeert laag 4 alleen als er minstens één
+   * structureel afwijkende, dus doorgaans al gepromoveerde, kalender is) ⇒ `null`.
+   *
+   * WELKE duur per item (Z19, residu-iteratie "nul afwijkingen") — `walk.workMinutes` als die
+   * gezet is, anders de VOLLE `task.time.durationMinutes`. `mppReader.ts` zet `workMinutes`
+   * UITSLUITEND bij >1 toewijzing (`deriveTimephasedWindowsForTasks`'s finalisatielus): bij meerdere
+   * GELIJKTIJDIGE toewijzingen wandelt geen enkele toewijzing de volle taakduur — elke toewijzing
+   * wandelt alleen haar eigen werk-aandeel (geen partitie: de som over de toewijzingen hoeft niet
+   * gelijk te zijn aan de taakduur), niet de volle taakduur (die aanname bleek BEWEZEN onjuist —
+   * `mpp14resource.mpp`'s "Task A", drie toewijzingen, gaf zonder apportionering een ~2× te late
+   * datum). LET OP: leid uit een lijst van lengte 1 NIET af dat `workMinutes` ontbreekt — 19
+   * corpustaken dragen een lengte-1-lijst mét `workMinutes` (de MATERIAL-gefilterde >1-tak in
+   * `mppReader.ts`); de garantie zit op de producerende tak, dus dit pad toetst per item
+   * `walk.workMinutes ?? durMin` en nooit de lengte.
    */
   private timephasedFinish(
     task: Task, cal: CalendarEngine, hardFinishPin: Date | null, sfFinishFloor: Date | null,
@@ -2103,7 +2149,10 @@ export class CPMSolver {
           const resCal = resolveCalendar(walk.resourceCalendarId, this.registry, this.projectCal);
           const resEng = this.engineForCal(resCal);
           if (!resEng.isHourMode) continue;
-          const candidate = resEng.addWorkMinutes(parseInstant(walk.anchor), durMin);
+          // Z19-apportionering: `workMinutes` (alleen gezet bij >1 toewijzing) wint van de volle
+          // taakduur — zie het docblok hierboven.
+          const walkMinutes = walk.workMinutes ?? durMin;
+          const candidate = resEng.addWorkMinutes(parseInstant(walk.anchor), walkMinutes);
           if (!windowValue || candidate > windowValue) windowValue = candidate;
         }
       }
@@ -2146,14 +2195,23 @@ export class CPMSolver {
    *  reduceert byte-identiek tot `nextWorkDay`/`addWorkingDaysSigned`; uur-modus gebruikt de instant-
    *  vinders + de minuut-aftrek van `startFromFinish` (via `durationMinutesOf`).
    *
-   *  BEKENDE BEPERKING (L5, T6-her-review, §9/O6): een SNET/MSO exact op een band-eind (bv.
-   *  "niet vóór di 17:00") volgt de mijlpaal-instantconventie NIET — `snapOnOrAfter` snapt hier
-   *  altijd vooruit via `nextWorkInstant`, ook op een eindmijlpaal. Bewust: een constraint is een
-   *  door de gebruiker/bronbestand OPGELEGDE ondergrens ("niet eerder dan X"), geen door een relatie
-   *  AFGELEIDE landingsinstant — "niet eerder dan 17:00" wordt door MS Project zelf ook gelezen als
-   *  "dus ten vroegste de eerstvolgende werk-instant ná 17:00", niet als "land exact op 17:00". De
-   *  MSP-pariteitsconventie (T6) geldt voor relatie-afgeleide instanten (FS/FF/SF-grenzen), niet
-   *  voor constraint-ondergrenzen.
+   *  VOORHEEN (L5, T6-her-review, §9/O6, WEERLEGD): een SNET/MSO exact op een band-eind (bv. "niet
+   *  vóór di 17:00") volgt de mijlpaal-instantconventie NIET — `snapOnOrAfter` snapt hier altijd
+   *  vooruit via `nextWorkInstant`, ook op een eindmijlpaal. Die claim was NOOIT corpusgetoetst
+   *  (T6-her-review's eigen bewoording: "MS Project zelf leest dit ook als..." — een aanname, geen
+   *  meting).
+   *
+   *  Z19-WEERLEGGING (residu-iteratie "nul afwijkingen", klokdossier-mijlpaaldossier, §9-precedent
+   *  "corpus wint"): het EERSTE corpusfeit over deze vraag zegt het TEGENOVERGESTELDE. Een
+   *  wortelmijlpaal (duur 0) met SNET vóór de eerste band van haar dag (bv. `…T07:15` op een
+   *  08:00–17:00-band — geen bandgrens, een echt gat vóórdat de werkdag begint): MSP's eigen
+   *  `SCHEDULED_START` bleef `07:15`, ONGESNAPT. De juiste, nauwe regel: EEN 0-DUURMIJLPAAL SNAPT
+   *  NIET — er is geen werk te plaatsen dat een "eerstvolgende werk-instant" nodig heeft, een
+   *  mijlpaal is een puntmarkering, geen taak die binnen werktijd moet passen. Taken MÉT duur
+   *  behouden het bestaande snap-gedrag ONGEWIJZIGD (`isZeroDurationMilestone`-poort hieronder).
+   *  Compatibel met de 41 FNLT-bandeind-mijlpalen (regressiepoort, `check-advanced-cpm.ts`): die
+   *  krijgen hun landingsinstant uit een RELATIE (niet uit deze forward-constraint-tak — FNLT is een
+   *  BACKWARD-constraint, `backwardBoundOf`, hier niet aangeraakt) en blijven dus exact.
    *
    *  VERWANTE OORZAAK (T6-her-review): de `dataDate`-vloer ("NIET GESTART", `forwardPass`) snapt
    *  in de PROJECT-kalender (`this.projectEngine`), niet in de eigen kalender van de taak — bij
@@ -2167,9 +2225,31 @@ export class CPMSolver {
   private forwardBoundOf(task: Task, c: TaskConstraint | undefined, eng: CalendarEngine): Date | null {
     const d = this.constraintInstant(c, eng);
     if (!c || !d) return null;
-    if (c.type === 'SNET' || c.type === 'MSO') return this.snapOnOrAfter(eng, d);
+    // Z19: geen snap voor een 0-duurmijlpaal — MAAR uitsluitend bij een ECHT datetime-anker
+    // (`c.date` draagt een tijdcomponent) in uur-modus. Zelfde "S13"-conventie als elders in dit
+    // bestand (`constraintInstant`'s eigen docblok): een DATE-ONLY constraint-string is per
+    // conventie dag-verankerd — "ergens op die dag" — en blijft dus naar het eerste werk-instant
+    // van de dag snappen (mutatiebewijs: `rr-fs-pred-startms`-familie in `cases-hours-relations.json`
+    // en `msp-56-z9a-manual-anchor-raw-no-snap`/dag-modus in `cases-msp-pariteit.json` gingen ROOD
+    // op een eerdere, te brede versie zonder deze guard). Dag-modus (`!eng.isHourMode`) blijft
+    // hoe dan ook ONGEWIJZIGD (`isExactBandEnd`-precedent: geen corpusmeting op dag-modus gedaan).
+    //
+    // N1 (Opus-her-check, blokkerende fout in de eerdere versie): de `noSnap`-guard stond hier als
+    // een VROEGE `return d;` VÓÓR de type-switch — dat gaf `d` ALTIJD terug zodra een 0-duurmijlpaal
+    // matchte, ONGEACHT `c.type`. FNLT/SNLT hebben in DEZE functie GEEN forward-effect (ze horen
+    // `null` te geven — `backwardBoundOf` hierboven is hun kant) — met de vroege return kreeg een
+    // FNLT-DEADLINE op een mijlpaal plotseling een FORWARD-ondergrens gelijk aan de deadline zelf,
+    // en duwde de mijlpaal naar de deadline toe (of erover heen) i.p.v. 'm als bovengrens te laten
+    // functioneren. Corpusloos gereproduceerd (`cases-hours.json`,
+    // `z19-milestone-fnlt-no-forward-push`): een FNLT-deadline een week ná een ma 09:00-mijlpaal
+    // duwde de mijlpaal daadwerkelijk naar de week erna. De 41 corpus-FNLT-bandeind-mijlpalen vingen
+    // dit niet (hun relatie-instant valt daar toevallig samen met de FNLT-datum, dus de bug bleef
+    // onzichtbaar in de fidelity-cijfers). Fix: de guard ÍN de SNET/MSO- en FNET/MFO-takken zetten,
+    // zodat de FNLT/SNLT-tak (die toch al op `return null` uitkomt) 'm nooit ziet.
+    const noSnap = isZeroDurationMilestone(task) && eng.isHourMode && c.date?.includes('T');
+    if (c.type === 'SNET' || c.type === 'MSO') return noSnap ? d : this.snapOnOrAfter(eng, d);
     if (c.type === 'FNET' || c.type === 'MFO') {
-      return this.startFromFinish(eng, this.snapOnOrAfter(eng, d), task);
+      return this.startFromFinish(eng, noSnap ? d : this.snapOnOrAfter(eng, d), task);
     }
     return null;
   }

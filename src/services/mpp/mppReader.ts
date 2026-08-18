@@ -131,7 +131,7 @@ import type {
   Task, TaskConstraint, MilestoneKind, TaskSplitGap, MspTaskType, TaskTimephasedContour, TimephasedContourPeriod,
 } from '@/types/task';
 import type { WorkCalendar } from '@/types/calendar';
-import type { Resource } from '@/types/resource';
+import type { Resource, ResourceType } from '@/types/resource';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { generateId } from '@/utils/id';
 import { formatDate, formatInstant, isoDayOfWeek, parseInstant } from '@/utils/dateUtils';
@@ -1782,14 +1782,28 @@ export function deriveTimephasedContoursForTasks(
 //      timephasedsegments.mpp` als `mpp14timephasedsegmentsmanual.mpp` (holiday+working-exception-
 //      verschil die bij de OPGESLAGEN duur netto nul uitwerkt — zie datzelfde docblok voor waarom
 //      dat GEEN reden is om de activering uit te sluiten) ⇒ `timephasedDurationWalks`:
-//      GEEN gelezen antwoord, een VERSE herberekening — `CPMSolver.ts` wandelt `task.time.
-//      durationMinutes` (edit-live) door de toewijzings-eigen resourcekalender (nu promoveerbaar,
-//      zie `subdayIo.ts`'s (b2)-instrumentfix) en neemt het MAXIMUM over de toewijzingen. Geen
-//      invalidatie nodig: een duur-edit stroomt vanzelf mee, want de wandeling gebeurt bij ELKE
-//      `runCPM` opnieuw. Corpusbewijs: 9/9 (mpp14timephased2.mpp), 20/20 (mpp14timephasedsegments
-//      .mpp), en de volledige 0%-populatie van mpp14timephased.mpp (de Task 6-familie, completion
-//      60%, blijft BUITEN dit punt — hun resourcekalender is geverifieerd IDENTIEK aan de
-//      projectkalender, zie het Z19-L-dossier voor die familie).
+//      GEEN gelezen antwoord, een VERSE herberekening. Bij PRECIES 1 toewijzing wandelt
+//      `CPMSolver.ts` `task.time.durationMinutes` (edit-live) door de toewijzings-eigen
+//      resourcekalender (nu promoveerbaar, zie `subdayIo.ts`'s (b2)-instrumentfix). Bij >1
+//      toewijzing (Z19-apportionering, `decodeAssignmentWorkMinutes` hieronder): elke toewijzing
+//      wandelt ALLEEN haar eigen gedecodeerde werk-aandeel (een volle-duur-wandeling per
+//      toewijzing gaf op "Task A" een ~2× te late datum, zie de finalisatielus van
+//      `deriveTimephasedWindowsForTasks`). Beide varianten nemen het MAXIMUM over de toewijzingen
+//      ("langste toewijzing bepaalt de finish"). N2-CORRECTIE (Opus-her-check, tweede ronde): "geen
+//      invalidatie nodig, stroomt vanzelf mee" klopt UITSLUITEND voor de PRECIES-1-toewijzing-tak
+//      (die wandelt `task.time.durationMinutes`, edit-live, dus ELKE `runCPM` ziet de nieuwste duur
+//      vanzelf). De >1-toewijzing/apportioneringstak wandelt per item de BEVROREN `workMinutes` uit
+//      de import — een latere duur-/datumwijziging op de taak bereikte die wandeling tot deze fix
+//      NIET (een kalenderwijziging ook niet, maar dat is geen bug: `durMin` volgt `task.calendarId`
+//      sowieso niet, zie `taskDefaults.ts`'s "kalender"-paragraaf). `taskDefaults.ts`'s
+//      `updateTask`/`updateTaskFields`/`patchTaskFields` wissen
+//      de lijst sinds N2 daarom alsnog (`clearTimephasedDurationWalks`, gepoort op
+//      `timephasedDurationWalksHaveFrozenWork`) zodra zo'n bevroren item aanwezig is — de taak valt
+//      dan terug op punt 5 hieronder tot een volgende import. Corpusbewijs voor de activering zelf:
+//      9/9 (mpp14timephased2.mpp), 20/20 (mpp14timephasedsegments.mpp), en de volledige
+//      0%-populatie van mpp14timephased.mpp (de Task 6-familie, completion 60%, blijft BUITEN
+//      dit punt — hun resourcekalender is geverifieerd IDENTIEK aan de projectkalender; zie de
+//      resumeOverride-gate in `CPMSolver.ts` voor hoe die familie is opgelost).
 //   5. Anders ⇒ geen van beide velden gezet, de gewone duurberekening blijft ongewijzigd.
 // Lagen 3 en 4 zijn MUTUEEL EXCLUSIEF per taak (nooit beide gezet) — lagen 1/2 sluiten een taak
 // hier VOLLEDIG uit (geen enkel Z8-veld gezet), dus `CPMSolver.ts`'s VOLTOOID-/IN-PROGRESS-takken
@@ -1804,12 +1818,23 @@ export function deriveTimephasedContoursForTasks(
 // verschuivingshypothese (uid→taak-brug fout) — WEERLEGD: de uid/taskUid/resourceUid-koppeling is
 // een schone 1:1-reeks, geen off-by-one.
 //
+// Z19-NUANCE op (b): "werkt op een minderheid" was juist voor `workMinutes` als VERVANGER van de
+// gewone duurwandeling over de HELE populatie (elke taak, ongeacht toewijzingsaantal) — dat blijft
+// afgewezen, zie punt 4 hierboven ("bij PRECIES 1 toewijzing... de volle `durationMinutes`").
+// `decodeAssignmentWorkMinutes` gebruikt dezelfde decoders voor een SMALLERE, andere vraag (hoe
+// verdeelt het werk zich over >1 gelijktijdige toewijzing van DEZELFDE taak), niet "wat is de
+// datum" — geen tegenspraak met deze weerlegging.
+//
 // SAMENVATTINGSTAKEN: zelfde uitsluiting als Z4 (`task.childIds.length > 0`) — MSP toont geen
 // contour-eigen venster op een WBS-samenvattingstaak, haar datums komen uit de kinderrollup.
 export interface TimephasedWindowResult {
   finishFloor: Date | null;                 // laag 3
   startAnchor: Date | null;                 // lagen 3+4 (vroegste anker)
-  durationWalks: { anchor: Date; resourceCalendarId: string }[]; // laag 4
+  /** laag 4. `workMinutes` ONTBREEKT bij PRECIES 1 toewijzing (de wandeling gebruikt dan de volle
+   *  `task.time.durationMinutes`, bewezen gedrag — zie de finalisatielus hieronder) en is GEZET bij
+   *  >1 toewijzing (Z19-apportionering: elke toewijzing wandelt alleen haar eigen gedecodeerde
+   *  werk-aandeel, zie `decodeAssignmentWorkMinutes`). */
+  durationWalks: { anchor: Date; resourceCalendarId: string; workMinutes?: number }[];
 }
 
 /** Vergelijk de gecanoniseerde banden van twee kalenders — puur structureel (geen id-vergelijking:
@@ -1895,6 +1920,68 @@ function calendarDiffersIncludingExceptions(a: WorkCalendar, b: WorkCalendar): b
   return false;
 }
 
+/** Z19 (residu-iteratie "nul afwijkingen", dossier "mpp14resource-apportionering") — het TOTALE
+ *  per-toewijzing gedecodeerde werk in minuten: som van `actualRegularWork` + `remainingRegularWork`
+ *  via de bestaande Z3-decoders (`decodeRegularTimephasedWork`/`decodePlannedRegularTimephasedWork`)
+ *  — DEZELFDE functies als de laag-3-`hasGenuinePeriod`-detectie hierboven gebruikt, hier voor een
+ *  ANDER doel: bij >1 gelijktijdige toewijzing wandelt geen enkele toewijzing alleen de VOLLE
+ *  taakduur — zie de finalisatielus onderaan deze functie voor het corpusbewijs ("Task A",
+ *  `mpp14resource.mpp`: 3 toewijzingen × 1440 werkminuten elk, task-duur 2880 min — de oude
+ *  volle-duur-per-toewijzing-wandeling gaf ~2× te laat per toewijzing).
+ *
+ *  L2 (Opus-review, correctie): NIET "toewijzingen DELEN het werk" — dat zou een PARTITIE van de
+ *  taakduur suggereren en klopt niet letterlijk (Task A: taakduur 2880 min, 3×1440 gedecodeerd
+ *  werk = 4320 min, GEEN partitie — de drie toewijzingen dragen elk hun EIGEN, onafhankelijk
+ *  opgeslagen werk-hoeveelheid, die kan groter, kleiner of gelijk zijn aan een partitie). De ware
+ *  regel: ELKE toewijzing wandelt haar EIGEN gedecodeerde werk-aandeel, de LANGSTE (het MAXIMUM
+ *  over de wandelingen) bepaalt de taakfinish — spiegelt exact laag 3's "langste toewijzing
+ *  bepaalt de finish"-regel, nu met een verse berekening i.p.v. een gelezen antwoord.
+ *
+ *  L1 (Opus-review, beperking): deze functie wandelt WERKMINUTEN, niet werk-BIJ-EEN-BEPAALDE-
+ *  CAPACITEIT — ze houdt GEEN rekening met `ResourceAssignment.unitsPerDay` (bv. een toewijzing op
+ *  25% capaciteit zou in MSP's eigen model langer over dezelfde nominale "werkhoeveelheid" doen dan
+ *  een 100%-toewijzing). Corpusbewijs dat deze aanname niet universeel is: `mpp14assignmentfields
+ *  .mpp`'s "Task One" draagt units `[1, 0.25]` (buiten dit dossier se eigen apportionerings-
+ *  activering, zie CPMSolver.ts's `resumeOverride`-toelichting — die taak activeert de HIER
+ *  beschreven tak niet, want ze heeft geen genuine timephased-werkblok). Bewust NIET opgelost: geen
+ *  enkel corpusgeval in DEZE apportioneringspopulatie (walks.length>1, wél genuine werkblok) draagt
+ *  een niet-100%-`unitsPerDay` — de vereenvoudiging is dus ONGETOETST, geen bewezen-correcte
+ *  aanname, gemeld als openstaand punt i.p.v. stilzwijgend genegeerd.
+ *
+ *  `assignmentFinish` is voor `decodePlannedRegularTimephasedWork`'s `blockCount===0`-tak
+ *  UITSLUITEND een NIET-NULL ankerpunt (nodig om de vroege lege-return te vermijden voor dat
+ *  speciale geval, zie haar eigen docblok in `mppTimephased.ts` — GELDT ALLEEN voor die
+ *  `blockCount===0`-tak; de `decodeRegularTimephasedWork`-tak hierboven kent geen `blockCount===0`-
+ *  speciaal geval en gebruikt `assignmentFinish` dus ook niet); de WERK-waarde zelf (offset 16,
+ *  losstaand van dit ankerpunt) verandert NIET met welke datum hier wordt doorgegeven — corpusprobe
+ *  (Task A, drie toewijzingen): identieke `workMinutes` met het gelezen `assignmentFinish` én met
+ *  een willekeurig ander niet-`null` ankerpunt. `link.assignmentFinish` (het gelezen MSP-eigen
+ *  ankerpunt, toch al beschikbaar) is dus een gemaksgreep, GEEN cirkelmeting: de teruggegeven
+ *  `workMinutes` is een edit-live, kalenderonafhankelijke werk-HOEVEELHEID, geen gelezen datum.
+ *  `0`/geen gedecodeerd werk ⇒ `null` — de aanroeper behandelt dat als "niet apportioneerbaar" en
+ *  laat de hele taak op laag 5 vallen (zie de finalisatielus).
+ *
+ *  L3 (Opus-review): `assignmentFinish` KAN `null` zijn (`AssignmentUidLink.assignmentFinish`'s
+ *  eigen docblok — het veld ontbreekt in sommige bestanden se field map, of het record is te kort).
+ *  De `?? new Date(taskStart.getTime() + 60_000)`-terugval is dus GEEN dode/onbereikbare tak — zie
+ *  `check-mpp-import.ts`'s Z19-eenheidstest (`decodeAssignmentWorkMinutes` hieronder is UITSLUITEND
+ *  hiervoor geëxporteerd, zelfde testbaarheidsreden als `readAssignments`/`readAssignmentTimephasedRaw`
+ *  elders in dit bestand) voor het rode-pad-mutatiebewijs dat de terugval daadwerkelijk werkt en
+ *  dat de teruggegeven `workMinutes` — zoals het docblok hierboven al claimt — ONGEWIJZIGD blijft
+ *  ongeacht welk niet-`null` ankerpunt hier binnenkomt. */
+export function decodeAssignmentWorkMinutes(
+  raw: AssignmentTimephasedRaw, taskStart: Date, assignmentFinish: Date | null,
+): number | null {
+  const actual = raw.actualRegularWork ? decodeRegularTimephasedWork(raw.actualRegularWork, taskStart) : [];
+  const referenceFinish = assignmentFinish ?? new Date(taskStart.getTime() + 60_000);
+  const remaining = raw.remainingRegularWork
+    ? decodePlannedRegularTimephasedWork(raw.remainingRegularWork, taskStart, referenceFinish)
+    : [];
+  const total = actual.reduce((sum, p) => sum + p.workMinutes, 0)
+    + remaining.reduce((sum, p) => sum + p.workMinutes, 0);
+  return total > 0 ? total : null;
+}
+
 export function deriveTimephasedWindowsForTasks(
   cfb: CfbFile,
   assignmentFieldMap: FieldMapTable,
@@ -1914,7 +2001,14 @@ export function deriveTimephasedWindowsForTasks(
   const resourceById = new Map(resources.map((r) => [r.id, r] as const));
   const finishesByTask = new Map<string, Date[]>();
   const startsByTask = new Map<string, Date[]>();
-  const durationWalksByTask = new Map<string, { anchor: Date; resourceCalendarId: string }[]>();
+  // `resourceType` is UITSLUITEND een lokale filtersleutel voor de finalisatielus hieronder (Z19-
+  // klokdossier-activeringsverbreding) — komt NIET in `TimephasedWindowResult`/
+  // `Task.timephasedDurationWalks` terecht (die dragen alleen `anchor`/`resourceCalendarId`/
+  // `workMinutes`, zie hun eigen type/docblok). `null` = de resource kon niet worden opgezocht
+  // (Opus-her-check-nit: eerder viel dit terug op `'LABOR'`, wat een ONVINDBARE resource als
+  // gewoon meewandelend LABOR behandelde — de conservatieve kant van het MATERIAL-filter is juist
+  // UITSLUITEN bij twijfel, dus `null` telt hieronder net als `'MATERIAL'` als "niet meewandelen").
+  const durationWalksByTask = new Map<string, { anchor: Date; resourceCalendarId: string; workMinutes: number | null; resourceType: ResourceType | null }[]>();
   // Laag 4 is een taak-brede activering (≥1 toewijzing met een écht afwijkende resourcekalender)
   // die vervolgens ALLE vlakke toewijzingen van die taak meeneemt in de MAX-wandeling (ook een
   // toewijzing die zelf niet afwijkt — haar bijdrage wordt dan gedomineerd, spiegelt "Task A" waar
@@ -1990,7 +2084,16 @@ export function deriveTimephasedWindowsForTasks(
     const activates = calendarDiffersIncludingExceptions(resCal, taskCal);
     if (activates) layer4ActivatedTasks.add(link.taskId);
     const walkList = durationWalksByTask.get(link.taskId) ?? [];
-    walkList.push({ anchor: link.assignmentStart, resourceCalendarId: resCal.id });
+    // Z19 — werk-hoeveelheid voor een EVENTUELE latere apportionering (finalisatielus hieronder);
+    // bij PRECIES 1 toewijzing wordt dit veld genegeerd (byte-identiek bewezen gedrag, zie daar).
+    const workMinutes = decodeAssignmentWorkMinutes(raw, parseInstant(task.time.scheduleStart), link.assignmentFinish);
+    walkList.push({
+      anchor: link.assignmentStart, resourceCalendarId: resCal.id, workMinutes,
+      // Opus-her-check-nit: `null` (niet `'LABOR'`) als de resource niet kon worden opgezocht — een
+      // onvindbare resource krijgt hierdoor GEEN gewone LABOR-behandeling meer, maar wordt hieronder,
+      // net als MATERIAL, uitgesloten van de wandeling. Conservatief bij twijfel.
+      resourceType: resource?.type ?? null,
+    });
     durationWalksByTask.set(link.taskId, walkList);
   }
 
@@ -2002,20 +2105,107 @@ export function deriveTimephasedWindowsForTasks(
     result.set(taskId, { finishFloor, startAnchor, durationWalks: [] });
   }
   // Herwerkronde-slotronde: GEEN gelezen terugval meer (fee9ecb4 in een nieuw jasje, afgekeurd door
-  // de reviewer — zie de toelichting hierboven bij `hasAnyTimephasedData`). Laag 4 (`durationWalksByTask`)
-  // is dus de ENIGE resterende bron hier, en UITSLUITEND betrouwbaar bij PRECIES 1 toewijzing (de
-  // "elke toewijzing doet het volledige taakwerk alleen"-aanname, `mpp14resource.mpp`'s "Task A" met
-  // 3 toewijzingen toonde dat een MAX-wandeling over >1 toewijzing absurde datums geeft) — geen
-  // multi-toewijzing-vangnet meer: die taken vallen nu bewust op laag 5 terug (niets gezet, de
-  // kale duur-gebaseerde motorberekening beslist), in plaats van een NOG minder betrouwbare wandeling
-  // te forceren.
+  // de reviewer — zie de toelichting hierboven bij `hasAnyTimephasedData`). Laag 4
+  // (`durationWalksByTask`) is dus de ENIGE resterende bron hier.
+  //
+  // Z19 (residu-iteratie "nul afwijkingen") — TWEE takken, niet meer één:
+  //  - PRECIES 1 toewijzing: bewezen byte-stabiel gedrag (9/9 mpp14timephased2.mpp, 20/20
+  //    mpp14timephasedsegments.mpp, de volledige 0%-populatie van mpp14timephased.mpp) — de
+  //    wandeling gebruikt de VOLLE `task.time.durationMinutes` (`workMinutes` wordt hier NIET
+  //    doorgegeven, dus `CPMSolver.ts` valt terug op de kale duur — ONGEWIJZIGD t.o.v. vóór Z19).
+  //    Activering blijft hier UITSLUITEND op `layer4ActivatedTasks` (kalender wijkt af) — deze
+  //    populatie is niet aangeraakt door de verbreding hieronder.
+  //  - >1 toewijzing: Z19's werkVERDELING — is voor ELKE toewijzing van deze taak een `workMinutes`
+  //    gedecodeerd (`null` bij ontbrekend/nul werk ⇒ de HELE taak blijft op laag 5, geen
+  //    gedeeltelijke gok), dan wandelt `CPMSolver.ts` per toewijzing ALLEEN haar eigen werk-aandeel
+  //    en neemt het MAXIMUM over de lijst ("langste toewijzing bepaalt de finish" — spiegelt laag 3,
+  //    nu met een VERSE werk-apportionering i.p.v. een gelezen antwoord).
+  //
+  //    ACTIVERINGSVERBREDING (Z19-residudossier "SNET-klokdossier a69fec157074d056", ná Opus-
+  //    weerlegging van de eerdere "corpusloos" escalatie): eerder gold hier óók `layer4ActivatedTasks`
+  //    (kalendervergelijking) als poort — maar `walks.length > 1` is op zichzelf AL het signaal "≥2
+  //    toewijzingen dragen een écht timephased-blok" (elke push in `walkList` hierboven gaat achter
+  //    `hasAnyTimephasedData(raw)`, zie die guard verderop in de hoofdlus) — dat is DEZELFDE
+  //    voorwaarde als "≥2 tijdgefaseerd-dragende toewijzingen", los van of hun resourcekalender
+  //    toevallig ook nog verschilt. Corpusbewijs (klokdossier): twee toewijzingen met GESTAGGERDE
+  //    eigen `AssignmentField.START`/`FINISH`-vensters én eigen (vlakke) timephased-werkblokken,
+  //    IDENTIEKE resourcekalender aan de taak — de oude kalendervoorwaarde sloot deze populatie dus
+  //    onterecht uit; de taakfinish is het MAXIMUM over de twee toewijzings-eigen wandelingen
+  //    (`anchor: assignmentStart`, `workMinutes: eigen aandeel`) — exact dezelfde machinerie als
+  //    "Task A" (`mpp14resource.mpp`), alleen zonder kalenderverschil als extra aanleiding. De
+  //    kalendervoorwaarde blijft daarom bewust NIET vereist voor deze tak — `layer4ActivatedTasks`
+  //    wordt hier niet meer geraadpleegd, `>1 NIET-MATERIAL toewijzing met decodeerbaar werk` (zie
+  //    de MATERIAL-uitsluiting in de tak hieronder — eigen corpusbevinding, `timephased-cost-
+  //    rollup.mpp`) is de volledige poort.
+  //
+  //    BLAST-RADIUS (N3, Opus-her-check tweede ronde — corpusbreed gemeten over `OPS_MPP_CORPUS` +
+  //    `OPS_MPP_CRAWL`, 661 bestanden gescand, 445 overgeslagen als MPP_LEGACY/MPP_ENCRYPTED,
+  //    onafhankelijk herverificeerd via `solveMppBytes` vóór deze fixronde-commit — geen kwalitatieve
+  //    claim, getelde populaties):
+  //      - walks>1 (deze tak): 1 → 129 taken. Vóór de verbreding hierboven activeerde deze tak
+  //        uitsluitend als de kalendervoorwaarde ook gold; ná de verbreding is elke taak met ≥2
+  //        NIET-MATERIAL, decodeerbare toewijzingen genoeg — 129 taken, corpusbreed geteld.
+  //      - walks===1 (de tak hierboven): 22 → 41 taken (19 daarvan NIEUW met een gezette
+  //        `workMinutes` — die 19 zijn taken die vóór deze fixronde als "walks>1" NIET decodeerbaar
+  //        waren en na filtering/decodering op precies 1 bruikbare toewijzing uitkwamen, spiegelt
+  //        "Task A" se eigen MATERIAL-filtering hierboven).
+  //      - IN-PROGRESS-taken (completion tussen 0 en 1) MET een niet-lege `timephasedDurationWalks`:
+  //        5 → 17 (corpusbreed; zie `CPMSolver.ts`'s `resumeOverride`-docblok voor de aparte
+  //        progressCal-promotie-deelmeting binnen die 17: 5 → 7).
+  //    GEEN "overige populatie blijft gedekt of laag 5"-claim meer hier — dat was een ongekwantificeerde
+  //    aanname (N3-bevinding); de volledige populatie is hierboven exact geteld, niet geschat.
   for (const [taskId, walks] of durationWalksByTask) {
     if (result.has(taskId)) continue; // laag 3 heeft deze taak al (mutueel exclusief per taak)
     if (walks.length === 1 && layer4ActivatedTasks.has(taskId)) {
+      // PRECIES 1 toewijzing IN TOTAAL — de bewezen, byte-stabiele populatie (9/9/20/20, zie
+      // hierboven). GEEN MATERIAL-filter hier: bij één toewijzing is er geen "meerdere bronnen,
+      // welke tellen mee"-vraag, en de volle taakduur (niet `workMinutes`) is hier het bewezen
+      // juiste wandelgetal — dat blijft ONGEWIJZIGD, ongeacht het toewijzings-type.
       const startAnchor = new Date(Math.min(...walks.map((w) => w.anchor.getTime())));
-      result.set(taskId, { finishFloor: null, startAnchor, durationWalks: walks });
+      result.set(taskId, {
+        finishFloor: null, startAnchor,
+        durationWalks: walks.map((w) => ({ anchor: w.anchor, resourceCalendarId: w.resourceCalendarId })),
+      });
+    } else if (walks.length > 1) {
+      // MEERDERE toewijzingen IN TOTAAL — de werkVERDELING-tak. MATERIAL-toewijzingen tellen NIET
+      // mee IN DE WANDELING (Z19-blast-radius-bevinding, `timephased-cost-rollup.mpp`'s "Task 8"):
+      // twee MATERIAL-toewijzingen (budgethoeveelheden, geen kalenderwerk) droegen elk een
+      // gedecodeerd "werk"-getal (≈300 min) dat, gewandeld als echte kalenderwerkminuten, de taak
+      // ~4 werkdagen te vroeg liet eindigen — MATERIAL-resources verbruiken het schema, ze STUREN
+      // het niet, dus hun "werk"-veld is geen kalender-consumerende activiteit. LET OP: dit is een
+      // FILTER op WELKE toewijzingen meewandelen, GEEN vervanging van de "meerdere toewijzingen"-
+      // herkenning zelf — `mpp14resource.mpp`'s "Task A" (3 toewijzingen, waarvan 2 in dít bestand
+      // toevallig MATERIAL getypeerd zijn) bewijst waarom: na filtering blijft daar precies 1
+      // toewijzing (Brian Leach, LABOR) over, en DIE ENE moet nog altijd haar EIGEN gedecodeerde
+      // werk-aandeel wandelen (1440 min, niet de volle taakduur 2880 min) — vandaar dat deze tak,
+      // anders dan de PRECIES-1-toewijzing-tak hierboven, `laborWalks.length >= 1` toetst (niet
+      // `> 1`) en per definitie `workMinutes` gebruikt, nooit de volle duur. LABOR (het klokdossier
+      // se eigen populatie, corpusbewijs) blijft wél meetellen; EQUIPMENT/SUBCONTRACTOR/CREW zijn
+      // hier ongetoetst maar NIET uitgesloten (geen corpusbewijs tegen, en ze representeren —
+      // anders dan MATERIAL — typisch wél kalenderbindende inzet). Poort dus specifiek op MATERIAL,
+      // niet op "alles behalve LABOR". `resourceType === null` (onvindbare resource, Opus-her-check-
+      // nit) sluit hier ook uit — conservatief: een niet-opgeloste resource wandelt niet zomaar mee
+      // als LABOR.
+      const laborWalks = walks.filter((w) => w.resourceType !== 'MATERIAL' && w.resourceType !== null);
+      if (laborWalks.length >= 1 && laborWalks.every((w) => w.workMinutes !== null)) {
+        // `startAnchor` blijft over ALLE toewijzingen gaan (óók MATERIAL) — dit is het VROEGSTE
+        // ankerpunt voor een taak ZONDER voorganger (`CPMSolver.ts`'s `timephasedStartAnchor`), geen
+        // wandel-invoer. MATERIAL-toewijzingen hebben nog altijd een zinvol eigen `assignmentStart`
+        // (ze WORDEN ingezet vanaf dat moment, ook al is hun "werk" geen kalenderwandeling) —
+        // "Task A" bewijst dit: Wade Golden/Jon Iles (MATERIAL in dit bestand) dragen het VROEGSTE
+        // anker (08:00, MSP's eigen taak-start); zonder hen zou `startAnchor` op Brian Leach se
+        // latere 23:00 belanden — een NIEUWE, eigen regressie op de START (gemeten tijdens deze
+        // fixronde, hersteld vóór commit).
+        const startAnchor = new Date(Math.min(...walks.map((w) => w.anchor.getTime())));
+        result.set(taskId, {
+          finishFloor: null, startAnchor,
+          durationWalks: laborWalks.map((w) => ({ anchor: w.anchor, resourceCalendarId: w.resourceCalendarId, workMinutes: w.workMinutes! })),
+        });
+      }
+      // Anders: laag 5 (na filtering geen enkele niet-MATERIAL toewijzing over, of onvolledig
+      // gedecodeerd werk — geen gedeeltelijke gok).
     }
-    // Anders: laag 5, niets gezet.
+    // Anders: laag 5, niets gezet (0 toewijzingen actief).
   }
   return result;
 }
@@ -2060,6 +2250,28 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
   const assignmentFieldMap = createAssignmentFieldMap(projectProps);
   const assignments = readAssignments(cfb, assignmentFieldMap, taskIdByUniqueId, resourceIdByUniqueId);
 
+  // Z19 (residu-iteratie "nul afwijkingen", dossier "resumeOverride-gate-verbreding") — `task.
+  // resourceIds` vullen uit de zojuist gelezen `assignments`. Vóór deze taak liet `readMPP` dit veld
+  // altijd `[]` (nooit gezet) — spiegelt letterlijk `ifcReader.ts`'s `reconstructResourceIds` (Fase
+  // 3/H2, "resourceIds is een afgeleide projectie [van assignments] en wordt niet los bewaard, dus
+  // reconstrueren i.p.v. lezen"): dezelfde eerste-zien-volgorde-met-deduplicatie, dezelfde
+  // motivering (assignments zijn de bron, resourceIds is puur een projectie). Puur boekhouding, geen
+  // timephased-decodering — geen enkele solverstap las dit veld voordien voor MPP-taken (byte-
+  // identiek voor alle bestaande callers die het negeerden), UITSLUITEND `CPMSolver.ts`'s
+  // `resumeOverride`-gate hieronder raadpleegt het vanaf nu.
+  {
+    const resourceIdsByTaskId = new Map<string, string[]>();
+    for (const a of assignments) {
+      let list = resourceIdsByTaskId.get(a.taskId);
+      if (!list) { list = []; resourceIdsByTaskId.set(a.taskId, list); }
+      if (!list.includes(a.resourceId)) list.push(a.resourceId);
+    }
+    for (const task of tasks) {
+      const ids = resourceIdsByTaskId.get(task.id);
+      if (ids) task.resourceIds = ids;
+    }
+  }
+
   // Z4 (etappe "nul afwijkingen") — splitsegmenten koppelen aan de taak (zie de functies hierboven
   // en mppTimephased.ts's moduleheader voor de volledige afleiding). Nog GEEN gedragswijziging aan
   // datums: geen solver-stap raadpleegt `Task.splitGaps` in deze etappe-fase (dat is Z7).
@@ -2094,8 +2306,21 @@ export function readMPP(bytes: Uint8Array, labels?: ImportLabels): ImportResult 
     if (window.finishFloor) task.timephasedFinishFloor = formatInstant(window.finishFloor, 'hour');
     if (window.startAnchor) task.timephasedStartAnchor = formatInstant(window.startAnchor, 'hour');
     if (window.durationWalks.length > 0) {
+      // Z19-apportionering: `workMinutes` is UITSLUITEND aanwezig als het item uit de >1-toewijzing-
+      // IN-TOTAAL-tak komt (`deriveTimephasedWindowsForTasks`'s finalisatielus, de `walks.length > 1`-
+      // branche) — conditioneel gespreid zodat de tak die uit PRECIES 1 toewijzing IN TOTAAL ontstaat
+      // (de `walks.length === 1 && layer4ActivatedTasks.has(taskId)`-branche) byte-identiek blijft
+      // (geen `workMinutes: undefined`-property). N3-CORRECTIE (Opus-her-check, tweede ronde): dit is
+      // GEEN uitspraak over de UITEINDELIJKE array-lengte hier — na de MATERIAL-filter in de >1-tak
+      // (`mpp14resource.mpp`'s "Task A") kan `window.durationWalks.length` ALSNOG op 1 uitkomen terwijl
+      // dat ene item wél `workMinutes` draagt (corpusbreed: 19 taken, zie de N3-blast-radius-meting
+      // hierboven "walks===1 ... 19 daarvan NIEUW met een gezette workMinutes"). Een latere lezer die
+      // hier "final length === 1 ⇒ nooit workMinutes" aanneemt, meet dus het verkeerde ding — de
+      // GARANTIE zit op de BRANCH (welke tak van de finalisatielus het item leverde), niet op de
+      // geobserveerde lengte van de uiteindelijke lijst.
       task.timephasedDurationWalks = window.durationWalks.map((w) => ({
         anchor: formatInstant(w.anchor, 'hour'), resourceCalendarId: w.resourceCalendarId,
+        ...(w.workMinutes !== undefined ? { workMinutes: w.workMinutes } : {}),
       }));
     }
     // `ResourceAssignment.workWindowStart`/`workWindowFinish` (Z0-velden, ronden al door IFC via

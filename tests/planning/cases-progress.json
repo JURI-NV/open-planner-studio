@@ -562,6 +562,42 @@
       }
     },
     {
+      "id": "prog-Z19-resume-multi-assignment-guard",
+      "title": "Z19 (residu-iteratie 'nul afwijkingen', dossier 'resumeOverride-gate-verbreding') mutatiebewijs — EXACT dezelfde topologie/`resume`-waarde als prog-Z12-oos-resume-present-formula-wins hierboven, met ÉÉN verschil: B krijgt hier TWEE toewijzingen (R1+R2) i.p.v. nul. Corpusbevinding (mpp14assignmentfields.mpp, 'Task One', 2 toewijzingen units [1, 0.25]): `finish = addWork(resume, remaining)` rechtstreeks toepassen wijkt daar ~4,5 uur af van MSP's eigen antwoord — bij >1 GELIJKTIJDIGE toewijzing is het taak-brede `remaining`/`resume`-paar geen rechtlijnige kalenderwandeling meer (elke toewijzing wandelt haar eigen werk, geen partitie van de taakduur, zelfde les als het 'mpp14resource-apportionering'-dossier). De `resumeOverride`-gate in CPMSolver.ts eist daarom `task.resourceIds.length <= 1` — met 2 toewijzingen blijft de gate DICHT en valt B terug op de gewone RETAINED_LOGIC/voorganger-druk-vloer, EXACT zoals de resume-AFWEZIG-zustercase (prog-Z12-oos-resume-absent-byte-identiek): B hervat op de eerste werkdag ná A's finish (ma 07-13) + 3 resterende werkdagen = wo 07-15 — NIET vr 07-10 (wat de resume-formule zou geven als de guard hier ontbrak, zie de sustercase's identieke `resume`-waarde). Mutatiebewijs: identieke `resume`-waarde als de zustercase geeft hier een ANDER antwoord (wo 07-15 i.p.v. vr 07-10) uitsluitend door het toewijzingsaantal — bewijst dat `task.resourceIds.length` de gate daadwerkelijk stuurt.",
+      "anchor": "2026-07-06",
+      "resources": [{ "name": "R1", "maxUnits": 1 }, { "name": "R2", "maxUnits": 1 }],
+      "tasks": [
+        { "name": "A", "dur": 5, "start": "2026-07-06", "completion": 1, "actualStart": "2026-07-06", "actualFinish": "2026-07-10" },
+        { "name": "B", "dur": 4, "start": "2026-07-06", "completion": 0.25, "actualStart": "2026-07-06", "resume": "2026-07-08", "assign": [{ "res": "R1", "units": 1 }, { "res": "R2", "units": 1 }] }
+      ],
+      "links": [ { "pred": "A", "succ": "B", "type": "FINISH_START" } ],
+      "expect": {
+        "tasks": {
+          "A": { "es": "2026-07-06", "ef": "2026-07-10" },
+          "B": { "es": "2026-07-06", "ef": "2026-07-15" }
+        },
+        "projectEnd": "2026-07-15",
+        "outOfSequenceSet": [ ["A", "B", "FINISH_START"] ],
+        "error": false
+      }
+    },
+    {
+      "id": "prog-Z19-resume-root-no-predecessor",
+      "title": "Z19 (residu-iteratie 'nul afwijkingen', reviewbevinding B3) mutatiebewijs — een WORTELtaak ZONDER enige voorganger draagt `resume`. Alle overige `resume`-cases in dit bestand hebben een FS-topologie (A->B); dit dossier se eigen vijf target-taken (Task 6-familie/mpp14timephased.mpp, Task 2/3/timephased-actual-overtime-work.mpp) zijn PRECIES zulke voorgangerloze wortels — de bestaande cases dekten dat gat dus niet. B (dur 4, completion 0.25, actualStart ma 07-06, resume wo 07-08, GEEN link, GEEN toewijzing) moet `finish = addWork(resume, remaining=3)` krijgen — exact dezelfde uitkomst als B's naamgenoot in prog-Z12-oos-resume-present-formula-wins (die WEL een FS-voorganger heeft), wat bewijst dat de gate hier op `t.resume && resourceIds.length<=1` draait, niet op een out-of-sequence-relatiefeit dat hier per constructie niet eens bestaat.",
+      "anchor": "2026-07-06",
+      "tasks": [
+        { "name": "B", "dur": 4, "start": "2026-07-06", "completion": 0.25, "actualStart": "2026-07-06", "resume": "2026-07-08" }
+      ],
+      "links": [],
+      "expect": {
+        "tasks": {
+          "B": { "es": "2026-07-06", "ef": "2026-07-10" }
+        },
+        "projectEnd": "2026-07-10",
+        "error": false
+      }
+    },
+    {
       "id": "prog-Z12-p6-contrast-resume-forced-present",
       "title": "Z12-herwerk mutatiebewijs (P6-contrastcase, §akkoord O6): EXACT de topologie van prog-B-oos-retained (cases-progress.json) — een P6-BRON hoort een out-of-sequence-taak gewoon achter haar voorganger te laten wachten (RETAINED_LOGIC's hele doel, correct antwoord daar: B ef = do 07-16, ZONDER `resume`). Deze case forceert B.resume = wo 07-08 OP DIEZELFDE P6-scenario (progressMode RETAINED_LOGIC, GEEN .mpp-herkomst — een échte P6-bron zou dit veld nooit dragen) en verwacht het FORMULE-gedreven, VAN-DE-P6-WAARHEID-AFWIJKENDE antwoord (B ef = addWork(wo 07-08, 3) = vr 07-10 — A's voorganger-druk wordt hier ONTERECHT genegeerd, want A is zelf ook niet voltooid dus telt als out-of-sequence-voorganger zodra B's actualStart vóór haar ligt). Dat de twee antwoorden (07-16 vs 07-10) uiteenlopen is precies het mutatiebewijs uit de opdracht: 'formule-pad forceren zonder een echte .mpp-herkomst → de contrastcase wijkt af van het correcte P6-antwoord' — `resume` hoort UITSLUITEND door `mppReader.ts` gezet te worden, nooit op P6-brondata, en dít is waarom.",
       "anchor": "2026-07-06",

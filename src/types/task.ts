@@ -369,20 +369,39 @@ export interface Task {
    *  "24 Hours"-families in `mpp14timephased.mpp`, en `mpp14resource.mpp`'s "Task A" — een gemengde
    *  toewijzingsset waar één van de drie resources een sterk afwijkende kalender draagt). Anders dan
    *  `timephasedFinishFloor` (een GELEZEN, bevroren MSP-antwoord) is dit een VERSE HERBEREKENING:
-   *  `CPMSolver.ts` wandelt `task.time.durationMinutes` (een gewoon, edit-live veld) door ELKE
-   *  toewijzing se EIGEN resourcekalender vanaf haar `anchor`, en neemt het MAXIMUM over de lijst
-   *  (dezelfde "langste toewijzing bepaalt de finish"-regel als laag 3, hier alleen zonder gelezen
-   *  eindantwoord) — GEEN invalidatie nodig, een latere duur-bewerking stroomt vanzelf mee omdat de
-   *  wandeling bij ELKE `runCPM` opnieuw gebeurt. `resourceCalendarId` verwijst in de gedeelde
-   *  kalenderbibliotheek (`CPMSolver`'s `registry`, `resolveCalendar`); een taak zonder voorganger
-   *  gebruikt bovendien het VROEGSTE `anchor` uit deze lijst als `timephasedStartAnchor` (zie
-   *  hierboven). Mutueel exclusief met `timephasedFinishFloor`. Corpusbewijs: 9/9 (mpp14timephased2
-   *  .mpp) en 20/20 (mpp14timephasedsegments.mpp) op de volledige populatie, en de 0%-populatie van
-   *  mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). Afwezig ⇒ byte-identiek. Round-tript
-   *  sinds Z14b via `OPS_TimephasedWindow` (`ifcPsets.ts`), maar wordt (anders dan `timephasedFinish
-   *  Floor`/`timephasedStartAnchor`) NOOIT door `clearTimephasedWindow` gewist — zie deze docstring
-   *  se eigen "GEEN invalidatie nodig"-uitleg hierboven: een bewerking stroomt vanzelf mee. */
-  timephasedDurationWalks?: { anchor: string; resourceCalendarId: string }[];
+   *  `CPMSolver.ts` wandelt per item DOOR de toewijzing se EIGEN resourcekalender vanaf haar
+   *  `anchor`, en neemt het MAXIMUM over de lijst (dezelfde "langste toewijzing bepaalt de finish"-
+   *  regel als laag 3, hier alleen zonder gelezen eindantwoord). N2-CORRECTIE (Opus-her-check,
+   *  tweede ronde): dit "GEEN invalidatie nodig, stroomt vanzelf mee" gold zo alleen voor een item
+   *  ZONDER `workMinutes` (het wandelt dan `task.time.durationMinutes`, edit-live). Een item MET
+   *  `workMinutes` (zie hieronder) wandelt die BEVROREN waarde in plaats daarvan — die volgt een
+   *  latere duur-/datum-/kalenderwijziging dus NIET vanzelf. Vandaar dat `updateTask`/
+   *  `updateTaskFields`/`patchTaskFields` deze lijst sinds N2 wél wissen zodra ze zo'n item bevat
+   *  (`taskDefaults.ts`'s `timephasedDurationWalksHaveFrozenWork`/`clearTimephasedDurationWalks`),
+   *  precies zoals bij `timephasedFinishFloor`/`timephasedStartAnchor` — de taak valt dan terug op
+   *  laag 5 tot een volgende .mpp-import de lijst opnieuw vult.
+   *  `resourceCalendarId` verwijst in de gedeelde kalenderbibliotheek (`CPMSolver`'s `registry`,
+   *  `resolveCalendar`); een taak zonder voorganger gebruikt bovendien het VROEGSTE `anchor` uit
+   *  deze lijst als `timephasedStartAnchor` (zie hierboven). Mutueel exclusief met
+   *  `timephasedFinishFloor`.
+   *
+   *  `workMinutes` (Z19, residu-iteratie "nul afwijkingen") — optioneel per item; ONTBREEKT het,
+   *  dan wandelt `CPMSolver.ts` `task.time.durationMinutes` (de volle taakduur, edit-live). De
+   *  garantie zit op de PRODUCERENDE tak in `mppReader.ts`, NIET op de array-lengte: 19 corpustaken
+   *  dragen een lijst van lengte 1 mét `workMinutes` (de MATERIAL-gefilterde >1-tak).
+   *  Corpusbewijs: 9/9 (mpp14timephased2.mpp) en 20/20 (mpp14timephasedsegments.mpp) op de volledige
+   *  populatie, en de 0%-populatie van mpp14timephased.mpp (zie de Z8-herwerkronde-rapportage). AANWEZIG
+   *  bij >1 item — bij meerdere GELIJKTIJDIGE toewijzingen wandelt geen enkele toewijzing de volle
+   *  taakduur; elke toewijzing wandelt alleen haar EIGEN, per-toewijzing gedecodeerde werk-aandeel
+   *  (`decodeAssignmentWorkMinutes`, `mppReader.ts`), en de LANGSTE wandeling bepaalt de finish
+   *  (die volle-duur-aanname is BEWEZEN onjuist bij >1 toewijzing —
+   *  `mpp14resource.mpp`'s "Task A", drie toewijzingen, gaf zonder apportionering een ~2× te late
+   *  datum). Afwezig ⇒ byte-identiek. Round-tript sinds Z14b via `OPS_TimephasedWindow`
+   *  (`ifcPsets.ts`). Wordt NOOIT door `clearTimephasedWindow` gewist (dat blijft `timephasedFinishFloor`/
+   *  `timephasedStartAnchor`-only) — maar sinds N2 wél door de aparte `clearTimephasedDurationWalks`,
+   *  onder de voorwaarde hierboven (`workMinutes` gezet op minstens één item). Zie
+   *  `taskDefaults.ts`'s hoofddocblok voor de volledige triggerset-toelichting. */
+  timephasedDurationWalks?: { anchor: string; resourceCalendarId: string; workMinutes?: number }[];
   /** OPTIONEEL — RAUWE, gedecodeerde .mpp-timephased-contourperiodes (Z14b, eigenaarsprincipe
    *  2026-08-18: "er gaat nooit stilzwijgend broninformatie verloren, ook niet ná bewerken"). Dit is
    *  de bron ONDER `splitGaps`/`timephasedFinishFloor`/`timephasedStartAnchor` — die drie zijn

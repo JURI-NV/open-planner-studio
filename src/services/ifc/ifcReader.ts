@@ -2028,14 +2028,22 @@ function extractTimephasedDurationWalksMeta(
     let parsed: unknown;
     try { parsed = JSON.parse(raw); } catch { continue; }
     if (!Array.isArray(parsed)) continue;
-    const isValidWalk = (w: unknown): w is { anchor: string; resourceCalendarGuid: string } =>
+    // Z19 — `workMinutes` (apportionering bij >1 toewijzing) is OPTIONEEL: een oudere IFC (vóór
+    // Z19) of een PRECIES-1-toewijzing-walk draagt 'm niet, spiegelt `ifcWriter.ts`'s conditionele
+    // spread. `typeof ... === 'number'` (niet `!== undefined`) sluit ook een corrupt non-number-veld
+    // uit i.p.v. het rauw door te laten.
+    const isValidWalk = (w: unknown): w is { anchor: string; resourceCalendarGuid: string; workMinutes?: number } =>
       !!w && typeof w === 'object'
       && typeof (w as { anchor?: unknown }).anchor === 'string'
-      && typeof (w as { resourceCalendarGuid?: unknown }).resourceCalendarGuid === 'string';
+      && typeof (w as { resourceCalendarGuid?: unknown }).resourceCalendarGuid === 'string'
+      && ((w as { workMinutes?: unknown }).workMinutes === undefined || typeof (w as { workMinutes?: unknown }).workMinutes === 'number');
     if (parsed.length === 0 || !parsed.every(isValidWalk)) continue;
-    const walks = (parsed as { anchor: string; resourceCalendarGuid: string }[])
-      .map(w => ({ anchor: w.anchor, resourceCalendarId: calendarIdByGuid.get(w.resourceCalendarGuid) }))
-      .filter((w): w is { anchor: string; resourceCalendarId: string } => w.resourceCalendarId !== undefined);
+    const walks = (parsed as { anchor: string; resourceCalendarGuid: string; workMinutes?: number }[])
+      .map(w => ({
+        anchor: w.anchor, resourceCalendarId: calendarIdByGuid.get(w.resourceCalendarGuid),
+        ...(w.workMinutes !== undefined ? { workMinutes: w.workMinutes } : {}),
+      }))
+      .filter((w): w is { anchor: string; resourceCalendarId: string; workMinutes?: number } => w.resourceCalendarId !== undefined);
     if (walks.length === 0) continue;
     for (const objRef of parseRefs(rel.args[4] || '')) {
       const taskId = taskStepIdMap.get(objRef);

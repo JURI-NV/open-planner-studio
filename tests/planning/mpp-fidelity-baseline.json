@@ -598,13 +598,12 @@
       "root": "crawl",
       "label": "mpxj/junit/data/mpp14resource.mpp",
       "tasks": 3,
-      "startExact": 2,
+      "startExact": 3,
       "startSameday": 0,
-      "startDiff": 1,
-      "finishExact": 2,
+      "startDiff": 0,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 1,
-      "reason": "Z8-herwerkronde-slotronde (2026-08-18): de vlakke/null-resource-finish-terugval is verwijderd (reviewer: fee9ecb4 in een nieuw jasje). 'Task A' (3 toewijzingen, waaronder Brian Leach se 1u/dag-kalender) en 'Contoured Task' regresseren — DIT IS de al eerder gediagnosticeerde multi-toewijzing-populatie: de volledige-taakduur-per-toewijzing-wandeling (laag 4's kernformule) is BEWEZEN ONJUIST bij >1 toewijzing (ze delen het werk, wandelen ze elk 'alleen' geeft een absurde datum) — laag 4 is daarom bewust tot PRECIES 1 toewijzing beperkt. Een correcte oplossing vereist werkVERDELING over gelijktijdige toewijzingen (elke toewijzing doet een DEEL van het werk, niet het geheel) — dat is een nieuw, nog niet gebouwd aangrijpingspunt, geen resourcekalender-kwestie. Eerlijk timephased-restant, geen Z9a-scope."
+      "finishDiff": 0
     },
     "42a45696c7b142bd": {
       "root": "crawl",
@@ -1447,10 +1446,9 @@
       "startExact": 40,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 37,
+      "finishExact": 40,
       "finishSameday": 0,
-      "finishDiff": 3,
-      "reason": "Z8-herwerkronde-fixronde-2 (2026-08-18): het laag-4-'afwijkende resourcekalender'-gat (VOLTOOID/IN-PROGRESS via progressCal/resumeOverride, CPMSolver.ts) sluit 7 van de 10 eerdere afwijkingen — resteert de 'Task 6'-familie (base/50%/150%, completion 60%). Geverifieerd via directe kalenderinspectie: hun resourcekalender is STRUCTUREEL IDENTIEK aan de projectkalender (zelfde banden {480-720,780-1020} ma-vr, geen holiday-/workingException-verschil) — de laag-4-poort activeert dus terecht NIET. De resterende afwijking is een APARTE, vóór deze fixronde al genoteerde restwerk-hoeveelheid-anomalie op deze taakfamilie, geen resourcekalender-kwestie — buiten scope van deze poort."
+      "finishDiff": 0
     },
     "98c8a0fb569be058": {
       "root": "crawl",
@@ -1620,13 +1618,12 @@
     "a69fec157074d056": {
       "root": "corpus",
       "tasks": 215,
-      "startExact": 205,
-      "startSameday": 9,
-      "startDiff": 1,
-      "finishExact": 203,
-      "finishSameday": 8,
-      "finishDiff": 4,
-      "reason": "Z9b (2026-08-18): manual-verzameltaak-rollup gefixt (applyCpmResult.updateSummary — een manual samenvattingstaak rolt niet meer op uit haar kinderen, ze houdt haar eigen scheduleStart/scheduleFinish). GEMETEN (before/after diff op de detailrapportage): alle 11 MANUALLY_SCHEDULED-verzameltaken (childIds 2..28) verdwijnen uit de afwijkingenlijst — 194/18/3/192/17/6 → 205/9/1/203/8/4. Restant ná Z9b: 11 bladtaken + 1 verzameltaak die louter hun rollup is. Geen daarvan is manual of leveling-/resource-gedreven — gemeten: 0 van de 12 draagt levelingDelay(Minutes), 0 draagt een toewijzing, terwijl de 10 taken die wél een levelingDelay dragen exact zijn. Alle 11 bladtaken zijn sub-dag uurmodus-taken met een SNET-constraint waar onze ES/EF op één na (die +45 min later ligt) systematisch vóór MSP ligt. OPEN residu, doorgegeven aan Z19; geen geaccepteerde uitzondering."
+      "startExact": 215,
+      "startSameday": 0,
+      "startDiff": 0,
+      "finishExact": 215,
+      "finishSameday": 0,
+      "finishDiff": 0
     },
     "a76cce3394fdec2d": {
       "root": "crawl",
@@ -1844,10 +1841,9 @@
       "startExact": 3,
       "startSameday": 0,
       "startDiff": 0,
-      "finishExact": 1,
+      "finishExact": 3,
       "finishSameday": 0,
-      "finishDiff": 2,
-      "reason": "Z8-herwerkronde-fixronde-2 (2026-08-18): de eerdere pin (finishExact 3/3) kwam uit de INMIDDELS AFGEKEURDE fee9ecb4-implementatie (Opus-review H1: circulaire meting) en was niet houdbaar. 'Task 2'/'Task 3' (completion 24%/50%) dragen `actualOvertimeWork`-data — een categorie die Z3 bewust buiten decodeerscope liet (zie mppTimephased.ts) en die de huidige duur-wandelformule/genuine-period-detectie niet meeneemt. Dit is GEEN resourcekalender-kwestie (de laag-4-poort is hier niet het aangrijpingspunt) maar een aparte, nog niet gebouwde restwerk-hoeveelheid-correctie voor overwerk — buiten scope van deze fixronde."
+      "finishDiff": 0
     },
     "c0a00d897a905488": {
       "root": "crawl",

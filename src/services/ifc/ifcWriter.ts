@@ -1152,6 +1152,11 @@ function writeTimephasedMeta(
  * in `writeIFC`), levert een hernieuwde `guidOf`-aanroep hier BYTE-IDENTIEK dezelfde GUID als de
  * bijbehorende `IFCWORKCALENDAR`-entiteit — spiegelt zo `writeBaselineMeta`'s taskId-GUID-remap-
  * precedent exact, nu voor kalenders. Golden rule: geen taak met `timephasedDurationWalks` ⇒ geen pset.
+ *
+ * Z19 (residu-iteratie "nul afwijkingen") — `workMinutes` (apportionering bij >1 toewijzing, zie
+ * `Task.timephasedDurationWalks`'s eigen docstring) is een kalenderONAFHANKELIJK getal, geen
+ * verwijzing — conditioneel meegeschreven (spiegelt `mppReader.ts`'s eigen conditionele spread)
+ * zodat een PRECIES-1-toewijzing-walk (geen `workMinutes`) byte-identiek blijft.
  */
 function writeTimephasedDurationWalksMeta(
   ctx: WriteContext,
@@ -1164,6 +1169,7 @@ function writeTimephasedDurationWalksMeta(
     const json = walks.map(w => ({
       anchor: w.anchor,
       resourceCalendarGuid: guidOf(ctx, w.resourceCalendarId),
+      ...(w.workMinutes !== undefined ? { workMinutes: w.workMinutes } : {}),
     }));
     const propId = addLine(ctx, `_ps_tpdw_${task.id}`,
       `IFCPROPERTYSINGLEVALUE('DurationWalks',$,IFCTEXT(${ifcStr(JSON.stringify(json))}),$)`);

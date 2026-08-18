@@ -136,9 +136,18 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
  *    `forwardPass`'s `preds.length===0`-tak). Beide zijn GELEZEN waarden die niet reageren op een
  *    latere duur-/datum-/kalenderwijziging — MOET dus bij die triggerset invalideren.
  *  - `clearTimephasedDurationWalks` — LAAG 4 (`timephasedDurationWalks`). GEEN gelezen antwoord op
- *    ZICHZELF: `CPMSolver.ts` wandelt `task.time.durationMinutes` (edit-live) door elke toewijzing
- *    se EIGEN resourcekalender bij ELKE `runCPM`, dus een duur-/datum-/kalenderwijziging stroomt AL
- *    vanzelf mee (zie het veld se eigen docblok in `task.ts`) — GEEN aanroep bij díe triggers.
+ *    de ANKERS zelf (`anchor`/`resourceCalendarId` blijven geldig): `CPMSolver.ts` wandelt
+ *    `task.time.durationMinutes` (edit-live) door elke toewijzing se EIGEN resourcekalender bij
+ *    ELKE `runCPM` — MAAR alleen voor een item ZONDER `workMinutes`. N2 (Opus-her-check, tweede
+ *    ronde, corpusbevinding): bij >1 toewijzing zet `mppReader.ts` per item een BEVROREN
+ *    `workMinutes` (F2-apportionering), en `CPMSolver.ts`'s `timephasedFinish` gebruikt
+ *    `walk.workMinutes ?? durMin` — die bevroren waarde WINT dus altijd van een latere duur-/datum-
+ *    wijziging zodra ze gezet is (`durMin` = `task.time.durationMinutes`, een stabiel veld — een
+ *    taakkalenderwissel raakt het NIET, zie de "kalender"-paragraaf hieronder, dus DIE trigger valt
+ *    hier bewust buiten scope). De eerdere claim hier ("stroomt AL vanzelf mee") was dus alleen waar
+ *    voor de PRECIES-1-toewijzing-tak (waar `workMinutes` per constructie ontbreekt); voor de
+ *    walks>1-apportioneringstak (148 corpustaken, zie N3-blast-radius in `mppReader.ts`) deed een
+ *    duur-/datumwijziging tot deze fix NIETS.
  *    MAAR (F2-fixronde, spec-review op 526af9f9): elk item in de `walks`-lijst is zelf een BEVROREN
  *    import-snapshot PER TOEWIJZING (`{ anchor, resourceCalendarId }`, `mppReader.ts`'s
  *    `deriveTimephasedWindowsForTasks`) — verandert de TOEWIJZINGENSET (een andere resource, dus
@@ -153,14 +162,28 @@ export function mergeTaskTime(base: TaskTime, partial: Partial<TaskTime> | undef
  *  - duur/datums: `time.scheduleDuration`/`durationMinutes`/`scheduleStart`/`scheduleFinish`/
  *    `durationType` — elke sleutel die de solver rechtstreeks voor de LAAG-3/4-berekening gebruikt
  *    (`durationType` telt mee omdat WORKTIME↔ELAPSEDTIME de hele kalenderwandeling omslaat).
- *    Raakt UITSLUITEND laag 3 (`clearTimephasedWindow`) — laag 4 stroomt hier al live mee.
+ *    Raakt laag 3 (`clearTimephasedWindow`) ALTIJD, én raakt laag 4 (`clearTimephasedDurationWalks`)
+ *    zodra `timephasedDurationWalksHaveFrozenWork` waar is (N2-correctie: laag 4 stroomt NIET
+ *    altijd live mee, zie hierboven) — bij géén bevroren `workMinutes` blijft laag 4 met rust,
+ *    want die tak wandelt toch al de live duur.
  *  - kalender: `Task.calendarId` (bepaalt de kalender waarin het venster ooit berekend werd).
- *    Raakt UITSLUITEND laag 3 — zelfde reden.
+ *    Raakt UITSLUITEND laag 3 — GEEN N2-uitbreiding hier: `CPMSolver.ts`'s `timephasedFinish`
+ *    resolvet per walk-item ZIJN EIGEN `resourceCalendarId` (nooit `task.calendarId`), en
+ *    `durMin`/`task.time.durationMinutes` is een stabiel veld dat `setTaskCalendar` niet aanraakt
+ *    (geverifieerd: de enige `task.time.durationMinutes = `-schrijfplekken in CPMSolver.ts zitten
+ *    in de hammock-tak, hierboven expliciet buiten laag 3/4 gehouden) — een taakkalenderwissel kan
+ *    de laag-4-uitkomst dus letterlijk niet beïnvloeden, met of zonder bevroren `workMinutes`.
+ *    De andere helft van de reden (Opus-her-check ronde 3, gemeten): een edit op de
+ *    RESOURCEkalender zelf (`resourceSlice.updateCalendar`) is wél relevant voor de walk-uitkomst,
+ *    maar stroomt LIVE door zonder invalidatie — elke walk resolvet zijn `resourceCalendarId`
+ *    opnieuw bij élke `runCPM` (meting: bandwijziging op de walk-kalender verschoof de ef van
+ *    13:10 naar de volgende ochtend 08:10, zonder enige clear). Ook die trigger hoort er dus
+ *    bewust NIET bij.
  *  - toewijzingen: resource-assign/unassign/verplaatsen (aparte aanroepplekken, zie hierboven) —
- *    raakt BEIDE lagen (`clearTimephasedWindow` ÉN `clearTimephasedDurationWalks`): een andere
- *    resource kan een andere resourcekalender betekenen, en dat is exact de laag-4-discriminator
- *    (F2). Ook `resourceSlice.removeCalendar`/`commitCalendarLibrary` (F3): die zetten
- *    `t.calendarId = undefined` rechtstreeks, buiten `setTaskCalendar` om, dus die twee roepen
+ *    raakt BEIDE lagen ONVOORWAARDELIJK (`clearTimephasedWindow` ÉN `clearTimephasedDurationWalks`):
+ *    een andere resource kan een andere resourcekalender betekenen, en dat is exact de
+ *    laag-4-discriminator (F2). Ook `resourceSlice.removeCalendar`/`commitCalendarLibrary` (F3): die
+ *    zetten `t.calendarId = undefined` rechtstreeks, buiten `setTaskCalendar` om, dus die twee roepen
  *    `clearTimephasedWindow` zelf aan voor elke geraakte taak.
  *  GEEN trigger: alles wat de solver zelf terugschrijft (earlyStart/earlyFinish/floats/…, zie
  *  `TaskTimeComputed`/`TaskTimeAnalysis` in task.ts) — F5/`runCPM`/documentwissel gaan nooit via
@@ -189,11 +212,32 @@ export function clearTimephasedWindow(task: Task): void {
 }
 
 /** F2 (spec-review-fixronde op 526af9f9) — wist `timephasedDurationWalks` (LAAG 4) als gezet.
- *  UITSLUITEND aanroepen bij een toewijzingswijziging (assign/unassign/move) — NIET bij een
- *  duur-/datum-/kalenderwijziging (die stroomt al live mee, zie deze module se docblok hierboven).
- *  Elk item in de lijst is een bevroren `{ anchor, resourceCalendarId }`-snapshot per toewijzing
- *  uit de .mpp-import; een andere resource kan een andere resourcekalender betekenen (de
- *  laag-4-activeringsvoorwaarde), dus die lijst is stale zodra de toewijzingenset verandert. */
+ *  Aanroepen bij een toewijzingswijziging (assign/unassign/move) ONVOORWAARDELIJK, én — sinds N2
+ *  (Opus-her-check, tweede ronde) — bij een duur-/datumwijziging (GEEN kalenderwijziging, zie deze
+ *  module se hoofddocblok "kalender"-paragraaf voor het waarom niet) zodra
+ *  `timephasedDurationWalksHaveFrozenWork(task)` waar is (zie die functie hieronder en deze module
+ *  se hoofddocblok hierboven voor het WAAROM). Zonder bevroren `workMinutes` blijft laag 4 met rust:
+ *  die tak wandelt toch al de live `task.time.durationMinutes`, dus wissen zou alleen een gratis
+ *  laag-4→laag-5-degradatie zijn zonder dat er iets stale was.
+ *  Elk item in de lijst is een bevroren `{ anchor, resourceCalendarId, workMinutes? }`-snapshot per
+ *  toewijzing uit de .mpp-import; een andere resource kan een andere resourcekalender betekenen (de
+ *  laag-4-activeringsvoorwaarde), dus die lijst is sowieso stale zodra de toewijzingenset verandert.
+ *  Na het wissen valt de taak terug op laag 5 (gewone CPM-duurberekening, geen Z8-venster) totdat
+ *  een volgende .mpp-import de lijst opnieuw vult — er is geen "live herberekende" laag-4-vervanger. */
 export function clearTimephasedDurationWalks(task: Task): void {
   if (task.timephasedDurationWalks !== undefined) delete task.timephasedDurationWalks;
+}
+
+/** N2 (Opus-her-check, tweede ronde) — TRUE zodra minstens één item in `timephasedDurationWalks`
+ *  een gezette `workMinutes` draagt. `CPMSolver.ts`'s `timephasedFinish` gebruikt per item
+ *  `walk.workMinutes ?? task.time.durationMinutes` — is `workMinutes` gezet, dan WINT die bevroren
+ *  import-tijd-waarde altijd van een latere duur-/datumwijziging op de taak; die editie had zonder
+ *  deze check dus zichtbaar GEEN effect op de berekende finish (de N2-bevinding). LET OP: toets
+ *  hier NOOIT op `walks.length` — 19 corpustaken dragen een lijst van LENGTE 1 mét `workMinutes`
+ *  (de MATERIAL-gefilterde >1-tak in `mppReader.ts`'s finalisatielus); de garantie "geen
+ *  workMinutes" zit op de PRODUCERENDE tak, niet op de uiteindelijke array-lengte. Daarom toetst
+ *  deze functie veld-aanwezigheid (`.some`). Een walk zónder `workMinutes` wandelt de live duur en
+ *  blijft terecht ongemoeid door de aanroepers hieronder. */
+export function timephasedDurationWalksHaveFrozenWork(task: Task): boolean {
+  return (task.timephasedDurationWalks ?? []).some((w) => w.workMinutes !== undefined);
 }
