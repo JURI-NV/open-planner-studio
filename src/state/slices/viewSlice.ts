@@ -46,11 +46,12 @@ export interface ViewSlice {
   setTimeScale: (scale: TimeScale) => void;
   setScroll: (x: number, y: number) => void;
   setViewStartDate: (date: string) => void;
-  /** Vraag ná het openen/laden van een document een fit-to-project aan (issue #16): het HELE project
-   *  moet in beeld komen (zoals Ctrl+0), niet alleen het begin. Zet enkel het `pendingFit`-signaal;
-   *  de GanttCanvas voert de eigenlijke fit uit (die kent de viewport-breedte) en wist het signaal.
-   *  Alleen aan te roepen vanaf laadpaden (openFile/openRecentFile/voorbeeld) — NIET bij undo/redo of
-   *  herberekeningen. Een leeg project blijft "vandaag" (de canvas slaat de fit dan over). */
+  /** Vraag een fit-to-project aan (issue #16): het HELE project moet in beeld komen (zoals Ctrl+0),
+   *  niet alleen het begin. Zet enkel het `pendingFit`-signaal; de GanttCanvas voert de eigenlijke
+   *  fit uit (die kent de viewport-breedte) en wist het signaal. Twee soorten aanroepers: laadpaden
+   *  (openFile/openRecentFile/voorbeeld) en een expliciete gebruikersactie (Ctrl+0, canvas-
+   *  contextmenu, ribbon-knop Beeld → Tijdschaal, issue #78) — NIET bij undo/redo of herberekeningen.
+   *  Een leeg project blijft "vandaag" (de canvas slaat de fit dan over). */
   requestFitToProject: () => void;
   /** Wis het `pendingFit`-signaal (door de GanttCanvas aangeroepen nadat de fit is uitgevoerd). */
   clearPendingFit: () => void;

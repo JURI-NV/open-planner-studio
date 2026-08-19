@@ -878,13 +878,19 @@ export function TimeScaleGroupContent() {
   const zoom = useAppStore(s => s.view.zoom);
   const setZoom = useAppStore(s => s.setZoom);
   const setTimeScale = useAppStore(s => s.setTimeScale);
+  const requestFitToProject = useAppStore(s => s.requestFitToProject);
   const enableHourPlanning = useAppStore(s => s.ui.enableHourPlanning);
 
   const zoomButtons = (
     <>
-      <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + ZOOM_STEP)} />
-      <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - ZOOM_STEP)} />
-      <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(DEFAULT_ZOOM)} />
+      <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} title={tMenu('ribbon.zoomInTitle')} onClick={() => setZoom(zoom + ZOOM_STEP)} />
+      <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} title={tMenu('ribbon.zoomOutTitle')} onClick={() => setZoom(zoom - ZOOM_STEP)} />
+      <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} title={tMenu('ribbon.zoomResetTitle')} onClick={() => setZoom(DEFAULT_ZOOM)} />
+      {/* Issue #78: "Passend op project" was alleen bereikbaar via het canvas-contextmenu, dat
+          verdwijnt zodra de takentabel volledig gevuld is. `requestFitToProject` is dezelfde
+          pendingFit-route als na het openen van een bestand (issue #16) — GanttCanvas kent de
+          viewport-breedte en voert de echte berekening uit. */}
+      <RibbonSmallButton icon={<Maximize2 size={14} />} label={tMenu('ribbon.zoomFit')} title={tMenu('ribbon.zoomFitTitle')} onClick={() => requestFitToProject()} />
     </>
   );
   const dropdown = (
