@@ -17,7 +17,9 @@
 // Draait via run.sh. Exit 0 = alles groen.
 
 import { useAppStore } from '@/state/appStore';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import {
+  createDefaultTaskTime, taskHasActiveTimephasedSteering, taskHasTimephasedContours,
+} from '@/utils/taskDefaults';
 import type { Task } from '@/types/task';
 
 const S = () => useAppStore.getState();
@@ -318,6 +320,54 @@ ok(
     task(idCommitCal)?.timephasedFinishFloor === undefined);
   ok('f3 (commitCalendarLibrary): taak.calendarId inderdaad terugveld naar projectkalender (voorwaarde)',
     task(idCommitCal)?.calendarId === undefined);
+
+  // ── mpp-nul-data-etappe, DEEL 2: de twee-toestanden-logica achter `TaskTimephasedNotice`
+  // (`taskHasActiveTimephasedSteering`/`taskHasTimephasedContours` in taskDefaults.ts) —
+  // component-loze toets: welke taakvelden geven welke markering. Geen React-rendering nodig, de
+  // component zelf is een dunne if/else over deze twee pure functies. ────────────────────────────
+  {
+    // Toestand 1 — ACTIEF (laag 3): timephasedFinishFloor/StartAnchor gezet + contouren aanwezig.
+    const idPanelActive3 = S().addTask({ name: 'Panel-actief-laag3', time: createDefaultTaskTime('2026-08-03', 5) });
+    S().updateTask(idPanelActive3, {
+      timephasedFinishFloor: '2026-08-10T17:00',
+      timephasedStartAnchor: '2026-08-03T08:00',
+      timephasedContours: [{ resourceUid: 1, periods: [{ afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' }] }],
+    });
+    ok('deel2-actief(laag3): taskHasActiveTimephasedSteering === true',
+      taskHasActiveTimephasedSteering(task(idPanelActive3)!) === true);
+    ok('deel2-actief(laag3): taskHasTimephasedContours === true',
+      taskHasTimephasedContours(task(idPanelActive3)!) === true);
+
+    // Toestand 1 — ACTIEF (laag 4): GEEN venster, maar wel een niet-lege timephasedDurationWalks.
+    const idPanelActive4 = S().addTask({ name: 'Panel-actief-laag4', time: createDefaultTaskTime('2026-08-03', 5) });
+    S().updateTask(idPanelActive4, {
+      timephasedDurationWalks: [{ anchor: '2026-08-03T08:00', resourceCalendarId: 'libcal' }],
+      timephasedContours: [{ resourceUid: 2, periods: [{ afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' }] }],
+    });
+    ok('deel2-actief(laag4): taskHasActiveTimephasedSteering === true (walks niet-leeg, geen venster nodig)',
+      taskHasActiveTimephasedSteering(task(idPanelActive4)!) === true);
+
+    // Toestand 2 — LOSGELATEN: contouren blijven staan, maar de sturing is ná een bewerking gewist.
+    const idPanelLost = S().addTask({ name: 'Panel-losgelaten', time: createDefaultTaskTime('2026-08-03', 5) });
+    S().updateTask(idPanelLost, {
+      timephasedFinishFloor: '2026-08-10T17:00',
+      timephasedStartAnchor: '2026-08-03T08:00',
+      timephasedContours: [{ resourceUid: 3, periods: [{ afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' }] }],
+    });
+    const beforeLost = task(idPanelLost)!;
+    S().updateTask(idPanelLost, { time: { ...beforeLost.time, scheduleDuration: 8 } }); // duur-trigger: wist het venster.
+    ok('deel2-losgelaten: taskHasActiveTimephasedSteering === false (venster is gewist)',
+      taskHasActiveTimephasedSteering(task(idPanelLost)!) === false);
+    ok('deel2-losgelaten: taskHasTimephasedContours === true (rauwe bron blijft staan — eigenaarsprincipe)',
+      taskHasTimephasedContours(task(idPanelLost)!) === true);
+
+    // Toestand 3 — GEEN MSP-herkomst: geen van beide velden ⇒ geen markering (component rendert null).
+    const idPanelNone = S().addTask({ name: 'Panel-geen-msp', time: createDefaultTaskTime('2026-08-03', 5) });
+    ok('deel2-geen-msp: taskHasActiveTimephasedSteering === false',
+      taskHasActiveTimephasedSteering(task(idPanelNone)!) === false);
+    ok('deel2-geen-msp: taskHasTimephasedContours === false',
+      taskHasTimephasedContours(task(idPanelNone)!) === false);
+  }
 }
 
 if (diffs.length === 0) {

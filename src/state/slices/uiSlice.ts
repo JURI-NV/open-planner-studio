@@ -39,6 +39,12 @@ export interface UiSlice {
    *  anders meldingen zouden stapelen. Een `error` verdwijnt niet uit zichzelf (klik = weg). */
   notify: (n: NotifyInput) => void;
   dismissNotification: (id: string) => void;
+  /** Open Backstage → Help op een specifiek artikel (mpp-nul-data-etappe, "lees meer"-link vanuit
+   *  een melding of het eigenschappenpaneel). Zet dezelfde twee velden die de Help-navigatie al
+   *  kent (`activeRibbonTab`/`backstageSection`) plus `pendingHelpArticleId`, dat `HelpPanel`
+   *  consumeert om die ene keer op het gevraagde artikel te selecteren. Géén nieuw
+   *  linknavigatiemechanisme — hergebruikt de bestaande Backstage-navigatie. */
+  openHelpArticle: (articleId: string) => void;
 }
 
 /** Maximum aantal gelijktijdig zichtbare meldingen; bij overschrijding valt de oudste weg
@@ -152,6 +158,7 @@ export function createDefaultUI(): UIState {
     aiReadOnly: false,
     aiActivityOpen: false,
     notifications: [],
+    pendingHelpArticleId: null,
   };
 }
 
@@ -287,6 +294,13 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
     set((s) => {
       const idx = s.ui.notifications.findIndex((x) => x.id === id);
       if (idx >= 0) s.ui.notifications.splice(idx, 1);
+    }),
+
+  openHelpArticle: (articleId) =>
+    set((s) => {
+      s.ui.activeRibbonTab = 'file';
+      s.ui.backstageSection = 'help';
+      s.ui.pendingHelpArticleId = articleId;
     }),
 
   toggleCollapse: (taskId) => {

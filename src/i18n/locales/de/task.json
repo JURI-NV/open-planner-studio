@@ -72,6 +72,8 @@
     "deadlineMissed": "Stichtag überschritten",
     "longFreePeriodWarning": "Diese Aufgabe erstreckt sich über einen arbeitsfreien Zeitraum von {{days}} Tagen ({{start}} bis {{end}}).",
     "longFreePeriodWarningNamed": "Diese Aufgabe erstreckt sich über {{name}} — einen arbeitsfreien Zeitraum von {{days}} Tagen ({{start}} bis {{end}}).",
+    "timephasedActive": "Folgt der Stundenverteilung aus MS Project",
+    "timephasedLost": "Stundenverteilung aus MS Project nach der Bearbeitung nicht mehr angewendet — die ursprüngliche Verteilung bleibt in der Datei erhalten",
     "completion": "Fortschritt (%)",
     "progress": {
       "actualStart": "Ist-Anfang",

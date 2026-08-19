@@ -22,7 +22,10 @@
     "mppSourceScheduleNotes_one": "Dit MS Project-bestand bevat {{count}} taak met een onderbroken, genivelleerde of resource-gedreven planning. Die wordt als zodanig ingelezen en getoond.",
     "mppSourceScheduleNotes_other": "Dit MS Project-bestand bevat {{count}} taken met een onderbroken, genivelleerde of resource-gedreven planning. Die worden als zodanig ingelezen en getoond.",
     "projectStartAnchorsClamped_one": "Projectstart verzet: {{count}} taakanker zonder voorganger of constraint is meegeschoven naar de nieuwe startdatum.",
-    "projectStartAnchorsClamped_other": "Projectstart verzet: {{count}} taakankers zonder voorganger of constraint zijn meegeschoven naar de nieuwe startdatum."
+    "projectStartAnchorsClamped_other": "Projectstart verzet: {{count}} taakankers zonder voorganger of constraint zijn meegeschoven naar de nieuwe startdatum.",
+    "mppTimephasedSteeringLost_one": "De urenverdeling uit MS Project stuurt {{count}} taak niet meer na deze bewerking; de oorspronkelijke verdeling blijft in het bestand bewaard.",
+    "mppTimephasedSteeringLost_other": "De urenverdeling uit MS Project stuurt {{count}} taken niet meer na deze bewerking; de oorspronkelijke verdeling blijft in het bestand bewaard.",
+    "readMore": "Lees meer"
   },
   "yes": "Ja",
   "no": "Nee",

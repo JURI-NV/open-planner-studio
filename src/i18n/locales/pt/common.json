@@ -24,7 +24,11 @@
     "mppSourceScheduleNotes_other": "Este arquivo do MS Project contém {{count}} tarefas com um cronograma dividido, nivelado ou controlado por recursos. Elas são importadas e exibidas como estão.",
     "projectStartAnchorsClamped_one": "Início do projeto alterado: {{count}} âncora de tarefa sem predecessora nem restrição foi movida para a nova data de início.",
     "projectStartAnchorsClamped_many": "Início do projeto alterado: {{count}} âncoras de tarefa sem predecessora nem restrição foram movidas para a nova data de início.",
-    "projectStartAnchorsClamped_other": "Início do projeto alterado: {{count}} âncoras de tarefa sem predecessora nem restrição foram movidas para a nova data de início."
+    "projectStartAnchorsClamped_other": "Início do projeto alterado: {{count}} âncoras de tarefa sem predecessora nem restrição foram movidas para a nova data de início.",
+    "mppTimephasedSteeringLost_one": "A distribuição de horas do MS Project não controla mais {{count}} tarefa após esta edição; a distribuição original permanece guardada no arquivo.",
+    "mppTimephasedSteeringLost_many": "A distribuição de horas do MS Project não controla mais {{count}} tarefas após esta edição; a distribuição original permanece guardada no arquivo.",
+    "mppTimephasedSteeringLost_other": "A distribuição de horas do MS Project não controla mais {{count}} tarefas após esta edição; a distribuição original permanece guardada no arquivo.",
+    "readMore": "Saiba mais"
   },
   "yes": "Sim",
   "no": "Não",

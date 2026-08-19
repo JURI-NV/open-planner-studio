@@ -30,7 +30,14 @@
     "projectStartAnchorsClamped_two": "تغيّر تاريخ بدء المشروع: تم نقل مرساتَي مهمة بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
     "projectStartAnchorsClamped_few": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} مراسٍ لمهام بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
     "projectStartAnchorsClamped_many": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} مرساة لمهام بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
-    "projectStartAnchorsClamped_other": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} من مراسي المهام بدون سابقة أو قيد إلى تاريخ البدء الجديد."
+    "projectStartAnchorsClamped_other": "تغيّر تاريخ بدء المشروع: تم نقل {{count}} من مراسي المهام بدون سابقة أو قيد إلى تاريخ البدء الجديد.",
+    "mppTimephasedSteeringLost_zero": "لم يعد توزيع الساعات من MS Project يوجّه أي مهمة بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "mppTimephasedSteeringLost_one": "لم يعد توزيع الساعات من MS Project يوجّه مهمة واحدة بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "mppTimephasedSteeringLost_two": "لم يعد توزيع الساعات من MS Project يوجّه مهمتين بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "mppTimephasedSteeringLost_few": "لم يعد توزيع الساعات من MS Project يوجّه {{count}} مهام بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "mppTimephasedSteeringLost_many": "لم يعد توزيع الساعات من MS Project يوجّه {{count}} مهمة بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "mppTimephasedSteeringLost_other": "لم يعد توزيع الساعات من MS Project يوجّه {{count}} من المهام بعد هذا التعديل؛ يبقى التوزيع الأصلي محفوظًا في الملف.",
+    "readMore": "اقرأ المزيد"
   },
   "yes": "نعم",
   "no": "لا",

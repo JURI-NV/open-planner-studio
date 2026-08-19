@@ -21,6 +21,8 @@ import { MAX_NOTIFICATIONS } from '@/state/slices/uiSlice';
 import { sameIFCSource } from '@/state/ifcSaveInput';
 import { createRelationWithFeedback } from '@/state/relationActions';
 import { createDefaultCalendar } from '@/engine/calendar/defaultCalendar';
+import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import { MPP_TIMEPHASED_HELP_ARTICLE_ID } from '@/state/timephasedLossNotice';
 import type { Sequence } from '@/types/sequence';
 
 const S = () => useAppStore.getState();
@@ -392,6 +394,108 @@ S().applyLoadedProject({
   assignments: [],
 }, {});
 eq('91 zonder sourceScheduleNotes meldt niets', N().length, 0);
+
+// ── 12. mpp-nul-data-etappe, DEEL 1: bewerkmelding op MSP-timephased-sturing-verlies ─────────────
+// Wanneer een gebruikersbewerking daadwerkelijk `timephasedFinishFloor`/`timephasedStartAnchor`/
+// `timephasedDurationWalks` wist (`clearTimephasedWindow`/`clearTimephasedDurationWalks` in
+// `taskDefaults.ts`, gebruikt door `taskSlice.ts`/`resourceSlice.ts`/`mcpTransaction.ts`), hoort
+// daar één keer per document per sessie een informatieve melding over te komen — nooit bij een F5,
+// documentwissel, undo/redo, of een no-op-bewerking op een taak zonder sturing. Eigen document
+// (`newDocument`) zodat deze cases niet worden beïnvloed door eerdere `dedupeKey`-registraties in
+// dit bestand, en zodat de "eenmalig per document"-claim (`timephasedLossNotice.ts`) een schone lei
+// heeft voor de docId die deze cases gebruiken.
+clearAll();
+S().newDocument();
+const tphDocId = S().activeDocumentId;
+
+const tphA = S().addTask({ name: 'MSP-taak A', time: createDefaultTaskTime('2026-08-03', 5) });
+// Venster zetten via een NIET-trigger-update (spiegelt `check-task-slice.ts`'s `seedWindow`) —
+// zet het venster zonder het meteen weer te laten wissen.
+S().updateTask(tphA, {
+  timephasedFinishFloor: '2026-08-10T17:00',
+  timephasedStartAnchor: '2026-08-03T08:00',
+  timephasedContours: [{ resourceUid: 42, periods: [{ afterMinutes: 0, minutes: 240, workMinutes: 240, kind: 'actual' }] }],
+});
+eq('92 opzet: taak draagt een venster vóór de bewerking', S().tasks.find(t => t.id === tphA)?.timephasedFinishFloor, '2026-08-10T17:00');
+
+// De ECHTE bewerking: een duur-trigger (zie taskDefaults.ts's triggerset) — wist het venster.
+const beforeTphA = S().tasks.find(t => t.id === tphA)!;
+S().updateTask(tphA, { time: { ...beforeTphA.time, scheduleDuration: 7 } });
+eq('93 na de bewerking: venster is gewist', S().tasks.find(t => t.id === tphA)?.timephasedFinishFloor, undefined);
+eq('94 de melding verschijnt precies één keer', N().length, 1);
+eq('95 als info (geen fout — het bestand is niet beschadigd)', N()[0]?.severity, 'info');
+eq('96 met de mpp-timephased-sleutel', N()[0]?.messageKey, 'notifications.mppTimephasedSteeringLost');
+eq('97 met count 1 (één taak verloor sturing)', N()[0]?.params, { count: 1 });
+eq('98 met de per-document-dedupeKey', N()[0]?.dedupeKey, `mpp-timephased-lost-${tphDocId}`);
+eq('99 met een link naar de MS Project-gids', N()[0]?.helpArticleId, MPP_TIMEPHASED_HELP_ARTICLE_ID);
+
+// Tweede bewerking die OPNIEUW sturing loslaat (andere taak, zelfde document) ⇒ GEEN tweede
+// melding — "eenmalig per document per sessie" is de eis, niet "eenmalig per burst".
+clearAll();
+const tphB = S().addTask({ name: 'MSP-taak B', time: createDefaultTaskTime('2026-08-03', 5) });
+S().updateTask(tphB, {
+  timephasedFinishFloor: '2026-08-11T17:00',
+  timephasedStartAnchor: '2026-08-04T08:00',
+});
+const beforeTphB = S().tasks.find(t => t.id === tphB)!;
+S().updateTask(tphB, { time: { ...beforeTphB.time, scheduleDuration: 9 } });
+eq('100 opzet: ook taak B verloor zijn venster', S().tasks.find(t => t.id === tphB)?.timephasedFinishFloor, undefined);
+eq('101 maar GEEN tweede melding deze sessie (al gemeld voor dit document)', N().length, 0);
+
+// F5 (runCPM) meldt zichzelf niet — een gezonde herberekening raakt geen timephased-velden via
+// updateTask/setTaskCalendar (de solver muteert de Immer-draft rechtstreeks, zie taskDefaults.ts's
+// hoofddocblok "GEEN trigger"-paragraaf).
+clearAll();
+S().runCPM();
+eq('102 F5/runCPM meldt geen timephased-verlies', N().length, 0);
+
+// Documentwissel meldt zichzelf niet (geen updateTask/clearTimephasedWindow-aanroep).
+clearAll();
+const tphDocOther = S().newDocument();
+S().switchDocument(tphDocId);
+eq('103 documentwissel meldt geen timephased-verlies', N().length, 0);
+void tphDocOther;
+
+// Undo meldt zichzelf niet: het herstelt de vorige snapshot rechtstreeks (`restoreSnapshot`), zonder
+// via updateTask/clearTimephasedWindow te lopen.
+clearAll();
+S().undo();
+eq('104 undo meldt geen timephased-verlies', N().length, 0);
+S().redo();
+eq('105 redo meldt geen timephased-verlies', N().length, 0);
+
+// No-op-bewerking (duur-trigger) op een taak die NOOIT timephased-sturing droeg ⇒ geen melding —
+// `clearTimephasedWindow`/`clearTimephasedDurationWalks` geven dan `false` terug (niets gewist),
+// en de aanroepers melden uitsluitend bij een ECHT verlies.
+clearAll();
+S().newDocument();
+const tphNoop = S().addTask({ name: 'Geen MSP-herkomst', time: createDefaultTaskTime('2026-08-03', 5) });
+const beforeNoop = S().tasks.find(t => t.id === tphNoop)!;
+S().updateTask(tphNoop, { time: { ...beforeNoop.time, scheduleDuration: 3 } });
+eq('106 no-op-bewerking (geen sturing aanwezig) meldt niets', N().length, 0);
+
+// ── P1 (spec-review op 3fba671b, reviewer-probe): newProject()-lek in de meldings-gate ──────────
+// `newProject()` hergebruikt het ACTIEVE docId (geen `newDocument()`-aanroep eronder) — zonder
+// `clearTimephasedLossNoticeForDoc` (P1-fix, timephasedLossNotice.ts) zou een heel NIEUW project op
+// datzelfde tabblad de "al gemeld"-registratie van het VORIGE project overerven en dus NOOIT meer
+// melden, ook al verliest een taak in het NIEUWE project aantoonbaar sturing. `tphDocId` is al
+// gemeld (case 94-99 hierboven) — precies de voorwaarde voor het lek dat de reviewer bewees.
+clearAll();
+S().switchDocument(tphDocId);
+eq('107 opzet: terug op het al-gemelde document', S().activeDocumentId, tphDocId);
+const tphDocBeforeReset = S().activeDocumentId;
+S().newProject();
+eq('108 opzet: newProject() blijft op HETZELFDE docId (de voorwaarde voor het lek)',
+  S().activeDocumentId, tphDocBeforeReset);
+const tphC = S().addTask({ name: 'MSP-taak C (na newProject)', time: createDefaultTaskTime('2026-08-03', 5) });
+S().updateTask(tphC, {
+  timephasedFinishFloor: '2026-08-12T17:00',
+  timephasedStartAnchor: '2026-08-05T08:00',
+});
+const beforeTphC = S().tasks.find(t => t.id === tphC)!;
+S().updateTask(tphC, { time: { ...beforeTphC.time, scheduleDuration: 4 } });
+eq('109 na newProject() meldt een NIEUW sturingsverlies WÉÉR (P1-fix, was: stil dood)', N().length, 1);
+eq('110 met de mpp-timephased-sleutel', N()[0]?.messageKey, 'notifications.mppTimephasedSteeringLost');
 
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {

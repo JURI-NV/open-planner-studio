@@ -72,6 +72,8 @@
     "deadlineMissed": "Termin ostateczny przekroczony",
     "longFreePeriodWarning": "To zadanie obejmuje {{days}}-dniowy okres wolny od pracy ({{start}} do {{end}}).",
     "longFreePeriodWarningNamed": "To zadanie obejmuje {{name}} — {{days}}-dniowy okres wolny od pracy ({{start}} do {{end}}).",
+    "timephasedActive": "Podąża za rozkładem godzin z MS Project",
+    "timephasedLost": "Rozkład godzin z MS Project nie jest już stosowany po edycji — pierwotny rozkład pozostaje zachowany w pliku",
     "completion": "Postęp (%)",
     "progress": {
       "actualStart": "Rzeczywisty początek",

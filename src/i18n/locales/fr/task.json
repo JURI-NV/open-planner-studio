@@ -72,6 +72,8 @@
     "deadlineMissed": "Échéance dépassée",
     "longFreePeriodWarning": "Cette tâche traverse une période non travaillée de {{days}} jours ({{start}} au {{end}}).",
     "longFreePeriodWarningNamed": "Cette tâche traverse {{name}} — une période non travaillée de {{days}} jours ({{start}} au {{end}}).",
+    "timephasedActive": "Suit la répartition horaire de MS Project",
+    "timephasedLost": "Répartition horaire de MS Project non appliquée après modification — la répartition d'origine reste conservée dans le fichier",
     "completion": "Avancement (%)",
     "progress": {
       "actualStart": "Début réel",

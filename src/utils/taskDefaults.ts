@@ -205,10 +205,16 @@ export function timeUpdateTouchesTimephasedWindow(timeUpdate: Partial<TaskTime> 
 
 /** Wist `timephasedFinishFloor`/`timephasedStartAnchor` als ze gezet zijn — idempotent, geen effect
  *  op een taak zonder Z8-venster. Muteert `task` in-place (Immer-draft-stijl, spiegelt de rest van
- *  taskSlice.ts/mcpTransaction.ts). */
-export function clearTimephasedWindow(task: Task): void {
-  if (task.timephasedFinishFloor !== undefined) delete task.timephasedFinishFloor;
-  if (task.timephasedStartAnchor !== undefined) delete task.timephasedStartAnchor;
+ *  taskSlice.ts/mcpTransaction.ts). Retourneert `true` als er ECHT iets gewist is (mpp-nul-data-
+ *  etappe, bewerkmelding): de aanroepers gebruiken dat om te bepalen of een gebruiker zojuist
+ *  aantoonbaar de MSP-sturing van een taak heeft losgemaakt (voor de eenmalige K8a-melding, zie
+ *  `state/timephasedLossNotice.ts`) — een `false` betekent een no-op-aanroep (bv. een edit op een
+ *  taak die nooit een Z8-venster had), waarvoor NOOIT gemeld mag worden. */
+export function clearTimephasedWindow(task: Task): boolean {
+  let cleared = false;
+  if (task.timephasedFinishFloor !== undefined) { delete task.timephasedFinishFloor; cleared = true; }
+  if (task.timephasedStartAnchor !== undefined) { delete task.timephasedStartAnchor; cleared = true; }
+  return cleared;
 }
 
 /** F2 (spec-review-fixronde op 526af9f9) — wist `timephasedDurationWalks` (LAAG 4) als gezet.
@@ -223,9 +229,32 @@ export function clearTimephasedWindow(task: Task): void {
  *  toewijzing uit de .mpp-import; een andere resource kan een andere resourcekalender betekenen (de
  *  laag-4-activeringsvoorwaarde), dus die lijst is sowieso stale zodra de toewijzingenset verandert.
  *  Na het wissen valt de taak terug op laag 5 (gewone CPM-duurberekening, geen Z8-venster) totdat
- *  een volgende .mpp-import de lijst opnieuw vult — er is geen "live herberekende" laag-4-vervanger. */
-export function clearTimephasedDurationWalks(task: Task): void {
-  if (task.timephasedDurationWalks !== undefined) delete task.timephasedDurationWalks;
+ *  een volgende .mpp-import de lijst opnieuw vult — er is geen "live herberekende" laag-4-vervanger.
+ *  Retourneert `true` als er ECHT iets gewist is — zelfde reden/gebruik als `clearTimephasedWindow`
+ *  hierboven (mpp-nul-data-etappe, bewerkmelding). */
+export function clearTimephasedDurationWalks(task: Task): boolean {
+  if (task.timephasedDurationWalks !== undefined) { delete task.timephasedDurationWalks; return true; }
+  return false;
+}
+
+/** OPTIONEEL — TRUE zodra de taak nog ACTIEVE Z8-sturing draagt (laag 3 en/of laag 4): een gezet
+ *  `timephasedFinishFloor`/`timephasedStartAnchor` (laag 3) of een niet-lege
+ *  `timephasedDurationWalks` (laag 4). Bedoeld voor de eigenschappenpaneel-markering (mpp-nul-data-
+ *  etappe, DEEL 2) — "volgt de urenverdeling uit MS Project" hoort hier, niet op de kale aanwezigheid
+ *  van `timephasedContours` (dat is de rauwe bron, zie `taskHasTimephasedContours` hieronder). */
+export function taskHasActiveTimephasedSteering(task: Task): boolean {
+  return task.timephasedFinishFloor !== undefined
+    || task.timephasedStartAnchor !== undefined
+    || (task.timephasedDurationWalks?.length ?? 0) > 0;
+}
+
+/** OPTIONEEL — TRUE zodra de taak rauwe, uit een .mpp-import afkomstige contourperiodes draagt
+ *  (`Task.timephasedContours`). Dit veld wordt NOOIT gewist door een edit (eigenaarsprincipe
+ *  2026-08-18) — samen met `taskHasActiveTimephasedSteering` hierboven onderscheidt dit de twee
+ *  paneel-toestanden (mpp-nul-data-etappe, DEEL 2): actieve sturing vs. een taak die zijn sturing
+ *  ná een bewerking heeft losgelaten maar waarvan de bron nog altijd in het bestand staat. */
+export function taskHasTimephasedContours(task: Task): boolean {
+  return (task.timephasedContours?.length ?? 0) > 0;
 }
 
 /** N2 (Opus-her-check, tweede ronde) — TRUE zodra minstens één item in `timephasedDurationWalks`

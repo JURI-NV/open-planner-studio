@@ -24,7 +24,11 @@
     "mppSourceScheduleNotes_other": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Elles sont importées et affichées telles quelles.",
     "projectStartAnchorsClamped_one": "Début de projet déplacé : {{count}} ancre de tâche sans prédécesseur ni contrainte a été déplacée vers la nouvelle date de début.",
     "projectStartAnchorsClamped_many": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début.",
-    "projectStartAnchorsClamped_other": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début."
+    "projectStartAnchorsClamped_other": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début.",
+    "mppTimephasedSteeringLost_one": "La répartition horaire de MS Project ne pilote plus {{count}} tâche après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "mppTimephasedSteeringLost_many": "La répartition horaire de MS Project ne pilote plus {{count}} tâches après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "mppTimephasedSteeringLost_other": "La répartition horaire de MS Project ne pilote plus {{count}} tâches après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "readMore": "En savoir plus"
   },
   "yes": "Oui",
   "no": "Non",

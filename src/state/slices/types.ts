@@ -174,7 +174,8 @@ export type NotificationMessageKey =
   | 'notifications.mppLegacy'
   | 'notifications.mppEncrypted'
   | 'notifications.mppSourceScheduleNotes'
-  | 'notifications.projectStartAnchorsClamped';
+  | 'notifications.projectStartAnchorsClamped'
+  | 'notifications.mppTimephasedSteeringLost';
 
 export interface AppNotification {
   /** Stabiele id — uitsluitend voor de React-key en voor `dismissNotification`. */
@@ -190,6 +191,12 @@ export interface AppNotification {
   dedupeKey?: string;
   /** Aantal samengevouwen voorkomens; 1 bij de eerste. */
   count: number;
+  /** Optioneel — id van een in-app-documentatieartikel (`public/docs/<taal>/<id>.md`) dat deze
+   *  melding toelicht (mpp-nul-data-etappe, "lees meer"-eigenaarseis). Aanwezig ⇒ `NotificationHost`
+   *  toont een "Lees meer"-link die `openHelpArticle` aanroept (Backstage → Help opent op dat
+   *  artikel). Geen manifest-validatie hier — zelfde vrijheid als een `docs://`-link in een
+   *  gids-artikel zelf (`miniMarkdown.tsx`); `verify:docs` bewaakt dat het artikel-id bestaat. */
+  helpArticleId?: string;
 }
 
 /** Wat een aanroeper meegeeft; `id` en `count` vult de store. */
@@ -370,6 +377,12 @@ export interface UIState {
    *  (niet per document): `UIState` wordt als geheel niet geswapt — `collapsedTaskIds` is de énige
    *  uitzondering die per document meegaat, dus `documentContract.ts` blijft ongemoeid. */
   notifications: AppNotification[];
+  /** session — eenmalig verzoek om Backstage → Help te openen op een SPECIFIEK artikel (mpp-nul-
+   *  data-etappe, "lees meer"-link vanuit een melding of het eigenschappenpaneel). Gezet door
+   *  `openHelpArticle`, geconsumeerd (en direct weer op `null` gezet) door `HelpPanel` — zelfde
+   *  eenmalig-verzoek-patroon als `pendingNewResource` hierboven. App-globale UI-state, geen
+   *  documentdata. */
+  pendingHelpArticleId: string | null;
 }
 
 // Path tracing (MSP "Task Path" / P6 "Trace Logic"): welke kant van het netwerk
