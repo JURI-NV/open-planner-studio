@@ -33,6 +33,7 @@ import {
   encodeFieldRef, decodeFieldRef,
 } from './ribbonPrimitives';
 import { useRibbonDensity } from './ribbonDensity';
+import { ZOOM_STEP, DEFAULT_ZOOM } from '@/utils/ganttViewport';
 
 /**
  * Ribbon-widgets (audit P18): de "component-escape-hatch" uit de config-registry — de
@@ -881,9 +882,9 @@ export function TimeScaleGroupContent() {
 
   const zoomButtons = (
     <>
-      <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + 10)} />
-      <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - 5)} />
-      <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(30)} />
+      <RibbonSmallButton icon={<ZoomIn size={14} />} label={tMenu('ribbon.zoomIn')} onClick={() => setZoom(zoom + ZOOM_STEP)} />
+      <RibbonSmallButton icon={<ZoomOut size={14} />} label={tMenu('ribbon.zoomOut')} onClick={() => setZoom(zoom - ZOOM_STEP)} />
+      <RibbonSmallButton icon={<Eye size={14} />} label={tMenu('ribbon.zoomReset')} onClick={() => setZoom(DEFAULT_ZOOM)} />
     </>
   );
   const dropdown = (

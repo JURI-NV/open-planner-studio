@@ -22,6 +22,8 @@ import type { Task, TaskTime, TaskConstraint, ExternalLink } from '@/types/task'
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment, AvailabilityStep } from '@/types/resource';
 import type { ImportResult } from '@/services/importTypes';
+import type { RibbonTab } from '@/state/slices/types';
+import type { CjkFontProvider } from '@/services/pdf/fontRegistry';
 import type {
   ExtProject,
   ExtSchedulingOptions,
@@ -39,6 +41,8 @@ import type {
   ExtAvailabilityStep,
   ExtAssignment,
   ExtImportResult,
+  ExtRibbonTab,
+  ExtFontProvider,
 } from './extTypes';
 
 // ── Kleine helpers (diepe kopie van geneste, mogelijk bevroren, waarden) ──
@@ -629,4 +633,60 @@ export function fromExtImportResult(r: ExtImportResult): ImportResult {
     resources: r.resources.map(fromExtResource),
     assignments: r.assignments.map(fromExtAssignment),
   };
+}
+
+// ── UI-grens: ribbontabblad ──
+
+/**
+ * Ext-facing tabblad-id → intern tabblad-id.
+ *
+ * Vandaag is dat één-op-één, en de TABEL is het punt — niet de conversie. Zonder tabel zou een
+ * interne hernoeming (`'beeld'` → `'view'`) stil doorlekken naar elk geïnstalleerd manifest; nu
+ * breekt hij hier op de compiler en verhuist de vertaling naar deze ene regel. De `Record` over de
+ * volledige `ExtRibbonTab`-unie dwingt bovendien af dat een NIEUW ext-tabblad ook echt ergens op
+ * uitkomt: een gat geeft een compileerfout in plaats van `undefined` in de store.
+ */
+const RIBBON_TAB_MAP: Record<ExtRibbonTab, RibbonTab> = {
+  file: 'file',
+  start: 'start',
+  planning: 'planning',
+  resources: 'resources',
+  relations: 'relations',
+  beeld: 'beeld',
+  instellingen: 'instellingen',
+  table: 'table',
+  ifc: 'ifc',
+  report: 'report',
+  ai: 'ai',
+};
+
+export function fromExtRibbonTab(tab: ExtRibbonTab): RibbonTab {
+  return RIBBON_TAB_MAP[tab];
+}
+
+// ── PDF-fontprovider ──
+
+/**
+ * Ext-facing font-provider → interne `CjkFontProvider`.
+ *
+ * Bewust een NIEUW object en geen doorgeef-referentie: de registry bewaart wat hij krijgt, en een
+ * extensie die z'n eigen provider-object naderhand muteert (of er velden aan toevoegt die de
+ * pagineerder ooit gaat lezen) zou anders rechtstreeks in de host-registry zitten. De methodes
+ * worden gebonden aan het originele object, zodat een provider met interne state (bv. een
+ * bytes-cache) gewoon blijft werken.
+ *
+ * `getBoldBytes` wordt alleen doorgegeven als hij er is — een sleutel met `undefined` erin zou de
+ * `getBoldBytes?` -check in de pagineerder laten slagen op een niet-functie.
+ */
+export function fromExtFontProvider(p: ExtFontProvider): CjkFontProvider {
+  const out: CjkFontProvider = {
+    id: p.id,
+    covers: (codepoint: number) => p.covers(codepoint),
+    getRegularBytes: () => p.getRegularBytes(),
+  };
+  if (p.getBoldBytes) {
+    const bold = p.getBoldBytes.bind(p);
+    out.getBoldBytes = () => bold();
+  }
+  return out;
 }

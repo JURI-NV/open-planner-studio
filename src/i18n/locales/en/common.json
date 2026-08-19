@@ -531,8 +531,8 @@
       "machineOnly": "This overview only sees the documents opened in this app.",
       "staleDoc": "Not counted: schedule not calculated — activate this document and press F5.",
       "staleBanner": "At least one document has not been calculated and is not included in the occupancy.",
-      "staleComputedDoc": "Calculated in advance for this overview — the document itself still shows older dates until you press F5 there.",
-      "staleComputedBanner": "Changed documents have been calculated in advance for this overview; press F5 in the document to see it there too.",
+      "staleComputedDoc": "Calculated in advance for this overview — the document itself still shows older dates until you press F5 there or turn on “Calculate automatically”.",
+      "staleComputedBanner": "Changed documents have been calculated in advance for this overview; press F5 in the document, or turn on “Calculate automatically” to do this permanently.",
       "docCount_one": "{{count}} document",
       "docCount_other": "{{count}} documents",
       "conflictDays_one": "{{count}} day double-booked",
@@ -701,6 +701,13 @@
     "notice": "This file contains hour-based planning.",
     "enable": "Enable hour planning"
   },
+  "recordedDates": {
+    "offer_one": "Recalculation moved {{count}} of {{total}} tasks away from the dates in the file.",
+    "offer_other": "Recalculation moved {{count}} of {{total}} tasks away from the dates in the file.",
+    "show": "Show recorded dates",
+    "active": "You're viewing the dates as recorded in the file. Nothing has been recalculated.",
+    "recalculate": "Recalculate"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "h",
@@ -817,6 +824,10 @@
     "intro": "Generate a test schedule and measure the core phases. This does not touch your open project.",
     "sizeLabel": "Schedule size",
     "tasksCount": "{{count}} tasks",
+    "resourceLabel": "Number of resources",
+    "resourcesNone": "No resources",
+    "resourcesCount": "{{count}} resources",
+    "networkHint": "Every task without subtasks gets at least one relationship; summary tasks stay a rollup over their children.",
     "run": "Run",
     "running": "Running…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -850,5 +861,26 @@
     "detailRender": "{{rows}} rows · {{w}}×{{h}}",
     "renderUnavailable": "render unavailable (no 2D canvas context)",
     "largeWarning": "Large schedule: this may take a while; the progress bar can appear frozen during the calculation."
+  },
+  "extConsent": {
+    "title": "Install extension?",
+    "author": "Author",
+    "repository": "Repository",
+    "originHeading": "Origin",
+    "sourceCatalog": "From the online extension catalogue",
+    "sourceZip": "From a ZIP file on this computer",
+    "sourceJs": "From a JavaScript file on this computer",
+    "verifiedChecksum": "Download verified against the checksum from the catalogue.",
+    "verifiedNone": "The catalogue provides no checksum — this download has not been verified.",
+    "verifiedLocal": "You picked this file yourself; there is no external source to verify it against.",
+    "riskHeading": "What you are agreeing to",
+    "riskBody": "An extension is program code that runs with the same rights as Open Planner Studio itself. Nothing confines it. Only install extensions whose author you trust.",
+    "riskDesktop": "In the desktop app that includes: reading and writing files anywhere in your user folder, plus access to your projects, settings and clipboard.",
+    "riskBrowser": "In the browser that means: access to your stored projects and settings, to the files you granted access to, and to the network.",
+    "declaredHeading": "What this extension says it uses",
+    "declaredNote": "This is the author's declaration, not a restriction — the code can do more regardless.",
+    "declaredNone": "Nothing declared.",
+    "cancel": "Don't install",
+    "confirm": "Install"
   }
 }

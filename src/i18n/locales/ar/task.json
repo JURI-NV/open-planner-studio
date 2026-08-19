@@ -16,7 +16,8 @@
     "freeFloat": "الفائض الحر",
     "interferingFloat": "الفائض المتداخل",
     "isNearCritical": "شبه حرج",
-    "floatPath": "مسار الفائض"
+    "floatPath": "مسار الفائض",
+    "activeDuring": "قيد التنفيذ"
   },
   "taskType": {
     "CONSTRUCTION": "بناء",
@@ -90,6 +91,7 @@
     "freeFloat": "الفائض الحر:",
     "criticalPath": "المسار الحرج:",
     "dependencies": "التبعيات",
+    "jumpToTask": "الانتقال إلى المهمة {{wbs}}",
     "relationPopoverTitle": "نوع العلاقة",
     "driving": "علاقة حاكمة (driving)",
     "lag": "التأخير (مثل 2d، 3ed، 2u، 50%، -25e%)",

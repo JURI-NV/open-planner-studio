@@ -283,6 +283,53 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   GFCHECK="$DIR/.gantt-float-cull.mjs"
   if bundle_check "$DIR/check-gantt-float-cull.ts" "$GFCHECK"; then node "$GFCHECK" || STATUS=1; fi
 
+  # Gantt-renderopties (K-item 33): de pure afleidingen die BEPALEN wat er in `GanttRenderOptions`
+  # komt (tijdas-oorsprong, contentspan, baseline-overlay, trace, histogramreeks). De andere
+  # renderer-batterijen bouwen die opties met de hand op en staan dus stroomafwaarts van dit
+  # rekenwerk — een fout hierin gaf geen rode suite maar een scheve Gantt. Bevat een
+  # karakteriseringsdeel: verbatim kopieën van de pre-extractie-code als orakel.
+  GROCHECK="$DIR/.gantt-render-options.mjs"
+  if bundle_check "$DIR/check-gantt-render-options.ts" "$GROCHECK"; then node "$GROCHECK" || STATUS=1; fi
+
+  # Zoomstap-regressie (K-item 34, voorbereidend): de in-/uitzoomstap stond op drie plekken los en
+  # twee ervan zoomden in met 10 maar uit met 5 — heen en weer klikken bracht je niet terug waar je
+  # begon. Toetst het gedrag én dat er nergens in src/ nog een kale zoomwaarde naast setZoom staat.
+  ZOOMCHECK="$DIR/.zoom-steps.mjs"
+  if bundle_check "$DIR/check-zoom-steps.ts" "$ZOOMCHECK"; then node "$ZOOMCHECK" || STATUS=1; fi
+
+  # "Spring naar taak"-geometrie (issue #65, WBS-sprongknop bij afhankelijkheden): het zoomniveau
+  # en de verticale/horizontale scroll klemmen op de juiste boven-/ondergrenzen i.p.v. een taak van
+  # jaren tot een streepje te laten verschrompelen of een milestone tot in het oneindige in te
+  # zoomen.
+  FOCUSCHECK="$DIR/.focus-task.mjs"
+  if bundle_check "$DIR/check-focus-task.ts" "$FOCUSCHECK"; then node "$FOCUSCHECK" || STATUS=1; fi
+
+  # Commandoregister (K-item 34): de elf acties die het lint en het toetsenbord delen, stonden twee
+  # keer los gedefinieerd. Toetst het gedrag van elk commando tegen de echte store, het contract dat
+  # `run` niet stil niets doet als `isEnabled` false is (issue #26), en dat geen van beide registers
+  # nog een eigen implementatie heeft.
+  CMDCHECK="$DIR/.commands.mjs"
+  if bundle_check "$DIR/check-commands.ts" "$CMDCHECK"; then node "$CMDCHECK" || STATUS=1; fi
+
+  # Boomprimitieven (K-item 35): detach/attach/cyklusguard/deelboom stonden als overgetypte regels
+  # midden in Immer-producers, verspreid over taskSlice en mcpTransaction. Nu pure functies, dus
+  # rechtstreeks toetsbaar — inclusief de randgevallen die de handkopieën niet aankonden (een al
+  # bestaande cyclus in de data, verplaatsen binnen dezelfde ouder, index buiten bereik).
+  TTCHECK="$DIR/.task-tree.mjs"
+  if bundle_check "$DIR/check-task-tree.ts" "$TTCHECK"; then node "$TTCHECK" || STATUS=1; fi
+
+  # Resource-join-index (K-item 36): `resourceNames` deed twee volledige scans per taak op het pad
+  # dat na iedere mutatie opnieuw loopt. De index die dat oplost introduceert een CACHE, en die
+  # nieuwe faalmodus (verouderde index) is hier het eigenlijke onderwerp.
+  VICHECK="$DIR/.view-index.mjs"
+  if bundle_check "$DIR/check-view-index.ts" "$VICHECK"; then node "$VICHECK" || STATUS=1; fi
+
+  # "Actief tussen"-filterveld (issue-discussie #32): interval-overlaptest op start+finish
+  # tegelijk, i.p.v. de generieke één-veld-één-waarde resolver. Bewijst de overlaplogica zelf én
+  # dat hij hetzelfde uitkomt als de handmatige AND-groep die de discussie als workaround kreeg.
+  ADFCHECK="$DIR/.active-during-filter.mjs"
+  if bundle_check "$DIR/check-active-during-filter.ts" "$ADFCHECK"; then node "$ADFCHECK" || STATUS=1; fi
+
   # Renderer-datumloos-regressie (TODO-item 2026-07-28): `barGeometry` (en `drawMilestone`) gooide
   # per frame een TypeError op een taak zonder start-/finishdatums (`undefined.includes('T')`) en
   # liet de hele Gantt zwart. Draait de echte renderer over datumloze leaf-/summary-/mijlpaal-rijen:
@@ -402,6 +449,65 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   UNDOCHECK="$DIR/.undo-bound.mjs"
   if bundle_check "$DIR/check-undo-bound.ts" "$UNDOCHECK"; then node "$UNDOCHECK" || STATUS=1; fi
 
+  # Mutatiekosten (prestatiedoel "5000 taken moet werken"). Eén mutatie deed O(n) werk over de hele
+  # takenlijst — deep-clone-snapshot, nummering via de draft, belastingberekening via de draft — dus
+  # n mutaties waren O(n2). Deze batterij bewaakt de eigenschappen waar de oplossing op rust: de
+  # snapshot deelt per referentie (en dat mag omdat Immer de state diep bevriest), en een mutatie
+  # vervangt geen taakobjecten die niet veranderen.
+  MUTCHECK="$DIR/.mutation-cost.mjs"
+  if bundle_check "$DIR/check-mutation-cost.ts" "$MUTCHECK"; then node "$MUTCHECK" || STATUS=1; fi
+
+  # Benchmark-generator (Instellingen -> Benchmark). De gegenereerde planning moet een ECHT netwerk
+  # zijn: elke taak die de solver als leaf ziet hoort minstens een relatie te hebben, anders meet je
+  # losse taken op de projectstart. Plus: het instelbare aantal resources mag de structuur van de
+  # planning niet veranderen, want dan zijn twee metingen niet meer vergelijkbaar.
+  BMGENCHECK="$DIR/.bmgen.mjs"
+  if bundle_check "$DIR/check-benchmark-generator.ts" "$BMGENCHECK"; then node "$BMGENCHECK" || STATUS=1; fi
+
+  # formatDate tegen zijn eigen vorige implementatie (characterization). De functie draait per DAG
+  # per taak in de solver en de resourcebelasting, dus de allocaties van toISOString().split() telden
+  # echt op; de herschrijving moet byte-identiek zijn, óók buiten jaar 0-9999 en bij een Invalid
+  # Date. Let op: dat hij UTC-getters gebruikt bewijst pas de tijdzone-matrix onderaan dit script.
+  DATEFMTCHECK="$DIR/.datefmt.mjs"
+  if bundle_check "$DIR/check-date-format.ts" "$DATEFMTCHECK"; then node "$DATEFMTCHECK" || STATUS=1; fi
+
+  # Publiek extensie-contract (K-item 37). De mappers tussen het interne domeinmodel en de
+  # Ext*-DTO's hadden geen compile-afdwinging op VOLLEDIGHEID: een optioneel veld vergeten is legaal
+  # TypeScript, dus het veld bestond simpelweg niet voor extensies. Deze batterij klinkt de
+  # sleutellijsten compile-time vast aan de types, controleert beide mapperrichtingen op een
+  # maximale fixture, legt vast welke interne velden BEWUST niet oversteken, en dekt de
+  # apiVersion-poort (contractversie, los van de CalVer-app-versie).
+  EXTCHECK="$DIR/.extcontract.mjs"
+  if bundle_check "$DIR/check-ext-contract.ts" "$EXTCHECK"; then node "$EXTCHECK" || STATUS=1; fi
+
+  # Extensie-integriteit en -afscherming (K-item 38, pragmatische helft). Een catalogusentry met
+  # sha256 wordt geverifieerd en bij verschil geweigerd; de rauwe host-globals worden in de
+  # extensie-scope geschaduwd. De batterij toont OOK expliciet aan dat dat laatste geen sandbox is —
+  # ontsnappen via globalThis kan nog steeds, en dat hoort zichtbaar te zijn in plaats van beloofd.
+  EXTINTCHECK="$DIR/.extintegrity.mjs"
+  if bundle_check "$DIR/check-ext-integrity.ts" "$EXTINTCHECK"; then node "$EXTINTCHECK" || STATUS=1; fi
+
+  # Toestemming bij extensie-installatie (K-item 38, laatste deel). De faalstand moet WEIGEREN zijn
+  # (geen dialoog geladen ⇒ niet installeren), elk installatiepad moet langs de poort, en die poort
+  # moet vóór de eerste schrijfactie staan — anders laat een weigering een half geïnstalleerde
+  # extensie achter, en dat is precies wat een headless test niet kan zien.
+  EXTCONSENTCHECK="$DIR/.extconsent.mjs"
+  if bundle_check "$DIR/check-ext-consent.ts" "$EXTCONSENTCHECK"; then node "$EXTCONSENTCHECK" || STATUS=1; fi
+
+  # Scherm <-> print (K-item 39). De afdruk beantwoordde drie vragen zelf die de renderer al
+  # beantwoordt — weeknummer, weekgrens en welke dagen vrij zijn — en was op alle drie afgedreven.
+  # Een project met zaterdag als werkdag of "week begint op zondag" kreeg op papier iets anders dan
+  # op het scherm.
+  PRINTPARCHECK="$DIR/.printparity.mjs"
+  if bundle_check "$DIR/check-print-screen-parity.ts" "$PRINTPARCHECK"; then node "$PRINTPARCHECK" || STATUS=1; fi
+
+  # Store-factory (K-item 41). De store was één module-expressie; een tweede instantie was daarmee
+  # onmogelijk. De batterij toetst wat er nu ECHT onafhankelijk is (projectdata, undo/redo) en pint
+  # vast wat nog GEDEELD is (withTransaction en de batch-diepte hangen aan de singleton) — die
+  # pinningen horen rood te worden zodra iemand ze oplost.
+  SFCHECK="$DIR/.storefactory.mjs"
+  if bundle_check "$DIR/check-store-factory.ts" "$SFCHECK"; then node "$SFCHECK" || STATUS=1; fi
+
   # Export-guard (bevinding K7). Exports schrijven CPM-datums naar derden; zonder guard ging een
   # verouderde planning het bestand in. De subtiele helft: na een cyclus staat `scheduleStale` al
   # op false terwijl `task.time` oud is, dus een guard op alleen die vlag exporteert stil verkeerd.
@@ -455,6 +561,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
 
   RTCHECK="$DIR/.ifc-roundtrip-check.mjs"
   if bundle_check "$DIR/check-ifc-roundtrip.ts" "$RTCHECK"; then node "$RTCHECK" || STATUS=1; fi
+
+  # Datums zoals opgeslagen (issue #63) — de pure laag: aanwezigheidsregistratie, verschiltelling,
+  # reconstructie. Betreden/verlaten en de undo-keten volgen later (aparte taak, hangt de store/UI
+  # eraan). Draait mee in de tijdzone-matrix — de reconstructie rekent met datums, dus
+  # TZ-onafhankelijkheid moet bewezen worden.
+  RECDATES="$DIR/.check-recorded-dates.mjs"
+  if bundle_check "$DIR/check-recorded-dates.ts" "$RECDATES"; then node "$RECDATES" || STATUS=1; fi
 fi
 
 if [ "$HARNESS_OK" -eq 1 ]; then

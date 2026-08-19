@@ -526,8 +526,8 @@
       "machineOnly": "此概览仅显示在本应用中打开的文档。",
       "staleDoc": "不计入：计划未计算 — 请激活此文档并按 F5。",
       "staleBanner": "至少有一个文档未经计算，未计入占用。",
-      "staleComputedDoc": "已为此概览提前计算 — 该文档本身仍显示旧日期，直到你在其中按 F5。",
-      "staleComputedBanner": "已更改的文档已为此概览提前计算；请在文档中按 F5 以在那里也看到。",
+      "staleComputedDoc": "已为此概览提前计算 — 该文档本身仍显示旧日期，直到你在其中按 F5 或开启“自动计算”。",
+      "staleComputedBanner": "已更改的文档已为此概览提前计算；请在文档中按 F5，或开启“自动计算”以持续生效。",
       "docCount_other": "{{count}} 个文档",
       "conflictDays_other": "{{count}} 天重复预订",
       "moreDays_other": "… 另有 {{count}} 个",
@@ -693,6 +693,12 @@
     "notice": "此文件包含按小时的计划。",
     "enable": "启用小时计划"
   },
+  "recordedDates": {
+    "offer_other": "重新计算使 {{total}} 个任务中的 {{count}} 个偏离了文件中记录的日期。",
+    "show": "显示记录的日期",
+    "active": "你正在查看文件中记录的日期，尚未重新计算。",
+    "recalculate": "重新计算"
+  },
   "duration": {
     "suffixDay": "天",
     "suffixHour": "时",
@@ -804,6 +810,10 @@
     "intro": "生成测试计划并衡量核心阶段。不会影响您当前打开的项目。",
     "sizeLabel": "计划规模",
     "tasksCount": "{{count}} 个任务",
+    "resourceLabel": "资源数量",
+    "resourcesNone": "无资源",
+    "resourcesCount": "{{count}} 个资源",
+    "networkHint": "每个没有子任务的任务至少有一条关系；摘要任务仍是其子任务的汇总。",
     "run": "运行",
     "running": "运行中…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -837,5 +847,26 @@
     "detailRender": "{{rows}} 行 · {{w}}×{{h}}",
     "renderUnavailable": "无法渲染（无 2D 画布上下文）",
     "largeWarning": "大型计划：可能需要一些时间；计算期间进度条可能看起来停滞。"
+  },
+  "extConsent": {
+    "title": "安装扩展？",
+    "author": "作者",
+    "repository": "代码仓库",
+    "originHeading": "来源",
+    "sourceCatalog": "来自在线扩展目录",
+    "sourceZip": "来自本机的 ZIP 文件",
+    "sourceJs": "来自本机的 JavaScript 文件",
+    "verifiedChecksum": "已使用目录中的校验和验证此次下载。",
+    "verifiedNone": "目录未提供校验和——本次下载未经验证。",
+    "verifiedLocal": "此文件由你自行选择；没有外部来源可供校验。",
+    "riskHeading": "你同意的内容",
+    "riskBody": "扩展是与 Open Planner Studio 本身拥有相同权限运行的程序代码，没有任何机制加以限制。请只安装你信任其作者的扩展。",
+    "riskDesktop": "在桌面应用中，这包括：读写你用户目录下任意位置的文件，以及访问你的项目、设置和剪贴板。",
+    "riskBrowser": "在浏览器中，这意味着：访问你已保存的项目和设置、你已授权的文件，以及网络。",
+    "declaredHeading": "此扩展声明会使用的功能",
+    "declaredNote": "这是作者的声明，而非限制——代码无论如何都能做得更多。",
+    "declaredNone": "未声明任何内容。",
+    "cancel": "不安装",
+    "confirm": "安装"
   }
 }

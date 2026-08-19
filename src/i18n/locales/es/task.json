@@ -16,7 +16,8 @@
     "freeFloat": "Holgura libre",
     "interferingFloat": "Holgura interferente",
     "isNearCritical": "Casi crítica",
-    "floatPath": "Ruta de holgura"
+    "floatPath": "Ruta de holgura",
+    "activeDuring": "En curso"
   },
   "taskType": {
     "CONSTRUCTION": "Construcción",
@@ -90,6 +91,7 @@
     "freeFloat": "Holgura libre:",
     "criticalPath": "Ruta crítica:",
     "dependencies": "Dependencias",
+    "jumpToTask": "Ir a la tarea {{wbs}}",
     "relationPopoverTitle": "Tipo de relación",
     "driving": "Relación determinante (driving)",
     "lag": "Desfase (ej. 2d, 3ed, 2u, 50%, -25e%)",

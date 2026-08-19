@@ -70,6 +70,14 @@ You can also put a relation directly on a summary task (a phase or WBS group) in
 
 This is exact for **FS and FF** with a summary as predecessor, and for **FS and SS** with a summary as successor. For **SS/SF** with a summary as predecessor and **FF/SF** with a summary as successor — rare combinations in construction practice — Open Planner Studio deliberately plans on the safe side: possibly a bit later than strictly necessary, never earlier.
 
+## Jumping to a linked task
+
+In the properties panel, every dependency row shows the WBS number of the linked task as a
+clickable button. Hover over it to see the same details as hovering over a
+task bar in the Gantt chart (name, WBS, duration, start/finish, status, critical path, total
+float). Click it to select that task: the Gantt chart zooms and scrolls to it, automatically
+expanding any collapsed parent task that was hiding it.
+
 ## Constraint types
 
 A constraint imposes a date boundary on a task, independent of its relations. Open Planner Studio has eight types, set via the **Constraint** field in the properties panel:

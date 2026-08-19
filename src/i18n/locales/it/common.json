@@ -536,8 +536,8 @@
       "machineOnly": "Questa panoramica vede solo i documenti aperti in questa applicazione.",
       "staleDoc": "Non conteggiato: pianificazione non calcolata — attiva questo documento e premi F5.",
       "staleBanner": "Almeno un documento non è stato calcolato e non è incluso nell'occupazione.",
-      "staleComputedDoc": "Calcolato in anticipo per questa panoramica — il documento stesso mostra ancora le date precedenti finché non premi F5 al suo interno.",
-      "staleComputedBanner": "I documenti modificati sono stati calcolati in anticipo per questa panoramica; premi F5 nel documento per vederlo anche lì.",
+      "staleComputedDoc": "Calcolato in anticipo per questa panoramica — il documento stesso mostra ancora le date precedenti finché non premi F5 al suo interno o attivi “Calcola automaticamente”.",
+      "staleComputedBanner": "I documenti modificati sono stati calcolati in anticipo per questa panoramica; premi F5 nel documento, oppure attiva “Calcola automaticamente” per farlo in modo permanente.",
       "docCount_one": "{{count}} documento",
       "docCount_many": "{{count}} documenti",
       "docCount_other": "{{count}} documenti",
@@ -709,6 +709,14 @@
     "notice": "Questo file contiene una pianificazione oraria.",
     "enable": "Attiva pianificazione oraria"
   },
+  "recordedDates": {
+    "offer_one": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "offer_many": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "offer_other": "Il ricalcolo ha spostato {{count}} attività su {{total}} rispetto alle date del file.",
+    "show": "Mostra le date registrate",
+    "active": "Stai visualizzando le date come registrate nel file. Non è stato eseguito alcun ricalcolo.",
+    "recalculate": "Ricalcola"
+  },
   "duration": {
     "suffixDay": "g",
     "suffixHour": "h",
@@ -830,6 +838,10 @@
     "intro": "Genera una pianificazione di test e misura le fasi principali. Non tocca il progetto aperto.",
     "sizeLabel": "Dimensione della pianificazione",
     "tasksCount": "{{count}} attività",
+    "resourceLabel": "Numero di risorse",
+    "resourcesNone": "Nessuna risorsa",
+    "resourcesCount": "{{count}} risorse",
+    "networkHint": "Ogni attività senza sottoattività riceve almeno una relazione; le attività di riepilogo restano un totale delle attività figlie.",
     "run": "Esegui",
     "running": "In corso…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -863,5 +875,26 @@
     "detailRender": "{{rows}} righe · {{w}}×{{h}}",
     "renderUnavailable": "rendering non disponibile (nessun contesto canvas 2D)",
     "largeWarning": "Pianificazione grande: potrebbe richiedere un po'; la barra di avanzamento può sembrare bloccata durante il calcolo."
+  },
+  "extConsent": {
+    "title": "Installare l'estensione?",
+    "author": "Autore",
+    "repository": "Repository",
+    "originHeading": "Provenienza",
+    "sourceCatalog": "Dal catalogo estensioni online",
+    "sourceZip": "Da un file ZIP su questo computer",
+    "sourceJs": "Da un file JavaScript su questo computer",
+    "verifiedChecksum": "Download verificato con il checksum del catalogo.",
+    "verifiedNone": "Il catalogo non fornisce un checksum: questo download non è stato verificato.",
+    "verifiedLocal": "Hai scelto tu questo file; non esiste una fonte esterna con cui verificarlo.",
+    "riskHeading": "A cosa stai dicendo di sì",
+    "riskBody": "Un'estensione è codice che viene eseguito con gli stessi diritti di Open Planner Studio. Nulla lo delimita. Installa solo estensioni di cui ti fidi dell'autore.",
+    "riskDesktop": "Nell'app desktop ciò comprende: leggere e scrivere file ovunque nella tua cartella utente, oltre all'accesso a progetti, impostazioni e appunti.",
+    "riskBrowser": "Nel browser significa: accesso ai progetti e alle impostazioni salvate, ai file per cui hai concesso l'accesso e alla rete.",
+    "declaredHeading": "Ciò che questa estensione dichiara di usare",
+    "declaredNote": "È la dichiarazione dell'autore, non una restrizione: il codice può comunque fare di più.",
+    "declaredNone": "Nulla di dichiarato.",
+    "cancel": "Non installare",
+    "confirm": "Installa"
   }
 }

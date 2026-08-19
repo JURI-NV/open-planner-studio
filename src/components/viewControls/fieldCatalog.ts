@@ -36,6 +36,14 @@ export const FILTER_SORT_BUILTIN_KEYS: BuiltinFieldKey[] = [
 /** Groepeerbare builtin-velden (§7.4): alleen discrete velden, geen continue getallen/datums. */
 export const GROUP_BUILTIN_KEYS: BuiltinFieldKey[] = ['wbsCode', 'taskType'];
 
+/**
+ * Filter-only builtin-velden (issue-discussie #32): synthetische velden die alleen als
+ * filterregel zin hebben, niet als sorteer- of groepeersleutel — vandaar apart van
+ * `FILTER_SORT_BUILTIN_KEYS`, dat `fullFieldList` ook aan de sorteer-popover levert
+ * (`ribbonWidgets.tsx`). Gebruik `filterFieldList`, niet `fullFieldList`, in de filter-editor.
+ */
+export const FILTER_ONLY_BUILTIN_KEYS: BuiltinFieldKey[] = ['activeDuring'];
+
 function fieldKey(field: FieldRef): string {
   switch (field.src) {
     case 'builtin': return `builtin:${field.key}`;
@@ -56,6 +64,18 @@ export function fullFieldList(ctx: FieldCatalogCtx): FieldRef[] {
     ...ctx.activityCodeTypes.map((t): FieldRef => ({ src: 'activityCode', typeId: t.id })),
     ...ctx.customFieldDefs.map((d): FieldRef => ({ src: 'customField', defId: d.id })),
     { src: 'resource' },
+  ];
+}
+
+/**
+ * Filter-veldenlijst: `fullFieldList` plus de filter-only synthetische velden (§?). Gebruikt door
+ * `FilterDialog` i.p.v. `fullFieldList` zelf, precies om `activeDuring` weg te houden bij de
+ * sorteer-popover (die `fullFieldList` rechtstreeks gebruikt).
+ */
+export function filterFieldList(ctx: FieldCatalogCtx): FieldRef[] {
+  return [
+    ...fullFieldList(ctx),
+    ...FILTER_ONLY_BUILTIN_KEYS.map((key): FieldRef => ({ src: 'builtin', key })),
   ];
 }
 
@@ -102,7 +122,7 @@ export function fieldOptions(
   });
 }
 
-export type FieldKind = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multiselect';
+export type FieldKind = 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multiselect' | 'activePeriod';
 
 /** Bepaalt welke waarde-editor + operatorenset een veld krijgt in de filter-editor (§13.1). */
 export function fieldKind(field: FieldRef, ctx: FieldCatalogCtx): FieldKind {
@@ -127,6 +147,8 @@ export function fieldKind(field: FieldRef, ctx: FieldCatalogCtx): FieldKind {
         return 'boolean';
       case 'taskType':
         return 'select';
+      case 'activeDuring':
+        return 'activePeriod';
     }
   }
   if (field.src === 'activityCode') return 'select';
@@ -157,6 +179,9 @@ export function operatorsForKind(kind: FieldKind): FilterOperator[] {
     case 'boolean': return ['eq', 'neq'];
     case 'select': return ['eq', 'neq', 'in', 'isEmpty'];
     case 'multiselect': return ['in', 'isEmpty'];
+    // Interval-overlap heeft altijd beide grenzen nodig (§?, `evaluateActiveDuring`) — geen
+    // zinnige eq/lt/gt-variant zonder een tweede datum, dus maar één operator.
+    case 'activePeriod': return ['between'];
   }
 }
 

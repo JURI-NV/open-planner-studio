@@ -6,6 +6,7 @@ import type { Resource, ResourceAssignment } from '@/types/resource';
 import type { ActivityCodeType, CustomFieldDef } from '@/types/structure';
 import type { Baseline } from '@/types/baseline';
 import type { CompanyPool } from '@/types/library';
+import type { RecordedFieldKey } from '@/services/ifc/ifcTaskSlots';
 
 /**
  * Eén gedeelde payload-vorm voor een ingelezen project (audit P1). De vier readers (`readIFC`,
@@ -89,4 +90,14 @@ export interface ImportResult {
    * gedecodeerde timephased-periode draagt.
    */
   sourceScheduleNotes?: { total: number; leveled: number; split: number; timephased: number };
+
+  /** OPTIONEEL — per taak-id welke IfcTaskTime-slots het bestand daadwerkelijk vulde: de zeven
+   *  REKENSLOTS (`RECORDED_SLOT_KEYS`) én de twee INVOERSLOTS ScheduleStart/ScheduleFinish
+   *  (`RECORDED_INPUT_SLOT_KEYS`) — de laatste twee zijn nodig als terugval-anker wanneer de
+   *  rekenslots leeg zijn (issue #63). Alleen `readIFC` levert dit; CSV/MSPDI/P6/extensie-import
+   *  kennen geen IfcTaskTime-slots en laten het weg. Nodig omdat `parseDateFromIFC` een `$`-slot als
+   *  "vandaag" inleest — na het parsen is een leeg slot niet meer van een echte datum te
+   *  onderscheiden. Een taak-id ZONDER IfcTaskTime krijgt een lege array (niet: ontbrekende sleutel)
+   *  — "geen enkel slot gevuld" is een uitspraak, "onbekend" niet. */
+  recordedFields?: Record<string, RecordedFieldKey[]>;
 }

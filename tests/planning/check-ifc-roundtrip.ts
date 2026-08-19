@@ -70,6 +70,7 @@
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
+import { ALL_RECORDED_SLOT_KEYS } from '@/services/ifc/ifcTaskSlots';
 import type { Task, TaskTime, ExternalLink, TaskSplitGap, TaskTimephasedContour } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
@@ -714,6 +715,14 @@ const rt2 = readIFC(writeIFC(rt1));
   const diffs: string[] = [];
   collectDiffs('', canon(expectedInput), canon(rt1), diffs);
   assert(diffs.length === 0, `round-trip-afwijkingen (${diffs.length}):\n${diffs.map(d => `        - ${d}`).join('\n')}`);
+
+  // (1b) De aanwezigheidsregistratie (§9r, uitgebreid in taak 2/MOET 1 met de twee invoerslots) rust
+  // op de writer-conventie "altijd een waarde, nooit `$`" voor zowel de zeven rekenslots als
+  // ScheduleStart/ScheduleFinish. Een door OPS zelf geschreven bestand moet dus alle NEGEN slots
+  // als aanwezig melden — schrijft de writer later ooit "alleen wat gezet is" over deze slots heen,
+  // dan zakt "datums zoals opgeslagen" stil terug op herberekenen, met een verder groene suite.
+  assert(rt1.tasks.every(t => (rt1.recordedFields?.[t.id] ?? []).length === ALL_RECORDED_SLOT_KEYS.length),
+    '(1b) een door OPS zelf geschreven bestand moet ALLE negen slots (7 rekenslots + 2 invoerslots) als aanwezig melden');
 }
 
 // (2) Idempotentie: tweede round-trip byte-stabiel t.o.v. de eerste (normalisatie is stabiel).
@@ -852,6 +861,87 @@ const rt2 = readIFC(writeIFC(rt1));
   const rtLegacyGuids = readIFC(legacy);
   assert(rtLegacyGuids.tasks.some(t => t.id === rtLegacyGuids.baselines![0].tasks[0].taskId),
     'zonder TaskGuids-map (oud bestand) moet de remap terugvallen op het herberekenen van de hash');
+}
+
+// (6) Aanwezigheidsregistratie (issue #63). Taak 1 ("Aanwezigheid van rekenslots vastleggen in de
+// IFC-lezer") registreerde de zeven REKENSLOTS: `$` telt NIET als opgeslagen datum, want
+// parseDateFromIFC maakt van `$` de datum van VANDAAG. Taak 2 (kwaliteitsreview MOET 1) breidde dit
+// uit met de twee INVOERSLOTS ScheduleStart/ScheduleFinish: zonder hún aanwezigheid apart te
+// registreren kon `captureRecordedDates` (recordedDates.ts) een `$`-ScheduleStart niet onderscheiden
+// van een écht geëxporteerde datum, en zou een IFCTASK zonder IfcTaskTime (of met `$` op
+// ScheduleStart) alsnog als "vandaag opgeslagen" worden voorgesteld — precies de kritieke bevinding.
+{
+  const TT_LEEG = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    // IfcTaskTime met alleen ScheduleStart/ScheduleFinish; alle rekenslots (EarlyStart t/m
+    // IsCritical) op `$`.
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,'2026-03-02','2026-03-06',$,$,$,$,$,$,$,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Extern A',$,$,'1.1',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    // Taak ZONDER IfcTaskTime-referentie (taskTime-slot op `$`) — moet ook een lege lijst geven,
+    // niet een ontbrekende entry (het contract in extractTasks: "geen slot gevuld" ≠ "onbekend").
+    "#3=IFCTASK('g3',$,'Zonder tijd',$,$,'1.2',$,$,$,.F.,$,$,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtLeeg = readIFC(TT_LEEG);
+  assert(rtLeeg.tasks.length === 2, `9r fixture moet precies twee taken opleveren — kreeg ${rtLeeg.tasks.length}`);
+  const leegId = rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.id;
+  // Geen enkel REKENSLOT is aanwezig, maar ScheduleStart/ScheduleFinish WEL — sinds taak 2/MOET 1
+  // meldt recordedFields dat nu, precies zodat captureRecordedDates hier de schedule-laag mag kiezen
+  // (zie check-recorded-dates.ts, de MOET-4-laagkeuze) in plaats van niets te kunnen zeggen.
+  assert(JSON.stringify(rtLeeg.recordedFields?.[leegId]) === JSON.stringify(['scheduleStart', 'scheduleFinish']),
+    `9r geen rekenslot, wel de twee invoerslots aanwezig gemeld — kreeg ${JSON.stringify(rtLeeg.recordedFields?.[leegId])}`);
+  assert(rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.time.scheduleStart === '2026-03-02',
+    `9r scheduleStart moet gewoon gelezen worden — kreeg ${rtLeeg.tasks.find(t => t.wbsCode === '1.1')!.time.scheduleStart}`);
+  const zonderTijdId = rtLeeg.tasks.find(t => t.wbsCode === '1.2')!.id;
+  // Taak ZONDER IfcTaskTime-entiteit: er is niets om uit te lezen, dus ook de twee invoerslots
+  // blijven afwezig — de lege lijst is hier terecht leeg (i.p.v. ['scheduleStart','scheduleFinish']
+  // zoals hierboven), wat `captureRecordedDates` straks laat concluderen "geen uitspraak" i.p.v. de
+  // `createDefaultTaskTime`-"vandaag"-default als een echte datum te lezen (kritieke bevinding).
+  assert(JSON.stringify(rtLeeg.recordedFields?.[zonderTijdId]) === JSON.stringify([]),
+    `9r taak zonder IfcTaskTime moet een lege lijst geven (niet ontbrekend, en niet de twee invoerslots) — kreeg ${JSON.stringify(rtLeeg.recordedFields?.[zonderTijdId])}`);
+
+  // Tegenproef: mét gevulde rekenslots én invoerslots worden ze allemaal gemeld (freeFloat blijft
+  // bewust `$`, dus die hoort NIET in de lijst — bewijst dat het per-slot en niet per-IfcTaskTime
+  // wordt geregistreerd).
+  const TT_VOL = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,'2026-03-02','2026-03-06','2026-03-02','2026-03-06','2026-03-04','2026-03-10',$,'P2D',.T.,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Extern A',$,$,'1.1',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtVol = readIFC(TT_VOL);
+  assert(rtVol.tasks.length === 1, `9r VOL-fixture moet precies één taak opleveren — kreeg ${rtVol.tasks.length}`);
+  const wantVol = ['earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'totalFloat', 'isCritical', 'scheduleStart', 'scheduleFinish'];
+  assert(JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id]) === JSON.stringify(wantVol),
+    `9r gevulde reken- én invoerslots wél gemeld — kreeg ${JSON.stringify(rtVol.recordedFields?.[rtVol.tasks[0].id])}`);
+
+  // De kritieke bevinding zelf, expliciet vastgelegd (hercontrole kwaliteitsreview): een IfcTaskTime
+  // MET `$` op ScheduleStart (maar ScheduleFinish gevuld) mag ScheduleStart NIET als aanwezig melden.
+  // `recordedSlotsOf` gebruikt één lus over alle negen sleutels met dezelfde `arg && arg !== '$'`-
+  // check per slot; zonder deze assertie zou een latere "vereenvoudiging" die de `$`-check op de twee
+  // invoerslots overslaat (want "invoer is er toch altijd") zowel TT_LEEG als TT_VOL hierboven groen
+  // laten staan — precies de regressie die deze hele taak moest voorkomen.
+  const TT_HALF_SCHEDULE = [
+    'ISO-10303-21;', 'HEADER;',
+    "FILE_NAME('X.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('g1',$,'Extern',$,$,$,$,$,$);",
+    // ScheduleStart op `$`, ScheduleFinish gevuld; alle rekenslots ook `$`.
+    "#9=IFCTASKTIME('T',.PREDICTED.,$,.WORKTIME.,$,$,'2026-03-06',$,$,$,$,$,$,$,$,$,$,$,$,$);",
+    "#2=IFCTASK('g2',$,'Half schedule',$,$,'1.3',$,$,$,.F.,$,#9,.CONSTRUCTION.);",
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const rtHalf = readIFC(TT_HALF_SCHEDULE);
+  assert(rtHalf.tasks.length === 1, `9r HALF-fixture moet precies één taak opleveren — kreeg ${rtHalf.tasks.length}`);
+  const halfId = rtHalf.tasks[0].id;
+  assert(JSON.stringify(rtHalf.recordedFields?.[halfId]) === JSON.stringify(['scheduleFinish']),
+    `9r $-ScheduleStart telt niet mee als aanwezig, ScheduleFinish wel — kreeg ${JSON.stringify(rtHalf.recordedFields?.[halfId])}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

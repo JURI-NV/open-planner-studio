@@ -960,7 +960,8 @@ const redo: McpToolDef = {
 
 // =================================================================================================
 // planner_run_cpm — expliciete, geforceerde herberekening (CPM + kalender). Niet-transactioneel:
-// runCPM pusht nooit een undo-snapshot (invariant), dus geen eigen undo-stap.
+// runCPM pusht geen undo-snapshot, dus geen eigen undo-stap — behalve wanneer hij "datums zoals
+// opgeslagen" verlaat (issue #63); dat overschrijft de opgeslagen datums en hoort ongedaan te kunnen.
 // =================================================================================================
 const runCpm: McpToolDef = {
   name: 'planner_run_cpm',

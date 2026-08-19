@@ -22,6 +22,11 @@ export interface UiSlice {
   collapseTasks: (taskIds?: string[]) => void;
   /** Issue #35 punt 3: tegenhanger van `collapseTasks` — klapt expliciet UIT. Zie daar. */
   expandTasks: (taskIds?: string[]) => void;
+  /** Klap de VOLLEDIGE oudersketen van `taskId` uit (issue #65: "spring naar taak" mag een taak
+   *  onthullen die in een ingeklapte samenvattingstaak zit). Loopt via `parentId` omhoog tot de
+   *  root en klapt elke ingeklapte voorouder uit — niet alleen de directe ouder, want die kan
+   *  zelf weer in een ingeklapte grootouder zitten. */
+  expandAncestorsOf: (taskId: string) => void;
   /** Golf 1 (fase 2.10, bandkop-contextmenu §2.10): klap ALLES uit in de HUIDIGE weergavemodus.
    *  Boommodus ⇒ alle summary-taken (`expandTasks()`); gegroepeerde weergave ⇒ alle groepsbanden
    *  (`expandAllGroups()`), want daar negeert `computeViewRows` de taak-collapse volledig en zou
@@ -136,6 +141,7 @@ export function createDefaultUI(): UIState {
     structureLockedNotice: 0,
     showShortcutsDialog: false,
     showBenchmarkDialog: false,
+    pendingExtensionConsent: null,
     showPoolImportDialog: false,
     poolImportCompanyId: null,
     showLibraryLinkDialog: false,
@@ -345,6 +351,24 @@ export const createUiSlice: AppSlice<UiSlice> = (set, get) => ({
       s.ui.collapsedTaskIds = s.ui.collapsedTaskIds.filter((id) => !targets.has(id));
     });
     get().recomputeViewRows();
+  },
+
+  expandAncestorsOf: (taskId) => {
+    const s = get();
+    const taskMap = new Map(s.tasks.map((t) => [t.id, t]));
+    const toExpand: string[] = [];
+    // Bezocht-bewaking naar het patroon van `isSelfOrDescendant`/`taskTree.ts`: een corrupte
+    // `parentId`-cyclus is bereikbaar via IFC-import (`extractNesting` zet 'm zonder cyklusguard),
+    // en zonder deze wacht deze lus dan oneindig i.p.v. de vier andere oudersketen-wandelingen in
+    // dit project die er wél tegen bewaken.
+    const bezocht = new Set<string>();
+    let parentId = taskMap.get(taskId)?.parentId ?? null;
+    while (parentId && !bezocht.has(parentId)) {
+      bezocht.add(parentId);
+      if (s.ui.collapsedTaskIds.includes(parentId)) toExpand.push(parentId);
+      parentId = taskMap.get(parentId)?.parentId ?? null;
+    }
+    if (toExpand.length > 0) get().expandTasks(toExpand);
   },
 
   // Modus-bewust (issue #35): de enige aanroeper is het bandkop-contextmenu, en dat verschijnt

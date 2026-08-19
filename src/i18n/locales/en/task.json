@@ -16,7 +16,8 @@
     "completion": "Progress",
     "milestone": "Milestone",
     "hoursPerDayTip": "h/day",
-    "mixedWarning": "Mixed calendars — hours/day per calendar: {{list}}. Duration is shown per task in its own unit."
+    "mixedWarning": "Mixed calendars — hours/day per calendar: {{list}}. Duration is shown per task in its own unit.",
+    "activeDuring": "In progress"
   },
   "taskType": {
     "CONSTRUCTION": "Construction",
@@ -110,6 +111,7 @@
     "interferingFloat": "Interfering float:",
     "criticalPath": "Critical path:",
     "dependencies": "Dependencies",
+    "jumpToTask": "Go to task {{wbs}}",
     "relationPopoverTitle": "Relation type",
     "driving": "Driving relationship",
     "lag": "Lag (e.g. 2d, 3ed, 2u, 50%, -25e%)",

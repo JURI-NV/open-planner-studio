@@ -91,6 +91,9 @@ const BUILTIN_LABEL_KEY = {
   interferingFloat: 'table.interferingFloat',
   isNearCritical: 'table.isNearCritical',
   floatPath: 'table.floatPath',
+  // Filter-only synthetisch veld (issue-discussie #32) — nooit een kolom, maar de Record moet
+  // exhaustief blijven t.o.v. BuiltinFieldKey.
+  activeDuring: 'table.activeDuring',
 } as const satisfies Record<BuiltinFieldKey, string>;
 
 export function TableEditor() {

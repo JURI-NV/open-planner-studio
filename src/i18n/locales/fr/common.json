@@ -536,8 +536,8 @@
       "machineOnly": "Cet aperçu ne voit que les documents ouverts dans cette application.",
       "staleDoc": "Non compté : planification non calculée — activez ce document et appuyez sur F5.",
       "staleBanner": "Au moins un document n'a pas été calculé et n'est pas pris en compte dans l'occupation.",
-      "staleComputedDoc": "Calculé à l'avance pour cet aperçu — le document lui-même affiche encore d'anciennes dates jusqu'à ce que vous appuyiez sur F5.",
-      "staleComputedBanner": "Les documents modifiés ont été calculés à l'avance pour cet aperçu ; appuyez sur F5 dans le document pour le voir également là-bas.",
+      "staleComputedDoc": "Calculé à l'avance pour cet aperçu — le document lui-même affiche encore d'anciennes dates jusqu'à ce que vous appuyiez sur F5 ou activiez « Calculer automatiquement ».",
+      "staleComputedBanner": "Les documents modifiés ont été calculés à l'avance pour cet aperçu ; appuyez sur F5 dans le document, ou activez « Calculer automatiquement » pour le faire en permanence.",
       "docCount_one": "{{count}} document",
       "docCount_many": "{{count}} documents",
       "docCount_other": "{{count}} documents",
@@ -709,6 +709,14 @@
     "notice": "Ce fichier contient une planification horaire.",
     "enable": "Activer la planification horaire"
   },
+  "recordedDates": {
+    "offer_one": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "offer_many": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "offer_other": "Le recalcul a déplacé {{count}} tâches sur {{total}} par rapport aux dates du fichier.",
+    "show": "Afficher les dates enregistrées",
+    "active": "Vous voyez les dates telles qu'elles sont enregistrées dans le fichier. Aucun recalcul n'a été effectué.",
+    "recalculate": "Recalculer"
+  },
   "duration": {
     "suffixDay": "j",
     "suffixHour": "h",
@@ -830,6 +838,10 @@
     "intro": "Générez un planning de test et mesurez les phases principales. Cela n'affecte pas votre projet ouvert.",
     "sizeLabel": "Taille du planning",
     "tasksCount": "{{count}} tâches",
+    "resourceLabel": "Nombre de ressources",
+    "resourcesNone": "Aucune ressource",
+    "resourcesCount": "{{count}} ressources",
+    "networkHint": "Chaque tâche sans sous-tâches reçoit au moins une relation ; les tâches récapitulatives restent un cumul de leurs enfants.",
     "run": "Exécuter",
     "running": "En cours…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -863,5 +875,26 @@
     "detailRender": "{{rows}} lignes · {{w}}×{{h}}",
     "renderUnavailable": "rendu indisponible (pas de contexte canvas 2D)",
     "largeWarning": "Grand planning : cela peut prendre un moment ; la barre de progression peut sembler figée pendant le calcul."
+  },
+  "extConsent": {
+    "title": "Installer l'extension ?",
+    "author": "Auteur",
+    "repository": "Dépôt",
+    "originHeading": "Origine",
+    "sourceCatalog": "Depuis le catalogue d'extensions en ligne",
+    "sourceZip": "Depuis un fichier ZIP sur cet ordinateur",
+    "sourceJs": "Depuis un fichier JavaScript sur cet ordinateur",
+    "verifiedChecksum": "Téléchargement vérifié avec la somme de contrôle du catalogue.",
+    "verifiedNone": "Le catalogue ne fournit aucune somme de contrôle — ce téléchargement n'a pas été vérifié.",
+    "verifiedLocal": "Vous avez choisi ce fichier vous-même ; il n'existe aucune source externe pour le vérifier.",
+    "riskHeading": "Ce que vous acceptez",
+    "riskBody": "Une extension est du code qui s'exécute avec les mêmes droits qu'Open Planner Studio lui-même. Rien ne le limite. N'installez que des extensions dont vous faites confiance à l'auteur.",
+    "riskDesktop": "Dans l'application de bureau, cela comprend : lire et écrire des fichiers partout dans votre dossier utilisateur, ainsi que l'accès à vos projets, réglages et presse-papiers.",
+    "riskBrowser": "Dans le navigateur, cela signifie : l'accès à vos projets et réglages enregistrés, aux fichiers auxquels vous avez donné accès, et au réseau.",
+    "declaredHeading": "Ce que cette extension déclare utiliser",
+    "declaredNote": "C'est la déclaration de l'auteur, pas une restriction — le code peut faire davantage.",
+    "declaredNone": "Rien de déclaré.",
+    "cancel": "Ne pas installer",
+    "confirm": "Installer"
   }
 }

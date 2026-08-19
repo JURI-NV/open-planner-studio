@@ -16,7 +16,8 @@
     "freeFloat": "Folga livre",
     "interferingFloat": "Folga interferente",
     "isNearCritical": "Quase crítica",
-    "floatPath": "Caminho de folga"
+    "floatPath": "Caminho de folga",
+    "activeDuring": "Em andamento"
   },
   "taskType": {
     "CONSTRUCTION": "Construção",
@@ -90,6 +91,7 @@
     "freeFloat": "Folga livre:",
     "criticalPath": "Caminho crítico:",
     "dependencies": "Dependências",
+    "jumpToTask": "Ir para a tarefa {{wbs}}",
     "relationPopoverTitle": "Tipo de relação",
     "driving": "Relação determinante (driving)",
     "lag": "Atraso (ex.: 2d, 3ed, 2u, 50%, -25e%)",

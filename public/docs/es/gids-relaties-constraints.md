@@ -54,6 +54,10 @@ También puede colocar una relación directamente en una tarea de resumen (una f
 
 Esto es exacto para **FS y FF** con un resumen como predecesora, y para **FS y SS** con un resumen como sucesora. Para **SS/SF** con un resumen como predecesora y **FF/SF** con un resumen como sucesora — combinaciones poco frecuentes en la práctica de la construcción — Open Planner Studio planifica deliberadamente del lado seguro: posiblemente algo más tarde de lo estrictamente necesario, nunca antes.
 
+## Saltar a una tarea vinculada
+
+En el panel de propiedades, cada fila de dependencia muestra también el número WBS de la tarea vinculada como botón en el que se puede hacer clic. Pase el cursor sobre él para ver los mismos detalles que al pasar el cursor sobre una barra de tarea en el diagrama de Gantt (nombre, WBS, duración, inicio/fin, estado, ruta crítica, holgura total). Haga clic para seleccionar esa tarea: el diagrama de Gantt hace zoom y se desplaza hasta ella, y expande automáticamente cualquier tarea principal contraída que la ocultaba.
+
 ## Tipos de restricción
 
 Una restricción impone un límite de fecha a una tarea, con independencia de sus relaciones. Open Planner Studio tiene ocho tipos, que se establecen mediante el campo **Restricción** en el panel de propiedades:

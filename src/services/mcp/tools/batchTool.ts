@@ -253,8 +253,12 @@ function formatReport(report: StepReport[]): string {
 /**
  * Herbereken MIDDEN in de batch — synchroon, exact de drie stappen die de transactie ook aan het eind
  * doet. Nodig vóór een leesstap of een `level_resources`-stap die op mutaties volgt: die zouden anders
- * verouderde datums lezen. `runCPM` pusht per invariant (WP0-a) nooit een undo-snapshot, dus dit kost
- * géén extra undo-stap. Eindigt de herberekening in `cpmResult.error` (kringverwijzing), dan is dat
+ * verouderde datums lezen. `runCPM` pusht per invariant (WP0-a) geen undo-snapshot, dus dit kost géén
+ * extra undo-stap — met één uitzondering (issue #63): staat het document in "datums zoals opgeslagen",
+ * dan verlaat `runCPM` die modus en pusht daarvoor wél één snapshot. Binnen een batch is dat onzichtbaar,
+ * want `beginUndoable` zwijgt zolang de transactie loopt en die nam haar ene snapshot al vóór de eerste
+ * stap — mét de modus aan, dus één undo draait de hele batch inclusief het modusverlies terug.
+ * Eindigt de herberekening in `cpmResult.error` (kringverwijzing), dan is dat
  * een structurele stapfout: gooien, zodat de hele batch schoon terugrolt.
  */
 export function recomputeMidBatch(): void {

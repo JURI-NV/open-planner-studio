@@ -54,6 +54,10 @@ Bir ilişkiyi, alttaki görevlerden birine değil, doğrudan bir özet göreve (
 
 Bu, öncül olarak özet görev içeren **FS ve FF** ile ardıl olarak özet görev içeren **FS ve SS** için tam olarak doğrudur. Öncül olarak özet görev içeren **SS/SF** ile ardıl olarak özet görev içeren **FF/SF** için — inşaat pratiğinde nadir görülen kombinasyonlar — Open Planner Studio bilinçli olarak güvenli tarafı planlar: kesinlikle gerekenden biraz daha geç olabilir, asla daha erken değil.
 
+## Bağlı bir göreve atlama
+
+Özellikler panelinde, her bağımlılık satırı bağlı görevin WBS numarasını tıklanabilir bir düğme olarak gösterir. Aynı ayrıntıları görmek için üzerine gelin — Gantt şemasındaki bir görev çubuğunun üzerine gelmekle aynı bilgiler (ad, WBS, süre, başlangıç/bitiş, durum, kritik yol, toplam bolluk). O görevi seçmek için tıklayın: Gantt şeması ona yakınlaşır ve kaydırılır, onu gizleyen daraltılmış her üst görevi otomatik olarak genişletir.
+
 ## Kısıtlama türleri
 
 Bir kısıtlama, ilişkilerinden bağımsız olarak bir göreve bir tarih sınırı dayatır. Open Planner Studio'nun, özellikler panelindeki **Kısıtlama** alanı üzerinden ayarlanan sekiz türü vardır:

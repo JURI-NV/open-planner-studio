@@ -13,8 +13,9 @@ import { isTauri } from '@/utils/platform';
 import type { Task } from '@/types/task';
 import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
+import { captureRecordedDates, countShiftedTasks } from '@/engine/scheduler/recordedDates';
 import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
-import { finishMutation } from '../transaction';
+import { beginUndoable, finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
@@ -164,9 +165,22 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           s.ui.hourDataNotice = !s.ui.enableHourPlanning && fileHasHourData(s.tasks, [s.calendar, ...s.calendars]);
         }
       });
+      // "Datums zoals opgeslagen" (issue #63): leg VÓÓR de solve vast wat het bestand zei. `set()`
+      // hierboven is synchroon en er zit niets tussenin, dus `get().tasks` hier is nog exact wat
+      // `hydratePayload` er net neerzette. Dat moet vóór de recompute hieronder: `payloadFromImport`
+      // geeft `parsed.tasks` per referentie door, dus `s.tasks`/`get().tasks` en `parsed.tasks` zijn
+      // dezelfde objecten — `runCPM` muteert ze in-place, dus na de solve zijn de gelezen waarden ook
+      // in `parsed` alweer overschreven.
+      const recorded = opts.recompute ? captureRecordedDates(get().tasks, parsed.recordedFields) : null;
       // Na een IFC-load meteen doorrekenen (CLAUDE.md "after an IFC load"), consistent met de
       // IFCPanel-plakroute — anders blijven statusbalk/histogram leeg tot de gebruiker F5 drukt (A5).
       if (opts.recompute) get().runCPM();
+      // …en pas dán vergelijken. Nul verschil ⇒ niets in de state; de strook blijft dan onzichtbaar,
+      // precies zoals bedoeld.
+      if (recorded && recorded.total > 0) {
+        const shifted = countShiftedTasks(get().tasks, recorded.times);
+        if (shifted > 0) set((s) => { s.recordedDates = { ...recorded, shifted }; });
+      }
       if (opts.fit) get().requestFitToProject(); // Issue #16: canvas op het HELE project passen.
       // Relaties die de solver ECHT niet kon meerekenen (eigenaarsbesluit 2026-08-15): een
       // verzameltaak-eindpunt op zich is sinds `expandSummaryRelations` GEEN reden meer om te
@@ -458,8 +472,17 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
       const result = refreshExternalAnchors(get().tasks, source);
       if (result.changed) {
         set((s) => {
+          // Wél een snapshot (issue #63, review taak 6). Dit was de énige
+          // `finishMutation({ stale: true })` zónder `beginUndoable` — een bewuste asymmetrie
+          // ("externe-anker-verversing is niet undoable") die niet houdbaar is zodra de modus
+          // "datums zoals opgeslagen" bestaat: `finishMutation` verlaat die modus, en zonder
+          // snapshot is het aanbod dan onherstelbaar weg (laden → aanbod → ankers verversen →
+          // weg, zonder weg terug). Erger nog, het breekt de invariant van `snapshot.ts`: een
+          // undo van een OUDERE bewerking zou `datesAsRecorded: true` terugzetten terwijl de
+          // ankers al ververst zijn. Deze verversing verandert taakdatums en draait meteen
+          // `runCPM` — een gewone, zichtbare datamutatie dus, en die hoort ongedaan te kunnen.
+          beginUndoable(s);
           s.tasks = result.tasks;
-          // Flag-only (bewuste asymmetrie): externe-anker-verversing is niet undoable.
           finishMutation(s, { stale: true });
         });
         get().recomputeViewRows();
@@ -476,14 +499,49 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           if (link.sourceRef.filePath) paths.add(link.sourceRef.filePath);
         }
       }
+
+      // ÉÉN GEBAAR = ÉÉN UNDO-STAP (review taak 6). Deze actie lustte eerder over
+      // `refreshExternalAnchorsFrom`, dat sinds issue #63 zelf een snapshot pusht — bij twee
+      // gewijzigde bronnen kostte de knop "Alles verversen" dan twee keer Ctrl+Z.
+      //
+      // De oplossing is NIET `withTransaction`/`enterBatch` om de lus heen: er zit een `await` in
+      // (bestanden inlezen), en de bulk-suppressie is module-state. Alles wat de gebruiker tijdens
+      // dat inlezen doet zou dan zijn eigen undo-stap verliezen en in deze stap opgaan.
+      //
+      // Daarom in twee fasen: eerst ALLE bronnen async inlezen zonder iets te muteren, dan de pure
+      // `refreshExternalAnchors` (die muteert niets in-place) over de takenlijst KETENEN, en pas
+      // daarna één keer schrijven. Levert meteen één `runCPM` in plaats van N.
+      const sourceDocs: ExternalSourceDoc[] = [];
+      for (const p of paths) {
+        const src = await get().parseExternalSource(p, labels);
+        if (!src) continue; // onleesbaar/geen Tauri ⇒ deze bron telt niet mee (ongewijzigd gedrag)
+        sourceDocs.push({
+          projectId: src.projectId, filePath: src.filePath, projectName: src.projectName, tasks: src.tasks,
+        });
+      }
+
+      let tasks = get().tasks;
       let refreshed = 0;
       let missing = 0;
-      let sources = 0;
-      for (const p of paths) {
-        const r = await get().refreshExternalAnchorsFrom(p, labels);
-        if (r) { refreshed += r.refreshed; missing += r.missing; sources++; }
+      let anyChanged = false;
+      for (const source of sourceDocs) {
+        const result = refreshExternalAnchors(tasks, source);
+        tasks = result.tasks; // ketenen: elke bron ververst zijn eigen links op het vorige resultaat
+        refreshed += result.refreshed;
+        missing += result.missing;
+        if (result.changed) anyChanged = true;
       }
-      return { refreshed, missing, sources };
+
+      if (anyChanged) {
+        set((s) => {
+          beginUndoable(s);
+          s.tasks = tasks;
+          finishMutation(s, { stale: true });
+        });
+        get().recomputeViewRows();
+        get().runCPM();
+      }
+      return { refreshed, missing, sources: sourceDocs.length };
     },
 
     openRecentFile: async (id: string, labels) => {

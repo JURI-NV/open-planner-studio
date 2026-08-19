@@ -16,7 +16,8 @@
     "freeFloat": "Zapas swobodny",
     "interferingFloat": "Zapas interferujący",
     "isNearCritical": "Prawie krytyczne",
-    "floatPath": "Ścieżka zapasu"
+    "floatPath": "Ścieżka zapasu",
+    "activeDuring": "W toku"
   },
   "taskType": {
     "CONSTRUCTION": "Budowa",
@@ -90,6 +91,7 @@
     "freeFloat": "Zapas swobodny:",
     "criticalPath": "Ścieżka krytyczna:",
     "dependencies": "Zależności",
+    "jumpToTask": "Przejdź do zadania {{wbs}}",
     "relationPopoverTitle": "Typ relacji",
     "driving": "Relacja wiodąca (driving)",
     "lag": "Zwłoka (np. 2d, 3ed, 2u, 50%, -25e%)",

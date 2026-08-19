@@ -16,7 +16,8 @@
     "freeFloat": "フリーフロート",
     "interferingFloat": "干渉フロート",
     "isNearCritical": "準クリティカル",
-    "floatPath": "フロートパス"
+    "floatPath": "フロートパス",
+    "activeDuring": "進行中"
   },
   "taskType": {
     "CONSTRUCTION": "建設",
@@ -90,6 +91,7 @@
     "freeFloat": "フリーフロート：",
     "criticalPath": "クリティカルパス：",
     "dependencies": "依存関係",
+    "jumpToTask": "タスク {{wbs}} へ移動",
     "relationPopoverTitle": "関係の種類",
     "driving": "駆動関係（ドライビング）",
     "lag": "ラグ（例: 2d、3ed、2u、50%、-25e%）",

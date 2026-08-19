@@ -16,7 +16,8 @@
     "freeFloat": "Freier Puffer",
     "interferingFloat": "Interferierender Puffer",
     "isNearCritical": "Beinahe kritisch",
-    "floatPath": "Pufferpfad"
+    "floatPath": "Pufferpfad",
+    "activeDuring": "In Bearbeitung"
   },
   "taskType": {
     "CONSTRUCTION": "Bau",
@@ -90,6 +91,7 @@
     "freeFloat": "Freier Puffer:",
     "criticalPath": "Kritischer Pfad:",
     "dependencies": "Abhängigkeiten",
+    "jumpToTask": "Zur Aufgabe {{wbs}} springen",
     "relationPopoverTitle": "Beziehungstyp",
     "driving": "Maßgebende Beziehung (driving)",
     "lag": "Verzögerung (z.B. 2d, 3ed, 2u, 50%, -25e%)",

@@ -136,6 +136,7 @@ export function ReportPanel() {
   const projectName = project.name || tCommon('project.untitled');
   const fileBase = projectFileBase(project.name);
   const dateNotation = useAppStore(s => s.ui.dateNotation);
+  const weekStartDay = useAppStore(s => s.ui.weekStartDay);
   // Issue #56: de lijnstijl van de relaties in het rapport volgt de P6-conventie van het scherm
   // (doorgetrokken = bepalend, gestreept = niet-bepalend). Die informatie zit alleen in `cpmResult`,
   // dus een echte subscription — anders ververst de preview niet na een F5/Bereken.
@@ -330,6 +331,10 @@ export function ReportPanel() {
     projectEndDate: project.endDate,
     projectAuthor: project.author,
     dateNotation,
+    // K-item 39: dezelfde weekdefinitie als de Gantt op het scherm. Zonder dit veld drukte het
+    // rapport altijd ISO-weeknummers op maandag af, ook als de gebruiker "week begint op zondag"
+    // had staan — hetzelfde project, twee antwoorden.
+    weekStartDay,
     timelineColumns,
     reportFontScale,
     // Issue #56 — welke relaties BEPALEND (driving) zijn is een `CPMResult`-veld dat bewust niet

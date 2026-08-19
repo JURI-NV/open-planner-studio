@@ -12,7 +12,10 @@ import type { CPMResult } from '@/engine/scheduler/CPMSolver';
  */
 
 // Onderling goed onderscheidbare identiteitskleuren (amber/blauw/groen/paars/…).
-const DOC_PALETTE = [
+// Geëxporteerd zodat weergaven die zelf een unieke (in plaats van hash-gebaseerde) toewijzing
+// nodig hebben — zie `ResourceOccupancyView` — hetzelfde palet hergebruiken i.p.v. een tweede
+// definitie te introduceren.
+export const DOC_PALETTE = [
   '#D97706', '#2563EB', '#16A34A', '#7C3AED',
   '#DB2777', '#0891B2', '#CA8A04', '#0D9488',
 ];

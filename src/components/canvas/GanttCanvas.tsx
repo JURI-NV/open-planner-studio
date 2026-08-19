@@ -3,16 +3,14 @@ import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { GanttRenderer, GanttRenderOptions } from '@/engine/renderer/GanttRenderer';
 import { HistogramRenderer, HistogramSeries, HistogramPickerItem } from '@/engine/renderer/HistogramRenderer';
-import { traceFrom } from '@/engine/scheduler/graphWalk';
 import { saveBranchAsWbsTemplate } from '@/utils/wbsTemplates';
 import { resolveUIFontStack } from '@/utils/uiFont';
-import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, ORIGIN_PADDING_DAYS, computeFitToProject } from '@/utils/ganttViewport';
+import { setGanttChartWidth, setGanttScrollBounds, getGanttScrollBounds, computeGanttScrollBounds, computeFitToProject, computeEffectiveViewStart, computeFocusTaskHorizontal, computeFocusTaskScrollY, DEFAULT_ZOOM } from '@/utils/ganttViewport';
 import { resolveWheelFunction } from '@/utils/ganttWheel';
 import { MiniMap } from './MiniMap';
-import { diffDays, formatDate, parseDate, parseInstant, addCalendarDays } from '@/utils/dateUtils';
+import { parseDate, parseInstant } from '@/utils/dateUtils';
 import { effectiveCalendarByTask } from '@/services/subdayIo';
 import { durationSuffixesFrom } from '@/utils/taskDuration';
-import { useDisplayDate } from '@/hooks/displayDate';
 import { Task } from '@/types/task';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { ContextMenu } from './ContextMenu';
@@ -22,15 +20,21 @@ import { contextMenuOutlineScope, contextMenuBulk } from './contextMenuScope';
 import { RelationTypePopover } from './RelationTypePopover';
 // Issue #58: hover-tooltip die zichzelf binnen het venster houdt (nodig zodra de titel wrapt).
 import { HoverTooltip } from './HoverTooltip';
+import { TaskTooltipContent } from './TaskTooltipContent';
 import { getLocalizedMonths } from '@/i18n/dateFormat';
-import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
-// Issue #21 punt 5 (fase 2): gedeelde as-instantie voor Gantt + Histogram (ontwerp §10.1).
-import { resolveGanttAxis } from '@/engine/renderer/workdayAxis';
-import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
+import { dateToX as axisDateToX, MS_PER_DAY } from '@/engine/renderer/timeAxis';
 import { useGanttZoom } from '@/hooks/useGanttZoom';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
 import { useSplitter } from '@/hooks/useSplitter';
 import { saveLeftPanelWidth, saveHistogramHeight, TASK_TABLE_MIN_WIDTH, TASK_TABLE_MAX_WIDTH, HISTOGRAM_MIN_HEIGHT, HISTOGRAM_MAX_HEIGHT } from '@/utils/settingsStore';
+// K-item 33: de pure afleidingen achter de weergave + de opbouw van `GanttRenderOptions`. Ze zijn
+// hierheen verhuisd zodat ze headless te controleren zijn; de `useMemo`-aanroepen hieronder blijven
+// bewust in dit component staan (zie de kop van dat bestand voor waarom).
+import {
+  buildBaselineOverlay, buildTrace, buildSharedAxis,
+  computeContentSpanDays, computeContentWidth,
+  buildHistogramPicker, buildHistogramSeries, buildGanttRenderOptions,
+} from './ganttRenderOptions';
 import { useCanvasLayer } from './hooks/useCanvasLayer';
 import { useBarDrag } from './hooks/useBarDrag';
 import { usePan } from './hooks/usePan';
@@ -55,8 +59,6 @@ const SCROLLBAR_GUTTER = 8;
 // Breedte van de sleepbare ratio-balk tussen de twee panes — de mini-map-strook eronder laat
 // exact dezelfde tussenruimte, anders schuift hij t.o.v. zijn pane.
 const SPLIT_RATIO_BAR_WIDTH = 5;
-// Zelfde default als de kale '0'-toets in useZoomShortcuts.ts (Zoom reset, leeg-canvas-contextmenu).
-const DEFAULT_ZOOM = 30;
 
 interface ContextMenuState {
   x: number;
@@ -91,7 +93,6 @@ export function GanttCanvas() {
   const { t: tTask, i18n } = useTranslation('task');
   const { t: tCommon } = useTranslation('common');
   const { t: tMenu } = useTranslation('menu');
-  const dd = useDisplayDate();
 
   const tasks = useAppStore(s => s.tasks);
   const sequences = useAppStore(s => s.sequences);
@@ -104,6 +105,7 @@ export function GanttCanvas() {
   const durationDisplay = useAppStore(s => s.ui.durationDisplay);
   const view = useAppStore(s => s.view);
   const pendingFit = useAppStore(s => s.view.pendingFit);
+  const pendingFocusTaskId = useAppStore(s => s.view.pendingFocusTaskId);
   const selectedTaskIds = useAppStore(s => s.selectedTaskIds);
   const collapsedTaskIds = useAppStore(s => s.ui.collapsedTaskIds);
   const selectTask = useAppStore(s => s.selectTask);
@@ -314,16 +316,10 @@ export function GanttCanvas() {
   });
 
   // Baseline-overlay-Map uit de actieve baseline (fase 2.6, §6.2): keyed op Task.id (leaf-taken).
-  const baselineOverlay = useMemo(() => {
-    if (!activeBaselineId) return undefined;
-    const active = baselines.find(b => b.id === activeBaselineId);
-    if (!active) return undefined;
-    const map = new Map<string, { start: string; finish: string; isMilestone: boolean }>();
-    for (const bt of active.tasks) {
-      map.set(bt.taskId, { start: bt.start, finish: bt.finish, isMilestone: bt.isMilestone });
-    }
-    return map;
-  }, [baselines, activeBaselineId]);
+  const baselineOverlay = useMemo(
+    () => buildBaselineOverlay(baselines, activeBaselineId),
+    [baselines, activeBaselineId],
+  );
 
   const columnHeaders = useMemo(() => ({
     wbs: tTask('table.wbs'),
@@ -333,21 +329,10 @@ export function GanttCanvas() {
 
   // Path tracing rond de (eerst) geselecteerde taak: transitieve voorgangers/opvolgers, met de
   // driving-ketens apart zodat de renderer die sterker kan tinten (MSP Task Path-conventie).
-  const trace = useMemo(() => {
-    if (traceMode === 'off' || selectedTaskIds.length === 0) return undefined;
-    const focusId = selectedTaskIds[0];
-    const drivingIds = cpmResult && !cpmResult.error
-      ? new Set(cpmResult.drivingSequenceIds)
-      : undefined;
-    const tr = traceFrom(focusId, sequences, drivingIds);
-    return {
-      focusId,
-      predecessors: traceMode !== 'successors' ? [...tr.predecessors] : [],
-      drivingPredecessors: traceMode !== 'successors' ? [...tr.drivingPredecessors] : [],
-      successors: traceMode !== 'predecessors' ? [...tr.successors] : [],
-      drivenSuccessors: traceMode !== 'predecessors' ? [...tr.drivenSuccessors] : [],
-    };
-  }, [traceMode, selectedTaskIds, sequences, cpmResult]);
+  const trace = useMemo(
+    () => buildTrace(traceMode, selectedTaskIds, sequences, cpmResult),
+    [traceMode, selectedTaskIds, sequences, cpmResult],
+  );
 
   // Effective timeline origin (the date mapped to scrollX = 0). The stored
   // viewStartDate defaults to "today" and never accounts for tasks that start
@@ -355,17 +340,10 @@ export function GanttCanvas() {
   // allow scrollX >= 0, anything left of the origin is unreachable. Pin the
   // origin to the earliest task start (or today, whichever is earlier) minus a
   // small padding so past tasks become scrollable into view.
-  const effectiveViewStart = useMemo(() => {
-    let earliest = parseDate(view.viewStartDate);
-    for (const task of tasks) {
-      const start = task.time.earlyStart || task.time.scheduleStart || task.time.lateStart;
-      if (start) {
-        const d = parseDate(start);
-        if (d.getTime() < earliest.getTime()) earliest = d;
-      }
-    }
-    return formatDate(addCalendarDays(earliest, -ORIGIN_PADDING_DAYS));
-  }, [tasks, view.viewStartDate]);
+  const effectiveViewStart = useMemo(
+    () => computeEffectiveViewStart(tasks, view.viewStartDate),
+    [tasks, view.viewStartDate],
+  );
 
   // The view handed to the renderer/content-width uses the effective origin so
   // the date<->x mapping stays consistent across canvas, scrollbar and zoom.
@@ -380,44 +358,29 @@ export function GanttCanvas() {
   // gecomprimeerd is. Fresh per render via de dep-array, geen cross-render cache (§2.5). De
   // secundaire split-view-pane (`drawSecondary`) heeft een eigen zoom/scrollX en bouwt daarom zijn
   // eigen as (via `compressNonWorkdays` in de opts) — die deelt bewust NIET in deze instantie.
-  const sharedAxis = useMemo(() => {
-    const engine = new CalendarEngine(calendar);
-    return resolveGanttAxis({
-      calendar: engine,
+  const sharedAxis = useMemo(
+    () => buildSharedAxis({
+      calendar,
       compressNonWorkdays,
-      origin: parseDate(effectiveView.viewStartDate),
+      viewStartDate: effectiveView.viewStartDate,
       taskTableWidth,
       zoom: effectiveView.zoom,
       scrollX: effectiveView.scrollX,
-    });
-  }, [calendar, compressNonWorkdays, effectiveView, taskTableWidth]);
+    }),
+    [calendar, compressNonWorkdays, effectiveView, taskTableWidth],
+  );
 
   // Content-span in dagen vanaf de effectieve origin — bewust ZONDER zoom/taskTableWidth, zodat
   // dezelfde span ook voor het secundaire split-view-venster (eigen zoom, geen taaktabel) gebruikt
   // kan worden zonder de compressie-logica te dupliceren (issue #35 punt 1). `null` = leeg project.
-  const contentSpanDays = useMemo(() => {
-    if (tasks.length === 0) return null;
-    const viewStart = effectiveViewStart;
-    let maxDays = 365;
-    for (const task of tasks) {
-      const end = task.time.earlyFinish || task.time.scheduleFinish || task.time.lateFinish;
-      if (end) {
-        // Issue #21 punt 5 (fase 2, §10.2 eenheden-consistentie): bij compressie telt de
-        // contentbreedte in WERKDAG-eenheden (`axis.daySpan`) i.p.v. kalenderdagen — anders is de
-        // scrollbar te breed (kalenderdagen) of te smal t.o.v. wat er daadwerkelijk getekend wordt.
-        const days = compressNonWorkdays
-          ? sharedAxis.daySpan(parseDate(viewStart), parseDate(end))
-          : diffDays(viewStart, end);
-        if (days > maxDays) maxDays = days;
-      }
-    }
-    return maxDays;
-  }, [tasks, effectiveViewStart, compressNonWorkdays, sharedAxis]);
+  const contentSpanDays = useMemo(
+    () => computeContentSpanDays(tasks, effectiveViewStart, compressNonWorkdays, sharedAxis),
+    [tasks, effectiveViewStart, compressNonWorkdays, sharedAxis],
+  );
 
   /** Contentbreedte (px) van een tijdvenster met de gegeven zoom en tabelbreedte. */
   const contentWidthFor = useCallback(
-    (zoom: number, tableWidth: number) =>
-      contentSpanDays === null ? 2000 : Math.max(2000, (contentSpanDays * 1.2) * zoom + tableWidth),
+    (zoom: number, tableWidth: number) => computeContentWidth(contentSpanDays, zoom, tableWidth),
     [contentSpanDays],
   );
 
@@ -435,44 +398,15 @@ export function GanttCanvas() {
   );
 
   // --- Histogram (fase 2.5, §6.4) ---
-  const histogramPicker = useMemo<HistogramPickerItem[]>(() => {
-    const over = resourceLoadResult?.overallocatedDays ?? {};
-    const anyRenewableOver = resources.some(
-      r => r.type !== 'MATERIAL' && (over[r.id]?.length ?? 0) > 0,
-    );
-    const items: HistogramPickerItem[] = [
-      { id: undefined, label: tCommon('resource.histogram.allResources'), overallocated: anyRenewableOver },
-    ];
-    for (const r of resources) {
-      items.push({ id: r.id, label: r.name || r.id, overallocated: (over[r.id]?.length ?? 0) > 0 });
-    }
-    return items;
-  }, [resources, resourceLoadResult, tCommon]);
+  const histogramPicker = useMemo<HistogramPickerItem[]>(
+    () => buildHistogramPicker(resources, resourceLoadResult, tCommon('resource.histogram.allResources')),
+    [resources, resourceLoadResult, tCommon],
+  );
 
-  const histogramSeries = useMemo<HistogramSeries>(() => {
-    if (!resourceLoadResult) return { load: {}, capacity: {}, overSet: new Set<string>() };
-    const { load, capacity, overallocatedDays } = resourceLoadResult;
-    if (histogramResourceId) {
-      return {
-        load: load[histogramResourceId] ?? {},
-        capacity: capacity[histogramResourceId] ?? {},
-        overSet: new Set(overallocatedDays[histogramResourceId] ?? []),
-      };
-    }
-    // "Alle resources": som over alle renewables (materiaal telt niet mee, §6.4).
-    const aggLoad: Record<string, number> = {};
-    const aggCap: Record<string, number> = {};
-    for (const r of resources) {
-      if (r.type === 'MATERIAL') continue;
-      const l = load[r.id];
-      const cp = capacity[r.id];
-      if (l) for (const iso in l) aggLoad[iso] = (aggLoad[iso] ?? 0) + l[iso];
-      if (cp) for (const iso in cp) aggCap[iso] = (aggCap[iso] ?? 0) + cp[iso];
-    }
-    const overSet = new Set<string>();
-    for (const iso in aggLoad) if (aggLoad[iso] > (aggCap[iso] ?? 0) + 1e-9) overSet.add(iso);
-    return { load: aggLoad, capacity: aggCap, overSet };
-  }, [resourceLoadResult, histogramResourceId, resources]);
+  const histogramSeries = useMemo<HistogramSeries>(
+    () => buildHistogramSeries(resourceLoadResult, histogramResourceId, resources),
+    [resourceLoadResult, histogramResourceId, resources],
+  );
 
   // Histogram-teken-callback (§6.4): dpr/resize-boilerplate zit nu in useCanvasLayer; hier alleen de
   // HistogramRenderer opbouwen + tekenen. `extraDeps: [histogramHeight]` bewaart de originele
@@ -576,21 +510,18 @@ export function GanttCanvas() {
     // `setScroll` (viewSlice) nooit voorbij de content kan klemmen — de vorige versie klemde
     // alleen naar 0, zonder bovengrens, waardoor een verticale overscroll (of horizontaal ná een
     // extreme zoom-uit/-in-cyclus) de taakbalken-laag permanent buiten beeld kon duwen.
-    setGanttScrollBounds({
-      maxScrollX: Math.max(0, totalContentWidth - width),
-      maxScrollY: Math.max(0, viewRows.length * rowHeight - (height - headerHeight)),
-    });
+    setGanttScrollBounds(
+      computeGanttScrollBounds(totalContentWidth, viewRows.length, rowHeight, headerHeight, width, height),
+    );
 
-    const opts: GanttRenderOptions = {
+    const opts: GanttRenderOptions = buildGanttRenderOptions({
       rows: viewRows,
       sequences,
       calendar,
       view: effectiveView,
       selectedTaskIds,
       collapsedTaskIds,
-      drivingSequenceIds: cpmResult && !cpmResult.error ? cpmResult.drivingSequenceIds : undefined,
-      violatedConstraintTaskIds: cpmResult && !cpmResult.error ? cpmResult.violatedConstraintTaskIds : undefined,
-      missedDeadlineTaskIds: cpmResult && !cpmResult.error ? cpmResult.missedDeadlineTaskIds : undefined,
+      cpmResult,
       statusDate,
       showStatusDateLine,
       showProgressLine,
@@ -616,6 +547,10 @@ export function GanttCanvas() {
       // Issue #51: live duur-pilletje bij een lopende rand-sleep (undefined ⇒ niets extra's).
       durationDrag,
       highContrast: uiTheme === 'high-contrast',
+      // Audit C5/P17: de renderer leest zijn palet zelf uit de DOM zolang we er geen injecteren.
+      // Expliciet opschrijven, want het invoertype is afgeleid van `GanttRenderOptions` — een
+      // weggelaten veld is hier een compilefout, geen stilte.
+      palette: undefined,
       // Issue #21 punt 5 (fase 2): vlag + de gedeelde as-instantie (§10.1, zelfde als Histogram).
       compressNonWorkdays,
       axis: sharedAxis,
@@ -623,12 +558,12 @@ export function GanttCanvas() {
       fontFamily: canvasFontFamily,
       // Issue #60: Tekengrootte-schaal (rowHeight/headerHeight hierboven schalen al mee).
       fontScale,
-    };
+    });
 
     const renderer = new GanttRenderer(ctx, opts);
     rendererRef.current = renderer;
     renderer.render();
-  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight]);
+  }, [viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, taskTableWidth, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, totalContentWidth, effectiveCalById, barSplitMode, enableHourPlanning, durationDisplay, durationSuffixes, compressNonWorkdays, sharedAxis, canvasFontFamily, durationDrag, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({ canvasRef, containerRef, draw: drawPrimary });
 
@@ -639,7 +574,7 @@ export function GanttCanvas() {
     // Zelfde >1px-drempel als bij `primaryChartWidth`: zonder die drempel zet elke render een
     // nieuwe state en tolt de render-lus rond (setState → render → setState).
     setSecondaryChartWidth(prev => (Math.abs(prev - width) > 1 ? width : prev));
-    const renderer = new GanttRenderer(ctx, {
+    const renderer = new GanttRenderer(ctx, buildGanttRenderOptions({
       rows: viewRows,
       sequences,
       calendar,
@@ -650,9 +585,7 @@ export function GanttCanvas() {
       },
       selectedTaskIds,
       collapsedTaskIds,
-      drivingSequenceIds: cpmResult && !cpmResult.error ? cpmResult.drivingSequenceIds : undefined,
-      violatedConstraintTaskIds: cpmResult && !cpmResult.error ? cpmResult.violatedConstraintTaskIds : undefined,
-      missedDeadlineTaskIds: cpmResult && !cpmResult.error ? cpmResult.missedDeadlineTaskIds : undefined,
+      cpmResult,
       statusDate,
       showStatusDateLine,
       showProgressLine,
@@ -671,18 +604,35 @@ export function GanttCanvas() {
       enableQuarterHourZoom,
       effectiveCalById,
       barSplitMode,
+      // Deze drie voeden alléén de duurkolom (`drawTaskTable`, die bij `taskTableWidth <= 0` meteen
+      // terugkeert) en het sleep-pilletje. Dit pane heeft geen van beide, dus ze zijn hier inert —
+      // expliciet `undefined` in plaats van weggelaten, zodat het een keuze blijft en geen omissie.
+      enableHourPlanning: undefined,
+      durationDisplay: undefined,
+      durationSuffixes: undefined,
+      // WEL vullen: dit is geen tabelveld. Het label wordt in de CHART getekend
+      // (`drawTaskBars` -> `drawExternalGhosts`), dus zonder dit toonde dit pane het
+      // hardgecodeerde NL 'verouderd' ongeacht de ingestelde taal. `tTask` staat daarom óók in de
+      // dep-array hieronder: hij ontbrak daar aanvankelijk en de taalwissel werkte alleen doordat
+      // `columnHeaders` (een TABELveld dat dit pane niet eens gebruikt) toevallig op `[tTask]`
+      // gememoized is. Haalt iemand dat inerte veld weg, dan bevriest de badge stil.
+      externalStaleLabel: tTask('externalLinks.stale'),
+      // Rand-slepen gebeurt alleen in de primaire pane.
+      durationDrag: undefined,
       highContrast: uiTheme === 'high-contrast',
+      palette: undefined,
       // Issue #21 punt 5 (fase 2): geen `axis` meegegeven — de secundaire split-view-pane heeft
       // eigen zoom/scrollX, dus bouwt de renderer zelf een consistente as via `compressNonWorkdays`.
       compressNonWorkdays,
+      axis: undefined,
       // Issue #25 punt 4: de secundaire pane volgt dezelfde lettertypefamilie als de primaire.
       fontFamily: canvasFontFamily,
       // Issue #60: en dezelfde tekengrootte-schaal.
       fontScale,
-    });
+    }));
     secondaryRendererRef.current = renderer;
     renderer.render();
-  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight]);
+  }, [splitView, viewRows, sequences, calendar, effectiveView, selectedTaskIds, collapsedTaskIds, cpmResult, trace, localizedMonths, localizedWeekdays, columnHeaders, uiTheme, weekStartDay, enableQuarterHourZoom, statusDate, showStatusDateLine, showProgressLine, showBaselineOverlay, baselineOverlay, effectiveCalById, barSplitMode, compressNonWorkdays, canvasFontFamily, fontScale, rowHeight, headerHeight, tTask]);
 
   useCanvasLayer({
     canvasRef: secondaryCanvasRef,
@@ -828,6 +778,67 @@ export function GanttCanvas() {
     st.setScroll(fit.scrollX, 0);
   }, [pendingFit, tasks, taskTableWidth, enableQuarterHourZoom]);
 
+  // "Spring naar taak" (issue #65): `focusOnTask` (aangeroepen vanuit de WBS-sprongknop bij een
+  // afhankelijkheid) klapt eerst de oudersketen uit en selecteert de taak, en zet dit signaal —
+  // hier, waar de canvas-afmetingen én de al-bijgewerkte `viewRows` bekend zijn, kiezen we het
+  // zoomniveau + de scroll (computeFocusTaskHorizontal/computeFocusTaskScrollY in
+  // ganttViewport.ts) en wissen het signaal. Zelfde start/finish- en hour-mode-conventie als
+  // `revealTaskIfOffscreen` hierboven — bewust een aparte effect, want die functie scrollt alleen
+  // (zoom ongewijzigd, tegen de linkerrand), dit zoomt juist wél en centreert.
+  //
+  // Meet `containerRef`, niet `canvasRef` (hyperkritische review issue #65): de canvas-attributen
+  // worden pas in de rAF-paint van `useCanvasLayer` gezet, dus `canvasRef` kan vlak na een
+  // resize/splitter-sleep nog de vorige (of zelfs de HTML-default 300×150) afmeting hebben terwijl
+  // `containerRef` — CSS-layout, geen canvas-attribuut — al klopt. Zelfde keuze als `pendingFit`.
+  useEffect(() => {
+    if (!pendingFocusTaskId) return;
+    const clearPendingFocusTask = useAppStore.getState().clearPendingFocusTask;
+    const container = containerRef.current;
+    const task = tasks.find(t => t.id === pendingFocusTaskId);
+    if (!container || !task) { clearPendingFocusTask(); return; }
+    const startStr = task.time.earlyStart || task.time.scheduleStart;
+    const endStr = task.time.earlyFinish || task.time.scheduleFinish;
+    if (!startStr || !endStr) { clearPendingFocusTask(); return; }
+
+    const rect = container.getBoundingClientRect();
+    const usable = rect.width - taskTableWidth;
+    if (usable <= 0) { clearPendingFocusTask(); return; }
+
+    const st = useAppStore.getState();
+    const evs = parseDate(computeEffectiveViewStart(st.tasks, st.view.viewStartDate));
+    const hourMode = startStr.includes('T') || endStr.includes('T');
+    const start = hourMode ? parseInstant(startStr) : parseDate(startStr);
+    const endRaw = hourMode ? parseInstant(endStr) : parseDate(endStr);
+    const endMs = endRaw.getTime() + (hourMode ? 0 : MS_PER_DAY);
+    const durationDays = (endMs - start.getTime()) / MS_PER_DAY;
+    const midDayOffset = ((start.getTime() + endMs) / 2 - evs.getTime()) / MS_PER_DAY;
+
+    const { zoom, scrollX } = computeFocusTaskHorizontal(durationDays, midDayOffset, usable);
+
+    const rowIndex = viewRows.findIndex(r => r.kind === 'task' && r.task.id === pendingFocusTaskId);
+    const scrollY = rowIndex >= 0
+      ? computeFocusTaskScrollY(rowIndex, rowHeight, headerHeight, rect.height)
+      : st.view.scrollY; // niet gevonden (bv. weggefilterd) — verticaal onaangeroerd
+
+    // Verouderde klem (hyperkritische review issue #65): `setScroll` klemt tegen `maxScrollX`/
+    // `maxScrollY`, en die twee worden UITSLUITEND in `drawPrimary` gezet — pas in de eerstvolgende
+    // rAF-paint, dus ná deze regel. Zonder correctie klemt `setScroll` hieronder tegen de grenzen
+    // van de VORIGE zoom/rijtelling (bv. bijna nul vlak na een open-fit, of exact nul zolang alles
+    // nog ingeklapt stond), en landt de sprong niet op de taak. Herbereken de grenzen daarom hier
+    // zelf, met dezelfde formule als `drawPrimary` (`contentWidthFor` is dezelfde memoized functie,
+    // geen kopie) en de NIEUWE zoom/rijtelling, vóór `setScroll` ze leest.
+    setGanttScrollBounds(
+      computeGanttScrollBounds(
+        contentWidthFor(zoom, taskTableWidth), viewRows.length, rowHeight, headerHeight,
+        rect.width, rect.height,
+      ),
+    );
+
+    clearPendingFocusTask();
+    st.setZoom(zoom);
+    st.setScroll(scrollX, scrollY);
+  }, [pendingFocusTaskId, tasks, viewRows, taskTableWidth, rowHeight, headerHeight, contentWidthFor]);
+
   // Sync horizontal scrollbar with canvas scrollX (also re-sync after zoom changes)
   useEffect(() => {
     const hScroll = hScrollRef.current;
@@ -885,13 +896,13 @@ export function GanttCanvas() {
     const usable = rect.width - tableW;
     if (usable <= 0) return;
 
-    // effectiveViewStart: zelfde veldvolgorde + ORIGIN_PADDING_DAYS als de render-memo.
-    let earliest = parseDate(v.viewStartDate);
-    for (const tk of st.tasks) {
-      const s = tk.time.earlyStart || tk.time.scheduleStart || tk.time.lateStart;
-      if (s) { const d = parseDate(s); if (d.getTime() < earliest.getTime()) earliest = d; }
-    }
-    const evs = addCalendarDays(earliest, -ORIGIN_PADDING_DAYS);
+    // effectiveViewStart: sinds K-item 33 LETTERLIJK dezelfde functie als de render-memo, niet meer
+    // een tweede kopie die met de hand in de pas gehouden moest worden. Identiek aan de vorige
+    // inline-lus voor elke geldige ISO-datum vanaf jaar 100 (`parseDate` kapt naar UTC-middernacht,
+    // `addCalendarDays` houdt die vast, dus de format/parse-heenweg is verliesvrij). Twee
+    // uitzonderingen staan bij de functie zelf beschreven: jaren onder 100, en een onparseerbare
+    // `viewStartDate` — die gaf hier vroeger NaN en gooit nu.
+    const evs = parseDate(computeEffectiveViewStart(st.tasks, v.viewStartDate));
 
     // Balk-uiteinden in content-x (dateToX zonder de −scrollX-term, dus `scrollX=0`), zelfde
     // uur/dag-splitsing als GanttRenderer.barGeometry: uur-taak [start, finish), dag-taak
@@ -1329,10 +1340,6 @@ export function GanttCanvas() {
   }, [setScroll]);
 
 
-  // Format date for tooltip display
-  // Tooltip-datums volgen de datumnotatie-instelling (taak #53); leeg → '-'.
-  const formatTooltipDate = (dateStr: string) => (dateStr ? dd.date(dateStr) : '-');
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Pane-rij (§10). De scrollbalken zijn ZWEVENDE overlays binnen deze rij en binnen de panes
@@ -1459,44 +1466,12 @@ export function GanttCanvas() {
           );
         })()}
 
-        {/* Tooltip — issue #58: de titel wrapt nu (CSS) en `HoverTooltip` houdt de doos binnen het
-            venster; die twee horen bij elkaar, want een wrappende titel maakt hem hoger. */}
+        {/* Tooltip — issue #58: HoverTooltip houdt de doos binnen het venster. Issue #65: de
+            content zit sinds de extractie in TaskTooltipContent, gedeeld met de WBS-sprongknop
+            in het eigenschappenpaneel. */}
         {tooltip && (
-          <HoverTooltip
-            left={tooltip.x - (containerRef.current?.getBoundingClientRect().left || 0) + 16}
-            top={tooltip.y - (containerRef.current?.getBoundingClientRect().top || 0) - 10}
-          >
-            <div className="tooltip-title">{tooltip.task.name}</div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.wbs')}:</span>
-              <span className="tooltip-value">{tooltip.task.wbsCode || '-'}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.duration')}:</span>
-              <span className="tooltip-value">{tooltip.task.time.scheduleDuration}d</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.start')}:</span>
-              <span className="tooltip-value">{formatTooltipDate(tooltip.task.time.earlyStart || tooltip.task.time.scheduleStart)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.finish')}:</span>
-              <span className="tooltip-value">{formatTooltipDate(tooltip.task.time.earlyFinish || tooltip.task.time.scheduleFinish)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('tooltip.status')}:</span>
-              <span className="tooltip-value">{tooltip.task.status}</span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('table.critical')}:</span>
-              <span className={tooltip.task.time.isCritical ? 'tooltip-critical-yes' : 'tooltip-value'}>
-                {tooltip.task.time.isCritical ? tCommon('yes') : tCommon('no')}
-              </span>
-            </div>
-            <div className="tooltip-row">
-              <span className="tooltip-label">{tTask('properties.totalFloat')}</span>
-              <span className="tooltip-value">{tooltip.task.time.totalFloat}d</span>
-            </div>
+          <HoverTooltip left={tooltip.x + 16} top={tooltip.y - 10}>
+            <TaskTooltipContent task={tooltip.task} />
           </HoverTooltip>
         )}
 
@@ -1612,10 +1587,7 @@ export function GanttCanvas() {
               </div>
             )}
             {histoTooltip && (
-              <HoverTooltip
-                left={histoTooltip.x - (histogramContainerRef.current?.getBoundingClientRect().left || 0) + 14}
-                top={histoTooltip.y - (histogramContainerRef.current?.getBoundingClientRect().top || 0) - 10}
-              >
+              <HoverTooltip left={histoTooltip.x + 14} top={histoTooltip.y - 10}>
                 {/* Issue #58 geldt hier net zo goed: dit zijn resourcenamen, tot 9 regels. */}
                 {histoTooltip.lines.map((l, i) => (
                   <div key={i} className={i === 0 ? 'tooltip-title' : 'tooltip-row'}>{l}</div>

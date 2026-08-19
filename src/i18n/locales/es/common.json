@@ -536,8 +536,8 @@
       "machineOnly": "Esta vista solo ve los documentos abiertos en esta aplicación.",
       "staleDoc": "No se cuenta: planificación sin calcular — activa este documento y pulsa F5.",
       "staleBanner": "Al menos un documento no se ha calculado y no se incluye en la ocupación.",
-      "staleComputedDoc": "Calculado por adelantado para esta vista — el propio documento sigue mostrando fechas antiguas hasta que pulses F5 en él.",
-      "staleComputedBanner": "Los documentos modificados se han calculado por adelantado para esta vista; pulsa F5 en el documento para verlo también allí.",
+      "staleComputedDoc": "Calculado por adelantado para esta vista — el propio documento sigue mostrando fechas antiguas hasta que pulses F5 en él o actives “Calcular automáticamente”.",
+      "staleComputedBanner": "Los documentos modificados se han calculado por adelantado para esta vista; pulsa F5 en el documento, o activa “Calcular automáticamente” para hacerlo de forma permanente.",
       "docCount_one": "{{count}} documento",
       "docCount_many": "{{count}} documentos",
       "docCount_other": "{{count}} documentos",
@@ -709,6 +709,14 @@
     "notice": "Este archivo contiene planificación por horas.",
     "enable": "Activar planificación por horas"
   },
+  "recordedDates": {
+    "offer_one": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "offer_many": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "offer_other": "El recálculo desplazó {{count}} de {{total}} tareas respecto a las fechas del archivo.",
+    "show": "Mostrar fechas registradas",
+    "active": "Estás viendo las fechas tal como están registradas en el archivo. No se ha recalculado nada.",
+    "recalculate": "Recalcular"
+  },
   "duration": {
     "suffixDay": "d",
     "suffixHour": "h",
@@ -830,6 +838,10 @@
     "intro": "Genera una planificación de prueba y mide las fases principales. No afecta a tu proyecto abierto.",
     "sizeLabel": "Tamaño de la planificación",
     "tasksCount": "{{count}} tareas",
+    "resourceLabel": "Número de recursos",
+    "resourcesNone": "Sin recursos",
+    "resourcesCount": "{{count}} recursos",
+    "networkHint": "Cada tarea sin subtareas recibe al menos una relación; las tareas resumen siguen siendo un acumulado de sus hijas.",
     "run": "Ejecutar",
     "running": "Ejecutando…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -863,5 +875,26 @@
     "detailRender": "{{rows}} filas · {{w}}×{{h}}",
     "renderUnavailable": "renderizado no disponible (sin contexto de lienzo 2D)",
     "largeWarning": "Planificación grande: puede tardar un rato; la barra de progreso puede parecer congelada durante el cálculo."
+  },
+  "extConsent": {
+    "title": "¿Instalar la extensión?",
+    "author": "Autor",
+    "repository": "Repositorio",
+    "originHeading": "Origen",
+    "sourceCatalog": "Del catálogo de extensiones en línea",
+    "sourceZip": "De un archivo ZIP en este equipo",
+    "sourceJs": "De un archivo JavaScript en este equipo",
+    "verifiedChecksum": "Descarga verificada con la suma de comprobación del catálogo.",
+    "verifiedNone": "El catálogo no proporciona suma de comprobación: esta descarga no se ha verificado.",
+    "verifiedLocal": "Elegiste este archivo tú mismo; no hay una fuente externa con la que verificarlo.",
+    "riskHeading": "A qué estás diciendo que sí",
+    "riskBody": "Una extensión es código que se ejecuta con los mismos permisos que Open Planner Studio. Nada lo limita. Instala solo extensiones cuyo autor te merezca confianza.",
+    "riskDesktop": "En la aplicación de escritorio eso incluye: leer y escribir archivos en toda tu carpeta de usuario, además de acceso a tus proyectos, ajustes y portapapeles.",
+    "riskBrowser": "En el navegador significa: acceso a tus proyectos y ajustes guardados, a los archivos a los que diste acceso y a la red.",
+    "declaredHeading": "Lo que esta extensión declara usar",
+    "declaredNote": "Es la declaración del autor, no una restricción: el código puede hacer más de todos modos.",
+    "declaredNone": "No declara nada.",
+    "cancel": "No instalar",
+    "confirm": "Instalar"
   }
 }

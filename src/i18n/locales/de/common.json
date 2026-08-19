@@ -531,8 +531,8 @@
       "machineOnly": "Diese Übersicht sieht nur die Dokumente, die in dieser App geöffnet sind.",
       "staleDoc": "Zählt nicht mit: Terminplan nicht berechnet — aktivieren Sie dieses Dokument und drücken Sie F5.",
       "staleBanner": "Mindestens ein Dokument wurde nicht berechnet und zählt in der Belegung nicht mit.",
-      "staleComputedDoc": "Für diese Übersicht bereits vorab berechnet — das Dokument selbst zeigt noch ältere Daten, bis Sie dort F5 drücken.",
-      "staleComputedBanner": "Geänderte Dokumente wurden für diese Übersicht bereits vorab berechnet; drücken Sie F5 im Dokument, um es auch dort zu sehen.",
+      "staleComputedDoc": "Für diese Übersicht bereits vorab berechnet — das Dokument selbst zeigt noch ältere Daten, bis Sie dort F5 drücken oder „Automatisch berechnen“ aktivieren.",
+      "staleComputedBanner": "Geänderte Dokumente wurden für diese Übersicht bereits vorab berechnet; drücken Sie F5 im Dokument, oder aktivieren Sie „Automatisch berechnen“, um dies dauerhaft zu tun.",
       "docCount_one": "{{count}} Dokument",
       "docCount_other": "{{count}} Dokumente",
       "conflictDays_one": "{{count}} Tag doppelt belegt",
@@ -701,6 +701,13 @@
     "notice": "Diese Datei enthält stundenbasierte Planung.",
     "enable": "Stundenplanung aktivieren"
   },
+  "recordedDates": {
+    "offer_one": "Die Neuberechnung hat {{count}} von {{total}} Vorgängen gegenüber den Terminen in der Datei verschoben.",
+    "offer_other": "Die Neuberechnung hat {{count}} von {{total}} Vorgängen gegenüber den Terminen in der Datei verschoben.",
+    "show": "Aufgezeichnete Termine anzeigen",
+    "active": "Sie sehen die Termine so, wie sie in der Datei aufgezeichnet sind. Es wurde nicht neu berechnet.",
+    "recalculate": "Neu berechnen"
+  },
   "duration": {
     "suffixDay": "T",
     "suffixHour": "Std",
@@ -817,6 +824,10 @@
     "intro": "Erzeugen Sie einen Testterminplan und messen Sie die Kernphasen. Ihr geöffnetes Projekt bleibt unberührt.",
     "sizeLabel": "Terminplangröße",
     "tasksCount": "{{count}} Vorgänge",
+    "resourceLabel": "Anzahl Ressourcen",
+    "resourcesNone": "Keine Ressourcen",
+    "resourcesCount": "{{count}} Ressourcen",
+    "networkHint": "Jeder Vorgang ohne Untervorgänge erhält mindestens eine Verknüpfung; Sammelvorgänge bleiben eine Aggregation ihrer Untervorgänge.",
     "run": "Ausführen",
     "running": "Läuft…",
     "progress": "{{phase}} ({{index}}/{{total}})",
@@ -850,5 +861,26 @@
     "detailRender": "{{rows}} Zeilen · {{w}}×{{h}}",
     "renderUnavailable": "Rendering nicht verfügbar (kein 2D-Canvas-Kontext)",
     "largeWarning": "Großer Terminplan: das kann eine Weile dauern; der Fortschrittsbalken kann während der Berechnung eingefroren wirken."
+  },
+  "extConsent": {
+    "title": "Erweiterung installieren?",
+    "author": "Autor",
+    "repository": "Repository",
+    "originHeading": "Herkunft",
+    "sourceCatalog": "Aus dem Online-Erweiterungskatalog",
+    "sourceZip": "Aus einer ZIP-Datei auf diesem Rechner",
+    "sourceJs": "Aus einer JavaScript-Datei auf diesem Rechner",
+    "verifiedChecksum": "Download anhand der Prüfsumme aus dem Katalog verifiziert.",
+    "verifiedNone": "Der Katalog liefert keine Prüfsumme — dieser Download wurde nicht verifiziert.",
+    "verifiedLocal": "Sie haben diese Datei selbst gewählt; es gibt keine externe Quelle zum Abgleich.",
+    "riskHeading": "Wozu Sie Ja sagen",
+    "riskBody": "Eine Erweiterung ist Programmcode, der mit denselben Rechten läuft wie Open Planner Studio selbst. Nichts grenzt ihn ein. Installieren Sie nur Erweiterungen, deren Autor Sie vertrauen.",
+    "riskDesktop": "In der Desktop-App gehört dazu: Dateien überall in Ihrem Benutzerordner lesen und schreiben, dazu Zugriff auf Ihre Projekte, Einstellungen und die Zwischenablage.",
+    "riskBrowser": "Im Browser bedeutet das: Zugriff auf Ihre gespeicherten Projekte und Einstellungen, auf die Dateien, für die Sie Zugriff erteilt haben, und auf das Netzwerk.",
+    "declaredHeading": "Was diese Erweiterung zu nutzen angibt",
+    "declaredNote": "Das ist die Angabe des Autors, keine Beschränkung — der Code kann ohnehin mehr.",
+    "declaredNone": "Nichts angegeben.",
+    "cancel": "Nicht installieren",
+    "confirm": "Installieren"
   }
 }

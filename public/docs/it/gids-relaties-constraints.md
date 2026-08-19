@@ -54,6 +54,10 @@ La colonna **Determinante** mostra, dopo un calcolo, quale relazione determina e
 
 Questo è esatto per **FS e FF** con un riepilogo come predecessore, e per **FS e SS** con un riepilogo come successore. Per **SS/SF** con un riepilogo come predecessore e **FF/SF** con un riepilogo come successore — combinazioni rare nella pratica edilizia — Open Planner Studio pianifica deliberatamente dal lato sicuro: possibilmente un po' più tardi dello stretto necessario, mai prima.
 
+## Passare a un'attività collegata
+
+Nel pannello delle proprietà, ogni riga di dipendenza mostra anche il numero WBS dell'attività collegata come pulsante cliccabile. Passa il mouse sopra per vedere gli stessi dettagli che si vedono passando il mouse su una barra attività nel diagramma di Gantt (nome, WBS, durata, inizio/fine, stato, percorso critico, margine totale). Fai clic per selezionare quell'attività: il diagramma di Gantt esegue lo zoom e scorre fino a essa, ed espande automaticamente ogni attività madre compressa che la nascondeva.
+
 ## Tipi di vincolo
 
 Un vincolo impone un limite di data su un'attività, indipendentemente dalle sue relazioni. Open Planner Studio ha otto tipi, impostati tramite il campo **Vincolo** nel pannello delle proprietà:

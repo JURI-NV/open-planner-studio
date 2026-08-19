@@ -340,8 +340,9 @@ export function bindExpectedDoc(ctx: McpContext): void {
 /**
  * Dezelfde guards als `runMutateTool` (pauze → alleen-lezen → dialoog → drift + anker-binding), maar
  * ZONDER de AI-backup en ZONDER `runInMcpTransaction`. Voor tools die niet in een MCP-transactie
- * horen: `undo`/`redo` beheren hun eigen undo-stack, en `run_cpm` is een pure recompute (pusht per
- * invariant geen undo-snapshot). Er is hier geen async grens, dus de drift-check volgt direct op de
+ * horen: `undo`/`redo` beheren hun eigen undo-stack, en `run_cpm` is een recompute die de undo-stack
+ * alleen raakt wanneer hij "datums zoals opgeslagen" verlaat (issue #63) — dan is dat juist gewenst,
+ * want die herberekening overschrijft de opgeslagen datums. Er is hier geen async grens, dus de drift-check volgt direct op de
  * dialoog-guard. Retourneert een `McpToolErr` bij een blokkade, anders `null` (de tool mag door).
  */
 export function guardNonTransactional(ctx: McpContext): McpToolErr | null {

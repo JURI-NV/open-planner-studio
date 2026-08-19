@@ -16,7 +16,8 @@
     "freeFloat": "자유 여유",
     "interferingFloat": "간섭 여유",
     "isNearCritical": "준임계",
-    "floatPath": "여유 경로"
+    "floatPath": "여유 경로",
+    "activeDuring": "진행 중"
   },
   "taskType": {
     "CONSTRUCTION": "건설",
@@ -90,6 +91,7 @@
     "freeFloat": "자유 여유:",
     "criticalPath": "크리티컬 패스:",
     "dependencies": "종속성",
+    "jumpToTask": "{{wbs}} 작업으로 이동",
     "relationPopoverTitle": "관계 유형",
     "driving": "주도 관계(드라이빙)",
     "lag": "지연(예: 2d, 3ed, 2u, 50%, -25e%)",

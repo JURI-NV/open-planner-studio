@@ -11,6 +11,46 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
 
 ## Openstaand
 
+### Uit de critreview van release v2026.8.0 (2026-08-17)
+- [ ] **Perf: met het bezettingsoverzicht open draait er een volledige CPM-solve per bewerking van
+  het actieve document.** `getOpenDocumentPayloads()` levert óók het actieve document mee, met
+  `scheduleStale = s.scheduleStale` — na elke bewerking `true`. De `useMemo` in
+  `ResourceOccupancyView` invalideert dan op `activeTasks`/`activeAssignments` en
+  `computeLibraryOccupancy` rekent het actieve document synchroon in de render efemeer door over de
+  vólledige takenlijst. Op de schaal die `relationRules.ts` zelf noemt (3000 taken / 1500 relaties:
+  700 ms–2,6 s) is dat merkbaar hakkelen tijdens typen. De §7-snit heeft de bibliotheek-*load*
+  teruggebracht maar de solve niet meegerekend. Richting: het actieve document overslaan in de
+  efemere tak (het heeft `useAutoCalcCPM` of F5), of de solve memoïseren per payload-referentie.
+- [ ] **`platformRefusesWrites` is een sessie-brede latch zonder uitweg.**
+  `src/services/fileAccess/webBackend.ts`: één `NotAllowedError`/`SecurityError` stuurt de rest van
+  de sessie élke opslag naar de downloadmap, ook in een browser waar in-place schrijven prima werkt.
+  Reset bestaat alleen als `resetWebWriteRefusalForTests()`. `SecurityError` is juist het
+  "geen geldige gebruikersactivatie"-geval, dus een programmatische save kan de latch omzetten en
+  daarmee de handmatige Ctrl+S daarna degraderen. Richting: alleen op `NotAllowedError` latchen en
+  `SecurityError` als eenmalige fout behandelen. (Nog te bevestigen: of een web-buildpad
+  `saveFileDialog` zonder gebruikersactivatie kan bereiken.)
+- [ ] **De acht nieuwe voorbeeld-resourcesets staan buiten elke poort.** `verify:examples` eist
+  overallocatie juist wél (regel ~196 in `verifyShowcase`, alleen voor showcases), dus niets bewaakt
+  dat de acht nieuwe sets overallocatie-vrij blijven. Ze zijn nu gemeten schoon; de eerstvolgende
+  topologie-wijziging kan ze stil overbezet maken. Overweeg een assertie.
+- [ ] **`deleteTasksBulk` kan een dode undo-stap achterlaten.** Met ≥2 ids pusht `withTransaction`
+  onvoorwaardelijk een snapshot; zijn álle ids al weg, dan blijft die stap staan. Het 1-id-pad
+  ontwijkt dat bewust.
+- [ ] **De thema-map in `index.html` is een handkopie van `THEME_MIGRATION`** in
+  `settingsStore.ts`. Vandaag identiek (acht sleutels, zelfde defaults), maar niets bewaakt dat —
+  precies de duplicatieklasse die dit project elders wél dichtzet.
+- [ ] **`relationRules.ts` is de bron van de regel, niet de poort.** `pasteTasks` (`taskSlice.ts`
+  ~978) en het tak-uit-sjabloon-pad (~1060) pushen `s.sequences` zonder `relationVerdict`, dus een
+  tak kopiëren die een spookrelatie bevat maakt er weer een. Verdedigbaar als kopie-van-bestaande-
+  data (net als import), maar de changelog van v2026.8.0 beweert "single source of truth" — zet
+  óf de code óf die tekst recht.
+- [ ] **`verify-docs.ts` poort 7e telt tools met een regex** (`/['"](planner_[a-z_]+)['"]/g`) over
+  `src/services/mcp/tools/`, dus ook tool-namen in beschrijvingsproza. Vandaag klopt de telling
+  (39), maar een beschrijving die een niet-bestaande tool noemt glipt erdoor.
+- [ ] **Mijlpaal met start maar zonder finish is niet relatie-sleepbaar.** `getRelationSourceAt`
+  eist beide datums, `drawMilestone` alleen een start — hij wordt dus getekend maar is geen
+  sleepbron. Randgeval.
+
 ### Bedrijfsbibliotheken (B1.1) — vervolgen (2026-07-24)
 - [ ] **B1b — bezettingsoverzicht** over open documenten (binnen één bedrijf/pool; bouwt op de
   herkomststempels + Resources-tab Bedrijfsweergave uit B1.1). Zie docs/library.md
@@ -502,6 +542,154 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       voor de bundels raakt `bundle_check`/`BUNDLES`/de tijdzone-matrix-hergebruik-logica in
       `run.sh` overal tegelijk — groter dan een enkele testfix. Risico is bovendien laag zolang de
       suite hoofdzakelijk sequentieel draait (lokaal, en CI-jobs per PR).
+
+### Prestatiedoel: 5000 taken moet werken — interactieve pad AF, bulk nog niet (2026-08-17)
+
+De eigenaar heeft de grens uit item 36 vastgesteld: **de app moet 5000 taken aankunnen.**
+
+**Wat er mis was.** De rekenkern was nooit het probleem: `runCPM` doet 5000 taken in 0,9 s en vijf
+volledige `recomputeViewRows` kosten samen 47 ms. Het zat in de kosten **per mutatie**. Drie
+plekken deden O(n) werk over de hele takenlijst bij élke bewerking, dus n bewerkingen waren O(n²):
+
+1. `createSnapshot` deep-cloonde de projectdata met `JSON.parse(JSON.stringify(...))`. Duurder dan
+   het lijkt: bovenop de kloon zelf moest Immer alle vers gekloonde objecten ook nog diepvriezen
+   (~26% respectievelijk ~45% van één mutatie in het CPU-profiel).
+2. `applyWbsNumbering` las én beschreef élke taak via de Immer-draft, ook waar de code gelijk bleef.
+   Elke aanraking maakt een proxy die aan het eind van de producer gefinaliseerd moet worden.
+3. `recomputeResourceLoad` las resources, toewijzingen én taken óók via de draft, terwijl het niets
+   muteert — `recomputeViewRows` deed dat al goed, deze niet.
+
+**Wat er gedaan is.** De snapshot deelt nu per referentie in plaats van te klonen; dat mag omdat
+Immer de state na elke producer diep bevriest en zelf nooit de basis muteert (de onderbouwing staat
+in de kop van `src/state/snapshot.ts`). De nummering leest de draft plain via `current()` en schrijft
+alleen waar de code echt verandert. De belastingberekening draait buiten de producer. De rollen in
+het documentcontract heten daardoor niet langer `'clone'`/`'ref'` maar `'data'`/`'derived'` — ze
+worden allebei per referentie bewaard en de oude naam loog.
+
+**Gemeten, één `addTask` / `updateTask` op 5000 taken:**
+
+| stand | addTask | updateTask |
+|---|---|---|
+| zoals het was | 132 ms | 97 ms |
+| alleen de snapshot goedkoper | 59 ms | 11 ms |
+| alleen de nummering goedkoper | 105 ms | 97 ms |
+| **beide (huidig)** | **18 ms** | **11 ms** |
+
+En over de hele linie, met `withTransaction` om de opbouw heen:
+
+| pad | N=1000 | N=2500 | N=5000 |
+|---|---|---|---|
+| 1 `addTask` | 4 ms | 7 ms | 20 ms |
+| 1 `updateTask` | 2 ms | 4 ms | 10 ms |
+| 1 `undo` | 2 ms | 4 ms | 11 ms |
+| 1 `assignResource` | 41 ms | 69 ms | **138 ms** |
+| `runCPM` | 174 ms | 406 ms | 907 ms |
+| 5× `recomputeViewRows` | 7 ms | 20 ms | 47 ms |
+| opbouw: N taken | 1,7 s | 9,6 s | **40 s** |
+| opbouw: N relaties | 1,7 s | 11 s | **46 s** |
+| opbouw: N toewijzingen | 18 s | 82 s | **302 s** |
+
+Vóór dit werk rondden N=2500 en N=5000 niet eens af binnen tien minuten.
+
+**En wat een gebruiker daadwerkelijk doet, bij 5000 taken / 5000 toewijzingen** (na de snellere
+`formatDate`, zie hieronder):
+
+| handeling | tijd |
+|---|---|
+| bestand opslaan (`writeIFC`, 3,9 MB) | 201 ms |
+| bestand openen (`readIFC`) | 447 ms |
+| berekenen (`runCPM`, expliciet via F5) | 604 ms |
+| rijen herberekenen | 9 ms |
+| taak toevoegen / hernoemen / ongedaan maken | 18 / 14 / 10 ms |
+| **resource toewijzen** | **106 ms** |
+
+`formatDate` was `d.toISOString().split('T')[0]` en draait per DAG per taak in de solver en de
+resourcebelasting; handmatig opbouwen scheelde `runCPM` 677 → 604 ms, `recomputeResourceLoad`
+126 → 90 ms en `assignResource` 133 → 106 ms. Bewaakt door `tests/planning/check-date-format.ts`,
+met de oude implementatie als orakel.
+
+De poort staat in `tests/planning/check-mutation-cost.ts`. Let op wat die wél en niet kan: twee van
+de drie wijzigingen hebben géén waarneembaar gedragsverschil (plain lezen is puur goedkoper), dus
+daar is de bron-assert de enige bewaking. Dat staat ook zo in de kop van die batterij.
+
+*Wat nog open staat, in deze volgorde:*
+- [ ] **`assignResource` is bij 5000 taken het enige interactieve pad dat nog knelt: 106 ms** (was
+      133 ms vóór de snellere `formatDate`). Vrijwel alles daarvan is `computeResourceLoad`, dat bij
+      élke toewijzing over ÁLLE toewijzingen loopt en per toewijzing de werkdagenreeks van de taak
+      opnieuw uitloopt. Incrementeel bijwerken is de voor de hand liggende oplossing, maar dat is
+      een echte herontwerp-stap: de huidige functie is één bron van waarheid voor histogram én
+      leveler en dat moet zo blijven. Een goedkopere tussenstap die nog openstaat: de
+      werkdagen-enumeratie per taak memoïseren binnen één aanroep (taken met twee toewijzingen
+      rekenen hem nu twee keer).
+- [ ] **De bulk-paden.** Binnen een lopende `withTransaction` draaien de hernummering en de
+      rijen-/belastingherberekening nog steeds per mutatie. Uitstellen tot het einde van de batch
+      maakt de opbouw lineair. LET OP: code BÍNNEN de batch ziet dan verouderde `wbsCode`/`viewRows`
+      — dat is een gedragswijziging, geen pure optimalisatie, en hoort dus met een eigen test.
+- [ ] Daarna de aanroepers die nog buiten `withTransaction` bulk doen (import, plakken, sjabloon
+      invoegen) daar echt binnen trekken.
+- [ ] De grens van 5000 publiceren zodra de bulk-paden ook goed zijn.
+
+### Store-factory: wat er ná K-item 41 nog tussen twee instanties gedeeld is (2026-08-17)
+
+`createAppStore()` bestaat, de singleton wordt eruit gebouwd, en twee instanties hebben elk hun eigen
+project, taken, resources, selectie en undo/redo-stacks. Wat er nog aan de singleton of aan
+module-state hangt — en dus GEDEELD is — staat vastgepind in `tests/planning/check-store-factory.ts`
+deel 4. In volgorde van hoe hard het split-view blokkeert:
+
+- [ ] **`withTransaction` importeert `useAppStore` rechtstreeks** (`batchTransaction.ts`). Een bulk op
+      instantie B neemt zijn snapshot op de SINGLETON. Zelfde verhaal voor `runInMcpTransaction`
+      (`mcpTransaction.ts`, tien aanroepen). Beide moeten de store als parameter krijgen.
+- [ ] **De batch-diepte, de undo-coalescing en de MCP-suppressie zijn module-variabelen**
+      (`transaction.ts`: `batchDepth`, `coalesce`, `undoSeq`, `mcpTransactionActive`). Twee
+      instanties delen die teller, dus een bulk op A onderdrukt de per-mutatie-snapshots van B. De
+      kop van die module beargumenteert waarom ze niet in het DOCUMENTCONTRACT horen — dat argument
+      staat nog, maar het sluit niet uit dat ze per STORE moeten leven.
+- [ ] **De app-globale registers** (extensies, MCP-server, SDK, bibliotheek-persistentie) kennen maar
+      één store. Deels bewust — een extensie hoort niet per venster te bestaan — maar er is niet
+      uitgezocht welk deel wél per instantie moet.
+- [ ] Pas als die drie opgelost zijn kan split-view met twee documenten hierop leunen. Haal dan de
+      vastpinningen in deel 4 van de batterij weg en werk de kop van `createAppStore` bij.
+
+### Klein — de tijdlijn-kopstrook van de afdruk is niet dezelfde als die van het scherm (2026-08-17)
+- [ ] **De afdruk tekent een vaste maand/week/dag-kopstrook; het scherm kiest zijn niveaus met
+      `pickTiers`/`TIER_CONFIG` uit `engine/renderer/timelineTiers.ts`.** K-item 39 noemt dat
+      expliciet als onderdeel, maar het is bij nader inzien géén "S": de gedeelde tier-logica
+      overnemen verandert de kopstrook van élk bestaand rapport (andere niveaus, andere labels,
+      andere dichtheid bij dezelfde zoom). Dat is een productbeslissing over hoe afdrukken eruitzien,
+      geen opruiming. De drie dingen die wél puur divergentie waren — weeknummer, weekgrens en welke
+      dagen vrij zijn — zijn in K-item 39 rechtgezet en met `check-print-screen-parity.ts` afgedekt.
+      *Eerst beslissen:* moet de afdruk meeschalen met de zoom zoals het scherm, of blijft de vaste
+      maand/week/dag-strook de bedoeling? Pas daarna bouwen.
+
+### Klein — fit en contentbreedte zijn het oneens over een taak zonder finish (2026-08-17)
+- [ ] **`computeFitToProject` valt op de finish-keten terug op de start (`|| s`),
+      `computeContentSpanDays` niet.** `ganttViewport.ts` doet
+      `earlyFinish || scheduleFinish || lateFinish || s`; `ganttRenderOptions.ts` doet dezelfde
+      keten zonder die laatste terugval. Een taak met alleen een start telt dus wél mee voor de
+      Ctrl+0-fit maar niet voor de contentbreedte, en kan daardoor buiten `maxScrollX` vallen
+      terwijl de fit er wél naartoe zoomt. De codedivergentie is zeker; de bereikbaarheid niet —
+      `createDefaultTaskTime` zet altijd een `scheduleFinish`, dus je hebt een corrupte import of
+      een externe adapter nodig. *Eerst uitzoeken:* wat de IFC-lezer en de CSV/MSPDI/P6-importers
+      kunnen opleveren; pas daarna beslissen welke van de twee ketens de juiste is. Niet ontstaan
+      door K-item 33 — dat item legde het alleen bloot. Er staat een toelichtende regel bij beide
+      functies zodat het verschil niet als slordigheid leest.
+
+### Klein — de indirecte route naar een spookrelatie is volledig stil (2026-08-14)
+- [ ] **Structuurmutaties kunnen een bladtaak-met-relaties tot verzameltaak maken zonder enig
+      signaal.** De mijlpaal-relaties-tak (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-
+      design.md`, §5a) blokkeert alleen het *directe* pad — een relatie rechtstreeks naar een
+      verzameltaak leggen — met een leesbare weigering. Het *indirecte* pad via `indentTasks`,
+      `moveTaskTo`, `addTask({ parentId })` en `insertWbsTemplate` is stil: een project met A→B
+      waar de gebruiker C onder B inspringt, maakt A→B met terugwerkende kracht tot spookrelatie.
+      De Gantt tekent de pijl identiek, er komt geen melding, en F5 verschuift de planning zonder
+      uitleg. De enige aanwijzing is het waarschuwingsdriehoekje in het Relaties-paneel (niet
+      standaard open, visueel niet te onderscheiden van de bestaande lead-waarschuwingen daar).
+      MCP meldt hier ook niets: `planner_add_tasks` met een `parentId` maakt de spookrelaties
+      zonder een woord, en de leestools melden per relatie nergens "zonder effect".
+      *Kandidaat-aanpak:* dezelfde samenvattende melding als na het laden (`notifications.
+      summaryRelationsIgnored`) afvuren wanneer een structuurmutatie relaties zonder effect maakt,
+      óf de spookpijl in de Gantt gestippeld/gedimd tekenen zodra `hasSummaryEndpoint` waar is.
+      Gevonden bij de eindreview op die tak.
 
 ### Distributie & Release
 

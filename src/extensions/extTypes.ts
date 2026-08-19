@@ -282,6 +282,48 @@ export interface ExtAssignment {
   curve?: 'UNIFORM' | 'FRONT_LOADED' | 'BACK_LOADED' | 'BELL' | 'EARLY_PEAK' | 'LATE_PEAK';
 }
 
+// ── UI-contract: ribbontabbladen ──
+
+/**
+ * Ext-facing ribbontabblad. Spiegelt {@link import('@/state/slices/types').RibbonTab}.
+ *
+ * Waarom een eigen unie en niet gewoon `RibbonTab` importeren (wat `types.ts` hiervóór deed): dan
+ * is het interne tabblad-id ONDERDEEL VAN HET PUBLIEKE CONTRACT. Hernoemt de app ooit `'beeld'`
+ * naar `'view'` — een puur interne opruiming — dan breekt elke geïnstalleerde extensie die een knop
+ * op dat tabblad zet, zonder dat iemand dat als contractwijziging herkent. Met deze unie ertussen
+ * verhuist zo'n rename naar {@link import('./extMappers').fromExtRibbonTab} en merkt extensie-code
+ * er niets van.
+ *
+ * `'ai'` staat er bewust in, ook al verschijnt dat tabblad alleen met AI-modus aan: het weglaten zou
+ * een bestaand manifest ongeldig maken en de zichtbaarheid is sowieso een UI-beslissing, geen
+ * contract-beslissing.
+ */
+export type ExtRibbonTab =
+  | 'file' | 'start' | 'planning' | 'resources' | 'relations'
+  | 'beeld' | 'instellingen' | 'table' | 'ifc' | 'report' | 'ai';
+
+// ── PDF-fontproviders ──
+
+/**
+ * Ext-facing font-provider voor de vector-PDF-export (permissie `pdf-fonts`). Spiegelt
+ * {@link import('@/services/pdf/fontRegistry').CjkFontProvider}.
+ *
+ * Zelfde reden als hierboven: `CjkFontProvider` is een intern service-type dat mag veranderen —
+ * bijvoorbeeld doordat de pagineerder een extra gewicht of een andere dekkingsvraag nodig heeft.
+ * De grens ligt in {@link import('./extMappers').fromExtFontProvider}.
+ */
+export interface ExtFontProvider {
+  /** Stabiele identiteit (diagnose/dedup). Twee providers met dezelfde `id` ⇒ de laatste wint. */
+  id: string;
+  /** True als dit font een echte glyph heeft voor `codepoint`. Snelle voorfilter; de pagineerder
+   *  verifieert de daadwerkelijke glyph-aanwezigheid daarna zelf. */
+  covers(codepoint: number): boolean;
+  /** Rauwe glyf-TTF-bytes van het Regular-gewicht (lazy; mag cachen). */
+  getRegularBytes(): Promise<Uint8Array>;
+  /** Optioneel: idem voor Bold. Ontbreekt hij ⇒ Regular wordt hergebruikt. */
+  getBoldBytes?(): Promise<Uint8Array>;
+}
+
 // ── Importresultaat ──
 
 /**

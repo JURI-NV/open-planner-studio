@@ -54,6 +54,10 @@ Vous pouvez aussi placer une relation directement sur une tâche récapitulative
 
 Ceci est exact pour **FS et FF** avec une récapitulative en tant que prédécesseur, et pour **FS et SS** avec une récapitulative en tant que successeur. Pour **SS/SF** avec une récapitulative en tant que prédécesseur et **FF/SF** avec une récapitulative en tant que successeur — des combinaisons rares dans la pratique du bâtiment — Open Planner Studio planifie délibérément du côté sûr : peut-être un peu plus tard que strictement nécessaire, jamais plus tôt.
 
+## Aller à une tâche liée
+
+Dans le panneau des propriétés, chaque ligne de dépendance affiche aussi le numéro WBS de la tâche liée sous forme de bouton cliquable. Survolez-le pour voir les mêmes détails qu'en survolant une barre de tâche dans le diagramme de Gantt (nom, WBS, durée, début/fin, statut, chemin critique, marge totale). Cliquez dessus pour sélectionner cette tâche : le diagramme de Gantt zoome et défile jusqu'à elle, et développe automatiquement toute tâche parente repliée qui la cachait.
+
 ## Types de contrainte
 
 Une contrainte impose une limite de date à une tâche, indépendamment de ses relations. Open Planner Studio propose huit types, définis via le champ **Contrainte** du panneau des propriétés :

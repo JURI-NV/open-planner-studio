@@ -46,6 +46,11 @@ same rule:
   shown on screen — never in the middle of the selection, and the order in which you clicked them
   makes no difference.
 
+If the new task ends up with a parent this way (through your selection, or because you used **Add
+subtask**), it also takes over that parent's **Type** instead of the usual default — a new task
+inside "2. Foundation & shell" immediately gets the same bar colour as the rest of that phase. This
+only happens at creation time; indenting or dragging an existing task later leaves its Type alone.
+
 This applies to the **Task** button and the **Milestone** menu in the **Tasks** ribbon group, and to
 **New task** in the context menu. That ribbon group is on the **Home** tab as well as the **Table**
 tab, with the same three buttons (**Task**, **Milestone**, **Link**), so you no longer have to

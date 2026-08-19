@@ -70,6 +70,14 @@ Je kunt een relatie ook rechtstreeks op een samenvattingstaak leggen (een fase o
 
 Dit is exact voor **FS en FF** met een samenvatting als voorganger, en voor **FS en SS** met een samenvatting als opvolger. Voor **SS/SF** met een samenvatting als voorganger en **FF/SF** met een samenvatting als opvolger — zeldzame combinaties in de bouwpraktijk — plant Open Planner Studio bewust aan de veilige kant: mogelijk iets later dan strikt nodig, nooit vroeger.
 
+## Naar een gekoppelde taak springen
+
+In het eigenschappenpaneel toont elke afhankelijkheidsregel het WBS-nummer van de gekoppelde taak
+als klikbare knop. Hover erover voor dezelfde details als bij
+het hoveren over een taakbalk in het Gantt-diagram (naam, WBS, duur, start/finish, status, kritiek
+pad, total float). Klik erop om die taak te selecteren: het Gantt-diagram zoomt en scrolt ernaartoe,
+en klapt automatisch elke ingeklapte oudertaak uit als de gekoppelde taak daardoor verborgen was.
+
 ## Constraint-types
 
 Een constraint legt een datumgrens op een taak, los van zijn relaties. Open Planner Studio kent acht types, in te stellen via het veld **Constraint** in het eigenschappenpaneel:

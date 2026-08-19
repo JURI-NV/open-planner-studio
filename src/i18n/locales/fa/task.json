@@ -16,7 +16,8 @@
     "freeFloat": "شناوری آزاد",
     "interferingFloat": "شناوری مداخله‌گر",
     "isNearCritical": "نزدیک به بحرانی",
-    "floatPath": "مسیر شناوری"
+    "floatPath": "مسیر شناوری",
+    "activeDuring": "در حال انجام"
   },
   "taskType": {
     "CONSTRUCTION": "ساخت",
@@ -90,6 +91,7 @@
     "freeFloat": "شناوری آزاد:",
     "criticalPath": "مسیر بحرانی:",
     "dependencies": "وابستگی‌ها",
+    "jumpToTask": "رفتن به وظیفه {{wbs}}",
     "relationPopoverTitle": "نوع رابطه",
     "driving": "رابطهٔ تعیین‌کننده (driving)",
     "lag": "تأخیر (مثلاً 2d، 3ed، 2u، 50%، -25e%)",

@@ -103,8 +103,9 @@ export interface ProjectSlice {
    * NIET mee (feestdagen/bouwvak/winterstop liggen op absolute datums), dus einddatums kunnen met
    * een ánder aantal dagen verspringen dan Δ — `previewMoveProject` maakt dat vooraf zichtbaar.
    *
-   * Eén undo-stap; draait aansluitend `runCPM` + `requestFitToProject`. Δ=0 of een onbruikbare
-   * startdatum ⇒ volledige no-op (géén snapshot, géén isDirty).
+   * Eén undo-stap (óók in "datums zoals opgeslagen": die modus wordt in dezelfde producer verlaten,
+   * niet pas door de aansluitende `runCPM`); draait aansluitend `runCPM` + `requestFitToProject`.
+   * Δ=0 of een onbruikbare startdatum ⇒ volledige no-op (géén snapshot, géén isDirty).
    */
   moveProject: (newStartDate: string, opts?: MoveProjectOptions) => MoveProjectResult;
   /** Droogrun van `moveProject`: rekent de verschoven planning volledig door met een verse
@@ -303,8 +304,15 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       s.resources = s.resources.map((r) => shiftResource(r, delta));
       // Default UIT (§1.6): een baseline bestaat om afwijking te meten; meeschuiven wist het signaal.
       if (opts?.shiftBaselines) s.baselines = s.baselines.map((b) => shiftBaseline(b, delta));
-      // GEEN { stale: true }: de runCPM hieronder wist `scheduleStale` zelf (applyLeveling-precedent).
-      finishMutation(s);
+      // WÉL { stale: true } (issue #63, review taak 6). Dit is een datum-rakende mutatie — daar
+      // hoort de vlag bij, en `stale` is precies het signaal waarop `finishMutation` de modus
+      // "datums zoals opgeslagen" verlaat. Zonder dit deed de `runCPM` hieronder dat, in een EIGEN
+      // producer met een EIGEN snapshot: twee undo-stappen voor één verschuiving, met daartussen een
+      // tussentoestand (nieuwe projectstart, opgeslagen taakdatums, oude reconstructie) die de
+      // gebruiker nooit gezien heeft. Nu verlaat de modus in dezelfde producer die de snapshot al
+      // nam ⇒ één undo-stap. De vlag zelf is een non-issue: de `runCPM` hieronder wist hem meteen
+      // weer (het is de eerste regel van die actie), dus de "verouderd"-hint knippert niet.
+      finishMutation(s, { stale: true });
       out = { moved: true, deltaDays: delta, taskCount: s.tasks.length };
     });
     if (out.moved) {

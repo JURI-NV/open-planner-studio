@@ -312,6 +312,13 @@ export interface UIState {
   /** session — ingebouwde benchmark-tool (pakket S) open. Draait geïsoleerd op gegenereerde
    *  data; raakt het open project/de store niet aan. */
   showBenchmarkDialog: boolean;
+  /** session — de lopende toestemmingsvraag bij het installeren van een extensie (K-item 38), of
+   *  `null` als er geen vraag openstaat. Bevat de gegevens die de dialoog toont; het ANTWOORD gaat
+   *  niet via de store maar via de resolver in `extensions/consent.ts` — een promise-resolver hoort
+   *  niet in state thuis. Bewust `unknown` getypeerd: `slices/types.ts` is een bladmodule voor de
+   *  hele state-laag en mag niet van `@/extensions` afhangen (verify:cycles). De dialoog cast naar
+   *  `ExtensionConsentRequest`. */
+  pendingExtensionConsent: unknown | null;
   // --- B1 (bedrijfsbibliotheken): Backstage-sectie Bibliotheek-dialogen ---
   /** session — pool-importdialoog open (met demping-waarschuwing). */
   showPoolImportDialog: boolean;

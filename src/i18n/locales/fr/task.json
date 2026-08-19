@@ -16,7 +16,8 @@
     "freeFloat": "Marge libre",
     "interferingFloat": "Marge interférente",
     "isNearCritical": "Quasi critique",
-    "floatPath": "Chemin de marge"
+    "floatPath": "Chemin de marge",
+    "activeDuring": "En cours"
   },
   "taskType": {
     "CONSTRUCTION": "Construction",
@@ -90,6 +91,7 @@
     "freeFloat": "Marge libre :",
     "criticalPath": "Chemin critique :",
     "dependencies": "Dépendances",
+    "jumpToTask": "Aller à la tâche {{wbs}}",
     "relationPopoverTitle": "Type de relation",
     "driving": "Relation déterminante (driving)",
     "lag": "Décalage (p. ex. 2d, 3ed, 2u, 50%, -25e%)",

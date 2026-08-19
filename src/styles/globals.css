@@ -414,7 +414,7 @@ html, body, #root {
    De uitlijning binnen het venster (rechterrand/onderrand) zit NIET in CSS — dat kan alleen met een
    gemeten positie: zie HoverTooltip.tsx. */
 .gantt-tooltip {
-  position: absolute;
+  position: fixed;
   pointer-events: none;
   z-index: var(--z-tooltip);
   background: var(--theme-surface-elevated);

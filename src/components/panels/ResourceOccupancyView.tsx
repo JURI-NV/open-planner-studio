@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -11,7 +11,7 @@ import {
   type OccupancyDocInput,
   type OccupancyRow,
 } from '@/services/library/occupancy';
-import { documentTitle, untitledOrdinals, displayDocumentTitle, documentColor } from '@/utils/documents';
+import { documentTitle, untitledOrdinals, displayDocumentTitle, DOC_PALETTE } from '@/utils/documents';
 import { maxUnitsOn } from '@/engine/scheduler/ResourceLoad';
 import { parseDate, formatDate, addCalendarDays, diffDays } from '@/utils/dateUtils';
 
@@ -117,6 +117,13 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   const activeScheduleStale = useAppStore(s => s.scheduleStale);
   const getOpenDocumentPayloads = useAppStore(s => s.getOpenDocumentPayloads);
 
+  // §4.3b terugschrijfbesluit: staat "Automatisch berekenen" aan, dan worden verouderde SLAPENDE
+  // documenten hier écht bijgewerkt in plaats van alleen efemeer doorgerekend (het actieve document
+  // heeft zijn eigen pad, `useAutoCalcCPM`). Zie het effect verderop.
+  const autoCalcCPM = useAppStore(s => s.ui.autoCalcCPM);
+  const activeDocumentId = useAppStore(s => s.activeDocumentId);
+  const recalculateStaleSleepingDocuments = useAppStore(s => s.recalculateStaleSleepingDocuments);
+
   const untitledLabel = t('project.untitled');
 
   // §7-cache: één `WeakMap` per (bibliotheek × poolsamenstelling) — de gecachte snit hangt van
@@ -125,7 +132,41 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
   // referentie.
   const sliceCache = useMemo(() => new WeakMap<DocumentPayload, LibrarySlice>(), [companyId, pool]);
 
-  const { rows, anyUncountedStale, anyCountedStale } = useMemo(() => {
+  // Hoeveel SLAPENDE documenten een verouderde planning dragen. Goedkoop (een scan over de
+  // registry-entries, geen engine-werk) en het is de enige trigger die het effect hieronder nodig
+  // heeft: de bijgewerkte payloads laten de teller vanzelf naar 0 lopen.
+  const staleSleepingCount = useMemo(
+    () => documents.reduce(
+      (n, d) => n + (d.id !== activeDocumentId && d.payload?.scheduleStale === true ? 1 : 0),
+      0,
+    ),
+    [documents, activeDocumentId],
+  );
+
+  // §4.3b, terugschrijven mét "Automatisch berekenen" (besluit eigenaar 2026-08-14, tweede ronde).
+  // Staat de instelling AAN, dan is het onlogisch dat de gebruiker alsnog F5 moet drukken in een
+  // document dat dit overzicht al heeft doorgerekend: de slapende stale documenten worden hier écht
+  // bijgewerkt (taken/`cpmResult`/`scheduleStale: false`) en hun ⚠ verdwijnt. Staat hij UIT, dan
+  // gebeurt er niets — dan blijft het overzicht een leesvenster dat efemeer rekent en nooit
+  // terugschrijft (issue #63, handmatige rekenaars).
+  //
+  // Geen oneindige lus: de actie zet `scheduleStale` op false, dus `staleSleepingCount` daalt naar 0
+  // en de conditie dooft. Blijft er een document over dat niet kan rekenen (relatiecyclus), dan
+  // muteert de actie helemaal niets — geen nieuwe `documents`-referentie, dus ook geen nieuwe render
+  // die dit effect opnieuw zou starten. De ref is de expliciete her-entree-garantie: de actie is
+  // synchroon, maar hij muteert de store waarop dit component zelf geabonneerd is.
+  const recalcRunning = useRef(false);
+  useEffect(() => {
+    if (!autoCalcCPM || staleSleepingCount === 0 || recalcRunning.current) return;
+    recalcRunning.current = true;
+    try {
+      recalculateStaleSleepingDocuments();
+    } finally {
+      recalcRunning.current = false;
+    }
+  }, [autoCalcCPM, staleSleepingCount, recalculateStaleSleepingDocuments]);
+
+  const { rows, anyUncountedStale, anyCountedStale, docColors } = useMemo(() => {
     const payloads = getOpenDocumentPayloads();
     // Zelfde titel-afleiding als de tabbladen: rauwe titels eerst, dan volgnummers voor naamloze
     // documenten, dan het vertaalde label eromheen (zie `getOpenDocuments`/`useDocumentCards`).
@@ -174,13 +215,22 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
     // hier niet fijnmazig genoeg voor die keuze.
     let anyUncountedStale = false;
     let anyCountedStale = false;
+    // Unieke documentkleuren (i.p.v. de hash-gebaseerde `documentColor`, die bij toeval kan
+    // botsen): één toewijzing per docId, op volgorde van eerste verschijnen in de zichtbare data
+    // (de gesorteerde rijen + hun docs). Zo blijft elke docId uniek zolang het palet reikt, en
+    // hergebruikt na uitputting — en de toewijzing is stabiel zolang dezelfde documenten in
+    // dezelfde volgorde zichtbaar blijven, want ze wordt puur uit `sorted` afgeleid.
+    const docColors = new Map<string, string>();
     for (const row of sorted) {
       for (const doc of row.docs) {
         if (!doc.counted) anyUncountedStale = true;
         else if (doc.scheduleStale) anyCountedStale = true;
+        if (!docColors.has(doc.docId)) {
+          docColors.set(doc.docId, DOC_PALETTE[docColors.size % DOC_PALETTE.length]);
+        }
       }
     }
-    return { rows: sorted, anyUncountedStale, anyCountedStale };
+    return { rows: sorted, anyUncountedStale, anyCountedStale, docColors };
   }, [
     getOpenDocumentPayloads, sliceCache, documents, pool, companyId, untitledLabel, i18n.language,
     activeProject, activeFilePath,
@@ -341,7 +391,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                             <div key={doc.docId} className="flex items-center gap-2 min-w-0">
                               <span
                                 className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                                style={{ background: documentColor(doc.docId) }}
+                                style={{ background: docColors.get(doc.docId) }}
                                 aria-hidden
                               />
                               <span className="truncate font-medium">{doc.title || untitledLabel}</span>
@@ -404,7 +454,7 @@ export function ResourceOccupancyView({ companyId, pool }: { companyId: string; 
                 {t('resource.occupancy.staleDoc')}
               </p>
             ) : (
-              <OccupancyHistogram row={selectedRow} poolItem={selectedPoolItem} untitledLabel={untitledLabel} />
+              <OccupancyHistogram row={selectedRow} poolItem={selectedPoolItem} untitledLabel={untitledLabel} docColors={docColors} />
             )
           ) : (
             <p className="text-text-secondary">{t('resource.occupancy.selectHint')}</p>
@@ -475,10 +525,12 @@ function expandDays(from: string, to: string): string[] {
  * omringende tabel en legenda volgen gewoon de documentrichting. SVG in de DOM; bewust niet de
  * canvas-`HistogramRenderer` (die hangt aan de tijdschaal van het actieve project).
  */
-function OccupancyHistogram({ row, poolItem, untitledLabel }: {
+function OccupancyHistogram({ row, poolItem, untitledLabel, docColors }: {
   row: OccupancyRow;
   poolItem: Resource;
   untitledLabel: string;
+  /** Unieke documentkleuren (§ zie boven) — dezelfde toewijzing als de tabel/legenda. */
+  docColors: Map<string, string>;
 }) {
   const { t } = useTranslation('common');
 
@@ -590,7 +642,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
             y: y1,
             w: Math.max(1, dayWidth - 1),
             h: Math.max(0.5, y0 - y1),
-            fill: documentColor(doc.docId),
+            fill: docColors.get(doc.docId) ?? DOC_PALETTE[0],
           });
         }
         // Capaciteits-traplijn: horizontaal over de dag, verticaal op elke knik.
@@ -630,7 +682,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
       capStartY: yOf(capStart),
       capStartValue: capStart,
     };
-  }, [row, poolItem]);
+  }, [row, poolItem, docColors]);
 
   if (chart === null) {
     // Kan alleen bij een rij zonder getelde boekingen — de aanroeper vangt dat al af (§5a).
@@ -711,7 +763,7 @@ function OccupancyHistogram({ row, poolItem, untitledLabel }: {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-ops-occupancy-legend>
         {row.docs.map(doc => (
           <span key={doc.docId} className="inline-flex items-center gap-1.5 min-w-0">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: documentColor(doc.docId) }} aria-hidden />
+            <span className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: docColors.get(doc.docId) }} aria-hidden />
             <span className="truncate text-[10px] text-text-secondary">{doc.title || untitledLabel}</span>
             {!doc.counted && (
               <AlertTriangle size={11} style={{ color: 'var(--theme-warning-text)' }} aria-label={t('resource.occupancy.staleDoc')} />
