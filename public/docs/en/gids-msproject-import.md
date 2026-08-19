@@ -58,12 +58,13 @@ Open Planner Studio schedules an opened `.mpp` file using the same calendar logi
 itself (working days, working hours per day, days off, and — for an hour-based project — the exact
 clock time). Split tasks, leveling, manually scheduled tasks and contoured (resource-driven)
 assignments are no longer treated as a deviating exception here — they're fully implemented
-behavior, see the four sections below for what that means in practice. Across the test corpus (216
-readable files, from public MPXJ and OzBuild test material to real-world projects), the start and
-finish date match MS Project exactly for the large majority, down to the minute for an hour-based
-project; a small number of specific, still-under-investigation combinations still show a remaining
-deviation, which is being actively closed rather than accepted as a lasting limitation. If you're
-unsure about a specific file, check the critical tasks against MS Project after opening it.
+behavior, see the four sections below for what that means in practice. Across the full test corpus
+(216 readable files / 3413 tasks, from public MPXJ and OzBuild test material to
+real-world projects), the start and finish date match MS Project exactly, down to the minute for an
+hour-based project — for every file in the corpus, with no remaining deviation. An automated test
+guards this: if a change would cause even a single date in the corpus to drift, the test suite
+fails. If you're unsure about a specific file that isn't in the corpus, check the critical tasks
+against MS Project after opening it.
 
 If the file contains tasks with a split, leveled, or resource-driven schedule, a one-time
 informational notification appears when opening it — not a warning, since those tasks are simply

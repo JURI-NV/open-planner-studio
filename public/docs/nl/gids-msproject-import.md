@@ -59,12 +59,12 @@ Project zelf (werkdagen, werktijden per dag, vrije dagen, en — bij een urenpro
 kloktijd). Onderbroken taken, nivellering, handmatig geplande taken en gecontoureerde
 (resource-gedreven) toewijzingen worden daarbij niet als afwijkende uitzondering behandeld, maar
 als volwaardig geïmplementeerd gedrag — zie de vier secties hieronder voor wat dat concreet
-betekent. Over het testcorpus (216 leesbare bestanden, van publiek MPXJ- en OzBuild-testmateriaal
-tot praktijkprojecten) komt de start- en einddatum voor het overgrote deel exact overeen met MS
-Project, tot op de minuut bij een urenproject; voor een klein aantal specifieke, nog onderzochte
-combinaties staat een resterende afwijking open, die actief wordt teruggebracht in plaats van als
-blijvende beperking geaccepteerd. Twijfel je bij een specifiek bestand, controleer dan de kritieke
-taken tegen MS Project na het openen.
+betekent. Over het volledige testcorpus (216 leesbare bestanden / 3413 taken, van publiek
+MPXJ- en OzBuild-testmateriaal tot praktijkprojecten) komt de start- en einddatum exact overeen met
+MS Project, tot op de minuut bij een urenproject — voor elk bestand in het corpus, zonder resterende
+afwijking. Een geautomatiseerde test bewaakt dat: zodra een wijziging ook maar één datum in het
+corpus zou laten afwijken, faalt de testsuite. Twijfel je bij een specifiek bestand dat niet in het
+corpus zit, controleer dan de kritieke taken tegen MS Project na het openen.
 
 Bevat het bestand taken met een onderbroken, genivelleerde of resource-gedreven planning, dan
 verschijnt daarover eenmalig een informatieve melding bij het openen — geen waarschuwing, want die
