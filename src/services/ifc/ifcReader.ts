@@ -157,6 +157,20 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   // project.statusDate (uit OPS_ProjectSettings) beschikbaar is als default-actualFinish.
   normalizeImportedProgress(tasks, project.statusDate);
 
+  // Projectstart niet in het bestand (geen IFCWORKPLAN-slot en geen OPS_ProjectSettings, zie de
+  // ''-sentinel bij de projectbouw) ⇒ afleiden uit de vroegste taak-scheduleStart in plaats van
+  // "vandaag" te verzinnen: een verzonnen datum is geen invoer en mag dus ook niet via de
+  // T7-projectstart-vloer (`CPMSolver.rootFloor`) taken mét voorgangers naar de leesdatum tillen.
+  // Pas als het bestand ook geen enkele taakstart draagt, valt hij terug op vandaag (leeg project).
+  if (!project.startDate) {
+    let earliest = '';
+    for (const t of tasks) {
+      const st = t.time?.scheduleStart;
+      if (st && (!earliest || st < earliest)) earliest = st;
+    }
+    project.startDate = earliest ? earliest.substring(0, 10) : formatDate(new Date());
+  }
+
   return {
     project, calendar, tasks, sequences, resources, assignments,
     activityCodeTypes, customFieldDefs, resourceCalendars,
@@ -586,7 +600,11 @@ function extractProject(
     // Omschrijving uit de IFCWORKPLAN.Description-slot (waar de writer 'm schrijft), met terugval op
     // de IFCPROJECT.Description-slot; `$`/leeg ⇒ '' (voorheen kwam letterlijk '$' terug — een bug).
     description: ifcSlotText(wp?.args[3]) || ifcSlotText(proj?.args[3]),
-    startDate: wp ? parseDateFromIFC(wp.args[12] || '') : formatDate(new Date()),
+    // Geen IFCWORKPLAN ⇒ startdatum hier LEEG laten; `readIFC` leidt hem dan af uit de vroegste
+    // taakstart (en pas als óók die ontbreekt: vandaag). Voorheen stond hier direct "vandaag" —
+    // verzonnen data die via de T7-projectstart-vloer taken mét voorgangers naar de leesdatum
+    // tilde (gevonden bij de main-merge vóór v2026.8.1, check-recorded-dates 9A/9B).
+    startDate: wp ? parseDateFromIFC(wp.args[12] || '') : '',
     endDate: wp ? parseDateFromIFC(wp.args[13] || '') : '',
     calendarId: 'cal-default',
     // createdAt/modifiedAt: default = nu; overschreven door het OPS_ProjectSettings-pset in

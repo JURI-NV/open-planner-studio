@@ -3,8 +3,6 @@ import {
   createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
   clearTimephasedDurationWalks, timephasedDurationWalksHaveFrozenWork,
 } from '@/utils/taskDefaults';
-import type { Sequence } from '@/types/sequence';
-import type { ResourceAssignment } from '@/types/resource';
 import { generateId } from '@/utils/id';
 import { formatDate, parseDate, parseInstant } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';

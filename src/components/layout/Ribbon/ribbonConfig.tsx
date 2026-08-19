@@ -22,7 +22,6 @@ import {
   saveShowBaselineOverlay, saveShowProgressLine, saveShowStatusDateLine,
 } from '@/utils/settingsStore';
 import type { RibbonTab } from '@/state/slices/types';
-import { buildImportLabels } from '@/i18n/importLabels';
 import {
   BaselinesProgressGroupContent, MilestoneDropdown, TemplatesDropdown, RecentFilesDropdown,
   ExportDropdown, ResourceAssignDropdown, LayoutGroupContent, PresentationGroupContent,

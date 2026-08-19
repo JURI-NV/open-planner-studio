@@ -210,6 +210,15 @@ export interface ExtTask {
    *  data, LEESKANT-ALLEEN (zie `mspTaskType`). Spiegelt {@link import('@/types/task').
    *  TaskTimephasedContour}. */
   timephasedContours?: { resourceUid: number | null; periods: { afterMinutes: number; minutes: number; workMinutes: number; kind: 'actual' | 'remaining' }[] }[];
+  /** Volledige-round-trip-velden (main-merge vóór v2026.8.1): de drie afgeleide-sturing-velden uit
+   *  de .mpp-import reizen mee door de VOLLEDIGE Ext-vertaling zodat een extensie-round-trip geen
+   *  data vernietigt (zelfde principe als de IFC-round-trip). Ze zijn géén invoer voor de create-/
+   *  update-paden — daar blijven ze bewust buiten (zie `fromExtTaskInput`). ISO-instants. */
+  timephasedFinishFloor?: string;
+  /** Zie `timephasedFinishFloor`. */
+  timephasedStartAnchor?: string;
+  /** Zie `timephasedFinishFloor`. */
+  timephasedDurationWalks?: { anchor: string; resourceCalendarId: string; workMinutes?: number }[];
   /** WBS-ouder; null = top-level. */
   parentId: string | null;
   /** WBS-kinderen. */
@@ -280,6 +289,10 @@ export interface ExtAssignment {
   /** Eenheden per werkdag (1 = 100%). */
   unitsPerDay: number;
   curve?: 'UNIFORM' | 'FRONT_LOADED' | 'BACK_LOADED' | 'BELL' | 'EARLY_PEAK' | 'LATE_PEAK';
+  /** Z8-werkvenster (.mpp-import) — volledige-round-trip-velden, zie `ExtTask.timephasedFinishFloor`. */
+  workWindowStart?: string;
+  /** Zie `workWindowStart`. */
+  workWindowFinish?: string;
 }
 
 // ── UI-contract: ribbontabbladen ──

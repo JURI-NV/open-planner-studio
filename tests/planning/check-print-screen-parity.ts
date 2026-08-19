@@ -148,8 +148,10 @@ const eq = (label: string, got: unknown, want: unknown) => {
       /dow === \(options\.weekStartDay === 'sunday' \? 7 : 1\)/.test(print), true);
     eq('6b geen harde maandag-grens meer', /dow === 1 \? 0\.8/.test(print), false);
 
-    // (3) arcering via de kalender, niet via za/zo.
-    eq('7 de arcering vraagt het de kalender', /!printEngine\.isWorkDay\(date\)/.test(print), true);
+    // (3) arcering via de kalender, niet via za/zo. Sinds de merge met de T13-lijn heet de motor
+    // `calEngine` en dekt de arcering óók workingExceptions (isWorkDay > isHoliday > weekend) —
+    // het pin-punt blijft hetzelfde: de kalender beslist, geen dag-van-de-week-rekenwerk.
+    eq('7 de arcering vraagt het de kalender', /calEngine\.isWorkDay\(date\)/.test(print), true);
     eq('7a geen hardcoded za/zo meer', /dow === 6 \|\| dow === 7/.test(print), false);
 
     // En het paneel geeft de instelling ook echt door — zonder dat is alles hierboven dode code.

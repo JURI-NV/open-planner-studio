@@ -324,6 +324,9 @@ export function toExtTask(t: Task): ExtTask {
     mspTaskType: t.mspTaskType,
     effortDriven: t.effortDriven,
     timephasedContours: t.timephasedContours ? t.timephasedContours.map(c => ({ resourceUid: c.resourceUid, periods: c.periods.map(p => ({ ...p })) })) : undefined,
+    timephasedFinishFloor: t.timephasedFinishFloor,
+    timephasedStartAnchor: t.timephasedStartAnchor,
+    timephasedDurationWalks: t.timephasedDurationWalks ? t.timephasedDurationWalks.map(w => ({ ...w })) : undefined,
     parentId: t.parentId,
     childIds: [...t.childIds],
     time: toExtTaskTime(t.time),
@@ -360,6 +363,15 @@ export function fromExtTask(t: ExtTask): Task {
     levelingDelayElapsed: t.levelingDelayElapsed,
     splitGaps: t.splitGaps ? t.splitGaps.map(g => ({ ...g })) : undefined,
     manuallyScheduled: t.manuallyScheduled,
+    // Main-merge vóór v2026.8.1 (contract-poort `check-ext-contract.ts`): de VOLLEDIGE vertaling
+    // vernietigt geen data — ook de .mpp-leeskant-velden reizen mee terug. De create-/update-paden
+    // (`fromExtTaskInput`, extensie-API) blijven hier bewust buiten (leeskant-alleen-besluit F5).
+    mspTaskType: t.mspTaskType,
+    effortDriven: t.effortDriven,
+    timephasedContours: t.timephasedContours ? t.timephasedContours.map(c => ({ resourceUid: c.resourceUid, periods: c.periods.map(p => ({ ...p })) })) : undefined,
+    timephasedFinishFloor: t.timephasedFinishFloor,
+    timephasedStartAnchor: t.timephasedStartAnchor,
+    timephasedDurationWalks: t.timephasedDurationWalks ? t.timephasedDurationWalks.map(w => ({ ...w })) : undefined,
     parentId: t.parentId,
     childIds: [...t.childIds],
     time: fromExtTaskTime(t.time),
@@ -604,6 +616,8 @@ export function toExtAssignment(a: ResourceAssignment): ExtAssignment {
     resourceId: a.resourceId,
     unitsPerDay: a.unitsPerDay,
     curve: a.curve,
+    workWindowStart: a.workWindowStart,
+    workWindowFinish: a.workWindowFinish,
   };
 }
 
@@ -614,6 +628,8 @@ export function fromExtAssignment(a: ExtAssignment): ResourceAssignment {
     resourceId: a.resourceId,
     unitsPerDay: a.unitsPerDay,
     curve: a.curve,
+    workWindowStart: a.workWindowStart,
+    workWindowFinish: a.workWindowFinish,
   };
 }
 

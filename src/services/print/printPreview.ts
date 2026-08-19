@@ -12,7 +12,6 @@ import { PRINT_PALETTE as PRINT_COLORS } from '@/engine/renderer/themePalette';
 import { dateToX as axisDateToX } from '@/engine/renderer/timeAxis';
 import { computeSplitSegments } from '@/engine/renderer/splitBarGeometry';
 import { snapToChoice } from '@/utils/numberChoice';
-import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 
 // BASISmaten bij rapport-lettergrootte 100%. Niets tekent hier nog rechtstreeks mee: alle
 // tekenhelpers rekenen met de geschaalde varianten uit {@link ReportMetrics}/{@link makeMetrics}.
