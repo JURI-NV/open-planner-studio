@@ -164,7 +164,24 @@ export const IFC_TASKTIME_SLOTS: TaskTimeSlot[] = [
   },
   {
     key: 'completion',
-    write: (w) => w.task.time.completion.toFixed(1),
+    // T14b (gebruikstestbevinding, ernst hoog): vangnet — een writer mag nooit de HELE opslag laten
+    // crashen op één optioneel-in-de-praktijk veld. `completion` is verplicht op `TaskTime`, maar
+    // vóór deze fix kon een taak die buiten de TS-typechecker om is aangemaakt (extensie-sandbox,
+    // MCP-payload) hier alsnog `undefined` dragen — `undefined.toFixed(1)` gooide een TypeError die
+    // élke `writeIFC` liet crashen (auto-save, Opslaan/Opslaan-als, `planner_export_ifc`). De bronlaag
+    // (`taskSlice`/`mcpTransaction`/`extMappers`) is inmiddels gedicht; deze `?? 0` is de onafhankelijke
+    // derde verdedigingslinie voor elk pad dat die twee lagen zou weten te omzeilen.
+    // M3 (eindreview T16c): `.toFixed(1)` rondde AF op tientallen procenten (10%-stappen) — een
+    // taak op 38% (MSP se eigen PercentComplete is een integer 0-100, dus completion is standaard
+    // een veelvoud van 0.01) werd bij elke IFC-save stil "0.4" (40%); ≥0,955 rondde zelfs tot "1.0"
+    // (100%) en schakelde de taak stilzwijgend om naar de VOLTOOID-tak van de solver (andere
+    // ES/EF-berekening, zie CPMSolver.ts's completion>=1-gate) — een gedragswisseling door pure
+    // afrondruis, niet door een echte voortgangswijziging. `.toFixed(2)` behoudt de volle
+    // integer-procent-granulariteit (0.01-stappen) zonder de bestandsgrootte noemenswaardig te
+    // raken. Backward-compatibel: `parseFloat` bij het lezen is formaat-onafhankelijk (elk aantal
+    // decimalen), dus bestaande IFC-bestanden met 1-decimaal-completion blijven exact zo inlezen
+    // als voorheen — alleen NIEUW geschreven bestanden winnen de extra precisie.
+    write: (w) => (w.task.time.completion ?? 0).toFixed(2),
     read: (t, arg) => { t.completion = parseFloat(arg || '0') || 0; },
   },
 ];

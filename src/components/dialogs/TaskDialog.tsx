@@ -146,7 +146,12 @@ export function TaskDialog() {
       if (startDate !== shownStart) time.scheduleStart = startDate;
       if (draft.isMilestone) {
         time.scheduleDuration = 0;
-        delete time.durationMinutes;
+        // T14b-vervolg (spec-review): `= undefined` i.p.v. `delete` — de STORE-updateTask-merge
+        // (`mergeTaskTime`, taskDefaults.ts) onderscheidt "sleutel aanwezig met undefined" (bewuste
+        // clear) van "sleutel afwezig" (behoud bestaande waarde) via `'veld' in partial`. Een
+        // `delete` hier zou de sleutel laten verdwijnen vóórdat `updateTask` 'm ziet, en de merge zou
+        // 'm dan verwarren met "niet genoemd" — en de oude durationMinutes stil laten staan.
+        time.durationMinutes = undefined;
       } else if (useHour) {
         time.scheduleDuration = derivedDays;
         time.durationMinutes = durationMinutes;
@@ -162,7 +167,9 @@ export function TaskDialog() {
           // bron behouden: durationMinutes + scheduleDuration blijven staan
         } else {
           time.scheduleDuration = durDays;
-          delete time.durationMinutes;
+          // T14b-vervolg: `= undefined`, niet `delete` — zie de toelichting hierboven bij de
+          // mijlpaal-tak.
+          time.durationMinutes = undefined;
         }
       }
       updateTask(editingTask.id, {

@@ -7,7 +7,10 @@ import type { AppSlice } from './types';
 export interface SequenceSlice {
   sequences: Sequence[];
   /** Retourneert het nieuwe id, of `null` wanneer de relatie geweigerd is (duplicaat, zelfrelatie,
-   *  onbekende taak, of een verzameltaak als eindpunt — zie `relationRules.ts`). */
+   *  onbekende taak, of een taak gekoppeld aan zijn eigen (voor)ouder-samenvatting — zie
+   *  `relationRules.ts`). Een gewoon verzameltaak-eindpunt is sinds 2026-08-15 GEEN weigergrond
+   *  meer: `runCPM`/`solveProject` rekenen zo'n relatie via `expandSummaryRelations` door naar de
+   *  onderliggende bladtaken. */
   addSequence: (seq: Omit<Sequence, 'id'>) => string | null;
   /** Wijzig type/lag van een bestaande relatie. Geeft false terug wanneer de wijziging een
    *  duplicaat (zelfde voorganger+opvolger+type) zou opleveren en daarom genegeerd is. */
@@ -49,9 +52,16 @@ export const createSequenceSlice: AppSlice<SequenceSlice> = (set) => ({
       beginUndoable(s);
       if (patch.type !== undefined) seq.type = patch.type;
       if ('lagDays' in patch) seq.lagDays = Number.isFinite(patch.lagDays) ? (patch.lagDays as number) : 0;
-      // lagUnit/lagPercent expliciet op undefined zetten = terug naar default (werkdagen / vaste lag).
+      // lagUnit/lagPercent/lagMinutes expliciet op undefined zetten = terug naar default
+      // (werkdagen / vaste lag). lagMinutes was hier eerder afwezig (F1-bevinding): de UI zette
+      // hem via een rauwe setState omheen, waardoor uren-lag de reguliere actie (en dus undo/
+      // transactiebewaking) omzeilde. De solver leest lagPercent → lagMinutes → lagDays, dus een
+      // ongefilterde `Number.isFinite`-guard i.p.v. `!in`-check zou een expliciete `undefined`
+      // (= "wis de minuut-lag") laten staan; daarom net als lagUnit/lagPercent een kale
+      // toewijzing, geen omzetting naar 0.
       if ('lagUnit' in patch) seq.lagUnit = patch.lagUnit;
       if ('lagPercent' in patch) seq.lagPercent = patch.lagPercent;
+      if ('lagMinutes' in patch) seq.lagMinutes = patch.lagMinutes;
       finishMutation(s, { stale: true }); // relatie-wijziging (A6): planning verouderd tot F5.
       applied = true;
     });

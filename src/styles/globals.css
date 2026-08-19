@@ -511,6 +511,26 @@ html, body, #root {
   word-break: break-word;
 }
 
+/* "Lees meer"-tekstlink (mpp-nul-data-etappe): gedeeld door de toast (NotificationHost) en het
+   eigenschappenpaneel (TaskTimephasedNotice) — geen nieuwe kleur, erft `color` van de context
+   (wit op de toast, de normale tekstkleur in het paneel), alleen onderstreping als affordance. */
+.ops-textlink {
+  display: inline;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ops-toast-readmore {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: calc(11px * var(--ui-font-scale, 1));
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;

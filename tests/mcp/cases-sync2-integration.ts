@@ -108,6 +108,32 @@ test('geen dubbele toolnamen over de zes modules heen', async () => {
   assertEq(new Set(names).size, names.length, 'alle toolnamen zijn uniek');
 });
 
+// Reviewbevinding (2026-08-15, ná het eigenaarsbesluit over verzameltaakrelaties): de tool-
+// descriptions van add_dependencies/update_dependencies beweerden nog dat een verzameltaak-eindpunt
+// zacht geweigerd wordt — dat is sinds `expandSummaryRelations` niet meer waar (zo'n relatie rekent
+// mee), alleen de voorouder-relatie wordt nog geweigerd. Een agent die op de description afgaat mag
+// niet aannemen dat een verzameltaak-eindpunt sowieso mislukt.
+test('add_dependencies/update_dependencies-descriptions beloven de HUIDIGE weigering, niet de oude', async () => {
+  for (const name of ['planner_add_dependencies', 'planner_update_dependencies']) {
+    const def = getTool(name);
+    assert(def !== undefined, `tool '${name}' ontbreekt in de registry`);
+    const desc = def!.description ?? '';
+    assert(
+      /voorouder/i.test(desc),
+      `'${name}': description noemt de voorouder-weigering niet: ${desc}`,
+    );
+    assert(
+      /verzameltaak.{0,80}TOEGESTAAN|TOEGESTAAN.{0,80}verzameltaak/i.test(desc),
+      `'${name}': description zegt niet expliciet dat een verzameltaak-eindpunt is toegestaan: ${desc}`,
+    );
+    // De oude, nu onjuiste claim ("verzameltaak ... wordt/is ... geweigerd") mag niet meer voorkomen.
+    assert(
+      !/verzameltaak[^.]{0,80}geweigerd/i.test(desc),
+      `'${name}': description belooft nog steeds dat een verzameltaak-eindpunt geweigerd wordt: ${desc}`,
+    );
+  }
+});
+
 // =================================================================================================
 // C. Registratie draait op een PRODUCTIEpad
 // =================================================================================================

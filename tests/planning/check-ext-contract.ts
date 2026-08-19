@@ -71,14 +71,14 @@ const EXT_PROJECT_KEYS = keys<ExtProject>()([
 
 const EXT_CALENDAR_KEYS = keys<ExtCalendar>()([
   'id', 'name', 'description', 'workDays', 'workStartHour', 'workEndHour', 'hoursPerDay',
-  'holidays', 'workTime', 'shift',
+  'holidays', 'workTime', 'shift', 'workingExceptions',
 ] as const);
 
 const EXT_TASK_TIME_KEYS = keys<ExtTaskTime>()([
   'durationType', 'scheduleDuration', 'durationMinutes', 'scheduleStart', 'scheduleFinish',
   'earlyStart', 'earlyFinish', 'lateStart', 'lateFinish', 'freeFloat', 'totalFloat', 'isCritical',
   'interferingFloat', 'isNearCritical', 'floatPath', 'actualStart', 'actualFinish',
-  'actualDuration', 'remainingTime', 'remainingMinutes', 'completion',
+  'actualDuration', 'remainingTime', 'remainingMinutes', 'completion', 'resume', 'stop',
 ] as const);
 
 const EXT_TASK_KEYS = keys<ExtTask>()([
@@ -86,6 +86,10 @@ const EXT_TASK_KEYS = keys<ExtTask>()([
   'mandatory', 'priority', 'levelingDelay', 'parentId', 'childIds', 'time', 'resourceIds', 'color',
   'activityCodes', 'customFields', 'constraint', 'constraint2', 'isHammock', 'externalLinks',
   'deadline', 'calendarId', 'notes',
+  // fase 3.8 (.mpp-datumgetrouwheid): leeskant-velden uit de import, zie extTypes.ts
+  'levelingDelayMinutes', 'levelingDelayElapsed', 'splitGaps', 'manuallyScheduled',
+  'mspTaskType', 'effortDriven', 'timephasedContours',
+  'timephasedFinishFloor', 'timephasedStartAnchor', 'timephasedDurationWalks',
 ] as const);
 
 const EXT_SEQUENCE_KEYS = keys<ExtSequence>()([
@@ -98,7 +102,7 @@ const EXT_RESOURCE_KEYS = keys<ExtResource>()([
 ] as const);
 
 const EXT_ASSIGNMENT_KEYS = keys<ExtAssignment>()([
-  'id', 'taskId', 'resourceId', 'unitsPerDay', 'curve',
+  'id', 'taskId', 'resourceId', 'unitsPerDay', 'curve', 'workWindowStart', 'workWindowFinish',
 ] as const);
 
 // ── (c) Interne velden die BEWUST niet oversteken ────────────────────────────
@@ -142,6 +146,8 @@ const VOL_TIME = {
   remainingTime: 2,
   remainingMinutes: 960,
   completion: 0.6,
+  resume: '2026-06-05T10:00',
+  stop: '2026-06-04T14:00',
 } satisfies Required<TaskTime>;
 
 const VOL_TASK = {
@@ -156,6 +162,18 @@ const VOL_TASK = {
   mandatory: true,
   priority: 400,
   levelingDelay: 2,
+  // fase 3.8 (.mpp-datumgetrouwheid): de import-tijd-velden, allemaal gevuld — in de VOLGORDE van
+  // `fromExtTask` (de round-trip-check vergelijkt via JSON.stringify en is dus volgorde-gevoelig).
+  levelingDelayMinutes: 90,
+  levelingDelayElapsed: true,
+  splitGaps: [{ afterMinutes: 480, gapMinutes: 960 }],
+  manuallyScheduled: true,
+  mspTaskType: 'FIXED_WORK',
+  effortDriven: true,
+  timephasedContours: [{ resourceUid: 3, periods: [{ afterMinutes: 0, minutes: 480, workMinutes: 240, kind: 'remaining' }] }],
+  timephasedFinishFloor: '2026-06-10T17:00',
+  timephasedStartAnchor: '2026-06-01T08:00',
+  timephasedDurationWalks: [{ anchor: '2026-06-01T08:00', resourceCalendarId: 'cal2', workMinutes: 480 }],
   parentId: 'p1',
   childIds: ['c1', 'c2'],
   time: VOL_TIME,
@@ -201,6 +219,7 @@ const VOL_CALENDAR = {
   generation: { ruleSetId: 'NL', generatedFromYear: 2026, generatedToYear: 2028, region: 'noord', breakChoice: 'noord' },
   workTime: { byWeekday: { 1: [{ start: 420, end: 960 }], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] } },
   shift: 'SECOND',
+  workingExceptions: [{ name: 'Inhaaldag', startDate: '2026-06-06', endDate: '2026-06-06' }],
   libraryOrigin: { companyId: 'b1', libraryItemId: 'i1', poolVersion: 2, syncedHash: 'h1' },
 } satisfies Required<WorkCalendar>;
 
@@ -219,6 +238,7 @@ const VOL_RESOURCE = {
 
 const VOL_ASSIGNMENT = {
   id: 'a1', taskId: 't1', resourceId: 'r1', unitsPerDay: 0.5, curve: 'BELL',
+  workWindowStart: '2026-06-01T08:00', workWindowFinish: '2026-06-10T17:00',
 } satisfies Required<ResourceAssignment>;
 
 // ── 1. `toExt*` laat geen contractveld vallen ────────────────────────────────

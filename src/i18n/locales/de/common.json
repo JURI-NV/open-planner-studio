@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Benachrichtigung schließen",
     "openFailed": "Datei konnte nicht geöffnet werden",
+    "mppLegacy": "Diese .mpp-Datei verwendet ein altes Format (Project 2007 oder älter). Exportieren Sie sie in MS Project als XML (Datei → Speichern unter → XML) und öffnen Sie diese Datei.",
+    "mppEncrypted": "Diese .mpp-Datei ist passwortgeschützt. Exportieren Sie sie in MS Project als XML (Datei → Speichern unter → XML) und öffnen Sie diese Datei.",
     "saveFailed": "Speichern fehlgeschlagen",
     "savedViaDownload": "Als Download gespeichert: '{{name}}' liegt jetzt in Ihrem Download-Ordner. Diese Umgebung erlaubt der App nicht, direkt an den gewählten Ort zu schreiben.",
     "autoSaveFailed": "Automatisches Speichern fehlgeschlagen",
@@ -15,8 +17,15 @@
     "templateSaved": "Zweig als Vorlage '{{name}}' gespeichert",
     "relationCreated": "Beziehung erstellt: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Diese Beziehung besteht bereits",
-    "relationSummaryEndpoint": "Eine Sammelaufgabe als Endpunkt hat keine Auswirkung auf den Terminplan. Verknüpfen Sie sie mit einer Aufgabe ohne Unteraufgaben.",
-    "summaryRelationsIgnored": "{{total}} Beziehung(en) an Sammelaufgaben haben keine Auswirkung auf den Terminplan."
+    "relationAncestorEndpoint": "Eine Beziehung zwischen einer Aufgabe und ihrer eigenen übergeordneten Sammelaufgabe ist nicht zulässig.",
+    "summaryRelationsDropped": "{{total}} Beziehung(en) konnten nicht einbezogen werden — siehe das Beziehungen-Panel für Details.",
+    "mppSourceScheduleNotes_one": "Diese MS-Project-Datei enthält {{count}} Vorgang mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Er wird so eingelesen und angezeigt.",
+    "mppSourceScheduleNotes_other": "Diese MS-Project-Datei enthält {{count}} Vorgänge mit unterbrochener, geglätteter oder ressourcengesteuerter Terminierung. Sie werden so eingelesen und angezeigt.",
+    "projectStartAnchorsClamped_one": "Projektstart verschoben: {{count}} Vorgangsanker ohne Vorgänger oder Einschränkung wurde auf das neue Startdatum verschoben.",
+    "projectStartAnchorsClamped_other": "Projektstart verschoben: {{count}} Vorgangsanker ohne Vorgänger oder Einschränkung wurden auf das neue Startdatum verschoben.",
+    "mppTimephasedSteeringLost_one": "Die Stundenverteilung aus MS Project steuert {{count}} Vorgang nach dieser Bearbeitung nicht mehr; die ursprüngliche Verteilung bleibt in der Datei erhalten.",
+    "mppTimephasedSteeringLost_other": "Die Stundenverteilung aus MS Project steuert {{count}} Vorgänge nach dieser Bearbeitung nicht mehr; die ursprüngliche Verteilung bleibt in der Datei erhalten.",
+    "readMore": "Mehr erfahren"
   },
   "yes": "Ja",
   "no": "Nein",
@@ -236,7 +245,8 @@
   },
   "project": {
     "untitled": "Neue Planung",
-    "imported": "Importiertes Projekt"
+    "imported": "Importiertes Projekt",
+    "unassignedResource": "Nicht zugewiesen"
   },
   "documents": {
     "overviewTitle": "Offene Projekte",

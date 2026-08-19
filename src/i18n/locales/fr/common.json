@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Fermer la notification",
     "openFailed": "Échec de l'ouverture du fichier",
+    "mppLegacy": "Ce fichier .mpp utilise un ancien format (Project 2007 ou antérieur). Exportez-le depuis MS Project au format XML (Fichier → Enregistrer sous → XML) et ouvrez ce fichier.",
+    "mppEncrypted": "Ce fichier .mpp est protégé par un mot de passe. Exportez-le depuis MS Project au format XML (Fichier → Enregistrer sous → XML) et ouvrez ce fichier.",
     "saveFailed": "Échec de l'enregistrement",
     "savedViaDownload": "Enregistré sous forme de téléchargement : '{{name}}' se trouve maintenant dans votre dossier de téléchargements. Cet environnement ne permet pas à l'application d'écrire directement à l'emplacement choisi.",
     "autoSaveFailed": "Échec de l'enregistrement automatique",
@@ -15,8 +17,18 @@
     "templateSaved": "Branche enregistrée comme modèle '{{name}}'",
     "relationCreated": "Relation créée : {{predecessor}} → {{successor}}",
     "relationDuplicate": "Cette relation existe déjà",
-    "relationSummaryEndpoint": "Une tâche récapitulative comme extrémité n'a aucun effet sur le planning. Reliez-la plutôt à une tâche sans sous-tâches.",
-    "summaryRelationsIgnored": "{{total}} relation(s) sur des tâches récapitulatives n'ont aucun effet sur le planning."
+    "relationAncestorEndpoint": "Une relation entre une tâche et sa propre tâche récapitulative parente (ou ancêtre) n'est pas autorisée.",
+    "summaryRelationsDropped": "{{total}} relation(s) n'ont pas pu être prises en compte — voir le panneau Relations pour savoir lesquelles.",
+    "mppSourceScheduleNotes_one": "Ce fichier MS Project contient {{count}} tâche à la planification fractionnée, lissée ou pilotée par les ressources. Elle est importée et affichée telle quelle.",
+    "mppSourceScheduleNotes_many": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Elles sont importées et affichées telles quelles.",
+    "mppSourceScheduleNotes_other": "Ce fichier MS Project contient {{count}} tâches à la planification fractionnée, lissée ou pilotée par les ressources. Elles sont importées et affichées telles quelles.",
+    "projectStartAnchorsClamped_one": "Début de projet déplacé : {{count}} ancre de tâche sans prédécesseur ni contrainte a été déplacée vers la nouvelle date de début.",
+    "projectStartAnchorsClamped_many": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début.",
+    "projectStartAnchorsClamped_other": "Début de projet déplacé : {{count}} ancres de tâche sans prédécesseur ni contrainte ont été déplacées vers la nouvelle date de début.",
+    "mppTimephasedSteeringLost_one": "La répartition horaire de MS Project ne pilote plus {{count}} tâche après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "mppTimephasedSteeringLost_many": "La répartition horaire de MS Project ne pilote plus {{count}} tâches après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "mppTimephasedSteeringLost_other": "La répartition horaire de MS Project ne pilote plus {{count}} tâches après cette modification ; la répartition d'origine reste conservée dans le fichier.",
+    "readMore": "En savoir plus"
   },
   "yes": "Oui",
   "no": "Non",
@@ -236,7 +248,8 @@
   },
   "project": {
     "untitled": "Nouvelle planification",
-    "imported": "Projet importé"
+    "imported": "Projet importé",
+    "unassignedResource": "Non assigné"
   },
   "documents": {
     "overviewTitle": "Projets ouverts",

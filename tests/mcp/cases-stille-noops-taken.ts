@@ -277,9 +277,11 @@ test('M1: een verzameltaak wissen rapporteert de VOLLEDIGE cascade, niet alleen 
   const kid2 = store.getState().addTask({ name: 'kind2', parentId: parent });
   const grand = store.getState().addTask({ name: 'kleinkind', parentId: kid1 });
   const outsider = store.getState().addTask({ name: 'buitenstaander' });
-  // kid2 (niet kid1): kid1 heeft zelf een kind (`grand`) en is dus een verzameltaak — sinds de
-  // relatieregels (relationRules.ts) weigert addSequence een verzameltaak als eindpunt, en dat zou
-  // deze fixture ongemerkt een no-op maken. kid2 is een blad, dus een geldig eindpunt.
+  // kid2 (niet kid1): kid1 heeft zelf een kind (`grand`) en is dus een verzameltaak. Een
+  // verzameltaak-eindpunt is sinds 2026-08-15 op zich geen weigergrond meer (relationRules.ts,
+  // `isAncestorRelation`), maar kid1→outsider zou hier ALSNOG geen bruikbare fixture zijn geweest:
+  // de cascade-telling hieronder is onafhankelijk van welk kind de relatie draagt, dus kid2 (een
+  // gewoon blad, geen bijzonderheden) houdt deze test simpel.
   store.getState().addSequence({ predecessorId: kid2, successorId: outsider, type: 'FINISH_START', lagDays: 0 });
 
   const data = okData(await call('planner_delete_tasks', { ids: [parent] }));

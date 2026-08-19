@@ -23,7 +23,7 @@ A flat list of tasks says nothing about how they relate. By indenting a task und
 4. Went one level too far? **Alt+←** (or right-click → **Outdent**) moves the task back one level.
 5. For a brand-new subtask there's a faster route: right-click the parent task and choose **Add subtask**. That creates a new, already-indented task in one step, instead of adding a task first and indenting it separately afterwards.
 
-As soon as a task has at least one subtask, it automatically becomes a summary task: its bar in the Gantt chart then spans the full period from the earliest start to the latest finish of all subtasks beneath it, and its own duration and dates can no longer be set independently. A summary task is therefore always a derived value, never a schedule you enter directly — delete or shift the subtasks, and the summary task's bar adjusts itself automatically.
+As soon as a task has at least one subtask, it automatically becomes a summary task: its bar in the Gantt chart then spans the full period from the earliest start to the latest finish of all subtasks beneath it, and its own duration and dates can no longer be set independently. A summary task is therefore normally always a derived value, never a schedule you enter directly — delete or shift the subtasks, and the summary task's bar adjusts itself automatically. One exception: a **manually scheduled** summary task (that flag arises from a `.mpp` import) does *not* roll up — it keeps its own stored dates, even when its subtasks shift.
 
 **Collapse and expand.** With a large WBS you'll sometimes want to compact the tree temporarily. The **View** ribbon tab, **Outline** group, has two separate buttons for this — **Collapse** and **Expand** — deliberately not a single toggle, because with a mixed selection (some branches open, others closed) a toggle could never set everything the same way.
 
@@ -99,7 +99,7 @@ placing a task you can't see.
 
 ## Milestone kinds
 
-A milestone is a task with no duration that marks a moment — a start, a handover, an inspection. Open Planner Studio has three ways to add a milestone, all via the **Tasks** ribbon group, using the arrow next to the **Milestone** button:
+A milestone marks a moment — a start, a handover, an inspection — and normally has zero duration; if a milestone has been given a duration greater than 0 itself (via an import, for example), Open Planner Studio simply schedules it as a task with that duration, with the **Milestone** checkbox still on. Open Planner Studio has three ways to add a milestone, all via the **Tasks** ribbon group, using the arrow next to the **Milestone** button:
 
 - **Start milestone** — marks the beginning of a phase or the project.
 - **Finish milestone** — marks a completion, for example a handover.

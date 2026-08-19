@@ -23,7 +23,7 @@ Een platte lijst taken vertelt niets over samenhang. Door taken in te laten spri
 4. Ging je een niveau te ver? **Alt+←** (of rechtsklik → **Uitspringen**) zet de taak weer een niveau terug.
 5. Voor een compleet nieuwe subtaak is er een snellere weg: rechtsklik op de bovenliggende taak en kies **Subtaak toevoegen**. Dat maakt in één keer een nieuwe taak aan die al is ingesprongen, in plaats van eerst een taak toe te voegen en die daarna apart in te laten springen.
 
-Zodra een taak minstens één subtaak heeft, wordt hij automatisch een samenvattende taak: de balk in het Gantt-diagram overspant dan de volledige periode van de vroegste start tot de laatste finish van alle subtaken eronder, en zijn eigen duur en data zijn niet langer los in te stellen. Een samenvattende taak is dus altijd een afgeleide, geen los ingevoerde planning — verwijder of verschuif je de subtaken, dan past de balk van de samenvattende taak zich vanzelf aan.
+Zodra een taak minstens één subtaak heeft, wordt hij automatisch een samenvattende taak: de balk in het Gantt-diagram overspant dan de volledige periode van de vroegste start tot de laatste finish van alle subtaken eronder, en zijn eigen duur en data zijn niet langer los in te stellen. Een samenvattende taak is dus normaal gesproken altijd een afgeleide, geen los ingevoerde planning — verwijder of verschuif je de subtaken, dan past de balk van de samenvattende taak zich vanzelf aan. Eén uitzondering: een **handmatig geplande** samenvattingstaak (die vlag ontstaat bij een `.mpp`-import) rolt juist niét op — die houdt haar eigen opgeslagen datums, ook als haar subtaken verschuiven.
 
 **Inklappen en uitklappen.** Bij een grote WBS wil je de boom soms tijdelijk compacter maken. Het lint-tabblad **Beeld**, groep **Overzicht**, heeft daarvoor twee aparte knoppen — **Inklappen** en **Uitklappen** — bewust geen schakelaar, want bij een gemengde selectie (de ene tak open, de andere dicht) kan een schakelaar nooit alles dezelfde kant op zetten.
 
@@ -102,7 +102,7 @@ vraagt de app dat eerst na in plaats van stilzwijgend een taak te plaatsen die j
 
 ## Mijlpaal-soorten
 
-Een mijlpaal is een taak zonder duur die een moment markeert — een start, een oplevering, een keuring. Open Planner Studio kent drie manieren om een mijlpaal toe te voegen, allemaal via de lintgroep **Taken** op het pijltje naast de knop **Mijlpaal**:
+Een mijlpaal markeert een moment — een start, een oplevering, een keuring — en heeft normaal gesproken duur 0; heeft een mijlpaal zelf een duur groter dan 0 gekregen (bijvoorbeeld via een import), dan plant Open Planner Studio 'm gewoon als een taak met die duur, met het vinkje **Mijlpaal** nog aan. Open Planner Studio kent drie manieren om een mijlpaal toe te voegen, allemaal via de lintgroep **Taken** op het pijltje naast de knop **Mijlpaal**:
 
 - **Startmijlpaal** — markeert het begin van een fase of het project.
 - **Eindmijlpaal** — markeert een afronding, bijvoorbeeld een oplevering.

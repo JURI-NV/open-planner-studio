@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "알림 닫기",
     "openFailed": "파일을 열 수 없습니다",
+    "mppLegacy": "이 .mpp 파일은 이전 형식(Project 2007 이하)을 사용합니다. MS Project에서 XML로 내보낸 후(파일 → 다른 이름으로 저장 → XML) 해당 파일을 여세요.",
+    "mppEncrypted": "이 .mpp 파일은 암호로 보호되어 있습니다. MS Project에서 XML로 내보낸 후(파일 → 다른 이름으로 저장 → XML) 해당 파일을 여세요.",
     "saveFailed": "저장하지 못했습니다",
     "savedViaDownload": "다운로드로 저장했습니다. '{{name}}' 파일이 다운로드 폴더에 있습니다. 이 환경에서는 앱이 선택한 위치에 직접 쓸 수 없습니다.",
     "autoSaveFailed": "자동 저장 실패",
@@ -15,8 +17,12 @@
     "templateSaved": "분기가 '{{name}}' 템플릿으로 저장되었습니다",
     "relationCreated": "관계를 만들었습니다: {{predecessor}} → {{successor}}",
     "relationDuplicate": "이 관계는 이미 있습니다",
-    "relationSummaryEndpoint": "요약 작업을 끝점으로 사용해도 일정에 영향을 주지 않습니다. 하위 작업이 없는 작업에 연결하세요.",
-    "summaryRelationsIgnored": "요약 작업의 관계 {{total}}개는 일정에 영향을 주지 않습니다."
+    "relationAncestorEndpoint": "작업과 자신의 (조상) 요약 작업 간의 관계는 허용되지 않습니다.",
+    "summaryRelationsDropped": "{{total}}개의 관계를 계산에 포함할 수 없었습니다 — 어떤 관계인지는 관계 패널에서 확인하세요.",
+    "mppSourceScheduleNotes_other": "이 MS Project 파일에는 분할되었거나 평준화되었거나 리소스 기반으로 조정된 작업이 {{count}}개 포함되어 있습니다. 있는 그대로 가져와 표시됩니다.",
+    "projectStartAnchorsClamped_other": "프로젝트 시작일이 변경되었습니다. 선행 작업이나 제약 조건이 없는 작업 기준점 {{count}}개를 새 시작일로 이동했습니다.",
+    "mppTimephasedSteeringLost_other": "이 편집 이후 MS Project의 시간 분배가 더 이상 {{count}}개 작업을 제어하지 않습니다. 원래 분배는 파일에 그대로 보존됩니다.",
+    "readMore": "더 알아보기"
   },
   "yes": "예",
   "no": "아니오",
@@ -236,7 +242,8 @@
   },
   "project": {
     "untitled": "새 계획",
-    "imported": "가져온 프로젝트"
+    "imported": "가져온 프로젝트",
+    "unassignedResource": "미할당"
   },
   "documents": {
     "overviewTitle": "열린 프로젝트",

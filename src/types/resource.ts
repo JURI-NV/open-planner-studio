@@ -47,4 +47,11 @@ export interface ResourceAssignment {
   unitsPerDay: number;
   /** Verdeelcurve over de duur (P6 resource curves, vereenvoudigd). undefined = UNIFORM. */
   curve?: ResourceCurve;
+  /** OPTIONEEL — timephased-venster van deze toewijzing (MS Project "contouring", etappe "nul
+   *  afwijkingen" Z0, voorlopig ONGEBRUIKT: geen lezer vult dit, geen solver-stap raadpleegt het).
+   *  ISO-datum(tijd); precedent voor "effective-dated venster op een resource-object":
+   *  `Resource.availabilitySteps`. Afwezig ⇒ geen venster (byte-identiek). */
+  workWindowStart?: string;
+  /** OPTIONEEL — zie `workWindowStart`. Afwezig ⇒ geen venster (byte-identiek). */
+  workWindowFinish?: string;
 }

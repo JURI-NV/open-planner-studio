@@ -34,7 +34,7 @@ Er is geen vitest/jest; `tsc` is de statische hoofdcheck — draai `npm run type
 
 | suite | wat | runner |
 |---|---|---|
-| `tests/planning/` | data-driven CPM/kalender-cases + losse `check-*.ts`-batterijen (IFC-round-trip en STEP-stringveiligheid, recovery-integriteit en -isolatie, documentcontract, meldingen, undo-begrenzing, export-guard, werkdagen-as, i18n-pluralvormen, renderer, …), afgesloten met een tijdzone-matrix | `run.sh`, esbuild → Node |
+| `tests/planning/` | data-driven CPM/kalender-cases + losse `check-*.ts`-batterijen (IFC-round-trip en STEP-stringveiligheid, recovery-integriteit en -isolatie, documentcontract, meldingen, undo-begrenzing, export-guard, werkdagen-as, i18n-pluralvormen, renderer, `.mpp`-lezer-datumgetrouwheid met de `GOAL_ZERO_DEVIATIONS`-poort, …), afgesloten met een tijdzone-matrix | `run.sh`, esbuild → Node |
 | `tests/library/` | bibliotheek, pool-IFC, vijandige IFC-invoer, i18n-meervouden | `run.sh` |
 | `tests/mcp/` | de MCP-tools headless tegen de echte store | `run.sh` |
 | `tests/dev-server/` | poortallocatie en flock-races van de dev-server | `node:test` + `integration.sh` |
@@ -62,6 +62,33 @@ De `invoke_handler` in `src-tauri/src/main.rs` telt precies drie commands: `inst
 ### IFC is the native file format, not a sidecar
 
 The application's persistence model is IFC 4.3 (buildingSMART). Loading a project = parsing IFC via `src/services/ifc/ifcReader`; saving = serializing the entire app state via `ifcWriter`. There is no separate JSON project format. When adding new domain data (tasks, sequences, resources, assignments, calendar), it must round-trip through the IFC layer or it will be lost on save/reload. CSV/MS Project/P6 services in `src/services/` are import/export adapters, not the source of truth. The other `src/services/` areas — `fileAccess/` (Tauri↔web bestands-I/O + handle-backed recents), `recovery/` (auto-save/restore, Tauri fs + web IndexedDB), `benchmark/` (ingebouwde benchmark-tool via Instellingen), `print/` (printvoorbeeld), `pdf/` (vector-PDF-export via `pdf-lib`, met rasterfallback voor CJK/RTL), `updater/`, `feedback/` (feedbackdialoog + screenshot-annotator), `mcp/` (AI-assistent, zie hieronder) and `debug/appLog` (log-bus achter de DebugTerminal) — are app plumbing with no IFC impact. `library/` is de uitzondering: bibliotheekdata is app-globaal, maar herkomststempels round-trippen wél door het project-IFC (zie *Resourcebibliotheken*).
+
+### De `.mpp`-lezer is een eigen CFB/OLE2-implementatie, alleen-lezen
+
+Naast de bestaande CSV/MSPDI (MS Project XML)/P6-XML-adapters kan Open Planner Studio het native
+`.mpp`-formaat van Microsoft Project (MPP14, Project 2010–2021) rechtstreeks openen — geen Rust, geen
+externe bibliotheek. `src/services/mpp/` is een eigen, in TypeScript geschreven CFB/OLE2-container-
+parser (`cfb.ts`) plus een MPP14-fieldmap-laag (`fieldMap14.ts`, `mppContainer.ts`, `mppEntities.ts`,
+`mppCalendars.ts`, `mppPrimitives.ts`, `mppTimephased.ts`), structureel afgeleid van MPXJ
+(`github.com/joniles/mpxj`, LGPL-2.1) zonder de Java-afhankelijkheid. Entry point `readMPP()`
+(`mppReader.ts`) levert hetzelfde `ImportResult`-contract als de andere lezers en wordt — net als
+CSV/MSPDI/P6-XML/IFC — via `src/services/formatRegistry.ts` (`READ_FORMATS`, één registry voor alle
+open-dispatches en de exportlijst) achter een dynamic import geladen, zodat de CFB/fieldmap-code
+buiten de hoofdbundel blijft. De import is **alleen-lezen**: er is geen `.mpp`-schrijfpad, opslaan
+gaat altijd via IFC (zie hierboven); oudere `.mpp`-versies (MPP8/9/12) en wachtwoord-versleutelde
+bestanden worden herkend maar geweigerd met een duidelijke foutmelding.
+
+Datumgetrouwheid tegen MS Project zelf wordt bewaakt door `tests/planning/check-mpp-fidelity.ts`
+tegen een gecommitte baseline (`mpp-fidelity-baseline.json`, 216 bestanden/3413 taken uit publiek
+MPXJ-/OzBuild-testmateriaal): de `GOAL_ZERO_DEVIATIONS`-poort daarin faalt zodra één gepind bestand
+nog maar één dag/minuut afwijkt. Een bewerking die de MSP-eigen timephased-sturing van een taak
+loslaat (contour/split/nivellering uit het bronbestand) geeft eenmalig per document een informatieve
+melding (`notifyTimephasedLoss`, `src/state/timephasedLossNotice.ts`) en markeert de taak in het
+eigenschappenpaneel (`TaskTimephasedNotice.tsx`); beide linken via `openHelpArticle` (`uiSlice.ts`,
+`NotifyInput.helpArticleId`) naar de Help-viewer (Backstage → Help). Zie de gids
+`public/docs/{nl,en}/gids-msproject-import.md` voor het gebruikersperspectief en de overige
+`tests/planning/check-mpp-*.ts`-batterijen (import/relations/calendars/summary-relations) voor de
+rest van de regressiedekking.
 
 ### Rendering: Canvas 2D, not DOM
 

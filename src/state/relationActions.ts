@@ -16,7 +16,7 @@ const shortName = (name: string | undefined) =>
  *  helpt niemand. */
 const REJECTION_MESSAGE: Record<RelationRejection, NotificationMessageKey> = {
   duplicate: 'notifications.relationDuplicate',
-  'summary-endpoint': 'notifications.relationSummaryEndpoint',
+  ancestor: 'notifications.relationAncestorEndpoint',
   self: 'notifications.relationDuplicate',
   'unknown-task': 'notifications.relationDuplicate',
 };

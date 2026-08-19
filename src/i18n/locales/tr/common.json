@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Bildirimi kapat",
     "openFailed": "Dosya açılamadı",
+    "mppLegacy": "Bu .mpp dosyası eski bir biçim kullanıyor (Project 2007 veya daha eski). MS Project'te XML olarak dışa aktarın (Dosya → Farklı Kaydet → XML) ve o dosyayı açın.",
+    "mppEncrypted": "Bu .mpp dosyası parola ile korunuyor. MS Project'te XML olarak dışa aktarın (Dosya → Farklı Kaydet → XML) ve o dosyayı açın.",
     "saveFailed": "Kaydetme başarısız",
     "savedViaDownload": "İndirme olarak kaydedildi: '{{name}}' artık indirmeler klasörünüzde. Bu ortam uygulamanın seçtiğiniz konuma doğrudan yazmasına izin vermiyor.",
     "autoSaveFailed": "Otomatik kaydetme başarısız",
@@ -15,8 +17,15 @@
     "templateSaved": "Dal, '{{name}}' şablonu olarak kaydedildi",
     "relationCreated": "İlişki oluşturuldu: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Bu ilişki zaten var",
-    "relationSummaryEndpoint": "Uç nokta olarak bir özet görev planlamayı etkilemez. Alt görevi olmayan bir göreve bağlayın.",
-    "summaryRelationsIgnored": "Özet görevlerdeki {{total}} ilişki planlamayı etkilemiyor."
+    "relationAncestorEndpoint": "Bir görev ile kendi üst özet görevi arasında ilişki kurulmasına izin verilmez.",
+    "summaryRelationsDropped": "{{total}} ilişki hesaplamaya dahil edilemedi — hangileri olduğunu görmek için İlişkiler panelini kontrol edin.",
+    "mppSourceScheduleNotes_one": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış {{count}} görev içeriyor. Böyle içe aktarılır ve gösterilir.",
+    "mppSourceScheduleNotes_other": "Bu MS Project dosyası, bölünmüş, dengelenmiş veya kaynak odaklı planlanmış {{count}} görev içeriyor. Böyle içe aktarılır ve gösterilir.",
+    "projectStartAnchorsClamped_one": "Proje başlangıcı taşındı: öncülü veya kısıtlaması olmayan {{count}} görev çıpası yeni başlangıç tarihine kaydırıldı.",
+    "projectStartAnchorsClamped_other": "Proje başlangıcı taşındı: öncülü veya kısıtlaması olmayan {{count}} görev çıpası yeni başlangıç tarihine kaydırıldı.",
+    "mppTimephasedSteeringLost_one": "MS Project'ten gelen saat dağılımı bu düzenlemeden sonra {{count}} görevi artık yönlendirmiyor; özgün dağılım dosyada saklı kalıyor.",
+    "mppTimephasedSteeringLost_other": "MS Project'ten gelen saat dağılımı bu düzenlemeden sonra {{count}} görevi artık yönlendirmiyor; özgün dağılım dosyada saklı kalıyor.",
+    "readMore": "Daha fazla bilgi"
   },
   "yes": "Evet",
   "no": "Hayır",
@@ -236,7 +245,8 @@
   },
   "project": {
     "untitled": "Yeni planlama",
-    "imported": "İçe aktarılan proje"
+    "imported": "İçe aktarılan proje",
+    "unassignedResource": "Atanmamış"
   },
   "documents": {
     "overviewTitle": "Açık projeler",

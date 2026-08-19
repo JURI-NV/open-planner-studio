@@ -29,6 +29,7 @@
 // Labels horen er ook niet in: het lint en de sneltoetsdialoog gebruiken bewust verschillende
 // vertaalsleutels ("Ongedaan maken" op een knop, een langere omschrijving in de sneltoetslijst).
 import type { AppState } from '@/state/appStore';
+import { buildImportLabels } from '@/i18n/importLabels';
 import { deleteTasksBulk } from '@/state/taskBulkActions';
 import { isTreeMode } from '@/engine/view/visibleRows';
 import { saveShowHistogram } from '@/utils/settingsStore';
@@ -78,7 +79,7 @@ export const COMMANDS = {
     // De vertaalde naam voor een geïmporteerd project. Het lint haalde die vroeger uit
     // `useTranslation`, de sneltoets uit de globale `i18n` — zelfde instantie, zelfde taal, dus
     // hier op één van de twee gestandaardiseerd. Moet de globale zijn: dit is geen hook.
-    run: (s) => { void s.openFile({ importedProject: i18n.t('project.imported', { ns: 'common' }) }); },
+    run: (s) => { void s.openFile(buildImportLabels((key) => i18n.t(key, { ns: 'common' }))); },
   },
   delete: {
     id: 'delete',

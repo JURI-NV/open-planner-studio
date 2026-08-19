@@ -15,6 +15,7 @@ import {
   saveShowMiniMap, loadLayouts, saveLayouts, loadLastLayoutId, saveLastLayoutId,
 } from '@/utils/settingsStore';
 import { ExportFormat } from '@/state/appStore';
+import { EXPORT_FORMATS } from '@/services/formatRegistry';
 import { addTaskNearSelection } from '@/state/taskInsertActions';
 import { supportsHandles } from '@/services/fileAccess';
 import { DateTextInput } from '@/components/common/DateTextInput';
@@ -25,6 +26,7 @@ import { RESOURCE_CURVES, CURVE_KEY } from '@/components/task-sections/shared';
 import { UnitsInput } from '@/components/common/UnitsInput';
 import { groupFieldList, fullFieldList, fieldOptions } from '@/components/viewControls/fieldCatalog';
 import { useFieldCatalogCtx } from '@/components/viewControls/useFieldCatalogCtx';
+import { buildImportLabels } from '@/i18n/importLabels';
 import { snapshotLayout } from '@/components/viewControls/layoutSnapshot';
 import {
   RibbonButton, RibbonSmallButton, RibbonGroup, RibbonButtonStack, RibbonDropdown,
@@ -332,7 +334,7 @@ export function RecentFilesDropdown() {
               title={sub}
               onMouseOver={ev => (ev.currentTarget.style.background = 'var(--theme-hover)')}
               onMouseOut={ev => (ev.currentTarget.style.background = 'transparent')}
-              onClick={() => { void openRecentFile(e.id, { importedProject: tCommon('project.imported') }); setOpen(false); }}
+              onClick={() => { void openRecentFile(e.id, buildImportLabels(tCommon)); setOpen(false); }}
             >
               {e.name}
               <span style={{ display: 'block', fontSize: 'calc(9px * var(--ui-font-scale, 1))', color: 'var(--theme-text-dim)', marginTop: 1 }}>
@@ -351,12 +353,9 @@ export function ExportDropdown() {
   const [open, setOpen] = useState(false);
   const exportAs = useAppStore(s => s.exportAs);
 
-  const formats: { label: string; format: ExportFormat }[] = [
-    { label: tMenu('export.csvShort'), format: 'csv' },
-    { label: tMenu('export.mspdiLabel'), format: 'mspdi' },
-    { label: tMenu('export.p6Label'), format: 'p6' },
-    { label: tMenu('export.ifcLabel'), format: 'ifc' },
-  ];
+  const formats: { label: string; format: ExportFormat }[] = EXPORT_FORMATS.map(
+    (f) => ({ label: tMenu(f.shortLabelKey ?? f.labelKey), format: f.format }),
+  );
 
   return (
     <Popover

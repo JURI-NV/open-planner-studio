@@ -70,7 +70,7 @@ if [ "$HARNESS_OK" -eq 1 ]; then unset 'BUNDLES[-1]'; fi
 EXPECTED_BATTERIES=(
   advanced-cpm baselines boundary calendar calibration constraints driving edge float
   hours hours-relations kalenders lag-advanced milestone-kinds milestones move-project
-  probes progress relations resource-leveling resource-load view
+  msp-pariteit probes progress relations resource-leveling resource-load view
 )
 
 check_batteries () {
@@ -145,6 +145,57 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   ADCHECK="$DIR/.adapters-hours-check.mjs"
   if bundle_check "$DIR/check-adapters-hours.ts" "$ADCHECK"; then node "$ADCHECK" || STATUS=1; fi
 
+  # Lag-notatie + ploeg-preset-checks (gebruikstest-bevindingen F1/F2, 2026-08-15): uren-syntax in
+  # parseLagInput/formatLagShort (round-trip + afgewezen invoer), updateSequence die lagMinutes nu
+  # via de ECHTE store-actie zet/wist (voorheen alleen via een rauwe setState), en de "3 ploegen"-
+  # preset (bandenstructuur, middernacht-wrap, CALENDAR_PRESETS-aanwezigheid).
+  LFCHECK="$DIR/.lag-format-check.mjs"
+  if bundle_check "$DIR/check-lag-format.ts" "$LFCHECK"; then node "$LFCHECK" || STATUS=1; fi
+
+  # MPP-import (fase 3.8 e1): CFB/OLE2 + MPP14-lezer tegen het lokale corpus (echte bedrijfs-
+  # bestanden, NIET in de repo). Zonder corpus (CI) slaat de check netjes over met een OK-regel.
+  MPPCHECK="$DIR/.mpp-import.mjs"
+  if bundle_check "$DIR/check-mpp-import.ts" "$MPPCHECK"; then node "$MPPCHECK" || STATUS=1; fi
+
+  # MPP-kalenders (fase 3.8 e1, T6 — T6-kwaliteitsreview M7): gesplitst uit check-mpp-import.ts.
+  # TBkndCal-lezer (mppCalendars.ts) — synthetische end-to-end/hostile-fixtures + corpus-/crawl-
+  # secties (OPS_MPP_CORPUS/OPS_MPP_CRAWL, zelfde nette-skip-conventie als hierboven).
+  MPPCALCHECK="$DIR/.mpp-calendars.mjs"
+  if bundle_check "$DIR/check-mpp-calendars.ts" "$MPPCALCHECK"; then node "$MPPCALCHECK" || STATUS=1; fi
+
+  # MPP-relaties/resources/assignments (fase 3.8 e1, T7): TBkndCons/TBkndRsc/TBkndAssn-lezers
+  # (mppReader.ts's readRelations/readResources/readAssignments) — synthetische end-to-end/hostile-
+  # fixtures + corpus-/crawl-secties (OPS_MPP_CORPUS/OPS_MPP_CRAWL, zelfde nette-skip-conventie).
+  MPPRELCHECK="$DIR/.mpp-relations.mjs"
+  if bundle_check "$DIR/check-mpp-relations.ts" "$MPPRELCHECK"; then node "$MPPRELCHECK" || STATUS=1; fi
+
+  # T8-rooktest: 870d339f60603f71 (hash-only, §8) end-to-end (readMPP -> leaf-only CPMSolver,
+  # exact het runCPM-pad) — bevat relaties op WBS-samenvattingstaken (in MS Project legaal) die
+  # vóór de fix de forward pass lieten crashen. Zelfde nette-skip-conventie zonder corpus.
+  MPPSUMCHECK="$DIR/.mpp-summary-relations.mjs"
+  if bundle_check "$DIR/check-mpp-summary-relations.ts" "$MPPSUMCHECK"; then node "$MPPSUMCHECK" || STATUS=1; fi
+
+  # MPP-datumgetrouwheid (fase 3.8, etappe "MSP-pariteit", plandocument T1 — baan M, het gedeelde
+  # meetscript §5): `readMPP` + `solveProject` (de ECHTE runCPM-keten) tegen de ONAFHANKELIJKE
+  # TBkndTask-grondwaarheid (mppGroundTruth.ts) — per-bestand-per-veld-pins tegen
+  # mpp-fidelity-baseline.json (SHA-256-sleutels, geen bestandsnamen), plus een pad-pariteitscase
+  # tegen de echte store. Corpus/crawl-afwezig ⇒ nette OK-skip, zelfde conventie als hierboven.
+  MPPFIDCHECK="$DIR/.mpp-fidelity.mjs"
+  if bundle_check "$DIR/check-mpp-fidelity.ts" "$MPPFIDCHECK"; then node "$MPPFIDCHECK" || STATUS=1; fi
+
+  # Opslagdoel-guard voor binaire bronformaten (fase 3.8 e1, T8-stap 5a): `fileSlice.openFile`
+  # via de echte `<input type=file>`-terugval — .mpp krijgt GEEN opslagdoel, .ifc (contrast) wel.
+  # Corpusdeel volgt dezelfde skip-OK-conventie als hierboven.
+  MPPGUARDCHECK="$DIR/.mpp-open-guard.mjs"
+  if bundle_check "$DIR/check-mpp-open-guard.ts" "$MPPGUARDCHECK"; then node "$MPPGUARDCHECK" || STATUS=1; fi
+
+  # Chunk-poort (fase 3.8 e1, T11 — T8-review-agenda stap 0-ter d): '@/services/mpp' mag NERGENS
+  # onder src/ statisch geïmporteerd worden, alleen als `await import(` in formatRegistry.ts —
+  # anders trekt Rollup de mpp-parser (CFB/fieldmaps) alsnog in de main chunk. Geen corpus nodig,
+  # draait altijd (pure node:fs-grep, geen store/DOM).
+  MPPCHUNKCHECK="$DIR/.mpp-chunk-boundary.mjs"
+  if bundle_check "$DIR/check-mpp-chunk-boundary.ts" "$MPPCHUNKCHECK"; then node "$MPPCHUNKCHECK" || STATUS=1; fi
+
   # MSPDI-baseline-export-regressie: `fileSlice.exportAs('mspdi')` gaf `writeMSPDI` maar zeven van
   # de negen argumenten mee, waardoor `baselines`/`activeBaselineId` op hun defaults ([]/null)
   # vielen en de baseline stil uit de MS-Project-export verdween (de reader leest hem wél).
@@ -155,6 +206,13 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # Geavanceerde-CPM golf-0-checks (fase 2.9 — datamodel + plumbing default-inert, los van de CPM-cases).
   ACPMCHECK="$DIR/.advanced-cpm-check.mjs"
   if bundle_check "$DIR/check-advanced-cpm.ts" "$ACPMCHECK"; then node "$ACPMCHECK" || STATUS=1; fi
+
+  # Samenvattingsrelatie-propagatie (vervolg op 489a9ef2): unit-/hostile-checks voor de PURE
+  # `expandSummaryRelations`-functie (boomtopologie, cyclusvastheid, de MAX_EXPANDED_RELATIONS-klem)
+  # — los van de vier end-to-end-vormen die via de echte store lopen (cases-edge.json,
+  # "wbs-summary-relation-*") en los van de corpus-check hierboven.
+  SUMEXPCHECK="$DIR/.summary-relation-expansion.mjs"
+  if bundle_check "$DIR/check-summary-relation-expansion.ts" "$SUMEXPCHECK"; then node "$SUMEXPCHECK" || STATUS=1; fi
 
   # moveAssignment-checks (fase 2.10, golf D, item 4 — headless tegen de echte store, guards +
   # resourceIds-boekhouding, los van de CPM-cases).
@@ -172,10 +230,24 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   MPCHECK="$DIR/.move-project-check.mjs"
   if bundle_check "$DIR/check-move-project.ts" "$MPCHECK"; then node "$MPCHECK" || STATUS=1; fi
 
+  # T7b (plan-§9/O2-vervolg, orkestratorbesluit 2026-08-15 — optie B): projectstart-
+  # bewerkbescherming — een LATERE `setProject({ startDate })` klemt wortel-ankers zonder
+  # voorganger/constraint vooruit, met melding; geïmporteerde bestanden (loadState/
+  # applyLoadedProject) raken dit pad niet. Headless tegen de echte store; registratie hier is de
+  # eerste sinds T1 (baan M is klaar, `run.sh` was daarna weer vrij voor een nieuwe check).
+  PSACHECK="$DIR/.project-start-anchor-check.mjs"
+  if bundle_check "$DIR/check-project-start-anchor.ts" "$PSACHECK"; then node "$PSACHECK" || STATUS=1; fi
+
   # moveTask-cykelguard + addTask.notes-checks (fase 2.10 onderdeel 2, QA-fixes P1/4 — headless
   # tegen de echte store, los van de CPM-cases).
   MTCHECK="$DIR/.move-task-check.mjs"
   if bundle_check "$DIR/check-move-task.ts" "$MTCHECK"; then node "$MTCHECK" || STATUS=1; fi
+
+  # H1 (Opus-review T15-fixronde, B1-BLOKKER): store-niveau-bewijs dat `applyProgressInvariants`
+  # (taskSlice.ts) een 100%-taak zonder statusdatum op haar EIGEN geplande finish pint, niet op
+  # "vandaag" — en dat scheduleStale altijd gezet wordt, ook zonder statusdatum.
+  TSCHECK="$DIR/.task-slice-check.mjs"
+  if bundle_check "$DIR/check-task-slice.ts" "$TSCHECK"; then node "$TSCHECK" || STATUS=1; fi
 
   # Documentcontract-checks (audit P10, F1/F3 — key-gedreven capture/hydrate/reset, Snapshot-subset,
   # B3-regressie, recovery-round-trip; headless tegen de echte store, los van de CPM-cases).
@@ -266,6 +338,18 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   RDCHECK="$DIR/.renderer-dateless.mjs"
   if bundle_check "$DIR/check-renderer-dateless.ts" "$RDCHECK"; then node "$RDCHECK" || STATUS=1; fi
 
+  # M3 (Opus-review T15-iteratie-2, "UI-rimpel"): een mijlpaal-met-duur (T15) moet als gewone balk
+  # tekenen (drawTaskBar/roundRect, niet drawMilestone/ruit), haar eigen duurtekst tonen (niet "0d")
+  # en sleep-/resize-baar zijn — dezelfde discriminator als de solver (isZeroDurationMilestone).
+  MDCHECK="$DIR/.milestone-duration-render.mjs"
+  if bundle_check "$DIR/check-milestone-duration-render.ts" "$MDCHECK"; then node "$MDCHECK" || STATUS=1; fi
+
+  # Z15 (etappe "nul afwijkingen", baan D): onderbroken balken (Task.splitGaps) in de Gantt-canvas
+  # ÉN print/PDF — gatentelling ⇒ segmentaantal + necking-connector, O5 (splitGaps ALTIJD gesplitst,
+  # ongeacht barSplitMode), globale voortgangsvulling over de segmenten heen, dag-/uur-modus.
+  SPLITBARCHECK="$DIR/.split-bar-render.mjs"
+  if bundle_check "$DIR/check-split-bar-render.ts" "$SPLITBARCHECK"; then node "$SPLITBARCHECK" || STATUS=1; fi
+
   RELRULES="$DIR/.relrules.mjs"
   if bundle_check "$DIR/check-relation-rules.ts" "$RELRULES"; then node "$RELRULES" || STATUS=1; fi
 
@@ -325,6 +409,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   TODAYCHECK="$DIR/.today-label.mjs"
   if bundle_check "$DIR/check-today-label.ts" "$TODAYCHECK"; then node "$TODAYCHECK" || STATUS=1; fi
 
+  # Print-voorbeeld × werkende uitzonderingen (fase 3.8, T13 — §T2-afwijking LAAG-7-afnemer):
+  # printPreview.ts bouwde vóór T13 een eigen holidaySet + hardgecodeerde dow===6||7-weekend-check,
+  # die `calendar.workingExceptions` (T2) volledig negeerden — een ingeroosterde werkende zaterdag
+  # printte alsnog als weekend, terwijl de Gantt-canvas 'm al correct als werkdag toonde. Deze check
+  # bewaakt de fix (één CalendarEngine-instantie i.p.v. de ad-hoc logica) via een opnemende Draw2D.
+  PRINTWECHECK="$DIR/.print-working-exceptions.mjs"
+  if bundle_check "$DIR/check-print-working-exceptions.ts" "$PRINTWECHECK"; then node "$PRINTWECHECK" || STATUS=1; fi
+
   # Relatielijn-stijl in het geëxporteerde rapport (issue #56). De printlaag zette één vaste grijze
   # kleur BUITEN de lus, riep `setLineDash` nooit aan en las `seq.type` niet — de export gooide dus
   # de P6-betekenis weg (doorgetrokken = bepalend, rood = kritiek) en tekende élke relatie als FS,
@@ -341,6 +433,14 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   # De parse-stap zelf valt hier buiten: Node heeft geen DOMParser (zie de kop van het script).
   SVGCHECK="$DIR/.svg-sanitizer.mjs"
   if bundle_check "$DIR/check-svg-sanitizer.ts" "$SVGCHECK"; then node "$SVGCHECK" || STATUS=1; fi
+
+  # Extensie-kalendermapper × werkende uitzonderingen (fase 3.8, T13 — §T2-afwijking LAAG-7-
+  # afnemer): ExtCalendar (het publieke extensiecontract) miste `workingExceptions` — een extensie
+  # die een kalender via toExtCalendar/fromExtCalendar round-trippet (lezen, iets anders wijzigen,
+  # terugschrijven) wiste zo stilzwijgend elke werkende uitzondering. Bewaakt round-trip + het
+  # byte-identiek-anker (geen workingExceptions ⇒ blijft undefined) + de kopie-losstaandheid.
+  EXTCALCHECK="$DIR/.ext-calendar-mapper.mjs"
+  if bundle_check "$DIR/check-ext-calendar-mapper.ts" "$EXTCALCHECK"; then node "$EXTCALCHECK" || STATUS=1; fi
 
   # Undo-grens + coalescing (prioriteitsitem 8). De undo-stack is begrensd op MAX_UNDO; die grens
   # maakt `undoStack.length` als coalescing-identiteit onbruikbaar (constant bij een volle stack),

@@ -261,6 +261,76 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       het id uit `projectDefaultId`). `update_project.calendarId` weigert nu met die uitleg. Beoordeel
       of dat een echte beperking moet blijven of gewoon nog gebouwd moet worden.
 
+### MPP/MSP-import (fase 3.8, MSP-pariteit) — bekende beperkingen (2026-08-17)
+
+> Verzameld tijdens de MPP-datumgetrouwheidsetappe (T13-T16, zie
+> `docs/superpowers/plans/2026-08-15-plan-mpp-datumgetrouwheid.md`). Twee van de drie
+> (contouring-detectiegrens, TASK_MODE-hypothese) zijn sinds de etappe "nul afwijkingen" (Z9a/Z16,
+> 2026-08-18) daadwerkelijk opgelost — hieronder afgevinkt met verwijzing. Het P6-item blijft een
+> echte, blijvende schemabeperking (niet stilzwijgend: console.warn, code-toelichting en de gids
+> dekken 'm) en stond eerder onder "IFC-kalenderbibliotheek" — hierheen verhuisd, het gaat over een
+> export-schemabeperking, niet over de IFC-kalenderbibliotheek (B1.1).
+
+- [x] **P6-XML-export laat werkende kalenderuitzonderingen weg — schemabeperking, geen bug (fase
+      3.8 T13, 2026-08-17).** `WorkingException` (T2/T3: een dag-uitzondering die een dag WERKEND
+      maakt) is niet uit te drukken in P6-XML: `<HolidayOrException>` kent geen `DayWorking`-achtig
+      veld (alleen `Name`/`Date`/`FinishDate` — `p6xmlReader.ts`'s `parseP6HolidayOrExceptions` leest
+      elk element onvoorwaardelijk als NIET-werkend). P6 zelf modelleert een ingeroosterde extra
+      werkdag alleen via `<StandardWorkWeek>` (project-breed weekpatroon, geen per-datum-uitzondering)
+      — geen veilige automatische vertaling. `p6xmlWriter.ts`'s `writeHolidayOrExceptions` laat werkende
+      uitzonderingen daarom bewust weg, met `console.warn('P6-export: … werkende kalenderuitzondering(en)
+      weggelaten — niet uitdrukbaar in P6-XML …')`. **T16: gidsvermelding toegevoegd**
+      (`gids-import-export.md`, nl+en) — de console.warn blijft de enige gebruikersvoorlichting bij
+      het exportmoment zelf.
+- [x] **Zuivere resource-contouring is niet betrouwbaar detecteerbaar — de contouring-detectiegrens
+      opgelost (Z16, fase 3.8 etappe "nul afwijkingen", 2026-08-18).** De oude `spanGt`-proxy (venster
+      > duur, een schatting) is vervangen door `countScheduleNotes`, dat drie ECHTE signalen telt
+      (`Task.levelingDelayMinutes`/`.splitGaps`/`.timephasedFinishFloor`|`.timephasedDurationWalks`).
+      Bijvangst: MPXJ's eigen referentiebestand voor resource-contouring (`mpp14resource.mpp`,
+      "Contoured Task") wordt daarmee nu wél herkend — de oude WORK_CONTOUR-FixedMeta-bit-aanpak bleef
+      ongebruikt (0 treffers op datzelfde bestand), maar de echte timephased-telling raakt dezelfde
+      taak via een ander pad. Zie `mppReader.ts` (`countScheduleNotes`) en `gids-msproject-import.md`.
+- [x] **TASK_MODE (Manually Scheduled vs. Automatically Scheduled) — hypothese bevestigd en
+      geïmplementeerd (Z9a, fase 3.8 etappe "nul afwijkingen", 2026-08-18).** De bit is daadwerkelijk
+      uitgelezen (`Fixed2Meta`-bit-flag, offset 8, masker 0x08/0x80 al naar applicationVersion) en
+      bevestigd: een MANUALLY_SCHEDULED taak gebruikt inderdaad zijn eigen `START`/`FINISH`-veldpaar
+      (1283/1284, `Fixed2Data` blok 1) i.p.v. `SCHEDULED_START`/`SCHEDULED_FINISH` (35/36). Reader
+      (`mppReader.ts`/`mppGroundTruth.ts`, byte-gelijk gespiegeld tussen lezer en grondwaarheid) en
+      solver (rauw anker, geen snap, backward-early-return, manual wint van constraints) beide
+      geland. Corpusbreed effect gemeten: 14 bestanden naar 0/0/0/0, startDiff 211→5, finishDiff 225→19.
+
+### MPP/MSP-import (fase 3.8, etappe "nul afwijkingen") — bewust laten liggen (2026-08-19)
+- [ ] `CPMSolver.ts` leveling-takvolgorde: een taak met zowel `levelingDelay` (dagen) als `levelingDelayMinutes` zou aan de ankerregel ontsnappen (vandaag onmogelijk — lezer zet alleen minuten, nivelleerder alleen dagen); precedentie-commentaar benoemt dat geval niet (Z6-veeglijst).
+- [ ] `CPMSolver.ts` M1-bandsnap-float-nuance: de bandsnap kan de ES verder duwen dan de kale leveling-delay terwijl de backward-doorgifte alleen de kale delay terugrekent — float-nuance op elapsed-delay-WORKTIME-taken, geen datumeffect (Z6-veeglijst).
+- [ ] `CPMSolver.ts` `isExactBandEnd`/`dayFirstBandStart`/`dayLastBandEnd` leunen stilzwijgend op de engine-brede oplopend-gesorteerde-banden-aanname (`effectiveBandsOn` sorteert niet) — docblok-vermelding zoals `nextBandStartStrictAfter` die wel heeft (Z13-veeglijst R3).
+
+> Uit de Z20-eindronde: dingen die deze etappe bewust NIET meenam, met de reden erbij — zodat het
+> geen verrassing is als iemand er later tegenaan loopt.
+
+- [ ] **Native MSPDI-`<Manual>`/`<LevelingDelay>`/`<TimephasedData>` lezen en schrijven.**
+      Orkestratorbesluit O4 (2026-08-17): native schrijven zonder terugleeslezen zou een stille
+      semantiek-omklap zijn (hetzelfde precedent als `ELAPSEDTIME`) — de MSPDI-export waarschuwt
+      daarom bewust in plaats van deze drie elementen te schrijven. Native lezen+schrijven is een
+      eigen, kleine vervolg-etappe.
+- [ ] **Splitsen/handmatig plannen als bewerkfunctie (UI).** Deze etappe levert lezen, rekenen,
+      tekenen en round-trip; slepen om te splitsen, split-handles in de Gantt en split ongedaan maken
+      zijn een aparte etappe (plan §1.4/O2, orkestratorbesluit akkoord 2026-08-17).
+- [ ] **Float-spiegel onvolledig bij deeldag-duren (Z13-hercheck R2).** `subDuration`s band-eind-
+      float-spiegel klopt voor hele-dag-duren maar niet voor een deeldag-duur op een deeldag-kalender
+      (12u-taak op een 8u-dag: gemeten `tf` 1,5 waar `LF−EF` 2,5 hoort — één werkdag te weinig).
+      Corpusincidentie 0, wel app-zichtbaar bij een taakstart aan het eind van de werkdag. Structurele
+      plek voor een fix: de float-laag (`scheduleAnalysis.computeScheduleResults`, die formule-invoer
+      al corrigeert voor hammock/manual — zelfde behandeling voor een gedegenereerd band-eind-anker).
+- [ ] **Dangling `resourceCalendarId` in timephased walks na `removeCalendar` (Z19-hercheck R4).** Een
+      `timephasedDurationWalks`-item dat naar een inmiddels verwijderde resourcekalender verwijst
+      valt stil terug op de projectkalender — pre-existing `resolveCalendar`-semantiek, geen
+      regressie van deze etappe, maar onopgemerkt zolang `removeCalendar` niet zelf valideert/opschoont.
+- [ ] **Bewerkgedrag-meetlat (taaktypes-spec) als voorwaarde voor de Z19-L-segments-afweging.** Of de
+      holiday-bewuste laag-4-activering op de `mpp14timephasedsegments*`-fixtures bij een ANDERE duur
+      dan de opgeslagen klopt, is met het huidige harnas onverifieerbaar — bewerkgedrag-fidelity heeft
+      nog geen meetlat. Wacht op de bewerken-zoals-MSP-meetlat uit de taaktypes-etappe
+      (eigenaarsbesluit 2026-08-18: task type/effort-driven als aparte etappe, niet hier).
+
 ### Solver/presentatie — resterende punten (2026-07-20)
 
 > De vier oorspronkelijke punten uit de 2.10-showcase-triage zijn afgerond op 2026-07-20; zie de
@@ -287,6 +357,40 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       `check-ifc-roundtrip.ts` en i18n — eigen golf. Let op het regressierisico dat in
       `src/state/slices/scheduleSlice.ts:96-100` beschreven staat (taak blijft op zijn gedrifte
       datum hangen na het verwijderen van een relatie).
+
+### Samenvattingsrelatie-propagatie — resterende punten (CPM-review, 2026-08-15)
+
+> Vervolg op de samenvattingsrelatie-propagatie (`expandSummaryRelations`, MS Project-semantiek voor
+> relaties op WBS-samenvattingstaken). De CPM-review vond en fixte C1 (vooroudersguard, blokkerend),
+> I2 (synthetische ids terugvouwen in de solver-uitvoer) en M7 (waarschuwings-dedup); onderstaande
+> punten zijn bewust doorgeschoven.
+
+- [ ] **Echte MIN-semantiek voor SS/SF met een samenvatting als voorganger** (I3). De huidige
+      expansie (één relatie per bladkind, MAX over de forward-pass) is voor SS/SF-voorganger
+      CONSERVATIEF TE LAAT t.o.v. MS Project's ware "samenvatting-start" (de VROEGSTE kind-start,
+      dus MIN): de opvolger kan later gepland worden dan nodig, nooit vroeger. Voor FF/SF met een
+      samenvatting als OPVOLGER (een vorm die MS Project op een samenvatting zelf al ontmoedigt)
+      dwingt de expansie bovendien ELK kind individueel tot de constraint, i.p.v. alleen het laatst
+      afgeronde kind. Beide zijn gedocumenteerd in de moduleheader van
+      `src/engine/scheduler/expandSummaryRelations.ts` en gepind in vier regressiecases
+      (`wbs-summary-relation-conservative-*` in `tests/planning/cases-edge.json`). Echte MIN-
+      semantiek vergt de samenvatting als EIGEN solver-knoop (met een afgeleide duur/positie uit
+      zijn kinderen) i.p.v. een verzameling losse bladtaak-relaties — een grotere, aparte wijziging.
+      Corpusincidentie (Bijlage 13): 0 — geen gemeten regressie, alleen een grens.
+- [ ] **Procentuele lag (`lagPercent`) op een samenvattingsrelatie rekent tegen de duur van het
+      INDIVIDUELE bladkind, niet tegen de samenvatting als geheel** (M5). Ná expansie leest
+      `resolveEffectiveLagDays` de duur van de synthetische (bladtaak-)voorganger — bij kinderen met
+      sterk uiteenlopende duren geeft dat per gegenereerde bladrelatie een andere absolute lag.
+      Corpusincidentie (Bijlage 13): 0 (geen van de samenvatting-relaties heeft `lagPercent`). Zou
+      dezelfde "samenvatting als solver-knoop"-golf als het vorige punt vergen om goed op te lossen.
+- [ ] **`droppedSequenceIds` heeft nul consumenten** (I4). `CPMResult.droppedSequenceIds` (489a9ef2
+      + de expansie-drops uit C1/de MAX_EXPANDED_RELATIONS-klem) wordt nergens in de UI of MCP
+      getoond — een gebruiker met een gedropte relatie (kapotte tak, vooroudersrelatie, klem) ziet
+      dat nergens terug. Kandidaat-aansluitpunten: een badge naast de bestaande out-of-sequence-
+      teller in `StatusBar.tsx` (zelfde `⚠`-patroon, `cpmResult.outOfSequenceSequenceIds`), en/of
+      opname in `get_project_overview`/vergelijkbare MCP-leestools (`src/services/mcp/tools/
+      readTools.ts`) zodat een AI-assistent het kan zien en melden. Geen UI-werk nu — bewust
+      doorgeschoven, dit is puur zichtbaarheid, geen correctheidsgat.
 
 ### Klein
 - [ ] **Raster-terugval van de rapport-export heeft geen paginalimiet.** Gemeten 2026-07-27 tijdens
@@ -356,6 +460,15 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       snapping/undo/uur-modus moeten kloppen.
 - [ ] **`useDependencyDraw.ts` toetst de drop-x tegen `ui.leftPanelWidth`, terwijl de overige
       canvas-hittests `taskTableWidth` gebruiken.** Uitzoeken of dat een bug is.
+- [ ] **Het taakbewerkvenster met de uren-velden (`Duur (uren)`/`Totaal uren`) is alleen via
+      dubbelklik op de canvas-Gantt-balk bereikbaar** en dupliceert daarbij het rechter
+      eigenschappenpaneel met net andere labels. Gemeten tijdens een browsergebruikstest van de
+      urenplanning (2026-08-15): het paneel toont `Duur (dagen)`, de dialoog (`TaskDialog`, via de
+      gedeelde `task-sections`) toont `Duur (werkdagen)` voor hetzelfde veld — twee ingangen naar
+      dezelfde taakvelden met net iets andere bewoording, en de dialoog is niet vanuit het paneel
+      of het lint te openen. Op te lossen: óf één consistente labelset over beide oppervlakken,
+      óf de dialoog ook vanuit een expliciete actie (contextmenu/lint) bereikbaar maken i.p.v.
+      alleen via dubbelklik op de balk.
 ### Klein — bulk-mutaties: tweede kwadratische factor (2026-07-29)
 - [ ] **`applyWbsNumbering` + `recomputeViewRows` draaien per mutatie.** `withTransaction`
       (K-item 32) haalde de snapshot-kant eruit: bij 600 `addTask`-aanroepen ging het van
@@ -380,6 +493,55 @@ deze lijst verwijderd — wat klaar is, staat in de changelog en git-historie.
       *Aanpak (keuze nodig):* de zes uitschakelen met een tooltip zolang de Gantt niet zichtbaar is,
       óf de volledige-paneelmodus zo vormgeven dat hij de Gantt niet verdringt. Kwam boven bij het
       herstelwerk rond issue #46.
+
+### Klein — structuurmutaties die een relatie laten droppen zijn stil (2026-08-15, herzien)
+- [ ] **Structuurmutaties kunnen een bestaande relatie retroactief tot voorouder-relatie maken,
+      zonder enig signaal op het moment zelf.** Sinds het eigenaarsbesluit van 2026-08-15
+      (`docs/superpowers/specs/2026-08-14-mijlpaal-relaties-design.md`, banner bovenaan) is een
+      relatie naar een verzameltaak-eindpunt geen spookrelatie meer — `expandSummaryRelations`
+      rekent hem gewoon door naar de onderliggende bladtaken (MS Project-semantiek). Wat overblijft
+      is de voorouder-guard: als een structuurmutatie (`indentTasks`, `moveTaskTo`,
+      `addTask({ parentId })`, `insertWbsTemplate`) een bestaande relatie retroactief tot een
+      relatie tussen een taak en zijn EIGEN (voor)ouder-samenvatting maakt (bv. A→B bestond al,
+      en de gebruiker maakt A vervolgens tot kind van B, of B tot kind van A), dan droppt de
+      solver-guard die relatie voortaan stil — pas zichtbaar bij de eerstvolgende herberekening,
+      via de *niet meegerekend*-markering in het Relaties-paneel (niet standaard open) en
+      `cpmResult.droppedSequenceIds`. Er komt op het moment van de structuurmutatie zelf geen
+      melding, in tegenstelling tot het laadpad (`notifications.summaryRelationsDropped`), dat wél
+      meldt zodra `applyLoadedProject` klaar is. MCP meldt hier ook niets: `planner_add_tasks` met
+      een `parentId` die een bestaande relatie tot voorouder-relatie promoveert, doet dat zonder
+      een woord.
+      *Kandidaat-aanpak:* na elke structuurmutatie die relaties kan raken, `cpmResult.
+      droppedSequenceIds` vóór/ná vergelijken en bij een toename dezelfde melding afvuren als na
+      het laden (`notifications.summaryRelationsDropped`), of het aantal daadwerkelijk gedropte
+      relaties tonen als niet-blokkerende toast. Gevonden bij de eindreview op de mijlpaal-
+      relaties-tak (2026-08-14); herzien bij het eigenaarsbesluit van 2026-08-15 dat samenvattings-
+      relaties liet meerekenen i.p.v. ze te weigeren.
+
+### Klein — gedropte relaties hebben geen reden-per-drop (her-review verzoening, 2026-08-15)
+- [ ] **`expandSummaryRelations` levert een platte `droppedSequenceIds` zonder oorzaak**, dus de
+      gebruikersmelding (`notifications.summaryRelationsDropped`) en de paneelmarkering
+      (`relations.warnDropped`) kunnen alleen neutraal zeggen "niet meegerekend — zie het
+      Relaties-paneel", en het paneel stopt daar ook: de gebruiker heeft geen route naar het
+      *waarom* (voorouderconflict, kapotte tak, of de `MAX_EXPANDED_RELATIONS`-budgetklem — die
+      laatste heeft de grootste impact: één relatie tussen twee grote samenvattingen kan de klem
+      in z'n eentje raken). Oplossing: de expansie een reden per gedropte relatie laten teruggeven
+      en die in het Relaties-paneel (tooltip/detail) tonen; de meldingtekst kan dan weer specifiek
+      worden. Gevonden bij de her-review van de verzoening (2026-08-15).
+
+### Klein — testinfra: gedeelde bundelpaden in run.sh (projectstart-review, 2026-08-15)
+- [ ] **`tests/planning/run.sh`'s `bundle_check` schrijft elke check-bundel naar een VASTE naam**
+      (`tests/planning/.<naam>.mjs`, bv. `.adapters-hours-check.mjs`) — prima voor één run, maar
+      twee GELIJKTIJDIGE `bash tests/planning/run.sh`-runs (twee agents/worktrees/CI-jobs tegen
+      dezelfde checkout, of een lokale run naast een CI-run op een gedeelde runner) delen dat pad:
+      de een kan de bundel van de ander overschrijven tussen bundelen en uitvoeren in, waarna een
+      run een MENGSEL van twee bronversies test — of een bundel leest die de andere run net aan het
+      overschrijven is. Gevonden tijdens het onderzoek naar de eerder gerapporteerde "flake" in
+      `check-adapters-hours.ts` (waarvan de eigenlijke oorzaak een `process.cwd()`-fixture-pad
+      bleek, zie de changelog/commit-historie — gefixt). Bewust NIET gefixt: een per-run tmp-map
+      voor de bundels raakt `bundle_check`/`BUNDLES`/de tijdzone-matrix-hergebruik-logica in
+      `run.sh` overal tegelijk — groter dan een enkele testfix. Risico is bovendien laag zolang de
+      suite hoofdzakelijk sequentieel draait (lokaal, en CI-jobs per PR).
 
 ### Prestatiedoel: 5000 taken moet werken — interactieve pad AF, bulk nog niet (2026-08-17)
 
@@ -859,18 +1021,54 @@ tag-push de `.snap` als release-asset. Geverifieerd via een `workflow_dispatch`-
 - [ ] **Primavera XER import/export** — tekstformaat, native in TS haalbaar (geen JVM); samen met ons
   bestaande PMXML dekt dit de P6-wereld. Hoogste interop-prioriteit na fase 2 (issue #17).
 - [ ] **iCalendar (.ics) export** — mijlpalen/deadlines naar agenda-apps; goedkoop, hoge waarde (issue #17).
-- [ ] MS Project MPP import (readonly) — realistisch alleen via MPXJ (JVM): NIET als core-dependency
-  (strijdig met lichte Tauri/web-architectuur); route = optionele externe converter (MPXJ-CLI/sidecar)
-  óf gebruikers MSPDI laten exporteren. Besluit gedocumenteerd in issue #17-triage (2026-07-07).
-  **Distributie via het extensiesysteem met "managed tools" (user-besluit 2026-07-07):** de
-  catalogus-extensie declareert in zijn manifest een benodigd hulpprogramma (naam, downloadUrl uit
-  onze eigen releases, sha256-checksum, grootte); de APP-KERN — niet de extensie — beheert daarop de
-  volledige binary-levenscyclus: één bevestigingsvraag bij installatie, download + checksum-verificatie,
-  opslag in de app-datamap, updates bij een nieuwere manifest-declaratie, opruimen bij de-installatie.
-  De extensie-sandbox blijft ongewijzigd (JS mag alleen declareren/vragen, nooit zelf processen of
-  bestanden beheren); de gebruiker hoeft nooit over Java/binaries na te denken. Web-versie: dezelfde
-  extensie toont "alleen desktop". Generiek bouwen (herbruikbaar voor toekomstige zware extensies).
-- [ ] Asta Powerproject PP import — zelfde MPXJ-afweging als MPP; zelfde converter-route.
+- [x] **MS Project MPP import (alleen-lezen)** — sinds fase 3.8 etappe 1 native in TS (MPP14 =
+  Project 2010 t/m 2021; `src/services/mpp/`, afgeleid van de MPXJ-bronnen, LGPL). **Besluit
+  herzien 2026-08-14:** de triage van 2026-07-07 ("realistisch alleen via MPXJ/JVM") rustte op de
+  premisse dat een native lezer onhaalbaar was; corpusonderzoek (2026-08-14, 52 bestanden uit
+  Project 2010–2021) toonde één stabiel, onversleuteld MPP14-containerformaat — native in de kern
+  is dus de lichtste route en de JVM-sidecar vervalt voor dit doel. Wachtwoord-versleutelde
+  bestanden en MPP8/9/12 geven een nette "exporteer als XML"-fout. Er bestaat geen .mpp-EXPORT
+  (ook MPXJ schrijft het niet): de export-tegenhanger blijft MSPDI-XML.
+- [x] **MPP-resourcetype "afwijking" bij Bijlage 13 — vindbaarheids-item, GEEN bug (T11-eindreview).**
+  6 van de 8 niet-plaatshouderresources in 'Bijlage 13 Productieplanning.mpp' lezen als MATERIAL
+  waar de MSPDI-ground-truth ze als Work (LABOR) toont; gepind als budget
+  (`RESOURCE_TYPE_MISMATCH_BUDGET` in `tests/planning/check-mpp-relations.ts`, rond r. 799). Matcht
+  MPXJ's eigen bit-voor-bit-uitkomst exact (dus geen leesfout van de poort) en volgt hetzelfde
+  documentversieverschil-patroon als de taak-/kalendervergelijkingen elders in de mpp-checks (zie
+  de moduleheader van `check-mpp-import.ts`: de drie `.mpp.xml`-ground-truths zijn een ANDERE
+  documentrevisie dan de bijbehorende `.mpp`'s). Een onafhankelijke probe bevestigde bovendien dat
+  de `.mpp`-lezing hier de semantisch plausibele indeling geeft en de XML-revisie de uitzondering
+  is. Geen actie nodig aan de lezer — genoteerd zodat een toekomstige lezer dit niet als regressie
+  herontdekt.
+- [ ] **MPP-vervolgetappes (user-wens 2026-08-15: de bewuste beperkingen van etappe 1 zijn geen
+  eindstation — "als we hier een keer genoeg tokens tegenaan gooien dan lukt het wel").** In
+  oplopende moeilijkheidsgraad:
+  - [ ] **Baselines + custom fields/outline codes uit `.mpp` lezen** — de var-data-typen bestaan in
+    `FieldMap14.java`; onze data-gedreven veldmap-parser (`fieldMap14.ts`) hoeft alleen extra
+    veld-ids te leren. Meest haalbare uitbreiding; ground truth voor baselines ligt klaar in
+    `mpxj/junit/data/generated/task-baselines/`.
+  - [x] **Recurrente kalenderuitzonderingen materialiseren** *(afgerond fase 3.8, MSP-pariteit T3/T4,
+    2026-08-17)* (jaarlijks Kerst e.d. mét herhaalregel) — alle vier recurrentietypes (WEEKLY/
+    MONTHLY/YEARLY/DAILY × absoluut/relatief) worden nu geëxpandeerd naar concrete datums binnen de
+    projecthorizon, in zowel `.mpp` (`mppCalendars.ts`) als MSPDI (`mspdiReader.ts`) — inclusief
+    werkende uitzonderingen en de precedentieregels tussen overlappende recurrente reeksen. Werkweken
+    (`processWorkWeeks`, alternatieve weekpatronen per datumbereik) blijven een apart, bewust
+    ongebouwd gat (O5-orkestratorbesluit: de probe verklaarde geen afwijkingen) — gedocumenteerd als
+    bekende beperking in `gids-msproject-import.md` (nl+en), geen los TODO-item.
+  - [ ] **MPP9/12 native lezen** (Project 2000-2007) — zelfde containerformaat, andere veldmaps:
+    `MPP9Reader.java`/`MPP12Reader.java` + `FieldMap9/12` porten op de bestaande
+    CFB/primitieven-laag; de XOR-decodering uit `DocumentInputStreamFactory.java` (simpel:
+    `0xFF - code`) erbij voor "versleutelde" bestanden. Testdata: `mpxj/junit/data/legacy/`.
+  - [ ] **`.mpp`-EXPORT (schrijven)** — de moonshot: geen enkele OSS-implementatie bestaat (ook
+    MPXJ niet; alleen MS Project zelf via COM). Onze leeskennis (CFB-writer + veldmaps + Props)
+    is het halve werk, maar de andere helft (alle verplichte streams/checksums die Project bij
+    het openen eist) is onontgonnen reverse-engineering met MS Project als enige orakel.
+    Realistischer tussenstap als er vraag is: MSPDI-export ís de officiële uitwisselroute en
+    opent verliesvrij in MS Project.
+- [ ] MPP9/12-legacy en Asta Powerproject PP — de eerder uitgewerkte "managed tools"-route
+  (user-besluit 2026-07-07: catalogus-extensie declareert een MPXJ-CLI-hulpprogramma met checksum;
+  de APP-KERN beheert download/levenscyclus; sandbox ongewijzigd; web = "alleen desktop") blijft
+  hiervoor de optie als er vraag naar blijkt.
 - [ ] **KYP Project REST API-integratie (onderzoek)** — de facto NL-bouwplanningstool zonder publieke
   export; directe API-koppeling zou een unieke NL-USP zijn. Eerst: API-toegang/partnerschap verkennen
   (issue #17).

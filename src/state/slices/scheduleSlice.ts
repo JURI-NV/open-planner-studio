@@ -1,6 +1,7 @@
 import type { CPMResult } from '@/engine/scheduler/CPMSolver';
 import { cpmResultFromRecorded, type RecordedDatesState } from '@/engine/scheduler/recordedDates';
 import { solveProject } from '@/engine/scheduler/solveProject';
+import { expandSummaryRelations } from '@/engine/scheduler/expandSummaryRelations';
 import { computeResourceLoad, type ResourceLoadResult } from '@/engine/scheduler/ResourceLoad';
 import {
   levelResources as computeLeveling,
@@ -103,7 +104,8 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       // De reken-kern (leaf-filter → solve → terugschrijven/rollup) staat sinds A3/M3 in
       // `solveProject` en draait rechtstreeks op de Immer-draft: `s.tasks` wordt in-place gemuteerd,
       // net als voorheen. Dezelfde functie draait het bezettingsoverzicht op een KLOON van de taken
-      // van een stale document (B1b §4.3b) — één implementatie, geen divergentie.
+      // van een stale document (B1b §4.3b) — één implementatie, geen divergentie. De samenvattings-
+      // relatie-propagatie (MS Project-semantiek) zit dáár, zodat elke afnemer van de kern hem krijgt.
       const result = solveProject({
         tasks: s.tasks,
         sequences: s.sequences,
@@ -112,6 +114,10 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
         dataDate: s.project.statusDate,
         progressMode: s.project.progressMode,
         schedulingOptions: s.project.schedulingOptions,
+        // Gebruikstest-bevinding 2026-08: ondergrens voor taken zónder voorganger (`rootFloor` in
+        // CPMSolver) — zonder deze optie kon een taak met een verouderde `scheduleStart` (bv. gezet
+        // vóór een latere wijziging van de projectstartdatum) gewoon vóór het projectbegin doorlopen.
+        projectStartDate: s.project.startDate,
       });
 
       // If circular dependency detected, store the result (with error) and bail
@@ -220,13 +226,24 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
     }
     // De leveler werkt op leaf-taken (net als de CPM-pass in runCPM).
     const leafTasks = s.tasks.filter((t) => t.childIds.length === 0);
+    // Zelfde samenvattingsrelatie-propagatie als runCPM (zie daar): `ResourceLeveler` krijgt hier
+    // alleen bladtaken door, dus de expansie moet vóór het leaf-filter gebeuren, met de VOLLEDIGE
+    // taakboom (parentId/childIds) als bron — `ResourceLeveler` zelf blijft ongewijzigd, die kent
+    // de WBS-boom sowieso niet en hoeft dat ook niet te weten.
+    const { sequences: expandedSequences } = expandSummaryRelations(s.tasks, s.sequences);
     // Fase 2.10 (P1-verwante correctie): dezelfde CPMOptions als `runCPM` hierboven meegeven —
     // zonder `dataDate`/`progressMode` rekende de nivelleerder intern op een pure-ASAP-realiteit
     // die van de echte (actual-gepinde) planning kan afwijken zodra er voortgang+statusdatum is
     // (zie de parameter-toelichting in `ResourceLeveler.ts:levelResources`).
     return computeLeveling(
-      leafTasks, s.sequences, s.resources, s.assignments, s.calendar, s.calendars, cpm, options,
-      { dataDate: s.project.statusDate, progressMode: s.project.progressMode, schedulingOptions: s.project.schedulingOptions },
+      leafTasks, expandedSequences, s.resources, s.assignments, s.calendar, s.calendars, cpm, options,
+      {
+        dataDate: s.project.statusDate, progressMode: s.project.progressMode,
+        schedulingOptions: s.project.schedulingOptions,
+        // Zelfde projectstart-vloer als runCPM hierboven (gebruikstest-bevinding 2026-08) — anders
+        // zou de nivelleerder een wortel-taak vóór het projectbegin kunnen laten staan.
+        projectStartDate: s.project.startDate,
+      },
     );
   },
 

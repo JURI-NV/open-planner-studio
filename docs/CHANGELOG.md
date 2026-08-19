@@ -6,6 +6,105 @@ version has its own section (no gaps); the newest is at the top. It is deliberat
 running archive of every individual commit: within a version there is a curated description,
 grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentation`).
 
+## v2026.8.1 — 2026-08-19
+
+A release built around one feature, taken all the way from a first read to full date-fidelity:
+native MS Project (.mpp) import — plus the mainline work that landed after v2026.8.0 was tagged
+(the "dates as recorded" mode, the WBS jump button, the active-between filter). About 357 commits
+since v2026.8.0 in total.
+
+### Added
+- **Open Planner Studio can now open MS Project (.mpp) files natively.** The format joins the
+  existing open pipeline — its own registry entry, a lazily loaded parser chunk, translated error
+  messages in all fourteen languages — with no external converter involved: the file's own binary
+  container (a Compound File Binary / OLE2 structure) is parsed directly, then its calendars,
+  tasks, hierarchy, constraints, relations, resources and assignments are read out of it.
+- **.mpp import is now date-faithful to the minute.** Across a 216-file test corpus, every file
+  now lands on exactly zero start, finish and same-day deviations after recalculation — no
+  exceptions — enforced by an always-on regression gate that fails the moment a single pinned
+  file drifts again or picks up an undocumented exception. Getting there took several new pieces
+  of scheduling engine, all shared with the rest of the app rather than bolted onto the .mpp path
+  alone: task splits are now a first-class feature — read from the source file, carried through
+  the critical-path calculation as per-segment remaining work, and drawn as genuinely broken bars
+  in the Gantt chart, the print preview and PDF export; leveling delay is read and applied to the
+  schedule to the minute; timephased (contoured) assignments now walk their own imported date
+  window and duration through the assigned resource's own calendar — holiday-aware, and correctly
+  apportioning work when a task carries more than one simultaneous assignment; manually scheduled
+  tasks follow genuine MS Project semantics, including how their fixed dates propagate to
+  successors; out-of-sequence progress is read from MS Project's own resume/stop fields instead of
+  being inferred; and the critical-path solver gained a handful of matching refinements — an
+  unsnapped raw anchor for root tasks that start exactly on a calendar band boundary, a
+  zero-duration milestone that no longer snaps past its own deadline, and a dedicated rule for
+  resumed out-of-sequence work.
+
+- **A "dates as recorded" mode** (issue #63): when a file's stored dates differ from what
+  recalculation produces, the app can now show the project exactly as the file recorded it — with
+  its own toolbar strip, an in-app guide article, and a working undo path back to the recalculated
+  schedule. Leaving the mode is explicit: any date-touching edit or a recalculation returns to
+  computed dates.
+- **A WBS jump button on dependencies** (issue #65): every dependency row in the task properties
+  panel now shows the linked task's WBS number as a clickable button — hover for the same details
+  as a Gantt bar tooltip, click to select the task while the chart zooms and scrolls to it,
+  auto-expanding any collapsed parents.
+- **An "active between" filter field** (issue #32): filter tasks on interval overlap with a date
+  range, using both start and finish.
+
+### Changed
+- **Nothing a .mpp file contains is thrown away on import, and edits only ever switch off derived
+  steering — never delete data.** Raw contour periods, MS Project's task-type and effort-driven
+  flags, and every other field added for date-fidelity round-trip through the project's IFC file
+  like the rest of the project data. Editing a task that MS Project was actively steering hour by
+  hour never silently drops what was read from the source; it only stops that hour-by-hour
+  distribution from applying going forward, and the underlying data stays in the document.
+- **Editing a task now says, at the moment you edit it, when the edit releases MS Project's
+  original hour-by-hour distribution.** A one-time in-app notice appears the first time this
+  happens in a document, and the task's properties panel carries a small marker so the state stays
+  visible afterwards — both link straight to the relevant section of the MS Project import guide.
+  An AI assistant working through the MCP bridge gets the same signal as a `timephasedGuidanceLost`
+  field on its response.
+- **Every user-facing notification in the app is now in-app.** The last native browser/OS confirm
+  dialog (removing a resource library company) was replaced by the app's own confirmation dialog;
+  only the file open/save pickers remain native, as they must.
+- **The .mpp opening notice now counts real signals instead of estimating them**, and the MS
+  Project import guides (Dutch and English) were rewritten so each claim points at the code or
+  test that backs it up.
+
+### Fixed
+- **Auto-save could fail on a fresh install because the application data directory did not exist
+  yet** (issue #72): the directory is now created before the first auto-save or library write.
+- **A calendar name collision on IFC round-trip could cross-contaminate two calendars.** Timephased
+  duration data translated its resource-calendar reference by calendar name, but the app never
+  enforced calendar names being unique — two identically named calendars with different working
+  hours could silently swap places after a save/reload. The translation now goes through the
+  calendar's own identity instead of its name.
+- **A finish-no-later-than or start-no-later-than deadline could push a milestone forward past
+  that very deadline.** A guard meant to keep those deadline types from affecting forward
+  scheduling ran too early and let a zero-duration milestone snap to (or past) the deadline anyway.
+- **Duration, date or duration-type edits did nothing on a task whose imported work distribution
+  had already been apportioned across more than one assignment.** The frozen, imported values kept
+  winning over the edit; such edits now correctly release that distribution instead of being
+  silently ignored.
+- **A calendar representing a full day as one continuous band failed to switch into hour-precision
+  mode.** Calendars in the "24 Hours" family (one continuous midnight-to-midnight band) were
+  missing a needed signal and silently stayed in day-precision mode, losing hour-level detail for
+  every resource on them. The fix lives in the shared sub-day calendar layer, so it applies to
+  IFC, MSPDI and Primavera imports as well as .mpp — an existing project with such a calendar
+  will now correctly promote to hour precision on open.
+- **Task durations computed against a non-whole-number workday length (for example 8.4 hours, a
+  value MS Project allows) could land one workday late.** A tiny floating-point rounding error was
+  read as "not finished yet" and added an extra workday that shouldn't have been there.
+
+### Documentation
+- **The MS Project import guide (Dutch and English) was rewritten around what the engine actually
+  does now**, not what it did at the start of this effort: split tasks are always visible, manually
+  scheduled tasks keep their own dates with no slack by design (not "shows slack"), leveling delay
+  is counted in both directions, and contoured assignments follow their imported window but are not
+  yet recomputed after a manual edit. The WBS guide and the relations/constraints guide each gained
+  a short note on how a manually scheduled task behaves (it doesn't roll up; it wins over a hard
+  pin). The import/export guide now spells out what each export format does with
+  manually-scheduled, leveling-delay, split and resume/stop data — CSV drops it silently, MSPDI and
+  P6 exports warn.
+
 ## v2026.8.0 — 2026-08-17
 
 A release centred on cross-document resource visibility — a new occupancy overview per resource

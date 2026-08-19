@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Zamknij powiadomienie",
     "openFailed": "Nie udało się otworzyć pliku",
+    "mppLegacy": "Ten plik .mpp używa starszego formatu (Project 2007 lub starszy). Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
+    "mppEncrypted": "Ten plik .mpp jest zabezpieczony hasłem. Wyeksportuj go w MS Project jako XML (Plik → Zapisz jako → XML) i otwórz ten plik.",
     "saveFailed": "Nie udało się zapisać",
     "savedViaDownload": "Zapisano jako pobrany plik: '{{name}}' znajduje się teraz w folderze pobierania. To środowisko nie pozwala aplikacji zapisywać bezpośrednio w wybranej lokalizacji.",
     "autoSaveFailed": "Błąd autozapisu",
@@ -15,8 +17,21 @@
     "templateSaved": "Gałąź zapisana jako szablon '{{name}}'",
     "relationCreated": "Utworzono relację: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Taka relacja już istnieje",
-    "relationSummaryEndpoint": "Zadanie sumaryczne jako punkt końcowy nie ma wpływu na harmonogram. Połącz z zadaniem bez podzadań.",
-    "summaryRelationsIgnored": "Relacje na zadaniach sumarycznych bez wpływu na harmonogram: {{total}}."
+    "relationAncestorEndpoint": "Relacja między zadaniem a jego własnym nadrzędnym zadaniem sumarycznym jest niedozwolona.",
+    "summaryRelationsDropped": "Relacje, których nie udało się uwzględnić w obliczeniach (zobacz panel Relacje, aby sprawdzić które): {{total}}.",
+    "mppSourceScheduleNotes_one": "Ten plik MS Project zawiera {{count}} zadanie z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Jest ono importowane i wyświetlane w takiej postaci.",
+    "mppSourceScheduleNotes_few": "Ten plik MS Project zawiera {{count}} zadania z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Są one importowane i wyświetlane w takiej postaci.",
+    "mppSourceScheduleNotes_many": "Ten plik MS Project zawiera {{count}} zadań z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Są one importowane i wyświetlane w takiej postaci.",
+    "mppSourceScheduleNotes_other": "Ten plik MS Project zawiera {{count}} zadania z podzielonym, wyrównanym lub zależnym od zasobów harmonogramem. Są one importowane i wyświetlane w takiej postaci.",
+    "projectStartAnchorsClamped_one": "Start projektu przesunięty: {{count}} kotwica zadania bez poprzednika lub ograniczenia została przesunięta na nową datę rozpoczęcia.",
+    "projectStartAnchorsClamped_few": "Start projektu przesunięty: {{count}} kotwice zadań bez poprzednika lub ograniczenia zostały przesunięte na nową datę rozpoczęcia.",
+    "projectStartAnchorsClamped_many": "Start projektu przesunięty: {{count}} kotwic zadań bez poprzednika lub ograniczenia zostało przesuniętych na nową datę rozpoczęcia.",
+    "projectStartAnchorsClamped_other": "Start projektu przesunięty: {{count}} kotwicy zadań bez poprzednika lub ograniczenia zostało przesuniętych na nową datę rozpoczęcia.",
+    "mppTimephasedSteeringLost_one": "{{count}} zadanie straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_few": "{{count}} zadania straciły powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_many": "{{count}} zadań straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_other": "{{count}} zadania straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "readMore": "Dowiedz się więcej"
   },
   "yes": "Tak",
   "no": "Nie",
@@ -236,7 +251,8 @@
   },
   "project": {
     "untitled": "Nowy harmonogram",
-    "imported": "Zaimportowany projekt"
+    "imported": "Zaimportowany projekt",
+    "unassignedResource": "Nieprzypisany"
   },
   "documents": {
     "overviewTitle": "Otwarte projekty",

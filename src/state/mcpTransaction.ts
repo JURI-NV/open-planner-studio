@@ -5,21 +5,45 @@ import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
 import { relationVerdict } from './relationRules';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import {
+  createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+  clearTimephasedDurationWalks, timephasedDurationWalksHaveFrozenWork,
+} from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
+import { notifyTimephasedLoss } from './timephasedLossNotice';
 import type { DurationType, Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
 import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resource';
 import type { Project } from '@/types/project';
 import type { LevelingResult } from '@/engine/scheduler/ResourceLeveler';
+import { clampProjectStartAnchors } from '@/engine/scheduler/projectStartAnchorClamp';
 
 /** Herintreedbaarheids-wachter: `true` zolang een `runInMcpTransaction` loopt. Los van de
  *  `beginUndoable`-suppressievlag in transaction.ts (die stuurt de mutators aan) — deze stuurt puur
  *  de reentrancy-guard. Module-lokaal en synchroon beheerd: de transactie draait zonder `await`, dus
  *  een geneste aanroep kan alleen synchroon vanuit de callback komen. */
 let mcpTransactionInProgress = false;
+
+/**
+ * mpp-nul-data-etappe, DEEL 1 — verzamelbak voor taak-id's die BINNEN de lopende transactie
+ * aantoonbaar hun MSP-timephased-sturing verloren (`draft.updateTaskFields`/`patchTaskFields`/
+ * `assignResource`/`moveAssignment`/`unassignResource` roepen `recordTimephasedLoss` aan zodra
+ * `clearTimephasedWindow`/`clearTimephasedDurationWalks` `true` teruggaven). Eén batch/`planner_batch`
+ * kan meerdere taken raken — de melding hoort er ÉÉN keer te komen, met het TOTALE aantal, dus wordt
+ * pas ná commit (stap 7) gemeld i.p.v. per draft-aanroep. Gereset bij elke `runInMcpTransaction`-
+ * start (VÓÓR `fn()` draait); bij een rollback wordt de verzameling gewoon nooit gemeld en bij de
+ * eerstvolgende aanroep overschreven — geen aparte cleanup nodig. Module-state, net als
+ * `mcpTransactionInProgress` hierboven — niet herintreedbaar, dus geen races. */
+let mcpTimephasedLossTaskIds = new Set<string>();
+
+/** Registreer dat `taskId` binnen de lopende transactie sturing verloor. Aanroepers geven de
+ *  taak-id pas door ná een ECHTE clear (`clearTimephasedWindow(...) || clearTimephasedDurationWalks(...)`
+ *  is `true`) — een no-op-aanroep (taak had nooit een Z8-venster) hoort hier nooit in te belanden. */
+function recordTimephasedLoss(taskId: string): void {
+  mcpTimephasedLossTaskIds.add(taskId);
+}
 
 /**
  * Het transactieprimitief van de MCP-bridge (spec §Werkpakket 0).
@@ -61,12 +85,16 @@ let mcpTransactionInProgress = false;
  * BESTAAND, app-breed restore-gedrag (undo/redo doet exact hetzelfde) en géén artefact van deze
  * transactie; op elk document dat al eens is hersteld of een bibliotheek-entry heeft, is het een no-op.
  */
-export function runInMcpTransaction(fn: () => void): { ok: true } | { ok: false; error: string } {
+export function runInMcpTransaction(
+  fn: () => void,
+): { ok: true; timephasedGuidanceLost: number } | { ok: false; error: string } {
   // Reentrancy-guard: VÓÓR elke state-mutatie. Een geneste aanroep zou de gedeelde module-toestand
   // (vlag + vooraf-snapshot) corrumperen — weigeren met een throw is het enige veilige gedrag.
   if (mcpTransactionInProgress) {
     throw new Error('runInMcpTransaction is niet herintreedbaar');
   }
+  // DEEL 1 — verse verzamelbak per transactie (zie het docblok bij het module-`let` hierboven).
+  mcpTimephasedLossTaskIds = new Set<string>();
 
   // Stap 1: snapshot van de PLAIN pre-transactie-staat (niet van een draft — zie beginUndoable/B1).
   const snapshot: Snapshot = createSnapshot(useAppStore.getState());
@@ -126,7 +154,15 @@ export function runInMcpTransaction(fn: () => void): { ok: true } | { ok: false;
 
   // Stap 7: geslaagd — coalesce-marker resetten (de handmatige push wijzigde de stackdiepte).
   resetUndoCoalescing();
-  return { ok: true };
+  // DEEL 1 — ná commit, ÉÉN keer, met het TOTALE aantal taken dat in deze transactie sturing
+  // verloor (de eenmalige-per-document-gate zit in `notifyTimephasedLoss` zelf). Bij een rollback
+  // (hierboven) wordt dit blok nooit bereikt — geen melding op een teruggerolde mutatie.
+  const lostCount = mcpTimephasedLossTaskIds.size;
+  if (lostCount > 0) {
+    const store = useAppStore.getState();
+    notifyTimephasedLoss(store.notify, store.activeDocumentId, lostCount);
+  }
+  return { ok: true, timephasedGuidanceLost: lostCount };
 }
 
 // =================================================================================================
@@ -206,7 +242,10 @@ export const draft = {
         priority: partial.priority ?? 500,
         parentId,
         childIds: [],
-        time: partial.time || createDefaultTaskTime(now, partial.isMilestone ? 0 : 5),
+        // T14b (gebruikstestbevinding, ernst hoog — dataverlies): zie taskSlice.ts addTask — zelfde
+        // veld-voor-veld-merge, MCP-pad. Een ongemerged meegegeven `time` liet writeIFC crashen op
+        // een ontbrekend `completion` (`time.completion.toFixed(1)` in ifcTaskSlots.ts).
+        time: mergeTaskTime(createDefaultTaskTime(now, partial.isMilestone ? 0 : 5), partial.time),
         resourceIds: partial.resourceIds || [],
         color: partial.color,
         constraint: partial.constraint,
@@ -216,6 +255,18 @@ export const draft = {
         deadline: partial.deadline,
         calendarId: partial.calendarId,
         notes: partial.notes,
+        // Z14 (etappe "nul afwijkingen", checklist-aanvulling): de vier Z0-typecontractvelden
+        // ontbraken hier bewust (ongebruikt + MCP-zetbaarheid was nog geen besluit) — zie
+        // taskSlice.ts addTask voor dezelfde regel. Nu round-trippen ze door IFC (ifcPsets.ts), dus
+        // deze functie is weer de VOLLEDIGE veld-voor-veld-tweeling van de store-`addTask`. Geen van
+        // de vier is via `taskFields.ts`'s allowlist zetbaar (REJECT_HINTS) — dit vult alleen aan
+        // voor aanroepers die een `Partial<Task>` rechtstreeks doorgeven (bv. `draft.addTasks`-items
+        // met velden buiten de allowlist om, of toekomstig intern gebruik), zodat deze twee functies
+        // niet stil uit elkaar drijven (Z0-reviewbevinding 3).
+        splitGaps: partial.splitGaps,
+        manuallyScheduled: partial.manuallyScheduled,
+        levelingDelayMinutes: partial.levelingDelayMinutes,
+        levelingDelayElapsed: partial.levelingDelayElapsed,
       };
 
       s.tasks.push(task);
@@ -402,11 +453,13 @@ export const draft = {
    * lopen in T4 via de dedicated invariant-setters. Onbekend id ⇒ stille no-op (zoals de store-
    * `updateTask`); geen throw, want een leeg-effect-merge is geen structurele fout.
    *
-   * `time` wordt bewust SHALLOW GEMERGED in plaats van vervangen: een `Object.assign` van de hele
-   * `time`-tak wiste anders in één klap de CPM-datums, floats, actuals en completion van elke sleutel
-   * die de aanroeper niet toevallig meestuurde. De MCP-toollaag zet `time` sowieso niet meer
-   * rechtstreeks (zie `patchTaskFields` + `taskFields.ts`); deze merge is de vangrail voor elke
-   * andere aanroeper.
+   * `time` wordt bewust GEMERGED in plaats van vervangen: een `Object.assign` van de hele `time`-tak
+   * wiste anders in één klap de CPM-datums, floats, actuals en completion van elke sleutel die de
+   * aanroeper niet toevallig meestuurde. De MCP-toollaag zet `time` sowieso niet meer rechtstreeks
+   * (zie `patchTaskFields` + `taskFields.ts`); deze merge is de vangrail voor elke andere aanroeper.
+   * T14b-vervolg: `mergeTaskTime` (basis = de BESTAANDE tijd, zie de docstring daar) i.p.v. een kale
+   * `Object.assign` — die liet een expliciet-`undefined`-sleutel (bv. van een ongetypeerde aanroeper)
+   * nog steeds een verplicht veld overschrijven; `mergeTaskTime` beschermt die klasse expliciet.
    */
   updateTaskFields(id: string, updates: Partial<Task>): void {
     useAppStore.setState((s) => {
@@ -414,7 +467,18 @@ export const draft = {
       if (idx < 0) return;
       const { time, ...rest } = updates;
       Object.assign(s.tasks[idx], rest);
-      if (time) Object.assign(s.tasks[idx].time, time);
+      if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
+      // Z14b (eigenaarsprincipe 2026-08-18) — gedocumenteerde tweeling van taskSlice.ts's
+      // `updateTask`: zelfde triggerset/uitleg in `taskDefaults.ts`.
+      if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
+        const clearedWindow = clearTimephasedWindow(s.tasks[idx]);
+        // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als taskSlice.ts's `updateTask`.
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(s.tasks[idx])
+          && clearTimephasedDurationWalks(s.tasks[idx]);
+        // mpp-nul-data-etappe, DEEL 1 — meld alleen bij een ECHT verlies, zie het module-docblok
+        // bij `recordTimephasedLoss`.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(id);
+      }
       s.isDirty = true;
     });
   },
@@ -441,10 +505,22 @@ export const draft = {
       if (idx < 0) return;
       const task = s.tasks[idx];
       Object.assign(task, top);
+      let timeTouched = false;
       if (timePatch) {
-        if (timePatch.scheduleDuration !== undefined) task.time.scheduleDuration = timePatch.scheduleDuration;
-        if (timePatch.durationType !== undefined) task.time.durationType = timePatch.durationType;
-        if (timePatch.clearDurationMinutes) delete task.time.durationMinutes;
+        if (timePatch.scheduleDuration !== undefined) { task.time.scheduleDuration = timePatch.scheduleDuration; timeTouched = true; }
+        if (timePatch.durationType !== undefined) { task.time.durationType = timePatch.durationType; timeTouched = true; }
+        if (timePatch.clearDurationMinutes) { delete task.time.durationMinutes; timeTouched = true; }
+      }
+      // Z14b (eigenaarsprincipe 2026-08-18) — zelfde triggerset als `updateTaskFields`, zie
+      // `taskDefaults.ts`. `timePatch` heeft een eigen, smallere vorm (allowlist-gedreven) dan een
+      // volledige `Partial<TaskTime>`, dus hier direct de sleutel-aanwezigheid bijhouden i.p.v.
+      // `timeUpdateTouchesTimephasedWindow` (die verwacht de bredere `TaskTime`-vorm).
+      if (('calendarId' in top) || timeTouched) {
+        const clearedWindow = clearTimephasedWindow(task);
+        // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als `updateTaskFields` hierboven.
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(task) && clearTimephasedDurationWalks(task);
+        // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(id);
       }
       s.isDirty = true;
     });
@@ -610,6 +686,14 @@ export const draft = {
       }
       s.assignments.push({ id, taskId, resourceId, unitsPerDay, curve });
       if (!task.resourceIds.includes(resourceId)) task.resourceIds.push(resourceId);
+      // Z14b (eigenaarsprincipe 2026-08-18, F2-fixronde) — "toewijzingen" is expliciet onderdeel
+      // van de triggerset (plan: "duur, datums, kalender, toewijzingen"): een andere resource kan
+      // een andere resourcekalender betekenen, precies de Z8-laag-4-discriminator — dus BEIDE
+      // lagen wissen. Zie taskDefaults.ts.
+      const clearedWindow = clearTimephasedWindow(task);
+      const clearedWalks = clearTimephasedDurationWalks(task);
+      // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+      if (clearedWindow || clearedWalks) recordTimephasedLoss(taskId);
       s.isDirty = true;
     });
     return id;
@@ -671,6 +755,18 @@ export const draft = {
       if (!newTask.resourceIds.includes(assignment.resourceId)) {
         newTask.resourceIds.push(assignment.resourceId);
       }
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger raakt BEIDE taken, BEIDE lagen (zie
+      // assignResource hierboven).
+      const oldTask = s.tasks.find((t) => t.id === oldTaskId);
+      if (oldTask) {
+        const clearedOldWindow = clearTimephasedWindow(oldTask);
+        const clearedOldWalks = clearTimephasedDurationWalks(oldTask);
+        if (clearedOldWindow || clearedOldWalks) recordTimephasedLoss(oldTaskId);
+      }
+      const clearedNewWindow = clearTimephasedWindow(newTask);
+      const clearedNewWalks = clearTimephasedDurationWalks(newTask);
+      // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+      if (clearedNewWindow || clearedNewWalks) recordTimephasedLoss(newTaskId);
       s.isDirty = true;
     });
   },
@@ -692,6 +788,14 @@ export const draft = {
         const task = s.tasks.find((t) => t.id === removed.taskId);
         const idx = task?.resourceIds.indexOf(removed.resourceId) ?? -1;
         if (task && idx >= 0) task.resourceIds.splice(idx, 1);
+      }
+      // Z14b (F2-fixronde) — "toewijzingen"-trigger, beide lagen (zie assignResource hierboven).
+      const removedTask = s.tasks.find((t) => t.id === removed.taskId);
+      if (removedTask) {
+        const clearedWindow = clearTimephasedWindow(removedTask);
+        const clearedWalks = clearTimephasedDurationWalks(removedTask);
+        // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(removedTask.id);
       }
       s.isDirty = true;
     });
@@ -726,12 +830,31 @@ export const draft = {
    * `modifiedAt`. Ankert alleen NIEUWE taken op `startDate` (bestaande planning verschuift niet — dat
    * is `moveProject`). De store-no-op-guard (`projectChanges`) wordt hier weggelaten: binnen een
    * transactie is de snapshot al genomen, dus een leeg-effect-merge kost niets extra's.
+   *
+   * T7-review H1: dit AI-bewerkmoment hoort zich IDENTIEK te gedragen als de UI-variant
+   * (`projectSlice.setProject`) — vóór deze fix deed dit alleen `Object.assign`, dus een LATERE
+   * `startDate` liet een verouderd wortel-anker via de AI stil vóór het officiële projectbegin
+   * hangen (headless bewezen: geen klem, geen melding). Dezelfde gedeelde `clampProjectStartAnchors`
+   * (`engine/scheduler/projectStartAnchorClamp.ts`) als de UI-kant — één definitie, geen tweede die
+   * kan afdrijven. GEEN eigen `runCPM`/melding hier: `runInMcpTransaction` herrekent altijd precies
+   * één keer aan het eind (stap 5); het AANTAL geklemde ankers gaat terug naar de AANROEPER (i.p.v.
+   * naar het UI-meldingenkanaal, dat de MCP-bridge niet gebruikt) zodat `planner_update_project` het
+   * in zijn tool-resultaat kan melden.
    */
-  setProject(updates: Partial<Project>): void {
+  setProject(updates: Partial<Project>): number {
+    let clampedAnchors = 0;
     useAppStore.setState((s) => {
+      const prevStartDate = s.project.startDate;
       Object.assign(s.project, updates);
       s.project.modifiedAt = new Date().toISOString();
+      if (typeof updates.startDate === 'string') {
+        clampedAnchors = clampProjectStartAnchors({
+          tasks: s.tasks, sequences: s.sequences, calendar: s.calendar, calendars: s.calendars,
+          prevStartDate, nextStartDate: updates.startDate,
+        });
+      }
       s.isDirty = true;
     });
+    return clampedAnchors;
   },
 };

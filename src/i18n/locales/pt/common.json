@@ -5,6 +5,8 @@
   "notifications": {
     "dismiss": "Fechar notificação",
     "openFailed": "Falha ao abrir o arquivo",
+    "mppLegacy": "Este arquivo .mpp usa um formato antigo (Project 2007 ou anterior). Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
+    "mppEncrypted": "Este arquivo .mpp está protegido por senha. Exporte-o no MS Project como XML (Arquivo → Salvar como → XML) e abra esse arquivo.",
     "saveFailed": "Falha ao salvar",
     "savedViaDownload": "Guardado como transferência: '{{name}}' está agora na sua pasta de transferências. Este ambiente não permite que a aplicação escreva diretamente no local escolhido.",
     "autoSaveFailed": "Falha no salvamento automático",
@@ -15,8 +17,18 @@
     "templateSaved": "Ramo guardado como modelo '{{name}}'",
     "relationCreated": "Relação criada: {{predecessor}} → {{successor}}",
     "relationDuplicate": "Essa relação já existe",
-    "relationSummaryEndpoint": "Uma tarefa de resumo como extremidade não tem efeito na planificação. Ligue-a a uma tarefa sem subtarefas.",
-    "summaryRelationsIgnored": "{{total}} relação(ões) em tarefas de resumo não têm efeito na planificação."
+    "relationAncestorEndpoint": "Não é permitida uma relação entre uma tarefa e a sua própria tarefa de resumo ancestral.",
+    "summaryRelationsDropped": "{{total}} relação(ões) não puderam ser incluídas — consulte o painel de Relações para saber quais.",
+    "mppSourceScheduleNotes_one": "Este arquivo do MS Project contém {{count}} tarefa com um cronograma dividido, nivelado ou controlado por recursos. Ela é importada e exibida como está.",
+    "mppSourceScheduleNotes_many": "Este arquivo do MS Project contém {{count}} tarefas com um cronograma dividido, nivelado ou controlado por recursos. Elas são importadas e exibidas como estão.",
+    "mppSourceScheduleNotes_other": "Este arquivo do MS Project contém {{count}} tarefas com um cronograma dividido, nivelado ou controlado por recursos. Elas são importadas e exibidas como estão.",
+    "projectStartAnchorsClamped_one": "Início do projeto alterado: {{count}} âncora de tarefa sem predecessora nem restrição foi movida para a nova data de início.",
+    "projectStartAnchorsClamped_many": "Início do projeto alterado: {{count}} âncoras de tarefa sem predecessora nem restrição foram movidas para a nova data de início.",
+    "projectStartAnchorsClamped_other": "Início do projeto alterado: {{count}} âncoras de tarefa sem predecessora nem restrição foram movidas para a nova data de início.",
+    "mppTimephasedSteeringLost_one": "A distribuição de horas do MS Project não controla mais {{count}} tarefa após esta edição; a distribuição original permanece guardada no arquivo.",
+    "mppTimephasedSteeringLost_many": "A distribuição de horas do MS Project não controla mais {{count}} tarefas após esta edição; a distribuição original permanece guardada no arquivo.",
+    "mppTimephasedSteeringLost_other": "A distribuição de horas do MS Project não controla mais {{count}} tarefas após esta edição; a distribuição original permanece guardada no arquivo.",
+    "readMore": "Saiba mais"
   },
   "yes": "Sim",
   "no": "Não",
@@ -236,7 +248,8 @@
   },
   "project": {
     "untitled": "Novo planeamento",
-    "imported": "Projeto importado"
+    "imported": "Projeto importado",
+    "unassignedResource": "Não atribuído"
   },
   "documents": {
     "overviewTitle": "Projetos abertos",

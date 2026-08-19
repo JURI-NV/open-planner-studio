@@ -29,8 +29,9 @@ import { guardNonTransactional, McpStepError, runMutateTool, toolError, type Mut
 import { enrichOk, freshDates, okDirect, projectEndInfo } from './helpers';
 import { useAppStore } from '@/state/appStore';
 import { validate } from '@/state/mcpValidation';
-import { isSummaryTask } from '@/state/relationRules';
+import { isAncestorRelation } from '@/state/relationRules';
 import {
+  ANCESTOR_RELATION_REJECTION,
   LAG_DOC,
   LAG_SCHEMA,
   lagPatchOf,
@@ -39,7 +40,6 @@ import {
   parseLag,
   seqAbbrev,
   SEQ_TYPE_SCHEMA,
-  SUMMARY_ENDPOINT_REJECTION,
   unknownTypeReason,
 } from './sequenceFields';
 import type { Sequence, SequenceType } from '@/types/sequence';
@@ -216,25 +216,24 @@ function classifyDepUpdates(
       rejections.push({ id: seqId, reason: `een relatie kan taak '${nextPred}' niet met zichzelf verbinden` });
       continue;
     }
-    // Verzameltaak als NIEUW eindpunt (spec 2026-08-14): de solver krijgt alleen bladtaken, dus
-    // verhangen náár een taak MET subtaken zou een spookrelatie worden. Dit pad schrijft de
-    // eindpunten rechtstreeks op de draft (zie de mutatie verderop), dus dit is de ENIGE plek waar
-    // dit tegengehouden kan worden — anders dan bij het aanmaken (classifyDeps → addSequence) zit er
-    // hier geen tweede laag onder.
+    // Voorouder-relatie als NIEUW eindpunt-paar (eigenaarsbesluit 2026-08-15): verhangen náár een
+    // relatie tussen een taak en zijn EIGEN (voor)ouder-samenvatting zou `expandSummaryRelations`
+    // een directe cyclus laten genereren. Een gewoon verzameltaak-eindpunt is verder GEEN
+    // weigergrond meer — dat rekent gewoon mee. Dit pad schrijft de eindpunten rechtstreeks op de
+    // draft (zie de mutatie verderop), dus dit is de ENIGE plek waar dit tegengehouden kan worden —
+    // anders dan bij het aanmaken (classifyDeps → addSequence) zit er hier geen tweede laag onder.
     //
     // Bewust ALLEEN op eindpunten die daadwerkelijk WIJZIGEN: een bestaande relatie kan al een
-    // verzameltaak-eindpunt hebben (uit een import, of retroactief doordat een bladtaak een kind
-    // kreeg) en moet dan nog op type/lag te wijzigen zijn — spec §5 houdt bestaande exemplaren
-    // bewust behouden én beheersbaar. Verhangen wég van een verzameltaak (het herstelpad) blijft dus
-    // ook toegestaan, en één kant naar een blad verleggen terwijl de andere kant nog een
-    // verzameltaak is maakt het niet erger dan het al was.
+    // voorouder-eindpunt hebben (uit een import — de solver-guard in `expandSummaryRelations` droppt
+    // 'm dan zelf, geen crash) en moet dan nog op type/lag te wijzigen zijn. Verhangen wég van een
+    // voorouder-relatie (het herstelpad) blijft dus ook toegestaan.
     const predIsNew = nextPred !== cur.predecessorId;
     const succIsNew = nextSucc !== cur.successorId;
     if (
-      (predIsNew && isSummaryTask(lookupTask(nextPred)))
-      || (succIsNew && isSummaryTask(lookupTask(nextSucc)))
+      (predIsNew || succIsNew)
+      && isAncestorRelation(lookupTask, { predecessorId: nextPred, successorId: nextSucc })
     ) {
-      rejections.push({ id: seqId, reason: SUMMARY_ENDPOINT_REJECTION });
+      rejections.push({ id: seqId, reason: ANCESTOR_RELATION_REJECTION });
       continue;
     }
 
@@ -400,14 +399,16 @@ const updateDependencies: BatchStepTool = {
     '("→2.3 FS+2d #seq-7"). Per item is elk veld OPTIONEEL en wordt alleen het opgegevene gewijzigd ' +
     '(veld-merge): `type` (FINISH_START|FINISH_FINISH|START_START|START_FINISH, of kort FS/FF/SS/SF), ' +
     '`lag`, `predecessorId`, `successorId`. ' + LAG_DOC + ' ' +
-    'Zacht geweigerd per item (de rest van de bulk gaat gewoon door): een onbekend `seqId`, een ' +
-    'onbekend veld (de weigering NOEMT de sleutel), een onbekend taak-id, een relatie naar zichzelf, ' +
-    'een verzameltaak (taak MET subtaken) als nieuwe voorganger/opvolger, een wijziging die een ' +
-    'BESTAANDE relatie zou dubbelen (zelfde voorganger+opvolger+type), en een item dat niets ' +
-    'verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats van ' +
-    'een `ok` zonder effect. Een KRINGVERWIJZING (mogelijk zodra je een eindpunt verlegt) is een harde ' +
-    'fout die de hele call terugrolt. Retourneert per gewijzigde relatie het echte VOOR/NA-verschil ' +
-    '(`changes`), de herrekende datums van de geraakte taken en het nieuwe projecteinde.',
+    'Een verzameltaak (taak MET subtaken) als nieuwe voorganger/opvolger is TOEGESTAAN. Zacht ' +
+    'geweigerd per item (de rest van de bulk gaat gewoon door): een onbekend `seqId`, een onbekend ' +
+    'veld (de weigering NOEMT de sleutel), een onbekend taak-id, een relatie naar zichzelf, een ' +
+    'voorouder-relatie (een nieuwe voorganger/opvolger die de EIGEN (voor)ouder-samenvattingstaak ' +
+    'van de andere kant is), een wijziging die een BESTAANDE relatie zou dubbelen (zelfde ' +
+    'voorganger+opvolger+type), en een ' +
+    'item dat niets verandert — die laatste krijgt expliciet "er valt niets te wijzigen" in plaats ' +
+    'van een `ok` zonder effect. Een KRINGVERWIJZING (mogelijk zodra je een eindpunt verlegt) is een ' +
+    'harde fout die de hele call terugrolt. Retourneert per gewijzigde relatie het echte VOOR/NA-' +
+    'verschil (`changes`), de herrekende datums van de geraakte taken en het nieuwe projecteinde.',
   kind: 'mutate',
   batchable: true,
   annotations: { ...STD_ANNOT },

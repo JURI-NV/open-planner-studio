@@ -7,11 +7,13 @@ import { isHourCalendar } from '@/services/subdayIo';
 import { effHoursPerDay, taskDurationMinutes } from '@/utils/taskDuration';
 import { formatDuration, DEFAULT_DURATION_SUFFIXES, type DurationSuffixes } from '@/utils/durationFormat';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
+import { isZeroDurationMilestone } from '@/engine/scheduler/duration';
 import { firstRowIndexByTask, type ViewRow } from '@/engine/view/visibleRows';
 import { TimelineTier, TierConfig, TIER_CONFIG, pickTiers, nextTickBoundary, snapToTickStart } from './timelineTiers';
 import { readGanttPalette, type GanttPalette } from './themePalette';
 import { xToDayOffset, type GanttAxis } from './timeAxis';
 import { resolveGanttAxis, isCompressedEffective } from './workdayAxis';
+import { computeSplitSegments } from './splitBarGeometry';
 
 export interface GanttRenderOptions {
   /** DE gedeelde zichtbare-rijenlijst (fase 2.7, §4): de renderer flattent NIET meer zelf —
@@ -261,7 +263,9 @@ export class GanttRenderer {
    * AAN ⇒ de eigen eenheid per taak via de Duurweergave-instelling (dag-taak "3d", uur-taak "20u").
    */
   private durationText(task: Task): string {
-    if (task.isMilestone) return '0d';
+    // M3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` i.p.v. de kale vlag — een
+    // mijlpaal-met-duur (T15) toont haar EIGEN duur, niet "0d" (zelfde discriminator als de solver).
+    if (isZeroDurationMilestone(task)) return '0d';
     if (!this.opts.enableHourPlanning) return `${task.time.scheduleDuration}d`;
     const cal = this.opts.effectiveCalById?.get(task.id) ?? this.opts.calendar;
     return formatDuration(taskDurationMinutes(task, cal), effHoursPerDay(cal), this.opts.durationDisplay ?? 'auto', this.opts.durationSuffixes);
@@ -325,11 +329,15 @@ export class GanttRenderer {
     return { x1, x2, hourMode, start, end };
   }
 
-  /** De effectieve `CalendarEngine` voor een taak (uur-modus), of null als de taak op een
-   *  dag-kalender staat / geen kalendermap is meegegeven — dan wordt er niet opgesplitst. */
-  private engineFor(task: Task): CalendarEngine | null {
+  /** De effectieve `CalendarEngine` voor een taak, ONGEACHT dag-/uur-modus (Z15). Gedeelde cache
+   *  met `engineFor` (hieronder), dat bewust NULL teruggeeft in dag-modus omdat de kalender-
+   *  necking (`workIntervalsBetween`) daar toch niets oplevert. `Task.splitGaps` heeft echter
+   *  ALTIJD een engine nodig — ook een dag-modus-taak (`workTime` ontbreekt) — om de gat-offsets
+   *  naar schermcoördinaten te wandelen (`computeSplitSegments`, `splitBarGeometry.ts`). Een
+   *  dag-modus-`CalendarEngine` bouwen is goedkoop (de uur-modus-band-uitrol in de constructor
+   *  slaat over, zie `CalendarEngine`'s `mode`-branch), dus geen aparte null-guard nodig hier. */
+  private engineForAnyMode(task: Task): CalendarEngine {
     const cal = this.opts.effectiveCalById?.get(task.id) ?? this.opts.calendar;
-    if (!isHourCalendar(cal)) return null;
     let eng = this.engineCache.get(cal.id);
     if (!eng) {
       eng = new CalendarEngine(cal);
@@ -338,8 +346,18 @@ export class GanttRenderer {
     return eng;
   }
 
+  /** De effectieve `CalendarEngine` voor een taak (uur-modus), of null als de taak op een
+   *  dag-kalender staat / geen kalendermap is meegegeven — dan wordt er niet opgesplitst. */
+  private engineFor(task: Task): CalendarEngine | null {
+    const cal = this.opts.effectiveCalById?.get(task.id) ?? this.opts.calendar;
+    if (!isHourCalendar(cal)) return null;
+    return this.engineForAnyMode(task);
+  }
+
   /** Of een uur-taakbalk in werkblok-segmenten wordt getekend (§6.9): 'always' ⇒ altijd,
-   *  'selection' ⇒ alleen als de taak geselecteerd is, 'never' ⇒ nooit. */
+   *  'selection' ⇒ alleen als de taak geselecteerd is, 'never' ⇒ nooit. Z15: dit stuurt
+   *  UITSLUITEND de kalender-necking (uur-modus, geen echte splits) — een taak met `Task.splitGaps`
+   *  (een ECHTE MS Project-split) raadpleegt deze methode nooit, zie de O5-uitleg bij `drawTaskBar`. */
   private shouldSplit(isSelected: boolean): boolean {
     const mode = this.opts.barSplitMode ?? 'selection';
     return mode === 'always' || (mode === 'selection' && isSelected);
@@ -612,8 +630,10 @@ export class GanttRenderer {
       const task = row.kind === 'task' ? row.task : null;
 
       let progressX = statusX;
-      // Alleen echte leaf-taken (geen samenvatting/mijlpaal/band) stulpen uit.
-      if (task && !task.isMilestone && task.childIds.length === 0) {
+      // Alleen echte leaf-taken (geen samenvatting/mijlpaal/band) stulpen uit. M3 (Opus-review
+      // T15-iteratie-2): `isZeroDurationMilestone` — een mijlpaal-met-duur tekent als gewone balk
+      // (regel ~940 hierboven) en krijgt dus ook haar eigen statusdatum-uitstulping.
+      if (task && !isZeroDurationMilestone(task) && task.childIds.length === 0) {
         const geo = this.barGeometry(task);
         const c = Math.max(0, Math.min(1, task.time.completion || 0));
         // Dagniveau-vergelijking t.o.v. de statusdatum (ook voor uur-taken: alleen de
@@ -934,7 +954,10 @@ export class GanttRenderer {
 
       if (dimmed) this.ctx.globalAlpha = 0.25;
       else if (row.dimmed) this.ctx.globalAlpha = GanttRenderer.DIM_ALPHA; // filter-ouderketen (§4.2)
-      if (task.isMilestone) {
+      // M3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` — een mijlpaal-met-duur (T15) is
+      // voor de PLANNING geen mijlpaal (zelfde discriminator als de solver) en tekent dus als een
+      // gewone balk, niet als ruit.
+      if (isZeroDurationMilestone(task)) {
         this.drawMilestone(task, y, barHeight, isSelected, overrideColor);
       } else if (task.childIds.length > 0) {
         this.drawSummaryBar(task, y, barHeight, isSelected, overrideColor);
@@ -963,6 +986,10 @@ export class GanttRenderer {
     // Die breedte MOET in de zichtbaarheidstest mee: anders verdwijnt een band die nog ruim in
     // beeld staat zodra alleen de BALK links buiten beeld schuift — precies het gerapporteerde
     // gedrag. Eén bron voor de breedte, zodat test en tekening niet uit elkaar kunnen lopen.
+    // Z15: deze cull-test redeneert bewust op de VOLLE extent (`x1`/`x2` uit `geo`, vóór segmentatie)
+    // — ook voor een gesplitste taak. De segmenten (`segs`, hieronder) worden pas ná deze return
+    // berekend en zijn nooit breder dan `[x1,x2]`, dus "volledig buiten beeld" op de volle extent
+    // impliceert hetzelfde voor elk segment (`check-gantt-float-cull.ts` bewaakt dit).
     const floatWidth = task.time.totalFloat > 0 && !task.time.isCritical
       ? task.time.totalFloat * this.opts.view.zoom
       : 0;
@@ -977,7 +1004,25 @@ export class GanttRenderer {
     // Segmenten komen uit de op het kalender-object gememoizede banden-materialisatie (geen extra solve).
     let segs: { x1: number; x2: number }[] = [{ x1, x2 }];
     let split = false;
-    if (geo.hourMode && this.shouldSplit(isSelected)) {
+    // Z15 (O5-besluit, plan-§10): een ECHTE split (`Task.splitGaps`, uit een .mpp-import afgeleid)
+    // tekent ALTIJD gesplitst — een werkonderbreking is DATA, geen weergavevoorkeur. Deze tak
+    // raadpleegt `shouldSplit`/`barSplitMode` daarom NIET; die blijven uitsluitend voor de
+    // hieronder-volgende `else`-tak (kalender-necking, puur weergave, uur-modus-only).
+    if (task.splitGaps && task.splitGaps.length > 0) {
+      const eng = this.engineForAnyMode(task);
+      const segments = computeSplitSegments(task.splitGaps, geo.start, geo.end, geo.hourMode, eng);
+      if (segments.length > 1) {
+        // Eerste/laatste grens hergebruikt de AL BEKENDE volle-extent `x1`/`x2` (dezelfde waarden
+        // als de cull-test bovenaan deze functie): die dragen dag-modus' "+zoom voor de inclusieve
+        // laatste dag"-correctie al, en `computeSplitSegments`'s tussengrenzen zijn bewust EXCLUSIEF
+        // (zie die module) — dus zuiver `dateToX(...)` zonder nóg een correctie.
+        segs = segments.map((s, i) => ({
+          x1: i === 0 ? x1 : this.dateToX(s.start),
+          x2: i === segments.length - 1 ? x2 : this.dateToX(s.end),
+        }));
+        split = true;
+      }
+    } else if (geo.hourMode && this.shouldSplit(isSelected)) {
       const eng = this.engineFor(task);
       const intervals = eng ? eng.workIntervalsBetween(geo.start, geo.end) : [];
       if (intervals.length > 0) {
@@ -1546,7 +1591,9 @@ export class GanttRenderer {
       const geo = this.barGeometry(row.task);
       // Een mijlpaalruit steekt buiten [x1,x2] uit (anker + halve ruitbreedte); ruimer padden i.p.v.
       // de anker-logica van `drawMilestone` te dupliceren (die zou stil uit de pas kunnen lopen).
-      const pad = row.task.isMilestone ? 6 : GanttRenderer.ARROW_PAD;
+      // M3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` — een mijlpaal-met-duur tekent
+      // als gewone balk en heeft dus de gewone pijl-padding nodig, niet de ruit-padding.
+      const pad = isZeroDurationMilestone(row.task) ? 6 : GanttRenderer.ARROW_PAD;
       x1[i - first] = geo.x1 - pad;
       x2[i - first] = geo.x2 + pad;
     }
@@ -2044,7 +2091,10 @@ export class GanttRenderer {
   getTaskBarBounds(canvasX: number, canvasY: number): { task: Task; edge: 'left' | 'right' | 'body' } | null {
     if (canvasX < this.opts.taskTableWidth) return null;
     const task = this.getTaskAtY(canvasY);
-    if (!task || task.childIds.length > 0 || task.isMilestone) return null;
+    // M3 (Opus-review T15-iteratie-2): `isZeroDurationMilestone` — een mijlpaal-met-duur tekent als
+    // gewone balk (regel ~940) en moet dus ook gewoon sleep-/resize-baar zijn, zoals elke andere
+    // taak met een echte duur.
+    if (!task || task.childIds.length > 0 || isZeroDurationMilestone(task)) return null;
     // Datumloos-guard (TODO 2026-07-28): barGeometry tekent voor zo'n taak een terugval-stub op de
     // viewstart, maar die mag geen sleep/resize armen — de drag-hooks zouden met undefined
     // originalStart/originalFinish rekenen.
@@ -2053,6 +2103,11 @@ export class GanttRenderer {
     }
 
     // Uur-bewuste balk-uiteinden, zodat de resize-grepen op een sub-dag-balk kloppen (§6.1/§6.3).
+    // Z15: BEWUST de volle extent `[x1,x2]`, ook voor een gesplitste taak (`Task.splitGaps`) — een
+    // gesplitste balk is deze etappe als GEHEEL sleep-/resize-baar, niet per segment. Dat is de
+    // GEWENSTE uitkomst (plan-§Z15): bewerken van splits (een gat verslepen, een split opheffen)
+    // is een aparte, latere etappe (O2-besluit); deze balk drag-/resize't dus exact zoals een
+    // ongesplitste balk, ongeacht `splitGaps`.
     const { x1, x2 } = this.barGeometry(task);
     const edgeZone = 6; // pixels for edge detection
 
@@ -2074,20 +2129,26 @@ export class GanttRenderer {
    * nergens op: een mijlpaal is een bladtaak met duur 0 die de solver volledig ondersteunt als
    * voorganger én opvolger. Dat was de bug.
    *
-   * Verzameltaken blijven hier wél geweerd: de solver krijgt alleen bladtaken, dus zo'n relatie
-   * zou een spookrelatie zijn (zie `state/relationRules.ts`). Vroeg weigeren — door de sleep niet
-   * te armen — is prettiger dan hem na afloop afwijzen.
+   * VERZAMELTAKEN ZIJN SINDS HET EIGENAARSBESLUIT VAN 2026-08-15 EXPLICIET WÉL TOEGESTAAN ALS BRON.
+   * Tot dan weerde deze hit-test ze ("de solver krijgt alleen bladtaken, dus zo'n relatie zou een
+   * spookrelatie zijn") — maar `expandSummaryRelations` (`engine/scheduler/expandSummaryRelations.ts`)
+   * rekent een relatie mét een verzameltaak-eindpunt sindsdien gewoon door naar de onderliggende
+   * bladtaken (MS Project-semantiek), en droppen óp een verzamelbalk werkte via `relationVerdict`
+   * (`state/relationRules.ts`) al langer. Slepen VANAF een verzamelbalk hoorde in lockstep te
+   * blijven met droppen ERÓP; deze functie liep sinds die wijziging achter. De uiteindelijke
+   * legaliteit van de relatie (inclusief de resterende voorouder-weigering) wordt hoe dan ook pas
+   * bij het loslaten bepaald — door `createRelationWithFeedback`/`relationVerdict`, niet hier — dus
+   * deze hit-test hoeft alleen nog te weigeren waar helemaal geen zinnige balk staat (datumloos,
+   * buiten de balk).
    *
-   * De check hieronder is `task.childIds.length > 0` inline, geen import van `isSummaryTask` uit
-   * `state/relationRules.ts` — deze renderer importeert bewust niets uit `@/state`. Dat maakt
-   * `relationRules.ts` de enige bron van de RÉGEL, niet letterlijk de enige plek waar hij staat:
-   * de conditie zelf is hier gedupliceerd, en moet in lockstep blijven met `isSummaryTask` als die
-   * regel ooit verandert.
+   * De check hieronder importeert bewust niets uit `@/state` (deze renderer doet dat nergens) — zie
+   * `isSummaryTask`/`isAncestorRelation` in `state/relationRules.ts` voor de daadwerkelijke regels;
+   * hier is alleen de geometrie van belang.
    */
   getRelationSourceAt(canvasX: number, canvasY: number): Task | null {
     if (canvasX < this.opts.taskTableWidth) return null;
     const task = this.getTaskAtY(canvasY);
-    if (!task || task.childIds.length > 0) return null;
+    if (!task) return null;
     // Zelfde datumloos-guard als getTaskBarBounds: een taak zonder datums heeft alleen een
     // terugval-stub op de viewstart en dus geen betekenisvolle positie om vanaf te slepen.
     if (!(task.time.earlyStart || task.time.scheduleStart) || !(task.time.earlyFinish || task.time.scheduleFinish)) {

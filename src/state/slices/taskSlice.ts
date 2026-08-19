@@ -1,11 +1,15 @@
 import { Task, type ExternalLink } from '@/types/task';
-import { createDefaultTaskTime } from '@/utils/taskDefaults';
+import {
+  createDefaultTaskTime, mergeTaskTime, clearTimephasedWindow, timeUpdateTouchesTimephasedWindow,
+  clearTimephasedDurationWalks, timephasedDurationWalksHaveFrozenWork,
+} from '@/utils/taskDefaults';
 import { generateId } from '@/utils/id';
-import { formatDate } from '@/utils/dateUtils';
+import { formatDate, parseDate, parseInstant } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';
 import type { WbsTemplate } from '@/utils/wbsTemplates';
 import { detachFromParent, attachToParent, isSelfOrDescendant, collectSubtreeIds, siblingIds } from '@/state/taskTree';
 import { beginUndoable, finishMutation } from '../transaction';
+import { notifyTimephasedLoss } from '../timephasedLossNotice';
 import type { AppSlice, SiblingDirection } from './types';
 
 /**
@@ -205,10 +209,50 @@ function applyTaskPlacement(tasks: Task[], id: string, plan: TaskPlacement): voi
  * waar een taak werkelijk geland is.
  */
 /**
+ * T16-veeglijst-fix (B4-nasleep, Opus-her-check T15-fixronde — gepind als BEKENDE BEPERKING, hier
+ * gefixt): `setActualStart`/`setActualFinish` vergeleken tot deze fix een RUWE actual-ISO-string
+ * lexicografisch met `project.statusDate`. Dat werkt alleen zolang beide dezelfde precisie dragen
+ * (twee date-only strings, of twee datetime-strings) — een uur-precieze `date` (`"2026-07-06T08:00"`)
+ * is lexicografisch altijd "groter" dan een datumloze `statusDate` op DEZELFDE dag (`"2026-07-06"`),
+ * dus zo'n actual werd stil geweigerd ongeacht de klokstand.
+ *
+ * Fix: bij een DATUMLOZE `statusDate` (`project.statusDate` bevat geen `T` — het gebruikelijke
+ * dag-modus-geval, §3.4) wordt alleen de KALENDERDAG vergeleken (`parseDate`, tijd-component
+ * genegeerd): elke klokstand OP de statusdatum-dag zelf is toegestaan, alleen een latere dag wordt
+ * geweigerd — precies de bedoelde "geen actuals ná de statusdatum"-regel, zonder de precisiemismatch.
+ * Draagt `statusDate` zelf al een tijd-component (uur-modus, §3.4), dan blijft de vergelijking op
+ * volle instant-precisie (`parseInstant`) — dat geval was vóór deze fix al correct (gelijke precisie
+ * aan weerszijden) en blijft dat, byte-identiek. */
+function isActualPastStatusDate(dateIso: string, statusDateIso: string): boolean {
+  if (!statusDateIso.includes('T')) {
+    return parseDate(dateIso).getTime() > parseDate(statusDateIso).getTime();
+  }
+  return parseInstant(dateIso).getTime() > parseInstant(statusDateIso).getTime();
+}
+
+/**
  * Voortgang-invarianten (§3.2), toegepast op een task-draft ná elke progress-mutatie:
  * actualFinish ⇒ completion 1 + actualStart + COMPLETED; completion 1 ⇒ actualFinish (default =
- * statusdatum of vandaag); actualStart zonder finish ⇒ STARTED; niets ⇒ NOT_STARTED;
- * remainingTime = round(scheduleDuration × (1 − completion)).
+ * statusdatum, anders de taak se EIGEN geplande finish — MSP-semantiek: afvinken op 100% zonder
+ * expliciete datum maakt de geplande datums de actuals, NOOIT "vandaag"); actualStart zonder
+ * finish ⇒ STARTED; niets ⇒ NOT_STARTED; remainingTime = round(scheduleDuration × (1 − completion)).
+ *
+ * H1 (Opus-review T15-iteratie-2, app-brede regressie): vóór deze fix viel de `completion===1`-tak
+ * zónder statusdatum terug op `formatDate(new Date())` ("vandaag"). Zolang `CPMSolver`'s VOLTOOID-
+ * branch zelf ook een statusdatum vereiste was dat onschadelijk (de solver negeerde `actualFinish`
+ * toch); sinds T15 (c2, `7a40a5ab`) is die branch UNCONDITIONEEL — een taak zonder statusdatum die
+ * de gebruiker op 100% zet, teleporteerde daardoor letterlijk naar de dag van vandaag (en sleepte
+ * haar opvolgers mee via de gewone FS-relatiewiskunde). De juiste terugval is de taak se EIGEN,
+ * al-berekende finish (`earlyFinish` — bij een verse taak byte-identiek aan `scheduleFinish`, ná een
+ * `runCPM` de laatst getoonde Gantt-datum): dat is precies wat MS Project zelf doet ("Mark on Track"/
+ * 100%-invullen zonder statusdatum kopieert de GEPLANDE datums naar de actuals, nooit de kalenderdag
+ * van vandaag). Zie `check-task-slice.ts`'s `prog-h1-geen-teleport-naar-vandaag`-case (B1, Opus-
+ * her-check) voor het mutatiebewijs: een taak-anker in 2015 (ver vóór elke plausibele testdatum),
+ * zodat de vandaag-fallback nooit toevallig met de verwachting kan samenvallen. Terugzetten naar
+ * `formatDate(new Date())` laat die case rood uitslaan; dezelfde bundel pint ook dat `scheduleStale`
+ * altijd gezet wordt (`prog-h1-stale-zonder-statusdatum`) — de `stale: !!s.project.statusDate`-poort
+ * terugzetten in `setTaskProgress`/`setActualStart`/`setActualFinish` laat exact díé asserts rood
+ * uitslaan.
  */
 export function applyProgressInvariants(task: Task, statusDate: string | undefined): void {
   const time = task.time;
@@ -217,7 +261,7 @@ export function applyProgressInvariants(task: Task, statusDate: string | undefin
     if (!time.actualStart) time.actualStart = time.actualFinish;
     task.status = 'COMPLETED';
   } else if (time.completion >= 1) {
-    time.actualFinish = statusDate || formatDate(new Date());
+    time.actualFinish = statusDate || time.earlyFinish || time.scheduleFinish;
     if (!time.actualStart) time.actualStart = time.actualFinish;
     task.status = 'COMPLETED';
   } else if (time.actualStart) {
@@ -269,7 +313,11 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         priority: partial.priority ?? 500,
         parentId,
         childIds: [],
-        time: partial.time || createDefaultTaskTime(now, partial.isMilestone ? 0 : 5),
+        // T14b (gebruikstestbevinding, ernst hoog — dataverlies): een meegegeven `partial.time` wordt
+        // veld-voor-veld gemerged met de verse default i.p.v. ongewijzigd overgenomen — anders bleef
+        // een ontbrekend veld (bv. `completion`) `undefined` tot writeIFC crashte op
+        // `time.completion.toFixed(1)`. Zelfde regel in het MCP-pad: zie mcpTransaction.ts draft.addTask.
+        time: mergeTaskTime(createDefaultTaskTime(now, partial.isMilestone ? 0 : 5), partial.time),
         resourceIds: partial.resourceIds || [],
         color: partial.color,
         constraint: partial.constraint,
@@ -287,6 +335,14 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
         // QA-fix (fase 2.10, onderdeel 2, bevinding 4): notes werd hier vergeten — de andere
         // optionele velden (constraint2/isHammock/externalLinks/...) volgen wél al dit patroon.
         notes: partial.notes,
+        // Z0 (etappe "nul afwijkingen"): typecontract-doorgifte, nog ONGEBRUIKT door de solver —
+        // zelfde patroon als isHammock/externalLinks hierboven. Afwezig ⇒ undefined ⇒
+        // byte-identiek default-document. (`levelingDelay` zelf staat hier bewust NIET: dat veld
+        // wordt uitsluitend door de nivelleerder gezet, nooit via addTask.)
+        splitGaps: partial.splitGaps,
+        manuallyScheduled: partial.manuallyScheduled,
+        levelingDelayMinutes: partial.levelingDelayMinutes,
+        levelingDelayElapsed: partial.levelingDelayElapsed,
       };
 
       // Zonder `position` (of een onbekende anker): exact het bestaande gedrag — achteraan.
@@ -334,26 +390,56 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
   },
 
   updateTask: (id, updates, opts) => {
+    // mpp-nul-data-etappe, DEEL 1 — buiten de Immer-producer bijgehouden (zelfde discipline als
+    // `fileSlice.ts`'s `applyLoadedProject`: `notify` doet zelf een `set()`, dus nooit ván bínnen
+    // een lopende producer aanroepen). `true` alleen bij een ECHT verlies, zie taskDefaults.ts.
+    let lostTimephasedGuidance = false;
     set((s) => {
       const idx = s.tasks.findIndex(t => t.id === id);
       if (idx < 0) return; // onbekend id: geen snapshot, geen loze undo-stap (R3).
       beginUndoable(s, opts); // snapshot pas ná de guard, vóór de mutatie; `opts` = coalesceKey (bv. balk-sleep = 1 stap).
-      Object.assign(s.tasks[idx], updates);
+      // T14b-vervolg (gebruikstestbevinding): `updates.time` (indien meegegeven) apart mergen tegen
+      // de BESTAANDE tijd van de taak i.p.v. 'm via Object.assign in zijn geheel te laten vervangen —
+      // anders wist een PARTIEEL time-object (bv. via de publieke `api.data.updateTask`, waar de
+      // `ExtTaskTime`-volledigheid niet op runtime wordt afgedwongen) stil bestaande verplichte velden
+      // (completion/floats/…) tot een lege plek diezelfde writeIFC-crash weer opende. Zie
+      // `mergeTaskTime` in taskDefaults.ts voor de ADD-vs-UPDATE-basissemantiek.
+      const { time, ...rest } = updates;
+      Object.assign(s.tasks[idx], rest);
+      if (time) s.tasks[idx].time = mergeTaskTime(s.tasks[idx].time, time);
+      // Z14b (eigenaarsprincipe 2026-08-18) — een inhoudelijke bewerking (duur/datums/kalender)
+      // ontkoppelt het GELEZEN Z8-venster van de motor; de rauwe bron (`timephasedContours`) blijft
+      // staan. Zie `taskDefaults.ts`'s `clearTimephasedWindow`/`timeUpdateTouchesTimephasedWindow`
+      // voor de volledige triggerset-toelichting.
+      if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
+        const clearedWindow = clearTimephasedWindow(s.tasks[idx]);
+        // N2 (Opus-her-check, tweede ronde) — laag 4 stroomt NIET altijd live mee (zie
+        // `taskDefaults.ts`'s bijgewerkte docblok): een walk met bevroren `workMinutes` negeert een
+        // duur-/datum-/kalenderwijziging anders stilzwijgend.
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(s.tasks[idx])
+          && clearTimephasedDurationWalks(s.tasks[idx]);
+        lostTimephasedGuidance = clearedWindow || clearedWalks;
+      }
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });
     });
+    if (lostTimephasedGuidance) notifyTimephasedLoss(get().notify, get().activeDocumentId, 1);
     get().recomputeViewRows();
   },
 
   setTaskCalendar: (taskId, calendarId) => {
+    // mpp-nul-data-etappe, DEEL 1 — zie `updateTask` hierboven.
+    let lostTimephasedGuidance = false;
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
       if (task.calendarId === calendarId) return; // no-op: geen snapshot, geen stale
       beginUndoable(s);
       task.calendarId = calendarId; // undefined = projectkalender
+      lostTimephasedGuidance = clearTimephasedWindow(task); // Z14b — kalenderwissel is een trigger, zie taskDefaults.ts
       finishMutation(s, { stale: true }); // taak-kalender-toewijzing is datum-beïnvloedend (§5.4).
     });
+    if (lostTimephasedGuidance) notifyTimephasedLoss(get().notify, get().activeDocumentId, 1);
     get().recomputeViewRows();
   },
 
@@ -843,8 +929,12 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // Voortgang teruggedraaid onder 100% ⇒ een verouderd actualFinish laten vallen.
       if (completion < 1) task.time.actualFinish = undefined;
       applyProgressInvariants(task, s.project.statusDate);
-      // alleen datum-beïnvloedend mét statusdatum.
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2): ALTIJD stale — sinds `applyProgressInvariants`'s
+      // completion===1-tak niet meer op een statusdatum leunt (die pint nu altijd op actuals/eigen
+      // finish, zie de toelichting daar) én de IN-PROGRESS-tak in CPMSolver (M1) evenmin, is elke
+      // voortgangsmutatie datum-beïnvloedend, met of zonder statusdatum. Het oude commentaar
+      // ("alleen datum-beïnvloedend mét statusdatum") was juist tot vóór die fixes.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
   },
@@ -856,11 +946,16 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       if (!task) return;
       // Actuals liggen nooit ná de statusdatum: weigeren i.p.v. stil klemmen (§3.2, BESLIST).
       // Weigering pusht GÉÉN snapshot (return vóór beginUndoable) — ongewijzigd gedrag.
-      if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
+      //
+      // T16-veeglijst-fix (was: BEKENDE BEPERKING, B4-nasleep, Opus-her-check T15-fixronde) —
+      // `isActualPastStatusDate` vergelijkt nu geparste instanten i.p.v. rauwe ISO-strings, zie die
+      // functie se toelichting voor de volledige analyse (het uur-precies-op-de-statusdatum-dag-gat).
+      if (date && s.project.statusDate && isActualPastStatusDate(date, s.project.statusDate)) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualStart = date || undefined;
       applyProgressInvariants(task, s.project.statusDate);
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2) — zie de toelichting bij `setTaskProgress` hierboven.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
     return accepted;
@@ -871,14 +966,17 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
-      if (date && s.project.statusDate && date > s.project.statusDate) { accepted = false; return; }
+      // T16-veeglijst-fix — zie `isActualPastStatusDate` se toelichting (zelfde functie als
+      // `setActualStart` hierboven, geen tweede, potentieel afdrijvende implementatie).
+      if (date && s.project.statusDate && isActualPastStatusDate(date, s.project.statusDate)) { accepted = false; return; }
       beginUndoable(s, opts); // `opts` = coalesceKey: per-toetsaanslag-commits van één datumveld = 1 undo-stap.
       task.time.actualFinish = date || undefined;
       // Finish wissen terwijl de taak op 100% stond ⇒ terug naar in-uitvoering (anders re-default
       // de invariant meteen een nieuw actualFinish en is wissen onmogelijk).
       if (!date && task.time.completion >= 1) task.time.completion = 0;
       applyProgressInvariants(task, s.project.statusDate);
-      finishMutation(s, { stale: !!s.project.statusDate });
+      // H1 (Opus-review T15-iteratie-2) — zie de toelichting bij `setTaskProgress` hierboven.
+      finishMutation(s, { stale: true });
     });
     get().recomputeViewRows();
     return accepted;

@@ -314,6 +314,8 @@ export async function runMutateTool(
 
   const envelope = buildEnvelope();
   if (backupPath) envelope.backupCreated = backupPath;
+  // mpp-nul-data-etappe, DEEL 1 — zie het docblok bij `McpEnvelope.timephasedGuidanceLost`.
+  if (res.timephasedGuidanceLost > 0) envelope.timephasedGuidanceLost = res.timephasedGuidanceLost;
   const ok: McpToolResult = { ok: true, envelope, data: outcome!.data };
   if (outcome!.itemRejections && outcome!.itemRejections.length > 0) {
     ok.itemRejections = outcome!.itemRejections;

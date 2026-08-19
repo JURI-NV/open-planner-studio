@@ -1637,7 +1637,10 @@ const STATUS_DATE_NOTE =
 function updateProjectCore(
   p: { updates: Partial<Project>; clearStatusDate: boolean; clearProgressMode: boolean; touched: string[] },
 ): MutationOutcome {
-  draft.setProject(p.updates);
+  // T7-review H1: `draft.setProject` levert nu het aantal wortel-ankers dat het klemde (zelfde
+  // bewerkbescherming als de UI, `projectSlice.setProject`) — meegeven in `data` zodat óók het
+  // `planner_batch`-pad (dat rechtstreeks `updateProjectCore` gebruikt, zonder `enrichOk`) dit ziet.
+  const anchorsClamped = draft.setProject(p.updates);
   if (p.clearStatusDate || p.clearProgressMode) {
     useAppStore.setState((s) => {
       // `delete` i.p.v. `= undefined`: de IFC-serialisatie en de solver-defaults lezen op
@@ -1651,6 +1654,7 @@ function updateProjectCore(
   return {
     data: {
       updated: p.touched,
+      ...(anchorsClamped > 0 ? { anchorsClamped } : {}),
       ...(p.updates.statusDate ? { statusDateNote: STATUS_DATE_NOTE } : {}),
     },
   };
@@ -1665,10 +1669,17 @@ const updateProject: BatchStepTool = {
     'af in de planning; lege string wist hem), `progressMode` (RETAINED_LOGIC of PROGRESS_OVERRIDE — ' +
     'hoe de solver werk buiten de volgorde afhandelt; null = terug naar de default RETAINED_LOGIC) en ' +
     '`startDate`. Een ONBEKEND veld wordt geweigerd met de toegestane lijst erbij — er wordt nooit ' +
-    'stil iets weggegooid. BELANGRIJK over `startDate`: dat is UITSLUITEND het anker voor ' +
-    'NIEUW aan te maken taken — het verschuift GEEN enkele bestaande taak. Wil je de hele bestaande ' +
-    'planning opschuiven, gebruik dan `planner_move_project`. Zet `startDate` dus vóór add_tasks, ' +
-    'niet erna. NET ZO BELANGRIJK over `statusDate`: dat is GEEN passief label maar de DATA DATE ' +
+    'stil iets weggegooid. BELANGRIJK over `startDate`: het is het anker voor NIEUW aan te maken ' +
+    'taken en verschuift de REST van de bestaande planning niet — geen enkele taak-EIND schuift mee, ' +
+    'behalve het eind van de geklemde ankers zelf, dat duurbehoudend meeschuift. ' +
+    'Sinds T7b is er wél één gerichte uitzondering (bewerkbescherming, geen Δ-verschuiving): een ' +
+    'LATERE `startDate` klemt bestaande taak-ankers die zónder voorganger en zónder constraint vóór ' +
+    'de nieuwe startdatum staan, vooruit náár die datum (de respons meldt `anchorsClamped`) — zo blijft een ' +
+    'wortel-taak niet stil vóór het officiële projectbegin hangen na het verzetten van de start. Een ' +
+    'taak met een voorganger, een constraint, of een start ná de nieuwe datum blijft ongemoeid. Wil ' +
+    'je de HELE bestaande planning (elk anker, elke taak) Δ dagen opschuiven, gebruik dan ' +
+    '`planner_move_project`. Zet `startDate` dus vóór add_tasks, niet erna. NET ZO BELANGRIJK over ' +
+    '`statusDate`: dat is GEEN passief label maar de DATA DATE ' +
     'uit P6/MSP, en die HERSCHIKT de planning. Werk dat nog niet begonnen is (completion 0) mag niet ' +
     'meer vóór de statusdatum liggen en wordt naar die datum vooruitgeschoven; op een planning ' +
     'zónder enige voortgang schuift dus ALLES mee — inclusief de eerste mijlpaal — en verspringt het ' +
@@ -1726,6 +1737,14 @@ const updateProject: BatchStepTool = {
     const staleBefore = before.scheduleStale;
 
     const res = await runMutateTool(ctx, 'mutate', (): MutationOutcome => updateProjectCore(parsed));
+    // T7-review H1: `enrichOk` hieronder OVERSCHRIJFT `res.data` met wat `build()` teruggeeft — dus
+    // het `anchorsClamped`-getal dat `updateProjectCore` er net inzette moet er vóór die overschrijving
+    // uit gelezen worden (binnen `build()`'s closure heeft `res.data` op dat moment nog de OUDE,
+    // niet-verrijkte waarde — `enrichOk` roept `build()` immers aan vóórdat het toewijst).
+    const anchorsClamped =
+      res.ok && res.data && typeof res.data === 'object' && 'anchorsClamped' in res.data
+        ? (res.data as { anchorsClamped: number }).anchorsClamped
+        : 0;
     return enrichOk(res, () => {
       const p = useAppStore.getState().project;
       const projectEnd = projectEndInfo().projectEnd;
@@ -1736,7 +1755,15 @@ const updateProject: BatchStepTool = {
           statusDate: p.statusDate ?? null, progressMode: p.progressMode ?? null,
         },
         // Herinnering in de payload zelf: de AI leest data vaak eerder dan de beschrijving.
-        note: '`startDate` is alleen het anker voor NIEUWE taken; gebruik planner_move_project om de bestaande planning te verschuiven.',
+        // T7-review H1: dit beloofde tot nu toe onvoorwaardelijk dat GEEN enkele bestaande taak
+        // verschuift — sinds de bewerkbescherming klopt dat niet meer voor de uitzondering
+        // hieronder (`anchorsClamped`).
+        note: '`startDate` is het anker voor NIEUWE taken en verschuift de REST van de bestaande ' +
+          'planning niet. Uitzondering (bewerkbescherming, geen Δ-verschuiving): bij een LATERE ' +
+          'startDate schuiven wortel-taken zonder voorganger/constraint die vóór de nieuwe datum ' +
+          'staan mee náár die datum — zie `anchorsClamped`. Gebruik planner_move_project om de ' +
+          'HELE bestaande planning (elk anker) te verschuiven.',
+        ...(anchorsClamped > 0 ? { anchorsClamped } : {}),
         ...(statusDateTouched
           ? {
               statusDateEffect: {
