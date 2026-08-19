@@ -9,7 +9,9 @@ grouped by whichever category applies (`Added`, `Changed`, `Fixed`, `Documentati
 ## v2026.8.1 — 2026-08-19
 
 A release built around one feature, taken all the way from a first read to full date-fidelity:
-native MS Project (.mpp) import. About 277 commits since v2026.8.0.
+native MS Project (.mpp) import — plus the mainline work that landed after v2026.8.0 was tagged
+(the "dates as recorded" mode, the WBS jump button, the active-between filter). About 357 commits
+since v2026.8.0 in total.
 
 ### Added
 - **Open Planner Studio can now open MS Project (.mpp) files natively.** The format joins the
@@ -35,6 +37,18 @@ native MS Project (.mpp) import. About 277 commits since v2026.8.0.
   zero-duration milestone that no longer snaps past its own deadline, and a dedicated rule for
   resumed out-of-sequence work.
 
+- **A "dates as recorded" mode** (issue #63): when a file's stored dates differ from what
+  recalculation produces, the app can now show the project exactly as the file recorded it — with
+  its own toolbar strip, an in-app guide article, and a working undo path back to the recalculated
+  schedule. Leaving the mode is explicit: any date-touching edit or a recalculation returns to
+  computed dates.
+- **A WBS jump button on dependencies** (issue #65): every dependency row in the task properties
+  panel now shows the linked task's WBS number as a clickable button — hover for the same details
+  as a Gantt bar tooltip, click to select the task while the chart zooms and scrolls to it,
+  auto-expanding any collapsed parents.
+- **An "active between" filter field** (issue #32): filter tasks on interval overlap with a date
+  range, using both start and finish.
+
 ### Changed
 - **Nothing a .mpp file contains is thrown away on import, and edits only ever switch off derived
   steering — never delete data.** Raw contour periods, MS Project's task-type and effort-driven
@@ -56,12 +70,14 @@ native MS Project (.mpp) import. About 277 commits since v2026.8.0.
   test that backs it up.
 
 ### Fixed
+- **Auto-save could fail on a fresh install because the application data directory did not exist
+  yet** (issue #72): the directory is now created before the first auto-save or library write.
 - **A calendar name collision on IFC round-trip could cross-contaminate two calendars.** Timephased
   duration data translated its resource-calendar reference by calendar name, but the app never
   enforced calendar names being unique — two identically named calendars with different working
   hours could silently swap places after a save/reload. The translation now goes through the
   calendar's own identity instead of its name.
-- **A finish-no-later-than or start-no-earlier-than deadline could push a milestone forward past
+- **A finish-no-later-than or start-no-later-than deadline could push a milestone forward past
   that very deadline.** A guard meant to keep those deadline types from affecting forward
   scheduling ran too early and let a zero-duration milestone snap to (or past) the deadline anyway.
 - **Duration, date or duration-type edits did nothing on a task whose imported work distribution
@@ -69,9 +85,11 @@ native MS Project (.mpp) import. About 277 commits since v2026.8.0.
   winning over the edit; such edits now correctly release that distribution instead of being
   silently ignored.
 - **A calendar representing a full day as one continuous band failed to switch into hour-precision
-  mode.** MS Project's built-in "24 Hours" calendar — and any resource calendar copied from it,
-  such as a typical "Night Shift" calendar — was missing a needed signal and silently stayed in
-  day-precision mode, losing hour-level detail for every resource on it.
+  mode.** Calendars in the "24 Hours" family (one continuous midnight-to-midnight band) were
+  missing a needed signal and silently stayed in day-precision mode, losing hour-level detail for
+  every resource on them. The fix lives in the shared sub-day calendar layer, so it applies to
+  IFC, MSPDI and Primavera imports as well as .mpp — an existing project with such a calendar
+  will now correctly promote to hour precision on open.
 - **Task durations computed against a non-whole-number workday length (for example 8.4 hours, a
   value MS Project allows) could land one workday late.** A tiny floating-point rounding error was
   read as "not finished yet" and added an extra workday that shouldn't have been there.

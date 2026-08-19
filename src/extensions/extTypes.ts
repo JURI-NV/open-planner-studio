@@ -200,14 +200,15 @@ export interface ExtTask {
    *  `time.scheduleStart`/`scheduleFinish` dan RAUW (geen kalendersnap/relatiedruk/constraints). */
   manuallyScheduled?: boolean;
   /** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — MSP's eigen Task Type bij .mpp-import. Puur data,
-   *  LEESKANT-ALLEEN: `extMappers.fromExtTask` zet dit veld bewust niet terug (spiegelt de
+ *  Sinds de main-merge vóór v2026.8.1 reist dit veld mee door de VOLLEDIGE vertaling
+ *  (`fromExtTask`, contract-poort); alleen de create-/update-paden en MCP laten het buiten.
    *  `planner_update_tasks`-allowlist, `taskFields.ts`'s `REJECT_HINTS`). */
   mspTaskType?: 'FIXED_UNITS' | 'FIXED_DURATION' | 'FIXED_WORK';
-  /** Z14b — MSP's "Effort Driven"-vlag bij .mpp-import. Puur data, LEESKANT-ALLEEN (zie `mspTaskType`). */
+  /** Z14b — MSP's "Effort Driven"-vlag bij .mpp-import. Puur data; voor de vertaal-/zetbaarheidsnuance zie `mspTaskType`. */
   effortDriven?: boolean;
   /** Z14b (eigenaarsprincipe 2026-08-18) — rauwe, gedecodeerde .mpp-contourperiodes; de bron ONDER
    *  `splitGaps`, blijft ALTIJD staan (ook ná een bewerking die het Z8-venster invalideert). Puur
-   *  data, LEESKANT-ALLEEN (zie `mspTaskType`). Spiegelt {@link import('@/types/task').
+   *  data; voor de vertaal-/zetbaarheidsnuance zie `mspTaskType`. Spiegelt {@link import('@/types/task').
    *  TaskTimephasedContour}. */
   timephasedContours?: { resourceUid: number | null; periods: { afterMinutes: number; minutes: number; workMinutes: number; kind: 'actual' | 'remaining' }[] }[];
   /** Volledige-round-trip-velden (main-merge vóór v2026.8.1): de drie afgeleide-sturing-velden uit

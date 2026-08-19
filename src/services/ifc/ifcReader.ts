@@ -136,8 +136,9 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   // de assignments-volgorde, die op zijn beurt uit de STEP-volgorde komt).
   reconstructResourceIds(tasks, assignments);
   const libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined } = { value: undefined };
+  const projectStartRecorded = { value: false };
   const { activityCodeTypes, customFieldDefs } = extractStructure(
-    entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut,
+    entities, entityMap, project, tasks, taskStepIdMap, libraryPoolOut, projectStartRecorded,
   );
   // Z14b (Z8-nataak, F1-fixronde) — LAAG-4-kalenderwandelingen, eigen pset (zie de functie se
   // moduleheader voor waarom dit niet via de PER_TASK_PSETS-registry loopt): GUID→id-vertaling, dus
@@ -157,12 +158,15 @@ export function readIFC(content: string, labels: ImportLabels = {}): ImportResul
   // project.statusDate (uit OPS_ProjectSettings) beschikbaar is als default-actualFinish.
   normalizeImportedProgress(tasks, project.statusDate);
 
-  // Projectstart niet in het bestand (geen IFCWORKPLAN-slot en geen OPS_ProjectSettings, zie de
-  // ''-sentinel bij de projectbouw) ⇒ afleiden uit de vroegste taak-scheduleStart in plaats van
-  // "vandaag" te verzinnen: een verzonnen datum is geen invoer en mag dus ook niet via de
+  // Projectstart niet in het bestand (geen gevuld IFCWORKPLAN-slot en geen OPS_ProjectSettings,
+  // zie de ''-sentinel bij de projectbouw) ⇒ afleiden uit de vroegste taak-scheduleStart in plaats
+  // van "vandaag" te verzinnen: een verzonnen datum is geen invoer en mag dus ook niet via de
   // T7-projectstart-vloer (`CPMSolver.rootFloor`) taken mét voorgangers naar de leesdatum tillen.
   // Pas als het bestand ook geen enkele taakstart draagt, valt hij terug op vandaag (leeg project).
-  if (!project.startDate) {
+  // MAAR (critreview-bevinding 1): heeft het OPS-pset het veld GEZEGD — óók als "bewust leeg" —
+  // dan is leeg een uitspraak van de gebruiker en blijft hij leeg; afleiden zou de round-trip van
+  // een leeggemaakte startdatum corrumperen (writer codeert dat als NominalValue $).
+  if (!project.startDate && !projectStartRecorded.value) {
     let earliest = '';
     for (const t of tasks) {
       const st = t.time?.scheduleStart;
@@ -600,11 +604,13 @@ function extractProject(
     // Omschrijving uit de IFCWORKPLAN.Description-slot (waar de writer 'm schrijft), met terugval op
     // de IFCPROJECT.Description-slot; `$`/leeg ⇒ '' (voorheen kwam letterlijk '$' terug — een bug).
     description: ifcSlotText(wp?.args[3]) || ifcSlotText(proj?.args[3]),
-    // Geen IFCWORKPLAN ⇒ startdatum hier LEEG laten; `readIFC` leidt hem dan af uit de vroegste
-    // taakstart (en pas als óók die ontbreekt: vandaag). Voorheen stond hier direct "vandaag" —
-    // verzonnen data die via de T7-projectstart-vloer taken mét voorgangers naar de leesdatum
-    // tilde (gevonden bij de main-merge vóór v2026.8.1, check-recorded-dates 9A/9B).
-    startDate: wp ? parseDateFromIFC(wp.args[12] || '') : '',
+    // Geen IFCWORKPLAN, of een IFCWORKPLAN met een LEEG StartTime-slot ($) ⇒ startdatum hier LEEG
+    // laten; `readIFC` leidt hem dan af uit de vroegste taakstart (en pas als óók die ontbreekt:
+    // vandaag). Voorheen stond hier direct "vandaag" — verzonnen data die via de T7-projectstart-
+    // vloer taken mét voorgangers naar de leesdatum tilde (main-merge vóór v2026.8.1,
+    // check-recorded-dates 9A/9B; het lege-slot-geval: critreview-bevinding 4). `parseDateFromIFC`
+    // wordt bewust alleen op een niet-lege slottekst losgelaten — op '' levert hij zelf "vandaag".
+    startDate: wp && ifcSlotText(wp.args[12]) ? parseDateFromIFC(wp.args[12]) : '',
     endDate: wp ? parseDateFromIFC(wp.args[13] || '') : '',
     calendarId: 'cal-default',
     // createdAt/modifiedAt: default = nu; overschreven door het OPS_ProjectSettings-pset in
@@ -955,6 +961,9 @@ function extractStructure(
   tasks: Task[],
   taskStepIdMap: Map<string, string>,
   libraryPoolOut: { value: import('@/types/library').CompanyPool | undefined },
+  // Critreview-bevinding 1 (v2026.8.1): het OPS-pset kan "bewust leeg" zeggen — de aanroeper mag
+  // de startdatum dan NIET alsnog afleiden. Presentie is een aparte uitspraak naast de waarde.
+  projectStartRecorded: { value: boolean },
 ): { activityCodeTypes: ActivityCodeType[]; customFieldDefs: CustomFieldDef[] } {
   let activityCodeTypes: ActivityCodeType[] = [];
   let customFieldDefs: CustomFieldDef[] = [];
@@ -1068,7 +1077,7 @@ function extractStructure(
           // Ontbreekt het veld helemaal (bestand van vóór deze versie of van een ander tool), dan
           // komen we hier niet en blijft die WORKPLAN-terugval staan — gedrag exact als voorheen.
           const date = typeof v === 'string' ? v.substring(0, 10) : '';
-          if (name === 'ProjectStartDate') project.startDate = date;
+          if (name === 'ProjectStartDate') { project.startDate = date; projectStartRecorded.value = true; }
           else project.endDate = date;
         } else if (name === 'CreatedAt') {
           // Fase 3 (H2): project-aanmaakdatum als verbatim ISO-instant (spiegel van writeStructure).

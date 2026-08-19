@@ -70,7 +70,7 @@
 
 import { writeIFC } from '@/services/ifc/ifcWriter';
 import { readIFC } from '@/services/ifc/ifcReader';
-import { ALL_RECORDED_SLOT_KEYS } from '@/services/ifc/ifcTaskSlots';
+import { ALL_RECORDED_SLOT_KEYS, IFC_TASKTIME_SLOTS, TASKTIME_SLOT, IFC_TASK_SLOTS, TASK_SLOT } from '@/services/ifc/ifcTaskSlots';
 import type { Task, TaskTime, ExternalLink, TaskSplitGap, TaskTimephasedContour } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { Resource, ResourceAssignment } from '@/types/resource';
@@ -1819,6 +1819,49 @@ const rt2 = readIFC(writeIFC(rt1));
   // === 'number'` in `isValidWalk` (ifcReader.ts) tijdelijk verzwakken tot "waarde is aanwezig"
   // (zonder typetoets) ⇒ deze case ROOD op `assert(tm15?.timephasedDurationWalks === undefined, ...)`
   // hierboven (de array zou dan gewoon met de string-waarde intact doorkomen).
+}
+
+// (16) Projectstartdatum-contract (critreview v2026.8.1, bevinding 1/4). Drie uitspraken:
+//   a. "bewust leeg" (OPS-pset aanwezig, NominalValue $) blijft leeg door de round-trip — de
+//      afleiding uit de vroegste taakstart mag een gebruikersuitspraak niet overschrijven;
+//   b. ontbreekt élke bron (geen gevuld WORKPLAN-slot, geen pset), dan wordt de start afgeleid
+//      uit de vroegste taak-scheduleStart — nooit "vandaag" verzonnen;
+//   c. een IFCWORKPLAN met een LEEG StartTime-slot ($) telt als afwezig, niet als "vandaag".
+{
+  // (16a) leeggemaakte startdatum round-tript leeg.
+  const leeg = readIFC(writeIFC({ ...fixture, project: { ...fixture.project, startDate: '' } }));
+  assert(leeg.project.startDate === '',
+    `(16a) bewust lege ProjectStartDate moet leeg round-trippen — kreeg ${JSON.stringify(leeg.project.startDate)}`);
+
+  // (16b/16c) extern-stijl bestand zonder projectstart: afleiding uit de vroegste taakstart.
+  // Slots via de registry (zoals tests/fixtures/recordedDatesIfc.ts) — nooit met de hand tellen.
+  const tt = new Array<string>(IFC_TASKTIME_SLOTS.length).fill('$');
+  tt[TASKTIME_SLOT.durationType] = '.WORKTIME.';
+  tt[TASKTIME_SLOT.scheduleDuration] = "'P5D'";
+  tt[TASKTIME_SLOT.scheduleStart] = "'2026-03-02'";
+  tt[TASKTIME_SLOT.scheduleFinish] = "'2026-03-06'";
+  const tk = new Array<string>(IFC_TASK_SLOTS.length).fill('$');
+  tk[TASK_SLOT.globalId] = "'gT'";
+  tk[TASK_SLOT.name] = "'A'";
+  tk[TASK_SLOT.identification] = "'1.1'";
+  tk[TASK_SLOT.isMilestone] = '.F.';
+  tk[TASK_SLOT.taskTime] = '#9';
+  tk[TASK_SLOT.predefinedType] = '.CONSTRUCTION.';
+  const extern = (workplanRegel: string): string => [
+    'ISO-10303-21;', 'HEADER;', "FILE_NAME('x.ifc','2031-01-01T07:00:00',('A'),('B'),'x','y','');",
+    'ENDSEC;', 'DATA;',
+    "#1=IFCPROJECT('gP',$,'Extern',$,$,$,$,$,$);",
+    ...(workplanRegel ? [workplanRegel] : []),
+    `#9=IFCTASKTIME(${tt.join(',')});`,
+    `#2=IFCTASK(${tk.join(',')});`,
+    'ENDSEC;', 'END-ISO-10303-21;',
+  ].join('\n');
+  const zonder = readIFC(extern(''));
+  assert(zonder.project.startDate === '2026-03-02',
+    `(16b) zonder enige projectstart-bron wordt de vroegste taakstart afgeleid — kreeg ${JSON.stringify(zonder.project.startDate)}`);
+  const leegSlot = readIFC(extern("#5=IFCWORKPLAN('gW',$,'Plan',$,$,$,$,$,$,$,$,$,$,$,.PLANNED.);"));
+  assert(leegSlot.project.startDate === '2026-03-02',
+    `(16c) een leeg IFCWORKPLAN-StartTime-slot telt als afwezig (geen "vandaag") — kreeg ${JSON.stringify(leegSlot.project.startDate)}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════

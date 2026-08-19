@@ -318,9 +318,10 @@ export function toExtTask(t: Task): ExtTask {
     levelingDelayElapsed: t.levelingDelayElapsed,
     splitGaps: t.splitGaps ? t.splitGaps.map(g => ({ ...g })) : undefined,
     manuallyScheduled: t.manuallyScheduled,
-    // Z14b (F5-fixronde spec-review op 526af9f9, plan-Z14 regel ~470) — drie NIEUWE LEESKANT-ALLEEN
-    // velden: `fromExtTask`/de create-/update-pad zetten deze BEWUST niet terug (zie `ExtTask`'s
-    // eigen docblok hierboven en `taskFields.ts`'s `REJECT_HINTS`) — puur .mpp-importdata.
+    // Z14b (F5) + main-merge vóór v2026.8.1 (herzien): deze .mpp-importvelden reizen WEL mee door
+    // de VOLLEDIGE vertaling (`fromExtTask` — het invoerpad van een extensie-importer mag geen
+    // velden laten vallen, contract-poort `check-ext-contract.ts`), maar blijven buiten de
+    // create-/update-paden (`fromExtTaskInput`) en de MCP-zetbaarheid (`taskFields.ts` REJECT_HINTS).
     mspTaskType: t.mspTaskType,
     effortDriven: t.effortDriven,
     timephasedContours: t.timephasedContours ? t.timephasedContours.map(c => ({ resourceUid: c.resourceUid, periods: c.periods.map(p => ({ ...p })) })) : undefined,
