@@ -36,6 +36,31 @@ export function __resetTimephasedLossNoticeForTests(): void {
   notifiedDocIds.clear();
 }
 
+/**
+ * Wis de registratie voor ÉÉN document-id (P1-fix, spec-review op 3fba671b). `newProject()` en
+ * `createNewProject()`'s pristine-hergebruikpad (`projectSlice.ts`) HERGEBRUIKEN het actieve docId
+ * voor een compleet vers document via `hydratePayload(s, freshPayload())` — zonder deze reset zou
+ * een tweede, geheel ander project op datzelfde tabblad de "al gemeld"-registratie van het VORIGE
+ * project overerven en dus NOOIT meer melden, ook al verliest een taak in het NIEUWE project
+ * aantoonbaar sturing. De reviewer bewees dit met een probe; het is niet UI-bereikbaar zonder de
+ * wizard/"Nieuw project" te gebruiken, maar wél het patroon dat `tests/mcp/*.ts` breed gebruikt
+ * tussen cases (`newProject()` als reset tussen tests op hetzelfde tabblad) — zonder deze fix zou
+ * elke suite die de melding test na de EERSTE case stil dood liggen.
+ *
+ * BEWUST NIET aangeroepen vanuit `newDocument()`/`closeDocument()` (die geven sowieso een VERS
+ * docId — er is dan niets te wissen) en NIET vanuit een echte bestandsopen-route (`openFile`/
+ * `loadState`/`applyLoadedProject`, ook niet op het pristine-hergebruikpad daar): die dragen hun
+ * EIGEN, mogelijk al gemelde MSP-herkomst mee (een `.mpp`-heropening op hetzelfde tabblad hoort de
+ * sessie-gate niet kwijt te raken — "IFC-heropening mag NOOIT een melding geven" uit de opzet slaat
+ * hier andersom door: het zou een STILLE melding kunnen SUPPRESSEN die er wél hoort te zijn als het
+ * heropende bestand een ANDERE taak met verloren sturing bevat). Alleen de twee "leeg, vers begin"-
+ * paden (`newProject`/`createNewProject`) horen bij deze reset, want alleen daar is de nieuwe inhoud
+ * per definitie NIET van een `.mpp`-import afkomstig op het moment van de reset zelf.
+ */
+export function clearTimephasedLossNoticeForDoc(docId: string): void {
+  notifiedDocIds.delete(docId);
+}
+
 /** Het artikel-id waar de melding + de paneelmarkering (DEEL 2) naar doorlinken (mpp-nul-data-
  *  etappe, "lees meer"-eigenaarseis) — sectie "Gecontoureerde toewijzingen" in de gids. */
 export const MPP_TIMEPHASED_HELP_ARTICLE_ID = 'gids-msproject-import';

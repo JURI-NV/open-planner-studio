@@ -474,6 +474,29 @@ const beforeNoop = S().tasks.find(t => t.id === tphNoop)!;
 S().updateTask(tphNoop, { time: { ...beforeNoop.time, scheduleDuration: 3 } });
 eq('106 no-op-bewerking (geen sturing aanwezig) meldt niets', N().length, 0);
 
+// ── P1 (spec-review op 3fba671b, reviewer-probe): newProject()-lek in de meldings-gate ──────────
+// `newProject()` hergebruikt het ACTIEVE docId (geen `newDocument()`-aanroep eronder) — zonder
+// `clearTimephasedLossNoticeForDoc` (P1-fix, timephasedLossNotice.ts) zou een heel NIEUW project op
+// datzelfde tabblad de "al gemeld"-registratie van het VORIGE project overerven en dus NOOIT meer
+// melden, ook al verliest een taak in het NIEUWE project aantoonbaar sturing. `tphDocId` is al
+// gemeld (case 94-99 hierboven) — precies de voorwaarde voor het lek dat de reviewer bewees.
+clearAll();
+S().switchDocument(tphDocId);
+eq('107 opzet: terug op het al-gemelde document', S().activeDocumentId, tphDocId);
+const tphDocBeforeReset = S().activeDocumentId;
+S().newProject();
+eq('108 opzet: newProject() blijft op HETZELFDE docId (de voorwaarde voor het lek)',
+  S().activeDocumentId, tphDocBeforeReset);
+const tphC = S().addTask({ name: 'MSP-taak C (na newProject)', time: createDefaultTaskTime('2026-08-03', 5) });
+S().updateTask(tphC, {
+  timephasedFinishFloor: '2026-08-12T17:00',
+  timephasedStartAnchor: '2026-08-05T08:00',
+});
+const beforeTphC = S().tasks.find(t => t.id === tphC)!;
+S().updateTask(tphC, { time: { ...beforeTphC.time, scheduleDuration: 4 } });
+eq('109 na newProject() meldt een NIEUW sturingsverlies WÉÉR (P1-fix, was: stil dood)', N().length, 1);
+eq('110 met de mpp-timephased-sleutel', N()[0]?.messageKey, 'notifications.mppTimephasedSteeringLost');
+
 // ── Uitkomst ────────────────────────────────────────────────────────────────
 if (diffs.length) {
   console.log(`XX  notifications: ${diffs.length} van de ${checks} checks FOUT`);

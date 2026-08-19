@@ -22,6 +22,7 @@ import { beginUndoable, finishMutation } from '../transaction';
 import { syncProjectCalendar, promoteProjectCalendarToLibrary } from '../syncProjectCalendar';
 import { freshPayload, hydratePayload } from '../documentContract';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
+import { clearTimephasedLossNoticeForDoc } from '../timephasedLossNotice';
 import type { AppSlice } from './types';
 // K-item 27: de fabriek woont in de bladmodule `../defaults` (breekt de import-cyclus met
 // documentContract/snapshot). Hier alleen doorgegeven, zodat bestaande importers ongemoeid blijven.
@@ -425,6 +426,12 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // afwijkingenscherm op dat nergens bij hoort.
       s.ui.showLibraryLinkDialog = false;
       s.ui.libraryRefreshNotice = null;
+      // P1-fix (spec-review op 3fba671b) — `newProject()` hergebruikt het actieve docId voor een
+      // compleet vers document; zonder deze reset erft dat verse document de "al gemeld"-registratie
+      // van het VORIGE project en zou dus nooit meer melden. Zie `timephasedLossNotice.ts`'s
+      // `clearTimephasedLossNoticeForDoc` voor de volledige toelichting (incl. waarom dit NIET ook
+      // vanuit `newDocument()`/een echte bestandsopen hoort te gebeuren).
+      clearTimephasedLossNoticeForDoc(s.activeDocumentId);
     });
     emitExtensionEvent(HOST_EVENTS.projectNew);
   },
@@ -477,6 +484,11 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // hier zetten is een no-op op het niet-pristine pad (newDocument() heeft al gereset).
       s.ui.showLibraryLinkDialog = false;
       s.ui.libraryRefreshNotice = null;
+      // P1-fix (spec-review op 3fba671b), zelfde reden als newProject() hierboven: op het PRISTINE-
+      // hergebruikpad blijft het docId hetzelfde, dus zonder deze reset erft de wizard-uitkomst de
+      // "al gemeld"-registratie van het vorige (lege) tabblad-verleden. Onvoorwaardelijk zetten is
+      // een no-op op het niet-pristine pad (newDocument() gaf daar al een vers, ongeregistreerd docId).
+      clearTimephasedLossNoticeForDoc(s.activeDocumentId);
     });
     emitExtensionEvent(HOST_EVENTS.projectNew);
   },
