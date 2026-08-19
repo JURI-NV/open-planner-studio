@@ -72,6 +72,8 @@
     "deadlineMissed": "مهلت گذشته است",
     "longFreePeriodWarning": "این وظیفه در یک دوره تعطیل {{days}} روزه قرار می‌گیرد ({{start}} تا {{end}}).",
     "longFreePeriodWarningNamed": "این وظیفه در {{name}} قرار می‌گیرد — یک دوره تعطیل {{days}} روزه ({{start}} تا {{end}}).",
+    "timephasedActive": "توزیع ساعات MS Project را دنبال می‌کند",
+    "timephasedLost": "توزیع ساعات MS Project پس از ویرایش دیگر اعمال نمی‌شود — توزیع اصلی در فایل نگه داشته می‌شود",
     "completion": "پیشرفت (%)",
     "progress": {
       "actualStart": "شروع واقعی",

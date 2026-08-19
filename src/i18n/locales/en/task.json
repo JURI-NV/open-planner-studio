@@ -91,6 +91,8 @@
     "deadlineMissed": "Deadline missed",
     "longFreePeriodWarning": "This task runs through a {{days}}-day non-working period ({{start}} to {{end}}).",
     "longFreePeriodWarningNamed": "This task runs through {{name}} — a {{days}}-day non-working period ({{start}} to {{end}}).",
+    "timephasedActive": "Follows the hour distribution from MS Project",
+    "timephasedLost": "MS Project hour distribution no longer applied after editing — the original distribution stays in the file",
     "completion": "Progress (%)",
     "progress": {
       "actualStart": "Actual start",

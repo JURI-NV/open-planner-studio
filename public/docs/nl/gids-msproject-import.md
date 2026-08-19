@@ -112,12 +112,15 @@ belasting per dag binnen het venster. Open Planner Studio heeft nog geen contour
 resource-belasting van een taak wordt altijd gelijkmatig over haar werkdagen verdeeld, ook voor een
 geïmporteerde contourtaak.
 
-Bewerk je zo'n taak vervolgens zelf (bijvoorbeeld de duur), dan is niet gegarandeerd dat het
-getoonde venster meebeweegt: bij een deel van deze taken blijft het bij import vastgelegde venster
-ongewijzigd staan, ook na herberekenen (**F5**); bij een ander deel herberekent de app wél, maar dan
-als een gewone, doorlopende duur zonder de oorspronkelijke contourvorm. Dit is een bekende,
-geregistreerde beperking, geen stilzwijgend gat: het bronbestand verliest bij het lezen niets, Open
-Planner Studio past de contourvorm alleen (nog) niet toe ná een eigen bewerking.
+Bewerk je zo'n taak vervolgens zelf — de duur, de datums, de toewijzingen of de kalender — dan laat
+Open Planner Studio het bij import vastgelegde venster los: de taak valt terug op een gewone,
+doorlopende duurberekening zonder de oorspronkelijke contourvorm. De eerste keer dat dit binnen een
+geopend document gebeurt, verschijnt daarover een informatieve melding met een link naar deze
+sectie; latere bewerkingen in hetzelfde document melden zich niet nog eens. Het eigenschappenpaneel
+van de taak toont voortaan of ze nog actief door MS Project gestuurd wordt, of dat die sturing na
+een bewerking is losgelaten — met dezelfde link. Geen van beide raakt het bestand zelf: de
+oorspronkelijk gelezen verdeling blijft altijd bewaard, ook ná opslaan; alleen de AFGELEIDE sturing
+die de motor gebruikte wordt losgelaten.
 
 ## Mijlpalen: MS Project se eigen finish-grens-conventie voor eindmijlpalen
 

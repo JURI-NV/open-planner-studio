@@ -10,6 +10,15 @@ export interface McpEnvelope {
   readOnly: boolean;
   /** Pad van de zojuist geschreven AI-backup; alleen gezet op de call die hem maakte. */
   backupCreated?: string;
+  /** Additieve contractuitbreiding (mpp-nul-data-etappe, zelfde precedent als `backupCreated`
+   *  hierboven en T22 bij `McpToolErr`): aantal taken waarvan DEZE mutatie de MSP-timephased-
+   *  sturing losliet (`clearTimephasedWindow`/`clearTimephasedDurationWalks` gaven `true` terug —
+   *  zie `taskDefaults.ts`). Alleen gezet, en > 0, op de call die het verlies veroorzaakte. De
+   *  in-app K8a-melding is het primaire kanaal (eenmalig per document per sessie, ziet de gebruiker
+   *  ook zonder AI-client); dit veld laat de AI-client het verlies ZONDER UI ook zien, zonder aan de
+   *  eenmalige-melding-gate te hangen — een tweede mutatie die opnieuw sturing loslaat (geen nieuwe
+   *  toast meer, zie `timephasedLossNotice.ts`) draagt dit veld dus gewoon opnieuw. */
+  timephasedGuidanceLost?: number;
 }
 
 export interface McpToolOk {

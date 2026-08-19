@@ -72,6 +72,8 @@
     "deadlineMissed": "Fecha límite superada",
     "longFreePeriodWarning": "Esta tarea abarca un período no laborable de {{days}} días ({{start}} a {{end}}).",
     "longFreePeriodWarningNamed": "Esta tarea abarca {{name}} — un período no laborable de {{days}} días ({{start}} a {{end}}).",
+    "timephasedActive": "Sigue la distribución de horas de MS Project",
+    "timephasedLost": "La distribución de horas de MS Project ya no se aplica tras la edición — la distribución original se conserva en el archivo",
     "completion": "Progreso (%)",
     "progress": {
       "actualStart": "Inicio real",

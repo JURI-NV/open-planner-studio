@@ -10,6 +10,7 @@ import { formatDate, parseDate, parseInstant } from '@/utils/dateUtils';
 import { deriveWbsCodes, applyWbsNumbering, flattenOrder } from '@/utils/wbs';
 import type { WbsTemplate } from '@/utils/wbsTemplates';
 import { beginUndoable, finishMutation } from '../transaction';
+import { notifyTimephasedLoss } from '../timephasedLossNotice';
 import type { AppSlice, SiblingDirection } from './types';
 
 /**
@@ -430,6 +431,10 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
   },
 
   updateTask: (id, updates, opts) => {
+    // mpp-nul-data-etappe, DEEL 1 — buiten de Immer-producer bijgehouden (zelfde discipline als
+    // `fileSlice.ts`'s `applyLoadedProject`: `notify` doet zelf een `set()`, dus nooit ván bínnen
+    // een lopende producer aanroepen). `true` alleen bij een ECHT verlies, zie taskDefaults.ts.
+    let lostTimephasedGuidance = false;
     set((s) => {
       const idx = s.tasks.findIndex(t => t.id === id);
       if (idx < 0) return; // onbekend id: geen snapshot, geen loze undo-stap (R3).
@@ -448,28 +453,34 @@ export const createTaskSlice: AppSlice<TaskSlice> = (set, get) => ({
       // staan. Zie `taskDefaults.ts`'s `clearTimephasedWindow`/`timeUpdateTouchesTimephasedWindow`
       // voor de volledige triggerset-toelichting.
       if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
-        clearTimephasedWindow(s.tasks[idx]);
+        const clearedWindow = clearTimephasedWindow(s.tasks[idx]);
         // N2 (Opus-her-check, tweede ronde) — laag 4 stroomt NIET altijd live mee (zie
         // `taskDefaults.ts`'s bijgewerkte docblok): een walk met bevroren `workMinutes` negeert een
         // duur-/datum-/kalenderwijziging anders stilzwijgend.
-        if (timephasedDurationWalksHaveFrozenWork(s.tasks[idx])) clearTimephasedDurationWalks(s.tasks[idx]);
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(s.tasks[idx])
+          && clearTimephasedDurationWalks(s.tasks[idx]);
+        lostTimephasedGuidance = clearedWindow || clearedWalks;
       }
       // Datum-rakende mutatie (duur/start/constraint/mijlpaal → planning verouderd tot F5, A6).
       finishMutation(s, { stale: true });
     });
+    if (lostTimephasedGuidance) notifyTimephasedLoss(get().notify, get().activeDocumentId, 1);
     get().recomputeViewRows();
   },
 
   setTaskCalendar: (taskId, calendarId) => {
+    // mpp-nul-data-etappe, DEEL 1 — zie `updateTask` hierboven.
+    let lostTimephasedGuidance = false;
     set((s) => {
       const task = s.tasks.find((t) => t.id === taskId);
       if (!task) return;
       if (task.calendarId === calendarId) return; // no-op: geen snapshot, geen stale
       beginUndoable(s);
       task.calendarId = calendarId; // undefined = projectkalender
-      clearTimephasedWindow(task); // Z14b — kalenderwissel is een trigger, zie taskDefaults.ts
+      lostTimephasedGuidance = clearTimephasedWindow(task); // Z14b — kalenderwissel is een trigger, zie taskDefaults.ts
       finishMutation(s, { stale: true }); // taak-kalender-toewijzing is datum-beïnvloedend (§5.4).
     });
+    if (lostTimephasedGuidance) notifyTimephasedLoss(get().notify, get().activeDocumentId, 1);
     get().recomputeViewRows();
   },
 

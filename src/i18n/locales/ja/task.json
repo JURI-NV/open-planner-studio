@@ -72,6 +72,8 @@
     "deadlineMissed": "期限超過",
     "longFreePeriodWarning": "このタスクは {{days}} 日間の非稼働期間にまたがっています（{{start}} 〜 {{end}}）。",
     "longFreePeriodWarningNamed": "このタスクは{{name}} にまたがっています — {{days}} 日間の非稼働期間（{{start}} 〜 {{end}}）。",
+    "timephasedActive": "MS Project の時間配分に従っています",
+    "timephasedLost": "編集後、MS Project の時間配分は適用されなくなりました — 元の配分はファイルに保存されたままです",
     "completion": "進捗（%）",
     "progress": {
       "actualStart": "実績開始",

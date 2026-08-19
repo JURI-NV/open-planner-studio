@@ -10,6 +10,7 @@ import {
 } from '@/utils/taskDefaults';
 import { deriveWbsCodes, applyWbsNumbering } from '@/utils/wbs';
 import { syncProjectCalendar } from './syncProjectCalendar';
+import { notifyTimephasedLoss } from './timephasedLossNotice';
 import type { DurationType, Task } from '@/types/task';
 import type { Sequence } from '@/types/sequence';
 import type { WorkCalendar } from '@/types/calendar';
@@ -23,6 +24,25 @@ import { clampProjectStartAnchors } from '@/engine/scheduler/projectStartAnchorC
  *  de reentrancy-guard. Module-lokaal en synchroon beheerd: de transactie draait zonder `await`, dus
  *  een geneste aanroep kan alleen synchroon vanuit de callback komen. */
 let mcpTransactionInProgress = false;
+
+/**
+ * mpp-nul-data-etappe, DEEL 1 — verzamelbak voor taak-id's die BINNEN de lopende transactie
+ * aantoonbaar hun MSP-timephased-sturing verloren (`draft.updateTaskFields`/`patchTaskFields`/
+ * `assignResource`/`moveAssignment`/`unassignResource` roepen `recordTimephasedLoss` aan zodra
+ * `clearTimephasedWindow`/`clearTimephasedDurationWalks` `true` teruggaven). Eén batch/`planner_batch`
+ * kan meerdere taken raken — de melding hoort er ÉÉN keer te komen, met het TOTALE aantal, dus wordt
+ * pas ná commit (stap 7) gemeld i.p.v. per draft-aanroep. Gereset bij elke `runInMcpTransaction`-
+ * start (VÓÓR `fn()` draait); bij een rollback wordt de verzameling gewoon nooit gemeld en bij de
+ * eerstvolgende aanroep overschreven — geen aparte cleanup nodig. Module-state, net als
+ * `mcpTransactionInProgress` hierboven — niet herintreedbaar, dus geen races. */
+let mcpTimephasedLossTaskIds = new Set<string>();
+
+/** Registreer dat `taskId` binnen de lopende transactie sturing verloor. Aanroepers geven de
+ *  taak-id pas door ná een ECHTE clear (`clearTimephasedWindow(...) || clearTimephasedDurationWalks(...)`
+ *  is `true`) — een no-op-aanroep (taak had nooit een Z8-venster) hoort hier nooit in te belanden. */
+function recordTimephasedLoss(taskId: string): void {
+  mcpTimephasedLossTaskIds.add(taskId);
+}
 
 /**
  * Het transactieprimitief van de MCP-bridge (spec §Werkpakket 0).
@@ -62,12 +82,16 @@ let mcpTransactionInProgress = false;
  * BESTAAND, app-breed restore-gedrag (undo/redo doet exact hetzelfde) en géén artefact van deze
  * transactie; op elk document dat al eens is hersteld of een bibliotheek-entry heeft, is het een no-op.
  */
-export function runInMcpTransaction(fn: () => void): { ok: true } | { ok: false; error: string } {
+export function runInMcpTransaction(
+  fn: () => void,
+): { ok: true; timephasedGuidanceLost: number } | { ok: false; error: string } {
   // Reentrancy-guard: VÓÓR elke state-mutatie. Een geneste aanroep zou de gedeelde module-toestand
   // (vlag + vooraf-snapshot) corrumperen — weigeren met een throw is het enige veilige gedrag.
   if (mcpTransactionInProgress) {
     throw new Error('runInMcpTransaction is niet herintreedbaar');
   }
+  // DEEL 1 — verse verzamelbak per transactie (zie het docblok bij het module-`let` hierboven).
+  mcpTimephasedLossTaskIds = new Set<string>();
 
   // Stap 1: snapshot van de PLAIN pre-transactie-staat (niet van een draft — zie beginUndoable/B1).
   const snapshot: Snapshot = createSnapshot(useAppStore.getState());
@@ -117,7 +141,15 @@ export function runInMcpTransaction(fn: () => void): { ok: true } | { ok: false;
 
   // Stap 7: geslaagd — coalesce-marker resetten (de handmatige push wijzigde de stackdiepte).
   resetUndoCoalescing();
-  return { ok: true };
+  // DEEL 1 — ná commit, ÉÉN keer, met het TOTALE aantal taken dat in deze transactie sturing
+  // verloor (de eenmalige-per-document-gate zit in `notifyTimephasedLoss` zelf). Bij een rollback
+  // (hierboven) wordt dit blok nooit bereikt — geen melding op een teruggerolde mutatie.
+  const lostCount = mcpTimephasedLossTaskIds.size;
+  if (lostCount > 0) {
+    const store = useAppStore.getState();
+    notifyTimephasedLoss(store.notify, store.activeDocumentId, lostCount);
+  }
+  return { ok: true, timephasedGuidanceLost: lostCount };
 }
 
 // =================================================================================================
@@ -429,9 +461,13 @@ export const draft = {
       // Z14b (eigenaarsprincipe 2026-08-18) — gedocumenteerde tweeling van taskSlice.ts's
       // `updateTask`: zelfde triggerset/uitleg in `taskDefaults.ts`.
       if (('calendarId' in rest) || timeUpdateTouchesTimephasedWindow(time)) {
-        clearTimephasedWindow(s.tasks[idx]);
+        const clearedWindow = clearTimephasedWindow(s.tasks[idx]);
         // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als taskSlice.ts's `updateTask`.
-        if (timephasedDurationWalksHaveFrozenWork(s.tasks[idx])) clearTimephasedDurationWalks(s.tasks[idx]);
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(s.tasks[idx])
+          && clearTimephasedDurationWalks(s.tasks[idx]);
+        // mpp-nul-data-etappe, DEEL 1 — meld alleen bij een ECHT verlies, zie het module-docblok
+        // bij `recordTimephasedLoss`.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(id);
       }
       s.isDirty = true;
     });
@@ -470,9 +506,11 @@ export const draft = {
       // volledige `Partial<TaskTime>`, dus hier direct de sleutel-aanwezigheid bijhouden i.p.v.
       // `timeUpdateTouchesTimephasedWindow` (die verwacht de bredere `TaskTime`-vorm).
       if (('calendarId' in top) || timeTouched) {
-        clearTimephasedWindow(task);
+        const clearedWindow = clearTimephasedWindow(task);
         // N2 (Opus-her-check, tweede ronde) — zelfde tweeling-aanroep als `updateTaskFields` hierboven.
-        if (timephasedDurationWalksHaveFrozenWork(task)) clearTimephasedDurationWalks(task);
+        const clearedWalks = timephasedDurationWalksHaveFrozenWork(task) && clearTimephasedDurationWalks(task);
+        // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(id);
       }
       s.isDirty = true;
     });
@@ -651,8 +689,10 @@ export const draft = {
       // van de triggerset (plan: "duur, datums, kalender, toewijzingen"): een andere resource kan
       // een andere resourcekalender betekenen, precies de Z8-laag-4-discriminator — dus BEIDE
       // lagen wissen. Zie taskDefaults.ts.
-      clearTimephasedWindow(task);
-      clearTimephasedDurationWalks(task);
+      const clearedWindow = clearTimephasedWindow(task);
+      const clearedWalks = clearTimephasedDurationWalks(task);
+      // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+      if (clearedWindow || clearedWalks) recordTimephasedLoss(taskId);
       s.isDirty = true;
     });
     return id;
@@ -717,9 +757,15 @@ export const draft = {
       // Z14b (F2-fixronde) — "toewijzingen"-trigger raakt BEIDE taken, BEIDE lagen (zie
       // assignResource hierboven).
       const oldTask = s.tasks.find((t) => t.id === oldTaskId);
-      if (oldTask) { clearTimephasedWindow(oldTask); clearTimephasedDurationWalks(oldTask); }
-      clearTimephasedWindow(newTask);
-      clearTimephasedDurationWalks(newTask);
+      if (oldTask) {
+        const clearedOldWindow = clearTimephasedWindow(oldTask);
+        const clearedOldWalks = clearTimephasedDurationWalks(oldTask);
+        if (clearedOldWindow || clearedOldWalks) recordTimephasedLoss(oldTaskId);
+      }
+      const clearedNewWindow = clearTimephasedWindow(newTask);
+      const clearedNewWalks = clearTimephasedDurationWalks(newTask);
+      // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+      if (clearedNewWindow || clearedNewWalks) recordTimephasedLoss(newTaskId);
       s.isDirty = true;
     });
   },
@@ -744,7 +790,12 @@ export const draft = {
       }
       // Z14b (F2-fixronde) — "toewijzingen"-trigger, beide lagen (zie assignResource hierboven).
       const removedTask = s.tasks.find((t) => t.id === removed.taskId);
-      if (removedTask) { clearTimephasedWindow(removedTask); clearTimephasedDurationWalks(removedTask); }
+      if (removedTask) {
+        const clearedWindow = clearTimephasedWindow(removedTask);
+        const clearedWalks = clearTimephasedDurationWalks(removedTask);
+        // mpp-nul-data-etappe, DEEL 1 — zie `updateTaskFields` hierboven.
+        if (clearedWindow || clearedWalks) recordTimephasedLoss(removedTask.id);
+      }
       s.isDirty = true;
     });
   },

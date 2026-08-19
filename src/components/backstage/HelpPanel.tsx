@@ -51,6 +51,9 @@ export function HelpPanel() {
   const openExampleFromString = useAppStore(s => s.openExampleFromString);
   const runCPM = useAppStore(s => s.runCPM);
   const setUI = useAppStore(s => s.setUI);
+  // mpp-nul-data-etappe — "lees meer"-diepe-link vanuit een melding of het eigenschappenpaneel
+  // (`openHelpArticle` in uiSlice.ts). Eenmalig-verzoek-patroon: lezen + direct weer op `null`.
+  const pendingHelpArticleId = useAppStore(s => s.ui.pendingHelpArticleId);
 
   // Taal-koppeling (§3 ontwerp): standaard volgt de docs-taal de UI-taal (met EN-fallback per
   // artikel in de body-fetch). De gebruiker kan de docs-taal echter LOS van de UI overrulen —
@@ -82,6 +85,18 @@ export function HelpPanel() {
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+
+  // mpp-nul-data-etappe — een "lees meer"-link zette `ui.pendingHelpArticleId`; selecteer dat
+  // artikel en consumeer het verzoek meteen (net als `pendingNewResource` elders). Volgorde-veilig
+  // t.o.v. de manifest-fetch hieronder: die zet `selectedId` alleen via `prev ?? …` (eerste artikel
+  // als default), dus een al gezette `pendingHelpArticleId`-selectie overleeft een latere
+  // manifest-load. Werkt ook vóórdat het manifest binnen is — `selectedMeta` valt dan simpelweg pas
+  // ná de manifest-fetch op het juiste artikel.
+  useEffect(() => {
+    if (!pendingHelpArticleId) return;
+    setSelectedId(pendingHelpArticleId);
+    setUI({ pendingHelpArticleId: null });
+  }, [pendingHelpArticleId, setUI]);
 
   // Manifest ophalen (eenmalig).
   useEffect(() => {

@@ -26,7 +26,12 @@
     "projectStartAnchorsClamped_one": "Start projektu przesunięty: {{count}} kotwica zadania bez poprzednika lub ograniczenia została przesunięta na nową datę rozpoczęcia.",
     "projectStartAnchorsClamped_few": "Start projektu przesunięty: {{count}} kotwice zadań bez poprzednika lub ograniczenia zostały przesunięte na nową datę rozpoczęcia.",
     "projectStartAnchorsClamped_many": "Start projektu przesunięty: {{count}} kotwic zadań bez poprzednika lub ograniczenia zostało przesuniętych na nową datę rozpoczęcia.",
-    "projectStartAnchorsClamped_other": "Start projektu przesunięty: {{count}} kotwicy zadań bez poprzednika lub ograniczenia zostało przesuniętych na nową datę rozpoczęcia."
+    "projectStartAnchorsClamped_other": "Start projektu przesunięty: {{count}} kotwicy zadań bez poprzednika lub ograniczenia zostało przesuniętych na nową datę rozpoczęcia.",
+    "mppTimephasedSteeringLost_one": "{{count}} zadanie straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_few": "{{count}} zadania straciły powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_many": "{{count}} zadań straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "mppTimephasedSteeringLost_other": "{{count}} zadania straciło powiązanie z rozkładem godzin z MS Project po tej edycji; pierwotny rozkład pozostaje zachowany w pliku.",
+    "readMore": "Dowiedz się więcej"
   },
   "yes": "Tak",
   "no": "Nie",

@@ -109,12 +109,14 @@ shape of that distribution itself — the rising or falling load per day within 
 Planner Studio doesn't yet have a contour calculation engine: a task's resource load is always
 spread evenly across its working days, even for an imported contoured task.
 
-If you then edit such a task yourself (say, its duration), the shown window isn't guaranteed to
-move with it: for some of these tasks, the window captured at import stays unchanged even after
-recalculating (**F5**); for others, the app does recalculate, but as an ordinary continuous span
-without the original contour shape. This is a known, registered limitation, not a silent gap: the
-source file loses nothing on read — Open Planner Studio simply doesn't (yet) reapply the contour
-shape after your own edit.
+If you then edit such a task yourself — its duration, dates, assignments, or calendar — Open
+Planner Studio lets go of the window captured at import: the task falls back to an ordinary,
+continuous duration calculation without the original contour shape. The first time this happens
+within an open document, an informative notification appears with a link to this section; later
+edits in the same document don't notify again. The task's properties panel now shows whether it's
+still actively steered by MS Project, or whether that steering was let go after an edit — with the
+same link. Neither touches the file itself: the originally read distribution always stays saved,
+even after saving; only the DERIVED steering the engine used is let go.
 
 ## Milestones: MS Project's own finish-boundary convention for finish milestones
 

@@ -24,7 +24,11 @@
     "mppSourceScheduleNotes_other": "Este archivo de MS Project contiene {{count}} tareas con una planificación dividida, nivelada o determinada por recursos. Se importan y se muestran tal cual.",
     "projectStartAnchorsClamped_one": "Inicio del proyecto movido: se desplazó {{count}} ancla de tarea sin predecesora ni restricción a la nueva fecha de inicio.",
     "projectStartAnchorsClamped_many": "Inicio del proyecto movido: se desplazaron {{count}} anclas de tarea sin predecesora ni restricción a la nueva fecha de inicio.",
-    "projectStartAnchorsClamped_other": "Inicio del proyecto movido: se desplazaron {{count}} anclas de tarea sin predecesora ni restricción a la nueva fecha de inicio."
+    "projectStartAnchorsClamped_other": "Inicio del proyecto movido: se desplazaron {{count}} anclas de tarea sin predecesora ni restricción a la nueva fecha de inicio.",
+    "mppTimephasedSteeringLost_one": "La distribución de horas de MS Project ya no controla {{count}} tarea después de esta edición; la distribución original se conserva en el archivo.",
+    "mppTimephasedSteeringLost_many": "La distribución de horas de MS Project ya no controla {{count}} tareas después de esta edición; la distribución original se conserva en el archivo.",
+    "mppTimephasedSteeringLost_other": "La distribución de horas de MS Project ya no controla {{count}} tareas después de esta edición; la distribución original se conserva en el archivo.",
+    "readMore": "Leer más"
   },
   "yes": "Sí",
   "no": "No",

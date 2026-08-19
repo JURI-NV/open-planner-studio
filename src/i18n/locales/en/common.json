@@ -22,7 +22,10 @@
     "mppSourceScheduleNotes_one": "This MS Project file contains {{count}} task with a split, leveled, or resource-driven schedule. It is imported and shown as such.",
     "mppSourceScheduleNotes_other": "This MS Project file contains {{count}} tasks with a split, leveled, or resource-driven schedule. They are imported and shown as such.",
     "projectStartAnchorsClamped_one": "Project start moved: {{count}} task anchor without a predecessor or constraint was shifted to the new start date.",
-    "projectStartAnchorsClamped_other": "Project start moved: {{count}} task anchors without a predecessor or constraint were shifted to the new start date."
+    "projectStartAnchorsClamped_other": "Project start moved: {{count}} task anchors without a predecessor or constraint were shifted to the new start date.",
+    "mppTimephasedSteeringLost_one": "MS Project's hour distribution no longer drives {{count}} task after this edit; the original distribution stays in the file.",
+    "mppTimephasedSteeringLost_other": "MS Project's hour distribution no longer drives {{count}} tasks after this edit; the original distribution stays in the file.",
+    "readMore": "Read more"
   },
   "yes": "Yes",
   "no": "No",
