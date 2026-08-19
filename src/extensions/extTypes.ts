@@ -199,10 +199,10 @@ export interface ExtTask {
   /** Z0/Z14 — handmatig geplande taak (MS Project "Manually Scheduled"): de solver respecteert
    *  `time.scheduleStart`/`scheduleFinish` dan RAUW (geen kalendersnap/relatiedruk/constraints). */
   manuallyScheduled?: boolean;
-  /** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — MSP's eigen Task Type bij .mpp-import. Puur data,
- *  Sinds de main-merge vóór v2026.8.1 reist dit veld mee door de VOLLEDIGE vertaling
- *  (`fromExtTask`, contract-poort); alleen de create-/update-paden en MCP laten het buiten.
-   *  `planner_update_tasks`-allowlist, `taskFields.ts`'s `REJECT_HINTS`). */
+  /** Z14b (eigenaarsbesluit 2026-08-18, punt 1) — MSP's eigen Task Type bij .mpp-import. Puur data.
+   *  Sinds de main-merge vóór v2026.8.1 reist dit veld mee door de VOLLEDIGE vertaling
+   *  (`fromExtTask`, contract-poort `check-ext-contract.ts`); alleen de create-/update-paden
+   *  (`fromExtTaskInput`) en de MCP-zetbaarheid (`taskFields.ts`'s `REJECT_HINTS`) laten het buiten. */
   mspTaskType?: 'FIXED_UNITS' | 'FIXED_DURATION' | 'FIXED_WORK';
   /** Z14b — MSP's "Effort Driven"-vlag bij .mpp-import. Puur data; voor de vertaal-/zetbaarheidsnuance zie `mspTaskType`. */
   effortDriven?: boolean;
