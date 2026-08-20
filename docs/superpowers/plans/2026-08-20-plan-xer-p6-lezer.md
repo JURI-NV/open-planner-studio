@@ -130,28 +130,29 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
 
 ## §5 Openstaande eigenaarsbesluiten
 
-- **X-O1 — multi-project-XER (herzien na planreview — het conceptvoorstel was feitelijk fout).**
-  `export_flag` discrimineert niet (gemeten: 15/15 respectievelijk 4/4 projecten dragen 'Y';
-  twee bestanden missen de kolom geheel), en "het eerste project" faalt hard: in beide
-  Hotel-bestanden draagt het eerste project nul taken en het vierde alle 4.217. Het
-  concept-minimum ("alleen het hoofdproject") zou 48% van de meetlat wegsnijden.
-  **Nieuw voorstel**: het project met de meeste taken openen als document (bij gelijkspel het
-  eerste), met een informatieve melding "dit bestand bevat nog N andere projecten (M taken)";
-  relaties naar niet-geopende projecten worden `externalLinks`. De multi-document-variant
-  (alle projecten als tabbladen) blijft geregistreerde vervolgtaak. *Tot anders besloten wordt
-  dit gebouwd.*
-- **X-O2 — baseline-projecten (aangescherpt).** Een gekoppeld baselineproject
-  (`sum_base_proj_id` → aanwezige PROJECT-rij) wordt als OPS-baseline gematerialiseerd —
-  kandidaat voor de tweede etappehelft, geen goal-voorwaarde. **Verplichte dangling-tak**
-  (planreview): in het corpus verwijzen 9 van de 10 gemeten koppelingen naar een proj_id dat
-  níét in het bestand zit — dangling wordt genegeerd én geteld in de openingsmelding, nooit
-  een crash of stil half project. Eén corpusbestand (`stack_data_center_baseline.xer`) draagt
-  een écht aanwezig baselineproject en wordt de positieve testcase.
-- **X-O3 — de float-assen in de eindpoort.** TF/FF tellen volwaardig mee, met de formule uit
+- **X-O1 — BESLOTEN (eigenaar, 2026-08-20): álles wordt geïmporteerd.** De leidende regel:
+  wie het bestand hier opent, ziet hetzelfde als in Primavera. Elk project in het bestand
+  wordt een eigen document in het bestaande multi-documentmodel; het project met de meeste
+  taken wordt het actieve tabblad (de export-vlag discrimineert niet — gemeten 15/15 en 4/4
+  'Y' — en "het eerste project" draagt in de Hotel-bestanden nul taken). Cross-project-
+  relaties worden `externalLinks` tussen de geopende documenten; de openingsmelding benoemt
+  hoeveel projecten er geopend zijn. Uitzondering: een project dat door een ánder project in
+  hetzelfde bestand als baseline wordt aangewezen (X-O2) opent níét als los document — in
+  Primavera is een baseline ook geen open project. Gevolg voor de meetlat: het volledige
+  orakel is bereikbaar; de fidelity meet per project en pint per bestand de som.
+- **X-O2 — BESLOTEN (eigenaar, 2026-08-20): baselines blijven gewoon bewaard.** Een
+  gekoppeld baselineproject (`sum_base_proj_id` → aanwezige PROJECT-rij) wordt als
+  OPS-baseline op het hoofdproject gematerialiseerd — **verplichte deliverable van de
+  etappe** (blijft buiten de nul-poort: baselines dragen geen orakelvelden voor de vier
+  assen). Dangling-tak verplicht: 9 van de 10 gemeten corpuskoppelingen verwijzen naar een
+  proj_id dat níét in het bestand zit — dangling wordt genegeerd én geteld in de
+  openingsmelding, nooit een crash of stil half project. `stack_data_center_baseline.xer` is
+  de positieve testcase.
+- **X-O3 — BESLOTEN (eigenaar, 2026-08-20, conform voorstel).** TF/FF tellen volwaardig mee, met de formule uit
   §1 en per as de dubbele teller (afwijkingen + meetbaar). Legt de residu-iteratie een
   principieel P6-float-definitieverschil bloot dat niet via `schedulingOptions` te vangen is,
   dan is dat een eigenaarsbeslispunt — nooit stilzwijgend versoepelen.
-- **X-O4 — encoding (gecorrigeerd).** Het corpus bevat géén enkel BOM-dragend bestand — de
+- **X-O4 — BESLOTEN (eigenaar, 2026-08-20, conform voorstel; gecorrigeerd na planreview).** Het corpus bevat géén enkel BOM-dragend bestand — de
   BOM-tak is een formaliteit, **de heuristiek draagt alles**: geldige-UTF-8-toets over het
   hele bestand, bij falen Windows-1252 (gemeten: 22 bestanden met high-bit-bytes, 12 daarvan
   geen geldige UTF-8). Voor kleine bestanden is de toets principieel onbeslisbaar (3
@@ -233,8 +234,11 @@ waarvoor `parseP6StandardWorkWeek` (nu niet-geëxporteerd, `p6xmlReader.ts:96`) 
 wordt of de toets via `readP6XML` loopt; mutatiebewijs: de weekuren-afleiding uitschakelen ⇒
 de rehab-pin ROOD.
 
-**X4 — Kern-mapping + registry-entry.** `src/services/xer/xerReader.ts`: PROJECT-selectie per
-X-O1 (meeste-taken-heuristiek + telling), PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
+**X4 — Kern-mapping + registry-entry.** `src/services/xer/xerReader.ts`: PROJECT-import per
+X-O1 (álle niet-baseline-projecten als documenten; meeste-taken wordt het actieve tabblad —
+dit vergt een meervoudig `ImportResult`-pad in de open-pijplijn, het eerste formaat dat dat
+nodig heeft; ontwerp dat als expliciete stap en meet de open-tijd op het 15-projecten-bestand),
+PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
 **WBS-rijen worden verzameltaken in onze bestaande structuur, nooit extra bladtaken — de
 taaktelling moet 1:1 op het orakel passen, anders klapt elke meting** — planreview V8), TASK
 (statussen; milestones uit het activiteitstype, **case-insensitief** — het corpus bevat
@@ -328,8 +332,7 @@ bladniveau → echte fout fixen met bewijs, of escaleren (X-O3); "pinnen met red
 als uitweg. Daarna `GOAL_ZERO_DEVIATIONS_XER` aan: nul op alle afwijkingstellers, per as
 `gemetenExact === meetbaar` én het **gepinde meetbaar-aantal** zelf (planreview M1 — een as
 die stil naar nul meetbaar zakt is rood), reason-verbod, en de dedup-op-inhoudshash-bewaking.
-TODO-registraties (XER-export; multi-document; X-O2-rest; p6xml-pariteit; driving-path-as als
-poortkandidaat). Hyperkritische Opus-eindreview over de volledige etappe-diff, inclusief de
+TODO-registraties (XER-export; p6xml-pariteit; driving-path-as als poortkandidaat). Hyperkritische Opus-eindreview over de volledige etappe-diff, inclusief de
 whitelist-sluiproute-scan van §4.1.
 
 ## §7 Parallellisering
@@ -359,6 +362,7 @@ dan meet, meet zijn eigen aannames.
    Vandaar eigen fixture-batterijen in X2 en de meldings-mitigatie.
 4. **Schaal**: `rehab-2.xer` (6.976 orakeltaken, 52.640 toewijzingen, 81k code-koppelingen) is
    ~2× het grootste bestand dat de app ooit las; X11 meet het expliciet.
-5. **Scope-verleiding**: multi-document, baselines, XER-export, TT_Rsrc-rekenmodel en
-   p6xml-pariteit zijn elk een eigen traject; X-O1/X-O2/V3-registraties begrenzen ze bewust.
-   De goal is lezen-getrouw-op-vier-assen — al het andere is registreerbare vervolgambitie.
+5. **Scope**: multi-document-import en baseline-materialisatie zijn per eigenaarsbesluit
+   onderdeel van de etappe geworden (X-O1/X-O2) — dat is de bewuste verzwaring; XER-export,
+   het TT_Rsrc-rekenmodel en p6xml-pariteit blijven begrensde vervolgtrajecten. De goal is
+   lezen-getrouw-op-vier-assen; de multi-documentroute is er de gebruikerszichtbare helft van.
