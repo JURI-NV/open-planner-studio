@@ -52,11 +52,15 @@ twee opslagvelden nu, één rekenmodel straks, geen twee eilanden.
   instellingsbegrippen (planreview F1: het plan claimde eerder "de eerste" — onjuist).
 - Het corpus is publiek: 93 crawl-bestanden (P6 5.0 t/m 24.x). **Eerlijke telling van de
   meetmassa (planreview B3/licht):** 18.489 taken dragen de vier datum-assen; 17.963 dragen
-  álle zes assen. Daarvan is 47% een duplicaat-paar (het Hotel-schema staat er 2× in met
-  identieke taken) en staan de vier Harbour Point-bestanden er elk 4× in — de fidelity-pinning
-  dedupliceert daarom op inhoudshash, en het unieke orakel is realistisch ~10.000 taken over
-  ~50 unieke bestanden. Nog altijd ~3× het .mpp-corpus, en zonder bedrijfsdata: bestandsnamen
-  mogen gewoon in tests en commits.
+  álle zes assen. Let op de duplicaten (her-check-meting): byte-dedup (md5) houdt 84 unieke
+  bestanden over met 17.600 orakeltaken in 23 unieke orakelbestanden — maar het gróótste
+  duplicaat vangt een inhoudshash juist níét: de twee Hotel-bestanden (samen 47% van het
+  orakel) dragen dezelfde vier projecten en dezelfde 4.236 taken in nét verschillende bytes.
+  De pinning dedupliceert daarom tweeledig: byte-hash voor de exacte kopieën (twee Harbour
+  Point-bestanden staan er 4× in, drie 2×) én een schema-vingerafdruk (proj_id-set +
+  taakcodes + orakelwaarden) die het Hotel-paar als bekend duplicaat markeert. Het unieke
+  orakel is dan 13.383 taken over 22 bestanden — nog altijd ~4× het .mpp-corpus, zonder
+  bedrijfsdata: bestandsnamen mogen gewoon in tests en commits.
 
 ## §3 De twee meetlatten
 
@@ -66,8 +70,9 @@ twee opslagvelden nu, één rekenmodel straks, geen twee eilanden.
    zijn common-mode; hier blijft zelfs de tokenizer gescheiden, en de "veldkaart" is per
    bestand de eigen `%F`-regel). Statussemantiek hoort bij de meetlat: voltooide taken meten op
    `act_`-datums; per as geldt een meetbaar-aantal naast het afwijkingental, want de dekking is
-   scheef (gemeten over de 60 orakelbestanden: ES/EF in 52, LS/LF in 40, TF ±18.400 cellen,
-   FF ±18.000 — er bestaan bestanden met alleen float en geen datums, en andersom).
+   scheef (her-check-meting, gevulde cellen over de 60 orakelbestanden: ES/EF in 48
+   bestanden, LS/LF in 36, TF ±18.400 cellen, FF ±18.000 — er bestaan bestanden met alleen
+   float en geen datums, en andersom).
    **Beide tellers worden gepind** (planreview M1): een lezer die stilletjes minder gaat meten
    maakt de suite net zo rood als een lezer die fout meet.
    Daarnaast rapporteert (buiten de nul-poort) een zevende as: `driving_path_flag` — P6's eigen
@@ -93,20 +98,28 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
 
 ## §4 Harde regels (geërfd uit etappe 1, plus de XER-eigen)
 
-1. **Het opgeslagen antwoord is meetlat, nooit uitkomst — als WHITELIST (planreview M2).**
-   De lezer mag uit de TASK-tabel uitsluitend deze invoervelden importeren: identiteit/
-   structuur (`task_id`, `task_code`, `task_name`, `wbs_id`, `clndr_id`, `proj_id`),
-   `status_code`, `task_type`, `duration_type`, `priority_type`, `complete_pct_type` +
-   percentages, `target_drtn_hr_cnt`/`remain_drtn_hr_cnt`, `target_start_date`/
-   `target_end_date`, `act_start_date`/`act_end_date`, `cstr_type`/`cstr_date` (+`2`),
-   `suspend_date`/`resume_date`, en `expect_end_date` (uitsluitend samen met de bijbehorende
+1. **Het opgeslagen antwoord is meetlat, nooit uitkomst — als WHITELIST (planreview M2,
+   dichtgemaakt na de her-check).** De lezer mag uit de TASK-tabel uitsluitend deze
+   invoervelden importeren: identiteit/structuur (`task_id`, `task_code`, `task_name`,
+   `wbs_id`, `clndr_id`, `proj_id`, `guid`, `rsrc_id`), `status_code`, `task_type`,
+   `duration_type`, `priority_type`; voortgang: `complete_pct_type`, `complete_pct`,
+   `phys_complete_pct` (dé kolom voor de CP_Phys-taken, 18.607 gevulde cellen),
+   `act_start_date`/`act_end_date`; duren: `target_drtn_hr_cnt`/`remain_drtn_hr_cnt`;
+   geplande datums: `target_start_date`/`target_end_date`; werk-hoeveelheden (als data):
+   `target_work_qty`/`remain_work_qty`/`act_work_qty`/`act_this_per_work_qty` en de
+   `*_equip_qty`-familie; constraints: `cstr_type`/`cstr_date` (+`2`);
+   `suspend_date`/`resume_date`; en `expect_end_date` (uitsluitend samen met de bijbehorende
    SCHEDOPTIONS-vlag, zie X5). **Alles wat niet op deze lijst staat is verboden terrein voor
-   de lezer** — expliciet inclusief de rekenuitvoer die er als gewone datumvelden uitziet:
-   `early_*`, `late_*`, `restart_date`/`reend_date` (P6's remaining-early-datums, 15.328/15.329
-   gevulde cellen!), `rem_late_start_date`/`rem_late_end_date` (10.193 elk),
-   `total_float_hr_cnt`/`free_float_hr_cnt`, `driving_path_flag`, `float_path`(`_order`).
-   De X12-sluiproute-scan grept tegen de whitelist, niet tegen een opsomming van verboden
-   velden. Drie afgekeurde pogingen in etappe 1 zijn het precedent.
+   de lezer** — expliciet inclusief álle rekenuitvoer die er als gewone velden uitziet:
+   `early_*`, `late_*`, `restart_date`/`reend_date` (15.328/15.329 gevulde cellen),
+   `rem_late_start_date`/`rem_late_end_date` (10.193 elk), `total_float_hr_cnt`/
+   `free_float_hr_cnt`, `driving_path_flag`, `float_path`(`_order`),
+   `external_early_start_date`/`external_late_end_date` (die onder X-O1 relevant lijken maar
+   uitvoer zijn), `old_restart_date`/`old_reend_date`/`old_remain_drtn_hr_cnt`,
+   `crt_path_num`, `critical_drtn_hr_cnt`, `act_drtn_hr_cnt` en
+   `plan_start_date`/`plan_end_date`. Een corpus-%F-kolom die op géén van beide lijsten
+   staat is een X0-compile-fout, geen vrije keuze. De X12-sluiproute-scan grept tegen de
+   whitelist. Drie afgekeurde pogingen in etappe 1 zijn het precedent.
 2. **De veld-als-signaal-regel** (etappe-1-registratie): veld-aanwezigheid op `Task` ís
    semantiek-signaal. De XER-lezer zet een bestaand veld alleen als de P6-betekenis aantoonbaar
    identiek is; elke afwijkende semantiek wordt een **bron-vlag** naar het O6-patroon (default
@@ -135,11 +148,20 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
   wordt een eigen document in het bestaande multi-documentmodel; het project met de meeste
   taken wordt het actieve tabblad (de export-vlag discrimineert niet — gemeten 15/15 en 4/4
   'Y' — en "het eerste project" draagt in de Hotel-bestanden nul taken). Cross-project-
-  relaties worden `externalLinks` tussen de geopende documenten; de openingsmelding benoemt
-  hoeveel projecten er geopend zijn. Uitzondering: een project dat door een ánder project in
-  hetzelfde bestand als baseline wordt aangewezen (X-O2) opent níét als los document — in
-  Primavera is een baseline ook geen open project. Gevolg voor de meetlat: het volledige
-  orakel is bereikbaar; de fidelity meet per project en pint per bestand de som.
+  relaties worden `externalLinks` tussen de geopende documenten — let wel (her-check):
+  cross-project-relaties komen in het corpus exact nul keer voor, dus deze tak krijgt een
+  synthetische fixture en `externalLinks` is data, geen solverinvoer. De openingsmelding
+  benoemt hoeveel projecten er geopend zijn. **Lege projecten** (gemeten: 3 van de 15 in het
+  OZB-bestand en 2 van de 4 in het Hotel-bestand dragen géén taken) worden overgeslagen en
+  geteld in de melding — geen lege tabbladen (orkestratorbesluit, eigenaar kan overrulen).
+  Uitzondering: een project dat door een ánder project in hetzelfde bestand als baseline
+  wordt aangewezen (X-O2) opent níét als los document — in Primavera is een baseline ook
+  geen open project. **Begrenzing (her-check)**: die uitsluiting mag de verzameling nooit
+  leegmaken — bij wederzijdse of zelfverwijzing, of wanneer álle projecten als baseline zijn
+  aangewezen, opent alles alsnog als gewoon document mét melding; en de
+  meeste-taken-heuristiek voor het actieve tabblad telt uitsluitend de daadwerkelijk
+  geopende projecten. Gevolg voor de meetlat: het volledige orakel is bereikbaar; de
+  fidelity meet per project en pint per bestand de som.
 - **X-O2 — BESLOTEN (eigenaar, 2026-08-20): baselines blijven gewoon bewaard.** Een
   gekoppeld baselineproject (`sum_base_proj_id` → aanwezige PROJECT-rij) wordt als
   OPS-baseline op het hoofdproject gematerialiseerd — **verplichte deliverable van de
@@ -189,8 +211,12 @@ met het uitfactoriseren van het formaat-agnostische deel (`classify()`, de rijvo
 delta-administratie) naar een gedeelde kern, mutatie-bewezen byte-identiek voor de bestaande
 .mpp-suite. Daarop: `xerGroundTruth.ts` (onafhankelijke %T/%F/%R-scan, zes assen + status +
 act-datums + `driving_path_flag`, eigen encoding-afhandeling), `xerFidelity.ts`,
-`check-xer-fidelity.ts` met per-bestand-pinning op **inhoudshash** (dedupliceert de
-corpus-duplicaten; naamlabels als leesbaarheid), per as afwijkings- én meetbaar-tellers,
+`check-xer-fidelity.ts` met **per-project-meting binnen het bestand** (X-O1: één bestand
+kan meerdere projecten dragen; de grondwaarheidsscan leest álle taken, een opgelost document
+draagt er één project van — de meetkern krijgt dus een expliciete per-project-lus in plaats
+van de bestaande alles-of-niets-assertie op de taaktelling) en per-bestand-pinning van de
+som, gededupliceerd per §2 (byte-hash + schema-vingerafdruk), per as afwijkings- én
+meetbaar-tellers,
 `OPS_XER_FIDELITY_REPORT`-modi, reason-verplichting bij elke niet-nul-pin. Plus de
 p6-comparison-extractie naar `cases-p6-verified.json`: uitsluitend de `*_p6`-kolommen, mét
 tijden, met een generator-script en een herkomstkop die de M4-voorbehouden documenteert.
@@ -205,7 +231,10 @@ notitievelden (incl. BOM/NUL-strip — herkomst MPXJ `NotesHelper`), de lege-eer
 continuatieregel, onbekende tabellen overslaan, en de **CURRTYPE-tweepas** conform X-O5
 (inclusief token-decodering en de geen-CURRTYPE-default). Encoding per X-O4. Fout-tolerantie
 als bewuste keuze: kapotte rijen verzamelen in een import-rapportstructuur (geen stille skip,
-geen harde crash); de openingsmelding (X10) toont het aantal. **Failure-mode-model
+geen harde crash); de openingsmelding (X10) toont het aantal. **Generieke enum-regel
+(her-check)**: élke `XX_Yyy`-token wordt case-insensitief gematcht (het corpus draagt
+`RCAL_SUCCESSOR` naast `rcal_Successor`, en `ST_TotalFloat` — een PMXML-vorm in een XER),
+en een onbekend token is een **gerapporteerde** terugval naar de default, nooit een stille. **Failure-mode-model
 (gecorrigeerd, planreview)**: de echte poort is *verplichte P6-kolommen ontbreken ⇒ typed
 fout* — het corpus bevat namelijk pseudo-XER-bestanden mét `%F`-headers maar niet-P6-kolommen
 (`p6xer-basic.xer`: `Task_ID`/`Start_Date`/`Duration`); die mogen nooit als leeg-maar-geldig
@@ -234,11 +263,8 @@ waarvoor `parseP6StandardWorkWeek` (nu niet-geëxporteerd, `p6xmlReader.ts:96`) 
 wordt of de toets via `readP6XML` loopt; mutatiebewijs: de weekuren-afleiding uitschakelen ⇒
 de rehab-pin ROOD.
 
-**X4 — Kern-mapping + registry-entry.** `src/services/xer/xerReader.ts`: PROJECT-import per
-X-O1 (álle niet-baseline-projecten als documenten; meeste-taken wordt het actieve tabblad —
-dit vergt een meervoudig `ImportResult`-pad in de open-pijplijn, het eerste formaat dat dat
-nodig heeft; ontwerp dat als expliciete stap en meet de open-tijd op het 15-projecten-bestand),
-PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
+**X4a — Kern-mapping + registry-entry (enkelproject).** `src/services/xer/xerReader.ts`,
+eerst voor het geval één (niet-leeg) project — dit deblokkeert baan S en D. PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
 **WBS-rijen worden verzameltaken in onze bestaande structuur, nooit extra bladtaken — de
 taaktelling moet 1:1 op het orakel passen, anders klapt elke meting** — planreview V8), TASK
 (statussen; milestones uit het activiteitstype, **case-insensitief** — het corpus bevat
@@ -252,8 +278,22 @@ blijft IFC-only), i18n-foutmeldingen 14 talen. **Acceptatie**: eerste fidelity-n
 draait en pint; `crawl-xer/p6diff-baseline.xer` (8 taken, alle zes assen) en
 `crawl-xer-extra/p6difftool/sample-target.xer` exact op de datum-assen (planreview M5: de
 `xer-corpus/cases/*`-fixtures dragen géén orakel en zijn parser-poort, geen fidelity-poort);
-mutatiebewijzen: de prefixloze-`PR_`-tak uit ⇒ de 6 betreffende bestanden ROOD; de
+mutatiebewijzen: de prefixloze-`PR_`-tak uit ⇒ de **3** echte bestanden met een prefixloos
+`pred_type` ROOD (her-check: 5 dragers waarvan 2 pseudo-XER die X2 weigert); de
 case-insensitieve typematch uit ⇒ de kleine-letter-fixture ROOD.
+
+**X4b — Meervoudige import en baselines (X-O1 + X-O2 — dit ís de X-O2-taak).** Het
+meervoudig-`ImportResult`-pad in de open-pijplijn (het eerste formaat dat één bestand tot
+meerdere documenten opent): projectselectie en lege-project-regel per X-O1,
+baseline-materialisatie per X-O2 (gekoppeld baselineproject → OPS-baseline op het
+hoofdproject; dangling genegeerd + geteld; de begrenzingsregel dat de uitsluiting de
+verzameling nooit leegmaakt, incl. cyclus- en zelfverwijzing), `externalLinks` met
+synthetische fixture (nul corpusdekking), en een open-tijd-meting op het
+15-projecten-bestand. **Acceptatie**: `stack_data_center_baseline.xer` levert één document
+mét OPS-baseline; het OZB-bestand opent 12 documenten (3 lege overgeslagen en gemeld, 9
+dangling-baselines gemeld); mutatiebewijzen: de begrenzingsregel uit ⇒ de
+zelfverwijzings-fixture opent niets ⇒ ROOD; baseline-materialisatie uit ⇒ de
+stack-case ROOD.
 
 ### BAAN S — motor en semantiek
 
@@ -267,9 +307,11 @@ die worden op zijn minst geregistreerd), en de mapping verhoudt zich expliciet t
 `mppReader`/`mspdiReader` al zetten én tot de `OPS_SchedulingOptions`-IFC-round-trip.
 *(b) de defaults-paragraaf (planreview B2 — het meerderheidsgeval!)*: 37 van de 60
 orakelbestanden hebben géén SCHEDOPTIONS, waaronder `rehab-2.xer` (39% van het orakel). Voor
-die populatie geldt een expliciet vastgelegde default-set (uitgangspunt: P6's eigen
-fabrieksdefaults — o.a. total float = finish float, retained logic aan — niet onze
-huisdefaults), per default blast-radius-gemeten over het corpus en gepind. **Acceptatie**: de
+die populatie geldt een expliciet vastgelegde default-set, gefundeerd op **de gemeten
+meerderheid in de SCHEDOPTIONS-dragende bestanden** (her-check: `sched_float_type` = `FT_FF`
+in 41/50 rijen ⇒ finish float — een échte gedragsomslag t.o.v. onze 'smallest'-huisdefault;
+retained logic 48/50 aan; open-eindes-niet-kritiek en lag-op-voorgangerskalender sporen met
+onze defaults), per default blast-radius-gemeten over het corpus en gepind. **Acceptatie**: de
 in-progress/retained-logic- en completed-successor-cases uit `cases-p6-verified.json` groen;
 de 37-zonder-SCHEDOPTIONS-populatie per default-keuze gemeten en gepind; mutatiebewijs:
 `lagCalendar` naar successor forceren ⇒ de multi-kalender-case ROOD.
@@ -313,8 +355,9 @@ expliciet documenteert in plaats van hem te laten verrassen. **Acceptatie**: het
 Z14-mutatiestramien (property weg ⇒ rood op precies dat veld; byte-identieke examples).
 
 **X10 — Melding en gidsen.** Openingsmelding naar het Z16-model: echte tellingen (kapotte
-rijen, niet-geopende projecten + taken (X-O1), dangling baselines (X-O2), encoding-keuze bij
-niet-ASCII (X-O4)), severity info, 14 talen, CLDR-pluralen. Gidsen (nl+en): "Primavera P6
+rijen; geopende projecten, overgeslagen lege projecten en als baseline gematerialiseerde
+projecten (X-O1/X-O2); dangling baselines; encoding-keuze bij niet-ASCII (X-O4)), severity
+info, 14 talen, CLDR-pluralen. Gidsen (nl+en): "Primavera P6
 (.xer) openen" naar het model van de .mpp-gids — elke claim code-/testverwezen, eerlijk over
 wat (nog) niet meekomt (multi-document, TT_Rsrc/TT_WBS-rekenmodel, curves-als-verdeling,
 P6-XML-asymmetrie). **Acceptatie**: de Z16-mutatiebewijzen (melding/i18n/manifest).
@@ -323,7 +366,10 @@ P6-XML-asymmetrie). **Acceptatie**: de Z16-mutatiebewijzen (melding/i18n/manifes
 
 **X11 — Browser-gebruikstest** (aparte agent, tier 1; mag parallel aan X12's residu-iteratie):
 de dossierselectie openen (`p6diff-baseline`, `rehab-2.xer`, multi-kalender, negatieve float,
-het torture-bestand, een multi-project-bestand), IFC-opslaan/heropenen met veldbehoud,
+het torture-bestand, en het 15-projecten-bestand als multi-document-stresstest: 12 documenten
+in één keer — raakt de auto-save (één recovery-snapshot per document), de documenttabbalk bij
+12+ tabbladen en de Ctrl/⌘ 1–9-navigatie die maar tot negen reikt), IFC-opslaan/heropenen met
+veldbehoud,
 F5-stabiliteit, meldingen en gidslinks, taalwissel, undo/documentwissel — het Z18-draaiboek,
 plus: blijft de app vlot op het 119k-koppelingen-bestand.
 
@@ -338,13 +384,15 @@ whitelist-sluiproute-scan van §4.1.
 ## §7 Parallellisering
 
 ```
-X0 ─ X1 (serieel; X1 bevat de meetkern-uitfactorisering)
-          ├── baan F: X2 → X3 → X4 ──┐        X3 = kritieke taak (uurmodus beslist alles)
-          ├── baan S: (na X4) X5 ─┐  │
-          │            (na X4) X6 ─┤ → X7 ────┤
-          ├── baan D: (na X4) X8 → X9 → X10 ──┤
+X0 ─ X1 (serieel; X1 bevat de meetkern-uitfactorisering + per-project-lus)
+          ├── baan F: X2 → X3 → X4a → X4b ─┐   X3 = kritieke taak (uurmodus beslist alles)
+          ├── baan S: (na X4a) X5 ─┐       │
+          │            (na X4a) X6 ─┤ → X7 ─┤
+          ├── baan D: (na X4a) X8 → X9 → X10 ┤
           └──────────────── X11 ∥ X12 (X11 mag parallel aan de residu-iteratie)
 ```
+X4b (meervoudige import) loopt parallel aan de banen S en D — alleen X10 (meldingsteksten) en
+X11 (stresstest) wachten er inhoudelijk op.
 X5 en X6 zijn onderling onafhankelijk en lopen parallel; X7 wacht op beide (voortgang leunt op
 actuals-invarianten én toewijzingen). De meetlat (X1) staat vóór alles — wie eerst bouwt en
 dan meet, meet zijn eigen aannames.
