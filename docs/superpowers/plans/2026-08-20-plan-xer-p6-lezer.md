@@ -108,18 +108,40 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
    geplande datums: `target_start_date`/`target_end_date`; werk-hoeveelheden (als data):
    `target_work_qty`/`remain_work_qty`/`act_work_qty`/`act_this_per_work_qty` en de
    `*_equip_qty`-familie; constraints: `cstr_type`/`cstr_date` (+`2`);
-   `suspend_date`/`resume_date`; en `expect_end_date` (uitsluitend samen met de bijbehorende
-   SCHEDOPTIONS-vlag, zie X5). **Alles wat niet op deze lijst staat is verboden terrein voor
-   de lezer** — expliciet inclusief álle rekenuitvoer die er als gewone velden uitziet:
+   `suspend_date`/`resume_date`; `task_notes` (échte notitiedata, X8); `constraint_type`
+   (dialect-alias van `cstr_type` in de ProjectLens-bestanden); en `expect_end_date`
+   (uitsluitend samen met de bijbehorende SCHEDOPTIONS-vlag, zie X5). **Alles wat niet op
+   deze lijst staat is verboden terrein voor de lezer** — expliciet inclusief álle rekenuitvoer die er als gewone velden uitziet:
    `early_*`, `late_*`, `restart_date`/`reend_date` (15.328/15.329 gevulde cellen),
    `rem_late_start_date`/`rem_late_end_date` (10.193 elk), `total_float_hr_cnt`/
    `free_float_hr_cnt`, `driving_path_flag`, `float_path`(`_order`),
    `external_early_start_date`/`external_late_end_date` (die onder X-O1 relevant lijken maar
    uitvoer zijn), `old_restart_date`/`old_reend_date`/`old_remain_drtn_hr_cnt`,
    `crt_path_num`, `critical_drtn_hr_cnt`, `act_drtn_hr_cnt` en
-   `plan_start_date`/`plan_end_date`. Een corpus-%F-kolom die op géén van beide lijsten
-   staat is een X0-compile-fout, geen vrije keuze. De X12-sluiproute-scan grept tegen de
-   whitelist. Drie afgekeurde pogingen in etappe 1 zijn het precedent.
+   `plan_start_date`/`plan_end_date`. Naast deze twee lijsten is er een
+   **derde bak: "genegeerd — geen planningsdata"** (delta-check: 32 corpuskolommen vielen
+   buiten beide lijsten en de poortregel was daarmee op dag één onvervulbaar): audittrail
+   (`create_date`/`update_date`/`create_user`/`update_user`), vlaggen
+   (`rev_fdbk_flag`/`lock_plan_flag`/`auto_compute_act_flag`), kosten
+   (`remain_cost`/`plan_cost`/`act_cost`), review/locatie
+   (`review_type`/`review_end_date`/`location_id`), `est_wt`, `tmpl_guid`,
+   `target_qty_per_hr`/`act_reg_qty`/`act_ot_qty`, `plan_start_date`/`plan_end_date`-achtige
+   restvelden voor zover niet al verboden, de pseudo-XER-kolommen uit bestanden die X2 toch
+   weigert, en de lege kolomnaam die een afsluitende tab op een `%F`-regel oplevert
+   (tokenizer-nota in X2). Voorbehoud: blijkt tijdens de bouw dat een bak-3-veld tóch
+   planningsinvoer draagt (kandidaten: `est_wt`, `review_type`, `tmpl_guid` — op naam
+   ingedeeld, niet doorgelezen), dan verhuist het expliciet naar bak 1, nooit stilzwijgend.
+   **Een corpus-%F-kolom die in géén van de drie bakken staat is een X0-poortfout, geen vrije
+   keuze.** De X12-sluiproute-scan grept tegen de whitelist. Drie afgekeurde pogingen in
+   etappe 1 zijn het precedent.
+7. **De enum-tokenregel (delta-check — twee mechanismen, niet één):** (a) hoofdletter-
+   varianten van bekende tokens worden case-insensitief gematcht (het corpus draagt
+   `RCAL_SUCCESSOR` naast `rcal_Successor` en `TT_mile` naast `TT_Mile`); (b) een token dat
+   ook ná case-fold onbekend is — zoals `ST_TotalFloat`, een PMXML-vorm in een XER die géén
+   case-variant van de XER-tokens is — wordt een **gerapporteerde** terugval naar de default,
+   nooit een stille. Implementatie in X4a/X5 (de semantische lagen; de X2-tokenizer kent geen
+   enums), elk met een mutatiebewijs: case-fold uit ⇒ de `RCAL_SUCCESSOR`-fixture ROOD;
+   rapportage uit ⇒ de `ST_TotalFloat`-fixture ROOD.
 2. **De veld-als-signaal-regel** (etappe-1-registratie): veld-aanwezigheid op `Task` ís
    semantiek-signaal. De XER-lezer zet een bestaand veld alleen als de P6-betekenis aantoonbaar
    identiek is; elke afwijkende semantiek wordt een **bron-vlag** naar het O6-patroon (default
@@ -190,7 +212,8 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
   raakt élk getal — duren en floats incluis — en krijgt een eigen fixture-batterij in X2.
   **Documentatie-eis (eigenaar)**: dit gedrag wordt op drie plekken vastgelegd — een
   docblok-uitleg bij de CURRTYPE-tweepas in `xerTables.ts` (X2), de typed-foutmelding zelf in
-  alle 14 talen (X4a, i18n-patroon), en een eigen paragraaf in de .xer-gids (X10) die in
+  alle 14 talen (X2 werpt de getypeerde foutcode, X4a mapt hem naar de vertaalde tekst —
+  exact het bestaande `mppCode`-patroon), en een eigen paragraaf in de .xer-gids (X10) die in
   gebruikerstaal uitlegt wat het bestand wel/niet zegt over zijn getalnotatie en wanneer de
   app weigert te gokken. `verify:docs` bewaakt de gidsparagraaf zoals altijd.
 
@@ -236,10 +259,9 @@ notitievelden (incl. BOM/NUL-strip — herkomst MPXJ `NotesHelper`), de lege-eer
 continuatieregel, onbekende tabellen overslaan, en de **CURRTYPE-tweepas** conform X-O5
 (inclusief token-decodering en de geen-CURRTYPE-default). Encoding per X-O4. Fout-tolerantie
 als bewuste keuze: kapotte rijen verzamelen in een import-rapportstructuur (geen stille skip,
-geen harde crash); de openingsmelding (X10) toont het aantal. **Generieke enum-regel
-(her-check)**: élke `XX_Yyy`-token wordt case-insensitief gematcht (het corpus draagt
-`RCAL_SUCCESSOR` naast `rcal_Successor`, en `ST_TotalFloat` — een PMXML-vorm in een XER),
-en een onbekend token is een **gerapporteerde** terugval naar de default, nooit een stille. **Failure-mode-model
+geen harde crash); de openingsmelding (X10) toont het aantal. De enum-tokenregel
+(§4.7) geldt in de semantische lagen (X4a/X5), niet hier — de tokenizer kent geen enums;
+X2 levert alleen de rauwe tokens plus de lege-kolomnaam-afhandeling (afsluitende tab). **Failure-mode-model
 (gecorrigeerd, planreview)**: de echte poort is *verplichte P6-kolommen ontbreken ⇒ typed
 fout* — het corpus bevat namelijk pseudo-XER-bestanden mét `%F`-headers maar niet-P6-kolommen
 (`p6xer-basic.xer`: `Task_ID`/`Start_Date`/`Duration`); die mogen nooit als leeg-maar-geldig
@@ -269,15 +291,18 @@ wordt of de toets via `readP6XML` loopt; mutatiebewijs: de weekuren-afleiding ui
 de rehab-pin ROOD.
 
 **X4a — Kern-mapping + registry-entry (enkelproject).** `src/services/xer/xerReader.ts`,
-eerst voor het geval één (niet-leeg) project — dit deblokkeert baan S en D. PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
+eerst voor het geval één (niet-leeg) project — dit deblokkeert baan S en D. De PROJECT-rij
+van dat ene project hoort hier (delta-check: die viel bij de knip tussen wal en schip):
+projectnaam, datadatum, projectkalender-verwijzing en default-valuta; de *selectie* uit
+meerdere projecten is X4b. PROJWBS (sorteren op `(parent_wbs_id, seq_num)`;
 **WBS-rijen worden verzameltaken in onze bestaande structuur, nooit extra bladtaken — de
 taaktelling moet 1:1 op het orakel passen, anders klapt elke meting** — planreview V8), TASK
 (statussen; milestones uit het activiteitstype, **case-insensitief** — het corpus bevat
 `TT_mile`/`TT_finmile`-kleine-lettervarianten; `TT_LOE` → `isHammock`; `TT_Rsrc` (2 corpusrijen)
 en `TT_WBS` (1 rij) worden **als data gelezen, als gewone taak gepland en in de melding
 genoemd** — geen eigen rekenmodel deze etappe, wél elk een synthetische fixture; duration- en
-activiteitstype als opgeslagen data), TASKPRED (`PR_*` én de prefixloze variant uit 6
-bestanden), constraints (`CS_*` incl. mandatory → `hard`), `ExternalRelation` voor
+activiteitstype als opgeslagen data), TASKPRED (`PR_*` én de prefixloze variant uit 3 echte
+bestanden — 5 dragers, waarvan 2 pseudo-XER die X2 weigert), constraints (`CS_*` incl. mandatory → `hard`), `ExternalRelation` voor
 cross-project-randen. Format-registry-entry (`kind: 'text'`, lazy chunk, `canBeSaveTarget`
 blijft IFC-only), i18n-foutmeldingen 14 talen. **Acceptatie**: eerste fidelity-nulmeting
 draait en pint; `crawl-xer/p6diff-baseline.xer` (8 taken, alle zes assen) en
@@ -363,9 +388,11 @@ Z14-mutatiestramien (property weg ⇒ rood op precies dat veld; byte-identieke e
 rijen; geopende projecten, overgeslagen lege projecten en als baseline gematerialiseerde
 projecten (X-O1/X-O2); dangling baselines; encoding-keuze bij niet-ASCII (X-O4)), severity
 info, 14 talen, CLDR-pluralen. Gidsen (nl+en): "Primavera P6
-(.xer) openen" naar het model van de .mpp-gids — elke claim code-/testverwezen, eerlijk over
-wat (nog) niet meekomt (multi-document, TT_Rsrc/TT_WBS-rekenmodel, curves-als-verdeling,
-P6-XML-asymmetrie). **Acceptatie**: de Z16-mutatiebewijzen (melding/i18n/manifest).
+(.xer) openen" naar het model van de .mpp-gids — elke claim code-/testverwezen, mét de
+X-O5-getalnotatie-paragraaf (de derde documentatieplek uit dat besluit), en eerlijk over wat
+(nog) niet meekomt (TT_Rsrc/TT_WBS-rekenmodel, curves-als-verdeling, P6-XML-asymmetrie —
+multi-document komt per X-O1 juist wél mee en staat in het geopende-projecten-deel van de
+melding en de gids). **Acceptatie**: de Z16-mutatiebewijzen (melding/i18n/manifest).
 
 ### SERIEEL — afronding
 
@@ -382,7 +409,7 @@ plus: blijft de app vlot op het 119k-koppelingen-bestand.
 bladniveau → echte fout fixen met bewijs, of escaleren (X-O3); "pinnen met reden" bestaat niet
 als uitweg. Daarna `GOAL_ZERO_DEVIATIONS_XER` aan: nul op alle afwijkingstellers, per as
 `gemetenExact === meetbaar` én het **gepinde meetbaar-aantal** zelf (planreview M1 — een as
-die stil naar nul meetbaar zakt is rood), reason-verbod, en de dedup-op-inhoudshash-bewaking.
+die stil naar nul meetbaar zakt is rood), reason-verbod, en de tweeledige dedup-bewaking (byte-hash + schema-vingerafdruk, §2).
 TODO-registraties (XER-export; p6xml-pariteit; driving-path-as als poortkandidaat). Hyperkritische Opus-eindreview over de volledige etappe-diff, inclusief de
 whitelist-sluiproute-scan van §4.1.
 
@@ -393,11 +420,13 @@ X0 ─ X1 (serieel; X1 bevat de meetkern-uitfactorisering + per-project-lus)
           ├── baan F: X2 → X3 → X4a → X4b ─┐   X3 = kritieke taak (uurmodus beslist alles)
           ├── baan S: (na X4a) X5 ─┐       │
           │            (na X4a) X6 ─┤ → X7 ─┤
-          ├── baan D: (na X4a) X8 → X9 → X10 ┤
+          ├── baan D: (na X4a) X8 → X9 ──────┤
+          │              (na X9 én X4b) X10 ──┤
           └──────────────── X11 ∥ X12 (X11 mag parallel aan de residu-iteratie)
 ```
-X4b (meervoudige import) loopt parallel aan de banen S en D — alleen X10 (meldingsteksten) en
-X11 (stresstest) wachten er inhoudelijk op.
+X4b (meervoudige import) loopt parallel aan de banen S en D; X10 wacht op X9 én X4b (de
+meldingstellingen over geopende/lege/baseline-projecten bestaan pas met X4b), en X11 wacht
+op X4b voor de 12-documenten-stresstest.
 X5 en X6 zijn onderling onafhankelijk en lopen parallel; X7 wacht op beide (voortgang leunt op
 actuals-invarianten én toewijzingen). De meetlat (X1) staat vóór alles — wie eerst bouwt en
 dan meet, meet zijn eigen aannames.
