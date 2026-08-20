@@ -181,13 +181,18 @@ robuustheidsbestanden en het 8-byte-DROID-skelet) tellen niet in de fidelity-poo
   high-bit-bytes kunnen toevallig geldige UTF-8 zijn); daarom is de vermelding van de gemaakte
   keuze in de openingsmelding **de eigenlijke mitigatie**, geen extraatje. Geen
   gebruikersinstelling in deze etappe.
-- **X-O5 — getalnotatie uit CURRTYPE (nieuw, planreview).** De decimaal/duizend-tekens komen
-  uit het bestand zelf en zijn niet altijd letterlijk: naast `.`/`,` bestaan symbolische
-  tokens (`ds_Period`, `dg_Comma`). Voorstel: bekende tokens decoderen; onbekend token of
-  ontbrekende CURRTYPE-tabel (62 van de 93 bestanden!) ⇒ default punt-decimaal, en bij een
-  daadwerkelijk aangetroffen komma-decimaal-bestand zonder CURRTYPE een typed fout boven een
-  stil verkeerd geparsed getal. Dit raakt élk getal — duren en floats incluis — en verdient
-  daarom een eigen fixture-batterij in X2.
+- **X-O5 — BESLOTEN (eigenaar, 2026-08-20): getalnotatie uit CURRTYPE, conform voorstel,
+  mét documentatie-eis.** De decimaal/duizend-tekens komen uit het bestand zelf en zijn niet
+  altijd letterlijk: naast `.`/`,` bestaan symbolische tokens (`ds_Period`, `dg_Comma`).
+  Regel: bekende tokens decoderen; ontbrekende CURRTYPE-tabel (62 van de 93 bestanden!) ⇒
+  default punt-decimaal; een aantoonbaar komma-decimaal-bestand zonder CURRTYPE ⇒ typed fout
+  ("dit bestand kan ik niet betrouwbaar lezen") boven een stil verkeerd geparsed getal. Dit
+  raakt élk getal — duren en floats incluis — en krijgt een eigen fixture-batterij in X2.
+  **Documentatie-eis (eigenaar)**: dit gedrag wordt op drie plekken vastgelegd — een
+  docblok-uitleg bij de CURRTYPE-tweepas in `xerTables.ts` (X2), de typed-foutmelding zelf in
+  alle 14 talen (X4a, i18n-patroon), en een eigen paragraaf in de .xer-gids (X10) die in
+  gebruikerstaal uitlegt wat het bestand wel/niet zegt over zijn getalnotatie en wanneer de
+  app weigert te gokken. `verify:docs` bewaakt de gidsparagraaf zoals altijd.
 
 ## §6 Banen en taken
 
