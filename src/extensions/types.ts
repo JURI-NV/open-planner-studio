@@ -84,6 +84,31 @@ export interface InstalledExtension {
   error?: string;
 }
 
+export type ParseResult<T> =
+  | { ok: true; value: T; warnings: string[] }
+  | { ok: false; error: string };
+
+export interface CatalogIssue {
+  index: number;
+  idHint?: string;
+  error: string;
+}
+
+export interface ReadyExtension extends InstalledExtension {
+  kind: 'ready';
+}
+
+export interface QuarantinedExtension {
+  kind: 'quarantined';
+  quarantineId: string;
+  storageKey: IDBValidKey;
+  displayName: string;
+  reason: string;
+  status: 'quarantined';
+}
+
+export type ExtensionRecord = ReadyExtension | QuarantinedExtension;
+
 // ── Plugin-interface (wat main.js exporteert) ──
 
 export interface ExtensionPlugin {
