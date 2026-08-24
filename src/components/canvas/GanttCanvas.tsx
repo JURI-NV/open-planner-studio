@@ -257,7 +257,8 @@ export function GanttCanvas() {
   // issue #21 punt 2 (vervolg: dagnamen): 7 weekdag-afkortingen in getUTCDay()-volgorde
   // (0=zondag … 6=zaterdag). Hergebruikt de bestaande kalender-vertalingen uit het menu-
   // namespace (ribbon.calendarDialog.days, ISO 1=ma … 7=zo) en remapt die naar Sun-first.
-  // Gememoized op taal, net als localizedMonths, zodat de renderer-opts stabiel blijven.
+  // Gememoized op de gebonden vertaalfunctie, zodat een taalwissel de labels vernieuwt en de
+  // renderer-opts tussen taalwissels stabiel blijven.
   const localizedWeekdays = useMemo(
     () => [
       tMenu('ribbon.calendarDialog.days.7'), // zo (getUTCDay 0 = zondag)
@@ -268,11 +269,11 @@ export function GanttCanvas() {
       tMenu('ribbon.calendarDialog.days.5'), // vr
       tMenu('ribbon.calendarDialog.days.6'), // za
     ],
-    [i18n.language], // eslint-disable-line react-hooks/exhaustive-deps
+    [tMenu],
   );
-  // Vertaalde duur-eenheid-suffixen voor de duurkolom-weergave (§6.4/§11). Gememoized op taal zodat de
-  // renderer-opts stabiel blijven tussen renders (geen memo-bust per frame).
-  const durationSuffixes = useMemo(() => durationSuffixesFrom(tCommon), [i18n.language]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Vertaalde duur-eenheid-suffixen voor de duurkolom-weergave (§6.4/§11). De gebonden
+  // vertaalfunctie wisselt mee met de taal; daarbuiten blijft de rendereroptie stabiel.
+  const durationSuffixes = useMemo(() => durationSuffixesFrom(tCommon), [tCommon]);
 
   // Fase 2.8b (§6.1/§6.9): effectieve kalender per taak (task.calendarId → bibliotheek, anders de
   // projectkalender). De renderer leest hieruit per taak uur- vs dag-modus en de banden voor de
