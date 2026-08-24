@@ -755,20 +755,20 @@ const beeldTab: RibbonTabConfig = [
           },
         ],
       },
-      // #21 (user-wens): Balkkleuren + Resource-accent RECHTS van de overlay-stack.
-      { kind: 'component', id: 'screenColors', Component: ScreenColorsPopoverButton },
-      // #21 (user-wens): Balkkleuren + Resource-accent NAAST (rechts van) de overlay-stack —
-      // binnen de stack paste de popover-knop niet boven de toggles. De groep legt items
-      // horizontaal neer, dus dit zet beide knoppen als eigen kolom rechts van de toggles.
+      // De vaste linthoogte draagt drie kleine knoppen per stack. Kleurmodus en resource-accent
+      // vormen daarom samen de tweede verticale kolom, niet twee losse horizontale groepsitems.
       {
-        // scherm-accent — dun streepje resourcekleur onder de balken; compact schermsignaal
-        // naast de kleurmodi (die zitten in de Balkkleuren-popover links).
-        kind: 'small', id: 'toggleResourceAccent', icon: <Palette size={14} />, labelKey: 'menu:ribbon.toggleResourceAccent',
-        use: () => {
-          const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
-          const setUI = useAppStore(s => s.setUI);
-          return { active: showResourceAccent, onClick: () => { const next = !showResourceAccent; setUI({ showResourceAccent: next }); void saveShowResourceAccent(next); } };
-        },
+        kind: 'stack', id: 'colorAccentStack', items: [
+          { kind: 'component', id: 'screenColors', Component: ScreenColorsPopoverButton },
+          {
+            kind: 'small', id: 'toggleResourceAccent', icon: <Palette size={14} />, labelKey: 'menu:ribbon.toggleResourceAccent',
+            use: () => {
+              const showResourceAccent = useAppStore(s => s.ui.showResourceAccent);
+              const setUI = useAppStore(s => s.setUI);
+              return { active: showResourceAccent, onClick: () => { const next = !showResourceAccent; setUI({ showResourceAccent: next }); void saveShowResourceAccent(next); } };
+            },
+          },
+        ],
       },
     ],
   },

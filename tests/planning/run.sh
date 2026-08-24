@@ -350,6 +350,11 @@ if [ "$RUN_HOLIDAYS" -eq 1 ]; then
   SPLITBARCHECK="$DIR/.split-bar-render.mjs"
   if bundle_check "$DIR/check-split-bar-render.ts" "$SPLITBARCHECK"; then node "$SPLITBARCHECK" || STATUS=1; fi
 
+  # Ribbon Baselines & Progress: drie overlays links en twee kleurcontrols rechts horen ieder in
+  # een verticale stack; losse groepsitems worden horizontaal gerenderd en maken de rij te breed.
+  OVERLAYRIBBONCHECK="$DIR/.ribbon-overlays.mjs"
+  if bundle_check "$DIR/check-ribbon-overlays.ts" "$OVERLAYRIBBONCHECK"; then node "$OVERLAYRIBBONCHECK" || STATUS=1; fi
+
   RELRULES="$DIR/.relrules.mjs"
   if bundle_check "$DIR/check-relation-rules.ts" "$RELRULES"; then node "$RELRULES" || STATUS=1; fi
 
