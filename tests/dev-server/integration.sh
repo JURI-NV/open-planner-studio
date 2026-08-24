@@ -37,6 +37,36 @@ PA2=$( cd "$TMP/wt-a" && node scripts/dev-server.mjs --print-plan 2>&1 | grep -o
 [ "$PA" = "$PA2" ] || fail "wt-a poort niet stabiel ($PA vs $PA2)"
 pass "toewijzing is idempotent (wt-a blijft $PA)"
 
+# De browserlane krijgt eigen markers en een eigen bereik. De bestaande
+# devmarker en configurations[dev].port mogen daarbij niet veranderen.
+BA=$( cd "$TMP/wt-a" && node --input-type=module -e '
+  const ports = await import("./scripts/dev-port.mjs");
+  console.log(await ports.allocateNamedPort(ports.worktreeRoot(), "browser"));
+')
+BB=$( cd "$TMP/wt-b" && node --input-type=module -e '
+  const ports = await import("./scripts/dev-port.mjs");
+  console.log(await ports.allocateNamedPort(ports.worktreeRoot(), "browser"));
+')
+[ -n "$BA" ] && [ -n "$BB" ] || fail "kon browserpoorten niet uitlezen (A=$BA B=$BB)"
+[ "$BA" != "$BB" ] || fail "twee worktrees kregen dezelfde browserpoort ($BA)"
+[ "$BA" -ge 3107 ] && [ "$BA" -le 3206 ] || fail "browserpoort A buiten lane: $BA"
+[ "$BB" -ge 3107 ] && [ "$BB" -le 3206 ] || fail "browserpoort B buiten lane: $BB"
+MARKERS_A=$(node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const json = JSON.parse(readFileSync(process.argv[1], "utf8"));
+  const dev = json.configurations.find((entry) => entry?.name === "dev");
+  console.log(`${json.opsDevPort}:${json.opsBrowserTestPort}:${dev?.port}`);
+' "$TMP/wt-a/.claude/launch.json")
+MARKERS_B=$(node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const json = JSON.parse(readFileSync(process.argv[1], "utf8"));
+  const dev = json.configurations.find((entry) => entry?.name === "dev");
+  console.log(`${json.opsDevPort}:${json.opsBrowserTestPort}:${dev?.port}`);
+' "$TMP/wt-b/.claude/launch.json")
+[ "$MARKERS_A" = "$PA:$BA:$PA" ] || fail "browserstempel wijzigde devgegevens A ($MARKERS_A)"
+[ "$MARKERS_B" = "$PB:$BB:$PB" ] || fail "browserstempel wijzigde devgegevens B ($MARKERS_B)"
+pass "browserlane isoleert twee worktrees en behoudt hun devmarkers (A=$BA, B=$BB)"
+
 # Deel 3: dubbelstart-weigering (levend guard-slot → tweede claim gooit)
 node -e '
 import("'"$TMP"'/wt-a/scripts/dev-lock.mjs").then(async (m) => {
