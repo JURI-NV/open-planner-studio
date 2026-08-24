@@ -1119,13 +1119,16 @@ const rt2 = readIFC(writeIFC(rt1));
 {
   const { useAppStore } = await import('@/state/appStore');
   const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
-  const { draft } = await import('@/state/mcpTransaction');
+  const { draft, runInMcpTransaction } = await import('@/state/mcpTransaction');
   const S = () => useAppStore.getState();
   S().newProject();
-  draft.addTask({
-    name: 'T14b-bron-mcp',
-    time: { scheduleStart: '2026-08-11', scheduleDuration: 2, durationType: 'WORKTIME' } as TaskTime,
+  const tx = runInMcpTransaction(() => {
+    draft.addTask({
+      name: 'T14b-bron-mcp',
+      time: { scheduleStart: '2026-08-11', scheduleDuration: 2, durationType: 'WORKTIME' } as TaskTime,
+    });
   });
+  assert(tx.ok, `(8b) draft.addTask hoort binnen zijn MCP-transactie te slagen`);
 
   let threw: unknown;
   let ifcOut = '';
@@ -1306,21 +1309,25 @@ const rt2 = readIFC(writeIFC(rt1));
 {
   const { useAppStore } = await import('@/state/appStore');
   const { buildWriteIFCInput } = await import('@/state/ifcSaveInput');
-  const { draft } = await import('@/state/mcpTransaction');
+  const { draft, runInMcpTransaction } = await import('@/state/mcpTransaction');
   const S = () => useAppStore.getState();
   S().newProject();
-  const id = draft.addTask({ name: 'T14b-update-mcp' });
-  const full = S().tasks.find(t => t.id === id)!.time;
-  draft.updateTaskFields(id, { time: { ...full, completion: 0.4 } });
+  let id = '';
+  const tx = runInMcpTransaction(() => {
+    id = draft.addTask({ name: 'T14b-update-mcp' });
+    const full = S().tasks.find(t => t.id === id)!.time;
+    draft.updateTaskFields(id, { time: { ...full, completion: 0.4 } });
 
-  // `completion` hier bewust als EXPLICIETE `undefined`-sleutel (niet gewoon weggelaten): dat is
-  // precies het residuele gat dat een kale `Object.assign(task.time, partial)` niet dekte — een
-  // ONTBREKENDE sleutel liet `Object.assign` de bestaande waarde met rust, maar een AANWEZIGE sleutel
-  // met waarde `undefined` (zoals een ongetypeerde aanroeper kan opsturen) werd alsnog gekopieerd en
-  // wiste zo de bestaande completion. `mergeTaskTime`s `??` behandelt beide gevallen gelijk.
-  draft.updateTaskFields(id, {
-    time: { scheduleStart: '2026-09-02', scheduleDuration: 3, durationType: 'WORKTIME', completion: undefined } as unknown as TaskTime,
+    // `completion` hier bewust als EXPLICIETE `undefined`-sleutel (niet gewoon weggelaten): dat is
+    // precies het residuele gat dat een kale `Object.assign(task.time, partial)` niet dekte — een
+    // ONTBREKENDE sleutel liet `Object.assign` de bestaande waarde met rust, maar een AANWEZIGE sleutel
+    // met waarde `undefined` (zoals een ongetypeerde aanroeper kan opsturen) werd alsnog gekopieerd en
+    // wiste zo de bestaande completion. `mergeTaskTime`s `??` behandelt beide gevallen gelijk.
+    draft.updateTaskFields(id, {
+      time: { scheduleStart: '2026-09-02', scheduleDuration: 3, durationType: 'WORKTIME', completion: undefined } as unknown as TaskTime,
+    });
   });
+  assert(tx.ok, `(9b) beide draftupdates horen binnen hun MCP-transactie te slagen`);
 
   const afterPartial = S().tasks.find(t => t.id === id)!.time;
   assert(afterPartial.completion === 0.4, `(9b) draft.updateTaskFields mag completion niet wissen bij een partiële time-update — kreeg ${afterPartial.completion}`);
@@ -1532,10 +1539,14 @@ const rt2 = readIFC(writeIFC(rt1));
   assertPreserved('(10b/taskSlice)', id1);
 
   // Pad 2: mcpTransaction.draft.updateTaskFields.
-  const { draft } = await import('@/state/mcpTransaction');
-  const id2 = draft.addTask({ name: 'T14b-10b-mcp' });
-  setFullProgress(id2);
-  draft.updateTaskFields(id2, { time: { scheduleStart: '2026-09-11', scheduleDuration: 3, durationType: 'WORKTIME' } as TaskTime });
+  const { draft, runInMcpTransaction } = await import('@/state/mcpTransaction');
+  let id2 = '';
+  const tx = runInMcpTransaction(() => {
+    id2 = draft.addTask({ name: 'T14b-10b-mcp' });
+    setFullProgress(id2);
+    draft.updateTaskFields(id2, { time: { scheduleStart: '2026-09-11', scheduleDuration: 3, durationType: 'WORKTIME' } as TaskTime });
+  });
+  assert(tx.ok, '(10b/draft.updateTaskFields) hoort binnen zijn MCP-transactie te slagen');
   assertPreserved('(10b/draft.updateTaskFields)', id2);
 
   // Pad 3: het volledige api.data.updateTask-pad (fromExtTaskUpdates + store-updateTask).
