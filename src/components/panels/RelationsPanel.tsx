@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { createRelationWithFeedback } from '@/state/relationActions';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,10 @@ import { AlertTriangle, Plus, Trash2, Zap, Link2, RefreshCw } from 'lucide-react
 import { buildImportLabels } from '@/i18n/importLabels';
 
 type SortKey = 'predecessor' | 'successor' | 'type' | 'lag' | 'driving' | 'freeFloat';
+
+function taskLabel(task: Task | undefined): string {
+  return task ? `${task.wbsCode ? task.wbsCode + ' ' : ''}${task.name}` : '?';
+}
 
 /**
  * Relatietabel (P6-stijl "Relationships"-weergave): alle relaties van het actieve document
@@ -66,10 +70,7 @@ export function RelationsPanel() {
     [hasCalc, cpmResult],
   );
 
-  const label = (task: Task | undefined) =>
-    task ? `${task.wbsCode ? task.wbsCode + ' ' : ''}${task.name}` : '?';
-
-  const rowData = (seq: Sequence) => {
+  const rowData = useCallback((seq: Sequence) => {
     const pred = taskById.get(seq.predecessorId);
     const succ = taskById.get(seq.successorId);
     const effLag = pred ? resolveEffectiveLagDays(seq, pred) : 0;
@@ -89,15 +90,15 @@ export function RelationsPanel() {
       freeFloat: hasCalc ? cpmResult!.sequenceFreeFloat[seq.id] : undefined,
       warnings,
     };
-  };
+  }, [taskById, droppedSet, truncatedSet, t, drivingSet, hasCalc, cpmResult]);
 
   const rows = useMemo(() => {
     const data = sequences.map(rowData);
     if (!sortKey) return data;
     const cmp = (a: typeof data[number], b: typeof data[number]): number => {
       switch (sortKey) {
-        case 'predecessor': return label(a.pred).localeCompare(label(b.pred));
-        case 'successor': return label(a.succ).localeCompare(label(b.succ));
+        case 'predecessor': return taskLabel(a.pred).localeCompare(taskLabel(b.pred));
+        case 'successor': return taskLabel(a.succ).localeCompare(taskLabel(b.succ));
         case 'type': return a.seq.type.localeCompare(b.seq.type);
         case 'lag': return a.effLag - b.effLag;
         case 'driving': return Number(a.driving) - Number(b.driving);
@@ -105,8 +106,7 @@ export function RelationsPanel() {
       }
     };
     return [...data].sort((a, b) => cmp(a, b) * sortDir);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sequences, taskById, drivingSet, truncatedSet, hasCalc, cpmResult, sortKey, sortDir, t]);
+  }, [sequences, rowData, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -234,7 +234,7 @@ export function RelationsPanel() {
             style={{ minHeight: 28, borderBottom: '1px solid var(--theme-border-light)' }}
             onClick={() => selectPair(seq)}
           >
-            <div className="flex-1 min-w-[160px] px-2 truncate">{label(pred)}</div>
+            <div className="flex-1 min-w-[160px] px-2 truncate">{taskLabel(pred)}</div>
             <div className="w-[64px] px-1" onClick={e => e.stopPropagation()}>
               <select
                 value={seq.type}
@@ -254,7 +254,7 @@ export function RelationsPanel() {
                 onCommit={patch => updateSequence(seq.id, patch)}
               />
             </div>
-            <div className="flex-1 min-w-[160px] px-2 truncate">{label(succ)}</div>
+            <div className="flex-1 min-w-[160px] px-2 truncate">{taskLabel(succ)}</div>
             <div className="w-[70px] px-1 flex justify-center">
               {driving && (
                 <span title={t('properties.driving')} style={{ color: 'var(--theme-accent)' }}>
@@ -292,7 +292,7 @@ export function RelationsPanel() {
                 style={{ minHeight: 28, borderBottom: '1px solid var(--theme-border-light)' }}
                 onClick={() => selectTask(extTask.id)}
               >
-                <div className="flex-1 min-w-[140px] px-2 truncate">{label(extTask)}</div>
+                <div className="flex-1 min-w-[140px] px-2 truncate">{taskLabel(extTask)}</div>
                 <div className="w-[150px] px-2 truncate" style={{ color: 'var(--theme-text-dim)' }}>
                   {link.direction === 'predecessor' ? '← ' : '→ '}
                   {link.relType}{link.lagDays ? `+${link.lagDays}` : ''} · {link.sourceRef.taskName || link.sourceRef.taskId}

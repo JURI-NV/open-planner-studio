@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { getGanttScrollBounds } from '@/utils/ganttViewport';
 import { resolveWheelFunction } from '@/utils/ganttWheel';
@@ -24,7 +24,7 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
   latest.current = { view, enableQuarterHourZoom, scrollMode, positionDivision, modifierMap };
 
   // Cursor-anchored zoom step. anchorX is canvas-X (pixels from canvas left edge).
-  const zoomAt = (newZoom: number, anchorX: number) => {
+  const zoomAt = useCallback((newZoom: number, anchorX: number) => {
     const { view: v, enableQuarterHourZoom: enableQH } = latest.current;
     const max = enableQH ? 1000 : 400;
     const clamped = Math.max(0.5, Math.min(max, newZoom));
@@ -39,7 +39,7 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
 
     setZoom(clamped);
     setScroll(newScrollX, v.scrollY);
-  };
+  }, [setZoom, setScroll, taskTableWidth]);
 
   // Wheel handler
   useEffect(() => {
@@ -104,7 +104,7 @@ export function useGanttZoom({ containerRef, taskTableWidth }: UseGanttZoomOpts)
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [containerRef, taskTableWidth, setZoom, setScroll]);
+  }, [containerRef, setScroll, zoomAt]);
 
   return { zoomAt };
 }

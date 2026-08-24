@@ -72,7 +72,7 @@ export function useDependencyDraw({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [depDragState, onRelationCreated]);
+  }, [depDragState, canvasRef, rendererRef, onRelationCreated]);
 
   // Draw temporary dependency line on overlay canvas
   useEffect(() => {
@@ -120,7 +120,7 @@ export function useDependencyDraw({
       ctx.closePath();
       ctx.fill();
     }
-  }, [depDragState]);
+  }, [depDragState, containerRef, depLineCanvasRef]);
 
   return { depDragState, startDepDraw: setDepDragState, active: !!depDragState };
 }

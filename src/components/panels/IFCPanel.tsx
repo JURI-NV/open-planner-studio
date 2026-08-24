@@ -61,7 +61,7 @@ export function IFCPanel() {
         detail: (err as Error).message,
       });
     }
-  }, [content, loadState, setViewStartDate, runCPM, notify]);
+  }, [content, loadState, setViewStartDate, runCPM, notify, tCommon]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(content);

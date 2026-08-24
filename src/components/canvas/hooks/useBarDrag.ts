@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/state/appStore';
 import { CalendarEngine } from '@/engine/scheduler/CalendarEngine';
 import { parseDate, parseInstant, formatDate, formatInstant } from '@/utils/dateUtils';
@@ -55,15 +55,23 @@ interface UseBarDragOptions {
 // "over de naad heen" — bekende, gedocumenteerde v1-beperking, geen regressie t.o.v. vandaag).
 export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, calendar, effectiveCalById, compressNonWorkdays, updateTask }: UseBarDragOptions) {
   const [dragState, setDragState] = useState<DragState | null>(null);
+  // De kaart met effectieve taakkalenders verandert ook wanneer een live drag de taak muteert. Het
+  // effect wordt dan terecht met actuele kalenderinvoer herstart, maar dat mag geen nieuw
+  // coalesce-venster openen: één pointergesture blijft exact één undoable handeling.
+  const undoKeyRef = useRef<string | null>(null);
+  const startBarDrag = useCallback((next: DragState) => {
+    undoKeyRef.current = `bardrag:${next.taskId}:${++dragSeq}`;
+    setDragState(next);
+  }, []);
 
   // Drag and drop: mousemove (via native event for performance)
   useEffect(() => {
     if (!dragState) return;
 
-    // Eén UNIEKE undo-key voor dít hele sleep-gebaar: alle per-mousemove `updateTask`-commits
-    // hieronder coalescen tot ÉÉN undo-stap (pakket UNDO-DRAG). `++dragSeq` garandeert dat een
-    // volgende sleep een verse key krijgt en dus nooit samenvloeit met deze.
-    const undoKey = `bardrag:${dragState.taskId}:${++dragSeq}`;
+    // De key is bij pointer-down geleased en blijft ook bij een effectherstart dezelfde. `++dragSeq`
+    // in `startBarDrag` garandeert dat een volgende sleep nooit met deze kan samenvloeien.
+    const undoKey = undoKeyRef.current;
+    if (!undoKey) return;
 
     // Fase 2.8b (§6.3): een UUR-taak (datumstring met tijdcomponent) sleept/rekt op HELE UREN — het
     // snap-quantum is nooit fijner dan 60 min (kwartier-snap bestaat niet). Slepen muteert
@@ -234,6 +242,7 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
     };
 
     const handleMouseUp = () => {
+      undoKeyRef.current = null;
       setDragState(null);
     };
 
@@ -243,7 +252,16 @@ export function useBarDrag({ zoom, enableQuarterHourZoom, enableHourPlanning, ca
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, zoom, compressNonWorkdays, updateTask]);
+  }, [
+    dragState,
+    zoom,
+    enableQuarterHourZoom,
+    enableHourPlanning,
+    calendar,
+    effectiveCalById,
+    compressNonWorkdays,
+    updateTask,
+  ]);
 
-  return { dragState, startBarDrag: setDragState, active: !!dragState };
+  return { dragState, startBarDrag, active: !!dragState };
 }
