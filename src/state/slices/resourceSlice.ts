@@ -2,11 +2,11 @@ import type { Resource, ResourceAssignment, ResourceCurve } from '@/types/resour
 import type { WorkCalendar } from '@/types/calendar';
 import { generateId } from '@/utils/id';
 import { nextFreePaletteColor } from '@/engine/renderer/resourcePalette';
-import { beginUndoable, finishMutation } from '../transaction';
+import { finishMutation } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { clearTimephasedWindow, clearTimephasedDurationWalks } from '@/utils/taskDefaults';
 import { notifyTimephasedLoss } from '../timephasedLossNotice';
-import type { AppSlice } from './types';
+import type { AppSliceFactory } from './types';
 
 /** Puur leesbaarheids-alias: `WorkCalendar` heeft al `id`/`name`, dus geen aparte intersectie
  *  nodig — een resource-kalender IS gewoon een `WorkCalendar` (zie fase 2.5-ontwerp §3.1). */
@@ -49,7 +49,7 @@ export interface ResourceSlice {
 const isValidUnits = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n) && n > 0;
 
-export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
+export const createResourceSlice: AppSliceFactory<ResourceSlice> = (runtime) => (set, get) => ({
   resources: [],
   assignments: [],
   calendars: [],
@@ -57,7 +57,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
   addResource: (res) => {
     const id = generateId('res');
     set((s) => {
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       // #21: automatische kleur bij aanmaak (B7) — eerste vrije paletkleur, tenzij de aanroeper
       // zelf al een kleur meegaf (de resource-editor kan dat). Kleurloze resources vallen in de
       // weergave terug op de deterministische hash — dit veld is dus puur gemak, geen vereiste.
@@ -83,7 +83,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         delete patch.maxUnits;
       }
       if (Object.keys(patch).length === 0) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       Object.assign(s.resources[idx], patch);
       finishMutation(s);
     });
@@ -94,7 +94,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
   removeResource: (id) => {
     set((s) => {
       if (!s.resources.some(r => r.id === id)) return; // onbekend id: geen snapshot, geen loze undo-stap.
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.resources = s.resources.filter(r => r.id !== id);
       s.assignments = s.assignments.filter(a => a.resourceId !== id);
       // Verweesde verwijzingen in task.resourceIds opruimen.
@@ -128,7 +128,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       // Weigeren (bevinding 1): 0/negatieve eenheden/dag is geen geldige toewijzing.
       if (!isValidUnits(unitsPerDay)) return;
 
-      beginUndoable(s);
+      runtime.beginUndoable(s);
 
       const id = generateId('asgn');
       s.assignments.push({ id, taskId, resourceId, unitsPerDay, curve });
@@ -162,7 +162,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
         delete patch.unitsPerDay;
       }
       if (Object.keys(patch).length === 0) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       Object.assign(s.assignments[idx], patch);
       finishMutation(s);
     });
@@ -177,7 +177,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       const removed = s.assignments.find(a => a.id === assignmentId);
       if (!removed) return;
 
-      beginUndoable(s);
+      runtime.beginUndoable(s);
 
       s.assignments = s.assignments.filter(a => a.id !== assignmentId);
       // task.resourceIds alleen opschonen als er geen andere toewijzing van
@@ -222,7 +222,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
       );
       if (alreadyOnTarget) return;
 
-      beginUndoable(s);
+      runtime.beginUndoable(s);
 
       const oldTaskId = assignment.taskId;
       assignment.taskId = newTaskId;
@@ -266,7 +266,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
   addCalendar: (cal) => {
     const id = generateId('cal');
     set((s) => {
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendars.push({ ...cal, id });
       syncProjectCalendar(s); // houd de gedenormaliseerde projectkalender-cache in sync (§9.1).
       finishMutation(s, { stale: true }); // conservatief datum-beïnvloedend (§5.4).
@@ -279,7 +279,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
     set((s) => {
       const idx = s.calendars.findIndex(c => c.id === id);
       if (idx < 0) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       Object.assign(s.calendars[idx], updates);
       syncProjectCalendar(s);
       // Pure naamswijziging raakt geen datums (§5.4); elke andere mutatie wél.
@@ -296,7 +296,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
     let lostCount = 0;
     set((s) => {
       if (!s.calendars.some(c => c.id === id)) return; // onbekend id: geen snapshot, geen loze undo-stap.
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendars = s.calendars.filter(c => c.id !== id);
       // Verweesde verwijzingen opruimen: resources én taken vallen terug op de projectkalender.
       for (const r of s.resources) {
@@ -331,7 +331,7 @@ export const createResourceSlice: AppSlice<ResourceSlice> = (set, get) => ({
     // mpp-nul-data-etappe, DEEL 1 — zie `removeCalendar` hierboven.
     let lostCount = 0;
     set((s) => {
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendars = calendars;
       const ids = new Set(calendars.map(c => c.id));
       // Verweesde verwijzingen opruimen (spiegelt removeCalendar, §4.3/§9.2): resources én taken

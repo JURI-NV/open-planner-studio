@@ -1,24 +1,23 @@
-// De store-factory: wat een tweede instantie wél en niet kan (K-item 41).
+// De store-context: iedere instantie bezit niet alleen state, maar ook haar uitvoeringsmetadata.
 //
-// AANLEIDING. De store was één `create(...)`-expressie op moduleniveau. Daarmee is een tweede
-// instantie niet alleen onhandig maar onmogelijk — en het rapport noemt die tweede instantie de
-// sleutel tot split-view met twee documenten, cross-project rekenen en een gedeelde resourcepool.
-// `createAppStore()` maakt hem mogelijk; de singleton wordt er nu uit gebouwd.
+// AANLEIDING. Een kale tweede Zustandstore leek onafhankelijk, maar de undo-coalescing,
+// batchdiepte en bulktransactie waren module- of singletongebonden. Dat is erger dan geen factory:
+// de scheiding ziet er betrouwbaar uit terwijl een handeling in B undo van A kan onderdrukken.
 //
-// WAAROM DEZE BATTERIJ TWEE SOORTEN CHECKS HEEFT. Een factory die een tweede instantie oplevert die
-// stiekem de undo-coalescing, de batch-diepte en de bulk-transacties van de eerste deelt, is erger
-// dan geen factory: hij ziet eruit alsof hij werkt. Dus:
-//
-//   DEEL 1-3 — wat écht onafhankelijk is. Positief getoetst, want dát is de opbrengst.
-//   DEEL 4   — wat NOG GEDEELD is, vastgepind zoals `KNOWN_GAPS` in de round-trip-test: elke check
-//              bewijst dat de koppeling er nog is. Lost iemand er één op, dan wordt deze batterij
-//              ROOD en herinnert hij eraan de vastpinning weg te halen. Zonder deze helft zou een
-//              lezer denken dat de factory af is.
+// `createAppStoreContext()` maakt de grens expliciet. `createAppStore()` blijft de kale
+// compatibiliteitsfactory en de gemounte productinterface blijft één singleton gebruiken.
+// Deze batterij test documentstate, runtimes, interleaved mutaties en het app-globale klembord.
 //
 // Draait via run.sh. Exit 0 = alles groen.
 import './domStub';
-import { createAppStore, useAppStore } from '@/state/appStore';
-import { withTransaction } from '@/state/batchTransaction';
+import {
+  appStoreContext,
+  createAppStore,
+  createAppStoreContext,
+  useAppStore,
+} from '@/state/appStore';
+import { capturePayload } from '@/state/documentContract';
+import { createBatchTransactions } from '@/state/runtime/createBatchTransactions';
 
 const diffs: string[] = [];
 let checks = 0;
@@ -29,25 +28,31 @@ const eq = (label: string, got: unknown, want: unknown) => {
   }
 };
 
-// ── 1. Twee instanties zijn echt twee ───────────────────────────────────────
-const A = createAppStore();
-const B = createAppStore();
+// ── 1. Twee contexten zijn state- én runtimegescheiden ────────────────────────
+const contextA = createAppStoreContext();
+const contextB = createAppStoreContext();
+const A = contextA.store;
+const B = contextB.store;
 
 eq('1 de factory levert twee verschillende stores', A === B, false);
-eq('1a en geen van beide is de singleton', A === useAppStore || B === useAppStore, false);
-eq('1b de singleton is ook een factory-instantie (zelfde vorm)', typeof useAppStore.getState().addTask, 'function');
+eq('1a geen van beide is de singleton', A === useAppStore || B === useAppStore, false);
+eq('1b iedere context levert een verschillend runtimeobject', contextA.runtime === contextB.runtime, false);
+eq('1c de singleton is ook een contextinstantie', appStoreContext.store === useAppStore, true);
+const bareStore = createAppStore();
+eq('1d createAppStore blijft een kale Zustandstore leveren',
+  ['getState', 'setState', 'subscribe']
+    .every(k => typeof (bareStore as unknown as Record<string, unknown>)[k] === 'function'), true);
 
-// Verse instanties starten leeg en gelijk.
 eq('2 A start zonder taken', A.getState().tasks.length, 0);
 eq('2a B ook', B.getState().tasks.length, 0);
 eq('2b maar niet met hetzelfde state-object', A.getState() === B.getState(), false);
 
-// ── 2. Projectdata is per instantie ─────────────────────────────────────────
+// ── 2. Projectdata is per instantie ───────────────────────────────────
 {
   const a1 = A.getState().addTask({ name: 'alleen in A' });
   eq('3 A heeft de taak', A.getState().tasks.length, 1);
   eq('3a B niet', B.getState().tasks.length, 0);
-  eq('3b en de singleton ook niet geraakt', useAppStore.getState().tasks.some(t => t.id === a1), false);
+  eq('3b de singleton is niet geraakt', useAppStore.getState().tasks.some(t => t.id === a1), false);
 
   const b1 = B.getState().addTask({ name: 'alleen in B' });
   B.getState().addTask({ name: 'en nog een in B' });
@@ -58,19 +63,17 @@ eq('2b maar niet met hetzelfde state-object', A.getState() === B.getState(), fal
   eq('5 de naam in A veranderde', A.getState().tasks[0]?.name, 'hernoemd in A');
   eq('5a die in B niet', B.getState().tasks.find(t => t.id === b1)?.name, 'alleen in B');
 
-  // Projectkop, resources, relaties: zelfde verhaal.
   A.getState().setProject({ name: 'Project A' });
   B.getState().setProject({ name: 'Project B' });
   eq('6 projectnaam A', A.getState().project.name, 'Project A');
   eq('6a projectnaam B', B.getState().project.name, 'Project B');
 
-  const ra = A.getState().addResource({ name: 'Kraan A', type: 'EQUIPMENT', description: '', maxUnits: 1 });
+  A.getState().addResource({ name: 'Kraan A', type: 'EQUIPMENT', description: '', maxUnits: 1 });
   eq('7 resource in A', A.getState().resources.length, 1);
   eq('7a niet in B', B.getState().resources.length, 0);
-  void ra;
 }
 
-// ── 3. Undo/redo is per instantie ───────────────────────────────────────────
+// ── 3. Undo/redo is per instantie ────────────────────────────────────
 {
   const diepteA = A.getState().undoStack.length;
   const diepteB = B.getState().undoStack.length;
@@ -84,68 +87,97 @@ eq('2b maar niet met hetzelfde state-object', A.getState() === B.getState(), fal
   B.getState().undo();
   eq('10 undo op B draaide B terug', B.getState().tasks.length, 2);
   eq('10a en liet A met rust', A.getState().tasks.length, 1);
-  eq('10b en de eerste taak van B is ongemoeid', B.getState().tasks[0]?.name, naamVoor);
+  eq('10b de eerste taak van B is ongemoeid', B.getState().tasks[0]?.name, naamVoor);
 
-  // Undo op A raakt B niet, ook niet nu B een redo-stack heeft.
   const redoB = B.getState().redoStack.length;
   A.getState().undo();
   eq('11 undo op A liet de redo-stack van B staan', B.getState().redoStack.length, redoB);
 }
 
-// ── 4. VASTGEPIND: wat een tweede instantie NOG NIET kan ────────────────────
-// Deze checks beschrijven de huidige beperking. Ze horen ROOD te worden zodra iemand hem oplost —
-// dat is het signaal om de vastpinning hier weg te halen en de kop van `createAppStore` bij te
-// werken.
+// ── 4. Batchruntime is contextgebonden ────────────────────────────────────
 {
-  // (a) `withTransaction` importeert de singleton hard. Een bulk op instantie B landt op de
-  //     SINGLETON, niet op B. Dat is precies waarom split-view hier nog niet op kan leunen.
-  const takenBvoor = B.getState().tasks.length;
-  const takenSingletonVoor = useAppStore.getState().tasks.length;
-  withTransaction(() => {
-    B.getState().addTask({ name: 'bulk in B' });
-    B.getState().addTask({ name: 'bulk in B 2' });
-  });
-  eq('12 de taken landen wél in B (de mutators zelf zijn store-gebonden)',
-    B.getState().tasks.length, takenBvoor + 2);
-  // Maar de SNAPSHOT die withTransaction vooraf neemt, is die van de singleton.
-  eq('12a VASTGEPIND: withTransaction pusht zijn snapshot op de SINGLETON, niet op B',
-    useAppStore.getState().undoStack.length > 0, true);
-  eq('12b en de singleton kreeg er geen taken bij (alleen een undo-stap)',
-    useAppStore.getState().tasks.length, takenSingletonVoor);
+  const batchA = createAppStoreContext();
+  const batchB = createAppStoreContext();
+  const txB = createBatchTransactions(batchB);
+  const appVoor = capturePayload(useAppStore.getState());
+  const aVoor = capturePayload(batchA.store.getState());
+  const aUndoVoor = batchA.store.getState().undoStack.length;
+  const bUndoVoor = batchB.store.getState().undoStack.length;
+  const appUndoVoor = useAppStore.getState().undoStack.length;
 
-  // (b) De batch-diepte is module-state. Tijdens een `withTransaction` onderdrukt hij de
-  //     per-mutatie-snapshots van ÉLKE instantie, niet alleen die van de store waar de bulk voor is.
-  const bStackVoor = B.getState().undoStack.length;
-  const aStackVoor = A.getState().undoStack.length;
-  withTransaction(() => {
-    A.getState().addTask({ name: 'A tijdens een batch die niet van A is' });
+  txB.withTransaction(() => {
+    eq('12 tijdens de batch is alleen runtime B actief', batchB.runtime.isBatchActive(), true);
+    eq('12a runtime A blijft buiten de batch', batchA.runtime.isBatchActive(), false);
+    batchB.store.getState().addTask({ name: 'bulk in B' });
+    batchB.store.getState().addTask({ name: 'bulk in B 2' });
   });
-  eq('13 VASTGEPIND: A kreeg géén eigen undo-stap tijdens de batch (gedeelde batch-diepte)',
-    A.getState().undoStack.length, aStackVoor);
-  eq('13a en B ook niet, want de bulk was niet van B', B.getState().undoStack.length, bStackVoor);
-  eq('13b de taak zelf staat er wél in', A.getState().tasks.some(t => t.name.startsWith('A tijdens')), true);
+  eq('12b twee mutators in B leveren één B-snapshot',
+    batchB.store.getState().undoStack.length, bUndoVoor + 1);
+  eq('12c A krijgt door batch B geen snapshot', batchA.store.getState().undoStack.length, aUndoVoor);
+  eq('12d de app-singleton krijgt door batch B geen snapshot',
+    useAppStore.getState().undoStack.length, appUndoVoor);
+  eq('12e A blijft byte-inhoudelijk gelijk', capturePayload(batchA.store.getState()), aVoor);
+  eq('12f de app-singleton blijft byte-inhoudelijk gelijk', capturePayload(useAppStore.getState()), appVoor);
+  eq('12g runtime B sluit na de callback', batchB.runtime.isBatchActive(), false);
+
+  const interleavedA = createAppStoreContext();
+  const interleavedB = createAppStoreContext();
+  const txInterleavedB = createBatchTransactions(interleavedB);
+  const interleavedAUndoVoor = interleavedA.store.getState().undoStack.length;
+  const interleavedBUndoVoor = interleavedB.store.getState().undoStack.length;
+  txInterleavedB.withTransaction(() => {
+    interleavedB.store.getState().addTask({ name: 'B binnen eigen batch' });
+    interleavedA.store.getState().addTask({ name: 'A tijdens batch B' });
+  });
+  eq('13 mutatie A tijdens batch B krijgt een eigen undo-stap',
+    interleavedA.store.getState().undoStack.length, interleavedAUndoVoor + 1);
+  eq('13a batch B houdt precies één eigen undo-stap',
+    interleavedB.store.getState().undoStack.length, interleavedBUndoVoor + 1);
 }
 
-// ── 5. De singleton blijft de singleton ─────────────────────────────────────
-// Klein maar wezenlijk: de factory mag de bestaande app niet van vorm veranderen.
+// ── 5. Klembord blijft app-globaal; paste-undo hoort bij de doelcontext ────────
 {
-  eq('14 useAppStore heeft de bekende zustand-vorm',
-    ['getState', 'setState', 'subscribe'].every(k => typeof (useAppStore as unknown as Record<string, unknown>)[k] === 'function'), true);
-  eq('14a en levert een volledige AppState',
+  const pasteA = createAppStoreContext();
+  const pasteB = createAppStoreContext();
+  const appVoor = capturePayload(useAppStore.getState());
+  const aVoor = capturePayload(pasteA.store.getState());
+  const sourceId = pasteB.store.getState().addTask({ name: 'kopieerbare tak' });
+  pasteB.store.getState().copyTasks([sourceId]);
+  const clipboardVoor = pasteB.store.getState().taskClipboard;
+  pasteB.store.getState().newDocument();
+  eq('14 copyTasks-klembord overleeft een documentwissel in dezelfde appcontext',
+    pasteB.store.getState().taskClipboard, clipboardVoor);
+
+  const bUndoVoor = pasteB.store.getState().undoStack.length;
+  const pasted = pasteB.store.getState().pasteTasks();
+  eq('14a paste op B maakt één nieuwe root', pasted.length, 1);
+  eq('14b paste op B pusht alleen op B één snapshot',
+    pasteB.store.getState().undoStack.length, bUndoVoor + 1);
+  eq('14c paste op B gebruikt de klembordinhoud', pasteB.store.getState().tasks[0]?.name, 'kopieerbare tak');
+  eq('14d paste op B laat A byte-inhoudelijk gelijk', capturePayload(pasteA.store.getState()), aVoor);
+  eq('14e paste op B laat de app-singleton byte-inhoudelijk gelijk', capturePayload(useAppStore.getState()), appVoor);
+}
+
+// ── 6. De singleton blijft de singleton ────────────────────────────────────
+{
+  eq('15 useAppStore heeft de bekende Zustandvorm',
+    ['getState', 'setState', 'subscribe']
+      .every(k => typeof (useAppStore as unknown as Record<string, unknown>)[k] === 'function'), true);
+  eq('15a de singleton levert een volledige AppState',
     ['project', 'tasks', 'sequences', 'resources', 'assignments', 'ui', 'view', 'undoStack']
       .every(k => k in useAppStore.getState()), true);
 
-  // Twee aanroepen van de factory delen geen enkel state-object.
   const C = createAppStore();
   const D = createAppStore();
   for (const veld of ['tasks', 'sequences', 'resources', 'assignments', 'undoStack', 'redoStack'] as const) {
-    eq(`15 "${veld}" is niet gedeeld tussen twee verse instanties`,
-      (C.getState() as unknown as Record<string, unknown>)[veld] === (D.getState() as unknown as Record<string, unknown>)[veld],
+    eq(`16 "${veld}" is niet gedeeld tussen twee verse instanties`,
+      (C.getState() as unknown as Record<string, unknown>)[veld]
+        === (D.getState() as unknown as Record<string, unknown>)[veld],
       false);
   }
 }
 
-// ── Uitslag ──────────────────────────────────────────────────────────────────
+// ── Uitslag ────────────────────────────────────────────────────────────────────────
 if (diffs.length === 0) {
   console.log(`OK: store-factory — ${checks} checks groen`);
 } else {

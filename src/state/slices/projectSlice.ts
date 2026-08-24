@@ -18,12 +18,12 @@ import {
   shiftProjectDates, shiftResource, shiftBaseline,
   type MoveProjectOptions, type MoveImpact, type HolidayGapCalendar,
 } from '@/engine/moveProject';
-import { beginUndoable, finishMutation } from '../transaction';
+import { finishMutation } from '../transaction';
 import { syncProjectCalendar, promoteProjectCalendarToLibrary } from '../syncProjectCalendar';
 import { freshPayload, hydratePayload } from '../documentContract';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
 import { clearTimephasedLossNoticeForDoc } from '../timephasedLossNotice';
-import type { AppSlice } from './types';
+import type { AppSliceFactory } from './types';
 // K-item 27: de fabriek woont in de bladmodule `../defaults` (breekt de import-cyclus met
 // documentContract/snapshot). Hier alleen doorgegeven, zodat bestaande importers ongemoeid blijven.
 import { createDefaultProject } from '../defaults';
@@ -157,7 +157,7 @@ function projectChanges(current: Project, updates: Partial<Project>): boolean {
 }
 
 
-export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
+export const createProjectSlice: AppSliceFactory<ProjectSlice> = (runtime) => (set, get) => ({
   project: createDefaultProject(),
   calendar: createDefaultCalendar(),
   isDirty: false,
@@ -175,7 +175,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // No-op-guard vóór de snapshot (pakket H): een opslag met identieke waarden verandert niets —
       // geen undo-stap, geen `modifiedAt`-bump, geen isDirty.
       if (!projectChanges(s.project, updates)) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       const prevStartDate = s.project.startDate;
       Object.assign(s.project, updates);
       s.project.modifiedAt = new Date().toISOString();
@@ -224,7 +224,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
   setWbsAutoNumber: (on) =>
     set((s) => {
       if (!!s.project.wbsAutoNumber === on) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.project.wbsAutoNumber = on;
       if (on) applyWbsNumbering(s.tasks);
       finishMutation(s); // WBS-nummering raakt geen datums: géén scheduleStale (bewuste asymmetrie).
@@ -237,7 +237,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // No-op-guard vóór de snapshot (pakket H): identieke kalender (cache én bibliotheek-entry) ⇒
       // niets te doen. Anders zou een dialoog-commit zonder wijziging een lege undo-stap pushen.
       if (sameValue(s.calendar, calendar) && (idx < 0 || sameValue(s.calendars[idx], calendar))) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendar = calendar;
       if (idx >= 0) s.calendars[idx] = calendar;
       finishMutation(s, { stale: true }); // projectkalender-wijziging (A6): planning verouderd tot F5.
@@ -247,7 +247,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
     set((s) => {
       if (!s.calendars.some((c) => c.id === id)) return; // alleen bestaande bibliotheek-entries
       if (s.project.calendarId === id) return; // no-op-guard: al de projectdefault (geen lege undo-stap).
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.project.calendarId = id;
       finishMutation(s, { stale: true }); // projectdefault-wissel is datum-beïnvloedend (§5.4).
       syncProjectCalendar(s); // §9.1: cache gelijkzetten.
@@ -265,7 +265,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       // Coalescing (pakket H): het statusdatumveld in het lint is een `DateTextInput` die LIVE per
       // toetsaanslag committeert — één ingetypte datum levert meerdere geldige commits op (zie
       // `beginUndoable`). Zonder key zouden dat evenzoveel undo-stappen met onzin-tussenwaarden zijn.
-      beginUndoable(s, { coalesceKey: 'project.statusDate' });
+      runtime.beginUndoable(s, { coalesceKey: 'project.statusDate' });
       if (next) s.project.statusDate = next;
       else delete s.project.statusDate;
       s.project.modifiedAt = new Date().toISOString();
@@ -275,7 +275,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
   setProgressMode: (mode) =>
     set((s) => {
       if (s.project.progressMode === mode) return; // no-op-guard vóór de snapshot (pakket H)
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.project.progressMode = mode;
       s.project.modifiedAt = new Date().toISOString();
       finishMutation(s, { stale: true });
@@ -287,7 +287,7 @@ export const createProjectSlice: AppSlice<ProjectSlice> = (set, get) => ({
       const delta = computeMoveDelta(s.project.startDate, newStartDate);
       // R8/R9 — guard vóór `beginUndoable`, zodat een no-op de undo-stack niet vervuilt.
       if (!Number.isFinite(delta) || delta === 0) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.project = shiftProjectDates(s.project, delta);
       // Exact de gekozen datum, niet via Δ: voorkomt drift als `project.startDate` een datetime was.
       s.project.startDate = newStartDate;

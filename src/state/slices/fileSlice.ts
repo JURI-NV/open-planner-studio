@@ -7,7 +7,7 @@ import { openFileDialog, saveFileDialog, saveToRef, readFromRef, readBytesFromRe
 import { openDialogFilters, binaryExtensions, readFormatForFile, parseOpenedFile, importErrorMessageKey, saveTargetFor, readFormatInput, type ExportFormat } from '@/services/formatRegistry';
 import { loadRecents, addRecent, removeRecent, type RecentEntry } from '@/services/fileAccess/recentFiles';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
-import type { AppSlice } from './types';
+import type { AppSliceFactory } from './types';
 import type { AppState } from '../appStore';
 import { isTauri } from '@/utils/platform';
 import type { Task } from '@/types/task';
@@ -15,7 +15,7 @@ import type { ImportLabels, ImportResult } from '@/services/importTypes';
 import { hydratePayload, payloadFromImport } from '../documentContract';
 import { captureRecordedDates, countShiftedTasks } from '@/engine/scheduler/recordedDates';
 import { buildWriteIFCInput, sameIFCSource } from '../ifcSaveInput';
-import { beginUndoable, finishMutation } from '../transaction';
+import { finishMutation } from '../transaction';
 import { fileHasHourData } from '@/services/subdayIo';
 import { projectFileBase } from '@/utils/documents';
 import { refreshExternalAnchors, type ExternalSourceDoc } from '@/engine/externalLinks';
@@ -106,7 +106,7 @@ export interface FileSlice {
   applyLoadedProject: (parsed: ImportResult, opts: ApplyLoadedProjectOpts) => void;
 }
 
-export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
+export const createFileSlice: AppSliceFactory<FileSlice> = (runtime) => (set, get) => {
   // Voeg een geopend/opgeslagen bestand toe aan de recents (elke herbruikbare ref).
   const pushRecent = async (ref: FileRef | null, name: string) => {
     if (!ref) return; // fallback-web: geen herbruikbare ref → niet aan recents (spec §6)
@@ -481,7 +481,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
           // undo van een OUDERE bewerking zou `datesAsRecorded: true` terugzetten terwijl de
           // ankers al ververst zijn. Deze verversing verandert taakdatums en draait meteen
           // `runCPM` — een gewone, zichtbare datamutatie dus, en die hoort ongedaan te kunnen.
-          beginUndoable(s);
+          runtime.beginUndoable(s);
           s.tasks = result.tasks;
           finishMutation(s, { stale: true });
         });
@@ -534,7 +534,7 @@ export const createFileSlice: AppSlice<FileSlice> = (set, get) => {
 
       if (anyChanged) {
         set((s) => {
-          beginUndoable(s);
+          runtime.beginUndoable(s);
           s.tasks = tasks;
           finishMutation(s, { stale: true });
         });

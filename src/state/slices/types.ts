@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { AppState } from '../appStore';
+import type { StoreRuntime } from '../runtime/storeRuntime';
 
 /**
  * StateCreator-alias voor alle slices: eerste generic is de VOLLEDIGE store
@@ -8,6 +9,7 @@ import type { AppState } from '../appStore';
  * Type-only import van AppState → de import-cyclus is compile-time-only en veilig.
  */
 export type AppSlice<T> = StateCreator<AppState, [['zustand/immer', never]], [], T>;
+export type AppSliceFactory<T> = (runtime: StoreRuntime) => AppSlice<T>;
 
 // View-/render-contract-types wonen nu in `@/types/view` (fase 1, thema E). Hier her-geëxporteerd
 // zodat state-laag-consumenten (slices, componenten) hun bestaande imports niet hoeven te wijzigen;

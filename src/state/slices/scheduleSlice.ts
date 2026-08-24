@@ -8,9 +8,9 @@ import {
   type LevelingOptions,
   type LevelingResult,
 } from '@/engine/scheduler/ResourceLeveler';
-import { beginUndoable, finishMutation } from '../transaction';
+import { finishMutation } from '../transaction';
 import { emitExtensionEvent, HOST_EVENTS } from '@/services/extensionEvents';
-import type { AppSlice } from './types';
+import type { AppSliceFactory } from './types';
 
 export interface ScheduleSlice {
   cpmResult: CPMResult | null;
@@ -53,7 +53,7 @@ export interface ScheduleSlice {
   clearLeveling: () => void;
 }
 
-export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
+export const createScheduleSlice: AppSliceFactory<ScheduleSlice> = (runtime) => (set, get) => ({
   cpmResult: null,
   resourceLoadResult: null,
   scheduleStale: false,
@@ -96,7 +96,7 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
       // in hun eigen producer, via `finishMutation({ stale: true })`. Zo blijft het bij één
       // undo-stap in plaats van twee, met een tussentoestand die de gebruiker nooit gezien heeft.
       if (s.datesAsRecorded) {
-        beginUndoable(s);
+        runtime.beginUndoable(s);
         s.datesAsRecorded = false;
         s.recordedDates = null;
       }
@@ -166,7 +166,7 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
     set((s) => {
       const info = s.recordedDates;
       if (!info || s.datesAsRecorded) return; // no-op ⇒ géén snapshot (transaction.ts-patroon)
-      beginUndoable(s);
+      runtime.beginUndoable(s);
 
       for (const task of s.tasks) {
         const rec = info.times[task.id];
@@ -249,7 +249,7 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
 
   applyLeveling: (result) => {
     set((s) => {
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       // Idempotent: eerst álle levelingDelays wissen, dan de nieuwe zetten — zo levert een
       // her-nivellering (of een leveling na een eerdere) exact het resultaat van `result`,
       // niet een optelsom.
@@ -270,7 +270,7 @@ export const createScheduleSlice: AppSlice<ScheduleSlice> = (set, get) => ({
     let changed = false;
     set((s) => {
       if (!s.tasks.some((t) => t.levelingDelay !== undefined)) return; // niets te wissen, geen snapshot
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       for (const task of s.tasks) task.levelingDelay = undefined;
       finishMutation(s, { stale: true }); // zie applyLeveling; de aansluitende runCPM wist de vlag.
       changed = true;

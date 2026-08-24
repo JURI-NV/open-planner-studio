@@ -1,11 +1,11 @@
 import { current } from 'immer';
-import type { AppSlice } from './types';
+import type { AppSliceFactory } from './types';
 import type { Company, CompanyPool, CompanyLibrary } from '@/types/library';
 import { createDefaultLibrary, createEmptyPool, DEFAULT_COMPANY_ID } from '@/types/library';
 import { generateId } from '@/utils/id';
 import { nextFreePaletteColor } from '@/engine/renderer/resourcePalette';
 import { loadLibrary, saveLibrary, bumpPool, makeOrigin, copyCalendarToProject, copyResourceToProject, diffCalendarVsPool, diffResourceVsPool, applyCalendarUpdate, applyResourceUpdate, writePoolIFC, isPoolNewer, computeCalendarHash, computeResourceHash, classifyCalendarOnOpen, classifyResourceOnOpen, matchByName, normalizePoolShape, resolveUniqueCompanyName, isReservedCompanyId, isSafeFileCompanyId, buildDemoLibrarySeed, DEMO_COMPANY_ID, CALENDAR_DIFF_FIELDS as CALENDAR_DIFF_FIELDS_LOCAL, RESOURCE_DIFF_FIELDS as RESOURCE_DIFF_FIELDS_LOCAL } from '@/services/library';
-import { beginUndoable, finishMutation, markScheduleStale } from '../transaction';
+import { finishMutation, markScheduleStale } from '../transaction';
 import { syncProjectCalendar } from '../syncProjectCalendar';
 import { appLog } from '@/services/debug/appLog';
 
@@ -237,7 +237,7 @@ function persist(get: () => { companies: Company[]; defaultCompanyId: string; po
   });
 }
 
-export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
+export const createLibrarySlice: AppSliceFactory<LibrarySlice> = (runtime) => (set, get) => ({
   companies: createDefaultLibrary().companies,
   defaultCompanyId: DEFAULT_COMPANY_ID,
   pools: createDefaultLibrary().pools,
@@ -377,7 +377,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         // VÓÓR de stempel vast, zodat een undo van DEZE actie de stempel weer verwijdert (poolkopie
         // blijft staan — bewust, zie docs/library.md "Bekende kleine punten"), maar een LATERE
         // ongerelateerde undo 'm niet meer kan meesleuren.
-        beginUndoable(s);
+        runtime.beginUndoable(s);
         // GO-NA-FIX 3 (critreview 9f9f0aa): een net-gepromoveerd item is byte-identiek aan zijn
         // poolitem — de back-stamp krijgt daarom meteen de hash VAN DAT POOLITEM mee, anders
         // classificeert het projectitem in latere taken als 'deviated' (spurieuze afwijkingsvraag).
@@ -420,7 +420,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       set((s) => {
         const idx = s.resources.findIndex((r) => r.id === resource.id);
         if (idx < 0 || s.resources[idx].libraryOrigin) return; // onbekend, of al gestempeld: no-op.
-        beginUndoable(s);
+        runtime.beginUndoable(s);
         const pool = s.pools[companyId];
         s.resources[idx].libraryOrigin = makeOrigin(pool, existingMatch.id, computeResourceHash(existingMatch));
         finishMutation(s);
@@ -446,7 +446,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       if (src) {
         // Fix B4: undo-beschermde projectstempel-mutatie — zie de uitgebreide toelichting bij
         // promoteCalendarToPool hierboven (identiek patroon, resource-variant).
-        beginUndoable(s);
+        runtime.beginUndoable(s);
         // GO-NA-FIX 3 (critreview 9f9f0aa): zelfde toelichting als promoteCalendarToPool hierboven.
         const poolRes = bumped.resources.find((r) => r.id === id)!;
         src.libraryOrigin = makeOrigin(bumped, id, computeResourceHash(poolRes));
@@ -556,7 +556,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // (her)bind naar hetzelfde bedrijf (of de EERSTE bind vanuit ongebonden) strip niets en mag dus
       // GEEN loze undo-stap opleveren.
       const isRebind = !!previous && previous !== companyId;
-      if (isRebind) beginUndoable(s);
+      if (isRebind) runtime.beginUndoable(s);
       s.project.companyId = company.id;
       s.project.companyName = company.name;
       s.project.modifiedAt = new Date().toISOString();
@@ -595,7 +595,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         result = { added: false, calendarId: copy.calendar.id };
         return;
       }
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendars = [...s.calendars, copy.calendar];
       s.isDirty = true;
       result = { added: true, calendarId: copy.calendar.id };
@@ -628,7 +628,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
         result = { added: false, resourceId: copy.resource.id };
         return;
       }
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       // Meereizende kalender toevoegen als hij vers is (dedup gaf `reused: true` ⇒ al aanwezig).
       if (copy.travelingCalendar && !copy.travelingCalendar.reused) {
         s.calendars = [...s.calendars, copy.travelingCalendar.calendar];
@@ -676,7 +676,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // loze undo-stap bij een no-op: dat geldt niet alleen voor 'removed' (origineel weg) maar ook
       // voor 'up-to-date' (project is al gelijk aan de pool; critreview taak 9).
       if (diffCalendarVsPool(snapCal, pool).status !== 'changed') return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.calendars[idx] = applyCalendarUpdate(snapCal, pool);
       syncProjectCalendar(s); // gedenormaliseerde projectkalender-cache in sync (E-2, §9.1).
       finishMutation(s, { stale: true }); // kalenderwijziging raakt datums.
@@ -697,7 +697,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // No-op vóór beginUndoable (E-3): alleen 'changed' rechtvaardigt een mutatie — 'removed'
       // (origineel weg) én 'up-to-date' (al gelijk) leveren beide geen undo-stap op (critreview taak 9).
       if (diffResourceVsPool(snapRes, pool).status !== 'changed') return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.resources[idx] = applyResourceUpdate(snapRes, pool);
       finishMutation(s);
     });
@@ -1005,7 +1005,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       if (!anyApplicable) return;
       // GO-NA-fix 1: dit is een expliciet gebruikersgebaar — undoable, met de gebruikelijke
       // slice-conventie (beginUndoable vóór, finishMutation ná de mutatie).
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       let calendarLinked = false;
       // Plan-eis 5: alles in één set() — atomisch, geen half-gestempelde tussentoestand.
       for (const link of links) {
@@ -1037,7 +1037,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
       // GO-NA-fix 1: een al-los project (geen binding, dus per invariant ook geen stempels) is een
       // no-op — geen loze undo-stap.
       if (!s.project.companyId) return;
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       s.project.companyId = undefined;
       s.project.companyName = undefined;
       s.resources = s.resources.map((r) => { const { libraryOrigin: _d, ...rest } = r; return rest; });
@@ -1131,7 +1131,7 @@ export const createLibrarySlice: AppSlice<LibrarySlice> = (set, get) => ({
     set((s) => {
       const idx = s.resources.findIndex((r) => r.id === resourceId);
       if (idx < 0 || !s.resources[idx].libraryOrigin) return; // onbekend id of al stempel-loos: no-op.
-      beginUndoable(s);
+      runtime.beginUndoable(s);
       const calendarId = s.resources[idx].calendarId;
       const { libraryOrigin: _drop, ...rest } = s.resources[idx];
       s.resources[idx] = rest;

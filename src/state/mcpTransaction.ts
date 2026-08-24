@@ -1,7 +1,6 @@
-import { useAppStore } from './appStore';
+import { appStoreContext, useAppStore } from './appStore';
 import { attachToParent, detachFromParent, collectSubtreeIds } from '@/state/taskTree';
 import { createSnapshot, restoreSnapshot, type Snapshot } from './snapshot';
-import { resetUndoCoalescing, setMcpTransactionActive } from './transaction';
 import { relationVerdict } from './relationRules';
 import { generateId } from '@/utils/id';
 import { formatDate } from '@/utils/dateUtils';
@@ -20,10 +19,10 @@ import type { Project } from '@/types/project';
 import type { LevelingResult } from '@/engine/scheduler/ResourceLeveler';
 import { clampProjectStartAnchors } from '@/engine/scheduler/projectStartAnchorClamp';
 
-/** Herintreedbaarheids-wachter: `true` zolang een `runInMcpTransaction` loopt. Los van de
- *  `beginUndoable`-suppressievlag in transaction.ts (die stuurt de mutators aan) — deze stuurt puur
- *  de reentrancy-guard. Module-lokaal en synchroon beheerd: de transactie draait zonder `await`, dus
- *  een geneste aanroep kan alleen synchroon vanuit de callback komen. */
+/** Tijdelijke compatibiliteitswachter voor de singleton-wrapper. De store-runtimelease is sinds
+ *  Plan 2, Task 1 de gezaghebbende reentrancy- en suppressie-eigenaar; Task 3 vervangt ook deze
+ *  wrapper door een contextfactory. De transactie blijft synchroon, dus een geneste aanroep kan
+ *  alleen vanuit de callback komen. */
 let mcpTransactionInProgress = false;
 
 /**
@@ -54,14 +53,14 @@ function recordTimephasedLoss(taskId: string): void {
  *
  *   1. neemt zelf ÉÉN snapshot vooraf en pusht die op de undo-stack (nieuwe undoable actie ⇒
  *      redo-stack wissen), in een eigen `set()`-producer;
- *   2. zet de suppressie-vlag aan zodat elke `beginUndoable` binnen de callback een no-op is;
+ *   2. houdt een store-runtimelease vast zodat elke `beginUndoable` binnen de callback een no-op is;
  *   3. draait `fn()` — die mag meerdere `set()`-producers doen (draft-primitieven, T2);
  *   4. draait ÉÉNMAAL de eindherberekening: `runCPM`, `recomputeViewRows`, `recomputeResourceLoad` —
  *      nog BINNEN de suppressie, zodat ook de ene plek waar `runCPM` zélf een snapshot zou pushen
  *      (het verlaten van "datums zoals opgeslagen", issue #63) hier zwijgt en de transactie op één
  *      undo-stap blijft;
- *   5. zet de suppressie weer uit (in een `finally`, dus óók bij een throw of een vroege return);
- *   6. bij een throw in `fn` óf een `cpmResult.error` ná stap 5: VOLLEDIGE rollback — de vooraf
+ *   5. geeft de lease in een `finally` vrij, dus óók bij een throw of een vroege return;
+ *   6. bij een throw in `fn` óf een `cpmResult.error`: VOLLEDIGE rollback — de vooraf
  *      genomen snapshot terugzetten (`restoreSnapshot` herstelt óók `cpmResult`/kalenders/baselines,
  *      dus geen achterblijvende error-banner), de gepushte snapshot poppen, de redo-stack herstellen
  *      en `resetUndoCoalescing()`; return `{ ok: false }`;
@@ -72,11 +71,10 @@ function recordTimephasedLoss(taskId: string): void {
  * kan niet. De transactie draait volledig SYNCHROON (geen `await` tussen stappen), zodat de user
  * fysiek niet mid-transactie van document kan wisselen.
  *
- * NIET HERINTREEDBAAR: de suppressie-vlag en de vooraf-snapshot zijn gedeelde module-toestand; een
- * geneste aanroep zou een tweede snapshot pushen en de vlag te vroeg uitzetten. Daarom weigert een
- * aanroep terwijl er al een transactie loopt met een throw — de guard staat VÓÓR álle state-mutatie.
- * Roept de callback tóch een geneste transactie aan, dan propageert die throw naar de buitenste `try`
- * en rolt de buitenste transactie schoon terug ({ ok: false }, store/stacks onaangeroerd).
+ * NIET HERINTREEDBAAR: een runtime bezit maximaal één actieve lease; een geneste aanroep zou een
+ * tweede snapshot pushen en suppressie te vroeg kunnen vrijgeven. Daarom weigeren compatibiliteits-
+ * guard én runtime een tweede enter vóór iedere state-mutatie. De throw propageert naar de buitenste
+ * callback en veroorzaakt daar een volledige rollback ({ ok: false }, stacks onaangeroerd).
  *
  * BEKENDE BENIGNE RANDSTAAT: op een VERSE store staat `calendars: []` (de projectkalender leeft dan
  * alleen als cache in `s.calendar`). Het rollback-pad gebruikt `restoreSnapshot`, dat via
@@ -88,56 +86,53 @@ function recordTimephasedLoss(taskId: string): void {
 export function runInMcpTransaction(
   fn: () => void,
 ): { ok: true; timephasedGuidanceLost: number } | { ok: false; error: string } {
-  // Reentrancy-guard: VÓÓR elke state-mutatie. Een geneste aanroep zou de gedeelde module-toestand
-  // (vlag + vooraf-snapshot) corrumperen — weigeren met een throw is het enige veilige gedrag.
+  // Compatibiliteitsguard vóór iedere state-mutatie. De runtimelease eronder is de uiteindelijke
+  // eigenaar en voorkomt dat een tweede factory voor dezelfde runtime deze guard kan omzeilen.
   if (mcpTransactionInProgress) {
     throw new Error('runInMcpTransaction is niet herintreedbaar');
   }
-  // DEEL 1 — verse verzamelbak per transactie (zie het docblok bij het module-`let` hierboven).
-  mcpTimephasedLossTaskIds = new Set<string>();
-
-  // Stap 1: snapshot van de PLAIN pre-transactie-staat (niet van een draft — zie beginUndoable/B1).
-  const snapshot: Snapshot = createSnapshot(useAppStore.getState());
-  // Redo-stack bewaren zodat een rollback exact terug is bij "vóór" (op succes wissen we hem, als
-  // nieuwe undoable actie; bij rollback is er niets gebeurd en zetten we hem terug).
-  const prevRedo = useAppStore.getState().redoStack;
-
-  const rollback = (error: string): { ok: false; error: string } => {
-    useAppStore.setState((s) => {
-      restoreSnapshot(s, snapshot);
-      s.undoStack.pop(); // de in stap 1 gepushte snapshot verwijderen (restoreSnapshot raakt undoStack niet)
-      s.redoStack = prevRedo;
-    });
-    resetUndoCoalescing();
-    return { ok: false, error };
-  };
-
-  // Stap 1 (vervolg): de vooraf-snapshot als enige undo-stap voor de hele transactie.
-  useAppStore.setState((s) => {
-    s.undoStack.push(snapshot);
-    s.redoStack = [];
-  });
-
-  // Stap 2-6: reentrancy-wachter + suppressie aan, callback draaien, eindherberekening, cpm-check —
-  // en beide vlaggen ALTIJD weer uit (finally, óók bij een throw of een vroege return).
-  //
-  // STAP 5 STAAT BEWUST BÍNNEN DE SUPPRESSIE (issue #63). Stond hij erbuiten, dan pusht `runCPM`
-  // zijn modus-verlaat-snapshot (scheduleSlice) alsnog: op een document in "datums zoals opgeslagen"
-  // leverde dat 2 undo-stappen voor één transactie (de belofte is er precies één) én een rollback
-  // die er maar één van popt — een fantoom-undo-stap na een GEWEIGERDE AI-actie. Binnen de
-  // suppressie zwijgt `beginUndoable` en dekt de vooraf genomen transactie-snapshot het
-  // modusverlies gewoon mee: die is immers vóór de eerste mutatie genomen, dus mét de modus aan.
-  // Zelfde redenering als bij `recomputeMidBatch` (batchTool.ts).
-  mcpTransactionInProgress = true;
-  setMcpTransactionActive(true);
+  // De contextlease wordt vóór snapshot of mutatie verkregen en door precies deze finally
+  // vrijgegeven. De volledige contextfactory volgt in Plan 2, Task 3; tot die tijd bindt dit
+  // compatibiliteitspad expliciet aan de gemounte app-singleton.
+  const lease = appStoreContext.runtime.enterMcpTransaction();
   try {
+    mcpTransactionInProgress = true;
+    // DEEL 1 — verse verzamelbak per transactie (zie het docblok bij het module-`let` hierboven).
+    mcpTimephasedLossTaskIds = new Set<string>();
+
+    // Stap 1: snapshot van de PLAIN pre-transactie-staat (niet van een draft — zie beginUndoable/B1).
+    const snapshot: Snapshot = createSnapshot(useAppStore.getState());
+    // Redo-stack bewaren zodat een rollback exact terug is bij "vóór" (op succes wissen we hem, als
+    // nieuwe undoable actie; bij rollback is er niets gebeurd en zetten we hem terug).
+    const prevRedo = useAppStore.getState().redoStack;
+
+    const rollback = (error: string): { ok: false; error: string } => {
+      useAppStore.setState((s) => {
+        restoreSnapshot(s, snapshot);
+        // De in stap 1 gepushte snapshot verwijderen (restoreSnapshot raakt undoStack niet).
+        s.undoStack.pop();
+        s.redoStack = prevRedo;
+      });
+      appStoreContext.runtime.resetUndoCoalescing();
+      return { ok: false, error };
+    };
+
+    // Stap 1 (vervolg): de vooraf-snapshot als enige undo-stap voor de hele transactie.
+    useAppStore.setState((s) => {
+      s.undoStack.push(snapshot);
+      s.redoStack = [];
+    });
+
+    // Stap 2-6: callback, eindherberekening en cpm-check blijven binnen de runtimelease. Vooral
+    // `runCPM` moet nog onder suppressie vallen: bij "datums zoals opgeslagen" zou die anders een
+    // tweede modus-verlaat-snapshot pushen en de één-transactie-één-undo-belofte breken.
     try {
       fn();
     } catch (e) {
       return rollback(e instanceof Error ? e.message : String(e));
     }
 
-    // Stap 5: één eindherberekening.
+    // Stap 5: precies één eindherberekening.
     useAppStore.getState().runCPM();
     useAppStore.getState().recomputeViewRows();
     useAppStore.getState().recomputeResourceLoad();
@@ -147,22 +142,21 @@ export function runInMcpTransaction(
     if (cpm?.error) {
       return rollback(cpm.error);
     }
+    // Stap 7: geslaagd — coalesce-marker resetten (de handmatige push wijzigde de stackdiepte).
+    appStoreContext.runtime.resetUndoCoalescing();
+    // DEEL 1 — ná commit, ÉÉN keer, met het TOTALE aantal taken dat in deze transactie sturing
+    // verloor (de eenmalige-per-document-gate zit in `notifyTimephasedLoss` zelf). Bij een rollback
+    // (hierboven) wordt dit blok nooit bereikt — geen melding op een teruggerolde mutatie.
+    const lostCount = mcpTimephasedLossTaskIds.size;
+    if (lostCount > 0) {
+      const store = useAppStore.getState();
+      notifyTimephasedLoss(store.notify, store.activeDocumentId, lostCount);
+    }
+    return { ok: true, timephasedGuidanceLost: lostCount };
   } finally {
     mcpTransactionInProgress = false;
-    setMcpTransactionActive(false);
+    appStoreContext.runtime.exitMcpTransaction(lease);
   }
-
-  // Stap 7: geslaagd — coalesce-marker resetten (de handmatige push wijzigde de stackdiepte).
-  resetUndoCoalescing();
-  // DEEL 1 — ná commit, ÉÉN keer, met het TOTALE aantal taken dat in deze transactie sturing
-  // verloor (de eenmalige-per-document-gate zit in `notifyTimephasedLoss` zelf). Bij een rollback
-  // (hierboven) wordt dit blok nooit bereikt — geen melding op een teruggerolde mutatie.
-  const lostCount = mcpTimephasedLossTaskIds.size;
-  if (lostCount > 0) {
-    const store = useAppStore.getState();
-    notifyTimephasedLoss(store.notify, store.activeDocumentId, lostCount);
-  }
-  return { ok: true, timephasedGuidanceLost: lostCount };
 }
 
 // =================================================================================================
